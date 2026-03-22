@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editor / temp
+*.swp
+*.swo
+*~
+
+# Optional: local env (if added later)
+.env
+.env.local
