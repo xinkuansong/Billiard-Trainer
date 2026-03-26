@@ -1,0 +1,111 @@
+---
+description: 内容工程师角色。在创建或编辑 *.json 内容文件、Drills/ 目录下任何文件时激活。负责 Drill JSON Schema 定义、坐标系协议、72个 Drill 的动画路径数据生产、官方训练计划 JSON。
+globs: ["**/Drills/**/*.json", "**/Resources/**/*.json", "**/content/**"]
+alwaysApply: false
+---
+
+## Changelog
+
+- 2026-03-27 v0.1：初始版本
+
+# Content Engineer — 内容工程师
+
+## 坐标系协议（所有 JSON 必须遵循）
+
+- **原点**：台面左上角（顶视图）。
+- **单位**：台面**宽度**的百分比（0.0 – 1.0）；高度用 `y * (height/width)` 换算，台面标准比例 2:1（宽:高），即 `tableRatio = 2.0`。
+- **袋口固定坐标**（已预定义，JSON 中不重复）：
+
+| 袋 | x | y |
+|----|---|---|
+| 左上角袋 | 0.0 | 0.0 |
+| 中上中袋 | 0.5 | 0.0 |
+| 右上角袋 | 1.0 | 0.0 |
+| 左下角袋 | 0.0 | 0.5 |
+| 中下中袋 | 0.5 | 0.5 |
+| 右下角袋 | 1.0 | 0.5 |
+
+## Drill JSON Schema
+
+```json
+{
+  "id": "drill_001",
+  "nameZh": "半台直线球",
+  "nameEn": "Half-Table Straight Shot",
+  "category": "accuracy",
+  "subcategory": "straight",
+  "ballType": ["chinese8", "nineball"],
+  "level": "L0",
+  "difficulty": 1,
+  "targetBallCount": 1,
+  "description": "将目标球从半台距离沿直线打入底袋，训练基础瞄准稳定性。",
+  "coachingPoints": ["保持跟杆方向一致", "发力均匀"],
+  "standardCriteria": "15球进10球",
+  "isPremium": false,
+  "animation": {
+    "cueBall": { "start": {"x": 0.5, "y": 0.35}, "path": [{"x": 0.5, "y": 0.5}] },
+    "targetBall": { "start": {"x": 0.5, "y": 0.48}, "path": [{"x": 0.5, "y": 0.5}] },
+    "pocket": "bottomCenter"
+  },
+  "sets": { "defaultSets": 3, "defaultBallsPerSet": 15 }
+}
+```
+
+**字段说明**：
+- `category`：`accuracy` / `cueAction` / `separation` / `positioning` / `forceControl` / `fundamentals` / `specialShots` / `combined`
+- `level`：`L0`–`L4`
+- `isPremium`：Freemium 边界（参照 `docs/08`）
+- `animation.path`：贝塞尔路径点数组（直线用2点，曲线加控制点 `cp1/cp2`）
+
+## 分批生产 SOP
+
+每批 **10 个 Drill**，按以下流程：
+
+1. 生成 10 条 JSON，确保坐标合理（在台面范围内，母球/目标球不重叠）。
+2. 自检：`isPremium` 分布符合 `docs/08` 的 Freemium 比例。
+3. 写入 `Resources/Drills/<category>/drill_xxx.json`。
+4. 更新 `Resources/Drills/index.json`（Drill ID 列表）。
+5. **AI 自检**（提交人工验证前必做；未全部勾选不得进入步骤 6）：
+   - [ ] 所有坐标在 `[0.0, 1.0]` 内，且 `y ≤ 0.5`（台面顶视图半高，与 2:1 宽高效一致）。
+   - [ ] 母球与目标球起始位置不重叠：欧氏距离（在归一化宽度坐标下）**> 0.05**。
+   - [ ] `isPremium`：本批中 **L0 全部为 `false`**；**L1** 条目中 `true` 占比 **≤ 30%**（与 `docs/08` 冲突时以 `docs/08` 为准并在此批说明）。
+   - [ ] 每条 `standardCriteria` 格式为「N球进M球」（N、M 为正整数，与文案一致）。
+   - [ ] JSON 语法有效：字符串有引号、无尾随逗号、括号匹配。
+6. 自检通过后：在 `tasks/HUMAN-REQUIRED.md` 的 **H-11** 处更新说明为 **⏳ 待验证**，并**附本批待验文件路径列表**（可在该小节下增加一行「本批：`Resources/Drills/...`」）。
+7. **等待**人工 H-11 与（若适用）QA Reviewer 对本批次内容核查通过后再继续下一批。
+
+## 官方训练计划 JSON Schema
+
+```json
+{
+  "id": "plan_beginner",
+  "nameZh": "新手入门计划",
+  "targetLevel": "L0-L1",
+  "durationWeeks": 8,
+  "sessionsPerWeek": 3,
+  "isPremium": false,
+  "weeks": [
+    {
+      "week": 1,
+      "theme": "基础站姿与发力",
+      "days": [
+        {
+          "day": 1,
+          "durationMinutes": 60,
+          "blocks": [
+            { "type": "warmup", "drillId": "drill_001", "sets": 2, "ballsPerSet": 10 },
+            { "type": "main", "drillId": "drill_002", "sets": 3, "ballsPerSet": 15 },
+            { "type": "review", "note": "完成数据录入 + 心得" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## 内容准确性要求
+
+- 角度/进球点数据使用公式 `offset = sin(α) × R` 生成，不估算。
+- 动作分类与描述参照 `docs/research/20260323-训练内容体系-动作库分类.md`。
+- **H-11（人工验证）**：每批 Drill 在完成步骤 5–6 后进入待验证；人工完成后将 H-11 状态改回 ✅ 或按批次更新说明。

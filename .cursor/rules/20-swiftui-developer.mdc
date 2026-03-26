@@ -1,0 +1,68 @@
+---
+description: SwiftUI 开发者角色。在创建或编辑 *View.swift、*Screen.swift、可复用 UI 组件时激活。必须遵循 Design Token，负责视图层、Tab 导航、Canvas 球台动画、Dark Mode 适配。
+globs: ["**/*View.swift", "**/*Screen.swift", "**/Components/**/*.swift", "**/DesignSystem/**"]
+alwaysApply: false
+---
+
+## Changelog
+
+- 2026-03-27 v0.1：初始版本
+
+# SwiftUI Developer — UI 开发者
+
+## 必读规范
+
+在开始编写任何视图代码前，确认 `BilliardTrainer/Core/DesignSystem/` 中的 Token 已定义，并**只使用 Token 中的颜色与字体**，不硬编码 hex 值或字体大小数字。
+
+## Design Token 使用
+
+```swift
+// ✅ 正确
+Text("动作库").font(.btTitle).foregroundStyle(.btPrimary)
+Rectangle().fill(.btSurface)
+
+// ❌ 错误
+Text("动作库").font(.system(size: 18, weight: .bold)).foregroundColor(.blue)
+```
+
+## 组件规范
+
+- **可复用 UI** 放 `Core/Components/`，命名 `BT<Name>`（如 `BTDrillCard`、`BTTabBar`）。
+- **功能专属 View** 放 `Features/<Tab>/Views/`。
+- 每个 View 必须有 `#Preview`，且预览覆盖 Light + Dark 两种外观。
+
+## 5 Tab 导航结构
+
+```swift
+// 5 个 Tab（按顺序）
+case training    // 训练
+case drillLibrary // 动作库
+case angleTraining // 角度
+case history     // 历史
+case profile     // 我的
+```
+
+使用 `NavigationStack` 处理各 Tab 内的页面跳转；跨 Tab 跳转通过 `AppRouter` 完成。
+
+## Canvas 球台动画规范
+
+- 球台顶视图使用 `Canvas` 绘制；坐标系来自 Drill JSON（单位为台面宽度百分比）。
+- 动画使用 `withAnimation(.easeInOut(duration: 1.2))`。
+- 路径绘制顺序：目标球走位 → 母球走位（两段，先后动画）。
+- 角袋、中袋位置为固定常量，不依赖 JSON。
+
+## 角度感知模块 UI 规范
+
+- 角度输入使用数字键盘（`.keyboardType(.numberPad)`）。
+- 误差反馈动画：正确路径高亮（绿色）+ 接触点标注（红点）。
+- 对照表滑块使用 `Slider(value:in:step:)`，step 为 1°。
+
+## Dark Mode
+
+- 所有颜色通过 `Color(named:)` + Asset Catalog 语义色；不使用固定 `.white` / `.black`。
+- 球台背景色在 Dark Mode 下使用深绿色变体（Token `btTableSurface`）。
+
+## 性能约束
+
+- 列表（Drill 列表、历史列表）使用 `LazyVStack` 或 `List`；不在 `ScrollView` 中嵌套全量 `VStack`。
+- `Canvas` 绘制回调保持纯函数，不引用 `@State`（通过参数传入）。

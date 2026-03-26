@@ -1,54 +1,68 @@
-# iOS 产品设计智能体 — 项目协作总纲
+# MA-SDD：台球训练伴侣 iOS 多智能体协同开发
 
-本文件定义在本仓库内进行 **iOS 产品设计讨论** 时的智能体角色、工作流、文档沉淀与调研规则。与 Cursor 规则（`.cursor/rules/`）、技能（`.cursor/skills/ios-product-design/`）及产品文档（`docs/`）配合使用。
+本仓库使用 **Multi-Agent Spec-Driven Development（MA-SDD）**：以产品文档 `docs/01`–`docs/08` 为规格源，由 **Orchestrator（主控）** 调度专项角色，通过 `tasks/` 共享状态与进度。
 
-## 角色定义
+## 快速开始
 
-智能体扮演 **iOS 产品设计顾问**，负责：
+1. **先读** [`tasks/PROGRESS.md`](tasks/PROGRESS.md)、[`tasks/HUMAN-REQUIRED.md`](tasks/HUMAN-REQUIRED.md) 与（若存在返工）[`tasks/FAILURE-LOG.md`](tasks/FAILURE-LOG.md)。
+2. 若有未完成的 **`[BLOCKING]`** 人工项，按 `HUMAN-REQUIRED.md` 完成后再让 AI 继续写代码。
+3. 在 Cursor 中开始工作时，声明：**「以 Orchestrator 身份执行下一任务」**，或手动 @ 对应规则（见下）。
+4. 任务完成后：**更新 `tasks/PROGRESS.md`**（状态、阻塞、下一步）。
 
-- 引导结构化讨论，提出关键问题，避免泛泛结论
-- 将讨论结果 **增量写入** `docs/` 下对应文档，并记录决策到 `docs/00-讨论记录.md`
-- 在需要事实依据时，**主动建议并执行**联网调研（竞品、市场、Apple 平台与审核、技术可行性等）
-- 所有面向用户的产品文档使用 **简体中文**
+## 角色与规则（`.cursor/rules/`）
 
-## 八阶段工作流（可非线性）
+| 规则文件 | 角色 | 典型触发 |
+|----------|------|----------|
+| `00-orchestrator.mdc` | 主控调度 + 人工检查 | 每次会话入口 |
+| `10-ios-architect.mdc` | 架构 / 模块 / ADR | 新模块、重构、技术选型 |
+| `20-swiftui-developer.mdc` | SwiftUI / Canvas / 设计系统 | `*View.swift`、界面 |
+| `30-data-engineer.mdc` | SwiftData / CloudKit / LeanCloud | Model、同步、鉴权 |
+| `40-content-engineer.mdc` | Drill JSON、动画路径、计划数据 | `*.json`、`Drills/` |
+| `50-qa-reviewer.mdc` | 验收 / DoD / 边界测试 | Phase 收尾 |
+| `60-devops-release.mdc` | 构建、证书、TestFlight | `xcodebuild`、发布 |
 
-讨论可按任意顺序在不同阶段间切换或回溯，不必严格线性推进：
+## 技能（`.cursor/skills/`）
 
-1. **产品愿景与定位** — `docs/01-产品愿景与定位.md`
-2. **用户研究** — `docs/02-用户研究.md`
-3. **竞品分析** — `docs/03-竞品分析.md`
-4. **功能规划** — `docs/04-功能规划.md`
-5. **信息架构与交互设计** — `docs/05-信息架构与交互设计.md`
-6. **技术架构** — `docs/06-技术架构.md`
-7. **路线图与 MVP** — `docs/07-路线图与MVP.md`
-8. **商业化与合规** — `docs/08-商业化与合规.md`
+- `ios-architecture` — MVVM、模块边界、SPM
+- `swiftui-design-system` — Design Token、组件、Dark Mode
+- `swiftdata-cloudkit` — 本地模型与 CloudKit 公开库
+- `leancloud-ios` — LeanCloud 与用户侧同步、微信相关注意点
+- `content-engineering` — Drill Schema、坐标系、内容生产 SOP
 
-每轮对话若在某阶段产生可沉淀内容，应更新该阶段对应文档，并在讨论日志中记下 **决策摘要** 与 **待办/未决项**。
+## 任务与文档
 
-## 文档更新规则
+| 路径 | 用途 |
+|------|------|
+| [`tasks/MASTER-TASKS.md`](tasks/MASTER-TASKS.md) | F1–F11 → Phase → 任务与 DoD 索引 |
+| [`tasks/phases/`](tasks/phases/) | P1–P8 阶段任务卡（详细） |
+| [`tasks/PROGRESS.md`](tasks/PROGRESS.md) | 当前阶段、进行中、阻塞、四态任务与 Phase 归档指引 |
+| [`tasks/FAILURE-LOG.md`](tasks/FAILURE-LOG.md) | 返工/回退轨迹（FL-NNN），供规则改进与复盘 |
+| [`tasks/HUMAN-REQUIRED.md`](tasks/HUMAN-REQUIRED.md) | 必须人工完成的步骤 |
+| [`tasks/compliance-checklist.md`](tasks/compliance-checklist.md) | 隐私清单、IAP、合规 |
+| [`tasks/dependencies.md`](tasks/dependencies.md) | SPM / SDK 依赖与集成 SOP |
+| [`tasks/appstore-assets.md`](tasks/appstore-assets.md) | 截图、ASO、元数据 |
 
-- **增量更新**：保留已有正文，用追加或小范围修订反映新结论；避免无说明的全文重写
-- **元信息**：各文档顶部维护状态、版本、最后更新日期（见 `docs/` 内模板）
-- **讨论日志**：`docs/00-讨论记录.md` 按日期与主题记录关键决策、假设与未决问题
-- **调研原始资料**：放入 `docs/research/`，在正式文档中用链接或简短引用指向；提炼后的结论写入对应 `docs/*.md`
+## 产品规格源（权威）
 
-## 调研触发规则
+- [`docs/04-功能规划.md`](docs/04-功能规划.md) — F1–F11
+- [`docs/05-信息架构与交互设计.md`](docs/05-信息架构与交互设计.md) — 5 Tab、交互
+- [`docs/06-技术架构.md`](docs/06-技术架构.md) — 技术栈与数据流
+- [`docs/07-路线图与MVP.md`](docs/07-路线图与MVP.md) — 里程碑与计划内容
+- [`docs/08-商业化与合规.md`](docs/08-商业化与合规.md) — Freemium、IAP
 
-在以下情况应 **说明调研必要性** 并（在具备联网能力时）执行调研，将过程与结论整理进 `docs/research/` 并同步更新相关正式文档：
+## 构建脚本
 
-- 竞品功能、定位、定价或典型用户路径不明
-- 需验证 **App Store / iOS / 隐私 / 审核** 相关约束或常见实践
-- 市场习惯、商业模式或行业基准缺少依据
-- 技术方案可行性（如后台能力、第三方 SDK、离线策略）需要外部信息支撑
+```bash
+cd scripts && make help
+```
 
-调研结论 **不替代** 产品判断；须在文档中区分「外部事实」与「本产品决策」。
+## Steering（`.kiro/steering/`）
 
-## 与 Kiro Steering 的关系
+- `product.md` — 产品共识摘要
+- `tech-stack.md` — 技术约束（全员只读）
+- `agent-system.md` — 多智能体交接协议
+- `observability.md` — 日志、崩溃、分析策略
 
-- `.kiro/steering/product.md`：持续更新的产品上下文与当前共识（智能体可视为「项目记忆」入口之一）
-- `.kiro/steering/structure.md`：文档目录与命名约定
+## 讨论与决策
 
-## 详细流程与模板
-
-详见项目技能：`.cursor/skills/ios-product-design/SKILL.md` 及同目录下的 `templates.md`、`research-guide.md`。
+重大决策请追加 [`docs/00-讨论记录.md`](docs/00-讨论记录.md)。

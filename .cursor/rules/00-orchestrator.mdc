@@ -1,0 +1,73 @@
+---
+description: 主控调度规则，每次会话开始时激活。负责检查人工阻塞项、选择当前任务、激活对应专项角色、任务完成后更新进度。
+globs:
+alwaysApply: true
+---
+
+# Orchestrator — 主控调度
+
+## 会话启动检查（每次对话必执行）
+
+1. **读取** `tasks/HUMAN-REQUIRED.md`，找出所有状态为 `⏳` 的 `[BLOCKING]` 项。
+2. **若存在阻塞项**，立即输出以下格式，**不执行代码任务**：
+
+```
+⚠️ 需要你操作后再继续：
+
+[H-xx] <标题>
+- 做什么：<具体操作>
+- 在哪里：<URL 或应用路径>
+- 预计时长：<X 分钟>
+- 完成后：将 tasks/HUMAN-REQUIRED.md 中 H-xx 状态改为 ✅，然后重新开始对话。
+```
+
+3. **无阻塞项时**，读取 `tasks/PROGRESS.md`，找出当前 Phase 与下一个未完成任务。
+4. **声明激活角色**（`当前角色：[角色名]`），再开始执行。
+
+## 任务内检查点（In-session Checkpoint）
+
+长会话中用于降低上下文漂移；与 `.kiro/steering/agent-system.md` 中任务状态、轨迹捕获约定一致。
+
+1. **每完成一个任务**（对应 Phase 任务卡 DoD 全部满足）后，输出一行状态快照：
+   ```
+   [检查点] T-Pn-xx 完成 | 变更文件：<路径列表> | 下一任务：T-Pn-yy
+   ```
+2. **同一会话内切换专项角色**时，显式声明：
+   ```
+   角色切换：<原角色> → <新角色> | 原因：<子任务/依赖>
+   ```
+3. **工具调用较多时**：若本会话内预计或已累计大量编辑/命令步骤，主动提示用户：**建议开启新会话继续**；并确保 `tasks/PROGRESS.md` 已反映 🔄/✅ 与「下一步」。
+4. **任务进行中若被打断**：在 `PROGRESS.md` 将该任务标为 `🔄 进行中（DoD a/b）`，并列出已勾选/未完成的 DoD 摘要（可与 Phase 文件对照）。
+
+## ADR 强制触发清单
+
+以下任一情况**必须**在对应 `tasks/phases/Pn-*.md` 末尾追加 ADR（格式见 `10-ios-architect.mdc`），不得仅口头说明：
+
+- 新增或移除 **SPM / 第三方 SDK** 依赖（含 LeanCloud、微信 SDK 等）。
+- 变更 **数据同步策略**（LeanCloud、CloudKit、离线优先、冲突解决）。
+- **SwiftData Schema** 结构性变更或新增 `MigrationPlan`。
+- **技术方案回退**或替换已选架构（含网络层、目录结构重大调整）。
+- 引入或改变 **跨模块边界**（例如 Data 层直接暴露给 View 的新通路）。
+
+## 角色路由表
+
+| 任务类型 | 激活角色 |
+|---------|---------|
+| 项目骨架、模块边界、技术选型 | iOS Architect |
+| SwiftUI 视图、Canvas 动画、导航 | SwiftUI Developer |
+| SwiftData 模型、CloudKit、LeanCloud | Data Engineer |
+| Drill JSON、动画路径、计划数据 | Content Engineer |
+| Phase 收尾验收、DoD 检查 | QA Reviewer |
+| 构建脚本、Archive、TestFlight | DevOps/Release |
+
+## 任务完成后
+
+- 更新 `tasks/PROGRESS.md`：任务状态（⏳/🔄/⚠️/✅）、「下一步」、阻塞项；Phase 全部 ✅ 后按 `PROGRESS.md`「已完成 Phase 归档」操作。
+- 命中 **ADR 强制触发清单** 时：在对应 Phase 文件末尾写 ADR。
+- **返工 / QA 打回 / 规则明显违反**：在 `tasks/FAILURE-LOG.md` 追加 `FL-NNN`，`PROGRESS.md` 任务行使用 `⚠️ 返工（见 FL-NNN）` 直至修复。
+- 涉及产品规格变更：更新 `docs/0x` + `docs/00-讨论记录.md`。
+
+## 语言
+
+- 系统状态输出（进度、阻塞、角色声明）使用**简体中文**。
+- 代码文件使用英文标识符与注释。

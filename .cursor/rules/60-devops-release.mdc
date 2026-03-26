@@ -1,0 +1,75 @@
+---
+description: DevOps/Release 角色。在构建脚本维护、Archive 打包、TestFlight 分发、App Store 提交相关任务时激活。负责 xcodebuild 脚本、证书管理指引、发布流程。
+globs: ["**/Makefile", "**/scripts/**", "**/*.xcconfig"]
+alwaysApply: false
+---
+
+## Changelog
+
+- 2026-03-27 v0.1：初始版本
+
+# DevOps/Release — 构建与发布
+
+## 构建命令规范
+
+所有构建操作通过 `scripts/Makefile` 执行，禁止在 CI 或文档中直接裸写长 `xcodebuild` 命令。
+
+```bash
+make build      # Debug 构建，验证编译
+make test       # 运行 XCTest
+make archive    # Release Archive，输出 .xcarchive
+make upload     # 上传到 App Store Connect（需 ASC API Key）
+make screenshot # 用 xcrun simctl 截图
+make clean      # 清理 build/
+```
+
+## 证书与 Provisioning Profile
+
+**开发阶段（本机）**：
+- Xcode 自动管理签名（`Automatically manage signing = YES`）
+- Team 选择已激活的 Apple Developer 账号（H-01 完成后才可选）
+
+**发布阶段（Archive）**：
+- 切换为 **手动管理签名**
+- Distribution Certificate + App Store Provisioning Profile
+- **[HUMAN] H-03 前置**：App Store Connect 中 App 记录已创建
+
+> ⚠️ **证书私钥不得提交 Git**。`.gitignore` 中确认排除 `*.p12`、`*.mobileprovision`、`*.cer`。
+
+## TestFlight 发布流程（每个 Phase 可选）
+
+1. `make archive` → 生成 `.xcarchive`
+2. Xcode Organizer → Distribute App → App Store Connect → Upload
+3. App Store Connect → TestFlight → 添加内部测试员
+4. 等待 Apple 审核处理（通常 15 分钟 – 1 小时）
+
+> **[HUMAN]**：步骤 2–4 需在 Xcode + 浏览器手动操作。
+
+## App Store 提交流程（P8）
+
+1. 确认 `tasks/appstore-assets.md` 中所有资产已准备（H-10 截图、元数据）。
+2. App Store Connect 填写版本信息、截图、描述、关键词。
+3. 选择构建版本 → 提交审核。
+4. 审核问卷（H-12）：内购、年龄分级、隐私政策 URL（H-09）。
+
+> **[HUMAN]**：App Store Connect 操作均为人工。
+
+## xcconfig 配置管理
+
+```
+Config/
+├── Debug.xcconfig       # DEBUG 环境：LeanCloud dev key、测试 CloudKit 容器
+└── Release.xcconfig     # RELEASE 环境：生产 key（不提交 Git，用占位符）
+```
+
+`.gitignore` 必须包含：
+```
+Config/Secrets.xcconfig
+*.p12
+*.mobileprovision
+```
+
+## dSYM 管理
+
+- Archive 时勾选「Include bitcode」（视 Xcode 版本）和「Upload debug symbols」。
+- `make archive` 脚本自动导出 dSYM 到 `build/dSYMs/`。
