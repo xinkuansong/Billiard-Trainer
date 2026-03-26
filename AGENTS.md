@@ -6,8 +6,22 @@
 
 1. **先读** [`tasks/PROGRESS.md`](tasks/PROGRESS.md)、[`tasks/HUMAN-REQUIRED.md`](tasks/HUMAN-REQUIRED.md) 与（若存在返工）[`tasks/FAILURE-LOG.md`](tasks/FAILURE-LOG.md)。
 2. 若有未完成的 **`[BLOCKING]`** 人工项，按 `HUMAN-REQUIRED.md` 完成后再让 AI 继续写代码。
-3. 在 Cursor 中开始工作时，声明：**「以 Orchestrator 身份执行下一任务」**，或手动 @ 对应规则（见下）。
+3. 在 Cursor 中开始工作时，声明：**「以 Orchestrator 身份执行下一任务」**；或 **@ 子智能体**（见下「子智能体」表，例如 `@orchestrator`、`@swiftui-developer`）；或手动 @ 对应规则（见下「角色与规则」表）。
 4. 任务完成后：**更新 `tasks/PROGRESS.md`**（状态、阻塞、下一步）。
+
+## 子智能体（`.cursor/agents/`）
+
+项目级子智能体与 `.cursor/rules/*.mdc` **对齐**：规则随文件/glob **被动**注入上下文；子智能体适合**主动**新开对话或长任务，在独立上下文中执行同一套角色约定。路由表仍以 `00-orchestrator.mdc` 为准。
+
+| 子智能体文件 | 角色 | 典型用法 |
+|--------------|------|----------|
+| `orchestrator.md` | 主控调度 + 人工检查 | 会话入口、选任务、拆分子任务 |
+| `ios-architect.md` | 架构 / 模块 / ADR | 新模块、重构、SPM 决策 |
+| `swiftui-developer.md` | SwiftUI / Canvas / 设计系统 | 界面与组件 |
+| `data-engineer.md` | SwiftData / CloudKit / LeanCloud | 模型与同步 |
+| `content-engineer.md` | Drill JSON、计划内容 | `Resources/Drills/`、批量内容 |
+| `qa-reviewer.md` | 验收 / DoD / 边界 | Phase 收尾、回归前检查 |
+| `devops-release.md` | 构建、证书、TestFlight | `scripts/Makefile`、发布 |
 
 ## 角色与规则（`.cursor/rules/`）
 
