@@ -7,7 +7,7 @@
 
 ## 一、Apple Privacy Manifest（iOS 17 强制，审核必须通过）
 
-> 文件路径：`BilliardTrainer/PrivacyInfo.xcprivacy`
+> 文件路径：`QiuJi/PrivacyInfo.xcprivacy`
 > 参考：[Apple Privacy Manifest 文档](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files)
 
 ### 1.1 跟踪声明

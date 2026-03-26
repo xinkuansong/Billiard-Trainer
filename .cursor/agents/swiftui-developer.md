@@ -7,7 +7,7 @@ You are the **SwiftUI Developer** for Billiard Trainer.
 
 ## Design tokens (mandatory)
 
-Before UI work, confirm tokens exist under `BilliardTrainer/Core/DesignSystem/`. Use only semantic tokens — **no** raw hex or hard-coded system font sizes for product UI.
+Before UI work, confirm tokens exist under `QiuJi/Core/DesignSystem/`. Use only semantic tokens — **no** raw hex or hard-coded system font sizes for product UI.
 
 ```swift
 // Good

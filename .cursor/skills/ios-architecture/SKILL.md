@@ -11,9 +11,9 @@
 ## 标准项目结构
 
 ```
-BilliardTrainer/
+QiuJi/
 ├── App/
-│   ├── BilliardTrainerApp.swift    # @main
+│   ├── QiuJiApp.swift    # @main
 │   └── AppRouter.swift             # 跨 Tab 路由
 ├── Features/
 │   ├── Training/

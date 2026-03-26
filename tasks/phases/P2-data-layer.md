@@ -15,7 +15,7 @@
 ### DoD
 
 - [ ] 以下实体全部定义完成：`TrainingSession`、`DrillEntry`、`DrillSet`、`AngleTestResult`、`UserActivePlan`、`DrillFavorite`
-- [ ] `ModelContainer` 在 `BilliardTrainerApp` 中统一初始化，通过 `.modelContainer()` 注入
+- [ ] `ModelContainer` 在 `QiuJiApp` 中统一初始化，通过 `.modelContainer()` 注入
 - [ ] 内存测试 Container（`isStoredInMemoryOnly: true`）已定义，供 Preview 和测试使用
 - [ ] 所有关系（`@Relationship`）的 `deleteRule` 已显式设置（`TrainingSession` → `DrillEntry` → `DrillSet` 均为 `.cascade`）
 - [ ] 编译通过，模拟器可启动

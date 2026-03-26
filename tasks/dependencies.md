@@ -28,7 +28,7 @@
 
 **Step 2：添加到 Xcode 项目**
 ```
-将以下文件拖入 Xcode 项目（Target: BilliardTrainer）：
+将以下文件拖入 Xcode 项目（Target: QiuJi）：
 ├── libWeChatSDK.a          （静态库，或 .xcframework）
 ├── WXApi.h
 ├── WXApiObject.h
@@ -46,7 +46,7 @@
 
 **Step 4：Bridging Header（Swift 项目）**
 
-创建 `BilliardTrainer-Bridging-Header.h`：
+创建 `QiuJi-Bridging-Header.h`：
 ```objc
 #import "WXApi.h"
 #import "WXApiObject.h"
@@ -91,7 +91,7 @@ extension Notification.Name {
 
 **Step 6：SwiftUI App Entry 接入 AppDelegate**
 ```swift
-@main struct BilliardTrainerApp: App {
+@main struct QiuJiApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     // ...
 }

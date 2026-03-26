@@ -10,7 +10,7 @@
 
 - **负责角色**：DevOps/Release
 - **人工前置**：H-01 ✅, H-02 ✅
-- **产出物**：`BilliardTrainer.xcodeproj`（或 `.xcworkspace`）
+- **产出物**：`QiuJi.xcodeproj`（或 `.xcworkspace`）
 
 ### DoD
 
@@ -41,7 +41,7 @@
 
 - **负责角色**：SwiftUI Developer
 - **前置依赖**：T-P1-01
-- **产出物**：`BilliardTrainer/Core/DesignSystem/Colors.swift`、`Typography.swift`、`Spacing.swift`
+- **产出物**：`QiuJi/Core/DesignSystem/Colors.swift`、`Typography.swift`、`Spacing.swift`
 
 ### DoD
 
@@ -57,7 +57,7 @@
 
 - **负责角色**：SwiftUI Developer
 - **前置依赖**：T-P1-03
-- **产出物**：`App/BilliardTrainerApp.swift`、`App/ContentView.swift`、`App/AppRouter.swift`
+- **产出物**：`App/QiuJiApp.swift`、`App/ContentView.swift`、`App/AppRouter.swift`
 
 ### DoD
 
@@ -108,7 +108,7 @@
 - **负责角色**：Data Engineer
 - **人工前置**：H-06 ✅（LeanCloud API Key 已获取）
 - **前置依赖**：T-P1-02
-- **产出物**：`App/BilliardTrainerApp.swift`（初始化）、`AuthService.swift`（SMS 部分）
+- **产出物**：`App/QiuJiApp.swift`（初始化）、`AuthService.swift`（SMS 部分）
 
 ### DoD
 

@@ -14,7 +14,7 @@ You are the **iOS Architect** for Billiard Trainer.
 
 ## Directory conventions (summary)
 
-`BilliardTrainer/` with `Features/{Training,DrillLibrary,AngleTraining,History,Profile}`, `Core/{DesignSystem,Components,Extensions}`, `Data/{Models,Repositories,Services}`, `Resources/Drills/`.
+`QiuJi/` with `Features/{Training,DrillLibrary,AngleTraining,History,Profile}`, `Core/{DesignSystem,Components,Extensions}`, `Data/{Models,Repositories,Services}`, `Resources/Drills/`.
 
 ## Naming
 

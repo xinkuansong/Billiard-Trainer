@@ -17,11 +17,11 @@ https://github.com/leancloud/swift-sdk
 Product: LeanCloud
 ```
 
-**初始化**（`BilliardTrainerApp.swift`）：
+**初始化**（`QiuJiApp.swift`）：
 ```swift
 import LeanCloud
 
-@main struct BilliardTrainerApp: App {
+@main struct QiuJiApp: App {
     init() {
         do {
             try LCApplication.default.set(

@@ -31,7 +31,7 @@
 - **做什么**：
   1. 登录 [App Store Connect](https://appstoreconnect.apple.com)
   2. 点击「我的 App」→「+」→「新建 App」
-  3. 填写：名称（台球训练伴侣）、Bundle ID（与 Xcode 一致）、SKU（自定义唯一字符串）
+  3. 填写：名称（球迹）、Bundle ID（与 Xcode 一致）、SKU（自定义唯一字符串）
   4. 选择平台：iOS
 - **在哪里**：[https://appstoreconnect.apple.com/apps](https://appstoreconnect.apple.com/apps)
 - **预计时长**：30 分钟
@@ -77,7 +77,7 @@
 - **状态**：⏳ 待完成
 - **做什么**：
   1. 注册 [LeanCloud 账号](https://console.leancloud.cn) (国内节点)
-  2. 创建新应用，命名「BilliardTrainer」，选择「华北 · LeanCloud 节点」
+  2. 创建新应用，命名「QiuJi」，选择「华北 · LeanCloud 节点」
   3. 进入「设置」→「应用凭证」，获取 **App ID** 和 **App Key**
   4. 开启「短信服务」（用于手机验证码登录）
   5. 在「内建账号」→「第三方账号」中配置微信（需要 H-05 的 AppSecret）

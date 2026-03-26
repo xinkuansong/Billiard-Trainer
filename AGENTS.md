@@ -1,4 +1,4 @@
-# MA-SDD：台球训练伴侣 iOS 多智能体协同开发
+# MA-SDD：球迹 iOS 多智能体协同开发
 
 本仓库使用 **Multi-Agent Spec-Driven Development（MA-SDD）**：以产品文档 `docs/01`–`docs/08` 为规格源，由 **Orchestrator（主控）** 调度专项角色，通过 `tasks/` 共享状态与进度。
 

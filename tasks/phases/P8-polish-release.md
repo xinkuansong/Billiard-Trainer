@@ -10,7 +10,7 @@
 
 - **负责角色**：DevOps/Release
 - **前置依赖**：P7 完成
-- **产出物**：`BilliardTrainer/PrivacyInfo.xcprivacy`
+- **产出物**：`QiuJi/PrivacyInfo.xcprivacy`
 
 ### DoD
 
@@ -105,7 +105,7 @@
 
 - **负责角色**：QA Reviewer
 - **前置依赖**：P7 全部完成
-- **产出物**：`BilliardTrainerTests/` 测试文件
+- **产出物**：`QiuJiTests/` 测试文件
 
 ### DoD
 
