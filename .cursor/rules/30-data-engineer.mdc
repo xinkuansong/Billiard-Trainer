@@ -1,5 +1,5 @@
 ---
-description: 数据工程师角色。在创建或编辑 *Model.swift、*Repository.swift、*Service.swift 以及 CloudKit / LeanCloud 集成代码时激活。负责 SwiftData schema、离线优先策略、云同步逻辑。
+description: 数据工程师角色。在创建或编辑 *Model.swift、*Repository.swift、*Service.swift 以及 CloudKit / 自建 REST API 集成代码时激活。负责 SwiftData schema、离线优先策略、云同步逻辑。
 globs: ["**/Models/**/*.swift", "**/Repositories/**/*.swift", "**/Services/**/*.swift"]
 alwaysApply: false
 ---
@@ -7,13 +7,15 @@ alwaysApply: false
 ## Changelog
 
 - 2026-03-27 v0.1：初始版本
+- 2026-03-29 v0.2：加入「第三方 BaaS 选型检查点」（来自 FL-001）
+- 2026-03-29 v0.3：LeanCloud → 自建 REST API（ADR-001）全面更新
 
 # Data Engineer — 数据工程师
 
 ## 数据分层架构
 
 ```
-本地层（SwiftData）  ←→  用户数据云层（LeanCloud）
+本地层（SwiftData）  ←→  用户数据云层（自建 REST API / 腾讯云 MongoDB）
                     ←→  内容云层（CloudKit 公开库，只读）
 ```
 
@@ -46,24 +48,45 @@ alwaysApply: false
 - 用于：Drill 内容、官方训练计划（热更新，无需发版）。
 - Record Type 命名：`DrillContent`、`OfficialPlan`。
 - 获取策略：App 启动时后台静默刷新；本地缓存 Bundle 内 fallback JSON（`Resources/Drills/`）。
-- **禁止**写入 CloudKit 公开库（仅私有库可写，但本项目用户数据在 LeanCloud）。
+- **禁止**写入 CloudKit 公开库（用户数据通过自建 REST API 同步，不走 CloudKit 私有库）。
 
-## LeanCloud 用户数据
+## 自建 REST API 用户数据（ADR-001）
 
-- 支持三种登录（微信 OAuth / 手机验证码 / Sign in with Apple），实现见 `tasks/dependencies.md`。
-- 用户私有数据对象：`TrainingSession`、`AngleTestHistory`、`UserSettings`。
+- 支持三种登录（微信 OAuth / 手机验证码 / Sign in with Apple），通过 `POST /auth/*` 端点实现，见 `tasks/dependencies.md`。
+- 认证：JWT（Access Token 1h + Refresh Token 30d），存于 Keychain。
+- 用户私有数据端点：`/training-sessions`、`/angle-tests`、`/user/profile`。
 - **同步策略**：
-  1. 本地 SwiftData 写入成功后，异步上传 LeanCloud（后台队列）。
-  2. 登录时拉取远端增量（按 `updatedAt` 对比）。
+  1. 本地 SwiftData 写入成功后，异步上传（`BackendSyncService`，后台队列）。
+  2. 登录时拉取远端增量（`GET /training-sessions?after=<date>`）。
   3. 冲突解决：以 `updatedAt` 较新者为准（Last Write Wins）。
-- **匿名用户**：数据仅本地，不上传；登录后触发一次性迁移上传。
+- **匿名用户**：数据仅本地，不上传；登录后触发一次性批量迁移（`POST /training-sessions/batch`）。
+- **401 处理**：自动触发 `POST /auth/refresh` 刷新 Token；刷新失败则跳转登录。
 
 ## 敏感数据处理
 
-- LeanCloud App ID / App Key **不硬编码**在源码中；通过 `Config.xcconfig` + `.gitignore` 管理。
+- `API_BASE_URL` 通过 `Config.xcconfig` 注入，不硬编码；JWT 存于 Keychain。
 - 用户 openid / 手机号 **不写入本地日志**（见 `observability.md`）。
 
 ## 网络错误处理
 
 - 所有网络调用包裹 `do/catch`，失败时降级到本地缓存，**不向用户展示技术错误信息**。
 - 错误状态通过 `AppError` enum 统一定义，ViewModel 转译为用户可读提示。
+
+---
+
+## 经验教训（Lessons Learned）
+
+> 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
+
+### ⛔ FL-001 — 第三方 BaaS 选型必须确认国内可用性
+
+**场景**：引入任何第三方 BaaS / 认证服务（LeanCloud、Firebase、Supabase、Auth0 等）前。
+
+**强制检查点**（在 `tasks/dependencies.md` 评估阶段执行）：
+
+1. 国内新用户**注册**是否仍开放？（LeanCloud 2026 年已停止）
+2. 是否有大陆可访问的 API 节点？
+3. 服务连续性风险：是否存在政策/经营变更导致停服的案例？
+4. **备选方案**已列出：自建 REST API / 其他 BaaS
+
+若任一问题答案为"否/不确定"，**禁止将该服务纳入架构**，直接进入备选方案评估。

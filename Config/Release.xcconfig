@@ -1,0 +1,5 @@
+// Release.xcconfig
+// Release 构建使用 Secrets.xcconfig 中的真实值
+// 确保 Secrets.xcconfig 已加入 .gitignore
+
+#include "Secrets.xcconfig"

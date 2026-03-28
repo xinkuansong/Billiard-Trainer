@@ -1,0 +1,39 @@
+{
+  "id": "drill_c004",
+  "nameZh": "低杆缩杆回位",
+  "nameEn": "Draw Shot Return",
+  "category": "cueAction",
+  "subcategory": "draw",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "用低杆将目标球打入下中袋，母球向后拉回停于台面中心附近，训练低杆发力与后退走位。",
+  "coachingPoints": [
+    "击球点选在母球中心偏下8–10毫米",
+    "出杆穿透力强，不要戳球",
+    "后退量取决于击球点低度和发力大小，多加练习找感觉"
+  ],
+  "standardCriteria": "目标球进袋且母球回到台面上半区",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.15},
+      "path": [
+        {"x": 0.5, "y": 0.37},
+        {"x": 0.5, "y": 0.22}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.4},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.0}
+  }
+}

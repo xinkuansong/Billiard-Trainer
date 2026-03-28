@@ -66,3 +66,11 @@ case profile     // 我的
 
 - 列表（Drill 列表、历史列表）使用 `LazyVStack` 或 `List`；不在 `ScrollView` 中嵌套全量 `VStack`。
 - `Canvas` 绘制回调保持纯函数，不引用 `@State`（通过参数传入）。
+
+---
+
+## 经验教训（Lessons Learned）
+
+> 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
+
+_（暂无记录，首次失败后在此追加）_

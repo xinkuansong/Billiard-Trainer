@@ -11,8 +11,8 @@
 ## 信息架构
 
 - **5 个 Tab**：训练 / 动作库 / 角度 / 历史 / 我的。
-- **账号**：微信 + 手机验证码 + Sign in with Apple（LeanCloud）；匿名可浏览与角度训练，记录仅本地直至登录。
-- **内容**：Drill + 官方计划 — CloudKit **公开库**热更新；用户数据 — **LeanCloud** + 本地 SwiftData 离线优先。
+- **账号**：微信 + 手机验证码 + Sign in with Apple（自建 REST API）；匿名可浏览与角度训练，记录仅本地直至登录。
+- **内容**：Drill + 官方计划 — CloudKit **公开库**热更新；用户数据 — **自建 REST API（腾讯云 MongoDB）** + 本地 SwiftData 离线优先。
 
 ## 商业化
 

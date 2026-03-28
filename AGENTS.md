@@ -18,7 +18,7 @@
 | `orchestrator.md` | 主控调度 + 人工检查 | 会话入口、选任务、拆分子任务 |
 | `ios-architect.md` | 架构 / 模块 / ADR | 新模块、重构、SPM 决策 |
 | `swiftui-developer.md` | SwiftUI / Canvas / 设计系统 | 界面与组件 |
-| `data-engineer.md` | SwiftData / CloudKit / LeanCloud | 模型与同步 |
+| `data-engineer.md` | SwiftData / CloudKit / 自建 REST API | 模型与同步 |
 | `content-engineer.md` | Drill JSON、计划内容 | `Resources/Drills/`、批量内容 |
 | `qa-reviewer.md` | 验收 / DoD / 边界 | Phase 收尾、回归前检查 |
 | `devops-release.md` | 构建、证书、TestFlight | `scripts/Makefile`、发布 |
@@ -30,7 +30,7 @@
 | `00-orchestrator.mdc` | 主控调度 + 人工检查 | 每次会话入口 |
 | `10-ios-architect.mdc` | 架构 / 模块 / ADR | 新模块、重构、技术选型 |
 | `20-swiftui-developer.mdc` | SwiftUI / Canvas / 设计系统 | `*View.swift`、界面 |
-| `30-data-engineer.mdc` | SwiftData / CloudKit / LeanCloud | Model、同步、鉴权 |
+| `30-data-engineer.mdc` | SwiftData / CloudKit / 自建 REST API | Model、同步、鉴权 |
 | `40-content-engineer.mdc` | Drill JSON、动画路径、计划数据 | `*.json`、`Drills/` |
 | `50-qa-reviewer.mdc` | 验收 / DoD / 边界测试 | Phase 收尾 |
 | `60-devops-release.mdc` | 构建、证书、TestFlight | `xcodebuild`、发布 |
@@ -40,7 +40,7 @@
 - `ios-architecture` — MVVM、模块边界、SPM
 - `swiftui-design-system` — Design Token、组件、Dark Mode
 - `swiftdata-cloudkit` — 本地模型与 CloudKit 公开库
-- `leancloud-ios` — LeanCloud 与用户侧同步、微信相关注意点
+- `rest-api-backend` — 自建 REST API 与用户侧同步、JWT、微信 OAuth
 - `content-engineering` — Drill Schema、坐标系、内容生产 SOP
 
 ## 任务与文档

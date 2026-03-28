@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "drills": [
+    "drill_c001",
+    "drill_c002",
+    "drill_c003",
+    "drill_c004",
+    "drill_c005"
+  ]
+}

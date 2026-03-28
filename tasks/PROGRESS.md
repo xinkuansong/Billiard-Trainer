@@ -17,28 +17,45 @@
 
 ## 当前状态
 
-- **当前 Phase**：P1 — Foundation（待开始）
-- **当前激活角色**：—
-- **整体进度**：0 / 8 Phases 完成
+- **当前 Phase**：P1 Foundation（部分阻塞）+ P2 Data Layer（进行中）
+- **当前激活角色**：Data Engineer
+- **整体进度**：0 / 8 Phases 完成（P2 进行中）
 
 ---
 
-## P1 Foundation — 进行中任务
+## P2 Data Layer — 进行中任务
 
 > 开始 P1 前，确认以下项均为 ✅（见 `tasks/HUMAN-REQUIRED.md`）：H-01, H-02；T-P1-06 另需 H-08。
 
 | 任务 | 状态 |
 |------|------|
-| T-P1-01 Xcode 项目初始化 | ⏳ 待开始 |
-| T-P1-02 SPM 依赖初始配置 | ⏳ 待开始 |
-| T-P1-03 Design System Token | ⏳ 待开始 |
-| T-P1-04 5 Tab 导航骨架 | ⏳ 待开始 |
-| T-P1-05 登录流程 UI | ⏳ 待开始 |
-| T-P1-06 Sign in with Apple | ⏳ 待开始（H-08 阻塞） |
-| T-P1-07 LeanCloud 手机验证码登录 | ⏳ 待开始（H-06 阻塞） |
+| T-P1-01 Xcode 项目初始化 | ✅ 已完成 |
+| T-P1-02 SPM 依赖初始配置 | ✅ 已完成（LeanCloud 已移除，ADR-001）|
+| T-P1-03 Design System Token | ✅ 已完成 |
+| T-P1-04 5 Tab 导航骨架 | ✅ 已完成 |
+| T-P1-05 登录流程 UI | ✅ 已完成 |
+| T-P1-06 Sign in with Apple | ✅ 已完成 |
+| T-P1-07 REST API 初始化 + 手机验证码登录 | ⏳ 待开始（H-15 阻塞） |
 | T-P1-08 微信登录集成 | ⏳ 待开始（H-05, H-13 阻塞） |
-| T-P1-09 AppConfig + .gitignore | ⏳ 待开始 |
+| T-P1-09 AppConfig + .gitignore | ✅ 已完成 |
 | QA-P1 P1 验收 | ⏳ 待开始 |
+
+---
+
+## P2 Data Layer — 进行中任务
+
+> **人工前置**：H-14 ✅（腾讯云服务器）、H-16 ⏳（MongoDB）、H-07 ⏳（CloudKit 容器）
+
+| 任务 | 状态 |
+|------|------|
+| T-P2-01 SwiftData Schema（全量实体） | ✅ 已完成（2026-03-29）|
+| T-P2-02 Local Repository 实现 | ✅ 已完成（2026-03-29）|
+| T-P2-03 CloudKit 公开库内容拉取 | ⏳ 待开始（H-07 阻塞）|
+| T-P2-04 Bundle Fallback JSON 结构 | ✅ 已完成（2026-03-29）|
+| T-P2-05 后端用户数据同步 | ⏳ 待开始（H-16 + T-P1-07 阻塞）|
+| T-P2-06 匿名用户本地模式 | ✅ 已完成（2026-03-29）|
+| T-P2-07 SyncQueue（后台同步队列） | ✅ 已完成（2026-03-29，stub，T-P2-05 填充上传）|
+| QA-P2 P2 验收 | ⏳ 待开始 |
 
 ---
 
@@ -48,9 +65,12 @@
 |---------|---------|------|--------|
 | H-01 | ~~T-P1-01~~ | ~~Apple Developer 账号未确认~~ | ✅ 已完成 |
 | H-05 | T-P1-08 | 微信开放平台资质未申请（需1-3天审核） | 人工（你） |
-| H-06 | T-P1-07, T-P2-05 | LeanCloud 账号未注册 | 人工（你） |
+| H-06 | ~~T-P1-07, T-P2-05~~ | ~~LeanCloud~~ ✅ 已取消（ADR-001） | — |
 | H-07 | T-P2-03 | CloudKit 容器未创建 | 人工（你） |
-| H-08 | T-P1-06 | Sign in with Apple 能力未开启 | 人工（你） |
+| H-08 | ~~T-P1-06~~ | ~~Sign in with Apple 能力未开启~~ | ✅ 已完成 |
+| H-14 | ~~T-P1-07, T-P2-05~~ | ~~腾讯云服务器未购买部署~~ | ✅ 已完成 |
+| H-15 | T-P1-07 | 腾讯云短信服务未申请 | 人工（你） |
+| H-16 | T-P2-05 | 腾讯云 MongoDB 未创建 | 人工（你） |
 
 ---
 
@@ -71,9 +91,11 @@
 
 ## 下一步
 
-1. **P1 前置人工项**：按需完成 `tasks/HUMAN-REQUIRED.md` 中仍为 ⏳ 的 `[BLOCKING]` 项（如 H-08 对应 T-P1-06）。
-2. H-05（微信）、H-06（LeanCloud）可与 P1 早期任务并行准备，不阻塞 T-P1-01～T-P1-05。
-3. 告知 AI「开始 P1」后，Orchestrator 将从 T-P1-01 开始；长任务中断前请将当前任务标为 🔄 并写明 DoD 进度。
+1. **等待人工操作**：H-15（腾讯云短信）完成后，T-P1-07 解锁。
+2. H-16（腾讯云 MongoDB）完成后 T-P2-05 解锁。
+3. H-07（CloudKit 容器）完成后 T-P2-03 解锁。
+4. H-05（微信）审核需 1-3 工作日，T-P1-08 暂缓。
+5. **现在可继续**：P3 Drill Library（T-P3-xx）无后端依赖，可立即开始。
 
 ---
 

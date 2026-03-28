@@ -1,0 +1,40 @@
+{
+  "id": "drill_c005",
+  "nameZh": "一库走位定点",
+  "nameEn": "One-Cushion Position Control",
+  "category": "positioning",
+  "subcategory": "oneCushion",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "将目标球打入右下角袋，母球借一库（底库）走位至左半台指定区域，训练一库走位意识与力度控制。",
+  "coachingPoints": [
+    "击球点略偏低，给母球向前传递的力",
+    "控制击打力度，过强母球会多走",
+    "目视走位目标区域，感受力度与母球落点关系"
+  ],
+  "standardCriteria": "目标球进袋且母球落入左半台目标圈",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.65, "y": 0.25},
+      "path": [
+        {"x": 0.85, "y": 0.42},
+        {"x": 0.85, "y": 0.5165, "cp1": {"x": 0.85, "y": 0.49}, "cp2": {"x": 0.85, "y": 0.51}},
+        {"x": 0.3, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.88, "y": 0.38},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.88, "y": 0.38}
+  }
+}

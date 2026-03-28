@@ -31,9 +31,9 @@
 
 ### DoD
 
-- [ ] LeanCloud Swift SDK 已通过 SPM 添加（`https://github.com/leancloud/swift-sdk`）
-- [ ] 编译通过，无报错
-- [ ] `tasks/dependencies.md` 中 LeanCloud SDK 版本已记录
+- [x] 零第三方 SPM 依赖（LeanCloud 已于 ADR-001 移除）
+- [x] 编译通过，无报错
+- [x] `tasks/dependencies.md` 已记录：当前无第三方依赖
 
 ---
 
@@ -91,32 +91,33 @@
 
 - **负责角色**：Data Engineer
 - **人工前置**：H-08 ✅
-- **前置依赖**：T-P1-05, T-P1-07（LeanCloud 初始化须先完成）
+- **前置依赖**：T-P1-05, T-P1-07（REST API 初始化须先完成）
 - **产出物**：`Data/Services/AuthService.swift`（Apple 登录部分）
 
 ### DoD
 
-- [ ] `AuthService.loginWithApple()` 可调用，无编译错误
-- [ ] 登录成功后更新 `AuthState`（用户信息存入 UserDefaults/Keychain）
-- [ ] 登录失败时 `AppError.authFailed` 正确抛出并在 UI 显示中文提示
-- [ ] Token 不明文存储（使用 Keychain）
+- [x] `AuthService.loginWithApple()` 可调用，无编译错误
+- [x] 登录成功后更新 `AuthState`（用户信息存入 UserDefaults/Keychain）
+- [x] 登录失败时 `AppError.authFailed` 正确抛出并在 UI 显示中文提示
+- [x] Token 不明文存储（使用 Keychain）
 
 ---
 
-## T-P1-07 LeanCloud 初始化 + 手机验证码登录
+## T-P1-07 REST API 初始化 + 手机验证码登录
 
 - **负责角色**：Data Engineer
-- **人工前置**：H-06 ✅（LeanCloud API Key 已获取）
-- **前置依赖**：T-P1-02
-- **产出物**：`App/QiuJiApp.swift`（初始化）、`AuthService.swift`（SMS 部分）
+- **人工前置**：H-14 ✅（服务器已部署）、H-15 ✅（腾讯云短信已申请）
+- **前置依赖**：T-P1-01
+- **产出物**：`Data/Services/APIClient.swift`、`Data/Services/AuthService.swift`（SMS 部分）、`Core/Extensions/AppConfig.swift` 更新
 
 ### DoD
 
-- [ ] `LCApplication.default.set(id:key:serverURL:)` 在 App 启动时正确调用
-- [ ] App ID / App Key 通过 `xcconfig` 注入，不硬编码在源码中
-- [ ] `sendSMSCode(phone:)` 可调用（真机/模拟器均不崩溃）
-- [ ] `loginWithSMS(phone:code:)` 登录成功后 `LCUser.current` 不为 nil
-- [ ] 错误场景（验证码错误、网络失败）有中文提示
+- [ ] `APIClient` 使用 `URLSession` + `async/await` 实现，`baseURL` 通过 `xcconfig` 注入
+- [ ] `KeychainService` 负责 Access Token / Refresh Token 的安全存储与读取
+- [ ] `AppConfig.apiBaseURL` 从 `Bundle.main.infoDictionary` 读取，不硬编码
+- [ ] `AuthService.sendSMSCode(phone:)` 调用 `POST /auth/send-sms`，不崩溃
+- [ ] `AuthService.loginWithSMS(phone:code:)` 登录成功后 JWT 存入 Keychain，`AuthState.currentUser` 更新
+- [ ] 错误场景（验证码错误、网络失败）抛出 `AppError` 并在 UI 显示中文提示
 
 ---
 
@@ -131,9 +132,10 @@
 
 - [ ] 微信 SDK 已集成（见 `tasks/dependencies.md` 集成方式）
 - [ ] `Info.plist` 包含：`LSApplicationQueriesSchemes`（weixin、weixinULAPI）、`CFBundleURLSchemes`（wx${WECHAT_APP_ID}）
-- [ ] `AppDelegate` 或 `SceneDelegate` 中 `onResp` 正确处理微信回调
+- [ ] `AppDelegate` 中 `onResp` 正确接收微信授权 code
+- [ ] `AuthService.loginWithWechat(code:)` 调用 `POST /auth/login-wechat { code }`（AppSecret 在服务端，不在客户端）
+- [ ] 登录成功后 JWT 存入 Keychain，`AuthState.currentUser` 更新
 - [ ] 点击「微信登录」能唤起微信 App（真机测试；模拟器可 mock）
-- [ ] 登录成功后 `LCUser.current` 不为 nil
 
 ---
 
@@ -145,7 +147,7 @@
 
 ### DoD
 
-- [ ] `AppConfig` 通过 `Bundle.main.infoDictionary` 读取所有敏感配置（LeanCloud Key、微信 AppID 等）
+- [ ] `AppConfig` 通过 `Bundle.main.infoDictionary` 读取所有敏感配置（API Base URL、微信 AppID 等）
 - [ ] `Config/Secrets.xcconfig`（包含真实 key）已加入 `.gitignore`，不会被提交
 - [ ] `Config/Debug.xcconfig` 中有带注释的占位符示例，方便新开发者配置
 - [ ] `make build` 使用占位值可以编译通过（代码层无硬编码依赖）
@@ -170,4 +172,77 @@
 
 ## ADR 记录区
 
-> 本 Phase 产生的架构决策记录在此追加。
+### ADR-001：用户认证与数据同步后端选型变更
+
+- **日期**：2026-03-29
+- **状态**：已决策
+- **决策者**：产品负责人
+
+#### 背景
+
+原架构（v0.3）选用 LeanCloud 作为用户认证（微信/短信/Apple）和私有数据同步的托管服务。
+P1 开发期间确认：**LeanCloud 已停止国内新用户注册**（H-06 阻塞无法解除）。
+
+同时，产品路线图包含 **Android 版本**，要求后端方案跨平台可用。
+
+#### 评估的方案
+
+| 方案 | 描述 | 排除原因 |
+|------|------|---------|
+| A：CloudKit 私有库 | 用 CloudKit 替代 LeanCloud | Android 不支持 CloudKit |
+| B²：TDS | LeanCloud 继任服务 | 面向游戏，长期不确定性高 |
+| E：先 CloudKit 后迁移 | iOS 先用 CloudKit，Android 时重建 | 用户数据迁移成本高，体验差 |
+| **D：极简自建后端** | 腾讯云轻量服务器 Node.js + MongoDB | **选定** |
+
+#### 决策
+
+采用 **方案 D：极简自建 REST API 后端**。
+
+**技术栈**：
+- **服务器**：腾讯云轻量应用服务器（约 ¥50/月）
+- **运行时**：Node.js（Express）
+- **数据库**：腾讯云 TencentDB for MongoDB（或 MongoDB Atlas 中国节点）
+- **短信**：腾讯云短信服务（国内通道）
+- **认证**：JWT（Access Token 1h + Refresh Token 30d）
+- **微信 OAuth**：AppSecret 存服务器，App 只传 code，服务器完成换取
+
+**API 端点规划（~20 个）**：
+
+```
+POST /auth/send-sms        发送验证码
+POST /auth/login-sms       手机验证码登录/注册
+POST /auth/login-wechat    微信 code 换取 token
+POST /auth/login-apple     Apple identity token 验证
+POST /auth/refresh         刷新 JWT
+DELETE /auth/logout
+
+GET    /user/profile        获取用户信息
+PUT    /user/profile        更新用户信息
+DELETE /user/account        注销账号
+
+GET    /training-sessions          列表（支持分页/日期筛选）
+POST   /training-sessions          创建
+PUT    /training-sessions/:id      更新
+DELETE /training-sessions/:id      删除
+POST   /training-sessions/batch    批量上传（匿名转登录时迁移）
+
+GET    /angle-tests                列表
+POST   /angle-tests                创建
+```
+
+**iOS 客户端影响**：
+- 移除 LeanCloud Swift SDK（减少 ~5MB 包体积）
+- 使用 `URLSession` + `async/await` 构建 `APIClient`（无需额外依赖）
+- `AppConfig` 新增 `apiBaseURL` 字段
+- `AuthService` 改为调用自建 API，逻辑基本不变
+
+**Android 影响**：
+- 直接复用同一套 REST API，无需适配
+
+#### 后果
+
+- ✅ iOS 和 Android 共用一套后端，长期架构清晰
+- ✅ 完全掌控认证逻辑和数据，无第三方服务不确定性
+- ✅ 腾讯云短信通道稳定，微信 OAuth 安全
+- ⚠️ 需要维护后端代码（成本：约每季度 1 次升级维护）
+- ⚠️ 新增人工项：服务器购买、部署、SMS 申请（见 HUMAN-REQUIRED H-14 ~ H-16）

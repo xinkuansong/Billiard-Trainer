@@ -1,7 +1,7 @@
 # P2 — Data Layer（数据层）
 
-> **目标**：SwiftData 全量 Schema、CloudKit 公开库内容拉取、LeanCloud 用户数据同步、离线优先策略。
-> **人工前置**：H-06 ✅（LeanCloud）、H-07 ✅（CloudKit 容器）
+> **目标**：SwiftData 全量 Schema、CloudKit 公开库内容拉取、自建后端用户数据同步、离线优先策略。
+> **人工前置**：H-14 ✅（腾讯云服务器）、H-16 ✅（MongoDB）、H-07 ✅（CloudKit 容器）
 > **前置 Phase**：P1 通过 QA
 
 ---
@@ -71,19 +71,20 @@
 
 ---
 
-## T-P2-05 LeanCloud 用户数据同步
+## T-P2-05 后端用户数据同步
 
 - **负责角色**：Data Engineer
-- **人工前置**：H-06 ✅
+- **人工前置**：H-14 ✅（服务器已部署）、H-16 ✅（MongoDB 已创建）
 - **前置依赖**：T-P1-07, T-P2-01
-- **产出物**：`Data/Services/LeanCloudSyncService.swift`
+- **产出物**：`Data/Services/BackendSyncService.swift`
 
 ### DoD
 
-- [ ] `syncSession(_:)` 可将本地 `TrainingSession` 上传至 LeanCloud
-- [ ] `fetchUserSessionsAfter(date:)` 可拉取增量数据
-- [ ] 登录后触发一次性迁移：将匿名本地数据上传
-- [ ] 数据仅关联当前登录用户（LeanCloud ACL 设置为仅本人可读写）
+- [ ] `BackendSyncService.syncSession(_:)` 调用 `POST /training-sessions`，上传本地 `TrainingSession`
+- [ ] `BackendSyncService.fetchUserSessionsAfter(date:)` 调用 `GET /training-sessions?after=` 拉取增量数据
+- [ ] 登录后触发一次性迁移：将匿名本地数据批量上传（`POST /training-sessions/batch`）
+- [ ] 请求携带 JWT（`Authorization: Bearer`），401 时触发 token 刷新
+- [ ] 数据仅关联当前登录用户（服务端按 JWT 隔离）
 
 ---
 
@@ -95,7 +96,7 @@
 
 ### DoD
 
-- [ ] 未登录时：训练记录正常写入 SwiftData 本地；不触发 LeanCloud 上传
+- [ ] 未登录时：训练记录正常写入 SwiftData 本地；不触发后端上传
 - [ ] 登录时：提示「登录后数据将同步云端」，用户确认后触发迁移上传
 - [ ] 「我的」Tab 未登录状态显示登录引导，而非空白
 
@@ -124,11 +125,15 @@
 ### 验收要点
 
 - [ ] **离线场景**：断网后创建训练记录，SwiftData 写入成功，UI 正常
-- [ ] **恢复联网**：网络恢复后 SyncQueue 自动上传，CloudKit 内容静默刷新
+- [ ] **恢复联网**：网络恢复后 SyncQueue 自动上传后端，CloudKit 内容静默刷新
 - [ ] **空数据**：首次启动无本地数据时，fallback JSON 可加载
 - [ ] **匿名用户**：未登录时训练记录可创建，登录后数据迁移无重复
-- [ ] **错误处理**：LeanCloud 请求失败时用户看到友好提示，不崩溃
+- [ ] **错误处理**：后端请求失败时用户看到友好提示，不崩溃
 
 ---
 
 ## ADR 记录区
+
+### ADR-001（继承自 P1）
+
+见 `tasks/phases/P1-foundation.md ADR-001`：LeanCloud → 自建 REST API，影响 T-P2-05 同步服务名称与实现。

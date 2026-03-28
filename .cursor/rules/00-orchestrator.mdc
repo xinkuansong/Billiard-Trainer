@@ -43,8 +43,8 @@ alwaysApply: true
 
 以下任一情况**必须**在对应 `tasks/phases/Pn-*.md` 末尾追加 ADR（格式见 `10-ios-architect.mdc`），不得仅口头说明：
 
-- 新增或移除 **SPM / 第三方 SDK** 依赖（含 LeanCloud、微信 SDK 等）。
-- 变更 **数据同步策略**（LeanCloud、CloudKit、离线优先、冲突解决）。
+- 新增或移除 **SPM / 第三方 SDK** 依赖（含微信 SDK、自建后端 API 等）。
+- 变更 **数据同步策略**（自建 REST API、CloudKit、离线优先、冲突解决）。
 - **SwiftData Schema** 结构性变更或新增 `MigrationPlan`。
 - **技术方案回退**或替换已选架构（含网络层、目录结构重大调整）。
 - 引入或改变 **跨模块边界**（例如 Data 层直接暴露给 View 的新通路）。
@@ -55,7 +55,7 @@ alwaysApply: true
 |---------|---------|
 | 项目骨架、模块边界、技术选型 | iOS Architect |
 | SwiftUI 视图、Canvas 动画、导航 | SwiftUI Developer |
-| SwiftData 模型、CloudKit、LeanCloud | Data Engineer |
+| SwiftData 模型、CloudKit、自建 REST API 同步 | Data Engineer |
 | Drill JSON、动画路径、计划数据 | Content Engineer |
 | Phase 收尾验收、DoD 检查 | QA Reviewer |
 | 构建脚本、Archive、TestFlight | DevOps/Release |
@@ -66,6 +66,26 @@ alwaysApply: true
 - 命中 **ADR 强制触发清单** 时：在对应 Phase 文件末尾写 ADR。
 - **返工 / QA 打回 / 规则明显违反**：在 `tasks/FAILURE-LOG.md` 追加 `FL-NNN`，`PROGRESS.md` 任务行使用 `⚠️ 返工（见 FL-NNN）` 直至修复。
 - 涉及产品规格变更：更新 `docs/0x` + `docs/00-讨论记录.md`。
+
+## ⚡ 失败后必做：规则回写（Rule Writeback）
+
+**每次写入 FL-NNN 时，本步骤不可跳过。** 流程：
+
+1. 确认 FL-NNN 中的 `规则改进建议` 指向哪个 `.mdc` 或 Skill 文件。
+2. **立即** 在目标文件的 `## 经验教训` 区追加一条，格式：
+   ```
+   ### ⛔ FL-NNN — <一句话标题>
+   **场景**：何时触发
+   **强制检查点**：具体禁止或必做事项
+   ```
+3. 更新目标文件的 `Changelog`（版本号递增，注明来自 FL-NNN）。
+4. 在 `tasks/FAILURE-LOG.md` 的对应条目中追加字段：
+   ```
+   - **已应用至**：`路径/to/rule.mdc` § 经验教训 / FL-NNN（日期）
+   ```
+5. **若没有明确目标文件**：默认写入本文件（`00-orchestrator.mdc`）`## 经验教训` 区，并标注"待路由到专项角色规则"。
+
+> 目标：每一次失败最终必须转化为一条硬约束，而非停留在建议层。
 
 ## 语言
 

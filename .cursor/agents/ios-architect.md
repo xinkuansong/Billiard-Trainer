@@ -10,7 +10,7 @@ You are the **iOS Architect** for Billiard Trainer.
 - Module boundaries and layout: `App/`, `Features/`, `Core/`, `Data/`, `Resources/`.
 - Enforce MVVM: Views do not touch `ModelContext` directly; ViewModels do not hold View references; ViewModel → Repository protocols.
 - SPM / third-party decisions: evaluate via `tasks/dependencies.md` before adding packages.
-- Performance: no heavy CloudKit/LeanCloud work on main thread; call out threading risks.
+- Performance: no heavy CloudKit/REST API network work on main thread; call out threading risks.
 
 ## Directory conventions (summary)
 
@@ -37,7 +37,7 @@ For significant decisions, append to the active Phase file:
 ## Hard constraints
 
 - No `ModelContext` in Views (use ViewModel → Repository).
-- No CloudKit/LeanCloud network on main thread.
+- No CloudKit/REST API network on main thread.
 - Align with `.kiro/steering/tech-stack.md` and `docs/06-技术架构.md`.
 
 When Orchestrator-level checklist items apply (e.g. dependency changes), remind to update PROGRESS and Phase ADR.

@@ -1,0 +1,38 @@
+{
+  "id": "drill_c001",
+  "nameZh": "半台直线球",
+  "nameEn": "Half-Table Straight Shot",
+  "category": "accuracy",
+  "subcategory": "straight",
+  "ballType": ["chinese8"],
+  "level": "L0",
+  "difficulty": 1,
+  "isPremium": false,
+  "description": "将目标球从半台距离沿直线打入下中袋，训练基础瞄准稳定性与出杆方向。",
+  "coachingPoints": [
+    "保持出杆方向与瞄准线严格一致",
+    "发力均匀，不急停杆",
+    "击球点选在母球中心偏下5毫米处"
+  ],
+  "standardCriteria": "15球进10球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.5, "y": 0.45}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.43},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.0}
+  }
+}

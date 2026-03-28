@@ -1,0 +1,38 @@
+{
+  "id": "drill_c002",
+  "nameZh": "斜角入底角袋",
+  "nameEn": "Diagonal Corner Pocket",
+  "category": "accuracy",
+  "subcategory": "angle",
+  "ballType": ["chinese8"],
+  "level": "L0",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "从球台左侧中区将目标球以斜线打入右下角袋，训练斜线瞄准与角度判断。",
+  "coachingPoints": [
+    "利用全球接触点找到瞄准方向",
+    "注意目标球离袋口距离，距离越远击打越需精准",
+    "出杆保持水平"
+  ],
+  "standardCriteria": "15球进8球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.25},
+      "path": [
+        {"x": 0.55, "y": 0.42}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.4},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.75, "y": 0.4}
+  }
+}

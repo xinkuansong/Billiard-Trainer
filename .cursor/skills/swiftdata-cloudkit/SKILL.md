@@ -131,11 +131,11 @@ func loadFallbackDrills() -> [DrillContent] {
 ```
 用户操作
   → 立即写入 SwiftData（主线程，立即反馈）
-  → 加入同步队列（后台，LeanCloud）
+  → 加入同步队列（后台，自建 REST API）
   
 App 前台恢复
   → 后台触发：拉取 CloudKit 内容增量更新
-  → 后台触发：上传 LeanCloud 待同步项
+  → 后台触发：上传自建后端待同步项
 ```
 
 ```swift

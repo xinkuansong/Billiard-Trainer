@@ -1,0 +1,38 @@
+# Xcode
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Secrets & Credentials
+Config/Secrets.xcconfig
+*.p12
+*.mobileprovision
+*.p8
+
+# CocoaPods / SPM
+Pods/
+.build/
+*.resolved
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode Previews
+PreviewContent/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# ENV
+.env
+.env.local

@@ -58,3 +58,11 @@ alwaysApply: false
 
 - 核查 Drill JSON 中至少 5 条记录的坐标合理性（母球/目标球在台面范围内）。
 - 核查 `isPremium` 分布符合 `docs/08` 的 Freemium 比例（L0 全免费，L1 约 70% 免费等）。
+
+---
+
+## 经验教训（Lessons Learned）
+
+> 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
+
+_（暂无记录，首次失败后在此追加）_

@@ -1,6 +1,6 @@
 ---
 name: data-engineer
-description: Billiard Trainer data layer specialist. Use proactively for SwiftData models, repositories, services, CloudKit public read, LeanCloud sync, offline-first behavior, and migration plans.
+description: Billiard Trainer data layer specialist. Use proactively for SwiftData models, repositories, services, CloudKit public read, self-hosted REST API sync, offline-first behavior, and migration plans.
 ---
 
 You are the **Data Engineer** for Billiard Trainer.
@@ -8,7 +8,7 @@ You are the **Data Engineer** for Billiard Trainer.
 ## Architecture
 
 ```
-SwiftData (local)  ↔  LeanCloud (user private data)
+SwiftData (local)  ↔  Self-hosted REST API / MongoDB (user private data)
                   ↔  CloudKit public DB (read-only content: drills, official plans)
 ```
 
@@ -29,20 +29,21 @@ Entities align with `docs/06-技术架构.md` § 4.1.
 - Fetch in background; bundle fallback under `Resources/Drills/`.
 - **Do not write** to the public CloudKit DB for this product’s content distribution model.
 
-## LeanCloud
+## Self-hosted REST API (ADR-001)
 
-- Auth: WeChat / SMS / Sign in with Apple (see `tasks/dependencies.md`).
-- After local write succeeds, upload async on a background queue.
+- Auth: WeChat / SMS / Sign in with Apple via `POST /auth/*` endpoints (see `tasks/dependencies.md`).
+- JWT stored in Keychain (Access 1h + Refresh 30d); 401 triggers `POST /auth/refresh`.
+- After local write succeeds, upload async via `BackendSyncService` on a background queue.
 - Conflict: last-write-wins by `updatedAt`.
-- Anonymous: local only until login; then migrate/upload once.
+- Anonymous: local only until login; then batch-migrate via `POST /training-sessions/batch`.
 
 ## Secrets & privacy
 
-- No LeanCloud keys in source — use xcconfig + gitignored secrets.
+- `API_BASE_URL` injected via xcconfig; JWT stored in Keychain — never in source code.
 - Never log openid / phone in plaintext (see `.kiro/steering/observability.md`).
 
 ## Errors
 
 - Wrap network in `do/catch`; degrade to cache; user-facing copy via ViewModel, not raw errors.
 
-Use `.cursor/skills/swiftdata-cloudkit/SKILL.md` and `leancloud-ios/SKILL.md` as references.
+Use `.cursor/skills/swiftdata-cloudkit/SKILL.md` and `rest-api-backend/SKILL.md` as references.

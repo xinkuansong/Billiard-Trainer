@@ -58,7 +58,7 @@ make clean      # 清理 build/
 
 ```
 Config/
-├── Debug.xcconfig       # DEBUG 环境：LeanCloud dev key、测试 CloudKit 容器
+├── Debug.xcconfig       # DEBUG 环境：API_BASE_URL（dev）、测试 CloudKit 容器
 └── Release.xcconfig     # RELEASE 环境：生产 key（不提交 Git，用占位符）
 ```
 
@@ -73,3 +73,11 @@ Config/Secrets.xcconfig
 
 - Archive 时勾选「Include bitcode」（视 Xcode 版本）和「Upload debug symbols」。
 - `make archive` 脚本自动导出 dSYM 到 `build/dSYMs/`。
+
+---
+
+## 经验教训（Lessons Learned）
+
+> 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
+
+_（暂无记录，首次失败后在此追加）_

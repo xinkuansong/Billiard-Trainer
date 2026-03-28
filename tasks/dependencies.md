@@ -9,16 +9,19 @@
 
 | 依赖 | 用途 | 仓库 URL | 最低版本要求 | 引入 Phase |
 |------|------|---------|------------|----------|
-| **LeanCloud Swift SDK** | 用户认证 + 数据同步 | `https://github.com/leancloud/swift-sdk` | 最新稳定版 | P1 |
 | **Swift Charts**（系统内置） | 统计图表 | 系统库（iOS 16+，无需添加） | iOS 17 自带 | P6 |
 
-> 当前 SPM 依赖精简为 1 个第三方库，充分利用系统能力。
+> ~~LeanCloud Swift SDK~~（已于 ADR-001 移除，2026-03-29）：LeanCloud 停止国内新用户注册，改用自建 REST API 替代。
+
+> **当前 SPM 第三方依赖为 0 个**，全部使用系统能力 + 自建后端 REST API（URLSession）。
 
 ---
 
 ## 二、微信 SDK（非 SPM，需手动集成）
 
 > ⚠️ 微信 SDK **不支持 SPM**，需手动集成。人工前置：H-05 完成后执行。
+>
+> **与原方案的区别（ADR-001）**：微信 OAuth 的 AppSecret 不再放客户端，客户端只传 `code`，由自建后端完成 code-to-token 换取，保证 AppSecret 安全。
 
 ### 2.1 集成步骤
 
@@ -149,50 +152,75 @@ https://yourdomain.com/apple-app-site-association
 
 ---
 
-## 三、LeanCloud Swift SDK 集成 SOP
+## 三、自建后端 API 客户端集成（ADR-001）
 
-> H-06 完成后执行（需要 App ID 和 App Key）。
+> 替代原 LeanCloud Swift SDK，使用系统原生 `URLSession` + `async/await`，零额外依赖。
 
-### 3.1 SPM 添加
+### 3.1 APIClient 设计
 
-1. Xcode → File → Add Package Dependencies
-2. 输入：`https://github.com/leancloud/swift-sdk`
-3. 选择版本：**Up to Next Major**（最新稳定版）
-4. 勾选 Product：`LeanCloud`
+```swift
+// Data/Services/APIClient.swift
+final class APIClient {
+    static let shared = APIClient()
+    private let baseURL = AppConfig.apiBaseURL   // 从 xcconfig 注入
+    private let session = URLSession.shared
 
-### 3.2 初始化配置
-
-`Config/Debug.xcconfig` 配置项（不提交 Git，使用 `Secrets.xcconfig` 存真实值）：
-
+    func request<T: Decodable>(_ endpoint: Endpoint) async throws -> T {
+        var req = URLRequest(url: baseURL.appendingPathComponent(endpoint.path))
+        req.httpMethod = endpoint.method.rawValue
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let token = KeychainService.accessToken {
+            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        if let body = endpoint.body {
+            req.httpBody = try JSONEncoder().encode(body)
+        }
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else { throw AppError.networkUnavailable }
+        if http.statusCode == 401 { throw AppError.authRequired }
+        guard (200..<300).contains(http.statusCode) else {
+            let err = try? JSONDecoder().decode(APIError.self, from: data)
+            throw AppError.serverError(err?.message ?? "未知错误")
+        }
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+}
 ```
-// Debug.xcconfig 示例（占位符）
-LEANCLOUD_APP_ID = YOUR_APP_ID_HERE
-LEANCLOUD_APP_KEY = YOUR_APP_KEY_HERE
-LEANCLOUD_SERVER_URL = https://your-domain.lc-cn-n1-shared.com
 
-// Secrets.xcconfig（加入 .gitignore，填真实值）
-LEANCLOUD_APP_ID = abc123...
-LEANCLOUD_APP_KEY = xyz456...
-LEANCLOUD_SERVER_URL = https://abc123.lc-cn-n1-shared.com
+### 3.2 xcconfig 配置
+
+`Config/Debug.xcconfig` 新增：
 ```
+API_BASE_URL = https://dev.api.qiuji.app
+```
+`Config/Release.xcconfig` 通过 Secrets.xcconfig 覆盖为生产地址。
 
-将 `xcconfig` 中的变量注入 `Info.plist`：
+将变量注入 `Info.plist`：
 ```xml
-<key>LEANCLOUD_APP_ID</key>
-<string>$(LEANCLOUD_APP_ID)</string>
-<key>LEANCLOUD_APP_KEY</key>
-<string>$(LEANCLOUD_APP_KEY)</string>
-<key>LEANCLOUD_SERVER_URL</key>
-<string>$(LEANCLOUD_SERVER_URL)</string>
+<key>API_BASE_URL</key>
+<string>$(API_BASE_URL)</string>
 ```
 
-### 3.3 LeanCloud 控制台配置
+### 3.3 JWT 存储（Keychain）
 
-登录 [LeanCloud 控制台](https://console.leancloud.cn) 后：
-1. **开启短信服务**：设置 → 短信 → 开启「验证码服务」
-2. **配置微信登录**（H-05 完成后）：内建账号 → 第三方账号 → 微信，填入微信 AppID + AppSecret
-3. **配置 Apple 登录**：内建账号 → 第三方账号 → Apple，填入 App Bundle ID
-4. **设置数据 ACL**：存储 → 设置 → Class 默认权限，TrainingSession 等设为「仅创建者可读写」
+```swift
+// Data/Services/KeychainService.swift
+enum KeychainService {
+    static var accessToken: String? { get/set }   // Keychain 读写
+    static var refreshToken: String? { get/set }
+    static func clear()
+}
+```
+
+### 3.4 后端部署 SOP（见 HUMAN-REQUIRED H-14 ~ H-16）
+
+后端仓库独立维护（建议命名 `qiuji-backend`），部署到腾讯云轻量服务器。
+
+---
+
+## ~~三（旧）、LeanCloud Swift SDK 集成 SOP~~
+
+> **已废弃（ADR-001，2026-03-29）**：LeanCloud 停止国内新用户注册。
 
 ---
 
@@ -211,11 +239,11 @@ LEANCLOUD_SERVER_URL = https://abc123.lc-cn-n1-shared.com
 
 ## 五、版本锁定策略
 
-- SPM 依赖使用 **Up to Next Major**（允许 minor/patch 自动更新）
+- SPM 依赖：当前无第三方依赖
 - 微信 SDK 手动更新：每季度检查一次，大版本升级前在测试分支验证
 - 依赖版本变更必须在本文件更新记录：
 
 | 依赖 | 当前版本 | 上次更新 |
 |------|---------|---------|
-| LeanCloud Swift SDK | TBD（集成时填写） | — |
+| ~~LeanCloud Swift SDK~~ | ~~TBD~~ | 已移除（ADR-001） |
 | 微信 iOS SDK | TBD（集成时填写） | — |

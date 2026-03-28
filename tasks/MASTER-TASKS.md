@@ -31,12 +31,12 @@
 | 任务 ID | 任务名 | 角色 | 人工前置 | 状态 |
 |---------|--------|------|---------|------|
 | T-P1-01 | Xcode 项目初始化（Bundle ID、Target、xcconfig） | DevOps | H-01, H-02 | ⏳ |
-| T-P1-02 | SPM 依赖初始配置（LeanCloud SDK 引入） | Architect | — | ⏳ |
+| T-P1-02 | SPM 依赖初始配置（无第三方 SPM 依赖，URLSession + 系统库） | Architect | — | ✅ |
 | T-P1-03 | 设计系统 DesignSystem（颜色/字体/间距 Token） | SwiftUI Dev | — | ⏳ |
 | T-P1-04 | 5 Tab 导航骨架（AppRouter + ContentView） | SwiftUI Dev | — | ⏳ |
 | T-P1-05 | 登录流程 UI（三种登录选项 + 引导页） | SwiftUI Dev | — | ⏳ |
 | T-P1-06 | Sign in with Apple 功能实现 | Data Eng | H-08 | ⏳ |
-| T-P1-07 | LeanCloud 初始化 + 手机验证码登录 | Data Eng | H-06 | ⏳ |
+| T-P1-07 | REST API 初始化 + 手机验证码登录 | Data Eng | H-14, H-15 | ⏳ |
 | T-P1-08 | 微信登录集成 | Data Eng | H-05, H-13 | ⏳ |
 | T-P1-09 | AppConfig（xcconfig 注入密钥） + .gitignore | DevOps | — | ⏳ |
 | **QA-P1** | **P1 验收** | QA | — | ⏳ |
@@ -49,7 +49,7 @@
 | T-P2-02 | LocalRepository 实现（TrainingSession CRUD） | Data Eng | — | ⏳ |
 | T-P2-03 | CloudKit 公开库内容拉取（DrillContent） | Data Eng | H-07 | ⏳ |
 | T-P2-04 | Bundle fallback JSON 结构（drills_index.json） | Content Eng | — | ⏳ |
-| T-P2-05 | LeanCloud 用户数据同步（上传/增量拉取） | Data Eng | H-06 | ⏳ |
+| T-P2-05 | 后端用户数据同步（REST API 上传/增量拉取） | Data Eng | H-14, H-16 | ⏳ |
 | T-P2-06 | 匿名用户本地模式 + 登录后迁移 | Data Eng | — | ⏳ |
 | T-P2-07 | SyncQueue（后台同步队列） | Data Eng | — | ⏳ |
 | **QA-P2** | **P2 验收** | QA | — | ⏳ |

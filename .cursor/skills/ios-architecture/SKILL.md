@@ -36,10 +36,10 @@ QiuJi/
 │   ├── Repositories/
 │   │   ├── Protocols/              # DrillRepositoryProtocol 等
 │   │   ├── Local/                  # LocalDrillRepository
-│   │   └── Remote/                 # CloudKitDrillRepository, LeanCloudUserRepository
+│   │   └── Remote/                 # CloudKitDrillRepository, BackendUserRepository
 │   └── Services/
 │       ├── CloudKitService.swift
-│       ├── LeanCloudService.swift
+│       ├── BackendSyncService.swift
 │       └── AuthService.swift
 └── Resources/
     └── Drills/                     # Bundle 内 fallback JSON
@@ -58,7 +58,7 @@ ViewModel
 
 Repository Protocol
   ├── LocalRepository（SwiftData，离线主存储）
-  └── RemoteRepository（CloudKit / LeanCloud，后台同步）
+  └── RemoteRepository（CloudKit / 自建 REST API，后台同步）
 ```
 
 ## 错误处理模式

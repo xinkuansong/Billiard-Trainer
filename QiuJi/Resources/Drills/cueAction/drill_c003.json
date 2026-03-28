@@ -1,0 +1,39 @@
+{
+  "id": "drill_c003",
+  "nameZh": "高杆跟进走位",
+  "nameEn": "Follow Shot Positioning",
+  "category": "cueAction",
+  "subcategory": "follow",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "用高杆将目标球打入上中袋，母球跟进停于台面中上区，训练高杆控制与基本走位意识。",
+  "coachingPoints": [
+    "击球点选在母球中心偏上5–8毫米",
+    "出杆保持向前跟送，不要急收杆",
+    "力度控制：走位球不需要重力，跟进约30–40cm"
+  ],
+  "standardCriteria": "目标球进袋且母球停在上半台",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.15},
+        {"x": 0.5, "y": 0.1}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.1},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 1.0}
+  }
+}

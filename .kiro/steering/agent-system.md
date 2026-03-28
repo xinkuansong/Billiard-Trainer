@@ -67,7 +67,7 @@
 
 ## 6. 人工协作约定
 
-- AI **不假设**证书、App Store Connect、微信开放平台、LeanCloud 控制台操作已完成。
+- AI **不假设**证书、App Store Connect、微信开放平台、腾讯云控制台操作已完成。
 - 以 `tasks/HUMAN-REQUIRED.md` 中的状态（✅ / ⏳）为唯一事实来源。
 - 人工操作完成后，用户自行将状态改为 ✅，然后重启会话，Orchestrator 会自动继续。
 

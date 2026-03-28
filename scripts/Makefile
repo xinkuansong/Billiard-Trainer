@@ -3,15 +3,15 @@
 # Run from project root: cd scripts && make help
 #        or from root:   make -f scripts/Makefile help
 
-SCHEME       ?= BilliardTrainer
+SCHEME       ?= QiuJi
 PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
 DERIVED_DATA := $(BUILD_DIR)/DerivedData
-ARCHIVE_PATH := $(BUILD_DIR)/BilliardTrainer.xcarchive
+ARCHIVE_PATH := $(BUILD_DIR)/QiuJi.xcarchive
 EXPORT_PATH  := $(BUILD_DIR)/export
 SCREENSHOTS  := $(BUILD_DIR)/screenshots
-WORKSPACE    := $(PROJECT_ROOT)/BilliardTrainer.xcworkspace
-XCODEPROJ    := $(PROJECT_ROOT)/BilliardTrainer.xcodeproj
+WORKSPACE    := $(PROJECT_ROOT)/QiuJi.xcworkspace
+XCODEPROJ    := $(PROJECT_ROOT)/QiuJi.xcodeproj
 
 # 优先使用 .xcworkspace（CocoaPods / 微信SDK）；否则用 .xcodeproj
 ifeq ($(wildcard $(WORKSPACE)),)
@@ -56,14 +56,14 @@ build:
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
-	  -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+	  -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
 	  build \
 	  | xcpretty || xcodebuild \
 	    $(PROJECT_FLAG) \
 	    -scheme $(SCHEME) \
 	    -configuration Debug \
 	    -derivedDataPath $(DERIVED_DATA) \
-	    -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+	    -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
 	    build
 	@echo "✅ Debug 构建完成"
 
@@ -79,7 +79,7 @@ test:
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
-	  -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+	  -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
 	  -enableCodeCoverage YES \
 	  test \
 	  | xcpretty --report junit --output $(BUILD_DIR)/test-results.xml || true

@@ -27,7 +27,7 @@
 
 ## [BLOCKING] H-03 — App Store Connect 创建 App 记录
 
-- **状态**：⏳ 待完成
+- **状态**：✅ 已完成
 - **做什么**：
   1. 登录 [App Store Connect](https://appstoreconnect.apple.com)
   2. 点击「我的 App」→「+」→「新建 App」
@@ -42,7 +42,7 @@
 
 ## [BLOCKING] H-04 — IAP 产品在 App Store Connect 创建
 
-- **状态**：⏳ 待完成
+- **状态**：✅ 已完成
 - **做什么**：在 App Store Connect → App → 内购买项目中创建以下 3 个产品：
   | 类型 | 产品 ID | 参考价格 |
   |------|---------|---------|
@@ -72,19 +72,10 @@
 
 ---
 
-## [BLOCKING] H-06 — LeanCloud 账号注册 + 创建应用
+## [BLOCKING] H-06 — ~~LeanCloud 账号注册~~（已取消）
 
-- **状态**：⏳ 待完成
-- **做什么**：
-  1. 注册 [LeanCloud 账号](https://console.leancloud.cn) (国内节点)
-  2. 创建新应用，命名「QiuJi」，选择「华北 · LeanCloud 节点」
-  3. 进入「设置」→「应用凭证」，获取 **App ID** 和 **App Key**
-  4. 开启「短信服务」（用于手机验证码登录）
-  5. 在「内建账号」→「第三方账号」中配置微信（需要 H-05 的 AppSecret）
-- **在哪里**：[https://console.leancloud.cn](https://console.leancloud.cn)
-- **预计时长**：30 分钟
-- **影响任务**：T-P1-07（LeanCloud 初始化）、T-P2-05（数据同步）
-- **完成后**：将 App ID / App Key 填入 `Config/Debug.xcconfig` 对应字段
+- **状态**：✅ 已取消（ADR-001，2026-03-29）
+- **原因**：LeanCloud 停止国内新用户注册；已改用自建 REST API 后端（见 H-14 ~ H-16）
 
 ---
 
@@ -111,7 +102,7 @@
 
 ## [BLOCKING] H-08 — Sign in with Apple 能力开启
 
-- **状态**：⏳ 待完成
+- **状态**：✅ 已完成
 - **做什么**：
   1. Developer Portal → Identifiers → 你的 App ID
   2. 勾选「Sign In with Apple」→ Save
@@ -183,3 +174,51 @@
   3. 在微信开放平台填写 Universal Links 地址
 - **注意**：若暂时没有域名，可先使用 URL Scheme 方式（`wx{AppID}://`）作为临时方案，Universal Links 在 App Store 版本前补充
 - **预计时长**：视域名情况，30 分钟 – 2 小时
+
+---
+
+## [BLOCKING] H-14 — 腾讯云轻量服务器购买与初始化
+
+- **状态**：✅ 已完成（2026-03-29）
+- **做什么**：
+  1. 登录 [腾讯云控制台](https://console.cloud.tencent.com)
+  2. 购买「轻量应用服务器」（推荐：2核2G，香港节点或上海节点，约 ¥50/月）
+  3. 选择镜像：Ubuntu 22.04 LTS（或 Node.js 应用镜像）
+  4. 配置安全组：开放 80、443、22 端口
+  5. 绑定已备案域名（或先用 IP 开发）
+- **在哪里**：[https://console.cloud.tencent.com/lighthouse](https://console.cloud.tencent.com/lighthouse)
+- **预计时长**：30 分钟
+- **完成后**：将服务器 IP / 域名填入 `Config/Debug.xcconfig` 的 `API_BASE_URL` 字段
+- **影响任务**：T-P2-05（后端同步服务）
+
+---
+
+## [BLOCKING] H-15 — 腾讯云短信服务申请
+
+- **状态**：⏳ 待完成（P2 前）
+- **做什么**：
+  1. 腾讯云控制台 → 短信 SMS → 开通服务
+  2. 创建「国内短信」签名（签名内容：球迹）
+  3. 创建验证码模板（内容：「您的验证码为 {1}，5分钟内有效。」）
+  4. 提交审核（通常 2 小时内通过）
+  5. 获取 SDK AppID 和 AppKey
+- **在哪里**：[https://console.cloud.tencent.com/smsv2](https://console.cloud.tencent.com/smsv2)
+- **预计时长**：30 分钟（审核需 2 小时）
+- **完成后**：将 SMS AppID / AppKey / 签名 / 模板 ID 填入后端 `.env` 文件
+- **影响任务**：T-P1-07（手机验证码登录）
+
+---
+
+## [BLOCKING] H-16 — 腾讯云 MongoDB 数据库创建
+
+- **状态**：⏳ 待完成（P2 前）
+- **做什么**：
+  1. 腾讯云控制台 → 云数据库 TencentDB for MongoDB
+  2. 购买「副本集实例」（推荐：1核2G，与服务器同地域，约 ¥50/月）
+  3. 创建数据库用户（设置强密码）
+  4. 配置白名单（允许轻量服务器内网 IP 访问）
+  5. 获取连接字符串（MongoDB URI）
+- **在哪里**：[https://console.cloud.tencent.com/mongodb](https://console.cloud.tencent.com/mongodb)
+- **预计时长**：20 分钟
+- **完成后**：将 MongoDB URI 填入后端 `.env` 文件
+- **影响任务**：T-P2-05（用户数据持久化）
