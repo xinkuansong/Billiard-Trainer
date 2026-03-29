@@ -1,0 +1,120 @@
+import Foundation
+import SwiftData
+
+// MARK: - View Data
+
+struct TodayDrillItem: Identifiable {
+    let id: String
+    let drillId: String
+    let nameZh: String
+    let phaseType: String
+    let phaseZh: String
+    let phaseIcon: String
+    let sets: Int
+    let ballsPerSet: Int
+    let isCompleted: Bool
+}
+
+struct TodaySessionInfo {
+    let planNameZh: String
+    let weekNumber: Int
+    let dayNumber: Int
+    let weekTheme: String
+    let totalMinutes: Int
+    let drills: [TodayDrillItem]
+
+    var completedCount: Int { drills.filter(\.isCompleted).count }
+    var totalCount: Int { drills.count }
+    var progress: Double {
+        totalCount > 0 ? Double(completedCount) / Double(totalCount) : 0
+    }
+    var isAllCompleted: Bool { totalCount > 0 && completedCount == totalCount }
+}
+
+// MARK: - ViewModel
+
+@MainActor
+final class TrainingHomeViewModel: ObservableObject {
+    @Published var isLoading = true
+    @Published var todaySession: TodaySessionInfo?
+    @Published var hasActivePlan = false
+
+    func load(context: ModelContext) async {
+        isLoading = true
+        defer { isLoading = false }
+
+        let descriptor = FetchDescriptor<UserActivePlan>()
+        guard let activePlan = try? context.fetch(descriptor).first else {
+            hasActivePlan = false
+            todaySession = nil
+            return
+        }
+
+        hasActivePlan = true
+
+        let planService = PlanContentService.shared
+        guard let plan = await planService.loadPlanFromBundle(id: activePlan.planId) else {
+            todaySession = nil
+            return
+        }
+
+        let weekIndex = activePlan.currentWeek - 1
+        let dayIndex = activePlan.currentDay - 1
+
+        guard weekIndex >= 0, weekIndex < plan.weeks.count else {
+            todaySession = nil
+            return
+        }
+        let week = plan.weeks[weekIndex]
+
+        guard dayIndex >= 0, dayIndex < week.sessions.count else {
+            todaySession = nil
+            return
+        }
+        let session = week.sessions[dayIndex]
+
+        let completedIds = fetchTodayCompletedDrillIds(context: context)
+        let drillService = DrillContentService.shared
+
+        var items: [TodayDrillItem] = []
+        for phase in session.phases {
+            for ref in phase.drills {
+                let content = await drillService.loadDrillFromBundle(id: ref.drillId)
+                items.append(TodayDrillItem(
+                    id: "\(phase.type)_\(ref.drillId)",
+                    drillId: ref.drillId,
+                    nameZh: content?.nameZh ?? ref.drillId,
+                    phaseType: phase.type,
+                    phaseZh: phase.typeZh,
+                    phaseIcon: phase.icon,
+                    sets: ref.sets,
+                    ballsPerSet: ref.ballsPerSet,
+                    isCompleted: completedIds.contains(ref.drillId)
+                ))
+            }
+        }
+
+        let totalMinutes = session.phases.reduce(0) { $0 + $1.durationMinutes }
+
+        todaySession = TodaySessionInfo(
+            planNameZh: plan.nameZh,
+            weekNumber: activePlan.currentWeek,
+            dayNumber: activePlan.currentDay,
+            weekTheme: week.theme,
+            totalMinutes: totalMinutes,
+            drills: items
+        )
+    }
+
+    private func fetchTodayCompletedDrillIds(context: ModelContext) -> Set<String> {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+
+        let predicate = #Predicate<TrainingSession> { $0.date >= start && $0.date < end }
+        let descriptor = FetchDescriptor<TrainingSession>(predicate: predicate)
+
+        guard let sessions = try? context.fetch(descriptor) else { return [] }
+        return Set(sessions.flatMap(\.drillEntries).map(\.drillId))
+    }
+}

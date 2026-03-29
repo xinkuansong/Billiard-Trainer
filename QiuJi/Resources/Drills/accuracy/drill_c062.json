@@ -1,0 +1,38 @@
+{
+  "id": "drill_c062",
+  "nameZh": "远台中袋直线",
+  "nameEn": "Long Side Pocket Straight",
+  "category": "accuracy",
+  "subcategory": "sidePocketLong",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "从远距离将目标球沿直线打入中袋。中袋口窄加上远距离，对出杆直度和瞄准精度要求极高。这是检验中级水平的经典测试。",
+  "coachingPoints": [
+    "中袋口比角袋窄约2厘米——远台直线的偏差会被放大到无法入袋",
+    "保持球杆完全水平，任何轻微的上下偏差都会改变球路",
+    "出杆速度不要太快——中等偏慢的力度更容易保持方向"
+  ],
+  "standardCriteria": "15球进6球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.8, "y": 0.25},
+      "path": [
+        {"x": 0.52, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.25}
+  }
+}

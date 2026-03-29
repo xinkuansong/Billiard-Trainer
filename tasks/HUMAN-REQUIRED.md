@@ -59,7 +59,7 @@
 
 ## [BLOCKING] H-05 — 微信开放平台申请移动应用资质
 
-- **状态**：⏳ 待完成
+- **状态**：🔜 推迟至 App 主体开发完成后（用户决定，2026-03-29）
 - **做什么**：
   1. 注册/登录 [微信开放平台](https://open.weixin.qq.com)
   2. 创建移动应用（填写 App 名称、简介、图标）
@@ -69,6 +69,7 @@
 - **预计时长**：提交 15 分钟，等待 1–3 个工作日
 - **影响任务**：T-P1-08（微信登录集成需要 AppID）
 - **完成后**：将 AppID 填入 `Config/Debug.xcconfig` 的 `WECHAT_APP_ID` 字段
+- **备注**：已有 Sign in with Apple，微信登录为增强功能，推迟不影响核心开发
 
 ---
 
@@ -79,24 +80,10 @@
 
 ---
 
-## [BLOCKING] H-07 — CloudKit 容器创建 + Schema 初始化
+## [BLOCKING] H-07 — ~~CloudKit 容器创建 + Schema 初始化~~（已取消）
 
-- **状态**：⏳ 待完成
-- **做什么**：
-  1. 登录 [Apple Developer Portal](https://developer.apple.com/account)
-  2. Certificates, Identifiers & Profiles → Identifiers → 选择你的 App ID
-  3. 确认 **iCloud** 能力已开启，勾选「CloudKit」
-  4. 登录 [CloudKit Dashboard](https://icloud.developer.apple.com/dashboard)
-  5. 选择你的 CloudKit 容器
-  6. 在「Schema」中创建 Record Type：
-     - `DrillContent`：字段见 `docs/06-技术架构.md` § 4.2
-     - `OfficialPlan`：字段同上
-  7. 点击「Deploy to Production」（开发测试完成后）
-- **在哪里**：
-  - Developer Portal: [https://developer.apple.com/account](https://developer.apple.com/account)
-  - CloudKit Dashboard: [https://icloud.developer.apple.com/dashboard](https://icloud.developer.apple.com/dashboard)
-- **预计时长**：20 分钟
-- **影响任务**：T-P2-03（CloudKit 内容拉取）
+- **状态**：✅ 已取消（ADR-002，2026-03-29）
+- **原因**：公开 Drill / 官方计划内容改由 **Bundle 离线保底 + 自建 REST API OTA**（如 `GET /drills`）提供；不再使用 CloudKit 公开库，避免双云栈与额外人工配置。
 
 ---
 
@@ -150,6 +137,32 @@
 - **预计时长**：每批约 30–60 分钟
 - **影响任务**：Content Engineer 等待验证通过后再生产下一批
 
+#### Batch 1 ✅ 已验证（2026-03-29）
+- **fundamentals**（5 条）：drill_c006 握杆稳定性、drill_c007 站位对齐、drill_c008 手架练习、drill_c009 直线出杆检验、drill_c010 中杆定杆
+- **accuracy**（5 条）：drill_c001 半台直线球、drill_c002 斜角入底角袋、drill_c011 近台底袋直线、drill_c012 中袋直线入袋、drill_c013 底袋小角度入袋
+- 全部 L0 级别，`isPremium: false`
+- 坐标自检通过 ✅
+- 人工内容核查通过 ✅（2026-03-29）
+
+#### Batch 2 ⏳ 待验证
+- **cueAction**（8 条）：drill_c014 中杆定杆基础（L0）、drill_c015 高杆远台跟进（L1）、drill_c016 斯登角度停球（L1）、drill_c017 低杆远台缩杆（L2）、drill_c018 左塞一库变线（L2）、drill_c019 右塞一库变线（L2）、drill_c020 高杆加塞走位（L2）、drill_c021 低杆加塞回位（L3）
+- **fundamentals**（2 条）：drill_c022 远台直线出杆检验（L1）、drill_c023 五分点瞄准线练习（L1）
+- 级别分布：L0 ×1、L1 ×4、L2 ×4、L3 ×1
+- `isPremium` 分布：free ×6（L0–L1 全免费 + L2 ×1）、paid ×4（L2 ×3 + L3 ×1）
+- 坐标自检通过 ✅
+- 人工内容核查：⏳ 待验证
+
+#### Batch 3–7 ⏳ 待验证（52 条，2026-03-29 一次性生成）
+- **Batch 3** · separation 8 + accuracy 2：drill_c024–c033
+- **Batch 4** · positioning 9 + fundamentals 1：drill_c034–c043
+- **Batch 5** · forceControl 8 + accuracy 2：drill_c044–c053
+- **Batch 6** · specialShots 8 + accuracy 2：drill_c054–c063
+- **Batch 7** · combined 8 + accuracy 1：drill_c064–c072
+- 级别分布：L1 ×11、L2 ×24、L3 ×11、L4 ×1（不含 Batch 2 的 5 条 L1）
+- `isPremium` 分布：free ×15、paid ×37
+- 坐标自检通过 ✅（全部 52 条）
+- 人工内容核查：⏳ 待验证
+
 ---
 
 ### H-12 — App Store 审核问卷填写
@@ -193,9 +206,9 @@
 
 ---
 
-## [BLOCKING] H-15 — 腾讯云短信服务申请
+## H-15 — 腾讯云短信服务申请
 
-- **状态**：⏳ 待完成（P2 前）
+- **状态**：🔜 推迟至 App 主体开发完成后（用户决定，2026-03-29）
 - **做什么**：
   1. 腾讯云控制台 → 短信 SMS → 开通服务
   2. 创建「国内短信」签名（签名内容：球迹）
@@ -206,19 +219,20 @@
 - **预计时长**：30 分钟（审核需 2 小时）
 - **完成后**：将 SMS AppID / AppKey / 签名 / 模板 ID 填入后端 `.env` 文件
 - **影响任务**：T-P1-07（手机验证码登录）
+- **备注**：已有 Sign in with Apple，短信登录为增强功能，推迟不影响核心开发
 
 ---
 
-## [BLOCKING] H-16 — 腾讯云 MongoDB 数据库创建
+## [BLOCKING] H-16 — MongoDB 数据库安装（同机部署）
 
-- **状态**：⏳ 待完成（P2 前）
-- **做什么**：
-  1. 腾讯云控制台 → 云数据库 TencentDB for MongoDB
-  2. 购买「副本集实例」（推荐：1核2G，与服务器同地域，约 ¥50/月）
-  3. 创建数据库用户（设置强密码）
-  4. 配置白名单（允许轻量服务器内网 IP 访问）
-  5. 获取连接字符串（MongoDB URI）
-- **在哪里**：[https://console.cloud.tencent.com/mongodb](https://console.cloud.tencent.com/mongodb)
-- **预计时长**：20 分钟
-- **完成后**：将 MongoDB URI 填入后端 `.env` 文件
-- **影响任务**：T-P2-05（用户数据持久化）
+- **状态**：✅ 已完成（2026-03-29）
+- **方案变更**：取消独立 TencentDB for MongoDB（节省 ¥50/月），改为在已有轻量服务器上同机安装
+- **已完成操作**：
+  1. 在 106.54.3.210（Ubuntu 22.04）上安装 MongoDB 7.0.31（官方 APT 源）
+  2. 创建管理员用户 `qiujiAdmin`（admin 库）
+  3. 创建应用用户 `qiujiApp`（qiuji 库，readWrite 权限）
+  4. 开启 `security.authorization: enabled`
+  5. 仅监听 `127.0.0.1:27017`，不暴露公网
+  6. 设为开机自启（`systemctl enable mongod`）
+- **连接字符串**：`mongodb://qiujiApp:<password>@127.0.0.1:27017/qiuji?authSource=qiuji`
+- **影响任务**：T-P2-05（用户数据持久化）— 阻塞已解除

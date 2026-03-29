@@ -1,0 +1,277 @@
+{
+  "id": "plan_beginner",
+  "nameZh": "新手入门计划",
+  "nameEn": "Beginner Fundamentals",
+  "targetLevel": "L0→L1",
+  "durationWeeks": 8,
+  "sessionsPerWeek": 3,
+  "minutesPerSession": 60,
+  "isPremium": false,
+  "description": "从零开始，建立正确的姿势、握杆、出杆习惯，逐步过渡到基础准度和简单杆法。8 周 24 次训练，每次约 60 分钟。",
+  "weeks": [
+    {
+      "weekNumber": 1,
+      "theme": "姿势与握杆基础",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c007", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c008", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 1, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c006", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c007", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 1, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c008", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c009", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 2,
+      "theme": "出杆稳定性与直线球",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c010", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c009", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c012", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c002", "sets": 1, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c011", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c013", "sets": 1, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 3,
+      "theme": "中杆定杆与中袋直线",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c010", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c012", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c002", "sets": 1, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c010", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c012", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c011", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 4,
+      "theme": "角度入门与底袋小角度",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c002", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c013", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c012", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c013", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c002", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c002", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 5,
+      "theme": "基础杆法引入 — 高杆",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c003", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c003", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c012", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c003", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c010", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 6,
+      "theme": "基础杆法引入 — 低杆",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c004", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c003", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c004", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c013", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c003", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c004", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c012", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 7,
+      "theme": "走位意识入门",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c005", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c003", "sets": 3, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c005", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c004", "sets": 3, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c005", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c003", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c004", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 8,
+      "theme": "综合巩固与检验",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c002", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c005", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c003", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c004", "sets": 3, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 35, "drills": [{"drillId": "drill_c005", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c012", "sets": 3, "ballsPerSet": 15}]},
+            {"type": "combined", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    }
+  ]
+}

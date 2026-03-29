@@ -1,0 +1,39 @@
+{
+  "id": "drill_c065",
+  "nameZh": "Ghost Game 单人练习",
+  "nameEn": "Ghost Game Solo Practice",
+  "category": "combined",
+  "subcategory": "ghostGame",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 4,
+  "isPremium": false,
+  "description": "模拟与「幽灵对手」对战：摆出标准开球阵型，你进攻清台，幽灵永远不失误。如果你一次进攻中未能清台，幽灵就赢一局。记录胜负比。",
+  "coachingPoints": [
+    "Ghost Game 是最接近实战的单人训练方式——压力感真实",
+    "目标是连续清台：任何一次失误或犯规都算幽灵赢一局",
+    "记录每次对战成绩（如3-7幽灵胜），追踪清台率的进步"
+  ],
+  "standardCriteria": "10局Ghost Game中赢3局以上",
+  "sets": {
+    "defaultSets": 10,
+    "defaultBallsPerSet": 7
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.25, "y": 0.25},
+      "path": [
+        {"x": 0.18, "y": 0.12},
+        {"x": 0.5, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.15, "y": 0.1},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.15, "y": 0.1}
+  }
+}

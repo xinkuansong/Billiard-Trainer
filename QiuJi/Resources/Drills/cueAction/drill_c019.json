@@ -1,0 +1,40 @@
+{
+  "id": "drill_c019",
+  "nameZh": "右塞一库变线",
+  "nameEn": "Right Spin One-Cushion",
+  "category": "cueAction",
+  "subcategory": "sideSpin",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "在角度球中加右塞击球，目标球入左下角袋后，母球碰底库反弹时因右旋而改变反弹角度，走位至台面右侧。与左塞形成镜像对比训练。",
+  "coachingPoints": [
+    "击球点选在母球中心偏右3–4毫米，同时略偏下",
+    "右塞使母球碰库后反弹角变小（更贴近库边），走位方向相应改变",
+    "与左塞训练交替进行，对比两侧加塞效果差异"
+  ],
+  "standardCriteria": "10球中5球进袋且母球碰库后走到右半台",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.2},
+      "path": [
+        {"x": 0.27, "y": 0.34},
+        {"x": 0.35, "y": 0.49},
+        {"x": 0.7, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.25, "y": 0.35},
+      "path": [
+        {"x": -0.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomLeft",
+    "cueDirection": {"x": 0.25, "y": 0.35}
+  }
+}

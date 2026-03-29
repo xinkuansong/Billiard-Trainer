@@ -1,0 +1,38 @@
+{
+  "id": "drill_c009",
+  "nameZh": "直线出杆检验",
+  "nameEn": "Straight Stroke Check",
+  "category": "fundamentals",
+  "subcategory": "stroke",
+  "ballType": ["universal"],
+  "level": "L0",
+  "difficulty": 1,
+  "isPremium": false,
+  "description": "检验出杆是否走直线。将母球和目标球沿台面纵向中线排列，击球后观察目标球是否直线入袋、母球是否偏移。",
+  "coachingPoints": [
+    "后摆慢、前送快，加速点在母球位置",
+    "出杆后球杆继续沿直线跟送10-15厘米",
+    "如果目标球不进，先检查出杆方向再调整瞄准"
+  ],
+  "standardCriteria": "15球进12球，母球纵向偏移不超过半个球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.42},
+      "path": [
+        {"x": 0.5, "y": 0.22}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.2},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.2}
+  }
+}

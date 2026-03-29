@@ -1,0 +1,39 @@
+{
+  "id": "drill_c048",
+  "nameZh": "强力低杆回拉",
+  "nameEn": "Power Draw Return",
+  "category": "forceControl",
+  "subcategory": "powerDraw",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "用大力低杆将目标球打入袋口，母球强力回拉至少半台距离。训练大力低杆的穿透发力——这是最考验基本功的击球方式。",
+  "coachingPoints": [
+    "大力低杆的关键是穿透力而非蛮力——球杆要快速穿过母球位置",
+    "击球点选在母球最底部（离中心约12毫米），杆尖要足够低",
+    "出杆后球杆保持向前延伸，不要急收——穿透距离决定回拉力度"
+  ],
+  "standardCriteria": "10球中4球进袋且母球回拉超过半台",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.5, "y": 0.38},
+        {"x": 0.5, "y": 0.08}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.4},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.4}
+  }
+}

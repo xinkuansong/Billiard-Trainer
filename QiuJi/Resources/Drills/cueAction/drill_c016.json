@@ -1,0 +1,39 @@
+{
+  "id": "drill_c016",
+  "nameZh": "斯登角度停球",
+  "nameEn": "Stun Shot at Angle",
+  "category": "cueAction",
+  "subcategory": "stun",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "用斯登杆法击打角度球，让母球沿90度分离角滑行至预定区域。这是走位控制的核心技术——理解分离角从斯登开始。",
+  "coachingPoints": [
+    "击球点在母球中心或略偏下，确保纯滑行状态",
+    "斯登的关键是消除母球自转——接触目标球时母球处于滑动状态",
+    "角度球斯登后母球走向与瞄准线成90度，需提前判断方向"
+  ],
+  "standardCriteria": "10球中6球进袋且母球滑向90度方向区域",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.78, "y": 0.12},
+        {"x": 0.9, "y": 0.28}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.8, "y": 0.1},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.8, "y": 0.1}
+  }
+}

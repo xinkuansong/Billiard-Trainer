@@ -1,0 +1,38 @@
+{
+  "id": "drill_c014",
+  "nameZh": "中杆定杆基础",
+  "nameEn": "Stun Shot Basics",
+  "category": "cueAction",
+  "subcategory": "stun",
+  "ballType": ["universal"],
+  "level": "L0",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "直线球中杆击打，母球在接触目标球后原地停住。这是所有杆法的基础——只有掌握定杆，才能理解高杆和低杆的发力区别。",
+  "coachingPoints": [
+    "击球点选在母球正中心，不偏高不偏低",
+    "出杆保持水平，击球后球杆沿出杆方向自然延伸",
+    "力度适中，不需要太大力，关键是击球点精准"
+  ],
+  "standardCriteria": "10球中8球目标球进袋且母球停在原目标球位置附近",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.15},
+      "path": [
+        {"x": 0.5, "y": 0.33}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.35}
+  }
+}

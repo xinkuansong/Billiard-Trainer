@@ -35,7 +35,7 @@ BilliardTrainer/
 ├── Data/
 │   ├── Models/             # SwiftData @Model
 │   ├── Repositories/       # 本地 CRUD 抽象
-│   └── Services/           # CloudKit / REST API 网络层
+│   └── Services/           # REST API、Drill 内容服务
 └── Resources/
     └── Drills/             # Bundle 内 fallback JSON
 ```
@@ -46,7 +46,7 @@ BilliardTrainer/
 View → ViewModel (@Observable / ObservableObject)
 ViewModel → Repository Protocol
 Repository Protocol ← LocalRepository (SwiftData)
-                    ← RemoteRepository (CloudKit / 自建 REST API)
+                    ← RemoteRepository (自建 REST API)
 ```
 
 - ViewModel 命名：`<Feature>ViewModel`（如 `DrillListViewModel`）。
@@ -68,7 +68,7 @@ Repository Protocol ← LocalRepository (SwiftData)
 ## 边界约束
 
 - **禁止**在 View 中直接调用 `ModelContext`；统一通过 ViewModel → Repository。
-- **禁止**在主线程执行 CloudKit / REST API 网络请求。
+- **禁止**在主线程执行 REST API 网络请求。
 - **新增 SPM 依赖前**：在 `tasks/dependencies.md` 评估后再引入。
 
 ---

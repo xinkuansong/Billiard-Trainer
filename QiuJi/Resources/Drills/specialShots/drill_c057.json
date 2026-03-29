@@ -1,0 +1,39 @@
+{
+  "id": "drill_c057",
+  "nameZh": "K球吃库",
+  "nameEn": "Kick Shot with Cushion",
+  "category": "specialShots",
+  "subcategory": "kickShot",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "母球先碰库边再击中目标球入袋。这是被做斯诺克（被困）后的标准解法——用库边反弹绕过障碍击打目标球。",
+  "coachingPoints": [
+    "K球吃库的路线计算：找库边上的反弹点，使反弹方向对准目标球",
+    "加塞可以改变库边反弹角度——左塞使反弹角变小，右塞变大",
+    "K球的第一目标是碰到目标球（避免犯规），进袋是加分项"
+  ],
+  "standardCriteria": "10球中6球碰到目标球，其中2球入袋",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.35},
+      "path": [
+        {"x": 0.02, "y": 0.2},
+        {"x": 0.2, "y": 0.08}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.22, "y": 0.07},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.02, "y": 0.2}
+  }
+}

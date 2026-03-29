@@ -1,0 +1,38 @@
+{
+  "id": "drill_c056",
+  "nameZh": "K球不吃库",
+  "nameEn": "Kick Shot Without Cushion",
+  "category": "specialShots",
+  "subcategory": "kickShot",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "当母球与目标球之间有障碍球时，绕过障碍直接击打目标球入袋（不经过库边）。训练绕障判断与曲线球路的基本概念。",
+  "coachingPoints": [
+    "不吃库的K球需要判断能否绕过障碍——有时稍微偏移母球位置就能找到进路",
+    "如果障碍只挡住一半，可以用薄球绕过——切球角度需要足够大",
+    "当无法绕过时，应果断选择吃库K球或防守"
+  ],
+  "standardCriteria": "10球中4球绕障成功入袋",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.3},
+      "path": [
+        {"x": 0.72, "y": 0.13}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.1},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.75, "y": 0.1}
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "drill_c022",
+  "nameZh": "远台直线出杆检验",
+  "nameEn": "Long Straight Stroke Test",
+  "category": "fundamentals",
+  "subcategory": "stroke",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "将母球放在近底库位置，目标球放在近上中袋位置，全台长距离直线击球入上中袋。距离越远越能暴露出杆偏差，是检验出杆直度的经典方法。",
+  "coachingPoints": [
+    "远台直线球偏差会被放大——确保视线、球杆、目标三点一线",
+    "出杆速度适中，远台不要追求大力，稳定出杆比力度更重要",
+    "如反复偏向一侧，检查握杆手腕和站位是否有习惯性偏转"
+  ],
+  "standardCriteria": "15球进8球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.42},
+      "path": [
+        {"x": 0.5, "y": 0.08}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.07},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.07}
+  }
+}

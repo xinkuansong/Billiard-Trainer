@@ -229,7 +229,7 @@ enum KeychainService {
 | 库 | 用途 |
 |----|------|
 | `SwiftData` | 本地持久化 |
-| `CloudKit` | 公开内容热更新 |
+| `Foundation`（`URLSession`） | 自建 REST API（用户同步 + Drill/计划 OTA，ADR-002） |
 | `StoreKit` | IAP 订阅 |
 | `AuthenticationServices` | Sign in with Apple |
 | `Charts`（Swift Charts） | 统计图表 |

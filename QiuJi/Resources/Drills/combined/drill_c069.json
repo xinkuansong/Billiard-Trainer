@@ -1,0 +1,39 @@
+{
+  "id": "drill_c069",
+  "nameZh": "中级蛇彩",
+  "nameEn": "Intermediate Snake Drill",
+  "category": "combined",
+  "subcategory": "snakeDrill",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "7颗球沿台面中线排列的蛇彩训练。从一端开始，交替打入两侧角袋，母球蛇形走位穿越整个台面。这是走位综合能力的标志性测试。",
+  "coachingPoints": [
+    "蛇彩关键：每一杆走位要到对面角袋方向，角度不能太直也不能太薄",
+    "理想走位角度约30-45度——这个范围走位选择最多",
+    "节奏控制：蛇彩不需要大力，中等力度稳定走位是王道"
+  ],
+  "standardCriteria": "7球蛇彩连续完成5颗以上",
+  "sets": {
+    "defaultSets": 5,
+    "defaultBallsPerSet": 7
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.35, "y": 0.42},
+      "path": [
+        {"x": 0.18, "y": 0.43},
+        {"x": 0.55, "y": 0.15}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.15, "y": 0.43},
+      "path": [
+        {"x": -0.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomLeft",
+    "cueDirection": {"x": 0.15, "y": 0.43}
+  }
+}

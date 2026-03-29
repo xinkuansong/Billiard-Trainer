@@ -1,4 +1,11 @@
 {
-  "version": 1,
-  "plans": []
+  "version": 2,
+  "plans": [
+    {"id": "plan_beginner", "nameZh": "新手入门计划", "targetLevel": "L0→L1", "isPremium": false},
+    {"id": "plan_cueball", "nameZh": "基础杆法专项", "targetLevel": "L1", "isPremium": false},
+    {"id": "plan_positioning", "nameZh": "走位突破计划", "targetLevel": "L1→L2", "isPremium": true},
+    {"id": "plan_intermediate", "nameZh": "中级综合突破", "targetLevel": "L2", "isPremium": true},
+    {"id": "plan_advanced", "nameZh": "高级专项：加塞与多库", "targetLevel": "L3", "isPremium": true},
+    {"id": "plan_fullskill", "nameZh": "全能综合训练", "targetLevel": "L3→L4", "isPremium": true}
+  ]
 }

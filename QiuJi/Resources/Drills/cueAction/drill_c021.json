@@ -1,0 +1,40 @@
+{
+  "id": "drill_c021",
+  "nameZh": "低杆加塞回位",
+  "nameEn": "Draw with Side Spin Return",
+  "category": "cueAction",
+  "subcategory": "drawSpin",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "使用低杆配合右塞将目标球打入左上角袋，母球回拉后借助右旋碰库走位到台面中心。训练高难度组合杆法的精准控制。",
+  "coachingPoints": [
+    "击球点在母球右下方——同时给出低杆和右塞",
+    "缩杆需要足够的穿透力，同时保持加塞精度不走形",
+    "这是高阶组合杆法——母球轨迹复杂，需反复练习找规律"
+  ],
+  "standardCriteria": "10球中3球进袋且母球走位到台面中心区域",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.3},
+      "path": [
+        {"x": 0.22, "y": 0.12},
+        {"x": 0.35, "y": 0.2},
+        {"x": 0.5, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.2, "y": 0.1},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.2, "y": 0.1}
+  }
+}

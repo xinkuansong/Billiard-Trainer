@@ -1,0 +1,38 @@
+{
+  "id": "drill_c013",
+  "nameZh": "底袋小角度入袋",
+  "nameEn": "Small-Angle Corner Pocket Shot",
+  "category": "accuracy",
+  "subcategory": "angle",
+  "ballType": ["chinese8"],
+  "level": "L0",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "目标球与袋口形成约30度小角度，从侧面切入底角袋。训练基础角度判断和薄厚球感觉。",
+  "coachingPoints": [
+    "找到目标球上的接触点：想象一条从袋口经过目标球球心的延长线",
+    "母球应瞄向接触点而非目标球中心",
+    "出杆方向保持一致，不要在最后一刻修正"
+  ],
+  "standardCriteria": "15球进8球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.58, "y": 0.24},
+      "path": [
+        {"x": 0.7, "y": 0.43}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.35},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.75, "y": 0.35}
+  }
+}

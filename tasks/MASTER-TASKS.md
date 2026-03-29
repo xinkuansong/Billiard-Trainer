@@ -47,7 +47,7 @@
 |---------|--------|------|---------|------|
 | T-P2-01 | SwiftData Schema（所有实体 + ModelContainer） | Data Eng | — | ⏳ |
 | T-P2-02 | LocalRepository 实现（TrainingSession CRUD） | Data Eng | — | ⏳ |
-| T-P2-03 | CloudKit 公开库内容拉取（DrillContent） | Data Eng | H-07 | ⏳ |
+| T-P2-03 | ~~CloudKit 公开库~~ Drill 内容 OTA（并入自建 API；ADR-002 取消独立任务） | Data Eng | — | ✅ 已取消 |
 | T-P2-04 | Bundle fallback JSON 结构（drills_index.json） | Content Eng | — | ⏳ |
 | T-P2-05 | 后端用户数据同步（REST API 上传/增量拉取） | Data Eng | H-14, H-16 | ⏳ |
 | T-P2-06 | 匿名用户本地模式 + 登录后迁移 | Data Eng | — | ⏳ |

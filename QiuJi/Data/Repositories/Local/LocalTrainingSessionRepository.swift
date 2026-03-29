@@ -13,6 +13,7 @@ final class LocalTrainingSessionRepository: TrainingSessionRepositoryProtocol {
         let session = TrainingSession(ballType: ballType)
         context.insert(session)
         try context.save()
+        SyncQueueManager.shared.enqueue(entityType: "TrainingSession", entityId: session.id, operation: "create")
         return session
     }
 
@@ -36,6 +37,7 @@ final class LocalTrainingSessionRepository: TrainingSessionRepositoryProtocol {
 
     func update(_ session: TrainingSession) async throws {
         try context.save()
+        SyncQueueManager.shared.enqueue(entityType: "TrainingSession", entityId: session.id, operation: "update")
     }
 
     func delete(_ session: TrainingSession) async throws {

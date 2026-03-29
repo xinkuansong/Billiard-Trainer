@@ -1,0 +1,39 @@
+{
+  "id": "drill_c064",
+  "nameZh": "三球连打",
+  "nameEn": "Three-Ball Run-Out",
+  "category": "combined",
+  "subcategory": "runOut",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "在台面上摆放3颗目标球，规划路线后依次连续进袋。三球连打是走位与准度的综合检验——需要提前规划两步走位。",
+  "coachingPoints": [
+    "开始击球前先观察全局：确定进球顺序和每一杆的走位目标",
+    "倒推法：从最后一颗球开始规划，确定第二颗球的理想击球位置",
+    "保持节奏：不要因为前两颗容易就急躁，每一杆都认真瞄准"
+  ],
+  "standardCriteria": "10组中5组三球全部连续进袋",
+  "sets": {
+    "defaultSets": 5,
+    "defaultBallsPerSet": 3
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.78, "y": 0.42},
+        {"x": 0.6, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.8, "y": 0.43},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.8, "y": 0.43}
+  }
+}

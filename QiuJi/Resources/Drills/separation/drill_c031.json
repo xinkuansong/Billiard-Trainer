@@ -1,0 +1,39 @@
+{
+  "id": "drill_c031",
+  "nameZh": "分离角综合挑战",
+  "nameEn": "Separation Angle Master Challenge",
+  "category": "separation",
+  "subcategory": "advanced",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "在各种角度与距离下，使用不同杆法精确控制分离角，将母球走到台面指定区域。包括薄厚球交替、远近台交替的综合练习。",
+  "coachingPoints": [
+    "每次击球前在脑中画出三条线：瞄准线、目标球路径、母球分离方向",
+    "远台分离角受台面摩擦力影响更大——母球滚动距离需额外计算",
+    "综合挑战的关键是快速判断：一秒内确定杆法选择"
+  ],
+  "standardCriteria": "10球中4球进袋且母球停在20厘米目标区内",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.6, "y": 0.35},
+      "path": [
+        {"x": 0.28, "y": 0.12},
+        {"x": 0.5, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.25, "y": 0.1},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.25, "y": 0.1}
+  }
+}

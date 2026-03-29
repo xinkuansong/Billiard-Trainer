@@ -36,7 +36,7 @@
 // 使用 os_log，不收集用户标识，不上传
 import OSLog
 private let logger = Logger(subsystem: "com.yourname.billiardtrainer", category: "DataSync")
-logger.info("CloudKit fetch completed: \(drillCount) drills")
+logger.info("Drill content refresh completed: \(drillCount) drills")
 ```
 
 - Category 规范：`Auth` / `DataSync` / `AngleTraining` / `Subscription` / `UI`

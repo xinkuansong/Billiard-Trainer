@@ -1,0 +1,40 @@
+{
+  "id": "drill_c020",
+  "nameZh": "高杆加塞走位",
+  "nameEn": "Follow with Side Spin Position",
+  "category": "cueAction",
+  "subcategory": "followSpin",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "在角度球中使用高杆配合左塞，目标球入右下角袋后母球跟进碰底库，借助旋转走位到左侧上半台。训练杆法组合的走位精度。",
+  "coachingPoints": [
+    "击球点在母球左上方——同时给出高杆（向上偏移）和左塞（向左偏移）",
+    "跟送要充分，高杆与加塞需要同时传递给母球",
+    "这是组合杆法入门——先分别练好高杆和左塞，再尝试合并"
+  ],
+  "standardCriteria": "10球中4球进袋且母球走位到左侧上半台目标区域",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.2},
+      "path": [
+        {"x": 0.73, "y": 0.35},
+        {"x": 0.7, "y": 0.48},
+        {"x": 0.3, "y": 0.15}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.36},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.75, "y": 0.36}
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "drill_c015",
+  "nameZh": "高杆远台跟进",
+  "nameEn": "Long Follow Shot",
+  "category": "cueAction",
+  "subcategory": "follow",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "从远台距离用高杆跟进将目标球打入上中袋，母球跟随目标球方向继续前行。训练远距离高杆的发力穿透与跟送。",
+  "coachingPoints": [
+    "击球点选在母球中心偏上8–10毫米处",
+    "出杆跟送距离要长，至少15–20厘米",
+    "远台高杆需要更大的跟送力度，但仍要保持出杆方向一致"
+  ],
+  "standardCriteria": "10球中6球进袋且母球跟进至上半台",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.38},
+      "path": [
+        {"x": 0.5, "y": 0.14},
+        {"x": 0.5, "y": 0.06}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.12},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.12}
+  }
+}

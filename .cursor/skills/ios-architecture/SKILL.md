@@ -36,9 +36,9 @@ QiuJi/
 │   ├── Repositories/
 │   │   ├── Protocols/              # DrillRepositoryProtocol 等
 │   │   ├── Local/                  # LocalDrillRepository
-│   │   └── Remote/                 # CloudKitDrillRepository, BackendUserRepository
+│   │   └── Remote/                 # DrillContentRemoteRepository (optional), BackendUserRepository
 │   └── Services/
-│       ├── CloudKitService.swift
+│       ├── DrillContentService.swift
 │       ├── BackendSyncService.swift
 │       └── AuthService.swift
 └── Resources/
@@ -58,7 +58,7 @@ ViewModel
 
 Repository Protocol
   ├── LocalRepository（SwiftData，离线主存储）
-  └── RemoteRepository（CloudKit / 自建 REST API，后台同步）
+  └── RemoteRepository（自建 REST API：用户同步 + 内容 OTA，后台执行）
 ```
 
 ## 错误处理模式

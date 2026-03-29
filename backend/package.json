@@ -1,0 +1,22 @@
+{
+  "name": "qiuji-backend",
+  "version": "1.0.0",
+  "description": "球迹 REST API — 用户认证、训练数据同步、Drill 内容 OTA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed:drills": "node src/scripts/seedDrills.js"
+  },
+  "dependencies": {
+    "apple-signin-auth": "^2.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

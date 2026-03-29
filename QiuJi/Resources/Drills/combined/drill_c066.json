@@ -1,0 +1,38 @@
+{
+  "id": "drill_c066",
+  "nameZh": "开球训练（中式台球）",
+  "nameEn": "Break Shot Chinese 8-Ball",
+  "category": "combined",
+  "subcategory": "breakShot",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "练习中式台球的标准开球：三角形摆球，母球从发球区击出，目标是打散球堆并至少进一颗球。好的开球是赢球的第一步。",
+  "coachingPoints": [
+    "开球母球放在发球区中心偏侧——击打球堆前排角球效果最好",
+    "开球发力要大但方向要准——打不中第一排球会完全失去控制",
+    "开球后观察球形分布，快速判断进攻策略（打全色还是花色）"
+  ],
+  "standardCriteria": "10次开球中6次至少进一颗球",
+  "sets": {
+    "defaultSets": 10,
+    "defaultBallsPerSet": 1
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.25, "y": 0.25},
+      "path": [
+        {"x": 0.75, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.25},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.75, "y": 0.25}
+  }
+}

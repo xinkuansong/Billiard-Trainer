@@ -1,0 +1,39 @@
+{
+  "id": "drill_c042",
+  "nameZh": "初级蛇彩走位",
+  "nameEn": "Basic Snake Drill",
+  "category": "positioning",
+  "subcategory": "snakeDrill",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "蛇彩是经典的走位综合训练。沿台面中线依次摆放3–5颗球，从一端开始连续进袋，母球蛇形走位交替打入两侧角袋。",
+  "coachingPoints": [
+    "蛇彩核心是角度管理——每次走位要为下一颗球创造合适的角度",
+    "避免走到直线球位置，有角度才有走位空间",
+    "力度控制优先于杆法花样——稳定的中等力度是蛇彩基础"
+  ],
+  "standardCriteria": "5球蛇彩连续完成3颗以上",
+  "sets": {
+    "defaultSets": 5,
+    "defaultBallsPerSet": 5
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.4},
+      "path": [
+        {"x": 0.18, "y": 0.43},
+        {"x": 0.5, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.15, "y": 0.43},
+      "path": [
+        {"x": -0.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomLeft",
+    "cueDirection": {"x": 0.15, "y": 0.43}
+  }
+}

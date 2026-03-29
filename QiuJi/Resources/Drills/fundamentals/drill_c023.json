@@ -1,0 +1,38 @@
+{
+  "id": "drill_c023",
+  "nameZh": "五分点瞄准线练习",
+  "nameEn": "Five-Point Aim Line Drill",
+  "category": "fundamentals",
+  "subcategory": "aim",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "将目标球放在五分点位置（台面长边1/5处），母球置于台面中心，练习不同角度的瞄准与入袋。五分点是标准考级常用点位，能系统训练角度感知。",
+  "coachingPoints": [
+    "先确认瞄准线：从袋口中心穿过目标球中心延伸到母球",
+    "角度球瞄准的关键是找到目标球上的接触点（厚薄度）",
+    "每次击球前养成检查瞄准线的习惯，逐步建立角度肌肉记忆"
+  ],
+  "standardCriteria": "15球进8球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.87, "y": 0.43}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.88, "y": 0.43},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.88, "y": 0.43}
+  }
+}

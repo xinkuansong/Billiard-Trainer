@@ -1,0 +1,39 @@
+{
+  "id": "drill_c061",
+  "nameZh": "解球（逆境球）",
+  "nameEn": "Escape Shot from Snooker",
+  "category": "specialShots",
+  "subcategory": "escape",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "被对手做斯诺克后的解球训练。利用库边反弹找到目标球，避免犯规。解球能力直接体现一个球手处理逆境的水平。",
+  "coachingPoints": [
+    "解球第一目标是碰到合法目标球——避免犯规比进攻更重要",
+    "优先选择路线最短的库边反弹——每多碰一个库误差累积越大",
+    "加塞可以改变反弹角度，扩大解球选择——但也增加失误风险"
+  ],
+  "standardCriteria": "10次解球中7次碰到目标球（不犯规）",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.8, "y": 0.4},
+      "path": [
+        {"x": 0.98, "y": 0.35},
+        {"x": 0.7, "y": 0.1}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.65, "y": 0.08},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.98, "y": 0.35}
+  }
+}

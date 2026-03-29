@@ -1,0 +1,40 @@
+{
+  "id": "drill_c036",
+  "nameZh": "低杆一库走位",
+  "nameEn": "Draw One-Cushion Position",
+  "category": "positioning",
+  "subcategory": "oneCushion",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "用低杆将目标球打入角袋，母球回退碰库后走位到指定区域。低杆碰库是走位体系中最常用的技术之一。",
+  "coachingPoints": [
+    "低杆回退后碰库，母球带有回旋使反弹角度更大（更远离库边）",
+    "回退距离取决于低杆穿透力度——先在直线球上找回退感觉",
+    "低杆碰库走位路线比高杆更可预测，是实战中的首选走位方式"
+  ],
+  "standardCriteria": "10球中5球进袋且母球回退碰库走到目标区",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.5, "y": 0.38},
+        {"x": 0.5, "y": 0.49},
+        {"x": 0.5, "y": 0.3}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.4},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.4}
+  }
+}

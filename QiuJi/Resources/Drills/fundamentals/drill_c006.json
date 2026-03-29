@@ -1,0 +1,38 @@
+{
+  "id": "drill_c006",
+  "nameZh": "握杆稳定性练习",
+  "nameEn": "Grip Stability Drill",
+  "category": "fundamentals",
+  "subcategory": "grip",
+  "ballType": ["universal"],
+  "level": "L0",
+  "difficulty": 1,
+  "isPremium": false,
+  "description": "通过反复直线球检查握杆稳定性。要求每次击球后检查握杆位置是否偏移，手腕有无不自然翻转。",
+  "coachingPoints": [
+    "握杆手指自然弯曲，虎口轻贴球杆",
+    "手腕保持自然下垂，不要内扣或外翻",
+    "每次出杆后检查握杆位置是否改变"
+  ],
+  "standardCriteria": "15球进10球，且握杆位置无偏移",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.12},
+      "path": [
+        {"x": 0.5, "y": 0.36}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.38},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.38}
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "drill_c028",
+  "nameZh": "低杆扩大分离角",
+  "nameEn": "Draw Increases Separation Angle",
+  "category": "separation",
+  "subcategory": "drawSeparation",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "在角度球中使用低杆，让母球分离角大于90度——母球向后退或大幅偏转。对比高杆和斯登，系统理解三种杆法对分离角的影响。",
+  "coachingPoints": [
+    "低杆使母球带有回旋，接触目标球后向反方向运动",
+    "低杆力度越大，分离角越大——极端情况母球几乎原路返回",
+    "角度球用低杆时，回退方向与瞄准线反向，需提前规划"
+  ],
+  "standardCriteria": "10球中5球进袋且母球分离角明显大于90度",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.4, "y": 0.3},
+      "path": [
+        {"x": 0.73, "y": 0.14},
+        {"x": 0.55, "y": 0.35}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.13},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.75, "y": 0.13}
+  }
+}

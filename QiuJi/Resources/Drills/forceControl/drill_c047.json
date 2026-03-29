@@ -1,0 +1,39 @@
+{
+  "id": "drill_c047",
+  "nameZh": "强力高杆穿越",
+  "nameEn": "Power Follow Through",
+  "category": "forceControl",
+  "subcategory": "powerFollow",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "用大力高杆将目标球打入远台角袋，母球跟进穿越大半个台面。训练大力击球时的方向控制——力度越大越容易偏离。",
+  "coachingPoints": [
+    "大力击球时身体不能移动——肩膀、头部保持静止，只有小臂运动",
+    "大力高杆的跟送距离要更长——球杆几乎要碰到台面",
+    "先确保方向准确再逐步加力，不要一开始就用全力"
+  ],
+  "standardCriteria": "10球中5球进袋且母球跟进超过半台",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.4},
+      "path": [
+        {"x": 0.5, "y": 0.12},
+        {"x": 0.5, "y": 0.05}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.1},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.1}
+  }
+}

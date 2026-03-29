@@ -1,0 +1,38 @@
+{
+  "id": "drill_c052",
+  "nameZh": "三分点角度入袋",
+  "nameEn": "Three-Point Angle Pocketing",
+  "category": "accuracy",
+  "subcategory": "threePoint",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "将目标球放在三分点位置（台面长边1/3处），从中台距离练习较大角度的入袋。三分点角度比五分点更大，是准度进阶的关键。",
+  "coachingPoints": [
+    "三分点角度约40–50度，需要更精准的厚薄度判断",
+    "大角度球容易瞄偏——建议用假想球法：在袋口到目标球延长线上放假想球",
+    "出杆速度适中偏慢，大角度球越快越容易偏"
+  ],
+  "standardCriteria": "15球进7球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.82, "y": 0.13}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.85, "y": 0.1},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.85, "y": 0.1}
+  }
+}

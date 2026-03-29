@@ -1,0 +1,39 @@
+{
+  "id": "drill_c067",
+  "nameZh": "9球标准清台",
+  "nameEn": "Nine-Ball Standard Clear-Out",
+  "category": "combined",
+  "subcategory": "nineBallClear",
+  "ballType": ["nineBall"],
+  "level": "L2",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "按1到9号顺序连续清台。9球的核心挑战是按数字顺序进攻，每一杆走位必须到下一号球，对走位精度要求极高。",
+  "coachingPoints": [
+    "9球走位的核心：每次击球后母球必须走到下一号球的好位置",
+    "提前观察3-4颗球的路线——9球不允许跳过编号",
+    "遇到困难球位时果断防守，不要硬攻——犯规让对手自由球更亏"
+  ],
+  "standardCriteria": "10组中3组完成1-9号全清",
+  "sets": {
+    "defaultSets": 10,
+    "defaultBallsPerSet": 9
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.35, "y": 0.3},
+      "path": [
+        {"x": 0.18, "y": 0.42},
+        {"x": 0.4, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.15, "y": 0.43},
+      "path": [
+        {"x": -0.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomLeft",
+    "cueDirection": {"x": 0.15, "y": 0.43}
+  }
+}

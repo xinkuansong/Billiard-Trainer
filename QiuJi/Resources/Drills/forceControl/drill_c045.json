@@ -1,0 +1,39 @@
+{
+  "id": "drill_c045",
+  "nameZh": "三档力度控制",
+  "nameEn": "Three-Level Force Control",
+  "category": "forceControl",
+  "subcategory": "levels",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "同一球位分别用轻、中、重三档力度击球，感受力度对母球走位距离的影响。建立力度与距离的对应关系是控力的基础。",
+  "coachingPoints": [
+    "轻力：母球移动约10–20厘米；中力：30–50厘米；重力：60厘米以上",
+    "三档力度的关键区别在于小臂摆幅和出杆速度，不是手腕或大臂",
+    "每档力度反复练习直到稳定可控——力度控制比杆法更影响走位"
+  ],
+  "standardCriteria": "三档力度各5球，母球分别停在3个目标区",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.15},
+      "path": [
+        {"x": 0.5, "y": 0.33},
+        {"x": 0.5, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.35}
+  }
+}

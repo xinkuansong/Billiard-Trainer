@@ -1,0 +1,38 @@
+{
+  "id": "drill_c010",
+  "nameZh": "中杆定杆基础",
+  "nameEn": "Center Ball Stop Shot",
+  "category": "fundamentals",
+  "subcategory": "stopShot",
+  "ballType": ["universal"],
+  "level": "L0",
+  "difficulty": 1,
+  "isPremium": false,
+  "description": "用中杆击打母球赤道正中，使母球在碰到目标球后完全停住。这是杆法训练的基础，用于检验击球点是否精准。",
+  "coachingPoints": [
+    "击球点严格在母球赤道正中",
+    "出杆力度适中，不宜过重",
+    "击球后母球若前进说明击点偏高，后退则偏低"
+  ],
+  "standardCriteria": "15球中10次母球停在原地（不超过半个球位移）",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.15},
+      "path": [
+        {"x": 0.5, "y": 0.35}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.35}
+  }
+}

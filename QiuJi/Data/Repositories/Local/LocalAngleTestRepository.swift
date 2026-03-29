@@ -12,6 +12,7 @@ final class LocalAngleTestRepository: AngleTestRepositoryProtocol {
     func save(_ result: AngleTestResult) async throws {
         context.insert(result)
         try context.save()
+        SyncQueueManager.shared.enqueue(entityType: "AngleTestResult", entityId: result.id, operation: "create")
     }
 
     func fetchAll() async throws -> [AngleTestResult] {

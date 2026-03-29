@@ -1,0 +1,38 @@
+{
+  "id": "drill_c007",
+  "nameZh": "站位与身体对齐",
+  "nameEn": "Stance Alignment Drill",
+  "category": "fundamentals",
+  "subcategory": "stance",
+  "ballType": ["universal"],
+  "level": "L0",
+  "difficulty": 1,
+  "isPremium": false,
+  "description": "练习标准击球站位。脚步、重心、下巴、球杆应在同一条瞄准线上。通过反复直线球验证站位是否端正。",
+  "coachingPoints": [
+    "前脚尖指向击球方向，后脚自然外展约45度",
+    "俯身后下巴贴近球杆，保持视线沿杆延伸",
+    "重心略偏前脚，身体保持稳定不晃动"
+  ],
+  "standardCriteria": "15球进10球，站位稳定无晃动",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.38},
+      "path": [
+        {"x": 0.5, "y": 0.14}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.12},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.12}
+  }
+}

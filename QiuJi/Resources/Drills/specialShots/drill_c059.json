@@ -1,0 +1,39 @@
+{
+  "id": "drill_c059",
+  "nameZh": "跳球基础",
+  "nameEn": "Jump Shot Basics",
+  "category": "specialShots",
+  "subcategory": "jumpShot",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "使母球跳起越过障碍球击中目标球。跳球在中式台球中是合法技术，用于被障碍球封死时的进攻选择。需使用专用跳杆或短握球杆。",
+  "coachingPoints": [
+    "球杆角度约45度向下击打母球底部——使母球弹起",
+    "跳球的距离和高度取决于球杆角度和力度的组合",
+    "安全第一：跳球失误可能损坏台布，初学者先在旧台上练习"
+  ],
+  "standardCriteria": "10球中3球跳过障碍并碰到目标球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.15},
+        {"x": 0.5, "y": 0.08}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.07},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.07}
+  }
+}

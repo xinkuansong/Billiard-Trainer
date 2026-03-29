@@ -1,0 +1,39 @@
+{
+  "id": "drill_c024",
+  "nameZh": "分离角90度规则",
+  "nameEn": "90-Degree Separation Rule",
+  "category": "separation",
+  "subcategory": "basic",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "理解台球最基本的物理规则：斯登（纯滑行）击球时，母球与目标球的分离角恒为90度。将目标球打入角袋，观察母球向90度方向滑行的轨迹。",
+  "coachingPoints": [
+    "斯登击球后母球方向与目标球行进方向成90度角",
+    "这是所有走位计算的起点——先确定90度分离线，再考虑杆法修正",
+    "可在台面上放置一个标记物验证母球是否走到90度方向"
+  ],
+  "standardCriteria": "10球中6球进袋且母球走向90度分离方向",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.3},
+      "path": [
+        {"x": 0.73, "y": 0.16},
+        {"x": 0.88, "y": 0.33}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.15},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.75, "y": 0.15}
+  }
+}

@@ -36,11 +36,40 @@
 		C8E7581049B251A7413813C6 /* LocalAngleTestRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE1B51A8CF4F1EDACBAB0626 /* LocalAngleTestRepository.swift */; };
 		C9FD3186DE6A4A82102FC117 /* DrillFavoriteRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BA2B469E064B37D58B3A6C /* DrillFavoriteRepositoryProtocol.swift */; };
 		D44FD151B2FC3763FBBAB08A /* SyncPendingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */; };
-		D8E94AD72F13A2AE252392AB /* CloudKitContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88111B11C7A503708E5F01B /* CloudKitContentService.swift */; };
+		D8E94AD72F13A2AE252392AB /* DrillContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88111B11C7A503708E5F01B /* DrillContentService.swift */; };
 		E24E45DB5BB6C677C6CFE20C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED438D842A23A0ADE713C218 /* LoginView.swift */; };
 		E3ED6B8AEB8DE578AF442725 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFAD9AFB0C65DB50252B78C /* AppConfig.swift */; };
 		F155AF1004F188651E57AC4F /* LocalTrainingSessionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7D13D9AC245334A60FF240 /* LocalTrainingSessionRepository.swift */; };
 		F4892CF080FEFA7E8355F04F /* LocalDrillFavoriteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4BCCC3F55789FC4FBDFF80A /* LocalDrillFavoriteRepository.swift */; };
+		AA11223344556677AABB0001 /* BTBilliardTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0001 /* BTBilliardTable.swift */; };
+		AA11223344556677AABB0002 /* BTLevelBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0002 /* BTLevelBadge.swift */; };
+		AA11223344556677AABB0003 /* BTEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0003 /* BTEmptyState.swift */; };
+		AA11223344556677AABB0004 /* BTDrillCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0004 /* BTDrillCard.swift */; };
+		AA11223344556677AABB0005 /* DrillListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0005 /* DrillListViewModel.swift */; };
+		AA11223344556677AABB0006 /* DrillListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0006 /* DrillListView.swift */; };
+		AA11223344556677AABB0007 /* DrillDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0007 /* DrillDetailView.swift */; };
+		AA11223344556677AABB0008 /* BTPremiumLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0008 /* BTPremiumLock.swift */; };
+		AA11223344556677AABB0009 /* FavoriteDrillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0009 /* FavoriteDrillsView.swift */; };
+		AA11223344556677AABB0010 /* TrainingHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */; };
+		AA11223344556677AABB0011 /* TrainingHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0011 /* TrainingHomeView.swift */; };
+		AA11223344556677AABB0013 /* PlanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0013 /* PlanListView.swift */; };
+		AA11223344556677AABB0014 /* PlanDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0014 /* PlanDetailView.swift */; };
+		AA11223344556677AABB0012 /* PlanContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0012 /* PlanContentService.swift */; };
+		AA11223344556677AABB0020 /* ActiveTrainingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */; };
+		AA11223344556677AABB0021 /* ActiveTrainingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0021 /* ActiveTrainingView.swift */; };
+		DD22334455667788AABB0001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE22334455667788AABB0001 /* APIClient.swift */; };
+		DD22334455667788AABB0002 /* BackendSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE22334455667788AABB0002 /* BackendSyncService.swift */; };
+		FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0001 /* SwiftDataModelTests.swift */; };
+		FF0B000000000000000B0002 /* LocalTrainingSessionRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */; };
+		FF0B000000000000000B0003 /* LocalDrillFavoriteRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */; };
+		FF0B000000000000000B0004 /* LocalAngleTestRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0004 /* LocalAngleTestRepositoryTests.swift */; };
+		FF0B000000000000000B0005 /* DrillContentServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0005 /* DrillContentServiceTests.swift */; };
+		FF0B000000000000000B0006 /* SyncQueueManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0006 /* SyncQueueManagerTests.swift */; };
+		FF0B000000000000000B0007 /* DrillContentValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0007 /* DrillContentValidationTests.swift */; };
+		FF0B000000000000000B0008 /* DrillListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0008 /* DrillListViewModelTests.swift */; };
+		FF0B000000000000000B0009 /* DrillCategoryAndLevelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */; };
+		FF0E000000000000000E0003 /* Drills in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0001 /* Drills */; };
+		FF0E000000000000000E0004 /* Plans in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0002 /* Plans */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -69,7 +98,7 @@
 		A9422765DA9BDA8A39823CE6 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillSet.swift; sourceTree = "<group>"; };
 		B2B1D78243285A63E6914927 /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
-		B88111B11C7A503708E5F01B /* CloudKitContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitContentService.swift; sourceTree = "<group>"; };
+		B88111B11C7A503708E5F01B /* DrillContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillContentService.swift; sourceTree = "<group>"; };
 		B995330A41AD55893B3968F4 /* TrainingSessionRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingSessionRepositoryProtocol.swift; sourceTree = "<group>"; };
 		C73374E53070E33615999A1D /* QiuJiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiApp.swift; sourceTree = "<group>"; };
 		CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -82,7 +111,55 @@
 		EFC141B9C345F29AAE822347 /* UserActivePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserActivePlan.swift; sourceTree = "<group>"; };
 		F1482582AFECCFD004756836 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		F267826CBDEB22DBBC035ECA /* BTButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTButton.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0001 /* BTBilliardTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTBilliardTable.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0002 /* BTLevelBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTLevelBadge.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0003 /* BTEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTEmptyState.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0004 /* BTDrillCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTDrillCard.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0005 /* DrillListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListViewModel.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0006 /* DrillListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListView.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0007 /* DrillDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillDetailView.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0008 /* BTPremiumLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPremiumLock.swift; sourceTree = "<group>"; };
+		BB11223344556677AABB0009 /* FavoriteDrillsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteDrillsView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHomeViewModel.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0011 /* TrainingHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHomeView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0013 /* PlanListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanListView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0014 /* PlanDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDetailView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0012 /* PlanContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanContentService.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingViewModel.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0021 /* ActiveTrainingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingView.swift; sourceTree = "<group>"; };
+		EE22334455667788AABB0001 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		EE22334455667788AABB0002 /* BackendSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendSyncService.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0001 /* SwiftDataModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataModelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTrainingSessionRepositoryTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDrillFavoriteRepositoryTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0004 /* LocalAngleTestRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAngleTestRepositoryTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0005 /* DrillContentServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillContentServiceTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0006 /* SyncQueueManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueManagerTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0007 /* DrillContentValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillContentValidationTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0008 /* DrillListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListViewModelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillCategoryAndLevelTests.swift; sourceTree = "<group>"; };
+		FF0D000000000000000D0005 /* QiuJiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QiuJiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FF0E000000000000000E0001 /* Drills */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Drills; sourceTree = "<group>"; };
+		FF0E000000000000000E0002 /* Plans */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Plans; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		FF0D000000000000000D0003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E7097A6FB8CDECAA1E071BA1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ED115D93DFF073BDF0B40893;
+			remoteInfo = QiuJi;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		FF0D000000000000000D0004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ED115D93DFF073BDF0B40893 /* QiuJi */;
+			targetProxy = FF0D000000000000000D0003 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXGroup section */
 		1D47DEE4A804E7955C1856BE /* Data */ = {
@@ -138,17 +215,58 @@
 		6A6E625A955BD09BC8D872C2 /* Training */ = {
 			isa = PBXGroup;
 			children = (
+				DD11223344556677AABB0010 /* ViewModels */,
+				DD11223344556677AABB0011 /* Views */,
 			);
 			path = Training;
 			sourceTree = "<group>";
 		};
-		7DD5AF627BDDB11D449AE4AC /* DrillLibrary */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = DrillLibrary;
-			sourceTree = "<group>";
-		};
+	DD11223344556677AABB0010 /* ViewModels */ = {
+		isa = PBXGroup;
+		children = (
+			CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */,
+			CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */,
+		);
+		path = ViewModels;
+		sourceTree = "<group>";
+	};
+	DD11223344556677AABB0011 /* Views */ = {
+		isa = PBXGroup;
+		children = (
+			CC11223344556677AABB0011 /* TrainingHomeView.swift */,
+			CC11223344556677AABB0013 /* PlanListView.swift */,
+			CC11223344556677AABB0014 /* PlanDetailView.swift */,
+			CC11223344556677AABB0021 /* ActiveTrainingView.swift */,
+		);
+		path = Views;
+		sourceTree = "<group>";
+	};
+	7DD5AF627BDDB11D449AE4AC /* DrillLibrary */ = {
+		isa = PBXGroup;
+		children = (
+			CC11223344556677AABB0001 /* ViewModels */,
+			CC11223344556677AABB0002 /* Views */,
+		);
+		path = DrillLibrary;
+		sourceTree = "<group>";
+	};
+	CC11223344556677AABB0001 /* ViewModels */ = {
+		isa = PBXGroup;
+		children = (
+			BB11223344556677AABB0005 /* DrillListViewModel.swift */,
+		);
+		path = ViewModels;
+		sourceTree = "<group>";
+	};
+	CC11223344556677AABB0002 /* Views */ = {
+		isa = PBXGroup;
+		children = (
+			BB11223344556677AABB0007 /* DrillDetailView.swift */,
+			BB11223344556677AABB0006 /* DrillListView.swift */,
+		);
+		path = Views;
+		sourceTree = "<group>";
+	};
 		84F0DB225848E4A9CDC9F74F /* Core */ = {
 			isa = PBXGroup;
 			children = (
@@ -162,10 +280,13 @@
 		87F202A23E22F4A08C65E913 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				EE22334455667788AABB0001 /* APIClient.swift */,
 				2D2BDA0DB04E3856F668EF9C /* AuthService.swift */,
 				4AEC734555F72CAB0256B3C9 /* AuthState.swift */,
-				B88111B11C7A503708E5F01B /* CloudKitContentService.swift */,
+				EE22334455667788AABB0002 /* BackendSyncService.swift */,
+				B88111B11C7A503708E5F01B /* DrillContentService.swift */,
 				0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */,
+				CC11223344556677AABB0012 /* PlanContentService.swift */,
 				762FF5472730A423BAC4AC4C /* SyncQueueManager.swift */,
 			);
 			path = Services;
@@ -226,14 +347,19 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		B67EA20367CC0CD766A4FAC8 /* Components */ = {
-			isa = PBXGroup;
-			children = (
-				F267826CBDEB22DBBC035ECA /* BTButton.swift */,
-			);
-			path = Components;
-			sourceTree = "<group>";
-		};
+	B67EA20367CC0CD766A4FAC8 /* Components */ = {
+		isa = PBXGroup;
+		children = (
+			BB11223344556677AABB0001 /* BTBilliardTable.swift */,
+			F267826CBDEB22DBBC035ECA /* BTButton.swift */,
+			BB11223344556677AABB0004 /* BTDrillCard.swift */,
+			BB11223344556677AABB0003 /* BTEmptyState.swift */,
+			BB11223344556677AABB0002 /* BTLevelBadge.swift */,
+			BB11223344556677AABB0008 /* BTPremiumLock.swift */,
+		);
+		path = Components;
+		sourceTree = "<group>";
+	};
 		BDFBDA0FBD8C095E7CA0B415 /* Local */ = {
 			isa = PBXGroup;
 			children = (
@@ -247,6 +373,7 @@
 		CF659C9F6B6B4AB79046E5B3 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				BB11223344556677AABB0009 /* FavoriteDrillsView.swift */,
 				ED438D842A23A0ADE713C218 /* LoginView.swift */,
 				F1482582AFECCFD004756836 /* OnboardingView.swift */,
 				332AE192BD6DA8A2E91E924C /* PhoneLoginView.swift */,
@@ -259,6 +386,7 @@
 			isa = PBXGroup;
 			children = (
 				8571321B404BCC70AB62A461 /* 球迹.app */,
+				FF0D000000000000000D0005 /* QiuJiTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -282,7 +410,9 @@
 			isa = PBXGroup;
 			children = (
 				CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */,
+				FF0E000000000000000E0001 /* Drills */,
 				67FC5A8F6C2EC56734890B52 /* Info.plist */,
+				FF0E000000000000000E0002 /* Plans */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -301,8 +431,25 @@
 			children = (
 				AF7B501E48701DF73E27A325 /* Config */,
 				996275AFF648DE5F413DA606 /* QiuJi */,
+				FF0C000000000000000C0001 /* QiuJiTests */,
 				CFFA631164676D164B613BED /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		FF0C000000000000000C0001 /* QiuJiTests */ = {
+			isa = PBXGroup;
+			children = (
+				FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */,
+				FF0A000000000000000A0005 /* DrillContentServiceTests.swift */,
+				FF0A000000000000000A0007 /* DrillContentValidationTests.swift */,
+				FF0A000000000000000A0008 /* DrillListViewModelTests.swift */,
+				FF0A000000000000000A0004 /* LocalAngleTestRepositoryTests.swift */,
+				FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */,
+				FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */,
+				FF0A000000000000000A0001 /* SwiftDataModelTests.swift */,
+				FF0A000000000000000A0006 /* SyncQueueManagerTests.swift */,
+			);
+			path = QiuJiTests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -326,6 +473,22 @@
 			productReference = 8571321B404BCC70AB62A461 /* 球迹.app */;
 			productType = "com.apple.product-type.application";
 		};
+		FF0D000000000000000D0001 /* QiuJiTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FF0D000000000000000D0008 /* Build configuration list for PBXNativeTarget "QiuJiTests" */;
+			buildPhases = (
+				FF0D000000000000000D0002 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FF0D000000000000000D0004 /* PBXTargetDependency */,
+			);
+			name = QiuJiTests;
+			productName = QiuJiTests;
+			productReference = FF0D000000000000000D0005 /* QiuJiTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -337,6 +500,10 @@
 				TargetAttributes = {
 					ED115D93DFF073BDF0B40893 = {
 						ProvisioningStyle = Automatic;
+					};
+					FF0D000000000000000D0001 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = ED115D93DFF073BDF0B40893;
 					};
 				};
 			};
@@ -355,6 +522,7 @@
 			projectRoot = "";
 			targets = (
 				ED115D93DFF073BDF0B40893 /* QiuJi */,
+				FF0D000000000000000D0001 /* QiuJiTests */,
 			);
 		};
 /* End PBXProject section */
@@ -365,6 +533,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				267F33C52AFB836CF954870D /* Assets.xcassets in Resources */,
+				FF0E000000000000000E0003 /* Drills in Resources */,
+				FF0E000000000000000E0004 /* Plans in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -382,8 +552,17 @@
 				2947954C032BD8539CC719CD /* AppRouter.swift in Sources */,
 				1CF9CED0E73E8491D03D5748 /* AuthService.swift in Sources */,
 				2744B51A4149BC0E5CE19E92 /* AuthState.swift in Sources */,
+				AA11223344556677AABB0001 /* BTBilliardTable.swift in Sources */,
 				2DC1352B03F51C4BF975828E /* BTButton.swift in Sources */,
-				D8E94AD72F13A2AE252392AB /* CloudKitContentService.swift in Sources */,
+				AA11223344556677AABB0004 /* BTDrillCard.swift in Sources */,
+				AA11223344556677AABB0007 /* DrillDetailView.swift in Sources */,
+				AA11223344556677AABB0006 /* DrillListView.swift in Sources */,
+				AA11223344556677AABB0005 /* DrillListViewModel.swift in Sources */,
+				AA11223344556677AABB0003 /* BTEmptyState.swift in Sources */,
+				AA11223344556677AABB0002 /* BTLevelBadge.swift in Sources */,
+				AA11223344556677AABB0008 /* BTPremiumLock.swift in Sources */,
+				AA11223344556677AABB0009 /* FavoriteDrillsView.swift in Sources */,
+				D8E94AD72F13A2AE252392AB /* DrillContentService.swift in Sources */,
 				566BC46F63F4593F9363147C /* Colors.swift in Sources */,
 				1058ADFABAD83CF913F60737 /* DrillEntry.swift in Sources */,
 				312010B78D9C1261370303CE /* DrillFavorite.swift in Sources */,
@@ -408,6 +587,31 @@
 				7110D601B28F4E7FBD69D54F /* TrainingSessionRepositoryProtocol.swift in Sources */,
 				4FB3542B6768A8CC9F3AC2CE /* Typography.swift in Sources */,
 				3CBB8DD76B3675824D3E121C /* UserActivePlan.swift in Sources */,
+				AA11223344556677AABB0010 /* TrainingHomeViewModel.swift in Sources */,
+				AA11223344556677AABB0011 /* TrainingHomeView.swift in Sources */,
+				AA11223344556677AABB0013 /* PlanListView.swift in Sources */,
+				AA11223344556677AABB0014 /* PlanDetailView.swift in Sources */,
+				AA11223344556677AABB0012 /* PlanContentService.swift in Sources */,
+				AA11223344556677AABB0020 /* ActiveTrainingViewModel.swift in Sources */,
+				AA11223344556677AABB0021 /* ActiveTrainingView.swift in Sources */,
+				DD22334455667788AABB0001 /* APIClient.swift in Sources */,
+				DD22334455667788AABB0002 /* BackendSyncService.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FF0D000000000000000D0002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF0B000000000000000B0009 /* DrillCategoryAndLevelTests.swift in Sources */,
+				FF0B000000000000000B0005 /* DrillContentServiceTests.swift in Sources */,
+				FF0B000000000000000B0007 /* DrillContentValidationTests.swift in Sources */,
+				FF0B000000000000000B0008 /* DrillListViewModelTests.swift in Sources */,
+				FF0B000000000000000B0004 /* LocalAngleTestRepositoryTests.swift in Sources */,
+				FF0B000000000000000B0003 /* LocalDrillFavoriteRepositoryTests.swift in Sources */,
+				FF0B000000000000000B0002 /* LocalTrainingSessionRepositoryTests.swift in Sources */,
+				FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */,
+				FF0B000000000000000B0006 /* SyncQueueManagerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -430,6 +634,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.xinkuan.qiuji;
+				PRODUCT_MODULE_NAME = QiuJi;
 				PRODUCT_NAME = "球迹";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -516,6 +721,7 @@
 					"@executable_path/Frameworks",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.xinkuan.qiuji;
+				PRODUCT_MODULE_NAME = QiuJi;
 				PRODUCT_NAME = "球迹";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -593,6 +799,40 @@
 			};
 			name = Debug;
 		};
+		FF0D000000000000000D0006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KWH2GRNSKG;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xinkuan.qiuji.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/球迹.app/球迹";
+			};
+			name = Debug;
+		};
+		FF0D000000000000000D0007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KWH2GRNSKG;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xinkuan.qiuji.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/球迹.app/球迹";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -610,6 +850,15 @@
 			buildConfigurations = (
 				EA02857CA897AE9A9EFBDE7E /* Debug */,
 				CE19EB4941A978420274F68C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		FF0D000000000000000D0008 /* Build configuration list for PBXNativeTarget "QiuJiTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FF0D000000000000000D0006 /* Debug */,
+				FF0D000000000000000D0007 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

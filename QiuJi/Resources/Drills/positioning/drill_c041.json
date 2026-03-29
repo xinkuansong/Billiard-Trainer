@@ -1,0 +1,41 @@
+{
+  "id": "drill_c041",
+  "nameZh": "对角走位",
+  "nameEn": "Diagonal Position Play",
+  "category": "positioning",
+  "subcategory": "diagonal",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "将目标球打入一侧角袋后，母球走位到对角区域——跨越整个台面。对角走位需要精确的杆法+力度+加塞三者配合。",
+  "coachingPoints": [
+    "对角走位通常需要加塞辅助——让母球碰库后改变方向",
+    "出杆力度要留足余量，对角走位路程长，力度不足到不了位",
+    "建议分解练习：先走到中间位置（半对角），再逐步延伸到全对角"
+  ],
+  "standardCriteria": "10球中3球进袋且母球走到对角半台区域",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.15},
+      "path": [
+        {"x": 0.18, "y": 0.1},
+        {"x": 0.03, "y": 0.2},
+        {"x": 0.3, "y": 0.48},
+        {"x": 0.7, "y": 0.35}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.15, "y": 0.08},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.15, "y": 0.08}
+  }
+}

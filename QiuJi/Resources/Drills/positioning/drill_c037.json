@@ -1,0 +1,39 @@
+{
+  "id": "drill_c037",
+  "nameZh": "入位球基础",
+  "nameEn": "Key Ball Positioning",
+  "category": "positioning",
+  "subcategory": "keyBall",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "练习将母球走到下一颗球的最佳击球位置（入位球）。要求在进袋的同时将母球精确定位，为下一杆创造简单球位。",
+  "coachingPoints": [
+    "入位球思维：每一杆的目的不仅是进袋，更是为下一杆创造好位置",
+    "理想入位位置：与下颗球呈小角度，距离适中，有多种走位选择",
+    "宁可走位稍远也不要走到死角——留有余地比精确到位更重要"
+  ],
+  "standardCriteria": "10组中6组两球连续进袋且走位合理",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.25},
+      "path": [
+        {"x": 0.18, "y": 0.12},
+        {"x": 0.5, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.15, "y": 0.1},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.15, "y": 0.1}
+  }
+}

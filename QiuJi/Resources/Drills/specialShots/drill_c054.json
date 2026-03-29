@@ -1,0 +1,39 @@
+{
+  "id": "drill_c054",
+  "nameZh": "翻袋入底角袋",
+  "nameEn": "Bank Shot to Corner Pocket",
+  "category": "specialShots",
+  "subcategory": "bankShot",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "将目标球打向对面库边，借反弹翻入底角袋。翻袋是处理无直接进袋路线时的重要手段，核心在于判断反弹角。",
+  "coachingPoints": [
+    "翻袋的基本原理：入射角约等于反射角（无旋转时）",
+    "用镜像法判断翻袋路线：想象袋口在库边对面的镜像位置，直接瞄向镜像点",
+    "台面状况会影响反弹角——新台布反弹更规则，旧台布需要多试几次"
+  ],
+  "standardCriteria": "10球中4球翻袋成功",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.25},
+      "path": [
+        {"x": 0.48, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.98, "y": 0.25},
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.5, "y": 0.25}
+  }
+}

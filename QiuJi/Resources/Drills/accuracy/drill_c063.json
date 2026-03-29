@@ -1,0 +1,38 @@
+{
+  "id": "drill_c063",
+  "nameZh": "极薄角度切球",
+  "nameEn": "Extreme Thin Cut Shot",
+  "category": "accuracy",
+  "subcategory": "thinCut",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "练习70度以上的极薄切球——母球仅接触目标球边缘极小面积，将其送入袋口。极薄球对瞄准精度要求接近极限，是高级准度训练。",
+  "coachingPoints": [
+    "极薄球时几乎看不到接触面——凭感觉和经验判断厚薄度",
+    "出杆必须极其平稳——任何微小偏差都会导致完全打空或太厚",
+    "力度适中偏大，薄球时目标球获得的动能很少，需要更大力度才能入袋"
+  ],
+  "standardCriteria": "15球进4球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.4},
+      "path": [
+        {"x": 0.88, "y": 0.12}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.9, "y": 0.1},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.9, "y": 0.1}
+  }
+}

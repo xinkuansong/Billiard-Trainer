@@ -1,0 +1,38 @@
+{
+  "id": "drill_c053",
+  "nameZh": "中袋角度精准",
+  "nameEn": "Side Pocket Angle Precision",
+  "category": "accuracy",
+  "subcategory": "sidePocket",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "将目标球放在中袋附近，从不同角度练习中袋入袋。中袋口比角袋窄，对准度要求更高，是中级水平的重要考核。",
+  "coachingPoints": [
+    "中袋口较窄，容许的角度偏差比角袋小——瞄准要更精确",
+    "从侧面进中袋比正面更难——角度超过30度时成功率急剧下降",
+    "中袋球出杆要平稳，速度不宜太快——让球自然滚入"
+  ],
+  "standardCriteria": "15球进7球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.35},
+      "path": [
+        {"x": 0.48, "y": 0.08}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.48, "y": 0.06},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.48, "y": 0.06}
+  }
+}

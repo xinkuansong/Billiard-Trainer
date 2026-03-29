@@ -1,0 +1,39 @@
+{
+  "id": "drill_c055",
+  "nameZh": "翻袋入中袋",
+  "nameEn": "Bank Shot to Side Pocket",
+  "category": "specialShots",
+  "subcategory": "bankShot",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "将目标球打向底库，借反弹翻入上中袋。中袋翻袋对角度判断要求更高，因为中袋口比角袋窄。",
+  "coachingPoints": [
+    "中袋翻袋角度容差小——镜像法瞄准后需要微调",
+    "中等力度即可，太重反弹角度会变化（台布摩擦和速度关系）",
+    "可以在库边和中袋之间画假想线辅助判断"
+  ],
+  "standardCriteria": "10球中3球翻袋入中袋成功",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.15},
+      "path": [
+        {"x": 0.5, "y": 0.28}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.3},
+      "path": [
+        {"x": 0.5, "y": 0.49},
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.3}
+  }
+}

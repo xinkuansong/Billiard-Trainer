@@ -1,0 +1,41 @@
+{
+  "id": "drill_c038",
+  "nameZh": "两库走位",
+  "nameEn": "Two-Cushion Position Play",
+  "category": "positioning",
+  "subcategory": "twoCushion",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "进袋后母球碰两个库边走位到目标区域。两库走位能覆盖台面更大范围，是中级走位的核心技术。",
+  "coachingPoints": [
+    "两库走位关键在于预判两次反弹——心中画出完整的母球路径",
+    "加塞会改变每次碰库的反弹角度，必须考虑塞的叠加效果",
+    "先从简单的直角两库开始练习，再逐渐挑战对角两库"
+  ],
+  "standardCriteria": "10球中4球进袋且母球经两库到达目标区",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.4, "y": 0.25},
+      "path": [
+        {"x": 0.22, "y": 0.38},
+        {"x": 0.02, "y": 0.3},
+        {"x": 0.15, "y": 0.02},
+        {"x": 0.5, "y": 0.15}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.2, "y": 0.4},
+      "path": [
+        {"x": -0.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomLeft",
+    "cueDirection": {"x": 0.2, "y": 0.4}
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "id": "drill_c068",
+  "nameZh": "五球连打走位",
+  "nameEn": "Five-Ball Position Run",
+  "category": "combined",
+  "subcategory": "runOut",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": false,
+  "description": "在台面上摆放5颗目标球，规划完整路线后连续清台。五球连打考验全面的走位规划能力——需要提前规划4步走位。",
+  "coachingPoints": [
+    "五球路线规划：先找到最难进的球，以它为核心逆向规划整条路线",
+    "预留安全方案：如果某一杆走位失误，要有备选进攻路线",
+    "保持冷静：前几颗球顺利不代表后面也容易，全程保持专注"
+  ],
+  "standardCriteria": "10组中3组五球全部连续进袋",
+  "sets": {
+    "defaultSets": 5,
+    "defaultBallsPerSet": 5
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.3},
+      "path": [
+        {"x": 0.22, "y": 0.12},
+        {"x": 0.5, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.2, "y": 0.1},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.2, "y": 0.1}
+  }
+}

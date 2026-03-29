@@ -1,0 +1,38 @@
+{
+  "id": "drill_c011",
+  "nameZh": "近台底袋直线球",
+  "nameEn": "Short-Range Straight to Corner",
+  "category": "accuracy",
+  "subcategory": "straight",
+  "ballType": ["chinese8"],
+  "level": "L0",
+  "difficulty": 1,
+  "isPremium": false,
+  "description": "近距离直线球入底角袋。目标球距袋口约半台，训练短距离直线瞄准和稳定出杆。",
+  "coachingPoints": [
+    "近台球容易轻视，仍需认真对准瞄准线",
+    "力度不宜过大，防止母球跟进袋中",
+    "保持出杆平稳，不要有手腕小动作"
+  ],
+  "standardCriteria": "15球进13球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.78, "y": 0.2},
+      "path": [
+        {"x": 0.88, "y": 0.36}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.9, "y": 0.4},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.9, "y": 0.4}
+  }
+}

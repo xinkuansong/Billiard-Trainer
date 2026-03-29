@@ -1,0 +1,39 @@
+{
+  "id": "drill_c017",
+  "nameZh": "低杆远台缩杆",
+  "nameEn": "Long Draw Shot",
+  "category": "cueAction",
+  "subcategory": "draw",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "从远台距离使用低杆将目标球打入上中袋，母球在击中目标球后强力回退。训练远距离缩杆的穿透发力与击球点控制。",
+  "coachingPoints": [
+    "击球点选在母球中心偏下10–12毫米处",
+    "远台缩杆关键在于穿透力——球杆需快速穿过母球位置",
+    "手腕保持放松，利用小臂加速产生穿透力，切忌用大臂发力"
+  ],
+  "standardCriteria": "10球中5球进袋且母球回退超过20厘米",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.38},
+      "path": [
+        {"x": 0.5, "y": 0.14},
+        {"x": 0.5, "y": 0.32}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.12},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.12}
+  }
+}

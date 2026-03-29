@@ -1,0 +1,42 @@
+{
+  "id": "drill_c040",
+  "nameZh": "三库走位",
+  "nameEn": "Three-Cushion Position Play",
+  "category": "positioning",
+  "subcategory": "threeCushion",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "进袋后母球碰三个库边走位到目标区域。三库走位是高水平选手的标志性技术，需要精确的力度与加塞控制。",
+  "coachingPoints": [
+    "三库走位最大的变量是力度——每多碰一个库都会损耗动能",
+    "加塞在三库走位中效果会逐渐减弱——第一库影响最大，后续递减",
+    "先用中等力度练习找到三库后的大致落点，再微调力度和塞量"
+  ],
+  "standardCriteria": "10球中3球进袋且母球经三库到达目标半台",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.78, "y": 0.38},
+        {"x": 0.98, "y": 0.25},
+        {"x": 0.8, "y": 0.02},
+        {"x": 0.3, "y": 0.15},
+        {"x": 0.5, "y": 0.35}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.8, "y": 0.4},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.8, "y": 0.4}
+  }
+}

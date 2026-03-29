@@ -1,0 +1,39 @@
+{
+  "id": "drill_c025",
+  "nameZh": "薄球分离角感知",
+  "nameEn": "Thin Cut Separation Feel",
+  "category": "separation",
+  "subcategory": "thinCut",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "练习薄球（大角度切球）的分离角感知。薄球时母球几乎沿原方向继续前进，偏转很小。掌握薄球手感是处理大角度球位的基础。",
+  "coachingPoints": [
+    "薄球时只需接触目标球边缘很小的面积",
+    "母球偏转角度很小——几乎沿出杆方向继续前进",
+    "力度控制尤为重要：太轻目标球进不了袋，太重母球走位失控"
+  ],
+  "standardCriteria": "10球中5球进袋且母球偏转方向正确",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.35, "y": 0.35},
+      "path": [
+        {"x": 0.83, "y": 0.41},
+        {"x": 0.92, "y": 0.38}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.85, "y": 0.42},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.85, "y": 0.42}
+  }
+}

@@ -5,13 +5,25 @@ struct MainTabView: View {
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
-            TrainingPlaceholderView()
+            NavigationStack(path: $router.trainingPath) {
+                TrainingHomeView()
+                    .navigationTitle("训练")
+                    .navigationDestination(for: TrainingRoute.self) { route in
+                        trainingDestination(for: route)
+                    }
+            }
                 .tabItem {
                     Label(AppTab.training.title, systemImage: AppTab.training.icon)
                 }
                 .tag(AppTab.training)
 
-            DrillLibraryPlaceholderView()
+            NavigationStack(path: $router.drillLibraryPath) {
+                DrillListView()
+                    .navigationTitle("动作库")
+                    .navigationDestination(for: String.self) { drillId in
+                        DrillDetailView(drillId: drillId)
+                    }
+            }
                 .tabItem {
                     Label(AppTab.drillLibrary.title, systemImage: AppTab.drillLibrary.icon)
                 }
@@ -36,27 +48,19 @@ struct MainTabView: View {
                 .tag(AppTab.profile)
         }
     }
+
+    @ViewBuilder
+    private func trainingDestination(for route: TrainingRoute) -> some View {
+        switch route {
+        case .planList:
+            PlanListView()
+        case .planDetail(let planId):
+            PlanDetailView(planId: planId)
+        }
+    }
 }
 
 // MARK: - Tab 占位视图
-
-private struct TrainingPlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            PlaceholderContentView(title: "训练", icon: AppTab.training.icon)
-                .navigationTitle("训练")
-        }
-    }
-}
-
-private struct DrillLibraryPlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            PlaceholderContentView(title: "动作库", icon: AppTab.drillLibrary.icon)
-                .navigationTitle("动作库")
-        }
-    }
-}
 
 private struct AnglePlaceholderView: View {
     var body: some View {

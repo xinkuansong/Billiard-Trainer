@@ -1,0 +1,39 @@
+{
+  "id": "drill_c030",
+  "nameZh": "分离角走位应用",
+  "nameEn": "Separation Angle Position Play",
+  "category": "separation",
+  "subcategory": "positionPlay",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "将分离角知识应用于实战走位。根据下一颗球位置，选择合适的杆法（高/中/低）控制分离角，将母球走到理想位置。",
+  "coachingPoints": [
+    "先确定下一颗球的理想击球位置，再反推需要的分离角",
+    "分离角 < 90°用高杆，= 90°用斯登，> 90°用低杆",
+    "这是实战走位的核心思维：目标→分离角→杆法选择"
+  ],
+  "standardCriteria": "10球中4球连续两颗进袋且走位合理",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.78, "y": 0.38},
+        {"x": 0.6, "y": 0.15}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.8, "y": 0.4},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.8, "y": 0.4}
+  }
+}

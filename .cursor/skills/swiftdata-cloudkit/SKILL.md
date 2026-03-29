@@ -1,11 +1,13 @@
-# SwiftData + CloudKit Skill
+# SwiftData + Drill Content Skill
+
+> **命名说明**：目录名保留 `swiftdata-cloudkit` 仅为历史路径兼容；**产品已取消 CloudKit**（ADR-002），公开内容走 Bundle + 自建 REST API。
 
 ## 触发场景
 
 在以下情况读取并遵循本技能：
 - 定义或修改 SwiftData `@Model` 实体
-- 实现 CloudKit 公开库内容拉取
-- 处理本地/云端数据同步逻辑
+- 实现 Drill / 计划内容加载（`DrillContentService`、Bundle JSON）
+- 处理本地数据与自建 REST API 同步逻辑
 
 ## SwiftData 实体定义
 
@@ -94,37 +96,21 @@ let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 - 重命名字段必须用 `@Attribute(.originalName("oldName"))` 声明
 - 禁止直接删除字段（改为标记废弃：`var _deprecated_field: String? = nil`）
 
-## CloudKit 公开库（只读内容）
+## Drill 内容：Bundle + 自建 API OTA（ADR-002）
+
+**禁止**在应用目标中引入 `CloudKit` / `CKContainer` 做公开内容分发。
+
+当前实现：`DrillContentService`（actor）从 `Resources/Drills/` 读取 `index.json` 与各分类 JSON。
+
+**Bundle Fallback / 离线**：
 
 ```swift
-// CloudKitService.swift
-final class CloudKitContentService {
-    private let container = CKContainer(identifier: "iCloud.com.yourname.billiardtrainer")
-    private let publicDB: CKDatabase
-
-    // 拉取全部 Drill（首次安装）
-    func fetchAllDrills() async throws -> [DrillContent] {
-        let query = CKQuery(recordType: "DrillContent", predicate: NSPredicate(value: true))
-        // 使用 records(matching:) iOS 17 API
-    }
-
-    // 增量拉取（App 前台恢复时）
-    func fetchDrillsUpdatedAfter(_ date: Date) async throws -> [DrillContent] {
-        let predicate = NSPredicate(format: "modificationDate > %@", date as CVarArg)
-        // ...
-    }
-}
+// DrillContentService.swift（节选）
+func loadFallbackDrills() -> [DrillContent] { ... }
+func loadDrillFromBundle(id: String) -> DrillContent? { ... }
 ```
 
-**Bundle Fallback 策略**：
-```swift
-// 首次启动或网络不可用时，从 Bundle 内 JSON 加载
-func loadFallbackDrills() -> [DrillContent] {
-    guard let url = Bundle.main.url(forResource: "drills_index", withExtension: "json")
-    else { return [] }
-    // decode...
-}
-```
+**未来 OTA**（T-P2-05 或专用任务）：使用 `URLSession` 调用自建后端，例如 `GET /drills?updatedAfter=`，合并进本地缓存；失败时继续使用 Bundle。
 
 ## 离线优先同步策略
 
@@ -132,10 +118,10 @@ func loadFallbackDrills() -> [DrillContent] {
 用户操作
   → 立即写入 SwiftData（主线程，立即反馈）
   → 加入同步队列（后台，自建 REST API）
-  
+
 App 前台恢复
-  → 后台触发：拉取 CloudKit 内容增量更新
   → 后台触发：上传自建后端待同步项
+  → （可选）后台触发：Drill 内容增量拉取（实现后）
 ```
 
 ```swift

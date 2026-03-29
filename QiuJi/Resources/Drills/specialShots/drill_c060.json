@@ -1,0 +1,39 @@
+{
+  "id": "drill_c060",
+  "nameZh": "安全球布置",
+  "nameEn": "Safety Play Positioning",
+  "category": "specialShots",
+  "subcategory": "safety",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "当没有好的进攻机会时，将母球藏到障碍球后面或贴库，让对手无法直接击打目标球。安全球是防守意识的核心——不冒险是高水平比赛的关键。",
+  "coachingPoints": [
+    "安全球目标：让对手无法直接看到目标球（做斯诺克）",
+    "即使无法完全藏住，也要让对手面对远台或大角度等难球",
+    "安全球力度控制极为重要——母球要精确停位，多一点少一点效果完全不同"
+  ],
+  "standardCriteria": "10次安全球中5次让对手无直接进攻机会",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.22, "y": 0.38},
+        {"x": 0.08, "y": 0.42}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.2, "y": 0.4},
+      "path": [
+        {"x": -0.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomLeft",
+    "cueDirection": {"x": 0.2, "y": 0.4}
+  }
+}

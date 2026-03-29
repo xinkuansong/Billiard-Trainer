@@ -1,0 +1,38 @@
+{
+  "id": "drill_c008",
+  "nameZh": "手架练习",
+  "nameEn": "Bridge Hand Practice",
+  "category": "fundamentals",
+  "subcategory": "bridge",
+  "ballType": ["universal"],
+  "level": "L0",
+  "difficulty": 1,
+  "isPremium": false,
+  "description": "练习标准开放式手架与封闭式手架。通过斜线球入底角袋，交替使用两种手架，确保架杆稳定、球杆滑动顺畅。",
+  "coachingPoints": [
+    "开放式手架：手指张开撑稳台面，拇指翘起形成导槽",
+    "封闭式手架：食指绕杆一圈，拇指压住食指尖",
+    "架杆手距母球约15-20厘米，过近或过远都影响稳定性"
+  ],
+  "standardCriteria": "15球进10球（开放式与封闭式各半）",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.63, "y": 0.29},
+      "path": [
+        {"x": 0.83, "y": 0.41}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.85, "y": 0.42},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.85, "y": 0.42}
+  }
+}

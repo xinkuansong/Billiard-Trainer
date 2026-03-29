@@ -26,6 +26,7 @@ final class AuthService: NSObject, ObservableObject {
     // MARK: - Logout
 
     func logout() {
+        Task { await BackendSyncService.shared.logout() }
         KeychainService.clearAll()
     }
 }
@@ -62,13 +63,29 @@ extension AuthService: ASAuthorizationControllerDelegate {
                 KeychainService.save(key: .appleIdentityToken, value: token)
             }
 
-            let user = AppUser(
+            var finalUser = AppUser(
                 id: userID,
                 provider: .apple,
                 displayName: displayName.isEmpty ? nil : displayName,
                 phoneNumber: nil
             )
-            self.appleSignInContinuation?.resume(returning: user)
+
+            if let token = identityTokenString {
+                do {
+                    let authRes = try await BackendSyncService.shared.loginWithApple(identityToken: token)
+                    finalUser = AppUser(
+                        id: authRes.user.id,
+                        provider: .apple,
+                        displayName: authRes.user.displayName ?? finalUser.displayName,
+                        phoneNumber: nil
+                    )
+                } catch {
+                    // Backend unavailable — proceed with local-only auth
+                    print("[AuthService] Backend login failed, using local auth: \(error.localizedDescription)")
+                }
+            }
+
+            self.appleSignInContinuation?.resume(returning: finalUser)
             self.appleSignInContinuation = nil
         }
     }

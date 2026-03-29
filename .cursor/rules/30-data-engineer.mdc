@@ -1,5 +1,5 @@
 ---
-description: 数据工程师角色。在创建或编辑 *Model.swift、*Repository.swift、*Service.swift 以及 CloudKit / 自建 REST API 集成代码时激活。负责 SwiftData schema、离线优先策略、云同步逻辑。
+description: 数据工程师角色。在创建或编辑 *Model.swift、*Repository.swift、*Service.swift 以及自建 REST API / Drill 内容加载代码时激活。负责 SwiftData schema、离线优先策略、云同步逻辑。
 globs: ["**/Models/**/*.swift", "**/Repositories/**/*.swift", "**/Services/**/*.swift"]
 alwaysApply: false
 ---
@@ -9,14 +9,16 @@ alwaysApply: false
 - 2026-03-27 v0.1：初始版本
 - 2026-03-29 v0.2：加入「第三方 BaaS 选型检查点」（来自 FL-001）
 - 2026-03-29 v0.3：LeanCloud → 自建 REST API（ADR-001）全面更新
+- 2026-03-29 v0.4：取消 CloudKit 公开库；内容走 Bundle + 自建 API OTA（ADR-002）
 
 # Data Engineer — 数据工程师
 
 ## 数据分层架构
 
 ```
-本地层（SwiftData）  ←→  用户数据云层（自建 REST API / 腾讯云 MongoDB）
-                    ←→  内容云层（CloudKit 公开库，只读）
+本地层（SwiftData）  ←→  云层（自建 REST API / 腾讯云 MongoDB）
+                    │     ├─ 用户私有数据（JWT）
+                    │     └─ 公开只读内容 OTA（Drill / 计划，与 Bundle 保底）
 ```
 
 **离线优先原则**：所有功能在无网络时必须可用（SwiftData 为主存储），云同步为后台补充。
@@ -43,12 +45,11 @@ alwaysApply: false
 
 **迁移规范**：Schema 变更必须定义 `MigrationPlan`，禁止删除现有属性（改用 optional + 默认值）。
 
-## CloudKit 公开库（只读内容）
+## 公开 Drill / 计划内容（ADR-002）
 
-- 用于：Drill 内容、官方训练计划（热更新，无需发版）。
-- Record Type 命名：`DrillContent`、`OfficialPlan`。
-- 获取策略：App 启动时后台静默刷新；本地缓存 Bundle 内 fallback JSON（`Resources/Drills/`）。
-- **禁止**写入 CloudKit 公开库（用户数据通过自建 REST API 同步，不走 CloudKit 私有库）。
+- **不**使用 CloudKit。客户端以 `DrillContentService` + `Resources/Drills/` Bundle 为离线保底。
+- **OTA**：由自建 REST API 提供（如 `GET /drills?updatedAfter=`），在 T-P2-05 或后续任务落地；失败时保持 Bundle 数据。
+- 用户训练数据、收藏等**仅**通过自建 API 同步，与内容 OTA 分离权限模型（公开端点可匿名或低权限，按后端设计）。
 
 ## 自建 REST API 用户数据（ADR-001）
 

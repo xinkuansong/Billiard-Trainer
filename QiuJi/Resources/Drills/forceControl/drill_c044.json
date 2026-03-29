@@ -1,0 +1,38 @@
+{
+  "id": "drill_c044",
+  "nameZh": "轻推定位",
+  "nameEn": "Soft Touch Positioning",
+  "category": "forceControl",
+  "subcategory": "softTouch",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "用最小力度将目标球推入近距离袋口，母球仅移动很短距离。训练精细力度控制——轻推是防守和近台走位的基础。",
+  "coachingPoints": [
+    "轻推时手腕固定，用小臂做极小幅度的摆动",
+    "出杆速度要慢而均匀，不要有突然加速的动作",
+    "目标球只需刚好滚入袋口即可——多余的力度都是浪费"
+  ],
+  "standardCriteria": "10球中8球进袋且母球移动不超过10厘米",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.41}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.43},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.43}
+  }
+}

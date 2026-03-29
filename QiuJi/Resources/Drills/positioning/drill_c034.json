@@ -1,0 +1,39 @@
+{
+  "id": "drill_c034",
+  "nameZh": "不吃库短距离走位",
+  "nameEn": "No-Cushion Short Position",
+  "category": "positioning",
+  "subcategory": "noCushion",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "在短距离直线球或小角度球中，不借助库边，仅靠杆法（高/中/低杆）将母球停到下一颗球的理想击球位置。走位的第一步从不吃库开始。",
+  "coachingPoints": [
+    "高杆母球向前走，低杆母球向后退，中杆母球停住——选择取决于下颗球位置",
+    "不吃库走位精度最高，优先选择不吃库方案",
+    "力度是不吃库走位的核心——同一杆法下力度决定走位距离"
+  ],
+  "standardCriteria": "10球中6球进袋且母球停在目标区域30厘米内",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.15},
+      "path": [
+        {"x": 0.5, "y": 0.33},
+        {"x": 0.5, "y": 0.28}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.35}
+  }
+}

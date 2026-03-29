@@ -1,0 +1,39 @@
+{
+  "id": "drill_c046",
+  "nameZh": "控力走位圈",
+  "nameEn": "Force Control Target Zone",
+  "category": "forceControl",
+  "subcategory": "targetZone",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "在台面上放置一个目标区域标记（用粉笔或硬币），进袋后要求母球停在目标区域30厘米范围内。训练力度精准控制。",
+  "coachingPoints": [
+    "先击球进袋，再观察母球与目标区域的距离——逐渐缩小偏差",
+    "同一球位反复练习，每次微调力度，找到精确的力度感觉",
+    "记住每次击球的发力感觉——好的控力来自身体记忆而非计算"
+  ],
+  "standardCriteria": "10球中5球进袋且母球停在目标区域30厘米内",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.78, "y": 0.38},
+        {"x": 0.6, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.8, "y": 0.4},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.8, "y": 0.4}
+  }
+}

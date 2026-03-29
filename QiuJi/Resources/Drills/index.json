@@ -1,10 +1,117 @@
 {
-  "version": 1,
-  "drills": [
-    "drill_c001",
-    "drill_c002",
-    "drill_c003",
-    "drill_c004",
-    "drill_c005"
+  "version": 2,
+  "categories": [
+    {
+      "category": "fundamentals",
+      "drills": [
+        "drill_c006",
+        "drill_c007",
+        "drill_c008",
+        "drill_c009",
+        "drill_c010",
+        "drill_c022",
+        "drill_c023",
+        "drill_c043"
+      ]
+    },
+    {
+      "category": "accuracy",
+      "drills": [
+        "drill_c001",
+        "drill_c002",
+        "drill_c011",
+        "drill_c012",
+        "drill_c013",
+        "drill_c032",
+        "drill_c033",
+        "drill_c052",
+        "drill_c053",
+        "drill_c062",
+        "drill_c063",
+        "drill_c072"
+      ]
+    },
+    {
+      "category": "cueAction",
+      "drills": [
+        "drill_c003",
+        "drill_c004",
+        "drill_c014",
+        "drill_c015",
+        "drill_c016",
+        "drill_c017",
+        "drill_c018",
+        "drill_c019",
+        "drill_c020",
+        "drill_c021"
+      ]
+    },
+    {
+      "category": "separation",
+      "drills": [
+        "drill_c024",
+        "drill_c025",
+        "drill_c026",
+        "drill_c027",
+        "drill_c028",
+        "drill_c029",
+        "drill_c030",
+        "drill_c031"
+      ]
+    },
+    {
+      "category": "positioning",
+      "drills": [
+        "drill_c005",
+        "drill_c034",
+        "drill_c035",
+        "drill_c036",
+        "drill_c037",
+        "drill_c038",
+        "drill_c039",
+        "drill_c040",
+        "drill_c041",
+        "drill_c042"
+      ]
+    },
+    {
+      "category": "forceControl",
+      "drills": [
+        "drill_c044",
+        "drill_c045",
+        "drill_c046",
+        "drill_c047",
+        "drill_c048",
+        "drill_c049",
+        "drill_c050",
+        "drill_c051"
+      ]
+    },
+    {
+      "category": "specialShots",
+      "drills": [
+        "drill_c054",
+        "drill_c055",
+        "drill_c056",
+        "drill_c057",
+        "drill_c058",
+        "drill_c059",
+        "drill_c060",
+        "drill_c061"
+      ]
+    },
+    {
+      "category": "combined",
+      "drills": [
+        "drill_c064",
+        "drill_c065",
+        "drill_c066",
+        "drill_c067",
+        "drill_c068",
+        "drill_c069",
+        "drill_c070",
+        "drill_c071"
+      ]
+    }
   ]
 }

@@ -1,0 +1,40 @@
+{
+  "id": "drill_c035",
+  "nameZh": "高杆一库走位",
+  "nameEn": "Follow One-Cushion Position",
+  "category": "positioning",
+  "subcategory": "oneCushion",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "用高杆将目标球打入角袋，母球跟进碰一库后走位到指定区域。训练高杆力度控制与一库反弹角的判断。",
+  "coachingPoints": [
+    "高杆碰库后母球仍带前旋，反弹角度比预期更平（更贴库）",
+    "力度决定碰库后的行进距离——先轻打找感觉，再逐步加力",
+    "击球前先在脑中画出母球路径：接触点→库边→目标区域"
+  ],
+  "standardCriteria": "10球中5球进袋且母球碰库后走到目标区",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.3},
+      "path": [
+        {"x": 0.82, "y": 0.12},
+        {"x": 0.98, "y": 0.05},
+        {"x": 0.7, "y": 0.25}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.85, "y": 0.1},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.85, "y": 0.1}
+  }
+}

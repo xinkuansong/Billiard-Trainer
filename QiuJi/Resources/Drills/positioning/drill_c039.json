@@ -1,0 +1,39 @@
+{
+  "id": "drill_c039",
+  "nameZh": "直线球组合走位",
+  "nameEn": "Straight Ball Combo Position",
+  "category": "positioning",
+  "subcategory": "comboPosition",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "在直线球基础上练习连续走位。三颗球排列在台面上，用不同杆法依次进袋，每次走位到下一颗球的理想位置。",
+  "coachingPoints": [
+    "直线球走位只能用杆法控制前后——高杆向前、低杆后退、中杆停住",
+    "三球连打的关键是倒推：从最后一颗球开始规划走位路线",
+    "保持出杆节奏一致，不要因为着急连打而加速"
+  ],
+  "standardCriteria": "10组中5组三球连续进袋",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.42},
+      "path": [
+        {"x": 0.5, "y": 0.33},
+        {"x": 0.5, "y": 0.28}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.3},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.3}
+  }
+}

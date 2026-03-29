@@ -1,0 +1,38 @@
+{
+  "id": "drill_c032",
+  "nameZh": "中台角度球入袋",
+  "nameEn": "Mid-Table Angle Pocketing",
+  "category": "accuracy",
+  "subcategory": "angle",
+  "ballType": ["chinese8"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "从中台距离练习各种角度的入袋。目标球放在五分点附近，母球放在台面中心区域，训练中距离角度判断与瞄准稳定性。",
+  "coachingPoints": [
+    "瞄准时找到目标球上的接触点——想象一条从袋口穿过目标球中心的线",
+    "中台距离出杆速度适中，不要用力过猛",
+    "角度越大，需要瞄准的偏移量越大——多练才能建立角度感"
+  ],
+  "standardCriteria": "15球进8球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.72, "y": 0.38}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.4},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.75, "y": 0.4}
+  }
+}

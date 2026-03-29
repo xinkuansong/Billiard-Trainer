@@ -1,0 +1,39 @@
+{
+  "id": "drill_c070",
+  "nameZh": "全台清台挑战",
+  "nameEn": "Full Table Clearance Challenge",
+  "category": "combined",
+  "subcategory": "clearance",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 5,
+  "isPremium": true,
+  "description": "标准中式台球比赛布局：开球后选色清台，最后打入黑八。全台清台是每个台球手的终极目标——综合准度、杆法、走位、力度与心理素质。",
+  "coachingPoints": [
+    "开球后先观察30秒：评估球形，选择更容易清台的颜色",
+    "先解决困难球位——趁有选择时处理难球，不要留到最后",
+    "黑八前确保母球走到最舒服的位置——黑八进不了等于前功尽弃"
+  ],
+  "standardCriteria": "10次挑战中2次成功清台含黑八",
+  "sets": {
+    "defaultSets": 10,
+    "defaultBallsPerSet": 8
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.25, "y": 0.25},
+      "path": [
+        {"x": 0.75, "y": 0.25},
+        {"x": 0.5, "y": 0.35}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.25},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.75, "y": 0.25}
+  }
+}

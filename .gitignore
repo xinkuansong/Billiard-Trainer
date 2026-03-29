@@ -36,3 +36,7 @@ fastlane/test_output
 # ENV
 .env
 .env.local
+
+# Backend
+backend/node_modules/
+backend/.env

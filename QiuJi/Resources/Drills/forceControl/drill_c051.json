@@ -1,0 +1,40 @@
+{
+  "id": "drill_c051",
+  "nameZh": "全力度走位综合",
+  "nameEn": "Full Force Range Position",
+  "category": "forceControl",
+  "subcategory": "fullRange",
+  "ballType": ["chinese8"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "根据下一颗球位置，在同一球位选择不同力度完成走位。要求在极轻到极重的全力度范围内自如切换，体现完整的控力能力。",
+  "coachingPoints": [
+    "同一球位用不同力度可以走到完全不同的区域——力度是走位的第二维度",
+    "判断用多大力度取决于：碰库次数、走位距离、母球需要的旋转量",
+    "高水平选手的标志是力度误差极小——同样球位能反复走到同一区域"
+  ],
+  "standardCriteria": "10球中4球进袋且母球走到指定区域",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.78, "y": 0.38},
+        {"x": 0.95, "y": 0.25},
+        {"x": 0.65, "y": 0.08}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.8, "y": 0.4},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.8, "y": 0.4}
+  }
+}

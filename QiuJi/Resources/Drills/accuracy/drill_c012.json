@@ -1,0 +1,38 @@
+{
+  "id": "drill_c012",
+  "nameZh": "中袋直线入袋",
+  "nameEn": "Straight Shot to Side Pocket",
+  "category": "accuracy",
+  "subcategory": "straight",
+  "ballType": ["chinese8"],
+  "level": "L0",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "直线球打入上中袋，训练中袋瞄准精度。中袋袋口比底袋窄，对瞄准线偏差容忍度更低。",
+  "coachingPoints": [
+    "中袋袋口较窄，瞄准时需更加精确",
+    "出杆力度适中，避免因过大力度导致偏移",
+    "母球与目标球的连线必须严格指向中袋中心"
+  ],
+  "standardCriteria": "15球进9球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.3, "y": 0.25},
+      "path": [
+        {"x": 0.42, "y": 0.1}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.43, "y": 0.08},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.43, "y": 0.08}
+  }
+}

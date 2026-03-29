@@ -1,0 +1,39 @@
+{
+  "id": "drill_c050",
+  "nameZh": "软打控位",
+  "nameEn": "Soft Touch Position Control",
+  "category": "forceControl",
+  "subcategory": "softPosition",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "用极轻力度将目标球刚好推入袋口，同时精确控制母球停位。软打控位是高手的标志——不依赖力度和碰库，纯靠精准实现走位。",
+  "coachingPoints": [
+    "软打时击球点精度更重要——力度小意味着容错空间也小",
+    "极轻力度下杆法效果会减弱——高杆跟进距离很短，低杆回退也很短",
+    "软打最适合近距离走位——在30厘米范围内精确定位"
+  ],
+  "standardCriteria": "10球中5球进袋且母球停在20厘米目标区内",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.35, "y": 0.35},
+      "path": [
+        {"x": 0.18, "y": 0.42},
+        {"x": 0.25, "y": 0.35}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.15, "y": 0.43},
+      "path": [
+        {"x": -0.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomLeft",
+    "cueDirection": {"x": 0.15, "y": 0.43}
+  }
+}

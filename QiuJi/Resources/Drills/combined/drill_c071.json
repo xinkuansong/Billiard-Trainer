@@ -1,0 +1,39 @@
+{
+  "id": "drill_c071",
+  "nameZh": "高级蛇彩贴库综合",
+  "nameEn": "Advanced Snake with Rail Shots",
+  "category": "combined",
+  "subcategory": "advancedSnake",
+  "ballType": ["chinese8"],
+  "level": "L4",
+  "difficulty": 5,
+  "isPremium": true,
+  "description": "9颗球蛇彩，部分球贴库或紧靠库边。在标准蛇彩基础上增加贴库球处理难度，是职业级走位能力的考验。",
+  "coachingPoints": [
+    "贴库球的走位选择有限——提前一杆就要规划如何处理贴库球",
+    "遇到贴库球优先沿库方向切入角袋——这是最稳定的处理方式",
+    "高级蛇彩要求全面技术：加塞碰库走位、贴库薄切、力度精确控制"
+  ],
+  "standardCriteria": "9球蛇彩连续完成6颗以上",
+  "sets": {
+    "defaultSets": 5,
+    "defaultBallsPerSet": 9
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.65, "y": 0.42},
+      "path": [
+        {"x": 0.85, "y": 0.43},
+        {"x": 0.5, "y": 0.15}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.88, "y": 0.43},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.88, "y": 0.43}
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "drill_c049",
+  "nameZh": "五档力度阶梯",
+  "nameEn": "Five-Level Force Ladder",
+  "category": "forceControl",
+  "subcategory": "ladder",
+  "ballType": ["universal"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "将力度细分为五档（极轻/轻/中/重/极重），在同一球位依次用五档力度击球。每档力度对应不同的母球走位距离，建立精确的力度阶梯。",
+  "coachingPoints": [
+    "五档力度从手臂摆幅区分：极轻仅手腕、轻用半个小臂、中用全小臂、重加肘关节、极重全臂加速",
+    "关键是每档力度之间要有明确的差异——模糊的力度等于没有控力",
+    "先在空杆（不击球）状态下练习五档摆幅，再实际击球验证"
+  ],
+  "standardCriteria": "五档各3球，母球分别停在5个不同距离区域",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.2},
+      "path": [
+        {"x": 0.5, "y": 0.38}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.4},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.4}
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "id": "drill_c043",
+  "nameZh": "高级手架稳定性",
+  "nameEn": "Advanced Bridge Stability",
+  "category": "fundamentals",
+  "subcategory": "bridge",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 2,
+  "isPremium": false,
+  "description": "在不同手架形式下（开放架、闭合架、高架）分别练习直线球，检验各种手架的稳定性。手架是出杆精度的基石，必须在各种球位下都稳固。",
+  "coachingPoints": [
+    "开放架适合大多数球位，五指撑开贴紧台面，V型槽引导球杆",
+    "闭合架用于需要更大力度的击球——食指圈住球杆，更稳固",
+    "高架用于母球紧贴其他球时——手指撑高，球杆从上方出杆"
+  ],
+  "standardCriteria": "每种手架15球各进10球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.25},
+      "path": [
+        {"x": 0.5, "y": 0.42}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.43},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.5, "y": 0.43}
+  }
+}

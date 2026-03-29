@@ -29,6 +29,17 @@ struct ProfileView: View {
             }
             .navigationTitle("我的")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(for: String.self) { destination in
+                switch destination {
+                case "favorites":
+                    FavoriteDrillsView()
+                        .navigationDestination(for: String.self) { drillId in
+                            DrillDetailView(drillId: drillId)
+                        }
+                default:
+                    EmptyView()
+                }
+            }
         }
         .sheet(isPresented: $showLoginSheet) {
             LoginView()
@@ -173,6 +184,27 @@ private struct ProfileMenuSection: View {
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
+            NavigationLink(value: "favorites") {
+                HStack(spacing: Spacing.md) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 17))
+                        .foregroundStyle(.btAccent)
+                        .frame(width: 28)
+                    Text("收藏夹")
+                        .font(.btBody)
+                        .foregroundStyle(.btText)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextTertiary)
+                }
+                .padding(.vertical, Spacing.md)
+                .padding(.horizontal, Spacing.lg)
+                .background(Color.btBGSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            }
+            .buttonStyle(.plain)
+
             if authState.isLoggedIn {
                 MenuRow(icon: "icloud.and.arrow.up", title: "同步数据", color: .btPrimary) {}
             }

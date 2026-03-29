@@ -1,0 +1,39 @@
+{
+  "id": "drill_c026",
+  "nameZh": "厚球分离角控制",
+  "nameEn": "Thick Cut Separation Control",
+  "category": "separation",
+  "subcategory": "thickCut",
+  "ballType": ["universal"],
+  "level": "L1",
+  "difficulty": 3,
+  "isPremium": false,
+  "description": "练习厚球（小角度切球）的分离角。厚球接触面大，母球偏转角接近90度，容易失控。掌握厚球分离角有助于短距离走位控制。",
+  "coachingPoints": [
+    "厚球接触面积大，目标球获得大部分动能，母球速度明显减慢",
+    "斯登厚球后母球几乎垂直偏转——要提前判断偏转方向",
+    "厚球容易出现母球跟随目标球进袋（双落），注意控制力度"
+  ],
+  "standardCriteria": "10球中6球进袋且母球沿预判方向偏转",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.15},
+      "path": [
+        {"x": 0.54, "y": 0.33},
+        {"x": 0.65, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.55, "y": 0.35},
+      "path": [
+        {"x": 0.5, "y": 0.5268}
+      ]
+    },
+    "pocket": "bottomCenter",
+    "cueDirection": {"x": 0.55, "y": 0.35}
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "id": "drill_c018",
+  "nameZh": "左塞一库变线",
+  "nameEn": "Left Spin One-Cushion",
+  "category": "cueAction",
+  "subcategory": "sideSpin",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "在角度球中加左塞击球，目标球入右下角袋后，母球碰底库反弹时因左旋而改变反弹角度，走位至台面左侧。训练加塞对库边反弹的影响。",
+  "coachingPoints": [
+    "击球点选在母球中心偏左3–4毫米，同时略偏下保持低重心",
+    "左塞会使母球碰库后反弹角变小（反弹方向更贴近库边）",
+    "注意让点：加塞时瞄准点需略向右补偿，否则会偏离目标球"
+  ],
+  "standardCriteria": "10球中5球进袋且母球碰库后走到左半台",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.2},
+      "path": [
+        {"x": 0.73, "y": 0.34},
+        {"x": 0.65, "y": 0.49},
+        {"x": 0.3, "y": 0.2}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.75, "y": 0.35},
+      "path": [
+        {"x": 1.0165, "y": 0.5165}
+      ]
+    },
+    "pocket": "bottomRight",
+    "cueDirection": {"x": 0.75, "y": 0.35}
+  }
+}

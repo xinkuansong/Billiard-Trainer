@@ -1,0 +1,38 @@
+{
+  "id": "drill_c072",
+  "nameZh": "远台直线球极限",
+  "nameEn": "Extreme Long Straight Shot",
+  "category": "accuracy",
+  "subcategory": "extremeLong",
+  "ballType": ["universal"],
+  "level": "L3",
+  "difficulty": 4,
+  "isPremium": true,
+  "description": "全台最远距离的直线球入袋——母球在一端，目标球在另一端。这是出杆直度的极限测试，微小的偏差在2.5米的距离上会被放大到无法进袋。",
+  "coachingPoints": [
+    "全台直线球是基本功的终极检验——只有完美的出杆才能进球",
+    "稳定呼吸，击球前做2–3次空杆确认方向",
+    "如果反复偏向同一侧，说明出杆动作有系统性偏差，需要回归基本功矫正"
+  ],
+  "standardCriteria": "15球进5球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.5, "y": 0.45},
+      "path": [
+        {"x": 0.5, "y": 0.05}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.5, "y": 0.04},
+      "path": [
+        {"x": 0.5, "y": -0.0268}
+      ]
+    },
+    "pocket": "topCenter",
+    "cueDirection": {"x": 0.5, "y": 0.04}
+  }
+}

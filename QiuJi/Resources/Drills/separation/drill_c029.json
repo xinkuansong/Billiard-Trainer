@@ -1,0 +1,39 @@
+{
+  "id": "drill_c029",
+  "nameZh": "定杆分离角精确控制",
+  "nameEn": "Stun Separation Precision",
+  "category": "separation",
+  "subcategory": "stunSeparation",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "在不同角度球位使用定杆，精确控制90度分离角的力度与方向。在台面放置目标区域标记，要求母球停在标记区内。",
+  "coachingPoints": [
+    "定杆分离角方向固定为90度，变量是母球滑行距离（取决于力度）",
+    "力度越大母球滑行越远，力度越小停得越近——用力度控制走位距离",
+    "不同角度球的90度分离方向不同，击球前必须先判断分离方向"
+  ],
+  "standardCriteria": "10球中5球进袋且母球停在30厘米目标区内",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 10
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.35, "y": 0.35},
+      "path": [
+        {"x": 0.2, "y": 0.12},
+        {"x": 0.35, "y": 0.05}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.18, "y": 0.1},
+      "path": [
+        {"x": -0.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topLeft",
+    "cueDirection": {"x": 0.18, "y": 0.1}
+  }
+}

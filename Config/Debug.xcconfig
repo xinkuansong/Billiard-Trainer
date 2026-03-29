@@ -3,7 +3,7 @@
 // 新开发者：复制此文件为 Secrets.xcconfig，填入真实值
 
 // 自建后端 API（H-14 服务器部署后填入）
-API_BASE_URL = https://dev.api.qiuji.app
+API_BASE_URL = http://106.54.3.210:3000
 
 // WeChat（H-05 完成后填入）
 WECHAT_APP_ID = YOUR_WECHAT_APP_ID_HERE

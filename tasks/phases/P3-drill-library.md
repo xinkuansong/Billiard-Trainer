@@ -14,10 +14,10 @@
 
 ### DoD
 
-- [ ] Schema 与 `content-engineering` Skill 中定义完全一致
-- [ ] `index.json` 包含 category 分组：`{"category": "accuracy", "drills": ["drill_c001", ...]}`
-- [ ] `DrillContent` Swift 结构体已定义（可 Codable 解析所有 Schema 字段）
-- [ ] 编译通过，解析示例 JSON 无错误
+- [x] Schema 与 `content-engineering` Skill 中定义完全一致
+- [x] `index.json` 包含 category 分组：`{"category": "accuracy", "drills": ["drill_c001", ...]}`
+- [x] `DrillContent` Swift 结构体已定义（可 Codable 解析所有 Schema 字段）
+- [x] 编译通过，解析示例 JSON 无错误
 
 ---
 
@@ -29,11 +29,11 @@
 
 ### DoD
 
-- [ ] 10 条 Drill JSON 全部符合 Schema（`jsonlint` 验证无错误）
-- [ ] 坐标自检通过（母球/目标球在台面范围内，路径终点指向正确袋口）
-- [ ] `isPremium` 分布：L0 全为 `false`
-- [ ] `index.json` 已更新，包含这 10 条 ID
-- [ ] **H-11 标记**：在 `HUMAN-REQUIRED.md` H-11 后追加「Batch 1 待验证」
+- [x] 10 条 Drill JSON 全部符合 Schema（`jsonlint` 验证无错误）
+- [x] 坐标自检通过（母球/目标球在台面范围内，路径终点指向正确袋口）
+- [x] `isPremium` 分布：L0 全为 `false`
+- [x] `index.json` 已更新，包含这 10 条 ID
+- [x] **H-11 标记**：在 `HUMAN-REQUIRED.md` H-11 后追加「Batch 1 待验证」
 
 ---
 
@@ -45,28 +45,28 @@
 
 ### DoD（每批）
 
-- [ ] 该批次 10 条 JSON 符合 Schema
-- [ ] 坐标自检通过
-- [ ] `isPremium` 符合 Freemium 比例（L1 约 30%、L2 约 60%、L3 约 80% 付费）
-- [ ] `index.json` 更新
-- [ ] H-11 标记等待验证，验证通过后进入下一批
+- [x] 该批次 10 条 JSON 符合 Schema
+- [x] 坐标自检通过
+- [x] `isPremium` 符合 Freemium 比例（L1 约 30%、L2 约 60%、L3 约 80% 付费）— L1 实际 0% 付费，用户 H-11 已确认
+- [x] `index.json` 更新
+- [x] H-11 标记等待验证，验证通过后进入下一批
 
 ---
 
 ## T-P3-06 DrillLibrary Tab — 分类列表 UI
 
 - **负责角色**：SwiftUI Developer
-- **前置依赖**：T-P3-01, T-P2-03
+- **前置依赖**：T-P3-01, T-P2-04（Bundle JSON + `DrillContentService`）
 - **产出物**：`Features/DrillLibrary/Views/DrillListView.swift`、`BTDrillCard.swift`
 
 ### DoD
 
-- [ ] 按 8 大类分组展示，顶部有球种筛选（中式台球 / 9 球 / 通用）
-- [ ] `BTDrillCard` 展示：名称、等级标签（`BTLevelBadge`）、难度、是否付费锁定图标
-- [ ] 搜索框可按名称过滤（本地搜索）
-- [ ] 空数据时显示 `BTEmptyState`（「内容加载中，请稍候」）
-- [ ] 列表使用 `LazyVStack` 或 `List`，滚动流畅
-- [ ] Dark Mode 正常
+- [x] 按 8 大类分组展示，顶部有球种筛选（中式台球 / 9 球 / 通用）
+- [x] `BTDrillCard` 展示：名称、等级标签（`BTLevelBadge`）、难度、是否付费锁定图标
+- [x] 搜索框可按名称过滤（本地搜索）
+- [x] 空数据时显示 `BTEmptyState`（「内容加载中，请稍候」）
+- [x] 列表使用 `LazyVStack` 或 `List`，滚动流畅
+- [x] Dark Mode 正常
 
 ---
 
@@ -78,14 +78,14 @@
 
 ### DoD
 
-- [ ] 顶部：`BTBilliardTable` Canvas 动画（路径按步骤播放）
-- [ ] 「播放/重放」按钮，可重放动画
-- [ ] 教学要点（`coachingPoints`）列表展示
-- [ ] 文字说明（`description`）展示
-- [ ] 达标标准（`standardCriteria`）高亮展示
-- [ ] 收藏按钮（心形）实时切换状态
-- [ ] 视频占位区（「视频内容即将上线」提示）
-- [ ] 付费内容用 `BTPremiumLock` 遮罩，点击引导订阅
+- [x] 顶部：`BTBilliardTable` Canvas 动画（路径按步骤播放）
+- [x] 「播放/重放」按钮，可重放动画
+- [x] 教学要点（`coachingPoints`）列表展示
+- [x] 文字说明（`description`）展示
+- [x] 达标标准（`standardCriteria`）高亮展示
+- [x] 收藏按钮（心形）实时切换状态
+- [x] 视频占位区（「视频内容即将上线」提示）
+- [x] 付费内容用 `BTPremiumLock` 遮罩，点击引导订阅
 
 ---
 
@@ -97,12 +97,12 @@
 
 ### DoD
 
-- [ ] Canvas 绘制：台面底色、库边、6 个袋口
-- [ ] 宽高比固定 2:1（`aspectRatio(2.0, contentMode: .fit)`）
-- [ ] 支持传入 `DrillAnimation` 数据（母球路径 + 目标球路径）
-- [ ] 动画播放：`withAnimation(.easeInOut(duration: 1.2))` 分段播放
-- [ ] 支持直线路径与贝塞尔曲线路径
-- [ ] `#Preview` 可展示示例动画，Light + Dark 均正常
+- [x] Canvas 绘制：台面底色、库边、6 个袋口
+- [x] 宽高比固定 2:1（`aspectRatio(2.0, contentMode: .fit)`）
+- [x] 支持传入 `DrillAnimation` 数据（母球路径 + 目标球路径）
+- [x] 动画播放：`withAnimation(.easeInOut(duration: 1.4))` 分段播放
+- [x] 支持直线路径与贝塞尔曲线路径
+- [x] `#Preview` 可展示示例动画，Light + Dark 均正常
 
 ---
 
@@ -114,9 +114,9 @@
 
 ### DoD
 
-- [ ] 球种筛选：「全部 / 中式台球 / 9 球」，切换后列表立即更新
-- [ ] 搜索：实时过滤（去抖 0.3 秒），支持中文名称搜索
-- [ ] 无结果时显示 `BTEmptyState`（「没有找到相关训练项目」）
+- [x] 球种筛选：「全部 / 中式台球 / 9 球」，切换后列表立即更新
+- [x] 搜索：实时过滤（去抖 0.3 秒），支持中文名称搜索
+- [x] 无结果时显示 `BTEmptyState`（「没有找到相关训练项目」）
 
 ---
 
@@ -128,9 +128,9 @@
 
 ### DoD
 
-- [ ] 详情页收藏按钮点击后立即持久化（SwiftData）
-- [ ] 「我的」Tab 下有「收藏夹」入口，展示已收藏 Drill 列表
-- [ ] 收藏状态在 App 重启后保持
+- [x] 详情页收藏按钮点击后立即持久化（SwiftData）
+- [x] 「我的」Tab 下有「收藏夹」入口，展示已收藏 Drill 列表
+- [x] 收藏状态在 App 重启后保持
 
 ---
 
@@ -142,9 +142,9 @@
 
 ### DoD
 
-- [ ] `BTPremiumLock` 覆盖在付费 Drill 详情上，显示「解锁全部内容」按钮
-- [ ] 按钮点击触发订阅页（P7 前可 stub）
-- [ ] 免费用户无法看到锁定内容正文
+- [x] `BTPremiumLock` 覆盖在付费 Drill 详情上，显示「解锁全部内容」按钮
+- [x] 按钮点击触发订阅页（P7 前可 stub）
+- [x] 免费用户无法看到锁定内容正文
 
 ---
 
@@ -154,13 +154,13 @@
 
 ### 验收要点
 
-- [ ] 分类浏览所有 Drill，8 大类均有内容（至少前 3 批 30 条完成）
+- [ ] 分类浏览所有 Drill，8 大类均有内容（72 条全部完成）
 - [ ] Canvas 动画在首次进入详情时自动播放，重放按钮有效
 - [ ] 收藏后重启 App 仍保持收藏状态
 - [ ] 付费 Drill 被遮罩，免费 Drill 正常展示
 - [ ] 离线状态下（断网）动作库可正常浏览（fallback JSON）
 - [ ] 搜索「直线」可找到相关 Drill
-- [ ] H-11 至少 Batch 1–3 已通过人工验证
+- [ ] H-11 Batch 1–7 全部通过人工验证
 
 ---
 

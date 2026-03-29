@@ -1,0 +1,38 @@
+{
+  "id": "drill_c033",
+  "nameZh": "远台斜线入角袋",
+  "nameEn": "Long Diagonal to Corner Pocket",
+  "category": "accuracy",
+  "subcategory": "longAngle",
+  "ballType": ["chinese8"],
+  "level": "L2",
+  "difficulty": 3,
+  "isPremium": true,
+  "description": "从远台距离将目标球沿斜线打入对角角袋。远距离角度球是中级水平的标志性技术——距离放大了瞄准误差，需要极高的出杆稳定性。",
+  "coachingPoints": [
+    "远台角度球瞄准误差会被距离放大——出杆必须极其平稳",
+    "击球力度不宜太重，中等力度保证方向准确优先",
+    "可以用辅助瞄准法：先站到袋口方向观察接触点，再回到击球位置"
+  ],
+  "standardCriteria": "15球进6球",
+  "sets": {
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15
+  },
+  "animation": {
+    "cueBall": {
+      "start": {"x": 0.25, "y": 0.4},
+      "path": [
+        {"x": 0.7, "y": 0.12}
+      ]
+    },
+    "targetBall": {
+      "start": {"x": 0.72, "y": 0.1},
+      "path": [
+        {"x": 1.0165, "y": -0.0165}
+      ]
+    },
+    "pocket": "topRight",
+    "cueDirection": {"x": 0.72, "y": 0.1}
+  }
+}
