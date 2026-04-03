@@ -52,6 +52,14 @@ final class TrainingHomeViewModel: ObservableObject {
 
         hasActivePlan = true
 
+        if activePlan.isCustom {
+            await loadCustomPlan(activePlan: activePlan, context: context)
+        } else {
+            await loadOfficialPlan(activePlan: activePlan, context: context)
+        }
+    }
+
+    private func loadOfficialPlan(activePlan: UserActivePlan, context: ModelContext) async {
         let planService = PlanContentService.shared
         guard let plan = await planService.loadPlanFromBundle(id: activePlan.planId) else {
             todaySession = nil
@@ -102,6 +110,48 @@ final class TrainingHomeViewModel: ObservableObject {
             dayNumber: activePlan.currentDay,
             weekTheme: week.theme,
             totalMinutes: totalMinutes,
+            drills: items
+        )
+    }
+
+    private func loadCustomPlan(activePlan: UserActivePlan, context: ModelContext) async {
+        guard let planUUID = UUID(uuidString: activePlan.planId) else {
+            todaySession = nil
+            return
+        }
+
+        let descriptor = FetchDescriptor<CustomPlan>(
+            predicate: #Predicate { $0.id == planUUID }
+        )
+        guard let customPlan = try? context.fetch(descriptor).first else {
+            todaySession = nil
+            return
+        }
+
+        let completedIds = fetchTodayCompletedDrillIds(context: context)
+        let sortedDrills = customPlan.drills.sorted { $0.order < $1.order }
+
+        var items: [TodayDrillItem] = []
+        for drill in sortedDrills {
+            items.append(TodayDrillItem(
+                id: "custom_\(drill.drillId)",
+                drillId: drill.drillId,
+                nameZh: drill.drillNameZh,
+                phaseType: "focused",
+                phaseZh: "专项训练",
+                phaseIcon: "target",
+                sets: drill.sets,
+                ballsPerSet: drill.ballsPerSet,
+                isCompleted: completedIds.contains(drill.drillId)
+            ))
+        }
+
+        todaySession = TodaySessionInfo(
+            planNameZh: customPlan.name,
+            weekNumber: 1,
+            dayNumber: 1,
+            weekTheme: "自定义训练",
+            totalMinutes: 0,
             drills: items
         )
     }

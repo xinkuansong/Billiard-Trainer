@@ -29,13 +29,25 @@ struct MainTabView: View {
                 }
                 .tag(AppTab.drillLibrary)
 
-            AnglePlaceholderView()
+            NavigationStack(path: $router.anglePath) {
+                AngleHomeView()
+                    .navigationTitle("角度训练")
+                    .navigationDestination(for: AngleRoute.self) { route in
+                        angleDestination(for: route)
+                    }
+            }
                 .tabItem {
                     Label(AppTab.angle.title, systemImage: AppTab.angle.icon)
                 }
                 .tag(AppTab.angle)
 
-            HistoryPlaceholderView()
+            NavigationStack(path: $router.historyPath) {
+                HistoryCalendarView()
+                    .navigationTitle("历史")
+                    .navigationDestination(for: HistoryRoute.self) { route in
+                        historyDestination(for: route)
+                    }
+            }
                 .tabItem {
                     Label(AppTab.history.title, systemImage: AppTab.history.icon)
                 }
@@ -56,49 +68,33 @@ struct MainTabView: View {
             PlanListView()
         case .planDetail(let planId):
             PlanDetailView(planId: planId)
+        case .customPlanBuilder:
+            CustomPlanBuilderView()
+        case .customPlanEdit(let planId):
+            CustomPlanBuilderView(editingPlanId: planId)
         }
     }
-}
 
-// MARK: - Tab 占位视图
-
-private struct AnglePlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            PlaceholderContentView(title: "角度训练", icon: AppTab.angle.icon)
-                .navigationTitle("角度训练")
+    @ViewBuilder
+    private func angleDestination(for route: AngleRoute) -> some View {
+        switch route {
+        case .test:
+            AngleTestView(limiter: AngleUsageLimiter())
+        case .contactPointTable:
+            ContactPointTableView()
+        case .history:
+            AngleHistoryView()
         }
     }
-}
 
-private struct HistoryPlaceholderView: View {
-    var body: some View {
-        NavigationStack {
-            PlaceholderContentView(title: "历史记录", icon: AppTab.history.icon)
-                .navigationTitle("历史")
+    @ViewBuilder
+    private func historyDestination(for route: HistoryRoute) -> some View {
+        switch route {
+        case .detail(let sessionId):
+            TrainingDetailView(sessionId: sessionId)
+        case .statistics:
+            StatisticsView()
         }
-    }
-}
-
-
-private struct PlaceholderContentView: View {
-    let title: String
-    let icon: String
-
-    var body: some View {
-        VStack(spacing: Spacing.xl) {
-            Image(systemName: icon)
-                .font(.system(size: 56))
-                .foregroundStyle(.btPrimary)
-            Text(title)
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-            Text("功能开发中")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.btBG)
     }
 }
 
@@ -106,11 +102,13 @@ private struct PlaceholderContentView: View {
     MainTabView()
         .environmentObject(AppRouter())
         .environmentObject(AuthState())
+        .environmentObject(SubscriptionManager.shared)
 }
 
 #Preview("Dark") {
     MainTabView()
         .environmentObject(AppRouter())
         .environmentObject(AuthState())
+        .environmentObject(SubscriptionManager.shared)
         .preferredColorScheme(.dark)
 }

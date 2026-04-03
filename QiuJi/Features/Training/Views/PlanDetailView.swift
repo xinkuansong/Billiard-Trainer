@@ -4,6 +4,7 @@ import SwiftData
 struct PlanDetailView: View {
     let planId: String
 
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @State private var plan: OfficialPlan?
@@ -15,27 +16,22 @@ struct PlanDetailView: View {
     @State private var drillNames: [String: String] = [:]
 
     var body: some View {
-        ZStack {
-            ScrollView {
-                if isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 300)
-                } else if let plan {
-                    planContent(plan)
-                } else {
-                    BTEmptyState(
-                        icon: "exclamationmark.triangle",
-                        title: "无法加载计划",
-                        subtitle: "计划数据可能已损坏"
-                    )
-                }
-            }
-            .background(.btBG)
-
-            if let plan, plan.isPremium {
-                BTPremiumLock()
+        ScrollView {
+            if isLoading {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 300)
+            } else if let plan {
+                planContent(plan)
+            } else {
+                BTEmptyState(
+                    icon: "exclamationmark.triangle",
+                    title: "无法加载计划",
+                    subtitle: "计划数据可能已损坏"
+                )
             }
         }
+        .background(.btBG)
+        .premiumGate(isPremium: plan?.isPremium ?? false)
         .navigationTitle(plan?.nameZh ?? "计划详情")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -159,7 +155,7 @@ struct PlanDetailView: View {
                 .padding(Spacing.lg)
                 .background(Color.btSuccess.opacity(0.1))
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-            } else if !plan.isPremium {
+            } else if !plan.isPremium || subscriptionManager.isPremium {
                 Button {
                     showActivateConfirm = true
                 } label: {

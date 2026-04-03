@@ -6,6 +6,7 @@ enum BallTypeFilter: String, CaseIterable, Identifiable {
     case all = "全部"
     case chinese8 = "中式台球"
     case nineBall = "9球"
+    case universal = "通用"
 
     var id: String { rawValue }
 
@@ -17,6 +18,8 @@ enum BallTypeFilter: String, CaseIterable, Identifiable {
             return drill.ballType.contains("chinese8") || drill.ballType.contains("universal")
         case .nineBall:
             return drill.ballType.contains("nineBall") || drill.ballType.contains("universal")
+        case .universal:
+            return drill.ballType.contains("universal")
         }
     }
 }
@@ -26,15 +29,16 @@ final class DrillListViewModel: ObservableObject {
     @Published var drillsByCategory: [(category: DrillCategory, drills: [DrillContent])] = []
     @Published var searchText: String = ""
     @Published var ballTypeFilter: BallTypeFilter = .all
+    @Published var categoryFilter: DrillCategory? = nil
     @Published var isLoading = true
 
     private var allDrills: [DrillContent] = []
     private var cancellables = Set<AnyCancellable>()
 
     init() {
-        Publishers.CombineLatest($searchText, $ballTypeFilter)
+        Publishers.CombineLatest3($searchText, $ballTypeFilter, $categoryFilter)
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
-            .sink { [weak self] _, _ in
+            .sink { [weak self] _, _, _ in
                 self?.applyFilters()
             }
             .store(in: &cancellables)
@@ -66,6 +70,10 @@ final class DrillListViewModel: ObservableObject {
         }
 
         filtered = filtered.filter { ballTypeFilter.matches($0) }
+
+        if let categoryFilter {
+            filtered = filtered.filter { $0.category == categoryFilter.rawValue }
+        }
 
         let grouped = Dictionary(grouping: filtered) { $0.category }
 

@@ -11,6 +11,9 @@ struct DrillListView: View {
             VStack(spacing: 0) {
                 filterBar
                     .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.sm)
+
+                categoryBar
                     .padding(.bottom, Spacing.md)
 
                 if viewModel.isLoading {
@@ -68,6 +71,43 @@ struct DrillListView: View {
         }
     }
 
+    // MARK: - Category Bar (U-05)
+
+    private var categoryBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Spacing.sm) {
+                categoryChip(label: "全部分类", icon: "square.grid.2x2", category: nil)
+
+                ForEach(DrillCategory.allCases) { category in
+                    categoryChip(label: category.nameZh, icon: category.icon, category: category)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+        }
+    }
+
+    private func categoryChip(label: String, icon: String, category: DrillCategory?) -> some View {
+        let isSelected = viewModel.categoryFilter == category
+        return Button {
+            viewModel.categoryFilter = category
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                Text(label)
+                    .font(.btCaption)
+            }
+            .foregroundStyle(isSelected ? .white : .btText)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(isSelected ? Color.btPrimary : Color.btBGSecondary)
+            .clipShape(Capsule())
+            .overlay(
+                Capsule().stroke(isSelected ? Color.clear : Color.btSeparator, lineWidth: 0.5)
+            )
+        }
+    }
+
     // MARK: - Drill Sections
 
     private var drillSections: some View {
@@ -95,16 +135,16 @@ struct DrillListView: View {
     }
 
     private func sectionHeader(category: DrillCategory, count: Int) -> some View {
-        HStack {
+        HStack(spacing: Spacing.sm) {
             Image(systemName: category.icon)
                 .font(.btCallout)
                 .foregroundStyle(.btPrimary)
 
             Text(category.nameZh)
-                .font(.btTitle)
+                .font(.btHeadline)
                 .foregroundStyle(.btText)
 
-            Text("\(count)")
+            Text("\(count) 项")
                 .font(.btCaption)
                 .foregroundStyle(.btTextSecondary)
                 .padding(.horizontal, Spacing.sm)

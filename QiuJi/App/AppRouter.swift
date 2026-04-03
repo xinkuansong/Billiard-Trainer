@@ -19,7 +19,7 @@ enum AppTab: Int, CaseIterable {
 
     var icon: String {
         switch self {
-        case .training:     return "figure.pool.swim"
+        case .training:     return "dumbbell.fill"
         case .drillLibrary: return "list.bullet.rectangle"
         case .angle:        return "angle"
         case .history:      return "clock.arrow.circlepath"

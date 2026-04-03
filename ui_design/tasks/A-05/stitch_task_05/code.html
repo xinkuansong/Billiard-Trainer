@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "surface-container-high": "#e8e8ed",
+                        "on-tertiary-fixed-variant": "#792d39",
+                        "on-secondary-fixed-variant": "#614000",
+                        "secondary": "#805600",
+                        "surface-container-low": "#f3f3f8",
+                        "surface-container": "#ededf2",
+                        "primary": "#005129",
+                        "tertiary-fixed": "#ffd9dc",
+                        "on-secondary-container": "#6e4900",
+                        "outline-variant": "#bfc9be",
+                        "on-primary-fixed": "#00210d",
+                        "inverse-primary": "#89d89e",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#782c38",
+                        "on-background": "#1a1c1f",
+                        "primary-fixed-dim": "#89d89e",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#F2F2F7",
+                        "on-surface-variant": "#404940",
+                        "surface-variant": "#e2e2e7",
+                        "on-error": "#ffffff",
+                        "surface-dim": "#d9dade",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#ffddaf",
+                        "secondary-container": "#fcb73f",
+                        "on-surface": "#1a1c1f",
+                        "on-error-container": "#93000a",
+                        "tertiary-container": "#96434f",
+                        "primary-fixed": "#a5f4b8",
+                        "on-primary-container": "#9ae9ae",
+                        "surface-bright": "#f9f9fe",
+                        "surface-tint": "#1b6c3d",
+                        "on-tertiary-fixed": "#3f0110",
+                        "on-secondary": "#ffffff",
+                        "inverse-surface": "#2e3034",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e2e2e7",
+                        "outline": "#707a70",
+                        "on-primary-fixed-variant": "#005229",
+                        "secondary-fixed-dim": "#ffba44",
+                        "background": "#F2F2F7",
+                        "primary-container": "#1a6b3c",
+                        "inverse-on-surface": "#f0f0f5",
+                        "tertiary-fixed-dim": "#ffb2b9",
+                        "on-secondary-fixed": "#281800",
+                        "on-tertiary-container": "#ffcace"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "16px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F2F2F7; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .circular-progress-outer { stroke-dasharray: 628; stroke-dashoffset: 157; }
+        .circular-progress-inner { stroke-dasharray: 502; stroke-dashoffset: 276; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen">
+<!-- Mobile Container (iPhone 393x852pt simulation) -->
+<main class="max-w-[393px] mx-auto min-h-screen bg-surface pb-12 overflow-y-auto">
+<!-- Section 1: BTRestTimer -->
+<section class="px-6 pt-12">
+<h1 class="text-[22pt] font-bold leading-tight text-primary-container plus-jakarta mb-4">
+                BTRestTimer — 组间休息倒计时
+            </h1>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm mb-3">
+<div class="bg-[#1C1C1E] rounded-lg h-[360px] w-full flex flex-col items-center justify-center relative overflow-hidden">
+<!-- Progress Rings -->
+<div class="relative w-[200px] h-[200px] flex items-center justify-center">
+<!-- Outer Ring (75%) -->
+<svg class="absolute inset-0 transform -rotate-90 w-full h-full">
+<circle cx="100" cy="100" fill="none" r="94" stroke="#ffffff10" stroke-width="12"></circle>
+<circle class="circular-progress-outer" cx="100" cy="100" fill="none" r="94" stroke="#1A6B3C" stroke-linecap="round" stroke-width="12"></circle>
+</svg>
+<!-- Inner Ring (45%) -->
+<svg class="absolute inset-0 transform -rotate-90 w-full h-full p-5">
+<circle cx="80" cy="80" fill="none" r="75" stroke="#ffffff05" stroke-width="10"></circle>
+<circle class="circular-progress-inner" cx="80" cy="80" fill="none" r="75" stroke="#D4941A" stroke-linecap="round" stroke-width="10"></circle>
+</svg>
+<!-- Center Text -->
+<div class="text-center z-10">
+<div class="text-[32pt] font-bold text-white leading-none">0:23</div>
+<div class="text-[13pt] text-white opacity-60 mt-1">组间休息</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="mt-12 flex flex-col gap-3 w-full px-12">
+<button class="bg-[#FFFFFF33] backdrop-blur-md text-white rounded-full py-3 text-[14px] font-semibold tracking-wider uppercase">
+                            +30s
+                        </button>
+<button class="bg-primary-container text-white rounded-full py-3 text-[14px] font-semibold tracking-wider uppercase">
+                            完成
+                        </button>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-on-surface-variant px-1">
+                使用场景：训练记录中组间休息倒计时，以半透明弹层形式覆盖训练页
+            </p>
+</section>
+<!-- Section 2: BTFloatingIndicator -->
+<section class="px-6 pt-12">
+<h2 class="text-[22pt] font-bold leading-tight text-primary-container plus-jakarta mb-4">
+                BTFloatingIndicator — 浮动训练指示器
+            </h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm mb-3">
+<div class="bg-[#E5E5EA] rounded-lg h-[240px] w-full relative flex flex-col justify-end">
+<!-- Mock App Content area -->
+<div class="flex-grow p-4 flex flex-col gap-3">
+<div class="h-4 bg-white/50 rounded w-2/3"></div>
+<div class="h-4 bg-white/50 rounded w-1/2"></div>
+</div>
+<!-- Floating Pill -->
+<div class="absolute bottom-[64px] left-1/2 -translate-x-1/2 bg-primary-container h-[44px] px-5 rounded-full flex items-center justify-center text-white shadow-[0_2pt_8pt_rgba(0,0,0,0.15)] whitespace-nowrap z-20">
+<span class="text-[14px] font-medium">训练中 12:34</span>
+<span class="material-symbols-outlined ml-2 text-[18px]">arrow_back</span>
+</div>
+<!-- Mock Tab Bar -->
+<div class="h-[56px] bg-white rounded-b-lg border-t border-black/5 flex justify-around items-center px-4">
+<span class="material-symbols-outlined text-primary-container">home</span>
+<span class="material-symbols-outlined text-on-surface-variant">monitoring</span>
+<span class="material-symbols-outlined text-on-surface-variant">person</span>
+</div>
+</div>
+<!-- Specs Table -->
+<div class="mt-4 pt-4 border-t border-surface-container-high space-y-2">
+<div class="flex justify-between items-center text-[13px]">
+<span class="text-on-surface-variant">Height</span>
+<span class="font-mono text-primary">44pt</span>
+</div>
+<div class="flex justify-between items-center text-[13px]">
+<span class="text-on-surface-variant">Corner Radius</span>
+<span class="font-mono text-primary">999pt</span>
+</div>
+<div class="flex justify-between items-center text-[13px]">
+<span class="text-on-surface-variant">Background</span>
+<span class="font-mono text-primary">#1A6B3C</span>
+</div>
+<div class="flex justify-between items-center text-[13px]">
+<span class="text-on-surface-variant">Shadow</span>
+<span class="font-mono text-primary">0 2pt 8pt rgba(0,0,0,0.15)</span>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-on-surface-variant px-1">
+                使用场景：训练进行中用户切换到其他 Tab 时，全局持续显示浮动胶囊，点击可返回训练
+            </p>
+</section>
+<!-- Section 3: Dimension & Detail -->
+<section class="px-6 pt-12">
+<h2 class="text-[22pt] font-bold leading-tight text-primary-container plus-jakarta mb-4">
+                BTFloatingIndicator — 尺寸与细节
+            </h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm mb-3">
+<div class="flex flex-col items-center py-12 relative">
+<!-- Enlarged Pill 1.5x -->
+<div class="bg-primary-container h-[66px] px-8 rounded-full flex items-center justify-center text-white relative">
+<span class="text-[21px] font-medium tracking-wide">训练中 12:34</span>
+<span class="material-symbols-outlined ml-3 text-[24px]">arrow_back</span>
+<!-- Dimension Annotations Overlay -->
+<!-- Vertical line for height -->
+<div class="absolute -right-12 h-[66px] flex items-center">
+<div class="w-[1px] h-full bg-on-surface-variant/30 relative">
+<div class="absolute -top-1 left-[-3px] w-[7px] h-[1px] bg-on-surface-variant/30"></div>
+<div class="absolute -bottom-1 left-[-3px] w-[7px] h-[1px] bg-on-surface-variant/30"></div>
+</div>
+<span class="text-[12px] text-on-surface-variant ml-2 whitespace-nowrap">Height 44pt (Std)</span>
+</div>
+</div>
+<!-- Horizontal padding annotation -->
+<div class="mt-12 flex items-center gap-4 text-[13px] text-on-surface-variant">
+<div class="flex flex-col items-center">
+<div class="w-16 h-[1px] bg-on-surface-variant/30 relative mb-1">
+<div class="absolute left-0 top-[-3px] w-[1px] h-[7px] bg-on-surface-variant/30"></div>
+<div class="absolute right-0 top-[-3px] w-[1px] h-[7px] bg-on-surface-variant/30"></div>
+</div>
+<span>Padding 16pt</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-16 h-[1px] bg-on-surface-variant/30 relative mb-1">
+<div class="absolute left-0 top-[-3px] w-[1px] h-[7px] bg-on-surface-variant/30"></div>
+<div class="absolute right-0 top-[-3px] w-[1px] h-[7px] bg-on-surface-variant/30"></div>
+</div>
+<span>Shadow Lifted</span>
+</div>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-on-surface-variant px-1">
+                支持呼吸动画（轻微上下浮动），增强视觉吸引力
+            </p>
+</section>
+</main>
+</body></html>

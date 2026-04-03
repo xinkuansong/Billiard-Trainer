@@ -3,7 +3,9 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var showLoginSheet = false
+    @State private var showSubscription = false
 
     var body: some View {
         NavigationStack(path: $router.profilePath) {
@@ -21,7 +23,7 @@ struct ProfileView: View {
                         Divider()
                             .padding(.vertical, Spacing.lg)
 
-                        ProfileMenuSection()
+                        ProfileMenuSection(onSubscriptionTap: { showSubscription = true })
                     }
                     .padding(.horizontal, Spacing.lg)
                     .padding(.top, Spacing.lg)
@@ -43,6 +45,9 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showLoginSheet) {
             LoginView()
+        }
+        .sheet(isPresented: $showSubscription) {
+            SubscriptionView()
         }
         .alert("数据同步", isPresented: $authState.showMigrationPrompt) {
             Button("立即同步") { authState.confirmMigration() }
@@ -181,9 +186,13 @@ private struct LoggedInHeaderView: View {
 
 private struct ProfileMenuSection: View {
     @EnvironmentObject private var authState: AuthState
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    var onSubscriptionTap: () -> Void = {}
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
+            subscriptionBanner
+
             NavigationLink(value: "favorites") {
                 HStack(spacing: Spacing.md) {
                     Image(systemName: "heart.fill")
@@ -204,6 +213,14 @@ private struct ProfileMenuSection: View {
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             }
             .buttonStyle(.plain)
+
+            if subscriptionManager.isPremium {
+                MenuRow(icon: "arrow.up.right.square", title: "管理订阅", color: .btPrimary) {
+                    if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                        UIApplication.shared.open(url)
+                    }
+                }
+            }
 
             if authState.isLoggedIn {
                 MenuRow(icon: "icloud.and.arrow.up", title: "同步数据", color: .btPrimary) {}
@@ -226,6 +243,82 @@ private struct ProfileMenuSection: View {
                 }
                 .padding(.top, Spacing.lg)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var subscriptionBanner: some View {
+        if subscriptionManager.isPremium {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(.btAccent)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("球迹 Pro")
+                        .font(.btHeadline)
+                        .foregroundStyle(.btText)
+                    Text("已解锁全部功能")
+                        .font(.btCaption)
+                        .foregroundStyle(.btSuccess)
+                }
+
+                Spacer()
+
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 22))
+                    .foregroundStyle(.btSuccess)
+            }
+            .padding(Spacing.lg)
+            .background(
+                LinearGradient(
+                    colors: [Color.btAccent.opacity(0.08), Color.btPrimary.opacity(0.05)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            .overlay(
+                RoundedRectangle(cornerRadius: BTRadius.lg)
+                    .stroke(Color.btAccent.opacity(0.2), lineWidth: 1)
+            )
+        } else {
+            Button(action: onSubscriptionTap) {
+                HStack(spacing: Spacing.md) {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.btAccent)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("升级球迹 Pro")
+                            .font(.btHeadline)
+                            .foregroundStyle(.btText)
+                        Text("解锁全部训练内容与功能")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.btCallout)
+                        .foregroundStyle(.btAccent)
+                }
+                .padding(Spacing.lg)
+                .background(
+                    LinearGradient(
+                        colors: [Color.btAccent.opacity(0.08), Color.btPrimary.opacity(0.05)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+                .overlay(
+                    RoundedRectangle(cornerRadius: BTRadius.lg)
+                        .stroke(Color.btAccent.opacity(0.2), lineWidth: 1)
+                )
+            }
+            .buttonStyle(.plain)
         }
     }
 }
@@ -256,6 +349,7 @@ private struct MenuRow: View {
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
+        .buttonStyle(.plain)
     }
 }
 
@@ -265,6 +359,7 @@ private struct MenuRow: View {
     ProfileView()
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
+        .environmentObject(SubscriptionManager.shared)
 }
 
 #Preview("已登录 Apple") {
@@ -273,11 +368,13 @@ private struct MenuRow: View {
     return ProfileView()
         .environmentObject(state)
         .environmentObject(AppRouter())
+        .environmentObject(SubscriptionManager.shared)
 }
 
 #Preview("Dark") {
     ProfileView()
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
+        .environmentObject(SubscriptionManager.shared)
         .preferredColorScheme(.dark)
 }

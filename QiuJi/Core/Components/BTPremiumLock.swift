@@ -35,6 +35,35 @@ struct BTPremiumLock: View {
     }
 }
 
+/// Convenience modifier: shows BTPremiumLock overlay when content is premium and user is not subscribed.
+struct PremiumGateModifier: ViewModifier {
+    let contentIsPremium: Bool
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @State private var showSubscription = false
+
+    func body(content: Content) -> some View {
+        ZStack {
+            content
+
+            if contentIsPremium && !subscriptionManager.isPremium {
+                BTPremiumLock {
+                    showSubscription = true
+                }
+            }
+        }
+        .sheet(isPresented: $showSubscription) {
+            SubscriptionView()
+                .environmentObject(subscriptionManager)
+        }
+    }
+}
+
+extension View {
+    func premiumGate(isPremium: Bool) -> some View {
+        modifier(PremiumGateModifier(contentIsPremium: isPremium))
+    }
+}
+
 #Preview("Light") {
     ZStack {
         ScrollView {

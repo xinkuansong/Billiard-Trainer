@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>QiuJi Component Reference (A-07)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "inverse-surface": "#2e3034",
+                    "surface-container-lowest": "#ffffff",
+                    "on-background": "#1a1c1f",
+                    "on-primary-fixed": "#00210d",
+                    "primary-fixed-dim": "#89d89e",
+                    "surface-tint": "#1b6c3d",
+                    "primary-container": "#1a6b3c",
+                    "secondary-fixed-dim": "#ffb955",
+                    "inverse-on-surface": "#f0f0f5",
+                    "tertiary-fixed-dim": "#ffb4ac",
+                    "on-tertiary-container": "#ffcbc5",
+                    "surface-variant": "#e2e2e7",
+                    "outline-variant": "#bfc9be",
+                    "on-tertiary-fixed-variant": "#93000e",
+                    "error-container": "#ffdad6",
+                    "on-primary-container": "#9ae9ae",
+                    "error": "#ba1a1a",
+                    "secondary": "#835500",
+                    "surface": "#f9f9fe",
+                    "surface-container": "#ededf2",
+                    "on-error-container": "#93000a",
+                    "tertiary-container": "#b71c1f",
+                    "on-surface": "#1a1c1f",
+                    "surface-dim": "#d9dade",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#91000e",
+                    "on-secondary-fixed": "#291800",
+                    "surface-bright": "#f9f9fe",
+                    "tertiary-fixed": "#ffdad6",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-fixed": "#410003",
+                    "on-secondary-container": "#6b4500",
+                    "outline": "#707a70",
+                    "secondary-fixed": "#ffddb4",
+                    "on-primary": "#ffffff",
+                    "surface-container-highest": "#e2e2e7",
+                    "primary": "#005129",
+                    "secondary-container": "#feae2c",
+                    "on-secondary-fixed-variant": "#633f00",
+                    "on-error": "#ffffff",
+                    "on-primary-fixed-variant": "#005229",
+                    "background": "#f9f9fe",
+                    "on-surface-variant": "#404940",
+                    "primary-fixed": "#a5f4b8",
+                    "surface-container-high": "#e8e8ed",
+                    "surface-container-low": "#f3f3f8",
+                    "inverse-primary": "#89d89e"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1rem",
+                    "3xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Plus Jakarta Sans"],
+                    "label": ["Plus Jakarta Sans"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #F2F2F7;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            color: #1a1c1f;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex justify-center">
+<!-- Main Device Canvas (iPhone 14 Pro size simulation) -->
+<main class="w-[393px] min-h-[852px] shadow-2xl bg-[#F2F2F7] overflow-y-auto pb-12">
+<!-- Header -->
+<header class="pt-12 px-6 pb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-[#1A6B3C] rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">sports_handball</span>
+</div>
+<div>
+<h1 class="text-xs font-bold text-[#1A6B3C] tracking-widest uppercase">QiuJi Design System</h1>
+<p class="text-xl font-extrabold text-[#1a1c1f]">Component Specs</p>
+</div>
+</div>
+</header>
+<!-- Section 1: BTExerciseRow -->
+<section class="px-5 mt-6">
+<h2 class="text-[22px] font-bold text-[#1A6B3C] mb-4">BTExerciseRow — 训练 Drill 行卡片</h2>
+<div class="bg-white rounded-[1.5rem] p-4 shadow-sm space-y-4">
+<!-- Example A -->
+<div class="h-[80px] bg-white rounded-[12px] flex items-center px-3 border border-slate-50">
+<div class="w-14 h-14 bg-[#E8F5E9] rounded-[12px] flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[#1A6B3C] text-2xl" style="font-variation-settings: 'FILL' 1;">circle</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-[15px]">直线球 - 中袋</h3>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">settings</span>
+</div>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-[12px] text-slate-500 font-medium">5 组</span>
+<span class="text-[12px] text-slate-500 font-medium">45/180</span>
+</div>
+<div class="flex gap-1.5 mt-2">
+<div class="w-2 h-2 rounded-full bg-[#1A6B3C]"></div>
+<div class="w-2 h-2 rounded-full bg-[#1A6B3C]"></div>
+<div class="w-2 h-2 rounded-full bg-[#1A6B3C]"></div>
+<div class="w-2 h-2 rounded-full border border-[#D1D1D6]"></div>
+<div class="w-2 h-2 rounded-full border border-[#D1D1D6]"></div>
+</div>
+</div>
+</div>
+<!-- Example B -->
+<div class="h-[80px] bg-white rounded-[12px] flex items-center px-3 border border-slate-50">
+<div class="w-14 h-14 bg-[#E8F5E9] rounded-[12px] flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[#1A6B3C] text-2xl" style="font-variation-settings: 'FILL' 1;">table_rows</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-[15px]">斯诺克连续进攻</h3>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">settings</span>
+</div>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-[12px] text-slate-500 font-medium">3 组</span>
+<span class="text-[12px] text-slate-500 font-medium">0/90</span>
+</div>
+<div class="flex gap-1.5 mt-2">
+<div class="w-2 h-2 rounded-full border border-[#D1D1D6]"></div>
+<div class="w-2 h-2 rounded-full border border-[#D1D1D6]"></div>
+<div class="w-2 h-2 rounded-full border border-[#D1D1D6]"></div>
+</div>
+</div>
+</div>
+<!-- Example C -->
+<div class="h-[80px] bg-white rounded-[12px] flex items-center px-3 border border-slate-50">
+<div class="w-14 h-14 bg-[#E8F5E9] rounded-[12px] flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[#1A6B3C] text-2xl" style="font-variation-settings: 'FILL' 1;">track_changes</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-bold text-[15px]">K 球走位</h3>
+<span class="material-symbols-outlined text-slate-400 text-[20px]">settings</span>
+</div>
+<div class="flex items-center gap-3 mt-1">
+<span class="text-[12px] text-slate-500 font-medium">4 组</span>
+<span class="text-[12px] text-slate-500 font-medium">72/120</span>
+</div>
+<div class="flex gap-1.5 mt-2">
+<div class="w-2 h-2 rounded-full bg-[#1A6B3C]"></div>
+<div class="w-2 h-2 rounded-full bg-[#1A6B3C]"></div>
+<div class="w-2 h-2 rounded-full bg-[#1A6B3C]"></div>
+<div class="w-2 h-2 rounded-full bg-[#1A6B3C]"></div>
+</div>
+</div>
+</div>
+<div class="pt-4 border-t border-slate-100 mt-2">
+<ul class="text-[13px] text-slate-400 space-y-1">
+<li class="flex items-center gap-2"><span class="w-1 h-1 bg-slate-300 rounded-full"></span>Card Height: 80pt 固定</li>
+<li class="flex items-center gap-2"><span class="w-1 h-1 bg-slate-300 rounded-full"></span>Thumbnail: 56x56pt, Radius 12pt</li>
+<li class="flex items-center gap-2"><span class="w-1 h-1 bg-slate-300 rounded-full"></span>Progress: 圆点指示器 (1:1 映射组数)</li>
+</ul>
+<p class="mt-4 p-3 bg-[#F2F2F7] rounded-lg text-[12px] text-slate-600 font-medium leading-relaxed">
+                        使用场景：ActiveTrainingView 训练总览中的 Drill 列表
+                    </p>
+</div>
+</div>
+</section>
+<!-- Section 2: BTSetInputGrid -->
+<section class="px-5 mt-10">
+<h2 class="text-[22px] font-bold text-[#1A6B3C] mb-4">BTSetInputGrid — 组数输入网格</h2>
+<div class="bg-white rounded-[1.5rem] p-4 shadow-sm">
+<!-- Grid Table -->
+<div class="w-full">
+<!-- Table Header -->
+<div class="flex items-center bg-[#F2F2F7] h-8 rounded-lg mb-2 px-2 text-[12px] text-slate-500 font-bold">
+<div class="w-10 text-center">#</div>
+<div class="flex-1 text-center">进球</div>
+<div class="flex-1 text-center">总球</div>
+<div class="w-12 text-center">✓</div>
+<div class="w-8 text-center">⋯</div>
+</div>
+<!-- Row 1: Completed -->
+<div class="flex items-center h-[52px] bg-[#1A6B3C]/5 rounded-lg mb-2 px-2">
+<div class="w-10 text-center font-bold text-slate-400 text-sm">1</div>
+<div class="flex-1 text-center font-bold text-[#1A6B3C]">15</div>
+<div class="flex-1 text-center font-medium text-slate-500">15</div>
+<div class="w-12 flex justify-center">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="w-8 flex justify-center">
+<span class="material-symbols-outlined text-slate-300">more_horiz</span>
+</div>
+</div>
+<!-- Row 2: Completed -->
+<div class="flex items-center h-[52px] bg-[#1A6B3C]/5 rounded-lg mb-2 px-2">
+<div class="w-10 text-center font-bold text-slate-400 text-sm">2</div>
+<div class="flex-1 text-center font-bold text-[#1A6B3C]">12</div>
+<div class="flex-1 text-center font-medium text-slate-500">15</div>
+<div class="w-12 flex justify-center">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="w-8 flex justify-center">
+<span class="material-symbols-outlined text-slate-300">more_horiz</span>
+</div>
+</div>
+<!-- Row 3: Active -->
+<div class="flex items-center h-[52px] bg-white border-l-[2pt] border-[#1A6B3C] rounded-r-lg mb-2 px-2">
+<div class="w-10 text-center font-bold text-[#1A6B3C] text-sm">3</div>
+<div class="flex-1 flex justify-center">
+<div class="w-[44px] h-[44px] rounded-lg border-[2pt] border-[#1A6B3C] flex items-center justify-center font-bold text-[#1A6B3C]">
+                                14
+                            </div>
+</div>
+<div class="flex-1 flex justify-center">
+<div class="w-[44px] h-[44px] rounded-lg border border-slate-200 flex items-center justify-center font-medium text-slate-500">
+                                15
+                            </div>
+</div>
+<div class="w-12 flex justify-center">
+<div class="w-5 h-5 rounded-full border-[1.5pt] border-slate-300"></div>
+</div>
+<div class="w-8 flex justify-center">
+<span class="material-symbols-outlined text-slate-300">more_horiz</span>
+</div>
+</div>
+<!-- Row 4: Pending -->
+<div class="flex items-center h-[52px] bg-white rounded-lg mb-2 px-2">
+<div class="w-10 text-center font-bold text-slate-400 text-sm">4</div>
+<div class="flex-1 flex justify-center">
+<div class="w-[44px] h-[44px] rounded-lg border border-slate-200 flex items-center justify-center text-slate-300">
+                                -
+                            </div>
+</div>
+<div class="flex-1 flex justify-center">
+<div class="w-[44px] h-[44px] rounded-lg border border-slate-200 flex items-center justify-center font-medium text-slate-500">
+                                15
+                            </div>
+</div>
+<div class="w-12 flex justify-center">
+<div class="w-5 h-5 rounded-full border-[1.5pt] border-slate-300"></div>
+</div>
+<div class="w-8 flex justify-center">
+<span class="material-symbols-outlined text-slate-300">more_horiz</span>
+</div>
+</div>
+<!-- Row 5: Warmup -->
+<div class="flex items-center h-[52px] bg-white rounded-lg mb-2 px-2">
+<div class="w-10 text-center font-bold text-slate-400 text-sm">5</div>
+<div class="flex-1 flex justify-center items-center">
+<span class="bg-[#F5A623] text-white text-[10px] px-1.5 py-0.5 rounded font-bold mr-1">热</span>
+<div class="w-[44px] h-[44px] rounded-lg border border-slate-200 flex items-center justify-center text-slate-300">
+                                -
+                            </div>
+</div>
+<div class="flex-1 flex justify-center">
+<div class="w-[44px] h-[44px] rounded-lg border border-slate-200 flex items-center justify-center font-medium text-slate-500">
+                                15
+                            </div>
+</div>
+<div class="w-12 flex justify-center">
+<div class="w-5 h-5 rounded-full border-[1.5pt] border-slate-300"></div>
+</div>
+<div class="w-8 flex justify-center">
+<span class="material-symbols-outlined text-slate-300">more_horiz</span>
+</div>
+</div>
+<!-- Add Button -->
+<button class="w-full h-11 border-2 border-dashed border-[#D1D1D6] rounded-xl flex items-center justify-center gap-2 text-[#D1D1D6] font-bold text-sm mt-4 hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined">add</span>
+                        添加一组
+                    </button>
+</div>
+<div class="pt-6 border-t border-slate-100 mt-6">
+<ul class="text-[13px] text-slate-400 space-y-1">
+<li class="flex items-center gap-2"><span class="w-1 h-1 bg-slate-300 rounded-full"></span>Active Row: 2pt Green Accent Left</li>
+<li class="flex items-center gap-2"><span class="w-1 h-1 bg-slate-300 rounded-full"></span>Input Target: 44x44pt 触控标准</li>
+<li class="flex items-center gap-2"><span class="w-1 h-1 bg-slate-300 rounded-full"></span>Warmup: #F5A623 状态标签</li>
+</ul>
+<p class="mt-4 p-3 bg-[#F2F2F7] rounded-lg text-[12px] text-slate-600 font-medium leading-relaxed">
+                        使用场景：ActiveTrainingView 单项记录视图中的逐组数据录入
+                    </p>
+</div>
+</div>
+</section>
+<!-- Section 3: BTSetInputGrid Empty State -->
+<section class="px-5 mt-10">
+<h2 class="text-[22px] font-bold text-[#1A6B3C] mb-4">BTSetInputGrid — 空状态</h2>
+<div class="bg-white rounded-[1.5rem] p-4 shadow-sm">
+<!-- Header Repeat -->
+<div class="flex items-center bg-[#F2F2F7] h-8 rounded-lg mb-2 px-2 text-[12px] text-slate-500 font-bold">
+<div class="w-10 text-center">#</div>
+<div class="flex-1 text-center">进球</div>
+<div class="flex-1 text-center">总球</div>
+<div class="w-12 text-center">✓</div>
+<div class="w-8 text-center">⋯</div>
+</div>
+<!-- Empty Area -->
+<div class="h-[120px] flex flex-col items-center justify-center text-[#D1D1D6]">
+<span class="material-symbols-outlined text-[40px] mb-2">table_view</span>
+<p class="text-sm font-medium">还没有组数</p>
+</div>
+<!-- Add Button Repeat -->
+<button class="w-full h-11 border-2 border-dashed border-[#D1D1D6] rounded-xl flex items-center justify-center gap-2 text-[#D1D1D6] font-bold text-sm hover:bg-slate-50 transition-colors">
+<span class="material-symbols-outlined">add</span>
+                    添加一组
+                </button>
+<div class="mt-6">
+<p class="p-3 bg-[#F2F2F7] rounded-lg text-[12px] text-slate-600 font-medium leading-relaxed">
+                        空状态：新 Drill 刚加入训练时的初始视图
+                    </p>
+</div>
+</div>
+</section>
+<!-- Visual Signature Footer -->
+<footer class="mt-12 mb-20 px-8 flex flex-col items-center opacity-30">
+<div class="w-12 h-1 bg-slate-300 rounded-full mb-6"></div>
+<p class="text-[10px] text-slate-500 tracking-[0.2em] font-bold uppercase">End of Component Sheet</p>
+</footer>
+</main>
+</body></html>

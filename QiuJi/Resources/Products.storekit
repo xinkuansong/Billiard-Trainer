@@ -1,0 +1,122 @@
+{
+  "identifier" : "F3A1B2C4-D5E6-7890-ABCD-EF1234567890",
+  "nonRenewableSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "198.00",
+      "familyShareable" : false,
+      "internalID" : "A1B2C3D4-0001-0001-0001-000000000001",
+      "localizations" : [
+        {
+          "description" : "一次购买，终身享用全部 Pro 功能",
+          "displayName" : "球迹 Pro 终身",
+          "locale" : "zh_CN"
+        }
+      ],
+      "productID" : "com.yourname.billiardtrainer.premium.lifetime",
+      "referenceName" : "终身买断",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "zh_CN",
+    "_storefront" : "CHN",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "loadProductsFailure"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "purchaseFailure"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "verificationFailure"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "B2C3D4E5-0002-0002-0002-000000000002",
+      "localizations" : [
+        {
+          "description" : "解锁全部训练内容、统计图表与无限功能",
+          "displayName" : "球迹 Pro",
+          "locale" : "zh_CN"
+        }
+      ],
+      "name" : "球迹 Pro",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "18.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "C3D4E5F6-0003-0003-0003-000000000003",
+          "introductoryOffer" : {
+            "internalID" : "D4E5F6A7-0004-0004-0004-000000000004",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "按月订阅，随时取消",
+              "displayName" : "球迹 Pro 月度",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "com.yourname.billiardtrainer.premium.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "月订阅",
+          "subscriptionGroupID" : "B2C3D4E5-0002-0002-0002-000000000002",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "88.00",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "E5F6A7B8-0005-0005-0005-000000000005",
+          "introductoryOffer" : {
+            "internalID" : "F6A7B8C9-0006-0006-0006-000000000006",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P1W"
+          },
+          "localizations" : [
+            {
+              "description" : "按年订阅，月均仅 ¥7.3，节省超 60%",
+              "displayName" : "球迹 Pro 年度",
+              "locale" : "zh_CN"
+            }
+          ],
+          "productID" : "com.yourname.billiardtrainer.premium.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "年订阅",
+          "subscriptionGroupID" : "B2C3D4E5-0002-0002-0002-000000000002",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

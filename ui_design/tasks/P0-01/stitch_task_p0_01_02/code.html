@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#f9f9fe",
+                        "surface-tint": "#1b6c3d",
+                        "surface-dim": "#d9dade",
+                        "surface": "#f9f9fe",
+                        "surface-container-low": "#f3f3f8",
+                        "surface-bright": "#f9f9fe",
+                        "on-primary-container": "#9ae9ae",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#1a6b3c",
+                        "surface-container": "#ededf2",
+                        "on-tertiary-fixed-variant": "#792d39",
+                        "on-tertiary-fixed": "#3f0110",
+                        "surface-container-high": "#e8e8ed",
+                        "outline-variant": "#bfc9be",
+                        "inverse-on-surface": "#f0f0f5",
+                        "tertiary-fixed": "#ffd9dc",
+                        "on-primary": "#ffffff",
+                        "on-background": "#1a1c1f",
+                        "secondary-fixed": "#ffddaf",
+                        "on-surface": "#1a1c1f",
+                        "tertiary": "#782c38",
+                        "on-surface-variant": "#404940",
+                        "inverse-surface": "#2e3034",
+                        "on-secondary-fixed": "#281800",
+                        "secondary-fixed-dim": "#ffba44",
+                        "on-secondary-container": "#6e4900",
+                        "error": "#ba1a1a",
+                        "tertiary-container": "#96434f",
+                        "surface-variant": "#e2e2e7",
+                        "outline": "#707a70",
+                        "secondary-container": "#fcb73f",
+                        "secondary": "#805600",
+                        "on-primary-fixed": "#00210d",
+                        "error-container": "#ffdad6",
+                        "surface-container-highest": "#e2e2e7",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#89d89e",
+                        "tertiary-fixed-dim": "#ffb2b9",
+                        "inverse-primary": "#89d89e",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed-variant": "#614000",
+                        "primary": "#005129",
+                        "primary-fixed": "#a5f4b8",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-tertiary-container": "#ffcace"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F2F2F7; }
+        .plus-jakarta-sans { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-size: 24px; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .ios-large-title { font-size: 34pt; font-weight: 700; letter-spacing: -0.5px; border-radius: 999px; } /* Rounded font effect via font-family/weight */
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="text-on-background antialiased flex justify-center items-start min-h-screen">
+<!-- Mobile Container (iPhone 15 Pro dimensions) -->
+<main class="w-[393px] min-h-[852px] relative bg-[#F2F2F7] shadow-2xl flex flex-col overflow-hidden">
+<!-- Status Bar -->
+<div class="h-12 w-full flex justify-between items-center px-6 pt-2 shrink-0">
+<span class="text-[15px] font-semibold text-[#000000]">9:41</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined !text-[18px] text-[#000000]">signal_cellular_alt</span>
+<span class="material-symbols-outlined !text-[18px] text-[#000000]">wifi</span>
+<span class="material-symbols-outlined !text-[20px] text-[#000000]">battery_full</span>
+</div>
+</div>
+<!-- Navigation Bar (iOS Native Large Title Style) -->
+<header class="px-4 py-2 flex justify-between items-center shrink-0">
+<h1 class="ios-large-title text-[#000000] plus-jakarta-sans">训练</h1>
+<div class="flex gap-1">
+<button class="w-[44px] h-[44px] flex items-center justify-center text-[#000000] active:opacity-50">
+<span class="material-symbols-outlined !text-[24px]" data-icon="group">group</span>
+</button>
+<button class="w-[44px] h-[44px] flex items-center justify-center text-[#000000] active:opacity-50">
+<span class="material-symbols-outlined !text-[24px]" data-icon="more_horiz">more_horiz</span>
+</button>
+</div>
+</header>
+<!-- Scrollable Content -->
+<div class="flex-1 overflow-y-auto pb-44 px-4 no-scrollbar">
+<!-- Section 1: 今日安排 -->
+<section class="mt-4">
+<h2 class="text-[#000000] font-bold text-[17px] px-2 mb-3">今日安排</h2>
+<div class="space-y-3">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-[16px] p-4 flex items-center justify-between shadow-sm">
+<div class="flex-1">
+<h3 class="text-[20pt] font-bold text-on-surface leading-tight">五分点专项 #1</h3>
+<p class="text-[13px] text-on-surface-variant mt-0.5">新手入门计划 · 3 练</p>
+</div>
+<button class="bg-[#1A6B3C] text-white px-5 py-2 rounded-lg font-bold text-sm tracking-tight active:scale-95 transition-transform">GO!</button>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-[16px] p-4 flex items-center justify-between shadow-sm">
+<div class="flex-1">
+<h3 class="text-[20pt] font-bold text-on-surface leading-tight">基础直球推荐 #2</h3>
+<p class="text-[13px] text-on-surface-variant mt-0.5">新手入门计划 · 5 练</p>
+</div>
+<button class="text-on-surface-variant p-2">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Section 2: 即将到来 -->
+<section class="mt-8">
+<h2 class="text-[#000000] font-bold text-[17px] px-2 mb-3">即将到来</h2>
+<div class="bg-surface-container-lowest rounded-[16px] p-4 flex items-center justify-between shadow-sm relative overflow-hidden">
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<h3 class="text-[20pt] font-bold text-on-surface leading-tight">走位突破 Day 3</h3>
+<span class="bg-[rgba(212,148,26,0.12)] text-[#D4941A] text-[10px] font-bold px-2 py-0.5 rounded-full">PRO</span>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-0.5">下一个训练日：周六</p>
+</div>
+<button class="bg-[#1A6B3C] text-white px-5 py-2 rounded-lg font-bold text-sm tracking-tight opacity-50 cursor-not-allowed">GO!</button>
+</div>
+</section>
+<!-- Section 3: Plan Browsing -->
+<section class="mt-10">
+<!-- BTSegmentedTab -->
+<div class="flex items-center gap-6 border-b border-surface-container px-2 mb-5">
+<button class="pb-3 border-b-2 border-primary-container text-on-surface font-bold text-[17px]">官方计划</button>
+<button class="pb-3 text-on-surface-variant font-medium text-[17px]">自定义模版</button>
+</div>
+<!-- Filter Chips -->
+<div class="flex gap-2 overflow-x-auto no-scrollbar pb-4 -mx-4 px-4">
+<button class="px-5 py-1.5 rounded-full bg-[#1C1C1E] text-white text-sm font-medium shrink-0">全部</button>
+<button class="px-5 py-1.5 rounded-full bg-white border border-outline-variant text-on-surface text-sm font-medium shrink-0">入门</button>
+<button class="px-5 py-1.5 rounded-full bg-white border border-outline-variant text-on-surface text-sm font-medium shrink-0">初级</button>
+<button class="px-5 py-1.5 rounded-full bg-white border border-outline-variant text-on-surface text-sm font-medium shrink-0">中级</button>
+<button class="px-5 py-1.5 rounded-full bg-white border border-outline-variant text-on-surface text-sm font-medium shrink-0">高级</button>
+<button class="px-5 py-1.5 rounded-full bg-white border border-outline-variant text-on-surface text-sm font-medium shrink-0">综合</button>
+</div>
+<!-- Plan Card List -->
+<div class="space-y-4 mt-2">
+<!-- Plan Card 1 -->
+<div class="flex items-center gap-4 bg-transparent active:bg-surface-container rounded-xl transition-colors py-2">
+<div class="w-20 h-20 bg-emerald-100 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="close-up of a billiards cue ball and professional cue stick on an emerald green pool table felt" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-C2zbBkuanT0pe4is8dWyYExIs2q3k7o6atY3YFSLr-0pUov17Pp_T1NRzRdEHhM8UkU0RYURpbo7LNiAj8ENgQT8V9Y48xmALfwzz16LKgnK_8FnDpgrnQQ3BzJiU4GSf3bp480U_u9p-Pzm9-SpVvvjFOnXWY6FVNL7hn8it9M66x0x1Ca65R12FpsboHDIaXeCUM6IIoKySYjoKAYa7Xi3dh_akXLfyZYk5K-a2wx66rYQDV0m-0Z1wQ4AwSMYhNLqytz8d8aa"/>
+</div>
+<div class="flex-1 pr-2">
+<div class="flex justify-between items-start">
+<h4 class="text-[16px] font-bold text-on-surface leading-tight">新手入门 8 周计划</h4>
+<span class="material-symbols-outlined text-outline text-[20px]">chevron_right</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1 line-clamp-1">从零开始掌握基本出杆与瞄点...</p>
+<span class="inline-block mt-2 px-2 py-0.5 bg-[rgba(26,107,60,0.12)] rounded-full text-[11pt] font-bold text-[#1A6B3C]">入门</span>
+</div>
+</div>
+<!-- Plan Card 2 -->
+<div class="flex items-center gap-4 bg-transparent py-2">
+<div class="w-20 h-20 bg-emerald-100 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="overhead view of billiards balls in a rack on a dark green pool table surface with high-end studio lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQrK5f8xt7vjunMcSp1y9VwKF3ib0z-1n1U-L54SAqwmYboxtzGwrroTXBLasB_QD3Z42GfgZ-0evv1knxvJWS3aWOmji86fZhBseOALbyslPeX3bD5HeU0jyLW7v__hr4FmnAKwXGO5hok_M01OkeJRZXUudqFPdIGPVpzu-RjYBdaKiLKEpwY5YxDc_yXS7WozzI3L30JnBuPwqLznc6KrGqTRdIQoWrB5jv8dEXzdaTk0IOUWlMJEj7uV8Diir-3oDaFiYaXmQe"/>
+</div>
+<div class="flex-1 pr-2">
+<div class="flex justify-between items-start">
+<h4 class="text-[16px] font-bold text-on-surface leading-tight">基础杆法专项</h4>
+<span class="material-symbols-outlined text-outline text-[20px]">chevron_right</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1 line-clamp-1">高杆、低杆、定杆精准控制训练</p>
+<span class="inline-block mt-2 px-2 py-0.5 bg-[rgba(26,107,60,0.12)] rounded-full text-[11pt] font-bold text-[#1A6B3C]">初级</span>
+</div>
+</div>
+<!-- Plan Card 3 -->
+<div class="flex items-center gap-4 bg-transparent py-2">
+<div class="w-20 h-20 bg-amber-50 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="professional billiard player focusing on a shot with dynamic lighting highlighting the green table and white cue ball" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcB8b_NGbTxTQb-2wl9GPGqgkn-QyPBnocvMMfINCdS-7tiBW1jhstzGGq_voOX-N66IadWrTR76INsmn-Fd2797LMn5BJTrbI5h2F6Y7p3w2aa69MgeScG7FnxbYasl7pzV95edGhHBxwoVr58YbNxWcLMUiGTUnw8QznOTgz8Du-dx9P-Z-sOuGcaISuv6j9DW3il-RrK8W_KbxpHNk1c0dkFUhtMHuwksq7WpOkx0tcFObbEMec1gE_FhqDvbEh4LZ6p0kQFFFO"/>
+</div>
+<div class="flex-1 pr-2">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-1.5">
+<h4 class="text-[16px] font-bold text-on-surface leading-tight">走位突破 12 周</h4>
+<span class="material-symbols-outlined text-[#D4941A] text-[14px]" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]">chevron_right</span>
+</div>
+<p class="text-xs text-on-surface-variant mt-1 line-clamp-1">K球路径、塞球修正及全局观培养</p>
+<span class="inline-block mt-2 px-2 py-0.5 bg-[rgba(212,148,26,0.12)] rounded-full text-[11pt] font-bold text-[#D4941A]">中级</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+<!-- Start Training Button -->
+<div class="fixed bottom-24 left-1/2 -translate-x-1/2 w-full px-6 z-50">
+<button class="w-full h-[50px] bg-primary-container text-white rounded-[12px] font-bold text-[17px] shadow-lg active:scale-95 transition-transform">
+            开始训练
+        </button>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-3 bg-white/80 backdrop-blur-2xl rounded-t-3xl border-t border-gray-100 shadow-[0_-4px_24px_rgba(26,107,60,0.06)]">
+<!-- Training (Active) -->
+<a class="flex flex-col items-center justify-center text-emerald-800 scale-110 transition-transform" href="#">
+<span class="material-symbols-outlined" data-icon="fitness_center" style="font-variation-settings: 'FILL' 1;">fitness_center</span>
+<span class="text-[10px] font-semibold mt-1">训练</span>
+</a>
+<!-- Library -->
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-emerald-700" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="text-[10px] font-semibold mt-1">动作库</span>
+</a>
+<!-- Angles -->
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-emerald-700" href="#">
+<span class="material-symbols-outlined" data-icon="straighten">straighten</span>
+<span class="text-[10px] font-semibold mt-1">角度</span>
+</a>
+<!-- History -->
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-emerald-700" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="text-[10px] font-semibold mt-1">记录</span>
+</a>
+<!-- Profile -->
+<a class="flex flex-col items-center justify-center text-gray-400 hover:text-emerald-700" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10px] font-semibold mt-1">我的</span>
+</a>
+</nav>
+<!-- Home Indicator -->
+<div class="fixed bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-black/20 rounded-full z-[60]"></div>
+</main>
+</body></html>

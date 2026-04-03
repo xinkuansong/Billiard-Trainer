@@ -27,8 +27,7 @@ struct TrainingHomeView: View {
                 Button {
                     router.trainingPath.append(TrainingRoute.planList)
                 } label: {
-                    Image(systemName: "list.bullet.rectangle.portrait")
-                        .foregroundStyle(.btPrimary)
+                    Label("训练计划", systemImage: "list.bullet.rectangle.portrait")
                 }
             }
         }

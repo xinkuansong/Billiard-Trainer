@@ -16,11 +16,13 @@ struct RootView: View {
     RootView()
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
+        .environmentObject(SubscriptionManager.shared)
 }
 
 #Preview("Dark") {
     RootView()
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
+        .environmentObject(SubscriptionManager.shared)
         .preferredColorScheme(.dark)
 }

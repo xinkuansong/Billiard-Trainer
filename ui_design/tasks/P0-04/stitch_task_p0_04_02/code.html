@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-bright": "#f9f9fe",
+                    "on-primary-fixed-variant": "#005229",
+                    "primary-fixed-dim": "#89d89e",
+                    "surface-variant": "#e2e2e7",
+                    "on-tertiary-container": "#ffcf92",
+                    "on-tertiary-fixed-variant": "#633f00",
+                    "secondary-container": "#0070eb",
+                    "error": "#ba1a1a",
+                    "surface-dim": "#d9dade",
+                    "surface-container-highest": "#e2e2e7",
+                    "inverse-on-surface": "#f0f0f5",
+                    "on-surface-variant": "#404940",
+                    "on-secondary": "#ffffff",
+                    "primary-container": "#1a6b3c",
+                    "tertiary-fixed-dim": "#ffb955",
+                    "inverse-primary": "#89d89e",
+                    "on-tertiary": "#ffffff",
+                    "primary": "#005129",
+                    "tertiary": "#623f00",
+                    "surface": "#f9f9fe",
+                    "primary-fixed": "#a5f4b8",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-fixed": "#291800",
+                    "surface-container-high": "#e8e8ed",
+                    "on-secondary-container": "#fefcff",
+                    "on-secondary-fixed": "#001a41",
+                    "secondary-fixed": "#d8e2ff",
+                    "tertiary-fixed": "#ffddb4",
+                    "tertiary-container": "#825400",
+                    "secondary-fixed-dim": "#adc6ff",
+                    "on-primary-container": "#9ae9ae",
+                    "background": "#f9f9fe",
+                    "secondary": "#0058bc",
+                    "on-error-container": "#93000a",
+                    "on-error": "#ffffff",
+                    "inverse-surface": "#2e3034",
+                    "on-background": "#1a1c1f",
+                    "surface-tint": "#1b6c3d",
+                    "surface-container-low": "#f3f3f8",
+                    "on-surface": "#1a1c1f",
+                    "error-container": "#ffdad6",
+                    "on-primary": "#ffffff",
+                    "surface-container": "#ededf2",
+                    "outline-variant": "#bfc9be",
+                    "outline": "#707a70",
+                    "on-secondary-fixed-variant": "#004493",
+                    "on-primary-fixed": "#00210d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"],
+                    "mono": ["JetBrains Mono"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        body {
+            background-color: #F2F2F7;
+            font-family: 'Inter', sans-serif;
+            color: #1a1c1f;
+        }
+        .billiard-table-grid {
+            background-color: #1B6B3A;
+            border: 6px solid #7B3F00;
+            position: relative;
+        }
+        .pocket {
+            width: 12px;
+            height: 12px;
+            background-color: #111;
+            border-radius: 50%;
+            position: absolute;
+        }
+        .ball {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            position: absolute;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="pb-24">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl shadow-sm dark:shadow-none">
+<div class="flex flex-col w-full px-6 py-4 max-w-screen-xl mx-auto">
+<!-- Row 1: Timer & Actions -->
+<div class="flex justify-between items-center mb-1">
+<div class="text-[28px] font-mono font-bold tracking-tight text-emerald-800 dark:text-emerald-400">00:12:34</div>
+<div class="flex gap-4 text-slate-500">
+<span class="material-symbols-outlined hover:bg-emerald-50 transition-colors p-1 rounded-lg">alarm</span>
+<span class="material-symbols-outlined hover:bg-emerald-50 transition-colors p-1 rounded-lg">schedule</span>
+<span class="material-symbols-outlined hover:bg-emerald-50 transition-colors p-1 rounded-lg">swap_vert</span>
+<span class="material-symbols-outlined text-emerald-700 font-bold hover:bg-emerald-50 transition-colors p-1 rounded-lg">check_circle</span>
+</div>
+</div>
+<!-- Row 2: Sub-info -->
+<div class="flex justify-between items-end">
+<div>
+<h1 class="text-[17px] font-bold text-on-surface">基础直球训练</h1>
+<p class="text-[13px] font-medium text-on-surface-variant">8/15 组 2/4 项目</p>
+</div>
+<div class="text-[13px] font-bold text-emerald-700 uppercase tracking-wider">Done</div>
+</div>
+</div>
+</header>
+<main class="pt-32 px-4 space-y-4">
+<!-- Drill Header Card -->
+<section class="bg-surface-container-lowest rounded-xl p-4 shadow-sm flex items-center gap-4">
+<div class="w-16 h-10 billiard-table-grid rounded-sm flex-shrink-0">
+<div class="ball bg-white" style="left: 30%; top: 50%;"></div>
+<div class="ball bg-[#F5A623]" style="left: 70%; top: 50%;"></div>
+</div>
+<div class="flex-grow">
+<h2 class="text-base font-bold text-on-background">五分点直球</h2>
+<p class="text-xs text-on-surface-variant font-medium">进球 36/90</p>
+</div>
+<button class="w-10 h-10 flex items-center justify-center text-slate-400 hover:bg-emerald-50 rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</section>
+<!-- Notes Input Row -->
+<section class="bg-surface-container-lowest rounded-xl px-4 py-3 shadow-sm">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">description</span>
+<span class="text-[15px] text-slate-400 flex-grow">点击输入备注…</span>
+</div>
+<div class="mt-3 h-[1px] bg-surface-variant w-full"></div>
+</section>
+<!-- Rest Settings Row -->
+<section class="bg-surface-container-lowest rounded-xl px-4 py-3 shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">alarm</span>
+<span class="text-[15px] font-medium text-on-surface">休息设置</span>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-[15px] font-bold text-primary">60s</span>
+<button class="text-secondary font-bold text-[15px]">设置</button>
+</div>
+</section>
+<!-- Mode Toggle Chips -->
+<section class="flex gap-3">
+<div class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full bg-primary-container/10 border border-transparent">
+<span class="material-symbols-outlined text-primary text-[18px]">check</span>
+<span class="text-[14px] font-bold text-primary">每组计时</span>
+</div>
+<div class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full bg-primary-container/10 border border-transparent">
+<span class="material-symbols-outlined text-primary text-[18px]">check</span>
+<span class="text-[14px] font-bold text-primary">显示成功率</span>
+</div>
+</section>
+<!-- Set Input Grid Card -->
+<section class="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+<div class="grid grid-cols-[1fr_2fr_2fr_1.5fr_0.5fr] px-4 py-3 text-[12px] font-bold text-on-surface-variant/60 uppercase tracking-widest border-b border-surface-variant/50">
+<div>组</div>
+<div class="text-center">进球</div>
+<div class="text-center">总球</div>
+<div class="text-center">完成</div>
+<div class="text-right"></div>
+</div>
+<div class="space-y-1 p-1">
+<!-- Warmup Row -->
+<div class="grid grid-cols-[1fr_2fr_2fr_1.5fr_0.5fr] items-center px-3 py-3 rounded-lg bg-primary-container/5">
+<div class="flex">
+<span class="bg-tertiary text-white text-[10px] font-black px-1.5 py-0.5 rounded-sm">热</span>
+</div>
+<div class="text-center font-bold text-on-surface">8</div>
+<div class="text-center font-bold text-on-surface">10</div>
+<div class="text-center">
+<span class="material-symbols-outlined text-emerald-600 font-bold" data-weight="fill">check_circle</span>
+</div>
+<div class="text-right text-slate-400">
+<span class="material-symbols-outlined text-lg">more_horiz</span>
+</div>
+</div>
+<!-- Set 1 Row -->
+<div class="grid grid-cols-[1fr_2fr_2fr_1.5fr_0.5fr] items-center px-3 py-3 rounded-lg bg-primary-container/5">
+<div class="font-bold text-on-surface">1</div>
+<div class="text-center font-bold text-on-surface">15</div>
+<div class="text-center font-bold text-on-surface">18</div>
+<div class="text-center">
+<span class="material-symbols-outlined text-emerald-600 font-bold" data-weight="fill">check_circle</span>
+</div>
+<div class="text-right text-slate-400">
+<span class="material-symbols-outlined text-lg">more_horiz</span>
+</div>
+</div>
+<!-- Set 2 Active Row -->
+<div class="grid grid-cols-[1fr_2fr_2fr_1.5fr_0.5fr] items-center px-3 py-3 rounded-lg bg-white shadow-[0_2px_8px_rgba(0,0,0,0.05)] border border-primary-container/10">
+<div class="font-black text-primary">2</div>
+<div class="px-2">
+<div class="w-full h-10 flex items-center justify-center rounded-lg border-2 border-primary-container font-black text-on-surface text-lg">13</div>
+</div>
+<div class="px-2">
+<div class="w-full h-10 flex items-center justify-center rounded-lg border-2 border-primary-container font-black text-on-surface text-lg">18</div>
+</div>
+<div class="text-center">
+<span class="material-symbols-outlined text-slate-200">radio_button_unchecked</span>
+</div>
+<div class="text-right text-slate-400">
+<span class="material-symbols-outlined text-lg">more_horiz</span>
+</div>
+</div>
+<!-- Not Started Row -->
+<div class="grid grid-cols-[1fr_2fr_2fr_1.5fr_0.5fr] items-center px-3 py-3">
+<div class="font-bold text-on-surface-variant/40">3</div>
+<div class="px-2">
+<div class="w-full h-10 flex items-center justify-center rounded-lg border border-outline-variant font-medium text-on-surface-variant/30">0</div>
+</div>
+<div class="px-2">
+<div class="w-full h-10 flex items-center justify-center rounded-lg border border-outline-variant font-medium text-on-surface-variant/30">0</div>
+</div>
+<div class="text-center">
+<span class="material-symbols-outlined text-slate-200">radio_button_unchecked</span>
+</div>
+<div class="text-right text-slate-400">
+<span class="material-symbols-outlined text-lg">more_horiz</span>
+</div>
+</div>
+</div>
+<button class="w-full py-4 flex items-center justify-center gap-2 text-primary font-bold text-[15px] hover:bg-emerald-50 transition-colors border-t border-surface-variant/50">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                添加一组
+            </button>
+</section>
+<!-- Billiard Table Section -->
+<section class="bg-surface-container-lowest rounded-xl p-4 shadow-sm space-y-4 mb-12">
+<div class="flex items-center justify-between">
+<h3 class="text-[14px] font-bold text-on-background flex items-center gap-1">
+                    球台示意
+                    <span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</h3>
+</div>
+<div class="aspect-[2/1] w-full billiard-table-grid rounded-lg overflow-hidden">
+<!-- Pockets -->
+<div class="pocket top-0 left-0 -translate-x-1/2 -translate-y-1/2"></div>
+<div class="pocket top-0 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+<div class="pocket top-0 left-full translate-x-1/2 -translate-y-1/2"></div>
+<div class="pocket top-full left-0 -translate-x-1/2 translate-y-1/2"></div>
+<div class="pocket top-full left-1/2 -translate-x-1/2 translate-y-1/2"></div>
+<div class="pocket top-full left-full translate-x-1/2 translate-y-1/2"></div>
+<!-- Paths (SVG) -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none">
+<line stroke="white" stroke-dasharray="4 4" stroke-width="1.5" x1="38%" x2="58%" y1="70%" y2="32%"></line>
+<line stroke="#F5A623" stroke-dasharray="4 4" stroke-width="1.5" x1="58%" x2="100%" y1="32%" y2="0%"></line>
+</svg>
+<!-- Balls -->
+<div class="ball bg-white shadow-sm" style="left: 38%; top: 70%;"></div>
+<div class="ball bg-[#F5A623] shadow-sm" style="left: 58%; top: 32%;"></div>
+</div>
+<p class="text-[13px] text-on-surface-variant font-medium leading-relaxed italic text-center">
+                五分点直球 — 母球定点击打目标球进袋
+            </p>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-safe h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-t-2xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50">
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-80 hover:opacity-100 transition-opacity active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]">minimize</span>
+<span class="text-[11px] font-semibold Inter mt-1">最小化</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-80 hover:opacity-100 transition-opacity active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]">more_horiz</span>
+<span class="text-[11px] font-semibold Inter mt-1">更多</span>
+</a>
+<a class="flex flex-col items-center justify-center -translate-y-4 group" href="#">
+<div class="w-14 h-14 bg-secondary shadow-lg shadow-secondary/30 rounded-full flex items-center justify-center group-active:scale-90 duration-200">
+<span class="material-symbols-outlined text-white text-[32px]">add</span>
+</div>
+<span class="text-[11px] font-semibold Inter mt-1 text-secondary">添加</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-80 hover:opacity-100 transition-opacity active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]">description</span>
+<span class="text-[11px] font-semibold Inter mt-1">心得</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 opacity-80 hover:opacity-100 transition-opacity active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined text-[24px]">swap_horiz</span>
+<span class="text-[11px] font-semibold Inter mt-1">切换</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "secondary-container": "#fda865",
+                        "tertiary": "#603f00",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed-dim": "#ffba44",
+                        "primary": "#1A6B3C",
+                        "tertiary-fixed": "#ffddaf",
+                        "primary-fixed": "#a5f4b8",
+                        "outline-variant": "#bfc9be",
+                        "tertiary-container": "#7f5500",
+                        "on-error": "#ffffff",
+                        "surface": "#fcf8fb",
+                        "surface-dim": "#dcd9dc",
+                        "on-primary-fixed": "#00210d",
+                        "on-surface-variant": "#404940",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#614000",
+                        "primary-fixed-dim": "#89d89e",
+                        "inverse-on-surface": "#f3f0f2",
+                        "on-secondary-fixed-variant": "#6f3800",
+                        "secondary-fixed-dim": "#ffb780",
+                        "error-container": "#ffdad6",
+                        "secondary": "#8e4e11",
+                        "on-secondary-container": "#753c00",
+                        "inverse-surface": "#303032",
+                        "surface-container-low": "#f6f3f5",
+                        "surface-bright": "#fcf8fb",
+                        "on-secondary-fixed": "#2f1400",
+                        "on-primary-fixed-variant": "#005229",
+                        "secondary-fixed": "#ffdcc4",
+                        "background": "#F2F2F7",
+                        "on-tertiary-container": "#ffcf89",
+                        "surface-variant": "#e4e2e4",
+                        "surface-container-high": "#eae7ea",
+                        "surface-container": "#f0edef",
+                        "inverse-primary": "#89d89e",
+                        "on-primary-container": "#9ae9ae",
+                        "surface-container-highest": "#e4e2e4",
+                        "on-surface": "#1b1b1d",
+                        "outline": "#707a70",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#1b6c3d",
+                        "on-tertiary-fixed": "#281800",
+                        "primary-container": "#1a6b3c",
+                        "on-background": "#1b1b1d",
+                        "table-felt": "#1B6B3A",
+                        "cushion-brown": "#7B3F00",
+                        "target-orange": "#F5A623"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .iphone-canvas {
+            width: 393px;
+            height: 852px;
+            overflow-y: auto;
+            scrollbar-width: none;
+        }
+        .iphone-canvas::-webkit-scrollbar {
+            display: none;
+        }
+        .no-line-rule {
+            border: none !important;
+        }
+        .dashed-line-white {
+            background-image: linear-gradient(to right, white 50%, transparent 50%);
+            background-size: 8px 1px;
+            background-repeat: repeat-x;
+        }
+        .dashed-line-orange {
+            background-image: linear-gradient(to right, #F5A623 50%, transparent 50%);
+            background-size: 8px 1px;
+            background-repeat: repeat-x;
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-zinc-200 flex items-center justify-center min-h-screen p-4 font-body">
+<!-- iPhone Mockup Container -->
+<div class="iphone-canvas bg-background shadow-2xl relative flex flex-col">
+<!-- Header / Top Bar -->
+<header class="pt-12 px-6 pb-4">
+<h1 class="text-[22pt] font-headline font-bold text-primary tracking-tight">QiuJi (球迹) Reference</h1>
+<p class="text-on-surface-variant text-xs mt-1 uppercase tracking-widest font-label font-semibold opacity-60">Component Documentation v1.0</p>
+</header>
+<main class="flex-1 space-y-6 pb-20 px-4">
+<!-- Section 1: BTShareCard -->
+<section class="space-y-3">
+<h2 class="px-2 text-[22pt] font-headline font-bold text-primary">训练分享卡片</h2>
+<div class="bg-white rounded-2xl p-4 shadow-sm space-y-4">
+<div class="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+<!-- Variant A: Default Green -->
+<div class="flex-shrink-0 w-[170pt] h-[280pt] bg-[#1C1C1E] rounded-2xl p-4 flex flex-col justify-between text-white relative overflow-hidden">
+<div>
+<p class="text-[12pt] opacity-50 font-normal">2026年4月3日 周四</p>
+<h3 class="text-[18pt] font-bold mt-1">台球基础功训练</h3>
+<div class="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-primary/30 text-[#25A25A] text-xs font-bold">
+                                52 分钟
+                            </div>
+</div>
+<div class="grid grid-cols-3 gap-1 mt-4">
+<div>
+<p class="text-[22pt] font-bold leading-none">4</p>
+<p class="text-[11pt] opacity-50 mt-1">完成项目</p>
+</div>
+<div>
+<p class="text-[22pt] font-bold leading-none">16</p>
+<p class="text-[11pt] opacity-50 mt-1">总组数</p>
+</div>
+<div>
+<p class="text-[22pt] font-bold leading-none">78%</p>
+<p class="text-[11pt] opacity-50 mt-1">成功率</p>
+</div>
+</div>
+<div class="mt-4 space-y-2">
+<div class="flex justify-between items-center text-[10pt]">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span>直线球 - 中袋</span>
+<span class="font-bold opacity-80">45/60</span>
+</div>
+<div class="flex justify-between items-center text-[10pt]">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span>K 球走位</span>
+<span class="font-bold opacity-80">36/60</span>
+</div>
+<div class="flex justify-between items-center text-[10pt]">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span>斯诺克连续进攻</span>
+<span class="font-bold opacity-80">21/30</span>
+</div>
+</div>
+<div class="mt-auto pt-4 flex items-end justify-between">
+<div class="text-primary font-extrabold text-sm tracking-tighter">QiuJi 球迹</div>
+<div class="w-10 h-10 bg-white/10 rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-2xl" data-icon="qr_code_2">qr_code_2</span>
+</div>
+</div>
+</div>
+<!-- Variant B: Dark Blue -->
+<div class="flex-shrink-0 w-[170pt] h-[280pt] bg-[#0D1B2A] rounded-2xl p-4 flex flex-col justify-between text-white relative overflow-hidden">
+<div>
+<p class="text-[12pt] opacity-50 font-normal">2026年4月3日 周四</p>
+<h3 class="text-[18pt] font-bold mt-1">台球基础功训练</h3>
+<div class="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold">
+                                52 分钟
+                            </div>
+</div>
+<div class="grid grid-cols-3 gap-1 mt-4">
+<div>
+<p class="text-[22pt] font-bold leading-none">4</p>
+<p class="text-[11pt] opacity-50 mt-1">完成项目</p>
+</div>
+<div>
+<p class="text-[22pt] font-bold leading-none">16</p>
+<p class="text-[11pt] opacity-50 mt-1">总组数</p>
+</div>
+<div>
+<p class="text-[22pt] font-bold leading-none">78%</p>
+<p class="text-[11pt] opacity-50 mt-1">成功率</p>
+</div>
+</div>
+<div class="mt-4 space-y-2">
+<div class="flex justify-between items-center text-[10pt]">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>直线球 - 中袋</span>
+<span class="font-bold opacity-80 text-blue-300">45/60</span>
+</div>
+<div class="flex justify-between items-center text-[10pt]">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>K 球走位</span>
+<span class="font-bold opacity-80 text-blue-300">36/60</span>
+</div>
+<div class="flex justify-between items-center text-[10pt]">
+<span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>斯诺克连续进攻</span>
+<span class="font-bold opacity-80 text-blue-300">21/30</span>
+</div>
+</div>
+<div class="mt-auto pt-4 flex items-end justify-between">
+<div class="text-blue-500 font-extrabold text-sm tracking-tighter">QiuJi 球迹</div>
+<div class="w-10 h-10 bg-white/10 rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-2xl" data-icon="qr_code_2">qr_code_2</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Theme Selector -->
+<div class="flex items-center justify-center gap-4 py-2">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center ring-2 ring-primary ring-offset-2">
+<span class="material-symbols-outlined text-white text-sm" data-icon="check">check</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-[#0D1B2A]"></div>
+<div class="w-8 h-8 rounded-full bg-[#1C1C1E]"></div>
+<div class="w-8 h-8 rounded-full bg-[#2D1B4E]"></div>
+</div>
+<!-- Component Specs -->
+<div class="text-[13pt] space-y-1" style="color: rgba(60,60,67,0.6)">
+<p>• 卡片: 圆角 16pt, 深色主题容器</p>
+<p>• 配色主题: 基础绿 / 暗夜蓝 / 黑白 / 更多</p>
+<p>• 品牌区: App Logo + 二维码占位</p>
+<p>• 渲染为图片用于社交分享</p>
+</div>
+<p class="text-xs text-on-surface-variant font-medium opacity-60 italic text-center">使用场景：TrainingShareView 训练完成后的分享卡定制</p>
+</div>
+</section>
+<!-- Section 2: BTBilliardTable — 全尺寸 -->
+<section class="space-y-3">
+<h2 class="px-2 text-[22pt] font-headline font-bold text-primary">球台 Canvas 组件</h2>
+<div class="bg-white rounded-2xl p-4 shadow-sm">
+<div class="flex justify-center py-4">
+<!-- Table Container -->
+<div class="w-[350pt] h-[190pt] bg-cushion-brown rounded-2xl p-2 relative flex items-center justify-center shadow-lg">
+<!-- Table Felt Surface -->
+<div class="w-full h-full bg-table-felt rounded-lg relative overflow-hidden">
+<!-- 6 Pockets -->
+<div class="absolute -top-1 -left-1 w-6 h-6 bg-black rounded-full"></div>
+<div class="absolute -top-1 -right-1 w-6 h-6 bg-black rounded-full"></div>
+<div class="absolute -bottom-1 -left-1 w-6 h-6 bg-black rounded-full"></div>
+<div class="absolute -bottom-1 -right-1 w-6 h-6 bg-black rounded-full"></div>
+<div class="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-5 bg-black rounded-b-full"></div>
+<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-6 h-5 bg-black rounded-t-full"></div>
+<!-- Paths -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none">
+<!-- Cue to Target Path: Diagonal from (38%, 70%) to (58%, 32%) -->
+<line stroke="white" stroke-dasharray="6,4" stroke-width="2" x1="38%" x2="58%" y1="70%" y2="32%"></line>
+<!-- Target to Pocket Path: From (58%, 32%) to top-right corner (~98%, 2%) -->
+<line stroke="#F5A623" stroke-dasharray="6,4" stroke-width="2" x1="58%" x2="98%" y1="32%" y2="2%"></line>
+<!-- Contact Ring -->
+<circle cx="58%" cy="32%" fill="none" r="10" stroke="white" stroke-width="2"></circle>
+</svg>
+<!-- Balls -->
+<!-- Target Ball: 32% top, 58% left -->
+<div class="absolute top-[32%] left-[58%] -translate-x-1/2 -translate-y-1/2 w-[14pt] h-[14pt] bg-target-orange rounded-full shadow-sm ring-1 ring-black/10"></div>
+<!-- Cue Ball: 70% top, 38% left -->
+<div class="absolute top-[70%] left-[38%] -translate-x-1/2 -translate-y-1/2 w-[14pt] h-[14pt] bg-[#F5F5F5] rounded-full shadow-sm ring-1 ring-black/10"></div>
+</div>
+</div>
+</div>
+<!-- Legend -->
+<div class="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2">
+<div class="flex items-center gap-2 text-[12px] text-zinc-500 font-medium">
+<div class="w-6 h-0.5 bg-zinc-300 border-t-2 border-dashed border-zinc-400"></div>
+<span>母球路径</span>
+</div>
+<div class="flex items-center gap-2 text-[12px] text-zinc-500 font-medium">
+<div class="w-6 h-0.5 border-t-2 border-dashed border-target-orange"></div>
+<span>目标球路径</span>
+</div>
+<div class="flex items-center gap-2 text-[12px] text-zinc-500 font-medium">
+<div class="w-4 h-4 rounded-full border-2 border-zinc-300"></div>
+<span>接触点</span>
+</div>
+</div>
+<!-- Component Specs -->
+<div class="text-[13pt] mt-6 space-y-1" style="color: rgba(60,60,67,0.6)">
+<p>• 全尺寸: ~350 × 190pt (DrillDetailView Hero 区)</p>
+<p>• 台面: btTableFelt #1B6B3A</p>
+<p>• 库边: btTableCushion #7B3F00 (8pt)</p>
+<p>• 袋口: btTablePocket #000000 (16pt ⌀)</p>
+<p>• 母球: btBallCue #F5F5F5 (14pt ⌀)</p>
+<p>• 目标球: btBallTarget #F5A623 (14pt ⌀)</p>
+<p>• Canvas 绘制, 路径为动画示意</p>
+</div>
+<p class="mt-4 text-xs text-on-surface-variant font-medium opacity-60 italic text-center">使用场景：DrillDetailView Hero 区 + ActiveTrainingView 球台动画展开模式</p>
+</div>
+</section>
+<!-- Section 3: BTBilliardTable — 缩略图模式 -->
+<section class="space-y-3">
+<h2 class="px-2 text-[22pt] font-headline font-bold text-primary">缩略图模式</h2>
+<div class="bg-white rounded-2xl p-4 shadow-sm">
+<div class="flex justify-between items-center px-4 py-2">
+<!-- Thumbnail A: 直线球 -->
+<div class="flex flex-col items-center gap-2">
+<div class="w-14 h-14 bg-cushion-brown rounded-lg p-0.5 flex items-center justify-center">
+<div class="w-full h-full bg-table-felt rounded-sm relative">
+<div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-2 h-2 bg-target-orange rounded-full"></div>
+<div class="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full"></div>
+<div class="absolute top-1/4 left-1/2 bottom-1/4 w-px border-l border-dashed border-white opacity-60"></div>
+</div>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant">直线球</span>
+</div>
+<!-- Thumbnail B: K球走位 -->
+<div class="flex flex-col items-center gap-2">
+<div class="w-14 h-14 bg-cushion-brown rounded-lg p-0.5 flex items-center justify-center">
+<div class="w-full h-full bg-table-felt rounded-sm relative">
+<div class="absolute top-1/2 right-1/4 w-2 h-2 bg-target-orange rounded-full"></div>
+<div class="absolute bottom-1/4 left-1/4 w-2 h-2 bg-white rounded-full"></div>
+<svg class="absolute inset-0 w-full h-full">
+<line opacity="0.6" stroke="white" stroke-dasharray="2,2" stroke-width="1" x1="25%" x2="75%" y1="75%" y2="50%"></line>
+</svg>
+</div>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant">K 球走位</span>
+</div>
+<!-- Thumbnail C: 低杆 -->
+<div class="flex flex-col items-center gap-2">
+<div class="w-14 h-14 bg-cushion-brown rounded-lg p-0.5 flex items-center justify-center">
+<div class="w-full h-full bg-table-felt rounded-sm relative overflow-hidden">
+<div class="absolute top-[40%] left-1/2 -translate-x-1/2 w-2 h-2 bg-target-orange rounded-full"></div>
+<div class="absolute bottom-[40%] left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full"></div>
+<!-- Curved indicator -->
+<div class="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-4 h-4 border-b border-white/60 rounded-full"></div>
+</div>
+</div>
+<span class="text-[10px] font-bold text-on-surface-variant">低杆</span>
+</div>
+</div>
+<!-- Component Specs -->
+<div class="text-[13pt] mt-6 space-y-1" style="color: rgba(60,60,67,0.6)">
+<p>• 缩略图: 56 × 56pt, 圆角 8pt</p>
+<p>• 简化球台: 省略袋口细节, 保留台面色 + 库边色 + 球位</p>
+<p>• 使用场景: BTExerciseRow 左侧, BTDrillCard 缩略图</p>
+</div>
+<p class="mt-4 text-xs text-on-surface-variant font-medium opacity-60 italic text-center">使用场景：BTExerciseRow 和 BTDrillCard 左侧的球台缩略图</p>
+</div>
+</section>
+</main>
+</div>
+</body></html>

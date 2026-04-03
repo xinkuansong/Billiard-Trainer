@@ -22,6 +22,8 @@
 | `content-engineer.md` | Drill JSON、计划内容 | `Resources/Drills/`、批量内容 |
 | `qa-reviewer.md` | 验收 / DoD / 边界 | Phase 收尾、回归前检查 |
 | `test-engineer.md` | XCTest / XCUITest / Jest 自动化测试 + 人工测试计划 | 功能完成后补测试、生成人工测试清单 |
+| `manual-test-runner.md` | 人工测试执行引导 + 文档填充 | 执行 TP-Pn.md、收集结果、填充问题表与摘要 |
+| `ui-reviewer.md` | UI 截图审查 + 问题报告 | 截图驱动视觉审查、问题路由 |
 | `devops-release.md` | 构建、证书、TestFlight | `scripts/Makefile`、发布 |
 
 ## 角色与规则（`.cursor/rules/`）
@@ -35,6 +37,8 @@
 | `40-content-engineer.mdc` | Drill JSON、动画路径、计划数据 | `*.json`、`Drills/` |
 | `50-qa-reviewer.mdc` | 验收 / DoD / 边界测试 | Phase 收尾 |
 | `55-test-engineer.mdc` | XCTest / XCUITest / Jest 自动化测试 + 人工测试计划 | 功能完成后、人工测试清单生成 |
+| `56-manual-test-runner.mdc` | 人工测试执行引导 + 文档填充 | 执行 TP-Pn.md、`tasks/test-plans/` |
+| `57-ui-reviewer.mdc` | UI 截图审查 + 问题报告 | 截图驱动视觉审查、问题路由 |
 | `60-devops-release.mdc` | 构建、证书、TestFlight | `xcodebuild`、发布 |
 
 ## 技能（`.cursor/skills/`）
@@ -58,6 +62,7 @@
 | [`tasks/dependencies.md`](tasks/dependencies.md) | SPM / SDK 依赖与集成 SOP |
 | [`tasks/appstore-assets.md`](tasks/appstore-assets.md) | 截图、ASO、元数据 |
 | [`tasks/test-plans/`](tasks/test-plans/) | 人工测试计划（按 Phase，用户在真机/模拟器上执行） |
+| [`tasks/ui-reviews/`](tasks/ui-reviews/) | UI 截图审查报告（UR-YYYYMMDD-页面简称.md） |
 
 ## 产品规格源（权威）
 

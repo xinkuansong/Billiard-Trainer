@@ -9,7 +9,9 @@ enum ModelContainerFactory {
         AngleTestResult.self,
         UserActivePlan.self,
         DrillFavorite.self,
-        SyncPendingItem.self
+        SyncPendingItem.self,
+        CustomPlan.self,
+        CustomPlanDrill.self
     ]
 
     static func makeContainer() -> ModelContainer {

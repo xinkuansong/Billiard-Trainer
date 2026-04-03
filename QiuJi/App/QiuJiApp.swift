@@ -5,18 +5,38 @@ import SwiftData
 struct QiuJiApp: App {
     @StateObject private var authState = AuthState()
     @StateObject private var appRouter = AppRouter()
+    @StateObject private var subscriptionManager = SubscriptionManager.shared
     @Environment(\.scenePhase) private var scenePhase
 
     let modelContainer = ModelContainerFactory.makeContainer()
+
+    init() {
+        let appearance = UINavigationBarAppearance()
+        appearance.configureWithDefaultBackground()
+        if let descriptor = UIFont.systemFont(ofSize: 34, weight: .bold)
+            .fontDescriptor.withDesign(.rounded) {
+            appearance.largeTitleTextAttributes = [.font: UIFont(descriptor: descriptor, size: 34)]
+        }
+        if let inlineDescriptor = UIFont.systemFont(ofSize: 17, weight: .semibold)
+            .fontDescriptor.withDesign(.rounded) {
+            appearance.titleTextAttributes = [.font: UIFont(descriptor: inlineDescriptor, size: 17)]
+        }
+        UINavigationBar.appearance().scrollEdgeAppearance = appearance
+        UINavigationBar.appearance().standardAppearance = appearance
+    }
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(authState)
                 .environmentObject(appRouter)
+                .environmentObject(subscriptionManager)
                 .tint(.btPrimary)
                 .onAppear {
                     SyncQueueManager.shared.configure(context: modelContainer.mainContext)
+                }
+                .task {
+                    await subscriptionManager.checkEntitlements()
                 }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {

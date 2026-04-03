@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 
 // MARK: - Supporting Types
 
@@ -12,6 +13,7 @@ struct ActiveDrill: Identifiable {
     let ballsPerSet: Int
     let phaseType: String
     let phaseZh: String
+    let animation: DrillAnimation?
 
     init(
         drillId: String,
@@ -21,7 +23,8 @@ struct ActiveDrill: Identifiable {
         sets: Int,
         ballsPerSet: Int,
         phaseType: String = "free",
-        phaseZh: String = "自由训练"
+        phaseZh: String = "自由训练",
+        animation: DrillAnimation? = nil
     ) {
         self.id = UUID()
         self.drillId = drillId
@@ -32,6 +35,7 @@ struct ActiveDrill: Identifiable {
         self.ballsPerSet = ballsPerSet
         self.phaseType = phaseType
         self.phaseZh = phaseZh
+        self.animation = animation
     }
 }
 
@@ -44,6 +48,24 @@ enum TrainingMode: Identifiable {
         case .plan: return "plan"
         case .free: return "free"
         }
+    }
+}
+
+enum TrainingPhase: Equatable {
+    case active
+    case note
+    case summary
+}
+
+struct DrillSummary: Identifiable {
+    let id: UUID
+    let nameZh: String
+    let totalBallsMade: Int
+    let totalBallsPossible: Int
+
+    var successRate: Double {
+        guard totalBallsPossible > 0 else { return 0 }
+        return Double(totalBallsMade) / Double(totalBallsPossible)
     }
 }
 
@@ -61,6 +83,14 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var isLoading: Bool = true
     @Published var showDrillPicker: Bool = false
     @Published var showEndConfirm: Bool = false
+    @Published var trainingPhase: TrainingPhase = .active
+    @Published var trainingNote: String = ""
+    @Published var saveError: String?
+    @Published var didSaveSuccessfully: Bool = false
+
+    // Recording state per drill
+    @Published var currentSetIndices: [Int] = []
+    @Published var ballsMadeRecords: [[Int]] = []
 
     private var timerTask: Task<Void, Never>?
 
@@ -114,7 +144,8 @@ final class ActiveTrainingViewModel: ObservableObject {
                     sets: item.sets,
                     ballsPerSet: item.ballsPerSet,
                     phaseType: item.phaseType,
-                    phaseZh: item.phaseZh
+                    phaseZh: item.phaseZh,
+                    animation: content?.animation
                 ))
             }
             drills = items
@@ -122,6 +153,7 @@ final class ActiveTrainingViewModel: ObservableObject {
         case .free:
             drills = []
         }
+        initializeRecords()
     }
 
     // MARK: - Timer
@@ -173,15 +205,153 @@ final class ActiveTrainingViewModel: ObservableObject {
             description: content.description,
             coachingPoints: content.coachingPoints,
             sets: content.sets.defaultSets,
-            ballsPerSet: content.sets.defaultBallsPerSet
+            ballsPerSet: content.sets.defaultBallsPerSet,
+            animation: content.animation
         )
         drills.append(drill)
+        currentSetIndices.append(0)
+        ballsMadeRecords.append(Array(repeating: 0, count: drill.sets))
     }
 
     func removeDrill(at offsets: IndexSet) {
         drills.remove(atOffsets: offsets)
         if currentDrillIndex >= drills.count {
             currentDrillIndex = max(0, drills.count - 1)
+        }
+    }
+
+    // MARK: - Recording
+
+    private func initializeRecords() {
+        currentSetIndices = drills.map { _ in 0 }
+        ballsMadeRecords = drills.map { Array(repeating: 0, count: $0.sets) }
+    }
+
+    var currentSetIndex: Int {
+        guard currentDrillIndex < currentSetIndices.count else { return 0 }
+        return currentSetIndices[currentDrillIndex]
+    }
+
+    var currentBallsMade: Int {
+        guard currentDrillIndex < ballsMadeRecords.count,
+              currentSetIndex < ballsMadeRecords[currentDrillIndex].count else { return 0 }
+        return ballsMadeRecords[currentDrillIndex][currentSetIndex]
+    }
+
+    var isCurrentDrillAllSetsCompleted: Bool {
+        guard let drill = currentDrill,
+              currentDrillIndex < currentSetIndices.count else { return false }
+        return currentSetIndices[currentDrillIndex] >= drill.sets
+    }
+
+    func incrementBalls() {
+        guard currentDrillIndex < ballsMadeRecords.count,
+              currentSetIndex < ballsMadeRecords[currentDrillIndex].count else { return }
+        let drill = drills[currentDrillIndex]
+        if ballsMadeRecords[currentDrillIndex][currentSetIndex] < drill.ballsPerSet {
+            ballsMadeRecords[currentDrillIndex][currentSetIndex] += 1
+        }
+    }
+
+    func decrementBalls() {
+        guard currentDrillIndex < ballsMadeRecords.count,
+              currentSetIndex < ballsMadeRecords[currentDrillIndex].count else { return }
+        if ballsMadeRecords[currentDrillIndex][currentSetIndex] > 0 {
+            ballsMadeRecords[currentDrillIndex][currentSetIndex] -= 1
+        }
+    }
+
+    func completeCurrentSet() {
+        guard currentDrillIndex < currentSetIndices.count else { return }
+        let drill = drills[currentDrillIndex]
+        if currentSetIndices[currentDrillIndex] < drill.sets - 1 {
+            currentSetIndices[currentDrillIndex] += 1
+        } else {
+            currentSetIndices[currentDrillIndex] = drill.sets
+            if currentDrillIndex < drills.count - 1 {
+                currentDrillIndex += 1
+            }
+        }
+    }
+
+    // MARK: - End Training Flow
+
+    func endTraining() {
+        pauseTimer()
+        trainingPhase = .note
+    }
+
+    func skipNote() {
+        trainingNote = ""
+        trainingPhase = .summary
+    }
+
+    func submitNote() {
+        trainingPhase = .summary
+    }
+
+    // MARK: - Summary Statistics
+
+    var totalSets: Int {
+        drills.reduce(0) { $0 + $1.sets }
+    }
+
+    var overallSuccessRate: Double {
+        let totalMade = ballsMadeRecords.flatMap { $0 }.reduce(0, +)
+        let totalPossible = drills.reduce(0) { $0 + $1.sets * $1.ballsPerSet }
+        guard totalPossible > 0 else { return 0 }
+        return Double(totalMade) / Double(totalPossible)
+    }
+
+    var drillSummaries: [DrillSummary] {
+        zip(drills, ballsMadeRecords).map { drill, records in
+            DrillSummary(
+                id: drill.id,
+                nameZh: drill.nameZh,
+                totalBallsMade: records.reduce(0, +),
+                totalBallsPossible: drill.sets * drill.ballsPerSet
+            )
+        }.sorted { $0.successRate > $1.successRate }
+    }
+
+    func saveTraining(context: ModelContext) {
+        saveError = nil
+
+        do {
+            let session = TrainingSession()
+            session.totalDurationMinutes = elapsedSeconds / 60
+            session.note = trainingNote
+
+            for (drillIdx, drill) in drills.enumerated() {
+                let entry = DrillEntry(drillId: drill.drillId, drillNameZh: drill.nameZh)
+
+                guard drillIdx < ballsMadeRecords.count else { continue }
+                let records = ballsMadeRecords[drillIdx]
+
+                for (setIdx, madeBalls) in records.enumerated() {
+                    let drillSet = DrillSet(
+                        setNumber: setIdx + 1,
+                        targetBalls: drill.ballsPerSet,
+                        madeBalls: madeBalls
+                    )
+                    entry.sets.append(drillSet)
+                }
+
+                session.drillEntries.append(entry)
+            }
+
+            context.insert(session)
+            try context.save()
+
+            SyncQueueManager.shared.enqueue(
+                entityType: "TrainingSession",
+                entityId: session.id,
+                operation: "create"
+            )
+
+            didSaveSuccessfully = true
+        } catch {
+            saveError = "训练记录保存失败，请确认设备存储空间充足后重试"
         }
     }
 

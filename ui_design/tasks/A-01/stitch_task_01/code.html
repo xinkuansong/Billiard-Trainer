@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>QiuJi Design Tokens</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F2F2F7;
+        }
+        .headline-font {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        /* Custom scrollbar for better mobile feel */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "outline-variant": "#bfc9be",
+                        "surface-bright": "#f9f9fe",
+                        "on-primary-fixed": "#00210d",
+                        "primary": "#005129",
+                        "secondary-fixed": "#ffddaf",
+                        "on-tertiary-fixed": "#3f0110",
+                        "tertiary-container": "#96434f",
+                        "inverse-primary": "#89d89e",
+                        "primary-container": "#1a6b3c",
+                        "surface-container-high": "#e8e8ed",
+                        "on-background": "#1a1c1f",
+                        "surface-container-highest": "#e2e2e7",
+                        "secondary-fixed-dim": "#ffba44",
+                        "secondary-container": "#fcb73f",
+                        "tertiary": "#782c38",
+                        "primary-fixed-dim": "#89d89e",
+                        "surface-container": "#ededf2",
+                        "background": "#f9f9fe",
+                        "on-surface-variant": "#404940",
+                        "secondary": "#805600",
+                        "inverse-on-surface": "#f0f0f5",
+                        "on-error": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-surface": "#2e3034",
+                        "surface-variant": "#e2e2e7",
+                        "error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#614000",
+                        "on-secondary-fixed": "#281800",
+                        "outline": "#707a70",
+                        "on-secondary-container": "#6e4900",
+                        "on-tertiary-fixed-variant": "#792d39",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#9ae9ae",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#005229",
+                        "surface-container-low": "#f3f3f8",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#1b6c3d",
+                        "surface-dim": "#d9dade",
+                        "on-tertiary-container": "#ffcace",
+                        "primary-fixed": "#a5f4b8",
+                        "surface": "#f9f9fe",
+                        "tertiary-fixed": "#ffd9dc",
+                        "tertiary-fixed-dim": "#ffb2b9",
+                        "on-surface": "#1a1c1f"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#F2F2F7] min-h-screen pb-32">
+<!-- Top AppBar -->
+<header class="sticky top-0 w-full z-50 bg-white/80 backdrop-blur-md shadow-sm">
+<div class="flex items-center justify-between px-6 py-4 max-w-full">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-900">menu</span>
+<h1 class="text-xl font-bold text-emerald-950 headline-font">Design Tokens</h1>
+</div>
+<div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="minimalist abstract profile avatar with emerald and sage green geometric shapes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdWlPTh6pvfRom0CHTASUDnpzdC1ajECCTs9T-o-O3P832D8AXMmgAw7hQxCnz2lTX6lltnjQc_n1KwFSONfbWJ_ccLAyN4kIsN8GU8LZZdqrGX1FybChvqD0Is3kAwKOkoRnd_y-2h6Sb5IXo-Tq1nw_pHbquTIEroE5cNNfpdcDjCBEZTlsHGC2o27n_yZ7wiG4F55o0c5dm2mwVpPPHxs0MiQ4voeZH-G-Xu5Qbi0xDRIseoh2dYIBJ49R6ZM4YW3328uYWo_UH"/>
+</div>
+</div>
+</header>
+<main class="px-4 pt-6 space-y-6 max-w-[393px] mx-auto">
+<!-- Hero Branding -->
+<div class="relative overflow-hidden rounded-[24px] bg-primary h-32 flex items-center px-8 text-white">
+<div class="absolute right-[-20px] top-[-20px] opacity-20">
+<span class="material-symbols-outlined text-[120px]" style="font-variation-settings: 'FILL' 1;">palette</span>
+</div>
+<div class="z-10">
+<p class="text-[11px] uppercase tracking-widest font-bold opacity-80 mb-1">Visual Identity</p>
+<h2 class="text-3xl font-black headline-font tracking-tight">球迹 QiuJi</h2>
+</div>
+</div>
+<!-- Section 1: Color Palette -->
+<section class="bg-white rounded-[16px] p-4 shadow-sm">
+<h3 class="text-[22px] font-bold headline-font text-primary mb-6">Color Palette</h3>
+<!-- Row 1: Brand & Functional -->
+<div class="mb-8">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Brand &amp; Functional</p>
+<div class="grid grid-cols-3 gap-4">
+<div class="space-y-2">
+<div class="w-[60px] h-[60px] rounded-[16px] bg-[#1A6B3C]"></div>
+<p class="text-[10px] font-medium leading-tight">btPrimary</p>
+</div>
+<div class="space-y-2">
+<div class="w-[60px] h-[60px] rounded-[16px] bg-[#1A6B3C]/10"></div>
+<p class="text-[10px] font-medium leading-tight">btPrimaryMuted</p>
+</div>
+<div class="space-y-2">
+<div class="w-[60px] h-[60px] rounded-[16px] bg-[#D4941A]"></div>
+<p class="text-[10px] font-medium leading-tight">btAccent</p>
+</div>
+<div class="space-y-2">
+<div class="w-[60px] h-[60px] rounded-[16px] bg-[#2E7D32]"></div>
+<p class="text-[10px] font-medium leading-tight">btSuccess</p>
+</div>
+<div class="space-y-2">
+<div class="w-[60px] h-[60px] rounded-[16px] bg-[#E65100]"></div>
+<p class="text-[10px] font-medium leading-tight">btWarning</p>
+</div>
+<div class="space-y-2">
+<div class="w-[60px] h-[60px] rounded-[16px] bg-[#C62828]"></div>
+<p class="text-[10px] font-medium leading-tight">btDestructive</p>
+</div>
+</div>
+</div>
+<!-- Row 2: Backgrounds -->
+<div class="mb-8">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Backgrounds</p>
+<div class="grid grid-cols-4 gap-2">
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[#F2F2F7] border border-slate-200"></div>
+<p class="text-[9px] truncate">btBG</p>
+</div>
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[#FFFFFF] border border-slate-100"></div>
+<p class="text-[9px] truncate">btBGSec</p>
+</div>
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[#F2F2F7] border border-slate-200"></div>
+<p class="text-[9px] truncate">btBGTer</p>
+</div>
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[#E5E5EA]"></div>
+<p class="text-[9px] truncate">btBGQua</p>
+</div>
+</div>
+</div>
+<!-- Row 3: Text & Separator -->
+<div class="mb-8">
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Text &amp; Separator</p>
+<div class="grid grid-cols-4 gap-2">
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[#000000]"></div>
+<p class="text-[9px] truncate">btText</p>
+</div>
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[rgba(60,60,67,0.6)]"></div>
+<p class="text-[9px] truncate">btTextSec</p>
+</div>
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[rgba(60,60,67,0.3)]"></div>
+<p class="text-[9px] truncate">btTextTer</p>
+</div>
+<div class="space-y-1">
+<div class="h-10 rounded-lg bg-[#C6C6C8]"></div>
+<p class="text-[9px] truncate">btSep</p>
+</div>
+</div>
+</div>
+<!-- Row 4: Billiard Table -->
+<div>
+<p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Billiard Table System</p>
+<div class="flex flex-wrap gap-3">
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-[#1B6B3A] border-2 border-white shadow-sm"></div>
+<p class="text-[8px] mt-1">Felt</p>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-[#7B3F00] border-2 border-white shadow-sm"></div>
+<p class="text-[8px] mt-1">Cushion</p>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-[#1A1A1A] border-2 border-white shadow-sm"></div>
+<p class="text-[8px] mt-1">Pocket</p>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-[#F5F5F5] border-2 border-slate-200 shadow-sm"></div>
+<p class="text-[8px] mt-1">Cue</p>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-[#F5A623] border-2 border-white shadow-sm"></div>
+<p class="text-[8px] mt-1">Target</p>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-white/60 border-2 border-dashed border-primary shadow-sm flex items-center justify-center">
+<div class="w-1 h-4 bg-primary rotate-45"></div>
+</div>
+<p class="text-[8px] mt-1">CuePath</p>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-10 h-10 rounded-full bg-[#F5A623]/70 border-2 border-dotted border-white shadow-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-[14px] text-white">near_me</span>
+</div>
+<p class="text-[8px] mt-1">TgtPath</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Typography Scale -->
+<section class="bg-white rounded-[16px] p-4 shadow-sm">
+<h3 class="text-[22px] font-bold headline-font text-primary mb-6">Typography Scale</h3>
+<div class="space-y-6">
+<!-- Top 3: Rounded Bold -->
+<div class="pb-4 border-b border-slate-100">
+<p class="text-[48px] font-bold headline-font leading-tight text-on-background">Aa 球迹</p>
+<p class="text-[10px] text-slate-400 font-medium">Display (48pt, Bold Rounded)</p>
+</div>
+<div class="pb-4 border-b border-slate-100">
+<p class="text-[34px] font-bold headline-font leading-tight text-on-background">Aa 球迹</p>
+<p class="text-[10px] text-slate-400 font-medium">LargeTitle (34pt, Bold Rounded)</p>
+</div>
+<div class="pb-4 border-b border-slate-100">
+<p class="text-[22px] font-bold headline-font leading-tight text-on-background">Aa 球迹</p>
+<p class="text-[10px] text-slate-400 font-medium">Title (22pt, Bold Rounded)</p>
+</div>
+<!-- Standard scale -->
+<div class="space-y-4">
+<div class="flex justify-between items-end">
+<p class="text-[17px] font-semibold">Title 2 (17pt)</p>
+<p class="text-[10px] text-slate-400">Aa 球迹</p>
+</div>
+<div class="flex justify-between items-end">
+<p class="text-[16px] font-semibold">Headline (16pt)</p>
+<p class="text-[10px] text-slate-400">Aa 球迹</p>
+</div>
+<div class="flex justify-between items-end">
+<p class="text-[15px] font-normal">Body (15pt)</p>
+<p class="text-[10px] text-slate-400">Aa 球迹</p>
+</div>
+<div class="flex justify-between items-end">
+<p class="text-[13px] font-normal">Callout (13pt)</p>
+<p class="text-[10px] text-slate-400">Aa 球迹</p>
+</div>
+<div class="flex justify-between items-end">
+<p class="text-[12px] font-normal">Subhead (12pt)</p>
+<p class="text-[10px] text-slate-400">Aa 球迹</p>
+</div>
+<div class="flex justify-between items-end">
+<p class="text-[11px] font-normal">Footnote (11pt)</p>
+<p class="text-[10px] text-slate-400">Aa 球迹</p>
+</div>
+<div class="flex justify-between items-end">
+<p class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Label (10pt)</p>
+<p class="text-[10px] text-slate-400">Aa 球迹</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Bottom Grid: Spacing & Corner Radius -->
+<div class="grid grid-cols-2 gap-4">
+<!-- Section 3: Spacing System -->
+<section class="bg-white rounded-[16px] p-4 shadow-sm flex flex-col justify-between">
+<div>
+<h3 class="text-[18px] font-bold headline-font text-primary mb-4 leading-tight">Spacing System</h3>
+</div>
+<div class="space-y-2 mt-auto">
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 4px;"></div>
+<span class="text-[9px] text-slate-400">xs(4)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 8px;"></div>
+<span class="text-[9px] text-slate-400">sm(8)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 12px;"></div>
+<span class="text-[9px] text-slate-400">md(12)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 16px;"></div>
+<span class="text-[9px] text-slate-400">lg(16)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 24px;"></div>
+<span class="text-[9px] text-slate-400">xl(24)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 32px;"></div>
+<span class="text-[9px] text-slate-400">xxl(32)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 40px;"></div>
+<span class="text-[9px] text-slate-400">xxxl(40)</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="h-4 bg-primary rounded-sm" style="width: 48px;"></div>
+<span class="text-[9px] text-slate-400">xxxxl(48)</span>
+</div>
+</div>
+</section>
+<!-- Section 4: Corner Radius -->
+<section class="bg-white rounded-[16px] p-4 shadow-sm flex flex-col">
+<h3 class="text-[18px] font-bold headline-font text-primary mb-4 leading-tight">Radius</h3>
+<div class="space-y-3">
+<div class="flex flex-col gap-1">
+<div class="w-full h-[50px] bg-emerald-50 border border-primary/20 rounded-[6px] flex items-center justify-center">
+<span class="text-[10px] text-primary/60 font-bold">xs: 6pt</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="w-full h-[50px] bg-emerald-50 border border-primary/20 rounded-[12px] flex items-center justify-center">
+<span class="text-[10px] text-primary/60 font-bold">md: 12pt</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="w-full h-[50px] bg-emerald-50 border border-primary/20 rounded-[16px] flex items-center justify-center">
+<span class="text-[10px] text-primary/60 font-bold">lg: 16pt</span>
+</div>
+</div>
+<div class="flex flex-col gap-1">
+<div class="w-full h-[50px] bg-emerald-50 border border-primary/20 rounded-full flex items-center justify-center">
+<span class="text-[10px] text-primary/60 font-bold">Full: Pill</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-4 bg-white/90 backdrop-blur-xl shadow-[0_-8px_30px_rgb(0,0,0,0.04)] rounded-t-[32px]">
+<div class="flex flex-col items-center justify-center bg-emerald-100/50 text-emerald-900 rounded-2xl px-5 py-2">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">settings_input_component</span>
+<span class="text-[11px] font-bold headline-font uppercase tracking-tighter mt-1">System</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 px-5 py-2 hover:text-emerald-600 transition-colors">
+<span class="material-symbols-outlined text-[20px]">palette</span>
+<span class="text-[11px] font-bold headline-font uppercase tracking-tighter mt-1">Palette</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 px-5 py-2 hover:text-emerald-600 transition-colors">
+<span class="material-symbols-outlined text-[20px]">format_size</span>
+<span class="text-[11px] font-bold headline-font uppercase tracking-tighter mt-1">Type</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 px-5 py-2 hover:text-emerald-600 transition-colors">
+<span class="material-symbols-outlined text-[20px]">grid_view</span>
+<span class="text-[11px] font-bold headline-font uppercase tracking-tighter mt-1">Layout</span>
+</div>
+</nav>
+</body></html>

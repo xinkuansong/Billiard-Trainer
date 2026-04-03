@@ -57,6 +57,11 @@
 		AA11223344556677AABB0012 /* PlanContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0012 /* PlanContentService.swift */; };
 		AA11223344556677AABB0020 /* ActiveTrainingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */; };
 		AA11223344556677AABB0021 /* ActiveTrainingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0021 /* ActiveTrainingView.swift */; };
+		AA11223344556677AABB0022 /* TrainingNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0022 /* TrainingNoteView.swift */; };
+		AA11223344556677AABB0023 /* TrainingSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0023 /* TrainingSummaryView.swift */; };
+		CC44556677889900AABB0001 /* CustomPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC44556677889900AABB0011 /* CustomPlan.swift */; };
+		CC44556677889900AABB0002 /* CustomPlanBuilderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC44556677889900AABB0012 /* CustomPlanBuilderViewModel.swift */; };
+		CC44556677889900AABB0003 /* CustomPlanBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC44556677889900AABB0013 /* CustomPlanBuilderView.swift */; };
 		DD22334455667788AABB0001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE22334455667788AABB0001 /* APIClient.swift */; };
 		DD22334455667788AABB0002 /* BackendSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE22334455667788AABB0002 /* BackendSyncService.swift */; };
 		FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0001 /* SwiftDataModelTests.swift */; };
@@ -68,8 +73,35 @@
 		FF0B000000000000000B0007 /* DrillContentValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0007 /* DrillContentValidationTests.swift */; };
 		FF0B000000000000000B0008 /* DrillListViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0008 /* DrillListViewModelTests.swift */; };
 		FF0B000000000000000B0009 /* DrillCategoryAndLevelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */; };
+		FF0B000000000000000B0010 /* AngleTrainingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0010 /* AngleTrainingTests.swift */; };
+		FF0B000000000000000B0011 /* ActiveTrainingViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0011 /* ActiveTrainingViewModelTests.swift */; };
+		FF0B000000000000000B0012 /* CustomPlanBuilderViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0012 /* CustomPlanBuilderViewModelTests.swift */; };
+		FF0B000000000000000B0013 /* AngleTestViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0013 /* AngleTestViewModelTests.swift */; };
+		FF0B000000000000000B0014 /* HistoryViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0014 /* HistoryViewModelTests.swift */; };
+		FF0B000000000000000B0015 /* StatisticsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0015 /* StatisticsViewModelTests.swift */; };
+		FF0B000000000000000B0016 /* HistoryAccessControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */; };
 		FF0E000000000000000E0003 /* Drills in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0001 /* Drills */; };
 		FF0E000000000000000E0004 /* Plans in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0002 /* Plans */; };
+		55A0000000000000000B0001 /* AngleCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0001 /* AngleCalculator.swift */; };
+		55A0000000000000000B0002 /* AdaptiveQuestionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0002 /* AdaptiveQuestionEngine.swift */; };
+		55A0000000000000000B0003 /* AngleUsageLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0003 /* AngleUsageLimiter.swift */; };
+		55A0000000000000000B0004 /* AngleTestViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0004 /* AngleTestViewModel.swift */; };
+		55A0000000000000000B0005 /* AngleHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0005 /* AngleHistoryViewModel.swift */; };
+		55A0000000000000000B0006 /* AngleHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0006 /* AngleHomeView.swift */; };
+		55A0000000000000000B0007 /* AngleTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0007 /* AngleTestView.swift */; };
+		55A0000000000000000B0008 /* BTAngleTestTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0008 /* BTAngleTestTable.swift */; };
+		55A0000000000000000B0009 /* ContactPointTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0009 /* ContactPointTableView.swift */; };
+		55A0000000000000000B000A /* AngleHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F000A /* AngleHistoryView.swift */; };
+		66A0000000000000000B0001 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0001 /* HistoryViewModel.swift */; };
+		66A0000000000000000B0002 /* StatisticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0002 /* StatisticsViewModel.swift */; };
+		66A0000000000000000B0003 /* HistoryCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0003 /* HistoryCalendarView.swift */; };
+		66A0000000000000000B0004 /* TrainingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0004 /* TrainingDetailView.swift */; };
+		66A0000000000000000B0005 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0005 /* StatisticsView.swift */; };
+		66A0000000000000000B0006 /* HistoryAccessController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0006 /* HistoryAccessController.swift */; };
+		77A0000000000000000B0001 /* StoreKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0001 /* StoreKitService.swift */; };
+		77A0000000000000000B0002 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0002 /* SubscriptionManager.swift */; };
+		77A0000000000000000B0003 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0003 /* SubscriptionView.swift */; };
+		77A0000000000000000B0004 /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0004 /* Products.storekit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -127,6 +159,11 @@
 		CC11223344556677AABB0012 /* PlanContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanContentService.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingViewModel.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0021 /* ActiveTrainingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0022 /* TrainingNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingNoteView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0023 /* TrainingSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingSummaryView.swift; sourceTree = "<group>"; };
+		CC44556677889900AABB0011 /* CustomPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlan.swift; sourceTree = "<group>"; };
+		CC44556677889900AABB0012 /* CustomPlanBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlanBuilderViewModel.swift; sourceTree = "<group>"; };
+		CC44556677889900AABB0013 /* CustomPlanBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlanBuilderView.swift; sourceTree = "<group>"; };
 		EE22334455667788AABB0001 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		EE22334455667788AABB0002 /* BackendSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendSyncService.swift; sourceTree = "<group>"; };
 		FF0A000000000000000A0001 /* SwiftDataModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataModelTests.swift; sourceTree = "<group>"; };
@@ -138,9 +175,36 @@
 		FF0A000000000000000A0007 /* DrillContentValidationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillContentValidationTests.swift; sourceTree = "<group>"; };
 		FF0A000000000000000A0008 /* DrillListViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListViewModelTests.swift; sourceTree = "<group>"; };
 		FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillCategoryAndLevelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0010 /* AngleTrainingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTrainingTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0011 /* ActiveTrainingViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingViewModelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0012 /* CustomPlanBuilderViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlanBuilderViewModelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0013 /* AngleTestViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestViewModelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0014 /* HistoryViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0015 /* StatisticsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModelTests.swift; sourceTree = "<group>"; };
+		FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryAccessControllerTests.swift; sourceTree = "<group>"; };
 		FF0D000000000000000D0005 /* QiuJiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QiuJiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF0E000000000000000E0001 /* Drills */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Drills; sourceTree = "<group>"; };
 		FF0E000000000000000E0002 /* Plans */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Plans; sourceTree = "<group>"; };
+		55A0000000000000000F0001 /* AngleCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleCalculator.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0002 /* AdaptiveQuestionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveQuestionEngine.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0003 /* AngleUsageLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleUsageLimiter.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0004 /* AngleTestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestViewModel.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0005 /* AngleHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistoryViewModel.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0006 /* AngleHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHomeView.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0007 /* AngleTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestView.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0008 /* BTAngleTestTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTAngleTestTable.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0009 /* ContactPointTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPointTableView.swift; sourceTree = "<group>"; };
+		55A0000000000000000F000A /* AngleHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistoryView.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0001 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0002 /* StatisticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModel.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0003 /* HistoryCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCalendarView.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0004 /* TrainingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingDetailView.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0005 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0006 /* HistoryAccessController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryAccessController.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0001 /* StoreKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitService.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0002 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0003 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0004 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXContainerItemProxy section */
@@ -224,8 +288,9 @@
 	DD11223344556677AABB0010 /* ViewModels */ = {
 		isa = PBXGroup;
 		children = (
-			CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */,
 			CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */,
+			CC44556677889900AABB0012 /* CustomPlanBuilderViewModel.swift */,
+			CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */,
 		);
 		path = ViewModels;
 		sourceTree = "<group>";
@@ -233,10 +298,13 @@
 	DD11223344556677AABB0011 /* Views */ = {
 		isa = PBXGroup;
 		children = (
-			CC11223344556677AABB0011 /* TrainingHomeView.swift */,
-			CC11223344556677AABB0013 /* PlanListView.swift */,
-			CC11223344556677AABB0014 /* PlanDetailView.swift */,
 			CC11223344556677AABB0021 /* ActiveTrainingView.swift */,
+			CC44556677889900AABB0013 /* CustomPlanBuilderView.swift */,
+			CC11223344556677AABB0014 /* PlanDetailView.swift */,
+			CC11223344556677AABB0013 /* PlanListView.swift */,
+			CC11223344556677AABB0011 /* TrainingHomeView.swift */,
+			CC11223344556677AABB0022 /* TrainingNoteView.swift */,
+			CC11223344556677AABB0023 /* TrainingSummaryView.swift */,
 		);
 		path = Views;
 		sourceTree = "<group>";
@@ -287,6 +355,8 @@
 				B88111B11C7A503708E5F01B /* DrillContentService.swift */,
 				0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */,
 				CC11223344556677AABB0012 /* PlanContentService.swift */,
+				77A0000000000000000F0001 /* StoreKitService.swift */,
+				77A0000000000000000F0002 /* SubscriptionManager.swift */,
 				762FF5472730A423BAC4AC4C /* SyncQueueManager.swift */,
 			);
 			path = Services;
@@ -319,8 +389,34 @@
 		A6F7DD871CC5A1D4310AFA16 /* AngleTraining */ = {
 			isa = PBXGroup;
 			children = (
+				55A0000000000000000F0002 /* AdaptiveQuestionEngine.swift */,
+				55A0000000000000000F0001 /* AngleCalculator.swift */,
+				55A0000000000000000F0003 /* AngleUsageLimiter.swift */,
+				55A0000000000000000E0001 /* ViewModels */,
+				55A0000000000000000E0002 /* Views */,
 			);
 			path = AngleTraining;
+			sourceTree = "<group>";
+		};
+		55A0000000000000000E0001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				55A0000000000000000F0005 /* AngleHistoryViewModel.swift */,
+				55A0000000000000000F0004 /* AngleTestViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		55A0000000000000000E0002 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				55A0000000000000000F000A /* AngleHistoryView.swift */,
+				55A0000000000000000F0006 /* AngleHomeView.swift */,
+				55A0000000000000000F0007 /* AngleTestView.swift */,
+				55A0000000000000000F0008 /* BTAngleTestTable.swift */,
+				55A0000000000000000F0009 /* ContactPointTableView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		AF7B501E48701DF73E27A325 /* Config */ = {
@@ -332,21 +428,22 @@
 			path = Config;
 			sourceTree = "<group>";
 		};
-		B4E064814A2F21AE1930D510 /* Models */ = {
-			isa = PBXGroup;
-			children = (
-				247FEB9084E0E3582F8606ED /* AngleTestResult.swift */,
-				69F9F9C77BBAADC1034A8DD8 /* DrillEntry.swift */,
-				787BACCE6FABB394F4F16809 /* DrillFavorite.swift */,
-				AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */,
-				814AF4E9A89E79D4004B1F2A /* ModelContainerFactory.swift */,
-				CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */,
-				50C32F6332796F363C92E238 /* TrainingSession.swift */,
-				EFC141B9C345F29AAE822347 /* UserActivePlan.swift */,
-			);
-			path = Models;
-			sourceTree = "<group>";
-		};
+	B4E064814A2F21AE1930D510 /* Models */ = {
+		isa = PBXGroup;
+		children = (
+			247FEB9084E0E3582F8606ED /* AngleTestResult.swift */,
+			CC44556677889900AABB0011 /* CustomPlan.swift */,
+			69F9F9C77BBAADC1034A8DD8 /* DrillEntry.swift */,
+			787BACCE6FABB394F4F16809 /* DrillFavorite.swift */,
+			AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */,
+			814AF4E9A89E79D4004B1F2A /* ModelContainerFactory.swift */,
+			CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */,
+			50C32F6332796F363C92E238 /* TrainingSession.swift */,
+			EFC141B9C345F29AAE822347 /* UserActivePlan.swift */,
+		);
+		path = Models;
+		sourceTree = "<group>";
+	};
 	B67EA20367CC0CD766A4FAC8 /* Components */ = {
 		isa = PBXGroup;
 		children = (
@@ -378,6 +475,7 @@
 				F1482582AFECCFD004756836 /* OnboardingView.swift */,
 				332AE192BD6DA8A2E91E924C /* PhoneLoginView.swift */,
 				2C54FC912F009ECAA5915124 /* ProfileView.swift */,
+				77A0000000000000000F0003 /* SubscriptionView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -394,8 +492,30 @@
 		D00FFDB42C70F8641801C146 /* History */ = {
 			isa = PBXGroup;
 			children = (
+				66A0000000000000000E0001 /* ViewModels */,
+				66A0000000000000000E0002 /* Views */,
 			);
 			path = History;
+			sourceTree = "<group>";
+		};
+		66A0000000000000000E0001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				66A0000000000000000F0001 /* HistoryViewModel.swift */,
+				66A0000000000000000F0002 /* StatisticsViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		66A0000000000000000E0002 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				66A0000000000000000F0006 /* HistoryAccessController.swift */,
+				66A0000000000000000F0003 /* HistoryCalendarView.swift */,
+				66A0000000000000000F0005 /* StatisticsView.swift */,
+				66A0000000000000000F0004 /* TrainingDetailView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		D0DA1DB21D3A0DBEA850175E /* Profile */ = {
@@ -413,6 +533,7 @@
 				FF0E000000000000000E0001 /* Drills */,
 				67FC5A8F6C2EC56734890B52 /* Info.plist */,
 				FF0E000000000000000E0002 /* Plans */,
+				77A0000000000000000F0004 /* Products.storekit */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -436,22 +557,29 @@
 			);
 			sourceTree = "<group>";
 		};
-		FF0C000000000000000C0001 /* QiuJiTests */ = {
-			isa = PBXGroup;
-			children = (
-				FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */,
-				FF0A000000000000000A0005 /* DrillContentServiceTests.swift */,
-				FF0A000000000000000A0007 /* DrillContentValidationTests.swift */,
-				FF0A000000000000000A0008 /* DrillListViewModelTests.swift */,
-				FF0A000000000000000A0004 /* LocalAngleTestRepositoryTests.swift */,
-				FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */,
-				FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */,
-				FF0A000000000000000A0001 /* SwiftDataModelTests.swift */,
-				FF0A000000000000000A0006 /* SyncQueueManagerTests.swift */,
-			);
-			path = QiuJiTests;
-			sourceTree = "<group>";
-		};
+	FF0C000000000000000C0001 /* QiuJiTests */ = {
+		isa = PBXGroup;
+		children = (
+			FF0A000000000000000A0011 /* ActiveTrainingViewModelTests.swift */,
+			FF0A000000000000000A0013 /* AngleTestViewModelTests.swift */,
+			FF0A000000000000000A0010 /* AngleTrainingTests.swift */,
+			FF0A000000000000000A0012 /* CustomPlanBuilderViewModelTests.swift */,
+			FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */,
+			FF0A000000000000000A0005 /* DrillContentServiceTests.swift */,
+			FF0A000000000000000A0007 /* DrillContentValidationTests.swift */,
+			FF0A000000000000000A0008 /* DrillListViewModelTests.swift */,
+			FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */,
+			FF0A000000000000000A0014 /* HistoryViewModelTests.swift */,
+			FF0A000000000000000A0004 /* LocalAngleTestRepositoryTests.swift */,
+			FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */,
+			FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */,
+			FF0A000000000000000A0015 /* StatisticsViewModelTests.swift */,
+			FF0A000000000000000A0001 /* SwiftDataModelTests.swift */,
+			FF0A000000000000000A0006 /* SyncQueueManagerTests.swift */,
+		);
+		path = QiuJiTests;
+		sourceTree = "<group>";
+	};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -535,6 +663,7 @@
 				267F33C52AFB836CF954870D /* Assets.xcassets in Resources */,
 				FF0E000000000000000E0003 /* Drills in Resources */,
 				FF0E000000000000000E0004 /* Plans in Resources */,
+				77A0000000000000000B0004 /* Products.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -594,26 +723,57 @@
 				AA11223344556677AABB0012 /* PlanContentService.swift in Sources */,
 				AA11223344556677AABB0020 /* ActiveTrainingViewModel.swift in Sources */,
 				AA11223344556677AABB0021 /* ActiveTrainingView.swift in Sources */,
+				AA11223344556677AABB0022 /* TrainingNoteView.swift in Sources */,
+				AA11223344556677AABB0023 /* TrainingSummaryView.swift in Sources */,
+				CC44556677889900AABB0001 /* CustomPlan.swift in Sources */,
+				CC44556677889900AABB0002 /* CustomPlanBuilderViewModel.swift in Sources */,
+				CC44556677889900AABB0003 /* CustomPlanBuilderView.swift in Sources */,
 				DD22334455667788AABB0001 /* APIClient.swift in Sources */,
 				DD22334455667788AABB0002 /* BackendSyncService.swift in Sources */,
+				55A0000000000000000B0001 /* AngleCalculator.swift in Sources */,
+				55A0000000000000000B0002 /* AdaptiveQuestionEngine.swift in Sources */,
+				55A0000000000000000B0003 /* AngleUsageLimiter.swift in Sources */,
+				55A0000000000000000B0004 /* AngleTestViewModel.swift in Sources */,
+				55A0000000000000000B0005 /* AngleHistoryViewModel.swift in Sources */,
+				55A0000000000000000B0006 /* AngleHomeView.swift in Sources */,
+				55A0000000000000000B0007 /* AngleTestView.swift in Sources */,
+				55A0000000000000000B0008 /* BTAngleTestTable.swift in Sources */,
+				55A0000000000000000B0009 /* ContactPointTableView.swift in Sources */,
+				55A0000000000000000B000A /* AngleHistoryView.swift in Sources */,
+				66A0000000000000000B0001 /* HistoryViewModel.swift in Sources */,
+				66A0000000000000000B0002 /* StatisticsViewModel.swift in Sources */,
+				66A0000000000000000B0003 /* HistoryCalendarView.swift in Sources */,
+				66A0000000000000000B0004 /* TrainingDetailView.swift in Sources */,
+				66A0000000000000000B0005 /* StatisticsView.swift in Sources */,
+				66A0000000000000000B0006 /* HistoryAccessController.swift in Sources */,
+				77A0000000000000000B0001 /* StoreKitService.swift in Sources */,
+				77A0000000000000000B0002 /* SubscriptionManager.swift in Sources */,
+				77A0000000000000000B0003 /* SubscriptionView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FF0D000000000000000D0002 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FF0B000000000000000B0009 /* DrillCategoryAndLevelTests.swift in Sources */,
-				FF0B000000000000000B0005 /* DrillContentServiceTests.swift in Sources */,
-				FF0B000000000000000B0007 /* DrillContentValidationTests.swift in Sources */,
-				FF0B000000000000000B0008 /* DrillListViewModelTests.swift in Sources */,
-				FF0B000000000000000B0004 /* LocalAngleTestRepositoryTests.swift in Sources */,
-				FF0B000000000000000B0003 /* LocalDrillFavoriteRepositoryTests.swift in Sources */,
-				FF0B000000000000000B0002 /* LocalTrainingSessionRepositoryTests.swift in Sources */,
-				FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */,
-				FF0B000000000000000B0006 /* SyncQueueManagerTests.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
+	FF0D000000000000000D0002 /* Sources */ = {
+		isa = PBXSourcesBuildPhase;
+		buildActionMask = 2147483647;
+		files = (
+			FF0B000000000000000B0011 /* ActiveTrainingViewModelTests.swift in Sources */,
+			FF0B000000000000000B0013 /* AngleTestViewModelTests.swift in Sources */,
+			FF0B000000000000000B0010 /* AngleTrainingTests.swift in Sources */,
+			FF0B000000000000000B0012 /* CustomPlanBuilderViewModelTests.swift in Sources */,
+			FF0B000000000000000B0009 /* DrillCategoryAndLevelTests.swift in Sources */,
+			FF0B000000000000000B0005 /* DrillContentServiceTests.swift in Sources */,
+			FF0B000000000000000B0007 /* DrillContentValidationTests.swift in Sources */,
+			FF0B000000000000000B0008 /* DrillListViewModelTests.swift in Sources */,
+			FF0B000000000000000B0004 /* LocalAngleTestRepositoryTests.swift in Sources */,
+			FF0B000000000000000B0003 /* LocalDrillFavoriteRepositoryTests.swift in Sources */,
+			FF0B000000000000000B0002 /* LocalTrainingSessionRepositoryTests.swift in Sources */,
+			FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */,
+			FF0B000000000000000B0006 /* SyncQueueManagerTests.swift in Sources */,
+			FF0B000000000000000B0014 /* HistoryViewModelTests.swift in Sources */,
+			FF0B000000000000000B0015 /* StatisticsViewModelTests.swift in Sources */,
+			FF0B000000000000000B0016 /* HistoryAccessControllerTests.swift in Sources */,
+		);
+		runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 

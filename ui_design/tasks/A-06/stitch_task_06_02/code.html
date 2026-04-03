@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>QiuJi (球迹) - Component Reference</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1A6B3C",
+                        "on-tertiary": "#ffffff",
+                        "surface-variant": "#e3e3df",
+                        "primary-fixed": "#a5f4b8",
+                        "on-secondary-container": "#576756",
+                        "surface-container-low": "#f4f4f0",
+                        "error": "#C62828",
+                        "on-surface-variant": "#404940",
+                        "on-primary-fixed-variant": "#005229",
+                        "background": "#F2F2F7",
+                        "on-error": "#ffffff",
+                        "surface": "#F2F2F7",
+                        "on-secondary-fixed-variant": "#3c4b3b",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed": "#410003",
+                        "on-secondary-fixed": "#111f12",
+                        "surface-tint": "#1b6c3d",
+                        "outline": "#D1D1D6",
+                        "secondary-fixed": "#d6e7d2",
+                        "outline-variant": "#bfc9be",
+                        "primary-container": "#1a6b3c",
+                        "on-tertiary-container": "#ffcbc5",
+                        "error-container": "#ffdad6",
+                        "on-primary-fixed": "#00210d",
+                        "on-background": "#1a1c1a",
+                        "surface-bright": "#faf9f6",
+                        "inverse-surface": "#2f312f",
+                        "surface-container-high": "#e8e8e5",
+                        "on-tertiary-fixed-variant": "#93000e",
+                        "tertiary-container": "#b71c1f",
+                        "on-surface": "#1a1c1a",
+                        "tertiary-fixed": "#ffdad6",
+                        "primary-fixed-dim": "#89d89e",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e3e3df",
+                        "surface-container-lowest": "#ffffff",
+                        "inverse-primary": "#89d89e",
+                        "secondary-fixed-dim": "#bacbb7",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#9ae9ae",
+                        "inverse-on-surface": "#f1f1ed",
+                        "surface-dim": "#dadad7",
+                        "secondary": "#536252",
+                        "tertiary-fixed-dim": "#ffb4ac",
+                        "secondary-container": "#d3e4cf",
+                        "tertiary": "#91000e",
+                        "surface-container": "#eeeeea"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "1rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .rounded-sf {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            letter-spacing: -0.02em;
+        }
+    </style>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface min-h-screen">
+<main class="max-w-4xl mx-auto p-4 md:p-8 space-y-10 pt-8">
+<!-- Section 1: BTSegmentedTab -->
+<section>
+<h2 class="text-[22pt] font-bold rounded-sf text-primary mb-6">BTSegmentedTab — 页内水平标签</h2>
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-none">
+<!-- Example A -->
+<div class="mb-10">
+<div class="flex gap-6 mb-0">
+<div class="relative pb-2">
+<span class="text-[16pt] font-semibold text-primary">历史</span>
+<div class="absolute bottom-0 left-0 right-0 h-[2pt] bg-primary rounded-full"></div>
+</div>
+<div class="pb-2">
+<span class="text-[16pt] font-semibold text-[rgba(60,60,67,0.6)]">统计</span>
+</div>
+</div>
+<div class="h-[0.5pt] bg-outline-variant w-full"></div>
+</div>
+<!-- Example B -->
+<div class="mb-10">
+<div class="flex gap-6 mb-0">
+<div class="relative pb-2">
+<span class="text-[16pt] font-semibold text-primary">官方计划</span>
+<div class="absolute bottom-0 left-0 right-0 h-[2pt] bg-primary rounded-full"></div>
+</div>
+<div class="pb-2">
+<span class="text-[16pt] font-semibold text-[rgba(60,60,67,0.6)]">自定义模版</span>
+</div>
+<div class="pb-2">
+<span class="text-[16pt] font-semibold text-[rgba(60,60,67,0.6)]">个人计划(AI)</span>
+</div>
+</div>
+<div class="h-[0.5pt] bg-outline-variant w-full"></div>
+</div>
+<!-- Specs -->
+<div class="bg-surface-container-low rounded-lg p-4 mb-4">
+<ul class="text-[13pt] text-[rgba(60,60,67,0.6)] space-y-1">
+<li>• 字体: 16pt Medium SF Pro Rounded</li>
+<li>• 激活颜色: #1A6B3C | 未激活: rgba(60,60,67,0.6)</li>
+<li>• 指示器: 2pt 高度, 宽度匹配文本</li>
+<li>• 间距: 标签间距 24pt, 下划线高度 4pt</li>
+</ul>
+</div>
+<p class="text-[13pt] text-[rgba(60,60,67,0.6)]">使用场景：训练首页计划分区、历史/统计切换、训练详情标签切换</p>
+</div>
+</section>
+<!-- Section 2: BTTogglePillGroup -->
+<section>
+<h2 class="text-[22pt] font-bold rounded-sf text-primary mb-6">BTTogglePillGroup — 胶囊式选项组</h2>
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-none">
+<!-- Example A -->
+<div class="flex gap-2 mb-8">
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-primary text-white font-semibold">
+                    倒计时
+                </div>
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-white border border-outline text-on-surface font-semibold">
+                    正计时
+                </div>
+</div>
+<!-- Example B -->
+<div class="flex gap-2 mb-8">
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-white border border-outline text-on-surface font-semibold">
+                    成功率
+                </div>
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-primary text-white font-semibold">
+                    进球数
+                </div>
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-white border border-outline text-on-surface font-semibold">
+                    用时
+                </div>
+</div>
+<!-- Example C -->
+<div class="flex gap-2 mb-8">
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-primary text-white font-semibold">
+                    全部
+                </div>
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-white border border-outline text-on-surface font-semibold">
+                    入门
+                </div>
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-white border border-outline text-on-surface font-semibold">
+                    初级
+                </div>
+<div class="h-[36pt] px-6 flex items-center justify-center rounded-full bg-white border border-outline text-on-surface font-semibold">
+                    中级
+                </div>
+</div>
+<!-- Specs -->
+<div class="bg-surface-container-low rounded-lg p-4 mb-4">
+<ul class="text-[13pt] text-[rgba(60,60,67,0.6)] space-y-1">
+<li>• 高度: 36pt | 圆角: 999pt (Full Pill)</li>
+<li>• 激活态: 背景 #1A6B3C, 文字 #FFFFFF</li>
+<li>• 非激活态: 背景 #FFFFFF, 边框 1pt #D1D1D6, 文字 #1A1C1A</li>
+<li>• 间距: Pill 间距 8pt</li>
+</ul>
+</div>
+<p class="text-[13pt] text-[rgba(60,60,67,0.6)]">使用场景：设置页偏好选项、训练记录模式切换、动作库筛选</p>
+</div>
+</section>
+<!-- Section 3: BTOverflowMenu -->
+<section>
+<h2 class="text-[22pt] font-bold rounded-sf text-primary mb-6">BTOverflowMenu — 溢出菜单</h2>
+<div class="bg-surface-container-lowest rounded-xl p-8 shadow-none">
+<div class="relative w-full h-[280pt] bg-[#E5E5EA] rounded-xl overflow-hidden p-4">
+<!-- Trigger Icon -->
+<div class="flex justify-end">
+<span class="material-symbols-outlined text-[22pt] text-on-surface opacity-70">more_vert</span>
+</div>
+<!-- Floating Menu -->
+<div class="absolute top-12 right-4 w-[220pt] bg-white rounded-xl shadow-[0_4px_16pt_rgba(0,0,0,0.12)] overflow-hidden">
+<!-- Item 1 -->
+<div class="flex items-center px-4 h-[48pt] gap-3 hover:bg-surface-container-low transition-colors">
+<div class="w-[24pt] h-[24pt] rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-emerald-700 text-lg">share</span>
+</div>
+<span class="text-[16pt]">生成分享图</span>
+</div>
+<div class="h-[0.5pt] bg-surface-variant mx-4"></div>
+<!-- Item 2 -->
+<div class="flex items-center px-4 h-[48pt] gap-3 hover:bg-surface-container-low transition-colors">
+<div class="w-[24pt] h-[24pt] rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-blue-700 text-lg">calendar_today</span>
+</div>
+<span class="text-[16pt]">移动到某天</span>
+</div>
+<div class="h-[0.5pt] bg-surface-variant mx-4"></div>
+<!-- Item 3 -->
+<div class="flex items-center px-4 h-[48pt] gap-3 hover:bg-surface-container-low transition-colors">
+<div class="w-[24pt] h-[24pt] rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-amber-700 text-lg">edit_note</span>
+</div>
+<span class="text-[16pt]">编辑心得</span>
+</div>
+<div class="h-[0.5pt] bg-surface-variant mx-4"></div>
+<!-- Item 4 -->
+<div class="flex items-center px-4 h-[48pt] gap-3 hover:bg-surface-container-low transition-colors">
+<div class="w-[24pt] h-[24pt] rounded-full bg-purple-100 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-purple-700 text-lg">file_download</span>
+</div>
+<span class="text-[16pt]">导入为模版</span>
+</div>
+<div class="h-[0.5pt] bg-surface-variant"></div>
+<!-- Item 5 (Danger) -->
+<div class="flex items-center px-4 h-[48pt] gap-3 hover:bg-red-50 transition-colors">
+<div class="w-[24pt] h-[24pt] rounded-full bg-red-100 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-error text-lg">delete</span>
+</div>
+<span class="text-[16pt] text-error">删除</span>
+</div>
+</div>
+</div>
+<!-- Specs -->
+<div class="bg-surface-container-low rounded-lg p-4 mt-8 mb-4">
+<ul class="text-[13pt] text-[rgba(60,60,67,0.6)] space-y-1">
+<li>• 宽度: 220pt | 圆角: 16pt (xl)</li>
+<li>• 项高: 48pt | 阴影: 0 4pt 16pt rgba(0,0,0,0.12)</li>
+<li>• 图标: 24pt 圆形底色容器 + 18pt 线性图标</li>
+<li>• 分隔线: 0.5pt 边距缩进 (Inset Divider)</li>
+</ul>
+</div>
+<p class="text-[13pt] text-[rgba(60,60,67,0.6)]">使用场景：训练详情更多操作、Drill 列表项操作、计划项操作</p>
+</div>
+</section>
+</main>
+</body></html>

@@ -59,6 +59,8 @@ alwaysApply: true
 | Drill JSON、动画路径、计划数据 | Content Engineer |
 | Phase 收尾验收、DoD 检查 | QA Reviewer |
 | 单元测试、UI 测试、回归测试 | Test Engineer |
+| 人工测试执行、测试结果文档填充 | Manual Test Runner |
+| UI 截图审查、界面问题报告与路由 | UI Reviewer |
 | 构建脚本、Archive、TestFlight | DevOps/Release |
 
 ## 任务完成后

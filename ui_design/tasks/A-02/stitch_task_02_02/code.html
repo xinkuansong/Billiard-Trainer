@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>QiuJi - Button Style Reference Sheet</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface": "#f9f9fe",
+                        "on-error": "#ffffff",
+                        "surface-bright": "#f9f9fe",
+                        "primary": "#005129",
+                        "on-background": "#1a1c1f",
+                        "on-secondary-fixed": "#410003",
+                        "surface-container-low": "#f3f3f8",
+                        "surface-tint": "#1b6c3d",
+                        "surface-container-high": "#e8e8ed",
+                        "on-surface-variant": "#404940",
+                        "on-tertiary-container": "#ffcace",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed-dim": "#ffb4ac",
+                        "surface-dim": "#d9dade",
+                        "on-tertiary-fixed": "#3f0110",
+                        "error": "#ba1a1a",
+                        "error-container": "#ffdad6",
+                        "on-secondary-container": "#fffbff",
+                        "surface-variant": "#e2e2e7",
+                        "on-surface": "#1a1c1f",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#1a6b3c",
+                        "surface-container": "#ededf2",
+                        "surface-container-highest": "#e2e2e7",
+                        "background": "#f9f9fe",
+                        "inverse-surface": "#2e3034",
+                        "tertiary-fixed": "#ffd9dc",
+                        "inverse-on-surface": "#f0f0f5",
+                        "secondary-fixed": "#ffdad6",
+                        "tertiary-container": "#96434f",
+                        "outline": "#707a70",
+                        "tertiary": "#782c38",
+                        "primary-fixed-dim": "#89d89e",
+                        "secondary": "#b51a1e",
+                        "on-primary-fixed": "#00210d",
+                        "on-primary-container": "#9ae9ae",
+                        "primary-fixed": "#a5f4b8",
+                        "inverse-primary": "#89d89e",
+                        "secondary-container": "#d93633",
+                        "outline-variant": "#bfc9be",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-fixed-variant": "#93000e",
+                        "on-tertiary-fixed-variant": "#792d39",
+                        "tertiary-fixed-dim": "#ffb2b9"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body {
+            background-color: #F2F2F7;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .ios-shadow {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .header-anchor {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 700;
+            font-size: 22pt;
+            line-height: 1.2;
+            color: #1A6B3C;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="flex justify-center items-start min-h-screen p-4">
+<!-- Device Container (iPhone 14 Pro size simulation) -->
+<main class="w-[393px] min-h-[852px] bg-[#F2F2F7] overflow-y-auto relative pb-24">
+<!-- TopAppBar -->
+<div class="px-4 space-y-6 pt-6">
+<!-- Section 1: BTButton — 7 Styles -->
+<section class="space-y-4">
+<h2 class="header-anchor px-2">BTButton — 7 Styles</h2>
+<div class="bg-white rounded-[16pt] p-[16pt] space-y-8">
+<!-- 1. Primary -->
+<div class="space-y-3">
+<div class="flex gap-4">
+<button class="flex-1 h-[50pt] bg-[#1A6B3C] text-white font-medium text-[16pt] rounded-[12pt] active:scale-95 transition-transform">开始训练</button>
+<button class="flex-1 h-[50pt] bg-[#1A6B3C] opacity-50 text-white font-medium text-[16pt] rounded-[12pt] cursor-not-allowed">开始训练</button>
+</div>
+<div class="px-1">
+<p class="text-[15pt] font-semibold text-black">primary</p>
+<p class="text-[13pt] text-[#3C3C43]/60">主操作（开始训练、确认、保存）</p>
+</div>
+</div>
+<!-- 2. Secondary -->
+<div class="space-y-3">
+<div class="flex gap-4">
+<button class="flex-1 h-[50pt] bg-white border-[1.5pt] border-[#1A6B3C] text-[#1A6B3C] font-medium text-[16pt] rounded-[12pt] active:scale-95 transition-transform">复制到今天</button>
+<button class="flex-1 h-[50pt] bg-white border-[1.5pt] border-[#1A6B3C] opacity-50 text-[#1A6B3C] font-medium text-[16pt] rounded-[12pt] cursor-not-allowed">复制到今天</button>
+</div>
+<div class="px-1">
+<p class="text-[15pt] font-semibold text-black">secondary</p>
+<p class="text-[13pt] text-[#3C3C43]/60">次要操作（复制、编辑）</p>
+</div>
+</div>
+<!-- 3. Text -->
+<div class="space-y-3">
+<div class="flex items-center gap-8 px-2">
+<button class="text-[#1A6B3C] font-medium text-[16pt] active:opacity-60 transition-opacity">跳过</button>
+<button class="text-[#1A6B3C] opacity-50 font-medium text-[16pt] cursor-not-allowed">跳过</button>
+</div>
+<div class="px-1">
+<p class="text-[15pt] font-semibold text-black">text</p>
+<p class="text-[13pt] text-[#3C3C43]/60">文字链接（跳过、取消）</p>
+</div>
+</div>
+<!-- 4. Destructive -->
+<div class="space-y-3">
+<div class="flex gap-4">
+<button class="flex-1 h-[50pt] bg-[#C62828] text-white font-medium text-[16pt] rounded-[12pt] active:scale-95 transition-transform">删除训练</button>
+<button class="flex-1 h-[50pt] bg-[#C62828] opacity-50 text-white font-medium text-[16pt] rounded-[12pt] cursor-not-allowed">删除训练</button>
+</div>
+<div class="px-1">
+<p class="text-[15pt] font-semibold text-black">destructive</p>
+<p class="text-[13pt] text-[#3C3C43]/60">危险操作（删除、结束训练）</p>
+</div>
+</div>
+<!-- 5. DarkPill -->
+<div class="space-y-3">
+<div class="flex items-center gap-4">
+<button class="h-[40pt] px-[20pt] bg-[#1C1C1E] text-white font-medium text-[15pt] rounded-full active:scale-95 transition-transform">关闭</button>
+<button class="h-[40pt] px-[20pt] bg-[#1C1C1E] opacity-50 text-white font-medium text-[15pt] rounded-full cursor-not-allowed">关闭</button>
+</div>
+<div class="px-1">
+<p class="text-[15pt] font-semibold text-black">darkPill</p>
+<p class="text-[13pt] text-[#3C3C43]/60">深色场景关闭/返回按钮</p>
+</div>
+</div>
+<!-- 6. IconCircle -->
+<div class="space-y-3">
+<div class="flex gap-6 items-center">
+<div class="flex gap-3">
+<button class="w-[48pt] h-[48pt] bg-[#1A6B3C] rounded-full flex items-center justify-center text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[24pt]" data-icon="add">add</span>
+</button>
+<button class="w-[48pt] h-[48pt] bg-[#1A6B3C] rounded-full flex items-center justify-center text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[24pt]" data-icon="check">check</span>
+</button>
+</div>
+<div class="flex gap-3 opacity-50">
+<button class="w-[48pt] h-[48pt] bg-[#1A6B3C] rounded-full flex items-center justify-center text-white cursor-not-allowed">
+<span class="material-symbols-outlined text-[24pt]" data-icon="add">add</span>
+</button>
+</div>
+</div>
+<div class="px-1">
+<p class="text-[15pt] font-semibold text-black">iconCircle</p>
+<p class="text-[13pt] text-[#3C3C43]/60">工具栏图标按钮（48pt 圆形）</p>
+</div>
+</div>
+<!-- 7. SegmentedPill -->
+<div class="space-y-3">
+<div class="flex flex-col gap-4">
+<div class="flex gap-2">
+<button class="h-[36pt] px-4 bg-[#1A6B3C] text-white text-sm font-medium rounded-full">弹出</button>
+<button class="h-[36pt] px-4 bg-white border border-[#C6C6C8] text-black text-sm font-medium rounded-full">不弹出</button>
+<button class="h-[36pt] px-4 bg-white border border-[#C6C6C8] text-black text-sm font-medium rounded-full">延迟</button>
+</div>
+<div class="flex gap-2 opacity-50">
+<button class="h-[36pt] px-4 bg-[#1A6B3C] text-white text-sm font-medium rounded-full cursor-not-allowed">弹出</button>
+<button class="h-[36pt] px-4 bg-white border border-[#C6C6C8] text-black text-sm font-medium rounded-full cursor-not-allowed">不弹出</button>
+<button class="h-[36pt] px-4 bg-white border border-[#C6C6C8] text-black text-sm font-medium rounded-full cursor-not-allowed">延迟</button></div>
+</div>
+<div class="px-1">
+<p class="text-[15pt] font-semibold text-black">segmentedPill</p>
+<p class="text-[13pt] text-[#3C3C43]/60">分段选项组（偏好设置）</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Button Hierarchy — 3-Tier System -->
+<section class="space-y-4">
+<h2 class="header-anchor px-2">Button Hierarchy — 3-Tier System</h2>
+<div class="flex justify-center py-4">
+<div class="bg-white rounded-[16pt] p-[24pt] w-full max-w-[320px] text-center space-y-6 ios-shadow">
+<div class="space-y-2">
+<div class="text-4xl">🎉</div>
+<h3 class="text-[20pt] font-semibold text-black">完成训练</h3>
+<p class="text-[15pt] text-zinc-500">是否已经完成训练</p>
+</div>
+<div class="flex flex-col gap-3">
+<button class="w-full h-[50pt] bg-[#1A6B3C] text-white font-medium text-[16pt] rounded-[12pt] active:scale-95 transition-transform">
+                                完成并生成分享图
+                            </button>
+<button class="w-full h-[50pt] text-black font-medium text-[16pt] active:opacity-60 transition-opacity">
+                                完成训练
+                            </button>
+<button class="w-full h-[50pt] text-[#3C3C43]/60 font-normal text-[16pt] active:opacity-60 transition-opacity">
+                                取消
+                            </button>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Touch Target Rule -->
+<section class="space-y-4">
+<h2 class="header-anchor px-2">Touch Target Rule</h2>
+<div class="bg-white rounded-[16pt] p-[16pt] flex items-center gap-6">
+<div class="w-[44pt] h-[44pt] border-2 border-dashed border-[#1A6B3C] rounded-lg flex items-center justify-center bg-zinc-50">
+<div class="w-2 h-2 bg-[#1A6B3C] rounded-full"></div>
+</div>
+<div class="space-y-1">
+<p class="text-[15pt] font-semibold text-black">最小触控区域 44×44pt</p>
+<p class="text-[13pt] text-[#3C3C43]/60">All buttons must meet this minimum touch target.</p>
+</div>
+</div>
+</section>
+</div>
+<!-- BottomNavBar -->
+</main>
+
+```</body></html>

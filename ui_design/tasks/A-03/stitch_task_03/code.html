@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-low": "#f3f3f8",
+                        "surface-variant": "#e2e2e7",
+                        "on-tertiary-container": "#ffcbc5",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e8e8ed",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed": "#00210d",
+                        "surface-container-highest": "#e2e2e7",
+                        "on-secondary-fixed-variant": "#614000",
+                        "on-tertiary-fixed": "#410003",
+                        "primary": "#005129",
+                        "tertiary-fixed-dim": "#ffb4ac",
+                        "background": "#f9f9fe",
+                        "secondary-container": "#fcb73f",
+                        "primary-container": "#1a6b3c",
+                        "primary-fixed": "#a5f4b8",
+                        "tertiary-container": "#b71c1f",
+                        "on-surface": "#1a1c1f",
+                        "on-error": "#ffffff",
+                        "on-surface-variant": "#404940",
+                        "tertiary-fixed": "#ffdad6",
+                        "secondary-fixed": "#ffddaf",
+                        "outline-variant": "#bfc9be",
+                        "inverse-on-surface": "#f0f0f5",
+                        "tertiary": "#91000e",
+                        "on-tertiary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-background": "#1a1c1f",
+                        "primary-fixed-dim": "#89d89e",
+                        "secondary": "#805600",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-tertiary-fixed-variant": "#93000e",
+                        "inverse-surface": "#2e3034",
+                        "secondary-fixed-dim": "#ffba44",
+                        "surface-dim": "#d9dade",
+                        "on-primary": "#ffffff",
+                        "surface-container": "#ededf2",
+                        "surface-tint": "#1b6c3d",
+                        "on-secondary-fixed": "#281800",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-primary-container": "#9ae9ae",
+                        "surface-bright": "#f9f9fe",
+                        "outline": "#707a70",
+                        "on-secondary-container": "#6e4900",
+                        "surface": "#f9f9fe",
+                        "inverse-primary": "#89d89e"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #F2F2F7;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex justify-center items-start min-h-screen p-4">
+<div class="w-[393px] min-h-[852px] bg-[#F2F2F7] flex flex-col gap-10 pb-12">
+<!-- Section 1: Empty State -->
+<section class="flex flex-col gap-3">
+<h2 class="font-headline text-[22px] font-bold text-primary-container px-2">BTEmptyState — 空状态组件</h2>
+<div class="bg-surface-container-lowest rounded-3xl p-6 flex flex-col items-center shadow-sm">
+<div class="flex flex-col items-center py-10">
+<div class="opacity-30 text-primary-container mb-3">
+<span class="material-symbols-outlined !text-[48px]">search</span>
+</div>
+<h3 class="text-[22px] font-bold text-on-surface mb-2">未找到相关动作</h3>
+<p class="text-[15px] text-on-surface-variant/60 text-center mb-8">试试其他关键词或浏览全部动作库</p>
+<button class="w-full h-[50px] bg-primary-container text-surface-container-lowest rounded-xl font-medium text-[16px] flex items-center justify-center">
+                        浏览全部动作
+                    </button>
+</div>
+</div>
+<p class="text-[13px] text-outline px-2">使用场景：无训练计划 / 搜索无结果 / 无收藏 / 无训练记录</p>
+</section>
+<!-- Section 2: Drill Cards -->
+<section class="flex flex-col gap-3">
+<h2 class="font-headline text-[22px] font-bold text-primary-container px-2">BTDrillCard — Drill 列表卡片</h2>
+<div class="flex flex-col gap-2">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden">
+<div class="flex flex-col gap-1.5">
+<h4 class="text-[17px] font-semibold text-on-surface">直线球定位训练</h4>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary-container/10 text-primary-container text-[12px] font-medium rounded-full">中式台球</span>
+<span class="px-2 py-0.5 bg-primary-container text-surface-container-lowest text-[12px] font-medium rounded-full">L0 入门</span>
+<span class="text-[13px] text-on-surface-variant/60">推荐 5 组</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[#C7C7CC] !text-[18px]">chevron_right</span>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden">
+<div class="flex flex-col gap-1.5">
+<h4 class="text-[17px] font-semibold text-on-surface">三分点走位练习</h4>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary-container/10 text-primary-container text-[12px] font-medium rounded-full">九球</span>
+<span class="px-2 py-0.5 bg-secondary-container/15 text-secondary text-[12px] font-medium rounded-full">L2 进阶</span>
+<span class="text-[13px] text-on-surface-variant/60">推荐 3 组</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[#C7C7CC] !text-[18px]">chevron_right</span>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 flex items-center justify-between shadow-sm relative overflow-hidden">
+<div class="flex flex-col gap-1.5">
+<h4 class="text-[17px] font-semibold text-on-surface">高级K球技巧</h4>
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary-container/10 text-primary-container text-[12px] font-medium rounded-full">中式台球</span>
+<span class="px-2 py-0.5 bg-error/10 text-tertiary text-[12px] font-medium rounded-full">L4 专业</span>
+<span class="text-[13px] text-on-surface-variant/60">推荐 4 组</span>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<div class="bg-secondary-container/15 text-secondary px-1.5 py-0.5 rounded flex items-center gap-0.5">
+<span class="material-symbols-outlined !text-[10px]" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="text-[10px] font-bold">PRO</span>
+</div>
+<span class="material-symbols-outlined text-[#C7C7CC] !text-[18px]">chevron_right</span>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-outline px-2">使用场景：动作库列表 / 收藏列表 / 训练项目选择</p>
+</section>
+<!-- Section 3: Level Badges -->
+<section class="flex flex-col gap-3">
+<h2 class="font-headline text-[22px] font-bold text-primary-container px-2">BTLevelBadge — 等级徽章</h2>
+<div class="bg-surface-container-lowest rounded-3xl p-6 shadow-sm">
+<div class="flex flex-wrap gap-2">
+<div class="px-3 h-[22px] bg-primary-container text-surface-container-lowest rounded-full text-[12px] font-medium flex items-center">L0 入门</div>
+<div class="px-3 h-[22px] bg-primary-container/12 text-primary-container rounded-full text-[12px] font-medium flex items-center" style="background-color: rgba(26, 107, 60, 0.12);">L1 初学</div>
+<div class="px-3 h-[22px] bg-secondary-container/12 text-secondary rounded-full text-[12px] font-medium flex items-center" style="background-color: rgba(212, 148, 26, 0.12);">L2 进阶</div>
+<div class="px-3 h-[22px] bg-[#F5A623]/12 text-[#E67C00] rounded-full text-[12px] font-medium flex items-center" style="background-color: rgba(245, 166, 35, 0.12);">L3 熟练</div>
+<div class="px-3 h-[22px] bg-tertiary/12 text-tertiary rounded-full text-[12px] font-medium flex items-center" style="background-color: rgba(198, 40, 40, 0.12);">L4 专业</div>
+</div>
+<div class="mt-6 pt-6 border-t border-surface-container flex flex-col gap-2">
+<div class="grid grid-cols-2 text-[13px] text-outline">
+<span>L0 入门</span>
+<span class="text-on-surface">新手基础教学</span>
+</div>
+<div class="grid grid-cols-2 text-[13px] text-outline">
+<span>L1 初学</span>
+<span class="text-on-surface">单球位稳定性</span>
+</div>
+<div class="grid grid-cols-2 text-[13px] text-outline">
+<span>L2 进阶</span>
+<span class="text-on-surface">简单走位控制</span>
+</div>
+<div class="grid grid-cols-2 text-[13px] text-outline">
+<span>L3 熟练</span>
+<span class="text-on-surface">复杂球局思路</span>
+</div>
+<div class="grid grid-cols-2 text-[13px] text-outline">
+<span>L4 专业</span>
+<span class="text-on-surface">职业级对抗演练</span>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-outline px-2">等级映射表：由浅入深定义训练难度梯度</p>
+</section>
+</div>
+</body></html>

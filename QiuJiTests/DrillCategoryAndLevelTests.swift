@@ -62,8 +62,8 @@ final class DrillCategoryAndLevelTests: XCTestCase {
 
     // MARK: - BallTypeFilter
 
-    func test_ballTypeFilter_allCases_count3() {
-        XCTAssertEqual(BallTypeFilter.allCases.count, 3)
+    func test_ballTypeFilter_allCases_count4() {
+        XCTAssertEqual(BallTypeFilter.allCases.count, 4)
     }
 
     func test_ballTypeFilter_all_matchesAnyDrill() {

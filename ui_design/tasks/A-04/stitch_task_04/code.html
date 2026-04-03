@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BTPremiumLock Component Reference - QiuJi (球迹)</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#1A6B3C", // Brand Green
+                        "tertiary": "#D4941A", // Pro/Premium Gold
+                        "background": "#F2F2F7", // Page Background
+                        "surface": "#FFFFFF", // Card Background
+                        "on-surface": "#000000", // Text Color
+                        "on-surface-variant": "rgba(60, 60, 67, 0.6)", // Secondary Text
+                        "surface-container-high": "#E5E5EA", // Inactive/Sunken
+                        "overlay-dark": "rgba(0, 0, 0, 0.45)"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "1rem", // 16pt
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Plus Jakarta Sans", "sans-serif"],
+                        "label": ["Plus Jakarta Sans", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #F2F2F7;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ios-blur-transition {
+            background: linear-gradient(to bottom, transparent, #FFFFFF 90%);
+            backdrop-filter: blur(4px);
+        }
+        .iphone-frame {
+            width: 393px;
+            min-height: 852px;
+            margin: 0 auto;
+            background-color: #F2F2F7;
+            overflow-y: auto;
+            box-shadow: 0 0 50px rgba(0,0,0,0.1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body text-on-surface">
+<div class="iphone-frame flex flex-col gap-6 py-10 px-4">
+<!-- Header Section -->
+<header class="flex flex-col gap-1 px-1">
+<h1 class="text-[32px] font-bold tracking-tight text-primary">QiuJi (球迹)</h1>
+<p class="text-on-surface-variant font-medium">BTPremiumLock Component Reference</p>
+</header>
+<!-- Section 1: Progressive Lock -->
+<section class="flex flex-col gap-3">
+<div class="bg-surface rounded-DEFAULT p-4 shadow-sm border-none">
+<h2 class="text-[22px] font-bold text-primary mb-4">BTPremiumLock — 渐进式锁</h2>
+<div class="relative min-h-[280px] overflow-hidden">
+<!-- Content Layer -->
+<div class="flex flex-col gap-2">
+<p class="text-[15px] leading-relaxed text-on-surface">1. 瞄准时保持身体稳定，前手握杆自然放松</p>
+<p class="text-[15px] leading-relaxed text-on-surface">2. 出杆保持水平，避免上下抖动影响精度</p>
+<p class="text-[15px] leading-relaxed text-on-surface">3. 击球后手腕保持固定，不要急于抬头看球</p>
+<!-- Blurred placeholders -->
+<p class="text-[15px] leading-relaxed text-on-surface opacity-20 blur-[2px]">4. 保持均匀的呼吸节奏，在击球瞬间屏息以求极致稳定</p>
+<p class="text-[15px] leading-relaxed text-on-surface opacity-10 blur-[4px]">5. 观察母球撞击后的走位轨迹，分析出杆力度偏差</p>
+</div>
+<!-- Gradient/Blur Overlay -->
+<div class="absolute inset-x-0 bottom-0 top-[40%] ios-blur-transition flex flex-col items-center justify-end pb-2">
+<div class="flex flex-col items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-[32px] text-tertiary" style="font-variation-settings: 'FILL' 1;">lock</span>
+<span class="text-[15px] text-on-surface-variant">后面还有 5 条训练要点</span>
+</div>
+<button class="w-full h-11 rounded-full border-2 border-tertiary flex items-center justify-center bg-transparent">
+<span class="text-[15px] font-medium text-tertiary">点这里解锁</span>
+</button>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-on-surface-variant px-1">使用场景：Drill 详情被锁内容 / 教学内容渐进展示</p>
+</section>
+<!-- Section 2: Full Overlay -->
+<section class="flex flex-col gap-3">
+<div class="bg-surface rounded-DEFAULT p-4 shadow-sm border-none">
+<h2 class="text-[22px] font-bold text-primary mb-4">BTPremiumLock — 全遮罩</h2>
+<div class="relative h-[220px] rounded-xl overflow-hidden bg-surface-container-high p-4">
+<!-- Mock Background Content -->
+<div class="flex flex-col gap-4">
+<div class="flex justify-between items-end">
+<div class="flex flex-col gap-1">
+<p class="text-[15px] text-on-surface-variant">训练时长趋势</p>
+<p class="text-[13px] text-on-surface-variant opacity-50">本周 vs 上周</p>
+</div>
+</div>
+<div class="flex items-end justify-between h-20 gap-2">
+<div class="w-full bg-on-surface-variant/20 h-[40%] rounded-sm"></div>
+<div class="w-full bg-on-surface-variant/20 h-[70%] rounded-sm"></div>
+<div class="w-full bg-on-surface-variant/20 h-[55%] rounded-sm"></div>
+<div class="w-full bg-on-surface-variant/20 h-[90%] rounded-sm"></div>
+<div class="w-full bg-on-surface-variant/20 h-[30%] rounded-sm"></div>
+</div>
+</div>
+<!-- Dark Semi-transparent Overlay -->
+<div class="absolute inset-0 bg-overlay-dark flex flex-col items-center justify-center gap-4 p-6">
+<div class="flex flex-col items-center gap-2">
+<span class="material-symbols-outlined text-[40px] text-tertiary" style="font-variation-settings: 'FILL' 1;">lock</span>
+<h3 class="text-[17px] font-semibold text-white">解锁 Pro 查看完整统计</h3>
+</div>
+<button class="w-full h-11 bg-tertiary rounded-full flex items-center justify-center border-none">
+<span class="text-[15px] font-medium text-white">升级 Pro</span>
+</button>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-on-surface-variant px-1">使用场景：统计图表锁定 / Pro 计划内容遮罩</p>
+</section>
+<!-- Section 3: Mode Comparison -->
+<section class="flex flex-col gap-3">
+<div class="bg-surface rounded-DEFAULT p-4 shadow-sm border-none">
+<h2 class="text-[22px] font-bold text-primary mb-4">模式对比</h2>
+<div class="grid grid-cols-2 gap-4">
+<!-- Comparison Left -->
+<div class="flex flex-col gap-3">
+<div class="aspect-square bg-background rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[24px]">visibility_off</span>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-[13px] font-semibold text-primary">渐进式锁</p>
+<p class="text-[12px] text-on-surface-variant leading-tight">部分内容可见，渐变过渡</p>
+</div>
+</div>
+<!-- Comparison Right -->
+<div class="flex flex-col gap-3">
+<div class="aspect-square bg-background rounded-xl flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-[24px]">view_module</span>
+</div>
+<div class="flex flex-col gap-1">
+<p class="text-[13px] font-semibold text-primary">全遮罩</p>
+<p class="text-[12px] text-on-surface-variant leading-tight">内容完全遮盖，适合图表</p>
+</div>
+</div>
+</div>
+</div>
+<p class="text-[13px] text-on-surface-variant px-1">渐进式锁适合文字内容（教学要点），全遮罩适合图表和计划内容</p>
+</section>
+<!-- Footer Space -->
+<div class="h-10"></div>
+</div>
+</body></html>

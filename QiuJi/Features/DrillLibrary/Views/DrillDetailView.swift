@@ -16,22 +16,15 @@ struct DrillDetailView: View {
     var body: some View {
         ScrollView {
             if let drill {
-                ZStack {
-                    VStack(alignment: .leading, spacing: Spacing.xl) {
-                        tableSection(drill)
-                        infoSection(drill)
-                        coachingSection(drill)
-                        criteriaSection(drill)
-                        videoPlaceholder
-                    }
-                    .padding(.bottom, Spacing.xxxl)
-
-                    if drill.isPremium {
-                        BTPremiumLock {
-                            // TODO: P7 — navigate to subscription page
-                        }
-                    }
+                VStack(alignment: .leading, spacing: Spacing.xl) {
+                    tableSection(drill)
+                    infoSection(drill)
+                    coachingSection(drill)
+                    criteriaSection(drill)
+                    videoPlaceholder
                 }
+                .padding(.bottom, Spacing.xxxl)
+                .premiumGate(isPremium: drill.isPremium)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 400)

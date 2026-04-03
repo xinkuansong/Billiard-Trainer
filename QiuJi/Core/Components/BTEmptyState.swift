@@ -37,7 +37,7 @@ struct BTEmptyState: View {
 
 #Preview("Light") {
     BTEmptyState(
-        icon: "figure.pool.swim",
+        icon: "tray",
         title: "还没有训练记录",
         subtitle: "完成第一次训练后，记录将在这里显示",
         actionTitle: "开始训练",
