@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "on-tertiary-fixed": "#3f0110",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-high": "#e8e8ed",
+                    "inverse-on-surface": "#f0f0f5",
+                    "on-error-container": "#93000a",
+                    "inverse-primary": "#89d89e",
+                    "primary-fixed": "#a5f4b8",
+                    "secondary-fixed-dim": "#ffba44",
+                    "surface-variant": "#e2e2e7",
+                    "surface-container-highest": "#e2e2e7",
+                    "tertiary-fixed": "#ffd9dc",
+                    "surface-container-low": "#f3f3f8",
+                    "surface-container": "#ededf2",
+                    "on-surface-variant": "#404940",
+                    "on-tertiary": "#ffffff",
+                    "background": "#f9f9fe",
+                    "secondary-fixed": "#ffddaf",
+                    "on-tertiary-fixed-variant": "#792d39",
+                    "on-secondary-fixed-variant": "#614000",
+                    "on-primary-fixed-variant": "#005229",
+                    "primary-container": "#1a6b3c",
+                    "tertiary-container": "#96434f",
+                    "tertiary": "#782c38",
+                    "surface-dim": "#d9dade",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed": "#281800",
+                    "surface-tint": "#1b6c3d",
+                    "on-secondary-container": "#6e4900",
+                    "tertiary-fixed-dim": "#ffb2b9",
+                    "on-primary-container": "#9ae9ae",
+                    "on-error": "#ffffff",
+                    "primary": "#005129",
+                    "on-background": "#1a1c1f",
+                    "on-surface": "#1a1c1f",
+                    "secondary-container": "#fcb73f",
+                    "inverse-surface": "#2e3034",
+                    "on-secondary": "#ffffff",
+                    "primary-fixed-dim": "#89d89e",
+                    "surface": "#f9f9fe",
+                    "outline-variant": "#bfc9be",
+                    "secondary": "#805600",
+                    "on-tertiary-container": "#ffcace",
+                    "surface-bright": "#f9f9fe",
+                    "outline": "#707a70",
+                    "on-primary-fixed": "#00210d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .font-manrope { font-family: 'Manrope', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-black/20 flex items-end justify-center min-h-screen">
+<!-- iOS Drill Picker Sheet -->
+<div class="bg-surface w-full max-w-[393px] h-[852px] rounded-t-[20px] overflow-hidden flex flex-col relative shadow-2xl">
+<!-- Top Bar -->
+<header class="flex items-center justify-between px-4 py-3 h-[56px] flex-shrink-0">
+<button class="w-8 h-8 bg-surface-container flex items-center justify-center rounded-full active:scale-90 transition-transform">
+<span class="material-symbols-outlined text-[20px] text-on-surface">close</span>
+</button>
+<h1 class="text-[17px] font-semibold text-on-surface absolute left-1/2 -translate-x-1/2">选择训练项目</h1>
+<div class="w-8"></div> <!-- Spacer -->
+</header>
+<!-- Search Bar -->
+<div class="px-4 pb-3 flex-shrink-0">
+<div class="flex items-center bg-surface-container rounded-[10px] h-9 px-3 gap-2">
+<span class="material-symbols-outlined text-[20px] text-outline">search</span>
+<input class="bg-transparent border-none outline-none text-[15px] placeholder-outline w-full p-0 focus:ring-0" placeholder="搜索训练项目" type="text"/>
+</div>
+</div>
+<!-- Main Selection Area -->
+<div class="flex flex-1 overflow-hidden">
+<!-- Left Sidebar Categories -->
+<aside class="w-[100px] bg-surface-container-low overflow-y-auto pb-24">
+<nav class="flex flex-col">
+<!-- Selected Category -->
+<div class="relative py-4 pl-4 pr-2 bg-surface text-primary font-bold border-l-[3px] border-primary-container">
+<span class="text-[14px]">直球</span>
+</div>
+<button class="py-4 pl-4 pr-2 text-left text-outline font-medium hover:bg-surface-container-high transition-colors">
+<span class="text-[14px]">角度球</span>
+</button>
+<button class="py-4 pl-4 pr-2 text-left text-outline font-medium hover:bg-surface-container-high transition-colors">
+<span class="text-[14px]">组合球</span>
+</button>
+<button class="py-4 pl-4 pr-2 text-left text-outline font-medium hover:bg-surface-container-high transition-colors">
+<span class="text-[14px]">翻袋</span>
+</button>
+<button class="py-4 pl-4 pr-2 text-left text-outline font-medium hover:bg-surface-container-high transition-colors">
+<span class="text-[14px]">贴库</span>
+</button>
+<button class="py-4 pl-4 pr-2 text-left text-outline font-medium hover:bg-surface-container-high transition-colors">
+<span class="text-[14px]">K球/安全球</span>
+</button>
+<button class="py-4 pl-4 pr-2 text-left text-outline font-medium hover:bg-surface-container-high transition-colors">
+<span class="text-[14px]">走位</span>
+</button>
+<button class="py-4 pl-4 pr-2 text-left text-outline font-medium hover:bg-surface-container-high transition-colors">
+<span class="text-[14px]">综合</span>
+</button>
+</nav>
+</aside>
+<!-- Right Content Grid -->
+<main class="flex-1 bg-surface p-4 overflow-y-auto pb-32">
+<div class="grid grid-cols-2 gap-2">
+<!-- Drill Card 1: Selected -->
+<div class="relative rounded-xl border-2 border-primary-container bg-primary/5 p-2 flex flex-col gap-2">
+<div class="w-full aspect-[4/3] rounded-lg overflow-hidden bg-primary-container relative">
+<img class="w-full h-full object-cover opacity-80" data-alt="top-down view of a professional billiards table with green felt and five distinct white ball positions in a straight line high quality render" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAEeIzb8NzRX7w5Iv1OAxAtnohCwPsP0h6ZaHvvwbVUuhc-h_mJN0j-pnxRWgETI_pv-BgPASBxXLXKi6cpV-qvyqyG5svTILAoVOK7uSLn1d11kuX2AhU5828DMSQqJTx_ZZkVK3ss3pPVariktUQL44pD3ywBigDoLMDAuwLxcaE5tezmcW5EqLloRP9LIp_iVjLUGTJjoPsuGYGxmWnwK9Py1l0BpQzXm_57XaNIWZ_u0Aip74uqMwjYoevLWvPURzFgxoWDtAQ"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[14px] font-semibold text-on-surface leading-tight">五分点直球</span>
+<div class="inline-flex px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold w-max">
+                                L0 入门
+                            </div>
+</div>
+<!-- Selection Badge -->
+<div class="absolute -top-2 -right-2 w-5 h-5 bg-primary-container text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-md">1</div>
+</div>
+<!-- Drill Card 2: Selected -->
+<div class="relative rounded-xl border-2 border-primary-container bg-primary/5 p-2 flex flex-col gap-2">
+<div class="w-full aspect-[4/3] rounded-lg overflow-hidden bg-primary-container relative">
+<img class="w-full h-full object-cover opacity-80" data-alt="top-down view of a billiards table showing balls arranged at the seven-dot mark for precision straight shot practice editorial photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2tCuDJ7Td4adjuSfuk6_O1xuBoUrC72qmtim-DgmlIkXbnEyUiPfcwJIK5yF_lXvngniuZ8XZkjLmQkuqIRJUcLrZJJ3sZtz2SeW3NFvCdbbouWgKkHL-8q2Womih7_qYVx_GjG7lcqdJgsuv6pEP6swu_wJwXUiDiiQz3JYrZvWiqyvpfAIEuyVIRuWlaIGkpviPVwOM2m-3yPjgVTecKzbUKkxGgN2pIIgiaLj0jh-peUUZOudkMY0pBKWGITdcGDW07MqHDM4"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[14px] font-semibold text-on-surface leading-tight">七分点直球</span>
+<div class="inline-flex px-2 py-0.5 rounded-full bg-primary/10 text-primary-container text-[10px] font-bold w-max">
+                                L1 初学
+                            </div>
+</div>
+<!-- Selection Badge -->
+<div class="absolute -top-2 -right-2 w-5 h-5 bg-primary-container text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-md">2</div>
+</div>
+<!-- Drill Card 3 -->
+<div class="rounded-xl border border-surface-variant bg-surface p-2 flex flex-col gap-2">
+<div class="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-200">
+<img class="w-full h-full object-cover" data-alt="overhead billiards drill diagram showing cue ball and object ball alignment on green cloth professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDBxnpqOh4BEnjxx3HBKTheQxPVr8PiDKowc0Z06W7GBjy5Ab12W9NGEoBHrOrxVVFuEvmH3YFlzxrI0SDLZM7q4eIgYogQKSIQWMZa3CCsq5Pj2krphIr5pes31i61QCWTlSleVTdVjgMXls_Ke5FeHGuWMDk2OOffdZiMbq7FxJrlNfLDG9gAlhoH_UwJ0XG4LFGfpzSLekzaqhGsKqyMjTHrek4YGd7GRg8OyjUH-rsrfCn07vFoDbLos4V1w5jf2cHBeXCZ9bU"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[14px] font-semibold text-on-surface leading-tight">中等距离直球</span>
+<div class="inline-flex px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary text-[10px] font-bold w-max">
+                                L2 进阶
+                            </div>
+</div>
+</div>
+<!-- Drill Card 4 -->
+<div class="rounded-xl border border-surface-variant bg-surface p-2 flex flex-col gap-2">
+<div class="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-200">
+<img class="w-full h-full object-cover" data-alt="long-distance straight billiards drill layout on professional table clear focus minimalist sports tutorial style" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4bZ3TizsaoHY0KJHqcCOStAjr82EUDzBoOi2f_kPR7cMydDRGbWsS73XFqGvjVIXhKTkWILB5xgrE29fp2dJ-c_nt9z7UrY6C3AiydJPVdCgVkHZEjEXeaBIUnWhXy8xjvHP2GzTQMe4-gBEe_d1BzdDwmIsIW46e4GDewwm20wBTE41NOPd6mlquocuZx9YwNFAMgsB9huCNLNu7gkNe1DXDNWrT6blV71ssyr6UOh4zWG2eVoITLHwRkjW4Cex5xpyG9RMyg1U"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[14px] font-semibold text-on-surface leading-tight">长台直球</span>
+<div class="inline-flex px-2 py-0.5 rounded-full bg-primary/10 text-primary-container text-[10px] font-bold w-max">
+                                L1 初学
+                            </div>
+</div>
+</div>
+<!-- Drill Card 5 -->
+<div class="rounded-xl border border-surface-variant bg-surface p-2 flex flex-col gap-2">
+<div class="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-200">
+<img class="w-full h-full object-cover" data-alt="billiards table training setup with multiple balls forming a straight line high end sports photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQa8E8Ot3QWVvbrWS_NZg2RYIEuUAM436oh7BS9WNwlDrzlkF12njOuukI9Fqy4mLzhOmILHyOMtrFkFw9ug9UIK02x-26h2HesusZmh89ymstmfFF4P4fhZzKPfMajEdYC6ox2NZzzik8yF6IVYbEkW-g4IvI9aflFUTm88Vjn-JazFO4SHqH-0a9JVkJX2tFOTPkjIfiJODxhYdhtfl6VnYKdA3U01unyOvLdOJkIJ3URH8SxDSQR9p_ONNiVxvgR2feRTmIl2o"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[14px] font-semibold text-on-surface leading-tight">直球稳定性</span>
+<div class="inline-flex px-2 py-0.5 rounded-full bg-secondary-container/20 text-secondary text-[10px] font-bold w-max">
+                                L2 进阶
+                            </div>
+</div>
+</div>
+<!-- Drill Card 6 -->
+<div class="rounded-xl border border-surface-variant bg-surface p-2 flex flex-col gap-2">
+<div class="w-full aspect-[4/3] rounded-lg overflow-hidden bg-slate-200">
+<img class="w-full h-full object-cover" data-alt="macro shot of billiards ball being hit straight precise contact point clean aesthetic bright lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAeQHJbat3kIN8VmDBxJuHEc5mHWy4oVawHm2k6TtxaUmdGQFI0BXUPfeUlmNYKEEKlcTgAgr_trM0fetWUF2rWi6klF9K7708KVQybf_QwSWmPUOFN6UvJ29FqKo8H_kevVMQLTVzdsYCAIhn5FFJ3H12p9Qaj74kx4ucCIJx6_G4t-XFIgDEw_zUD34No-d5x9UKC_ciuYpCMuyL5mD6VMnlivq7R2tBgLSXTRZ8HrV-2R3gpyh5LE2_Iu-zImy241-OoZ-ADRjE"/>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-[14px] font-semibold text-on-surface leading-tight">连续直球练习</span>
+<div class="inline-flex px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-bold w-max">
+                                L0 入门
+                            </div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Bottom Action Bar -->
+<footer class="absolute bottom-0 left-0 w-full bg-white/90 backdrop-blur-md px-4 pt-4 pb-8 border-t border-surface-container flex-shrink-0">
+<button class="w-full h-[50px] bg-primary-container text-white text-[16px] font-bold rounded-xl flex items-center justify-center active:scale-95 transition-all shadow-lg">
+                完成 (2)
+            </button>
+</footer>
+<!-- iOS Indicator Bar Decoration -->
+<div class="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-[134px] h-[5px] bg-on-surface/20 rounded-full"></div>
+</div>
+</body></html>

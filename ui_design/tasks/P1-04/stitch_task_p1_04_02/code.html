@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Manrope:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-fixed-dim": "#8ad89c",
+                        "tertiary-container": "#1b6b3a",
+                        "surface-dim": "#d9dade",
+                        "background": "#f9f9fe",
+                        "surface-container-low": "#f3f3f8",
+                        "primary-fixed-dim": "#89d89e",
+                        "primary-fixed": "#a5f4b8",
+                        "on-background": "#1a1c1f",
+                        "outline": "#707a70",
+                        "surface-container": "#ededf2",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#a5f4b6",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005227",
+                        "on-tertiary-fixed": "#00210c",
+                        "tertiary": "#005127",
+                        "surface-container-high": "#e8e8ed",
+                        "inverse-primary": "#89d89e",
+                        "on-surface-variant": "#404940",
+                        "surface-container-highest": "#e2e2e7",
+                        "secondary-container": "#fcb73f",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-error-container": "#93000a",
+                        "outline-variant": "#bfc9be",
+                        "primary": "#005129",
+                        "on-primary-fixed": "#00210d",
+                        "surface-variant": "#e2e2e7",
+                        "inverse-surface": "#2e3034",
+                        "on-secondary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#ffddaf",
+                        "secondary-fixed-dim": "#ffba44",
+                        "surface-tint": "#1b6c3d",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#9ae9ae",
+                        "on-tertiary-container": "#9ae9ab",
+                        "surface-bright": "#f9f9fe",
+                        "secondary": "#805600",
+                        "on-secondary-fixed-variant": "#614000",
+                        "on-secondary-container": "#6e4900",
+                        "surface": "#f9f9fe",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#281800",
+                        "on-surface": "#1a1c1f",
+                        "error": "#ba1a1a",
+                        "primary-container": "#1a6b3c",
+                        "inverse-on-surface": "#f0f0f5"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .billiard-felt {
+            background-color: #1B6B3A;
+            background-image: radial-gradient(circle at 50% 50%, rgba(26, 107, 60, 0.4) 0%, rgba(0, 0, 0, 0.1) 100%);
+        }
+        .pro-blur-overlay {
+            background: linear-gradient(to bottom, transparent 0%, #f9f9fe 80%, #f9f9fe 100%);
+            backdrop-filter: blur(8px);
+        }
+        .tap-active:active {
+            transform: scale(0.96);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background font-body text-on-surface antialiased select-none">
+<!-- TopAppBar -->
+<header class="bg-[#F9F9FE] dark:bg-slate-900 docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center w-full px-4 h-16">
+<div class="flex items-center gap-1 tap-active transition-transform">
+<span class="material-symbols-outlined text-[#1A6B3C] dark:text-emerald-500">chevron_left</span>
+<span class="text-sm font-inter text-slate-500">动作库</span>
+</div>
+<h1 class="text-xl font-bold font-manrope text-[#1A6B3C] dark:text-emerald-500" style="color: #000000;">交叉走位训练</h1>
+<div class="tap-active transition-transform">
+<span class="material-symbols-outlined dark:text-emerald-500" style="color: rgba(60,60,67,0.6);">ios_share</span>
+</div>
+</div>
+</header>
+<main class="max-w-[393px] mx-auto pb-32">
+<!-- Hero Billiard Table -->
+<section class="px-4 mt-2">
+<div class="relative w-full aspect-[350/190] rounded-xl overflow-hidden shadow-xl ring-8 ring-[#7B3F00] ring-inset billiard-felt">
+<!-- Pockets -->
+<div class="absolute top-0 left-0 w-6 h-6 bg-black rounded-br-full"></div>
+<div class="absolute top-0 right-0 w-6 h-6 bg-black rounded-bl-full"></div>
+<div class="absolute bottom-0 left-0 w-6 h-6 bg-black rounded-tr-full"></div>
+<div class="absolute bottom-0 right-0 w-6 h-6 bg-black rounded-tl-full"></div>
+<div class="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-4 bg-black rounded-b-full"></div>
+<div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-4 bg-black rounded-t-full"></div>
+<!-- Balls & Path -->
+<svg class="absolute inset-0 w-full h-full" viewbox="0 0 350 190">
+<path d="M 80 140 L 220 50" opacity="0.6" stroke="white" stroke-dasharray="4 4" stroke-width="1.5"></path>
+<circle cx="80" cy="140" fill="white" r="6"></circle> <!-- Cue Ball -->
+<circle cx="220" cy="50" fill="#fcb73f" r="6"></circle> <!-- Target Ball -->
+</svg>
+<!-- Overlays -->
+<div class="absolute top-3 right-3">
+<button class="bg-white/10 backdrop-blur-md border border-white/20 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-white text-xs font-medium tap-active transition-all">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">favorite</span>
+<span>收藏</span>
+</button>
+</div>
+<div class="absolute bottom-3 right-3">
+<button class="w-8 h-8 flex items-center justify-center bg-black/20 backdrop-blur-sm rounded-lg text-white tap-active">
+<span class="material-symbols-outlined text-xl">open_in_full</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Info Area -->
+<section class="px-5 mt-6">
+<div class="flex flex-col gap-4">
+<div>
+<h2 class="text-2xl font-extrabold font-headline tracking-tight text-on-surface">交叉走位训练</h2>
+</div>
+<!-- Icon Row -->
+<div class="flex justify-start gap-8">
+<div class="flex flex-col items-center gap-1.5">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant tap-active transition-colors hover:bg-surface-container-highest">
+<span class="material-symbols-outlined">lightbulb</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500">要点</span>
+</div>
+<div class="flex flex-col items-center gap-1.5">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant tap-active transition-colors hover:bg-surface-container-highest">
+<span class="material-symbols-outlined">history</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500">历史</span>
+</div>
+<div class="flex flex-col items-center gap-1.5">
+<div class="w-12 h-12 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant tap-active transition-colors hover:bg-surface-container-highest">
+<span class="material-symbols-outlined">bar_chart</span>
+</div>
+<span class="text-[10px] font-medium text-slate-500">图表</span>
+</div>
+</div>
+<!-- Tag Row -->
+<div class="flex flex-wrap gap-2 pt-2">
+<span class="px-3 py-1 bg-surface-container rounded-full text-[11px] font-semibold text-slate-600">中式台球</span>
+<span class="px-3 py-1 bg-surface-container rounded-full text-[11px] font-semibold text-slate-600">走位训练</span>
+<span class="px-3 py-1 text-on-tertiary-fixed-variant rounded-full text-[11px] font-bold" style="background-color: rgba(212,148,26,0.12); color: #D4941A;">L2 进阶</span>
+<span class="px-3 py-1 text-white rounded-full text-[10px] font-black uppercase tracking-wider" style="background-color: rgba(212,148,26,0.12); color: #D4941A; border: 1px solid rgba(212,148,26,0.3); font-size: 11pt; font-weight: 700;">PRO</span>
+</div>
+</div>
+</section>
+<!-- Pinned Note -->
+<section class="px-4 mt-6">
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-3 tap-active shadow-sm border-0">
+<span class="material-symbols-outlined text-slate-400">edit_note</span>
+<span class="text-sm text-slate-400 font-medium">点击此处输入备注</span>
+</div>
+</section>
+<!-- Training Tips Card with Progressive Lock -->
+<section class="px-4 mt-6">
+<div class="bg-surface-container-lowest rounded-2xl overflow-hidden shadow-sm">
+<div class="p-6">
+<h3 class="text-lg font-bold font-headline mb-4 flex items-center gap-2">
+<span class="w-1 h-5 bg-primary rounded-full"></span>
+                        训练要点
+                    </h3>
+<ul class="space-y-6">
+<li class="flex gap-3">
+<div class="flex-shrink-0 w-5 h-5 rounded-full bg-primary-container flex items-center justify-center mt-0.5">
+<span class="text-[10px] text-white font-bold">1</span>
+</div>
+<p class="text-sm leading-relaxed text-on-surface">瞄准时保持身体中轴线与球杆重合，确保出杆垂直度。</p>
+</li>
+<li class="flex gap-3">
+<div class="flex-shrink-0 w-5 h-5 rounded-full bg-primary-container flex items-center justify-center mt-0.5">
+<span class="text-[10px] text-white font-bold">2</span>
+</div>
+<p class="text-sm leading-relaxed text-on-surface">母球撞击目标球后，通过侧旋控制反弹路径，预留下一颗球的位置。</p>
+</li>
+<li class="flex gap-3"><div class="flex-shrink-0 w-5 h-5 rounded-full bg-primary-container flex items-center justify-center mt-0.5"><span class="text-[10px] text-white font-bold">3</span></div><p class="text-sm leading-relaxed text-on-surface">控制力度在 5-6 成力，兼顾准度和走位</p></li>
+</ul>
+<!-- Progressive Lock Component -->
+<div class="relative -mx-6 h-64 overflow-hidden mt-4">
+<div class="pro-blur-overlay absolute inset-0 z-10 flex flex-col items-center justify-end pb-8">
+<div class="flex flex-col items-center gap-4">
+<div class="w-14 h-14 rounded-full bg-secondary-fixed flex items-center justify-center text-secondary shadow-lg">
+<span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<div class="text-center">
+<p class="text-secondary font-bold text-sm">后面还有 4 条训练要点</p>
+<p class="text-slate-400 text-xs mt-1">升级专业版解锁全部核心技巧</p>
+</div>
+<button class="mt-2 px-8 py-2.5 border-2 border-secondary text-secondary font-bold text-sm rounded-full tap-active transition-all bg-white hover:bg-secondary/5">
+                                    点这里解锁
+                                </button>
+</div>
+</div>
+<div class="px-6 space-y-6 opacity-30 select-none pointer-events-none">
+<li class="flex gap-3">
+<div class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-300"></div>
+<div class="h-4 bg-slate-200 w-full rounded"></div>
+</li>
+<li class="flex gap-3">
+<div class="flex-shrink-0 w-5 h-5 rounded-full bg-slate-300"></div>
+<div class="h-4 bg-slate-200 w-3/4 rounded"></div>
+</li>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Fixed Bottom Bar -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-center gap-4 p-6 mb-safe bg-[#F9F9FE]/90 dark:bg-slate-900/90 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] rounded-t-2xl">
+<button class="bg-slate-800 text-white rounded-full px-8 py-3 text-sm font-manrope font-bold tracking-tight tap-active hover:opacity-90 transition-opacity">
+            关闭
+        </button>
+<button class="bg-[#D4941A] text-white rounded-full px-8 py-3 text-sm font-manrope font-bold tracking-tight tap-active hover:opacity-90 transition-opacity">
+            解锁 Pro
+        </button>
+</footer>
+</body></html>

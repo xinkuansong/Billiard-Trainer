@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=393px, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Plus+Jakarta+Sans:wght@700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        @font-face {
+            font-family: 'SF Pro Rounded';
+            src: local('SF Pro Rounded Bold'), local('SF-Pro-Rounded-Bold');
+            font-weight: 700;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F2F2F7;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-rounded {
+            font-family: 'SF Pro Rounded', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-tint": "#1b6c3d",
+                        "secondary-fixed": "#caebce",
+                        "inverse-primary": "#89d89e",
+                        "on-tertiary": "#ffffff",
+                        "on-background": "#1a1c1f",
+                        "on-secondary-fixed": "#05210f",
+                        "on-primary-fixed": "#00210d",
+                        "on-tertiary-fixed": "#3f0110",
+                        "outline": "#707a70",
+                        "surface-container": "#ededf2",
+                        "on-primary-fixed-variant": "#005229",
+                        "secondary-fixed-dim": "#aeceb3",
+                        "surface-variant": "#e2e2e7",
+                        "on-tertiary-fixed-variant": "#792d39",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#e2e2e7",
+                        "primary-fixed-dim": "#89d89e",
+                        "on-primary-container": "#9ae9ae",
+                        "on-tertiary-container": "#ffcace",
+                        "tertiary-container": "#96434f",
+                        "on-surface-variant": "#404940",
+                        "surface-dim": "#d9dade",
+                        "secondary-container": "#caebce",
+                        "surface-bright": "#f9f9fe",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#1a1c1f",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2e3034",
+                        "secondary": "#48654e",
+                        "tertiary-fixed-dim": "#ffb2b9",
+                        "primary": "#005129",
+                        "primary-fixed": "#a5f4b8",
+                        "tertiary": "#782c38",
+                        "outline-variant": "#bfc9be",
+                        "on-secondary-container": "#4e6b54",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed-variant": "#314d38",
+                        "inverse-on-surface": "#f0f0f5",
+                        "error-container": "#ffdad6",
+                        "on-secondary": "#ffffff",
+                        "primary-container": "#1a6b3c",
+                        "surface": "#f9f9fe",
+                        "tertiary-fixed": "#ffd9dc",
+                        "surface-container-low": "#f3f3f8",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e8e8ed",
+                        "background": "#f9f9fe"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex justify-center items-start min-h-screen">
+<!-- iPhone 15 Pro Wrapper (393px Fixed Width) -->
+<main class="w-[393px] min-h-screen bg-[#F2F2F7] flex flex-col relative overflow-hidden">
+<!-- Hero Brand Area (Upper 1/3) -->
+<section class="flex flex-col items-center pt-[100pt] pb-[40pt] text-center">
+<!-- 80pt circular icon: white billiard ball with #1A6B3C stripe -->
+<div class="w-[80pt] h-[80pt] bg-white rounded-full flex items-center justify-center shadow-sm relative overflow-hidden mb-6">
+<!-- Vertical Green Stripe representing ball design -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-full h-[24pt] bg-[#1A6B3C]"></div>
+</div>
+<!-- Sphere highlight for depth -->
+<div class="absolute inset-0 rounded-full" style="background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.05) 100%);"></div>
+<!-- Number/Logo text overlay (Optional visual detail) -->
+<div class="relative z-10 w-8 h-8 bg-white rounded-full flex items-center justify-center text-[#1A6B3C] font-bold text-xs">
+                    QJ
+                </div>
+</div>
+<h1 class="font-rounded text-[34pt] font-bold text-[#1a1c1f] leading-tight tracking-tight">球迹</h1>
+<p class="text-[17pt] text-[#404940] mt-1">你的台球训练伙伴</p>
+</section>
+<!-- Feature Highlights Section -->
+<section class="px-4 flex flex-col gap-6">
+<!-- Row 1 -->
+<div class="flex items-start gap-4">
+<div class="flex-shrink-0 w-[48pt] h-[48pt] rounded-full bg-[rgba(26,107,60,0.1)] flex items-center justify-center">
+<span class="material-symbols-outlined text-[28pt] text-[#1A6B3C]" data-icon="sports_pool">pool</span>
+</div>
+<div class="flex flex-col pt-1">
+<h2 class="text-[17pt] font-semibold text-[#1a1c1f]">动作库与训练记录</h2>
+<p class="text-[15pt] text-[#404940] leading-snug">海量台球练习动作，轻松记录每次训练</p>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="flex items-start gap-4">
+<div class="flex-shrink-0 w-[48pt] h-[48pt] rounded-full bg-[rgba(26,107,60,0.1)] flex items-center justify-center">
+<span class="material-symbols-outlined text-[28pt] text-[#1A6B3C]" data-icon="angle">text_rotation_angleup</span>
+</div>
+<div class="flex flex-col pt-1">
+<h2 class="text-[17pt] font-semibold text-[#1a1c1f]">角度训练</h2>
+<p class="text-[15pt] text-[#404940] leading-snug">模拟球台场景，提升角度判断力</p>
+</div>
+</div>
+<!-- Row 3 -->
+<div class="flex items-start gap-4">
+<div class="flex-shrink-0 w-[48pt] h-[48pt] rounded-full bg-[rgba(26,107,60,0.1)] flex items-center justify-center">
+<span class="material-symbols-outlined text-[28pt] text-[#1A6B3C]" data-icon="leaderboard" data-weight="fill" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+</div>
+<div class="flex flex-col pt-1">
+<h2 class="text-[17pt] font-semibold text-[#1a1c1f]">数据统计与复盘</h2>
+<p class="text-[15pt] text-[#404940] leading-snug">可视化训练进度，发现薄弱环节</p>
+</div>
+</div>
+</section>
+<!-- Spacer for layout balance -->
+<div class="flex-grow"></div>
+<!-- Bottom Action Area -->
+<section class="px-4 pt-8 pb-[34pt] flex flex-col items-center">
+<!-- Primary Button -->
+<button class="w-full h-[50pt] bg-[#1A6B3C] text-white rounded-[12pt] text-[17pt] font-semibold shadow-sm active:scale-[0.98] transition-transform duration-150">
+                开始使用
+            </button>
+<!-- Text Link -->
+<button class="mt-[16pt] text-[15pt] text-[#404940] font-normal hover:opacity-70 active:opacity-50 transition-opacity">
+                登录已有账号
+            </button>
+</section>
+<!-- Home Indicator Area Background (Visual Padding) -->
+<div class="h-0 w-full"></div>
+</main>
+</body></html>

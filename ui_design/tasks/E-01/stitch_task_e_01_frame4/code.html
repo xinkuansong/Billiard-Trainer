@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=393, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000000;
+            color: #FFFFFF;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#25A25A",
+                        "secondary": "#F0AD30",
+                        "surface": "#000000",
+                        "surface-container": "#1C1C1E",
+                        "surface-container-high": "#2C2C2E",
+                        "outline-variant": "#3A3A3C",
+                        "on-surface": "#FFFFFF",
+                        "on-surface-variant": "rgba(235, 235, 240, 0.6)",
+                        "outline": "rgba(235, 235, 240, 0.3)",
+                        "separator": "#38383A"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "12pt",
+                        "full": "9999px"
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface select-none">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 flex items-center px-4 h-[44px] bg-black/80 backdrop-blur-xl">
+<div class="flex flex-1 items-center gap-1 active:opacity-70 transition-opacity cursor-pointer">
+<span class="material-symbols-outlined text-[#25A25A] text-[24px]">chevron_left</span>
+<span class="text-[#25A25A] font-medium text-[17px]">结束训练</span>
+</div>
+<h1 class="font-bold text-[22px] text-white">训练总结</h1>
+<div class="flex flex-1 justify-end items-center active:opacity-70 transition-opacity cursor-pointer">
+<span class="material-symbols-outlined text-[#25A25A] text-[24px]">ios_share</span>
+</div>
+</header>
+<main class="pt-[60px] pb-[280px] px-4 space-y-4">
+<!-- Section 1: Overview Grid -->
+<div class="grid grid-cols-2 gap-3">
+<!-- Avg Success Rate (Large Card) -->
+<div class="col-span-2 bg-surface-container rounded-2xl p-4 flex flex-col gap-3">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">target</span>
+<span class="text-on-surface-variant text-[13px] tracking-wider uppercase font-medium">平均进球率</span>
+</div>
+<span class="text-[28px] font-bold text-on-surface">72%</span>
+</div>
+<div class="w-full bg-outline-variant h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 72%"></div>
+</div>
+</div>
+<!-- Mini Stats -->
+<div class="bg-surface-container rounded-2xl p-4 space-y-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">timer</span>
+<span class="text-on-surface-variant text-[12px] font-medium">训练时长</span>
+</div>
+<div class="text-[20px] font-bold">01:24:05</div>
+</div>
+<div class="bg-surface-container rounded-2xl p-4 space-y-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">sports_score</span>
+<span class="text-on-surface-variant text-[12px] font-medium">总进球数</span>
+</div>
+<div class="text-[20px] font-bold">148</div>
+</div>
+<div class="bg-surface-container rounded-2xl p-4 space-y-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">rebase_edit</span>
+<span class="text-on-surface-variant text-[12px] font-medium">平均偏角</span>
+</div>
+<div class="text-[20px] font-bold">1.2°</div>
+</div>
+<div class="bg-surface-container rounded-2xl p-4 space-y-1">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">trending_up</span>
+<span class="text-on-surface-variant text-[12px] font-medium">训练强度</span>
+</div>
+<div class="text-[20px] font-bold">高</div>
+</div>
+</div>
+<!-- Section 2: Drill List -->
+<div class="space-y-3">
+<h2 class="text-on-surface-variant text-[12px] font-bold uppercase tracking-widest px-1">训练项目详情</h2>
+<!-- Drill 1 -->
+<div class="bg-surface-container rounded-2xl p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">dynamic_feed</span>
+</div>
+<div>
+<div class="text-on-surface font-semibold">直线球稳定性</div>
+<div class="text-on-surface-variant text-[12px]">30 组 · 150 次练习</div>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<div class="text-primary font-bold text-[18px]">78%</div>
+<div class="bg-primary/15 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">达标</div>
+</div>
+</div>
+<!-- Drill 2 -->
+<div class="bg-surface-container rounded-2xl p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">gesture</span>
+</div>
+<div>
+<div class="text-on-surface font-semibold">长台低杆控制</div>
+<div class="text-on-surface-variant text-[12px]">20 组 · 100 次练习</div>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<div class="text-primary font-bold text-[18px]">93%</div>
+<div class="bg-primary/15 text-primary text-[10px] px-2 py-0.5 rounded-full font-bold">优秀</div>
+</div>
+</div>
+<!-- Drill 3 -->
+<div class="bg-surface-container rounded-2xl p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">change_history</span>
+</div>
+<div>
+<div class="text-on-surface font-semibold">翻袋角度练习</div>
+<div class="text-on-surface-variant text-[12px]">15 组 · 75 次练习</div>
+</div>
+</div>
+<div class="flex flex-col items-end gap-1">
+<div class="text-on-surface-variant font-bold text-[18px]">56%</div>
+<div class="bg-secondary/15 text-secondary text-[10px] px-2 py-0.5 rounded-full font-bold">待加强</div>
+</div>
+</div>
+</div>
+<!-- Section 3: Notes -->
+<div class="bg-surface-container rounded-2xl p-4 flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">format_quote</span>
+<span class="text-on-surface font-bold">教练笔记</span>
+</div>
+<p class="text-[14px] leading-relaxed text-white/80">
+                今日长台低杆表现出色，稳定率提升明显。但在翻袋练习中，由于手臂送杆不够平直，导致偏差较大。建议下次训练重点关注手架的稳定性。
+            </p>
+</div>
+</main>
+<!-- Fixed Bottom Actions -->
+<div class="fixed bottom-[83px] left-0 w-full bg-surface-container border-t border-separator px-4 pt-4 pb-6 z-40 space-y-3">
+<button class="w-full bg-primary h-[54px] rounded-2xl flex items-center justify-center gap-2 active:opacity-90 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-white">check_circle</span>
+<span class="text-white font-bold text-[17px]">保存训练</span>
+</button>
+<button class="w-full bg-transparent border border-primary h-[54px] rounded-2xl flex items-center justify-center gap-2 active:opacity-80 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined text-primary">share</span>
+<span class="text-primary font-bold text-[17px]">生成分享图</span>
+</button>
+<button class="w-full h-[40px] flex items-center justify-center active:opacity-60 transition-opacity">
+<span class="text-on-surface-variant font-medium text-[14px]">查看历史</span>
+</button>
+</div>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-6 pb-safe h-[83px] bg-[#1C1C1E]/80 backdrop-blur-xl border-t border-[#38383A]">
+<div class="flex flex-col items-center justify-center text-white/30 py-1 active:opacity-80 cursor-pointer">
+<span class="material-symbols-outlined text-[24px]">home</span>
+<span class="font-['SF_Pro'] text-[10px] tracking-wider uppercase mt-1">首页</span>
+</div>
+<div class="flex flex-col items-center justify-center text-white/30 py-1 active:opacity-80 cursor-pointer">
+<span class="material-symbols-outlined text-[24px]">explore</span>
+<span class="font-['SF_Pro'] text-[10px] tracking-wider uppercase mt-1">发现</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#25A25A] py-1 active:opacity-80 cursor-pointer">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">target</span>
+<span class="font-['SF_Pro'] text-[10px] tracking-wider uppercase mt-1">训练</span>
+</div>
+<div class="flex flex-col items-center justify-center text-white/30 py-1 active:opacity-80 cursor-pointer">
+<span class="material-symbols-outlined text-[24px]">bar_chart</span>
+<span class="font-['SF_Pro'] text-[10px] tracking-wider uppercase mt-1">统计</span>
+</div>
+<div class="flex flex-col items-center justify-center text-white/30 py-1 active:opacity-80 cursor-pointer">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="font-['SF_Pro'] text-[10px] tracking-wider uppercase mt-1">我的</span>
+</div>
+</nav>
+</body></html>

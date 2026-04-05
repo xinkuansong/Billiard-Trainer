@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", sans-serif;
+            -webkit-font-smoothing: antialiased;
+            background-color: #f9f9fe;
+        }
+        .sf-rounded {
+            font-family: 'Plus Jakarta Sans', 'SF Pro Rounded', system-ui, sans-serif;
+        }
+        .glass-nav {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .pro-gradient {
+            background: linear-gradient(135deg, #D4941A 0%, #FCB73F 100%);
+        }
+        .felt-gradient {
+            background: linear-gradient(135deg, #1B6C3D 0%, #1A6B3C 100%);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary": "#ffffff",
+                    "secondary-container": "#fcb73f",
+                    "error-container": "#ffdad6",
+                    "surface-variant": "#e2e2e7",
+                    "secondary": "#805600",
+                    "surface-container-low": "#f3f3f8",
+                    "inverse-surface": "#2e3034",
+                    "surface-tint": "#1b6c3d",
+                    "tertiary-fixed": "#ffd9dc",
+                    "on-error-container": "#93000a",
+                    "error": "#ba1a1a",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-fixed-variant": "#792d39",
+                    "on-surface": "#1a1c1f",
+                    "surface-container-high": "#e8e8ed",
+                    "surface-dim": "#d9dade",
+                    "primary-container": "#1a6b3c",
+                    "on-primary-fixed": "#00210d",
+                    "secondary-fixed": "#ffddaf",
+                    "surface-container-highest": "#e2e2e7",
+                    "tertiary-container": "#96434f",
+                    "on-primary-fixed-variant": "#005229",
+                    "on-error": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "inverse-primary": "#89d89e",
+                    "on-tertiary-container": "#ffcace",
+                    "on-surface-variant": "#404940",
+                    "surface": "#f9f9fe",
+                    "on-tertiary-fixed": "#3f0110",
+                    "on-secondary-fixed-variant": "#614000",
+                    "tertiary-fixed-dim": "#ffb2b9",
+                    "on-secondary-fixed": "#281800",
+                    "primary": "#005129",
+                    "primary-fixed": "#a5f4b8",
+                    "surface-container": "#ededf2",
+                    "secondary-fixed-dim": "#ffba44",
+                    "on-primary-container": "#9ae9ae",
+                    "background": "#f9f9fe",
+                    "outline-variant": "#bfc9be",
+                    "outline": "#707a70",
+                    "surface-bright": "#f9f9fe",
+                    "primary-fixed-dim": "#89d89e",
+                    "inverse-on-surface": "#f0f0f5",
+                    "on-secondary": "#ffffff",
+                    "tertiary": "#782c38",
+                    "on-background": "#1a1c1f",
+                    "on-secondary-container": "#6e4900"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        }
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface selection:bg-primary-fixed">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-40 bg-white/70 backdrop-blur-xl transition-all duration-300">
+<div class="flex items-end w-full px-6 pb-4 h-32">
+<h1 class="sf-rounded text-[34px] font-bold tracking-tight text-on-surface">我的</h1>
+</div>
+</header>
+<main class="pb-32 px-4 space-y-6">
+<!-- User Header Card -->
+<section class="bg-surface-container-lowest rounded-[16px] p-4 flex items-center justify-between shadow-sm">
+<div class="flex items-center space-x-4">
+<div class="relative w-16 h-16 rounded-full bg-primary-fixed flex items-center justify-center overflow-hidden border border-outline-variant/20">
+<span class="material-symbols-outlined text-primary text-4xl" data-icon="account_circle">account_circle</span>
+<img class="absolute inset-0 w-full h-full object-cover mix-blend-multiply opacity-20" data-alt="abstract artistic silhouette of a person in a billiard club with soft green ambient lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAC6_0PBBeB2iZjhADT8ZOik7TTyubZ_YH_7ZshweL5AlFrmCUcbvWeRUN8WRK4w3Cei0u12ZU1DnRIpqIXWc065yfQI-UegDj94EH-Nm1qCVW5Hclh3bdGOlQo7vYWud0Cx4V4b_jwO87XEf4j4VZ9jayPsqk5Fe0LOfOCheKncYEoW05u6i98SgzKPHT3akK2J7fkP2shqQDYKF3WR2FZQAH6yLKYk-EWo18VJnsWI44TwJeD-ALFQBMtAT-sYguIwJHJzqBmCb8"/>
+</div>
+<div class="flex flex-col">
+<h2 class="text-[20px] font-semibold text-on-surface leading-tight">台球小王子</h2>
+<div class="flex items-center text-[13px] text-on-surface-variant mt-1">
+<span>修改信息</span>
+<span class="material-symbols-outlined text-[14px] ml-0.5" data-icon="chevron_right">chevron_right</span>
+</div>
+<p class="text-[12px] text-outline mt-0.5 tracking-wide">ID: 2086753</p>
+</div>
+</div>
+<div class="pro-gradient px-3 py-2 rounded-xl flex flex-col items-center justify-center text-white shadow-sm scale-95 origin-right">
+<div class="flex items-center space-x-1">
+<span class="material-symbols-outlined text-[16px]" data-icon="stars" style="font-variation-settings: 'FILL' 1;">stars</span>
+<span class="text-[13px] font-bold">Pro 会员</span>
+</div>
+<span class="text-[10px] opacity-90 mt-0.5 font-medium">2027.04 到期</span>
+</div>
+</section>
+<!-- Monthly Overview Stats Card -->
+<section class="bg-surface-container-lowest rounded-[12px] p-4 shadow-sm">
+<h3 class="text-[13px] font-semibold text-on-surface-variant mb-4 flex items-center">
+<span class="material-symbols-outlined text-[16px] mr-1" data-icon="calendar_month">calendar_month</span>
+                本月概览
+            </h3>
+<div class="flex justify-between items-center">
+<div class="flex-1 flex flex-col items-center">
+<span class="sf-rounded text-[22px] font-bold text-primary">12</span>
+<span class="text-[11px] text-outline font-medium">练习天数</span>
+</div>
+<div class="w-[0.5px] h-8 bg-surface-container-highest"></div>
+<div class="flex-1 flex flex-col items-center">
+<span class="sf-rounded text-[22px] font-bold text-primary">8.5<small class="text-[14px] font-medium ml-0.5">h</small></span>
+<span class="text-[11px] text-outline font-medium">训练时长</span>
+</div>
+<div class="w-[0.5px] h-8 bg-surface-container-highest"></div>
+<div class="flex-1 flex flex-col items-center">
+<span class="sf-rounded text-[22px] font-bold text-secondary">7</span>
+<span class="text-[11px] text-outline font-medium">连续打卡</span>
+</div>
+</div>
+</section>
+<!-- Menu Section 1 (Features) -->
+<section class="bg-surface-container-lowest rounded-[12px] overflow-hidden shadow-sm">
+<div class="divide-y divide-surface-container">
+<!-- Row 1 -->
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-red-100 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-red-500" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">我的收藏</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- Row 2 -->
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-blue-100 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-blue-500" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">个人信息</span>
+<span class="text-[13px] text-outline mr-1">中式八球 · L2 进阶</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- Row 3 -->
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-primary-fixed flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-primary" data-icon="track_changes">track_changes</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">训练目标</span>
+<span class="text-[13px] text-outline mr-1">每周 4 天</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- Row 4 -->
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-secondary-fixed flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-secondary" data-icon="stars" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">订阅管理</span>
+<span class="text-[13px] text-outline mr-1">Pro 年度会员</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Menu Section 2 (Settings) -->
+<section class="bg-surface-container-lowest rounded-[12px] overflow-hidden shadow-sm">
+<div class="divide-y divide-surface-container">
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-gray-100 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-gray-500" data-icon="settings" style="font-variation-settings: 'FILL' 1;">settings</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">偏好设置</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-sky-100 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-sky-600" data-icon="security" style="font-variation-settings: 'FILL' 1;">security</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">账号与安全</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-emerald-100 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-emerald-600" data-icon="privacy_tip" style="font-variation-settings: 'FILL' 1;">privacy_tip</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">隐私政策</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="flex items-center px-4 py-3 hover:bg-surface-container-low transition-colors duration-150">
+<div class="w-[30px] h-[30px] rounded-full bg-purple-100 flex items-center justify-center mr-3">
+<span class="material-symbols-outlined text-[18px] text-purple-600" data-icon="info" style="font-variation-settings: 'FILL' 1;">info</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">关于与反馈</span>
+<span class="material-symbols-outlined text-outline/40" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Logout & Version -->
+<div class="flex flex-col items-center pt-4 space-y-4">
+<button class="text-[17px] font-semibold text-error px-8 py-2 active:opacity-50 transition-opacity">
+                退出登录
+            </button>
+<span class="text-[12px] text-outline tracking-tight">版本 1.0.0</span>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full bg-white/80 backdrop-blur-xl border-t border-surface-container-highest z-50">
+<div class="flex justify-around items-center px-4 py-3 pb-safe-offset-2">
+<!-- Training -->
+<button class="flex flex-col items-center justify-center text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[26px]" data-icon="fitness_center">fitness_center</span>
+<span class="text-[10px] mt-1 sf-rounded tracking-wider">训练</span>
+</button>
+<!-- Library -->
+<button class="flex flex-col items-center justify-center text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[26px]" data-icon="menu_book">menu_book</span>
+<span class="text-[10px] mt-1 sf-rounded tracking-wider">动作库</span>
+</button>
+<!-- Angle -->
+<button class="flex flex-col items-center justify-center text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[26px]" data-icon="straighten">straighten</span>
+<span class="text-[10px] mt-1 sf-rounded tracking-wider">角度</span>
+</button>
+<!-- History -->
+<button class="flex flex-col items-center justify-center text-outline hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[26px]" data-icon="history">history</span>
+<span class="text-[10px] mt-1 sf-rounded tracking-wider">记录</span>
+</button>
+<!-- Profile (Active) -->
+<button class="flex flex-col items-center justify-center text-primary scale-110 transition-transform">
+<span class="material-symbols-outlined text-[26px]" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="text-[10px] mt-1 sf-rounded font-bold tracking-wider">我的</span>
+</button>
+</div>
+</nav>
+<style>
+        .pb-safe-offset-2 {
+            padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+        }
+    </style>
+</body></html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "on-tertiary-fixed": "#3f0110",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-high": "#e8e8ed",
+                    "inverse-on-surface": "#f0f0f5",
+                    "on-error-container": "#93000a",
+                    "inverse-primary": "#89d89e",
+                    "primary-fixed": "#a5f4b8",
+                    "secondary-fixed-dim": "#ffba44",
+                    "surface-variant": "#e2e2e7",
+                    "surface-container-highest": "#e2e2e7",
+                    "tertiary-fixed": "#ffd9dc",
+                    "surface-container-low": "#f3f3f8",
+                    "surface-container": "#ededf2",
+                    "on-surface-variant": "#404940",
+                    "on-tertiary": "#ffffff",
+                    "background": "#f9f9fe",
+                    "secondary-fixed": "#ffddaf",
+                    "on-tertiary-fixed-variant": "#792d39",
+                    "on-secondary-fixed-variant": "#614000",
+                    "on-primary-fixed-variant": "#005229",
+                    "primary-container": "#1a6b3c",
+                    "tertiary-container": "#96434f",
+                    "tertiary": "#782c38",
+                    "surface-dim": "#d9dade",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed": "#281800",
+                    "surface-tint": "#1b6c3d",
+                    "on-secondary-container": "#6e4900",
+                    "tertiary-fixed-dim": "#ffb2b9",
+                    "on-primary-container": "#9ae9ae",
+                    "on-error": "#ffffff",
+                    "primary": "#005129",
+                    "on-background": "#1a1c1f",
+                    "on-surface": "#1a1c1f",
+                    "secondary-container": "#fcb73f",
+                    "inverse-surface": "#2e3034",
+                    "on-secondary": "#ffffff",
+                    "primary-fixed-dim": "#89d89e",
+                    "surface": "#f9f9fe",
+                    "outline-variant": "#bfc9be",
+                    "secondary": "#805600",
+                    "on-tertiary-container": "#ffcace",
+                    "surface-bright": "#f9f9fe",
+                    "outline": "#707a70",
+                    "on-primary-fixed": "#00210d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1rem",
+                    "3xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+            font-size: 1.25rem;
+        }
+        .pro-gold-shadow {
+            filter: drop-shadow(0 0 8px rgba(212, 148, 26, 0.2));
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background font-body text-on-surface antialiased overflow-hidden">
+<!-- Blurred Background (Training Session Content) -->
+<div class="fixed inset-0 z-0 flex flex-col p-6 filter blur-sm grayscale-[0.2] opacity-40">
+<!-- Header Placeholder -->
+<div class="flex justify-between items-center mb-10">
+<div class="w-10 h-10 rounded-full bg-surface-container"></div>
+<div class="h-6 w-32 bg-surface-container rounded-lg"></div>
+<div class="w-10 h-10 rounded-full bg-surface-container"></div>
+</div>
+<!-- Training Content Placeholder -->
+<div class="space-y-6">
+<div class="h-48 w-full rounded-3xl bg-surface-container"></div>
+<div class="grid grid-cols-2 gap-4">
+<div class="h-32 rounded-3xl bg-surface-container-low"></div>
+<div class="h-32 rounded-3xl bg-surface-container-low"></div>
+</div>
+<div class="h-24 w-full rounded-3xl bg-surface-container-low"></div>
+</div>
+</div>
+<!-- Modal Overlay Backdrop -->
+<div class="fixed inset-0 z-10 bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-4">
+<!-- Rest Timer Modal Card -->
+<div class="bg-white w-full max-w-[340pt] rounded-2xl shadow-[0_8pt_32pt_rgba(0,0,0,0.15)] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-300">
+<!-- Title Row -->
+<div class="px-5 py-4 flex justify-between items-center">
+<h2 class="text-[17pt] font-semibold text-on-surface tracking-tight">组间休息</h2>
+<div class="flex gap-2">
+<!-- Vibration Pill -->
+<button class="bg-[#F2F2F7] hover:bg-surface-container-high transition-colors h-[28pt] px-3 rounded-full flex items-center gap-1.5 text-on-surface text-[13px] font-medium">
+<span class="material-symbols-outlined !text-lg" data-icon="vibration">vibration</span>
+<span>震动</span>
+</button>
+<!-- Minimize Pill -->
+<button class="bg-[#F2F2F7] hover:bg-surface-container-high transition-colors h-[28pt] px-3 rounded-full flex items-center gap-1.5 text-on-surface text-[13px] font-medium">
+<span class="material-symbols-outlined !text-lg" data-icon="expand_more">expand_more</span>
+<span>最小化</span>
+</button>
+</div>
+</div>
+<!-- Separator -->
+<div class="h-[0.5px] w-full bg-[#E5E5EA]"></div>
+<!-- Content Area -->
+<div class="p-8 flex flex-col items-center">
+<!-- Dual-Ring Indicator -->
+<div class="relative w-[200pt] h-[200pt] flex items-center justify-center mb-8">
+<!-- Progress Rings (SVG) -->
+<svg class="absolute inset-0 w-full h-full -rotate-90" viewbox="0 0 100 100">
+<!-- Outer Track (Grey) -->
+<circle cx="50" cy="50" fill="none" r="44" stroke="#F2F2F7" stroke-width="8"></circle>
+<!-- Outer Progress (Brand Green) -->
+<circle cx="50" cy="50" fill="none" r="44" stroke="#1A6B3C" stroke-dasharray="276" stroke-dashoffset="82" stroke-linecap="round" stroke-width="8"></circle>
+<!-- Inner Track (Grey) -->
+<circle cx="50" cy="50" fill="none" r="34" stroke="#F2F2F7" stroke-width="6"></circle>
+<!-- Inner Progress (Gold) -->
+<circle cx="50" cy="50" fill="none" r="34" stroke="#D4941A" stroke-dasharray="213" stroke-dashoffset="106" stroke-linecap="round" stroke-width="6"></circle>
+</svg>
+<!-- Center Text Label -->
+<div class="flex flex-col items-center text-center">
+<span class="font-headline font-bold text-[36pt] text-on-surface leading-none tracking-tight">0:32</span>
+<span class="text-[13pt] font-normal text-on-surface/60 mt-1">组间休息</span>
+</div>
+</div>
+<!-- Suggestion Text -->
+<p class="text-[13pt] font-normal text-[#3C3C43]/60 text-center mb-8">
+                    建议放松手腕，活动手指关节
+                </p>
+<!-- Button Row -->
+<div class="w-full flex gap-3">
+<button class="flex-1 bg-[#F2F2F7] text-[#1A6B3C] h-[48pt] rounded-xl text-[17pt] font-semibold hover:bg-surface-container-high transition-transform active:scale-95 duration-150">
+                        +30s
+                    </button>
+<button class="flex-1 bg-[#1A6B3C] text-white h-[48pt] rounded-xl text-[17pt] font-semibold shadow-lg shadow-primary-container/20 hover:opacity-90 transition-transform active:scale-95 duration-150">
+                        完成休息
+                    </button>
+</div>
+</div>
+<!-- Subtle Tonal Branding Footer -->
+<div class="pb-4 flex justify-center">
+<div class="h-1 w-12 bg-surface-container-highest rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Floating Background Details for Texture -->
+<div class="fixed bottom-10 left-1/2 -translate-x-1/2 z-0">
+<div class="flex items-center gap-2 opacity-20">
+<span class="font-headline font-extrabold text-primary tracking-tighter text-xl">球迹 QiuJi</span>
+</div>
+</div>
+</body></html>

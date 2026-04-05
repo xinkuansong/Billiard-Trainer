@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-highest": "#e2e2e7",
+                        "secondary-container": "#fcb73f",
+                        "surface-container-low": "#f3f3f8",
+                        "secondary-fixed": "#ffddaf",
+                        "surface-container-high": "#e8e8ed",
+                        "tertiary-fixed": "#e4e2e4",
+                        "on-secondary-fixed-variant": "#614000",
+                        "background": "#f9f9fe",
+                        "on-background": "#1a1c1f",
+                        "primary-container": "#1a6b3c",
+                        "outline": "#707a70",
+                        "on-tertiary-fixed": "#1b1b1d",
+                        "on-primary-container": "#9ae9ae",
+                        "on-primary-fixed": "#00210d",
+                        "on-error-container": "#93000a",
+                        "error-container": "#ffdad6",
+                        "tertiary": "#464648",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "secondary": "#805600",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-surface": "#1a1c1f",
+                        "primary": "#1A6B3C",
+                        "inverse-primary": "#89d89e",
+                        "primary-fixed-dim": "#89d89e",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#f0f0f5",
+                        "surface-tint": "#1A6B3C",
+                        "surface-container": "#ededf2",
+                        "surface-variant": "#e2e2e7",
+                        "surface-dim": "#d9dade",
+                        "inverse-surface": "#2e3034",
+                        "surface": "#f9f9fe",
+                        "on-secondary-fixed": "#281800",
+                        "on-secondary-container": "#6e4900",
+                        "primary-fixed": "#a5f4b8",
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#ffba44",
+                        "surface-bright": "#f9f9fe",
+                        "tertiary-fixed-dim": "#c8c6c8",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#5e5d5f",
+                        "outline-variant": "#bfc9be",
+                        "on-tertiary-fixed-variant": "#474649",
+                        "on-surface-variant": "#404940",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#d9d6d9"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: #F2F2F7; }
+        .plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+        body {
+          min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen text-on-surface">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-white/80 dark:bg-zinc-900/80 backdrop-blur-xl flex items-center justify-between px-4 h-11 tonal-shift shadow-[0_1px_0_0_rgba(0,0,0,0.05)]">
+<button class="flex items-center space-x-1 text-[#1A6B3C] active:scale-95 transition-transform">
+<span class="material-symbols-outlined !text-[17pt]">arrow_back_ios</span>
+<span class="text-[17pt] leading-none">返回</span>
+</button>
+<h1 class="font-['Plus_Jakarta_Sans'] font-semibold text-[17pt] tracking-tight text-zinc-900 dark:text-zinc-100">分享训练</h1>
+<div class="w-16"></div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 mt-11 pb-80 px-4 overflow-y-auto">
+<div class="mt-6 mb-8 flex justify-center">
+<!-- Share Card Preview -->
+<div class="w-full max-w-[361px] aspect-[3/4.2] bg-[#1C1C1E] rounded-[16pt] shadow-[0_8pt_24pt_rgba(0,0,0,0.18)] overflow-hidden flex flex-col relative">
+<!-- Card Header -->
+<div class="p-5 pb-4 flex items-center gap-3">
+<div class="w-9 h-9 bg-[#1A6B3C] rounded-lg flex items-center justify-center">
+<span class="text-white font-bold text-xl plus-jakarta">Q</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[15pt] font-semibold text-white leading-tight">QiuJi 球迹</span>
+<span class="text-[12pt] text-white/55">2026年4月3日 · 台球训练</span>
+</div>
+</div>
+<!-- Training Details -->
+<div class="px-5 space-y-1">
+<h2 class="text-[22pt] font-bold text-white plus-jakarta tracking-tight">力量训练 Day 1</h2>
+<p class="text-[13pt] text-white/60">共 3 项 · 48 分钟</p>
+</div>
+<div class="mx-5 my-4 h-[1px] bg-white/12"></div>
+<!-- Drill Summary List -->
+<div class="px-5 space-y-2">
+<!-- Drill 1 -->
+<div class="flex items-center justify-between bg-white/5 p-3 rounded-[8pt]">
+<span class="text-[15pt] text-white font-medium">定点红球进袋</span>
+<div class="flex items-center gap-4">
+<span class="text-[13pt] text-white/60">4组</span>
+<span class="text-[15pt] font-bold text-[#1A6B3C]">78%</span>
+</div>
+</div>
+<!-- Drill 2 -->
+<div class="flex items-center justify-between bg-white/5 p-3 rounded-[8pt]">
+<span class="text-[15pt] text-white font-medium">斯诺克直线进袋</span>
+<div class="flex items-center gap-4">
+<span class="text-[13pt] text-white/60">3组</span>
+<span class="text-[15pt] font-bold text-[#25A25A]">93%</span>
+</div>
+</div>
+<!-- Drill 3 -->
+<div class="flex items-center justify-between bg-white/5 p-3 rounded-[8pt]">
+<span class="text-[15pt] text-white font-medium">走位练习 A</span>
+<div class="flex items-center gap-4">
+<span class="text-[13pt] text-white/60">5组</span>
+<span class="text-[15pt] font-medium text-white/45">56%</span>
+</div>
+</div>
+</div>
+<!-- Stats Summary -->
+<div class="mt-auto px-5 pt-6 pb-8 grid grid-cols-3 gap-0 relative">
+<div class="flex flex-col items-center">
+<span class="text-[22pt] font-bold text-white plus-jakarta">87</span>
+<span class="text-[11pt] text-white/50">总进球</span>
+</div>
+<div class="flex flex-col items-center border-x border-white/12">
+<span class="text-[22pt] font-bold text-white plus-jakarta">12</span>
+<span class="text-[11pt] text-white/50">总组数</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="text-[22pt] font-bold text-[#25A25A] plus-jakarta">72%</span>
+<span class="text-[11pt] text-white/50">平均成功率</span>
+</div>
+</div>
+<!-- Card Footer (QR Code area) -->
+<div class="bg-black/20 p-4 flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-[13pt] font-bold text-white plus-jakarta tracking-wide">QiuJi 球迹</span>
+<span class="text-[11pt] text-white/50">台球训练记录 App</span>
+</div>
+<div class="w-11 h-11 bg-white/90 rounded-md flex items-center justify-center overflow-hidden">
+<img alt="QR Code" class="w-8 h-8 opacity-40" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsud9-spnyEmau5zdwDNZcJbPqNmSciD4np2oBCAinimNbE1TqQDhEWu4A2JJHT5Yxcv_GSggWmFv-XllWEZKh2giuGQhdxGICFyNJojprbKHeii1wMrtR7h1b2ugcTMdfFqRBzKAjt5E63Y30gs0fbSzFWQJqf06Nw-BO5sqeErtF82P9vytoWfvwiEFY5r27jEuaePFS83CiPWZx_oOivGKQyMxdK_UgJHBWEZZXSuNK0zwrqT46oWtZjPgll3R-Yezk-rNIC6bi"/>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Fixed Bottom Customization Panel -->
+<div class="fixed bottom-0 w-full bg-white rounded-t-[20pt] shadow-[0_-4pt_16pt_rgba(0,0,0,0.1)] z-50 pt-6 pb-safe">
+<div class="px-6 space-y-6">
+<!-- Font Selection -->
+<div class="flex items-center justify-between">
+<span class="text-[15pt] text-black/60">字体</span>
+<div class="flex bg-[#F2F2F7] p-1 rounded-full">
+<button class="px-5 py-1.5 rounded-full bg-[#1A6B3C] text-white text-[14pt] font-medium transition-all">跟随系统</button>
+<button class="px-5 py-1.5 rounded-full text-black/60 text-[14pt] font-medium">圆角字体</button>
+</div>
+</div>
+<!-- Color Selection -->
+<div class="flex items-center justify-between">
+<span class="text-[15pt] text-black/60 shrink-0">颜色</span>
+<div class="flex items-start gap-4 overflow-x-auto no-scrollbar pl-4">
+<div class="flex flex-col items-center gap-[6pt]">
+<button class="relative w-10 h-10 rounded-full bg-[#1C1C1E] ring-2 ring-offset-2 ring-[#1A6B3C] shrink-0"></button>
+<span class="text-[11pt] text-[#000000] whitespace-nowrap">基础绿</span>
+</div>
+<div class="flex flex-col items-center gap-[6pt]">
+<button class="w-10 h-10 rounded-full bg-gradient-to-tr from-[#1C1C1E] to-[#FFFFFF] border border-black/5 shrink-0"></button>
+<span class="text-[11pt] text-[rgba(60,60,67,0.6)] whitespace-nowrap">黑白</span>
+</div>
+<div class="flex flex-col items-center gap-[6pt]">
+<button class="w-10 h-10 rounded-full bg-[#0D1B2A] shrink-0"></button>
+<span class="text-[11pt] text-[rgba(60,60,67,0.6)] whitespace-nowrap">暗夜蓝</span>
+</div>
+<div class="flex flex-col items-center gap-[6pt]">
+<button class="w-10 h-10 rounded-full bg-[#F2F2F7] flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-black/40">add</span>
+</button>
+<span class="text-[11pt] text-[rgba(60,60,67,0.6)] whitespace-nowrap">更多</span>
+</div>
+</div>
+</div>
+<!-- Option Toggles -->
+<div class="flex items-center justify-between">
+<span class="text-[15pt] text-black/60 shrink-0">选项</span>
+<div class="flex gap-2 overflow-x-auto no-scrollbar pl-4">
+<button class="whitespace-nowrap px-3 py-2 rounded-full bg-[#F2F2F7] text-black/60 text-[13pt]">隐藏备注</button>
+<button class="whitespace-nowrap px-3 py-2 rounded-full bg-[#F2F2F7] text-black/60 text-[13pt]">隐藏成功率</button>
+<button class="whitespace-nowrap px-3 py-2 rounded-full bg-[#F2F2F7] text-black/60 text-[13pt]">隐藏球台图</button>
+</div>
+</div>
+<!-- Divider -->
+<div class="h-[1px] bg-black/5 mx-2"></div>
+<!-- Share Actions -->
+<div class="flex items-center justify-between pb-6">
+<div class="flex gap-5">
+<div class="flex flex-col items-center gap-2">
+<button class="w-[52pt] h-[52pt] bg-[#07C160] rounded-full flex items-center justify-center text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined !text-[28pt]">chat_bubble</span>
+</button>
+<span class="text-[11pt] text-black/60">微信好友</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<button class="w-[52pt] h-[52pt] bg-[#07C160] rounded-full flex items-center justify-center text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined !text-[28pt]">camera</span>
+</button>
+<span class="text-[11pt] text-black/60">朋友圈</span>
+</div>
+<div class="flex flex-col items-center gap-2">
+<button class="w-[52pt] h-[52pt] bg-[#1A6B3C] rounded-full flex items-center justify-center text-white active:scale-90 transition-transform">
+<span class="material-symbols-outlined !text-[28pt]">download</span>
+</button>
+<span class="text-[11pt] text-black/60">保存相册</span>
+</div>
+</div>
+<button class="text-[15pt] text-black/60 px-4 active:opacity-60 transition-opacity">返回</button>
+</div>
+</div>
+</div>
+<!-- Background Decorative Element (Subtle) -->
+<div class="fixed inset-0 pointer-events-none -z-10 bg-[#F2F2F7]">
+<div class="absolute top-0 right-0 w-[400px] h-[400px] bg-[#1A6B3C] opacity-[0.03] blur-[100px] rounded-full"></div>
+</div>
+</body></html>

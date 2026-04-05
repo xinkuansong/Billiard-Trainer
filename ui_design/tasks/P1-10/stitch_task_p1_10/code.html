@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hans"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>球迹 QiuJi - 统计分析</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-overlay {
+            background: linear-gradient(180deg, rgba(249, 249, 254, 0.3) 0%, rgba(249, 249, 254, 0.9) 100%);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary-container": "#725a36",
+                        "surface-tint": "#1b6c3d",
+                        "on-secondary-container": "#6e4900",
+                        "inverse-surface": "#2e3034",
+                        "secondary-fixed-dim": "#ffba44",
+                        "on-background": "#1a1c1f",
+                        "secondary-container": "#fcb73f",
+                        "error-container": "#ffdad6",
+                        "surface-bright": "#f9f9fe",
+                        "on-surface-variant": "#404940",
+                        "on-tertiary-container": "#f4d3a5",
+                        "outline-variant": "#bfc9be",
+                        "tertiary": "#594320",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-fixed": "#ffddb0",
+                        "on-secondary-fixed": "#281800",
+                        "on-surface": "#1a1c1f",
+                        "inverse-primary": "#89d89e",
+                        "on-primary-fixed-variant": "#005229",
+                        "primary-fixed": "#a5f4b8",
+                        "on-tertiary-fixed": "#281800",
+                        "error": "#ba1a1a",
+                        "on-secondary": "#ffffff",
+                        "surface-container": "#ededf2",
+                        "surface-container-low": "#f3f3f8",
+                        "surface": "#f9f9fe",
+                        "surface-container-highest": "#e2e2e7",
+                        "background": "#f9f9fe",
+                        "on-primary": "#ffffff",
+                        "primary": "#005129",
+                        "primary-container": "#1a6b3c",
+                        "outline": "#707a70",
+                        "primary-fixed-dim": "#89d89e",
+                        "on-primary-fixed": "#00210d",
+                        "tertiary-fixed-dim": "#e2c295",
+                        "secondary": "#805600",
+                        "on-secondary-fixed-variant": "#614000",
+                        "surface-dim": "#d9dade",
+                        "on-tertiary-fixed-variant": "#594321",
+                        "surface-variant": "#e2e2e7",
+                        "on-primary-container": "#9ae9ae",
+                        "inverse-on-surface": "#f0f0f5",
+                        "secondary-fixed": "#ffddaf",
+                        "surface-container-high": "#e8e8ed",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface selection:bg-primary-container/30">
+<div class="max-w-[393px] mx-auto min-h-screen relative overflow-hidden bg-surface pb-32">
+<!-- TopAppBar (Shared Component Logic) -->
+<header class="flex flex-col w-full px-5 pt-4 pb-2 bg-surface dark:bg-zinc-950 docked-top">
+<div class="flex items-center justify-between mb-4">
+<span class="material-symbols-outlined text-emerald-900 dark:text-emerald-400" data-icon="leaderboard">leaderboard</span>
+<span class="material-symbols-outlined text-zinc-500" data-icon="more_horiz">more_horiz</span>
+</div>
+<h1 class="font-inter tracking-tight font-bold text-3xl text-emerald-900 dark:text-emerald-400">记录</h1>
+</header>
+<!-- Segmented Control Tabs -->
+<div class="px-5 mt-4 mb-6">
+<div class="flex space-x-8">
+<button class="text-zinc-500 dark:text-zinc-400 font-semibold text-lg hover:opacity-80 transition-opacity">历史</button>
+<button class="text-emerald-900 dark:text-emerald-100 font-bold border-b-4 border-emerald-800 text-lg">统计</button>
+</div>
+</div>
+<!-- Time Range Row -->
+<div class="px-5 mb-8">
+<div class="flex items-center space-x-2 overflow-x-auto no-scrollbar py-1">
+<button class="bg-primary text-on-primary px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap">周</button>
+<button class="bg-surface-container-high text-on-surface-variant px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap">月</button>
+<button class="bg-surface-container-high text-on-surface-variant px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap">年</button>
+<button class="bg-surface-container-high text-on-surface-variant px-5 py-2 rounded-full text-sm font-semibold whitespace-nowrap">自定时间</button>
+<button class="bg-surface-container-high text-on-surface-variant p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-sm" data-icon="settings">settings</span>
+</button>
+</div>
+</div>
+<!-- Dashboard Content (Blurred/Ghost) -->
+<main class="px-5 space-y-6 relative">
+<!-- Training Overview Card (Ghosted) -->
+<div class="bg-surface-container-lowest p-6 rounded-lg space-y-4">
+<h3 class="text-on-surface font-bold text-lg opacity-20">训练概览</h3>
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-1">
+<div class="h-4 w-12 bg-surface-variant rounded opacity-20"></div>
+<div class="h-8 w-20 bg-surface-variant rounded opacity-20"></div>
+</div>
+<div class="space-y-1">
+<div class="h-4 w-12 bg-surface-variant rounded opacity-20"></div>
+<div class="h-8 w-20 bg-surface-variant rounded opacity-20"></div>
+</div>
+<div class="space-y-1">
+<div class="h-4 w-12 bg-surface-variant rounded opacity-20"></div>
+<div class="h-8 w-20 bg-surface-variant rounded opacity-20"></div>
+</div>
+<div class="space-y-1">
+<div class="h-4 w-12 bg-surface-variant rounded opacity-20"></div>
+<div class="h-8 w-20 bg-surface-variant rounded opacity-20"></div>
+</div>
+</div>
+</div>
+<!-- Duration Chart Card (Ghosted) -->
+<div class="bg-surface-container-lowest p-6 rounded-lg space-y-4">
+<div class="flex justify-between items-center opacity-20">
+<h3 class="text-on-surface font-bold text-lg">训练时长趋势</h3>
+<div class="h-4 w-16 bg-surface-variant rounded"></div>
+</div>
+<div class="h-40 flex items-end justify-between space-x-2 px-2 opacity-10">
+<div class="w-full bg-primary h-1/2 rounded-t-sm"></div>
+<div class="w-full bg-primary h-3/4 rounded-t-sm"></div>
+<div class="w-full bg-primary h-2/3 rounded-t-sm"></div>
+<div class="w-full bg-primary h-1/4 rounded-t-sm"></div>
+<div class="w-full bg-primary h-4/5 rounded-t-sm"></div>
+<div class="w-full bg-primary h-1/2 rounded-t-sm"></div>
+<div class="w-full bg-primary h-3/5 rounded-t-sm"></div>
+</div>
+</div>
+<!-- PRO LOCK OVERLAY -->
+<div class="absolute inset-0 -top-4 -mx-5 glass-overlay z-40 flex flex-col items-center justify-center px-8 text-center">
+<!-- Lock Icon Circle -->
+<div class="w-[72px] h-[72px] bg-secondary-fixed rounded-full flex items-center justify-center mb-6 shadow-[0_8px_24px_-4px_rgba(128,86,0,0.2)]">
+<span class="material-symbols-outlined text-secondary text-[32px]" data-icon="lock" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+<!-- Prompt Text -->
+<h2 class="text-on-surface font-bold text-2xl mb-3 tracking-tight">统计功能为 Pro 专属</h2>
+<p class="text-on-surface-variant text-base leading-relaxed mb-10 opacity-80">
+                    升级 Pro 解锁训练统计、趋势图表和分类对比
+                </p>
+<!-- Unlock Pro Button -->
+<button class="bg-secondary text-on-secondary px-10 py-4 rounded-full font-bold text-lg flex items-center space-x-2 active:scale-95 transition-transform shadow-lg">
+<span class="material-symbols-outlined text-xl" data-icon="workspace_premium" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+<span>解锁 Pro</span>
+</button>
+</div>
+</main>
+<!-- BottomNavBar (Shared Component Logic) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-8 pt-3 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-xl z-50 rounded-t-3xl shadow-[0_-4px_24px_0_rgba(0,0,0,0.06)]">
+<div class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-emerald-700 active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="font-inter text-[10px] font-semibold tracking-wide">训练</span>
+</div>
+<div class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-emerald-700 active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-inter text-[10px] font-semibold tracking-wide">动作库</span>
+</div>
+<div class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-emerald-700 active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="straighten">straighten</span>
+<span class="font-inter text-[10px] font-semibold tracking-wide">角度</span>
+</div>
+<!-- ACTIVE: 记录 (Matches Content Hierarchy) -->
+<div class="flex flex-col items-center justify-center bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 rounded-full px-5 py-1.5 active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="history" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="font-inter text-[10px] font-semibold tracking-wide">记录</span>
+</div>
+<div class="flex flex-col items-center justify-center text-zinc-400 dark:text-zinc-500 hover:text-emerald-700 active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-inter text-[10px] font-semibold tracking-wide">我的</span>
+</div>
+</nav>
+</div>
+</body></html>

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#271900",
+                        "inverse-surface": "#2e3034",
+                        "secondary-fixed": "#dee5d7",
+                        "primary-container": "#1a6b3c",
+                        "secondary-container": "#dbe2d4",
+                        "outline-variant": "#bfc9be",
+                        "surface-variant": "#e2e2e7",
+                        "surface": "#f9f9fe",
+                        "surface-dim": "#d9dade",
+                        "on-primary-container": "#9ae9ae",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f3f3f8",
+                        "surface-tint": "#1b6c3d",
+                        "primary-fixed-dim": "#89d89e",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container": "#ededf2",
+                        "on-secondary-fixed-variant": "#42493e",
+                        "on-background": "#1a1c1f",
+                        "tertiary-fixed": "#ffdea6",
+                        "on-surface-variant": "#404940",
+                        "on-primary-fixed-variant": "#005229",
+                        "inverse-on-surface": "#f0f0f5",
+                        "secondary": "#596055",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#89d89e",
+                        "on-surface": "#1a1c1f",
+                        "tertiary": "#5c4100",
+                        "on-error-container": "#93000a",
+                        "surface-bright": "#f9f9fe",
+                        "surface-container-high": "#e8e8ed",
+                        "on-tertiary-container": "#ffd078",
+                        "on-tertiary-fixed-variant": "#5d4200",
+                        "background": "#f9f9fe",
+                        "primary-fixed": "#a5f4b8",
+                        "outline": "#707a70",
+                        "error-container": "#ffdad6",
+                        "on-error": "#ffffff",
+                        "tertiary-container": "#7a5700",
+                        "on-secondary-container": "#5e655a",
+                        "on-primary-fixed": "#00210d",
+                        "secondary-fixed-dim": "#c2c9bb",
+                        "surface-container-highest": "#e2e2e7",
+                        "primary": "#005129",
+                        "tertiary-fixed-dim": "#f7bd48",
+                        "on-error": "#ffffff",
+                        "on-secondary-fixed": "#171d15"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F2F2F7; }
+        .plus-jakarta { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .ios-shadow { box-shadow: 0 1px 3px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.04); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="text-on-surface antialiased max-w-[393px] mx-auto min-h-screen pb-32">
+<!-- Top Navigation Header -->
+<header class="bg-[#F2F2F7] w-full px-6 pt-14 pb-4">
+<h1 class="plus-jakarta font-bold text-[34px] tracking-tight leading-tight text-on-background">角度训练</h1>
+</header>
+<!-- Main Content Canvas -->
+<main class="px-4 space-y-3">
+<!-- Hero Visual/Banner (Editorial Touch) -->
+<!-- Feature Card 1: Angle Test -->
+<div class="bg-white rounded-[16px] p-4 flex items-center ios-shadow active:scale-95 transition-all duration-200 cursor-pointer">
+<div class="w-12 h-12 rounded-full flex items-center justify-center bg-[#1A6B3C]/10 mr-4 shrink-0">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[28px]" data-icon="target">target</span>
+</div>
+<div class="flex-grow">
+<h2 class="text-[17px] font-semibold text-on-background leading-none mb-1">角度测试</h2>
+<p class="text-[13px] text-on-surface-variant leading-none">训练角度视觉感知</p>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- Feature Card 2: Contact Point Table -->
+<div class="bg-white rounded-[16px] p-4 flex items-center ios-shadow active:scale-95 transition-all duration-200 cursor-pointer">
+<div class="w-12 h-12 rounded-full flex items-center justify-center bg-[#1A6B3C]/10 mr-4 shrink-0">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[28px]" data-icon="adjust">adjust</span>
+</div>
+<div class="flex-grow">
+<h2 class="text-[17px] font-semibold text-on-background leading-none mb-1">进球点对照表</h2>
+<p class="text-[13px] text-on-surface-variant leading-none">角度与接触点对照</p>
+</div>
+<span class="material-symbols-outlined text-outline text-[20px]" data-icon="chevron_right">chevron_right</span>
+</div>
+<!-- History Row -->
+<div class="pt-6">
+<div class="bg-white rounded-[12px] p-4 flex items-center ios-shadow active:scale-[0.98] transition-all duration-200 cursor-pointer">
+<span class="material-symbols-outlined text-on-surface-variant mr-3" data-icon="history">history</span>
+<span class="text-[17px] text-on-background flex-grow">测试历史</span>
+<span class="material-symbols-outlined text-outline text-[20px]" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- Secondary Informational Grid (Bento style) -->
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-white/85 backdrop-blur-xl flex justify-around items-center px-4 pb-8 pt-2 shadow-[0_-4px_24px_rgba(26,28,31,0.06)]">
+<!-- Tab 1: 训练 -->
+<div class="flex flex-col items-center justify-center text-slate-500/60 dark:text-slate-400/60 hover:bg-slate-100/50 rounded-xl px-4 py-1 transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]" data-icon="exercise">exercise</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium tracking-wide">训练</span>
+</div>
+<!-- Tab 2: 动作库 -->
+<div class="flex flex-col items-center justify-center text-slate-500/60 dark:text-slate-400/60 hover:bg-slate-100/50 rounded-xl px-4 py-1 transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]" data-icon="library_books">library_books</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium tracking-wide">动作库</span>
+</div>
+<!-- Tab 3: 角度 (ACTIVE) -->
+<div class="flex flex-col items-center justify-center text-[#1A6B3C] after:content-[''] after:w-1 after:h-1 after:bg-[#1A6B3C] after:rounded-full after:mt-1 transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]" data-icon="straighten" style="font-variation-settings: 'FILL' 1;">straighten</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium tracking-wide">角度</span>
+</div>
+<!-- Tab 4: 记录 -->
+<div class="flex flex-col items-center justify-center text-slate-500/60 dark:text-slate-400/60 hover:bg-slate-100/50 rounded-xl px-4 py-1 transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]" data-icon="history">history</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium tracking-wide">记录</span>
+</div>
+<!-- Tab 5: 我的 -->
+<div class="flex flex-col items-center justify-center text-slate-500/60 dark:text-slate-400/60 hover:bg-slate-100/50 rounded-xl px-4 py-1 transition-all duration-300">
+<span class="material-symbols-outlined text-[24px]" data-icon="person">person</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-medium tracking-wide">我的</span>
+</div>
+</nav>
+</body></html>

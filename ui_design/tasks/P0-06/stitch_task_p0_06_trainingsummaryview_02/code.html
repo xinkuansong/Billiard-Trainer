@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=393, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary-fixed-dim": "#89d89e",
+                    "inverse-on-surface": "#f0f0f5",
+                    "tertiary-fixed": "#ffddaf",
+                    "on-secondary-fixed": "#05210f",
+                    "on-error-container": "#93000a",
+                    "tertiary-fixed-dim": "#ffba44",
+                    "on-secondary-fixed-variant": "#314d38",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#9ae9ae",
+                    "inverse-surface": "#2e3034",
+                    "tertiary-container": "#7f5500",
+                    "on-tertiary": "#ffffff",
+                    "background": "#F2F2F7",
+                    "surface-container": "#ededf2",
+                    "surface-container-high": "#e8e8ed",
+                    "outline": "#707a70",
+                    "tertiary": "#603f00",
+                    "on-background": "#1a1c1f",
+                    "surface-bright": "#f9f9fe",
+                    "surface-dim": "#d9dade",
+                    "error-container": "#ffdad6",
+                    "on-primary": "#ffffff",
+                    "inverse-primary": "#89d89e",
+                    "on-secondary-container": "#4e6b54",
+                    "surface-container-low": "#f3f3f8",
+                    "secondary-fixed-dim": "#aeceb3",
+                    "on-error": "#ffffff",
+                    "surface-container-highest": "#e2e2e7",
+                    "outline-variant": "#bfc9be",
+                    "on-tertiary-fixed-variant": "#614000",
+                    "surface": "#f9f9fe",
+                    "secondary-container": "#caebce",
+                    "on-primary-fixed-variant": "#005229",
+                    "surface-variant": "#e2e2e7",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary": "#48654e",
+                    "primary-container": "#1a6b3c",
+                    "on-surface-variant": "#404940",
+                    "surface-tint": "#1b6c3d",
+                    "secondary-fixed": "#caebce",
+                    "on-tertiary-fixed": "#281800",
+                    "on-tertiary-container": "#ffcf89",
+                    "on-surface": "#1a1c1f",
+                    "error": "#ba1a1a",
+                    "primary": "#1A6B3C",
+                    "primary-fixed": "#a5f4b8",
+                    "on-primary-fixed": "#00210d"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "2xl": "1rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .status-bar-height { height: 54px; }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .tab-unselected { color: rgba(60, 60, 67, 0.45); }
+        .stat-label { font-size: 13pt; color: rgba(60, 60, 67, 0.6); font-weight: 400; }
+        .drill-row-label { font-size: 14pt; color: rgba(60, 60, 67, 0.6); }
+        .drill-row-value { font-size: 14pt; color: #000000; }
+        .share-btn-text { font-size: 17pt; font-weight: 400; }
+    </style>
+</head>
+<body class="bg-[#F2F2F7] text-[#1A1C1F]">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-4 h-14 bg-white/80 backdrop-blur-xl border-b border-gray-100">
+<button class="flex items-center text-[#1A6B3C] font-semibold hover:opacity-70 transition-opacity text-[15px]">
+<span class="material-symbols-outlined text-[20px] mr-0.5">chevron_left</span>
+        结束训练
+    </button>
+<h1 class="text-[#1A1C1F] font-bold text-[17px] tracking-tight">训练总结</h1>
+<button class="text-[#1A6B3C] hover:opacity-70 transition-opacity">
+<span class="material-symbols-outlined text-[22px]">share</span>
+</button>
+</header>
+<main class="pt-14 pb-56 px-5">
+<!-- Status Bar Spacer -->
+<div class="status-bar-height"></div>
+<!-- 1. Statistics Grid -->
+<div class="grid grid-cols-2 gap-3 mb-8">
+<!-- Card 1 -->
+<div class="bg-white p-4 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="stat-label">训练时长</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]" style="font-variation-settings: 'FILL' 1;">schedule</span>
+</div>
+<div class="mt-4">
+<div class="flex items-baseline gap-1">
+<span class="text-[28px] font-extrabold text-[#1A1C1F]">48</span>
+<span class="text-[13px] font-semibold text-[#64748B]">分钟</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-white p-4 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="stat-label">完成项目</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]">checklist</span>
+</div>
+<div class="mt-4">
+<div class="flex items-baseline gap-1">
+<span class="text-[28px] font-extrabold text-[#1A1C1F]">3</span>
+<span class="text-[13px] font-semibold text-[#64748B]">项</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-white p-4 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="stat-label">总组数</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]">apps</span>
+</div>
+<div class="mt-4">
+<div class="flex items-baseline gap-1">
+<span class="text-[28px] font-extrabold text-[#1A1C1F]">12</span>
+<span class="text-[13px] font-semibold text-[#64748B]">组</span>
+</div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-white p-4 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<span class="stat-label">总进球</span>
+<span class="material-symbols-outlined text-[#F5A623] text-[20px]" style="font-variation-settings: 'FILL' 1;">radio_button_checked</span>
+</div>
+<div class="mt-4">
+<div class="flex items-baseline gap-1">
+<span class="text-[28px] font-extrabold text-[#1A1C1F]">87</span>
+<span class="text-[13px] font-semibold text-[#64748B]">球</span>
+</div>
+</div>
+</div>
+<!-- Card 5 Full Width -->
+<div class="col-span-2 bg-white p-5 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.03)]">
+<div class="flex justify-between items-center mb-4">
+<span class="stat-label">平均成功率</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]">leaderboard</span>
+</div>
+<div class="flex items-baseline gap-1 mb-3">
+<span class="text-[32px] font-extrabold text-[#1A1C1F]">72</span>
+<span class="text-[16px] font-bold text-[#64748B]">%</span>
+</div>
+<div class="h-2.5 w-full bg-[#F1F5F9] rounded-full overflow-hidden">
+<div class="h-full bg-[#1A6B3C] rounded-full" style="width: 72%;"></div>
+</div>
+</div>
+</div>
+<!-- 2. Drill Breakdown List -->
+<div class="flex items-center justify-between mb-4 px-1">
+<h2 class="text-[17px] font-bold text-[#1A1C1F]">训练明细</h2>
+<span class="text-[12px] font-medium text-[#64748B]">详情</span>
+</div>
+<div class="space-y-3">
+<!-- Drill Card 1 -->
+<div class="bg-white rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#F1F5F9]">
+<div class="p-3.5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-[#E8F5E9] flex-shrink-0 flex items-center justify-center overflow-hidden border border-[#A5D6A7]">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAv7glNMdHi559CvejTiu4qCxl20cWM_Sds83gP9RRdTiUFdEuirGJwKUdHlYMGPNDoINq_FZATEcJ3gXfKX0vc8ithunOlUGvTZchxGOCumTXWTHQd7F_R3p_8qQtS0Qt0cZ6FozuHZIMK6e03hED3Rk6OVZKn-l4whFZ756pJXT9n72A78RxHPL8hQiQlxqi3LZi5N3J9rzLa_Xclp79mp9YcIHNZxSKwaJb_Uiw1xqTNHICZTDEh5O02ZkP_hKBmyUDszrBwxk6h"/>
+</div>
+<div class="flex-grow">
+<div class="flex items-center gap-1.5 mb-0.5">
+<span class="font-bold text-[15px] text-[#1A1C1F]">定点红球进袋</span>
+<span class="px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B] text-[10px] font-bold">入门 L1</span>
+</div>
+<p class="text-[12px] font-medium text-[#94A3B8]">4 组 · 31/40 球</p>
+</div>
+<div class="text-right">
+<span class="text-[18px] font-extrabold text-[#1A6B3C]">78%</span>
+</div>
+</div>
+<div class="px-3.5 pb-3.5 space-y-2">
+<div class="h-[1px] bg-[#F1F5F9] mb-1"></div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 1 组</span>
+<span class="drill-row-value">8/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 2 组</span>
+<span class="drill-row-value">7/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 3 组</span>
+<span class="drill-row-value">8/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 4 组</span>
+<span class="drill-row-value">8/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Drill Card 2 -->
+<div class="bg-white rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#F1F5F9]">
+<div class="p-3.5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-[#F1F5F9] flex-shrink-0 flex items-center justify-center overflow-hidden border border-[#E2E8F0]">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBt49vaA8ToalVSM6IMOQ1yy-PzZK9b2TAEh8DHv3UgxT1A3OSVr96n9MyK0afnjSiij4OQEksmzWCvVcCFlC6IZ7XDbqEBnp9ow6GJOmtIq892HWlHAjMDr1pvIDjgDVFYrImgMXlXBetPnlIcGelWVdqtdaeJFIt2j6N2wVBLQt9qYS5l8K2sru4s0H6IHaBGtQpG5J_YjVP6hOi89Lx3P2Gm9Cxa86tpQwTeSr4m681yvam9QZuVndb7t5PYknf5H3st1u8DFnxx"/>
+</div>
+<div class="flex-grow">
+<div class="flex items-center gap-1.5 mb-0.5">
+<span class="font-bold text-[15px] text-[#1A1C1F]">斯诺克直线进袋</span>
+<span class="px-2 py-0.5 rounded-full bg-[#F1F5F9] text-[#64748B] text-[10px] font-bold">基础 L0</span>
+</div>
+<p class="text-[12px] font-medium text-[#94A3B8]">4 组 · 35/40 球</p>
+</div>
+<div class="text-right">
+<span class="text-[18px] font-extrabold text-[#1A6B3C]">88%</span>
+</div>
+</div>
+<div class="px-3.5 pb-3.5 space-y-2">
+<div class="h-[1px] bg-[#F1F5F9] mb-1"></div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 1 组</span>
+<span class="drill-row-value">10/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 2 组</span>
+<span class="drill-row-value">9/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 3 组</span>
+<span class="drill-row-value">9/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Drill Card 3 -->
+<div class="bg-white rounded-2xl overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.02)] border border-[#F1F5F9]">
+<div class="p-3.5 flex items-center gap-4">
+<div class="w-12 h-12 rounded-lg bg-[#FFF7ED] flex-shrink-0 flex items-center justify-center overflow-hidden border border-[#FED7AA]">
+<img class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9g8Pvjb7EBjKW2ukCHc6zDbzIHszVJhtuyTSnBgDUp5C9CgmuI6zgWvI_6I87Dtcm-wLB7_BPQbDVswCOkZ_vE8J8B0y3VjkWNAFE5vSqKMeuOFAqaB3dktwoarS_ABaQvXVYeyKAQSz798_0mJk7cNYWUqto0e0x193ODqudJDlQRxu3n-xfWWlllfnEGLB8GmGw5Dduvut2DkDeQsMKo8tr8EMGMq-YAa0F4sH9wFKUWCddWTXpqY497UWD_N2Ld8ChWJI2f79-"/>
+</div>
+<div class="flex-grow">
+<div class="flex items-center gap-1.5 mb-0.5">
+<span class="font-bold text-[15px] text-[#1A1C1F]">走位练习 A</span>
+<span class="px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#D97706] text-[10px] font-bold">中级 L2</span>
+</div>
+<p class="text-[12px] font-medium text-[#94A3B8]">4 组 · 21/40 球</p>
+</div>
+<div class="text-right">
+<span class="text-[18px] font-extrabold text-[#D97706]">53%</span>
+</div>
+</div>
+<div class="px-3.5 pb-3.5 space-y-2">
+<div class="h-[1px] bg-[#F1F5F9] mb-1"></div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 1 组</span>
+<span class="drill-row-value">6/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 2 组</span>
+<span class="drill-row-value">5/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 3 组</span>
+<span class="drill-row-value">6/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 4 组</span>
+<span class="drill-row-value">5/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<div class="flex justify-between items-center py-1">
+<span class="drill-row-label">第 5 组</span>
+<span class="drill-row-value">6/10</span>
+<span class="material-symbols-outlined text-[#1A6B3C] text-[16pt]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</div>
+</div>
+</div>
+<!-- 3. Training Notes -->
+<div class="mt-10 bg-white p-6 rounded-2xl shadow-[0_4px_12px_rgba(0,0,0,0.02)] border border-[#F1F5F9] relative overflow-hidden">
+<div class="absolute -right-4 -top-4 w-24 h-24 bg-[#1A6B3C]/5 rounded-full blur-2xl"></div>
+<div class="flex items-center gap-2.5 mb-4">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]" style="font-variation-settings: 'FILL' 1;">edit_note</span>
+<h2 class="text-[16px] font-bold text-[#1A1C1F]">训练心得</h2>
+</div>
+<p class="text-[14px] leading-relaxed text-[#475569] font-medium">
+            今天练习走位感觉明显进步，斯诺克直线进袋成功率很高，走位A还需要加强，下组尝试控制力道。
+        </p>
+</div>
+</main>
+<!-- Fixed Bottom Area -->
+<div class="fixed bottom-[74px] left-0 w-full z-40 bg-white/95 backdrop-blur-md border-t border-[#F1F5F9] px-5 py-5 space-y-3.5">
+<button class="w-full h-12 bg-[#1A6B3C] text-white rounded-xl font-bold text-[15px] shadow-lg shadow-[#1A6B3C]/20 active:scale-[0.98] transition-transform">
+        保存训练
+    </button>
+<button class="w-full h-12 bg-[#FFFFFF] border-[1.5pt] border-[#1A6B3C] text-[#1A6B3C] rounded-xl active:scale-[0.98] transition-transform flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px] text-[#1A6B3C]">share</span>
+<span class="share-btn-text">生成分享图</span>
+</button>
+<button class="w-full text-center text-[#94A3B8] text-[13px] font-bold pt-1 hover:text-[#1A6B3C]">
+        查看历史记录
+    </button>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-3 pb-safe px-6 bg-white/90 backdrop-blur-xl border-t border-gray-100">
+<a class="flex flex-col items-center justify-center text-[#1A6B3C]" href="#">
+<span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' 1;">fitness_center</span>
+<span class="text-[10px] font-bold tracking-wider mt-1 uppercase">训练</span>
+</a>
+<a class="flex flex-col items-center justify-center tab-unselected transition-colors" href="#">
+<span class="material-symbols-outlined text-[26px]">menu_book</span>
+<span class="text-[10px] font-bold tracking-wider mt-1 uppercase">动作库</span>
+</a>
+<a class="flex flex-col items-center justify-center tab-unselected transition-colors" href="#">
+<span class="material-symbols-outlined text-[26px]">straighten</span>
+<span class="text-[10px] font-bold tracking-wider mt-1 uppercase">角度</span>
+</a>
+<a class="flex flex-col items-center justify-center tab-unselected transition-colors" href="#">
+<span class="material-symbols-outlined text-[26px]">history</span>
+<span class="text-[10px] font-bold tracking-wider mt-1 uppercase">记录</span>
+</a>
+<a class="flex flex-col items-center justify-center tab-unselected transition-colors" href="#">
+<span class="material-symbols-outlined text-[26px]">person</span>
+<span class="text-[10px] font-bold tracking-wider mt-1 uppercase">我的</span>
+</a>
+</nav>
+<!-- Safe Area Inset Bottom Spacer -->
+<div class="safe-bottom h-[10px]"></div>
+</body></html>

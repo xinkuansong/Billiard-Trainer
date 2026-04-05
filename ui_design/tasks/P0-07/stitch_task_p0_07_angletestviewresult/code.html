@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>角度测试 - QiuJi</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#623f00",
+                        "inverse-primary": "#89d89e",
+                        "surface": "#f9f9fe",
+                        "surface-bright": "#f9f9fe",
+                        "on-secondary-fixed": "#2f1400",
+                        "on-error-container": "#93000a",
+                        "tertiary-fixed": "#ffddb4",
+                        "on-tertiary-fixed-variant": "#633f00",
+                        "on-surface": "#1a1c1f",
+                        "inverse-on-surface": "#f0f0f5",
+                        "on-secondary-container": "#753c00",
+                        "secondary-fixed": "#ffdcc4",
+                        "tertiary-fixed-dim": "#ffb955",
+                        "surface-container-highest": "#e2e2e7",
+                        "inverse-surface": "#2e3034",
+                        "surface-dim": "#d9dade",
+                        "outline": "#707a70",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#ffb780",
+                        "on-primary-container": "#9ae9ae",
+                        "surface-container": "#ededf2",
+                        "surface-container-high": "#e8e8ed",
+                        "secondary-container": "#fda865",
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#89d89e",
+                        "outline-variant": "#bfc9be",
+                        "surface-container-low": "#f3f3f8",
+                        "on-tertiary-container": "#ffcf92",
+                        "on-secondary-fixed-variant": "#6f3800",
+                        "primary-fixed": "#a5f4b8",
+                        "surface-tint": "#1b6c3d",
+                        "tertiary-container": "#825400",
+                        "background": "#f9f9fe",
+                        "error": "#ba1a1a",
+                        "primary": "#005129",
+                        "primary-container": "#1a6b3c",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#291800",
+                        "on-background": "#1a1c1f",
+                        "error-container": "#ffdad6",
+                        "on-surface-variant": "#404940",
+                        "on-primary-fixed": "#00210d",
+                        "surface-variant": "#e2e2e7",
+                        "on-primary-fixed-variant": "#005229",
+                        "secondary": "#8e4e11"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .billiard-table-ratio {
+            aspect-ratio: 2 / 1;
+        }
+        .angle-arc {
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            border-top-color: transparent;
+            border-left-color: transparent;
+            border-radius: 50%;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-low text-on-surface min-h-screen flex flex-col items-center">
+<!-- Top Navigation -->
+<header class="fixed top-0 left-0 w-full z-50 bg-[#F9F9FE] dark:bg-slate-900 flex items-center justify-between px-4 h-16 w-full max-w-screen-xl mx-auto">
+<div class="flex items-center gap-1 cursor-pointer active:opacity-80 transition-transform scale-95">
+<span class="material-symbols-outlined text-primary-container">arrow_back</span>
+<span class="font-['Manrope'] font-semibold text-lg text-primary-container">角度训练</span>
+</div>
+<h1 class="font-['Manrope'] font-bold text-xl text-[#005129] dark:text-emerald-400">角度测试</h1>
+<div class="p-2 hover:bg-[#EDEDF2] dark:hover:bg-slate-800 transition-colors rounded-full">
+<span class="material-symbols-outlined text-[#005129] dark:text-emerald-500">help</span>
+</div>
+</header>
+<main class="w-full max-w-[393px] pt-20 px-4 pb-32 flex flex-col gap-6">
+<!-- Progress Section -->
+<section class="flex flex-col gap-2">
+<div class="flex justify-between items-end">
+<span class="text-sm font-label font-medium text-on-surface-variant">Question 8/20</span>
+<span class="text-xs font-label font-bold text-primary-container">40% Complete</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary-container rounded-full" style="width: 40%"></div>
+</div>
+</section>
+<!-- Billiard Table Card -->
+<section class="bg-surface-container-lowest rounded-xl p-4 shadow-[0_8px_32px_0_rgba(26,28,31,0.06)] relative overflow-hidden">
+<div class="relative w-full billiard-table-ratio bg-surface-tint rounded-lg overflow-hidden border-8 border-tertiary">
+<!-- Pockets -->
+<div class="absolute -top-1 -left-1 w-6 h-6 bg-[#111111] rounded-full"></div>
+<div class="absolute -top-1 left-1/2 -translate-x-1/2 w-6 h-4 bg-[#111111] rounded-b-full"></div>
+<div class="absolute -top-1 -right-1 w-6 h-6 bg-[#111111] rounded-full"></div>
+<div class="absolute -bottom-1 -left-1 w-6 h-6 bg-[#111111] rounded-full"></div>
+<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-6 h-4 bg-[#111111] rounded-t-full"></div>
+<div class="absolute -bottom-1 -right-1 w-6 h-6 bg-[#111111] rounded-full"></div>
+<!-- Overlay Viz -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none">
+<!-- Shot line -->
+<line stroke="white" stroke-opacity="0.85" stroke-width="2" x1="40%" x2="55%" y1="70%" y2="50%"></line>
+<!-- Path line -->
+<line stroke="#FDA865" stroke-opacity="0.7" stroke-width="2" x1="55%" x2="98%" y1="50%" y2="2%"></line>
+<!-- Ghost Ball at contact point -->
+<circle cx="55%" cy="50%" fill="none" r="8" stroke="white" stroke-dasharray="4 2" stroke-width="1.5"></circle>
+</svg>
+<!-- Angle Arc -->
+<div class="absolute top-[48%] right-[40%] translate-x-1/2 -translate-y-1/2 w-12 h-12 angle-arc border-white/70 flex items-center justify-center">
+<span class="absolute -top-1 -right-1 text-[11px] font-bold text-white bg-black/20 px-1 rounded">30°</span>
+</div>
+<!-- Balls -->
+<!-- Cue Ball -->
+<div class="absolute top-[70%] left-[40%] -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-[#F5F5F5] rounded-full shadow-sm border border-black/10"></div>
+<!-- Target Ball -->
+<div class="absolute top-[50%] left-[55%] -translate-x-1/2 -translate-y-1/2 w-4 h-4 bg-[#F5A623] rounded-full shadow-md"></div>
+<!-- Contact point marker -->
+<div class="absolute top-[50%] left-[55%] -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-white rounded-full ring-2 ring-error"></div>
+</div>
+<div class="mt-4 flex items-center justify-center gap-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">visibility</span>
+<p class="text-xs font-label">击球路径与偏角可视化</p>
+</div>
+</section>
+<!-- Result Feedback Card -->
+<section class="bg-surface-container-lowest rounded-xl p-5 flex flex-col gap-4 shadow-sm">
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-2 bg-error text-white px-3 py-1 rounded-full text-sm font-bold">
+<span class="material-symbols-outlined text-base">cancel</span>
+<span>不正确</span>
+</div>
+<span class="text-xs text-on-surface-variant font-label">测试编号 #3902</span>
+</div>
+<div class="space-y-1">
+<p class="text-[17px] text-on-surface">你答了 <span class="font-bold">35°</span>，实际是 <span class="font-bold text-primary">30°</span></p>
+<p class="text-[22px] font-bold text-error">误差 5°</p>
+</div>
+<div class="pt-3 border-t border-surface-container-high">
+<p class="text-[13px] text-on-surface-variant leading-relaxed">
+<span class="font-bold">提示：</span>容差 ±3° 内为正确。注意观察目标球与底袋的连线，再反推击球点。
+                </p>
+</div>
+</section>
+<!-- Running Score Bar -->
+<section class="bg-surface-container-lowest rounded-xl h-12 px-4 flex items-center justify-between shadow-sm border border-surface-container-high/50">
+<span class="text-[13px] text-on-surface-variant font-medium">当前正确率</span>
+<div class="flex items-center gap-2">
+<span class="text-[17px] font-bold text-primary-container">5/8</span>
+<span class="text-[15px] text-on-surface-variant">62.5%</span>
+</div>
+</section>
+</main>
+<!-- Fixed Bottom Button -->
+<div class="fixed bottom-0 left-0 w-full p-4 bg-surface-container-low/80 backdrop-blur-md">
+<button class="w-full h-[50px] bg-primary-container hover:bg-primary text-white rounded-xl font-headline font-semibold text-[17px] flex items-center justify-center gap-2 active:scale-95 transition-transform shadow-lg shadow-primary-container/20">
+            下一题
+            <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+<!-- Bottom Navigation (Shared Component) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-safe pt-2 bg-white dark:bg-slate-950 rounded-t-2xl border-t border-[#EDEDF2] dark:border-slate-800 shadow-[0_-8px_32px_0_rgba(26,28,31,0.06)] hidden md:hidden">
+<div class="flex flex-col items-center justify-center bg-[#1A6B3C]/10 text-[#005129] dark:text-emerald-400 rounded-xl px-3 py-1 transition-all duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="sports_score">sports_score</span>
+<span class="font-['Manrope'] text-[10px] font-medium">训练</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#1A1C1F]/60 dark:text-slate-500 hover:text-[#005129] dark:hover:text-emerald-300 transition-all duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="font-['Manrope'] text-[10px] font-medium">数据</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#1A1C1F]/60 dark:text-slate-500 hover:text-[#005129] dark:hover:text-emerald-300 transition-all duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span class="font-['Manrope'] text-[10px] font-medium">发现</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#1A1C1F]/60 dark:text-slate-500 hover:text-[#005129] dark:hover:text-emerald-300 transition-all duration-200 ease-in-out">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Manrope'] text-[10px] font-medium">我的</span>
+</div>
+</nav>
+</body></html>

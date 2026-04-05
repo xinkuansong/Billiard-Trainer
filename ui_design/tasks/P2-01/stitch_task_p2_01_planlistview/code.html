@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#f9f9fe",
+                        "inverse-primary": "#89d89e",
+                        "on-secondary-fixed-variant": "#614000",
+                        "inverse-surface": "#2e3034",
+                        "on-secondary": "#ffffff",
+                        "secondary-container": "#fcb73f",
+                        "surface-bright": "#f9f9fe",
+                        "outline": "#707a70",
+                        "on-tertiary-fixed-variant": "#792d39",
+                        "primary-fixed-dim": "#89d89e",
+                        "tertiary-fixed-dim": "#ffb2b9",
+                        "surface-container": "#ededf2",
+                        "tertiary-fixed": "#ffd9dc",
+                        "on-surface-variant": "#404940",
+                        "secondary": "#805600",
+                        "on-primary-fixed": "#00210d",
+                        "on-secondary-fixed": "#281800",
+                        "surface-container-low": "#f3f3f8",
+                        "outline-variant": "#bfc9be",
+                        "on-primary-container": "#9ae9ae",
+                        "on-tertiary-fixed": "#3f0110",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#1a6b3c",
+                        "on-secondary-container": "#6e4900",
+                        "surface-container-highest": "#e2e2e7",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-container": "#ffcace",
+                        "error": "#ba1a1a",
+                        "on-error-container": "#93000a",
+                        "primary": "#005129",
+                        "tertiary": "#782c38",
+                        "inverse-on-surface": "#f0f0f5",
+                        "surface-tint": "#1b6c3d",
+                        "on-surface": "#1a1c1f",
+                        "surface-dim": "#d9dade",
+                        "on-error": "#ffffff",
+                        "surface-variant": "#e2e2e7",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-high": "#e8e8ed",
+                        "on-background": "#1a1c1f",
+                        "secondary-fixed": "#ffddaf",
+                        "secondary-fixed-dim": "#ffba44",
+                        "surface": "#f9f9fe",
+                        "primary-fixed": "#a5f4b8",
+                        "on-primary-fixed-variant": "#005229",
+                        "tertiary-container": "#96434f",
+                        "error-container": "#ffdad6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .apple-ios-bg { background-color: #F2F2F7; }
+        .sf-shadow { box-shadow: 0px 1px 0px 0px rgba(0, 0, 0, 0.1); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="apple-ios-bg text-on-surface min-h-screen pb-20">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-50 bg-surface-container-lowest/80 backdrop-blur-xl border-b border-surface-container-highest">
+<div class="flex justify-between items-center px-4 h-[44px] w-full max-w-[393px] mx-auto">
+<div class="flex items-center text-[#007AFF] hover:opacity-70 transition-opacity">
+<span class="material-symbols-outlined !text-[20px]" style="font-variation-settings: 'wght' 500;">arrow_back_ios</span>
+<span class="text-[17px] -ml-1">训练</span>
+</div>
+<h1 class="text-[17px] font-semibold text-on-surface">训练计划</h1>
+<div class="text-[#1A6B3C] font-semibold text-[17px] hover:opacity-70 transition-opacity">新建</div>
+</div>
+</header>
+<main class="max-w-[393px] mx-auto px-4 pt-6 space-y-8">
+<!-- Official Plans Section -->
+<section class="space-y-6">
+<header>
+<h2 class="text-[13px] font-semibold text-on-surface-variant opacity-60 px-1 mb-2">官方计划</h2>
+</header>
+<!-- Group 1: Beginner -->
+<div class="space-y-4">
+<h3 class="text-[18px] font-bold text-on-surface px-1">入门计划</h3>
+<div class="space-y-3">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-[12px] p-3 flex items-center space-x-4 transition-transform active:scale-[0.98]">
+<div class="w-[72px] h-[72px] rounded-[10px] bg-primary flex items-center justify-center overflow-hidden shrink-0">
+<img alt="" class="w-full h-full object-cover opacity-80" data-alt="Close-up of a green billiard table with a single white cue ball in sharp focus, professional lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8i7C24GwHdYIGoRzVT_QmxJHHte4WC6bWRwuII0eP2m5q-224qWlq3lyl5aLmcaswfoVXB7aKtS_JizqJK8cXf_uW-P_Y7gbIBqmcdd0WMWhWQhH9Mx_toUJ0dzp59fmMR4R9c9K1a-WCF5sWNXvrllm44Tl8myGrBmeaqyTB0CKkdxgchxWZHPsPTK-KHdUBBwffocIyIcl8VI0Kv-Sf8zkiHIgdgoJdgIjETaH9XCJETN-y0ILmgWyQeJPO6Vpoh-lT0VtR6PI"/>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[17px] font-semibold text-on-surface truncate">新手入门 8 周计划</h4>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-0.5 rounded-[4px] bg-[#1A6B3C] text-white text-[11px] font-bold">L0 入门</span>
+<span class="text-[13px] text-on-surface-variant">8 周</span>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-1 truncate">从零开始系统学习台球基础</p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">chevron_right</span>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-[12px] p-3 flex items-center space-x-4 transition-transform active:scale-[0.98]">
+<div class="w-[72px] h-[72px] rounded-[10px] bg-primary-fixed flex items-center justify-center overflow-hidden shrink-0">
+<img alt="" class="w-full h-full object-cover opacity-80" data-alt="Macro shot of a billiard cue hitting a ball with chalk dust in the air, dramatic sports photography" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2qUaHzPeJmi8u6TsY8wIWjwWEFoQPjHj1lTMZbhRO4Hoj3qB1v3yvgxAv4MrbpxyraOsUbl0soGn-_zr1s_fjoSB0xQCXe5rHE80jD7Vlcz07MAsna3Sk-3WLCsMWR3OXe7hD3_Wa2voo6-kMh0JG7uE7c93meUX554zncNxbugOgtH1Ws8YmKP1EYzk5tRzegXeVJFEvkSsKCzx0WLvLBdxks46wXMnAPmuA90nOHA91xKM9cXVVNpoArIZrDchq9JqdLgxBRj8"/>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[17px] font-semibold text-on-surface truncate">基础杆法专项</h4>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-0.5 rounded-[4px] bg-[#1A6B3C]/10 text-[#1A6B3C] text-[11px] font-bold">L1 初学</span>
+<span class="text-[13px] text-on-surface-variant">4 周</span>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-1 truncate">专项训练杆法基本功</p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Group 2: Intermediate -->
+<div class="space-y-4">
+<h3 class="text-[18px] font-bold text-on-surface px-1">中级计划</h3>
+<div class="space-y-3">
+<!-- Card 3 (PRO) -->
+<div class="bg-surface-container-lowest rounded-[12px] p-3 flex items-center space-x-4 transition-transform active:scale-[0.98]">
+<div class="w-[72px] h-[72px] rounded-[10px] bg-secondary flex items-center justify-center overflow-hidden shrink-0 relative">
+<img alt="" class="w-full h-full object-cover opacity-80" data-alt="Overhead view of several colorful billiard balls arranged in a triangle on a green felt table" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMlPBEelJkx6mhr6dP5bGnFhdirzfxJFe0Ym4xmNkL5cSZBpgSPH9ELRI9emKy-xEa_C2L-kgt4OE3uTWE-gA4wfYKquFlb6zqEMkkEWt_GrsTUmV7wTPknQ6qHUS24kDm4cfiNpa8G66dhUdEnSBoaYD9g2oeGd2ZQ2vgmWQy3kxzLaVYWFHr97PcHoYsrUmxDpw43KGIwPqu3FK4mqV5trAIkKG5Dg9u7erqA3GbFgmG6V4B6XNFiGCGQBI4C5iPVGCDIcvV1FQ"/>
+<div class="absolute inset-0 bg-black/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<h4 class="text-[17px] font-semibold text-on-surface truncate">走位突破训练</h4>
+<div class="px-1.5 py-0.5 bg-secondary-fixed-dim rounded-full text-[10px] font-extrabold text-on-secondary-fixed shrink-0">PRO</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-0.5 rounded-[4px] bg-[#D4941A]/10 text-[#D4941A] text-[11px] font-bold">L2 进阶</span>
+<span class="text-[13px] text-on-surface-variant">6 周</span>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-1 truncate">系统训练走位能力与判断</p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">chevron_right</span>
+</div>
+<!-- Card 4 (PRO) -->
+<div class="bg-surface-container-lowest rounded-[12px] p-3 flex items-center space-x-4 transition-transform active:scale-[0.98]">
+<div class="w-[72px] h-[72px] rounded-[10px] bg-secondary-container flex items-center justify-center overflow-hidden shrink-0 relative">
+<img alt="" class="w-full h-full object-cover opacity-80" data-alt="Action shot of a pool player aiming at the cue ball, shallow depth of field, high-end atmosphere" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHKlk6htsCMxqfmd1V67SupSEMgpO6xxXQFWbPRogF9OI7zhjbMs8gXZdBZ04WjBBXXUv7FV7zXqMrkouuXPv0yFKB6ac8KSYzYaSTA-u3rtjVQsTfPBQPGbVuFvblyYlI4X6QbuetuChpn0aXxk6ZeCyyLiuTC4hvxSUDZ8WWohdfN1te5Sn9dU-V8xNTwHXdACpAomMH4i2mQusoY5UBm_hwjIU8rGH4AMZVqSzehuHBRbGZzoJpG8f2D7KGPLir3jvyw3z-7Ck"/>
+<div class="absolute inset-0 bg-black/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<h4 class="text-[17px] font-semibold text-on-surface truncate">中级综合突破</h4>
+<div class="px-1.5 py-0.5 bg-secondary-fixed-dim rounded-full text-[10px] font-extrabold text-on-secondary-fixed shrink-0">PRO</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-0.5 rounded-[4px] bg-[#D4941A]/10 text-[#D4941A] text-[11px] font-bold">L2 进阶</span>
+<span class="text-[13px] text-on-surface-variant">8 周</span>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-1 truncate">全面提升中级选手水平</p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">chevron_right</span>
+</div>
+</div>
+</div>
+<!-- Group 3: Advanced -->
+<div class="space-y-4">
+<h3 class="text-[18px] font-bold text-on-surface px-1">高级计划</h3>
+<div class="space-y-3">
+<!-- Card 5 (PRO) -->
+<div class="bg-surface-container-lowest rounded-[12px] p-3 flex items-center space-x-4 transition-transform active:scale-[0.98]">
+<div class="w-[72px] h-[72px] rounded-[10px] bg-tertiary flex items-center justify-center overflow-hidden shrink-0 relative">
+<img alt="" class="w-full h-full object-cover opacity-80" data-alt="Elegant billiard room with low lighting, focusing on a premium pool table and leather surroundings" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_rRLnI3zeRRxH2SXfSkfvOp2RGwQ6R2yGp83pE-4d9wp0gyMv7awq39owcRipG8y6QeC6lfRE0jb8_TNQgcwoX1bHxjnj2Mv4pHKBn0RtNOrPNMa-_uu4eFCke8FKYlZGE3b6zBBCyrmPwXRZNGzT5PSB583h2Wxq__D-i8jeryl1ti9-mpvfPVJw29UZ0USnT3OUNiKMSFBNXHoYR4JKZ_Byyagz4dp7PTY17o_JFTxQSshyRVKO5P7kJ-N71bg30wxQN3qRMSY"/>
+<div class="absolute inset-0 bg-black/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<h4 class="text-[17px] font-semibold text-on-surface truncate">高级加塞与多库</h4>
+<div class="px-1.5 py-0.5 bg-secondary-fixed-dim rounded-full text-[10px] font-extrabold text-on-secondary-fixed shrink-0">PRO</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-0.5 rounded-[4px] bg-[#FF9800]/10 text-[#FF9800] text-[11px] font-bold">L3 熟练</span>
+<span class="text-[13px] text-on-surface-variant">6 周</span>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-1 truncate">掌握进阶加塞与多库技术</p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">chevron_right</span>
+</div>
+<!-- Card 6 (PRO) -->
+<div class="bg-surface-container-lowest rounded-[12px] p-3 flex items-center space-x-4 transition-transform active:scale-[0.98]">
+<div class="w-[72px] h-[72px] rounded-[10px] bg-tertiary-container flex items-center justify-center overflow-hidden shrink-0 relative">
+<img alt="" class="w-full h-full object-cover opacity-80" data-alt="Golden billiard balls reflecting light in a luxury sports bar setting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQ0m48zWb33RFbR74h-NL-S1XaGm-XnyU_P_1Yz8rjBLEbhlSfBQhJU-McyJ3YWejUoiPBVjIObATcx5DA-Ej_fT1x6cbq7h8Q4m83GfH8GMjuwqO5YtZwaN3nNo0v_BXVTelleFxwgFkI7p7MvSd3RcnT_Fnp0Xr-JpPHoJ1BFeaYtcjCVW2lwZtGJvqvbGc2_Eu3eAUKi86ao0vYzIz2Wwp0HbmjKhRFEjWDiiEwxFOaURaGu-Xvv83bSzFd_7iOQPzAyyVh9L0"/>
+<div class="absolute inset-0 bg-black/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-white" style="font-variation-settings: 'FILL' 1;">lock</span>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-1.5">
+<h4 class="text-[17px] font-semibold text-on-surface truncate">全能综合计划</h4>
+<div class="px-1.5 py-0.5 bg-secondary-fixed-dim rounded-full text-[10px] font-extrabold text-on-secondary-fixed shrink-0">PRO</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-0.5 rounded-[4px] bg-[#FF9800]/10 text-[#FF9800] text-[11px] font-bold">L3 熟练</span>
+<span class="text-[13px] text-on-surface-variant">12 周</span>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-1 truncate">职业级全方位训练体系</p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">chevron_right</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Custom Plans Section -->
+<section class="space-y-4 pb-12">
+<header>
+<h2 class="text-[13px] font-semibold text-on-surface-variant opacity-60 px-1 mb-2">自定义计划</h2>
+</header>
+<div class="bg-surface-container-lowest rounded-[12px] p-3 flex items-center space-x-4 transition-transform active:scale-[0.98]">
+<div class="w-[72px] h-[72px] rounded-[10px] bg-[#1A6B3C] flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-white text-[32px]">sports_handball</span>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-[17px] font-semibold text-on-surface truncate">我的练球日常</h4>
+<div class="flex items-center gap-3 mt-1">
+<div class="flex items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined !text-[14px]">person</span>
+<span class="text-[13px]">3 项训练</span>
+</div>
+</div>
+<p class="text-[13px] text-on-surface-variant mt-1 truncate">每日基础练习组合</p>
+</div>
+<span class="material-symbols-outlined text-surface-container-highest">chevron_right</span>
+</div>
+</section>
+</main>
+<!-- Bottom Action Floating Component (Optional hint) -->
+<div class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[345px] h-[50px] bg-primary rounded-full shadow-lg flex items-center justify-center space-x-2 text-white font-bold transition-transform active:scale-95">
+<span class="material-symbols-outlined">add</span>
+<span>创建新计划</span>
+</div>
+</body></html>

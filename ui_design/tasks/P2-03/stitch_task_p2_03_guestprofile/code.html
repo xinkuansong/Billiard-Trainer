@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>QiuJi - Profile View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#bfc9be",
+                        "tertiary-fixed-dim": "#ffb2b9",
+                        "surface-variant": "#e2e2e7",
+                        "on-primary-fixed": "#00210d",
+                        "secondary-fixed-dim": "#ffba44",
+                        "on-background": "#1a1c1f",
+                        "error-container": "#ffdad6",
+                        "surface-container-high": "#e8e8ed",
+                        "on-secondary-fixed": "#281800",
+                        "surface-container-highest": "#e2e2e7",
+                        "inverse-surface": "#2e3034",
+                        "on-tertiary-container": "#ffcace",
+                        "tertiary": "#782c38",
+                        "background": "#f9f9fe",
+                        "tertiary-container": "#96434f",
+                        "primary-container": "#1a6b3c",
+                        "secondary-fixed": "#ffddaf",
+                        "surface-container": "#ededf2",
+                        "secondary": "#805600",
+                        "primary": "#005129",
+                        "on-surface": "#1a1c1f",
+                        "outline": "#707a70",
+                        "on-error-container": "#93000a",
+                        "error": "#ba1a1a",
+                        "primary-fixed": "#a5f4b8",
+                        "on-primary-fixed-variant": "#005229",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#404940",
+                        "surface-dim": "#d9dade",
+                        "surface": "#f9f9fe",
+                        "on-secondary-container": "#6e4900",
+                        "tertiary-fixed": "#ffd9dc",
+                        "on-primary-container": "#9ae9ae",
+                        "on-secondary-fixed-variant": "#614000",
+                        "secondary-container": "#fcb73f",
+                        "surface-bright": "#f9f9fe",
+                        "primary-fixed-dim": "#89d89e",
+                        "surface-tint": "#1b6c3d",
+                        "on-tertiary-fixed": "#3f0110",
+                        "surface-container-low": "#f3f3f8",
+                        "inverse-primary": "#89d89e",
+                        "inverse-on-surface": "#f0f0f5",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary-fixed-variant": "#792d39"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #F2F2F7;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col items-center justify-start min-h-screen">
+<div class="w-full max-w-[393px] min-h-screen relative flex flex-col pb-24">
+<!-- Status Bar Mockup -->
+<div class="h-12 w-full flex items-center justify-between px-8 pt-4 pb-2 text-black">
+<span class="text-[15px] font-semibold">9:41</span>
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px]">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[18px]">wifi</span>
+<span class="material-symbols-outlined text-[22px]">battery_very_low</span>
+</div>
+</div>
+<!-- Top Navigation Bar -->
+<header class="w-full sticky top-0 z-50 bg-[#F9F9FE] dark:bg-slate-950 flex items-center justify-between px-5 py-4 w-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#005129] dark:text-[#1A6B3C]" data-icon="sports_billiards">sports_golf</span>
+<h1 class="font-['SF_Pro','Inter'] text-[1.75rem] font-bold tracking-tight text-[#005129] dark:text-[#1A6B3C]">我的</h1>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-slate-400 hover:opacity-80 transition-opacity" data-icon="settings">settings</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-1 overflow-y-auto no-scrollbar space-y-4 pt-2">
+<!-- Guest Header Card -->
+<section class="mx-4 bg-white rounded-2xl p-4 flex items-center gap-4 shadow-sm border border-black/5">
+<div class="w-16 h-16 rounded-full bg-[#E5E5EA] flex items-center justify-center">
+<span class="material-symbols-outlined text-[32px] text-[#8E8E93]" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+</div>
+<div class="flex flex-col">
+<span class="text-[20px] font-semibold text-[#1A6B3C]">点击登录</span>
+<span class="text-[13px] text-black/60">游客模式</span>
+</div>
+<div class="ml-auto">
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+</section>
+<!-- Guest Warning Banner -->
+<div class="mx-4 bg-[#D4941A]/10 rounded-xl p-4 flex items-start gap-3 border border-[#D4941A]/10">
+<span class="material-symbols-outlined text-[#D4941A] text-[20px]" data-icon="warning" style="font-variation-settings: 'FILL' 1;">warning</span>
+<p class="text-[14px] leading-snug text-black/80">
+                    游客模式下训练数据不会同步到云端，请尽快登录以保存您的练球记录。
+                </p>
+</div>
+<!-- Pro Promotion Card -->
+<div class="mx-4 bg-[#1C1C1E] rounded-2xl p-5 flex items-center justify-between relative overflow-hidden group">
+<div class="absolute -top-12 -right-12 w-32 h-32 bg-[#D4941A]/10 rounded-full blur-3xl transition-transform group-hover:scale-125"></div>
+<div class="relative z-10 space-y-1">
+<h2 class="text-[20px] font-bold text-white">解锁球迹 Pro</h2>
+<p class="text-[14px] text-white/70">让你的训练更高效</p>
+<div class="pt-2 flex items-center gap-1 text-[#D4941A] font-semibold text-[14px]">
+                        了解更多
+                        <span class="material-symbols-outlined text-[16px]" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<div class="relative z-10">
+<span class="material-symbols-outlined text-[#D4941A] text-[52px]" data-icon="workspace_premium" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+</div>
+<!-- Menu Section 1 -->
+<div class="mx-4 bg-white rounded-2xl overflow-hidden shadow-sm border border-black/5">
+<!-- Row 1: Favorites -->
+<div class="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-red-600 text-[20px]" data-icon="favorite" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">我的收藏</span>
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="mx-4 h-[1px] bg-black/5"></div>
+<!-- Row 2: Personal Info -->
+<div class="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-blue-600 text-[20px]" data-icon="account_circle" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">个人信息</span>
+<span class="text-[14px] text-black/40 mr-1">未设置</span>
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="mx-4 h-[1px] bg-black/5"></div>
+<!-- Row 3: Goals -->
+<div class="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-[#1A6B3C]/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]" data-icon="target" style="font-variation-settings: 'FILL' 1;">target</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">训练目标</span>
+<span class="text-[14px] text-black/40 mr-1">未设置</span>
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="mx-4 h-[1px] bg-black/5"></div>
+<!-- Row 4: Subscription -->
+<div class="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-[#D4941A]/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#D4941A] text-[20px]" data-icon="crown" style="font-variation-settings: 'FILL' 1;">crown</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">订阅管理</span>
+<span class="text-[14px] text-[#D4941A] font-medium mr-1">升级 Pro</span>
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- Menu Section 2 -->
+<div class="mx-4 bg-white rounded-2xl overflow-hidden shadow-sm border border-black/5">
+<div class="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-600 text-[20px]" data-icon="settings" style="font-variation-settings: 'FILL' 1;">settings</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">偏好设置</span>
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="mx-4 h-[1px] bg-black/5"></div>
+<div class="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-[#1A6B3C]/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[20px]" data-icon="verified_user" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">隐私政策</span>
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="mx-4 h-[1px] bg-black/5"></div>
+<div class="flex items-center gap-3 px-4 py-3.5 active:bg-slate-50 transition-colors">
+<div class="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-purple-600 text-[20px]" data-icon="info" style="font-variation-settings: 'FILL' 1;">info</span>
+</div>
+<span class="flex-1 text-[16px] text-on-surface">关于与反馈</span>
+<span class="material-symbols-outlined text-black/20" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+<!-- Login Action Group -->
+<div class="mx-4 flex flex-col items-center gap-4 pt-4">
+<button class="w-full h-[50px] bg-[#1A6B3C] text-white font-semibold rounded-xl active:scale-95 transition-transform">
+                    登录 / 注册
+                </button>
+<button class="text-[13px] text-black/40 transition-opacity active:opacity-50">
+                    跳过，以游客身份继续
+                </button>
+</div>
+</main>
+<!-- Bottom NavBar (From Shared Components) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-2 pb-safe bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border-t border-[#005129]/15 shadow-[0_-4px_24px_rgba(0,81,41,0.04)] z-50 rounded-t-2xl">
+<!-- Training Tab -->
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-[#F3F3F8] dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="font-['SF_Pro','Inter'] text-[10px] font-medium">训练</span>
+</div>
+<!-- Library Tab -->
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-[#F3F3F8] dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-['SF_Pro','Inter'] text-[10px] font-medium">动作库</span>
+</div>
+<!-- Angle Tab -->
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-[#F3F3F8] dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="straighten">straighten</span>
+<span class="font-['SF_Pro','Inter'] text-[10px] font-medium">角度</span>
+</div>
+<!-- Record Tab -->
+<div class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-[#F3F3F8] dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['SF_Pro','Inter'] text-[10px] font-medium">记录</span>
+</div>
+<!-- Profile Tab (Active) -->
+<div class="flex flex-col items-center justify-center text-[#005129] dark:text-[#1A6B3C] font-semibold hover:bg-[#F3F3F8] dark:hover:bg-slate-800 rounded-xl transition-colors active:scale-90 transition-transform duration-200">
+<span class="material-symbols-outlined" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-['SF_Pro','Inter'] text-[10px]">我的</span>
+</div>
+</nav>
+</div>
+</body></html>

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>QiuJi - Active Training Overview</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;700&amp;family=JetBrains+Mono:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface": "#e2e2e2",
+                        "surface-variant": "#353535",
+                        "outline": "#879487",
+                        "surface": "#000000",
+                        "on-tertiary-container": "#3c2500",
+                        "on-tertiary-fixed": "#291800",
+                        "on-error-container": "#ffdad6",
+                        "tertiary": "#ffb955",
+                        "secondary": "#9ad4a6",
+                        "primary-fixed-dim": "#69dd8e",
+                        "inverse-primary": "#006d37",
+                        "on-primary-container": "#003116",
+                        "tertiary-fixed": "#ffddb4",
+                        "primary": "#25A25A",
+                        "outline-variant": "#3e4a3f",
+                        "background": "#000000",
+                        "inverse-surface": "#e2e2e2",
+                        "surface-container-highest": "#353535",
+                        "error": "#ffb4ab",
+                        "on-tertiary": "#452b00",
+                        "secondary-container": "#19512d",
+                        "surface-bright": "#393939",
+                        "primary-container": "#29a55d",
+                        "tertiary-fixed-dim": "#ffb955",
+                        "surface-container-high": "#2c2c2e",
+                        "on-primary": "#00391a",
+                        "surface-tint": "#25A25A",
+                        "tertiary-container": "#c68200",
+                        "on-background": "#e2e2e2",
+                        "surface-dim": "#000000",
+                        "surface-container-low": "#1b1b1b",
+                        "secondary-fixed-dim": "#9ad4a6",
+                        "on-tertiary-fixed-variant": "#633f00",
+                        "on-primary-fixed-variant": "#005228",
+                        "on-secondary-fixed": "#00210d",
+                        "on-secondary-fixed-variant": "#19512d",
+                        "primary-fixed": "#86faa8",
+                        "on-secondary": "#00391a",
+                        "inverse-on-surface": "#303030",
+                        "secondary-fixed": "#b5f1c0",
+                        "on-surface-variant": "rgba(235, 235, 240, 0.6)",
+                        "surface-container": "#1c1c1e",
+                        "on-error": "#690005",
+                        "error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Space Grotesk", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #000000;
+            color: #FFFFFF;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .timer-font {
+            font-family: 'JetBrains Mono', monospace;
+            font-variant-numeric: tabular-nums;
+        }
+        .glass-header {
+            background-color: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex justify-center items-start min-h-screen">
+<!-- Mobile Screen Wrapper (393px width constraint) -->
+<div class="w-full max-w-[393px] min-h-screen bg-black flex flex-col relative overflow-hidden">
+<!-- Status Bar Mock -->
+<div class="h-11 w-full flex items-center justify-between px-6 z-[60]">
+<span class="text-[15px] font-semibold">9:41</span>
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[18px]">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[18px]">wifi</span>
+<span class="material-symbols-outlined text-[18px]">battery_full</span>
+</div>
+</div>
+<!-- Top Area (Timer Bar) -->
+<header class="glass-header sticky top-0 z-50 flex flex-col w-full px-4 pt-2 pb-4">
+<div class="flex justify-between items-center mb-1">
+<span class="timer-font text-[28pt] font-bold text-[#25A25A]">00:12:34</span>
+<div class="flex items-center space-x-3">
+<button class="hover:opacity-80 transition-opacity"><span class="material-symbols-outlined text-[24px] text-white/60">notifications</span></button>
+<button class="hover:opacity-80 transition-opacity"><span class="material-symbols-outlined text-[24px] text-white/60">history</span></button>
+<button class="hover:opacity-80 transition-opacity"><span class="material-symbols-outlined text-[24px] text-white/60">swap_vert</span></button>
+<button class="hover:opacity-80 transition-opacity"><span class="material-symbols-outlined text-[24px] text-white/60">check_circle</span></button>
+</div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center space-x-1.5">
+<h1 class="font-headline text-[17pt] font-semibold text-white">基础直球训练</h1>
+<span class="material-symbols-outlined text-[18px] text-white/60">edit</span>
+</div>
+<span class="font-body text-[13pt] text-white/60">8/15 组  2/4 项目</span>
+</div>
+</header>
+<!-- Main Content (Drill List) -->
+<main class="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 pb-32">
+<div class="space-y-6">
+<!-- Drill Card 1 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-[12pt] flex items-center space-x-4">
+<!-- Billiard Table Thumbnail -->
+<div class="w-[56px] h-[56px] rounded-[8pt] bg-[#5C2E00] p-[3px] shrink-0 overflow-hidden relative border border-white/5">
+<div class="w-full h-full bg-[#144D2A] rounded-[5pt] relative">
+<!-- Ball Mockups -->
+<div class="absolute top-1/2 left-1/4 w-1.5 h-1.5 rounded-full bg-[#F5F5F5]"></div>
+<div class="absolute top-1/2 right-1/4 w-1.5 h-1.5 rounded-full bg-[#F5A623]"></div>
+</div>
+</div>
+<!-- Info -->
+<div class="flex-1 min-w-0">
+<h3 class="text-[17pt] font-semibold text-white truncate leading-tight">五分点直球</h3>
+<p class="text-[13pt] text-white/60 mb-1">5 组</p>
+<div class="flex items-center space-x-1">
+<div class="w-[6px] h-[6px] rounded-full bg-[#25A25A]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#25A25A]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#25A25A]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+</div>
+</div>
+<!-- Stats -->
+<div class="flex flex-col items-end shrink-0 space-y-1">
+<span class="text-[15pt] font-normal text-white">36/90</span>
+<span class="material-symbols-outlined text-[18px] text-white/30">settings</span>
+</div>
+</div>
+<!-- Drill Card 2 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-[12pt] flex items-center space-x-4">
+<div class="w-[56px] h-[56px] rounded-[8pt] bg-[#5C2E00] p-[3px] shrink-0 overflow-hidden relative border border-white/5">
+<div class="w-full h-full bg-[#144D2A] rounded-[5pt] relative">
+<div class="absolute bottom-1/4 left-1/3 w-1.5 h-1.5 rounded-full bg-[#F5F5F5]"></div>
+<div class="absolute top-1/3 right-1/3 w-1.5 h-1.5 rounded-full bg-[#F5A623]"></div>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-[17pt] font-semibold text-white truncate leading-tight">半台走位</h3>
+<p class="text-[13pt] text-white/60 mb-1">3 组</p>
+<div class="flex items-center space-x-1">
+<div class="w-[6px] h-[6px] rounded-full bg-[#25A25A]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0 space-y-1">
+<span class="text-[15pt] font-normal text-white">8/27</span>
+<span class="material-symbols-outlined text-[18px] text-white/30">settings</span>
+</div>
+</div>
+<!-- Drill Card 3 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-[12pt] flex items-center space-x-4">
+<div class="w-[56px] h-[56px] rounded-[8pt] bg-[#5C2E00] p-[3px] shrink-0 overflow-hidden relative border border-white/5">
+<div class="w-full h-full bg-[#144D2A] rounded-[5pt] relative">
+<div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#F5F5F5]"></div>
+<div class="absolute bottom-1/4 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#F5A623]"></div>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-[17pt] font-semibold text-white truncate leading-tight">定点叫位</h3>
+<p class="text-[13pt] text-white/60 mb-1">4 组</p>
+<div class="flex items-center space-x-1">
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0 space-y-1">
+<span class="text-[15pt] font-normal text-white">0/60</span>
+<span class="material-symbols-outlined text-[18px] text-white/30">settings</span>
+</div>
+</div>
+<!-- Drill Card 4 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-[12pt] flex items-center space-x-4">
+<div class="w-[56px] h-[56px] rounded-[8pt] bg-[#5C2E00] p-[3px] shrink-0 overflow-hidden relative border border-white/5">
+<div class="w-full h-full bg-[#144D2A] rounded-[5pt] relative">
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#F5F5F5]"></div>
+<div class="absolute top-1/3 left-1/4 w-1.5 h-1.5 rounded-full bg-[#F5A623]"></div>
+</div>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-[17pt] font-semibold text-white truncate leading-tight">自由击球</h3>
+<p class="text-[13pt] text-white/60 mb-1">3 组</p>
+<div class="flex items-center space-x-1">
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+<div class="w-[6px] h-[6px] rounded-full bg-[#3A3A3C]"></div>
+</div>
+</div>
+<div class="flex flex-col items-end shrink-0 space-y-1">
+<span class="text-[15pt] font-normal text-white">0/45</span>
+<span class="material-symbols-outlined text-[18px] text-white/30">settings</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Toolbar -->
+<nav class="fixed bottom-0 left-0 right-0 w-full max-w-[393px] mx-auto z-[70] bg-[#1C1C1E] border-t border-[#38383A] h-20 px-4 pb-6 flex justify-around items-center">
+<!-- Minimize -->
+<button class="flex flex-col items-center justify-center space-y-1 group">
+<span class="material-symbols-outlined text-[24px] text-white/60 group-active:scale-95 transition-transform">picture_in_picture_alt</span>
+<span class="text-[10pt] font-body text-white/60">最小化</span>
+</button>
+<!-- More -->
+<button class="flex flex-col items-center justify-center space-y-1 group">
+<span class="material-symbols-outlined text-[24px] text-white/60 group-active:scale-95 transition-transform">more_horiz</span>
+<span class="text-[10pt] font-body text-white/60">更多</span>
+</button>
+<!-- Center Add Button -->
+<div class="flex flex-col items-center justify-center -mt-8 relative z-50">
+<button class="w-14 h-14 bg-[#25A25A] rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all">
+<span class="material-symbols-outlined text-white text-[32px] font-bold">add</span>
+</button>
+<span class="text-[10pt] font-body text-[#25A25A] mt-2">添加</span>
+</div>
+<!-- Notes -->
+<button class="flex flex-col items-center justify-center space-y-1 group">
+<span class="material-symbols-outlined text-[24px] text-white/60 group-active:scale-95 transition-transform">edit_note</span>
+<span class="text-[10pt] font-body text-white/60">心得</span>
+</button>
+<!-- Switch View -->
+<button class="flex flex-col items-center justify-center space-y-1 group">
+<span class="material-symbols-outlined text-[24px] text-white/60 group-active:scale-95 transition-transform">list</span>
+<span class="text-[10pt] font-body text-white/60">切换</span>
+</button>
+</nav>
+<!-- Screen Indicator Bar -->
+<div class="fixed bottom-1 left-1/2 -translate-x-1/2 w-[134px] h-[5px] bg-white rounded-full z-[80]"></div>
+</div>
+</body></html>

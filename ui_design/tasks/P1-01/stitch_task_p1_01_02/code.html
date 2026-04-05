@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>QiuJi - Drill Library</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-container": "#e2dfe1",
+                    "on-tertiary-container": "#ffcf89",
+                    "tertiary": "#603f00",
+                    "on-error-container": "#93000a",
+                    "error": "#ba1a1a",
+                    "primary-fixed-dim": "#89d89e",
+                    "surface-container-low": "#f3f3f8",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#1b6c3d",
+                    "error-container": "#ffdad6",
+                    "inverse-surface": "#2e3034",
+                    "tertiary-fixed": "#ffddaf",
+                    "primary-container": "#1a6b3c",
+                    "secondary-fixed": "#e4e2e4",
+                    "surface-container": "#ededf2",
+                    "on-primary-fixed-variant": "#005229",
+                    "on-secondary-fixed-variant": "#474649",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-fixed-variant": "#614000",
+                    "on-secondary-container": "#636264",
+                    "on-secondary-fixed": "#1b1b1d",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-bright": "#f9f9fe",
+                    "outline": "#707a70",
+                    "on-tertiary-fixed": "#281800",
+                    "inverse-primary": "#89d89e",
+                    "on-primary-container": "#9ae9ae",
+                    "on-error": "#ffffff",
+                    "primary-fixed": "#a5f4b8",
+                    "inverse-on-surface": "#f0f0f5",
+                    "background": "#f9f9fe",
+                    "on-background": "#1a1c1f",
+                    "secondary": "#5f5e60",
+                    "surface-dim": "#d9dade",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed-dim": "#c8c6c8",
+                    "surface-container-highest": "#e2e2e7",
+                    "primary": "#005129",
+                    "outline-variant": "#bfc9be",
+                    "surface": "#f9f9fe",
+                    "surface-variant": "#e2e2e7",
+                    "surface-container-high": "#e8e8ed",
+                    "on-surface": "#1a1c1f",
+                    "tertiary-container": "#7f5500",
+                    "on-surface-variant": "#404940",
+                    "on-primary-fixed": "#00210d",
+                    "tertiary-fixed-dim": "#ffba44"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F9F9FE; -webkit-font-smoothing: antialiased; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-surface text-on-surface flex justify-center min-h-screen">
+<!-- Main Device Wrapper -->
+<div class="w-full max-w-[393px] bg-surface relative min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-[#F9F9FE] dark:bg-[#1A1C1F] flex items-center justify-between px-6 pt-12 pb-4 w-full docked full-width top-0 sticky z-50 transition-opacity">
+<h1 class="font-['Inter'] font-bold text-3xl leading-tight tracking-tight dark:text-[#1A6B3C]" style="color: #000000;">动作库</h1>
+<div class="flex gap-4">
+<button class="hover:opacity-80 transition-opacity active:scale-95 duration-200 text-[#5F5E60] opacity-60">
+<span class="material-symbols-outlined">search</span>
+</button>
+<button class="hover:opacity-80 transition-opacity active:scale-95 duration-200 text-[#5F5E60] opacity-60">
+<span class="material-symbols-outlined">tune</span>
+</button>
+</div>
+</header>
+<!-- Search Bar -->
+<div class="px-4 mb-4">
+<div class="relative flex items-center bg-surface-container rounded-xl px-3 py-2">
+<span class="material-symbols-outlined text-secondary text-lg mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full p-0 placeholder-secondary/60" placeholder="搜索动作" type="text"/>
+</div>
+</div>
+<!-- Scrollable Filters -->
+<div class="flex flex-col gap-3 mb-6">
+<!-- Ball Type Filter -->
+<div class="flex overflow-x-auto no-scrollbar gap-2 px-4">
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-[#1C1C1E] text-white text-sm font-medium">全部</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface-variant text-sm font-medium">中式台球</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface-variant text-sm font-medium">九球</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface-variant text-sm font-medium">通用</button>
+</div>
+<!-- Category Filter -->
+<div class="flex overflow-x-auto no-scrollbar gap-2 px-4">
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-[#1C1C1E] text-white text-sm font-medium">全部分类</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface-variant text-sm font-medium">基础功</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface-variant text-sm font-medium">准度训练</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface-variant text-sm font-medium">杆法</button>
+<button class="whitespace-nowrap px-4 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 text-on-surface-variant text-sm font-medium">分离角</button>
+</div>
+</div>
+<!-- Drill List Section -->
+<main class="flex-1 px-4 pb-32 space-y-8">
+<!-- Section: 基础功 -->
+<section>
+<h2 class="font-bold text-xl mb-4 pl-1 text-on-surface">基础功</h2>
+<div class="space-y-3">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl flex items-center gap-4 active:scale-[0.98] transition-transform">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="close up of a professional billiard player gripping a pool cue correctly on a green felt table" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVhY-zbvgwg2rmvCSxJ9hyE_wz23Cc302TfOWnDqMLCbNdLT1gKqxisPVil7k3HUN35zok1PKwPxvdGTufipX88wRuxJq5EzSKbb8XuPOxQczkmAfB2mJd44dDPhk1A-phVyzpQXLh6VWTUntbhNwXOt7NvH_Ydkxf2ApB1R3ZATL86tzo9QUmlQdq4RfLrteosCsFcaq6_het_S94hXQ5gy0k3svuFbNA3Gvw8LBC9ALa_Mx9eEOikhhwzwVgC77tzdOlWWDhhqM"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-semibold text-base text-on-surface">正确站姿与握杆</h3>
+<span class="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded uppercase bg-[#1A6B3C] text-white">L0 入门</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-xs text-secondary">通用</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant/40"></span>
+<span class="text-xs text-secondary">推荐 2 组</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[rgba(60,60,67,0.3)] ml-auto">chevron_right</span></div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl flex items-center gap-4 active:scale-[0.98] transition-transform">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="focused shot of a billiard bridge hand position on a luxury pool table with warm moody lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCkmc_QEDXw2RiSZJxr59XA05dBg4MQiLeNSN-X6zwsmxrt-5-237Dn6NYxGdr0FEPoZyTSdMqWTVqS62SrmoNm_d9FFE4dGlI-k95L8NEBISZAl94P9iKwvS2G_MoqZ_fIJCiqFkQ6-r_myit8hs4DHsPvkNUCOUFnSOO2ocYzKSjI4R98396O6e71h74uFXDLBQU0U7EjBt1UP6zH9HssrRjubWulZnayG7K4t_Ch4RBBuI69FMYZKxwlLYXsuMMi58sKvE10v8o"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-semibold text-base text-on-surface">标准架杆训练</h3>
+<span class="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded uppercase bg-[#1A6B3C] text-white">L0 入门</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-xs text-secondary">通用</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant/40"></span>
+<span class="text-xs text-secondary">推荐 3 组</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[rgba(60,60,67,0.3)] ml-auto">chevron_right</span></div>
+</div>
+</section>
+<!-- Section: 准度训练 -->
+<section>
+<div class="flex justify-between items-end mb-4 px-1">
+<h2 class="font-bold text-xl text-on-surface">准度训练</h2>
+<span class="text-xs text-primary font-medium">更多</span>
+</div>
+<div class="space-y-3">
+<!-- Card: 五分点准度训练 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl flex items-center gap-4 active:scale-[0.98] transition-transform">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="cinematic shot of a pool ball precisely aimed at a pocket on a high-end billiard table" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWCcWU5YWNmnI9dbcQ4cHU3LmPixRs_puaWoltoGDEwfd7LMYqjUIuATvdCwt5jBsYZyIBZwZrds1GrV1563sucD4idEsdcS7Oofk-MMFsIJdpLnWpXB4Jze-vCY-h-Dg6ozkbw5vHWATmLzCV_jRHD52olVOQffMkqt1u2rkBqAhSZDRHmJLg2aPrLkgpQ-2_nM5SVnLb-pKeZcCsnMWfwd0DUIsbMYFYz_aqhF8mYjd0cjl8WyqpKMltyDW8gZWzluflv946rWQ"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-semibold text-base text-on-surface">五分点准度训练</h3>
+<div class="flex gap-1.5">
+<span class="text-[11px] font-black px-1.5 py-0.5 rounded-sm bg-[#D4941A]/10 text-[#D4941A] border border-[#D4941A]/20">PRO</span>
+<span class="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded bg-[#D4941A]/10 text-[#D4941A] uppercase">L2 进阶</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-xs text-secondary">中式台球</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant/40"></span>
+<span class="text-xs text-secondary">推荐 4 组</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[rgba(60,60,67,0.3)] ml-auto">chevron_right</span></div>
+<!-- Card: 三分点精确瞄准 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl flex items-center gap-4 active:scale-[0.98] transition-transform">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="top down view of 9-ball billiard setup on bright blue table cloth with focus on alignment" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHhbJqe5RaReDu0APDgn9CY-VvnrJKEI0cr3SIM7UZivctujH5xYKJqKS0OUPwTZm6aa3AQfFjq6LEWZmrUsDYnBAzYCEru_TMlXSZ1clTzx4SgsO9FxVi5QwIul89OZi4gsSAE73UMKehCtHfZPAO4ZhUTvVuYSbsfxh3yDZ8gi62yhWZ5MHnbLZ7t9Uc0AUsfTjl7Lh86_ngy6NkbEVkqqw8nXUqOcOs8RnDF8sdmgp5yw0UABbiYxZMYhBjT4Awvn-M8cKivRg"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-semibold text-base text-on-surface">三分点精确瞄准</h3>
+<div class="flex gap-1.5">
+<span class="text-[11px] font-black px-1.5 py-0.5 rounded-sm bg-[#D4941A]/10 text-[#D4941A] border border-[#D4941A]/20">PRO</span>
+<span class="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded bg-[#D4941A]/10 text-[#D4941A] uppercase">L2 进阶</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-xs text-secondary">九球</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant/40"></span>
+<span class="text-xs text-secondary">推荐 4 组</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[rgba(60,60,67,0.3)] ml-auto">chevron_right</span></div>
+</div>
+</section>
+<!-- Section: 杆法 -->
+<section>
+<h2 class="font-bold text-xl mb-4 pl-1 text-on-surface">杆法</h2>
+<div class="space-y-3">
+<!-- Card: 高杆跟进练习 -->
+<div class="bg-surface-container-lowest p-4 rounded-xl flex items-center gap-4 active:scale-[0.98] transition-transform">
+<div class="w-16 h-16 rounded-lg bg-surface-container overflow-hidden flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="motion blur of a cue ball following through a shot on a green billiard table" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzzrndlfpsj3yxPRa4nquZjoVt7aHoRgmS79ZEjTCq305T9DoACcEQanXEhUZiTnzsgJPLjzODLSPXJwIsdiZLPVFNiTL1gTEbYQhKC6AbkEYzzC-xJbfUeKK4VRRqJFlgAVBc8EL0k5XKTgPMg3xq35gOhddXK3fRJTWTpY9Lk_T3So1xP_0Sz5-PkGaok3s4wO0HJnCG5WgKEUPLX7DhuDw1qR57gfopo_4l-4wE8tAQHtEMo8BcgBfdaGKEB0jgQeXioI18Aco"/>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h3 class="font-semibold text-base text-on-surface">高杆跟进练习</h3>
+<div class="flex gap-1.5">
+<span class="text-[11px] font-black px-1.5 py-0.5 rounded-sm bg-[#D4941A]/10 text-[#D4941A] border border-[#D4941A]/20">PRO</span>
+<span class="text-[10px] font-bold tracking-tight px-1.5 py-0.5 rounded bg-[#FF9800]/10 text-[#FF9800] uppercase">L3 熟练</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="text-xs text-secondary">中式台球</span>
+<span class="w-1 h-1 rounded-full bg-outline-variant/40"></span>
+<span class="text-xs text-secondary">推荐 5 组</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[rgba(60,60,67,0.3)] ml-auto">chevron_right</span></div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-safe bg-white/80 dark:bg-[#1A1C1F]/80 backdrop-blur-xl h-20 rounded-t-3xl shadow-[0px_-4px_16px_rgba(0,0,0,0.04)] z-50">
+<div class="flex flex-col items-center justify-center text-[#5F5E60] dark:text-[#BFC9BE] hover:text-[#1A6B3C] transition-colors active:scale-90 duration-200 ease-out">
+<span class="material-symbols-outlined mb-1">exercise</span>
+<span class="font-['Inter'] text-[10px] font-medium tracking-wide">训练</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#1A6B3C] relative after:content-[''] after:w-1 after:h-1 after:bg-[#1A6B3C] after:rounded-full after:mt-1 active:scale-90 duration-200 ease-out">
+<span class="material-symbols-outlined mb-1">library_books</span>
+<span class="font-['Inter'] text-[10px] font-medium tracking-wide">动作库</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#5F5E60] dark:text-[#BFC9BE] hover:text-[#1A6B3C] transition-colors active:scale-90 duration-200 ease-out">
+<span class="material-symbols-outlined mb-1">square_foot</span>
+<span class="font-['Inter'] text-[10px] font-medium tracking-wide">角度</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#5F5E60] dark:text-[#BFC9BE] hover:text-[#1A6B3C] transition-colors active:scale-90 duration-200 ease-out">
+<span class="material-symbols-outlined mb-1">calendar_today</span>
+<span class="font-['Inter'] text-[10px] font-medium tracking-wide">记录</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#5F5E60] dark:text-[#BFC9BE] hover:text-[#1A6B3C] transition-colors active:scale-90 duration-200 ease-out">
+<span class="material-symbols-outlined mb-1">person</span>
+<span class="font-['Inter'] text-[10px] font-medium tracking-wide">我的</span>
+</div>
+</nav>
+</div>
+</body></html>

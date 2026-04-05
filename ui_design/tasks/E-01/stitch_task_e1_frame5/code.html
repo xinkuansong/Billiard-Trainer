@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>训练计划 - 球迹 QiuJi</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary-fixed": "#86faa8",
+                        "primary-fixed-dim": "#69dd8e",
+                        "outline": "#879487",
+                        "on-background": "#e4e2e4",
+                        "on-tertiary-fixed-variant": "#693c00",
+                        "on-primary": "#00391a",
+                        "tertiary-fixed": "#ffdcbe",
+                        "error-container": "#93000a",
+                        "surface-container": "#1f1f21",
+                        "tertiary-fixed-dim": "#ffb870",
+                        "tertiary-container": "#d27c00",
+                        "background": "#131315",
+                        "surface-dim": "#131315",
+                        "surface-container-low": "#1b1b1d",
+                        "secondary-container": "#c78a00",
+                        "outline-variant": "#3e4a3f",
+                        "on-primary-fixed-variant": "#005228",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed": "#2c1600",
+                        "tertiary": "#ffb870",
+                        "surface-container-high": "#2a2a2c",
+                        "inverse-primary": "#006d37",
+                        "on-surface-variant": "#bdcabc",
+                        "surface-container-highest": "#353437",
+                        "secondary-fixed": "#ffdead",
+                        "secondary-fixed-dim": "#ffba3d",
+                        "on-primary-container": "#003116",
+                        "surface-tint": "#69dd8e",
+                        "on-tertiary": "#4a2800",
+                        "surface-bright": "#39393b",
+                        "on-tertiary-container": "#402300",
+                        "secondary": "#ffba3d",
+                        "surface-variant": "#353437",
+                        "primary": "#69dd8e",
+                        "on-primary-fixed": "#00210d",
+                        "on-secondary": "#432c00",
+                        "on-error": "#690005",
+                        "inverse-surface": "#e4e2e4",
+                        "on-secondary-fixed": "#281900",
+                        "on-surface": "#e4e2e4",
+                        "primary-container": "#29a55d",
+                        "error": "#ffb4ab",
+                        "inverse-on-surface": "#303032",
+                        "on-secondary-container": "#412a00",
+                        "on-secondary-fixed-variant": "#604100",
+                        "surface-container-lowest": "#0e0e10",
+                        "surface": "#131315"
+                    },
+                    fontFamily: {
+                        headline: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                        label: ["Inter", "sans-serif"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #131315;
+            color: #e4e2e4;
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .ios-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#131315]/80 ios-blur border-b border-[#38383A]/50">
+<div class="flex justify-between items-center w-full px-4 h-11">
+<button class="flex items-center text-[#25A25A] hover:opacity-70 transition-opacity active:scale-95 duration-100">
+<span class="material-symbols-outlined text-[20pt]">chevron_left</span>
+<span class="text-[17pt] ml-[-4px]">训练</span>
+</button>
+<h1 class="font-['Inter'] text-[17pt] font-semibold text-white tracking-tight">训练计划</h1>
+<button class="text-[#25A25A] text-[17pt] font-medium hover:opacity-70 transition-opacity active:scale-95 duration-100">新建</button>
+</div>
+</header>
+<main class="pt-16 pb-24 px-4 max-w-2xl mx-auto">
+<!-- Official Plans Section -->
+<section class="mt-4">
+<h2 class="text-[13pt] font-semibold text-white/60 mb-4 px-1">官方计划</h2>
+<!-- Level Group: 入门计划 -->
+<div class="mb-8">
+<h3 class="text-[18pt] font-bold text-white mb-4">入门计划</h3>
+<div class="space-y-4">
+<!-- Plan Card 1 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-4 flex gap-4 items-center">
+<div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Close up of a green billiards table surface with a single white cue ball in dramatic moody lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJCzJRwoSKdB02VTiJG_OfhVQ1QkxLLg5EO3qotUbiREq2zERKdUchR3MjmO0I7m-ntlmBZ7IvfYDboeFYU_uUGdBT2z9M9jmTke2B1_6QyE56ewyjLrRYrwiqVkIQT1iz0fKUZhSwEA_moTSWWK7Q82u2TAYoAsPVZj7DkCdR-HJdzJU9RcrTt_Sn4kB6wd-XXZscV9Im-oX2arQ5fg2ulkM9ataAAeyIe6o_KjbkSNDH7MgY9n33mgTWfNqBq8NdyAK4RHBEiG4"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#25A25A] text-white text-[10pt] font-bold px-2 py-0.5 rounded">L0</span>
+<span class="bg-[#2C2C2E] text-white text-[10pt] px-2 py-0.5 rounded">8 周</span>
+</div>
+<h4 class="text-white text-[15pt] font-semibold mb-1">新手入门 8 周计划</h4>
+<p class="text-white/60 text-[13pt]">从零开始系统学习台球基础</p>
+</div>
+</div>
+<!-- Plan Card 2 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-4 flex gap-4 items-center">
+<div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Macro shot of a billiard cue hitting a ball on a dark green felt table in a high-end sports arena" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCzG1MlCLJsq9-l1tAXhzDkOo8bOIRzdwOc-PfIkbd2ZP92aaF_sF4xo0vn27xsXat1v0ipAZO3gzMKXQ8Zv19YEzFWcwGbWBfScKu1byN8Dbie1ZjcWBNs0tajGv1LOn_zyEo7wg31Cc1SqI__R-xhfWe-BD5K5NinD5SP5F9DR8vtH5eptHNt0LW5l0C69wCyXopw-tcAeJy_AOmo1xEPashQl9kIWePlNi1vMnM4zJH98P6Xk1U3Rw1p-R5Yg-HQGyemYvb8S6E"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#25A25A]/15 text-[#25A25A] text-[10pt] font-bold px-2 py-0.5 rounded">L1</span>
+<span class="bg-[#2C2C2E] text-white text-[10pt] px-2 py-0.5 rounded">4 周</span>
+</div>
+<h4 class="text-white text-[15pt] font-semibold mb-1">基础杆法专项</h4>
+<p class="text-white/60 text-[13pt]">专项训练杆法基本功</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Level Group: 中级计划 -->
+<div class="mb-8">
+<h3 class="text-[18pt] font-bold text-white mb-4">中级计划</h3>
+<div class="space-y-4">
+<!-- Plan Card 3 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-4 flex gap-4 items-center">
+<div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 relative">
+<img class="w-full h-full object-cover" data-alt="Abstract cinematic view of several pool balls scattered on a dark table under a single overhead spotlight" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi0AnFIVrQ7YKQ1b4dpwDJg6TnLJMA1gZ9lUYX9UTE-p7XFGQv9DdHar6Tj_l77DgLlfewjchU8ZOm3QlwmX8Ynpvyr2ul1JxqI0pFEU3rv0VbbCDesbyyp_P-jst8n33Mt-dF-fcc7uFlnN8GFFKYJfZs59H34w5BSjofB2vmEuiBVV2-bYbqxXRBzBw9lSTjoMhIbNeeGwzVyKty2ln_z4t1IWjA-BBNkywYhg0AZaBzcbmY5lgQCsfOeDLdDxp53NITRnxAxr4"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#F0AD30]/15 text-[#F0AD30] text-[10pt] font-bold px-2 py-0.5 rounded">PRO L2</span>
+<span class="bg-[#2C2C2E] text-white text-[10pt] px-2 py-0.5 rounded">6 周</span>
+</div>
+<h4 class="text-white text-[15pt] font-semibold mb-1">走位突破训练</h4>
+<p class="text-white/60 text-[13pt]">系统训练走位能力与判断</p>
+</div>
+</div>
+<!-- Plan Card 4 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-4 flex gap-4 items-center">
+<div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Tightly framed shot of billiard balls in a rack on dark green felt with high contrast shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwJvifsLJegGLCXF7wOYSkl027MYUegGf5N4un5bN4GUQPrSwO_7qk577Nxy7sqefMMewbzcN50bxTMhmdlysHohEC9YsUsnIK89qvvBAs-5yJSQwNDz8T15P8dCjJhanz_Co9fuslpBKpywsocud5bNHnRBCdp0l-ypvxr9CvjE0CYhMnvTlV7SyfZTMnCUBpi6lHiiuvgaQ2J3J3Ht6D-EU2ZFIIYwt0t9HXfbObrJ4SoiDHK_DlvbQL4p6yQsqK1VehDaZfmpw"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#F0AD30]/15 text-[#F0AD30] text-[10pt] font-bold px-2 py-0.5 rounded">PRO L2</span>
+<span class="bg-[#2C2C2E] text-white text-[10pt] px-2 py-0.5 rounded">8 周</span>
+</div>
+<h4 class="text-white text-[15pt] font-semibold mb-1">中级综合突破</h4>
+<p class="text-white/60 text-[13pt]">全面提升中级选手水平</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Level Group: 高级计划 -->
+<div class="mb-8">
+<h3 class="text-[18pt] font-bold text-white mb-4">高级计划</h3>
+<div class="space-y-4">
+<!-- Plan Card 5 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-4 flex gap-4 items-center">
+<div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Close up of a billiard cue hitting a red ball with visible spin effect on a dark table surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDi6FrVvjU0sm-AO2Vmw1jl3WnPRAObanqOpjzzttUNjckxIh_l_XJ8njSIht4ztwnVYxwbPPdnTQYhNRxXCeRVNT18v-zyCUVuKuDFC2QU7qJ-ft8Fnl3128tDm4PBzuDHPzEtvrq2S1QsHN37-NkCjlof35AbhQKCDhxdaxrmXM8Y5gLArJ_bak3M74ZglpuDOK_H6UGowb_0sXUlf4NMczzrrmiowz2opHNM91VQZs7rs-fuWRSzG-Uc4nihFH0LdJthUXiE7No"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#FF9800]/15 text-[#FF9800] text-[10pt] font-bold px-2 py-0.5 rounded">PRO L3</span>
+<span class="bg-[#2C2C2E] text-white text-[10pt] px-2 py-0.5 rounded">6 周</span>
+</div>
+<h4 class="text-white text-[15pt] font-semibold mb-1">高级加塞与多库</h4>
+<p class="text-white/60 text-[13pt]">掌握进阶加塞与多库技术</p>
+</div>
+</div>
+<!-- Plan Card 6 -->
+<div class="bg-[#1C1C1E] rounded-[12pt] p-4 flex gap-4 items-center">
+<div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Moody image of a professional billiards player lining up a shot in a dark, atmospheric room" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQMjaIhBJNYLjFSw8mb3T13wYOD8PxHO-BnrGQHgL_zxJkVUvT3Po8MB7wbZvinabs6lD6glZA1eHQUnY_cgQKzoiGt0J7oTfq1UefFT1v1E73U5ZQbbdma0UYMg1SGdj4Ek6_9AKEeMilKkKrxwIt09myBSwj4jfZN1gBdFHOcDPxLE8YQfkIVSUrmQ1r8CeemmSCQSmQWHsm3bzitv74fu8FtLfem8P08UzM2joGdjQ0tQ7uyKESMXer6KraCbpWn59zLwHHR0U"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#FF9800]/15 text-[#FF9800] text-[10pt] font-bold px-2 py-0.5 rounded">PRO L3</span>
+<span class="bg-[#2C2C2E] text-white text-[10pt] px-2 py-0.5 rounded">12 周</span>
+</div>
+<h4 class="text-white text-[15pt] font-semibold mb-1">全能综合计划</h4>
+<p class="text-white/60 text-[13pt]">职业级全方位训练体系</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Custom Plans Section -->
+<section class="mt-8">
+<h2 class="text-[13pt] font-semibold text-white/60 mb-4 px-1">自定义计划</h2>
+<div class="bg-[#1C1C1E] rounded-[12pt] p-4 flex gap-4 items-center">
+<div class="w-20 h-20 rounded-lg bg-[#25A25A] flex-shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[40px]" style="font-variation-settings: 'FILL' 1;">edit_calendar</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="bg-[#2C2C2E] text-white text-[10pt] px-2 py-0.5 rounded">3 项训练</span>
+</div>
+<h4 class="text-white text-[15pt] font-semibold mb-1">我的练球日常</h4>
+<p class="text-white/60 text-[13pt]">每日基础练习组合</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 w-full bg-[#131315]/90 ios-blur py-2 px-6 flex justify-between items-center z-50">
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-[#25A25A]/80" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="text-[10px] text-[#25A25A]/80 mt-1">首页</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-[#25A25A]" style="font-variation-settings: 'FILL' 1;">fitness_center</span>
+<span class="text-[10px] text-[#25A25A] mt-1 font-medium">训练</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-white/40">bar_chart</span>
+<span class="text-[10px] text-white/40 mt-1">统计</span>
+</div>
+<div class="flex flex-col items-center">
+<span class="material-symbols-outlined text-white/40">person</span>
+<span class="text-[10px] text-white/40 mt-1">我的</span>
+</div>
+</nav>
+</body></html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="zh-Hans"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;700;800&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-fixed": "#ffddaf",
+                    "inverse-on-surface": "#313030",
+                    "primary": "#89d89e",
+                    "outline-variant": "#404940",
+                    "on-secondary-container": "#3b2500",
+                    "on-secondary-fixed": "#281800",
+                    "on-primary-fixed": "#00210d",
+                    "surface-variant": "#353534",
+                    "secondary": "#ffba44",
+                    "on-surface": "#e5e2e1",
+                    "on-tertiary": "#2f3131",
+                    "secondary-fixed-dim": "#ffba44",
+                    "error-container": "#93000a",
+                    "on-error-container": "#ffdad6",
+                    "error": "#ffb4ab",
+                    "surface-tint": "#89d89e",
+                    "on-tertiary-container": "#d7d7d8",
+                    "surface-bright": "#3a3939",
+                    "outline": "#899389",
+                    "on-tertiary-fixed": "#1a1c1c",
+                    "surface-container-highest": "#353534",
+                    "on-secondary": "#442c00",
+                    "surface-container-high": "#2a2a2a",
+                    "on-tertiary-fixed-variant": "#454747",
+                    "surface-container": "#201f1f",
+                    "secondary-container": "#c28500",
+                    "tertiary": "#c6c6c7",
+                    "primary-container": "#1a6b3c",
+                    "surface-container-low": "#1c1b1b",
+                    "primary-fixed": "#a5f4b8",
+                    "primary-fixed-dim": "#89d89e",
+                    "surface-dim": "#131313",
+                    "on-secondary-fixed-variant": "#614000",
+                    "inverse-primary": "#1b6c3d",
+                    "tertiary-fixed": "#e2e2e2",
+                    "surface": "#131313",
+                    "on-primary-fixed-variant": "#005229",
+                    "surface-container-lowest": "#0e0e0e",
+                    "background": "#111111",
+                    "tertiary-fixed-dim": "#c6c6c7",
+                    "on-primary": "#00391b",
+                    "on-error": "#690005",
+                    "on-primary-container": "#9ae9ae",
+                    "on-surface-variant": "#bfc9be",
+                    "tertiary-container": "#5c5e5e",
+                    "on-background": "#e5e2e1",
+                    "inverse-surface": "#e5e2e1"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Manrope", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', sans-serif; background-color: #111111; color: white; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(10px); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-black">
+<div class="w-[393px] h-[852px] bg-[#111111] overflow-hidden relative flex flex-col">
+<!-- Top Nav -->
+<header class="flex items-center justify-start px-4 h-12 w-full z-50">
+<button class="text-white/40 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-2xl" data-icon="close">close</span>
+</button>
+</header>
+<div class="flex-1 flex flex-col justify-between px-6 pb-6">
+<!-- Hero Section -->
+<div class="flex flex-col items-center mt-2 mb-6">
+<div class="w-[60pt] h-[60pt] rounded-full bg-gradient-to-br from-[#1a6b3c]/40 to-surface-container-highest flex items-center justify-center shadow-lg mb-4 ring-2 ring-[#1a6b3c]/20">
+<span class="material-symbols-outlined text-4xl text-[#1a6b3c]" style="font-variation-settings: 'FILL' 1;">sports_score</span>
+</div>
+<h1 class="text-[24pt] font-bold tracking-tight text-white mb-1">
+                    解锁球迹 <span class="text-[#D4941A]">Pro</span>
+</h1>
+<p class="text-[11px] text-white/40 text-center leading-relaxed">
+                    专为台球爱好者设计的专业训练系统
+                </p>
+</div>
+<!-- Pro Features -->
+<div class="space-y-[11pt] mb-6">
+<!-- Feature 1 -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-[22pt] h-[22pt] rounded-full border border-[#D4941A]/50 flex items-center justify-center text-[#D4941A] font-bold text-[10px]">1</div>
+<div>
+<p class="text-[13pt] text-white font-medium">完整动作库</p>
+<p class="text-[11pt] text-white/40">解锁全部 72 个训练动作</p>
+</div>
+</div>
+</div>
+<!-- Feature 2 -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-[22pt] h-[22pt] rounded-full border border-[#D4941A]/50 flex items-center justify-center text-[#D4941A] font-bold text-[10px]">2</div>
+<div>
+<p class="text-[13pt] text-white font-medium">统计与趋势图表</p>
+<p class="text-[11pt] text-white/40">可视化你的训练进度</p>
+</div>
+</div>
+</div>
+<!-- Feature 3 -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-[22pt] h-[22pt] rounded-full border border-[#D4941A]/50 flex items-center justify-center text-[#D4941A] font-bold text-[10px]">3</div>
+<div>
+<p class="text-[13pt] text-white font-medium">自定义训练计划</p>
+<p class="text-[11pt] text-white/40">打造你的专属训练方案</p>
+</div>
+</div>
+</div>
+<!-- Feature 4 -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-[22pt] h-[22pt] rounded-full border border-[#D4941A]/50 flex items-center justify-center text-[#D4941A] font-bold text-[10px]">4</div>
+<div>
+<p class="text-[13pt] text-white font-medium">无限角度测试</p>
+<p class="text-[11pt] text-white/40">不限次数提升角度感知</p>
+</div>
+</div>
+</div>
+<!-- Feature 5 -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-[22pt] h-[22pt] rounded-full border border-[#D4941A]/50 flex items-center justify-center text-[#D4941A] font-bold text-[10px]">5</div>
+<div>
+<p class="text-[13pt] text-white font-medium">训练分享卡全样式</p>
+<p class="text-[11pt] text-white/40">所有配色主题与分享模版</p>
+</div>
+</div>
+</div>
+<!-- Feature 6 -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-[22pt] h-[22pt] rounded-full border border-[#D4941A]/50 flex items-center justify-center text-[#D4941A] font-bold text-[10px]">6</div>
+<div>
+<p class="text-[13pt] text-white font-medium">云端同步</p>
+<p class="text-[11pt] text-white/40">多设备数据无缝同步</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Fixed Bottom Section (No Scroll) -->
+<div class="space-y-4">
+<!-- Pricing Section -->
+<div class="grid grid-cols-3 gap-2">
+<!-- Monthly -->
+<div class="glass-card rounded-[12pt] p-2 py-4 flex flex-col items-center justify-center border border-white/10 text-center">
+<span class="text-[10px] text-white/50 mb-1">月订阅</span>
+<span class="text-base font-bold">¥18</span>
+<span class="text-[9px] text-white/30 mt-1">/月</span>
+</div>
+<!-- Annual (Selected) -->
+<div class="relative glass-card rounded-[12pt] p-2 py-4 flex flex-col items-center justify-center border-2 border-[#1A6B3C] bg-[#1A6B3C]/10 text-center">
+<div class="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-[#1A6B3C] text-white text-[8px] font-bold rounded-full">推荐</div>
+<span class="material-symbols-outlined text-[#1A6B3C] text-xs absolute top-1 right-1" data-icon="check_circle" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span class="text-[10px] text-white/80 mb-1">年订阅</span>
+<span class="text-base font-bold">¥88</span>
+<span class="text-[9px] text-[#1A6B3C] mt-1">月均¥7.3</span>
+</div>
+<!-- Lifetime -->
+<div class="glass-card rounded-[12pt] p-2 py-4 flex flex-col items-center justify-center border border-[#D4941A]/40 text-center">
+<span class="text-[10px] text-white/50 mb-1">终身买断</span>
+<span class="text-base font-bold">¥198</span>
+<span class="text-[9px] text-[#D4941A] mt-1">一次性</span>
+</div>
+</div>
+<div class="space-y-4">
+<button class="w-full h-[44pt] bg-[#1A6B3C] rounded-[12pt] flex items-center justify-center text-white font-bold text-base shadow-lg active:scale-[0.98] transition-transform">
+                        立即订阅 — 年订阅 ¥88
+                    </button>
+<div class="flex flex-col items-center gap-2">
+<p class="text-[9px] text-white/20 text-center leading-tight max-w-[300px]">
+                            确认购买后将向您的 iTunes 账户扣款。订阅将自动续期，除非在当前期限结束前至少 24 小时关闭。
+                        </p>
+<div class="flex gap-4 text-[10px] text-white/20 font-medium pb-2">
+<a class="hover:text-white/40" href="#">恢复购买</a>
+<a class="hover:text-white/40" href="#">服务条款</a>
+<a class="hover:text-white/40" href="#">隐私政策</a>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

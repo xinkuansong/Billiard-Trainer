@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "error": "#ba1a1a",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-tertiary-fixed-variant": "#792d39",
+                    "inverse-on-surface": "#f0f0f5",
+                    "surface-container": "#ededf2",
+                    "background": "#F2F2F7",
+                    "on-secondary-fixed-variant": "#474649",
+                    "on-secondary-fixed": "#1b1b1d",
+                    "inverse-primary": "#89d89e",
+                    "surface-container-low": "#f3f3f8",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#c8c6c8",
+                    "tertiary": "#782c38",
+                    "primary-fixed": "#a5f4b8",
+                    "outline": "#707a70",
+                    "on-surface-variant": "#404940",
+                    "surface": "#f9f9fe",
+                    "surface-bright": "#f9f9fe",
+                    "surface-tint": "#1b6c3d",
+                    "on-primary": "#ffffff",
+                    "primary-container": "#1a6b3c",
+                    "tertiary-container": "#96434f",
+                    "secondary": "#5f5e60",
+                    "secondary-container": "#e2dfe1",
+                    "surface-variant": "#e2e2e7",
+                    "primary-fixed-dim": "#89d89e",
+                    "primary": "#005129",
+                    "inverse-surface": "#2e3034",
+                    "tertiary-fixed-dim": "#ffb2b9",
+                    "on-tertiary-fixed": "#3f0110",
+                    "on-background": "#1a1c1f",
+                    "on-primary-fixed-variant": "#005229",
+                    "tertiary-fixed": "#ffd9dc",
+                    "on-surface": "#1a1c1f",
+                    "on-secondary-container": "#636264",
+                    "on-primary-fixed": "#00210d",
+                    "secondary-fixed": "#e4e2e4",
+                    "surface-dim": "#d9dade",
+                    "on-error": "#ffffff",
+                    "surface-container-lowest": "#ffffff",
+                    "outline-variant": "#bfc9be",
+                    "surface-container-high": "#e8e8ed",
+                    "surface-container-highest": "#e2e2e7",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#9ae9ae",
+                    "on-tertiary-container": "#ffcace"
+            },
+            "borderRadius": {
+                    "DEFAULT": "1rem",
+                    "lg": "2rem",
+                    "xl": "3rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+        }
+        .ios-blur {
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-[#F2F2F7] text-on-surface font-body min-h-screen flex flex-col">
+<!-- Top Navigation Area -->
+<header class="flex flex-col w-full px-4 pt-12 pb-4 bg-[#F2F2F7] dark:bg-black docked full-width top-0">
+<div class="flex justify-between items-center mb-4">
+<h1 class="font-['SF_Pro'] font-bold text-[34pt] tracking-tight text-[#000000]">动作库</h1>
+<div class="flex gap-4">
+<span class="material-symbols-outlined cursor-pointer" data-icon="bookmark" style="color: rgba(60, 60, 67, 0.6);">bookmark</span>
+<span class="material-symbols-outlined cursor-pointer" data-icon="sort" style="color: rgba(60, 60, 67, 0.6);">sort</span>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="relative w-full mb-6">
+<div class="flex items-center bg-[#E5E5EA] rounded-xl px-3 py-2.5">
+<span class="material-symbols-outlined text-gray-500 mr-2" data-icon="search">search</span>
+<input class="bg-transparent border-none focus:ring-0 w-full text-[17pt] text-on-background placeholder-gray-500 p-0" type="text" value="直线球进阶"/>
+<button class="bg-gray-400 rounded-full w-5 h-5 flex items-center justify-center text-white ml-2">
+<span class="material-symbols-outlined text-[14px]" data-icon="close">close</span>
+</button>
+</div>
+</div>
+<!-- Filter Chips Row 1 -->
+<div class="flex overflow-x-auto hide-scrollbar gap-2 mb-3">
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-[#1C1C1E] text-white text-[14px] font-medium transition-all active:scale-95">全部</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">中式台球</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">九球</button>
+<button class="whitespace-nowrap px-6 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">通用</button>
+</div>
+<!-- Filter Chips Row 2 -->
+<div class="flex overflow-x-auto hide-scrollbar gap-2">
+<button class="whitespace-nowrap px-4 py-2 rounded-full bg-[#1C1C1E] text-white text-[14px] font-medium transition-all active:scale-95">全部分类</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">基础功</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">准度训练</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">杆法</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">分离角</button>
+<button class="whitespace-nowrap px-4 py-2 rounded-full bg-white border border-[#D1D1D6]/30 text-secondary text-[14px] font-medium transition-all active:scale-95">走位</button>
+</div>
+</header>
+<!-- Empty State Content -->
+<main class="flex-grow flex flex-col items-center justify-center px-8 pb-32">
+<div class="w-full max-w-xs flex flex-col items-center text-center">
+<div class="mb-6 flex items-center justify-center w-24 h-24 rounded-full bg-[#1A6B3C]/5">
+<span class="material-symbols-outlined text-[64px] text-[#1A6B3C]/30" data-icon="search_off">search_off</span>
+</div>
+<h2 class="text-[22pt] font-bold text-on-background mb-3">没有找到相关动作</h2>
+<p class="text-[15pt] text-secondary leading-relaxed mb-8">试试其他关键词或浏览分类</p>
+<button class="w-[240pt] h-[44pt] bg-[#1A6B3C] text-white text-[17pt] font-bold rounded-xl transition-all active:scale-95 hover:opacity-90 shadow-sm">
+                浏览全部动作
+            </button>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-2 pb-8 h-20 bg-white/80 dark:bg-black/80 backdrop-blur-xl z-50 border-t border-gray-200/50 dark:border-gray-800/50 shadow-[0_-1px_0_0_rgba(0,0,0,0.05)]">
+<div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 tap-highlight-none">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="font-['SF_Pro'] text-[10pt] font-medium mt-1">训练</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#1A6B3C] dark:text-[#1A6B3C] tap-highlight-none">
+<span class="material-symbols-outlined" data-icon="style" data-weight="fill" style="font-variation-settings: 'FILL' 1;">style</span>
+<span class="font-['SF_Pro'] text-[10pt] font-medium mt-1">动作库</span>
+</div>
+<div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 tap-highlight-none">
+<span class="material-symbols-outlined" data-icon="straighten">straighten</span>
+<span class="font-['SF_Pro'] text-[10pt] font-medium mt-1">角度</span>
+</div>
+<div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 tap-highlight-none">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-['SF_Pro'] text-[10pt] font-medium mt-1">记录</span>
+</div>
+<div class="flex flex-col items-center justify-center text-gray-400 dark:text-gray-600 tap-highlight-none">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['SF_Pro'] text-[10pt] font-medium mt-1">我的</span>
+</div>
+</nav>
+</body></html>

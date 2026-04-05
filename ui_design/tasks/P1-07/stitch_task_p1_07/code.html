@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=393px, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#bfc9be",
+                    "surface-tint": "#1b6c3d",
+                    "on-secondary-fixed-variant": "#614000",
+                    "secondary-container": "#fcb73f",
+                    "on-primary-fixed-variant": "#005229",
+                    "primary-fixed-dim": "#89d89e",
+                    "surface-variant": "#e2e2e7",
+                    "error-container": "#ffdad6",
+                    "secondary-fixed-dim": "#ffba44",
+                    "on-background": "#1a1c1f",
+                    "on-tertiary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "inverse-surface": "#2e3034",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#f3f3f8",
+                    "on-tertiary-fixed": "#1b1b21",
+                    "surface-container-highest": "#e2e2e7",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-bright": "#f9f9fe",
+                    "background": "#f9f9fe",
+                    "on-surface": "#1a1c1f",
+                    "on-primary-fixed": "#00210d",
+                    "on-error-container": "#93000a",
+                    "tertiary-container": "#5d5d64",
+                    "inverse-on-surface": "#f0f0f5",
+                    "inverse-primary": "#89d89e",
+                    "on-secondary-fixed": "#281800",
+                    "on-tertiary-fixed-variant": "#46464d",
+                    "on-surface-variant": "#404940",
+                    "tertiary": "#46454d",
+                    "primary-container": "#1a6b3c",
+                    "primary": "#005129",
+                    "on-tertiary-container": "#d8d6df",
+                    "surface-dim": "#d9dade",
+                    "surface": "#f9f9fe",
+                    "tertiary-fixed-dim": "#c7c5ce",
+                    "primary-fixed": "#a5f4b8",
+                    "secondary-fixed": "#ffddaf",
+                    "on-primary-container": "#9ae9ae",
+                    "on-secondary-container": "#6e4900",
+                    "outline": "#707a70",
+                    "on-secondary": "#ffffff",
+                    "surface-container": "#ededf2",
+                    "tertiary-fixed": "#e3e1ea",
+                    "surface-container-high": "#e8e8ed",
+                    "secondary": "#805600"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "16pt",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+                    "body": ["Inter", "system-ui", "sans-serif"],
+                    "label": ["Inter", "system-ui", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F2F2F7; width: 393px; margin: 0 auto; min-height: 100vh; color: #1a1c1f; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; font-size: 24px; }
+        .ios-shadow { shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .rounded-title { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="pb-24">
+<!-- Top Navigation -->
+<header class="sticky top-0 z-50 bg-[#F2F2F7]/80 backdrop-blur-xl px-5 pt-12 pb-4">
+<div class="flex justify-between items-center mb-2">
+<h1 class="text-[34pt] font-bold tracking-tight text-black rounded-title">记录</h1>
+<div class="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-gray-600" data-icon="settings">settings</span>
+</div>
+</div>
+<!-- BTSegmentedTab -->
+<div class="flex gap-6 mt-4 border-b border-transparent">
+<button class="pb-2 text-[17pt] font-semibold text-[#1A6B3C] border-b-2 border-[#1A6B3C]">历史</button>
+<button class="pb-2 text-[17pt] font-medium text-[rgba(60,60,67,0.6)]">统计</button>
+</div>
+</header>
+<main class="px-5 space-y-6">
+<!-- Month Navigation & Functional Buttons -->
+<div class="flex flex-col space-y-4 pt-2">
+<div class="flex items-center justify-center space-x-6">
+<button class="text-[rgba(60,60,67,0.6)]">
+<span class="material-symbols-outlined" data-icon="chevron_left">chevron_left</span>
+</button>
+<span class="text-[17pt] font-bold">2026年4月</span>
+<button class="text-[rgba(60,60,67,0.6)]">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<div class="flex gap-2">
+<button class="px-4 py-1.5 bg-[#1A6B3C]/10 text-[#1A6B3C] rounded-full text-[13pt] font-medium">月报</button>
+<button class="px-4 py-1.5 bg-surface-container text-gray-500 rounded-full text-[13pt] font-medium">日历设置</button>
+</div>
+</div>
+<!-- Calendar Card -->
+<section class="bg-white rounded-xl p-4 shadow-sm">
+<!-- Weekday Header -->
+<div class="grid grid-cols-7 mb-4">
+<span class="text-center text-[13pt] text-gray-400">一</span>
+<span class="text-center text-[13pt] text-gray-400">二</span>
+<span class="text-center text-[13pt] text-gray-400">三</span>
+<span class="text-center text-[13pt] text-gray-400">四</span>
+<span class="text-center text-[13pt] text-gray-400">五</span>
+<span class="text-center text-[13pt] text-gray-400">六</span>
+<span class="text-center text-[13pt] text-gray-400 text-red-400">日</span>
+</div>
+<!-- Calendar Grid (April 2026 starting Wed) -->
+<div class="grid grid-cols-7 gap-y-4">
+<!-- Empty slots for Mon/Tue -->
+<div></div><div></div>
+<!-- April 1 -->
+<div class="flex flex-col items-center">
+<span class="w-9 h-9 flex items-center justify-center text-[15pt]">1</span>
+</div>
+<!-- April 2 (Selected) -->
+<div class="flex flex-col items-center">
+<span class="w-9 h-9 border-2 border-[#1A6B3C] rounded-full flex items-center justify-center text-[15pt] text-[#1A6B3C] font-semibold">2</span>
+<span class="text-[9pt] text-[#1A6B3C] mt-0.5">杆法</span>
+</div>
+<!-- April 3 -->
+<div class="flex flex-col items-center">
+<span class="w-9 h-9 flex items-center justify-center text-[15pt]">3</span>
+</div>
+<!-- April 4 (Today) -->
+<div class="flex flex-col items-center">
+<span class="w-9 h-9 bg-[#1A6B3C] rounded-full flex items-center justify-center text-[15pt] text-white font-semibold">4</span>
+<span class="text-[9pt] text-[#1A6B3C] mt-0.5">准度</span>
+</div>
+<!-- April 5 - 12 (Simplified loop) -->
+<div class="flex flex-col items-center"><span class="w-9 h-9 flex items-center justify-center text-[15pt] text-red-400">5</span></div>
+<div class="flex flex-col items-center"><span class="w-9 h-9 flex items-center justify-center text-[15pt]">6</span></div>
+<div class="flex flex-col items-center"><span class="w-9 h-9 flex items-center justify-center text-[15pt]">7</span></div>
+<div class="flex flex-col items-center"><span class="w-9 h-9 flex items-center justify-center text-[15pt]">8</span></div>
+<div class="flex flex-col items-center">
+<span class="w-9 h-9 flex items-center justify-center text-[15pt]">9</span>
+<span class="text-[9pt] text-[#1A6B3C] mt-0.5">走位</span>
+</div>
+<div class="flex flex-col items-center"><span class="w-9 h-9 flex items-center justify-center text-[15pt]">10</span></div>
+<div class="flex flex-col items-center"><span class="w-9 h-9 flex items-center justify-center text-[15pt]">11</span></div>
+<div class="flex flex-col items-center"><span class="w-9 h-9 flex items-center justify-center text-[15pt] text-red-400">12</span></div>
+</div>
+</section>
+<!-- Training List -->
+<section class="space-y-4">
+<h2 class="text-[15pt] font-semibold text-black px-1">4月2日 周三</h2>
+<!-- Card 1 -->
+<div class="bg-white rounded-xl p-4 shadow-sm flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-[#1A6B3C]"></div>
+<h3 class="text-[17pt] font-semibold">杆法专项训练</h3>
+</div>
+<div class="flex flex-wrap gap-x-4 gap-y-1 text-[rgba(60,60,67,0.6)] text-[14pt]">
+<span>3 项目</span>
+<span>15 组</span>
+<span>42 分钟</span>
+<span>14:30-15:12</span>
+</div>
+<div class="mt-2 h-[120px] rounded-lg overflow-hidden bg-surface-container relative">
+<img alt="Billiard table practice" class="w-full h-full object-cover opacity-60" data-alt="close-up of billiard table green felt with three balls arranged in a drill pattern, focused soft lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDkb9mYmjCXzYzNSLA-FqNkKTrsmayw9T-uHrOLLe1ACpthSGc4StWzk0_nR_dJDFAnJe14B4_KMEog4mbSNNImEI8mx8qjXz10rhirhg0J-Bud9MhTXk0Mkh_E2YEwt0nF6fWVSGrOMmZFXw-8chwwL5G5VtlhCfuqMu37Q-mZn8W9h27dX-HKT7hvac_ZruzyZRO7H_LFifOvsFBF69yHvWSsxcUh4FENVXJq85M4b-uAh7KghO7YdR0i_xVMZ_j9E4Eqd4mJPw"/>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#1A6B3C]" data-icon="play_circle">play_circle</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-white rounded-xl p-4 shadow-sm flex flex-col gap-2">
+<div class="flex items-center gap-2">
+<div class="w-2.5 h-2.5 rounded-full bg-[#D4941A]"></div>
+<h3 class="text-[17pt] font-semibold">准度练习</h3>
+</div>
+<div class="flex flex-wrap gap-x-4 gap-y-1 text-[rgba(60,60,67,0.6)] text-[14pt]">
+<span>2 项目</span>
+<span>8 组</span>
+<span>25 分钟</span>
+<span>16:00-16:25</span>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-20 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl border-t border-transparent flex justify-around items-center px-2 pb-safe z-50">
+<!-- 训练 -->
+<a class="flex flex-col items-center justify-center text-gray-500" href="#">
+<span class="material-symbols-outlined" data-icon="fitness_center">fitness_center</span>
+<span class="text-[10pt] mt-1 font-medium">训练</span>
+</a>
+<!-- 动作库 -->
+<a class="flex flex-col items-center justify-center text-gray-500" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="text-[10pt] mt-1 font-medium">动作库</span>
+</a>
+<!-- 角度 -->
+<a class="flex flex-col items-center justify-center text-gray-500" href="#">
+<span class="material-symbols-outlined" data-icon="straighten">straighten</span>
+<span class="text-[10pt] mt-1 font-medium">角度</span>
+</a>
+<!-- 记录 (Active) -->
+<a class="flex flex-col items-center justify-center text-[#1A6B3C] font-semibold" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_today" style="font-variation-settings: 'FILL' 1;">calendar_today</span>
+<span class="text-[10pt] mt-1">记录</span>
+</a>
+<!-- 我的 -->
+<a class="flex flex-col items-center justify-center text-gray-500" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="text-[10pt] mt-1 font-medium">我的</span>
+</a>
+</nav>
+</body></html>

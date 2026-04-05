@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>球迹 - 我的收藏</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-dim": "#dad9df",
+                        "secondary-container": "#caebce",
+                        "on-surface": "#1a1b1f",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-bright": "#faf9fe",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb2b9",
+                        "secondary": "#48654e",
+                        "inverse-surface": "#2f3034",
+                        "primary": "#005129",
+                        "primary-fixed": "#a5f4b8",
+                        "tertiary": "#782c38",
+                        "outline-variant": "#bfc9be",
+                        "on-primary": "#ffffff",
+                        "on-secondary-container": "#4e6b54",
+                        "on-secondary-fixed-variant": "#314d38",
+                        "inverse-on-surface": "#f1f0f5",
+                        "tertiary-fixed": "#ffd9dc",
+                        "surface": "#faf9fe",
+                        "primary-container": "#1a6b3c",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f4f3f8",
+                        "surface-container-high": "#e9e7ed",
+                        "background": "#faf9fe",
+                        "error": "#ba1a1a",
+                        "surface-tint": "#1b6c3d",
+                        "secondary-fixed": "#caebce",
+                        "inverse-primary": "#89d89e",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#3f0110",
+                        "on-primary-fixed": "#00210d",
+                        "on-secondary-fixed": "#05210f",
+                        "on-background": "#1a1b1f",
+                        "outline": "#707a70",
+                        "surface-container": "#eeedf3",
+                        "on-primary-fixed-variant": "#005229",
+                        "on-tertiary-fixed-variant": "#792d39",
+                        "surface-variant": "#e3e2e7",
+                        "secondary-fixed-dim": "#aeceb3",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#e3e2e7",
+                        "on-primary-container": "#9ae9ae",
+                        "primary-fixed-dim": "#89d89e",
+                        "on-surface-variant": "#404940",
+                        "tertiary-container": "#96434f",
+                        "on-tertiary-container": "#ffcace"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: #F2F2F7;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Custom iOS separation line */
+        .ios-separator {
+            height: 0.5px;
+            background-color: #E5E5EA;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="flex flex-col items-center justify-start min-h-screen">
+<!-- Screen Container (iPhone 15 Pro dimensions) -->
+<main class="w-[393px] h-[852px] bg-[#F2F2F7] relative flex flex-col overflow-hidden shadow-2xl">
+<!-- Status Bar Placeholder -->
+<div class="h-11 w-full flex items-center justify-between px-8 pt-4">
+<span class="text-[15px] font-semibold text-zinc-900">9:41</span>
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[18px]">signal_cellular_4_bar</span>
+<span class="material-symbols-outlined text-[18px]">wifi</span>
+<span class="material-symbols-outlined text-[20px]">battery_very_low</span>
+</div>
+</div>
+<!-- Top Navigation Bar (Shared Component Logic Applied) -->
+<header class="bg-white/70 backdrop-blur-xl sticky top-0 z-50">
+<div class="flex items-center justify-between px-4 w-full h-11">
+<div class="flex items-center cursor-pointer active:opacity-50 transition-opacity">
+<span class="material-symbols-outlined text-[#1A6B3C] text-[24px]">chevron_left</span>
+<span class="text-[#1A6B3C] text-[17px] -ml-1">我的</span>
+</div>
+<div class="absolute left-1/2 -translate-x-1/2">
+<h1 class="text-[17px] font-semibold text-zinc-900">我的收藏</h1>
+</div>
+<div class="w-12"></div> <!-- Spacer for centering -->
+</div>
+<div class="ios-separator"></div>
+</header>
+<!-- Main Content Area: Empty State -->
+<section class="flex-1 flex flex-col items-center justify-center px-8 text-center">
+<!-- Empty State Icon (BTEmptyState) -->
+<div class="mb-4">
+<!-- Representing 'star.slash' aesthetic with material symbol -->
+<span class="material-symbols-outlined text-[48pt] text-[#1A6B3C]/30" style="font-variation-settings: 'wght' 300;">
+                    star_half
+                </span>
+</div>
+<!-- Empty State Title -->
+<h2 class="text-[22pt] font-bold text-zinc-900 mb-2 leading-tight">
+                还没有收藏
+            </h2>
+<!-- Empty State Subtitle -->
+<p class="text-[15pt] text-zinc-500 font-normal mb-8 leading-snug">
+                去动作库看看吧
+            </p>
+<!-- CTA Button -->
+<button class="bg-[#1A6B3C] text-white text-[17pt] font-bold h-[44pt] w-[200pt] rounded-[12pt] shadow-sm active:scale-95 transition-transform duration-200">
+                浏览动作库
+            </button>
+</section>
+<!-- Tactical Surface Decoration (Optional visual anchor consistent with Design System) -->
+<div class="absolute bottom-12 left-1/2 -translate-x-1/2 w-32 h-1.5 bg-zinc-300/30 rounded-full"></div>
+<!-- Background Imagery for Depth (Subtle) -->
+<div class="absolute inset-0 -z-10 pointer-events-none opacity-5">
+<div class="absolute top-1/4 left-10 w-64 h-64 bg-[#1A6B3C] blur-[120px] rounded-full"></div>
+<div class="absolute bottom-1/4 right-10 w-48 h-48 bg-zinc-400 blur-[100px] rounded-full"></div>
+</div>
+</main>
+<!-- Contextual Information (Invisible) -->
+<div class="hidden">
+<img data-alt="minimalist white pool ball on a pristine dark green velvet table with sharp studio lighting and deep shadows" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWKzJBjK3LHzDpc2iyC7eZnejh4qU2ZiLc2kpLhZWSBJNX35E4DmxIYjfADHHHDL-6pf0PPDuUNVJTaadlo3sxcmBRZE-yLEsUqSmtxI81c2DdL9eftmFNWPwiDSw4z_XgRE78tby6-Ni4itoypXmpS0rsiz8smy-3oBfTH0-xOWZIukjkIUT9BPxRYkMqdccj4uneR4coSBmM1MwS79nhMoPOgOsXKBQuGoGBcc8o3_Xewba6FmwNQ9bwcMnnsacm6gViuoxl8kA"/>
+<img data-alt="professional billiards rack with clean geometric lines on a soft grey background for tactical sports app" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRhNGDY3yk-HiI03gySa0LtO8gADPHNMePJ26tNtKciRT4cLYy9wkR9v6nAwLeb7b4Un4FI_LmpuSXKWSeO9Pa0BC65Qz-ZzIQDkoKoyXgm209EWoKgAoBN9NWQf0nJjwSaVWqGTnSO_TDFjdC8X3coS8efKWUkfMkND0bPXBuFe6omZD6KUGcuVkcknR4zX8UTRL4WxldWZWmWoixp8-74QYrULfdRL0IUwh-d4D-6JmUNwHVbqmn7jcd9HeF044dJ85-xoURNOc"/>
+</div>
+</body></html>
