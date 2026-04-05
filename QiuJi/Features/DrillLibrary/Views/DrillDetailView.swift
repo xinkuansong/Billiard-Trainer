@@ -6,33 +6,67 @@ struct DrillDetailView: View {
 
     @State private var drill: DrillContent?
     @State private var animationProgress: CGFloat = 0
+    @State private var showSubscription = false
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     private var isFavorited: Bool {
         favorites.contains { $0.drillId == drillId }
     }
 
+    private var isLocked: Bool {
+        guard let drill else { return false }
+        return drill.isPremium && !subscriptionManager.isPremium
+    }
+
     var body: some View {
-        ScrollView {
-            if let drill {
-                VStack(alignment: .leading, spacing: Spacing.xl) {
-                    tableSection(drill)
-                    infoSection(drill)
-                    coachingSection(drill)
-                    criteriaSection(drill)
-                    videoPlaceholder
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                if let drill {
+                    VStack(alignment: .leading, spacing: Spacing.xl) {
+                        tableSection(drill)
+
+                        Text(drill.nameZh)
+                            .font(.btTitle)
+                            .foregroundStyle(.btText)
+                            .padding(.horizontal, Spacing.lg)
+
+                        actionIconRow
+                        tagsRow(drill)
+
+                        notesCard
+
+                        if isLocked {
+                            BTPremiumLock(mode: .progressive(visibleItems: 1), onSubscribeTap: {
+                                showSubscription = true
+                            }) {
+                                coachingSection(drill)
+                            }
+                        } else {
+                            coachingSection(drill)
+                            criteriaSection(drill)
+                            dimensionsSection(drill)
+                            videoSection
+                        }
+                    }
+                    .padding(.bottom, 100)
+                } else {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, minHeight: 400)
                 }
-                .padding(.bottom, Spacing.xxxl)
-                .premiumGate(isPremium: drill.isPremium)
-            } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 400)
+            }
+            .background(.btBG)
+
+            if drill != nil {
+                bottomBar
             }
         }
-        .background(.btBG)
         .navigationTitle(drill?.nameZh ?? "加载中")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -49,48 +83,89 @@ struct DrillDetailView: View {
                 animationProgress = 1
             }
         }
+        .sheet(isPresented: $showSubscription) {
+            SubscriptionView()
+                .environmentObject(subscriptionManager)
+        }
     }
 
     // MARK: - Table Canvas
 
     private func tableSection(_ drill: DrillContent) -> some View {
-        VStack(spacing: Spacing.md) {
+        ZStack(alignment: .bottom) {
             BTBilliardTable(animation: drill.animation, animationProgress: $animationProgress)
-                .padding(.horizontal, Spacing.lg)
 
-            Button {
-                animationProgress = 0
-                withAnimation(.easeInOut(duration: 1.4)) {
-                    animationProgress = 1
+            HStack {
+                Button {
+                    animationProgress = 0
+                    withAnimation(.easeInOut(duration: 1.4)) {
+                        animationProgress = 1
+                    }
+                } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.btFootnote14)
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(.black.opacity(0.4))
+                        .clipShape(Circle())
                 }
-            } label: {
-                Label("重放", systemImage: "arrow.counterclockwise")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btPrimary)
+
+                Spacer()
             }
+            .padding(Spacing.md)
+        }
+        .padding(.horizontal, Spacing.lg)
+    }
+
+    // MARK: - Action Icon Row (gray, not green)
+
+    private var actionIconRow: some View {
+        HStack(spacing: Spacing.xxl) {
+            actionIcon(symbol: "list.bullet", label: "要点")
+            actionIcon(symbol: "clock.arrow.circlepath", label: "历史")
+            actionIcon(symbol: "chart.line.uptrend.xyaxis", label: "图表")
+        }
+        .padding(.horizontal, Spacing.lg)
+    }
+
+    private func actionIcon(symbol: String, label: String) -> some View {
+        VStack(spacing: Spacing.xs) {
+            Image(systemName: symbol)
+                .font(.btBody)
+                .foregroundStyle(.btTextSecondary)
+                .frame(width: 44, height: 44)
+                .background(.btBGTertiary)
+                .clipShape(Circle())
+
+            Text(label)
+                .font(.btCaption2)
+                .foregroundStyle(.btTextSecondary)
         }
     }
 
-    // MARK: - Info
+    // MARK: - Tags Row
 
-    private func infoSection(_ drill: DrillContent) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(spacing: Spacing.sm) {
-                BTLevelBadge(level: DrillLevel(rawValue: drill.level) ?? .L0)
-
-                Text(DrillCategory(rawValue: drill.category)?.nameZh ?? drill.category)
-                    .font(.btSubheadline)
+    private func tagsRow(_ drill: DrillContent) -> some View {
+        HStack(spacing: Spacing.sm) {
+            ForEach(drill.ballType, id: \.self) { ball in
+                Text(ball)
+                    .font(.btCaption2)
                     .foregroundStyle(.btTextSecondary)
-
-                Spacer()
-
-                difficultyDots(drill.difficulty)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.xs)
+                    .background(.btBGTertiary)
+                    .clipShape(Capsule())
             }
 
-            Text(drill.description)
-                .font(.btBody)
-                .foregroundStyle(.btText)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(DrillCategory(rawValue: drill.category)?.nameZh ?? drill.category)
+                .font(.btCaption2)
+                .foregroundStyle(.btTextSecondary)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.xs)
+                .background(.btBGTertiary)
+                .clipShape(Capsule())
+
+            BTLevelBadge(level: DrillLevel(rawValue: drill.level) ?? .L0)
         }
         .padding(.horizontal, Spacing.lg)
     }
@@ -99,7 +174,7 @@ struct DrillDetailView: View {
 
     private func coachingSection(_ drill: DrillContent) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("教学要点")
+            Text("训练要点")
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
@@ -120,6 +195,20 @@ struct DrillDetailView: View {
                     }
                 }
             }
+
+            Button {
+                // Future: navigate to tutorial article
+            } label: {
+                Text("查看精讲")
+                    .font(.btFootnote)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.btPrimary)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, Spacing.sm)
+                    .background(Color.btPrimaryMuted)
+                    .clipShape(Capsule())
+            }
+            .frame(maxWidth: .infinity)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
@@ -158,36 +247,205 @@ struct DrillDetailView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Video Placeholder
+    // MARK: - Notes Card
 
-    private var videoPlaceholder: some View {
-        VStack(spacing: Spacing.sm) {
-            Image(systemName: "video.slash")
-                .font(.system(size: 32))
-                .foregroundStyle(.btTextTertiary)
+    private var notesCard: some View {
+        HStack(spacing: Spacing.md) {
+            Image(systemName: "square.and.pencil")
+                .font(.btBody)
+                .foregroundStyle(.btPrimary)
 
-            Text("视频内容即将上线")
-                .font(.btFootnote)
-                .foregroundStyle(.btTextTertiary)
+            Text("点击此处输入备注")
+                .font(.btCallout)
+                .foregroundStyle(.btPrimary)
+
+            Spacer()
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 120)
+        .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Helpers
+    // MARK: - Training Dimensions
 
-    private func difficultyDots(_ difficulty: Int) -> some View {
-        HStack(spacing: 3) {
-            ForEach(1...5, id: \.self) { i in
-                Circle()
-                    .fill(i <= difficulty ? Color.btPrimary : Color.btBGQuaternary)
-                    .frame(width: 8, height: 8)
+    private func dimensionsSection(_ drill: DrillContent) -> some View {
+        let dims = trainingDimensions(for: drill)
+        return VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("训练维度")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
+            VStack(spacing: Spacing.sm) {
+                ForEach(dims, id: \.name) { dim in
+                    HStack(spacing: Spacing.md) {
+                        Text(dim.name)
+                            .font(.btFootnote)
+                            .foregroundStyle(.btTextSecondary)
+                            .frame(width: 64, alignment: .leading)
+
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.btBGTertiary)
+                                    .frame(height: 6)
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.btPrimary)
+                                    .frame(width: geo.size.width * dim.value, height: 6)
+                            }
+                        }
+                        .frame(height: 6)
+
+                        Text("\(Int(dim.value * 100))%")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                            .frame(width: 36, alignment: .trailing)
+                    }
+                }
+            }
+
+            if let primary = dims.max(by: { $0.value < $1.value }) {
+                Text("此 Drill 主要训练\(primary.name)能力")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
             }
         }
+        .padding(Spacing.lg)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .padding(.horizontal, Spacing.lg)
     }
+
+    private struct DimensionData {
+        let name: String
+        let value: CGFloat
+    }
+
+    private func trainingDimensions(for drill: DrillContent) -> [DimensionData] {
+        let cat = drill.category
+        let diff = CGFloat(drill.difficulty) / 5.0
+
+        var accuracy: CGFloat = 0.3
+        var forceCtrl: CGFloat = 0.3
+        var positioning: CGFloat = 0.2
+        var cueSkill: CGFloat = 0.2
+        var mental: CGFloat = 0.1
+
+        switch cat {
+        case "accuracy":
+            accuracy = 0.7 + diff * 0.2
+            forceCtrl = 0.3 + diff * 0.1
+        case "fundamentals":
+            accuracy = 0.5; forceCtrl = 0.3; cueSkill = 0.2
+        case "cueAction":
+            cueSkill = 0.7 + diff * 0.2
+            forceCtrl = 0.5 + diff * 0.1
+        case "separation":
+            positioning = 0.6 + diff * 0.2
+            cueSkill = 0.5
+        case "positioning":
+            positioning = 0.7 + diff * 0.2
+            accuracy = 0.4
+        case "forceControl":
+            forceCtrl = 0.7 + diff * 0.2
+            cueSkill = 0.4
+        case "specialShots":
+            cueSkill = 0.6 + diff * 0.2
+            mental = 0.4 + diff * 0.1
+        case "combined":
+            accuracy = 0.5 + diff * 0.15
+            forceCtrl = 0.5 + diff * 0.1
+            positioning = 0.5 + diff * 0.1
+            cueSkill = 0.4 + diff * 0.1
+            mental = 0.3 + diff * 0.15
+        default: break
+        }
+
+        return [
+            DimensionData(name: "准度", value: min(accuracy, 1.0)),
+            DimensionData(name: "力量控制", value: min(forceCtrl, 1.0)),
+            DimensionData(name: "走位判断", value: min(positioning, 1.0)),
+            DimensionData(name: "杆法技巧", value: min(cueSkill, 1.0)),
+            DimensionData(name: "心理素质", value: min(mental, 1.0)),
+        ]
+    }
+
+    // MARK: - Video Section
+
+    private var videoSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("真人示范")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: Spacing.sm) {
+                    ForEach(0..<5, id: \.self) { _ in
+                        ZStack {
+                            RoundedRectangle(cornerRadius: BTRadius.sm)
+                                .fill(Color.btBGTertiary)
+                            Image(systemName: "play.circle.fill")
+                                .font(.system(size: 28))
+                                .foregroundStyle(.btTextTertiary)
+                        }
+                        .frame(width: 100, height: 72)
+                    }
+                }
+            }
+
+            Text("即将上线")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+        }
+        .padding(Spacing.lg)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .padding(.horizontal, Spacing.lg)
+    }
+
+    // MARK: - Bottom Bar
+
+    private var bottomBar: some View {
+        HStack(spacing: Spacing.md) {
+            if isLocked {
+                Button { showSubscription = true } label: {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "crown.fill")
+                            .font(.btFootnote14)
+                        Text("解锁 Pro")
+                    }
+                }
+                .buttonStyle(GoldFilledButtonStyle())
+            } else {
+                Button { dismiss() } label: {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "xmark")
+                            .font(.btFootnote14)
+                        Text("关闭")
+                    }
+                }
+                .buttonStyle(BTButtonStyle.darkPill)
+                .frame(width: 100)
+
+                Button {
+                    // TODO: Add to active training
+                } label: {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.btFootnote14)
+                        Text("加入训练")
+                    }
+                }
+                .buttonStyle(BTButtonStyle.primary)
+            }
+        }
+        .padding(.horizontal, Spacing.xxl)
+        .padding(.vertical, Spacing.md)
+        .background(Color.btBG.opacity(0.8))
+        .background(.ultraThinMaterial)
+    }
+
+    // MARK: - Helpers
 
     private func loadDrill() async {
         let service = DrillContentService.shared
@@ -203,11 +461,27 @@ struct DrillDetailView: View {
     }
 }
 
+private struct GoldFilledButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.btFootnote14)
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(configuration.isPressed ? Color.btAccent.opacity(0.8) : Color.btAccent)
+            .clipShape(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 #Preview("Light") {
     NavigationStack {
         DrillDetailView(drillId: "drill_c001")
     }
     .modelContainer(for: DrillFavorite.self, inMemory: true)
+    .environmentObject(SubscriptionManager.shared)
 }
 
 #Preview("Dark") {
@@ -215,5 +489,6 @@ struct DrillDetailView: View {
         DrillDetailView(drillId: "drill_c001")
     }
     .modelContainer(for: DrillFavorite.self, inMemory: true)
+    .environmentObject(SubscriptionManager.shared)
     .preferredColorScheme(.dark)
 }

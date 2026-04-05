@@ -6,15 +6,51 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-04-05 v0.4：追加「设计参考源」节，扩展组件清单至 16 个
 - 2026-04-02 v0.3：追加 FL-004/005/006/008/009 经验教训
 - 2026-04-02 v0.2：追加 FL-002、FL-007 经验教训
 - 2026-03-27 v0.1：初始版本
 
 # SwiftUI Developer — UI 开发者
 
+## 设计参考源（Design Reference Sources）
+
+任何涉及 UI 的任务开始前，按以下优先级查阅：
+
+1. **`tasks/UI-IMPLEMENTATION-SPEC.md`** — 合并版实施规范（活跃文档），含 Token 表、16 组件 API、页面-组件映射、已知偏差修正。**首选参考。**
+2. **`ui_design/tasks/E-06/screenshot-index.md`** — 48 帧截图路径总索引。
+3. **`ui_design/tasks/{task-id}/stitch_task_*/screen.png`** — 单页面/组件最终视觉参考（优先于 code.html）。
+4. **`ui_design/tasks/{task-id}/stitch_task_*/code.html`** — HTML 原型（用于检查精确 padding/font-size/hex；A-06/A-07/A-08 的 PNG 不完整时为主要参考）。
+5. **`ui_design/tasks/E-06/design-decisions.md`** — 35 任务设计决策汇总。
+6. **`ui_design/tasks/E-06/dark-mode-spec.md`** — Dark Mode Token 完整表 + Checklist。
+
+> **参考优先级**：screen.png（布局/间距/色彩匹配）> code.html（精确数值检查）> UI-IMPLEMENTATION-SPEC.md（组件 API 与页面组成）。
+
+## 组件清单（16 个）
+
+可复用 UI 组件放 `Core/Components/`，命名 `BT<Name>`。全部 16 个组件：
+
+| 组件 | 文件 | 状态 |
+|------|------|------|
+| BTButton（7 种样式） | `BTButton.swift` | R0 升级 |
+| BTEmptyState | `BTEmptyState.swift` | 已有，R0 校验 |
+| BTDrillCard | `BTDrillCard.swift` | 已有，R0 添加缩略图 |
+| BTLevelBadge | `BTLevelBadge.swift` | 已有，R0 修正配色 |
+| BTBilliardTable | `BTBilliardTable.swift` | 已有，R0 校验 |
+| BTPremiumLock | `BTPremiumLock.swift` | 已有，R0 双模式 |
+| BTAngleTestTable | `BTAngleTestTable.swift` | 已有 |
+| BTSegmentedTab | `BTSegmentedTab.swift` | R0 新建 |
+| BTTogglePillGroup | `BTTogglePillGroup.swift` | R0 新建 |
+| BTOverflowMenu | `BTOverflowMenu.swift` | R0 新建 |
+| BTExerciseRow | `BTExerciseRow.swift` | R0 新建 |
+| BTSetInputGrid | `BTSetInputGrid.swift` | R0 新建 |
+| BTRestTimer | `BTRestTimer.swift` | R0 新建 |
+| BTFloatingIndicator | `BTFloatingIndicator.swift` | R0 新建 |
+| BTShareCard | `BTShareCard.swift` | R0 新建 |
+
 ## 必读规范
 
-在开始编写任何视图代码前，确认 `BilliardTrainer/Core/DesignSystem/` 中的 Token 已定义，并**只使用 Token 中的颜色与字体**，不硬编码 hex 值或字体大小数字。
+在开始编写任何视图代码前，确认 `QiuJi/Core/DesignSystem/` 中的 Token 已定义，并**只使用 Token 中的颜色与字体**，不硬编码 hex 值或字体大小数字。
 
 ## Design Token 使用
 

@@ -17,15 +17,29 @@ struct AngleHomeView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.xxl) {
+                pageHeader
                 featureCards
                 historyLink
             }
-            .padding(Spacing.lg)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.lg)
         }
         .background(.btBG)
         .onReceive(subscriptionManager.$isPremium) { premium in
             limiter.isPremium = premium
         }
+    }
+
+    // MARK: - Page Header
+
+    private var pageHeader: some View {
+        HStack {
+            Text("角度训练")
+                .font(.btTitle)
+                .foregroundStyle(.btText)
+            Spacer()
+        }
+        .padding(.top, Spacing.sm)
     }
 
     // MARK: - Feature cards
@@ -66,7 +80,7 @@ struct AngleHomeView: View {
             }
             .padding(Spacing.lg)
             .background(.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         }
     }
 }
@@ -78,22 +92,23 @@ private struct FeatureCard: View {
     let title: String
     let subtitle: String
     let badge: String?
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack(spacing: Spacing.lg) {
             Image(systemName: icon)
-                .font(.system(size: 28))
+                .font(.btStatNumber)
                 .foregroundStyle(.btPrimary)
-                .frame(width: 52, height: 52)
-                .background(.btPrimaryMuted)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                .frame(width: 48, height: 48)
+                .background(Color.btPrimary.opacity(colorScheme == .dark ? 0.15 : 0.12))
+                .clipShape(Circle())
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(title)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
                 Text(subtitle)
-                    .font(.btCaption)
+                    .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
                     .lineLimit(2)
                 if let badge {
@@ -110,7 +125,7 @@ private struct FeatureCard: View {
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 }
 

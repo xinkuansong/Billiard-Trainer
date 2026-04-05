@@ -14,6 +14,7 @@ struct PlanDetailView: View {
     @State private var hasActivePlan = false
     @State private var isCurrentPlanActive = false
     @State private var drillNames: [String: String] = [:]
+    @State private var showSubscription = false
 
     var body: some View {
         ScrollView {
@@ -31,11 +32,15 @@ struct PlanDetailView: View {
             }
         }
         .background(.btBG)
-        .premiumGate(isPremium: plan?.isPremium ?? false)
         .navigationTitle(plan?.nameZh ?? "计划详情")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .task {
             await loadPlan()
+        }
+        .sheet(isPresented: $showSubscription) {
+            SubscriptionView()
+                .environmentObject(subscriptionManager)
         }
         .alert("激活训练计划", isPresented: $showActivateConfirm) {
             Button("取消", role: .cancel) {}
@@ -75,12 +80,14 @@ struct PlanDetailView: View {
     private func planHeader(_ plan: OfficialPlan) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(spacing: Spacing.sm) {
-                targetLevelBadge(plan.targetLevel)
+                if let level = DrillLevel(rawValue: plan.targetLevel.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? plan.targetLevel) {
+                    BTLevelBadge(level: level)
+                }
 
                 if plan.isPremium {
                     HStack(spacing: 2) {
                         Image(systemName: "crown.fill")
-                            .font(.system(size: 10))
+                            .font(.btMicro)
                         Text("付费")
                             .font(.btCaption2)
                     }
@@ -98,16 +105,6 @@ struct PlanDetailView: View {
         }
     }
 
-    private func targetLevelBadge(_ level: String) -> some View {
-        Text(level)
-            .font(.btCaption2)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .background(Color.btPrimary.opacity(0.15))
-            .foregroundStyle(.btPrimary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-    }
-
     // MARK: - Stats Grid
 
     private func statsGrid(_ plan: OfficialPlan) -> some View {
@@ -122,12 +119,12 @@ struct PlanDetailView: View {
     private func statCell(icon: String, value: String, unit: String) -> some View {
         VStack(spacing: Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.btTitle2)
                 .foregroundStyle(.btPrimary)
 
             Text(value)
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
+                .font(.btStatNumber)
+                .foregroundStyle(.btPrimary)
 
             Text(unit)
                 .font(.btCaption)
@@ -169,13 +166,28 @@ struct PlanDetailView: View {
     // MARK: - Weeks List
 
     private func weeksList(_ plan: OfficialPlan) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
+        let isPremiumLocked = plan.isPremium && !subscriptionManager.isPremium
+        let freePreviewCount = 1
+
+        return VStack(alignment: .leading, spacing: Spacing.md) {
             Text("训练安排")
                 .font(.btTitle2)
                 .foregroundStyle(.btText)
 
-            ForEach(plan.weeks) { week in
-                weekSection(week, plan: plan)
+            if isPremiumLocked {
+                ForEach(Array(plan.weeks.prefix(freePreviewCount))) { week in
+                    weekSection(week, plan: plan)
+                }
+
+                BTPremiumLock(mode: .progressive(visibleItems: freePreviewCount)) {
+                    showSubscription = true
+                } content: {
+                    EmptyView()
+                }
+            } else {
+                ForEach(plan.weeks) { week in
+                    weekSection(week, plan: plan)
+                }
             }
         }
     }
@@ -210,18 +222,20 @@ struct PlanDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
+    private let weekBadgeSize: CGFloat = Spacing.xxxl + Spacing.xs
+
     private func weekHeader(_ week: PlanWeek, plan: OfficialPlan) -> some View {
         HStack(spacing: Spacing.md) {
             ZStack {
                 Circle()
                     .fill(Color.btPrimary.opacity(0.12))
-                    .frame(width: 36, height: 36)
+                    .frame(width: weekBadgeSize, height: weekBadgeSize)
                 Text("W\(week.weekNumber)")
                     .font(.btCaption2)
                     .foregroundStyle(.btPrimary)
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("第 \(week.weekNumber) 周")
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
@@ -275,7 +289,7 @@ struct PlanDetailView: View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: phase.icon)
-                    .font(.system(size: 11))
+                    .font(.btCaption2)
                     .foregroundStyle(.btPrimary)
                 Text(phase.typeZh)
                     .font(.btCaption)

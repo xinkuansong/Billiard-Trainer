@@ -11,18 +11,31 @@ struct QiuJiApp: App {
     let modelContainer = ModelContainerFactory.makeContainer()
 
     init() {
+        let brandGreen = UIColor(Color.btPrimary)
+
         let appearance = UINavigationBarAppearance()
         appearance.configureWithDefaultBackground()
         if let descriptor = UIFont.systemFont(ofSize: 34, weight: .bold)
             .fontDescriptor.withDesign(.rounded) {
-            appearance.largeTitleTextAttributes = [.font: UIFont(descriptor: descriptor, size: 34)]
+            appearance.largeTitleTextAttributes = [
+                .font: UIFont(descriptor: descriptor, size: 34),
+                .foregroundColor: brandGreen,
+            ]
         }
         if let inlineDescriptor = UIFont.systemFont(ofSize: 17, weight: .semibold)
-            .fontDescriptor.withDesign(.rounded) {
-            appearance.titleTextAttributes = [.font: UIFont(descriptor: inlineDescriptor, size: 17)]
+            .fontDescriptor.withDesign(.default) {
+            appearance.titleTextAttributes = [
+                .font: UIFont(descriptor: inlineDescriptor, size: 17),
+                .foregroundColor: brandGreen,
+            ]
         }
         UINavigationBar.appearance().scrollEdgeAppearance = appearance
         UINavigationBar.appearance().standardAppearance = appearance
+
+        let tabAppearance = UITabBarAppearance()
+        tabAppearance.configureWithDefaultBackground()
+        UITabBar.appearance().standardAppearance = tabAppearance
+        UITabBar.appearance().scrollEdgeAppearance = tabAppearance
     }
 
     var body: some Scene {

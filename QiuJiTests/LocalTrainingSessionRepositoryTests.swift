@@ -70,6 +70,20 @@ final class LocalTrainingSessionRepositoryTests: XCTestCase {
         XCTAssertTrue(all.isEmpty)
     }
 
+    func test_update_changes_persist() async throws {
+        let session = try await repo.create(ballType: "chinese8")
+        XCTAssertEqual(session.note, "")
+
+        session.note = "今天练球手感不错"
+        session.totalDurationMinutes = 45
+        try await repo.update(session)
+
+        let all = try await repo.fetchAll()
+        XCTAssertEqual(all.count, 1)
+        XCTAssertEqual(all.first?.note, "今天练球手感不错")
+        XCTAssertEqual(all.first?.totalDurationMinutes, 45)
+    }
+
     func test_create_multiple_sessions() async throws {
         _ = try await repo.create(ballType: "chinese8")
         _ = try await repo.create(ballType: "snooker")

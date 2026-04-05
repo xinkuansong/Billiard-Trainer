@@ -4,6 +4,8 @@ import SwiftData
 struct FavoriteDrillsView: View {
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var router: AppRouter
     @State private var drills: [DrillContent] = []
     @State private var isLoading = true
 
@@ -16,7 +18,12 @@ struct FavoriteDrillsView: View {
                 BTEmptyState(
                     icon: "heart.slash",
                     title: "还没有收藏",
-                    subtitle: "在动作库中点击心形图标收藏训练项目"
+                    subtitle: "去动作库看看吧",
+                    actionTitle: "浏览动作库",
+                    action: {
+                        dismiss()
+                        router.switchTab(.drillLibrary)
+                    }
                 )
             } else {
                 ScrollView {
@@ -38,8 +45,9 @@ struct FavoriteDrillsView: View {
             }
         }
         .background(.btBG)
-        .navigationTitle("收藏夹")
-        .navigationBarTitleDisplayMode(.large)
+        .navigationTitle("我的收藏")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .task(id: favorites.count) {
             await loadFavoriteDrills()
         }
@@ -65,6 +73,7 @@ struct FavoriteDrillsView: View {
     NavigationStack {
         FavoriteDrillsView()
     }
+    .environmentObject(AppRouter())
     .modelContainer(for: DrillFavorite.self, inMemory: true)
 }
 
@@ -72,6 +81,7 @@ struct FavoriteDrillsView: View {
     NavigationStack {
         FavoriteDrillsView()
     }
+    .environmentObject(AppRouter())
     .modelContainer(for: DrillFavorite.self, inMemory: true)
     .preferredColorScheme(.dark)
 }

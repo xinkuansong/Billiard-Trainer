@@ -23,6 +23,19 @@ alwaysApply: true
 
 3. **无阻塞项时**，读取 `tasks/PROGRESS.md`，找出当前 Phase 与下一个未完成任务。
 4. **声明激活角色**（`当前角色：[角色名]`），再开始执行。
+5. **读取** `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（若文件存在），记录自上次会话以来的组件 API 变更或设计调整。
+
+## 任务激活前预飞检查（Pre-Task Checkpoint）
+
+激活任何 SwiftUI / 组件任务前，执行以下步骤：
+
+1. 读取 `tasks/UI-IMPLEMENTATION-SPEC.md` — 查看最近 Changelog 条目。
+2. 读取任务引用的组件对应 `SKILL.md` 节 — 确认组件 API 是否为最新。
+3. 检查 `tasks/IMPLEMENTATION-LOG.md` 中标记了本任务所用组件的 DR/PD 条目。
+4. 若组件 API 自任务定义后有变更，**在开始实现前声明 delta**：
+   ```
+   ⚠️ 组件变更提示：<组件名> API 已在 <DR-NNN> 中变更（<日期>）。当前任务实现将使用新 API。
+   ```
 
 ## 任务内检查点（In-session Checkpoint）
 
@@ -67,26 +80,32 @@ alwaysApply: true
 
 - 更新 `tasks/PROGRESS.md`：任务状态（⏳/🔄/⚠️/✅）、「下一步」、阻塞项；Phase 全部 ✅ 后按 `PROGRESS.md`「已完成 Phase 归档」操作。
 - 命中 **ADR 强制触发清单** 时：在对应 Phase 文件末尾写 ADR。
-- **返工 / QA 打回 / 规则明显违反**：在 `tasks/FAILURE-LOG.md` 追加 `FL-NNN`，`PROGRESS.md` 任务行使用 `⚠️ 返工（见 FL-NNN）` 直至修复。
+- **返工 / QA 打回 / 规则明显违反**：在 `tasks/IMPLEMENTATION-LOG.md` 追加 `FL-NNN`，`PROGRESS.md` 任务行使用 `⚠️ 返工（见 FL-NNN）` 直至修复。
+- **设计解读调整 / 组件 API 变更**：在 `tasks/IMPLEMENTATION-LOG.md` 追加 `DR-NNN`，同步更新 `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- **可复用模式发现**：在 `tasks/IMPLEMENTATION-LOG.md` 追加 `PD-NNN`，同步更新对应 `.mdc` 或 `SKILL.md`。
 - 涉及产品规格变更：更新 `docs/0x` + `docs/00-讨论记录.md`。
 
-## ⚡ 失败后必做：规则回写（Rule Writeback）
+## ⚡ 实施知识回写（Implementation Writeback）
 
-**每次写入 FL-NNN 时，本步骤不可跳过。** 流程：
+**每次写入 FL-NNN / DR-NNN / PD-NNN 时，本步骤不可跳过。** 流程：
 
-1. 确认 FL-NNN 中的 `规则改进建议` 指向哪个 `.mdc` 或 Skill 文件。
-2. **立即** 在目标文件的 `## 经验教训` 区追加一条，格式：
-   ```
-   ### ⛔ FL-NNN — <一句话标题>
-   **场景**：何时触发
-   **强制检查点**：具体禁止或必做事项
-   ```
-3. 更新目标文件的 `Changelog`（版本号递增，注明来自 FL-NNN）。
-4. 在 `tasks/FAILURE-LOG.md` 的对应条目中追加字段：
+1. 确认条目中的 `规则改进建议` / `回写目标` 指向哪个 `.mdc` 或 Skill 文件。
+2. **立即** 在目标文件的对应区域追加内容：
+   - FL-NNN → `## 经验教训` 区，格式：
+     ```
+     ### ⛔ FL-NNN — <一句话标题>
+     **场景**：何时触发
+     **强制检查点**：具体禁止或必做事项
+     ```
+   - DR-NNN → `SKILL.md` 组件 API 节或 `UI-IMPLEMENTATION-SPEC.md` 组件定义，更新参数/行为描述。
+   - PD-NNN → 对应 `.mdc` 的代码规范节或 `SKILL.md` 模式库节，追加可复用模式。
+3. 更新目标文件的 `Changelog`（版本号递增，注明来自 FL/DR/PD-NNN）。
+4. 在 `tasks/IMPLEMENTATION-LOG.md` 的对应条目中追加字段：
    ```
    - **已应用至**：`路径/to/rule.mdc` § 经验教训 / FL-NNN（日期）
    ```
 5. **若没有明确目标文件**：默认写入本文件（`00-orchestrator.mdc`）`## 经验教训` 区，并标注"待路由到专项角色规则"。
+6. **同步更新** `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog 表（日期、条目、类型、影响范围、来源任务）。
 
 > 目标：每一次失败最终必须转化为一条硬约束，而非停留在建议层。
 

@@ -3,7 +3,27 @@ import SwiftUI
 struct ContactPointTableView: View {
     @State private var sliderAngle: Double = 30
 
-    private let standardAngles: [Int] = [0, 10, 15, 20, 25, 30, 35, 40, 45, 49, 60, 75, 90]
+    private struct AngleEntry: Identifiable {
+        let id: Int
+        let angle: Double
+        let commonName: String?
+    }
+
+    private let standardAngles: [AngleEntry] = [
+        AngleEntry(id: 0, angle: 0, commonName: "全球"),
+        AngleEntry(id: 1, angle: 10, commonName: nil),
+        AngleEntry(id: 2, angle: 15, commonName: nil),
+        AngleEntry(id: 3, angle: 20, commonName: nil),
+        AngleEntry(id: 4, angle: 25, commonName: nil),
+        AngleEntry(id: 5, angle: 30, commonName: "二分之一球"),
+        AngleEntry(id: 6, angle: 35, commonName: nil),
+        AngleEntry(id: 7, angle: 40, commonName: nil),
+        AngleEntry(id: 8, angle: 45, commonName: nil),
+        AngleEntry(id: 9, angle: 48.6, commonName: "四分之三点"),
+        AngleEntry(id: 10, angle: 60, commonName: nil),
+        AngleEntry(id: 11, angle: 75, commonName: nil),
+        AngleEntry(id: 12, angle: 90, commonName: "极薄球"),
+    ]
 
     var body: some View {
         ScrollView {
@@ -17,6 +37,7 @@ struct ContactPointTableView: View {
         .background(.btBG)
         .navigationTitle("进球点对照表")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
     }
 
     // MARK: - Interactive slider + ball
@@ -27,19 +48,39 @@ struct ContactPointTableView: View {
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
-            ballDiagram(angle: sliderAngle, size: 120)
+            Circle()
+                .fill(.btBGTertiary)
+                .frame(width: 160, height: 160)
+                .overlay { ballDiagram(angle: sliderAngle, size: 160) }
+
+            VStack(spacing: Spacing.xs) {
+                Text("\(Int(sliderAngle))°")
+                    .font(.btStatNumber)
+                    .fontWeight(.heavy)
+                    .foregroundStyle(.btText)
+                Text(String(format: "偏移 %.1f%%", AngleCalculator.contactPointOffset(angle: sliderAngle) * 100))
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(.btTextSecondary)
+                if let name = commonName(for: sliderAngle) {
+                    Text(name)
+                        .font(.btCaption)
+                        .foregroundStyle(.btPrimary)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.xs)
+                        .background(Color.btPrimaryMuted)
+                        .clipShape(Capsule())
+                }
+            }
 
             HStack {
-                Text("\(Int(sliderAngle))°")
-                    .font(.btTitle)
-                    .foregroundStyle(.btPrimary)
-                    .frame(width: 60)
+                Text("0°")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
                 Slider(value: $sliderAngle, in: 0...90, step: 1)
                     .tint(.btPrimary)
-                Text(String(format: "%.1f%%", AngleCalculator.contactPointOffset(angle: sliderAngle) * 100))
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextSecondary)
-                    .frame(width: 64, alignment: .trailing)
+                Text("90°")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
             }
         }
         .padding(Spacing.lg)
@@ -47,19 +88,33 @@ struct ContactPointTableView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
+    private func commonName(for angle: Double) -> String? {
+        standardAngles.first(where: { abs($0.angle - angle) < 0.1 })?.commonName
+    }
+
     // MARK: - Principle
 
     private var principleSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("原理")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "info.circle.fill")
+                    .foregroundStyle(.btPrimary)
+                Text("原理说明")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+            }
             Text("偏移量 = sin(α) × R")
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.btPrimary)
-            Text("其中 α 为切球角度，R 为目标球半径。角度越大，母球需击打目标球越偏的位置。")
-                .font(.btCallout)
-                .foregroundStyle(.btTextSecondary)
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(.btAccent)
+                    .frame(width: 4)
+                Text("其中 α 为切球角度，R 为目标球半径。角度越大，母球需击打目标球越偏的位置。")
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextSecondary)
+                    .padding(.leading, Spacing.sm)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.lg)
@@ -77,8 +132,8 @@ struct ContactPointTableView: View {
 
             VStack(spacing: 0) {
                 headerRow
-                ForEach(standardAngles, id: \.self) { angle in
-                    tableRow(angle: angle)
+                ForEach(standardAngles) { entry in
+                    tableRow(entry: entry)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
@@ -87,10 +142,11 @@ struct ContactPointTableView: View {
 
     private var headerRow: some View {
         HStack {
-            Text("角度").font(.btCaption2).frame(width: 50)
-            Text("偏移 %").font(.btCaption2).frame(width: 60)
+            Text("切入角").font(.btCaption2).frame(width: 50)
+            Text("sin(α)").font(.btCaption2).frame(width: 50)
+            Text("偏移").font(.btCaption2).frame(width: 44)
             Spacer()
-            Text("接触点").font(.btCaption2).frame(width: 50)
+            Text("通称").font(.btCaption2).frame(width: 76, alignment: .trailing)
         }
         .foregroundStyle(.btTextSecondary)
         .padding(.horizontal, Spacing.md)
@@ -98,24 +154,40 @@ struct ContactPointTableView: View {
         .background(.btBGTertiary)
     }
 
-    private func tableRow(angle: Int) -> some View {
-        let offset = AngleCalculator.contactPointOffset(angle: Double(angle))
+    private func tableRow(entry: AngleEntry) -> some View {
+        let offset = AngleCalculator.contactPointOffset(angle: entry.angle)
+        let highlighted = entry.commonName != nil
+        let angleText = entry.angle == 48.6 ? "48.6°" : "\(Int(entry.angle))°"
         return HStack {
-            Text("\(angle)°")
-                .font(.btBody)
+            Text(angleText)
+                .font(highlighted ? .btBodyMedium : .btBody)
                 .frame(width: 50)
-            Text(String(format: "%.1f%%", offset * 100))
+            Text(String(format: "%.2f", offset))
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
-                .frame(width: 60)
-            Spacer()
-            ballDiagram(angle: Double(angle), size: 32)
                 .frame(width: 50)
+            Text(String(format: "%.0f%%", offset * 100))
+                .font(.btCallout)
+                .foregroundStyle(.btTextSecondary)
+                .frame(width: 44)
+            Spacer()
+            if let name = entry.commonName {
+                Text(name)
+                    .font(.btCaption)
+                    .foregroundStyle(.btPrimary)
+                    .fontWeight(.bold)
+                    .frame(width: 76, alignment: .trailing)
+            } else {
+                Text("—")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+                    .frame(width: 76, alignment: .trailing)
+            }
         }
         .foregroundStyle(.btText)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(.btBGSecondary)
+        .background(highlighted ? Color.btPrimaryMuted : .btBGSecondary)
     }
 
     // MARK: - Ball diagram

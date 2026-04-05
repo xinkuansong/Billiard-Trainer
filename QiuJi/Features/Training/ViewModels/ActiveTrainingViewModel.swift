@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import SwiftData
 
 // MARK: - Supporting Types
@@ -14,6 +15,7 @@ struct ActiveDrill: Identifiable {
     let phaseType: String
     let phaseZh: String
     let animation: DrillAnimation?
+    let level: DrillLevel?
 
     init(
         drillId: String,
@@ -24,7 +26,8 @@ struct ActiveDrill: Identifiable {
         ballsPerSet: Int,
         phaseType: String = "free",
         phaseZh: String = "自由训练",
-        animation: DrillAnimation? = nil
+        animation: DrillAnimation? = nil,
+        level: DrillLevel? = nil
     ) {
         self.id = UUID()
         self.drillId = drillId
@@ -36,6 +39,7 @@ struct ActiveDrill: Identifiable {
         self.phaseType = phaseType
         self.phaseZh = phaseZh
         self.animation = animation
+        self.level = level
     }
 }
 
@@ -60,8 +64,16 @@ enum TrainingPhase: Equatable {
 struct DrillSummary: Identifiable {
     let id: UUID
     let nameZh: String
+    let level: DrillLevel?
     let totalBallsMade: Int
     let totalBallsPossible: Int
+    let sets: [SetResult]
+
+    struct SetResult: Identifiable {
+        let id: Int
+        let madeBalls: Int
+        let targetBalls: Int
+    }
 
     var successRate: Double {
         guard totalBallsPossible > 0 else { return 0 }
@@ -89,8 +101,8 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var didSaveSuccessfully: Bool = false
 
     // Recording state per drill
-    @Published var currentSetIndices: [Int] = []
-    @Published var ballsMadeRecords: [[Int]] = []
+    @Published var drillSetsData: [[DrillSetData]] = []
+    @Published var drillNotes: [String] = []
 
     private var timerTask: Task<Void, Never>?
 
@@ -107,12 +119,16 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     var progressText: String {
         guard !drills.isEmpty else { return "" }
-        return "第 \(currentDrillIndex + 1) 项 / 共 \(drills.count) 项"
+        let completedSets = drillSetsData.flatMap { $0 }.filter { $0.isCompleted }.count
+        let totalSetsCount = drillSetsData.flatMap { $0 }.count
+        return "\(completedSets)/\(totalSetsCount) 组 \(currentDrillIndex + 1)/\(drills.count) 项目"
     }
 
     var progress: Double {
         guard !drills.isEmpty else { return 0 }
-        return Double(currentDrillIndex + 1) / Double(drills.count)
+        let allSets = drillSetsData.flatMap { $0 }
+        guard !allSets.isEmpty else { return 0 }
+        return Double(allSets.filter { $0.isCompleted }.count) / Double(allSets.count)
     }
 
     var isPlanMode: Bool {
@@ -145,7 +161,8 @@ final class ActiveTrainingViewModel: ObservableObject {
                     ballsPerSet: item.ballsPerSet,
                     phaseType: item.phaseType,
                     phaseZh: item.phaseZh,
-                    animation: content?.animation
+                    animation: content?.animation,
+                    level: content.flatMap { DrillLevel(rawValue: $0.level) }
                 ))
             }
             drills = items
@@ -206,15 +223,21 @@ final class ActiveTrainingViewModel: ObservableObject {
             coachingPoints: content.coachingPoints,
             sets: content.sets.defaultSets,
             ballsPerSet: content.sets.defaultBallsPerSet,
-            animation: content.animation
+            animation: content.animation,
+            level: DrillLevel(rawValue: content.level)
         )
         drills.append(drill)
-        currentSetIndices.append(0)
-        ballsMadeRecords.append(Array(repeating: 0, count: drill.sets))
+        let sets = (1...drill.sets).map { DrillSetData(id: $0, targetBalls: drill.ballsPerSet) }
+        drillSetsData.append(sets)
+        drillNotes.append("")
     }
 
     func removeDrill(at offsets: IndexSet) {
-        drills.remove(atOffsets: offsets)
+        for index in offsets.sorted(by: >) {
+            drills.remove(at: index)
+            if index < drillSetsData.count { drillSetsData.remove(at: index) }
+            if index < drillNotes.count { drillNotes.remove(at: index) }
+        }
         if currentDrillIndex >= drills.count {
             currentDrillIndex = max(0, drills.count - 1)
         }
@@ -223,55 +246,104 @@ final class ActiveTrainingViewModel: ObservableObject {
     // MARK: - Recording
 
     private func initializeRecords() {
-        currentSetIndices = drills.map { _ in 0 }
-        ballsMadeRecords = drills.map { Array(repeating: 0, count: $0.sets) }
+        drillSetsData = drills.map { drill in
+            (1...drill.sets).map { setNum in
+                DrillSetData(
+                    id: setNum,
+                    targetBalls: drill.ballsPerSet,
+                    isWarmup: drill.phaseType == "warmup" && setNum == 1
+                )
+            }
+        }
+        drillNotes = drills.map { _ in "" }
     }
 
     var currentSetIndex: Int {
-        guard currentDrillIndex < currentSetIndices.count else { return 0 }
-        return currentSetIndices[currentDrillIndex]
+        guard currentDrillIndex < drillSetsData.count else { return 0 }
+        return drillSetsData[currentDrillIndex].firstIndex(where: { !$0.isCompleted })
+            ?? drillSetsData[currentDrillIndex].count
     }
 
     var currentBallsMade: Int {
-        guard currentDrillIndex < ballsMadeRecords.count,
-              currentSetIndex < ballsMadeRecords[currentDrillIndex].count else { return 0 }
-        return ballsMadeRecords[currentDrillIndex][currentSetIndex]
+        guard currentDrillIndex < drillSetsData.count else { return 0 }
+        let sets = drillSetsData[currentDrillIndex]
+        guard let activeIdx = sets.firstIndex(where: { !$0.isCompleted }) else { return 0 }
+        return sets[activeIdx].madeBalls
     }
 
     var isCurrentDrillAllSetsCompleted: Bool {
-        guard let drill = currentDrill,
-              currentDrillIndex < currentSetIndices.count else { return false }
-        return currentSetIndices[currentDrillIndex] >= drill.sets
+        guard currentDrillIndex < drillSetsData.count else { return false }
+        let sets = drillSetsData[currentDrillIndex]
+        return !sets.isEmpty && sets.allSatisfy { $0.isCompleted }
     }
 
     func incrementBalls() {
-        guard currentDrillIndex < ballsMadeRecords.count,
-              currentSetIndex < ballsMadeRecords[currentDrillIndex].count else { return }
-        let drill = drills[currentDrillIndex]
-        if ballsMadeRecords[currentDrillIndex][currentSetIndex] < drill.ballsPerSet {
-            ballsMadeRecords[currentDrillIndex][currentSetIndex] += 1
+        guard currentDrillIndex < drillSetsData.count else { return }
+        guard let activeIdx = drillSetsData[currentDrillIndex].firstIndex(where: { !$0.isCompleted }) else { return }
+        let target = drillSetsData[currentDrillIndex][activeIdx].targetBalls
+        if drillSetsData[currentDrillIndex][activeIdx].madeBalls < target {
+            drillSetsData[currentDrillIndex][activeIdx].madeBalls += 1
         }
     }
 
     func decrementBalls() {
-        guard currentDrillIndex < ballsMadeRecords.count,
-              currentSetIndex < ballsMadeRecords[currentDrillIndex].count else { return }
-        if ballsMadeRecords[currentDrillIndex][currentSetIndex] > 0 {
-            ballsMadeRecords[currentDrillIndex][currentSetIndex] -= 1
+        guard currentDrillIndex < drillSetsData.count else { return }
+        guard let activeIdx = drillSetsData[currentDrillIndex].firstIndex(where: { !$0.isCompleted }) else { return }
+        if drillSetsData[currentDrillIndex][activeIdx].madeBalls > 0 {
+            drillSetsData[currentDrillIndex][activeIdx].madeBalls -= 1
         }
     }
 
     func completeCurrentSet() {
-        guard currentDrillIndex < currentSetIndices.count else { return }
-        let drill = drills[currentDrillIndex]
-        if currentSetIndices[currentDrillIndex] < drill.sets - 1 {
-            currentSetIndices[currentDrillIndex] += 1
-        } else {
-            currentSetIndices[currentDrillIndex] = drill.sets
+        guard currentDrillIndex < drillSetsData.count else { return }
+        guard let activeIdx = drillSetsData[currentDrillIndex].firstIndex(where: { !$0.isCompleted }) else { return }
+        drillSetsData[currentDrillIndex][activeIdx].isCompleted = true
+
+        if drillSetsData[currentDrillIndex].allSatisfy({ $0.isCompleted }) {
             if currentDrillIndex < drills.count - 1 {
                 currentDrillIndex += 1
             }
         }
+    }
+
+    func completeSet(drillIndex: Int, setIndex: Int) {
+        guard drillIndex < drillSetsData.count,
+              setIndex < drillSetsData[drillIndex].count else { return }
+        drillSetsData[drillIndex][setIndex].isCompleted.toggle()
+
+        if drillSetsData[drillIndex].allSatisfy({ $0.isCompleted }) {
+            if drillIndex < drills.count - 1 {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                    self?.currentDrillIndex = drillIndex + 1
+                }
+            }
+        }
+    }
+
+    func addSet(drillIndex: Int) {
+        guard drillIndex < drillSetsData.count, drillIndex < drills.count else { return }
+        let nextId = (drillSetsData[drillIndex].last?.id ?? 0) + 1
+        let target = drills[drillIndex].ballsPerSet
+        drillSetsData[drillIndex].append(DrillSetData(id: nextId, targetBalls: target))
+    }
+
+    func deleteSet(drillIndex: Int, setIndex: Int) {
+        guard drillIndex < drillSetsData.count,
+              setIndex < drillSetsData[drillIndex].count else { return }
+        drillSetsData[drillIndex].remove(at: setIndex)
+    }
+
+    func setsBinding(for index: Int) -> Binding<[DrillSetData]> {
+        Binding(
+            get: { [weak self] in
+                guard let self, index < self.drillSetsData.count else { return [] }
+                return self.drillSetsData[index]
+            },
+            set: { [weak self] newValue in
+                guard let self, index < self.drillSetsData.count else { return }
+                self.drillSetsData[index] = newValue
+            }
+        )
     }
 
     // MARK: - End Training Flow
@@ -279,6 +351,10 @@ final class ActiveTrainingViewModel: ObservableObject {
     func endTraining() {
         pauseTimer()
         trainingPhase = .note
+    }
+
+    func resumeTraining() {
+        trainingPhase = .active
     }
 
     func skipNote() {
@@ -293,25 +369,38 @@ final class ActiveTrainingViewModel: ObservableObject {
     // MARK: - Summary Statistics
 
     var totalSets: Int {
-        drills.reduce(0) { $0 + $1.sets }
+        drillSetsData.flatMap { $0 }.count
     }
 
     var overallSuccessRate: Double {
-        let totalMade = ballsMadeRecords.flatMap { $0 }.reduce(0, +)
-        let totalPossible = drills.reduce(0) { $0 + $1.sets * $1.ballsPerSet }
+        let allSets = drillSetsData.flatMap { $0 }
+        let totalMade = allSets.reduce(0) { $0 + $1.madeBalls }
+        let totalPossible = allSets.reduce(0) { $0 + $1.targetBalls }
         guard totalPossible > 0 else { return 0 }
         return Double(totalMade) / Double(totalPossible)
     }
 
+    var totalBallsMade: Int {
+        drillSetsData.flatMap { $0 }.reduce(0) { $0 + $1.madeBalls }
+    }
+
     var drillSummaries: [DrillSummary] {
-        zip(drills, ballsMadeRecords).map { drill, records in
-            DrillSummary(
+        var summaries: [DrillSummary] = []
+        for i in 0..<min(drills.count, drillSetsData.count) {
+            let drill = drills[i]
+            let sets = drillSetsData[i]
+            let made = sets.reduce(0) { $0 + $1.madeBalls }
+            let possible = sets.reduce(0) { $0 + $1.targetBalls }
+            summaries.append(DrillSummary(
                 id: drill.id,
                 nameZh: drill.nameZh,
-                totalBallsMade: records.reduce(0, +),
-                totalBallsPossible: drill.sets * drill.ballsPerSet
-            )
-        }.sorted { $0.successRate > $1.successRate }
+                level: drill.level,
+                totalBallsMade: made,
+                totalBallsPossible: possible,
+                sets: sets.map { DrillSummary.SetResult(id: $0.id, madeBalls: $0.madeBalls, targetBalls: $0.targetBalls) }
+            ))
+        }
+        return summaries.sorted { $0.successRate > $1.successRate }
     }
 
     func saveTraining(context: ModelContext) {
@@ -325,14 +414,12 @@ final class ActiveTrainingViewModel: ObservableObject {
             for (drillIdx, drill) in drills.enumerated() {
                 let entry = DrillEntry(drillId: drill.drillId, drillNameZh: drill.nameZh)
 
-                guard drillIdx < ballsMadeRecords.count else { continue }
-                let records = ballsMadeRecords[drillIdx]
-
-                for (setIdx, madeBalls) in records.enumerated() {
+                guard drillIdx < drillSetsData.count else { continue }
+                for setData in drillSetsData[drillIdx] {
                     let drillSet = DrillSet(
-                        setNumber: setIdx + 1,
-                        targetBalls: drill.ballsPerSet,
-                        madeBalls: madeBalls
+                        setNumber: setData.id,
+                        targetBalls: setData.targetBalls,
+                        madeBalls: setData.madeBalls
                     )
                     entry.sets.append(drillSet)
                 }

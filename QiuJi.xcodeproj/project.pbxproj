@@ -16,31 +16,49 @@
 		2947954C032BD8539CC719CD /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E124BFE3C2EB71A2D4D5D86 /* AppRouter.swift */; };
 		2DC1352B03F51C4BF975828E /* BTButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F267826CBDEB22DBBC035ECA /* BTButton.swift */; };
 		312010B78D9C1261370303CE /* DrillFavorite.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787BACCE6FABB394F4F16809 /* DrillFavorite.swift */; };
+		38B046BE984DF61F75EF9AED /* BTTogglePillGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96CE40CD887451E93C5E727E /* BTTogglePillGroup.swift */; };
 		3CBB8DD76B3675824D3E121C /* UserActivePlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFC141B9C345F29AAE822347 /* UserActivePlan.swift */; };
 		4156D14FDFCEE0E57E0B3CD9 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EEB8511A50A9FA52D08FFAE /* MainTabView.swift */; };
 		44B1C2BCA0AF097F8AD6E6D3 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */; };
 		4FB3542B6768A8CC9F3AC2CE /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CF7735B9B15754CDA229F2 /* Typography.swift */; };
 		5080247FAFA2809C5CA006E3 /* QiuJiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C73374E53070E33615999A1D /* QiuJiApp.swift */; };
+		555E42E7A9CE7E78F1298F9D /* BTSegmentedTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF3848C581F3360B6AC185BF /* BTSegmentedTab.swift */; };
+		D0A803F1E2B4C5D6F7890002 /* BTShimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0A803F1E2B4C5D6F7890001 /* BTShimmer.swift */; };
+		55A0000000000000000B0001 /* AngleCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0001 /* AngleCalculator.swift */; };
+		55A0000000000000000B0002 /* AdaptiveQuestionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0002 /* AdaptiveQuestionEngine.swift */; };
+		55A0000000000000000B0003 /* AngleUsageLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0003 /* AngleUsageLimiter.swift */; };
+		55A0000000000000000B0004 /* AngleTestViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0004 /* AngleTestViewModel.swift */; };
+		55A0000000000000000B0005 /* AngleHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0005 /* AngleHistoryViewModel.swift */; };
+		55A0000000000000000B0006 /* AngleHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0006 /* AngleHomeView.swift */; };
+		55A0000000000000000B0007 /* AngleTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0007 /* AngleTestView.swift */; };
+		55A0000000000000000B0008 /* BTAngleTestTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0008 /* BTAngleTestTable.swift */; };
+		55A0000000000000000B0009 /* ContactPointTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0009 /* ContactPointTableView.swift */; };
+		55A0000000000000000B000A /* AngleHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F000A /* AngleHistoryView.swift */; };
 		566BC46F63F4593F9363147C /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9422765DA9BDA8A39823CE6 /* Colors.swift */; };
 		5A96C146323B16EB4DEF6C2B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 735EF922FB756EE5E610B985 /* RootView.swift */; };
+		66A0000000000000000B0001 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0001 /* HistoryViewModel.swift */; };
+		66A0000000000000000B0002 /* StatisticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0002 /* StatisticsViewModel.swift */; };
+		66A0000000000000000B0003 /* HistoryCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0003 /* HistoryCalendarView.swift */; };
+		66A0000000000000000B0004 /* TrainingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0004 /* TrainingDetailView.swift */; };
+		66A0000000000000000B0005 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0005 /* StatisticsView.swift */; };
+		66A0000000000000000B0006 /* HistoryAccessController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0006 /* HistoryAccessController.swift */; };
 		7110D601B28F4E7FBD69D54F /* TrainingSessionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = B995330A41AD55893B3968F4 /* TrainingSessionRepositoryProtocol.swift */; };
+		71A14288A869DC3CA9CB8225 /* BTShareCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33724FD4A4F0027DD1F44ADF /* BTShareCard.swift */; };
 		71A55F5771172599D18118A6 /* SyncQueueManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 762FF5472730A423BAC4AC4C /* SyncQueueManager.swift */; };
 		765E9C1EF9675638B45571B4 /* PhoneLoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 332AE192BD6DA8A2E91E924C /* PhoneLoginView.swift */; };
+		77A0000000000000000B0001 /* StoreKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0001 /* StoreKitService.swift */; };
+		77A0000000000000000B0002 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0002 /* SubscriptionManager.swift */; };
+		77A0000000000000000B0003 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0003 /* SubscriptionView.swift */; };
+		77A0000000000000000B0004 /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0004 /* Products.storekit */; };
+		88A0000000000000000B0001 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 88A0000000000000000F0001 /* PrivacyInfo.xcprivacy */; };
+		83354D23A9FFFE14914F8187 /* BTFloatingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DF04886B61E81C5852292A6 /* BTFloatingIndicator.swift */; };
 		896D8007BE1A5BAE1EA715AB /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1482582AFECCFD004756836 /* OnboardingView.swift */; };
+		AA00000000000000000SET01 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA00000000000000000SET02 /* SettingsView.swift */; };
 		89EE661BD0983BC0015D781C /* AngleTestResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 247FEB9084E0E3582F8606ED /* AngleTestResult.swift */; };
+		8AE541B88890F99349619BB5 /* BTSetInputGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 755E4EB18FB7C8E36A9CE1E3 /* BTSetInputGrid.swift */; };
 		93FC2432DEE310C48911AE43 /* AngleTestRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FCA7D71FF7EEC26C8A86C66 /* AngleTestRepositoryProtocol.swift */; };
 		94539E25FA12AA61CF13D0E7 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C54FC912F009ECAA5915124 /* ProfileView.swift */; };
 		A7D381DC392297618EE6F73C /* TrainingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C32F6332796F363C92E238 /* TrainingSession.swift */; };
-		ADD84E7C0411FE165970A6E5 /* DrillSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */; };
-		B94A486DDC09E75FCE9605A1 /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B1D78243285A63E6914927 /* AppError.swift */; };
-		C8E7581049B251A7413813C6 /* LocalAngleTestRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE1B51A8CF4F1EDACBAB0626 /* LocalAngleTestRepository.swift */; };
-		C9FD3186DE6A4A82102FC117 /* DrillFavoriteRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BA2B469E064B37D58B3A6C /* DrillFavoriteRepositoryProtocol.swift */; };
-		D44FD151B2FC3763FBBAB08A /* SyncPendingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */; };
-		D8E94AD72F13A2AE252392AB /* DrillContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88111B11C7A503708E5F01B /* DrillContentService.swift */; };
-		E24E45DB5BB6C677C6CFE20C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED438D842A23A0ADE713C218 /* LoginView.swift */; };
-		E3ED6B8AEB8DE578AF442725 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFAD9AFB0C65DB50252B78C /* AppConfig.swift */; };
-		F155AF1004F188651E57AC4F /* LocalTrainingSessionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7D13D9AC245334A60FF240 /* LocalTrainingSessionRepository.swift */; };
-		F4892CF080FEFA7E8355F04F /* LocalDrillFavoriteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4BCCC3F55789FC4FBDFF80A /* LocalDrillFavoriteRepository.swift */; };
 		AA11223344556677AABB0001 /* BTBilliardTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0001 /* BTBilliardTable.swift */; };
 		AA11223344556677AABB0002 /* BTLevelBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0002 /* BTLevelBadge.swift */; };
 		AA11223344556677AABB0003 /* BTEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0003 /* BTEmptyState.swift */; };
@@ -52,18 +70,34 @@
 		AA11223344556677AABB0009 /* FavoriteDrillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0009 /* FavoriteDrillsView.swift */; };
 		AA11223344556677AABB0010 /* TrainingHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */; };
 		AA11223344556677AABB0011 /* TrainingHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0011 /* TrainingHomeView.swift */; };
+		AA11223344556677AABB0012 /* PlanContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0012 /* PlanContentService.swift */; };
 		AA11223344556677AABB0013 /* PlanListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0013 /* PlanListView.swift */; };
 		AA11223344556677AABB0014 /* PlanDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0014 /* PlanDetailView.swift */; };
-		AA11223344556677AABB0012 /* PlanContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0012 /* PlanContentService.swift */; };
 		AA11223344556677AABB0020 /* ActiveTrainingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */; };
 		AA11223344556677AABB0021 /* ActiveTrainingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0021 /* ActiveTrainingView.swift */; };
 		AA11223344556677AABB0022 /* TrainingNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0022 /* TrainingNoteView.swift */; };
 		AA11223344556677AABB0023 /* TrainingSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0023 /* TrainingSummaryView.swift */; };
+		AA11223344556677AABB0024 /* TrainingShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0024 /* TrainingShareView.swift */; };
+		ADD84E7C0411FE165970A6E5 /* DrillSet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */; };
+		AF48499599AD1E6EE7C96A7A /* BTOverflowMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41C5422D8D3E3645C8836F8F /* BTOverflowMenu.swift */; };
+		B94A486DDC09E75FCE9605A1 /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B1D78243285A63E6914927 /* AppError.swift */; };
+		C8E7581049B251A7413813C6 /* LocalAngleTestRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE1B51A8CF4F1EDACBAB0626 /* LocalAngleTestRepository.swift */; };
+		C9FD3186DE6A4A82102FC117 /* DrillFavoriteRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BA2B469E064B37D58B3A6C /* DrillFavoriteRepositoryProtocol.swift */; };
 		CC44556677889900AABB0001 /* CustomPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC44556677889900AABB0011 /* CustomPlan.swift */; };
 		CC44556677889900AABB0002 /* CustomPlanBuilderViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC44556677889900AABB0012 /* CustomPlanBuilderViewModel.swift */; };
 		CC44556677889900AABB0003 /* CustomPlanBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC44556677889900AABB0013 /* CustomPlanBuilderView.swift */; };
+		CF524FBABF2D7E3FA8DA81FF /* BTExerciseRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72EC4408B98B38C23A2B9F74 /* BTExerciseRow.swift */; };
+		CF524FBB00000001A8DA81FF /* BTMiniTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72EC440800000001A8DA81FF /* BTMiniTable.swift */; };
+		D44FD151B2FC3763FBBAB08A /* SyncPendingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */; };
+		D8E94AD72F13A2AE252392AB /* DrillContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B88111B11C7A503708E5F01B /* DrillContentService.swift */; };
 		DD22334455667788AABB0001 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE22334455667788AABB0001 /* APIClient.swift */; };
 		DD22334455667788AABB0002 /* BackendSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE22334455667788AABB0002 /* BackendSyncService.swift */; };
+		E24E45DB5BB6C677C6CFE20C /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED438D842A23A0ADE713C218 /* LoginView.swift */; };
+		E3ED6B8AEB8DE578AF442725 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BFAD9AFB0C65DB50252B78C /* AppConfig.swift */; };
+		EABD41AAADBF9D126A2134B1 /* BTRestTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC964821961EBDF446516CCE /* BTRestTimer.swift */; };
+		EE484E89A26B61BB65711945 /* DrillRecordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2F443BCA058DFC4C8713435 /* DrillRecordView.swift */; };
+		F155AF1004F188651E57AC4F /* LocalTrainingSessionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE7D13D9AC245334A60FF240 /* LocalTrainingSessionRepository.swift */; };
+		F4892CF080FEFA7E8355F04F /* LocalDrillFavoriteRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4BCCC3F55789FC4FBDFF80A /* LocalDrillFavoriteRepository.swift */; };
 		FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0001 /* SwiftDataModelTests.swift */; };
 		FF0B000000000000000B0002 /* LocalTrainingSessionRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */; };
 		FF0B000000000000000B0003 /* LocalDrillFavoriteRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */; };
@@ -82,27 +116,17 @@
 		FF0B000000000000000B0016 /* HistoryAccessControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */; };
 		FF0E000000000000000E0003 /* Drills in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0001 /* Drills */; };
 		FF0E000000000000000E0004 /* Plans in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0002 /* Plans */; };
-		55A0000000000000000B0001 /* AngleCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0001 /* AngleCalculator.swift */; };
-		55A0000000000000000B0002 /* AdaptiveQuestionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0002 /* AdaptiveQuestionEngine.swift */; };
-		55A0000000000000000B0003 /* AngleUsageLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0003 /* AngleUsageLimiter.swift */; };
-		55A0000000000000000B0004 /* AngleTestViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0004 /* AngleTestViewModel.swift */; };
-		55A0000000000000000B0005 /* AngleHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0005 /* AngleHistoryViewModel.swift */; };
-		55A0000000000000000B0006 /* AngleHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0006 /* AngleHomeView.swift */; };
-		55A0000000000000000B0007 /* AngleTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0007 /* AngleTestView.swift */; };
-		55A0000000000000000B0008 /* BTAngleTestTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0008 /* BTAngleTestTable.swift */; };
-		55A0000000000000000B0009 /* ContactPointTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F0009 /* ContactPointTableView.swift */; };
-		55A0000000000000000B000A /* AngleHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55A0000000000000000F000A /* AngleHistoryView.swift */; };
-		66A0000000000000000B0001 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0001 /* HistoryViewModel.swift */; };
-		66A0000000000000000B0002 /* StatisticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0002 /* StatisticsViewModel.swift */; };
-		66A0000000000000000B0003 /* HistoryCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0003 /* HistoryCalendarView.swift */; };
-		66A0000000000000000B0004 /* TrainingDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0004 /* TrainingDetailView.swift */; };
-		66A0000000000000000B0005 /* StatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0005 /* StatisticsView.swift */; };
-		66A0000000000000000B0006 /* HistoryAccessController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66A0000000000000000F0006 /* HistoryAccessController.swift */; };
-		77A0000000000000000B0001 /* StoreKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0001 /* StoreKitService.swift */; };
-		77A0000000000000000B0002 /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0002 /* SubscriptionManager.swift */; };
-		77A0000000000000000B0003 /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0003 /* SubscriptionView.swift */; };
-		77A0000000000000000B0004 /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 77A0000000000000000F0004 /* Products.storekit */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FF0D000000000000000D0003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E7097A6FB8CDECAA1E071BA1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ED115D93DFF073BDF0B40893;
+			remoteInfo = QiuJi;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
@@ -112,37 +136,55 @@
 		2C54FC912F009ECAA5915124 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2D2BDA0DB04E3856F668EF9C /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		332AE192BD6DA8A2E91E924C /* PhoneLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLoginView.swift; sourceTree = "<group>"; };
+		33724FD4A4F0027DD1F44ADF /* BTShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTShareCard.swift; path = QiuJi/Core/Components/BTShareCard.swift; sourceTree = SOURCE_ROOT; };
+		41C5422D8D3E3645C8836F8F /* BTOverflowMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTOverflowMenu.swift; path = QiuJi/Core/Components/BTOverflowMenu.swift; sourceTree = SOURCE_ROOT; };
 		44CF7735B9B15754CDA229F2 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		4AEC734555F72CAB0256B3C9 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
+		4DF04886B61E81C5852292A6 /* BTFloatingIndicator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTFloatingIndicator.swift; path = QiuJi/Core/Components/BTFloatingIndicator.swift; sourceTree = SOURCE_ROOT; };
 		4EEB8511A50A9FA52D08FFAE /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		50C32F6332796F363C92E238 /* TrainingSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingSession.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0001 /* AngleCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleCalculator.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0002 /* AdaptiveQuestionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveQuestionEngine.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0003 /* AngleUsageLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleUsageLimiter.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0004 /* AngleTestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestViewModel.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0005 /* AngleHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistoryViewModel.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0006 /* AngleHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHomeView.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0007 /* AngleTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestView.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0008 /* BTAngleTestTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTAngleTestTable.swift; sourceTree = "<group>"; };
+		55A0000000000000000F0009 /* ContactPointTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPointTableView.swift; sourceTree = "<group>"; };
+		55A0000000000000000F000A /* AngleHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistoryView.swift; sourceTree = "<group>"; };
 		5BFAD9AFB0C65DB50252B78C /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		5E124BFE3C2EB71A2D4D5D86 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		63BA2B469E064B37D58B3A6C /* DrillFavoriteRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillFavoriteRepositoryProtocol.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0001 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0002 /* StatisticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModel.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0003 /* HistoryCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCalendarView.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0004 /* TrainingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingDetailView.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0005 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
+		66A0000000000000000F0006 /* HistoryAccessController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryAccessController.swift; sourceTree = "<group>"; };
 		67FC5A8F6C2EC56734890B52 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		69860C0027A66FD04607587A /* Spacing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Spacing.swift; sourceTree = "<group>"; };
 		69F9F9C77BBAADC1034A8DD8 /* DrillEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillEntry.swift; sourceTree = "<group>"; };
+		72EC4408B98B38C23A2B9F74 /* BTExerciseRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTExerciseRow.swift; path = QiuJi/Core/Components/BTExerciseRow.swift; sourceTree = SOURCE_ROOT; };
+		72EC440800000001A8DA81FF /* BTMiniTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTMiniTable.swift; path = QiuJi/Core/Components/BTMiniTable.swift; sourceTree = SOURCE_ROOT; };
 		735EF922FB756EE5E610B985 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		755E4EB18FB7C8E36A9CE1E3 /* BTSetInputGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTSetInputGrid.swift; path = QiuJi/Core/Components/BTSetInputGrid.swift; sourceTree = SOURCE_ROOT; };
 		762FF5472730A423BAC4AC4C /* SyncQueueManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueManager.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0001 /* StoreKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitService.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0002 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0003 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
+		77A0000000000000000F0004 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
+		88A0000000000000000F0001 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		787BACCE6FABB394F4F16809 /* DrillFavorite.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillFavorite.swift; sourceTree = "<group>"; };
 		814AF4E9A89E79D4004B1F2A /* ModelContainerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerFactory.swift; sourceTree = "<group>"; };
 		8571321B404BCC70AB62A461 /* 球迹.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "球迹.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		96CE40CD887451E93C5E727E /* BTTogglePillGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTTogglePillGroup.swift; path = QiuJi/Core/Components/BTTogglePillGroup.swift; sourceTree = SOURCE_ROOT; };
 		A9422765DA9BDA8A39823CE6 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillSet.swift; sourceTree = "<group>"; };
+		AC964821961EBDF446516CCE /* BTRestTimer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTRestTimer.swift; path = QiuJi/Core/Components/BTRestTimer.swift; sourceTree = SOURCE_ROOT; };
 		B2B1D78243285A63E6914927 /* AppError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppError.swift; sourceTree = "<group>"; };
 		B88111B11C7A503708E5F01B /* DrillContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillContentService.swift; sourceTree = "<group>"; };
 		B995330A41AD55893B3968F4 /* TrainingSessionRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingSessionRepositoryProtocol.swift; sourceTree = "<group>"; };
-		C73374E53070E33615999A1D /* QiuJiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiApp.swift; sourceTree = "<group>"; };
-		CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPendingItem.swift; sourceTree = "<group>"; };
-		CE7D13D9AC245334A60FF240 /* LocalTrainingSessionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTrainingSessionRepository.swift; sourceTree = "<group>"; };
-		D4BCCC3F55789FC4FBDFF80A /* LocalDrillFavoriteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDrillFavoriteRepository.swift; sourceTree = "<group>"; };
-		DE1B51A8CF4F1EDACBAB0626 /* LocalAngleTestRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAngleTestRepository.swift; sourceTree = "<group>"; };
-		EA220E6D8D978A24F0C8C5E5 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
-		ED438D842A23A0ADE713C218 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
-		EFC141B9C345F29AAE822347 /* UserActivePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserActivePlan.swift; sourceTree = "<group>"; };
-		F1482582AFECCFD004756836 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
-		F267826CBDEB22DBBC035ECA /* BTButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTButton.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0001 /* BTBilliardTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTBilliardTable.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0002 /* BTLevelBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTLevelBadge.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0003 /* BTEmptyState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTEmptyState.swift; sourceTree = "<group>"; };
@@ -152,20 +194,34 @@
 		BB11223344556677AABB0007 /* DrillDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillDetailView.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0008 /* BTPremiumLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPremiumLock.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0009 /* FavoriteDrillsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteDrillsView.swift; sourceTree = "<group>"; };
+		C73374E53070E33615999A1D /* QiuJiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiApp.swift; sourceTree = "<group>"; };
+		CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPendingItem.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHomeViewModel.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0011 /* TrainingHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHomeView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0012 /* PlanContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanContentService.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0013 /* PlanListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanListView.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0014 /* PlanDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDetailView.swift; sourceTree = "<group>"; };
-		CC11223344556677AABB0012 /* PlanContentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanContentService.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingViewModel.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0021 /* ActiveTrainingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingView.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0022 /* TrainingNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingNoteView.swift; sourceTree = "<group>"; };
 		CC11223344556677AABB0023 /* TrainingSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingSummaryView.swift; sourceTree = "<group>"; };
+		CC11223344556677AABB0024 /* TrainingShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingShareView.swift; sourceTree = "<group>"; };
 		CC44556677889900AABB0011 /* CustomPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlan.swift; sourceTree = "<group>"; };
 		CC44556677889900AABB0012 /* CustomPlanBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlanBuilderViewModel.swift; sourceTree = "<group>"; };
 		CC44556677889900AABB0013 /* CustomPlanBuilderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlanBuilderView.swift; sourceTree = "<group>"; };
+		CE7D13D9AC245334A60FF240 /* LocalTrainingSessionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTrainingSessionRepository.swift; sourceTree = "<group>"; };
+		D4BCCC3F55789FC4FBDFF80A /* LocalDrillFavoriteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDrillFavoriteRepository.swift; sourceTree = "<group>"; };
+		DE1B51A8CF4F1EDACBAB0626 /* LocalAngleTestRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAngleTestRepository.swift; sourceTree = "<group>"; };
+		E2F443BCA058DFC4C8713435 /* DrillRecordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DrillRecordView.swift; path = QiuJi/Features/Training/Views/DrillRecordView.swift; sourceTree = SOURCE_ROOT; };
+		EA220E6D8D978A24F0C8C5E5 /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
+		ED438D842A23A0ADE713C218 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		EE22334455667788AABB0001 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		EE22334455667788AABB0002 /* BackendSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendSyncService.swift; sourceTree = "<group>"; };
+		EFC141B9C345F29AAE822347 /* UserActivePlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserActivePlan.swift; sourceTree = "<group>"; };
+		F1482582AFECCFD004756836 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
+		AA00000000000000000SET02 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F267826CBDEB22DBBC035ECA /* BTButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTButton.swift; sourceTree = "<group>"; };
 		FF0A000000000000000A0001 /* SwiftDataModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftDataModelTests.swift; sourceTree = "<group>"; };
 		FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTrainingSessionRepositoryTests.swift; sourceTree = "<group>"; };
 		FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDrillFavoriteRepositoryTests.swift; sourceTree = "<group>"; };
@@ -185,45 +241,9 @@
 		FF0D000000000000000D0005 /* QiuJiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QiuJiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FF0E000000000000000E0001 /* Drills */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Drills; sourceTree = "<group>"; };
 		FF0E000000000000000E0002 /* Plans */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Plans; sourceTree = "<group>"; };
-		55A0000000000000000F0001 /* AngleCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleCalculator.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0002 /* AdaptiveQuestionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveQuestionEngine.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0003 /* AngleUsageLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleUsageLimiter.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0004 /* AngleTestViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestViewModel.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0005 /* AngleHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistoryViewModel.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0006 /* AngleHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHomeView.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0007 /* AngleTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestView.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0008 /* BTAngleTestTable.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTAngleTestTable.swift; sourceTree = "<group>"; };
-		55A0000000000000000F0009 /* ContactPointTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPointTableView.swift; sourceTree = "<group>"; };
-		55A0000000000000000F000A /* AngleHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistoryView.swift; sourceTree = "<group>"; };
-		66A0000000000000000F0001 /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
-		66A0000000000000000F0002 /* StatisticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModel.swift; sourceTree = "<group>"; };
-		66A0000000000000000F0003 /* HistoryCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCalendarView.swift; sourceTree = "<group>"; };
-		66A0000000000000000F0004 /* TrainingDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingDetailView.swift; sourceTree = "<group>"; };
-		66A0000000000000000F0005 /* StatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsView.swift; sourceTree = "<group>"; };
-		66A0000000000000000F0006 /* HistoryAccessController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryAccessController.swift; sourceTree = "<group>"; };
-		77A0000000000000000F0001 /* StoreKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitService.swift; sourceTree = "<group>"; };
-		77A0000000000000000F0002 /* SubscriptionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionManager.swift; sourceTree = "<group>"; };
-		77A0000000000000000F0003 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
-		77A0000000000000000F0004 /* Products.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Products.storekit; sourceTree = "<group>"; };
+		FF3848C581F3360B6AC185BF /* BTSegmentedTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTSegmentedTab.swift; path = QiuJi/Core/Components/BTSegmentedTab.swift; sourceTree = SOURCE_ROOT; };
+		D0A803F1E2B4C5D6F7890001 /* BTShimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTShimmer.swift; path = QiuJi/Core/Components/BTShimmer.swift; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
-
-/* Begin PBXContainerItemProxy section */
-		FF0D000000000000000D0003 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E7097A6FB8CDECAA1E071BA1 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = ED115D93DFF073BDF0B40893;
-			remoteInfo = QiuJi;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXTargetDependency section */
-		FF0D000000000000000D0004 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = ED115D93DFF073BDF0B40893 /* QiuJi */;
-			targetProxy = FF0D000000000000000D0003 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
 
 /* Begin PBXGroup section */
 		1D47DEE4A804E7955C1856BE /* Data */ = {
@@ -246,6 +266,27 @@
 			path = Protocols;
 			sourceTree = "<group>";
 		};
+		55A0000000000000000E0001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				55A0000000000000000F0005 /* AngleHistoryViewModel.swift */,
+				55A0000000000000000F0004 /* AngleTestViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		55A0000000000000000E0002 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				55A0000000000000000F000A /* AngleHistoryView.swift */,
+				55A0000000000000000F0006 /* AngleHomeView.swift */,
+				55A0000000000000000F0007 /* AngleTestView.swift */,
+				55A0000000000000000F0008 /* BTAngleTestTable.swift */,
+				55A0000000000000000F0009 /* ContactPointTableView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 		64DCC6217F4E3B7277A3F274 /* Repositories */ = {
 			isa = PBXGroup;
 			children = (
@@ -263,6 +304,26 @@
 				44CF7735B9B15754CDA229F2 /* Typography.swift */,
 			);
 			path = DesignSystem;
+			sourceTree = "<group>";
+		};
+		66A0000000000000000E0001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				66A0000000000000000F0001 /* HistoryViewModel.swift */,
+				66A0000000000000000F0002 /* StatisticsViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		66A0000000000000000E0002 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				66A0000000000000000F0006 /* HistoryAccessController.swift */,
+				66A0000000000000000F0003 /* HistoryCalendarView.swift */,
+				66A0000000000000000F0005 /* StatisticsView.swift */,
+				66A0000000000000000F0004 /* TrainingDetailView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		6853C758790507A930599FA1 /* App */ = {
@@ -285,56 +346,15 @@
 			path = Training;
 			sourceTree = "<group>";
 		};
-	DD11223344556677AABB0010 /* ViewModels */ = {
-		isa = PBXGroup;
-		children = (
-			CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */,
-			CC44556677889900AABB0012 /* CustomPlanBuilderViewModel.swift */,
-			CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */,
-		);
-		path = ViewModels;
-		sourceTree = "<group>";
-	};
-	DD11223344556677AABB0011 /* Views */ = {
-		isa = PBXGroup;
-		children = (
-			CC11223344556677AABB0021 /* ActiveTrainingView.swift */,
-			CC44556677889900AABB0013 /* CustomPlanBuilderView.swift */,
-			CC11223344556677AABB0014 /* PlanDetailView.swift */,
-			CC11223344556677AABB0013 /* PlanListView.swift */,
-			CC11223344556677AABB0011 /* TrainingHomeView.swift */,
-			CC11223344556677AABB0022 /* TrainingNoteView.swift */,
-			CC11223344556677AABB0023 /* TrainingSummaryView.swift */,
-		);
-		path = Views;
-		sourceTree = "<group>";
-	};
-	7DD5AF627BDDB11D449AE4AC /* DrillLibrary */ = {
-		isa = PBXGroup;
-		children = (
-			CC11223344556677AABB0001 /* ViewModels */,
-			CC11223344556677AABB0002 /* Views */,
-		);
-		path = DrillLibrary;
-		sourceTree = "<group>";
-	};
-	CC11223344556677AABB0001 /* ViewModels */ = {
-		isa = PBXGroup;
-		children = (
-			BB11223344556677AABB0005 /* DrillListViewModel.swift */,
-		);
-		path = ViewModels;
-		sourceTree = "<group>";
-	};
-	CC11223344556677AABB0002 /* Views */ = {
-		isa = PBXGroup;
-		children = (
-			BB11223344556677AABB0007 /* DrillDetailView.swift */,
-			BB11223344556677AABB0006 /* DrillListView.swift */,
-		);
-		path = Views;
-		sourceTree = "<group>";
-	};
+		7DD5AF627BDDB11D449AE4AC /* DrillLibrary */ = {
+			isa = PBXGroup;
+			children = (
+				CC11223344556677AABB0001 /* ViewModels */,
+				CC11223344556677AABB0002 /* Views */,
+			);
+			path = DrillLibrary;
+			sourceTree = "<group>";
+		};
 		84F0DB225848E4A9CDC9F74F /* Core */ = {
 			isa = PBXGroup;
 			children = (
@@ -381,6 +401,7 @@
 				84F0DB225848E4A9CDC9F74F /* Core */,
 				1D47DEE4A804E7955C1856BE /* Data */,
 				91100A3CED2A144172C614AF /* Features */,
+				88A0000000000000000F0001 /* PrivacyInfo.xcprivacy */,
 				D53656F6F0142463DDB8B38B /* Resources */,
 			);
 			path = QiuJi;
@@ -398,27 +419,6 @@
 			path = AngleTraining;
 			sourceTree = "<group>";
 		};
-		55A0000000000000000E0001 /* ViewModels */ = {
-			isa = PBXGroup;
-			children = (
-				55A0000000000000000F0005 /* AngleHistoryViewModel.swift */,
-				55A0000000000000000F0004 /* AngleTestViewModel.swift */,
-			);
-			path = ViewModels;
-			sourceTree = "<group>";
-		};
-		55A0000000000000000E0002 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				55A0000000000000000F000A /* AngleHistoryView.swift */,
-				55A0000000000000000F0006 /* AngleHomeView.swift */,
-				55A0000000000000000F0007 /* AngleTestView.swift */,
-				55A0000000000000000F0008 /* BTAngleTestTable.swift */,
-				55A0000000000000000F0009 /* ContactPointTableView.swift */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
 		AF7B501E48701DF73E27A325 /* Config */ = {
 			isa = PBXGroup;
 			children = (
@@ -428,35 +428,35 @@
 			path = Config;
 			sourceTree = "<group>";
 		};
-	B4E064814A2F21AE1930D510 /* Models */ = {
-		isa = PBXGroup;
-		children = (
-			247FEB9084E0E3582F8606ED /* AngleTestResult.swift */,
-			CC44556677889900AABB0011 /* CustomPlan.swift */,
-			69F9F9C77BBAADC1034A8DD8 /* DrillEntry.swift */,
-			787BACCE6FABB394F4F16809 /* DrillFavorite.swift */,
-			AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */,
-			814AF4E9A89E79D4004B1F2A /* ModelContainerFactory.swift */,
-			CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */,
-			50C32F6332796F363C92E238 /* TrainingSession.swift */,
-			EFC141B9C345F29AAE822347 /* UserActivePlan.swift */,
-		);
-		path = Models;
-		sourceTree = "<group>";
-	};
-	B67EA20367CC0CD766A4FAC8 /* Components */ = {
-		isa = PBXGroup;
-		children = (
-			BB11223344556677AABB0001 /* BTBilliardTable.swift */,
-			F267826CBDEB22DBBC035ECA /* BTButton.swift */,
-			BB11223344556677AABB0004 /* BTDrillCard.swift */,
-			BB11223344556677AABB0003 /* BTEmptyState.swift */,
-			BB11223344556677AABB0002 /* BTLevelBadge.swift */,
-			BB11223344556677AABB0008 /* BTPremiumLock.swift */,
-		);
-		path = Components;
-		sourceTree = "<group>";
-	};
+		B4E064814A2F21AE1930D510 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				247FEB9084E0E3582F8606ED /* AngleTestResult.swift */,
+				CC44556677889900AABB0011 /* CustomPlan.swift */,
+				69F9F9C77BBAADC1034A8DD8 /* DrillEntry.swift */,
+				787BACCE6FABB394F4F16809 /* DrillFavorite.swift */,
+				AA8435EAC8FBD5EFE8BD7FC7 /* DrillSet.swift */,
+				814AF4E9A89E79D4004B1F2A /* ModelContainerFactory.swift */,
+				CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */,
+				50C32F6332796F363C92E238 /* TrainingSession.swift */,
+				EFC141B9C345F29AAE822347 /* UserActivePlan.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		B67EA20367CC0CD766A4FAC8 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				BB11223344556677AABB0001 /* BTBilliardTable.swift */,
+				F267826CBDEB22DBBC035ECA /* BTButton.swift */,
+				BB11223344556677AABB0004 /* BTDrillCard.swift */,
+				BB11223344556677AABB0003 /* BTEmptyState.swift */,
+				BB11223344556677AABB0002 /* BTLevelBadge.swift */,
+				BB11223344556677AABB0008 /* BTPremiumLock.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
 		BDFBDA0FBD8C095E7CA0B415 /* Local */ = {
 			isa = PBXGroup;
 			children = (
@@ -467,6 +467,23 @@
 			path = Local;
 			sourceTree = "<group>";
 		};
+		CC11223344556677AABB0001 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				BB11223344556677AABB0005 /* DrillListViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		CC11223344556677AABB0002 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				BB11223344556677AABB0007 /* DrillDetailView.swift */,
+				BB11223344556677AABB0006 /* DrillListView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 		CF659C9F6B6B4AB79046E5B3 /* Views */ = {
 			isa = PBXGroup;
 			children = (
@@ -475,6 +492,7 @@
 				F1482582AFECCFD004756836 /* OnboardingView.swift */,
 				332AE192BD6DA8A2E91E924C /* PhoneLoginView.swift */,
 				2C54FC912F009ECAA5915124 /* ProfileView.swift */,
+				AA00000000000000000SET02 /* SettingsView.swift */,
 				77A0000000000000000F0003 /* SubscriptionView.swift */,
 			);
 			path = Views;
@@ -498,26 +516,6 @@
 			path = History;
 			sourceTree = "<group>";
 		};
-		66A0000000000000000E0001 /* ViewModels */ = {
-			isa = PBXGroup;
-			children = (
-				66A0000000000000000F0001 /* HistoryViewModel.swift */,
-				66A0000000000000000F0002 /* StatisticsViewModel.swift */,
-			);
-			path = ViewModels;
-			sourceTree = "<group>";
-		};
-		66A0000000000000000E0002 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				66A0000000000000000F0006 /* HistoryAccessController.swift */,
-				66A0000000000000000F0003 /* HistoryCalendarView.swift */,
-				66A0000000000000000F0005 /* StatisticsView.swift */,
-				66A0000000000000000F0004 /* TrainingDetailView.swift */,
-			);
-			path = Views;
-			sourceTree = "<group>";
-		};
 		D0DA1DB21D3A0DBEA850175E /* Profile */ = {
 			isa = PBXGroup;
 			children = (
@@ -538,6 +536,31 @@
 			path = Resources;
 			sourceTree = "<group>";
 		};
+		DD11223344556677AABB0010 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				CC11223344556677AABB0020 /* ActiveTrainingViewModel.swift */,
+				CC44556677889900AABB0012 /* CustomPlanBuilderViewModel.swift */,
+				CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		DD11223344556677AABB0011 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				CC11223344556677AABB0021 /* ActiveTrainingView.swift */,
+				CC44556677889900AABB0013 /* CustomPlanBuilderView.swift */,
+				CC11223344556677AABB0014 /* PlanDetailView.swift */,
+				CC11223344556677AABB0013 /* PlanListView.swift */,
+				CC11223344556677AABB0011 /* TrainingHomeView.swift */,
+				CC11223344556677AABB0022 /* TrainingNoteView.swift */,
+				CC11223344556677AABB0024 /* TrainingShareView.swift */,
+				CC11223344556677AABB0023 /* TrainingSummaryView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 		DF10D407A421A20AF60424B5 /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
@@ -554,32 +577,43 @@
 				996275AFF648DE5F413DA606 /* QiuJi */,
 				FF0C000000000000000C0001 /* QiuJiTests */,
 				CFFA631164676D164B613BED /* Products */,
+				72EC4408B98B38C23A2B9F74 /* BTExerciseRow.swift */,
+				72EC440800000001A8DA81FF /* BTMiniTable.swift */,
+				4DF04886B61E81C5852292A6 /* BTFloatingIndicator.swift */,
+				41C5422D8D3E3645C8836F8F /* BTOverflowMenu.swift */,
+				AC964821961EBDF446516CCE /* BTRestTimer.swift */,
+				FF3848C581F3360B6AC185BF /* BTSegmentedTab.swift */,
+				755E4EB18FB7C8E36A9CE1E3 /* BTSetInputGrid.swift */,
+				D0A803F1E2B4C5D6F7890001 /* BTShimmer.swift */,
+				33724FD4A4F0027DD1F44ADF /* BTShareCard.swift */,
+				96CE40CD887451E93C5E727E /* BTTogglePillGroup.swift */,
+				E2F443BCA058DFC4C8713435 /* DrillRecordView.swift */,
 			);
 			sourceTree = "<group>";
 		};
-	FF0C000000000000000C0001 /* QiuJiTests */ = {
-		isa = PBXGroup;
-		children = (
-			FF0A000000000000000A0011 /* ActiveTrainingViewModelTests.swift */,
-			FF0A000000000000000A0013 /* AngleTestViewModelTests.swift */,
-			FF0A000000000000000A0010 /* AngleTrainingTests.swift */,
-			FF0A000000000000000A0012 /* CustomPlanBuilderViewModelTests.swift */,
-			FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */,
-			FF0A000000000000000A0005 /* DrillContentServiceTests.swift */,
-			FF0A000000000000000A0007 /* DrillContentValidationTests.swift */,
-			FF0A000000000000000A0008 /* DrillListViewModelTests.swift */,
-			FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */,
-			FF0A000000000000000A0014 /* HistoryViewModelTests.swift */,
-			FF0A000000000000000A0004 /* LocalAngleTestRepositoryTests.swift */,
-			FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */,
-			FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */,
-			FF0A000000000000000A0015 /* StatisticsViewModelTests.swift */,
-			FF0A000000000000000A0001 /* SwiftDataModelTests.swift */,
-			FF0A000000000000000A0006 /* SyncQueueManagerTests.swift */,
-		);
-		path = QiuJiTests;
-		sourceTree = "<group>";
-	};
+		FF0C000000000000000C0001 /* QiuJiTests */ = {
+			isa = PBXGroup;
+			children = (
+				FF0A000000000000000A0011 /* ActiveTrainingViewModelTests.swift */,
+				FF0A000000000000000A0013 /* AngleTestViewModelTests.swift */,
+				FF0A000000000000000A0010 /* AngleTrainingTests.swift */,
+				FF0A000000000000000A0012 /* CustomPlanBuilderViewModelTests.swift */,
+				FF0A000000000000000A0009 /* DrillCategoryAndLevelTests.swift */,
+				FF0A000000000000000A0005 /* DrillContentServiceTests.swift */,
+				FF0A000000000000000A0007 /* DrillContentValidationTests.swift */,
+				FF0A000000000000000A0008 /* DrillListViewModelTests.swift */,
+				FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */,
+				FF0A000000000000000A0014 /* HistoryViewModelTests.swift */,
+				FF0A000000000000000A0004 /* LocalAngleTestRepositoryTests.swift */,
+				FF0A000000000000000A0003 /* LocalDrillFavoriteRepositoryTests.swift */,
+				FF0A000000000000000A0002 /* LocalTrainingSessionRepositoryTests.swift */,
+				FF0A000000000000000A0015 /* StatisticsViewModelTests.swift */,
+				FF0A000000000000000A0001 /* SwiftDataModelTests.swift */,
+				FF0A000000000000000A0006 /* SyncQueueManagerTests.swift */,
+			);
+			path = QiuJiTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -663,6 +697,7 @@
 				267F33C52AFB836CF954870D /* Assets.xcassets in Resources */,
 				FF0E000000000000000E0003 /* Drills in Resources */,
 				FF0E000000000000000E0004 /* Plans in Resources */,
+				88A0000000000000000B0001 /* PrivacyInfo.xcprivacy in Resources */,
 				77A0000000000000000B0004 /* Products.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -705,6 +740,7 @@
 				4156D14FDFCEE0E57E0B3CD9 /* MainTabView.swift in Sources */,
 				17A012B0FCEB42C5BCA33B92 /* ModelContainerFactory.swift in Sources */,
 				896D8007BE1A5BAE1EA715AB /* OnboardingView.swift in Sources */,
+				AA00000000000000000SET01 /* SettingsView.swift in Sources */,
 				765E9C1EF9675638B45571B4 /* PhoneLoginView.swift in Sources */,
 				94539E25FA12AA61CF13D0E7 /* ProfileView.swift in Sources */,
 				5080247FAFA2809C5CA006E3 /* QiuJiApp.swift in Sources */,
@@ -725,6 +761,7 @@
 				AA11223344556677AABB0021 /* ActiveTrainingView.swift in Sources */,
 				AA11223344556677AABB0022 /* TrainingNoteView.swift in Sources */,
 				AA11223344556677AABB0023 /* TrainingSummaryView.swift in Sources */,
+				AA11223344556677AABB0024 /* TrainingShareView.swift in Sources */,
 				CC44556677889900AABB0001 /* CustomPlan.swift in Sources */,
 				CC44556677889900AABB0002 /* CustomPlanBuilderViewModel.swift in Sources */,
 				CC44556677889900AABB0003 /* CustomPlanBuilderView.swift in Sources */,
@@ -749,33 +786,52 @@
 				77A0000000000000000B0001 /* StoreKitService.swift in Sources */,
 				77A0000000000000000B0002 /* SubscriptionManager.swift in Sources */,
 				77A0000000000000000B0003 /* SubscriptionView.swift in Sources */,
+				CF524FBABF2D7E3FA8DA81FF /* BTExerciseRow.swift in Sources */,
+				CF524FBB00000001A8DA81FF /* BTMiniTable.swift in Sources */,
+				83354D23A9FFFE14914F8187 /* BTFloatingIndicator.swift in Sources */,
+				AF48499599AD1E6EE7C96A7A /* BTOverflowMenu.swift in Sources */,
+				EABD41AAADBF9D126A2134B1 /* BTRestTimer.swift in Sources */,
+				555E42E7A9CE7E78F1298F9D /* BTSegmentedTab.swift in Sources */,
+				D0A803F1E2B4C5D6F7890002 /* BTShimmer.swift in Sources */,
+				8AE541B88890F99349619BB5 /* BTSetInputGrid.swift in Sources */,
+				71A14288A869DC3CA9CB8225 /* BTShareCard.swift in Sources */,
+				38B046BE984DF61F75EF9AED /* BTTogglePillGroup.swift in Sources */,
+				EE484E89A26B61BB65711945 /* DrillRecordView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-	FF0D000000000000000D0002 /* Sources */ = {
-		isa = PBXSourcesBuildPhase;
-		buildActionMask = 2147483647;
-		files = (
-			FF0B000000000000000B0011 /* ActiveTrainingViewModelTests.swift in Sources */,
-			FF0B000000000000000B0013 /* AngleTestViewModelTests.swift in Sources */,
-			FF0B000000000000000B0010 /* AngleTrainingTests.swift in Sources */,
-			FF0B000000000000000B0012 /* CustomPlanBuilderViewModelTests.swift in Sources */,
-			FF0B000000000000000B0009 /* DrillCategoryAndLevelTests.swift in Sources */,
-			FF0B000000000000000B0005 /* DrillContentServiceTests.swift in Sources */,
-			FF0B000000000000000B0007 /* DrillContentValidationTests.swift in Sources */,
-			FF0B000000000000000B0008 /* DrillListViewModelTests.swift in Sources */,
-			FF0B000000000000000B0004 /* LocalAngleTestRepositoryTests.swift in Sources */,
-			FF0B000000000000000B0003 /* LocalDrillFavoriteRepositoryTests.swift in Sources */,
-			FF0B000000000000000B0002 /* LocalTrainingSessionRepositoryTests.swift in Sources */,
-			FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */,
-			FF0B000000000000000B0006 /* SyncQueueManagerTests.swift in Sources */,
-			FF0B000000000000000B0014 /* HistoryViewModelTests.swift in Sources */,
-			FF0B000000000000000B0015 /* StatisticsViewModelTests.swift in Sources */,
-			FF0B000000000000000B0016 /* HistoryAccessControllerTests.swift in Sources */,
-		);
-		runOnlyForDeploymentPostprocessing = 0;
+		FF0D000000000000000D0002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF0B000000000000000B0011 /* ActiveTrainingViewModelTests.swift in Sources */,
+				FF0B000000000000000B0013 /* AngleTestViewModelTests.swift in Sources */,
+				FF0B000000000000000B0010 /* AngleTrainingTests.swift in Sources */,
+				FF0B000000000000000B0012 /* CustomPlanBuilderViewModelTests.swift in Sources */,
+				FF0B000000000000000B0009 /* DrillCategoryAndLevelTests.swift in Sources */,
+				FF0B000000000000000B0005 /* DrillContentServiceTests.swift in Sources */,
+				FF0B000000000000000B0007 /* DrillContentValidationTests.swift in Sources */,
+				FF0B000000000000000B0008 /* DrillListViewModelTests.swift in Sources */,
+				FF0B000000000000000B0004 /* LocalAngleTestRepositoryTests.swift in Sources */,
+				FF0B000000000000000B0003 /* LocalDrillFavoriteRepositoryTests.swift in Sources */,
+				FF0B000000000000000B0002 /* LocalTrainingSessionRepositoryTests.swift in Sources */,
+				FF0B000000000000000B0001 /* SwiftDataModelTests.swift in Sources */,
+				FF0B000000000000000B0006 /* SyncQueueManagerTests.swift in Sources */,
+				FF0B000000000000000B0014 /* HistoryViewModelTests.swift in Sources */,
+				FF0B000000000000000B0015 /* StatisticsViewModelTests.swift in Sources */,
+				FF0B000000000000000B0016 /* HistoryAccessControllerTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FF0D000000000000000D0004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ED115D93DFF073BDF0B40893 /* QiuJi */;
+			targetProxy = FF0D000000000000000D0003 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		A2643DC7D299449A2258B895 /* Debug */ = {

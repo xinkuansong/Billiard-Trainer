@@ -8,218 +8,276 @@ struct SubscriptionView: View {
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
 
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.btBG.ignoresSafeArea()
+    // Paywall uses a near-black background distinct from btBG to create a premium feel
+    private static let bgPaywall = Color(red: 0x11 / 255.0, green: 0x11 / 255.0, blue: 0x11 / 255.0)
+    private let bgColor = Self.bgPaywall
+    private let goldColor = Color.btAccent
 
-                ScrollView {
-                    VStack(spacing: Spacing.xxl) {
-                        heroSection
-                        benefitsList
-                        planCards
-                        purchaseButton
-                        restoreButton
-                        legalLinks
-                    }
+    var body: some View {
+        ZStack {
+            bgColor.ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                topBar
                     .padding(.horizontal, Spacing.lg)
-                    .padding(.bottom, Spacing.xxxxl)
+
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 0) {
+                        heroSection
+                            .padding(.top, Spacing.sm)
+                            .padding(.bottom, Spacing.xxl)
+
+                        featuresList
+                            .padding(.bottom, Spacing.xxl)
+                    }
+                    .padding(.horizontal, Spacing.xxl)
                 }
-            }
-            .navigationTitle("球迹 Pro")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("关闭") { dismiss() }
-                        .foregroundStyle(.btTextSecondary)
-                }
-            }
-            .task {
-                await subscriptionManager.loadProducts()
-                if selectedProductID == nil {
-                    selectedProductID = subscriptionManager.yearlyProduct?.id
-                }
-            }
-            .alert("恢复购买", isPresented: $showRestoreAlert) {
-                Button("好的") {}
-            } message: {
-                Text(restoreMessage)
+
+                bottomSection
+                    .padding(.horizontal, Spacing.xxl)
+                    .padding(.bottom, Spacing.xxl)
             }
         }
+        .preferredColorScheme(.dark)
+        .task {
+            await subscriptionManager.loadProducts()
+            if selectedProductID == nil {
+                selectedProductID = subscriptionManager.yearlyProduct?.id
+            }
+        }
+        .alert("恢复购买", isPresented: $showRestoreAlert) {
+            Button("好的") {}
+        } message: {
+            Text(restoreMessage)
+        }
+    }
+
+    // MARK: - Top Bar
+
+    private var topBar: some View {
+        HStack {
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.btBodyMedium)
+                    .foregroundStyle(.white.opacity(0.4))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            Spacer()
+        }
+        .frame(height: 48)
     }
 
     // MARK: - Hero
 
     private var heroSection: some View {
         VStack(spacing: Spacing.lg) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 48))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [.btAccent, .orange],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.btPrimary.opacity(0.4), Color.btBGTertiary],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-                .padding(.top, Spacing.xl)
+                    .frame(width: 60, height: 60)
+                    .overlay(
+                        Circle().stroke(Color.btPrimary.opacity(0.2), lineWidth: 2)
+                    )
 
-            Text("解锁全部功能")
-                .font(.btLargeTitle)
-                .foregroundStyle(.btText)
+                Image(systemName: "target")
+                    .font(.btStatNumber)
+                    .foregroundStyle(Color.btPrimary)
+            }
 
-            Text("系统训练，持续进步")
-                .font(.btCallout)
-                .foregroundStyle(.btTextSecondary)
+            VStack(spacing: Spacing.xs) {
+                (Text("解锁球迹 ").foregroundColor(.white) +
+                 Text("Pro").foregroundColor(goldColor))
+                    .font(.btTitle)
+
+                Text("专为台球爱好者设计的专业训练系统")
+                    .font(.btCaption2)
+                    .foregroundStyle(.white.opacity(0.4))
+            }
         }
     }
 
-    // MARK: - Benefits
+    // MARK: - Features
 
-    private var benefitsList: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            benefitRow(icon: "list.bullet.rectangle", text: "全部 72 项训练动作")
-            benefitRow(icon: "calendar", text: "6 套官方训练计划")
-            benefitRow(icon: "chart.bar", text: "完整统计图表与趋势分析")
-            benefitRow(icon: "clock.arrow.circlepath", text: "全部训练历史回顾")
-            benefitRow(icon: "angle", text: "无限角度测试 + 历史趋势")
-            benefitRow(icon: "hammer", text: "自定义训练计划")
-            benefitRow(icon: "icloud", text: "多设备云端数据同步")
+    private var featuresList: some View {
+        VStack(spacing: Spacing.md) {
+            featureRow(number: 1, title: "完整动作库", subtitle: "解锁全部 72 个训练动作")
+            featureRow(number: 2, title: "统计与趋势图表", subtitle: "可视化你的训练进度")
+            featureRow(number: 3, title: "自定义训练计划", subtitle: "打造你的专属训练方案")
+            featureRow(number: 4, title: "无限角度测试", subtitle: "不限次数提升角度感知")
+            featureRow(number: 5, title: "训练分享卡全样式", subtitle: "所有配色主题与分享模版")
+            featureRow(number: 6, title: "云端同步", subtitle: "多设备数据无缝同步")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
-    private func benefitRow(icon: String, text: String) -> some View {
+    private func featureRow(number: Int, title: String, subtitle: String) -> some View {
         HStack(spacing: Spacing.md) {
-            Image(systemName: icon)
-                .font(.system(size: 15))
-                .foregroundStyle(.btPrimary)
-                .frame(width: 24)
+            ZStack {
+                Circle()
+                    .stroke(goldColor.opacity(0.5), lineWidth: 1)
+                    .frame(width: 22, height: 22)
+                Text("\(number)")
+                    .font(.btMicro).fontWeight(.bold)
+                    .foregroundStyle(goldColor)
+            }
 
-            Text(text)
-                .font(.btBody)
-                .foregroundStyle(.btText)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title)
+                    .font(.btFootnote).fontWeight(.medium)
+                    .foregroundStyle(.white)
+                Text(subtitle)
+                    .font(.btCaption2)
+                    .foregroundStyle(.white.opacity(0.4))
+            }
 
             Spacer()
-
-            Image(systemName: "checkmark")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(.btSuccess)
         }
     }
 
-    // MARK: - Plan Cards
+    // MARK: - Bottom Section (fixed)
 
-    private var planCards: some View {
-        VStack(spacing: Spacing.md) {
+    private var bottomSection: some View {
+        VStack(spacing: Spacing.lg) {
+            pricingGrid
+            subscribeButton
+            legalSection
+        }
+    }
+
+    // MARK: - Pricing Grid
+
+    private var pricingGrid: some View {
+        HStack(spacing: Spacing.sm) {
             if let monthly = subscriptionManager.monthlyProduct {
-                planCard(
+                pricingCard(
                     product: monthly,
-                    title: "月度订阅",
-                    subtitle: "灵活订阅，随时取消",
-                    badge: nil
+                    label: "月订阅",
+                    period: "/月",
+                    borderColor: .white.opacity(0.1),
+                    isRecommended: false
                 )
             }
 
             if let yearly = subscriptionManager.yearlyProduct {
-                planCard(
+                pricingCard(
                     product: yearly,
-                    title: "年度订阅",
-                    subtitle: yearlySubtitle(yearly),
-                    badge: "最划算"
+                    label: "年订阅",
+                    period: monthlyEquivalent(yearly),
+                    borderColor: Color.btPrimary,
+                    isRecommended: true
                 )
             }
 
             if let lifetime = subscriptionManager.lifetimeProduct {
-                planCard(
+                pricingCard(
                     product: lifetime,
-                    title: "终身买断",
-                    subtitle: "一次购买，永久享用",
-                    badge: nil
+                    label: "终身买断",
+                    period: "一次性",
+                    borderColor: goldColor.opacity(0.4),
+                    isRecommended: false
                 )
             }
 
-            if subscriptionManager.products.isEmpty && !subscriptionManager.isLoading {
-                Text("无法加载订阅方案，请检查网络后重试")
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(Spacing.xl)
-            }
-
-            if subscriptionManager.isLoading && subscriptionManager.products.isEmpty {
+            if subscriptionManager.products.isEmpty && subscriptionManager.isLoading {
                 ProgressView()
-                    .padding(Spacing.xl)
+                    .tint(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 100)
             }
         }
     }
 
-    private func planCard(product: Product, title: String, subtitle: String, badge: String?) -> some View {
+    private func pricingCard(
+        product: Product,
+        label: String,
+        period: String,
+        borderColor: Color,
+        isRecommended: Bool
+    ) -> some View {
         let isSelected = selectedProductID == product.id
+        let activeBorder = isRecommended ? Color.btPrimary : borderColor
+
         return Button {
             withAnimation(.spring(duration: 0.2)) {
                 selectedProductID = product.id
             }
         } label: {
-            HStack(spacing: Spacing.lg) {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    HStack(spacing: Spacing.sm) {
-                        Text(title)
-                            .font(.btHeadline)
-                            .foregroundStyle(.btText)
-
-                        if let badge {
-                            Text(badge)
-                                .font(.btCaption2)
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, Spacing.sm)
-                                .padding(.vertical, 2)
-                                .background(Color.btAccent)
-                                .clipShape(Capsule())
-                        }
-                    }
-
-                    Text(subtitle)
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-                }
-
-                Spacer()
+            VStack(spacing: Spacing.xs) {
+                Text(label)
+                    .font(.btMicro)
+                    .foregroundStyle(isRecommended ? .white.opacity(0.8) : .white.opacity(0.5))
 
                 Text(product.displayPrice)
-                    .font(.btTitle)
-                    .foregroundStyle(isSelected ? .btPrimary : .btText)
+                    .font(.btCallout).fontWeight(.bold)
+                    .foregroundStyle(.white)
+
+                Text(period)
+                    .font(.btMicro)
+                    .foregroundStyle(isRecommended ? Color.btPrimary : periodColor(product))
             }
-            .padding(Spacing.lg)
-            .background(isSelected ? Color.btPrimary.opacity(0.08) : Color.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.lg)
+            .background(glassBackground(isSelected: isSelected, isRecommended: isRecommended))
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             .overlay(
-                RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .stroke(isSelected ? Color.btPrimary : Color.clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: BTRadius.md)
+                    .stroke(isSelected ? activeBorder : borderColor,
+                            lineWidth: isRecommended ? 2 : 1)
             )
+            .overlay(alignment: .top) {
+                if isRecommended {
+                    Text("推荐")
+                        .font(.btMicro).fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, 2)
+                        .background(Color.btPrimary)
+                        .clipShape(Capsule())
+                        .offset(y: -10)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if isRecommended && isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.btCaption)
+                        .foregroundStyle(Color.btPrimary)
+                        .padding(Spacing.xs)
+                }
+            }
         }
         .buttonStyle(.plain)
     }
 
-    private func yearlySubtitle(_ product: Product) -> String {
-        if let monthly = subscriptionManager.monthlyProduct {
-            let monthlyAnnual = NSDecimalNumber(decimal: monthly.price).multiplying(by: 12).decimalValue
-            let saved = NSDecimalNumber(decimal: monthlyAnnual).subtracting(NSDecimalNumber(decimal: product.price)).decimalValue
-            if saved > 0 {
-                let pct = NSDecimalNumber(decimal: saved)
-                    .dividing(by: NSDecimalNumber(decimal: monthlyAnnual))
-                    .multiplying(by: 100)
-                    .intValue
-                return "较月订阅节省 \(pct)%"
-            }
+    private func glassBackground(isSelected: Bool, isRecommended: Bool) -> some ShapeStyle {
+        if isRecommended && isSelected {
+            return Color.btPrimary.opacity(0.1)
         }
-        return "年付更优惠"
+        return Color.white.opacity(0.04)
     }
 
-    // MARK: - Purchase Button
+    private func monthlyEquivalent(_ yearly: Product) -> String {
+        let monthlyPrice = NSDecimalNumber(decimal: yearly.price)
+            .dividing(by: 12)
+            .doubleValue
+        return String(format: "月均¥%.1f", monthlyPrice)
+    }
 
-    private var purchaseButton: some View {
+    private func periodColor(_ product: Product) -> Color {
+        if product.id == StoreKitService.lifetimeID {
+            return goldColor
+        }
+        return .white.opacity(0.3)
+    }
+
+    // MARK: - Subscribe Button
+
+    private var subscribeButton: some View {
         Button {
             Task { await handlePurchase() }
         } label: {
@@ -229,50 +287,60 @@ struct SubscriptionView: View {
                         .tint(.white)
                 } else if subscriptionManager.isPremium {
                     Label("已是 Pro 会员", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.white)
                 } else {
-                    Text("立即订阅")
+                    Text(subscribeButtonText)
+                        .foregroundStyle(.white)
                 }
             }
+            .font(.btCallout).fontWeight(.bold)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .background(subscriptionManager.isPremium ? Color.btBGTertiary : Color.btPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
-        .buttonStyle(BTButtonStyle.primary)
         .disabled(selectedProductID == nil || subscriptionManager.isLoading || subscriptionManager.isPremium)
-        .opacity(subscriptionManager.isPremium ? 0.6 : 1)
     }
 
-    // MARK: - Restore
-
-    private var restoreButton: some View {
-        Button {
-            Task { await handleRestore() }
-        } label: {
-            Text("恢复购买")
-                .font(.btCallout)
-                .foregroundStyle(.btPrimary)
+    private var subscribeButtonText: String {
+        guard let id = selectedProductID,
+              let product = subscriptionManager.products.first(where: { $0.id == id }) else {
+            return "立即订阅"
         }
-        .disabled(subscriptionManager.isLoading)
+        if product.id == StoreKitService.lifetimeID {
+            return "立即购买 — 终身 \(product.displayPrice)"
+        }
+        let label = product.id == StoreKitService.yearlyID ? "年订阅" : "月订阅"
+        return "立即订阅 — \(label) \(product.displayPrice)"
     }
 
     // MARK: - Legal
 
-    private var legalLinks: some View {
-        VStack(spacing: Spacing.xs) {
-            Text("订阅将通过 Apple ID 账户扣费。除非在当前订阅期结束前至少 24 小时关闭自动续订，否则订阅将自动续期。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+    private var legalSection: some View {
+        VStack(spacing: Spacing.sm) {
+            Text("确认购买后将向您的 iTunes 账户扣款。订阅将自动续期，除非在当前期限结束前至少 24 小时关闭。")
+                .font(.btMicro)
+                .foregroundStyle(.white.opacity(0.2))
                 .multilineTextAlignment(.center)
+                .lineSpacing(2)
 
             HStack(spacing: Spacing.lg) {
+                Button { Task { await handleRestore() } } label: {
+                    Text("恢复购买")
+                        .font(.btMicro)
+                        .foregroundStyle(.white.opacity(0.2))
+                }
+                .disabled(subscriptionManager.isLoading)
+
                 Link("服务条款", destination: URL(string: "https://example.com/terms")!)
-                    .font(.btCaption)
-                    .foregroundStyle(.btPrimary)
+                    .font(.btMicro)
+                    .foregroundStyle(.white.opacity(0.2))
 
                 Link("隐私政策", destination: URL(string: "https://example.com/privacy")!)
-                    .font(.btCaption)
-                    .foregroundStyle(.btPrimary)
+                    .font(.btMicro)
+                    .foregroundStyle(.white.opacity(0.2))
             }
-            .padding(.top, Spacing.xs)
         }
-        .padding(.horizontal, Spacing.lg)
     }
 
     // MARK: - Actions

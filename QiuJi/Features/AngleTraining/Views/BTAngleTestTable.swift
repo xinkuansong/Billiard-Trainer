@@ -66,7 +66,6 @@ struct BTAngleTestTable: View {
                 // User estimated approach (orange dashed)
                 if let ua = userAngle {
                     let toPkt = atan2(pkt.y - tgt.y, pkt.x - tgt.x)
-                    let toCue = atan2(cue.y - tgt.y, cue.x - tgt.x)
                     let approach = atan2(tgt.y - cue.y, tgt.x - cue.x)
                     var diff = approach - toPkt
                     while diff >  .pi { diff -= 2 * .pi }
@@ -122,7 +121,7 @@ struct BTAngleTestTable: View {
 
 // MARK: - Preview
 
-#Preview {
+#Preview("Light") {
     let q = AngleCalculator.generateQuestion(angle: 30, pocketType: .corner)
     VStack(spacing: Spacing.lg) {
         BTAngleTestTable(question: q)
@@ -130,4 +129,15 @@ struct BTAngleTestTable: View {
     }
     .padding()
     .background(.btBG)
+}
+
+#Preview("Dark") {
+    let q = AngleCalculator.generateQuestion(angle: 30, pocketType: .corner)
+    VStack(spacing: Spacing.lg) {
+        BTAngleTestTable(question: q)
+        BTAngleTestTable(question: q, showResult: true, userAngle: 25)
+    }
+    .padding()
+    .background(.btBG)
+    .preferredColorScheme(.dark)
 }

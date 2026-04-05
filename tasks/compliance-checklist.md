@@ -12,8 +12,8 @@
 
 ### 1.1 跟踪声明
 
-- [ ] `NSPrivacyTracking = false`（本 App 不进行跨 App/网站追踪）
-- [ ] `NSPrivacyTrackingDomains`：空数组
+- [x] `NSPrivacyTracking = false`（本 App 不进行跨 App/网站追踪）✅ 2026-04-05
+- [x] `NSPrivacyTrackingDomains`：空数组 ✅ 2026-04-05
 
 ### 1.2 数据收集声明（`NSPrivacyCollectedDataTypes`）
 
@@ -26,16 +26,16 @@
 | 精确位置 | ❌ | — | — |
 | 健康与健身数据 | ❌ | — | — |
 
-- [ ] `PrivacyInfo.xcprivacy` 中 `NSPrivacyCollectedDataTypes` 仅包含实际收集的类型（手机号、用户生成内容、用户 ID）
-- [ ] 每个类型标注正确的用途（`NSPrivacyCollectedDataTypePurposes`）：`NSPrivacyCollectedDataTypePurposeAppFunctionality`
+- [x] `PrivacyInfo.xcprivacy` 中 `NSPrivacyCollectedDataTypes` 仅包含实际收集的类型（手机号、用户生成内容、用户 ID）✅ 2026-04-05
+- [x] 每个类型标注正确的用途（`NSPrivacyCollectedDataTypePurposes`）：`NSPrivacyCollectedDataTypePurposeAppFunctionality` ✅ 2026-04-05
 
 ### 1.3 Required Reason API 声明
 
 如果代码中使用了以下 API，必须在 Privacy Manifest 中声明原因：
 
-- [ ] `UserDefaults`：若用于 App 功能（如保存设置），声明 `CA92.1`
-- [ ] `FileTimestamp`（文件访问时间）：若用到，声明 `C617.1`
-- [ ] `SystemBootTime`（`clock_gettime` CLOCK_MONOTONIC）：若用到，声明 `35F9.1`
+- [x] `UserDefaults`：用于 App 功能（AngleUsageLimiter, AuthState 等），已声明 `CA92.1` ✅ 2026-04-05
+- [x] `FileTimestamp`：未使用，无需声明 ✅
+- [x] `SystemBootTime`：未使用，无需声明 ✅
 
 > **操作**：在 Xcode 中使用「Privacy Report」功能扫描，确保无未声明 API。
 

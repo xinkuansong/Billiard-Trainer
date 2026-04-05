@@ -4,6 +4,7 @@
 #        or from root:   make -f scripts/Makefile help
 
 SCHEME       ?= QiuJi
+SIM_DEVICE   ?= iPhone 17 Pro
 PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
 DERIVED_DATA := $(BUILD_DIR)/DerivedData
@@ -41,6 +42,7 @@ help:
 	@echo "  make dsym         从 Archive 提取 dSYM"
 	@echo "────────────────────────────────────"
 	@echo "  变量覆盖示例："
+	@echo "  make build SIM_DEVICE='iPhone 17 Pro Max'"
 	@echo "  make archive SCHEME=BilliardTrainer"
 	@echo ""
 
@@ -56,14 +58,14 @@ build:
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
-	  -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  build \
 	  | xcpretty || xcodebuild \
 	    $(PROJECT_FLAG) \
 	    -scheme $(SCHEME) \
 	    -configuration Debug \
 	    -derivedDataPath $(DERIVED_DATA) \
-	    -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+	    -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	    build
 	@echo "✅ Debug 构建完成"
 
@@ -79,7 +81,7 @@ test:
 	  -scheme $(SCHEME) \
 	  -configuration Debug \
 	  -derivedDataPath $(DERIVED_DATA) \
-	  -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  -enableCodeCoverage YES \
 	  test \
 	  | xcpretty --report junit --output $(BUILD_DIR)/test-results.xml || true

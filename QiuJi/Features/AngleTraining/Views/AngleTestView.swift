@@ -4,6 +4,8 @@ import SwiftData
 struct AngleTestView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var vm: AngleTestViewModel
     @FocusState private var inputFocused: Bool
     @State private var showSubscription = false
@@ -26,11 +28,23 @@ struct AngleTestView: View {
                 }
                 .padding(Spacing.lg)
             }
+            .safeAreaInset(edge: .bottom) {
+                if vm.showResult && !vm.testFinished {
+                    bottomActionButton
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, Spacing.md)
+                        .background(.btBG)
+                }
+            }
         }
         .background(.btBG)
         .navigationTitle("角度测试")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar(.hidden, for: .tabBar)
         .onAppear { vm.configure(context: modelContext); vm.startTest() }
+        .onReceive(subscriptionManager.$isPremium) { premium in
+            vm.limiter.isPremium = premium
+        }
     }
 
     // MARK: - Progress
@@ -38,27 +52,33 @@ struct AngleTestView: View {
     private var progressBar: some View {
         VStack(spacing: Spacing.xs) {
             HStack {
-                Text("第 \(vm.questionIndex + (vm.testFinished ? 0 : 1)) / \(vm.totalQuestions) 题")
+                Text("第 \(vm.questionIndex + (vm.testFinished ? 0 : 1)) 题")
                     .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btText)
                 Spacer()
-                if !vm.limiter.isPremium {
+                Text("共 \(vm.totalQuestions) 题")
+                    .font(.btSubheadline)
+                    .foregroundStyle(.btTextSecondary)
+            }
+            GeometryReader { geo in
+                Capsule()
+                    .fill(Color.btBGTertiary)
+                    .overlay(alignment: .leading) {
+                        let frac = CGFloat(vm.questionIndex) / CGFloat(vm.totalQuestions)
+                        Capsule()
+                            .fill(Color.btPrimary)
+                            .frame(width: geo.size.width * frac)
+                    }
+            }
+            .frame(height: 6)
+            if !vm.limiter.isPremium {
+                HStack {
+                    Spacer()
                     Text("今日剩余 \(vm.limiter.remainingToday)")
                         .font(.btCaption)
                         .foregroundStyle(.btAccent)
                 }
             }
-            GeometryReader { geo in
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.btBGTertiary)
-                    .overlay(alignment: .leading) {
-                        let frac = CGFloat(vm.questionIndex) / CGFloat(vm.totalQuestions)
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(Color.btPrimary)
-                            .frame(width: geo.size.width * frac)
-                    }
-            }
-            .frame(height: 4)
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
@@ -71,35 +91,53 @@ struct AngleTestView: View {
         BTAngleTestTable(question: vm.currentQuestion,
                          showResult: vm.showResult,
                          userAngle: vm.sessionResults.last?.userAngle)
+            .padding(Spacing.md)
+            .background(.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     // MARK: - Input
 
     private var inputSection: some View {
         VStack(spacing: Spacing.lg) {
+            Text("请估算切入角度")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
             if let q = vm.currentQuestion {
                 Text("目标袋口：\(q.pocket.label)（\(q.pocketType == .corner ? "角袋" : "中袋")）")
                     .font(.btCallout)
                     .foregroundStyle(.btTextSecondary)
             }
 
-            HStack(spacing: Spacing.md) {
-                TextField("0–90", text: $vm.userInput)
+            HStack(spacing: Spacing.xs) {
+                TextField("0", text: $vm.userInput)
                     .keyboardType(.numberPad)
-                    .font(.btDisplay)
+                    .font(.btLargeTitle)
                     .multilineTextAlignment(.center)
-                    .frame(width: 120)
                     .focused($inputFocused)
                 Text("°")
-                    .font(.btLargeTitle)
+                    .font(.btTitle.weight(.regular))
                     .foregroundStyle(.btTextSecondary)
             }
+            .frame(width: 180, height: 64)
+            .background(.btBGSecondary)
+            .overlay(
+                RoundedRectangle(cornerRadius: BTRadius.lg)
+                    .stroke(Color.btPrimary, lineWidth: 2)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+
+            Text("范围: 5° - 85°")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
 
             Button(action: { inputFocused = false; vm.submitAnswer() }) {
                 Text("确认")
             }
             .buttonStyle(BTButtonStyle.primary)
             .disabled(vm.userInput.isEmpty)
+            .frame(width: 200)
         }
         .onAppear { inputFocused = true }
     }
@@ -108,22 +146,68 @@ struct AngleTestView: View {
 
     private var resultSection: some View {
         VStack(spacing: Spacing.lg) {
-            if let record = vm.sessionResults.last {
-                HStack(spacing: Spacing.xxxl) {
-                    statBubble(title: "正确", value: "\(Int(record.question.actualAngle))°", color: .btSuccess)
-                    statBubble(title: "你的答案", value: "\(Int(record.userAngle))°", color: .btPrimary)
-                    statBubble(title: "误差", value: "±\(Int(record.error))°", color: vm.errorRating.color)
+            VStack(spacing: Spacing.lg) {
+                if let record = vm.sessionResults.last {
+                    HStack {
+                        Text(vm.errorRating.label)
+                            .font(.btSubheadlineMedium)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.vertical, Spacing.xs)
+                            .background(vm.errorRating.color)
+                            .clipShape(Capsule())
+                        Spacer()
+                    }
+
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text("你答了 ") + Text("\(Int(record.userAngle))°").bold() +
+                        Text("，实际是 ") + Text("\(Int(record.question.actualAngle))°")
+                            .bold().foregroundColor(.btPrimary)
+                        Text("误差 \(Int(record.error))°")
+                            .font(.btTitle)
+                            .foregroundStyle(vm.errorRating.color)
+                    }
+                    .font(.btBody)
+                    .foregroundStyle(.btText)
+
+                    Divider()
+
+                    Text("提示：容差 ±3° 内为精准。注意观察目标球与袋口的连线，再反推击球点。")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+                        .lineSpacing(4)
                 }
-
-                Text(vm.errorRating.label)
-                    .font(.btHeadline)
-                    .foregroundStyle(vm.errorRating.color)
-                    .padding(.vertical, Spacing.xs)
-                    .padding(.horizontal, Spacing.lg)
-                    .background(vm.errorRating.color.opacity(0.12))
-                    .clipShape(Capsule())
             }
+            .padding(Spacing.xl)
+            .background(.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            .shadow(color: colorScheme == .dark ? .clear : Color.black.opacity(0.06),
+                    radius: 8, x: 0, y: 2)
 
+            HStack {
+                Text("当前正确率")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                Spacer()
+                let correct = vm.sessionResults.filter { $0.error <= 3 }.count
+                Text("\(correct)/\(vm.sessionResults.count)")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btPrimary)
+                let pct = vm.sessionResults.isEmpty ? 0 : Double(correct) / Double(vm.sessionResults.count) * 100
+                Text(String(format: "%.0f%%", pct))
+                    .font(.btSubheadline)
+                    .foregroundStyle(.btTextSecondary)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .background(.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+
+        }
+    }
+
+    private var bottomActionButton: some View {
+        Group {
             if vm.questionIndex + 1 < vm.totalQuestions, !vm.limiter.isLimitReached {
                 Button("下一题") { vm.advanceToNext() }
                     .buttonStyle(BTButtonStyle.primary)
@@ -176,21 +260,11 @@ struct AngleTestView: View {
         .padding(.top, Spacing.xl)
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
+                .environmentObject(subscriptionManager)
         }
     }
 
     // MARK: - Helpers
-
-    private func statBubble(title: String, value: String, color: Color) -> some View {
-        VStack(spacing: Spacing.xs) {
-            Text(value)
-                .font(.btTitle)
-                .foregroundStyle(color)
-            Text(title)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-        }
-    }
 
     private func summaryCard(title: String, value: String) -> some View {
         VStack(spacing: Spacing.xs) {
@@ -206,4 +280,19 @@ struct AngleTestView: View {
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
+}
+
+#Preview("Light") {
+    NavigationStack {
+        AngleTestView(limiter: AngleUsageLimiter())
+            .modelContainer(ModelContainerFactory.makeInMemoryContainer())
+    }
+}
+
+#Preview("Dark") {
+    NavigationStack {
+        AngleTestView(limiter: AngleUsageLimiter())
+            .modelContainer(ModelContainerFactory.makeInMemoryContainer())
+    }
+    .preferredColorScheme(.dark)
 }

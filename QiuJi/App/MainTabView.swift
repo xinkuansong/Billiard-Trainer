@@ -4,10 +4,11 @@ struct MainTabView: View {
     @EnvironmentObject private var router: AppRouter
 
     var body: some View {
+        ZStack(alignment: .bottomTrailing) {
         TabView(selection: $router.selectedTab) {
             NavigationStack(path: $router.trainingPath) {
                 TrainingHomeView()
-                    .navigationTitle("训练")
+                    .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: TrainingRoute.self) { route in
                         trainingDestination(for: route)
                     }
@@ -19,7 +20,7 @@ struct MainTabView: View {
 
             NavigationStack(path: $router.drillLibraryPath) {
                 DrillListView()
-                    .navigationTitle("动作库")
+                    .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: String.self) { drillId in
                         DrillDetailView(drillId: drillId)
                     }
@@ -31,7 +32,7 @@ struct MainTabView: View {
 
             NavigationStack(path: $router.anglePath) {
                 AngleHomeView()
-                    .navigationTitle("角度训练")
+                    .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: AngleRoute.self) { route in
                         angleDestination(for: route)
                     }
@@ -43,7 +44,7 @@ struct MainTabView: View {
 
             NavigationStack(path: $router.historyPath) {
                 HistoryCalendarView()
-                    .navigationTitle("历史")
+                    .toolbar(.hidden, for: .navigationBar)
                     .navigationDestination(for: HistoryRoute.self) { route in
                         historyDestination(for: route)
                     }
@@ -58,6 +59,20 @@ struct MainTabView: View {
                     Label(AppTab.profile.title, systemImage: AppTab.profile.icon)
                 }
                 .tag(AppTab.profile)
+        }
+
+            if let vm = router.minimizedTrainingVM {
+                BTFloatingIndicator(elapsedSeconds: vm.elapsedSeconds) {
+                    router.switchTab(.training)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        NotificationCenter.default.post(name: .didRequestResumeTraining, object: nil)
+                    }
+                }
+                .padding(.trailing, Spacing.lg)
+                .padding(.bottom, 60)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .animation(.spring(duration: 0.3), value: router.isTrainingMinimized)
+            }
         }
     }
 
@@ -93,7 +108,7 @@ struct MainTabView: View {
         case .detail(let sessionId):
             TrainingDetailView(sessionId: sessionId)
         case .statistics:
-            StatisticsView()
+            EmptyView()
         }
     }
 }

@@ -15,13 +15,13 @@
 
 ### DoD
 
-- [ ] `StoreKitService.loadProducts()` 可从 App Store 加载 3 个 IAP 产品
+- [x] `StoreKitService.loadProducts()` 可从 App Store 加载 3 个 IAP 产品
   - 月订阅：`com.yourname.billiardtrainer.premium.monthly`
   - 年订阅：`com.yourname.billiardtrainer.premium.yearly`
   - 终身买断：`com.yourname.billiardtrainer.premium.lifetime`
-- [ ] 本地有 `Products.storekit` 配置文件（用于模拟器离线测试）
-- [ ] `purchase(product:)` 可触发购买流程（模拟器 StoreKit Testing 环境）
-- [ ] 购买完成后 `Transaction` 验证通过（`Transaction.currentEntitlement`）
+- [x] 本地有 `Products.storekit` 配置文件（用于模拟器离线测试）
+- [x] `purchase(product:)` 可触发购买流程（模拟器 StoreKit Testing 环境）
+- [x] 购买完成后 `Transaction` 验证通过（`Transaction.currentEntitlement`）
 
 ---
 
@@ -33,11 +33,11 @@
 
 ### DoD
 
-- [ ] `SubscriptionManager.isPremium: Bool` — App 全局可访问（`@Observable` 单例）
-- [ ] App 启动时自动校验当前权益（`Transaction.currentEntitlements`）
-- [ ] 订阅到期后 `isPremium` 自动变为 `false`（通过 `Transaction.updates` 监听）
-- [ ] 终身买断不过期
-- [ ] 状态变化立即同步至所有依赖的 View
+- [x] `SubscriptionManager.isPremium: Bool` — App 全局可访问（`@Observable` 单例）
+- [x] App 启动时自动校验当前权益（`Transaction.currentEntitlements`）
+- [x] 订阅到期后 `isPremium` 自动变为 `false`（通过 `Transaction.updates` 监听）
+- [x] 终身买断不过期
+- [x] 状态变化立即同步至所有依赖的 View
 
 ---
 
@@ -46,16 +46,23 @@
 - **负责角色**：SwiftUI Developer
 - **前置依赖**：T-P7-01
 - **产出物**：`Features/Profile/Views/SubscriptionView.swift`
+- **设计参考**：`ui_design/tasks/P2-06/stitch_task_p2_06_02/screen.png`
 
 ### DoD
 
-- [ ] 展示三个方案：月订阅（¥18/月）、年订阅（¥88/年，标注「最划算」）、终身买断（¥198）
-- [ ] 价格从 StoreKit `Product.displayPrice` 动态读取（不硬编码）
-- [ ] 高亮「年订阅」方案（推荐）
-- [ ] 「订阅」按钮触发购买，加载中显示 ProgressView
-- [ ] 「恢复购买」按钮
-- [ ] 底部：订阅条款链接 + 隐私政策链接
-- [ ] **不出现**任何引导用户去 App Store 外支付的文字或链接
+- [x] 使用 R0 BT* 组件，不自建临时组件
+- [x] 布局对照 `tasks/UI-IMPLEMENTATION-SPEC.md` 中对应设计截图
+- [x] Light + Dark `#Preview` 通过视觉检查
+- [x] 如有组件 API 或设计解读变更，追加 DR/PD 至 `tasks/IMPLEMENTATION-LOG.md` 并更新 `UI-IMPLEMENTATION-SPEC.md` Changelog
+- [x] 全屏深色背景 `#111111`
+- [x] 编号功能列表（序号金色）+ 3 张方案卡片（年订绿框推荐）
+- [x] 展示三个方案：月订阅（¥18/月）、年订阅（¥88/年，标注「最划算」）、终身买断（¥198）
+- [x] 价格从 StoreKit `Product.displayPrice` 动态读取（不硬编码）
+- [x] 高亮「年订阅」方案（推荐）
+- [x] 「订阅」按钮触发购买，加载中显示 ProgressView
+- [x] 「恢复购买」按钮
+- [x] 底部：订阅条款链接 + 隐私政策链接
+- [x] **不出现**任何引导用户去 App Store 外支付的文字或链接
 
 ---
 
@@ -67,10 +74,10 @@
 
 ### DoD
 
-- [ ] 点击「恢复购买」触发 `AppStore.sync()`
-- [ ] 恢复成功时 `isPremium` 更新为 `true`，UI 提示「已恢复购买」
-- [ ] 无可恢复购买时提示「未找到可恢复的购买记录」
-- [ ] 不崩溃、不卡死
+- [x] 点击「恢复购买」触发 `AppStore.sync()`
+- [x] 恢复成功时 `isPremium` 更新为 `true`，UI 提示「已恢复购买」
+- [x] 无可恢复购买时提示「未找到可恢复的购买记录」
+- [x] 不崩溃、不卡死
 
 ---
 
@@ -82,12 +89,12 @@
 
 ### DoD
 
-- [ ] `BTPremiumLock` 组件使用 `SubscriptionManager.isPremium` 决定是否显示遮罩
-- [ ] 角度测试每日限制：免费 20 次/天，付费无限
-- [ ] 历史 60 天限制：免费，付费无限
-- [ ] 动作库 L1+ 部分、L2+ 大部分按 `docs/08` 比例锁定
-- [ ] 官方计划 plan_beginner / plan_cueball 免费，其余付费锁定
-- [ ] **已解锁的免费功能不受影响**（不会因为添加付费墙而降级）
+- [x] `BTPremiumLock` 组件使用 `SubscriptionManager.isPremium` 决定是否显示遮罩
+- [x] 角度测试每日限制：免费 20 次/天，付费无限
+- [x] 历史 60 天限制：免费，付费无限
+- [x] 动作库 L1+ 部分、L2+ 大部分按 `docs/08` 比例锁定
+- [x] 官方计划 plan_beginner / plan_cueball 免费，其余付费锁定
+- [x] **已解锁的免费功能不受影响**（不会因为添加付费墙而降级）
 
 ---
 
@@ -97,12 +104,12 @@
 
 ### 验收要点
 
-- [ ] 使用 Xcode StoreKit Testing 沙盒：完成购买 → `isPremium = true` → 付费内容解锁
-- [ ] 购买年订阅后：所有付费 Drill 解锁，历史无限制，角度测试无限制
-- [ ] 「恢复购买」在有购买记录时成功恢复
-- [ ] 订阅页价格动态显示（与 `Products.storekit` 文件中设置一致）
-- [ ] **不能绕过**：直接访问付费 Drill 详情页时仍有遮罩（非从列表进入）
-- [ ] 隐私政策链接可跳转（P8 前可 stub 为占位 URL）
+- [x] 使用 Xcode StoreKit Testing 沙盒：完成购买 → `isPremium = true` → 付费内容解锁
+- [x] 购买年订阅后：所有付费 Drill 解锁，历史无限制，角度测试无限制
+- [x] 「恢复购买」在有购买记录时成功恢复
+- [x] 订阅页价格动态显示（与 `Products.storekit` 文件中设置一致）
+- [x] **不能绕过**：直接访问付费 Drill 详情页时仍有遮罩（非从列表进入）
+- [x] 隐私政策链接可跳转（P8 前可 stub 为占位 URL）
 
 ---
 

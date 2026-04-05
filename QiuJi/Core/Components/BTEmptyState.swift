@@ -9,9 +9,16 @@ struct BTEmptyState: View {
 
     var body: some View {
         VStack(spacing: Spacing.xl) {
-            Image(systemName: icon)
-                .font(.system(size: 48))
-                .foregroundStyle(.btTextTertiary)
+            ZStack {
+                Circle()
+                    .fill(Color.btPrimary.opacity(0.15))
+                    .frame(width: 88, height: 88)
+
+                Image(systemName: icon)
+                    .font(.btLargeTitle)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.btPrimary)
+            }
 
             VStack(spacing: Spacing.sm) {
                 Text(title)
@@ -27,7 +34,7 @@ struct BTEmptyState: View {
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .buttonStyle(BTButtonStyle.primary)
-                    .frame(width: 200)
+                    .padding(.horizontal, Spacing.xxl)
             }
         }
         .padding(Spacing.xxxxl)

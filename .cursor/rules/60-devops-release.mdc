@@ -6,6 +6,7 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-04-05 v0.2：默认模拟器从 iPhone 17 → iPhone 17 Pro；Makefile 提取 SIM_DEVICE 变量
 - 2026-03-27 v0.1：初始版本
 
 # DevOps/Release — 构建与发布
@@ -14,12 +15,14 @@ alwaysApply: false
 
 所有构建操作通过 `scripts/Makefile` 执行，禁止在 CI 或文档中直接裸写长 `xcodebuild` 命令。
 
+**默认模拟器**：`iPhone 17 Pro`（iOS 26.2）— Makefile 变量 `SIM_DEVICE`，可通过 `make build SIM_DEVICE='iPhone Air'` 覆盖。当前环境可用模拟器：iPhone 16e / iPhone 17 / **iPhone 17 Pro（默认，已 Booted）** / iPhone 17 Pro Max / iPhone Air。
+
 ```bash
-make build      # Debug 构建，验证编译
+make build      # Debug 构建，验证编译（默认 iPhone 17 Pro 模拟器）
 make test       # 运行 XCTest
 make archive    # Release Archive，输出 .xcarchive
 make upload     # 上传到 App Store Connect（需 ASC API Key）
-make screenshot # 用 xcrun simctl 截图
+make screenshot # 当前运行的模拟器截图
 make clean      # 清理 build/
 ```
 

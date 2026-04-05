@@ -71,11 +71,11 @@ extension Color {
     // 用于：卡片、列表行背景
 
     static let btBGTertiary     = Color("btBGTertiary")
-    // Light: #F2F2F7    Dark: #2C2C2E
+    // Light: #E5E5EA    Dark: #2C2C2E
     // 用于：输入框背景、次级卡片
 
     static let btBGQuaternary   = Color("btBGQuaternary")
-    // Light: #E5E5EA    Dark: #3A3A3C
+    // Light: #D1D1D6    Dark: #3A3A3C
     // 用于：分隔线、禁用背景
 
     // ── 文字层次（3层）──────────────────────────────
@@ -93,8 +93,8 @@ extension Color {
 
     // ── 分隔线 ──────────────────────────────────────
     static let btSeparator      = Color("btSeparator")
-    // Light: #C6C6C8    Dark: #38383A
-    // 用于：列表分隔线（使用系统色即可：Color(.separator)）
+    // Light: rgba(60,60,67,0.18)    Dark: #38383A
+    // 用于：列表分隔线
 
     // ── 球台专属 ─────────────────────────────────────
     static let btTableFelt      = Color("btTableFelt")
@@ -238,24 +238,27 @@ VStack { ... }
 
 ---
 
-## 七、按钮规范
+## 七、按钮规范（BTButton — 7 种样式）
 
 ```swift
-// 主按钮：填充色，胶囊形，全宽
-BTButton.primary("开始训练") { }
-// 背景：btPrimary，文字：白色，高度：52pt，圆角：BTRadius.sm(10)，水平 padding: Spacing.xxl
+enum BTButtonStyle: ButtonStyle {
+    // 原有 4 种
+    case primary        // btPrimary 填充 + 白字，高度 52pt，圆角 BTRadius.sm
+    case secondary      // btPrimary 描边 + 品牌色文字，高度 52pt
+    case text           // 无背景 + 品牌色文字
+    case destructive    // btDestructive 文字
+    // R0 新增 3 种
+    case darkPill       // #1C1C1E 填充 + 白字，BTRadius.full 胶囊，高度 44pt
+    case iconCircle     // 48pt 圆形，btPrimary 填充 + 白色 SF Symbol
+    case segmentedPill(isSelected: Bool)  // 选中：btPrimary 填充+白字；未选中：白底+灰边框，高度 36pt
+}
 
-// 次级按钮：描边，胶囊形
-BTButton.secondary("查看详情") { }
-// 背景：透明，描边：btPrimary 1pt，文字：btPrimary
-
-// 文字按钮：无背景
-BTButton.text("跳过") { }
-// 文字：btPrimary，无背景无描边
-
-// 危险按钮（注销/删除）
-BTButton.destructive("注销账号") { }
-// 文字：btDestructive
+// 使用规则：
+// - Primary：同一视图最多 1 个
+// - darkPill：仅底栏/叠加场景（如 DrillDetail 关闭按钮）
+// - iconCircle：工具栏图标（如训练页 + 添加按钮）
+// - segmentedPill：分段选项组（如设置偏好）
+// - Gold Filled / Gold Outline：仅 Pro 付费场景（BTPremiumLock 内部使用）
 ```
 
 ---
@@ -299,35 +302,24 @@ BTButton.destructive("注销账号") { }
 
 ---
 
-## 九、等级标签（BTLevelBadge）
+## 九、等级标签（BTLevelBadge — 五级配色）
 
 ```swift
-// L0：灰色  L1：绿色  L2：蓝色  L3：紫色  L4：金色
 struct BTLevelBadge: View {
     let level: DrillLevel  // L0–L4
-
-    var body: some View {
-        Text(level.rawValue)
-            .font(.btCaption2)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .background(level.color.opacity(0.15))
-            .foregroundStyle(level.color)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-    }
 }
 
-extension DrillLevel {
-    var color: Color {
-        switch self {
-        case .L0: return .btTextSecondary
-        case .L1: return .btPrimary
-        case .L2: return .blue
-        case .L3: return .purple
-        case .L4: return .btAccent
-        }
-    }
-}
+// 五级配色（Light Mode / Dark Mode）：
+//
+// | 等级 | Light 文字色 | Light 底色      | Dark 文字色 | Dark 底色               |
+// |------|------------|----------------|------------|------------------------|
+// | L0   | 白色        | btPrimary 实心   | #25A25A    | rgba(37,162,90,0.15)   |
+// | L1   | 蓝色        | 浅蓝底 15%      | #0A84FF    | rgba(0,122,255,0.15)   |
+// | L2   | 琥珀色      | 浅琥珀底 15%    | #F0AD30    | rgba(240,173,48,0.15)  |
+// | L3   | 橙色        | 浅橙底 15%      | #FF9F0A    | rgba(255,159,10,0.15)  |
+// | L4   | 红色        | 浅红底 15%      | #EF5350    | rgba(239,83,80,0.15)   |
+//
+// displayName: L0「入门」L1「初级」L2「中级」L3「高级」L4「专家」
 ```
 
 ---
@@ -448,20 +440,29 @@ BTEmptyState(
 
 ---
 
-## 十三、可复用组件清单
+## 十三、可复用组件清单（16 个）
 
-| 组件 | 文件路径 | 说明 |
-|------|---------|------|
-| `BTButton` | `Core/Components/BTButton.swift` | 三种按钮样式（主/次/文字） |
-| `BTDrillCard` | `Core/Components/BTDrillCard.swift` | 动作库列表卡片 |
-| `BTEmptyState` | `Core/Components/BTEmptyState.swift` | 空数据占位 |
-| `BTLoadingView` | `Core/Components/BTLoadingView.swift` | 全屏加载（系统 ProgressView 包装） |
-| `BTLevelBadge` | `Core/Components/BTLevelBadge.swift` | L0–L4 等级标签 |
-| `BTPremiumLock` | `Core/Components/BTPremiumLock.swift` | 付费内容锁定遮罩 |
-| `BTBilliardTable` | `Core/Components/BTBilliardTable.swift` | 球台 Canvas 容器 |
-| `BTProgressRing` | `Core/Components/BTProgressRing.swift` | 圆形进度指示器（成功率） |
-| `BTStatCard` | `Core/Components/BTStatCard.swift` | 统计数据卡片（指标名 + 大数字） |
-| `BTSectionHeader` | `Core/Components/BTSectionHeader.swift` | 列表 Section 标题（左对齐大标题） |
+> 详细 API 定义见 `tasks/UI-IMPLEMENTATION-SPEC.md` § 二。
+> 设计参考截图见 `ui_design/tasks/E-06/screenshot-index.md`。
+
+| 组件 | 文件路径 | 设计参考 | 状态 |
+|------|---------|---------|------|
+| `BTButton`（7 种样式） | `Core/Components/BTButton.swift` | `A-02/screen.png` | R0 升级 |
+| `BTEmptyState` | `Core/Components/BTEmptyState.swift` | `A-03/screen.png` | 已有，R0 校验 |
+| `BTDrillCard` | `Core/Components/BTDrillCard.swift` | `P1-01/screen.png` | 已有，R0 添加缩略图 |
+| `BTLevelBadge` | `Core/Components/BTLevelBadge.swift` | `A-03/screen.png` | 已有，R0 修正配色 |
+| `BTBilliardTable` | `Core/Components/BTBilliardTable.swift` | `A-08/code.html` | 已有，R0 校验 |
+| `BTPremiumLock` | `Core/Components/BTPremiumLock.swift` | `A-04/screen.png` | 已有，R0 双模式 |
+| `BTAngleTestTable` | `Features/AngleTraining/Views/BTAngleTestTable.swift` | `P0-07/screen.png` | 已有 |
+| `BTSegmentedTab` | `Core/Components/BTSegmentedTab.swift` | `A-06/code.html` | R0 新建 |
+| `BTTogglePillGroup` | `Core/Components/BTTogglePillGroup.swift` | `A-06/code.html` | R0 新建 |
+| `BTOverflowMenu` | `Core/Components/BTOverflowMenu.swift` | `A-06/code.html` | R0 新建 |
+| `BTExerciseRow` | `Core/Components/BTExerciseRow.swift` | `A-07/code.html` | R0 新建 |
+| `BTSetInputGrid` | `Core/Components/BTSetInputGrid.swift` | `A-07/code.html` | R0 新建 |
+| `BTRestTimer` | `Core/Components/BTRestTimer.swift` | `A-05/screen.png` | R0 新建 |
+| `BTFloatingIndicator` | `Core/Components/BTFloatingIndicator.swift` | `A-05/screen.png` | R0 新建 |
+| `BTShareCard` | `Core/Components/BTShareCard.swift` | `A-08/code.html` | R0 新建 |
+| `BTProgressRing` | `Core/Components/BTProgressRing.swift` | — | 已有 |
 
 ---
 

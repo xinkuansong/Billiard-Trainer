@@ -80,24 +80,15 @@ final class HistoryViewModelTests: XCTestCase {
         XCTAssertTrue(selected[0].date > selected[1].date)
     }
 
-    // MARK: - currentMonthSessions
+    // MARK: - hasAnySessions
 
-    func test_currentMonthSessions_filters_current_month() {
-        let cal = Calendar.current
-        let now = Date()
-        let lastMonth = cal.date(byAdding: .month, value: -1, to: now)!
+    func test_hasAnySessions_empty() {
+        XCTAssertFalse(vm.hasAnySessions)
+    }
 
-        let thisMonthSession = makeSession(date: now)
-        let lastMonthSession = makeSession(date: lastMonth)
-
-        vm.sessions = [thisMonthSession, lastMonthSession]
-        vm.currentMonth = now
-
-        let result = vm.currentMonthSessions
-        XCTAssertEqual(result.count, 1)
-        let sessionMonth = cal.component(.month, from: result[0].date)
-        let currentMonth = cal.component(.month, from: now)
-        XCTAssertEqual(sessionMonth, currentMonth)
+    func test_hasAnySessions_with_data() {
+        vm.sessions = [makeSession(date: Date())]
+        XCTAssertTrue(vm.hasAnySessions)
     }
 
     // MARK: - monthTitle
@@ -115,7 +106,7 @@ final class HistoryViewModelTests: XCTestCase {
 
     // MARK: - weeksInMonth
 
-    func test_weeksInMonth_contains_all_days() {
+    func test_weeksInMonth_always_6_rows_42_cells() {
         let cal = Calendar.current
         var comps = DateComponents()
         comps.year = 2026
@@ -124,9 +115,13 @@ final class HistoryViewModelTests: XCTestCase {
         vm.currentMonth = cal.date(from: comps)!
 
         let weeks = vm.weeksInMonth
-        let allDays = weeks.flatMap { $0 }.compactMap { $0 }
+        XCTAssertEqual(weeks.count, 6)
 
-        XCTAssertEqual(allDays.count, 30)
+        let allDays = weeks.flatMap { $0 }
+        XCTAssertEqual(allDays.count, 42)
+
+        let currentMonthDays = allDays.filter(\.isCurrentMonth)
+        XCTAssertEqual(currentMonthDays.count, 30)
 
         for week in weeks {
             XCTAssertEqual(week.count, 7)
@@ -142,8 +137,10 @@ final class HistoryViewModelTests: XCTestCase {
         vm.currentMonth = cal.date(from: comps)!
 
         let weeks = vm.weeksInMonth
-        let allDays = weeks.flatMap { $0 }.compactMap { $0 }
-        XCTAssertEqual(allDays.count, 28)
+        XCTAssertEqual(weeks.count, 6)
+
+        let currentMonthDays = weeks.flatMap { $0 }.filter(\.isCurrentMonth)
+        XCTAssertEqual(currentMonthDays.count, 28)
     }
 
     // MARK: - hasSession

@@ -2,6 +2,7 @@
 
 > **使用方式**：在模拟器或真机上逐条执行，通过则勾选 `[x]`，失败则记录问题描述。
 > **时机**：P3 功能已通过 AI QA 验收，此为补充的人工视觉/交互验证。
+> **更新记录**：2026-04-06 — 反映 R-UI 后 DrillListView（双层 Chip 筛选 + 分类分组）和 DrillDetailView（灰色操作图标行 + 标签行 + 固定底栏）重构
 
 ---
 
@@ -17,18 +18,24 @@
 
 | # | 页面 | 检查项 | 通过 |
 |---|------|--------|------|
-| V-01 | DrillListView（动作库列表） | 8 大分类分组展示，标题清晰，间距均匀 | [ ] |
-| V-02 | DrillListView | BTDrillCard 卡片：名称、BTLevelBadge 等级标签、难度文字、付费锁定图标均可见 | [ ] |
-| V-03 | DrillListView | 搜索框样式正常，输入时键盘弹出不遮挡 | [ ] |
-| V-04 | DrillListView | 球种筛选按钮（全部/中式台球/9球）样式一致，选中态明显 | [ ] |
-| V-05 | DrillDetailView（详情页） | 顶部 Canvas 球台比例 2:1，占满宽度 | [ ] |
-| V-06 | DrillDetailView | 教学要点（coachingPoints）列表排版清晰 | [ ] |
-| V-07 | DrillDetailView | 达标标准（standardCriteria）高亮展示，视觉突出 | [ ] |
-| V-08 | DrillDetailView | 收藏按钮（心形）位置合理，空心/实心状态清晰 | [ ] |
-| V-09 | DrillDetailView | 视频占位区显示「视频内容即将上线」提示 | [ ] |
-| V-10 | BTPremiumLock | 付费 Drill 遮罩完全覆盖内容，「解锁全部内容」按钮清晰可见 | [ ] |
-| V-11 | BTEmptyState | 搜索无结果时空状态视图展示「没有找到相关训练项目」 | [ ] |
-| V-12 | FavoriteDrillsView（收藏夹） | 已收藏 Drill 列表布局与动作库列表一致 | [ ] |
+| V-01 | DrillListView | 球种筛选 Chip 行（全部/中式台球/9球）Capsule 样式，选中态反色 | [ ] |
+| V-02 | DrillListView | 分类筛选 Chip 行（全部分类 + 8 大类），带图标 + 文字 | [ ] |
+| V-03 | DrillListView | 搜索框（.searchable）样式正常，输入时键盘弹出不遮挡 | [ ] |
+| V-04 | DrillListView | 加载中状态显示 BTDrillListSkeleton 骨架屏 | [ ] |
+| V-05 | DrillListView | LazyVStack 分类分组展示：分类图标 + 分类名 + 数量胶囊 | [ ] |
+| V-06 | DrillListView | BTDrillCard 卡片：名称、BTLevelBadge、难度、收藏心形、付费锁图标 | [ ] |
+| V-07 | DrillDetailView | 顶部 BTBilliardTable Canvas 展示球台动画 + 左下角重放按钮 | [ ] |
+| V-08 | DrillDetailView | 灰色操作图标行（要点/历史/图表）水平排列 | [ ] |
+| V-09 | DrillDetailView | 标签行：球种胶囊 + 分类胶囊 + BTLevelBadge | [ ] |
+| V-10 | DrillDetailView | 训练要点（coachingPoints）编号列表，绿色数字圆圈 | [ ] |
+| V-11 | DrillDetailView | 达标标准高亮卡片（target 图标 + 标准 + 默认组数×球数） | [ ] |
+| V-12 | DrillDetailView | 视频占位区「视频内容即将上线」 | [ ] |
+| V-13 | DrillDetailView | 固定底栏：免费 Drill 显示 darkPill「关闭」+ primary「加入训练」 | [ ] |
+| V-14 | DrillDetailView | 固定底栏：付费 Drill 显示金色 Capsule「解锁 Pro」 | [ ] |
+| V-15 | DrillDetailView | 导航栏心形收藏按钮（空心/实心 + 颜色切换） | [ ] |
+| V-16 | BTPremiumLock | 付费 Drill 渐进遮罩（显示 1 条 coachingPoint 后模糊）| [ ] |
+| V-17 | BTEmptyState | 搜索无结果时空状态（放大镜图标 + 换关键词提示） | [ ] |
+| V-18 | FavoriteDrillsView | 已收藏 Drill 列表布局与动作库一致 | [ ] |
 
 ---
 
@@ -38,13 +45,16 @@
 
 | # | 页面 | 检查项 | 通过 |
 |---|------|--------|------|
-| D-01 | DrillListView | 背景色为深色，卡片文字可读，无白色背景残留 | [ ] |
-| D-02 | DrillListView | 搜索框、筛选按钮在深色下可读 | [ ] |
-| D-03 | DrillDetailView | Canvas 球台使用深绿色变体（btTableSurface） | [ ] |
-| D-04 | DrillDetailView | 球路径动画线条在深色背景下仍清晰可辨 | [ ] |
-| D-05 | DrillDetailView | 文字描述、教学要点在深色下对比度足够 | [ ] |
-| D-06 | BTPremiumLock | 遮罩在 Dark Mode 下仍可见，不与背景融合 | [ ] |
-| D-07 | BTEmptyState | 空状态文字与图标在 Dark Mode 下可读 | [ ] |
+| D-01 | DrillListView | 背景深色，Chip 选中态反色（Light #1C1C1E → Dark #F2F2F7）| [ ] |
+| D-02 | DrillListView | 未选中 Chip 使用 btBGSecondary + btSeparator 描边 | [ ] |
+| D-03 | DrillListView | BTDrillCard 卡片文字可读，无白色背景残留 | [ ] |
+| D-04 | DrillListView | 骨架屏（BTDrillListSkeleton）Dark 适配 | [ ] |
+| D-05 | DrillDetailView | Canvas 球台使用深绿色变体（btTableFelt #144D2A）| [ ] |
+| D-06 | DrillDetailView | 灰色操作图标 Dark 下 btBGTertiary 圆底可见 | [ ] |
+| D-07 | DrillDetailView | 球路径动画线条在深色背景下仍清晰 | [ ] |
+| D-08 | DrillDetailView | 底栏毛玻璃效果 Dark 下正常 | [ ] |
+| D-09 | BTPremiumLock | 遮罩在 Dark Mode 下不与背景融合 | [ ] |
+| D-10 | BTEmptyState | 空状态文字与图标在 Dark Mode 下可读 | [ ] |
 
 ---
 
@@ -57,7 +67,7 @@
 | A-03 | BTBilliardTable Canvas | 重放按钮点击后动画完整重播 | [ ] |
 | A-04 | BTBilliardTable Canvas | 曲线路径（贝塞尔）渲染圆滑，非折线 | [ ] |
 | A-05 | 页面导航 | 列表 → 详情页过渡动画流畅 | [ ] |
-| A-06 | 收藏按钮 | 点击时有即时视觉反馈（空心 ↔ 实心切换） | [ ] |
+| A-06 | 收藏按钮 | 点击时有即时视觉反馈（空心 ↔ 实心 + 颜色切换） | [ ] |
 
 ---
 
@@ -67,12 +77,14 @@
 
 **步骤**：
 1. 启动 App → 点击底部「动作库」Tab
-2. 向下滚动，确认 8 大分类（基本功、准度、杆法、母球分离、走位、力量控制、特殊球、综合）均有内容
-3. 点击任意分类下的一个 BTDrillCard
+2. 确认球种 Chip 行（全部/中式台球/9球）+ 分类 Chip 行（全部分类 + 8 大类）
+3. 向下滚动，确认 8 大分类（基本功、准度、杆法、母球分离、走位、力量控制、特殊球、综合）均有内容
+4. 点击任意分类下的一个 BTDrillCard
 
 **预期结果**：进入 DrillDetailView 详情页
 
-- [ ] 8 大分类均可见且有 Drill 条目
+- [ ] 球种 Chip 行和分类 Chip 行均可见
+- [ ] 8 大分类均有 Drill 条目（分组标题含图标 + 分类名 + 数量胶囊）
 - [ ] 点击卡片后正确进入详情页
 
 ### 流程 2：搜索 Drill
@@ -85,55 +97,60 @@
 
 **预期结果**：
 - 输入「直线」后只显示包含「直线」的 Drill
-- 输入不存在的关键词后显示空状态
+- 输入不存在的关键词后显示 BTEmptyState 空状态
 
 - [ ] 搜索过滤正确生效
-- [ ] 空状态视图正常展示
+- [ ] 空状态视图正常展示（magnifyingglass 图标 + 换关键词提示）
 - [ ] 清空搜索后列表恢复完整
 
-### 流程 3：球种筛选
+### 流程 3：双层筛选
 
 **步骤**：
-1. 点击「中式台球」筛选按钮
+1. 点击球种 Chip「中式台球」
 2. 观察列表只显示中式台球相关 Drill
-3. 点击「9球」
-4. 点击「全部」恢复
+3. 点击分类 Chip「杆法」
+4. 观察列表只显示中式台球 + 杆法的 Drill
+5. 点击球种「全部」+ 分类「全部分类」恢复
 
-**预期结果**：列表根据球种实时切换
+**预期结果**：列表根据球种 + 分类实时切换
 
-- [ ] 筛选切换后列表立即更新
-- [ ] 「全部」显示完整列表
+- [ ] 球种筛选切换后列表立即更新
+- [ ] 分类筛选切换后列表立即更新
+- [ ] 双重筛选叠加生效
+- [ ] 「全部」+ 「全部分类」恢复完整列表
 
 ### 流程 4：收藏 Drill 并查看收藏夹
 
 **步骤**：
 1. 动作库 Tab → 点击任意免费 Drill 进入详情
-2. 点击右上角心形收藏按钮（空心 → 实心）
+2. 点击导航栏心形收藏按钮（空心 → 实心，颜色变为 btAccent 金色）
 3. 返回列表
-4. 切换到「我的」Tab → 点击「收藏夹」
+4. 切换到「我的」Tab → 点击「我的收藏」
 5. 确认刚收藏的 Drill 出现在列表中
 6. 点击进入该 Drill 详情 → 取消收藏（实心 → 空心）
 7. 返回收藏夹列表
 
 **预期结果**：收藏/取消收藏实时生效
 
-- [ ] 收藏后心形变为实心
+- [ ] 收藏后心形变为实心 + btAccent 色
 - [ ] 收藏夹中出现该 Drill
 - [ ] 取消收藏后从收藏夹消失
 
 ### 流程 5：付费 Drill 锁定体验
 
 **步骤**：
-1. 在动作库列表中找到一个带锁定图标的付费 Drill
+1. 在动作库列表中找到一个 L2+ 付费 Drill
 2. 点击进入详情页
-3. 确认内容被 BTPremiumLock 遮罩覆盖
-4. 点击「解锁全部内容」按钮
+3. 确认 coachingPoints 区域被渐进遮罩覆盖（可见 1 条后模糊）
+4. 确认底栏显示金色 Capsule「解锁 Pro」按钮
+5. 点击「解锁 Pro」
 
-**预期结果**：遮罩阻止查看内容，点击按钮触发订阅引导（P7 前为 stub）
+**预期结果**：遮罩阻止查看完整内容，底栏金色按钮触发订阅页
 
-- [ ] 付费 Drill 内容被遮罩，无法看到正文
-- [ ] 「解锁全部内容」按钮可点击
-- [ ] 免费 Drill 无遮罩，内容完整展示
+- [ ] 付费 Drill coachingPoints 渐进遮罩可见
+- [ ] 底栏显示金色「解锁 Pro」而非「关闭」+「加入训练」
+- [ ] 点击后弹出 SubscriptionView Sheet
+- [ ] 免费 Drill 无遮罩，底栏显示 darkPill + primary 双按钮
 
 ---
 
@@ -141,12 +158,13 @@
 
 | # | 场景 | 检查项 | 通过 |
 |---|------|--------|------|
-| I-01 | BTDrillCard 点击 | 点击区域充足（整个卡片可点击），响应无延迟 | [ ] |
-| I-02 | 收藏按钮 | 点击区域 >= 44pt，响应即时 | [ ] |
+| I-01 | BTDrillCard 点击 | 整个卡片可点击，响应无延迟 | [ ] |
+| I-02 | 收藏按钮 | 导航栏心形点击区域 >= 44pt | [ ] |
 | I-03 | 搜索框键盘 | 键盘弹出后列表上移，输入区不被遮挡 | [ ] |
-| I-04 | 列表滚动 | 快速滑动时无卡顿，滚动惯性自然 | [ ] |
+| I-04 | 列表滚动 | 快速滑动时无卡顿，分组 header 悬浮吸顶 | [ ] |
 | I-05 | 返回导航 | 详情页左滑手势返回 + 导航栏返回按钮均正常 | [ ] |
 | I-06 | 重放按钮 | Canvas 动画播放中点击重放，动画正确重置并重播 | [ ] |
+| I-07 | Chip 筛选 | 球种/分类 Chip 切换有选中态视觉反馈 | [ ] |
 
 ---
 
@@ -158,7 +176,7 @@
 | E-02 | 飞行模式 | 开启飞行模式后动作库仍可浏览全部 Drill | [ ] |
 | E-03 | 飞行模式 | 收藏功能在离线状态下正常工作 | [ ] |
 | E-04 | 收藏持久化 | 收藏 Drill → 强制退出 App → 重新打开 → 收藏夹中仍存在 | [ ] |
-| E-05 | 空收藏夹 | 无收藏时收藏夹页面显示合理的空状态 | [ ] |
+| E-05 | 空收藏夹 | 无收藏时收藏夹页面显示 BTEmptyState | [ ] |
 
 ---
 

@@ -31,6 +31,41 @@ struct TodaySessionInfo {
     var isAllCompleted: Bool { totalCount > 0 && completedCount == totalCount }
 }
 
+struct PlanBrowseItem: Identifiable {
+    let id: String
+    let nameZh: String
+    let description: String
+    let targetLevel: String
+    let isPremium: Bool
+    let durationWeeks: Int
+    let sessionsPerWeek: Int
+}
+
+enum PlanBrowseTab: String, CaseIterable {
+    case official = "官方计划"
+    case custom = "自定义模版"
+}
+
+enum PlanLevelFilter: String, CaseIterable {
+    case all = "全部"
+    case beginner = "入门"
+    case elementary = "初级"
+    case intermediate = "中级"
+    case advanced = "高级"
+    case combined = "综合"
+
+    func matches(_ targetLevel: String) -> Bool {
+        switch self {
+        case .all: return true
+        case .beginner: return targetLevel.contains("L0")
+        case .elementary: return targetLevel.contains("L1") && !targetLevel.contains("L2")
+        case .intermediate: return targetLevel.contains("L2")
+        case .advanced: return targetLevel.contains("L3") || targetLevel.contains("L4")
+        case .combined: return targetLevel.contains("→")
+        }
+    }
+}
+
 // MARK: - ViewModel
 
 @MainActor
@@ -38,6 +73,14 @@ final class TrainingHomeViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var todaySession: TodaySessionInfo?
     @Published var hasActivePlan = false
+    @Published var officialPlans: [PlanBrowseItem] = []
+    @Published var selectedTab: PlanBrowseTab = .official
+    @Published var selectedFilter: PlanLevelFilter = .all
+
+    var filteredPlans: [PlanBrowseItem] {
+        guard selectedFilter != .all else { return officialPlans }
+        return officialPlans.filter { selectedFilter.matches($0.targetLevel) }
+    }
 
     func load(context: ModelContext) async {
         isLoading = true
@@ -47,6 +90,7 @@ final class TrainingHomeViewModel: ObservableObject {
         guard let activePlan = try? context.fetch(descriptor).first else {
             hasActivePlan = false
             todaySession = nil
+            await loadPlansForBrowsing()
             return
         }
 
@@ -56,6 +100,23 @@ final class TrainingHomeViewModel: ObservableObject {
             await loadCustomPlan(activePlan: activePlan, context: context)
         } else {
             await loadOfficialPlan(activePlan: activePlan, context: context)
+        }
+
+        await loadPlansForBrowsing()
+    }
+
+    private func loadPlansForBrowsing() async {
+        let plans = await PlanContentService.shared.loadAllPlans()
+        officialPlans = plans.map { plan in
+            PlanBrowseItem(
+                id: plan.id,
+                nameZh: plan.nameZh,
+                description: plan.description,
+                targetLevel: plan.targetLevel,
+                isPremium: plan.isPremium,
+                durationWeeks: plan.durationWeeks,
+                sessionsPerWeek: plan.sessionsPerWeek
+            )
         }
     }
 

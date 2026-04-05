@@ -4,182 +4,180 @@ import SwiftData
 struct TrainingHomeView: View {
     @StateObject private var viewModel = TrainingHomeViewModel()
     @EnvironmentObject private var router: AppRouter
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @State private var activeTrainingMode: TrainingMode?
+    @State private var resumedTrainingVM: ActiveTrainingViewModel?
+    @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Spacing.xl) {
-                if viewModel.isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, minHeight: 300)
-                } else if let session = viewModel.todaySession {
-                    todayPlanContent(session)
-                } else {
-                    noPlanContent
+        ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(spacing: Spacing.xl) {
+                    pageHeader
+
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .frame(maxWidth: .infinity, minHeight: 300)
+                    } else if viewModel.hasActivePlan {
+                        activePlanContent
+                    } else {
+                        emptyStateContent
+                    }
                 }
+                .padding(.bottom, 80)
             }
-            .padding(.vertical, Spacing.lg)
-        }
-        .background(.btBG)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    router.trainingPath.append(TrainingRoute.planList)
-                } label: {
-                    Label("训练计划", systemImage: "list.bullet.rectangle.portrait")
-                }
+            .background(.btBG)
+
+            if viewModel.hasActivePlan && !viewModel.isLoading {
+                fixedStartButton
             }
         }
         .task {
             await viewModel.load(context: modelContext)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .didRequestResumeTraining)) { _ in
+            guard let vm = router.resumeTrainingVM() else { return }
+            resumedTrainingVM = vm
+            activeTrainingMode = vm.mode
+        }
         .fullScreenCover(item: $activeTrainingMode) {
+            resumedTrainingVM = nil
             Task { await viewModel.load(context: modelContext) }
         } content: { mode in
-            ActiveTrainingView(viewModel: ActiveTrainingViewModel(mode: mode))
-        }
-    }
-
-    // MARK: - No Active Plan
-
-    private var noPlanContent: some View {
-        VStack(spacing: Spacing.xxxl) {
-            BTEmptyState(
-                icon: "calendar.badge.plus",
-                title: "还没有激活训练计划",
-                subtitle: "选择一个官方计划开始系统训练，或直接开始自由记录",
-                actionTitle: "选择训练计划",
-                action: {
-                    router.trainingPath.append(TrainingRoute.planList)
-                }
-            )
-
-            freeRecordButton
-                .padding(.horizontal, Spacing.xxl)
-        }
-    }
-
-    // MARK: - Today's Plan Content
-
-    private func todayPlanContent(_ session: TodaySessionInfo) -> some View {
-        VStack(spacing: Spacing.xl) {
-            planHeaderCard(session)
-                .padding(.horizontal, Spacing.lg)
-
-            if session.isAllCompleted {
-                allCompletedBanner
-                    .padding(.horizontal, Spacing.lg)
+            if let vm = resumedTrainingVM {
+                ActiveTrainingView(viewModel: vm)
             } else {
-                startTrainingButton(session)
-                    .padding(.horizontal, Spacing.lg)
+                ActiveTrainingView(viewModel: ActiveTrainingViewModel(mode: mode))
             }
-
-            todayDrillList(session)
-                .padding(.horizontal, Spacing.lg)
-
-            freeRecordButton
-                .padding(.horizontal, Spacing.lg)
         }
     }
 
-    // MARK: - Plan Header Card
+    // MARK: - Page Header
 
-    private func planHeaderCard(_ session: TodaySessionInfo) -> some View {
-        VStack(spacing: Spacing.md) {
-            HStack {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(session.planNameZh)
-                        .font(.btTitle)
-                        .foregroundStyle(.btText)
+    private var pageHeader: some View {
+        HStack {
+            Text("训练")
+                .font(.btTitle)
+                .foregroundStyle(.btText)
 
-                    Text("第 \(session.weekNumber) 周 · 第 \(session.dayNumber) 天")
-                        .font(.btSubheadline)
-                        .foregroundStyle(.btTextSecondary)
-                }
-
-                Spacer()
-
-                progressRing(session)
-            }
+            Spacer()
 
             HStack(spacing: Spacing.md) {
-                infoChip(icon: "book.pages", text: session.weekTheme)
-                Spacer()
-                infoChip(icon: "clock", text: "\(session.totalMinutes) 分钟")
+                Button {
+                    router.trainingPath.append(TrainingRoute.planList)
+                } label: {
+                    Image(systemName: "person.2")
+                        .font(.btBody)
+                        .foregroundStyle(.btTextSecondary)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+
+                Menu {
+                    Button {
+                        router.trainingPath.append(TrainingRoute.planList)
+                    } label: {
+                        Label("训练计划", systemImage: "list.bullet.rectangle.portrait")
+                    }
+                    Button {
+                        router.trainingPath.append(TrainingRoute.customPlanBuilder)
+                    } label: {
+                        Label("新建自定义计划", systemImage: "plus")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.btBody)
+                        .foregroundStyle(.btTextSecondary)
+                        .frame(width: 36, height: 36)
+                        .contentShape(Rectangle())
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.sm)
+    }
+
+    // MARK: - Active Plan Content
+
+    private var activePlanContent: some View {
+        VStack(spacing: Spacing.xl) {
+            if let session = viewModel.todaySession {
+                todayScheduleSection(session)
+            }
+
+            planBrowsingSection
+        }
+        .padding(.vertical, Spacing.md)
+    }
+
+    // MARK: - Today Schedule Section
+
+    private func todayScheduleSection(_ session: TodaySessionInfo) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("今日安排")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+                .padding(.horizontal, Spacing.lg)
+
+            VStack(spacing: Spacing.md) {
+                ForEach(session.drills.prefix(3)) { drill in
+                    todayDrillCard(drill, session: session)
+                }
+
+                if session.isAllCompleted {
+                    allCompletedBanner
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+        }
+    }
+
+    private func todayDrillCard(_ drill: TodayDrillItem, session: TodaySessionInfo) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(drill.nameZh)
+                    .font(.btTitle2)
+                    .foregroundStyle(drill.isCompleted ? .btTextSecondary : .btText)
+                    .lineLimit(1)
+
+                Text("\(session.planNameZh) · \(drill.sets) 组")
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+            }
+
+            Spacer()
+
+            if drill.isCompleted {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.btTitle)
+                    .foregroundStyle(.btSuccess)
+            } else {
+                Button {
+                    activeTrainingMode = .plan(drills: session.drills)
+                } label: {
+                    Text("GO!")
+                        .font(.btFootnote14.weight(.bold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Spacing.xl)
+                        .padding(.vertical, Spacing.sm)
+                        .background(Color.btPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                }
             }
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .shadow(color: colorScheme == .dark ? .clear : Color.black.opacity(0.04),
+                radius: 4, x: 0, y: 2)
     }
-
-    private func progressRing(_ session: TodaySessionInfo) -> some View {
-        ZStack {
-            Circle()
-                .stroke(.btBGTertiary, lineWidth: 6)
-
-            Circle()
-                .trim(from: 0, to: session.progress)
-                .stroke(.btPrimary, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .animation(.spring, value: session.progress)
-
-            VStack(spacing: 0) {
-                Text("\(session.completedCount)")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btPrimary)
-                Text("/\(session.totalCount)")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-            }
-        }
-        .frame(width: 56, height: 56)
-    }
-
-    private func infoChip(icon: String, text: String) -> some View {
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: icon)
-                .font(.btCaption)
-                .foregroundStyle(.btPrimary)
-            Text(text)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-        }
-    }
-
-    // MARK: - Start Training CTA
-
-    private func startTrainingButton(_ session: TodaySessionInfo) -> some View {
-        Button {
-            activeTrainingMode = .plan(drills: session.drills)
-        } label: {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 16))
-
-                Text("开始今日训练")
-                    .font(.btHeadline)
-
-                Spacer()
-
-                Text("\(session.totalCount - session.completedCount) 项待完成")
-                    .font(.btCaption)
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-            .foregroundStyle(.white)
-            .padding(Spacing.lg)
-            .background(.btPrimary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-        }
-    }
-
-    // MARK: - All Completed Banner
 
     private var allCompletedBanner: some View {
         HStack(spacing: Spacing.md) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 28))
+                .font(.btStatNumber)
                 .foregroundStyle(.btSuccess)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -198,112 +196,300 @@ struct TrainingHomeView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
-    // MARK: - Today's Drill List
+    // MARK: - Plan Browsing Section
 
-    private func todayDrillList(_ session: TodaySessionInfo) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("今日训练")
-                .font(.btTitle2)
-                .foregroundStyle(.btText)
+    private var planBrowsingSection: some View {
+        VStack(spacing: 0) {
+            BTSegmentedTab(
+                tabs: PlanBrowseTab.allCases,
+                selected: $viewModel.selectedTab,
+                label: { $0.rawValue }
+            )
+            .padding(.horizontal, Spacing.lg)
 
-            let grouped = Dictionary(grouping: session.drills) { $0.phaseType }
-            let orderedPhases = ["warmup", "focused", "combined", "review"]
+            Divider().foregroundStyle(.btSeparator)
 
-            ForEach(orderedPhases, id: \.self) { phase in
-                if let drills = grouped[phase], !drills.isEmpty {
-                    phaseDrillSection(drills: drills)
+            if viewModel.selectedTab == .official {
+                officialPlanBrowsing
+            } else {
+                customPlanBrowsing
+            }
+        }
+    }
+
+    // MARK: - Filter Chips
+
+    private var filterChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Spacing.sm) {
+                ForEach(PlanLevelFilter.allCases, id: \.self) { filter in
+                    filterChipButton(filter)
                 }
             }
+            .padding(.horizontal, Spacing.lg)
         }
+        .padding(.vertical, Spacing.md)
     }
 
-    private func phaseDrillSection(drills: [TodayDrillItem]) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            if let first = drills.first {
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: first.phaseIcon)
-                        .font(.btCaption)
-                        .foregroundStyle(.btPrimary)
-                    Text(first.phaseZh)
-                        .font(.btSubheadlineMedium)
-                        .foregroundStyle(.btTextSecondary)
-                }
-                .padding(.leading, Spacing.sm)
+    private func filterChipButton(_ filter: PlanLevelFilter) -> some View {
+        let isSelected = viewModel.selectedFilter == filter
+        return Button {
+            withAnimation(.spring(duration: 0.2)) {
+                viewModel.selectedFilter = filter
             }
-
-            ForEach(drills) { drill in
-                drillRow(drill)
-            }
-        }
-    }
-
-    private func drillRow(_ drill: TodayDrillItem) -> some View {
-        HStack(spacing: Spacing.md) {
-            ZStack {
-                Circle()
-                    .fill(drill.isCompleted ? Color.btSuccess.opacity(0.15) : Color.btBGTertiary)
-                    .frame(width: 36, height: 36)
-
-                Image(systemName: drill.isCompleted ? "checkmark" : "circle")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(drill.isCompleted ? .btSuccess : .btTextTertiary)
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(drill.nameZh)
-                    .font(.btBody)
-                    .foregroundStyle(drill.isCompleted ? .btTextSecondary : .btText)
-                    .strikethrough(drill.isCompleted, color: .btTextTertiary)
-
-                Text("\(drill.sets) 组 × \(drill.ballsPerSet) 球")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
-
-            Spacer()
-
-            if drill.isCompleted {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(.btSuccess)
-            }
-        }
-        .padding(Spacing.md)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-    }
-
-    // MARK: - Free Record Button
-
-    private var freeRecordButton: some View {
-        Button {
-            activeTrainingMode = .free
         } label: {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.btAccent)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("自由记录")
-                        .font(.btHeadline)
-                        .foregroundStyle(.btText)
-                    Text("不按计划，自由选择训练项目")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextTertiary)
-            }
-            .padding(Spacing.lg)
-            .background(.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            Text(filter.rawValue)
+                .font(.btFootnote14.weight(.medium))
+                .foregroundStyle(chipTextColor(isSelected))
+                .padding(.horizontal, Spacing.xl)
+                .padding(.vertical, Spacing.sm)
+                .background(chipBackground(isSelected))
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule().stroke(chipBorderColor(isSelected), lineWidth: isSelected ? 0 : 1)
+                )
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+
+    private static let chipActiveFillLight = Color(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0)
+    private static let chipActiveFillDark = Color(red: 0xF2 / 255.0, green: 0xF2 / 255.0, blue: 0xF7 / 255.0)
+
+    private func chipTextColor(_ isSelected: Bool) -> Color {
+        if isSelected {
+            return colorScheme == .dark ? .black : Color.btBGSecondary
+        }
+        return colorScheme == .dark ? .btTextSecondary : .btText
+    }
+
+    private func chipBackground(_ isSelected: Bool) -> Color {
+        if isSelected {
+            return colorScheme == .dark ? Self.chipActiveFillDark : Self.chipActiveFillLight
+        }
+        return colorScheme == .dark ? Color.btBGTertiary : Color.btBGSecondary
+    }
+
+    private func chipBorderColor(_ isSelected: Bool) -> Color {
+        isSelected ? .clear : .btSeparator
+    }
+
+    // MARK: - Official Plan List
+
+    private var officialPlanBrowsing: some View {
+        VStack(spacing: 0) {
+            filterChips
+
+            LazyVStack(spacing: Spacing.md) {
+                ForEach(viewModel.filteredPlans) { plan in
+                    NavigationLink(value: TrainingRoute.planDetail(planId: plan.id)) {
+                        planBrowseCard(plan)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+        }
+    }
+
+    private func planBrowseCard(_ plan: PlanBrowseItem) -> some View {
+        HStack(spacing: Spacing.lg) {
+            RoundedRectangle(cornerRadius: BTRadius.lg)
+                .fill(
+                    LinearGradient(
+                        colors: [Color(red: 0.1, green: 0.42, blue: 0.24), Color(red: 0.07, green: 0.3, blue: 0.17)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 80, height: 80)
+                .overlay {
+                    Image(systemName: "figure.pool.swim")
+                        .font(.btStatNumber)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.xs) {
+                    Text(plan.nameZh)
+                        .font(.btCallout.weight(.bold))
+                        .foregroundStyle(.btText)
+                        .lineLimit(1)
+
+                    if plan.isPremium {
+                        Image(systemName: "lock.fill")
+                            .font(.btCaption)
+                            .foregroundStyle(.btAccent)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.btFootnote14)
+                        .foregroundStyle(.btTextTertiary)
+                }
+
+                Text(plan.description)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(1)
+
+                levelBadge(plan.targetLevel)
+            }
+        }
+        .padding(colorScheme == .dark ? Spacing.lg : Spacing.sm)
+        .background(colorScheme == .dark ? Color.btBGSecondary : .clear)
+        .clipShape(RoundedRectangle(cornerRadius: colorScheme == .dark ? BTRadius.lg : 0))
+    }
+
+    private func levelBadge(_ level: String) -> some View {
+        let displayLevel = level.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? level
+        let drillLevel = DrillLevel(rawValue: displayLevel)
+
+        return Group {
+            if let drillLevel {
+                BTLevelBadge(level: drillLevel)
+            } else {
+                Text(level)
+                    .font(.btCaption2.weight(.bold))
+                    .foregroundStyle(.btPrimary)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(Color.btPrimary.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+            }
+        }
+    }
+
+    // MARK: - Custom Plan List
+
+    private var customPlanBrowsing: some View {
+        VStack(spacing: Spacing.md) {
+            if customPlans.isEmpty {
+                BTEmptyState(
+                    icon: "hammer",
+                    title: "暂无自定义计划",
+                    subtitle: "创建你自己的训练方案",
+                    actionTitle: "创建计划",
+                    action: { router.trainingPath.append(TrainingRoute.customPlanBuilder) }
+                )
+                .padding(.top, Spacing.xxl)
+            } else {
+                ForEach(customPlans) { plan in
+                    NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
+                        customPlanCard(plan)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.md)
+    }
+
+    private func customPlanCard(_ plan: CustomPlan) -> some View {
+        HStack(spacing: Spacing.lg) {
+            RoundedRectangle(cornerRadius: BTRadius.lg)
+                .fill(Color.btAccent.opacity(0.12))
+                .frame(width: 80, height: 80)
+                .overlay {
+                    Image(systemName: "hammer.fill")
+                        .font(.btStatNumber)
+                        .foregroundStyle(.btAccent)
+                }
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack {
+                    Text(plan.name)
+                        .font(.btCallout.weight(.bold))
+                        .foregroundStyle(.btText)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.btFootnote14)
+                        .foregroundStyle(.btTextTertiary)
+                }
+
+                Text("\(plan.sessionsPerWeek) 次/周 · \(plan.drills.count) 项训练")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+
+                HStack(spacing: 2) {
+                    Image(systemName: "hammer")
+                        .font(.btMicro)
+                    Text("自定义")
+                        .font(.btCaption2)
+                }
+                .foregroundStyle(.btAccent)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.btAccent.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+            }
+        }
+        .padding(colorScheme == .dark ? Spacing.lg : Spacing.sm)
+        .background(colorScheme == .dark ? Color.btBGSecondary : .clear)
+        .clipShape(RoundedRectangle(cornerRadius: colorScheme == .dark ? BTRadius.lg : 0))
+    }
+
+    // MARK: - Empty State
+
+    private var emptyStateContent: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer(minLength: Spacing.xxxxl)
+
+            BTEmptyState(
+                icon: "figure.strengthtraining.traditional",
+                title: "还没有训练计划",
+                subtitle: "选择一个训练计划开始练球，或直接自由记录",
+                actionTitle: "选择训练计划",
+                action: { router.trainingPath.append(TrainingRoute.planList) }
+            )
+
+            Button {
+                activeTrainingMode = .free
+            } label: {
+                Text("自由记录")
+                    .font(.btCallout.weight(.medium))
+                    .foregroundStyle(.btText)
+            }
+
+            Spacer(minLength: Spacing.xxxxl)
+        }
+    }
+
+    // MARK: - Fixed Start Button
+
+    private var fixedStartButton: some View {
+        VStack {
+            Spacer()
+
+            Button {
+                if let session = viewModel.todaySession {
+                    activeTrainingMode = .plan(drills: session.drills)
+                } else {
+                    activeTrainingMode = .free
+                }
+            } label: {
+                Text("开始训练")
+            }
+            .buttonStyle(BTButtonStyle.primary)
+            .shadow(color: colorScheme == .dark ? .clear : Color.btPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.bottom, Spacing.sm)
+            .background(
+                LinearGradient(
+                    colors: [Color.btBG.opacity(0), Color.btBG],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+                .frame(height: 80)
+                .allowsHitTesting(false)
+            )
+        }
     }
 }
 
@@ -316,6 +502,7 @@ struct TrainingHomeView: View {
     }
     .modelContainer(ModelContainerFactory.makeInMemoryContainer())
     .environmentObject(AppRouter())
+    .environmentObject(SubscriptionManager.shared)
 }
 
 #Preview("No Plan - Dark") {
@@ -325,5 +512,6 @@ struct TrainingHomeView: View {
     }
     .modelContainer(ModelContainerFactory.makeInMemoryContainer())
     .environmentObject(AppRouter())
+    .environmentObject(SubscriptionManager.shared)
     .preferredColorScheme(.dark)
 }

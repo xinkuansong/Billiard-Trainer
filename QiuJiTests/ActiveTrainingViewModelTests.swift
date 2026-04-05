@@ -198,13 +198,15 @@ final class ActiveTrainingViewModelTests: XCTestCase {
 
     func test_overallSuccessRate_calculated() {
         let vm = makeVMWithDrills(count: 1, sets: 2, ballsPerSet: 10)
-        vm.ballsMadeRecords = [[7, 8]]
+        vm.drillSetsData[0][0].madeBalls = 7
+        vm.drillSetsData[0][1].madeBalls = 8
         XCTAssertEqual(vm.overallSuccessRate, 0.75, accuracy: 0.001)
     }
 
     func test_drillSummaries_sorted_by_success_rate() {
         let vm = makeVMWithDrills(count: 2, sets: 1, ballsPerSet: 10)
-        vm.ballsMadeRecords = [[3], [8]]
+        vm.drillSetsData[0][0].madeBalls = 3
+        vm.drillSetsData[1][0].madeBalls = 8
         let summaries = vm.drillSummaries
         XCTAssertEqual(summaries.count, 2)
         XCTAssertGreaterThanOrEqual(summaries[0].successRate, summaries[1].successRate)
@@ -218,7 +220,8 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         SyncQueueManager.shared.configure(context: context)
 
         let vm = makeVMWithDrills(count: 1, sets: 2, ballsPerSet: 10)
-        vm.ballsMadeRecords = [[7, 8]]
+        vm.drillSetsData[0][0].madeBalls = 7
+        vm.drillSetsData[0][1].madeBalls = 8
         vm.trainingNote = "test note"
         vm.elapsedSeconds = 120
 
@@ -237,7 +240,8 @@ final class ActiveTrainingViewModelTests: XCTestCase {
 
         let entry = session?.drillEntries.first
         XCTAssertEqual(entry?.sets.count, 2)
-        XCTAssertEqual(entry?.sets.first?.madeBalls, 7)
+        let sortedSets = entry?.sets.sorted { $0.setNumber < $1.setNumber }
+        XCTAssertEqual(sortedSets?.first?.madeBalls, 7)
     }
 
     func test_saveTraining_empty_drills() {
@@ -276,8 +280,12 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             )
             vm.drills.append(drill)
         }
-        vm.currentSetIndices = vm.drills.map { _ in 0 }
-        vm.ballsMadeRecords = vm.drills.map { Array(repeating: 0, count: $0.sets) }
+        vm.drillSetsData = vm.drills.map { drill in
+            (1...drill.sets).map { setNum in
+                DrillSetData(id: setNum, targetBalls: drill.ballsPerSet)
+            }
+        }
+        vm.drillNotes = vm.drills.map { _ in "" }
         return vm
     }
 }

@@ -185,38 +185,45 @@ final class StatisticsViewModelTests: XCTestCase {
         XCTAssertEqual(vm.totalSets, 2)
     }
 
-    // MARK: - frequencyData
+    // MARK: - durationBarData
 
-    func test_frequencyData_week_has_7_points() {
+    func test_durationBarData_week_has_7_points() {
         vm.timeRange = .week
-        XCTAssertEqual(vm.frequencyData.count, 7)
+        XCTAssertEqual(vm.durationBarData.count, 7)
     }
 
-    func test_frequencyData_month_has_4_points() {
+    func test_durationBarData_month_has_4_points() {
         vm.timeRange = .month
-        XCTAssertEqual(vm.frequencyData.count, 4)
+        XCTAssertEqual(vm.durationBarData.count, 4)
     }
 
-    func test_frequencyData_year_has_12_points() {
+    func test_durationBarData_year_has_12_points() {
         vm.timeRange = .year
-        XCTAssertEqual(vm.frequencyData.count, 12)
+        XCTAssertEqual(vm.durationBarData.count, 12)
     }
 
-    func test_frequencyData_week_counts_today_session() {
+    func test_durationBarData_week_sums_today_duration() {
         let today = Date()
-        vm.sessions = [makeSession(date: today)]
+        vm.sessions = [makeSession(date: today, durationMinutes: 60)]
         vm.timeRange = .week
 
-        let data = vm.frequencyData
+        let data = vm.durationBarData
         let todayPoint = data.last!
-        XCTAssertEqual(todayPoint.count, 1)
+        XCTAssertEqual(todayPoint.hours, 1.0, accuracy: 0.01)
     }
 
-    func test_frequencyData_week_empty_sessions() {
+    func test_durationBarData_week_empty_sessions() {
         vm.timeRange = .week
-        let data = vm.frequencyData
-        let total = data.reduce(0) { $0 + $1.count }
-        XCTAssertEqual(total, 0)
+        let data = vm.durationBarData
+        let total = data.reduce(0.0) { $0 + $1.hours }
+        XCTAssertEqual(total, 0.0)
+    }
+
+    // MARK: - successRateBarData
+
+    func test_successRateBarData_week_has_7_points() {
+        vm.timeRange = .week
+        XCTAssertEqual(vm.successRateBarData.count, 7)
     }
 
     // MARK: - categorySuccessRates
@@ -244,6 +251,7 @@ final class StatisticsViewModelTests: XCTestCase {
         context.insert(session)
         try! context.save()
 
+        vm.categoryMapping = ["drill_c001": "accuracy"]
         vm.sessions = [session]
         vm.timeRange = .week
 
@@ -275,6 +283,7 @@ final class StatisticsViewModelTests: XCTestCase {
         context.insert(session)
         try! context.save()
 
+        vm.categoryMapping = ["drill_c001": "accuracy", "drill_c006": "fundamentals"]
         vm.sessions = [session]
         vm.timeRange = .week
 
@@ -298,6 +307,7 @@ final class StatisticsViewModelTests: XCTestCase {
         context.insert(session)
         try! context.save()
 
+        vm.categoryMapping = ["drill_c006": "fundamentals"]
         vm.sessions = [session]
         vm.timeRange = .week
 
@@ -316,13 +326,13 @@ final class StatisticsViewModelTests: XCTestCase {
         XCTAssertEqual(StatisticsTimeRange.year.rawValue, "年")
     }
 
-    // MARK: - FrequencyDataPoint / CategorySuccessRate structs
+    // MARK: - Data model structs
 
-    func test_frequencyDataPoint_properties() {
-        let point = FrequencyDataPoint(label: "周一", date: Date(), count: 3)
-        XCTAssertEqual(point.label, "周一")
-        XCTAssertEqual(point.count, 3)
-        XCTAssertNotNil(point.id)
+    func test_durationBarData_properties() {
+        let bar = DurationBarData(label: "周一", date: Date(), hours: 1.5)
+        XCTAssertEqual(bar.label, "周一")
+        XCTAssertEqual(bar.hours, 1.5)
+        XCTAssertNotNil(bar.id)
     }
 
     func test_categorySuccessRate_properties() {

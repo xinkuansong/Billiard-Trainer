@@ -36,14 +36,17 @@ struct PlanListView: View {
                     .frame(maxWidth: .infinity, minHeight: 300)
             } else {
                 LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
-                    customPlansSection
-
                     if plans.isEmpty && customPlans.isEmpty {
                         BTEmptyState(
                             icon: "calendar",
                             title: "暂无训练计划",
                             subtitle: "计划内容正在准备中"
                         )
+                    }
+
+                    if !plans.isEmpty {
+                        officialPlansHeader
+                            .padding(.horizontal, Spacing.lg)
                     }
 
                     ForEach(groupedPlans, id: \.level) { group in
@@ -61,12 +64,15 @@ struct PlanListView: View {
                             levelSectionHeader(level: group.level, count: group.plans.count)
                         }
                     }
+
+                    customPlansSection
                 }
                 .padding(.vertical, Spacing.md)
             }
         }
         .background(.btBG)
         .navigationTitle("训练计划")
+        .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 NavigationLink(value: TrainingRoute.customPlanBuilder) {
@@ -136,7 +142,7 @@ struct PlanListView: View {
                     VStack(alignment: .leading, spacing: Spacing.xs) {
                         HStack(spacing: Spacing.sm) {
                             Image(systemName: "hammer")
-                                .font(.system(size: 10))
+                                .font(.btMicro)
                                 .foregroundStyle(.btAccent)
                             Text("自定义")
                                 .font(.btCaption2)
@@ -174,8 +180,13 @@ struct PlanListView: View {
                         Image(systemName: "ellipsis.circle")
                             .font(.btCallout)
                             .foregroundStyle(.btTextTertiary)
-                            .padding(Spacing.xs)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+
+                    Image(systemName: "chevron.right")
+                        .font(.btCallout)
+                        .foregroundStyle(.btTextTertiary)
                 }
 
                 HStack(spacing: Spacing.lg) {
@@ -185,7 +196,7 @@ struct PlanListView: View {
             }
             .padding(Spacing.lg)
             .background(.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
         .buttonStyle(.plain)
     }
@@ -193,7 +204,7 @@ struct PlanListView: View {
     private func planInfoChip(icon: String, text: String) -> some View {
         HStack(spacing: Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 11))
+                .font(.btCaption2)
                 .foregroundStyle(.btPrimary)
             Text(text)
                 .font(.btCaption)
@@ -232,6 +243,15 @@ struct PlanListView: View {
         isLoading = true
         plans = await PlanContentService.shared.loadAllPlans()
         isLoading = false
+    }
+
+    private var officialPlansHeader: some View {
+        HStack {
+            Text("官方计划")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+            Spacer()
+        }
     }
 
     private func levelSectionHeader(level: String, count: Int) -> some View {
@@ -287,9 +307,9 @@ struct PlanListView: View {
         switch level {
         case "L0→L1":  return .btTextSecondary
         case "L1":     return .btPrimary
-        case "L1→L2":  return .blue
-        case "L2":     return .blue
-        case "L3":     return .purple
+        case "L1→L2":  return Color(red: 0, green: 0x7A / 255.0, blue: 1)
+        case "L2":     return .btAccent
+        case "L3":     return .btWarning
         case "L3→L4":  return .btAccent
         default:       return .btTextSecondary
         }
@@ -306,74 +326,89 @@ private struct PlanCard: View {
         return DrillLevel(rawValue: raw)
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    HStack(spacing: Spacing.sm) {
-                        if let level = targetLevel {
-                            BTLevelBadge(level: level)
-                        }
-
-                        if plan.isPremium {
-                            HStack(spacing: 2) {
-                                Image(systemName: "crown.fill")
-                                    .font(.system(size: 10))
-                                Text("付费")
-                                    .font(.btCaption2)
-                            }
-                            .foregroundStyle(.btAccent)
-                            .padding(.horizontal, Spacing.sm)
-                            .padding(.vertical, Spacing.xs)
-                            .background(Color.btAccent.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-                        }
-                    }
-
-                    Text(plan.nameZh)
-                        .font(.btHeadline)
-                        .foregroundStyle(.btText)
-                        .lineLimit(2)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextTertiary)
-                    .padding(.top, Spacing.xs)
-            }
-
-            Text(plan.description)
-                .font(.btCallout)
-                .foregroundStyle(.btTextSecondary)
-                .lineLimit(2)
-
-            HStack(spacing: Spacing.lg) {
-                planInfoChip(icon: "calendar", text: "\(plan.durationWeeks) 周")
-                planInfoChip(icon: "repeat", text: "\(plan.sessionsPerWeek) 次/周")
-                planInfoChip(icon: "clock", text: "\(plan.minutesPerSession) 分钟/次")
-            }
-        }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-        .overlay {
-            if plan.isPremium {
-                RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .stroke(Color.btAccent.opacity(0.2), lineWidth: 1)
-            }
+    private var levelColor: Color {
+        guard let level = targetLevel else { return .btPrimary }
+        switch level {
+        case .L0: return .btTextSecondary
+        case .L1: return Color(red: 0, green: 0x7A / 255.0, blue: 1)
+        case .L2: return .btAccent
+        case .L3: return .btWarning
+        case .L4: return .btDestructive
         }
     }
 
-    private func planInfoChip(icon: String, text: String) -> some View {
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundStyle(.btPrimary)
-            Text(text)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+    private var thumbnailIcon: String {
+        guard let level = targetLevel else { return "target" }
+        switch level {
+        case .L0: return "figure.walk"
+        case .L1: return "figure.run"
+        case .L2: return "bolt.fill"
+        case .L3: return "star.fill"
+        case .L4: return "trophy.fill"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            ZStack {
+                RoundedRectangle(cornerRadius: BTRadius.sm)
+                    .fill(
+                        LinearGradient(
+                            colors: [levelColor.opacity(0.25), levelColor.opacity(0.08)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                Image(systemName: thumbnailIcon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundStyle(levelColor.opacity(0.7))
+            }
+            .frame(width: 72, height: 72)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(plan.nameZh)
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+                    .lineLimit(2)
+
+                HStack(spacing: Spacing.sm) {
+                    if let level = targetLevel {
+                        BTLevelBadge(level: level)
+                    }
+                    Text("\(plan.durationWeeks) 周")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+                    if plan.isPremium {
+                        HStack(spacing: 2) {
+                            Image(systemName: "crown.fill")
+                                .font(.btMicro)
+                            Text("付费")
+                                .font(.btCaption2)
+                        }
+                        .foregroundStyle(.btAccent)
+                    }
+                }
+
+                Text(plan.description)
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+
+            Image(systemName: "chevron.right")
+                .font(.btCallout)
+                .foregroundStyle(.btTextTertiary)
+        }
+        .padding(Spacing.md)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .overlay {
+            if plan.isPremium {
+                RoundedRectangle(cornerRadius: BTRadius.md)
+                    .stroke(Color.btAccent.opacity(0.2), lineWidth: 1)
+            }
         }
     }
 }

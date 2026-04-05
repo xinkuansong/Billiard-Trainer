@@ -26,6 +26,14 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         !name.trimmingCharacters(in: .whitespaces).isEmpty && !drillItems.isEmpty
     }
 
+    var totalSetsCount: Int {
+        drillItems.reduce(0) { $0 + $1.sets }
+    }
+
+    var totalBallsCount: Int {
+        drillItems.reduce(0) { $0 + ($1.sets * $1.ballsPerSet) }
+    }
+
     init(editingPlanId: UUID? = nil) {
         self.editingPlanId = editingPlanId
     }
@@ -65,6 +73,11 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         drillItems.remove(atOffsets: offsets)
     }
 
+    func removeDrill(at index: Int) {
+        guard index >= 0, index < drillItems.count else { return }
+        drillItems.remove(at: index)
+    }
+
     func moveDrills(from source: IndexSet, to destination: Int) {
         drillItems.move(fromOffsets: source, toOffset: destination)
     }
@@ -77,6 +90,12 @@ final class CustomPlanBuilderViewModel: ObservableObject {
     func updateBallsPerSet(for itemId: UUID, balls: Int) {
         guard let idx = drillItems.firstIndex(where: { $0.id == itemId }) else { return }
         drillItems[idx].ballsPerSet = max(1, min(balls, 50))
+    }
+
+    func updateDrillSettings(at index: Int, sets: Int, ballsPerSet: Int) {
+        guard index >= 0, index < drillItems.count else { return }
+        drillItems[index].sets = max(1, min(sets, 20))
+        drillItems[index].ballsPerSet = max(1, min(ballsPerSet, 50))
     }
 
     /// Saves plan and returns the saved plan's UUID for activation, or nil on failure.

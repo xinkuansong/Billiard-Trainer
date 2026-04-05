@@ -64,4 +64,5 @@ final class AuthState: ObservableObject {
 
 extension Notification.Name {
     static let didRequestDataMigration = Notification.Name("didRequestDataMigration")
+    static let didRequestResumeTraining = Notification.Name("didRequestResumeTraining")
 }

@@ -2,10 +2,13 @@ import SwiftUI
 
 struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var authState: AuthState
     @State private var selectedFlow: LoginFlow?
     @State private var isAppleSignInLoading = false
     @State private var errorMessage: String?
+
+    private static let wechatGreen = Color(red: 0.027, green: 0.757, blue: 0.376)
 
     enum LoginFlow: Identifiable {
         case phone
@@ -13,86 +16,65 @@ struct LoginView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.btBG.ignoresSafeArea()
+        ZStack {
+            Color.btBG.ignoresSafeArea()
 
-                VStack(spacing: 0) {
-                    // MARK: - 标题
-                    VStack(spacing: Spacing.sm) {
-                        Text("登录球迹")
-                            .font(.btLargeTitle)
-                            .foregroundStyle(.btText)
-                        Text("登录后数据云端同步，换机不丢失")
-                            .font(.btCallout)
-                            .foregroundStyle(.btTextSecondary)
-                    }
-                    .padding(.top, Spacing.xxxl)
+            VStack(spacing: 0) {
+                Spacer()
+
+                appIcon
+                    .padding(.bottom, Spacing.xxl)
+
+                Text("欢迎使用球迹")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                    .padding(.bottom, Spacing.sm)
+
+                Text("登录以同步你的训练数据")
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextSecondary)
                     .padding(.bottom, Spacing.xxxxl)
 
-                    // MARK: - 错误提示
-                    if let msg = errorMessage {
-                        Text(msg)
-                            .font(.btCallout)
-                            .foregroundStyle(.btDestructive)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, Spacing.xxl)
-                            .padding(.bottom, Spacing.md)
-                    }
-
-                    // MARK: - 登录选项
-                    VStack(spacing: Spacing.md) {
-                        LoginOptionButton(
-                            icon: "message.fill",
-                            iconColor: .green,
-                            title: "微信登录",
-                            subtitle: "使用微信账号快速登录"
-                        ) {
-                            // T-P1-08 微信登录（待 H-05 完成后实现）
-                        }
-
-                        LoginOptionButton(
-                            icon: "phone.fill",
-                            iconColor: .btPrimary,
-                            title: "手机号登录",
-                            subtitle: "使用手机号 + 验证码登录"
-                        ) {
-                            selectedFlow = .phone
-                        }
-
-                        LoginOptionButton(
-                            icon: "applelogo",
-                            iconColor: .btText,
-                            title: "Apple 登录",
-                            subtitle: "使用 Apple ID 私密登录",
-                            isLoading: isAppleSignInLoading
-                        ) {
-                            signInWithApple()
-                        }
-                    }
-                    .padding(.horizontal, Spacing.xxl)
-
-                    Spacer()
-
-                    // MARK: - 跳过
-                    Button("跳过，先体验") {
-                        authState.loginAnonymously()
-                        dismiss()
-                    }
-                    .buttonStyle(BTButtonStyle.text)
-                    .padding(.bottom, Spacing.xxxl)
+                if let msg = errorMessage {
+                    Text(msg)
+                        .font(.btFootnote)
+                        .foregroundStyle(.btDestructive)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.xxl)
+                        .padding(.bottom, Spacing.md)
                 }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
+
+                loginButtons
+
+                Spacer()
+
+                Button("暂不登录，匿名使用") {
+                    authState.loginAnonymously()
+                    dismiss()
+                }
+                .font(.btCallout)
+                .foregroundStyle(.btTextSecondary)
+                .padding(.bottom, Spacing.xxl)
+
+                VStack(spacing: 2) {
+                    Text("登录即表示您同意")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextTertiary)
+                    HStack(spacing: 4) {
+                        Text("用户协议")
+                            .font(.btCaption)
+                            .foregroundStyle(.btPrimary)
+                            .underline()
+                        Text("和")
+                            .font(.btCaption)
                             .foregroundStyle(.btTextTertiary)
+                        Text("隐私政策")
+                            .font(.btCaption)
+                            .foregroundStyle(.btPrimary)
+                            .underline()
                     }
                 }
+                .padding(.bottom, Spacing.xxxl)
             }
         }
         .sheet(item: $selectedFlow) { flow in
@@ -101,6 +83,82 @@ struct LoginView: View {
                 PhoneLoginView()
             }
         }
+    }
+
+    // MARK: - App Icon
+
+    private var appIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 18)
+                .fill(Color.btPrimary)
+                .frame(width: 80, height: 80)
+            Image(systemName: "flag.checkered")
+                .font(.btLargeTitle)
+                .fontWeight(.medium)
+                .foregroundStyle(.white)
+        }
+    }
+
+    // MARK: - Login Buttons
+
+    private var loginButtons: some View {
+        VStack(spacing: Spacing.md) {
+            Button {
+                signInWithApple()
+            } label: {
+                HStack(spacing: Spacing.sm) {
+                    if isAppleSignInLoading {
+                        ProgressView()
+                            .tint(colorScheme == .dark ? .black : .white)
+                    } else {
+                        Image(systemName: "applelogo")
+                    }
+                    Text("通过 Apple 登录")
+                }
+                .font(.btHeadline)
+                .foregroundStyle(colorScheme == .dark ? .black : .white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(colorScheme == .dark ? Color.white : Color.black)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            }
+            .buttonStyle(.plain)
+            .disabled(isAppleSignInLoading)
+
+            Button {
+                // T-P1-08 WeChat login (pending H-05)
+            } label: {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "message.fill")
+                    Text("微信登录")
+                }
+                .font(.btHeadline)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 52)
+                .background(Self.wechatGreen)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                selectedFlow = .phone
+            } label: {
+                Text("手机号登录")
+                    .font(.btHeadline)
+                    .foregroundStyle(colorScheme == .dark ? .btPrimary : .btText)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(colorScheme == .dark ? Color.btBGTertiary : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BTRadius.md)
+                            .stroke(colorScheme == .dark ? Color.btPrimary : Color.btSeparator, lineWidth: 1)
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Spacing.xxl)
     }
 
     // MARK: - Sign in with Apple
@@ -124,54 +182,6 @@ struct LoginView: View {
                 errorMessage = "Apple 登录失败，请重试"
             }
         }
-    }
-}
-
-// MARK: - 登录选项按钮
-
-private struct LoginOptionButton: View {
-    let icon: String
-    let iconColor: Color
-    let title: String
-    let subtitle: String
-    var isLoading: Bool = false
-    let action: () -> Void
-
-    var body: some View {
-        Button {
-            action()
-        } label: {
-            HStack(spacing: Spacing.lg) {
-                Image(systemName: icon)
-                    .font(.system(size: 22))
-                    .foregroundStyle(iconColor)
-                    .frame(width: 36)
-
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(title)
-                        .font(.btHeadline)
-                        .foregroundStyle(.btText)
-                    Text(subtitle)
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-                }
-
-                Spacer()
-
-                if isLoading {
-                    ProgressView()
-                        .tint(.btTextTertiary)
-                } else {
-                    Image(systemName: "chevron.right")
-                        .font(.btFootnote)
-                        .foregroundStyle(.btTextTertiary)
-                }
-            }
-            .padding(Spacing.lg)
-            .background(.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        }
-        .disabled(isLoading)
     }
 }
 

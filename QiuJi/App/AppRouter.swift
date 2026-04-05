@@ -12,7 +12,7 @@ enum AppTab: Int, CaseIterable {
         case .training:     return "训练"
         case .drillLibrary: return "动作库"
         case .angle:        return "角度"
-        case .history:      return "历史"
+        case .history:      return "记录"
         case .profile:      return "我的"
         }
     }
@@ -36,6 +36,20 @@ final class AppRouter: ObservableObject {
     @Published var anglePath = NavigationPath()
     @Published var historyPath = NavigationPath()
     @Published var profilePath = NavigationPath()
+
+    @Published var minimizedTrainingVM: ActiveTrainingViewModel?
+
+    var isTrainingMinimized: Bool { minimizedTrainingVM != nil }
+
+    func minimizeTraining(_ vm: ActiveTrainingViewModel) {
+        minimizedTrainingVM = vm
+    }
+
+    func resumeTrainingVM() -> ActiveTrainingViewModel? {
+        let vm = minimizedTrainingVM
+        minimizedTrainingVM = nil
+        return vm
+    }
 
     func switchTab(_ tab: AppTab) {
         selectedTab = tab

@@ -11,6 +11,7 @@ extension Color {
     static let btDestructive    = Color("btDestructive")
     static let btBG             = Color("btBG")
     static let btBGSecondary    = Color("btBGSecondary")
+    static let btSurface        = Color("btBGSecondary")
     static let btBGTertiary     = Color("btBGTertiary")
     static let btBGQuaternary   = Color("btBGQuaternary")
     static let btText           = Color("btText")
@@ -37,6 +38,7 @@ extension ShapeStyle where Self == Color {
     static var btDestructive:   Color { Color("btDestructive") }
     static var btBG:            Color { Color("btBG") }
     static var btBGSecondary:   Color { Color("btBGSecondary") }
+    static var btSurface:       Color { Color("btBGSecondary") }
     static var btBGTertiary:    Color { Color("btBGTertiary") }
     static var btBGQuaternary:  Color { Color("btBGQuaternary") }
     static var btText:          Color { Color("btText") }
@@ -50,4 +52,135 @@ extension ShapeStyle where Self == Color {
     static var btBallTarget:    Color { Color("btBallTarget") }
     static var btPathCue:       Color { Color("btPathCue") }
     static var btPathTarget:    Color { Color("btPathTarget") }
+}
+
+// MARK: - Hex Init
+
+extension Color {
+    init(hex: UInt, opacity: Double = 1.0) {
+        self.init(
+            .sRGB,
+            red: Double((hex >> 16) & 0xFF) / 255,
+            green: Double((hex >> 8) & 0xFF) / 255,
+            blue: Double(hex & 0xFF) / 255,
+            opacity: opacity
+        )
+    }
+}
+
+// MARK: - Token Swatch Preview
+
+private struct ColorSwatch: View {
+    let name: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 6)
+                .fill(color)
+                .frame(width: 44, height: 44)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(Color.btSeparator, lineWidth: 0.5)
+                )
+            Text(name)
+                .font(.btFootnote)
+                .foregroundStyle(.btText)
+            Spacer()
+        }
+    }
+}
+
+private struct TokenSwatchSection: View {
+    let title: String
+    let tokens: [(String, Color)]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+                .padding(.bottom, 4)
+            ForEach(tokens, id: \.0) { name, color in
+                ColorSwatch(name: name, color: color)
+            }
+        }
+    }
+}
+
+#Preview("Token Swatch") {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 24) {
+            TokenSwatchSection(title: "Brand & Semantic", tokens: [
+                ("btPrimary", .btPrimary),
+                ("btPrimaryMuted", .btPrimaryMuted),
+                ("btAccent", .btAccent),
+                ("btSuccess", .btSuccess),
+                ("btWarning", .btWarning),
+                ("btDestructive", .btDestructive),
+            ])
+            TokenSwatchSection(title: "Backgrounds", tokens: [
+                ("btBG", .btBG),
+                ("btBGSecondary", .btBGSecondary),
+                ("btBGTertiary", .btBGTertiary),
+                ("btBGQuaternary", .btBGQuaternary),
+            ])
+            TokenSwatchSection(title: "Text & Separator", tokens: [
+                ("btText", .btText),
+                ("btTextSecondary", .btTextSecondary),
+                ("btTextTertiary", .btTextTertiary),
+                ("btSeparator", .btSeparator),
+            ])
+            TokenSwatchSection(title: "Table", tokens: [
+                ("btTableFelt", .btTableFelt),
+                ("btTableCushion", .btTableCushion),
+                ("btTablePocket", .btTablePocket),
+                ("btBallCue", .btBallCue),
+                ("btBallTarget", .btBallTarget),
+                ("btPathCue", .btPathCue),
+                ("btPathTarget", .btPathTarget),
+            ])
+        }
+        .padding()
+    }
+    .background(Color.btBG)
+}
+
+#Preview("Token Swatch Dark") {
+    ScrollView {
+        VStack(alignment: .leading, spacing: 24) {
+            TokenSwatchSection(title: "Brand & Semantic", tokens: [
+                ("btPrimary", .btPrimary),
+                ("btPrimaryMuted", .btPrimaryMuted),
+                ("btAccent", .btAccent),
+                ("btSuccess", .btSuccess),
+                ("btWarning", .btWarning),
+                ("btDestructive", .btDestructive),
+            ])
+            TokenSwatchSection(title: "Backgrounds", tokens: [
+                ("btBG", .btBG),
+                ("btBGSecondary", .btBGSecondary),
+                ("btBGTertiary", .btBGTertiary),
+                ("btBGQuaternary", .btBGQuaternary),
+            ])
+            TokenSwatchSection(title: "Text & Separator", tokens: [
+                ("btText", .btText),
+                ("btTextSecondary", .btTextSecondary),
+                ("btTextTertiary", .btTextTertiary),
+                ("btSeparator", .btSeparator),
+            ])
+            TokenSwatchSection(title: "Table", tokens: [
+                ("btTableFelt", .btTableFelt),
+                ("btTableCushion", .btTableCushion),
+                ("btTablePocket", .btTablePocket),
+                ("btBallCue", .btBallCue),
+                ("btBallTarget", .btBallTarget),
+                ("btPathCue", .btPathCue),
+                ("btPathTarget", .btPathTarget),
+            ])
+        }
+        .padding()
+    }
+    .background(Color.btBG)
+    .preferredColorScheme(.dark)
 }

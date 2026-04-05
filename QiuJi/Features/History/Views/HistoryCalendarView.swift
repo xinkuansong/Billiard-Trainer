@@ -10,58 +10,82 @@ struct HistoryCalendarView: View {
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = HistoryViewModel()
+    @State private var activeTab: HistoryTab = .history
     @State private var showSubscription = false
+    @State private var selectedSessionId: UUID?
 
     private let weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"]
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Spacing.lg) {
-                calendarSection
-                dailySessionList
+        VStack(spacing: 0) {
+            HStack {
+                Text("记录")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                Spacer()
             }
             .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.xxxxl)
-        }
-        .background(Color.btBG.ignoresSafeArea())
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                Button {
-                    router.historyPath.append(HistoryRoute.statistics)
-                } label: {
-                    Image(systemName: "chart.bar.xaxis")
-                        .foregroundStyle(.btPrimary)
+            .padding(.top, Spacing.sm)
+
+            BTSegmentedTab(tabs: HistoryTab.allCases, selected: $activeTab) { $0.rawValue }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.sm)
+
+            if activeTab == .history {
+                if vm.isLoading {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    historyContent
                 }
+            } else {
+                StatisticsView()
             }
         }
+        .background(Color.btBG.ignoresSafeArea())
         .task {
             await vm.loadSessions(context: modelContext)
+        }
+        .sheet(isPresented: Binding(
+            get: { selectedSessionId != nil },
+            set: { if !$0 { selectedSessionId = nil } }
+        )) {
+            if let id = selectedSessionId {
+                NavigationStack {
+                    TrainingDetailView(sessionId: id)
+                }
+            }
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
         }
     }
 
-    // MARK: - Calendar
+    // MARK: - History Content
 
-    private var calendarSection: some View {
-        VStack(spacing: Spacing.md) {
-            monthNavigator
-            weekdayHeader
-            calendarGrid
+    private var historyContent: some View {
+        ScrollView {
+            VStack(spacing: Spacing.lg) {
+                monthNavigator
+                calendarCard
+                dailySessionList
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.xxxxl)
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
+
+    // MARK: - Month Navigator
 
     private var monthNavigator: some View {
         HStack {
             Button(action: vm.previousMonth) {
                 Image(systemName: "chevron.left")
-                    .font(.btBodyMedium)
-                    .foregroundStyle(.btPrimary)
+                    .foregroundStyle(.btTextSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             Spacer()
             Text(vm.monthTitle)
@@ -70,11 +94,26 @@ struct HistoryCalendarView: View {
             Spacer()
             Button(action: vm.nextMonth) {
                 Image(systemName: "chevron.right")
-                    .font(.btBodyMedium)
-                    .foregroundStyle(.btPrimary)
+                    .foregroundStyle(.btTextSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
         }
-        .padding(.horizontal, Spacing.sm)
+        .padding(.horizontal, Spacing.xl)
+        .padding(.top, Spacing.sm)
+    }
+
+    // MARK: - Calendar Card
+
+    private var calendarCard: some View {
+        VStack(spacing: Spacing.md) {
+            weekdayHeader
+            calendarGrid
+        }
+        .padding(Spacing.lg)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
     private var weekdayHeader: some View {
@@ -92,44 +131,67 @@ struct HistoryCalendarView: View {
         VStack(spacing: Spacing.xs) {
             ForEach(Array(vm.weeksInMonth.enumerated()), id: \.offset) { _, week in
                 HStack(spacing: 0) {
-                    ForEach(0..<7, id: \.self) { index in
-                        if index < week.count, let date = week[index] {
-                            dayCell(date)
-                        } else {
-                            Color.clear.frame(maxWidth: .infinity, minHeight: 40)
-                        }
+                    ForEach(week) { day in
+                        dayCell(day)
                     }
                 }
             }
         }
     }
 
-    private func dayCell(_ date: Date) -> some View {
-        let day = Calendar.current.component(.day, from: date)
-        let hasSes = vm.hasSession(on: date)
-        let selected = vm.isSelected(date)
-        let today = vm.isToday(date)
+    private func dayCell(_ day: CalendarDay) -> some View {
+        let dayNum = Calendar.current.component(.day, from: day.date)
+        let hasSession = day.isCurrentMonth && vm.hasSession(on: day.date)
+        let selected = day.isCurrentMonth && vm.isSelected(day.date)
+        let today = day.isCurrentMonth && vm.isToday(day.date)
+        let category = hasSession ? vm.categoryForDate(day.date) : nil
 
         return Button {
-            vm.selectedDate = date
+            if day.isCurrentMonth {
+                vm.selectedDate = day.date
+            }
         } label: {
             VStack(spacing: 2) {
-                Text("\(day)")
-                    .font(today ? .btBodyMedium : .btBody)
-                    .foregroundStyle(selected ? .white : today ? .btPrimary : .btText)
+                ZStack {
+                    if today {
+                        Circle()
+                            .fill(Color.btPrimary)
+                            .frame(width: 36, height: 36)
+                    } else if selected {
+                        Circle()
+                            .strokeBorder(Color.btPrimary, lineWidth: 2)
+                            .frame(width: 36, height: 36)
+                    }
 
-                Circle()
-                    .fill(hasSes ? (selected ? Color.white : Color.btPrimary) : Color.clear)
-                    .frame(width: 5, height: 5)
+                    Text("\(dayNum)")
+                        .font(.btSubheadline)
+                        .fontWeight((today || selected) ? .semibold : .regular)
+                        .foregroundStyle(
+                            !day.isCurrentMonth ? .btTextTertiary.opacity(0.6) :
+                            today ? .white :
+                            selected ? .btPrimary :
+                            .btText
+                        )
+                }
+                .frame(width: 36, height: 36)
+
+                if let cat = category {
+                    Text(cat.shortNameZh)
+                        .font(.btMicro)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.btPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                } else {
+                    Color.clear.frame(height: 14)
+                }
             }
-            .frame(maxWidth: .infinity, minHeight: 40)
-            .background(
-                selected
-                    ? RoundedRectangle(cornerRadius: BTRadius.sm).fill(Color.btPrimary)
-                    : nil
-            )
+            .frame(maxWidth: .infinity, minHeight: 54)
         }
         .buttonStyle(.plain)
+        .disabled(!day.isCurrentMonth)
     }
 
     // MARK: - Session List
@@ -140,17 +202,21 @@ struct HistoryCalendarView: View {
 
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text(selectedDateTitle)
-                .font(.btHeadline)
+                .font(.btSubheadlineMedium)
                 .foregroundStyle(.btText)
 
-            if daySessions.isEmpty {
+            if !vm.hasAnySessions {
+                emptyState
+            } else if daySessions.isEmpty {
                 noSessionHint
             } else {
                 ForEach(daySessions, id: \.id) { session in
-                    let accessible = HistoryAccessController.isAccessible(session, isPremium: subscriptionManager.isPremium)
+                    let accessible = HistoryAccessController.isAccessible(
+                        session, isPremium: subscriptionManager.isPremium
+                    )
                     Button {
                         if accessible {
-                            router.historyPath.append(HistoryRoute.detail(sessionId: session.id))
+                            selectedSessionId = session.id
                         } else {
                             showSubscription = true
                         }
@@ -170,12 +236,23 @@ struct HistoryCalendarView: View {
         return fmt.string(from: vm.selectedDate)
     }
 
+    private var emptyState: some View {
+        BTEmptyState(
+            icon: "calendar.badge.plus",
+            title: "还没有训练记录",
+            subtitle: "去开始第一次练球吧",
+            actionTitle: "开始训练"
+        ) {
+            router.switchTab(.training)
+        }
+    }
+
     private var noSessionHint: some View {
         HStack {
             Spacer()
             VStack(spacing: Spacing.sm) {
                 Image(systemName: "moon.zzz")
-                    .font(.system(size: 24))
+                    .font(.btTitle)
                     .foregroundStyle(.btTextTertiary)
                 Text("当天无训练记录")
                     .font(.btCallout)
@@ -188,14 +265,24 @@ struct HistoryCalendarView: View {
 
     private func sessionRow(_ session: TrainingSession, locked: Bool = false) -> some View {
         HStack(spacing: Spacing.md) {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(sessionTime(session.date))
-                    .font(.btBodyMedium)
-                    .foregroundStyle(locked ? .btTextTertiary : .btText)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.sm) {
+                    Circle()
+                        .fill(locked ? Color.btAccent : Color.btPrimary)
+                        .frame(width: 10, height: 10)
+                    Text(vm.displayName(for: session))
+                        .font(.btHeadline)
+                        .foregroundStyle(locked ? .btTextTertiary : .btText)
+                }
 
-                Text("\(session.drillEntries.count) 个训练项目")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
+                HStack(spacing: Spacing.lg) {
+                    Text("\(session.drillEntries.count) 项目")
+                    Text("\(vm.totalSets(for: session)) 组")
+                    Text("\(session.totalDurationMinutes) 分钟")
+                    Text(vm.timeRange(for: session))
+                }
+                .font(.btFootnote14)
+                .foregroundStyle(.btTextSecondary)
             }
 
             Spacer()
@@ -203,63 +290,29 @@ struct HistoryCalendarView: View {
             if locked {
                 HStack(spacing: Spacing.xs) {
                     Image(systemName: "lock.fill")
-                        .font(.system(size: 12))
+                        .font(.btCaption)
                     Text("Pro")
                         .font(.btCaption2)
                 }
                 .foregroundStyle(.btAccent)
-            } else {
-                VStack(alignment: .trailing, spacing: Spacing.xs) {
-                    Text("\(session.totalDurationMinutes) 分钟")
-                        .font(.btCallout)
-                        .foregroundStyle(.btTextSecondary)
-
-                    if !session.drillEntries.isEmpty {
-                        let rate = overallRate(session)
-                        Text("\(Int(rate * 100))%")
-                            .font(.btHeadline)
-                            .foregroundStyle(rateColor(rate))
-                    }
-                }
             }
 
-            Image(systemName: locked ? "crown.fill" : "chevron.right")
+            Image(systemName: "chevron.right")
                 .font(.btCaption)
-                .foregroundStyle(locked ? .btAccent : .btTextTertiary)
+                .foregroundStyle(.btTextTertiary)
         }
         .padding(Spacing.lg)
-        .background(.btBGSecondary)
+        .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.04), radius: 8, x: 0, y: 2)
         .opacity(locked ? 0.7 : 1)
-    }
-
-    // MARK: - Helpers
-
-    private func sessionTime(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.locale = Locale(identifier: "zh_CN")
-        fmt.dateFormat = "HH:mm"
-        return fmt.string(from: date)
-    }
-
-    private func overallRate(_ session: TrainingSession) -> Double {
-        let totalMade = session.drillEntries.flatMap(\.sets).reduce(0) { $0 + $1.madeBalls }
-        let totalTarget = session.drillEntries.flatMap(\.sets).reduce(0) { $0 + $1.targetBalls }
-        guard totalTarget > 0 else { return 0 }
-        return Double(totalMade) / Double(totalTarget)
-    }
-
-    private func rateColor(_ rate: Double) -> Color {
-        if rate >= 0.8 { return .btSuccess }
-        if rate >= 0.5 { return .btPrimary }
-        return .btWarning
     }
 }
 
 #Preview("Light") {
     NavigationStack {
         HistoryCalendarView()
-            .navigationTitle("历史")
+            .navigationTitle("记录")
     }
     .environmentObject(AppRouter())
     .environmentObject(SubscriptionManager.shared)
@@ -269,7 +322,7 @@ struct HistoryCalendarView: View {
 #Preview("Dark") {
     NavigationStack {
         HistoryCalendarView()
-            .navigationTitle("历史")
+            .navigationTitle("记录")
     }
     .environmentObject(AppRouter())
     .environmentObject(SubscriptionManager.shared)
