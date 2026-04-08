@@ -106,7 +106,12 @@ struct BTDrillGridCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            tableArea
+            Color.clear
+                .aspectRatio(4.0 / 3.0, contentMode: .fit)
+                .overlay {
+                    tableArea
+                }
+                .clipped()
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(drill.nameZh)
@@ -114,6 +119,7 @@ struct BTDrillGridCard: View {
                     .foregroundStyle(drill.isPremium ? .btTextTertiary : .btText)
                     .lineLimit(2)
                     .minimumScaleFactor(0.9)
+                    .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
 
                 HStack(spacing: Spacing.xs) {
                     Text(ballTypeLabel)
@@ -236,7 +242,8 @@ private let previewSample = DrillContent(
         cueBall: BallAnimation(start: CanvasPoint(x: 0.5, y: 0.25), path: [PathPoint(x: 0.5, y: 0.45)]),
         targetBall: BallAnimation(start: CanvasPoint(x: 0.5, y: 0.43), path: [PathPoint(x: 0.5, y: 0.5268)]),
         pocket: "bottomCenter", cueDirection: CanvasPoint(x: 0.5, y: 0.0)
-    )
+    ),
+    tutorial: nil
 )
 
 private let previewPremium = DrillContent(
@@ -249,7 +256,8 @@ private let previewPremium = DrillContent(
         cueBall: BallAnimation(start: CanvasPoint(x: 0.3, y: 0.15), path: [PathPoint(x: 0.7, y: 0.35)]),
         targetBall: BallAnimation(start: CanvasPoint(x: 0.7, y: 0.33), path: [PathPoint(x: 0.95, y: 0.5)]),
         pocket: "topRight", cueDirection: CanvasPoint(x: 0.7, y: 0.0)
-    )
+    ),
+    tutorial: nil
 )
 
 #Preview("Row Card") {

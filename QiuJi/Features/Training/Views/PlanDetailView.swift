@@ -17,12 +17,23 @@ struct PlanDetailView: View {
     @State private var showSubscription = false
 
     var body: some View {
-        ScrollView {
+        VStack(spacing: 0) {
             if isLoading {
+                Spacer()
                 ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 300)
+                Spacer()
             } else if let plan {
-                planContent(plan)
+                pinnedHeader(plan)
+
+                ScrollView {
+                    VStack(spacing: Spacing.xl) {
+                        weeksList(plan)
+                            .padding(.horizontal, Spacing.lg)
+
+                        Spacer(minLength: Spacing.xxxxl)
+                    }
+                    .padding(.vertical, Spacing.md)
+                }
             } else {
                 BTEmptyState(
                     icon: "exclamationmark.triangle",
@@ -54,10 +65,10 @@ struct PlanDetailView: View {
         }
     }
 
-    // MARK: - Plan Content
+    // MARK: - Pinned Header
 
-    private func planContent(_ plan: OfficialPlan) -> some View {
-        VStack(spacing: Spacing.xl) {
+    private func pinnedHeader(_ plan: OfficialPlan) -> some View {
+        VStack(spacing: Spacing.lg) {
             planHeader(plan)
                 .padding(.horizontal, Spacing.lg)
 
@@ -66,13 +77,8 @@ struct PlanDetailView: View {
 
             activateSection(plan)
                 .padding(.horizontal, Spacing.lg)
-
-            weeksList(plan)
-                .padding(.horizontal, Spacing.lg)
-
-            Spacer(minLength: Spacing.xxxxl)
         }
-        .padding(.vertical, Spacing.lg)
+        .padding(.vertical, Spacing.md)
     }
 
     // MARK: - Plan Header
@@ -85,17 +91,13 @@ struct PlanDetailView: View {
                 }
 
                 if plan.isPremium {
-                    HStack(spacing: 2) {
-                        Image(systemName: "crown.fill")
-                            .font(.btMicro)
-                        Text("付费")
-                            .font(.btCaption2)
-                    }
-                    .foregroundStyle(.btAccent)
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, Spacing.xs)
-                    .background(Color.btAccent.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+                    Text("PRO")
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundStyle(.black)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, 2)
+                        .background(Color.btAccent)
+                        .clipShape(Capsule())
                 }
             }
 
@@ -108,32 +110,24 @@ struct PlanDetailView: View {
     // MARK: - Stats Grid
 
     private func statsGrid(_ plan: OfficialPlan) -> some View {
-        HStack(spacing: Spacing.md) {
-            statCell(icon: "calendar", value: "\(plan.durationWeeks)", unit: "周")
-            statCell(icon: "repeat", value: "\(plan.sessionsPerWeek)", unit: "次/周")
-            statCell(icon: "clock", value: "\(plan.minutesPerSession)", unit: "分钟/次")
-            statCell(icon: "target", value: plan.targetLevel, unit: "目标")
+        HStack(spacing: 0) {
+            statCell(value: "\(plan.durationWeeks) 周", label: "训练天数")
+            statCell(value: "\(plan.sessionsPerWeek) 次/周", label: "训练项目")
+            statCell(value: "\(plan.minutesPerSession) 分钟", label: "预计每日")
         }
     }
 
-    private func statCell(icon: String, value: String, unit: String) -> some View {
+    private func statCell(value: String, label: String) -> some View {
         VStack(spacing: Spacing.xs) {
-            Image(systemName: icon)
-                .font(.btTitle2)
-                .foregroundStyle(.btPrimary)
-
             Text(value)
                 .font(.btStatNumber)
                 .foregroundStyle(.btPrimary)
 
-            Text(unit)
-                .font(.btCaption)
+            Text(label)
+                .font(.btFootnote)
                 .foregroundStyle(.btTextSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.md)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     // MARK: - Activate Section
@@ -222,19 +216,8 @@ struct PlanDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
-    private let weekBadgeSize: CGFloat = Spacing.xxxl + Spacing.xs
-
     private func weekHeader(_ week: PlanWeek, plan: OfficialPlan) -> some View {
         HStack(spacing: Spacing.md) {
-            ZStack {
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.12))
-                    .frame(width: weekBadgeSize, height: weekBadgeSize)
-                Text("W\(week.weekNumber)")
-                    .font(.btCaption2)
-                    .foregroundStyle(.btPrimary)
-            }
-
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("第 \(week.weekNumber) 周")
                     .font(.btHeadline)

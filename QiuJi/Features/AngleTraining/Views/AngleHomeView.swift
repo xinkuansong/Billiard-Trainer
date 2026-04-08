@@ -15,14 +15,17 @@ struct AngleHomeView: View {
     @StateObject private var limiter = AngleUsageLimiter()
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Spacing.xxl) {
-                pageHeader
-                featureCards
-                historyLink
+        VStack(spacing: 0) {
+            pageHeader
+
+            ScrollView {
+                VStack(spacing: Spacing.xxl) {
+                    featureCards
+                    historyLink
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.lg)
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.lg)
         }
         .background(.btBG)
         .onReceive(subscriptionManager.$isPremium) { premium in
@@ -30,16 +33,16 @@ struct AngleHomeView: View {
         }
     }
 
-    // MARK: - Page Header
-
     private var pageHeader: some View {
         HStack {
-            Text("角度训练")
-                .font(.btTitle)
+            Text("角度")
+                .font(.btLargeTitle)
                 .foregroundStyle(.btText)
             Spacer()
         }
+        .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
+        .padding(.bottom, Spacing.sm)
     }
 
     // MARK: - Feature cards
@@ -49,7 +52,7 @@ struct AngleHomeView: View {
             NavigationLink(value: AngleRoute.test) {
                 FeatureCard(icon: "target",
                             title: "角度测试",
-                            subtitle: "判断切球角度，AI 自适应出题",
+                            subtitle: "训练角度视觉感知",
                             badge: limiter.isPremium
                                 ? nil
                                 : "今日剩余 \(limiter.remainingToday) 题")
@@ -58,7 +61,7 @@ struct AngleHomeView: View {
             NavigationLink(value: AngleRoute.contactPointTable) {
                 FeatureCard(icon: "circle.circle",
                             title: "进球点对照表",
-                            subtitle: "交互式查看不同角度的接触点",
+                            subtitle: "角度与接触点对照",
                             badge: nil)
             }
         }
@@ -69,9 +72,9 @@ struct AngleHomeView: View {
     private var historyLink: some View {
         NavigationLink(value: AngleRoute.history) {
             HStack {
-                Image(systemName: "chart.line.uptrend.xyaxis")
+                Image(systemName: "clock.arrow.circlepath")
                     .foregroundStyle(.btPrimary)
-                Text("查看测试历史")
+                Text("测试历史")
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
                 Spacer()

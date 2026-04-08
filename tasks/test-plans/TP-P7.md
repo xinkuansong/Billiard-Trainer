@@ -4,12 +4,13 @@
 > **时机**：P7 功能 + 自动化测试通过后，QA Reviewer 最终验收前。
 > **重点**：StoreKit 2 购买流程、订阅状态管理、恢复购买、Freemium 边界全整合、订阅页 UI。
 > **测试环境**：使用 Xcode StoreKit Testing 沙盒（`Products.storekit` 配置）。
+> **更新记录**：2026-04-06 — V2；新增 SubscriptionStatusView（Pro 用户管理面板）入口
 
 ---
 
 ## 前置条件
 
-- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 16 Pro Simulator）
+- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 17 Pro Simulator）
 - [ ] Xcode StoreKit Testing 环境启用（Scheme → Run → StoreKit Configuration → Products.storekit）
 - [ ] 全新安装后有训练数据（至少完成 P4 流程 1 次）
 - [ ] 初始状态为免费用户（未购买任何 IAP）
@@ -159,6 +160,26 @@
 
 - [ ] 任何入口进入付费 Drill 都有 BTPremiumLock
 
+### 流程 8：Pro 用户订阅管理面板
+
+**步骤**：
+1. 已订阅状态（isPremium = true）
+2.「我的」Tab → 点击「订阅管理」菜单项
+3. 进入 SubscriptionStatusView（非 SubscriptionView Sheet）
+4. 查看 Pro 状态卡（crown 图标 + 订阅类型 + 有效期）
+5. 点击「管理订阅」按钮
+6. 点击「恢复购买」按钮
+7. 查看「已解锁功能」列表（6 项）
+
+**预期结果**：Pro 用户可管理订阅状态
+
+- [ ] 进入 SubscriptionStatusView 而非 SubscriptionView
+- [ ] Pro 状态卡显示订阅类型（终身买断/年度/月度）
+- [ ] 有效期显示正确（永久有效 / 自动续费中）
+- [ ]「管理订阅」打开 App Store 订阅管理页
+- [ ]「恢复购买」功能正常 + Alert 提示
+- [ ]「已解锁功能」列表 6 项完整
+
 ---
 
 ## 四、交互响应
@@ -190,8 +211,8 @@
 | # | 设备 | 核心流程通过 | 布局正常 | 备注 |
 |---|------|------------|---------|------|
 | DM-01 | iPhone SE 3rd（4.7"） | [ ] | [ ] | 3 列卡片在小屏上是否挤压 |
-| DM-02 | iPhone 16 Pro（6.3"） | [ ] | [ ] | |
-| DM-03 | iPhone 16 Pro Max（6.9"） | [ ] | [ ] | |
+| DM-02 | iPhone 17 Pro（6.3"） | [ ] | [ ] | |
+| DM-03 | iPhone 17 Pro Max（6.9"） | [ ] | [ ] | |
 
 ---
 

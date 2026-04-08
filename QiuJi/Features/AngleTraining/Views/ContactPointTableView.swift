@@ -58,7 +58,7 @@ struct ContactPointTableView: View {
                     .font(.btStatNumber)
                     .fontWeight(.heavy)
                     .foregroundStyle(.btText)
-                Text(String(format: "偏移 %.1f%%", AngleCalculator.contactPointOffset(angle: sliderAngle) * 100))
+                Text(String(format: "偏移 %.0f%%", AngleCalculator.contactPointOffset(angle: sliderAngle) * 100))
                     .font(.btSubheadlineMedium)
                     .foregroundStyle(.btTextSecondary)
                 if let name = commonName(for: sliderAngle) {
@@ -126,9 +126,13 @@ struct ContactPointTableView: View {
 
     private var staticTable: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("标准角度对照")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "tablecells")
+                    .foregroundStyle(.btPrimary)
+                Text("对照表")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+            }
 
             VStack(spacing: 0) {
                 headerRow
@@ -166,7 +170,15 @@ struct ContactPointTableView: View {
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
                 .frame(width: 50)
-            Text(String(format: "%.0f%%", offset * 100))
+            Group {
+                if entry.angle == 0 {
+                    Text("球心")
+                } else if entry.angle == 90 {
+                    Text("球边缘")
+                } else {
+                    Text(String(format: "%.0f%%", offset * 100))
+                }
+            }
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
                 .frame(width: 44)
@@ -214,7 +226,7 @@ struct ContactPointTableView: View {
             let cpR: CGFloat = max(3, r * 0.15)
             ctx.fill(Path(ellipseIn: CGRect(x: cpX - cpR, y: center.y - cpR,
                                             width: 2 * cpR, height: 2 * cpR)),
-                     with: .color(.btDestructive))
+                     with: .color(.btPrimary))
 
             // Pocket direction arrow (right)
             if size > 50 {

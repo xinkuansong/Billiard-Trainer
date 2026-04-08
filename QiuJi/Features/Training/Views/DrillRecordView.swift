@@ -6,9 +6,14 @@ struct DrillRecordView: View {
     var onAddSet: () -> Void
     var onCompleteSet: (Int) -> Void
     var onDeleteSet: ((Int) -> Void)?
+    @Binding var restDuration: Int
+    var showRestTimerSetting: Bool = true
 
     @State private var noteText = ""
-    @State private var showBallTable = true
+    @State private var showBallTable = false
+    @State private var showSetTimer = true
+    @State private var showSuccessRate = true
+    @State private var showRestPicker = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var totalMade: Int {
@@ -34,6 +39,11 @@ struct DrillRecordView: View {
                 drillInfoHeader
 
                 noteInputRow
+
+                if showRestTimerSetting {
+                    restSettingsRow
+                    trainingToggles
+                }
 
                 BTSetInputGrid(
                     sets: $setsData,
@@ -87,6 +97,100 @@ struct DrillRecordView: View {
             color: colorScheme == .dark ? .clear : Color.black.opacity(0.04),
             radius: 4, x: 0, y: 1
         )
+    }
+
+    // MARK: - Rest Settings Row
+
+    private var restSettingsRow: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "timer")
+                .font(.btCallout)
+                .foregroundStyle(.btTextSecondary)
+
+            Text("休息设置")
+                .font(.btCallout)
+                .foregroundStyle(.btText)
+
+            Spacer()
+
+            Text("\(restDuration)s")
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btPrimary)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(Color.btPrimary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+
+            Button {
+                showRestPicker = true
+            } label: {
+                Text("设置")
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(.btPrimary)
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .sheet(isPresented: $showRestPicker) {
+            restDurationPicker
+                .presentationDetents([.height(250)])
+        }
+    }
+
+    private var restDurationPicker: some View {
+        VStack(spacing: Spacing.lg) {
+            Text("休息时长")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
+            Picker("休息时长", selection: $restDuration) {
+                Text("30s").tag(30)
+                Text("45s").tag(45)
+                Text("60s").tag(60)
+                Text("90s").tag(90)
+                Text("120s").tag(120)
+            }
+            .pickerStyle(.wheel)
+
+            Button("确定") {
+                showRestPicker = false
+            }
+            .buttonStyle(BTButtonStyle.primary)
+            .padding(.horizontal, Spacing.xxl)
+        }
+        .padding(.vertical, Spacing.lg)
+    }
+
+    // MARK: - Training Toggles
+
+    private var trainingToggles: some View {
+        HStack(spacing: Spacing.xl) {
+            toggleItem(label: "每组计时", isOn: $showSetTimer)
+            toggleItem(label: "显示成功率", isOn: $showSuccessRate)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.sm)
+    }
+
+    private func toggleItem(label: String, isOn: Binding<Bool>) -> some View {
+        Button {
+            isOn.wrappedValue.toggle()
+        } label: {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: isOn.wrappedValue ? "checkmark" : "")
+                    .font(.btCaption2)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.btPrimary)
+                    .frame(width: 16, height: 16)
+
+                Text(label)
+                    .font(.btFootnote14)
+                    .foregroundStyle(isOn.wrappedValue ? .btText : .btTextSecondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Completed Banner
@@ -193,6 +297,7 @@ private struct DrillRecordPreview: View {
         DrillSetData(id: 4, targetBalls: 15),
         DrillSetData(id: 5, targetBalls: 15),
     ]
+    @State private var restDuration = 60
 
     var body: some View {
         DrillRecordView(
@@ -221,7 +326,8 @@ private struct DrillRecordPreview: View {
             setsData: $sets,
             onAddSet: { sets.append(DrillSetData(id: sets.count + 1, targetBalls: 15)) },
             onCompleteSet: { sets[$0].isCompleted.toggle() },
-            onDeleteSet: { sets.remove(at: $0) }
+            onDeleteSet: { sets.remove(at: $0) },
+            restDuration: $restDuration
         )
     }
 }

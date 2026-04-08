@@ -29,14 +29,7 @@ struct DrillListView: View {
             ballTypeChips
                 .padding(.vertical, Spacing.sm)
 
-            if viewModel.isLoading {
-                BTDrillListSkeleton()
-                    .transition(.opacity)
-            } else if viewModel.drillsByCategory.isEmpty {
-                emptyState
-            } else {
-                mainContent
-            }
+            mainContent
         }
         .background(.btBG)
         .task {
@@ -49,7 +42,7 @@ struct DrillListView: View {
     private var pageHeader: some View {
         HStack {
             Text("动作库")
-                .font(.btTitle)
+                .font(.btLargeTitle)
                 .foregroundStyle(.btText)
             Spacer()
         }
@@ -75,7 +68,7 @@ struct DrillListView: View {
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(Color.btBGSecondary)
+        .background(Color.btBGTertiary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
@@ -110,7 +103,7 @@ struct DrillListView: View {
             }
         }
         .frame(width: 72)
-        .background(colorScheme == .dark ? Color.btBGSecondary.opacity(0.5) : Color.btBGSecondary.opacity(0.6))
+        .background(Color.btBGSecondary)
     }
 
     private func sidebarItem(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
@@ -134,34 +127,46 @@ struct DrillListView: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("sidebar_\(label)")
     }
 
     // MARK: - Drill Grid
 
+    @ViewBuilder
     private var drillGrid: some View {
-        ScrollView {
-            LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
-                ForEach(viewModel.drillsByCategory, id: \.category.id) { group in
-                    Section {
-                        LazyVGrid(columns: gridColumns, spacing: Spacing.md) {
-                            ForEach(group.drills) { drill in
-                                NavigationLink(value: drill.id) {
-                                    BTDrillGridCard(
-                                        drill: drill,
-                                        isFavorited: isFavorited(drill.id),
-                                        onFavoriteTap: { toggleFavorite(drill.id) }
-                                    )
+        if viewModel.isLoading {
+            BTDrillListSkeleton()
+                .transition(.opacity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if viewModel.drillsByCategory.isEmpty {
+            gridEmptyState
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
+                    ForEach(viewModel.drillsByCategory, id: \.category.id) { group in
+                        Section {
+                            LazyVGrid(columns: gridColumns, spacing: Spacing.md) {
+                                ForEach(group.drills) { drill in
+                                    NavigationLink(value: drill.id) {
+                                        BTDrillGridCard(
+                                            drill: drill,
+                                            isFavorited: isFavorited(drill.id),
+                                            onFavoriteTap: { toggleFavorite(drill.id) }
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .accessibilityIdentifier("drillCard_\(drill.id)")
                                 }
-                                .buttonStyle(.plain)
                             }
+                            .padding(.horizontal, Spacing.md)
+                        } header: {
+                            sectionHeader(category: group.category)
                         }
-                        .padding(.horizontal, Spacing.md)
-                    } header: {
-                        sectionHeader(category: group.category)
                     }
                 }
+                .padding(.bottom, Spacing.xxxxl)
             }
-            .padding(.bottom, Spacing.xxxxl)
         }
     }
 
@@ -207,14 +212,24 @@ struct DrillListView: View {
 
     // MARK: - Empty State
 
-    private var emptyState: some View {
-        BTEmptyState(
-            icon: viewModel.searchText.isEmpty ? "tray" : "magnifyingglass",
-            title: viewModel.searchText.isEmpty ? "内容加载中，请稍候" : "没有找到相关动作",
-            subtitle: viewModel.searchText.isEmpty ? "动作库内容正在准备中" : "试试其他关键词或浏览分类",
-            actionTitle: viewModel.searchText.isEmpty ? nil : "浏览全部动作",
-            action: viewModel.searchText.isEmpty ? nil : { viewModel.searchText = "" }
-        )
+    private var gridEmptyState: some View {
+        Group {
+            if !viewModel.searchText.isEmpty {
+                BTEmptyState(
+                    icon: "magnifyingglass",
+                    title: "没有找到相关动作",
+                    subtitle: "试试其他关键词或浏览分类",
+                    actionTitle: "浏览全部动作",
+                    action: { viewModel.searchText = "" }
+                )
+            } else {
+                BTEmptyState(
+                    icon: "tray",
+                    title: "该分类暂无训练项目",
+                    subtitle: "试试选择其他分类或球种"
+                )
+            }
+        }
         .frame(maxHeight: .infinity)
     }
 

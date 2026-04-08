@@ -342,7 +342,7 @@ final class StatisticsViewModel: ObservableObject {
         case .month: start = cal.date(byAdding: .month, value: -1, to: cal.startOfDay(for: now)) ?? now
         case .year:  start = cal.date(byAdding: .year, value: -1, to: cal.startOfDay(for: now)) ?? now
         }
-        return "\(fmt.string(from: start))~\(fmt.string(from: now))"
+        return "\(fmt.string(from: start)) ~ \(fmt.string(from: now))"
     }
 
     var periodLabel: String {

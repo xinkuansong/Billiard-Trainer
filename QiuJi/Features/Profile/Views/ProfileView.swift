@@ -4,30 +4,27 @@ struct ProfileView: View {
     @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject private var prefs = UserPreferences.shared
     @State private var showLoginSheet = false
     @State private var showSubscription = false
-    @State private var showDeleteConfirmation = false
-    @State private var isDeletingAccount = false
 
-    /// Fixed light text on guaranteed-dark promo card background
+    private let proCardDarkBG = Color(red: 0.11, green: 0.11, blue: 0.12)
     private let proCardSubtitle = Color.white.opacity(0.7)
 
     var body: some View {
         NavigationStack(path: $router.profilePath) {
-            ZStack {
-                Color.btBG.ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack {
+                    Text("我的")
+                        .font(.btLargeTitle)
+                        .foregroundStyle(.btText)
+                    Spacer()
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.sm)
 
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
-                        HStack {
-                            Text("我的")
-                                .font(.btTitle)
-                                .foregroundStyle(.btText)
-                            Spacer()
-                        }
-
                         if authState.isLoggedIn {
                             loggedInHeader
                             monthlyOverview
@@ -50,12 +47,14 @@ struct ProfileView: View {
                             .font(.btCaption)
                             .foregroundStyle(.btTextTertiary)
                             .padding(.top, Spacing.sm)
-                            .padding(.bottom, Spacing.xxxl)
+                            .padding(.bottom, 80)
                     }
                     .padding(.horizontal, Spacing.lg)
                     .padding(.top, Spacing.sm)
                 }
             }
+            .background(Color.btBG)
+            .scrollContentBackground(.hidden)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { destination in
                 switch destination {
@@ -64,8 +63,16 @@ struct ProfileView: View {
                         .navigationDestination(for: String.self) { drillId in
                             DrillDetailView(drillId: drillId)
                         }
+                case "personalInfo":
+                    PersonalInfoView()
+                case "trainingGoal":
+                    TrainingGoalView()
+                case "subscriptionStatus":
+                    SubscriptionStatusView()
                 case "settings":
                     SettingsView()
+                case "about":
+                    AboutView()
                 default:
                     EmptyView()
                 }
@@ -83,74 +90,62 @@ struct ProfileView: View {
         } message: {
             Text("检测到本地训练记录，登录后可同步至云端，换机也不会丢失。")
         }
-        .alert("注销账号", isPresented: $showDeleteConfirmation) {
-            Button("确认注销", role: .destructive) { deleteAccount() }
-            Button("取消", role: .cancel) {}
-        } message: {
-            Text("将永久删除你的账号和云端数据，本地数据保留。此操作不可撤销。")
-        }
-        .alert("注销失败", isPresented: .constant(authState.errorMessage != nil && isDeletingAccount)) {
-            Button("重试") { deleteAccount() }
-            Button("取消", role: .cancel) {
-                authState.errorMessage = nil
-                isDeletingAccount = false
-            }
-        } message: {
-            Text(authState.errorMessage ?? "网络问题，请稍后重试。")
-        }
     }
 
     // MARK: - Logged In Header
 
     private var loggedInHeader: some View {
-        HStack(spacing: Spacing.md) {
-            ZStack {
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.15))
-                    .frame(width: 56, height: 56)
-                Image(systemName: "person.fill")
-                    .font(.btTitle)
-                    .foregroundStyle(.btPrimary)
-            }
+        NavigationLink(value: "personalInfo") {
+            HStack(spacing: Spacing.md) {
+                ZStack {
+                    Circle()
+                        .fill(Color.btPrimary.opacity(0.15))
+                        .frame(width: 56, height: 56)
+                    Image(systemName: "person.fill")
+                        .font(.btTitle)
+                        .foregroundStyle(.btPrimary)
+                }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(authState.currentUser?.displayName ?? "球迹用户")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                HStack(spacing: Spacing.xs) {
-                    Text("修改信息")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(authState.displayNameOrDefault)
+                        .font(.btHeadline)
+                        .foregroundStyle(.btText)
+                    HStack(spacing: Spacing.xs) {
+                        Text("修改信息")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                        Image(systemName: "chevron.right")
+                            .font(.btMicro)
+                            .foregroundStyle(.btTextTertiary)
+                    }
+                    Text("ID: \(String(authState.currentUser?.id.prefix(7) ?? "—"))")
                         .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-                    Image(systemName: "chevron.right")
-                        .font(.btMicro)
                         .foregroundStyle(.btTextTertiary)
                 }
-                Text("ID: \(String(authState.currentUser?.id.prefix(7) ?? "—"))")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
 
-            Spacer()
+                Spacer()
 
-            if subscriptionManager.isPremium {
-                VStack(spacing: 2) {
-                    Text("Pro 会员")
-                        .font(.btCaption2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.btAccent)
-                    Text("2027.04 到期")
-                        .font(.btMicro)
-                        .foregroundStyle(.btTextSecondary)
+                if subscriptionManager.isPremium {
+                    VStack(spacing: 2) {
+                        Text("Pro 会员")
+                            .font(.btCaption2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(.btAccent)
+                        Text("自动续费中")
+                            .font(.btMicro)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, Spacing.xs)
+                    .background(Color.btAccent.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
                 }
-                .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, Spacing.xs)
-                .background(Color.btAccent.opacity(0.15))
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
             }
+            .padding(Spacing.lg)
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
-        .padding(Spacing.lg)
-        .background(Color.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .buttonStyle(.plain)
     }
 
     // MARK: - Monthly Overview
@@ -253,7 +248,7 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     Text("解锁球迹 Pro")
                         .font(.btHeadline).fontWeight(.bold)
-                        .foregroundStyle(.btAccent)
+                        .foregroundStyle(.white)
                     Text("让你的训练更高效")
                         .font(.btCaption)
                         .foregroundStyle(proCardSubtitle)
@@ -280,12 +275,8 @@ struct ProfileView: View {
                 }
             }
             .padding(Spacing.xl)
-            .background(Color.btBGSecondary)
+            .background(proCardDarkBG)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-            .overlay(
-                RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 1 : 0)
-            )
         }
         .buttonStyle(.plain)
     }
@@ -306,20 +297,20 @@ struct ProfileView: View {
 
             Divider().padding(.leading, 56)
 
-            NavigationLink(value: "settings") {
+            NavigationLink(value: "personalInfo") {
                 ProfileMenuRow(
                     icon: "person.fill",
                     iconBG: Color.blue.opacity(0.12),
                     iconColor: .blue,
                     title: "个人信息",
-                    detail: prefs.sportSummary
+                    detail: prefs.personalInfoSummary
                 )
             }
             .buttonStyle(.plain)
 
             Divider().padding(.leading, 56)
 
-            NavigationLink(value: "settings") {
+            NavigationLink(value: "trainingGoal") {
                 ProfileMenuRow(
                     icon: "target",
                     iconBG: Color.btPrimary.opacity(0.12),
@@ -332,20 +323,39 @@ struct ProfileView: View {
 
             Divider().padding(.leading, 56)
 
+            subscriptionRow
+        }
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+
+    @ViewBuilder
+    private var subscriptionRow: some View {
+        if subscriptionManager.isPremium {
+            NavigationLink(value: "subscriptionStatus") {
+                ProfileMenuRow(
+                    icon: "crown.fill",
+                    iconBG: Color.btAccent.opacity(0.12),
+                    iconColor: .btAccent,
+                    title: "订阅管理",
+                    detail: "Pro 会员",
+                    detailColor: .btTextSecondary
+                )
+            }
+            .buttonStyle(.plain)
+        } else {
             Button { showSubscription = true } label: {
                 ProfileMenuRow(
                     icon: "crown.fill",
                     iconBG: Color.btAccent.opacity(0.12),
                     iconColor: .btAccent,
                     title: "订阅管理",
-                    detail: subscriptionManager.isPremium ? "Pro 年度会员" : "升级 Pro",
-                    detailColor: subscriptionManager.isPremium ? .btTextSecondary : .btPrimary
+                    detail: "升级 Pro",
+                    detailColor: .btAccent
                 )
             }
             .buttonStyle(.plain)
         }
-        .background(Color.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     // MARK: - Secondary Menu Group
@@ -361,22 +371,6 @@ struct ProfileView: View {
                 )
             }
             .buttonStyle(.plain)
-
-            if authState.isLoggedIn {
-                Divider().padding(.leading, 56)
-
-                Button { showDeleteConfirmation = true } label: {
-                    ProfileMenuRow(
-                        icon: "shield.fill",
-                        iconBG: Color.blue.opacity(0.12),
-                        iconColor: .blue,
-                        title: "账号注销",
-                        detail: nil,
-                        detailColor: .btDestructive
-                    )
-                }
-                .buttonStyle(.plain)
-            }
 
             Divider().padding(.leading, 56)
 
@@ -396,12 +390,15 @@ struct ProfileView: View {
 
             Divider().padding(.leading, 56)
 
-            ProfileMenuRow(
-                icon: "info.circle.fill",
-                iconBG: Color.purple.opacity(0.12),
-                iconColor: .purple,
-                title: "关于与反馈"
-            )
+            NavigationLink(value: "about") {
+                ProfileMenuRow(
+                    icon: "info.circle.fill",
+                    iconBG: Color.purple.opacity(0.12),
+                    iconColor: .purple,
+                    title: "关于与反馈"
+                )
+            }
+            .buttonStyle(.plain)
         }
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
@@ -420,21 +417,6 @@ struct ProfileView: View {
                 .padding(.vertical, Spacing.md)
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Account Deletion
-
-    private func deleteAccount() {
-        isDeletingAccount = true
-        Task {
-            do {
-                try await BackendSyncService.shared.deleteAccount()
-                isDeletingAccount = false
-                authState.logout()
-            } catch {
-                authState.errorMessage = "网络问题，请稍后重试。"
-            }
-        }
     }
 
     // MARK: - Guest Bottom Actions

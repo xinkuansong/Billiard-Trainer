@@ -27,6 +27,7 @@ final class AuthState: ObservableObject {
 
     var isLoggedIn: Bool { currentUser != nil && currentUser?.provider != .anonymous }
     var isAnonymous: Bool { currentUser?.provider == .anonymous }
+    var displayNameOrDefault: String { currentUser?.displayName ?? "球迹用户" }
 
     init() {
         self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")

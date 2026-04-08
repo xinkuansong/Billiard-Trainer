@@ -13,7 +13,8 @@ struct AngleHistoryView: View {
                 if vm.allResults.isEmpty {
                     BTEmptyState(icon: "chart.line.uptrend.xyaxis",
                                  title: "暂无测试记录",
-                                 subtitle: "完成角度测试后，误差趋势将在这里显示")
+                                 subtitle: "完成角度测试后，误差趋势将在这里显示",
+                                 actionTitle: "开始角度测试")
                 } else {
                     statsGrid
                     BTSegmentedTab(tabs: AngleTimeRange.allCases,

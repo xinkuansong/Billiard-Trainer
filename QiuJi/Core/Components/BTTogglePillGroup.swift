@@ -9,16 +9,22 @@ struct BTTogglePillGroup<T: Hashable>: View {
 
     private func fillColor(isActive: Bool) -> Color {
         if isActive {
-            return colorScheme == .dark ? Color(UIColor.systemGray6) : Color.btPrimary
+            return colorScheme == .dark
+                ? Color(red: 0.95, green: 0.95, blue: 0.97)
+                : Color.btPrimary
         }
         return colorScheme == .dark ? Color.btBGTertiary : Color.btBGSecondary
     }
 
     private func textColor(isActive: Bool) -> Color {
         if isActive {
-            return colorScheme == .dark ? Color.btText : .white
+            return colorScheme == .dark ? .black : .white
         }
         return colorScheme == .dark ? Color.btTextSecondary : .btText
+    }
+
+    private func textFont(isActive: Bool) -> Font {
+        isActive && colorScheme == .dark ? .btSubheadlineSemibold : .btSubheadlineMedium
     }
 
     private func borderColor(isActive: Bool) -> Color {
@@ -36,7 +42,7 @@ struct BTTogglePillGroup<T: Hashable>: View {
                     }
                 } label: {
                     Text(label(option))
-                        .font(.btSubheadlineMedium)
+                        .font(textFont(isActive: isActive))
                         .foregroundStyle(textColor(isActive: isActive))
                         .padding(.horizontal, Spacing.md)
                         .frame(height: 36)

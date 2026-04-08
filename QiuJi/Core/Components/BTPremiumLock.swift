@@ -37,9 +37,10 @@ struct BTPremiumLock<Content: View>: View {
         VStack(spacing: 0) {
             content()
 
-            VStack(spacing: Spacing.lg) {
+            VStack(spacing: Spacing.md) {
                 lockIcon
                 goldOutlineCTA
+                restorePurchaseLink
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.xxl)
@@ -49,24 +50,53 @@ struct BTPremiumLock<Content: View>: View {
     // MARK: - Full Mask Lock
 
     private var fullMaskLock: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             content()
-
-            LinearGradient(
-                colors: colorScheme == .dark
-                    ? [Color.black.opacity(0), Color.black.opacity(0.95)]
-                    : [Color.white.opacity(0), Color.white.opacity(0.95)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 200)
+                .blur(radius: 8)
+                .allowsHitTesting(false)
 
             VStack(spacing: Spacing.lg) {
-                lockIcon
+                fullMaskLockIcon
+                Text("统计功能为 Pro 专属")
+                    .font(.btTitle)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.btText)
+                Text("升级 Pro 解锁训练统计、趋势图表和分类对比")
+                    .font(.btSubheadline)
+                    .foregroundStyle(.btTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.xxl)
                 goldFilledCTA
             }
-            .padding(.bottom, Spacing.xxxl)
         }
+    }
+
+    private var fullMaskLockIcon: some View {
+        ZStack {
+            Circle()
+                .fill(colorScheme == .dark
+                      ? goldColor.opacity(0.20)
+                      : Color(red: 0xFF / 255.0, green: 0xDD / 255.0, blue: 0xAF / 255.0))
+                .frame(width: 72, height: 72)
+
+            Image(systemName: "lock.fill")
+                .font(.system(size: 28))
+                .foregroundStyle(goldColor)
+        }
+    }
+
+    private var restorePurchaseLink: some View {
+        Button {
+            Task {
+                try? await StoreKitService.shared.restorePurchases()
+            }
+        } label: {
+            Text("已购买？恢复购买")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+                .underline()
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Shared Elements
@@ -97,7 +127,7 @@ struct BTPremiumLock<Content: View>: View {
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .overlay(
-                RoundedRectangle(cornerRadius: BTRadius.sm)
+                RoundedRectangle(cornerRadius: BTRadius.full)
                     .stroke(goldColor, lineWidth: 1.5)
             )
         }
@@ -108,7 +138,9 @@ struct BTPremiumLock<Content: View>: View {
     private var goldFilledCTA: some View {
         Button(action: onSubscribeTap) {
             HStack(spacing: Spacing.sm) {
-                proBadge
+                Image(systemName: "crown.fill")
+                    .font(.btSubheadline)
+                    .foregroundStyle(.white)
                 Text("解锁 Pro")
                     .font(.btHeadline)
                     .foregroundStyle(.white)
@@ -116,7 +148,7 @@ struct BTPremiumLock<Content: View>: View {
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(goldColor)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.full))
         }
         .buttonStyle(.plain)
         .padding(.horizontal, Spacing.xxl)

@@ -104,7 +104,13 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var drillSetsData: [[DrillSetData]] = []
     @Published var drillNotes: [String] = []
 
+    // Rest timer
+    @Published var restDuration: Int = 60
+    @Published var restSecondsRemaining: Int = 0
+    @Published var isRestTimerActive: Bool = false
+
     private var timerTask: Task<Void, Never>?
+    private var restTimerTask: Task<Void, Never>?
 
     var currentDrill: ActiveDrill? {
         guard !drills.isEmpty, currentDrillIndex >= 0, currentDrillIndex < drills.count else { return nil }
@@ -112,9 +118,10 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     var formattedTime: String {
-        let m = elapsedSeconds / 60
+        let h = elapsedSeconds / 3600
+        let m = (elapsedSeconds % 3600) / 60
         let s = elapsedSeconds % 60
-        return String(format: "%02d:%02d", m, s)
+        return String(format: "%02d:%02d:%02d", h, m, s)
     }
 
     var progressText: String {
@@ -309,6 +316,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     func completeSet(drillIndex: Int, setIndex: Int) {
         guard drillIndex < drillSetsData.count,
               setIndex < drillSetsData[drillIndex].count else { return }
+        let wasCompleted = drillSetsData[drillIndex][setIndex].isCompleted
         drillSetsData[drillIndex][setIndex].isCompleted.toggle()
 
         if drillSetsData[drillIndex].allSatisfy({ $0.isCompleted }) {
@@ -317,6 +325,8 @@ final class ActiveTrainingViewModel: ObservableObject {
                     self?.currentDrillIndex = drillIndex + 1
                 }
             }
+        } else if !wasCompleted && restDuration > 0 {
+            startRestTimer()
         }
     }
 
@@ -331,6 +341,38 @@ final class ActiveTrainingViewModel: ObservableObject {
         guard drillIndex < drillSetsData.count,
               setIndex < drillSetsData[drillIndex].count else { return }
         drillSetsData[drillIndex].remove(at: setIndex)
+    }
+
+    // MARK: - Rest Timer
+
+    func startRestTimer() {
+        stopRestTimer()
+        restSecondsRemaining = restDuration
+        isRestTimerActive = true
+        restTimerTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { break }
+                guard let self else { break }
+                if self.restSecondsRemaining > 0 {
+                    self.restSecondsRemaining -= 1
+                } else {
+                    self.isRestTimerActive = false
+                    break
+                }
+            }
+        }
+    }
+
+    func stopRestTimer() {
+        restTimerTask?.cancel()
+        restTimerTask = nil
+        isRestTimerActive = false
+        restSecondsRemaining = 0
+    }
+
+    func skipRestTimer() {
+        stopRestTimer()
     }
 
     func setsBinding(for index: Int) -> Binding<[DrillSetData]> {

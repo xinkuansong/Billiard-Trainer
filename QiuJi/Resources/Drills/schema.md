@@ -21,6 +21,7 @@
 | `standardCriteria` | `String` | ✅ | Pass criteria, e.g. "15球进10球" |
 | `sets` | `DrillSetsConfig` | ✅ | Default practice sets configuration |
 | `animation` | `DrillAnimation` | ✅ | Canvas animation data |
+| `tutorial` | `DrillTutorial?` | ❌ | Detailed coaching tutorial sections |
 
 ## `DrillSetsConfig`
 
@@ -28,6 +29,21 @@
 |-------|------|-------------|
 | `defaultSets` | `Int` | Recommended set count |
 | `defaultBallsPerSet` | `Int` | Balls per set |
+
+## `DrillTutorial`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sections` | `[TutorialSection]` | Ordered tutorial sections |
+
+## `TutorialSection`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `title` | `String` | Section heading, e.g. "技术原理" |
+| `content` | `String` | Section body text (Chinese) |
+
+Standard section titles: `技术原理`, `动作要领`, `常见错误与纠正`, `进阶练习`
 
 ## `DrillAnimation`
 

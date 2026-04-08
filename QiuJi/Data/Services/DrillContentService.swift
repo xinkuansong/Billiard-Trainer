@@ -17,11 +17,23 @@ struct DrillContent: Codable, Identifiable {
     let standardCriteria: String
     let sets: DrillSetsConfig
     let animation: DrillAnimation
+    let tutorial: DrillTutorial?
 
     struct DrillSetsConfig: Codable {
         let defaultSets: Int
         let defaultBallsPerSet: Int
     }
+}
+
+struct DrillTutorial: Codable {
+    let sections: [TutorialSection]
+}
+
+struct TutorialSection: Codable, Identifiable {
+    let title: String
+    let content: String
+
+    var id: String { title }
 }
 
 // MARK: - Animation Types

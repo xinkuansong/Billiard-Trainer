@@ -13,20 +13,22 @@ struct TrainingHomeView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: Spacing.xl) {
-                    pageHeader
+            VStack(spacing: 0) {
+                pageHeader
 
-                    if viewModel.isLoading {
-                        ProgressView()
-                            .frame(maxWidth: .infinity, minHeight: 300)
-                    } else if viewModel.hasActivePlan {
-                        activePlanContent
-                    } else {
-                        emptyStateContent
+                ScrollView {
+                    VStack(spacing: Spacing.xl) {
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .frame(maxWidth: .infinity, minHeight: 300)
+                        } else if viewModel.hasActivePlan {
+                            activePlanContent
+                        } else {
+                            emptyStateContent
+                        }
                     }
+                    .padding(.bottom, 176)
                 }
-                .padding(.bottom, 80)
             }
             .background(.btBG)
 
@@ -59,7 +61,7 @@ struct TrainingHomeView: View {
     private var pageHeader: some View {
         HStack {
             Text("训练")
-                .font(.btTitle)
+                .font(.btLargeTitle)
                 .foregroundStyle(.btText)
 
             Spacer()
@@ -71,7 +73,7 @@ struct TrainingHomeView: View {
                     Image(systemName: "person.2")
                         .font(.btBody)
                         .foregroundStyle(.btTextSecondary)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
 
@@ -90,13 +92,15 @@ struct TrainingHomeView: View {
                     Image(systemName: "ellipsis")
                         .font(.btBody)
                         .foregroundStyle(.btTextSecondary)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
             }
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
+        .padding(.bottom, Spacing.sm)
+        .background(.btBG)
     }
 
     // MARK: - Active Plan Content
@@ -115,7 +119,9 @@ struct TrainingHomeView: View {
     // MARK: - Today Schedule Section
 
     private func todayScheduleSection(_ session: TodaySessionInfo) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
+        let firstIncompleteId = session.drills.first(where: { !$0.isCompleted })?.id
+
+        return VStack(alignment: .leading, spacing: Spacing.md) {
             Text("今日安排")
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
@@ -123,7 +129,7 @@ struct TrainingHomeView: View {
 
             VStack(spacing: Spacing.md) {
                 ForEach(session.drills.prefix(3)) { drill in
-                    todayDrillCard(drill, session: session)
+                    todayDrillCard(drill, session: session, isCurrentDrill: drill.id == firstIncompleteId)
                 }
 
                 if session.isAllCompleted {
@@ -134,7 +140,7 @@ struct TrainingHomeView: View {
         }
     }
 
-    private func todayDrillCard(_ drill: TodayDrillItem, session: TodaySessionInfo) -> some View {
+    private func todayDrillCard(_ drill: TodayDrillItem, session: TodaySessionInfo, isCurrentDrill: Bool) -> some View {
         HStack {
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(drill.nameZh)
@@ -142,7 +148,7 @@ struct TrainingHomeView: View {
                     .foregroundStyle(drill.isCompleted ? .btTextSecondary : .btText)
                     .lineLimit(1)
 
-                Text("\(session.planNameZh) · \(drill.sets) 组")
+                Text("\(session.planNameZh) · \(drill.sets) 练")
                     .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
             }
@@ -153,7 +159,7 @@ struct TrainingHomeView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.btTitle)
                     .foregroundStyle(.btSuccess)
-            } else {
+            } else if isCurrentDrill {
                 Button {
                     activeTrainingMode = .plan(drills: session.drills)
                 } label: {
@@ -165,6 +171,11 @@ struct TrainingHomeView: View {
                         .background(Color.btPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
                 }
+            } else {
+                Image(systemName: "ellipsis")
+                    .font(.btBody)
+                    .foregroundStyle(.btTextTertiary)
+                    .frame(width: 44, height: 44)
             }
         }
         .padding(Spacing.lg)
@@ -346,20 +357,15 @@ struct TrainingHomeView: View {
     private func levelBadge(_ level: String) -> some View {
         let displayLevel = level.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? level
         let drillLevel = DrillLevel(rawValue: displayLevel)
+        let badgeText = drillLevel?.displayName ?? level
 
-        return Group {
-            if let drillLevel {
-                BTLevelBadge(level: drillLevel)
-            } else {
-                Text(level)
-                    .font(.btCaption2.weight(.bold))
-                    .foregroundStyle(.btPrimary)
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, Spacing.xs)
-                    .background(Color.btPrimary.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-            }
-        }
+        return Text(badgeText)
+            .font(.btCaption2.weight(.bold))
+            .foregroundStyle(.btPrimary)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs)
+            .background(Color.btPrimary.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
     }
 
     // MARK: - Custom Plan List
@@ -370,11 +376,14 @@ struct TrainingHomeView: View {
                 BTEmptyState(
                     icon: "hammer",
                     title: "暂无自定义计划",
-                    subtitle: "创建你自己的训练方案",
-                    actionTitle: "创建计划",
-                    action: { router.trainingPath.append(TrainingRoute.customPlanBuilder) }
+                    subtitle: "创建你自己的训练方案"
                 )
-                .padding(.top, Spacing.xxl)
+
+                Button("创建计划") {
+                    router.trainingPath.append(TrainingRoute.customPlanBuilder)
+                }
+                .buttonStyle(BTButtonStyle.secondary)
+                .padding(.horizontal, Spacing.xxl)
             } else {
                 ForEach(customPlans) { plan in
                     NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
@@ -467,29 +476,49 @@ struct TrainingHomeView: View {
         VStack {
             Spacer()
 
-            Button {
-                if let session = viewModel.todaySession {
-                    activeTrainingMode = .plan(drills: session.drills)
-                } else {
-                    activeTrainingMode = .free
+            if router.isTrainingMinimized {
+                Button {
+                    resumeMinimizedTraining()
+                } label: {
+                    HStack(spacing: Spacing.sm) {
+                        Circle()
+                            .fill(Color.white.opacity(0.3))
+                            .frame(width: 8, height: 8)
+                        Text("继续训练")
+                    }
                 }
-            } label: {
-                Text("开始训练")
+                .buttonStyle(BTButtonStyle.primary)
+            } else {
+                Button {
+                    if let session = viewModel.todaySession {
+                        activeTrainingMode = .plan(drills: session.drills)
+                    } else {
+                        activeTrainingMode = .free
+                    }
+                } label: {
+                    Text("开始训练")
+                }
+                .buttonStyle(BTButtonStyle.primary)
             }
-            .buttonStyle(BTButtonStyle.primary)
-            .shadow(color: colorScheme == .dark ? .clear : Color.btPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
-            .padding(.horizontal, Spacing.xxl)
-            .padding(.bottom, Spacing.sm)
-            .background(
-                LinearGradient(
-                    colors: [Color.btBG.opacity(0), Color.btBG],
-                    startPoint: .top,
-                    endPoint: .center
-                )
-                .frame(height: 80)
-                .allowsHitTesting(false)
-            )
         }
+        .shadow(color: colorScheme == .dark ? .clear : Color.btPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
+        .padding(.horizontal, Spacing.xxl)
+        .padding(.bottom, Spacing.sm)
+        .background(alignment: .bottom) {
+            LinearGradient(
+                colors: [Color.btBG.opacity(0), Color.btBG],
+                startPoint: .top,
+                endPoint: .center
+            )
+            .frame(height: 80)
+            .allowsHitTesting(false)
+        }
+    }
+
+    private func resumeMinimizedTraining() {
+        guard let vm = router.resumeTrainingVM() else { return }
+        resumedTrainingVM = vm
+        activeTrainingMode = vm.mode
     }
 }
 

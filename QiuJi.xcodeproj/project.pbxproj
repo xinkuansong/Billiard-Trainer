@@ -7,6 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BB00000000000000000PR001 /* PersonalInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000000000000000PR002 /* PersonalInfoView.swift */; };
+		BB00000000000000000TR001 /* TrainingGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000000000000000TR002 /* TrainingGoalView.swift */; };
+		BB00000000000000000AB001 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000000000000000AB002 /* AboutView.swift */; };
+		BB00000000000000000SS001 /* SubscriptionStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000000000000000SS002 /* SubscriptionStatusView.swift */; };
+		BB00000000000000000UP001 /* UserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB00000000000000000UP002 /* UserPreferences.swift */; };
 		1058ADFABAD83CF913F60737 /* DrillEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69F9F9C77BBAADC1034A8DD8 /* DrillEntry.swift */; };
 		17A012B0FCEB42C5BCA33B92 /* ModelContainerFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 814AF4E9A89E79D4004B1F2A /* ModelContainerFactory.swift */; };
 		1CCE1E5DB44636A1D0ECEA8C /* Spacing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69860C0027A66FD04607587A /* Spacing.swift */; };
@@ -66,6 +71,7 @@
 		AA11223344556677AABB0005 /* DrillListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0005 /* DrillListViewModel.swift */; };
 		AA11223344556677AABB0006 /* DrillListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0006 /* DrillListView.swift */; };
 		AA11223344556677AABB0007 /* DrillDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0007 /* DrillDetailView.swift */; };
+		CC00000000000000000DT001 /* DrillTutorialView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD00000000000000000DT001 /* DrillTutorialView.swift */; };
 		AA11223344556677AABB0008 /* BTPremiumLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0008 /* BTPremiumLock.swift */; };
 		AA11223344556677AABB0009 /* FavoriteDrillsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB11223344556677AABB0009 /* FavoriteDrillsView.swift */; };
 		AA11223344556677AABB0010 /* TrainingHomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC11223344556677AABB0010 /* TrainingHomeViewModel.swift */; };
@@ -116,6 +122,14 @@
 		FF0B000000000000000B0016 /* HistoryAccessControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */; };
 		FF0E000000000000000E0003 /* Drills in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0001 /* Drills */; };
 		FF0E000000000000000E0004 /* Plans in Resources */ = {isa = PBXBuildFile; fileRef = FF0E000000000000000E0002 /* Plans */; };
+		UI0B000000000000000B0001 /* XCUIApplication+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0001 /* XCUIApplication+Extensions.swift */; };
+		UI0B000000000000000B0002 /* P2_DataLayerUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0002 /* P2_DataLayerUITests.swift */; };
+		UI0B000000000000000B0003 /* P3_DrillLibraryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0003 /* P3_DrillLibraryUITests.swift */; };
+		UI0B000000000000000B0004 /* P4_TrainingLogUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0004 /* P4_TrainingLogUITests.swift */; };
+		UI0B000000000000000B0005 /* P5_AngleTrainingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0005 /* P5_AngleTrainingUITests.swift */; };
+		UI0B000000000000000B0006 /* P6_HistoryStatsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0006 /* P6_HistoryStatsUITests.swift */; };
+		UI0B000000000000000B0007 /* P7_SubscriptionUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0007 /* P7_SubscriptionUITests.swift */; };
+		UI0B000000000000000B0008 /* P8_ProfileSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = UI0A000000000000000A0008 /* P8_ProfileSettingsUITests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -126,9 +140,21 @@
 			remoteGlobalIDString = ED115D93DFF073BDF0B40893;
 			remoteInfo = QiuJi;
 		};
+		UI0D000000000000000D0003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E7097A6FB8CDECAA1E071BA1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = ED115D93DFF073BDF0B40893;
+			remoteInfo = QiuJi;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		BB00000000000000000PR002 /* PersonalInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalInfoView.swift; sourceTree = "<group>"; };
+		BB00000000000000000TR002 /* TrainingGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingGoalView.swift; sourceTree = "<group>"; };
+		BB00000000000000000AB002 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		BB00000000000000000SS002 /* SubscriptionStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStatusView.swift; sourceTree = "<group>"; };
+		BB00000000000000000UP002 /* UserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferences.swift; sourceTree = "<group>"; };
 		0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		1FCA7D71FF7EEC26C8A86C66 /* AngleTestRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestRepositoryProtocol.swift; sourceTree = "<group>"; };
 		22F46AA832F95CE29AA8972A /* Debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
@@ -192,6 +218,7 @@
 		BB11223344556677AABB0005 /* DrillListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListViewModel.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0006 /* DrillListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListView.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0007 /* DrillDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillDetailView.swift; sourceTree = "<group>"; };
+		DD00000000000000000DT001 /* DrillTutorialView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillTutorialView.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0008 /* BTPremiumLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPremiumLock.swift; sourceTree = "<group>"; };
 		BB11223344556677AABB0009 /* FavoriteDrillsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FavoriteDrillsView.swift; sourceTree = "<group>"; };
 		C73374E53070E33615999A1D /* QiuJiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiApp.swift; sourceTree = "<group>"; };
@@ -239,6 +266,15 @@
 		FF0A000000000000000A0015 /* StatisticsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatisticsViewModelTests.swift; sourceTree = "<group>"; };
 		FF0A000000000000000A0016 /* HistoryAccessControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryAccessControllerTests.swift; sourceTree = "<group>"; };
 		FF0D000000000000000D0005 /* QiuJiTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QiuJiTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		UI0D000000000000000D0005 /* QiuJiUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QiuJiUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		UI0A000000000000000A0001 /* XCUIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCUIApplication+Extensions.swift"; sourceTree = "<group>"; };
+		UI0A000000000000000A0002 /* P2_DataLayerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2_DataLayerUITests.swift; sourceTree = "<group>"; };
+		UI0A000000000000000A0003 /* P3_DrillLibraryUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P3_DrillLibraryUITests.swift; sourceTree = "<group>"; };
+		UI0A000000000000000A0004 /* P4_TrainingLogUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P4_TrainingLogUITests.swift; sourceTree = "<group>"; };
+		UI0A000000000000000A0005 /* P5_AngleTrainingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P5_AngleTrainingUITests.swift; sourceTree = "<group>"; };
+		UI0A000000000000000A0006 /* P6_HistoryStatsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P6_HistoryStatsUITests.swift; sourceTree = "<group>"; };
+		UI0A000000000000000A0007 /* P7_SubscriptionUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P7_SubscriptionUITests.swift; sourceTree = "<group>"; };
+		UI0A000000000000000A0008 /* P8_ProfileSettingsUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P8_ProfileSettingsUITests.swift; sourceTree = "<group>"; };
 		FF0E000000000000000E0001 /* Drills */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Drills; sourceTree = "<group>"; };
 		FF0E000000000000000E0002 /* Plans */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Plans; sourceTree = "<group>"; };
 		FF3848C581F3360B6AC185BF /* BTSegmentedTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = BTSegmentedTab.swift; path = QiuJi/Core/Components/BTSegmentedTab.swift; sourceTree = SOURCE_ROOT; };
@@ -378,6 +414,7 @@
 				77A0000000000000000F0001 /* StoreKitService.swift */,
 				77A0000000000000000F0002 /* SubscriptionManager.swift */,
 				762FF5472730A423BAC4AC4C /* SyncQueueManager.swift */,
+				BB00000000000000000UP002 /* UserPreferences.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -479,6 +516,7 @@
 			isa = PBXGroup;
 			children = (
 				BB11223344556677AABB0007 /* DrillDetailView.swift */,
+				DD00000000000000000DT001 /* DrillTutorialView.swift */,
 				BB11223344556677AABB0006 /* DrillListView.swift */,
 			);
 			path = Views;
@@ -492,8 +530,12 @@
 				F1482582AFECCFD004756836 /* OnboardingView.swift */,
 				332AE192BD6DA8A2E91E924C /* PhoneLoginView.swift */,
 				2C54FC912F009ECAA5915124 /* ProfileView.swift */,
+				BB00000000000000000AB002 /* AboutView.swift */,
+				BB00000000000000000PR002 /* PersonalInfoView.swift */,
 				AA00000000000000000SET02 /* SettingsView.swift */,
+				BB00000000000000000SS002 /* SubscriptionStatusView.swift */,
 				77A0000000000000000F0003 /* SubscriptionView.swift */,
+				BB00000000000000000TR002 /* TrainingGoalView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -503,8 +545,32 @@
 			children = (
 				8571321B404BCC70AB62A461 /* 球迹.app */,
 				FF0D000000000000000D0005 /* QiuJiTests.xctest */,
+				UI0D000000000000000D0005 /* QiuJiUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		UI0C000000000000000C0002 /* Helpers */ = {
+			isa = PBXGroup;
+			children = (
+				UI0A000000000000000A0001 /* XCUIApplication+Extensions.swift */,
+			);
+			path = Helpers;
+			sourceTree = "<group>";
+		};
+		UI0C000000000000000C0001 /* QiuJiUITests */ = {
+			isa = PBXGroup;
+			children = (
+				UI0C000000000000000C0002 /* Helpers */,
+				UI0A000000000000000A0002 /* P2_DataLayerUITests.swift */,
+				UI0A000000000000000A0003 /* P3_DrillLibraryUITests.swift */,
+				UI0A000000000000000A0004 /* P4_TrainingLogUITests.swift */,
+				UI0A000000000000000A0005 /* P5_AngleTrainingUITests.swift */,
+				UI0A000000000000000A0006 /* P6_HistoryStatsUITests.swift */,
+				UI0A000000000000000A0007 /* P7_SubscriptionUITests.swift */,
+				UI0A000000000000000A0008 /* P8_ProfileSettingsUITests.swift */,
+			);
+			path = QiuJiUITests;
 			sourceTree = "<group>";
 		};
 		D00FFDB42C70F8641801C146 /* History */ = {
@@ -576,6 +642,7 @@
 				AF7B501E48701DF73E27A325 /* Config */,
 				996275AFF648DE5F413DA606 /* QiuJi */,
 				FF0C000000000000000C0001 /* QiuJiTests */,
+				UI0C000000000000000C0001 /* QiuJiUITests */,
 				CFFA631164676D164B613BED /* Products */,
 				72EC4408B98B38C23A2B9F74 /* BTExerciseRow.swift */,
 				72EC440800000001A8DA81FF /* BTMiniTable.swift */,
@@ -651,6 +718,22 @@
 			productReference = FF0D000000000000000D0005 /* QiuJiTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		UI0D000000000000000D0001 /* QiuJiUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = UI0D000000000000000D0008 /* Build configuration list for PBXNativeTarget "QiuJiUITests" */;
+			buildPhases = (
+				UI0D000000000000000D0002 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				UI0D000000000000000D0004 /* PBXTargetDependency */,
+			);
+			name = QiuJiUITests;
+			productName = QiuJiUITests;
+			productReference = UI0D000000000000000D0005 /* QiuJiUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -664,6 +747,10 @@
 						ProvisioningStyle = Automatic;
 					};
 					FF0D000000000000000D0001 = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = ED115D93DFF073BDF0B40893;
+					};
+					UI0D000000000000000D0001 = {
 						ProvisioningStyle = Automatic;
 						TestTargetID = ED115D93DFF073BDF0B40893;
 					};
@@ -685,6 +772,7 @@
 			targets = (
 				ED115D93DFF073BDF0B40893 /* QiuJi */,
 				FF0D000000000000000D0001 /* QiuJiTests */,
+				UI0D000000000000000D0001 /* QiuJiUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -720,6 +808,7 @@
 				2DC1352B03F51C4BF975828E /* BTButton.swift in Sources */,
 				AA11223344556677AABB0004 /* BTDrillCard.swift in Sources */,
 				AA11223344556677AABB0007 /* DrillDetailView.swift in Sources */,
+				CC00000000000000000DT001 /* DrillTutorialView.swift in Sources */,
 				AA11223344556677AABB0006 /* DrillListView.swift in Sources */,
 				AA11223344556677AABB0005 /* DrillListViewModel.swift in Sources */,
 				AA11223344556677AABB0003 /* BTEmptyState.swift in Sources */,
@@ -797,6 +886,11 @@
 				71A14288A869DC3CA9CB8225 /* BTShareCard.swift in Sources */,
 				38B046BE984DF61F75EF9AED /* BTTogglePillGroup.swift in Sources */,
 				EE484E89A26B61BB65711945 /* DrillRecordView.swift in Sources */,
+				BB00000000000000000PR001 /* PersonalInfoView.swift in Sources */,
+				BB00000000000000000TR001 /* TrainingGoalView.swift in Sources */,
+				BB00000000000000000AB001 /* AboutView.swift in Sources */,
+				BB00000000000000000SS001 /* SubscriptionStatusView.swift in Sources */,
+				BB00000000000000000UP001 /* UserPreferences.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -823,6 +917,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		UI0D000000000000000D0002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				UI0B000000000000000B0001 /* XCUIApplication+Extensions.swift in Sources */,
+				UI0B000000000000000B0002 /* P2_DataLayerUITests.swift in Sources */,
+				UI0B000000000000000B0003 /* P3_DrillLibraryUITests.swift in Sources */,
+				UI0B000000000000000B0004 /* P4_TrainingLogUITests.swift in Sources */,
+				UI0B000000000000000B0005 /* P5_AngleTrainingUITests.swift in Sources */,
+				UI0B000000000000000B0006 /* P6_HistoryStatsUITests.swift in Sources */,
+				UI0B000000000000000B0007 /* P7_SubscriptionUITests.swift in Sources */,
+				UI0B000000000000000B0008 /* P8_ProfileSettingsUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -830,6 +939,11 @@
 			isa = PBXTargetDependency;
 			target = ED115D93DFF073BDF0B40893 /* QiuJi */;
 			targetProxy = FF0D000000000000000D0003 /* PBXContainerItemProxy */;
+		};
+		UI0D000000000000000D0004 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = ED115D93DFF073BDF0B40893 /* QiuJi */;
+			targetProxy = UI0D000000000000000D0003 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1049,6 +1163,38 @@
 			};
 			name = Release;
 		};
+		UI0D000000000000000D0006 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KWH2GRNSKG;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xinkuan.qiuji.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = QiuJi;
+			};
+			name = Debug;
+		};
+		UI0D000000000000000D0007 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = KWH2GRNSKG;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xinkuan.qiuji.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = QiuJi;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1075,6 +1221,15 @@
 			buildConfigurations = (
 				FF0D000000000000000D0006 /* Debug */,
 				FF0D000000000000000D0007 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		UI0D000000000000000D0008 /* Build configuration list for PBXNativeTarget "QiuJiUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				UI0D000000000000000D0006 /* Debug */,
+				UI0D000000000000000D0007 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

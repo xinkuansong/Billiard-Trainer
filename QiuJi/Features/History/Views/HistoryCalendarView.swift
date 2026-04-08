@@ -22,7 +22,7 @@ struct HistoryCalendarView: View {
         VStack(spacing: 0) {
             HStack {
                 Text("记录")
-                    .font(.btTitle)
+                    .font(.btLargeTitle)
                     .foregroundStyle(.btText)
                 Spacer()
             }

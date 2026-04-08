@@ -322,14 +322,23 @@ struct ActiveTrainingView: View {
                     .frame(width: 44, height: 44)
                     .accessibilityLabel(viewModel.isTimerRunning ? "暂停计时" : "继续计时")
 
-                    // TODO: P1-U04 — 休息设置行和模式芯片功能待实现
-                    Button { } label: {
-                        Image(systemName: "timer")
-                            .font(.btHeadline)
-                            .foregroundStyle(.btTextSecondary)
+                    if viewModel.isRestTimerActive {
+                        Button { viewModel.skipRestTimer() } label: {
+                            Text("\(viewModel.restSecondsRemaining)s")
+                                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.btAccent)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("跳过休息 \(viewModel.restSecondsRemaining)秒")
+                    } else {
+                        Button { viewModel.startRestTimer() } label: {
+                            Image(systemName: "timer")
+                                .font(.btHeadline)
+                                .foregroundStyle(.btTextSecondary)
+                        }
+                        .frame(width: 44, height: 44)
+                        .accessibilityLabel("休息设置")
                     }
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("休息设置")
 
                     Menu {
                         Button { viewModel.showEndConfirm = true } label: {
@@ -396,7 +405,8 @@ struct ActiveTrainingView: View {
                         setsData: viewModel.setsBinding(for: index),
                         onAddSet: { viewModel.addSet(drillIndex: index) },
                         onCompleteSet: { setIndex in viewModel.completeSet(drillIndex: index, setIndex: setIndex) },
-                        onDeleteSet: { setIndex in viewModel.deleteSet(drillIndex: index, setIndex: setIndex) }
+                        onDeleteSet: { setIndex in viewModel.deleteSet(drillIndex: index, setIndex: setIndex) },
+                        restDuration: $viewModel.restDuration
                     )
                     .tag(index)
                 }
@@ -422,7 +432,7 @@ struct ActiveTrainingView: View {
 
     private var bottomToolbar: some View {
         HStack(spacing: 0) {
-            toolbarItem(icon: "chevron.down", label: "最小化") {
+            toolbarItem(icon: "minus", label: "最小化") {
                 router.minimizeTraining(viewModel)
                 dismiss()
             }
@@ -441,7 +451,7 @@ struct ActiveTrainingView: View {
                 }
             } label: {
                 VStack(spacing: 2) {
-                    Image(systemName: "square.grid.2x2")
+                    Image(systemName: "ellipsis")
                         .font(.btTitle2)
                         .foregroundStyle(.btTextSecondary)
                         .frame(height: 28)
@@ -478,7 +488,7 @@ struct ActiveTrainingView: View {
             Spacer()
 
             toolbarItem(
-                icon: showingOverview ? "rectangle.grid.1x2" : "list.bullet",
+                icon: "arrow.left.arrow.right",
                 label: "切换",
                 tint: .btPrimary
             ) {

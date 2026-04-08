@@ -21,6 +21,7 @@ extension Font {
     // MARK: - 辅助级
     static let btSubheadline         = Font.system(size: 15, weight: .regular)
     static let btSubheadlineMedium   = Font.system(size: 15, weight: .medium)
+    static let btSubheadlineSemibold = Font.system(size: 15, weight: .semibold)
     static let btFootnote14          = Font.system(size: 14, weight: .regular)
     static let btFootnote            = Font.system(size: 13, weight: .regular)
     static let btCaption             = Font.system(size: 12, weight: .regular)

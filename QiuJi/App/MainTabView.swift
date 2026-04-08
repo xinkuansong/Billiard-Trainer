@@ -61,12 +61,9 @@ struct MainTabView: View {
                 .tag(AppTab.profile)
         }
 
-            if let vm = router.minimizedTrainingVM {
-                BTFloatingIndicator(elapsedSeconds: vm.elapsedSeconds) {
+            if router.minimizedTrainingVM != nil && router.selectedTab != .training {
+                BTFloatingIndicator(elapsedSeconds: router.minimizedTrainingVM?.elapsedSeconds ?? 0) {
                     router.switchTab(.training)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        NotificationCenter.default.post(name: .didRequestResumeTraining, object: nil)
-                    }
                 }
                 .padding(.trailing, Spacing.lg)
                 .padding(.bottom, 60)

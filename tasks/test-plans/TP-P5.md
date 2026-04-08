@@ -3,12 +3,13 @@
 > **使用方式**：在模拟器或真机上逐条执行，通过则勾选 `[x]`，失败则记录问题描述。
 > **时机**：P5 功能 + 自动化测试（22/22）通过后，QA Reviewer 最终验收前。
 > **重点**：角度计算准确性、自适应出题逻辑、Canvas 动画、每日限制、离线完整可用。
+> **更新记录**：2026-04-06 V2 — 反映 AngleHomeView 三入口 FeatureCard 布局 + AngleHistoryView 2x2 统计 + BTSegmentedTab 时间范围 + 角度区间分析
 
 ---
 
 ## 前置条件
 
-- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 16 Pro Simulator）
+- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 17 Pro Simulator）
 - [ ] 全新安装（删除已有 App 后重新安装）
 - [ ] 无登录状态（匿名用户）
 - [ ] 未购买 Pro（免费用户，用于验证每日限制）
@@ -19,8 +20,8 @@
 
 | # | 页面 | 检查项 | 通过 |
 |---|------|--------|------|
-| V-01 | AngleHomeView（角度 Tab 首页） | Tab 入口正常，显示「开始测试」和「对照表」两个入口 | [ ] |
-| V-02 | AngleHomeView | 历史入口可见（近期平均误差摘要） | [ ] |
+| V-01 | AngleHomeView（角度 Tab 首页） | 角度 Tab 入口正常，三个 FeatureCard 入口（「角度测试」+「今日剩余 N 题」badge / 「进球点对照表」/ 「测试历史」底部全宽行） | [ ] |
+| V-02 | AngleHomeView | 三个 FeatureCard 含 SF Symbol 圆底图标 + 标题 + 副标题 + 右侧 chevron | [ ] |
 | V-03 | AngleTestView（测试出题） | BTAngleTestTable 球台 Canvas 显示：目标球 + 袋口标记 + 母球 | [ ] |
 | V-04 | AngleTestView | 题号显示（如「第 5 题 / 共 20 题」） | [ ] |
 | V-05 | AngleTestView | 数字键盘输入区（0°–90° 整数）清晰可用 | [ ] |
@@ -36,8 +37,13 @@
 | V-15 | ContactPointTableView | 数值显示：当前角度 + 偏移百分比 | [ ] |
 | V-16 | ContactPointTableView | 静态对照表（13 个标准角度行），含通称标记 | [ ] |
 | V-17 | ContactPointTableView | 原理说明（偏移 = sin(α) × R） | [ ] |
-| V-18 | AngleHistoryView | 折线图分别展示角袋/中袋误差趋势（每组 5 题） | [ ] |
-| V-19 | BTPremiumLock | 达到每日限制时引导订阅提示可见 | [ ] |
+| V-18 | AngleHistoryView | AngleHistoryView 顶部 2×2 LazyVGrid 统计卡（总测试数/平均误差/精准率/最近趋势） | [ ] |
+| V-19 | AngleHistoryView | AngleHistoryView BTSegmentedTab 时间范围切换（周/月/全部） | [ ] |
+| V-20 | AngleHistoryView | AngleHistoryView「误差趋势」折线图 Canvas（角袋绿线/中袋蓝线 + 图例），数据不足时显示「数据不足」 | [ ] |
+| V-21 | AngleHistoryView | AngleHistoryView 角袋/中袋 toggle 按钮切换趋势数据 | [ ] |
+| V-22 | AngleHistoryView | AngleHistoryView「角度区间分析」水平柱状图（各角度范围正确率分布） | [ ] |
+| V-23 | AngleHistoryView | AngleHistoryView 空状态：BTEmptyState（chart 图标 +「暂无测试记录」+「开始角度测试」按钮） | [ ] |
+| V-24 | BTPremiumLock | 达到每日限制时引导订阅提示可见 | [ ] |
 
 ---
 
@@ -53,6 +59,8 @@
 | D-06 | ContactPointTableView | 滑块 Dark 下可操作，数值可读 | [ ] |
 | D-07 | ContactPointTableView | 对照表行在 Dark 下行间区分清晰 | [ ] |
 | D-08 | AngleHistoryView | 折线图颜色 Dark 下可辨 | [ ] |
+| D-09 | AngleHistoryView | AngleHistoryView 2×2 统计卡 + 折线图 Canvas Dark 下可读 | [ ] |
+| D-10 | AngleHistoryView | AngleHistoryView 角度区间分析柱状图 Dark 下对比度足够 | [ ] |
 
 ---
 
@@ -123,13 +131,20 @@
 
 **步骤**：
 1. 先完成流程 1（20 题测试）
-2. 角度 Tab → 历史入口
-3. 查看折线图，确认有数据点
+2. 角度 Tab → 「测试历史」入口
+3. 查看 2×2 统计卡（总测试数/平均误差/精准率/最近趋势）
+4. BTSegmentedTab 切换时间范围（周/月/全部）
+5. 查看误差趋势折线图
+6. 切换角袋/中袋趋势
+7. 查看角度区间分析柱状图
 
 **预期结果**：历史数据正确记录
 
-- [ ] 折线图有数据展示
-- [ ] 角袋/中袋误差分开展示
+- [ ] 2×2 统计卡数值与测试记录一致
+- [ ] 时间范围切换后趋势与统计合理更新
+- [ ] 误差趋势折线图有数据展示（或数据不足时显示「数据不足」）
+- [ ] 角袋/中袋 toggle 切换后趋势对应变化
+- [ ] 角度区间分析柱状图展示各范围正确率
 - [ ] 数据在 App 重启后保持
 
 ### 流程 5：自适应出题验证
@@ -191,8 +206,8 @@
 | # | 设备 | 核心流程通过 | 布局正常 | 备注 |
 |---|------|------------|---------|------|
 | DM-01 | iPhone SE 3rd（4.7"） | [ ] | [ ] | 球台 Canvas 在小屏上可操作性 |
-| DM-02 | iPhone 16 Pro（6.3"） | [ ] | [ ] | |
-| DM-03 | iPhone 16 Pro Max（6.9"） | [ ] | [ ] | |
+| DM-02 | iPhone 17 Pro（6.3"） | [ ] | [ ] | |
+| DM-03 | iPhone 17 Pro Max（6.9"） | [ ] | [ ] | |
 
 ---
 

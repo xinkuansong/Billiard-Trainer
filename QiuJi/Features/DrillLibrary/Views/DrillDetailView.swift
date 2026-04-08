@@ -7,6 +7,7 @@ struct DrillDetailView: View {
     @State private var drill: DrillContent?
     @State private var animationProgress: CGFloat = 0
     @State private var showSubscription = false
+    @State private var showTutorial = false
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -64,10 +65,14 @@ struct DrillDetailView: View {
                 bottomBar
             }
         }
-        .navigationTitle(drill?.nameZh ?? "加载中")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text(drill?.nameZh ?? "")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     toggleFavorite()
@@ -81,6 +86,11 @@ struct DrillDetailView: View {
             await loadDrill()
             withAnimation(.easeInOut(duration: 1.4)) {
                 animationProgress = 1
+            }
+        }
+        .navigationDestination(isPresented: $showTutorial) {
+            if let drill {
+                DrillTutorialView(drill: drill)
             }
         }
         .sheet(isPresented: $showSubscription) {
@@ -145,10 +155,20 @@ struct DrillDetailView: View {
 
     // MARK: - Tags Row
 
+    private static let ballTypeDisplayNames: [String: String] = [
+        "chinese8": "中式台球",
+        "8ball": "中式台球",
+        "snooker": "斯诺克",
+        "nineBall": "9球",
+        "pool9": "9球",
+        "9ball": "9球",
+        "universal": "通用",
+    ]
+
     private func tagsRow(_ drill: DrillContent) -> some View {
         HStack(spacing: Spacing.sm) {
             ForEach(drill.ballType, id: \.self) { ball in
-                Text(ball)
+                Text(Self.ballTypeDisplayNames[ball] ?? ball)
                     .font(.btCaption2)
                     .foregroundStyle(.btTextSecondary)
                     .padding(.horizontal, Spacing.md)
@@ -196,19 +216,14 @@ struct DrillDetailView: View {
                 }
             }
 
-            Button {
-                // Future: navigate to tutorial article
-            } label: {
-                Text("查看精讲")
-                    .font(.btFootnote)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.btPrimary)
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.vertical, Spacing.sm)
-                    .background(Color.btPrimaryMuted)
-                    .clipShape(Capsule())
+            if drill.tutorial != nil {
+                Button {
+                    showTutorial = true
+                } label: {
+                    Text("查看精讲")
+                }
+                .buttonStyle(BTButtonStyle.primary)
             }
-            .frame(maxWidth: .infinity)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
@@ -219,7 +234,7 @@ struct DrillDetailView: View {
     // MARK: - Standard Criteria
 
     private func criteriaSection(_ drill: DrillContent) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.md) {
             Text("达标标准")
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
@@ -239,11 +254,11 @@ struct DrillDetailView: View {
                         .foregroundStyle(.btTextSecondary)
                 }
             }
-            .padding(Spacing.lg)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
+        .padding(Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .padding(.horizontal, Spacing.lg)
     }
 
@@ -253,11 +268,11 @@ struct DrillDetailView: View {
         HStack(spacing: Spacing.md) {
             Image(systemName: "square.and.pencil")
                 .font(.btBody)
-                .foregroundStyle(.btPrimary)
+                .foregroundStyle(.btTextSecondary)
 
             Text("点击此处输入备注")
                 .font(.btCallout)
-                .foregroundStyle(.btPrimary)
+                .foregroundStyle(.btTextTertiary)
 
             Spacer()
         }
@@ -276,13 +291,18 @@ struct DrillDetailView: View {
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
-            VStack(spacing: Spacing.sm) {
+            VStack(spacing: Spacing.md) {
                 ForEach(dims, id: \.name) { dim in
-                    HStack(spacing: Spacing.md) {
-                        Text(dim.name)
-                            .font(.btFootnote)
-                            .foregroundStyle(.btTextSecondary)
-                            .frame(width: 64, alignment: .leading)
+                    VStack(spacing: Spacing.xs) {
+                        HStack {
+                            Text(dim.name)
+                                .font(.btFootnote)
+                                .foregroundStyle(.btTextSecondary)
+                            Spacer()
+                            Text("\(Int(dim.value * 100))%")
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextSecondary)
+                        }
 
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
@@ -295,11 +315,6 @@ struct DrillDetailView: View {
                             }
                         }
                         .frame(height: 6)
-
-                        Text("\(Int(dim.value * 100))%")
-                            .font(.btCaption)
-                            .foregroundStyle(.btTextSecondary)
-                            .frame(width: 36, alignment: .trailing)
                     }
                 }
             }
@@ -380,7 +395,7 @@ struct DrillDetailView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: Spacing.sm) {
-                    ForEach(0..<5, id: \.self) { _ in
+                    ForEach(0..<6, id: \.self) { _ in
                         ZStack {
                             RoundedRectangle(cornerRadius: BTRadius.sm)
                                 .fill(Color.btBGTertiary)
@@ -388,7 +403,7 @@ struct DrillDetailView: View {
                                 .font(.system(size: 28))
                                 .foregroundStyle(.btTextTertiary)
                         }
-                        .frame(width: 100, height: 72)
+                        .frame(width: 56, height: 56)
                     }
                 }
             }

@@ -2,13 +2,13 @@
 
 > **使用方式**：在模拟器或真机上逐条执行，通过则勾选 `[x]`，失败则记录问题描述。
 > **时机**：P3 功能已通过 AI QA 验收，此为补充的人工视觉/交互验证。
-> **更新记录**：2026-04-06 — 反映 R-UI 后 DrillListView（双层 Chip 筛选 + 分类分组）和 DrillDetailView（灰色操作图标行 + 标签行 + 固定底栏）重构
+> **更新记录**：2026-04-06 V2 — 反映 DR-011 DrillLibrary 全面改造：左侧分类侧边栏 + 2 列网格 BTDrillGridCard；DrillDetailView 新增备注卡、训练维度、查看精讲、真人示范区
 
 ---
 
 ## 前置条件
 
-- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 16 Pro Simulator）
+- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 17 Pro Simulator）
 - [ ] 全新安装（删除已有 App 后重新安装）
 - [ ] 无登录状态（匿名用户）
 
@@ -19,23 +19,26 @@
 | # | 页面 | 检查项 | 通过 |
 |---|------|--------|------|
 | V-01 | DrillListView | 球种筛选 Chip 行（全部/中式台球/9球）Capsule 样式，选中态反色 | [ ] |
-| V-02 | DrillListView | 分类筛选 Chip 行（全部分类 + 8 大类），带图标 + 文字 | [ ] |
-| V-03 | DrillListView | 搜索框（.searchable）样式正常，输入时键盘弹出不遮挡 | [ ] |
-| V-04 | DrillListView | 加载中状态显示 BTDrillListSkeleton 骨架屏 | [ ] |
-| V-05 | DrillListView | LazyVStack 分类分组展示：分类图标 + 分类名 + 数量胶囊 | [ ] |
-| V-06 | DrillListView | BTDrillCard 卡片：名称、BTLevelBadge、难度、收藏心形、付费锁图标 | [ ] |
+| V-02 | DrillListView | 左侧分类侧边栏（72pt 固定宽度，垂直 ScrollView，「全部」+ 8 大分类文字按钮，选中态左侧绿色竖条 + btPrimary 文字） | [ ] |
+| V-03 | DrillListView | 搜索框（自定义 TextField + magnifyingglass 图标 + xmark 清除按钮），输入时键盘弹出不遮挡 | [ ] |
+| V-04 | DrillListView | 加载中状态显示 BTDrillListSkeleton 2 列网格骨架屏 | [ ] |
+| V-05 | DrillListView | 右侧 LazyVGrid 2 列网格 + pinned section headers（分类名称 btTitle2 字体） | [ ] |
+| V-06 | DrillListView | BTDrillGridCard 卡片：BTMiniTable 缩略图 + BTLevelBadge + PRO/收藏叠加层 + 底部渐变 | [ ] |
 | V-07 | DrillDetailView | 顶部 BTBilliardTable Canvas 展示球台动画 + 左下角重放按钮 | [ ] |
-| V-08 | DrillDetailView | 灰色操作图标行（要点/历史/图表）水平排列 | [ ] |
+| V-08 | DrillDetailView | 灰色操作图标行（要点/历史/图表）水平排列，btBGTertiary 圆底 | [ ] |
 | V-09 | DrillDetailView | 标签行：球种胶囊 + 分类胶囊 + BTLevelBadge | [ ] |
-| V-10 | DrillDetailView | 训练要点（coachingPoints）编号列表，绿色数字圆圈 | [ ] |
-| V-11 | DrillDetailView | 达标标准高亮卡片（target 图标 + 标准 + 默认组数×球数） | [ ] |
-| V-12 | DrillDetailView | 视频占位区「视频内容即将上线」 | [ ] |
-| V-13 | DrillDetailView | 固定底栏：免费 Drill 显示 darkPill「关闭」+ primary「加入训练」 | [ ] |
-| V-14 | DrillDetailView | 固定底栏：付费 Drill 显示金色 Capsule「解锁 Pro」 | [ ] |
-| V-15 | DrillDetailView | 导航栏心形收藏按钮（空心/实心 + 颜色切换） | [ ] |
-| V-16 | BTPremiumLock | 付费 Drill 渐进遮罩（显示 1 条 coachingPoint 后模糊）| [ ] |
-| V-17 | BTEmptyState | 搜索无结果时空状态（放大镜图标 + 换关键词提示） | [ ] |
-| V-18 | FavoriteDrillsView | 已收藏 Drill 列表布局与动作库一致 | [ ] |
+| V-10 | DrillDetailView | 备注卡片（square.and.pencil 图标 +「点击此处输入备注」占位文字） | [ ] |
+| V-11 | DrillDetailView | 训练要点（coachingPoints）编号列表，绿色数字圆圈 +「查看精讲」primary 按钮 | [ ] |
+| V-12 | DrillDetailView | 达标标准高亮卡片（target 图标 + 标准 + 默认组数×球数） | [ ] |
+| V-13 | DrillDetailView | 训练维度卡片（5 条进度条：准度/力量控制/走位判断/杆法技巧/心理素质 + 百分比 + 主要训练说明） | [ ] |
+| V-14 | DrillDetailView | 真人示范区（6 个视频占位方块 + play.circle.fill 图标 +「即将上线」文字） | [ ] |
+| V-15 | DrillDetailView | 固定底栏：免费 Drill 显示 darkPill「关闭」+ primary「加入训练」 | [ ] |
+| V-16 | DrillDetailView | 固定底栏：付费 Drill 显示金色 Capsule「解锁 Pro」（crown.fill 图标） | [ ] |
+| V-17 | DrillDetailView | 导航栏心形收藏按钮（空心/实心 + 颜色切换：btAccent / btTextSecondary） | [ ] |
+| V-18 | BTPremiumLock | 付费 Drill 渐进遮罩（显示 1 条 coachingPoint 后模糊）| [ ] |
+| V-19 | BTEmptyState | 搜索无结果时空状态（magnifyingglass 图标 +「没有找到相关动作」+「浏览全部动作」按钮） | [ ] |
+| V-20 | BTEmptyState | 分类无数据时空状态（tray 图标 +「该分类暂无训练项目」） | [ ] |
+| V-21 | FavoriteDrillsView | 已收藏 Drill 列表布局与动作库一致 | [ ] |
 
 ---
 
@@ -45,9 +48,9 @@
 
 | # | 页面 | 检查项 | 通过 |
 |---|------|--------|------|
-| D-01 | DrillListView | 背景深色，Chip 选中态反色（Light #1C1C1E → Dark #F2F2F7）| [ ] |
-| D-02 | DrillListView | 未选中 Chip 使用 btBGSecondary + btSeparator 描边 | [ ] |
-| D-03 | DrillListView | BTDrillCard 卡片文字可读，无白色背景残留 | [ ] |
+| D-01 | DrillListView | 球种 Chip 选中态反色（Light #1C1C1E → Dark #F2F2F7），未选中 btBGSecondary + btSeparator 描边 | [ ] |
+| D-02 | DrillListView | 左侧分类侧边栏 btBGSecondary 背景 Dark 下可见，选中项绿色竖条清晰 | [ ] |
+| D-03 | DrillListView | BTDrillGridCard 卡片文字可读，缩略图渲染正常 | [ ] |
 | D-04 | DrillListView | 骨架屏（BTDrillListSkeleton）Dark 适配 | [ ] |
 | D-05 | DrillDetailView | Canvas 球台使用深绿色变体（btTableFelt #144D2A）| [ ] |
 | D-06 | DrillDetailView | 灰色操作图标 Dark 下 btBGTertiary 圆底可见 | [ ] |
@@ -77,14 +80,14 @@
 
 **步骤**：
 1. 启动 App → 点击底部「动作库」Tab
-2. 确认球种 Chip 行（全部/中式台球/9球）+ 分类 Chip 行（全部分类 + 8 大类）
-3. 向下滚动，确认 8 大分类（基本功、准度、杆法、母球分离、走位、力量控制、特殊球、综合）均有内容
-4. 点击任意分类下的一个 BTDrillCard
+2. 确认球种 Chip 行（全部/中式台球/9球）+ 左侧分类侧边栏（「全部」+ 8 大分类）
+3. 在右侧 2 列网格中向下滚动，确认 8 大分类（基本功、准度、杆法、母球分离、走位、力量控制、特殊球、综合）均有内容
+4. 点击任意分类下的一个 BTDrillGridCard
 
 **预期结果**：进入 DrillDetailView 详情页
 
-- [ ] 球种 Chip 行和分类 Chip 行均可见
-- [ ] 8 大分类均有 Drill 条目（分组标题含图标 + 分类名 + 数量胶囊）
+- [ ] 球种 Chip 行与左侧分类侧边栏均可见
+- [ ] 8 大分类均有 Drill 条目（右侧网格 + pinned section header 仅分类名 btTitle2，无图标、无数量徽章）
 - [ ] 点击卡片后正确进入详情页
 
 ### 流程 2：搜索 Drill
@@ -103,21 +106,21 @@
 - [ ] 空状态视图正常展示（magnifyingglass 图标 + 换关键词提示）
 - [ ] 清空搜索后列表恢复完整
 
-### 流程 3：双层筛选
+### 流程 3：球种 + 侧边栏筛选
 
 **步骤**：
 1. 点击球种 Chip「中式台球」
 2. 观察列表只显示中式台球相关 Drill
-3. 点击分类 Chip「杆法」
+3. 在左侧侧边栏点击「杆法」
 4. 观察列表只显示中式台球 + 杆法的 Drill
-5. 点击球种「全部」+ 分类「全部分类」恢复
+5. 点击球种「全部」+ 侧边栏「全部」恢复
 
-**预期结果**：列表根据球种 + 分类实时切换
+**预期结果**：列表根据球种 + 侧边栏分类实时切换
 
 - [ ] 球种筛选切换后列表立即更新
-- [ ] 分类筛选切换后列表立即更新
+- [ ] 侧边栏分类切换后列表立即更新
 - [ ] 双重筛选叠加生效
-- [ ] 「全部」+ 「全部分类」恢复完整列表
+- [ ] 球种「全部」+ 侧边栏「全部」恢复完整列表
 
 ### 流程 4：收藏 Drill 并查看收藏夹
 
@@ -158,13 +161,14 @@
 
 | # | 场景 | 检查项 | 通过 |
 |---|------|--------|------|
-| I-01 | BTDrillCard 点击 | 整个卡片可点击，响应无延迟 | [ ] |
+| I-01 | BTDrillGridCard 点击 | 整个卡片可点击，响应无延迟 | [ ] |
 | I-02 | 收藏按钮 | 导航栏心形点击区域 >= 44pt | [ ] |
 | I-03 | 搜索框键盘 | 键盘弹出后列表上移，输入区不被遮挡 | [ ] |
-| I-04 | 列表滚动 | 快速滑动时无卡顿，分组 header 悬浮吸顶 | [ ] |
+| I-04 | 列表滚动 | 快速滑动时无卡顿，pinned section headers 吸顶 | [ ] |
 | I-05 | 返回导航 | 详情页左滑手势返回 + 导航栏返回按钮均正常 | [ ] |
 | I-06 | 重放按钮 | Canvas 动画播放中点击重放，动画正确重置并重播 | [ ] |
-| I-07 | Chip 筛选 | 球种/分类 Chip 切换有选中态视觉反馈 | [ ] |
+| I-07 | Chip + 侧边栏筛选 | 球种 Chip 切换 + 侧边栏分类切换有选中态绿色竖条 | [ ] |
+| I-08 | 侧边栏选中态 | 左侧绿色竖条 + btPrimary 文字 + btBG 背景 | [ ] |
 
 ---
 
@@ -186,9 +190,9 @@
 
 | # | 设备 | 核心流程通过 | 布局正常 | 备注 |
 |---|------|------------|---------|------|
-| DM-01 | iPhone SE 3rd（4.7"） | [ ] | [ ] | 特别注意 Canvas 球台在小屏上的可视性 |
-| DM-02 | iPhone 16 Pro（6.3"） | [ ] | [ ] | |
-| DM-03 | iPhone 16 Pro Max（6.9"） | [ ] | [ ] | |
+| DM-01 | iPhone SE 3rd（4.7"） | [ ] | [ ] | 特别注意 Canvas 球台在小屏上的可视性；侧边栏 72pt 在小屏上占比注意 |
+| DM-02 | iPhone 17 Pro（6.3"） | [ ] | [ ] | |
+| DM-03 | iPhone 17 Pro Max（6.9"） | [ ] | [ ] | |
 
 ---
 
@@ -196,9 +200,9 @@
 
 | # | 检查项 | 通过 |
 |---|--------|------|
-| AC-01 | Dynamic Type 最大字号下 DrillListView 不溢出，Drill 名称仍可读 | [ ] |
+| AC-01 | Dynamic Type 最大字号下 DrillListView 侧边栏 + 网格布局不溢出 | [ ] |
 | AC-02 | Dynamic Type 最大字号下 DrillDetailView 教学要点文字不截断 | [ ] |
-| AC-03 | VoiceOver 可朗读 BTDrillCard 的名称和等级 | [ ] |
+| AC-03 | VoiceOver 可朗读 BTDrillGridCard 的名称和等级 | [ ] |
 
 ---
 

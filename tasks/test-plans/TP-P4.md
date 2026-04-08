@@ -2,13 +2,13 @@
 
 > **使用方式**：在模拟器或真机上逐条执行，通过则勾选 `[x]`，失败则记录问题描述。
 > **时机**：P4 功能代码 + 自动化测试完成后，QA Reviewer 验收前。
-> **更新记录**：2026-04-06 — 反映 R-UI 后 ActiveTrainingView（毛玻璃顶栏 + 5 键底栏）、DrillRecordView（BTSetInputGrid TextField 输入）、TrainingNoteView（极简沉浸式）、TrainingSummaryView（2×2 统计 + 分组明细 + 分享入口）、CustomPlanBuilderView（自定义步进器 + 缩略图 + 齿轮设置弹层）重构
+> **更新记录**：2026-04-06 — 反映 R-UI 后 ActiveTrainingView（毛玻璃顶栏 + 5 键底栏）、DrillRecordView（BTSetInputGrid TextField 输入）、TrainingNoteView（极简沉浸式）、TrainingSummaryView（2×2 统计 + 分组明细 + 分享入口）、CustomPlanBuilderView（自定义步进器 + 缩略图 + 齿轮设置弹层）重构（V2）
 
 ---
 
 ## 前置条件
 
-- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 16 Pro Simulator）
+- [ ] Debug 构建成功（Scheme: QiuJi, Destination: iPhone 17 Pro Simulator）
 - [ ] 全新安装（删除已有 App 后重新安装）
 - [ ] 无登录状态（匿名用户）
 - [ ] P3 Drill Library 功能正常可用（训练依赖 Drill 数据）
@@ -40,7 +40,7 @@
 | V-19 | TrainingSummaryView | 2×2 统计网格（总时长/训练项目/总组数/成功率） | [ ] |
 | V-20 | TrainingSummaryView | 全宽成功率进度条卡 | [ ] |
 | V-21 | TrainingSummaryView | 每个 Drill 卡片展示 BTLevelBadge + 名称 + 分组明细展开 | [ ] |
-| V-22 | TrainingSummaryView | 底部固定操作栏：保存/分享/历史三入口 | [ ] |
+| V-22 | TrainingSummaryView | 底部固定操作栏：「保存训练」primary +「生成分享图」secondary +「查看历史记录」tertiary 文字按钮 | [ ] |
 | V-23 | CustomPlanBuilderView | Plan Info Card（编辑图标 + 名称 TextField + 统计摘要） | [ ] |
 | V-24 | CustomPlanBuilderView | Drill 行：拖拽手柄 + 迷你球台缩略图 + 名称 + 「X组·Y球」+ 齿轮图标 | [ ] |
 | V-25 | CustomPlanBuilderView | 自定义 -/数字/+ 步进器（非原生 Stepper） | [ ] |
@@ -176,7 +176,7 @@
 **步骤**：
 1. 完成一次训练 → 总结页
 2. 点击「分享」入口
-3. TrainingShareView 展示 BTShareCard 预览
+3. TrainingShareView 展示 BTShareCard 预览（toolbar 分享图标入口）
 4. 切换字体选择
 5. 开启/关闭「隐藏成功率」
 6. 点击分享按钮
@@ -228,8 +228,8 @@
 | # | 设备 | 核心流程通过 | 布局正常 | 备注 |
 |---|------|------------|---------|------|
 | DM-01 | iPhone SE 3rd（4.7"） | [ ] | [ ] | 注意底栏 5 按钮在小屏上是否挤压 |
-| DM-02 | iPhone 16 Pro（6.3"） | [ ] | [ ] | |
-| DM-03 | iPhone 16 Pro Max（6.9"） | [ ] | [ ] | |
+| DM-02 | iPhone 17 Pro（6.3"） | [ ] | [ ] | |
+| DM-03 | iPhone 17 Pro Max（6.9"） | [ ] | [ ] | |
 
 ---
 

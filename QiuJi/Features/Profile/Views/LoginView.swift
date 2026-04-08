@@ -26,7 +26,7 @@ struct LoginView: View {
                     .padding(.bottom, Spacing.xxl)
 
                 Text("欢迎使用球迹")
-                    .font(.btTitle)
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundStyle(.btText)
                     .padding(.bottom, Spacing.sm)
 
@@ -89,9 +89,9 @@ struct LoginView: View {
 
     private var appIcon: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 18)
+            RoundedRectangle(cornerRadius: 16)
                 .fill(Color.btPrimary)
-                .frame(width: 80, height: 80)
+                .frame(width: 72, height: 72)
             Image(systemName: "flag.checkered")
                 .font(.btLargeTitle)
                 .fontWeight(.medium)

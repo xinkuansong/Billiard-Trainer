@@ -76,7 +76,7 @@ struct PlanListView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 NavigationLink(value: TrainingRoute.customPlanBuilder) {
-                    Label("新建", systemImage: "plus")
+                    Text("新建")
                 }
             }
         }
@@ -256,21 +256,9 @@ struct PlanListView: View {
 
     private func levelSectionHeader(level: String, count: Int) -> some View {
         HStack(spacing: Spacing.sm) {
-            Image(systemName: iconForLevel(level))
-                .font(.btCallout)
-                .foregroundStyle(colorForLevel(level))
-
             Text(titleForLevel(level))
                 .font(.btTitle)
                 .foregroundStyle(.btText)
-
-            Text("\(count)")
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-                .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, 2)
-                .background(.btBGTertiary)
-                .clipShape(Capsule())
 
             Spacer()
         }
@@ -281,37 +269,13 @@ struct PlanListView: View {
 
     private func titleForLevel(_ level: String) -> String {
         switch level {
-        case "L0→L1":  return "入门 → 初级"
-        case "L1":     return "初级专项"
-        case "L1→L2":  return "初级 → 中级"
-        case "L2":     return "中级突破"
-        case "L3":     return "高级专项"
-        case "L3→L4":  return "高级 → 专业"
+        case "L0→L1":  return "入门计划"
+        case "L1":     return "初级计划"
+        case "L1→L2":  return "进阶计划"
+        case "L2":     return "中级计划"
+        case "L3":     return "高级计划"
+        case "L3→L4":  return "专业计划"
         default:       return level
-        }
-    }
-
-    private func iconForLevel(_ level: String) -> String {
-        switch level {
-        case "L0→L1":  return "figure.walk"
-        case "L1":     return "figure.run"
-        case "L1→L2":  return "arrow.up.right"
-        case "L2":     return "bolt.fill"
-        case "L3":     return "star.fill"
-        case "L3→L4":  return "trophy.fill"
-        default:       return "circle"
-        }
-    }
-
-    private func colorForLevel(_ level: String) -> Color {
-        switch level {
-        case "L0→L1":  return .btTextSecondary
-        case "L1":     return .btPrimary
-        case "L1→L2":  return Color(red: 0, green: 0x7A / 255.0, blue: 1)
-        case "L2":     return .btAccent
-        case "L3":     return .btWarning
-        case "L3→L4":  return .btAccent
-        default:       return .btTextSecondary
         }
     }
 }
@@ -362,8 +326,16 @@ private struct PlanCard: View {
                 Image(systemName: thumbnailIcon)
                     .font(.system(size: 24, weight: .medium))
                     .foregroundStyle(levelColor.opacity(0.7))
+
+                if plan.isPremium {
+                    Color.black.opacity(0.3)
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(.white)
+                        .font(.system(size: 16))
+                }
             }
             .frame(width: 72, height: 72)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(plan.nameZh)
@@ -379,13 +351,13 @@ private struct PlanCard: View {
                         .font(.btCaption)
                         .foregroundStyle(.btTextSecondary)
                     if plan.isPremium {
-                        HStack(spacing: 2) {
-                            Image(systemName: "crown.fill")
-                                .font(.btMicro)
-                            Text("付费")
-                                .font(.btCaption2)
-                        }
-                        .foregroundStyle(.btAccent)
+                        Text("PRO")
+                            .font(.system(size: 10, weight: .heavy))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, 2)
+                            .background(Color.btAccent)
+                            .clipShape(Capsule())
                     }
                 }
 

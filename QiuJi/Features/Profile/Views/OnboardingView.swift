@@ -74,7 +74,6 @@ struct OnboardingView: View {
                 .lineSpacing(4)
 
             Spacer()
-            Spacer()
         }
     }
 
@@ -93,12 +92,12 @@ struct OnboardingView: View {
                 .padding(.bottom, Spacing.xs)
 
             Text("你的台球训练伙伴")
-                .font(.btCallout)
+                .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
             Spacer()
 
-            VStack(spacing: Spacing.xl) {
+            VStack(spacing: Spacing.xxxl) {
                 OnboardingFeatureRow(
                     icon: "figure.pool.swim",
                     title: "动作库与训练记录",
@@ -137,7 +136,7 @@ struct OnboardingView: View {
                 Button("跳过") {
                     authState.loginAnonymously()
                 }
-                .font(.btCallout)
+                .font(.btSubheadline)
                 .foregroundStyle(.btTextSecondary)
             } else {
                 Button("开始使用") {
@@ -148,8 +147,9 @@ struct OnboardingView: View {
                 Button("登录已有账号") {
                     showLogin = true
                 }
-                .font(.btCallout)
+                .font(.btSubheadline)
                 .foregroundStyle(.btTextSecondary)
+                .padding(.top, 6)
             }
         }
     }
@@ -213,7 +213,7 @@ private struct OnboardingFeatureRow: View {
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
                 Text(subtitle)
-                    .font(.btFootnote)
+                    .font(.btSubheadline)
                     .foregroundStyle(.btTextSecondary)
             }
 

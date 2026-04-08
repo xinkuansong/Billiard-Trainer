@@ -63,7 +63,7 @@ struct BTSetInputGrid: View {
 
     private var header: some View {
         HStack(spacing: 0) {
-            Text("#")
+            Text("组")
                 .frame(width: 32)
             Text("进球")
                 .frame(width: 52)
@@ -142,7 +142,7 @@ private struct SetRow: View {
             get: { setData.madeBalls > 0 ? "\(setData.madeBalls)" : "" },
             set: { newValue in
                 if let val = Int(newValue), val >= 0 {
-                    setData.madeBalls = val
+                    setData.madeBalls = min(val, setData.targetBalls)
                 } else if newValue.isEmpty {
                     setData.madeBalls = 0
                 }
@@ -172,7 +172,7 @@ private struct SetRow: View {
         }
         .frame(height: 48)
         .padding(.horizontal, Spacing.sm)
-        .background(rowState == .completed ? Color.btPrimaryMuted : Color.clear)
+        .background(rowState == .completed ? Color.btPrimary.opacity(0.06) : Color.clear)
         .overlay(alignment: .leading) {
             if rowState == .active {
                 Rectangle()
@@ -210,15 +210,18 @@ private struct SetRow: View {
 
     private var madeBallsColumn: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(borderColor, lineWidth: rowState == .active ? 1.5 : 1)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(inputCellFill)
-                )
+            if rowState != .completed {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(borderColor, lineWidth: rowState == .active ? 1.5 : 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(inputCellFill)
+                    )
+            }
             if setData.isCompleted {
                 Text("\(setData.madeBalls)")
                     .font(.btHeadline)
+                    .fontWeight(.bold)
                     .foregroundStyle(.btText)
             } else {
                 TextField("-", text: madeBallsText)
@@ -234,15 +237,18 @@ private struct SetRow: View {
 
     private var targetBallsColumn: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.btSeparator, lineWidth: 1)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(inputCellFill)
-                )
+            if rowState != .completed {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color.btSeparator, lineWidth: 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(inputCellFill)
+                    )
+            }
             if setData.isCompleted {
                 Text("\(setData.targetBalls)")
                     .font(.btSubheadline)
+                    .fontWeight(.semibold)
                     .foregroundStyle(.btTextSecondary)
             } else {
                 TextField("", text: targetBallsText)
@@ -272,9 +278,11 @@ private struct SetRow: View {
                 }
             }
             .frame(width: 24, height: 24)
-            .frame(width: 44, height: 44)
+            .frame(width: 48, height: 48)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .highPriorityGesture(TapGesture().onEnded { onComplete() })
         .accessibilityLabel(setData.isCompleted ? "已完成" : "标记完成")
     }
 

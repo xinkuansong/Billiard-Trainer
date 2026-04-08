@@ -20,10 +20,22 @@ struct StatisticsView: View {
             } else if vm.sessions.isEmpty {
                 emptyState
             } else if !subscriptionManager.isPremium {
-                BTPremiumLock(mode: .fullMask) {
-                    showSubscription = true
-                } content: {
-                    statsContent
+                ScrollView {
+                    VStack(spacing: Spacing.lg) {
+                        timeRangePicker
+                        BTPremiumLock(mode: .fullMask) {
+                            showSubscription = true
+                        } content: {
+                            VStack(spacing: Spacing.lg) {
+                                overviewCard
+                                durationCard
+                                successRateCard
+                                categoryComparisonSection
+                            }
+                        }
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.xxxxl)
                 }
             } else {
                 statsContent
