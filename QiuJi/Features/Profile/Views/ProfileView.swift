@@ -60,9 +60,6 @@ struct ProfileView: View {
                 switch destination {
                 case "favorites":
                     FavoriteDrillsView()
-                        .navigationDestination(for: String.self) { drillId in
-                            DrillDetailView(drillId: drillId)
-                        }
                 case "personalInfo":
                     PersonalInfoView()
                 case "trainingGoal":
@@ -74,11 +71,16 @@ struct ProfileView: View {
                 case "about":
                     AboutView()
                 default:
-                    EmptyView()
+                    DrillDetailView(drillId: destination)
                 }
             }
         }
-        .sheet(isPresented: $showLoginSheet) {
+        .sheet(isPresented: $showLoginSheet, onDismiss: {
+            if authState.pendingMigration {
+                authState.pendingMigration = false
+                authState.showMigrationPrompt = true
+            }
+        }) {
             LoginView()
         }
         .sheet(isPresented: $showSubscription) {

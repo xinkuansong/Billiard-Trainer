@@ -83,4 +83,6 @@ Config/Secrets.xcconfig
 
 > 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
 
-_（暂无记录，首次失败后在此追加）_
+### ⛔ FL-001 — xcconfig 中 URL 值含 `://` 会被截断
+**场景**：在 `.xcconfig` 文件中设置包含 `://` 的 URL（如 `API_BASE_URL`、`WECHAT_UNIVERSAL_LINK`）
+**强制检查点**：xcconfig 中 `//` 被解析为注释起始符。所有含 `://` 的值必须使用 `$()` 空变量打断双斜杠：`http:/$()/host:port`。配置修改后必须用 `PlistBuddy` 或 `defaults read` 验证构建产物 Info.plist 中的值完整无截断。

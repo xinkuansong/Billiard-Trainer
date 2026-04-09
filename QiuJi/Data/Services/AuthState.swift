@@ -20,6 +20,8 @@ final class AuthState: ObservableObject {
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var showMigrationPrompt: Bool = false
+    /// Set during login; ProfileView reads this in sheet onDismiss to show the alert after the sheet is gone.
+    @Published var pendingMigration: Bool = false
 
     @Published var hasCompletedOnboarding: Bool {
         didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: "hasCompletedOnboarding") }
@@ -34,11 +36,11 @@ final class AuthState: ObservableObject {
     }
 
     func login(user: AppUser) {
-        let wasAnonymous = isAnonymous
+        let wasLocalOnly = !isLoggedIn
         currentUser = user
         hasCompletedOnboarding = true
-        if wasAnonymous {
-            showMigrationPrompt = true
+        if wasLocalOnly {
+            pendingMigration = true
         }
     }
 

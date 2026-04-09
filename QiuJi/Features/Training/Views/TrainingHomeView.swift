@@ -447,27 +447,38 @@ struct TrainingHomeView: View {
     // MARK: - Empty State
 
     private var emptyStateContent: some View {
-        VStack(spacing: Spacing.lg) {
-            Spacer(minLength: Spacing.xxxxl)
+        VStack(spacing: Spacing.xl) {
+            quickStartBanner
 
-            BTEmptyState(
-                icon: "figure.strengthtraining.traditional",
-                title: "还没有训练计划",
-                subtitle: "选择一个训练计划开始练球，或直接自由记录",
-                actionTitle: "选择训练计划",
-                action: { router.trainingPath.append(TrainingRoute.planList) }
-            )
+            planBrowsingSection
+        }
+        .padding(.vertical, Spacing.md)
+    }
+
+    private var quickStartBanner: some View {
+        VStack(spacing: Spacing.md) {
+            Image(systemName: "figure.strengthtraining.traditional")
+                .font(.system(size: 36))
+                .foregroundStyle(.btTextTertiary)
+
+            Text("选择一个计划开始训练")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
+            Text("或直接进行自由记录")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
 
             Button {
                 activeTrainingMode = .free
             } label: {
                 Text("自由记录")
                     .font(.btCallout.weight(.medium))
-                    .foregroundStyle(.btText)
+                    .foregroundStyle(.btPrimary)
             }
-
-            Spacer(minLength: Spacing.xxxxl)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.xl)
     }
 
     // MARK: - Fixed Start Button

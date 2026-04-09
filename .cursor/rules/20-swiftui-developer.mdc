@@ -138,3 +138,7 @@ case profile     // 我的
 ### ⛔ FL-009 — 训练记录页必须嵌入 BTBilliardTable
 **场景**：开发训练中 Drill 记录界面时
 **强制检查点**：`BTBilliardTable` Canvas 组件嵌入为 DoD 强制项。Drill 记录页顶部必须展示球台动画（来自 Drill JSON 的 animation 数据），让用户训练时可参照球路示意。
+
+### ⛔ FL-002 — Sheet dismiss 与 Alert 展示时序冲突
+**场景**：在 `.sheet` 内修改 `@Published` 状态后需要在父视图弹出 `.alert` 时（如登录后弹数据迁移提示）
+**强制检查点**：禁止在 Sheet 内直接设置触发父视图 Alert 的布尔值后立即 `dismiss()`。SwiftUI 在 Sheet 动画期间不会呈现新 Alert。正确做法：设置 `pending` 标志 → `dismiss()` → 在 `.sheet(onDismiss:)` 回调中将 `pending` 转为 `showAlert = true`。

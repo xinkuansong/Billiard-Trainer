@@ -222,3 +222,25 @@
 - **日期**：2026-04-05
 - **回写目标**：`20-swiftui-developer.mdc` § Dark Mode 模式
 - **已应用至**：✅ `UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-04-05）
+
+## FL-001
+- **任务**：QA-P2（人工测试）
+- **现象**：Apple 登录请求 URL 为 `http://auth/login-apple`（API_BASE_URL 未正确注入），后端不可达
+- **严重程度**：P1
+- **关联检查项**：TP-P2 流程8-①
+- **根因**：xcconfig 中 `//` 被当作注释，`http://106.54.3.210:3000` 被截断为 `http:`；`URL(string: "http:").appendingPathComponent("/auth/login-apple")` 产生畸形 URL
+- **解决**：✅ 使用 `$()` 空变量打断双斜杠：`API_BASE_URL = http:/$()/106.54.3.210:3000`；构建后 Info.plist 验证正确
+- **日期**：2026-04-10
+- **规则改进建议**：xcconfig 中含 `://` 的 URL 值必须使用 `$()` 打断双斜杠（`http:/$()/...`），否则后半段被丢弃
+- **已应用至**：✅ `60-devops-release.mdc` § 经验教训 / FL-001（2026-04-10）
+
+## FL-002
+- **任务**：QA-P2（人工测试）
+- **现象**：Sign in with Apple 登录成功后未弹出数据迁移 Alert
+- **严重程度**：P2
+- **关联检查项**：TP-P2 流程6-⑤
+- **根因**：(1) `AuthState.login()` 中 `wasAnonymous` 仅检查 `provider == .anonymous`，但首次用户 `currentUser` 为 `nil`，条件不满足；(2) `LoginView` 在 `authState.login()` 后立即 `dismiss()`，Sheet 动画中 ProfileView 无法弹 Alert
+- **解决**：✅ 条件改为 `!isLoggedIn`（覆盖 nil 和 anonymous）；新增 `pendingMigration` 标志，在 Sheet `onDismiss` 回调中触发 Alert
+- **日期**：2026-04-10
+- **规则改进建议**：Sheet 中修改全局状态后需 Alert 时，应通过 pending 标志 + onDismiss 延迟触发，避免 SwiftUI 动画冲突
+- **已应用至**：✅ `20-swiftui-developer.mdc` § 经验教训 / FL-002（2026-04-10）
