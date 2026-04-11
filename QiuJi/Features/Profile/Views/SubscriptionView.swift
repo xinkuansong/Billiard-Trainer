@@ -184,11 +184,28 @@ struct SubscriptionView: View {
                 )
             }
 
-            if subscriptionManager.products.isEmpty && subscriptionManager.isLoading {
-                ProgressView()
-                    .tint(.white)
+            if subscriptionManager.products.isEmpty {
+                if subscriptionManager.isLoading {
+                    ProgressView()
+                        .tint(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 100)
+                } else {
+                    VStack(spacing: Spacing.sm) {
+                        Text(subscriptionManager.errorMessage ?? "无法加载订阅方案")
+                            .font(.btCaption2)
+                            .foregroundStyle(.white.opacity(0.5))
+                        Button {
+                            Task { await subscriptionManager.retryLoadProducts() }
+                        } label: {
+                            Label("重试", systemImage: "arrow.clockwise")
+                                .font(.btCaption2)
+                                .foregroundStyle(goldColor)
+                        }
+                    }
                     .frame(maxWidth: .infinity)
                     .frame(height: 100)
+                }
             }
         }
     }

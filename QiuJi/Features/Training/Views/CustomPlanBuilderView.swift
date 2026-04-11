@@ -184,16 +184,21 @@ struct CustomPlanBuilderView: View {
             if viewModel.drillItems.isEmpty {
                 emptyDrillsPlaceholder
             } else {
-                VStack(spacing: 0) {
+                List {
                     ForEach(Array(viewModel.drillItems.enumerated()), id: \.element.id) { index, item in
-                        if index > 0 {
-                            Divider()
-                                .padding(.leading, Spacing.xxxl + Spacing.xxxxl)
-                        }
                         drillRow(item: item, index: index)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.btBGSecondary)
+                    }
+                    .onMove { source, destination in
+                        viewModel.moveDrills(from: source, to: destination)
                     }
                 }
-                .background(.btBGSecondary)
+                .listStyle(.plain)
+                .environment(\.editMode, .constant(.active))
+                .scrollDisabled(true)
+                .frame(height: CGFloat(viewModel.drillItems.count) * 80)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             }
         }
@@ -201,10 +206,6 @@ struct CustomPlanBuilderView: View {
 
     private func drillRow(item: CustomDrillItem, index: Int) -> some View {
         HStack(spacing: Spacing.lg) {
-            Image(systemName: "line.3.horizontal")
-                .font(.btCallout)
-                .foregroundStyle(.btTextTertiary)
-
             miniTableThumbnail
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -236,7 +237,8 @@ struct CustomPlanBuilderView: View {
                     .contentShape(Rectangle())
             }
         }
-        .padding(Spacing.lg)
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.sm)
     }
 
     private var miniTableThumbnail: some View {

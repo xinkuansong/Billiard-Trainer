@@ -39,12 +39,36 @@ final class SubscriptionManager: ObservableObject {
         guard products.isEmpty else { return }
         isLoading = true
         defer { isLoading = false }
+
+        let ids = StoreKitService.allProductIDs
+        print("[StoreKit] ⏳ Requesting products for IDs: \(ids)")
+
         do {
-            products = try await service.loadProducts()
-                .sorted { $0.price < $1.price }
+            let loaded = try await service.loadProducts()
+            products = loaded.sorted { $0.price < $1.price }
+            if loaded.isEmpty {
+                print("[StoreKit] ⚠️ Product.products returned EMPTY")
+                print("[StoreKit] 💡 Check: Xcode → Edit Scheme → Run → Options → StoreKit Configuration → select Products.storekit")
+                #if targetEnvironment(simulator)
+                print("[StoreKit] Running on Simulator")
+                #else
+                print("[StoreKit] Running on Device — ensure launched from Xcode")
+                #endif
+                errorMessage = "未找到订阅方案。请在 Xcode Edit Scheme → Run → Options 中选择 Products.storekit"
+            } else {
+                print("[StoreKit] ✅ Loaded \(loaded.count) products: \(loaded.map { "\($0.id) (\($0.displayPrice))" })")
+                errorMessage = nil
+            }
         } catch {
-            errorMessage = "无法加载订阅方案"
+            print("[StoreKit] ❌ loadProducts error: \(error)")
+            errorMessage = "加载失败：\(error.localizedDescription)"
         }
+    }
+
+    func retryLoadProducts() async {
+        products = []
+        errorMessage = nil
+        await loadProducts()
     }
 
     // MARK: - Check Entitlements

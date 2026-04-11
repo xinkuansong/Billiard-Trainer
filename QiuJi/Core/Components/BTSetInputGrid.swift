@@ -8,13 +8,15 @@ struct DrillSetData: Identifiable {
     var targetBalls: Int
     var isCompleted: Bool
     var isWarmup: Bool
+    var duration: TimeInterval?
 
-    init(id: Int, madeBalls: Int = 0, targetBalls: Int = 15, isCompleted: Bool = false, isWarmup: Bool = false) {
+    init(id: Int, madeBalls: Int = 0, targetBalls: Int = 15, isCompleted: Bool = false, isWarmup: Bool = false, duration: TimeInterval? = nil) {
         self.id = id
         self.madeBalls = madeBalls
         self.targetBalls = targetBalls
         self.isCompleted = isCompleted
         self.isWarmup = isWarmup
+        self.duration = duration
     }
 }
 
@@ -25,6 +27,8 @@ struct BTSetInputGrid: View {
     var onAddSet: () -> Void
     var onComplete: (Int) -> Void
     var onDeleteSet: ((Int) -> Void)? = nil
+    var showSetTimer: Bool = false
+    var showSuccessRate: Bool = false
 
     private var activeIndex: Int? {
         sets.firstIndex(where: { !$0.isCompleted })
@@ -42,6 +46,8 @@ struct BTSetInputGrid: View {
                     SetRow(
                         setData: $sets[index],
                         rowState: rowState(for: index),
+                        showSetTimer: showSetTimer,
+                        showSuccessRate: showSuccessRate,
                         onComplete: { onComplete(index) },
                         onDelete: onDeleteSet != nil ? { onDeleteSet?(index) } : nil
                     )
@@ -66,10 +72,17 @@ struct BTSetInputGrid: View {
             Text("组")
                 .frame(width: 32)
             Text("进球")
-                .frame(width: 52)
+                .frame(maxWidth: .infinity)
             Text("总球")
-                .frame(width: 52)
-            Spacer()
+                .frame(maxWidth: .infinity)
+            if showSetTimer {
+                Text("时间")
+                    .frame(maxWidth: .infinity)
+            }
+            if showSuccessRate {
+                Text("成功率")
+                    .frame(maxWidth: .infinity)
+            }
             Image(systemName: "checkmark")
                 .frame(width: 44)
             Image(systemName: "ellipsis")
@@ -132,6 +145,8 @@ struct BTSetInputGrid: View {
 private struct SetRow: View {
     @Binding var setData: DrillSetData
     let rowState: BTSetInputGrid.RowState
+    let showSetTimer: Bool
+    let showSuccessRate: Bool
     let onComplete: () -> Void
     var onDelete: (() -> Void)? = nil
 
@@ -166,7 +181,12 @@ private struct SetRow: View {
             setNumberColumn
             madeBallsColumn
             targetBallsColumn
-            Spacer()
+            if showSetTimer {
+                timerColumn
+            }
+            if showSuccessRate {
+                successRateColumn
+            }
             checkColumn
             menuColumn
         }
@@ -232,7 +252,7 @@ private struct SetRow: View {
             }
         }
         .frame(width: 44, height: 36)
-        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity)
     }
 
     private var targetBallsColumn: some View {
@@ -259,7 +279,7 @@ private struct SetRow: View {
             }
         }
         .frame(width: 44, height: 36)
-        .padding(.horizontal, 4)
+        .frame(maxWidth: .infinity)
     }
 
     private var checkColumn: some View {
@@ -307,6 +327,52 @@ private struct SetRow: View {
                 .frame(width: 44, height: 44)
                 .accessibilityLabel("更多操作")
         }
+    }
+
+    private var timerColumn: some View {
+        Group {
+            if setData.isCompleted, let duration = setData.duration {
+                Text(Self.formatDuration(duration))
+                    .font(.btCaption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.btTextSecondary)
+            } else {
+                Text("-")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var successRateColumn: some View {
+        Group {
+            if setData.isCompleted, setData.targetBalls > 0 {
+                let rate = Double(setData.madeBalls) / Double(setData.targetBalls)
+                Text("\(Int(rate * 100))%")
+                    .font(.btCaption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Self.rateColor(rate))
+            } else {
+                Text("-")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private static func formatDuration(_ seconds: TimeInterval) -> String {
+        let totalSeconds = Int(seconds)
+        let mins = totalSeconds / 60
+        let secs = totalSeconds % 60
+        return String(format: "%d:%02d", mins, secs)
+    }
+
+    private static func rateColor(_ rate: Double) -> Color {
+        if rate >= 0.9 { return .btSuccess }
+        if rate >= 0.7 { return .btPrimary }
+        return .btTextSecondary
     }
 
     private var borderColor: Color {

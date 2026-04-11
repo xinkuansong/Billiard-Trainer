@@ -36,6 +36,18 @@ struct BTPremiumLock<Content: View>: View {
     private var progressiveLock: some View {
         VStack(spacing: 0) {
             content()
+                .mask(
+                    LinearGradient(
+                        stops: [
+                            .init(color: .black, location: 0),
+                            .init(color: .black, location: 0.25),
+                            .init(color: .clear, location: 0.65),
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+                .allowsHitTesting(false)
 
             VStack(spacing: Spacing.md) {
                 lockIcon

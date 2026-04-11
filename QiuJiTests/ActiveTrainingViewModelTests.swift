@@ -30,13 +30,13 @@ final class ActiveTrainingViewModelTests: XCTestCase {
 
     func test_formattedTime_zero() {
         let vm = ActiveTrainingViewModel(mode: .free)
-        XCTAssertEqual(vm.formattedTime, "00:00")
+        XCTAssertEqual(vm.formattedTime, "00:00:00")
     }
 
     func test_formattedTime_65_seconds() {
         let vm = ActiveTrainingViewModel(mode: .free)
         vm.elapsedSeconds = 65
-        XCTAssertEqual(vm.formattedTime, "01:05")
+        XCTAssertEqual(vm.formattedTime, "00:01:05")
     }
 
     // MARK: - Progress

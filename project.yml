@@ -23,7 +23,7 @@ settings:
     ENABLE_PREVIEWS: YES
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: KWH2GRNSKG
     INFOPLIST_FILE: QiuJi/Resources/Info.plist
     CODE_SIGN_STYLE: Automatic
 
@@ -57,6 +57,14 @@ targets:
       properties:
         CFBundleName: 球迹
         CFBundleDisplayName: 球迹
+        NSSupportsLiveActivities: true
+        UIBackgroundModes:
+          - audio
+        NSAppTransportSecurity:
+          NSExceptionDomains:
+            106.54.3.210:
+              NSExceptionAllowsInsecureHTTPLoads: true
+              NSIncludesSubdomains: true
         LSApplicationQueriesSchemes:
           - weixin
           - weixinULAPI
@@ -71,6 +79,74 @@ targets:
           UIColorName: ""
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-    dependencies: []
+    dependencies:
+      - target: QiuJiLiveActivityExtension
+
+  QiuJiLiveActivityExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: QiuJiLiveActivity
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - path: QiuJiLiveActivity/Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.liveactivity
+        PRODUCT_NAME: QiuJiLiveActivityExtension
+        INFOPLIST_FILE: QiuJiLiveActivity/Info.plist
+        GENERATE_INFOPLIST_FILE: YES
+        SKIP_INSTALL: YES
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/../../Frameworks"
+
+  QiuJiTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: QiuJiTests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.tests
+    dependencies:
+      - target: QiuJi
+
+  QiuJiUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: QiuJiUITests
+        excludes:
+          - "**/.DS_Store"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.uitests
+    dependencies:
+      - target: QiuJi
+
+schemes:
+  QiuJi:
+    build:
+      targets:
+        QiuJi: all
+        QiuJiTests: [test]
+        QiuJiUITests: [test]
+    run:
+      config: Debug
+      storeKitConfiguration: QiuJi/Resources/Products.storekit
+    test:
+      config: Debug
+      targets:
+        - QiuJiTests
+        - QiuJiUITests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
 
 packages: {}

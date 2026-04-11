@@ -6,8 +6,8 @@ struct ActiveTrainingView: View {
     @EnvironmentObject private var router: AppRouter
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showShareView = false
-    @State private var showingOverview = true
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -50,8 +50,14 @@ struct ActiveTrainingView: View {
                         }
                     )
                 }
+
+                if viewModel.isRestTimerActive {
+                    restCountdownOverlay
+                        .transition(.opacity)
+                }
             }
             .animation(.easeInOut(duration: 0.3), value: viewModel.trainingPhase)
+            .animation(.easeInOut(duration: 0.25), value: viewModel.isRestTimerActive)
             .navigationTitle(phaseTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(
@@ -125,6 +131,14 @@ struct ActiveTrainingView: View {
             }
         }
         .interactiveDismissDisabled()
+        .onChange(of: viewModel.isRestTimerActive) { _, isActive in
+            UIApplication.shared.isIdleTimerDisabled = isActive
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                viewModel.refreshTimers()
+            }
+        }
         .task {
             await viewModel.loadDrills()
             if viewModel.isPlanMode && !viewModel.drills.isEmpty {
@@ -177,7 +191,7 @@ struct ActiveTrainingView: View {
                 ProgressView()
             } else if viewModel.drills.isEmpty {
                 emptyState
-            } else if showingOverview {
+            } else if viewModel.showingOverview {
                 overviewContent
             } else {
                 drillRecordContent
@@ -205,7 +219,7 @@ struct ActiveTrainingView: View {
                             onTap: {
                                 viewModel.currentDrillIndex = index
                                 withAnimation(.easeInOut(duration: 0.25)) {
-                                    showingOverview = false
+                                    viewModel.showingOverview = false
                                 }
                             }
                         )
@@ -493,10 +507,10 @@ struct ActiveTrainingView: View {
                 tint: .btPrimary
             ) {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    showingOverview.toggle()
+                    viewModel.showingOverview.toggle()
                 }
             }
-            .accessibilityLabel(showingOverview ? "切换到单项视图" : "切换到总览视图")
+            .accessibilityLabel(viewModel.showingOverview ? "切换到单项视图" : "切换到总览视图")
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
@@ -527,6 +541,116 @@ struct ActiveTrainingView: View {
             }
             .frame(width: 56)
         }
+    }
+
+    // MARK: - Rest Countdown Overlay
+
+    private var restCountdownOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.3)
+                .ignoresSafeArea()
+
+            VStack {
+                Spacer()
+
+                VStack(spacing: 0) {
+                    Spacer().frame(height: Spacing.xxl)
+
+                    ZStack {
+                        Circle()
+                            .stroke(Color.btSeparator.opacity(0.3), lineWidth: 12)
+                            .frame(width: 200, height: 200)
+
+                        Circle()
+                            .trim(from: 0, to: restProgress)
+                            .stroke(
+                                Color.btPrimary,
+                                style: StrokeStyle(lineWidth: 12, lineCap: .round)
+                            )
+                            .frame(width: 200, height: 200)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.linear(duration: 1), value: viewModel.restSecondsRemaining)
+
+                        Circle()
+                            .stroke(Color.btSeparator.opacity(0.15), lineWidth: 10)
+                            .frame(width: 150, height: 150)
+
+                        Circle()
+                            .trim(from: 0, to: restProgress)
+                            .stroke(
+                                Color.btAccent,
+                                style: StrokeStyle(lineWidth: 10, lineCap: .round)
+                            )
+                            .frame(width: 150, height: 150)
+                            .rotationEffect(.degrees(-90))
+                            .animation(.linear(duration: 1), value: viewModel.restSecondsRemaining)
+
+                        VStack(spacing: 4) {
+                            Text(restTimeFormatted)
+                                .font(.system(size: 32, weight: .bold, design: .default))
+                                .foregroundStyle(.btText)
+                                .contentTransition(.numericText())
+                                .animation(.default, value: viewModel.restSecondsRemaining)
+
+                            Text("组间休息")
+                                .font(.system(size: 13))
+                                .foregroundStyle(.btTextSecondary)
+                        }
+                    }
+
+                    Spacer().frame(height: 48)
+
+                    HStack(spacing: 12) {
+                        Button {
+                            viewModel.addRestTime(30)
+                        } label: {
+                            Text("+30S")
+                                .font(.system(size: 14, weight: .semibold))
+                                .tracking(0.7)
+                                .foregroundStyle(.btTextSecondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.btSeparator.opacity(0.3))
+                                .clipShape(Capsule())
+                        }
+
+                        Button {
+                            viewModel.skipRestTimer()
+                        } label: {
+                            Text("完成休息")
+                                .font(.system(size: 14, weight: .semibold))
+                                .tracking(0.7)
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Color.btPrimary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, Spacing.xxl)
+
+                    Spacer().frame(height: Spacing.xxl)
+                }
+                .frame(maxWidth: .infinity)
+                .background(Color.btBGSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+                .shadow(color: .black.opacity(0.15), radius: 20, x: 0, y: 8)
+                .padding(.horizontal, Spacing.lg)
+
+                Spacer()
+            }
+        }
+    }
+
+    private var restProgress: CGFloat {
+        guard viewModel.restTotalSeconds > 0 else { return 0 }
+        return CGFloat(viewModel.restSecondsRemaining) / CGFloat(viewModel.restTotalSeconds)
+    }
+
+    private var restTimeFormatted: String {
+        let m = viewModel.restSecondsRemaining / 60
+        let s = viewModel.restSecondsRemaining % 60
+        return "\(m):\(String(format: "%02d", s))"
     }
 
     // MARK: - Empty State (Free Mode)

@@ -10,6 +10,8 @@ enum BallTypeFilter: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static let displayCases: [BallTypeFilter] = [.all, .chinese8, .nineBall]
+
     func matches(_ drill: DrillContent) -> Bool {
         switch self {
         case .all:
@@ -64,8 +66,7 @@ final class DrillListViewModel: ObservableObject {
             let query = searchText.lowercased()
             filtered = filtered.filter {
                 $0.nameZh.lowercased().contains(query) ||
-                $0.nameEn.lowercased().contains(query) ||
-                $0.description.lowercased().contains(query)
+                $0.nameEn.lowercased().contains(query)
             }
         }
 

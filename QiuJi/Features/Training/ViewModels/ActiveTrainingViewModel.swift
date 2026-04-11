@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
 import SwiftData
+import UIKit
+import AudioToolbox
 
 // MARK: - Supporting Types
 
@@ -99,6 +101,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var trainingNote: String = ""
     @Published var saveError: String?
     @Published var didSaveSuccessfully: Bool = false
+    @Published var showingOverview: Bool = true
 
     // Recording state per drill
     @Published var drillSetsData: [[DrillSetData]] = []
@@ -108,9 +111,17 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var restDuration: Int = 60
     @Published var restSecondsRemaining: Int = 0
     @Published var isRestTimerActive: Bool = false
+    @Published var restTotalSeconds: Int = 0
 
     private var timerTask: Task<Void, Never>?
-    private var restTimerTask: Task<Void, Never>?
+    private var restTimer: DispatchSourceTimer?
+    private var pendingDrillAdvance: Int?
+    private let liveActivityManager = RestTimerLiveActivityManager.shared
+
+    private var hasLoaded = false
+    private var timerStartDate: Date?
+    private var accumulatedBeforePause: Int = 0
+    private var restEndDate: Date?
 
     var currentDrill: ActiveDrill? {
         guard !drills.isEmpty, currentDrillIndex >= 0, currentDrillIndex < drills.count else { return nil }
@@ -150,6 +161,8 @@ final class ActiveTrainingViewModel: ObservableObject {
     // MARK: - Data Loading
 
     func loadDrills() async {
+        guard !hasLoaded else { return }
+        hasLoaded = true
         isLoading = true
         defer { isLoading = false }
 
@@ -185,11 +198,12 @@ final class ActiveTrainingViewModel: ObservableObject {
     func startTimer() {
         guard !isTimerSkipped, !isTimerRunning else { return }
         isTimerRunning = true
+        timerStartDate = Date()
         timerTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled else { break }
-                self?.elapsedSeconds += 1
+                self?.recalculateElapsed()
             }
         }
     }
@@ -198,6 +212,29 @@ final class ActiveTrainingViewModel: ObservableObject {
         isTimerRunning = false
         timerTask?.cancel()
         timerTask = nil
+        recalculateElapsed()
+        accumulatedBeforePause = elapsedSeconds
+        timerStartDate = nil
+    }
+
+    private func recalculateElapsed() {
+        guard let start = timerStartDate else { return }
+        elapsedSeconds = accumulatedBeforePause + Int(Date().timeIntervalSince(start))
+    }
+
+    func refreshTimers() {
+        if isTimerRunning {
+            recalculateElapsed()
+        }
+        if isRestTimerActive, let end = restEndDate {
+            let remaining = Int(ceil(end.timeIntervalSinceNow))
+            if remaining <= 0 {
+                restSecondsRemaining = 0
+                onRestComplete()
+            } else {
+                restSecondsRemaining = remaining
+            }
+        }
     }
 
     func toggleTimer() {
@@ -319,14 +356,21 @@ final class ActiveTrainingViewModel: ObservableObject {
         let wasCompleted = drillSetsData[drillIndex][setIndex].isCompleted
         drillSetsData[drillIndex][setIndex].isCompleted.toggle()
 
+        guard !wasCompleted else { return }
+
         if drillSetsData[drillIndex].allSatisfy({ $0.isCompleted }) {
             if drillIndex < drills.count - 1 {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-                    self?.currentDrillIndex = drillIndex + 1
-                }
+                pendingDrillAdvance = drillIndex + 1
             }
-        } else if !wasCompleted && restDuration > 0 {
+        }
+
+        if restDuration > 0 {
             startRestTimer()
+        } else if let next = pendingDrillAdvance {
+            pendingDrillAdvance = nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                self?.currentDrillIndex = next
+            }
         }
     }
 
@@ -347,32 +391,80 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func startRestTimer() {
         stopRestTimer()
+        restTotalSeconds = restDuration
         restSecondsRemaining = restDuration
         isRestTimerActive = true
-        restTimerTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
-                guard !Task.isCancelled else { break }
-                guard let self else { break }
-                if self.restSecondsRemaining > 0 {
-                    self.restSecondsRemaining -= 1
-                } else {
-                    self.isRestTimerActive = false
-                    break
+        restEndDate = Date().addingTimeInterval(Double(restDuration))
+
+        let drillName = currentDrill?.nameZh ?? "训练"
+        liveActivityManager.startActivity(drillName: drillName, totalSeconds: restDuration, endDate: restEndDate!)
+        liveActivityManager.activateBackgroundAudio()
+
+        let timer = DispatchSource.makeTimerSource(queue: .main)
+        timer.schedule(deadline: .now() + 1, repeating: 1)
+        timer.setEventHandler { [weak self] in
+            guard let self, let end = self.restEndDate else { return }
+            let remaining = Int(ceil(end.timeIntervalSinceNow))
+            if remaining > 0 {
+                self.restSecondsRemaining = remaining
+                if remaining <= 10 {
+                    AudioServicesPlaySystemSound(1057)
                 }
+            } else {
+                self.restSecondsRemaining = 0
+                self.onRestComplete()
+            }
+        }
+        timer.resume()
+        restTimer = timer
+    }
+
+    private func onRestComplete() {
+        restTimer?.cancel()
+        restTimer = nil
+        liveActivityManager.endActivity()
+        liveActivityManager.deactivateBackgroundAudio()
+        AudioServicesPlaySystemSound(1005)
+        let generator = UINotificationFeedbackGenerator()
+        generator.prepare()
+        generator.notificationOccurred(.success)
+        Task {
+            try? await Task.sleep(for: .milliseconds(800))
+            isRestTimerActive = false
+            if let next = pendingDrillAdvance {
+                pendingDrillAdvance = nil
+                currentDrillIndex = next
             }
         }
     }
 
     func stopRestTimer() {
-        restTimerTask?.cancel()
-        restTimerTask = nil
+        restTimer?.cancel()
+        restTimer = nil
         isRestTimerActive = false
         restSecondsRemaining = 0
+        restTotalSeconds = 0
+        restEndDate = nil
+        liveActivityManager.endActivity()
+        liveActivityManager.deactivateBackgroundAudio()
     }
 
     func skipRestTimer() {
+        let hadPendingAdvance = pendingDrillAdvance
         stopRestTimer()
+        if let next = hadPendingAdvance {
+            pendingDrillAdvance = nil
+            currentDrillIndex = next
+        }
+    }
+
+    func addRestTime(_ seconds: Int) {
+        restSecondsRemaining += seconds
+        restTotalSeconds += seconds
+        restEndDate = restEndDate?.addingTimeInterval(Double(seconds))
+        if let end = restEndDate {
+            liveActivityManager.updateEndDate(end)
+        }
     }
 
     func setsBinding(for index: Int) -> Binding<[DrillSetData]> {

@@ -1,13 +1,23 @@
 {
-  "identifier" : "F3A1B2C4-D5E6-7890-ABCD-EF1234567890",
-  "nonRenewableSubscriptions" : [
+  "appPolicies" : {
+    "eula" : "",
+    "policies" : [
+      {
+        "locale" : "zh_CN",
+        "policyText" : "",
+        "policyURL" : ""
+      }
+    ]
+  },
+  "identifier" : "FCEFFBB2",
+  "nonRenewingSubscriptions" : [
 
   ],
   "products" : [
     {
-      "displayPrice" : "198.00",
+      "displayPrice" : "198",
       "familyShareable" : false,
-      "internalID" : "A1B2C3D4-0001-0001-0001-000000000001",
+      "internalID" : "A17D7B5E",
       "localizations" : [
         {
           "description" : "一次购买，终身享用全部 Pro 功能",
@@ -15,42 +25,30 @@
           "locale" : "zh_CN"
         }
       ],
-      "productID" : "com.yourname.billiardtrainer.premium.lifetime",
+      "productID" : "com.xinkuan.qiuji.premium.lifetime",
       "referenceName" : "终身买断",
       "type" : "NonConsumable"
     }
   ],
   "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingGracePeriodEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogs" : false,
     "_failTransactionsEnabled" : false,
     "_locale" : "zh_CN",
+    "_renewalBillingIssuesEnabled" : false,
     "_storefront" : "CHN",
     "_storeKitErrors" : [
-      {
-        "current" : null,
-        "enabled" : false,
-        "name" : "loadProductsFailure"
-      },
-      {
-        "current" : null,
-        "enabled" : false,
-        "name" : "purchaseFailure"
-      },
-      {
-        "current" : null,
-        "enabled" : false,
-        "name" : "verificationFailure"
-      }
-    ]
+
+    ],
+    "_timeRate" : 0
   },
   "subscriptionGroups" : [
     {
-      "id" : "B2C3D4E5-0002-0002-0002-000000000002",
+      "id" : "B2C3D4E5",
       "localizations" : [
-        {
-          "description" : "解锁全部训练内容、统计图表与无限功能",
-          "displayName" : "球迹 Pro",
-          "locale" : "zh_CN"
-        }
+
       ],
       "name" : "球迹 Pro",
       "subscriptions" : [
@@ -61,15 +59,11 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "18.00",
+          "displayPrice" : "18",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "C3D4E5F6-0003-0003-0003-000000000003",
-          "introductoryOffer" : {
-            "internalID" : "D4E5F6A7-0004-0004-0004-000000000004",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
+          "internalID" : "B9485564",
+          "introductoryOffer" : null,
           "localizations" : [
             {
               "description" : "按月订阅，随时取消",
@@ -77,10 +71,10 @@
               "locale" : "zh_CN"
             }
           ],
-          "productID" : "com.yourname.billiardtrainer.premium.monthly",
+          "productID" : "com.xinkuan.qiuji.premium.monthly",
           "recurringSubscriptionPeriod" : "P1M",
           "referenceName" : "月订阅",
-          "subscriptionGroupID" : "B2C3D4E5-0002-0002-0002-000000000002",
+          "subscriptionGroupID" : "B2C3D4E5",
           "type" : "RecurringSubscription"
         },
         {
@@ -90,26 +84,22 @@
           "codeOffers" : [
 
           ],
-          "displayPrice" : "88.00",
+          "displayPrice" : "88",
           "familyShareable" : false,
           "groupNumber" : 1,
-          "internalID" : "E5F6A7B8-0005-0005-0005-000000000005",
-          "introductoryOffer" : {
-            "internalID" : "F6A7B8C9-0006-0006-0006-000000000006",
-            "paymentMode" : "free",
-            "subscriptionPeriod" : "P1W"
-          },
+          "internalID" : "3615539B",
+          "introductoryOffer" : null,
           "localizations" : [
             {
-              "description" : "按年订阅，月均仅 ¥7.3，节省超 60%",
+              "description" : "按年订阅，节省超 60%",
               "displayName" : "球迹 Pro 年度",
               "locale" : "zh_CN"
             }
           ],
-          "productID" : "com.yourname.billiardtrainer.premium.yearly",
+          "productID" : "com.xinkuan.qiuji.premium.yearly",
           "recurringSubscriptionPeriod" : "P1Y",
           "referenceName" : "年订阅",
-          "subscriptionGroupID" : "B2C3D4E5-0002-0002-0002-000000000002",
+          "subscriptionGroupID" : "B2C3D4E5",
           "type" : "RecurringSubscription"
         }
       ]

@@ -7,8 +7,6 @@ struct TrainingHomeView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
-    @State private var activeTrainingMode: TrainingMode?
-    @State private var resumedTrainingVM: ActiveTrainingViewModel?
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
 
     var body: some View {
@@ -40,18 +38,14 @@ struct TrainingHomeView: View {
             await viewModel.load(context: modelContext)
         }
         .onReceive(NotificationCenter.default.publisher(for: .didRequestResumeTraining)) { _ in
-            guard let vm = router.resumeTrainingVM() else { return }
-            resumedTrainingVM = vm
-            activeTrainingMode = vm.mode
+            router.resumeMinimizedTraining()
         }
-        .fullScreenCover(item: $activeTrainingMode) {
-            resumedTrainingVM = nil
+        .fullScreenCover(item: $router.activeTrainingMode) {
+            router.onTrainingDismissed()
             Task { await viewModel.load(context: modelContext) }
-        } content: { mode in
-            if let vm = resumedTrainingVM {
+        } content: { _ in
+            if let vm = router.activeTrainingVM {
                 ActiveTrainingView(viewModel: vm)
-            } else {
-                ActiveTrainingView(viewModel: ActiveTrainingViewModel(mode: mode))
             }
         }
     }
@@ -161,7 +155,7 @@ struct TrainingHomeView: View {
                     .foregroundStyle(.btSuccess)
             } else if isCurrentDrill {
                 Button {
-                    activeTrainingMode = .plan(drills: session.drills)
+                    router.startTraining(mode: .plan(drills: session.drills))
                 } label: {
                     Text("GO!")
                         .font(.btFootnote14.weight(.bold))
@@ -470,7 +464,7 @@ struct TrainingHomeView: View {
                 .foregroundStyle(.btTextSecondary)
 
             Button {
-                activeTrainingMode = .free
+                router.startTraining(mode: .free)
             } label: {
                 Text("自由记录")
                     .font(.btCallout.weight(.medium))
@@ -502,9 +496,9 @@ struct TrainingHomeView: View {
             } else {
                 Button {
                     if let session = viewModel.todaySession {
-                        activeTrainingMode = .plan(drills: session.drills)
+                        router.startTraining(mode: .plan(drills: session.drills))
                     } else {
-                        activeTrainingMode = .free
+                        router.startTraining(mode: .free)
                     }
                 } label: {
                     Text("开始训练")
@@ -527,9 +521,7 @@ struct TrainingHomeView: View {
     }
 
     private func resumeMinimizedTraining() {
-        guard let vm = router.resumeTrainingVM() else { return }
-        resumedTrainingVM = vm
-        activeTrainingMode = vm.mode
+        router.resumeMinimizedTraining()
     }
 }
 

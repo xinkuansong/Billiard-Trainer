@@ -37,18 +37,31 @@ final class AppRouter: ObservableObject {
     @Published var historyPath = NavigationPath()
     @Published var profilePath = NavigationPath()
 
+    @Published var activeTrainingMode: TrainingMode?
     @Published var minimizedTrainingVM: ActiveTrainingViewModel?
+    var activeTrainingVM: ActiveTrainingViewModel?
 
     var isTrainingMinimized: Bool { minimizedTrainingVM != nil }
+
+    func startTraining(mode: TrainingMode) {
+        let vm = ActiveTrainingViewModel(mode: mode)
+        activeTrainingVM = vm
+        activeTrainingMode = mode
+    }
+
+    func resumeMinimizedTraining() {
+        guard let vm = minimizedTrainingVM else { return }
+        minimizedTrainingVM = nil
+        activeTrainingVM = vm
+        activeTrainingMode = vm.mode
+    }
 
     func minimizeTraining(_ vm: ActiveTrainingViewModel) {
         minimizedTrainingVM = vm
     }
 
-    func resumeTrainingVM() -> ActiveTrainingViewModel? {
-        let vm = minimizedTrainingVM
-        minimizedTrainingVM = nil
-        return vm
+    func onTrainingDismissed() {
+        activeTrainingVM = nil
     }
 
     func switchTab(_ tab: AppTab) {

@@ -14,6 +14,7 @@ struct DrillRecordView: View {
     @State private var showSetTimer = true
     @State private var showSuccessRate = true
     @State private var showRestPicker = false
+    @State private var activeSetStartTime: Date?
     @Environment(\.colorScheme) private var colorScheme
 
     private var totalMade: Int {
@@ -48,12 +49,14 @@ struct DrillRecordView: View {
                 BTSetInputGrid(
                     sets: $setsData,
                     onAddSet: onAddSet,
-                    onComplete: onCompleteSet,
-                    onDeleteSet: onDeleteSet
+                    onComplete: handleCompleteSet,
+                    onDeleteSet: onDeleteSet,
+                    showSetTimer: showSetTimer,
+                    showSuccessRate: showSuccessRate
                 )
 
-                if isAllCompleted {
-                    completedBanner
+                if totalTarget > 0 {
+                    liveStatsBanner
                 }
 
                 if drill.animation != nil {
@@ -62,6 +65,14 @@ struct DrillRecordView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
+        }
+        .onAppear {
+            if showSetTimer {
+                activeSetStartTime = Date()
+            }
+        }
+        .onChange(of: showSetTimer) { _, newValue in
+            activeSetStartTime = newValue ? Date() : nil
         }
     }
 
@@ -76,6 +87,44 @@ struct DrillRecordView: View {
             madeBalls: totalMade,
             targetBalls: totalTarget
         )
+    }
+
+    // MARK: - Live Stats Banner
+
+    private var liveStatsBanner: some View {
+        HStack(spacing: Spacing.md) {
+            Image(systemName: isAllCompleted ? "checkmark.seal.fill" : "chart.bar.fill")
+                .font(.btStatNumber)
+                .foregroundStyle(isAllCompleted ? .btSuccess : .btPrimary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(isAllCompleted ? "本项训练完成" : "训练进行中")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+
+                HStack(spacing: Spacing.xs) {
+                    Text("共进球 \(totalMade)/\(totalTarget)")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+
+                    if totalTarget > 0 {
+                        Text("·")
+                            .foregroundStyle(.btTextTertiary)
+                        Text("\(Int(successRate * 100))%")
+                            .font(.btCaption)
+                            .fontWeight(.medium)
+                            .foregroundStyle(successRateColor)
+                            .contentTransition(.numericText())
+                            .animation(.default, value: totalMade)
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(Spacing.lg)
+        .background(isAllCompleted ? Color.btSuccess.opacity(0.1) : Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     // MARK: - Note Input
@@ -176,7 +225,9 @@ struct DrillRecordView: View {
 
     private func toggleItem(label: String, isOn: Binding<Bool>) -> some View {
         Button {
-            isOn.wrappedValue.toggle()
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isOn.wrappedValue.toggle()
+            }
         } label: {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: isOn.wrappedValue ? "checkmark" : "")
@@ -191,42 +242,6 @@ struct DrillRecordView: View {
             }
         }
         .buttonStyle(.plain)
-    }
-
-    // MARK: - Completed Banner
-
-    private var completedBanner: some View {
-        HStack(spacing: Spacing.md) {
-            Image(systemName: "checkmark.seal.fill")
-                .font(.btStatNumber)
-                .foregroundStyle(.btSuccess)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("本项训练完成")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-
-                HStack(spacing: Spacing.xs) {
-                    Text("共进球 \(totalMade)/\(totalTarget)")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-
-                    if totalTarget > 0 {
-                        Text("·")
-                            .foregroundStyle(.btTextTertiary)
-                        Text("\(Int(successRate * 100))%")
-                            .font(.btCaption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(successRateColor)
-                    }
-                }
-            }
-
-            Spacer()
-        }
-        .padding(Spacing.lg)
-        .background(Color.btSuccess.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     // MARK: - Ball Table
@@ -273,6 +288,22 @@ struct DrillRecordView: View {
         if successRate >= 0.9 { return .btSuccess }
         if successRate >= 0.7 { return .btPrimary }
         return .btTextSecondary
+    }
+
+    // MARK: - Set Completion with Timer
+
+    private func handleCompleteSet(_ index: Int) {
+        if showSetTimer && !setsData[index].isCompleted {
+            if let startTime = activeSetStartTime {
+                setsData[index].duration = Date().timeIntervalSince(startTime)
+            }
+        } else if setsData[index].isCompleted {
+            setsData[index].duration = nil
+        }
+        onCompleteSet(index)
+        if showSetTimer {
+            activeSetStartTime = Date()
+        }
     }
 }
 

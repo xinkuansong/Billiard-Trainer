@@ -19,9 +19,9 @@ actor StoreKitService {
     static let shared = StoreKitService()
     private init() {}
 
-    static let monthlyID  = "com.yourname.billiardtrainer.premium.monthly"
-    static let yearlyID   = "com.yourname.billiardtrainer.premium.yearly"
-    static let lifetimeID = "com.yourname.billiardtrainer.premium.lifetime"
+    static let monthlyID  = "com.xinkuan.qiuji.premium.monthly"
+    static let yearlyID   = "com.xinkuan.qiuji.premium.yearly"
+    static let lifetimeID = "com.xinkuan.qiuji.premium.lifetime"
 
     static let allProductIDs: Set<String> = [monthlyID, yearlyID, lifetimeID]
 

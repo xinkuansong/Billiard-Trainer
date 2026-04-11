@@ -187,10 +187,12 @@ struct DrillListView: View {
     private var ballTypeChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Spacing.sm) {
-                ForEach(BallTypeFilter.allCases) { filter in
+                ForEach(BallTypeFilter.displayCases) { filter in
                     let isSelected = viewModel.ballTypeFilter == filter
                     Button {
-                        viewModel.ballTypeFilter = filter
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            viewModel.ballTypeFilter = filter
+                        }
                     } label: {
                         Text(filter.rawValue)
                             .font(.btSubheadlineMedium)
