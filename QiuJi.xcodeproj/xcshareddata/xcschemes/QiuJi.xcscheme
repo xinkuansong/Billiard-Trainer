@@ -28,7 +28,7 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FF0D000000000000000D0001"
+               BlueprintIdentifier = "FB4F19630C62446AC534A858"
                BuildableName = "QiuJiTests.xctest"
                BlueprintName = "QiuJiTests"
                ReferencedContainer = "container:QiuJi.xcodeproj">
@@ -42,7 +42,7 @@
             buildForAnalyzing = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "UI0D000000000000000D0001"
+               BlueprintIdentifier = "33E8126796D74B8FD23946A7"
                BuildableName = "QiuJiUITests.xctest"
                BlueprintName = "QiuJiUITests"
                ReferencedContainer = "container:QiuJi.xcodeproj">
@@ -70,7 +70,7 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "FF0D000000000000000D0001"
+               BlueprintIdentifier = "FB4F19630C62446AC534A858"
                BuildableName = "QiuJiTests.xctest"
                BlueprintName = "QiuJiTests"
                ReferencedContainer = "container:QiuJi.xcodeproj">
@@ -80,7 +80,7 @@
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "UI0D000000000000000D0001"
+               BlueprintIdentifier = "33E8126796D74B8FD23946A7"
                BuildableName = "QiuJiUITests.xctest"
                BlueprintName = "QiuJiUITests"
                ReferencedContainer = "container:QiuJi.xcodeproj">

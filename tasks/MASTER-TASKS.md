@@ -164,6 +164,32 @@
 | T-P8-12 | 人工测试计划更新与执行 | Test Eng + QA | — | ⏳ |
 | **QA-P8** | **P8 最终验收** | QA | — | ⏳ |
 
+### P9 — Aiming Feature Expansion（瞄准功能全面升级）
+
+| 任务 ID | 任务名 | 角色 | 人工前置 | 状态 |
+|---------|--------|------|---------|------|
+| T-P9-00 | UI 设计交付文档更新（09-UI设计交付文档.md § 3.3） | Content Eng | — | ⏳ |
+| T-P9-D-01 | AngleHomeView 重设计 | SwiftUI Dev | — | ⏳ |
+| T-P9-D-02 | AimingPrincipleView 设计 | SwiftUI Dev | — | ⏳ |
+| T-P9-D-03 | AngleDynamicView 设计 | SwiftUI Dev | — | ⏳ |
+| T-P9-D-04 | GeometricAngleQuizView 设计 | SwiftUI Dev | — | ⏳ |
+| T-P9-D-05 | SceneAnglePredictionView 设计（6 帧，2D/3D） | SwiftUI Dev | — | ⏳ |
+| T-P9-D-06 | ContactPointTableView 增强设计 | SwiftUI Dev | — | ⏳ |
+| T-P9-D-07 | BallFeelView 设计 | SwiftUI Dev | — | ⏳ |
+| T-P9-D-REVIEW | 设计一致性审查 | QA | — | ⏳ |
+| T-P9-01 | SceneKit 场景基础设施（TableModelLoader + Scene + CameraRig） | Architect | — | ⏳ |
+| T-P9-02 | 数据层扩展（quizType 字段 + AngleSceneCalculator） | Data Eng | — | ⏳ |
+| T-P9-03 | AngleHomeView 导航重构（7 功能分组 + 路由注册） | SwiftUI Dev | — | ⏳ |
+| T-P9-04 | 瞄准原理页 AimingPrincipleView | SwiftUI Dev + Content Eng | — | ⏳ |
+| T-P9-05 | 角度与打点动态关系页 AngleDynamicView | SwiftUI Dev | — | ⏳ |
+| T-P9-06 | 纯几何角度预测训练 GeometricAngleQuizView | SwiftUI Dev | — | ⏳ |
+| T-P9-07 | SceneKit 角度预测页 SceneAnglePredictionView（2D/3D 统一） | SwiftUI Dev + Architect | — | ⏳ |
+| T-P9-08 | SceneKit 角度预测增强（幽灵球/瞄准线/训练类型/自由练习） | SwiftUI Dev | — | ⏳ |
+| T-P9-09 | 进球点对照表增强（19 行 + d/R + 球种切换 + 正弦曲线） | SwiftUI Dev + Content Eng | — | ⏳ |
+| T-P9-10 | 浅淡球感页 BallFeelView | Content Eng + SwiftUI Dev | — | ⏳ |
+| T-P9-11 | AngleHistoryView 增强（quizType 筛选） | SwiftUI Dev + Data Eng | — | ⏳ |
+| **QA-P9** | **P9 验收** | QA | — | ⏳ |
+
 ---
 
 ## 状态说明

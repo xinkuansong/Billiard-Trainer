@@ -96,6 +96,18 @@ struct MainTabView: View {
             ContactPointTableView()
         case .history:
             AngleHistoryView()
+        case .aimingPrinciple:
+            AimingPrincipleView()
+        case .angleDynamic:
+            AngleDynamicView()
+        case .geometricQuiz:
+            GeometricAngleQuizView()
+        case .scene2DAiming:
+            Scene2DAimingView()
+        case .scene3DAiming:
+            Scene3DAimingView()
+        case .ballFeel:
+            BallFeelView()
         }
     }
 

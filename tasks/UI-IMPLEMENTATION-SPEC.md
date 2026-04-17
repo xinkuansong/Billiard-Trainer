@@ -515,6 +515,12 @@ struct BTShareCard: View {
 | AngleTestView 答题 | BTAngleTestTable | `tasks/P0-07/stitch_task_p0_07_angletestview_02/screen.png` | 同目录 |
 | AngleTestView 结果 | BTAngleTestTable | `tasks/P0-07/stitch_task_p0_07_angletestviewresult_02/screen.png` | 同目录 |
 | AngleHistoryView | — (Swift Charts) | `tasks/P1-06/stitch_task_p1_06_02/screen.png` | 同目录 |
+| AimingPrincipleView | — (Canvas 插图) | `tasks/P9-02/stitch_task_p9_02_aimingprinciple/screen.png` | 同目录（P9 待产出） |
+| AngleDynamicView | — (Canvas 交互) | `tasks/P9-03/stitch_task_p9_03_angledynamic/screen.png` | 同目录（P9 待产出） |
+| GeometricAngleQuizView | — (Canvas) | `tasks/P9-04/stitch_task_p9_04_geometricquiz/screen.png` | 同目录（P9 待产出） |
+| SceneAnglePredictionView 2D 答题 | AngleSceneView | `tasks/P9-05/stitch_task_p9_05_sceneprediction_2d/screen.png` | 同目录（P9 待产出） |
+| SceneAnglePredictionView 3D 答题 | AngleSceneView | `tasks/P9-05/stitch_task_p9_05_sceneprediction_3d/screen.png` | 同目录（P9 待产出） |
+| BallFeelView | — (Canvas 插图) | `tasks/P9-07/stitch_task_p9_07_ballfeel/screen.png` | 同目录（P9 待产出） |
 
 ### Tab 4 — 历史
 

@@ -7,6 +7,24 @@ enum AngleTimeRange: String, CaseIterable, Hashable {
     case all = "全部"
 }
 
+enum AngleQuizTypeFilter: String, CaseIterable, Hashable {
+    case all = "全部"
+    case geometric = "几何"
+    case table2D = "球台 2D"
+    case scene2D = "场景 2D"
+    case scene3D = "场景 3D"
+
+    var queryValue: String? {
+        switch self {
+        case .all: return nil
+        case .geometric: return "geometric"
+        case .table2D: return "table2D"
+        case .scene2D: return "scene2D"
+        case .scene3D: return "scene3D"
+        }
+    }
+}
+
 @MainActor
 final class AngleHistoryViewModel: ObservableObject {
 
@@ -14,7 +32,10 @@ final class AngleHistoryViewModel: ObservableObject {
 
     @Published var allResults: [AngleTestResult] = []
     @Published var timeRange: AngleTimeRange = .all {
-        didSet { applyTimeFilter() }
+        didSet { applyFilters() }
+    }
+    @Published var quizTypeFilter: AngleQuizTypeFilter = .all {
+        didSet { applyFilters() }
     }
     @Published private(set) var filteredResults: [AngleTestResult] = []
     @Published var overallTrend: [TrendPoint] = []
@@ -65,11 +86,14 @@ final class AngleHistoryViewModel: ObservableObject {
         do {
             let results = try await repository.fetchAll()
             allResults = results
-            applyTimeFilter()
+            applyFilters()
         } catch { /* silently degrade */ }
     }
 
-    private func applyTimeFilter() {
+    private func applyFilters() {
+        var results = allResults
+
+        // Time filter
         let cutoff: Date?
         switch timeRange {
         case .week:
@@ -80,10 +104,20 @@ final class AngleHistoryViewModel: ObservableObject {
             cutoff = nil
         }
         if let cutoff {
-            filteredResults = allResults.filter { $0.date >= cutoff }
-        } else {
-            filteredResults = allResults
+            results = results.filter { $0.date >= cutoff }
         }
+
+        // Quiz type filter
+        if let queryValue = quizTypeFilter.queryValue {
+            if queryValue == "table2D" {
+                // Backward compatible: old data without quizType shows under "球台 2D"
+                results = results.filter { $0.quizType == "table2D" }
+            } else {
+                results = results.filter { $0.quizType == queryValue }
+            }
+        }
+
+        filteredResults = results
         buildTrends(from: filteredResults)
         buildRangeStats(from: filteredResults)
     }

@@ -31,7 +31,7 @@ Official plan JSON schema: see rule file `40-content-engineer.mdc`.
 
 ## Accuracy
 
-- Use `offset = sin(α) × R` where applicable — no hand-waving.
+- Aiming data follows `.cursor/rules/45-aiming-principles.mdc`: primary formula `d = 2R sin(α)` (lateral displacement); contact point offset `R sin(α)` is derived. Use "切球角" (cutAngle), never "切入角".
 - Taxonomy: `docs/research/20260323-训练内容体系-动作库分类.md`.
 
 Use `.cursor/skills/content-engineering/SKILL.md` for extended SOP.

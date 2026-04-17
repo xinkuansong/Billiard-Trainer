@@ -16,11 +16,19 @@ struct AngleHistoryView: View {
                                  subtitle: "完成角度测试后，误差趋势将在这里显示",
                                  actionTitle: "开始角度测试")
                 } else {
+                    quizTypeFilter
                     statsGrid
                     BTSegmentedTab(tabs: AngleTimeRange.allCases,
                                    selected: $vm.timeRange) { $0.rawValue }
-                    trendSection
-                    rangeAnalysis
+
+                    if vm.filteredResults.isEmpty {
+                        BTEmptyState(icon: "chart.line.uptrend.xyaxis",
+                                     title: "该类型暂无数据",
+                                     subtitle: "尝试切换类型筛选或时间范围")
+                    } else {
+                        trendSection
+                        rangeAnalysis
+                    }
                 }
             }
             .padding(Spacing.lg)
@@ -31,6 +39,33 @@ struct AngleHistoryView: View {
         .toolbar(.hidden, for: .tabBar)
         .onAppear { vm.configure(context: modelContext) }
         .task { await vm.loadData() }
+    }
+
+    // MARK: - Quiz Type Filter
+
+    private var quizTypeFilter: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: Spacing.sm) {
+                ForEach(AngleQuizTypeFilter.allCases, id: \.self) { filter in
+                    Button {
+                        vm.quizTypeFilter = filter
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(.btCaption)
+                            .fontWeight(vm.quizTypeFilter == filter ? .semibold : .regular)
+                            .foregroundStyle(vm.quizTypeFilter == filter ? .white : .btTextSecondary)
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.vertical, Spacing.sm)
+                            .background(vm.quizTypeFilter == filter ? Color.btPrimary : Color.btBGSecondary)
+                            .clipShape(Capsule())
+                            .overlay(
+                                Capsule()
+                                    .stroke(vm.quizTypeFilter == filter ? Color.clear : Color.btSeparator, lineWidth: 1)
+                            )
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - 2×2 Stats Grid

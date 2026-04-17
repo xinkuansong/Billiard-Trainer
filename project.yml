@@ -44,6 +44,7 @@ targets:
         type: folder
       - path: QiuJi/Resources/Plans
         type: folder
+      - path: QiuJi/Resources/TaiQiuZhuo.usdz
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji
