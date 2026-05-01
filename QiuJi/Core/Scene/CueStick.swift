@@ -12,6 +12,45 @@ final class CueStick {
         static let tipRadius: Float = 0.006
         static let tipHeight: Float = 0.012
         static var tipOffset: Float { AngleSceneCalculator.ballRadius + 0.001 }
+        /// Cushion top above table surface; cue body must clear this when extending over a rail.
+        static let railTopAboveSurface: Float = 0.038
+        /// Extra clearance for visual safety so the shaft doesn't kiss the rail.
+        static let railClearance: Float = 0.012
+        /// Minimum elevation for a natural-looking stance even when far from any cushion.
+        static let minElevationRadians: Float = 0.05
+        /// Cap to avoid wildly steep rendering angles.
+        static let maxElevationRadians: Float = 0.55
+    }
+
+    /// Required elevation (positive = butt up) so the rear of the cue stick clears the cushion.
+    /// Considers the closest cushion the cue body would extend over (back direction).
+    static func requiredElevation(cueBallPosition: SCNVector3, aimDirection: SCNVector3) -> Float {
+        let halfL = AngleSceneCalculator.innerLength / 2
+        let halfW = AngleSceneCalculator.innerWidth / 2
+
+        let flatX = aimDirection.x
+        let flatZ = aimDirection.z
+        let len = sqrtf(flatX * flatX + flatZ * flatZ)
+        guard len > 0.0001 else { return Constants.minElevationRadians }
+
+        let aimX = flatX / len
+        let aimZ = flatZ / len
+        let backX = -aimX
+        let backZ = -aimZ
+
+        var distToCushion: Float = .infinity
+        if backX > 0.001 { distToCushion = min(distToCushion, (halfL - cueBallPosition.x) / backX) }
+        if backX < -0.001 { distToCushion = min(distToCushion, (-halfL - cueBallPosition.x) / backX) }
+        if backZ > 0.001 { distToCushion = min(distToCushion, (halfW - cueBallPosition.z) / backZ) }
+        if backZ < -0.001 { distToCushion = min(distToCushion, (-halfW - cueBallPosition.z) / backZ) }
+
+        guard distToCushion > 0 else { return Constants.minElevationRadians }
+        if distToCushion >= Constants.length { return Constants.minElevationRadians }
+
+        // Cue tip sits at ball-center height; at distToCushion the shaft must be above rail top.
+        let railRise = max(0, Constants.railTopAboveSurface - AngleSceneCalculator.ballRadius)
+        let needed = atan2f(railRise + Constants.railClearance, max(0.05, distToCushion))
+        return max(Constants.minElevationRadians, min(needed, Constants.maxElevationRadians))
     }
 
     // MARK: - Nodes

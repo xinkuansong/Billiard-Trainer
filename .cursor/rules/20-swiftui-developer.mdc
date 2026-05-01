@@ -6,6 +6,7 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-04-25 v0.5：追加 FL-003（球桌 / 袋口几何禁止从模型网格反推，必须用 `.kiro/steering/table-geometry.md` 解析常量）
 - 2026-04-05 v0.4：追加「设计参考源」节，扩展组件清单至 16 个
 - 2026-04-02 v0.3：追加 FL-004/005/006/008/009 经验教训
 - 2026-04-02 v0.2：追加 FL-002、FL-007 经验教训
@@ -142,3 +143,10 @@ case profile     // 我的
 ### ⛔ FL-002 — Sheet dismiss 与 Alert 展示时序冲突
 **场景**：在 `.sheet` 内修改 `@Published` 状态后需要在父视图弹出 `.alert` 时（如登录后弹数据迁移提示）
 **强制检查点**：禁止在 Sheet 内直接设置触发父视图 Alert 的布尔值后立即 `dismiss()`。SwiftUI 在 Sheet 动画期间不会呈现新 Alert。正确做法：设置 `pending` 标志 → `dismiss()` → 在 `.sheet(onDismiss:)` 回调中将 `pending` 转为 `showAlert = true`。
+
+### ⛔ FL-003 — 球桌 / 袋口几何禁止从模型网格反推
+**场景**：在 SceneKit / Canvas 中绘制球桌、袋口、库边、覆盖标记等任何视觉元素时
+**强制检查点**：
+1. **唯一事实来源**是 `.kiro/steering/table-geometry.md`（含 innerLength、innerWidth、6 个袋口中心、角袋/中袋半径、库边分段、过渡圆弧），任何新写入的几何常量必须先查该文档；如该文档缺失字段，应先补 steering 再写代码。
+2. **禁止**通过 USDZ / OBJ 模型的网格顶点、材质命名、Pole-of-Inaccessibility 等反推方式获取袋口位置或库边坐标——模型缩放、命名、材质变化都会破坏这种推导，掩盖几何对位错误的根因。
+3. 视觉覆盖层（袋口标记、瞄准点、热区等）的位置 **必须** 通过解析公式从 steering 常量推导（例如 `cornerCenter = (±halfL ± cornerOffset, ±halfW ± cornerOffset)`），而不是从模型反查 + 兜底。

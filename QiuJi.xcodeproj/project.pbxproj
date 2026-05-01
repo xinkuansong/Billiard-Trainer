@@ -65,8 +65,11 @@
 		644A19CD323C5D331CD8F9F4 /* PlanContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA55D643ED28C29C12C10211 /* PlanContentService.swift */; };
 		65F6164D9B5EE94E46A99065 /* BTSegmentedTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB26F713796FEF42D79F7927 /* BTSegmentedTab.swift */; };
 		6681222358EC7E6EC98AC8DF /* TaiQiuZhuo.usdz in Resources */ = {isa = PBXBuildFile; fileRef = EA3C188374F32CF49A03E2F5 /* TaiQiuZhuo.usdz */; };
+		F1A5B07100000000000000A1 /* Drills in Resources */ = {isa = PBXBuildFile; fileRef = F1A5B07100000000000000A0 /* Drills */; };
+		F1A5B07100000000000000B1 /* Plans in Resources */ = {isa = PBXBuildFile; fileRef = F1A5B07100000000000000B0 /* Plans */; };
 		6B09F4C35930EC368310F012 /* TrainingNoteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A7A40C0F37424FC01623A50 /* TrainingNoteView.swift */; };
 		6B105E99A72A9D580BFE9386 /* TrainingShareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF0DF32C3FF8E4E0A6639F0E /* TrainingShareView.swift */; };
+		6B15BBFF157CFB1913C70DAE /* NumericKeypadHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB75956FCF2AC7002AC57E42 /* NumericKeypadHUD.swift */; };
 		6C6F347CA85DB50D91DB1A74 /* DrillListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD4F894F20B136B7F026584D /* DrillListViewModel.swift */; };
 		6CDE91E8B5573B25534A8BC3 /* BTShimmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0FA84F36F36106E4158FCBB /* BTShimmer.swift */; };
 		6E326ABC08B57E3C0B2E9533 /* DrillContentValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB3BF140ACD4AE5A010B9A1 /* DrillContentValidationTests.swift */; };
@@ -310,6 +313,7 @@
 		B995330A41AD55893B3968F4 /* TrainingSessionRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingSessionRepositoryProtocol.swift; sourceTree = "<group>"; };
 		BAA0A11EE0B99571B04C4F1A /* HistoryAccessController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryAccessController.swift; sourceTree = "<group>"; };
 		BABB77B4A42C197D042CC0DE /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
+		BB75956FCF2AC7002AC57E42 /* NumericKeypadHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericKeypadHUD.swift; sourceTree = "<group>"; };
 		BCDAF924A7000A3825AE3554 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BD4F894F20B136B7F026584D /* DrillListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListViewModel.swift; sourceTree = "<group>"; };
 		BF0DF32C3FF8E4E0A6639F0E /* TrainingShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingShareView.swift; sourceTree = "<group>"; };
@@ -319,6 +323,8 @@
 		C73374E53070E33615999A1D /* QiuJiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiApp.swift; sourceTree = "<group>"; };
 		C8B2B0361ACA96C881BE340A /* AngleCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleCalculator.swift; sourceTree = "<group>"; };
 		CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F1A5B07100000000000000A0 /* Drills */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Drills; sourceTree = "<group>"; };
+		F1A5B07100000000000000B0 /* Plans */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Plans; sourceTree = "<group>"; };
 		CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPendingItem.swift; sourceTree = "<group>"; };
 		CCCEDF258227D303D7E6A197 /* BTExerciseRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTExerciseRow.swift; sourceTree = "<group>"; };
 		CD1D0F2441D614EB02F58503 /* SyncQueueManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueManagerTests.swift; sourceTree = "<group>"; };
@@ -442,6 +448,7 @@
 				1F4832A025395D1C320D65C1 /* BTAngleTestTable.swift */,
 				4D9BD52A3DDADCD040212FDC /* ContactPointTableView.swift */,
 				2DF6B0723B611EA8F121989F /* GeometricAngleQuizView.swift */,
+				BB75956FCF2AC7002AC57E42 /* NumericKeypadHUD.swift */,
 				0C9194572C8CBC9C16674501 /* Scene2DAimingView.swift */,
 				853E1118A23C7D66104C0F27 /* Scene3DAimingView.swift */,
 				91E6418CB9D387CF5C4C12DD /* SceneAnglePredictionView.swift */,
@@ -752,7 +759,9 @@
 			isa = PBXGroup;
 			children = (
 				CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */,
+				F1A5B07100000000000000A0 /* Drills */,
 				67FC5A8F6C2EC56734890B52 /* Info.plist */,
+				F1A5B07100000000000000B0 /* Plans */,
 				A6250E924B6DF39444691990 /* Products.storekit */,
 				EA3C188374F32CF49A03E2F5 /* TaiQiuZhuo.usdz */,
 			);
@@ -943,6 +952,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				267F33C52AFB836CF954870D /* Assets.xcassets in Resources */,
+				F1A5B07100000000000000A1 /* Drills in Resources */,
+				F1A5B07100000000000000B1 /* Plans in Resources */,
 				5116CD77DCDF9E5B1EC27FED /* PrivacyInfo.xcprivacy in Resources */,
 				DBCCFE0A99F8292AD1CDD69F /* Products.storekit in Resources */,
 				6681222358EC7E6EC98AC8DF /* TaiQiuZhuo.usdz in Resources */,
@@ -1032,6 +1043,7 @@
 				4156D14FDFCEE0E57E0B3CD9 /* MainTabView.swift in Sources */,
 				4283B4DF0B3AAF2815E65299 /* MaterialFactory.swift in Sources */,
 				17A012B0FCEB42C5BCA33B92 /* ModelContainerFactory.swift in Sources */,
+				6B15BBFF157CFB1913C70DAE /* NumericKeypadHUD.swift in Sources */,
 				896D8007BE1A5BAE1EA715AB /* OnboardingView.swift in Sources */,
 				47AC36A2FC83F82ED3EACA5D /* PersonalInfoView.swift in Sources */,
 				765E9C1EF9675638B45571B4 /* PhoneLoginView.swift in Sources */,

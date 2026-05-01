@@ -40,6 +40,22 @@ final class AimingQuizViewModel: ObservableObject {
             case .cornerPocket: return 5...85
             }
         }
+
+        /// Target ball → pocket distance range in normalised table-length units.
+        /// 1.0 means one full table length (2.54m). These ranges make "近台 / 中台 / 远台"
+        /// materially affect question generation instead of only changing angle range.
+        var targetPocketDistanceRange: ClosedRange<Double> {
+            switch self {
+            case .nearStraight, .nearSmallAngle:
+                return 0.12...0.28
+            case .midStraight, .midSmallAngle:
+                return 0.28...0.45
+            case .farMedium, .farLarge:
+                return 0.45...0.65
+            case .random, .sidePocket, .cornerPocket:
+                return 0.12...0.65
+            }
+        }
     }
 
     enum PracticeMode: String, CaseIterable, Identifiable {
@@ -50,6 +66,15 @@ final class AimingQuizViewModel: ObservableObject {
 
     // MARK: - Published state
 
+    /// High-level quiz phase. The 2D aiming quiz uses this to decide whether to show
+    /// the bottom action bar (`observing`) or the answer modal (`inputting` / `showingResult`).
+    enum QuizPhase {
+        case observing
+        case inputting
+        case showingResult
+    }
+
+    @Published var phase: QuizPhase = .observing
     @Published var currentQuestion: AngleQuestion?
     @Published var userInput: String = ""
     @Published var questionIndex: Int = 0
@@ -59,6 +84,7 @@ final class AimingQuizViewModel: ObservableObject {
     @Published var trainingType: TrainingType = .random
     @Published var practiceMode: PracticeMode = .twentyQuestions
     @Published var showSettings: Bool = false
+    @Published var showAimingAssist: Bool = false
 
     var totalQuestions: Int { practiceMode == .twentyQuestions ? 20 : Int.max }
     var isFreePractice: Bool { practiceMode == .freePractice }
@@ -98,6 +124,7 @@ final class AimingQuizViewModel: ObservableObject {
 
     func setupScene(initialCameraMode: AngleTrainingScene.CameraMode) {
         scene.setupScene()
+        scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
 
         scene.setCameraMode(initialCameraMode, animated: false)
@@ -112,7 +139,32 @@ final class AimingQuizViewModel: ObservableObject {
         testFinished = false
         showResult = false
         userInput = ""
+        phase = .observing
         nextQuestion()
+    }
+
+    /// Transition: observing → inputting (open answer modal).
+    func openAnswerInput() {
+        guard phase == .observing, currentQuestion != nil else { return }
+        userInput = ""
+        phase = .inputting
+    }
+
+    /// Transition: inputting → observing (cancel modal without submitting).
+    func cancelAnswerInput() {
+        guard phase == .inputting else { return }
+        userInput = ""
+        phase = .observing
+    }
+
+    func toggleAimingAssist() {
+        guard phase == .observing, currentQuestion != nil else { return }
+        showAimingAssist.toggle()
+        if showAimingAssist {
+            showAimingAssistVisualization()
+        } else {
+            scene.hideAllVisualization()
+        }
     }
 
     func submitAnswer() {
@@ -138,10 +190,13 @@ final class AimingQuizViewModel: ObservableObject {
 
         showResultVisualization()
         showResult = true
+        phase = .showingResult
     }
 
+    /// Transition: showingResult → observing (close modal, advance to next question).
     func advanceToNext() {
         questionIndex += 1
+        phase = .observing
         nextQuestion()
     }
 
@@ -184,18 +239,18 @@ final class AimingQuizViewModel: ObservableObject {
 
         clearResult()
         scene.hideCueStick()
+        showAimingAssist = false
 
-        let pt: PocketType
-        if let filter = trainingType.pocketFilter {
-            pt = filter
-        } else {
-            pt = engine.selectPocketType()
-        }
+        let pt = trainingType.pocketFilter
 
         let range = trainingType.angleRange
         let angle = Double(Int.random(in: Int(range.lowerBound)...Int(range.upperBound)) / 5 * 5)
         let clampedAngle = max(range.lowerBound, min(range.upperBound, angle == 0 ? 5 : angle))
-        let question = AngleCalculator.generateQuestion(angle: clampedAngle, pocketType: pt)
+        let question = AngleCalculator.generateQuestion(
+            angle: clampedAngle,
+            pocketType: pt,
+            targetPocketDistanceRange: trainingType.targetPocketDistanceRange
+        )
         currentQuestion = question
 
         let surfaceY = scene.surfaceY
@@ -212,50 +267,55 @@ final class AimingQuizViewModel: ObservableObject {
 
         showResult = false
         userInput = ""
+        phase = .observing
+    }
+
+    private func showAimingAssistVisualization() {
+        guard let q = currentQuestion,
+              let cueBall = scene.cueBallNode else { return }
+        let surfaceY = scene.surfaceY
+        let targetPos = AngleSceneCalculator.normalizedToScene(point: q.targetBall, surfaceY: surfaceY)
+        let pocketIndex = pocketIndexFor(q.pocket)
+        let aimPoint = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: targetPos,
+            pocketIndex: pocketIndex,
+            surfaceY: surfaceY
+        )
+        scene.updateVisualization(
+            cueBall: cueBall.position,
+            targetBall: targetPos,
+            pocket: aimPoint,
+            showAngleAnnotations: false
+        )
+        scene.hideCueStick()
     }
 
     private func showResultVisualization() {
         guard let q = currentQuestion else { return }
+        showAimingAssist = false
         let surfaceY = scene.surfaceY
         let targetPos = AngleSceneCalculator.normalizedToScene(point: q.targetBall, surfaceY: surfaceY)
-        let pocketPos = AngleSceneCalculator.normalizedToScene(
-            point: CGPoint(x: q.pocket.x, y: q.pocket.y), surfaceY: surfaceY
+        let pocketIndex = pocketIndexFor(q.pocket)
+        let aimPoint = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: targetPos,
+            pocketIndex: pocketIndex,
+            surfaceY: surfaceY
         )
-
-        let correctLine = scene.addLine(from: targetPos, to: pocketPos,
-                                        color: UIColor.systemGreen, radius: 0.004)
-        resultNodes.append(correctLine)
-
-        let ghostPos = AngleSceneCalculator.ghostBallPosition(
-            targetBall: targetPos, pocket: pocketPos, ballRadius: AngleSceneCalculator.ballRadius
-        )
-        let ghostNode = scene.addBall(at: ghostPos, color: UIColor.yellow.withAlphaComponent(0.3))
-        resultNodes.append(ghostNode)
 
         if let cueBall = scene.cueBallNode {
             let cuePos = cueBall.position
-            let aimLine = scene.addLine(from: cuePos, to: ghostPos,
-                                        color: UIColor.cyan.withAlphaComponent(0.5), radius: 0.003)
-            resultNodes.append(aimLine)
-
-            let dx = cuePos.x - targetPos.x
-            let dz = cuePos.z - targetPos.z
-            let dist = sqrtf(dx * dx + dz * dz)
-            if dist > 0.001 {
-                let contactX = targetPos.x + AngleSceneCalculator.ballRadius * (dx / dist)
-                let contactZ = targetPos.z + AngleSceneCalculator.ballRadius * (dz / dist)
-                let contactPos = SCNVector3(contactX, surfaceY + AngleSceneCalculator.ballRadius, contactZ)
-                let contactNode = scene.addBall(at: contactPos, color: .red, radius: 0.008)
-                resultNodes.append(contactNode)
-            }
-
-            let aimDir = SCNVector3(ghostPos.x - cuePos.x, 0, ghostPos.z - cuePos.z)
-            scene.updateCueStick(cueBallPosition: cuePos, aimDirection: aimDir)
+            scene.updateVisualization(
+                cueBall: cuePos,
+                targetBall: targetPos,
+                pocket: aimPoint
+            )
+            scene.hideCueStick()
         }
     }
 
     private func clearResult() {
         scene.clearResultNodes(nodes: &resultNodes)
+        scene.hideAllVisualization()
     }
 
     private func pocketIndexFor(_ pocket: PocketPosition) -> Int {

@@ -244,3 +244,15 @@
 - **日期**：2026-04-10
 - **规则改进建议**：Sheet 中修改全局状态后需 Alert 时，应通过 pending 标志 + onDismiss 延迟触发，避免 SwiftUI 动画冲突
 - **已应用至**：✅ `20-swiftui-developer.mdc` § 经验教训 / FL-002（2026-04-10）
+
+## FL-003
+- **任务**：T-P9-03（角度与打点 / 2D 顶视图袋口标记）
+- **现象**：未选/选中袋口的黄色阴影圆盘没有落在球桌真实袋口洞内，而是卡在击球区角点（库边交汇处），与皮革开口偏离 4–5cm
+- **严重程度**：P2
+- **关联检查项**：TP-P9 视觉对位 / `现有问题.md` § 角度与打点 第 1 条
+- **根因**：(1) `AngleSceneCalculator.pocketPositions` 长期返回的是「击球区角点」`(±halfL, ±halfW)`，而中式八球真实袋口中心位于该角点沿对角线 **外侧 42mm**（中袋外侧 53mm），见 `.kiro/steering/table-geometry.md`；(2) `PocketGeometryExtractor` 试图从 USDZ 网格反推真实洞中心（最大空圆 / Pole of Inaccessibility），结果不稳定且依赖模型材质命名，掩盖了第 (1) 项的根因
+- **解决**：✅ `pocketPositions` 改为基于解析公式直接返回真实袋口中心（`±(halfL+0.042)`, `±(halfW+0.042)` / 中袋 `±(halfW+0.053)`）；新增 `cornerPocketRadius=0.042`、`middlePocketRadius=0.043`、`pocketMarkerRadius(index:)`；`AngleTrainingScene.addPocketMarkers` 移除 extractor 调用，圆盘半径升级到 42/43mm 对齐皮革开口；`PocketGeometryExtractor.swift` 删除（含 pbxproj 4 处引用）
+- **日期**：2026-04-25
+- **规则改进建议**：球桌 / 袋口几何 **必须** 来自 `.kiro/steering/table-geometry.md` 唯一事实来源的解析常量；不得用模型网格反推（模型可能因比例、材质命名变化破坏）。新增几何相关常量时，先检查 steering 文档是否已有定义。
+- **回写目标**：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训
+- **已应用至**：✅ `.cursor/rules/20-swiftui-developer.mdc` § 经验教训 / FL-003（2026-04-25）

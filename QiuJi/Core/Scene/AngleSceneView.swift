@@ -5,8 +5,20 @@ import SceneKit
 /// Manages gesture recognition and CADisplayLink render loop.
 /// Supports ball dragging (for AngleDynamicView) and pocket tapping.
 struct AngleSceneView: UIViewRepresentable {
+    /// Camera/touch interaction policy.
+    /// - `cameraControl`: full pan/pinch on camera (used by 3D观察).
+    /// - `tapsOnly`: only taps & ball drag are recognised; camera is locked.
+    /// - `none`: all gestures disabled (locked-in quiz answer state).
+    enum InteractionMode {
+        case cameraControl
+        case tapsOnly
+        case none
+    }
+
     let scene: AngleTrainingScene
     @Binding var cameraMode: AngleTrainingScene.CameraMode
+    var interactionMode: InteractionMode = .cameraControl
+    var locksCueBallScreenAnchor = false
     var onPocketTapped: ((Int) -> Void)?
 
     var draggableBallNodes: [SCNNode] = []
@@ -22,6 +34,8 @@ struct AngleSceneView: UIViewRepresentable {
         }
         scnView.allowsCameraControl = false
         scnView.antialiasingMode = .multisampling4X
+        scnView.preferredFramesPerSecond = min(60, UIScreen.main.maximumFramesPerSecond)
+        scnView.isPlaying = true
         scnView.backgroundColor = UIColor.black
 
         let panGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
@@ -45,6 +59,8 @@ struct AngleSceneView: UIViewRepresentable {
             uiView.pointOfView = cam
         }
         context.coordinator.cameraMode = cameraMode
+        context.coordinator.interactionMode = interactionMode
+        context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.draggableBallNodes = draggableBallNodes
         context.coordinator.onDragBegan = onDragBegan
@@ -53,7 +69,12 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(scene: scene, cameraMode: cameraMode)
+        Coordinator(scene: scene, cameraMode: cameraMode, interactionMode: interactionMode)
+    }
+
+    static func dismantleUIView(_ uiView: SCNView, coordinator: Coordinator) {
+        coordinator.stopRenderLoop()
+        uiView.isPlaying = false
     }
 
     // MARK: - Coordinator
@@ -61,6 +82,8 @@ struct AngleSceneView: UIViewRepresentable {
     final class Coordinator: NSObject {
         let scene: AngleTrainingScene
         var cameraMode: AngleTrainingScene.CameraMode
+        var interactionMode: InteractionMode
+        var locksCueBallScreenAnchor = false
         var onPocketTapped: ((Int) -> Void)?
         weak var scnView: SCNView?
         private var displayLink: CADisplayLink?
@@ -73,9 +96,10 @@ struct AngleSceneView: UIViewRepresentable {
         var onDragEnded: ((SCNNode) -> Void)?
         private var draggedNode: SCNNode?
 
-        init(scene: AngleTrainingScene, cameraMode: AngleTrainingScene.CameraMode) {
+        init(scene: AngleTrainingScene, cameraMode: AngleTrainingScene.CameraMode, interactionMode: InteractionMode) {
             self.scene = scene
             self.cameraMode = cameraMode
+            self.interactionMode = interactionMode
         }
 
         deinit {
@@ -83,8 +107,15 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         func startRenderLoop() {
+            displayLink?.invalidate()
             displayLink = CADisplayLink(target: self, selector: #selector(renderUpdate))
             displayLink?.add(to: .main, forMode: .common)
+        }
+
+        func stopRenderLoop() {
+            displayLink?.invalidate()
+            displayLink = nil
+            lastTimestamp = 0
         }
 
         @objc private func renderUpdate(_ link: CADisplayLink) {
@@ -103,6 +134,8 @@ struct AngleSceneView: UIViewRepresentable {
                 scnView.pointOfView = cam
             }
 
+            guard !scene.isCameraModeTransitioning else { return }
+
             switch cameraMode {
             case .topDown2D:
                 scene.cameraRig?.applyTopDown2D()
@@ -110,6 +143,15 @@ struct AngleSceneView: UIViewRepresentable {
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
+                if locksCueBallScreenAnchor,
+                   let scnView,
+                   let cueBall = scene.cueBallNode {
+                    scene.lockCueBallScreenAnchor(
+                        in: scnView,
+                        cueBallWorld: scene.visualCenter(of: cueBall),
+                        anchorNormalized: CGPoint(x: 0.5, y: 0.56)
+                    )
+                }
             }
         }
 
@@ -159,7 +201,7 @@ struct AngleSceneView: UIViewRepresentable {
         // MARK: - Gestures
 
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
-            guard gesturesEnabled, let scnView else { return }
+            guard gesturesEnabled, interactionMode != .none, let scnView else { return }
 
             switch gesture.state {
             case .began:
@@ -191,7 +233,7 @@ struct AngleSceneView: UIViewRepresentable {
                 break
             }
 
-            guard draggedNode == nil, let rig = scene.cameraRig else { return }
+            guard draggedNode == nil, interactionMode == .cameraControl, let rig = scene.cameraRig else { return }
             let translation = gesture.translation(in: gesture.view)
 
             switch cameraMode {
@@ -206,7 +248,8 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
-            guard gesturesEnabled, draggedNode == nil, let rig = scene.cameraRig else { return }
+            guard gesturesEnabled, interactionMode == .cameraControl,
+                  draggedNode == nil, let rig = scene.cameraRig else { return }
 
             switch cameraMode {
             case .perspective3D:
@@ -218,38 +261,44 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            guard gesturesEnabled, let scnView else { return }
+            guard gesturesEnabled, interactionMode != .none, let scnView else { return }
             let location = gesture.location(in: scnView)
-            let hitResults = scnView.hitTest(location, options: [
-                .searchMode: SCNHitTestSearchMode.closest.rawValue
-            ])
 
+            // Try precise hit-test first against pocket marker planes by name.
+            let hitResults = scnView.hitTest(location, options: [
+                .searchMode: SCNHitTestSearchMode.all.rawValue
+            ])
             for hit in hitResults {
-                if hit.node.geometry is SCNTorus {
-                    if let pocketNodes = findPocketNodes(),
-                       let index = pocketNodes.firstIndex(of: hit.node) {
-                        onPocketTapped?(index)
-                        return
-                    }
+                if let name = hit.node.name, name.hasPrefix("pocketMarker_"),
+                   let index = pocketIndex(from: name) {
+                    onPocketTapped?(index)
+                    return
                 }
             }
 
-            let tapRadius: CGFloat = 30
-            if let pocketNodes = findPocketNodes() {
-                for (index, pocket) in pocketNodes.enumerated() {
-                    let projected = scnView.projectPoint(pocket.position)
-                    let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
-                    if hypot(location.x - screenPos.x, location.y - screenPos.y) < tapRadius {
-                        onPocketTapped?(index)
-                        return
-                    }
+            // Fallback: project pocket positions to screen and pick the nearest within radius.
+            let pocketPositions = AngleSceneCalculator.pocketPositions(surfaceY: scene.surfaceY)
+            let tapRadius: CGFloat = 44
+            var bestIndex: Int?
+            var bestDist: CGFloat = .greatestFiniteMagnitude
+            for (index, pos) in pocketPositions.enumerated() {
+                let projected = scnView.projectPoint(pos)
+                let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                let dist = hypot(location.x - screenPos.x, location.y - screenPos.y)
+                if dist < tapRadius, dist < bestDist {
+                    bestDist = dist
+                    bestIndex = index
                 }
+            }
+            if let bestIndex {
+                onPocketTapped?(bestIndex)
             }
         }
 
-        private func findPocketNodes() -> [SCNNode]? {
-            let nodes = scene.rootNode.childNodes.filter { $0.geometry is SCNTorus }
-            return nodes.isEmpty ? nil : nodes
+        private func pocketIndex(from name: String) -> Int? {
+            let parts = name.split(separator: "_")
+            guard parts.count == 2 else { return nil }
+            return Int(parts[1])
         }
     }
 }
