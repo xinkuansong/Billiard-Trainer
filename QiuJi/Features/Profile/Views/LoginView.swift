@@ -88,15 +88,12 @@ struct LoginView: View {
     // MARK: - App Icon
 
     private var appIcon: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.btPrimary)
-                .frame(width: 72, height: 72)
-            Image(systemName: "flag.checkered")
-                .font(.btLargeTitle)
-                .fontWeight(.medium)
-                .foregroundStyle(.white)
-        }
+        Image("BrandPrimaryLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 104)
+            .clipShape(RoundedRectangle(cornerRadius: 104 * 0.2237, style: .continuous))
+            .accessibilityLabel("球迹")
     }
 
     // MARK: - Login Buttons

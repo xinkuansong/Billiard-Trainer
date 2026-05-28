@@ -170,23 +170,12 @@ struct OnboardingView: View {
     // MARK: - App Logo
 
     private var appLogo: some View {
-        ZStack {
-            Circle()
-                .fill(Color.btBGTertiary)
-                .frame(width: 100, height: 100)
-
-            VStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(Color.btPrimary)
-                    .frame(width: 40, height: 28)
-                    .overlay(
-                        Text("QJ")
-                            .font(.btFootnote.weight(.bold))
-                            .foregroundStyle(.white)
-                    )
-            }
-            .offset(y: 4)
-        }
+        Image("BrandPrimaryLogo")
+            .resizable()
+            .scaledToFit()
+            .frame(width: 160)
+            .clipShape(RoundedRectangle(cornerRadius: 160 * 0.2237, style: .continuous))
+            .accessibilityLabel("球迹")
     }
 }
 

@@ -35,15 +35,12 @@ struct AboutView: View {
 
     private var appIdentitySection: some View {
         VStack(spacing: Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .fill(Color.btPrimary)
-                    .frame(width: 72, height: 72)
-
-                Text("QJ")
-                    .font(.btTitle.weight(.bold))
-                    .foregroundStyle(.white)
-            }
+            Image("BrandPrimaryLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 128)
+                .clipShape(RoundedRectangle(cornerRadius: 128 * 0.2237, style: .continuous))
+                .accessibilityLabel("球迹")
 
             VStack(spacing: Spacing.xs) {
                 Text("球迹")
