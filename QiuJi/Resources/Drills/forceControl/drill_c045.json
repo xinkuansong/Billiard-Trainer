@@ -4,7 +4,9 @@
   "nameEn": "Three-Level Force Control",
   "category": "forceControl",
   "subcategory": "levels",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.15},
+      "start": {
+        "x": 0.5,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.5, "y": 0.33},
-        {"x": 0.5, "y": 0.25}
+        {
+          "x": 0.5,
+          "y": 0.33
+        },
+        {
+          "x": 0.5,
+          "y": 0.25
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.35},
+      "start": {
+        "x": 0.5,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.35}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,19 @@
         "content": "三档力度稳定后，挑战「五档力度阶梯」将力度细分为五档（极轻/轻/中/重/极重）。「控力走位圈」练习在实战球位中应用力度控制。掌握三档切换后，回到走位练习如「不吃库短距离走位」，会发现走位精度明显提升。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

@@ -22,6 +22,7 @@
 | `sets` | `DrillSetsConfig` | ✅ | Default practice sets configuration |
 | `animation` | `DrillAnimation` | ✅ | Canvas animation data |
 | `tutorial` | `DrillTutorial?` | ❌ | Detailed coaching tutorial sections |
+| `videos` | `[DrillVideo]?` | ❌ | Bundled demo videos (real-person takes) |
 
 ## `DrillSetsConfig`
 
@@ -44,6 +45,16 @@
 | `content` | `String` | Section body text (Chinese) |
 
 Standard section titles: `技术原理`, `动作要领`, `常见错误与纠正`, `进阶练习`
+
+## `DrillVideo`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `String` | Stable identifier, e.g. `take_01` |
+| `file` | `String` | Filename under `Resources/Videos/<drillId>/`, e.g. `take_01.mp4` |
+
+Videos are bundled at `QiuJi/Resources/Videos/<drillId>/<file>`. Populated by
+`scripts/import-videos-to-app.py` from the ShootersPool `_inbox` archive.
 
 ## `DrillAnimation`
 

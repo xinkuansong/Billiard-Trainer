@@ -194,9 +194,7 @@ struct TrainingSummaryView: View {
         ZStack {
             RoundedRectangle(cornerRadius: BTRadius.sm)
                 .fill(Color.btPrimaryMuted)
-            Image(systemName: "figure.pool.swim")
-                .font(.btTitle2)
-                .foregroundStyle(.btPrimary)
+            BTTrainingIcon(size: 26, filled: true)
         }
         .frame(width: 48, height: 48)
         .overlay(

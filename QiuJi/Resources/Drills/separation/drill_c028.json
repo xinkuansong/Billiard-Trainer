@@ -4,7 +4,9 @@
   "nameEn": "Draw Increases Separation Angle",
   "category": "separation",
   "subcategory": "drawSeparation",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.4, "y": 0.3},
+      "start": {
+        "x": 0.4,
+        "y": 0.3
+      },
       "path": [
-        {"x": 0.73, "y": 0.14},
-        {"x": 0.55, "y": 0.35}
+        {
+          "x": 0.73,
+          "y": 0.14
+        },
+        {
+          "x": 0.55,
+          "y": 0.35
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.75, "y": 0.13},
+      "start": {
+        "x": 0.75,
+        "y": 0.13
+      },
       "path": [
-        {"x": 1.0165, "y": -0.0165}
+        {
+          "x": 1.0165,
+          "y": -0.0165
+        }
       ]
     },
     "pocket": "topRight",
-    "cueDirection": {"x": 0.75, "y": 0.13}
+    "cueDirection": {
+      "x": 0.75,
+      "y": 0.13
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,27 @@
         "content": "低杆扩大分离角掌握后，综合练习三种杆法的分离角对比：同一球位分别用斯登（90度）、高杆（<90度）和低杆（>90度）击球，记录实际分离角。之后进入「分离角走位应用」，在实战场景中选择合适杆法。最终挑战「分离角综合挑战」，在各种角度下快速决策。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    }
+  ]
 }

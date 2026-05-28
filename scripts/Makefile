@@ -31,6 +31,7 @@ help:
 	@echo ""
 	@echo "台球训练伴侣 — 构建脚本"
 	@echo "────────────────────────────────────"
+	@echo "  make xcodegen     重新生成 Xcode 工程（含 folder refs 补丁）"
 	@echo "  make build        Debug 构建（验证编译）"
 	@echo "  make test         运行所有 XCTest"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
@@ -45,6 +46,20 @@ help:
 	@echo "  make build SIM_DEVICE='iPhone 17 Pro Max'"
 	@echo "  make archive SCHEME=BilliardTrainer"
 	@echo ""
+
+# ────────────────────────────────────────────
+# Xcode 工程重生成
+# xcodegen 不会为 Resources/{Drills,Plans,Videos} 生成 folder reference，
+# 所以每次跑完 xcodegen 必须立刻跑 patch-pbxproj-folder-refs.py 把它们注入回去。
+# 不然 Bundle.main 找不到 Drills/index.json，App 启动后动作库会空。
+# ────────────────────────────────────────────
+.PHONY: xcodegen
+xcodegen:
+	@echo "→ xcodegen generate ..."
+	@cd $(PROJECT_ROOT) && xcodegen generate
+	@echo "→ 补丁 folder references（Drills / Plans / Videos）..."
+	@cd $(PROJECT_ROOT) && python3 scripts/patch-pbxproj-folder-refs.py
+	@echo "✅ Xcode 工程已重生成"
 
 # ────────────────────────────────────────────
 # Debug 构建

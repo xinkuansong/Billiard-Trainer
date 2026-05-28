@@ -4,7 +4,9 @@
   "nameEn": "One-Cushion Position Control",
   "category": "positioning",
   "subcategory": "oneCushion",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L1",
   "difficulty": 3,
   "isPremium": false,
@@ -21,21 +23,50 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.65, "y": 0.25},
+      "start": {
+        "x": 0.65,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.85, "y": 0.42},
-        {"x": 0.85, "y": 0.5165, "cp1": {"x": 0.85, "y": 0.49}, "cp2": {"x": 0.85, "y": 0.51}},
-        {"x": 0.3, "y": 0.25}
+        {
+          "x": 0.85,
+          "y": 0.42
+        },
+        {
+          "x": 0.85,
+          "y": 0.5165,
+          "cp1": {
+            "x": 0.85,
+            "y": 0.49
+          },
+          "cp2": {
+            "x": 0.85,
+            "y": 0.51
+          }
+        },
+        {
+          "x": 0.3,
+          "y": 0.25
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.88, "y": 0.38},
+      "start": {
+        "x": 0.88,
+        "y": 0.38
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.88, "y": 0.38}
+    "cueDirection": {
+      "x": 0.88,
+      "y": 0.38
+    }
   },
   "tutorial": {
     "sections": [
@@ -56,5 +87,23 @@
         "content": "掌握本练习后，可进阶到「高杆一库走位」和「低杆一库走位」，分别练习高杆贴库和低杆远离库的反弹控制。如果一库走位已稳定，挑战「两库走位」练习，将走位范围扩大到全台。同时建议配合「控力走位圈」提升力度精准度。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

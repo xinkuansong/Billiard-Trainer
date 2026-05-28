@@ -96,6 +96,16 @@ struct AngleSceneView: UIViewRepresentable {
         var onDragEnded: ((SCNNode) -> Void)?
         private var draggedNode: SCNNode?
 
+        /// Dominant axis lock for 3D camera-pan gestures. Once decided
+        /// (when cumulative motion crosses `panAxisLockThreshold`), the
+        /// other axis's deltas are dropped for the rest of the gesture.
+        /// Eliminates "vertical drag also rotates yaw" cross-axis bleed.
+        private enum PanAxis { case horizontal, vertical }
+        private var panDominantAxis: PanAxis?
+        private var panCumX: CGFloat = 0
+        private var panCumY: CGFloat = 0
+        private let panAxisLockThreshold: CGFloat = 12
+
         init(scene: AngleTrainingScene, cameraMode: AngleTrainingScene.CameraMode, interactionMode: InteractionMode) {
             self.scene = scene
             self.cameraMode = cameraMode
@@ -143,13 +153,22 @@ struct AngleSceneView: UIViewRepresentable {
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
+                // Skip anchor-lock while a smooth pose transition (e.g. 观察⇄瞄准
+                // toggle) is in flight: the smooth interpolator is already
+                // driving the pivot toward the cue ball, and a competing
+                // per-frame translatePivot would fight it and cause wobble.
+                let rigBusy = scene.cameraRig?.isTransitioning ?? false
                 if locksCueBallScreenAnchor,
+                   !rigBusy,
                    let scnView,
                    let cueBall = scene.cueBallNode {
+                    // Anchor cue ball in the upper half of the visible area
+                    // so the bottom-half input HUD never overlaps it
+                    // (fixes "table jammed under modal" in 3D瞄准页面输入后.PNG).
                     scene.lockCueBallScreenAnchor(
                         in: scnView,
                         cueBallWorld: scene.visualCenter(of: cueBall),
-                        anchorNormalized: CGPoint(x: 0.5, y: 0.56)
+                        anchorNormalized: CGPoint(x: 0.5, y: 0.42)
                     )
                 }
             }
@@ -205,6 +224,9 @@ struct AngleSceneView: UIViewRepresentable {
 
             switch gesture.state {
             case .began:
+                panDominantAxis = nil
+                panCumX = 0
+                panCumY = 0
                 let location = gesture.location(in: scnView)
                 if let ball = hitTestBall(at: location) {
                     draggedNode = ball
@@ -223,6 +245,9 @@ struct AngleSceneView: UIViewRepresentable {
                 }
 
             case .ended, .cancelled:
+                panDominantAxis = nil
+                panCumX = 0
+                panCumY = 0
                 if let ball = draggedNode {
                     onDragEnded?(ball)
                     draggedNode = nil
@@ -238,8 +263,22 @@ struct AngleSceneView: UIViewRepresentable {
 
             switch cameraMode {
             case .perspective3D:
-                rig.handleHorizontalSwipe(delta: Float(translation.x))
-                rig.handleVerticalSwipe(delta: Float(translation.y))
+                // Track cumulative motion to decide a dominant axis once
+                // the user has made a clear directional intent (>12px).
+                // After the lock, deltas on the perpendicular axis are
+                // dropped — eliminating the "vertical drag induces yaw"
+                // and "horizontal drag induces zoom" cross-axis bleed.
+                panCumX += abs(translation.x)
+                panCumY += abs(translation.y)
+                if panDominantAxis == nil,
+                   panCumX + panCumY >= panAxisLockThreshold {
+                    panDominantAxis = panCumX > panCumY ? .horizontal : .vertical
+                }
+
+                let dx: Float = panDominantAxis == .horizontal ? Float(translation.x) : 0
+                let dy: Float = panDominantAxis == .vertical ? Float(translation.y) : 0
+                rig.handleHorizontalSwipe(delta: dx)
+                rig.handleVerticalSwipe(delta: dy)
             case .topDown2D, .topDown2DRotated:
                 rig.applyCameraPan(translationX: -Float(translation.x),
                                    translationZ: -Float(translation.y))

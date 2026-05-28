@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=393px, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary": "#ffffff",
+                    "primary-container": "#1a6b3c",
+                    "on-surface-variant": "#404940",
+                    "primary-fixed-dim": "#89d89e",
+                    "on-tertiary-container": "#ffcace",
+                    "on-surface": "#1a1c1f",
+                    "surface-tint": "#1b6c3d",
+                    "surface-dim": "#d9dade",
+                    "on-background": "#1a1c1f",
+                    "primary-fixed": "#a5f4b8",
+                    "outline-variant": "#bfc9be",
+                    "secondary-fixed-dim": "#aeceb3",
+                    "on-primary-fixed-variant": "#005229",
+                    "error": "#ba1a1a",
+                    "surface-bright": "#f9f9fe",
+                    "surface-container": "#ededf2",
+                    "on-primary-fixed": "#00210d",
+                    "on-secondary-fixed": "#05210f",
+                    "surface-container-lowest": "#ffffff",
+                    "on-error-container": "#93000a",
+                    "error-container": "#ffdad6",
+                    "on-error": "#ffffff",
+                    "outline": "#707a70",
+                    "secondary": "#48654e",
+                    "tertiary-fixed-dim": "#ffb2b9",
+                    "inverse-surface": "#2e3034",
+                    "inverse-primary": "#89d89e",
+                    "background": "#f9f9fe",
+                    "surface-container-low": "#f3f3f8",
+                    "surface": "#f9f9fe",
+                    "inverse-on-surface": "#f0f0f5",
+                    "tertiary-container": "#96434f",
+                    "on-secondary-fixed-variant": "#314d38",
+                    "secondary-container": "#caebce",
+                    "on-secondary": "#ffffff",
+                    "secondary-fixed": "#caebce",
+                    "on-secondary-container": "#4e6b54",
+                    "on-primary": "#ffffff",
+                    "on-primary-container": "#9ae9ae",
+                    "surface-container-high": "#e8e8ed",
+                    "surface-container-highest": "#e2e2e7",
+                    "primary": "#005129",
+                    "tertiary": "#782c38",
+                    "surface-variant": "#e2e2e7",
+                    "tertiary-fixed": "#ffd9dc",
+                    "on-tertiary-fixed-variant": "#792d39"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "1.5rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #F2F2F7;
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ios-large-title {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+        /* No scrollbar but scrollable */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface">
+<!-- TopAppBar -->
+<header class="sticky top-0 w-full bg-slate-50/85 backdrop-blur-md z-50 flex items-end justify-between px-6 pb-4 w-full h-32">
+<h1 class="ios-large-title text-[34px] text-[#000000] leading-tight">角度训练</h1>
+</header>
+<main class="pb-32 px-4 space-y-6">
+<!-- Section: 学习 -->
+<section class="space-y-[10px]">
+<h2 class="ml-4 text-[13px] font-semibold text-primary uppercase tracking-wider">学习</h2>
+<div class="space-y-[10px]">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-4 transition-transform active:scale-[0.98]">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-on-surface font-semibold text-base">瞄准原理</h3>
+<p class="text-on-surface-variant text-sm truncate">切入角、假想球法、厚薄球概念</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-4 transition-transform active:scale-[0.98]">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">account_tree</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-on-surface font-semibold text-base">角度与打点</h3>
+<p class="text-on-surface-variant text-sm truncate">角度/接触点/厚薄球动态关系</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-4 transition-transform active:scale-[0.98]">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">touch_app</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-on-surface font-semibold text-base">浅淡球感</h3>
+<p class="text-on-surface-variant text-sm truncate">从理性分析到直觉判断</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Section: 训练 -->
+<section class="space-y-[10px] mt-6">
+<h2 class="ml-4 text-[13px] font-semibold text-primary uppercase tracking-wider">训练</h2>
+<div class="space-y-[10px]">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-4 transition-transform active:scale-[0.98]">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">straighten</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-on-surface font-semibold text-base">几何角度训练</h3>
+<p class="text-on-surface-variant text-sm truncate">纯几何角度预测练习</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-4 transition-transform active:scale-[0.98]">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">view_in_ar</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center gap-2">
+<h3 class="text-on-surface font-semibold text-base">球台角度预测</h3>
+<span class="bg-primary/10 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">2D/3D</span>
+</div>
+<p class="text-on-surface-variant text-sm truncate">2D/3D 球台场景训练</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-4 transition-transform active:scale-[0.98]">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">filter_center_focus</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-on-surface font-semibold text-base">角度测试</h3>
+<p class="text-on-surface-variant text-sm truncate">训练角度视觉感知</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Section: 工具 -->
+<section class="space-y-[10px] mt-6">
+<h2 class="ml-4 text-[13px] font-semibold text-primary uppercase tracking-wider">工具</h2>
+<div class="space-y-[10px]">
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center gap-4 transition-transform active:scale-[0.98]">
+<div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary">table_rows</span>
+</div>
+<div class="flex-1 min-w-0">
+<h3 class="text-on-surface font-semibold text-base">进球点对照表</h3>
+<p class="text-on-surface-variant text-sm truncate">角度与接触点对照</p>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- History Row -->
+<section class="mt-8">
+<div class="bg-surface-container-lowest rounded-xl p-4 flex items-center justify-between transition-transform active:scale-[0.98]">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-on-surface-variant">history</span>
+<span class="text-[17px] font-normal text-on-surface">测试历史</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant">chevron_right</span>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pt-2 pb-8 bg-slate-50/85 backdrop-blur-md z-50 rounded-t-[2rem] shadow-[0_-8px_24px_rgba(26,107,60,0.08)]">
+<!-- Tab 1: 训练 -->
+<a class="flex flex-col items-center justify-center text-slate-400 hover:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined text-[24px]">fitness_center</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-semibold mt-1">训练</span>
+</a>
+<!-- Tab 2: 动作库 -->
+<a class="flex flex-col items-center justify-center text-slate-400 hover:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined text-[24px]">menu_book</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-semibold mt-1">动作库</span>
+</a>
+<!-- Tab 3: 角度 (ACTIVE) -->
+<a class="flex flex-col items-center justify-center bg-emerald-800 text-white rounded-full w-12 h-12 mb-1 shadow-lg" href="#">
+<span class="material-symbols-outlined text-[24px]" style="font-variation-settings: 'FILL' 1;">straighten</span>
+</a>
+<!-- Tab 4: 记录 -->
+<a class="flex flex-col items-center justify-center text-slate-400 hover:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined text-[24px]">history</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-semibold mt-1">记录</span>
+</a>
+<!-- Tab 5: 我的 -->
+<a class="flex flex-col items-center justify-center text-slate-400 hover:opacity-80 transition-opacity" href="#">
+<span class="material-symbols-outlined text-[24px]">person</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[10px] font-semibold mt-1">我的</span>
+</a>
+</nav>
+</body></html>

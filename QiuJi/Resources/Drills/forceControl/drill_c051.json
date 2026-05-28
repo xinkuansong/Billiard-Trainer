@@ -4,7 +4,9 @@
   "nameEn": "Full Force Range Position",
   "category": "forceControl",
   "subcategory": "fullRange",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
@@ -21,21 +23,42 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.78, "y": 0.38},
-        {"x": 0.95, "y": 0.25},
-        {"x": 0.65, "y": 0.08}
+        {
+          "x": 0.78,
+          "y": 0.38
+        },
+        {
+          "x": 0.95,
+          "y": 0.25
+        },
+        {
+          "x": 0.65,
+          "y": 0.08
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.8, "y": 0.4},
+      "start": {
+        "x": 0.8,
+        "y": 0.4
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.8, "y": 0.4}
+    "cueDirection": {
+      "x": 0.8,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -56,5 +79,23 @@
         "content": "全力度综合是力度控制体系的顶端练习。如果某个力度档位薄弱，针对性回到对应练习：轻力弱练「轻推定位」和「软打控位」，中力弱练「三档力度控制」，大力弱练「强力高杆穿越」和「强力低杆回拉」。全面稳定后挑战「初级蛇彩走位」和「对角走位」将控力应用到复杂走位场景。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

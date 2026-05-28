@@ -4,7 +4,9 @@
   "nameEn": "90-Degree Separation Rule",
   "category": "separation",
   "subcategory": "basic",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.3},
+      "start": {
+        "x": 0.5,
+        "y": 0.3
+      },
       "path": [
-        {"x": 0.73, "y": 0.16},
-        {"x": 0.88, "y": 0.33}
+        {
+          "x": 0.73,
+          "y": 0.16
+        },
+        {
+          "x": 0.88,
+          "y": 0.33
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.75, "y": 0.15},
+      "start": {
+        "x": 0.75,
+        "y": 0.15
+      },
       "path": [
-        {"x": 1.0165, "y": -0.0165}
+        {
+          "x": 1.0165,
+          "y": -0.0165
+        }
       ]
     },
     "pocket": "topRight",
-    "cueDirection": {"x": 0.75, "y": 0.15}
+    "cueDirection": {
+      "x": 0.75,
+      "y": 0.15
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,19 @@
         "content": "90度规则理解后，分别练习「薄球分离角感知」和「厚球分离角控制」，体验不同厚度下分离角方向的变化。之后进入「高杆缩小分离角」和「低杆扩大分离角」，学习用杆法修正分离角。掌握这套体系后，进入「定杆分离角精确控制」训练精准走位。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

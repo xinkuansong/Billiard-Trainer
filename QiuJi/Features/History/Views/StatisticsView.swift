@@ -18,7 +18,17 @@ struct StatisticsView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if vm.sessions.isEmpty {
-                emptyState
+                // Users with no drill-based training sessions may still have
+                // angle-training records; expose those aggregates here so
+                // the Statistics tab isn't blank for angle-only users.
+                ScrollView {
+                    VStack(spacing: Spacing.lg) {
+                        emptyState
+                        angleStatsSection
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.xxxxl)
+                }
             } else if !subscriptionManager.isPremium {
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
@@ -33,6 +43,7 @@ struct StatisticsView: View {
                                 categoryComparisonSection
                             }
                         }
+                        angleStatsSection
                     }
                     .padding(.horizontal, Spacing.lg)
                     .padding(.bottom, Spacing.xxxxl)
@@ -46,6 +57,22 @@ struct StatisticsView: View {
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
+        }
+    }
+
+    // MARK: - Angle Training Aggregate
+
+    /// Aggregate angle-training stats (误差趋势 / 区间分析 / quiz-type filter)
+    /// live in the 统计 Tab so users see the big picture here while the
+    /// 历史 Tab keeps each angle training as an individual record row.
+    private var angleStatsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("角度训练")
+                .font(.btHeadline)
+                .foregroundStyle(.btPrimary)
+                .padding(.top, Spacing.lg)
+
+            AngleHistorySection()
         }
     }
 
@@ -76,6 +103,7 @@ struct StatisticsView: View {
                 durationCard
                 successRateCard
                 categoryComparisonSection
+                angleStatsSection
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
@@ -335,7 +363,10 @@ struct StatisticsView: View {
 
     private func categoryComparisonCell(_ item: CategoryComparisonData) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
+            HStack(spacing: 6) {
+                if let category = DrillCategory(rawValue: item.id) {
+                    BTDrillCategoryIcon(category: category, size: 14, filled: true)
+                }
                 Text(item.nameZh)
                     .font(.btCaption2)
                     .fontWeight(.bold)

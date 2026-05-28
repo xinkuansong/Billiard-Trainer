@@ -4,7 +4,9 @@
   "nameEn": "Long Side Pocket Straight",
   "category": "accuracy",
   "subcategory": "sidePocketLong",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.8, "y": 0.25},
+      "start": {
+        "x": 0.8,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.52, "y": 0.25}
+        {
+          "x": 0.52,
+          "y": 0.25
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.25}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.25
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,23 @@
         "content": "远台中袋直线球进球率达到40%后，可挑战「远台直线球极限」——全台最远距离入上中袋。也可以交叉练习远台角袋和远台中袋（参考「远台斜线入角袋」），对比两种袋口在远距离下的不同手感。远台中袋能力是衡量台球水平的重要指标，稳定进球说明基本功已经相当扎实。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

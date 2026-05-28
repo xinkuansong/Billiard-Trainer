@@ -245,6 +245,40 @@
 - **规则改进建议**：Sheet 中修改全局状态后需 Alert 时，应通过 pending 标志 + onDismiss 延迟触发，避免 SwiftUI 动画冲突
 - **已应用至**：✅ `20-swiftui-developer.mdc` § 经验教训 / FL-002（2026-04-10）
 
+## PD-003
+- **任务**：图标体系重设计（Phase A–D 全周期）
+- **模式描述**：**SwiftUI Shape + Canvas 取代 PDF/SF Symbol 自定义包** 作为品牌图标资产的产出方式
+- **适用场景**：需要扁平、矢量、Light/Dark 双模适配、且与既有 Design Token 强耦合的品牌图形（Logo Mark / Tab 图标 / Drill 分类图标 / Onboarding 装饰）
+- **代码示例**：见 [`BTLogoMark.swift`](../QiuJi/Core/DesignSystem/BTLogoMark.swift)、[`BTTrainingIcon.swift`](../QiuJi/Core/DesignSystem/BTTrainingIcon.swift)、[`BTDrillCategoryIcon.swift`](../QiuJi/Core/DesignSystem/BTDrillCategoryIcon.swift)
+- **优势**：
+  1. **零 PDF / imageset 资产** — 完全规避 [FL-010](FAILURE-LOG.md) xcodegen folder reference 风险
+  2. **Design Token 直接绑定** — `Color.btPrimary` / `Color.btAccent` 自动 Light/Dark 切换，无需双套资产
+  3. **共享几何参数** — 8 个 Drill 分类共用 `Tokens.strokeWidth` / `Tokens.ballRadius`，视觉权重 100% 一致
+  4. **Tab Bar 集成** — `ImageRenderer` 把 SwiftUI 视图转为 `UIImage(...).withRenderingMode(.alwaysTemplate)`，让系统着色行为与 SF Symbols 一致
+- **关键陷阱**：
+  - `cos(angle)` / `sin(angle)` 在 `CGFloat` 与 `Double` 间存在二义性 — 必须显式注解：`let angle: CGFloat = .pi * 1.65; let cosA: CGFloat = cos(angle)`
+  - 涉及 `CGFloat(i)` 而非 `Double(i)` 才能避免类型升格
+- **日期**：2026-05-25
+- **回写目标**：`.cursor/skills/swiftui-design-system/SKILL.md` § 图标资产生产 SOP
+- **已应用至**：⏳ 待回写
+
+## DR-012
+- **任务**：图标体系重设计（Phase A–D）
+- **原始规范**：Tab Bar 训练 Tab 使用 `dumbbell.fill`（U-01 已知问题）；Drill 8 分类的 SF Symbol 已在 `DrillContentService.icon` 定义但未接入 UI；Onboarding/Login/About 的应用内 Logo 用 `Text("QJ")` 占位
+- **调整后**：
+  1. 训练 Tab 使用 `BTTrainingIcon`（SwiftUI 自定义图标，球+轨迹隐喻）
+  2. Drill 8 分类引入 `BTDrillCategoryIcon` 接入 `DrillListView` 侧边栏（图标 + 文字双行）+ Section Header 前缀 + `StatisticsView.categoryComparisonCell`
+  3. 应用内 Logo 替换为 `BTLogoMark(size:style:)`，含 `markOnly / onDisc / onTile` 三种 style
+  4. App Icon 重塑：从 3D 写实+青色激光 → 3D 写实+金色轨迹弧（`AppIcon.png` 1024×1024，台呢绿 + 金色 = 与 `btTableFelt` / `btAccent` 一致）
+  5. Launch Screen：通过 `UILaunchScreen.UIImageName = "LaunchLogo"` + `UIColorName = "btBG"` 实现，新增 `LaunchLogo.imageset`（@1x/@2x/@3x = 360/720/1024）
+  6. Live Activity Extension AppIcon：补齐三态 PNG（复用主 AppIcon）
+  7. 全局清理 `figure.pool.swim`（5 处 Swift 源码）→ 替换为 `BTTrainingIcon` 或 `scope`
+- **原因**：原图标体系 App Icon 与 App 内主色割裂（青色激光 vs 品牌绿+金）；DrillCategory.icon 的"已设计未接入"是体感最差的缺口；Tab `dumbbell.fill` 与台球语义不符
+- **影响组件**：`BTLogoMark` / `BTTrainingIcon` / `BTDrillCategoryIcon` / `IconToken` 全新；`MainTabView` / `OnboardingView` / `LoginView` / `AboutView` / `DrillListView` / `StatisticsView` / `BTExerciseRow` / `TrainingHomeView` / `TrainingSummaryView` / `DrillTutorialView` 受影响；`Info.plist` / `project.yml` / `LaunchLogo.imageset` 配置变更
+- **日期**：2026-05-25
+- **回写目标**：`UI-IMPLEMENTATION-SPEC.md` § Changelog（U-01 关闭）+ `docs/09-UI设计交付文档.md` § 已知 UI 问题清单（U-01 移除）
+- **已应用至**：⏳ 待回写
+
 ## FL-003
 - **任务**：T-P9-03（角度与打点 / 2D 顶视图袋口标记）
 - **现象**：未选/选中袋口的黄色阴影圆盘没有落在球桌真实袋口洞内，而是卡在击球区角点（库边交汇处），与皮革开口偏离 4–5cm
@@ -256,3 +290,176 @@
 - **规则改进建议**：球桌 / 袋口几何 **必须** 来自 `.kiro/steering/table-geometry.md` 唯一事实来源的解析常量；不得用模型网格反推（模型可能因比例、材质命名变化破坏）。新增几何相关常量时，先检查 steering 文档是否已有定义。
 - **回写目标**：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训
 - **已应用至**：✅ `.cursor/rules/20-swiftui-developer.mdc` § 经验教训 / FL-003（2026-04-25）
+
+## PD-004
+- **任务**：图标体系重设计 v2（Recraft 独立设计仓）
+- **模式描述**：**把图标体系剥离为独立的设计交付仓**（解耦设计与开发），主工程仅消费 `final/` 中已验收的资产，避免设计迭代污染主工程代码
+- **适用场景**：图标数量 ≥ 30 项、需要统一品牌化、设计工具与 iOS 工程链路无直接耦合（如使用 Recraft、Figma 等外部工具）
+- **决策背景**：PD-003 的 SwiftUI Shape 自绘方案在快速迭代品牌一致性时不够灵活（每次调整都需 Swift 代码 + xcodegen），且无法满足 App Icon 这种 3D 写实场景；改用 Recraft 矢量产出更适合品牌图标的迭代节奏
+- **设计仓位置**：`/Users/song/projects/18.qiuji_icon_design`
+- **设计仓产出物**（已交付）：
+  - 三大核心：`README.md` / `BRAND-SYSTEM.md` / `ICON-INVENTORY.md`（60+ 项穷举清单）
+  - 13 个 spec 文档：`specs/01-app-icon.md` ~ `specs/13-marketing.md`
+  - 工作流：`RECRAFT-WORKFLOW.md`（Recraft SOP + Prompt 模板 + 失败模式速查）
+  - 验收：`ACCEPTANCE-CHECKLIST.md`（每图 12 项 DoD）
+  - 回写：`INTEGRATION-PLAN.md`（4 个 PR 的回写步骤）
+- **本期阶段**：仅交付**完整需求文档**；Recraft 实际生图与回写主工程为后续阶段
+- **主工程过渡策略**：当前 SwiftUI 自绘占位（`BTLogoMark` / `BTTrainingIcon` / `BTDrillCategoryIcon` / 替换后的 `AppIcon.png`）**保留作为占位**，不阻塞开发；待 Recraft 成品验收通过后按 INTEGRATION-PLAN 分 4 PR 回写
+- **覆盖范围**（A + B = 68 项待 Recraft 出图）：
+  - A 类（必须 Recraft）：App Icon 三态 + Marketing + Live Activity / Logo + Wordmark / Tab 5×2 / Drill 8 分类（共 26）
+  - B 类（推荐 Recraft）：Plan 4 阶段 / Drill L0–L4 / Angle 4 模式 / Feature Cards 4 / Tutorial 4 / Profile 4 / Empty States 6 / ShareCard 2 / Marketing 3（共 42）
+  - C 类（保留 SF Symbol）：65 个纯功能图标，集中管理在 `IconToken.swift`，**不在 Recraft 范围**
+- **代码示例**（回写后调用模式）：
+  ```swift
+  // 旧（SwiftUI 自绘占位）
+  BTLogoMark(size: 80, style: .onTile)
+  BTDrillCategoryIcon(category: .fundamentals)
+
+  // 新（Recraft 矢量资产）
+  Image("brand.logo-mark.on-tile").resizable().scaledToFit().frame(width: 80, height: 80)
+  Image(category.icon)  // category.icon 返回 "ic.drill.fundamentals"
+  ```
+- **关键约束**：
+  1. 主工程 `Resources/Assets.xcassets/` 新增 ~50 个 imageset，每个含 Light/Dark SVG + Contents.json appearances 数组
+  2. SVG 必须配置 `preserves-vector-representation: true`，否则放大模糊
+  3. Tab Bar 图标 imageset 必须 `template-rendering-intent: template`，让 iOS 自动按 tint 着色
+  4. 命名规范：`ic.<group>.<name>[.<state>]`（与 BRAND-SYSTEM §7 同步）
+- **日期**：2026-05-25
+- **回写目标**：
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 图标资产生产 SOP（更新 PD-003 → PD-004 的策略演进）
+  - `.cursor/rules/20-swiftui-developer.mdc` § 图标引用规范（新增）
+- **已应用至**：⏳ 待回写（等 Recraft 实际成品验收通过后，PR 1 时同步回写规则文件）
+
+## DR-013
+- **任务**：训练计划编辑式排版升级（Round 1 + Round 2，无 Phase 编号 — 用户驱动 ad-hoc 任务）
+- **原始规范**：训练计划 4 个屏幕（PlanDetailView / PlanListView / TrainingHomeView 计划浏览 + 今日安排 Drill 卡）的文本展示「过于平铺」：所有文本同一字号差档、缺少 hierarchy、无装饰母题、`Circle().fill(opacity 0.3)` 风格的 system Form Row
+- **调整后**：确立"中文编辑式排版语言（Chinese Editorial Typography）"：
+  1. **极致字号差**：主标题用 `btDisplaySmall (36pt rounded bold)`，章节序号用 `btChapterNumber (32pt rounded bold)`；次级标题 `btTitleMedium (19pt semibold)`；用 17pt+ 落差替代英文 small caps tracking（用户偏好纯中文）
+  2. **数字英雄化**：所有计数（周/天/分钟/组/球/序号）一律 `.monospacedDigit()`；统计数据采用「奥运记分牌」式（数字大、单位下移小字）
+  3. **细金线分隔**：`BTGoldRule` 组件（1pt × 32pt-wide × `Color.btAccent.opacity(0.6)`）替代 system Divider
+  4. **首句加粗**：`splitFirstSentence(_:)` 工具函数按中英文句号切分，首句 `btTitleMedium` 主色 + 余文 `btBody` 次色
+  5. **章节序号化**：每个 plan 在所属 level 中的位置作 `01 / 02 / ...` 序号，缩略图改为「序号刻度」式而非纯渐变方块
+  6. **Drill tracklist 化**：`01 02 03` 序号 + `3×15` monospaced 单元，替代 `Circle().fill` 装饰点
+  7. **Round 2 装饰**：`BTPlanWeekTimeline`（横向四态进度条 + 虚线连接）、`BTPhaseTimeline`（纵向 1pt 虚线 + 8pt 染色圆点 + 阶段类型染色：warmup/focused/combined/review）、`BTArcSeparator`（金色弧形台球母题章节分隔）、hero 区右上角 `BTTrainingIcon` 透明度 0.08 / 旋转 -15° 水印、每周首个 drill 的 `coachingPoints[0]` 作为 italic pull quote + 2pt `btAccent` 竖线
+  8. **Typography 新增 token**：`btDisplaySmall (36pt)`、`btChapterNumber (32pt)`、`btTitleMedium (19pt)`
+- **原因**：用户反馈训练计划文本展示「过于平铺，没有艺术风格」；调研后确定参考 Apple Fitness+ / MasterClass 编辑式排版 + 杂志专辑 tracklist 风格，但保持纯中文（用户选择 chinese_only）
+- **影响组件**：
+  - 新增：`BTPlanWeekTimeline`、`BTPhaseTimeline`、`BTPhaseEntry`、`BTGoldRule`、`BTArcSeparator`
+  - 修改：`PlanDetailView`、`PlanListView`、`TrainingHomeView`、`Typography.swift`
+  - 数据：`PlanDetailView` 新增 `coachingQuotes: [Int: String]` 缓存模式（每周首个 drill 的 coachingPoint）
+- **日期**：2026-05-25
+- **回写目标**：
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 中文编辑式排版语言（新增章节）
+  - `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：
+  - ✅ `.cursor/skills/swiftui-design-system/SKILL.md` § 十四 中文编辑式排版语言（2026-05-25）
+  - ✅ `.cursor/skills/swiftui-design-system/SKILL.md` § 三 字体系统（2026-05-25，新增 btDisplaySmall/btChapterNumber/btTitleMedium）
+  - ✅ `.cursor/skills/swiftui-design-system/SKILL.md` § 十三 组件清单（2026-05-25，新增 BTGoldRule/BTArcSeparator/BTPlanWeekTimeline/BTPhaseTimeline）
+  - ✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-05-25，9 条 DR-013 条目）
+
+## PD-005
+- **任务**：训练计划编辑式排版升级（同 DR-013）
+- **模式描述**：**「中文编辑式排版语言」可复用模式**——在没有英文 small caps tracking 的中文界面中，通过「极致字号差 + tabular monospaced 数字 + 1pt 金色细线 + 首句加粗 + 大序号刻度」五件套，把 list/form 平铺升级为编辑式 hierarchy
+- **适用场景**：长文本主导的列表/详情页（如训练计划、教程、文章列表、Drill 详情），需要打破 list row 同质感、引入 hierarchy 与 brand 装饰，但不能依赖英文小型大写
+- **代码示例**：
+  ```swift
+  // 1. 编辑式上眉 + 主标题 + 金线
+  HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+      Text("入门系列").font(.btCaption2).foregroundStyle(.btTextTertiary)
+      Circle().fill(Color.btAccent).frame(width: 3, height: 3)
+      Text("第 1 期").font(.btCaption2).foregroundStyle(.btTextTertiary).monospacedDigit()
+  }
+  Text(plan.nameZh).font(.btDisplaySmall).foregroundStyle(.btText)
+  BTGoldRule()  // 1pt × 32pt × Color.btAccent.opacity(0.6)
+
+  // 2. 首句加粗描述（concat Text）
+  let (lead, rest) = splitFirstSentence(text)
+  (Text(lead).font(.btTitleMedium).foregroundStyle(.btText)
+   + Text(rest).font(.btBody).foregroundStyle(.btTextSecondary))
+   .lineSpacing(4)
+
+  // 3. tracklist 序号化（替代 Circle 装饰点）
+  HStack(spacing: Spacing.sm) {
+      Text(String(format: "%02d", index + 1))
+          .font(.btFootnote).monospacedDigit()
+          .foregroundStyle(.btTextTertiary)
+          .frame(width: 24, alignment: .leading)
+      Text(itemName).font(.btCallout)
+      Spacer()
+      Text("\(sets)×\(balls)").font(.btFootnote).monospacedDigit()
+  }
+
+  // 4. 奥运记分牌式数字（数字大 + 单位下移小字）
+  VStack(spacing: Spacing.xs) {
+      Text("\(value)").font(.btDisplaySmall).monospacedDigit()
+      Text(unit).font(.btCaption).foregroundStyle(.btTextSecondary)
+  }
+  ```
+- **关键约束**：
+  1. 全场必须 `.monospacedDigit()`，否则数字宽度抖动会破坏奥运记分牌感
+  2. `BTGoldRule` 默认宽度 32pt（不要太长，否则像 Divider）；`.padding(.bottom, 6)` 与基线对齐
+  3. 章节序号字号建议 ≥ 主标题字号（32pt vs 22pt），否则反客为主
+  4. 首句切分应同时支持中英文标点（`["。", "！", "？", ".", "!", "?"]`）
+  5. Light/Dark 都要测：`btAccent` 在两种模式下饱和度差异较大，金线 opacity 0.6 是经验值
+- **日期**：2026-05-25
+- **回写目标**：
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 中文编辑式排版模式
+  - `.cursor/rules/20-swiftui-developer.mdc` § 编辑式排版铁律
+- **已应用至**：
+  - ✅ `.cursor/skills/swiftui-design-system/SKILL.md` § 十四 中文编辑式排版语言（2026-05-25，含 5 件套铁律 + Section Header 模板 + 装饰母题 + 反例）
+  - ⏳ `.cursor/rules/20-swiftui-developer.mdc`（待主动触发该 rule 时再回写，避免一次性扩张过多规则）
+
+## DR-014
+- **任务**：全局字体密度优化（用户驱动 ad-hoc 任务 — 截图反馈：训练首页、动作库、计划详情字号偏大、整体拥挤）
+- **原始规范**：DR-013 编辑式排版引入的展示级字号（`btDisplay 48` / `btDisplaySmall 36` / `btChapterNumber 32`）在真机截图中显得过强；标题级 `btTitle 22` / `btTitle2 20` / `btTitleMedium 19` 三档落差大，但被广泛用于列表卡片标题，导致页面密度过高；`btStatNumber 28` 在卡片统计场景压迫感强
+- **调整后**：以角度训练首页（34 → 17 → 13 紧凑层级）为基准，全局字号下调一档：
+  - 展示级：`btDisplay` 48→44、`btDisplaySmall` 36→30、`btLargeTitle` 34→32、`btChapterNumber` 32→26
+  - 标题级：`btTitle` 22→20、`btTitle2` 20→18、`btTitleMedium` 19→17（与 `btHeadline` 同字号，按语义互换）
+  - 数据级：`btStatNumber` 28→24
+  - 辅助级（新增文档化）：`btSubheadlineSemibold 15` / `btFootnote14 14` / `btMicro 10`
+  - 页面层面：`TrainingHomeView.todayDrillCard` 标题从 `btTitle2` 降为 `btHeadline`；序号从 `btTitleMedium` 降为 `btSubheadlineSemibold`；`issueThumbnail` 硬编码 26pt 改为 `btStatNumber`；`PlanDetailView.statCell` 数字 `btDisplaySmall` → `btStatNumber`；描述 lead 句 `btTitleMedium` → `btBodyMedium`
+- **原因**：截图反馈页面整体拥挤、字号层级偏重；以"角度训练首页"为视觉舒适基准做收敛，让数字仍是主角但避免压迫感
+- **影响组件**：
+  - `QiuJi/Core/DesignSystem/Typography.swift`（Token 值全面下调）
+  - `QiuJi/Features/Training/Views/TrainingHomeView.swift`（卡片标题、序号、issueThumbnail 数字）
+  - `QiuJi/Features/Training/Views/PlanDetailView.swift`（statCell 数字、描述 lead）
+- **日期**：2026-05-26
+- **回写目标**：
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 三 字体系统
+  - `tasks/UI-IMPLEMENTATION-SPEC.md` § 1.4 字体 Token + Changelog
+- **已应用至**：
+  - ✅ `.cursor/skills/swiftui-design-system/SKILL.md` § 三 字体系统（2026-05-26）+ Changelog 节新增
+  - ✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § 1.4 字体 Token + § Changelog（2026-05-26）
+
+## PD-006
+- **任务**：全局字体密度优化（同 DR-014）
+- **模式描述**：**"字体 Token 全局收敛 + 局部用法校准"双层修法**——当出现「页面整体拥挤、字号偏强」反馈时，先做 Token 值下调（保留 token 名称不变以避免大规模重命名），再针对错配场景做 token 替换（如 list 卡片不该用 title2、卡内数字不该用 displaySmall）
+- **适用场景**：当设计系统已有完整字体 Token，但截图反馈显示「整体偏重」时；避免简单地把所有 `btTitle2` 全局替换成 `btHeadline`，那样会过度收缩；分两层修法可同时保留 Token 语义又避免单点过度展示
+- **代码示例**：
+  ```swift
+  // 第一层：Token 值下调（保留名称）
+  // Typography.swift
+  static let btDisplaySmall = Font.system(size: 30, weight: .bold, design: .rounded)  // 36 → 30
+  static let btTitle        = Font.system(size: 20, weight: .bold, design: .rounded)  // 22 → 20
+
+  // 第二层：错配场景替换 token（不是降低值）
+  // ❌ 错：列表卡片标题用 btTitle2（语义偏强）
+  Text(drill.nameZh).font(.btTitle2)
+  // ✅ 对：列表卡片标题用 btHeadline（默认列表语义）
+  Text(drill.nameZh).font(.btHeadline)
+
+  // ❌ 错：卡片内统计数字用 btDisplaySmall（语义偏强）
+  Text("\(value)").font(.btDisplaySmall)
+  // ✅ 对：卡片内统计数字用 btStatNumber（明确"卡内大数字"语义）
+  Text("\(value)").font(.btStatNumber)
+  ```
+- **关键约束**：
+  1. Token 下调幅度建议单档 4-6pt（48→44、36→30、34→32），避免整体过度收缩
+  2. 修法过程中保留 token 名称的语义连续性，避免破坏大量页面代码
+  3. 必须同时更新 SKILL.md 和 UI-IMPLEMENTATION-SPEC.md 的 Token 表，否则后续会再次失配
+  4. `.system(size:)` 硬编码字体保留场景固定：Canvas/SceneKit、数字键盘、SF Symbol 大小、live monospaced 计时器
+- **日期**：2026-05-26
+- **回写目标**：
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 三 字体系统「使用原则」
+- **已应用至**：
+  - ✅ `.cursor/skills/swiftui-design-system/SKILL.md` § 三（2026-05-26，新增四条避坑指引）

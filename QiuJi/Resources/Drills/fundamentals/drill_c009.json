@@ -4,7 +4,9 @@
   "nameEn": "Straight Stroke Check",
   "category": "fundamentals",
   "subcategory": "stroke",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L0",
   "difficulty": 1,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.42},
+      "start": {
+        "x": 0.5,
+        "y": 0.42
+      },
       "path": [
-        {"x": 0.5, "y": 0.22}
+        {
+          "x": 0.5,
+          "y": 0.22
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.2},
+      "start": {
+        "x": 0.5,
+        "y": 0.2
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.5, "y": 0.2}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.2
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,19 @@
         "content": "通过本练习建立直线出杆基础后，可挑战「远台直线出杆检验」在全台距离下放大检测偏差。同时建议配合「握杆稳定性练习」和「中杆定杆基础」同步训练，三者形成基本功组合。当近台直线球进球率稳定在80%以上时，就可以开始「半台直线球」等准度训练了。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

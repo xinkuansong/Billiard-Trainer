@@ -4,7 +4,9 @@
   "nameEn": "Mid-Table Angle Pocketing",
   "category": "accuracy",
   "subcategory": "angle",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L1",
   "difficulty": 3,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.72, "y": 0.38}
+        {
+          "x": 0.72,
+          "y": 0.38
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.75, "y": 0.4},
+      "start": {
+        "x": 0.75,
+        "y": 0.4
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.75, "y": 0.4}
+    "cueDirection": {
+      "x": 0.75,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,23 @@
         "content": "中台角度球稳定后，可挑战「远台斜线入角袋」在更远距离下练习角度球。也可进入「三分点角度入袋」练习更大的角度（40-50度），或「中袋角度精准」在更窄的袋口下提升精度标准。建议每周在本练习中变换目标球位置（不同角度），全面覆盖中台范围内的各种常见角度。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

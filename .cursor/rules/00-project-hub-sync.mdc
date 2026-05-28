@@ -1,0 +1,41 @@
+---
+description: 强制把本项目状态、下一步、阻塞、跨项目依赖同步到 /Users/song/projects/project-hub
+alwaysApply: true
+---
+
+# Project Hub 同步协议（本项目：13.billiard_trainer）
+
+本项目纳入跨项目 **Project Hub** 管理。Hub 路径：`/Users/song/projects/project-hub`。本项目状态卡：`/Users/song/projects/project-hub/projects/13.billiard_trainer.md`。
+
+## 必读（每次会话开始）
+
+1. 读取 `/Users/song/projects/project-hub/STATUS.md`（全局状态）。
+2. 读取 `/Users/song/projects/project-hub/projects/13.billiard_trainer.md`（本项目状态卡）。
+3. 若涉及跨项目（14 / 15 / 16 / 18），同时读取相关项目的状态卡。
+4. 本项目内部任务系统继续读取：`tasks/PROGRESS.md`、`tasks/HUMAN-REQUIRED.md`、`tasks/FAILURE-LOG.md`。
+
+## 必写（完成任务后或用户交代未来事项时）
+
+更新 `/Users/song/projects/project-hub/projects/13.billiard_trainer.md` 的以下区段：
+
+- **最近完成**：今天做了什么 + 改了哪些关键文件，前缀日期 `YYYY-MM-DD`，保留近 10 条。
+- **下一步 / 正在做**：当前线程会继续做什么。
+- **阻塞 / 需要人工确认**：在等什么。
+- **跨项目依赖**：本项目产物是否影响 14 / 15 / 16 / 18，或反之；跨项目事项同时在对方状态卡也加一条。
+- **决策记录**：选 A 弃 B 的理由、版本号定稿、引入新依赖。
+
+## 触发词（用户说这些时必须立刻写入状态卡）
+
+- "记录一下…"、"先记住…"、"暂时不做但别忘了…"
+- "下一步是…"、"后面要做…"、"之后看一下…"
+- "等 X 做完后做 Y"
+
+## 全局 STATUS.md 何时更新
+
+仅当：本项目优先级变化 / 出现跨项目阻塞或里程碑 / 项目阶段性收官时。常规进度更新只写本项目状态卡。
+
+## 重要
+
+- 状态卡不是聊天备份，是项目记忆。简洁、结构化、可回看。
+- 不把整段聊天复制进去；只保留"做了什么、改了什么文件、下一步是什么"。
+- 本项目内部 `tasks/PROGRESS.md` 仍是 Orchestrator 的主任务台账，不要把它的细节复制到 hub；hub 只摘要现状与下一步。

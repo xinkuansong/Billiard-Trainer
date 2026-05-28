@@ -4,7 +4,9 @@
   "nameEn": "Follow Shot Positioning",
   "category": "cueAction",
   "subcategory": "follow",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.35},
+      "start": {
+        "x": 0.5,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.5, "y": 0.15},
-        {"x": 0.5, "y": 0.1}
+        {
+          "x": 0.5,
+          "y": 0.15
+        },
+        {
+          "x": 0.5,
+          "y": 0.1
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.1},
+      "start": {
+        "x": 0.5,
+        "y": 0.1
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.5, "y": 1.0}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 1.0
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,31 @@
         "content": "掌握基础高杆后，尝试「高杆远台跟进」增加距离难度，感受远台高杆需要的额外穿透力。之后可练习「高杆加塞走位」，在高杆基础上叠加侧旋，实现更复杂的弧线走位路线。同时建议配合「分离角90度规则」训练，理解高杆如何缩小分离角。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    },
+    {
+      "id": "take_06",
+      "file": "take_06.mp4"
+    }
+  ]
 }

@@ -4,7 +4,9 @@
   "nameEn": "Three-Cushion Position Play",
   "category": "positioning",
   "subcategory": "threeCushion",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
@@ -21,23 +23,50 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.78, "y": 0.38},
-        {"x": 0.98, "y": 0.25},
-        {"x": 0.8, "y": 0.02},
-        {"x": 0.3, "y": 0.15},
-        {"x": 0.5, "y": 0.35}
+        {
+          "x": 0.78,
+          "y": 0.38
+        },
+        {
+          "x": 0.98,
+          "y": 0.25
+        },
+        {
+          "x": 0.8,
+          "y": 0.02
+        },
+        {
+          "x": 0.3,
+          "y": 0.15
+        },
+        {
+          "x": 0.5,
+          "y": 0.35
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.8, "y": 0.4},
+      "start": {
+        "x": 0.8,
+        "y": 0.4
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.8, "y": 0.4}
+    "cueDirection": {
+      "x": 0.8,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -58,5 +87,15 @@
         "content": "三库走位稳定后，挑战「对角走位」练习跨全台的长距离走位。三库的力度基础来自「五档力度阶梯」和「全力度走位综合」，建议交替练习。如果三库精度不够，回到「两库走位」巩固两库碰点判断能力，再逐步增加到三库。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

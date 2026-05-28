@@ -15,6 +15,7 @@ struct HistoryCalendarView: View {
     @State private var activeTab: HistoryTab = .history
     @State private var showSubscription = false
     @State private var selectedSessionId: UUID?
+    @State private var selectedAngleSession: AngleTrainingSession?
 
     private let weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"]
 
@@ -60,6 +61,16 @@ struct HistoryCalendarView: View {
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
+        }
+        .sheet(item: $selectedAngleSession) { session in
+            NavigationStack {
+                AngleSessionDetailView(session: session)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("完成") { selectedAngleSession = nil }
+                        }
+                    }
+            }
         }
     }
 
@@ -144,7 +155,7 @@ struct HistoryCalendarView: View {
         let hasSession = day.isCurrentMonth && vm.hasSession(on: day.date)
         let selected = day.isCurrentMonth && vm.isSelected(day.date)
         let today = day.isCurrentMonth && vm.isToday(day.date)
-        let category = hasSession ? vm.categoryForDate(day.date) : nil
+        let markerLabel = hasSession ? vm.markerLabel(for: day.date) : nil
 
         return Button {
             if day.isCurrentMonth {
@@ -175,8 +186,8 @@ struct HistoryCalendarView: View {
                 }
                 .frame(width: 36, height: 36)
 
-                if let cat = category {
-                    Text(cat.shortNameZh)
+                if let label = markerLabel {
+                    Text(label)
                         .font(.btMicro)
                         .fontWeight(.medium)
                         .foregroundStyle(.white)
@@ -198,7 +209,7 @@ struct HistoryCalendarView: View {
 
     @ViewBuilder
     private var dailySessionList: some View {
-        let daySessions = vm.selectedDateSessions
+        let dayItems = vm.selectedDateItems
 
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text(selectedDateTitle)
@@ -207,25 +218,41 @@ struct HistoryCalendarView: View {
 
             if !vm.hasAnySessions {
                 emptyState
-            } else if daySessions.isEmpty {
+            } else if dayItems.isEmpty {
                 noSessionHint
             } else {
-                ForEach(daySessions, id: \.id) { session in
-                    let accessible = HistoryAccessController.isAccessible(
-                        session, isPremium: subscriptionManager.isPremium
-                    )
-                    Button {
-                        if accessible {
-                            selectedSessionId = session.id
-                        } else {
-                            showSubscription = true
-                        }
-                    } label: {
-                        sessionRow(session, locked: !accessible)
-                    }
-                    .buttonStyle(.plain)
+                ForEach(dayItems) { item in
+                    dayItemRow(item)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func dayItemRow(_ item: HistoryDayItem) -> some View {
+        switch item {
+        case .session(let session):
+            let accessible = HistoryAccessController.isAccessible(
+                session, isPremium: subscriptionManager.isPremium
+            )
+            Button {
+                if accessible {
+                    selectedSessionId = session.id
+                } else {
+                    showSubscription = true
+                }
+            } label: {
+                sessionRow(session, locked: !accessible)
+            }
+            .buttonStyle(.plain)
+
+        case .angle(let angleSession):
+            Button {
+                selectedAngleSession = angleSession
+            } label: {
+                angleRow(angleSession)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -306,6 +333,49 @@ struct HistoryCalendarView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.04), radius: 8, x: 0, y: 2)
         .opacity(locked ? 0.7 : 1)
+    }
+
+    private func angleRow(_ session: AngleTrainingSession) -> some View {
+        HStack(spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.sm) {
+                    Circle()
+                        .fill(Color.btAccent)
+                        .frame(width: 10, height: 10)
+                    Text(session.quizTypeNameZh)
+                        .font(.btHeadline)
+                        .foregroundStyle(.btText)
+                }
+
+                HStack(spacing: Spacing.lg) {
+                    Text("\(session.questionCount) 题")
+                    Text(String(format: "平均 %.1f°", session.averageError))
+                    Text(String(format: "正确率 %.0f%%", session.accurateRate * 100))
+                    Text(angleTimeRange(for: session))
+                }
+                .font(.btFootnote14)
+                .foregroundStyle(.btTextSecondary)
+            }
+
+            Spacer()
+
+            Image(systemName: "chevron.right")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+        }
+        .padding(Spacing.lg)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.04), radius: 8, x: 0, y: 2)
+    }
+
+    private func angleTimeRange(for session: AngleTrainingSession) -> String {
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "zh_CN")
+        fmt.dateFormat = "HH:mm"
+        let start = fmt.string(from: session.startDate)
+        let end   = fmt.string(from: session.endDate)
+        return start == end ? start : "\(start)-\(end)"
     }
 }
 

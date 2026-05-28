@@ -84,21 +84,45 @@
 
 ### 1.4 字体 Token
 
+> **更新（2026-05-26 · DR-014）**：全局字体密度优化。以角度训练首页为基准向下收敛，主要降低展示级与标题级的字号，避免列表/卡片字号过强。详见本节末尾「字号选用指引」。
+
 | Token | 字号 | 字重 | 设计 | 用途 |
 |-------|------|------|------|------|
-| `btDisplay` | 48pt | Bold | Rounded | 大数字 |
-| `btLargeTitle` | 34pt | Bold | Rounded | Tab 根页面标题 |
-| `btTitle` | 22pt | Bold | Rounded | Section/卡片标题 |
-| `btTitle2` | 20pt | Semibold | Default | 次级标题 |
-| `btHeadline` | 17pt | Semibold | Default | 列表行主标题 |
-| `btBody` | 17pt | Regular | Default | 正文 |
-| `btBodyMedium` | 17pt | Medium | Default | 正文加粗 |
-| `btCallout` | 16pt | Regular | Default | 按钮文字 |
+| `btDisplay` | 44pt | Bold | Rounded | 单屏唯一核心指标数字（训练总结成功率等）|
+| `btDisplaySmall` | 30pt | Bold | Rounded | 详情页 Hero 标题、卡片中等数字徽章 |
+| `btLargeTitle` | 32pt | Bold | Rounded | Tab 根页面标题（训练 / 动作库 / 角度 / 记录 / 我的）|
+| `btChapterNumber` | 26pt | Bold | Rounded | 章节序号（「第 N 周」「第 N 期」）|
+| `btTitle` | 20pt | Bold | Rounded | Section 大标题 |
+| `btTitle2` | 18pt | Semibold | Default | 次级标题、SubSection |
+| `btTitleMedium` | 17pt | Semibold | Default | 编辑式次级标题（与 btHeadline 字号同，可视场景选用）|
+| `btHeadline` | 17pt | Semibold | Default | 列表行主标题、卡片主标题（首选）|
+| `btStatNumber` | 24pt | Bold | Rounded | 卡片内常用大数字（统计、计划页 8/3/60）|
+| `btBody` | 17pt | Regular | Default | 主要正文 |
+| `btBodyMedium` | 17pt | Medium | Default | 强调正文（不加粗但略重）|
+| `btCallout` | 16pt | Regular | Default | 次要正文、按钮文字 |
 | `btSubheadline` | 15pt | Regular | Default | 辅助信息 |
 | `btSubheadlineMedium` | 15pt | Medium | Default | 辅助强调 |
-| `btFootnote` | 13pt | Regular | Default | 脚注 |
-| `btCaption` | 12pt | Regular | Default | 标签 |
-| `btCaption2` | 11pt | Medium | Default | 最小标签 |
+| `btSubheadlineSemibold` | 15pt | Semibold | Default | 列表行序号、轻量强调 |
+| `btFootnote14` | 14pt | Regular | Default | 介于 footnote 与 callout 间的辅助文字 |
+| `btFootnote` | 13pt | Regular | Default | 时间戳、次要说明 |
+| `btCaption` | 12pt | Regular | Default | 标签、图表轴 |
+| `btCaption2` | 11pt | Medium | Default | 最小标签（「免费」「付费」角标）|
+| `btMicro` | 10pt | Medium | Default | Timeline 小点、徽章角标（禁止用于正文信息）|
+
+#### 字号选用指引
+
+- **根 Tab 页标题** → `btLargeTitle`
+- **Hero 标题（详情页主名称）** → `btDisplaySmall` 或 `btTitle`
+- **Section 大标题** → `btTitle`
+- **次级 Section** → `btTitle2`
+- **卡片/列表行主标题** → 优先 `btHeadline`；需要中文编辑感时使用 `btTitleMedium`
+- **正文** → `btBody`（普通）/ `btBodyMedium`（强调）
+- **副标题/描述** → `btCallout`（紧靠主标）或 `btSubheadline`
+- **时间戳/脚注** → `btFootnote` / `btFootnote14`
+- **统计数字（卡片内）** → `btStatNumber`
+- **核心展示数字** → `btDisplay` / `btDisplaySmall`
+- **章节序号** → `btChapterNumber`
+- **极小徽章/Timeline** → `btCaption2` / `btMicro`
 
 ---
 
@@ -740,3 +764,14 @@ struct BTShareCard: View {
 | 2026-04-06 | DrillDetailView 新增：备注卡、训练维度 5 进度条、查看精讲 Pill、真人示范横滚占位 | 新增 | DrillDetailView | DR-011 |
 | 2026-04-06 | BTDrillListSkeleton 更新为 2 列网格骨架 | 修正 | BTShimmer | DR-011 |
 | 2026-04-06 | BTDrillThumbnail 改用 BTMiniTable 替代旧渐变+图标占位 | 修正 | BTDrillCard | DR-011 |
+| 2026-05-25 | Typography 新增 btDisplaySmall (36pt rounded bold) / btChapterNumber (32pt rounded bold) / btTitleMedium (19pt semibold) | 新增 | Typography.swift | DR-013 |
+| 2026-05-25 | 新建 BTGoldRule（1pt × 32pt × btAccent.opacity(0.6)）+ BTArcSeparator（金色台球母题章节分隔）| 新增 | PlanDetailView | DR-013 |
+| 2026-05-25 | 新建 BTPlanWeekTimeline — 横向 N 点周进度条，四态（completed/current/upcoming/locked）+ 虚线连接 + Premium 锁支持 | 新增 | Core/Components | DR-013 |
+| 2026-05-25 | 新建 BTPhaseTimeline + BTPhaseEntry — 纵向虚线 + 8pt 染色圆点（warmup 绿/focused 主色/combined 金/review 灰），替换 PlanDetailView 内 phaseRow | 新增 | Core/Components | DR-013 |
+| 2026-05-25 | PlanDetailView 重写：coverHeader（系列上眉 + Display 主标 + 金线 + 首句加粗）+ statsRibbon（奥运记分牌式 36pt 数字）+ chapterHeader（32pt 周序号 + 主题）+ Round 2 装饰（hero 水印 / 弧形分隔 / 教练引语） | 重构 | PlanDetailView | DR-013 |
+| 2026-05-25 | PlanListView 重写：levelSectionHeader 编辑式（L 上眉 + 中文主标 + 金线 + count chip）+ PlanCard 序号刻度缩略图（02 序号 + 第 N 期 + level 色）+ 首句加粗描述 | 重构 | PlanListView | DR-013 |
+| 2026-05-25 | TrainingHomeView 计划浏览升级：planBrowseCard 56pt 序号缩略图 + 首句加粗；customPlanCard 同步样式；todayScheduleSection 编辑式上眉（第 N 周 · 第 N 天 · X / Y）+ 金线；todayDrillCard 序号化（01 02 03） | 重构 | TrainingHomeView | DR-013 |
+| 2026-05-25 | 中文编辑式排版语言确立（PD-005）：极致字号差 + tabular monospaced 数字 + 1pt 金色细线 + 首句加粗 + 大序号刻度五件套 | PD | 全局 long-text 列表/详情 | DR-013 |
+| 2026-05-26 | Typography 全局字体密度优化（DR-014）：btDisplay 48→44、btDisplaySmall 36→30、btLargeTitle 34→32、btChapterNumber 32→26、btTitle 22→20、btTitle2 20→18、btTitleMedium 19→17、btStatNumber 28→24；新增 btSubheadlineSemibold/btFootnote14/btMicro 文档化 | DR | 全局 Typography + 主要页面 | UI 截图反馈 |
+| 2026-05-26 | TrainingHomeView 今日 Drill 卡：标题 btTitle2→btHeadline；序号 btTitleMedium→btSubheadlineSemibold；issueThumbnail 数字硬编码 26pt → btStatNumber | 修正 | TrainingHomeView | DR-014 |
+| 2026-05-26 | PlanDetailView：描述 lead 句改为 btBodyMedium（原 btTitleMedium），statCell 数字 btDisplaySmall→btStatNumber | 修正 | PlanDetailView | DR-014 |

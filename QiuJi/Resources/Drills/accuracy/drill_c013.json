@@ -4,7 +4,9 @@
   "nameEn": "Small-Angle Corner Pocket Shot",
   "category": "accuracy",
   "subcategory": "angle",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L0",
   "difficulty": 2,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.58, "y": 0.24},
+      "start": {
+        "x": 0.58,
+        "y": 0.24
+      },
       "path": [
-        {"x": 0.7, "y": 0.43}
+        {
+          "x": 0.7,
+          "y": 0.43
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.75, "y": 0.35},
+      "start": {
+        "x": 0.75,
+        "y": 0.35
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.75, "y": 0.35}
+    "cueDirection": {
+      "x": 0.75,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,63 @@
         "content": "小角度底袋球稳定后，可挑战「中台角度球入袋」增加距离和角度难度，再进入「五分点瞄准线练习」和「三分点角度入袋」系统训练不同角度。如果想挑战极限，可尝试「极薄角度切球」——角度超过70度的极薄球。建议按角度从小到大逐步进阶，每个级别进球率达标后再升级。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    },
+    {
+      "id": "take_06",
+      "file": "take_06.mp4"
+    },
+    {
+      "id": "take_07",
+      "file": "take_07.mp4"
+    },
+    {
+      "id": "take_08",
+      "file": "take_08.mp4"
+    },
+    {
+      "id": "take_09",
+      "file": "take_09.mp4"
+    },
+    {
+      "id": "take_10",
+      "file": "take_10.mp4"
+    },
+    {
+      "id": "take_11",
+      "file": "take_11.mp4"
+    },
+    {
+      "id": "take_12",
+      "file": "take_12.mp4"
+    },
+    {
+      "id": "take_13",
+      "file": "take_13.mp4"
+    },
+    {
+      "id": "take_14",
+      "file": "take_14.mp4"
+    }
+  ]
 }

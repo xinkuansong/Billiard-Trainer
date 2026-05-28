@@ -40,9 +40,7 @@ struct BTExerciseRow: View {
         ZStack {
             RoundedRectangle(cornerRadius: BTRadius.md)
                 .fill(Color.btPrimaryMuted)
-            Image(systemName: "figure.pool.swim")
-                .font(.btTitle)
-                .foregroundStyle(.btPrimary)
+            BTTrainingIcon(size: 30, filled: true)
         }
         .frame(width: 56, height: 56)
     }

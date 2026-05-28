@@ -4,7 +4,9 @@
   "nameEn": "Escape Shot from Snooker",
   "category": "specialShots",
   "subcategory": "escape",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.8, "y": 0.4},
+      "start": {
+        "x": 0.8,
+        "y": 0.4
+      },
       "path": [
-        {"x": 0.98, "y": 0.35},
-        {"x": 0.7, "y": 0.1}
+        {
+          "x": 0.98,
+          "y": 0.35
+        },
+        {
+          "x": 0.7,
+          "y": 0.1
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.65, "y": 0.08},
+      "start": {
+        "x": 0.65,
+        "y": 0.08
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.98, "y": 0.35}
+    "cueDirection": {
+      "x": 0.98,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,11 @@
         "content": "一库解球稳定后，练习两库甚至三库解球扩大解球范围。进阶到解球同时考虑母球停位——不仅要碰到目标球，还要让母球停在安全位置避免给对手留机会。「安全球布置」和解球是一对互补技能，交替练习可以全面提升攻防转换能力。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    }
+  ]
 }

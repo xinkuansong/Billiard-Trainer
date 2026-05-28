@@ -4,7 +4,9 @@
   "nameEn": "Center Ball Stop Shot",
   "category": "fundamentals",
   "subcategory": "stopShot",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L0",
   "difficulty": 1,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.15},
+      "start": {
+        "x": 0.5,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.5, "y": 0.35}
+        {
+          "x": 0.5,
+          "y": 0.35
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.35},
+      "start": {
+        "x": 0.5,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.35}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,27 @@
         "content": "近距离定杆稳定后，逐渐增大母球与目标球的距离至半台甚至全台，练习远距离定杆控制。掌握定杆后可学习低杆（击球点在赤道以下）让母球后退，以及高杆（击球点在赤道以上）让母球跟进——这是走位控制的基础。定杆能力直接反映击球点精度，建议每次训练前用本练习热身校准手感。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    }
+  ]
 }

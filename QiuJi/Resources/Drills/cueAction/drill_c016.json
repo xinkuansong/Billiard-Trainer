@@ -4,7 +4,9 @@
   "nameEn": "Stun Shot at Angle",
   "category": "cueAction",
   "subcategory": "stun",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.78, "y": 0.12},
-        {"x": 0.9, "y": 0.28}
+        {
+          "x": 0.78,
+          "y": 0.12
+        },
+        {
+          "x": 0.9,
+          "y": 0.28
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.8, "y": 0.1},
+      "start": {
+        "x": 0.8,
+        "y": 0.1
+      },
       "path": [
-        {"x": 1.0165, "y": -0.0165}
+        {
+          "x": 1.0165,
+          "y": -0.0165
+        }
       ]
     },
     "pocket": "topRight",
-    "cueDirection": {"x": 0.8, "y": 0.1}
+    "cueDirection": {
+      "x": 0.8,
+      "y": 0.1
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,15 @@
         "content": "掌握斯登角度停球后，进入「分离角90度规则」系统学习分离角理论。接着练习「高杆缩小分离角」和「低杆扩大分离角」，理解三种杆法如何改变分离角。最终目标是「定杆分离角精确控制」——在不同角度下精确运用斯登，将母球停到指定区域。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

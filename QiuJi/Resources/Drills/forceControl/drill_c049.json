@@ -4,7 +4,9 @@
   "nameEn": "Five-Level Force Ladder",
   "category": "forceControl",
   "subcategory": "ladder",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": true,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.2},
+      "start": {
+        "x": 0.5,
+        "y": 0.2
+      },
       "path": [
-        {"x": 0.5, "y": 0.38}
+        {
+          "x": 0.5,
+          "y": 0.38
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.4},
+      "start": {
+        "x": 0.5,
+        "y": 0.4
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.4}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,27 @@
         "content": "五档力度稳定后，挑战「全力度走位综合」——根据走位需要在五档间自如切换。「控力走位圈」可作为每档力度的精度校准练习。配合走位训练如「两库走位」和「三库走位」，不同碰库次数需要不同力度档位的精确应用。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    }
+  ]
 }

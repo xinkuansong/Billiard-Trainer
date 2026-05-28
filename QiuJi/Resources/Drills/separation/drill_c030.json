@@ -4,7 +4,9 @@
   "nameEn": "Separation Angle Position Play",
   "category": "separation",
   "subcategory": "positionPlay",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 4,
   "isPremium": true,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.78, "y": 0.38},
-        {"x": 0.6, "y": 0.15}
+        {
+          "x": 0.78,
+          "y": 0.38
+        },
+        {
+          "x": 0.6,
+          "y": 0.15
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.8, "y": 0.4},
+      "start": {
+        "x": 0.8,
+        "y": 0.4
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.8, "y": 0.4}
+    "cueDirection": {
+      "x": 0.8,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,27 @@
         "content": "分离角走位应用掌握后，进入「分离角综合挑战」——在薄厚球交替、远近台交替的高压场景下快速决策。同时建议回顾「高杆加塞走位」和「低杆加塞回位」，将加塞变线加入走位选择体系。终极目标是在实战比赛中自然运用分离角思维，做到「想到就能打到」。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    }
+  ]
 }

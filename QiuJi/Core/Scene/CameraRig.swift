@@ -19,15 +19,15 @@ final class CameraRig {
         let dampingFactor: Float
 
         static let `default` = Config(
-            aimFov: 35,
-            standFov: 55,
-            minRadius: 1.5,
-            maxRadius: 4.0,
-            minHeight: 0.8,
-            maxHeight: 3.5,
-            aimPitchRad: -0.35,
-            standPitchRad: -1.2,
-            dampingFactor: 0.15
+            aimFov: AimingCameraConfig.aimFov,
+            standFov: AimingCameraConfig.standFov,
+            minRadius: AimingCameraConfig.aimRadius,
+            maxRadius: AimingCameraConfig.standRadius,
+            minHeight: AimingCameraConfig.aimHeight,
+            maxHeight: AimingCameraConfig.standHeight,
+            aimPitchRad: AimingCameraConfig.aimPitchRad,
+            standPitchRad: AimingCameraConfig.standPitchRad,
+            dampingFactor: AimingCameraConfig.dampingFactor
         )
     }
 
@@ -48,13 +48,22 @@ final class CameraRig {
     }
 
     // MARK: - Observation Constants
+    //
+    // Mirrors `AimingCameraConfig`'s stand-pose so that:
+    //   • `enterObservation` lands at `zoom == 1`, and the post-transition
+    //     `applyCameraTransform` (which derives radius/height/pitch/fov from
+    //     `currentZoom`) reproduces the *exact* observation pose. Otherwise
+    //     the camera "comes closer" right after the transition — that was
+    //     the visual regression the user reported (#1).
+    //   • Vertical-swipe up to the upper bound = observation pose. So the
+    //     observation toggle and the swipe gesture agree on the high view.
 
     private enum ObservationConfig {
         static let zoom: Float = 1.0
-        static let radius: Float = 2.0
-        static let height: Float = 1.2
-        static let fov: Float = 50
-        static let pitchRad: Float = -45 * .pi / 180
+        static var radius: Float { AimingCameraConfig.standRadius }
+        static var height: Float { AimingCameraConfig.standHeight }
+        static var fov: Float { Float(AimingCameraConfig.standFov) }
+        static var pitchRad: Float { AimingCameraConfig.standPitchRad }
         static let transitionSpeed: Float = 3.0
         static let returnToAimDuration: Float = 0.5
     }
@@ -83,6 +92,12 @@ final class CameraRig {
     private var smoothOrigin: SmoothPose?
     private var smoothProgress: Float = 1.0
     private var smoothDuration: Float = 0.5
+    /// Last pose written to the camera node during a smooth transition.
+    /// `captureCurrentPose()` returns this when an animation is in flight,
+    /// so a mid-transition `smoothToPose(_:duration:)` call sees the actual
+    /// visible pose as its starting origin instead of snapping back to a
+    /// stale `currentZoom`-derived pose.
+    private var currentInterpolatedPose: SmoothPose?
     var isTransitioning: Bool { smoothProgress < 1.0 }
 
     // MARK: - 2D Mode State
@@ -113,16 +128,20 @@ final class CameraRig {
     // MARK: - Input handlers (3D mode)
 
     func handleHorizontalSwipe(delta: Float) {
-        let sensitivity: Float = 0.008
+        // Sensitivity 0.0025 — half of the previous value. Crucially we
+        // only update `targetYaw`, not `currentYaw`: the per-frame damping
+        // in `update(deltaTime:)` (dampingFactor 0.12) then eases
+        // `currentYaw` toward target, giving a soft inertial follow that
+        // dramatically reduces jitter compared to writing both at once.
+        let sensitivity: Float = 0.0025
         targetYaw += delta * sensitivity
-        currentYaw += delta * sensitivity
     }
 
     func handleVerticalSwipe(delta: Float) {
-        let sensitivity: Float = 0.005
-        let newZoom = max(0, min(1, targetZoom + delta * sensitivity))
-        targetZoom = newZoom
-        currentZoom = newZoom
+        // Same rationale as `handleHorizontalSwipe`: only update target,
+        // let damping ease current. Sensitivity dropped 0.005 → 0.0035.
+        let sensitivity: Float = 0.0035
+        targetZoom = max(0, min(1, targetZoom + delta * sensitivity))
     }
 
     func handlePinch(scale: Float) {
@@ -190,7 +209,9 @@ final class CameraRig {
             fov: Float(config.aimFov),
             height: config.minHeight
         )
-        smoothToPose(targetPose, duration: 0.5)
+        // 0.6s matches `enterObservation`. Δheight ≈ 1m and Δpitch ≈ 30°,
+        // so a shorter duration shows up as a perceptible "snap" mid-motion.
+        smoothToPose(targetPose, duration: 0.6)
     }
 
     func handleObservationPan(deltaX: Float) {
@@ -221,7 +242,45 @@ final class CameraRig {
         smoothDuration = max(0.1, duration)
     }
 
+    /// Cancel any in-flight `smoothToPose(_:duration:)` animation and let the
+    /// caller take direct control of `targetYaw / targetZoom / targetPivot`.
+    /// Used by `AngleTrainingScene` before driving the camera through a
+    /// 2D⇄3D mode-switch transaction.
+    func disableSmoothPoseControl() {
+        smoothOrigin = nil
+        smoothTarget = nil
+        smoothProgress = 1.0
+        currentInterpolatedPose = nil
+    }
+
+    /// Translate the orbit pivot by an XZ delta. With `immediate: true` both
+    /// `targetPivot` and `currentPivot` are snapped (no easing), matching the
+    /// reference rig's anchor-lock semantics — the cue ball stays pinned to
+    /// its on-screen position while the world slides under the camera.
+    func translatePivot(deltaXZ: SCNVector3, immediate: Bool) {
+        let delta = SCNVector3(deltaXZ.x, 0, deltaXZ.z)
+        targetPivot = SCNVector3(
+            targetPivot.x + delta.x,
+            targetPivot.y,
+            targetPivot.z + delta.z
+        )
+        if immediate {
+            currentPivot = SCNVector3(
+                currentPivot.x + delta.x,
+                currentPivot.y,
+                currentPivot.z + delta.z
+            )
+            applyCameraTransform()
+        }
+    }
+
     func captureCurrentPose() -> SmoothPose {
+        // While a smooth transition is in flight, return the last
+        // interpolated pose so that re-entering smoothToPose does not snap
+        // the camera back to a stale `currentZoom`-derived starting point.
+        if let live = currentInterpolatedPose, smoothProgress < 1.0 {
+            return live
+        }
         let z = max(0, min(1, currentZoom))
         let radius = lerp(config.minRadius, config.maxRadius, z)
         let height = lerp(config.minHeight, config.maxHeight, z)
@@ -236,7 +295,10 @@ final class CameraRig {
         if smoothProgress < 1.0, let origin = smoothOrigin, let target = smoothTarget {
             smoothProgress += deltaTime / smoothDuration
             smoothProgress = min(1.0, smoothProgress)
-            let t = smoothStep(smoothProgress)
+            // smootherstep (5th-order, C2-continuous): no discontinuous
+            // acceleration at the endpoints, so the camera glides in / out
+            // of motion instead of "tugging".
+            let t = smootherStep(smoothProgress)
 
             currentYaw = origin.yaw + shortestAngleDelta(from: origin.yaw, to: target.yaw) * t
             currentPivot = lerpVec(origin.pivot, target.pivot, t)
@@ -244,6 +306,13 @@ final class CameraRig {
             let height = lerp(origin.height, target.height, t)
             let pitch = lerp(origin.pitch, target.pitch, t)
             let fov = lerp(origin.fov, target.fov, t)
+
+            // Cache the live pose so a mid-transition smoothToPose call has
+            // a non-stale starting origin (see captureCurrentPose).
+            currentInterpolatedPose = SmoothPose(
+                yaw: currentYaw, pitch: pitch, radius: radius,
+                pivot: currentPivot, fov: fov, height: height
+            )
 
             let cameraY = tableSurfaceY + max(0.3, height)
             let forwardXZ = SCNVector3(-cosf(currentYaw), 0, -sinf(currentYaw))
@@ -268,6 +337,7 @@ final class CameraRig {
                 currentZoom = targetZoom
                 smoothOrigin = nil
                 smoothTarget = nil
+                currentInterpolatedPose = nil
             }
             return
         }
@@ -318,6 +388,38 @@ final class CameraRig {
         applyCameraTransform()
     }
 
+    /// Sync the rig's internal pose state directly to the aim pose without
+    /// running any animation. Called by `AngleTrainingScene.transitionToPerspective`
+    /// once the SCNTransaction has visually placed the camera in aim pose:
+    /// without this, the rig would still think it's at whatever zoom /
+    /// yaw / pivot it had before the 2D toggle, and the next `update(_:)`
+    /// frame would overwrite the camera's actual pose with the stale
+    /// internal state — which is the visible "snap from observation to
+    /// aim" wobble the user reported when toggling 2D → 3D.
+    /// - Skips `applyCameraTransform()` because the caller (SCNTransaction)
+    ///   has already set the camera node to the desired pose; we only
+    ///   need to align internal state for future input handling.
+    func snapToAimPose(pivot: SCNVector3, aimDirection: SCNVector3) {
+        let flatAim = SCNVector3(aimDirection.x, 0, aimDirection.z)
+        let len = sqrtf(flatAim.x * flatAim.x + flatAim.z * flatAim.z)
+        let yaw = len > 0.0001 ? atan2(-flatAim.z / len, -flatAim.x / len) : currentYaw
+
+        targetPivot = SCNVector3(pivot.x, tableSurfaceY, pivot.z)
+        targetYaw = yaw
+        targetZoom = 0
+        currentPivot = targetPivot
+        currentYaw = yaw
+        currentZoom = 0
+        currentViewMode = .aiming
+
+        // Cancel any in-flight smooth transition so it doesn't fight the
+        // freshly-snapped state.
+        smoothOrigin = nil
+        smoothTarget = nil
+        smoothProgress = 1.0
+        currentInterpolatedPose = nil
+    }
+
     // MARK: - Private
 
     private func applyCameraTransform() {
@@ -362,6 +464,14 @@ final class CameraRig {
     private func smoothStep(_ t: Float) -> Float {
         let x = max(0, min(1, t))
         return x * x * (3 - 2 * x)
+    }
+
+    /// 5th-order smootherstep (Ken Perlin). C2-continuous — first **and**
+    /// second derivatives are zero at the endpoints, eliminating the slight
+    /// "tug" the cubic smoothstep produces when starting/stopping a motion.
+    private func smootherStep(_ t: Float) -> Float {
+        let x = max(0, min(1, t))
+        return x * x * x * (x * (x * 6 - 15) + 10)
     }
 
     private func shortestAngleDelta(from: Float, to: Float) -> Float {

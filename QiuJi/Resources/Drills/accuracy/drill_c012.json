@@ -4,7 +4,9 @@
   "nameEn": "Straight Shot to Side Pocket",
   "category": "accuracy",
   "subcategory": "straight",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L0",
   "difficulty": 2,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.3, "y": 0.25},
+      "start": {
+        "x": 0.3,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.42, "y": 0.1}
+        {
+          "x": 0.42,
+          "y": 0.1
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.43, "y": 0.08},
+      "start": {
+        "x": 0.43,
+        "y": 0.08
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.43, "y": 0.08}
+    "cueDirection": {
+      "x": 0.43,
+      "y": 0.08
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,23 @@
         "content": "中袋直线入袋稳定后，可挑战「远台中袋直线」——在更长距离下打中袋，极端考验出杆直度。也可进入「中袋角度精准」练习，从不同角度将球送入中袋。中袋球的练习对提升整体精度帮助极大，因为中袋的窄袋口迫使你建立更高标准的瞄准习惯。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

@@ -35,7 +35,7 @@ struct PlanListView: View {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 300)
             } else {
-                LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
+                LazyVStack(spacing: Spacing.xxxl) {
                     if plans.isEmpty && customPlans.isEmpty {
                         BTEmptyState(
                             icon: "calendar",
@@ -44,30 +44,32 @@ struct PlanListView: View {
                         )
                     }
 
-                    if !plans.isEmpty {
-                        officialPlansHeader
-                            .padding(.horizontal, Spacing.lg)
-                    }
-
                     ForEach(groupedPlans, id: \.level) { group in
-                        Section {
-                            VStack(spacing: Spacing.md) {
-                                ForEach(group.plans) { plan in
+                        VStack(alignment: .leading, spacing: Spacing.lg) {
+                            levelSectionHeader(level: group.level, count: group.plans.count)
+                                .padding(.horizontal, Spacing.lg)
+
+                            LazyVGrid(
+                                columns: [
+                                    GridItem(.flexible(), spacing: Spacing.md),
+                                    GridItem(.flexible(), spacing: Spacing.md)
+                                ],
+                                spacing: Spacing.md
+                            ) {
+                                ForEach(Array(group.plans.enumerated()), id: \.element.id) { index, plan in
                                     NavigationLink(value: TrainingRoute.planDetail(planId: plan.id)) {
-                                        PlanCard(plan: plan)
+                                        PlanCard(plan: plan, issueNumber: index + 1)
                                     }
                                     .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, Spacing.lg)
-                        } header: {
-                            levelSectionHeader(level: group.level, count: group.plans.count)
                         }
                     }
 
                     customPlansSection
                 }
-                .padding(.vertical, Spacing.md)
+                .padding(.vertical, Spacing.lg)
             }
         }
         .background(.btBG)
@@ -96,120 +98,145 @@ struct PlanListView: View {
     private var customPlansSection: some View {
         Group {
             if !customPlans.isEmpty {
-                Section {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    customSectionHeader
+                        .padding(.horizontal, Spacing.lg)
+
                     VStack(spacing: Spacing.md) {
-                        ForEach(customPlans) { plan in
-                            customPlanCard(plan)
+                        ForEach(Array(customPlans.enumerated()), id: \.element.id) { index, plan in
+                            customPlanCard(plan, issueNumber: index + 1)
                         }
                     }
                     .padding(.horizontal, Spacing.lg)
-                } header: {
-                    customSectionHeader
                 }
             }
         }
     }
 
     private var customSectionHeader: some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "hammer.fill")
-                .font(.btCallout)
-                .foregroundStyle(.btAccent)
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "hammer.fill")
+                    .font(.btCaption2)
+                    .foregroundStyle(.btAccent)
+                Text("用户创建")
+                    .font(.btCaption2)
+                    .foregroundStyle(.btTextTertiary)
+            }
 
-            Text("我的计划")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                Text("我的计划")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
 
-            Text("\(customPlans.count)")
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-                .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, 2)
-                .background(.btBGTertiary)
-                .clipShape(Capsule())
+                BTGoldRule()
+                    .padding(.bottom, 6)
 
-            Spacer()
+                Spacer()
+
+                Text("\(customPlans.count)")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(.btBGTertiary)
+                    .clipShape(Capsule())
+            }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.sm)
-        .background(.btBG)
     }
 
-    private func customPlanCard(_ plan: CustomPlan) -> some View {
+    private func customPlanCard(_ plan: CustomPlan, issueNumber: Int) -> some View {
         NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        HStack(spacing: Spacing.sm) {
-                            Image(systemName: "hammer")
-                                .font(.btMicro)
-                                .foregroundStyle(.btAccent)
-                            Text("自定义")
-                                .font(.btCaption2)
-                                .foregroundStyle(.btAccent)
-                        }
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, Spacing.xs)
-                        .background(Color.btAccent.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+            HStack(spacing: Spacing.md) {
+                customThumbnail(issueNumber: issueNumber)
 
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    HStack(alignment: .top, spacing: Spacing.sm) {
                         Text(plan.name)
-                            .font(.btHeadline)
+                            .font(.btTitleMedium)
                             .foregroundStyle(.btText)
                             .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+
+                        Spacer(minLength: Spacing.xs)
+
+                        Menu {
+                            NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
+                                Label("编辑", systemImage: "pencil")
+                            }
+                            Button {
+                                activateCustomPlan(plan)
+                            } label: {
+                                Label("激活此计划", systemImage: "play.circle")
+                            }
+                            Button(role: .destructive) {
+                                planToDelete = plan
+                                showDeleteConfirm = true
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .font(.btCallout)
+                                .foregroundStyle(.btTextTertiary)
+                                .frame(width: 32, height: 32)
+                                .contentShape(Rectangle())
+                        }
                     }
 
-                    Spacer()
+                    Text("\(plan.sessionsPerWeek) 次/周 · \(plan.drills.count) 项训练")
+                        .font(.btFootnote)
+                        .foregroundStyle(.btTextSecondary)
+                        .monospacedDigit()
 
-                    Menu {
-                        NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
-                            Label("编辑", systemImage: "pencil")
-                        }
-                        Button {
-                            activateCustomPlan(plan)
-                        } label: {
-                            Label("激活此计划", systemImage: "play.circle")
-                        }
-                        Button(role: .destructive) {
-                            planToDelete = plan
-                            showDeleteConfirm = true
-                        } label: {
-                            Label("删除", systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.btCallout)
-                            .foregroundStyle(.btTextTertiary)
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
+                    HStack(spacing: 2) {
+                        Image(systemName: "hammer")
+                            .font(.btMicro)
+                        Text("自定义")
+                            .font(.btCaption2)
                     }
-
-                    Image(systemName: "chevron.right")
-                        .font(.btCallout)
-                        .foregroundStyle(.btTextTertiary)
+                    .foregroundStyle(.btAccent)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(Color.btAccent.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
                 }
 
-                HStack(spacing: Spacing.lg) {
-                    planInfoChip(icon: "repeat", text: "\(plan.sessionsPerWeek) 次/周")
-                    planInfoChip(icon: "list.bullet", text: "\(plan.drills.count) 项训练")
-                }
+                Image(systemName: "chevron.right")
+                    .font(.btFootnote14)
+                    .foregroundStyle(.btTextTertiary)
             }
-            .padding(Spacing.lg)
+            .padding(Spacing.md)
             .background(.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
         .buttonStyle(.plain)
     }
 
-    private func planInfoChip(icon: String, text: String) -> some View {
-        HStack(spacing: Spacing.xs) {
-            Image(systemName: icon)
-                .font(.btCaption2)
-                .foregroundStyle(.btPrimary)
-            Text(text)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+    private func customThumbnail(issueNumber: Int) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: BTRadius.sm)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.btAccent.opacity(0.18), Color.btAccent.opacity(0.04)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+
+            VStack(spacing: 2) {
+                Text(String(format: "%02d", issueNumber))
+                    .font(.btDisplaySmall)
+                    .foregroundStyle(Color.btAccent)
+                    .monospacedDigit()
+                Image(systemName: "hammer.fill")
+                    .font(.btCaption2)
+                    .foregroundStyle(Color.btAccent.opacity(0.7))
+            }
         }
+        .frame(width: 72, height: 72)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Actions
@@ -245,26 +272,35 @@ struct PlanListView: View {
         isLoading = false
     }
 
-    private var officialPlansHeader: some View {
-        HStack {
-            Text("官方计划")
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-            Spacer()
-        }
-    }
+    // MARK: - Section Header
 
     private func levelSectionHeader(level: String, count: Int) -> some View {
-        HStack(spacing: Spacing.sm) {
-            Text(titleForLevel(level))
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text(level.replacingOccurrences(of: "→", with: " → "))
+                .font(.btCaption2)
+                .foregroundStyle(.btTextTertiary)
+                .monospacedDigit()
 
-            Spacer()
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                Text(titleForLevel(level))
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+
+                BTGoldRule()
+                    .padding(.bottom, 6)
+
+                Spacer()
+
+                Text("\(count)")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(.btBGTertiary)
+                    .clipShape(Capsule())
+            }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.sm)
-        .background(.btBG)
     }
 
     private func titleForLevel(_ level: String) -> String {
@@ -284,73 +320,40 @@ struct PlanListView: View {
 
 private struct PlanCard: View {
     let plan: OfficialPlan
+    let issueNumber: Int
 
-    private var targetLevel: DrillLevel? {
+    private var levelName: String {
         let raw = plan.targetLevel.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? plan.targetLevel
-        return DrillLevel(rawValue: raw)
-    }
-
-    private var levelColor: Color {
-        guard let level = targetLevel else { return .btPrimary }
-        switch level {
-        case .L0: return .btTextSecondary
-        case .L1: return Color(red: 0, green: 0x7A / 255.0, blue: 1)
-        case .L2: return .btAccent
-        case .L3: return .btWarning
-        case .L4: return .btDestructive
-        }
-    }
-
-    private var thumbnailIcon: String {
-        guard let level = targetLevel else { return "target" }
-        switch level {
-        case .L0: return "figure.walk"
-        case .L1: return "figure.run"
-        case .L2: return "bolt.fill"
-        case .L3: return "star.fill"
-        case .L4: return "trophy.fill"
-        }
+        return DrillLevel(rawValue: raw)?.displayName ?? plan.targetLevel
     }
 
     var body: some View {
-        HStack(spacing: Spacing.md) {
-            ZStack {
-                RoundedRectangle(cornerRadius: BTRadius.sm)
-                    .fill(
-                        LinearGradient(
-                            colors: [levelColor.opacity(0.25), levelColor.opacity(0.08)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                Image(systemName: thumbnailIcon)
-                    .font(.system(size: 24, weight: .medium))
-                    .foregroundStyle(levelColor.opacity(0.7))
+        ZStack(alignment: .bottomLeading) {
+            BTPlanCover(targetLevel: plan.targetLevel, issueNumber: issueNumber)
 
-                if plan.isPremium {
-                    Color.black.opacity(0.3)
-                    Image(systemName: "lock.fill")
-                        .foregroundStyle(.white)
-                        .font(.system(size: 16))
-                }
-            }
-            .frame(width: 72, height: 72)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.6)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(plan.nameZh)
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                    .lineLimit(2)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text("\(levelName) · \(plan.durationWeeks) 周")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .monospacedDigit()
+            }
+            .padding(Spacing.md)
 
-                HStack(spacing: Spacing.sm) {
-                    if let level = targetLevel {
-                        BTLevelBadge(level: level)
-                    }
-                    Text("\(plan.durationWeeks) 周")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-                    if plan.isPremium {
+            if plan.isPremium {
+                VStack {
+                    HStack {
+                        Spacer()
                         Text("PRO")
                             .font(.system(size: 10, weight: .heavy))
                             .foregroundStyle(.black)
@@ -359,29 +362,13 @@ private struct PlanCard: View {
                             .background(Color.btAccent)
                             .clipShape(Capsule())
                     }
+                    Spacer()
                 }
-
-                Text(plan.description)
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextSecondary)
-                    .lineLimit(2)
+                .padding(Spacing.sm)
             }
-
-            Spacer(minLength: 0)
-
-            Image(systemName: "chevron.right")
-                .font(.btCallout)
-                .foregroundStyle(.btTextTertiary)
         }
-        .padding(Spacing.md)
-        .background(.btBGSecondary)
+        .aspectRatio(0.92, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        .overlay {
-            if plan.isPremium {
-                RoundedRectangle(cornerRadius: BTRadius.md)
-                    .stroke(Color.btAccent.opacity(0.2), lineWidth: 1)
-            }
-        }
     }
 }
 

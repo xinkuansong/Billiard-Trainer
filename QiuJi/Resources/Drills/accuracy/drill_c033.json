@@ -4,7 +4,9 @@
   "nameEn": "Long Diagonal to Corner Pocket",
   "category": "accuracy",
   "subcategory": "longAngle",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": true,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.25, "y": 0.4},
+      "start": {
+        "x": 0.25,
+        "y": 0.4
+      },
       "path": [
-        {"x": 0.7, "y": 0.12}
+        {
+          "x": 0.7,
+          "y": 0.12
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.72, "y": 0.1},
+      "start": {
+        "x": 0.72,
+        "y": 0.1
+      },
       "path": [
-        {"x": 1.0165, "y": -0.0165}
+        {
+          "x": 1.0165,
+          "y": -0.0165
+        }
       ]
     },
     "pocket": "topRight",
-    "cueDirection": {"x": 0.72, "y": 0.1}
+    "cueDirection": {
+      "x": 0.72,
+      "y": 0.1
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,19 @@
         "content": "远台斜线入角袋稳定在40%进球率后，可挑战「极薄角度切球」练习极端角度的准度极限。也可以组合练习——先打一球远台斜线，再打一球远台直线（参考「远台直线球极限」），交替训练不同球型保持手感。最终目标是在实战中遇到远台角度球时，有信心做出合理的攻防判断。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

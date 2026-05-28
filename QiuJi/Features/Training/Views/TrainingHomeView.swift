@@ -114,16 +114,21 @@ struct TrainingHomeView: View {
 
     private func todayScheduleSection(_ session: TodaySessionInfo) -> some View {
         let firstIncompleteId = session.drills.first(where: { !$0.isCompleted })?.id
+        let visibleDrills = Array(session.drills.prefix(3))
 
-        return VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("今日安排")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
+        return VStack(alignment: .leading, spacing: Spacing.lg) {
+            todayScheduleHeader(session)
                 .padding(.horizontal, Spacing.lg)
 
             VStack(spacing: Spacing.md) {
-                ForEach(session.drills.prefix(3)) { drill in
-                    todayDrillCard(drill, session: session, isCurrentDrill: drill.id == firstIncompleteId)
+                ForEach(Array(visibleDrills.enumerated()), id: \.element.id) { index, drill in
+                    todayDrillCard(
+                        drill,
+                        session: session,
+                        index: index,
+                        total: session.drills.count,
+                        isCurrentDrill: drill.id == firstIncompleteId
+                    )
                 }
 
                 if session.isAllCompleted {
@@ -134,17 +139,65 @@ struct TrainingHomeView: View {
         }
     }
 
-    private func todayDrillCard(_ drill: TodayDrillItem, session: TodaySessionInfo, isCurrentDrill: Bool) -> some View {
-        HStack {
+    private func todayScheduleHeader(_ session: TodaySessionInfo) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                Text("第 \(session.weekNumber) 周")
+                    .font(.btCaption2)
+                    .foregroundStyle(.btTextTertiary)
+                    .monospacedDigit()
+                Circle()
+                    .fill(Color.btAccent)
+                    .frame(width: 3, height: 3)
+                Text("第 \(session.dayNumber) 天")
+                    .font(.btCaption2)
+                    .foregroundStyle(.btTextTertiary)
+                    .monospacedDigit()
+                Spacer()
+                Text("\(session.completedCount) / \(session.totalCount)")
+                    .font(.btCaption2)
+                    .foregroundStyle(.btTextTertiary)
+                    .monospacedDigit()
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                Text("今日安排")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+
+                BTGoldRule()
+                    .padding(.bottom, 6)
+
+                Spacer()
+            }
+        }
+    }
+
+    private func todayDrillCard(
+        _ drill: TodayDrillItem,
+        session: TodaySessionInfo,
+        index: Int,
+        total: Int,
+        isCurrentDrill: Bool
+    ) -> some View {
+        HStack(spacing: Spacing.md) {
+            Text(String(format: "%02d", index + 1))
+                .font(.btSubheadlineSemibold)
+                .foregroundStyle(drill.isCompleted ? .btTextTertiary : .btTextSecondary)
+                .monospacedDigit()
+                .frame(width: 28, alignment: .leading)
+
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(drill.nameZh)
-                    .font(.btTitle2)
+                    .font(.btHeadline)
                     .foregroundStyle(drill.isCompleted ? .btTextSecondary : .btText)
                     .lineLimit(1)
 
-                Text("\(session.planNameZh) · \(drill.sets) 练")
+                Text("第 \(index + 1) 项 / \(total) · \(drill.sets) 组×\(drill.ballsPerSet)")
                     .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -286,80 +339,102 @@ struct TrainingHomeView: View {
         VStack(spacing: 0) {
             filterChips
 
-            LazyVStack(spacing: Spacing.md) {
-                ForEach(viewModel.filteredPlans) { plan in
+            LazyVGrid(
+                columns: [
+                    GridItem(.flexible(), spacing: Spacing.md),
+                    GridItem(.flexible(), spacing: Spacing.md)
+                ],
+                spacing: Spacing.md
+            ) {
+                ForEach(Array(viewModel.filteredPlans.enumerated()), id: \.element.id) { index, plan in
                     NavigationLink(value: TrainingRoute.planDetail(planId: plan.id)) {
-                        planBrowseCard(plan)
+                        planPosterCard(plan, issueNumber: index + 1)
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.md)
         }
     }
 
-    private func planBrowseCard(_ plan: PlanBrowseItem) -> some View {
-        HStack(spacing: Spacing.lg) {
-            RoundedRectangle(cornerRadius: BTRadius.lg)
+    private func planPosterCard(_ plan: PlanBrowseItem, issueNumber: Int) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            BTPlanCover(targetLevel: plan.targetLevel, issueNumber: issueNumber)
+
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.6)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(plan.nameZh)
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Text("\(planLevelName(plan.targetLevel)) · \(plan.durationWeeks) 周")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .monospacedDigit()
+            }
+            .padding(Spacing.md)
+
+            if plan.isPremium {
+                VStack {
+                    HStack {
+                        Spacer()
+                        proTag
+                    }
+                    Spacer()
+                }
+                .padding(Spacing.sm)
+            }
+        }
+        .aspectRatio(0.92, contentMode: .fit)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+
+    private var proTag: some View {
+        Text("PRO")
+            .font(.system(size: 10, weight: .heavy))
+            .foregroundStyle(.black)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, 2)
+            .background(Color.btAccent)
+            .clipShape(Capsule())
+    }
+
+    private func customIssueThumbnail(number: Int) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: BTRadius.sm)
                 .fill(
                     LinearGradient(
-                        colors: [Color(red: 0.1, green: 0.42, blue: 0.24), Color(red: 0.07, green: 0.3, blue: 0.17)],
+                        colors: [Color.btAccent.opacity(0.18), Color.btAccent.opacity(0.04)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
-                .frame(width: 80, height: 80)
-                .overlay {
-                    Image(systemName: "figure.pool.swim")
-                        .font(.btStatNumber)
-                        .foregroundStyle(.white.opacity(0.85))
-                }
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                HStack(spacing: Spacing.xs) {
-                    Text(plan.nameZh)
-                        .font(.btCallout.weight(.bold))
-                        .foregroundStyle(.btText)
-                        .lineLimit(1)
-
-                    if plan.isPremium {
-                        Image(systemName: "lock.fill")
-                            .font(.btCaption)
-                            .foregroundStyle(.btAccent)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.btFootnote14)
-                        .foregroundStyle(.btTextTertiary)
-                }
-
-                Text(plan.description)
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-                    .lineLimit(1)
-
-                levelBadge(plan.targetLevel)
+            VStack(spacing: 0) {
+                Text(String(format: "%02d", number))
+                    .font(.btStatNumber)
+                    .foregroundStyle(Color.btAccent)
+                    .monospacedDigit()
+                Image(systemName: "hammer.fill")
+                    .font(.btMicro)
+                    .foregroundStyle(Color.btAccent.opacity(0.7))
             }
         }
-        .padding(colorScheme == .dark ? Spacing.lg : Spacing.sm)
-        .background(colorScheme == .dark ? Color.btBGSecondary : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: colorScheme == .dark ? BTRadius.lg : 0))
+        .frame(width: 56, height: 56)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .accessibilityHidden(true)
     }
 
-    private func levelBadge(_ level: String) -> some View {
+    private func planLevelName(_ level: String) -> String {
         let displayLevel = level.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? level
-        let drillLevel = DrillLevel(rawValue: displayLevel)
-        let badgeText = drillLevel?.displayName ?? level
-
-        return Text(badgeText)
-            .font(.btCaption2.weight(.bold))
-            .foregroundStyle(.btPrimary)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .background(Color.btPrimary.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+        return DrillLevel(rawValue: displayLevel)?.displayName ?? level
     }
 
     // MARK: - Custom Plan List
@@ -379,9 +454,9 @@ struct TrainingHomeView: View {
                 .buttonStyle(BTButtonStyle.secondary)
                 .padding(.horizontal, Spacing.xxl)
             } else {
-                ForEach(customPlans) { plan in
+                ForEach(Array(customPlans.enumerated()), id: \.element.id) { index, plan in
                     NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
-                        customPlanCard(plan)
+                        customPlanCard(plan, issueNumber: index + 1)
                     }
                     .buttonStyle(.plain)
                 }
@@ -391,21 +466,14 @@ struct TrainingHomeView: View {
         .padding(.top, Spacing.md)
     }
 
-    private func customPlanCard(_ plan: CustomPlan) -> some View {
-        HStack(spacing: Spacing.lg) {
-            RoundedRectangle(cornerRadius: BTRadius.lg)
-                .fill(Color.btAccent.opacity(0.12))
-                .frame(width: 80, height: 80)
-                .overlay {
-                    Image(systemName: "hammer.fill")
-                        .font(.btStatNumber)
-                        .foregroundStyle(.btAccent)
-                }
+    private func customPlanCard(_ plan: CustomPlan, issueNumber: Int) -> some View {
+        HStack(spacing: Spacing.md) {
+            customIssueThumbnail(number: issueNumber)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 HStack {
                     Text(plan.name)
-                        .font(.btCallout.weight(.bold))
+                        .font(.btTitleMedium)
                         .foregroundStyle(.btText)
                         .lineLimit(1)
 
@@ -417,8 +485,9 @@ struct TrainingHomeView: View {
                 }
 
                 Text("\(plan.sessionsPerWeek) 次/周 · \(plan.drills.count) 项训练")
-                    .font(.btCaption)
+                    .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
 
                 HStack(spacing: 2) {
                     Image(systemName: "hammer")
@@ -428,14 +497,15 @@ struct TrainingHomeView: View {
                 }
                 .foregroundStyle(.btAccent)
                 .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, Spacing.xs)
+                .padding(.vertical, 2)
                 .background(Color.btAccent.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+                .padding(.top, 2)
             }
         }
-        .padding(colorScheme == .dark ? Spacing.lg : Spacing.sm)
+        .padding(colorScheme == .dark ? Spacing.md : Spacing.sm)
         .background(colorScheme == .dark ? Color.btBGSecondary : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: colorScheme == .dark ? BTRadius.lg : 0))
+        .clipShape(RoundedRectangle(cornerRadius: colorScheme == .dark ? BTRadius.md : 0))
     }
 
     // MARK: - Empty State

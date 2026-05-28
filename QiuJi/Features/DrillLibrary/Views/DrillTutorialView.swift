@@ -63,7 +63,7 @@ struct DrillTutorialView: View {
 
     private static let sectionIcons: [String: String] = [
         "技术原理": "lightbulb.fill",
-        "动作要领": "figure.pool.swim",
+        "动作要领": "scope",
         "常见错误与纠正": "exclamationmark.triangle.fill",
         "进阶练习": "arrow.up.right.circle.fill",
     ]

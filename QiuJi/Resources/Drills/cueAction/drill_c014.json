@@ -4,7 +4,9 @@
   "nameEn": "Stun Shot Basics",
   "category": "cueAction",
   "subcategory": "stun",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L0",
   "difficulty": 2,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.15},
+      "start": {
+        "x": 0.5,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.5, "y": 0.33}
+        {
+          "x": 0.5,
+          "y": 0.33
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.35},
+      "start": {
+        "x": 0.5,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.35}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,23 @@
         "content": "定杆基础扎实后，可进入「斯登角度停球」，学习角度球中的定杆运用和90度分离角概念。之后分别练习「高杆跟进走位」和「低杆缩杆回位」，通过对比三种杆法的母球行为差异，建立完整的杆法认知体系。定杆是走位控制的原点，务必反复练习直到稳定。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

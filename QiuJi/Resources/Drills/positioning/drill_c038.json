@@ -4,7 +4,9 @@
   "nameEn": "Two-Cushion Position Play",
   "category": "positioning",
   "subcategory": "twoCushion",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 4,
   "isPremium": true,
@@ -21,22 +23,46 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.4, "y": 0.25},
+      "start": {
+        "x": 0.4,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.22, "y": 0.38},
-        {"x": 0.02, "y": 0.3},
-        {"x": 0.15, "y": 0.02},
-        {"x": 0.5, "y": 0.15}
+        {
+          "x": 0.22,
+          "y": 0.38
+        },
+        {
+          "x": 0.02,
+          "y": 0.3
+        },
+        {
+          "x": 0.15,
+          "y": 0.02
+        },
+        {
+          "x": 0.5,
+          "y": 0.15
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.2, "y": 0.4},
+      "start": {
+        "x": 0.2,
+        "y": 0.4
+      },
       "path": [
-        {"x": -0.0165, "y": 0.5165}
+        {
+          "x": -0.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomLeft",
-    "cueDirection": {"x": 0.2, "y": 0.4}
+    "cueDirection": {
+      "x": 0.2,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -57,5 +83,15 @@
         "content": "两库走位稳定后，挑战「三库走位」和「对角走位」，将碰库次数和走位距离进一步提升。同时建议练习「五档力度阶梯」精确区分不同力度档位，为多库走位提供力度基础。「初级蛇彩走位」也会频繁用到两库走位技术。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

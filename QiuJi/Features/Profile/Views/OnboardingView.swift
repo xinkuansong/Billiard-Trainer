@@ -14,16 +14,14 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 TabView(selection: $currentPage) {
                     featurePage(
-                        icon: "figure.pool.swim",
-                        iconSize: 36,
+                        icon: { AnyView(Image(systemName: "square.grid.2x2.fill").font(.btLargeTitle).foregroundStyle(.btPrimary)) },
                         title: "动作库与训练记录",
                         subtitle: "海量练习动作，科学训练方案\n轻松记录每一次进步"
                     )
                     .tag(0)
 
                     featurePage(
-                        icon: "angle",
-                        iconSize: 36,
+                        icon: { AnyView(Image(systemName: "angle").font(.btLargeTitle).foregroundStyle(.btPrimary)) },
                         title: "角度感知训练",
                         subtitle: "模拟球台场景，精准角度判断\n系统化提升你的比赛直觉"
                     )
@@ -48,7 +46,11 @@ struct OnboardingView: View {
 
     // MARK: - Feature Page (Page 1 & 2)
 
-    private func featurePage(icon: String, iconSize _: CGFloat, title: String, subtitle: String) -> some View {
+    private func featurePage(
+        icon: () -> AnyView,
+        title: String,
+        subtitle: String
+    ) -> some View {
         VStack(spacing: 0) {
             Spacer()
 
@@ -56,9 +58,7 @@ struct OnboardingView: View {
                 Circle()
                     .fill(Color.btPrimary.opacity(0.12))
                     .frame(width: 120, height: 120)
-                Image(systemName: icon)
-                    .font(.btLargeTitle)
-                    .foregroundStyle(.btPrimary)
+                icon()
             }
             .padding(.bottom, Spacing.xxxl)
 
@@ -99,17 +99,17 @@ struct OnboardingView: View {
 
             VStack(spacing: Spacing.xxxl) {
                 OnboardingFeatureRow(
-                    icon: "figure.pool.swim",
+                    leading: { AnyView(Image(systemName: "square.grid.2x2.fill").font(.btTitle).foregroundStyle(.btPrimary)) },
                     title: "动作库与训练记录",
                     subtitle: "海量练习动作，轻松记录训练"
                 )
                 OnboardingFeatureRow(
-                    icon: "angle",
+                    leading: { AnyView(Image(systemName: "angle").font(.btTitle).foregroundStyle(.btPrimary)) },
                     title: "角度训练",
                     subtitle: "模拟球台场景，提升角度判断力"
                 )
                 OnboardingFeatureRow(
-                    icon: "chart.bar.fill",
+                    leading: { AnyView(Image(systemName: "chart.bar.fill").font(.btTitle).foregroundStyle(.btPrimary)) },
                     title: "数据统计与复盘",
                     subtitle: "可视化训练进度，发现薄弱项"
                 )
@@ -170,19 +170,14 @@ struct OnboardingView: View {
     // MARK: - App Logo
 
     private var appLogo: some View {
-        Image("BrandPrimaryLogo")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 160)
-            .clipShape(RoundedRectangle(cornerRadius: 160 * 0.2237, style: .continuous))
-            .accessibilityLabel("球迹")
+        BTBrandLogo(size: 160, style: .onTile)
     }
 }
 
 // MARK: - Feature Row
 
 private struct OnboardingFeatureRow: View {
-    let icon: String
+    let leading: () -> AnyView
     let title: String
     let subtitle: String
 
@@ -192,9 +187,7 @@ private struct OnboardingFeatureRow: View {
                 Circle()
                     .fill(Color.btPrimary.opacity(0.12))
                     .frame(width: 48, height: 48)
-                Image(systemName: icon)
-                    .font(.btTitle)
-                    .foregroundStyle(.btPrimary)
+                leading()
             }
 
             VStack(alignment: .leading, spacing: Spacing.xs) {

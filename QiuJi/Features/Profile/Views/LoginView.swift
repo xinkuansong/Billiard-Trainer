@@ -88,12 +88,7 @@ struct LoginView: View {
     // MARK: - App Icon
 
     private var appIcon: some View {
-        Image("BrandPrimaryLogo")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 104)
-            .clipShape(RoundedRectangle(cornerRadius: 104 * 0.2237, style: .continuous))
-            .accessibilityLabel("球迹")
+        BTBrandLogo(size: 104, style: .onTile)
     }
 
     // MARK: - Login Buttons

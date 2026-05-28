@@ -103,3 +103,14 @@
 - **日期**：2026-04-11
 - **规则改进建议**：计时器类功能需考虑后台场景，使用 `Date` 差值而非累加间隔
 - **已应用至**：⏳ 待回写
+
+## FL-010
+- **任务**：导入 ShootersPool 录屏到 App Bundle（动作库视频）
+- **现象**：直接运行 `xcodegen generate` 后启动 App，动作库列表为空；`Bundle.main.url(forResource:withExtension:subdirectory:)` 全部返回 nil
+- **严重程度**：P0（App 核心功能不可用）
+- **关联检查项**：DrillContentService.loadFallbackDrills、Resources/Drills/index.json
+- **根因**：`project.yml` 里 `Resources/{Drills,Plans,Videos}` 用 `type: folder` 声明，但 xcodegen 2.45.3 **不会**为这些 `type: folder` 的 resources 生成 Xcode 蓝色 folder reference。pbxproj 中只有同名 file reference（或干脆缺失），导致打包后 .app 根目录下没有 `Drills/`、`Plans/`、`Videos/` 子目录，Bundle 无法解析子目录路径。HEAD 上的 pbxproj 是被前人手工补过 folder ref 的，运行 `xcodegen generate` 会立即抹掉。
+- **解决**：✅ 新增 `scripts/patch-pbxproj-folder-refs.py`：xcodegen 跑完后注入三个 folder reference（lastKnownFileType = folder），同时把 build file 加进**主 app target** 的 `PBXResourcesBuildPhase`（注意区分 LiveActivity 扩展那个 Resources 阶段，用 `TaiQiuZhuo.usdz` 作为锚点）。`scripts/Makefile` 新增 `make xcodegen` 串联两步；`project.yml` 顶部加注释禁止裸跑 `xcodegen generate`（2026-05-25）
+- **日期**：2026-05-25
+- **规则改进建议**：xcodegen 中所有 `type: folder` 的 resources 必须配套后处理补丁；禁止 README 之外的任何地方建议"直接跑 xcodegen generate"。新增 folder 资源时同步更新 `scripts/patch-pbxproj-folder-refs.py` 的 FOLDERS 表
+- **已应用至**：✅ `scripts/patch-pbxproj-folder-refs.py` + `scripts/Makefile` `xcodegen` 目标 + `project.yml` 顶部告警（2026-05-25）；待回写至 `60-devops-release.mdc` § 经验教训

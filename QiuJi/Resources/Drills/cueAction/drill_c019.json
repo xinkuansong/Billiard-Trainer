@@ -4,7 +4,9 @@
   "nameEn": "Right Spin One-Cushion",
   "category": "cueAction",
   "subcategory": "sideSpin",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": true,
@@ -21,21 +23,42 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.2},
+      "start": {
+        "x": 0.5,
+        "y": 0.2
+      },
       "path": [
-        {"x": 0.27, "y": 0.34},
-        {"x": 0.35, "y": 0.49},
-        {"x": 0.7, "y": 0.2}
+        {
+          "x": 0.27,
+          "y": 0.34
+        },
+        {
+          "x": 0.35,
+          "y": 0.49
+        },
+        {
+          "x": 0.7,
+          "y": 0.2
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.25, "y": 0.35},
+      "start": {
+        "x": 0.25,
+        "y": 0.35
+      },
       "path": [
-        {"x": -0.0165, "y": 0.5165}
+        {
+          "x": -0.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomLeft",
-    "cueDirection": {"x": 0.25, "y": 0.35}
+    "cueDirection": {
+      "x": 0.25,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -56,5 +79,31 @@
         "content": "双向加塞基础稳固后，进入「高杆加塞走位」学习组合杆法——高杆配合侧旋。之后可练习「低杆加塞回位」，体验低杆与侧旋的组合效果。建议在实战中有意识地使用加塞走位，从单库变线开始，逐步扩展到两库甚至三库走位路线。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    },
+    {
+      "id": "take_06",
+      "file": "take_06.mp4"
+    }
+  ]
 }

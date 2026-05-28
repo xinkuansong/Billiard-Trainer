@@ -4,7 +4,9 @@
   "nameEn": "Power Follow Through",
   "category": "forceControl",
   "subcategory": "powerFollow",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.4},
+      "start": {
+        "x": 0.5,
+        "y": 0.4
+      },
       "path": [
-        {"x": 0.5, "y": 0.12},
-        {"x": 0.5, "y": 0.05}
+        {
+          "x": 0.5,
+          "y": 0.12
+        },
+        {
+          "x": 0.5,
+          "y": 0.05
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.1},
+      "start": {
+        "x": 0.5,
+        "y": 0.1
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.5, "y": 0.1}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.1
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,23 @@
         "content": "强力高杆穿越稳定后，挑战「强力低杆回拉」体验大力击球的另一面。配合「五档力度阶梯」中的重档和极重档练习，建立大力击球的精确控制。走位应用中，「高杆一库走位」是强力高杆的实战版——大力高杆碰库后覆盖更大走位范围。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

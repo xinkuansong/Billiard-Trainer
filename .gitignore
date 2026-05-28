@@ -40,3 +40,14 @@ fastlane/test_output
 # Backend
 backend/node_modules/
 backend/.env
+
+# Large drill videos (handled via Git LFS / OTA later, not in git history)
+QiuJi/Resources/Videos/
+
+# Working / scratch assets (not part of the build)
+/TaiQiuZhuo.usdz
+*.usdz
+/drill_005/
+/problem_images/
+/table.png
+/assets/

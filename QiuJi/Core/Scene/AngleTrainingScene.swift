@@ -21,6 +21,18 @@ final class AngleTrainingScene: SCNScene {
     private(set) var currentCameraMode: CameraMode = .topDown2D
     private(set) var isCameraModeTransitioning = false
 
+    /// Studio-look pipeline flag. Default `false` so existing pages
+    /// (`AngleDynamicView` / `Scene2DAimingView`) keep their cheap
+    /// 3-light scene. `Scene3DAimingView` opts in via `setupScene(enhancedRendering: true)`.
+    private(set) var enhancedRendering: Bool = false
+
+    /// Keep references to nodes we add for the enhanced pipeline so we can detach them
+    /// if the flag is toggled off mid-session.
+    private var groundVisualNode: SCNNode?
+    private var groundShadowNode: SCNNode?
+    private var tableCenterGlowNode: SCNNode?
+    private var enhancedLightNodes: [SCNNode] = []
+
     // MARK: - USDZ Ball Nodes
 
     private(set) var cueBallNode: SCNNode?
@@ -49,7 +61,19 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Setup
 
-    func setupScene() {
+    /// Build the angle-training scene.
+    /// - Parameter enhancedRendering: when `true`, opts into the studio-look
+    ///   pipeline (programmatic IBL + ground shadow catcher + 4-light + HDR
+    ///   camera + cloth/rail/pocket material enhancers + table center glow).
+    ///   Default `false` keeps the cheap 3-light look for the 2D pages.
+    func setupScene(enhancedRendering: Bool = false) {
+        self.enhancedRendering = enhancedRendering
+
+        if enhancedRendering {
+            EnhancedEnvironment.apply(to: self)
+            setupGround()
+        }
+
         setupTable()
         setupCamera()
         setupLighting()
@@ -61,7 +85,7 @@ final class AngleTrainingScene: SCNScene {
         guard let model = TableModelLoader.loadTable() else { return }
 
         surfaceY = model.surfaceY
-        let tableHeight: Float = 0.8
+        let tableHeight = BTTablePhysics.surfaceY
         let yOffset = tableHeight - model.surfaceY
         model.visualNode.position.y += yOffset
         surfaceY = tableHeight
@@ -72,6 +96,14 @@ final class AngleTrainingScene: SCNScene {
 
         setupModelBalls(from: model.ballNodes, uniformScale: model.appliedScale.x)
         enhanceBallMaterials()
+
+        if enhancedRendering {
+            MaterialFactory.enhanceClothMaterials(in: model.visualNode)
+            MaterialFactory.enhanceRailMaterials(in: model.visualNode)
+            MaterialFactory.enhancePocketMaterials(in: model.visualNode)
+            addTableCenterGlow()
+        }
+
         setupCueStick()
     }
 
@@ -156,6 +188,10 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func enhanceBallMaterials() {
+        // Keep every ball's USDZ-baked diffuse texture intact: the cue
+        // ball carries red position-marker dots ("stickers") that are
+        // intentional spin / aim references, and overriding the diffuse
+        // erases them.
         for (_, ballNode) in allBallNodes {
             MaterialFactory.applyBallMaterial(to: ballNode)
         }
@@ -224,14 +260,41 @@ final class AngleTrainingScene: SCNScene {
         let camera = SCNCamera()
         camera.zNear = 0.01
         camera.zFar = 50
-        camera.fieldOfView = 50
-        camera.wantsHDR = true
-        camera.wantsExposureAdaptation = false
-        camera.exposureOffset = -0.15
-        camera.minimumExposure = -2
-        camera.maximumExposure = 2
-        camera.screenSpaceAmbientOcclusionIntensity = 0.35
-        camera.screenSpaceAmbientOcclusionRadius = 3.0
+
+        if enhancedRendering {
+            // Studio look: HDR + tone mapping + SSAO + bloom. The brighter
+            // exposure / lighting tried earlier flattened the balls' PBR
+            // shading and made them look plasticky / fake — restored the
+            // original studio exposure so the clearcoat fresnel highlights
+            // properly read on the balls.
+            camera.fieldOfView = AimingCameraConfig.aimFov
+            camera.wantsHDR = true
+            camera.wantsExposureAdaptation = false
+            camera.exposureOffset = -0.25
+            camera.minimumExposure = -2.0
+            camera.maximumExposure = 3.0
+            camera.whitePoint = 1.0
+
+            camera.screenSpaceAmbientOcclusionIntensity = 0.4
+            camera.screenSpaceAmbientOcclusionRadius = 0.04
+            camera.screenSpaceAmbientOcclusionNormalThreshold = 0.3
+            camera.screenSpaceAmbientOcclusionDepthThreshold = 0.01
+            camera.screenSpaceAmbientOcclusionBias = 0.01
+
+            camera.bloomIntensity = 0.25
+            camera.bloomThreshold = 0.85
+            camera.bloomBlurRadius = 4.0
+        } else {
+            // Legacy plain pipeline (unchanged from before).
+            camera.fieldOfView = 50
+            camera.wantsHDR = true
+            camera.wantsExposureAdaptation = false
+            camera.exposureOffset = -0.15
+            camera.minimumExposure = -2
+            camera.maximumExposure = 2
+            camera.screenSpaceAmbientOcclusionIntensity = 0.35
+            camera.screenSpaceAmbientOcclusionRadius = 3.0
+        }
 
         cameraNode = SCNNode()
         cameraNode.name = "trainingCamera"
@@ -245,6 +308,15 @@ final class AngleTrainingScene: SCNScene {
     // MARK: - Lighting
 
     private func setupLighting() {
+        if enhancedRendering {
+            setupStudioLighting()
+        } else {
+            setupPlainLighting()
+        }
+    }
+
+    /// Cheap plain lighting used by the 2D pages (unchanged behavior).
+    private func setupPlainLighting() {
         let ambient = SCNNode()
         ambient.light = SCNLight()
         ambient.light?.type = .ambient
@@ -270,6 +342,179 @@ final class AngleTrainingScene: SCNScene {
         fillLight.light?.color = UIColor.white
         fillLight.eulerAngles = SCNVector3(-Float.pi / 4, -Float.pi / 3, 0)
         rootNode.addChildNode(fillLight)
+    }
+
+    /// Studio key + fill + rim trio (mirrors `BilliardScene.setupLights` in
+    /// the reference codebase). Intentionally moodier than the plain
+    /// pipeline — the IBL fills in the ambient, and the directional
+    /// shaping is what makes the balls read as 3D objects with proper PBR
+    /// shading. Brighter ambient / directional values flatten the
+    /// clearcoat fresnel and make the balls look plasticky.
+    private func setupStudioLighting() {
+        // ── Key Light: 5800K, casts shadow, slight yaw to break symmetric
+        // highlights.
+        let key = SCNLight()
+        key.type = .directional
+        key.intensity = 820
+        key.temperature = 5800
+        key.castsShadow = true
+        key.shadowRadius = 4
+        key.shadowSampleCount = 8
+        key.shadowColor = UIColor(white: 0.0, alpha: 0.35)
+        key.shadowMapSize = CGSize(width: 1024, height: 1024)
+        key.shadowBias = 0.008
+        key.shadowMode = .deferred
+        key.orthographicScale = 1.7
+
+        let keyNode = SCNNode()
+        keyNode.light = key
+        keyNode.position = SCNVector3(0, 4, 0)
+        keyNode.eulerAngles = SCNVector3(
+            -68.0 * Float.pi / 180.0,
+             18.0 * Float.pi / 180.0,
+             0
+        )
+        rootNode.addChildNode(keyNode)
+        enhancedLightNodes.append(keyNode)
+
+        // ── Fill Light: 6800K, no shadow, lifts rails / pockets without
+        // killing contrast on the balls.
+        let fill = SCNLight()
+        fill.type = .directional
+        fill.intensity = 50
+        fill.temperature = 6800
+        fill.castsShadow = false
+
+        let fillNode = SCNNode()
+        fillNode.light = fill
+        fillNode.eulerAngles = SCNVector3(
+            -30.0 * Float.pi / 180.0,
+            -40.0 * Float.pi / 180.0,
+             0
+        )
+        rootNode.addChildNode(fillNode)
+        enhancedLightNodes.append(fillNode)
+
+        // ── Rim Light: warm sliver from upper-back-right for ball
+        // silhouette separation.
+        let rim = SCNLight()
+        rim.type = .directional
+        rim.intensity = 120
+        rim.color = UIColor(red: 1.0, green: 0.96, blue: 0.90, alpha: 1.0)
+        rim.castsShadow = false
+
+        let rimNode = SCNNode()
+        rimNode.light = rim
+        rimNode.eulerAngles = SCNVector3(
+            -40.0 * Float.pi / 180.0,
+            135.0 * Float.pi / 180.0,
+             0
+        )
+        rootNode.addChildNode(rimNode)
+        enhancedLightNodes.append(rimNode)
+    }
+
+    // MARK: - Ground (enhanced only)
+
+    /// Two stacked planes at `Y = BTSceneLayout.groundLevelY`:
+    /// • Layer 1: unlit dark-blue visual (matches studio cube-map background).
+    /// • Layer 2: PBR shadow catcher — only renders the cast shadow alpha.
+    private func setupGround() {
+        let planeSize: CGFloat = 40
+
+        // ── Layer 1: visual ground ──
+        let visualPlane = SCNPlane(width: planeSize, height: planeSize)
+        let visualMat = SCNMaterial()
+        visualMat.lightingModel = .constant
+        visualMat.diffuse.contents = UIColor(red: 0.032, green: 0.042, blue: 0.062, alpha: 1.0)
+        visualMat.writesToDepthBuffer = true
+        visualMat.readsFromDepthBuffer = true
+        visualMat.isDoubleSided = false
+        visualPlane.materials = [visualMat]
+
+        let visualNode = SCNNode(geometry: visualPlane)
+        visualNode.name = "ground_visual"
+        visualNode.eulerAngles.x = -.pi / 2
+        visualNode.position = SCNVector3(0, BTSceneLayout.groundLevelY, 0)
+        visualNode.castsShadow = false
+        visualNode.renderingOrder = -10
+        rootNode.addChildNode(visualNode)
+        groundVisualNode = visualNode
+
+        // ── Layer 2: shadow catcher ──
+        let shadowPlane = SCNPlane(width: planeSize, height: planeSize)
+        let shadowMat = SCNMaterial()
+        shadowMat.lightingModel = .physicallyBased
+        shadowMat.diffuse.contents = UIColor.white
+        shadowMat.roughness.contents = Float(1.0)
+        shadowMat.metalness.contents = Float(0.0)
+        shadowMat.isDoubleSided = false
+        shadowMat.writesToDepthBuffer = false
+        shadowMat.readsFromDepthBuffer = true
+        shadowMat.blendMode = .alpha
+        shadowMat.shaderModifiers = [.fragment: AngleTrainingScene.shadowCatcherShader]
+        shadowPlane.materials = [shadowMat]
+
+        let shadowNode = SCNNode(geometry: shadowPlane)
+        shadowNode.name = "ground_shadow"
+        shadowNode.eulerAngles.x = -.pi / 2
+        shadowNode.position = SCNVector3(0, BTSceneLayout.groundLevelY + 0.0005, 0)
+        shadowNode.castsShadow = false
+        shadowNode.renderingOrder = -9
+        rootNode.addChildNode(shadowNode)
+        groundShadowNode = shadowNode
+    }
+
+    /// Shadow catcher fragment shader: renders only the alpha contribution from cast shadows.
+    private static let shadowCatcherShader = """
+    float lum = dot(_lightingContribution.diffuse, float3(0.2126, 0.7152, 0.0722));
+    float lit = saturate(lum);
+    float shadowAlpha = (1.0 - lit) * 0.35;
+    _output.color = float4(0.0, 0.0, 0.0, shadowAlpha);
+    """
+
+    /// Subtle radial bright on the cloth centre (~+4% center, 0% edges).
+    private func addTableCenterGlow() {
+        let w = CGFloat(AngleSceneCalculator.innerLength)
+        let h = CGFloat(AngleSceneCalculator.innerWidth)
+        let plane = SCNPlane(width: w, height: h)
+
+        let glowSize: CGFloat = 256
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: glowSize, height: glowSize))
+        let tex = renderer.image { ctx in
+            let center = CGPoint(x: glowSize / 2, y: glowSize / 2)
+            if let grad = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [
+                    UIColor(white: 1.0, alpha: 0.04).cgColor,
+                    UIColor(white: 1.0, alpha: 0.0).cgColor
+                ] as CFArray,
+                locations: [0.0, 1.0]
+            ) {
+                ctx.cgContext.drawRadialGradient(
+                    grad,
+                    startCenter: center, startRadius: 0,
+                    endCenter: center, endRadius: glowSize * 0.5,
+                    options: []
+                )
+            }
+        }
+
+        let mat = SCNMaterial()
+        mat.diffuse.contents = tex
+        mat.lightingModel = .constant
+        mat.isDoubleSided = false
+        mat.writesToDepthBuffer = false
+        mat.transparencyMode = .aOne
+        mat.blendMode = .add
+        plane.materials = [mat]
+
+        let node = SCNNode(geometry: plane)
+        node.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+        node.position = SCNVector3(0, surfaceY + 0.002, 0)
+        node.renderingOrder = -2
+        rootNode.addChildNode(node)
+        tableCenterGlowNode = node
     }
 
     // MARK: - Camera Mode Switching
@@ -317,27 +562,56 @@ final class AngleTrainingScene: SCNScene {
         }
     }
 
+    /// 3D → 2D: animate to the *final* 2D orientation (using the mode's
+    /// own up vector) inside a single `SCNTransaction`. SceneKit slerps the
+    /// orientation property as a quaternion, so the rotation follows a
+    /// shortest-arc path. Then a tiny stage 2 swaps perspective →
+    /// orthographic, which is invisible because the camera is already
+    /// looking straight down. The previous implementation animated
+    /// `eulerAngles` (component-wise lerp, *not* slerp) and applied the
+    /// 2D up vector via a separate `look()` in stage 2 — which produced
+    /// the visible "first rotates, then snaps to 2D" feel the user
+    /// reported.
     private func transitionToTopDown(_ mode: CameraMode) {
         guard let camera = cameraNode.camera, let rig = cameraRig else { return }
         isCameraModeTransitioning = true
         rig.disableSmoothPoseControl()
         camera.usesOrthographicProjection = false
 
+        let panX = Float(rig.topDownPanOffset.x)
+        let panZ = Float(rig.topDownPanOffset.y)
+        // Mode-specific screen-up direction: rotated view = world +X (long
+        // axis vertical on screen); non-rotated = world -Z.
+        let upVector: SCNVector3 = (mode == .topDown2DRotated)
+            ? SCNVector3(1, 0, 0)
+            : SCNVector3(0, 0, -1)
+        let topDownPosition = SCNVector3(panX, surfaceY + 5.0, panZ)
+        let topDownLookAt = SCNVector3(panX, surfaceY, panZ)
+
+        // Stage 1 — animate orientation + position to the final 2D pose
+        // (still in perspective). At pitch ≈ -90° the perspective and
+        // orthographic projections are visually indistinguishable, so the
+        // stage-2 swap requires no further rotation.
         SCNTransaction.begin()
-        SCNTransaction.animationDuration = 0.24
+        SCNTransaction.animationDuration = 0.5
         SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        camera.fieldOfView = 16
-        cameraNode.position = SCNVector3(0, surfaceY + 2.4, 0)
-        cameraNode.eulerAngles = SCNVector3(-70 * Float.pi / 180, 0, 0)
+        camera.fieldOfView = 22
+        cameraNode.position = topDownPosition
+        cameraNode.look(at: topDownLookAt, up: upVector, localFront: SCNVector3(0, 0, -1))
         SCNTransaction.completionBlock = { [weak self] in
             guard let self, let camera = self.cameraNode.camera, let rig = self.cameraRig else { return }
+            // Stage 2 — projection swap + minor ortho-scale settle. No
+            // rotation here: the orientation is already correct from stage 1.
             camera.usesOrthographicProjection = true
-            camera.orthographicScale = rig.topDownOrthographicScale * 1.2
+            camera.orthographicScale = rig.topDownOrthographicScale * 1.05
 
             SCNTransaction.begin()
-            SCNTransaction.animationDuration = 0.26
+            SCNTransaction.animationDuration = 0.18
             SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             camera.orthographicScale = rig.topDownOrthographicScale
+            // Re-apply the mode-specific top-down to nail the exact final
+            // position / orientation (eliminates any float-drift from the
+            // animated transform).
             switch mode {
             case .topDown2D:
                 rig.applyTopDown2D()
@@ -354,28 +628,81 @@ final class AngleTrainingScene: SCNScene {
         SCNTransaction.commit()
     }
 
+    /// 2D → 3D: animate directly to the aim pose in a single swoop.
+    ///
+    /// The previous two-stage approach (lift to overhead, then `enterAiming`
+    /// via `smoothToPose`) caused a visible wobble: at the moment stage 1
+    /// completed, the rig's internal pose state was *stale* (still
+    /// reflecting whatever zoom / yaw the user had before toggling to 2D),
+    /// so `captureCurrentPose()` returned that stale pose as the
+    /// `smoothToPose` origin. The next frame, the rig overwrote the
+    /// camera node with its stale-derived pose, snapping the camera away
+    /// from where the SCNTransaction had just placed it — the user saw
+    /// what felt like "switching between observation and aim" instead of
+    /// a single transition.
+    ///
+    /// Fix:
+    /// 1. Swap perspective **immediately** with a FOV chosen so the
+    ///    perspective projection at the current camera height matches the
+    ///    current ortho scale (visually invisible swap).
+    /// 2. Single SCNTransaction animates camera position / orientation /
+    ///    FOV directly to the aim pose. SceneKit slerps orientation as a
+    ///    quaternion, so the path is a shortest-arc rotation from the
+    ///    current 2D-rotated up-vector to the 3D default up = +Y.
+    /// 3. Completion: call `rig.snapToAimPose(...)` so the rig's internal
+    ///    state matches the camera's actual final pose. No subsequent
+    ///    `smoothToPose` and therefore no further motion or snap.
     private func transitionToPerspective() {
         guard let camera = cameraNode.camera, let rig = cameraRig else { return }
         isCameraModeTransitioning = true
         let pivot = cueBallNode.map { visualCenter(of: $0) } ?? SCNVector3(0, surfaceY, 0)
         let aimDirection = currentAimDirection()
 
+        // Compute the aim-pose camera pose (mirrors CameraRig.applyCameraTransform
+        // at zoom = 0). This is exactly where the rig will hold the camera
+        // after the SCNTransaction completes.
+        let aimYaw = atan2f(-aimDirection.z, -aimDirection.x)
+        let aimRadius = AimingCameraConfig.aimRadius
+        let aimHeight = AimingCameraConfig.aimHeight
+        let backXZ = SCNVector3(-cosf(aimYaw), 0, -sinf(aimYaw))
+        let aimCameraPos = SCNVector3(
+            pivot.x - backXZ.x * aimRadius,
+            surfaceY + aimHeight,
+            pivot.z - backXZ.z * aimRadius
+        )
+
+        // Step A: instant perspective swap with FOV matched to current ortho
+        // scale. The ortho view shows half-height = `orthographicScale` at
+        // any camera height. A matching perspective view at camera height H
+        // needs `tan(fov/2) = orthoScale / H`. With H ≈ 5 m and ortho ≈ 1.5
+        // m this gives FOV ≈ 34°, indistinguishable from the prior ortho
+        // top-down at the moment of swap.
+        let H = max(0.5, cameraNode.position.y - surfaceY)
+        let matchedHalfTan = Float(rig.topDownOrthographicScale) / H
+        let matchedFov = CGFloat(2 * atan(matchedHalfTan) * 180 / .pi)
+        camera.usesOrthographicProjection = false
+        camera.fieldOfView = matchedFov
+
+        // Step B: animated swoop from the now-perspective overhead view
+        // down into aim pose. Uses `look(at:up:)` so SceneKit slerps the
+        // orientation between the 2D-rotated up = +X frame and the 3D
+        // up = +Y frame on the shortest arc.
         SCNTransaction.begin()
-        SCNTransaction.animationDuration = 0.22
+        SCNTransaction.animationDuration = 0.5
         SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        camera.orthographicScale = max(rig.topDownOrthographicScale * 0.9, camera.orthographicScale * 0.9)
-        cameraNode.position = SCNVector3(pivot.x, surfaceY + 2.2, pivot.z)
-        cameraNode.eulerAngles = SCNVector3(-68 * Float.pi / 180, cameraNode.eulerAngles.y, 0)
+        cameraNode.position = aimCameraPos
+        cameraNode.look(
+            at: pivot,
+            up: SCNVector3(0, 1, 0),
+            localFront: SCNVector3(0, 0, -1)
+        )
+        camera.fieldOfView = AimingCameraConfig.aimFov
         SCNTransaction.completionBlock = { [weak self] in
-            guard let self, let camera = self.cameraNode.camera, let rig = self.cameraRig else { return }
-            camera.usesOrthographicProjection = false
-            camera.fieldOfView = 35
-            switch rig.currentViewMode {
-            case .observation:
-                rig.enterObservation(cueBallPosition: pivot, aimDirection: aimDirection)
-            case .aiming:
-                rig.enterAiming(cueBallPosition: pivot, targetDirection: aimDirection)
-            }
+            guard let self, let rig = self.cameraRig else { return }
+            // Sync rig internal state to aim pose. After this, the rig's
+            // per-frame `update(_:)` writes the same pose the SCNTransaction
+            // just landed on — no discontinuity, no further motion.
+            rig.snapToAimPose(pivot: pivot, aimDirection: aimDirection)
             self.isCameraModeTransitioning = false
         }
         SCNTransaction.commit()
@@ -565,9 +892,10 @@ final class AngleTrainingScene: SCNScene {
         guard let material = node.geometry?.materials.first else { return }
         switch style {
         case .selected:
-            // 降低不透明度，让袋内的纹理还能透出，避免一片实心黄。
-            material.diffuse.contents = UIColor(red: 1, green: 0.84, blue: 0, alpha: 0.55)
-            material.emission.contents = UIColor(red: 0.55, green: 0.45, blue: 0, alpha: 1)
+            // 淡红色高亮：降低不透明度，让袋内纹理仍可透出，避免一片实心红。
+            // emission 叠加少量红色，使圆盘在暗色台呢上依然清晰可见。
+            material.diffuse.contents = UIColor(red: 1.0, green: 0.40, blue: 0.42, alpha: 0.55)
+            material.emission.contents = UIColor(red: 0.55, green: 0.12, blue: 0.14, alpha: 1)
         case .viable, .infeasible:
             // 未选中的袋口（无论可行/不可行）一律不绘制叠加层，
             // 让球桌原本的袋口外观保持自然，避免在桌面上残留红/暗色阴影。
@@ -665,11 +993,19 @@ final class AngleTrainingScene: SCNScene {
         perpLineNode?.isHidden = true
     }
 
+    /// Update the on-table aiming visualization (ghost ball, strike / pocket
+    /// lines, optional angle arc + numeric label, optional line text labels).
+    /// - Parameter showLineLabels: when `false`, suppresses the "瞄准线" /
+    ///   "进球线" inline text labels lying flat on the cloth. The angle
+    ///   numeric value (e.g. "20°") is still rendered when
+    ///   `showAngleAnnotations` is true. Used by the 3D 瞄准 page where
+    ///   the perspective view makes the flat-on-table text unreadable.
     func updateVisualization(
         cueBall: SCNVector3,
         targetBall: SCNVector3,
         pocket: SCNVector3,
-        showAngleAnnotations: Bool = true
+        showAngleAnnotations: Bool = true,
+        showLineLabels: Bool = true
     ) {
         let r = AngleSceneCalculator.ballRadius
 
@@ -703,7 +1039,8 @@ final class AngleTrainingScene: SCNScene {
             updatePerpLine(targetBall: targetBall, pocket: pocket)
             perpLineNode?.isHidden = false
 
-            updateAngleArc(cueBall: cueBall, targetBall: targetBall, pocket: pocket, ghost: ghostPos)
+            updateAngleArc(cueBall: cueBall, targetBall: targetBall, pocket: pocket, ghost: ghostPos,
+                           showLineLabels: showLineLabels)
             angleArcNode?.isHidden = false
         } else {
             contactDotNode?.isHidden = true
@@ -761,7 +1098,8 @@ final class AngleTrainingScene: SCNScene {
     ///   • ghost → target → pocket (the pocket-line direction at ghost)
     /// The angle between these two rays IS the cut angle α (acute side).
     private func updateAngleArc(cueBall: SCNVector3, targetBall: SCNVector3,
-                                pocket: SCNVector3, ghost: SCNVector3) {
+                                pocket: SCNVector3, ghost: SCNVector3,
+                                showLineLabels: Bool = true) {
         angleArcNode?.childNodes.forEach { $0.removeFromParentNode() }
 
         let r = AngleSceneCalculator.ballRadius
@@ -838,13 +1176,16 @@ final class AngleTrainingScene: SCNScene {
         angleArcNode?.position = SCNVector3(0, 0, 0)
 
         // Line labels along the strike line and pocket line, in matching colors.
-        // Keep labels away from the ghost/angle label cluster.
-        addInlineLineLabel(text: "瞄准线", color: .white,
-                           lineStart: cueBall, lineEnd: ghost,
-                           tParam: strikeLabelT, sideOffset: lineLabelOffset)
-        addInlineLineLabel(text: "进球线", color: .systemRed,
-                           lineStart: targetBall, lineEnd: pocket,
-                           tParam: pocketLabelT, sideOffset: lineLabelOffset)
+        // Keep labels away from the ghost/angle label cluster. Suppressed in
+        // 3D mode where flat-on-table text becomes unreadable.
+        if showLineLabels {
+            addInlineLineLabel(text: "瞄准线", color: .white,
+                               lineStart: cueBall, lineEnd: ghost,
+                               tParam: strikeLabelT, sideOffset: lineLabelOffset)
+            addInlineLineLabel(text: "进球线", color: .systemRed,
+                               lineStart: targetBall, lineEnd: pocket,
+                               tParam: pocketLabelT, sideOffset: lineLabelOffset)
+        }
     }
 
     /// Add a flat text node lying on the table plane parallel to a line.

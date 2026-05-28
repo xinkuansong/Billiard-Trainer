@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>BallFeelView - 浅淡球感</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary": "#0061a5",
+                    "background": "#f9f9fe",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary-fixed": "#001c37",
+                    "on-primary": "#ffffff",
+                    "primary-fixed-dim": "#89d89e",
+                    "tertiary-fixed": "#ffddb4",
+                    "surface-tint": "#1b6c3d",
+                    "primary-container": "#1a6b3c",
+                    "tertiary-container": "#825400",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed": "#291800",
+                    "secondary-container": "#6fb2fd",
+                    "on-tertiary-container": "#ffcf92",
+                    "inverse-surface": "#2e3034",
+                    "on-surface": "#1a1c1f",
+                    "tertiary": "#623f00",
+                    "on-secondary-container": "#004375",
+                    "surface-container-highest": "#e2e2e7",
+                    "surface-variant": "#e2e2e7",
+                    "primary": "#005129",
+                    "on-tertiary": "#ffffff",
+                    "surface-dim": "#d9dade",
+                    "on-surface-variant": "#404940",
+                    "secondary-fixed": "#d2e4ff",
+                    "inverse-primary": "#89d89e",
+                    "on-secondary-fixed-variant": "#00497e",
+                    "on-primary-container": "#9ae9ae",
+                    "surface-container": "#ededf2",
+                    "outline": "#707a70",
+                    "on-error-container": "#93000a",
+                    "primary-fixed": "#a5f4b8",
+                    "surface-container-high": "#e8e8ed",
+                    "on-primary-fixed-variant": "#005229",
+                    "tertiary-fixed-dim": "#ffb955",
+                    "on-primary-fixed": "#00210d",
+                    "on-tertiary-fixed-variant": "#633f00",
+                    "surface": "#f9f9fe",
+                    "on-background": "#1a1c1f",
+                    "outline-variant": "#bfc9be",
+                    "error-container": "#ffdad6",
+                    "on-secondary": "#ffffff",
+                    "surface-container-low": "#f3f3f8",
+                    "surface-bright": "#f9f9fe",
+                    "inverse-on-surface": "#f0f0f5",
+                    "secondary-fixed-dim": "#a0caff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter", "sans-serif"],
+                    "body": ["Inter", "sans-serif"],
+                    "label": ["Inter", "sans-serif"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .felt-bg { background-color: #1B6B3A; }
+        .glass-effect { backdrop-filter: blur(20px); background: rgba(255, 255, 255, 0.8); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface-container-low min-h-screen flex justify-center overflow-x-hidden">
+<!-- Mobile Container (Simulating 393px width) -->
+<main class="w-full max-w-[393px] bg-surface flex flex-col shadow-2xl min-h-screen relative overflow-y-auto no-scrollbar pb-8">
+<!-- TopAppBar Navigation (Shared Component Style) -->
+<header class="w-full sticky top-0 z-50 bg-[#F3F3F8] flex items-center justify-between px-4 h-14 border-none shadow-sm">
+<div class="flex items-center gap-1 active:scale-95 transition-transform cursor-pointer">
+<span class="material-symbols-outlined text-secondary" style="font-size: 20px;">arrow_back_ios</span>
+<span class="text-secondary font-medium text-[17px]">角度训练</span>
+</div>
+<h1 class="font-headline font-semibold tracking-tight text-lg text-on-surface">浅淡球感</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<!-- Content Area -->
+<div class="px-4 pt-6 space-y-8">
+<!-- Section 1: 什么是球感 -->
+<section>
+<h2 class="text-[18px] font-bold text-on-surface mb-3 px-1">什么是球感</h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-outline-variant/10">
+<div class="flex flex-col items-center text-center space-y-4">
+<div class="w-16 h-16 rounded-full bg-primary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary-container text-[40px]" style="font-variation-settings: 'FILL' 1;">visibility</span>
+</div>
+<h3 class="text-[17px] font-semibold text-on-surface">从计算到直觉</h3>
+<div class="space-y-3 text-[15px] leading-relaxed text-on-surface-variant text-justify">
+<p>球感并非某种玄学，而是大脑对物理碰撞规律的高频视觉建模。初学者依赖几何线段和假想球位，而高手则直接捕捉球面的重叠形态。</p>
+<p>这种转变意味着你不再需要在大脑中进行复杂的三角函数运算，而是将目标球的边缘位置直接映射为身体的出杆本能。</p>
+<p>本课程旨在通过“视觉重叠”训练，帮助你建立从全局计算向瞬间直觉的跨越，让每一次瞄准都像呼吸一样自然。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: 从母球看过去 -->
+<section>
+<h2 class="text-[18px] font-bold text-on-surface mb-3 px-1">从母球看过去</h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-outline-variant/10">
+<div class="grid grid-cols-2 gap-4">
+<!-- Cell 1: 全球 -->
+<div class="space-y-2">
+<div class="aspect-square felt-bg rounded-lg relative overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 20px 20px;"></div>
+<!-- Full Overlap Visualization -->
+<div class="relative w-16 h-16 flex items-center justify-center">
+<div class="w-12 h-12 bg-[#FF9800] rounded-full shadow-lg border border-black/10 absolute z-0 translate-x-0"></div>
+<div class="w-12 h-12 bg-white rounded-full shadow-xl border border-black/10 absolute z-10 translate-x-0"></div>
+</div>
+</div>
+<div class="flex justify-between items-center px-1">
+<span class="text-sm font-semibold text-on-surface">全球</span>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-0.5 rounded text-on-surface-variant">0°</span>
+</div>
+</div>
+<!-- Cell 2: 半球 -->
+<div class="space-y-2">
+<div class="aspect-square felt-bg rounded-lg relative overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 20px 20px;"></div>
+<!-- Half Overlap Visualization -->
+<div class="relative w-16 h-16 flex items-center justify-center">
+<div class="w-12 h-12 bg-[#FF9800] rounded-full shadow-lg border border-black/10 absolute z-0 translate-x-3"></div>
+<div class="w-12 h-12 bg-white rounded-full shadow-xl border border-black/10 absolute z-10 -translate-x-3"></div>
+</div>
+</div>
+<div class="flex justify-between items-center px-1">
+<span class="text-sm font-semibold text-on-surface">半球</span>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-0.5 rounded text-on-surface-variant">30°</span>
+</div>
+</div>
+<!-- Cell 3: 3/4 球 -->
+<div class="space-y-2">
+<div class="aspect-square felt-bg rounded-lg relative overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 20px 20px;"></div>
+<!-- 1/4 Overlap Visualization -->
+<div class="relative w-16 h-16 flex items-center justify-center">
+<div class="w-12 h-12 bg-[#FF9800] rounded-full shadow-lg border border-black/10 absolute z-0 translate-x-5"></div>
+<div class="w-12 h-12 bg-white rounded-full shadow-xl border border-black/10 absolute z-10 -translate-x-4"></div>
+</div>
+</div>
+<div class="flex justify-between items-center px-1">
+<span class="text-sm font-semibold text-on-surface">3/4 球</span>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-0.5 rounded text-on-surface-variant">48.6°</span>
+</div>
+</div>
+<!-- Cell 4: 薄球 -->
+<div class="space-y-2">
+<div class="aspect-square felt-bg rounded-lg relative overflow-hidden flex items-center justify-center">
+<div class="absolute inset-0 opacity-20" style="background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 20px 20px;"></div>
+<!-- Sliver Overlap Visualization -->
+<div class="relative w-16 h-16 flex items-center justify-center">
+<div class="w-12 h-12 bg-[#FF9800] rounded-full shadow-lg border border-black/10 absolute z-0 translate-x-8"></div>
+<div class="w-12 h-12 bg-white rounded-full shadow-xl border border-black/10 absolute z-10 -translate-x-2"></div>
+</div>
+</div>
+<div class="flex justify-between items-center px-1">
+<span class="text-sm font-semibold text-on-surface">薄球</span>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-0.5 rounded text-on-surface-variant">75°+</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: 训练建议 -->
+<section>
+<h2 class="text-[18px] font-bold text-on-surface mb-3 px-1">训练建议</h2>
+<div class="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/10 relative overflow-hidden">
+<!-- Steps List -->
+<div class="space-y-8 relative">
+<!-- Connecting Line -->
+<div class="absolute left-4 top-2 bottom-2 w-0.5 bg-primary-container/20"></div>
+<!-- Step 1 -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 shrink-0 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-sm">1</div>
+<div class="space-y-1">
+<h4 class="font-semibold text-on-surface">理解原理</h4>
+<p class="text-sm text-on-surface-variant">学习切入角、偏移量和假想球法的基本概念</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 shrink-0 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-sm">2</div>
+<div class="space-y-1">
+<h4 class="font-semibold text-on-surface">几何练习</h4>
+<p class="text-sm text-on-surface-variant">通过纯几何角度预测训练，建立角度数感</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 shrink-0 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-sm">3</div>
+<div class="space-y-1">
+<h4 class="font-semibold text-on-surface">2D 球台</h4>
+<p class="text-sm text-on-surface-variant">在俯视球台上练习角度判断，熟悉球位关系</p>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 shrink-0 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-sm">4</div>
+<div class="space-y-1">
+<h4 class="font-semibold text-on-surface">3D 视角</h4>
+<p class="text-sm text-on-surface-variant">切换到站位视角，缩小训练与实战的差距</p>
+</div>
+</div>
+<!-- Step 5 -->
+<div class="flex gap-4 items-start relative z-10">
+<div class="w-8 h-8 shrink-0 rounded-full bg-primary-container flex items-center justify-center text-white font-bold text-sm">5</div>
+<div class="space-y-1">
+<h4 class="font-semibold text-on-surface">实战应用</h4>
+<p class="text-sm text-on-surface-variant">将练习中建立的视觉记忆带到球台前</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 4: 2D 到 3D 的视角差异 -->
+<section>
+<h2 class="text-[18px] font-bold text-on-surface mb-3 px-1">2D 到 3D 的视角差异</h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-outline-variant/10 space-y-6">
+<!-- 2D View -->
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant px-1">俯视角度（2D）</label>
+<div class="h-48 felt-bg rounded-xl relative flex items-center justify-center overflow-hidden border border-black/20">
+<div class="absolute inset-0 opacity-10" style="background-image: repeating-linear-gradient(0deg, #fff, #fff 1px, transparent 1px, transparent 40px), repeating-linear-gradient(90deg, #fff, #fff 1px, transparent 1px, transparent 40px); background-size: 40px 40px;"></div>
+<div class="relative w-full h-full flex flex-col items-center justify-center">
+<!-- Ball Top Down Visualization -->
+<div class="w-8 h-8 bg-[#FF9800] rounded-full mb-12 shadow-md"></div>
+<div class="w-8 h-8 bg-white rounded-full shadow-md"></div>
+<!-- Trajectory Lines -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none">
+<line opacity="0.5" stroke="white" stroke-dasharray="4" x1="50%" x2="50%" y1="65%" y2="25%"></line>
+<line opacity="0.5" stroke="white" stroke-dasharray="4" x1="50%" x2="80%" y1="25%" y2="10%"></line>
+</svg>
+<div class="absolute top-1/2 left-1/2 translate-x-4 -translate-y-4 bg-primary text-white text-[10px] px-2 py-0.5 rounded-full font-bold">30°</div>
+</div>
+</div>
+</div>
+<!-- 3D View -->
+<div class="space-y-2">
+<label class="text-xs font-bold uppercase tracking-wider text-on-surface-variant px-1">站位角度（3D）</label>
+<div class="h-48 felt-bg rounded-xl relative flex items-center justify-center overflow-hidden border border-black/20" style="perspective: 400px;">
+<div class="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent"></div>
+<!-- Ground/Felt Plane with Perspective -->
+<div class="w-[200%] h-[200%] absolute top-0 left-[-50%] bg-[url('https://www.transparenttextures.com/patterns/felt.png')] opacity-10 origin-top" style="transform: rotateX(60deg);"></div>
+<div class="relative w-full h-full flex flex-col items-center justify-center space-y-4">
+<!-- Target Ball (Distant/Smaller) -->
+<div class="w-6 h-6 bg-[#FF9800] rounded-full shadow-lg border border-black/10 scale-90"></div>
+<!-- Cue Ball (Closer/Larger) -->
+<div class="w-10 h-10 bg-white rounded-full shadow-2xl border border-black/10 -mt-2"></div>
+</div>
+</div>
+</div>
+<!-- Callout Info Box -->
+<div class="bg-primary-fixed/30 p-4 rounded-lg flex gap-3 items-center">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 0;">deployed_code</span>
+<p class="text-[13px] leading-snug text-on-primary-fixed-variant font-medium">实战中角度会被透视压缩。建议通过训练模块中的 3D 模拟模式反复观察，矫正大脑的视角偏差。</p>
+</div>
+</div>
+</section>
+</div>
+<!-- Footer Padding -->
+<footer class="pb-12 pt-4 text-center">
+<p class="text-[11px] font-label tracking-widest text-on-surface-variant opacity-40 uppercase">Mastery through precision</p>
+</footer>
+</main>
+</body></html>

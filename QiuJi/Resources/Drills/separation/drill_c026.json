@@ -4,7 +4,9 @@
   "nameEn": "Thick Cut Separation Control",
   "category": "separation",
   "subcategory": "thickCut",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.15},
+      "start": {
+        "x": 0.5,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.54, "y": 0.33},
-        {"x": 0.65, "y": 0.2}
+        {
+          "x": 0.54,
+          "y": 0.33
+        },
+        {
+          "x": 0.65,
+          "y": 0.2
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.55, "y": 0.35},
+      "start": {
+        "x": 0.55,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.55, "y": 0.35}
+    "cueDirection": {
+      "x": 0.55,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,23 @@
         "content": "厚球控制掌握后，与「薄球分离角感知」交替练习，建立完整的薄厚球判断能力。进入「定杆分离角精确控制」训练不同角度的精确走位。建议在实战中刻意关注每次击球的厚薄程度，养成击球前判断分离方向的习惯。最终进入「分离角综合挑战」进行薄厚球交替的综合测试。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

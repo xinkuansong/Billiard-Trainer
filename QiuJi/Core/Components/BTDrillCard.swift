@@ -152,15 +152,21 @@ struct BTDrillGridCard: View {
 
     private var tableArea: some View {
         ZStack(alignment: .bottom) {
-            BTMiniTable(animation: drill.animation)
-                .clipShape(
-                    UnevenRoundedRectangle(
-                        topLeadingRadius: BTRadius.md,
-                        bottomLeadingRadius: 0,
-                        bottomTrailingRadius: 0,
-                        topTrailingRadius: BTRadius.md
-                    )
+            Group {
+                if BTDrillPreviewPlayer.hasAssets(for: drill.id) {
+                    BTDrillPreviewPlayer(drillId: drill.id, mode: .animated)
+                } else {
+                    BTMiniTable(animation: drill.animation)
+                }
+            }
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: BTRadius.md,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: BTRadius.md
                 )
+            )
 
             LinearGradient(
                 colors: [.clear, .black.opacity(0.25)],

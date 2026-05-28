@@ -4,7 +4,9 @@
   "nameEn": "Diagonal Corner Pocket",
   "category": "accuracy",
   "subcategory": "angle",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L0",
   "difficulty": 2,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.3, "y": 0.25},
+      "start": {
+        "x": 0.3,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.55, "y": 0.42}
+        {
+          "x": 0.55,
+          "y": 0.42
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.75, "y": 0.4},
+      "start": {
+        "x": 0.75,
+        "y": 0.4
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.75, "y": 0.4}
+    "cueDirection": {
+      "x": 0.75,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,19 @@
         "content": "斜角入底角袋稳定后，可进入「底袋小角度入袋」练习更精细的角度判断，再挑战「中台角度球入袋」增加距离难度。如果想系统提升角度感知，建议按顺序练习「五分点瞄准线练习」→「三分点角度入袋」→「远台斜线入角袋」，从小角度逐步过渡到大角度和远距离组合。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

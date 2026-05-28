@@ -4,7 +4,9 @@
   "nameEn": "Long Straight Stroke Test",
   "category": "fundamentals",
   "subcategory": "stroke",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.42},
+      "start": {
+        "x": 0.5,
+        "y": 0.42
+      },
       "path": [
-        {"x": 0.5, "y": 0.08}
+        {
+          "x": 0.5,
+          "y": 0.08
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.07},
+      "start": {
+        "x": 0.5,
+        "y": 0.07
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.5, "y": 0.07}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.07
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,15 @@
         "content": "远台直线出杆稳定后，可挑战「远台直线球极限」——全台最远距离的终极出杆测试。同时可将远台直线检验作为每次训练前的热身科目，每次5-10球快速检测当天出杆状态。如果进球率明显下降，回到「直线出杆检验」和「握杆稳定性练习」重新校准基本功。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

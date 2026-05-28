@@ -4,7 +4,9 @@
   "nameEn": "Long Follow Shot",
   "category": "cueAction",
   "subcategory": "follow",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L1",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.38},
+      "start": {
+        "x": 0.5,
+        "y": 0.38
+      },
       "path": [
-        {"x": 0.5, "y": 0.14},
-        {"x": 0.5, "y": 0.06}
+        {
+          "x": 0.5,
+          "y": 0.14
+        },
+        {
+          "x": 0.5,
+          "y": 0.06
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.12},
+      "start": {
+        "x": 0.5,
+        "y": 0.12
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.5, "y": 0.12}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.12
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,15 @@
         "content": "远台高杆稳定后，可练习「高杆加塞走位」，在跟进基础上叠加侧旋实现弧线走位。同时建议交替练习「低杆远台缩杆」，对比远台高杆和低杆的发力差异，建立远台杆法的完整手感。之后可回到「高杆缩小分离角」，在角度球中运用远台高杆技术。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

@@ -14,7 +14,17 @@ struct MainTabView: View {
                     }
             }
                 .tabItem {
-                    Label(AppTab.training.title, systemImage: AppTab.training.icon)
+                    if let trainingIcon = BTTrainingIcon.renderForTabBar(
+                        filled: router.selectedTab == .training
+                    ) {
+                        Label {
+                            Text(AppTab.training.title)
+                        } icon: {
+                            Image(uiImage: trainingIcon)
+                        }
+                    } else {
+                        Label(AppTab.training.title, systemImage: "circle")
+                    }
                 }
                 .tag(AppTab.training)
 
@@ -90,12 +100,8 @@ struct MainTabView: View {
     @ViewBuilder
     private func angleDestination(for route: AngleRoute) -> some View {
         switch route {
-        case .test:
-            AngleTestView(limiter: AngleUsageLimiter())
         case .contactPointTable:
             ContactPointTableView()
-        case .history:
-            AngleHistoryView()
         case .aimingPrinciple:
             AimingPrincipleView()
         case .angleDynamic:

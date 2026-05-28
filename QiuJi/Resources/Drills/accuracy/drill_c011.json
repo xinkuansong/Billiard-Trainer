@@ -4,7 +4,9 @@
   "nameEn": "Short-Range Straight to Corner",
   "category": "accuracy",
   "subcategory": "straight",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L0",
   "difficulty": 1,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.78, "y": 0.2},
+      "start": {
+        "x": 0.78,
+        "y": 0.2
+      },
       "path": [
-        {"x": 0.88, "y": 0.36}
+        {
+          "x": 0.88,
+          "y": 0.36
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.9, "y": 0.4},
+      "start": {
+        "x": 0.9,
+        "y": 0.4
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.9, "y": 0.4}
+    "cueDirection": {
+      "x": 0.9,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,15 @@
         "content": "近台直线进球率达到85%以上后，可挑战「半台直线球」增加距离，再进入「中袋直线入袋」——中袋口更窄对精度要求更高。同时建议在近台直线球基础上加入定杆练习（参考「中杆定杆基础」），即进球的同时控制母球停在原位，为后续学习走位控制做准备。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

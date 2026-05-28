@@ -4,7 +4,9 @@
   "nameEn": "Soft Touch Position Control",
   "category": "forceControl",
   "subcategory": "softPosition",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": true,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.35, "y": 0.35},
+      "start": {
+        "x": 0.35,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.18, "y": 0.42},
-        {"x": 0.25, "y": 0.35}
+        {
+          "x": 0.18,
+          "y": 0.42
+        },
+        {
+          "x": 0.25,
+          "y": 0.35
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.15, "y": 0.43},
+      "start": {
+        "x": 0.15,
+        "y": 0.43
+      },
       "path": [
-        {"x": -0.0165, "y": 0.5165}
+        {
+          "x": -0.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomLeft",
-    "cueDirection": {"x": 0.15, "y": 0.43}
+    "cueDirection": {
+      "x": 0.15,
+      "y": 0.43
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,19 @@
         "content": "软打控位稳定后，将目标区域从30厘米缩小到15厘米。挑战「全力度走位综合」要求从软打瞬间切换到大力击球——测试力度切换的灵活性。「轻推定位」是软打的基础，如果软打进袋率不够可回到轻推重新巩固。配合「不吃库短距离走位」提升近台精细走位。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

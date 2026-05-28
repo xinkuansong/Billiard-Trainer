@@ -35,12 +35,7 @@ struct AboutView: View {
 
     private var appIdentitySection: some View {
         VStack(spacing: Spacing.md) {
-            Image("BrandPrimaryLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 128)
-                .clipShape(RoundedRectangle(cornerRadius: 128 * 0.2237, style: .continuous))
-                .accessibilityLabel("球迹")
+            BTBrandLogo(size: 128, style: .onTile)
 
             VStack(spacing: Spacing.xs) {
                 Text("球迹")

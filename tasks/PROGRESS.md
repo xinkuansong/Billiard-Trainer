@@ -255,6 +255,14 @@ R0 ✅ → P4 ✅ → P5 ✅ → P6 ✅ → P7 ✅ → R-UI ✅ → P8 🔄 → 
 
 ## 下一步
 
+0. **全局字体密度优化已完成**（2026-05-26，DR-014 / PD-006）：
+   - Typography Token 全局下调（btDisplay 48→44 / btDisplaySmall 36→30 / btLargeTitle 34→32 / btChapterNumber 32→26 / btTitle 22→20 / btTitle2 20→18 / btTitleMedium 19→17 / btStatNumber 28→24）
+   - 页面级局部修正：TrainingHomeView 今日 Drill 卡标题降级 + 序号轻量化 + issueThumbnail 硬编码改 Token；PlanDetailView statCell 数字 + 描述 lead 句降权
+   - SKILL.md 与 UI-IMPLEMENTATION-SPEC.md 字体规范同步更新，新增「使用原则」四条避坑指引
+   - 实施日志新增 DR-014 + PD-006（双层修法模式）
+   - 构建验证：`make build` 通过；ReadLints 无错误
+   - **待人工复核截图**：训练首页、动作库、计划列表、计划详情、角度首页、我的、训练总结
+
 1. **P9 实现任务全部完成**（2026-04-14）：
    - Wave 1：SceneKit 基础设施 + 数据层 quizType + 导航重构（7 功能分组）
    - Wave 2：5 独立页面（瞄准原理 / 角度与打点 / 几何训练 / 对照表增强 / 浅淡球感）

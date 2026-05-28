@@ -4,7 +4,9 @@
   "nameEn": "Extreme Long Straight Shot",
   "category": "accuracy",
   "subcategory": "extremeLong",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.45},
+      "start": {
+        "x": 0.5,
+        "y": 0.45
+      },
       "path": [
-        {"x": 0.5, "y": 0.05}
+        {
+          "x": 0.5,
+          "y": 0.05
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.04},
+      "start": {
+        "x": 0.5,
+        "y": 0.04
+      },
       "path": [
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.5, "y": 0.04}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.04
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,15 @@
         "content": "远台直线球达标后可用它作为日常热身项目，每次练球前打10颗远台直线球校准出杆感觉。如果进球率持续偏低，回到「直线出杆检验」和「远台直线出杆检验」重新矫正出杆基本功。方向稳定后配合「中杆定杆基础」练习远台定杆，将远台控制力提升到更高水平。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

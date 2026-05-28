@@ -14,26 +14,39 @@ struct PlanDetailView: View {
     @State private var hasActivePlan = false
     @State private var isCurrentPlanActive = false
     @State private var drillNames: [String: String] = [:]
+    @State private var drillContents: [String: DrillContent] = [:]
     @State private var showSubscription = false
+    @State private var seriesIssueNumber: Int = 1
+    @State private var seriesIssueTotal: Int = 1
+    @State private var coachingQuotes: [Int: String] = [:]
+    @State private var planCoachingPoint: String? = nil
+    @State private var activeCurrentWeek: Int? = nil
 
     var body: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .bottom) {
             if isLoading {
-                Spacer()
                 ProgressView()
-                Spacer()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let plan {
-                pinnedHeader(plan)
-
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
-                        weeksList(plan)
-                            .padding(.horizontal, Spacing.lg)
+                        heroHeader(plan)
 
-                        Spacer(minLength: Spacing.xxxxl)
+                        VStack(spacing: Spacing.xl) {
+                            if let point = planCoachingPoint {
+                                trainingPointsBar(point)
+                            }
+
+                            weeksList(plan)
+                        }
+                        .padding(.horizontal, Spacing.lg)
+
+                        Spacer(minLength: 96)
                     }
-                    .padding(.vertical, Spacing.md)
                 }
+                .ignoresSafeArea(edges: .top)
+
+                fixedActivateButton(plan)
             } else {
                 BTEmptyState(
                     icon: "exclamationmark.triangle",
@@ -43,7 +56,7 @@ struct PlanDetailView: View {
             }
         }
         .background(.btBG)
-        .navigationTitle(plan?.nameZh ?? "计划详情")
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .task {
@@ -65,94 +78,150 @@ struct PlanDetailView: View {
         }
     }
 
-    // MARK: - Pinned Header
+    // MARK: - Hero Header（杂志封面，方向 A：色块 + 大字，无图片）
 
-    private func pinnedHeader(_ plan: OfficialPlan) -> some View {
-        VStack(spacing: Spacing.lg) {
-            planHeader(plan)
-                .padding(.horizontal, Spacing.lg)
+    private func heroHeader(_ plan: OfficialPlan) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            BTPlanCover(
+                targetLevel: plan.targetLevel,
+                issueNumber: seriesIssueNumber,
+                glyphSize: 170,
+                corner: 0
+            )
 
-            statsGrid(plan)
-                .padding(.horizontal, Spacing.lg)
+            LinearGradient(
+                colors: [.clear, .black.opacity(0.65)],
+                startPoint: .center,
+                endPoint: .bottom
+            )
 
-            activateSection(plan)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(seriesName(for: plan.targetLevel))
+                    .font(.btFootnote)
+                    .foregroundStyle(.white.opacity(0.85))
+
+                Text(plan.nameZh)
+                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Text(heroSubtitle(plan))
+                    .font(.btFootnote)
+                    .foregroundStyle(.white.opacity(0.9))
+                    .monospacedDigit()
+            }
+            .padding(Spacing.lg)
+            .padding(.bottom, Spacing.sm)
+
+            if plan.isPremium {
+                VStack {
+                    HStack {
+                        Spacer()
+                        proTag
+                    }
+                    Spacer()
+                }
                 .padding(.horizontal, Spacing.lg)
+                .padding(.top, 60)
+            }
         }
-        .padding(.vertical, Spacing.md)
+        .frame(height: 280)
+        .frame(maxWidth: .infinity)
+        .clipped()
     }
 
-    // MARK: - Plan Header
+    private func heroSubtitle(_ plan: OfficialPlan) -> String {
+        [
+            "\(plan.durationWeeks) 周",
+            "\(plan.sessionsPerWeek) 次/周",
+            "\(plan.minutesPerSession) 分钟/次",
+            planLevelName(plan.targetLevel)
+        ].joined(separator: " · ")
+    }
 
-    private func planHeader(_ plan: OfficialPlan) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(spacing: Spacing.sm) {
-                if let level = DrillLevel(rawValue: plan.targetLevel.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? plan.targetLevel) {
-                    BTLevelBadge(level: level)
-                }
+    private var proTag: some View {
+        Text("PRO")
+            .font(.system(size: 10, weight: .heavy))
+            .foregroundStyle(.black)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, 2)
+            .background(Color.btAccent)
+            .clipShape(Capsule())
+    }
 
-                if plan.isPremium {
-                    Text("PRO")
-                        .font(.system(size: 10, weight: .heavy))
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, 2)
-                        .background(Color.btAccent)
-                        .clipShape(Capsule())
+    private func planLevelName(_ level: String) -> String {
+        let last = level.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? level
+        return DrillLevel(rawValue: last)?.displayName ?? level
+    }
+
+    // MARK: - Training Points Bar
+
+    private func trainingPointsBar(_ text: String) -> some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Image(systemName: "lightbulb.fill")
+                .font(.btFootnote)
+                .foregroundStyle(.btAccent)
+
+            Text(text)
+                .font(.btSubheadline)
+                .foregroundStyle(.btTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.btAccent.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("训练要点：\(text)")
+    }
+
+    // MARK: - Fixed Activate Button
+
+    @ViewBuilder
+    private func fixedActivateButton(_ plan: OfficialPlan) -> some View {
+        VStack {
+            Spacer()
+
+            Group {
+                if isCurrentPlanActive {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.btSuccess)
+                        Text("当前已激活此计划")
+                            .font(.btSubheadlineMedium)
+                            .foregroundStyle(.btSuccess)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(Spacing.lg)
+                    .background(Color.btSuccess.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                } else if !plan.isPremium || subscriptionManager.isPremium {
+                    Button {
+                        showActivateConfirm = true
+                    } label: {
+                        Label("开始此计划", systemImage: "play.fill")
+                    }
+                    .buttonStyle(BTButtonStyle.primary)
+                } else {
+                    Button {
+                        showSubscription = true
+                    } label: {
+                        Label("解锁此计划", systemImage: "lock.fill")
+                    }
+                    .buttonStyle(BTButtonStyle.primary)
                 }
             }
-
-            Text(plan.description)
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
-        }
-    }
-
-    // MARK: - Stats Grid
-
-    private func statsGrid(_ plan: OfficialPlan) -> some View {
-        HStack(spacing: 0) {
-            statCell(value: "\(plan.durationWeeks) 周", label: "训练天数")
-            statCell(value: "\(plan.sessionsPerWeek) 次/周", label: "训练项目")
-            statCell(value: "\(plan.minutesPerSession) 分钟", label: "预计每日")
-        }
-    }
-
-    private func statCell(value: String, label: String) -> some View {
-        VStack(spacing: Spacing.xs) {
-            Text(value)
-                .font(.btStatNumber)
-                .foregroundStyle(.btPrimary)
-
-            Text(label)
-                .font(.btFootnote)
-                .foregroundStyle(.btTextSecondary)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    // MARK: - Activate Section
-
-    private func activateSection(_ plan: OfficialPlan) -> some View {
-        VStack(spacing: Spacing.sm) {
-            if isCurrentPlanActive {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.btSuccess)
-                    Text("当前已激活此计划")
-                        .font(.btSubheadlineMedium)
-                        .foregroundStyle(.btSuccess)
-                }
-                .frame(maxWidth: .infinity)
-                .padding(Spacing.lg)
-                .background(Color.btSuccess.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-            } else if !plan.isPremium || subscriptionManager.isPremium {
-                Button {
-                    showActivateConfirm = true
-                } label: {
-                    Label("开始此计划", systemImage: "play.fill")
-                }
-                .buttonStyle(BTButtonStyle.primary)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.sm)
+            .background(alignment: .bottom) {
+                LinearGradient(
+                    colors: [Color.btBG.opacity(0), Color.btBG],
+                    startPoint: .top,
+                    endPoint: .center
+                )
+                .frame(height: 100)
+                .allowsHitTesting(false)
             }
         }
     }
@@ -163,14 +232,21 @@ struct PlanDetailView: View {
         let isPremiumLocked = plan.isPremium && !subscriptionManager.isPremium
         let freePreviewCount = 1
 
-        return VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("训练安排")
-                .font(.btTitle2)
-                .foregroundStyle(.btText)
+        return VStack(alignment: .leading, spacing: Spacing.lg) {
+            planSectionHeader(zh: "训练安排", trailing: "共 \(plan.weeks.count) 周")
+
+            BTPlanWeekTimeline(
+                items: BTPlanWeekTimeline.build(
+                    total: plan.weeks.count,
+                    currentWeek: isCurrentPlanActive ? activeCurrentWeek : nil,
+                    premiumUnlockedFromWeek: isPremiumLocked ? freePreviewCount : nil
+                )
+            )
+            .padding(.bottom, Spacing.xs)
 
             if isPremiumLocked {
-                ForEach(Array(plan.weeks.prefix(freePreviewCount))) { week in
-                    weekSection(week, plan: plan)
+                ForEach(Array(plan.weeks.prefix(freePreviewCount).enumerated()), id: \.element.weekNumber) { index, week in
+                    weekSection(week, plan: plan, isLast: index == freePreviewCount - 1 && plan.weeks.count == freePreviewCount)
                 }
 
                 BTPremiumLock(mode: .progressive(visibleItems: freePreviewCount)) {
@@ -179,14 +255,31 @@ struct PlanDetailView: View {
                     EmptyView()
                 }
             } else {
-                ForEach(plan.weeks) { week in
-                    weekSection(week, plan: plan)
+                ForEach(Array(plan.weeks.enumerated()), id: \.element.weekNumber) { index, week in
+                    weekSection(week, plan: plan, isLast: index == plan.weeks.count - 1)
                 }
             }
         }
     }
 
-    private func weekSection(_ week: PlanWeek, plan: OfficialPlan) -> some View {
+    private func planSectionHeader(zh: String, trailing: String?) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+            Text(zh)
+                .font(.btTitle)
+                .foregroundStyle(.btText)
+
+            Spacer()
+
+            if let trailing {
+                Text(trailing)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private func weekSection(_ week: PlanWeek, plan: OfficialPlan, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             Button {
                 withAnimation(.spring(duration: 0.3)) {
@@ -197,12 +290,12 @@ struct PlanDetailView: View {
                     }
                 }
             } label: {
-                weekHeader(week, plan: plan)
+                chapterHeader(week)
             }
             .buttonStyle(.plain)
 
             if expandedWeeks.contains(week.weekNumber) {
-                VStack(spacing: Spacing.sm) {
+                VStack(spacing: Spacing.md) {
                     ForEach(week.sessions) { session in
                         daySection(session, weekNumber: week.weekNumber)
                     }
@@ -213,93 +306,148 @@ struct PlanDetailView: View {
             }
         }
         .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
-    private func weekHeader(_ week: PlanWeek, plan: OfficialPlan) -> some View {
-        HStack(spacing: Spacing.md) {
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("第 \(week.weekNumber) 周")
-                    .font(.btHeadline)
+    private func chapterHeader(_ week: PlanWeek) -> some View {
+        let totalMinutes = week.sessions.reduce(0) { acc, session in
+            acc + session.phases.reduce(0) { $0 + $1.durationMinutes }
+        }
+        let isExpanded = expandedWeeks.contains(week.weekNumber)
+
+        return HStack(alignment: .top, spacing: Spacing.lg) {
+            HStack(alignment: .lastTextBaseline, spacing: 3) {
+                Text("第")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                Text("\(week.weekNumber)")
+                    .font(.btChapterNumber)
                     .foregroundStyle(.btText)
-                Text(week.theme)
+                    .monospacedDigit()
+                Text("周")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
             }
+            .fixedSize()
+            .layoutPriority(1)
 
-            Spacer()
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(alignment: .top, spacing: Spacing.sm) {
+                    Text(week.theme)
+                        .font(.btTitle2)
+                        .foregroundStyle(.btText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
-            Text("\(week.sessions.count) 天")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+                    Spacer(minLength: Spacing.sm)
 
-            Image(systemName: expandedWeeks.contains(week.weekNumber) ? "chevron.up" : "chevron.down")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.btHeadline)
+                        .foregroundStyle(.btTextTertiary)
+                }
+
+                Text("\(week.sessions.count) 天 · \(totalMinutes) 分钟")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+            }
         }
-        .padding(Spacing.md)
+        .padding(Spacing.lg)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("第 \(week.weekNumber) 周，\(week.theme)，\(week.sessions.count) 天 \(totalMinutes) 分钟")
     }
 
     // MARK: - Day Section
 
     private func daySection(_ session: PlanSession, weekNumber: Int) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack {
+        let totalMin = session.phases.reduce(0) { $0 + $1.durationMinutes }
+        let activePhases = session.phases.filter { !$0.drills.isEmpty }
+
+        return VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .firstTextBaseline) {
                 Text("第 \(session.dayNumber) 天")
-                    .font(.btSubheadlineMedium)
+                    .font(.btTitleMedium)
                     .foregroundStyle(.btText)
+                    .monospacedDigit()
 
                 Spacer()
 
-                let totalMin = session.phases.reduce(0) { $0 + $1.durationMinutes }
                 Text("\(totalMin) 分钟")
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)
+                    .monospacedDigit()
             }
 
-            ForEach(session.phases) { phase in
-                if !phase.drills.isEmpty {
-                    phaseRow(phase)
+            BTPhaseTimeline(
+                phases: activePhases.map(BTPhaseEntry.from)
+            ) { index, _ in
+                let phase = activePhases[index]
+                VStack(spacing: Spacing.xs) {
+                    ForEach(Array(phase.drills.enumerated()), id: \.element.id) { drillIndex, ref in
+                        drillTrackRow(index: drillIndex, ref: ref)
+                    }
                 }
             }
         }
-        .padding(Spacing.md)
+        .padding(Spacing.lg)
         .background(.btBGTertiary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
     }
 
-    private func phaseRow(_ phase: SessionPhase) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: phase.icon)
-                    .font(.btCaption2)
-                    .foregroundStyle(.btPrimary)
-                Text(phase.typeZh)
-                    .font(.btCaption)
-                    .foregroundStyle(.btPrimary)
-                Text("· \(phase.durationMinutes)分钟")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
+    private func drillTrackRow(index: Int, ref: PlanDrillRef) -> some View {
+        HStack(spacing: Spacing.md) {
+            drillThumbnail(ref)
 
-            ForEach(phase.drills) { ref in
-                HStack(spacing: Spacing.sm) {
-                    Circle()
-                        .fill(Color.btPrimary.opacity(0.3))
-                        .frame(width: 5, height: 5)
+            Text(String(format: "%02d", index + 1))
+                .font(.btFootnote)
+                .foregroundStyle(.btTextTertiary)
+                .monospacedDigit()
+                .frame(width: 20, alignment: .leading)
 
-                    Text(drillNames[ref.drillId] ?? ref.drillId)
-                        .font(.btCallout)
-                        .foregroundStyle(.btText)
-                        .lineLimit(1)
+            Text(drillNames[ref.drillId] ?? ref.drillId)
+                .font(.btCallout)
+                .foregroundStyle(.btText)
+                .lineLimit(1)
 
-                    Spacer()
+            Spacer(minLength: Spacing.sm)
 
-                    Text("\(ref.sets)组×\(ref.ballsPerSet)球")
-                        .font(.btCaption)
+            Text("\(ref.sets)×\(ref.ballsPerSet)")
+                .font(.btFootnote)
+                .foregroundStyle(.btTextSecondary)
+                .monospacedDigit()
+        }
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func drillThumbnail(_ ref: PlanDrillRef) -> some View {
+        if let drill = drillContents[ref.drillId] {
+            BTMiniTable(animation: drill.animation)
+                .frame(width: 40, height: 20)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+        } else {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.btBGQuaternary.opacity(0.5))
+                .frame(width: 40, height: 20)
+                .overlay {
+                    Image(systemName: "circle.dashed")
+                        .font(.system(size: 10))
                         .foregroundStyle(.btTextTertiary)
                 }
-            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func seriesName(for targetLevel: String) -> String {
+        switch targetLevel {
+        case "L0→L1":  return "入门系列"
+        case "L1":     return "初级系列"
+        case "L1→L2":  return "进阶系列"
+        case "L2":     return "中级系列"
+        case "L3":     return "高级系列"
+        case "L3→L4":  return "专业系列"
+        default:       return "训练系列"
         }
     }
 
@@ -315,9 +463,15 @@ struct PlanDetailView: View {
         if let active = try? modelContext.fetch(descriptor).first {
             hasActivePlan = true
             isCurrentPlanActive = (active.planId == planId)
+            if isCurrentPlanActive {
+                activeCurrentWeek = active.currentWeek
+            }
         }
 
         guard let plan else { return }
+
+        await computeSeriesIssue(for: plan)
+
         let drillService = DrillContentService.shared
         let allDrillIds = Set(plan.weeks.flatMap { week in
             week.sessions.flatMap { session in
@@ -327,12 +481,47 @@ struct PlanDetailView: View {
             }
         })
         var names: [String: String] = [:]
+        var quotesByWeek: [Int: String] = [:]
+        var loadedDrills: [String: DrillContent] = [:]
+
         for id in allDrillIds {
             if let drill = await drillService.loadDrillFromBundle(id: id) {
                 names[id] = drill.nameZh
+                loadedDrills[id] = drill
             }
         }
+
+        for week in plan.weeks {
+            let firstDrillId = week.sessions
+                .flatMap { $0.phases }
+                .flatMap { $0.drills }
+                .first?.drillId
+            if let drillId = firstDrillId,
+               let drill = loadedDrills[drillId],
+               let firstPoint = drill.coachingPoints.first(where: { !$0.isEmpty }) {
+                quotesByWeek[week.weekNumber] = firstPoint
+            }
+        }
+
         drillNames = names
+        drillContents = loadedDrills
+        coachingQuotes = quotesByWeek
+        planCoachingPoint = quotesByWeek[1] ?? quotesByWeek.sorted { $0.key < $1.key }.first?.value
+    }
+
+    private func computeSeriesIssue(for plan: OfficialPlan) async {
+        guard let index = await PlanContentService.shared.loadPlanIndex() else {
+            seriesIssueNumber = 1
+            seriesIssueTotal = 1
+            return
+        }
+        let sameLevel = index.plans.filter { $0.targetLevel == plan.targetLevel }
+        seriesIssueTotal = max(sameLevel.count, 1)
+        if let pos = sameLevel.firstIndex(where: { $0.id == plan.id }) {
+            seriesIssueNumber = pos + 1
+        } else {
+            seriesIssueNumber = 1
+        }
     }
 
     // MARK: - Activate Plan
@@ -350,6 +539,58 @@ struct PlanDetailView: View {
 
         isCurrentPlanActive = true
         hasActivePlan = true
+    }
+}
+
+// MARK: - Gold Rule
+
+struct BTGoldRule: View {
+    var width: CGFloat = 32
+    var height: CGFloat = 1
+
+    var body: some View {
+        Rectangle()
+            .fill(Color.btAccent.opacity(0.6))
+            .frame(width: width, height: height)
+            .accessibilityHidden(true)
+    }
+}
+
+// MARK: - Arc Separator (台球母题：母球 + 弧线)
+
+struct BTArcSeparator: View {
+    var width: CGFloat = 80
+    var height: CGFloat = 16
+    var opacity: Double = 0.4
+
+    var body: some View {
+        Canvas { ctx, size in
+            let arcStart = CGPoint(x: size.width * 0.18, y: size.height * 0.85)
+            let arcEnd = CGPoint(x: size.width * 0.82, y: size.height * 0.30)
+            let control = CGPoint(x: size.width * 0.42, y: size.height * 0.10)
+
+            var arc = Path()
+            arc.move(to: arcStart)
+            arc.addQuadCurve(to: arcEnd, control: control)
+
+            ctx.stroke(
+                arc,
+                with: .color(.btAccent.opacity(opacity)),
+                style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
+            )
+
+            let dotRadius: CGFloat = 2.5
+            let dotRect = CGRect(
+                x: arcEnd.x - dotRadius,
+                y: arcEnd.y - dotRadius,
+                width: dotRadius * 2,
+                height: dotRadius * 2
+            )
+            ctx.fill(Path(ellipseIn: dotRect), with: .color(.btAccent.opacity(opacity)))
+        }
+        .frame(width: width, height: height)
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
     }
 }
 

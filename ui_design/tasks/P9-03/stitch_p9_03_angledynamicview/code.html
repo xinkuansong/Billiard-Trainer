@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-background": "#1a1c1f",
+                        "on-secondary": "#ffffff",
+                        "surface-container-low": "#f3f3f8",
+                        "surface-variant": "#e2e2e7",
+                        "tertiary-container": "#7f5500",
+                        "primary-container": "#1a6b3c",
+                        "secondary": "#0061a5",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed": "#d2e4ff",
+                        "background": "#f9f9fe",
+                        "on-primary-fixed": "#00210d",
+                        "inverse-primary": "#89d89e",
+                        "on-surface-variant": "#404940",
+                        "tertiary": "#603f00",
+                        "on-secondary-fixed-variant": "#00497e",
+                        "on-primary": "#ffffff",
+                        "on-primary-fixed-variant": "#005229",
+                        "secondary-fixed-dim": "#a0caff",
+                        "inverse-surface": "#2e3034",
+                        "surface-dim": "#d9dade",
+                        "on-error-container": "#93000a",
+                        "primary": "#005129",
+                        "surface-container-highest": "#e2e2e7",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffba44",
+                        "error": "#ba1a1a",
+                        "on-error": "#ffffff",
+                        "surface-tint": "#1b6c3d",
+                        "on-tertiary-container": "#ffcf89",
+                        "on-secondary-fixed": "#001c37",
+                        "surface": "#f9f9fe",
+                        "inverse-on-surface": "#f0f0f5",
+                        "on-tertiary-fixed-variant": "#614000",
+                        "on-primary-container": "#9ae9ae",
+                        "primary-fixed": "#a5f4b8",
+                        "on-surface": "#1a1c1f",
+                        "outline-variant": "#bfc9be",
+                        "on-tertiary": "#ffffff",
+                        "secondary-container": "#6fb2fd",
+                        "primary-fixed-dim": "#89d89e",
+                        "surface-container": "#ededf2",
+                        "tertiary-fixed": "#ffddaf",
+                        "surface-container-high": "#e8e8ed",
+                        "on-tertiary-fixed": "#281800",
+                        "on-secondary-container": "#004375",
+                        "surface-bright": "#f9f9fe",
+                        "outline": "#707a70"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .ios-shadow {
+            box-shadow: 0 8px 24px rgba(26, 28, 31, 0.06);
+        }
+        .billiard-gradient {
+            background: linear-gradient(135deg, #1B6C3D 0%, #1A6B3C 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-[#F2F2F7] font-['Inter'] text-on-surface antialiased">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-[#FFFFFF] dark:bg-[#1A1C1F] flex justify-between items-center px-4 h-14 w-full">
+<div class="flex items-center gap-1 active:scale-95 transition-transform duration-200 ease-out cursor-pointer">
+<span class="material-symbols-outlined text-secondary" style="font-size: 24px;">chevron_left</span>
+<span class="text-secondary font-medium">角度训练</span>
+</div>
+<h1 class="font-['Inter'] font-semibold text-[17px] tracking-tight text-[#1A1C1F] dark:text-[#F3F3F8]">角度与打点</h1>
+<div class="w-10"></div> <!-- Spacer for centering -->
+</header>
+<main class="pt-20 pb-10 px-4 max-w-md mx-auto space-y-6">
+<!-- Main Table Card -->
+<section class="bg-surface-container-lowest rounded-xl p-4 ios-shadow overflow-hidden">
+<div class="relative w-full aspect-[9/16] rounded-lg overflow-hidden bg-surface-dim">
+<img class="w-full h-full object-cover" data-alt="top-down bird-eye view of a professional green felt billiard table with dark wood rails and tactical digital overlays" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfSE5ike3Sns_raX8S_CPdBXStvGE6I42rNpads0pDBw5JOwOJTSCMlkve0lbu3tisQaY-KADRwQ3WqUzWUEU2Fv6BtfUVaJCMgguoHDYR5EVyyAJhxj6663OmKDu4FtmrjJjcqISsoXBo2DiFNA70xrOTQQyhiMUcVsHZWD8AufqLIclmcODwbTfGYl0-yNiDOoLqWaKGk_MCjbNHH3wFG17VqSkBof-o18zYRJsWILz2KlqAuxkfjgDKm-rUnm6jimwBGrz-8lg"/>
+<!-- SVG Overlays for tactical lines -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" viewbox="0 0 360 640">
+<!-- Top Right Pocket Glow -->
+<circle cx="340" cy="20" fill="none" r="15" stroke="#D4941A" stroke-dasharray="4 2" stroke-width="3"></circle>
+<!-- Potting Line -->
+<line stroke="white" stroke-dasharray="5 5" stroke-width="2" x1="180" x2="340" y1="200" y2="20"></line>
+<!-- Aiming Line (Blue) -->
+<line stroke="#4A90D9" stroke-dasharray="5 5" stroke-width="2" x1="180" x2="195" y1="450" y2="185"></line>
+<!-- Angle Arc -->
+<path d="M 180 160 A 40 40 0 0 1 215 185" fill="none" stroke="rgba(255,215,0,0.8)" stroke-width="2"></path>
+<text class="drop-shadow-md" fill="white" font-size="12" font-weight="bold" x="220" y="175">35°</text>
+<!-- Contact Point -->
+<circle class="animate-pulse" cx="188" cy="188" fill="#E53935" r="4"></circle>
+</svg>
+<!-- Ball Overlays -->
+<!-- Object Ball -->
+<div class="absolute top-[31.25%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#F5A623] shadow-lg flex items-center justify-center border border-white/20">
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-black/20 to-white/30"></div>
+</div>
+<!-- Cue Ball -->
+<div class="absolute top-[70.3%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[#F5F5F5] shadow-[0_0_15px_rgba(255,255,255,0.6)] flex items-center justify-center border border-black/5">
+<div class="w-8 h-8 rounded-full bg-gradient-to-tr from-black/5 to-white/80"></div>
+</div>
+<!-- Ghost Ball -->
+<div class="absolute top-[28.9%] left-[54.1%] -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-[rgba(255,215,0,0.3)] border-2 border-white/40 border-dashed"></div>
+</div>
+</section>
+<!-- Angle Slider Card -->
+<section class="bg-surface-container-lowest rounded-xl p-6 ios-shadow flex flex-col items-center gap-6">
+<div class="text-center">
+<span class="text-[32px] font-bold text-on-surface tracking-tight">35°</span>
+</div>
+<div class="w-full relative px-2">
+<input class="w-full h-1.5 bg-surface-container-high rounded-full appearance-none cursor-pointer accent-primary-container [&amp;::-webkit-slider-thumb]:appearance-none [&amp;::-webkit-slider-thumb]:w-6 [&amp;::-webkit-slider-thumb]:h-6 [&amp;::-webkit-slider-thumb]:rounded-full [&amp;::-webkit-slider-thumb]:bg-white [&amp;::-webkit-slider-thumb]:shadow-md [&amp;::-webkit-slider-thumb]:border-2 [&amp;::-webkit-slider-thumb]:border-primary-container" max="85" min="0" type="range" value="35"/>
+<div class="flex justify-between mt-3 text-on-surface-variant text-sm font-medium">
+<span>0°</span>
+<span>85°</span>
+</div>
+</div>
+</section>
+<!-- First-Person Overlap View Card -->
+<section class="bg-surface-container-lowest rounded-xl p-5 ios-shadow">
+<div class="flex justify-between items-center mb-6">
+<h3 class="text-on-surface font-semibold text-lg tracking-tight">第一人称视角</h3>
+<span class="px-3 py-1 rounded-full bg-primary-container/10 text-primary-container text-xs font-bold">
+                    介于半球与3/4球之间
+                </span>
+</div>
+<div class="relative w-full h-48 flex items-center justify-center bg-surface-container-low rounded-lg border border-outline-variant/10">
+<div class="relative flex items-center">
+<!-- Overlapping Balls Representation -->
+<div class="w-24 h-24 rounded-full bg-purple-600/30 border-2 border-purple-800/40 z-10"></div>
+<div class="w-24 h-24 rounded-full bg-[#F5A623]/30 border-2 border-[#F5A623]/60 -ml-16"></div>
+</div>
+<div class="absolute bottom-4 left-4">
+<code class="text-on-surface-variant font-mono text-sm bg-white/80 px-2 py-1 rounded">d/R = 2sin(35°) = 1.15</code>
+</div>
+</div>
+</section>
+<!-- Data Panel Card -->
+<section class="bg-surface-container-lowest rounded-xl overflow-hidden ios-shadow">
+<div class="divide-y divide-surface-container-high">
+<div class="flex justify-between items-center p-4">
+<span class="text-on-surface-variant text-sm">切入角</span>
+<span class="text-on-surface font-semibold">35°</span>
+</div>
+<div class="flex justify-between items-center p-4">
+<span class="text-on-surface-variant text-sm">sin(α)</span>
+<span class="text-on-surface font-semibold">0.574</span>
+</div>
+<div class="flex justify-between items-center p-4">
+<span class="text-on-surface-variant text-sm">偏移</span>
+<span class="text-on-surface font-semibold">57.4%</span>
+</div>
+<div class="flex justify-between items-center p-4">
+<span class="text-on-surface-variant text-sm">d/R</span>
+<span class="text-on-surface font-semibold">1.15</span>
+</div>
+<div class="flex justify-between items-center p-4">
+<span class="text-on-surface-variant text-sm">通称</span>
+<span class="text-on-surface-variant">—</span>
+</div>
+</div>
+</section>
+<!-- CTA Floating Action Area (Implicit from professional design) -->
+<div class="mt-8">
+<button class="w-full billiard-gradient text-white py-4 rounded-full font-bold shadow-lg active:scale-95 transition-transform">
+                开始实练模式
+            </button>
+</div>
+</main>
+<!-- Bottom Navigation Mock (Only if top level, but this looks task-focused so we skip full nav shell as per rules) -->
+</body></html>

@@ -4,7 +4,9 @@
   "nameEn": "Thin Cut Separation Feel",
   "category": "separation",
   "subcategory": "thinCut",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.35, "y": 0.35},
+      "start": {
+        "x": 0.35,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.83, "y": 0.41},
-        {"x": 0.92, "y": 0.38}
+        {
+          "x": 0.83,
+          "y": 0.41
+        },
+        {
+          "x": 0.92,
+          "y": 0.38
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.85, "y": 0.42},
+      "start": {
+        "x": 0.85,
+        "y": 0.42
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.85, "y": 0.42}
+    "cueDirection": {
+      "x": 0.85,
+      "y": 0.42
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,15 @@
         "content": "薄球手感建立后，练习「厚球分离角控制」形成薄厚球对比认知。之后进入「分离角走位应用」，将薄球分离角知识用于实战走位决策。建议在日常对打中刻意选择薄球路线，积累不同角度的手感经验。最终目标是看到球位就能判断是薄球还是厚球以及分离方向。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

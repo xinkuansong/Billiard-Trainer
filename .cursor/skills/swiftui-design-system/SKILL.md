@@ -133,24 +133,35 @@ extension Color {
 
 ## 三、字体系统
 
+> **设计取向**：克制 + 数据为主角。基线参考角度训练首页（34 → 17 → 13 的紧凑层级），其它页面向其靠拢。**DR-014（2026-05-26）** 全局字号下调，详见末尾「使用原则」。
+
 ```swift
 extension Font {
-    // ── 展示级（数据主角）────────────────────────────
-    static let btDisplay        = Font.system(size: 48, weight: .bold, design: .rounded)
-    // 用于：成功率大数字、角度数字（单屏核心指标）
+    // ── 展示级（单屏核心数据 / 编辑式排版）─────────────
+    static let btDisplay        = Font.system(size: 44, weight: .bold, design: .rounded)
+    // 用于：单屏唯一核心指标数字（训练总结成功率等）
 
-    static let btLargeTitle     = Font.system(size: 34, weight: .bold, design: .rounded)
-    // 用于：页面大标题（训练总结、统计数字）
+    static let btDisplaySmall   = Font.system(size: 30, weight: .bold, design: .rounded)
+    // 用于：详情页 Hero 标题、卡片中等数字徽章 — DR-013/DR-014
+
+    static let btLargeTitle     = Font.system(size: 32, weight: .bold, design: .rounded)
+    // 用于：Tab 根页面大标题（训练 / 动作库 / 角度 / 记录 / 我的）
+
+    static let btChapterNumber  = Font.system(size: 26, weight: .bold, design: .rounded)
+    // 用于：章节序号（「第 N 周」「第 N 期」），编辑式排版专用 — DR-013/DR-014
 
     // ── 标题级 ──────────────────────────────────────
-    static let btTitle          = Font.system(size: 22, weight: .bold, design: .rounded)
-    // 用于：卡片标题、Section 大标题
+    static let btTitle          = Font.system(size: 20, weight: .bold, design: .rounded)
+    // 用于：Section 大标题
 
-    static let btTitle2         = Font.system(size: 20, weight: .semibold)
-    // 用于：导航栏标题（large title 模式下使用系统自动处理）
+    static let btTitle2         = Font.system(size: 18, weight: .semibold)
+    // 用于：次级 Section 标题、SubSection
+
+    static let btTitleMedium    = Font.system(size: 17, weight: .semibold)
+    // 用于：中文编辑式次级标题（字号同 btHeadline，按语义可与之互换）— DR-014
 
     static let btHeadline       = Font.system(size: 17, weight: .semibold)
-    // 用于：列表行标题、表单标签
+    // 用于：列表行标题、卡片主标题、表单标签
 
     // ── 正文级 ──────────────────────────────────────
     static let btBody           = Font.system(size: 17, weight: .regular)
@@ -160,23 +171,30 @@ extension Font {
     // 用于：强调正文（不加粗但略重）
 
     static let btCallout        = Font.system(size: 16, weight: .regular)
-    // 用于：次要正文、描述文字
+    // 用于：次要正文、描述文字、按钮文字
+
+    // ── 数据展示级 ───────────────────────────────────
+    static let btStatNumber     = Font.system(size: 24, weight: .bold, design: .rounded)
+    // 用于：卡片内常用大数字（统计、训练数、计划页 8/3/60）
 
     // ── 辅助级 ──────────────────────────────────────
-    static let btSubheadline    = Font.system(size: 15, weight: .regular)
-    // 用于：副标题、说明
+    static let btSubheadline         = Font.system(size: 15, weight: .regular)
+    static let btSubheadlineMedium   = Font.system(size: 15, weight: .medium)
+    static let btSubheadlineSemibold = Font.system(size: 15, weight: .semibold)
+    // 用于：副标题、说明、列表行序号、轻量强调
 
-    static let btSubheadlineMedium = Font.system(size: 15, weight: .medium)
-    // 用于：标签文字（等级、类型）
+    static let btFootnote14     = Font.system(size: 14, weight: .regular)
+    // 用于：介于 footnote 与 callout 之间的辅助说明
 
     static let btFootnote       = Font.system(size: 13, weight: .regular)
     // 用于：时间戳、次要说明
 
     static let btCaption        = Font.system(size: 12, weight: .regular)
-    // 用于：徽章数字、图表轴标签
-
     static let btCaption2       = Font.system(size: 11, weight: .medium)
-    // 用于：极小标签（如「免费」「付费」角标）
+    // 用于：徽章/图表轴；极小标签角标
+
+    static let btMicro          = Font.system(size: 10, weight: .medium)
+    // 用于：Timeline 小点、徽章中的角标 — 禁止用于正文信息
 }
 ```
 
@@ -184,6 +202,10 @@ extension Font {
 - 数字永远比文字字号更大（训练成绩是主角）
 - 标题使用 `.rounded` 设计，正文使用默认设计
 - 不使用自定义字体（纯系统字体，减小包体积，适配无障碍）
+- **避免 `btTitle2` 滥用于列表卡片标题**：默认列表行用 `btHeadline`
+- **避免 `btDisplaySmall` 用于卡片内统计数字**：用 `btStatNumber` 替代
+- **避免 `btTitleMedium` 用作强调正文**：用 `btBodyMedium`
+- **保留 `.system(size:)`** 仅限：Canvas/SceneKit 文本、数字键盘、SF Symbol 图标精确大小、live monospaced 计时器
 
 ---
 
@@ -463,10 +485,110 @@ BTEmptyState(
 | `BTFloatingIndicator` | `Core/Components/BTFloatingIndicator.swift` | `A-05/screen.png` | R0 新建 |
 | `BTShareCard` | `Core/Components/BTShareCard.swift` | `A-08/code.html` | R0 新建 |
 | `BTProgressRing` | `Core/Components/BTProgressRing.swift` | — | 已有 |
+| `BTGoldRule` | `Features/Training/Views/PlanDetailView.swift` | DR-013 | 编辑式排版细金线 |
+| `BTArcSeparator` | `Features/Training/Views/PlanDetailView.swift` | DR-013 | 台球母题章节分隔（金色弧 + 母球） |
+| `BTPlanWeekTimeline` | `Core/Components/BTPlanWeekTimeline.swift` | DR-013 | 横向 N 点周进度条（四态 + 虚线连接 + Premium 锁） |
+| `BTPhaseTimeline` | `Core/Components/BTPhaseTimeline.swift` | DR-013 | 纵向阶段时间线（虚线 + 染色圆点） |
 
 ---
 
-## 十四、Preview 规范
+## 十四、中文编辑式排版语言（Chinese Editorial Typography）
+
+> 来源：DR-013 / PD-005（2026-05-25）
+> 适用：长文本主导的列表/详情页（训练计划、教程、Drill 详情、文章列表等）
+> 触发条件：界面以中文为主、不能依赖英文 small caps tracking 但需要打破 list/form 平铺感
+
+### 五件套铁律
+
+1. **极致字号差**（替代英文 small caps tracking）
+   - 主标题：`btDisplaySmall` (36pt rounded bold) 或 `btLargeTitle` (34pt)
+   - 章节序号：`btChapterNumber` (32pt rounded bold) — 例「第 1 周」
+   - 次级标题：`btTitleMedium` (19pt semibold) — 介于 `btTitle2` (20pt) 和 `btHeadline` (17pt)
+   - 落差至少 17pt，否则等同于 list row
+
+2. **数字英雄化** — 必须 `.monospacedDigit()`
+   - 「奥运记分牌」式：数字大字号 + 下移一行小字单位（不是右对齐）
+   ```swift
+   VStack(spacing: Spacing.xs) {
+       Text("\(value)").font(.btDisplaySmall).monospacedDigit()
+       Text(unit).font(.btCaption).foregroundStyle(.btTextSecondary)
+   }
+   ```
+   - 序号 monospacedDigit + `frame(width:alignment:)` 锁定宽度，避免抖动
+
+3. **细金线分隔** — 用 `BTGoldRule` 替代 system Divider
+   - 默认 1pt × 32pt × `Color.btAccent.opacity(0.6)`
+   - 与基线对齐：`BTGoldRule().padding(.bottom, 6)`
+   - 不要超过 40pt，否则像 Divider；不要 < 24pt，否则像装饰点
+
+4. **首句加粗描述** — 用 `splitFirstSentence` 切分
+   ```swift
+   private func splitFirstSentence(_ text: String) -> (String, String) {
+       let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+       let terminators: [Character] = ["。", "！", "？", ".", "!", "?"]
+       if let idx = trimmed.firstIndex(where: { terminators.contains($0) }) {
+           let endIdx = trimmed.index(after: idx)
+           return (String(trimmed[..<endIdx]), String(trimmed[endIdx...]))
+       }
+       return (trimmed, "")
+   }
+   // 渲染
+   (Text(lead).font(.btTitleMedium).foregroundStyle(.btText)
+    + Text(rest).font(.btBody).foregroundStyle(.btTextSecondary))
+    .lineSpacing(4)
+   ```
+   - 必须同时支持中英文标点
+
+5. **Tracklist 序号化** — 替代 `Circle().fill(opacity 0.3)` 装饰点
+   ```swift
+   HStack(spacing: Spacing.sm) {
+       Text(String(format: "%02d", index + 1))
+           .font(.btFootnote).monospacedDigit()
+           .foregroundStyle(.btTextTertiary)
+           .frame(width: 24, alignment: .leading)
+       Text(itemName).font(.btCallout)
+       Spacer()
+       Text("\(sets)×\(balls)").font(.btFootnote).monospacedDigit()
+   }
+   ```
+
+### 编辑式 Section Header 模板
+
+```swift
+// 上眉行（系列名 · 期数）
+HStack(spacing: Spacing.sm) {
+    Text(seriesName).font(.btFootnote).foregroundStyle(.btTextSecondary)
+    Circle().fill(Color.btAccent).frame(width: 3, height: 3)
+    Text("第 \(issue) 期").font(.btFootnote).foregroundStyle(.btTextSecondary).monospacedDigit()
+}
+
+// 主标题 + 金线
+HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+    Text("训练安排").font(.btTitle).foregroundStyle(.btText)
+    BTGoldRule().padding(.bottom, 6)
+    Spacer()
+    Text("共 \(count) 周").font(.btCaption).foregroundStyle(.btTextSecondary).monospacedDigit()
+}
+```
+
+### 装饰母题（Round 2 加成）
+
+- **Hero 水印**：`BTTrainingIcon` 直径 96 + `opacity(0.08)` + `rotationEffect(-15°)`，放在 ZStack `topTrailing`
+- **章节弧形分隔**：`BTArcSeparator(width: 80, height: 16)` 复用 `BTTrainingIcon` 内的 `quadCurve`
+- **教练引语**：从 `DrillContent.coachingPoints[0]` 抽取，渲染为 `btCallout.italic()` + 2pt `btAccent` 左竖线
+
+### 反例（不要这样做）
+
+- ❌ 标题 17pt + 副标题 12pt（差 5pt 不够）
+- ❌ 数字不加 `.monospacedDigit()` — 不同 frame 下宽度抖动
+- ❌ 用 system Divider 当装饰线 — 默认是 0.3pt 灰，缺少品牌感
+- ❌ Hero 水印用 `opacity(0.2)` — 太显眼，干扰主文案
+- ❌ 章节序号 < 主标题字号 — 反客为主
+- ❌ 在英文 OS 上做 `.tracking(2)` 中文 — 中文不存在字距，反而错位
+
+---
+
+## 十五、Preview 规范
 
 每个 View **必须**包含 Light + Dark 两个 Preview：
 
@@ -485,7 +607,7 @@ BTEmptyState(
 
 ---
 
-## 十五、Dark Mode 检查清单
+## 十六、Dark Mode 检查清单
 
 每次完成 View 开发后：
 
@@ -494,3 +616,12 @@ BTEmptyState(
 - [ ] 球台 Canvas 在 Dark Mode 下使用 `btTableFelt`（深色变体）
 - [ ] 卡片背景使用 `btBGSecondary`（系统自动适配）
 - [ ] 分隔线使用 `Color(.separator)`（系统色）
+
+---
+
+## Changelog
+
+- 2026-05-26（DR-014）— 全局字体密度优化：
+  - `btDisplay` 48→44、`btDisplaySmall` 36→30、`btLargeTitle` 34→32、`btChapterNumber` 32→26、`btTitle` 22→20、`btTitle2` 20→18、`btTitleMedium` 19→17、`btStatNumber` 28→24
+  - 新增 `btSubheadlineSemibold`（15pt semibold）、`btFootnote14`（14pt）、`btMicro`（10pt）的文档化
+  - 新增「使用原则」中四条避坑指引：避免 `btTitle2` 滥用列表卡片、避免 `btDisplaySmall` 用作卡片统计数字、避免 `btTitleMedium` 作强调正文、`.system(size:)` 保留场景定义

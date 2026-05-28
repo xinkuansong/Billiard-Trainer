@@ -4,7 +4,9 @@
   "nameEn": "Power Draw Return",
   "category": "forceControl",
   "subcategory": "powerDraw",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 4,
   "isPremium": true,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.5, "y": 0.38},
-        {"x": 0.5, "y": 0.08}
+        {
+          "x": 0.5,
+          "y": 0.38
+        },
+        {
+          "x": 0.5,
+          "y": 0.08
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.4},
+      "start": {
+        "x": 0.5,
+        "y": 0.4
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.4}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,15 @@
         "content": "强力低杆回拉稳定后，结合「低杆一库走位」练习回拉碰库的走位控制。「五档力度阶梯」中的极重档可作为大力低杆的力度校准工具。「全力度走位综合」要求在大力低杆和轻推之间自如切换，是控力能力的终极检验。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    }
+  ]
 }

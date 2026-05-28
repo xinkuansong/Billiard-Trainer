@@ -18,11 +18,53 @@ struct DrillContent: Codable, Identifiable {
     let sets: DrillSetsConfig
     let animation: DrillAnimation
     let tutorial: DrillTutorial?
+    let videos: [DrillVideo]?
+
+    init(
+        id: String,
+        nameZh: String,
+        nameEn: String,
+        category: String,
+        subcategory: String,
+        ballType: [String],
+        level: String,
+        difficulty: Int,
+        isPremium: Bool,
+        description: String,
+        coachingPoints: [String],
+        standardCriteria: String,
+        sets: DrillSetsConfig,
+        animation: DrillAnimation,
+        tutorial: DrillTutorial? = nil,
+        videos: [DrillVideo]? = nil
+    ) {
+        self.id = id
+        self.nameZh = nameZh
+        self.nameEn = nameEn
+        self.category = category
+        self.subcategory = subcategory
+        self.ballType = ballType
+        self.level = level
+        self.difficulty = difficulty
+        self.isPremium = isPremium
+        self.description = description
+        self.coachingPoints = coachingPoints
+        self.standardCriteria = standardCriteria
+        self.sets = sets
+        self.animation = animation
+        self.tutorial = tutorial
+        self.videos = videos
+    }
 
     struct DrillSetsConfig: Codable {
         let defaultSets: Int
         let defaultBallsPerSet: Int
     }
+}
+
+struct DrillVideo: Codable, Identifiable, Hashable {
+    let id: String
+    let file: String
 }
 
 struct DrillTutorial: Codable {
@@ -177,5 +219,14 @@ actor DrillContentService {
             }
         }
         return nil
+    }
+
+    /// Resolves a bundled video file for a given drill to a local URL.
+    /// Videos are packaged at `Resources/Videos/<drillId>/<file>` (e.g. `take_01.mp4`).
+    nonisolated func videoURL(drillId: String, file: String) -> URL? {
+        let name = (file as NSString).deletingPathExtension
+        let ext = (file as NSString).pathExtension
+        let subdir = "Videos/\(drillId)"
+        return Bundle.main.url(forResource: name, withExtension: ext, subdirectory: subdir)
     }
 }

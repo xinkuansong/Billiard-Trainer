@@ -70,7 +70,7 @@ final class TableModelLoader {
         let modelSizeZ = modelMax.z - modelMin.z
         let modelSizeY = modelMax.y - modelMin.y
 
-        let cushionThickness: Float = 0.05
+        let cushionThickness = BTTablePhysics.cushionThickness
         let targetOuterLength = AngleSceneCalculator.innerLength + 2 * cushionThickness + 0.18
         let targetOuterWidth = AngleSceneCalculator.innerWidth + 2 * cushionThickness + 0.18
 
@@ -103,9 +103,8 @@ final class TableModelLoader {
             -centerZ * uniformScale
         )
 
-        let cushionHeight: Float = 0.037
         let railTopInWorld = modelMax.y * uniformScale
-        let surfaceY = railTopInWorld - cushionHeight
+        let surfaceY = railTopInWorld - BTTablePhysics.cushionHeight
 
         guard surfaceY > -1.0, surfaceY < 10.0, !surfaceY.isNaN else {
             restoreBalls(removedBalls)

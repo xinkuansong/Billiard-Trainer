@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-container": "#003e73",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed-variant": "#005229",
+                        "surface-container-high": "#e9e7ed",
+                        "on-surface-variant": "#404940",
+                        "primary-container": "#1a6b3c",
+                        "secondary": "#0060ac",
+                        "secondary-container": "#68abff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#89d89e",
+                        "surface-bright": "#faf9fe",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-fixed-variant": "#633f00",
+                        "inverse-surface": "#2f3034",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#dad9df",
+                        "on-primary-fixed": "#00210d",
+                        "on-tertiary-container": "#ffcf92",
+                        "outline": "#707a70",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#623f00",
+                        "inverse-on-surface": "#f1f0f5",
+                        "on-background": "#1a1b1f",
+                        "on-secondary-fixed": "#001c39",
+                        "surface-tint": "#1b6c3d",
+                        "surface-variant": "#e3e2e7",
+                        "on-secondary": "#ffffff",
+                        "primary": "#005129",
+                        "surface-container": "#eeedf3",
+                        "surface-container-highest": "#e3e2e7",
+                        "on-secondary-fixed-variant": "#004883",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed": "#ffddb4",
+                        "surface": "#faf9fe",
+                        "background": "#faf9fe",
+                        "outline-variant": "#bfc9be",
+                        "surface-container-low": "#f4f3f8",
+                        "on-tertiary-fixed": "#291800",
+                        "on-primary-container": "#9ae9ae",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed-dim": "#a4c9ff",
+                        "on-surface": "#1a1b1f",
+                        "tertiary-container": "#825400",
+                        "primary-fixed": "#a5f4b8",
+                        "secondary-fixed": "#d4e3ff",
+                        "inverse-primary": "#89d89e",
+                        "tertiary-fixed-dim": "#ffb955"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Inter", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .felt-canvas {
+            background: linear-gradient(135deg, #1A6B3C 0%, #13522E 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        .dashed-potting { border-top: 2px dashed #ffffff; }
+        .dashed-shot { border-top: 2px dashed #68ABFF; }
+        .ghost-ball { background: rgba(255, 215, 0, 0.35); border: 1.5px solid #FFDD33; }
+        .cue-ball { background: #FFFFFF; box-shadow: inset -2px -2px 4px rgba(0,0,0,0.1); }
+        .object-ball { background: #FF9500; box-shadow: inset -2px -2px 4px rgba(0,0,0,0.2); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body max-w-[393px] mx-auto min-h-screen pb-12">
+<!-- Top Navigation Bar -->
+<header class="fixed top-0 w-[393px] z-50 bg-[#FAF9FE]/70 backdrop-blur-md flex items-center px-4 h-14">
+<div class="flex items-center space-x-1 cursor-pointer">
+<span class="material-symbols-outlined text-secondary" style="font-size: 20px;">arrow_back_ios</span>
+<span class="text-secondary text-[17px]">角度训练</span>
+</div>
+<div class="absolute left-1/2 -translate-x-1/2">
+<h1 class="text-on-surface font-semibold text-[17px] tracking-tight">瞄准原理</h1>
+</div>
+</header>
+<main class="pt-20 px-4 space-y-8">
+<!-- Section 1: 什么是切入角 -->
+<section class="space-y-4">
+<h2 class="text-[1.5rem] font-bold tracking-tight text-on-surface">什么是切入角</h2>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
+<!-- Canvas -->
+<div class="felt-canvas w-full h-[220px] rounded-lg mb-4 flex items-center justify-center">
+<!-- Pocket -->
+<div class="absolute top-4 right-4 w-10 h-10 bg-black rounded-full opacity-40"></div>
+<!-- Diagram Lines -->
+<div class="absolute w-[180px] h-px dashed-potting top-[110px] left-[150px] rotate-[-30deg] origin-left"></div>
+<div class="absolute w-[160px] h-px dashed-shot top-[110px] left-[150px] rotate-[10deg] origin-left"></div>
+<!-- Balls -->
+<!-- Cue Ball -->
+<div class="absolute left-12 top-[130px] w-7 h-7 cue-ball rounded-full z-10"></div>
+<!-- Object Ball -->
+<div class="absolute left-[150px] top-[96px] w-7 h-7 object-ball rounded-full z-10"></div>
+<!-- Annotation Arc -->
+<svg class="absolute left-[170px] top-[90px]" height="60" viewbox="0 0 60 60" width="60">
+<path d="M 30 10 A 30 30 0 0 1 45 45" fill="none" stroke="#FFDD33" stroke-dasharray="2 2" stroke-width="2"></path>
+<text fill="#FFDD33" font-size="12" font-weight="bold" x="35" y="30">α</text>
+</svg>
+</div>
+<p class="text-[17px] leading-relaxed text-on-surface-variant">
+                    切入角是指母球击球方向与目标球进球方向之间的夹角。范围：0° 到 90°
+                </p>
+</div>
+</section>
+<!-- Section 2: 核心公式 -->
+<section class="space-y-4">
+<h2 class="text-[1.5rem] font-bold tracking-tight text-on-surface">核心公式</h2>
+<div class="space-y-3">
+<div class="bg-primary text-white rounded-xl p-6 flex justify-center items-center">
+<span class="font-mono text-xl tracking-wide">偏移量 = sin(α) × R</span>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
+<div class="felt-canvas w-full h-[160px] rounded-lg mb-4 overflow-hidden">
+<!-- Example: 30 degree cut -->
+<div class="absolute inset-0 flex items-center justify-center">
+<!-- Target Ball -->
+<div class="relative w-14 h-14 object-ball rounded-full z-10">
+<!-- Contact Point -->
+<div class="absolute top-1/4 left-0 -translate-x-1/2 w-2 h-2 bg-error rounded-full border border-white"></div>
+</div>
+<!-- Offset Indicator -->
+<div class="absolute w-[2px] h-14 bg-white/20 left-[50%] translate-x-[-28px]"></div>
+<div class="absolute bottom-4 text-center w-full">
+<span class="bg-black/30 backdrop-blur-sm text-primary-fixed text-[12px] px-2 py-0.5 rounded-full font-mono">sin(30°) = 0.5 (半球厚度)</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: 假想球法 -->
+<section class="space-y-4">
+<h2 class="text-[1.5rem] font-bold tracking-tight text-on-surface">假想球法（Ghost Ball）</h2>
+<div class="space-y-3">
+<!-- Step 1 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex gap-4">
+<div class="w-24 h-24 shrink-0 felt-canvas rounded-lg relative overflow-hidden">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-6 h-6 object-ball rounded-full"></div>
+<div class="absolute w-20 h-px dashed-potting left-1/2 -rotate-45 origin-left"></div>
+</div>
+</div>
+<div class="flex flex-col justify-center">
+<span class="text-primary font-bold text-[12px] uppercase tracking-wider mb-1">Step 1</span>
+<h3 class="font-semibold text-on-surface">确定进球线路</h3>
+<p class="text-[14px] text-on-surface-variant leading-snug">连接目标球中心与袋口中心点。</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex gap-4">
+<div class="w-24 h-24 shrink-0 felt-canvas rounded-lg relative overflow-hidden">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-6 h-6 object-ball rounded-full z-10"></div>
+<div class="w-6 h-6 ghost-ball rounded-full absolute -translate-y-4 translate-x-4"></div>
+</div>
+</div>
+<div class="flex flex-col justify-center">
+<span class="text-primary font-bold text-[12px] uppercase tracking-wider mb-1">Step 2</span>
+<h3 class="font-semibold text-on-surface">放置假想球</h3>
+<p class="text-[14px] text-on-surface-variant leading-snug">在进球线反方向放置一个与母球等大的圆。</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="bg-surface-container-lowest rounded-xl p-4 flex gap-4">
+<div class="w-24 h-24 shrink-0 felt-canvas rounded-lg relative overflow-hidden">
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="w-6 h-6 ghost-ball rounded-full absolute -translate-y-4 translate-x-4 opacity-50"></div>
+<div class="w-6 h-6 cue-ball rounded-full absolute translate-y-6 -translate-x-6"></div>
+<div class="absolute w-24 h-px dashed-shot -rotate-45"></div>
+</div>
+</div>
+<div class="flex flex-col justify-center">
+<span class="text-primary font-bold text-[12px] uppercase tracking-wider mb-1">Step 3</span>
+<h3 class="font-semibold text-on-surface">瞄准球心 C</h3>
+<p class="text-[14px] text-on-surface-variant leading-snug">母球只需向假想球的圆心方向击出即可。</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 4: 厚薄球概念 -->
+<section class="space-y-4">
+<h2 class="text-[1.5rem] font-bold tracking-tight text-on-surface">厚薄球概念</h2>
+<div class="grid grid-cols-2 gap-3">
+<!-- 1: Full Ball -->
+<div class="bg-surface-container-lowest rounded-xl p-3 flex flex-col items-center">
+<div class="w-full aspect-square felt-canvas rounded-lg mb-2 relative flex items-center justify-center">
+<div class="w-6 h-6 object-ball rounded-full z-10"></div>
+<div class="w-6 h-6 ghost-ball rounded-full absolute opacity-40"></div>
+</div>
+<div class="text-center">
+<div class="font-bold text-on-surface">全球 (100%)</div>
+<div class="text-[12px] text-on-surface-variant font-mono">0° | 0 Offset</div>
+</div>
+</div>
+<!-- 2: 3/4 Ball -->
+<div class="bg-surface-container-lowest rounded-xl p-3 flex flex-col items-center">
+<div class="w-full aspect-square felt-canvas rounded-lg mb-2 relative flex items-center justify-center">
+<div class="w-6 h-6 object-ball rounded-full z-10"></div>
+<div class="w-6 h-6 ghost-ball rounded-full absolute translate-x-2 opacity-40"></div>
+</div>
+<div class="text-center">
+<div class="font-bold text-on-surface">3/4 球</div>
+<div class="text-[12px] text-on-surface-variant font-mono">14.5° | 0.25R</div>
+</div>
+</div>
+<!-- 3: Half Ball -->
+<div class="bg-surface-container-lowest rounded-xl p-3 flex flex-col items-center">
+<div class="w-full aspect-square felt-canvas rounded-lg mb-2 relative flex items-center justify-center">
+<div class="w-6 h-6 object-ball rounded-full z-10"></div>
+<div class="w-6 h-6 ghost-ball rounded-full absolute translate-x-4 opacity-40"></div>
+</div>
+<div class="text-center">
+<div class="font-bold text-on-surface">半球 (50%)</div>
+<div class="text-[12px] text-on-surface-variant font-mono">30° | 0.5R</div>
+</div>
+</div>
+<!-- 4: Thin Ball -->
+<div class="bg-surface-container-lowest rounded-xl p-3 flex flex-col items-center">
+<div class="w-full aspect-square felt-canvas rounded-lg mb-2 relative flex items-center justify-center">
+<div class="w-6 h-6 object-ball rounded-full z-10"></div>
+<div class="w-6 h-6 ghost-ball rounded-full absolute translate-x-6 opacity-40"></div>
+</div>
+<div class="text-center">
+<div class="font-bold text-on-surface">极薄球</div>
+<div class="text-[12px] text-on-surface-variant font-mono">~90° | ~1.0R</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Contextual FAB (Only for main screens, but keeping as placeholder logic check) -->
+<!-- Suppression logic applied: No FAB on Details/Educational sub-pages -->
+</body></html>

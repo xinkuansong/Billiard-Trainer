@@ -4,7 +4,9 @@
   "nameEn": "Kick Shot with Cushion",
   "category": "specialShots",
   "subcategory": "kickShot",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 4,
   "isPremium": true,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.3, "y": 0.35},
+      "start": {
+        "x": 0.3,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.02, "y": 0.2},
-        {"x": 0.2, "y": 0.08}
+        {
+          "x": 0.02,
+          "y": 0.2
+        },
+        {
+          "x": 0.2,
+          "y": 0.08
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.22, "y": 0.07},
+      "start": {
+        "x": 0.22,
+        "y": 0.07
+      },
       "path": [
-        {"x": -0.0165, "y": -0.0165}
+        {
+          "x": -0.0165,
+          "y": -0.0165
+        }
       ]
     },
     "pocket": "topLeft",
-    "cueDirection": {"x": 0.02, "y": 0.2}
+    "cueDirection": {
+      "x": 0.02,
+      "y": 0.2
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,19 @@
         "content": "熟练一库K球后可尝试两库甚至三库K球，提升多库反弹计算能力。结合「解球（逆境球）」练习，全面提升逆境处理技术和库边利用的综合水平。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

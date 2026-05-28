@@ -2,6 +2,8 @@
 
 本仓库使用 **Multi-Agent Spec-Driven Development（MA-SDD）**：以产品文档 `docs/01`–`docs/08` 为规格源，由 **Orchestrator（主控）** 调度专项角色，通过 `tasks/` 共享状态与进度。
 
+> 本项目同时纳入跨项目 **Project Hub**（`/Users/song/projects/project-hub`）。本项目状态卡：`/Users/song/projects/project-hub/projects/13.billiard_trainer.md`。任何与 14 / 15 / 16 / 18 联动的事项（设计、教程、定理、图标）须按 `.cursor/rules/00-project-hub-sync.mdc` 同步。
+
 ## 快速开始
 
 1. **先读** [`tasks/PROGRESS.md`](tasks/PROGRESS.md)、[`tasks/HUMAN-REQUIRED.md`](tasks/HUMAN-REQUIRED.md) 与（若存在返工）[`tasks/FAILURE-LOG.md`](tasks/FAILURE-LOG.md)。

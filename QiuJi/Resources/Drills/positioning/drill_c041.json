@@ -4,7 +4,9 @@
   "nameEn": "Diagonal Position Play",
   "category": "positioning",
   "subcategory": "diagonal",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
@@ -21,22 +23,46 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.3, "y": 0.15},
+      "start": {
+        "x": 0.3,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.18, "y": 0.1},
-        {"x": 0.03, "y": 0.2},
-        {"x": 0.3, "y": 0.48},
-        {"x": 0.7, "y": 0.35}
+        {
+          "x": 0.18,
+          "y": 0.1
+        },
+        {
+          "x": 0.03,
+          "y": 0.2
+        },
+        {
+          "x": 0.3,
+          "y": 0.48
+        },
+        {
+          "x": 0.7,
+          "y": 0.35
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.15, "y": 0.08},
+      "start": {
+        "x": 0.15,
+        "y": 0.08
+      },
       "path": [
-        {"x": -0.0165, "y": -0.0165}
+        {
+          "x": -0.0165,
+          "y": -0.0165
+        }
       ]
     },
     "pocket": "topLeft",
-    "cueDirection": {"x": 0.15, "y": 0.08}
+    "cueDirection": {
+      "x": 0.15,
+      "y": 0.08
+    }
   },
   "tutorial": {
     "sections": [
@@ -57,5 +83,19 @@
         "content": "对角走位是「三库走位」的应用变体，两者互为补充。如果碰库路线判断不准，回到「两库走位」和「一库走位定点」巩固反弹角感觉。力度方面配合「全力度走位综合」练习大范围力度切换。对角走位能力提升后，「初级蛇彩走位」中的长距离转换球会更从容。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

@@ -4,7 +4,9 @@
   "nameEn": "No-Cushion Short Position",
   "category": "positioning",
   "subcategory": "noCushion",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.15},
+      "start": {
+        "x": 0.5,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.5, "y": 0.33},
-        {"x": 0.5, "y": 0.28}
+        {
+          "x": 0.5,
+          "y": 0.33
+        },
+        {
+          "x": 0.5,
+          "y": 0.28
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.35},
+      "start": {
+        "x": 0.5,
+        "y": 0.35
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.35}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.35
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,19 @@
         "content": "熟练不吃库走位后，尝试「直线球组合走位」练习连续三球不吃库走位。进一步可挑战「入位球基础」，在进袋的同时将母球精确停到下一颗球的理想位置。力度精度不够时，回到「三档力度控制」强化力度感觉。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

@@ -4,7 +4,9 @@
   "nameEn": "Half-Table Straight Shot",
   "category": "accuracy",
   "subcategory": "straight",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L0",
   "difficulty": 1,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.5, "y": 0.45}
+        {
+          "x": 0.5,
+          "y": 0.45
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.43},
+      "start": {
+        "x": 0.5,
+        "y": 0.43
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.0}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.0
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,31 @@
         "content": "半台直线球进球率达到70%以上后，可挑战「远台直线出杆检验」和「远台直线球极限」，在更长距离下测试直线瞄准精度。同时建议并行练习「近台底袋直线球」和「中袋直线入袋」，在不同袋口和距离组合下巩固直线球基本功。直线球是所有角度球的基础——直线不稳，角度球无从谈起。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    },
+    {
+      "id": "take_06",
+      "file": "take_06.mp4"
+    }
+  ]
 }

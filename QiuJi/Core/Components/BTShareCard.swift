@@ -111,12 +111,7 @@ struct BTShareCard: View {
 
     private var logoHeader: some View {
         HStack(spacing: Spacing.md) {
-            Image("BrandPrimaryLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 36)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm, style: .continuous))
-                .accessibilityLabel("球迹")
+            BTBrandLogo(size: 36, style: .onTile)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text("QiuJi 球迹")

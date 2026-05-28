@@ -4,7 +4,9 @@
   "nameEn": "Safety Play Positioning",
   "category": "specialShots",
   "subcategory": "safety",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.22, "y": 0.38},
-        {"x": 0.08, "y": 0.42}
+        {
+          "x": 0.22,
+          "y": 0.38
+        },
+        {
+          "x": 0.08,
+          "y": 0.42
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.2, "y": 0.4},
+      "start": {
+        "x": 0.2,
+        "y": 0.4
+      },
       "path": [
-        {"x": -0.0165, "y": 0.5165}
+        {
+          "x": -0.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomLeft",
-    "cueDirection": {"x": 0.2, "y": 0.4}
+    "cueDirection": {
+      "x": 0.2,
+      "y": 0.4
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,11 @@
         "content": "安全球稳定后练习攻防转换——在同一球位判断是进攻还是防守更有利。「解球（逆境球）」是安全球的对立面，两者互补——既要会做安全球也要会解安全球。进阶到比赛实战中，观察职业选手的安全球选择时机和执行方式，学习什么时候放弃进攻选择防守。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    }
+  ]
 }

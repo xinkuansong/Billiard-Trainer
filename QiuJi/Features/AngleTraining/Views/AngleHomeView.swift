@@ -3,9 +3,7 @@ import SwiftUI
 // MARK: - Angle Navigation
 
 enum AngleRoute: Hashable {
-    case test
     case contactPointTable
-    case history
     case aimingPrinciple
     case angleDynamic
     case geometricQuiz
@@ -17,9 +15,6 @@ enum AngleRoute: Hashable {
 // MARK: - Home View
 
 struct AngleHomeView: View {
-    @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @StateObject private var limiter = AngleUsageLimiter()
-
     var body: some View {
         VStack(spacing: 0) {
             pageHeader
@@ -29,16 +24,12 @@ struct AngleHomeView: View {
                     learnSection
                     trainingSection
                     toolsSection
-                    historyLink
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.lg)
             }
         }
         .background(.btBG)
-        .onReceive(subscriptionManager.$isPremium) { premium in
-            limiter.isPremium = premium
-        }
     }
 
     private var pageHeader: some View {
@@ -104,15 +95,6 @@ struct AngleHomeView: View {
                             subtitle: "3D 视角角度预测",
                             chipText: "3D")
             }
-
-            NavigationLink(value: AngleRoute.test) {
-                FeatureCard(icon: "target",
-                            title: "角度测试",
-                            subtitle: "训练角度视觉感知",
-                            badge: limiter.isPremium
-                                ? nil
-                                : "今日剩余 \(limiter.remainingToday) 题")
-            }
         }
     }
 
@@ -127,26 +109,6 @@ struct AngleHomeView: View {
                             title: "进球点对照表",
                             subtitle: "角度与接触点对照")
             }
-        }
-    }
-
-    // MARK: - History entry
-
-    private var historyLink: some View {
-        NavigationLink(value: AngleRoute.history) {
-            HStack {
-                Image(systemName: "clock.arrow.circlepath")
-                    .foregroundStyle(.btPrimary)
-                Text("测试历史")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(.btTextTertiary)
-            }
-            .padding(Spacing.lg)
-            .background(.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         }
     }
 

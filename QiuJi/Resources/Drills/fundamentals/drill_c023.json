@@ -4,7 +4,9 @@
   "nameEn": "Five-Point Aim Line Drill",
   "category": "fundamentals",
   "subcategory": "aim",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,19 +23,34 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.87, "y": 0.43}
+        {
+          "x": 0.87,
+          "y": 0.43
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.88, "y": 0.43},
+      "start": {
+        "x": 0.88,
+        "y": 0.43
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.88, "y": 0.43}
+    "cueDirection": {
+      "x": 0.88,
+      "y": 0.43
+    }
   },
   "tutorial": {
     "sections": [
@@ -54,5 +71,31 @@
         "content": "五分点角度熟练后，挑战「三分点角度入袋」，角度更大、厚薄度判断更难。也可以在五分点位置增加距离——将母球移至远台再练同样角度，检验远距离角度瞄准精度。最终目标是在五分点位置稳定进球后，能自信地处理实战中类似角度的任意球位。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    },
+    {
+      "id": "take_06",
+      "file": "take_06.mp4"
+    }
+  ]
 }

@@ -4,7 +4,9 @@
   "nameEn": "Bank Shot to Corner Pocket",
   "category": "specialShots",
   "subcategory": "bankShot",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.3, "y": 0.25},
+      "start": {
+        "x": 0.3,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.48, "y": 0.25}
+        {
+          "x": 0.48,
+          "y": 0.25
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.98, "y": 0.25},
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 0.98,
+          "y": 0.25
+        },
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.5, "y": 0.25}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.25
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,23 @@
         "content": "掌握底角袋翻袋后，可挑战「翻袋入中袋」提升角度判断精度，再结合「K球吃库」训练库边利用的综合能力。尝试不同位置和角度的翻袋，积累全台翻袋经验。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    }
+  ]
 }

@@ -88,13 +88,18 @@ struct DrillListView: View {
     private var categorySidebar: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(spacing: 0) {
-                sidebarItem(label: "全部", isSelected: viewModel.categoryFilter == nil) {
+                sidebarItem(
+                    label: "全部",
+                    category: nil,
+                    isSelected: viewModel.categoryFilter == nil
+                ) {
                     viewModel.categoryFilter = nil
                 }
 
                 ForEach(DrillCategory.allCases) { category in
                     sidebarItem(
                         label: category.nameZh,
+                        category: category,
                         isSelected: viewModel.categoryFilter == category
                     ) {
                         viewModel.categoryFilter = category
@@ -102,21 +107,37 @@ struct DrillListView: View {
                 }
             }
         }
-        .frame(width: 72)
+        .frame(width: 76)
         .background(Color.btBGSecondary)
     }
 
-    private func sidebarItem(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+    private func sidebarItem(
+        label: String,
+        category: DrillCategory?,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: Spacing.xs) {
+                Group {
+                    if let category {
+                        BTDrillCategoryIcon(category: category, size: 22, filled: isSelected)
+                    } else {
+                        Image(systemName: isSelected ? "square.grid.2x2.fill" : "square.grid.2x2")
+                            .font(.btSubheadline)
+                            .foregroundStyle(isSelected ? .btPrimary : .btTextSecondary)
+                    }
+                }
+                .frame(height: 22)
+
                 Text(label)
-                    .font(isSelected ? .btSubheadlineMedium : .btFootnote)
+                    .font(isSelected ? .btCaption.weight(.semibold) : .btCaption)
                     .foregroundStyle(isSelected ? .btPrimary : .btTextSecondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(0.7)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .frame(height: 60)
             .background(isSelected ? Color.btBG : .clear)
             .overlay(alignment: .leading) {
                 if isSelected {
@@ -171,7 +192,8 @@ struct DrillListView: View {
     }
 
     private func sectionHeader(category: DrillCategory) -> some View {
-        HStack {
+        HStack(spacing: Spacing.sm) {
+            BTDrillCategoryIcon(category: category, size: 22, filled: true)
             Text(category.nameZh)
                 .font(.btTitle2)
                 .foregroundStyle(.btText)

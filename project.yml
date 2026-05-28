@@ -1,3 +1,7 @@
+# ⚠️ 切勿直接运行 `xcodegen generate`！
+# xcodegen 不会为 Resources/{Drills,Plans,Videos} 这种 `type: folder` 资源
+# 生成 Xcode folder reference，导致打包后 Bundle.main 找不到子目录文件
+# （动作库列表会变空）。正确做法：使用 `make xcodegen` 一并跑后处理补丁。
 name: QiuJi
 options:
   bundleIdPrefix: com.xinkuan
@@ -38,11 +42,14 @@ targets:
           - "**/.DS_Store"
           - "Resources/Drills/**"
           - "Resources/Plans/**"
+          - "Resources/Videos/**"
     resources:
       - path: QiuJi/Resources/Assets.xcassets
       - path: QiuJi/Resources/Drills
         type: folder
       - path: QiuJi/Resources/Plans
+        type: folder
+      - path: QiuJi/Resources/Videos
         type: folder
       - path: QiuJi/Resources/TaiQiuZhuo.usdz
     settings:

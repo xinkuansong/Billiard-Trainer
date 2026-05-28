@@ -26,7 +26,9 @@ enum AppTab: Int, CaseIterable {
         case .profile:      return "person.circle"
         }
     }
+
 }
+
 
 @MainActor
 final class AppRouter: ObservableObject {

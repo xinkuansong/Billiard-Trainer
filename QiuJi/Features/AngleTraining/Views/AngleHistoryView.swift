@@ -1,42 +1,51 @@
 import SwiftUI
 import SwiftData
 
+/// Standalone angle-training aggregate stats page — used as a ScrollView
+/// wrapper. Most callers should prefer embedding `AngleHistorySection`
+/// directly to avoid nested scroll views (e.g. inside `StatisticsView`).
 struct AngleHistoryView: View {
+    var body: some View {
+        ScrollView {
+            AngleHistorySection()
+                .padding(Spacing.lg)
+                .padding(.bottom, Spacing.xxxxl)
+        }
+        .background(.btBG)
+    }
+}
+
+/// Embeddable content block (no outer ScrollView) that renders the
+/// aggregate angle-training statistics: quiz-type filter + 2×2 stat grid
+/// + time-range segmented tab + trend chart + range analysis.
+struct AngleHistorySection: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = AngleHistoryViewModel()
     @State private var selectedSegment = 0
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Spacing.xxl) {
-                if vm.allResults.isEmpty {
-                    BTEmptyState(icon: "chart.line.uptrend.xyaxis",
-                                 title: "暂无测试记录",
-                                 subtitle: "完成角度测试后，误差趋势将在这里显示",
-                                 actionTitle: "开始角度测试")
-                } else {
-                    quizTypeFilter
-                    statsGrid
-                    BTSegmentedTab(tabs: AngleTimeRange.allCases,
-                                   selected: $vm.timeRange) { $0.rawValue }
+        VStack(spacing: Spacing.xxl) {
+            if vm.allResults.isEmpty {
+                BTEmptyState(icon: "chart.line.uptrend.xyaxis",
+                             title: "暂无训练记录",
+                             subtitle: "完成角度训练后，误差趋势将在这里显示")
+            } else {
+                quizTypeFilter
+                statsGrid
+                BTSegmentedTab(tabs: AngleTimeRange.allCases,
+                               selected: $vm.timeRange) { $0.rawValue }
 
-                    if vm.filteredResults.isEmpty {
-                        BTEmptyState(icon: "chart.line.uptrend.xyaxis",
-                                     title: "该类型暂无数据",
-                                     subtitle: "尝试切换类型筛选或时间范围")
-                    } else {
-                        trendSection
-                        rangeAnalysis
-                    }
+                if vm.filteredResults.isEmpty {
+                    BTEmptyState(icon: "chart.line.uptrend.xyaxis",
+                                 title: "该类型暂无数据",
+                                 subtitle: "尝试切换类型筛选或时间范围")
+                } else {
+                    trendSection
+                    rangeAnalysis
                 }
             }
-            .padding(Spacing.lg)
         }
-        .background(.btBG)
-        .navigationTitle("测试历史")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
         .onAppear { vm.configure(context: modelContext) }
         .task { await vm.loadData() }
     }

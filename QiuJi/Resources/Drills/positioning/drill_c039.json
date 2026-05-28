@@ -4,7 +4,9 @@
   "nameEn": "Straight Ball Combo Position",
   "category": "positioning",
   "subcategory": "comboPosition",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": true,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.42},
+      "start": {
+        "x": 0.5,
+        "y": 0.42
+      },
       "path": [
-        {"x": 0.5, "y": 0.33},
-        {"x": 0.5, "y": 0.28}
+        {
+          "x": 0.5,
+          "y": 0.33
+        },
+        {
+          "x": 0.5,
+          "y": 0.28
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.3},
+      "start": {
+        "x": 0.5,
+        "y": 0.3
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.3}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.3
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,19 @@
         "content": "直线球组合稳定后，挑战「初级蛇彩走位」，将走位从直线扩展到蛇形路线。「入位球基础」可练习在非直线球位下的走位入位能力。力度精度不够时，回到「三档力度控制」或「不吃库短距离走位」强化直线球力度感觉。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

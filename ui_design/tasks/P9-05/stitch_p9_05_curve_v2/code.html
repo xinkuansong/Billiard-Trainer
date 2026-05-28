@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .sine-curve {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 0;
+        }
+        /* Custom scrollbar suppression for a clean iOS look */
+        ::-webkit-scrollbar { display: none; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "surface-bright": "#faf9fe",
+                        "inverse-surface": "#2f3034",
+                        "primary-fixed": "#a5f4b8",
+                        "on-tertiary-container": "#ffcbc6",
+                        "on-error-container": "#93000a",
+                        "on-primary-container": "#9ae9ae",
+                        "on-secondary-fixed-variant": "#314d38",
+                        "background": "#faf9fe",
+                        "on-surface-variant": "#404940",
+                        "tertiary-fixed": "#ffdad6",
+                        "primary": "#1A6B3C",
+                        "on-tertiary-fixed": "#410002",
+                        "secondary-fixed-dim": "#aeceb3",
+                        "surface-dim": "#dad9df",
+                        "outline": "#707a70",
+                        "on-secondary-container": "#4e6b54",
+                        "error": "#ba1a1a",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb4ac",
+                        "on-surface": "#1a1b1f",
+                        "on-background": "#1a1b1f",
+                        "secondary-container": "#caebce",
+                        "primary-fixed-dim": "#89d89e",
+                        "surface-container-highest": "#e3e2e7",
+                        "surface": "#faf9fe",
+                        "on-primary-fixed-variant": "#1A6B3C",
+                        "outline-variant": "#bfc9be",
+                        "surface-container": "#eeedf3",
+                        "surface-container-low": "#f4f3f8",
+                        "on-tertiary-fixed-variant": "#93000d",
+                        "secondary": "#48654e",
+                        "on-primary-fixed": "#00210d",
+                        "inverse-on-surface": "#f1f0f5",
+                        "surface-container-high": "#e9e7ed",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-tertiary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "on-secondary-fixed": "#05210f",
+                        "inverse-primary": "#89d89e",
+                        "secondary-fixed": "#caebce",
+                        "primary-container": "#1A6B3C",
+                        "surface-tint": "#1A6B3C",
+                        "tertiary-container": "#ba161b",
+                        "surface-variant": "#e3e2e7",
+                        "tertiary": "#92000d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "2xl": "1rem",
+                        "full": "9999px"
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            min-height: 100dvh;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen pb-12">
+<!-- TopAppBar -->
+<header class="w-full sticky top-0 z-50 bg-[#faf9fe]/80 backdrop-blur-md flex items-center justify-between px-6 py-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#1A6B3C] cursor-pointer active:scale-95 transition-transform" style="font-size: 24px;">arrow_back</span>
+<div class="flex flex-col">
+<span class="text-[11px] font-medium tracking-tight text-slate-500">角度训练</span>
+<h1 class="font-['Inter'] font-bold tracking-tight text-[20px] text-[#1A6B3C]">进球点对照表</h1>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-slate-500">more_horiz</span>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="max-w-md mx-auto px-4 pt-2">
+<!-- Scroll Context: Bottom edge of preceding card -->
+<div class="bg-surface-container-lowest rounded-2xl p-4 mb-4 opacity-50 translate-y-[-12px] border-b border-outline-variant/10 shadow-sm">
+<p class="text-xs text-on-surface-variant font-medium">
+                切入角越大，接触点越偏离球心，薄球越难控制。
+            </p>
+</div>
+<!-- Sine Curve Chart Card -->
+<section class="bg-white rounded-[12pt] shadow-[0_4px_24px_rgba(26,27,31,0.04)] overflow-hidden border border-outline-variant/10 mb-6">
+<div class="p-6">
+<!-- Card Header -->
+<div class="flex items-center gap-3 mb-8">
+<div class="w-10 h-10 rounded-full bg-[#1A6B3C]/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-[#1A6B3C]" style="font-size: 20pt; font-variation-settings: 'FILL' 1;">insights</span>
+</div>
+<h2 class="text-[18pt] font-bold tracking-tight text-on-surface">d/R 与角度关系</h2>
+</div>
+<!-- SVG Chart Area -->
+<div class="relative w-full aspect-[4/3.5] mb-4">
+<svg class="w-full h-full overflow-visible" viewbox="0 0 400 320">
+<!-- Grid Lines -->
+<g class="opacity-[0.15]">
+<line stroke="#707a70" stroke-dasharray="4,4" x1="40" x2="380" y1="20" y2="20"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="40" x2="380" y1="85" y2="85"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="40" x2="380" y1="150" y2="150"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="40" x2="380" y1="215" y2="215"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="40" x2="380" y1="280" y2="280"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="40" x2="40" y1="20" y2="280"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="153.3" x2="153.3" y1="20" y2="280"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="266.6" x2="266.6" y1="20" y2="280"></line>
+<line stroke="#707a70" stroke-dasharray="4,4" x1="380" x2="380" y1="20" y2="280"></line>
+</g>
+<!-- Axes -->
+<line stroke="black" stroke-width="1.5" x1="40" x2="385" y1="280" y2="280"></line>
+<line stroke="black" stroke-width="1.5" x1="40" x2="40" y1="15" y2="280"></line>
+<!-- Axis Labels Y -->
+<g class="text-[10px] font-semibold fill-slate-400">
+<text text-anchor="end" x="32" y="25">2.0</text>
+<text text-anchor="end" x="32" y="155">1.0</text>
+<text text-anchor="end" x="32" y="285">0.0</text>
+</g>
+<!-- Axis Labels X -->
+<g class="text-[10px] font-semibold fill-slate-400">
+<text text-anchor="middle" x="40" y="298">0°</text>
+<text text-anchor="middle" x="153.3" y="298">30°</text>
+<text text-anchor="middle" x="266.6" y="298">60°</text>
+<text text-anchor="middle" x="380" y="298">90°</text>
+</g>
+<!-- Axis Titles -->
+<text class="text-[9px] font-black fill-primary uppercase tracking-widest" text-anchor="middle" transform="rotate(-90 12,150)" x="12" y="150">d / R</text>
+<text class="text-[9px] font-black fill-primary uppercase tracking-widest" text-anchor="middle" x="210" y="315">切入角 (°)</text>
+<!-- Sine Curve Fill (Gradient) -->
+<defs>
+<lineargradient id="curveGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#1A6B3C" stop-opacity="0.12"></stop>
+<stop offset="100%" stop-color="#1A6B3C" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<!-- Mathematical path for 2*sin(x) from 0 to 90deg -->
+<!-- Scaled to x=[40, 380], y=[280, 20] -->
+<path d="M 40,280 C 40,280 100,280 153.3,150 C 206.6,20 380,20 380,20 L 380,280 Z" fill="url(#curveGradient)"></path>
+<path class="sine-curve" d="M 40,280 C 40,280 100,280 153.3,150 C 206.6,20 380,20 380,20" fill="none" stroke="#1A6B3C" stroke-linecap="round" stroke-width="3"></path>
+<!-- Markers (Red Dots) -->
+<!-- 0°: 0.00 -->
+<circle cx="40" cy="280" fill="#E53935" r="4" stroke="white" stroke-width="1.5"></circle>
+<text class="text-[10px] font-bold fill-slate-700" x="48" y="275">0.00 (全球)</text>
+<!-- 10°: 0.35 (x ≈ 77.7, y ≈ 234.5) -->
+<circle cx="77.7" cy="234.5" fill="#E53935" r="4" stroke="white" stroke-width="1.5"></circle>
+<text class="text-[10px] font-bold fill-slate-700" x="86" y="235">0.35 (≈1/3球)</text>
+<!-- 30°: 1.00 (Most Prominent) -->
+<line stroke="#E53935" stroke-dasharray="2,2" stroke-width="1" x1="153.3" x2="153.3" y1="150" y2="280"></line>
+<line stroke="#E53935" stroke-dasharray="2,2" stroke-width="1" x1="40" x2="153.3" y1="150" y2="150"></line>
+<circle cx="153.3" cy="150" fill="#E53935" r="6" stroke="white" stroke-width="2.5"></circle>
+<text class="text-[12px] font-black fill-primary" x="165" y="145">1.00 (半球)</text>
+<!-- 48.6°: 1.50 (x ≈ 223.6, y = 85) -->
+<circle cx="223.6" cy="85" fill="#E53935" r="4" stroke="white" stroke-width="1.5"></circle>
+<text class="text-[10px] font-bold fill-slate-700" x="233" y="80">1.50 (3/4点)</text>
+<!-- 90°: 2.00 -->
+<circle cx="380" cy="20" fill="#E53935" r="4" stroke="white" stroke-width="1.5"></circle>
+<text class="text-[10px] font-bold fill-slate-700" text-anchor="end" x="375" y="45">2.00 (极薄球)</text>
+</svg>
+</div>
+<!-- Footer Note -->
+<div class="mt-6 pt-4 border-t border-outline-variant/10">
+<p class="text-[11px] text-on-surface-variant/80 leading-relaxed text-center italic">
+                        曲线展示切入角与 d/R 的正弦关系，红点标注常用通称角度
+                    </p>
+</div>
+</div>
+</section>
+<!-- Technical Metadata Section -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
+<span class="text-[10px] font-black tracking-widest text-primary/60 uppercase">Equation</span>
+<span class="text-sm font-mono font-bold text-primary">d = 2R sin(θ)</span>
+</div>
+<div class="bg-surface-container-low rounded-2xl p-4 flex flex-col gap-1 shadow-sm">
+<span class="text-[10px] font-black tracking-widest text-primary/60 uppercase">Precision</span>
+<span class="text-sm font-mono font-bold text-primary">Δ±0.01 mm</span>
+</div>
+</div>
+<div class="h-12"></div> <!-- 48pt Bottom Spacer -->
+</main>
+</body></html>

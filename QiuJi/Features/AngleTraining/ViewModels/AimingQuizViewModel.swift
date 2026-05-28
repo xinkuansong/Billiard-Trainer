@@ -122,8 +122,15 @@ final class AimingQuizViewModel: ObservableObject {
 
     // MARK: - Setup
 
-    func setupScene(initialCameraMode: AngleTrainingScene.CameraMode) {
-        scene.setupScene()
+    /// Build the SceneKit scene used by the quiz.
+    /// - Parameters:
+    ///   - initialCameraMode: starting camera mode (top-down 2D vs perspective 3D).
+    ///   - enhanced: opt into the studio-look pipeline (programmatic IBL,
+    ///     ground shadow catcher, 4-light, HDR camera, material enhancers).
+    ///     Defaults to `false` so the 2D aiming page keeps its current
+    ///     cheap pipeline.
+    func setupScene(initialCameraMode: AngleTrainingScene.CameraMode, enhanced: Bool = false) {
+        scene.setupScene(enhancedRendering: enhanced)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
 
@@ -259,10 +266,12 @@ final class AimingQuizViewModel: ObservableObject {
 
         scene.applyBallLayout(cueBallPosition: cuePos, targetBallNumber: 8, targetPosition: targetPos)
 
-        let pocketIndex = pocketIndexFor(question.pocket)
-        selectedPocketIndex = pocketIndex
+        // The question carries its `pocketIndex` already aligned with
+        // `AngleSceneCalculator.pocketPositions` (set by `AngleCalculator`),
+        // so no label-based lookup is needed.
+        selectedPocketIndex = question.pocketIndex
         for (i, marker) in pocketMarkers.enumerated() {
-            scene.highlightPocket(marker, highlighted: i == pocketIndex)
+            scene.highlightPocket(marker, highlighted: i == question.pocketIndex)
         }
 
         showResult = false
@@ -270,22 +279,29 @@ final class AimingQuizViewModel: ObservableObject {
         phase = .observing
     }
 
+    /// Inline 瞄准线 / 进球线 text labels lie flat on the cloth — readable
+    /// in the 2D rotated top-down view but illegible in 3D perspective.
+    /// Hide them when the scene is currently rendering in `.perspective3D`.
+    private var shouldShowLineLabels: Bool {
+        scene.currentCameraMode != .perspective3D
+    }
+
     private func showAimingAssistVisualization() {
         guard let q = currentQuestion,
               let cueBall = scene.cueBallNode else { return }
         let surfaceY = scene.surfaceY
         let targetPos = AngleSceneCalculator.normalizedToScene(point: q.targetBall, surfaceY: surfaceY)
-        let pocketIndex = pocketIndexFor(q.pocket)
         let aimPoint = AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: targetPos,
-            pocketIndex: pocketIndex,
+            pocketIndex: q.pocketIndex,
             surfaceY: surfaceY
         )
         scene.updateVisualization(
             cueBall: cueBall.position,
             targetBall: targetPos,
             pocket: aimPoint,
-            showAngleAnnotations: false
+            showAngleAnnotations: false,
+            showLineLabels: shouldShowLineLabels
         )
         scene.hideCueStick()
     }
@@ -295,10 +311,9 @@ final class AimingQuizViewModel: ObservableObject {
         showAimingAssist = false
         let surfaceY = scene.surfaceY
         let targetPos = AngleSceneCalculator.normalizedToScene(point: q.targetBall, surfaceY: surfaceY)
-        let pocketIndex = pocketIndexFor(q.pocket)
         let aimPoint = AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: targetPos,
-            pocketIndex: pocketIndex,
+            pocketIndex: q.pocketIndex,
             surfaceY: surfaceY
         )
 
@@ -307,19 +322,25 @@ final class AimingQuizViewModel: ObservableObject {
             scene.updateVisualization(
                 cueBall: cuePos,
                 targetBall: targetPos,
-                pocket: aimPoint
+                pocket: aimPoint,
+                showLineLabels: shouldShowLineLabels
             )
             scene.hideCueStick()
+        }
+    }
+
+    /// Re-issue the currently-displayed visualization. Called when the user
+    /// toggles 2D ⇄ 3D so the line-label suppression flag updates.
+    func refreshVisualization() {
+        if showAimingAssist {
+            showAimingAssistVisualization()
+        } else if showResult {
+            showResultVisualization()
         }
     }
 
     private func clearResult() {
         scene.clearResultNodes(nodes: &resultNodes)
         scene.hideAllVisualization()
-    }
-
-    private func pocketIndexFor(_ pocket: PocketPosition) -> Int {
-        let allPockets = AngleCalculator.pockets
-        return allPockets.firstIndex(where: { $0.label == pocket.label }) ?? 0
     }
 }

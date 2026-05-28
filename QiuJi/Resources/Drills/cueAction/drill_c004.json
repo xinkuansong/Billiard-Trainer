@@ -4,7 +4,9 @@
   "nameEn": "Draw Shot Return",
   "category": "cueAction",
   "subcategory": "draw",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L1",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.15},
+      "start": {
+        "x": 0.5,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.5, "y": 0.37},
-        {"x": 0.5, "y": 0.22}
+        {
+          "x": 0.5,
+          "y": 0.37
+        },
+        {
+          "x": 0.5,
+          "y": 0.22
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.4},
+      "start": {
+        "x": 0.5,
+        "y": 0.4
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.0}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.0
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,31 @@
         "content": "熟练基础缩杆后，可尝试「低杆远台缩杆」，挑战远距离下的穿透发力控制。进一步练习「低杆加塞回位」，在缩杆基础上加入侧旋，控制母球回退后的横向走位。同时建议对比练习「中杆定杆基础」，感受中杆与低杆的发力差异和母球行为区别。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    },
+    {
+      "id": "take_06",
+      "file": "take_06.mp4"
+    }
+  ]
 }

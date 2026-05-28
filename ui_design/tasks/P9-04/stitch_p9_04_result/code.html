@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+
+<html lang="zh-Hans"><head>
+<meta charset="utf-8"/>
+<meta content="width=393, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "secondary": "#48654e",
+                    "surface-container-highest": "#e0e4dd",
+                    "on-tertiary-fixed": "#3f0110",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed-variant": "#314d38",
+                    "on-primary-fixed-variant": "#005229",
+                    "outline": "#707a70",
+                    "primary-fixed-dim": "#89d89e",
+                    "tertiary-fixed": "#ffd9dc",
+                    "tertiary-fixed-dim": "#ffb2b9",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed": "#caebce",
+                    "tertiary": "#782c38",
+                    "surface-container-lowest": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "surface-container-high": "#e6e9e2",
+                    "inverse-surface": "#2d322d",
+                    "secondary-fixed-dim": "#aeceb3",
+                    "inverse-primary": "#89d89e",
+                    "on-surface": "#181d19",
+                    "on-tertiary-fixed-variant": "#792d39",
+                    "surface-bright": "#f7faf3",
+                    "error": "#ba1a1a",
+                    "on-background": "#181d19",
+                    "on-surface-variant": "#404940",
+                    "on-error": "#ffffff",
+                    "surface-container-low": "#f1f5ee",
+                    "on-error-container": "#93000a",
+                    "on-secondary-container": "#4e6b54",
+                    "surface-container": "#ebefe8",
+                    "on-tertiary-container": "#ffcace",
+                    "surface-variant": "#e0e4dd",
+                    "surface-tint": "#1b6c3d",
+                    "on-primary-container": "#9ae9ae",
+                    "primary": "#005129",
+                    "primary-fixed": "#a5f4b8",
+                    "background": "#f7faf3",
+                    "surface-dim": "#d7dbd4",
+                    "on-primary-fixed": "#00210d",
+                    "tertiary-container": "#96434f",
+                    "secondary-container": "#caebce",
+                    "on-secondary-fixed": "#05210f",
+                    "primary-container": "#1a6b3c",
+                    "surface": "#f7faf3",
+                    "outline-variant": "#bfc9be",
+                    "inverse-on-surface": "#eef2eb"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Inter", "SF Pro SC", "SF Pro Display", "system-ui"],
+                    "body": ["Inter", "SF Pro SC", "SF Pro Text", "system-ui"],
+                    "label": ["Inter", "SF Pro SC", "SF Pro Text", "system-ui"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Inter', 'SF Pro SC', system-ui, -apple-system, sans-serif;
+            background-color: #f7faf3;
+            width: 393px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+        .canvas-grid-line {
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-dasharray: 4 2;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface select-none">
+<!-- Top Navigation Bar -->
+<header class="bg-[#F7FAF3]/80 backdrop-blur-xl docked full-width top-0 sticky z-50 flex justify-between items-center w-full px-4 h-14">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-[#005129] cursor-pointer hover:opacity-70 active:scale-95 transition-all">arrow_back</span>
+<div class="flex flex-col">
+<h1 class="text-[#005129] font-bold text-lg leading-tight">角度训练</h1>
+<span class="text-[10px] text-[#181D19]/60 font-medium tracking-wider">角度预测</span>
+</div>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-container-high flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary">more_horiz</span>
+</div>
+</header>
+<main class="px-4 py-4 space-y-3">
+<!-- Angle Display Canvas Card -->
+<section class="bg-surface-container-lowest rounded-xl p-4 shadow-sm">
+<div class="relative aspect-square w-full bg-primary-container rounded-lg overflow-hidden flex items-center justify-center">
+<!-- SVG Canvas for Geometric Accuracy -->
+<svg class="w-full h-full p-4" viewbox="0 0 200 200">
+<!-- Coordinate Axes -->
+<line stroke="white" stroke-width="1.5" x1="20" x2="180" y1="180" y2="180"></line>
+<line stroke="white" stroke-width="1.5" x1="20" x2="20" y1="180" y2="20"></line>
+<!-- Origin Dot -->
+<circle cx="20" cy="180" fill="white" r="3"></circle>
+<!-- Radial Helper Arcs -->
+<circle cx="20" cy="180" fill="none" r="40" stroke="white" stroke-opacity="0.1" stroke-width="0.5"></circle>
+<circle cx="20" cy="180" fill="none" r="80" stroke="white" stroke-opacity="0.1" stroke-width="0.5"></circle>
+<circle cx="20" cy="180" fill="none" r="120" stroke="white" stroke-opacity="0.1" stroke-width="0.5"></circle>
+<!-- Reference Grid Lines (15°, 30°, 45°, 60°, 75°) -->
+<g class="canvas-grid-line">
+<!-- 15° -->
+<line x1="20" x2="174" y1="180" y2="138"></line>
+<!-- 30° -->
+<line x1="20" x2="158" y1="180" y2="100"></line>
+<!-- 45° -->
+<line x1="20" x2="133" y1="180" y2="67"></line>
+<!-- 60° -->
+<line x1="20" x2="100" y1="180" y2="41"></line>
+<!-- 75° -->
+<line x1="20" x2="61" y1="180" y2="26"></line>
+</g>
+<!-- Reference Labels -->
+<text fill="white" font-size="6" opacity="0.6" x="176" y="142">15°</text>
+<text fill="white" font-size="6" opacity="0.6" x="160" y="104">30°</text>
+<text fill="white" font-size="6" opacity="0.6" x="135" y="71">45°</text>
+<text fill="white" font-size="6" opacity="0.6" x="102" y="45">60°</text>
+<text fill="white" font-size="6" opacity="0.6" x="63" y="30">75°</text>
+<!-- Actual Angle Trace (42°) -->
+<path d="M 60 180 A 40 40 0 0 0 49.7 153.2" fill="none" opacity="0.6" stroke="#FFD700" stroke-width="2"></path>
+<line stroke="white" stroke-linecap="round" stroke-width="3" x1="20" x2="139" y1="180" y2="73"></line>
+<!-- Result Marker (42° Label) -->
+<g transform="translate(142, 65)">
+<rect fill="rgba(255, 215, 0, 0.9)" height="12" rx="4" width="24" x="0" y="0"></rect>
+<text fill="#000000" font-size="8" font-weight="bold" text-anchor="middle" x="12" y="8.5">42°</text>
+</g>
+</svg>
+<!-- Watermark / Design Detail -->
+<div class="absolute bottom-2 right-3 flex items-center opacity-30">
+<span class="text-[10px] text-white font-bold tracking-tighter">QIUJI PRECISION</span>
+</div>
+</div>
+</section>
+<!-- Result Feedback Card -->
+<section class="bg-surface-container-lowest rounded-xl p-4 shadow-sm border border-outline-variant/10">
+<div class="flex justify-between items-center mb-3">
+<span class="px-2 py-0.5 bg-[#34C759]/15 text-[#34C759] text-[11px] font-bold rounded-full">精准</span>
+<span class="text-on-surface-variant/60 text-xs font-medium">测试编号 #3916</span>
+</div>
+<div class="space-y-1 mb-4">
+<p class="text-[17px] text-on-surface">你答了 <span class="font-bold">45°</span>，实际是 <span class="font-bold">42°</span></p>
+<p class="text-xl font-bold text-[#34C759]">误差 3°</p>
+</div>
+<div class="bg-surface-container-low rounded-lg p-3">
+<p class="text-[14px] leading-relaxed text-on-surface-variant flex gap-2">
+<span class="material-symbols-outlined text-primary text-sm mt-0.5">lightbulb</span>
+                    提示：注意 45° 参考线的位置，它将坐标系分为两个相等的区域。
+                </p>
+</div>
+</section>
+<!-- Statistics Panel -->
+<section class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm flex flex-col items-center justify-center text-center border border-outline-variant/10">
+<span class="text-on-surface-variant text-[11px] font-medium tracking-wide mb-1">练习次数</span>
+<span class="text-xl font-bold text-primary">16</span>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm flex flex-col items-center justify-center text-center border border-outline-variant/10">
+<span class="text-on-surface-variant text-[11px] font-medium tracking-wide mb-1">正确次数</span>
+<span class="text-xl font-bold text-primary">10</span>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm flex flex-col items-center justify-center text-center border border-outline-variant/10">
+<span class="text-on-surface-variant text-[11px] font-medium tracking-wide mb-1">正确率</span>
+<span class="text-xl font-bold text-primary">62.5%</span>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-xl shadow-sm flex flex-col items-center justify-center text-center border border-outline-variant/10">
+<span class="text-on-surface-variant text-[11px] font-medium tracking-wide mb-1">平均误差</span>
+<span class="text-xl font-bold text-primary">4.0°</span>
+</div>
+</section>
+<!-- Action Area -->
+<div class="pt-4 flex flex-col gap-3">
+<button class="w-full h-12 bg-primary-container text-on-primary font-bold rounded-xl active:scale-95 transition-transform">
+                下一题
+            </button>
+<button class="w-full h-12 bg-surface-container-high text-primary font-bold rounded-xl active:scale-95 transition-transform">
+                查看解析
+            </button>
+</div>
+</main>
+<!-- Visual Polish: Bottom Mesh Gradient Decorative Element -->
+<div class="fixed bottom-0 left-0 w-full h-32 pointer-events-none z-[-1] opacity-40 overflow-hidden">
+<div class="absolute bottom-[-50px] left-[-20%] w-[140%] h-full bg-[radial-gradient(circle_at_center,_#1A6B3C_0%,_transparent_70%)] blur-3xl"></div>
+</div>
+</body></html>

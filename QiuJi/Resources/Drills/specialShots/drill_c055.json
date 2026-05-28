@@ -4,7 +4,9 @@
   "nameEn": "Bank Shot to Side Pocket",
   "category": "specialShots",
   "subcategory": "bankShot",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
@@ -21,20 +23,38 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.15},
+      "start": {
+        "x": 0.5,
+        "y": 0.15
+      },
       "path": [
-        {"x": 0.5, "y": 0.28}
+        {
+          "x": 0.5,
+          "y": 0.28
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.3},
+      "start": {
+        "x": 0.5,
+        "y": 0.3
+      },
       "path": [
-        {"x": 0.5, "y": 0.49},
-        {"x": 0.5, "y": -0.0268}
+        {
+          "x": 0.5,
+          "y": 0.49
+        },
+        {
+          "x": 0.5,
+          "y": -0.0268
+        }
       ]
     },
     "pocket": "topCenter",
-    "cueDirection": {"x": 0.5, "y": 0.3}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.3
+    }
   },
   "tutorial": {
     "sections": [
@@ -55,5 +75,19 @@
         "content": "熟练后可尝试不同位置的中袋翻袋，增加距离和角度变化。结合「翻袋入底角袋」交替练习，提升对不同袋口翻袋的角度判断能力，全面掌握翻袋技术。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    }
+  ]
 }

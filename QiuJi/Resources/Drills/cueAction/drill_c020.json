@@ -4,7 +4,9 @@
   "nameEn": "Follow with Side Spin Position",
   "category": "cueAction",
   "subcategory": "followSpin",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L2",
   "difficulty": 4,
   "isPremium": true,
@@ -21,21 +23,42 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.2},
+      "start": {
+        "x": 0.5,
+        "y": 0.2
+      },
       "path": [
-        {"x": 0.73, "y": 0.35},
-        {"x": 0.7, "y": 0.48},
-        {"x": 0.3, "y": 0.15}
+        {
+          "x": 0.73,
+          "y": 0.35
+        },
+        {
+          "x": 0.7,
+          "y": 0.48
+        },
+        {
+          "x": 0.3,
+          "y": 0.15
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.75, "y": 0.36},
+      "start": {
+        "x": 0.75,
+        "y": 0.36
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.75, "y": 0.36}
+    "cueDirection": {
+      "x": 0.75,
+      "y": 0.36
+    }
   },
   "tutorial": {
     "sections": [
@@ -56,5 +79,31 @@
         "content": "高杆加塞走位是组合杆法的入门，掌握后可练习「低杆加塞回位」——另一种组合杆法的对称训练。建议在不同角度球位反复练习，记录母球碰库后的实际走位路线，逐步建立组合杆法的走位预判能力。终极目标是实战中根据下一颗球位置选择合适的组合杆法。"
       }
     ]
-  }
+  },
+  "videos": [
+    {
+      "id": "take_01",
+      "file": "take_01.mp4"
+    },
+    {
+      "id": "take_02",
+      "file": "take_02.mp4"
+    },
+    {
+      "id": "take_03",
+      "file": "take_03.mp4"
+    },
+    {
+      "id": "take_04",
+      "file": "take_04.mp4"
+    },
+    {
+      "id": "take_05",
+      "file": "take_05.mp4"
+    },
+    {
+      "id": "take_06",
+      "file": "take_06.mp4"
+    }
+  ]
 }
