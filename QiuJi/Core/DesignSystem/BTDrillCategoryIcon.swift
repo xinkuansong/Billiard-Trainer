@@ -2,16 +2,13 @@ import SwiftUI
 
 /// 8 个 Drill 分类的统一品牌图标 — 程序化矢量绘制。
 ///
-/// 设计原则：
-/// 1. **视觉签名**：每个分类都包含至少一个圆形（球）+ 一段几何元素（轨迹/箭头/刻度），呼应 Logo Mark 的"球+轨迹"主题。
-/// 2. **共享参数**：所有图标共用 `Tokens` 命名空间中的描边宽度、球半径、颜色，保证视觉权重 100% 一致。
-/// 3. **双态**：`filled = false` 仅描边（用于侧边栏未选中态），`filled = true` 主球填充（用于卡片标题、Section Header）。
-/// 4. **品牌色绑定**：球本体用 `btPrimary`，强调元素（轨迹、目标点）用 `btAccent`，无任何硬编码颜色。
+/// ### 统一设计系统（阶段 B 重做，UR-20260601-IconSystem）
+/// 1. **双线宽**：所有描边只用 `env.stroke`（主）与 `env.strokeThin`（次），统一 round cap/join，杜绝散落的 0.7/0.85 系数。
+/// 2. **标准球半径**：出现"母球"的图标统一用 `env.ballR`，视觉权重一致。
+/// 3. **单一强调**：每个图标恰好一个金色（`btAccent`）元素，其余为品牌绿（`btPrimary`）；绿在金之前绘制，金永远在最上层、保证小尺寸可读。
+/// 4. **双态**：`filled=false` 描边（侧栏未选中）；`filled=true` 主体填充（选中 / Section Header）。金色元素两态一致。
 ///
-/// 接入 UI：
-/// - `DrillListView` 侧边栏分类项（48×48 区域内 28pt 图标）
-/// - 分组 Section Header 前缀（22pt）
-/// - StatisticsView 各分类对比（20pt）
+/// 接入：侧栏分类（22pt）、Section Header（22pt）、统计页（20pt）。
 struct BTDrillCategoryIcon: View {
 
     let category: DrillCategory
@@ -25,8 +22,9 @@ struct BTDrillCategoryIcon: View {
 
             let env = DrawEnv(
                 scale: s,
-                strokeWidth: Tokens.strokeWidth * s,
-                ballRadius: Tokens.ballRadius * s,
+                stroke: Tokens.stroke * s,
+                strokeThin: Tokens.strokeThin * s,
+                ballR: Tokens.ball * s,
                 accentColor: .btAccent,
                 primaryColor: .btPrimary,
                 filled: filled
@@ -51,417 +49,214 @@ struct BTDrillCategoryIcon: View {
 
     private struct DrawEnv {
         let scale: CGFloat
-        let strokeWidth: CGFloat
-        let ballRadius: CGFloat
+        let stroke: CGFloat
+        let strokeThin: CGFloat
+        let ballR: CGFloat
         let accentColor: Color
         let primaryColor: Color
         let filled: Bool
     }
 
     private enum Tokens {
-        static let strokeWidth: CGFloat = 0.075
-        static let ballRadius: CGFloat = 0.16
+        static let stroke: CGFloat = 0.085
+        static let strokeThin: CGFloat = 0.06
+        static let ball: CGFloat = 0.17
     }
 
     // MARK: - Drawing Helpers
 
-    private func drawBall(ctx: GraphicsContext, env: DrawEnv,
+    private func style(_ w: CGFloat) -> StrokeStyle {
+        StrokeStyle(lineWidth: w, lineCap: .round, lineJoin: .round)
+    }
+
+    private func rect(_ c: CGPoint, _ r: CGFloat) -> CGRect {
+        CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
+    }
+
+    /// 画一个球：`filled` 缺省随 env.filled；金色球建议显式传 filled: true。
+    private func drawBall(_ ctx: GraphicsContext, _ env: DrawEnv,
                           center: CGPoint, radius: CGFloat,
                           color: Color, filled: Bool? = nil) {
         let isFilled = filled ?? env.filled
-        let rect = CGRect(
-            x: center.x - radius, y: center.y - radius,
-            width: radius * 2, height: radius * 2
-        )
+        let path = Path(ellipseIn: rect(center, radius))
         if isFilled {
-            ctx.fill(Path(ellipseIn: rect), with: .color(color))
+            ctx.fill(path, with: .color(color))
         } else {
-            ctx.stroke(
-                Path(ellipseIn: rect),
-                with: .color(color),
-                style: StrokeStyle(lineWidth: env.strokeWidth)
-            )
+            ctx.stroke(path, with: .color(color), style: style(env.stroke))
         }
     }
 
-    private func strokeStyle(_ env: DrawEnv, lineWidth: CGFloat? = nil) -> StrokeStyle {
-        StrokeStyle(lineWidth: lineWidth ?? env.strokeWidth, lineCap: .round, lineJoin: .round)
+    private func ring(_ ctx: GraphicsContext, center: CGPoint, radius: CGFloat,
+                      color: Color, width: CGFloat) {
+        ctx.stroke(Path(ellipseIn: rect(center, radius)), with: .color(color), style: style(width))
     }
 
-    // MARK: - 1. Fundamentals (基础功)
-    // 一个母球 + 标准击打十字（瞄准基础）
+    private func dot(_ ctx: GraphicsContext, center: CGPoint, radius: CGFloat, color: Color) {
+        ctx.fill(Path(ellipseIn: rect(center, radius)), with: .color(color))
+    }
 
+    private func line(_ ctx: GraphicsContext, _ a: CGPoint, _ b: CGPoint,
+                      color: Color, width: CGFloat, dash: [CGFloat] = []) {
+        var p = Path()
+        p.move(to: a)
+        p.addLine(to: b)
+        ctx.stroke(p, with: .color(color),
+                   style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round, dash: dash))
+    }
+
+    // MARK: - 1. Fundamentals (基础功) — 母球 + 瞄准十字
     private func drawFundamentals(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let center = CGPoint(x: 0.5 * s, y: 0.55 * s)
-        let r = env.ballRadius * s * 1.4
+        let c = CGPoint(x: 0.5 * s, y: 0.5 * s)
+        let r = env.ballR * 1.25
 
-        drawBall(ctx: ctx, env: env, center: center, radius: r, color: env.primaryColor)
+        drawBall(ctx, env, center: c, radius: r, color: env.primaryColor)
 
-        let crossLength = r * 0.55
-        var hLine = Path()
-        hLine.move(to: CGPoint(x: center.x - crossLength, y: center.y))
-        hLine.addLine(to: CGPoint(x: center.x + crossLength, y: center.y))
-        var vLine = Path()
-        vLine.move(to: CGPoint(x: center.x, y: center.y - crossLength))
-        vLine.addLine(to: CGPoint(x: center.x, y: center.y + crossLength))
-
-        let crossColor: Color = env.filled ? .white : env.accentColor
-        ctx.stroke(hLine, with: .color(crossColor), style: strokeStyle(env, lineWidth: env.strokeWidth * 0.85))
-        ctx.stroke(vLine, with: .color(crossColor), style: strokeStyle(env, lineWidth: env.strokeWidth * 0.85))
-
-        let dotR = r * 0.18
-        let dotRect = CGRect(
-            x: center.x - dotR, y: center.y - dotR,
-            width: dotR * 2, height: dotR * 2
-        )
-        ctx.fill(Path(ellipseIn: dotRect), with: .color(env.accentColor))
-
-        var floor = Path()
-        floor.move(to: CGPoint(x: 0.18 * s, y: 0.85 * s))
-        floor.addLine(to: CGPoint(x: 0.82 * s, y: 0.85 * s))
-        ctx.stroke(floor, with: .color(env.primaryColor.opacity(0.4)),
-                   style: strokeStyle(env, lineWidth: env.strokeWidth * 0.75))
+        // 金色瞄准十字：四向短刻度，伸出球体之外
+        let inner = r * 0.45
+        let outer = r * 1.55
+        for (dx, dy): (CGFloat, CGFloat) in [(0, -1), (0, 1), (-1, 0), (1, 0)] {
+            line(ctx,
+                 CGPoint(x: c.x + dx * inner, y: c.y + dy * inner),
+                 CGPoint(x: c.x + dx * outer, y: c.y + dy * outer),
+                 color: env.accentColor, width: env.strokeThin)
+        }
+        dot(ctx, center: c, radius: r * 0.22, color: env.accentColor)
     }
 
-    // MARK: - 2. Accuracy (准度训练)
-    // 圆形靶心嵌套 + 中心命中点
-
+    // MARK: - 2. Accuracy (准度训练) — 同心靶环 + 命中点
     private func drawAccuracy(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let center = CGPoint(x: 0.5 * s, y: 0.5 * s)
+        let c = CGPoint(x: 0.5 * s, y: 0.5 * s)
 
-        let outerR = 0.36 * s
-        let middleR = 0.24 * s
-        let innerR = 0.12 * s
-
-        ctx.stroke(
-            Path(ellipseIn: CGRect(x: center.x - outerR, y: center.y - outerR,
-                                   width: outerR * 2, height: outerR * 2)),
-            with: .color(env.primaryColor),
-            style: strokeStyle(env)
-        )
-        ctx.stroke(
-            Path(ellipseIn: CGRect(x: center.x - middleR, y: center.y - middleR,
-                                   width: middleR * 2, height: middleR * 2)),
-            with: .color(env.primaryColor.opacity(0.7)),
-            style: strokeStyle(env, lineWidth: env.strokeWidth * 0.85)
-        )
-        if env.filled {
-            ctx.fill(
-                Path(ellipseIn: CGRect(x: center.x - innerR, y: center.y - innerR,
-                                       width: innerR * 2, height: innerR * 2)),
-                with: .color(env.accentColor)
-            )
-        } else {
-            ctx.stroke(
-                Path(ellipseIn: CGRect(x: center.x - innerR, y: center.y - innerR,
-                                       width: innerR * 2, height: innerR * 2)),
-                with: .color(env.accentColor),
-                style: strokeStyle(env, lineWidth: env.strokeWidth * 0.85)
-            )
-        }
-
-        let cross = innerR * 1.55
-        var v = Path()
-        v.move(to: CGPoint(x: center.x, y: center.y - cross))
-        v.addLine(to: CGPoint(x: center.x, y: center.y - innerR * 1.05))
-        v.move(to: CGPoint(x: center.x, y: center.y + innerR * 1.05))
-        v.addLine(to: CGPoint(x: center.x, y: center.y + cross))
-        var h = Path()
-        h.move(to: CGPoint(x: center.x - cross, y: center.y))
-        h.addLine(to: CGPoint(x: center.x - innerR * 1.05, y: center.y))
-        h.move(to: CGPoint(x: center.x + innerR * 1.05, y: center.y))
-        h.addLine(to: CGPoint(x: center.x + cross, y: center.y))
-        ctx.stroke(v, with: .color(env.accentColor), style: strokeStyle(env, lineWidth: env.strokeWidth * 0.7))
-        ctx.stroke(h, with: .color(env.accentColor), style: strokeStyle(env, lineWidth: env.strokeWidth * 0.7))
+        ring(ctx, center: c, radius: 0.36 * s, color: env.primaryColor, width: env.stroke)
+        ring(ctx, center: c, radius: 0.21 * s, color: env.primaryColor, width: env.strokeThin)
+        dot(ctx, center: c, radius: 0.085 * s, color: env.accentColor)
     }
 
-    // MARK: - 3. CueAction (杆法训练)
-    // 母球正面 + 三个击打点（高/中/低）
-
+    // MARK: - 3. CueAction (杆法训练) — 母球 + 高/中/低三击点
     private func drawCueAction(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let center = CGPoint(x: 0.5 * s, y: 0.5 * s)
-        let r = 0.34 * s
+        let c = CGPoint(x: 0.5 * s, y: 0.5 * s)
+        let r = env.ballR * 1.45
 
-        if env.filled {
-            ctx.fill(
-                Path(ellipseIn: CGRect(x: center.x - r, y: center.y - r,
-                                       width: r * 2, height: r * 2)),
-                with: .color(env.primaryColor)
-            )
-        } else {
-            ctx.stroke(
-                Path(ellipseIn: CGRect(x: center.x - r, y: center.y - r,
-                                       width: r * 2, height: r * 2)),
-                with: .color(env.primaryColor),
-                style: strokeStyle(env)
-            )
-        }
+        drawBall(ctx, env, center: c, radius: r, color: env.primaryColor)
 
         let dotR = r * 0.16
-        let dotOffset = r * 0.5
-        let dotColor: Color = env.filled ? env.accentColor : env.accentColor
-
-        for offsetY in [-dotOffset, 0, dotOffset] {
-            let dotCenter = CGPoint(x: center.x, y: center.y + offsetY)
-            let rect = CGRect(x: dotCenter.x - dotR, y: dotCenter.y - dotR,
-                              width: dotR * 2, height: dotR * 2)
-            ctx.fill(Path(ellipseIn: rect), with: .color(dotColor))
-        }
-
-        let arrowLen = r * 0.32
-        let arrowStart = CGPoint(x: center.x + r + env.strokeWidth, y: center.y)
-        var arrow = Path()
-        arrow.move(to: arrowStart)
-        arrow.addLine(to: CGPoint(x: arrowStart.x + arrowLen, y: center.y))
-        arrow.move(to: CGPoint(x: arrowStart.x + arrowLen - env.strokeWidth, y: center.y - env.strokeWidth))
-        arrow.addLine(to: CGPoint(x: arrowStart.x + arrowLen, y: center.y))
-        arrow.addLine(to: CGPoint(x: arrowStart.x + arrowLen - env.strokeWidth, y: center.y + env.strokeWidth))
-        ctx.stroke(arrow, with: .color(env.accentColor),
-                   style: strokeStyle(env, lineWidth: env.strokeWidth * 0.75))
+        let off = r * 0.5
+        let plainColor: Color = env.filled ? .white : env.primaryColor
+        dot(ctx, center: CGPoint(x: c.x, y: c.y - off), radius: dotR, color: plainColor)
+        dot(ctx, center: CGPoint(x: c.x, y: c.y),       radius: dotR, color: env.accentColor)
+        dot(ctx, center: CGPoint(x: c.x, y: c.y + off), radius: dotR, color: plainColor)
     }
 
-    // MARK: - 4. Separation (分离角)
-    // 两个相切的圆 + 90° 分离角 V 型路径
-
+    // MARK: - 4. Separation (分离角) — 两球相切 + 90° 分离 V
     private func drawSeparation(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let r: CGFloat = 0.16 * s
+        let r = env.ballR * 0.92
+        let cue = CGPoint(x: 0.34 * s, y: 0.62 * s)
+        let obj = CGPoint(x: cue.x + r * 2 + env.stroke * 0.3, y: cue.y)
+        let len: CGFloat = 0.34 * s
 
-        let cueCenter = CGPoint(x: 0.32 * s, y: 0.5 * s)
-        let targetCenter = CGPoint(x: 0.32 * s + r * 2 + env.strokeWidth * 0.5, y: 0.5 * s)
+        // 金色 90° 分离角：目标球前进（右上 45°）+ 母球切线（左上 45°）
+        line(ctx, obj, CGPoint(x: obj.x + len * 0.7071, y: obj.y - len * 0.7071),
+             color: env.accentColor, width: env.strokeThin)
+        line(ctx, cue, CGPoint(x: cue.x - len * 0.55 * 0.7071, y: cue.y - len * 0.55 * 0.7071),
+             color: env.accentColor, width: env.strokeThin)
 
-        let lineLen: CGFloat = 0.32 * s
-        let angle: CGFloat = .pi / 4
-        let cosA: CGFloat = cos(angle)
-        let sinA: CGFloat = sin(angle)
-        let supplementCos: CGFloat = cos(.pi - angle)
-        let supplementSin: CGFloat = sin(.pi - angle)
-
-        var cuePath = Path()
-        cuePath.move(to: cueCenter)
-        cuePath.addLine(to: CGPoint(
-            x: cueCenter.x + supplementCos * lineLen * 0.6,
-            y: cueCenter.y + supplementSin * -lineLen * 0.6 - lineLen * 0.6
-        ))
-        ctx.stroke(cuePath, with: .color(env.primaryColor.opacity(0.6)),
-                   style: StrokeStyle(lineWidth: env.strokeWidth * 0.7,
-                                      lineCap: .round, dash: [env.strokeWidth, env.strokeWidth * 1.2]))
-
-        var targetPath = Path()
-        targetPath.move(to: targetCenter)
-        targetPath.addLine(to: CGPoint(
-            x: targetCenter.x + cosA * lineLen,
-            y: targetCenter.y - sinA * lineLen + lineLen * 0.1
-        ))
-        ctx.stroke(targetPath, with: .color(env.accentColor),
-                   style: strokeStyle(env, lineWidth: env.strokeWidth * 0.85))
-
-        var cueOutPath = Path()
-        cueOutPath.move(to: cueCenter)
-        cueOutPath.addLine(to: CGPoint(
-            x: cueCenter.x - cosA * lineLen * 0.7,
-            y: cueCenter.y + sinA * lineLen * 0.7
-        ))
-        ctx.stroke(cueOutPath, with: .color(env.accentColor.opacity(0.8)),
-                   style: strokeStyle(env, lineWidth: env.strokeWidth * 0.7))
-
-        drawBall(ctx: ctx, env: env, center: cueCenter, radius: r, color: env.primaryColor)
-        drawBall(ctx: ctx, env: env, center: targetCenter, radius: r,
-                 color: env.primaryColor.opacity(0.5),
-                 filled: env.filled)
+        drawBall(ctx, env, center: cue, radius: r, color: env.primaryColor)
+        drawBall(ctx, env, center: obj, radius: r, color: env.primaryColor)
     }
 
-    // MARK: - 5. Positioning (走位训练)
-    // 母球 + 多段折线轨迹（撞击库边后回到目标位置）
-
+    // MARK: - 5. Positioning (走位训练) — 母球 + 折线走位 + 目标环
     private func drawPositioning(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let r = 0.14 * s
+        let r = env.ballR * 0.8
+        let start = CGPoint(x: 0.24 * s, y: 0.34 * s)
+        let bounce = CGPoint(x: 0.8 * s, y: 0.42 * s)
+        let target = CGPoint(x: 0.46 * s, y: 0.78 * s)
+        let dash: [CGFloat] = [env.stroke * 1.4, env.stroke]
 
-        let p1 = CGPoint(x: 0.22 * s, y: 0.72 * s)
-        let p2 = CGPoint(x: 0.62 * s, y: 0.28 * s)
-        let p3 = CGPoint(x: 0.86 * s, y: 0.42 * s)
-        let p4 = CGPoint(x: 0.62 * s, y: 0.78 * s)
+        line(ctx, start, bounce, color: env.accentColor, width: env.strokeThin, dash: dash)
+        line(ctx, bounce, target, color: env.accentColor, width: env.strokeThin, dash: dash)
+        dot(ctx, center: bounce, radius: env.stroke * 0.55, color: env.accentColor)
 
-        var path = Path()
-        path.move(to: p1)
-        path.addLine(to: p2)
-        path.addLine(to: p3)
-        path.addLine(to: p4)
-        ctx.stroke(path, with: .color(env.accentColor),
-                   style: StrokeStyle(lineWidth: env.strokeWidth * 0.85,
-                                      lineCap: .round, lineJoin: .round,
-                                      dash: [env.strokeWidth * 1.6, env.strokeWidth * 1.0]))
-
-        let bounceR = env.strokeWidth * 0.55
-        for bounce in [p2, p3] {
-            let rect = CGRect(x: bounce.x - bounceR, y: bounce.y - bounceR,
-                              width: bounceR * 2, height: bounceR * 2)
-            ctx.fill(Path(ellipseIn: rect), with: .color(env.accentColor))
-        }
-
-        drawBall(ctx: ctx, env: env, center: p1, radius: r, color: env.primaryColor)
-
-        let endR = r * 0.65
-        if env.filled {
-            ctx.fill(
-                Path(ellipseIn: CGRect(x: p4.x - endR, y: p4.y - endR,
-                                       width: endR * 2, height: endR * 2)),
-                with: .color(env.primaryColor.opacity(0.4))
-            )
-        }
-        ctx.stroke(
-            Path(ellipseIn: CGRect(x: p4.x - endR, y: p4.y - endR,
-                                   width: endR * 2, height: endR * 2)),
-            with: .color(env.accentColor),
-            style: strokeStyle(env, lineWidth: env.strokeWidth * 0.7)
-        )
+        drawBall(ctx, env, center: start, radius: r, color: env.primaryColor)
+        ring(ctx, center: target, radius: r * 0.85, color: env.accentColor, width: env.strokeThin)
     }
 
-    // MARK: - 6. ForceControl (控力训练)
-    // 母球 + 力度刻度弧（半圆仪表）
-
+    // MARK: - 6. ForceControl (控力训练) — 力度仪表弧 + 指针
     private func drawForceControl(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let center = CGPoint(x: 0.5 * s, y: 0.65 * s)
+        let c = CGPoint(x: 0.5 * s, y: 0.64 * s)
         let arcR: CGFloat = 0.34 * s
 
         var arc = Path()
-        arc.addArc(center: center, radius: arcR,
-                   startAngle: .degrees(180), endAngle: .degrees(360),
-                   clockwise: false)
-        ctx.stroke(arc, with: .color(env.primaryColor),
-                   style: strokeStyle(env))
+        arc.addArc(center: c, radius: arcR, startAngle: .degrees(180), endAngle: .degrees(360), clockwise: false)
+        ctx.stroke(arc, with: .color(env.primaryColor), style: style(env.stroke))
 
         for i in 0...4 {
-            let angle: CGFloat = .pi * (1.0 + CGFloat(i) / 4.0)
-            let cosA: CGFloat = cos(angle)
-            let sinA: CGFloat = sin(angle)
-            let outer = CGPoint(
-                x: center.x + cosA * arcR,
-                y: center.y + sinA * arcR
-            )
-            let inner = CGPoint(
-                x: center.x + cosA * (arcR - env.strokeWidth * 1.4),
-                y: center.y + sinA * (arcR - env.strokeWidth * 1.4)
-            )
-            var tick = Path()
-            tick.move(to: outer)
-            tick.addLine(to: inner)
-            ctx.stroke(tick, with: .color(env.primaryColor.opacity(0.7)),
-                       style: strokeStyle(env, lineWidth: env.strokeWidth * 0.75))
+            let a: CGFloat = .pi * (1.0 + CGFloat(i) / 4.0)
+            let outer = CGPoint(x: c.x + cos(a) * arcR, y: c.y + sin(a) * arcR)
+            let inner = CGPoint(x: c.x + cos(a) * (arcR - env.stroke * 1.3),
+                                y: c.y + sin(a) * (arcR - env.stroke * 1.3))
+            line(ctx, outer, inner, color: env.primaryColor.opacity(0.6), width: env.strokeThin)
         }
 
-        let needleAngle: CGFloat = .pi * 1.65
-        let needleCos: CGFloat = cos(needleAngle)
-        let needleSin: CGFloat = sin(needleAngle)
-        let needleEnd = CGPoint(
-            x: center.x + needleCos * arcR * 0.85,
-            y: center.y + needleSin * arcR * 0.85
-        )
-        var needle = Path()
-        needle.move(to: center)
-        needle.addLine(to: needleEnd)
-        ctx.stroke(needle, with: .color(env.accentColor),
-                   style: strokeStyle(env))
-
-        let pivotR = env.strokeWidth * 0.7
-        let pivotRect = CGRect(x: center.x - pivotR, y: center.y - pivotR,
-                               width: pivotR * 2, height: pivotR * 2)
-        ctx.fill(Path(ellipseIn: pivotRect), with: .color(env.accentColor))
+        let needleA: CGFloat = .pi * 1.68
+        line(ctx, c, CGPoint(x: c.x + cos(needleA) * arcR * 0.82, y: c.y + sin(needleA) * arcR * 0.82),
+             color: env.accentColor, width: env.stroke)
+        dot(ctx, center: c, radius: env.stroke * 0.7, color: env.accentColor)
     }
 
-    // MARK: - 7. SpecialShots (特殊球路)
-    // 母球 + 旋转弧线（速度线，表示加塞旋转）
-
+    // MARK: - 7. SpecialShots (特殊球路) — 母球 + 旋转弧箭头
     private func drawSpecialShots(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let center = CGPoint(x: 0.55 * s, y: 0.5 * s)
-        let r: CGFloat = 0.22 * s
+        let c = CGPoint(x: 0.46 * s, y: 0.54 * s)
+        let r = env.ballR * 1.15
 
-        drawBall(ctx: ctx, env: env, center: center, radius: r, color: env.primaryColor)
+        drawBall(ctx, env, center: c, radius: r, color: env.primaryColor)
 
-        var spinArc = Path()
-        spinArc.addArc(center: center, radius: r * 1.55,
-                       startAngle: .degrees(-50), endAngle: .degrees(60),
-                       clockwise: false)
-        ctx.stroke(spinArc, with: .color(env.accentColor),
-                   style: strokeStyle(env, lineWidth: env.strokeWidth * 0.85))
+        let spinR = r * 1.7
+        var arc = Path()
+        arc.addArc(center: c, radius: spinR, startAngle: .degrees(-40), endAngle: .degrees(70), clockwise: false)
+        ctx.stroke(arc, with: .color(env.accentColor), style: style(env.strokeThin))
 
-        let arrowAngle: CGFloat = .pi / 180 * 60
-        let arrowCos: CGFloat = cos(arrowAngle)
-        let arrowSin: CGFloat = sin(arrowAngle)
-        let arrowTip = CGPoint(
-            x: center.x + arrowCos * r * 1.55,
-            y: center.y + arrowSin * r * 1.55
-        )
-        let arrowSize: CGFloat = env.strokeWidth * 1.2
-        let lowerAngle: CGFloat = arrowAngle - .pi / 2 - .pi / 6
-        let upperAngle: CGFloat = arrowAngle - .pi / 2 + .pi / 6
-        let lowerCos: CGFloat = cos(lowerAngle)
-        let lowerSin: CGFloat = sin(lowerAngle)
-        let upperCos: CGFloat = cos(upperAngle)
-        let upperSin: CGFloat = sin(upperAngle)
-        var arrowHead = Path()
-        arrowHead.move(to: arrowTip)
-        arrowHead.addLine(to: CGPoint(
-            x: arrowTip.x - lowerCos * arrowSize,
-            y: arrowTip.y - lowerSin * arrowSize
-        ))
-        arrowHead.move(to: arrowTip)
-        arrowHead.addLine(to: CGPoint(
-            x: arrowTip.x - upperCos * arrowSize,
-            y: arrowTip.y - upperSin * arrowSize
-        ))
-        ctx.stroke(arrowHead, with: .color(env.accentColor),
-                   style: strokeStyle(env, lineWidth: env.strokeWidth * 0.85))
-
-        let speedColor: Color = env.accentColor.opacity(0.8)
-        for i in 0..<3 {
-            let xOff = -r * 0.55 - CGFloat(i) * env.strokeWidth * 1.4
-            let len = r * (0.45 - CGFloat(i) * 0.08)
-            let yOff = -r * 0.35 + CGFloat(i) * r * 0.35
-            var line = Path()
-            line.move(to: CGPoint(x: center.x + xOff, y: center.y + yOff))
-            line.addLine(to: CGPoint(x: center.x + xOff - len, y: center.y + yOff))
-            ctx.stroke(line, with: .color(speedColor),
-                       style: strokeStyle(env, lineWidth: env.strokeWidth * 0.7))
-        }
+        // 箭头（在弧线 70° 端，沿切线方向）
+        let tipA: CGFloat = .pi / 180.0 * 70.0
+        let tip = CGPoint(x: c.x + cos(tipA) * spinR, y: c.y + sin(tipA) * spinR)
+        let head: CGFloat = env.stroke * 1.4
+        let spread: CGFloat = .pi / 7.0
+        let ang1: CGFloat = tipA - (.pi / 2.0 + spread)
+        let ang2: CGFloat = tipA - (.pi / 2.0 - spread)
+        line(ctx, tip, CGPoint(x: tip.x + cos(ang1) * head, y: tip.y + sin(ang1) * head),
+             color: env.accentColor, width: env.strokeThin)
+        line(ctx, tip, CGPoint(x: tip.x + cos(ang2) * head, y: tip.y + sin(ang2) * head),
+             color: env.accentColor, width: env.strokeThin)
     }
 
-    // MARK: - 8. Combined (综合球形)
-    // 3×3 球阵（每个圆点表示一个球）
-
+    // MARK: - 8. Combined (综合球形) — 6 球三角摆位（rack）
     private func drawCombined(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
-        let r = 0.085 * s
-        let spacing = 0.255 * s
-        let origin = CGPoint(x: 0.5 * s - spacing, y: 0.5 * s - spacing)
+        let r: CGFloat = 0.1 * s
+        let dx: CGFloat = r * 2 + env.stroke * 0.3
+        let dy: CGFloat = dx * 0.88
+        let ax: CGFloat = 0.5 * s
+        let ay: CGFloat = 0.24 * s
 
-        for row in 0..<3 {
-            for col in 0..<3 {
-                let center = CGPoint(
-                    x: origin.x + CGFloat(col) * spacing,
-                    y: origin.y + CGFloat(row) * spacing
-                )
-                let isHighlight = (row == 1 && col == 1)
-                    || (row == 0 && col == 2)
-                    || (row == 2 && col == 0)
+        var centers: [CGPoint] = []
+        centers.append(CGPoint(x: ax, y: ay))
+        centers.append(CGPoint(x: ax - dx * 0.5, y: ay + dy))
+        centers.append(CGPoint(x: ax + dx * 0.5, y: ay + dy))
+        centers.append(CGPoint(x: ax - dx, y: ay + dy * 2))
+        centers.append(CGPoint(x: ax, y: ay + dy * 2))
+        centers.append(CGPoint(x: ax + dx, y: ay + dy * 2))
 
-                let color: Color = isHighlight ? env.accentColor : env.primaryColor
-                let rect = CGRect(x: center.x - r, y: center.y - r,
-                                  width: r * 2, height: r * 2)
-
-                if env.filled || isHighlight {
-                    ctx.fill(Path(ellipseIn: rect), with: .color(color))
-                } else {
-                    ctx.stroke(Path(ellipseIn: rect),
-                               with: .color(color),
-                               style: strokeStyle(env, lineWidth: env.strokeWidth * 0.7))
-                }
+        for (i, c) in centers.enumerated() {
+            if i == 0 {
+                drawBall(ctx, env, center: c, radius: r, color: env.accentColor, filled: true)
+            } else {
+                drawBall(ctx, env, center: c, radius: r, color: env.primaryColor)
             }
         }
     }
@@ -469,19 +264,14 @@ struct BTDrillCategoryIcon: View {
 
 #Preview("All Categories · Filled") {
     ScrollView {
-        LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible())],
-            spacing: 16
-        ) {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
             ForEach(DrillCategory.allCases) { category in
                 VStack(spacing: 8) {
                     BTDrillCategoryIcon(category: category, size: 56, filled: true)
                         .padding(12)
                         .background(Color.btBGSecondary)
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                    Text(category.nameZh)
-                        .font(.btCaption)
-                        .foregroundStyle(.btText)
+                    Text(category.nameZh).font(.btCaption).foregroundStyle(.btText)
                 }
             }
         }
@@ -492,19 +282,14 @@ struct BTDrillCategoryIcon: View {
 
 #Preview("All Categories · Outline") {
     ScrollView {
-        LazyVGrid(
-            columns: [GridItem(.flexible()), GridItem(.flexible())],
-            spacing: 16
-        ) {
+        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
             ForEach(DrillCategory.allCases) { category in
                 VStack(spacing: 8) {
                     BTDrillCategoryIcon(category: category, size: 56, filled: false)
                         .padding(12)
                         .background(Color.btBGSecondary)
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                    Text(category.nameZh)
-                        .font(.btCaption)
-                        .foregroundStyle(.btText)
+                    Text(category.nameZh).font(.btCaption).foregroundStyle(.btText)
                 }
             }
         }
@@ -513,17 +298,15 @@ struct BTDrillCategoryIcon: View {
     .background(.btBG)
 }
 
-#Preview("Sidebar Sample") {
+#Preview("Sidebar @22") {
     HStack {
         VStack(spacing: 0) {
             ForEach(DrillCategory.allCases) { category in
                 VStack(spacing: 4) {
-                    BTDrillCategoryIcon(category: category, size: 24, filled: false)
+                    BTDrillCategoryIcon(category: category, size: 22, filled: false)
                     Text(category.nameZh)
-                        .font(.btCaption2)
-                        .foregroundStyle(.btTextSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.7)
+                        .font(.btCaption2).foregroundStyle(.btTextSecondary)
+                        .lineLimit(1).minimumScaleFactor(0.7)
                 }
                 .frame(width: 72, height: 56)
             }
@@ -535,10 +318,7 @@ struct BTDrillCategoryIcon: View {
 }
 
 #Preview("Dark") {
-    LazyVGrid(
-        columns: [GridItem(.flexible()), GridItem(.flexible())],
-        spacing: 16
-    ) {
+    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
         ForEach(DrillCategory.allCases) { category in
             VStack {
                 BTDrillCategoryIcon(category: category, size: 56)

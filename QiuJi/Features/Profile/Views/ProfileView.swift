@@ -289,9 +289,7 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             NavigationLink(value: "favorites") {
                 ProfileMenuRow(
-                    icon: "heart.fill",
-                    iconBG: Color.red.opacity(0.12),
-                    iconColor: .red,
+                    icon: BTIcon.heartFilled,
                     title: "我的收藏"
                 )
             }
@@ -301,9 +299,7 @@ struct ProfileView: View {
 
             NavigationLink(value: "personalInfo") {
                 ProfileMenuRow(
-                    icon: "person.fill",
-                    iconBG: Color.blue.opacity(0.12),
-                    iconColor: .blue,
+                    icon: BTIcon.person,
                     title: "个人信息",
                     detail: prefs.personalInfoSummary
                 )
@@ -314,9 +310,7 @@ struct ProfileView: View {
 
             NavigationLink(value: "trainingGoal") {
                 ProfileMenuRow(
-                    icon: "target",
-                    iconBG: Color.btPrimary.opacity(0.12),
-                    iconColor: .btPrimary,
+                    icon: BTIcon.target,
                     title: "训练目标",
                     detail: prefs.goalSummary
                 )
@@ -336,9 +330,8 @@ struct ProfileView: View {
         if subscriptionManager.isPremium {
             NavigationLink(value: "subscriptionStatus") {
                 ProfileMenuRow(
-                    icon: "crown.fill",
-                    iconBG: Color.btAccent.opacity(0.12),
-                    iconColor: .btAccent,
+                    icon: BTIcon.crown,
+                    tint: .accent,
                     title: "订阅管理",
                     detail: "Pro 会员",
                     detailColor: .btTextSecondary
@@ -348,9 +341,8 @@ struct ProfileView: View {
         } else {
             Button { showSubscription = true } label: {
                 ProfileMenuRow(
-                    icon: "crown.fill",
-                    iconBG: Color.btAccent.opacity(0.12),
-                    iconColor: .btAccent,
+                    icon: BTIcon.crown,
+                    tint: .accent,
                     title: "订阅管理",
                     detail: "升级 Pro",
                     detailColor: .btAccent
@@ -366,9 +358,8 @@ struct ProfileView: View {
         VStack(spacing: 0) {
             NavigationLink(value: "settings") {
                 ProfileMenuRow(
-                    icon: "gearshape.fill",
-                    iconBG: Color.gray.opacity(0.12),
-                    iconColor: .gray,
+                    icon: BTIcon.gear,
+                    tint: .neutral,
                     title: "偏好设置"
                 )
             }
@@ -382,9 +373,7 @@ struct ProfileView: View {
                 }
             } label: {
                 ProfileMenuRow(
-                    icon: "checkmark.shield.fill",
-                    iconBG: Color.btPrimary.opacity(0.12),
-                    iconColor: .btPrimary,
+                    icon: BTIcon.successShield,
                     title: "隐私政策"
                 )
             }
@@ -394,9 +383,7 @@ struct ProfileView: View {
 
             NavigationLink(value: "about") {
                 ProfileMenuRow(
-                    icon: "info.circle.fill",
-                    iconBG: Color.purple.opacity(0.12),
-                    iconColor: .purple,
+                    icon: BTIcon.info,
                     title: "关于与反馈"
                 )
             }
@@ -440,23 +427,15 @@ struct ProfileView: View {
 
 private struct ProfileMenuRow: View {
     let icon: String
-    let iconBG: Color
-    let iconColor: Color
+    var tint: BTIconBadge.Tint = .primary
     let title: String
     var detail: String? = nil
     var detailColor: Color = .btTextSecondary
 
     var body: some View {
         HStack(spacing: Spacing.md) {
-            ZStack {
-                Circle()
-                    .fill(iconBG)
-                    .frame(width: 32, height: 32)
-                Image(systemName: icon)
-                    .font(.btSubheadline)
-                    .foregroundStyle(iconColor)
-            }
-            .frame(width: 40)
+            BTIconBadge(systemName: icon, size: 32, tint: tint)
+                .frame(width: 40)
 
             Text(title)
                 .font(.btCallout)

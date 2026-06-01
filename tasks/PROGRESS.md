@@ -22,6 +22,10 @@
 - **当前激活角色**：QA Reviewer（P9 验收）
 - **整体进度**：8 / 11 Phases 完成（R0 ✅ | P2 ✅ 附条件 | P4 ✅ 附条件 | P5 ✅ | P6 ✅ | P7 ✅ | R-UI ✅ 附条件 | R1 ✅）+ P8 🔄 + P9 🔄
 - **UI 设计交付物**：44/44 任务完成，40 帧 Light + 5 帧 Dark + 3 份标注已就绪（见 `ui_design/final-report.md`）
+- **最近 UI 审查 + 修复**：2026-05-29 全 App 浅色巡游审查（`tasks/ui-reviews/UR-20260529-FullApp-Light.md`）发现 9 项（P1×4 / P2×5），**同日已修复并回归 U-01~U-07**（7 项代码问题，FL-011~014 标 ✅），剩 U-08（视频/数据导出占位）/U-09（图标）为内容/设计轨道。关键修复：角度台呢荧光绿（根因＝`enhanceClothMaterials` 的 multiply 守卫漏掉 USDZ NSURL 贴图，改为无条件着色 + plain 专用暗化 tint + 光照/曝光下调）、计划详情期号标签与状态栏重叠、日历空状态被 Tab 栏遮挡、Paywall 无限 loading（加 8s 超时兜底）、错别字「浅淡球感」、动作详情顶栏穿透。**下一步**：角度交互态（`现有问题.md`：小角度文字挤压/左下 HUD 上移常驻/自动选袋 85°）仍需动态复检。
+  - 新增巡游工具：`QiuJiUITests/ScreenshotTourUITests.swift` + 专用 scheme `QiuJiUITour`（仅构建 App+UITests，绕开 QiuJiTests 的 TEST_HOST 误配 QiuJi.app↔球迹.app）。
+- **图标系统优化（2026-06-01，UI Reviewer + SwiftUI Developer）**：用户反馈"图标乱/丑、Logo 不动"。专项审查 `tasks/ui-reviews/UR-20260601-IconSystem.md`（6 项：P1×3/P2×3），分两阶段修复并截图回归。**阶段 A**：新增统一 `BTIconBadge`（淡色圆底+单色图形），Profile 列表彩虹圆底（红/蓝/紫/灰）→ 收口品牌绿（仅订阅留金）；空状态举杠铃健身小人→品牌 `BTLogoMark`、锤子→训练计划语义图标。**阶段 B**：`BTDrillCategoryIcon` 整体重写为统一系统（双线宽+标准球半径+单一金色强调，8 分类构图统一），`BTTrainingIcon` 加重对齐 SF Symbol。**关键 bug**：drawFundamentals `r = env.ballRadius * s * 1.4` 重复乘 scale（env.ballRadius 已含 s）→「基础功」爆框成橙方块，登记 **FL-015**。`make build` 通过、巡游 0 失败、`screenshot-v4/` 26 帧刷新、lint 0。剩余 backlog（非阻塞）：~180 处裸 `systemName` 增量迁移到 `BTIcon`（U-I05/06）。
+- **角度训练视觉拟真化（2026-06-01，SwiftUI Developer）**：新增可复用 `Core/Components/BTRealisticBall.swift`（拟真球：球面明暗+高光+接触阴影，矢量无版权风险）与 `BTAimTableView.swift`（拟真 2D 台面插图：木纹库边/皮革袋口/颗星/台呢光影，暴露台呢矩形供叠加）。改造 `AimingPrincipleView` / `BallFeelView`（学习文档插图）与 `GeometricAngleQuizView`（几何角度训练页）。**修正**：用户反馈拟真"球桌"装饰（木纹库边/袋口/颗星）显廉价且抢焦点、不如之前简洁——已改为干净路线：`BTAimTableView` 统一 `feltOnly`（近平台呢）+ 新增 `BTPocketMark`（干净袋口点）+ 加粗瞄准线/角度弧 + 几何页黄色扇形高亮夹角，让"角度/线/假想球"成为主角，保留有质感的球。新增轻量 `testAngleLearningPages` 仅截角度三页（完整巡游在本机偶发模拟器 server died，已规避）。`make build` 通过，回归截图 build/v2-09/11/12。注：`make xcodegen` 会清掉自建 `QiuJiUITour.xcscheme`，已用确定性 blueprint id 原样重建。
 
 ---
 

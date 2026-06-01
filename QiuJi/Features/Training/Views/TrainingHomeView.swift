@@ -443,7 +443,7 @@ struct TrainingHomeView: View {
         VStack(spacing: Spacing.md) {
             if customPlans.isEmpty {
                 BTEmptyState(
-                    icon: "hammer",
+                    icon: "list.bullet.clipboard",
                     title: "暂无自定义计划",
                     subtitle: "创建你自己的训练方案"
                 )
@@ -490,7 +490,7 @@ struct TrainingHomeView: View {
                     .monospacedDigit()
 
                 HStack(spacing: 2) {
-                    Image(systemName: "hammer")
+                    Image(systemName: "slider.horizontal.3")
                         .font(.btMicro)
                     Text("自定义")
                         .font(.btCaption2)
@@ -521,9 +521,8 @@ struct TrainingHomeView: View {
 
     private var quickStartBanner: some View {
         VStack(spacing: Spacing.md) {
-            Image(systemName: "figure.strengthtraining.traditional")
-                .font(.system(size: 36))
-                .foregroundStyle(.btTextTertiary)
+            BTLogoMark(size: 52, style: .markOnly)
+                .opacity(0.9)
 
             Text("选择一个计划开始训练")
                 .font(.btHeadline)

@@ -22,9 +22,9 @@ struct BTTrainingIcon: View {
             let s = min(canvasSize.width, canvasSize.height)
             ctx.translateBy(x: (canvasSize.width - s) * 0.5, y: (canvasSize.height - s) * 0.5)
 
-            let ballCenter = CGPoint(x: 0.32 * s, y: 0.66 * s)
-            let ballRadius = 0.21 * s
-            let arcStrokeWidth = 0.08 * s
+            let ballCenter = CGPoint(x: 0.31 * s, y: 0.67 * s)
+            let ballRadius = 0.235 * s
+            let arcStrokeWidth = 0.115 * s
 
             let arcStart = CGPoint(
                 x: ballCenter.x + ballRadius * 0.6,
@@ -61,7 +61,7 @@ struct BTTrainingIcon: View {
                 )
             }
 
-            let dotRadius = 0.06 * s
+            let dotRadius = 0.08 * s
             let dotRect = CGRect(
                 x: arcEnd.x - dotRadius,
                 y: arcEnd.y - dotRadius,

@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 /// 集中管理项目内 SF Symbol 字符串常量。
 ///
@@ -126,4 +126,79 @@ enum BTIcon {
     // 当前所有自定义图标通过 SwiftUI 视图实现（BTLogoMark / BTTrainingIcon /
     // BTDrillCategoryIcon），如未来引入 .symbol 自定义包，命名空间预留 "bt." 前缀。
     // 例如：static let btTraining = "bt.training"
+}
+
+// MARK: - BTIconBadge（统一图标徽标）
+
+/// 全 App 统一的"图标入口徽标"：单色图形 + 淡色圆底。
+///
+/// 取代之前各处散落、色相失控的彩色圆底（Profile 红/蓝/紫/灰、侧栏橙等）。
+///
+/// ### 颜色纪律（来自 UR-20260601-IconSystem）
+/// - `.primary`（默认）：品牌绿单色 + 淡绿圆底 —— 绝大多数列表入口、FeatureCard。
+/// - `.accent`：金色 —— **仅用于商业化/强调**（订阅、Pro、成就），全屏最多一处。
+/// - `.neutral`：中性灰 —— 次要、停用、占位类入口。
+///
+/// 视觉范式对齐 `AngleHomeView.FeatureCard`（已验证为全 App 最干净的图标处理）。
+struct BTIconBadge: View {
+    enum Tint {
+        case primary
+        case accent
+        case neutral
+
+        var foreground: Color {
+            switch self {
+            case .primary: return .btPrimary
+            case .accent:  return .btAccent
+            case .neutral: return .btTextSecondary
+            }
+        }
+
+        func background(_ scheme: ColorScheme) -> Color {
+            let opacity = scheme == .dark ? 0.18 : 0.12
+            switch self {
+            case .primary: return Color.btPrimary.opacity(opacity)
+            case .accent:  return Color.btAccent.opacity(opacity)
+            case .neutral: return Color.btTextSecondary.opacity(scheme == .dark ? 0.22 : 0.12)
+            }
+        }
+    }
+
+    let systemName: String
+    /// 圆底直径。列表行常用 32；FeatureCard 常用 48。
+    var size: CGFloat = 32
+    /// 图形字号相对圆底直径的比例（默认 0.5，即 32 → 16pt）。
+    var glyphRatio: CGFloat = 0.5
+    var weight: Font.Weight = .semibold
+    var tint: Tint = .primary
+
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Image(systemName: systemName)
+            .font(.system(size: size * glyphRatio, weight: weight))
+            .foregroundStyle(tint.foreground)
+            .frame(width: size, height: size)
+            .background(tint.background(scheme))
+            .clipShape(Circle())
+    }
+}
+
+#Preview("BTIconBadge") {
+    VStack(spacing: 24) {
+        HStack(spacing: 16) {
+            BTIconBadge(systemName: BTIcon.heartFilled)
+            BTIconBadge(systemName: BTIcon.person)
+            BTIconBadge(systemName: BTIcon.target)
+            BTIconBadge(systemName: BTIcon.crown, tint: .accent)
+            BTIconBadge(systemName: BTIcon.gear, tint: .neutral)
+        }
+        HStack(spacing: 16) {
+            BTIconBadge(systemName: BTIcon.scope, size: 48, glyphRatio: 0.46, weight: .medium)
+            BTIconBadge(systemName: BTIcon.ruler, size: 48, glyphRatio: 0.46, weight: .medium)
+            BTIconBadge(systemName: BTIcon.crown, size: 48, glyphRatio: 0.46, weight: .medium, tint: .accent)
+        }
+    }
+    .padding()
+    .background(.btBG)
 }
