@@ -14,7 +14,10 @@ enum EnhancedEnvironment {
     /// Apply the studio IBL + cold-grey background to a scene. Idempotent.
     static func apply(to scene: SCNScene) {
         scene.lightingEnvironment.contents = cachedIBL
-        scene.lightingEnvironment.intensity = 1.6
+        // Pulled down from 1.6 so the key light's real cast shadow on the cloth
+        // isn't flooded out by omnidirectional IBL fill under each ball, while
+        // still keeping enough ambient for the balls' PBR / clearcoat sheen.
+        scene.lightingEnvironment.intensity = 1.2
         scene.lightingEnvironment.contentsTransform = SCNMatrix4MakeRotation(.pi * 0.25, 0, 1, 0)
         scene.background.contents = cachedBackground
     }
@@ -35,12 +38,14 @@ enum EnhancedEnvironment {
     private static let cachedBackground: [UIImage] = generateBackgroundCubeMap(size: cubeMapSize)
 
     // MARK: - Color anchors (B > G > R, cold consistent)
+    // 背景天空盒颜色（仅影响可见背景，不影响 IBL 光照）。整体抬高一档，
+    // 让 3D 视角顶部不再是死黑，呈淡冷灰渐变、更有影棚纵深（UR-20260529 渲染打磨）。
 
-    private static let C0 = SIMD3<Float>(0.030, 0.040, 0.060) // ceiling / top
-    private static let C1 = SIMD3<Float>(0.050, 0.060, 0.080) // wall mid-peak
-    private static let C2 = SIMD3<Float>(0.040, 0.050, 0.070) // horizon band
-    private static let F0 = SIMD3<Float>(0.032, 0.034, 0.044) // floor base
-    private static let F1 = SIMD3<Float>(0.030, 0.030, 0.040) // floor near camera
+    private static let C0 = SIMD3<Float>(0.070, 0.085, 0.110) // ceiling / top
+    private static let C1 = SIMD3<Float>(0.100, 0.115, 0.145) // wall mid-peak
+    private static let C2 = SIMD3<Float>(0.085, 0.100, 0.130) // horizon band
+    private static let F0 = SIMD3<Float>(0.045, 0.048, 0.060) // floor base
+    private static let F1 = SIMD3<Float>(0.038, 0.040, 0.052) // floor near camera
 
     private static let y0: Float = 1.00
     private static let y1: Float = 0.70

@@ -114,6 +114,10 @@ struct MainTabView: View {
             Scene3DAimingView()
         case .ballFeel:
             BallFeelView()
+        case .bankShot:
+            BankShotView()
+        case .diamondSystem:
+            DiamondSystemView()
         }
     }
 

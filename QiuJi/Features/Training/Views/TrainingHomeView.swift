@@ -521,8 +521,7 @@ struct TrainingHomeView: View {
 
     private var quickStartBanner: some View {
         VStack(spacing: Spacing.md) {
-            BTLogoMark(size: 52, style: .markOnly)
-                .opacity(0.9)
+            BTTrainingIcon(size: 56, filled: true)
 
             Text("选择一个计划开始训练")
                 .font(.btHeadline)

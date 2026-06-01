@@ -68,6 +68,9 @@ struct DrillDetailView: View {
             }
         }
         .navigationBarTitleDisplayMode(.inline)
+        // 固定顶栏始终显示材质背景，避免滚动内容穿透状态栏/标题（UR-20260529 U-06）。
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .principal) {

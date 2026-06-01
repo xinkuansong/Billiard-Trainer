@@ -84,7 +84,7 @@ struct HistoryCalendarView: View {
                 dailySessionList
             }
             .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.xxxxl)
+            .padding(.bottom, 96) // 预留底部 Tab 栏高度，避免空状态/列表压到 Tab 栏后方
         }
     }
 
@@ -263,15 +263,26 @@ struct HistoryCalendarView: View {
         return fmt.string(from: vm.selectedDate)
     }
 
+    // 紧凑型空状态：内嵌在日历下方，不使用整屏 BTEmptyState（会被 Tab 栏遮挡，见 UR-20260529 U-03）。
     private var emptyState: some View {
-        BTEmptyState(
-            icon: "calendar.badge.plus",
-            title: "还没有训练记录",
-            subtitle: "去开始第一次练球吧",
-            actionTitle: "开始训练"
-        ) {
-            router.switchTab(.training)
+        VStack(spacing: Spacing.md) {
+            Image(systemName: "calendar.badge.plus")
+                .font(.btTitle)
+                .foregroundStyle(.btTextTertiary)
+            Text("还没有训练记录")
+                .font(.btCallout)
+                .foregroundStyle(.btTextSecondary)
+            Button {
+                router.switchTab(.training)
+            } label: {
+                Text("去开始第一次练球吧")
+                    .font(.btSubheadlineSemibold)
+                    .foregroundStyle(.btPrimary)
+            }
+            .buttonStyle(.plain)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.xxl)
     }
 
     private var noSessionHint: some View {

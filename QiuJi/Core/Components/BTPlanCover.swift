@@ -13,6 +13,9 @@ struct BTPlanCover: View {
     let issueNumber: Int
     var glyphSize: CGFloat = 96
     var corner: CGFloat = BTRadius.md
+    /// 是否显示左上角「期号」标签。全屏 Hero（详情页）下隐藏，避免与状态栏/返回键
+    /// 重叠（UR-20260529 U-02）；列表海报保持显示。
+    var showIssueLabel: Bool = true
 
     private var style: CoverStyle { CoverStyle.forLevel(targetLevel) }
 
@@ -30,23 +33,25 @@ struct BTPlanCover: View {
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
 
-            VStack {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text(String(format: "%02d", issueNumber))
-                            .font(.system(size: glyphSize * 0.21, weight: .bold, design: .rounded))
-                            .monospacedDigit()
-                        Text("第 \(issueNumber) 期")
-                            .font(.system(size: glyphSize * 0.095, weight: .semibold))
-                            .monospacedDigit()
-                    }
-                    .foregroundStyle(.white.opacity(0.92))
+            if showIssueLabel {
+                VStack {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(String(format: "%02d", issueNumber))
+                                .font(.system(size: glyphSize * 0.21, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                            Text("第 \(issueNumber) 期")
+                                .font(.system(size: glyphSize * 0.095, weight: .semibold))
+                                .monospacedDigit()
+                        }
+                        .foregroundStyle(.white.opacity(0.92))
 
+                        Spacer()
+                    }
                     Spacer()
                 }
-                Spacer()
+                .padding(Spacing.md)
             }
-            .padding(Spacing.md)
         }
         .clipShape(RoundedRectangle(cornerRadius: corner))
         .accessibilityHidden(true)

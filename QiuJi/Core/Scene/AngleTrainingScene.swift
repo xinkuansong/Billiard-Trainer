@@ -29,7 +29,6 @@ final class AngleTrainingScene: SCNScene {
     /// Keep references to nodes we add for the enhanced pipeline so we can detach them
     /// if the flag is toggled off mid-session.
     private var groundVisualNode: SCNNode?
-    private var groundShadowNode: SCNNode?
     private var tableCenterGlowNode: SCNNode?
     private var enhancedLightNodes: [SCNNode] = []
 
@@ -97,8 +96,17 @@ final class AngleTrainingScene: SCNScene {
         setupModelBalls(from: model.ballNodes, uniformScale: model.appliedScale.x)
         enhanceBallMaterials()
 
+        // Cloth enhancement (multiply tint + roughness) on BOTH pipelines so the
+        // plain 2D / dynamic pages don't over-saturate the USDZ felt into neon
+        // green (UR-20260529 U-01 / FL-011). The plain pipeline lacks IBL/HDR
+        // tone-mapping, so it needs a stronger darken/desaturate tint than studio.
+        MaterialFactory.enhanceClothMaterials(
+            in: model.visualNode,
+            multiplyTint: enhancedRendering ? MaterialFactory.clothMultiplyStudio
+                                            : MaterialFactory.clothMultiplyPlain
+        )
+
         if enhancedRendering {
-            MaterialFactory.enhanceClothMaterials(in: model.visualNode)
             MaterialFactory.enhanceRailMaterials(in: model.visualNode)
             MaterialFactory.enhancePocketMaterials(in: model.visualNode)
             addTableCenterGlow()
@@ -285,11 +293,13 @@ final class AngleTrainingScene: SCNScene {
             camera.bloomThreshold = 0.85
             camera.bloomBlurRadius = 4.0
         } else {
-            // Legacy plain pipeline (unchanged from before).
+            // Plain pipeline (2D / dynamic pages). Exposure pulled down a bit
+            // so the USDZ felt is not over-exposed into neon green
+            // (UR-20260529 U-01 / FL-011).
             camera.fieldOfView = 50
             camera.wantsHDR = true
             camera.wantsExposureAdaptation = false
-            camera.exposureOffset = -0.15
+            camera.exposureOffset = -0.45
             camera.minimumExposure = -2
             camera.maximumExposure = 2
             camera.screenSpaceAmbientOcclusionIntensity = 0.35
@@ -315,19 +325,24 @@ final class AngleTrainingScene: SCNScene {
         }
     }
 
-    /// Cheap plain lighting used by the 2D pages (unchanged behavior).
+    /// Cheap plain lighting used by the 2D / dynamic pages.
+    /// Intensities lowered (was ambient 1000 / dir 1400 / fill 500) so the
+    /// USDZ-baked felt is not blown out into neon green; combined with the
+    /// plain-camera exposure pull-down and `enhanceClothMaterials`, the cloth
+    /// reads as a natural deep green closer to the 3D studio look
+    /// (UR-20260529 U-01 / FL-011).
     private func setupPlainLighting() {
         let ambient = SCNNode()
         ambient.light = SCNLight()
         ambient.light?.type = .ambient
-        ambient.light?.intensity = 1000
+        ambient.light?.intensity = 450
         ambient.light?.color = UIColor.white
         rootNode.addChildNode(ambient)
 
         let directional = SCNNode()
         directional.light = SCNLight()
         directional.light?.type = .directional
-        directional.light?.intensity = 1400
+        directional.light?.intensity = 820
         directional.light?.color = UIColor.white
         directional.light?.castsShadow = true
         directional.light?.shadowRadius = 4
@@ -338,7 +353,7 @@ final class AngleTrainingScene: SCNScene {
         let fillLight = SCNNode()
         fillLight.light = SCNLight()
         fillLight.light?.type = .directional
-        fillLight.light?.intensity = 500
+        fillLight.light?.intensity = 200
         fillLight.light?.color = UIColor.white
         fillLight.eulerAngles = SCNVector3(-Float.pi / 4, -Float.pi / 3, 0)
         rootNode.addChildNode(fillLight)
@@ -351,26 +366,31 @@ final class AngleTrainingScene: SCNScene {
     /// shading. Brighter ambient / directional values flatten the
     /// clearcoat fresnel and make the balls look plasticky.
     private func setupStudioLighting() {
-        // ── Key Light: 5800K, casts shadow, slight yaw to break symmetric
-        // highlights.
+        // ── Key Light: 5800K, casts a real shadow straight onto the USDZ
+        // cloth (forward shadow map, not deferred screen-space — the deferred
+        // pass was being washed out by HDR tone-mapping + IBL fill, leaving
+        // the balls looking like they floated). A near-overhead pitch keeps
+        // the contact shadow tucked under each ball so it reads as grounded.
+        // `automaticallyAdjustsShadowProjection` stays on: it fits the shadow
+        // frustum to the casters (balls + table), and the 40 m ground plane is
+        // a non-caster (`castsShadow = false`) so it can't bloat the frustum.
         let key = SCNLight()
         key.type = .directional
         key.intensity = 820
         key.temperature = 5800
         key.castsShadow = true
-        key.shadowRadius = 4
-        key.shadowSampleCount = 8
-        key.shadowColor = UIColor(white: 0.0, alpha: 0.35)
-        key.shadowMapSize = CGSize(width: 1024, height: 1024)
+        key.shadowMode = .forward
+        key.shadowRadius = 3
+        key.shadowSampleCount = 16
+        key.shadowColor = UIColor(white: 0.0, alpha: 0.55)
+        key.shadowMapSize = CGSize(width: 2048, height: 2048)
         key.shadowBias = 0.008
-        key.shadowMode = .deferred
-        key.orthographicScale = 1.7
 
         let keyNode = SCNNode()
         keyNode.light = key
         keyNode.position = SCNVector3(0, 4, 0)
         keyNode.eulerAngles = SCNVector3(
-            -68.0 * Float.pi / 180.0,
+            -74.0 * Float.pi / 180.0,
              18.0 * Float.pi / 180.0,
              0
         )
@@ -416,13 +436,13 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Ground (enhanced only)
 
-    /// Two stacked planes at `Y = BTSceneLayout.groundLevelY`:
-    /// • Layer 1: unlit dark-blue visual (matches studio cube-map background).
-    /// • Layer 2: PBR shadow catcher — only renders the cast shadow alpha.
+    /// Single unlit dark-blue visual plane at `Y = BTSceneLayout.groundLevelY`
+    /// (matches the studio cube-map background). The real cast shadow now lands
+    /// directly on the USDZ cloth via the key light (see `setupStudioLighting`),
+    /// so the previous procedural shadow-catcher layer was removed.
     private func setupGround() {
         let planeSize: CGFloat = 40
 
-        // ── Layer 1: visual ground ──
         let visualPlane = SCNPlane(width: planeSize, height: planeSize)
         let visualMat = SCNMaterial()
         visualMat.lightingModel = .constant
@@ -440,38 +460,7 @@ final class AngleTrainingScene: SCNScene {
         visualNode.renderingOrder = -10
         rootNode.addChildNode(visualNode)
         groundVisualNode = visualNode
-
-        // ── Layer 2: shadow catcher ──
-        let shadowPlane = SCNPlane(width: planeSize, height: planeSize)
-        let shadowMat = SCNMaterial()
-        shadowMat.lightingModel = .physicallyBased
-        shadowMat.diffuse.contents = UIColor.white
-        shadowMat.roughness.contents = Float(1.0)
-        shadowMat.metalness.contents = Float(0.0)
-        shadowMat.isDoubleSided = false
-        shadowMat.writesToDepthBuffer = false
-        shadowMat.readsFromDepthBuffer = true
-        shadowMat.blendMode = .alpha
-        shadowMat.shaderModifiers = [.fragment: AngleTrainingScene.shadowCatcherShader]
-        shadowPlane.materials = [shadowMat]
-
-        let shadowNode = SCNNode(geometry: shadowPlane)
-        shadowNode.name = "ground_shadow"
-        shadowNode.eulerAngles.x = -.pi / 2
-        shadowNode.position = SCNVector3(0, BTSceneLayout.groundLevelY + 0.0005, 0)
-        shadowNode.castsShadow = false
-        shadowNode.renderingOrder = -9
-        rootNode.addChildNode(shadowNode)
-        groundShadowNode = shadowNode
     }
-
-    /// Shadow catcher fragment shader: renders only the alpha contribution from cast shadows.
-    private static let shadowCatcherShader = """
-    float lum = dot(_lightingContribution.diffuse, float3(0.2126, 0.7152, 0.0722));
-    float lit = saturate(lum);
-    float shadowAlpha = (1.0 - lit) * 0.35;
-    _output.color = float4(0.0, 0.0, 0.0, shadowAlpha);
-    """
 
     /// Subtle radial bright on the cloth centre (~+4% center, 0% edges).
     private func addTableCenterGlow() {
@@ -909,6 +898,53 @@ final class AngleTrainingScene: SCNScene {
     func clearResultNodes(nodes: inout [SCNNode]) {
         for node in nodes { node.removeFromParentNode() }
         nodes.removeAll()
+    }
+
+    // MARK: - Flat Labels / Diamond Guides (颗星公式解球)
+
+    /// Add a flat text label lying on the cloth, oriented to read horizontally in
+    /// the rotated 2D top-down view (screen-up = world +X, so screen-horizontal
+    /// text runs along world +Z).
+    @discardableResult
+    func addFlatLabel(text: String, at position: SCNVector3, color: UIColor,
+                      fontSize: CGFloat = 15) -> SCNNode {
+        let node = makeAlignedFlatTextNode(
+            text: text, color: color,
+            fontSize: fontSize, scale: 0.0030, weight: .semibold,
+            alignDir: SCNVector3(0, 0, 1), flipForScreenUp: false
+        )
+        node.position = position
+        rootNode.addChildNode(node)
+        return node
+    }
+
+    /// Lay down the rail diamond number labels + small tick markers in one pass.
+    /// Returns every created node so the caller can clear them later.
+    func addDiamondGuides(labels: [DiamondSystemCalculator.DiamondLabel],
+                          ticks: [SCNVector3],
+                          labelColor: UIColor,
+                          tickColor: UIColor) -> [SCNNode] {
+        var nodes: [SCNNode] = []
+        nodes.reserveCapacity(labels.count + ticks.count)
+
+        for tick in ticks {
+            let sphere = SCNSphere(radius: 0.006)
+            sphere.segmentCount = 12
+            let mat = SCNMaterial()
+            mat.diffuse.contents = tickColor
+            mat.lightingModel = .constant
+            sphere.materials = [mat]
+            let node = SCNNode(geometry: sphere)
+            node.position = SCNVector3(tick.x, tick.y, tick.z)
+            rootNode.addChildNode(node)
+            nodes.append(node)
+        }
+
+        for label in labels {
+            nodes.append(addFlatLabel(text: label.text, at: label.position, color: labelColor))
+        }
+
+        return nodes
     }
 
     // MARK: - Visualization Setup (pre-create all nodes once)

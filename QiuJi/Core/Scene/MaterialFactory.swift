@@ -76,10 +76,24 @@ final class MaterialFactory {
 
     // MARK: - Cloth (felt)
 
+    /// Default cloth multiply tint for the studio (enhanced) pipeline — only a
+    /// gentle ~8% desaturation, because IBL + HDR tone-mapping already tame the
+    /// felt there.
+    static let clothMultiplyStudio = UIColor(red: 0.90, green: 0.93, blue: 0.90, alpha: 1.0)
+    /// Stronger darken + desaturate tint for the plain pipeline (2D / dynamic),
+    /// which has no tone-mapping, so the raw USDZ felt would otherwise read as
+    /// neon green (UR-20260529 U-01 / FL-011). Pulls the cloth toward a deep
+    /// billiard green closer to the 3D studio look / btTableFelt.
+    static let clothMultiplyPlain = UIColor(red: 0.46, green: 0.62, blue: 0.46, alpha: 1.0)
+
     /// Enhance every cloth/felt material in the table tree: adjust roughness,
-    /// install a fine-fiber normal-map fallback when none baked in, slightly
-    /// desaturate the diffuse via the multiply channel.
-    static func enhanceClothMaterials(in tableNode: SCNNode) {
+    /// install a fine-fiber normal-map fallback when none baked in, and tint the
+    /// diffuse via the multiply channel (idempotent — writing diffuse directly
+    /// would compound across calls).
+    /// - Parameter multiplyTint: the multiply-channel colour applied to the felt
+    ///   diffuse; pass `clothMultiplyPlain` for the plain pipeline to subdue the
+    ///   neon green, `clothMultiplyStudio` (default) for the enhanced pipeline.
+    static func enhanceClothMaterials(in tableNode: SCNNode, multiplyTint: UIColor = clothMultiplyStudio) {
         let normalMap = cachedFeltNormalMap(size: 512)
 
         enumerateMaterials(in: tableNode) { material, nodeName in
@@ -107,20 +121,29 @@ final class MaterialFactory {
                 material.normal.contentsTransform = SCNMatrix4MakeScale(14, 14, 1)
             }
 
-            // Idempotent ~8% desaturation via multiply channel (writing diffuse
-            // directly would compound with each call).
-            if material.diffuse.contents is UIColor || extractImage(from: material.diffuse.contents) != nil {
-                material.multiply.contents = UIColor(red: 0.90, green: 0.93, blue: 0.90, alpha: 1.0)
-            }
+            // Apply the multiply tint regardless of whether the felt diffuse is a
+            // colour, a UIImage, or a USDZ texture URL. (The previous guard only
+            //允许 UIColor/UIImage，导致 USDZ 的 NSURL 贴图台呢从未被着色 → 霓虹绿，
+            // UR-20260529 U-01 / FL-011.) Writing multiply replaces, so this is idempotent.
+            material.multiply.contents = multiplyTint
         }
     }
 
     private static func isClothMaterial(_ material: SCNMaterial, nodeName: String?) -> Bool {
-        let combined = normalizeIdentifier(nodeName ?? "") + " " + normalizeIdentifier(material.name ?? "")
         let clothKeywords = ["cloth", "felt", "surface", "taibu", "taini",
                              "泥", "布", "green", "baize", "playing"]
+        let combined = normalizeIdentifier(nodeName ?? "") + " " + normalizeIdentifier(material.name ?? "")
         for keyword in clothKeywords {
             if combined.contains(keyword) { return true }
+        }
+        // USDZ textures arrive as a file path/URL rather than a UIImage, so the
+        // name heuristic above can miss. Match the felt by its baked texture
+        // file name (`TaiNi_basecolor.png`). This is the reliable signal for
+        // the TaiQiuZhuo model.
+        if let path = contentsPathString(material.diffuse.contents)?.lowercased() {
+            for keyword in clothKeywords where path.contains(keyword) {
+                return true
+            }
         }
         if let color = material.diffuse.contents as? UIColor {
             return isGreenish(color)
@@ -129,6 +152,15 @@ final class MaterialFactory {
             return isGreenishImage(image)
         }
         return false
+    }
+
+    /// Extract a usable path/name string from an SCNMaterialProperty `contents`
+    /// value (String path, URL, or NSString); nil for colours / images.
+    private static func contentsPathString(_ contents: Any?) -> String? {
+        if let s = contents as? String { return s }
+        if let u = contents as? URL { return u.lastPathComponent }
+        if let n = contents as? NSString { return n as String }
+        return nil
     }
 
     // MARK: - Rail (wood frame)

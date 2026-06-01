@@ -2,19 +2,21 @@ import SwiftUI
 
 /// 训练 Tab 自定义图标 — 替代之前的 `dumbbell.fill`（健身哑铃，与台球语义不符）。
 ///
-/// 视觉签名与 `BTLogoMark` 同源："球（圆点）+ 轨迹（弧线）"。
-/// - `filled = true`：母球填充，金色轨迹饱和（用于选中态 / 卡片）
-/// - `filled = false`：母球描边，轨迹色更淡（用于未选中态 / 浅色背景）
+/// 台球母题："上方三颗球三角堆（1 顶 + 2 底）+ 下方一根球杆"，比早期「球+轨迹弧」在小尺寸下更易识别。
+/// - `filled = true`：球身填充（用于选中态 / 卡片）
+/// - `filled = false`：球身描边（用于未选中态 / 浅色背景）
 ///
-/// 通过 `Tab.render(filled:)` 静态方法以 `UIImage` 形式提供给 `Label`，确保 Tab Bar
+/// 通过 `renderForTabBar(filled:)` 静态方法以 `UIImage` 形式提供给 `Label`，确保 Tab Bar
 /// 选中/未选中态的着色行为与系统其它 SF Symbols 一致；选中态会自动叠加 `tintColor`。
+///
+/// 在 ~25pt 单色模板下保持可读：三颗球之间留缝、球杆与球堆之间留缝，避免糊成一团。
 struct BTTrainingIcon: View {
 
     var size: CGFloat = 28
     var filled: Bool = true
 
     /// 当 Tab Bar 自动着色时使用的"模板"模式 — 单色（白），让系统决定染色。
-    /// `false` 时使用品牌色（绿球 + 金弧），适合 inline 卡片场景。
+    /// `false` 时使用品牌色（绿球 + 金杆），适合 inline 卡片场景。
     var asTemplate: Bool = false
 
     var body: some View {
@@ -22,53 +24,54 @@ struct BTTrainingIcon: View {
             let s = min(canvasSize.width, canvasSize.height)
             ctx.translateBy(x: (canvasSize.width - s) * 0.5, y: (canvasSize.height - s) * 0.5)
 
-            let ballCenter = CGPoint(x: 0.31 * s, y: 0.67 * s)
-            let ballRadius = 0.235 * s
-            let arcStrokeWidth = 0.115 * s
-
-            let arcStart = CGPoint(
-                x: ballCenter.x + ballRadius * 0.6,
-                y: ballCenter.y - ballRadius * 0.6
-            )
-            let arcEnd = CGPoint(x: 0.78 * s, y: 0.26 * s)
-            let control = CGPoint(x: 0.42 * s, y: 0.18 * s)
-
-            var arc = Path()
-            arc.move(to: arcStart)
-            arc.addQuadCurve(to: arcEnd, control: control)
-
-            let arcColor: Color = asTemplate ? .white : .btAccent
-            ctx.stroke(
-                arc,
-                with: .color(arcColor),
-                style: StrokeStyle(lineWidth: arcStrokeWidth, lineCap: .round)
-            )
-
-            let ballRect = CGRect(
-                x: ballCenter.x - ballRadius,
-                y: ballCenter.y - ballRadius,
-                width: ballRadius * 2,
-                height: ballRadius * 2
-            )
+            let cueColor: Color = asTemplate ? .white : .btAccent
             let ballColor: Color = asTemplate ? .white : .btPrimary
-            if filled {
-                ctx.fill(Path(ellipseIn: ballRect), with: .color(ballColor))
-            } else {
-                ctx.stroke(
-                    Path(ellipseIn: ballRect),
-                    with: .color(ballColor),
-                    style: StrokeStyle(lineWidth: arcStrokeWidth)
+
+            // 上方三颗球：三角堆（1 顶 + 2 底），球间留缝
+            let r = 0.145 * s
+            let ballCenters = [
+                CGPoint(x: 0.50 * s, y: 0.23 * s),   // 顶
+                CGPoint(x: 0.345 * s, y: 0.475 * s), // 左下
+                CGPoint(x: 0.655 * s, y: 0.475 * s)  // 右下
+            ]
+            for center in ballCenters {
+                let rect = CGRect(
+                    x: center.x - r,
+                    y: center.y - r,
+                    width: r * 2,
+                    height: r * 2
                 )
+                let path = Path(ellipseIn: rect)
+                if filled {
+                    ctx.fill(path, with: .color(ballColor))
+                } else {
+                    ctx.stroke(
+                        path,
+                        with: .color(ballColor),
+                        style: StrokeStyle(lineWidth: 0.07 * s)
+                    )
+                }
             }
 
-            let dotRadius = 0.08 * s
-            let dotRect = CGRect(
-                x: arcEnd.x - dotRadius,
-                y: arcEnd.y - dotRadius,
-                width: dotRadius * 2,
-                height: dotRadius * 2
-            )
-            ctx.fill(Path(ellipseIn: dotRect), with: .color(arcColor))
+            // 下方球杆：横向略斜，粗（杆尾）→细（杆头）的锥形
+            let butt = CGPoint(x: 0.07 * s, y: 0.80 * s)
+            let tip = CGPoint(x: 0.93 * s, y: 0.70 * s)
+            let buttHalf = 0.062 * s
+            let tipHalf = 0.022 * s
+
+            let dx = tip.x - butt.x
+            let dy = tip.y - butt.y
+            let len = (dx * dx + dy * dy).squareRoot()
+            let nx = -dy / len
+            let ny = dx / len
+
+            var cue = Path()
+            cue.move(to: CGPoint(x: butt.x + nx * buttHalf, y: butt.y + ny * buttHalf))
+            cue.addLine(to: CGPoint(x: tip.x + nx * tipHalf, y: tip.y + ny * tipHalf))
+            cue.addLine(to: CGPoint(x: tip.x - nx * tipHalf, y: tip.y - ny * tipHalf))
+            cue.addLine(to: CGPoint(x: butt.x - nx * buttHalf, y: butt.y - ny * buttHalf))
+            cue.closeSubpath()
+            ctx.fill(cue, with: .color(cueColor))
         }
         .frame(width: size, height: size)
         .accessibilityLabel("训练")

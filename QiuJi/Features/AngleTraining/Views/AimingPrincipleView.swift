@@ -27,7 +27,7 @@ struct AimingPrincipleView: View {
                 .foregroundStyle(.btText)
 
             cutAngleCanvas
-                .frame(height: 220)
+                .frame(height: 230)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
             Text("切球角是指母球击球方向与目标球进球方向之间的夹角。范围：0° 到 90°。")
@@ -40,83 +40,8 @@ struct AimingPrincipleView: View {
     }
 
     private var cutAngleCanvas: some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
-
-            // Table background
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(.btTableFelt))
-
-            let targetCenter = CGPoint(x: w * 0.5, y: h * 0.45)
-            let pocketPos = CGPoint(x: w * 0.85, y: h * 0.15)
-            let cueBallPos = CGPoint(x: w * 0.2, y: h * 0.8)
-            let ballR: CGFloat = 14
-
-            // Pocket line (target → pocket) - white dashed
-            let pocketDir = normalize(CGPoint(x: pocketPos.x - targetCenter.x, y: pocketPos.y - targetCenter.y))
-            let ghostCenter = CGPoint(x: targetCenter.x - 2 * ballR * pocketDir.x,
-                                      y: targetCenter.y - 2 * ballR * pocketDir.y)
-
-            var pocketLine = Path()
-            pocketLine.move(to: targetCenter)
-            pocketLine.addLine(to: pocketPos)
-            context.stroke(pocketLine, with: .color(.white.opacity(0.7)),
-                          style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-
-            // Strike line (cue → ghost) - blue dashed
-            var strikeLine = Path()
-            strikeLine.move(to: cueBallPos)
-            strikeLine.addLine(to: ghostCenter)
-            context.stroke(strikeLine, with: .color(.cyan.opacity(0.7)),
-                          style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
-
-            // Angle arc at target ball
-            let pocketAngle = atan2(pocketPos.y - targetCenter.y, pocketPos.x - targetCenter.x)
-            let strikeAngle = atan2(ghostCenter.y - targetCenter.y, ghostCenter.x - targetCenter.x)
-            var arcPath = Path()
-            arcPath.addArc(center: targetCenter, radius: 30,
-                          startAngle: .radians(pocketAngle),
-                          endAngle: .radians(strikeAngle),
-                          clockwise: pocketAngle > strikeAngle)
-            context.stroke(arcPath, with: .color(.yellow), lineWidth: 2)
-
-            // α label
-            let midAngle = (pocketAngle + strikeAngle) / 2
-            let labelPos = CGPoint(x: targetCenter.x + 42 * cos(midAngle),
-                                   y: targetCenter.y + 42 * sin(midAngle))
-            context.draw(Text("α").font(.system(size: 14, weight: .bold)).foregroundColor(.yellow),
-                        at: labelPos)
-
-            // Ghost ball (translucent yellow)
-            let ghostRect = CGRect(x: ghostCenter.x - ballR, y: ghostCenter.y - ballR,
-                                   width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: ghostRect), with: .color(.yellow.opacity(0.3)))
-            context.stroke(Path(ellipseIn: ghostRect), with: .color(.yellow.opacity(0.6)), lineWidth: 1)
-
-            // Target ball (orange)
-            let targetRect = CGRect(x: targetCenter.x - ballR, y: targetCenter.y - ballR,
-                                    width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: targetRect), with: .color(.btBallTarget))
-
-            // Cue ball (white)
-            let cueRect = CGRect(x: cueBallPos.x - ballR, y: cueBallPos.y - ballR,
-                                 width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: cueRect), with: .color(.white))
-
-            // Pocket
-            let pocketR: CGFloat = 10
-            let pocketRect = CGRect(x: pocketPos.x - pocketR, y: pocketPos.y - pocketR,
-                                    width: pocketR * 2, height: pocketR * 2)
-            context.fill(Path(ellipseIn: pocketRect), with: .color(.black.opacity(0.8)))
-
-            // Labels
-            context.draw(Text("母球").font(.system(size: 10)).foregroundColor(.white.opacity(0.8)),
-                        at: CGPoint(x: cueBallPos.x, y: cueBallPos.y + ballR + 12))
-            context.draw(Text("目标球").font(.system(size: 10)).foregroundColor(.white.opacity(0.8)),
-                        at: CGPoint(x: targetCenter.x, y: targetCenter.y + ballR + 12))
-            context.draw(Text("袋口").font(.system(size: 10)).foregroundColor(.white.opacity(0.8)),
-                        at: CGPoint(x: pocketPos.x, y: pocketPos.y + pocketR + 12))
+        BTAimTableView(style: .feltOnly) { felt in
+            AimingFigure(felt: felt)
         }
     }
 
@@ -189,40 +114,8 @@ struct AimingPrincipleView: View {
     }
 
     private var formulaExampleCanvas: some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(.btTableFelt))
-
-            let centerX = w * 0.5
-            let centerY = h * 0.5
-            let ballR: CGFloat = 20
-
-            // Target ball
-            let targetRect = CGRect(x: centerX - ballR, y: centerY - ballR,
-                                    width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: targetRect), with: .color(.btBallTarget))
-
-            // Ghost ball offset by R (for 30° case, d/R = 1.0)
-            let ghostX = centerX - ballR * 2
-            let ghostRect = CGRect(x: ghostX - ballR, y: centerY - ballR,
-                                   width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: ghostRect), with: .color(.yellow.opacity(0.3)))
-            context.stroke(Path(ellipseIn: ghostRect), with: .color(.yellow.opacity(0.6)), lineWidth: 1.5)
-
-            // d arrow
-            var dLine = Path()
-            dLine.move(to: CGPoint(x: centerX, y: centerY - ballR - 10))
-            dLine.addLine(to: CGPoint(x: ghostX, y: centerY - ballR - 10))
-            context.stroke(dLine, with: .color(.cyan), lineWidth: 1.5)
-
-            context.draw(Text("d/R = 1.0").font(.system(size: 11, weight: .medium)).foregroundColor(.cyan),
-                        at: CGPoint(x: (centerX + ghostX) / 2, y: centerY - ballR - 22))
-
-            // Label
-            context.draw(Text("sin(30°) = 0.5 → d = R").font(.system(size: 12, weight: .medium)).foregroundColor(.white.opacity(0.8)),
-                        at: CGPoint(x: w * 0.5, y: h - 16))
+        BTAimTableView(style: .feltOnly) { felt in
+            FormulaFigure(felt: felt)
         }
     }
 
@@ -307,37 +200,124 @@ struct AimingPrincipleView: View {
     }
 
     private func thicknessCanvas(overlapFraction: CGFloat) -> some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(.btTableFelt))
+        BTAimTableView(style: .feltOnly) { felt in
+            let d = min(felt.width, felt.height) * 0.62
+            let separation = d * (1 - overlapFraction)
+            // 目标球（橙）居右，白球居左错位重叠：α 越大错位越多（越"薄"）。
+            BTRealisticBall(kind: .target, diameter: d, showsContactShadow: false)
+                .position(x: felt.midX + separation / 2, y: felt.midY)
+            BTRealisticBall(kind: .cue, diameter: d, showsContactShadow: false)
+                .position(x: felt.midX - separation / 2, y: felt.midY)
+        }
+    }
+}
 
-            let ballR: CGFloat = min(w, h) * 0.28
-            let centerY = h / 2
-            let targetX = w / 2
+// MARK: - Aiming geometry figures
 
-            // Target ball (orange)
-            let targetRect = CGRect(x: targetX - ballR, y: centerY - ballR,
-                                    width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: targetRect), with: .color(.btBallTarget))
+/// 切球角全景：在拟真台面上画出母球 / 目标球 / 假想球 / 进球线 / 击球线 / α 弧。
+private struct AimingFigure: View {
+    let felt: CGRect
 
-            // Cue/ghost ball offset by overlap
-            let separation = ballR * 2 * (1 - overlapFraction)
-            let ghostX = targetX - separation
-            let ghostRect = CGRect(x: ghostX - ballR, y: centerY - ballR,
-                                   width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: ghostRect), with: .color(.white.opacity(0.85)))
+    var body: some View {
+        let w = felt.width
+        let h = felt.height
+        let d = min(w, h) * 0.15
+        let r = d / 2
+
+        let target = CGPoint(x: felt.minX + w * 0.46, y: felt.minY + h * 0.52)
+        let pocket = CGPoint(x: felt.maxX - d * 0.5, y: felt.minY + d * 0.5)   // 右上角袋示意
+        let dir = unitVector(from: target, to: pocket)
+        let ghost = CGPoint(x: target.x - 2 * r * dir.x, y: target.y - 2 * r * dir.y)
+        let cue = CGPoint(x: felt.minX + w * 0.24, y: felt.minY + h * 0.86)
+
+        let pocketAngle = atan2(pocket.y - target.y, pocket.x - target.x)
+        let strikeAngle = atan2(ghost.y - target.y, ghost.x - target.x)
+        let arcR = r * 1.7
+
+        ZStack {
+            BTPocketMark(diameter: d * 0.95).position(pocket)
+
+            // 进球线：目标球 → 袋口
+            Path { p in p.move(to: target); p.addLine(to: pocket) }
+                .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 2, dash: [7, 4]))
+
+            // 击球线：母球 → 假想球
+            Path { p in p.move(to: cue); p.addLine(to: ghost) }
+                .stroke(Color.cyan, style: StrokeStyle(lineWidth: 2, dash: [7, 4]))
+
+            // α 弧
+            Path { p in
+                p.addArc(center: target, radius: arcR,
+                         startAngle: .radians(pocketAngle),
+                         endAngle: .radians(strikeAngle),
+                         clockwise: pocketAngle > strikeAngle)
+            }
+            .stroke(Color.yellow, lineWidth: 3)
+
+            BTRealisticBall(kind: .ghost, diameter: d).position(ghost)
+            BTRealisticBall(kind: .target, diameter: d).position(target)
+            BTRealisticBall(kind: .cue, diameter: d).position(cue)
+
+            tag("α", color: .yellow)
+                .position(x: target.x + (arcR + 14) * cos((pocketAngle + strikeAngle) / 2),
+                          y: target.y + (arcR + 14) * sin((pocketAngle + strikeAngle) / 2))
+            tag("母球").position(x: cue.x, y: cue.y + r + 11)
+            tag("目标球").position(x: target.x, y: target.y + r + 13)
+            tag("袋口").position(x: pocket.x - 18, y: pocket.y + 16)
         }
     }
 
-    // MARK: - Helpers
-
-    private func normalize(_ p: CGPoint) -> CGPoint {
-        let len = sqrt(p.x * p.x + p.y * p.y)
-        guard len > 0.0001 else { return .zero }
-        return CGPoint(x: p.x / len, y: p.y / len)
+    private func tag(_ text: String, color: Color = .white) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(color)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(Color.black.opacity(0.4), in: Capsule())
     }
+}
+
+/// d = 2R·sin(α) 的 30° 示例：目标球 + 假想球（错位一个半径），并标注横移量 d。
+private struct FormulaFigure: View {
+    let felt: CGRect
+
+    var body: some View {
+        let d = min(felt.width, felt.height) * 0.38
+        let r = d / 2
+        let cy = felt.midY - 4
+        let targetX = felt.midX + r * 0.55
+        let ghostX = targetX - r            // d/R = 1 → 偏移一个半径
+
+        ZStack {
+            // d 横移量标注
+            Path { p in
+                p.move(to: CGPoint(x: ghostX, y: cy - r - 14))
+                p.addLine(to: CGPoint(x: targetX, y: cy - r - 14))
+            }
+            .stroke(Color.cyan, lineWidth: 1.6)
+
+            Text("d / R = 1.0")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.cyan)
+                .position(x: (ghostX + targetX) / 2, y: cy - r - 26)
+
+            BTRealisticBall(kind: .ghost, diameter: d).position(x: ghostX, y: cy)
+            BTRealisticBall(kind: .target, diameter: d).position(x: targetX, y: cy)
+
+            Text("sin(30°) = 0.5 → d = R")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.9))
+                .position(x: felt.midX, y: felt.maxY - 14)
+        }
+    }
+}
+
+private func unitVector(from a: CGPoint, to b: CGPoint) -> CGPoint {
+    let dx = b.x - a.x
+    let dy = b.y - a.y
+    let len = sqrt(dx * dx + dy * dy)
+    guard len > 0.0001 else { return .zero }
+    return CGPoint(x: dx / len, y: dy / len)
 }
 
 #Preview("Light") {

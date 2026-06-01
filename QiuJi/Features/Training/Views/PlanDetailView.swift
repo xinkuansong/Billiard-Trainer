@@ -86,7 +86,8 @@ struct PlanDetailView: View {
                 targetLevel: plan.targetLevel,
                 issueNumber: seriesIssueNumber,
                 glyphSize: 170,
-                corner: 0
+                corner: 0,
+                showIssueLabel: false
             )
 
             LinearGradient(

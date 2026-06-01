@@ -13,7 +13,7 @@ struct BallFeelView: View {
             .padding(.bottom, Spacing.xxxxl)
         }
         .background(.btBG)
-        .navigationTitle("浅淡球感")
+        .navigationTitle("浅谈球感")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
     }
@@ -95,28 +95,13 @@ struct BallFeelView: View {
     }
 
     private func overlapCanvas(overlapFraction: CGFloat) -> some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(.btTableFelt))
-
-            let ballR: CGFloat = min(w, h) * 0.3
-            let centerY = h / 2
-            let targetX = w / 2
-
-            let separation = ballR * 2 * (1 - overlapFraction)
-            let cueX = targetX - separation
-
-            // Target ball (orange)
-            let targetRect = CGRect(x: targetX - ballR, y: centerY - ballR,
-                                    width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: targetRect), with: .color(.btBallTarget))
-
-            // Cue ball (white, semi-transparent where overlapping)
-            let cueRect = CGRect(x: cueX - ballR, y: centerY - ballR,
-                                 width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: cueRect), with: .color(.white.opacity(0.85)))
+        BTAimTableView(style: .feltOnly) { felt in
+            let d = min(felt.width, felt.height) * 0.64
+            let separation = d * (1 - overlapFraction)
+            BTRealisticBall(kind: .target, diameter: d, showsContactShadow: false)
+                .position(x: felt.midX + separation / 2, y: felt.midY)
+            BTRealisticBall(kind: .cue, diameter: d, showsContactShadow: false)
+                .position(x: felt.midX - separation / 2, y: felt.midY)
         }
     }
 
@@ -224,85 +209,51 @@ struct BallFeelView: View {
     }
 
     private var topDownCanvas: some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(.btTableFelt))
+        BTAimTableView(style: .feltOnly) { felt in
+            let d = min(felt.width, felt.height) * 0.22
+            let target = CGPoint(x: felt.minX + felt.width * 0.56, y: felt.minY + felt.height * 0.48)
+            let cue = CGPoint(x: felt.minX + felt.width * 0.30, y: felt.minY + felt.height * 0.70)
+            let pocket = CGPoint(x: felt.maxX - d * 0.5, y: felt.minY + d * 0.5)
 
-            let ballR: CGFloat = 14
-            let targetPos = CGPoint(x: w * 0.55, y: h * 0.45)
-            let cuePos = CGPoint(x: w * 0.3, y: h * 0.6)
-            let pocketPos = CGPoint(x: w * 0.85, y: h * 0.2)
+            BTPocketMark(diameter: d * 0.9).position(pocket)
 
-            // Angle arc
-            _ = atan2(targetPos.y - cuePos.y, targetPos.x - cuePos.x)
+            Path { p in p.move(to: target); p.addLine(to: pocket) }
+                .stroke(Color.white.opacity(0.75), style: StrokeStyle(lineWidth: 1.6, dash: [5, 3]))
+            Path { p in p.move(to: cue); p.addLine(to: target) }
+                .stroke(Color.cyan, style: StrokeStyle(lineWidth: 1.6, dash: [5, 3]))
 
-            var pocketLine = Path()
-            pocketLine.move(to: targetPos)
-            pocketLine.addLine(to: pocketPos)
-            context.stroke(pocketLine, with: .color(.white.opacity(0.5)),
-                          style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            Text("30°")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.yellow)
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(Color.black.opacity(0.4), in: Capsule())
+                .position(x: target.x + 26, y: target.y - 12)
 
-            var strikeLine = Path()
-            strikeLine.move(to: cuePos)
-            strikeLine.addLine(to: targetPos)
-            context.stroke(strikeLine, with: .color(.cyan.opacity(0.6)),
-                          style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
-
-            // Angle label
-            context.draw(Text("30°").font(.system(size: 11, weight: .medium)).foregroundColor(.yellow),
-                        at: CGPoint(x: targetPos.x + 25, y: targetPos.y - 10))
-
-            // Balls
-            let targetRect = CGRect(x: targetPos.x - ballR, y: targetPos.y - ballR,
-                                    width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: targetRect), with: .color(.btBallTarget))
-
-            let cueRect = CGRect(x: cuePos.x - ballR, y: cuePos.y - ballR,
-                                 width: ballR * 2, height: ballR * 2)
-            context.fill(Path(ellipseIn: cueRect), with: .color(.white))
-
-            context.fill(Path(ellipseIn: CGRect(x: pocketPos.x - 8, y: pocketPos.y - 8, width: 16, height: 16)),
-                        with: .color(.black.opacity(0.7)))
+            BTRealisticBall(kind: .target, diameter: d).position(target)
+            BTRealisticBall(kind: .cue, diameter: d).position(cue)
         }
     }
 
     private var perspectiveCanvas: some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
+        BTAimTableView(style: .feltOnly) { felt in
+            // 透视压暗：近端（底部）更暗，模拟站位低视角看台面的纵深。
+            LinearGradient(colors: [.clear, .black.opacity(0.45)],
+                           startPoint: .top, endPoint: .bottom)
 
-            // Darker green for 3D perspective feel
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(.btTableFelt))
+            let farD = min(felt.width, felt.height) * 0.22
+            let nearD = min(felt.width, felt.height) * 0.42
+            let target = CGPoint(x: felt.minX + felt.width * 0.52, y: felt.minY + felt.height * 0.34)
+            let cue = CGPoint(x: felt.minX + felt.width * 0.46, y: felt.minY + felt.height * 0.74)
 
-            // Gradient overlay for perspective depth
-            let gradient = Gradient(colors: [.black.opacity(0.4), .clear])
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .linearGradient(gradient,
-                                              startPoint: CGPoint(x: w / 2, y: h),
-                                              endPoint: CGPoint(x: w / 2, y: h * 0.3)))
+            BTRealisticBall(kind: .target, diameter: farD, showsContactShadow: false).position(target)
+            BTRealisticBall(kind: .cue, diameter: nearD).position(cue)
 
-            // Balls with perspective scaling
-            let farBallR: CGFloat = 10
-            let nearBallR: CGFloat = 18
-
-            let targetPos = CGPoint(x: w * 0.52, y: h * 0.35)
-            let cuePos = CGPoint(x: w * 0.45, y: h * 0.75)
-
-            // Target (smaller, farther)
-            let targetRect = CGRect(x: targetPos.x - farBallR, y: targetPos.y - farBallR,
-                                    width: farBallR * 2, height: farBallR * 2)
-            context.fill(Path(ellipseIn: targetRect), with: .color(.btBallTarget))
-
-            // Cue (larger, closer)
-            let cueRect = CGRect(x: cuePos.x - nearBallR, y: cuePos.y - nearBallR,
-                                 width: nearBallR * 2, height: nearBallR * 2)
-            context.fill(Path(ellipseIn: cueRect), with: .color(.white))
-
-            context.draw(Text("30°").font(.system(size: 11, weight: .medium)).foregroundColor(.yellow),
-                        at: CGPoint(x: targetPos.x + 20, y: targetPos.y - 5))
+            Text("30°")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.yellow)
+                .padding(.horizontal, 4).padding(.vertical, 1)
+                .background(Color.black.opacity(0.4), in: Capsule())
+                .position(x: target.x + 24, y: target.y - 6)
         }
     }
 }

@@ -44,7 +44,10 @@ final class SubscriptionManager: ObservableObject {
         print("[StoreKit] ⏳ Requesting products for IDs: \(ids)")
 
         do {
-            let loaded = try await service.loadProducts()
+            // 加超时：StoreKit 在模拟器未配置 .storekit / 无网络时 `Product.products`
+            // 可能长期挂起，导致 isLoading 永不归位、Paywall 价格/按钮一直转圈
+            // （UR-20260529 U-04）。超时后归入错误态，复用既有「重试」UI。
+            let loaded = try await loadProductsWithTimeout(seconds: 8)
             products = loaded.sorted { $0.price < $1.price }
             if loaded.isEmpty {
                 print("[StoreKit] ⚠️ Product.products returned EMPTY")
@@ -59,9 +62,30 @@ final class SubscriptionManager: ObservableObject {
                 print("[StoreKit] ✅ Loaded \(loaded.count) products: \(loaded.map { "\($0.id) (\($0.displayPrice))" })")
                 errorMessage = nil
             }
+        } catch is TimeoutError {
+            print("[StoreKit] ⏱️ loadProducts timed out")
+            errorMessage = "加载超时，请检查网络后重试"
         } catch {
             print("[StoreKit] ❌ loadProducts error: \(error)")
             errorMessage = "加载失败：\(error.localizedDescription)"
+        }
+    }
+
+    private struct TimeoutError: Error {}
+
+    /// Race the StoreKit product load against a timeout so a hung request can't
+    /// pin the paywall in a perpetual loading state.
+    private func loadProductsWithTimeout(seconds: Double) async throws -> [Product] {
+        let svc = service
+        return try await withThrowingTaskGroup(of: [Product].self) { group in
+            group.addTask { try await svc.loadProducts() }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+                throw TimeoutError()
+            }
+            defer { group.cancelAll() }
+            guard let result = try await group.next() else { throw TimeoutError() }
+            return result
         }
     }
 

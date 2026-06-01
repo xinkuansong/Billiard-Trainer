@@ -49,98 +49,13 @@ struct GeometricAngleQuizView: View {
     // MARK: - Canvas
 
     private var angleCanvas: some View {
-        Canvas { context, size in
-            let w = size.width
-            let h = size.height
-
-            context.fill(Path(CGRect(origin: .zero, size: size)),
-                         with: .color(.btTableFelt))
-
-            let origin = CGPoint(x: 30, y: h - 30)
-            let axisLen = min(w, h) - 60
-
-            // Reference grid
-            if vm.showReferenceGrid {
-                let refAngles: [Double] = [15, 30, 45, 60, 75]
-                for angle in refAngles {
-                    let rad = angle * .pi / 180
-                    let endX = origin.x + axisLen * cos(rad)
-                    let endY = origin.y - axisLen * sin(rad)
-                    var refLine = Path()
-                    refLine.move(to: origin)
-                    refLine.addLine(to: CGPoint(x: endX, y: endY))
-                    context.stroke(refLine, with: .color(.white.opacity(0.15)),
-                                  style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-
-                    let labelR = axisLen + 14
-                    context.draw(Text("\(Int(angle))°").font(.system(size: 10)).foregroundColor(.white.opacity(0.4)),
-                                at: CGPoint(x: origin.x + labelR * cos(rad),
-                                           y: origin.y - labelR * sin(rad)))
-                }
-
-                // Arc guides
-                for r in stride(from: axisLen * 0.25, through: axisLen * 0.75, by: axisLen * 0.25) {
-                    var arc = Path()
-                    arc.addArc(center: origin, radius: r,
-                              startAngle: .degrees(0), endAngle: .degrees(-90), clockwise: true)
-                    context.stroke(arc, with: .color(.white.opacity(0.08)), lineWidth: 0.5)
-                }
-            }
-
-            // X axis
-            var xAxis = Path()
-            xAxis.move(to: origin)
-            xAxis.addLine(to: CGPoint(x: origin.x + axisLen, y: origin.y))
-            context.stroke(xAxis, with: .color(.white), lineWidth: 2)
-
-            // Y axis
-            var yAxis = Path()
-            yAxis.move(to: origin)
-            yAxis.addLine(to: CGPoint(x: origin.x, y: origin.y - axisLen))
-            context.stroke(yAxis, with: .color(.white), lineWidth: 2)
-
-            // "0°" label
-            context.draw(Text("0°").font(.system(size: 12, weight: .medium)).foregroundColor(.white.opacity(0.7)),
-                        at: CGPoint(x: origin.x + axisLen - 10, y: origin.y + 16))
-
-            // Origin dot
-            let dotR: CGFloat = 5
-            context.fill(Path(ellipseIn: CGRect(x: origin.x - dotR, y: origin.y - dotR,
-                                                width: dotR * 2, height: dotR * 2)),
-                        with: .color(.white))
-
-            // Angle line
-            guard vm.currentAngle > 0 else { return }
-            let lineLen = axisLen * 0.85
-            let rad = vm.currentAngle * .pi / 180
-            let endX = origin.x + lineLen * cos(rad)
-            let endY = origin.y - lineLen * sin(rad)
-
-            var angleLine = Path()
-            angleLine.move(to: origin)
-            angleLine.addLine(to: CGPoint(x: endX, y: endY))
-            context.stroke(angleLine, with: .color(.white), lineWidth: 3)
-
-            // Angle arc
-            let arcR: CGFloat = 40
-            var angleArc = Path()
-            angleArc.addArc(center: origin, radius: arcR,
-                           startAngle: .degrees(0),
-                           endAngle: .degrees(-vm.currentAngle),
-                           clockwise: true)
-            context.stroke(angleArc, with: .color(.yellow), lineWidth: 2)
-
-            // Result: show actual angle label
-            if vm.showResult {
-                let labelPos = CGPoint(x: origin.x + (arcR + 20) * cos(rad / 2),
-                                       y: origin.y - (arcR + 20) * sin(rad / 2))
-                context.draw(
-                    Text("\(Int(round(vm.currentAngle)))°")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.yellow),
-                    at: labelPos
-                )
-            }
+        BTAimTableView(style: .feltOnly) { felt in
+            AnglePredictionFigure(
+                angle: vm.currentAngle,
+                showReference: vm.showReferenceGrid,
+                showResult: vm.showResult,
+                felt: felt
+            )
         }
     }
 
@@ -274,6 +189,93 @@ struct GeometricAngleQuizView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.md)
+    }
+}
+
+// MARK: - Angle Prediction Figure
+
+/// 角度预测图形：在拟真台面上，以母球为顶点画出「参考线 + 角度线」夹角，
+/// 配精致量角弧、可选刻度参考与结果角度数；目标球落在角度线末端，贴近真实一杆。
+private struct AnglePredictionFigure: View {
+    let angle: Double
+    let showReference: Bool
+    let showResult: Bool
+    let felt: CGRect
+
+    var body: some View {
+        let minDim = min(felt.width, felt.height)
+        let rayLen = min(felt.width * 0.74, felt.height * 0.82)
+        let vertex = CGPoint(x: felt.minX + felt.width * 0.15, y: felt.minY + felt.height * 0.82)
+        let rad = angle * .pi / 180
+        let refEnd = CGPoint(x: vertex.x + rayLen, y: vertex.y)
+        let angEnd = CGPoint(x: vertex.x + rayLen * cos(rad), y: vertex.y - rayLen * sin(rad))
+        let arcR = rayLen * 0.28
+        let cueD = minDim * 0.10
+        let targetD = minDim * 0.085
+
+        ZStack {
+            if showReference {
+                ForEach([15, 30, 45, 60, 75], id: \.self) { a in
+                    let r2 = Double(a) * .pi / 180
+                    Path { p in
+                        p.move(to: vertex)
+                        p.addLine(to: CGPoint(x: vertex.x + rayLen * cos(r2), y: vertex.y - rayLen * sin(r2)))
+                    }
+                    .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    Text("\(a)°")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .position(x: vertex.x + (rayLen + 12) * cos(r2),
+                                  y: vertex.y - (rayLen + 12) * sin(r2))
+                }
+            }
+
+            // 角度扇形高亮（凸显"夹角"这个重点）
+            if angle > 0 {
+                Path { p in
+                    p.move(to: vertex)
+                    p.addArc(center: vertex, radius: arcR,
+                             startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
+                    p.closeSubpath()
+                }
+                .fill(Color.yellow.opacity(0.16))
+            }
+
+            // 参考线（基准 0°）
+            Path { p in p.move(to: vertex); p.addLine(to: refEnd) }
+                .stroke(Color.white.opacity(0.85), lineWidth: 2)
+
+            // 角度线
+            Path { p in p.move(to: vertex); p.addLine(to: angEnd) }
+                .stroke(Color.white, lineWidth: 3)
+
+            // 量角弧
+            if angle > 0 {
+                Path { p in
+                    p.addArc(center: vertex, radius: arcR,
+                             startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
+                }
+                .stroke(Color.yellow, lineWidth: 3)
+            }
+
+            BTRealisticBall(kind: .target, diameter: targetD).position(angEnd)
+            BTRealisticBall(kind: .cue, diameter: cueD).position(vertex)
+
+            Text("0°")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.75))
+                .position(x: refEnd.x - 14, y: refEnd.y + 14)
+
+            if showResult {
+                Text("\(Int(round(angle)))°")
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(.yellow)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.black.opacity(0.45), in: Capsule())
+                    .position(x: vertex.x + (arcR + 22) * cos(rad / 2),
+                              y: vertex.y - (arcR + 22) * sin(rad / 2))
+            }
+        }
     }
 }
 
