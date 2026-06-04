@@ -9,15 +9,12 @@ struct BTEmptyState: View {
 
     var body: some View {
         VStack(spacing: Spacing.xl) {
-            ZStack {
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.15))
-                    .frame(width: 88, height: 88)
-
-                Image(systemName: icon)
-                    .font(.btLargeTitle)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.btPrimary)
+            if let action {
+                Button(action: action) { iconBadge }
+                    .buttonStyle(.plain)
+                    .accessibilityHint(actionTitle.map { "点击\($0)" } ?? "")
+            } else {
+                iconBadge
             }
 
             VStack(spacing: Spacing.sm) {
@@ -39,6 +36,19 @@ struct BTEmptyState: View {
         }
         .padding(Spacing.xxxxl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var iconBadge: some View {
+        ZStack {
+            Circle()
+                .fill(Color.btPrimary.opacity(0.15))
+                .frame(width: 88, height: 88)
+
+            Image(systemName: icon)
+                .font(.btLargeTitle)
+                .fontWeight(.medium)
+                .foregroundStyle(.btPrimary)
+        }
     }
 }
 

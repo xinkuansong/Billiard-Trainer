@@ -58,6 +58,11 @@ enum BankShotCalculator {
         }
     }
 
+    /// 映射到共享真实反射核心的库描述符。
+    private static func descriptor(_ rail: Rail) -> CushionReflectionSolver.Rail {
+        CushionReflectionSolver.Rail(isLong: rail.isLong, coord: railCoord(rail))
+    }
+
     /// 把一个点沿某条库边做镜像。
     private static func reflect(_ p: SCNVector3, across rail: Rail) -> SCNVector3 {
         if rail.isLong {
@@ -101,8 +106,10 @@ enum BankShotCalculator {
         let rails: [Rail]
         let pocketIndex: Int
 
-        /// 目标球的进袋折线 [目标球, 反弹点1, …, 反弹点k, 袋口]。
+        /// 目标球的进袋折线 [目标球, 反弹点1, …, 反弹点k, 袋口]。真实模式下为按缩小因子追迹的实际进袋线。
         let objectPath: [SCNVector3]
+        /// 理想（入射角=反射角）对照进袋线；仅真实模式下非 nil，供绘制虚线对照。
+        var idealObjectPath: [SCNVector3]? = nil
         /// 母球瞄准用的幽灵球中心（= 目标球沿出发方向反向偏移 2R）。
         let ghost: SCNVector3
         /// 母球与目标球的接触点（目标球表面，= 目标球沿出发方向反向偏移 R）。
@@ -128,11 +135,13 @@ enum BankShotCalculator {
 
     /// 求出母球 `cue`、目标球 `object` 下，把目标球翻进 `pocketIndex` 袋的所有解，
     /// 按（库数升序、路径长度升序）排序并去重。第一条即「最少库 / 最短」解。
+    /// `factor` = 库边缩小因子（1.0 = 理想镜面反射；<1 = 真实模式，反射偏短）。
     static func solveAll(
         cue: SCNVector3,
         object: SCNVector3,
         pocketIndex: Int,
         surfaceY: Float,
+        factor: Float = 1.0,
         maxCushions: Int = 3,
         limit: Int = 12
     ) -> [Solution] {
@@ -143,21 +152,44 @@ enum BankShotCalculator {
         let cuePt = SCNVector3(cue.x, y, cue.z)
         let objPt = SCNVector3(object.x, y, object.z)
 
-        var solutions: [Solution] = []
+        // 先求理想（镜像展开）解集，路径与历史版本完全一致。
+        var ideal: [Solution] = []
         for n in 1...max(1, maxCushions) {
             for seq in railSequences(length: n) {
                 guard let path = solveSequence(object: objPt, pocketIndex: pocketIndex, rails: seq, y: y,
                                                surfaceY: surfaceY) else { continue }
                 guard let sol = makeSolution(cue: cuePt, path: path, rails: seq,
                                              pocketIndex: pocketIndex, y: y) else { continue }
-                if !isDuplicate(sol, in: solutions) { solutions.append(sol) }
+                if !isDuplicate(sol, in: ideal) { ideal.append(sol) }
             }
         }
-
-        solutions.sort { lhs, rhs in
+        ideal.sort { lhs, rhs in
             lhs.cushions != rhs.cushions ? lhs.cushions < rhs.cushions : lhs.length < rhs.length
         }
-        return Array(solutions.prefix(limit))
+
+        guard !CushionReflectionSolver.isIdeal(factor) else {
+            return Array(ideal.prefix(limit))
+        }
+
+        // 真实模式：对每条理想解的库序，从目标球射向同一进球点（理想解末端），按 factor 追迹出实际进袋线，
+        // 再据实际出发方向反推母球瞄准；理想线作为对照。
+        var real: [Solution] = []
+        for sol in ideal {
+            guard let aim = sol.objectPath.last else { continue }
+            let descriptors = sol.rails.map(descriptor)
+            guard let realPath = CushionReflectionSolver.shoot(
+                start: sol.objectPath[0], target: aim, rails: descriptors, factor: factor, y: y
+            ) else { continue }
+            guard firstCushionAngleOK(path: realPath, firstRail: sol.rails[0]) else { continue }
+            guard var rsol = makeSolution(cue: cuePt, path: realPath, rails: sol.rails,
+                                          pocketIndex: pocketIndex, y: y) else { continue }
+            rsol.idealObjectPath = sol.objectPath
+            real.append(rsol)
+        }
+        real.sort { lhs, rhs in
+            lhs.cushions != rhs.cushions ? lhs.cushions < rhs.cushions : lhs.length < rhs.length
+        }
+        return Array(real.prefix(limit))
     }
 
     // MARK: - Sequence solving (mirror unfolding)

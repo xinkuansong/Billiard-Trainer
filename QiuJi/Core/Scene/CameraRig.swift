@@ -483,23 +483,7 @@ final class CameraRig {
 }
 
 // MARK: - SCNVector3 helpers
-
-private extension SCNVector3 {
-    func normalized() -> SCNVector3 {
-        let len = sqrtf(x * x + y * y + z * z)
-        guard len > 0.0001 else { return self }
-        return SCNVector3(x / len, y / len, z / len)
-    }
-
-    static func + (lhs: SCNVector3, rhs: SCNVector3) -> SCNVector3 {
-        SCNVector3(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z)
-    }
-
-    static func - (lhs: SCNVector3, rhs: SCNVector3) -> SCNVector3 {
-        SCNVector3(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z)
-    }
-
-    static func * (lhs: SCNVector3, rhs: Float) -> SCNVector3 {
-        SCNVector3(lhs.x * rhs, lhs.y * rhs, lhs.z * rhs)
-    }
-}
+//
+// `normalized()` / `+` / `-` / `*` 现由 `Core/Physics/SCNVector3+Physics.swift`
+// 提供模块级实现（物理引擎移植时引入）。此处原有的 file-private 扩展会与之
+// 产生同签名重载歧义，故移除，统一复用模块级版本。

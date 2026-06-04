@@ -152,13 +152,7 @@ struct BTDrillGridCard: View {
 
     private var tableArea: some View {
         ZStack(alignment: .bottom) {
-            Group {
-                if BTDrillPreviewPlayer.hasAssets(for: drill.id) {
-                    BTDrillPreviewPlayer(drillId: drill.id, mode: .animated)
-                } else {
-                    BTMiniTable(animation: drill.animation)
-                }
-            }
+            BTBakedDrillTable(drillId: drill.id)
             .clipShape(
                 UnevenRoundedRectangle(
                     topLeadingRadius: BTRadius.md,
@@ -227,7 +221,7 @@ struct BTDrillThumbnail: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        BTMiniTable(animation: drill.animation)
+        BTBakedDrillTable(drillId: drill.id)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
             .overlay(
                 RoundedRectangle(cornerRadius: BTRadius.sm)

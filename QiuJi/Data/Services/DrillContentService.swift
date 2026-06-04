@@ -19,6 +19,9 @@ struct DrillContent: Codable, Identifiable {
     let animation: DrillAnimation
     let tutorial: DrillTutorial?
     let videos: [DrillVideo]?
+    /// 击球意图（P10 内容管线，ADR-P10-01）。可选——旧 Drill 无此字段照常工作。
+    /// 由离线烘焙器 `ShotBaker` 喂给物理引擎，结果回填到 `animation`。
+    let shotIntent: ShotIntent?
 
     init(
         id: String,
@@ -36,7 +39,8 @@ struct DrillContent: Codable, Identifiable {
         sets: DrillSetsConfig,
         animation: DrillAnimation,
         tutorial: DrillTutorial? = nil,
-        videos: [DrillVideo]? = nil
+        videos: [DrillVideo]? = nil,
+        shotIntent: ShotIntent? = nil
     ) {
         self.id = id
         self.nameZh = nameZh
@@ -54,6 +58,7 @@ struct DrillContent: Codable, Identifiable {
         self.animation = animation
         self.tutorial = tutorial
         self.videos = videos
+        self.shotIntent = shotIntent
     }
 
     struct DrillSetsConfig: Codable {
@@ -85,6 +90,11 @@ struct DrillAnimation: Codable {
     let targetBall: BallAnimation
     let pocket: String
     let cueDirection: CanvasPoint
+    /// 轨迹来源（P10 内容管线，ADR-P10-01）：`"manual"`（手画，缺省）或 `"baked"`（引擎烘焙）。
+    /// 可选——旧 JSON 无此字段，解码为 nil，渲染层视同手画。
+    var source: String? = nil
+    /// 烘焙器标识（可追溯、可重烘焙），例 `"ShotBaker/engine@v2-geom"`。
+    var generator: String? = nil
 }
 
 struct BallAnimation: Codable {

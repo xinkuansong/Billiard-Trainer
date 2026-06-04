@@ -1,7 +1,9 @@
-# ⚠️ 切勿直接运行 `xcodegen generate`！
-# xcodegen 不会为 Resources/{Drills,Plans,Videos} 这种 `type: folder` 资源
-# 生成 Xcode folder reference，导致打包后 Bundle.main 找不到子目录文件
-# （动作库列表会变空）。正确做法：使用 `make xcodegen` 一并跑后处理补丁。
+# 资源子目录（Drills / Plans / Videos / DrillThumbnails）作为 **folder reference**
+# （蓝色文件夹）打包，使 `Bundle.main.url(forResource:withExtension:subdirectory:)`
+# 能解析子目录。实现方式：在 `sources:` 下用 `type: folder` + `buildPhase: resources`，
+# 由 xcodegen 原生生成 folder reference —— 因此 `xcodegen generate` 可直接运行，
+# 无需事后补丁脚本。（历史上 `resources: type: folder` 不被 xcodegen 认，曾依赖
+# patch-pbxproj-folder-refs.py 注入；现已改为原生方式。）
 name: QiuJi
 options:
   bundleIdPrefix: com.xinkuan
@@ -43,19 +45,30 @@ targets:
           - "Resources/Drills/**"
           - "Resources/Plans/**"
           - "Resources/Videos/**"
-    resources:
-      - path: QiuJi/Resources/Assets.xcassets
+          - "Resources/DrillThumbnails/**"
+      # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
       - path: QiuJi/Resources/Drills
         type: folder
+        buildPhase: resources
       - path: QiuJi/Resources/Plans
         type: folder
+        buildPhase: resources
       - path: QiuJi/Resources/Videos
         type: folder
+        buildPhase: resources
+      - path: QiuJi/Resources/DrillThumbnails
+        type: folder
+        buildPhase: resources
+    resources:
+      - path: QiuJi/Resources/Assets.xcassets
       - path: QiuJi/Resources/TaiQiuZhuo.usdz
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji
         PRODUCT_NAME: 球迹
+        # 产物名为「球迹」，但 Swift 模块名固定为 QiuJi，
+        # 否则 @testable import QiuJi 无法解析（CJK 产物名会被 sanitize）。
+        PRODUCT_MODULE_NAME: QiuJi
         INFOPLIST_FILE: QiuJi/Resources/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: 球迹
         INFOPLIST_KEY_NSCameraUsageDescription: 拍摄训练视频
@@ -119,6 +132,11 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.tests
+        # 主 App 的 PRODUCT_NAME 是「球迹」(非 target 名 QiuJi)，
+        # xcodegen 默认按 target 名生成 TEST_HOST=QiuJi.app/QiuJi 会找不到宿主，
+        # 故显式指向真实产物。改 PRODUCT_NAME 时同步更新此处。
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/球迹.app/球迹"
+        BUNDLE_LOADER: "$(TEST_HOST)"
     dependencies:
       - target: QiuJi
 

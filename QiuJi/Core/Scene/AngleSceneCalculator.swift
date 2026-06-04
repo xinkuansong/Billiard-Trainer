@@ -67,10 +67,22 @@ enum AngleSceneCalculator {
 
     // MARK: - Pocket geometry (SceneKit world coords)
 
-    /// Pocket opening radii (metres). Angle = corner pocket, middle = side pocket.
+    /// Pocket opening radii (metres) — **视觉标记盘**半径。Angle = corner pocket, middle = side pocket.
     /// Source: `.kiro/steering/table-geometry.md` § 进袋检测数值（中式八球标准）。
     static let cornerPocketRadius: Float = 0.042
     static let middlePocketRadius: Float = 0.043
+
+    /// 物理引擎**落袋孔半径**（球心进入孔内即落袋）。P10 真实袋口物理（throat 模型）：
+    /// 袋口由 jaw 库 + 喉腔（侧壁/后壁，见 `TableGeometry.chineseEightBallQiuJi`）构成，
+    /// rattle 由喉腔库边几何自然产生；此半径仅表示**物理洞口**（球落入的孔），不承担"放大以
+    /// 强行进球"的职责。与**视觉标记半径** `*PocketRadius` 解耦（标记视觉不变）。
+    static let cornerPocketDropRadius: Float = 0.052
+    static let middlePocketDropRadius: Float = 0.052
+
+    /// 给定袋号的引擎落袋孔半径。
+    static func pocketDropRadius(index: Int) -> Float {
+        index < 4 ? cornerPocketDropRadius : middlePocketDropRadius
+    }
 
     /// Pocket-center offsets relative to the playing-area boundary.
     /// Steering 文档（中式八球标准物理几何）给出的是 42mm / 53mm；

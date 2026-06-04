@@ -57,6 +57,7 @@ struct DiamondSystemView: View {
     private var topInset: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             cushionPicker
+            ReflectionModeControl(realMode: $vm.realMode, factor: $vm.reflectionFactor)
             infoPill
             HStack {
                 Text("拖动母球与目标球到任意位置 · 选库数或自动求最少库数")
@@ -214,6 +215,10 @@ private struct ReflectionSolverInfoSheet: View {
                     principleBlock(
                         title: "操作",
                         body: "拖动母球（白）与目标球（黑）到任意位置；顶部选「自动」求最少库数，或手选 1–4 库。黄线即走位、红点是碰库点。多条解时点「下一解」切换不同撞库顺序；点「重置」恢复默认摆球。"
+                    )
+                    principleBlock(
+                        title: "理想 / 真实模式",
+                        body: "顶部可切换「理想 / 真实」。真实模式按缩小因子让反射「偏短」（反射角相对法线略小于入射角，模拟真实库呢吸收），并用蓝色虚线叠加理想路线作对照。拖动缩小因子滑块（0.50–1.00），几次试打后即可拟合你常玩球台与发力的手感；该因子两页通用并会被记住。"
                     )
                     principleBlock(
                         title: "实战提示",

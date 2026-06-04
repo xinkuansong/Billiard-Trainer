@@ -3,6 +3,7 @@ import SwiftUI
 struct ContactPointTableView: View {
     @State private var sliderAngle: Double = 30
 
+    // 设计决策（P9-05 APPROVED）：移除球种切换，固定中八球径 R=28.575mm。
     private let ballRadiusMM: Double = 28.575
 
     private struct AngleEntry: Identifiable {
@@ -311,7 +312,7 @@ struct ContactPointTableView: View {
                 let dotR: CGFloat = 4
                 context.fill(Path(ellipseIn: CGRect(x: x - dotR, y: y - dotR,
                                                     width: dotR * 2, height: dotR * 2)),
-                            with: .color(.red))
+                            with: .color(.btAccent))
 
                 let labelY = y - 12
                 context.draw(

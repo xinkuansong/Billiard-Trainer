@@ -20,9 +20,10 @@
 | `coachingPoints` | `[String]` | ✅ | Ordered coaching tips |
 | `standardCriteria` | `String` | ✅ | Pass criteria, e.g. "15球进10球" |
 | `sets` | `DrillSetsConfig` | ✅ | Default practice sets configuration |
-| `animation` | `DrillAnimation` | ✅ | Canvas animation data |
+| `animation` | `DrillAnimation` | ✅ | Canvas animation data (hand-drawn `manual` or engine-`baked`) |
 | `tutorial` | `DrillTutorial?` | ❌ | Detailed coaching tutorial sections |
 | `videos` | `[DrillVideo]?` | ❌ | Bundled demo videos (real-person takes) |
+| `shotIntent` | `ShotIntent?` | ❌ | Physics shot intent (P10, ADR-P10-01). Source of truth for `baked` animations. |
 
 ## `DrillSetsConfig`
 
@@ -64,6 +65,8 @@ Videos are bundled at `QiuJi/Resources/Videos/<drillId>/<file>`. Populated by
 | `targetBall` | `BallAnimation` | Target ball start + path |
 | `pocket` | `String` | Target pocket ID (see Pocket IDs) |
 | `cueDirection` | `Point` | Aiming direction vector |
+| `source` | `String?` | `"manual"` (hand-drawn, default) or `"baked"` (engine-generated). Optional; legacy files omit it. |
+| `generator` | `String?` | Baker tag for traceability, e.g. `"ShotBaker/engine@v2-geom"`. Present when `source == "baked"`. |
 
 ## `BallAnimation`
 
@@ -95,6 +98,44 @@ Extends `Point` with optional Bézier control points.
 - **Straight line**: `[{ "x": 0.5, "y": 0.5 }]`
 - **Curve (spin/cushion)**: `[{ "x": 0.3, "y": 0.4, "cp1": { "x": 0.2, "y": 0.3 }, "cp2": { "x": 0.25, "y": 0.42 } }]`
 - **Multi-segment (position play)**: `[{ "x": 0.3, "y": 0.47 }, { "x": 0.7, "y": 0.3 }]`
+
+## `ShotIntent` (P10 content pipeline, ADR-P10-01)
+
+Describes a drill as **physics intent** (placements + pocket + spin + continuous power) instead of
+hand-drawn result paths. An offline baker (`ShotBaker` → physics engine) turns intent into precise
+trajectories and **backfills** them into `animation` (`source: "baked"`). Rendering layer is unchanged.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `version` | `Int` | ✅ | Schema version (currently `1`) |
+| `shots` | `[Shot]` | ✅ | One or more shots (most drills = 1; multi-shot drills list several) |
+
+### `Shot`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `cue` | `Point` | ✅ | Cue ball placement (normalised, same coordinate system as above) |
+| `target` | `Point` | ✅ | Target ball placement (normalised) |
+| `pocket` | `String` | ✅ | Target pocket ID (see Pocket IDs below) |
+| `velocity` | `Double` | ✅ | **Continuous** cue-tip speed (m/s). Reference anchors: 1.6 / 2.4 / 3.3 / 4.4 / 5.8. Use continuous values for precise position play (not a 5-level enum). |
+| `spin` | `Spin?` | ❌ | Cue tip offset. `x`: +left / −right, `y`: +top(follow) / −bottom(draw), ∈[-1,1]. Default {0,0} (centre/stun). |
+| `elevation` | `Double?` | ❌ | Cue elevation (radians). Default 0. |
+| `obstacles` | `[Point]?` | ❌ | Extra/obstacle balls (normalised). Forward-compatible; the v1 baker does not bake these. |
+
+### `Spin`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `x` | `Double` | Horizontal spin, +left / −right, ∈[-1,1] |
+| `y` | `Double` | Vertical spin, +top / −bottom, ∈[-1,1] |
+
+### Authoring SOP
+
+1. Author `shotIntent` (placements + pocket + velocity + spin) — **not** the trajectory.
+2. Run `DrillBakeRunnerTests` (add the drill id to its pilot list) to bake + validate physical reachability.
+3. The console prints the baked `DrillAnimation` JSON (between `===BAKE …===` markers) and a
+   reachability report row. Copy the baked `animation` back into the drill JSON (`source: "baked"`).
+4. Confirm `feasible == ✅`. A `sim 进选定袋 == ⚠️` row is a P10 jaw-calibration follow-up, not a blocker.
 
 ## Pocket IDs
 

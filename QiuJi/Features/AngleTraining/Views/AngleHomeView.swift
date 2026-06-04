@@ -12,6 +12,7 @@ enum AngleRoute: Hashable {
     case ballFeel
     case bankShot
     case diamondSystem
+    case shotSimulation
 }
 
 // MARK: - Entry Model
@@ -55,7 +56,9 @@ struct AngleHomeView: View {
         .init(route: .bankShot, icon: "arrow.uturn.left",
               title: "翻袋解球器", subtitle: "选目标袋，自动求 1–3 库翻袋路线与母球瞄准", chip: "2D"),
         .init(route: .diamondSystem, icon: "diamond.fill",
-              title: "反射解球器", subtitle: "任意摆球，自动求 1–多库反射走位路线", chip: "2D")
+              title: "反射解球器", subtitle: "任意摆球，自动求 1–多库反射走位路线", chip: "2D"),
+        .init(route: .shotSimulation, icon: "scope",
+              title: "分离角与走位", subtitle: "物理引擎模拟分离角、母球走位；可调力度与塞", chip: "物理")
     ]
 
     var body: some View {

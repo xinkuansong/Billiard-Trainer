@@ -775,3 +775,8 @@ struct BTShareCard: View {
 | 2026-05-26 | Typography 全局字体密度优化（DR-014）：btDisplay 48→44、btDisplaySmall 36→30、btLargeTitle 34→32、btChapterNumber 32→26、btTitle 22→20、btTitle2 20→18、btTitleMedium 19→17、btStatNumber 28→24；新增 btSubheadlineSemibold/btFootnote14/btMicro 文档化 | DR | 全局 Typography + 主要页面 | UI 截图反馈 |
 | 2026-05-26 | TrainingHomeView 今日 Drill 卡：标题 btTitle2→btHeadline；序号 btTitleMedium→btSubheadlineSemibold；issueThumbnail 数字硬编码 26pt → btStatNumber | 修正 | TrainingHomeView | DR-014 |
 | 2026-05-26 | PlanDetailView：描述 lead 句改为 btBodyMedium（原 btTitleMedium），statCell 数字 btDisplaySmall→btStatNumber | 修正 | PlanDetailView | DR-014 |
+| 2026-06-04 | 新建 BTDrillTableView — 统一拟真 2D 球桌（BTAimTableView feltOnly 台呢 + BTRealisticBall + 烘焙/手画轨迹 + 袋口标记 + 目标袋光环），双模式：animationProgress=nil 静态缩略图 / !=nil 动画回放 | 新增 | Core/Components | DR-015 |
+| 2026-06-04 | 删除 BTMiniTable.swift；BTBilliardTable 退化为薄封装委托 BTDrillTableView（保留 animationProgress API + TableRender 常量供 BTAngleTestTable） | 重构 | BTMiniTable/BTBilliardTable | DR-015 |
+| 2026-06-04 | BTDrillCard 网格卡 + BTDrillThumbnail + PlanDetailView 迷你台改用 BTDrillTableView；去掉 BTDrillCard 的 BTDrillPreviewPlayer PNG 帧短路 | 重构 | BTDrillCard, PlanDetailView | DR-015 |
+| 2026-06-04 | 动作库 2D 台改用「USDZ 真台 2D 顶视」那套（同角度页）：缩略图离线烘焙 PNG（DrillThumbnailRenderer→Resources/DrillThumbnails 72 张 + BTBakedDrillTable/DrillThumbnailStore 运行时秒加载，零 SceneKit 成本）；详情页 live 场景（DrillSceneView+DrillSceneController，AngleSceneView 顶视+摆球+烘焙轨迹+回放）；记录页改 BTBakedDrillTable | 重构 | Core/Scene, Core/Components, DrillLibrary/Training Views | DR-016 |
+| 2026-06-04 | 退役 DR-015 的 SwiftUI Canvas 拟真台：删除 BTDrillTableView.swift；移除 BTBilliardTable 视图，BTBilliardTable.swift 仅留 TableRender 常量（BTAngleTestTable 仍用） | 删除 | BTDrillTableView, BTBilliardTable | DR-016 |

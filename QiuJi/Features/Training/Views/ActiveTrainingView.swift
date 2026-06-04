@@ -666,7 +666,7 @@ struct ActiveTrainingView: View {
             BTEmptyState(
                 icon: "plus.circle",
                 title: "添加训练项目",
-                subtitle: "点击右上角 + 从动作库选择训练项目",
+                subtitle: "从动作库挑选想练习的动作，开始记录训练",
                 actionTitle: "选择训练项目",
                 action: {
                     viewModel.showDrillPicker = true

@@ -463,3 +463,128 @@
   - `.cursor/skills/swiftui-design-system/SKILL.md` § 三 字体系统「使用原则」
 - **已应用至**：
   - ✅ `.cursor/skills/swiftui-design-system/SKILL.md` § 三（2026-05-26，新增四条避坑指引）
+
+## PD-007
+- **任务**：QA-P9 验收时补 `AngleSceneCalculator` 往返 XCTest，发现整套 `QiuJiTests` 命令行从未跑通
+- **模式描述**：**「PRODUCT_NAME 用 CJK / 与 target 名不同」时，测试宿主与 @testable 模块名的双重修正**。当 App target 名为 `QiuJi` 但 `PRODUCT_NAME = 球迹`（中文）时会出现两个隐藏故障：
+  1. `TEST_HOST` 默认按 **target 名** 生成 `$(BUILT_PRODUCTS_DIR)/QiuJi.app/QiuJi`，而真实产物是 `球迹.app/球迹` → `xcodebuild test` 报 `Could not find test host`。
+  2. Swift 模块名默认取 `PRODUCT_NAME` 经 sanitize（CJK 被吃掉）→ `@testable import QiuJi` 报 `Unable to find module dependency: 'QiuJi'`。
+- **适用场景**：任何 App 显示名用中文/与 target 名不一致、且有单测 `@testable import` 的工程。两处都要显式钉死，缺一不可。
+- **代码示例**（`project.yml`）：
+  ```yaml
+  # App target
+  settings:
+    base:
+      PRODUCT_NAME: 球迹
+      PRODUCT_MODULE_NAME: QiuJi        # 模块名钉死，保 @testable import QiuJi 可解析
+  # 单测 target
+  QiuJiTests:
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/球迹.app/球迹"   # 指向真实产物
+        BUNDLE_LOADER: "$(TEST_HOST)"
+  ```
+- **关键约束**：
+  1. 同步改 `QiuJi.xcodeproj/project.pbxproj`（避免每次都得 `make xcodegen`）；`make xcodegen` 会从 `project.yml` 重生成，两边须一致。
+  2. cmdline 传 `TEST_HOST=` 是全局的，会污染 `QiuJiUITests`（USES_XCTRUNNER 冲突）；正确做法是写进 target 设置而非命令行覆盖。
+  3. 改 `PRODUCT_NAME` 时必须同步 `TEST_HOST` 路径与 `PRODUCT_MODULE_NAME`。
+- **效果**：修复后 `xcodebuild test -only-testing:QiuJiTests` 全量 **241/241 通过**（此前命令行从未编译过，历史"235/235"为改名前或 Xcode GUI 跑出）。
+- **日期**：2026-06-02
+- **回写目标**：
+  - `.cursor/rules/60-devops-release.mdc` § 经验教训（构建/测试宿主配置）
+- **已应用至**：
+  - ✅ `project.yml`（QiuJi.PRODUCT_MODULE_NAME + QiuJiTests.TEST_HOST/BUNDLE_LOADER）+ `QiuJi.xcodeproj/project.pbxproj`（2026-06-02）；待回写 `60-devops-release.mdc`
+
+---
+
+## PD-008
+- **任务**：T-P10-A4 动作库内容管线雏形（ADR-P10-01）
+- **模式描述**：**「物理引擎作为离线内容烘焙器，以 XCTest 为命令行载体」**。当 App 内已有物理引擎（依赖 SceneKit），需要把它从「运行时消费」扩展为「离线内容管线」（意图→精确轨迹回填 JSON）时，不要新建 SPM 可执行 target（会被迫单独打包 SceneKit 依赖、且无法 `@testable import` 复用 App 类型）。改用一个**烘焙跑测**（`@testable import` App 模块、复用既有 test host）：测试读取内容 → 调引擎门面 → 在控制台 `===BAKE …===` 标记间打印回填用 JSON + 校验报告行，人工拷回内容文件。既得「命令行可引用」，又零额外打包成本，并自带回归断言。
+- **适用场景**：任何「App 内算法/引擎需被离线内容生产复用」的场景（轨迹烘焙、坐标预计算、内容物理校验等），尤其当算法依赖 UIKit/SceneKit 等只在 App target 可用的框架时。
+- **代码示例**（要点）：
+  ```swift
+  // 门面：纯函数，值类型进出（ShotBaker.bake(_:surfaceY:) -> BakeResult）
+  // 跑测：从 Bundle 读内容 → bake → XCTAssert(feasible) → print 回填 JSON（带标记）
+  let encoder = JSONEncoder()
+  encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+  print("===BAKE \(id) shot=\(i)==="); print(json); print("===END \(id)===")
+  ```
+- **关键约束**：
+  1. 坐标桥复用既有归一化↔场景映射（`AngleSceneCalculator.normalizedToScene/sceneToNormalized`），不另起坐标空间。
+  2. 回填到**现有**渲染字段（此处 `DrillAnimation`）+ 仅追加**可选**元数据（`source`/`generator`），保证渲染层与旧内容零回归。
+  3. 力度等作者参数按真实可调诉求选型——本任务按用户要求用**连续 velocity(m/s)** 而非离散枚举（精准走位）。
+- **效果**：5 条多类别试点（c001/c002/c005/c014/c024）烘焙 5/5 feasible，`QiuJiTests` 203/203；新增 `ShotIntent.swift`/`ShotBaker.swift`/`DrillBakeRunnerTests.swift`，`DrillContent`/`DrillAnimation` 仅加可选字段。
+- **日期**：2026-06-04
+- **回写目标**：
+  - `.cursor/skills/content-engineering/SKILL.md` § Drill JSON Schema（shotIntent 与烘焙 SOP）
+- **已应用至**：
+  - ✅ `.cursor/skills/content-engineering/SKILL.md` + `QiuJi/Resources/Drills/schema.md`（2026-06-04，新增 `shotIntent` 章节 + 作者 SOP）；ADR-P10-01 见 `tasks/phases/P10-physics-content-pipeline.md`
+
+## DR-015
+- **任务**：动作库 2D 球桌渲染升级（用户驱动 ad-hoc — 反馈「我没看到动作库里改了哪里」「原来的 BTMiniTable 要废弃掉，使用现在真实的 2D 球桌」）
+- **原始规范**：动作库网格卡 / `BTDrillThumbnail` / 计划详情迷你台用 `BTMiniTable`（平涂台呢 + 实心扁圆 + 手画虚线）；详情页 / 记录页用 `BTBilliardTable`（木纹观感库边 + Canvas 扁球）。两套观感与角度训练页那套拟真台（`BTAimTableView` feltOnly + `BTRealisticBall`）割裂。
+- **调整后**：新建统一拟真渲染器 `BTDrillTableView`——`BTAimTableView` feltOnly 拟真台呢 + `BTRealisticBall` 球体高光 + 烘焙/手画轨迹（圆头圆角虚线）+ 简洁袋口标记 + 目标袋 `btPrimary` 光环。单一组件双模式：`animationProgress == nil` 静态缩略图（球停起点 + 全画轨迹）；`!= nil` 动画/回放（轨迹逐段绘制 + 球随相位移动）。
+  - 删除 `BTMiniTable.swift`；`BTBilliardTable` 退化为薄封装委托 `BTDrillTableView`（保留 `animationProgress` 绑定 API，`DrillDetailView`/`DrillRecordView` 零改动）。
+  - `TableRender` 常量保留（`BTAngleTestTable` 仍依赖）。
+  - 去掉 `BTDrillCard` 的 `BTDrillPreviewPlayer` PNG 帧短路（此前 c005 的烘焙轨迹被旧 PNG 盖住，用户无法看到改动）。
+- **原因**：用户明确要废弃粗糙的 BTMiniTable、动作库统一用已认可的拟真 2D 台；之前对木纹库边/皮革袋口那套「low 爆了」，故拟真路线统一走 feltOnly 干净台呢。
+- **影响组件**：
+  - `QiuJi/Core/Components/BTDrillTableView.swift`（新建，统一渲染器）
+  - `QiuJi/Core/Components/BTBilliardTable.swift`（退化为薄封装，保留 `TableRender`）
+  - `QiuJi/Core/Components/BTMiniTable.swift`（删除）
+  - `QiuJi/Core/Components/BTDrillCard.swift`（网格卡 + `BTDrillThumbnail` 改用 `BTDrillTableView`，去 PNG 短路）
+  - `QiuJi/Features/Training/Views/PlanDetailView.swift`（迷你台改用 `BTDrillTableView(showsBalls:false)`）
+  - `QiuJiUITests/ScreenshotTourUITests.swift`（新增 `testDrillLibraryOnly` 聚焦截图测试）
+- **验证**：`make build` ✅、lint 0、`testDrillLibraryOnly` UI 截图测试通过（网格 + 详情页拟真渲染确认）。
+- **日期**：2026-06-04
+- **回写目标**：
+  - `tasks/UI-IMPLEMENTATION-SPEC.md` § 组件库（BTMiniTable → BTDrillTableView）+ Changelog
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 组件（拟真台 = `BTAimTableView` + `BTRealisticBall` + `BTDrillTableView`）
+- **已应用至**：
+  - ✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-04，DR-015）
+- **后续**：被 DR-016 取代（用户进一步明确要 USDZ 真台 2D 顶视那套，而非 SwiftUI 拟真 Canvas）。
+
+## DR-016
+- **任务**：动作库 2D 球桌渲染再升级 → 复用角度页「USDZ 真台 2D 顶视」那套（用户驱动：「不要用这种，要用角度页面里的 2D 视角的 usdz 球桌那一套」）
+- **原始规范（DR-015）**：动作库网格/详情用 SwiftUI Canvas 拟真渲染器 `BTDrillTableView`（`BTAimTableView` feltOnly + `BTRealisticBall`）。
+- **调整后**：统一改用 `AngleTrainingScene`（`TaiQiuZhuo.usdz` 真台 + 抽取球节点 + plain 光照）切正交顶视相机的真渲染：
+  - **缩略图（网格卡 / `BTDrillThumbnail` / 计划迷你台）**：**离线烘焙 PNG**。新增 `DrillThumbnailRenderer`（`DrillAnimation` → 配置 2D 顶视场景 + 摆球（放大 1.8×）+ 画烘焙/手画轨迹 → `SCNRenderer` 离屏快照 UIImage）。`DrillThumbnailBakeRunnerTests` 作为命令行烘焙载体，遍历 `index.allDrillIds` 渲染 72/72 PNG 写入 `QiuJi/Resources/DrillThumbnails/<id>.png`。运行时 `BTBakedDrillTable` + `DrillThumbnailStore`（NSCache）秒加载，**零 SceneKit 运行时成本**（不能把 N 个 USDZ 场景塞进可滚动网格——`setupScene()` 每次解析 USDZ 开销大）。
+  - **详情页**：**live 场景**。新增 `DrillSceneView` + `DrillSceneController`，复用 `AngleSceneView`（`interactionMode .none`）渲染 USDZ 2D 顶视 + 摆球（放大 1.3×）+ 烘焙轨迹，播放按钮按相位回放母球/目标球沿轨迹运动。
+  - **记录页「球台示意」**：改用轻量 `BTBakedDrillTable(drillId:)` 静态烘焙图。
+  - **打包**：`patch-pbxproj-folder-refs.py` 新增 `DrillThumbnails` folder ref（D）。
+  - **退役**：删除 `BTDrillTableView.swift`（DR-015 产物）；`BTBilliardTable` 整体移除，`BTBilliardTable.swift` 仅保留 `TableRender` 常量（`BTAngleTestTable` 仍依赖）。
+- **原因**：DR-015 的 SwiftUI Canvas 拟真台仍与角度页真 USDZ 台观感割裂；用户要求动作库与角度页**同源同观感**。性能约束决定缩略图必须离线烘焙、详情页用单个 live 场景。
+- **影响组件**：
+  - `QiuJi/Core/Scene/DrillThumbnailRenderer.swift`（新建，离屏烘焙器）
+  - `QiuJi/Core/Scene/DrillSceneView.swift`（新建，详情页 live 场景 + 回放）
+  - `QiuJi/Core/Components/BTBakedDrillTable.swift`（新建，运行时烘焙图视图 + `DrillThumbnailStore`）
+  - `QiuJi/Core/Components/BTDrillTableView.swift`（删除）
+  - `QiuJi/Core/Components/BTBilliardTable.swift`（移除 `BTBilliardTable` 视图，仅留 `TableRender`）
+  - `QiuJi/Core/Components/BTDrillCard.swift`、`QiuJi/Features/Training/Views/PlanDetailView.swift`、`QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift`、`QiuJi/Features/Training/Views/DrillRecordView.swift`（改用烘焙图 / live 场景）
+  - `QiuJiTests/DrillThumbnailBakeRunnerTests.swift`（新建，全量烘焙载体）
+  - `QiuJi/Resources/DrillThumbnails/*.png`（72 张烘焙缩略图）
+  - `scripts/patch-pbxproj-folder-refs.py`（新增 DrillThumbnails folder ref）
+- **验证**：`make build` ✅、lint 0、烘焙 72/72 ✅、`testDrillLibraryOnly` UI 截图测试通过（网格烘焙 PNG + 详情页 live USDZ 2D 顶视确认）。
+- **日期**：2026-06-04
+- **回写目标**：
+  - `tasks/UI-IMPLEMENTATION-SPEC.md` § 组件库（BTDrillTableView → BTBakedDrillTable + DrillSceneView）+ Changelog
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 组件（动作库 2D 台 = 离线烘焙 USDZ PNG + 详情 live 场景）
+- **已应用至**：
+  - ✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-04，DR-016）
+
+## PD-009
+- **任务**：P10 Track B-1 物理保真进球管线（ADR-P10-02）
+- **模式描述**：**「物理判定用真实结构涌现、不要调大判定圆糊弄；求解器评分量纲一致；先测量证伪假设再改几何」**。可复用纪律：
+  1. **真实结构优先于调参**：袋口进/rattle 应由**真实几何**（jaw 库 + 喉腔侧壁/后壁 + 物理落袋孔，`throatCushions`）涌现，而非「把捕获半径调大到能进球」（用户判定后者为偷懒、非真实物理）。先尝试的「放宽捕获半径到 0.055」被用户驳回，改建喉腔结构（穿库飞出 8%→2.7%，rattle 自然产生）。
+  2. **分清正向判定(A)与反向求解(B)**：A＝球来时由真实袋口几何决定进/rattle；B＝固定力度+塞采样/寻优最优接触点、在 A 下让球落袋。B 评分调用 A（真实模拟），不另算一套。
+  3. **评分量纲纪律**：连续主距离项（米，~0.01–0.1）的附加惩罚（scratch/出界）必须 mm 级（0.002）；误用 1.0 大值会压过主项把求解逼到「啥也不沾的远解」（本任务 45° 切角回归坑）。硬优先级用离散基线（进袋 −10 / 未进 ≥0）。
+  4. **测量先于改几何**：把"jaw 错位 17mm"当待证伪命题，先程序化实测（USDZ 网格遍历）核对——实测证明库边/袋心/jaw 自洽，根因实为「袋口缺真实结构 + 求解器坏局部最优」，避免了对正确几何的高风险改动。
+- **适用场景**：任何「物理判定 / 模拟+搜索多目标评分」的求解（袋口、瞄准、走位）；任何「报告把现象归因到某处、但改动成本/风险高」的标定任务。
+- **关键约束**：
+  - 进袋判定用**显示同源的钳制轨迹**最近点（轨迹基），而非裸 pocket 事件（穿库假阳性）；物理**落袋孔半径**与**视觉标记半径**解耦（`*DropRadius` vs `*PocketRadius`）。
+- **效果**：真实袋口物理（喉腔模型）下 E-solver 角袋 cut0–45 全力度进、cut55 个别力度敏感、中袋全力度进、c002 转 ✅、`QiuJiTests` 291/291；新增 `PhysicsEngineTests` 3 条保真断言 + `TableGeometryProbeTests` 实测/诊断。
+- **日期**：2026-06-04
+- **回写目标**：
+  - `.cursor/rules/10-ios-architect.mdc` § 经验教训（物理求解器评分量纲 + 测量先于改几何）
+- **已应用至**：
+  - ✅ `.cursor/rules/10-ios-architect.mdc` § 经验教训（2026-06-04，PD-009）；ADR-P10-02 见 `tasks/phases/P10-physics-content-pipeline.md`

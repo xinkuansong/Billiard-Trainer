@@ -266,3 +266,203 @@ final class AngleUsageLimiterTests: XCTestCase {
         XCTAssertEqual(limiter.questionsUsedToday, 7)
     }
 }
+
+// MARK: - AngleSceneCalculator Tests (T-P9-02 coordinate mapping)
+
+import SceneKit
+
+final class AngleSceneCalculatorTests: XCTestCase {
+
+    private let surfaceY: Float = 0.8
+
+    /// T-P9-02 DoD: 坐标映射往返精度 < 0.001
+    func test_normalizedToScene_roundTrip_accuracyUnder0001() {
+        let samples: [CGPoint] = [
+            CGPoint(x: 0.0, y: 0.0),
+            CGPoint(x: 1.0, y: 0.5),
+            CGPoint(x: 0.5, y: 0.25),
+            CGPoint(x: 0.25, y: 0.1),
+            CGPoint(x: 0.73, y: 0.42),
+            CGPoint(x: 0.99, y: 0.01),
+        ]
+        for point in samples {
+            let scene = AngleSceneCalculator.normalizedToScene(point: point, surfaceY: surfaceY)
+            let back = AngleSceneCalculator.sceneToNormalized(position: scene)
+            XCTAssertEqual(Double(back.x), Double(point.x), accuracy: 0.001,
+                           "x round-trip drift for \(point)")
+            XCTAssertEqual(Double(back.y), Double(point.y), accuracy: 0.001,
+                           "y round-trip drift for \(point)")
+        }
+    }
+
+    func test_normalizedCenter_mapsToWorldOrigin() {
+        let scene = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: 0.5, y: 0.25),
+                                                           surfaceY: surfaceY)
+        XCTAssertEqual(scene.x, 0, accuracy: 0.0001)
+        XCTAssertEqual(scene.z, 0, accuracy: 0.0001)
+        XCTAssertEqual(scene.y, surfaceY + AngleSceneCalculator.ballRadius, accuracy: 0.0001)
+    }
+
+    func test_normalizedToScene_spansFullTable() {
+        let minPt = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: 0, y: 0), surfaceY: surfaceY)
+        let maxPt = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: 1, y: 0.5), surfaceY: surfaceY)
+        XCTAssertEqual(minPt.x, -AngleSceneCalculator.innerLength / 2, accuracy: 0.0001)
+        XCTAssertEqual(maxPt.x,  AngleSceneCalculator.innerLength / 2, accuracy: 0.0001)
+        XCTAssertEqual(minPt.z, -AngleSceneCalculator.innerWidth / 2, accuracy: 0.0001)
+        XCTAssertEqual(maxPt.z,  AngleSceneCalculator.innerWidth / 2, accuracy: 0.0001)
+    }
+
+    func test_lateralDisplacement_2sinAlpha_knownValues() {
+        XCTAssertEqual(AngleSceneCalculator.lateralDisplacement(cutAngle: 0), 0.0, accuracy: 0.001)
+        XCTAssertEqual(AngleSceneCalculator.lateralDisplacement(cutAngle: 30), 1.0, accuracy: 0.001)
+        XCTAssertEqual(AngleSceneCalculator.lateralDisplacement(cutAngle: 90), 2.0, accuracy: 0.001)
+    }
+
+    func test_ghostBall_sitsTwoRadiiBehindTargetAlongPocketLine() {
+        let target = SCNVector3(0, surfaceY, 0)
+        let pocket = SCNVector3(1, surfaceY, 0)   // pocket directly +x of target
+        let ghost = AngleSceneCalculator.ghostBallPosition(
+            targetBall: target, pocket: pocket, ballRadius: AngleSceneCalculator.ballRadius
+        )
+        // Ghost ball is opposite the pocket direction at distance 2R.
+        XCTAssertEqual(ghost.x, target.x - 2 * AngleSceneCalculator.ballRadius, accuracy: 0.0001)
+        XCTAssertEqual(ghost.z, target.z, accuracy: 0.0001)
+    }
+
+    func test_cutAngle_straightShot_isZero() {
+        // Cue, target, pocket all colinear along +x → straight shot, 0°.
+        let cue = SCNVector3(-0.5, surfaceY, 0)
+        let target = SCNVector3(0, surfaceY, 0)
+        let pocket = SCNVector3(1, surfaceY, 0)
+        let angle = AngleSceneCalculator.cutAngle(cueBall: cue, targetBall: target, pocket: pocket)
+        XCTAssertEqual(angle, 0, accuracy: 0.5)
+    }
+}
+
+// MARK: - CushionReflection (真实反射模式) Tests (ADR-P9-02)
+
+final class CushionReflectionTests: XCTestCase {
+
+    private let surfaceY: Float = 0.8
+    private var y: Float { surfaceY + AngleSceneCalculator.ballRadius }
+
+    private func norm(_ v: SCNVector3) -> SCNVector3 {
+        let len = sqrtf(v.x * v.x + v.z * v.z)
+        return len > 1e-6 ? SCNVector3(v.x / len, 0, v.z / len) : v
+    }
+
+    // MARK: reflect() — tangential shrink
+
+    func test_reflect_idealKeepsIncidenceEqualsReflection() {
+        let rail = CushionReflectionSolver.Rail(isLong: true, coord: -0.5)   // 长库，法向沿 Z
+        let d = norm(SCNVector3(0.6, 0, -0.8))
+        let out = CushionReflectionSolver.reflect(dir: d, rail: rail, factor: 1.0)
+        // 法向分量翻转、切向分量不变 → 入射角 = 反射角。
+        XCTAssertEqual(out.x, d.x, accuracy: 0.001)
+        XCTAssertEqual(out.z, -d.z, accuracy: 0.001)
+    }
+
+    func test_reflect_factorScalesTangentTangentMonotonically() {
+        let rail = CushionReflectionSolver.Rail(isLong: true, coord: -0.5)
+        let d = norm(SCNVector3(0.6, 0, -0.8))
+        func outTan(_ f: Float) -> Float {
+            let o = CushionReflectionSolver.reflect(dir: d, rail: rail, factor: f)
+            return abs(o.x) / abs(o.z)   // tan(出射角 相对法线)
+        }
+        let inTan = abs(d.x) / abs(d.z)
+        // tan θ_out = factor · tan θ_in，且法向始终翻转。
+        XCTAssertEqual(outTan(1.0), inTan, accuracy: 0.001)
+        XCTAssertEqual(outTan(0.8), inTan * 0.8, accuracy: 0.001)
+        XCTAssertGreaterThan(outTan(1.0), outTan(0.9))
+        XCTAssertGreaterThan(outTan(0.9), outTan(0.8))
+    }
+
+    func test_reflect_shortRailFlipsXScalesZ() {
+        let rail = CushionReflectionSolver.Rail(isLong: false, coord: 0.7)   // 短库，法向沿 X
+        let d = norm(SCNVector3(0.8, 0, 0.6))
+        let out = CushionReflectionSolver.reflect(dir: d, rail: rail, factor: 0.8)
+        XCTAssertLessThan(out.x, 0, "法向 (X) 必须翻转")
+        XCTAssertGreaterThan(out.z, 0, "切向 (Z) 同号")
+        // 单位向量。
+        XCTAssertEqual(sqrtf(out.x * out.x + out.z * out.z), 1.0, accuracy: 0.001)
+    }
+
+    // MARK: shoot() — 单库追迹在 factor=1 时等于镜像反射
+
+    func test_shoot_idealSingleCushion_matchesMirrorReflection() {
+        // 长库 left：Z = -halfW。start 与 target 同在 +X 侧，经一次左库反射；
+        // 选偏 +X 的落点，避开正中（0,-halfW）的中袋。
+        let halfW = CushionReflectionSolver.halfW
+        let start = SCNVector3(0.2, y, 0.1)
+        let target = SCNVector3(0.9, y, 0.3)
+        let rail = CushionReflectionSolver.Rail(isLong: true, coord: -halfW)
+
+        guard let path = CushionReflectionSolver.shoot(
+            start: start, target: target, rails: [rail], factor: 1.0, y: y
+        ) else {
+            return XCTFail("理想单库追迹应有解")
+        }
+        XCTAssertEqual(path.count, 3)                 // [start, 反弹点, target]
+        let bounce = path[1]
+        XCTAssertEqual(bounce.z, -halfW, accuracy: 0.001, "反弹点必须落在左库上")
+
+        // 镜像法：target 关于左库镜像，直线与库交点即理想反弹点。
+        let imgZ = 2 * (-halfW) - target.z
+        let tX = (-halfW - start.z) / (imgZ - start.z)
+        let expectedX = start.x + tX * (target.x - start.x)
+        XCTAssertEqual(bounce.x, expectedX, accuracy: 0.005, "factor=1 必须复现镜像反射结果")
+    }
+
+    // MARK: solveAll 集成 — 理想 / 真实
+
+    private func interiorDivergence(_ a: [SCNVector3], _ b: [SCNVector3]) -> Float {
+        guard a.count == b.count, a.count >= 2 else { return .greatestFiniteMagnitude }
+        var sum: Float = 0
+        for i in 1..<(a.count - 1) {
+            let dx = a[i].x - b[i].x, dz = a[i].z - b[i].z
+            sum += sqrtf(dx * dx + dz * dz)
+        }
+        return sum
+    }
+
+    func test_diamondSolveAll_idealMode_noIdealOverlay() {
+        let cue = SCNVector3(DiamondSystemCalculator.halfL * 0.5, y, DiamondSystemCalculator.halfW * 0.4)
+        let target = SCNVector3(-DiamondSystemCalculator.halfL * 0.4, y, -DiamondSystemCalculator.halfW * 0.25)
+        let ideal = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 1.0)
+        XCTAssertFalse(ideal.isEmpty, "默认配置应有理想解")
+        XCTAssertNil(ideal.first?.idealPath, "理想模式不携带对照路径")
+    }
+
+    func test_diamondSolveAll_realMode_carriesIdealOverlayAndDiverges() {
+        let cue = SCNVector3(DiamondSystemCalculator.halfL * 0.5, y, DiamondSystemCalculator.halfW * 0.4)
+        let target = SCNVector3(-DiamondSystemCalculator.halfL * 0.4, y, -DiamondSystemCalculator.halfW * 0.25)
+
+        let real85 = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 0.85)
+        XCTAssertFalse(real85.isEmpty, "真实模式 0.85 应至少有一个解")
+
+        guard let s = real85.first, let ideal = s.idealPath else {
+            return XCTFail("真实模式解必须携带理想对照路径")
+        }
+        // 端点（起点/终点）与理想一致，仅中间反弹点偏移。
+        XCTAssertEqual(s.path.first!.x, ideal.first!.x, accuracy: 0.001)
+        XCTAssertEqual(s.path.last!.x, ideal.last!.x, accuracy: 0.02)
+        XCTAssertGreaterThan(interiorDivergence(s.path, ideal), 0.002,
+                             "factor=0.85 真实路线应明显偏离理想路线")
+    }
+
+    func test_diamondSolveAll_divergenceGrowsAsFactorShrinks() {
+        let cue = SCNVector3(DiamondSystemCalculator.halfL * 0.5, y, DiamondSystemCalculator.halfW * 0.4)
+        let target = SCNVector3(-DiamondSystemCalculator.halfL * 0.4, y, -DiamondSystemCalculator.halfW * 0.25)
+
+        let real99 = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 0.99)
+        let real85 = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 0.85)
+        guard let s99 = real99.first, let i99 = s99.idealPath,
+              let s85 = real85.first(where: { $0.railSequenceText == s99.railSequenceText && $0.path.count == s99.path.count }),
+              let i85 = s85.idealPath else {
+            return XCTFail("应能在 0.99 与 0.85 找到同一库序解用于对比")
+        }
+        let div99 = interiorDivergence(s99.path, i99)
+        let div85 = interiorDivergence(s85.path, i85)
+        XCTAssertLessThan(div99, div85, "缩小因子越接近 1，真实路线越贴近理想路线")
+    }
+}

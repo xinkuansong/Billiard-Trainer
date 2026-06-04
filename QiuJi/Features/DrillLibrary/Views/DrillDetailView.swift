@@ -6,7 +6,6 @@ struct DrillDetailView: View {
     let drillId: String
 
     @State private var drill: DrillContent?
-    @State private var animationProgress: CGFloat = 0
     @State private var showSubscription = false
     @State private var showTutorial = false
     @State private var playingVideo: DrillVideo?
@@ -89,9 +88,6 @@ struct DrillDetailView: View {
         }
         .task {
             await loadDrill()
-            withAnimation(.easeInOut(duration: 1.4)) {
-                animationProgress = 1
-            }
         }
         .navigationDestination(isPresented: $showTutorial) {
             if let drill {
@@ -110,36 +106,8 @@ struct DrillDetailView: View {
     // MARK: - Table Canvas
 
     private func tableSection(_ drill: DrillContent) -> some View {
-        Group {
-            if BTDrillPreviewPlayer.hasAssets(for: drill.id) {
-                BTDrillPreviewPlayer(drillId: drill.id, mode: .animated, showsReplayButton: false)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-            } else {
-                ZStack(alignment: .bottom) {
-                    BTBilliardTable(animation: drill.animation, animationProgress: $animationProgress)
-
-                    HStack {
-                        Button {
-                            animationProgress = 0
-                            withAnimation(.easeInOut(duration: 1.4)) {
-                                animationProgress = 1
-                            }
-                        } label: {
-                            Image(systemName: "arrow.counterclockwise")
-                                .font(.btFootnote14)
-                                .foregroundStyle(.white)
-                                .frame(width: 32, height: 32)
-                                .background(.black.opacity(0.4))
-                                .clipShape(Circle())
-                        }
-
-                        Spacer()
-                    }
-                    .padding(Spacing.md)
-                }
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
+        DrillSceneView(animation: drill.animation)
+            .padding(.horizontal, Spacing.lg)
     }
 
     // MARK: - Action Icon Row (gray, not green)

@@ -1,12 +1,20 @@
 import SwiftUI
 
 struct BTExerciseRow: View {
+    enum Accessory {
+        /// 进度统计 + 齿轮（默认，用于总览列表）
+        case settings
+        /// 进度统计 + “精讲” 提示，表明点击可查看动作教程
+        case tutorial
+    }
+
     let drillName: String
     let thumbnailAnimation: DrillAnimation?
     let totalSets: Int
     let completedSets: Int
     let madeBalls: Int
     let targetBalls: Int
+    var accessory: Accessory = .settings
     var onTap: () -> Void = {}
 
     @Environment(\.colorScheme) private var colorScheme
@@ -32,6 +40,7 @@ struct BTExerciseRow: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(drillName), \(completedSets)/\(totalSets) 组, \(madeBalls)/\(targetBalls) 球")
+        .accessibilityHint(accessory == .tutorial ? "查看动作精讲" : "")
     }
 
     // MARK: - Thumbnail
@@ -82,9 +91,20 @@ struct BTExerciseRow: View {
                 .font(.btSubheadline)
                 .foregroundStyle(.btTextSecondary)
 
-            Image(systemName: "gearshape")
-                .font(.btFootnote14)
-                .foregroundStyle(.btTextTertiary)
+            switch accessory {
+            case .settings:
+                Image(systemName: "gearshape")
+                    .font(.btFootnote14)
+                    .foregroundStyle(.btTextTertiary)
+            case .tutorial:
+                HStack(spacing: 2) {
+                    Text("精讲")
+                        .font(.btCaption)
+                    Image(systemName: "chevron.right")
+                        .font(.btCaption2.weight(.semibold))
+                }
+                .foregroundStyle(.btPrimary)
+            }
         }
     }
 }

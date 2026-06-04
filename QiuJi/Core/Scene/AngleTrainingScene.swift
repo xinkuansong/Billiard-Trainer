@@ -815,6 +815,48 @@ final class AngleTrainingScene: SCNScene {
         node.removeFromParentNode()
     }
 
+    /// 画一条虚线（由等距短实线段拼成），用于真实模式下的「理想路线」对照。
+    /// 返回的父节点持有所有段，便于统一清理。
+    func addDashedLine(from start: SCNVector3, to end: SCNVector3, color: UIColor,
+                       radius: Float = 0.003, dash: Float = 0.03, gap: Float = 0.022) -> SCNNode {
+        let parent = SCNNode()
+        let dx = end.x - start.x, dy = end.y - start.y, dz = end.z - start.z
+        let total = sqrtf(dx * dx + dy * dy + dz * dz)
+        guard total > 0.001 else { return parent }
+        let ux = dx / total, uy = dy / total, uz = dz / total
+        let stride = dash + gap
+        var t: Float = 0
+        while t < total {
+            let segLen = min(dash, total - t)
+            guard segLen > 0.001 else { break }
+            let a = SCNVector3(start.x + ux * t, start.y + uy * t, start.z + uz * t)
+            let b = SCNVector3(start.x + ux * (t + segLen),
+                               start.y + uy * (t + segLen),
+                               start.z + uz * (t + segLen))
+            parent.addChildNode(makeSegment(from: a, to: b, color: color, radius: radius))
+            t += stride
+        }
+        rootNode.addChildNode(parent)
+        return parent
+    }
+
+    /// 不挂载到 root 的单段圆柱，供 `addDashedLine` 组装。
+    private func makeSegment(from start: SCNVector3, to end: SCNVector3,
+                             color: UIColor, radius: Float) -> SCNNode {
+        let dx = end.x - start.x, dy = end.y - start.y, dz = end.z - start.z
+        let length = sqrtf(dx * dx + dy * dy + dz * dz)
+        let cylinder = SCNCylinder(radius: CGFloat(radius), height: CGFloat(max(length, 0.0005)))
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .constant
+        cylinder.materials = [material]
+        let node = SCNNode(geometry: cylinder)
+        node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
+        node.look(at: SCNVector3(end.x, end.y, end.z), up: rootNode.worldUp,
+                  localFront: SCNVector3(0, 1, 0))
+        return node
+    }
+
     // MARK: - Pocket Markers (leather cut-out overlays)
 
     /// Add 6 pocket-marker overlays as flat smooth circles centered on each pocket's hole.

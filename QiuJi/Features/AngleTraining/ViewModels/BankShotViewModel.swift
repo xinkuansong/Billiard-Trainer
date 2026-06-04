@@ -20,7 +20,24 @@ final class BankShotViewModel: ObservableObject {
     @Published private(set) var currentCutAngle: Int = 0
     @Published private(set) var hasSolution: Bool = false
 
+    /// 真实反射模式开关（库边「偏短」），与反射解球器页共享同一持久化设置。
+    @Published var realMode: Bool = CushionReflectionSettings.realMode {
+        didSet {
+            CushionReflectionSettings.realMode = realMode
+            recompute()
+        }
+    }
+    /// 缩小因子（0.50–1.00）；仅真实模式下生效。
+    @Published var reflectionFactor: Double = Double(CushionReflectionSettings.factor) {
+        didSet {
+            CushionReflectionSettings.factor = Float(reflectionFactor)
+            if realMode { recompute() }
+        }
+    }
+
     let cushionOptions = [1, 2, 3]
+
+    private var effectiveFactor: Float { realMode ? Float(reflectionFactor) : 1.0 }
 
     /// 各袋口名称（顺序同 pocketPositions：左上/右上/左下/右下/上中/下中）。
     let pocketNames = ["左上", "右上", "左下", "右下", "上中", "下中"]
@@ -117,7 +134,8 @@ final class BankShotViewModel: ObservableObject {
 
         let prevCushions = currentCushions
         solutions = BankShotCalculator.solveAll(
-            cue: cue, object: object, pocketIndex: selectedPocket, surfaceY: scene.surfaceY
+            cue: cue, object: object, pocketIndex: selectedPocket,
+            surfaceY: scene.surfaceY, factor: effectiveFactor
         )
 
         if let n = selectedCushions {
@@ -195,6 +213,16 @@ final class BankShotViewModel: ObservableObject {
         guard let cue = scene.cueBallNode?.position else { return }
         let path = sol.objectPath
         guard path.count >= 2 else { return }
+
+        // 真实模式：先画理想对照进球线（浅蓝虚线，区别于青色库面法线）。
+        if let ideal = sol.idealObjectPath, ideal.count >= 2 {
+            for i in 0..<(ideal.count - 1) {
+                let dash = scene.addDashedLine(from: ideal[i], to: ideal[i + 1],
+                                               color: UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 0.8),
+                                               radius: 0.003)
+                pathNodes.append(dash)
+            }
+        }
 
         // 进球线（目标球的翻袋路线）：黄线 + 反弹红点。
         for i in 0..<(path.count - 1) {

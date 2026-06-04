@@ -58,6 +58,7 @@ struct BankShotView: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             pocketPicker
             cushionPicker
+            ReflectionModeControl(realMode: $vm.realMode, factor: $vm.reflectionFactor)
             infoPill
             HStack {
                 Text("拖动母球（白）与目标球（黑）· 选择要翻进的袋口")
@@ -241,6 +242,10 @@ private struct BankShotInfoSheet: View {
                     principleBlock(
                         title: "操作",
                         body: "拖动母球（白）与目标球（黑）到任意位置；点选顶部袋口标签或直接点台面上的袋口；选「自动」求最少库数，或手选 1–3 库。多条解时点「下一解」切换不同撞库顺序；点「重置」恢复默认。"
+                    )
+                    principleBlock(
+                        title: "理想 / 真实模式",
+                        body: "顶部可切换「理想 / 真实」。真实模式按缩小因子让翻库「偏短」（反射角相对法线略小于入射角），并用蓝色虚线叠加理想进球线作对照，瞄准线会据真实路线重新反推。拖动缩小因子滑块（0.50–1.00），几次试打后拟合你常玩球台与发力；该因子与反射解球器共享并会被记住。"
                     )
                     principleBlock(
                         title: "实战提示",

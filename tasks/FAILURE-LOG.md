@@ -112,8 +112,8 @@
 - **根因**：`project.yml` 里 `Resources/{Drills,Plans,Videos}` 用 `type: folder` 声明，但 xcodegen 2.45.3 **不会**为这些 `type: folder` 的 resources 生成 Xcode 蓝色 folder reference。pbxproj 中只有同名 file reference（或干脆缺失），导致打包后 .app 根目录下没有 `Drills/`、`Plans/`、`Videos/` 子目录，Bundle 无法解析子目录路径。HEAD 上的 pbxproj 是被前人手工补过 folder ref 的，运行 `xcodegen generate` 会立即抹掉。
 - **解决**：✅ 新增 `scripts/patch-pbxproj-folder-refs.py`：xcodegen 跑完后注入三个 folder reference（lastKnownFileType = folder），同时把 build file 加进**主 app target** 的 `PBXResourcesBuildPhase`（注意区分 LiveActivity 扩展那个 Resources 阶段，用 `TaiQiuZhuo.usdz` 作为锚点）。`scripts/Makefile` 新增 `make xcodegen` 串联两步；`project.yml` 顶部加注释禁止裸跑 `xcodegen generate`（2026-05-25）
 - **日期**：2026-05-25
-- **规则改进建议**：xcodegen 中所有 `type: folder` 的 resources 必须配套后处理补丁；禁止 README 之外的任何地方建议"直接跑 xcodegen generate"。新增 folder 资源时同步更新 `scripts/patch-pbxproj-folder-refs.py` 的 FOLDERS 表
-- **已应用至**：✅ `scripts/patch-pbxproj-folder-refs.py` + `scripts/Makefile` `xcodegen` 目标 + `project.yml` 顶部告警（2026-05-25）；待回写至 `60-devops-release.mdc` § 经验教训
+- **规则改进建议**：~~xcodegen 中所有 `type: folder` 的 resources 必须配套后处理补丁；禁止裸跑 xcodegen generate~~ **（已被 FL-017 取代：改用 `sources: {type: folder, buildPhase: resources}` 原生生成 folder reference，无需补丁，可裸跑 xcodegen）**
+- **已应用至**：~~`scripts/patch-pbxproj-folder-refs.py`~~（2026-06-04 已删除，见 FL-017）；当前方案见 FL-017
 
 ## FL-011
 - **任务**：UI Review（全 App 浅色截图审查 UR-20260529）
@@ -169,3 +169,25 @@
 - **日期**：2026-06-01
 - **规则改进建议**：① Canvas 绘制中凡"已含 scale 的派生量"（如 `env.ballRadius = token * s`）不得再乘 `s`，新增 draw 函数须复用 env 派生量、不混用裸 token×s 与 env 值；② 同一图标族强制共享线宽/半径 token，避免逐函数散落系数；③ 列表/入口图标统一走 `BTIconBadge`，颜色收口"品牌绿为主、金仅唯一强调"，禁止 system 彩色（红/蓝/紫）圆底；④ 空状态图标须符合台球语义，禁用 figure.*（健身）/hammer 等离题符号。
 - **已应用至**：✅ `BTDrillCategoryIcon.swift` / `IconToken.swift`(BTIconBadge) / `ProfileView.swift` / `TrainingHomeView.swift` / `BTTrainingIcon.swift`（2026-06-01）；待回写 `20-swiftui-developer.mdc` 与 `57-ui-reviewer.mdc` § 经验教训
+
+## FL-016
+- **任务**：QA-P9 验收（角度功能扩展）— 代码侧逐条复核
+- **现象**：几何角度训练页（`GeometricAngleQuizView` / `GeometricAngleViewModel`）注入了 `AngleUsageLimiter` 并在 `submitAnswer` 调 `recordQuestion()` 计数，但**没有任何 UI 阻断**：`submitAnswer`/`nextQuestion`/"生成随机角度" 均无 `isLimitReached` 守卫，免费用户可无限刷题，违反 T-P9-06 DoD「免费 20 题/天」与 `docs/08` Freemium 边界。SceneKit 角度预测页（`SceneAnglePredictionView`）则已正确阻断 → 两条同类训练路径行为不一致。
+- **严重程度**：P1（商业化边界漏洞）
+- **关联页面**：角度 > 几何角度训练
+- **根因**：✅ 实现时只接了"计数"未接"阻断"；limiter 的 `isLimitReached` / `remainingToday` 在该 View 全文无引用。计数对，闸门缺。
+- **解决**：✅ 已修复（2026-06-02）。对齐 `SceneAnglePredictionView` 既有范式：① 输入区显示「今日剩余 N 题」；② `limiter.isLimitReached` 时 body 改显 `limitReachedCard`（皇冠 + 文案 + 解锁按钮），结果区「下一题」替换为「解锁全部内容」；③ "生成随机角度" 按钮 `.disabled(isLimitReached)`；④ 新增 `.sheet` 弹 `SubscriptionView`。`make build` 通过；`AngleUsageLimiterTests` 7/7 通过。
+- **日期**：2026-06-02
+- **规则改进建议**：凡复用 `AngleUsageLimiter`（或任何 Freemium 限额器）的页面，"计数 `recordQuestion()`" 与 "阻断 `isLimitReached` 守卫 + 升级入口" 必须成对出现；新增同类训练页时以已生效页（`SceneAnglePredictionView`）为范式做对照清单，QA 须逐页核验闸门而非仅看计数。
+- **已应用至**：✅ `GeometricAngleQuizView.swift`（2026-06-02）；待回写 `20-swiftui-developer.mdc` § 经验教训
+
+## FL-017
+- **任务**：动作库缩略图改 USDZ（DR-016）后，用户反馈「计划页面和动作库的内容都看不到了」
+- **现象**：计划页 + 动作库列表内容全空（两页都靠 `Bundle.main` 读 `Drills/`、`Plans/` 子目录）。AI 自测（`make xcodegen` + 截图）一切正常，但用户侧空白。
+- **严重程度**：P0（核心内容不可见）
+- **关联检查项**：DrillContentService.loadFallbackDrills / Plans / DrillThumbnails folder reference
+- **根因**：沿用 FL-010 的「xcodegen 后跑 `patch-pbxproj-folder-refs.py` 注入 folder ref」方案本身**脆弱**——任何一次裸跑 `xcodegen generate`（或在 Xcode 直接 build、或 AI/人忘记走 `make xcodegen`）都会把 folder ref 抹掉，导致 `Drills/Plans/Videos` 不进 bundle、内容全空。复现已确认：裸跑 `xcodegen generate` 后 pbxproj 中 `lastKnownFileType = folder; path = Drills` 计数为 0。
+- **解决**：✅ 根治——把 `Resources/{Drills,Plans,Videos,DrillThumbnails}` 从 `resources:` 移到 `sources:` 下用 `type: folder` + `buildPhase: resources` 声明，xcodegen **原生**生成 folder reference（裸跑 `xcodegen generate` 即可，pbxproj 出现 `lastKnownFileType = folder; ... path = QiuJi/Resources/Drills` 且进主 app `PBXResourcesBuildPhase`）。**删除** `scripts/patch-pbxproj-folder-refs.py`，`make xcodegen` 去掉补丁步骤，`project.yml` 顶部告警改写。裸跑 `xcodegen generate` + clean build + 截图验证：计划页/动作库内容均正常显示。
+- **日期**：2026-06-04
+- **规则改进建议**：**推翻 FL-010 的「必须配后处理补丁 + 禁止裸跑 xcodegen」**。xcodegen 中需保留子目录结构的资源，一律用 `sources: { type: folder, buildPhase: resources }` 原生生成 folder reference，**不要**用 `resources: type: folder`（不被认）也不要事后 patch pbxproj。新增此类资源目录时同步加 `sources` folder 条目 + 主 glob 的 `excludes`。
+- **已应用至**：✅ `project.yml`（sources folder refs）、`scripts/Makefile`（去补丁）、删除 `scripts/patch-pbxproj-folder-refs.py`（2026-06-04）；FL-010 规则标记为已被本条取代；待回写 `60-devops-release.mdc` § 经验教训

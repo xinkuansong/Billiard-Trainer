@@ -24,6 +24,8 @@ struct GeometricAngleQuizView: View {
 
                 if vm.showResult {
                     resultSection
+                } else if vm.limiter.isLimitReached {
+                    limitReachedCard
                 } else if vm.currentAngle > 0 {
                     inputSection
                 }
@@ -43,6 +45,10 @@ struct GeometricAngleQuizView: View {
         }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
+        }
+        .sheet(isPresented: $showSubscription) {
+            SubscriptionView()
+                .environmentObject(subscriptionManager)
         }
     }
 
@@ -67,6 +73,7 @@ struct GeometricAngleQuizView: View {
                 vm.generateRandomAngle()
             }
             .buttonStyle(BTButtonStyle.primary)
+            .disabled(vm.limiter.isLimitReached)
 
             Button(vm.showReferenceGrid ? "隐藏参考" : "显示参考") {
                 vm.showReferenceGrid.toggle()
@@ -117,8 +124,44 @@ struct GeometricAngleQuizView: View {
             }
             .buttonStyle(BTButtonStyle.primary)
             .disabled(vm.userInput.isEmpty)
+
+            if !vm.limiter.isPremium {
+                Text("今日剩余 \(vm.limiter.remainingToday) 题")
+                    .font(.btCaption)
+                    .foregroundStyle(.btAccent)
+            }
         }
         .onAppear { inputFocused = true }
+    }
+
+    // MARK: - Freemium Gate
+
+    private var limitReachedCard: some View {
+        VStack(spacing: Spacing.md) {
+            Image(systemName: "crown.fill")
+                .font(.system(size: 32))
+                .foregroundStyle(.btAccent)
+
+            Text("今日免费次数已用完")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
+            Text("每日可免费练习 \(AngleUsageLimiter.dailyLimit) 题，升级 Pro 后不限次数。")
+                .font(.btSubheadline)
+                .foregroundStyle(.btTextSecondary)
+                .multilineTextAlignment(.center)
+
+            Button {
+                showSubscription = true
+            } label: {
+                Label("解锁全部内容", systemImage: "crown.fill")
+            }
+            .buttonStyle(BTButtonStyle.primary)
+        }
+        .padding(Spacing.xl)
+        .frame(maxWidth: .infinity)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     // MARK: - Result
@@ -149,8 +192,20 @@ struct GeometricAngleQuizView: View {
                 .foregroundStyle(.btText)
             }
 
-            Button("下一题") { vm.nextQuestion() }
+            if vm.limiter.isLimitReached {
+                Text("今日免费次数已用完")
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(.btTextSecondary)
+                Button {
+                    showSubscription = true
+                } label: {
+                    Label("解锁全部内容", systemImage: "crown.fill")
+                }
                 .buttonStyle(BTButtonStyle.primary)
+            } else {
+                Button("下一题") { vm.nextQuestion() }
+                    .buttonStyle(BTButtonStyle.primary)
+            }
         }
         .padding(Spacing.xl)
         .background(.btBGSecondary)

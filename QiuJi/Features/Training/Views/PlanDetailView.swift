@@ -423,7 +423,7 @@ struct PlanDetailView: View {
     @ViewBuilder
     private func drillThumbnail(_ ref: PlanDrillRef) -> some View {
         if let drill = drillContents[ref.drillId] {
-            BTMiniTable(animation: drill.animation)
+            BTBakedDrillTable(drillId: drill.id)
                 .frame(width: 40, height: 20)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
         } else {

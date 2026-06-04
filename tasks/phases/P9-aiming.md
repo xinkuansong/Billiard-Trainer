@@ -665,3 +665,89 @@
   - 新增 4 个 Scene 层文件：`TableModelLoader`, `AngleTrainingScene`, `CameraRig`, `AngleSceneView`
   - 最低 iOS 17.0 已满足（SceneKit 自 iOS 8 起可用）
 - **替代方案**：纯 SwiftUI Canvas 2D 渲染（已用于现有 AngleTestView），但无法提供 3D 视角
+
+---
+
+### ADR-P9-02 — 翻袋/反射解球器「真实反射模式」与求解算法
+
+- **日期**：2026-06-03
+- **状态**：已采纳
+- **背景**：`BankShotCalculator`（翻袋）与 `DiamondSystemCalculator`（反射解球器）原本只提供理想
+  镜面反射模型（入射角 = 反射角），用经典**镜像展开法**解析求解。真实球台上翻库会「偏短」
+  （反射角相对法线略小于入射角），用户希望增加可调的真实模式，并能拟合自己的球台 / 发力。
+- **决策**：
+  1. **反射物理模型**：碰库时法向速度分量翻转、**切向分量 × factor**，`factor∈[0.50,1.00]`，
+     `1.0` = 理想镜面反射。几何上 `tan θ_out = factor · tan θ_in`（θ 相对法线），factor<1 时反射偏短。
+  2. **求解算法切换（解析法 → 数值法）**：镜像展开法仅在 factor=1 成立。引入新的共享核心
+     `CushionReflectionSolver`，对固定库序做**正向射线追迹 + 射击法（扫描发射角 → 变号区间 → 二分求根）**，
+     并在每次反弹时校验「命中的库恰为库序中的库」（物理正确性）。
+  3. **混合策略（低风险）**：`factor>=1` 时两个求解器**沿用原镜像展开**（路径与旧版字节一致，零回归风险）；
+     `factor<1` 时对每个理想解的库序做射击，得到真实解；理想解作为对照（虚线）一并返回。
+  4. **全局缩放因子共享**：两页共用一个 `@AppStorage("cushionReflectionFactor")`；理想/真实模式由
+     `@AppStorage("cushionReflectionRealMode")` 开关，默认理想模式。
+- **理由**：
+  - 镜像展开是解析法、无法表达非理想反射；正向追迹 + 射击法是通用、稳健、可实时（每条库序 ~360 次粗扫 + 二分，单次 solve <5ms）。
+  - 混合策略保证默认（理想）模式与历史行为完全一致，把数值法的风险局限在新增的真实模式。
+  - 单一可调常数因子是真实「缩短」效应的合理一阶近似（真实缩短量还与球速 / 角度 / 旋转有关，后续可做角度相关曲线）。
+- **影响**：
+  - 新增跨模块共享文件 `QiuJi/Features/AngleTraining/ReflectionSolverCore.swift`（被两个求解器共用 → 跨模块边界）。
+  - `BankShotCalculator.solveAll` / `DiamondSystemCalculator.solveAll` 新增 `factor` 参数；`Solution` 新增理想对照路径字段。
+  - 两页 ViewModel/View 新增「理想/真实」分段开关 + 缩小因子滑块，真实模式下叠加绘制理想（虚线）vs 真实（实线）双路线。
+  - `AngleTrainingScene` 新增 `addDashedLine` 用于理想对照虚线。
+- **替代方案**：
+  - 直接缩放反射角 `θ_out = k·θ_in`（更直白但物理性弱、多库连续反弹不自洽）——未采纳，改用切向分量缩放。
+  - 修改镜像展开使其支持非理想反射——数学上不收敛为直线，不可行。
+
+### ADR-P9-03 — 引入事件驱动物理引擎（pooltool 移植）支撑「分离角与走位」页
+
+- **日期**：2026-06-03
+- **状态**：已采纳
+- **背景**：用户要求在角度页新增「分离角 + 母球/目标球轨迹」动态演示页，可调**击打袋口 / 力度 / 上下左右塞**。
+  现有 `AngleSceneCalculator` / `BankShotCalculator` / `DiamondSystemCalculator` 都是**纯几何模型**（`docs/10` §7 明确不含旋转、力度、库边吸收、throw），无法算分离角与走位。需要引入真正的动力学。
+- **决策**：
+  1. **完整移植项目一（`01.billiard_app`）的事件驱动物理引擎**到 `QiuJi/Core/Physics/`（15 文件）：
+     `EventDrivenEngine`（连续事件 + 四次方程 CCD + 事件缓存）、`AnalyticalMotion`（滑/滚/自旋解析积分）、
+     `CollisionResolver`（球-球）、`CushionCollisionModel`（Mathavan 2010 库边）、`CueBallStrike`（杆-球 + squirt）、
+     `CollisionDetector` / `QuarticSolver`、`TrajectoryRecorder` / `TrajectoryPlayback`、`SimulationWorker`、
+     `TableGeometry`、`BallMotionState`、`BTPhysicsConstants`、`SCNVector3+Physics`、`PerformanceProfiler`。
+     该引擎本身是 **pooltool**（`10.pooltool`）的 Swift 移植。
+  2. **以 pooltool 为准校正移植偏差**（用户明确要求）：
+     - **`CueBallStrike`**：修复角速度严重偏大 bug——pooltool `cue_strike` 的接触点 `Q = R·[...]`（米制，自带 R 因子），
+       旧移植用无量纲打点配 `I_m=2/5R²`，导致旋转量级偏大 ~`1/R`(≈35×)且分量符号不一致。重写为在 pooltool z-up
+       坐标系求解后再一次性映射到 SceneKit y-up（`scene=(pt.x, pt.z, -pt.y)`）。
+     - **`CollisionResolver.resolveBallBallPure`**：弃用自写冲量记账，改为忠实照搬 pooltool `_resolve_ball_ball`
+       （滑移 `D_v1_t=u_b·|Δvₙ|·(−v̂₁₂c)` + 无滑移 1/7、5/14 公式 + Alciatore 切向摩擦曲线）。这是分离角/throw 来源。
+     - **`CushionCollisionModel`（Mathavan）**：逐式核对与 pooltool `mathavan_2010` 完全一致，未改。
+     - **常量**：R / m / u_s / u_r / u_sp / e_b / e_c / f_c / g 全部对齐 pooltool 默认值。
+  3. **坐标系适配**：pooltool 用 z-up（台面 xy），项目用 y-up（台面 xz），统一在 `CueBallStrike` 边界做一次显式映射；
+     其余引擎代码本就用 y-up（接触点 `r=(0,-R,0)`），无需改。
+  4. **球台几何**：物理模拟采用项目一移植来的 **`TableGeometry.chineseEightBall()`（完整 CAD 几何：角袋 jaw 圆弧 +
+     jaw 直线段 + 中袋圆角 + CAD 袋口中心）**——库角喇叭口能把球导入袋口，比简化版可靠地进袋（用户反馈“目标球进不了袋”后，
+     由初版 `chineseEightBallQiuJi`（6 直库+6 圆袋、无 jaw）切换而来；后者保留备用）。进袋评分 / “进选定袋”判定仍以
+     `AngleSceneCalculator.pocketPositions`（USDZ 对齐、= 屏幕黄色标记）为目标中心，并用最近距离阈值(60mm)甄别是否进的是
+     选定那个袋（兼容两套袋口中心 ~17mm 偏差）。注：球实际落袋点在 CAD 中心，与标记盘相差 ~17mm（仍在 42mm 盘内），可接受。
+  4.5. **进袋逻辑（用户明确要求“确保进选定的袋，否则提示无法进袋”）**：
+     - **可行性闸门**：选定袋口若切球角 ≥ `maxCutAngle`(89°) 或母球挡路（`isCueBallBlocking`）→ 直接判“无法进袋”，
+       提示原因、不模拟、不画轨迹。
+     - **闭环瞄准求解**：几何可进时，不用解析补偿，而是**搜索使目标球真正落袋的母球发射方向**——粗扫 ±8°(1° 步)
+       + 围绕最优细化 ±1°(0.25° 步)，每个候选跑一次短时模拟(maxTime 4s/150 事件)评分（进袋优先=|偏移|最小，
+       未进=1+目标球到袋口最近距离）。这一次性把 **squirt（挤偏）+ collision throw（碰撞投掷）+ swerve** 全纳入，
+       比开环只补 squirt 可靠（开环只补 squirt 的版本在加塞时因 throw 仍会漏袋，单测 `withSideSpin_stillPots` 失败）。
+       选定方向后再跑一次完整模拟得母球后续走位。单次 predict ~30–40ms（约 26 短模拟 + 1 完整）。
+  5. **门面 + 页面**：`ShotPredictor`（纯函数：摆球+袋口+力度+塞 → 两球轨迹折线/分离角/切线/进袋/可行性；轨迹用
+     `TrajectoryPlayback` 解析采样以捕捉塞/缩杆弧线）；`ShotSimulationViewModel`/`ShotSimulationView` 复用
+     `AngleSceneView` 拖球+点袋交互、`AngleTrainingScene.addLine` 画轨迹，底部力度滑杆 + 打点盘；
+     「播放」用 `TrajectoryRecorder.action` 让球沿轨迹真实运动（含进袋淡出 + 复位）。入口 `AngleRoute.shotSimulation`（角度页「进阶」）。
+- **理由**：分离角/塞/库边/throw 的物理已在 pooltool 中调好并被学界引用，移植 + 校正远比重写近似公式可靠；
+  事件驱动解析模型精确（非定步长积分）、2 球场景单次 solve <几 ms，可实时预测。
+- **影响**：
+  - 新增 `QiuJi/Core/Physics/` 整个模块（跨模块边界）；与现有几何计算器并存（几何页不受影响）。
+  - 去重 `CameraRig.swift` 的 file-private `SCNVector3` 扩展（与新模块级扩展同签名会歧义）。
+  - 新增 `AngleRoute.shotSimulation` + `MainTabView`/`AngleHomeView` 接线。
+  - 新增 `QiuJiTests/PhysicsEngineTests.swift`（90° 法则 / 高低杆 / squirt / 端到端，8 例全过）。
+- **验证**：`make build` 通过；`PhysicsEngineTests` 8/8 通过（含「高杆角速度量级正常」回归 bug 1，「定杆分离角≈90°」验证球-球模型）。
+- **后续 TODO**：① 角袋 jaw 圆弧（提升贴袋/角度大时的反弹与进袋精度）；② 力度→真实发力标定；
+  ③ 真机运行验证 + 截图（本轮仅编译 + 单测，未跑模拟器 UI）。
+- **替代方案**：
+  - 按近似公式新写（90° 法则 + 高低杆修正常数）——最快但物理最糙、塞/库边不自洽，未采纳。
+  - 只移植单母球预测——不足以算目标球路径与分离角，未采纳。

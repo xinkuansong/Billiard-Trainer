@@ -19,8 +19,25 @@ final class DiamondSystemViewModel: ObservableObject {
     @Published private(set) var currentRailText: String = ""
     @Published private(set) var hasSolution: Bool = false
 
+    /// 真实反射模式开关（库边「偏短」），与翻袋页共享同一持久化设置。
+    @Published var realMode: Bool = CushionReflectionSettings.realMode {
+        didSet {
+            CushionReflectionSettings.realMode = realMode
+            recompute()
+        }
+    }
+    /// 缩小因子（0.50–1.00）；仅真实模式下生效。
+    @Published var reflectionFactor: Double = Double(CushionReflectionSettings.factor) {
+        didSet {
+            CushionReflectionSettings.factor = Float(reflectionFactor)
+            if realMode { recompute() }
+        }
+    }
+
     /// Cushion options offered in the selector (nil sentinel handled in the View).
     let cushionOptions = [1, 2, 3, 4]
+
+    private var effectiveFactor: Float { realMode ? Float(reflectionFactor) : 1.0 }
 
     // MARK: - Scene
 
@@ -107,7 +124,8 @@ final class DiamondSystemViewModel: ObservableObject {
               let target = scene.targetBallNodes.first?.position else { return }
 
         let prevCushions = currentCushions
-        solutions = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: scene.surfaceY)
+        solutions = DiamondSystemCalculator.solveAll(cue: cue, target: target,
+                                                     surfaceY: scene.surfaceY, factor: effectiveFactor)
 
         if let n = selectedCushions {
             displayed = solutions.filter { $0.cushions == n }
@@ -166,6 +184,17 @@ final class DiamondSystemViewModel: ObservableObject {
         let path = sol.path
         guard path.count >= 2 else { return }
 
+        // 真实模式：先画理想对照路线（浅蓝虚线）。
+        if let ideal = sol.idealPath, ideal.count >= 2 {
+            for i in 0..<(ideal.count - 1) {
+                let dash = scene.addDashedLine(from: ideal[i], to: ideal[i + 1],
+                                               color: UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 0.8),
+                                               radius: 0.003)
+                pathNodes.append(dash)
+            }
+        }
+
+        // 实际走位（真实模式按缩小因子追迹）：黄色实线 + 红色碰库点。
         for i in 0..<(path.count - 1) {
             let line = scene.addLine(from: path[i], to: path[i + 1],
                                      color: UIColor.systemYellow, radius: 0.0045)

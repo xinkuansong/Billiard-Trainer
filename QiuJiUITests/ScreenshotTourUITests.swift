@@ -88,6 +88,105 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
+    /// 反射 / 翻袋解球器「真实反射模式」专项截图：理想态 → 切真实（叠加蓝色虚线对照 + 缩小因子滑块）→ 拉到最小因子。
+    func testReflectionRealMode() {
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+
+        openSolver(entry: "反射解球器")
+        captureSolverRealMode(prefix: "r01-reflection")
+        popBack(); sleep(1)
+
+        openSolver(entry: "翻袋解球器")
+        // 翻袋页默认袋口（左上）可能无解：逐个袋口找到有解的那个。
+        ensureBankSolution()
+        captureSolverRealMode(prefix: "r02-bankshot")
+        popBack(); sleep(1)
+    }
+
+    /// 仅翻袋页：单独成测，规避与反射页连跑时的模拟器不稳定。
+    func testBankShotRealMode() {
+        sleep(3)
+        openSolverVerified(entry: "翻袋解球器", navTitle: "翻袋解球")
+        ensureBankSolution()
+        captureSolverRealMode(prefix: "r02-bankshot")
+    }
+
+    /// 仅动作库：网格缩略图 + 详情页，单独成测，用于验证 USDZ 2D 顶视渲染
+    /// （网格离线烘焙 PNG `BTBakedDrillTable` + 详情页 live `DrillSceneView`）。
+    func testDrillLibraryOnly() {
+        sleep(3)
+        tourDrillLibrary()
+    }
+
+    /// 进入指定解球页并**校验确实到达**（用导航标题判定），错页则返回重试，规避滚动后误点。
+    @discardableResult
+    private func openSolverVerified(entry: String, navTitle: String) -> Bool {
+        for _ in 0..<3 {
+            app.switchTab(.angle)
+            sleep(1)
+            app.scrollUp(times: 3)   // 回到顶部
+            sleep(1)
+            for _ in 0..<6 {
+                let t = app.staticTexts[entry]
+                if t.exists, t.isHittable { t.tap(); break }
+                app.scrollDown(times: 1)
+                sleep(1)
+            }
+            sleep(2)
+            if app.navigationBars[navTitle].waitForExistence(timeout: 3) { return true }
+            popBack()   // 误入他页 → 返回重试
+            sleep(1)
+        }
+        return false
+    }
+
+    private func openSolver(entry: String) {
+        openSolverVerified(entry: entry, navTitle: entry == "翻袋解球器" ? "翻袋解球" : "反射解球器")
+    }
+
+    private var hasNoSolution: Bool {
+        app.staticTexts.matching(NSPredicate(format: "label CONTAINS '暂无翻袋解'")).firstMatch.exists
+    }
+
+    private func ensureBankSolution() {
+        guard hasNoSolution else { return }
+        for pocket in ["右上", "左下", "右下", "上中", "下中", "左上"] {
+            if tapIfExists(pocket, timeout: 2) {
+                sleep(1)
+                if !hasNoSolution { return }
+            }
+        }
+    }
+
+    private func captureSolverRealMode(prefix: String) {
+        // 归一到「理想」模式（共享设置可能残留真实态）。
+        if app.buttons["理想"].waitForExistence(timeout: 3) {
+            app.buttons["理想"].tap()
+            sleep(2)
+        }
+        snap("\(prefix)-ideal")
+
+        // 切到「真实」模式（分段控件）。
+        if app.buttons["真实"].waitForExistence(timeout: 3) {
+            app.buttons["真实"].tap()
+            sleep(2)
+            // 先把因子拉回接近 1，再截「默认真实」与「最小因子」两态。
+            let slider = app.sliders.firstMatch
+            if slider.waitForExistence(timeout: 2) {
+                slider.adjust(toNormalizedSliderPosition: 0.75)   // ≈0.95
+                sleep(2)
+                snap("\(prefix)-real-095")
+                slider.adjust(toNormalizedSliderPosition: 0.0)    // 0.80
+                sleep(2)
+                snap("\(prefix)-real-min-factor")
+            } else {
+                snap("\(prefix)-real-default")
+            }
+        }
+    }
+
     // MARK: 训练 Tab（非破坏性部分）
 
     private func tourTraining() {

@@ -15,6 +15,7 @@ struct DrillRecordView: View {
     @State private var showSuccessRate = true
     @State private var showRestPicker = false
     @State private var activeSetStartTime: Date?
+    @State private var tutorialDrill: DrillContent?
     @Environment(\.colorScheme) private var colorScheme
 
     private var totalMade: Int {
@@ -74,6 +75,16 @@ struct DrillRecordView: View {
         .onChange(of: showSetTimer) { _, newValue in
             activeSetStartTime = newValue ? Date() : nil
         }
+        .sheet(item: $tutorialDrill) { content in
+            NavigationStack {
+                DrillTutorialView(drill: content)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("关闭") { tutorialDrill = nil }
+                        }
+                    }
+            }
+        }
     }
 
     // MARK: - Drill Info Header
@@ -85,8 +96,18 @@ struct DrillRecordView: View {
             totalSets: setsData.count,
             completedSets: setsData.filter { $0.isCompleted }.count,
             madeBalls: totalMade,
-            targetBalls: totalTarget
+            targetBalls: totalTarget,
+            accessory: .tutorial,
+            onTap: openTutorial
         )
+    }
+
+    private func openTutorial() {
+        let drillId = drill.drillId
+        Task {
+            let content = await DrillContentService.shared.loadDrillFromBundle(id: drillId)
+            await MainActor.run { tutorialDrill = content }
+        }
     }
 
     // MARK: - Live Stats Banner
@@ -264,8 +285,9 @@ struct DrillRecordView: View {
             }
             .buttonStyle(.plain)
 
-            if showBallTable, let animation = drill.animation {
-                BTBilliardTable(animation: animation)
+            if showBallTable, drill.animation != nil {
+                BTBakedDrillTable(drillId: drill.drillId)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
 
                 if !drill.description.isEmpty {
                     Text(drill.description)

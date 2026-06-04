@@ -65,6 +65,11 @@ enum DiamondSystemCalculator {
         }
     }
 
+    /// 映射到共享真实反射核心的库描述符。
+    private static func descriptor(_ rail: Rail) -> CushionReflectionSolver.Rail {
+        CushionReflectionSolver.Rail(isLong: rail.isLong, coord: railCoord(rail))
+    }
+
     /// Reflect a point across a rail's line.
     private static func reflect(_ p: SCNVector3, across rail: Rail) -> SCNVector3 {
         if rail.isLong {
@@ -107,9 +112,11 @@ enum DiamondSystemCalculator {
         let id = UUID()
         let cushions: Int
         let rails: [Rail]
-        /// Polyline [cue, cushion1, …, cushionN, target].
+        /// Polyline [cue, cushion1, …, cushionN, target]. 真实模式下为按缩小因子追迹的实际走位。
         let path: [SCNVector3]
         let length: Float
+        /// 理想（入射角=反射角）对照路径；仅真实模式下非 nil，供绘制虚线对照。
+        let idealPath: [SCNVector3]?
 
         /// e.g. "顶库 → 左库 → 底库".
         var railSequenceText: String {
@@ -120,26 +127,49 @@ enum DiamondSystemCalculator {
     /// All valid pure-reflection trajectories from `cue` to `target` using 1…`maxCushions`
     /// cushions, sorted by (cushions ascending, then path length ascending) and deduped.
     /// The first element is therefore the **minimum-cushion** (and shortest) solution.
+    /// `factor` = 库边缩小因子（1.0 = 理想镜面反射；<1 = 真实模式，反射偏短）。
     static func solveAll(cue: SCNVector3, target: SCNVector3,
-                         surfaceY: Float, maxCushions: Int = 5, limit: Int = 16) -> [Solution] {
+                         surfaceY: Float, factor: Float = 1.0,
+                         maxCushions: Int = 5, limit: Int = 16) -> [Solution] {
         let y = surfaceY + AngleSceneCalculator.ballRadius
         let cuePt = SCNVector3(cue.x, y, cue.z)
         let targetPt = SCNVector3(target.x, y, target.z)
 
-        var solutions: [Solution] = []
+        // 先求理想（镜像展开）解集，路径与历史版本完全一致。
+        var ideal: [Solution] = []
         for n in 1...max(1, maxCushions) {
             for seq in railSequences(length: n) {
                 guard let path = solveSequence(cue: cuePt, target: targetPt, rails: seq, y: y) else { continue }
                 let len = polylineLength(path)
-                let sol = Solution(cushions: n, rails: seq, path: path, length: len)
-                if !isDuplicate(sol, in: solutions) { solutions.append(sol) }
+                let sol = Solution(cushions: n, rails: seq, path: path, length: len, idealPath: nil)
+                if !isDuplicate(sol, in: ideal) { ideal.append(sol) }
             }
         }
-
-        solutions.sort { lhs, rhs in
+        ideal.sort { lhs, rhs in
             lhs.cushions != rhs.cushions ? lhs.cushions < rhs.cushions : lhs.length < rhs.length
         }
-        return Array(solutions.prefix(limit))
+
+        guard !CushionReflectionSolver.isIdeal(factor) else {
+            return Array(ideal.prefix(limit))
+        }
+
+        // 真实模式：对每条理想解的库序做正向追迹 + 射击法，得到实际走位；理想解作为对照。
+        var real: [Solution] = []
+        for sol in ideal {
+            let descriptors = sol.rails.map(descriptor)
+            guard let realPath = CushionReflectionSolver.shoot(
+                start: cuePt, target: targetPt, rails: descriptors, factor: factor, y: y
+            ) else { continue }
+            guard firstCushionAngleOK(path: realPath, firstRail: sol.rails[0]) else { continue }
+            let rsol = Solution(cushions: sol.cushions, rails: sol.rails,
+                                path: realPath, length: polylineLength(realPath),
+                                idealPath: sol.path)
+            real.append(rsol)
+        }
+        real.sort { lhs, rhs in
+            lhs.cushions != rhs.cushions ? lhs.cushions < rhs.cushions : lhs.length < rhs.length
+        }
+        return Array(real.prefix(limit))
     }
 
     /// Solve one fixed rail sequence by mirror unfolding. Returns [cue, P1…Pk, target]

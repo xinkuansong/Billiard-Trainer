@@ -23,34 +23,37 @@
   },
   "animation": {
     "cueBall": {
-      "start": {
-        "x": 0.5,
-        "y": 0.25
-      },
+      "start": { "x": 0.5, "y": 0.25 },
       "path": [
-        {
-          "x": 0.5,
-          "y": 0.45
-        }
+        { "x": 0.5, "y": 0.298 },
+        { "x": 0.5, "y": 0.3569 },
+        { "x": 0.5, "y": 0.4077 },
+        { "x": 0.5, "y": 0.4551 },
+        { "x": 0.5, "y": 0.4622 }
       ]
     },
     "targetBall": {
-      "start": {
-        "x": 0.5,
-        "y": 0.43
-      },
+      "start": { "x": 0.5, "y": 0.43 },
       "path": [
-        {
-          "x": 0.5,
-          "y": 0.5268
-        }
+        { "x": 0.5, "y": 0.5173 }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {
-      "x": 0.5,
-      "y": 0.0
-    }
+    "cueDirection": { "x": 0.5, "y": 0.4075 },
+    "source": "baked",
+    "generator": "ShotBaker/engine@v2-geom"
+  },
+  "shotIntent": {
+    "version": 1,
+    "shots": [
+      {
+        "cue": { "x": 0.5, "y": 0.25 },
+        "target": { "x": 0.5, "y": 0.43 },
+        "pocket": "bottomCenter",
+        "velocity": 2.4,
+        "spin": { "x": 0.0, "y": 0.0 }
+      }
+    ]
   },
   "tutorial": {
     "sections": [

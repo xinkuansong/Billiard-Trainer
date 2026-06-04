@@ -34,7 +34,9 @@ struct AngleSceneView: UIViewRepresentable {
         }
         scnView.allowsCameraControl = false
         scnView.antialiasingMode = .multisampling4X
-        scnView.preferredFramesPerSecond = min(60, UIScreen.main.maximumFramesPerSecond)
+        // 跟随屏幕原生刷新率（ProMotion 120Hz）。回放用逐帧解析求位，渲染帧率越高越顺滑；
+        // 旧值硬封顶 60fps 在 120Hz 屏上每帧显示两次刷新，正是减速段残留的卡顿来源。
+        scnView.preferredFramesPerSecond = UIScreen.main.maximumFramesPerSecond
         scnView.isPlaying = true
         scnView.backgroundColor = UIColor.black
 
@@ -118,8 +120,12 @@ struct AngleSceneView: UIViewRepresentable {
 
         func startRenderLoop() {
             displayLink?.invalidate()
-            displayLink = CADisplayLink(target: self, selector: #selector(renderUpdate))
-            displayLink?.add(to: .main, forMode: .common)
+            let link = CADisplayLink(target: self, selector: #selector(renderUpdate))
+            // 允许跑到屏幕最高刷新率（ProMotion 120Hz），与 SCNView 渲染同步，避免回放被限到 60fps。
+            let maxFPS = Float(UIScreen.main.maximumFramesPerSecond)
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: maxFPS, preferred: maxFPS)
+            link.add(to: .main, forMode: .common)
+            displayLink = link
         }
 
         func stopRenderLoop() {

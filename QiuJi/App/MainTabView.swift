@@ -118,6 +118,8 @@ struct MainTabView: View {
             BankShotView()
         case .diamondSystem:
             DiamondSystemView()
+        case .shotSimulation:
+            ShotSimulationView()
         }
     }
 
