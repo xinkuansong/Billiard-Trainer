@@ -1397,6 +1397,9 @@ class EventDrivenEngine {
             if dist > allowed {
                 return false
             }
+            // 落袋即把球心吸到袋心（球落入洞中央）：使轨迹明确「进洞」，下游进袋判定
+            // 与画面一致（橙线终点落在袋心，而非冻结在喉口外侧的事件采样点）。
+            state.position = SCNVector3(pocket.center.x, state.position.y, pocket.center.z)
         }
         state.state = .pocketed
         state.velocity = SCNVector3Zero

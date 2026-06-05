@@ -79,8 +79,16 @@ struct DrillTutorial: Codable {
 struct TutorialSection: Codable, Identifiable {
     let title: String
     let content: String
+    /// 图文精讲配图：`Resources/DrillTutorials/<image>.png`（不含扩展名）。可选——旧 Drill 无此字段照常工作。
+    let image: String?
 
     var id: String { title }
+
+    init(title: String, content: String, image: String? = nil) {
+        self.title = title
+        self.content = content
+        self.image = image
+    }
 }
 
 // MARK: - Animation Types

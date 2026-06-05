@@ -159,10 +159,29 @@ enum StrokePhysics {
 // MARK: - 球杆物理参数
 
 enum CuePhysics {
+    /// 球杆总质量 (kg)
     static let mass: Float = 0.567
-    static let tipRadius: Float = 0.0106
     /// 末端等效质量 (kg) — 用于 squirt 计算
     static let endMass: Float = 0.00567
+
+    // MARK: 皮头几何（打点盘真实比例 + 打滑极限）
+
+    /// 皮头接触面直径 (米) — 中式八球常见 11mm。
+    static let tipDiameter: Float = 0.011
+    /// 皮头接触面半径 (米) = tipDiameter / 2（≈5.5mm）。打点盘按「皮头/母球真实比例」画接触斑。
+    static let tipContactRadius: Float = tipDiameter / 2
+    /// 皮头球冠曲率半径 (米) — nickel 修型 ≈10.5mm。预留给「皮头中心对位 → 球面接触点」精确换算。
+    static let tipCurvatureRadius: Float = 0.0105
+    /// 打滑极限（miscue limit）：皮头能可靠咬住母球的**最大接触点偏移**，占母球半径 R 的比例。
+    /// 经典值 ≈0.5（满塞 ≈ 半个半径）；由皮头/巧粉摩擦决定，超出即打滑（miscue）。
+    /// 打点盘据此把可拖区域钳在 0.5R 内，使「加塞多少」对应真实可打击球点。
+    static let miscueLimitFraction: Float = 0.5
+
+    /// 皮头球冠曲率「把接触点拉向球心」的系数：contact = 皮头中心对位偏移 × R/(R+ρ)。
+    /// 两球相切几何：母球(R) 与皮头球冠(ρ=tipCurvatureRadius) 的接触点在两球心连线上，
+    /// 其横向偏移 = 皮头中心横向偏移 × R/(R+ρ)（曲率越大/ρ 越小越接近 1，平头 ρ→∞ 趋 0）。
+    /// 打点盘据此从「用户摆放的皮头中心」换算到真实接触点（pooltool a,b）。
+    static var tipContactPullFactor: Float { BallPhysics.radius / (BallPhysics.radius + tipCurvatureRadius) }
 }
 
 // MARK: - 瞄准/轨迹采样参数

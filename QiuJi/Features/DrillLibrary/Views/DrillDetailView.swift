@@ -106,8 +106,10 @@ struct DrillDetailView: View {
     // MARK: - Table Canvas
 
     private func tableSection(_ drill: DrillContent) -> some View {
-        DrillSceneView(animation: drill.animation)
-            .padding(.horizontal, Spacing.lg)
+        // 留一点点横向内边距（8pt），露出的是页面浅灰背景而非球台绿边——
+        // 绿边已由 DrillSceneView 的相框比例(1.81)+取景(0.77)消除，与此 padding 无关。
+        DrillSceneView(drill: drill)
+            .padding(.horizontal, Spacing.sm)
     }
 
     // MARK: - Action Icon Row (gray, not green)

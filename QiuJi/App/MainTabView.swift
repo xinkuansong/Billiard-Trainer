@@ -120,6 +120,10 @@ struct MainTabView: View {
             DiamondSystemView()
         case .shotSimulation:
             ShotSimulationView()
+        case .positionPlayComposer:
+            PositionPlayComposerView()
+        case .positionPlayTraining:
+            PositionPlayTrainingView()
         }
     }
 

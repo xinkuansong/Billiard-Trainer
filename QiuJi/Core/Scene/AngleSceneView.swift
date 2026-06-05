@@ -19,12 +19,19 @@ struct AngleSceneView: UIViewRepresentable {
     @Binding var cameraMode: AngleTrainingScene.CameraMode
     var interactionMode: InteractionMode = .cameraControl
     var locksCueBallScreenAnchor = false
+    /// SCNView 背景色。默认黑（3D 角度页用）；2D 顶视球桌（详情页）传台呢绿，
+    /// 让相机取景与相框比例不完全吻合时残留的极小边缘融入而非露出黑边。
+    var backgroundColor: UIColor = .black
     var onPocketTapped: ((Int) -> Void)?
 
     var draggableBallNodes: [SCNNode] = []
     var onDragBegan: ((SCNNode) -> Void)?
     var onDragMoved: ((SCNNode, SCNVector3) -> Void)?
     var onDragEnded: ((SCNNode) -> Void)?
+
+    /// 可点选的球（走位编排器点选目标球）。tap 命中其一即回调，优先于袋口判定。
+    var selectableBallNodes: [SCNNode] = []
+    var onBallTapped: ((SCNNode) -> Void)?
 
     func makeUIView(context: Context) -> SCNView {
         let scnView = SCNView()
@@ -38,7 +45,7 @@ struct AngleSceneView: UIViewRepresentable {
         // 旧值硬封顶 60fps 在 120Hz 屏上每帧显示两次刷新，正是减速段残留的卡顿来源。
         scnView.preferredFramesPerSecond = UIScreen.main.maximumFramesPerSecond
         scnView.isPlaying = true
-        scnView.backgroundColor = UIColor.black
+        scnView.backgroundColor = backgroundColor
 
         let panGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         panGesture.maximumNumberOfTouches = 1
@@ -60,6 +67,9 @@ struct AngleSceneView: UIViewRepresentable {
         if uiView.pointOfView !== scene.cameraNode, let cam = scene.cameraNode {
             uiView.pointOfView = cam
         }
+        if uiView.backgroundColor != backgroundColor {
+            uiView.backgroundColor = backgroundColor
+        }
         context.coordinator.cameraMode = cameraMode
         context.coordinator.interactionMode = interactionMode
         context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
@@ -68,6 +78,8 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onDragBegan = onDragBegan
         context.coordinator.onDragMoved = onDragMoved
         context.coordinator.onDragEnded = onDragEnded
+        context.coordinator.selectableBallNodes = selectableBallNodes
+        context.coordinator.onBallTapped = onBallTapped
     }
 
     func makeCoordinator() -> Coordinator {
@@ -96,6 +108,8 @@ struct AngleSceneView: UIViewRepresentable {
         var onDragBegan: ((SCNNode) -> Void)?
         var onDragMoved: ((SCNNode, SCNVector3) -> Void)?
         var onDragEnded: ((SCNNode) -> Void)?
+        var selectableBallNodes: [SCNNode] = []
+        var onBallTapped: ((SCNNode) -> Void)?
         private var draggedNode: SCNNode?
 
         /// Dominant axis lock for 3D camera-pan gestures. Once decided
@@ -308,6 +322,21 @@ struct AngleSceneView: UIViewRepresentable {
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
             let location = gesture.location(in: scnView)
+
+            // Position-Play: tap a ball to select it as the target (takes priority over pockets,
+            // since balls sit on the interior while pockets sit at the rails).
+            if let onBallTapped, !selectableBallNodes.isEmpty {
+                let tapRadius: CGFloat = 40
+                var best: SCNNode?
+                var bestDist: CGFloat = .greatestFiniteMagnitude
+                for ball in selectableBallNodes {
+                    let projected = scnView.projectPoint(ball.position)
+                    let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                    let dist = hypot(location.x - screenPos.x, location.y - screenPos.y)
+                    if dist < tapRadius, dist < bestDist { bestDist = dist; best = ball }
+                }
+                if let best { onBallTapped(best); return }
+            }
 
             // Try precise hit-test first against pocket marker planes by name.
             let hitResults = scnView.hitTest(location, options: [

@@ -191,3 +191,25 @@
 - **日期**：2026-06-04
 - **规则改进建议**：**推翻 FL-010 的「必须配后处理补丁 + 禁止裸跑 xcodegen」**。xcodegen 中需保留子目录结构的资源，一律用 `sources: { type: folder, buildPhase: resources }` 原生生成 folder reference，**不要**用 `resources: type: folder`（不被认）也不要事后 patch pbxproj。新增此类资源目录时同步加 `sources` folder 条目 + 主 glob 的 `excludes`。
 - **已应用至**：✅ `project.yml`（sources folder refs）、`scripts/Makefile`（去补丁）、删除 `scripts/patch-pbxproj-folder-refs.py`（2026-06-04）；FL-010 规则标记为已被本条取代；待回写 `60-devops-release.mdc` § 经验教训
+
+## FL-018
+- **任务**：P10 Track B-2，用户反馈「分离角与走位」页母球**吃库后立即停下**（截图：吃库瞬间速度明显还很快却定格在库边）。
+- **现象**：母球（或目标球）碰到库边的一瞬间整条轨迹被截断、球冻结在库线上，肉眼看上去「撞库即死」；原始物理其实仍在继续多次吃库、走位（rawDuration≈9s）。
+- **严重程度**：P1（核心可视化失真，违背「画面=物理」）
+- **关联页面**：分离角与走位（`ShotSimulationView` / `ShotPredictor`）；同源影响动作详情 live 台（`DrillSceneController`）。
+- **根因**：✅ 已定位。`ShotPredictor.clampedRecorder` 的「穿库安全网」按**固定步长重采样的解析外推位置**判定是否飞出台面，容差仅 6mm。但 `TrajectoryPlayback` 在「撞库事件帧 → 下一帧」之间用事件帧速度做解析外推，而撞库事件帧仍带「朝向库」的入射速度（实测：t=1.266 记录帧 vel.z=+0.34 朝库，反弹后的负向速度要到下一帧 t=1.312 才出现）。于是相邻两帧之间的采样位置被外推到库线内侧 7~9mm（吃库越快冲得越远，v5.8 可达 >6cm），瞬时越过 6mm 容差 → 被误判为穿库 → 冻结在库边 + `allDone` 提前退出截断其后全部轨迹。诊断：`ShotScenarioRenderTests.test_diag_cushionFreeze_detail` 打印记录帧确证；60 场景扫描 5/60 在 v5.8 大力吃库时复现误冻结。
+- **解决**：✅ 已修复（2026-06-05）。把「真飞出」判定从**重采样外推位置**改为**原始事件帧（物理真值）**：引擎吃库在库线处反弹并 `enforceTableBounds` 钳回，正常反弹的记录帧绝不越线，只有真飞出才会出现「记录帧本身越界 ≥6cm 且远离所有袋口嘴 14cm」。据此预扫每个球记录帧求首次飞出时刻；仅到该时刻才冻结+截断。事件帧之间的瞬时外推过冲改为**仅化妆性钳位**（球心拉回库线）但保持速度/运动态、不截断，球继续按真实轨迹运动。回归：`test_diag_cushionFreeze` 误冻结 0/60；`PhysicsEngineTests` 18/18 全过；`make build` 通过、lint 0。
+- **日期**：2026-06-05
+- **规则改进建议**：穿库/越界安全网必须基于**引擎记录帧的物理真位置**判定，禁止用回放重采样（事件帧间解析外推）的瞬时位置——后者在吃库接触帧会朝库外推、产生与速度成正比的假性越界。安全网应「冻结仅用于真飞出，瞬时过冲只钳位不截断」，且容差需大于最快吃库的接触外推量级。
+- **已应用至**：✅ `QiuJi/Core/Physics/ShotPredictor.swift`（`clampedRecorder` 基于记录帧判定 + 化妆性钳位）、`QiuJiTests/ShotScenarioRenderTests.swift`（`test_diag_cushionFreeze` 回归守卫 0/60）（2026-06-05）；待回写 `10-ios-architect.mdc` § 经验教训
+
+## FL-019
+- **任务**：P10 Track B-2，用户反馈「分离角与走位」页**母球进袋（失误）判定错误**（截图：cut 9° 母球带塞走位弧线，状态栏报「母球进袋（失误）」，但白色母球轨迹明显擦过中袋嘴后继续走到台面中下部、根本没落进任何袋）。
+- **现象**：状态栏「母球进袋（失误）」与画面不符——母球钳制轨迹（=所绘白线）最近只到某中袋心 54–65mm（> 捕获窗 50.4mm），从未真正落入漏斗，却被上报为进袋。
+- **严重程度**：P1（进袋判定与画面不一致，违背「画面=物理」；误导用户、并污染求解器 scratch 评分）。
+- **关联页面**：分离角与走位（`ShotSimulationView` / `ShotPredictor`）。
+- **根因**：✅ 已定位。目标球进袋判定（`objectPocketed`）早已用**显示用钳制轨迹最近点**做一致性闸门（袋心 ±(dropRadius−R+4mm)），但**母球进袋 `cuePocketed` 直接取裸引擎信号 `run.cuePocketed`、无同源闸门**。母球带塞走位是曲线（squirt+swerve），而袋口 CCD 用「定加速度直线/抛物线」模型排程进袋事件——曲线母球被预测会进入漏斗(中袋 dropRadius−R=46.5mm)，实际只擦到 54–65mm；`EventDrivenEngine.resolvePocket` 的接受阈值又过宽（`pocket.radius + R*1.5`≈117.8mm 中袋），于是裸引擎仍判落袋 → 上报进袋但白线未到袋心。诊断：`ShotScenarioRenderTests.test_diag_cueScratch`（180 含塞场景扫描）抓到 11 例上报进袋中 **4 例假阳性**（钳制轨迹最近袋心 54–65mm > 窗 50.4mm），0 例「中袋吞快球」。
+- **解决**：✅ 已修复（2026-06-05）。给 `cuePocketed` 加与目标球**同源的显示一致性闸门**：以裸引擎 `run.cuePocketed` 为权威，但要求母球**钳制轨迹**确实落入**某个袋**的捕获窗（落袋后引擎吸球心 → 最近点≈0；曲线擦袋未真正落入 → 最近点 >窗 → 判未进）。回归：`test_diag_cueScratch` 假阳性 4→**0**（上报进袋 11→6，余 6 为白线真到袋心的诚实 scratch）；`PhysicsEngineTests` 18/18 全过、lint 0。〔深层成因「resolvePocket 接受阈值 R*1.5 过宽 + CCD 直线模型对曲线母球预测偏差」属引擎层，改之有回归风险，本次以显示同源闸门治本于上报/画面一致，引擎宽松阈值留作后续物理标定 backlog。〕
+- **日期**：2026-06-05
+- **规则改进建议**：**所有球（含母球）的进袋判定都必须与画面（钳制轨迹）同源**——禁止任一球的进袋状态直接取裸引擎信号而不过显示一致性闸门。曲线走位（带塞 squirt+swerve）+ 袋口 CCD 直线预测 + resolvePocket 宽松接受阈值 三者叠加会产生「判进画面不进」假阳性，闸门按「钳制轨迹是否真落入某袋捕获窗」统一甄别。
+- **已应用至**：✅ `QiuJi/Core/Physics/ShotPredictor.swift`（`cuePocketed` 加显示一致性闸门）、`QiuJiTests/ShotScenarioRenderTests.swift`（`test_diag_cueScratch` 诊断/扫描）（2026-06-05）；待回写 `10-ios-architect.mdc` § 经验教训

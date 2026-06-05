@@ -152,6 +152,10 @@ final class AngleTrainingScene: SCNScene {
         }
 
         if let cue = allBallNodes["cueBall"] {
+            // 防御性重挂：若回放等流程曾把球移出父节点，仅设 isHidden=false 不够，必须重新挂回
+            // 场景，否则 reset/重新摆球后球仍不可见（球"消失"bug）。
+            if cue.parent == nil { rootNode.addChildNode(cue) }
+            cue.opacity = 1
             cue.position = cuePos
             cue.isHidden = false
             cueBallNode = cue
@@ -165,6 +169,8 @@ final class AngleTrainingScene: SCNScene {
 
         let targetKey = "_\(targetBallNumber)"
         if let target = allBallNodes[targetKey] {
+            if target.parent == nil { rootNode.addChildNode(target) }
+            target.opacity = 1
             target.position = targetPos
             target.isHidden = false
             targetBallNodes = [target]
@@ -193,6 +199,41 @@ final class AngleTrainingScene: SCNScene {
             node.position.y = correctY
             node.isHidden = false
         }
+    }
+
+    // MARK: - Multi-ball free placement (Position-Play Composer, ADR-P11-01)
+
+    /// 显示并定位任意一颗 USDZ 球（防御性重挂 + 贴台面 Y）。`key`: `cueBall` / `_1`..`_15`。
+    /// 用于走位编排器的自由摆球——把 `allBallNodes` 里的现成节点按需上桌。
+    func showBall(key: String, scenePosition: SCNVector3) {
+        guard let node = allBallNodes[key] else { return }
+        let correctY = surfaceY + AngleSceneCalculator.ballRadius
+        if node.parent == nil { rootNode.addChildNode(node) }
+        node.removeAllActions()
+        node.opacity = 1
+        node.position = SCNVector3(scenePosition.x, correctY, scenePosition.z)
+        node.isHidden = false
+        if key == "cueBall" { cueBallNode = node }
+    }
+
+    /// 隐藏一颗球（进袋离场 / 撤下回库）。
+    func hideBall(key: String) {
+        allBallNodes[key]?.isHidden = true
+    }
+
+    /// 隐藏全部球（重摆前清场）。
+    func hideAllBalls() {
+        for (_, node) in allBallNodes { node.isHidden = true }
+    }
+
+    /// 当前在桌（可见）的球：键 → 节点。
+    func visibleBalls() -> [String: SCNNode] {
+        allBallNodes.filter { !$0.value.isHidden }
+    }
+
+    /// 节点 → 球键（反查，供点选目标球）。
+    func ballKey(for node: SCNNode) -> String? {
+        allBallNodes.first(where: { $0.value === node })?.key
     }
 
     func enhanceBallMaterials() {

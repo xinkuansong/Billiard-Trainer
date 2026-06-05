@@ -1,19 +1,23 @@
 import SceneKit
 import UIKit
 
-/// 把一条 Drill 的 `DrillAnimation` 渲染成「USDZ 球桌 2D 顶视」缩略图（离屏，零交互）。
+/// 把一条 Drill 渲染成「USDZ 球桌 2D 顶视」缩略图（离屏，零交互）。
 ///
 /// 用途：内容管线离线烘焙缩略图 PNG（运行时零成本）。与角度页同一套 `AngleTrainingScene`
 /// （`TaiQiuZhuo.usdz` 台呢 + 抽取的球节点 + plain 光照），切到正交顶视相机，按 drill 摆
-/// 母球/目标球、画烘焙/手画轨迹折线，用 `SCNRenderer` 离屏快照成图。
+/// 母球/目标球，**用物理引擎 `ShotPredictor` 真算轨迹**（含减速/吃库/分离角），用
+/// `SCNRenderer` 离屏快照成图。物理不可行时退回手画 `DrillAnimation` 折线。
 ///
 /// ⚠️ 不要在可滚动列表里逐卡实时调用——`AngleTrainingScene.setupScene()` 每次都从磁盘
 /// 解析 USDZ + 克隆节点，开销很大。仅用于离线烘焙或单个详情场景。
 enum DrillThumbnailRenderer {
 
+    private static let cueColor = UIColor.white.withAlphaComponent(0.95)
+    private static let targetColor = UIColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 0.95)
+
     /// 渲染缩略图。`size` 为点尺寸（2:1 横向最佳），`scale` 为像素倍率。
     @MainActor
-    static func render(animation: DrillAnimation,
+    static func render(drill: DrillContent,
                        size: CGSize = CGSize(width: 320, height: 160),
                        scale: CGFloat = 2,
                        ballScale: Float = 1.8,
@@ -25,10 +29,15 @@ enum DrillThumbnailRenderer {
         guard scene.cameraNode != nil else { return nil }
 
         let surfaceY = scene.surfaceY
+        let animation = drill.animation
 
-        // 摆球：归一化起点 → 场景坐标。目标球用 8 号（黑），母球白。
-        let cueScene = toScene(animation.cueBall.start, surfaceY: surfaceY)
-        let targetScene = toScene(animation.targetBall.start, surfaceY: surfaceY)
+        // 优先物理引擎真算轨迹；不可行才退回手画折线。
+        let input = DrillShotResolver.shotInput(for: drill, surfaceY: surfaceY)
+        let prediction = input.map { ShotPredictor.predict($0) }
+
+        // 摆球：母球白、目标球用 8 号（黑）。起点取物理入参（若有），否则取 animation。
+        let cueScene = input?.cueBall ?? toScene(animation.cueBall.start, surfaceY: surfaceY)
+        let targetScene = input?.targetBall ?? toScene(animation.targetBall.start, surfaceY: surfaceY)
         scene.applyBallLayout(cueBallPosition: cueScene, targetBallNumber: 8, targetPosition: targetScene)
         scene.hideCueStick()
 
@@ -37,10 +46,16 @@ enum DrillThumbnailRenderer {
         scene.targetBallNodes.forEach { enlarge($0, by: ballScale) }
 
         // 轨迹折线（目标球橙、母球白），略抬离台呢避免 z-fighting。
-        drawPath(in: scene, start: animation.targetBall.start, path: animation.targetBall.path,
-                 color: UIColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 0.95), surfaceY: surfaceY)
-        drawPath(in: scene, start: animation.cueBall.start, path: animation.cueBall.path,
-                 color: UIColor.white.withAlphaComponent(0.95), surfaceY: surfaceY)
+        let lift = surfaceY + AngleSceneCalculator.ballRadius * 0.5
+        if let pred = prediction, pred.feasible, pred.cuePath.count >= 2 {
+            drawScenePolyline(in: scene, points: pred.objectPath, color: targetColor, y: lift)
+            drawScenePolyline(in: scene, points: pred.cuePath, color: cueColor, y: lift)
+        } else {
+            drawPath(in: scene, start: animation.targetBall.start, path: animation.targetBall.path,
+                     color: targetColor, surfaceY: surfaceY)
+            drawPath(in: scene, start: animation.cueBall.start, path: animation.cueBall.path,
+                     color: cueColor, surfaceY: surfaceY)
+        }
 
         // 顶视正交相机：长轴(X)横向，正好 2:1。覆盖整张外台 + 余量。
         if let rig = scene.cameraRig {
@@ -64,6 +79,16 @@ enum DrillThumbnailRenderer {
 
     private static func toScene(_ p: CanvasPoint, surfaceY: Float) -> SCNVector3 {
         AngleSceneCalculator.normalizedToScene(point: CGPoint(x: p.x, y: p.y), surfaceY: surfaceY)
+    }
+
+    /// 把场景坐标折线（物理引擎输出，含起点）逐段连线，统一抬到 `y`。
+    private static func drawScenePolyline(in scene: AngleTrainingScene,
+                                          points: [SCNVector3], color: UIColor, y: Float) {
+        guard points.count >= 2 else { return }
+        let pts = points.map { lifted($0, y: y) }
+        for i in 0..<(pts.count - 1) {
+            _ = scene.addLine(from: pts[i], to: pts[i + 1], color: color, radius: 0.006)
+        }
     }
 
     /// 把归一化路径（含可选贝塞尔曲线）采样成场景点序列并逐段连线。

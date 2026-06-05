@@ -68,6 +68,35 @@ final class PhysicsEngineTests: XCTestCase {
         XCTAssertEqual(CueBallStrike.squirtAngle(a: 0), 0, accuracy: 1e-6)
     }
 
+    /// 打点盘按真实皮头/母球比例 + 0.5R 打滑极限：满塞（=打滑极限）squirt 应落在真实区间(~0.5°–5°)，
+    /// 而非旧版允许 a=1.0（球边缘，物理打不出）时的偏大角。守护参数与「真实加塞」的一致性。
+    func test_miscueLimit_maxEnglishSquirtIsRealistic() {
+        XCTAssertEqual(CuePhysics.miscueLimitFraction, 0.5, accuracy: 1e-6, "打滑极限应为 0.5R")
+        XCTAssertEqual(CuePhysics.tipDiameter, 0.011, accuracy: 1e-6, "皮头直径应为 11mm")
+        let maxA = CuePhysics.miscueLimitFraction
+        let squirtDeg = abs(CueBallStrike.squirtAngle(a: maxA)) * 180 / .pi
+        XCTAssertGreaterThan(squirtDeg, 0.5, "满塞 squirt 不应过小")
+        XCTAssertLessThan(squirtDeg, 5.0, "满塞 squirt 应落在真实区间(<5°)")
+    }
+
+    /// 皮头球冠曲率把接触点拉向球心（contact = placement × R/(R+ρ) < placement）。
+    func test_tipCurvature_pullFactorLessThanOne() {
+        let R = BallPhysics.radius, rho = CuePhysics.tipCurvatureRadius
+        XCTAssertEqual(CuePhysics.tipContactPullFactor, R / (R + rho), accuracy: 1e-6)
+        XCTAssertGreaterThan(CuePhysics.tipContactPullFactor, 0.6)
+        XCTAssertLessThan(CuePhysics.tipContactPullFactor, 1.0, "曲率应把接触点拉向球心")
+    }
+
+    /// 打滑极限钳制：超限的接触点偏移按方向等比钳回 0.5R，方向不变；未超限不动。
+    func test_clampToMiscueLimit_boundsMagnitudeKeepsDirection() {
+        let (cx, cy) = ShotIntent.clampToMiscueLimit(0.5, 0.5)   // mag 0.707 > 0.5
+        XCTAssertEqual((cx * cx + cy * cy).squareRoot(), 0.5, accuracy: 1e-5, "幅值应钳到 0.5R")
+        XCTAssertEqual(cx, cy, accuracy: 1e-6, "方向(45°)应保持")
+        let (dx, dy) = ShotIntent.clampToMiscueLimit(0.2, -0.1) // mag 0.224 < 0.5
+        XCTAssertEqual(dx, 0.2, accuracy: 1e-6)
+        XCTAssertEqual(dy, -0.1, accuracy: 1e-6)
+    }
+
     // MARK: - 球-球碰撞（CollisionResolver）
 
     /// 90° 法则：定杆(无旋)切球，母球与目标球碰后分离角 ≈ 90°
@@ -236,6 +265,53 @@ final class PhysicsEngineTests: XCTestCase {
         XCTAssertTrue(pred.objectPocketed, "默认球形应开箱即可进球（选中袋 index=\(best)）")
     }
 
+    // MARK: - 走位编排器：多球障碍单杆求解（ADR-P11-01）
+
+    /// 远离瞄准线的障碍球不应影响进袋；`finalPositions` 含全场球末位、`pocketedBalls` 含目标球。
+    func test_predictor_obstacleAwayFromLine_stillPots() {
+        let sY = BTTablePhysics.surfaceY
+        let target = SCNVector3(0.95, sY + R, -0.42)
+        let cue = SCNVector3(0.35, sY + R, -0.18)
+        // 障碍球摆在对角远处，完全不挡瞄准线/进球线。
+        let obstacle = SCNVector3(-0.9, sY + R, 0.40)
+        let input = ShotInput(
+            cueBall: cue, targetBall: target,
+            pocketIndex: 1, velocity: StrokePhysics.SpeedLevel.mediumHard.velocity,
+            spinX: 0, spinY: 0, surfaceY: sY,
+            obstacles: [ObstacleBall(name: "_3", position: obstacle)]
+        )
+        let pred = ShotPredictor.predict(input)
+        XCTAssertTrue(pred.feasible, "远处障碍不应使其不可行")
+        XCTAssertTrue(pred.objectPocketed, "远处障碍不应阻止进袋")
+        XCTAssertNotNil(pred.finalPositions[ShotInput.cueBallName], "应回报母球末位")
+        XCTAssertNotNil(pred.finalPositions["_3"], "应回报障碍球末位")
+        XCTAssertTrue(pred.pocketedBalls.contains(ShotInput.targetBallName), "目标球应在进袋列表")
+        // 远处未被碰的障碍球应基本保持原位。
+        if let p = pred.finalPositions["_3"] {
+            XCTAssertLessThan(AngleSceneCalculator.horizontalDistance(p, obstacle), 0.02,
+                              "未被碰的障碍球应保持原位")
+        }
+    }
+
+    /// 障碍球正挡在目标球→袋口的进球线上时，目标球进不了选定袋（遮挡天然涌现）。
+    func test_predictor_obstacleBlockingPocketLine_preventsPot() {
+        let sY = BTTablePhysics.surfaceY
+        let target = SCNVector3(0, sY + R, 0.30)
+        let cue = SCNVector3(0, sY + R, -0.20)
+        let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[5]  // 下中
+        // 障碍球贴在目标球与下中袋之间，挡住进球线。
+        let blockZ = (target.z + pocket.z) / 2
+        let blocker = SCNVector3(0, sY + R, blockZ)
+        let input = ShotInput(
+            cueBall: cue, targetBall: target,
+            pocketIndex: 5, velocity: StrokePhysics.SpeedLevel.medium.velocity,
+            spinX: 0, spinY: 0, surfaceY: sY,
+            obstacles: [ObstacleBall(name: "_7", position: blocker)]
+        )
+        let pred = ShotPredictor.predict(input)
+        XCTAssertFalse(pred.objectPocketed, "进球线被障碍球挡住，目标球不应进选定袋")
+    }
+
     // MARK: - 完整进球点算法（P10 物理保真：中袋+角袋、多力度、画面=物理）
 
     /// 中袋（下中 idx5）正面直球：闭环求解 + 真实模拟在所有常用力度下都应进袋。
@@ -284,6 +360,67 @@ final class PhysicsEngineTests: XCTestCase {
         let d = sqrtf((last.x - pocket.x) * (last.x - pocket.x) + (last.z - pocket.z) * (last.z - pocket.z))
         let window = AngleSceneCalculator.pocketDropRadius(index: 5) - R + 0.006
         XCTAssertLessThanOrEqual(d, window, "进袋时目标球显示轨迹应抵达袋口（实测末端距袋心 \(d * 1000)mm）")
+    }
+
+    /// 角袋中等切角（≈15°）在**所有**常用力度下都应进袋——守护 P10 漏斗模型 v3 修复的
+    /// 「非单调进袋闪烁」（旧版同一球形改个力度就在进/不进间跳变，根因：求解短模拟与上报
+    /// 全模拟进袋带错位 + 喉腔弹珠箱致进袋带碎裂 + 缓行入袋被显示截断）。
+    /// 注：允许母球刮袋（近直球中心球物理必然），仅断言目标球真实进袋。
+    func test_predictor_cornerModerateCut_potsAcrossSpeedsConsistently() {
+        let sY = BTTablePhysics.surfaceY
+        let target = SCNVector3(0.55, sY + R, -0.10)
+        let pocketIndex = 1
+        // 由切角 15° 反推母球位置（与求解页一致的几何）。
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: target, pocketIndex: pocketIndex, surfaceY: sY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: pocket, ballRadius: R)
+        let pdx = pocket.x - target.x, pdz = pocket.z - target.z
+        let pl = sqrtf(pdx * pdx + pdz * pdz)
+        let pd = SCNVector3(pdx / pl, 0, pdz / pl)
+        let th: Float = 15 * .pi / 180
+        let strikeDir = SCNVector3(pd.x * cosf(th) - pd.z * sinf(th), 0, pd.x * sinf(th) + pd.z * cosf(th))
+        let cue = SCNVector3(ghost.x - strikeDir.x * 0.4, sY + R, ghost.z - strikeDir.z * 0.4)
+
+        for v in [Float(2.4), 3.3, 4.4, 5.8] {
+            let pred = ShotPredictor.predict(ShotInput(
+                cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
+                velocity: v, spinX: 0, spinY: 0, surfaceY: sY))
+            XCTAssertTrue(pred.feasible, "角袋 cut15 v\(v) 应可行")
+            XCTAssertTrue(pred.objectPocketed, "角袋 cut15 v\(v) 目标球应真实进袋（非单调闪烁回归）")
+            // 画面=物理：进袋时显示轨迹末端应抵达袋口。
+            if pred.objectPocketed, let last = pred.objectPath.last {
+                let pc = AngleSceneCalculator.pocketPositions(surfaceY: sY)[pocketIndex]
+                let d = sqrtf((last.x - pc.x) * (last.x - pc.x) + (last.z - pc.z) * (last.z - pc.z))
+                XCTAssertLessThanOrEqual(d, AngleSceneCalculator.pocketDropRadius(index: pocketIndex),
+                                         "进袋时目标球显示轨迹末端应在落袋孔内 v\(v)")
+            }
+        }
+    }
+
+    /// 大切角清晰球（中台→角袋，无遮挡）应直接进袋——守护「大角度不该退化成多库翻袋」。
+    /// 用户洞察：目标球进袋路线恒为 target→pocket 直线，大切角只是动量小，理应（足够力度时）
+    /// 直接进、绝不变 banking。左右两角袋都测，兼顾镜像对称。
+    func test_predictor_largeCutClearShot_directPotBothCorners() {
+        let sY = BTTablePhysics.surfaceY
+        let target = SCNVector3(0.0, sY + R, 0.0)   // 台面中心，到任一角袋都无遮挡
+        for pocketIndex in [0, 1] {                  // 左上 / 右上
+            let pocket = AngleSceneCalculator.effectivePocketAimPoint(targetBall: target, pocketIndex: pocketIndex, surfaceY: sY)
+            let ghost = AngleSceneCalculator.ghostBallPosition(targetBall: target, pocket: pocket, ballRadius: R)
+            let pdx = pocket.x - target.x, pdz = pocket.z - target.z
+            let pl = sqrtf(pdx * pdx + pdz * pdz)
+            let pd = SCNVector3(pdx / pl, 0, pdz / pl)
+            for cutDeg in [Float(30), 45, 55, 65] {
+                let th = cutDeg * .pi / 180
+                let strikeDir = SCNVector3(pd.x * cosf(th) - pd.z * sinf(th), 0, pd.x * sinf(th) + pd.z * cosf(th))
+                let cue = SCNVector3(ghost.x - strikeDir.x * 0.45, sY + R, ghost.z - strikeDir.z * 0.45)
+                let pred = ShotPredictor.predict(ShotInput(
+                    cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
+                    velocity: 3.3, spinX: 0, spinY: 0, surfaceY: sY))
+                XCTAssertTrue(pred.feasible, "中台→袋\(pocketIndex) cut\(cutDeg)° 应可行")
+                XCTAssertTrue(pred.objectPocketed,
+                              "中台→袋\(pocketIndex) cut\(cutDeg)° v3.3 应直接进袋（不退化为多库翻袋）")
+            }
+        }
     }
 
     // MARK: - Helpers

@@ -1,4 +1,21 @@
 import SwiftUI
+import UIKit
+
+/// 运行时加载图文精讲配图（`Resources/DrillTutorials/<name>.png`）。内存缓存，缺图回退占位。
+enum DrillTutorialImageStore {
+    private static let cache = NSCache<NSString, UIImage>()
+
+    static func image(named name: String) -> UIImage? {
+        if let cached = cache.object(forKey: name as NSString) { return cached }
+        guard let url = Bundle.main.url(forResource: name, withExtension: "png",
+                                        subdirectory: "DrillTutorials"),
+              let image = UIImage(contentsOfFile: url.path) else {
+            return nil
+        }
+        cache.setObject(image, forKey: name as NSString)
+        return image
+    }
+}
 
 struct DrillTutorialView: View {
     let drill: DrillContent
@@ -98,6 +115,19 @@ struct DrillTutorialView: View {
                 .foregroundStyle(.btText)
                 .fixedSize(horizontal: false, vertical: true)
                 .lineSpacing(4)
+
+            if let imageName = section.image,
+               let uiImage = DrillTutorialImageStore.image(named: imageName) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BTRadius.sm)
+                            .stroke(.btSeparator, lineWidth: 0.5)
+                    )
+            }
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)

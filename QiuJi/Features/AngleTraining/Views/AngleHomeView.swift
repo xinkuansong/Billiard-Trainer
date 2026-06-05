@@ -13,6 +13,8 @@ enum AngleRoute: Hashable {
     case bankShot
     case diamondSystem
     case shotSimulation
+    case positionPlayComposer
+    case positionPlayTraining
 }
 
 // MARK: - Entry Model
@@ -44,7 +46,9 @@ struct AngleHomeView: View {
         .init(route: .scene2DAiming, icon: "square.grid.2x2.fill",
               title: "2D 瞄准训练", subtitle: "俯视球台角度预测", chip: "2D"),
         .init(route: .scene3DAiming, icon: "rotate.3d.fill",
-              title: "3D 瞄准训练", subtitle: "3D 视角角度预测", chip: "3D")
+              title: "3D 瞄准训练", subtitle: "3D 视角角度预测", chip: "3D"),
+        .init(route: .positionPlayTraining, icon: "flag.checkered",
+              title: "走位训练", subtitle: "自摆球形，规划并验证整套走位序列", chip: "物理")
     ]
 
     private let toolEntries: [AngleEntry] = [
@@ -58,7 +62,9 @@ struct AngleHomeView: View {
         .init(route: .diamondSystem, icon: "diamond.fill",
               title: "反射解球器", subtitle: "任意摆球，自动求 1–多库反射走位路线", chip: "2D"),
         .init(route: .shotSimulation, icon: "scope",
-              title: "分离角与走位", subtitle: "物理引擎模拟分离角、母球走位；可调力度与塞", chip: "物理")
+              title: "分离角与走位", subtitle: "物理引擎模拟分离角、母球走位；可调力度与塞", chip: "物理"),
+        .init(route: .positionPlayComposer, icon: "rectangle.stack.badge.play",
+              title: "走位编排台", subtitle: "自由摆球，逐杆编排击打序列；导出教学视频与训练关卡", chip: "物理")
     ]
 
     var body: some View {

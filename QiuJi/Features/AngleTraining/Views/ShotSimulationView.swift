@@ -256,7 +256,9 @@ struct ShotSimulationView: View {
 
     @ViewBuilder
     private func spinReadout(label: String, value: Double, plus: String, minus: String) -> some View {
-        let mag = Int((abs(value) * 100).rounded())
+        // 占「打滑极限（满塞）」的百分比：value 语义为接触点/R，满塞 = miscueLimitFraction。
+        let pct = abs(value) / Double(CuePhysics.miscueLimitFraction) * 100
+        let mag = min(Int(pct.rounded()), 100)
         let tag: String = mag == 0 ? "无" : "\(value > 0 ? plus : minus)\(mag)%"
         HStack(spacing: 4) {
             Text(label)
@@ -282,57 +284,75 @@ private struct HUDHeightKey: PreferenceKey {
 
 // MARK: - Spin Pad
 
-/// 打点盘：圆形母球示意，拖动选择击球点 (spinX 左右塞, spinY 高低杆)，范围限制在单位圆内。
-/// 击球点圆点使用**红色**（贴近真实白球上的红色定位点）。
+/// 打点盘：按**真实物理比例**画母球正面 + 打滑极限圈 + 皮头接触斑，拖动摆放皮头选择真实击球点。
+/// - **用户操作的是皮头中心的摆放位置**（红色接触斑 = 皮头，按真实皮头/母球比例画，11mm/57.15mm≈0.19）。
+/// - **皮头曲率修正**：真实皮头是球冠，接触点沿两球心连线、被曲率**拉向球心**——
+///   `contact = 皮头中心偏移 × CuePhysics.tipContactPullFactor (R/(R+ρ))`。绑定的 `spinX/spinY`
+///   存的是**真实接触点偏移/R**（= pooltool a,b），喂给物理；红点画在皮头中心（略比接触点靠外）。
+/// - **打滑极限**：接触点偏移钳在 `miscueLimitFraction`(0.5R)——皮头超出即打滑（miscue），物理打不出；
+///   对应的皮头中心可达边界 = 0.5R / pullFactor，盘上以虚线圈标出且拖不出去。
 private struct SpinPadView: View {
     @Binding var spinX: Double
     @Binding var spinY: Double
 
+    private let miscue = Double(CuePhysics.miscueLimitFraction)
+    private let tipRatio = Double(CuePhysics.tipDiameter / BallPhysics.diameter)
+    private let pull = Double(CuePhysics.tipContactPullFactor)   // contact = placement × pull
+
     var body: some View {
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
-            let r = size / 2
-            let inset: CGFloat = 10
+            let cx = geo.size.width / 2, cy = geo.size.height / 2
+            let inset: CGFloat = 5
+            let ballR = size / 2 - inset                       // 球面半径(pt) ↔ 偏移 = 1.0R
+            let placementLimit = miscue / pull                 // 皮头中心可达边界（接触点钳到 0.5R 对应）
+            // 红点画在皮头中心 = 接触点 / 曲率拉心系数（略比接触点靠外）。
             // spinX 正=左塞→屏幕左；spinY 正=高杆→屏幕上
-            let dot = CGPoint(
-                x: r - CGFloat(spinX) * (r - inset),
-                y: r - CGFloat(spinY) * (r - inset)
-            )
+            let placeX = spinX / pull, placeY = spinY / pull
+            let dot = CGPoint(x: cx - CGFloat(placeX) * ballR,
+                              y: cy - CGFloat(placeY) * ballR)
+            let tipD = max(ballR * 2 * CGFloat(tipRatio), 8)   // 皮头接触斑直径(pt)
+            let miscueR = ballR * CGFloat(placementLimit)      // 打滑极限圈半径(pt，皮头中心边界)
             ZStack {
+                // 母球（径向高光，真实尺寸）
                 Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [.white, Color(white: 0.86)],
-                            center: .init(x: 0.38, y: 0.34), startRadius: 2, endRadius: size
-                        )
-                    )
+                    .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
+                                         center: .init(x: 0.38, y: 0.34),
+                                         startRadius: 2, endRadius: ballR * 2))
                     .overlay(Circle().stroke(.white.opacity(0.5), lineWidth: 1))
+                    .frame(width: ballR * 2, height: ballR * 2)
+                    .position(x: cx, y: cy)
+                // 中心十字
                 Path { p in
-                    p.move(to: CGPoint(x: r, y: 8)); p.addLine(to: CGPoint(x: r, y: size - 8))
-                    p.move(to: CGPoint(x: 8, y: r)); p.addLine(to: CGPoint(x: size - 8, y: r))
+                    p.move(to: CGPoint(x: cx, y: cy - ballR)); p.addLine(to: CGPoint(x: cx, y: cy + ballR))
+                    p.move(to: CGPoint(x: cx - ballR, y: cy)); p.addLine(to: CGPoint(x: cx + ballR, y: cy))
                 }
-                .stroke(.black.opacity(0.16), lineWidth: 1)
+                .stroke(.black.opacity(0.14), lineWidth: 1)
+                // 打滑极限圈（虚线，超出即 miscue）
+                Circle()
+                    .stroke(.black.opacity(0.32), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .frame(width: miscueR * 2, height: miscueR * 2)
+                    .position(x: cx, y: cy)
+                // 皮头接触斑（红，真实比例，画在皮头中心）
                 Circle()
                     .fill(Color.red)
-                    .frame(width: 18, height: 18)
-                    .overlay(Circle().stroke(.white, lineWidth: 2))
+                    .overlay(Circle().stroke(.white, lineWidth: 1.5))
+                    .frame(width: tipD, height: tipD)
                     .position(dot)
                     .shadow(color: .black.opacity(0.35), radius: 2)
             }
-            .contentShape(Circle())
+            .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { value in
-                        let nx = Double((r - value.location.x) / (r - inset))
-                        let ny = Double((r - value.location.y) / (r - inset))
+                        // 手指位置 = 皮头中心摆放 placement（单位 R）。
+                        let nx = Double((cx - value.location.x) / ballR)
+                        let ny = Double((cy - value.location.y) / ballR)
                         let mag = (nx * nx + ny * ny).squareRoot()
-                        if mag > 1 {
-                            spinX = nx / mag
-                            spinY = ny / mag
-                        } else {
-                            spinX = max(-1, min(1, nx))
-                            spinY = max(-1, min(1, ny))
-                        }
+                        let s = mag > placementLimit ? placementLimit / mag : 1   // 钳到皮头中心边界
+                        // 接触点 = 皮头中心 × 曲率拉心系数（存为 pooltool a,b，喂物理）。
+                        spinX = nx * s * pull
+                        spinY = ny * s * pull
                     }
             )
         }

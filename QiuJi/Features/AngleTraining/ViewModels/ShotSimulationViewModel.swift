@@ -40,6 +40,8 @@ final class ShotSimulationViewModel: ObservableObject {
     @Published private(set) var statusText: String = "点击袋口选择目标袋"
 
     private var lastPrediction: ShotPrediction?
+    /// 瞄准/调整阶段球杆指向的单位方向（母球→假想球，取自真实轨迹首段），击打动画沿此方向出杆。
+    private var lastAimDirection: SCNVector3?
 
     // MARK: - Background prediction
 
@@ -200,6 +202,8 @@ final class ShotSimulationViewModel: ObservableObject {
             nearCushionHint = false
             statusText = pred.infeasibleReason.isEmpty ? "当前角度无法进袋" : pred.infeasibleReason
             clearTrajectory()
+            scene.hideCueStick()
+            lastAimDirection = nil
             return
         }
 
@@ -214,6 +218,7 @@ final class ShotSimulationViewModel: ObservableObject {
         }
         statusText = makeStatus(pred)
         drawTrajectory(pred)
+        updateCueStickAiming(pred)
     }
 
     /// 进袋判定取自**真实模拟**（画面=物理）：不同角度/力度/塞会真实影响能否进袋。
@@ -286,6 +291,40 @@ final class ShotSimulationViewModel: ObservableObject {
         scene.hideAllVisualization()
     }
 
+    // MARK: - Cue stick (aiming aid)
+
+    /// 瞄准/调整阶段在母球后方显示球杆：
+    /// - 方向对准假想球——取真实母球轨迹首段方向（即瞄准线），与教学可视化一致；
+    /// - 侧塞（左右）把球杆横移到真实接触点，直观对应打点盘；高/低塞在俯视 2D 不可见，故不表现。
+    /// 击打中 / 不可行时不显示（由 `play` 的出杆动画接管或 `hideCueStick`）。
+    private func updateCueStickAiming(_ p: ShotPrediction) {
+        guard !isPlaying, p.feasible, let cue = scene.cueBallNode,
+              let aim = aimDirection(path: p.cuePath, from: cue.position) else {
+            scene.hideCueStick()
+            lastAimDirection = nil
+            return
+        }
+        lastAimDirection = aim
+        // 侧塞接触点横移：spinX 已是「接触点偏移 / R」(≤0.5)，乘以球半径得真实横移量。
+        let r = AngleSceneCalculator.ballRadius
+        let perp = SCNVector3(-aim.z, 0, aim.x)
+        let lateral = Float(spinX) * r
+        let pos = SCNVector3(cue.position.x + perp.x * lateral,
+                             cue.position.y,
+                             cue.position.z + perp.z * lateral)
+        scene.updateCueStick(cueBallPosition: pos, aimDirection: aim)
+    }
+
+    /// 从母球出发，取轨迹上第一个明显偏离（>2cm）的点，得到单位瞄准方向。
+    private func aimDirection(path: [SCNVector3], from cue: SCNVector3) -> SCNVector3? {
+        for pt in path {
+            let dx = pt.x - cue.x, dz = pt.z - cue.z
+            let d = sqrtf(dx * dx + dz * dz)
+            if d > 0.02 { return SCNVector3(dx / d, 0, dz / d) }
+        }
+        return nil
+    }
+
     // MARK: - Playback
 
     func play() {
@@ -300,6 +339,33 @@ final class ShotSimulationViewModel: ObservableObject {
 
         let cueStart = cueNode.position
         let targetStart = targetNode.position
+
+        // 先做一次「拉杆 → 送杆」出杆动画，送杆到位后再隐藏球杆并启动球的轨迹播放，
+        // 让「点击击球」有真实的出杆动作。无球杆或方向缺失时直接发球。
+        if let stick = scene.cueStick?.rootNode, let aim = lastAimDirection {
+            let d: Float = 0.05
+            let pull = SCNAction.move(by: SCNVector3(-aim.x * d, 0, -aim.z * d), duration: 0.16)
+            pull.timingMode = .easeOut
+            let thrust = SCNAction.move(by: SCNVector3(aim.x * d, 0, aim.z * d), duration: 0.06)
+            thrust.timingMode = .easeIn
+            stick.runAction(SCNAction.sequence([pull, thrust])) { [weak self] in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.scene.hideCueStick()
+                    self.launchBalls(cueNode: cueNode, targetNode: targetNode, recorder: recorder,
+                                     cueStart: cueStart, targetStart: targetStart)
+                }
+            }
+        } else {
+            scene.hideCueStick()
+            launchBalls(cueNode: cueNode, targetNode: targetNode, recorder: recorder,
+                        cueStart: cueStart, targetStart: targetStart)
+        }
+    }
+
+    /// 沿真实轨迹播放两球运动（出杆动画结束后调用）。
+    private func launchBalls(cueNode: SCNNode, targetNode: SCNNode, recorder: TrajectoryRecorder,
+                             cueStart: SCNVector3, targetStart: SCNVector3) {
         let yLevel = scene.surfaceY + AngleSceneCalculator.ballRadius
 
         // 播放速度略快，避免长轨迹拖沓；进袋淡出由 playback.action 处理。
@@ -307,8 +373,10 @@ final class ShotSimulationViewModel: ObservableObject {
         // 避免只在事件处采样 + 线性插值导致的卡顿感；动画与所绘轨迹同源、完全吻合。
         let speed: Float = 1.4
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let cueAction = playback.action(for: cueNode, ballName: ShotInput.cueBallName, speed: speed)
-        let targetAction = playback.action(for: targetNode, ballName: ShotInput.targetBallName, speed: speed)
+        // removeOnPocket:false——本页播放后要复位重显两球，绝不能让进袋球被移出父节点
+        // （否则与 finishPlayback 复位竞态 → 目标球进袋后永久消失，reset/拖动都救不回）。
+        let cueAction = playback.action(for: cueNode, ballName: ShotInput.cueBallName, speed: speed, removeOnPocket: false)
+        let targetAction = playback.action(for: targetNode, ballName: ShotInput.targetBallName, speed: speed, removeOnPocket: false)
 
         if let targetAction { targetNode.runAction(targetAction) }
         if let cueAction {
@@ -342,6 +410,7 @@ final class ShotSimulationViewModel: ObservableObject {
         if let pred = lastPrediction, pred.feasible {
             statusText = makeStatus(pred)
             drawTrajectory(pred)
+            updateCueStickAiming(pred)
         }
     }
 }

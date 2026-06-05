@@ -72,12 +72,15 @@ enum AngleSceneCalculator {
     static let cornerPocketRadius: Float = 0.042
     static let middlePocketRadius: Float = 0.043
 
-    /// 物理引擎**落袋孔半径**（球心进入孔内即落袋）。P10 真实袋口物理（throat 模型）：
-    /// 袋口由 jaw 库 + 喉腔（侧壁/后壁，见 `TableGeometry.chineseEightBallQiuJi`）构成，
-    /// rattle 由喉腔库边几何自然产生；此半径仅表示**物理洞口**（球落入的孔），不承担"放大以
-    /// 强行进球"的职责。与**视觉标记半径** `*PocketRadius` 解耦（标记视觉不变）。
-    static let cornerPocketDropRadius: Float = 0.052
-    static let middlePocketDropRadius: Float = 0.052
+    /// 物理引擎**落袋孔半径**（球心进入孔内即落袋）。P10 真实袋口物理（漏斗模型 v3）：
+    /// 袋口由 **jaw 库（鼻尖直线段 + 鼻端圆弧）闸口** + **落袋捕获圆**构成——jaw 负责
+    /// 拦截偏离/过薄/过力度的球（撞鼻反弹 = rattle/未进），落袋捕获圆则让**干净穿过袋口
+    /// 开口（mouth）的球落袋**。捕获半径取「袋心→袋口开口中线」距离量级，使任意「沿内向
+    /// 路径进入开口」的球都被捕获（不再像上一版「喉腔弹珠箱」那样把对准的球弹来弹去导致
+    /// 进袋带碎裂）。这是真实袋口的几何：jaw 决定能否进、洞口决定进。
+    /// 与**视觉标记半径** `*PocketRadius` 解耦（黄色标记盘视觉不变）。
+    static let cornerPocketDropRadius: Float = 0.070
+    static let middlePocketDropRadius: Float = 0.075
 
     /// 给定袋号的引擎落袋孔半径。
     static func pocketDropRadius(index: Int) -> Float {

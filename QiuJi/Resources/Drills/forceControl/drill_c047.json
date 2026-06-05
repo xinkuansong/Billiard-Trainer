@@ -56,6 +56,18 @@
       "y": 0.1
     }
   },
+  "shotIntent": {
+    "version": 1,
+    "shots": [
+      {
+        "cue": { "x": 0.5, "y": 0.4 },
+        "target": { "x": 0.5, "y": 0.1 },
+        "pocket": "topCenter",
+        "velocity": 5.8,
+        "spin": { "x": 0.0, "y": 0.5 }
+      }
+    ]
+  },
   "tutorial": {
     "sections": [
       {

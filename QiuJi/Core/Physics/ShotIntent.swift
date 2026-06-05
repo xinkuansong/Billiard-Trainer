@@ -53,6 +53,16 @@ struct ShotIntent: Codable {
 // MARK: - Pocket ID ↔ index
 
 extension ShotIntent {
+    /// 把打点（接触点偏移/R）的幅值钳到打滑极限 `CuePhysics.miscueLimitFraction`(0.5R)，方向不变。
+    /// 与「分离角」打点盘同一物理约束（皮头超出即 miscue）。
+    static func clampToMiscueLimit(_ x: Float, _ y: Float) -> (Float, Float) {
+        let lim = CuePhysics.miscueLimitFraction
+        let mag = (x * x + y * y).squareRoot()
+        guard mag > lim, mag > 1e-6 else { return (x, y) }
+        let k = lim / mag
+        return (x * k, y * k)
+    }
+
     /// schema.md Pocket ID → `AngleSceneCalculator.pocketPositions` 索引 (0..5)。
     static func pocketIndex(for pocketId: String) -> Int? {
         switch pocketId {
@@ -94,13 +104,17 @@ extension ShotIntent.Shot {
         let targetScene = AngleSceneCalculator.normalizedToScene(
             point: CGPoint(x: target.x, y: target.y), surfaceY: surfaceY
         )
+        // 打滑极限守门：接触点偏移幅值（√(x²+y²)）不得超过 miscueLimitFraction(0.5R)——
+        // 皮头超出即打滑（miscue），物理打不出。超限的历史内容在此按方向等比钳回，
+        // 保证动作库烘焙/回放与「分离角」打点盘同一真实约束（内容已同步钳到 ≤0.5，此为守门）。
+        let (sx, sy) = ShotIntent.clampToMiscueLimit(Float(spin?.x ?? 0), Float(spin?.y ?? 0))
         return ShotInput(
             cueBall: cueScene,
             targetBall: targetScene,
             pocketIndex: pocketIndex,
             velocity: Float(velocity),
-            spinX: Float(spin?.x ?? 0),
-            spinY: Float(spin?.y ?? 0),
+            spinX: sx,
+            spinY: sy,
             elevation: Float(elevation ?? 0),
             surfaceY: surfaceY
         )

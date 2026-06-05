@@ -571,6 +571,32 @@
   - `.cursor/skills/swiftui-design-system/SKILL.md` § 组件（动作库 2D 台 = 离线烘焙 USDZ PNG + 详情 live 场景）
 - **已应用至**：
   - ✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-04，DR-016）
+- **后续**：轨迹来源被 DR-017 再修正（DR-016 渲染消费的是 `DrillAnimation` 折线——72 条里仅 5 条试点为物理烘焙，其余 67 条仍是手画贝塞尔，故"看着像画的线"）。
+
+## DR-017
+- **任务**：动作库轨迹/走位改为物理引擎真算（用户驱动：「现在球的运动轨迹，看起来不是通过物理引擎计算出来的，而是画出来的线，请修正」）
+- **原始规范（DR-016）**：缩略图烘焙器 `DrillThumbnailRenderer` 与详情页 `DrillSceneController` 直接消费 `DrillAnimation.cueBall/targetBall.path`（含手画贝塞尔控制点）采样成折线绘制；详情页回放沿该折线 `SCNAction.move` 匀速移动。72 条 Drill 中仅 5 条试点经 `ShotBaker` 物理烘焙，其余 67 条 `path` 仍是历史手画曲线 → 视觉上是"画出来的线"，无减速/吃库/分离角/真实走位。
+- **调整后**：渲染与回放统一**以物理引擎 `ShotPredictor` 为轨迹来源**：
+  - 新增 `DrillShotResolver`：把一条 Drill 解析为 `ShotInput`——优先用已标注的 `shotIntent`（精确：连续力度+塞+仰角）；缺失时从既有 `DrillAnimation` 反推（母球/目标球摆位+选袋，默认中等力度 3.3 m/s、无塞）。
+  - `DrillThumbnailRenderer.render(drill:)`（签名由 `animation:` 改为 `drill:`）：跑 `ShotPredictor.predict`，画 `prediction.cuePath`（白）/`objectPath`（橙）真实折线；`feasible == false` 才退回手画 `DrillAnimation`。72/72 重新烘焙。
+  - `DrillSceneController.setup(drill:)`（详情页）：后台 `ShotPredictor.predict` → 主线程画物理轨迹；`play()` 用 `prediction.recorder` + `TrajectoryPlayback` 按**真实模拟逐帧位置**回放（与分离角页同源，含减速/吃库/走位），不可行才退回沿手画折线移动。
+- **原因**：物理升级（ADR-P10-01）已建立"意图→引擎→精确轨迹"管线，但渲染层仍消费旧手画 `path`，导致绝大多数 Drill 的画面未体现物理引擎结果。轨迹来源前移到 `ShotPredictor` 后，动作库与分离角页**同一物理引擎同源**。
+- **影响组件**：
+  - `QiuJi/Core/Physics/DrillShotResolver.swift`（新建，Drill→ShotInput 解析）
+  - `QiuJi/Core/Scene/DrillThumbnailRenderer.swift`（改 `render(drill:)`，物理轨迹 + 手画兜底）
+  - `QiuJi/Core/Scene/DrillSceneView.swift`（`DrillSceneController` 物理求解 + `TrajectoryPlayback` 回放；`DrillSceneView` 入参 `drill:`）
+  - `QiuJi/Features/DrillLibrary/Views/DrillDetailView.swift`（`DrillSceneView(drill:)`）
+  - `QiuJiTests/DrillThumbnailBakeRunnerTests.swift`（`render(drill:)`）
+  - `QiuJi/Resources/DrillThumbnails/*.png`（72 张物理重烘焙）
+- **验证**：`make build` ✅、lint 0、烘焙 72/72 ✅（c001 母球直线进底中袋、c040 切球母球分离 + 目标橙线进右底袋，几何自洽）。
+- **遗留**：67 条无 `shotIntent` 的历史 Drill 用默认力度/无塞反推，轨迹是"真物理但非作者原走位意图"；补 `shotIntent` 后即精确还原（后续内容任务）。
+- **日期**：2026-06-04
+- **回写目标**：
+  - `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+  - `.cursor/skills/swiftui-design-system/SKILL.md` § 组件（动作库 2D 台轨迹来源 = `ShotPredictor`）
+- **已应用至**：
+  - ✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-04，DR-017）
+- **后续（同日，shotIntent 全量补齐）**：用 8 个 content-engineer 子智能体并行为剩余 67 条 Drill 补 `shotIntent`（按各 Drill 描述/杆法推断 velocity+spin），加上 5 试点 = **72/72 全有 shotIntent**。新增可行性扫描 `DrillThumbnailBakeRunnerTests/test_scanFeasibility`（每条 resolve→predict 打印 feasible/cut/potted）。结果 **67/72 引擎干净落袋**；修正 2 条几何颠倒（c039 选袋反向→改上中袋；c062 水平母球选竖直袋 cut90→母球移到目标正上方）+ 6 条 follow 误推致乱弹（c035/c037/c065/c067/c068/c070 改中心球，c070 加力）。**5 条特殊球路**（c055 翻袋/c057 K球吃库/c058 贴库/c061 解球/c066 开球）单杆直瞄物理模型无法干净进 → c055 退回手画兜底、其余渲染真实物理近失/散球（v1 烘焙器固有限制：不支持翻袋/吃库瞄准；记入 H-11 待物理核查）。72 缩略图按新 shotIntent 全量重烘焙。
 
 ## PD-009
 - **任务**：P10 Track B-1 物理保真进球管线（ADR-P10-02）
@@ -588,3 +614,43 @@
   - `.cursor/rules/10-ios-architect.mdc` § 经验教训（物理求解器评分量纲 + 测量先于改几何）
 - **已应用至**：
   - ✅ `.cursor/rules/10-ios-architect.mdc` § 经验教训（2026-06-04，PD-009）；ADR-P10-02 见 `tasks/phases/P10-physics-content-pipeline.md`
+
+## PD-010
+- **任务**：P10 Track B-2 截图诊断驱动的漏斗袋口模型 v3（ADR-P10-03）
+- **模式描述**：**「先可视化再优化；真实袋口=jaw 闸口+导球漏斗（非弹珠箱）；求解 sim 与上报 sim 同保真度；直接进袋优先于绕库；噪声景观治几何而非硬刚求解器」**。可复用纪律：
+  1. **截图/2D 诊断渲染驱动**：物理「时好时坏、对参数敏感」时，照相级渲染遮几何。用纯 CoreGraphics 2D 顶视接触表（库边/jaw/落袋孔/标记/真实轨迹/进袋判定全可见，`ShotScenarioRenderTests`→`build/shot_probe/*.png`）对多袋口×切角×塞×力度矩阵出图，肉眼 + 偏移扫描定位根因。
+  2. **漏斗袋口替代弹珠箱**：高恢复系数喉腔侧/后壁把对准球反复弹射 → 进袋带斑点状碎裂（每 0.1° 翻转）。改为 jaw 库作闸口 + 落袋捕获圆覆盖 jaw mouth + 落袋吸心 → 进袋带连续宽、画面=物理。
+  3. **求解=上报同保真度**：搜索 sim 与最终 sim 事件/时间预算一致，否则两进袋带错位致「判进画面不进」。
+  4. **粗扫步长 ≤ 进袋带宽**（0.5°→0.2°，带宽实测 0.2–0.4°）。
+  5. **直接进袋优先**（`objCushionsBeforePocket` 计入评分），不为躲 scratch 选绕库 banking 解；近全直球如实报「母球进袋（失误）」。
+  6. **慢进袋不截断**：显示钳制器有效时长按运动态判定（去 0.02m/s 速度阈值），缓行入袋完整显示。
+- **适用场景**：物理引擎/袋口/求解器调试；任何「现象对参数敏感、肉眼说不清」的仿真问题。
+- **关键约束**：物理落袋孔半径（角 0.070/中 0.075）与视觉标记半径解耦；落袋吸心使进袋判定与画面同源。
+- **效果**：4 张接触表肉眼全部物理自洽（干净直进 + 真实走位 + follow/draw/squirt + 无穿库/碎裂）；`QiuJiTests` 物理套件全绿（Benchmark 14/14 E-solver 5/5、穿库扫描、DrillBake 5/5、新增非单调回归断言）、`make build` 通过、lint 0。
+- **日期**：2026-06-04
+- **回写目标**：`.cursor/rules/10-ios-architect.mdc` § 经验教训（截图诊断 + 漏斗袋口 + 求解=上报同保真度）
+- **已应用至**：
+  - ✅ `.cursor/rules/10-ios-architect.mdc` § 经验教训（2026-06-04，PD-010）；ADR-P10-03 见 `tasks/phases/P10-physics-content-pipeline.md`
+
+## DR-018
+- **任务**：打点盘真实化（用户驱动：「按真实母球尺寸、皮头尺寸、皮头弧度，相当于按相同比例，不同加塞大小对应真实加塞点，让用户真实感受到加塞多少和母球反应」）。
+- **原始规范**：`SpinPadView`（`ShotSimulationView.swift`）把击球点 `spinX/spinY` 约束在**单位圆**内（`mag ≤ 1`），红点是固定 **18pt** UI 手柄（与皮头尺寸无关），`spinX/spinY` ∈ [-1,1] 直接作为 pooltool `a,b`（接触点偏移/R），**允许打到球的赤道边缘 (1.0R)** ——物理上打不出（必 miscue），且满塞 squirt 偏大。打点盘也无皮头/打滑极限的真实比例参照。
+- **调整后**：打点盘按真实物理比例重做，`spinX/spinY` 语义不变（接触点/R）但**可拖区域钳到打滑极限 0.5R**：
+  1. **统一参数源**（`CuePhysics`）：新增 `tipDiameter=0.011`(11mm 中八皮头)、`tipContactRadius=tipDiameter/2`、`tipCurvatureRadius=0.0105`(nickel)、`miscueLimitFraction=0.5`（满塞≈半个半径，由皮头/巧粉摩擦决定）。删除旧的无用且撞名的 `tipRadius=0.0106`；`CueStick.Constants.tipRadius` 改引用 `CuePhysics.tipContactRadius`（单一来源，3D 杆头也变 11mm）。
+  2. **真实比例渲染**：盘面=母球正面；新增**打滑极限虚线圈**（半径 0.5R，圈外打不出）；红色**皮头接触斑**直径 = 皮头/母球真实比例（11/57.15≈0.19）取代固定 18pt，让用户直观看到「一个皮头多大、最多几个皮头」。
+  3. **拖动钳到打滑极限**：超出 0.5R 的拖动按比例钳回 0.5R 边界（之前钳到 1.0）。读数 `spinReadout` 改为「占满塞(打滑极限)的百分比」（满塞=100%）。
+- **原因**：旧打点盘的「红点中心=接触点、但范围到球边缘、红点尺寸与皮头无关」让用户无法对应真实击球点与加塞反应；按真实皮头/母球比例 + 打滑极限收敛后，加塞量与 squirt/旋转回到真实区间（满塞 squirt≈1.9°，旧版到 1.0R 偏大且不可达）。
+- **皮头曲率精确换算（同任务第二步，用户「两个都做，更严谨」）**：接入两球相切几何——`CuePhysics.tipContactPullFactor = R/(R+ρ)`（ρ=`tipCurvatureRadius`=10.5mm，≈0.731）。打点盘现以「用户摆放的**皮头中心**」为操作量，真实接触点 = 皮头中心偏移 × pullFactor（曲率把接触点**拉向球心**，平头趋 0、越圆越接近 1），存入 `spinX/spinY`(pooltool a,b) 喂物理；红色接触斑画在皮头中心、虚线打滑圈画在皮头中心可达边界(0.5R/pullFactor≈0.684R)。
+- **shotIntent 内容 miscue 体检 + 守门（同任务第二步）**：扫描全部 Drill `shotIntent`，**4 条** |spin| 幅值 √(x²+y²) 超 0.5R（c004/c017 y=-0.6；c020 (0.5,0.5)=0.707；c021 (-0.5,-0.6)=0.781）→ 按方向等比钳回 0.5R 改 JSON（c004/c017→-0.5；c020→0.35/0.35；c021→-0.32/-0.38）；并在内容→引擎单一入口 `ShotIntent.Shot.shotInput()` 加 `clampToMiscueLimit` 守门（幅值钳到 0.5R、方向不变），保证动作库烘焙/回放与打点盘同一真实约束。4 条缩略图重烘焙。〔`CueBallStrike` 保持 pooltool 忠实、不在物理基元层钳制（其单测用 spin 到 1.0 验数学）；钳制放在意图层（打点盘 + shotInput）。〕
+- **影响组件**：
+  - `QiuJi/Core/Physics/BTPhysicsConstants.swift`（`CuePhysics` 皮头几何 + 打滑极限 + `tipContactPullFactor` 曲率系数）
+  - `QiuJi/Core/Scene/CueStick.swift`（`tipRadius` 引用单一来源）
+  - `QiuJi/Features/AngleTraining/Views/ShotSimulationView.swift`（`SpinPadView` 真实比例 + 打滑极限圈 + 皮头接触斑 + 皮头中心→接触点曲率换算 + 钳制；`spinReadout` 百分比基准改打滑极限）
+  - `QiuJi/Core/Physics/ShotIntent.swift`（`clampToMiscueLimit` 守门 + `shotInput()` 应用）
+  - `QiuJi/Resources/Drills/cueAction/drill_c004|c017|c020|c021.json`（spin 钳到 ≤0.5R）+ `QiuJi/Resources/DrillThumbnails/drill_c004|c017|c020|c021.png`（重烘焙）
+  - `QiuJiTests/PhysicsEngineTests.swift`（+`test_miscueLimit_maxEnglishSquirtIsRealistic` / `test_tipCurvature_pullFactorLessThanOne` / `test_clampToMiscueLimit_boundsMagnitudeKeepsDirection`）
+- **验证**：`make build` ✅、lint 0、`PhysicsEngineTests` **21/21**（含 miscue 守护 + 曲率系数 + 钳制方向）；4 条违规缩略图重烘焙。
+- **遗留**：无（曲率换算 + 内容 miscue 体检均已完成）。物理基元 `CueBallStrike` 仍按 pooltool 忠实（不钳制）——这是有意为之：钳制只在意图层（打点盘 / shotInput）。
+- **日期**：2026-06-05
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（打点盘语义：接触点/R，可拖区=打滑极限 0.5R，红点=真实皮头比例）。
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-05，DR-018）。

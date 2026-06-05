@@ -9,7 +9,8 @@ final class CueStick {
     private enum Constants {
         static let length: Float = 1.45
         static let buttRadius: Float = 0.014
-        static let tipRadius: Float = 0.006
+        /// 皮头横截面半径——单一来源 `CuePhysics.tipContactRadius`（11mm 皮头 → 5.5mm）。
+        static let tipRadius: Float = CuePhysics.tipContactRadius
         static let tipHeight: Float = 0.012
         static var tipOffset: Float { AngleSceneCalculator.ballRadius + 0.001 }
         /// Cushion top above table surface; cue body must clear this when extending over a rail.

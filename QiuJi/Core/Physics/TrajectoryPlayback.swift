@@ -204,7 +204,12 @@ final class TrajectoryPlayback {
     /// 这里改用 `SCNAction.customAction`：在**每一渲染帧**用 `stateAt` 的 `AnalyticalMotion`
     /// 解析解直接求当前时刻位置，按显示刷新率（ProMotion 可达 120Hz）连续插值，任何速度都顺滑；
     /// 滚动旋转用累积滚动弧度的逐帧增量驱动；进袋时淡出并移除。求值与所绘轨迹折线同源、完全吻合。
-    func action(for node: SCNNode, ballName: String, speed: Float = 1.0) -> SCNAction? {
+    /// - Parameter removeOnPocket: 进袋后是否把节点从父节点移除。默认 `true`（一次性回放，
+    ///   球进袋即消失）。**可复用回放场景（如分离角页：播放后要复位重显原球）应传 `false`**——
+    ///   否则末尾的 `removeFromParentNode` 会与「播放结束复位」竞态，导致目标球被移除后无法恢复
+    ///   （reset/拖动均无法重新挂回父节点 → 球永久消失）。`false` 时只淡出、保留节点。
+    func action(for node: SCNNode, ballName: String, speed: Float = 1.0,
+                removeOnPocket: Bool = true) -> SCNAction? {
         guard let frames = sortedFrames[ballName], frames.count > 1, duration > 1e-4 else { return nil }
 
         let spd = max(0.05, speed)
@@ -238,7 +243,7 @@ final class TrajectoryPlayback {
             }
         }
 
-        if willPocket {
+        if willPocket && removeOnPocket {
             return SCNAction.sequence([evaluate, .removeFromParentNode()])
         }
         return evaluate

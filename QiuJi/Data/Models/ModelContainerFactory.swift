@@ -11,7 +11,8 @@ enum ModelContainerFactory {
         DrillFavorite.self,
         SyncPendingItem.self,
         CustomPlan.self,
-        CustomPlanDrill.self
+        CustomPlanDrill.self,
+        PositionPlaySequenceEntity.self
     ]
 
     static func makeContainer() -> ModelContainer {

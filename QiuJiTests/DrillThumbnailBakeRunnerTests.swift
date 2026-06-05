@@ -43,7 +43,7 @@ final class DrillThumbnailBakeRunnerTests: XCTestCase {
                 failed.append("\(id)(load)")
                 continue
             }
-            guard let image = DrillThumbnailRenderer.render(animation: drill.animation),
+            guard let image = DrillThumbnailRenderer.render(drill: drill),
                   let png = image.pngData(), png.count > 4_000 else {
                 failed.append("\(id)(render)")
                 continue
@@ -59,5 +59,33 @@ final class DrillThumbnailBakeRunnerTests: XCTestCase {
         print("THUMB-BAKE done: \(ok)/\(ids.count) written to \(outputDir)")
         if !failed.isEmpty { print("THUMB-BAKE failures: \(failed.joined(separator: ", "))") }
         XCTAssertTrue(failed.isEmpty, "缩略图烘焙失败：\(failed.joined(separator: ", "))")
+    }
+
+    /// 物理可行性扫描：对每条 Drill 解析 ShotInput → ShotPredictor.predict，打印
+    /// `feasible / cut角 / 目标球是否进选定袋`，便于挑出退回手画轨迹的 Drill。不作断言。
+    @MainActor
+    func test_scanFeasibility() async throws {
+        guard let index = await DrillContentService.shared.loadDrillIndex() else {
+            XCTFail("无法加载 Drills/index.json"); return
+        }
+        let surfaceY = TablePhysics.tableSurfaceY
+        var infeasible: [String] = []
+        var notPotted: [String] = []
+        for id in index.allDrillIds {
+            guard let drill = await DrillContentService.shared.loadDrillFromBundle(id: id) else {
+                print("FEAS \(id) LOAD-FAIL"); continue
+            }
+            guard let input = DrillShotResolver.shotInput(for: drill, surfaceY: surfaceY) else {
+                print("FEAS \(id) NO-INPUT (bad pocket)"); infeasible.append(id); continue
+            }
+            let p = ShotPredictor.predict(input)
+            let cut = p.cutAngleDeg.map { String(format: "%.1f", $0) } ?? "-"
+            let hasIntent = drill.shotIntent != nil
+            print("FEAS \(id) feasible=\(p.feasible) potted=\(p.simObjectPotted) cut=\(cut) intent=\(hasIntent) reason=\(p.infeasibleReason)")
+            if !p.feasible { infeasible.append(id) }
+            if !p.simObjectPotted { notPotted.append(id) }
+        }
+        print("FEAS-SUMMARY infeasible(\(infeasible.count)): \(infeasible.joined(separator: ", "))")
+        print("FEAS-SUMMARY notPotted(\(notPotted.count)): \(notPotted.joined(separator: ", "))")
     }
 }
