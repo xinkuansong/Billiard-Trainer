@@ -227,8 +227,4 @@ struct CollisionResolver {
         let sinA = sinf(angle)
         return SCNVector3(v.x * cosA - v.z * sinA, v.y, v.x * sinA + v.z * cosA)
     }
-    
-    private static func vector4(from v: SCNVector3) -> SCNVector4 {
-        return SCNVector4(v.x, v.y, v.z, 0)
-    }
 }

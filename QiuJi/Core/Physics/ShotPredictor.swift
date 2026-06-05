@@ -89,6 +89,8 @@ struct ShotPrediction {
     var cueCushionCount: Int = 0
     /// 目标球落袋前吃库次数（0 = 直接进袋；≥1 = 吃库/翻袋进）。
     var objectCushionCount: Int = 0
+    /// 母球首次球-球碰撞前吃库次数（0 = 直瞄直击；≥1 = 绕库/kick 进攻）。
+    var cueCushionsBeforeContact: Int = 0
     /// 轨迹回放器（供播放动画复用，避免二次模拟）。
     var recorder: TrajectoryRecorder?
     /// 模拟总时长（秒）。
@@ -238,6 +240,7 @@ enum ShotPredictor {
         result.objectPocketed = potted
         result.cueCushionCount = run.cueCushions
         result.objectCushionCount = run.objCushionsBeforePocket
+        result.cueCushionsBeforeContact = run.cueCushionsBeforeContact
 
         // 4.5) 全场最终静止位置 + 进袋球名（走位序列链，ADR-P11-01）。
         //      障碍球取真实模拟末帧；母球/目标球用防穿库钳制轨迹末帧覆盖（与画面一致）。
@@ -307,6 +310,8 @@ enum ShotPredictor {
         let objCushionsBeforePocket: Int
         /// 母球全程吃库次数（供反解按截图标注的吃库数约束）。
         let cueCushions: Int
+        /// 母球在**首次球-球碰撞前**的吃库次数（0 = 直瞄直击；≥1 = 绕库/kick 进攻路线）。
+        let cueCushionsBeforeContact: Int
     }
 
     /// 以 `aimDir` 方向、`velocity` 力度发射母球并模拟，返回结果。
@@ -384,12 +389,17 @@ enum ShotPredictor {
         var objectPocketId: String?
         var objCushionsBeforePocket = 0
         var cueCushions = 0
+        var cueCushionsBeforeContact = 0
+        var sawBallBall = false
         for ev in engine.resolvedEvents {
             switch ev {
+            case .ballBall:
+                sawBallBall = true
             case .ballCushion(let ball, _, _) where ball == ShotInput.targetBallName:
                 if objectPocketId == nil { objCushionsBeforePocket += 1 }
             case .ballCushion(let ball, _, _) where ball == ShotInput.cueBallName:
                 cueCushions += 1
+                if !sawBallBall { cueCushionsBeforeContact += 1 }
             case .pocket(let ball, let pid) where ball == ShotInput.targetBallName:
                 objectPocketId = pid
             default:
@@ -406,7 +416,8 @@ enum ShotPredictor {
             objPostContactDir: objDir,
             cueGhostMinDist: cueGhostMinDist,
             objCushionsBeforePocket: objCushionsBeforePocket,
-            cueCushions: cueCushions
+            cueCushions: cueCushions,
+            cueCushionsBeforeContact: cueCushionsBeforeContact
         )
     }
 
@@ -570,12 +581,37 @@ enum ShotPredictor {
     ///
     /// 平滑单峰景观 ⇒ 不再需要 0.2° 密梳（那是为旧"碎裂进袋带"防漏），粗 0.5°→中→细即可稳定
     /// 收敛，顺带把单次 predict 开销降回 ~75 次短模拟。
+    /// `solveAimOffset` 的评分与搜索参数（D-B4/D-D2：原为散落经验魔数，抽成具名常量并注明含义/量纲；
+    /// 数值未改动）。修改任一权重/保真后必须跑 `PhysicsMatrixTests`（进袋合约 + 宏观确定性）守回归。
+    private enum AimScoring {
+        /// 搜索阶段每次短模拟的事件/时长上限。**与最终模拟同保真**——历史上降保真会与"最终全保真"
+        /// 产生双景观错位（搜到的解上报时变样）；D-D2 若要降保真须先过矩阵护栏。
+        static let searchMaxEvents = 500
+        static let searchMaxTime: Float = 15.0
+        /// ① 直接干净进袋解的基线分（足够负，压过任何方向解 acos∈[0,π]）。
+        static let cleanPotBaseline: Float = -10
+        /// 直接进袋解里母球同时刮袋(scratch)的惩罚（极小 tiebreak：clean 进袋优先不刮杆，不抬到方向解之上）。
+        static let cleanPotScratchPenalty: Float = 0.3
+        /// 方向解里母球刮袋的惩罚（极小 tiebreak；历史上用 1.0 会挑到差解）。
+        static let directionScratchPenalty: Float = 0.05
+        /// 母球碰目标球前每次绕库(kick)的惩罚（FL-020：方向解里也优先直瞄候选，压退化 kick 解抬头）。
+        static let cueKickPenaltyPerCushion: Float = 0.3
+        /// 瞄准偏移正则项系数（rad⁻¹）：同分时偏好更小偏移，使景观有唯一极小、解稳定。
+        static let offsetRegularization: Float = 1e-3
+        /// 未命中目标球时的大基线（≫ π + 进袋 −10），叠加母球-幽灵球最近距离做命中梯度。
+        static let missBaseline: Float = 100
+        /// 三级网格搜索半幅/步长（度）：粗→中→细。方向景观平滑单峰，无需密梳。
+        static let coarseHalfRangeDeg: Float = 12,  coarseStepDeg: Float = 0.5
+        static let midHalfRangeDeg: Float = 0.6,    midStepDeg: Float = 0.1
+        static let fineHalfRangeDeg: Float = 0.12,  fineStepDeg: Float = 0.02
+    }
+
     private static func solveAimOffset(
         baseAim: SCNVector3, velocity: Float, input: ShotInput,
         geometry: TableGeometry, pocketCenter: SCNVector3, ghost: SCNVector3
     ) -> Float {
-        let searchEvents = 500
-        let searchTime: Float = 15.0
+        let searchEvents = AimScoring.searchMaxEvents
+        let searchTime = AimScoring.searchMaxTime
 
         // 进球线方向（target→袋心，XZ 单位向量）：目标球应沿此方向离开。
         let pdx = pocketCenter.x - input.targetBall.x
@@ -591,13 +627,19 @@ enum ShotPredictor {
             )
             guard let od = run.objPostContactDir else {
                 // 未碰到目标球：大基线（≫ 任何方向误差 π + 进袋 −10），母球-幽灵球距离梯度拉向命中。
-                return 100 + run.cueGhostMinDist
+                return AimScoring.missBaseline + run.cueGhostMinDist
             }
             // ① 能**直接进袋**（0 撞库，球穿过 jaw 开口落袋）= 最优区：−10 基线压过一切「方向解」。
             //    直接进袋的瞄点会**穿喉口**（常略偏几何袋心以避开 jaw 鼻），故必须用真实进袋
             //    而非"瞄准袋心方向误差"来认定——后者瞄死袋心反而擦 jaw 出来。clean 优于 scratch。
-            if run.pottedSelected && run.objCushionsBeforePocket == 0 {
-                return -10 + (run.cuePocketed ? 0.3 : 0) + abs(offset) * 1e-3
+            //    **额外要求母球碰目标球前 0 吃库**：否则"母球打丢→绕库→歪打正着碰目标球→恰好进袋"
+            //    的 kick 退化解也会拿 −10，与真直击解打平，叠加引擎遍历浮点非确定性会令两个完全
+            //    不同的解在运行间随机翻转（FL：t3p5 等 30 次重复 cuePreBank 在 0/4 间跳、分离角跨 2°）。
+            //    钉死「直击解」唯一占据最优区，是确定性的根本保证之一。
+            if run.pottedSelected && run.objCushionsBeforePocket == 0 && run.cueCushionsBeforeContact == 0 {
+                return AimScoring.cleanPotBaseline
+                    + (run.cuePocketed ? AimScoring.cleanPotScratchPenalty : 0)
+                    + abs(offset) * AimScoring.offsetRegularization
             }
             // ② 否则（进袋不可达 / 只能吃库进）：按**进球线方向误差**（用户要求：方向必须对，
             //    力度不足进不去可接受、但不要绕库蹭袋）。目标球碰后方向 vs target→袋心 夹角（rad）。
@@ -605,8 +647,10 @@ enum ShotPredictor {
             //    被当成"好解"凌驾于"方向正确的直接未进"。
             let dot = max(-1, min(1, od.x * pockDirX + od.z * pockDirZ))
             var s = acosf(dot)
-            if run.cuePocketed { s += 0.05 }
-            s += abs(offset) * 1e-3
+            if run.cuePocketed { s += AimScoring.directionScratchPenalty }
+            // 母球碰目标球前绕库的进攻路线（kick）轻惩罚：方向解里也优先「直瞄」候选，避免退化解抬头。
+            s += Float(run.cueCushionsBeforeContact) * AimScoring.cueKickPenaltyPerCushion
+            s += abs(offset) * AimScoring.offsetRegularization
             return s
         }
 
@@ -624,9 +668,9 @@ enum ShotPredictor {
         }
 
         // 粗 ±12°/0.5°（49）→ 中 ±0.6°/0.1°（13）→ 细 ±0.12°/0.02°（13）。方向景观平滑单峰、无需密梳。
-        let c = bestOf(center: 0, halfRange: 12 * deg, step: 0.5 * deg)
-        let m = bestOf(center: c, halfRange: 0.6 * deg, step: 0.1 * deg)
-        let f = bestOf(center: m, halfRange: 0.12 * deg, step: 0.02 * deg)
+        let c = bestOf(center: 0, halfRange: AimScoring.coarseHalfRangeDeg * deg, step: AimScoring.coarseStepDeg * deg)
+        let m = bestOf(center: c, halfRange: AimScoring.midHalfRangeDeg * deg, step: AimScoring.midStepDeg * deg)
+        let f = bestOf(center: m, halfRange: AimScoring.fineHalfRangeDeg * deg, step: AimScoring.fineStepDeg * deg)
         return f
     }
 

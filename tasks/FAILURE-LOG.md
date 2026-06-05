@@ -213,3 +213,14 @@
 - **日期**：2026-06-05
 - **规则改进建议**：**所有球（含母球）的进袋判定都必须与画面（钳制轨迹）同源**——禁止任一球的进袋状态直接取裸引擎信号而不过显示一致性闸门。曲线走位（带塞 squirt+swerve）+ 袋口 CCD 直线预测 + resolvePocket 宽松接受阈值 三者叠加会产生「判进画面不进」假阳性，闸门按「钳制轨迹是否真落入某袋捕获窗」统一甄别。
 - **已应用至**：✅ `QiuJi/Core/Physics/ShotPredictor.swift`（`cuePocketed` 加显示一致性闸门）、`QiuJiTests/ShotScenarioRenderTests.swift`（`test_diag_cueScratch` 诊断/扫描）（2026-06-05）；待回写 `10-ios-architect.mdc` § 经验教训
+
+## FL-020
+- **任务**：物理引擎技术债第一梯队测试网扩面（系统化矩阵 `PhysicsMatrixTests`）期间，用户提出「直球求解必须保证母球碰目标球前不吃库、目标球进袋前不吃库才合理」，据此加机器断言体检。
+- **现象**：矩阵给「进袋」解逐例体检母球接触前吃库数，发现 3/285 例母球在碰目标球前先吃了 **4 次库**。聚焦复现 `t3p5c10s+v2.8`（目标球 (0.3,0.3) → 下中袋，10° 切，45cm 直瞄）：**同一精确输入连跑 30 次，`cueCushionsBeforeContact` 在 0（18 次）与 4（12 次）间随机翻转，进袋 28/30（2 次直接打丢），分离角取 80.66°/82.23°/83.25° 三值（跨度 >2°）**。即对该球形，求解器约 40% 概率选中「母球绕 4 库再歪打正着碰目标球」的 kick 退化解，60% 干净直击，运行间随机。
+- **严重程度**：P1（求解器宏观非确定性 + 选到退化 kick 解；同一杆每次预测轨迹/分离角不同，违背确定性与「直球应直击」直觉，且偶发打丢）。注：远超既往记录的 1e-4° 派生标量微抖动（那是无害的），此为 0↔4 库的宏观翻转。
+- **关联页面**：分离角与走位、走位编排器（`ShotPredictor.solveAimOffset`）。
+- **根因**：✅ 已定位。`solveAimOffset` 评分最优区（−10，压过一切方向解）只要求「目标球直接进袋且落袋前 0 吃库」，**未要求母球碰目标球前 0 吃库**。搜索在 ±12°/0.5° 扫 49 个偏移，偶有大偏移让母球「打丢→绕 4 库→歪打正着碰目标球→目标球恰好干净落袋」，该 kick 解同样拿 −10，与真直击解打平；最优区出现并列后，叠加引擎 `Dictionary`/`Set` 事件遍历的浮点求和顺序非确定性，`bestOf` 的 argmin 在两个**完全不同**的解之间运行间随机翻转。
+- **解决**：✅ 已修复（2026-06-05）。①生产层给 `RunResult`/`ShotPrediction` 新增权威字段 `cueCushionsBeforeContact`（引擎事件序列中首次 ballBall 前的 cue ballCushion 计数）；②`solveAimOffset` 最优区条件追加 `&& run.cueCushionsBeforeContact == 0`，钉死「直击解」唯一占据 −10，kick 解降到方向解支（acos 误差 >−10，永不胜出）；③方向解支加 `+ cueCushionsBeforeContact * 0.3` 轻惩罚兜底。回归：`PhysicsMatrixTests.test_matrix_solverPicksDirectNotKick_deterministic` 对 t3p5/t3p4/t4p4 各连跑 20 次 → cuePreBank max=0、进袋 20/20、分离角跨度 **0.00°**；矩阵 1 进袋率维持 85%（288/338）、母球接触前吃库 0 组、远处真翻袋 0 组；`PhysicsEngineTests` 23/23、`PhysicsInvariantTests` 9/9、`PhysicsScenarioTests` 7/7、`DrillShotReconstructionTests` 2/2 全过、lint 0。
+- **日期**：2026-06-05
+- **规则改进建议**：求解器「最优解」的判定必须包含**进攻路线纯净性**约束——直球求解中「母球碰目标球前 0 吃库 + 目标球落袋前 0 吃库」是 clean 解的硬条件，缺一会让「歪打正着的 kick/翻袋」退化解与真直击解在评分上并列；一旦最优区出现并列，引擎无序容器遍历的浮点非确定性就会被放大成**宏观解翻转**。新增/调整求解器评分时，必须用大规模系统化矩阵（数百球形）逐例断言进攻路线纯净性 + 同一输入多次重跑断言宏观确定性，不能只看单次结果或派生标量微抖动。
+- **已应用至**：✅ `QiuJi/Core/Physics/ShotPredictor.swift`（`cueCushionsBeforeContact` 字段 + `solveAimOffset` 最优区/方向解约束）、`QiuJiTests/PhysicsMatrixTests.swift`（矩阵 1 线干净断言 + 矩阵 3 确定性回归）（2026-06-05）；待回写 `10-ios-architect.mdc` § 经验教训

@@ -27,15 +27,23 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Published shot params
 
     /// 连续杆头速度 (m/s)。
-    @Published var velocity: Double = 3.3 { didSet { if !isPlaying { recompute() } } }
+    @Published var velocity: Double = 3.3 { didSet { onParamEdited() } }
     /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
-    @Published var spinX: Double = 0 { didSet { if !isPlaying { recompute() } } }
-    @Published var spinY: Double = 0 { didSet { if !isPlaying { recompute() } } }
+    @Published var spinX: Double = 0 { didSet { onParamEdited() } }
+    @Published var spinY: Double = 0 { didSet { onParamEdited() } }
+
+    /// 调参入口：击球后改参先软回退到「击打前」再重算，避免从终局二次求解。
+    private func onParamEdited() {
+        guard !isPlaying else { return }
+        if hasStruck { restorePendingBefore() } else { recompute() }
+    }
 
     // MARK: - Published state
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
     @Published private(set) var isPlaying = false
+    /// 已击球但尚未记录：桌面停在「击打后」终局，编辑前需软回退到 `pendingBefore`。
+    @Published private(set) var hasStruck = false
     @Published private(set) var isComputing = false
     @Published private(set) var isFeasible = false
     @Published private(set) var objectPocketed = false
@@ -53,6 +61,8 @@ final class PositionPlayViewModel: ObservableObject {
 
     private var lastPrediction: ShotPrediction?
     private var lastAimDirection: SCNVector3?
+    /// 当前未记录这一杆的「击打前」桌面快照（未击球时与桌面同步刷新）。
+    private var pendingBefore: BoardSnapshot?
     private let predictQueue = DispatchQueue(label: "com.qiuji.positionplay-predict", qos: .userInitiated)
     private var predictGeneration = 0
     private var pendingPredict: DispatchWorkItem?
@@ -81,6 +91,9 @@ final class PositionPlayViewModel: ObservableObject {
         pocketMarkers = scene.addPocketMarkers()
         scene.hideAllBalls()
         scene.hideCueStick()
+        // 顶视取景：球桌尽量占满场景区、仅留极小余量（球库已独立成底栏不再压桌）。
+        scene.cameraRig?.topDownOrthographicScale = Double(AngleSceneCalculator.innerLength) * 0.54
+        scene.cameraRig?.topDownPanOffset = .zero
         applyDefaultLayout()
     }
 
@@ -134,8 +147,25 @@ final class PositionPlayViewModel: ObservableObject {
     /// 从球库把一颗球放上桌（自动找一个空位）。
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
+        if hasStruck { restorePendingBefore() }
         let pos = freeNormalizedSlot()
         place(key: key, normalized: pos)
+        refreshOnTableKeys()
+        if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+            selectedTargetKey = key
+            selectBestPocket()
+        }
+        recompute()
+    }
+
+    /// 从球库把一颗球放到指定世界坐标（拖拽落点）。落点会被钳制在台面且不与其它球重叠。
+    func placeFromPalette(_ key: String, atWorld world: SCNVector3) {
+        guard !isPlaying else { return }
+        if hasStruck { restorePendingBefore() }
+        guard let node = scene.allBallNodes[key] else { return }
+        let clamped = clampMultiBall(world, movingNode: node)
+        let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
+        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)))
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -147,6 +177,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 把一颗在桌球撤下回库。
     func removeFromTable(_ key: String) {
         guard !isPlaying else { return }
+        if hasStruck { restorePendingBefore() }
         scene.hideBall(key: key)
         if selectedTargetKey == key { selectedTargetKey = nil }
         refreshOnTableKeys()
@@ -189,6 +220,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         guard !isPlaying else { return }
+        if hasStruck { restorePendingBefore() }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
     }
@@ -248,6 +280,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     func selectTarget(key: String) {
         guard !isPlaying, !PositionPlayBall.isCue(key), onTableKeys.contains(key) else { return }
+        if hasStruck { restorePendingBefore() }
         selectedTargetKey = key
         selectBestPocket()
         recompute()
@@ -255,6 +288,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     func selectPocket(at index: Int) {
         guard !isPlaying else { return }
+        if hasStruck { restorePendingBefore() }
         selectedPocketIndex = index
         updatePocketHighlights()
         recompute()
@@ -300,6 +334,8 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Compute (background)
 
     func recompute() {
+        // 未击球状态下，桌面即「击打前」真相：保持 pendingBefore 与桌面同步。
+        if !hasStruck && !isPlaying { pendingBefore = currentSnapshot() }
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let targetKey = selectedTargetKey,
               let targetNode = scene.allBallNodes[targetKey], !targetNode.isHidden,
@@ -432,18 +468,15 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Playback (preview, multi-ball)
 
     func play() {
-        guard !isPlaying, let pred = lastPrediction, pred.feasible,
+        guard !isPlaying, !hasStruck, let pred = lastPrediction, pred.feasible,
               let recorder = pred.recorder, pred.duration > 0.05 else { return }
+
+        // 记录本杆击打前球形（终局回退用）。
+        pendingBefore = currentSnapshot()
 
         isPlaying = true
         statusText = "击球中…"
         clearTrajectory()
-
-        // 记录全部在桌球的起点，播放后复位。
-        var starts: [String: SCNVector3] = [:]
-        for key in onTableKeys {
-            if let node = scene.allBallNodes[key], !node.isHidden { starts[key] = node.position }
-        }
 
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
@@ -465,29 +498,51 @@ final class PositionPlayViewModel: ObservableObject {
 
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
             cueNode.runAction(cueAction) { [weak self] in
-                Task { @MainActor in self?.finishPlayback(starts: starts) }
+                Task { @MainActor in self?.finishStrike() }
             }
         } else {
-            finishPlayback(starts: starts)
+            finishStrike()
         }
     }
 
-    private func finishPlayback(starts: [String: SCNVector3]) {
+    /// 击球动画结束：球停在「击打后」终局（进袋离场），等待用户「记录」或「重打」。
+    private func finishStrike() {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        for (key, start) in starts {
+        let potted: Set<String> = Set((lastPrediction?.pocketedBalls ?? []).map { boardKey(forPredName: $0) })
+
+        for key in onTableKeys {
             guard let node = scene.allBallNodes[key] else { continue }
             if node.parent == nil { scene.rootNode.addChildNode(node) }
             node.removeAllActions()
-            node.opacity = 1
-            node.isHidden = false
-            node.position = SCNVector3(start.x, yLevel, start.z)
+            if potted.contains(key) {
+                node.isHidden = true
+                node.opacity = 1
+            } else {
+                node.isHidden = false
+                node.opacity = 1
+                if let p = lastPrediction?.finalPositions[predName(forBoardKey: key)] {
+                    node.position = SCNVector3(p.x, yLevel, p.z)
+                }
+            }
         }
+
+        refreshOnTableKeys()
+        if let t = selectedTargetKey, potted.contains(t) { selectedTargetKey = nil }
+
         isPlaying = false
-        if let pred = lastPrediction, pred.feasible {
-            statusText = makeStatus(pred)
-            drawTrajectory(pred)
-            updateCueStickAiming(pred)
-        }
+        hasStruck = true
+        scene.hideCueStick()
+        clearTrajectory()
+        statusText = lastPrediction?.cuePocketed == true
+            ? "母球进袋（失误）· 重打或调整"
+            : "已击球 · 点「记录」存为一杆，或「重打」重来"
+    }
+
+    /// 软回退：把桌面恢复到本杆「击打前」，清除已击球状态（不触动已记录的步）。
+    private func restorePendingBefore() {
+        guard let before = pendingBefore else { hasStruck = false; return }
+        hasStruck = false
+        applyBoard(before)
     }
 
     // MARK: - Sequence: record / edit (ADR-P11-01)
@@ -498,7 +553,7 @@ final class PositionPlayViewModel: ObservableObject {
               let targetKey = selectedTargetKey,
               let pocketId = ShotIntent.pocketId(for: selectedPocketIndex) else { return }
 
-        let before = currentSnapshot()
+        let before = pendingBefore ?? currentSnapshot()
         let shot = PlannedShot(
             targetKey: targetKey, pocket: pocketId,
             velocity: velocity, spinX: spinX, spinY: spinY
@@ -545,9 +600,71 @@ final class PositionPlayViewModel: ObservableObject {
         applyBoard(sequence.steps[stepIndex].after)
     }
 
+    /// 随机球形：随机摆 `objectCount` 颗目标球（球号随机不重复、位置随机且分散，避开袋口区）。
+    /// 母球为自由球——若已在桌则保留其位置，否则不放（由用户自行摆）。
+    func randomLayout(objectCount: Int) {
+        guard !isPlaying else { return }
+        let count = max(1, min(15, objectCount))
+        let cuePoint = onTableKeys.contains(PositionPlayBall.cueKey)
+            ? currentSnapshot().onTable[PositionPlayBall.cueKey] : nil
+
+        let numbers = Array(1...15).shuffled().prefix(count)
+        let positions = randomSpreadPositions(count: count, avoid: cuePoint)
+
+        var dict: [String: CanvasPoint] = [:]
+        if let cuePoint { dict[PositionPlayBall.cueKey] = cuePoint }
+        for (i, n) in numbers.enumerated() where i < positions.count {
+            dict["_\(n)"] = positions[i]
+        }
+
+        selectedTargetKey = nil
+        applyBoard(BoardSnapshot(onTable: dict))
+    }
+
+    /// 在台面安全内区随机采样互相分散的归一化点（避开袋口/库边）。
+    private func randomSpreadPositions(count: Int, avoid cue: CanvasPoint?) -> [CanvasPoint] {
+        let xRange = 0.14...0.86
+        let yRange = 0.12...0.40
+        // 按数量自适应最小间距：球越多间距越小，但保底/封顶保证分散与可放下。
+        let area = (xRange.upperBound - xRange.lowerBound) * (yRange.upperBound - yRange.lowerBound)
+        var minSep = max(0.085, min(0.18, 0.9 * (area / Double(count)).squareRoot()))
+
+        var occupied: [CanvasPoint] = []
+        if let cue { occupied.append(cue) }
+        var result: [CanvasPoint] = []
+
+        var relaxTries = 0
+        while result.count < count && relaxTries < 6 {
+            var attempts = 0
+            while result.count < count && attempts < count * 400 {
+                attempts += 1
+                let p = CanvasPoint(x: Double.random(in: xRange), y: Double.random(in: yRange))
+                if occupied.allSatisfy({ hypot($0.x - p.x, $0.y - p.y) >= minSep }) {
+                    occupied.append(p)
+                    result.append(p)
+                }
+            }
+            if result.count < count { minSep *= 0.8; relaxTries += 1 }
+        }
+        return result
+    }
+
+    /// 重打：把桌面退回本杆「击打前」，重新瞄准（不删除已记录的杆）。
+    func replayCurrent() {
+        guard !isPlaying else { return }
+        if let before = pendingBefore {
+            hasStruck = false
+            applyBoard(before)
+        } else {
+            recompute()
+        }
+    }
+
     /// 重置整条序列与桌面（回到默认球形）。
     func resetAll() {
         guard !isPlaying else { return }
+        hasStruck = false
+        pendingBefore = nil
         sequence = PositionPlaySequence(name: sequence.name)
         scene.hideAllBalls()
         applyDefaultLayout()
@@ -556,6 +673,8 @@ final class PositionPlayViewModel: ObservableObject {
     /// 清空桌面（不留任何球），便于从零自由摆球。
     func clearTable() {
         guard !isPlaying else { return }
+        hasStruck = false
+        pendingBefore = nil
         scene.hideAllBalls()
         selectedTargetKey = nil
         selectedPocketIndex = -1
@@ -567,6 +686,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 把一个桌面快照应用到场景（隐藏全部 → 显示快照里的球）。
     private func applyBoard(_ snapshot: BoardSnapshot) {
+        hasStruck = false
         scene.hideAllBalls()
         for (key, pt) in snapshot.onTable {
             place(key: key, normalized: pt)

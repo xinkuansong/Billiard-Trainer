@@ -6,7 +6,8 @@
 //  闭式解（O(1)，无积分循环）。忠实移植自 pooltool
 //  `physics/resolve/ball_cushion/han_2005/model.py` 的 `han2005()`。
 //
-//  之所以用 Han 替代原 `CushionCollisionModel`（Mathavan 2010 冲量积分）：
+//  之所以用 Han 替代原 Mathavan 2010 冲量积分模型（该 `CushionCollisionModel.swift`
+//  已于 2026-06-05 作为生产死代码删除，见 FL/D-A2；如需对照可查 git 历史）：
 //  ① 性能：Mathavan 每次吃库要跑 3000–10000 步内循环（deltaP=1e-4），是轨迹预测
 //     "要好几秒"的主因；Han 是常数时间闭式解。
 //  ② 真实感：Mathavan 同时叠加库摩擦 mu_w 与台呢摩擦 mu_s，角度球切向能量损耗被放大

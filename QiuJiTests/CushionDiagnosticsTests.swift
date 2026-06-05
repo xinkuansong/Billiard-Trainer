@@ -10,7 +10,6 @@ import SceneKit
 final class CushionDiagnosticsTests: XCTestCase {
 
     private let R = BallPhysics.radius
-    private let M = BallPhysics.mass
 
     /// 单纯库边模型：固定法向 +x（库面在 -x 侧），球以速度 S、相对法向夹角 θ 入射。
     /// 不含台呢摩擦、不含球-球，只看一次吃库的速度变化。
@@ -205,35 +204,4 @@ final class CushionDiagnosticsTests: XCTestCase {
         }
     }
 
-    /// 与旧模型（Mathavan 2010 冲量积分，已停用）对照同一组入射，量化差异。
-    func test_cushion_HanVsMathavan() {
-        let S: Float = 4.0
-        let anglesFromNormalDeg: [Float] = [15, 30, 45, 60, 75]
-
-        print("\n=== Han 2005 vs Mathavan 2010（S=\(S) m/s, 无旋转）速度保留率对照 ===")
-        print("入射角°(距法向)   Han保留率   Mathavan保留率")
-        for degFromNormal in anglesFromNormalDeg {
-            let th = degFromNormal * .pi / 180
-
-            // Han：经右手接触系（与引擎实际调用一致）。
-            let v = SCNVector3(-S * cosf(th), 0, S * sinf(th))
-            let han = CollisionResolver.resolveCushionCollisionPure(
-                velocity: v, angularVelocity: SCNVector3Zero, normal: SCNVector3(1, 0, 0)
-            )
-            let hanOut = sqrtf(han.velocity.x * han.velocity.x + han.velocity.z * han.velocity.z)
-
-            // Mathavan：直接调用旧模型（vx=切向, vy=法向）。
-            let m = CushionCollisionModel.solve(
-                vx: S * sinf(th), vy: S * cosf(th),
-                omega_x: 0, omega_y: 0, omega_z: 0,
-                mu_s: TablePhysics.clothFriction, mu_w: TablePhysics.cushionFriction,
-                ee: TablePhysics.cushionRestitution, h: TablePhysics.cushionHeight,
-                R: R, M: M
-            )
-            let mOut = sqrtf(m.vx * m.vx + m.vy * m.vy)
-
-            print(String(format: "  %5.0f           %5.1f%%        %5.1f%%",
-                         degFromNormal, hanOut / S * 100, mOut / S * 100))
-        }
-    }
 }

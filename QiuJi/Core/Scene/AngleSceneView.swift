@@ -1,6 +1,17 @@
 import SwiftUI
 import SceneKit
 
+/// 跨 SwiftUI / SceneKit 的坐标桥接（走位编排器用）。
+/// `AngleSceneView` 在 `makeUIView`/`updateUIView` 用捕获 `SCNView` 的闭包填充，
+/// 供上层把球库拖拽落点反投影到台面（`unproject`），或把球节点世界坐标正投影到屏幕（`project`）。
+/// 闭包接收/返回的均为 SCNView 本地坐标（点，原点在 SCNView 左上角）。
+final class TableProjector {
+    /// 屏幕点（SCNView 本地）→ 台面平面世界坐标。
+    var unproject: ((CGPoint) -> SCNVector3?)?
+    /// 世界坐标 → 屏幕点（SCNView 本地）。
+    var project: ((SCNVector3) -> CGPoint?)?
+}
+
 /// UIViewRepresentable wrapper for SceneKit angle training.
 /// Manages gesture recognition and CADisplayLink render loop.
 /// Supports ball dragging (for AngleDynamicView) and pocket tapping.
@@ -28,10 +39,15 @@ struct AngleSceneView: UIViewRepresentable {
     var onDragBegan: ((SCNNode) -> Void)?
     var onDragMoved: ((SCNNode, SCNVector3) -> Void)?
     var onDragEnded: ((SCNNode) -> Void)?
+    /// 拖拽结束时附带结束屏幕坐标（SCNView 本地点），供「拖回球库即移除」判定。
+    var onDragEndedAt: ((SCNNode, CGPoint) -> Void)?
 
     /// 可点选的球（走位编排器点选目标球）。tap 命中其一即回调，优先于袋口判定。
     var selectableBallNodes: [SCNNode] = []
     var onBallTapped: ((SCNNode) -> Void)?
+
+    /// 坐标桥接（可选）。传入后由本视图填充 unproject/project 闭包。
+    var projector: TableProjector?
 
     func makeUIView(context: Context) -> SCNView {
         let scnView = SCNView()
@@ -59,8 +75,30 @@ struct AngleSceneView: UIViewRepresentable {
 
         context.coordinator.scnView = scnView
         context.coordinator.startRenderLoop()
+        bindProjector(to: scnView)
 
         return scnView
+    }
+
+    /// 用捕获的 `SCNView` 填充坐标桥接闭包（台面平面 = surfaceY + 球半径）。
+    private func bindProjector(to scnView: SCNView) {
+        guard let projector else { return }
+        projector.unproject = { [weak scnView, weak scene] point in
+            guard let scnView, let scene else { return nil }
+            let nearPoint = scnView.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 0))
+            let farPoint = scnView.unprojectPoint(SCNVector3(Float(point.x), Float(point.y), 1))
+            let dir = SCNVector3(farPoint.x - nearPoint.x, farPoint.y - nearPoint.y, farPoint.z - nearPoint.z)
+            guard abs(dir.y) > 1e-6 else { return nil }
+            let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+            let t = (y - nearPoint.y) / dir.y
+            guard t > 0 else { return nil }
+            return SCNVector3(nearPoint.x + dir.x * t, y, nearPoint.z + dir.z * t)
+        }
+        projector.project = { [weak scnView] world in
+            guard let scnView else { return nil }
+            let p = scnView.projectPoint(world)
+            return CGPoint(x: CGFloat(p.x), y: CGFloat(p.y))
+        }
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
@@ -78,8 +116,12 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onDragBegan = onDragBegan
         context.coordinator.onDragMoved = onDragMoved
         context.coordinator.onDragEnded = onDragEnded
+        context.coordinator.onDragEndedAt = onDragEndedAt
         context.coordinator.selectableBallNodes = selectableBallNodes
         context.coordinator.onBallTapped = onBallTapped
+        if let projector, projector.unproject == nil {
+            bindProjector(to: uiView)
+        }
     }
 
     func makeCoordinator() -> Coordinator {
@@ -108,6 +150,7 @@ struct AngleSceneView: UIViewRepresentable {
         var onDragBegan: ((SCNNode) -> Void)?
         var onDragMoved: ((SCNNode, SCNVector3) -> Void)?
         var onDragEnded: ((SCNNode) -> Void)?
+        var onDragEndedAt: ((SCNNode, CGPoint) -> Void)?
         var selectableBallNodes: [SCNNode] = []
         var onBallTapped: ((SCNNode) -> Void)?
         private var draggedNode: SCNNode?
@@ -269,7 +312,9 @@ struct AngleSceneView: UIViewRepresentable {
                 panCumX = 0
                 panCumY = 0
                 if let ball = draggedNode {
+                    let endLocation = gesture.location(in: scnView)
                     onDragEnded?(ball)
+                    onDragEndedAt?(ball, endLocation)
                     draggedNode = nil
                     return
                 }

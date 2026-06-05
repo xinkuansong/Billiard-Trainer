@@ -50,3 +50,23 @@
   - 新增文件：`Core/PositionPlay/PositionPlayModels.swift`、`Features/PositionPlay/**`、`Data/Models/PositionPlaySequenceEntity.swift`、`Core/Media/**`；改 `ShotPredictor.swift`、`AngleHomeView.swift`、`MainTabView.swift`、`ModelContainerFactory.swift`、`AngleSceneView.swift`（追加可选 `onBallTapped`）。
 - **替代方案**：① 改造 `DrillAnimation`/`DrillSceneView` 支持多杆——回归风险高、与单杆渲染耦合，未采纳；② 走位序列走球库 Tab——用户明确要求放角度 Tab，未采纳；③ 视频用 CoreGraphics 2D（测试现状）——不如 SceneKit 真台直观，作为降级备选保留。
 - **遗留 TODO**：多球求解性能（满台单杆 ~数百 ms，编辑模式可接受，跟手度后续优化）；序列云端 OTA（ADR-002 通路）；训练形态评分细化。
+
+### ADR-P11-02 — 编排台交互/布局重构（击球状态机 + 完整拖拽 + 真实球面）
+
+- **日期**：2026-06-05
+- **状态**：✅ 已采纳（用户体验反馈后定稿）。
+- **背景**：首版编排台 `play()` 为「预览」，击打后自动复位回起点，与「逐杆编排」心智冲突；「重置」破坏性地清空整条序列；球库为单行数字 token、点击放置/长按移除；顶部状态栏占位且「是否进袋」用整条文字；球库半透明压在球桌上。用户逐条反馈要求修正。
+- **决策**：
+  1. **击球状态机（保留两个按钮）**：`PositionPlayViewModel` 新增 `pendingBefore`（本杆击打前快照，未击球时随桌面同步刷新）与 `hasStruck`。「击球」(`play`) 播真实动画后球停在 `finalPositions` 终局、进袋球离场（`finishStrike`），不再复位；任何编辑入口（拖球/选目标/换袋/调力度打点）若 `hasStruck` 先 `restorePendingBefore()` 软回退再重算，避免从终局二次求解。「记录」(`recordStep`) 以 `pendingBefore` 为 before、引擎结果为 after。「重打」(`replayCurrent`) 仅把桌面退回本杆击打前，不触动已记录的杆；原「清空并重来」(`resetAll`) 降级进右上更多菜单。
+  2. **完整拖拽**：球库球可拖到桌面任意点落位（SwiftUI `DragGesture` → 经 `TableProjector.unproject` 反投影到台面 → `clampMultiBall`）；桌上球拖回球库区域松手即移除（`AngleSceneView.onDragEndedAt` 带结束屏幕坐标，与球库 frame 比对）。保留「点球面快速上桌 / 点桌上球选目标 / 点袋口选袋」。
+  3. **真实球面球库**：新增 `Core/Scene/BallFaceRenderer`，进编排台时离屏（`SCNRenderer.snapshot`）逐颗烘焙 USDZ 球面圆形小图并内存缓存，双行 `LazyHGrid` 展示，替代数字 token。
+  4. **夹角浮标贴目标球**：移除顶部状态栏；夹角 + 选中环用 SwiftUI overlay 经 `TableProjector.project` 跟随目标球屏幕投影显示；可行性用环色（灰=不可行）、母球进袋用红点表达，去掉整条文字提示。
+  5. **布局不挡桌**：球库改为实心底栏在 `VStack` 流内，球桌区独占上方铺满，互不遮挡；顶视相机取景留余量。
+- **理由**：用最小跨层桥接（`TableProjector`、`onDragEndedAt`）满足编排所需的拖拽与浮标，不改物理/序列模型；球面缩略图复用既有离屏渲染范式。
+- **影响**：改 `AngleSceneView.swift`（新增 `TableProjector`、`onDragEndedAt`，旧 `onDragEnded` 签名不变，其它调用方零改动）、`PositionPlayViewModel.swift`、`PositionPlayComposerView.swift`；新增 `Core/Scene/BallFaceRenderer.swift`。
+- **替代方案**：① 击球即记录（合并为一个按钮）——用户选择保留「击球/记录」分离，未采纳；② 球库仅点击放置 + 拖出移除（折中）——用户选择完整拖拽，未采纳；③ 用自绘 asset 球杆图标——改用 SwiftUI `Shape`（`CueStickShape`）免资源管线。
+- **迭代修正（同日，用户运行后反馈）**：
+  1. **球库球面空白**——`BallFaceRenderer` 相机距球约 0.28（米）小于 `SCNCamera` 默认 `zNear=1.0`，球被近裁剪面切掉。修正 `cam.zNear=0.001`/`zFar=100`。
+  2. **角度不跟随目标球 + 击球后不消失 + 风格对齐「角度与打点」**——撤销「夹角浮标贴目标球」（投影跟随的环+药丸），改为场景顶部**固定胶囊 chip**（复用 `AngleDynamicView` 的 `metricItem`/厚度名样式，绑定 `cutAngleDeg`，击球后仍保留；母球进袋以红点+「母球进袋」内联表达）。
+  3. **新增随机球形**——侧栏「随机」按钮 → sheet 滑条选目标球数（1–15，不含母球），`PositionPlayViewModel.randomLayout` 随机不重复球号 + `randomSpreadPositions` 安全内区自适应间距分散摆放；母球为自由球保留现状由用户自摆。
+  4. **球桌占比偏小**——顶视 `topDownOrthographicScale` 由 `innerLength*0.62` 收紧到 `*0.54`，球桌更充满场景区。
