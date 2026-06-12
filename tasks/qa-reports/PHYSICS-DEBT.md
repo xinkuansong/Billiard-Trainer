@@ -38,10 +38,10 @@
 
 | ID | 严重度 | 标题 | 证据 | 影响 | 建议 |
 |----|-------|------|------|------|------|
-| **D-A1** | 🟡 | `EventDrivenEngine.swift` 巨型文件 1713 行 | 单文件含：事件队列+缓存（`PhysicsEventCache`）、主循环 `simulate`、`findNextEvent`、球-球/库边解算、`enforceTableBounds`、`resolvePocket`、`separateOverlappingBalls`、回退检测 `shouldRunFallbackBallBallCheck`/`fallbackBallBallCollisionTime` | 单一文件多职责，单测只能端到端打，改一处牵连全局，回退/分离重叠等"安全网"逻辑与主循环混杂 | 拆分：事件调度器 / 碰撞解算 / 边界&落袋 / 数值安全网 四块，各自可独立单测 |
+| **D-A1** | 🟡 ✅ | `EventDrivenEngine.swift` 巨型文件 1713 行 | 单文件含：事件队列+缓存（`PhysicsEventCache`）、主循环 `simulate`、`findNextEvent`、球-球/库边解算、`enforceTableBounds`、`resolvePocket`、`separateOverlappingBalls`、回退检测 `shouldRunFallbackBallBallCheck`/`fallbackBallBallCollisionTime` | 单一文件多职责，单测只能端到端打，改一处牵连全局，回退/分离重叠等"安全网"逻辑与主循环混杂 | **✅ 已拆分（2026-06-06，见 §5.5）**：抽出 `EngineNumerics`（纯数值/运动学，可脱离引擎单测）、`PhysicsEvent`（事件类型+`BallState`）、`EventCache`、`SceneKitBridge` 四个独立文件；`EventDrivenEngine` 由 1539→860 行，仅留事件调度/解算主循环 |
 | **D-A2** | 🔴 ✅ | `CushionCollisionModel`（Mathavan 2010，636 行）是生产路径死代码 | `CollisionResolver.resolveCushionCollisionPure` 只调 `Han2005CushionModel.solve`（CollisionResolver.swift:150）；`CushionCollisionModel.solve` 全仓唯一调用点是 `CushionDiagnosticsTests.swift:226` | 636 行无人维护的复杂数值积分代码常驻仓库，误导后人以为在用；与 Han2005 两套库边模型并存制造混淆 | **✅ 已删除（2026-06-05，见 §5.4）**：删 `CushionCollisionModel.swift` + 移除唯一消费它的 print 对照测试 `test_cushion_HanVsMathavan`；Han2005 头注补「Mathavan 已删，需对照查 git」 |
-| **D-A3** | 🔴 | `ShotPredictor` 显示闸门与物理真值耦合，patch-on-patch | ShotPredictor.swift 内 3 处"显示一致性闸门"：母球进袋闸门（L206-219）、目标球进袋闸门（L226-238）、`clampedRecorder` 穿库安全网（L443-545）。注释多处自陈为修 FL-018/FL-019 逐个补的 | 引擎"真值"与画面"显示值"判定不一致，需在门面层反复打补丁对齐；阈值（0.06/0.12/0.14m、0.004、0.07m/s）散落硬编码，脆弱、难推理 | 中期：把"画面=物理"下沉到引擎一处（落袋吸心已是一步），让 `ShotPredictor` 只读结果不再二次裁决；阈值集中为具名常量 |
-| **D-A4** | 🟡 | 几何/常量双真源未完全统一 | `BTPhysicsConstants.TablePhysics` 袋口参数标注 `TODO(step3)` 仍取 CAD（BTPhysicsConstants.swift:9-10,45）；与 `AngleSceneCalculator` 的袋口/几何并存，靠注释声明"完全一致" | 同一物理量两处定义，改一处忘另一处即引入静默偏差；探针历史上的"17mm 双真源"正源于此类 | 收敛为单一真源（`AngleSceneCalculator` 或 `TableGeometry`），另一处改为引用 |
+| **D-A3** | 🔴 ◑ | `ShotPredictor` 显示闸门与物理真值耦合，patch-on-patch | ShotPredictor.swift 内 3 处"显示一致性闸门"：母球进袋闸门（L206-219）、目标球进袋闸门（L226-238）、`clampedRecorder` 穿库安全网（L443-545）。注释多处自陈为修 FL-018/FL-019 逐个补的 | 引擎"真值"与画面"显示值"判定不一致，需在门面层反复打补丁对齐；阈值（0.06/0.12/0.14m、0.004、0.07m/s）散落硬编码，脆弱、难推理 | 中期：把"画面=物理"下沉到引擎一处（落袋吸心已是一步），让 `ShotPredictor` 只读结果不再二次裁决；阈值集中为具名常量 |
+| **D-A4** | 🟡 ✅ | 几何/常量双真源未完全统一 | `BTPhysicsConstants.TablePhysics` 袋口参数标注 `TODO(step3)` 仍取 CAD（BTPhysicsConstants.swift:9-10,45）；与 `AngleSceneCalculator` 的袋口/几何并存，靠注释声明"完全一致" | 同一物理量两处定义，改一处忘另一处即引入静默偏差；探针历史上的"17mm 双真源"正源于此类 | 收敛为单一真源（`AngleSceneCalculator` 或 `TableGeometry`），另一处改为引用 |
 | **D-A5** | 🟢 ✅ | `CollisionResolver.vector4` 未使用的私有函数 | CollisionResolver.swift:231 `private static func vector4` 无调用点 | 死代码 | **✅ 已删除（2026-06-05，见 §5.4）** |
 
 ### B. 正确性 / 标定
@@ -98,8 +98,8 @@
 3. D-A2 处置 Mathavan 死代码（删除或标注）；D-A5 删 `vector4`。✅ 均删除。
 4. D-B4/D-D2 抽魔数为具名常量 + 注释量纲。✅ 抽入 `AimScoring`（D-D2 降保真未做，仅抽常量）。
 
-**第三梯队（结构性重构，需测试网就绪后做）**
-5. D-A1 拆 `EventDrivenEngine`；D-A3 下沉显示闸门到引擎；D-A4 收敛几何双真源。
+**第三梯队（结构性重构，需测试网就绪后做）** ✅ 已完成（2026-06-06，见 §5.5）
+5. D-A1 拆 `EventDrivenEngine`（✅ 四文件）；D-A3 下沉显示闸门到引擎（◑ 阈值集中为 `DisplayGate`，下沉留后续）；D-A4 收敛几何双真源（✅ 基元单一真源）；引擎遍历确定性化（✅ `ballOrder`，清除 FL-020 遗留根因）。
 
 **第四梯队（依赖人工/外部输入）**
 6. D-B1 常量真实标定（需俯拍视频，H-item）；D-B2 USDZ 重导几何；D-B3 特殊球路求解增强。
@@ -187,3 +187,93 @@
 **回归**：`xcodegen` 重生（pbxproj 0 引用残留）；`PhysicsEngineTests` 23/23、`CushionDiagnosticsTests` 4/4（原 5，删 1 print 对照）、`PhysicsBenchmarkTests` 14/14、`PhysicsInvariantTests` 9/9、`PhysicsScenarioTests` 7/7、`PhysicsMatrixTests` 3/3（母球绕库 0、远处翻袋 0、确定性跨度 0.00°）全过、lint 0。**零行为回归**（求解器仅重构常量名，数值不变）。
 
 > 第二梯队完成。剩第三梯队（D-A1 拆 `EventDrivenEngine`、D-A3 下沉显示闸门、D-A4 几何双真源收敛、引擎遍历确定性化）为结构性重构，现有测试网可兜底；第四梯队（D-B1/B2/B3）依赖真实俯拍视频/USDZ 重导，属人工 backlog。
+
+### 5.5 第三梯队 · 结构性重构（2026-06-06）
+
+有第一梯队测试网（65 方法 / ~3800 场景）兜底，安全执行 §3 第三梯队。**全程零行为改动**——只做位置迁移、命名空间化、常量集中、引用收敛与遍历确定性化，不动任何数值/逻辑。
+
+- **引擎遍历确定性化 ✅**（FL-020 遗留根因清除）：`EventDrivenEngine` 新增 `ballOrder: [String]`（插入有序球名列表），`setBall` 维护、`getAllBalls()` 与所有 `for (name, ball) in balls` / `Array(balls.keys)` 改为遍历 `ballOrder`。彻底消除 Swift `Dictionary`/`Set` 哈希种子随机化导致的浮点求和顺序运行间差异（FL-020 §5.2 遗留项）。
+- **死代码清理 ✅**：移除 `EventDrivenEngine` 中失效的诊断计数器（`kissCountBallBall`/`maxBallBallPenetration`/`separateOverlapTriggerCount`/`nudgeCount` 等）、其重置逻辑、`separateOverlappingBalls`/`makeBallBallKiss`/`makeBallCushionKiss` 中的 `print` 诊断语句，以及整个 `debugLogPostEvolveOverlaps`。
+- **D-A1 ✅ 拆分巨型文件**：`EventDrivenEngine.swift` 1539→860 行，抽出四个独立文件：
+  - `EngineNumerics.swift`（enum，纯数值/运动学）：`acceleration`/`determineMotionState`/`makeBallBallKiss`/`makeBallCushionKiss`/`closestPointOnSegmentXZ`/`isWithinLinearCushionSegment`/`isBallPairOverlappingOrTouching`/`shouldRunFallbackBallBallCheck`/`fallbackBallBallCollisionTime`/`smallestPositiveRoot`——**不持有引擎状态，可脱离引擎实例独立单测**（满足 D-A1「各自可独立单测」目标）。`makeBallCushionKiss` 改为显式传入 `geometry: TableGeometry` 参数（原读 `self.tableGeometry`）。
+  - `PhysicsEvent.swift`：`PhysicsEventType` / `PhysicsEvent`（Comparable）/ `BallState`。
+  - `EventCache.swift`：整数编码 key 的事件缓存类。
+  - `SceneKitBridge.swift`：轨迹回放 SceneKit 桥接。
+  - 引擎内 16 处调用点改为 `EngineNumerics.*`；`makeBallCushionKiss` 调用补 `geometry: tableGeometry`。
+- **D-A3 ◑ 显示闸门阈值集中**：`ShotPredictor` 三处显示一致性闸门（母球进袋闸门、目标球进袋闸门、`clampedRecorder` 穿库安全网）散落的硬编码阈值（`0.004`/`0.006`/`0.12`/`0.06`/`0.14`/`0.07`/`1/120`/`0.1`/`0.2`/`0.05`）全部抽入新私有 `enum DisplayGate`，逐条注明含义/量纲/历史缘由。**数值零改动**。「把画面=物理下沉到引擎一处」的中期目标未做（属行为改动，落袋吸心已是一步，留待专门做）——故标 ◑ 部分。
+- **D-A4 ✅ 几何双真源收敛**：内框尺寸 `innerLength`/`innerWidth` 与球半径以 `BTPhysicsConstants`（`TablePhysics`/`BallPhysics`）为**唯一真源**，`AngleSceneCalculator.innerLength/innerWidth/ballRadius` 改为引用（原各自硬编码 `2.54`/`1.27`/`0.028575`，值相同但双写）。**值零改动**（`2.54`≡`2.540`）。袋口洞中心/jaw/落袋半径等 USDZ 实测几何仍以 `AngleSceneCalculator` 为单一真源（生产 `chineseEightBallQiuJi` 已消费它）；`TablePhysics` 的袋口 CAD 参数头注明确标注「非生产袋口真源，仅供库边 jaw 构建器 + 对照 CAD 几何」。
+
+**架构决策（ADR）**：D-A4 选择「物理基元标量（内框/球半径）由 `BTPhysicsConstants` 单一定义，`AngleSceneCalculator` 引用」而非报告字面建议的反向。理由：① 这些基元是 `AngleSceneCalculator` 计算袋口位置（`pocketPositions` 用 `innerLength/2`）的**输入**，比袋口位置更底层；② 不引入循环依赖（`BTPhysicsConstants` 不反向引用 `AngleSceneCalculator`），而 USDZ 袋口高层布局仍由 Scene 拥有、被 Physics 的 `TableGeometry+QiuJi` 消费——分层清晰。
+
+**回归**：`xcodegen` 重生；lint 0；全物理测试网 **65/65 全过、0 失败**（`iPhone 17 Pro`，~260s）：`PhysicsEngineTests` 23、`PhysicsBenchmarkTests` 14、`CushionDiagnosticsTests` 4、`PhysicsInvariantTests` 9（含确定性 <1e-5 m）、`PhysicsScenarioTests` 7、`PhysicsMatrixTests` 3（母球绕库 0、远处翻袋 0、宏观确定性跨度 0.00°）、`PhysicsPerformanceTests` 3、`DrillShotReconstructionTests` 2。**零行为回归**。
+
+> 第三梯队完成。剩第四梯队（D-B1 常量真实标定 / D-B2 USDZ 重导几何 / D-B3 特殊球路求解增强）依赖真实俯拍视频/USDZ 重导，属人工 backlog；D-A3 中期「显示下沉到引擎」、D-D1/D-D2 降保真性能优化为后续可选项。
+
+### 5.6 D-A3 终局 · 显示闸门彻底下沉 + 纯物理化（2026-06-06/07，ADR-P10-06/07）
+
+> 用户拍板：「贴库与进袋判断逻辑里加了太多非物理规则……符合物理规律的就应该让它发生，而不是人为增加不合理的捕获规则」「把之前的 offset 拿掉，全都回归原始物理」「穿库安全网彻底去掉，轨迹完全用原始物理」「母球进袋也裸取引擎信号」「引擎仍会把 ~1% 球甩出台面几米 → 修引擎（最纯），让逃逸率≈0」。这是 D-A3 中期目标「画面=物理下沉到引擎一处」的**终局落地**。
+
+**(1) ADR-P10-06 — 移除显示层，判定/轨迹裸取引擎**
+- `ShotPredictor.predict` 删除全部显示闸门：`clampedRecorder` 穿库安全网（约 100 行 `playableContains`/`clampToPlayable`）、母球/目标球进袋一致性闸门（`captureWindow`/`objMinToPocket`）、整个 `enum DisplayGate`。
+- `result.recorder`/`cuePath`/`objectPath` 直接取 `run.recorder`；`cuePocketed`/`objectPocketed`/`simObjectPotted` 直接取引擎信号（`run.cuePocketed` / `run.pottedSelected`）。
+- 进/rattle 弹出/小力远jaw→近jaw→袋心进，全部由引擎真实喉腔几何（`TableGeometry+QiuJi.throatWalls`：jaw 库 + 喉腔侧壁/后壁 + 落袋孔）**自然涌现**，不再有任何显示层裁决。
+- **后果（预期内）**：安全网移除后暴露引擎自身逃逸——`TrajectoryPlayback.stateAt` 在稀疏事件帧间沿旧速度解析外推穿墙，叠加 CCD 偶发漏检喉腔接缝碰撞，越界从 3285mm 起。用户选「修引擎」而非重新加显示层遮罩。
+
+**(2) ADR-P10-07 — 引擎物理层根治逃逸（让逃逸率≈0）**
+- **固定步长上限**：`EngineNumerics.maxEvolveStep=0.05`；`simulate` 主循环中 `dt > stepCap` 时只推进一个安全步、记一帧、作废事件缓存后从新位置重检测（不直接跨大步到事件）→ 帧密 + 捕回漏检碰撞。3285→57.5mm。
+- **几何封缝**：`TableGeometry+QiuJi.throatFrontExtend=0.045` 把喉腔侧壁前端向台内延伸，封死「库段↔jaw」对角接缝逃逸路径。57.5→38.1mm。
+- **近库自适应子步**：`EngineNumerics.adaptiveEvolveCap(balls:…)` —— 仅当某球正朝某边界/袋口逼近（整步内会触墙）时把步长收紧到位移级（`nearWallSafeStep=0.35R / 速度`），否则保持 `maxEvolveStep`。根治高速窄喉壁隧穿。
+- **方向性袋口收容**：`enforceTableBounds` 重构——越界球落在袋嘴通道（`pocket.radius + 2R`）内时按**运动方向**区分：朝袋心去（进袋/入喉 rattle）→ 放行交 CCD；背离袋心（库段↔jaw 接缝漏出）→ 落硬钳兜回。低速 settle（`jawSettlePocketSpeed=0.35`）→ 收袋并补记真实落袋事件（下游 `pottedSelected` 与画面一致）。**该兜底廉价、始终生效**。
+- **结果**：`PhysicsInvariantTests.test_invariant_productionPathsStayInBounds` 展示路径**最坏越界 0.0mm**；`PhysicsMatrixTests` 矩阵1 求解器 **0 越界违规 / 96% 进袋**、矩阵2 裸引擎逃逸率 **0.1%**（1/1716，裸引擎直连测试，不经 predict/高保真，阈值内）。
+
+**(3) 性能门控 — 求解器粗步 / 最终模拟高保真（解 D-D1 同源回归）**
+- 自适应子步全局启用曾致 6–10× 回归（单杆 1312ms / 满台 5336ms，远超 800/3000ms 预算），因求解器单次 predict 内 ~76 次短模拟都跑了密帧自适应。
+- `EventDrivenEngine.simulate` 新增 `highFidelityBounds: Bool=false`：
+  - **高保真**（仅 `predict` 的展示用最终模拟，`runShot(…, highFidelity: true)`）→ 启用 `adaptiveEvolveCap`，贴墙帧密、回放不外推穿墙。
+  - **非高保真**（求解器 `solveAimOffset` 的数十次短模拟）→ **完全不切步**（`stepCap = +∞`），恢复 ADR-P10-06 前速度。求解器只取结果量（进/方向/吃库），`cueGhostMinDist` 已做段内线段-点采样、`enforceTableBounds` 每步兜底，无需密帧即可正确判结果。
+- **结果**：单杆 predict 中位 **125ms**（预算 800）、满台 **663ms**（预算 3000），均远低于预算且精度不变（越界 0.0mm、进袋 96% 维持）。
+
+**回归**：`PhysicsPerformanceTests` 2/2（125ms/663ms）、`PhysicsInvariantTests` 越界不变量 0.0mm、`PhysicsMatrixTests` 3/3（求解器 96% / 0 越界、裸引擎逃逸 0.1%）全过。
+
+**新增/改动文件**：`EngineNumerics.swift`（+`maxEvolveStep`/`nearWallSafeStep`/`jawSettlePocketSpeed`/`adaptiveEvolveCap`）、`EventDrivenEngine.swift`（`simulate` 步长门控 + `enforceTableBounds` 方向收容）、`TableGeometry+QiuJi.swift`（`throatFrontExtend`）、`ShotPredictor.swift`（删显示层 + `highFidelity` 线程）、`AngleSceneCalculator.swift`（保留 `clampAwayFromPockets` 防摆球入袋，不改轨迹）。
+
+> **D-A3 至此完成**（中期「下沉到引擎」目标达成）。`AngleSceneCalculator.clampAwayFromPockets` 按用户决定**保留**——它是球**摆放**约束（防用户把球摆进袋口），非轨迹修饰，不影响贴库轨迹纯度。残留 0.1% 裸引擎逃逸仅存在于绕过 predict 的直连测试，用户可见路径（恒经 predict→高保真）越界 0.0mm。
+
+### 5.7 幽灵反弹根治 · enforceTableBounds 几何感知豁免（2026-06-12）
+
+> 用户截图报告：母球吃左长库后反弹轨迹明显不合理（贴库平行滑出 + 末端小钩），偶发。先分析测试、确证根因后修复。
+
+**根因（逐帧确证，`PocketBehaviorDiagTests.test_S3_frameLevelConfirm`）**：
+- 角袋 jaw 弧的**合法球心接触圆**（r_arc + R = 133.6mm）**伸出矩形可玩框**（`safeMinX = ±(innerL/2 − R)`）——弧面 352° 接触点比 safe 线深 ~1.3mm，沿弧向袋心方向最多深 ~4cm。
+- ADR-P10-07 的方向性袋口收容豁免圈（`pocket.radius + 2R = 127.2mm`）**差 0.9mm 没罩住**事发接触带（事发点距袋心 128.0mm）。
+- 于是 CCD **已正确检出并调度**的弧碰撞事件（dt=0.0083s）被 `evolveAllBounds` 内每子步运行的矩形硬钳**抢先触发**：vx 取反减半、vz 保留、不记事件、不作废缓存 → 屏幕上即「幽灵反弹」。陈旧缓存事件随后接力开火，叠加出钩状伪迹。
+- 另排除一个嫌疑：S2 疑似「入29°→反131°超宽反射」实为采样帧错位误报，实际反射 29°→27°、e≈0.73，物理正常。**（⚠️ 此判断错误，被用户打回：131° 是真实的引擎输出，见 §5.8 / FL-022——本节修复只治了袋口弧接触带分支，未触及主库线上的同类竞态。）**
+
+**修复（`EventDrivenEngine.enforceTableBounds`，三处）**：
+1. **jaw 弧接触带豁免 + 径向速度门控**：球在任一圆弧库角度扇区内、距弧心 ≤ r+R+12mm、且**径向速度 |vr| > 0.02 m/s**（正撞向弧面或刚反弹离开）→ 不硬钳，交弧 CCD 解析。门控防研磨：沿弧切向蹭行（|vr|≈0，贴长库滚过中袋 fillet）若豁免会触发 zero-time 弧事件风暴把求解器拖垮（实测 `test_solveDrillC005` 无门控版 signal kill，门控后 115s ≈ 基线 123s）。
+2. **袋嘴圈内带速球无条件放行**（删 `towardCenter` 方向门）：rattle 弹出段（背离袋心）同样合法；速度 < `jawSettlePocketSpeed`(0.35) 的球仍被 ② settle 收袋，无研磨风险。
+3. **硬钳后作废该球事件缓存**：硬钳是事件流之外的状态突变，不作废缓存会让按钳前轨迹预测的陈旧事件接力触发二次非物理反射。
+
+**验证**：300 杆随机扫描（`test_S_cueRailReboundScan`）贴库线幽灵反弹 **4→0**（残余 12 例均为远库慢速强塞 massé 曲线的检测器误报，非反弹）；trial19 复现杆现正确产出 `弧#33` 碰撞事件（Han 反射 e≈0.68）；全量单测 372 过，仅 3 个 `PhysicsEngineTests` 既有失败（**基线对照确认与本修复无关**，属此前未提交工作遗留：`largeCutClearShot`/`objectPath_reachesPocket`/`withSideSpin_objectPots`，待另行处理）。
+
+### 5.8 贴库滑行真根因 · 库线吃库与边界安全网的浮点竞态（2026-06-12，FL-022）
+
+> §5.7 修复后用户打回：贴库滑行仍偶发，且求解轨迹出现「先吃库→撞远端 jaw 弧→进袋」假进袋。§5.7 只治了**袋口弧接触带**分支，主库线上的同类竞态未触及，且其第 4 条「131° 为采样误报」的排除判断是错的。
+
+**根因（`PocketBehaviorDiagTests.test_S4_replicateS2EventChain` 数值确证）**：
+- 库线吃库时球心接触位置**恰好等于** `enforceTableBounds` 的 safe 边界（contact z = 库线 ∓ R = safeMaxZ，**零余量**）。CCD 把球精确演进到接触点时，Float32 噪声（~1e-6 m）偶尔落在边界外。
+- 此时零容差硬钳抢在已排定的吃库事件前触发：法向速度减半反向（vz +3.276 → −1.638），无自旋耦合、非物理。
+- 紧接着吃库事件照常解析，但球已在退离。`resolveCushionCollisionPure` 按速度方向**自动翻转接触系**，把退离球当作从反方向来撞，再次反射**回库内**（→ vz +1.101，即 S2 实测「入29°→反131°」）。
+- 球贴库线被后续子步反复钳制（实测下一帧 vz = −0.548 = +1.101×0.5，0.5 恢复系数钳指纹），最终以 ~23° 贴库角滑出（物理应为 63°）→「贴库滑行」；滑行沿库送进角袋口 →「吃库→远弧→假进袋」。
+- **偶发性解释**：触发与否取决于接触点浮点噪声落在边界哪一侧。S3 直瞄跑不复现、S2 求解器补偿瞄向路径复现，差异仅为瞄向微调。Han 模型本身无辜：同帧状态手动复算输出干净的 27° 反射。
+
+**修复（两处物理正确性约束，无 magic offset）**：
+1. `enforceTableBounds` 触发加 `boundsEpsilon = 0.5mm` 余量：球心在接触线上是「正在吃库」的合法状态而非出界（≫ 浮点噪声 1e-6，≪ 真实接缝漏出 mm 级/子步，安全网兜底不受影响）。
+2. 吃库解析加「**库边只能推不能拉**」护栏：解析前检查 v·n < 0（确在逼近库面）；退离中的过时事件跳过、不施冲量、不记事件（与 `.pocket` 的条件记录同模式）。
+
+**验证（2026-06-12）**：
+- S4：引擎实际出射 == 手动复算（spinY0: 27°；spinY0.45: 30°），131° 消失；轨迹变为正常多库走位。
+- S2 六面板全部反射恢复物理（131°→27°、114°→50°、入79° 贴库再撞消失），渲染图无贴库段。
+- `test_S_cueRailReboundScan`：贴库线幽灵反弹 0、平行出射 0（1197 次吃库）。
+- `test_solveDrillC005` 117s（基线 123s，无性能回退）；`PhysicsInvariant`/`PhysicsMatrix`/`PhysicsScenario`/`CushionDiagnostics`/`PositionPlayFreeAim` 全过。
+- 仅 3 个 `PhysicsEngineTests` 预存失败（与修复前**完全同集**，断言为袋口毫米级距离偏差，属其他未提交工作遗留，另行处理）。

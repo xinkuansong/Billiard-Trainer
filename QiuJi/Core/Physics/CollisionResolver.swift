@@ -129,7 +129,8 @@ struct CollisionResolver {
     static func resolveCushionCollisionPure(
         velocity: SCNVector3,
         angularVelocity: SCNVector3,
-        normal: SCNVector3
+        normal: SCNVector3,
+        restitution: Float = TablePhysics.cushionRestitution
     ) -> CushionResult {
         let v = velocity
         let w = angularVelocity
@@ -154,7 +155,7 @@ struct CollisionResolver {
             wTangent: w.dot(T),
             wUp: w.dot(U),
             mu: TablePhysics.cushionFriction,
-            e: TablePhysics.cushionRestitution,
+            e: restitution,
             h: TablePhysics.cushionHeight,
             R: BallPhysics.radius,
             M: BallPhysics.mass

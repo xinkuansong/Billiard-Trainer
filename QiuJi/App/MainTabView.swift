@@ -122,8 +122,6 @@ struct MainTabView: View {
             ShotSimulationView()
         case .positionPlayComposer:
             PositionPlayComposerView()
-        case .positionPlayTraining:
-            PositionPlayTrainingView()
         }
     }
 

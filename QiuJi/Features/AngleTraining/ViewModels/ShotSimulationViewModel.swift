@@ -19,8 +19,8 @@ final class ShotSimulationViewModel: ObservableObject {
     // MARK: - Published params
 
     @Published var selectedPocketIndex: Int = -1
-    /// 五档常用速度（项目 16 T04 速度分级），替代旧的 0–100 力度。
-    @Published var speedLevel: StrokePhysics.SpeedLevel = .medium { didSet { if !isPlaying { recompute() } } }
+    /// 连续杆头速度 (m/s)，与走位编排台同一滑条交互（ADR-P11-09）；默认中等力度 3.3。
+    @Published var velocity: Double = 3.3 { didSet { if !isPlaying { recompute() } } }
     @Published var spinX: Double = 0 { didSet { if !isPlaying { recompute() } } }
     @Published var spinY: Double = 0 { didSet { if !isPlaying { recompute() } } }
 
@@ -166,7 +166,7 @@ final class ShotSimulationViewModel: ObservableObject {
             cueBall: cue.position,
             targetBall: target.position,
             pocketIndex: selectedPocketIndex,
-            velocity: speedLevel.velocity,
+            velocity: Float(velocity),
             spinX: Float(spinX),
             spinY: Float(spinY),
             surfaceY: scene.surfaceY

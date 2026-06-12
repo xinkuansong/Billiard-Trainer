@@ -69,7 +69,10 @@ struct BoardSnapshot: Codable {
 
 // MARK: - Planned shot
 
-/// 一杆的作者意图：选哪颗目标球、打哪个袋、连续力度与打点。
+/// 一杆的作者意图，两种形态（ADR-P11-03）：
+/// - **袋口模式**：选目标球 + 袋口（`targetKey`/`pocket` 有效，`freeAim == nil`），引擎闭环求瞄。
+/// - **自由模式**：不指定目标球/袋口（`targetKey`/`pocket` 为空串），作者直接给瞄准方向
+///   `freeAim`（归一化系方向向量，与场景 XZ 方向符号一致、均匀缩放），用于安全球/推球/纯走位。
 /// `pocket` 为 schema Pocket ID（topLeft/topRight/bottomLeft/bottomRight/topCenter/bottomCenter）。
 struct PlannedShot: Codable {
     var targetKey: String
@@ -80,13 +83,20 @@ struct PlannedShot: Codable {
     var spinX: Double
     /// 垂直打点（接触点偏移/R）：+高杆 / −低杆。
     var spinY: Double
+    /// 自由模式瞄准方向（归一化系单位向量；nil = 袋口模式）。旧数据缺省解码为 nil，向后兼容。
+    var freeAim: CanvasPoint?
 
-    init(targetKey: String, pocket: String, velocity: Double, spinX: Double = 0, spinY: Double = 0) {
+    /// 是否自由球（无目标球/袋口语义）。
+    var isFree: Bool { freeAim != nil }
+
+    init(targetKey: String, pocket: String, velocity: Double,
+         spinX: Double = 0, spinY: Double = 0, freeAim: CanvasPoint? = nil) {
         self.targetKey = targetKey
         self.pocket = pocket
         self.velocity = velocity
         self.spinX = spinX
         self.spinY = spinY
+        self.freeAim = freeAim
     }
 }
 

@@ -13,14 +13,16 @@ struct GeometricAngleQuizView: View {
         _vm = StateObject(wrappedValue: GeometricAngleViewModel(limiter: AngleUsageLimiter()))
     }
 
+    // 暗色场景语言重做（ADR-P11-07）：黑底 + 顶部指标胶囊 + 右下 FAB，
+    // 与 2D/3D 瞄准训练、角度与打点等场景页同一套设计。
     var body: some View {
         ScrollView {
-            VStack(spacing: Spacing.xl) {
+            VStack(spacing: Spacing.lg) {
                 angleCanvas
-                    .frame(height: 280)
+                    .frame(height: 320)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
 
-                controlButtons
+                actionChips
 
                 if vm.showResult {
                     resultSection
@@ -29,16 +31,25 @@ struct GeometricAngleQuizView: View {
                 } else if vm.currentAngle > 0 {
                     inputSection
                 }
-
-                statsPanel
             }
             .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.lg)
+            .padding(.bottom, Spacing.xxl)
         }
-        .background(.btBG)
+        .scrollBounceBehavior(.basedOnSize)
+        .background(Color.black.ignoresSafeArea())
+        .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
         .navigationTitle("角度预测")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button { vm.resetStatistics() } label: {
+                    Image(systemName: "arrow.counterclockwise")
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .accessibilityLabel("重置统计")
+            }
+        }
         .onAppear {
             vm.configure(context: modelContext)
             vm.generateRandomAngle()
@@ -65,27 +76,90 @@ struct GeometricAngleQuizView: View {
         }
     }
 
-    // MARK: - Controls
+    // MARK: - Top stats capsule（统一指标条）
 
-    private var controlButtons: some View {
-        HStack(spacing: Spacing.md) {
-            Button("生成随机角度") {
+    /// 统一左对齐（ADR-P11-08）：与其他暗色场景页的顶部信息胶囊同一基线。
+    private var statsCapsule: some View {
+        HStack {
+            HStack(spacing: Spacing.sm) {
+                capsuleItem(label: "次数", value: "\(vm.practiceCount)")
+                divider
+                capsuleItem(label: "正确率", value: String(format: "%.0f%%", vm.accuracyRate))
+                divider
+                capsuleItem(label: "平均", value: String(format: "%.1f°", vm.averageError))
+                if !vm.limiter.isPremium {
+                    divider
+                    Text("剩余 \(vm.limiter.remainingToday)")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.btAccent)
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+            .background(.ultraThinMaterial)
+            .environment(\.colorScheme, .dark)
+            .clipShape(Capsule())
+            .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.xs)
+        .padding(.bottom, Spacing.sm)
+    }
+
+    private func capsuleItem(label: String, value: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.6))
+            Text(value)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+        }
+    }
+
+    private var divider: some View {
+        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 14)
+    }
+
+    // MARK: - 操作胶囊行（统一胶囊语言；置于画布下方避免遮挡表单）
+
+    private var actionChips: some View {
+        HStack(spacing: Spacing.sm) {
+            actionChip(icon: "die.face.5.fill", title: "换题", filled: true) {
+                inputFocused = false
                 vm.generateRandomAngle()
             }
-            .buttonStyle(BTButtonStyle.primary)
             .disabled(vm.limiter.isLimitReached)
+            .opacity(vm.limiter.isLimitReached ? 0.4 : 1)
 
-            Button(vm.showReferenceGrid ? "隐藏参考" : "显示参考") {
+            actionChip(icon: vm.showReferenceGrid ? "eye.slash.fill" : "scope",
+                       title: vm.showReferenceGrid ? "隐藏参考" : "显示参考",
+                       filled: false) {
                 vm.showReferenceGrid.toggle()
             }
-            .buttonStyle(BTButtonStyle.secondary)
 
-            Button("重置统计") {
-                vm.resetStatistics()
-            }
-            .font(.btCallout)
-            .foregroundStyle(.btDestructive)
+            Spacer()
         }
+    }
+
+    private func actionChip(icon: String, title: String, filled: Bool,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.system(size: 12, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(filled ? .white : .white.opacity(0.85))
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(filled ? Color.btPrimary : Color.white.opacity(0.12)))
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Input
@@ -94,20 +168,21 @@ struct GeometricAngleQuizView: View {
         VStack(spacing: Spacing.lg) {
             Text("请估算角度")
                 .font(.btHeadline)
-                .foregroundStyle(.btText)
+                .foregroundStyle(.white)
 
             HStack(spacing: Spacing.xs) {
                 TextField("0", text: $vm.userInput)
                     .keyboardType(.numberPad)
                     .font(.btLargeTitle)
+                    .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .focused($inputFocused)
                 Text("°")
                     .font(.btTitle.weight(.regular))
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.white.opacity(0.6))
             }
             .frame(width: 180, height: 64)
-            .background(.btBGSecondary)
+            .background(.white.opacity(0.08))
             .overlay(
                 RoundedRectangle(cornerRadius: BTRadius.lg)
                     .stroke(Color.btPrimary, lineWidth: 2)
@@ -116,7 +191,7 @@ struct GeometricAngleQuizView: View {
 
             Text("范围: 0° - 90°")
                 .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+                .foregroundStyle(.white.opacity(0.45))
 
             Button("确认") {
                 inputFocused = false
@@ -124,13 +199,11 @@ struct GeometricAngleQuizView: View {
             }
             .buttonStyle(BTButtonStyle.primary)
             .disabled(vm.userInput.isEmpty)
-
-            if !vm.limiter.isPremium {
-                Text("今日剩余 \(vm.limiter.remainingToday) 题")
-                    .font(.btCaption)
-                    .foregroundStyle(.btAccent)
-            }
         }
+        .padding(Spacing.xl)
+        .frame(maxWidth: .infinity)
+        .background(.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .onAppear { inputFocused = true }
     }
 
@@ -144,11 +217,11 @@ struct GeometricAngleQuizView: View {
 
             Text("今日免费次数已用完")
                 .font(.btHeadline)
-                .foregroundStyle(.btText)
+                .foregroundStyle(.white)
 
             Text("每日可免费练习 \(AngleUsageLimiter.dailyLimit) 题，升级 Pro 后不限次数。")
                 .font(.btSubheadline)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.white.opacity(0.65))
                 .multilineTextAlignment(.center)
 
             Button {
@@ -160,7 +233,7 @@ struct GeometricAngleQuizView: View {
         }
         .padding(Spacing.xl)
         .frame(maxWidth: .infinity)
-        .background(.btBGSecondary)
+        .background(.white.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
@@ -189,13 +262,14 @@ struct GeometricAngleQuizView: View {
                         .foregroundStyle(vm.lastErrorRating.color)
                 }
                 .font(.btBody)
-                .foregroundStyle(.btText)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             if vm.limiter.isLimitReached {
                 Text("今日免费次数已用完")
                     .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.white.opacity(0.65))
                 Button {
                     showSubscription = true
                 } label: {
@@ -208,42 +282,9 @@ struct GeometricAngleQuizView: View {
             }
         }
         .padding(Spacing.xl)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-    }
-
-    // MARK: - Stats Panel
-
-    private var statsPanel: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Spacing.md) {
-            statCard(title: "练习次数", value: "\(vm.practiceCount)")
-            statCard(title: "正确次数", value: "\(vm.accurateCount)", subtitle: "(误差≤3°)")
-            statCard(title: "正确率", value: String(format: "%.0f%%", vm.accuracyRate))
-            statCard(title: "平均误差", value: String(format: "%.1f°", vm.averageError))
-        }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-    }
-
-    private func statCard(title: String, value: String, subtitle: String? = nil) -> some View {
-        VStack(spacing: Spacing.xs) {
-            HStack(spacing: 2) {
-                Text(value)
-                    .font(.btTitle)
-                    .foregroundStyle(.btText)
-                if let subtitle {
-                    Text(subtitle)
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
-                }
-            }
-            Text(title)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-        }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.md)
+        .background(.white.opacity(0.06))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 }
 

@@ -107,6 +107,27 @@ final class CameraRig {
     var topDownOrthographicScale: Double = Double(AngleSceneCalculator.innerLength) * 0.6
     var topDownPanOffset: CGPoint = .zero
 
+    // MARK: - Rotated top-down auto fit（统一取景，ADR-P11-08）
+
+    /// 球桌外框半长（世界 X，rotated 顶视屏幕竖轴）。由 `AngleTrainingScene`
+    /// 装桌后实测回填；默认值为 USDZ 球桌实测兜底（1.4055）。
+    var tableOuterHalfLength: Double = 1.4055
+    /// 球桌外框半宽（世界 Z，rotated 顶视屏幕横轴）。同上实测回填。
+    var tableOuterHalfWidth: Double = 0.7995
+    /// 取景安全余量（比例）：避免抗锯齿/阴影边缘贴边裁切。
+    static let rotatedFitMargin: Double = 1.012
+
+    /// 按视口宽高比把 rotated 顶视正交 scale 调到「球桌完整可见 + 双轴居中」的最小值。
+    /// 竖轴约束：scale ≥ 半长×余量；横轴约束：scale×(W/H) ≥ 半宽×余量。
+    /// 所有 2D 球桌页共用此取景，保证球桌位置/占比的一致性（与各页顶部控件高度无关）。
+    func fitRotatedTable(viewSize: CGSize) {
+        guard viewSize.width > 1, viewSize.height > 1 else { return }
+        let fitVertical = tableOuterHalfLength * Self.rotatedFitMargin
+        let fitHorizontal = tableOuterHalfWidth * Self.rotatedFitMargin
+            * Double(viewSize.height / viewSize.width)
+        topDownOrthographicScale = max(fitVertical, fitHorizontal)
+    }
+
     // MARK: - Init
 
     init(cameraNode: SCNNode, tableSurfaceY: Float, config: Config = .default) {

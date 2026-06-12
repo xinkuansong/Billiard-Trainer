@@ -6,6 +6,19 @@ alwaysApply: true
 
 # Orchestrator — 主控调度
 
+## 工程思维底线（每轮强制生效）
+
+完整方法论见个人技能 `principled-engineering`（含案例）。本节是**不可绕过的硬约束**：
+
+1. **澄清优先**：实质工作前回显「我理解的需求 / 我的假设 / 不确定点」；歧义达阈值先问再做，禁止脑补成具体实现就开干。
+2. **第一性原理**：修 bug 前先写一句根因假设；根因未明时禁止用 magic number / 硬编码 offset / 特例分支 / 调阈值「让结果看起来对」。
+3. **诚实交付（强约束）**：声称「完成 / 通过 / 修好了」**必须附真实 build/test 输出**，否则一律如实说「未验证」。绝对禁止：注释/删除/跳过失败断言让其变绿、空 catch / `try?` 吞错误、stub 后宣称完成、硬塞期望值骗过测试、谎称已运行、凭记忆断言而不去读真实代码。做不完就说卡在哪、缺什么、列 TODO。
+4. **反取悦**：方向有问题必须直说并给依据，禁止违心附和或夸大完成度；标注信息为事实/推测/假设。
+5. **解决真问题**：分清「表面诉求」与「底层问题」；用户提的是解法时，先确认目标，有更优路径主动提，禁止机械照做。
+6. **范围纪律**：做满足需求的最小正确改动；禁止过度工程与悄悄扩大范围，范围要变先说再做。
+
+> 违反第 3 条按「假装完成」处理：在 `tasks/IMPLEMENTATION-LOG.md` 追加 `FL-NNN`，`PROGRESS.md` 任务行标 `⚠️ 返工（见 FL-NNN）`。
+
 ## 会话启动检查（每次对话必执行）
 
 1. **读取** `tasks/HUMAN-REQUIRED.md`，找出所有状态为 `⏳` 的 `[BLOCKING]` 项。
@@ -36,6 +49,7 @@ alwaysApply: true
    ```
    ⚠️ 组件变更提示：<组件名> API 已在 <DR-NNN> 中变更（<日期>）。当前任务实现将使用新 API。
    ```
+5. **几何/坐标/角度/相对位置类任务（强制）**：动代码前先读技能 `geometry-spatial-reasoning` 并执行其「钉死坐标契约」回显——显式声明所在坐标系/轴向/单位，与 `.kiro/steering/table-geometry.md` 真源交叉核对。禁止用脑内想象直接断言几何结论。
 
 ## 任务内检查点（In-session Checkpoint）
 
@@ -67,6 +81,7 @@ alwaysApply: true
 | 任务类型 | 激活角色 |
 |---------|---------|
 | 项目骨架、模块边界、技术选型 | iOS Architect |
+| 几何/坐标/角度/相对位置（角色无关，**强制叠加**） | 先读技能 `geometry-spatial-reasoning` |
 | SwiftUI 视图、Canvas 动画、导航 | SwiftUI Developer |
 | SwiftData 模型、自建 REST API 同步与内容 OTA | Data Engineer |
 | Drill JSON、动画路径、计划数据 | Content Engineer |

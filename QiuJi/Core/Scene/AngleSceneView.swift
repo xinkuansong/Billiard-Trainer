@@ -30,6 +30,9 @@ struct AngleSceneView: UIViewRepresentable {
     @Binding var cameraMode: AngleTrainingScene.CameraMode
     var interactionMode: InteractionMode = .cameraControl
     var locksCueBallScreenAnchor = false
+    /// rotated 顶视下按视口自适应取景（统一各 2D 球桌页的球桌占比/居中，ADR-P11-08）。
+    /// 仅 `tapsOnly`/`none` 的固定 2D 页开启；带捏合缩放的 `cameraControl` 页保持手动 scale。
+    var autoFitsRotatedTable = false
     /// SCNView 背景色。默认黑（3D 角度页用）；2D 顶视球桌（详情页）传台呢绿，
     /// 让相机取景与相框比例不完全吻合时残留的极小边缘融入而非露出黑边。
     var backgroundColor: UIColor = .black
@@ -45,6 +48,9 @@ struct AngleSceneView: UIViewRepresentable {
     /// 可点选的球（走位编排器点选目标球）。tap 命中其一即回调，优先于袋口判定。
     var selectableBallNodes: [SCNNode] = []
     var onBallTapped: ((SCNNode) -> Void)?
+
+    /// 点击未命中球/袋口时，反投影到台面平面的世界坐标回调（走位编排器自由瞄准用）。
+    var onTableTapped: ((SCNVector3) -> Void)?
 
     /// 坐标桥接（可选）。传入后由本视图填充 unproject/project 闭包。
     var projector: TableProjector?
@@ -111,6 +117,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.cameraMode = cameraMode
         context.coordinator.interactionMode = interactionMode
         context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
+        context.coordinator.autoFitsRotatedTable = autoFitsRotatedTable
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.draggableBallNodes = draggableBallNodes
         context.coordinator.onDragBegan = onDragBegan
@@ -119,6 +126,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onDragEndedAt = onDragEndedAt
         context.coordinator.selectableBallNodes = selectableBallNodes
         context.coordinator.onBallTapped = onBallTapped
+        context.coordinator.onTableTapped = onTableTapped
         if let projector, projector.unproject == nil {
             bindProjector(to: uiView)
         }
@@ -140,6 +148,7 @@ struct AngleSceneView: UIViewRepresentable {
         var cameraMode: AngleTrainingScene.CameraMode
         var interactionMode: InteractionMode
         var locksCueBallScreenAnchor = false
+        var autoFitsRotatedTable = false
         var onPocketTapped: ((Int) -> Void)?
         weak var scnView: SCNView?
         private var displayLink: CADisplayLink?
@@ -153,6 +162,7 @@ struct AngleSceneView: UIViewRepresentable {
         var onDragEndedAt: ((SCNNode, CGPoint) -> Void)?
         var selectableBallNodes: [SCNNode] = []
         var onBallTapped: ((SCNNode) -> Void)?
+        var onTableTapped: ((SCNVector3) -> Void)?
         private var draggedNode: SCNNode?
 
         /// Dominant axis lock for 3D camera-pan gestures. Once decided
@@ -213,6 +223,9 @@ struct AngleSceneView: UIViewRepresentable {
             case .topDown2D:
                 scene.cameraRig?.applyTopDown2D()
             case .topDown2DRotated:
+                if autoFitsRotatedTable, let scnView {
+                    scene.cameraRig?.fitRotatedTable(viewSize: scnView.bounds.size)
+                }
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
@@ -256,9 +269,12 @@ struct AngleSceneView: UIViewRepresentable {
                 }
             }
 
-            let hitRadius: CGFloat = 30
+            // 回退命中半径放宽到 48pt（> 袋口 tap 的 44pt），避免贴袋目标球落入
+            // 「30–44pt 环形死区」被当成选袋口而抓不到球；投影用视觉球心而非节点原点，
+            // 抵消 USDZ pivot 偏移导致的抓取偏差。
+            let hitRadius: CGFloat = 48
             for ball in draggableBallNodes {
-                let projected = scnView.projectPoint(ball.position)
+                let projected = scnView.projectPoint(scene.visualCenter(of: ball))
                 let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
                 let dist = hypot(location.x - screenPos.x, location.y - screenPos.y)
                 if dist < hitRadius {
@@ -411,6 +427,15 @@ struct AngleSceneView: UIViewRepresentable {
             }
             if let bestIndex {
                 onPocketTapped?(bestIndex)
+                return
+            }
+
+            // 未命中球/袋口：反投影到台面平面回调（自由瞄准设定方向）。
+            if let onTableTapped {
+                let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
+                if let world = unprojectToTablePlane(screenPoint: location, in: scnView, planeY: planeY) {
+                    onTableTapped(world)
+                }
             }
         }
 

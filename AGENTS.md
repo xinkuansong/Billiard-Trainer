@@ -50,6 +50,7 @@
 - `swiftdata-cloudkit` — SwiftData 与 Drill 内容（Bundle + 自建 API OTA，ADR-002）
 - `rest-api-backend` — 自建 REST API 与用户侧同步、JWT、微信 OAuth
 - `content-engineering` — Drill Schema、坐标系、内容生产 SOP
+- `geometry-spatial-reasoning` — 几何/坐标/角度/相对位置：坐标契约、禁止脑算清单、数值草稿验证、不变量护栏
 
 ## 任务与文档
 

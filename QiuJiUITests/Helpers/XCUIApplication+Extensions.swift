@@ -13,7 +13,10 @@ extension XCUIApplication {
     }
 
     func switchTab(_ tab: Tab) {
-        tabBars.buttons[tab.rawValue].tap()
+        // 冷启动可能 >3s 才出现 TabBar：先等待存在再点，规避偶发 "No matches for TabBar"。
+        let button = tabBars.buttons[tab.rawValue]
+        _ = button.waitForExistence(timeout: 20)
+        button.tap()
     }
 
     // MARK: - Launch Helpers
@@ -23,6 +26,13 @@ extension XCUIApplication {
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
         app.launchArguments += ["-AppleLocale", "zh_CN"]
         app.launch()
+        // 偶发：安装/启动竞态导致 app 进程秒退。用进程状态判断（不走 AX 快照，
+        // 避免主线程繁忙时误判），不在前台才重启动。
+        for _ in 0..<2 {
+            sleep(3)
+            if app.state == .runningForeground { break }
+            app.launch()
+        }
         return app
     }
 

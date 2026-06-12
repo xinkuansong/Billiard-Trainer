@@ -154,6 +154,18 @@ targets:
       - target: QiuJi
 
 schemes:
+  # UI 截图巡游专用：仅 App + UI 测试，避免单测目标拖慢截图回归。
+  QiuJiUITour:
+    build:
+      targets:
+        QiuJi: all
+        QiuJiUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - QiuJiUITests
   QiuJi:
     build:
       targets:

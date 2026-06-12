@@ -1,21 +1,19 @@
 import SwiftUI
 import SceneKit
 
-/// 走位编排台（ADR-P11-01）：自由摆球 + 逐杆编排击打序列，用于教学视频制作与走位演示。
+/// 走位编排台（ADR-P11-01 / ADR-P11-03 / ADR-P11-04）：自由摆球 + 连续击打，用于走位演示与教学素材录制。
 ///
-/// 布局：上方球桌区（铺满，夹角浮标贴目标球、右侧竖排操作按钮），下方实心球库栏（双行真实球面
-/// + 序列时间轴）不遮挡球桌。交互：球库球拖到桌面落位、桌面球拖回球库区移除、点桌上球选目标、
-/// 点袋口选目标袋。击球后球停在终局，「记录」存为一杆、「重打」退回本杆重来。
+/// 布局：左侧信息栏（进袋/自由切换、角度/厚薄、母球进袋警示、录制指示，从上往下排）+
+/// 球桌区（完整外框取景，零叠层遮挡）；底部条 = 控制行（打点图标 + 力度滑条）+
+/// 微边框球库（两行固定序）+ 右下操作列（击球 / 录制 / 重打）。状态文案上移到导航栏。
+/// 交互：球库球拖到桌面落位、桌面球拖回底部条移除、点桌上球选目标（袋口模式）/ 设定瞄准（自由模式）。
+/// 击球后桌面前进为新真相（进袋回库、母球停在走位终点，自动选下一杆）；「重打」退回上一杆
+/// 击打前并恢复该杆全部参数。「录制」开关：开启后每次击球自动记一杆，结束分享序列 JSON。
 struct PositionPlayComposerView: View {
     @StateObject private var vm = PositionPlayViewModel()
-    @Environment(\.modelContext) private var modelContext
     @State private var hasAppeared = false
-    @State private var showSettings = false
-    @State private var showRandom = false
-    @State private var randomCount = 5
+    @State private var showSpinPad = false
 
-    // Ball-face thumbnails (USDZ baked once)
-    @State private var ballFaces: [String: UIImage] = [:]
     @State private var projector = TableProjector()
 
     // Palette drag-to-place state (composer coordinate space)
@@ -27,28 +25,43 @@ struct PositionPlayComposerView: View {
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
 
-    // Export / save
-    @State private var isExporting = false
-    @State private var exportProgress: Double = 0
+    // Recording JSON share
     @State private var exportURL: URL?
     @State private var showShare = false
     @State private var showRename = false
     @State private var renameText = ""
     @State private var banner: String?
 
-    private let paletteRows = [GridItem(.fixed(40), spacing: 8), GridItem(.fixed(40), spacing: 8)]
+    // Destructive confirmations
+    @State private var showClearTableConfirm = false
+    @State private var showResetConfirm = false
+
+    /// 球库固定序（#1）：第一行 = 母球 + 1–7，第二行 = 8–15；每行 8 个槽位。
+    private static let paletteColumns = 8
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
             VStack(spacing: 0) {
-                sceneContainer
+                topInfoRow
+                ZStack(alignment: .bottom) {
+                    sceneContainer
+                    // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（系统 sheet 底下是
+                    // 纯黑+压暗层会显得过深，ADR-P11-09）。
+                    if showSpinPad {
+                        BTSpinPadCard(spinX: $vm.spinX, spinY: $vm.spinY,
+                                      onClose: { showSpinPad = false })
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.bottom, Spacing.sm)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
                 bottomBar
             }
             if let key = draggingKey { dragGhost(key) }
-            if isExporting { exportOverlay }
             bannerView
         }
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .coordinateSpace(name: "composer")
         .onPreferenceChange(ComposerFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -57,9 +70,13 @@ struct PositionPlayComposerView: View {
         .navigationTitle(vm.sequence.name)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { exportMenu } }
-        .sheet(isPresented: $showSettings) { settingsSheet }
-        .sheet(isPresented: $showRandom) { randomSheet }
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) { navStatus }
+            ToolbarItem(placement: .topBarTrailing) { moreMenu }
+        }
         .sheet(isPresented: $showShare) {
             if let url = exportURL { ShareSheet(items: [url]) }
         }
@@ -68,22 +85,44 @@ struct PositionPlayComposerView: View {
             Button("保存") { vm.renameSequence(renameText) }
             Button("取消", role: .cancel) {}
         }
+        .confirmationDialog(
+            clearTableWarning,
+            isPresented: $showClearTableConfirm, titleVisibility: .visible
+        ) {
+            Button("清空桌面", role: .destructive) { vm.clearTable() }
+            Button("取消", role: .cancel) {}
+        }
+        .confirmationDialog(
+            vm.isRecording
+                ? "清空并重来将丢弃录制中的 \(vm.stepCount) 杆。"
+                : "回到默认球形并重新开始？",
+            isPresented: $showResetConfirm, titleVisibility: .visible
+        ) {
+            Button("清空并重来", role: .destructive) { vm.resetAll() }
+            Button("取消", role: .cancel) {}
+        }
         .onAppear {
             if !hasAppeared {
                 hasAppeared = true
                 vm.setupScene()
-                loadBallFaces()
             }
         }
     }
 
-    // MARK: - Scene container (table + badge + side buttons)
+    private var clearTableWarning: String {
+        vm.isRecording
+            ? "清空桌面将丢弃录制中的 \(vm.stepCount) 杆。"
+            : "清空桌面上所有球？"
+    }
+
+    // MARK: - Scene container (table only, zero overlays #2/#3)
 
     private var sceneContainer: some View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
+            autoFitsRotatedTable: true,
             onPocketTapped: { vm.selectPocket(at: $0) },
             draggableBallNodes: vm.draggableBalls,
             onDragBegan: { vm.dragBegan(node: $0) },
@@ -92,197 +131,248 @@ struct PositionPlayComposerView: View {
             onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },
             selectableBallNodes: vm.selectableBalls,
             onBallTapped: { vm.selectTarget(node: $0) },
+            onTableTapped: { vm.handleTableTap(world: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .overlay(alignment: .top) { angleChip.padding(.top, Spacing.sm) }
-        .overlay(alignment: .trailing) { sideButtons }
         .background(frameReader(id: "scene"))
         .clipped()
     }
 
-    // MARK: - Fixed angle chip (style aligned with 角度与打点 page; does not follow target)
+    // MARK: - Nav status (#2：状态文案上移导航栏，不占球桌)
 
-    private var angleChip: some View {
-        let hasAngle = vm.cutAngleDeg != nil
-        return HStack(spacing: Spacing.sm) {
-            metricItem(icon: "angle",
-                       value: hasAngle ? "\(Int(vm.cutAngleDeg!.rounded()))°" : "—°")
-            if hasAngle {
-                Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
-                thicknessItem(cutAngle: vm.cutAngleDeg!)
+    private var navStatus: some View {
+        VStack(spacing: 1) {
+            Text(vm.sequence.name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.btPrimary)   // 与其他场景页品牌绿标题统一（ADR-P11-07）
+                .lineLimit(1)
+            HStack(spacing: 4) {
+                if vm.isComputing {
+                    ProgressView().controlSize(.mini).tint(.white)
+                }
+                Text(vm.isComputing ? "求解中…" : vm.statusText)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.65))
+                    .lineLimit(1)
             }
-            if vm.cuePocketed {
-                Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
-                HStack(spacing: 4) {
-                    Circle().fill(Color.btDestructive).frame(width: 7, height: 7)
-                    Text("母球进袋").font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.btDestructive)
+        }
+    }
+
+    // MARK: - Top info row（ADR-P11-08：信息行上移球桌上方，球桌全宽居中）
+
+    /// 顶部信息行：进袋/自由切换 + 角度胶囊 + 母球进袋警示 + 录制指示。
+    /// 与其他 2D 场景页的「顶部控件行 + 信息胶囊」同一套语言，左对齐。
+    private var topInfoRow: some View {
+        HStack(spacing: Spacing.sm) {
+            BTChipRow(
+                options: ["进袋", "自由"],
+                selection: Binding(
+                    get: { vm.aimMode == .pocket ? 0 : 1 },
+                    set: { vm.aimMode = $0 == 0 ? .pocket : .free }
+                ),
+                scrollable: false
+            )
+            .disabled(vm.isPlaying)
+
+            aimCapsule
+
+            if vm.cuePocketed { scratchPill }
+
+            Spacer(minLength: 0)
+
+            if vm.isRecording { recordingPill }
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.xs)
+        .padding(.bottom, Spacing.xs)
+        .background(Color.black)
+        .environment(\.colorScheme, .dark)
+    }
+
+    /// 角度/厚薄（袋口模式）或自由球标识——统一信息胶囊样式。
+    private var aimCapsule: some View {
+        HStack(spacing: 4) {
+            if vm.aimMode == .free {
+                Image(systemName: "scope")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.75))
+                Text("自由球")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.92))
+            } else {
+                Text(vm.cutAngleDeg.map { "\(Int($0.rounded()))°" } ?? "—°")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                if let angle = vm.cutAngleDeg {
+                    Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                    Text(AngleSceneCalculator.thicknessName(cutAngle: angle))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .lineLimit(1)
                 }
             }
         }
-        .foregroundStyle(.white)
         .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
+        .padding(.vertical, 6)
         .background(.ultraThinMaterial)
-        .environment(\.colorScheme, .dark)
         .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
-        .allowsHitTesting(false)
     }
 
-    @ViewBuilder
-    private func metricItem(icon: String, value: String) -> some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.75))
-            Text(value)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+    /// 母球进袋（失误）警示胶囊。
+    private var scratchPill: some View {
+        HStack(spacing: 4) {
+            Circle().fill(Color.btDestructive).frame(width: 6, height: 6)
+            Text("母球进袋")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.btDestructive)
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 6)
+        .background(Color.btDestructive.opacity(0.16), in: Capsule())
+    }
+
+    /// 录制指示胶囊（#11）：红点 + 已录杆数。
+    private var recordingPill: some View {
+        HStack(spacing: 4) {
+            Circle().fill(Color.btDestructive).frame(width: 6, height: 6)
+            Text("\(vm.stepCount) 杆")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white)
                 .monospacedDigit()
-                .lineLimit(1)
         }
-        .fixedSize(horizontal: true, vertical: false)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 6)
+        .background(Color.btDestructive.opacity(0.25), in: Capsule())
+        .overlay(Capsule().stroke(Color.btDestructive.opacity(0.55), lineWidth: 1))
     }
 
-    @ViewBuilder
-    private func thicknessItem(cutAngle: Double) -> some View {
-        Text(AngleSceneCalculator.thicknessName(cutAngle: cutAngle))
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.85))
-            .lineLimit(1)
-    }
-
-    // MARK: - Side action buttons
-
-    private var sideButtons: some View {
-        VStack(spacing: Spacing.sm) {
-            circleButton(label: "设置", tint: .white.opacity(0.16)) {
-                Image(systemName: "slider.horizontal.3").font(.system(size: 17, weight: .semibold))
-            } action: { showSettings = true }
-                .disabled(vm.isPlaying)
-
-            circleButton(label: "随机", tint: .white.opacity(0.16)) {
-                Image(systemName: "shuffle").font(.system(size: 16, weight: .semibold))
-            } action: { showRandom = true }
-                .disabled(vm.isPlaying)
-
-            circleButton(label: vm.isPlaying ? "击球中" : "击球",
-                         tint: strikeEnabled ? Color.btPrimary : Color.btPrimary.opacity(0.3)) {
-                CueStickShape().frame(width: 20, height: 20)
-            } action: { vm.play() }
-                .disabled(!strikeEnabled)
-
-            circleButton(label: "记录",
-                         tint: recordEnabled ? Color.btSuccess : Color.btSuccess.opacity(0.3)) {
-                Image(systemName: "plus.circle.fill").font(.system(size: 17, weight: .semibold))
-            } action: { vm.recordStep() }
-                .disabled(!recordEnabled)
-
-            circleButton(label: "重打", tint: .white.opacity(0.16)) {
-                Image(systemName: "arrow.uturn.backward").font(.system(size: 16, weight: .semibold))
-            } action: { vm.replayCurrent() }
-                .disabled(vm.isPlaying)
-        }
-        .padding(.trailing, Spacing.md)
-        .padding(.bottom, Spacing.md)
-    }
-
-    private var strikeEnabled: Bool { !vm.isPlaying && vm.isFeasible && !vm.hasStruck }
-    private var recordEnabled: Bool { !vm.isPlaying && vm.isFeasible }
-
-    @ViewBuilder
-    private func circleButton<Glyph: View>(label: String, tint: Color,
-                                           @ViewBuilder glyph: () -> Glyph,
-                                           action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 3) {
-                glyph().foregroundStyle(.white)
-                Text(label).font(.system(size: 9, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(.white)
-            .frame(width: 54, height: 54)
-            .background(tint, in: Circle())
-            .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.3), radius: 6, y: 2)
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: - Bottom bar (timeline + palette), opaque so it never covers the table
+    // MARK: - Bottom bar (#2：控制行 + 球库 + 右下操作列)
 
     private var bottomBar: some View {
-        VStack(spacing: Spacing.sm) {
-            if vm.stepCount > 0 { timelineStrip }
-            paletteBar
+        HStack(spacing: 0) {
+            VStack(spacing: 0) {
+                controlRow
+                paletteBar
+            }
+            actionColumn
         }
-        .padding(.top, Spacing.sm)
-        .padding(.bottom, Spacing.sm)
-        .frame(maxWidth: .infinity)
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)
     }
 
-    private var timelineStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Spacing.sm) {
-                ForEach(Array(vm.sequence.steps.enumerated()), id: \.element.id) { idx, step in
-                    stepChip(index: idx, step: step)
-                }
+    // MARK: - Control row (#4: 打点图标 + 力度滑条，置于球桌与球库之间)
+
+    private var controlRow: some View {
+        HStack(spacing: Spacing.sm) {
+            Button { showSpinPad = true } label: {
+                BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 28)
             }
-            .padding(.horizontal, Spacing.md)
+            .buttonStyle(.plain)
+            .accessibilityLabel("打点")
+            .disabled(vm.isPlaying)
+
+            Slider(value: $vm.velocity, in: 0.5...6.0, step: 0.1)
+                .tint(Color.btPrimary)
+                .disabled(vm.isPlaying)
+
+            Text("\(PowerDisplay.name(vm.velocity)) \(String(format: "%.1f", vm.velocity))")
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+                .monospacedDigit()
+                .frame(width: 58, alignment: .trailing)
         }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 4)
     }
 
-    private func stepChip(index: Int, step: SequenceStep) -> some View {
-        let targetLabel = PositionPlayBall.shortLabel(for: step.shot.targetKey)
-        return Menu {
-            Button("回退到此杆前（截断重录）", systemImage: "arrow.uturn.backward") {
-                vm.revertToBefore(stepIndex: index)
-            }
-            Button("查看此杆后球形", systemImage: "eye") {
-                vm.previewBoard(afterStep: index)
-            }
-        } label: {
-            VStack(spacing: 2) {
-                Text("\(index + 1)")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.6))
-                HStack(spacing: 3) {
-                    Text(targetLabel)
+    // MARK: - Action column (#2：击球 / 录制 / 重打，右下方不压球桌)
+
+    private var actionColumn: some View {
+        VStack(spacing: 6) {
+            Button { vm.play() } label: {
+                HStack(spacing: 5) {
+                    CueStickShape().frame(width: 15, height: 15).foregroundStyle(.white)
+                    Text(vm.isPlaying ? "击球中" : "击球")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                    Image(systemName: step.objectPocketed ? "arrow.right.circle.fill" : "arrow.right")
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(step.cuePocketed ? .btDestructive : .btPrimary)
                 }
-                Text(PocketDisplay.name(id: step.shot.pocket))
-                    .font(.system(size: 8, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
+                .frame(width: 92, height: 42)
+                .background(strikeEnabled ? Color.btPrimary : Color.btPrimary.opacity(0.3),
+                            in: Capsule())
             }
-            .frame(width: 58, height: 52)
-            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: BTRadius.sm))
-            .overlay(RoundedRectangle(cornerRadius: BTRadius.sm).stroke(.white.opacity(0.1), lineWidth: 0.5))
+            .buttonStyle(.plain)
+            .disabled(!strikeEnabled)
+
+            HStack(spacing: 6) {
+                smallButton(tint: vm.isRecording ? Color.btDestructive : .white.opacity(0.14),
+                            label: vm.isRecording ? "结束录制" : "录制") {
+                    Image(systemName: vm.isRecording ? "stop.fill" : "record.circle")
+                        .font(.system(size: 15, weight: .semibold))
+                } action: { toggleRecording() }
+                    .disabled(vm.isPlaying)
+
+                smallButton(tint: .white.opacity(0.14), label: "重打") {
+                    Image(systemName: "arrow.uturn.backward")
+                        .font(.system(size: 15, weight: .semibold))
+                } action: { vm.replayCurrent() }
+                    .disabled(vm.isPlaying || !vm.canReplay)
+            }
         }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 6)
     }
 
+    private var strikeEnabled: Bool {
+        !vm.isPlaying && !vm.isComputing && vm.isFeasible
+    }
+
+    @ViewBuilder
+    private func smallButton<Glyph: View>(tint: Color, label: String,
+                                          @ViewBuilder glyph: () -> Glyph,
+                                          action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            glyph()
+                .foregroundStyle(.white)
+                .frame(width: 43, height: 42)
+                .background(tint, in: Circle())
+                .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 0.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+
+    // MARK: - Palette bar (#1/#2/#3: 固定两行序 + 补位 + 微边框)
+
     private var paletteBar: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("球库（拖到桌面摆球 · 点球面快速上桌 · 桌上球拖回此处移除 · 点桌上球选目标）")
-                .font(.system(size: 9, weight: .medium))
-                .foregroundStyle(.white.opacity(0.45))
-                .padding(.horizontal, Spacing.md)
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHGrid(rows: paletteRows, spacing: 8) {
-                    ForEach(PositionPlayBall.allKeys, id: \.self) { key in
-                        ballToken(key)
+        let keys = vm.paletteKeys
+        let row1 = Array(keys.prefix(Self.paletteColumns))
+        let row2 = Array(keys.dropFirst(Self.paletteColumns))
+        return VStack(spacing: 4) {
+            paletteRow(row1)
+            paletteRow(row2)
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 5)
+        .frame(maxWidth: .infinity)
+    }
+
+    /// 一行球库槽位：在库球按序左对齐补位，空槽透明占位保持网格稳定。
+    private func paletteRow(_ keys: [String]) -> some View {
+        HStack(spacing: 0) {
+            ForEach(0..<Self.paletteColumns, id: \.self) { i in
+                Group {
+                    if i < keys.count {
+                        ballToken(keys[i])
+                    } else {
+                        Color.clear
                     }
                 }
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, 2)
+                .frame(maxWidth: .infinity)
+                .frame(height: 32)
             }
         }
     }
@@ -290,46 +380,19 @@ struct PositionPlayComposerView: View {
     // MARK: - Ball token (real face + drag to place)
 
     private func ballToken(_ key: String) -> some View {
-        let onTable = vm.onTableKeys.contains(key)
-        let isTarget = vm.selectedTargetKey == key
-        return ZStack {
-            ballFaceView(key)
-                .frame(width: 36, height: 36)
-                .clipShape(Circle())
-                .overlay(
-                    Circle().stroke(isTarget ? Color.btPrimary : .white.opacity(0.18),
-                                    lineWidth: isTarget ? 2.5 : 0.5)
-                )
-                .opacity(onTable ? 0.5 : 1)   // 在桌的球在球库里淡显，提示已上桌
-        }
-        .frame(width: 40, height: 40)
-        .contentShape(Circle())
-        .opacity(draggingKey == key ? 0.3 : 1)
-        .onTapGesture {
-            if !onTable { vm.placeFromPalette(key) }
-            else if !PositionPlayBall.isCue(key) { vm.selectTarget(key: key) }
-        }
-        .gesture(paletteDrag(key))
-    }
-
-    @ViewBuilder
-    private func ballFaceView(_ key: String) -> some View {
-        if let img = ballFaces[key] {
-            Image(uiImage: img).resizable().scaledToFill()
-        } else {
-            Circle()
-                .fill(PositionPlayBall.isCue(key) ? Color.white : Color(red: 0.20, green: 0.42, blue: 0.30))
-                .overlay(
-                    Text(PositionPlayBall.shortLabel(for: key))
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
-                        .foregroundStyle(PositionPlayBall.isCue(key) ? .black : .white)
-                )
-        }
+        PoolBallFace(key: key, diameter: 30)
+            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
+            .frame(width: 32, height: 32)
+            .contentShape(Circle())
+            .opacity(draggingKey == key ? 0.3 : 1)
+            .onTapGesture { vm.placeFromPalette(key) }
+            .gesture(paletteDrag(key))
     }
 
     private func paletteDrag(_ key: String) -> some Gesture {
         DragGesture(minimumDistance: 10, coordinateSpace: .named("composer"))
             .onChanged { value in
+                guard !vm.isPlaying else { return }
                 draggingKey = key
                 dragLocation = value.location
                 dragOverTable = sceneFrame.contains(value.location)
@@ -337,7 +400,7 @@ struct PositionPlayComposerView: View {
             .onEnded { value in
                 let loc = value.location
                 defer { draggingKey = nil; dragOverTable = false }
-                guard sceneFrame.contains(loc) else { return }
+                guard !vm.isPlaying, sceneFrame.contains(loc) else { return }
                 let local = CGPoint(x: loc.x - sceneFrame.minX, y: loc.y - sceneFrame.minY)
                 if let world = projector.unproject?(local) {
                     vm.placeFromPalette(key, atWorld: world)
@@ -350,9 +413,7 @@ struct PositionPlayComposerView: View {
     // Floating ghost following the finger during a palette drag.
     @ViewBuilder
     private func dragGhost(_ key: String) -> some View {
-        ballFaceView(key)
-            .frame(width: 42, height: 42)
-            .clipShape(Circle())
+        PoolBallFace(key: key, diameter: 42)
             .overlay(Circle().stroke(dragOverTable ? Color.btSuccess : .white.opacity(0.4),
                                      lineWidth: dragOverTable ? 2.5 : 1))
             .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
@@ -370,48 +431,57 @@ struct PositionPlayComposerView: View {
         flash("已移回球库")
     }
 
-    // MARK: - Toolbar export / save menu
+    // MARK: - Recording (#11)
 
-    private var exportMenu: some View {
+    private func toggleRecording() {
+        if vm.isRecording {
+            guard let recorded = vm.stopRecording() else {
+                flash("未录到击球，已取消录制")
+                return
+            }
+            shareSequenceJSON(recorded)
+        } else {
+            vm.startRecording()
+            flash("开始录制：此后每次击球自动记为一杆")
+        }
+    }
+
+    /// 录制结束 → 序列 JSON 写临时文件并分享（离线脚本据此用物理引擎复现出视频/GIF）。
+    private func shareSequenceJSON(_ sequence: PositionPlaySequence) {
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            let data = try encoder.encode(sequence)
+            let safe = sequence.name.replacingOccurrences(of: "/", with: "-")
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("\(safe)-\(sequence.steps.count)杆.json")
+            try data.write(to: url)
+            exportURL = url
+            showShare = true
+        } catch {
+            flash("序列 JSON 导出失败")
+        }
+    }
+
+    // MARK: - Toolbar menu
+
+    private var moreMenu: some View {
         Menu {
             Button("重命名", systemImage: "pencil") {
                 renameText = vm.sequence.name
                 showRename = true
             }
-            Section("保存与导出") {
-                Button("保存到我的序列", systemImage: "tray.and.arrow.down") { saveSequence() }
-                    .disabled(vm.stepCount == 0)
-                Button("导出教学视频 (MP4)", systemImage: "film") { exportVideo() }
-                    .disabled(vm.stepCount == 0)
-                Button("导出 GIF", systemImage: "square.stack.3d.down.right") { exportGIF() }
-                    .disabled(vm.stepCount == 0)
-                Button("导出训练关卡 (JSON)", systemImage: "doc.text") { exportDrillJSON() }
-                    .disabled(vm.stepCount == 0)
-            }
             Section {
-                Button("清空桌面", systemImage: "trash") { vm.clearTable() }
-                Button("清空并重来", systemImage: "arrow.counterclockwise", role: .destructive) { vm.resetAll() }
+                Button("清空桌面", systemImage: "trash", role: vm.isRecording ? .destructive : nil) {
+                    if vm.isRecording { showClearTableConfirm = true } else { vm.clearTable() }
+                }
+                Button("清空并重来", systemImage: "arrow.counterclockwise", role: .destructive) {
+                    showResetConfirm = true
+                }
             }
         } label: {
-            Image(systemName: "square.and.arrow.up")
-        }
-    }
-
-    private var exportOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
-            VStack(spacing: Spacing.md) {
-                ProgressView(value: exportProgress)
-                    .progressViewStyle(.linear)
-                    .frame(width: 180)
-                    .tint(Color.btPrimary)
-                Text("导出中… \(Int(exportProgress * 100))%")
-                    .font(.system(size: 13, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white)
-            }
-            .padding(Spacing.xl)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: BTRadius.lg))
-            .environment(\.colorScheme, .dark)
+            Image(systemName: "ellipsis.circle")
         }
     }
 
@@ -431,190 +501,11 @@ struct PositionPlayComposerView: View {
         }
     }
 
-    // MARK: - Actions
-
-    private func loadBallFaces() {
-        Task { @MainActor in
-            ballFaces = BallFaceRenderer.renderAll()
-        }
-    }
-
-    private func saveSequence() {
-        do {
-            try PositionPlaySequenceStore(context: modelContext).save(vm.sequence)
-            flash("已保存到我的序列")
-        } catch {
-            flash("保存失败")
-        }
-    }
-
-    private func exportVideo() {
-        isExporting = true
-        exportProgress = 0
-        let sequence = vm.sequence
-        Task { @MainActor in
-            do {
-                let url = try await SequenceVideoExporter.exportVideo(
-                    sequence: sequence, progress: { exportProgress = $0 }
-                )
-                exportURL = url
-                isExporting = false
-                showShare = true
-            } catch {
-                isExporting = false
-                flash("视频导出失败")
-            }
-        }
-    }
-
-    private func exportGIF() {
-        isExporting = true
-        exportProgress = 0
-        let sequence = vm.sequence
-        Task { @MainActor in
-            do {
-                let url = try SequenceVideoExporter.exportGIF(
-                    sequence: sequence, progress: { exportProgress = $0 }
-                )
-                exportURL = url
-                isExporting = false
-                showShare = true
-            } catch {
-                isExporting = false
-                flash("GIF 导出失败")
-            }
-        }
-    }
-
-    private func exportDrillJSON() {
-        do {
-            let data = try PositionPlayDrillExporter.makeJSON(from: vm.sequence)
-            let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("\(vm.sequence.name)-drill.json")
-            try data.write(to: url)
-            exportURL = url
-            showShare = true
-        } catch {
-            flash("JSON 导出失败")
-        }
-    }
-
     private func flash(_ message: String) {
         withAnimation { banner = message }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
             withAnimation { banner = nil }
         }
-    }
-
-    // MARK: - Random layout sheet
-
-    private var randomSheet: some View {
-        VStack(spacing: Spacing.lg) {
-            Capsule().fill(.white.opacity(0.25)).frame(width: 36, height: 5).padding(.top, 8)
-
-            Text("随机球形").font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                HStack {
-                    Text("目标球数量（不含母球）")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.75))
-                    Spacer()
-                    Text("\(randomCount)")
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.btPrimary)
-                        .monospacedDigit()
-                }
-                Slider(
-                    value: Binding(
-                        get: { Double(randomCount) },
-                        set: { randomCount = Int($0.rounded()) }
-                    ),
-                    in: 1...15, step: 1
-                )
-                .tint(Color.btPrimary)
-                HStack {
-                    Text("1").font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
-                    Spacer()
-                    Text("15").font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
-                }
-                Text("球号随机不重复、位置随机且分散。母球为自由球，请自行摆放。")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(.horizontal, Spacing.lg)
-
-            Button {
-                vm.randomLayout(objectCount: randomCount)
-                showRandom = false
-            } label: {
-                Text("生成球形")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.sm + 2)
-                    .background(Color.btPrimary, in: RoundedRectangle(cornerRadius: BTRadius.md))
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, Spacing.lg)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(white: 0.1).ignoresSafeArea())
-        .environment(\.colorScheme, .dark)
-        .presentationDetents([.height(290)])
-        .presentationDragIndicator(.hidden)
-    }
-
-    // MARK: - Settings sheet (velocity + spin)
-
-    private var settingsSheet: some View {
-        VStack(spacing: Spacing.lg) {
-            Capsule().fill(.white.opacity(0.25)).frame(width: 36, height: 5).padding(.top, 8)
-
-            Text("击球设置").font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-
-            HStack(alignment: .center, spacing: Spacing.xl) {
-                VStack(spacing: 6) {
-                    BTSpinPad(spinX: $vm.spinX, spinY: $vm.spinY)
-                        .frame(width: 100, height: 100)
-                    Text("打点").font(.system(size: 11, weight: .medium)).foregroundStyle(.white.opacity(0.6))
-                }
-
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    HStack {
-                        Label("力度", systemImage: "speedometer")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(.white.opacity(0.75))
-                        Spacer()
-                        Text(String(format: "%.1f m/s", vm.velocity))
-                            .font(.system(size: 13, weight: .bold, design: .rounded))
-                            .foregroundStyle(Color.btPrimary)
-                            .monospacedDigit()
-                    }
-                    Slider(value: $vm.velocity, in: 1.2...6.0, step: 0.1)
-                        .tint(Color.btPrimary)
-                    HStack {
-                        Text("轻").font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
-                        Spacer()
-                        Text("大力").font(.system(size: 10)).foregroundStyle(.white.opacity(0.4))
-                    }
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .padding(.horizontal, Spacing.lg)
-
-            Spacer()
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(white: 0.1).ignoresSafeArea())
-        .environment(\.colorScheme, .dark)
-        .presentationDetents([.height(260)])
-        .presentationDragIndicator(.hidden)
     }
 
     // MARK: - Frame reader
@@ -624,27 +515,6 @@ struct PositionPlayComposerView: View {
             Color.clear.preference(key: ComposerFramePreference.self,
                                    value: [id: geo.frame(in: .named("composer"))])
         }
-    }
-}
-
-// MARK: - Cue stick glyph
-
-/// 简易球杆图标（细长锥形 + 杆尖小点），SF Symbols 无球杆符号时用。
-private struct CueStickShape: Shape {
-    func path(in rect: CGRect) -> Path {
-        let w = rect.width, h = rect.height
-        var p = Path()
-        // 斜向锥形：左下粗（杆尾）→ 右上细（杆尖）
-        let tip = CGPoint(x: w * 0.84, y: h * 0.16)
-        let buttA = CGPoint(x: w * 0.08, y: h * 0.74)
-        let buttB = CGPoint(x: w * 0.26, y: h * 0.92)
-        p.move(to: tip)
-        p.addLine(to: buttA)
-        p.addLine(to: buttB)
-        p.closeSubpath()
-        // 杆尖小圆点
-        p.addEllipse(in: CGRect(x: w * 0.80, y: h * 0.12, width: w * 0.13, height: w * 0.13))
-        return p
     }
 }
 

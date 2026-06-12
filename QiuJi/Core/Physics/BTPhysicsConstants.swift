@@ -4,10 +4,14 @@
 //
 //  物理引擎常量（移植自 01.billiard_app PhysicsConstants.swift 的物理子集）。
 //
-//  注意：几何数值（innerLength / innerWidth / height / cushionHeight / ballRadius）
-//  与项目已有的 `AngleSceneCalculator` 和 `BTTablePhysics` 完全一致（中式八球标准）。
-//  TODO(step3)：将 `TableGeometry` 的袋口/库段对齐到 USDZ 实测后，这里的袋口
-//  参数会与 `AngleSceneCalculator.pocketPositions` 统一为单一真源。
+//  几何真源（D-A4，2026-06-06 收敛）：
+//  - **内框尺寸 `innerLength` / `innerWidth` 与球半径 `BallPhysics.radius` 以本文件为唯一真源**；
+//    `AngleSceneCalculator.innerLength/innerWidth/ballRadius` 改为引用本文件（消除双写）。
+//  - **袋口洞中心 / jaw 端点 / 落袋半径**（USDZ 实测几何）以 `AngleSceneCalculator` 为唯一真源；
+//    生产物理桌面 `TableGeometry.chineseEightBallQiuJi` 已直接消费它。
+//  - 下方 `TablePhysics` 的袋口 CAD 参数（cornerPocketDiameter 等）**不是生产袋口真源**，
+//    仅供 ① 库边 jaw 构建器 `chineseEightBallCushions` 与 ② 对照用 CAD 几何 `chineseEightBall()`；
+//    生产路径的袋口洞一律走 `AngleSceneCalculator`。
 //
 
 import Foundation
@@ -15,10 +19,10 @@ import Foundation
 // MARK: - 球体物理参数
 
 enum BallPhysics {
-    /// 球体直径 (米) — 57.15mm（= AngleSceneCalculator.ballRadius * 2）
+    /// 球体直径 (米) — 57.15mm。中式八球标准球。
     static let diameter: Float = 0.05715
 
-    /// 球体半径 (米)
+    /// 球体半径 (米)。**唯一真源**——`AngleSceneCalculator.ballRadius` 引用此值（D-A4）。
     static let radius: Float = diameter / 2  // 0.028575
 
     /// 球体质量 (千克)
@@ -31,9 +35,9 @@ enum BallPhysics {
 // MARK: - 球台物理参数
 
 enum TablePhysics {
-    /// 内框长度 (米) — = AngleSceneCalculator.innerLength
+    /// 内框长度 (米)。**唯一真源**——`AngleSceneCalculator.innerLength` 引用此值（D-A4）。
     static let innerLength: Float = 2.540
-    /// 内框宽度 (米) — = AngleSceneCalculator.innerWidth
+    /// 内框宽度 (米)。**唯一真源**——`AngleSceneCalculator.innerWidth` 引用此值（D-A4）。
     static let innerWidth: Float = 1.270
 
     /// 台面相对地面高度 (米) — = BTTablePhysics.height
@@ -42,7 +46,8 @@ enum TablePhysics {
     static let cushionHeight: Float = 0.037
     static let cushionThickness: Float = 0.05
 
-    // MARK: 袋口参数（CAD，step3 对齐 USDZ 后并入 AngleSceneCalculator）
+    // MARK: 袋口参数（CAD）——仅供库边 jaw 构建器 + 对照用 CAD 几何；
+    // 生产袋口洞的单一真源是 `AngleSceneCalculator`（USDZ 实测），见文件头注 D-A4。
     static let cornerPocketDiameter: Float = 0.084
     static let cornerPocketRadius: Float = cornerPocketDiameter / 2
     static let cornerPocketFilletRadius: Float = 0.105
@@ -65,6 +70,14 @@ enum TablePhysics {
     /// 库边摩擦 f_c（pooltool / 项目一默认）。Han 2005 仅用此单一库摩擦。
     static let cushionFriction: Float = 0.2
     static let gravity: Float = 9.81
+
+    // MARK: 落袋闸门（ADR-P10-05 两段式真实落袋判据）
+    /// 「正对小核」轨迹偏移阈值 (米)：球速度射线到袋心的垂距 ≤ 此值 ⇒ 视为正对穿袋，
+    /// **任何力度都落袋**（正常清晰进球）。超过则需满足慢速判据才落袋。
+    static let pocketCoreMissRadius: Float = 0.022
+    /// 「慢速 settle」速度阈值 (m/s)：球抵达袋口捕获圈时水平速度 ≤ 此值 ⇒ 落袋（小力擦 jaw
+    /// 衰减后 settle 入袋）；高于此值且非正对 ⇒ 拒绝落袋（撞喉腔后壁 → rattle 弹出，真实袋口行为）。
+    static let pocketDropSpeed: Float = 1.05
 
     static var tableSurfaceY: Float { SceneLayout.groundLevelY + height }
 }

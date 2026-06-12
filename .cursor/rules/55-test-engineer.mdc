@@ -6,6 +6,7 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-06-12 v0.3：新增经验教训 FL-021（并行 xcodebuild 杀 UI 测试 App 进程 / AX 误判反杀 / 假失败先取证）
 - 2026-03-29 v0.2：新增人工测试计划生成职责
 - 2026-03-29 v0.1：初始版本
 
@@ -182,4 +183,10 @@ backend/
 
 > 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
 
-_（暂无记录，首次失败后在此追加）_
+### ⛔ FL-021 — 并行 xcodebuild 共享模拟器会杀掉 UI 测试中的 App 进程
+**场景**：跑 XCUITest（尤其长截图巡游）时出现反复假失败：app not running / TabBar 找不到 / kAXError -25218 / signal term，且现象每轮不同。
+**强制检查点**：
+1. 跑 UI 测试前先 `ps aux | grep xcodebuild` 排查同机并行构建；多会话并行时各会话**必须用独立模拟器设备（`-destination id=<udid>` 指定）**，禁止共享 `name=iPhone 17 Pro` 这类按名目标——xcodebuild 启测重装 App 会把其他会话测试中的 App 进程连同 xctrunner 一起杀掉（日志特征：installcoordinationd "proceeding with install" + App "voluntary exit"）。
+2. XCUITest 启动健康检查用进程态 `app.state == .runningForeground`；**禁止**用 AX 查询（`waitForExistence`）结果反推「App 没起来」并据此 terminate——App 主线程繁忙（SceneKit 渲染循环）时 AX 必假阴性，会反杀健康进程。
+3. 连续假失败时**先取证再改**：xcresult 导出录屏抽帧（`xcresulttool export attachments` + ffmpeg）看屏幕真相、`simctl spawn booted log show` 查 install/terminate 事件；禁止盲目加超时/重试。
+4. 弹层收起要走显式控件（关闭按钮 / AX 标识），坐标拖动收 sheet 会被 sheet 内容（如打点盘）吞手势产生副作用。

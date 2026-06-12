@@ -98,6 +98,9 @@ struct ShotPrediction {
     /// 全场所有球的最终静止位置（世界坐标，走位序列链生成下一杆开局用，ADR-P11-01）。
     /// 母球/目标球取防穿库钳制轨迹末帧；障碍球取真实模拟末帧。
     var finalPositions: [String: SCNVector3] = [:]
+    /// 自由球模拟（ADR-P11-03）中除母球外**发生位移**的球的轨迹折线（球名 → 折线）。
+    /// 袋口模式恒为空（目标球轨迹走 `objectPath`）。
+    var extraBallPaths: [String: [SCNVector3]] = [:]
     /// 本杆进袋（离场）的全部球名（含母球 scratch、被串入袋的障碍球）。
     var pocketedBalls: [String] = []
 }
@@ -173,77 +176,39 @@ enum ShotPredictor {
         let run = runShot(
             aimDir: finalAim, velocity: velocity, input: input,
             geometry: geometry, pocketCenter: pocketCenter, ghost: ghost,
-            maxEvents: maxEvents, maxTime: maxTime
+            maxEvents: maxEvents, maxTime: maxTime, highFidelity: true
         )
-        // 4) 轨迹折线（画面=物理，P10 Track B）：母球与目标球**都取自真实模拟**。
-        //    - 母球（白）：碰后走位（分离角 + 高低杆跟/缩 + 吃库）。
-        //    - 目标球（橙）：真实去向——含碰撞 throw、（强切角/贴库时）撞 jaw 反弹、能量不足
-        //      停球或 rattle。不再画「固定直线入袋」的理想化结果；闭环求解器已尽力找到能真正
-        //      落袋的瞄准，能进则轨迹直抵袋口、不能进（太薄/太软）则如实呈现未进与走向。
+        // 4) 轨迹折线（画面=物理，回归纯物理 ADR-P10-06）：母球与目标球**都直接取自引擎真实
+        //    模拟轨迹**，不再做任何显示层钳制 / 捕获修饰。
+        //    - 母球（白）：碰后走位（分离角 + 高低杆跟/缩 + 吃库），可贴库直线走。
+        //    - 目标球（橙）：真实去向——含碰撞 throw、撞 jaw 反弹、能量不足停球或 rattle。
         //
-        // 安全网：事件驱动引擎在袋口喇叭口偶发「穿库」（球未被袋口捕获也未被库edge反弹，
-        // 直接穿过袋口缺口飞出台面，约 8% 触发），导致轨迹/回放冲出球台。这里按解析回放
-        // 重采样并把任一球「离开可玩区且不在袋口」的时刻钳到库边冻结，截断其后轨迹——
-        // 同时修好画线与回放（二者同源读 recorder），不动底层物理。
-        let rawPlayback = TrajectoryPlayback(recorder: run.recorder, surfaceY: y + r)
-        // 钳制/重采样**全部球**（含走位编排器的障碍球），让多球场景的回放也能逐帧驱动每颗球。
-        // 单母球+单目标的旧调用路径自动退化为两颗（行为不变）。
-        let clampNames = Array(run.recorder.framesByBallName.keys)
-        let (clampedRecorder, effDuration) = clampedRecorder(
-            from: rawPlayback,
-            names: clampNames.isEmpty ? [ShotInput.cueBallName, ShotInput.targetBallName] : clampNames,
-            duration: run.recorder.duration, surfaceY: y + r
-        )
-        result.recorder = clampedRecorder
-        result.duration = effDuration
-        let playback = TrajectoryPlayback(recorder: clampedRecorder, surfaceY: y + r)
-        result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: effDuration)
-        result.objectPath = polyline(playback, ballName: ShotInput.targetBallName, duration: effDuration)
+        // 袋口「进 / rattle 弹出 / 接住穿库球」全部由引擎真实喉腔几何（jaw 库 + 喉腔侧壁/后壁 +
+        // 落袋孔，见 `TableGeometry+QiuJi.throatWalls`）自然涌现——小力远jaw→近jaw→袋心进、
+        // 大力 jaw 间反复弹回 mouth 弹出、后壁接住越过落袋孔的球。喉腔模型出现后，旧的显示层
+        // 「穿库安全网 + 捕获窗一致性闸门」已是冗余补丁（只会把真落袋误判为未进、并把贴库轨迹
+        // 钳出折线），故整体移除，让画面与判定都等于引擎物理真值。
+        let playback = TrajectoryPlayback(recorder: run.recorder, surfaceY: y + r)
+        let duration = run.recorder.duration
+        result.recorder = run.recorder
+        result.duration = duration
+        result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: duration)
+        result.objectPath = polyline(playback, ballName: ShotInput.targetBallName, duration: duration)
 
-        // 母球进袋判定（画面=物理）：与目标球同源——以引擎信号为权威，但用**显示用钳制轨迹**的
-        // 最近点做一致性闸门。否则会出现「判进画面不进」假阳性：母球带塞走位弧线掠过中袋嘴时，
-        // 袋口 CCD 按直线/抛物线预测排程进袋事件，而曲线母球实际只擦到 54–65mm（>捕获窗、未真正落入
-        // 漏斗），引擎 `resolvePocket` 的宽松接受阈值仍判落袋 → 上报「母球进袋」但白线根本没到袋心。
-        // 闸门：母球钳制轨迹须真正落入**某个袋**的捕获窗（落袋后引擎吸球心 → 最近点≈0）。
-        var cuePocketed = run.cuePocketed
-        if cuePocketed, let cueFrames = clampedRecorder.framesByBallName[ShotInput.cueBallName] {
-            var reachedAnyPocket = false
-            for (pi, p) in pockets.enumerated() {
-                let win = AngleSceneCalculator.pocketDropRadius(index: pi) - r + 0.004
-                for f in cueFrames {
-                    let dx = f.position.x - p.x, dz = f.position.z - p.z
-                    if dx * dx + dz * dz <= win * win { reachedAnyPocket = true; break }
-                }
-                if reachedAnyPocket { break }
-            }
-            cuePocketed = reachedAnyPocket
-        }
+        // 母球进袋（scratch）判定（纯物理）：直接取引擎信号——母球落入任一袋即 scratch。
+        let cuePocketed = run.cuePocketed
         result.cuePocketed = cuePocketed
 
-        // 进袋判定（画面=物理）：以引擎「目标球真正落入**选定**袋」(`run.pottedSelected`) 为
-        // 权威信号，并用**显示用钳制轨迹**的最近点做一致性闸门（袋心 ± (dropRadius − R)）。
-        // 漏斗模型 v3 下：落袋时引擎把球心吸到袋心 → 钳制轨迹最近点≈0；偏离/过力度球撞 jaw
-        // 反弹未落袋 → 最近点远大于捕获窗。两者天然一致，既消除旧「穿库假阳性」也消除旧
-        // 「真落袋却因事件采样帧停在喉口外被判未进」的假阴性（cut15/v3.3 闪烁根因）。
-        let captureWindow =
-            AngleSceneCalculator.pocketDropRadius(index: input.pocketIndex) - r + 0.004
-        var objMinToPocket = Float.greatestFiniteMagnitude
-        if let frames = clampedRecorder.framesByBallName[ShotInput.targetBallName] {
-            for f in frames {
-                let dx = f.position.x - pocketCenter.x
-                let dz = f.position.z - pocketCenter.z
-                objMinToPocket = min(objMinToPocket, sqrtf(dx * dx + dz * dz))
-            }
-        }
-        let potted = run.pottedSelected && objMinToPocket <= captureWindow
+        // 目标球进袋判定（纯物理）：直接取引擎「目标球真正落入**选定**袋」(`run.pottedSelected`)。
+        // 进 / 未进完全由喉腔几何 + 能量决定（力度不足、太薄如实报未进）。
+        let potted = run.pottedSelected
         result.simObjectPotted = potted
         result.objectPocketed = potted
         result.cueCushionCount = run.cueCushions
         result.objectCushionCount = run.objCushionsBeforePocket
         result.cueCushionsBeforeContact = run.cueCushionsBeforeContact
 
-        // 4.5) 全场最终静止位置 + 进袋球名（走位序列链，ADR-P11-01）。
-        //      障碍球取真实模拟末帧；母球/目标球用防穿库钳制轨迹末帧覆盖（与画面一致）。
+        // 4.5) 全场最终静止位置 + 进袋球名（走位序列链，ADR-P11-01）。全部取自引擎真实末帧。
         var finals: [String: SCNVector3] = [:]
         var pocketed: [String] = []
         for (name, frames) in run.recorder.framesByBallName {
@@ -252,15 +217,7 @@ enum ShotPredictor {
             }
             if run.recorder.isBallPocketed(name) { pocketed.append(name) }
         }
-        for name in [ShotInput.cueBallName, ShotInput.targetBallName] {
-            if let frames = clampedRecorder.framesByBallName[name],
-               let last = frames.max(by: { $0.time < $1.time }) {
-                finals[name] = last.position
-            }
-        }
-        // 进袋判定以一致性闸门后的结果为准（消除穿库假阳性 / 喉口假阴性）。
-        if cuePocketed, !pocketed.contains(ShotInput.cueBallName) { pocketed.append(ShotInput.cueBallName) }
-        if !cuePocketed { pocketed.removeAll { $0 == ShotInput.cueBallName } }
+        // 目标球用 `pottedSelected`（比 isBallPocketed 严：须进“选定”袋）覆盖其在进袋列表中的状态。
         if potted, !pocketed.contains(ShotInput.targetBallName) { pocketed.append(ShotInput.targetBallName) }
         if !potted { pocketed.removeAll { $0 == ShotInput.targetBallName } }
         result.finalPositions = finals
@@ -288,6 +245,102 @@ enum ShotPredictor {
         return result
     }
 
+    // MARK: - Free shot (ADR-P11-03)
+
+    /// 自由球模拟（走位编排台「自由」模式）：**不指定目标球与袋口**，以给定方向直接击打母球，
+    /// 全部在桌球（`balls`）作为真实碰撞体一并模拟。不做任何瞄准求解与可行性闸门（恒 feasible）——
+    /// 用于安全球 / 轻推贴球 / 纯走位等非进攻击打。球名沿用调用方传入的名字（建议 USDZ 键），
+    /// 母球名固定 `ShotInput.cueBallName`。
+    static func simulateFree(
+        cueBall: SCNVector3,
+        aimDir: SCNVector3,
+        velocity: Float,
+        spinX: Float,
+        spinY: Float,
+        surfaceY: Float,
+        balls: [ObstacleBall],
+        maxEvents: Int = 500,
+        maxTime: Float = 15.0
+    ) -> ShotPrediction {
+        let y = surfaceY
+        let r = BallPhysics.radius
+        let len = sqrtf(aimDir.x * aimDir.x + aimDir.z * aimDir.z)
+        let dir = len > 1e-5 ? SCNVector3(aimDir.x / len, 0, aimDir.z / len) : SCNVector3(1, 0, 0)
+
+        let strike = CueBallStrike.executeStrike(
+            aimDirection: dir, velocity: velocity,
+            spinX: spinX, spinY: spinY, elevation: 0
+        )
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        let engine = EventDrivenEngine(tableGeometry: geometry)
+        engine.setBall(BallState(
+            position: SCNVector3(cueBall.x, y + r, cueBall.z),
+            velocity: strike.velocity, angularVelocity: strike.angularVelocity,
+            state: .sliding, name: ShotInput.cueBallName
+        ))
+        for b in balls where b.name != ShotInput.cueBallName {
+            engine.setBall(BallState(
+                position: SCNVector3(b.position.x, y + r, b.position.z),
+                velocity: SCNVector3Zero, angularVelocity: SCNVector3Zero,
+                state: .stationary, name: b.name
+            ))
+        }
+        engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true)
+        let recorder = engine.getTrajectoryRecorder()
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: y + r)
+        let duration = recorder.duration
+
+        var result = ShotPrediction()
+        result.feasible = true
+        result.aimDirection = dir
+        result.recorder = recorder
+        result.duration = duration
+        result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: duration)
+        result.cuePocketed = recorder.isBallPocketed(ShotInput.cueBallName)
+
+        var finals: [String: SCNVector3] = [:]
+        var pocketed: [String] = []
+        var extraPaths: [String: [SCNVector3]] = [:]
+        for (name, frames) in recorder.framesByBallName {
+            if let last = frames.max(by: { $0.time < $1.time }) {
+                finals[name] = last.position
+            }
+            if recorder.isBallPocketed(name) { pocketed.append(name) }
+            if name != ShotInput.cueBallName {
+                let pts = polyline(playback, ballName: name, duration: duration)
+                if pathLengthXZ(pts) > 0.02 { extraPaths[name] = pts }
+            }
+        }
+        result.finalPositions = finals
+        result.pocketedBalls = pocketed
+        result.extraBallPaths = extraPaths
+        result.objectPocketed = pocketed.contains { $0 != ShotInput.cueBallName }
+
+        if let contactTime = firstBallBallTime(engine) {
+            result.firstContact = positionAt(recorder, ballName: ShotInput.cueBallName, time: contactTime)
+        }
+        return result
+    }
+
+    /// 引擎事件流中首次球-球碰撞时刻。
+    private static func firstBallBallTime(_ engine: EventDrivenEngine) -> Float? {
+        for (e, t) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
+            if case .ballBall = e { return t }
+        }
+        return nil
+    }
+
+    /// XZ 平面折线总长。
+    private static func pathLengthXZ(_ pts: [SCNVector3]) -> Float {
+        guard pts.count >= 2 else { return 0 }
+        var total: Float = 0
+        for i in 0..<(pts.count - 1) {
+            let dx = pts[i + 1].x - pts[i].x, dz = pts[i + 1].z - pts[i].z
+            total += sqrtf(dx * dx + dz * dz)
+        }
+        return total
+    }
+
     // MARK: - Aim solver
 
     /// 单次模拟结果（搜索与最终共用）。
@@ -308,6 +361,9 @@ enum ShotPredictor {
         /// 目标球在**落袋前**撞库次数（0 = 直接进袋；≥1 = 吃库/banking 进袋）。
         /// 求解器优先选「直接进袋」解：避免为了躲母球 scratch 而选到绕库的别扭进球路线。
         let objCushionsBeforePocket: Int
+        /// 目标球落袋前**撞库点离选定袋中心的最远距离 (m)**（无撞库 = 0）。遥测/诊断量（矩阵测试用其
+        /// 统计「擦 jaw 再进」vs「远处翻袋」）；ADR-P10-04 纯几何驱动求解器不再据此评分。
+        let objMaxPrepocketCushionDist: Float
         /// 母球全程吃库次数（供反解按截图标注的吃库数约束）。
         let cueCushions: Int
         /// 母球在**首次球-球碰撞前**的吃库次数（0 = 直瞄直击；≥1 = 绕库/kick 进攻路线）。
@@ -318,7 +374,7 @@ enum ShotPredictor {
     private static func runShot(
         aimDir: SCNVector3, velocity: Float, input: ShotInput,
         geometry: TableGeometry, pocketCenter: SCNVector3, ghost: SCNVector3,
-        maxEvents: Int, maxTime: Float
+        maxEvents: Int, maxTime: Float, highFidelity: Bool = false
     ) -> RunResult {
         let y = input.surfaceY
         let r = BallPhysics.radius
@@ -346,7 +402,7 @@ enum ShotPredictor {
                 state: .stationary, name: ob.name
             ))
         }
-        engine.simulate(maxEvents: maxEvents, maxTime: maxTime)
+        engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: highFidelity)
         let recorder = engine.getTrajectoryRecorder()
 
         var minDist = Float.greatestFiniteMagnitude
@@ -388,20 +444,27 @@ enum ShotPredictor {
         // 不再用距离容差甄别）。同时统计目标球落袋前撞库次数（直接 vs 吃库进袋）。
         var objectPocketId: String?
         var objCushionsBeforePocket = 0
+        var objMaxPrepocketCushionDist: Float = 0
         var cueCushions = 0
         var cueCushionsBeforeContact = 0
         var sawBallBall = false
-        for ev in engine.resolvedEvents {
+        for (ev, et) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
             switch ev {
             case .ballBall:
                 sawBallBall = true
             case .ballCushion(let ball, _, _) where ball == ShotInput.targetBallName:
-                if objectPocketId == nil { objCushionsBeforePocket += 1 }
+                if objectPocketId == nil {
+                    objCushionsBeforePocket += 1
+                    if let p = recorder.stateAt(ballName: ShotInput.targetBallName, time: et)?.position {
+                        let dx = p.x - pocketCenter.x, dz = p.z - pocketCenter.z
+                        objMaxPrepocketCushionDist = max(objMaxPrepocketCushionDist, sqrtf(dx * dx + dz * dz))
+                    }
+                }
             case .ballCushion(let ball, _, _) where ball == ShotInput.cueBallName:
                 cueCushions += 1
                 if !sawBallBall { cueCushionsBeforeContact += 1 }
             case .pocket(let ball, let pid) where ball == ShotInput.targetBallName:
-                objectPocketId = pid
+                if objectPocketId == nil { objectPocketId = pid }
             default:
                 break
             }
@@ -416,147 +479,14 @@ enum ShotPredictor {
             objPostContactDir: objDir,
             cueGhostMinDist: cueGhostMinDist,
             objCushionsBeforePocket: objCushionsBeforePocket,
+            objMaxPrepocketCushionDist: objMaxPrepocketCushionDist,
             cueCushions: cueCushions,
             cueCushionsBeforeContact: cueCushionsBeforeContact
         )
     }
 
-    // MARK: - Table clamp（穿库安全网）
-
-    /// 球心可玩区半幅（库边接触时球心最大偏移 = 内框半幅 − R）。留一点余量避免误伤正常吃库。
-    private static func playableContains(_ p: SCNVector3, halfL: Float, halfW: Float, pockets: [SCNVector3]) -> Bool {
-        let r = BallPhysics.radius
-        let margin: Float = 0.006
-        if abs(p.x) <= halfL - r + margin && abs(p.z) <= halfW - r + margin { return true }
-        // 袋口缺口：球心进入任一袋口附近（袋口嘴）属合法进袋路径，不钳制。
-        // 角袋中心在内框矩形外约 8.3cm，球进角袋必先穿出矩形角再抵袋心，故允许半径须
-        // ≥ 该过渡走廊（取 0.12 留余量），否则会把正常进袋球冻结在矩形角而漏进袋。
-        // 真正的「穿库飞出」会远离所有袋口（数米外），仍会在越过该半径后被冻结。
-        let pocketMouth: Float = 0.12
-        for pk in pockets {
-            let dx = p.x - pk.x, dz = p.z - pk.z
-            if dx * dx + dz * dz <= pocketMouth * pocketMouth { return true }
-        }
-        return false
-    }
-
-    /// 把越界球心钳回库边矩形（球心可玩区）。
-    private static func clampToPlayable(_ p: SCNVector3, halfL: Float, halfW: Float) -> SCNVector3 {
-        let r = BallPhysics.radius
-        let x = max(-(halfL - r), min(halfL - r, p.x))
-        let z = max(-(halfW - r), min(halfW - r, p.z))
-        return SCNVector3(x, p.y, z)
-    }
-
-    /// 按固定步长解析重采样轨迹到一个新 recorder：任一球「离开可玩区且不在袋口」即把它钳到
-    /// 库边并冻结（其后保持静止），从而截断穿库飞出的轨迹。返回 (钳制后的 recorder, 有效时长)。
-    /// 有效时长 = 所有球都已静止/进袋/冻结之后再留 0.1s 的时刻（避免长尾空播）。
-    private static func clampedRecorder(
-        from playback: TrajectoryPlayback, names: [String], duration: Float, surfaceY: Float
-    ) -> (TrajectoryRecorder, Float) {
-        let out = TrajectoryRecorder()
-        guard duration > 1e-4 else {
-            for name in names {
-                if let s = playback.stateAt(ballName: name, time: 0) {
-                    out.recordFrame(ballName: name, frame: BallFrame(
-                        time: 0, position: s.position, velocity: s.velocity,
-                        angularVelocity: SCNVector4Zero, state: s.motionState))
-                }
-            }
-            return (out, duration)
-        }
-
-        let halfL = AngleSceneCalculator.innerLength / 2
-        let halfW = AngleSceneCalculator.innerWidth / 2
-        let r = BallPhysics.radius
-        let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
-        let dt: Float = 1.0 / 120.0
-        // 真·穿库（飞出台面）判定阈值：球心越过库边内框 ≥ 6cm 且不在任何袋口嘴内，才视为
-        // 飞出 → 冻结并截断。低于此阈值的「越界」是**吃库接触瞬间**的回放外推过冲（见下），
-        // 只做化妆性钳位、不冻结。袋口嘴半径放宽到 14cm，覆盖球贴角袋/中袋 jaw 的合法入袋路径。
-        let farMargin: Float = 0.06
-        let pocketMouth: Float = 0.14
-
-        // 真·穿库判定**基于原始事件帧（物理真值）**，而非固定步长重采样的解析外推位置：
-        // 正常吃库反弹时引擎在库线（球心 ±(halfW−R)/(halfL−R)）处反弹并 enforceTableBounds 钳回，
-        // 记录帧绝不会越过库线；只有「事件帧→下一帧」之间的解析外推才会瞬时冲过库线几毫米~十几
-        // 厘米（事件采样产物，吃库越快冲得越远）。若按重采样位置判飞出，高速吃库会被误判 → 把仍
-        // 高速运动的球错误冻结在库边（FL：吃库后立即停住）。改为：扫描每个球的**记录帧**，仅当
-        // 记录帧本身越界 ≥6cm 且远离所有袋口嘴(14cm) 才认定真飞出，取其首次时刻为冻结时刻。
-        func isTrueEscape(_ p: SCNVector3) -> Bool {
-            let farOut = abs(p.x) > halfL - r + farMargin || abs(p.z) > halfW - r + farMargin
-            guard farOut else { return false }
-            let nearPocket = pockets.contains { pk in
-                let dx = p.x - pk.x, dz = p.z - pk.z
-                return dx * dx + dz * dz <= pocketMouth * pocketMouth
-            }
-            return !nearPocket
-        }
-        var freezeTime: [String: Float] = [:]
-        for name in names {
-            guard let frames = playback.recorder.framesByBallName[name]?
-                .sorted(by: { $0.time < $1.time }) else { continue }
-            for f in frames where f.state != .pocketed {
-                if isTrueEscape(f.position) { freezeTime[name] = f.time; break }
-            }
-        }
-
-        var frozen: [String: SCNVector3] = [:]
-        var lastActive: Float = 0
-        var lastPocket: Float = -1
-        // 「有效停止」速度阈值：球减速到此速度以下基本肉眼静止（剩余蠕行 <~3cm、<1s），
-        // 不再据其延长有效时长——否则母球/目标球走位末尾的缓慢蠕行会让「复位」迟迟不触发
-        // （用户：母球停下后还在等目标球停）。同时**单独记录进袋时刻**，保证缓行入袋的「落袋」
-        // 一帧仍被纳入（不会因阈值把真实进袋截成未进）。
-        let stopSpeed: Float = 0.07
-        var t: Float = 0
-        while t <= duration + 1e-4 {
-            let tc = min(t, duration)
-            for name in names {
-                guard let s = playback.stateAt(ballName: name, time: tc) else { continue }
-                var pos = s.position
-                var vel = s.velocity
-                var state = s.motionState
-                if let fz = frozen[name] {
-                    pos = fz; vel = SCNVector3Zero; state = .stationary
-                } else if state != .pocketed {
-                    if let ft = freezeTime[name], tc >= ft - 1e-4 {
-                        // 真·穿库飞出（记录帧确证）：冻结在库边并截断其后轨迹。
-                        pos = clampToPlayable(pos, halfL: halfL, halfW: halfW)
-                        vel = SCNVector3Zero; state = .stationary
-                        frozen[name] = pos
-                    } else if !playableContains(pos, halfL: halfL, halfW: halfW, pockets: pockets) {
-                        // 吃库接触/袋口嘴的瞬时外推过冲（非真飞出）：仅化妆性钳位（球心拉回库边）
-                        // 但**保持速度/运动态、不截断**，球继续按真实轨迹运动。
-                        pos = clampToPlayable(pos, halfL: halfL, halfW: halfW)
-                    }
-                }
-                out.recordFrame(ballName: name, frame: BallFrame(
-                    time: t, position: pos, velocity: vel, angularVelocity: SCNVector4Zero, state: state))
-                // 仍在「可感知运动」（速度 > stopSpeed）才延长有效时长；缓行蠕停不计。
-                if state != .stationary && state != .pocketed && vel.length() > stopSpeed {
-                    lastActive = t
-                }
-                if state == .pocketed { lastPocket = max(lastPocket, t) }
-            }
-            // 全部静止/进袋/冻结即可停止采样（按运动态判定，不再用速度阈值提前结束）。
-            let allDone = names.allSatisfy { name in
-                if frozen[name] != nil { return true }
-                guard let s = playback.stateAt(ballName: name, time: tc) else { return true }
-                return s.motionState == .pocketed || s.motionState == .stationary
-            }
-            if allDone && t > 0 { break }
-            t += dt
-        }
-        // 有效时长 = 最后可感知运动后 +0.1s；若有进袋，确保覆盖到落袋一帧（+0.2s 看清落袋）。
-        let activeEnd = lastActive + 0.1
-        let pocketEnd = lastPocket >= 0 ? lastPocket + 0.2 : 0
-        let eff = min(duration, max(activeEnd, pocketEnd))
-        return (out, max(eff, 0.05))
-    }
-
-    /// XZ 平面内点 `p` 到线段 `a–b` 的最近距离。
-    private static func segmentPointDistanceXZ(a: SCNVector3, b: SCNVector3, p: SCNVector3) -> Float {
+    /// XZ 平面内点 `p` 到线段 `a–b` 的最近距离（internal：走位编排台障碍挡线提示复用）。
+    static func segmentPointDistanceXZ(a: SCNVector3, b: SCNVector3, p: SCNVector3) -> Float {
         let abx = b.x - a.x, abz = b.z - a.z
         let apx = p.x - a.x, apz = p.z - a.z
         let denom = abx * abx + abz * abz
@@ -570,36 +500,30 @@ enum ShotPredictor {
 
     /// 搜索最优瞄准角偏移（弧度）。
     ///
-    /// **核心目标 = 让目标球碰后沿正确的「进球线方向」（target→袋心）离开，而非强行进袋。**
-    /// 用户洞察：大切角 + 小力度时目标球袋向动能不足、进不去是**可接受**的（如实报未进），
-    /// 但**进球线方向必须对**。旧版「未进时退化为最小化 objMinDist（到袋心最近距离）」会挑到
-    /// 「绕库擦袋」的多库翻袋解（初始方向错、只是反弹后蹭到袋附近）——正是用户看到的"大角度变
-    /// 翻袋"。改为**首要评分 = 目标球碰后方向与进球线方向的夹角误差**：该误差对偏移**平滑单峰**
-    /// （objDir 随 offset 连续变化），自动补偿 squirt+swerve+collision throw（取自实测碰后方向），
-    /// 且天然排斥 banking（绕库解碰后初始方向指向库而非袋 → 误差大）。进袋/不刮母球仅作**极小
-    /// 量级 tiebreak**：方向几乎相同时优先「真落袋且不刮杆」。
+    /// **管道瞄准法求解（用户拍板的最终模型，取代一切混合法 / 进袋评分）：**
+    /// 求解只做一件事——**让目标球碰后的实际离开方向对齐「管道方向」`d_pipe`**。
+    /// `d_pipe = unit(aimPoint − OB)`，其中 `aimPoint` 由 `effectivePocketAimPoint` 按管道法三种情况
+    /// （空心穿喉 / 远端 jaw 反弹 / 不可行）纯几何定出，**与力度、加塞无关、固定**。
     ///
-    /// 平滑单峰景观 ⇒ 不再需要 0.2° 密梳（那是为旧"碎裂进袋带"防漏），粗 0.5°→中→细即可稳定
-    /// 收敛，顺带把单次 predict 开销降回 ~75 次短模拟。
-    /// `solveAimOffset` 的评分与搜索参数（D-B4/D-D2：原为散落经验魔数，抽成具名常量并注明含义/量纲；
-    /// 数值未改动）。修改任一权重/保真后必须跑 `PhysicsMatrixTests`（进袋合约 + 宏观确定性）守回归。
+    /// 本函数 = 一维 **throw 补偿反解**：搜索瞄准偏移，使母球（含 squirt 挤偏 + 滑行 swerve）走到
+    /// 目标球、碰撞后（含 cut 角 + 加塞引起的 collision throw）目标球**实际**沿 `d_pipe` 离开。
+    /// 评分 = 碰后方向与 `d_pipe` 的夹角（rad），对偏移平滑单峰；同分偏好更小偏移（解唯一、稳定）。
+    ///
+    /// **没有进袋奖励、没有主库罚、没有 kick/scratch 罚、没有分支**：
+    ///   · 进不进 = 力度的下游结果，不参与求解（力够→进；力不足→沿同一管子线停在半路 = 未进袋，合理）。
+    ///   · 管子本身按几何就不碰库边，目标球沿管子走自然不碰库 ⇒ 无需再罚主库。
+    ///   · **管道法是直击**：碰目标球前吃库（绕库 banking / kick）的偏移一律判为**无效候选**，
+    ///     绝不退化成"母球绕库蹭袋"。
     private enum AimScoring {
-        /// 搜索阶段每次短模拟的事件/时长上限。**与最终模拟同保真**——历史上降保真会与"最终全保真"
-        /// 产生双景观错位（搜到的解上报时变样）；D-D2 若要降保真须先过矩阵护栏。
+        /// 搜索阶段每次短模拟的事件/时长上限。**与最终模拟同保真**——降保真会与最终全保真产生双景观
+        /// 错位（搜到的解上报时变样）。
         static let searchMaxEvents = 500
         static let searchMaxTime: Float = 15.0
-        /// ① 直接干净进袋解的基线分（足够负，压过任何方向解 acos∈[0,π]）。
-        static let cleanPotBaseline: Float = -10
-        /// 直接进袋解里母球同时刮袋(scratch)的惩罚（极小 tiebreak：clean 进袋优先不刮杆，不抬到方向解之上）。
-        static let cleanPotScratchPenalty: Float = 0.3
-        /// 方向解里母球刮袋的惩罚（极小 tiebreak；历史上用 1.0 会挑到差解）。
-        static let directionScratchPenalty: Float = 0.05
-        /// 母球碰目标球前每次绕库(kick)的惩罚（FL-020：方向解里也优先直瞄候选，压退化 kick 解抬头）。
-        static let cueKickPenaltyPerCushion: Float = 0.3
+        /// 无效候选基线（碰前吃库的绕库解 / 未碰到目标球）。远大于方向误差上限 π(≈3.14)，
+        /// 使任何**直击**候选都优于无效候选 ⇒ 直击 + 方向最对齐者胜出。
+        static let invalidCandidate: Float = 100
         /// 瞄准偏移正则项系数（rad⁻¹）：同分时偏好更小偏移，使景观有唯一极小、解稳定。
         static let offsetRegularization: Float = 1e-3
-        /// 未命中目标球时的大基线（≫ π + 进袋 −10），叠加母球-幽灵球最近距离做命中梯度。
-        static let missBaseline: Float = 100
         /// 三级网格搜索半幅/步长（度）：粗→中→细。方向景观平滑单峰，无需密梳。
         static let coarseHalfRangeDeg: Float = 12,  coarseStepDeg: Float = 0.5
         static let midHalfRangeDeg: Float = 0.6,    midStepDeg: Float = 0.1
@@ -613,12 +537,17 @@ enum ShotPredictor {
         let searchEvents = AimScoring.searchMaxEvents
         let searchTime = AimScoring.searchMaxTime
 
-        // 进球线方向（target→袋心，XZ 单位向量）：目标球应沿此方向离开。
-        let pdx = pocketCenter.x - input.targetBall.x
-        let pdz = pocketCenter.z - input.targetBall.z
-        let pdl = max(sqrtf(pdx * pdx + pdz * pdz), 1e-5)
-        let pockDirX = pdx / pdl, pockDirZ = pdz / pdl
+        // 进球管道目标线（target → 管道选定瞄点 aimPoint，XZ 单位向量）：目标球碰后应沿此方向离开。
+        // aimPoint 由 `AngleSceneCalculator.effectivePocketAimPoint` 的**纯几何管道法（far-jaw-only）**
+        // 给出——能空心进 ⇒ 袋心；贴库/强切角不可空心进 ⇒ 自动外移、避开近端 jaw、只擦远端 jaw；
+        // 力度是否足够决定能否真落袋（本求解器只把目标球送上这条线）。
+        // ghost = target − 2R·unit(aimPoint − target) ⇒ unit(target − ghost) = unit(aimPoint − target)。
+        let adx = input.targetBall.x - ghost.x
+        let adz = input.targetBall.z - ghost.z
+        let adl = max(sqrtf(adx * adx + adz * adz), 1e-5)
+        let aimDirX = adx / adl, aimDirZ = adz / adl
 
+        // 管道瞄准法求解目标：碰后实际离开方向对齐管道方向 `d_pipe`（= aimDir）。一维 throw 补偿反解。
         func score(_ offset: Float) -> Float {
             let run = runShot(
                 aimDir: baseAim.rotatedY(offset), velocity: velocity, input: input,
@@ -626,32 +555,17 @@ enum ShotPredictor {
                 maxEvents: searchEvents, maxTime: searchTime
             )
             guard let od = run.objPostContactDir else {
-                // 未碰到目标球：大基线（≫ 任何方向误差 π + 进袋 −10），母球-幽灵球距离梯度拉向命中。
-                return AimScoring.missBaseline + run.cueGhostMinDist
+                // 未碰到目标球：无效候选，叠加母球-幽灵球距离做梯度，把搜索拉回真正击中目标球。
+                return AimScoring.invalidCandidate + run.cueGhostMinDist
             }
-            // ① 能**直接进袋**（0 撞库，球穿过 jaw 开口落袋）= 最优区：−10 基线压过一切「方向解」。
-            //    直接进袋的瞄点会**穿喉口**（常略偏几何袋心以避开 jaw 鼻），故必须用真实进袋
-            //    而非"瞄准袋心方向误差"来认定——后者瞄死袋心反而擦 jaw 出来。clean 优于 scratch。
-            //    **额外要求母球碰目标球前 0 吃库**：否则"母球打丢→绕库→歪打正着碰目标球→恰好进袋"
-            //    的 kick 退化解也会拿 −10，与真直击解打平，叠加引擎遍历浮点非确定性会令两个完全
-            //    不同的解在运行间随机翻转（FL：t3p5 等 30 次重复 cuePreBank 在 0/4 间跳、分离角跨 2°）。
-            //    钉死「直击解」唯一占据最优区，是确定性的根本保证之一。
-            if run.pottedSelected && run.objCushionsBeforePocket == 0 && run.cueCushionsBeforeContact == 0 {
-                return AimScoring.cleanPotBaseline
-                    + (run.cuePocketed ? AimScoring.cleanPotScratchPenalty : 0)
-                    + abs(offset) * AimScoring.offsetRegularization
+            // 管道法是**直击**：碰目标球前吃库（绕库 banking / kick）= 无效候选，绝不退化成绕库蹭袋。
+            guard run.cueCushionsBeforeContact == 0 else {
+                return AimScoring.invalidCandidate
             }
-            // ② 否则（进袋不可达 / 只能吃库进）：按**进球线方向误差**（用户要求：方向必须对，
-            //    力度不足进不去可接受、但不要绕库蹭袋）。目标球碰后方向 vs target→袋心 夹角（rad）。
-            //    吃库进袋(objCushions≥1)的碰后初始方向指向库 → 误差大 → 自然排在直接进之后、且不会
-            //    被当成"好解"凌驾于"方向正确的直接未进"。
-            let dot = max(-1, min(1, od.x * pockDirX + od.z * pockDirZ))
-            var s = acosf(dot)
-            if run.cuePocketed { s += AimScoring.directionScratchPenalty }
-            // 母球碰目标球前绕库的进攻路线（kick）轻惩罚：方向解里也优先「直瞄」候选，避免退化解抬头。
-            s += Float(run.cueCushionsBeforeContact) * AimScoring.cueKickPenaltyPerCushion
-            s += abs(offset) * AimScoring.offsetRegularization
-            return s
+            // 唯一目标：碰后方向 vs 管道方向 `d_pipe` 夹角（rad）。平滑单峰，自动补偿 squirt+swerve+throw。
+            // 同分偏好更小偏移（解唯一、稳定）。进不进由力度决定、不在此评分。
+            let dot = max(-1, min(1, od.x * aimDirX + od.z * aimDirZ))
+            return acosf(dot) + abs(offset) * AimScoring.offsetRegularization
         }
 
         let deg = Float.pi / 180

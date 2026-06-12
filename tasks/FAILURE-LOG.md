@@ -224,3 +224,23 @@
 - **日期**：2026-06-05
 - **规则改进建议**：求解器「最优解」的判定必须包含**进攻路线纯净性**约束——直球求解中「母球碰目标球前 0 吃库 + 目标球落袋前 0 吃库」是 clean 解的硬条件，缺一会让「歪打正着的 kick/翻袋」退化解与真直击解在评分上并列；一旦最优区出现并列，引擎无序容器遍历的浮点非确定性就会被放大成**宏观解翻转**。新增/调整求解器评分时，必须用大规模系统化矩阵（数百球形）逐例断言进攻路线纯净性 + 同一输入多次重跑断言宏观确定性，不能只看单次结果或派生标量微抖动。
 - **已应用至**：✅ `QiuJi/Core/Physics/ShotPredictor.swift`（`cueCushionsBeforeContact` 字段 + `solveAimOffset` 最优区/方向解约束）、`QiuJiTests/PhysicsMatrixTests.swift`（矩阵 1 线干净断言 + 矩阵 3 确定性回归）（2026-06-05）；待回写 `10-ios-architect.mdc` § 经验教训
+
+## FL-021
+- **任务**：ADR-P11-08 UI 截图回归（`QiuJiUITour` scheme，`testScenePopups`/`testUnifiedDesignPages`）。
+- **现象**：UI 测试连续 5+ 轮以不同方式假失败：app not running / No matches for TabBar / kAXError -25218 / Test crashed with signal term；录屏显示 App 启动后中途整个退到桌面（runningboard 报 voluntary exit）。期间多次误改测试代码（加超时、加 AX 兜底重启）均无效甚至帮倒忙——AX 查询超时误判健康 App「未启动」反把它 terminate。
+- **严重程度**：P1（阻塞全部 UI 验证流程；浪费多轮排查与重试）。
+- **根因**：✅ 已定位。**同机另一并行会话在对同名模拟器（`name=iPhone 17 Pro`）反复跑 `xcodebuild test`（单元测试）**——xcodebuild 每次启测都重装 App（installcoordinationd "Acquired termination assertion … proceeding with install"），把 UI 测试会话中的 App 进程与 test runner 一起杀掉。日志特征：`installcoordinationd proceeding with install` + App `Process exited: voluntary` + xctrunner 同退。
+- **解决**：✅ 已修复（2026-06-12）。①UI 截图测试改用**独立模拟器设备**（iPhone 17，`-destination id=16F181F1-...`），与并行单元测试会话（iPhone 17 Pro）物理隔离，立即转绿；②`launchClean` 兜底从 AX 查询（`tabBars.waitForExistence`，主线程繁忙时必假阴性）改为**进程状态**（`app.state == .runningForeground`）；③打点盘 sheet 增 ✕ 关闭钮（坐标拖动收 sheet 会被打点盘吞手势误设杆法）。
+- **日期**：2026-06-12
+- **规则改进建议**：①跑 UI 测试前先 `ps aux | grep xcodebuild` 查同机并行构建，多会话并行时**各会话用独立模拟器设备（按 udid 指定）**，禁止共享 `name=` 目标；②XCUITest 健康检查用进程态 `app.state`，禁止用 AX 查询结果反推「App 没起来」并据此 terminate；③连续假失败时先取证（xcresult 录屏抽帧 + simctl 日志查 install/terminate 事件），不要盲改测试超时。
+- **已应用至**：`QiuJiUITests/Helpers/XCUIApplication+Extensions.swift`（进程态校验）、`QiuJiUITests/ScreenshotTourUITests.swift`（关闭钮路径）（2026-06-12）；回写 `55-test-engineer.mdc` § 经验教训（2026-06-12）
+
+## FL-022
+- **任务**：用户报告「母球吃左长库后反弹轨迹明显不合理（贴库滑行），偶发」的根因修复（接 PHYSICS-DEBT §5.7）。
+- **现象**：上一轮修复（§5.7 三处 `enforceTableBounds` 改动）后用户打回：贴库滑行仍在，且求解轨迹出现「先吃库→撞远端 jaw 弧→进袋」的非物理假进袋。复盘发现上一轮把 S2 实测的「入29°→反131°」**误判为采样帧错位误报**（PHYSICS-DEBT §5.7 第 250 行），未复刻用户真实调用路径（ShotPredictor 补偿瞄向）做验证——S3 直瞄跑不复现、S2 求解器路径每次都复现。
+- **严重程度**：P1（核心物理可信度；用户可见非物理轨迹 + 假进袋）。
+- **根因**：✅ 已定位（S4 `test_S4_replicateS2EventChain` 数值确证）。**边界安全网与吃库事件的竞态**：库线吃库时球心接触位置恰好等于 `enforceTableBounds` 的 safe 边界（contact = 库线 ∓ R，零余量），CCD 把球精确演进到接触点时浮点噪声（~1e-6 m）偶尔落在边界外 → 零容差硬钳抢在已排定的吃库事件前触发（法向减半反向）→ 紧接着 Han 解析器按**已退离**的速度自动翻转接触系，把球再次反射**回库内**（实测 vz +3.276 → 硬钳 −1.638 → Han 二次反射 +1.101）→ 后续子步反复钳制（每次 ×0.5），球以 ~2 折出射角贴库滑出。浮点噪声逐杆不同 ⇒ 「偶尔出现」。下游假进袋 = 贴库滑行把球沿库送进角袋口。
+- **解决**：✅ 已修复（2026-06-12）。两处物理正确性约束（无 magic offset）：①`enforceTableBounds` 触发加 0.5mm 余量（球心在接触线上是「正在吃库」的合法状态，非出界；真实接缝漏出每子步推进 mm 级，安全网不受影响）；②吃库解析加「库边只能推不能拉」护栏（解析前检查 v·n < 0 确在逼近，退离中的过时事件跳过且不记事件）。验证：S4 引擎实际出射 = 手动复算（27°/30°）；S2 全部反射恢复物理（131°→27°、114°→50°）；扫描贴库幽灵 0、平行出射 0；`test_solveDrillC005` 117s 无性能回退；`PhysicsInvariant/Matrix/Scenario/CushionDiagnostics/PositionPlayFreeAim` 全过；仅 3 个 `PhysicsEngineTests` 预存失败（与修复前完全同集，断言详情为袋口毫米级距离，另行处理）。
+- **日期**：2026-06-12
+- **规则改进建议**：①**数值安全网与物理事件共享同一几何线时必须留触发余量**——「合法接触位置 == 安全网边界」的零容差设计必然产生浮点竞态，且表现为偶发、难复现；②**碰撞解析器的方向自适应（按速度翻转接触系）必须配「只推不拉」护栏**，否则任何事件流外的状态突变都会让过时事件把球反射回障碍物内；③**修复验证必须复刻用户真实调用路径**（含求解器补偿瞄向），同参数直瞄不复现 ≠ 修好；把可疑测量归类为「测量误报」前必须用逐帧 dump + 手动复算双向确证。
+- **已应用至**：`QiuJi/Core/Physics/EventDrivenEngine.swift`（`boundsEpsilon` + 只推不拉护栏）、`QiuJiTests/PocketBehaviorDiagTests.swift`（S4 复刻测试）（2026-06-12）；回写 `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训（2026-06-12）

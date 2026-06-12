@@ -19,6 +19,10 @@ struct LinearCushionSegment {
     let start: SCNVector3
     let end: SCNVector3
     let normal: SCNVector3
+    /// 该段库边的反弹恢复系数。`nil` ⇒ 使用全局 `TablePhysics.cushionRestitution`。
+    /// 袋口喉腔壁（侧壁/后壁）用更低的值（更"死"），使进袋的球能量衰减、settle 落袋，
+    /// 过力度球撞后壁弹回 mouth = rattle 弹出（真实袋口行为，取代旧"大捕获圆真空"）。
+    var restitution: Float? = nil
 }
 
 struct CircularCushionSegment {

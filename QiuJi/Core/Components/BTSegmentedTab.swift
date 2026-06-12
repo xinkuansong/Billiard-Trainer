@@ -4,6 +4,9 @@ struct BTSegmentedTab<T: Hashable>: View {
     let tabs: [T]
     @Binding var selected: T
     let label: (T) -> String
+    /// 可选无障碍标识前缀：每个分段按钮获得 `"\(prefix)_\(label)"` 标识，
+    /// 供 UI 测试在标签与底部 Tab 重名时（如「训练」）精确定位。
+    var accessibilityIdentifierPrefix: String? = nil
 
     @Namespace private var underline
 
@@ -36,6 +39,9 @@ struct BTSegmentedTab<T: Hashable>: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(label(tab))
+                .accessibilityIdentifier(
+                    accessibilityIdentifierPrefix.map { "\($0)_\(label(tab))" } ?? ""
+                )
                 .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }

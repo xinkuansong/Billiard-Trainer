@@ -32,8 +32,10 @@ help:
 	@echo "台球训练伴侣 — 构建脚本"
 	@echo "────────────────────────────────────"
 	@echo "  make xcodegen     重新生成 Xcode 工程（folder refs 原生生成，无需补丁）"
-	@echo "  make build        Debug 构建（验证编译）"
+	@echo "  make build        Debug 构建（仅验证编译，不安装/启动）"
+	@echo "  make run          Debug 构建 + 安装 + 在模拟器启动（一条龙）"
 	@echo "  make test         运行所有 XCTest"
+	@echo "  make position-export  走位序列 JSON → MP4/GIF（输入 build/position_play_sequences/）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
 	@echo "  make export       从 Archive 导出 IPA"
 	@echo "  make upload       上传 IPA 到 App Store Connect"
@@ -83,6 +85,26 @@ build:
 	@echo "✅ Debug 构建完成"
 
 # ────────────────────────────────────────────
+# Debug 构建 + 安装 + 启动到模拟器（一条龙）
+# 现象「build succeeded 但模拟器没反应」＝ make build 只编译不安装/启动；用 make run。
+# ────────────────────────────────────────────
+APP_NAME  ?= 球迹
+BUNDLE_ID ?= com.xinkuan.qiuji
+APP_PATH  := $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(APP_NAME).app
+
+.PHONY: run
+run: build
+	@echo "→ 启动模拟器 $(SIM_DEVICE)..."
+	@open -a Simulator
+	@xcrun simctl boot "$(SIM_DEVICE)" 2>/dev/null || true
+	@xcrun simctl bootstatus "$(SIM_DEVICE)" -b >/dev/null 2>&1 || true
+	@echo "→ 安装 $(APP_PATH)"
+	@xcrun simctl install "$(SIM_DEVICE)" "$(APP_PATH)"
+	@echo "→ 启动 $(BUNDLE_ID)"
+	@xcrun simctl launch "$(SIM_DEVICE)" "$(BUNDLE_ID)"
+	@echo "✅ 已在模拟器启动 $(APP_NAME)"
+
+# ────────────────────────────────────────────
 # 单元测试
 # ────────────────────────────────────────────
 .PHONY: test
@@ -99,6 +121,26 @@ test:
 	  test \
 	  | xcpretty --report junit --output $(BUILD_DIR)/test-results.xml || true
 	@echo "✅ 测试完成，报告: $(BUILD_DIR)/test-results.xml"
+
+# ────────────────────────────────────────────
+# 走位序列离线复现（#11，ADR-P11-04）
+# 输入：build/position_play_sequences/*.json（编排台「录制」分享出的序列 JSON）
+# 输出：build/position_play_export/<名称>.mp4 + .gif（物理引擎逐 Step 复现渲染）
+# ────────────────────────────────────────────
+.PHONY: position-export
+position-export:
+	@echo "→ 走位序列复现导出..."
+	@mkdir -p $(BUILD_DIR)/position_play_sequences $(DERIVED_DATA)
+	xcodebuild \
+	  $(PROJECT_FLAG) \
+	  -scheme $(SCHEME) \
+	  -configuration Debug \
+	  -derivedDataPath $(DERIVED_DATA) \
+	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
+	  test \
+	  | xcpretty || true
+	@echo "✅ 产物目录: $(BUILD_DIR)/position_play_export"
 
 # ────────────────────────────────────────────
 # Release Archive

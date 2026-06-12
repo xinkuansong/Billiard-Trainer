@@ -8,260 +8,21 @@
 import Foundation
 import SceneKit
 
-// MARK: - Event Types
-
-/// Type of physics event
-enum PhysicsEventType {
-    case ballBall(ballA: String, ballB: String)
-    case ballCushion(ball: String, cushionIndex: Int, normal: SCNVector3)
-    case transition(ball: String, fromState: BallMotionState, toState: BallMotionState)
-    case pocket(ball: String, pocketId: String)
-}
-
-/// Physics event with time and priority for ordering
-struct PhysicsEvent: Comparable {
-    let type: PhysicsEventType
-    let time: Float
-    let priority: Int  // Lower number = higher priority
-    // Keep tie epsilon very small. A large epsilon (e.g. 1e-4) causes near-simultaneous
-    // events to be treated as equal and reordered by priority, which can let a transition
-    // run before an almost-earlier collision and produce post-evolve overlaps.
-    private static let tieEpsilon: Float = 1e-7
-    
-    static func < (lhs: PhysicsEvent, rhs: PhysicsEvent) -> Bool {
-        if abs(lhs.time - rhs.time) < tieEpsilon {
-            return lhs.priority < rhs.priority
-        }
-        return lhs.time < rhs.time
-    }
-    
-    static func == (lhs: PhysicsEvent, rhs: PhysicsEvent) -> Bool {
-        return abs(lhs.time - rhs.time) < tieEpsilon && lhs.priority == rhs.priority
-    }
-}
-
-// MARK: - Ball State
-
-/// State of a ball in the event-driven engine
-struct BallState {
-    var position: SCNVector3
-    var velocity: SCNVector3
-    var angularVelocity: SCNVector3
-    var state: BallMotionState
-    let name: String
-    
-    var isPocketed: Bool {
-        return state == .pocketed
-    }
-    
-    var isStationary: Bool {
-        return state == .stationary
-    }
-}
-
-// MARK: - Event Cache
-
-/// Cache for computed events to avoid redundant calculations
-/// Key 用整数编码（ballId × 2^N + cushionIdx），避免字符串 split/alloc，减少 invalidate 开销
-class EventCache {
-    private struct CachedEvent {
-        let event: PhysicsEvent
-        let timeStamp: Float
-    }
-
-    private struct NoCollisionEntry {
-        let stamp: Float
-        let stateA: BallMotionState
-        let stateB: BallMotionState
-    }
-
-    // 球名称 → 整数 ID（first-seen 时分配，不变）
-    private var ballNameToId: [String: Int32] = [:]
-    private var nextBallId: Int32 = 0
-
-    // ball-ball: key = min(idA,idB) << 16 | max(idA,idB)  (各球 id ≤ 31，满足 16bit)
-    private var ballBallCache: [Int64: CachedEvent] = [:]
-    private var ballBallNoCollisionCache: [Int64: NoCollisionEntry] = [:]
-
-    // ball-cushion: key = ballId << 8 | cushionIndex  (cushionIndex ≤ 25)
-    private var ballCushionCache: [Int64: CachedEvent] = [:]
-    private var ballCushionNoCollisionCache: [Int64: Float] = [:]
-
-    // transition: key = ballId << 4 | transitionTypeId
-    private var transitionCache: [Int64: CachedEvent] = [:]
-
-    private static let transitionTypeIds: [String: Int64] = [
-        "slideToRoll": 0,
-        "rollToSpin": 1,
-        "spinToStationary": 2
-    ]
-
-    /// Invalidate cache entries for affected balls
-    func invalidate(affectedBalls: Set<String>) {
-        let affectedIds: Set<Int32> = Set(affectedBalls.compactMap { ballNameToId[$0] })
-        guard !affectedIds.isEmpty else { return }
-
-        ballBallCache = ballBallCache.filter { key, _ in
-            let idA = Int32(key >> 16)
-            let idB = Int32(key & 0xFFFF)
-            return !affectedIds.contains(idA) && !affectedIds.contains(idB)
-        }
-        ballBallNoCollisionCache = ballBallNoCollisionCache.filter { key, _ in
-            let idA = Int32(key >> 16)
-            let idB = Int32(key & 0xFFFF)
-            return !affectedIds.contains(idA) && !affectedIds.contains(idB)
-        }
-        ballCushionCache = ballCushionCache.filter { key, _ in
-            let ballId = Int32(key >> 8)
-            return !affectedIds.contains(ballId)
-        }
-        ballCushionNoCollisionCache = ballCushionNoCollisionCache.filter { key, _ in
-            let ballId = Int32(key >> 8)
-            return !affectedIds.contains(ballId)
-        }
-        transitionCache = transitionCache.filter { key, _ in
-            let ballId = Int32(key >> 4)
-            return !affectedIds.contains(ballId)
-        }
-    }
-
-    // MARK: - Ball-Ball
-
-    /// Invalidate both the positive and negative cache entries for a specific ball pair.
-    /// Called by separateOverlappingBalls so the next findNextEvent re-solves the quartic
-    /// instead of trusting a stale "no collision" entry from before the separation.
-    func invalidateBallPair(ballA: String, ballB: String) {
-        let key = makeBallBallKey(ballA: ballA, ballB: ballB)
-        ballBallCache.removeValue(forKey: key)
-        ballBallNoCollisionCache.removeValue(forKey: key)
-    }
-
-    func getBallBall(ballA: String, ballB: String, currentTime: Float) -> PhysicsEvent? {
-        let key = makeBallBallKey(ballA: ballA, ballB: ballB)
-        guard let cached = ballBallCache[key] else { return nil }
-        let remaining = cached.event.time - (currentTime - cached.timeStamp)
-        if remaining <= 0 { ballBallCache[key] = nil; return nil }
-        return PhysicsEvent(type: cached.event.type, time: remaining, priority: cached.event.priority)
-    }
-
-    func setBallBall(ballA: String, ballB: String, event: PhysicsEvent, currentTime: Float) {
-        let key = makeBallBallKey(ballA: ballA, ballB: ballB)
-        ballBallCache[key] = CachedEvent(event: event, timeStamp: currentTime)
-        ballBallNoCollisionCache.removeValue(forKey: key)
-    }
-
-    /// TTL for no-collision cache entries: re-check pairs after this many simulation seconds.
-    /// Only applies when both balls are non-translating (stationary/spinning); active balls
-    /// always bypass the no-collision cache (see isBallBallNoCollision).
-    static let noCollisionTTL: Float = 0.5
-
-    /// Returns true only when both balls recorded as non-colliding are still in the same
-    /// motion state AND the entry is within TTL. Active (sliding/rolling) balls are never
-    /// considered cached because their trajectories change rapidly.
-    func isBallBallNoCollision(ballA: String, ballB: String,
-                               stateA: BallMotionState, stateB: BallMotionState,
-                               currentTime: Float) -> Bool {
-        guard let entry = ballBallNoCollisionCache[makeBallBallKey(ballA: ballA, ballB: ballB)] else { return false }
-        // If either ball is now in a different motion state, the cached result is stale.
-        guard entry.stateA == stateA && entry.stateB == stateB else { return false }
-        // For non-translating pairs (stationary/spinning) we use a generous TTL because
-        // they won't drift. For any pair containing an active ball we skip caching entirely.
-        let isStatic = (stateA == .stationary || stateA == .spinning)
-                    && (stateB == .stationary || stateB == .spinning)
-        if !isStatic { return false }
-        return (currentTime - entry.stamp) < EventCache.noCollisionTTL
-    }
-
-    func setBallBallNoCollision(ballA: String, ballB: String,
-                                stateA: BallMotionState, stateB: BallMotionState,
-                                currentTime: Float) {
-        let entry = NoCollisionEntry(stamp: currentTime, stateA: stateA, stateB: stateB)
-        ballBallNoCollisionCache[makeBallBallKey(ballA: ballA, ballB: ballB)] = entry
-    }
-
-    // MARK: - Ball-Cushion
-
-    func getBallCushion(ball: String, cushionIndex: Int, currentTime: Float) -> PhysicsEvent? {
-        let key = makeBallCushionKey(ball: ball, cushionIndex: cushionIndex)
-        guard let cached = ballCushionCache[key] else { return nil }
-        let remaining = cached.event.time - (currentTime - cached.timeStamp)
-        if remaining <= 0 { ballCushionCache[key] = nil; return nil }
-        return PhysicsEvent(type: cached.event.type, time: remaining, priority: cached.event.priority)
-    }
-
-    func setBallCushion(ball: String, cushionIndex: Int, event: PhysicsEvent, currentTime: Float) {
-        let key = makeBallCushionKey(ball: ball, cushionIndex: cushionIndex)
-        ballCushionCache[key] = CachedEvent(event: event, timeStamp: currentTime)
-        ballCushionNoCollisionCache.removeValue(forKey: key)
-    }
-
-    func isBallCushionNoCollision(ball: String, cushionIndex: Int) -> Bool {
-        return ballCushionNoCollisionCache[makeBallCushionKey(ball: ball, cushionIndex: cushionIndex)] != nil
-    }
-
-    func setBallCushionNoCollision(ball: String, cushionIndex: Int, currentTime: Float) {
-        ballCushionNoCollisionCache[makeBallCushionKey(ball: ball, cushionIndex: cushionIndex)] = currentTime
-    }
-
-    // MARK: - Transition
-
-    func getTransition(ball: String, transitionType: String, currentTime: Float) -> PhysicsEvent? {
-        let key = makeTransitionKey(ball: ball, transitionType: transitionType)
-        guard let cached = transitionCache[key] else { return nil }
-        let remaining = cached.event.time - (currentTime - cached.timeStamp)
-        if remaining <= 0 { transitionCache[key] = nil; return nil }
-        return PhysicsEvent(type: cached.event.type, time: remaining, priority: cached.event.priority)
-    }
-
-    func setTransition(ball: String, transitionType: String, event: PhysicsEvent, currentTime: Float) {
-        transitionCache[makeTransitionKey(ball: ball, transitionType: transitionType)] = CachedEvent(event: event, timeStamp: currentTime)
-    }
-
-    // MARK: - Lifecycle
-
-    func clear() {
-        ballBallCache.removeAll()
-        ballBallNoCollisionCache.removeAll()
-        ballCushionCache.removeAll()
-        ballCushionNoCollisionCache.removeAll()
-        transitionCache.removeAll()
-    }
-
-    // MARK: - Key Helpers
-
-    @inline(__always)
-    private func ballId(_ name: String) -> Int64 {
-        if let id = ballNameToId[name] { return Int64(id) }
-        let id = nextBallId
-        nextBallId += 1
-        ballNameToId[name] = id
-        return Int64(id)
-    }
-
-    @inline(__always)
-    private func makeBallBallKey(ballA: String, ballB: String) -> Int64 {
-        let a = ballId(ballA), b = ballId(ballB)
-        return (min(a, b) << 16) | max(a, b)
-    }
-
-    @inline(__always)
-    private func makeBallCushionKey(ball: String, cushionIndex: Int) -> Int64 {
-        return (ballId(ball) << 8) | Int64(cushionIndex)
-    }
-
-    @inline(__always)
-    private func makeTransitionKey(ball: String, transitionType: String) -> Int64 {
-        let typeId = EventCache.transitionTypeIds[transitionType] ?? Int64(abs(transitionType.hashValue) & 0xF)
-        return (ballId(ball) << 4) | typeId
-    }
-}
 // MARK: - Event-Driven Engine
 
 /// Event-driven physics engine for billiard simulation
 class EventDrivenEngine {
     // Ball states indexed by name
     private var balls: [String: BallState] = [:]
-    
+
+    /// 球名的**插入有序**列表（D-A3 第三梯队：引擎遍历确定性化）。
+    /// Swift `Dictionary` 的遍历顺序受每次进程启动的哈希种子随机化影响——同一输入两次运行
+    /// 字典遍历顺序可能不同。引擎多处在遍历后做「取最早事件 `candidates.min()`」「按 names 顺序
+    /// 逐对推开重叠球」等**对顺序敏感**的操作（min() 在并列时返回首个、separate 顺序影响逐次推位），
+    /// 字典随机序会让同一杆每次预测的事件并列裁决/分离顺序漂移（FL-020 残留根因）。改为始终遍历
+    /// 本插入有序列表（与 `setBall` 调用顺序一致、跨运行稳定），即可消除该路径的非确定性。
+    private var ballOrder: [String] = []
+
     // Current simulation time
     private(set) var currentTime: Float = 0
     
@@ -286,26 +47,6 @@ class EventDrivenEngine {
     /// 首次球-球碰撞的模拟时间（用于相机延迟切换观察视角）
     private(set) var firstBallBallCollisionTime: Float?
 
-    // MARK: - Anomaly diagnostics (reset each simulate() call)
-    /// Number of times makeBallBallKiss triggered a position correction (dist < 2R+spacer).
-    private var kissCountBallBall: Int = 0
-    /// Number of times makeBallBallKiss used the fallback (symmetric push) path.
-    private var kissCountBallBallFallback: Int = 0
-    /// Maximum ball-ball interpenetration depth observed (m) before make_kiss correction.
-    private var maxBallBallPenetration: Float = 0
-    /// Number of times makeBallCushionKiss triggered a position correction.
-    private var kissCountCushion: Int = 0
-    /// Maximum ball-cushion interpenetration depth observed (m) before make_kiss correction.
-    private var maxCushionPenetration: Float = 0
-    /// Number of times separateOverlappingBalls found at least one overlapping pair.
-    private var separateOverlapTriggerCount: Int = 0
-    /// Total number of overlapping pairs corrected across all separateOverlappingBalls calls.
-    private var separateOverlapPairCount: Int = 0
-    /// Maximum overlap depth observed by separateOverlappingBalls (m).
-    private var maxSeparateOverlap: Float = 0
-    /// Number of times the zero-time-event nudge was applied.
-    private var nudgeCount: Int = 0
-    
     /// Initialize engine with table geometry
     init(tableGeometry: TableGeometry) {
         self.tableGeometry = tableGeometry
@@ -324,6 +65,7 @@ class EventDrivenEngine {
     
     /// Add or update a ball state
     func setBall(_ ball: BallState) {
+        if balls[ball.name] == nil { ballOrder.append(ball.name) }
         balls[ball.name] = ball
     }
     
@@ -332,73 +74,19 @@ class EventDrivenEngine {
         return balls[name]
     }
     
-    /// Get all ball states
+    /// Get all ball states（按插入有序返回，确定性）
     func getAllBalls() -> [BallState] {
-        return Array(balls.values)
+        return ballOrder.compactMap { balls[$0] }
     }
     
-    /// Run simulation until maxEvents or maxTime is reached
-    func simulate(maxEvents: Int = 1000, maxTime: Float = 10.0) {
-        // Reset per-shot anomaly counters.
-        kissCountBallBall = 0
-        kissCountBallBallFallback = 0
-        maxBallBallPenetration = 0
-        kissCountCushion = 0
-        maxCushionPenetration = 0
-        separateOverlapTriggerCount = 0
-        separateOverlapPairCount = 0
-        maxSeparateOverlap = 0
-        nudgeCount = 0
-
+    /// Run simulation until maxEvents or maxTime is reached.
+    /// - Parameter highFidelityBounds: 仅**展示用最终模拟**置 true → 启用近库自适应子步（ADR-P10-07），
+    ///   让贴墙帧足够密、回放轨迹不外推穿墙。求解器的数十次短模拟保持 false（用固定 `maxEvolveStep`
+    ///   粗步，避免把每杆求解拖慢一个数量级）——其只需结果（进/吃库/方向），且引擎级方向兜底/settle
+    ///   收袋（见 `enforceTableBounds`，**始终生效**）已保证结果正确性（球不会停在台外）。
+    func simulate(maxEvents: Int = 1000, maxTime: Float = 10.0, highFidelityBounds: Bool = false) {
         PerformanceProfiler.begin(ProfilerLabel.simulate)
-        defer {
-            let ms = PerformanceProfiler.end(ProfilerLabel.simulate)
-            let eventCount0 = resolvedEvents.count
-            var bbCount = 0, bcCount = 0, trCount = 0, pkCount = 0
-            var zeroTimeCount = 0
-            for (evt, t) in zip(resolvedEvents, resolvedEventTimes) {
-                switch evt {
-                case .ballBall: bbCount += 1
-                case .ballCushion: bcCount += 1
-                case .transition: trCount += 1
-                case .pocket: pkCount += 1
-                }
-                if t < 0.001 { zeroTimeCount += 1 }
-            }
-
-            // Anomaly summary — always printed so every shot is traceable.
-            let hasAnomaly = kissCountBallBall > 0 || kissCountCushion > 0 || separateOverlapTriggerCount > 0 || nudgeCount > 0
-            if hasAnomaly {
-            } else {
-            }
-        }
-
-        // Diagnose initial ball positions for overlaps before any separation.
-        // Overlap at t=0 means the ball layout passed to the engine already has interpenetrations
-        // (e.g. from node.position vs visualCenter mismatch, or insufficient sanitizeBallLayout).
-        var initialMaxOverlap: Float = 0
-        var initialOverlapCount = 0
-        let initNames = Array(balls.keys)
-        let twoRInit = 2 * BallPhysics.radius
-        for i in 0..<initNames.count {
-            for j in (i+1)..<initNames.count {
-                guard let a = balls[initNames[i]], let b = balls[initNames[j]] else { continue }
-                guard !a.isPocketed && !b.isPocketed else { continue }
-                let dx = b.position.x - a.position.x
-                let dz = b.position.z - a.position.z
-                let d2 = dx*dx + dz*dz
-                if d2 < twoRInit * twoRInit {
-                    let dist = sqrtf(max(d2, 1e-12))
-                    let ov = twoRInit - dist
-                    if ov > initialMaxOverlap { initialMaxOverlap = ov }
-                    initialOverlapCount += 1
-                    if ov > 0.1 {
-                    }
-                }
-            }
-        }
-        if initialOverlapCount > 0 {
-        }
+        defer { PerformanceProfiler.end(ProfilerLabel.simulate) }
 
         // Run a more thorough initial separation before the first event search.
         // A single pass of 6 iterations is not enough for a densely packed rack where
@@ -443,22 +131,42 @@ class EventDrivenEngine {
                         currentTime += nudge
                         recordSnapshot()
                     }
-                    nudgeCount += 1
                     zeroTimeEventStreak = 0
                 }
                 continue
             }
             zeroTimeEventStreak = 0
-            
+
+            // 演进步长上限（ADR-P10-06 + P10-07 近库自适应子步）：若到下一事件的 dt 超过安全步长，
+            // 先只推进一个安全步、记一帧、作废事件缓存后重新检测，不直接跨大步推进到事件。
+            // 安全步长 = `adaptiveEvolveCap`：默认 maxEvolveStep；但若有球正朝某边界逼近（整步内会触墙），
+            // 收紧到位移级（nearWallSafeStep/速度）。三重收益：
+            //   (a) 漏检的袋口/jaw/喉腔角缝碰撞会在球贴墙时被重新检出（解析线交点落到有限段外的接缝漏检）；
+            //   (b) recorder 帧足够密 → 回放 `TrajectoryPlayback.stateAt` 不会在空档里沿旧速度外推穿墙；
+            //   (c) `enforceTableBounds` 每子步兜底，把残留越界球在 < nearWallSafeStep 内拉回并记真实帧。
+            // 高保真（展示用最终模拟）：近库自适应子步 → 贴墙帧密、回放不外推穿墙。
+            // 非高保真（求解器短模拟）：**不切步**（stepCap = +∞）→ 恢复 ADR-P10-06 前速度。
+            //   切步本为「显示密帧 + 漏检兜底」而加；求解器只取结果量（进/方向/吃库），且 cueGhostMinDist
+            //   已做段内线段-点采样、enforceTableBounds 每步兜底，无需密帧即可正确判结果。
+            let stepCap = highFidelityBounds
+                ? EngineNumerics.adaptiveEvolveCap(
+                    balls: getAllBalls(),
+                    minX: tableBounds.minX, maxX: tableBounds.maxX,
+                    minZ: tableBounds.minZ, maxZ: tableBounds.maxZ,
+                    pockets: tableGeometry.pockets)
+                : Float.greatestFiniteMagnitude
+            if dt > stepCap {
+                evolveAllBalls(dt: stepCap)
+                separateOverlappingBalls()
+                currentTime += stepCap
+                eventCache.clear()   // 从新位置重新检测：捕回从远处漏检/被 no-collision 缓存跳过的碰撞
+                recordSnapshot()
+                continue
+            }
+
             PerformanceProfiler.begin(ProfilerLabel.evolveAllBalls)
             evolveAllBalls(dt: dt)
             PerformanceProfiler.end(ProfilerLabel.evolveAllBalls)
-
-            // Diagnostic: scan for overlapping pairs BEFORE separateOverlappingBalls to
-            // detect which ball pairs the quartic solver missed. Log their states so we
-            // can identify which cull tier (spatial / kinematic / tier3 / cache) blocked
-            // the quartic solve.
-            debugLogPostEvolveOverlaps(afterEvent: nextEvent)
 
             separateOverlappingBalls()
             currentTime += dt
@@ -507,7 +215,8 @@ class EventDrivenEngine {
         let detectionMaxTime = maxTimeRemaining
         
         // Find next transition events
-        for (name, ball) in balls {
+        for name in ballOrder {
+            guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
             // Check slide-to-roll transition
@@ -579,7 +288,7 @@ class EventDrivenEngine {
         
         // Find ball-ball collisions
         PerformanceProfiler.begin(ProfilerLabel.ballBallDetect)
-        let ballNames = Array(balls.keys)
+        let ballNames = ballOrder
         for i in 0..<ballNames.count {
             for j in (i+1)..<ballNames.count {
                 let nameA = ballNames[i]
@@ -589,7 +298,7 @@ class EventDrivenEngine {
                 guard !ballA.isPocketed && !ballB.isPocketed else { continue }
                 
                 // 已接触/重叠时立即触发一次碰撞，避免“穿透后只带走一点”
-                if isBallPairOverlappingOrTouching(ballA, ballB) {
+                if EngineNumerics.isBallPairOverlappingOrTouching(ballA, ballB) {
                     let immediate = PhysicsEvent(
                         type: .ballBall(ballA: nameA, ballB: nameB),
                         time: 0,
@@ -626,8 +335,8 @@ class EventDrivenEngine {
                 }
                 
                 // Compute acceleration for each ball based on state
-                let aA = acceleration(for: ballA)
-                let aB = acceleration(for: ballB)
+                let aA = EngineNumerics.acceleration(for: ballA)
+                let aB = EngineNumerics.acceleration(for: ballB)
                 
                 // Find collision time
                 if let collisionTime = CollisionDetector.ballBallCollisionTime(
@@ -647,13 +356,13 @@ class EventDrivenEngine {
                     )
                     eventCache.setBallBall(ballA: nameA, ballB: nameB, event: event, currentTime: currentTime)
                     candidates.append(event)
-                } else if shouldRunFallbackBallBallCheck(
+                } else if EngineNumerics.shouldRunFallbackBallBallCheck(
                     ballA: ballA,
                     ballB: ballB,
                     aA: aA,
                     aB: aB,
                     maxTime: detectionMaxTime
-                ), let fallbackTime = fallbackBallBallCollisionTime(
+                ), let fallbackTime = EngineNumerics.fallbackBallBallCollisionTime(
                     ballA: ballA,
                     ballB: ballB,
                     aA: aA,
@@ -682,10 +391,11 @@ class EventDrivenEngine {
         
         // Find ball-cushion collisions
         PerformanceProfiler.begin(ProfilerLabel.cushionDetect)
-        for (name, ball) in balls {
+        for name in ballOrder {
+            guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
-            let a = acceleration(for: ball)
+            let a = EngineNumerics.acceleration(for: ball)
             
             // Check linear cushions
             for (index, cushion) in tableGeometry.linearCushions.enumerated() {
@@ -715,7 +425,7 @@ class EventDrivenEngine {
                         + ball.velocity * collisionTime
                         + a * (0.5 * collisionTime * collisionTime)
                     
-                    if isWithinLinearCushionSegment(point: collisionPos, segment: cushion) {
+                    if EngineNumerics.isWithinLinearCushionSegment(point: collisionPos, segment: cushion) {
                         let event = PhysicsEvent(
                             type: .ballCushion(ball: name, cushionIndex: index, normal: cushion.normal),
                             time: collisionTime,
@@ -730,10 +440,11 @@ class EventDrivenEngine {
         
         // Find ball-circular-cushion collisions (pocket jaw arcs)
         let linearCount = tableGeometry.linearCushions.count
-        for (name, ball) in balls {
+        for name in ballOrder {
+            guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
-            let a = acceleration(for: ball)
+            let a = EngineNumerics.acceleration(for: ball)
             
             for (arcIdx, arc) in tableGeometry.circularCushions.enumerated() {
                 let cushionIndex = linearCount + arcIdx
@@ -773,10 +484,11 @@ class EventDrivenEngine {
         // 注意：必须使用 XZ 2D 分量，不含 Y。
         // 原因：球心 Y 固定高于台面 BallPhysics.radius，而 r = pocket.radius - BallPhysics.radius < BallPhysics.radius，
         // 若使用 3D 向量，dp.y 恒大于 r，四次方程永远无实数根，进袋事件永远不触发。
-        for (name, ball) in balls {
+        for name in ballOrder {
+            guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
-            let a = acceleration(for: ball)
+            let a = EngineNumerics.acceleration(for: ball)
             
             // Check each pocket
             for pocket in tableGeometry.pockets {
@@ -807,7 +519,7 @@ class EventDrivenEngine {
                 let a0 = dpDotDp - Double(r * r)
 
                 let roots = QuarticSolver.solveQuartic(a: a4, b: a3, c: a2, d: a1, e: a0)
-                if let time = smallestPositiveRoot(roots, maxTime: detectionMaxTime) {
+                if let time = EngineNumerics.smallestPositiveRoot(roots, maxTime: detectionMaxTime) {
                     candidates.append(PhysicsEvent(
                         type: .pocket(ball: name, pocketId: pocket.id),
                         time: time,
@@ -822,35 +534,10 @@ class EventDrivenEngine {
         return candidates.min()
     }
     
-    /// Compute acceleration for a ball based on its state
-    private func acceleration(for ball: BallState) -> SCNVector3 {
-        switch ball.state {
-        case .sliding:
-            // Sliding friction acts in the direction of surface velocity, not linear velocity
-            let relVel = AnalyticalMotion.surfaceVelocity(
-                linear: ball.velocity,
-                angular: ball.angularVelocity,
-                radius: BallPhysics.radius
-            )
-            let relSpeed = relVel.length()
-            guard relSpeed > 0.001 else { return SCNVector3Zero }
-            let uHat = relVel.normalized()
-            let decel = SpinPhysics.slidingFriction * TablePhysics.gravity
-            return -uHat * decel
-        case .rolling:
-            let speed = ball.velocity.length()
-            guard speed > 0.001 else { return SCNVector3Zero }
-            let vHat = ball.velocity.normalized()
-            let decel = SpinPhysics.rollingFriction * TablePhysics.gravity
-            return -vHat * decel
-        case .spinning, .stationary, .pocketed:
-            return SCNVector3Zero
-        }
-    }
-    
     /// Evolve all balls forward by dt
     private func evolveAllBalls(dt: Float) {
-        for (name, ball) in balls {
+        for name in ballOrder {
+            guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
             let evolved: (position: SCNVector3, velocity: SCNVector3, angularVelocity: SCNVector3)
@@ -895,77 +582,9 @@ class EventDrivenEngine {
         }
     }
 
-    /// Diagnostic: after evolveAllBalls, scan all ball pairs for overlap and log which
-    /// cull tier would have skipped their quartic solve in the *previous* findNextEvent call.
-    /// This pinpoints why the collision was not detected before the balls interpenetrated.
-    private func debugLogPostEvolveOverlaps(afterEvent: PhysicsEvent) {
-        let names = Array(balls.keys)
-        let minDist = 2 * BallPhysics.radius
-        for i in 0..<names.count {
-            for j in (i+1)..<names.count {
-                guard let a = balls[names[i]], let b = balls[names[j]] else { continue }
-                guard !a.isPocketed && !b.isPocketed else { continue }
-                let delta = b.position - a.position
-                // Use XZ-plane distance to match separateOverlappingBalls logic.
-                // Balls on the table surface have the same Y; using 3D distance can mask
-                // real XZ penetrations when Y differs slightly between nodes.
-                let d2 = delta.x * delta.x + delta.z * delta.z
-                guard d2 < minDist * minDist else { continue }
-                let dist = sqrtf(max(d2, 1e-12))
-                let penetration = minDist - dist
-                // Only log cases where penetration is significant (> 0.01 mm)
-                guard penetration > 0.00001 else { continue }
-
-                // Diagnose which cull tier would have rejected this pair.
-                // NOTE: when penetrating, dist < minDist, so we use dist as dpLen.
-                var cullReason = "unknown"
-
-                let aIsNontranslating = a.state == .stationary || a.state == .spinning
-                let bIsNontranslating = b.state == .stationary || b.state == .spinning
-
-                if aIsNontranslating && bIsNontranslating {
-                    cullReason = "kinematic(both-nontranslating)"
-                } else {
-                    // At the time of the previous findNextEvent, the balls were farther apart.
-                    // We can only check velocity-based culls at current state.
-                    let relVec = b.velocity - a.velocity
-                    let relSpeed = relVec.length()
-                    let maxAccel: Float = SpinPhysics.slidingFriction * TablePhysics.gravity * 2
-                    let stopTime = maxAccel > 0 ? relSpeed / maxAccel : 0
-                    let cullHorizon = min(stopTime * 1.5 + 0.05, 1.0)
-                    let maxReach = relSpeed * cullHorizon + 0.5 * maxAccel * cullHorizon * cullHorizon
-
-                    if a.state == .rolling && b.state == .rolling && dist > 1e-6 {
-                        let n = delta * (1.0 / dist)
-                        let relV = b.velocity - a.velocity
-                        if relV.dot(n) >= 0 {
-                            let aA = acceleration(for: a)
-                            let aB = acceleration(for: b)
-                            let relA = aB - aA
-                            let relADotN = relA.x * n.x + relA.y * n.y + relA.z * n.z
-                            if relADotN >= 0 {
-                                cullReason = "tier3(rolling-rolling-diverging relV.n=\(String(format:"%.3f",relV.dot(n))) relA.n=\(String(format:"%.3f",relADotN)))"
-                            } else {
-                                cullReason = "tier3-passed(relA.n<0)-but-quartic-missed(vA=\(String(format:"%.2f",a.velocity.length())) vB=\(String(format:"%.2f",b.velocity.length())))"
-                            }
-                        } else {
-                            cullReason = "all-culls-passed-quartic-missed(vA=\(String(format:"%.2f",a.velocity.length())) vB=\(String(format:"%.2f",b.velocity.length())) stA=\(a.state) stB=\(b.state))"
-                        }
-                    } else if maxReach < 0.001 {
-                        cullReason = "spatial(maxReach=\(String(format:"%.3f",maxReach))m relSpeed=\(String(format:"%.2f",relSpeed)))"
-                    } else {
-                        cullReason = "unknown-missed(vA=\(String(format:"%.2f",a.velocity.length())) vB=\(String(format:"%.2f",b.velocity.length())) stA=\(a.state) stB=\(b.state) relSpeed=\(String(format:"%.2f",relSpeed)))"
-                    }
-                }
-
-                let penMM = String(format: "%.4f", penetration * 1000)
-            }
-        }
-    }
-
     /// 修正重叠球，减少"穿插后无碰撞"的数值死区
     private func separateOverlappingBalls(maxIterations: Int = 6) {
-        let names = Array(balls.keys)
+        let names = ballOrder
         guard names.count >= 2 else { return }
         let twoR = 2 * BallPhysics.radius
         // Trigger only when balls genuinely penetrate (d < 2R).
@@ -975,8 +594,6 @@ class EventDrivenEngine {
         // where d² = (2R)² - epsilon triggers another iteration.
         let spacer: Float = 3e-5   // 0.03 mm clearance beyond 2R
         let targetDist = twoR + spacer
-
-        var foundAnyOverlapThisCall = false
 
         for _ in 0..<maxIterations {
             var adjusted = false
@@ -1005,18 +622,6 @@ class EventDrivenEngine {
                     }
                     // Compute push needed to reach targetDist (2R + spacer).
                     let push = (targetDist - max(dist, 1e-6)) * 0.5
-                    let realOverlap = twoR - max(dist, 1e-6)
-
-                    // Diagnostic counters.
-                    separateOverlapPairCount += 1
-                    if realOverlap > maxSeparateOverlap { maxSeparateOverlap = realOverlap }
-                    if !foundAnyOverlapThisCall {
-                        foundAnyOverlapThisCall = true
-                        separateOverlapTriggerCount += 1
-                    }
-                    let overlapMM = String(format: "%.4f", realOverlap * 1000)
-                    let distMM = String(format: "%.4f", dist * 1000)
-                    let tSec = String(format: "%.4f", currentTime)
 
                     let move = SCNVector3(nx * push, 0, nz * push)
                     
@@ -1046,26 +651,73 @@ class EventDrivenEngine {
         let safeMaxX = tableBounds.maxX - BallPhysics.radius
         let safeMinZ = tableBounds.minZ + BallPhysics.radius
         let safeMaxZ = tableBounds.maxZ - BallPhysics.radius
-        
-        let outX = state.position.x < safeMinX || state.position.x > safeMaxX
-        let outZ = state.position.z < safeMinZ || state.position.z > safeMaxZ
+
+        // 触发余量（FL 根因修复·吃库竞态，2026-06-12）：库线吃库时球心接触位置 **恰好等于**
+        // safe 边界（contact = 库线 ∓ R），CCD 把球精确演进到接触点时浮点噪声可落在边界外
+        // ~1e-6 m。该状态是「正要解析的合法吃库」而非「跑出台外」；零容差硬钳会抢在事件前
+        // 把法向速度减半反向，随后 Han 解析器按（已退离的）速度方向翻转接触系、把球再次
+        // 反射回库内——形成「以 ~2 折出射角贴库滑出」的非物理轨迹（S4 数值确证：入29° 实测
+        // 出射 131°，手动复算应为 27°）。真正的接缝漏出会逐子步继续向外推进（近库子步位移
+        // 上限 ~10mm/步），远超此余量，安全网兜底能力不受影响。
+        let boundsEpsilon: Float = 5e-4   // 0.5mm ≫ Float32 接触噪声(~1e-6 m)，≪ 漏出位移(mm 级)
+
+        let outX = state.position.x < safeMinX - boundsEpsilon || state.position.x > safeMaxX + boundsEpsilon
+        let outZ = state.position.z < safeMinZ - boundsEpsilon || state.position.z > safeMaxZ + boundsEpsilon
         guard outX || outZ else { return }
         
-        // If ball is near a pocket opening, let event-driven CCD handle it
+        // 球已越出可玩框、且落在某袋口附近（`pocket.radius + 2R` 内，覆盖袋嘴→落孔通道）。
+        // 用**运动方向**区分"正常进袋通道"与"从库段↔jaw 接缝漏出台外"（ADR-P10-07）：
         for pocket in tableGeometry.pockets {
             let dx = state.position.x - pocket.center.x
             let dz = state.position.z - pocket.center.z
             let dist = sqrtf(dx * dx + dz * dz)
-            if dist < pocket.radius + BallPhysics.radius * 3 {
-                // Close to pocket — only pocket if ball is really deep inside
-                if dist <= pocket.radius {
-                    state.state = .pocketed
-                    state.velocity = SCNVector3Zero
-                    state.angularVelocity = SCNVector3Zero
-                }
+            guard dist < pocket.radius + BallPhysics.radius * 2 else { continue }
+
+            // ① 深入落袋孔 → 落袋。
+            // ② 低速 settle（挂袋后落下 / 母球 scratch）→ 收袋。
+            let pocketDeep = dist <= pocket.radius
+            let settledInJaw = state.velocity.length() < EngineNumerics.jawSettlePocketSpeed
+            if pocketDeep || settledInJaw {
+                state.state = .pocketed
+                state.velocity = SCNVector3Zero
+                state.angularVelocity = SCNVector3Zero
+                // 记一次真实落袋事件，使下游 `pottedSelected`（扫 resolvedEvents 的 .pocket）与画面一致。
+                resolvedEvents.append(.pocket(ball: state.name, pocketId: pocket.id))
+                resolvedEventTimes.append(currentTime)
                 return
             }
+            // ③ 带速运动且在袋嘴圈内：无论朝向均放行（FL 根因修复，2026-06-12）——
+            //    rattle 弹出段（背离袋心）同样合法，真实边界是 jaw 弧 + 喉腔壁，CCD 可解析；
+            //    原 towardCenter 方向门会把弹出中的球双轴硬钳（法向减半、无事件），
+            //    产生袋口附近的幽灵反弹。真正从接缝漏出的球一旦离开袋嘴圈仍会被下方硬钳兜回，
+            //    慢速挂袋球由 ② settle 收袋——安全网不变，只是不再误伤合法弹出。
+            return
         }
+
+        // ④ jaw 弧合法接触带豁免（FL 根因修复，2026-06-12）：
+        //    圆弧库（角袋 jaw 弧 / 中袋 fillet）的球心接触圆（r_arc + R）**伸出矩形可玩框**
+        //    最多数厘米（越靠袋心越多；如左下角弧在 352° 接触点比 safeMinX 深 ~1.3mm）。
+        //    球落在任一弧的角度扇区内、且距弧心 ≤ 接触距 + mouthSlack 时，说明它正与该弧
+        //    交互（CCD 已能正确检出并解析），真实边界是弧本身——矩形硬钳在此不适用。
+        //    不豁免则硬钳抢在已调度的弧碰撞事件之前触发（法向减半反弹、无事件、不作废缓存），
+        //    产生「贴库平行滑出 + 末端小钩」的幽灵反弹。
+        //    mouthSlack 覆盖逼近条带：略大于近库子步位移上限 nearWallSafeStep（~10mm）。
+        //    径向速度门控（防研磨）：只豁免**径向显著运动**（正撞向弧面→弧事件即将解析；
+        //    或刚反弹离开→毫秒级回到框内）的球。沿弧切向蹭行（|vr|≈0，如贴长库滚过中袋
+        //    fillet 区）不豁免——该状态下弧 CCD 会以微小 dt 反复出事件（zero-time 风暴），
+        //    解算器数千次短模拟被拖垮；维持原软钳把它压回框内即可。
+        let mouthSlack: Float = 0.012
+        let radialGate: Float = 0.02   // m/s
+        for arc in tableGeometry.circularCushions {
+            let dxA = state.position.x - arc.center.x
+            let dzA = state.position.z - arc.center.z
+            let dA = sqrtf(dxA * dxA + dzA * dzA)
+            guard dA > 1e-6, dA <= arc.radius + BallPhysics.radius + mouthSlack else { continue }
+            guard arc.isAngleInRange(atan2f(dzA, dxA)) else { continue }
+            let vr = (state.velocity.x * dxA + state.velocity.z * dzA) / dA
+            if abs(vr) > radialGate { return }
+        }
+        // 不在任何袋嘴通道/弧接触带内（或正从接缝漏出）→ 硬钳回库线 + 反弹（数值安全网）。
         
         // Not near any pocket — hard clamp (numerical safety net)
         let restitution: Float = 0.5
@@ -1086,7 +738,10 @@ class EventDrivenEngine {
             state.velocity.z = -abs(state.velocity.z) * restitution
         }
         
-        state.state = determineMotionState(state)
+        state.state = EngineNumerics.determineMotionState(state)
+        // 硬钳是事件流之外的状态突变：作废该球缓存，避免按钳前轨迹预测的陈旧事件
+        // （吃库/球球）在钳后接力触发，造成二次非物理反射。
+        eventCache.invalidate(affectedBalls: [state.name])
     }
     
     /// Resolve a physics event
@@ -1102,9 +757,13 @@ class EventDrivenEngine {
             resolvedEventTimes.append(currentTime)
             
         case .ballCushion(let ball, let cushionIndex, let normal):
-            resolveBallCushionCollision(ball: ball, cushionIndex: cushionIndex, normal: normal)
-            resolvedEvents.append(event.type)
-            resolvedEventTimes.append(currentTime)
+            // 仅在冲量真正施加时记录事件（与 .pocket 同模式）：被「只推不拉」护栏跳过的
+            // 过时事件不计入吃库数，避免下游（吃库计数/回放）看到未发生的碰撞。
+            let applied = resolveBallCushionCollision(ball: ball, cushionIndex: cushionIndex, normal: normal)
+            if applied {
+                resolvedEvents.append(event.type)
+                resolvedEventTimes.append(currentTime)
+            }
             
         case .transition(let ball, let fromState, let toState):
             resolveTransition(ball: ball, fromState: fromState, toState: toState)
@@ -1132,7 +791,7 @@ class EventDrivenEngine {
         // Precisely position both balls at 2R + MIN_DIST separation before resolving
         // the collision impulse. Without this, floating-point drift from event evolution
         // leaves the balls slightly interpenetrating, causing cascading zero-time events.
-        makeBallBallKiss(stateA: &stateA, stateB: &stateB)
+        EngineNumerics.makeBallBallKiss(stateA: &stateA, stateB: &stateB)
         
         let result = CollisionResolver.resolveBallBallPure(
             posA: stateA.position,
@@ -1148,109 +807,24 @@ class EventDrivenEngine {
         stateB.velocity = result.velB
         stateB.angularVelocity = result.angVelB
         
-        stateA.state = determineMotionState(stateA)
-        stateB.state = determineMotionState(stateB)
+        stateA.state = EngineNumerics.determineMotionState(stateA)
+        stateB.state = EngineNumerics.determineMotionState(stateB)
         
         balls[ballA] = stateA
         balls[ballB] = stateB
     }
     
-    /// Precisely positions two balls at exactly 2R + MIN_DIST separation before impulse resolution.
-    ///
-    /// Ref: pooltool/physics/resolve/ball_ball/core.py CoreBallBallCollision.make_kiss
-    ///
-    /// Primary method: solve a quadratic for the time offset δt that achieves the target
-    /// separation, then shift both balls by δt along their current velocities (acceleration
-    /// is negligible for the small offsets involved).
-    /// Fallback: when both balls are non-translating or the quadratic solution shifts the
-    /// contact midpoint by more than 5× MIN_DIST, push each ball symmetrically along the
-    /// line of centers.
-    private func makeBallBallKiss(stateA: inout BallState, stateB: inout BallState) {
-        let spacer: Float = 1e-5  // MIN_DIST equivalent for ball-ball contact
-        let targetDist = 2 * BallPhysics.radius + spacer
-        
-        let delta = stateB.position - stateA.position
-        let dist = delta.length()
-        
-        // Fast-path: already at or beyond target separation, nothing to do.
-        if dist >= targetDist { return }
-
-        // Diagnostic: a kiss correction is needed — ball centers are closer than 2R+spacer.
-        let penetration = targetDist - dist
-        kissCountBallBall += 1
-        if penetration > maxBallBallPenetration { maxBallBallPenetration = penetration }
-        let penMM_bb = String(format: "%.4f", penetration * 1000)
-        let distMM_bb = String(format: "%.4f", dist * 1000)
-        let tSec_bb = String(format: "%.4f", currentTime)
-        
-        let n: SCNVector3
-        if dist > 1e-6 {
-            n = delta * (1.0 / dist)
-        } else {
-            n = SCNVector3(1, 0, 0)
-        }
-        
-        let aIsNontranslating = stateA.velocity.length() < 1e-6
-        let bIsNontranslating = stateB.velocity.length() < 1e-6
-        
-        if aIsNontranslating && bIsNontranslating {
-            // Both stationary: push symmetrically along line of centers (fallback).
-            kissCountBallBallFallback += 1
-            let push = (targetDist - dist) * 0.5
-            stateA.position = stateA.position - n * push
-            stateB.position = stateB.position + n * push
-            return
-        }
-        
-        // Quadratic solve: find δt such that |dr + dv·δt|² = targetDist²
-        // where dr = rB - rA, dv = vB - vA
-        let dv = stateB.velocity - stateA.velocity
-        let alpha = dv.dot(dv)
-        let beta  = 2 * delta.dot(dv)
-        let gamma = delta.dot(delta) - targetDist * targetDist
-        
-        var useFallback = true
-        if abs(alpha) > 1e-12 {
-            let discriminant = beta * beta - 4 * alpha * gamma
-            if discriminant >= 0 {
-                let sqrtD = sqrtf(discriminant)
-                let t1 = (-beta - sqrtD) / (2 * alpha)
-                let t2 = (-beta + sqrtD) / (2 * alpha)
-                // Pick the root with smallest |δt|, i.e. smallest position shift.
-                let t = abs(t1) <= abs(t2) ? t1 : t2
-                
-                let r1New = stateA.position + stateA.velocity * t
-                let r2New = stateB.position + stateB.velocity * t
-                
-                // Reject if the midpoint moves more than 5× spacer (similar velocity case).
-                let midOld = (stateA.position + stateB.position) * 0.5
-                let midNew = (r1New + r2New) * 0.5
-                if (midNew - midOld).length() <= 5 * spacer {
-                    stateA.position = r1New
-                    stateB.position = r2New
-                    useFallback = false
-                }
-            }
-        }
-        
-        if useFallback {
-            kissCountBallBallFallback += 1
-            let newDist = (stateB.position - stateA.position).length()
-            let push = (targetDist - max(newDist, 1e-6)) * 0.5
-            if push > 0 {
-                stateA.position = stateA.position - n * push
-                stateB.position = stateB.position + n * push
-            }
-        }
-    }
-    
-    /// Resolve ball-cushion collision using pure computation
-    private func resolveBallCushionCollision(ball: String, cushionIndex: Int, normal: SCNVector3) {
-        guard var state = balls[ball] else { return }
-        guard !state.isPocketed else { return }
+    /// Resolve ball-cushion collision using pure computation.
+    /// - Returns: `true` 当冲量真正施加；`false` 当事件因球已退离库面而被跳过。
+    @discardableResult
+    private func resolveBallCushionCollision(ball: String, cushionIndex: Int, normal: SCNVector3) -> Bool {
+        guard var state = balls[ball] else { return false }
+        guard !state.isPocketed else { return false }
         
         let linearCount = tableGeometry.linearCushions.count
         let resolvedNormal: SCNVector3
+        // 该段恢复系数：线性库边可携带各自的恢复系数（袋口喉腔壁更"死"），圆弧库用全局值。
+        var restitution = TablePhysics.cushionRestitution
         
         if cushionIndex >= linearCount {
             let arcIdx = cushionIndex - linearCount
@@ -1261,96 +835,41 @@ class EventDrivenEngine {
             }
         } else {
             resolvedNormal = normal
+            if cushionIndex >= 0, cushionIndex < linearCount,
+               let e = tableGeometry.linearCushions[cushionIndex].restitution {
+                restitution = e
+            }
         }
+
+        // 库边只能「推」不能「拉」（物理护栏，FL 根因修复·吃库竞态，2026-06-12）：
+        // resolvedNormal 指向台内（线性库存储法向 / 弧由弧心指向球），球逼近库面 ⇔ v·n < 0。
+        // 若解析时球已在退离（v·n ≥ 0，如事件排定后状态被事件流外的突变改写），施加冲量
+        // 是非物理的——`resolveCushionCollisionPure` 会按速度方向自动翻转接触系，把退离球
+        // 再次反射**回库内**。此处跳过过时事件；v·n = 0（纯切向擦库）时 Han 的法向冲量本为
+        // 零，跳过与解析等价。
+        let approachSpeed = state.velocity.x * resolvedNormal.x + state.velocity.z * resolvedNormal.z
+        guard approachSpeed < 0 else { return false }
         
         // Ref: pooltool/physics/resolve/ball_cushion/core.py CoreBallLCushionCollision.make_kiss
         // Move the ball to exactly R + spacer distance from the cushion surface before
         // applying the reflection impulse. Without this, accumulated floating-point drift
         // leaves the ball slightly inside the cushion wall; the reflected velocity then
         // points inward, causing repeated zero-time re-detections ("cushion oscillation").
-        makeBallCushionKiss(state: &state, cushionIndex: cushionIndex, normal: resolvedNormal)
+        EngineNumerics.makeBallCushionKiss(state: &state, cushionIndex: cushionIndex, normal: resolvedNormal, geometry: tableGeometry)
         
         let result = CollisionResolver.resolveCushionCollisionPure(
             velocity: state.velocity,
             angularVelocity: state.angularVelocity,
-            normal: resolvedNormal
+            normal: resolvedNormal,
+            restitution: restitution
         )
         
         state.velocity = result.velocity
         state.angularVelocity = result.angularVelocity
-        state.state = determineMotionState(state)
+        state.state = EngineNumerics.determineMotionState(state)
         
         balls[ball] = state
-    }
-    
-    /// Translates the ball along the cushion normal so it sits exactly R + spacer from the surface.
-    ///
-    /// Ref: pooltool/physics/resolve/ball_cushion/core.py
-    /// - For linear cushions: project ball center onto cushion line, compute gap, push out.
-    /// - For circular cushions: use arc center distance, compute gap, push out along normal.
-    private func makeBallCushionKiss(state: inout BallState, cushionIndex: Int, normal: SCNVector3) {
-        let spacer: Float = 1e-6  // 1e-9 in pooltool; use 1e-6 to absorb Float32 rounding
-        let linearCount = tableGeometry.linearCushions.count
-        
-        if cushionIndex < linearCount {
-            let cushion = tableGeometry.linearCushions[cushionIndex]
-            // Closest point on the cushion line segment to the ball center (XZ plane).
-            let closest = closestPointOnSegmentXZ(
-                point: state.position,
-                segStart: cushion.start,
-                segEnd: cushion.end
-            )
-            let dx = state.position.x - closest.x
-            let dz = state.position.z - closest.z
-            let gap = sqrtf(dx * dx + dz * dz)  // XZ distance from ball center to cushion edge
-            let correction = BallPhysics.radius - gap + spacer
-            if correction > -spacer {
-                // Diagnostic: ball has penetrated linear cushion.
-                kissCountCushion += 1
-                let penetration = correction - spacer  // actual penetration depth
-                if penetration > maxCushionPenetration { maxCushionPenetration = penetration }
-                let penMM_lc = String(format: "%.4f", penetration * 1000)
-                let tSec_lc = String(format: "%.4f", currentTime)
-                // Ensure the normal points away from the cushion (toward ball interior).
-                let outward: SCNVector3
-                if normal.dot(state.velocity) > 0 {
-                    outward = normal
-                } else {
-                    outward = SCNVector3(-normal.x, -normal.y, -normal.z)
-                }
-                state.position = state.position - outward * correction
-            }
-        } else {
-            let arcIdx = cushionIndex - linearCount
-            guard arcIdx < tableGeometry.circularCushions.count else { return }
-            let arc = tableGeometry.circularCushions[arcIdx]
-            let dx = state.position.x - arc.center.x
-            let dz = state.position.z - arc.center.z
-            let distToCenter = sqrtf(dx * dx + dz * dz)
-            // Ball surface should be at arc.radius + BallPhysics.radius from arc center.
-            let correction = BallPhysics.radius + arc.radius - distToCenter - spacer
-            if correction > -spacer {
-                // Diagnostic: ball has penetrated circular cushion arc.
-                kissCountCushion += 1
-                let penetration = correction + spacer  // actual penetration into arc
-                if penetration > maxCushionPenetration { maxCushionPenetration = penetration }
-                let penMM_ac = String(format: "%.4f", penetration * 1000)
-                let tSec_ac = String(format: "%.4f", currentTime)
-                let outward = normal  // arc normal already points away from arc center toward ball
-                state.position = state.position + outward * correction
-            }
-        }
-    }
-    
-    /// Returns the closest point on the infinite line through segStart–segEnd to the given point,
-    /// clamped to the segment, computed only in the XZ plane (Y coordinate from segStart).
-    private func closestPointOnSegmentXZ(point: SCNVector3, segStart: SCNVector3, segEnd: SCNVector3) -> SCNVector3 {
-        let dx = segEnd.x - segStart.x
-        let dz = segEnd.z - segStart.z
-        let lenSq = dx * dx + dz * dz
-        guard lenSq > 1e-12 else { return segStart }
-        let t = max(0, min(1, ((point.x - segStart.x) * dx + (point.z - segStart.z) * dz) / lenSq))
-        return SCNVector3(segStart.x + t * dx, segStart.y, segStart.z + t * dz)
+        return true
     }
     
     /// Resolve state transition
@@ -1386,9 +905,10 @@ class EventDrivenEngine {
     private func resolvePocket(ball: String, pocketId: String) -> Bool {
         guard var state = balls[ball] else { return false }
         
-        // 防止数值误判导致"球在台面中部突然消失"：
-        // 使用 XZ 2D 距离：袋口中心在台面高度处，球心在台面上方 radius，
-        // 若用 3D 距离会永远带一个 Y 偏移量，导致误拒绝合法进袋。
+        // 两段式真实落袋判据（ADR-P10-05，XZ 2D）——取代旧「球心进圈即吸入」的大捕获圆真空：
+        //   ① 正对小核：球速度射线到袋心的垂距 ≤ pocketCoreMissRadius ⇒ 任何力度落袋（正常清晰进球）；
+        //   ② 慢速 settle：球抵袋口捕获圈时水平速度 ≤ pocketDropSpeed ⇒ 落袋（小力擦 jaw 衰减后 settle）；
+        //   否则 ⇒ 拒绝落袋（球带速越过袋口 → 撞喉腔后壁 → rattle 弹出，真实袋口行为）。
         if let pocket = tableGeometry.pockets.first(where: { $0.id == pocketId }) {
             let dx = state.position.x - pocket.center.x
             let dz = state.position.z - pocket.center.z
@@ -1396,6 +916,20 @@ class EventDrivenEngine {
             let allowed = pocket.radius + BallPhysics.radius * 1.5
             if dist > allowed {
                 return false
+            }
+            let vx = state.velocity.x, vz = state.velocity.z
+            let speed = sqrtf(vx * vx + vz * vz)
+            // 速度射线到袋心的垂距（球若沿此速度直行，最近能到袋心多近）。
+            var missDist = dist
+            if speed > 1e-5 {
+                let ux = vx / speed, uz = vz / speed
+                missDist = abs((pocket.center.x - state.position.x) * uz
+                             - (pocket.center.z - state.position.z) * ux)
+            }
+            let threadsCore = missDist <= TablePhysics.pocketCoreMissRadius
+            let slowSettle = speed <= TablePhysics.pocketDropSpeed
+            if !(threadsCore || slowSettle) {
+                return false   // 带速擦袋、非正对 → 不落袋，交给喉腔后壁弹回
             }
             // 落袋即把球心吸到袋心（球落入洞中央）：使轨迹明确「进洞」，下游进袋判定
             // 与画面一致（橙线终点落在袋心，而非冻结在喉口外侧的事件采样点）。
@@ -1407,33 +941,6 @@ class EventDrivenEngine {
         
         balls[ball] = state
         return true
-    }
-    
-    /// Determine motion state from ball kinematics
-    private func determineMotionState(_ ball: BallState) -> BallMotionState {
-        if ball.isPocketed {
-            return .pocketed
-        }
-        
-        let speed = ball.velocity.length()
-        let relVel = AnalyticalMotion.surfaceVelocity(
-            linear: ball.velocity,
-            angular: ball.angularVelocity,
-            radius: BallPhysics.radius
-        )
-        let relSpeed = relVel.length()
-        
-        if speed < 0.001 && abs(ball.angularVelocity.y) < 0.001 {
-            return .stationary
-        } else if relSpeed > 0.001 {
-            return .sliding
-        } else if speed > 0.001 {
-            return .rolling
-        } else if abs(ball.angularVelocity.y) > 0.001 {
-            return .spinning
-        } else {
-            return .stationary
-        }
     }
     
     /// Invalidate cache for affected balls in an event
@@ -1457,7 +964,8 @@ class EventDrivenEngine {
     
     /// Record current state snapshot to trajectory recorder
     private func recordSnapshot() {
-        for (name, ball) in balls {
+        for name in ballOrder {
+            guard let ball = balls[name] else { continue }
             let frame = BallFrame(
                 time: currentTime,
                 position: ball.position,
@@ -1467,247 +975,5 @@ class EventDrivenEngine {
             )
             trajectoryRecorder.recordFrame(ballName: name, frame: frame)
         }
-    }
-    
-    /// Check whether a collision point lies on a finite cushion segment.
-    private func isWithinLinearCushionSegment(point: SCNVector3, segment: LinearCushionSegment) -> Bool {
-        let segmentVector = segment.end - segment.start
-        let segmentLengthSquared = segmentVector.dot(segmentVector)
-        guard segmentLengthSquared > 1e-8 else { return false }
-        
-        let t = (point - segment.start).dot(segmentVector) / segmentLengthSquared
-        let epsilon: Float = 0.001
-        return t >= -epsilon && t <= 1 + epsilon
-    }
-    
-    /// 判断两球是否已经接触/重叠（用于在 findNextEvent 中立即调度 t=0 碰撞）
-    ///
-    /// 修复：严重重叠时（穿透 > 0.1mm）无条件返回 true，不检查速度方向。
-    /// 原先因 relV.dot(n) 守卫，在链式碰撞后两球同向运动时会漏报 → 四次方程
-    /// 对已穿透对求不到正根 → 碰撞被完全忽略 → 重叠积累到 15mm。
-    private func isBallPairOverlappingOrTouching(_ a: BallState, _ b: BallState) -> Bool {
-        let delta = b.position - a.position
-        // Use XZ-plane distance to match separateOverlappingBalls. If we used 3D distance
-        // here but separate uses XZ, a pair could be flagged by separate yet not trigger
-        // a t=0 event, allowing penetration to grow unchecked.
-        let d2 = delta.x * delta.x + delta.z * delta.z
-        let dist = sqrtf(max(d2, 1e-12))
-        let touchDist = 2 * BallPhysics.radius
-        let eps: Float = 0.00025
-
-        guard dist <= touchDist + eps else { return false }
-
-        // If balls are actually penetrating (not just touching), always schedule a t=0
-        // resolution regardless of velocity direction. Penetration means the quartic will
-        // only find negative-time roots, so we must force-resolve now.
-        let penetration = touchDist - dist
-        if penetration > 0.00001 {  // > 0.01 mm actual overlap
-            return true
-        }
-
-        // For just-touching balls, only trigger when approaching (relV.dot(n) < 0) to
-        // avoid a storm of zero-time events on resting clusters.
-        let relV = b.velocity - a.velocity
-        if dist < 1e-5 {
-            return relV.length() > 0.02
-        }
-        let n = SCNVector3(delta.x / dist, 0, delta.z / dist)
-        return relV.dot(n) < -0.002
-    }
-    
-    /// 是否值得触发离散保底碰撞检测（昂贵操作，需严格限流）
-    private func shouldRunFallbackBallBallCheck(
-        ballA: BallState,
-        ballB: BallState,
-        aA: SCNVector3,
-        aB: SCNVector3,
-        maxTime: Float
-    ) -> Bool {
-        guard maxTime > 0 else { return false }
-
-        let dp = ballB.position - ballA.position
-        let dx = dp.x, dz = dp.z
-        let dist = sqrtf(dx * dx + dz * dz)
-        let touch = 2 * BallPhysics.radius
-        guard dist > 1e-6 else { return true }  // 已重叠，直接允许
-
-        // Near-field safeguard: quartic misses are most visible for translating vs
-        // nontranslating pairs at short range (stationary/spinning target hit by
-        // rolling/sliding ball). Allow fallback early in this zone.
-        let aTranslating = !(ballA.state == .stationary || ballA.state == .spinning || ballA.state == .pocketed)
-        let bTranslating = !(ballB.state == .stationary || ballB.state == .spinning || ballB.state == .pocketed)
-        let gap = dist - touch
-        // Fallback is a local rescue for quartic misses, not a long-range predictor.
-        // Far pairs tend to generate phantom hits under constant-acceleration approximation.
-        if gap > 0.35 {
-            return false
-        }
-        if aTranslating != bTranslating && gap < 0.25 {
-            return true
-        }
-
-        // Also open fallback for generic near-field active pairs (including
-        // rolling-rolling / rolling-spinning) where quartic misses still appear in logs.
-        // We keep this band small to avoid excessive fallback scans.
-        let relVxz = sqrtf(powf(ballB.velocity.x - ballA.velocity.x, 2) + powf(ballB.velocity.z - ballA.velocity.z, 2))
-        if (aTranslating || bTranslating) && gap < 0.08 && relVxz > 0.01 {
-            return true
-        }
-
-        // 连心线方向单位向量（XZ 平面）
-        let nx = dx / dist, nz = dz / dist
-
-        let relV = ballB.velocity - ballA.velocity
-        let relA = aB - aA
-
-        // 沿连心线的靠近速度（负值 = 靠近）
-        let approachV = relV.x * nx + relV.z * nz
-        // 沿连心线的靠近加速度（负值 = 加速靠近）
-        let approachA = relA.x * nx + relA.z * nz
-
-        // 必须在 horizon 内能靠近到 touch 距离
-        // 最大可靠近量 = |min(approachV, 0)| * horizon + 0.5*|min(approachA,0)| * horizon²
-        let closingV = max(-approachV, 0.0)   // 靠近速度分量（正值）
-        let closingA = max(-approachA, 0.0)   // 靠近加速度分量（正值）
-        // Keep the gate local in time to avoid approving long-horizon speculative collisions.
-        let horizonForGate = min(maxTime, 0.6)
-        let maxClosing = closingV * horizonForGate + 0.5 * closingA * horizonForGate * horizonForGate
-
-        // 若最大可靠近量 + 容差仍不足以从 dist 缩短到 touch，则不可能碰撞
-        if dist - touch > maxClosing + 0.002 {
-            return false
-        }
-
-        return true
-    }
-    
-    /// quartic 漏检时，使用离散+二分求保底碰撞时刻
-    private func fallbackBallBallCollisionTime(
-        ballA: BallState,
-        ballB: BallState,
-        aA: SCNVector3,
-        aB: SCNVector3,
-        maxTime: Float
-    ) -> Float? {
-        let touch = 2 * BallPhysics.radius
-        guard maxTime > 0 else { return nil }
-
-        // Limit horizon to the time during which the constant-acceleration model is valid.
-        // Beyond a state-transition, the acceleration changes, so extending past it
-        // produces incorrect (phantom) collision times.
-        // Use the shorter of the two balls' remaining state lifetimes.
-        func stateLifetime(_ ball: BallState) -> Float {
-            switch ball.state {
-            case .sliding:
-                return AnalyticalMotion.slideToRollTime(
-                    velocity: ball.velocity,
-                    angularVelocity: ball.angularVelocity
-                )
-            case .rolling:
-                return AnalyticalMotion.rollToSpinTime(velocity: ball.velocity)
-            case .spinning:
-                return AnalyticalMotion.spinToStationaryTime(angularVelocity: ball.angularVelocity)
-            case .stationary, .pocketed:
-                return 0
-            }
-        }
-        let lifetimeA = stateLifetime(ballA)
-        let lifetimeB = stateLifetime(ballB)
-        // Add small margin (1 step) to catch collisions right at the boundary,
-        // but cap strictly so we don't wander into the next motion phase.
-        let stateHorizon = min(lifetimeA, lifetimeB) * 1.05 + 0.05
-        // Keep fallback horizon short and local; quartic is the primary solver for long range.
-        let horizon = min(maxTime, stateHorizon, 0.6)
-        guard horizon > 0 else { return nil }
-
-        // Adaptive steps: each step ≤ 0.02s; 40–300 steps
-        let steps = min(300, max(40, Int(ceil(horizon / 0.02))))
-        let dt = horizon / Float(steps)
-        
-        func distanceMinusTouch(_ t: Float) -> Float {
-            let pA = ballA.position + ballA.velocity * t + aA * (0.5 * t * t)
-            let pB = ballB.position + ballB.velocity * t + aB * (0.5 * t * t)
-            let dx = pA.x - pB.x
-            let dz = pA.z - pB.z
-            return sqrtf(dx * dx + dz * dz) - touch
-        }
-        
-        var t0: Float = 0
-        var f0 = distanceMinusTouch(0)
-        if f0 <= 0 { return 0 }
-        
-        for i in 1...steps {
-            let t1 = Float(i) * dt
-            let f1 = distanceMinusTouch(t1)
-            if f1 <= 0 || (f0 > 0 && f1 < 0) {
-                var lo = t0
-                var hi = t1
-                for _ in 0..<18 {
-                    let mid = (lo + hi) * 0.5
-                    if distanceMinusTouch(mid) <= 0 {
-                        hi = mid
-                    } else {
-                        lo = mid
-                    }
-                }
-                return hi
-            }
-            t0 = t1
-            f0 = f1
-        }
-        
-        return nil
-    }
-    
-    /// Select smallest positive root within maxTime
-    private func smallestPositiveRoot(_ roots: [Double], maxTime: Float) -> Float? {
-        let epsilon = 1e-6
-        let maxT = Double(maxTime) + 1e-6
-        let validRoots = roots.filter { $0 > epsilon && $0 <= maxT && $0.isFinite && !$0.isNaN }
-        guard let smallest = validRoots.min() else { return nil }
-        return Float(smallest)
-    }
-}
-
-// MARK: - SceneKit Bridge
-
-/// Bridge for playing back trajectory recordings in SceneKit
-class SceneKitBridge {
-    /// Play back trajectory for a ball node
-    /// - Parameters:
-    ///   - node: SceneKit node to animate
-    ///   - ballName: Name of the ball in the trajectory recorder
-    ///   - recorder: Trajectory recorder containing recorded frames
-    ///   - speed: Playback speed multiplier (1.0 = real-time)
-    /// - Returns: SCNAction sequence for the trajectory, or nil if no trajectory found
-    static func playTrajectory(
-        node: SCNNode,
-        ballName: String,
-        recorder: TrajectoryRecorder,
-        speed: Float = 1.0
-    ) -> SCNAction? {
-        return recorder.action(for: node, ballName: ballName, speed: speed)
-    }
-    
-    /// Play back trajectories for multiple balls simultaneously
-    /// - Parameters:
-    ///   - nodes: Dictionary mapping ball names to SceneKit nodes
-    ///   - recorder: Trajectory recorder containing recorded frames
-    ///   - speed: Playback speed multiplier (1.0 = real-time)
-    /// - Returns: Dictionary mapping ball names to SCNAction sequences
-    static func playTrajectories(
-        nodes: [String: SCNNode],
-        recorder: TrajectoryRecorder,
-        speed: Float = 1.0
-    ) -> [String: SCNAction] {
-        var actions: [String: SCNAction] = [:]
-        
-        for (ballName, node) in nodes {
-            if let action = recorder.action(for: node, ballName: ballName, speed: speed) {
-                actions[ballName] = action
-            }
-        }
-        
-        return actions
     }
 }

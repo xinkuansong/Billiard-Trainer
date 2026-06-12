@@ -133,6 +133,7 @@ struct Scene2DAimingView: View {
             scene: vm.scene,
             cameraMode: .constant(.topDown2DRotated),
             interactionMode: vm.phase == .observing ? .tapsOnly : .none,
+            autoFitsRotatedTable: true,
             onPocketTapped: { _ in /* fixed by question */ }
         )
         .ignoresSafeArea(edges: .bottom)
@@ -145,15 +146,15 @@ struct Scene2DAimingView: View {
             Color.clear
             if vm.phase == .observing, !vm.testFinished {
                 VStack(spacing: Spacing.md) {
-                    fab(
+                    BTSceneFAB(
                         icon: vm.showAimingAssist ? "eye.slash.fill" : "scope",
                         title: vm.showAimingAssist ? "隐藏" : "辅助"
                     ) {
                         vm.toggleAimingAssist()
                     }
-                    .opacity(vm.showAimingAssist ? 1.0 : 0.92)
 
-                    fab(icon: "pencil.and.list.clipboard", title: "答题") {
+                    BTSceneFAB(icon: "pencil.and.list.clipboard", title: "答题",
+                               variant: .primary) {
                         vm.openAnswerInput()
                     }
                 }
@@ -162,7 +163,7 @@ struct Scene2DAimingView: View {
                 .padding(.bottom, Spacing.xl + 64)
                 .transition(.scale.combined(with: .opacity))
             } else if vm.phase == .showingResult, !vm.testFinished {
-                fab(icon: "arrow.right", title: nextButtonTitle) {
+                BTSceneFAB(icon: "arrow.right", title: nextButtonTitle, variant: .primary) {
                     vm.advanceToNext()
                 }
                 .padding(.trailing, Spacing.lg)
@@ -267,29 +268,6 @@ struct Scene2DAimingView: View {
             return "下一题"
         }
         return "总结"
-    }
-
-    // MARK: - FAB
-
-    private func fab(icon: String, title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(LinearGradient(
-                        colors: [.btPrimary, Color(red: 0.0, green: 0.45, blue: 0.25)],
-                        startPoint: .top, endPoint: .bottom))
-                    .frame(width: 64, height: 64)
-                VStack(spacing: 0) {
-                    Image(systemName: icon)
-                        .font(.system(size: 22, weight: .semibold))
-                    Text(title)
-                        .font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-            }
-            .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
-        }
-        .buttonStyle(.plain)
     }
 
     // MARK: - Summary

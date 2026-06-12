@@ -37,6 +37,133 @@ final class TrajectoryPlayback {
     private(set) var fadingBalls: [String: Float] = [:]
     
     private let fadeOutDuration: Float = 0.25
+
+    /// 进袋入洞段（#4 v2）单段行程时长上限：入洞以**进袋时真实速度匀速**冲入，不应提前减速；
+    /// 上限只为慢速 settle 兜底，避免拖太久。
+    static let pocketEntryLegMaxDuration: TimeInterval = 0.30
+    /// 撞远端袋弧后回落到袋心的短促 settle 时长。
+    static let pocketSettleBackDuration: TimeInterval = 0.12
+    /// 入洞段最小视觉速度 (m/s)：jaw settle / 慢滚进袋的球也要有可见的入洞动作。
+    static let pocketMinEntrySpeed: Float = 0.4
+    /// 进袋后先停顿一拍再淡出（直接消失体验差）：球落到袋心静置 `pocketPauseDuration` 秒后才开始淡出。
+    static let pocketPauseDuration: TimeInterval = 0.35
+    /// 进袋淡出时长（停顿之后）。
+    static let pocketFadeDuration: TimeInterval = 0.25
+    /// 进袋收尾总时长上限（入洞 + 回落 + 停顿 + 淡出），供回放/导出收尾对齐。
+    static var pocketSettleDuration: TimeInterval {
+        pocketEntryLegMaxDuration + pocketSettleBackDuration + pocketPauseDuration + pocketFadeDuration
+    }
+
+    // MARK: - Pocket entry (#4 v2：捕获点 → 远端袋弧 → 袋心)
+
+    /// 入洞段路标：依次 move 的目标点与时长。`eased = true` 表示该段 easeOut（撞弧后回落）。
+    struct PocketEntryLeg {
+        let to: SCNVector3
+        let duration: TimeInterval
+        let eased: Bool
+    }
+
+    /// 求进袋入洞段（显示层，与物理引擎解耦）。
+    ///
+    /// 引擎在落袋孔捕获圈（0.070/0.075m，视觉袋口圆 0.042/0.043m 之外）捕获球并停止记录，
+    /// 「捕获点 → 洞内」这段需要显示层补：球以**进袋时的真实水平速度匀速**冲入洞内
+    /// （绝不提前减速）；若速度射线穿过袋口圆，则先在**远端袋弧**处撞壁，再短促回落到袋心；
+    /// 射线不穿圆（慢速 settle / 方向缺失）则直接匀速滑到袋心。
+    /// - Parameter speedScale: 回放速度倍率（与轨迹回放一致，保证入洞速度视觉连续）。
+    static func solvePocketEntry(
+        capture: SCNVector3,
+        velocity: SCNVector3,
+        pocketCenter: SCNVector3,
+        pocketRadius: Float,
+        speedScale: Float
+    ) -> [PocketEntryLeg] {
+        let y = capture.y
+        let center = SCNVector3(pocketCenter.x, y, pocketCenter.z)
+        let vLen = sqrtf(velocity.x * velocity.x + velocity.z * velocity.z)
+        let speed = max(pocketMinEntrySpeed, vLen) * max(0.05, speedScale)
+
+        // 入洞方向：优先沿进袋时速度方向；速度缺失（settle）退化为指向袋心。
+        var dirX = velocity.x, dirZ = velocity.z
+        if vLen < 0.05 {
+            dirX = center.x - capture.x
+            dirZ = center.z - capture.z
+        }
+        let dLen = sqrtf(dirX * dirX + dirZ * dirZ)
+        guard dLen > 1e-4 else {
+            return [PocketEntryLeg(to: center, duration: pocketSettleBackDuration, eased: true)]
+        }
+        dirX /= dLen; dirZ /= dLen
+
+        // 远端袋弧碰撞点：射线 capture + t·dir 与「球心可达弧」（袋口圆半径收 0.3R，
+        // 球鼻触壁时球心略在弧内）的远交点。
+        let rHit = pocketRadius - 0.3 * AngleSceneCalculator.ballRadius
+        let fx = capture.x - center.x
+        let fz = capture.z - center.z
+        let b = fx * dirX + fz * dirZ
+        let c = fx * fx + fz * fz - rHit * rHit
+        let disc = b * b - c
+        var legs: [PocketEntryLeg] = []
+        if disc > 0 {
+            let tFar = -b + sqrtf(disc)
+            if tFar > 1e-3 {
+                let hit = SCNVector3(capture.x + dirX * tFar, y, capture.z + dirZ * tFar)
+                legs.append(PocketEntryLeg(
+                    to: hit,
+                    duration: min(TimeInterval(tFar / speed), pocketEntryLegMaxDuration),
+                    eased: false
+                ))
+                legs.append(PocketEntryLeg(to: center, duration: pocketSettleBackDuration, eased: true))
+                return legs
+            }
+        }
+        // 射线不穿袋口圆：直接匀速滑到袋心。
+        let dist = sqrtf(fx * fx + fz * fz)
+        return [PocketEntryLeg(
+            to: center,
+            duration: min(TimeInterval(dist / speed), pocketEntryLegMaxDuration),
+            eased: false
+        )]
+    }
+
+    /// 入洞段在真实播放秒 `real` 时的位置（导出器逐帧驱动用，与 SCNAction 版同源）。
+    /// 超过总时长后停在最后一个路标（袋心）。
+    static func pocketEntryPosition(
+        start: SCNVector3, legs: [PocketEntryLeg], at real: TimeInterval
+    ) -> SCNVector3 {
+        var from = start
+        var t = real
+        for leg in legs {
+            if t < leg.duration, leg.duration > 1e-6 {
+                var u = Float(t / leg.duration)
+                if leg.eased { u = 1 - (1 - u) * (1 - u) }   // easeOut，与 SCNAction 版一致
+                return SCNVector3(from.x + (leg.to.x - from.x) * u,
+                                  from.y,
+                                  from.z + (leg.to.z - from.z) * u)
+            }
+            t -= leg.duration
+            from = leg.to
+        }
+        return legs.last?.to ?? start
+    }
+
+    /// 入洞段总时长。
+    static func pocketEntryDuration(_ legs: [PocketEntryLeg]) -> TimeInterval {
+        legs.reduce(0) { $0 + $1.duration }
+    }
+
+    /// 最近袋口（中心 + 视觉袋口圆半径）。pocketed 帧并非总在袋心
+    /// （CCD 深入/jaw-settle 路径不吸心），入洞目标必须按最近袋口查找。
+    static func nearestPocket(to p: SCNVector3, surfaceY: Float) -> (center: SCNVector3, radius: Float) {
+        let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
+        var bestIndex = 0
+        var bestDist = Float.greatestFiniteMagnitude
+        for (i, c) in pockets.enumerated() {
+            let dx = c.x - p.x, dz = c.z - p.z
+            let d = dx * dx + dz * dz
+            if d < bestDist { bestDist = d; bestIndex = i }
+        }
+        return (pockets[bestIndex], AngleSceneCalculator.pocketMarkerRadius(index: bestIndex))
+    }
     
     var duration: Float { recorder.duration }
     
@@ -223,9 +350,34 @@ final class TrajectoryPlayback {
         // 强引用 self：动画存续期间（绑定在节点上）保证 playback 不被释放；
         // playback 不持有节点，节点 `removeAllActions` 后即解除引用，无循环。
         let evaluate = SCNAction.customAction(duration: realDuration) { node, elapsed in
+            // 进袋后位置/透明度由「沉入 → 停顿 → 淡出」子动作接管，逐帧求值不再覆盖。
+            if cursor.didFade { return }
+
             let tSim = min(Float(elapsed) * spd, self.duration)
             guard let s = self.stateAt(ballName: ballName, time: tSim) else { return }
+
+            if s.motionState == .pocketed {
+                cursor.didFade = true
+                // 入洞（#4 v2）：以进袋时的真实速度匀速冲入洞内（不提前减速），
+                // 穿圆则先撞远端袋弧再短促回落袋心；球心到袋心后停顿一拍（#9）再淡出。
+                let pocket = Self.nearestPocket(to: node.position, surfaceY: self.surfaceY)
+                let legs = Self.solvePocketEntry(
+                    capture: node.position, velocity: cursor.lastVelocity,
+                    pocketCenter: pocket.center, pocketRadius: pocket.radius, speedScale: spd
+                )
+                var seq: [SCNAction] = legs.map { leg in
+                    let move = SCNAction.move(to: leg.to, duration: leg.duration)
+                    move.timingMode = leg.eased ? .easeOut : .linear
+                    return move
+                }
+                seq.append(.wait(duration: Self.pocketPauseDuration))
+                seq.append(.fadeOut(duration: Self.pocketFadeDuration))
+                node.runAction(.sequence(seq))
+                return
+            }
+
             node.position = SCNVector3(s.position.x, self.surfaceY, s.position.z)
+            cursor.lastVelocity = s.velocity
 
             let dRot = s.accumulatedRotation - cursor.lastRotation
             if dRot > 1e-5, s.moveDirection.length() > 0.001 {
@@ -236,15 +388,15 @@ final class TrajectoryPlayback {
                 }
             }
             cursor.lastRotation = s.accumulatedRotation
-
-            if !cursor.didFade, s.motionState == .pocketed {
-                cursor.didFade = true
-                node.runAction(.fadeOut(duration: 0.2))
-            }
         }
 
         if willPocket && removeOnPocket {
-            return SCNAction.sequence([evaluate, .removeFromParentNode()])
+            // 留够「沉入 + 停顿 + 淡出」时间再移除节点，保证进袋过程可见。
+            return SCNAction.sequence([
+                evaluate,
+                .wait(duration: Self.pocketSettleDuration),
+                .removeFromParentNode()
+            ])
         }
         return evaluate
     }
@@ -252,6 +404,8 @@ final class TrajectoryPlayback {
     /// 逐帧回放的跨帧可变游标（`customAction` 闭包按帧调用，需在闭包外保存状态）。
     private final class PlaybackCursor {
         var lastRotation: Float = 0
+        /// 最近一帧的真实速度（进袋瞬间用作入洞方向与速度）。
+        var lastVelocity = SCNVector3Zero
         var didFade = false
     }
 

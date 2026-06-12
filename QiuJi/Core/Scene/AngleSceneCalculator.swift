@@ -209,6 +209,39 @@ enum AngleSceneCalculator {
         let naturalVector = pocket - origin
         guard naturalVector.length > 0.0001 else { return nominalPocket }
 
+        // 选点优先级（管道法）：
+        // 1) 正对袋心若能「干净穿过」两片 jaw（完全不擦任一 jaw、不吃主库）→ 直接用，
+        //    保持既有干净直线进球不变。
+        if cleanPipeMargin(
+            origin: origin, aim: pocket, geometry: geometry, clearance: clearance
+        ) != nil {
+            return nominalPocket
+        }
+        // 2) 正对袋心会擦 jaw → 在袋口喉口（两 jaw 内沿 mouthA↔mouthB）内扫描，找一条
+        //    「干净穿过两 jaw 且离两侧 jaw 都最远（最居中）」的进球点。这是 Case 1 的最优解：
+        //    目标球走最直、完全不擦 jaw。避免之前「挑可行域最靠 jaw 的边缘点」导致橙线擦 jaw 拐弯。
+        if geometry.mouth.targetJaws.count == 2 {
+            let mA = geometry.mouth.mouthA
+            let mB = geometry.mouth.mouthB
+            let samples = 48
+            var bestAim: Vector2?
+            var bestMargin = -Float.greatestFiniteMagnitude
+            for i in 0...samples {
+                let t = Float(i) / Float(samples)
+                let candidate = mA * (1 - t) + mB * t
+                if let margin = cleanPipeMargin(
+                    origin: origin, aim: candidate, geometry: geometry, clearance: clearance
+                ), margin > bestMargin {
+                    bestMargin = margin
+                    bestAim = candidate
+                }
+            }
+            if let bestAim {
+                return SCNVector3(bestAim.x, nominalPocket.y, bestAim.z)
+            }
+        }
+        // 3) 任何方向都无法干净穿过 → 只能靠远端 jaw 反弹（Case 2，擦一下不可避免）。
+        //    先看正对袋心是否为合法 Case 2，再退回螺旋搜索取最靠袋心的反弹点。
         if aimPointIsPipeSafe(
             origin: origin, aim: pocket, geometry: geometry, clearance: clearance
         ) {
@@ -270,16 +303,77 @@ enum AngleSceneCalculator {
         )
         guard ordinary.safe else { return false }
 
-        let targetJawDistance = geometry.mouth.targetJaws.map {
-            segmentDistance(origin, pipeEnd, $0.a, $0.b)
-        }.min() ?? Float.greatestFiniteMagnitude
+        // 近/远端 jaw 区分（几何稳健版，不依赖脆弱的直线段最近点分类）：
+        // 以「袋心 → 台心」为袋口轴线，其横向法线 perp 把袋口分成两侧。
+        // 与目标球同侧的 jaw = 近端（球自身一侧，碰到 → 弹回台面 → 情形3 不可行）；
+        // 异侧 = 远端（可被擦到 → 情形2 反弹进袋）。
+        let jaws = geometry.mouth.targetJaws
+        let comps = geometry.mouth.compositeJaws
+        if jaws.count == 2, comps.count == 2 {
+            let pc = geometry.mouth.center
+            var axis = Vector2(-pc.x, -pc.z)
+            let axisLen = axis.length
+            axis = axisLen > 1e-6 ? axis / axisLen : Vector2(0, 1)
+            let perp = Vector2(-axis.z, axis.x)
+            let ballSide = (origin - pc).dot(perp)
+            let side0 = (jaws[0].a - pc).dot(perp)   // jaw0(长库侧)内尖在哪侧
+            let nearIdx = (side0 * ballSide >= 0) ? 0 : 1
 
-        if targetJawDistance < clearance {
-            let boundaryTolerance: Float = 0.004
-            return ordinary.minDistance <= clearance + boundaryTolerance
+            // 近端 jaw 必须按真实复合轮廓（弧 + 线）整段清空（含袋口圆弧），余量 clearance。
+            // 擦到近端 jaw（含其圆弧）→ 会先撞近端弹回台面，违反「碰远端 jaw 前走直线」→ 不可行。
+            if centerlineCompositeJawDistance(origin: origin, pipeEnd: pipeEnd, jaw: comps[nearIdx]) < clearance {
+                return false
+            }
+            // 远端 jaw 允许擦（合法 Case 2 反弹进袋）；管子在碰远端前不吃主库 / 它袋 jaw 已由
+            // ordinary.safe 保证，不吃近端 jaw 已由上面判定保证。
+            return true
+        } else if !jaws.isEmpty {
+            // 退化兜底（非两片 jaw，例如未来几何变更）：沿用旧的就近放行逻辑。
+            let targetJawDistance = jaws.map {
+                segmentDistance(origin, pipeEnd, $0.a, $0.b)
+            }.min() ?? Float.greatestFiniteMagnitude
+            if targetJawDistance < clearance {
+                let boundaryTolerance: Float = 0.004
+                return ordinary.minDistance <= clearance + boundaryTolerance
+            }
         }
 
         return true
+    }
+
+    /// 「干净穿管」度量：候选进球点的管子能否**完全不擦任一 jaw、不吃主库**地穿过袋口。
+    /// - 返回 `nil`：擦到某片 jaw 或吃主库（非干净穿过）。
+    /// - 返回间隙值：管子到最近障碍（两片 jaw + 主库取最小）的距离，越大越居中、目标球越走直线。
+    ///   `effectiveAimPoint` 取该值最大的进球点 = 可行方向锥的「中线」，而非靠 jaw 的边缘。
+    private static func cleanPipeMargin(
+        origin: Vector2,
+        aim: Vector2,
+        geometry: PipeGeometry,
+        clearance: Float
+    ) -> Float? {
+        let vector = aim - origin
+        let length = vector.length
+        guard length > 0.0001 else { return nil }
+        let dir = vector / length
+        let pipeEnd = origin + dir * (length + clearance)
+
+        let ordinary = ordinaryClearance(
+            origin: origin, end: pipeEnd, dir: dir,
+            obstacles: geometry.ordinaryObstacles, clearance: clearance
+        )
+        guard ordinary.safe else { return nil }
+
+        let comps = geometry.mouth.compositeJaws
+        if comps.count == 2 {
+            // 真实轮廓（弧+线）距离：贴库/小切角的球沿圆角弧滑入，必须用弧而非直线段量距。
+            let d0 = centerlineCompositeJawDistance(origin: origin, pipeEnd: pipeEnd, jaw: comps[0])
+            let d1 = centerlineCompositeJawDistance(origin: origin, pipeEnd: pipeEnd, jaw: comps[1])
+            // 干净穿过 = 两片 jaw 都被清空（都不擦）。任一被擦到即非干净。
+            guard d0 >= clearance, d1 >= clearance else { return nil }
+            return min(d0, d1, ordinary.minDistance)
+        }
+        // 无 jaw（中袋）：ordinary.safe 即为干净穿过。
+        return ordinary.minDistance
     }
 
     private struct Vector2 {
@@ -319,11 +413,28 @@ enum AngleSceneCalculator {
         let b: Vector2
     }
 
+    /// 角袋圆角弧段（袋口橡胶圆角）：圆心 + 半径 + 两端点角（取两角之间的劣弧）。
+    /// 参数与 `TableGeometry` 的 `CornerJawGeometry`（CAD 真值，fillet 半径 0.105m）一致。
+    private struct ArcSeg {
+        let center: Vector2
+        let radius: Float
+        let angA: Float   // 端点角（弧线连接主库一端）
+        let angB: Float   // 端点角（弧线连接 jaw 内尖一端）
+    }
+
+    /// 单片 jaw 的真实复合轮廓：圆角弧（主库 → 内尖）+ 直线段（内尖 → 外尖）。
+    private struct CompositeJaw {
+        let arc: ArcSeg
+        let line: Segment2D
+    }
+
     private struct PocketMouth {
         let center: Vector2
         let mouthA: Vector2
         let mouthB: Vector2
         let targetJaws: [Segment2D]
+        /// 与 `targetJaws` 同序（[长库侧, 短库侧]）的复合轮廓（弧+线）。中袋为空。
+        let compositeJaws: [CompositeJaw]
     }
 
     private struct PipeGeometry {
@@ -358,18 +469,35 @@ enum AngleSceneCalculator {
                 center: pocketCenter,
                 mouthA: mouth.mouthA,
                 mouthB: mouth.mouthB,
-                targetJaws: mouth.targetJaws
+                targetJaws: mouth.targetJaws,
+                compositeJaws: mouth.compositeJaws
             ),
             ordinaryObstacles: ordinary
         )
     }
 
+    /// 角袋圆角弧半径（与 `TableGeometry.TablePhysics.cornerPocketFilletRadius` 一致）。
+    private static let cornerPocketFilletRadius: Float = 0.105
+
     private static func pocketMouths() -> [PocketMouth] {
+        let fillet = cornerPocketFilletRadius
+
         func corner(sx: Float, sz: Float, center: Vector2) -> PocketMouth {
-            let longInner = Vector2(sx * 1.2414, sz * 0.6658)
-            let longOuter = Vector2(sx * 1.2823, sz * 0.7067)
-            let shortInner = Vector2(sx * 1.3008, sz * 0.6064)
-            let shortOuter = Vector2(sx * 1.3417, sz * 0.6473)
+            // 直线段（内尖 → 外尖），与 CAD/TableGeometry 一致。
+            let longInner = Vector2(sx * 1.2413568, sz * 0.6657538)
+            let longOuter = Vector2(sx * 1.2823015, sz * 0.7066985)
+            let shortInner = Vector2(sx * 1.3007538, sz * 0.6063568)
+            let shortOuter = Vector2(sx * 1.3416985, sz * 0.6473015)
+            // 圆角弧（主库点 → 内尖），圆心/半径取自 TableGeometry CAD 真值。
+            let longArcCenter = Vector2(sx * 1.1671106, sz * 0.740)
+            let longArcRail = Vector2(sx * 1.1671106, sz * 0.635)   // 270° 接上库
+            let shortArcCenter = Vector2(sx * 1.375, sz * 0.5321106)
+            let shortArcRail = Vector2(sx * 1.270, sz * 0.5321106)  // 180° 接短库
+            func arc(_ c: Vector2, _ railPt: Vector2, _ innerTip: Vector2) -> ArcSeg {
+                let a = railPt - c, b = innerTip - c
+                return ArcSeg(center: c, radius: fillet,
+                              angA: atan2f(a.z, a.x), angB: atan2f(b.z, b.x))
+            }
             return PocketMouth(
                 center: center,
                 mouthA: longInner,
@@ -377,6 +505,12 @@ enum AngleSceneCalculator {
                 targetJaws: [
                     Segment2D(a: longInner, b: longOuter),
                     Segment2D(a: shortInner, b: shortOuter)
+                ],
+                compositeJaws: [
+                    CompositeJaw(arc: arc(longArcCenter, longArcRail, longInner),
+                                 line: Segment2D(a: longInner, b: longOuter)),
+                    CompositeJaw(arc: arc(shortArcCenter, shortArcRail, shortInner),
+                                 line: Segment2D(a: shortInner, b: shortOuter))
                 ]
             )
         }
@@ -390,12 +524,66 @@ enum AngleSceneCalculator {
             corner(sx:  1, sz:  1, center: Vector2( halfL + cornerPocketOffset,  halfW + cornerPocketOffset)),
             PocketMouth(center: Vector2(0, -halfW - middlePocketOffset),
                         mouthA: Vector2(-0.035, -halfW), mouthB: Vector2(0.035, -halfW),
-                        targetJaws: []),
+                        targetJaws: [], compositeJaws: []),
             PocketMouth(center: Vector2(0, halfW + middlePocketOffset),
                         mouthA: Vector2(-0.035, halfW), mouthB: Vector2(0.035, halfW),
-                        targetJaws: [])
+                        targetJaws: [], compositeJaws: [])
         ]
     }
+
+    // MARK: - Composite jaw (arc + line) distance
+
+    /// 点到圆角弧的距离：投影角落在弧内 → ||p−圆心|−半径|；否则取两端点较近者。
+    private static func pointToArc(_ p: Vector2, _ arc: ArcSeg) -> Float {
+        let v = p - arc.center
+        let ang = atan2f(v.z, v.x)
+        if arcContainsAngle(arc, ang) {
+            return abs(v.length - arc.radius)
+        }
+        let ea = arc.center + Vector2(cosf(arc.angA), sinf(arc.angA)) * arc.radius
+        let eb = arc.center + Vector2(cosf(arc.angB), sinf(arc.angB)) * arc.radius
+        return min((p - ea).length, (p - eb).length)
+    }
+
+    /// 角 `t` 是否落在弧 `[angA, angB]` 的劣弧范围内。
+    private static func arcContainsAngle(_ arc: ArcSeg, _ t: Float) -> Bool {
+        func norm(_ x: Float) -> Float {
+            var v = fmodf(x, 2 * .pi)
+            if v < -.pi { v += 2 * .pi }
+            if v > .pi { v -= 2 * .pi }
+            return v
+        }
+        let d = norm(arc.angB - arc.angA)
+        let o = norm(t - arc.angA)
+        if d >= 0 { return o >= -1e-4 && o <= d + 1e-4 }
+        return o <= 1e-4 && o >= d - 1e-4
+    }
+
+    /// 点到单片复合 jaw（弧 + 线段）的最近距离。
+    private static func pointToCompositeJaw(_ p: Vector2, _ jaw: CompositeJaw) -> Float {
+        min(pointToArc(p, jaw.arc), pointSegmentDistance(p, jaw.line))
+    }
+
+    /// 管道中心线段（origin→pipeEnd）到复合 jaw 的最近距离。
+    /// jaw 集中在袋口处，故只在管道末段（靠近袋口的 0.30m）密采样即可，兼顾精度与开销。
+    private static func centerlineCompositeJawDistance(
+        origin: Vector2, pipeEnd: Vector2, jaw: CompositeJaw
+    ) -> Float {
+        let seg = pipeEnd - origin
+        let len = seg.length
+        guard len > 1e-5 else { return pointToCompositeJaw(origin, jaw) }
+        let dir = seg / len
+        let tailStart = max(0, len - 0.30)
+        let step: Float = 0.002
+        var best = Float.greatestFiniteMagnitude
+        var s = tailStart
+        while s <= len + 1e-4 {
+            best = min(best, pointToCompositeJaw(origin + dir * s, jaw))
+            s += step
+        }
+        return min(best, pointToCompositeJaw(pipeEnd, jaw))
+    }
+
 
     private static func ordinaryClearance(
         origin: Vector2,
@@ -543,6 +731,35 @@ enum AngleSceneCalculator {
         let projZ = targetBall.z + t * lineZ
         let distSq = (cueBall.x - projX) * (cueBall.x - projX) + (cueBall.z - projZ) * (cueBall.z - projZ)
         return distSq < (2.5 * ballRadius) * (2.5 * ballRadius)
+    }
+
+    /// Whether any obstacle ball blocks a moving ball travelling from `from` to `to`
+    /// (centre path). Collision condition: obstacle centre within `2R` of the path
+    /// segment (X–Z plane). Projection is clamped to [0, 1] so obstacles hugging
+    /// either endpoint also count as blocking (conservative gate for auto-selection).
+    static func isPathBlocked(
+        from: SCNVector3,
+        to: SCNVector3,
+        obstacles: [SCNVector3],
+        clearance: Float = 2 * ballRadius
+    ) -> Bool {
+        let lineX = to.x - from.x
+        let lineZ = to.z - from.z
+        let lineLenSq = lineX * lineX + lineZ * lineZ
+        guard lineLenSq > 0.0001 else { return false }
+        let clearanceSq = clearance * clearance
+
+        for obstacle in obstacles {
+            let toX = obstacle.x - from.x
+            let toZ = obstacle.z - from.z
+            let t = max(0, min(1, (toX * lineX + toZ * lineZ) / lineLenSq))
+            let projX = from.x + t * lineX
+            let projZ = from.z + t * lineZ
+            let dx = obstacle.x - projX
+            let dz = obstacle.z - projZ
+            if dx * dx + dz * dz < clearanceSq { return true }
+        }
+        return false
     }
 
     // MARK: - Contact point position

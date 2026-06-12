@@ -7,6 +7,12 @@ import Foundation
 /// 用首杆合成一个最小可解码占位（运行时优先 `shotIntent`，渲染层不依赖它）。
 enum PositionPlayDrillExporter {
 
+    /// Drill JSON（`shotIntent.shots[]`）只能表达「目标球 + 袋口」进攻杆；
+    /// 含自由球（`PlannedShot.isFree`）的序列无法导出为训练关卡（视频/GIF 不受限）。
+    static func canExport(_ sequence: PositionPlaySequence) -> Bool {
+        !sequence.steps.isEmpty && !sequence.steps.contains { $0.shot.isFree }
+    }
+
     /// 生成 `DrillContent` 值（可再编码为 JSON）。
     static func makeDrill(
         from sequence: PositionPlaySequence,

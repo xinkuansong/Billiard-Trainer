@@ -38,6 +38,7 @@ struct AngleDynamicView: View {
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
+            autoFitsRotatedTable: true,
             onPocketTapped: { index in
                 vm.selectPocket(at: index)
             },

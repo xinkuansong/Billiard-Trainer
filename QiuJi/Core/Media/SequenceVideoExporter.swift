@@ -117,6 +117,7 @@ enum SequenceVideoExporter {
                     point: CGPoint(x: pt.x, y: pt.y), surfaceY: surfaceY
                 )
                 scene.showBall(key: key, scenePosition: p)
+                scene.allBallNodes[key]?.opacity = 1   // 上一杆进袋淡出后复用节点需复原
             }
         }
 
@@ -127,8 +128,9 @@ enum SequenceVideoExporter {
         for step in sequence.steps {
             placeBoard(step.before)
 
-            // 求解本杆（多球）。
-            guard let pred = solve(step: step, scene: scene, surfaceY: surfaceY), pred.feasible,
+            // 求解本杆（多球；自由球走直瞄模拟）。
+            guard let pred = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY),
+                  pred.feasible,
                   let recorder = pred.recorder, pred.duration > 0.02 else {
                 // 不可行：直接跳到 after 球形，给一小段静帧。
                 placeBoard(step.after)
@@ -136,28 +138,72 @@ enum SequenceVideoExporter {
                 continue
             }
 
-            // 轨迹线（贯穿本杆，教学可见）。
+            // 轨迹线（贯穿本杆，教学可见）。进球线延伸到袋口圆边缘（#8，与编排台同源）。
+            var objPath = pred.objectPath
+            if pred.objectPocketed, !step.shot.isFree,
+               let pocketIndex = ShotIntent.pocketIndex(for: step.shot.pocket) {
+                objPath = PositionPlayShotSolver.extendPathToPocketRim(
+                    objPath, pocketIndex: pocketIndex, surfaceY: surfaceY
+                )
+            }
             var lines: [SCNNode] = []
             lines.append(contentsOf: polyline(pred.cuePath, color: cueColor, scene: scene, y: yLevel))
-            lines.append(contentsOf: polyline(pred.objectPath, color: objectColor, scene: scene, y: yLevel))
+            lines.append(contentsOf: polyline(objPath, color: objectColor, scene: scene, y: yLevel))
+            for (_, pts) in pred.extraBallPaths {
+                lines.append(contentsOf: polyline(pts, color: objectColor, scene: scene, y: yLevel))
+            }
 
             // 设置静帧（含轨迹）。
             for _ in 0..<holdFrames(options.setupHold, fps: options.fps) { try snapshot() }
 
-            // 运动帧。
+            // 运动帧。进袋「匀速入洞 → 撞远端袋弧 → 袋心停顿 → 淡出」
+            // （#4 v2，与编排台 `TrajectoryPlayback` 同源求解）。
             let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
             let onKeys = step.before.onTable.keys.map { $0 }
             let nameMap = Dictionary(uniqueKeysWithValues: onKeys.map {
-                ($0, predName(boardKey: $0, targetKey: step.shot.targetKey))
+                ($0, PositionPlayShotSolver.predName(boardKey: $0, shot: step.shot))
             })
             let duration = pred.duration
+            let pause = TrajectoryPlayback.pocketPauseDuration
+            let fade = TrajectoryPlayback.pocketFadeDuration
+            // 末尾追加「入洞 + 停顿 + 淡出」的模拟时长，保证收杆前进袋的球也能播完消失动画。
+            let tailSim: Float = pred.pocketedBalls.isEmpty
+                ? 0 : Float(TrajectoryPlayback.pocketSettleDuration * Double(options.playbackSpeed))
+            var potTimes: [String: Float] = [:]
+            var potEntries: [String: (start: SCNVector3, legs: [TrajectoryPlayback.PocketEntryLeg])] = [:]
+            var lastVel: [String: SCNVector3] = [:]
             var t: Float = 0
-            while t <= duration + 1e-4 {
+            while t <= duration + tailSim + 1e-4 {
                 for key in onKeys {
                     guard let node = scene.allBallNodes[key], let name = nameMap[key],
-                          let s = playback.stateAt(ballName: name, time: t) else { continue }
-                    node.position = SCNVector3(s.position.x, yLevel, s.position.z)
-                    node.opacity = s.motionState == .pocketed ? 0 : 1
+                          let s = playback.stateAt(ballName: name, time: min(t, duration)) else { continue }
+                    if s.motionState == .pocketed {
+                        if potTimes[key] == nil {
+                            potTimes[key] = t
+                            // 捕获点（上一帧真实位置）+ 进袋时真实速度 → 入洞段。
+                            let pocket = TrajectoryPlayback.nearestPocket(to: node.position, surfaceY: yLevel)
+                            potEntries[key] = (node.position, TrajectoryPlayback.solvePocketEntry(
+                                capture: node.position,
+                                velocity: lastVel[key] ?? SCNVector3Zero,
+                                pocketCenter: pocket.center, pocketRadius: pocket.radius,
+                                speedScale: options.playbackSpeed
+                            ))
+                        }
+                        // 真实播放秒 = 模拟时长 / 播放速度。
+                        let real = Double(t - potTimes[key]!) / Double(options.playbackSpeed)
+                        if let entry = potEntries[key] {
+                            node.position = TrajectoryPlayback.pocketEntryPosition(
+                                start: entry.start, legs: entry.legs, at: real
+                            )
+                            let entryEnd = TrajectoryPlayback.pocketEntryDuration(entry.legs)
+                            node.opacity = real <= entryEnd + pause
+                                ? 1 : CGFloat(max(0, 1 - (real - entryEnd - pause) / fade))
+                        }
+                    } else {
+                        node.position = SCNVector3(s.position.x, yLevel, s.position.z)
+                        node.opacity = 1
+                        lastVel[key] = s.velocity
+                    }
                 }
                 try snapshot()
                 t += Float(frameDt) * options.playbackSpeed
@@ -172,32 +218,6 @@ enum SequenceVideoExporter {
     }
 
     // MARK: - Helpers
-
-    private static func solve(step: SequenceStep, scene: AngleTrainingScene, surfaceY: Float) -> ShotPrediction? {
-        let before = step.before
-        guard let cuePt = before.onTable[PositionPlayBall.cueKey],
-              let targetPt = before.onTable[step.shot.targetKey],
-              let pocketIndex = ShotIntent.pocketIndex(for: step.shot.pocket) else { return nil }
-        let cue = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: cuePt.x, y: cuePt.y), surfaceY: surfaceY)
-        let target = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: targetPt.x, y: targetPt.y), surfaceY: surfaceY)
-        let obstacles: [ObstacleBall] = before.onTable.compactMap { key, pt in
-            guard key != PositionPlayBall.cueKey, key != step.shot.targetKey else { return nil }
-            let p = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: surfaceY)
-            return ObstacleBall(name: key, position: p)
-        }
-        let input = ShotInput(
-            cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
-            velocity: Float(step.shot.velocity), spinX: Float(step.shot.spinX), spinY: Float(step.shot.spinY),
-            surfaceY: surfaceY, obstacles: obstacles
-        )
-        return ShotPredictor.predict(input)
-    }
-
-    private static func predName(boardKey: String, targetKey: String) -> String {
-        if boardKey == PositionPlayBall.cueKey { return ShotInput.cueBallName }
-        if boardKey == targetKey { return ShotInput.targetBallName }
-        return boardKey
-    }
 
     private static func polyline(_ pts: [SCNVector3], color: UIColor, scene: AngleTrainingScene, y: Float) -> [SCNNode] {
         guard pts.count >= 2 else { return [] }

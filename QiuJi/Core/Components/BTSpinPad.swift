@@ -68,6 +68,151 @@ struct BTSpinPad: View {
     }
 }
 
+// MARK: - Spin mini icon（共享，ADR-P11-09）
+
+/// 缩小版打点状态图标：母球小圆 + 当前打点红斑，点击弹出真正的打点盘。
+/// 红点位置与 `BTSpinPad` 同一约定：spinX 正 = 左（屏幕左），spinY 正 = 高（屏幕上）。
+struct BTSpinMiniIcon: View {
+    let spinX: Double
+    let spinY: Double
+    let diameter: CGFloat
+
+    var body: some View {
+        let limit = Double(CuePhysics.miscueLimitFraction)
+        let r = diameter / 2 - 3
+        // 打点偏移按打滑极限归一化（满塞红点到图标边缘），方向与打点盘一致。
+        let dx = -CGFloat(spinX / limit) * r
+        let dy = -CGFloat(spinY / limit) * r
+        return ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [.white, Color(white: 0.8)],
+                                     center: .init(x: 0.38, y: 0.34),
+                                     startRadius: 1, endRadius: diameter))
+            Path { p in
+                p.move(to: CGPoint(x: diameter / 2, y: 3))
+                p.addLine(to: CGPoint(x: diameter / 2, y: diameter - 3))
+                p.move(to: CGPoint(x: 3, y: diameter / 2))
+                p.addLine(to: CGPoint(x: diameter - 3, y: diameter / 2))
+            }
+            .stroke(.black.opacity(0.15), lineWidth: 0.8)
+            Circle()
+                .fill(Color.red)
+                .overlay(Circle().stroke(.white, lineWidth: 0.8))
+                .frame(width: diameter * 0.26, height: diameter * 0.26)
+                .offset(x: dx, y: dy)
+        }
+        .frame(width: diameter, height: diameter)
+        .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 0.5))
+    }
+}
+
+// MARK: - Spin pad card（共享浮层卡片，ADR-P11-09）
+
+/// 打点盘浮层卡片：半透明材质（`ultraThinMaterial`，透出底下球桌绿色，与旧「击球设置」
+/// HUD 同观感）+ 打点盘 + 读数 + 回中 + 右上 ✕。浮在球桌底缘使用，**不要**放进系统
+/// sheet——sheet 底下是纯黑+压暗层，材质会显得过深（用户点名要「有些透明」的观感）。
+struct BTSpinPadCard: View {
+    @Binding var spinX: Double
+    @Binding var spinY: Double
+    var onClose: () -> Void
+
+    var body: some View {
+        VStack(spacing: Spacing.sm) {
+            HStack {
+                Text("打点")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+                Spacer()
+                Button(action: onClose) {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundStyle(.white.opacity(0.45))
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("关闭打点")
+            }
+
+            BTSpinPad(spinX: $spinX, spinY: $spinY)
+                .frame(width: 128, height: 128)
+
+            HStack(spacing: Spacing.lg) {
+                Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .monospacedDigit()
+                Button {
+                    spinX = 0
+                    spinY = 0
+                } label: {
+                    Text("回中")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, 5)
+                        .background(.white.opacity(0.14), in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(Spacing.md)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: BTRadius.xl))
+        .overlay(RoundedRectangle(cornerRadius: BTRadius.xl).stroke(.white.opacity(0.08), lineWidth: 0.5))
+        .environment(\.colorScheme, .dark)
+    }
+}
+
+// MARK: - Spin readout（共享）
+
+enum SpinDisplay {
+    /// 当前打点 → 中文读数（占打滑极限/满塞的百分比），如「中心球」「高30% · 左20%」。
+    static func readout(spinX: Double, spinY: Double) -> String {
+        let miscue = Double(CuePhysics.miscueLimitFraction)
+        let h = Int((spinX / miscue * 100).rounded())
+        let v = Int((spinY / miscue * 100).rounded())
+        if h == 0 && v == 0 { return "中心球" }
+        var parts: [String] = []
+        if v != 0 { parts.append("\(v > 0 ? "高" : "低")\(abs(v))%") }
+        if h != 0 { parts.append("\(h > 0 ? "左" : "右")\(abs(h))%") }
+        return parts.joined(separator: " · ")
+    }
+}
+
+// MARK: - Cue stick glyph（共享）
+
+/// 简易球杆图标（细长锥形 + 杆尖小点），SF Symbols 无球杆符号时用。
+struct CueStickShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width, h = rect.height
+        var p = Path()
+        // 斜向锥形：左下粗（杆尾）→ 右上细（杆尖）
+        let tip = CGPoint(x: w * 0.84, y: h * 0.16)
+        let buttA = CGPoint(x: w * 0.08, y: h * 0.74)
+        let buttB = CGPoint(x: w * 0.26, y: h * 0.92)
+        p.move(to: tip)
+        p.addLine(to: buttA)
+        p.addLine(to: buttB)
+        p.closeSubpath()
+        // 杆尖小圆点
+        p.addEllipse(in: CGRect(x: w * 0.80, y: h * 0.12, width: w * 0.13, height: w * 0.13))
+        return p
+    }
+}
+
+// MARK: - Power display helper（共享）
+
+enum PowerDisplay {
+    /// 连续杆头速度 (m/s) → 直觉力度档名（参考 `ShotIntent` 锚点：轻 1.6 / 中 3.3 / 大力 5.8）。
+    static func name(_ v: Double) -> String {
+        switch v {
+        case ..<1.2: return "轻推"
+        case ..<2.2: return "轻"
+        case ..<3.6: return "中"
+        case ..<4.8: return "中大"
+        default: return "大力"
+        }
+    }
+}
+
 // MARK: - Pocket display helper
 
 enum PocketDisplay {

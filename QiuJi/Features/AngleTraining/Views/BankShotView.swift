@@ -43,6 +43,7 @@ struct BankShotView: View {
             scene: vm.scene,
             cameraMode: .constant(.topDown2DRotated),
             interactionMode: .tapsOnly,
+            autoFitsRotatedTable: true,
             onPocketTapped: { vm.selectPocket($0) },
             draggableBallNodes: vm.draggableNodes,
             onDragBegan: { node in vm.dragBegan(node: node) },
@@ -60,12 +61,6 @@ struct BankShotView: View {
             cushionPicker
             ReflectionModeControl(realMode: $vm.realMode, factor: $vm.reflectionFactor)
             infoPill
-            HStack {
-                Text("拖动母球（白）与目标球（黑）· 选择要翻进的袋口")
-                    .font(.btCaption2)
-                    .foregroundStyle(.white.opacity(0.6))
-                Spacer()
-            }
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.xs)
@@ -74,39 +69,21 @@ struct BankShotView: View {
     }
 
     private var pocketPicker: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Spacing.sm) {
-                ForEach(Array(vm.pocketNames.enumerated()), id: \.offset) { index, name in
-                    Button { vm.selectPocket(index) } label: {
-                        Text(name)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
-                            .foregroundStyle(vm.selectedPocket == index ? .white : .white.opacity(0.7))
-                            .padding(.horizontal, Spacing.md)
-                            .padding(.vertical, 6)
-                            .background(
-                                Capsule().fill(vm.selectedPocket == index
-                                               ? Color.btAccent
-                                               : Color.white.opacity(0.12))
-                            )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
+        BTChipRow(
+            options: vm.pocketNames,
+            selection: Binding(get: { vm.selectedPocket }, set: { vm.selectPocket($0) }),
+            tint: .btAccent
+        )
     }
 
     private var cushionPicker: some View {
-        Picker("库数", selection: Binding(
-            get: { vm.selectedCushions ?? 0 },
-            set: { vm.selectCushions($0 == 0 ? nil : $0) }
-        )) {
-            Text("自动").tag(0)
-            ForEach(vm.cushionOptions, id: \.self) { n in
-                Text("\(n)库").tag(n)
-            }
-        }
-        .pickerStyle(.segmented)
-        .environment(\.colorScheme, .dark)
+        BTChipRow(
+            options: ["自动"] + vm.cushionOptions.map { "\($0)库" },
+            selection: Binding(
+                get: { vm.selectedCushions ?? 0 },
+                set: { vm.selectCushions($0 == 0 ? nil : $0) }
+            )
+        )
     }
 
     @ViewBuilder
@@ -184,37 +161,17 @@ struct BankShotView: View {
             Color.clear
             VStack(spacing: Spacing.md) {
                 if vm.solutionCount > 1 {
-                    fab(icon: "arrow.triangle.2.circlepath", title: "下一解") { vm.nextSolution() }
+                    BTSceneFAB(icon: "arrow.triangle.2.circlepath", title: "下一解",
+                               variant: .primary) { vm.nextSolution() }
                         .transition(.scale.combined(with: .opacity))
                 }
-                fab(icon: "arrow.counterclockwise", title: "重置") { vm.reset() }
+                BTSceneFAB(icon: "arrow.counterclockwise", title: "重置") { vm.reset() }
             }
             .padding(.trailing, Spacing.lg)
             .padding(.bottom, Spacing.xl + 16)
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.solutionCount)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.hasSolution)
-    }
-
-    private func fab(icon: String, title: String, tint: Color? = nil,
-                     action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(LinearGradient(
-                        colors: tint.map { [$0, $0.opacity(0.7)] }
-                            ?? [.btPrimary, Color(red: 0.0, green: 0.45, blue: 0.25)],
-                        startPoint: .top, endPoint: .bottom))
-                    .frame(width: 64, height: 64)
-                VStack(spacing: 0) {
-                    Image(systemName: icon).font(.system(size: 22, weight: .semibold))
-                    Text(title).font(.system(size: 11, weight: .semibold))
-                }
-                .foregroundStyle(.white)
-            }
-            .shadow(color: .black.opacity(0.4), radius: 8, y: 4)
-        }
-        .buttonStyle(.plain)
     }
 }
 

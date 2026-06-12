@@ -287,13 +287,14 @@ final class AngleTrainingScene: SCNScene {
         cueStick?.hide()
     }
 
-    func updateCueStick(cueBallPosition: SCNVector3, aimDirection: SCNVector3) {
+    func updateCueStick(cueBallPosition: SCNVector3, aimDirection: SCNVector3, pullBack: Float = 0) {
         let elevation = CueStick.requiredElevation(
             cueBallPosition: cueBallPosition, aimDirection: aimDirection
         )
         cueStick?.update(
             cueBallPosition: cueBallPosition,
             aimDirection: aimDirection,
+            pullBack: pullBack,
             elevation: elevation
         )
         cueStick?.show()
@@ -353,7 +354,33 @@ final class AngleTrainingScene: SCNScene {
         rootNode.addChildNode(cameraNode)
 
         cameraRig = CameraRig(cameraNode: cameraNode, tableSurfaceY: surfaceY)
+        if let (halfLength, halfWidth) = measuredTableOuterHalfExtents() {
+            cameraRig?.tableOuterHalfLength = halfLength
+            cameraRig?.tableOuterHalfWidth = halfWidth
+        }
         cameraRig?.applyTopDown2D()
+    }
+
+    /// 实测球桌外框半长/半宽（世界 X/Z），供 rotated 顶视自适应取景（ADR-P11-08）。
+    /// 遍历球桌节点层级取世界空间包围盒；失败时返回 nil，rig 用兜底常量。
+    private func measuredTableOuterHalfExtents() -> (halfLength: Double, halfWidth: Double)? {
+        guard let table = tableNode else { return nil }
+        var minX = Float.greatestFiniteMagnitude, maxX = -Float.greatestFiniteMagnitude
+        var minZ = Float.greatestFiniteMagnitude, maxZ = -Float.greatestFiniteMagnitude
+        table.enumerateHierarchy { node, _ in
+            guard node.geometry != nil else { return }
+            let (bMin, bMax) = node.boundingBox
+            for corner in [SCNVector3(bMin.x, bMin.y, bMin.z), SCNVector3(bMax.x, bMin.y, bMin.z),
+                           SCNVector3(bMin.x, bMin.y, bMax.z), SCNVector3(bMax.x, bMin.y, bMax.z),
+                           SCNVector3(bMin.x, bMax.y, bMin.z), SCNVector3(bMax.x, bMax.y, bMin.z),
+                           SCNVector3(bMin.x, bMax.y, bMax.z), SCNVector3(bMax.x, bMax.y, bMax.z)] {
+                let w = node.convertPosition(corner, to: nil)
+                minX = min(minX, w.x); maxX = max(maxX, w.x)
+                minZ = min(minZ, w.z); maxZ = max(maxZ, w.z)
+            }
+        }
+        guard maxX > minX, maxZ > minZ else { return nil }
+        return (Double(max(abs(minX), abs(maxX))), Double(max(abs(minZ), abs(maxZ))))
     }
 
     // MARK: - Lighting
