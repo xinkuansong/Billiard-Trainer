@@ -573,7 +573,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func drawTrajectory(_ p: ShotPrediction) {
         clearTrajectory()
-        addPolyline(p.cuePath, color: UIColor.white.withAlphaComponent(0.95), radius: 0.0035)
+        addPolyline(p.cuePath, color: TrajectoryStyle.aimColor, radius: TrajectoryStyle.aimRadius)
         // 进球线延长（#8）：进袋时把目标球轨迹末端延伸到袋口圆边缘（jaw/袋弧碰撞已在真实轨迹中）。
         var objPath = p.objectPath
         if p.objectPocketed, let solved = solvedShot, !solved.shot.isFree,
@@ -582,11 +582,18 @@ final class PositionPlayViewModel: ObservableObject {
                 objPath, pocketIndex: pocketIndex, surfaceY: surfaceY
             )
         }
-        let orange = UIColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 0.95)
-        addPolyline(objPath, color: orange, radius: 0.0035)
-        // 自由模式：所有被带动的球的真实轨迹。
-        for (_, pts) in p.extraBallPaths {
-            addPolyline(pts, color: orange.withAlphaComponent(0.85), radius: 0.0030)
+        // 进球线随目标球球色（黑 8 亮灰，ADR-P11-12）。
+        addPolyline(objPath, color: TrajectoryStyle.potColor(for: solvedShot?.shot.targetKey ?? ""),
+                    radius: TrajectoryStyle.potRadius)
+        // 自由模式：所有被带动的球的真实轨迹，各随其球色（extraBallPaths 键 = 桌面球键）。
+        for (key, pts) in p.extraBallPaths {
+            addPolyline(pts, color: TrajectoryStyle.potColor(for: key, alpha: 0.85),
+                        radius: TrajectoryStyle.potRadius)
+        }
+        // 假想球：袋口模式显示母球瞄准终点（半透明白，与分离角同语义）。
+        if let solved = solvedShot, !solved.shot.isFree, let ghost = scene.ghostBallNode {
+            ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
+            ghost.isHidden = false
         }
     }
 

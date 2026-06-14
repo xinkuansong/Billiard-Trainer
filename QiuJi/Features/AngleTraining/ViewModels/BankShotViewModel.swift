@@ -224,10 +224,10 @@ final class BankShotViewModel: ObservableObject {
             }
         }
 
-        // 进球线（目标球的翻袋路线）：黄线 + 反弹红点。
+        // 进球线（目标球的翻袋路线）：黄线 + 反弹红点（教学路线色保持黄，仅统一线宽）。
         for i in 0..<(path.count - 1) {
             let line = scene.addLine(from: path[i], to: path[i + 1],
-                                     color: UIColor.systemYellow, radius: 0.0045)
+                                     color: UIColor.systemYellow, radius: TrajectoryStyle.potRadius)
             pathNodes.append(line)
         }
         for p in sol.cushionPoints {
@@ -242,7 +242,8 @@ final class BankShotViewModel: ObservableObject {
         }
 
         // 瞄准线（母球 → 幽灵球）：白线。
-        let aim = scene.addLine(from: cue, to: sol.ghost, color: UIColor.white, radius: 0.004)
+        let aim = scene.addLine(from: cue, to: sol.ghost, color: UIColor.white,
+                                radius: TrajectoryStyle.aimRadius)
         pathNodes.append(aim)
 
         // 幽灵球（半透明）+ 接触点。

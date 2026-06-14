@@ -179,3 +179,81 @@
 - **影响**：`ShotSimulationView.swift`（底部条重写，删 HUD/侧边 FAB/私有打点盘）、`ShotSimulationViewModel.swift`（连续速度）、`PositionPlayComposerView.swift`（删私有组件副本与 spinPadSheet，改浮层卡）、`BTSpinPad.swift`（+`BTSpinPadCard`/`BTSpinMiniIcon`/`CueStickShape`/`PowerDisplay`/`SpinDisplay`）、`ScreenshotTourUITests.swift`（调整→打点流程）。
 - **替代方案**：①保留 5 档速度按钮塞进底部条——横向放不下且与编排台滑条交互不一致，弃；②系统 sheet + 暗色材质——sheet 底下纯黑+压暗层使材质过深，被用户打回，弃；③sheet 底材跟编排台改纯色——用户明确点名半透明材质更舒服，反向统一，弃。
 - **遗留**：分离角页 `BTSceneFAB` 已不再被本页使用（反射/翻袋/2D瞄准仍在用，组件保留）。
+
+### ADR-P11-10 — 教学素材生产管线落点：录制直写内容库 + 录制入口模拟器限定 + 生成视频走 OTA
+
+- **日期**：2026-06-12
+- **状态**：✅ 已采纳（用户三项拍板：①录制 JSON 由 App 直写仓库固定目录、弃 share sheet 搬运；②管线生成的教学视频走 OTA、不再往 Bundle 塞；③录制入口暂不对用户开放）。
+- **背景**：基于击打序列 JSON 规划图片/GIF/视频生产管线时确认：序列 JSON（意图+前后快照，不存轨迹）数据充分；但采集链路是「share sheet → AirDrop → 手动归档」纯手工；JSON 散落 `build/`（不进 git，丢了无法重渲）；Bundle 内 `Resources/Videos/` 已 257MB 实拍视频，再塞生成视频包体失控；录制是内容生产功能、对终端用户无完整闭环。
+- **决策**：
+  1. **内容库真相源**：新建 `content/position_play/sequences/`（进 git，附 README 约定）；序列文件命名 `seq_<UUID前8位>-<名称>-<N>杆.json`，`seq_<id8>` 为稳定资产键（与 `PositionPlayDrillExporter` 的 `drill_pp_<id8>` 对齐），后续 mp4/gif/png 产物沿用同名前缀。预留 `meta/` 放教学文案 sidecar（标题/每杆讲解/产物变体清单），文案迭代与录制解耦。
+  2. **录制直写（弃 share sheet）**：新增 `PositionPlaySequenceArchive`（整体 `#if targetEnvironment(simulator)`）——模拟器进程以宿主用户身份运行、可直写 Mac 文件系统，录制结束 JSON 直接落内容库并 banner 提示文件名；删除编排台 share 流程（`exportURL`/`showShare`/sheet）与已无使用方的 `Core/Components/ShareSheet.swift`。仓库绝对路径硬编码与 `PositionPlaySequenceExportRunnerTests` 同一约定，且仅模拟器构建编译、不进真机产物。
+  3. **录制入口模拟器限定**：编排台「录制」按钮 `#if targetEnvironment(simulator)` 编译条件隐藏——真机/发布版无此入口（采集工作流本就依赖模拟器直写，编译闸即产品开关，无需运行时 flag）。
+  4. **`make position-export` 收件箱同步**：渲染前自动把 `content/position_play/sequences/*.json` 同步进 `build/position_play_sequences/` 收件箱（收件箱保留，临时试渲可直接丢文件）；runner 测试本身零改动。
+  5. **产物分发策略（命中 ADR 触发：内容分发/数据同步策略）**：管线生成的教学视频 mp4 走自建 REST OTA（ADR-002 内容通道，**依赖 H-14 服务器**）；进 Bundle 的只允许小体积资产——静帧教学图 → `Resources/DrillTutorials/`、封面 → `Resources/DrillThumbnails/`、动画预览走帧序列 → `Resources/Previews/<id>/frame_*.png`（App 内不消费 GIF/APNG 文件，站外分享素材另行分发）。
+- **验证**：`make xcodegen` ✅ + `make build` ✅（BUILD SUCCEEDED，模拟器目标含新增直写代码）；lint 0。**直写链路已实录走通**（2026-06-12 晚，用户模拟器实录 3 条序列均落 `content/position_play/sequences/`）。
+- **同日补修（用户实录反馈）**：「先录完 → 再命名」时已写盘文件不随重命名更新（文件在结束录制瞬间用当时名字写死）。修复：①`archive` 改为同 `seq_<id8>` 前缀旧文件先清再写（一条序列只留一份，覆盖改名/重录杆数变化）；②编排台「重命名保存」后若序列已录制完成（`!isRecording && stepCount > 0`）自动重新归档 + banner 提示；录制中重命名不处理（结束时本就按最新名字归档）。`make build` ✅、lint 0。
+- **影响**：新增 `content/position_play/README.md`、`QiuJi/Features/PositionPlay/Services/PositionPlaySequenceArchive.swift`；改 `PositionPlayComposerView.swift`（录制按钮/归档/删 share 流程）、`scripts/Makefile`（同步步骤+帮助文案）、`QiuJiTests/PositionPlaySequenceExportRunnerTests.swift`（注释）；删 `Core/Components/ShareSheet.swift`；`xcodegen` 重生工程。
+- **替代方案**：①保留 share sheet 真机录制——搬运链路长且 JSON 不自动归档，弃（真机采集需求出现时再走 H-14 服务器上传接口）；②录制开关用运行时 flag/隐藏手势——编译闸更简单且与直写能力边界天然一致，弃；③生成视频过渡期进 Bundle——257MB 前车之鉴，仅允许少量关键视频例外且须显式拍板，默认弃。
+- **遗留**：~~管线主体待做——渲染矩阵、preset、`showTrajectories`~~ → ADR-P11-11 落地；仍待做：出片前「重模拟 vs `after` 快照」一致性校验门、序列 JSON `engineVersion` 版本戳、`meta/` sidecar schema（clean 变体按需声明机制）；OTA 通道被 H-14 阻塞。
+
+### ADR-P11-11 — 教学素材渲染矩阵：默认配方 + 渲染风格双档 + 轨迹线「击球前预告、出杆即清」
+
+- **日期**：2026-06-12
+- **状态**：✅ 已采纳（与用户两轮澄清后逐项确认：①「分辨率」=输出像素尺寸，与"球被放大"的 `ballScale=1.6` 是两个参数，后者只该用于卡片素材，其余产物必须真实比例；②轨迹线应为击球前预告、出杆后消失，而非全程挂线——与编排台 App 内行为一致）。
+- **背景**：ADR-P11-10 后管线只出整段 mp4+gif（640×320 / 球放大 1.6 / 轨迹线全程可见），与教学素材需求（真实比例、高清、逐杆拆解、击球前预告线）不符；且产物未按消费场景（动作库卡片 / 图文精讲 / 教学视频 / 站外分享）分型。
+- **决策**：
+  1. **渲染风格双档**：`Options` preset 化——`teaching()`（默认，1280×640@30、`ballScale=1` 真实比例）/ `card()`（640×320、`ballScale=1.6`，仅封面与卡片动画帧）/ `gif()`（480×240@12、真实比例）。
+  2. **轨迹线契约**：`showTrajectories=true`（默认）= 每杆设置静帧（0.6s）显示白色母球线 + 橙色进球线（延伸至袋口圆边缘），**出杆瞬间清除**，运动帧无线；`false` = clean 版全程无线（按需出片，不进默认配方）。`initialHold` 默认 0（连续录制序列开局 == 首杆 before，避免双重静帧）。
+  3. **默认配方**（每条序列 → `build/position_play_export/seq_<id8>/`）：`cover.png`（卡片风格，首杆+预告线）、`preview/frame_01..12.png`（卡片风格整段抽样）、`initial/final.png` + `sNN_still.png`（真实风格教学静帧）、`full.mp4` + `sNN.mp4`（真实风格高清）、`full.gif`（分享）。单杆切片 = `subSequence`（`initial=step.before, steps=[step]`，Step 自含零新逻辑）。
+  4. **结构**：`SequenceVideoExporter` 抽 `RenderContext`（场景/渲染器/USDZ 装载收口一处，静帧/封面/预览帧/逐帧视频共用）；新增 `renderStills` / `renderCover` / `renderPreviewFrames` / `subSequence` 四个出口；runner 按配方组织目录并写 PNG。
+- **验证**：`make build` ✅；`make position-export` 实跑用户实录 3 条序列（1/2/3 杆）全部出齐——目录结构与配方一致（3 杆条目：6 静帧 + cover + 12 预览帧 + full.mp4/gif + 3 单杆 mp4，共 10MB）；规格核验 `ffprobe`：full/sNN.mp4 1280×640、gif 480×240、cover 640×320；抽帧核验：单杆设置帧有预告线（白线含吃库折点、橙线进顶中袋）、运动帧无线且球已沿线位移、cover 球径明显大于真实风格同帧（1.6×）。lint 0。
+- **影响**：重写 `QiuJi/Core/Media/SequenceVideoExporter.swift`（Options preset + RenderContext + 4 新出口 + 轨迹出杆即清）、`QiuJiTests/PositionPlaySequenceExportRunnerTests.swift`（默认配方出片 + PNG 写盘）、`content/position_play/README.md`（产物约定）。
+- **替代方案**：①全矩阵盲出（(1+N)×2×3 档位）——一条 3 杆序列几十个文件，弃，clean/单杆 GIF 等留给 meta 清单按需声明；②轨迹线全程挂线（原实现）——运动中球本就沿线走，线是冗余噪声，且与编排台行为不一致，弃；③`_traj`/`_clean` 文件名后缀——轨迹行为统一为「击球前预告」后默认产物无需后缀，仅按需 clean 版加 `_clean`。
+- **遗留**：一致性校验门（重模拟 vs `after`）与 `engineVersion` 版本戳仍未做（出片正确性当前依赖引擎与录制时一致）；发布回填（Resources/OTA 拷贝改名对接 drill JSON）待 meta sidecar 一起做；`make position-export` 日志被缺失的 `xcpretty` 吞掉（管道 `| xcpretty || true`），排障需直跑 xcodebuild 或装 xcpretty。
+
+### ADR-P11-12 — 轨迹线样式真源 + 假想球补全 + 教学视频 60fps 原速
+
+- **日期**：2026-06-12
+- **状态**：✅ 已采纳（用户三项反馈：①导出素材没有假想球；②进球线颜色随目标球球色、瞄准线/进球线全场景变细；③导出视频观感卡顿——确认为渲染参数问题而非模拟器性能问题）。
+- **背景**：ADR-P11-11 首版产物评审发现三个问题。卡顿根因：30fps × 1.3 倍速 ⇒ 帧间物理步长 43ms，中速球在 1280px 宽画面一帧跳 ~60px，离线渲染无运动模糊，肉眼即卡（App 内 120Hz 屏不暴露此问题）。线样式此前散落 6 处硬编码（编排台 0.0035 / 导出器 0.006 / 动作库 0.005~0.006 / 翻袋 0.004~0.0045…），进球线一律橙色与目标球无关联。
+- **决策**：
+  1. **`TrajectoryStyle` 真源**（`Core/Components/PoolBallFace.swift`，与 `PoolBallStyle` 色板同文件）：`aimRadius=0.0025`（瞄准线白）/ `potRadius=0.0030`（进球线）/ `compactRadius=0.0045`（缩略图等低分辨率，太细会碎成虚点）；`potColor(for: targetKey)` = 目标球标准球色（9..15 花色取主色），**黑 8 例外用亮灰**（深绿台呢上黑线不可见），自由球/无目标语义同此兜底。联动球路径（`extraBallPaths`）各随其球色。
+  2. **接入场景**：走位编排台、素材导出器、分离角页、动作库详情/缩略图全部改走真源（动作库目标球为黑 8 → 进球线由橙改亮灰）；翻袋/颗星/角度测验页**只统一线宽不跟球色**（黄/绿/青是路线教学色，非「目标球进球线」语义）。
+  3. **假想球补全**：编排台 App 内预览与导出器（视频设置帧 + 教学静帧 + 封面）在袋口模式显示假想球（复用 `setupVisualizationNodes` 的 ghost 节点，出杆随预告线一起清除，导出器经 `hideAimDecorations()` 收口）；卡片风格 ghost 随 `ballScale` 同步放大。
+  4. **教学视频 60fps + 原速**：`Options` 默认 `fps 30→60`、`playbackSpeed 1.3→1.0`（帧间步长 43ms→17ms）；GIF preset 保留 12fps×1.3（预览媒介控体积）。
+- **验证**：`make position-export` 实跑 3 条序列，xcresult `Passed (1/1)`；`ffprobe` full.mp4 = 1280×640@60fps；抽帧核验：设置帧有假想球 + 进球线随球色（2 号目标=蓝线、1 号=黄线）、线宽明显变细、运动帧无线无 ghost；台面竖直细白线为球台开球线（USDZ 自带），非残留轨迹。lint 0。
+- **影响**：`PoolBallFace.swift`（+`TrajectoryStyle`）、`SequenceVideoExporter.swift`（preset/ghost/球色线）、`PositionPlayViewModel.swift`、`ShotSimulationViewModel.swift`、`DrillSceneView.swift`、`DrillThumbnailRenderer.swift`、`BankShotViewModel.swift`、`SceneAngleViewModel.swift`。
+- **替代方案**：①保留 30fps 提高倍速补帧插值——离线渲染本就逐帧重模拟，直接提采样率成本为零，插值弃；②黑 8 进球线用描边黑线——实现复杂且小尺寸下仍发糊，亮灰例外更简单直接，弃；③翻袋/颗星路线也跟球色——那些线是「路线讲解」不是「目标球轨迹」，改色破坏既有教学色语义，弃。
+- **遗留**：动作库既有已烘焙缩略图 PNG（橙线）与新规则（亮灰线）不一致，待下次批量重烘焙统一；60fps 渲染时长约为 30fps 两倍（3 条序列 ~98s，可接受）。
+
+### ADR-P11-13 — 教学素材击球参数 HUD（打点 + 力度条）+ 导出暗色背景
+
+- **日期**：2026-06-13
+- **状态**：✅ 已采纳（用户拍板：①瞄准点/接触点不做（意义不大）；②打点无盘面/卡片背景但必须显示百分比读数；③样式与 App 内一致；④背景采用方案 1——导出场景背景改暗色）。
+- **背景**：教学视频只回答「球往哪走」，不回答「这杆怎么打的」；打点（spinX/spinY）与力度（velocity）是走位教学核心输入，JSON 已有、零采集成本。原导出帧四周白底，App 暗色主题白字读数放上去不可读。
+- **决策**：
+  1. **HUD 条**：teaching 档画面底部追加 80px 暗色条（输出 1280×640 → **1280×720，16:9**），内容 = `BTSpinMiniIcon` 球面（无卡片底）+ `SpinDisplay.readout` 百分比读数 + 力度胶囊条（量程与编排台滑条同 0.5–6.0 m/s，`btPrimary` 填充）+ `PowerDisplay.name` 档名与 m/s 数值。**每杆常驻（设置帧→收尾帧），换杆更新**——观众看球运动时需要对照杆法；与「出杆即清」的预告线生命周期不同。
+  1b. **打点图标真实比例（用户复评修正）**：`BTSpinMiniIcon` 原本只有归一化画法（满塞红点到图标边缘）——App 内 28pt 小按钮可读性优先没问题（真实比例由点开的打点盘呈现），但教学素材上图标本身就是「往哪打」的指令，红点贴边会教人滑杆。给组件加 `trueScale` 模式：与 `BTSpinPad` 同一几何（红斑 = 皮头中心摆放位置 spin/拉心系数、斑径 = 皮头/母球真实比例、打滑极限虚线圈 ≈0.68R），HUD 用真实比例（图标加大到 56px），App 内按钮保持归一化不动。百分比读数语义两处本就一致（占打滑极限/满塞），无需改。
+  2. **组件即真源**：HUD 经 SwiftUI `ImageRenderer` 直接复用 App 组件（`BTSpinMiniIcon`/`SpinDisplay`/`PowerDisplay`）渲染成图、CoreGraphics 合成到帧上，App 改样式导出自动跟，零样式漂移。
+  3. **导出背景改暗色**：`RenderContext` 设 `scene.background = .black`（与 App 场景页 `Color.black` 一致），HUD 白字可读 + 视频观感与 App 统一；所有导出产物（含 gif/card）统一暗底。
+  4. **范围**：`Options.showShotHUD`（teaching 默认开；gif/card 关——小尺寸糊成噪点）；`sNN_still` 教学静帧带 HUD（1280×720，天然成「带完整击球参数的单杆教学图」）；`initial/final` 纯布局图不带（1280×640）；编排台 App 内不加（打点盘/滑条本身在屏上）。
+- **验证**：`make position-export` 实跑 3 条序列 xcresult `Passed`（含真实比例修正后重跑）；规格核验：full/sNN.mp4 1280×720@60、sNN_still 1280×720、initial 1280×640、cover 640×320、gif 480×240；抽帧核验：HUD 显示「高43% · 右1% | 轻推 0.8 m/s」与「低79% · 左31% | 中 3.3 m/s」均与该杆 JSON 参数一致，真实比例版红斑落在打滑极限虚线圈内（低杆贴圈下缘 + 略左），运动帧 HUD 常驻、暗底白字可读。lint 0。**首版坑**：`ImageRenderer` 离屏渲染把 HStack 文本压窄成竖排折行（「轻/推/0…」）——HUD 视图须 `.fixedSize()` 按理想宽度展开。
+- **影响**：`SequenceVideoExporter.swift`（Options +`showShotHUD`/`outputSize` + `ShotHUDView` + `makeHUDImage`/`composeWithHUD` + 场景黑底）、`BTSpinPad.swift`（`BTSpinMiniIcon` +`trueScale` 模式）、`content/position_play/README.md`（产物规格更新）。
+- **替代方案**：①HUD 画进 3D 场景——2D 参数面板进 SceneKit 受相机约束且别扭，弃；②CoreGraphics 照画一份组件——App 改样式导出漂移，弃；③白底 + HUD 深色衬底——与 App 暗色语言割裂且属补丁，弃；④瞄准点/接触点标注——用户判定教学意义不大，不做。
+- **遗留**：HUD 目前只含打点/力度，目标球/袋口等本杆意图信息若教学文案需要，留给 meta sidecar 文字层而非画面层。
+
+### ADR-P11-14 — 序列出片首次接入动作库（drill_c042 demo）+ 图文精讲「应用课」模板
+
+- **日期**：2026-06-13
+- **状态**：已实施（demo 验收）
+- **背景**：媒体管线产物（带 HUD 教学视频/单杆静帧）此前只落在 `build/position_play_export/`，未接入动作库消费端。用户拍板：现有 drill 视频后续整体替换，选一个语义契合的 drill 实测「录制 → 出片 → 内容接入」整链路；同时用户反馈现有图文精讲「太干巴巴」——纯文字四段、配图与击球参数脱钩。
+- **决策**：
+  1. **载体**：选 `drill_c042` 初级蛇彩走位（subcategory snakeDrill，与 3 杆序列 `seq_f4ded688` 的中线连续清台语义契合）。`shotIntent` 换为序列真实 3 杆（含 obstacles），`animation` 用首杆 composer 数据（source: composer），`videos` 替换 5 条旧 take 为 `full.mp4`（1280×720@60 带 HUD），缩略图随全量烘焙更新。
+  2. **图文精讲「应用课」模板**（多杆走位类 drill 适用，技术类 drill 四段结构不变）：技术原理（理论锚点）→ 开局与击球顺序（initial 布局图 + 顺序规划逻辑）→ 逐杆精讲（每杆一节：为什么/怎么打/自检，配带 HUD 的 sNN 静帧，打点读数与 HUD 同口径=占打滑极限百分比）→ 常见错误与纠正 → 进阶练习。
+  3. **工程修正**：`DrillTutorials` 由普通 group 改为 folder reference（project.yml excludes + type: folder），否则 `Bundle.main.url(subdirectory: "DrillTutorials")` 解析不到子目录（drill_c005 配图为潜在受害者）。
+  4. **临时项**：`isPremium` 由 true 临时改 false 供 demo 验收（无订阅时精讲/视频区被锁），**发布前回滚**。
+- **验证**：全量缩略图重烘焙 xcresult Passed（c042 缩略图为新布局首杆真算轨迹）；UI 测试 `testDrillC042TutorialDemo` 截图 8 张核验：详情页 live 场景/打点盘/力度条 0.8、视频区 full.mp4 首帧缩略图、精讲 7 节逐节配图正常（HUD 读数「高43% · 右1% | 轻推 0.8 m/s」等与 JSON 一致）。
+- **影响**：`Drills/positioning/drill_c042.json`（重写）、`Resources/Videos/drill_c042/`（take_01–05 删除 → full.mp4）、`Resources/DrillTutorials/drill_c042_{initial,s01,s02,s03}.png`（新增）、`project.yml`（DrillTutorials folder ref）、`ScreenshotTourUITests.swift`（+临时验收测试）。
+- **替代方案**：①新建 `drill_pp_<id8>` 不动存量——会让 demo 游离在分类/计划体系外，且用户已确认旧视频整体替换，弃；②`shotIntent` 批量从存量 drill 转序列出片——用户判定存量 shotIntent 数据精度不可靠，示范击球以编排台人工录制为准，不做。
+- **遗留**：a) `isPremium` 回滚；b) 临时 UI 测试到验收完成后移除或转正；c) 「应用课」模板回写 content-engineering SKILL 的 SOP（待用户确认模板定稿）；d) 其余 71 个 drill 的示范击球录制排期。

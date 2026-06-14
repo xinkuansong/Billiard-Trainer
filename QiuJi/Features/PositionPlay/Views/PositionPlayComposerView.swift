@@ -8,7 +8,8 @@ import SceneKit
 /// 微边框球库（两行固定序）+ 右下操作列（击球 / 录制 / 重打）。状态文案上移到导航栏。
 /// 交互：球库球拖到桌面落位、桌面球拖回底部条移除、点桌上球选目标（袋口模式）/ 设定瞄准（自由模式）。
 /// 击球后桌面前进为新真相（进袋回库、母球停在走位终点，自动选下一杆）；「重打」退回上一杆
-/// 击打前并恢复该杆全部参数。「录制」开关：开启后每次击球自动记一杆，结束分享序列 JSON。
+/// 击打前并恢复该杆全部参数。「录制」开关（仅模拟器构建，ADR-P11-10）：开启后每次击球
+/// 自动记一杆，结束后序列 JSON 直写仓库 `content/position_play/sequences/`（内容生产采集口）。
 struct PositionPlayComposerView: View {
     @StateObject private var vm = PositionPlayViewModel()
     @State private var hasAppeared = false
@@ -25,9 +26,6 @@ struct PositionPlayComposerView: View {
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
 
-    // Recording JSON share
-    @State private var exportURL: URL?
-    @State private var showShare = false
     @State private var showRename = false
     @State private var renameText = ""
     @State private var banner: String?
@@ -77,12 +75,14 @@ struct PositionPlayComposerView: View {
             ToolbarItem(placement: .principal) { navStatus }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
-        .sheet(isPresented: $showShare) {
-            if let url = exportURL { ShareSheet(items: [url]) }
-        }
         .alert("命名走位序列", isPresented: $showRename) {
             TextField("名称", text: $renameText)
-            Button("保存") { vm.renameSequence(renameText) }
+            Button("保存") {
+                vm.renameSequence(renameText)
+                #if targetEnvironment(simulator)
+                rearchiveIfRecorded()
+                #endif
+            }
             Button("取消", role: .cancel) {}
         }
         .confirmationDialog(
@@ -308,12 +308,15 @@ struct PositionPlayComposerView: View {
             .disabled(!strikeEnabled)
 
             HStack(spacing: 6) {
+                // 录制 = 内容生产采集口，仅模拟器构建可见（ADR-P11-10，对用户暂不开放）。
+                #if targetEnvironment(simulator)
                 smallButton(tint: vm.isRecording ? Color.btDestructive : .white.opacity(0.14),
                             label: vm.isRecording ? "结束录制" : "录制") {
                     Image(systemName: vm.isRecording ? "stop.fill" : "record.circle")
                         .font(.system(size: 15, weight: .semibold))
                 } action: { toggleRecording() }
                     .disabled(vm.isPlaying)
+                #endif
 
                 smallButton(tint: .white.opacity(0.14), label: "重打") {
                     Image(systemName: "arrow.uturn.backward")
@@ -431,38 +434,40 @@ struct PositionPlayComposerView: View {
         flash("已移回球库")
     }
 
-    // MARK: - Recording (#11)
+    // MARK: - Recording (#11, ADR-P11-10：仅模拟器构建)
 
+    #if targetEnvironment(simulator)
     private func toggleRecording() {
         if vm.isRecording {
             guard let recorded = vm.stopRecording() else {
                 flash("未录到击球，已取消录制")
                 return
             }
-            shareSequenceJSON(recorded)
+            // 直写仓库内容库（真相源），离线管线 `make position-export` 据此渲染视频/GIF。
+            do {
+                let url = try PositionPlaySequenceArchive.archive(recorded)
+                flash("已存入内容库：\(url.lastPathComponent)")
+            } catch {
+                flash("序列归档失败：\(error.localizedDescription)")
+            }
         } else {
             vm.startRecording()
             flash("开始录制：此后每次击球自动记为一杆")
         }
     }
 
-    /// 录制结束 → 序列 JSON 写临时文件并分享（离线脚本据此用物理引擎复现出视频/GIF）。
-    private func shareSequenceJSON(_ sequence: PositionPlaySequence) {
+    /// 录制结束后再重命名：用新名字重写已归档文件（同 id 旧文件由 Archive 清理）。
+    /// 录制中重命名无需处理——结束录制时本就以最新名字归档。
+    private func rearchiveIfRecorded() {
+        guard !vm.isRecording, vm.stepCount > 0 else { return }
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            encoder.dateEncodingStrategy = .iso8601
-            let data = try encoder.encode(sequence)
-            let safe = sequence.name.replacingOccurrences(of: "/", with: "-")
-            let url = FileManager.default.temporaryDirectory
-                .appendingPathComponent("\(safe)-\(sequence.steps.count)杆.json")
-            try data.write(to: url)
-            exportURL = url
-            showShare = true
+            let url = try PositionPlaySequenceArchive.archive(vm.sequence)
+            flash("已更新内容库：\(url.lastPathComponent)")
         } catch {
-            flash("序列 JSON 导出失败")
+            flash("序列归档失败：\(error.localizedDescription)")
         }
     }
+    #endif
 
     // MARK: - Toolbar menu
 

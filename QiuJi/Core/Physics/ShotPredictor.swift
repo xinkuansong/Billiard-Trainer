@@ -56,6 +56,18 @@ struct ObstacleBall {
 
 // MARK: - Output
 
+/// 一次模拟中按时间排序的关键事件（走位反解器分析「过点后碰撞的第一颗球」「到点前吃库数」用，
+/// ADR-P13-01）。从引擎 `resolvedEvents` 抽取，剔除 `transition`（纯状态切换无几何语义）。
+struct ShotEvent {
+    enum Kind {
+        case ballBall(ballA: String, ballB: String)
+        case ballCushion(ball: String)
+        case pocket(ball: String, pocketId: String)
+    }
+    let time: Float
+    let kind: Kind
+}
+
 struct ShotPrediction {
     /// 选定袋口在几何上是否可进（切球角 < 极限 且 母球不挡路）。
     var feasible: Bool = true
@@ -98,11 +110,17 @@ struct ShotPrediction {
     /// 全场所有球的最终静止位置（世界坐标，走位序列链生成下一杆开局用，ADR-P11-01）。
     /// 母球/目标球取防穿库钳制轨迹末帧；障碍球取真实模拟末帧。
     var finalPositions: [String: SCNVector3] = [:]
+    /// 母球末帧水平速度大小（m/s）。`0` = 真正停稳；显著 >0 = 模拟被 maxEvents/maxTime 截断、
+    /// 末帧并非真实停点（走位反解器据此剔除「高速假停」的落区解，ADR-P13-01）。
+    var cueFinalSpeed: Float = 0
     /// 自由球模拟（ADR-P11-03）中除母球外**发生位移**的球的轨迹折线（球名 → 折线）。
     /// 袋口模式恒为空（目标球轨迹走 `objectPath`）。
     var extraBallPaths: [String: [SCNVector3]] = [:]
     /// 本杆进袋（离场）的全部球名（含母球 scratch、被串入袋的障碍球）。
     var pocketedBalls: [String] = []
+    /// 按时间排序的关键事件（球-球碰撞 / 吃库 / 落袋）。默认空——仅 `predict` / `simulateFree`
+    /// 填充。旧调用与序列化零影响（ADR-P13-01，走位反解器消费）。
+    var events: [ShotEvent] = []
 }
 
 // MARK: - Predictor
@@ -115,12 +133,40 @@ enum ShotPredictor {
         maxEvents: Int = 500,
         maxTime: Float = 15.0
     ) -> ShotPrediction {
+        // 1) 瞄准几何 + 可行性闸门（不可进直接返回）。
+        var result = ShotPrediction()
+        guard let ctx = prepareAim(input, into: &result) else { return result }
+
+        // 2) 闭环瞄准求解：短模拟评分搜索使目标球进选定袋的发射方向（吸收 squirt/throw/swerve）。
+        let bestOffset = solveAimOffset(
+            baseAim: ctx.aimDir, velocity: input.velocity, input: input,
+            geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost
+        )
+
+        // 3) 用最优方向跑完整模拟并提取全部预测字段（共享核心 `buildPrediction`）。
+        let finalAim = ctx.aimDir.rotatedY(bestOffset)
+        return buildPrediction(finalAim: finalAim, context: ctx, input: input,
+                               result: result, maxEvents: maxEvents, maxTime: maxTime)
+    }
+
+    // MARK: - Shared aim geometry + prediction core (供 predict 与走位反解快速路径复用)
+
+    /// 瞄准几何上下文：仅取决于母球/目标球/袋口位置，**与塞/力度无关**——故走位反解器可对一组
+    /// 候选只算一次、跨 spinY 复用（ADR-P13-01）。
+    struct AimContext {
+        let aimPoint: SCNVector3
+        let ghost: SCNVector3
+        let aimDir: SCNVector3
+        let geometry: TableGeometry
+        let pocketCenter: SCNVector3
+    }
+
+    /// 计算瞄准几何（幽灵球法 + 进球管道修正）并跑可行性闸门，顺带回填 `result` 的瞄准/几何字段。
+    /// 返回 nil = 几何不可进袋（`result` 已置 `feasible=false` + 原因，调用方直接返回）。
+    static func prepareAim(_ input: ShotInput, into result: inout ShotPrediction) -> AimContext? {
         let y = input.surfaceY
         let r = BallPhysics.radius
-
-        // 1) 瞄准：把目标球打进选定袋口所需的母球瞄向（幽灵球法 + 进球管道修正）。
-        //    若调用方提供 `pocketAimOverride`（反解时把进球点当自由变量），直接采用该进球点，
-        //    跳过袋心管道求解——这样目标球被瞄向袋口容错窗内的某个偏心点。
+        // 若调用方提供 `pocketAimOverride`（反解把进球点当自由变量），直接采用该进球点。
         let aimPoint = input.pocketAimOverride ?? AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: input.targetBall, pocketIndex: input.pocketIndex, surfaceY: y
         )
@@ -128,13 +174,10 @@ enum ShotPredictor {
             targetBall: input.targetBall, pocket: aimPoint, ballRadius: r
         )
         let aimDir = unitXZ(from: input.cueBall, to: ghost)
-
-        var result = ShotPrediction()
         result.aimDirection = aimDir
         result.ghost = ghost
         result.pocketAimPoint = aimPoint
 
-        // 1.5) 可行性闸门：选定袋口在几何上能否进球。不可进则直接返回提示，不模拟。
         let cutAngle = AngleSceneCalculator.cutAngle(
             cueBall: input.cueBall, targetBall: input.targetBall, pocket: aimPoint
         )
@@ -142,52 +185,38 @@ enum ShotPredictor {
         if cutAngle >= AngleSceneCalculator.maxCutAngle {
             result.feasible = false
             result.infeasibleReason = "当前角度无法进袋（切球角过大）"
-            return result
+            return nil
         }
         if AngleSceneCalculator.isCueBallBlocking(
             cueBall: input.cueBall, targetBall: input.targetBall, pocket: aimPoint
         ) {
             result.feasible = false
             result.infeasibleReason = "母球挡住进球路线，无法进袋"
-            return result
+            return nil
         }
-
-        // 2) 闭环瞄准求解：搜索使目标球真正进选定袋的母球发射方向。
-        //    通过实际模拟评估而非解析补偿，一次性把 squirt（挤偏）、collision throw（碰撞投掷）、
-        //    滑动 swerve 都纳入——这才是“确保进那个袋”。搜索用短时模拟提速，最终再跑完整模拟。
-        let velocity = input.velocity
-        // 几何统一：USDZ 对齐的 QiuJi 几何（袋口中心 = 屏幕黄色标记），
-        // 且已补上完整角袋 jaw 圆弧/直线段 + 中袋圆角（导球入袋）。
-        // 模拟几何 == 屏幕几何 ⇒ 不再需要双真源的 60mm 容差。
+        // 几何统一：USDZ 对齐的 QiuJi 几何（袋口中心 = 屏幕黄色标记）。模拟几何 == 屏幕几何。
         let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
-        // 进袋评分 / 命中判定以同一套袋口中心（= 屏幕黄色标记）为准。
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: y)
-        let pocketCenter = pockets[input.pocketIndex]
+        return AimContext(aimPoint: aimPoint, ghost: ghost, aimDir: aimDir,
+                          geometry: geometry, pocketCenter: pockets[input.pocketIndex])
+    }
 
-        // 瞄准求解目标：让母球（含 squirt 挤偏 + 滑行 swerve 弧线）实际抵达「幽灵球」中心，
-        // 即复现「不加塞时的母球-目标球接触点」⇒ 目标球沿进球线直线离开（用户诉求）。
-        let bestOffset = solveAimOffset(
-            baseAim: aimDir, velocity: velocity, input: input,
-            geometry: geometry, pocketCenter: pocketCenter, ghost: ghost
-        )
-
-        // 3) 用求得的最优方向跑一次完整模拟（含母球后续走位）。
-        let finalAim = aimDir.rotatedY(bestOffset)
+    /// 用给定发射方向 `finalAim` 跑一次完整模拟并提取全部预测字段（轨迹/进袋/吃库/末位/末速/分离角）。
+    /// `result` 须已由 `prepareAim` 回填瞄准/几何字段。**唯一真相**：`predict` 与走位反解快速路径共用，
+    /// 避免副本漂移（ADR-P13-01，画面=物理 ADR-P10-06）。
+    static func buildPrediction(
+        finalAim: SCNVector3, context ctx: AimContext, input: ShotInput,
+        result: ShotPrediction, maxEvents: Int, maxTime: Float
+    ) -> ShotPrediction {
+        var result = result
+        let y = input.surfaceY
+        let r = BallPhysics.radius
         let run = runShot(
-            aimDir: finalAim, velocity: velocity, input: input,
-            geometry: geometry, pocketCenter: pocketCenter, ghost: ghost,
+            aimDir: finalAim, velocity: input.velocity, input: input,
+            geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
             maxEvents: maxEvents, maxTime: maxTime, highFidelity: true
         )
-        // 4) 轨迹折线（画面=物理，回归纯物理 ADR-P10-06）：母球与目标球**都直接取自引擎真实
-        //    模拟轨迹**，不再做任何显示层钳制 / 捕获修饰。
-        //    - 母球（白）：碰后走位（分离角 + 高低杆跟/缩 + 吃库），可贴库直线走。
-        //    - 目标球（橙）：真实去向——含碰撞 throw、撞 jaw 反弹、能量不足停球或 rattle。
-        //
-        // 袋口「进 / rattle 弹出 / 接住穿库球」全部由引擎真实喉腔几何（jaw 库 + 喉腔侧壁/后壁 +
-        // 落袋孔，见 `TableGeometry+QiuJi.throatWalls`）自然涌现——小力远jaw→近jaw→袋心进、
-        // 大力 jaw 间反复弹回 mouth 弹出、后壁接住越过落袋孔的球。喉腔模型出现后，旧的显示层
-        // 「穿库安全网 + 捕获窗一致性闸门」已是冗余补丁（只会把真落袋误判为未进、并把贴库轨迹
-        // 钳出折线），故整体移除，让画面与判定都等于引擎物理真值。
+        // 轨迹折线（母球白 / 目标球橙）直接取自引擎真实模拟，不做显示层钳制。
         let playback = TrajectoryPlayback(recorder: run.recorder, surfaceY: y + r)
         let duration = run.recorder.duration
         result.recorder = run.recorder
@@ -195,35 +224,34 @@ enum ShotPredictor {
         result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: duration)
         result.objectPath = polyline(playback, ballName: ShotInput.targetBallName, duration: duration)
 
-        // 母球进袋（scratch）判定（纯物理）：直接取引擎信号——母球落入任一袋即 scratch。
-        let cuePocketed = run.cuePocketed
-        result.cuePocketed = cuePocketed
-
-        // 目标球进袋判定（纯物理）：直接取引擎「目标球真正落入**选定**袋」(`run.pottedSelected`)。
-        // 进 / 未进完全由喉腔几何 + 能量决定（力度不足、太薄如实报未进）。
+        result.cuePocketed = run.cuePocketed
         let potted = run.pottedSelected
         result.simObjectPotted = potted
         result.objectPocketed = potted
         result.cueCushionCount = run.cueCushions
         result.objectCushionCount = run.objCushionsBeforePocket
         result.cueCushionsBeforeContact = run.cueCushionsBeforeContact
+        result.events = run.events
 
-        // 4.5) 全场最终静止位置 + 进袋球名（走位序列链，ADR-P11-01）。全部取自引擎真实末帧。
+        // 全场最终静止位置 + 母球末速（走位序列链 / 高速假停护栏）。取自引擎真实末帧。
         var finals: [String: SCNVector3] = [:]
         var pocketed: [String] = []
         for (name, frames) in run.recorder.framesByBallName {
             if let last = frames.max(by: { $0.time < $1.time }) {
                 finals[name] = last.position
+                if name == ShotInput.cueBallName {
+                    result.cueFinalSpeed = sqrtf(last.velocity.x * last.velocity.x
+                                                 + last.velocity.z * last.velocity.z)
+                }
             }
             if run.recorder.isBallPocketed(name) { pocketed.append(name) }
         }
-        // 目标球用 `pottedSelected`（比 isBallPocketed 严：须进“选定”袋）覆盖其在进袋列表中的状态。
         if potted, !pocketed.contains(ShotInput.targetBallName) { pocketed.append(ShotInput.targetBallName) }
         if !potted { pocketed.removeAll { $0 == ShotInput.targetBallName } }
         result.finalPositions = finals
         result.pocketedBalls = pocketed
 
-        // 5) 分离角：首次球-球碰撞后两球速度方向夹角。
+        // 分离角：首次球-球碰撞后两球速度方向夹角。
         if let contactTime = run.firstContactTime {
             let cueVel = velocityAfter(run.recorder, ballName: ShotInput.cueBallName, time: contactTime)
             let objVel = velocityAfter(run.recorder, ballName: ShotInput.targetBallName, time: contactTime)
@@ -234,14 +262,12 @@ enum ShotPredictor {
                     let dot = max(-1, min(1, cd.x * od.x + cd.z * od.z))
                     result.separationAngleDeg = Double(acosf(dot) * 180 / .pi)
                 }
-                // 切线 = 垂直于撞击线；撞击线方向 ≈ 目标球碰后方向。
                 if let od = objDir {
                     result.tangentDir = SCNVector3(-od.z, 0, od.x)
                 }
             }
             result.firstContact = positionAt(run.recorder, ballName: ShotInput.cueBallName, time: contactTime)
         }
-
         return result
     }
 
@@ -316,6 +342,21 @@ enum ShotPredictor {
         result.extraBallPaths = extraPaths
         result.objectPocketed = pocketed.contains { $0 != ShotInput.cueBallName }
 
+        var events: [ShotEvent] = []
+        for (ev, et) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
+            switch ev {
+            case let .ballBall(a, b):
+                events.append(ShotEvent(time: et, kind: .ballBall(ballA: a, ballB: b)))
+            case let .ballCushion(ball, _, _):
+                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball)))
+            case let .pocket(ball, pid):
+                events.append(ShotEvent(time: et, kind: .pocket(ball: ball, pocketId: pid)))
+            case .transition:
+                break
+            }
+        }
+        result.events = events
+
         if let contactTime = firstBallBallTime(engine) {
             result.firstContact = positionAt(recorder, ballName: ShotInput.cueBallName, time: contactTime)
         }
@@ -368,6 +409,8 @@ enum ShotPredictor {
         let cueCushions: Int
         /// 母球在**首次球-球碰撞前**的吃库次数（0 = 直瞄直击；≥1 = 绕库/kick 进攻路线）。
         let cueCushionsBeforeContact: Int
+        /// 按时间排序的关键事件（球-球碰撞 / 吃库 / 落袋），供走位反解器消费（ADR-P13-01）。
+        let events: [ShotEvent]
     }
 
     /// 以 `aimDir` 方向、`velocity` 力度发射母球并模拟，返回结果。
@@ -448,6 +491,19 @@ enum ShotPredictor {
         var cueCushions = 0
         var cueCushionsBeforeContact = 0
         var sawBallBall = false
+        var events: [ShotEvent] = []
+        for (ev, et) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
+            switch ev {
+            case let .ballBall(a, b):
+                events.append(ShotEvent(time: et, kind: .ballBall(ballA: a, ballB: b)))
+            case let .ballCushion(ball, _, _):
+                events.append(ShotEvent(time: et, kind: .ballCushion(ball: ball)))
+            case let .pocket(ball, pid):
+                events.append(ShotEvent(time: et, kind: .pocket(ball: ball, pocketId: pid)))
+            case .transition:
+                break
+            }
+        }
         for (ev, et) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
             switch ev {
             case .ballBall:
@@ -481,7 +537,8 @@ enum ShotPredictor {
             objCushionsBeforePocket: objCushionsBeforePocket,
             objMaxPrepocketCushionDist: objMaxPrepocketCushionDist,
             cueCushions: cueCushions,
-            cueCushionsBeforeContact: cueCushionsBeforeContact
+            cueCushionsBeforeContact: cueCushionsBeforeContact,
+            events: events
         )
     }
 
@@ -656,5 +713,83 @@ enum ShotPredictor {
         let len = sqrtf(dx * dx + dz * dz)
         guard len > 0.0001 else { return SCNVector3(1, 0, 0) }
         return SCNVector3(dx / len, 0, dz / len)
+    }
+}
+
+// MARK: - 走位反解快速路径（ADR-P13-01，仅 PositionPlaySolver 使用）
+//
+// 与共享 `predict` 的关系：**完全不碰** `predict` / `solveAimOffset` 的算法（其余 5 个场景与
+// 全部物理测试套走的就是它们，零影响）。这里只是「独立编排」——复用同一个共享核心
+// `prepareAim` / `runShot` / `buildPrediction`，把内层瞄准换成更省的一维黄金分割，并允许外部
+// 传入**预解好的瞄准偏移**以跨 spinY 复用（瞄准与高低杆无关）。同文件 extension ⇒ 可访问
+// 私有核心，无需放宽任何可见性。
+extension ShotPredictor {
+
+    /// 走位反解专用预测：可传入预解的 `aimOffset`（跨 spinY 复用）；为 nil 时用轻量一维瞄准现解。
+    /// 共享 `prepareAim` + `buildPrediction`，结果字段与 `predict` 同口径。
+    static func predictForPositionSolve(
+        _ input: ShotInput, aimOffset: Float? = nil,
+        maxEvents: Int = 500, maxTime: Float = 15.0
+    ) -> ShotPrediction {
+        var result = ShotPrediction()
+        guard let ctx = prepareAim(input, into: &result) else { return result }
+        let offset = aimOffset ?? positionAimOffset(input: input, context: ctx)
+        let finalAim = ctx.aimDir.rotatedY(offset)
+        return buildPrediction(finalAim: finalAim, context: ctx, input: input,
+                               result: result, maxEvents: maxEvents, maxTime: maxTime)
+    }
+
+    /// 轻量一维瞄准：方向景观平滑单峰（见 `solveAimOffset` 注释），用**黄金分割**求极小，
+    /// ~15 次短模拟 vs 原三级网格 75 次。精度 0.05° 足够——进袋由 `buildPrediction` 全模拟硬校验。
+    /// 评分与 `solveAimOffset` 同口径：目标球碰后离开方向对齐进球管道、碰前吃库判无效。
+    /// **与 spinY 无关**（squirt 只来自横塞 spinX）⇒ 可对一组候选只解一次、跨 spinY 复用。
+    static func positionAimOffset(input: ShotInput, context ctx: AimContext) -> Float {
+        let adx = input.targetBall.x - ctx.ghost.x
+        let adz = input.targetBall.z - ctx.ghost.z
+        let adl = max(sqrtf(adx * adx + adz * adz), 1e-5)
+        let aimDirX = adx / adl, aimDirZ = adz / adl
+
+        func score(_ offset: Float) -> Float {
+            let run = runShot(
+                aimDir: ctx.aimDir.rotatedY(offset), velocity: input.velocity, input: input,
+                geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
+                maxEvents: AimScoring.searchMaxEvents, maxTime: AimScoring.searchMaxTime
+            )
+            guard let od = run.objPostContactDir else {
+                return AimScoring.invalidCandidate + run.cueGhostMinDist
+            }
+            guard run.cueCushionsBeforeContact == 0 else { return AimScoring.invalidCandidate }
+            let dot = max(-1, min(1, od.x * aimDirX + od.z * aimDirZ))
+            return acosf(dot) + abs(offset) * AimScoring.offsetRegularization
+        }
+
+        let deg = Float.pi / 180
+        return goldenSectionMin(score,
+                                lower: -AimScoring.coarseHalfRangeDeg * deg,
+                                upper: AimScoring.coarseHalfRangeDeg * deg,
+                                tol: 0.05 * deg)
+    }
+
+    /// 黄金分割一维极小化（要求 `f` 在 [lower, upper] 上拟单峰）。
+    private static func goldenSectionMin(
+        _ f: (Float) -> Float, lower: Float, upper: Float, tol: Float
+    ) -> Float {
+        let invPhi: Float = 0.618_034
+        var a = lower, b = upper
+        var c = b - (b - a) * invPhi
+        var d = a + (b - a) * invPhi
+        var fc = f(c), fd = f(d)
+        while (b - a) > tol {
+            if fc < fd {
+                b = d; d = c; fd = fc
+                c = b - (b - a) * invPhi
+                fc = f(c)
+            } else {
+                a = c; c = d; fc = fd
+                d = a + (b - a) * invPhi
+                fd = f(d)
+            }
+        }
+        return (a + b) / 2
     }
 }

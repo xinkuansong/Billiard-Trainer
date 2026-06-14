@@ -40,12 +40,17 @@
 
 ## `TutorialSection`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `title` | `String` | Section heading, e.g. "技术原理" |
-| `content` | `String` | Section body text (Chinese) |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | `String` | ✅ | Section heading, e.g. "技术原理" |
+| `content` | `String` | ✅ | Section body text (Chinese). May be `""` when `items` carry the content. Supports paragraphs (`\n\n`) and inline markdown (`**bold**`). |
+| `image` | `String?` | ❌ | Figure under `Resources/DrillTutorials/<image>.png` (no extension) |
+| `caption` | `String?` | ❌ | Figure caption (small gray text under the image) |
+| `items` | `[TutorialItem]?` | ❌ | Structured "label + text" rows (DR-019). Labels `为什么`/`怎么打`/`自检` get accent colors; others render neutral (e.g. mistake names). |
+| `params` | `TutorialShotParams?` | ❌ | Shot parameters row for per-shot sections: `{ spinX, spinY, velocity }` (tip offset /R + m/s, same semantics as `ShotIntent`). Rendered as true-scale spin icon + readout + power chip, matching the export HUD. |
 
-Standard section titles: `技术原理`, `动作要领`, `常见错误与纠正`, `进阶练习`
+Standard section titles: `技术原理`, `动作要领`, `常见错误与纠正`, `进阶练习`.
+Multi-shot "applied lesson" template (ADR-P11-14) adds: `开局与击球顺序`, `第N杆：…`.
 
 ## `DrillVideo`
 

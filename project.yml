@@ -46,6 +46,7 @@ targets:
           - "Resources/Plans/**"
           - "Resources/Videos/**"
           - "Resources/DrillThumbnails/**"
+          - "Resources/DrillTutorials/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
       - path: QiuJi/Resources/Drills
         type: folder
@@ -57,6 +58,9 @@ targets:
         type: folder
         buildPhase: resources
       - path: QiuJi/Resources/DrillThumbnails
+        type: folder
+        buildPhase: resources
+      - path: QiuJi/Resources/DrillTutorials
         type: folder
         buildPhase: resources
     resources:

@@ -654,3 +654,19 @@
 - **日期**：2026-06-05
 - **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（打点盘语义：接触点/R，可拖区=打滑极限 0.5R，红点=真实皮头比例）。
 - **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-05，DR-018）。
+---
+
+## DR-019
+- **任务**：图文精讲结构化渲染升级（用户驱动：「精讲的文本样式不太好看」——应用课模板的为什么/怎么打/自检与关键参数被压扁在一段平文本里成字墙）。
+- **原始规范**：`TutorialSection` 仅 `title + content + image` 三字段，`DrillTutorialView.sectionCard` 把 content 渲染为单段 `Text`（btCallout，lineSpacing 4），无段落、无列表、无参数展示；配图无图注。
+- **调整后**（向后兼容，旧 drill 无新字段照常走旧路径）：
+  1. `TutorialSection` 新增可选字段：`items: [TutorialItem]?`（{label, text} 结构化条目）、`params: TutorialShotParams?`（{spinX, spinY, velocity} 本节击球参数）、`caption: String?`（图注）。
+  2. `DrillTutorialView` 新渲染：content 按 `\n\n` 分段 + 段内 inline markdown（**加粗**）、lineSpacing 4→5；`items` 渲染为「彩色标签胶囊 + 正文」行（为什么=blue / 怎么打=btPrimary / 自检=orange / 其余中性灰）；`params` 渲染为「`BTSpinMiniIcon`(40pt, trueScale) + 打点读数胶囊 + 力度胶囊」参数行（与导出 HUD 同组件同口径：`SpinDisplay.readout` / `PowerDisplay.name`）；图注 btCaption 灰字。
+  3. drill_c042 内容迁移到新结构（逐杆节 items+params+caption，常见错误转 items 列表，平文本节加粗+分段）。
+- **原因**：「应用课」精讲模板（ADR-P11-14）的信息是结构化的（原理/操作/检验 + 击球参数），展示层必须有对应容器；参数胶囊与导出 HUD 同源，图文互证。
+- **影响组件**：`QiuJi/Data/Services/DrillContentService.swift`（TutorialSection +3 可选字段、新增 TutorialItem/TutorialShotParams）、`QiuJi/Features/DrillLibrary/Views/DrillTutorialView.swift`（paragraphs/itemRow/paramsRow/paramChip + 图注）、`QiuJi/Resources/Drills/positioning/drill_c042.json`（内容迁移）、`QiuJi/Resources/Drills/schema.md`（TutorialSection 字段表）。
+- **验证**：`xcodebuild test testDrillC042TutorialDemo` Passed，截图 8 张核验：参数行（打点icon+「高43% · 右1%」+「轻推 · 0.8 m/s」）、三色标签行、常见错误结构化列表、加粗/分段、图注全部正常。lint 0。
+- **遗留**：存量 72 个 drill 的「常见错误与纠正」1.2.3. 字符串待批量转 `items`（等用户对 c042 新样式定稿后脚本迁移 + 抽查）。
+- **日期**：2026-06-13
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog + `Resources/Drills/schema.md` + `.cursor/skills/content-engineering/SKILL.md`（应用课模板 SOP）。
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-13，DR-019）；✅ `Resources/Drills/schema.md` TutorialSection 字段表（2026-06-13）；✅ `.cursor/skills/content-engineering/SKILL.md` §「图文精讲应用课模板」（2026-06-13，含序列→drill 接入清单 + 媒体落位表 + 红线）。

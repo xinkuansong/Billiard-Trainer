@@ -35,7 +35,7 @@ help:
 	@echo "  make build        Debug 构建（仅验证编译，不安装/启动）"
 	@echo "  make run          Debug 构建 + 安装 + 在模拟器启动（一条龙）"
 	@echo "  make test         运行所有 XCTest"
-	@echo "  make position-export  走位序列 JSON → MP4/GIF（输入 build/position_play_sequences/）"
+	@echo "  make position-export  走位序列 JSON → MP4/GIF（源 content/position_play/sequences/）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
 	@echo "  make export       从 Archive 导出 IPA"
 	@echo "  make upload       上传 IPA 到 App Store Connect"
@@ -123,14 +123,21 @@ test:
 	@echo "✅ 测试完成，报告: $(BUILD_DIR)/test-results.xml"
 
 # ────────────────────────────────────────────
-# 走位序列离线复现（#11，ADR-P11-04）
-# 输入：build/position_play_sequences/*.json（编排台「录制」分享出的序列 JSON）
+# 走位序列离线复现（#11，ADR-P11-04 / ADR-P11-10）
+# 输入：content/position_play/sequences/*.json（真相源，编排台录制直写、进 git）
+#       渲染前自动同步进 build/position_play_sequences/ 收件箱（临时试渲可直接丢进收件箱）
 # 输出：build/position_play_export/<名称>.mp4 + .gif（物理引擎逐 Step 复现渲染）
 # ────────────────────────────────────────────
+SEQUENCE_CONTENT_DIR := $(PROJECT_ROOT)/content/position_play/sequences
+
 .PHONY: position-export
 position-export:
 	@echo "→ 走位序列复现导出..."
 	@mkdir -p $(BUILD_DIR)/position_play_sequences $(DERIVED_DATA)
+	@if ls $(SEQUENCE_CONTENT_DIR)/*.json >/dev/null 2>&1; then \
+	  cp -f $(SEQUENCE_CONTENT_DIR)/*.json $(BUILD_DIR)/position_play_sequences/; \
+	  echo "  已同步内容库序列: $$(ls $(SEQUENCE_CONTENT_DIR)/*.json | wc -l | tr -d ' ') 个"; \
+	fi
 	xcodebuild \
 	  $(PROJECT_FLAG) \
 	  -scheme $(SCHEME) \

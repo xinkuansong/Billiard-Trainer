@@ -2,12 +2,21 @@
 //  PositionPlaySequenceExportRunnerTests.swift
 //  QiuJiTests
 //
-//  走位序列 JSON → 视频/GIF 离线复现 runner（ADR-P11-04，#11）。
+//  走位序列 JSON → 教学素材默认配方 离线出片 runner（ADR-P11-04 / P11-10 / P11-11，#11）。
 //
 //  用法：
-//    1. 把走位编排台「录制」分享出的序列 JSON 放进 `build/position_play_sequences/`；
-//    2. 项目根执行 `cd scripts && make position-export`（或 Xcode 直接跑本测试）；
-//    3. 产物（<名称>.mp4 + <名称>.gif）输出到 `build/position_play_export/`。
+//    1. 模拟器上用走位编排台「录制」，结束后 JSON 自动直写 `content/position_play/sequences/`
+//       （真相源，进 git）；临时试渲也可手动丢 JSON 进 `build/position_play_sequences/` 收件箱；
+//    2. 项目根执行 `cd scripts && make position-export`（自动同步内容库 → 收件箱后渲染；
+//       或 Xcode 直接跑本测试，只消费收件箱）；
+//    3. 产物按默认配方输出到 `build/position_play_export/seq_<id8>/`：
+//         cover.png               卡片风格封面（球放大，首杆 before + 预告线）
+//         preview/frame_NN.png    卡片风格动画帧序列（整段抽样 12 帧）
+//         initial.png / final.png 开局 / 终局布局（真实风格 1280×640）
+//         sNN_still.png           每杆击球前静帧（带预告线，教学配图）
+//         full.mp4                整段视频（真实风格；每杆预告线静帧→出杆线消失→运动→收尾）
+//         sNN.mp4                 单杆视频（同上）
+//         full.gif                整段分享 GIF（真实风格 480×240）
 //
 //  原理：解码 `PositionPlaySequence` → `SequenceVideoExporter` 逐 Step 用物理引擎
 //  （`PositionPlayShotSolver` → `ShotPredictor`）真实复现轨迹 → SceneKit 离屏逐帧渲染。
@@ -34,7 +43,7 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
         try XCTSkipIf(jsonFiles.isEmpty,
                       "无输入：把走位序列 JSON 放进 \(inputDir) 后重跑（make position-export）")
 
-        // 与编排台 `shareSequenceJSON` 编码策略对齐（iso8601 日期）。
+        // 与编排台 `PositionPlaySequenceArchive` 编码策略对齐（iso8601 日期）。
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
@@ -43,6 +52,10 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
         for file in jsonFiles {
             let inURL = URL(fileURLWithPath: "\(inputDir)/\(file)")
             let baseName = inURL.deletingPathExtension().lastPathComponent
+            // 资产键目录：`seq_<id8>-<名称>-<N>杆` → `seq_<id8>`；不合约定的文件名整体作目录名。
+            let dirName = baseName.hasPrefix("seq_")
+                ? baseName.split(separator: "-").first.map(String.init) ?? baseName
+                : baseName
             do {
                 let sequence = try decoder.decode(PositionPlaySequence.self,
                                                   from: Data(contentsOf: inURL))
@@ -51,18 +64,44 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                     continue
                 }
 
-                let mp4 = try await SequenceVideoExporter.exportVideo(sequence: sequence)
-                let mp4Out = URL(fileURLWithPath: "\(outputDir)/\(baseName).mp4")
-                try? fm.removeItem(at: mp4Out)
-                try fm.moveItem(at: mp4, to: mp4Out)
+                let outDir = URL(fileURLWithPath: outputDir).appendingPathComponent(dirName)
+                try? fm.removeItem(at: outDir)
+                try fm.createDirectory(at: outDir.appendingPathComponent("preview"),
+                                       withIntermediateDirectories: true)
 
-                let gif = try SequenceVideoExporter.exportGIF(sequence: sequence)
-                let gifOut = URL(fileURLWithPath: "\(outputDir)/\(baseName).gif")
-                try? fm.removeItem(at: gifOut)
-                try fm.moveItem(at: gif, to: gifOut)
+                // 教学静帧（真实风格）：initial / sNN_still / final。
+                for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence) {
+                    try writePNG(image, to: outDir.appendingPathComponent("\(name).png"))
+                }
+
+                // 卡片素材（卡片风格，球放大）：封面 + 动画帧序列。
+                if let cover = SequenceVideoExporter.renderCover(sequence: sequence) {
+                    try writePNG(cover, to: outDir.appendingPathComponent("cover.png"))
+                }
+                let previewFrames = try SequenceVideoExporter.renderPreviewFrames(sequence: sequence)
+                for (i, frame) in previewFrames.enumerated() {
+                    let name = String(format: "preview/frame_%02d.png", i + 1)
+                    try writePNG(frame, to: outDir.appendingPathComponent(name))
+                }
+
+                // 整段视频 + 分享 GIF（真实风格）。
+                let fullMp4 = try await SequenceVideoExporter.exportVideo(sequence: sequence)
+                try moveReplacing(fullMp4, to: outDir.appendingPathComponent("full.mp4"))
+                let fullGif = try SequenceVideoExporter.exportGIF(sequence: sequence)
+                try moveReplacing(fullGif, to: outDir.appendingPathComponent("full.gif"))
+
+                // 单杆视频（真实风格）。
+                for i in sequence.steps.indices {
+                    let sub = SequenceVideoExporter.subSequence(sequence, stepIndex: i)
+                    let mp4 = try await SequenceVideoExporter.exportVideo(sequence: sub)
+                    let name = String(format: "s%02d.mp4", i + 1)
+                    try moveReplacing(mp4, to: outDir.appendingPathComponent(name))
+                }
 
                 ok += 1
-                print("SEQ-EXPORT ✅ \(baseName)：\(sequence.steps.count) 杆 → mp4 + gif")
+                print("SEQ-EXPORT ✅ \(dirName)（\(baseName)）：\(sequence.steps.count) 杆 → "
+                      + "静帧 \(2 + sequence.steps.count) + cover + preview \(previewFrames.count) 帧 + "
+                      + "full.mp4/gif + 单杆 mp4 ×\(sequence.steps.count)")
             } catch {
                 failed.append("\(file)(\(error.localizedDescription))")
             }
@@ -70,6 +109,21 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
 
         print("SEQ-EXPORT done: \(ok)/\(jsonFiles.count) → \(outputDir)")
         if !failed.isEmpty { print("SEQ-EXPORT failures: \(failed.joined(separator: ", "))") }
-        XCTAssertTrue(failed.isEmpty, "序列复现失败：\(failed.joined(separator: ", "))")
+        XCTAssertTrue(failed.isEmpty, "序列出片失败：\(failed.joined(separator: ", "))")
+    }
+
+    // MARK: - Helpers
+
+    private func writePNG(_ image: CGImage, to url: URL) throws {
+        guard let data = UIImage(cgImage: image).pngData() else {
+            throw NSError(domain: "SeqExport", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "PNG 编码失败: \(url.lastPathComponent)"])
+        }
+        try data.write(to: url)
+    }
+
+    private func moveReplacing(_ src: URL, to dst: URL) throws {
+        try? FileManager.default.removeItem(at: dst)
+        try FileManager.default.moveItem(at: src, to: dst)
     }
 }

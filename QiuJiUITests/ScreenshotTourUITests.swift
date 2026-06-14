@@ -128,6 +128,40 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     /// 仅动作库：网格缩略图 + 详情页，单独成测，用于验证 USDZ 2D 顶视渲染
+    /// 临时验收：drill_c042 序列出片接入效果（详情页视频 + 图文精讲，ADR-P11-14 demo）。
+    func testDrillC042TutorialDemo() {
+        sleep(3)
+        app.switchTab(.drillLibrary)
+        sleep(2)
+
+        let search = app.textFields["搜索动作"]
+        if search.waitForExistence(timeout: 4) {
+            search.tap()
+            search.typeText("蛇彩")
+            sleep(2)
+        }
+        let card = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'drillCard_drill_c042'")).firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 5), "未找到 drill_c042 卡片")
+        card.tap()
+        sleep(3)
+        snap("c042-01-detail-top")
+
+        app.scrollDown(times: 2)
+        sleep(1)
+        snap("c042-02-detail-video")
+
+        if tapIfExists("查看精讲") {
+            sleep(2)
+            snap("c042-03-tutorial-top")
+            for i in 4...8 {
+                app.scrollDown(times: 1)
+                usleep(800_000)
+                snap("c042-0\(i)-tutorial-scroll")
+            }
+        }
+    }
+
     /// （网格离线烘焙 PNG `BTBakedDrillTable` + 详情页 live `DrillSceneView`）。
     func testDrillLibraryOnly() {
         sleep(3)

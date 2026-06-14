@@ -81,14 +81,41 @@ struct TutorialSection: Codable, Identifiable {
     let content: String
     /// 图文精讲配图：`Resources/DrillTutorials/<image>.png`（不含扩展名）。可选——旧 Drill 无此字段照常工作。
     let image: String?
+    /// 配图图注（可选，渲染在图下方的细灰字）。
+    let caption: String?
+    /// 结构化条目（可选，ADR-P11-15）：「标签 + 正文」行，用于逐杆精讲的
+    /// 为什么/怎么打/自检，或常见错误的逐条列表。渲染为彩色标签 + 段落。
+    let items: [TutorialItem]?
+    /// 本节击球参数（可选，逐杆精讲节用）：渲染为打点小图标 + 读数 + 力度胶囊，
+    /// 与导出 HUD 同组件同口径（`BTSpinMiniIcon` trueScale / `SpinDisplay` / `PowerDisplay`）。
+    let params: TutorialShotParams?
 
     var id: String { title }
 
-    init(title: String, content: String, image: String? = nil) {
+    init(title: String, content: String, image: String? = nil, caption: String? = nil,
+         items: [TutorialItem]? = nil, params: TutorialShotParams? = nil) {
         self.title = title
         self.content = content
         self.image = image
+        self.caption = caption
+        self.items = items
+        self.params = params
     }
+}
+
+struct TutorialItem: Codable, Identifiable {
+    let label: String
+    let text: String
+
+    var id: String { label }
+}
+
+struct TutorialShotParams: Codable {
+    /// 打点（皮头中心偏移/R，同 `ShotIntent.Spin` 语义）。
+    let spinX: Double
+    let spinY: Double
+    /// 杆头速度 (m/s)。
+    let velocity: Double
 }
 
 // MARK: - Animation Types

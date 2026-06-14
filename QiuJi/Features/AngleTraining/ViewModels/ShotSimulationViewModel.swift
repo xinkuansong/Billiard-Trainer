@@ -236,10 +236,10 @@ final class ShotSimulationViewModel: ObservableObject {
     private func drawTrajectory(_ p: ShotPrediction) {
         clearTrajectory()
         // 母球轨迹（白）：取自真实模拟，起始段即「瞄准线」，碰后展示走位（分离角/跟缩/吃库）。
-        addPolyline(p.cuePath, color: UIColor.white.withAlphaComponent(0.95), radius: 0.0035)
-        // 目标球轨迹（橙）：沿进球线「空心走直线入袋」（目标球→袋口的几何直线）。
-        addPolyline(p.objectPath,
-                    color: UIColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 0.95), radius: 0.0035)
+        addPolyline(p.cuePath, color: TrajectoryStyle.aimColor, radius: TrajectoryStyle.aimRadius)
+        // 目标球轨迹：随目标球球色（本页目标球为黑 8 → 亮灰，ADR-P11-12）。
+        addPolyline(p.objectPath, color: TrajectoryStyle.potColor(for: "_8"),
+                    radius: TrajectoryStyle.potRadius)
         drawPottingPerpendicular(p)
         showTeachingAnnotations(p)
     }

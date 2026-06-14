@@ -49,8 +49,9 @@ final class DrillSceneController: ObservableObject {
     // （木边在四周等宽外扩，会把 2:1 的台面拉成 ~1.81）。相框比例随之设为 1.81（见 DrillSceneView），
     // 正交半高取 0.77：球台占满相框、左右无绿边（仅裁掉最外侧 ~1% 木边，所有袋口完整）。
     private var orthoScale: Double { Self.orthoScale }
-    private let cueColor = UIColor.white.withAlphaComponent(0.95)
-    private let targetColor = UIColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 0.95)
+    // 进球线随目标球球色（本场景目标球为黑 8 → 亮灰，ADR-P11-12）。
+    private let cueColor = TrajectoryStyle.aimColor
+    private let targetColor = TrajectoryStyle.potColor(for: "_8")
 
     func setup(drill: DrillContent) {
         guard !didSetup else { return }
@@ -174,7 +175,8 @@ final class DrillSceneController: ObservableObject {
     private func addPolyline(_ pts: [SCNVector3], color: UIColor) {
         guard pts.count >= 2 else { return }
         for i in 0..<(pts.count - 1) {
-            trajectoryNodes.append(scene.addLine(from: pts[i], to: pts[i + 1], color: color, radius: 0.005))
+            trajectoryNodes.append(scene.addLine(from: pts[i], to: pts[i + 1], color: color,
+                                                 radius: TrajectoryStyle.potRadius))
         }
     }
 

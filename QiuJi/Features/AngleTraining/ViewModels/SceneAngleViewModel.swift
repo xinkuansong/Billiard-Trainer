@@ -238,7 +238,7 @@ final class SceneAngleViewModel: ObservableObject {
 
         // Correct path: target → pocket (green line)
         let correctLine = scene.addLine(from: targetPos, to: pocketPos,
-                                        color: UIColor.systemGreen, radius: 0.004)
+                                        color: UIColor.systemGreen, radius: TrajectoryStyle.potRadius)
         resultNodes.append(correctLine)
 
         // Ghost ball (translucent yellow)
@@ -251,7 +251,8 @@ final class SceneAngleViewModel: ObservableObject {
         // Aiming line: cue → ghost (blue translucent)
         if let cuePos = cueBallNode?.position {
             let aimLine = scene.addLine(from: cuePos, to: ghostPos,
-                                        color: UIColor.cyan.withAlphaComponent(0.5), radius: 0.003)
+                                        color: UIColor.cyan.withAlphaComponent(0.5),
+                                        radius: TrajectoryStyle.aimRadius)
             resultNodes.append(aimLine)
 
             // Contact point (red dot)

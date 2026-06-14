@@ -92,6 +92,13 @@ struct DrillTutorialView: View {
         "进阶练习": .purple,
     ]
 
+    /// 条目标签配色（ADR-P11-15「应用课」模板：为什么/怎么打/自检；其余标签用中性色）。
+    private static let itemLabelColors: [String: Color] = [
+        "为什么": .blue,
+        "怎么打": .btPrimary,
+        "自检": .orange,
+    ]
+
     private func sectionCard(_ section: TutorialSection, index: Int) -> some View {
         let icon = Self.sectionIcons[section.title] ?? "doc.text.fill"
         let accentColor = Self.sectionColors[section.title] ?? .btPrimary
@@ -110,23 +117,40 @@ struct DrillTutorialView: View {
                     .foregroundStyle(.btText)
             }
 
-            Text(section.content)
-                .font(.btCallout)
-                .foregroundStyle(.btText)
-                .fixedSize(horizontal: false, vertical: true)
-                .lineSpacing(4)
+            if !section.content.isEmpty {
+                paragraphs(section.content)
+            }
+
+            if let params = section.params {
+                paramsRow(params)
+            }
+
+            if let items = section.items {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    ForEach(items) { item in
+                        itemRow(item)
+                    }
+                }
+            }
 
             if let imageName = section.image,
                let uiImage = DrillTutorialImageStore.image(named: imageName) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: BTRadius.sm)
-                            .stroke(.btSeparator, lineWidth: 0.5)
-                    )
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: .infinity)
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: BTRadius.sm)
+                                .stroke(.btSeparator, lineWidth: 0.5)
+                        )
+                    if let caption = section.caption {
+                        Text(caption)
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                }
             }
         }
         .padding(Spacing.lg)
@@ -134,6 +158,74 @@ struct DrillTutorialView: View {
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .padding(.horizontal, Spacing.lg)
+    }
+
+    // MARK: - Section building blocks
+
+    /// 正文：按空行分段渲染，段内支持 inline markdown（**加粗** 等）。
+    private func paragraphs(_ content: String) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            ForEach(Array(content.components(separatedBy: "\n\n").enumerated()), id: \.offset) { _, para in
+                Text(Self.inlineMarkdown(para))
+                    .font(.btCallout)
+                    .foregroundStyle(.btText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .lineSpacing(5)
+            }
+        }
+    }
+
+    private static func inlineMarkdown(_ text: String) -> AttributedString {
+        (try? AttributedString(
+            markdown: text,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(text)
+    }
+
+    /// 「标签 + 正文」条目行：彩色小标签胶囊 + 段落。
+    private func itemRow(_ item: TutorialItem) -> some View {
+        let color = Self.itemLabelColors[item.label] ?? Color.btTextSecondary
+        return HStack(alignment: .top, spacing: Spacing.sm) {
+            Text(item.label)
+                .font(.btCaption2)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, 3)
+                .background(color.opacity(0.12))
+                .clipShape(Capsule())
+                .padding(.top, 1)
+
+            Text(Self.inlineMarkdown(item.text))
+                .font(.btCallout)
+                .foregroundStyle(.btText)
+                .fixedSize(horizontal: false, vertical: true)
+                .lineSpacing(5)
+        }
+    }
+
+    /// 击球参数行：打点小图标（真实比例，与导出 HUD 同口径）+ 打点读数 + 力度胶囊。
+    private func paramsRow(_ params: TutorialShotParams) -> some View {
+        HStack(spacing: Spacing.sm) {
+            BTSpinMiniIcon(spinX: params.spinX, spinY: params.spinY,
+                           diameter: 40, trueScale: true)
+
+            paramChip(SpinDisplay.readout(spinX: params.spinX, spinY: params.spinY))
+            paramChip("\(PowerDisplay.name(params.velocity)) · \(String(format: "%.1f", params.velocity)) m/s")
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func paramChip(_ text: String) -> some View {
+        Text(text)
+            .font(.btCaption)
+            .monospacedDigit()
+            .foregroundStyle(.btText)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, 6)
+            .background(.btBGTertiary)
+            .clipShape(Capsule())
     }
 }
 

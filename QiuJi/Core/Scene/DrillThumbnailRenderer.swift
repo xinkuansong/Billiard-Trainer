@@ -12,8 +12,9 @@ import UIKit
 /// 解析 USDZ + 克隆节点，开销很大。仅用于离线烘焙或单个详情场景。
 enum DrillThumbnailRenderer {
 
-    private static let cueColor = UIColor.white.withAlphaComponent(0.95)
-    private static let targetColor = UIColor(red: 0.96, green: 0.65, blue: 0.14, alpha: 0.95)
+    // 进球线随目标球球色（缩略图目标球为黑 8 → 亮灰，ADR-P11-12）；低分辨率用紧凑线宽。
+    private static let cueColor = TrajectoryStyle.aimColor
+    private static let targetColor = TrajectoryStyle.potColor(for: "_8")
 
     /// 渲染缩略图。`size` 为点尺寸（2:1 横向最佳），`scale` 为像素倍率。
     @MainActor
@@ -87,7 +88,8 @@ enum DrillThumbnailRenderer {
         guard points.count >= 2 else { return }
         let pts = points.map { lifted($0, y: y) }
         for i in 0..<(pts.count - 1) {
-            _ = scene.addLine(from: pts[i], to: pts[i + 1], color: color, radius: 0.006)
+            _ = scene.addLine(from: pts[i], to: pts[i + 1], color: color,
+                              radius: TrajectoryStyle.compactRadius)
         }
     }
 
@@ -116,7 +118,8 @@ enum DrillThumbnailRenderer {
 
         guard pts.count >= 2 else { return }
         for i in 0..<(pts.count - 1) {
-            _ = scene.addLine(from: pts[i], to: pts[i + 1], color: color, radius: 0.006)
+            _ = scene.addLine(from: pts[i], to: pts[i + 1], color: color,
+                              radius: TrajectoryStyle.compactRadius)
         }
     }
 

@@ -72,17 +72,30 @@ struct BTSpinPad: View {
 
 /// 缩小版打点状态图标：母球小圆 + 当前打点红斑，点击弹出真正的打点盘。
 /// 红点位置与 `BTSpinPad` 同一约定：spinX 正 = 左（屏幕左），spinY 正 = 高（屏幕上）。
+///
+/// 两种画法（ADR-P11-13）：
+/// - `trueScale = false`（默认，App 内小按钮）：**归一化**——满塞（打滑极限）红点到图标
+///   边缘，28pt 下可读性优先；真实比例由点开的打点盘呈现。
+/// - `trueScale = true`（教学导出 HUD）：**真实比例**——与 `BTSpinPad` 同一几何（皮头中心
+///   摆放位置 + 打滑极限虚线圈 + 皮头/母球真实比例接触斑），观众可照搬到真球上。
 struct BTSpinMiniIcon: View {
     let spinX: Double
     let spinY: Double
     let diameter: CGFloat
+    var trueScale = false
 
     var body: some View {
         let limit = Double(CuePhysics.miscueLimitFraction)
+        let pull = Double(CuePhysics.tipContactPullFactor)
         let r = diameter / 2 - 3
-        // 打点偏移按打滑极限归一化（满塞红点到图标边缘），方向与打点盘一致。
-        let dx = -CGFloat(spinX / limit) * r
-        let dy = -CGFloat(spinY / limit) * r
+        // 归一化：打点偏移按打滑极限归一化（满塞红点到图标边缘）；
+        // 真实比例：皮头中心摆放位置（接触点 / 拉心系数），与 BTSpinPad 同一几何。
+        let frac = trueScale ? 1.0 / pull : 1.0 / limit
+        let dx = -CGFloat(spinX * frac) * r
+        let dy = -CGFloat(spinY * frac) * r
+        let dotD = trueScale
+            ? r * 2 * CGFloat(CuePhysics.tipDiameter / BallPhysics.diameter)
+            : diameter * 0.26
         return ZStack {
             Circle()
                 .fill(RadialGradient(colors: [.white, Color(white: 0.8)],
@@ -95,10 +108,16 @@ struct BTSpinMiniIcon: View {
                 p.addLine(to: CGPoint(x: diameter - 3, y: diameter / 2))
             }
             .stroke(.black.opacity(0.15), lineWidth: 0.8)
+            if trueScale {
+                // 打滑极限虚线圈（皮头中心可达边界 = miscue/pull），与打点盘一致。
+                Circle()
+                    .stroke(.black.opacity(0.32), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
+                    .frame(width: r * 2 * CGFloat(limit / pull), height: r * 2 * CGFloat(limit / pull))
+            }
             Circle()
                 .fill(Color.red)
                 .overlay(Circle().stroke(.white, lineWidth: 0.8))
-                .frame(width: diameter * 0.26, height: diameter * 0.26)
+                .frame(width: dotD, height: dotD)
                 .offset(x: dx, y: dy)
         }
         .frame(width: diameter, height: diameter)

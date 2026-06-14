@@ -7,6 +7,7 @@
 - 定义或调整 Drill JSON Schema
 - 生成官方训练计划 JSON
 - 验证内容数据合理性
+- 编写/迁移图文精讲（`tutorial`），尤其是走位序列类的「应用课」精讲
 
 ## 坐标系协议
 
@@ -166,6 +167,51 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 - 目标球（targetBall）`start`：同上，且与母球距离 > `0.05`
 - 路径终点：击球袋口坐标偏差 < `0.02`
 
+## 图文精讲「应用课」模板（ADR-P11-14 / DR-019，样板：drill_c042）
+
+> 适用：**多杆走位/清台类** drill（内容来自走位编排台录制的序列）。
+> 单技术点 drill（高杆/低杆/分离角等）保持经典四段结构（技术原理/动作要领/常见错误与纠正/进阶练习）不变。
+
+### Section 骨架（固定顺序）
+
+| # | title | 容器 | 配图 |
+|---|-------|------|------|
+| 1 | `技术原理` | content（理论锚点，1–2 段） | 无 |
+| 2 | `开局与击球顺序` | content（布局 + 顺序规划逻辑——顺序和袋口是一起规划的） | `<id>_initial` + caption |
+| 3..N | `第N杆：X号球 · 袋口` | **items + params**，content 留 `""` | `<id>_sNN`（带 HUD 静帧）+ caption |
+| N+1 | `常见错误与纠正` | **items**（label=错误名，2–4 条） | 可选 |
+| N+2 | `进阶练习` | content（降阶 + 升阶各至少一个方向） | 无 |
+
+### 逐杆节写法（写作公式：为什么 → 怎么打 → 自检）
+
+- `params`：`{spinX, spinY, velocity}` **照抄序列 JSON 该杆数值**（渲染为真实比例打点图标 + 读数 + 力度胶囊，与导出 HUD 同口径）。
+- `items` 三条，label 固定（渲染有专属配色）：
+  - `为什么`：杆法选择的原因 + 母球落点要为下一杆创造什么（理论在具体局面的复用）。
+  - `怎么打`：动作要领（打点用「皮头」等身体语言描述，**不重复 params 已展示的数字**）；有反直觉物理现象（如短距离高杆偏切线）在此点破。
+  - `自检`：母球应停的区域 + 失败征兆（「若停在 X 则说明 Y 偏了」）。落点描述**必须从序列 JSON 的 after 快照数值推导**，禁止凭渲染图脑估（几何技能铁律）。
+- `content` 支持 `\n\n` 分段 + `**加粗**`（inline markdown）；caption 一句话概括该图。
+
+### 媒体配套（序列出片 → 资源目录）
+
+| 产物（`build/position_play_export/seq_<id8>/`） | 落位 | 命名 |
+|---|---|---|
+| `initial.png` | `Resources/DrillTutorials/` | `<drillId>_initial.png` |
+| `sNN_still.png`（带 HUD） | `Resources/DrillTutorials/` | `<drillId>_sNN.png` |
+| `full.mp4`（720p@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]` |
+| 缩略图 | 跑 `DrillThumbnailBakeRunnerTests` 重烘焙 | `<drillId>.png` |
+
+### 序列 → drill 接入清单（每条都做）
+
+1. `shotIntent` 换为序列真实逐杆（cue/target 取该杆 `before`，spin/velocity/pocket 照抄，其余在桌球进 `obstacles`）；`animation` 用首杆数据（`source: "composer"`）。
+2. 媒体按上表落位；`description`/`standardCriteria`/`sets` 与序列杆数对齐。
+3. 精讲按本模板写；打点读数口径=占打滑极限百分比（`SpinDisplay.readout` 同源）。
+4. 验证：JSON 可解码 + 缩略图重烘焙 + 模拟器/UI 测试截图核验精讲逐节渲染。
+
+### ⛔ 红线
+
+- 示范击球**以编排台人工录制为准**；禁止从存量 `shotIntent` 批量反推生成序列（用户拍板：存量数据精度不可靠，2026-06-13）。
+- 精讲文案与示范击球必须一致（文案说「留角度」示范却打直线球＝内容缺陷，写完用序列数值复核一遍）。
+
 ## Freemium 分配目标
 
 | Level | 免费比例 | 付费比例 |
@@ -181,3 +227,37 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 - 6套计划 ID：`plan_beginner` / `plan_cueball` / `plan_positioning` / `plan_intermediate` / `plan_advanced` / `plan_fullskill`
 - 每套计划的 `drillId` 必须已存在于 `index.json`（不能引用不存在的 Drill）
 - `isPremium: false` 仅限前两套（`plan_beginner`、`plan_cueball`），其余为付费
+
+## 内容体系三 SOP（ADR-P12-01，2026-06-14）
+
+> 配套：课程地图 `tasks/curriculum-map.md`（完备真源）+ 理论编号 `16.billiard_theory/contracts/`。
+
+### SOP-A 理论引用「三层渐进式披露」（⛔ 禁教材腔）
+
+精讲挂理论**绝不写「根据 T03 切线法则……」**（教材腔，破坏教练感）。统一三层：
+
+| 层 | 形态 | 来源 |
+|---|------|------|
+| 1 教练话 | 精讲正文用人话把原理说成"就是这样"（如"母球击球瞬间总先沿切线走，之后被旋转拉弯"＝T03，**不出现编号**） | 作者写 |
+| 2 一句话 | 轻触正文 → 弹定理 `statement_one_liner`（≤60字） | 16 `theorem-tags.json` 现成 |
+| 3 完整页 | 再点 → 理论详情页 | 16 `doc_path` |
+
+数据层分工：`theoremIds`/`moduleIds` 是**给机器的标签**（导航/错题分析/筛选），**不进正文措辞**；链接以"安静的可点 chip/下划线"出现。横轴类别→定理绑定查 `curriculum-map.md` §2，不逐条拍脑袋。
+
+### SOP-B 社媒/竞品「拿球形 idea，不拿片段」
+
+避免闭门造车补经验，但**产品里不出现原视频**（版权/拒审红线）。流程：
+
+```
+刷到好教学视频 → 提取「球形 + 教学点」(idea) → 编排台复刻成击球序列 → 引擎生成干净示范+HUD
+```
+
+三角验证给每条 drill 出处：球形来自真人（非拍脑袋）、正确性锚 16 理论（Tier1/2 源 > 随机网红）、可达性引擎验证。采集**有界**：绑定 `curriculum-map.md` 待填格子，禁开放式囤积；接 16「教学知识库」轨道不重复。`球形来源` 记入地图单元格条目。
+
+### SOP-C 理论配图三类（成本递增，非白嫖 drill 出片）
+
+| 类型 | 适用定理 | 管线 |
+|---|---|---|
+| 1 标注图/交互场景 | T01–T03/T09 | **复用** `AngleTrainingScene`（假想球/切角弧/α°）或内嵌交互场景——近零成本 |
+| 2 参数扫描叠加 | T01/T02/T04（切角扫描偏折恒定 / 9 档速度走位线叠加） | **需新增** sweep+多轨迹渲染模式（阶段2）|
+| 3 战术/决策图 | T05–T08/T10/M01–M06/5步流程 | 多杆走位用编排台；布局/流程/矩阵=平面设计图，非引擎 |

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// 标准台球「俯视球面」矢量视图：用分层渐变还原球体明暗 + 高光，号码画在中心白圈里。
 ///
@@ -128,6 +129,31 @@ enum PoolBallStyle {
         }
         // 9..15 花色：复用 1..7 的色（9→1黄, 10→2蓝, …, 15→7栗）。
         return Spec(color: solidColor(n - 8), number: n, isStripe: true)
+    }
+}
+
+// MARK: - Trajectory line style (shared source of truth)
+
+/// 轨迹线统一样式真源（ADR-P11-12）：瞄准线（母球，白）与进球线（目标球，**随球色**）
+/// 的颜色与线宽，走位编排台 / 素材导出器 / 分离角 / 动作库等全场景共用。
+enum TrajectoryStyle {
+    /// 瞄准线（母球轨迹）半径。
+    static let aimRadius: Float = 0.0025
+    /// 进球线（目标球轨迹）半径。
+    static let potRadius: Float = 0.0030
+    /// 紧凑场景（缩略图等低分辨率渲染）半径——太细会碎成虚点。
+    static let compactRadius: Float = 0.0045
+
+    /// 瞄准线颜色（母球白）。
+    static let aimColor = UIColor.white.withAlphaComponent(0.95)
+
+    /// 进球线颜色 = 目标球球色（标准色板，9..15 花色取主色）。
+    /// 黑 8 在深绿台呢上不可见 → 例外用亮灰；无目标球语义（自由球/未知键）同此兜底。
+    static func potColor(for targetKey: String, alpha: CGFloat = 0.95) -> UIColor {
+        guard let n = PositionPlayBall.number(for: targetKey), n != 8 else {
+            return UIColor(white: 0.85, alpha: alpha)
+        }
+        return UIColor(PoolBallStyle.style(for: targetKey).color).withAlphaComponent(alpha)
     }
 }
 
