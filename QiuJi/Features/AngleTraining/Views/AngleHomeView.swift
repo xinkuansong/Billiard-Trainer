@@ -15,6 +15,8 @@ enum AngleRoute: Hashable {
     case shotSimulation
     case positionPlayComposer
     case positionPlaySolver
+    case snookerTactics
+    case ballExtraction
 }
 
 // MARK: - Entry Model
@@ -99,7 +101,15 @@ struct AngleHomeView: View {
         .init(route: .positionPlaySolver, glyph: "思",
               title: "思路训练器", subtitle: "反解走位 · 塞与力度求解",
               coverTop: Color(red: 0.50, green: 0.20, blue: 0.62),
-              coverBottom: Color(red: 0.28, green: 0.10, blue: 0.40), chip: "物理")
+              coverBottom: Color(red: 0.28, green: 0.10, blue: 0.40), chip: "物理"),
+        .init(route: .snookerTactics, glyph: "斯",
+              title: "做斯诺克", subtitle: "安全球反解 · 障碍遮挡做杆",
+              coverTop: Color(red: 0.60, green: 0.10, blue: 0.30),
+              coverBottom: Color(red: 0.34, green: 0.04, blue: 0.16), chip: "物理"),
+        .init(route: .ballExtraction, glyph: "拍",
+              title: "拍照建球形", subtitle: "照片提取球号与位置",
+              coverTop: Color(red: 0.16, green: 0.50, blue: 0.62),
+              coverBottom: Color(red: 0.07, green: 0.28, blue: 0.36), chip: "识别")
     ]
 
     var body: some View {

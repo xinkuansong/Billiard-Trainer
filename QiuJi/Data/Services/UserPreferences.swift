@@ -112,6 +112,11 @@ final class UserPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
     }
 
+    // New: 击球回放音效（球-球碰撞 / 吃库 / 落袋 / 击球）。默认开启。
+    @Published var soundEffectsEnabled: Bool {
+        didSet { UserDefaults.standard.set(soundEffectsEnabled, forKey: "soundEffectsEnabled") }
+    }
+
     private init() {
         let sportRaw = UserDefaults.standard.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
         self.preferredSport = PreferredSport(rawValue: sportRaw) ?? .chinese8
@@ -141,6 +146,9 @@ final class UserPreferences: ObservableObject {
 
         let modeRaw = UserDefaults.standard.string(forKey: "appearanceMode") ?? AppearanceMode.system.rawValue
         self.appearanceMode = AppearanceMode(rawValue: modeRaw) ?? .system
+
+        // 默认开启；首次启动 UserDefaults 无键时 object(forKey:) 为 nil → 取 true。
+        self.soundEffectsEnabled = (UserDefaults.standard.object(forKey: "soundEffectsEnabled") as? Bool) ?? true
     }
 
     // MARK: - Summaries

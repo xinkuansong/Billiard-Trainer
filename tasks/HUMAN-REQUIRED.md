@@ -224,6 +224,26 @@
 
 ---
 
+### H-18 — 击球音效素材下载（真实 CC0 录音）
+
+- **状态**：⏳ 待完成（P14；非阻塞——缺素材时回放正常、仅无声）
+- **背景**：音效代码已完成（`Core/Audio`），按命名约定放入音频文件即生效。AI 无法自主下载——
+  优质「真实球桌实录」均在 Freesound 等站，**下载需登录账号**；免登录站疑似 AI 合成、不满足「真实」要求。
+- **做什么**：
+  1. 登录 [Freesound](https://freesound.org)（免费注册）。
+  2. 下载以下 **CC0（免署名可商用，逐个确认页面 license 图标为 CC0）** 真实录音：
+     - 球-球：[juskiddink #108615《Billiard balls single hit-dry》](https://freesound.org/people/juskiddink/sounds/108615/)；
+       再从 [CC0 台球搜索页](https://freesound.org/search/?q=billiard&f=license:%22creative+commons+0%22) 多挑 2–3 条不同力度的真实撞击。
+     - 击球 / 吃库 / 落袋：同页挑选 "cue/strike"、"rail/cushion"、"pocket/drop" 类的真实录音。
+  3. 按命名约定放入 `QiuJi/Resources/Audio/`（详见该目录 `CREDITS.md`）：
+     - `sfx_cue_strike.caf`、`sfx_ball_hit_1.caf`…`sfx_ball_hit_4.caf`（按力度弱→强）、`sfx_cushion.caf`、`sfx_pocket.caf`。
+     - 其他格式可用 `afconvert -f caff -d LEI16@44100 in.wav sfx_xxx.caf` 转换（示例见 `CREDITS.md`）。
+  4. 在 `CREDITS.md`「已采用文件登记」表填写每个文件的来源 URL / 作者 / 许可（合规留痕）。
+- **完成后**：`cd scripts && make build && make run` 在模拟器/真机听 4 类事件音效；满意后把本条改为 ✅，并把 P14 的 T-P14-07/08 标 ✅。
+- **预计时长**：30–45 分钟
+
+---
+
 ## [BLOCKING] H-14 — 腾讯云轻量服务器购买与初始化
 
 - **状态**：✅ 已完成（2026-03-29）

@@ -15,8 +15,10 @@ final class SiluTrainerViewModel: ObservableObject {
 
     enum Tool: Equatable {
         case none
-        /// 画落区（情形 A）。
+        /// 画落区（情形 A，区域约束）。
         case region
+        /// 标落点（情形 A，精确点 + 容差，最小化到点距离）。
+        case restPoint
         /// 标 K 球过点（情形 B）。
         case passPoint
     }
@@ -26,6 +28,7 @@ final class SiluTrainerViewModel: ObservableObject {
     /// 约束草稿（归一化系）。
     enum Draft {
         case region(SolveRegion)
+        case restPoint(CanvasPoint)
         case passPoint(CanvasPoint)
     }
 
@@ -57,6 +60,20 @@ final class SiluTrainerViewModel: ObservableObject {
     private var draft: Draft?
     /// 情形 B 过点最小速度（m/s）。
     var passVMin: Double = 0.3
+    /// 落点「命中」容差半径（归一化单位，≈0.02→约 5cm）。母球停点落入此半径内即视为命中。
+    var pointTolerance: Double = 0.02
+
+    // MARK: - Published solve options (可选收窄；默认 = 完整能力，与原行为一致)
+
+    /// 是否允许左右塞（英式塞）。默认允许（完整能力）；关 → 仅中杆/高低杆（spinX=0，精修锁横塞）。
+    /// 竖塞（高低杆）始终全开——它是走位入门核心技术，不做区分。
+    @Published var allowSideSpin: Bool = true {
+        didSet { if oldValue != allowSideSpin { invalidateSolutions() } }
+    }
+    /// 是否仅基础走位（吃库 ≤1）。默认否（不限）；开 → 优先 ≤1 库解，无解兜底多库并标「进阶」。
+    @Published var basicPositionOnly: Bool = false {
+        didSet { if oldValue != basicPositionOnly { invalidateSolutions() } }
+    }
 
     // MARK: - Published shot params (当前解的只读指示)
 
@@ -107,6 +124,23 @@ final class SiluTrainerViewModel: ObservableObject {
         selectedTargetKey = "_1"
         selectBestPocket()
         refreshOverlays()
+    }
+
+    /// 载入外部球形（如「拍照建球形」快照）：清场 → 摆入快照球 → 自动选目标/最优袋 → 失效旧解。
+    func loadBoard(_ snapshot: BoardSnapshot) {
+        guard !isPlaying, !snapshot.onTable.isEmpty else { return }
+        scene.hideAllBalls()
+        clearConstraint()
+        for (key, pt) in snapshot.onTable {
+            place(key: key, normalized: pt)
+        }
+        refreshOnTableKeys()
+        selectedTargetKey = nil
+        selectedPocketIndex = -1
+        autoSelectTarget()
+        if selectedTargetKey != nil { selectBestPocket() }
+        refreshOverlays()
+        invalidateSolutions()
     }
 
     // MARK: - Board queries
@@ -309,6 +343,8 @@ final class SiluTrainerViewModel: ObservableObject {
             return
         case .passPoint:
             draft = .passPoint(cur)
+        case .restPoint:
+            draft = .restPoint(cur)
         case .region:
             switch regionShape {
             case .rect:
@@ -339,6 +375,7 @@ final class SiluTrainerViewModel: ObservableObject {
     private func currentConstraint() -> SolveConstraint? {
         switch draft {
         case .region(let r): return .restRegion(r)
+        case .restPoint(let p): return .restRegion(.point(center: p, tolerance: pointTolerance))
         case .passPoint(let p): return .passThrough(point: p, vMin: passVMin)
         case nil: return nil
         }
@@ -372,6 +409,7 @@ final class SiluTrainerViewModel: ObservableObject {
         }
         let before = currentSnapshot()
         let y = surfaceY
+        let params = searchParams(for: constraint)
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
@@ -382,7 +420,7 @@ final class SiluTrainerViewModel: ObservableObject {
         solveQueue.async { [weak self] in
             let result = PositionPlaySolver.solve(
                 before: before, targetKey: targetKey, pocket: pocketId,
-                constraint: constraint, surfaceY: y)
+                constraint: constraint, surfaceY: y, params: params)
             DispatchQueue.main.async {
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
@@ -396,6 +434,20 @@ final class SiluTrainerViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    /// 由可选开关构造搜索参数：基底按约束类型取（落区/落点用 `.standard`、过点用 `.passThrough`），
+    /// 再叠加「禁左右塞」（spinX 降为单值 0，精修自动锁横塞）与「仅基础走位」（吃库上限 1）。
+    /// 默认两开关均放开 ⇒ 与基底完全一致（零行为变化）。
+    private func searchParams(for constraint: SolveConstraint) -> PositionPlaySolver.SearchParams {
+        var params: PositionPlaySolver.SearchParams
+        switch constraint {
+        case .restRegion: params = .standard
+        case .passThrough: params = .passThrough
+        }
+        if !allowSideSpin { params.spinXValues = [0] }
+        params.maxCushions = basicPositionOnly ? 1 : nil
+        return params
     }
 
     // MARK: - Solution display
@@ -421,10 +473,12 @@ final class SiluTrainerViewModel: ObservableObject {
 
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
         let prefix = solutions.count > 1 ? "解 \(currentIndex + 1)/\(solutions.count) · " : ""
+        // 「仅基础走位」预算内无解、回退的多库解：标「进阶」（用户拍板兜底语义）。
+        let advanced = sol.beyondCushionBudget ? "进阶（超基础走位）· " : ""
         if !sol.satisfiesConstraint {
-            return prefix + "最接近解（未满足约束）· " + sol.summary
+            return prefix + advanced + "最接近解（未满足约束）· " + sol.summary
         }
-        return prefix + sol.summary
+        return prefix + advanced + sol.summary
     }
 
     // MARK: - Trajectory + constraint rendering
@@ -478,6 +532,12 @@ final class SiluTrainerViewModel: ObservableObject {
                 let dx = Float(hw) * SolveRegion.sceneScale
                 let dz = Float(hh) * SolveRegion.sceneScale
                 strokeRect(center: c, halfX: dx, halfZ: dz, color: color, into: &constraintNodes)
+            case let .point(center, tol):
+                // 落区 draft 一般不携带 .point（落点走 .restPoint 草稿），此处兜底渲染容差环。
+                let c = AngleSceneCalculator.normalizedToScene(
+                    point: CGPoint(x: center.x, y: center.y), surfaceY: y)
+                strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale,
+                             color: color, into: &constraintNodes)
             }
         case .passPoint(let pt):
             let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
@@ -488,6 +548,17 @@ final class SiluTrainerViewModel: ObservableObject {
                                                   to: SCNVector3(c.x + r, c.y, c.z), color: color, radius: 0.0022))
             constraintNodes.append(scene.addLine(from: SCNVector3(c.x, c.y, c.z - r),
                                                   to: SCNVector3(c.x, c.y, c.z + r), color: color, radius: 0.0022))
+        case .restPoint(let pt):
+            // 落点：琥珀色十字（目标点）+ 容差环（命中半径），与青色落区/过点区分。
+            let amber = UIColor(red: 1.0, green: 0.78, blue: 0.28, alpha: 0.95)
+            let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
+            strokeCircle(center: c, radius: Float(pointTolerance) * SolveRegion.sceneScale,
+                         color: amber, into: &constraintNodes)
+            let r = AngleSceneCalculator.ballRadius * 1.4
+            constraintNodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
+                                                  to: SCNVector3(c.x + r, c.y, c.z), color: amber, radius: 0.0024))
+            constraintNodes.append(scene.addLine(from: SCNVector3(c.x, c.y, c.z - r),
+                                                  to: SCNVector3(c.x, c.y, c.z + r), color: amber, radius: 0.0024))
         case nil:
             break
         }
@@ -649,7 +720,8 @@ final class SiluTrainerViewModel: ObservableObject {
         scene.hideCueStick()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let speed: Float = 1.4
+        let speed: Float = 1.0
+        ShotAudioScheduler.shared.play(prediction: sol.prediction)
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
@@ -675,6 +747,7 @@ final class SiluTrainerViewModel: ObservableObject {
     /// 回放结束：**不复原**——球停在回放终点（用户拍板，真实击球语义）。进袋球移除、母球 scratch
     /// 则隐藏；本杆的解与约束叠加随布局失效，回到「可继续摆球/画约束再求解」态。
     private func finishStrike(sol: PositionPlaySolution) {
+        ShotAudioScheduler.shared.cancel()
         for key in onTableKeys {
             scene.allBallNodes[key]?.removeAllActions()
         }
@@ -764,6 +837,7 @@ final class SiluTrainerViewModel: ObservableObject {
         switch activeTool {
         case .none: return "拖动摆球 · 点目标球选中（绿环）· 点袋口选袋，再选工具画约束"
         case .region: return "在球桌上拖出\(regionShape.rawValue)可行落区"
+        case .restPoint: return "点按球桌标出母球期望停的落点（琥珀十字为目标，环为命中容差）"
         case .passPoint: return "点按球桌标出母球需经过的 K 球点"
         }
     }

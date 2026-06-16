@@ -124,6 +124,10 @@ struct MainTabView: View {
             PositionPlayComposerView()
         case .positionPlaySolver:
             SiluTrainerView()
+        case .snookerTactics:
+            SnookerTacticsView()
+        case .ballExtraction:
+            BallExtractionView()
         }
     }
 

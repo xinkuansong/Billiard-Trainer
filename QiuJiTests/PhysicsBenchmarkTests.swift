@@ -123,7 +123,9 @@ final class PhysicsBenchmarkTests: XCTestCase {
 
     func test_C_cushion_speedRetention_band() {
         let normal = SCNVector3(1, 0, 0)
-        print("\n[C] Han2005 库边速度保留率（e_c=\(TablePhysics.cushionRestitution)，无旋转；band 0.40–1.00，法向0°≈e_c）")
+        // 注意：实际法向保留率 < e_c。Han 模型库鼻高于球心(h/R≈1.29)，部分法向冲量转为旋转，
+        // 故法向正撞保留率约 0.78–0.80（e_c=0.94 时），并非 e_c 本身。band 法向 0.70–0.95。
+        print("\n[C] Han2005 库边速度保留率（e_c=\(TablePhysics.cushionRestitution)，无旋转；band 0.40–1.00，法向≈0.80<e_c）")
         print("  入射角°   S(m/s)   保留率   反弹角°   达标")
         for S in [Float(2), 4] {
             for deg in [Float(0), 15, 30, 45, 60, 75] {

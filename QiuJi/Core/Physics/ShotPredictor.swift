@@ -330,6 +330,10 @@ enum ShotPredictor {
         for (name, frames) in recorder.framesByBallName {
             if let last = frames.max(by: { $0.time < $1.time }) {
                 finals[name] = last.position
+                if name == ShotInput.cueBallName {
+                    result.cueFinalSpeed = sqrtf(last.velocity.x * last.velocity.x
+                                                 + last.velocity.z * last.velocity.z)
+                }
             }
             if recorder.isBallPocketed(name) { pocketed.append(name) }
             if name != ShotInput.cueBallName {

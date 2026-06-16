@@ -68,6 +68,26 @@ final class PositionPlaySolverTests: XCTestCase {
         XCTAssertEqual(diag, hypotf(0.3 - 0.1 * scale, 0.2 - 0.05 * scale), accuracy: 1e-4)
     }
 
+    func test_region_point_signedDistance_goldenSamples() {
+        // 落点：中心 norm(0.5,0.25)→scene(0,0)，容差 norm 0.02 → 0.0508m。复用各向同性圆公式。
+        let region = SolveRegion.point(center: CanvasPoint(x: 0.5, y: 0.25), tolerance: 0.02)
+        let scale = AngleSceneCalculator.innerLength
+        XCTAssertTrue(region.isPoint)
+        XCTAssertEqual(region.centerNormalized.x, 0.5, accuracy: 1e-9)
+        XCTAssertEqual(region.centerNormalized.y, 0.25, accuracy: 1e-9)
+        // 中心：signed = -tolerance。
+        let atCenter = region.signedDistanceMeters(fromScene: SCNVector3(0, sY, 0), surfaceY: sY)
+        XCTAssertEqual(atCenter, -0.02 * scale, accuracy: 1e-4)
+        // 容差边界：signed ≈ 0。
+        let onEdge = region.signedDistanceMeters(fromScene: SCNVector3(0.02 * scale, sY, 0), surfaceY: sY)
+        XCTAssertEqual(onEdge, 0, accuracy: 1e-4)
+        // 外 0.3m：signed = 0.3 - 0.0508。
+        let outside = region.signedDistanceMeters(fromScene: SCNVector3(0.3, sY, 0), surfaceY: sY)
+        XCTAssertEqual(outside, 0.3 - 0.02 * scale, accuracy: 1e-4)
+        XCTAssertTrue(region.contains(scene: SCNVector3(0.01, sY, 0), surfaceY: sY))
+        XCTAssertFalse(region.contains(scene: SCNVector3(0.3, sY, 0), surfaceY: sY))
+    }
+
     // MARK: - 情形 A：落区
 
     func test_restRegion_pottable_landsInRegion_andSorted() {
@@ -114,6 +134,153 @@ final class PositionPlaySolverTests: XCTestCase {
         XCTAssertEqual(solutions.count, 1, "无可行解时应返回单个最接近降级解")
         XCTAssertFalse(solutions[0].satisfiesConstraint, "降级解不满足约束")
         XCTAssertLessThan(solutions[0].margin, 0, "区外降级解余量为负")
+    }
+
+    // MARK: - 情形 A：局部精修（拓扑锁定，不劣 + 确定性）
+
+    /// 精修开/关对比：拓扑锁定的模式搜索只会把停点推得更深（margin 不减），且不改吃库拓扑；
+    /// 同输入两次精修结果完全一致（确定性，无随机/无并行竞态导致漂移）。
+    func test_refine_notWorse_andDeterministic() {
+        let before = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.35),
+            "_1": CanvasPoint(x: 0.5, y: 0.15)
+        ])
+        // 中等大小落区：粗网格能进、但有抛光空间。
+        let region = SolveRegion.circle(center: CanvasPoint(x: 0.45, y: 0.30), radius: 0.12)
+
+        var noRefine = coarse
+        noRefine.refineEnabled = false
+        let baseSol = PositionPlaySolver.solve(
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(region), surfaceY: sY, params: noRefine)
+        let refinedSol = PositionPlaySolver.solve(
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(region), surfaceY: sY, params: coarse)
+        XCTAssertFalse(refinedSol.isEmpty, "应有解")
+
+        func byCushion(_ s: [PositionPlaySolution]) -> [Int: PositionPlaySolution] {
+            Dictionary(s.map { ($0.cushionCount, $0) }, uniquingKeysWith: { a, _ in a })
+        }
+        let base = byCushion(baseSol), ref = byCushion(refinedSol)
+        for (k, b) in base {
+            guard let r = ref[k] else { continue }
+            XCTAssertEqual(r.cushionCount, b.cushionCount, "精修不得改变吃库拓扑（桶\(k)）")
+            XCTAssertGreaterThanOrEqual(r.margin, b.margin - 1e-3,
+                                        "精修后区内深度不应小于粗解（桶\(k)）")
+        }
+
+        // 确定性：再跑一次，解数与最优解 margin/summary 一致。
+        let again = PositionPlaySolver.solve(
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(region), surfaceY: sY, params: coarse)
+        XCTAssertEqual(again.count, refinedSol.count, "精修求解应确定性（解数一致）")
+        if let a = again.first, let r = refinedSol.first {
+            XCTAssertEqual(a.margin, r.margin, accuracy: 1e-4, "精修最优解 margin 应确定性")
+            XCTAssertEqual(a.summary, r.summary, "精修最优解文案应确定性")
+        }
+    }
+
+    // MARK: - 情形 A：落点（最小化到点距离）
+
+    /// 落点：按吃库桶返回「最近代表」（不要求命中也返回），库少→更近排序；
+    /// 命中（容差内）才标 satisfiesConstraint，停点确在容差内。
+    func test_restPoint_returnsClosestPerBucket_satisfiedWithinTolerance() {
+        let before = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.35),
+            "_1": CanvasPoint(x: 0.5, y: 0.15)
+        ])
+        // 落点放在母球直球停下来大致可达处；容差稍大保证有命中解。
+        let point = SolveRegion.point(center: CanvasPoint(x: 0.5, y: 0.30), tolerance: 0.05)
+        let solutions = PositionPlaySolver.solve(
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(point), surfaceY: sY, params: coarse)
+
+        XCTAssertFalse(solutions.isEmpty, "落点应至少返回最近代表解")
+        // 库少优先。
+        for i in 1..<max(1, solutions.count) {
+            XCTAssertLessThanOrEqual(solutions[i - 1].cushionCount, solutions[i].cushionCount,
+                                     "落点解列表应按吃库数升序")
+        }
+        // 每桶仅一个代表。
+        let cushions = solutions.map { $0.cushionCount }
+        XCTAssertEqual(Set(cushions).count, cushions.count, "每个吃库桶应仅一个最近代表")
+        // 满足约束的解：进袋 + 停点在容差内。
+        for s in solutions where s.satisfiesConstraint {
+            XCTAssertTrue(s.potted, "命中落点的解必进袋")
+            if let stop = s.prediction.finalPositions[ShotInput.cueBallName] {
+                XCTAssertTrue(point.contains(scene: stop, surfaceY: sY), "命中解停点应在容差内")
+            }
+        }
+    }
+
+    // MARK: - 求解范围开关（禁左右塞 / 走位复杂度预算）
+
+    /// 禁左右塞（spinXValues=[0]）：所有解的 spinX 必为 0——含**精修不得把横塞引回**
+    /// （refine 按「网格搜过的轴」探测，spinX 单值 ⇒ 锁横塞）。
+    func test_noSideSpin_allSolutionsHaveZeroSpinX() {
+        let before = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.35),
+            "_1": CanvasPoint(x: 0.5, y: 0.15)
+        ])
+        let region = SolveRegion.circle(center: CanvasPoint(x: 0.5, y: 0.25), radius: 0.4)
+        var params = coarse
+        params.spinXValues = [0]   // 禁左右塞
+        let sols = PositionPlaySolver.solve(
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(region), surfaceY: sY, params: params)
+
+        XCTAssertFalse(sols.isEmpty, "禁塞直球应仍有解")
+        for s in sols {
+            XCTAssertEqual(s.shot.spinX, 0, accuracy: 1e-9,
+                           "禁左右塞后所有解 spinX 必为 0（精修也不得引回横塞）")
+        }
+    }
+
+    /// 走位复杂度预算「优先」：maxCushions=1 且预算内有解 ⇒ 所有解吃库 ≤1 且不标进阶兜底。
+    func test_basicPositionBudget_prefersLowCushion_noBeyondFlag() {
+        let before = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.35),
+            "_1": CanvasPoint(x: 0.5, y: 0.15)
+        ])
+        let region = SolveRegion.circle(center: CanvasPoint(x: 0.5, y: 0.25), radius: 0.4)
+        var params = coarse
+        params.maxCushions = 1
+        let sols = PositionPlaySolver.solve(
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(region), surfaceY: sY, params: params)
+
+        XCTAssertFalse(sols.isEmpty, "大落区直球预算内应有解")
+        for s in sols {
+            XCTAssertLessThanOrEqual(s.cushionCount, 1, "预算内解吃库应 ≤1")
+            XCTAssertFalse(s.beyondCushionBudget, "预算内有解时不应标进阶兜底")
+        }
+        // 一致性不变量：预算内非空 ⇒ 结果全部在预算内。
+        XCTAssertTrue(sols.allSatisfy { $0.cushionCount <= 1 })
+    }
+
+    /// 走位复杂度预算「兜底」分支：用不可满足的预算（cap=-1，吃库恒 ≥0）强制 within 为空，
+    /// 验证回退返回**全部解且全部标 beyondCushionBudget**（绝不因预算给「无解」）。
+    func test_cushionBudget_unsatisfiable_fallsBackFlaggedBeyond() {
+        let before = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.35),
+            "_1": CanvasPoint(x: 0.5, y: 0.15)
+        ])
+        let region = SolveRegion.circle(center: CanvasPoint(x: 0.5, y: 0.25), radius: 0.4)
+
+        let baseline = PositionPlaySolver.solve(   // 不限预算的对照解集
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(region), surfaceY: sY, params: coarse)
+        XCTAssertFalse(baseline.isEmpty)
+        XCTAssertTrue(baseline.allSatisfy { !$0.beyondCushionBudget }, "不限预算不应标进阶")
+
+        var capped = coarse
+        capped.maxCushions = -1                    // 不可满足 ⇒ 强制走兜底分支
+        let fallback = PositionPlaySolver.solve(
+            before: before, targetKey: "_1", pocket: "topCenter",
+            constraint: .restRegion(region), surfaceY: sY, params: capped)
+
+        XCTAssertEqual(fallback.count, baseline.count, "兜底应返回全部解（不丢解、不给无解）")
+        XCTAssertTrue(fallback.allSatisfy { $0.beyondCushionBudget }, "兜底解应全部标进阶")
     }
 
     // MARK: - 情形 B：K 球过点

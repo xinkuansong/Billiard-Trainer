@@ -762,6 +762,54 @@ enum AngleSceneCalculator {
         return false
     }
 
+    // MARK: - Snooker coverage (角度张角遮挡判定)
+
+    /// 「做斯诺克」遮挡度量（X–Z 平面，世界系）。
+    ///
+    /// 判的不是「球心连线被挡」（那是 `isPathBlocked` 的保守自动选袋闸），而是**对手能否从母球
+    /// 看到被困球的任意一点**：母球（半径 R）沿直线击出，球心扫过被困球（半径 R）即算「看得见」，
+    /// 故可见方向是一个**张角扇形**，半角 `α = asin(2R / d_被困)`。障碍球同样在母球处张开半角
+    /// `β = asin(2R / d_障碍)`，方向与被困球方向相差 `Δθ`。
+    ///
+    /// **完全斯诺克 ⟺ 障碍的角区间完整包住被困球可见区间，且障碍比被困球近**（先被拦截）。
+    /// 闭式：`coverage = β − α − |Δθ|`（弧度）。`coverage ≥ 0 ∧ d_障碍 < d_被困` ⇒ 完全挡死；
+    /// `coverage` 转度即「覆盖余量」（正 = 还多挡几度、越大越难薄擦解开；负 = 仍露出多少度）。
+    struct SnookerCoverage {
+        /// 覆盖余量（度）：正 = 完全挡死且多挡 N°；负 = 仍露出 N°（半斯诺克）。
+        let marginDegrees: Float
+        /// 障碍是否比被困球更近（更近才会先拦截母球）。
+        let blockerCloser: Bool
+        /// 被困球相对母球的可见半张角（度，仅供文案/调试）。
+        let visibleHalfAngleDegrees: Float
+        /// 是否构成完全斯诺克。
+        var isFullSnooker: Bool { blockerCloser && marginDegrees >= 0 }
+    }
+
+    /// 计算母球终点 `cue` 看向被困球 `snookered`、被 `blocker` 遮挡的覆盖度量（均为世界系球心）。
+    /// 三点退化（距离 ≤ 2R 的接触态）按 asin 定义域钳制（贴球 ⇒ 障碍张角趋近 90°，物理上确实遮挡极大）。
+    static func snookerCoverage(
+        cue: SCNVector3, snookered: SCNVector3, blocker: SCNVector3,
+        ballRadius: Float = ballRadius
+    ) -> SnookerCoverage {
+        let twoR = 2 * ballRadius
+        let dT = horizontalDistance(cue, snookered)
+        let dB = horizontalDistance(cue, blocker)
+        // 角度按 SceneKit 水平角 atan2(z, x)。
+        let aT = atan2f(snookered.z - cue.z, snookered.x - cue.x)
+        let aB = atan2f(blocker.z - cue.z, blocker.x - cue.x)
+        // 最小角差（归一化到 [−π, π]，规避 ±π 环绕）。
+        let dTheta = atan2f(sinf(aB - aT), cosf(aB - aT))
+        let alpha = asinf(min(0.999, twoR / max(twoR, dT)))
+        let beta = asinf(min(0.999, twoR / max(twoR, dB)))
+        let coverage = beta - alpha - abs(dTheta)
+        let toDeg: Float = 180 / .pi
+        return SnookerCoverage(
+            marginDegrees: coverage * toDeg,
+            blockerCloser: dB < dT,
+            visibleHalfAngleDegrees: alpha * toDeg
+        )
+    }
+
     // MARK: - Contact point position
 
     /// Contact point on the target ball surface at the moment of impact.

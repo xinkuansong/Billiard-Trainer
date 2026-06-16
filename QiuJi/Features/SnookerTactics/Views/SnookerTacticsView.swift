@@ -1,12 +1,12 @@
 import SwiftUI
 import SceneKit
 
-/// 思路训练器（走位反解器，ADR-P13-01）。
+/// 做斯诺克战术工具（安全球反解，ADR-P16-01）。
 ///
-/// 与走位编排台同级、样式参考之：摆母球/目标球/袋口，用工具画**可行落区**（情形 A）或标
-/// **K 球过点**（情形 B），由 `PositionPlaySolver` 离线反解出塞与力度。默认显示最优解、可
-/// 「下一解」翻档；塞/力度控件为只读指示器；当前解叠加进球线/假想球/母球轨迹 + 文字说明。
-struct SiluTrainerView: View {
+/// 独立页面、布局参考思路训练器：顶部工具行（目标/障碍/摆球）→ 球桌 → 底部条（解指示 + 球库 + 操作列）。
+/// 选目标球（青环）+ 障碍球（红环）后点「求解」，由 `PositionPlaySolver.solveSnooker` 反解出令母球
+/// 合法首触目标球、不进袋、并停在被障碍球完全挡死位置的塞/力度/瞄准。
+struct SnookerTacticsView: View {
     /// 可选初始球形（如「拍照建球形」产出的快照）。nil = 默认开箱球形。
     let initialBoard: BoardSnapshot?
 
@@ -14,7 +14,7 @@ struct SiluTrainerView: View {
         self.initialBoard = initialBoard
     }
 
-    @StateObject private var vm = SiluTrainerViewModel()
+    @StateObject private var vm = SnookerTacticsViewModel()
     @State private var hasAppeared = false
     @State private var projector = TableProjector()
 
@@ -33,21 +33,18 @@ struct SiluTrainerView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: 0) {
                 topToolRow
-                ZStack {
-                    sceneContainer
-                    if vm.activeTool != .none { drawingOverlay }
-                }
+                sceneContainer
                 bottomBar
             }
             if let key = draggingKey { dragGhost(key) }
             bannerView
         }
-        .coordinateSpace(name: "silu")
-        .onPreferenceChange(SiluFramePreference.self) { frames in
+        .coordinateSpace(name: "snooker")
+        .onPreferenceChange(SnookerFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
-        .navigationTitle("思路训练器")
+        .navigationTitle("做斯诺克")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -70,7 +67,7 @@ struct SiluTrainerView: View {
 
     private var navStatus: some View {
         VStack(spacing: 1) {
-            Text("思路训练器")
+            Text("做斯诺克")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.btPrimary)
                 .lineLimit(1)
@@ -89,21 +86,19 @@ struct SiluTrainerView: View {
     private var topToolRow: some View {
         HStack(spacing: Spacing.sm) {
             BTChipRow(
-                options: ["落区", "落点", "过点", "摆球"],
+                options: ["目标球", "障碍球", "摆球"],
                 selection: Binding(
                     get: {
                         switch vm.activeTool {
-                        case .region: return 0
-                        case .restPoint: return 1
-                        case .passPoint: return 2
-                        case .none: return 3
+                        case .selectTarget: return 0
+                        case .selectBlocker: return 1
+                        case .none: return 2
                         }
                     },
                     set: {
                         switch $0 {
-                        case 0: vm.activeTool = .region
-                        case 1: vm.activeTool = .restPoint
-                        case 2: vm.activeTool = .passPoint
+                        case 0: vm.activeTool = .selectTarget
+                        case 1: vm.activeTool = .selectBlocker
                         default: vm.activeTool = .none
                         }
                     }
@@ -112,28 +107,16 @@ struct SiluTrainerView: View {
             )
             .disabled(vm.isPlaying)
 
-            if vm.activeTool == .region {
-                BTChipRow(
-                    options: SiluTrainerViewModel.RegionShape.allCases.map { $0.rawValue },
-                    selection: Binding(
-                        get: { vm.regionShape == .rect ? 0 : 1 },
-                        set: { vm.regionShape = $0 == 0 ? .rect : .circle }
-                    ),
-                    scrollable: false
-                )
-                .disabled(vm.isPlaying)
-            }
-
             Spacer(minLength: 0)
 
-            if vm.hasConstraint {
-                Button { vm.clearConstraint() } label: {
+            if vm.selectedTargetKey != nil || vm.selectedBlockerKey != nil {
+                Button { vm.clearSelection() } label: {
                     Image(systemName: "eraser")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.8))
                 }
                 .disabled(vm.isPlaying)
-                .accessibilityLabel("清除约束")
+                .accessibilityLabel("清除角色选择")
             }
         }
         .padding(.horizontal, Spacing.lg)
@@ -145,50 +128,25 @@ struct SiluTrainerView: View {
     // MARK: - Scene
 
     private var sceneContainer: some View {
-        AngleSceneView(
+        let selectable: [SCNNode] = (vm.activeTool == .selectTarget || vm.activeTool == .selectBlocker)
+            ? vm.selectableBalls : []
+        return AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
             autoFitsRotatedTable: true,
-            onPocketTapped: { vm.selectPocket(at: $0) },
             draggableBallNodes: vm.activeTool == .none ? vm.draggableBalls : [],
             onDragBegan: { vm.dragBegan(node: $0) },
             onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
             onDragEnded: { vm.dragEnded(node: $0) },
             onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },
-            selectableBallNodes: vm.activeTool == .none ? vm.selectableBalls : [],
-            onBallTapped: { vm.selectTarget(node: $0) },
+            selectableBallNodes: selectable,
+            onBallTapped: { vm.selectBall(node: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
-    }
-
-    /// 工具激活时覆盖球桌的手势捕获层：把拖拽起点/当前点反投影到归一化系交给 VM。
-    private var drawingOverlay: some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .named("silu"))
-                    .onChanged { value in handleDraw(start: value.startLocation, current: value.location, ended: false) }
-                    .onEnded { value in handleDraw(start: value.startLocation, current: value.location, ended: true) }
-            )
-    }
-
-    private func handleDraw(start: CGPoint, current: CGPoint, ended: Bool) {
-        guard sceneFrame != .zero,
-              let s = normalized(fromComposer: start),
-              let c = normalized(fromComposer: current) else { return }
-        vm.toolDrag(startNormalized: s, currentNormalized: c, ended: ended)
-    }
-
-    /// silu 坐标空间点 → 归一化系（经场景反投影）。
-    private func normalized(fromComposer point: CGPoint) -> CanvasPoint? {
-        let local = CGPoint(x: point.x - sceneFrame.minX, y: point.y - sceneFrame.minY)
-        guard let world = projector.unproject?(local) else { return nil }
-        let n = AngleSceneCalculator.sceneToNormalized(position: world)
-        return CanvasPoint(x: Double(n.x), y: Double(n.y))
     }
 
     // MARK: - Bottom bar
@@ -207,7 +165,6 @@ struct SiluTrainerView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// 当前解的只读指示行：打点图标 + 力度 + 吃库/余量摘要。
     private var solutionRow: some View {
         HStack(spacing: Spacing.sm) {
             BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 28)
@@ -237,8 +194,10 @@ struct SiluTrainerView: View {
         let cushion = sol.cushionCount == 0 ? "不吃库" : "\(sol.cushionCount) 库"
         let spin = SiluSpinLabel.text(spinX: sol.shot.spinX, spinY: sol.shot.spinY)
         let advanced = sol.beyondCushionBudget ? "进阶 · " : ""
-        if !sol.satisfiesConstraint { return "\(advanced)最接近解 · \(spin) · \(cushion)" }
-        return "\(advanced)\(spin) · \(cushion)"
+        if !sol.satisfiesConstraint {
+            return "\(advanced)半斯诺克 · \(spin) · \(cushion)"
+        }
+        return "\(advanced)完全斯诺克 · 余量 \(Int(sol.margin.rounded()))° · \(spin) · \(cushion)"
     }
 
     // MARK: - Action column
@@ -341,7 +300,7 @@ struct SiluTrainerView: View {
     }
 
     private func paletteDrag(_ key: String) -> some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .named("silu"))
+        DragGesture(minimumDistance: 10, coordinateSpace: .named("snooker"))
             .onChanged { value in
                 guard !vm.isPlaying else { return }
                 draggingKey = key
@@ -440,30 +399,15 @@ struct SiluTrainerView: View {
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: SiluFramePreference.self,
-                                   value: [id: geo.frame(in: .named("silu"))])
+            Color.clear.preference(key: SnookerFramePreference.self,
+                                   value: [id: geo.frame(in: .named("snooker"))])
         }
-    }
-}
-
-// MARK: - Spin label helper
-
-enum SiluSpinLabel {
-    static func text(spinX: Double, spinY: Double) -> String {
-        let lim = Double(CuePhysics.miscueLimitFraction)
-        let h = Int((spinX / lim * 100).rounded())
-        let v = Int((spinY / lim * 100).rounded())
-        if h == 0 && v == 0 { return "中心球" }
-        var parts: [String] = []
-        if v > 0 { parts.append("高杆") } else if v < 0 { parts.append("低杆") }
-        if h > 0 { parts.append("左塞") } else if h < 0 { parts.append("右塞") }
-        return parts.isEmpty ? "中心球" : parts.joined()
     }
 }
 
 // MARK: - Frame preference
 
-private struct SiluFramePreference: PreferenceKey {
+private struct SnookerFramePreference: PreferenceKey {
     static var defaultValue: [String: CGRect] = [:]
     static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
         value.merge(nextValue()) { _, new in new }
@@ -471,6 +415,6 @@ private struct SiluFramePreference: PreferenceKey {
 }
 
 #Preview("Dark") {
-    NavigationStack { SiluTrainerView() }
+    NavigationStack { SnookerTacticsView() }
         .preferredColorScheme(.dark)
 }

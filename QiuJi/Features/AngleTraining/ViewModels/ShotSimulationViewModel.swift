@@ -368,15 +368,18 @@ final class ShotSimulationViewModel: ObservableObject {
                              cueStart: SCNVector3, targetStart: SCNVector3) {
         let yLevel = scene.surfaceY + AngleSceneCalculator.ballRadius
 
-        // 播放速度略快，避免长轨迹拖沓；进袋淡出由 playback.action 处理。
+        // 原速回放（与真实物理时间一致），保证音效与画面同步、观感真实。
         // 用 TrajectoryPlayback 按固定帧率重采样（事件间用解析运动插值），
         // 避免只在事件处采样 + 线性插值导致的卡顿感；动画与所绘轨迹同源、完全吻合。
-        let speed: Float = 1.4
+        let speed: Float = 1.0
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
         // removeOnPocket:false——本页播放后要复位重显两球，绝不能让进袋球被移出父节点
         // （否则与 finishPlayback 复位竞态 → 目标球进袋后永久消失，reset/拖动都救不回）。
         let cueAction = playback.action(for: cueNode, ballName: ShotInput.cueBallName, speed: speed, removeOnPocket: false)
         let targetAction = playback.action(for: targetNode, ballName: ShotInput.targetBallName, speed: speed, removeOnPocket: false)
+
+        // 音效：与球体动画同刻起播（事件按真实时刻调度，原速回放无需换算）。
+        if let pred = lastPrediction { ShotAudioScheduler.shared.play(prediction: pred) }
 
         if let targetAction { targetNode.runAction(targetAction) }
         if let cueAction {
@@ -390,6 +393,7 @@ final class ShotSimulationViewModel: ObservableObject {
 
     /// 播放结束：把两球复位到击球前位置，并重新显示原轨迹（不重新求解，瞬时）。
     private func finishPlayback(cueStart: SCNVector3, targetStart: SCNVector3) {
+        ShotAudioScheduler.shared.cancel()   // 清掉尾段未触发的音效（提前复位时尤需）
         let r = AngleSceneCalculator.ballRadius
         let yLevel = scene.surfaceY + r
 

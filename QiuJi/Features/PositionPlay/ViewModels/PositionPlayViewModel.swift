@@ -146,6 +146,17 @@ final class PositionPlayViewModel: ObservableObject {
         recompute()
     }
 
+    /// 以外部球形（如拍照建球形产出的快照）替换当前桌面，并恢复编排求解。
+    /// 空快照不改动默认球形（保持开箱可用）。
+    func loadBoard(_ snapshot: BoardSnapshot) {
+        guard !isPlaying, !snapshot.onTable.isEmpty else { return }
+        sequence = PositionPlaySequence(name: sequence.name)
+        lastShot = nil
+        lastShotWasRecorded = false
+        canReplay = false
+        applyBoard(snapshot)
+    }
+
     // MARK: - Board queries
 
     /// 当前桌面快照（从场景节点读取，单一真相）。
@@ -723,7 +734,8 @@ final class PositionPlayViewModel: ObservableObject {
 
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let speed: Float = 1.4
+        let speed: Float = 1.0
+        ShotAudioScheduler.shared.play(prediction: solved.prediction)
 
         var cueAction: SCNAction?
         for key in onTableKeys {
@@ -757,6 +769,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 击球动画结束（ADR-P11-04）：桌面**前进为新真相**——进袋球离场回库、母球停在走位终点；
     /// 录制中则自动把这一杆记入序列；随后自动选中下一杆（距母球最近目标球 + 最近可进袋袋口）。
     private func finishStrike() {
+        ShotAudioScheduler.shared.cancel()
         guard let solved = solvedShot else {
             isPlaying = false
             return

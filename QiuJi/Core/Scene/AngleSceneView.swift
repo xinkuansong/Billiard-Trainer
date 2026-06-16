@@ -175,6 +175,42 @@ struct AngleSceneView: UIViewRepresentable {
         private var panCumY: CGFloat = 0
         private let panAxisLockThreshold: CGFloat = 12
 
+        /// Ball-drag finger-offset state. The ball trails the finger by a fixed
+        /// gap so the finger never occludes the ball during precise placement:
+        /// - After grab, the first `dragDeadZone` points of motion move the ball
+        ///   *not at all* (dead zone). Crossing the dead zone is a one-time gate:
+        ///   at that instant we lock a constant trailing offset and from then on
+        ///   the ball tracks the finger 1:1 (so reversing direction keeps the
+        ///   gap instead of snapping the ball back toward the grab point).
+        /// - `dragGrabOffset`: ball-center→touch delta captured at grab, so the
+        ///   ball doesn't jump under the finger the instant it is picked up.
+        private var dragGrabOffset: CGSize = .zero
+        private var dragStartLocation: CGPoint = .zero
+        private var dragBrokeDeadZone = false
+        private var dragLockedOffset: CGSize = .zero
+        private let dragDeadZone: CGFloat = 52
+
+        /// Effective screen sample point for the current finger location.
+        /// Dead zone is a one-time gate: before breaking it the ball stays put;
+        /// at the moment of breaking we lock `dragLockedOffset` (= start − finger,
+        /// magnitude ≈ deadZone, continuous with no jump) and afterwards the ball
+        /// simply follows the finger by that fixed offset in every direction.
+        private func dragSamplePoint(for location: CGPoint) -> CGPoint {
+            if !dragBrokeDeadZone {
+                let dx = location.x - dragStartLocation.x
+                let dy = location.y - dragStartLocation.y
+                if hypot(dx, dy) <= dragDeadZone {
+                    return CGPoint(x: dragStartLocation.x + dragGrabOffset.width,
+                                   y: dragStartLocation.y + dragGrabOffset.height)
+                }
+                dragBrokeDeadZone = true
+                dragLockedOffset = CGSize(width: dragStartLocation.x - location.x,
+                                          height: dragStartLocation.y - location.y)
+            }
+            return CGPoint(x: location.x + dragLockedOffset.width + dragGrabOffset.width,
+                           y: location.y + dragLockedOffset.height + dragGrabOffset.height)
+        }
+
         init(scene: AngleTrainingScene, cameraMode: AngleTrainingScene.CameraMode, interactionMode: InteractionMode) {
             self.scene = scene
             self.cameraMode = cameraMode
@@ -309,6 +345,12 @@ struct AngleSceneView: UIViewRepresentable {
                 let location = gesture.location(in: scnView)
                 if let ball = hitTestBall(at: location) {
                     draggedNode = ball
+                    dragStartLocation = location
+                    dragBrokeDeadZone = false
+                    dragLockedOffset = .zero
+                    let projected = scnView.projectPoint(scene.visualCenter(of: ball))
+                    dragGrabOffset = CGSize(width: CGFloat(projected.x) - location.x,
+                                            height: CGFloat(projected.y) - location.y)
                     onDragBegan?(ball)
                     return
                 }
@@ -316,9 +358,9 @@ struct AngleSceneView: UIViewRepresentable {
 
             case .changed:
                 if let ball = draggedNode {
-                    let location = gesture.location(in: scnView)
+                    let sample = dragSamplePoint(for: gesture.location(in: scnView))
                     let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
-                    guard let worldPos = unprojectToTablePlane(screenPoint: location, in: scnView, planeY: planeY) else { return }
+                    guard let worldPos = unprojectToTablePlane(screenPoint: sample, in: scnView, planeY: planeY) else { return }
                     onDragMoved?(ball, worldPos)
                     return
                 }
@@ -328,10 +370,16 @@ struct AngleSceneView: UIViewRepresentable {
                 panCumX = 0
                 panCumY = 0
                 if let ball = draggedNode {
-                    let endLocation = gesture.location(in: scnView)
+                    // Use the lifted sample point so "where the ball is" (not the
+                    // raw finger) drives drop targets like the palette-removal zone.
+                    let endLocation = dragSamplePoint(for: gesture.location(in: scnView))
                     onDragEnded?(ball)
                     onDragEndedAt?(ball, endLocation)
                     draggedNode = nil
+                    dragGrabOffset = .zero
+                    dragStartLocation = .zero
+                    dragBrokeDeadZone = false
+                    dragLockedOffset = .zero
                     return
                 }
 

@@ -91,3 +91,33 @@
   - `PositionPlaySolverTests` 7/7 全绿。
 - **回退说明（诚实记录）**：曾把 `maxTime` 提到 30s 试图压假停，导致测试观感「卡死」——实为**模拟器 Invalid device state 楔死**（非 maxTime），已回退，改由末速护栏处理截断假停。
 - **改动文件**：`ShotPredictor.swift`（行为不变重构 + 快速路径 extension + `cueFinalSpeed`）、`PositionPlaySolver.swift`（spinX/spinY 拆分 + 记忆化矩阵 + 护栏 + 排序）、`PositionPlaySolverTests.swift`（一致性 + 耗时用例）。
+
+### 后续微调（2026-06-15）— 局部精修（拓扑锁定模式搜索）+ 落点约束
+
+> **背景**：用户反馈「粗网格有时得到偏差较大的解」，并希望新增「落点」（精确停位）功能。两件事一并做。
+
+- **一期：情形 A 局部精修（`refineCandidate`，拓扑锁定的 Hooke-Jeeves 模式搜索）**
+  - **动机**：粗网格只在离散 `(spinX,spinY,velocity)` 上采样，常**定位到对的 basin 却踩不准谷底**。精修在种子解附近连续邻域里最小化「停点有符号距离」objective，把停点推向落区/落点更深处。
+  - **拓扑锁定（关键护栏，防取巧外推）**：objective **只接受**「进袋 ∧ 真停稳（`cueRestedInPlace`）∧ 碰球后吃库数 == 种子」的样本，其余记 `+∞`。故精修**永不跨越拓扑悬崖**（不会把解从「0 库」滑到「1 库」再谎称更优），只抛光已找到的 basin。治不了「basin 整个被跳过」——那靠加密 `spinXValues`，非本机制（已在文案/注释如实标注边界）。
+  - **算法**：坐标式 6 邻居（±spinX、±spinY、±velocity），越界/越打滑极限（`miscueLimitFraction`）者剔除；每轮并行评估 6 邻居，贪心移动到最优改进者，无改进则步长减半；初始步长 ≈半网格步（0.15），终止步长 0.02，≤12 轮。确定性（固定探测顺序 + 物理无随机）。
+  - **接入** `solveRestRegion`：每个吃库桶代表解 + 降级最接近解都过一遍精修，重打分后再排序；降级解精修后**可能反升级为满足约束**。
+  - **不破坏既有调用**：`SearchParams` 新增 `refineEnabled/refineSpinStep/refineVelStep/refineMinStep/refineMaxIters`，**均带默认值** ⇒ memberwise init 对它们可选，旧调用点（含测试 `coarse`）零改动。
+- **二期：落点约束（`SolveRegion.point`）**
+  - **数据层**：新增 `case point(center, tolerance)`（归一化）。几何上等价于半径 = tolerance 的圆，**复用各向同性圆 SDF**（`horizontalDistance − tolerance·scale`；圆对称，归一化 Y↔Z 反向不影响半径）。新增 `isPoint`/`centerNormalized`。
+  - **求解装配分叉**（`solveRestRegion` 按 `region.isPoint`）：落点语义是「**最小化到点距离**」——对**所有可进解**按吃库桶取「最近代表」（不要求命中也返回），库少 → 更近排序；**容差内（signed≤0）才标 `satisfiesConstraint`**。落区维持原「够稳余量 + 加塞最少代表」装配。两者都吃一期精修。
+  - **文案**（`makeRegionSolution`）：落点展示「距目标约 Ncm」（= signed + 容差半径，真实到点距离），落区维持「余量/距落区 Ncm」。
+  - **UI**：`SiluTrainerViewModel` 新增 `Tool.restPoint` + `Draft.restPoint` + `pointTolerance`（默认 0.02 归一化 ≈5cm）；`renderConstraint` 画**琥珀色十字（目标点）+ 容差环**，与青色落区/过点区分。`SiluTrainerView` 顶部工具行扩为「落区 / 落点 / 过点 / 摆球」。
+- **坐标契约复核**：距离判定全在 SceneKit 世界系（X–Z 水平、Y 朝上），约束几何存归一化系经 `AngleSceneCalculator` 转换；落点只复用封装好的圆 SDF，未新写任何坐标转换/三角，几何风险低。
+- **验证（诚实交付）**：`PositionPlaySolverTests` **10/10 全绿**，新增 ① 落点 SDF 金标准（中心/容差边界/区外，数值对齐）；② 精修不劣 + 锁拓扑 + 确定性（精修 vs 不精修，按桶比 margin 不减、cushion 不变，两跑一致）；③ 落点按桶返回最近代表、容差内判满足、停点确在容差内。**实测墙钟基本不变**（情形 A 2.30s / 情形 B 1.68s，精修只抛光少量桶代表）。`ShotPredictor`/物理本轮**未改动**，无物理回归风险。
+- **改动文件**：`PositionPlaySolverModels.swift`（`.point` + `isPoint`/`centerNormalized`）、`PositionPlaySolver.swift`（`refineCandidate` + `SearchParams` 精修参数 + `isPoint` 分叉装配 + 文案）、`SiluTrainerViewModel.swift`（`restPoint` 工具/草稿/渲染/容差）、`SiluTrainerView.swift`（四工具切换）、`PositionPlaySolverTests.swift`（落点 SDF + 精修 + 落点装配用例）。
+
+### 后续微调（2026-06-16）— 分水平求解开关（是否左右塞 / 走位复杂度预算）
+
+> **背景**：不同水平玩家走位差异大——很多业余**不会/不用左右塞**，也走不了多库。给求解器加两个**可选收窄**开关,既贴合分水平训练,又能压搜索空间。多轮澄清后用户拍板：①只分「是否左右塞」（高低杆=走位入门核心技术，始终全开，不再细分）；②吃库分「基础 ≤1 库 / 不限」；③**默认 = 完整能力**（允许左右塞 + 不限），两收窄作为可选；④吃库走「**优先+兜底**」（预算内优先、无解才回退多库并标「进阶」），不做硬过滤以免「无解」；⑤难度轻提示本轮**不做**（选项 A，等做「可执行性评分」时整体做）。
+
+- **关键性质：默认态 == 原行为，零回归**。两开关默认放开 ⇒ 求解走原 `.standard`/`.passThrough`，主路径一字未动；收窄是纯 opt-in。
+- **是否左右塞**：开关只改 `SearchParams.spinXValues`——禁塞 ⇒ `[0]`（横塞是唯一影响内层瞄准的维度，禁掉后唯一瞄准解 3→1，是性能收益最大的一刀；竖塞 spinY 始终五档、跨档复用同一瞄准几乎不增成本）。**精修锁轴护栏（关键正确性点）**：`refineCandidate` 改为**只沿网格实际搜过的轴探测**（`spinXValues.count > 1` 才探 ±spinX、`spinYValues.count > 1` 才探 ±spinY）——否则精修第一步就会把被禁的横塞重新引回，违背约束。对既有配置（standard 3/5、passThrough 3/3、测试 coarse 3/3）count 均 >1，行为不变。
+- **走位复杂度预算**：`SearchParams.maxCushions: Int?`（nil=不限，默认）。实现为**后处理 `applyCushionBudget`**（在 `solve` 分发器对最终解列表分组，不改搜索/装配）：优先返回吃库 ≤cap 的解；**仅当其为空**才回退返回全部解并逐个置 `PositionPlaySolution.beyondCushionBudget=true`。新增 `beyondCushionBudget`（默认 false，memberwise init 向后兼容）。VM `solutionStatus` / View `solutionSubtitle` 在该标记下加「进阶」前缀（用户拍板的兜底语义，非选项 A 推迟的难度提示）。
+- **UI/VM**：`SiluTrainerViewModel` 加 `@Published allowSideSpin=true` / `basicPositionOnly=false`（didSet 失效重求解），新增 `searchParams(for:)` 由基底 + 两开关组装并传入 `solve()`；`SiluTrainerView` 在工具栏「⋯」菜单加「求解范围」分区两个 `Toggle`（不挤占顶部工具行）。
+- **验证**：`make build` ✅、`PositionPlaySolverTests` **13/13**（新增 ① 禁塞 ⇒ 所有解 spinX==0 含精修不引回；② 基础预算内 ⇒ 解吃库 ≤1 且不标进阶；③ 不可满足预算 cap=-1 ⇒ 兜底返回全部解且全标进阶、不给无解）。墙钟不变（默认态走原路径）。
+- **改动文件**：`PositionPlaySolverModels.swift`（`beyondCushionBudget`）、`PositionPlaySolver.swift`（`maxCushions` + `applyCushionBudget` + refine 锁轴）、`SiluTrainerViewModel.swift`（两开关 + `searchParams(for:)` + 进阶标注）、`SiluTrainerView.swift`（菜单两开关 + 子标题进阶）、`PositionPlaySolverTests.swift`（禁塞/预算优先/兜底三用例）。

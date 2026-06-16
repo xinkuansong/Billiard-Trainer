@@ -128,7 +128,8 @@ final class DrillSceneController: ObservableObject {
         if let pred = prediction, let recorder = pred.recorder, pred.duration > 0.05 {
             let yLevel = surfaceY + AngleSceneCalculator.ballRadius
             let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-            let speed: Float = 1.4
+            let speed: Float = 1.0
+            ShotAudioScheduler.shared.play(prediction: pred)
             if let tgtAction = playback.action(for: target, ballName: ShotInput.targetBallName, speed: speed) {
                 target.runAction(tgtAction)
             }
@@ -201,6 +202,7 @@ final class DrillSceneController: ObservableObject {
     }
 
     private func resetBalls() {
+        ShotAudioScheduler.shared.cancel()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         if let cue = scene.cueBallNode {
             if cue.parent == nil { scene.rootNode.addChildNode(cue) }

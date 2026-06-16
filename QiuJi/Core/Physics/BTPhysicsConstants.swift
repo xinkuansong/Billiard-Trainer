@@ -64,9 +64,15 @@ enum TablePhysics {
 
     // MARK: 物理系数
     static let clothFriction: Float = 0.2
-    /// 库边恢复系数 e_c（pooltool / 项目一默认）。库边模型已换为 Han 2005 闭式解，
-    /// 不再叠加台呢摩擦，吃库衰减更自然，无需再像上一轮那样上调此值。
-    static let cushionRestitution: Float = 0.85
+    /// 库边恢复系数 e_c。**注意：e_c 不等于实际吃库速度保留率**。
+    /// Han 2005 模型里库鼻高于球心（h/R≈1.29，接触角 θ_a≈17°），一部分法向冲量被转成
+    /// 旋转（`outWTangent`），导致**有效法向速度保留率显著低于 e_c**。实测（见
+    /// `CushionDiagnosticsTests` / `PhysicsBenchmarkTests.test_C`）：
+    ///   - e_c=0.85 → 法向正撞保留率仅 ~71.4%（KE 损失 ~49%），比真实台呢库（~80%）偏狠；
+    ///   - e_c=0.94 → 法向正撞保留率 ~80%，对齐真实测量，缓解「吃库后明显没劲」。
+    /// 2026-06-16 据端到端诊断从 0.85 上调至 0.94（用户反馈吃库衰减过明显；按只调 e_c
+    /// 标定，接受总滚动路径略增——见会话记录）。改此值需重跑上述诊断与基准合格带。
+    static let cushionRestitution: Float = 0.94
     /// 库边摩擦 f_c（pooltool / 项目一默认）。Han 2005 仅用此单一库摩擦。
     static let cushionFriction: Float = 0.2
     static let gravity: Float = 9.81

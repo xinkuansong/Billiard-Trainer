@@ -15,6 +15,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
                     appearanceSection
+                    soundSection
                     dataSection
                     if authState.isLoggedIn {
                         accountSection
@@ -65,6 +66,29 @@ struct SettingsView: View {
                 options: AppearanceMode.allCases,
                 selected: $prefs.appearanceMode
             ) { $0.displayName }
+        }
+    }
+
+    // MARK: - Sound
+
+    private var soundSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("声音")
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btTextSecondary)
+                .padding(.leading, Spacing.xs)
+
+            VStack(spacing: 0) {
+                Toggle(isOn: $prefs.soundEffectsEnabled) {
+                    Text("击球音效")
+                        .font(.btBody)
+                        .foregroundStyle(.btText)
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.md)
+            }
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
     }
 

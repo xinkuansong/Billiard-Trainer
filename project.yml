@@ -47,8 +47,13 @@ targets:
           - "Resources/Videos/**"
           - "Resources/DrillThumbnails/**"
           - "Resources/DrillTutorials/**"
+          - "Resources/Audio/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
       - path: QiuJi/Resources/Drills
+        type: folder
+        buildPhase: resources
+      # 击球音效（drop-in：放入 caf/wav 后重新构建即生效，缺文件时 App 静音）。
+      - path: QiuJi/Resources/Audio
         type: folder
         buildPhase: resources
       - path: QiuJi/Resources/Plans

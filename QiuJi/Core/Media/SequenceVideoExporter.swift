@@ -44,6 +44,9 @@ enum SequenceVideoExporter {
         var ballScale: Float = 1
         /// 击球前是否显示轨迹预告线；false = clean 版（全程无线）。
         var showTrajectories: Bool = true
+        /// 击球前是否渲染球杆运杆/出杆动画（#10）：回杆缓动 → 蓄力停顿 → 匀加速出杆，
+        /// 触球瞬间杆速 = 目标球速（公式与编排台 `runStrokeAnimation` 单一同源）。
+        var showCueStroke: Bool = true
         /// 画面底部是否追加击球参数 HUD 条（打点 + 力度，ADR-P11-13）。
         /// 开启时输出高度 = `size.height` + HUD 条高；gif/card 档小尺寸下会糊，默认关。
         var showShotHUD: Bool = true
@@ -84,12 +87,12 @@ enum SequenceVideoExporter {
             return o
         }
 
-        /// 分享 GIF：真实比例、降采样 + 1.3 倍速控体积（预览媒介，非教学主载体）。
+        /// 分享 GIF：真实比例、降采样、原速（预览媒介，非教学主载体）。
         static func gif() -> Options {
             var o = Options()
             o.size = CGSize(width: 480, height: 240)
             o.fps = 12
-            o.playbackSpeed = 1.3
+            o.playbackSpeed = 1.0
             o.showShotHUD = false
             return o
         }
@@ -247,9 +250,18 @@ enum SequenceVideoExporter {
                 continue
             }
 
-            // 预告线 + 假想球：仅击球前设置静帧可见，出杆瞬间清除（ADR-P11-11 轨迹契约）。
+            // 预告线 + 假想球：击球前设置静帧 + 运杆全程可见，触球瞬间清除（ADR-P11-11 轨迹契约）。
             let lines = options.showTrajectories ? ctx.drawAimLines(for: step, prediction: pred) : []
             for _ in 0..<holdFrames(options.setupHold, fps: fps) { try snapshot() }
+
+            // 运杆/出杆动画（#10，与编排台同源）：回杆→蓄力→匀加速出杆，触球杆速=目标球速。
+            if options.showCueStroke {
+                try ctx.renderCueStroke(step: step, prediction: pred,
+                                        fps: fps, speed: options.playbackSpeed, snapshot: snapshot)
+                ctx.scene.hideCueStick()
+            }
+
+            // 触球瞬间清线、收掉假想球。
             lines.forEach { $0.removeFromParentNode() }
             ctx.hideAimDecorations()
 
@@ -431,6 +443,70 @@ enum SequenceVideoExporter {
             scene.ghostBallNode?.isHidden = true
         }
 
+        /// 运杆参数（#10）：与编排台 `PositionPlayViewModel.Stroke` 单一同源——
+        /// 回杆距离 = a + k·v（线性）；出杆 = 静止起步匀加速，触球瞬间杆速恰为目标速度 v。
+        private enum Stroke {
+            static let basePullBack: Float = 0.05         // a：最小回杆距离 (m)
+            static let pullBackPerSpeed: Float = 0.035    // k：每 1 m/s 增加的回杆距离 (s)
+            static let backswingDuration: TimeInterval = 0.5   // 回杆时长（缓动）
+            static let pauseDuration: TimeInterval = 0.12      // 蓄力停顿
+        }
+
+        /// 逐帧渲染一杆的运杆/出杆动画：回杆 smoothstep → 蓄力停顿 → 匀加速出杆，
+        /// 触球瞬间杆速 = 目标球速 v。`speed` 与运动帧同一倍速，使运杆/击球节奏一致。
+        /// 预告线由调用方在触球后清除；本方法只负责球杆帧。
+        func renderCueStroke(step: SequenceStep, prediction: ShotPrediction,
+                             fps: Int, speed: Float, snapshot: () throws -> Void) rethrows {
+            guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
+                  let aim = Self.aimDirection(path: prediction.cuePath, from: cueNode.position)
+            else { return }
+            let strikePos = Self.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+            let v = max(0.3, Float(step.shot.velocity))
+            let d = Stroke.basePullBack + Stroke.pullBackPerSpeed * v
+            let accel = v * v / (2 * d)                              // v² = 2·a·d
+            let forwardTime = TimeInterval(2 * d / v)               // t = v / a
+            let total = Stroke.backswingDuration + Stroke.pauseDuration + forwardTime
+            let backswing = Stroke.backswingDuration
+            let pause = Stroke.pauseDuration
+
+            let dt = Float(speed) / Float(max(1, fps))
+            var t: Float = 0
+            while t <= Float(total) + 1e-4 {
+                let tt = TimeInterval(t)
+                let pull: Float
+                if tt < backswing {
+                    let u = Float(tt / backswing)
+                    pull = d * (u * u * (3 - 2 * u))                // 回杆 smoothstep 0 → d
+                } else if tt < backswing + pause {
+                    pull = d
+                } else {
+                    let fdt = Float(tt - backswing - pause)
+                    pull = max(0, d - 0.5 * accel * fdt * fdt)      // 出杆 d → 0
+                }
+                scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: pull)
+                try snapshot()
+                t += dt
+            }
+        }
+
+        /// 母球路线首段方向（跳过过近采样点），与编排台 `aimDirection(path:from:)` 同逻辑。
+        private static func aimDirection(path: [SCNVector3], from cue: SCNVector3) -> SCNVector3? {
+            for pt in path {
+                let dx = pt.x - cue.x, dz = pt.z - cue.z
+                let d = sqrtf(dx * dx + dz * dz)
+                if d > 0.02 { return SCNVector3(dx / d, 0, dz / d) }
+            }
+            return nil
+        }
+
+        /// 含加塞横向偏移的击球点（与编排台 `strikePosition(cue:)` 同逻辑）。
+        private static func strikePosition(cue: SCNVector3, aim: SCNVector3, spinX: Double) -> SCNVector3 {
+            let r = AngleSceneCalculator.ballRadius
+            let perp = SCNVector3(-aim.z, 0, aim.x)
+            let lateral = Float(spinX) * r
+            return SCNVector3(cue.x + perp.x * lateral, cue.y, cue.z + perp.z * lateral)
+        }
+
         private func polyline(_ pts: [SCNVector3], color: UIColor, radius: Float) -> [SCNNode] {
             guard pts.count >= 2 else { return [] }
             let lifted = pts.map { SCNVector3($0.x, yLevel, $0.z) }
@@ -531,12 +607,14 @@ enum SequenceVideoExporter {
     }
 
     private static func estimatedFrameCount(sequence: PositionPlaySequence, options: Options) -> Int {
-        // 粗估：开局静帧 + 每杆（设置静帧 + 平均 2.2s 运动 + 收尾静帧）。
+        // 粗估：开局静帧 + 每杆（设置静帧 + 运杆 ~0.9s + 平均 2.2s 运动 + 收尾静帧）。
         let initial = options.initialHold > 0 ? holdFrames(options.initialHold, fps: options.fps) : 0
         let setup = holdFrames(options.setupHold, fps: options.fps)
         let tail = holdFrames(options.tailHold, fps: options.fps)
+        let stroke = options.showCueStroke
+            ? Int(0.9 / Double(options.playbackSpeed) * Double(options.fps)) : 0
         let motion = Int(2.2 / Double(options.playbackSpeed) * Double(options.fps))
-        return initial + sequence.steps.count * (setup + motion + tail)
+        return initial + sequence.steps.count * (setup + stroke + motion + tail)
     }
 
     private static func tempURL(ext: String, name: String) -> URL {

@@ -11,6 +11,13 @@ import SceneKit
 /// 击打前并恢复该杆全部参数。「录制」开关（仅模拟器构建，ADR-P11-10）：开启后每次击球
 /// 自动记一杆，结束后序列 JSON 直写仓库 `content/position_play/sequences/`（内容生产采集口）。
 struct PositionPlayComposerView: View {
+    /// 可选初始球形（如「拍照建球形」产出的快照）。nil = 默认开箱球形。
+    let initialBoard: BoardSnapshot?
+
+    init(initialBoard: BoardSnapshot? = nil) {
+        self.initialBoard = initialBoard
+    }
+
     @StateObject private var vm = PositionPlayViewModel()
     @State private var hasAppeared = false
     @State private var showSpinPad = false
@@ -105,6 +112,7 @@ struct PositionPlayComposerView: View {
             if !hasAppeared {
                 hasAppeared = true
                 vm.setupScene()
+                if let initialBoard { vm.loadBoard(initialBoard) }
             }
         }
     }

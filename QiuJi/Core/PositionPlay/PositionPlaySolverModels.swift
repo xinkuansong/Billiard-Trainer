@@ -27,6 +27,21 @@ enum SolveRegion {
     case rect(center: CanvasPoint, halfWidth: Double, halfHeight: Double)
     /// 圆：中心 + 半径（归一化单位）。
     case circle(center: CanvasPoint, radius: Double)
+    /// 落点：母球停在某**精确点**（归一化），`tolerance` 为「命中」容差半径（归一化单位）——
+    /// 几何上等价于半径 = tolerance 的圆（各向同性，复用圆公式），但语义是「最小化到点距离」，
+    /// 装配/文案与落区分叉（求解返回最近代表、容差内才标满足，见 `solveRestRegion`）。
+    case point(center: CanvasPoint, tolerance: Double)
+
+    /// 是否为落点约束（语义分叉用）。
+    var isPoint: Bool { if case .point = self { return true } else { return false } }
+
+    /// 约束中心（归一化）。落区/落点统一取中心点。
+    var centerNormalized: CanvasPoint {
+        switch self {
+        case let .rect(center, _, _), let .circle(center, _), let .point(center, _):
+            return center
+        }
+    }
 
     /// 归一化→场景的单轴缩放因子（米/归一化单位）。X 轴 = innerLength，Y(→Z) 轴 = 2×innerWidth，
     /// 两者相等（2.54），故均匀缩放，半径可乘单一因子。
@@ -34,11 +49,9 @@ enum SolveRegion {
 
     /// 落区中心的场景坐标。
     func sceneCenter(surfaceY: Float) -> SCNVector3 {
-        switch self {
-        case let .rect(center, _, _), let .circle(center, _):
-            return AngleSceneCalculator.normalizedToScene(
-                point: CGPoint(x: center.x, y: center.y), surfaceY: surfaceY)
-        }
+        let center = centerNormalized
+        return AngleSceneCalculator.normalizedToScene(
+            point: CGPoint(x: center.x, y: center.y), surfaceY: surfaceY)
     }
 
     /// 场景点 `p` 到落区边界的**有符号水平距离（米）**：区内为负、区外为正、边界为 0。
@@ -50,6 +63,11 @@ enum SolveRegion {
             let c = AngleSceneCalculator.normalizedToScene(
                 point: CGPoint(x: center.x, y: center.y), surfaceY: surfaceY)
             return AngleSceneCalculator.horizontalDistance(p, c) - Float(radius) * scale
+        case let .point(center, tolerance):
+            // 各向同性圆公式：到点距离 − 容差半径（容差内为负 = 命中）。
+            let c = AngleSceneCalculator.normalizedToScene(
+                point: CGPoint(x: center.x, y: center.y), surfaceY: surfaceY)
+            return AngleSceneCalculator.horizontalDistance(p, c) - Float(tolerance) * scale
         case let .rect(center, halfWidth, halfHeight):
             let c = AngleSceneCalculator.normalizedToScene(
                 point: CGPoint(x: center.x, y: center.y), surfaceY: surfaceY)
@@ -92,4 +110,7 @@ struct PositionPlaySolution: Identifiable {
     let summary: String
     /// 该解是否完全满足约束（落区内 / 过点成功）。false = 最接近降级解。
     let satisfiesConstraint: Bool
+    /// 是否为「走位复杂度预算」兜底解：用户选了「仅基础走位（≤N 库）」但该预算内无解，
+    /// 回退展示的超预算（更多吃库）解，UI 标「进阶」。默认 false（不限预算 / 预算内解）。
+    var beyondCushionBudget: Bool = false
 }
