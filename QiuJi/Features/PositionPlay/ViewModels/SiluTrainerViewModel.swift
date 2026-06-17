@@ -767,6 +767,9 @@ final class SiluTrainerViewModel: ObservableObject {
         currentIndex = 0
         draft = nil
         hasConstraint = false
+        // 击球后布局已变，回到「摆球/点选」态：用户下一步是重选目标球与目标袋口，
+        // 而点选只在 .none 态可用（工具态下绘制层会吞掉点击）。didSet 的 toolHint 会被下方收尾文案覆盖。
+        activeTool = .none
         clearTrajectory()
         clearConstraintNodes()
         scene.hideCueStick()

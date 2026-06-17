@@ -128,6 +128,8 @@ struct MainTabView: View {
             SnookerTacticsView()
         case .ballExtraction:
             BallExtractionView()
+        case .rackGenerator:
+            RackGeneratorView()
         }
     }
 
