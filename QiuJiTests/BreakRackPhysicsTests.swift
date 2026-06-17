@@ -303,6 +303,100 @@ final class BreakRackPhysicsTests: XCTestCase {
         }
     }
 
+    // MARK: - 2d. 摆球微扰不变量（RackLayout.jitterRadius：seed 驱动、解析保证不互穿）
+
+    private let allGames: [RackGame] = [
+        .chineseEightBall, .nineBall,
+        .zhuifen(balls: 4), .zhuifen(balls: 5), .zhuifen(balls: 6),
+    ]
+
+    /// 微扰后的球架对**所有 seed / 所有玩法**仍互不重叠：任意两目标球（含母球）球心距 ≥ 2R。
+    /// 解析上界 `jitterRadius ≤ gap/2` 的实证（最坏球心距应 = 2R + 0.1·gap）。
+    func test_rackLayout_jitter_neverOverlaps() {
+        var worstMin = Float.greatestFiniteMagnitude
+        for game in allGames {
+            for seed in UInt64(0)...UInt64(200) {
+                let rack = RackLayout.make(game, seed: seed, surfaceY: surfaceY)
+                let pts = [rack.cue] + rack.balls.map { $0.position }
+                for i in 0..<pts.count {
+                    for j in (i + 1)..<pts.count {
+                        let d = distXZ(pts[i], pts[j])
+                        worstMin = min(worstMin, d)
+                        XCTAssertGreaterThanOrEqual(d, 2 * R,
+                            "game=\(game) seed=\(seed) 摆球互穿，球心距 \(d * 1000)mm < 2R=\(2 * R * 1000)mm")
+                    }
+                }
+            }
+        }
+        print(String(format: "[JITTER] 全玩法×201 seed 最坏球心距 %.3fmm（理论下界 2R+0.1·gap = %.3fmm，jitterRadius=%.3fmm）",
+                     worstMin * 1000, (2 * R + 0.1 * RackLayout.gap) * 1000, RackLayout.jitterRadius * 1000))
+    }
+
+    /// 确定性：同 seed 两次生成的球位逐球完全一致（守 WYSIWYG）。
+    func test_rackLayout_jitter_deterministic() {
+        for game in allGames {
+            let a = RackLayout.make(game, seed: 42, surfaceY: surfaceY)
+            let b = RackLayout.make(game, seed: 42, surfaceY: surfaceY)
+            XCTAssertEqual(a.balls.count, b.balls.count)
+            for (x, y) in zip(a.balls, b.balls) {
+                XCTAssertEqual(x.key, y.key)
+                XCTAssertEqual(x.position.x, y.position.x, accuracy: 1e-6, "\(game) \(x.key) X 不一致")
+                XCTAssertEqual(x.position.z, y.position.z, accuracy: 1e-6, "\(game) \(x.key) Z 不一致")
+            }
+        }
+    }
+
+    /// 微扰确实生效且幅度有界。隔离方法：两 seed 的**晶格 slot 完全相同**（球号洗牌只改"哪个号坐
+    /// 哪个 slot"，不改 slot 坐标），唯一差异是逐球微扰。故用**最近邻匹配**把同一 slot 配对
+    /// （微扰 ≤0.09mm ≪ slot 间距 ≈49mm，最近邻必为同 slot）→ 配对位移 = 两 seed 的微扰之差。
+    /// 断言：(a) 几乎所有 slot 都被扰动（位移 > 0）；(b) 位移 ≤ 2·jitterRadius（解析上界）。
+    func test_rackLayout_jitter_breaksSymmetry() {
+        let game = RackGame.chineseEightBall
+        let p0 = RackLayout.make(game, seed: 1, surfaceY: surfaceY).balls.map { $0.position }
+        let p1 = RackLayout.make(game, seed: 2, surfaceY: surfaceY).balls.map { $0.position }
+        var moved = 0
+        for a in p0 {
+            let nearest = p1.map { distXZ(a, $0) }.min() ?? .greatestFiniteMagnitude
+            if nearest > 1e-6 { moved += 1 }
+            XCTAssertLessThanOrEqual(nearest, 2 * RackLayout.jitterRadius + 1e-6,
+                "最近邻 slot 位移 \(nearest * 1000)mm 超过 2·jitterRadius=\(2 * RackLayout.jitterRadius * 1000)mm")
+        }
+        XCTAssertGreaterThanOrEqual(moved, p0.count - 1,
+            "几乎所有 slot 都应在不同 seed 间被扰动，实际仅 \(moved)/\(p0.count)")
+    }
+
+    /// 目标验证：微扰让"换一局"产出**不同的散开**（混沌放大）。固定开球条件，扫多个 seed，
+    /// 断言终态球形彼此有可观差异（否则微扰没起到增加随机性的作用）。
+    func test_rackLayout_jitter_scatterDiverges() {
+        let game = RackGame.chineseEightBall
+        var boards: [[String: CanvasPoint]] = []
+        for seed in UInt64(1)...UInt64(4) {
+            let rack = RackLayout.make(game, seed: seed, surfaceY: surfaceY)
+            // 固定开球：默认母球点、对准顶角全砸（与 App 一致），无额外塞 → 唯一变量是球架几何。
+            let result = BreakSimulator.breakShot(rack: rack, power: 7.0)
+            XCTAssertTrue(result.settled, "seed=\(seed) 未停稳，散开发散测试不可信")
+            boards.append(result.board.onTable)
+        }
+        // 两两比较任意一对 seed 的同号球终位平均位移，应有 seed 对显著不同（> 1cm）。
+        var maxPairDiff: Double = 0
+        for i in 0..<boards.count {
+            for j in (i + 1)..<boards.count {
+                let common = Set(boards[i].keys).intersection(boards[j].keys)
+                guard !common.isEmpty else { continue }
+                var sum = 0.0
+                for k in common {
+                    let a = boards[i][k]!, b = boards[j][k]!
+                    sum += ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y)).squareRoot()
+                }
+                maxPairDiff = max(maxPairDiff, sum / Double(common.count))
+            }
+        }
+        // 归一化系下 1cm ≈ 0.01/2.54 ≈ 0.0039；要求至少一对 seed 平均位移 > 该量级。
+        print(String(format: "[JITTER-scatter] 4 seed 间最大平均终位差 %.4f（归一化，台长 2.54m）", maxPairDiff))
+        XCTAssertGreaterThan(maxPairDiff, 0.0039,
+            "不同 seed 的散开几乎相同（最大平均位移 \(maxPairDiff)）→ 微扰未带来散开变化")
+    }
+
     // MARK: - 3. 确定性（同一开球跑两次终态逐球一致）
 
     func test_break15Ball_deterministic() {

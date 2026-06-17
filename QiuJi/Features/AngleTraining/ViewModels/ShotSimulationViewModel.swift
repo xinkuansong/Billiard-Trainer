@@ -334,32 +334,28 @@ final class ShotSimulationViewModel: ObservableObject {
               pred.duration > 0.05 else { return }
 
         isPlaying = true
-        statusText = "击球中…"
+        statusText = "运杆…"
         clearTrajectory()
 
         let cueStart = cueNode.position
         let targetStart = targetNode.position
 
-        // 先做一次「拉杆 → 送杆」出杆动画，送杆到位后再隐藏球杆并启动球的轨迹播放，
-        // 让「点击击球」有真实的出杆动作。无球杆或方向缺失时直接发球。
-        if let stick = scene.cueStick?.rootNode, let aim = lastAimDirection {
-            let d: Float = 0.05
-            let pull = SCNAction.move(by: SCNVector3(-aim.x * d, 0, -aim.z * d), duration: 0.16)
-            pull.timingMode = .easeOut
-            let thrust = SCNAction.move(by: SCNVector3(aim.x * d, 0, aim.z * d), duration: 0.06)
-            thrust.timingMode = .easeIn
-            stick.runAction(SCNAction.sequence([pull, thrust])) { [weak self] in
-                Task { @MainActor in
-                    guard let self else { return }
-                    self.scene.hideCueStick()
-                    self.launchBalls(cueNode: cueNode, targetNode: targetNode, recorder: recorder,
-                                     cueStart: cueStart, targetStart: targetStart)
-                }
-            }
-        } else {
+        // 运杆 / 出杆动画（#10，单一权威 `CueStroke`，与编排台/思路/斯诺克/出片同源）：
+        // 回杆 → 蓄力 → 匀加速出杆，触球瞬间杆速 = 目标速度，收杆后启动球体回放。
+        // 无球杆或瞄准方向缺失时直接发球。
+        guard let aim = lastAimDirection else {
             scene.hideCueStick()
             launchBalls(cueNode: cueNode, targetNode: targetNode, recorder: recorder,
                         cueStart: cueStart, targetStart: targetStart)
+            return
+        }
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: spinX)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(velocity)) { [weak self] in
+            guard let self else { return }
+            self.statusText = "击球中…"
+            // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
+            self.launchBalls(cueNode: cueNode, targetNode: targetNode, recorder: recorder,
+                             cueStart: cueStart, targetStart: targetStart)
         }
     }
 

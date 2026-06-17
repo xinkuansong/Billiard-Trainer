@@ -43,7 +43,9 @@ final class MaterialFactory {
         if let geometry = node.geometry {
             for material in geometry.materials {
                 material.lightingModel = .physicallyBased
-                material.roughness.contents = Float(0.045)
+                // 球面粗糙度：0.045 近镜面会把冷灰 IBL 整片反射糊在球面上（白球发"磨砂雾"）。
+                // 提到 0.10 让环境反射略散、对比更干净，同时仍保留抛光高光。
+                material.roughness.contents = Float(0.10)
                 material.metalness.contents = Float(0.0)
                 material.normal.contents = nil
                 material.normal.intensity = 0
@@ -65,13 +67,16 @@ final class MaterialFactory {
     }
 
     /// Schlick Fresnel clearcoat on top of PBR base (simulates polyester ball coat).
+    /// 加性发白项 `fresnel * 0.08`（原 0.22）：原值在球边缘（掠射角）叠出过强白光环，
+    /// 顶视/特写下像球面罩了一层白雾、轮廓不锐利；降到 0.08 仅保留一点漆面菲涅尔感。
+    /// 注意：注释保持在字符串外，shader 源码内不放非 ASCII，避免 Metal 编译风险。
     private static let clearcoatFragmentShader = """
     float3 n = normalize(_surface.normal);
     float3 v = normalize(-_surface.position);
     float NdotV = saturate(dot(n, v));
     float ccF0 = 0.04;
     float fresnel = ccF0 + (1.0 - ccF0) * pow(1.0 - NdotV, 5.0);
-    _output.color.rgb = _output.color.rgb * (1.0 - fresnel * 0.30) + float3(fresnel * 0.22);
+    _output.color.rgb = _output.color.rgb * (1.0 - fresnel * 0.30) + float3(fresnel * 0.08);
     """
 
     // MARK: - Cloth (felt)
@@ -84,7 +89,7 @@ final class MaterialFactory {
     /// which has no tone-mapping, so the raw USDZ felt would otherwise read as
     /// neon green (UR-20260529 U-01 / FL-011). Pulls the cloth toward a deep
     /// billiard green closer to the 3D studio look / btTableFelt.
-    static let clothMultiplyPlain = UIColor(red: 0.46, green: 0.62, blue: 0.46, alpha: 1.0)
+    static let clothMultiplyPlain = UIColor(red: 0.54, green: 0.73, blue: 0.54, alpha: 1.0)
 
     /// Enhance every cloth/felt material in the table tree: adjust roughness,
     /// install a fine-fiber normal-map fallback when none baked in, and tint the

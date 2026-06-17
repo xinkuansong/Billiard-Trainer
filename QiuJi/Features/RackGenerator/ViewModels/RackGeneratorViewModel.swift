@@ -221,6 +221,24 @@ final class RackGeneratorViewModel: ObservableObject {
     private func startPlayback(_ result: BreakResult) {
         lastResult = result
         phase = .breaking
+        // 运杆 / 出杆动画（#10，单一权威 `CueStroke`，与击球各页同源）：母球沿瞄准方向（→ 顶角球）
+        // 回杆 → 蓄力 → 匀加速出杆，触球瞬间收杆并启动散开回放。无球杆时直接散开。
+        guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else {
+            runBreakMotion(result)
+            return
+        }
+        statusText = "运杆…"
+        let aim = BreakSimulator.aimAtApex(rack: rack, from: cueNode.position)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: spinX)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(power)) { [weak self] in
+            guard let self, self.phase == .breaking else { return }
+            // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
+            self.runBreakMotion(result)
+        }
+    }
+
+    /// 散开回放（出杆触球后）：按 recorder 让所有球沿真实轨迹运动，母球动作结束后收尾。
+    private func runBreakMotion(_ result: BreakResult) {
         statusText = "开球中…"
         let playback = TrajectoryPlayback(recorder: result.recorder,
                                           surfaceY: surfaceY + AngleSceneCalculator.ballRadius)

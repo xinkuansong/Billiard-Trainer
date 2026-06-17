@@ -74,3 +74,29 @@
 - **替代方案**：① 理论放动作库——库是"练什么"目录，混入"为什么"糊化且与角度学习区抢，未采纳；② 理论开第 6 Tab——违反固定 5 Tab，且独立栏诱发无限扩张黑洞，未采纳；③ 理论放角度学习区但作"最终归宿且立刻全量重构"——战术理论字面错配 + 现在做范围过大，改为分阶段（阶段1 仅竖切）；④ 社媒剪片段进 App——版权/拒审红线，未采纳，改为"拿球形 idea + 引擎复刻"。
 
 - **遗留 / 待用户拍板**：课程地图 §6 三参数（每格配额 / L4 取舍 / 系统训练模式定位）；参数扫描渲染模式与战术布局图属阶段2；存量示范素材批量录制 ⏸ 暂停等用户编排台录制（沿用 2026-06-13 拍板）。
+
+### ADR-P12-02 — 多球形精讲隔离 + 精讲全屏看图 + 配图 PNG/动态选用
+
+- **日期**：2026-06-18
+- **状态**：✅ 已采纳（用户多轮选项式拍板）。命中 ADR 触发：**新内容/数据策略**（`tutorial` schema 扩 `formations` + section 扩 `clip`）。
+- **背景**：用户反馈精讲页面两个问题——①一个 drill 可能含**多个球形**（不同摆球布局），各自的精讲文字需要**隔离**（视频按序排/ gif 拼接即可，唯精讲不能混在一条连续滚动里）；②精讲配图嵌在卡片里太小，需要**点击全屏看**（弹出放大）。澄清确认现状：`DrillTutorial` 是扁平 `sections`，无球形分组；section 只有单张静态 PNG（`UIImage(contentsOfFile:)`，gif 不会动）；精讲图无任何点击/缩放；全仓库无看图组件。
+
+- **决策（用户逐项选定）**：
+  1. **多球形数据结构 = `tutorial.formations` 可选层（加法式）**。单球形继续用 `sections`，多球形用 `formations:[{id,title,sections}]`；二选一，70+ 旧 drill 零改动。
+  2. **切换器 = 顶部吸顶分段控件**（`Picker .segmented` + `LazyVStack` pinned header）——长文纵向滚动不与横滑分页手势打架。
+  3. **详情页球台预览 = 只画第一个/代表性球形**，多球形完整展示集中在精讲页（详情页不改）。
+  4. **gif → 静音循环 mp4**，复用现有 `AVPlayer`（`AVPlayerLooper`/`AVQueuePlayer` + `AVPlayerLayer`，无控件、静音、循环）。
+  5. **全屏看图 = 图集翻页 + 捏合/双击缩放 + 下滑关闭**（新增可复用 `TutorialMediaViewer` + `ZoomableImageView` + `LoopingPlayerView`）。
+  6. **每节配图 = PNG 海报 + 可选 mp4 片段**：有 `clip` 时海报显**播放角标**，点击才播（决策 poster_tap，滚动页不分心/省电）；缺 `clip` 则海报本身可点开缩放。**选用规则**：讲位置/几何/落点用 `image`；讲运动/走位/杆法效果再加 `clip`。
+
+- **实现**：`DrillContentService.swift`（`DrillTutorial.sections` 改可选 + 新增 `formations`/`TutorialFormation`；`TutorialSection` 加 `clip`；service 加 `tutorialClipURL(named:)`）；`DrillTutorialView.swift`（统一 `ResolvedFormation` 模型 + 吸顶 `formationPicker` + 复用 `sectionCard` + 图片点击/播放角标 + `TutorialMediaViewer`/`ZoomableImageView`/`LoopingPlayerView`，全部内置避免改 pbxproj）。`DrillTutorials/` 为 folder reference，新增 `.mp4` 自动打包。
+
+- **影响**：schema/SOP 同步更新（`Resources/Drills/schema.md`、`content-engineering/SKILL.md` §「多球形精讲 + 配图选用」）。向后兼容：旧 drill 无 `formations`/`clip`，解码与渲染照旧。
+
+- **验证**：`make build` BUILD SUCCEEDED、lint 0。**⏳ 待人工**：真机/模拟器走查多球形切换 + 全屏看图缩放/翻页/下滑关闭 + clip 循环播放（需先有一条多球形/带 clip 的示范内容）。
+
+- **替代方案**：① 顶部整页横滑分页 TabView——与纵向滚动手势冲突、要求等高，未采纳；② schema 强制一节只能 PNG 或 mp4——不如「海报+可选 clip」自由且有兜底，未采纳；③ 多球形拆成多个独立 drill——不满足「一个 drill 多球形」诉求，未采纳。
+
+- **遗留 / 非阻塞**：精讲 `clip` 的内容生产（gif→mp4 转码脚本）与首条多球形示范待排期；per-formation 视频归属标签（当前视频仍 drill 级顺序排）属后续增强。
+
+- **后续（2026-06-18，同日）— 视频也支持缩放**：用户走查发现「视频示范点进去不支持放大缩小」。把 `ZoomableImageView` 的缩放逻辑抽成**通用可复用** `ZoomableContainer<Content>`（捏合/双击放大 + 放大后平移 + 可选纵向下滑关闭，内部不依赖内容类型），统一用于三处：①精讲静态图、②精讲 clip（`LoopingPlayerView`）、③详情页示范视频（`DrillVideoPlayerSheet` 的 `VideoPlayer`，保留系统播放控件、缩放只读不拦截控件/scrubber，关闭走 sheet 自身 + 关闭钮故不开 swipeToDismiss）。`ZoomableContainer` 设为 internal 以便 `DrillDetailView` 跨文件复用。验证：`make build` BUILD SUCCEEDED、lint 0。改：`DrillTutorialView.swift`（抽 `ZoomableContainer` + clip 包裹）、`DrillDetailView.swift`（示范视频包裹）。**⏳ 待人工**：真机验证三处缩放手势与视频控件/翻页/下滑关闭共存无冲突（`simultaneousGesture` 行为需真机确认）。

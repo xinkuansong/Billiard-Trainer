@@ -11,7 +11,14 @@ import simd
 /// and cached in-memory for the lifetime of the process.
 enum EnhancedEnvironment {
 
-    /// Apply the studio IBL + cold-grey background to a scene. Idempotent.
+    /// Apply the studio IBL to a scene, with a **solid black visible background**.
+    /// Idempotent.
+    ///
+    /// 背景统一为纯黑（与 2D 页、出片导出一致；用户要求消除 2D/3D 背景差异）。
+    /// `lightingEnvironment`（IBL）与 `background`（可见背景）是相互独立的两份
+    /// cube-map：这里只把**可见背景**置黑，**光照仍用 studio IBL**（`cachedIBL`），
+    /// 因此球的 PBR/clearcoat 高光与布面接地阴影不受影响。冷灰渐变天空盒
+    /// (`cachedBackground`) 保留为非默认备选，当前不接入。
     static func apply(to scene: SCNScene) {
         scene.lightingEnvironment.contents = cachedIBL
         // Pulled down from 1.6 so the key light's real cast shadow on the cloth
@@ -19,7 +26,7 @@ enum EnhancedEnvironment {
         // still keeping enough ambient for the balls' PBR / clearcoat sheen.
         scene.lightingEnvironment.intensity = 1.2
         scene.lightingEnvironment.contentsTransform = SCNMatrix4MakeRotation(.pi * 0.25, 0, 1, 0)
-        scene.background.contents = cachedBackground
+        scene.background.contents = UIColor.black
     }
 
     /// Detach the IBL/background from a scene, restoring the default empty

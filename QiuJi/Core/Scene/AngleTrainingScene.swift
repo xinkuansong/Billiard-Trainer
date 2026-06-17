@@ -29,6 +29,7 @@ final class AngleTrainingScene: SCNScene {
     /// Keep references to nodes we add for the enhanced pipeline so we can detach them
     /// if the flag is toggled off mid-session.
     private var groundVisualNode: SCNNode?
+    private var tableContactShadowNode: SCNNode?
     private var tableCenterGlowNode: SCNNode?
     private var enhancedLightNodes: [SCNNode] = []
 
@@ -288,6 +289,9 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func updateCueStick(cueBallPosition: SCNVector3, aimDirection: SCNVector3, pullBack: Float = 0) {
+        // 显式重新摆杆（如击球后复位重新瞄准）会取消尚未结束的出杆/跟杆/收杆序列，
+        // 避免延迟收杆把刚摆好的瞄准杆又隐藏（收杆/复位竞态）。
+        cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         let elevation = CueStick.requiredElevation(
             cueBallPosition: cueBallPosition, aimDirection: aimDirection
         )
@@ -301,6 +305,7 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func hideCueStick() {
+        cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         cueStick?.hide()
     }
 
@@ -504,17 +509,19 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Ground (enhanced only)
 
-    /// Single unlit dark-blue visual plane at `Y = BTSceneLayout.groundLevelY`
-    /// (matches the studio cube-map background). The real cast shadow now lands
-    /// directly on the USDZ cloth via the key light (see `setupStudioLighting`),
-    /// so the previous procedural shadow-catcher layer was removed.
+    /// Single unlit visual floor plane at `Y = BTSceneLayout.groundLevelY`.
+    ///
+    /// 背景统一纯黑后（见 `EnhancedEnvironment`），这块地板比纯黑略亮、呈中性深灰，
+    /// 让球桌"踩"在一块可辨认的地板上，而不是浮在黑底里；再叠一层烘焙接地阴影
+    /// (`setupContactShadow`) 强化"落地感"。布面的真实投影仍由 key light 落在台呢上。
     private func setupGround() {
         let planeSize: CGFloat = 40
 
         let visualPlane = SCNPlane(width: planeSize, height: planeSize)
         let visualMat = SCNMaterial()
         visualMat.lightingModel = .constant
-        visualMat.diffuse.contents = UIColor(red: 0.032, green: 0.042, blue: 0.062, alpha: 1.0)
+        // 略亮中性深灰（约纯黑 + 6~8%），读作"暗房地板"，又不抢台面注意力。
+        visualMat.diffuse.contents = UIColor(red: 0.066, green: 0.072, blue: 0.082, alpha: 1.0)
         visualMat.writesToDepthBuffer = true
         visualMat.readsFromDepthBuffer = true
         visualMat.isDoubleSided = false
@@ -528,6 +535,62 @@ final class AngleTrainingScene: SCNScene {
         visualNode.renderingOrder = -10
         rootNode.addChildNode(visualNode)
         groundVisualNode = visualNode
+
+        setupContactShadow()
+    }
+
+    /// 桌底接地阴影（grounding shadow）：在地板上铺一块软椭圆暗斑，正对球桌外框下方。
+    /// 烘焙纹理、不依赖实时光照，黑/暗背景下让球桌读作"落在地板上"而非悬空。
+    private func setupContactShadow() {
+        let cushion = CGFloat(BTTablePhysics.cushionThickness)
+        let outerLength = CGFloat(AngleSceneCalculator.innerLength) + 2 * cushion + 0.18
+        let outerWidth = CGFloat(AngleSceneCalculator.innerWidth) + 2 * cushion + 0.18
+        // 比外框略大，软边自然外扩。
+        let plane = SCNPlane(width: outerLength * 1.18, height: outerWidth * 1.34)
+
+        let mat = SCNMaterial()
+        mat.diffuse.contents = Self.contactShadowTexture(size: 256)
+        mat.lightingModel = .constant
+        mat.isDoubleSided = false
+        mat.writesToDepthBuffer = false
+        mat.readsFromDepthBuffer = true
+        mat.transparencyMode = .aOne   // 透明度取自纹理 alpha（与 addTableCenterGlow 同约定）
+        plane.materials = [mat]
+
+        let node = SCNNode(geometry: plane)
+        node.name = "ground_contact_shadow"
+        node.eulerAngles.x = -.pi / 2
+        // 略高于地板，避免与地板共面 z-fighting。
+        node.position = SCNVector3(0, BTSceneLayout.groundLevelY + 0.001, 0)
+        node.castsShadow = false
+        node.renderingOrder = -9   // 画在地板之上
+        rootNode.addChildNode(node)
+        tableContactShadowNode = node
+    }
+
+    /// 径向软阴影纹理：黑色，中心 alpha≈0.55 → 边缘全透明（RGBA，配 `.aOne` 透明度）。
+    private static func contactShadowTexture(size: Int) -> UIImage {
+        let s = CGFloat(size)
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: s, height: s))
+        return renderer.image { ctx in
+            let center = CGPoint(x: s / 2, y: s / 2)
+            if let grad = CGGradient(
+                colorsSpace: CGColorSpaceCreateDeviceRGB(),
+                colors: [
+                    UIColor(white: 0, alpha: 0.55).cgColor,
+                    UIColor(white: 0, alpha: 0.34).cgColor,
+                    UIColor(white: 0, alpha: 0.0).cgColor
+                ] as CFArray,
+                locations: [0.0, 0.55, 1.0]
+            ) {
+                ctx.cgContext.drawRadialGradient(
+                    grad,
+                    startCenter: center, startRadius: 0,
+                    endCenter: center, endRadius: s * 0.5,
+                    options: []
+                )
+            }
+        }
     }
 
     /// Subtle radial bright on the cloth centre (~+4% center, 0% edges).

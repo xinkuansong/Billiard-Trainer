@@ -158,6 +158,10 @@
     {
       "id": "full",
       "file": "full.mp4"
+    },
+    {
+      "id": "full3d",
+      "file": "full_3d.mp4"
     }
   ]
 }

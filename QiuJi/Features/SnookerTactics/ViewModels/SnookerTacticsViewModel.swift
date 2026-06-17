@@ -454,11 +454,8 @@ final class SnookerTacticsViewModel: ObservableObject {
     }
 
     private func strikePosition(cue: SCNVector3) -> SCNVector3 {
-        let r = AngleSceneCalculator.ballRadius
         guard let aim = lastAimDirection else { return cue }
-        let perp = SCNVector3(-aim.z, 0, aim.x)
-        let lateral = Float(spinX) * r
-        return SCNVector3(cue.x + perp.x * lateral, cue.y, cue.z + perp.z * lateral)
+        return CueStroke.strikePosition(cue: cue, aim: aim, spinX: spinX)
     }
 
     private func aimDirection(path: [SCNVector3], from cue: SCNVector3) -> SCNVector3? {
@@ -472,13 +469,6 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     // MARK: - Strike (运杆 + 回放，复用思路训练器模型)
 
-    private enum Stroke {
-        static let basePullBack: Float = 0.05
-        static let pullBackPerSpeed: Float = 0.035
-        static let backswingDuration: TimeInterval = 0.5
-        static let pauseDuration: TimeInterval = 0.12
-    }
-
     func play() {
         guard canStrike, let sol = currentSolution,
               let recorder = sol.prediction.recorder,
@@ -488,47 +478,16 @@ final class SnookerTacticsViewModel: ObservableObject {
         isPlaying = true
         statusText = "运杆…"
         scene.clearResultNodes(nodes: &overlayNodes)
-        runStrokeAnimation(aim: aim, cue: cueNode.position, velocity: Float(sol.shot.velocity)) { [weak self] in
+        let strikePos = strikePosition(cue: cueNode.position)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity)) { [weak self] in
             self?.launchBalls(sol: sol, recorder: recorder)
-        }
-    }
-
-    private func runStrokeAnimation(aim: SCNVector3, cue: SCNVector3,
-                                    velocity: Float, completion: @escaping () -> Void) {
-        guard let stickNode = scene.cueStick?.rootNode else { completion(); return }
-        let strikePos = strikePosition(cue: cue)
-        let v = max(0.3, velocity)
-        let d = Stroke.basePullBack + Stroke.pullBackPerSpeed * v
-        let accel = v * v / (2 * d)
-        let forwardTime = TimeInterval(2 * d / v)
-        let total = Stroke.backswingDuration + Stroke.pauseDuration + forwardTime
-        let scene = self.scene
-        scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: 0)
-        let backswing = Stroke.backswingDuration
-        let pause = Stroke.pauseDuration
-        let stroke = SCNAction.customAction(duration: total) { _, elapsed in
-            let t = TimeInterval(elapsed)
-            let pull: Float
-            if t < backswing {
-                let u = Float(t / backswing)
-                pull = d * (u * u * (3 - 2 * u))
-            } else if t < backswing + pause {
-                pull = d
-            } else {
-                let dt = Float(t - backswing - pause)
-                pull = max(0, d - 0.5 * accel * dt * dt)
-            }
-            scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: pull)
-        }
-        stickNode.runAction(stroke, forKey: "strokeAnim") {
-            Task { @MainActor in completion() }
         }
     }
 
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
         statusText = "击球中…"
         clearTrajectory()
-        scene.hideCueStick()
+        // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
         ShotAudioScheduler.shared.play(prediction: sol.prediction)

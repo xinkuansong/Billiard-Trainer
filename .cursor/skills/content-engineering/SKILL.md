@@ -197,7 +197,9 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 |---|---|---|
 | `initial.png` | `Resources/DrillTutorials/` | `<drillId>_initial.png` |
 | `sNN_still.png`（带 HUD） | `Resources/DrillTutorials/` | `<drillId>_sNN.png` |
-| `full.mp4`（720p@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]` |
+| `full.mp4`（2D 顶视 720×1280@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]` |
+| `full_3d.mp4` / `sNN_3d.mp4`（3D 斜视角手机档 720×1280@60 带 HUD，ADR-P11-15） | OTA（`Resources/Videos/<drillId>/` 临时） | `full_3d.mp4`，JSON `videos:` 追加 `{id:"full3d", file:"full_3d.mp4"}` |
+| `full_3d@1440.mp4`（3D 高分档 1440×2560@60） | 外站备用（不进 Bundle） | `full_3d@1440.mp4` |
 | 缩略图 | 跑 `DrillThumbnailBakeRunnerTests` 重烘焙 | `<drillId>.png` |
 
 ### 序列 → drill 接入清单（每条都做）
@@ -211,6 +213,30 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 
 - 示范击球**以编排台人工录制为准**；禁止从存量 `shotIntent` 批量反推生成序列（用户拍板：存量数据精度不可靠，2026-06-13）。
 - 精讲文案与示范击球必须一致（文案说「留角度」示范却打直线球＝内容缺陷，写完用序列数值复核一遍）。
+
+## 多球形精讲 + 配图选用（ADR-P12-02，2026-06-18）
+
+> 适用：**一个 drill 含多个不同摆球布局（球形）**，每个球形是一段独立小教学。单球形 drill 不受影响（继续用 `tutorial.sections`）。
+
+### 多球形：精讲隔离用 `tutorial.formations`
+
+- `tutorial.sections` 与 `tutorial.formations` **二选一**。多球形把 `sections` 改为 `formations: [{ id, title, sections:[…] }]`，每个球形一段隔离精讲；App 顶部用**吸顶分段控件**切换，复用同一套 section 渲染。
+- `title` 是分段标签（短，例「球形 A：薄切走位」）。`id` 稳定（`f1`/`f2`…）。
+- **视频/gif 不强制隔离**：视频按顺序排在详情页 `videos[]` 即可；gif 拼接成一段后转 mp4。详情页球台预览只画**第一个/代表性球形**（多球形完整展示集中在精讲页）。
+
+### 每节配图：PNG 海报 + 可选 mp4 片段
+
+每个视觉素材 = 一张静态 PNG 海报（`image`，兜底）+ 可选动态片段（`clip`，mp4）。**选用规则（按节目的）**：
+
+| 讲什么 | 用什么 | 理由 |
+|--------|--------|------|
+| 位置 / 几何 / 落点区域（开局布局、落点示意、错位对比） | 只配 `image`（带标注 PNG） | 可标注、可全屏放大研究；滚动页不分心 |
+| 运动 / 走位 / 杆法效果（母球怎么走、分离角、跟缩杆滚动） | `image` 海报 + `clip` | 时间维度信息，定格会丢关键 |
+| 纯概念 / 纯文字（技术原理、进阶练习） | 不配图 | — |
+
+- App 行为：海报上有 `clip` 时显示**播放角标**，点击进**全屏看图组件**（图集左右翻页 + 捏合/双击缩放 + 下滑关闭；`clip` 静音循环播放）。
+- **gif → mp4**：产出的 gif 一律转**静音循环 mp4**（H.264/HEVC，体积小、硬件解码），落 `Resources/DrillTutorials/<clip>.mp4`；`clip` 字段填不含扩展名的文件名（与 `image` 同约定）。
+- 详情页的「视频示范」仍承担全程演示；精讲的 `clip` 只放**针对性短片段**，别重复全程。
 
 ## Freemium 分配目标
 

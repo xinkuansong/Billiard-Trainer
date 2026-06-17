@@ -79,14 +79,26 @@ enum RackLayout {
     /// 取 0.2mm：贴近真实冻结球架的强开球，又留一丝数值余量（>0.1mm 的极限贴球）。
     static let gap: Float = 0.0002
 
+    /// 摆球随机微扰半径（米）。每颗目标球在台面 **X–Z 平面**内随机偏移、Y 不变、seed 驱动
+    /// （同 seed 同架，确定性 / WYSIWYG）；「换一局」换 seed → 球架**几何**（而非仅球号）也随之
+    /// 不同，借开球混沌把这点亚毫米差异放大成截然不同的散开。
+    ///
+    /// **上界由「永不互穿」解析锁死**（坐标系：SceneKit X–Z 平面）：摆球阵任意两球初始最小球心距
+    /// = 最近邻 = `2R + gap`；每球独立偏移半径 ≤ `jitterRadius` 时，最坏情况一对相邻球各朝对方移
+    /// `jitterRadius` → 球心距缩短 `2·jitterRadius`。要保证球心距恒 ≥ 2R，须 `jitterRadius ≤ gap/2`。
+    /// 取 `0.45·gap` 留数值余量（最坏球心距 = `2R + 0.1·gap` 严格 > 2R）。当前 gap=0.2mm → 0.09mm。
+    /// 该界对**所有**球对成立（非最近邻只会更远），故无需事后 overlap 校正。
+    static let jitterRadius: Float = gap * 0.45
+
     /// 生成一副摆球架。`seed` 决定球号随机排布（中八底角一花一色、9 球钻石锚点、
-    /// 少球玩法 1 号在 apex / 9 号定位等**规则约束**不随机）；同 `seed` 必产同架（确定性）。
+    /// 少球玩法 1 号在 apex / 9 号定位等**规则约束**不随机）**与每颗球的微扰偏移**
+    /// （`jitterRadius`，保证不互穿）；同 `seed` 必产同架（确定性 / WYSIWYG）。
     static func make(_ game: RackGame,
                      seed: UInt64 = 0,
                      surfaceY: Float = BTTablePhysics.surfaceY) -> Rack {
         var rng = SeededGenerator(seed: seed)
         let R = BallPhysics.radius
-        let spacing = R * 2 + gap                       // 相切球心距（含 1mm 开球缝隙）
+        let spacing = R * 2 + gap                       // 相切球心距（含开球缝隙）
         let rowOffset = spacing * sqrt(3.0) / 2.0       // 三角/钻石阵排间距
         let footSpotX = -TablePhysics.innerLength / 4   // 置球点（左半区）
         let headX = TablePhysics.innerLength / 4        // 开球线（右半区）
@@ -95,10 +107,25 @@ enum RackLayout {
         let slots = makeSlots(for: game, footSpotX: footSpotX,
                               rowOffset: rowOffset, spacing: spacing, y: y)
         let numbers = assignNumbers(for: game, slotCount: slots.count, rng: &rng)
-        let balls = zip(slots, numbers).map { pos, num in
-            RackBall(key: "_\(num)", number: num, position: pos)
+        // 球号分配先消费 rng（保持既有球号布局在同 seed 下不变），再对每颗球施加微扰。
+        var balls: [RackBall] = []
+        balls.reserveCapacity(slots.count)
+        for (pos, num) in zip(slots, numbers) {
+            balls.append(RackBall(key: "_\(num)", number: num,
+                                  position: jittered(pos, y: y, rng: &rng)))
         }
         return Rack(game: game, cue: SCNVector3(headX, y, 0), balls: balls, surfaceY: surfaceY)
+    }
+
+    /// 在台面（X–Z 平面）内对一个 slot 施加 seed 驱动的随机微扰，Y 不变。
+    /// 偏移在半径 `jitterRadius` 的圆盘内**面积均匀**采样（半径取 √u，避免向圆心聚集）。
+    /// 不互穿由解析上界保证（见 `jitterRadius` 定义），此处无需再做球间距校正。
+    private static func jittered(_ p: SCNVector3, y: Float,
+                                 rng: inout SeededGenerator) -> SCNVector3 {
+        guard jitterRadius > 0 else { return SCNVector3(p.x, y, p.z) }
+        let angle = Float.random(in: 0 ..< (2 * .pi), using: &rng)
+        let r = jitterRadius * sqrtf(Float.random(in: 0 ... 1, using: &rng))
+        return SCNVector3(p.x + r * cosf(angle), y, p.z + r * sinf(angle))
     }
 
     // MARK: - Slot geometry

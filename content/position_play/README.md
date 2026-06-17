@@ -34,11 +34,29 @@ cover.png               卡片风格封面（球放大 1.6，首杆击球前 + �
 preview/frame_NN.png    卡片风格动画帧序列（整段抽样 12 帧）→ Previews/<id>/
 initial.png / final.png 开局 / 终局布局（真实风格 1280×640，无 HUD）→ DrillTutorials
 sNN_still.png           每杆击球前静帧（预告线 + 假想球 + HUD 条，1280×720）→ DrillTutorials
-full.mp4 / sNN.mp4      整段 / 单杆视频（真实风格 1280×720@60，16:9，含 HUD 条）→ OTA
-full.gif                整段分享 GIF（真实风格 480×240@12×1.3 倍速，无 HUD）→ 站外分发
+full.mp4 / sNN.mp4      2D 顶视整段 / 单杆视频（720×1280 竖屏@60，含 HUD 条）→ OTA
+full.gif                整段分享 GIF（2D 顶视 480×240@12，无 HUD）→ 站外分发
+full_3d.mp4 / sNN_3d.mp4  3D 静态斜视角整段 / 单杆视频（手机档 720×1280@60，含 HUD）→ OTA
+full_3d@1440.mp4        3D 高分档整段视频（1440×2560@60，含 HUD）→ 外站备用（不进 Bundle）
 ```
 
-渲染契约：
+## 3D 斜视角渲染契约（ADR-P11-15，与 2D 并存）
+
+- **机位**：短边后方、沿长轴看进去的**静态斜视角**（默认相机在 +X 端看向 −X，俯角 30°）。
+- **看全桌面 = 不变量**：`SequenceVideoExporter.solvePerspectiveCamera` 固定俯角 + FOV，
+  沿后退方向二分推距离使球桌**外框 8 角点**全部入框（含 6% 余量）。因球恒在 playfield 内，
+  外框装下即「任意一杆所有在桌球可见」，与具体球形无关、整段静态机位成立。
+  几何由 `SequencePerspectiveFitTests` 断言（角点投影 + 近库不遮挡 + 取景最小可行 + 端点镜像）。
+- **studio 观感**：3D 档启用 `enhancedRendering`（IBL + 接地阴影 + studio 光照，与
+  `Scene3DAimingView` 同源），球读作立体接地物。
+- **进袋落袋**：3D 下进袋球到达袋心后沿 Y **下沉 7cm 再淡出**（仅导出层加 Y，不动物理），
+  避免在台面平面凭空淡掉的穿帮。
+- **轨迹线**：3D 远端线变细，半径按 `lineRadiusScale=1.3` 补粗；其余轨迹契约同 2D。
+- **分辨率双档**：手机档 720×1280（App 内竖屏播放，per-shot 一并出）；
+  高分档 1440×2560（外站备用，仅整段，不出 per-shot 省渲染）。
+- **物理边界**：仍是 2D 平面物理（球恒在球面高度），3D 仅换相机；**跳球/扎杆腾空** 出不来。
+
+渲染契约（2D 顶视档）：
 - **渲染风格双档**：卡片风格（球放大 1.6）仅用于 cover 和 preview；其余产物一律真实比例。
 - **轨迹线 = 击球前预告**：每杆设置静帧显示白色母球瞄准线 + **随目标球球色**的进球线
   （黑 8 例外亮灰，`TrajectoryStyle` 真源）+ 假想球，出杆瞬间清除，

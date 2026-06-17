@@ -636,11 +636,8 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 击球时球杆中心位置（含加塞横向偏移）。
     private func strikePosition(cue: SCNVector3) -> SCNVector3 {
-        let r = AngleSceneCalculator.ballRadius
         guard let aim = lastAimDirection else { return cue }
-        let perp = SCNVector3(-aim.z, 0, aim.x)
-        let lateral = Float(spinX) * r
-        return SCNVector3(cue.x + perp.x * lateral, cue.y, cue.z + perp.z * lateral)
+        return CueStroke.strikePosition(cue: cue, aim: aim, spinX: spinX)
     }
 
     private func aimDirection(path: [SCNVector3], from cue: SCNVector3) -> SCNVector3? {
@@ -653,19 +650,6 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     // MARK: - Strike (#10 运杆 + 击球)
-
-    /// 运杆参数（#10）：回杆距离 = a + k·v（线性），出杆 = 静止起步匀加速，
-    /// 触球瞬间杆速恰为目标速度 v：a_accel = v²/(2d)，前推时长 t = 2d/v。
-    private enum Stroke {
-        /// a：最小回杆距离 (m)。
-        static let basePullBack: Float = 0.05
-        /// k：每 1 m/s 杆速增加的回杆距离 (s)。
-        static let pullBackPerSpeed: Float = 0.035
-        /// 回杆时长（慢、带缓动，模拟瞄准后撤杆）。
-        static let backswingDuration: TimeInterval = 0.5
-        /// 回杆到位后的停顿（出杆前蓄力一拍）。
-        static let pauseDuration: TimeInterval = 0.12
-    }
 
     func play() {
         guard !isPlaying, !isComputing,
@@ -681,48 +665,9 @@ final class PositionPlayViewModel: ObservableObject {
         isPlaying = true
         statusText = "运杆…"
 
-        runStrokeAnimation(aim: aim, cue: cueNode.position, velocity: Float(solved.shot.velocity)) { [weak self] in
+        let strikePos = strikePosition(cue: cueNode.position)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(solved.shot.velocity)) { [weak self] in
             self?.launchBalls(solved: solved, recorder: recorder)
-        }
-    }
-
-    /// 球杆运杆动画（#10）：先回杆（缓动）→ 停顿 → 匀加速出杆，触球瞬间进入球体回放。
-    private func runStrokeAnimation(aim: SCNVector3, cue: SCNVector3,
-                                    velocity: Float, completion: @escaping () -> Void) {
-        guard let stickNode = scene.cueStick?.rootNode else {
-            completion()
-            return
-        }
-        let strikePos = strikePosition(cue: cue)
-        let v = max(0.3, velocity)
-        let d = Stroke.basePullBack + Stroke.pullBackPerSpeed * v   // 回杆距离 a + k·v
-        let accel = v * v / (2 * d)                                 // v² = 2·a_accel·d
-        let forwardTime = TimeInterval(2 * d / v)                   // t = v / a_accel
-        let total = Stroke.backswingDuration + Stroke.pauseDuration + forwardTime
-
-        let scene = self.scene
-        scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: 0)
-
-        let backswing = Stroke.backswingDuration
-        let pause = Stroke.pauseDuration
-        let stroke = SCNAction.customAction(duration: total) { _, elapsed in
-            let t = TimeInterval(elapsed)
-            let pull: Float
-            if t < backswing {
-                // 回杆：smoothstep 缓动 0 → d。
-                let u = Float(t / backswing)
-                pull = d * (u * u * (3 - 2 * u))
-            } else if t < backswing + pause {
-                pull = d
-            } else {
-                // 出杆：x(t) = d − ½·a·t²（匀加速，触球时杆速 = v）。
-                let dt = Float(t - backswing - pause)
-                pull = max(0, d - 0.5 * accel * dt * dt)
-            }
-            scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: pull)
-        }
-        stickNode.runAction(stroke, forKey: "strokeAnim") {
-            Task { @MainActor in completion() }
         }
     }
 
@@ -730,7 +675,7 @@ final class PositionPlayViewModel: ObservableObject {
     private func launchBalls(solved: SolvedShot, recorder: TrajectoryRecorder) {
         statusText = "击球中…"
         clearTrajectory()
-        scene.hideCueStick()
+        // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
 
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)

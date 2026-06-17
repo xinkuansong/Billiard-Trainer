@@ -73,14 +73,38 @@ struct DrillVideo: Codable, Identifiable, Hashable {
 }
 
 struct DrillTutorial: Codable {
+    /// 单球形精讲：所有 section 平铺渲染。与 `formations` 二选一。
+    /// 可选——多球形 Drill 改用 `formations`；旧 Drill 始终提供 `sections`。
+    let sections: [TutorialSection]?
+    /// 多球形精讲（可选，ADR-P12-02）：每个球形一段相互隔离的精讲，
+    /// UI 用顶部吸顶分段控件切换。存在且非空时优先于 `sections`；旧 Drill 无此字段照常工作。
+    let formations: [TutorialFormation]?
+
+    init(sections: [TutorialSection]? = nil, formations: [TutorialFormation]? = nil) {
+        self.sections = sections
+        self.formations = formations
+    }
+}
+
+/// 一个「球形」的隔离精讲（多球形 Drill 用，ADR-P12-02）。
+struct TutorialFormation: Codable, Identifiable {
+    /// 稳定标识，例 `f1`。
+    let id: String
+    /// 分段控件上显示的短标签，例「球形 A：薄切走位」。
+    let title: String
+    /// 本球形专属的精讲卡片（与单球形 `sections` 同构，复用同一渲染逻辑）。
     let sections: [TutorialSection]
 }
 
 struct TutorialSection: Codable, Identifiable {
     let title: String
     let content: String
-    /// 图文精讲配图：`Resources/DrillTutorials/<image>.png`（不含扩展名）。可选——旧 Drill 无此字段照常工作。
+    /// 图文精讲配图（静态海报）：`Resources/DrillTutorials/<image>.png`（不含扩展名）。可选——旧 Drill 无此字段照常工作。
     let image: String?
+    /// 动态演示片段（可选，mp4，ADR-P12-02）：`Resources/DrillTutorials/<clip>.mp4`（不含扩展名）。
+    /// 与 `image`（静态海报）配合——有 clip 时海报上显示播放角标，点击进全屏循环播放。
+    /// 内容选用规则：讲位置/几何/落点用静态 `image`；讲运动/走位/杆法效果再加 `clip`。
+    let clip: String?
     /// 配图图注（可选，渲染在图下方的细灰字）。
     let caption: String?
     /// 结构化条目（可选，ADR-P11-15）：「标签 + 正文」行，用于逐杆精讲的
@@ -92,11 +116,12 @@ struct TutorialSection: Codable, Identifiable {
 
     var id: String { title }
 
-    init(title: String, content: String, image: String? = nil, caption: String? = nil,
-         items: [TutorialItem]? = nil, params: TutorialShotParams? = nil) {
+    init(title: String, content: String, image: String? = nil, clip: String? = nil,
+         caption: String? = nil, items: [TutorialItem]? = nil, params: TutorialShotParams? = nil) {
         self.title = title
         self.content = content
         self.image = image
+        self.clip = clip
         self.caption = caption
         self.items = items
         self.params = params
@@ -273,5 +298,11 @@ actor DrillContentService {
         let ext = (file as NSString).pathExtension
         let subdir = "Videos/\(drillId)"
         return Bundle.main.url(forResource: name, withExtension: ext, subdirectory: subdir)
+    }
+
+    /// Resolves a tutorial motion clip (mp4) bundled at `Resources/DrillTutorials/<name>.mp4`.
+    /// Pass the `clip` name without extension (same convention as tutorial `image`). ADR-P12-02.
+    nonisolated func tutorialClipURL(named name: String) -> URL? {
+        Bundle.main.url(forResource: name, withExtension: "mp4", subdirectory: "DrillTutorials")
     }
 }

@@ -25,7 +25,36 @@ enum SequenceVideoExporter {
 
     // MARK: - Options
 
+    /// 相机取景模式（ADR-P11-15）：顶视正交（教学静帧/2D 视频默认）或静态斜视角透视（3D 视频）。
+    enum CameraMode {
+        case topDown2D
+        case perspective3D(Perspective3DConfig)
+    }
+
+    /// 静态斜视角（短边后方、沿长轴看进去）透视取景配置。
+    /// 看全桌面 = 把球桌**外框 8 角点**全装进画面：相机只暴露「俯角 + FOV + 取景端」，
+    /// 距离/高度由 `solvePerspectiveCamera` 按外框角点 + 视口宽高比自动解出（禁 magic number）。
+    struct Perspective3DConfig {
+        /// 相机机位所在的短库端（看向另一端）。`.plusX` = 相机在 +X 端看向 −X。
+        enum NearEnd: Equatable { case plusX, minusX }
+        /// 俯角（度，正值；越小越平视、越大越接近顶视）。下界受近库遮挡约束（≈28°）。
+        var pitchDeg: Float = 30
+        /// 竖直方向 FOV（度）；水平 FOV 由视口宽高比推出。
+        var fovDeg: Float = 46
+        var nearEnd: NearEnd = .plusX
+        /// 看向点沿长轴偏移（米，正=偏远端，把远端抬入画面重心）。
+        var lookAtBiasMeters: Float = 0
+        /// 外框角点入框安全余量（比例）。
+        var fitMargin: Float = 0.06
+        /// 轨迹线半径放大（3D 远端线变细，补粗）。
+        var lineRadiusScale: Float = 1.3
+        /// studio 光照 + IBL + 接地阴影（`Scene3DAimingView` 同款，球读作立体接地）。
+        var studioLook: Bool = true
+    }
+
     struct Options {
+        /// 相机取景模式。默认顶视 2D（不改变既有 2D 产物行为）。
+        var cameraMode: CameraMode = .topDown2D
         /// 输出像素尺寸——只影响清晰度，不影响球桌/球比例。
         var size: CGSize = CGSize(width: 1280, height: 640)
         /// 竖版取景：复用 rig 的 rotated 顶视（台面长轴竖直铺满，ADR-P11-08），
@@ -58,7 +87,11 @@ enum SequenceVideoExporter {
         /// 内容自然宽（~650px）< 720 不溢出裁切。
         var hudStripHeight: Int {
             guard showShotHUD else { return 0 }
-            return portrait ? 80 : Int((size.width * 0.0625).rounded())
+            // 竖版按宽度等比（720→80、1440→160），保证高分档 HUD 文本同样可读；
+            // 横版维持原口径（1280→80）不动既有 2D 静帧产物。
+            return portrait
+                ? Int((size.width / 720 * 80).rounded())
+                : Int((size.width * 0.0625).rounded())
         }
 
         /// 最终输出像素尺寸（场景画面 + HUD 条）。
@@ -94,6 +127,23 @@ enum SequenceVideoExporter {
             o.fps = 12
             o.playbackSpeed = 1.0
             o.showShotHUD = false
+            return o
+        }
+
+        /// 3D 教学视频（手机档，App 内竖屏播放主载体，ADR-P11-15）：720×1280 竖屏 +
+        /// 静态斜视角透视（短边后方沿长轴）+ 80px HUD 条（合计 720×1360）。
+        static func teachingVideo3D() -> Options {
+            var o = Options()
+            o.size = CGSize(width: 720, height: 1280)
+            o.portrait = true
+            o.cameraMode = .perspective3D(Perspective3DConfig())
+            return o
+        }
+
+        /// 3D 教学视频（高分档，外站备用）：1440×2560 竖屏 + 160px HUD 条（合计 1440×2720）。
+        static func teachingVideo3DHi() -> Options {
+            var o = teachingVideo3D()
+            o.size = CGSize(width: 1440, height: 2560)
             return o
         }
     }
@@ -254,16 +304,20 @@ enum SequenceVideoExporter {
             let lines = options.showTrajectories ? ctx.drawAimLines(for: step, prediction: pred) : []
             for _ in 0..<holdFrames(options.setupHold, fps: fps) { try snapshot() }
 
-            // 运杆/出杆动画（#10，与编排台同源）：回杆→蓄力→匀加速出杆，触球杆速=目标球速。
+            // 运杆/出杆/跟杆动画（#10，与编排台同源）：回杆→蓄力→匀加速出杆（触球清线）→减速跟杆→短停。
             if options.showCueStroke {
                 try ctx.renderCueStroke(step: step, prediction: pred,
-                                        fps: fps, speed: options.playbackSpeed, snapshot: snapshot)
+                                        fps: fps, speed: options.playbackSpeed, snapshot: snapshot) {
+                    // 触球瞬间清线、收掉假想球（跟杆/短停期间不再显示预告线）。
+                    lines.forEach { $0.removeFromParentNode() }
+                    ctx.hideAimDecorations()
+                }
                 ctx.scene.hideCueStick()
+            } else {
+                // 无运杆动画：直接在触球点清线、收掉假想球。
+                lines.forEach { $0.removeFromParentNode() }
+                ctx.hideAimDecorations()
             }
-
-            // 触球瞬间清线、收掉假想球。
-            lines.forEach { $0.removeFromParentNode() }
-            ctx.hideAimDecorations()
 
             // 运动帧（无线）。进袋「匀速入洞 → 撞远端袋弧 → 袋心停顿 → 淡出」
             // （#4 v2，与编排台 `TrajectoryPlayback` 同源求解）。
@@ -307,6 +361,13 @@ enum SequenceVideoExporter {
                             let entryEnd = TrajectoryPlayback.pocketEntryDuration(entry.legs)
                             node.opacity = real <= entryEnd + pause
                                 ? 1 : CGFloat(max(0, 1 - (real - entryEnd - pause) / fade))
+                            // 3D 斜视下进袋须真「落袋」：到达袋心后沿 Y 下沉再淡出，
+                            // 否则球在台面平面凭空淡掉会穿帮（仅导出层加 Y，不动物理）。
+                            if ctx.is3D, real > entryEnd {
+                                let sink = max(0, min(1, (real - entryEnd) / (pause + fade)))
+                                let p = node.position
+                                node.position = SCNVector3(p.x, ctx.yLevel - Float(sink) * 0.07, p.z)
+                            }
                         }
                     } else {
                         node.position = SCNVector3(s.position.x, ctx.yLevel, s.position.z)
@@ -331,6 +392,10 @@ enum SequenceVideoExporter {
         let scene: AngleTrainingScene
         let surfaceY: Float
         let yLevel: Float
+        /// 静态斜视角透视档（影响进袋 Y 下沉、轨迹线加粗等 3D 专属契约）。
+        let is3D: Bool
+        /// 轨迹线半径放大系数（3D 远端补粗；2D 恒 1）。
+        let lineScale: Float
         private let renderer: SCNRenderer
         private let options: Options
         private var clock: TimeInterval = 0
@@ -338,8 +403,18 @@ enum SequenceVideoExporter {
 
         init?(options: Options) {
             guard let device = MTLCreateSystemDefaultDevice() else { return nil }
+
+            let persp: Perspective3DConfig?
+            switch options.cameraMode {
+            case .perspective3D(let c): persp = c
+            case .topDown2D: persp = nil
+            }
+            self.is3D = persp != nil
+            self.lineScale = persp?.lineRadiusScale ?? 1
+
             let scene = AngleTrainingScene()
-            scene.setupScene(enhancedRendering: false)
+            // 3D 档启用 studio 光照 + IBL + 接地阴影（与 Scene3DAimingView 同款，球读作立体接地）。
+            scene.setupScene(enhancedRendering: persp?.studioLook ?? false)
             guard scene.cameraNode != nil else { return nil }
             // 暗色背景与 App 场景页一致（ADR-P11-13）；HUD 白字依赖暗底可读。
             scene.background.contents = UIColor.black
@@ -349,9 +424,25 @@ enum SequenceVideoExporter {
             scene.setupVisualizationNodes()
             scene.hideAllVisualization()
 
-            // 顶视正交相机，覆盖整张台。竖版复用 rig 的 rotated 取景（台面长轴竖直铺满，
-            // 与 App 内 2D 球桌页同一套，ADR-P11-08）；横版用固定 scale 的横向顶视。
-            if let rig = scene.cameraRig {
+            if let cfg = persp {
+                // 静态斜视角透视（短边后方沿长轴）：解出机位 → 直接驱动 cameraNode，
+                // 帧循环不动相机（与「静态斜视角」决策一致）。FOV 锁竖直方向使 fit 数学确定。
+                let cam = scene.cameraNode!.camera!
+                cam.usesOrthographicProjection = false
+                cam.projectionDirection = .vertical
+                cam.fieldOfView = CGFloat(cfg.fovDeg)
+                cam.zNear = 0.05
+                cam.zFar = 100
+                let sol = SequenceVideoExporter.solvePerspectiveCamera(
+                    config: cfg, renderSize: options.size, surfaceY: scene.surfaceY
+                )
+                scene.cameraNode!.position = sol.position
+                scene.cameraNode!.look(
+                    at: sol.lookAt, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1)
+                )
+            } else if let rig = scene.cameraRig {
+                // 顶视正交相机，覆盖整张台。竖版复用 rig 的 rotated 取景（台面长轴竖直铺满，
+                // 与 App 内 2D 球桌页同一套，ADR-P11-08）；横版用固定 scale 的横向顶视。
                 rig.topDownPanOffset = .zero
                 if options.portrait {
                     rig.fitRotatedTable(viewSize: options.size)
@@ -421,14 +512,14 @@ enum SequenceVideoExporter {
             }
             var lines: [SCNNode] = []
             lines.append(contentsOf: polyline(pred.cuePath, color: TrajectoryStyle.aimColor,
-                                              radius: TrajectoryStyle.aimRadius))
+                                              radius: TrajectoryStyle.aimRadius * lineScale))
             lines.append(contentsOf: polyline(objPath,
                                               color: TrajectoryStyle.potColor(for: step.shot.targetKey),
-                                              radius: TrajectoryStyle.potRadius))
+                                              radius: TrajectoryStyle.potRadius * lineScale))
             // 联动球路径同样随各自球色（extraBallPaths 键 = 桌面球键）。
             for (key, pts) in pred.extraBallPaths {
                 lines.append(contentsOf: polyline(pts, color: TrajectoryStyle.potColor(for: key),
-                                                  radius: TrajectoryStyle.potRadius))
+                                                  radius: TrajectoryStyle.potRadius * lineScale))
             }
             // 假想球：袋口模式显示在母球瞄准终点（与编排台/分离角同语义）。
             if !step.shot.isFree, let ghost = scene.ghostBallNode {
@@ -443,49 +534,43 @@ enum SequenceVideoExporter {
             scene.ghostBallNode?.isHidden = true
         }
 
-        /// 运杆参数（#10）：与编排台 `PositionPlayViewModel.Stroke` 单一同源——
-        /// 回杆距离 = a + k·v（线性）；出杆 = 静止起步匀加速，触球瞬间杆速恰为目标速度 v。
-        private enum Stroke {
-            static let basePullBack: Float = 0.05         // a：最小回杆距离 (m)
-            static let pullBackPerSpeed: Float = 0.035    // k：每 1 m/s 增加的回杆距离 (s)
-            static let backswingDuration: TimeInterval = 0.5   // 回杆时长（缓动）
-            static let pauseDuration: TimeInterval = 0.12      // 蓄力停顿
-        }
-
         /// 逐帧渲染一杆的运杆/出杆动画：回杆 smoothstep → 蓄力停顿 → 匀加速出杆，
         /// 触球瞬间杆速 = 目标球速 v。`speed` 与运动帧同一倍速，使运杆/击球节奏一致。
         /// 预告线由调用方在触球后清除；本方法只负责球杆帧。
         func renderCueStroke(step: SequenceStep, prediction: ShotPrediction,
-                             fps: Int, speed: Float, snapshot: () throws -> Void) rethrows {
+                             fps: Int, speed: Float, snapshot: () throws -> Void,
+                             onContact: () -> Void = {}) rethrows {
             guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
                   let aim = Self.aimDirection(path: prediction.cuePath, from: cueNode.position)
-            else { return }
-            let strikePos = Self.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+            else { onContact(); return }
+            let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
             let v = max(0.3, Float(step.shot.velocity))
-            let d = Stroke.basePullBack + Stroke.pullBackPerSpeed * v
-            let accel = v * v / (2 * d)                              // v² = 2·a·d
-            let forwardTime = TimeInterval(2 * d / v)               // t = v / a
-            let total = Stroke.backswingDuration + Stroke.pauseDuration + forwardTime
-            let backswing = Stroke.backswingDuration
-            let pause = Stroke.pauseDuration
+            let total = CueStroke.totalDuration(velocity: v)
 
             let dt = Float(speed) / Float(max(1, fps))
             var t: Float = 0
             while t <= Float(total) + 1e-4 {
-                let tt = TimeInterval(t)
-                let pull: Float
-                if tt < backswing {
-                    let u = Float(tt / backswing)
-                    pull = d * (u * u * (3 - 2 * u))                // 回杆 smoothstep 0 → d
-                } else if tt < backswing + pause {
-                    pull = d
-                } else {
-                    let fdt = Float(tt - backswing - pause)
-                    pull = max(0, d - 0.5 * accel * fdt * fdt)      // 出杆 d → 0
-                }
+                let pull = CueStroke.pullBack(at: TimeInterval(t), velocity: v)
                 scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: pull)
                 try snapshot()
                 t += dt
+            }
+            // 触球瞬间：清预告线、收假想球（轨迹契约 ADR-P11-11），跟杆/短停期间不再显示。
+            onContact()
+            // 跟杆：触球后减速送杆，杆头越过母球原中心约一颗球（与实时场景同源）。
+            var ft: Float = 0
+            while ft <= Float(CueStroke.followThroughDuration) + 1e-4 {
+                let pull = CueStroke.followThrough(at: TimeInterval(ft))
+                scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: pull)
+                try snapshot()
+                ft += dt
+            }
+            // 跟杆终点短停后收杆（导出用短停，避免教学视频每杆拖沓；收杆由调用方 `hideCueStick`）。
+            let holdFrames = max(1, Int(CueStroke.exportFollowThroughHold * Double(fps)))
+            for _ in 0..<holdFrames {
+                scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim,
+                                     pullBack: CueStroke.followThroughPull)
+                try snapshot()
             }
         }
 
@@ -497,14 +582,6 @@ enum SequenceVideoExporter {
                 if d > 0.02 { return SCNVector3(dx / d, 0, dz / d) }
             }
             return nil
-        }
-
-        /// 含加塞横向偏移的击球点（与编排台 `strikePosition(cue:)` 同逻辑）。
-        private static func strikePosition(cue: SCNVector3, aim: SCNVector3, spinX: Double) -> SCNVector3 {
-            let r = AngleSceneCalculator.ballRadius
-            let perp = SCNVector3(-aim.z, 0, aim.x)
-            let lateral = Float(spinX) * r
-            return SCNVector3(cue.x + perp.x * lateral, cue.y, cue.z + perp.z * lateral)
         }
 
         private func polyline(_ pts: [SCNVector3], color: UIColor, radius: Float) -> [SCNNode] {
@@ -598,6 +675,64 @@ enum SequenceVideoExporter {
         private var powerFraction: CGFloat {
             CGFloat(min(max((velocity - 0.5) / 5.5, 0), 1))
         }
+    }
+
+    // MARK: - Perspective fit (ADR-P11-15)
+
+    /// 球桌外框半长（世界 X，长轴）/ 半宽（世界 Z，短轴），来自 `CameraRig` 装桌实测。
+    static let tableOuterHalfLength: Float = 1.4055
+    static let tableOuterHalfWidth: Float = 0.7995
+
+    /// 解出静态斜视角相机位姿：固定俯角 + FOV，沿后退方向二分推距离 `D`，
+    /// 使球桌外框 8 角点（库顶高）全部落入画面（含 `fitMargin` 余量）。
+    /// 因球恒在 playfield 内（除非进袋），外框装下即「任意一杆所有在桌球可见」（与球形无关的不变量）。
+    /// 返回相机世界坐标 + 看向点 + 解出的距离。
+    nonisolated static func solvePerspectiveCamera(
+        config: Perspective3DConfig,
+        renderSize: CGSize,
+        surfaceY: Float
+    ) -> (position: SCNVector3, lookAt: SCNVector3, distance: Float) {
+        let sign: Float = (config.nearEnd == .plusX) ? 1 : -1
+        let th = config.pitchDeg * .pi / 180
+        // 朝远端（−sign·X）并向下俯 th 的单位视线。
+        let viewDir = SCNVector3(-sign * cosf(th), -sinf(th), 0).normalized()
+        let railTop = surfaceY + 0.05
+        let lookAt = SCNVector3(-sign * config.lookAtBiasMeters, railTop, 0)
+
+        let halfL = tableOuterHalfLength, halfW = tableOuterHalfWidth
+        let corners: [SCNVector3] = [
+            SCNVector3(-halfL, railTop, -halfW), SCNVector3(-halfL, railTop, halfW),
+            SCNVector3( halfL, railTop, -halfW), SCNVector3( halfL, railTop, halfW),
+        ]
+        let aspect = Float(renderSize.width / renderSize.height)
+        let vfov = config.fovDeg * .pi / 180
+        let hfov = 2 * atanf(aspect * tanf(vfov / 2))
+        let halfV = vfov / 2 * (1 - config.fitMargin)
+        let halfH = hfov / 2 * (1 - config.fitMargin)
+
+        func fits(_ D: Float) -> Bool {
+            let cam = lookAt - viewDir * D
+            let f = viewDir
+            let right = f.cross(SCNVector3(0, 1, 0)).normalized()
+            let upC = right.cross(f).normalized()
+            for p in corners {
+                let v = p - cam
+                let depth = v.dot(f)
+                if depth <= 0 { return false }
+                if abs(atan2f(v.dot(right), depth)) > halfH { return false }
+                if abs(atan2f(v.dot(upC), depth)) > halfV { return false }
+            }
+            return true
+        }
+
+        // 二分最小可行距离（越远角度越小越易装下 → 求最近能看全的机位）。
+        var lo: Float = 0.5, hi: Float = 15
+        for _ in 0..<60 {
+            let mid = (lo + hi) / 2
+            if fits(mid) { hi = mid } else { lo = mid }
+        }
+        let D = hi
+        return (lookAt - viewDir * D, lookAt, D)
     }
 
     // MARK: - Helpers

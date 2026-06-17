@@ -14,9 +14,11 @@
 //         preview/frame_NN.png    卡片风格动画帧序列（整段抽样 12 帧）
 //         initial.png / final.png 开局 / 终局布局（真实风格 1280×640）
 //         sNN_still.png           每杆击球前静帧（带预告线，教学配图）
-//         full.mp4                整段视频（真实风格；每杆预告线静帧→出杆线消失→运动→收尾）
-//         sNN.mp4                 单杆视频（同上）
-//         full.gif                整段分享 GIF（真实风格 480×240）
+//         full.mp4                整段视频（2D 顶视；每杆预告线静帧→出杆线消失→运动→收尾）
+//         sNN.mp4                 单杆视频（2D 顶视）
+//         full.gif                整段分享 GIF（2D 顶视 480×240）
+//         full_3d.mp4 / sNN_3d.mp4  3D 静态斜视角视频（手机档 720×1280，App 内竖屏播放）
+//         full_3d@1440.mp4        3D 高分档整段视频（1440×2560，外站备用）
 //
 //  原理：解码 `PositionPlaySequence` → `SequenceVideoExporter` 逐 Step 用物理引擎
 //  （`PositionPlayShotSolver` → `ShotPredictor`）真实复现轨迹 → SceneKit 离屏逐帧渲染。
@@ -84,13 +86,13 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                     try writePNG(frame, to: outDir.appendingPathComponent(name))
                 }
 
-                // 整段视频 + 分享 GIF（真实风格）。
+                // 整段视频 + 分享 GIF（2D 顶视，真实风格）。
                 let fullMp4 = try await SequenceVideoExporter.exportVideo(sequence: sequence)
                 try moveReplacing(fullMp4, to: outDir.appendingPathComponent("full.mp4"))
                 let fullGif = try SequenceVideoExporter.exportGIF(sequence: sequence)
                 try moveReplacing(fullGif, to: outDir.appendingPathComponent("full.gif"))
 
-                // 单杆视频（真实风格）。
+                // 单杆视频（2D 顶视，真实风格）。
                 for i in sequence.steps.indices {
                     let sub = SequenceVideoExporter.subSequence(sequence, stepIndex: i)
                     let mp4 = try await SequenceVideoExporter.exportVideo(sequence: sub)
@@ -98,10 +100,26 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                     try moveReplacing(mp4, to: outDir.appendingPathComponent(name))
                 }
 
+                // 3D 静态斜视角视频（ADR-P11-15，与 2D 并存）：
+                // 手机档整段 + 单杆 → App 内竖屏播放；高分档（1440×2560）仅整段 → 外站备用。
+                let full3d = try await SequenceVideoExporter.exportVideo(
+                    sequence: sequence, options: .teachingVideo3D())
+                try moveReplacing(full3d, to: outDir.appendingPathComponent("full_3d.mp4"))
+                for i in sequence.steps.indices {
+                    let sub = SequenceVideoExporter.subSequence(sequence, stepIndex: i)
+                    let mp4 = try await SequenceVideoExporter.exportVideo(
+                        sequence: sub, options: .teachingVideo3D())
+                    try moveReplacing(mp4, to: outDir.appendingPathComponent(String(format: "s%02d_3d.mp4", i + 1)))
+                }
+                let full3dHi = try await SequenceVideoExporter.exportVideo(
+                    sequence: sequence, options: .teachingVideo3DHi())
+                try moveReplacing(full3dHi, to: outDir.appendingPathComponent("full_3d@1440.mp4"))
+
                 ok += 1
                 print("SEQ-EXPORT ✅ \(dirName)（\(baseName)）：\(sequence.steps.count) 杆 → "
                       + "静帧 \(2 + sequence.steps.count) + cover + preview \(previewFrames.count) 帧 + "
-                      + "full.mp4/gif + 单杆 mp4 ×\(sequence.steps.count)")
+                      + "full.mp4/gif + 单杆 mp4 ×\(sequence.steps.count) + "
+                      + "3D full_3d.mp4 + 单杆 3D ×\(sequence.steps.count) + full_3d@1440.mp4")
             } catch {
                 failed.append("\(file)(\(error.localizedDescription))")
             }

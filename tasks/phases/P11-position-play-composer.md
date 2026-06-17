@@ -257,3 +257,20 @@
 - **影响**：`Drills/positioning/drill_c042.json`（重写）、`Resources/Videos/drill_c042/`（take_01–05 删除 → full.mp4）、`Resources/DrillTutorials/drill_c042_{initial,s01,s02,s03}.png`（新增）、`project.yml`（DrillTutorials folder ref）、`ScreenshotTourUITests.swift`（+临时验收测试）。
 - **替代方案**：①新建 `drill_pp_<id8>` 不动存量——会让 demo 游离在分类/计划体系外，且用户已确认旧视频整体替换，弃；②`shotIntent` 批量从存量 drill 转序列出片——用户判定存量 shotIntent 数据精度不可靠，示范击球以编排台人工录制为准，不做。
 - **遗留**：a) `isPremium` 回滚；b) 临时 UI 测试到验收完成后移除或转正；c) 「应用课」模板回写 content-engineering SKILL 的 SOP（待用户确认模板定稿）；d) 其余 71 个 drill 的示范击球录制排期。
+
+### ADR-P11-15 — 3D 静态斜视角教学视频（短边沿长轴）+ 透视自动取景 + 双分辨率档（与 2D 并存）
+
+- **日期**：2026-06-18
+- **状态**：已实施（端到端跑通 + 抽帧验收）
+- **背景**：现有教学视频是 SceneKit 3D 场景用**顶视正交相机**拍的「2D 视频」；用户希望同时出 **3D 斜视角视频**用于 App 内竖屏播放。底层 `CameraRig` 早已支持透视（`Scene3DAimingView` 在用），缺口是导出器 `RenderContext` 把相机钉死成顶视正交、且整段相机不动。
+- **决策**（用户拍板 4 点）：
+  1. **主用途竖屏 + 短边默认**：相机在一端短库后方、沿长轴看进去的**静态斜视角**（默认 +X 端看向 −X，俯角 30°、竖直 FOV 46°）。
+  2. **看全桌面 = 自动取景不变量**：新增 `SequenceVideoExporter.solvePerspectiveCamera`——固定俯角 + FOV，沿后退方向二分推距离使球桌**外框 8 角点**全入框（6% 余量）。球恒在 playfield 内 ⇒ 外框装下即所有在桌球可见（与球形无关，静态机位成立）。禁 magic number（呼应几何技能）。FOV 锁竖直方向（`projectionDirection = .vertical`）使 fit 数学确定。
+  3. **2D 与 3D 并存**：2D 现有产物（stills/cover/preview/gif/full.mp4）全保留；3D **只新增视频**（`full_3d.mp4` + `sNN_3d.mp4` 手机档；`full_3d@1440.mp4` 高分档仅整段）。
+  4. **双分辨率**：手机档 720×1280（OTA，App 内播放）、高分档 **1440×2560**（外站备用，不进 Bundle）。
+  - **3D 专属契约**：① studio 光照（`enhancedRendering`，IBL + 接地阴影，与 `Scene3DAimingView` 同源）使球立体接地；② 进袋球到达袋心后沿 Y **下沉 7cm 再淡出**（仅导出层加 Y，不动物理）避免平面凭空淡掉穿帮；③ 轨迹线 `lineRadiusScale=1.3` 补远端变细；④ HUD 条高竖版随宽等比（720→80、1440→160）。
+- **验证**：`make build` BUILD SUCCEEDED；新增 `SequencePerspectiveFitTests` 5/5（8 角点投影全入框 + 取景最小可行 maxRatio>0.97 + 近库不遮挡近端球 + 端点镜像，覆盖 5 俯角×3 FOV 批量不变量）；`make position-export` 4 序列端到端跑通，产出 `full_3d.mp4`(720×1360)/`full_3d@1440.mp4`(1440×2720)/per-shot；抽帧核验（seq_f4ded688）：全台可见、近库不挡球、studio 阴影立体、轨迹线/假想球/球杆/HUD 正常、进袋球沉入侧袋（t=8.7 蓝球入袋、t=9.0 已没）。
+- **影响**：`Core/Media/SequenceVideoExporter.swift`（CameraMode/Perspective3DConfig/solvePerspectiveCamera/3D 分支/落袋 Y 下沉/HUD 条高）、`QiuJiTests/PositionPlaySequenceExportRunnerTests.swift`（追加 3D 产物）、`QiuJiTests/SequencePerspectiveFitTests.swift`（新增）、`content/position_play/README.md` + content-engineering SKILL（渲染矩阵）。
+- **物理边界（诚实标注）**：仍是 **2D 平面物理**（球恒在球面高度），3D 只换相机——**跳球/扎杆腾空** 出不来，需扩物理引擎到三维（不在本 ADR 范围）。
+- **接入 demo（2026-06-18）**：`full_3d.mp4`（手机档 720×1360）已拷入 `Resources/Videos/drill_c042/`，`drill_c042.json` `videos` 追加 `{id:"full3d",file:"full_3d.mp4"}` 与既有 2D `full` **并存**；`make build` ✅ + bundle 内含两 mp4；`testDrillC042TutorialDemo` 通过，截图 `c042-02-detail-video` 确认详情页「视频示范 **2 段**」（第1段 2D 顶视 / 第2段 3D 斜视角），第2段缩略图由真实 `full_3d.mp4` AVAsset 解码渲染 ⇒ 播放器同路径可播。注意：`scripts/import-videos-to-app.py` 仅服务项目 15 的真机录屏（`take_NN.mp4`）且会重写 `videos`，**不适用**本 demo 的合成渲染视频，c042 走手工接入（与 ADR-P11-14 的 `full.mp4` 一致）。
+- **遗留**：a) 俯角下界（近库遮挡）用近似库顶坐标 (x≈1.34, y≈0.85)，已抽帧确认 30° 安全；b) ~~3D 视频接入 drill `videos` 字段消费~~ → drill_c042 已接入（见上）；OTA 通道（依赖 H-14）仍待做，其余 drill 的 3D 视频接入待批量出片后排期；c) 动态镜头（跟拍/环绕）为后续增强，本轮只做静态；d) 详情页缩略图标签为「第 N 段」泛化命名，无 2D/3D 文字区分（两段缩略图视觉可辨；如需文字标签须给 `DrillVideo` 加 `title` 字段+UI，超本轮范围）。

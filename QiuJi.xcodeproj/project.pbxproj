@@ -66,6 +66,7 @@
 		4156D14FDFCEE0E57E0B3CD9 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EEB8511A50A9FA52D08FFAE /* MainTabView.swift */; };
 		4283B4DF0B3AAF2815E65299 /* MaterialFactory.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6A3BCE2BBDA51F08042CACD /* MaterialFactory.swift */; };
 		429314A50B243B9C436BC2DF /* AngleHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D456250927F96F9106B17C22 /* AngleHomeView.swift */; };
+		42EC9954CC75C3DC6B51C21D /* CueStroke.swift in Sources */ = {isa = PBXBuildFile; fileRef = 709C480D883FDD81DE02EAAB /* CueStroke.swift */; };
 		448483711A66CE9B7DC91473 /* frame_08.png in Resources */ = {isa = PBXBuildFile; fileRef = 4A43FEBF8DD1EE58D131DDC6 /* frame_08.png */; };
 		44B1C2BCA0AF097F8AD6E6D3 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */; };
 		44C7A5AD7B1E1ECD171F613C /* ShotPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3911FCDF734395A7DC8702C7 /* ShotPredictor.swift */; };
@@ -79,6 +80,7 @@
 		4D1949B8830C6EE9FDA6BEA8 /* PositionPlayFreeAimTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66AEB9A450EA50D57002446F /* PositionPlayFreeAimTests.swift */; };
 		4D74AAA16170FAD8435D637F /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F7B039F970E064A93B62F00 /* AboutView.swift */; };
 		4E2942FFED494A2A5402A0E3 /* BTTogglePillGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D7081A5A48EE72FB70CC86 /* BTTogglePillGroup.swift */; };
+		4EE8C0CE834290E8B5216BB7 /* BallFogDiagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A98B302DBBA5FD130A6334C5 /* BallFogDiagTests.swift */; };
 		4F5B27982E6DA19AC71F970D /* BTFloatingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 186FCEB7609BFE5E05CAC6B0 /* BTFloatingIndicator.swift */; };
 		4FB3542B6768A8CC9F3AC2CE /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CF7735B9B15754CDA229F2 /* Typography.swift */; };
 		501D336A79548D42973DEB79 /* BTPlanCover.swift in Sources */ = {isa = PBXBuildFile; fileRef = F844989AC1B68AE2C5B7E963 /* BTPlanCover.swift */; };
@@ -89,6 +91,7 @@
 		52853F9D462E83CBA369656B /* ReflectionSolverCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F20148642C939BCBF1BB04 /* ReflectionSolverCore.swift */; };
 		5309E6599C64CABEF3013769 /* BTEmptyState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AD5ADD9C93EBB528619CC02 /* BTEmptyState.swift */; };
 		53574EDAD23F5EB17AA3CE4E /* BallFaceRenderDiagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4097DD85F4EA3EE40552C9E1 /* BallFaceRenderDiagTests.swift */; };
+		550B1721F53A432C7FFC233A /* SequencePerspectiveFitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E5A2A48050CE295B19F4066 /* SequencePerspectiveFitTests.swift */; };
 		564568F270D160DCF7B5E1AF /* BallFaceRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 281FFD66C1FDA03EE053341B /* BallFaceRenderer.swift */; };
 		566BC46F63F4593F9363147C /* Colors.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9422765DA9BDA8A39823CE6 /* Colors.swift */; };
 		57BDFC2455F545B3722B058B /* Plans in Resources */ = {isa = PBXBuildFile; fileRef = 2B41233060C251C56FD9369D /* Plans */; };
@@ -431,6 +434,7 @@
 		6A7A40C0F37424FC01623A50 /* TrainingNoteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingNoteView.swift; sourceTree = "<group>"; };
 		6A890064762699007A150D72 /* TrainingHomeViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingHomeViewModel.swift; sourceTree = "<group>"; };
 		6B6B6C078563776886ECE2D6 /* DrillSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillSceneView.swift; sourceTree = "<group>"; };
+		709C480D883FDD81DE02EAAB /* CueStroke.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueStroke.swift; sourceTree = "<group>"; };
 		72DE10E13E8C9991912EDC14 /* AngleSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleSceneView.swift; sourceTree = "<group>"; };
 		735EF922FB756EE5E610B985 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		75A5AC73516B5EB76DFBDE39 /* P4_TrainingLogUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P4_TrainingLogUITests.swift; sourceTree = "<group>"; };
@@ -444,6 +448,7 @@
 		7C5CAE5A4FDE0ECAE2B5AD71 /* RackGeneratorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackGeneratorViewModel.swift; sourceTree = "<group>"; };
 		7DACA7CFB55E780B9D69EC1F /* BallFeelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallFeelView.swift; sourceTree = "<group>"; };
 		7E08FC5EF5701BBACBD9258C /* DrillThumbnails */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DrillThumbnails; path = QiuJi/Resources/DrillThumbnails; sourceTree = SOURCE_ROOT; };
+		7E5A2A48050CE295B19F4066 /* SequencePerspectiveFitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SequencePerspectiveFitTests.swift; sourceTree = "<group>"; };
 		7E72FFB8E8A4D7AE0B4FBD9A /* UserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserPreferences.swift; sourceTree = "<group>"; };
 		7E7B91825474032DFDA01618 /* ShotSimulationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotSimulationView.swift; sourceTree = "<group>"; };
 		7E91695E5AD7CE6491597FEE /* QiuJiLiveActivityBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiLiveActivityBundle.swift; sourceTree = "<group>"; };
@@ -493,6 +498,7 @@
 		A8659C149C14B42C916931D6 /* RackGeneratorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackGeneratorTests.swift; sourceTree = "<group>"; };
 		A8D58DA4F69724429AE1FB27 /* ShotBaker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotBaker.swift; sourceTree = "<group>"; };
 		A9422765DA9BDA8A39823CE6 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
+		A98B302DBBA5FD130A6334C5 /* BallFogDiagTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallFogDiagTests.swift; sourceTree = "<group>"; };
 		AA1E0D5E145201FC10FE7508 /* P2_DataLayerUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2_DataLayerUITests.swift; sourceTree = "<group>"; };
 		AA491E77FB4ECDB6A29B1B9D /* AngleUsageLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleUsageLimiter.swift; sourceTree = "<group>"; };
 		AA766FE9BA15010CF1F36B86 /* RackLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackLayout.swift; sourceTree = "<group>"; };
@@ -791,6 +797,7 @@
 				775E685C47182DAE69AF520F /* BTSceneConstants.swift */,
 				45190E4F99EF7917A2AC88EE /* CameraRig.swift */,
 				59E91E70F8603C42EF54EAA9 /* CueStick.swift */,
+				709C480D883FDD81DE02EAAB /* CueStroke.swift */,
 				6B6B6C078563776886ECE2D6 /* DrillSceneView.swift */,
 				0471F2D484E4EAB82772F02D /* DrillThumbnailRenderer.swift */,
 				78D9196447D748818E29107C /* EnhancedEnvironment.swift */,
@@ -807,6 +814,7 @@
 				C5806A404B14F3AA64E8DE5F /* AngleTestViewModelTests.swift */,
 				7A8BC2C5C758B9C9098D9E35 /* AngleTrainingTests.swift */,
 				4097DD85F4EA3EE40552C9E1 /* BallFaceRenderDiagTests.swift */,
+				A98B302DBBA5FD130A6334C5 /* BallFogDiagTests.swift */,
 				FF49DC95958009673060AAE6 /* BreakRackPhysicsTests.swift */,
 				B57FA5E81B78AEDA13430295 /* CushionDiagnosticsTests.swift */,
 				40388EC91F0F668426738904 /* CustomPlanBuilderViewModelTests.swift */,
@@ -835,6 +843,7 @@
 				C633D89415347CE8B1192C77 /* PositionPlaySequenceExportRunnerTests.swift */,
 				96E4F8C0B1A070D0D27C70A4 /* PositionPlaySolverTests.swift */,
 				A8659C149C14B42C916931D6 /* RackGeneratorTests.swift */,
+				7E5A2A48050CE295B19F4066 /* SequencePerspectiveFitTests.swift */,
 				F873073B2D32D4FF186A056A /* ShotScenarioRenderTests.swift */,
 				8ECA9C8A2F8BB2433A59CF5E /* SnookerSolverTests.swift */,
 				E02A9061344DF8835F43CB2F /* StatisticsViewModelTests.swift */,
@@ -1581,6 +1590,7 @@
 				0D9170CE19C178F9CD298AC5 /* ContactPointTableView.swift in Sources */,
 				F96D8A0FEC94A8F9A0E53A29 /* CueBallStrike.swift in Sources */,
 				7CD800F6432E002EB5ECB66F /* CueStick.swift in Sources */,
+				42EC9954CC75C3DC6B51C21D /* CueStroke.swift in Sources */,
 				1F9338C68AC16D99022834B3 /* CustomPlan.swift in Sources */,
 				4A1AF3AF407CBA6556F90F0F /* CustomPlanBuilderView.swift in Sources */,
 				EFE9BDBDCE62A09BB94F059C /* CustomPlanBuilderViewModel.swift in Sources */,
@@ -1736,6 +1746,7 @@
 				24301F48A4B37F2EDE7528F3 /* AngleTestViewModelTests.swift in Sources */,
 				38DD94E622D8FC48F702096E /* AngleTrainingTests.swift in Sources */,
 				53574EDAD23F5EB17AA3CE4E /* BallFaceRenderDiagTests.swift in Sources */,
+				4EE8C0CE834290E8B5216BB7 /* BallFogDiagTests.swift in Sources */,
 				7C46E57D2838DF815417B9CB /* BreakRackPhysicsTests.swift in Sources */,
 				FC8CEA5F3F886C4D235611D6 /* CushionDiagnosticsTests.swift in Sources */,
 				12A7BCAD042384B6FD4125E1 /* CustomPlanBuilderViewModelTests.swift in Sources */,
@@ -1764,6 +1775,7 @@
 				8082BCF8439DDE1474C77CBE /* PositionPlaySolverTests.swift in Sources */,
 				860519094D09B4A7B8BC6B67 /* PositioningFormationRenderTests.swift in Sources */,
 				F31218292ECDB194017A41A2 /* RackGeneratorTests.swift in Sources */,
+				550B1721F53A432C7FFC233A /* SequencePerspectiveFitTests.swift in Sources */,
 				903373543E563A92B30E02F0 /* ShotScenarioRenderTests.swift in Sources */,
 				17CE95ED7AB7347F0A9C3A01 /* SnookerSolverTests.swift in Sources */,
 				B088E54B6D20C769C5184506 /* StatisticsViewModelTests.swift in Sources */,

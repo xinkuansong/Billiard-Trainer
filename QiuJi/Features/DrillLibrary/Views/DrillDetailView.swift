@@ -608,10 +608,13 @@ private struct DrillVideoPlayerSheet: View {
             Color.black.ignoresSafeArea()
 
             if let player {
-                VideoPlayer(player: player)
-                    .ignoresSafeArea()
-                    .onAppear { player.play() }
-                    .onDisappear { player.pause() }
+                // 可缩放（ADR-P12-02）：捏合/双击放大、放大后拖动平移；保留系统播放控件。
+                ZoomableContainer {
+                    VideoPlayer(player: player)
+                        .onAppear { player.play() }
+                        .onDisappear { player.pause() }
+                }
+                .ignoresSafeArea()
             } else {
                 VStack(spacing: Spacing.md) {
                     Image(systemName: "exclamationmark.triangle.fill")

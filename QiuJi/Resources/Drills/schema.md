@@ -34,9 +34,22 @@
 
 ## `DrillTutorial`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `sections` | `[TutorialSection]` | Ordered tutorial sections |
+`sections` 与 `formations` **二选一**（ADR-P12-02）。单球形 Drill 用 `sections` 平铺；多球形 Drill 用 `formations`，每个球形一段相互隔离的精讲，App 用顶部吸顶分段控件切换。旧 Drill 无 `formations`，照常工作。
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sections` | `[TutorialSection]?` | ◑ | Ordered tutorial sections (single-formation). 与 `formations` 二选一 |
+| `formations` | `[TutorialFormation]?` | ◑ | Multi-formation tutorial (ADR-P12-02). 存在且非空时优先于 `sections` |
+
+## `TutorialFormation` (ADR-P12-02)
+
+一个「球形」的隔离精讲（多球形 Drill 用）。
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | `String` | ✅ | Stable id, e.g. `f1` |
+| `title` | `String` | ✅ | Segmented-control label, e.g. "球形 A：薄切走位" |
+| `sections` | `[TutorialSection]` | ✅ | This formation's tutorial cards (same shape as single-formation `sections`) |
 
 ## `TutorialSection`
 
@@ -44,7 +57,8 @@
 |-------|------|----------|-------------|
 | `title` | `String` | ✅ | Section heading, e.g. "技术原理" |
 | `content` | `String` | ✅ | Section body text (Chinese). May be `""` when `items` carry the content. Supports paragraphs (`\n\n`) and inline markdown (`**bold**`). |
-| `image` | `String?` | ❌ | Figure under `Resources/DrillTutorials/<image>.png` (no extension) |
+| `image` | `String?` | ❌ | Static poster figure under `Resources/DrillTutorials/<image>.png` (no extension). Tappable → fullscreen viewer (pinch zoom + gallery paging). |
+| `clip` | `String?` | ❌ | Motion clip (mp4) under `Resources/DrillTutorials/<clip>.mp4` (no extension), ADR-P12-02. Pairs with `image` as the poster — shows a play badge; tap plays a muted loop fullscreen. **选用规则**：讲位置/几何/落点只配 `image`；讲运动/走位/杆法效果再加 `clip`（gif 先转静音循环 mp4）。 |
 | `caption` | `String?` | ❌ | Figure caption (small gray text under the image) |
 | `items` | `[TutorialItem]?` | ❌ | Structured "label + text" rows (DR-019). Labels `为什么`/`怎么打`/`自检` get accent colors; others render neutral (e.g. mistake names). |
 | `params` | `TutorialShotParams?` | ❌ | Shot parameters row for per-shot sections: `{ spinX, spinY, velocity }` (tip offset /R + m/s, same semantics as `ShotIntent`). Rendered as true-scale spin icon + readout + power chip, matching the export HUD. |
