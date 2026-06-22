@@ -428,41 +428,96 @@ final class CushionReflectionTests: XCTestCase {
     func test_diamondSolveAll_idealMode_noIdealOverlay() {
         let cue = SCNVector3(DiamondSystemCalculator.halfL * 0.5, y, DiamondSystemCalculator.halfW * 0.4)
         let target = SCNVector3(-DiamondSystemCalculator.halfL * 0.4, y, -DiamondSystemCalculator.halfW * 0.25)
-        let ideal = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 1.0)
+        let ideal = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, realMode: false)
         XCTAssertFalse(ideal.isEmpty, "默认配置应有理想解")
         XCTAssertNil(ideal.first?.idealPath, "理想模式不携带对照路径")
     }
 
-    func test_diamondSolveAll_realMode_carriesIdealOverlayAndDiverges() {
+    /// 真实（物理引擎）模式：解必须携带理想对照、端点对齐、且每个反弹点都**真落在库上**（物理有效），
+    /// 同时与理想镜面线有可测偏离（引擎 ≠ 镜面）。
+    @MainActor
+    func test_diamondSolveAll_realMode_engineIsPhysicalAndDiverges() {
         let cue = SCNVector3(DiamondSystemCalculator.halfL * 0.5, y, DiamondSystemCalculator.halfW * 0.4)
         let target = SCNVector3(-DiamondSystemCalculator.halfL * 0.4, y, -DiamondSystemCalculator.halfW * 0.25)
 
-        let real85 = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 0.85)
-        XCTAssertFalse(real85.isEmpty, "真实模式 0.85 应至少有一个解")
-
-        guard let s = real85.first, let ideal = s.idealPath else {
+        let real = DiamondSystemCalculator.solveAll(cue: cue, target: target,
+                                                    surfaceY: surfaceY, realMode: true, power: 3.0)
+        XCTAssertFalse(real.isEmpty, "真实模式应至少有一个解")
+        guard let s = real.first, let ideal = s.idealPath else {
             return XCTFail("真实模式解必须携带理想对照路径")
         }
-        // 端点（起点/终点）与理想一致，仅中间反弹点偏移。
+        // 端点：起点精确、终点 ≈ target。
         XCTAssertEqual(s.path.first!.x, ideal.first!.x, accuracy: 0.001)
-        XCTAssertEqual(s.path.last!.x, ideal.last!.x, accuracy: 0.02)
-        XCTAssertGreaterThan(interiorDivergence(s.path, ideal), 0.002,
-                             "factor=0.85 真实路线应明显偏离理想路线")
+        XCTAssertEqual(s.path.first!.z, ideal.first!.z, accuracy: 0.001)
+        XCTAssertEqual(s.path.last!.x, target.x, accuracy: 0.02)
+        XCTAssertEqual(s.path.last!.z, target.z, accuracy: 0.02)
+        // 物理有效：每个内部反弹点都落在某条平库上（|x|≈halfL 或 |z|≈halfW）。
+        let halfL = DiamondSystemCalculator.halfL, halfW = DiamondSystemCalculator.halfW
+        for i in 1..<(s.path.count - 1) {
+            let p = s.path[i]
+            let onRail = abs(abs(p.x) - halfL) < 0.03 || abs(abs(p.z) - halfW) < 0.03
+            XCTAssertTrue(onRail, "反弹点必须落在库上：(\(p.x), \(p.z))")
+        }
+        XCTAssertGreaterThan(interiorDivergence(s.path, ideal), 0.001,
+                             "真实引擎路线应与理想镜面线有可测偏离")
     }
 
-    func test_diamondSolveAll_divergenceGrowsAsFactorShrinks() {
+    /// 真实模式随**发力**变化：不同发力得到不同的真实翻库路线（速度相关物理）。
+    @MainActor
+    func test_diamondSolveAll_realMode_respondsToPower() {
         let cue = SCNVector3(DiamondSystemCalculator.halfL * 0.5, y, DiamondSystemCalculator.halfW * 0.4)
         let target = SCNVector3(-DiamondSystemCalculator.halfL * 0.4, y, -DiamondSystemCalculator.halfW * 0.25)
 
-        let real99 = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 0.99)
-        let real85 = DiamondSystemCalculator.solveAll(cue: cue, target: target, surfaceY: surfaceY, factor: 0.85)
-        guard let s99 = real99.first, let i99 = s99.idealPath,
-              let s85 = real85.first(where: { $0.railSequenceText == s99.railSequenceText && $0.path.count == s99.path.count }),
-              let i85 = s85.idealPath else {
-            return XCTFail("应能在 0.99 与 0.85 找到同一库序解用于对比")
+        let lo = DiamondSystemCalculator.solveAll(cue: cue, target: target,
+                                                  surfaceY: surfaceY, realMode: true, power: 1.8)
+        let hi = DiamondSystemCalculator.solveAll(cue: cue, target: target,
+                                                  surfaceY: surfaceY, realMode: true, power: 4.0)
+        XCTAssertFalse(lo.isEmpty, "低发力应有解")
+        XCTAssertFalse(hi.isEmpty, "高发力应有解")
+        guard let shi = hi.first,
+              let slo = lo.first(where: { $0.railSequenceText == shi.railSequenceText
+                                          && $0.path.count == shi.path.count }) else {
+            return   // 库序集合本身随发力变化，也算"响应发力"，非空即可。
         }
-        let div99 = interiorDivergence(s99.path, i99)
-        let div85 = interiorDivergence(s85.path, i85)
-        XCTAssertLessThan(div99, div85, "缩小因子越接近 1，真实路线越贴近理想路线")
+        XCTAssertGreaterThan(interiorDivergence(shi.path, slo.path), 0.001,
+                             "不同发力应得到不同的真实翻库路线")
+    }
+
+    // MARK: EngineCushionTracer — 真实引擎追迹核心
+
+    /// 直瞄长库（左库 Z=-halfW）应正好反弹一次、分类为该长库。
+    @MainActor
+    func test_engineTracer_straightAtLongRail_classifiesRail() {
+        let halfW = EngineCushionTracer.halfW
+        let start = SCNVector3(0.3, y, 0.05)
+        // 朝 -Z（指向左库）略带 +X，避开正中中袋。
+        let dir = norm(SCNVector3(0.25, 0, -1))
+        let l = EngineCushionTracer.launch(start: start, dir: dir, speed: 3.0, y: y)
+        XCTAssertGreaterThanOrEqual(l.rails.count, 1, "应至少反弹一次")
+        let first = l.rails[0]
+        XCTAssertTrue(first.isLong, "首次反弹应为长库")
+        XCTAssertEqual(first.coord, -halfW, accuracy: 1e-3, "应为左库 Z=-halfW")
+        // 反弹点落在左库上。
+        XCTAssertEqual(l.polyline[1].z, -halfW, accuracy: 0.03)
+    }
+
+    /// 单库射击解：从 start 经左库一次反射到 target，反弹点落在左库、末点 ≈ target。
+    @MainActor
+    func test_engineTracer_shoot_singleCushionReachesTarget() {
+        let halfW = EngineCushionTracer.halfW
+        let start = SCNVector3(0.2, y, 0.10)
+        let target = SCNVector3(0.9, y, 0.30)
+        let rail = CushionReflectionSolver.Rail(isLong: true, coord: -halfW)
+        // 种子：镜像法理想首段方向。
+        let imgZ = 2 * (-halfW) - target.z
+        let seed = norm(SCNVector3(target.x - start.x, 0, imgZ - start.z))
+        guard let path = EngineCushionTracer.shoot(start: start, target: target, seedDir: seed,
+                                                   rails: [rail], speed: 3.0, y: y) else {
+            return XCTFail("单库真实射击应有解")
+        }
+        XCTAssertEqual(path.count, 3, "[start, 反弹点, target]")
+        XCTAssertEqual(path[1].z, -halfW, accuracy: 0.03, "反弹点落在左库")
+        XCTAssertEqual(path[2].x, target.x, accuracy: 0.02)
+        XCTAssertEqual(path[2].z, target.z, accuracy: 0.02)
     }
 }

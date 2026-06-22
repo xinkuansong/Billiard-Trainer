@@ -135,13 +135,15 @@ enum BankShotCalculator {
 
     /// 求出母球 `cue`、目标球 `object` 下，把目标球翻进 `pocketIndex` 袋的所有解，
     /// 按（库数升序、路径长度升序）排序并去重。第一条即「最少库 / 最短」解。
-    /// `factor` = 库边缩小因子（1.0 = 理想镜面反射；<1 = 真实模式，反射偏短）。
+    /// `realMode` = false → 理想镜面反射；true → 用真实物理引擎按 `power`（m/s 发力）模拟翻库
+    /// （`EngineCushionTracer`，含速度相关回弹与摩擦衰减，无需手动拟合）。
     static func solveAll(
         cue: SCNVector3,
         object: SCNVector3,
         pocketIndex: Int,
         surfaceY: Float,
-        factor: Float = 1.0,
+        realMode: Bool = false,
+        power: Float = CushionReflectionSettings.defaultPower,
         maxCushions: Int = 3,
         limit: Int = 12
     ) -> [Solution] {
@@ -167,18 +169,22 @@ enum BankShotCalculator {
             lhs.cushions != rhs.cushions ? lhs.cushions < rhs.cushions : lhs.length < rhs.length
         }
 
-        guard !CushionReflectionSolver.isIdeal(factor) else {
+        guard realMode else {
             return Array(ideal.prefix(limit))
         }
 
-        // 真实模式：对每条理想解的库序，从目标球射向同一进球点（理想解末端），按 factor 追迹出实际进袋线，
-        // 再据实际出发方向反推母球瞄准；理想线作为对照。
+        // 真实模式：对每条理想解的库序，从目标球以理想首段方向为种子、按 `power` 发力用真实
+        // 物理引擎射击法追迹出实际进袋线，再据实际出发方向反推母球瞄准；理想线作为对照。
+        // 性能护栏：仅精修最有希望的前若干条理想解（引擎射击较重，每条需多次正向模拟）。
         var real: [Solution] = []
-        for sol in ideal {
-            guard let aim = sol.objectPath.last else { continue }
+        for sol in ideal.prefix(limit) {
+            guard let aim = sol.objectPath.last, sol.objectPath.count >= 2 else { continue }
             let descriptors = sol.rails.map(descriptor)
-            guard let realPath = CushionReflectionSolver.shoot(
-                start: sol.objectPath[0], target: aim, rails: descriptors, factor: factor, y: y
+            let seed = SCNVector3(sol.objectPath[1].x - sol.objectPath[0].x, 0,
+                                  sol.objectPath[1].z - sol.objectPath[0].z)
+            guard let realPath = EngineCushionTracer.shoot(
+                start: sol.objectPath[0], target: aim, seedDir: seed,
+                rails: descriptors, speed: power, y: y
             ) else { continue }
             guard firstCushionAngleOK(path: realPath, firstRail: sol.rails[0]) else { continue }
             guard var rsol = makeSolution(cue: cuePt, path: realPath, rails: sol.rails,

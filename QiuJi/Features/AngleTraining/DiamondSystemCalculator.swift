@@ -127,9 +127,11 @@ enum DiamondSystemCalculator {
     /// All valid pure-reflection trajectories from `cue` to `target` using 1…`maxCushions`
     /// cushions, sorted by (cushions ascending, then path length ascending) and deduped.
     /// The first element is therefore the **minimum-cushion** (and shortest) solution.
-    /// `factor` = 库边缩小因子（1.0 = 理想镜面反射；<1 = 真实模式，反射偏短）。
+    /// `realMode` = false → 理想镜面反射；true → 用真实物理引擎按 `power`（m/s 发力）模拟
+    /// （`EngineCushionTracer`，含速度相关回弹与摩擦衰减，无需手动拟合）。
     static func solveAll(cue: SCNVector3, target: SCNVector3,
-                         surfaceY: Float, factor: Float = 1.0,
+                         surfaceY: Float, realMode: Bool = false,
+                         power: Float = CushionReflectionSettings.defaultPower,
                          maxCushions: Int = 5, limit: Int = 16) -> [Solution] {
         let y = surfaceY + AngleSceneCalculator.ballRadius
         let cuePt = SCNVector3(cue.x, y, cue.z)
@@ -149,16 +151,22 @@ enum DiamondSystemCalculator {
             lhs.cushions != rhs.cushions ? lhs.cushions < rhs.cushions : lhs.length < rhs.length
         }
 
-        guard !CushionReflectionSolver.isIdeal(factor) else {
+        guard realMode else {
             return Array(ideal.prefix(limit))
         }
 
-        // 真实模式：对每条理想解的库序做正向追迹 + 射击法，得到实际走位；理想解作为对照。
+        // 真实模式：对每条理想解的库序，以理想首段方向为种子、按 `power` 发力用真实物理引擎
+        // 射击法追迹出实际走位；理想解作为对照。
+        // 性能护栏：引擎射击较重（每条解需多次正向模拟），仅精修最有希望的前若干条理想解，
+        // 且跳过 ≥4 库的深翻——深翻在真实摩擦下极少能保速穿点，精修收益低、耗时高。
         var real: [Solution] = []
-        for sol in ideal {
+        for sol in ideal.prefix(limit) where sol.cushions <= 3 {
+            guard sol.path.count >= 2 else { continue }
             let descriptors = sol.rails.map(descriptor)
-            guard let realPath = CushionReflectionSolver.shoot(
-                start: cuePt, target: targetPt, rails: descriptors, factor: factor, y: y
+            let seed = SCNVector3(sol.path[1].x - sol.path[0].x, 0, sol.path[1].z - sol.path[0].z)
+            guard let realPath = EngineCushionTracer.shoot(
+                start: cuePt, target: targetPt, seedDir: seed,
+                rails: descriptors, speed: power, y: y
             ) else { continue }
             guard firstCushionAngleOK(path: realPath, firstRail: sol.rails[0]) else { continue }
             let rsol = Solution(cushions: sol.cushions, rails: sol.rails,

@@ -124,12 +124,20 @@ struct MainTabView: View {
             PositionPlayComposerView()
         case .positionPlaySolver:
             SiluTrainerView()
+        case .planThree:
+            PlanThreeView()
         case .snookerTactics:
             SnookerTacticsView()
         case .ballExtraction:
             BallExtractionView()
         case .rackGenerator:
             RackGeneratorView()
+        case .batchDrillStudio:
+            #if targetEnvironment(simulator)
+            BatchDrillStudioView()
+            #else
+            EmptyView()
+            #endif
         }
     }
 

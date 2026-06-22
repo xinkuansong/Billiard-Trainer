@@ -117,6 +117,11 @@ final class UserPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(soundEffectsEnabled, forKey: "soundEffectsEnabled") }
     }
 
+    // New: 在所有击球轨迹上叠加 90° 分离角辅助线（过碰撞点、垂直于撞击线）。默认关闭。
+    @Published var showSeparationAngle: Bool {
+        didSet { UserDefaults.standard.set(showSeparationAngle, forKey: "showSeparationAngle") }
+    }
+
     private init() {
         let sportRaw = UserDefaults.standard.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
         self.preferredSport = PreferredSport(rawValue: sportRaw) ?? .chinese8
@@ -149,6 +154,9 @@ final class UserPreferences: ObservableObject {
 
         // 默认开启；首次启动 UserDefaults 无键时 object(forKey:) 为 nil → 取 true。
         self.soundEffectsEnabled = (UserDefaults.standard.object(forKey: "soundEffectsEnabled") as? Bool) ?? true
+
+        // 默认关闭（可选辅助线）。
+        self.showSeparationAngle = (UserDefaults.standard.object(forKey: "showSeparationAngle") as? Bool) ?? false
     }
 
     // MARK: - Summaries

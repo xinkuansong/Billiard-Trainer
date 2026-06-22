@@ -988,6 +988,59 @@ final class AngleTrainingScene: SCNScene {
         return node
     }
 
+    // MARK: - Shared selection ring & teaching overlays
+
+    /// 选中环颜色（亮绿，统一全 App 点选球反馈）。
+    static let selectionRingColor = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 0.95)
+    /// 90° 分离角辅助线颜色（暖黄虚线，区别于青色进球垂线）。
+    static let separationLineColor = UIColor(red: 1.0, green: 0.82, blue: 0.26, alpha: 0.92)
+
+    /// 在 `center` 处画一个圆环（由短线段拼成），返回持有所有段的父节点，便于统一清理。
+    @discardableResult
+    func addRing(center: SCNVector3, radius: Float, color: UIColor,
+                 lineRadius: Float = 0.0022, segments: Int = 40) -> SCNNode {
+        let parent = SCNNode()
+        let y = center.y
+        var prev: SCNVector3?
+        for i in 0...segments {
+            let a = Float(i) / Float(segments) * 2 * .pi
+            let p = SCNVector3(center.x + radius * cosf(a), y, center.z + radius * sinf(a))
+            if let pr = prev {
+                parent.addChildNode(makeSegment(from: pr, to: p, color: color, radius: lineRadius))
+            }
+            prev = p
+        }
+        rootNode.addChildNode(parent)
+        return parent
+    }
+
+    /// 选中球的常驻选中环（半径略大于球，浮于台面之上）。
+    @discardableResult
+    func addSelectionRing(at center: SCNVector3,
+                          color: UIColor = AngleTrainingScene.selectionRingColor) -> SCNNode {
+        addRing(center: SCNVector3(center.x, surfaceY + 0.002, center.z),
+                radius: AngleSceneCalculator.ballRadius * 1.75, color: color)
+    }
+
+    /// 90° 分离角辅助线：过首次碰撞点（≈幽灵球中心），沿切线方向（垂直于撞击线）双向延伸。
+    /// 由调用方按用户设置（`UserPreferences.showSeparationAngle`）决定是否调用。
+    /// 返回是否成功绘制（无球-球碰撞时 `tangentDir` 为 nil，不画）。
+    @discardableResult
+    func addSeparationAngleLine(for p: ShotPrediction, into nodes: inout [SCNNode]) -> Bool {
+        guard let tangent = p.tangentDir else { return false }
+        let len = sqrtf(tangent.x * tangent.x + tangent.z * tangent.z)
+        guard len > 0.0001 else { return false }
+        let ux = tangent.x / len, uz = tangent.z / len
+        let center = p.firstContact ?? p.ghost
+        let half: Float = 0.30
+        let y = surfaceY + AngleSceneCalculator.ballRadius
+        let a = SCNVector3(center.x - ux * half, y, center.z - uz * half)
+        let b = SCNVector3(center.x + ux * half, y, center.z + uz * half)
+        nodes.append(addDashedLine(from: a, to: b, color: AngleTrainingScene.separationLineColor,
+                                   radius: 0.0026, dash: 0.028, gap: 0.020))
+        return true
+    }
+
     // MARK: - Pocket Markers (leather cut-out overlays)
 
     /// Add 6 pocket-marker overlays as flat smooth circles centered on each pocket's hole.

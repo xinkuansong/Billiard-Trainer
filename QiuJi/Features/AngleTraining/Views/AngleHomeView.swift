@@ -15,9 +15,12 @@ enum AngleRoute: Hashable {
     case shotSimulation
     case positionPlayComposer
     case positionPlaySolver
+    case planThree
     case snookerTactics
     case ballExtraction
     case rackGenerator
+    /// 批量出片台（仅模拟器，内容生产工具）。
+    case batchDrillStudio
 }
 
 // MARK: - Entry Model
@@ -82,7 +85,19 @@ struct AngleHomeView: View {
               coverBottom: Color(red: 0.16, green: 0.18, blue: 0.48), chip: "3D")
     ]
 
-    private let toolEntries: [AngleEntry] = [
+    private var toolEntries: [AngleEntry] {
+        var entries = baseToolEntries
+        #if targetEnvironment(simulator)
+        // 仅模拟器：批量出片台（内容生产工具，真机/发布版不可见）。
+        entries.append(.init(route: .batchDrillStudio, glyph: "批",
+                             title: "批量出片台", subtitle: "drill 截图 → 序列 → 素材",
+                             coverTop: Color(red: 0.20, green: 0.40, blue: 0.70),
+                             coverBottom: Color(red: 0.10, green: 0.22, blue: 0.42), chip: "SIM"))
+        #endif
+        return entries
+    }
+
+    private let baseToolEntries: [AngleEntry] = [
         .init(route: .bankShot, glyph: "翻",
               title: "翻袋解球器", subtitle: "自动求 1–3 库翻袋路线",
               coverTop: Color(red: 0.62, green: 0.14, blue: 0.14),
@@ -103,6 +118,10 @@ struct AngleHomeView: View {
               title: "思路训练器", subtitle: "反解走位 · 塞与力度求解",
               coverTop: Color(red: 0.50, green: 0.20, blue: 0.62),
               coverBottom: Color(red: 0.28, green: 0.10, blue: 0.40), chip: "物理"),
+        .init(route: .planThree, glyph: "三",
+              title: "打一走二想三", subtitle: "连续走位规划 · 停球扇形提示",
+              coverTop: Color(red: 0.16, green: 0.46, blue: 0.62),
+              coverBottom: Color(red: 0.08, green: 0.26, blue: 0.38), chip: "走位"),
         .init(route: .snookerTactics, glyph: "斯",
               title: "做斯诺克", subtitle: "安全球反解 · 障碍遮挡做杆",
               coverTop: Color(red: 0.60, green: 0.10, blue: 0.30),

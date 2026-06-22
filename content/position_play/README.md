@@ -30,14 +30,14 @@ content/position_play/
 每条序列出片到 `build/position_play_export/seq_<id8>/`：
 
 ```
-cover.png               卡片风格封面（球放大 1.6，首杆击球前 + 预告线）→ DrillThumbnails
-preview/frame_NN.png    卡片风格动画帧序列（整段抽样 12 帧）→ Previews/<id>/
-initial.png / final.png 开局 / 终局布局（真实风格 1280×640，无 HUD）→ DrillTutorials
-sNN_still.png           每杆击球前静帧（预告线 + 假想球 + HUD 条，1280×720）→ DrillTutorials
-full.mp4 / sNN.mp4      2D 顶视整段 / 单杆视频（720×1280 竖屏@60，含 HUD 条）→ OTA
-full.gif                整段分享 GIF（2D 顶视 480×240@12，无 HUD）→ 站外分发
-full_3d.mp4 / sNN_3d.mp4  3D 静态斜视角整段 / 单杆视频（手机档 720×1280@60，含 HUD）→ OTA
-full_3d@1440.mp4        3D 高分档整段视频（1440×2560@60，含 HUD）→ 外站备用（不进 Bundle）
+cover.png               卡片风格封面（球放大 1.6，首杆击球前 + 预告线，1280×640）→ DrillThumbnails
+preview/frame_NN.png    卡片风格动画帧序列（整段抽样 12 帧，1280×640）→ Previews/<id>/
+initial.png / final.png 开局 / 终局布局（竖版真实风格 1440×2560，长轴沿屏幕长边，无 HUD）→ DrillTutorials
+sNN_still.png           每杆击球前静帧（预告线 + 假想球 + HUD 条，竖版 1440×2720）→ DrillTutorials
+full.mp4 / sNN.mp4      2D 顶视整段 / 单杆视频（1440×2720 竖屏@60，含 HUD 条）→ OTA
+full.gif                整段分享 GIF（竖版 2D 顶视 720×1280@12，无 HUD）→ 站外分发
+full_3d.mp4 / sNN_3d.mp4  3D 静态斜视角整段 / 单杆视频（手机档 1440×2720@60，含 HUD）→ OTA
+full_3d@2160.mp4        3D 高分档整段视频（4K 竖版 2160×4080@60，含 HUD）→ 外站备用（不进 Bundle）
 ```
 
 ## 3D 斜视角渲染契约（ADR-P11-15，与 2D 并存）
@@ -52,8 +52,8 @@ full_3d@1440.mp4        3D 高分档整段视频（1440×2560@60，含 HUD）→
 - **进袋落袋**：3D 下进袋球到达袋心后沿 Y **下沉 7cm 再淡出**（仅导出层加 Y，不动物理），
   避免在台面平面凭空淡掉的穿帮。
 - **轨迹线**：3D 远端线变细，半径按 `lineRadiusScale=1.3` 补粗；其余轨迹契约同 2D。
-- **分辨率双档**：手机档 720×1280（App 内竖屏播放，per-shot 一并出）；
-  高分档 1440×2560（外站备用，仅整段，不出 per-shot 省渲染）。
+- **分辨率双档**：手机档 1440×2560（App 内竖屏播放，per-shot 一并出；2× 旧 720 档，
+  放大查看球时不糊）；高分档 4K 2160×3840（外站备用，仅整段，不出 per-shot 省渲染）。
 - **物理边界**：仍是 2D 平面物理（球恒在球面高度），3D 仅换相机；**跳球/扎杆腾空** 出不来。
 
 渲染契约（2D 顶视档）：

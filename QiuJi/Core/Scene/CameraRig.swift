@@ -117,15 +117,22 @@ final class CameraRig {
     /// 取景安全余量（比例）：避免抗锯齿/阴影边缘贴边裁切。
     static let rotatedFitMargin: Double = 1.012
 
-    /// 按视口宽高比把 rotated 顶视正交 scale 调到「球桌完整可见 + 双轴居中」的最小值。
-    /// 竖轴约束：scale ≥ 半长×余量；横轴约束：scale×(W/H) ≥ 半宽×余量。
-    /// 所有 2D 球桌页共用此取景，保证球桌位置/占比的一致性（与各页顶部控件高度无关）。
+    /// 跨页统一球桌大小（#10）的统一正交 scale 下限。各 2D 球桌页的可视区高度受各自
+    /// 顶/底控件影响而不同，纯自适应取景会让球桌「能多大就多大」⇒ 跨页大小不一。用一个
+    /// 不低于常见视口自适应值的统一 scale 作为下限：常规页一律取此值 ⇒ 球桌呈现一致大小
+    /// （顶/底留等量极小黑边）；仅极端窄高视口自适应值超过它时回退自适应，保证完整可见不裁切。
+    /// 取值须 ≥ `tableOuterHalfLength × rotatedFitMargin`（竖轴约束），当前 ≈ 1.423。
+    static let rotatedUnifiedScale: Double = 1.50
+
+    /// 按视口宽高比把 rotated 顶视正交 scale 调到「球桌完整可见 + 双轴居中」的值。
+    /// 竖轴约束：scale ≥ 半长×余量；横轴约束：scale×(W/H) ≥ 半宽×余量。再以统一 scale
+    /// 兜底（取三者最大）⇒ 跨页球桌大小一致。所有 2D 球桌页共用此取景。
     func fitRotatedTable(viewSize: CGSize) {
         guard viewSize.width > 1, viewSize.height > 1 else { return }
         let fitVertical = tableOuterHalfLength * Self.rotatedFitMargin
         let fitHorizontal = tableOuterHalfWidth * Self.rotatedFitMargin
             * Double(viewSize.height / viewSize.width)
-        topDownOrthographicScale = max(fitVertical, fitHorizontal)
+        topDownOrthographicScale = max(fitVertical, fitHorizontal, Self.rotatedUnifiedScale)
     }
 
     // MARK: - Init

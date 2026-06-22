@@ -197,9 +197,9 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 |---|---|---|
 | `initial.png` | `Resources/DrillTutorials/` | `<drillId>_initial.png` |
 | `sNN_still.png`（带 HUD） | `Resources/DrillTutorials/` | `<drillId>_sNN.png` |
-| `full.mp4`（2D 顶视 720×1280@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]` |
-| `full_3d.mp4` / `sNN_3d.mp4`（3D 斜视角手机档 720×1280@60 带 HUD，ADR-P11-15） | OTA（`Resources/Videos/<drillId>/` 临时） | `full_3d.mp4`，JSON `videos:` 追加 `{id:"full3d", file:"full_3d.mp4"}` |
-| `full_3d@1440.mp4`（3D 高分档 1440×2560@60） | 外站备用（不进 Bundle） | `full_3d@1440.mp4` |
+| `full.mp4`（2D 顶视 1440×2720@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]` |
+| `full_3d.mp4` / `sNN_3d.mp4`（3D 斜视角手机档 1440×2720@60 带 HUD，ADR-P11-15） | OTA（`Resources/Videos/<drillId>/` 临时） | `full_3d.mp4`，JSON `videos:` 追加 `{id:"full3d", file:"full_3d.mp4"}` |
+| `full_3d@2160.mp4`（3D 高分档 4K 2160×4080@60） | 外站备用（不进 Bundle） | `full_3d@2160.mp4` |
 | 缩略图 | 跑 `DrillThumbnailBakeRunnerTests` 重烘焙 | `<drillId>.png` |
 
 ### 序列 → drill 接入清单（每条都做）

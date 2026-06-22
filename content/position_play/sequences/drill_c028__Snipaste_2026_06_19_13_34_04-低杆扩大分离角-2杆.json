@@ -1,0 +1,90 @@
+{
+  "createdAt" : "2026-06-21T19:03:39Z",
+  "id" : "20651340-DD60-49B5-92C9-4AD937BCE4AC",
+  "initial" : {
+    "onTable" : {
+      "_1" : {
+        "x" : 0.5106210112571716,
+        "y" : 0.33910641074180603
+      },
+      "cueBall" : {
+        "x" : 0.5795873403549194,
+        "y" : 0.1494475156068802
+      }
+    }
+  },
+  "name" : "低杆扩大分离角",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.9401406049728394,
+            "y" : 0.487812876701355
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_1" : {
+            "x" : 0.5106210112571716,
+            "y" : 0.33910641074180603
+          },
+          "cueBall" : {
+            "x" : 0.5795873403549194,
+            "y" : 0.1494475156068802
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "38E399FC-5E5D-4DC8-96AB-48A36BF22A1C",
+      "objectPocketed" : true,
+      "potted" : [
+        "_1"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "_1",
+        "velocity" : 3.3
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.39563944935798645,
+            "y" : 0.05731382220983505
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_1" : {
+            "x" : 0.5106210112571716,
+            "y" : 0.33910641074180603
+          },
+          "cueBall" : {
+            "x" : 0.5795873403549194,
+            "y" : 0.1494475156068802
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "B8E1C084-39DC-45B4-8C2B-01B4E09816A4",
+      "objectPocketed" : true,
+      "potted" : [
+        "_1"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0,
+        "spinY" : -0.1900517260287446,
+        "targetKey" : "_1",
+        "velocity" : 3.3
+      }
+    }
+  ],
+  "updatedAt" : "2026-06-21T19:05:06Z"
+}

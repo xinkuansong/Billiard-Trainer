@@ -58,7 +58,7 @@ struct DiamondSystemView: View {
     private var topInset: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             cushionPicker
-            ReflectionModeControl(realMode: $vm.realMode, factor: $vm.reflectionFactor)
+            ReflectionModeControl(realMode: $vm.realMode, power: $vm.reflectionPower)
             infoPill
         }
         .padding(.horizontal, Spacing.lg)
@@ -80,13 +80,30 @@ struct DiamondSystemView: View {
     @ViewBuilder
     private var infoPill: some View {
         HStack {
-            if vm.hasSolution {
+            if vm.isSolving {
+                solvingPill
+            } else if vm.hasSolution {
                 solutionPill
             } else {
                 noSolutionPill
             }
             Spacer()
         }
+    }
+
+    private var solvingPill: some View {
+        HStack(spacing: Spacing.sm) {
+            ProgressView().scaleEffect(0.7).tint(.white)
+            Text("真实物理求解中…")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(.ultraThinMaterial)
+        .environment(\.colorScheme, .dark)
+        .clipShape(Capsule())
+        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
     }
 
     private var solutionPill: some View {

@@ -499,6 +499,9 @@ final class SiluTrainerViewModel: ObservableObject {
             ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
             ghost.isHidden = false
         }
+        if UserPreferences.shared.showSeparationAngle {
+            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
+        }
     }
 
     private func addPolyline(_ pts: [SCNVector3], color: UIColor, radius: Float) {
@@ -511,6 +514,15 @@ final class SiluTrainerViewModel: ObservableObject {
     private func clearTrajectory() {
         scene.clearResultNodes(nodes: &trajectoryNodes)
         scene.hideAllVisualization()
+    }
+
+    /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲提示位置（#5a）。
+    func pulseTableBall(_ key: String) {
+        guard !isPlaying, let node = scene.allBallNodes[key], !node.isHidden else { return }
+        node.removeAction(forKey: "libraryPulse")
+        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
+        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
+        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
     }
 
     /// 落区 / 过点叠加（青色，与轨迹区分）。
@@ -680,12 +692,15 @@ final class SiluTrainerViewModel: ObservableObject {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
         let speed: Float = 1.0
+        // #11：按「感知静止时刻」截断，避免击球态在球看着停后仍滞留数秒。
+        let settle = playback.perceptibleSettleTime()
         ShotAudioScheduler.shared.play(prediction: sol.prediction)
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
             let name = PositionPlayShotSolver.predName(boardKey: key, shot: sol.shot)
-            let action = playback.action(for: node, ballName: name, speed: speed, removeOnPocket: false)
+            let action = playback.action(for: node, ballName: name, speed: speed,
+                                         removeOnPocket: false, maxSimTime: settle)
             if key == PositionPlayBall.cueKey { cueAction = action }
             else if let action { node.runAction(action) }
         }

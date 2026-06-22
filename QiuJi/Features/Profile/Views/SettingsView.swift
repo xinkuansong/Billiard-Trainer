@@ -16,6 +16,7 @@ struct SettingsView: View {
                 VStack(spacing: Spacing.lg) {
                     appearanceSection
                     soundSection
+                    trainingAidSection
                     dataSection
                     if authState.isLoggedIn {
                         accountSection
@@ -87,6 +88,32 @@ struct SettingsView: View {
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.md)
             }
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        }
+    }
+
+    // MARK: - Training Aids
+
+    private var trainingAidSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("教学辅助")
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btTextSecondary)
+                .padding(.leading, Spacing.xs)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Toggle(isOn: $prefs.showSeparationAngle) {
+                    Text("显示 90° 分离角辅助线")
+                        .font(.btBody)
+                        .foregroundStyle(.btText)
+                }
+                Text("在所有击球轨迹上叠加一条过碰撞点、垂直于撞击线的辅助线，帮助判断母球分离方向。")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }

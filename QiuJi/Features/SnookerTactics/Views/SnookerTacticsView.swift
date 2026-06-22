@@ -109,15 +109,15 @@ struct SnookerTacticsView: View {
 
             Spacer(minLength: 0)
 
-            if vm.selectedTargetKey != nil || vm.selectedBlockerKey != nil {
-                Button { vm.clearSelection() } label: {
-                    Image(systemName: "eraser")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-                .disabled(vm.isPlaying)
-                .accessibilityLabel("清除角色选择")
+            // 常驻（#9）：无选择时变灰禁用，不增删避免布局跳变。
+            let hasSelection = vm.selectedTargetKey != nil || vm.selectedBlockerKey != nil
+            Button { vm.clearSelection() } label: {
+                Image(systemName: "eraser")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(hasSelection ? 0.8 : 0.3))
             }
+            .disabled(vm.isPlaying || !hasSelection)
+            .accessibilityLabel("清除角色选择")
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.xs)
@@ -167,7 +167,7 @@ struct SnookerTacticsView: View {
 
     private var solutionRow: some View {
         HStack(spacing: Spacing.sm) {
-            BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 28)
+            BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 34)
                 .opacity(vm.hasSolutions ? 1 : 0.35)
 
             VStack(alignment: .leading, spacing: 1) {
@@ -265,9 +265,10 @@ struct SnookerTacticsView: View {
     // MARK: - Palette
 
     private var paletteBar: some View {
-        let keys = vm.paletteKeys
-        let row1 = Array(keys.prefix(Self.paletteColumns))
-        let row2 = Array(keys.dropFirst(Self.paletteColumns))
+        // #5a：球库常显全部 16 颗；在桌球变暗、不可拖，点击在桌球 = 桌上对应球放大脉冲提示位置。
+        let all = PositionPlayBall.allKeys
+        let row1 = Array(all.prefix(Self.paletteColumns))
+        let row2 = Array(all.dropFirst(Self.paletteColumns))
         return VStack(spacing: 4) {
             paletteRow(row1)
             paletteRow(row2)
@@ -290,13 +291,16 @@ struct SnookerTacticsView: View {
     }
 
     private func ballToken(_ key: String) -> some View {
-        PoolBallFace(key: key, diameter: 30)
+        let onTable = vm.onTableKeys.contains(key)
+        return PoolBallFace(key: key, diameter: 30)
             .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
             .frame(width: 32, height: 32)
             .contentShape(Circle())
-            .opacity(draggingKey == key ? 0.3 : 1)
-            .onTapGesture { vm.placeFromPalette(key) }
-            .gesture(paletteDrag(key))
+            .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
+            .onTapGesture {
+                if onTable { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
+            }
+            .gesture(paletteDrag(key), including: onTable ? .subviews : .all)
     }
 
     private func paletteDrag(_ key: String) -> some Gesture {

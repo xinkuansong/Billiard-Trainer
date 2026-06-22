@@ -28,12 +28,16 @@ final class PositionPlayViewModel: ObservableObject {
     let scene = AngleTrainingScene()
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
+    /// 选中目标球的常驻选中环（独立于轨迹，feasible/computing 都显示）。
+    private var selectionNodes: [SCNNode] = []
 
     // MARK: - Published board / selection
 
     /// 当前在桌球键（顺序：母球优先，目标球按号）。
     @Published private(set) var onTableKeys: [String] = []
-    @Published private(set) var selectedTargetKey: String?
+    @Published private(set) var selectedTargetKey: String? {
+        didSet { if oldValue != selectedTargetKey { refreshSelectionRing() } }
+    }
     @Published var selectedPocketIndex: Int = -1
 
     /// 球库展示序（#1/#2）：在库球按固定顺序（母球、1…15）排列；
@@ -48,6 +52,7 @@ final class PositionPlayViewModel: ObservableObject {
             guard oldValue != aimMode, !isPlaying else { return }
             if aimMode == .free, freeAimDir == nil { freeAimDir = defaultFreeAim() }
             updatePocketHighlights()
+            refreshSelectionRing()
             recompute()
         }
     }
@@ -269,6 +274,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard !isPlaying else { return }
         let clamped = clampMultiBall(worldPosition, movingNode: node)
         node.position = clamped
+        refreshSelectionRing()   // 即时跟随（recompute 有防抖，避免选中环滞后）
         recompute()
     }
 
@@ -373,6 +379,30 @@ final class PositionPlayViewModel: ObservableObject {
             if len > 0.02 { return SCNVector3(dx / len, 0, dz / len) }
         }
         return SCNVector3(1, 0, 0)
+    }
+
+    /// 自由瞄准方向的屏幕罗盘角（topDown2DRotated 取景：screen-up = world +X、
+    /// screen-right = world +Z；0° = 屏幕正上方，顺时针为正）。nil = 非自由模式 / 方向未定。
+    var freeAimBearingDeg: Float? {
+        guard aimMode == .free, let d = freeAimDir else { return nil }
+        var deg = atan2f(d.z, d.x) * 180 / .pi
+        if deg < 0 { deg += 360 }
+        return deg
+    }
+
+    /// 自由模式微调瞄准角：`delta > 0` = 屏幕上顺时针（向右）旋转，与右侧角度齿轮「往上拖」一致。
+    /// 坐标契约：`freeAimDir` 为场景 XZ 单位向量，bearing = atan2(z, x)；
+    /// CW（bearing 增）的旋转为 newX = x·cosΔ − z·sinΔ，newZ = x·sinΔ + z·cosΔ。
+    func nudgeFreeAim(byDegrees delta: Float) {
+        guard aimMode == .free, !isPlaying, abs(delta) > 1e-4 else { return }
+        let base = freeAimDir ?? defaultFreeAim() ?? SCNVector3(1, 0, 0)
+        let r = delta * .pi / 180
+        let nx = base.x * cosf(r) - base.z * sinf(r)
+        let nz = base.x * sinf(r) + base.z * cosf(r)
+        let len = sqrtf(nx * nx + nz * nz)
+        guard len > 1e-5 else { return }
+        freeAimDir = SCNVector3(nx / len, 0, nz / len)
+        recompute()
     }
 
     /// 自动选目标（#6）：距母球最近的在桌目标球。
@@ -525,6 +555,7 @@ final class PositionPlayViewModel: ObservableObject {
     private func apply(_ pred: ShotPrediction) {
         isFeasible = pred.feasible
         cutAngleDeg = pred.cutAngleDeg
+        refreshSelectionRing()
 
         guard pred.feasible else {
             objectPocketed = false
@@ -606,6 +637,9 @@ final class PositionPlayViewModel: ObservableObject {
             ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
             ghost.isHidden = false
         }
+        if UserPreferences.shared.showSeparationAngle {
+            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
+        }
     }
 
     private func addPolyline(_ pts: [SCNVector3], color: UIColor, radius: Float) {
@@ -618,6 +652,24 @@ final class PositionPlayViewModel: ObservableObject {
     private func clearTrajectory() {
         scene.clearResultNodes(nodes: &trajectoryNodes)
         scene.hideAllVisualization()
+    }
+
+    /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲，提示其位置（#5a）。
+    func pulseTableBall(_ key: String) {
+        guard !isPlaying, let node = scene.allBallNodes[key], !node.isHidden else { return }
+        node.removeAction(forKey: "libraryPulse")
+        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
+        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
+        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
+    }
+
+    /// 选中目标球的绿色选中环（袋口模式）。无解 / 计算中也常驻显示，跟随球位。
+    func refreshSelectionRing() {
+        scene.clearResultNodes(nodes: &selectionNodes)
+        guard !isPlaying, aimMode == .pocket,
+              let key = selectedTargetKey,
+              let node = scene.allBallNodes[key], !node.isHidden else { return }
+        selectionNodes.append(scene.addSelectionRing(at: node.position))
     }
 
     // MARK: - Cue stick aiming aid
@@ -663,6 +715,7 @@ final class PositionPlayViewModel: ObservableObject {
         lastShotWasRecorded = false
         canReplay = false
         isPlaying = true
+        scene.clearResultNodes(nodes: &selectionNodes)   // 播放时隐藏选中环
         statusText = "运杆…"
 
         let strikePos = strikePosition(cue: cueNode.position)
@@ -680,13 +733,16 @@ final class PositionPlayViewModel: ObservableObject {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
         let speed: Float = 1.0
+        // #11：末段慢速 creep 肉眼不可见，按「感知静止时刻」截断，避免「击球中」状态滞留数秒。
+        let settle = playback.perceptibleSettleTime()
         ShotAudioScheduler.shared.play(prediction: solved.prediction)
 
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
             let name = PositionPlayShotSolver.predName(boardKey: key, shot: solved.shot)
-            let action = playback.action(for: node, ballName: name, speed: speed, removeOnPocket: false)
+            let action = playback.action(for: node, ballName: name, speed: speed,
+                                         removeOnPocket: false, maxSimTime: settle)
             if key == PositionPlayBall.cueKey {
                 cueAction = action
             } else if let action {
@@ -819,6 +875,30 @@ final class PositionPlayViewModel: ObservableObject {
 
         // 先恢复击打参数（#1），再应用桌面快照；applyBoard 见目标球已选中且袋口有效，
         // 不会触发自动重选，最终 recompute 用恢复后的完整状态求解。
+        velocity = last.shot.velocity
+        spinX = last.shot.spinX
+        spinY = last.shot.spinY
+        if last.shot.isFree {
+            aimMode = .free
+            if let canvasAim = last.shot.freeAim {
+                freeAimDir = PositionPlayShotSolver.sceneDirection(fromCanvas: canvasAim)
+            }
+        } else {
+            aimMode = .pocket
+            selectedTargetKey = last.shot.targetKey
+            if let idx = ShotIntent.pocketIndex(for: last.shot.pocket) {
+                selectedPocketIndex = idx
+            }
+        }
+        applyBoard(last.before)
+        updatePocketHighlights()
+    }
+
+    /// 回到上一杆击打前的球形以便**临时再追加一杆**：恢复桌面与该杆参数，但**不删除**已录的那一杆
+    /// （区别于 `replayCurrent()` 的「重打＝删末杆＋退回」）。`lastShot`/`canReplay`/`stepCount` 不变，
+    /// 退回后再次击球将**追加**新的一杆、与已录的并存（允许从同一局面分叉补打）。
+    func restorePreviousBoard() {
+        guard !isPlaying, let last = lastShot else { return }
         velocity = last.shot.velocity
         spinX = last.shot.spinX
         spinY = last.shot.spinY

@@ -260,8 +260,28 @@ final class BallExtractionViewModel: ObservableObject {
 
     let scene = AngleTrainingScene()
     @Published private(set) var onTableKeys: [String] = []
-    @Published var selectedKey: String?
+    @Published var selectedKey: String? {
+        didSet { if oldValue != selectedKey { refreshSelectionRing() } }
+    }
     @Published var message: String?
+    private var selectionNodes: [SCNNode] = []
+
+    /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲提示位置（#5a）。
+    func pulseTableBall(_ key: String) {
+        guard let node = scene.allBallNodes[key], !node.isHidden else { return }
+        node.removeAction(forKey: "libraryPulse")
+        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
+        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
+        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
+    }
+
+    /// 选中球的绿色选中环，跟随球位。
+    func refreshSelectionRing() {
+        scene.clearResultNodes(nodes: &selectionNodes)
+        guard let key = selectedKey,
+              let node = scene.allBallNodes[key], !node.isHidden else { return }
+        selectionNodes.append(scene.addSelectionRing(at: node.position))
+    }
 
     private var surfaceY: Float { scene.surfaceY }
     private var sceneReady = false
@@ -331,6 +351,7 @@ final class BallExtractionViewModel: ObservableObject {
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
         node.position = clampMultiBall(worldPosition, movingNode: node)
+        if scene.ballKey(for: node) == selectedKey { refreshSelectionRing() }
     }
 
     func dragEnded(node: SCNNode) {

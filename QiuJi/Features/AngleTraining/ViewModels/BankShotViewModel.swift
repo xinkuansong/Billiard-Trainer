@@ -20,24 +20,22 @@ final class BankShotViewModel: ObservableObject {
     @Published private(set) var currentCutAngle: Int = 0
     @Published private(set) var hasSolution: Bool = false
 
-    /// 真实反射模式开关（库边「偏短」），与反射解球器页共享同一持久化设置。
+    /// 真实反射模式开关（物理引擎按发力模拟翻库），与反射解球器页共享同一持久化设置。
     @Published var realMode: Bool = CushionReflectionSettings.realMode {
         didSet {
             CushionReflectionSettings.realMode = realMode
             recompute()
         }
     }
-    /// 缩小因子（0.50–1.00）；仅真实模式下生效。
-    @Published var reflectionFactor: Double = Double(CushionReflectionSettings.factor) {
+    /// 发力（m/s）；仅真实模式下生效。
+    @Published var reflectionPower: Double = Double(CushionReflectionSettings.power) {
         didSet {
-            CushionReflectionSettings.factor = Float(reflectionFactor)
+            CushionReflectionSettings.power = Float(reflectionPower)
             if realMode { recompute() }
         }
     }
 
     let cushionOptions = [1, 2, 3]
-
-    private var effectiveFactor: Float { realMode ? Float(reflectionFactor) : 1.0 }
 
     /// 各袋口名称（顺序同 pocketPositions：左上/右上/左下/右下/上中/下中）。
     let pocketNames = ["左上", "右上", "左下", "右下", "上中", "下中"]
@@ -51,6 +49,10 @@ final class BankShotViewModel: ObservableObject {
 
     private var solutions: [BankShotCalculator.Solution] = []
     private var displayed: [BankShotCalculator.Solution] = []
+    /// 真实模式下的后台求解任务（引擎射击较重，需离开主线程并去抖）。
+    private var solveTask: Task<Void, Never>?
+    /// 真实模式正在后台求解（供 UI 显示加载态）。
+    @Published private(set) var isSolving = false
 
     var draggableNodes: [SCNNode] {
         [scene.cueBallNode, scene.targetBallNodes.first].compactMap { $0 }
@@ -128,15 +130,47 @@ final class BankShotViewModel: ObservableObject {
 
     // MARK: - Solving
 
+    /// 理想模式：镜面展开极快，同步求解。真实模式：引擎射击较重，离开主线程并去抖（120ms），
+    /// 拖动连续触发时只跑最后一次，旧任务取消，避免卡顿。
     func recompute() {
         guard let cue = scene.cueBallNode?.position,
               let object = scene.targetBallNodes.first?.position else { return }
 
+        solveTask?.cancel()
         let prevCushions = currentCushions
-        solutions = BankShotCalculator.solveAll(
-            cue: cue, object: object, pocketIndex: selectedPocket,
-            surfaceY: scene.surfaceY, factor: effectiveFactor
-        )
+
+        guard realMode else {
+            isSolving = false
+            let sols = BankShotCalculator.solveAll(
+                cue: cue, object: object, pocketIndex: selectedPocket,
+                surfaceY: scene.surfaceY, realMode: false, power: Float(reflectionPower))
+            applySolutions(sols, prevCushions: prevCushions)
+            return
+        }
+
+        isSolving = true
+        let cx = cue.x, cz = cue.z, ox = object.x, oz = object.z
+        let pocket = selectedPocket
+        let surfaceY = scene.surfaceY
+        let power = Float(reflectionPower)
+        solveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 120_000_000)
+            if Task.isCancelled { return }
+            let sols = await Task.detached(priority: .userInitiated) {
+                BankShotCalculator.solveAll(
+                    cue: SCNVector3(cx, 0, cz), object: SCNVector3(ox, 0, oz),
+                    pocketIndex: pocket, surfaceY: surfaceY, realMode: true, power: power)
+            }.value
+            if Task.isCancelled { return }
+            guard let self else { return }
+            self.isSolving = false
+            self.applySolutions(sols, prevCushions: prevCushions)
+        }
+    }
+
+    /// 应用求解结果（过滤、选路、绘制）。在主线程执行。
+    private func applySolutions(_ sols: [BankShotCalculator.Solution], prevCushions: Int) {
+        solutions = sols
 
         if let n = selectedCushions {
             displayed = solutions.filter { $0.cushions == n }

@@ -335,12 +335,16 @@ final class TrajectoryPlayback {
     ///   球进袋即消失）。**可复用回放场景（如分离角页：播放后要复位重显原球）应传 `false`**——
     ///   否则末尾的 `removeFromParentNode` 会与「播放结束复位」竞态，导致目标球被移除后无法恢复
     ///   （reset/拖动均无法重新挂回父节点 → 球永久消失）。`false` 时只淡出、保留节点。
+    /// - Parameter maxSimTime: 截断回放的模拟时长上限（秒，模拟时间轴）。默认 `nil` = 整段
+    ///   `duration`。用于 #11「感知静止截断」：末段慢速 creep 肉眼不可见，按
+    ///   `perceptibleSettleTime()` 截断可让「击球中/开球中」状态在球看着停时及时结束。
     func action(for node: SCNNode, ballName: String, speed: Float = 1.0,
-                removeOnPocket: Bool = true) -> SCNAction? {
+                removeOnPocket: Bool = true, maxSimTime: Float? = nil) -> SCNAction? {
         guard let frames = sortedFrames[ballName], frames.count > 1, duration > 1e-4 else { return nil }
 
+        let cap = min(duration, maxSimTime ?? duration)
         let spd = max(0.05, speed)
-        let realDuration = TimeInterval(duration / spd)
+        let realDuration = TimeInterval(cap / spd)
         let willPocket = willBePocketed(ballName)
 
         // 逐帧回放需要跨帧的可变状态（上一帧滚动弧度 / 是否已触发淡出）。
@@ -353,7 +357,7 @@ final class TrajectoryPlayback {
             // 进袋后位置/透明度由「沉入 → 停顿 → 淡出」子动作接管，逐帧求值不再覆盖。
             if cursor.didFade { return }
 
-            let tSim = min(Float(elapsed) * spd, self.duration)
+            let tSim = min(Float(elapsed) * spd, cap)
             guard let s = self.stateAt(ballName: ballName, time: tSim) else { return }
 
             if s.motionState == .pocketed {
@@ -432,6 +436,26 @@ final class TrajectoryPlayback {
     /// 检查回放是否已完成（所有球到达最终状态）
     func isComplete(at time: Float) -> Bool {
         return time >= duration
+    }
+
+    /// 「感知静止时刻」（#11）：所有未进袋球速度都降到 < `speedThreshold` 的最早时刻。
+    /// 真实模拟末段常有一段肉眼不可见的慢速 creep（低滚阻下减速到 0 的尾巴），整段
+    /// `recorder.duration` 远长于「看着停了」的时刻；回放/开球应在此截断收尾，否则会出现
+    /// 「球已停但仍处于开球态数秒」。从末尾向前扫，返回最后一次有球可感知运动之后的一帧。
+    func perceptibleSettleTime(speedThreshold: Float = 0.07, step: Float = 1.0 / 60.0) -> Float {
+        guard duration > step else { return duration }
+        let names = Array(sortedFrames.keys)
+        var t = duration
+        while t > 0 {
+            for name in names {
+                guard let s = stateAt(ballName: name, time: t), s.motionState != .pocketed else { continue }
+                if s.velocity.length() > speedThreshold {
+                    return min(duration, t + step)
+                }
+            }
+            t -= step
+        }
+        return min(duration, step)
     }
     
     // MARK: - Binary Search

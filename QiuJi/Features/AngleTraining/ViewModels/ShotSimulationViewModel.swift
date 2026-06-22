@@ -241,6 +241,9 @@ final class ShotSimulationViewModel: ObservableObject {
         addPolyline(p.objectPath, color: TrajectoryStyle.potColor(for: "_8"),
                     radius: TrajectoryStyle.potRadius)
         drawPottingPerpendicular(p)
+        if UserPreferences.shared.showSeparationAngle {
+            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
+        }
         showTeachingAnnotations(p)
     }
 
@@ -369,10 +372,14 @@ final class ShotSimulationViewModel: ObservableObject {
         // 避免只在事件处采样 + 线性插值导致的卡顿感；动画与所绘轨迹同源、完全吻合。
         let speed: Float = 1.0
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        // #11：按「感知静止时刻」截断，避免「击球中」状态在球看着停后仍滞留数秒。
+        let settle = playback.perceptibleSettleTime()
         // removeOnPocket:false——本页播放后要复位重显两球，绝不能让进袋球被移出父节点
         // （否则与 finishPlayback 复位竞态 → 目标球进袋后永久消失，reset/拖动都救不回）。
-        let cueAction = playback.action(for: cueNode, ballName: ShotInput.cueBallName, speed: speed, removeOnPocket: false)
-        let targetAction = playback.action(for: targetNode, ballName: ShotInput.targetBallName, speed: speed, removeOnPocket: false)
+        let cueAction = playback.action(for: cueNode, ballName: ShotInput.cueBallName, speed: speed,
+                                        removeOnPocket: false, maxSimTime: settle)
+        let targetAction = playback.action(for: targetNode, ballName: ShotInput.targetBallName, speed: speed,
+                                           removeOnPocket: false, maxSimTime: settle)
 
         // 音效：与球体动画同刻起播（事件按真实时刻调度，原速回放无需换算）。
         if let pred = lastPrediction { ShotAudioScheduler.shared.play(prediction: pred) }

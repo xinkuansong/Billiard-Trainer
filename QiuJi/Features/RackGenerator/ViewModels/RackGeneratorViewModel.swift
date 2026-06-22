@@ -89,6 +89,8 @@ final class RackGeneratorViewModel: ObservableObject {
     private var lastResult: BreakResult?
     private let breakQueue = DispatchQueue(label: "com.qiuji.rack-break", qos: .userInitiated)
     private var breakGeneration = 0
+    /// 开球收尾延时任务（#11：在感知静止时刻收尾）；换局/取消时撤销。
+    private var breakFinishTask: Task<Void, Never>?
     private var surfaceY: Float { scene.surfaceY }
 
     /// 桌面所有球键（母球 + 当前球架目标球），用于回放/收尾遍历。
@@ -237,29 +239,28 @@ final class RackGeneratorViewModel: ObservableObject {
         }
     }
 
-    /// 散开回放（出杆触球后）：按 recorder 让所有球沿真实轨迹运动，母球动作结束后收尾。
+    /// 散开回放（出杆触球后）：按 recorder 让所有球沿真实轨迹运动；在「感知静止时刻」收尾。
     private func runBreakMotion(_ result: BreakResult) {
         statusText = "开球中…"
         let playback = TrajectoryPlayback(recorder: result.recorder,
                                           surfaceY: surfaceY + AngleSceneCalculator.ballRadius)
-        var cueAction: SCNAction?
         for key in allKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
-            let action = playback.action(for: node, ballName: key, speed: 1.0, removeOnPocket: false)
-            if key == PositionPlayBall.cueKey { cueAction = action }
-            else if let action { node.runAction(action) }
-        }
-        let tail: TimeInterval = result.pocketed.isEmpty ? 0.1
-            : TrajectoryPlayback.pocketSettleDuration + 0.1
-        if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
-            cueNode.runAction(cueAction) { [weak self] in
-                Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
-                    self?.finishBreak(result)
-                }
+            if let action = playback.action(for: node, ballName: key, speed: 1.0, removeOnPocket: false) {
+                node.runAction(action)
             }
-        } else {
-            finishBreak(result)
+        }
+        // #11：以「感知静止时刻」收尾而非整段 recorder 时长——末段慢速 creep 肉眼不可见，
+        // 否则球看着停了仍停留在开球态数秒。进袋入洞动画用 tail 兜住其真实时长。
+        let settle = playback.perceptibleSettleTime()
+        let tail: TimeInterval = result.pocketed.isEmpty ? 0.15
+            : TrajectoryPlayback.pocketSettleDuration + 0.15
+        let finishAfter = max(0.05, TimeInterval(settle) + tail)
+        breakFinishTask?.cancel()
+        breakFinishTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(finishAfter * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            self?.finishBreak(result)
         }
     }
 
@@ -294,6 +295,8 @@ final class RackGeneratorViewModel: ObservableObject {
 
     private func cancelBreak() {
         breakGeneration += 1
+        breakFinishTask?.cancel()
+        breakFinishTask = nil
         for key in allKeys { scene.allBallNodes[key]?.removeAllActions() }
     }
 

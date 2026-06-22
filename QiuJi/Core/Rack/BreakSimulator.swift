@@ -66,6 +66,8 @@ enum BreakSimulator {
                                      state: .stationary, name: b.key))
         }
         engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true)
+        // #4：停稳后偶发两球轻微穿插——输出可编辑摆位前做一次几何重叠清理。
+        engine.resolveRestingOverlaps()
 
         var onTable: [String: CanvasPoint] = [:]
         var pocketed: [String] = []

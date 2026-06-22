@@ -19,6 +19,7 @@ struct RackGeneratorView: View {
 
     @State private var goComposer = false
     @State private var goSilu = false
+    @State private var goPlanThree = false
     @State private var deliveredBoard: BoardSnapshot?
 
     var body: some View {
@@ -45,6 +46,9 @@ struct RackGeneratorView: View {
         }
         .navigationDestination(isPresented: $goSilu) {
             SiluTrainerView(initialBoard: deliveredBoard)
+        }
+        .navigationDestination(isPresented: $goPlanThree) {
+            PlanThreeView(initialBoard: deliveredBoard)
         }
         .onAppear {
             if !hasAppeared {
@@ -176,47 +180,29 @@ struct RackGeneratorView: View {
         .frame(maxWidth: .infinity)
     }
 
-    @ViewBuilder
+    /// 常驻按钮列（#9）：开球 / 送入编排台 / 送入思路 / 换一局 始终在位，
+    /// 不可用时变灰禁用，避免阶段切换时整列按钮增删导致布局跳变。
     private var actionColumn: some View {
-        if vm.phase == .settled {
-            VStack(spacing: 5) {
-                deliverButton("送入编排台", tint: .btPrimary) {
-                    deliveredBoard = vm.deliveredBoard(); goComposer = true
-                }
-                .disabled(!vm.canDeliver)
-                deliverButton("送入思路训练器", tint: .btAccent) {
-                    deliveredBoard = vm.deliveredBoard(); goSilu = true
-                }
-                .disabled(!vm.canDeliver)
-                deliverButton("换一局", tint: .white.opacity(0.14)) { vm.nextRack() }
+        VStack(spacing: 5) {
+            deliverButton("开球", tint: vm.canBreak ? .btPrimary : .white.opacity(0.12)) {
+                vm.breakNow()
             }
-        } else {
-            VStack(spacing: 6) {
-                Button { vm.breakNow() } label: {
-                    actionLabel(title: "开球", system: "bolt.fill",
-                                tint: vm.canBreak ? Color.btPrimary : Color.btPrimary.opacity(0.4))
-                }
-                .buttonStyle(.plain)
-                .disabled(!vm.canBreak)
-
-                Button { vm.nextRack() } label: {
-                    actionLabel(title: "换一局", system: "arrow.triangle.2.circlepath",
-                                tint: .white.opacity(0.14))
-                }
-                .buttonStyle(.plain)
+            .disabled(!vm.canBreak)
+            deliverButton("送入编排台", tint: vm.canDeliver ? .btPrimary : .white.opacity(0.12)) {
+                deliveredBoard = vm.deliveredBoard(); goComposer = true
+            }
+            .disabled(!vm.canDeliver)
+            deliverButton("送入思路训练器", tint: vm.canDeliver ? .btAccent : .white.opacity(0.12)) {
+                deliveredBoard = vm.deliveredBoard(); goSilu = true
+            }
+            .disabled(!vm.canDeliver)
+            deliverButton("送入打一走二想三", tint: vm.canDeliver ? .btAccent : .white.opacity(0.12)) {
+                deliveredBoard = vm.deliveredBoard(); goPlanThree = true
+            }
+            .disabled(!vm.canDeliver)
+            deliverButton("换一局", tint: .white.opacity(0.14)) { vm.nextRack() }
                 .disabled(vm.isBusy)
-            }
         }
-    }
-
-    private func actionLabel(title: String, system: String, tint: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: system).font(.system(size: 13, weight: .bold))
-            Text(title).font(.system(size: 13, weight: .bold, design: .rounded))
-        }
-        .foregroundStyle(.white)
-        .frame(width: 116, height: 38)
-        .background(tint, in: Capsule())
     }
 
     private func deliverButton(_ title: String, tint: Color, action: @escaping () -> Void) -> some View {

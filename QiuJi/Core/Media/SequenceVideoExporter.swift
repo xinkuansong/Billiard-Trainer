@@ -99,51 +99,61 @@ enum SequenceVideoExporter {
             CGSize(width: size.width, height: size.height + CGFloat(hudStripHeight))
         }
 
-        /// 教学真实风格（横版静帧用）：1280×640 场景 + 80px HUD 条（合计 1280×720，16:9）。
-        static func teaching() -> Options { Options() }
-
-        /// 教学视频（竖版，App 内竖屏播放主载体）：720×1280 竖版场景（rotated 顶视，
-        /// 台面长轴竖直铺满）+ 80px HUD 条（合计 720×1360）。
-        static func teachingVideo() -> Options {
+        /// 教学真实风格（竖版静帧用，#5b）：球桌长轴沿屏幕长边竖直铺满，
+        /// 1440×2560 场景（rotated 顶视）+ 160px HUD 条（合计 1440×2720），
+        /// 与教学视频取向一致；高分辨率保证 App 内放大查看球时仍清晰（球本身较小）。
+        static func teaching() -> Options {
             var o = Options()
-            o.size = CGSize(width: 720, height: 1280)
+            o.size = CGSize(width: 1440, height: 2560)
             o.portrait = true
             return o
         }
 
-        /// 卡片风格：640×320、球放大 1.6，仅用于封面静帧与卡片动画帧序列。
+        /// 教学视频（竖版，App 内竖屏播放主载体）：1440×2560 竖版场景（rotated 顶视，
+        /// 台面长轴竖直铺满）+ 160px HUD 条（合计 1440×2720）。
+        /// 高分辨率（2× 旧 720 档）保证播放器内放大时球边缘不糊。
+        static func teachingVideo() -> Options {
+            var o = Options()
+            o.size = CGSize(width: 1440, height: 2560)
+            o.portrait = true
+            return o
+        }
+
+        /// 卡片风格：1280×640、球放大 1.6，仅用于封面静帧与卡片动画帧序列。
         static func card() -> Options {
             var o = Options()
-            o.size = CGSize(width: 640, height: 320)
+            o.size = CGSize(width: 1280, height: 640)
             o.ballScale = 1.6
             o.showShotHUD = false
             return o
         }
 
-        /// 分享 GIF：真实比例、降采样、原速（预览媒介，非教学主载体）。
+        /// 分享 GIF（竖版，#5b）：球桌长轴沿屏幕长边竖直铺满，与静帧/视频取向一致。
+        /// 720×1280 原速（预览/分享媒介，非教学主载体；GIF 256 色 + 体积约束下不拉满到视频档）。
         static func gif() -> Options {
             var o = Options()
-            o.size = CGSize(width: 480, height: 240)
+            o.size = CGSize(width: 720, height: 1280)
+            o.portrait = true
             o.fps = 12
             o.playbackSpeed = 1.0
             o.showShotHUD = false
             return o
         }
 
-        /// 3D 教学视频（手机档，App 内竖屏播放主载体，ADR-P11-15）：720×1280 竖屏 +
-        /// 静态斜视角透视（短边后方沿长轴）+ 80px HUD 条（合计 720×1360）。
+        /// 3D 教学视频（手机档，App 内竖屏播放主载体，ADR-P11-15）：1440×2560 竖屏 +
+        /// 静态斜视角透视（短边后方沿长轴）+ 160px HUD 条（合计 1440×2720）。
         static func teachingVideo3D() -> Options {
             var o = Options()
-            o.size = CGSize(width: 720, height: 1280)
+            o.size = CGSize(width: 1440, height: 2560)
             o.portrait = true
             o.cameraMode = .perspective3D(Perspective3DConfig())
             return o
         }
 
-        /// 3D 教学视频（高分档，外站备用）：1440×2560 竖屏 + 160px HUD 条（合计 1440×2720）。
+        /// 3D 教学视频（高分档，外站备用）：2160×3840（4K 竖版）+ 240px HUD 条（合计 2160×4080）。
         static func teachingVideo3DHi() -> Options {
             var o = teachingVideo3D()
-            o.size = CGSize(width: 1440, height: 2560)
+            o.size = CGSize(width: 2160, height: 3840)
             return o
         }
     }
@@ -274,9 +284,14 @@ enum SequenceVideoExporter {
         // 击球参数 HUD：每杆常驻（设置帧→收尾帧），换杆更新；开局帧无内容（空条）。
         var currentHUD: CGImage?
 
+        // 每帧包 autoreleasepool：高分辨率下单帧位图 16–35MB（1440/4K），长循环里
+        // `ctx.snapshot()` 产出的 UIImage/CGImage 若不及时释放会累积到 jetsam 被 SIGKILL
+        // （旧 720 档 ~4MB/帧侥幸不越线，提分辨率后必越线）。pool 把驻留压到 ~1 帧。
         func snapshot() throws {
-            guard let img = ctx.snapshot() else { return }
-            try emit(options.showShotHUD ? composeWithHUD(scene: img, hud: currentHUD, options: options) : img)
+            try autoreleasepool {
+                guard let img = ctx.snapshot() else { return }
+                try emit(options.showShotHUD ? composeWithHUD(scene: img, hud: currentHUD, options: options) : img)
+            }
         }
 
         // 开局静帧（可选；连续录制序列与首杆设置静帧重复，默认跳过）。

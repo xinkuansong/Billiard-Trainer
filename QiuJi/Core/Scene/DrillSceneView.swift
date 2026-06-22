@@ -164,6 +164,9 @@ final class DrillSceneController: ObservableObject {
         let y = surfaceY + AngleSceneCalculator.ballRadius * 0.5
         addPolyline(pred.objectPath.map { lifted($0, y: y) }, color: targetColor)
         addPolyline(pred.cuePath.map { lifted($0, y: y) }, color: cueColor)
+        if UserPreferences.shared.showSeparationAngle {
+            scene.addSeparationAngleLine(for: pred, into: &trajectoryNodes)
+        }
     }
 
     private func drawAnimationFallback(_ animation: DrillAnimation) {

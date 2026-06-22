@@ -643,6 +643,14 @@ class EventDrivenEngine {
         }
     }
 
+    /// 最终静止摆位重叠清理（#4）：球形生成器把开球结果作为「可编辑摆位」输出前调用，
+    /// 消除偶发的「停稳后两球轻微穿插」。纯几何分离——只沿球心连线把穿插球对推到
+    /// 2R+spacer，不改速度、不触发落袋、不做边界钳制（避免把球误推进袋或来回震荡）。
+    /// 多迭代确保收敛（停稳态位移均为亚毫米，对画面无感）。
+    func resolveRestingOverlaps(maxIterations: Int = 16) {
+        separateOverlappingBalls(maxIterations: maxIterations)
+    }
+
     /// 兜底边界约束：防止极端数值误差导致球“跑出台外”
     private func enforceTableBounds(for state: inout BallState) {
         guard !state.isPocketed else { return }

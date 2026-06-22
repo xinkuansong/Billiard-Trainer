@@ -366,7 +366,7 @@ struct BallExtractionView: View {
         VStack(spacing: 0) {
             HStack(spacing: Spacing.sm) {
                 if let key = vm.selectedKey {
-                    Text("已选 \(PositionPlayBall.shortLabel(for: key)) 号 · 点球库改号")
+                    Text("已选 \(PositionPlayBall.shortLabel(for: key)) 号 · 拖动球可移位 · 点球库改号")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(Color.btPrimary)
                     Spacer()
@@ -376,7 +376,7 @@ struct BallExtractionView: View {
                             .foregroundStyle(Color.btDestructive)
                     }
                 } else {
-                    Text("桌上 \(vm.onTableKeys.count) 颗 · 点选一颗球可改号 / 移除")
+                    Text("桌上 \(vm.onTableKeys.count) 颗 · 拖动球可移位 · 点选可改号/移除")
                         .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.6))
                     Spacer()
@@ -386,7 +386,7 @@ struct BallExtractionView: View {
             .padding(.top, Spacing.sm)
 
             HStack(alignment: .center, spacing: Spacing.sm) {
-                paletteTwoRows(vm.paletteKeys) { key in confirmCell(key) }
+                paletteTwoRows(PositionPlayBall.allKeys) { key in confirmCell(key) }
                     .frame(maxWidth: .infinity)
 
                 // 三个按钮挤进原两按钮的高度区间（≤90pt），不撑高底栏。
@@ -412,16 +412,19 @@ struct BallExtractionView: View {
     }
 
     private func confirmCell(_ key: String) -> some View {
-        PoolBallFace(key: key, diameter: 32)
+        // #5a：球库常显全部 16 颗；在桌球变暗、不可拖，点击在桌球 = 桌上对应球放大脉冲提示位置。
+        let onTable = vm.onTableKeys.contains(key)
+        return PoolBallFace(key: key, diameter: 32)
             .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
             .frame(width: 32, height: 32)
             .contentShape(Circle())
-            .opacity(draggingKey == key ? 0.3 : 1)
+            .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
             .onTapGesture {
-                if vm.selectedKey != nil { vm.assignNumber(key) }
+                if onTable { vm.pulseTableBall(key) }
+                else if vm.selectedKey != nil { vm.assignNumber(key) }
                 else { vm.addFromPalette(key) }
             }
-            .gesture(paletteDrag(key))
+            .gesture(paletteDrag(key), including: onTable ? .subviews : .all)
     }
 
     private func paletteDrag(_ key: String) -> some Gesture {

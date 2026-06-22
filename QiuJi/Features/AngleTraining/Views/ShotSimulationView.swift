@@ -126,7 +126,7 @@ struct ShotSimulationView: View {
     private var bottomBar: some View {
         HStack(spacing: Spacing.sm) {
             Button { showSpinPad = true } label: {
-                BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 28)
+                BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 34)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("打点")
@@ -187,8 +187,8 @@ struct ShotSimulationView: View {
             spinY: $vm.spinY,
             onClose: { showSpinPad = false }
         )
-        .padding(.horizontal, Spacing.md)
-        .padding(.bottom, Spacing.sm)
+        .frame(maxWidth: 240)
+        .padding(.bottom, 80)
     }
 }
 

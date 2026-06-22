@@ -381,6 +381,9 @@ final class SnookerTacticsViewModel: ObservableObject {
             addPolyline(pts, color: TrajectoryStyle.potColor(for: key, alpha: 0.85), radius: TrajectoryStyle.potRadius)
         }
         scene.ghostBallNode?.isHidden = true
+        if UserPreferences.shared.showSeparationAngle {
+            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
+        }
     }
 
     private func addPolyline(_ pts: [SCNVector3], color: UIColor, radius: Float) {
@@ -393,6 +396,15 @@ final class SnookerTacticsViewModel: ObservableObject {
     private func clearTrajectory() {
         scene.clearResultNodes(nodes: &trajectoryNodes)
         scene.hideAllVisualization()
+    }
+
+    /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲提示位置（#5a）。
+    func pulseTableBall(_ key: String) {
+        guard !isPlaying, let node = scene.allBallNodes[key], !node.isHidden else { return }
+        node.removeAction(forKey: "libraryPulse")
+        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
+        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
+        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
     }
 
     /// 角色环 + 斯诺克遮挡可视化。无解时画当前摆位的角色环；有解时画三球**终位**的遮挡视线
@@ -490,12 +502,15 @@ final class SnookerTacticsViewModel: ObservableObject {
         // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        // #11：按「感知静止时刻」截断，避免击球态在球看着停后仍滞留数秒。
+        let settle = playback.perceptibleSettleTime()
         ShotAudioScheduler.shared.play(prediction: sol.prediction)
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
             let name = predName(boardKey: key)
-            let action = playback.action(for: node, ballName: name, speed: 1.0, removeOnPocket: false)
+            let action = playback.action(for: node, ballName: name, speed: 1.0,
+                                         removeOnPocket: false, maxSimTime: settle)
             if key == PositionPlayBall.cueKey { cueAction = action }
             else if let action { node.runAction(action) }
         }

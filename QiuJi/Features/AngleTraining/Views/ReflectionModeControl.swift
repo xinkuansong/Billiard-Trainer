@@ -38,11 +38,14 @@ struct BTChipRow: View {
 }
 
 /// 翻袋 / 反射两页共用的「理想 / 真实」反射模式控件：
-/// - 胶囊分段切换理想（入射角=反射角）与真实（反射偏短）；
-/// - 真实模式下展开缩小因子滑块（0.50–1.00），用户可几次试打后拟合自己的球台 / 发力。
+/// - 胶囊分段切换理想（入射角=反射角）与真实（物理引擎按发力模拟，反射偏短）；
+/// - 真实模式下展开**发力**滑块（m/s），发力越大越接近镜面反射、越小翻库越「偏短」。
 struct ReflectionModeControl: View {
     @Binding var realMode: Bool
-    @Binding var factor: Double
+    @Binding var power: Double
+
+    private static let minPower = Double(CushionReflectionSettings.minPower)
+    private static let maxPower = Double(CushionReflectionSettings.maxPower)
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -53,15 +56,15 @@ struct ReflectionModeControl: View {
 
             if realMode {
                 HStack(spacing: Spacing.sm) {
-                    Text("缩小因子")
+                    Text("发力")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.75))
-                    Slider(value: $factor, in: 0.50...1.00, step: 0.01)
+                    Slider(value: $power, in: Self.minPower...Self.maxPower, step: 0.1)
                         .tint(.btAccent)
-                    Text(String(format: "%.2f", factor))
+                    Text(String(format: "%.1f", power))
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.btAccent)
-                        .frame(width: 40, alignment: .trailing)
+                        .frame(width: 44, alignment: .trailing)
                         .monospacedDigit()
                 }
                 .padding(.horizontal, Spacing.md)
@@ -70,7 +73,7 @@ struct ReflectionModeControl: View {
                 .environment(\.colorScheme, .dark)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
-                Text("1.00＝理想反射；越小反射越「偏短」。蓝色虚线为理想路线对照。")
+                Text("真实物理引擎按发力模拟翻库：力越大越接近镜面反射，力越小越「偏短」。蓝色虚线为理想路线对照。")
                     .font(.btCaption2)
                     .foregroundStyle(.white.opacity(0.55))
             }
