@@ -187,7 +187,7 @@ struct ShotSimulationView: View {
             spinY: $vm.spinY,
             onClose: { showSpinPad = false }
         )
-        .frame(maxWidth: 240)
+        .frame(maxWidth: 264)
         .padding(.bottom, 80)
     }
 }

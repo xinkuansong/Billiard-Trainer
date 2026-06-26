@@ -56,7 +56,7 @@ struct PositionPlayComposerView: View {
                     if showSpinPad {
                         BTSpinPadCard(spinX: $vm.spinX, spinY: $vm.spinY,
                                       onClose: { showSpinPad = false })
-                            .frame(maxWidth: 240)
+                            .frame(maxWidth: 264)
                             .padding(.bottom, 80)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }

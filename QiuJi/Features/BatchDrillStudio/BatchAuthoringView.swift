@@ -306,7 +306,7 @@ struct BatchAuthoringView: View {
                     if showSpinPad {
                         BTSpinPadCard(spinX: $composer.spinX, spinY: $composer.spinY,
                                       onClose: { showSpinPad = false })
-                            .frame(maxWidth: 240)
+                            .frame(maxWidth: 264)
                             .padding(.bottom, 80)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }

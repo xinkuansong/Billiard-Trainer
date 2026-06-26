@@ -224,7 +224,7 @@ struct RackGeneratorView: View {
         VStack {
             Spacer()
             BTSpinPadCard(spinX: $vm.spinX, spinY: $vm.spinY) { showSpinPad = false }
-                .frame(maxWidth: 240)
+                .frame(maxWidth: 264)
                 .padding(.bottom, 150)
         }
         .transition(.move(edge: .bottom).combined(with: .opacity))

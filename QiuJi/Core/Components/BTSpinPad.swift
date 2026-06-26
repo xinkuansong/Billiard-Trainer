@@ -125,15 +125,132 @@ struct BTSpinMiniIcon: View {
     }
 }
 
+// MARK: - Spin nudge（按键微调：方向、步进、合矢量钳制）
+
+/// 打点盘四向微调方向。坐标契约同 `BTSpinPad`：
+/// `spinX` 正 = 左塞（屏幕左），`spinY` 正 = 高杆（屏幕上）。
+enum SpinNudgeDirection { case up, down, left, right }
+
+/// 按键微调的数值规则（与 `SpinDisplay` 读数同一基准，便于单元测试）。
+enum SpinPadMath {
+    /// 打滑极限（接触点偏移幅值上限，0.5R）——读数 100% 即此值。
+    static let miscueLimit = Double(CuePhysics.miscueLimitFraction)
+    /// 单次微调步进 = 打滑极限的 1%（与读数「±1%」一一对应）。
+    static let step = miscueLimit / 100
+
+    /// 沿某方向微调一步；合矢量幅值 √(x²+y²) 钳在打滑极限内（撞墙停住）：
+    /// - 未越界：正常 ±step。
+    /// - 越界：把被按的轴贴到打滑极限圆上（另一轴不变），方向与按键一致。
+    /// - 已在边界继续按：原地不动。
+    /// 返回新打点与 `moved`（false 用于触发「撞墙」反馈并停止长按连发）。
+    static func nudge(spinX: Double, spinY: Double, _ dir: SpinNudgeDirection) -> (x: Double, y: Double, moved: Bool) {
+        var x = spinX, y = spinY
+        switch dir {
+        case .up:    y += step
+        case .down:  y -= step
+        case .left:  x += step
+        case .right: x -= step
+        }
+        if (x * x + y * y).squareRoot() <= miscueLimit + 1e-9 {
+            return (x, y, true)
+        }
+        switch dir {
+        case .up, .down:
+            let maxY = (max(0, miscueLimit * miscueLimit - spinX * spinX)).squareRoot()
+            let ny = dir == .up ? maxY : -maxY
+            return (spinX, ny, abs(ny - spinY) > 1e-9)
+        case .left, .right:
+            let maxX = (max(0, miscueLimit * miscueLimit - spinY * spinY)).squareRoot()
+            let nx = dir == .left ? maxX : -maxX
+            return (nx, spinY, abs(nx - spinX) > 1e-9)
+        }
+    }
+}
+
+/// 打点盘方向微调键：点按走一步；长按后延迟 0.4s 触发**加速连发**（起步 ~8 次/秒，
+/// 按住渐进提到 ~20 次/秒）。每步轻触觉；撞到打滑极限时换「硬」反馈并停连发（撞墙停住）。
+///
+/// 命中区 44pt（HIG 最小点按目标），可见图标 36pt；外层用 12pt 间距与打点盘隔开做死区，
+/// 命中框与盘不交叠 → 点按键的触摸不会「漏」到盘上让红点乱跳。
+private struct SpinNudgeButton: View {
+    let icon: String
+    let accessibility: String
+    /// 执行一步微调，返回是否真的移动（false = 撞墙）。
+    let onStep: () -> Bool
+
+    @State private var repeatTimer: Timer?
+    @State private var ticks = 0
+    @State private var isPressing = false
+
+    private let hitSize: CGFloat = 44
+    private let iconSize: CGFloat = 36
+
+    var body: some View {
+        Image(systemName: icon)
+            .font(.system(size: 17, weight: .bold))
+            .foregroundStyle(.white.opacity(isPressing ? 1 : 0.82))
+            .frame(width: iconSize, height: iconSize)
+            .background(.white.opacity(isPressing ? 0.24 : 0.12), in: Circle())
+            .frame(width: hitSize, height: hitSize)
+            .contentShape(Circle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !isPressing else { return }
+                        isPressing = true
+                        step()
+                        scheduleNext(after: 0.4)
+                    }
+                    .onEnded { _ in stop() }
+            )
+            .onDisappear { stop() }
+            .accessibilityLabel(accessibility)
+            .accessibilityAddTraits(.isButton)
+    }
+
+    private func step() {
+        if onStep() {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.6)
+        } else {
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.9)
+            repeatTimer?.invalidate()
+            repeatTimer = nil
+        }
+    }
+
+    private func scheduleNext(after delay: TimeInterval) {
+        repeatTimer?.invalidate()
+        repeatTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { _ in
+            guard isPressing else { return }
+            ticks += 1
+            step()
+            scheduleNext(after: max(0.05, 0.12 - Double(ticks) * 0.005))
+        }
+    }
+
+    private func stop() {
+        isPressing = false
+        ticks = 0
+        repeatTimer?.invalidate()
+        repeatTimer = nil
+    }
+}
+
 // MARK: - Spin pad card（共享浮层卡片，ADR-P11-09）
 
 /// 打点盘浮层卡片：半透明材质（`ultraThinMaterial`，透出底下球桌绿色，与旧「击球设置」
-/// HUD 同观感）+ 打点盘 + 读数 + 回中 + 右上 ✕。浮在球桌底缘使用，**不要**放进系统
-/// sheet——sheet 底下是纯黑+压暗层，材质会显得过深（用户点名要「有些透明」的观感）。
+/// HUD 同观感）+ 打点盘 + 四向微调键 + 读数 + 回中 + 右上 ✕。浮在球桌底缘使用，**不要**放进
+/// 系统 sheet——sheet 底下是纯黑+压暗层，材质会显得过深（用户点名要「有些透明」的观感）。
+///
+/// 交互：拖打点盘做**粗选**（点哪跳哪）；四向键做 ±1% **微调**（合矢量钳在打滑极限，撞墙停住），
+/// 长按连发。十字宽度 44+12+128+12+44=240pt → 调用方应给 `maxWidth: 264`（含卡片左右 padding）。
 struct BTSpinPadCard: View {
     @Binding var spinX: Double
     @Binding var spinY: Double
     var onClose: () -> Void
+
+    /// 命中框与打点盘之间的死区（防误触），同时作为上/下键与盘的纵向间距。
+    private let crossGap: CGFloat = 12
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
@@ -151,8 +268,24 @@ struct BTSpinPadCard: View {
                 .accessibilityLabel("关闭打点")
             }
 
-            BTSpinPad(spinX: $spinX, spinY: $spinY)
-                .frame(width: 128, height: 128)
+            VStack(spacing: crossGap) {
+                SpinNudgeButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
+                    nudge(.up)
+                }
+                HStack(spacing: crossGap) {
+                    SpinNudgeButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
+                        nudge(.left)
+                    }
+                    BTSpinPad(spinX: $spinX, spinY: $spinY)
+                        .frame(width: 128, height: 128)
+                    SpinNudgeButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
+                        nudge(.right)
+                    }
+                }
+                SpinNudgeButton(icon: "chevron.down", accessibility: "低杆增加 1%") {
+                    nudge(.down)
+                }
+            }
 
             HStack(spacing: Spacing.lg) {
                 Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
@@ -177,6 +310,14 @@ struct BTSpinPadCard: View {
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: BTRadius.xl))
         .overlay(RoundedRectangle(cornerRadius: BTRadius.xl).stroke(.white.opacity(0.08), lineWidth: 0.5))
         .environment(\.colorScheme, .dark)
+    }
+
+    /// 沿某方向微调一步并写回绑定；返回是否真的移动（false = 撞到打滑极限）。
+    private func nudge(_ dir: SpinNudgeDirection) -> Bool {
+        let r = SpinPadMath.nudge(spinX: spinX, spinY: spinY, dir)
+        spinX = r.x
+        spinY = r.y
+        return r.moved
     }
 }
 
