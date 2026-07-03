@@ -345,12 +345,32 @@ final class PositionPlaySolverTests: XCTestCase {
                 XCTAssertEqual(ref.objectPocketed, fast.objectPocketed,
                                "进袋判定应一致 spin(\(sx),\(sy)) v\(v)")
                 // 都进袋且吃库结构相同时，母球停点应接近（黄金分割 0.05° vs 网格 0.02°）。
+                // 敏感度门（ADR-P10-09 后）：真实袋口物理下，重旋转大力度的进袋窗口是刀锋景观
+                // （实测 spin(-0.3,-0.3) v4.5 停点梯度 ~2m/0.1°），两个优化器落在窗口内不同
+                // 微位置属合法分歧。测试自测局部敏感度：瞄准 ±0.02° 扰动就让停点移位超预算时，
+                // 停点比对无意义，跳过；平缓景观仍强制 0.2m 一致。
                 if ref.objectPocketed, fast.objectPocketed,
                    ref.cueCushionCount == fast.cueCushionCount,
                    let rc = ref.finalPositions[ShotInput.cueBallName],
                    let fc = fast.finalPositions[ShotInput.cueBallName] {
                     let d = AngleSceneCalculator.horizontalDistance(rc, fc)
-                    XCTAssertLessThan(d, 0.2, "同库结构下母球停点应接近 spin(\(sx),\(sy)) v\(v)：差 \(d)m")
+                    if d >= 0.2 {
+                        var tmp = ShotPrediction()
+                        guard let ctx = ShotPredictor.prepareAim(input, into: &tmp) else {
+                            XCTFail("prepareAim 应可行 spin(\(sx),\(sy)) v\(v)"); continue
+                        }
+                        let off = ShotPredictor.positionAimOffset(input: input, context: ctx)
+                        let eps = Float(0.02) * .pi / 180
+                        var sensitivity: Float = 0
+                        for probe in [off - eps, off + eps] {
+                            let p = ShotPredictor.predictForPositionSolve(input, aimOffset: probe)
+                            if let pc = p.finalPositions[ShotInput.cueBallName] {
+                                sensitivity = max(sensitivity, AngleSceneCalculator.horizontalDistance(pc, fc))
+                            }
+                        }
+                        XCTAssertGreaterThan(sensitivity, 0.1,
+                            "平缓景观下母球停点应接近 spin(\(sx),\(sy)) v\(v)：差 \(d)m（±0.02° 扰动仅移 \(sensitivity)m）")
+                    }
                 }
                 compared += 1
             }

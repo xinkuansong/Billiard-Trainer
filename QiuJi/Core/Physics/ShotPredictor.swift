@@ -194,7 +194,7 @@ enum ShotPredictor {
             result.infeasibleReason = "母球挡住进球路线，无法进袋"
             return nil
         }
-        // 几何统一：USDZ 对齐的 QiuJi 几何（袋口中心 = 屏幕黄色标记）。模拟几何 == 屏幕几何。
+        // 几何统一：CAD 真源几何（袋口孔心 = pocketPositions，ADR-P10-09）。模拟几何 == 瞄准几何。
         let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: y)
         return AimContext(aimPoint: aimPoint, ghost: ghost, aimDir: aimDir,

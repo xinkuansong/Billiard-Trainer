@@ -39,12 +39,6 @@ enum EngineNumerics {
     /// 取 0.35R ≈ 10mm：< 显示越界护栏的 20mm 余量，且远大于浮点抖动，避免无谓细分拖慢。
     static let nearWallSafeStep: Float = 0.35 * BallPhysics.radius
 
-    /// 球已越出可玩框、落在袋口 jaw 区内、且速度低于此阈值（m/s）时，引擎视其为"挂袋后 settle 落下/
-    /// 母球 scratch"直接收袋（见 `EventDrivenEngine.enforceTableBounds`）。封堵"慢速球从库段↔jaw 接缝
-    /// 漏到 jaw 死区静止于台外"的几何缝。取值远低于 `pocketDropSpeed`(1.05)：仅对真正 trickle/将停的球
-    /// 生效，不误收带速 rattle 球（后者由喉腔壁弹出/弹进，保住"大力反复弹 jaw 弹出"的真实物理）。
-    static let jawSettlePocketSpeed: Float = 0.35
-
     /// 计算当前球态下安全的演进步长上限（秒）：默认 `maxEvolveStep`，但若任一运动球**正朝某边界
     /// 逼近**（沿该墙法向的靠近速度 > 0，且一个整步内即会触及），则把步长压到 `nearWallSafeStep / 速度`，
     /// 使该球贴墙前帧足够密、漏检碰撞在贴墙时被重新检出、且回放无法沿旧速度外推穿墙。

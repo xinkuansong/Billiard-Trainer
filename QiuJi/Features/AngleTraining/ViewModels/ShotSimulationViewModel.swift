@@ -381,14 +381,14 @@ final class ShotSimulationViewModel: ObservableObject {
         let targetAction = playback.action(for: targetNode, ballName: ShotInput.targetBallName, speed: speed,
                                            removeOnPocket: false, maxSimTime: settle)
 
-        // 音效：与球体动画同刻起播（事件按真实时刻调度，原速回放无需换算）。
-        if let pred = lastPrediction { ShotAudioScheduler.shared.play(prediction: pred) }
-
         if let targetAction { targetNode.runAction(targetAction) }
         if let cueAction {
             cueNode.runAction(cueAction) { [weak self] in
                 Task { @MainActor in self?.finishPlayback(cueStart: cueStart, targetStart: targetStart) }
             }
+            // 音效在球体动画挂载后起播：避免音频引擎冷启动阻塞主线程时，跟杆先于球推进。
+            // 事件按真实时刻调度、原速回放无需换算，仍与球体动画同刻起播。
+            if let pred = lastPrediction { ShotAudioScheduler.shared.play(prediction: pred) }
         } else {
             finishPlayback(cueStart: cueStart, targetStart: targetStart)
         }

@@ -138,6 +138,23 @@ sceneZ = ny * 2 * 1.27 − 0.635 (ny∈[0,0.5]→ [-0.635, 0.635])
 
 ## ADR 记录区
 
+### ADR-P10-09 — 真实袋口重建：CAD 单一真源 + 「球心入孔圈即落袋」纯几何判据
+
+- **日期**：2026-07-02
+- **状态**：✅ 已采纳并实现（全量物理套件绿：`PhysicsMatrixTests` / `PhysicsEngineTests` / `PhysicsInvariantTests` / `PhysicsScenarioTests` / `CushionReflectionTests` / `PocketBehaviorDiagTests` / `PositionPlaySolverTests`）。
+- **用户诉求**：①角袋会先吃库边再吃远端 jaw（不该吃库）；②中袋瞄准点不对、撞 jaw 后应按真实物理反弹；③整体有「球被吸进袋」的感觉。用户拍板根本判据：「袋心和球心的距离小于袋口半径即落袋，其他一切按真实物理」。
+- **根因（CAD 对照 + 轨迹诊断坐实）**：① 旧两段式判据（`pocketCoreMissRadius` 22mm + `pocketDropSpeed` 1.05m/s）与 settle 收袋特判构成「吸球」——高动量球被判进、挂袋球被吸走；② 中袋几何实现成 10mm 窄缝，与 CAD（双切 R30 圆角 + 86mm 喉道）完全不符；③ 生产袋心相对 CAD 孔心偏移 12mm，jaw 尖与孔圈之间有缝；④ 喉腔隐形侧壁越过 jaw 平面伸入台面，先于 jaw 截击轨迹（「先吃库边」的直接原因）。
+- **决策**：
+  - **几何**：袋口全面回归 **CAD 单一真源**（`TablePhysics` 袋口常量）。孔心/孔半径：角袋 (±1.312, ±0.677) r=0.042、中袋 (0, ±0.688) r=0.043；中袋按 CAD 双切构造重建（直库端点 ±0.073、R30 弧心 (±0.073, ±0.665)、喉壁 x=±0.043）；角袋喉墙改为 jaw 面共线的**孪生墙**（外法向偏移 1mm 防事件排序病态）+ 切线延长式衬套段（低恢复 `pocketThroatRestitution=0.45`），不再越 jaw 平面。
+  - **判据**：`resolvePocket` 只判「球心水平投影入孔圈」（dist ≤ 孔半径 +2mm 防陈旧事件容差），删两段式判据与 `jawSettlePocketSpeed` settle 特判；`enforceTableBounds` 袋口通道内（孔圈外）无条件放行——rattle 弹出、慢速滑向孔圈、合法挂袋全交给真实几何。
+  - **瞄准/视觉分离**：`pocketPositions` 返回 CAD 孔心（物理/瞄准真源），新增 `pocketMarkerPositions` 返回 USDZ 视觉袋心（仅标记盘/点选用）；进球管道模型接入中袋 R30+喉壁复合 jaw。
+- **过程中根治的两个潜伏引擎缺陷**（被旧「大捕获圆」掩盖多年，判据收紧后暴露）：
+  - **QuarticSolver 近双二次塌缩**：弧碰撞四次方程 q 系数因浮点大项抵消变得极小但非零时，Ferrari 预解三次根选择失败 → 漏根 → 球穿弧。修复：`chosenU` 为空时回退双二次近似播种 + Newton-Raphson 抛光（与 numpy roots 全范围比对 0 失配）。
+  - **弧 CCD 时间下限过大**：`ballCircularCushionTime` 的 `epsilon=1e-4`（直线库为 1e-6）会拒掉高保真近墙自适应子步渐进逼近后剩余 ~2e-5s 的真实碰撞根 → 球穿弧越界被硬钳（矩阵 4 例失败的根因）。修复：统一为 1e-6；重复检出由逼近方向检查 + `makeBallCushionKiss` 防护，无需时间护栏。
+- **测试口径调整（判据变化的合法后果，均经诊断确证非引擎 bug）**：① 65° 大切角直进测试：v3.3 下母球弹库折返二次撞目标球（双吻）属真实物理（v2.0 直进 ✅），断言放宽为「进袋 或 ≥2 次球-球接触」；② fastPath/predict 停点一致性：重旋转大力度进袋窗口是刀锋景观（实测 ~2m/0.1°），加敏感度自测门——±0.02° 扰动即大幅移位时跳过停点比对，平缓景观仍强制 0.2m。
+- **新增不变量护栏**（`PhysicsInvariantTests`）：① 入圈即袋双向（任一帧球心入孔圈 ⇒ 终态 pocketed；判 pocketed ⇒ 末段弹道真实抵达孔圈，禁远距吸入）；② 挂袋合法（耗尽动能未入圈的球留在袋口，不吸入不弹出）；③ 无隐形墙（沿袋口通道轴线冲袋，落袋前 0 吃库事件；角袋轴线 = 45° 对角线）。
+- **影响**：`BTPhysicsConstants` / `TableGeometry` / `TableGeometry+QiuJi` / `EventDrivenEngine` / `EngineNumerics` / `QuarticSolver` / `CollisionDetector` / `AngleSceneCalculator` / `ShotPredictor` / `TrajectoryPlayback` / `AngleTrainingScene` / `AngleSceneView`；测试 `PhysicsEngineTests` / `PositionPlaySolverTests` / `PhysicsInvariantTests`（+3 不变量）/ 新增诊断 `PocketRefactorDiagTests`。删除常量：`sidePocketNotchWidth` / `pocketCoreMissRadius` / `pocketDropSpeed` / `jawSettlePocketSpeed`。
+
 ### ADR-P10-04 — 求解器评分：放宽分支①接受「擦 jaw 再进」（保留 hybrid，否决纯平滑代理目标）
 
 - **日期**：2026-06-07

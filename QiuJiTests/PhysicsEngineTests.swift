@@ -417,8 +417,14 @@ final class PhysicsEngineTests: XCTestCase {
                     cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
                     velocity: 3.3, spinX: 0, spinY: 0, surfaceY: sY))
                 XCTAssertTrue(pred.feasible, "中台→袋\(pocketIndex) cut\(cutDeg)° 应可行")
-                XCTAssertTrue(pred.objectPocketed,
-                              "中台→袋\(pocketIndex) cut\(cutDeg)° v3.3 应直接进袋（不退化为多库翻袋）")
+                // 双吻豁免（ADR-P10-09 后合法物理）：大切角下母球保留 sin(cut)≈90% 速度，
+                // 弹库折返可再次撞上慢速目标球（65°+v3.3 实测为真实双吻，v2.0 则直接进）。
+                // 守护目标不变——「未进袋」只允许由双吻解释；单次接触后翻袋不进仍算回归。
+                let ballBallContacts = pred.events.filter {
+                    if case .ballBall = $0.kind { return true }; return false
+                }.count
+                XCTAssertTrue(pred.objectPocketed || ballBallContacts >= 2,
+                              "中台→袋\(pocketIndex) cut\(cutDeg)° v3.3 应直接进袋（不退化为多库翻袋；双吻除外，实测接触\(ballBallContacts)次）")
             }
         }
     }

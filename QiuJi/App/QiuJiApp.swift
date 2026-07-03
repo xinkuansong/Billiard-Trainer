@@ -51,6 +51,14 @@ struct QiuJiApp: App {
                 .task {
                     await subscriptionManager.checkEntitlements()
                 }
+                .task {
+                    // 预热击球音频引擎：AVAudioEngine 首次冷启动会同步阻塞主线程，
+                    // 若发生在首杆触球瞬间会让跟杆动画先于球体推进（视觉上球杆穿过母球）。
+                    // 启动后延迟一拍预热，把这次冷启动挪出「首次击球」的动画临界区。
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    guard UserPreferences.shared.soundEffectsEnabled else { return }
+                    ShotSoundBank.shared.prepare()
+                }
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         Task {

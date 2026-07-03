@@ -380,7 +380,7 @@ final class TableGeometryProbeTests: XCTestCase {
         let r = AngleSceneCalculator.ballRadius
         print("\n===PROBE-POTTING===")
         print(String(format: "落袋孔窗（球心需进入袋心 %.1fmm 内，= 物理落袋孔半径−R；rattle 由喉腔库边产生）",
-                     (AngleSceneCalculator.cornerPocketDropRadius - r) * 1000))
+                     (AngleSceneCalculator.pocketDropRadius(index: 1) - r) * 1000))
 
         // 1) 复现 drill_c002（近直球 bottomRight）。
         let c002cue = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: 0.3, y: 0.25), surfaceY: sY)

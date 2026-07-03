@@ -125,6 +125,13 @@ case profile     // 我的
 
 > 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
 
+### ⛔ FL-023 — SceneKit 丢弃含巨型 n-gon 的 USDZ 子集；几何存在性禁用包围盒判断
+**场景**：USDZ 模型部分部件在 SceneKit 下不渲染（其他查看器正常）；或需要修改/修复 USDZ 资产
+**强制检查点**：
+1. SceneKit USDZ 导入会**静默丢弃**含 ≥256 顶点面的整个 GeomSubset（实测 255 可/256 丢）。Blender 合并网格 / limited dissolve 后导出必须先三角化或校验 max n-gon。
+2. 判断「几何是否存在/可渲染」禁止用包围盒或顶点数（孤立顶点撑出假象）；必须数被面片索引引用的顶点，或把目标材质替换成高亮色渲染直接验证。
+3. 修复/嫁接 USDZ 用 USD 工具链（`Sdf.CopySpec` + `UsdUtils.CreateNewUsdzPackage`）；禁经 SceneKit `write(to:)` 往返——线性色空间纯色会被二次伽马编码漂移（实测 0.801→0.957）。
+
 ### ⛔ FL-002 — Tab 图标选型须与产品主题对齐
 **场景**：为 Tab Bar 选择 SF Symbol 图标时
 **强制检查点**：台球类 App 禁止使用健身/游泳/运动人形类通用图标（如 `figure.pool.swim`、`figure.run` 等）。必须选用与台球/台球桌/球杆语义相关的图标，或使用自定义 Asset。提交前在截图中验证所有 Tab 图标。

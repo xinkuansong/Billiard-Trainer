@@ -383,6 +383,148 @@ final class PhysicsInvariantTests: XCTestCase {
         print(String(format: "[INV-static] %d 次，被触碰前最坏漂移 %.2fmm（应 < 5mm）", trials, worstDriftBeforeTouch * 1000))
     }
 
+    // MARK: - 6. 落袋判据不变量（ADR-P10-09：球心入孔圈 ⇔ 落袋）
+
+    /// 入圈即袋：批量随机击球中，任何一帧「球心水平投影进入孔圈半径」的球，
+    /// 最终必须是 pocketed——孔圈内台面无支撑，不允许再弹回台面。
+    /// 同时反向护栏：被判 pocketed 的球，其进袋前最后一帧必须已贴近孔圈
+    /// （不允许从远处被「吸入」——「吸球感」回归即在此变红）。
+    func test_invariant_centerInHoleRadiusMeansPocketed() {
+        var rng = SeededRNG(seed: 0x0C4E_D001)
+        let trials = 200
+        let pockets = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY).pockets
+        var enteredCount = 0
+        for t in 0..<trials {
+            let cue = randomBallPos(&rng)
+            let strike = CueBallStrike.executeStrike(
+                aimDirection: randomUnitXZ(&rng), velocity: rng.float(in: 1.5...5.0),
+                spinX: 0, spinY: 0)
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
+            engine.setBall(BallState(position: cue, velocity: strike.velocity,
+                                     angularVelocity: strike.angularVelocity,
+                                     state: .sliding, name: "cue"))
+            engine.simulate(maxEvents: 800, maxTime: 20)
+            let frames = (engine.getTrajectoryRecorder().framesByBallName["cue"] ?? [])
+                .sorted { $0.time < $1.time }
+            let finallyPocketed = frames.last?.state == .pocketed
+
+            // 正向：任一帧入圈 ⇒ 最终必 pocketed。
+            var everInHole = false
+            for f in frames where f.state != .pocketed {
+                for pk in pockets {
+                    let dx = f.position.x - pk.center.x, dz = f.position.z - pk.center.z
+                    if sqrtf(dx * dx + dz * dz) <= pk.radius - 1e-4 { everInHole = true }
+                }
+            }
+            if everInHole {
+                enteredCount += 1
+                XCTAssertTrue(finallyPocketed, "trial \(t): 球心已入孔圈却未判落袋（孔内无支撑，必须坠落）")
+            }
+            // 反向：判 pocketed ⇒ 最后活帧的弹道必须真实抵达该孔圈（禁止远距吸入）。
+            // 不能只比对落袋事件时刻的位置：enforceTableBounds 兜底收袋的事件时间戳是
+            // 演进步开始时刻，帧也是事件稀疏的。故从最后活帧起以该帧运动状态的恒定加速度
+            // 弹道采样，验证轨迹最近点确实进入孔圈（+5mm 容差）。
+            if finallyPocketed {
+                enteredCount += everInHole ? 0 : 1
+                if let pocketedFrame = frames.first(where: { $0.state == .pocketed }),
+                   let lastLive = frames.last(where: { $0.state != .pocketed && $0.time <= pocketedFrame.time + 1e-5 }),
+                   let pk = pockets.min(by: {
+                       horizontalDist(SCNVector3($0.center.x, 0, $0.center.z),
+                                      SCNVector3(pocketedFrame.position.x, 0, pocketedFrame.position.z))
+                       < horizontalDist(SCNVector3($1.center.x, 0, $1.center.z),
+                                        SCNVector3(pocketedFrame.position.x, 0, pocketedFrame.position.z))
+                   }) {
+                    let st = BallState(
+                        position: lastLive.position, velocity: lastLive.velocity,
+                        angularVelocity: SCNVector3(lastLive.angularVelocity.x,
+                                                    lastLive.angularVelocity.y,
+                                                    lastLive.angularVelocity.z),
+                        state: lastLive.state, name: "cue")
+                    let a = EngineNumerics.acceleration(for: st)
+                    var minD = Float.greatestFiniteMagnitude
+                    var tSample: Float = 0
+                    while tSample <= 0.6 {
+                        let px = lastLive.position.x + lastLive.velocity.x * tSample + 0.5 * a.x * tSample * tSample
+                        let pz = lastLive.position.z + lastLive.velocity.z * tSample + 0.5 * a.z * tSample * tSample
+                        let dx = px - pk.center.x, dz = pz - pk.center.z
+                        minD = min(minD, sqrtf(dx * dx + dz * dz))
+                        tSample += 0.002
+                    }
+                    XCTAssertLessThanOrEqual(minD, pk.radius + 0.005,
+                        "trial \(t): 最后活帧弹道最近点距孔心 \(minD)m > 孔半径 \(pk.radius)m + 5mm（疑似吸球）")
+                }
+            }
+        }
+        print("[INV-pocket] \(trials) 次随机击球，入圈/落袋样本 \(enteredCount) 例，判据双向一致")
+    }
+
+    /// 挂袋合法：以刚好停在袋口嘴前（球心距孔心 > 孔半径）的低速滚向孔圈的球，
+    /// 若耗尽动能仍未入圈，必须留在台面上（不被吸入、不被钳出袋口区）。
+    func test_invariant_hangingBallStaysAtMouth() {
+        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        for (pi, pk) in geo.pockets.enumerated() {
+            // 从台内沿「孔心 → 台心」反方向逼近，起点距孔圈 6cm，初速刚好走 ~4cm 后停（滚动摩擦）。
+            let toCenter = SCNVector3(-pk.center.x, 0, -pk.center.z)
+            let len = sqrtf(toCenter.x * toCenter.x + toCenter.z * toCenter.z)
+            let dirIn = SCNVector3(-toCenter.x / len, 0, -toCenter.z / len)   // 台心 → 孔心
+            let startDist = pk.radius + 0.06
+            let start = SCNVector3(pk.center.x - dirIn.x * startDist, surfaceY + R,
+                                   pk.center.z - dirIn.z * startDist)
+            // 纯滚动减速 a = μ_r·g（与 EngineNumerics.acceleration 同源），取 v 使滑行 ~4cm。
+            let aRoll = SpinPhysics.rollingFriction * TablePhysics.gravity
+            let v0 = sqrtf(2 * aRoll * 0.04)
+            let engine = EventDrivenEngine(tableGeometry: geo)
+            engine.setBall(BallState(
+                position: start, velocity: SCNVector3(dirIn.x * v0, 0, dirIn.z * v0),
+                angularVelocity: SCNVector3(dirIn.z * v0 / R, 0, -dirIn.x * v0 / R),
+                state: .rolling, name: "cue"))
+            engine.simulate(maxEvents: 200, maxTime: 10)
+            guard let final = engine.getBall("cue") else { return XCTFail("袋\(pi) 球丢失") }
+            XCTAssertFalse(final.isPocketed, "袋\(pi): 未入孔圈的挂袋球被吸入（判据回归）")
+            let dx = final.position.x - pk.center.x, dz = final.position.z - pk.center.z
+            let d = sqrtf(dx * dx + dz * dz)
+            XCTAssertGreaterThan(d, pk.radius - 1e-3, "袋\(pi): 挂袋球被拖入孔圈 d=\(d)")
+            XCTAssertLessThan(d, startDist + 0.02, "袋\(pi): 挂袋球被弹离袋口区 d=\(d)（疑似隐形墙/钳制）")
+        }
+    }
+
+    /// 无隐形墙：沿袋口**通道轴线**全速冲袋的球必须直接落袋，且**落袋前不得有任何吃库事件**
+    /// ——袋口通道内若残留突出喉壁/错位 jaw，会先记一次 ballCushion，这里立刻变红。
+    /// 通道轴线：角袋为 45° 对角线（非「台心→孔心」连线，后者偏轴 ~27° 会合法擦 jaw），
+    /// 中袋为垂直短边方向。
+    func test_invariant_centerlineShotEntersWithoutCushion() {
+        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let invSqrt2 = 1 / sqrtf(2)
+        for (pi, pk) in geo.pockets.enumerated() {
+            let isCorner = abs(pk.center.x) > 0.5
+            let dirIn = isCorner
+                ? SCNVector3(invSqrt2 * (pk.center.x > 0 ? 1 : -1), 0,
+                             invSqrt2 * (pk.center.z > 0 ? 1 : -1))
+                : SCNVector3(0, 0, pk.center.z > 0 ? 1 : -1)
+            let start = SCNVector3(pk.center.x - dirIn.x * 0.35, surfaceY + R,
+                                   pk.center.z - dirIn.z * 0.35)
+            for v in [Float(0.8), 2.0, 4.0] {
+                let engine = EventDrivenEngine(tableGeometry: geo)
+                engine.setBall(BallState(
+                    position: start, velocity: SCNVector3(dirIn.x * v, 0, dirIn.z * v),
+                    angularVelocity: SCNVector3(dirIn.z * v / R, 0, -dirIn.x * v / R),
+                    state: .rolling, name: "cue"))
+                engine.simulate(maxEvents: 200, maxTime: 10)
+                guard let final = engine.getBall("cue") else { return XCTFail("袋\(pi) v\(v) 球丢失") }
+                XCTAssertTrue(final.isPocketed, "袋\(pi) v\(v): 中线冲袋未落袋")
+                var pocketTime = Float.greatestFiniteMagnitude
+                for (e, ts) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
+                    if case .pocket(let b, _) = e, b == "cue" { pocketTime = min(pocketTime, ts) }
+                }
+                for (e, ts) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
+                    if case .ballCushion = e, ts < pocketTime - 1e-5 {
+                        XCTFail("袋\(pi) v\(v): 落袋前吃库 t=\(ts)（袋口中线上存在隐形墙）")
+                    }
+                }
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     /// 单球总动能（平动 + 转动）。

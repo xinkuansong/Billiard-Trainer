@@ -73,11 +73,13 @@ final class SequencePerspectiveFitTests: XCTestCase {
         let right = f.cross(SCNVector3(0, 1, 0)).normalized()
         let upC = right.cross(f).normalized()
 
+        // 全台可见不变量：库顶平面 + 桌腿底平面（地面）8 角点全部入框。
         let railTop = surfaceY + 0.05
-        let corners: [SCNVector3] = [
-            SCNVector3(-halfL, railTop, -halfW), SCNVector3(-halfL, railTop, halfW),
-            SCNVector3( halfL, railTop, -halfW), SCNVector3( halfL, railTop, halfW),
-        ]
+        let legBottom = config.fitFullTableHeight ? surfaceY - BTTablePhysics.height : railTop
+        let corners: [SCNVector3] = [railTop, legBottom].flatMap { y in
+            [SCNVector3(-halfL, y, -halfW), SCNVector3(-halfL, y, halfW),
+             SCNVector3( halfL, y, -halfW), SCNVector3( halfL, y, halfW)]
+        }
         var maxRatio: Float = 0
         for p in corners {
             let v = p - sol.position

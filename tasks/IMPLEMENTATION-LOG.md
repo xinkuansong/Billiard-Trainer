@@ -670,3 +670,17 @@
 - **日期**：2026-06-13
 - **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog + `Resources/Drills/schema.md` + `.cursor/skills/content-engineering/SKILL.md`（应用课模板 SOP）。
 - **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-13，DR-019）；✅ `Resources/Drills/schema.md` TutorialSection 字段表（2026-06-13）；✅ `.cursor/skills/content-engineering/SKILL.md` §「图文精讲应用课模板」（2026-06-13，含序列→drill 接入清单 + 媒体落位表 + 红线）。
+
+## PD-025
+- **任务**：P10 真实袋口重建（ADR-P10-09）——CAD 单一真源 + 「球心入孔圈即落袋」纯几何判据。
+- **模式描述**：**「收紧宽容判据前先审计它掩盖了什么；CCD 数值护栏必须与子步策略匹配」**。可复用纪律：
+  1. **宽容判据是缺陷掩体**：大捕获圆/速度阈值/settle 特判这类「宽容判据」会长期掩盖底层求解器缺陷（本轮：QuarticSolver 近双二次塌缩漏根、弧 CCD `epsilon=1e-4` 拒真根）。收紧判据时**必须预期暴露存量缺陷**，把「判据收紧后新出现的失败」优先当作被掩盖的旧 bug 排查，而不是回退判据。
+  2. **CCD 时间下限 epsilon 与自适应子步耦合**：高保真近墙子步会把球渐进逼近到碰撞前 ~1e-5s 量级，任何「拒绝过小碰撞时间」的护栏（防重复检出）下限必须远小于最小子步余量（本轮统一 1e-6，与直线库对齐）；重复检出应由逼近方向检查（v·n）防护，而非放大时间下限。
+  3. **求根器塌缩要有播种兜底**：解析求根（Ferrari）在退化邻域（近双二次、大项浮点抵消）会漏根；用退化形式的近似根播种 + Newton-Raphson 抛光兜底，并与外部权威（numpy roots）全范围比对验证。
+  4. **判据变更后的测试失败三分**：①被掩盖的旧引擎 bug（修引擎）；②真实物理的合法新结局（如 65° 大切角双吻——改断言口径，需轨迹诊断确证）；③混沌区求解器容差放大（加敏感度自测门，平缓区仍强断言）。禁止不分类直接改断言。
+  5. **物理真源与视觉标记分离**：CAD 孔心供物理/瞄准（`pocketPositions`），USDZ 视觉袋心仅供标记/点选（`pocketMarkerPositions`），两者禁止互串。
+- **适用场景**：任何收紧几何/物理判据的重构；CCD/求根器数值调试；仿真测试失败归因。
+- **效果**：矩阵出界 9→0；`PhysicsEngineTests` 含 3 个历史失败一并转绿；新增 3 条落袋不变量护栏。
+- **日期**：2026-07-02
+- **回写目标**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训。
+- **已应用至**：✅ `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训（2026-07-02，PD-025）

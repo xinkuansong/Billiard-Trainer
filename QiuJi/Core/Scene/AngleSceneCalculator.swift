@@ -67,50 +67,46 @@ enum AngleSceneCalculator {
 
     // MARK: - Pocket geometry (SceneKit world coords)
 
-    /// Pocket opening radii (metres) — **视觉标记盘**半径。Angle = corner pocket, middle = side pocket.
-    /// Source: `.kiro/steering/table-geometry.md` § 进袋检测数值（中式八球标准）。
+    /// 落袋孔半径（= CAD 真孔：角袋 Φ84、中袋 Φ86）。物理判据（ADR-P10-09）：
+    /// 球心水平投影进入孔圈即落袋；视觉标记盘也用同一半径。
     static let cornerPocketRadius: Float = 0.042
     static let middlePocketRadius: Float = 0.043
 
-    /// 物理引擎**落袋孔半径**（球心进入孔内即落袋）。P10 真实袋口物理（漏斗模型 v3）：
-    /// 袋口由 **jaw 库（鼻尖直线段 + 鼻端圆弧）闸口** + **落袋捕获圆**构成——jaw 负责
-    /// 拦截偏离/过薄/过力度的球（撞鼻反弹 = rattle/未进），落袋捕获圆则让**干净穿过袋口
-    /// 开口（mouth）的球落袋**。捕获半径取「袋心→袋口开口中线」距离量级，使任意「沿内向
-    /// 路径进入开口」的球都被捕获（不再像上一版「喉腔弹珠箱」那样把对准的球弹来弹去导致
-    /// 进袋带碎裂）。这是真实袋口的几何：jaw 决定能否进、洞口决定进。
-    /// 与**视觉标记半径** `*PocketRadius` 解耦（黄色标记盘视觉不变）。
-    static let cornerPocketDropRadius: Float = 0.070
-    static let middlePocketDropRadius: Float = 0.075
-
-    /// 给定袋号的引擎落袋孔半径。
+    /// 给定袋号的落袋孔半径（ADR-P10-09 起 = 真孔半径，与标记盘一致；
+    /// 旧「大捕获圆」70/75mm 语义已随两段式判据一并移除）。
     static func pocketDropRadius(index: Int) -> Float {
-        index < 4 ? cornerPocketDropRadius : middlePocketDropRadius
+        index < 4 ? cornerPocketRadius : middlePocketRadius
     }
 
-    /// Pocket-center offsets relative to the playing-area boundary.
-    /// Steering 文档（中式八球标准物理几何）给出的是 42mm / 53mm；
-    /// 当前 USDZ 模型 `TaiQiuZhuo.usdz` 的袋口洞中心比标准位置略 **靠内**
-    /// （朝击球区方向），实测约偏 12mm / 9mm，因此这里在标准值上 **减去**
-    /// `cornerPocketModelDelta` / `middlePocketModelDelta`，
-    /// 让黄色标记圆盘视觉上正好落在模型袋口洞的几何中心。
-    /// 注：调整 USDZ 模型时需重新校准这两个 delta（用 2D 顶视图肉眼对位即可）。
-    private static let cornerPocketStandardOffset: Float = 0.042
-    private static let middlePocketStandardOffset: Float = 0.053
+    /// CAD 孔心相对击球区边界的偏移（物理/瞄准真源，ADR-P10-09）：
+    /// 角袋孔心 (±1.312, ±0.677)，中袋孔心 (0, ±0.688)。
+    /// 整套袋口构造链（jaw 45° 切线 / R30 双切 / 喉壁）与这些孔心互为切线、数值闭合，
+    /// 物理层禁止再混入 USDZ 视觉偏移（那会在 jaw 末端与孔沿之间撕开 3.3mm 死缝）。
+    private static let cornerPocketOffset: Float = 0.042
+    private static let middlePocketOffset: Float = 0.053
+
+    /// 当前 USDZ 模型 `TaiQiuZhuo.usdz` 的袋口洞**视觉**中心比 CAD 孔心略靠台内
+    /// （实测约 12mm / 9mm）。仅供渲染层（黄色标记盘）使用；调整 USDZ 模型时重新校准。
     private static let cornerPocketModelDelta: Float = 0.012
     private static let middlePocketModelDelta: Float = 0.009
-    private static let cornerPocketOffset: Float =
-        cornerPocketStandardOffset - cornerPocketModelDelta
-    private static let middlePocketOffset: Float =
-        middlePocketStandardOffset - middlePocketModelDelta
 
-    /// Six pocket centers at table surface level (real pocket-hole centers, not the
-    /// playing-area corners). Used for both aim math (so calculations target the
-    /// actual hole) and visual marker placement (so the yellow disc sits on the hole).
+    /// Six pocket centers at table surface level（CAD 真孔心，物理引擎 + 瞄准数学的唯一真源）。
     static func pocketPositions(surfaceY: Float) -> [SCNVector3] {
+        pocketCenters(surfaceY: surfaceY,
+                      c: cornerPocketOffset,
+                      m: middlePocketOffset)
+    }
+
+    /// 袋口**视觉标记盘**中心（CAD 孔心 + USDZ 视觉校准偏移）。仅供渲染层使用。
+    static func pocketMarkerPositions(surfaceY: Float) -> [SCNVector3] {
+        pocketCenters(surfaceY: surfaceY,
+                      c: cornerPocketOffset - cornerPocketModelDelta,
+                      m: middlePocketOffset - middlePocketModelDelta)
+    }
+
+    private static func pocketCenters(surfaceY: Float, c: Float, m: Float) -> [SCNVector3] {
         let halfL = innerLength / 2
         let halfW = innerWidth / 2
-        let c = cornerPocketOffset
-        let m = middlePocketOffset
         let y = surfaceY
         return [
             SCNVector3(-halfL - c, y, -halfW - c),  // 左上 (top-left)
@@ -142,11 +138,11 @@ enum AngleSceneCalculator {
                 SCNVector3(sx * 1.3008, y, sz * 0.6064)
             )
         }
-        // 中袋 mouth 端点：(±0.035, ±0.635) — 长边在中点处的两个开口端
+        // 中袋 mouth 端点：R30 鼻尖（圆角与喉壁的切点）(±0.043, ±0.665)——CAD 双切构造。
         func middle(sz: Float) -> (SCNVector3, SCNVector3) {
             (
-                SCNVector3(-0.035, y, sz * 0.635),
-                SCNVector3(+0.035, y, sz * 0.635)
+                SCNVector3(-0.043, y, sz * 0.665),
+                SCNVector3(+0.043, y, sz * 0.665)
             )
         }
         return [
@@ -372,7 +368,7 @@ enum AngleSceneCalculator {
             guard d0 >= clearance, d1 >= clearance else { return nil }
             return min(d0, d1, ordinary.minDistance)
         }
-        // 无 jaw（中袋）：ordinary.safe 即为干净穿过。
+        // 退化兜底（无复合轮廓的未来几何）：ordinary.safe 即为干净穿过。
         return ordinary.minDistance
     }
 
@@ -433,7 +429,7 @@ enum AngleSceneCalculator {
         let mouthA: Vector2
         let mouthB: Vector2
         let targetJaws: [Segment2D]
-        /// 与 `targetJaws` 同序（[长库侧, 短库侧]）的复合轮廓（弧+线）。中袋为空。
+        /// 与 `targetJaws` 同序的复合轮廓（弧+线）。角袋：[长库侧, 短库侧]；中袋：[左, 右]。
         let compositeJaws: [CompositeJaw]
     }
 
@@ -451,10 +447,10 @@ enum AngleSceneCalculator {
             ordinary.append(Segment2D(a: Vector2(ax, az), b: Vector2(bx, bz)))
         }
 
-        add(-1.1671, -0.635, -0.035, -0.635)
-        add( 0.035, -0.635,  1.1671, -0.635)
-        add(-1.1671,  0.635, -0.035,  0.635)
-        add( 0.035,  0.635,  1.1671,  0.635)
+        add(-1.1671, -0.635, -0.073, -0.635)
+        add( 0.073, -0.635,  1.1671, -0.635)
+        add(-1.1671,  0.635, -0.073,  0.635)
+        add( 0.073,  0.635,  1.1671,  0.635)
         add(-1.270, -0.5321, -1.270,  0.5321)
         add( 1.270, -0.5321,  1.270,  0.5321)
 
@@ -515,6 +511,36 @@ enum AngleSceneCalculator {
             )
         }
 
+        // 中袋（CAD 双切构造，ADR-P10-09）：mouth 端点 = R30 鼻尖（圆角与喉壁切点）
+        // (±0.043, ±0.665)；composite jaw = R30 圆角弧（心 (±0.073, ±0.665)）+ 喉壁
+        // 直线段（x=±0.043, z∈[±0.665, ±0.688]）。有了 targetJaws/compositeJaws 后，
+        // 中袋与角袋共用「mouth 扫描选最净入线」逻辑（旧版为空导致只会螺旋搜擦角）。
+        func middle(sz: Float, center: Vector2) -> PocketMouth {
+            let noseL = Vector2(-0.043, sz * 0.665)
+            let noseR = Vector2(0.043, sz * 0.665)
+            let throatL = Segment2D(a: noseL, b: Vector2(-0.043, sz * 0.688))
+            let throatR = Segment2D(a: noseR, b: Vector2(0.043, sz * 0.688))
+            let arcCenterL = Vector2(-0.073, sz * 0.665)
+            let arcCenterR = Vector2(0.073, sz * 0.665)
+            let railPtL = Vector2(-0.073, sz * 0.635)
+            let railPtR = Vector2(0.073, sz * 0.635)
+            func arc(_ c: Vector2, _ railPt: Vector2, _ nose: Vector2) -> ArcSeg {
+                let a = railPt - c, b = nose - c
+                return ArcSeg(center: c, radius: 0.030,
+                              angA: atan2f(a.z, a.x), angB: atan2f(b.z, b.x))
+            }
+            return PocketMouth(
+                center: center,
+                mouthA: noseL,
+                mouthB: noseR,
+                targetJaws: [throatL, throatR],
+                compositeJaws: [
+                    CompositeJaw(arc: arc(arcCenterL, railPtL, noseL), line: throatL),
+                    CompositeJaw(arc: arc(arcCenterR, railPtR, noseR), line: throatR)
+                ]
+            )
+        }
+
         let halfL = innerLength / 2
         let halfW = innerWidth / 2
         return [
@@ -522,12 +548,8 @@ enum AngleSceneCalculator {
             corner(sx:  1, sz: -1, center: Vector2( halfL + cornerPocketOffset, -halfW - cornerPocketOffset)),
             corner(sx: -1, sz:  1, center: Vector2(-halfL - cornerPocketOffset,  halfW + cornerPocketOffset)),
             corner(sx:  1, sz:  1, center: Vector2( halfL + cornerPocketOffset,  halfW + cornerPocketOffset)),
-            PocketMouth(center: Vector2(0, -halfW - middlePocketOffset),
-                        mouthA: Vector2(-0.035, -halfW), mouthB: Vector2(0.035, -halfW),
-                        targetJaws: [], compositeJaws: []),
-            PocketMouth(center: Vector2(0, halfW + middlePocketOffset),
-                        mouthA: Vector2(-0.035, halfW), mouthB: Vector2(0.035, halfW),
-                        targetJaws: [], compositeJaws: [])
+            middle(sz: -1, center: Vector2(0, -halfW - middlePocketOffset)),
+            middle(sz: 1, center: Vector2(0, halfW + middlePocketOffset))
         ]
     }
 

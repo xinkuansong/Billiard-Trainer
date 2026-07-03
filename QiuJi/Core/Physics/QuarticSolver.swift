@@ -60,21 +60,32 @@ struct QuarticSolver {
         let cubicRoots = solveCubic(a: cubicA, b: cubicB, c: cubicC, d: cubicD)
         
         // Handle biquadratic case (q ≈ 0): y^4 + py^2 + r = 0
+        // 注意（ADR-P10-09 根因修复）：|q|<1e-10 常来自 b³/8 − bc/2 + d 的**浮点大项抵消**
+        // （各项 ~1e4 时绝对误差可达 1e-11），此时真实 q 未必为 0，且 y² 二次判别式
+        // p²−4r 也可能因同源误差略负——直接返回空会漏掉真实存在的根对
+        // （CCD 实测：球贴库反弹后逼近 jaw 弧的方程即此配置，漏根 ⇒ 球穿进橡皮）。
+        // 处理：判别式略负时用双重根 y² = −p/2 兜底；并加 x0=0 种子（逼近几何下
+        // f(0)>0 且 f'(0)<0，Newton 从 0 收敛到最小正根）。refineRoot 的相对残差
+        // 检查保证只留真实根。
         if abs(q) < 1e-10 {
-            let quadRoots = solveQuadratic(a: 1.0, b: p, c: r)
-            var roots: [Double] = []
+            var quadRoots = solveQuadratic(a: 1.0, b: p, c: r)
+            if quadRoots.isEmpty, p < 0 {
+                quadRoots = [-p / 2.0]
+            }
+            var seeds: [Double] = []
             for y2 in quadRoots {
                 if y2 >= -1e-10 {
                     let y2Clamped = max(0, y2)
-                    roots.append(sqrt(y2Clamped))
+                    seeds.append(sqrt(y2Clamped))
                     if y2Clamped > 1e-14 {
-                        roots.append(-sqrt(y2Clamped))
+                        seeds.append(-sqrt(y2Clamped))
                     }
                 }
             }
             let offset = bNorm / 4.0
-            roots = roots.map { $0 - offset }
-            roots = roots.compactMap { refineRoot(a: a, b: b, c: c, d: d, e: e, x0: $0) }
+            var candidates = seeds.map { $0 - offset }
+            candidates.append(0)
+            let roots = candidates.compactMap { refineRoot(a: a, b: b, c: c, d: d, e: e, x0: $0) }
             return removeDuplicates(roots.sorted(), tolerance: 1e-8)
         }
         
@@ -84,9 +95,6 @@ struct QuarticSolver {
         // make alpha ≈ 0 and cause catastrophic cancellation when q ≠ 0.
         // Strategy: prefer the largest positive root so alpha is well-separated from 0.
         let positiveRoots = cubicRoots.filter { $0 > 1e-14 }
-        guard !positiveRoots.isEmpty else {
-            return []
-        }
         // Pick the root that maximises alpha while keeping beta and gamma real.
         // Try each candidate from largest to smallest and use the first that yields
         // finite beta and gamma.
@@ -102,7 +110,23 @@ struct QuarticSolver {
             }
         }
         guard let u = chosenU else {
-            return []
+            // 近双二次塌缩兜底（ADR-P10-09 根因修复）：q ≠ 0 但极小（未进上面的 |q|<1e-10 分支）时，
+            // 预解三次的唯一实根 u ≈ q²/(p²-4r) 可小于 1e-14 被过滤，Ferrari 无法分解——
+            // 但真实实根存在（np.roots 对拍确证：慢速球贴近弧面的 CCD 方程即此配置，漏根 ⇒
+            // 弧碰撞漏检 ⇒ 球穿弧出台）。此时按双二次近似 y⁴+py²+r=0 取初值，
+            // Newton 精修（refineRoot）收敛到真实根。
+            let quadRoots = solveQuadratic(a: 1.0, b: p, c: r)
+            var approx: [Double] = []
+            for y2 in quadRoots where y2 >= -1e-10 {
+                let y = sqrt(max(0, y2))
+                approx.append(y)
+                if y > 1e-14 { approx.append(-y) }
+            }
+            let offset = bNorm / 4.0
+            let polished = approx.compactMap {
+                refineRoot(a: a, b: b, c: c, d: d, e: e, x0: $0 - offset)
+            }
+            return removeDuplicates(polished.sorted(), tolerance: 1e-8)
         }
         
         // Factor depressed quartic: (y^2 + alpha*y + beta)(y^2 - alpha*y + gamma) = 0

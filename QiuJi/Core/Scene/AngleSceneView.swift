@@ -459,8 +459,8 @@ struct AngleSceneView: UIViewRepresentable {
                 }
             }
 
-            // Fallback: project pocket positions to screen and pick the nearest within radius.
-            let pocketPositions = AngleSceneCalculator.pocketPositions(surfaceY: scene.surfaceY)
+            // Fallback: project pocket marker positions to screen and pick the nearest within radius.
+            let pocketPositions = AngleSceneCalculator.pocketMarkerPositions(surfaceY: scene.surfaceY)
             let tapRadius: CGFloat = 44
             var bestIndex: Int?
             var bestDist: CGFloat = .greatestFiniteMagnitude

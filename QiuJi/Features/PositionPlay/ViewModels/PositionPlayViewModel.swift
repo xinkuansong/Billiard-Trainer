@@ -735,7 +735,6 @@ final class PositionPlayViewModel: ObservableObject {
         let speed: Float = 1.0
         // #11：末段慢速 creep 肉眼不可见，按「感知静止时刻」截断，避免「击球中」状态滞留数秒。
         let settle = playback.perceptibleSettleTime()
-        ShotAudioScheduler.shared.play(prediction: solved.prediction)
 
         var cueAction: SCNAction?
         for key in onTableKeys {
@@ -762,6 +761,9 @@ final class PositionPlayViewModel: ObservableObject {
                     self?.finishStrike()
                 }
             }
+            // 音效在全部球体动画挂载后起播：避免（首杆冷启动 / 中途开音效）时
+            // 音频引擎冷启动阻塞主线程，抢在球体动画挂载之前，使跟杆先于球推进。
+            ShotAudioScheduler.shared.play(prediction: solved.prediction)
         } else {
             finishStrike()
         }

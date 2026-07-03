@@ -694,7 +694,6 @@ final class SiluTrainerViewModel: ObservableObject {
         let speed: Float = 1.0
         // #11：按「感知静止时刻」截断，避免击球态在球看着停后仍滞留数秒。
         let settle = playback.perceptibleSettleTime()
-        ShotAudioScheduler.shared.play(prediction: sol.prediction)
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
@@ -713,6 +712,8 @@ final class SiluTrainerViewModel: ObservableObject {
                     self?.finishStrike(sol: sol)
                 }
             }
+            // 音效在全部球体动画挂载后起播：避免音频引擎冷启动阻塞主线程时，跟杆先于球推进。
+            ShotAudioScheduler.shared.play(prediction: sol.prediction)
         } else {
             finishStrike(sol: sol)
         }

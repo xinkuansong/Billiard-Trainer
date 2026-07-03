@@ -46,21 +46,27 @@ enum TablePhysics {
     static let cushionHeight: Float = 0.037
     static let cushionThickness: Float = 0.05
 
-    // MARK: 袋口参数（CAD）——仅供库边 jaw 构建器 + 对照用 CAD 几何；
-    // 生产袋口洞的单一真源是 `AngleSceneCalculator`（USDZ 实测），见文件头注 D-A4。
+    // MARK: 袋口参数（CAD，ADR-P10-09 起为**生产物理唯一真源**）
+    // 整套袋口构造链（库线 → 圆角弧 → jaw/喉壁 → 落袋孔）在 CAD 上互为切线、数值闭合：
+    //   角袋：jaw 直线段是 Φ84 孔的 45° 切线，外端点恰落在孔沿（误差 <1μm）；
+    //   中袋：R30 圆角与库线、喉壁 x=±0.043 双切，喉壁与 Φ86 孔相切（孔心 z=±0.688）。
+    // USDZ 视觉偏移仅保留在渲染层（`AngleSceneCalculator.pocketMarkerPositions`）。
     static let cornerPocketDiameter: Float = 0.084
     static let cornerPocketRadius: Float = cornerPocketDiameter / 2
     static let cornerPocketFilletRadius: Float = 0.105
     static let sidePocketDiameter: Float = 0.086
     static let sidePocketRadius: Float = sidePocketDiameter / 2
     static let sidePocketFilletRadius: Float = 0.030
-    static let sidePocketNotchWidth: Float = 0.010
     static let pocketDiameter: Float = sidePocketDiameter
 
     static let cornerPocketCenterOffsetX: Float = innerLength / 2 + cornerPocketRadius
     static let cornerPocketCenterOffsetZ: Float = innerWidth / 2 + cornerPocketRadius
     static let centerInnerHeight: Float = 0.688
     static let sidePocketCenterOffsetZ: Float = centerInnerHeight
+
+    /// 袋口喉腔壁（袋兜衬里）恢复系数：比库边橡皮"死"得多。喉壁均为孔圈切线的延长，
+    /// 正常球在触壁前已被「球心入孔圈」判据收袋——喉壁只是数值漏检时的安全兜底。
+    static let pocketThroatRestitution: Float = 0.45
 
     // MARK: 物理系数
     static let clothFriction: Float = 0.2
@@ -77,13 +83,9 @@ enum TablePhysics {
     static let cushionFriction: Float = 0.2
     static let gravity: Float = 9.81
 
-    // MARK: 落袋闸门（ADR-P10-05 两段式真实落袋判据）
-    /// 「正对小核」轨迹偏移阈值 (米)：球速度射线到袋心的垂距 ≤ 此值 ⇒ 视为正对穿袋，
-    /// **任何力度都落袋**（正常清晰进球）。超过则需满足慢速判据才落袋。
-    static let pocketCoreMissRadius: Float = 0.022
-    /// 「慢速 settle」速度阈值 (m/s)：球抵达袋口捕获圈时水平速度 ≤ 此值 ⇒ 落袋（小力擦 jaw
-    /// 衰减后 settle 入袋）；高于此值且非正对 ⇒ 拒绝落袋（撞喉腔后壁 → rattle 弹出，真实袋口行为）。
-    static let pocketDropSpeed: Float = 1.05
+    // 落袋判据（ADR-P10-09）：球心水平投影进入袋口孔圈（dist ≤ 孔半径）⇒ 台面无法再提供支撑
+    // ⇒ 必然坠落。无任何速度/方向特判——进不进完全由 jaw/圆角/喉壁几何 + 真实碰撞决定。
+    // （旧 ADR-P10-05 两段式判据 pocketCoreMissRadius / pocketDropSpeed 已随大捕获圆一并移除。）
 
     static var tableSurfaceY: Float { SceneLayout.groundLevelY + height }
 }

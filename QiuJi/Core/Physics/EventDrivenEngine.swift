@@ -481,9 +481,9 @@ class EventDrivenEngine {
         }
         
         // Find ball-pocket events (CCD quartic solve, XZ-plane only)
-        // 注意：必须使用 XZ 2D 分量，不含 Y。
-        // 原因：球心 Y 固定高于台面 BallPhysics.radius，而 r = pocket.radius - BallPhysics.radius < BallPhysics.radius，
-        // 若使用 3D 向量，dp.y 恒大于 r，四次方程永远无实数根，进袋事件永远不触发。
+        // 注意：必须使用 XZ 2D 分量，不含 Y（球心 Y 恒高于台面，3D 距离永远够不到孔圈半径）。
+        // 判据（ADR-P10-09）：球心水平投影抵达孔圈（dist = pocket.radius，即真实落袋孔半径）
+        // ⇒ 台面失去支撑 ⇒ 落袋。无速度/方向特判——能否抵达孔圈完全由 jaw/圆角/喉壁物理决定。
         for name in ballOrder {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
@@ -492,7 +492,7 @@ class EventDrivenEngine {
             
             // Check each pocket
             for pocket in tableGeometry.pockets {
-                let r = max(pocket.radius - BallPhysics.radius, 0.0)
+                let r = pocket.radius
 
                 // XZ-only: 袋口检测在水平面进行，忽略 Y 轴高度差
                 let dpX = ball.position.x - pocket.center.x
@@ -673,19 +673,15 @@ class EventDrivenEngine {
         let outZ = state.position.z < safeMinZ - boundsEpsilon || state.position.z > safeMaxZ + boundsEpsilon
         guard outX || outZ else { return }
         
-        // 球已越出可玩框、且落在某袋口附近（`pocket.radius + 2R` 内，覆盖袋嘴→落孔通道）。
-        // 用**运动方向**区分"正常进袋通道"与"从库段↔jaw 接缝漏出台外"（ADR-P10-07）：
+        // 球已越出可玩框、且落在某袋口附近（`pocket.radius + 3R` 内，覆盖袋嘴→袋兜全通道）。
         for pocket in tableGeometry.pockets {
             let dx = state.position.x - pocket.center.x
             let dz = state.position.z - pocket.center.z
             let dist = sqrtf(dx * dx + dz * dz)
-            guard dist < pocket.radius + BallPhysics.radius * 2 else { continue }
+            guard dist < pocket.radius + BallPhysics.radius * 3 else { continue }
 
-            // ① 深入落袋孔 → 落袋。
-            // ② 低速 settle（挂袋后落下 / 母球 scratch）→ 收袋。
-            let pocketDeep = dist <= pocket.radius
-            let settledInJaw = state.velocity.length() < EngineNumerics.jawSettlePocketSpeed
-            if pocketDeep || settledInJaw {
+            // ① 球心已入孔圈（数值漏检兜底，正常路径由 CCD .pocket 事件收袋）→ 落袋。
+            if dist <= pocket.radius {
                 state.state = .pocketed
                 state.velocity = SCNVector3Zero
                 state.angularVelocity = SCNVector3Zero
@@ -694,11 +690,9 @@ class EventDrivenEngine {
                 resolvedEventTimes.append(currentTime)
                 return
             }
-            // ③ 带速运动且在袋嘴圈内：无论朝向均放行（FL 根因修复，2026-06-12）——
-            //    rattle 弹出段（背离袋心）同样合法，真实边界是 jaw 弧 + 喉腔壁，CCD 可解析；
-            //    原 towardCenter 方向门会把弹出中的球双轴硬钳（法向减半、无事件），
-            //    产生袋口附近的幽灵反弹。真正从接缝漏出的球一旦离开袋嘴圈仍会被下方硬钳兜回，
-            //    慢速挂袋球由 ② settle 收袋——安全网不变，只是不再误伤合法弹出。
+            // ② 在袋口通道内（孔圈外）：无论速度/朝向均放行（ADR-P10-09）——
+            //    rattle 弹出、慢速滑向孔圈、以及**球心停在孔圈外的合法挂袋**都交给真实几何
+            //    （jaw 弧/面 + 喉壁 + 孔圈判据）处理。旧「低速即收袋」特判会把挂袋球吸走，已删除。
             return
         }
 
@@ -913,34 +907,19 @@ class EventDrivenEngine {
     private func resolvePocket(ball: String, pocketId: String) -> Bool {
         guard var state = balls[ball] else { return false }
         
-        // 两段式真实落袋判据（ADR-P10-05，XZ 2D）——取代旧「球心进圈即吸入」的大捕获圆真空：
-        //   ① 正对小核：球速度射线到袋心的垂距 ≤ pocketCoreMissRadius ⇒ 任何力度落袋（正常清晰进球）；
-        //   ② 慢速 settle：球抵袋口捕获圈时水平速度 ≤ pocketDropSpeed ⇒ 落袋（小力擦 jaw 衰减后 settle）；
-        //   否则 ⇒ 拒绝落袋（球带速越过袋口 → 撞喉腔后壁 → rattle 弹出，真实袋口行为）。
+        // 落袋判据（ADR-P10-09，XZ 2D）：球心水平投影进入孔圈（dist ≤ 孔半径）⇒ 台面无法再
+        // 提供支撑 ⇒ 必然坠落。CCD 已把球精确演进到孔圈交点，这里只校验事件未过时
+        // （排定后状态被改写的陈旧事件按超距拒绝），无任何速度/方向特判。
         if let pocket = tableGeometry.pockets.first(where: { $0.id == pocketId }) {
             let dx = state.position.x - pocket.center.x
             let dz = state.position.z - pocket.center.z
             let dist = sqrtf(dx * dx + dz * dz)
-            let allowed = pocket.radius + BallPhysics.radius * 1.5
-            if dist > allowed {
+            // 2mm 容差 ≫ 浮点接触噪声，≪ 任何真实位移——只挡陈旧事件，不挡合法入圈。
+            if dist > pocket.radius + 0.002 {
                 return false
             }
-            let vx = state.velocity.x, vz = state.velocity.z
-            let speed = sqrtf(vx * vx + vz * vz)
-            // 速度射线到袋心的垂距（球若沿此速度直行，最近能到袋心多近）。
-            var missDist = dist
-            if speed > 1e-5 {
-                let ux = vx / speed, uz = vz / speed
-                missDist = abs((pocket.center.x - state.position.x) * uz
-                             - (pocket.center.z - state.position.z) * ux)
-            }
-            let threadsCore = missDist <= TablePhysics.pocketCoreMissRadius
-            let slowSettle = speed <= TablePhysics.pocketDropSpeed
-            if !(threadsCore || slowSettle) {
-                return false   // 带速擦袋、非正对 → 不落袋，交给喉腔后壁弹回
-            }
-            // 落袋即把球心吸到袋心（球落入洞中央）：使轨迹明确「进洞」，下游进袋判定
-            // 与画面一致（橙线终点落在袋心，而非冻结在喉口外侧的事件采样点）。
+            // 记录位置吸附到袋心：使轨迹终点明确「进洞」，下游（橙线终点/回放入洞段起点
+            // 取进袋前一帧真实位置）与画面一致。
             state.position = SCNVector3(pocket.center.x, state.position.y, pocket.center.z)
         }
         state.state = .pocketed

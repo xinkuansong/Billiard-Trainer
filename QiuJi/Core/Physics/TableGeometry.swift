@@ -238,14 +238,21 @@ struct TableGeometry {
     var circularCushions: [CircularCushionSegment]
     var pockets: [Pocket]
     
-    /// 构建中式八球的库边（直库 + 角袋 jaw 直线段 + 角袋 jaw 圆弧 + 中袋圆角）。
-    /// **与袋口中心无关**——锚定于同一组内框尺寸（±innerLength/2, ±innerWidth/2），
-    /// 因此 CAD 版与 USDZ 版（`chineseEightBallQiuJi`）可共用同一套库边，仅袋口不同。
+    /// 构建中式八球的库边（直库 + 角袋 jaw 直线段 + 角袋 jaw 圆弧 + 中袋圆角 + 中袋喉壁）。
+    /// **与袋口中心无关**——锚定于同一组内框尺寸（±innerLength/2, ±innerWidth/2）。
+    ///
+    /// 中袋构造（ADR-P10-09，按 CAD 双切关系精确重建）：
+    ///   R30 圆角同时与库线 (z=±0.635) 和喉壁 (x=±0.043) 相切 ⇒ 弧心 (±0.073, ±0.665)，
+    ///   直库段终点 x=±0.073（CAD 红色标注 1094 的端点）；喉壁 x=±0.043 与 Φ86 孔
+    ///   （心 (0, ±0.688)）相切于孔心高度。库线→孔近沿的 10mm 石板带即 CAD 标注 10.0000。
+    ///   （旧实现误将 10mm 读成"袋口缺口宽"，弧心压在库线上形成 10mm 窄缝 + 反向喇叭，
+    ///   球心通道被接触圆封死，见 FL 记录。）
     static func chineseEightBallCushions(y: Float) -> (linear: [LinearCushionSegment], circular: [CircularCushionSegment]) {
         let railHalfLength = TablePhysics.innerLength / 2  // 1.27 m
         let railHalfWidth = TablePhysics.innerWidth / 2    // 0.635 m
-        let sideFilletRadius = TablePhysics.sidePocketFilletRadius
-        let sideNotchHalf = TablePhysics.sidePocketNotchWidth / 2
+        let sideFilletRadius = TablePhysics.sidePocketFilletRadius  // 0.030
+        let sideThroatHalf = TablePhysics.sidePocketRadius          // 0.043（喉道半宽 = 孔半径）
+        let sideMouthEdgeX = sideThroatHalf + sideFilletRadius      // 0.073（直库终点 / 弧心 x）
 
         // Corner jaw geometries: [LD(0), LU(1), RD(2), RU(3)]
         let corners = buildCornerJawGeometries()
@@ -267,18 +274,18 @@ struct TableGeometry {
         var linearCushions: [LinearCushionSegment] = []
         linearCushions.append(LinearCushionSegment(
             start: SCNVector3(luLongRailPt.x, y, railHalfWidth),
-            end: SCNVector3(-sideNotchHalf - sideFilletRadius, y, railHalfWidth),
+            end: SCNVector3(-sideMouthEdgeX, y, railHalfWidth),
             normal: SCNVector3(0, 0, -1)))
         linearCushions.append(LinearCushionSegment(
-            start: SCNVector3(sideNotchHalf + sideFilletRadius, y, railHalfWidth),
+            start: SCNVector3(sideMouthEdgeX, y, railHalfWidth),
             end: SCNVector3(ruLongRailPt.x, y, railHalfWidth),
             normal: SCNVector3(0, 0, -1)))
         linearCushions.append(LinearCushionSegment(
             start: SCNVector3(ldLongRailPt.x, y, -railHalfWidth),
-            end: SCNVector3(-sideNotchHalf - sideFilletRadius, y, -railHalfWidth),
+            end: SCNVector3(-sideMouthEdgeX, y, -railHalfWidth),
             normal: SCNVector3(0, 0, 1)))
         linearCushions.append(LinearCushionSegment(
-            start: SCNVector3(sideNotchHalf + sideFilletRadius, y, -railHalfWidth),
+            start: SCNVector3(sideMouthEdgeX, y, -railHalfWidth),
             end: SCNVector3(rdLongRailPt.x, y, -railHalfWidth),
             normal: SCNVector3(0, 0, 1)))
         linearCushions.append(LinearCushionSegment(
@@ -316,17 +323,41 @@ struct TableGeometry {
         }
 
         // --- Side pocket fillet arcs (4 arcs: 2 per side pocket, bottom z<0 then top z>0) ---
+        // CAD 双切构造：弧心在库线外侧 filletRadius 处 (±0.073, ±0.665)，
+        // 一端切库线 (±0.073, ±0.635)、另一端切喉壁 (±0.043, ±0.665)。
         for sign in [Float(-1), Float(1)] {
-            let railZ = sign * railHalfWidth
+            let arcZ = sign * (railHalfWidth + sideFilletRadius)   // ±0.665
             let isTop = sign > 0
+            // 左弧：库线切点在弧的正下(上)方，喉壁切点在弧的 +x 方向。
             circularCushions.append(CircularCushionSegment(
-                center: SCNVector3(-sideNotchHalf - sideFilletRadius, y, railZ),
+                center: SCNVector3(-sideMouthEdgeX, y, arcZ),
                 radius: sideFilletRadius,
-                startAngle: isTop ? 0 : .pi, endAngle: isTop ? .pi / 2 : 3 * .pi / 2))
+                startAngle: isTop ? 3 * .pi / 2 : 0,
+                endAngle: isTop ? 2 * .pi : .pi / 2))
+            // 右弧：喉壁切点在弧的 -x 方向。
             circularCushions.append(CircularCushionSegment(
-                center: SCNVector3(sideNotchHalf + sideFilletRadius, y, railZ),
+                center: SCNVector3(sideMouthEdgeX, y, arcZ),
                 radius: sideFilletRadius,
-                startAngle: isTop ? .pi / 2 : 3 * .pi / 2, endAngle: isTop ? .pi : 2 * .pi))
+                startAngle: isTop ? .pi : .pi / 2,
+                endAngle: isTop ? 3 * .pi / 2 : .pi))
+        }
+
+        // --- Side pocket throat walls (4 walls: 2 per side pocket) ---
+        // CAD：喉壁 x=±0.043 从圆角切点 (z=±0.665) 通到孔心高度 (z=±0.688，与 Φ86 孔相切)。
+        // 恢复系数用袋腔衬里值（正常球在触壁前已被孔圈判据收袋，此壁多为 rattle/兜底路径）。
+        let throatZNear = railHalfWidth + sideFilletRadius                     // 0.665
+        let throatZFar = TablePhysics.sidePocketCenterOffsetZ                  // 0.688
+        for sign in [Float(-1), Float(1)] {
+            linearCushions.append(LinearCushionSegment(
+                start: SCNVector3(-sideThroatHalf, y, sign * throatZNear),
+                end: SCNVector3(-sideThroatHalf, y, sign * throatZFar),
+                normal: SCNVector3(1, 0, 0),
+                restitution: TablePhysics.pocketThroatRestitution))
+            linearCushions.append(LinearCushionSegment(
+                start: SCNVector3(sideThroatHalf, y, sign * throatZNear),
+                end: SCNVector3(sideThroatHalf, y, sign * throatZFar),
+                normal: SCNVector3(-1, 0, 0),
+                restitution: TablePhysics.pocketThroatRestitution))
         }
 
         return (linearCushions, circularCushions)

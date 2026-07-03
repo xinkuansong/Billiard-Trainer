@@ -269,7 +269,12 @@ struct CollisionDetector {
         
         let roots = QuarticSolver.solveQuartic(a: c4, b: c3, c: c2, d: c1, e: c0)
         
-        let epsilon = 1e-4
+        // 时间下限只挡浮点噪声（与 ballLinearCushionTime 的 1e-6 一致）。
+        // 曾为 1e-4：高保真近墙自适应子步会把球演进到离弧面仅数十微秒处，
+        // 真实碰撞根（~2e-5 s）被误拒 → 球穿弧越界（t1p1c40 等 4 例）。
+        // 「刚反弹完重复检出」由逼近方向检查（distSqDot < 0）+ makeBallCushionKiss 防护，
+        // 无需放大时间护栏。
+        let epsilon = 1e-6
         var best: Double? = nil
         
         for t in roots {

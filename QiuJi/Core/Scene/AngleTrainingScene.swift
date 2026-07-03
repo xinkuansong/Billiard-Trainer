@@ -388,6 +388,26 @@ final class AngleTrainingScene: SCNScene {
         return (Double(max(abs(minX), abs(maxX))), Double(max(abs(minZ), abs(maxZ))))
     }
 
+    /// 实测球桌最低点世界 Y（= 桌腿底）。模型按外框长宽缩放（非按高度），故桌腿底真实 Y
+    /// 无法由「台面高 − 常量桌高」推得，必须遍历几何取世界包围盒最小 Y。供 3D 取景把整桌
+    /// （含腿）装入画面（否则近端桌腿掉出画面底被裁）。无表节点/无几何时返回 nil。
+    func measuredTableBottomY() -> Float? {
+        guard let table = tableNode else { return nil }
+        var minY = Float.greatestFiniteMagnitude
+        table.enumerateHierarchy { node, _ in
+            guard node.geometry != nil else { return }
+            let (bMin, bMax) = node.boundingBox
+            for corner in [SCNVector3(bMin.x, bMin.y, bMin.z), SCNVector3(bMax.x, bMin.y, bMin.z),
+                           SCNVector3(bMin.x, bMin.y, bMax.z), SCNVector3(bMax.x, bMin.y, bMax.z),
+                           SCNVector3(bMin.x, bMax.y, bMin.z), SCNVector3(bMax.x, bMax.y, bMin.z),
+                           SCNVector3(bMin.x, bMax.y, bMax.z), SCNVector3(bMax.x, bMax.y, bMax.z)] {
+                let w = node.convertPosition(corner, to: nil)
+                minY = min(minY, w.y)
+            }
+        }
+        return minY < Float.greatestFiniteMagnitude ? minY : nil
+    }
+
     // MARK: - Lighting
 
     private func setupLighting() {
@@ -505,6 +525,38 @@ final class AngleTrainingScene: SCNScene {
         )
         rootNode.addChildNode(rimNode)
         enhancedLightNodes.append(rimNode)
+
+        setupLegFillLighting()
+    }
+
+    /// Raking fill lights for the lower table body (skirt + legs).
+    ///
+    /// 黑底 + 近垂直的 key light 下，竖直的桌身/桌腿立面几乎收不到光，在导出
+    /// 视频与 3D 页里读作「没有腿」（FL-023 修复几何后腿仍欠曝）。补三盏近水平
+    /// 的低位 directional fill 专照台面以下的立面：水平入射对水平台呢影响极小，
+    /// 不破坏 key/fill/rim 的球体塑形与布面投影。
+    private func setupLegFillLighting() {
+        func addRakingFill(from position: SCNVector3, intensity: CGFloat) {
+            let node = SCNNode()
+            let light = SCNLight()
+            light.type = .directional
+            light.intensity = intensity
+            light.temperature = 6200
+            light.castsShadow = false
+            node.light = light
+            node.position = position
+            // 瞄向桌身下半部中心（低于台面），光沿近水平方向掠过立面。
+            node.look(at: SCNVector3(0, surfaceY * 0.45, 0),
+                      up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+            rootNode.addChildNode(node)
+            enhancedLightNodes.append(node)
+        }
+
+        // 前方（+X，导出相机端）主 fill：照亮相机看得见的立面 + 近端腿。
+        addRakingFill(from: SCNVector3(3.0, surfaceY * 0.55, 0.0), intensity: 550)
+        // 两侧（±Z）辅 fill：补齐侧面裙板与侧腿，避免只有一面亮。
+        addRakingFill(from: SCNVector3(1.2, surfaceY * 0.55, 2.4), intensity: 300)
+        addRakingFill(from: SCNVector3(1.2, surfaceY * 0.55, -2.4), intensity: 300)
     }
 
     // MARK: - Ground (enhanced only)
@@ -520,8 +572,9 @@ final class AngleTrainingScene: SCNScene {
         let visualPlane = SCNPlane(width: planeSize, height: planeSize)
         let visualMat = SCNMaterial()
         visualMat.lightingModel = .constant
-        // 略亮中性深灰（约纯黑 + 6~8%），读作"暗房地板"，又不抢台面注意力。
-        visualMat.diffuse.contents = UIColor(red: 0.066, green: 0.072, blue: 0.082, alpha: 1.0)
+        // 略亮中性深灰（约纯黑 + 12%），读作"暗房地板"：给桌腿一个可辨识的落地
+        // 背衬（FL-023 腿部可见性方案的一半，另一半是 `setupLegFillLighting`）。
+        visualMat.diffuse.contents = UIColor(red: 0.12, green: 0.128, blue: 0.14, alpha: 1.0)
         visualMat.writesToDepthBuffer = true
         visualMat.readsFromDepthBuffer = true
         visualMat.isDoubleSided = false
@@ -1053,7 +1106,7 @@ final class AngleTrainingScene: SCNScene {
     /// 不再尝试从 USDZ 网格反推袋口洞中心——纯几何参数更稳定也更可预期。
     /// 圆盘禁用深度测试 + 高 renderingOrder，永远画在桌面/皮革之上，不会被遮挡。
     func addPocketMarkers() -> [SCNNode] {
-        let positions = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
+        let positions = AngleSceneCalculator.pocketMarkerPositions(surfaceY: surfaceY)
 
         var markers: [SCNNode] = []
         markers.reserveCapacity(positions.count)

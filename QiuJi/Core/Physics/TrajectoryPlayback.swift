@@ -65,7 +65,7 @@ final class TrajectoryPlayback {
 
     /// 求进袋入洞段（显示层，与物理引擎解耦）。
     ///
-    /// 引擎在落袋孔捕获圈（0.070/0.075m，视觉袋口圆 0.042/0.043m 之外）捕获球并停止记录，
+    /// 引擎在球心抵达落袋孔圈（0.042/0.043m，ADR-P10-09）时捕获球并停止记录，
     /// 「捕获点 → 洞内」这段需要显示层补：球以**进袋时的真实水平速度匀速**冲入洞内
     /// （绝不提前减速）；若速度射线穿过袋口圆，则先在**远端袋弧**处撞壁，再短促回落到袋心；
     /// 射线不穿圆（慢速 settle / 方向缺失）则直接匀速滑到袋心。
@@ -151,8 +151,8 @@ final class TrajectoryPlayback {
         legs.reduce(0) { $0 + $1.duration }
     }
 
-    /// 最近袋口（中心 + 视觉袋口圆半径）。pocketed 帧并非总在袋心
-    /// （CCD 深入/jaw-settle 路径不吸心），入洞目标必须按最近袋口查找。
+    /// 最近袋口（CAD 孔心 + 孔半径）。入洞动画起点取进袋前一帧真实位置，
+    /// 目标按最近袋口查找。
     static func nearestPocket(to p: SCNVector3, surfaceY: Float) -> (center: SCNVector3, radius: Float) {
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
         var bestIndex = 0

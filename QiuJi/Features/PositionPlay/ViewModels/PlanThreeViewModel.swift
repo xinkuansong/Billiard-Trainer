@@ -879,7 +879,6 @@ extension PlanThreeViewModel {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
         let settle = playback.perceptibleSettleTime()
-        ShotAudioScheduler.shared.play(prediction: sol.prediction)
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
@@ -897,6 +896,8 @@ extension PlanThreeViewModel {
                     self?.finishStrike(sol: sol)
                 }
             }
+            // 音效在全部球体动画挂载后起播：避免音频引擎冷启动阻塞主线程时，跟杆先于球推进。
+            ShotAudioScheduler.shared.play(prediction: sol.prediction)
         } else {
             finishStrike(sol: sol)
         }
