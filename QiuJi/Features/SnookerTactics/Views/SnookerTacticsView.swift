@@ -26,6 +26,10 @@ struct SnookerTacticsView: View {
     @State private var paletteFrame: CGRect = .zero
     @State private var banner: String?
 
+    // 「试打」（T-P18-08）：带当前球局快照进自由击球（编排台自由模式）。
+    @State private var goFreePlay = false
+    @State private var freePlayBoard: BoardSnapshot?
+
     private static let paletteColumns = 8
 
     var body: some View {
@@ -53,6 +57,9 @@ struct SnookerTacticsView: View {
         .toolbar {
             ToolbarItem(placement: .principal) { navStatus }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
+        }
+        .navigationDestination(isPresented: $goFreePlay) {
+            PositionPlayComposerView(initialBoard: freePlayBoard, initialMode: .free)
         }
         .onAppear {
             if !hasAppeared {
@@ -165,26 +172,21 @@ struct SnookerTacticsView: View {
         .environment(\.colorScheme, .dark)
     }
 
+    /// 当前解的只读指示行（统一 `ShotControlBar`，T-P18-10）+「试打」入口（T-P18-08）。
     private var solutionRow: some View {
-        HStack(spacing: Spacing.sm) {
-            BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 34)
-                .opacity(vm.hasSolutions ? 1 : 0.35)
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text(vm.hasSolutions
-                     ? "\(PowerDisplay.name(vm.velocity)) \(String(format: "%.1f", vm.velocity)) m/s"
-                     : "尚无解")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-                if let sol = vm.currentSolution {
-                    Text(solutionSubtitle(sol))
-                        .font(.system(size: 10, weight: .medium, design: .rounded))
-                        .foregroundStyle(sol.satisfiesConstraint ? .white.opacity(0.7) : Color.btDestructive)
-                        .lineLimit(1)
-                }
+        ShotControlBar(
+            spinX: vm.spinX, spinY: vm.spinY,
+            power: .readOnly(
+                velocity: vm.hasSolutions ? vm.velocity : nil,
+                subtitle: vm.currentSolution.map(solutionSubtitle),
+                subtitleTint: (vm.currentSolution?.satisfiesConstraint ?? true)
+                    ? nil : Color.btDestructive
+            )
+        ) {
+            ShotTryFreePlayButton(isEnabled: !vm.isPlaying && !vm.onTableKeys.isEmpty) {
+                freePlayBoard = vm.currentSnapshot()
+                goFreePlay = true
             }
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 5)

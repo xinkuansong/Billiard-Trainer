@@ -1,20 +1,6 @@
 import SwiftUI
 import SwiftData
 
-/// Standalone angle-training aggregate stats page — used as a ScrollView
-/// wrapper. Most callers should prefer embedding `AngleHistorySection`
-/// directly to avoid nested scroll views (e.g. inside `StatisticsView`).
-struct AngleHistoryView: View {
-    var body: some View {
-        ScrollView {
-            AngleHistorySection()
-                .padding(Spacing.lg)
-                .padding(.bottom, Spacing.xxxxl)
-        }
-        .background(.btBG)
-    }
-}
-
 /// Embeddable content block (no outer ScrollView) that renders the
 /// aggregate angle-training statistics: quiz-type filter + 2×2 stat grid
 /// + time-range segmented tab + trend chart + range analysis.
@@ -344,12 +330,18 @@ private struct TrendLineChart: View {
 // MARK: - Preview
 
 #Preview("Light") {
-    NavigationStack { AngleHistoryView() }
-        .modelContainer(ModelContainerFactory.makeInMemoryContainer())
+    NavigationStack {
+        ScrollView { AngleHistorySection().padding(Spacing.lg) }
+            .background(.btBG)
+    }
+    .modelContainer(ModelContainerFactory.makeInMemoryContainer())
 }
 
 #Preview("Dark") {
-    NavigationStack { AngleHistoryView() }
-        .modelContainer(ModelContainerFactory.makeInMemoryContainer())
-        .preferredColorScheme(.dark)
+    NavigationStack {
+        ScrollView { AngleHistorySection().padding(Spacing.lg) }
+            .background(.btBG)
+    }
+    .modelContainer(ModelContainerFactory.makeInMemoryContainer())
+    .preferredColorScheme(.dark)
 }

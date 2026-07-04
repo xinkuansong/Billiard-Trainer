@@ -186,46 +186,8 @@ struct AngleDynamicView: View {
     }
 }
 
-// MARK: - Thickness Overlap Icon
-
-/// 用两个等大圆形错位重叠表示"厚度"：
-/// 在击球瞬间，沿瞄准方向看，目标球与白球的中心横向偏移量为 `2R · sin(α)`。
-/// 把它直接映射到画布即可：α 越小重叠越多 ("厚")，α 越大错位越多 ("薄")。
-private struct ThicknessOverlapIcon: View {
-    /// 切球角，单位：度。
-    let cutAngle: Double
-
-    var body: some View {
-        Canvas { ctx, size in
-            // 单球半径选择：让最大错位（α=90°，offset=2R）时两球刚好首尾相接、不出画布。
-            // 因此 r = size.width / 4。再做一次 0.96 收缩留 1px 描边的余量。
-            let r = (size.width / 4) * 0.96
-            let centerY = size.height / 2
-
-            let alphaRad = max(0, min(90, cutAngle)) * .pi / 180
-            let offset = CGFloat(2 * r * sin(alphaRad))  // 球心横向偏移量
-
-            // 让两个球关于画布中心对称错开：目标球居左、白球居右。
-            let targetCenter = CGPoint(x: size.width / 2 - offset / 2, y: centerY)
-            let cueCenter    = CGPoint(x: size.width / 2 + offset / 2, y: centerY)
-
-            // 目标球（暖色）：实心 + 描边
-            let targetRect = CGRect(x: targetCenter.x - r, y: targetCenter.y - r,
-                                    width: r * 2, height: r * 2)
-            ctx.fill(Path(ellipseIn: targetRect),
-                     with: .color(Color(red: 0.96, green: 0.65, blue: 0.14)))
-            ctx.stroke(Path(ellipseIn: targetRect),
-                       with: .color(.white.opacity(0.5)), lineWidth: 0.5)
-
-            // 白球：实心白 + 微弱描边，覆盖在目标球之上以呈现"被遮挡"的厚度
-            let cueRect = CGRect(x: cueCenter.x - r, y: cueCenter.y - r,
-                                 width: r * 2, height: r * 2)
-            ctx.fill(Path(ellipseIn: cueRect), with: .color(.white))
-            ctx.stroke(Path(ellipseIn: cueRect),
-                       with: .color(.white.opacity(0.6)), lineWidth: 0.5)
-        }
-    }
-}
+// 注：厚度重叠图示 `ThicknessOverlapIcon` 已下沉至 `Core/Components/BTAimWheel.swift`（P18 B2 T-P18-05），
+// 本文件直接引用共享版。
 
 #Preview("Light") {
     NavigationStack { AngleDynamicView() }

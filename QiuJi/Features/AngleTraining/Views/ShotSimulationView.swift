@@ -43,19 +43,34 @@ struct ShotSimulationView: View {
     // MARK: - Scene
 
     private var sceneLayer: some View {
-        AngleSceneView(
-            scene: vm.scene,
-            cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
-            onPocketTapped: { vm.selectPocket(at: $0) },
-            draggableBallNodes: vm.draggableBalls,
-            onDragBegan: { vm.dragBegan(node: $0) },
-            onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
-            onDragEnded: { vm.dragEnded(node: $0) }
-        )
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .clipped()
+        ZStack(alignment: .trailing) {
+            AngleSceneView(
+                scene: vm.scene,
+                cameraMode: $vm.cameraMode,
+                interactionMode: .tapsOnly,
+                autoFitsRotatedTable: true,
+                onPocketTapped: { vm.selectPocket(at: $0) },
+                draggableBallNodes: vm.draggableBalls,
+                onDragBegan: { vm.dragBegan(node: $0) },
+                onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
+                onDragEnded: { vm.dragEnded(node: $0) },
+                onAimHandleDragged: { vm.handleAimHandleDrag(world: $0) }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .clipped()
+
+            // 手动模式角度齿轮（T-P18-09）：与编排台自由模式同一交互
+            // （拖桌面手柄粗调 + 齿轮细调）。
+            if vm.aimMode == .manual {
+                BTAimWheel(
+                    bearing: Double(vm.freeAimBearingDeg ?? 0),
+                    onNudge: { vm.nudgeFreeAim(byDegrees: $0) }
+                )
+                .frame(width: 46, height: 220)
+                .padding(.trailing, 8)
+                .allowsHitTesting(!vm.isPlaying)
+            }
+        }
     }
 
     // MARK: - Top result card
@@ -63,7 +78,19 @@ struct ShotSimulationView: View {
     /// 顶部指标胶囊（统一设计语言，ADR-P11-07/08）：与「角度与打点 / 2D / 反射 / 翻袋」
     /// 同款单行 capsule，统一左对齐 —— 瞄准夹角 + 状态 + 计算中指示。
     private var topCard: some View {
-        HStack {
+        HStack(spacing: Spacing.sm) {
+            // 瞄准模式（T-P18-09）：自动 = 引擎闭环求瞄；手动 = 用户定方向、如实模拟 + 虚线对照。
+            BTChipRow(
+                options: ["自动", "手动"],
+                selection: Binding(
+                    get: { vm.aimMode == .auto ? 0 : 1 },
+                    set: { vm.aimMode = $0 == 0 ? .auto : .manual }
+                ),
+                scrollable: false
+            )
+            .disabled(vm.isPlaying)
+            .environment(\.colorScheme, .dark)
+
             topCapsule
             Spacer()
         }
@@ -124,24 +151,12 @@ struct ShotSimulationView: View {
     // MARK: - Bottom bar（与走位编排台同语言：控制行 + 右侧操作钮，ADR-P11-09）
 
     private var bottomBar: some View {
-        HStack(spacing: Spacing.sm) {
-            Button { showSpinPad = true } label: {
-                BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 34)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("打点")
-            .disabled(vm.isPlaying)
-
-            Slider(value: $vm.velocity, in: 0.5...6.0, step: 0.1)
-                .tint(Color.btPrimary)
-                .disabled(vm.isPlaying)
-
-            Text("\(PowerDisplay.name(vm.velocity)) \(String(format: "%.1f", vm.velocity))")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .monospacedDigit()
-                .frame(width: 58, alignment: .trailing)
-
+        ShotControlBar(
+            spinX: vm.spinX, spinY: vm.spinY,
+            onSpinTap: { showSpinPad = true },
+            power: .editable($vm.velocity, range: 0.5...6.0, step: 0.1),
+            isDisabled: vm.isPlaying
+        ) {
             Button { vm.reset() } label: {
                 Image(systemName: "arrow.counterclockwise")
                     .font(.system(size: 15, weight: .semibold))

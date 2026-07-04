@@ -671,6 +671,23 @@
 - **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog + `Resources/Drills/schema.md` + `.cursor/skills/content-engineering/SKILL.md`（应用课模板 SOP）。
 - **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-06-13，DR-019）；✅ `Resources/Drills/schema.md` TutorialSection 字段表（2026-06-13）；✅ `.cursor/skills/content-engineering/SKILL.md` §「图文精讲应用课模板」（2026-06-13，含序列→drill 接入清单 + 媒体落位表 + 红线）。
 
+## DR-020
+- **任务**：「角度」Tab 改名「练习」+ 首页布局改为动作库同款（用户驱动：「将角度的页面布局修改为类似于动作库的那种布局和样式吧，而且感觉现在叫角度有点不合适了」；名字用户拍板「练习」）。
+- **原始规范**：Tab 名「角度」（icon `angle`）；`AngleHomeView` 为 ADR-P18-01 的「大标题 + `BTSegmentedTab` 四分段（学/练/打/解）+ 双列海报卡（`AnglePosterCard`：渐变全幅 + 大字水印 + 底部白字标题）」，一次只见一个分段。
+- **调整后**：
+  1. **Tab 改名**：`AppTab.angle` title「角度」→「练习」，icon `angle`→`scope`（瞄准准星，贴合练习定位）；枚举 case / 路由 / 代码标识符不动（英文标识符纪律，改名只动用户可见字符串）。
+  2. **布局对齐动作库 `DrillListView`**：左侧 76pt 图标分类侧栏（全部 + 学/练/打/解，选中=btPrimary + 左侧 3pt 竖条 + btBG 底）+ 右侧双列分组网格（`LazyVStack` pinned section headers，分组头=filled 图标 + 单字分类名 + 灰字说明）；默认「全部」纵览四分组。四分类 IA（ADR-P18-01）不变，仅呈现方式变。
+  3. **卡片对齐 `BTDrillGridCard` 上图下文式**：新 `AngleGridCard`——封面区 4:3 保留渐变 + 大字水印 + 右上 chip；底部 btBGSecondary 白底区放标题（btHeadline）/ 副标题（btCaption，`minimumScaleFactor 0.65` 防截断）；Dark 0.5pt 描边、Light 阴影，与动作库网格卡同规格。
+  4. **AX 兼容**：侧栏项沿用 `angleHomeTab_<label>` 标识 ⇒ `P5_AngleTrainingUITests` / `ScreenshotTourUITests` 分段选择器零改动；仅同步 Tab 名相关三处（`XCUIApplication.Tab.angle`、P2 tab 巡检列表、P5 标题断言）。
+  5. **搜索框（同日追加，用户驱动「加个搜索框吧」）**：大标题下增动作库同款搜索框（占位「搜索练习」，btBGTertiary 圆角 + 放大镜 + 非空时 xmark 清除）；搜索按标题/副标题大小写不敏感匹配，跨分组过滤且只保留有命中的分组（分组头保留以标示归属）；无命中显示 `BTEmptyState`（「没有找到相关练习」+「浏览全部练习」清空动作）。新增 UI 测试 `testSearchFiltersEntries` / `testSearchEmptyState`。
+- **原因**：页面早已不止「角度」（物理沙盘/反解工具/球理知识），命名失准；分段 Tab 一次只见一段，侧栏+分组网格可纵览全部入口且与动作库形成一致的「浏览型页面」语言。
+- **影响组件**：`QiuJi/App/AppRouter.swift`（title/icon）、`QiuJi/Features/AngleTraining/Views/AngleHomeView.swift`（重写：`PracticeSection` 枚举 + 侧栏 + 分组网格 + `AngleGridCard`，删 `BTSegmentedTab` 用法与 `AnglePosterCard`）、`QiuJiUITests/{Helpers/XCUIApplication+Extensions,P2_DataLayerUITests,P5_AngleTrainingUITests}.swift`。
+- **验证**：`make build` ✅；`P5_AngleTrainingUITests` 8/8 + `ScreenshotTourUITests/testUnifiedDesignPages` 全绿（9 tests, 0 failures）；UI 美观性验收：明/暗 × 全部/学/练/打/解 截图逐张核验（发现暗色副标题「随开随练」截断 → minimumScaleFactor 0.8→0.65 修复后复跑复验通过）。搜索框追加后：build ✅ + 新增 2 条搜索 UI 测试全绿（2 tests, 0 failures），空闲/命中/空态三张截图核验通过。
+- **遗留**：截图导览产物名仍带 `angle-home` 前缀（内部命名，不影响用户）；「记录」日历标记 `"角度"`（指角度测验会话，语义仍准确）未随 Tab 改名。
+- **日期**：2026-07-03
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-07-03，DR-020）。
+
 ## PD-025
 - **任务**：P10 真实袋口重建（ADR-P10-09）——CAD 单一真源 + 「球心入孔圈即落袋」纯几何判据。
 - **模式描述**：**「收紧宽容判据前先审计它掩盖了什么；CCD 数值护栏必须与子步策略匹配」**。可复用纪律：

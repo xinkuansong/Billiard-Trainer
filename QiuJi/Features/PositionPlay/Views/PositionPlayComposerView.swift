@@ -13,9 +13,13 @@ import SceneKit
 struct PositionPlayComposerView: View {
     /// 可选初始球形（如「拍照建球形」产出的快照）。nil = 默认开箱球形。
     let initialBoard: BoardSnapshot?
+    /// 可选初始瞄准模式（ADR-P18-01「自由击球」入口传 `.free`）。nil = 默认（进袋）。
+    let initialMode: PositionPlayViewModel.AimMode?
 
-    init(initialBoard: BoardSnapshot? = nil) {
+    init(initialBoard: BoardSnapshot? = nil,
+         initialMode: PositionPlayViewModel.AimMode? = nil) {
         self.initialBoard = initialBoard
+        self.initialMode = initialMode
     }
 
     @StateObject private var vm = PositionPlayViewModel()
@@ -51,6 +55,18 @@ struct PositionPlayComposerView: View {
                 topInfoRow
                 ZStack(alignment: .bottom) {
                     sceneContainer
+                    // 自由模式角度齿轮（P18 B2 T-P18-07）：贴球桌右缘微调瞄准方向，
+                    // 与批量出片台同一交互（拖桌面手柄粗调 + 齿轮细调）。
+                    if vm.aimMode == .free {
+                        BTAimWheel(
+                            bearing: Double(vm.freeAimBearingDeg ?? 0),
+                            onNudge: { vm.nudgeFreeAim(byDegrees: $0) }
+                        )
+                        .frame(width: 46, height: 220)
+                        .padding(.trailing, 8)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                        .allowsHitTesting(!vm.isPlaying)
+                    }
                     // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（系统 sheet 底下是
                     // 纯黑+压暗层会显得过深，ADR-P11-09）。
                     if showSpinPad {
@@ -113,6 +129,7 @@ struct PositionPlayComposerView: View {
                 hasAppeared = true
                 vm.setupScene()
                 if let initialBoard { vm.loadBoard(initialBoard) }
+                if let initialMode { vm.aimMode = initialMode }
             }
         }
     }
@@ -140,6 +157,7 @@ struct PositionPlayComposerView: View {
             selectableBallNodes: vm.selectableBalls,
             onBallTapped: { vm.selectTarget(node: $0) },
             onTableTapped: { vm.handleTableTap(world: $0) },
+            onAimHandleDragged: { vm.handleAimHandleDrag(world: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -202,12 +220,36 @@ struct PositionPlayComposerView: View {
     private var aimCapsule: some View {
         HStack(spacing: 4) {
             if vm.aimMode == .free {
-                Image(systemName: "scope")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.75))
-                Text("自由球")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.92))
+                // 首碰读数（T-P18-06/08）：厚度重叠图示 + 切角 + 厚度名 + 首碰球号；
+                // 空杆（射线不碰任何球）退回「自由球」标识。
+                if let contact = vm.freeAimContact {
+                    ThicknessOverlapIcon(cutAngle: contact.cutAngleDeg,
+                                         size: CGSize(width: 22, height: 12))
+                    Text("\(Int(contact.cutAngleDeg.rounded()))°")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(.white)
+                        .monospacedDigit()
+                    let name = AngleSceneCalculator.thicknessName(cutAngle: contact.cutAngleDeg)
+                    if name != "—" {
+                        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                        Text(name)
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(1)
+                    }
+                    Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                    Text("碰 \(PositionPlayBall.shortLabel(for: contact.targetKey))")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .lineLimit(1)
+                } else {
+                    Image(systemName: "scope")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.75))
+                    Text("自由球")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.92))
+                }
             } else {
                 Text(vm.cutAngleDeg.map { "\(Int($0.rounded()))°" } ?? "—°")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
@@ -275,24 +317,12 @@ struct PositionPlayComposerView: View {
     // MARK: - Control row (#4: 打点图标 + 力度滑条，置于球桌与球库之间)
 
     private var controlRow: some View {
-        HStack(spacing: Spacing.sm) {
-            Button { showSpinPad = true } label: {
-                BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 34)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("打点")
-            .disabled(vm.isPlaying)
-
-            Slider(value: $vm.velocity, in: 0.5...6.0, step: 0.1)
-                .tint(Color.btPrimary)
-                .disabled(vm.isPlaying)
-
-            Text("\(PowerDisplay.name(vm.velocity)) \(String(format: "%.1f", vm.velocity))")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .monospacedDigit()
-                .frame(width: 58, alignment: .trailing)
-        }
+        ShotControlBar(
+            spinX: vm.spinX, spinY: vm.spinY,
+            onSpinTap: { showSpinPad = true },
+            power: .editable($vm.velocity, range: 0.5...6.0, step: 0.1),
+            isDisabled: vm.isPlaying
+        ) {}
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 4)
     }

@@ -446,6 +446,52 @@ final class TableGeometryProbeTests: XCTestCase {
         print("===END-PROBE-ESOLVER===\n")
     }
 
+    // MARK: - D. 贴库球管道余量豁免（railFrozenSlack 回归，金标准样例「贴库线不扎库」）
+
+    /// 目标球贴库/准贴库时，`effectivePocketAimPoint` 的余量应放宽为「球心距库 − 0.5mm」：
+    /// 进球线必须存在且**不穿过所贴的库边**（沿库滚进袋是零余量合法物理）；
+    /// 远离库的球仍用标准 3mm 余量，行为不变（正对袋心干净可过 ⇒ 进球点 = 袋心）。
+    func test_probe_D_railFrozenAimClearance() {
+        let sY = BTTablePhysics.surfaceY
+        let r = AngleSceneCalculator.ballRadius
+        let pockets = AngleSceneCalculator.pocketPositions(surfaceY: sY)
+        // 下长库击球面 z = +0.635，右下角袋 index 3。
+        let railZ: Float = 0.635
+
+        /// target→aim 线段与所贴库边内沿（z = railZ, x ∈ [0.073, 1.1671]）是否相交（扎库）。
+        func crossesRail(target: SCNVector3, aim: SCNVector3) -> Bool {
+            let dz = aim.z - target.z
+            guard abs(dz) > 1e-7 else { return false }
+            let t = (railZ - target.z) / dz
+            guard t > 0, t < 1 else { return false }
+            let x = target.x + t * (aim.x - target.x)
+            return x > 0.073 && x < 1.1671
+        }
+
+        for (label, gap) in [("紧贴库", Float(0)), ("距库1.5mm", Float(0.0015))] {
+            let target = SCNVector3(0.5, sY + r, railZ - r - gap)
+            let aim = AngleSceneCalculator.effectivePocketAimPoint(
+                targetBall: target, pocketIndex: 3, surfaceY: sY
+            )
+            let dPocket = hypotf(aim.x - pockets[3].x, aim.z - pockets[3].z)
+            print(String(format: "PROBE-D %@: aim=(%.4f, %.4f) 距袋心=%.1fmm 扎库=%@",
+                         label, aim.x, aim.z, dPocket * 1000,
+                         crossesRail(target: target, aim: aim) ? "Y" : "N"))
+            XCTAssertFalse(crossesRail(target: target, aim: aim),
+                           "\(label)：进球线不得穿过所贴库边（应沿库滑入袋口）")
+            // 进球点应落在袋口区域（喉口半幅 ~42mm + 孔半径），而非螺旋搜索被推远。
+            XCTAssertLessThan(dPocket, 0.09, "\(label)：进球点被余量判定推离袋口过远")
+        }
+
+        // 控制组：远离库 + 正对下中袋（index 5）的干净直线球，标准余量行为不变 ⇒ 进球点 = 袋心。
+        let free = SCNVector3(0.0, sY + r, 0.3)
+        let aimFree = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: free, pocketIndex: 5, surfaceY: sY
+        )
+        XCTAssertLessThan(hypotf(aimFree.x - pockets[5].x, aimFree.z - pockets[5].z), 1e-4,
+                          "远离库的球不应受贴库豁免影响")
+    }
+
     private func report(_ label: String, cue: SCNVector3, target: SCNVector3, pocketIndex: Int,
                         velocity: Float, spinX: Float, spinY: Float) {
         let input = ShotInput(cueBall: cue, targetBall: target, pocketIndex: pocketIndex,

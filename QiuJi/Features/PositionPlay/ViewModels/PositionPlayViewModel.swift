@@ -59,6 +59,14 @@ final class PositionPlayViewModel: ObservableObject {
     /// 自由模式瞄准方向（场景 XZ 单位向量）。
     @Published private(set) var freeAimDir: SCNVector3?
 
+    /// 自由模式首碰预览（P18 B2 T-P18-06/08，纯几何、主线程逐帧）：
+    /// 沿瞄准射线的第一颗被碰球 + 假想球 + 切球角。
+    /// nil = 当前方向打不到任何球（空杆 / 直奔库边）。
+    @Published private(set) var freeAimContact: AngleSceneCalculator.FreeAimContact?
+
+    /// 瞄准手柄离母球的期望距离（米）。拖动手柄时跟随手指径向距离，便于精细/粗调切换。
+    private var freeAimHandleDist: Float = 0.38
+
     // MARK: - Published shot params
 
     /// 连续杆头速度 (m/s)。
@@ -131,6 +139,7 @@ final class PositionPlayViewModel: ObservableObject {
     func setupScene() {
         scene.setupScene()
         scene.setupVisualizationNodes()
+        scene.setupAimHandle()
         pocketMarkers = scene.addPocketMarkers()
         scene.hideAllBalls()
         scene.hideCueStick()
@@ -160,6 +169,74 @@ final class PositionPlayViewModel: ObservableObject {
         lastShotWasRecorded = false
         canReplay = false
         applyBoard(snapshot)
+    }
+
+    /// 载入一条已存序列并进入「续接编辑」态（存档 + 在原有基础上修改）。
+    ///
+    /// **不信任存档里的 `after`/`potted`**（物理引擎可能已变）：只取 `initial` 开局与每一杆的
+    /// 作者意图 `shot`，用**当前引擎**逐杆无动画重放，重建 `after`；一旦某杆在新引擎下不可行
+    /// 即停在该杆之前，把桌面留给作者从这里修。重放完开启录制续接，末杆可「重打」删除重编。
+    /// - Returns: (成功重放杆数, 存档总杆数)；`replayed < total` 表示第 `replayed+1` 杆已崩、需人工修。
+    @discardableResult
+    func loadSequenceForEditing(_ archived: PositionPlaySequence) -> (replayed: Int, total: Int) {
+        guard !isPlaying else { return (0, archived.steps.count) }
+        invalidatePendingPredict()
+        isRecording = false
+        lastShot = nil
+        lastShotWasRecorded = false
+        canReplay = false
+
+        var rebuilt = PositionPlaySequence(
+            id: archived.id, name: archived.name,
+            initial: archived.initial, steps: [],
+            createdAt: archived.createdAt, updatedAt: Date()
+        )
+        // 每杆以**存档里该杆自己的 `before`** 为输入（作者确认过的局面，含击打间的手动摆球
+        // 调整），只用当前引擎重建 `after`/`potted`。不能从 initial 链式推进：那会把作者在
+        // 杆与杆之间挪过球的修正全部丢掉（重放结果 ≠ 存档，保存后再进看似「没更新」）。
+        var landing = archived.initial          // 重放结束后呈现给作者的桌面
+        var brokenShot: PlannedShot?            // 新物理下不可行的那杆（停在其击打前）
+        for step in archived.steps {
+            let before = step.before
+            guard let pred = PositionPlayShotSolver.solve(before: before, shot: step.shot, surfaceY: surfaceY),
+                  pred.feasible else {
+                landing = before
+                brokenShot = step.shot
+                break
+            }
+            let potted = Set(pred.pocketedBalls.map { boardKey(forPredName: $0, shot: step.shot) })
+            var afterDict: [String: CanvasPoint] = [:]
+            for key in before.onTable.keys where !potted.contains(key) {
+                let predN = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+                if let p = pred.finalPositions[predN] {
+                    let n = AngleSceneCalculator.sceneToNormalized(position: p)
+                    afterDict[key] = CanvasPoint(x: Double(n.x), y: Double(n.y))
+                } else {
+                    afterDict[key] = before.onTable[key]
+                }
+            }
+            let after = BoardSnapshot(onTable: afterDict)
+            rebuilt.steps.append(SequenceStep(
+                before: before, shot: step.shot, after: after,
+                potted: Array(potted),
+                cuePocketed: pred.cuePocketed, objectPocketed: pred.objectPocketed,
+                note: step.note
+            ))
+            landing = after
+        }
+
+        sequence = rebuilt
+        isRecording = true
+        // 末杆可「重打」：删掉重放出的最后一杆并退回其击打前，供作者重编（与真实击球后一致）。
+        if let last = rebuilt.steps.last {
+            lastShot = (last.before, last.shot)
+            lastShotWasRecorded = true
+            canReplay = true
+        }
+        // 停在崩掉那杆的击打前时，恢复该杆原击打参数，作者以原意图为起点修。
+        if let shot = brokenShot { restoreShotParams(shot) }
+        applyBoard(landing)
+        return (rebuilt.steps.count, archived.steps.count)
     }
 
     // MARK: - Board queries
@@ -381,28 +458,73 @@ final class PositionPlayViewModel: ObservableObject {
         return SCNVector3(1, 0, 0)
     }
 
-    /// 自由瞄准方向的屏幕罗盘角（topDown2DRotated 取景：screen-up = world +X、
-    /// screen-right = world +Z；0° = 屏幕正上方，顺时针为正）。nil = 非自由模式 / 方向未定。
+    /// 自由瞄准方向的屏幕罗盘角（坐标契约见 `AngleSceneCalculator.bearingDeg`）。
+    /// nil = 非自由模式 / 方向未定。
     var freeAimBearingDeg: Float? {
         guard aimMode == .free, let d = freeAimDir else { return nil }
-        var deg = atan2f(d.z, d.x) * 180 / .pi
-        if deg < 0 { deg += 360 }
-        return deg
+        return AngleSceneCalculator.bearingDeg(of: d)
     }
 
     /// 自由模式微调瞄准角：`delta > 0` = 屏幕上顺时针（向右）旋转，与右侧角度齿轮「往上拖」一致。
-    /// 坐标契约：`freeAimDir` 为场景 XZ 单位向量，bearing = atan2(z, x)；
-    /// CW（bearing 增）的旋转为 newX = x·cosΔ − z·sinΔ，newZ = x·sinΔ + z·cosΔ。
     func nudgeFreeAim(byDegrees delta: Float) {
         guard aimMode == .free, !isPlaying, abs(delta) > 1e-4 else { return }
         let base = freeAimDir ?? defaultFreeAim() ?? SCNVector3(1, 0, 0)
-        let r = delta * .pi / 180
-        let nx = base.x * cosf(r) - base.z * sinf(r)
-        let nz = base.x * sinf(r) + base.z * cosf(r)
-        let len = sqrtf(nx * nx + nz * nz)
-        guard len > 1e-5 else { return }
-        freeAimDir = SCNVector3(nx / len, 0, nz / len)
+        freeAimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
         recompute()
+    }
+
+    /// 场景瞄准手柄拖动（T-P18-06）：手指落点 → 新瞄准方向（母球 → 落点），
+    /// 并记住手指径向距离让手柄跟手（离球远 = 粗调，离球近 = 细调）。
+    func handleAimHandleDrag(world: SCNVector3) {
+        guard aimMode == .free, !isPlaying,
+              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return }
+        let dist = AngleSceneCalculator.horizontalDistance(cue.position, world)
+        if dist > 0.02 {
+            freeAimHandleDist = max(0.15, min(1.2, dist))
+        }
+        setFreeAim(toward: world)
+    }
+
+    // MARK: - Free-aim overlay (T-P18-06/08：手柄 + 假想球 + 切角，纯几何逐帧)
+
+    /// 刷新自由瞄准覆盖层：首碰预览（假想球贴目标球滑动）+ 手柄位置。
+    /// 非自由模式 / 播放中 / 缺母球或方向时全部隐藏。轨迹线仍由后台 `simulateFree` 异步补齐。
+    private func refreshFreeAimOverlay() {
+        let r = AngleSceneCalculator.ballRadius
+        guard aimMode == .free, !isPlaying,
+              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
+              let dir = freeAimDir else {
+            freeAimContact = nil
+            scene.updateAimHandle(position: nil)
+            if aimMode == .free { scene.ghostBallNode?.isHidden = true }
+            return
+        }
+
+        let balls: [(key: String, pos: SCNVector3)] = onTableKeys.compactMap { key in
+            guard !PositionPlayBall.isCue(key),
+                  let node = scene.allBallNodes[key], !node.isHidden else { return nil }
+            return (key, node.position)
+        }
+        freeAimContact = AngleSceneCalculator.freeAimFirstContact(cue: cue.position, dir: dir, balls: balls)
+
+        if let contact = freeAimContact, let ghost = scene.ghostBallNode {
+            ghost.position = SCNVector3(contact.ghost.x, surfaceY + r, contact.ghost.z)
+            ghost.isHidden = false
+        } else {
+            scene.ghostBallNode?.isHidden = true
+        }
+
+        // 手柄：瞄准射线上、库边以内；有首碰时收在假想球之前，避免视觉重叠。
+        var handleT = freeAimHandleDist
+        if let contact = freeAimContact {
+            let toGhost = AngleSceneCalculator.horizontalDistance(cue.position, contact.ghost)
+            handleT = min(handleT, max(0.12, toGhost - 0.10))
+        }
+        handleT = min(handleT, AngleSceneCalculator.rayDistanceToCushion(from: cue.position, dir: dir))
+        let pos = SCNVector3(cue.position.x + dir.x * handleT,
+                             surfaceY + 0.008,
+                             cue.position.z + dir.z * handleT)
+        scene.updateAimHandle(position: pos)
     }
 
     /// 自动选目标（#6）：距母球最近的在桌目标球。
@@ -481,6 +603,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     func recompute() {
         guard !isPlaying else { return }
+        refreshFreeAimOverlay()
 
         guard let intent = currentShotIntent() else {
             clearTrajectory()
@@ -572,6 +695,8 @@ final class PositionPlayViewModel: ObservableObject {
         statusText = makeStatus(pred)
         drawTrajectory(pred)
         updateCueStickAiming(pred)
+        // 轨迹重绘会先 hideAllVisualization（连带假想球）；自由模式重新亮出首碰覆盖层。
+        if aimMode == .free { refreshFreeAimOverlay() }
     }
 
     private func makeStatus(_ p: ShotPrediction) -> String {
@@ -716,6 +841,7 @@ final class PositionPlayViewModel: ObservableObject {
         canReplay = false
         isPlaying = true
         scene.clearResultNodes(nodes: &selectionNodes)   // 播放时隐藏选中环
+        refreshFreeAimOverlay()                          // 播放时隐藏瞄准手柄/首碰预览
         statusText = "运杆…"
 
         let strikePos = strikePosition(cue: cueNode.position)
@@ -865,33 +991,29 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 重打（#1/#7）：把桌面退回上一杆「击打前」，并恢复该杆的全部击打参数
     /// （目标球/目标袋口/速度/打点/瞄准模式与方向）；录制中一并撤回刚录的那杆。
+    ///
+    /// **可连续点击逐杆回退**：录制中每次撤回序列末杆并退到其击打前；只要序列里还有杆，
+    /// `canReplay` 保持 true，可一路退回到第一杆击打前（= 开局球形）。
     func replayCurrent() {
-        guard !isPlaying, let last = lastShot else { return }
-        if lastShotWasRecorded, !sequence.steps.isEmpty {
+        guard !isPlaying else { return }
+        if isRecording, let last = sequence.steps.last {
             sequence.steps.removeLast()
             sequence.updatedAt = Date()
+            // 回退后「上一杆」变为序列新末杆（供再次重打 / 回上一杆球形）。
+            lastShot = sequence.steps.last.map { ($0.before, $0.shot) }
+            lastShotWasRecorded = lastShot != nil
+            canReplay = !sequence.steps.isEmpty
+            restoreShotParams(last.shot)
+            applyBoard(last.before)
+            updatePocketHighlights()
+            return
         }
+        // 未录制：单级回退（lastShot 一杆缓存）。
+        guard let last = lastShot else { return }
         lastShotWasRecorded = false
         lastShot = nil
         canReplay = false
-
-        // 先恢复击打参数（#1），再应用桌面快照；applyBoard 见目标球已选中且袋口有效，
-        // 不会触发自动重选，最终 recompute 用恢复后的完整状态求解。
-        velocity = last.shot.velocity
-        spinX = last.shot.spinX
-        spinY = last.shot.spinY
-        if last.shot.isFree {
-            aimMode = .free
-            if let canvasAim = last.shot.freeAim {
-                freeAimDir = PositionPlayShotSolver.sceneDirection(fromCanvas: canvasAim)
-            }
-        } else {
-            aimMode = .pocket
-            selectedTargetKey = last.shot.targetKey
-            if let idx = ShotIntent.pocketIndex(for: last.shot.pocket) {
-                selectedPocketIndex = idx
-            }
-        }
+        restoreShotParams(last.shot)
         applyBoard(last.before)
         updatePocketHighlights()
     }
@@ -901,23 +1023,30 @@ final class PositionPlayViewModel: ObservableObject {
     /// 退回后再次击球将**追加**新的一杆、与已录的并存（允许从同一局面分叉补打）。
     func restorePreviousBoard() {
         guard !isPlaying, let last = lastShot else { return }
-        velocity = last.shot.velocity
-        spinX = last.shot.spinX
-        spinY = last.shot.spinY
-        if last.shot.isFree {
+        restoreShotParams(last.shot)
+        applyBoard(last.before)
+        updatePocketHighlights()
+    }
+
+    /// 恢复一杆的全部击打参数（速度/打点/瞄准模式与方向或目标球+袋口）。
+    /// 先恢复参数再 `applyBoard`：applyBoard 见目标球已选中且袋口有效不会触发自动重选，
+    /// 最终 recompute 用恢复后的完整状态求解。
+    private func restoreShotParams(_ shot: PlannedShot) {
+        velocity = shot.velocity
+        spinX = shot.spinX
+        spinY = shot.spinY
+        if shot.isFree {
             aimMode = .free
-            if let canvasAim = last.shot.freeAim {
+            if let canvasAim = shot.freeAim {
                 freeAimDir = PositionPlayShotSolver.sceneDirection(fromCanvas: canvasAim)
             }
         } else {
             aimMode = .pocket
-            selectedTargetKey = last.shot.targetKey
-            if let idx = ShotIntent.pocketIndex(for: last.shot.pocket) {
+            selectedTargetKey = shot.targetKey
+            if let idx = ShotIntent.pocketIndex(for: shot.pocket) {
                 selectedPocketIndex = idx
             }
         }
-        applyBoard(last.before)
-        updatePocketHighlights()
     }
 
     /// 重置整条序列与桌面（回到默认球形）。录制中则丢弃录制。

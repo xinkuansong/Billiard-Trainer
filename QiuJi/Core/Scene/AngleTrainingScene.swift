@@ -1075,6 +1075,48 @@ final class AngleTrainingScene: SCNScene {
                 radius: AngleSceneCalculator.ballRadius * 1.75, color: color)
     }
 
+    // MARK: - Free-aim drag handle (P18 B2 T-P18-06)
+
+    /// 自由瞄准拖动手柄：瞄准射线上的小圆环节点，拖动改变瞄准方向。
+    /// `AngleSceneView` 对它做 44pt 屏幕命中判定（优先于拖球）。
+    private(set) var aimHandleNode: SCNNode?
+
+    /// 创建手柄节点（幂等）。默认隐藏，由 ViewModel 经 `updateAimHandle` 控制显隐与位置。
+    func setupAimHandle() {
+        guard aimHandleNode == nil else { return }
+        let color = UIColor(named: "btAccent") ?? .systemYellow
+        let mat = SCNMaterial()
+        mat.diffuse.contents = color
+        mat.emission.contents = color.withAlphaComponent(0.55)
+        mat.lightingModel = .constant
+
+        // SCNTorus 默认躺在 XZ 平面，正好贴合顶视台面。
+        let torus = SCNTorus(ringRadius: 0.032, pipeRadius: 0.0042)
+        torus.materials = [mat]
+        let node = SCNNode(geometry: torus)
+
+        let dot = SCNSphere(radius: 0.0075)
+        dot.segmentCount = 16
+        dot.materials = [mat]
+        node.addChildNode(SCNNode(geometry: dot))
+
+        node.isHidden = true
+        node.name = "aimHandle"
+        rootNode.addChildNode(node)
+        aimHandleNode = node
+    }
+
+    /// 移动 / 隐藏手柄（nil = 隐藏）。
+    func updateAimHandle(position: SCNVector3?) {
+        guard let handle = aimHandleNode else { return }
+        if let position {
+            handle.position = position
+            handle.isHidden = false
+        } else {
+            handle.isHidden = true
+        }
+    }
+
     /// 90° 分离角辅助线：过首次碰撞点（≈幽灵球中心），沿切线方向（垂直于撞击线）双向延伸。
     /// 由调用方按用户设置（`UserPreferences.showSeparationAngle`）决定是否调用。
     /// 返回是否成功绘制（无球-球碰撞时 `tangentDir` 为 nil，不画）。

@@ -7,7 +7,7 @@ extension XCUIApplication {
     enum Tab: String {
         case training = "训练"
         case drillLibrary = "动作库"
-        case angle = "角度"
+        case angle = "练习"
         case history = "记录"
         case profile = "我的"
     }

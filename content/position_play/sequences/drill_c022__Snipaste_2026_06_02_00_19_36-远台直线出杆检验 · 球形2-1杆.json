@@ -19,8 +19,8 @@
       "after" : {
         "onTable" : {
           "cueBall" : {
-            "x" : 0.24589288234710693,
-            "y" : 0.4817116856575012
+            "x" : 0.32498854398727417,
+            "y" : 0.48861321806907654
           }
         }
       },
@@ -37,19 +37,19 @@
         }
       },
       "cuePocketed" : false,
-      "id" : "A084A4D4-F8FE-4EB6-A3F9-E6774626FF08",
+      "id" : "AF38353F-1CAA-48FE-81D4-13B92D2B644D",
       "objectPocketed" : true,
       "potted" : [
         "_1"
       ],
       "shot" : {
         "pocket" : "bottomLeft",
-        "spinX" : 0,
-        "spinY" : 0,
+        "spinX" : 0.0017368814770112439,
+        "spinY" : -0.17765704824426126,
         "targetKey" : "_1",
-        "velocity" : 3.3
+        "velocity" : 2.1
       }
     }
   ],
-  "updatedAt" : "2026-06-21T18:35:54Z"
+  "updatedAt" : "2026-07-04T08:33:00Z"
 }

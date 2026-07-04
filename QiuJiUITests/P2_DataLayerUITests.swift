@@ -16,7 +16,7 @@ final class P2_DataLayerUITests: XCTestCase {
     }
 
     func testS02_AllFiveTabsSwitchable() {
-        for tab in ["训练", "动作库", "角度", "记录", "我的"] {
+        for tab in ["训练", "动作库", "练习", "记录", "我的"] {
             let tabButton = app.tabBars.buttons[tab]
             XCTAssertTrue(tabButton.waitForExistence(timeout: 3), "Tab '\(tab)' should exist")
             tabButton.tap()

@@ -68,6 +68,15 @@ enum TablePhysics {
     /// 正常球在触壁前已被「球心入孔圈」判据收袋——喉壁只是数值漏检时的安全兜底。
     static let pocketThroatRestitution: Float = 0.45
 
+    /// 袋口鼻尖圆角（角袋 jaw fillet 弧）恢复系数：比整条库边橡皮"死"。
+    /// 物理依据：鼻尖是皮革/橡胶包头 + 斜面剪切接触，吸能远大于库边正撞；单冲量刚体
+    /// 反射无法表达真实球「贴着圆角卷进袋喉」的连续接触，用低恢复近似其净效果。
+    /// 标定基准（DIAG-R，`PocketBehaviorDiagTests.test_R_railFrozenCornerEntry`）：
+    /// 贴库球沿库滚向角袋应「低中力度进、大力 rattle 弹出」。扫值结果（2026-07-04）：
+    ///   0.45 → 0.6–3.0 全进；0.60 → 0.6–4.0 进、5.0+ 弹出；0.75 → 仅 ≤1.0 进（中力也弹，太弹）。
+    /// 取 0.60：App 力度条常用区（≤4 m/s）沿库球稳定进袋，超大力如实弹出。
+    static let pocketNoseRestitution: Float = 0.60
+
     // MARK: 物理系数
     static let clothFriction: Float = 0.2
     /// 库边恢复系数 e_c。**注意：e_c 不等于实际吃库速度保留率**。

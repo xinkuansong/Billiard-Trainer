@@ -336,12 +336,23 @@ struct BatchAuthoringView: View {
             if !hasAppeared {
                 hasAppeared = true
                 composer.setupScene()
-                if let board = context.confirmedBoard { composer.loadBoard(board) }
-                if let drill {
-                    composer.renameSequence(
-                        context.defaultSequenceName(for: drill, imageURL: context.sourceImageURL))
+                if let editing = context.editingSequence {
+                    // 存档 + 在原有基础上修改：用当前引擎重放重建，跳过拍照建球形。
+                    let result = composer.loadSequenceForEditing(editing)
+                    context.editingSequence = nil
+                    if result.replayed < result.total {
+                        flash("已重放 \(result.replayed)/\(result.total) 杆 · 第 \(result.replayed + 1) 杆在新物理下不可行，从此处修")
+                    } else {
+                        flash("存档已载入 · \(result.total) 杆（末杆可「重打」重编）")
+                    }
+                } else {
+                    if let board = context.confirmedBoard { composer.loadBoard(board) }
+                    if let drill {
+                        composer.renameSequence(
+                            context.defaultSequenceName(for: drill, imageURL: context.sourceImageURL))
+                    }
+                    composer.startRecording()
                 }
-                composer.startRecording()
             }
         }
     }
@@ -475,6 +486,7 @@ struct BatchAuthoringView: View {
             selectableBallNodes: composer.selectableBalls,
             onBallTapped: { composer.selectTarget(node: $0) },
             onTableTapped: { composer.handleTableTap(world: $0) },
+            onAimHandleDragged: { composer.handleAimHandleDrag(world: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -742,10 +754,15 @@ struct BatchAuthoringView: View {
         let imageURL = context.sourceImageURL
         // 球形 token 绑定来源截图：同图覆盖、异图并存（无来源时退回 drillId 单键）。
         let stem = imageURL?.deletingPathExtension().lastPathComponent ?? drill.drillId
-        seq.name = context.defaultSequenceName(for: drill, imageURL: imageURL)
+        // 旧版存档编辑：保留原序列名（未绑定截图，defaultSequenceName 的「球形K」不适用）。
+        if !context.editingLegacyArchive {
+            seq.name = context.defaultSequenceName(for: drill, imageURL: imageURL)
+        }
         seq.updatedAt = Date()
         do {
-            _ = try BatchSequenceArchive.archive(seq, drillId: drill.drillId, imageStem: stem)
+            _ = try BatchSequenceArchive.archive(seq, drillId: drill.drillId, imageStem: stem,
+                                                 legacy: context.editingLegacyArchive)
+            context.editingLegacyArchive = false
             context.refreshSaved()
             switch mode {
             case .stay:
@@ -806,89 +823,6 @@ private struct BatchAuthorFramePreference: PreferenceKey {
     }
 }
 
-// MARK: - 自由瞄准角度齿轮（竖向棘轮标尺，仅自由模式显示）
-
-/// 贴球桌右缘的竖向刻度齿轮：拖动微调自由瞄准方向。内容跟手——往上拖刻度上滚、读数递增
-/// （= 屏幕顺时针/向右），灵敏度 0.3°/pt（刻度 1:1 随指 ≈3.33pt/°），越过整度给一次轻震。
-/// `bearing` 由 `PositionPlayViewModel.freeAimBearingDeg` 喂入（0°=屏幕正上、顺时针增）。
-private struct BTAimWheel: View {
-    let bearing: Double
-    let onNudge: (Float) -> Void
-
-    private let degreesPerPoint: Float = 0.3
-    private var pointsPerDegree: CGFloat { CGFloat(1 / degreesPerPoint) }
-
-    @State private var lastHeight: CGFloat = 0
-    @State private var lastTick: Int = .min
-    private let haptic = UIImpactFeedbackGenerator(style: .light)
-
-    var body: some View {
-        GeometryReader { geo in
-            let h = geo.size.height
-            let mid = h / 2
-            let ppd = pointsPerDegree
-            ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.black.opacity(0.55))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(.white.opacity(0.12), lineWidth: 0.5))
-
-                Canvas { ctx, size in
-                    let w = size.width
-                    let span = Double(h / ppd)
-                    let from = Int((bearing - span / 2 - 2).rounded(.down))
-                    let to = Int((bearing + span / 2 + 2).rounded(.up))
-                    for d in from...to {
-                        let y = mid + CGFloat(Double(d) - bearing) * ppd
-                        guard y >= -2, y <= h + 2 else { continue }
-                        let norm = ((d % 360) + 360) % 360
-                        let isMajor = norm % 10 == 0
-                        let isMed = norm % 5 == 0
-                        let len: CGFloat = isMajor ? w * 0.5 : (isMed ? w * 0.34 : w * 0.2)
-                        var p = Path()
-                        p.move(to: CGPoint(x: w - len, y: y))
-                        p.addLine(to: CGPoint(x: w - 4, y: y))
-                        ctx.stroke(p, with: .color(.white.opacity(isMajor ? 0.85 : (isMed ? 0.5 : 0.28))),
-                                   lineWidth: isMajor ? 1.4 : 0.8)
-                        if isMajor {
-                            let t = Text("\(norm)")
-                                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundColor(.white.opacity(0.7))
-                            ctx.draw(t, at: CGPoint(x: w - len - 8, y: y), anchor: .trailing)
-                        }
-                    }
-                }
-
-                Rectangle()
-                    .fill(Color.btAccent)
-                    .frame(height: 1.5)
-
-                Text("\(((Int(bearing.rounded()) % 360) + 360) % 360)°")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(Color.btAccent, in: Capsule())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 3)
-            }
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { v in
-                        let dy = v.translation.height - lastHeight
-                        lastHeight = v.translation.height
-                        onNudge(Float(-dy) * degreesPerPoint)
-                        let t = Int(bearing.rounded())
-                        if t != lastTick {
-                            haptic.impactOccurred(intensity: 0.5)
-                            lastTick = t
-                        }
-                    }
-                    .onEnded { _ in lastHeight = 0 }
-            )
-        }
-    }
-}
+// 注：自由瞄准角度齿轮 `BTAimWheel` 已下沉至 `Core/Components/BTAimWheel.swift`（P18 B2 T-P18-05），
+// 本文件直接引用共享版。
 #endif

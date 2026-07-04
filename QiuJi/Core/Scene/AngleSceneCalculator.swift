@@ -160,6 +160,14 @@ enum AngleSceneCalculator {
     /// （也回避浮点精度问题）。
     private static let aimMargin: Float = 0.003
 
+    /// 贴库豁免的浮点保护量（0.5mm）。目标球球心距最近库 `d < ballRadius + aimMargin`
+    /// （贴库或距库仅 1–2mm）时，管道余量整体放宽为 `d − railFrozenSlack`：
+    /// 沿库滚进袋是**零余量的合法物理**，3mm 余量会把这类球的全部线路误判为不可行；
+    /// 放宽后管道最多与球当前位置一样贴库，仍禁止比球现在更扎进库（slack 仅防浮点噪声）。
+    /// 必须整体放宽而非只豁免主库段：近端 jaw 圆角弧与库面相切，沿库线路到弧的
+    /// 距离同样 ≈ d，只豁免主库仍会被 jaw 判定拒绝。
+    private static let railFrozenSlack: Float = 0.0005
+
     /// Effective aim point — dynamically adjusts based on target ball position.
     ///
     /// 算法核心：把进球线视为「进球管道」而不是一条无厚度的线。目标球球心沿
@@ -199,8 +207,15 @@ enum AngleSceneCalculator {
         nominalPocket: SCNVector3,
         geometry: PipeGeometry
     ) -> SCNVector3 {
-        let clearance = ballRadius + aimMargin
         let origin = Vector2(targetBall.x, targetBall.z)
+        // 贴库豁免：球心距最近主库 d < 标准余量时，余量放宽为 d − slack（见 railFrozenSlack 注释）。
+        // 下限钳到 ballRadius − slack：即便快照数据让球微嵌库（d < R），也不允许管道穿库。
+        let standardClearance = ballRadius + aimMargin
+        let railDist = mainCushionSegments.map { pointSegmentDistance(origin, $0) }.min()
+            ?? Float.greatestFiniteMagnitude
+        let clearance = railDist < standardClearance
+            ? max(railDist - railFrozenSlack, ballRadius - railFrozenSlack)
+            : standardClearance
         let pocket = Vector2(nominalPocket.x, nominalPocket.z)
         let naturalVector = pocket - origin
         guard naturalVector.length > 0.0001 else { return nominalPocket }
@@ -438,21 +453,20 @@ enum AngleSceneCalculator {
         let ordinaryObstacles: [Segment2D]
     }
 
+    /// 六段主库击球面线段（贴库检测 + 管道障碍共用真源）。
+    private static let mainCushionSegments: [Segment2D] = [
+        Segment2D(a: Vector2(-1.1671, -0.635), b: Vector2(-0.073, -0.635)),
+        Segment2D(a: Vector2( 0.073, -0.635), b: Vector2( 1.1671, -0.635)),
+        Segment2D(a: Vector2(-1.1671,  0.635), b: Vector2(-0.073,  0.635)),
+        Segment2D(a: Vector2( 0.073,  0.635), b: Vector2( 1.1671,  0.635)),
+        Segment2D(a: Vector2(-1.270, -0.5321), b: Vector2(-1.270,  0.5321)),
+        Segment2D(a: Vector2( 1.270, -0.5321), b: Vector2( 1.270,  0.5321)),
+    ]
+
     private static func buildPipeGeometry(pocketIndex: Int, pocketCenter: Vector2) -> PipeGeometry {
         let mouths = pocketMouths()
         let mouth = mouths[pocketIndex]
-        var ordinary: [Segment2D] = []
-
-        func add(_ ax: Float, _ az: Float, _ bx: Float, _ bz: Float) {
-            ordinary.append(Segment2D(a: Vector2(ax, az), b: Vector2(bx, bz)))
-        }
-
-        add(-1.1671, -0.635, -0.073, -0.635)
-        add( 0.073, -0.635,  1.1671, -0.635)
-        add(-1.1671,  0.635, -0.073,  0.635)
-        add( 0.073,  0.635,  1.1671,  0.635)
-        add(-1.270, -0.5321, -1.270,  0.5321)
-        add( 1.270, -0.5321,  1.270,  0.5321)
+        var ordinary: [Segment2D] = mainCushionSegments
 
         for (index, pocket) in mouths.enumerated() where index != pocketIndex {
             for jaw in pocket.targetJaws {
@@ -907,6 +921,80 @@ enum AngleSceneCalculator {
         x = max(-halfL + r, min(halfL - r, x))
         z = max(-halfW + r, min(halfW - r, z))
         return SCNVector3(x, pos.y, z)
+    }
+
+    // MARK: - Free-aim first contact (P18 B2：自由瞄准首碰纯几何预览)
+
+    /// 自由瞄准首碰结果：沿瞄准射线第一颗被碰球 + 接触瞬间母球球心（= 假想球）+ 切球角。
+    struct FreeAimContact {
+        let targetKey: String
+        /// 接触瞬间母球球心（假想球位置，场景坐标）。
+        let ghost: SCNVector3
+        /// 切球角 α（0° = 正撞全球，→90° 极薄）。
+        let cutAngleDeg: Double
+    }
+
+    /// 沿瞄准射线的第一颗被碰球（纯几何，主线程逐帧可用）：母球球心沿 `dir` 前进，
+    /// 与某球球心距离首次到达 2R 即接触；切球角 = 瞄准方向与撞击线（假想球→目标球心）夹角。
+    /// 坐标契约：场景 XZ 平面，`dir` 为单位向量；返回 nil = 射线不与任何球相交（空杆）。
+    static func freeAimFirstContact(
+        cue: SCNVector3, dir: SCNVector3, balls: [(key: String, pos: SCNVector3)]
+    ) -> FreeAimContact? {
+        let twoR = 2 * ballRadius
+        var best: (key: String, t: Float, pos: SCNVector3)?
+        for (key, p) in balls {
+            let dx = p.x - cue.x, dz = p.z - cue.z
+            let proj = dx * dir.x + dz * dir.z
+            guard proj > 0 else { continue }                    // 球在身后
+            let perpSq = dx * dx + dz * dz - proj * proj
+            let radSq = twoR * twoR - perpSq
+            guard radSq > 0 else { continue }                   // 射线走廊之外
+            let t = proj - sqrtf(radSq)
+            guard t > 0.0005 else { continue }
+            if best == nil || t < best!.t { best = (key, t, p) }
+        }
+        guard let hit = best else { return nil }
+        let ghost = SCNVector3(cue.x + dir.x * hit.t, cue.y, cue.z + dir.z * hit.t)
+        let ix = hit.pos.x - ghost.x, iz = hit.pos.z - ghost.z
+        let ilen = sqrtf(ix * ix + iz * iz)
+        guard ilen > 1e-5 else { return nil }
+        let cosA = max(-1, min(1, (ix * dir.x + iz * dir.z) / ilen))
+        return FreeAimContact(targetKey: hit.key, ghost: ghost,
+                              cutAngleDeg: Double(acosf(cosA)) * 180 / .pi)
+    }
+
+    /// 瞄准方向 → 屏幕罗盘角（topDown2DRotated 取景：screen-up = world +X、
+    /// screen-right = world +Z；0° = 屏幕正上方，顺时针为正）。
+    /// 坐标契约：`dir` 为场景 XZ 单位向量，bearing = atan2(z, x)。
+    static func bearingDeg(of dir: SCNVector3) -> Float {
+        var deg = atan2f(dir.z, dir.x) * 180 / .pi
+        if deg < 0 { deg += 360 }
+        return deg
+    }
+
+    /// 把 XZ 方向按屏幕顺时针（bearing 增）旋转 `delta` 度：
+    /// newX = x·cosΔ − z·sinΔ，newZ = x·sinΔ + z·cosΔ。幅值过小时返回原方向。
+    static func rotatedAim(_ dir: SCNVector3, byDegrees delta: Float) -> SCNVector3 {
+        let r = delta * .pi / 180
+        let nx = dir.x * cosf(r) - dir.z * sinf(r)
+        let nz = dir.x * sinf(r) + dir.z * cosf(r)
+        let len = sqrtf(nx * nx + nz * nz)
+        guard len > 1e-5 else { return dir }
+        return SCNVector3(nx / len, 0, nz / len)
+    }
+
+    /// 母球球心沿 `dir` 到库边（球心可达极限 = 内沿 − R）的射线距离，供瞄准手柄限位。
+    static func rayDistanceToCushion(from p: SCNVector3, dir: SCNVector3) -> Float {
+        let limX = innerLength / 2 - ballRadius
+        let limZ = innerWidth / 2 - ballRadius
+        var t: Float = .greatestFiniteMagnitude
+        if abs(dir.x) > 1e-5 {
+            t = min(t, ((dir.x > 0 ? limX : -limX) - p.x) / dir.x)
+        }
+        if abs(dir.z) > 1e-5 {
+            t = min(t, ((dir.z > 0 ? limZ : -limZ) - p.z) / dir.z)
+        }
+        return max(0.05, t)
     }
 
     // MARK: - Thickness name (通称)

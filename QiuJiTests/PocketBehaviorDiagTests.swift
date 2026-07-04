@@ -2134,6 +2134,78 @@ final class PocketBehaviorDiagTests: XCTestCase {
         print("WROTE \(path) (\(Int(w))x\(Int(h)))")
     }
 
+    // MARK: - R. 贴库球沿库进角袋（力度梯度，纯目标球发射）
+
+    /// 贴库球沿下长库（球心 z = 0.635 − R）滚向右下角袋（袋 3，孔心 (1.312, 0.677)）。
+    /// 观察不同力度下：命中袋口哪段轮廓（fillet 弧 / jaw 直线）、反弹方向、
+    /// 球心到孔心最小距离、最终进/不进。用于回答「低速沿库球是否应进角袋」。
+    func test_R_railFrozenCornerEntry() throws {
+        let holeC = SCNVector3(1.312, sY, 0.677)
+        let startZ = 0.635 - R          // 紧贴下长库
+        print("\n===DIAG-R 贴库沿库进角袋（袋3，孔心 (1.312, 0.677) r=42mm）===")
+        for speed in [Float(0.4), 0.6, 0.8, 1.0, 1.4, 1.8, 2.4, 3.0, 4.0, 5.0, 6.0] {
+            let start = SCNVector3(0.6, sY + R, startZ)
+            let v = SCNVector3(speed, 0, 0)
+            let up = SCNVector3(0, 1, 0)
+            let roll = up.cross(v) * (1.0 / R)
+            let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: sY))
+            engine.setBall(BallState(position: start, velocity: v, angularVelocity: roll,
+                                     state: .rolling, name: "obj"))
+            engine.simulate(maxEvents: 200, maxTime: 12, highFidelityBounds: true)
+
+            var potted = false
+            var eventDesc: [String] = []
+            for (ev, t) in zip(engine.resolvedEvents, engine.resolvedEventTimes) {
+                switch ev {
+                case .pocket(let b, let pid) where b == "obj":
+                    potted = true
+                    eventDesc.append(String(format: "t%.2f 落袋(%@)", t, pid))
+                case .ballCushion(let b, let idx, let n) where b == "obj":
+                    eventDesc.append(String(format: "t%.2f 库#%d n=(%.2f,%.2f)", t, idx, n.x, n.z))
+                default: break
+                }
+            }
+            var minD = Float.greatestFiniteMagnitude
+            var lastPos = start
+            if let frames = engine.getTrajectoryRecorder().framesByBallName["obj"] {
+                for f in frames.sorted(by: { $0.time < $1.time }) {
+                    let dx = f.position.x - holeC.x, dz = f.position.z - holeC.z
+                    minD = min(minD, sqrtf(dx * dx + dz * dz))
+                    lastPos = f.position
+                }
+            }
+            print(String(format: "v%.1f 进=%@ 球心距孔心min=%.1fmm 终点=(%.3f, %.3f) 事件: %@",
+                         speed, potted ? "Y" : "N", minD * 1000, lastPos.x, lastPos.z,
+                         eventDesc.joined(separator: " → ")))
+            // 标定契约（pocketNoseRestitution）：常规力度（0.6–2.4 m/s，覆盖 App 力度条「中」档）
+            // 沿库球必进角袋。v0.4 极低速死在袋口、大力进/不进均不锁死（混沌 rattle 区，仅观察）。
+            if (0.6...2.4).contains(speed) {
+                XCTAssertTrue(potted, String(format: "v%.1f 贴库沿库球应进角袋（鼻尖恢复系数标定破坏）", speed))
+            }
+        }
+        print("===END-DIAG-R===\n")
+    }
+
+    /// R2. 端到端（App 真实路径）：母球击打贴库目标球进右下角袋，走 `ShotPredictor.predict`
+    /// （瞄准管道贴库豁免 + 鼻尖恢复系数标定后的整链验证）。
+    func test_R2_railFrozenEndToEnd() throws {
+        let target = SCNVector3(0.5, sY + R, 0.635 - R)   // 紧贴下长库
+        let cue = SCNVector3(-0.2, sY + R, 0.30)
+        print("\n===DIAG-R2 贴库球端到端（predict，袋3）===")
+        var anyPotted = false
+        for vel in [Float(1.6), 2.0, 2.4, 3.0] {
+            let input = ShotInput(cueBall: cue, targetBall: target, pocketIndex: 3,
+                                  velocity: vel, spinX: 0, spinY: 0, surfaceY: sY)
+            let pred = ShotPredictor.predict(input)
+            print(String(format: "v%.1f feasible=%@ 进=%@ cut=%.1f°",
+                         vel, pred.feasible ? "Y" : "N",
+                         pred.simObjectPotted ? "Y" : "N", pred.cutAngleDeg ?? -1))
+            anyPotted = anyPotted || pred.simObjectPotted
+        }
+        XCTAssertTrue(anyPotted, "贴库目标球应至少在一档常规力度下被求解进袋")
+        print("===END-DIAG-R2===\n")
+    }
+
     private func unit(_ v: SCNVector3) -> SCNVector3 {
         let len = sqrtf(v.x * v.x + v.z * v.z)
         guard len > 1e-6 else { return SCNVector3(1, 0, 0) }

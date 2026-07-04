@@ -11,7 +11,7 @@ enum AppTab: Int, CaseIterable {
         switch self {
         case .training:     return "训练"
         case .drillLibrary: return "动作库"
-        case .angle:        return "角度"
+        case .angle:        return "练习"
         case .history:      return "记录"
         case .profile:      return "我的"
         }
@@ -21,7 +21,7 @@ enum AppTab: Int, CaseIterable {
         switch self {
         case .training:     return "dumbbell.fill"
         case .drillLibrary: return "list.bullet.rectangle"
-        case .angle:        return "angle"
+        case .angle:        return "scope"
         case .history:      return "clock.arrow.circlepath"
         case .profile:      return "person.circle"
         }

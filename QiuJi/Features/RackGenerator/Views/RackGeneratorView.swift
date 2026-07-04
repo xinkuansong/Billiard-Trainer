@@ -155,28 +155,14 @@ struct RackGeneratorView: View {
         }
     }
 
-    /// 力度滑杆 + 打点状态图标（点开打点盘）。
+    /// 力度滑杆 + 打点状态图标（点开打点盘）——统一 `ShotControlBar`（T-P18-10）。
     private var shotControls: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: Spacing.sm) {
-                Button { showSpinPad.toggle() } label: {
-                    BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 34)
-                }
-                .buttonStyle(.plain)
-                .disabled(vm.isBusy)
-                .accessibilityLabel("打点")
-
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("\(PowerDisplay.name(vm.power)) \(String(format: "%.1f", vm.power)) m/s")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .monospacedDigit()
-                    Slider(value: $vm.power, in: RackGeneratorViewModel.powerRange)
-                        .tint(.btPrimary)
-                        .disabled(vm.isBusy)
-                }
-            }
-        }
+        ShotControlBar(
+            spinX: vm.spinX, spinY: vm.spinY,
+            onSpinTap: { showSpinPad.toggle() },
+            power: .editable($vm.power, range: RackGeneratorViewModel.powerRange, step: nil),
+            isDisabled: vm.isBusy
+        ) {}
         .frame(maxWidth: .infinity)
     }
 

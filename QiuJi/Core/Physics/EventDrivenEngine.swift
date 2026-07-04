@@ -831,7 +831,9 @@ class EventDrivenEngine {
         if cushionIndex >= linearCount {
             let arcIdx = cushionIndex - linearCount
             if arcIdx < tableGeometry.circularCushions.count {
-                resolvedNormal = tableGeometry.circularCushions[arcIdx].normal(at: state.position)
+                let arc = tableGeometry.circularCushions[arcIdx]
+                resolvedNormal = arc.normal(at: state.position)
+                if let e = arc.restitution { restitution = e }
             } else {
                 resolvedNormal = normal
             }

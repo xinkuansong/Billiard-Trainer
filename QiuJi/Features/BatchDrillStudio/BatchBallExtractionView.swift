@@ -104,17 +104,58 @@ struct BatchBallExtractionView: View {
 
     private var pickStep: some View {
         VStack(spacing: Spacing.md) {
-            stepHeader("每张图 = 一个球形；选一张建球形（自动顺时针旋 90°）。打勾＝已存，可重做覆盖；不想做的直接跳过")
+            stepHeader("每张图 = 一个球形。打勾＝已存：点图/「重做」进编排台，旧杆按当前物理重放到打完，连点「重打」逐杆回退修。未存点图建球形")
             if let drill {
                 ScrollView {
+                    // 旧版存档（早期保存、未绑定截图，故任何图都不打勾）：单独给改存档入口。
+                    if drill.savedStems.contains("") {
+                        Button { editLegacyArchive() } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "archivebox.fill")
+                                    .foregroundStyle(Color.btAccent)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("已有旧版存档（未绑定截图，图片不打勾）")
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                    Text("点此进编排台改存档 · 按当前物理重放")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.white.opacity(0.6))
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption).foregroundStyle(.white.opacity(0.4))
+                            }
+                            .padding(Spacing.md)
+                            .background(Color.white.opacity(0.08),
+                                        in: RoundedRectangle(cornerRadius: BTRadius.sm))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.top, Spacing.md)
+                    }
                     LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.sm),
                                         GridItem(.flexible(), spacing: Spacing.sm)],
                               spacing: Spacing.sm) {
                         ForEach(drill.imageURLs, id: \.self) { url in
-                            Button { loadImage(url) } label: {
-                                thumbnail(url, saved: drill.isImageSaved(url))
-                            }
-                            .buttonStyle(.plain)
+                            let saved = drill.isImageSaved(url)
+                            // 外层用 tap gesture（不是 Button）：Button 嵌套 Button 时外层会抢走
+                            // 内层「重做」的点击；gesture 的优先级低于内层 Button，才能各点各的。
+                            thumbnail(url, saved: saved)
+                                .contentShape(Rectangle())
+                                .onTapGesture { saved ? editArchive(url) : loadImage(url) }
+                                .overlay(alignment: .bottomTrailing) {
+                                    if saved {
+                                        Button { editArchive(url) } label: {
+                                            Label("重做", systemImage: "arrow.counterclockwise")
+                                                .font(.system(size: 10, weight: .bold))
+                                                .foregroundStyle(.white)
+                                                .padding(.horizontal, 8).padding(.vertical, 4)
+                                                .background(.black.opacity(0.55), in: Capsule())
+                                        }
+                                        .buttonStyle(.plain)
+                                        .padding(6)
+                                    }
+                                }
                         }
                     }
                     .padding(Spacing.md)
@@ -167,6 +208,37 @@ struct BatchBallExtractionView: View {
         vm.activePaletteKey = PositionPlayBall.cueKey
         vm.step = .calibrate
         context.sourceImageURL = url
+        context.editingSequence = nil
+        context.editingLegacyArchive = false
+    }
+
+    /// 「改存档」：读回该图已存序列，直接进编排台续接编辑（跳过拍照建球形）。
+    private func editArchive(_ url: URL) {
+        guard let drill = context.current else { return }
+        guard let seq = BatchDrillCatalog.loadSequence(drillId: drill.drillId, imageURL: url) else {
+            vm.message = "读取存档失败：\(url.lastPathComponent)"
+            return
+        }
+        context.sourceImageURL = url          // 保存时按同一 token 覆盖原存档
+        context.confirmedBoard = seq.initial
+        context.editingSequence = seq
+        context.editingLegacyArchive = false
+        goAuthor = true
+    }
+
+    /// 「改旧版存档」：旧版单序列（无 `__`、未绑定截图）→ 进编排台续接编辑，保存时覆盖原旧版文件。
+    private func editLegacyArchive() {
+        guard let drill = context.current else { return }
+        guard let url = BatchDrillCatalog.savedSequenceURL(drillId: drill.drillId, token: ""),
+              let seq = BatchDrillCatalog.loadSequence(at: url) else {
+            vm.message = "读取旧版存档失败：\(drill.drillId)"
+            return
+        }
+        context.sourceImageURL = nil
+        context.confirmedBoard = seq.initial
+        context.editingSequence = seq
+        context.editingLegacyArchive = true
+        goAuthor = true
     }
 
     // MARK: - Step 2: calibrate corners

@@ -14,6 +14,8 @@ enum AngleRoute: Hashable {
     case diamondSystem
     case shotSimulation
     case positionPlayComposer
+    /// 自由击球（ADR-P18-01）：编排台自由瞄准模式直达入口；B2 补齐手动瞄准 UI 后成为完整形态。
+    case freePlay
     case positionPlaySolver
     case planThree
     case snookerTactics
@@ -28,7 +30,7 @@ enum AngleRoute: Hashable {
 private struct AngleEntry: Identifiable {
     let id = UUID()
     let route: AngleRoute
-    /// 海报封面大字水印（纯排版封面，与训练计划 `BTPlanCover` 同语言）。
+    /// 封面大字水印（纯排版封面，与训练计划 `BTPlanCover` 同语言）。
     let glyph: String
     let title: String
     let subtitle: String
@@ -37,27 +39,69 @@ private struct AngleEntry: Identifiable {
     var chip: String? = nil
 }
 
-// MARK: - Home View
+// MARK: - Section Model（学 / 练 / 打 / 解，ADR-P18-01 四分类）
 
-/// 角度 Tab 首页（ADR-P11-08）：与「训练」首页同一套设计语言——
-/// 大标题 + 分段 Tab（学习 / 训练 / 工具）+ 双列「杂志封面」海报卡
-///（饱和渐变 + 超大字水印 + 底部标题），每个分段一屏内可达，无需长滚动。
-struct AngleHomeView: View {
-    private enum HomeTab: String, CaseIterable {
-        case learn = "学习"
-        case train = "训练"
-        case tools = "工具"
+private enum PracticeSection: String, CaseIterable, Identifiable {
+    case learn = "学"
+    case train = "练"
+    case play = "打"
+    case solve = "解"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .learn: "book"
+        case .train: "target"
+        case .play:  "hand.tap"
+        case .solve: "lightbulb"
+        }
     }
 
-    @State private var selectedTab: HomeTab = .learn
+    var filledIcon: String {
+        switch self {
+        case .learn: "book.fill"
+        case .train: "target"
+        case .play:  "hand.tap.fill"
+        case .solve: "lightbulb.fill"
+        }
+    }
 
+    var caption: String {
+        switch self {
+        case .learn: "理解瞄准与走位背后的球理"
+        case .train: "每天几分钟，校准角度直觉"
+        case .play:  "真实物理沙盘，摆球就能打"
+        case .solve: "让引擎当教练，反解这杆怎么打"
+        }
+    }
+}
+
+// MARK: - Home View
+
+/// 练习 Tab 首页（ADR-P11-08 / ADR-P18-01 / ADR-P18-03）：与「动作库」同一套布局语言——
+/// 大标题 + 左侧图标分类侧栏（全部/学/练/打/解）+ 右侧双列分组网格（钉住分组头），
+/// 卡片对齐 `BTDrillGridCard` 的上图下文样式（封面区保留渐变大字水印海报语言）。
+struct AngleHomeView: View {
+    /// nil = 全部（默认，与动作库侧栏一致）。
+    @State private var selectedSection: PracticeSection? = nil
+    @State private var searchText = ""
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: Spacing.md),
+        GridItem(.flexible(), spacing: Spacing.md),
+    ]
+
+    /// 「学」——球理与瞄准知识（P12 阶段 2 将升级为球理中心索引）。
     private let learnEntries: [AngleEntry] = [
         .init(route: .aimingPrinciple, glyph: "瞄",
               title: "瞄准原理", subtitle: "切入角 · 假想球 · 厚薄球",
               coverTop: Color(red: 0.16, green: 0.55, blue: 0.34),
               coverBottom: Color(red: 0.09, green: 0.34, blue: 0.21)),
-        .init(route: .angleDynamic, glyph: "打",
-              title: "角度与打点", subtitle: "角度 / 接触点动态关系",
+        .init(route: .angleDynamic, glyph: "点",
+              title: "角度与打点", subtitle: "切角变化如何影响打点",
               coverTop: Color(red: 0.11, green: 0.46, blue: 0.95),
               coverBottom: Color(red: 0.05, green: 0.24, blue: 0.58)),
         .init(route: .ballFeel, glyph: "感",
@@ -65,30 +109,34 @@ struct AngleHomeView: View {
               coverTop: Color(red: 0.48, green: 0.36, blue: 0.72),
               coverBottom: Color(red: 0.28, green: 0.20, blue: 0.46)),
         .init(route: .contactPointTable, glyph: "表",
-              title: "进球点对照表", subtitle: "角度与接触点对照",
+              title: "进球点对照表", subtitle: "常用角度的进球点速查",
               coverTop: Color(red: 0.42, green: 0.45, blue: 0.50),
               coverBottom: Color(red: 0.24, green: 0.26, blue: 0.30))
+        // 「球理」入口卡（P12 阶段 1 产物）：理论详情页落地后在此追加，
+        // 路由预留 —— 详见 ADR-P18-01 / ADR-P12-01。
     ]
 
+    /// 「练」——测验类：练角度直觉。
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, glyph: "角",
-              title: "几何角度训练", subtitle: "纯几何角度预测练习",
+              title: "几何角度训练", subtitle: "看球形，估切角，练直觉",
               coverTop: Color(red: 0.85, green: 0.52, blue: 0.13),
               coverBottom: Color(red: 0.55, green: 0.32, blue: 0.05)),
         .init(route: .scene2DAiming, glyph: "2D",
-              title: "2D 瞄准训练", subtitle: "俯视球台角度预测",
+              title: "2D 瞄准训练", subtitle: "俯视真台的角度预测测验",
               coverTop: Color(red: 0.0, green: 0.60, blue: 0.60),
               coverBottom: Color(red: 0.0, green: 0.36, blue: 0.40), chip: "2D"),
         .init(route: .scene3DAiming, glyph: "3D",
-              title: "3D 瞄准训练", subtitle: "3D 视角角度预测",
+              title: "3D 瞄准训练", subtitle: "真实视角的角度预测测验",
               coverTop: Color(red: 0.30, green: 0.34, blue: 0.78),
               coverBottom: Color(red: 0.16, green: 0.18, blue: 0.48), chip: "3D")
     ]
 
-    private var toolEntries: [AngleEntry] {
-        var entries = baseToolEntries
+    /// 「打」——沙盘类：摆球、击打、看真实物理结果。
+    private var playEntries: [AngleEntry] {
+        var entries = basePlayEntries
         #if targetEnvironment(simulator)
-        // 仅模拟器：批量出片台（内容生产工具，真机/发布版不可见）。
+        // 仅模拟器：批量出片台（内容生产工具，真机/发布版不可见，不进正式 IA）。
         entries.append(.init(route: .batchDrillStudio, glyph: "批",
                              title: "批量出片台", subtitle: "drill 截图 → 序列 → 素材",
                              coverTop: Color(red: 0.20, green: 0.40, blue: 0.70),
@@ -97,129 +145,311 @@ struct AngleHomeView: View {
         return entries
     }
 
-    private let baseToolEntries: [AngleEntry] = [
+    private let basePlayEntries: [AngleEntry] = [
+        .init(route: .freePlay, glyph: "击",
+              title: "自由击球", subtitle: "随意摆球，任意方向试一杆",
+              coverTop: Color(red: 0.13, green: 0.42, blue: 0.85),
+              coverBottom: Color(red: 0.05, green: 0.22, blue: 0.52), chip: "物理"),
+        .init(route: .shotSimulation, glyph: "分",
+              title: "分离角与走位", subtitle: "看清碰撞后母球往哪走",
+              coverTop: Color(red: 0.13, green: 0.55, blue: 0.36),
+              coverBottom: Color(red: 0.06, green: 0.33, blue: 0.20), chip: "物理"),
+        .init(route: .positionPlayComposer, glyph: "走",
+              title: "走位编排台", subtitle: "逐杆编排击打，推演整套走位",
+              coverTop: Color(red: 0.72, green: 0.55, blue: 0.13),
+              coverBottom: Color(red: 0.45, green: 0.33, blue: 0.05), chip: "物理"),
+        .init(route: .rackGenerator, glyph: "开",
+              title: "球形生成器", subtitle: "真实开球散局，随开随练",
+              coverTop: Color(red: 0.78, green: 0.30, blue: 0.10),
+              coverBottom: Color(red: 0.48, green: 0.16, blue: 0.04), chip: "物理"),
+        .init(route: .ballExtraction, glyph: "拍",
+              title: "拍照建球形", subtitle: "拍下真实球局，导入沙盘复盘",
+              coverTop: Color(red: 0.16, green: 0.50, blue: 0.62),
+              coverBottom: Color(red: 0.07, green: 0.28, blue: 0.36), chip: "识别")
+    ]
+
+    /// 「解」——教练类：给定局面，让引擎反解怎么打。
+    private let solveEntries: [AngleEntry] = [
+        .init(route: .positionPlaySolver, glyph: "思",
+              title: "思路训练器", subtitle: "想让母球停哪？反解塞与力度",
+              coverTop: Color(red: 0.50, green: 0.20, blue: 0.62),
+              coverBottom: Color(red: 0.28, green: 0.10, blue: 0.40), chip: "物理"),
+        .init(route: .planThree, glyph: "三",
+              title: "打一走二想三", subtitle: "连续三杆的走位路线规划",
+              coverTop: Color(red: 0.16, green: 0.46, blue: 0.62),
+              coverBottom: Color(red: 0.08, green: 0.26, blue: 0.38), chip: "走位"),
+        .init(route: .snookerTactics, glyph: "斯",
+              title: "做斯诺克", subtitle: "反解安全球，把对手做死",
+              coverTop: Color(red: 0.60, green: 0.10, blue: 0.30),
+              coverBottom: Color(red: 0.34, green: 0.04, blue: 0.16), chip: "物理"),
         .init(route: .bankShot, glyph: "翻",
               title: "翻袋解球器", subtitle: "自动求 1–3 库翻袋路线",
               coverTop: Color(red: 0.62, green: 0.14, blue: 0.14),
               coverBottom: Color(red: 0.36, green: 0.06, blue: 0.06), chip: "2D"),
         .init(route: .diamondSystem, glyph: "反",
-              title: "反射解球器", subtitle: "自动求 1–多库反射路线",
+              title: "反射解球器", subtitle: "母球吃库解球的反射路线",
               coverTop: Color(red: 0.0, green: 0.45, blue: 0.55),
-              coverBottom: Color(red: 0.0, green: 0.26, blue: 0.34), chip: "2D"),
-        .init(route: .shotSimulation, glyph: "分",
-              title: "分离角与走位", subtitle: "物理引擎模拟分离角与走位",
-              coverTop: Color(red: 0.13, green: 0.55, blue: 0.36),
-              coverBottom: Color(red: 0.06, green: 0.33, blue: 0.20), chip: "物理"),
-        .init(route: .positionPlayComposer, glyph: "走",
-              title: "走位编排台", subtitle: "自由摆球 · 连续击打推演",
-              coverTop: Color(red: 0.72, green: 0.55, blue: 0.13),
-              coverBottom: Color(red: 0.45, green: 0.33, blue: 0.05), chip: "物理"),
-        .init(route: .positionPlaySolver, glyph: "思",
-              title: "思路训练器", subtitle: "反解走位 · 塞与力度求解",
-              coverTop: Color(red: 0.50, green: 0.20, blue: 0.62),
-              coverBottom: Color(red: 0.28, green: 0.10, blue: 0.40), chip: "物理"),
-        .init(route: .planThree, glyph: "三",
-              title: "打一走二想三", subtitle: "连续走位规划 · 停球扇形提示",
-              coverTop: Color(red: 0.16, green: 0.46, blue: 0.62),
-              coverBottom: Color(red: 0.08, green: 0.26, blue: 0.38), chip: "走位"),
-        .init(route: .snookerTactics, glyph: "斯",
-              title: "做斯诺克", subtitle: "安全球反解 · 障碍遮挡做杆",
-              coverTop: Color(red: 0.60, green: 0.10, blue: 0.30),
-              coverBottom: Color(red: 0.34, green: 0.04, blue: 0.16), chip: "物理"),
-        .init(route: .ballExtraction, glyph: "拍",
-              title: "拍照建球形", subtitle: "照片提取球号与位置",
-              coverTop: Color(red: 0.16, green: 0.50, blue: 0.62),
-              coverBottom: Color(red: 0.07, green: 0.28, blue: 0.36), chip: "识别"),
-        .init(route: .rackGenerator, glyph: "开",
-              title: "球形生成器", subtitle: "中八 / 9 球开球 · 真实物理散开",
-              coverTop: Color(red: 0.78, green: 0.30, blue: 0.10),
-              coverBottom: Color(red: 0.48, green: 0.16, blue: 0.04), chip: "物理")
+              coverBottom: Color(red: 0.0, green: 0.26, blue: 0.34), chip: "2D")
     ]
+
+    private func entries(for section: PracticeSection) -> [AngleEntry] {
+        switch section {
+        case .learn: learnEntries
+        case .train: trainEntries
+        case .play: playEntries
+        case .solve: solveEntries
+        }
+    }
+
+    private func filteredEntries(for section: PracticeSection) -> [AngleEntry] {
+        let all = entries(for: section)
+        let query = searchText.trimmingCharacters(in: .whitespaces)
+        guard !query.isEmpty else { return all }
+        return all.filter {
+            $0.title.localizedCaseInsensitiveContains(query)
+                || $0.subtitle.localizedCaseInsensitiveContains(query)
+        }
+    }
+
+    /// 搜索时只保留有命中的分组；分组头保留以标示命中所属分类。
+    private var visibleGroups: [(section: PracticeSection, entries: [AngleEntry])] {
+        let sections = selectedSection.map { [$0] } ?? PracticeSection.allCases
+        return sections.compactMap { section in
+            let matched = filteredEntries(for: section)
+            return matched.isEmpty ? nil : (section, matched)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
             pageHeader
-
-            BTSegmentedTab(
-                tabs: HomeTab.allCases,
-                selected: $selectedTab,
-                label: { $0.rawValue },
-                accessibilityIdentifierPrefix: "angleHomeTab"
-            )
-            .padding(.horizontal, Spacing.lg)
-
-            Divider().foregroundStyle(.btSeparator)
-
-            ScrollView {
-                VStack(alignment: .leading, spacing: Spacing.md) {
-                    sectionCaption
-                    posterGrid(entries(for: selectedTab))
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.md)
-                .padding(.bottom, Spacing.lg)
-            }
+            searchBar
+            mainContent
         }
         .background(.btBG)
     }
 
     private var pageHeader: some View {
         HStack {
-            Text("角度")
+            Text("练习")
                 .font(.btLargeTitle)
                 .foregroundStyle(.btText)
             Spacer()
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
+    }
+
+    private var searchBar: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.btTextTertiary)
+            TextField("搜索练习", text: $searchText)
+                .font(.btCallout)
+                .foregroundStyle(.btText)
+            if !searchText.isEmpty {
+                Button {
+                    searchText = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.btTextTertiary)
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(Color.btBGTertiary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.sm)
         .padding(.bottom, Spacing.sm)
     }
 
-    private func entries(for tab: HomeTab) -> [AngleEntry] {
-        switch tab {
-        case .learn: learnEntries
-        case .train: trainEntries
-        case .tools: toolEntries
+    // MARK: - Main Content (Sidebar + Grid)
+
+    private var mainContent: some View {
+        HStack(alignment: .top, spacing: 0) {
+            sectionSidebar
+            entryGrid
         }
     }
 
-    private var sectionCaption: some View {
-        Text(captionText)
-            .font(.btCaption)
-            .foregroundStyle(.btTextSecondary)
-    }
+    // MARK: - Section Sidebar
 
-    private var captionText: String {
-        switch selectedTab {
-        case .learn: "理解瞄准的几何与手感"
-        case .train: "每天几分钟，校准你的角度直觉"
-        case .tools: "实战解球与走位推演工具"
-        }
-    }
-
-    private func posterGrid(_ entries: [AngleEntry]) -> some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: Spacing.md),
-                            GridItem(.flexible(), spacing: Spacing.md)],
-                  spacing: Spacing.md) {
-            ForEach(entries) { entry in
-                NavigationLink(value: entry.route) {
-                    AnglePosterCard(entry: entry)
+    private var sectionSidebar: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(spacing: 0) {
+                sidebarItem(
+                    label: "全部",
+                    icon: "square.grid.2x2",
+                    filledIcon: "square.grid.2x2.fill",
+                    isSelected: selectedSection == nil
+                ) {
+                    selectedSection = nil
                 }
-                .buttonStyle(.plain)
-                // 卡片按钮会合并子元素 AX 标签，UI 测试需用 identifier 精确定位。
-                .accessibilityIdentifier(entry.title)
+
+                ForEach(PracticeSection.allCases) { section in
+                    sidebarItem(
+                        label: section.rawValue,
+                        icon: section.icon,
+                        filledIcon: section.filledIcon,
+                        isSelected: selectedSection == section
+                    ) {
+                        selectedSection = section
+                    }
+                }
+            }
+        }
+        .frame(width: 76)
+        .background(Color.btBGSecondary)
+    }
+
+    private func sidebarItem(
+        label: String,
+        icon: String,
+        filledIcon: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: Spacing.xs) {
+                Image(systemName: isSelected ? filledIcon : icon)
+                    .font(.btSubheadline)
+                    .foregroundStyle(isSelected ? .btPrimary : .btTextSecondary)
+                    .frame(height: 22)
+
+                Text(label)
+                    .font(isSelected ? .btCaption.weight(.semibold) : .btCaption)
+                    .foregroundStyle(isSelected ? .btPrimary : .btTextSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 60)
+            .background(isSelected ? Color.btBG : .clear)
+            .overlay(alignment: .leading) {
+                if isSelected {
+                    Rectangle()
+                        .fill(Color.btPrimary)
+                        .frame(width: 3)
+                }
+            }
+        }
+        .buttonStyle(.plain)
+        // 沿用 P18 B1 的分段定位标识，UI 测试（P5 / ScreenshotTour）无需改选择器。
+        .accessibilityIdentifier("angleHomeTab_\(label)")
+    }
+
+    // MARK: - Entry Grid
+
+    @ViewBuilder
+    private var entryGrid: some View {
+        if visibleGroups.isEmpty {
+            searchEmptyState
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
+                    ForEach(visibleGroups, id: \.section) { group in
+                        Section {
+                            LazyVGrid(columns: gridColumns, spacing: Spacing.md) {
+                                ForEach(group.entries) { entry in
+                                    NavigationLink(value: entry.route) {
+                                        AngleGridCard(entry: entry)
+                                    }
+                                    .buttonStyle(.plain)
+                                    // 卡片按钮会合并子元素 AX 标签，UI 测试需用 identifier 精确定位。
+                                    .accessibilityIdentifier(entry.title)
+                                }
+                            }
+                            .padding(.horizontal, Spacing.md)
+                        } header: {
+                            sectionHeader(group.section)
+                        }
+                    }
+                }
+                .padding(.bottom, Spacing.xxxxl)
             }
         }
     }
+
+    private var searchEmptyState: some View {
+        BTEmptyState(
+            icon: "magnifyingglass",
+            title: "没有找到相关练习",
+            subtitle: "试试其他关键词或浏览分类",
+            actionTitle: "浏览全部练习",
+            action: { searchText = "" }
+        )
+        .frame(maxHeight: .infinity)
+    }
+
+    private func sectionHeader(_ section: PracticeSection) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: section.filledIcon)
+                .font(.btSubheadline)
+                .foregroundStyle(.btPrimary)
+            Text(section.rawValue)
+                .font(.btTitle2)
+                .foregroundStyle(.btText)
+            Text(section.caption)
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .background(.btBG)
+    }
 }
 
-// MARK: - Poster Card（与训练计划海报同语言：渐变封面 + 大字水印 + 底部标题）
+// MARK: - Grid Card（对齐 BTDrillGridCard 的上图下文样式；封面区保留渐变大字水印海报语言）
 
-private struct AnglePosterCard: View {
+private struct AngleGridCard: View {
     let entry: AngleEntry
 
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
+        VStack(alignment: .leading, spacing: 0) {
+            Color.clear
+                .aspectRatio(4.0 / 3.0, contentMode: .fit)
+                .overlay { coverArea }
+                .clipped()
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(entry.title)
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+
+                Text(entry.subtitle)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+        }
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: BTRadius.md)
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+        )
+        .shadow(
+            color: colorScheme == .dark ? .clear : Color.black.opacity(0.06),
+            radius: 4, x: 0, y: 2
+        )
+    }
+
+    private var coverArea: some View {
+        ZStack {
             LinearGradient(
                 colors: [entry.coverTop, entry.coverBottom],
                 startPoint: .topLeading,
@@ -227,50 +457,30 @@ private struct AnglePosterCard: View {
             )
 
             Text(entry.glyph)
-                .font(.system(size: 76, weight: .black, design: .rounded))
-                .foregroundStyle(.white.opacity(0.16))
+                .font(.system(size: 56, weight: .black, design: .rounded))
+                .foregroundStyle(.white.opacity(0.22))
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.55)],
-                startPoint: .center,
-                endPoint: .bottom
+        }
+        .clipShape(
+            UnevenRoundedRectangle(
+                topLeadingRadius: BTRadius.md,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: BTRadius.md
             )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.title)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text(entry.subtitle)
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
-            .padding(Spacing.md)
-
+        )
+        .overlay(alignment: .topTrailing) {
             if let chip = entry.chip {
-                VStack {
-                    HStack {
-                        Spacer()
-                        Text(chip)
-                            .font(.system(size: 10, weight: .heavy))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, Spacing.sm)
-                            .padding(.vertical, 2)
-                            .background(.white.opacity(0.22), in: Capsule())
-                    }
-                    Spacer()
-                }
-                .padding(Spacing.sm)
+                Text(chip)
+                    .font(.system(size: 10, weight: .heavy))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(.white.opacity(0.22), in: Capsule())
+                    .padding(Spacing.sm)
             }
         }
-        .aspectRatio(0.92, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 }
 

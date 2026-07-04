@@ -185,6 +185,43 @@ enum BatchDrillCatalog {
         }
         return map
     }
+
+    // MARK: - 存档回读（存档 + 在原有基础上修改）
+
+    /// 定位某 drill × 某球形 token 已落库的序列文件（新版 `drill_cNNN__<token>-…`；
+    /// token 为 "" 时回退旧版单序列 `drill_cNNN-…`）。
+    static func savedSequenceURL(drillId: String, token: String) -> URL? {
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: sequencesDir)) ?? []
+        if !token.isEmpty {
+            let prefix = "\(drillId)__\(token)-"
+            if let f = files.first(where: { $0.hasPrefix(prefix) && $0.hasSuffix(".json") }) {
+                return URL(fileURLWithPath: "\(sequencesDir)/\(f)")
+            }
+            return nil
+        }
+        let legacyPrefix = "\(drillId)-"
+        if let f = files.first(where: {
+            $0.hasPrefix(legacyPrefix) && !$0.contains("__") && $0.hasSuffix(".json")
+        }) {
+            return URL(fileURLWithPath: "\(sequencesDir)/\(f)")
+        }
+        return nil
+    }
+
+    /// 读回一条已落库序列（与归档编码策略对齐：iso8601 日期）。
+    static func loadSequence(at url: URL) -> PositionPlaySequence? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        return try? decoder.decode(PositionPlaySequence.self, from: data)
+    }
+
+    /// 便捷：直接按 drill + 来源截图取回其已存序列（供「改存档」入口）。
+    static func loadSequence(drillId: String, imageURL: URL) -> PositionPlaySequence? {
+        let token = formationToken(forImage: imageURL)
+        guard let url = savedSequenceURL(drillId: drillId, token: token) else { return nil }
+        return loadSequence(at: url)
+    }
 }
 
 // MARK: - drill 键控序列归档
@@ -200,10 +237,13 @@ enum BatchSequenceArchive {
 
     static let directory = BatchDrillCatalog.sequencesDir
 
-    /// - Parameter imageStem: 来源截图的文件名（不含扩展名），用于派生球形 token。
+    /// - Parameters:
+    ///   - imageStem: 来源截图的文件名（不含扩展名），用于派生球形 token。
+    ///   - legacy: true = 覆盖旧版单序列存档（`drill_cNNN-…` 无 `__`），保持旧文件名格式；
+    ///     这是**作者显式改旧存档**的路径，区别于写新球形时「绝不动旧文件」的默认约定。
     @discardableResult
     static func archive(_ sequence: PositionPlaySequence, drillId: String,
-                        imageStem: String) throws -> URL {
+                        imageStem: String, legacy: Bool = false) throws -> URL {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
@@ -212,6 +252,20 @@ enum BatchSequenceArchive {
         let fm = FileManager.default
         try fm.createDirectory(atPath: directory, withIntermediateDirectories: true)
 
+        let safeName = sequence.name.replacingOccurrences(of: "/", with: "-")
+
+        if legacy {
+            // 只覆盖同 drill 的旧版单序列文件（无 `__`），不碰任何新版球形文件。
+            for file in (try? fm.contentsOfDirectory(atPath: directory)) ?? []
+            where file.hasPrefix("\(drillId)-") && !file.contains("__") && file.hasSuffix(".json") {
+                try? fm.removeItem(atPath: "\(directory)/\(file)")
+            }
+            let url = URL(fileURLWithPath: directory)
+                .appendingPathComponent("\(drillId)-\(safeName)-\(sequence.steps.count)杆.json")
+            try data.write(to: url)
+            return url
+        }
+
         let token = BatchDrillCatalog.formationToken(forImageStem: imageStem)
         let stemPrefix = "\(drillId)__\(token)-"   // 仅同图覆盖；旧版单序列与其它图一律不动
         for file in (try? fm.contentsOfDirectory(atPath: directory)) ?? []
@@ -219,7 +273,6 @@ enum BatchSequenceArchive {
             try? fm.removeItem(atPath: "\(directory)/\(file)")
         }
 
-        let safeName = sequence.name.replacingOccurrences(of: "/", with: "-")
         let url = URL(fileURLWithPath: directory)
             .appendingPathComponent("\(stemPrefix)\(safeName)-\(sequence.steps.count)杆.json")
         try data.write(to: url)
@@ -239,6 +292,11 @@ final class BatchAuthoringContext: ObservableObject {
     @Published var confirmedBoard: BoardSnapshot?
     /// 当前选用的源截图（决定球形 token；也用于序列命名）。
     @Published var sourceImageURL: URL?
+    /// 待「续接编辑」的已存序列（走「改存档」入口时设置）：编排台据此重放重建、跳过拍照建球形。
+    /// nil = 常规新建流程（拍照建球形 → 空录制）。
+    @Published var editingSequence: PositionPlaySequence?
+    /// 正在编辑的是否旧版单序列存档（`drill_cNNN-…` 无 `__`）：保存时覆盖原旧版文件而非另建新版。
+    @Published var editingLegacyArchive = false
     /// 「保存」（留在本 drill 继续做下一张图）信号：拍照建球形页据此重置回选图栅格。
     @Published var pickerResetToken = UUID()
 
@@ -269,6 +327,8 @@ final class BatchAuthoringContext: ObservableObject {
             current = next
             confirmedBoard = nil
             sourceImageURL = nil
+            editingSequence = nil
+            editingLegacyArchive = false
             return true
         }
         return false
@@ -369,6 +429,8 @@ struct BatchDrillStudioView: View {
         context.current = drill
         context.confirmedBoard = nil
         context.sourceImageURL = nil
+        context.editingSequence = nil
+        context.editingLegacyArchive = false
         goExtract = true
     }
 }

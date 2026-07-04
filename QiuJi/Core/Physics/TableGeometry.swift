@@ -30,6 +30,10 @@ struct CircularCushionSegment {
     let radius: Float
     let startAngle: Float
     let endAngle: Float
+    /// 该弧段的反弹恢复系数。`nil` ⇒ 使用全局 `TablePhysics.cushionRestitution`。
+    /// 袋口鼻尖圆角（jaw fillet）用更低的值（皮革/橡胶鼻头吸能远大于整条库边），
+    /// 使低速沿库球触鼻尖后贴向孔圈而非弹回台内（贴库球进角袋标定，见 DIAG-R）。
+    var restitution: Float? = nil
     
     /// Check whether an angle (radians, measured from +X axis CCW in the XZ plane)
     /// falls within this arc segment's angular range.
@@ -310,16 +314,19 @@ struct TableGeometry {
         }
 
         // --- Corner jaw arcs (8 arcs: 2 per corner) ---
+        // 鼻尖圆角用袋口鼻头恢复系数（低速沿库球贴向孔圈而非弹回，见 pocketNoseRestitution）。
         var circularCushions: [CircularCushionSegment] = []
         for corner in corners {
             circularCushions.append(CircularCushionSegment(
                 center: SCNVector3(corner.longArc.centerX, y, corner.longArc.centerZ),
                 radius: corner.longArc.radius,
-                startAngle: corner.longArc.startAngle, endAngle: corner.longArc.endAngle))
+                startAngle: corner.longArc.startAngle, endAngle: corner.longArc.endAngle,
+                restitution: TablePhysics.pocketNoseRestitution))
             circularCushions.append(CircularCushionSegment(
                 center: SCNVector3(corner.shortArc.centerX, y, corner.shortArc.centerZ),
                 radius: corner.shortArc.radius,
-                startAngle: corner.shortArc.startAngle, endAngle: corner.shortArc.endAngle))
+                startAngle: corner.shortArc.startAngle, endAngle: corner.shortArc.endAngle,
+                restitution: TablePhysics.pocketNoseRestitution))
         }
 
         // --- Side pocket fillet arcs (4 arcs: 2 per side pocket, bottom z<0 then top z>0) ---

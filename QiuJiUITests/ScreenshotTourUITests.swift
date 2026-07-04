@@ -50,8 +50,8 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
-    /// 角度首页分段 Tab（学习 / 训练 / 工具，ADR-P11-08）。
-    /// 用 accessibilityIdentifier 精确定位，避免「训练」与底部 Tab 重名误点。
+    /// 角度首页分段 Tab（学 / 练 / 打 / 解，ADR-P18-01 四分段 IA）。
+    /// 用 accessibilityIdentifier 精确定位，避免与底部 Tab 重名误点。
     @discardableResult
     private func switchAngleHomeTab(_ name: String) -> Bool {
         let seg = app.buttons["angleHomeTab_\(name)"]
@@ -87,9 +87,9 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(2)
 
         let pages: [(String, String, String)] = [
-            ("学习", "瞄准原理", "a09-aiming-principle"),
-            ("学习", "浅谈球感", "a11-ball-feel"),
-            ("训练", "几何角度训练", "a12-geometric-quiz"),
+            ("学", "瞄准原理", "a09-aiming-principle"),
+            ("学", "浅谈球感", "a11-ball-feel"),
+            ("练", "几何角度训练", "a12-geometric-quiz"),
         ]
         for (tab, label, name) in pages {
             switchAngleHomeTab(tab)
@@ -173,7 +173,7 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(3)
         app.switchTab(.angle)
         sleep(2)
-        switchAngleHomeTab("工具")
+        switchAngleHomeTab("打")
         _ = tapIfExists("走位编排台", timeout: 4)
         sleep(4)
         snap("pp01-composer-layout")
@@ -188,43 +188,101 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
-    /// 统一设计语言回归（ADR-P11-07/08）：角度首页海报卡三分段 + 各 2D 球桌页
-    /// 统一取景 / 顶部胶囊 / BTSceneFAB + 2D 瞄准训练 + 走位编排台全宽球桌。
+    /// 统一设计语言回归（ADR-P11-07/08 / ADR-P18-01）：角度首页海报卡四分段（学/练/打/解）
+    /// + 各 2D 球桌页统一取景 / 顶部胶囊 / BTSceneFAB + 2D 瞄准训练 + 走位编排台全宽球桌。
     func testUnifiedDesignPages() {
         sleep(3)
         app.switchTab(.angle)
         sleep(2)
         snap("u01-angle-home-learn")
-        switchAngleHomeTab("训练")
+        switchAngleHomeTab("练")
         snap("u02-angle-home-train")
-        switchAngleHomeTab("工具")
-        snap("u02b-angle-home-tools")
+        switchAngleHomeTab("打")
+        snap("u02b-angle-home-play")
+        switchAngleHomeTab("解")
+        snap("u02c-angle-home-solve")
 
-        switchAngleHomeTab("训练")
+        switchAngleHomeTab("练")
         if tapIfExists("几何角度训练", timeout: 3) {
             sleep(2)
             snap("u03-geometric-quiz-dark")
             popBack(); sleep(1)
         }
-        if openSolverVerified(entry: "2D 瞄准训练", navTitle: "2D 瞄准训练", homeTab: "训练") {
+        if openSolverVerified(entry: "2D 瞄准训练", navTitle: "2D 瞄准训练", homeTab: "练") {
             sleep(3)
             snap("u03b-scene2d-aiming")
             popBack(); sleep(1)
         }
-        if openSolverVerified(entry: "分离角与走位", navTitle: "分离角与走位", homeTab: "工具") {
+        if openSolverVerified(entry: "分离角与走位", navTitle: "分离角与走位", homeTab: "打") {
             sleep(3)
             snap("u04-shot-simulation")
             popBack(); sleep(1)
         }
-        if openSolverVerified(entry: "反射解球器", navTitle: "反射解球器", homeTab: "工具") {
+        if openSolverVerified(entry: "反射解球器", navTitle: "反射解球器", homeTab: "解") {
             sleep(2)
             snap("u05-reflection")
             popBack(); sleep(1)
         }
-        if openSolverVerified(entry: "翻袋解球器", navTitle: "翻袋解球", homeTab: "工具") {
+        if openSolverVerified(entry: "翻袋解球器", navTitle: "翻袋解球", homeTab: "解") {
             sleep(2)
             snap("u06-bankshot")
             popBack(); sleep(1)
+        }
+    }
+
+    /// P18 B2 专项截图：统一 `ShotControlBar` 换装（A 类可编辑 / B 类只读）+ 分离角手动瞄准
+    /// + 自由击球入口 + B 类三页「试打」跳自由击球（带球局快照）。
+    func testB2ShotControls() {
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+
+        // 分离角：自动态底栏 → 切「手动」（chip + 角度齿轮 + 虚线对照）。
+        if openSolverVerified(entry: "分离角与走位", navTitle: "分离角与走位", homeTab: "打") {
+            sleep(3)
+            snap("b2-01-shotsim-auto")
+            if tapIfExists("手动", timeout: 3) {
+                sleep(3)
+                snap("b2-02-shotsim-manual")
+                _ = tapIfExists("自动", timeout: 2)
+                sleep(1)
+            }
+            popBack(); sleep(1)
+        }
+
+        // 自由击球入口卡 → 编排台自由模式（角度齿轮 + 首碰读数胶囊）。
+        switchAngleHomeTab("打")
+        if tapIfExists("自由击球", timeout: 4) {
+            sleep(4)
+            snap("b2-03-freeplay-composer")
+            popBack(); sleep(1)
+        }
+
+        // 球形生成器：统一控制条（连续力度滑条形态）。
+        switchAngleHomeTab("打")
+        if tapIfExists("球形生成器", timeout: 4) {
+            sleep(4)
+            snap("b2-04-rack-generator")
+            popBack(); sleep(1)
+        }
+
+        // B 类三页：只读控制条 + 「试打」→ 编排台自由模式带球局快照。
+        let solvers: [(String, String, String)] = [
+            ("思路训练器", "思路训练器", "b2-05-silu"),
+            ("打一走二想三", "打一走二想三", "b2-06-planthree"),
+            ("做斯诺克", "做斯诺克", "b2-07-snooker"),
+        ]
+        for (entry, nav, name) in solvers {
+            if openSolverVerified(entry: entry, navTitle: nav, homeTab: "解") {
+                sleep(3)
+                snap(name)
+                if tapIfExists("试打", timeout: 3) {
+                    sleep(4)
+                    snap("\(name)-tryplay")
+                    popBack(); sleep(1)   // 编排台 → B 类页
+                }
+                popBack(); sleep(1)       // B 类页 → 首页
+            }
         }
     }
 
@@ -235,7 +293,7 @@ final class ScreenshotTourUITests: XCTestCase {
         app.switchTab(.angle)
         sleep(2)
 
-        if openSolverVerified(entry: "分离角与走位", navTitle: "分离角与走位", homeTab: "工具") {
+        if openSolverVerified(entry: "分离角与走位", navTitle: "分离角与走位", homeTab: "打") {
             sleep(3)
             snap("p00-shotsim-bottombar")
             if tapIfExists("打点", timeout: 3) {
@@ -247,7 +305,7 @@ final class ScreenshotTourUITests: XCTestCase {
             popBack(); sleep(1)
         }
 
-        switchAngleHomeTab("工具")
+        switchAngleHomeTab("打")
         if tapIfExists("走位编排台", timeout: 4) {
             sleep(4)
             if tapIfExists("打点", timeout: 3) {
@@ -259,7 +317,7 @@ final class ScreenshotTourUITests: XCTestCase {
             popBack(); sleep(1)
         }
 
-        if openSolverVerified(entry: "反射解球器", navTitle: "反射解球器", homeTab: "工具") {
+        if openSolverVerified(entry: "反射解球器", navTitle: "反射解球器", homeTab: "解") {
             sleep(2)
             if app.buttons["真实"].waitForExistence(timeout: 3) {
                 app.buttons["真实"].tap()
@@ -271,7 +329,7 @@ final class ScreenshotTourUITests: XCTestCase {
             popBack(); sleep(1)
         }
 
-        switchAngleHomeTab("训练")
+        switchAngleHomeTab("练")
         if tapIfExists("几何角度训练", timeout: 3) {
             sleep(2)
             snap("p04-quiz-capsule")
@@ -292,7 +350,7 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 进入指定解球页并**校验确实到达**（用导航标题判定），错页则返回重试。
     @discardableResult
     private func openSolverVerified(entry: String, navTitle: String,
-                                    homeTab: String = "工具") -> Bool {
+                                    homeTab: String = "解") -> Bool {
         for _ in 0..<3 {
             app.switchTab(.angle)
             sleep(1)
@@ -425,7 +483,7 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(1)
     }
 
-    // MARK: 角度 Tab（含全部学习/训练/工具子页）
+    // MARK: 角度 Tab（含 学/练 分段子页；打/解 沙盘与解球页由专项测试覆盖）
 
     private func tourAngle() {
         app.switchTab(.angle)
@@ -433,13 +491,13 @@ final class ScreenshotTourUITests: XCTestCase {
         snap("08-angle-home")
 
         let subPages: [(String, String, String)] = [
-            ("学习", "瞄准原理", "09-angle-aiming-principle"),
-            ("学习", "角度与打点", "10-angle-dynamic"),
-            ("学习", "浅谈球感", "11-angle-ball-feel"),
-            ("学习", "进球点对照表", "15-angle-contact-point-table"),
-            ("训练", "几何角度训练", "12-angle-geometric-quiz"),
-            ("训练", "2D 瞄准训练", "13-angle-scene2d-aiming"),
-            ("训练", "3D 瞄准训练", "14-angle-scene3d-aiming"),
+            ("学", "瞄准原理", "09-angle-aiming-principle"),
+            ("学", "角度与打点", "10-angle-dynamic"),
+            ("学", "浅谈球感", "11-angle-ball-feel"),
+            ("学", "进球点对照表", "15-angle-contact-point-table"),
+            ("练", "几何角度训练", "12-angle-geometric-quiz"),
+            ("练", "2D 瞄准训练", "13-angle-scene2d-aiming"),
+            ("练", "3D 瞄准训练", "14-angle-scene3d-aiming"),
         ]
         for (tab, label, name) in subPages {
             app.switchTab(.angle)

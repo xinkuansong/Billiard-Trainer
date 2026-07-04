@@ -52,6 +52,12 @@ struct AngleSceneView: UIViewRepresentable {
     /// 点击未命中球/袋口时，反投影到台面平面的世界坐标回调（走位编排器自由瞄准用）。
     var onTableTapped: ((SCNVector3) -> Void)?
 
+    /// 自由瞄准手柄拖动（P18 B2 T-P18-06）：pan 起点落在 `scene.aimHandleNode` 的 44pt
+    /// 命中圈内时进入「拖瞄准」分支（优先于拖球），拖动中回调台面平面世界坐标。
+    var onAimHandleDragged: ((SCNVector3) -> Void)?
+    /// 手柄拖动结束（可选，用于收尾震动/吸附）。
+    var onAimHandleDragEnded: (() -> Void)?
+
     /// 坐标桥接（可选）。传入后由本视图填充 unproject/project 闭包。
     var projector: TableProjector?
 
@@ -127,6 +133,8 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.selectableBallNodes = selectableBallNodes
         context.coordinator.onBallTapped = onBallTapped
         context.coordinator.onTableTapped = onTableTapped
+        context.coordinator.onAimHandleDragged = onAimHandleDragged
+        context.coordinator.onAimHandleDragEnded = onAimHandleDragEnded
         if let projector, projector.unproject == nil {
             bindProjector(to: uiView)
         }
@@ -163,7 +171,11 @@ struct AngleSceneView: UIViewRepresentable {
         var selectableBallNodes: [SCNNode] = []
         var onBallTapped: ((SCNNode) -> Void)?
         var onTableTapped: ((SCNVector3) -> Void)?
+        var onAimHandleDragged: ((SCNVector3) -> Void)?
+        var onAimHandleDragEnded: (() -> Void)?
         private var draggedNode: SCNNode?
+        /// 本次 pan 是否在拖自由瞄准手柄（优先级高于拖球）。
+        private var isDraggingAimHandle = false
 
         /// Dominant axis lock for 3D camera-pan gestures. Once decided
         /// (when cumulative motion crosses `panAxisLockThreshold`), the
@@ -321,6 +333,15 @@ struct AngleSceneView: UIViewRepresentable {
             return nil
         }
 
+        /// 自由瞄准手柄命中判定：手柄可见且回调已接线时，屏幕投影距离 < 44pt 即命中。
+        private func hitTestAimHandle(at location: CGPoint) -> Bool {
+            guard onAimHandleDragged != nil, let scnView,
+                  let handle = scene.aimHandleNode, !handle.isHidden else { return false }
+            let projected = scnView.projectPoint(handle.worldPosition)
+            let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+            return hypot(location.x - screenPos.x, location.y - screenPos.y) < 44
+        }
+
         /// Project a screen point onto the table surface plane (y = planeY).
         private func unprojectToTablePlane(screenPoint: CGPoint, in view: SCNView, planeY: Float) -> SCNVector3? {
             let nearPoint = view.unprojectPoint(SCNVector3(Float(screenPoint.x), Float(screenPoint.y), 0))
@@ -343,6 +364,11 @@ struct AngleSceneView: UIViewRepresentable {
                 panCumX = 0
                 panCumY = 0
                 let location = gesture.location(in: scnView)
+                if hitTestAimHandle(at: location) {
+                    isDraggingAimHandle = true
+                    draggedNode = nil
+                    return
+                }
                 if let ball = hitTestBall(at: location) {
                     draggedNode = ball
                     dragStartLocation = location
@@ -357,6 +383,14 @@ struct AngleSceneView: UIViewRepresentable {
                 draggedNode = nil
 
             case .changed:
+                if isDraggingAimHandle {
+                    let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
+                    guard let world = unprojectToTablePlane(
+                        screenPoint: gesture.location(in: scnView), in: scnView, planeY: planeY
+                    ) else { return }
+                    onAimHandleDragged?(world)
+                    return
+                }
                 if let ball = draggedNode {
                     let sample = dragSamplePoint(for: gesture.location(in: scnView))
                     let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
@@ -369,6 +403,11 @@ struct AngleSceneView: UIViewRepresentable {
                 panDominantAxis = nil
                 panCumX = 0
                 panCumY = 0
+                if isDraggingAimHandle {
+                    isDraggingAimHandle = false
+                    onAimHandleDragEnded?()
+                    return
+                }
                 if let ball = draggedNode {
                     // Use the lifted sample point so "where the ball is" (not the
                     // raw finger) drives drop targets like the palette-removal zone.

@@ -122,6 +122,9 @@ struct MainTabView: View {
             ShotSimulationView()
         case .positionPlayComposer:
             PositionPlayComposerView()
+        case .freePlay:
+            // 自由击球（ADR-P18-01）：编排台自由瞄准模式直达入口。
+            PositionPlayComposerView(initialMode: .free)
         case .positionPlaySolver:
             SiluTrainerView()
         case .planThree:
@@ -146,8 +149,6 @@ struct MainTabView: View {
         switch route {
         case .detail(let sessionId):
             TrainingDetailView(sessionId: sessionId)
-        case .statistics:
-            EmptyView()
         }
     }
 }

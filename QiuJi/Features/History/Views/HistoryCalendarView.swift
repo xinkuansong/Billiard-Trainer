@@ -3,7 +3,6 @@ import SwiftData
 
 enum HistoryRoute: Hashable {
     case detail(sessionId: UUID)
-    case statistics
 }
 
 struct HistoryCalendarView: View {
