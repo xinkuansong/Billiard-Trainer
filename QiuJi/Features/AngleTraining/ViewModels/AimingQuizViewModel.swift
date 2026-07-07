@@ -85,6 +85,8 @@ final class AimingQuizViewModel: ObservableObject {
     @Published var practiceMode: PracticeMode = .twentyQuestions
     @Published var showSettings: Bool = false
     @Published var showAimingAssist: Bool = false
+    /// 当前题目标球号（条 6.2：随机球号，避免只会看 8 号）。
+    @Published private(set) var targetBallNumber: Int = 8
 
     var totalQuestions: Int { practiceMode == .twentyQuestions ? 20 : Int.max }
     var isFreePractice: Bool { practiceMode == .freePractice }
@@ -129,13 +131,18 @@ final class AimingQuizViewModel: ObservableObject {
     ///     ground shadow catcher, 4-light, HDR camera, material enhancers).
     ///     Defaults to `false` so the 2D aiming page keeps its current
     ///     cheap pipeline.
-    func setupScene(initialCameraMode: AngleTrainingScene.CameraMode, enhanced: Bool = false) {
+    ///   - autoStart: when `false`, the scene is built but no question is
+    ///     generated — the owning view presents the training-settings sheet
+    ///     first and calls `startTest()` itself (T-P18-48 entry flow).
+    func setupScene(initialCameraMode: AngleTrainingScene.CameraMode,
+                    enhanced: Bool = false,
+                    autoStart: Bool = true) {
         scene.setupScene(enhancedRendering: enhanced)
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
 
         scene.setCameraMode(initialCameraMode, animated: false)
-        startTest()
+        if autoStart { startTest() }
     }
 
     // MARK: - Test lifecycle
@@ -264,7 +271,11 @@ final class AimingQuizViewModel: ObservableObject {
         let targetPos = AngleSceneCalculator.normalizedToScene(point: question.targetBall, surfaceY: surfaceY)
         let cuePos = AngleSceneCalculator.normalizedToScene(point: question.cueBall, surfaceY: surfaceY)
 
-        scene.applyBallLayout(cueBallPosition: cuePos, targetBallNumber: 8, targetPosition: targetPos)
+        // 条 6.2：随机球号；applyBallLayout 同步 currentTargetNumber，
+        // 进球线取色随球号绑定（修「进球线成默认色」bug 根因：取色依据未更新）。
+        targetBallNumber = Int.random(in: 1...15)
+        scene.applyBallLayout(cueBallPosition: cuePos, targetBallNumber: targetBallNumber,
+                              targetPosition: targetPos)
 
         // The question carries its `pocketIndex` already aligned with
         // `AngleSceneCalculator.pocketPositions` (set by `AngleCalculator`),
@@ -296,11 +307,14 @@ final class AimingQuizViewModel: ObservableObject {
             pocketIndex: q.pocketIndex,
             surfaceY: surfaceY
         )
+        // 辅助档（T-P18-48）：瞄准线 / 进球线 / 假想球 / 接触点 / 90° 分离角
+        // 短虚线全部走 §1.2 统一语言；仅隐藏数值角弧（数值即答案）。
         scene.updateVisualization(
             cueBall: cueBall.position,
             targetBall: targetPos,
             pocket: aimPoint,
             showAngleAnnotations: false,
+            showOverlapMarkers: true,
             showLineLabels: shouldShowLineLabels
         )
         scene.hideCueStick()

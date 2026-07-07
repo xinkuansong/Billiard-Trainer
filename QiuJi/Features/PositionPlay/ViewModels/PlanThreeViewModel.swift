@@ -1,6 +1,7 @@
 import Foundation
 import SceneKit
 import SwiftUI
+import Combine
 
 // MARK: - Roles
 
@@ -117,7 +118,7 @@ enum PlanThreeSectorSolver {
 
 /// 「打一走二想三」走位规划卡（增强版走位训练）。
 ///
-/// 整合「思路训练器」反解能力：摆球 → 选 ①一号球+①袋 / ②二号球+②袋 / ③三号球（右侧角色轨）；
+/// 整合「思路训练器」反解能力：摆球 → 选 ①一号球+①袋 / ②二号球+②袋 / ③三号球（底部角色横排）；
 /// ② + ②袋(+③) 自动画**白球停球扇形（引导）**；再用工具画真正的**落区/落点/过点**约束，
 /// 由 `PositionPlaySolver` 反解出「打一」的塞与力度，可「下一解」翻档、击球。
 /// 打进①后白球停下、窗口前滑（老②→新①、老②袋→新①袋、老③→新②）续打；角色随时可改派。
@@ -179,7 +180,7 @@ final class PlanThreeViewModel: ObservableObject {
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "点右侧①，再点桌上球设为一号球"
+    @Published private(set) var statusText = "点下方①，再点桌上球设为一号球"
 
     var currentSolution: PositionPlaySolution? {
         solutions.indices.contains(currentIndex) ? solutions[currentIndex] : nil
@@ -196,6 +197,13 @@ final class PlanThreeViewModel: ObservableObject {
     let solveQueue = DispatchQueue(label: "com.qiuji.planthree-solve", qos: .userInitiated)
     var solveGeneration = 0
     var surfaceY: Float { scene.surfaceY }
+
+    // MARK: - Last shot（条 21.3 同规范：上一杆/回放）
+
+    private var lastShotContext: (before: BoardSnapshot, shot: PlannedShot,
+                                  prediction: ShotPrediction)?
+    @Published private(set) var canUndoShot = false
+    @Published private(set) var canPlayback = false
 
     static let color1 = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 1)
     static let color2 = UIColor(red: 0.20, green: 0.85, blue: 0.95, alpha: 1)
@@ -361,6 +369,14 @@ final class PlanThreeViewModel: ObservableObject {
         return SCNVector3(p.x, surfaceY + r, p.z)
     }
 
+    // MARK: - Break flow state（T-P18-47，方法见下方 extension）
+
+    /// 开球模式 runner。非 nil = 开球模式：角色计划/约束/求解/摆球交互全部挂起。
+    @Published private(set) var breakRunner: BreakFlowRunner?
+    var isBreakMode: Bool { breakRunner != nil }
+    /// 进开球模式前的桌面（取消开球时恢复）。
+    var boardBeforeBreak: BoardSnapshot?
+    var breakChangeForwarder: AnyCancellable?
 }
 
 // MARK: - Role selection + constraint tools + solve
@@ -379,7 +395,7 @@ extension PlanThreeViewModel {
     func selectBall(node: SCNNode) {
         guard !isPlaying, let key = scene.ballKey(for: node), !PositionPlayBall.isCue(key) else { return }
         guard let role = armedRole, role.isBall else {
-            statusText = "请先点右侧「球」角色芯片"
+            statusText = "请先点下方「球」角色芯片"
             return
         }
         assignBall(key, to: role)
@@ -389,7 +405,7 @@ extension PlanThreeViewModel {
     func selectPocket(at index: Int) {
         guard !isPlaying else { return }
         guard let role = armedRole, role.isPocket else {
-            statusText = "请先点右侧「袋」角色芯片"
+            statusText = "请先点下方「袋」角色芯片"
             return
         }
         if role == .pocket1 { pocket1Index = index } else { pocket2Index = index }
@@ -573,6 +589,12 @@ extension PlanThreeViewModel {
         return params
     }
 
+    /// 三档轨迹标注切换后重绘当前解（`BTTrajectoryDetailChip` 触发，条 12.5）。
+    func redrawTrajectory() {
+        guard !isPlaying, let sol = currentSolution else { return }
+        drawTrajectory(sol.prediction, shot: sol.shot)
+    }
+
     func nextSolution() {
         guard !solutions.isEmpty else { return }
         currentIndex = (currentIndex + 1) % solutions.count
@@ -708,10 +730,15 @@ extension PlanThreeViewModel {
               pocket1Index >= 0,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
             scene.ghostBallNode?.isHidden = true
+            scene.hideContactDot()
             return
         }
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
-        guard pockets.indices.contains(pocket1Index) else { scene.ghostBallNode?.isHidden = true; return }
+        guard pockets.indices.contains(pocket1Index) else {
+            scene.ghostBallNode?.isHidden = true
+            scene.hideContactDot()
+            return
+        }
         let aim = AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: tn.position, pocketIndex: pocket1Index, surfaceY: surfaceY)
         let ghost = AngleSceneCalculator.ghostBallPosition(
@@ -719,12 +746,15 @@ extension PlanThreeViewModel {
         selectionNodes.append(scene.addLine(from: cue.position, to: ghost,
                                             color: UIColor.white.withAlphaComponent(0.45),
                                             radius: TrajectoryStyle.aimRadius))
-        selectionNodes.append(scene.addLine(from: tn.position, to: pockets[pocket1Index],
-                                            color: TrajectoryStyle.potColor(for: tkey, alpha: 0.55),
-                                            radius: TrajectoryStyle.aimRadius))
+        // 进球线预览：本色虚线（线语言 v2）。
+        scene.addDashedPolyline([tn.position, pockets[pocket1Index]],
+                                color: TrajectoryStyle.potColor(for: tkey, alpha: 0.55),
+                                radius: TrajectoryStyle.aimRadius, into: &selectionNodes)
         if let g = scene.ghostBallNode {
             g.position = SCNVector3(ghost.x, surfaceY + AngleSceneCalculator.ballRadius, ghost.z)
             g.isHidden = false
+            // 重叠标注 L0（T-P18-42）：几何预览同样补齐接触点绿点。
+            scene.updateContactDot(ghostCenter: g.position, targetCenter: tn.position)
         }
     }
 
@@ -733,28 +763,33 @@ extension PlanThreeViewModel {
     func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
-        addPolyline(p.cuePath, color: TrajectoryStyle.aimColor, radius: TrajectoryStyle.aimRadius)
-        var objPath = p.objectPath
-        if p.objectPocketed, let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
-            objPath = PositionPlayShotSolver.extendPathToPocketRim(objPath, pocketIndex: pocketIndex, surfaceY: surfaceY)
+        // 线语言 v2（条 12）+ 三档标注（条 12.5）：母球碰前白实线 + 碰后白虚线；
+        // 目标球/被带动球本色虚线。
+        let detail = UserPreferences.shared.trajectoryDetail
+        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
+                               into: &trajectoryNodes)
+        if detail != .minimal {
+            var objPath = p.objectPath
+            if p.objectPocketed, let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
+                objPath = PositionPlayShotSolver.extendPathToPocketRim(objPath, pocketIndex: pocketIndex, surfaceY: surfaceY)
+            }
+            scene.addObjectTrajectory(objPath, ballKey: shot.targetKey, into: &trajectoryNodes)
         }
-        addPolyline(objPath, color: TrajectoryStyle.potColor(for: shot.targetKey), radius: TrajectoryStyle.potRadius)
-        for (key, pts) in p.extraBallPaths {
-            addPolyline(pts, color: TrajectoryStyle.potColor(for: key, alpha: 0.85), radius: TrajectoryStyle.potRadius)
+        if detail == .full {
+            for (key, pts) in p.extraBallPaths {
+                scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
+            }
         }
         if let ghost = scene.ghostBallNode {
             ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
             ghost.isHidden = false
+            // 重叠标注 L0（T-P18-42）：假想球圈 + 接触点绿点成对出现。
+            if let target = scene.allBallNodes[shot.targetKey], !target.isHidden {
+                scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target.position)
+            }
         }
         if UserPreferences.shared.showSeparationAngle {
             scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
-        }
-    }
-
-    private func addPolyline(_ pts: [SCNVector3], color: UIColor, radius: Float) {
-        guard pts.count >= 2 else { return }
-        for i in 0..<(pts.count - 1) {
-            trajectoryNodes.append(scene.addLine(from: pts[i], to: pts[i + 1], color: color, radius: radius))
         }
     }
 
@@ -828,6 +863,48 @@ extension PlanThreeViewModel {
     }
 
     private func clearConstraintNodes() { scene.clearResultNodes(nodes: &constraintNodes) }
+
+    // MARK: - Break flow（T-P18-47：内置开球，替代球形生成器页；状态见类体）
+
+    /// 进入开球模式：存当前桌面 → 清计划/约束/解 → 摆架。
+    func startBreakFlow(game: RackGame) {
+        guard !isPlaying, breakRunner == nil else { return }
+        activeTool = .none
+        boardBeforeBreak = currentSnapshot()
+        clearConstraint()
+        scene.clearResultNodes(nodes: &selectionNodes)
+        scene.hideAllVisualization()
+        scene.hideCueStick()
+        let runner = BreakFlowRunner(scene: scene, game: game)
+        breakChangeForwarder = runner.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+        runner.onSettled = { [weak self] board in
+            guard let self else { return }
+            self.teardownBreakFlow()
+            self.loadBoard(board)
+        }
+        breakRunner = runner
+        runner.rackUp()
+    }
+
+    /// 取消开球模式并恢复进场前桌面。
+    func cancelBreakFlow() {
+        guard let runner = breakRunner else { return }
+        runner.cancel()
+        let restore = boardBeforeBreak
+        teardownBreakFlow()
+        if let restore, !restore.onTable.isEmpty {
+            loadBoard(restore)
+        } else {
+            clearTable()
+        }
+    }
+
+    private func teardownBreakFlow() {
+        breakRunner = nil
+        breakChangeForwarder = nil
+        boardBeforeBreak = nil
+    }
 }
 
 // MARK: - Cue stick + strike + rolling window
@@ -864,6 +941,10 @@ extension PlanThreeViewModel {
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
+        lastShotContext = (currentSnapshot(), sol.shot, sol.prediction)
+        canUndoShot = false
+        canPlayback = false
+
         isPlaying = true
         statusText = "运杆…"
         clearConstraintNodes()
@@ -871,6 +952,130 @@ extension PlanThreeViewModel {
         scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity)) { [weak self] in
             self?.launchBalls(sol: sol, recorder: recorder)
         }
+    }
+
+    /// 微调当前解（条 21.4 同规范）：改打点/力度后按新参数重预测替换当前解。
+    func adjustCurrentSolution(velocity v: Double? = nil,
+                               spinX sx: Double? = nil, spinY sy: Double? = nil) {
+        guard !isPlaying, !isComputing, let sol = currentSolution else { return }
+        var shot = sol.shot
+        if let v { shot.velocity = v }
+        if let sx { shot.spinX = sx }
+        if let sy { shot.spinY = sy }
+        let before = currentSnapshot()
+        let y = surfaceY
+        let idx = currentIndex
+        solveGeneration += 1
+        let gen = solveGeneration
+        isComputing = true
+
+        solveQueue.async { [weak self] in
+            let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+            DispatchQueue.main.async {
+                guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
+                self.isComputing = false
+                guard let pred, self.solutions.indices.contains(idx) else { return }
+                self.solutions[idx] = PositionPlaySolution(
+                    shot: shot, prediction: pred,
+                    cushionCount: pred.cueCushionCount,
+                    potted: pred.simObjectPotted,
+                    margin: sol.margin,
+                    summary: "微调 · " + SiluSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
+                        + String(format: " · %.1f m/s", shot.velocity),
+                    satisfiesConstraint: sol.satisfiesConstraint,
+                    beyondCushionBudget: sol.beyondCushionBudget
+                )
+                self.showSolution(at: idx)
+            }
+        }
+    }
+
+    /// 上一杆（条 21.3 同规范）：回到上次击打前的球形（角色/约束重置，回到选①起点）。
+    func undoLastShot() {
+        guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
+        loadBoard(ctx.before)
+        canUndoShot = false
+        canPlayback = false
+        lastShotContext = nil
+        statusText = "已退回上一杆击打前 · 重新指派①②③"
+    }
+
+    /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
+    func replayLastShot() {
+        guard !isPlaying, canPlayback, let ctx = lastShotContext,
+              let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
+        let after = currentSnapshot()
+        isPlaying = true
+        clearTrajectory()
+        clearConstraintNodes()
+        scene.clearResultNodes(nodes: &selectionNodes)
+        scene.hideCueStick()
+        statusText = "回放上一杆…"
+
+        scene.hideAllBalls()
+        for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+
+        guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
+              let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
+            finishPlayback(after: after)
+            return
+        }
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim,
+                           velocity: Float(ctx.shot.velocity)) { [weak self] in
+            self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+        }
+    }
+
+    private func runPlaybackAnimation(
+        ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
+        recorder: TrajectoryRecorder, after: BoardSnapshot
+    ) {
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let settle = playback.perceptibleSettleTime()
+
+        var cueAction: SCNAction?
+        for key in onTableKeys {
+            guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
+            let name = PositionPlayShotSolver.predName(boardKey: key, shot: ctx.shot)
+            let action = playback.action(for: node, ballName: name, speed: 1.0,
+                                         removeOnPocket: false, maxSimTime: settle)
+            if key == PositionPlayBall.cueKey { cueAction = action }
+            else if let action { node.runAction(action) }
+        }
+        let tail: TimeInterval = ctx.prediction.pocketedBalls.isEmpty
+            ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
+        if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
+            cueNode.runAction(cueAction) { [weak self] in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    self?.finishPlayback(after: after)
+                }
+            }
+            ShotAudioScheduler.shared.play(prediction: ctx.prediction)
+        } else {
+            finishPlayback(after: after)
+        }
+    }
+
+    private func finishPlayback(after: BoardSnapshot) {
+        ShotAudioScheduler.shared.cancel()
+        for key in PositionPlayBall.allKeys {
+            guard let node = scene.allBallNodes[key] else { continue }
+            if node.parent == nil { scene.rootNode.addChildNode(node) }
+            node.removeAllActions()
+            node.opacity = 1
+        }
+        isPlaying = false
+        scene.hideCueStick()
+        let ctx = lastShotContext
+        loadBoard(after)
+        lastShotContext = ctx
+        canUndoShot = ctx != nil
+        canPlayback = ctx != nil
+        statusText = "回放结束 · 球停在击打后局面"
     }
 
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
@@ -929,6 +1134,9 @@ extension PlanThreeViewModel {
         clearConstraintNodes()
         scene.hideCueStick()
         refreshOverlays()
+
+        canUndoShot = lastShotContext != nil
+        canPlayback = lastShotContext?.prediction.recorder != nil
 
         let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
         if cueGone {

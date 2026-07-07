@@ -1,6 +1,7 @@
 import Foundation
 import SceneKit
 import SwiftUI
+import Combine
 
 /// 走位编排器 ViewModel（ADR-P11-01 / ADR-P11-03 / ADR-P11-04）。
 ///
@@ -59,18 +60,29 @@ final class PositionPlayViewModel: ObservableObject {
     /// 自由模式瞄准方向（场景 XZ 单位向量）。
     @Published private(set) var freeAimDir: SCNVector3?
 
+    /// 进袋 ⇄ 自由 单按钮切换（条 15.2/15.3）：切自由时保留进袋模式下的瞄准方向
+    /// （母球→假想球），而非退回默认瞄准。
+    func toggleAimMode() {
+        guard !isPlaying else { return }
+        if aimMode == .pocket {
+            if let solved = solvedShot, !solved.shot.isFree {
+                freeAimDir = solved.prediction.aimDirection
+            }
+            aimMode = .free
+        } else {
+            aimMode = .pocket
+        }
+    }
+
     /// 自由模式首碰预览（P18 B2 T-P18-06/08，纯几何、主线程逐帧）：
     /// 沿瞄准射线的第一颗被碰球 + 假想球 + 切球角。
     /// nil = 当前方向打不到任何球（空杆 / 直奔库边）。
     @Published private(set) var freeAimContact: AngleSceneCalculator.FreeAimContact?
 
-    /// 瞄准手柄离母球的期望距离（米）。拖动手柄时跟随手指径向距离，便于精细/粗调切换。
-    private var freeAimHandleDist: Float = 0.38
-
     // MARK: - Published shot params
 
-    /// 连续杆头速度 (m/s)。
-    @Published var velocity: Double = 3.3 { didSet { onParamEdited() } }
+    /// 连续杆头速度 (m/s)。默认 1.5（条 13.2：低速走位是常态）。
+    @Published var velocity: Double = ShotTuning.defaultVelocity { didSet { onParamEdited() } }
     /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
     @Published var spinX: Double = 0 { didSet { onParamEdited() } }
     @Published var spinY: Double = 0 { didSet { onParamEdited() } }
@@ -112,6 +124,22 @@ final class PositionPlayViewModel: ObservableObject {
 
     private(set) var solvedShot: SolvedShot?
 
+    /// 每杆停稳后的物理事实回调（条 15.10：自由击球页把它喂给规则引擎裁决）。
+    var onShotSettled: ((ShotFacts) -> Void)?
+
+    /// 桌面目标球数量上限（条 17.4：分离角与走位强制最多 2 颗，让玩家专注感受
+    /// 角度/力度/打点对母球轨迹的影响）。nil = 不限。
+    var maxTargetBalls: Int?
+
+    /// 目标球上限校验：超限时提示并拒绝摆球。
+    private func withinTargetBallCap(adding key: String) -> Bool {
+        guard !PositionPlayBall.isCue(key), let cap = maxTargetBalls else { return true }
+        let count = onTableKeys.filter { !PositionPlayBall.isCue($0) }.count
+        guard count >= cap, !onTableKeys.contains(key) else { return true }
+        statusText = "本页最多摆 \(cap) 颗目标球"
+        return false
+    }
+
     // MARK: - Internals
 
     private var lastAimDirection: SCNVector3?
@@ -139,7 +167,6 @@ final class PositionPlayViewModel: ObservableObject {
     func setupScene() {
         scene.setupScene()
         scene.setupVisualizationNodes()
-        scene.setupAimHandle()
         pocketMarkers = scene.addPocketMarkers()
         scene.hideAllBalls()
         scene.hideCueStick()
@@ -168,6 +195,8 @@ final class PositionPlayViewModel: ObservableObject {
         lastShot = nil
         lastShotWasRecorded = false
         canReplay = false
+        canPlayback = false
+        lastPlaybackContext = nil
         applyBoard(snapshot)
     }
 
@@ -185,6 +214,8 @@ final class PositionPlayViewModel: ObservableObject {
         lastShot = nil
         lastShotWasRecorded = false
         canReplay = false
+        canPlayback = false
+        lastPlaybackContext = nil
 
         var rebuilt = PositionPlaySequence(
             id: archived.id, name: archived.name,
@@ -272,7 +303,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 从球库把一颗球放上桌（自动找一个空位）。
     func placeFromPalette(_ key: String) {
-        guard !isPlaying else { return }
+        guard !isPlaying, withinTargetBallCap(adding: key) else { return }
         let pos = freeNormalizedSlot()
         place(key: key, normalized: pos)
         refreshOnTableKeys()
@@ -285,7 +316,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 从球库把一颗球放到指定世界坐标（拖拽落点）。落点会被钳制在台面且不与其它球重叠。
     func placeFromPalette(_ key: String, atWorld world: SCNVector3) {
-        guard !isPlaying else { return }
+        guard !isPlaying, withinTargetBallCap(adding: key) else { return }
         guard let node = scene.allBallNodes[key] else { return }
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
@@ -473,21 +504,16 @@ final class PositionPlayViewModel: ObservableObject {
         recompute()
     }
 
-    /// 场景瞄准手柄拖动（T-P18-06）：手指落点 → 新瞄准方向（母球 → 落点），
-    /// 并记住手指径向距离让手柄跟手（离球远 = 粗调，离球近 = 细调）。
-    func handleAimHandleDrag(world: SCNVector3) {
+    /// 手指跟随瞄准（T-P18-43）：台面空白处拖动，手指落点 → 新瞄准方向（母球 → 落点）。
+    func handleAimDrag(world: SCNVector3) {
         guard aimMode == .free, !isPlaying,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return }
-        let dist = AngleSceneCalculator.horizontalDistance(cue.position, world)
-        if dist > 0.02 {
-            freeAimHandleDist = max(0.15, min(1.2, dist))
-        }
         setFreeAim(toward: world)
     }
 
-    // MARK: - Free-aim overlay (T-P18-06/08：手柄 + 假想球 + 切角，纯几何逐帧)
+    // MARK: - Free-aim overlay (T-P18-06/08：假想球 + 切角，纯几何逐帧)
 
-    /// 刷新自由瞄准覆盖层：首碰预览（假想球贴目标球滑动）+ 手柄位置。
+    /// 刷新自由瞄准覆盖层：首碰预览（假想球贴目标球滑动）。
     /// 非自由模式 / 播放中 / 缺母球或方向时全部隐藏。轨迹线仍由后台 `simulateFree` 异步补齐。
     private func refreshFreeAimOverlay() {
         let r = AngleSceneCalculator.ballRadius
@@ -495,8 +521,10 @@ final class PositionPlayViewModel: ObservableObject {
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
               let dir = freeAimDir else {
             freeAimContact = nil
-            scene.updateAimHandle(position: nil)
-            if aimMode == .free { scene.ghostBallNode?.isHidden = true }
+            if aimMode == .free {
+                scene.ghostBallNode?.isHidden = true
+                scene.hideContactDot()
+            }
             return
         }
 
@@ -507,24 +535,16 @@ final class PositionPlayViewModel: ObservableObject {
         }
         freeAimContact = AngleSceneCalculator.freeAimFirstContact(cue: cue.position, dir: dir, balls: balls)
 
-        if let contact = freeAimContact, let ghost = scene.ghostBallNode {
+        if let contact = freeAimContact, let ghost = scene.ghostBallNode,
+           let targetNode = scene.allBallNodes[contact.targetKey] {
             ghost.position = SCNVector3(contact.ghost.x, surfaceY + r, contact.ghost.z)
             ghost.isHidden = false
+            // 重叠标注 L0（T-P18-42）：假想球圈 + 接触点绿点成对出现。
+            scene.updateContactDot(ghostCenter: ghost.position, targetCenter: targetNode.position)
         } else {
             scene.ghostBallNode?.isHidden = true
+            scene.hideContactDot()
         }
-
-        // 手柄：瞄准射线上、库边以内；有首碰时收在假想球之前，避免视觉重叠。
-        var handleT = freeAimHandleDist
-        if let contact = freeAimContact {
-            let toGhost = AngleSceneCalculator.horizontalDistance(cue.position, contact.ghost)
-            handleT = min(handleT, max(0.12, toGhost - 0.10))
-        }
-        handleT = min(handleT, AngleSceneCalculator.rayDistanceToCushion(from: cue.position, dir: dir))
-        let pos = SCNVector3(cue.position.x + dir.x * handleT,
-                             surfaceY + 0.008,
-                             cue.position.z + dir.z * handleT)
-        scene.updateAimHandle(position: pos)
     }
 
     /// 自动选目标（#6）：距母球最近的在桌目标球。
@@ -699,9 +719,10 @@ final class PositionPlayViewModel: ObservableObject {
         if aimMode == .free { refreshFreeAimOverlay() }
     }
 
+    /// Z1 副标题保持中性（T-P18-49 失误态去重）：母球进袋由 Z2 红 pill
+    /// （`scratchPill`）唯一承担，副标题只描述轨迹/进球事实，状态不出现两次。
     private func makeStatus(_ p: ShotPrediction) -> String {
         if let solved = solvedShot, solved.shot.isFree {
-            if p.cuePocketed { return "母球进袋（失误）" }
             let potted = p.pocketedBalls.filter { $0 != ShotInput.cueBallName }
             if !potted.isEmpty {
                 let labels = potted.map { PositionPlayBall.shortLabel(for: $0) }.joined(separator: "、")
@@ -709,7 +730,6 @@ final class PositionPlayViewModel: ObservableObject {
             }
             return "自由球轨迹已就绪"
         }
-        if p.cuePocketed { return "母球进袋（失误）" }
         if p.objectPocketed { return "进袋 · 母球走位已就绪" }
         if let hint = obstacleBlockHint() { return hint }
         return "未进袋（试试加大力度或换角度更小的袋口）"
@@ -740,37 +760,40 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func drawTrajectory(_ p: ShotPrediction) {
         clearTrajectory()
-        addPolyline(p.cuePath, color: TrajectoryStyle.aimColor, radius: TrajectoryStyle.aimRadius)
-        // 进球线延长（#8）：进袋时把目标球轨迹末端延伸到袋口圆边缘（jaw/袋弧碰撞已在真实轨迹中）。
-        var objPath = p.objectPath
-        if p.objectPocketed, let solved = solvedShot, !solved.shot.isFree,
-           let pocketIndex = ShotIntent.pocketIndex(for: solved.shot.pocket) {
-            objPath = PositionPlayShotSolver.extendPathToPocketRim(
-                objPath, pocketIndex: pocketIndex, surfaceY: surfaceY
-            )
+        let detail = UserPreferences.shared.trajectoryDetail
+        // 母球轨迹（线语言 v2，条 12）：碰前白实线瞄准线 + 碰后白虚线走位轨迹；
+        // 空杆时实线延伸到库边。
+        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
+                               into: &trajectoryNodes)
+        if detail != .minimal {
+            // 进球线延长（#8）：进袋时把目标球轨迹末端延伸到袋口圆边缘（jaw/袋弧碰撞已在真实轨迹中）。
+            var objPath = p.objectPath
+            if p.objectPocketed, let solved = solvedShot, !solved.shot.isFree,
+               let pocketIndex = ShotIntent.pocketIndex(for: solved.shot.pocket) {
+                objPath = PositionPlayShotSolver.extendPathToPocketRim(
+                    objPath, pocketIndex: pocketIndex, surfaceY: surfaceY
+                )
+            }
+            // 进球线随目标球球色虚线（黑 8 亮灰，线语言 v2）。
+            scene.addObjectTrajectory(objPath, ballKey: solvedShot?.shot.targetKey ?? "",
+                                      into: &trajectoryNodes)
         }
-        // 进球线随目标球球色（黑 8 亮灰，ADR-P11-12）。
-        addPolyline(objPath, color: TrajectoryStyle.potColor(for: solvedShot?.shot.targetKey ?? ""),
-                    radius: TrajectoryStyle.potRadius)
-        // 自由模式：所有被带动的球的真实轨迹，各随其球色（extraBallPaths 键 = 桌面球键）。
-        for (key, pts) in p.extraBallPaths {
-            addPolyline(pts, color: TrajectoryStyle.potColor(for: key, alpha: 0.85),
-                        radius: TrajectoryStyle.potRadius)
+        if detail == .full {
+            // 所有被带动的球的真实轨迹（条 12.4），各随其球色虚线（extraBallPaths 键 = 桌面球键）。
+            for (key, pts) in p.extraBallPaths {
+                scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
+            }
         }
-        // 假想球：袋口模式显示母球瞄准终点（半透明白，与分离角同语义）。
+        // 假想球：袋口模式显示母球瞄准终点（重叠标注 L0：绿虚线圈 + 接触点绿点）。
         if let solved = solvedShot, !solved.shot.isFree, let ghost = scene.ghostBallNode {
             ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
             ghost.isHidden = false
+            if let target = scene.allBallNodes[solved.shot.targetKey], !target.isHidden {
+                scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target.position)
+            }
         }
         if UserPreferences.shared.showSeparationAngle {
             scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
-        }
-    }
-
-    private func addPolyline(_ pts: [SCNVector3], color: UIColor, radius: Float) {
-        guard pts.count >= 2 else { return }
-        for i in 0..<(pts.count - 1) {
-            trajectoryNodes.append(scene.addLine(from: pts[i], to: pts[i + 1], color: color, radius: radius))
         }
     }
 
@@ -788,13 +811,10 @@ final class PositionPlayViewModel: ObservableObject {
         node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
     }
 
-    /// 选中目标球的绿色选中环（袋口模式）。无解 / 计算中也常驻显示，跟随球位。
+    /// 选中环已移除（线语言 v2，条 12.3）：假想球圈 + 进球线已明确标示选中目标球，
+    /// 绿色选中环属重复信息。保留方法名兜底清理历史节点，避免调用点大改。
     func refreshSelectionRing() {
         scene.clearResultNodes(nodes: &selectionNodes)
-        guard !isPlaying, aimMode == .pocket,
-              let key = selectedTargetKey,
-              let node = scene.allBallNodes[key], !node.isHidden else { return }
-        selectionNodes.append(scene.addSelectionRing(at: node.position))
     }
 
     // MARK: - Cue stick aiming aid
@@ -837,6 +857,8 @@ final class PositionPlayViewModel: ObservableObject {
         else { return }
 
         lastShot = (solved.before, solved.shot)
+        lastPlaybackContext = (solved.before, solved.shot, solved.prediction)
+        canPlayback = false
         lastShotWasRecorded = false
         canReplay = false
         isPlaying = true
@@ -937,13 +959,67 @@ final class PositionPlayViewModel: ObservableObject {
 
         isPlaying = false
         canReplay = true
+        canPlayback = true
         scene.hideCueStick()
         clearTrajectory()
+
+        // 规则裁决（条 15.10）：把本杆物理事实交给宿主（自由击球页喂规则引擎）。
+        onShotSettled?(makeShotFacts(solved: solved, potted: potted))
 
         // 自动选下一杆（#6）：距母球最近的目标球 + 距目标球最近的可进袋袋口。
         selectedTargetKey = nil
         autoSelectTarget()
         recompute()
+    }
+
+    /// 从预测结果提取规则引擎所需的物理事实（球名统一映射回桌面球键）。
+    private func makeShotFacts(solved: SolvedShot, potted: Set<String>) -> ShotFacts {
+        let events = solved.prediction.events
+        let cueName = ShotInput.cueBallName
+
+        var firstContactKey: String?
+        var firstContactTime: Float?
+        for e in events {
+            if case .ballBall(let a, let b) = e.kind, a == cueName || b == cueName {
+                firstContactKey = boardKey(forPredName: a == cueName ? b : a, shot: solved.shot)
+                firstContactTime = e.time
+                break
+            }
+        }
+
+        var railOrPocketAfter = false
+        if let t = firstContactTime {
+            railOrPocketAfter = events.contains { e in
+                guard e.time >= t else { return false }
+                switch e.kind {
+                case .ballCushion, .pocket: return true
+                case .ballBall: return false
+                }
+            }
+        }
+
+        // 进球序列按落袋事件时间序；events 为空时退化为无序集合（predict/simulateFree 均填充 events）。
+        var pocketedOrdered: [String] = []
+        for e in events {
+            if case .pocket(let ball, _) = e.kind {
+                let key = boardKey(forPredName: ball, shot: solved.shot)
+                if key != PositionPlayBall.cueKey, !pocketedOrdered.contains(key) {
+                    pocketedOrdered.append(key)
+                }
+            }
+        }
+        if pocketedOrdered.isEmpty {
+            pocketedOrdered = potted.filter { $0 != PositionPlayBall.cueKey }.sorted()
+        }
+
+        return ShotFacts(
+            firstContactKey: firstContactKey,
+            pocketedKeys: pocketedOrdered,
+            cuePocketed: potted.contains(PositionPlayBall.cueKey),
+            railOrPocketAfterContact: railOrPocketAfter,
+            tableKeysBefore: Set(solved.before.onTable.keys)
+                .subtracting([PositionPlayBall.cueKey])
+        )
     }
 
     // MARK: - Recording (#11)
@@ -1013,8 +1089,97 @@ final class PositionPlayViewModel: ObservableObject {
         lastShotWasRecorded = false
         lastShot = nil
         canReplay = false
+        canPlayback = false
+        lastPlaybackContext = nil
         restoreShotParams(last.shot)
         applyBoard(last.before)
+        updatePocketHighlights()
+    }
+
+    // MARK: - Playback（回放上一杆，布局规范 v2 条 18 / 条 15.7）
+
+    /// 上一杆完整回放上下文。与「重打」不同：回放**不改变**桌面真相——退回击打前重播动画，
+    /// 播完回到当前局面（after），参数/选中态/序列都不动。
+    private var lastPlaybackContext: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction)?
+    @Published private(set) var canPlayback = false
+
+    /// 回放上一杆击打过程（复用 `TrajectoryPlayback`，画面=物理）。
+    func replayLastShot() {
+        guard !isPlaying, !isBreakMode,
+              let ctx = lastPlaybackContext,
+              let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
+        let after = currentSnapshot()
+        isPlaying = true
+        scene.clearResultNodes(nodes: &selectionNodes)
+        refreshFreeAimOverlay()
+        clearTrajectory()
+        scene.hideCueStick()
+        statusText = "回放上一杆…"
+
+        // 摆回击打前（不动选中态/参数——isPlaying 下 place/recompute 的求解结果会被丢弃）。
+        scene.hideAllBalls()
+        for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+
+        guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
+              let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
+            finishPlayback(after: after)
+            return
+        }
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(ctx.shot.velocity)) { [weak self] in
+            self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+        }
+    }
+
+    private func runPlaybackAnimation(
+        ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
+        recorder: TrajectoryRecorder, after: BoardSnapshot
+    ) {
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let settle = playback.perceptibleSettleTime()
+
+        var cueAction: SCNAction?
+        for key in onTableKeys {
+            guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
+            let name = PositionPlayShotSolver.predName(boardKey: key, shot: ctx.shot)
+            let action = playback.action(for: node, ballName: name, speed: 1.0,
+                                         removeOnPocket: false, maxSimTime: settle)
+            if key == PositionPlayBall.cueKey {
+                cueAction = action
+            } else if let action {
+                node.runAction(action)
+            }
+        }
+        let tail: TimeInterval = ctx.prediction.pocketedBalls.isEmpty
+            ? 0
+            : TrajectoryPlayback.pocketSettleDuration + 0.1
+        if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
+            cueNode.runAction(cueAction) { [weak self] in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    self?.finishPlayback(after: after)
+                }
+            }
+            ShotAudioScheduler.shared.play(prediction: ctx.prediction)
+        } else {
+            finishPlayback(after: after)
+        }
+    }
+
+    /// 回放收尾：清动画、恢复当前局面（after），重新求解。
+    private func finishPlayback(after: BoardSnapshot) {
+        ShotAudioScheduler.shared.cancel()
+        for key in PositionPlayBall.allKeys {
+            guard let node = scene.allBallNodes[key] else { continue }
+            if node.parent == nil { scene.rootNode.addChildNode(node) }
+            node.removeAllActions()
+            node.opacity = 1
+        }
+        isPlaying = false
+        scene.hideCueStick()
+        applyBoard(after)
         updatePocketHighlights()
     }
 
@@ -1056,6 +1221,8 @@ final class PositionPlayViewModel: ObservableObject {
         lastShot = nil
         lastShotWasRecorded = false
         canReplay = false
+        canPlayback = false
+        lastPlaybackContext = nil
         sequence = PositionPlaySequence(name: sequence.name)
         scene.hideAllBalls()
         applyDefaultLayout()
@@ -1068,6 +1235,8 @@ final class PositionPlayViewModel: ObservableObject {
         lastShot = nil
         lastShotWasRecorded = false
         canReplay = false
+        canPlayback = false
+        lastPlaybackContext = nil
         if !sequence.steps.isEmpty { sequence = PositionPlaySequence(name: sequence.name) }
         invalidatePendingPredict()
         scene.hideAllBalls()
@@ -1097,5 +1266,59 @@ final class PositionPlayViewModel: ObservableObject {
     func renameSequence(_ name: String) {
         sequence.name = name.isEmpty ? "未命名走位" : name
         sequence.updatedAt = Date()
+    }
+
+    // MARK: - Break flow（T-P18-47：内置开球，替代球形生成器页）
+
+    /// 开球模式 runner。非 nil = 开球模式：台面交互与求解全部挂起，
+    /// 拖拽路由到 runner（母球限开球区），停稳散局落座为新真相。
+    @Published private(set) var breakRunner: BreakFlowRunner?
+    var isBreakMode: Bool { breakRunner != nil }
+    /// 进开球模式前的桌面（取消开球时恢复）。
+    private var boardBeforeBreak: BoardSnapshot?
+    private var breakChangeForwarder: AnyCancellable?
+
+    /// 进入开球模式：保存当前桌面 → 挂起求解与可视化 → 摆架。
+    /// `manualDeliver`（条 15.8/15.9，自由击球页）：停稳后不自动落座，
+    /// 由「重开/完成」状态机决定何时交付击打阶段。
+    func startBreakFlow(game: RackGame, manualDeliver: Bool = false) {
+        guard !isPlaying, !isRecording, breakRunner == nil else { return }
+        invalidatePendingPredict()
+        clearTrajectory()
+        scene.clearResultNodes(nodes: &selectionNodes)
+        scene.hideCueStick()
+        boardBeforeBreak = currentSnapshot()
+        let runner = BreakFlowRunner(scene: scene, game: game)
+        runner.autoDeliverOnSettle = !manualDeliver
+        // 嵌套 ObservableObject 的变化上抛，驱动宿主视图刷新。
+        breakChangeForwarder = runner.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+        runner.onSettled = { [weak self] board in
+            guard let self else { return }
+            self.teardownBreakFlow()
+            self.loadBoard(board)
+            self.statusText = "开球散局已落座 · 可直接编排击打"
+        }
+        breakRunner = runner
+        runner.rackUp()
+    }
+
+    /// 取消开球模式并恢复进场前桌面。
+    func cancelBreakFlow() {
+        guard let runner = breakRunner else { return }
+        runner.cancel()
+        let restore = boardBeforeBreak
+        teardownBreakFlow()
+        if let restore, !restore.onTable.isEmpty {
+            loadBoard(restore)
+        } else {
+            clearTable()
+        }
+    }
+
+    private func teardownBreakFlow() {
+        breakRunner = nil
+        breakChangeForwarder = nil
+        boardBeforeBreak = nil
     }
 }

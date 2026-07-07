@@ -358,6 +358,8 @@ struct DrillSceneView: View {
                     .clipShape(Circle())
             }
             .padding(Spacing.md)
+            .accessibilityLabel("回放")
+            .accessibilityIdentifier("drillPlayButton")
         }
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .onAppear {
@@ -386,9 +388,9 @@ private struct DrillShotOverlay: View {
         CGFloat(Double(AngleSceneCalculator.innerWidth) / (2 * DrillSceneController.orthoScale))
     }
 
-    // 速度条对数刻度上下限（m/s）。锚点：轻1.6 中3.3 大力5.8（见 ShotIntent）。
-    static let vMin = 1.0
-    static let vMax = 6.5
+    // 速度条对数刻度上下限（m/s）：与全 App 力度滑条量程单一真源（ShotTuning.velocityRange）。
+    static let vMin = ShotTuning.velocityRange.lowerBound
+    static let vMax = ShotTuning.velocityRange.upperBound
     static func powerFraction(_ v: Double) -> Double {
         let lo = log(vMin), hi = log(vMax)
         let cv = max(vMin, min(vMax, v))
@@ -416,9 +418,11 @@ private struct DrillShotOverlay: View {
                 DrillPowerBar(velocity: data.velocity)
                     .frame(width: powerW, height: barH)
                     .position(barCenter)
-                DrillSpinIndicator(spinX: data.spinX, spinY: data.spinY)
+                BTSpinMiniIcon(spinX: data.spinX, spinY: data.spinY,
+                               diameter: spinSize, trueScale: true)
                     .frame(width: spinSize, height: spinSize)
                     .position(spinCenter)
+                    .shadow(color: .black.opacity(0.4), radius: 3, y: 1)
             }
         }
     }
@@ -465,43 +469,6 @@ private struct DrillShotOverlay: View {
             if score > bestScore { bestScore = score; best = c }
         }
         return best
-    }
-}
-
-/// 只读打点盘（白球 + 红色击球点 + 十字），样式对齐分离角页 `SpinPadView`。
-private struct DrillSpinIndicator: View {
-    let spinX: Double   // +左 / −右
-    let spinY: Double   // +高 / −低
-
-    var body: some View {
-        GeometryReader { geo in
-            let size = min(geo.size.width, geo.size.height)
-            let r = size / 2
-            let inset = size * 0.16
-            let dot = CGPoint(
-                x: r - CGFloat(spinX) * (r - inset),
-                y: r - CGFloat(spinY) * (r - inset)
-            )
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(
-                        colors: [.white, Color(white: 0.85)],
-                        center: .init(x: 0.38, y: 0.34), startRadius: 1, endRadius: size))
-                    .overlay(Circle().stroke(.white.opacity(0.6), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.4), radius: 3, y: 1)
-                Path { p in
-                    p.move(to: CGPoint(x: r, y: size * 0.16)); p.addLine(to: CGPoint(x: r, y: size * 0.84))
-                    p.move(to: CGPoint(x: size * 0.16, y: r)); p.addLine(to: CGPoint(x: size * 0.84, y: r))
-                }
-                .stroke(.black.opacity(0.16), lineWidth: 1)
-                Circle()
-                    .fill(Color.red)
-                    .frame(width: size * 0.22, height: size * 0.22)
-                    .overlay(Circle().stroke(.white, lineWidth: 1.5))
-                    .position(dot)
-                    .shadow(color: .black.opacity(0.3), radius: 1.5)
-            }
-        }
     }
 }
 

@@ -95,7 +95,7 @@ struct ActiveTrainingView: View {
                             viewModel.resumeTraining()
                         } label: {
                             HStack(spacing: Spacing.xs) {
-                                Image(systemName: "chevron.left")
+                                Image(systemName: BTIcon.chevronLeft)
                                     .fontWeight(.semibold)
                                 Text("返回")
                             }
@@ -240,7 +240,7 @@ struct ActiveTrainingView: View {
         VStack(spacing: Spacing.md) {
             if viewModel.isTimerSkipped {
                 HStack(spacing: Spacing.sm) {
-                    Image(systemName: "clock.badge.xmark")
+                    Image(systemName: BTIcon.clockPause)
                         .foregroundStyle(.btTextTertiary)
                     Text("已跳过计时")
                         .font(.btSubheadline)
@@ -281,7 +281,7 @@ struct ActiveTrainingView: View {
                         viewModel.skipTimer()
                     } label: {
                         HStack(spacing: Spacing.sm) {
-                            Image(systemName: "forward.fill")
+                            Image(systemName: BTIcon.forward)
                                 .font(.btCaption)
                             Text("跳过计时")
                                 .font(.btSubheadlineMedium)
@@ -308,7 +308,7 @@ struct ActiveTrainingView: View {
             HStack {
                 if viewModel.isTimerSkipped {
                     HStack(spacing: Spacing.sm) {
-                        Image(systemName: "clock.badge.xmark")
+                        Image(systemName: BTIcon.clockPause)
                             .foregroundStyle(.btTextTertiary)
                         Text("已跳过计时")
                             .font(.btSubheadline)
@@ -346,7 +346,7 @@ struct ActiveTrainingView: View {
                         .accessibilityLabel("跳过休息 \(viewModel.restSecondsRemaining)秒")
                     } else {
                         Button { viewModel.startRestTimer() } label: {
-                            Image(systemName: "timer")
+                            Image(systemName: BTIcon.timer)
                                 .font(.btHeadline)
                                 .foregroundStyle(.btTextSecondary)
                         }
@@ -368,7 +368,7 @@ struct ActiveTrainingView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: "line.3.horizontal.decrease")
+                        Image(systemName: BTIcon.filter)
                             .font(.btHeadline)
                             .foregroundStyle(.btTextSecondary)
                     }
@@ -376,7 +376,7 @@ struct ActiveTrainingView: View {
                     .accessibilityLabel("更多选项")
 
                     Button { viewModel.showEndConfirm = true } label: {
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(systemName: BTIcon.checkmarkCircle)
                             .font(.btTitle)
                             .foregroundStyle(.btPrimary)
                     }
@@ -465,7 +465,7 @@ struct ActiveTrainingView: View {
                 }
             } label: {
                 VStack(spacing: 2) {
-                    Image(systemName: "ellipsis")
+                    Image(systemName: BTIcon.menu)
                         .font(.btTitle2)
                         .foregroundStyle(.btTextSecondary)
                         .frame(height: 28)
@@ -483,7 +483,7 @@ struct ActiveTrainingView: View {
                 Button {
                     viewModel.showDrillPicker = true
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: BTIcon.plus)
                 }
                 .buttonStyle(BTButtonStyle.iconCircle)
                 Text("添加")
@@ -726,7 +726,7 @@ struct DrillPickerSheet: View {
 
                         Spacer()
 
-                        Image(systemName: "plus.circle")
+                        Image(systemName: BTIcon.plusCircle)
                             .foregroundStyle(.btPrimary)
                     }
                     .padding(.vertical, Spacing.xs)

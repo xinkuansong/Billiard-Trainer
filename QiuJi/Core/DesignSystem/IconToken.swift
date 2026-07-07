@@ -122,10 +122,28 @@ enum BTIcon {
     static let brain        = "brain.head.profile.fill"
     static let lightbulb    = "lightbulb.fill"
 
+    // MARK: - Tools & Misc
+
+    static let hammer       = "hammer.fill"
+    static let sliders      = "slider.horizontal.3"
+
     // MARK: - Reserved for Future Custom Symbols
     // 当前所有自定义图标通过 SwiftUI 视图实现（BTLogoMark / BTTrainingIcon /
     // BTDrillCategoryIcon），如未来引入 .symbol 自定义包，命名空间预留 "bt." 前缀。
     // 例如：static let btTraining = "bt.training"
+}
+
+// MARK: - 统一 symbol 渲染 modifier（U-I06）
+
+extension Image {
+    /// 全 App SF Symbol 统一渲染：单色 monochrome + 指定字号/字重。
+    /// 迁移 `BTIcon` 时优先使用本 modifier，替代散落的
+    /// `.font(.system(size:weight:))` 组合，保证图标渲染口径一致。
+    func btSymbol(size: CGFloat, weight: Font.Weight = .medium) -> some View {
+        self
+            .symbolRenderingMode(.monochrome)
+            .font(.system(size: size, weight: weight))
+    }
 }
 
 // MARK: - BTIconBadge（统一图标徽标）

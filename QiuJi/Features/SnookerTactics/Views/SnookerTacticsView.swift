@@ -17,6 +17,7 @@ struct SnookerTacticsView: View {
     @StateObject private var vm = SnookerTacticsViewModel()
     @State private var hasAppeared = false
     @State private var projector = TableProjector()
+    @State private var showSpinPad = false
 
     @State private var draggingKey: String?
     @State private var dragLocation: CGPoint = .zero
@@ -26,10 +27,6 @@ struct SnookerTacticsView: View {
     @State private var paletteFrame: CGRect = .zero
     @State private var banner: String?
 
-    // 「试打」（T-P18-08）：带当前球局快照进自由击球（编排台自由模式）。
-    @State private var goFreePlay = false
-    @State private var freePlayBoard: BoardSnapshot?
-
     private static let paletteColumns = 8
 
     var body: some View {
@@ -37,12 +34,22 @@ struct SnookerTacticsView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: 0) {
                 topToolRow
-                sceneContainer
+                ZStack(alignment: .bottom) {
+                    sceneContainer
+                    leftColumn
+                    rightColumn
+                    if showSpinPad {
+                        BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                         onClose: { showSpinPad = false })
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
                 bottomBar
             }
             if let key = draggingKey { dragGhost(key) }
             bannerView
         }
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .coordinateSpace(name: "snooker")
         .onPreferenceChange(SnookerFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -57,9 +64,6 @@ struct SnookerTacticsView: View {
         .toolbar {
             ToolbarItem(placement: .principal) { navStatus }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
-        }
-        .navigationDestination(isPresented: $goFreePlay) {
-            PositionPlayComposerView(initialBoard: freePlayBoard, initialMode: .free)
         }
         .onAppear {
             if !hasAppeared {
@@ -154,17 +158,78 @@ struct SnookerTacticsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
+        // 三档轨迹标注切换（条 12.5）：全击打页统一放球桌区右上角。
+        .overlay(alignment: .topTrailing) {
+            BTTrajectoryDetailChip { vm.redrawTrajectory() }
+                .padding(Spacing.sm)
+        }
+    }
+
+    // MARK: - Side columns（条 21.3 + 条 18 同规范）
+
+    private var leftColumn: some View {
+        VStack(spacing: 8) {
+            Spacer(minLength: 0)
+            BTTextActionButton(title: "求解", role: .primary,
+                               isDisabled: vm.isPlaying || vm.isComputing || !vm.hasConstraint) {
+                vm.solve()
+            }
+            BTTextActionButton(title: "下一解",
+                               isDisabled: vm.isPlaying || vm.solutions.count < 2) {
+                vm.nextSolution()
+            }
+            // 本页无开球——按条 18.4 显示禁用态。
+            BTBreakSideButton(isEnabled: false) {}
+        }
+        .padding(.leading, 8)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+    }
+
+    private var rightColumn: some View {
+        VStack(spacing: 10) {
+            Spacer(minLength: 0)
+            BTShotInstrumentColumn(
+                spinX: vm.spinX, spinY: vm.spinY,
+                onSpinTap: { if vm.hasSolutions { showSpinPad = true } },
+                velocity: velocityBinding,
+                range: ShotTuning.velocityRange,
+                isDisabled: vm.isPlaying || !vm.hasSolutions
+            )
+            .frame(width: 36, height: 220)
+            BTShotActionColumn(
+                strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                strikeEnabled: vm.canStrike,
+                onStrike: { vm.play() },
+                undoEnabled: !vm.isPlaying && vm.canUndoShot,
+                onUndo: { vm.undoLastShot() },
+                playbackEnabled: !vm.isPlaying && vm.canPlayback,
+                onPlayback: { vm.replayLastShot() }
+            )
+        }
+        .padding(.trailing, 8)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+    }
+
+    private var velocityBinding: Binding<Double> {
+        Binding(get: { vm.velocity }, set: { vm.adjustCurrentSolution(velocity: $0) })
+    }
+
+    private var spinXBinding: Binding<Double> {
+        Binding(get: { vm.spinX }, set: { vm.adjustCurrentSolution(spinX: $0) })
+    }
+
+    private var spinYBinding: Binding<Double> {
+        Binding(get: { vm.spinY }, set: { vm.adjustCurrentSolution(spinY: $0) })
     }
 
     // MARK: - Bottom bar
 
     private var bottomBar: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                solutionRow
-                paletteBar
-            }
-            actionColumn
+        VStack(spacing: 0) {
+            solutionRow
+            paletteBar
         }
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
@@ -172,22 +237,15 @@ struct SnookerTacticsView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// 当前解的只读指示行（统一 `ShotControlBar`，T-P18-10）+「试打」入口（T-P18-08）。
+    /// 当前解摘要行（统一 `ShotControlBar`，T-P18-10）。
     private var solutionRow: some View {
         ShotControlBar(
             spinX: vm.spinX, spinY: vm.spinY,
-            power: .readOnly(
-                velocity: vm.hasSolutions ? vm.velocity : nil,
-                subtitle: vm.currentSolution.map(solutionSubtitle),
-                subtitleTint: (vm.currentSolution?.satisfiesConstraint ?? true)
-                    ? nil : Color.btDestructive
-            )
-        ) {
-            ShotTryFreePlayButton(isEnabled: !vm.isPlaying && !vm.onTableKeys.isEmpty) {
-                freePlayBoard = vm.currentSnapshot()
-                goFreePlay = true
-            }
-        }
+            velocity: vm.hasSolutions ? vm.velocity : nil,
+            subtitle: vm.currentSolution.map(solutionSubtitle),
+            subtitleTint: (vm.currentSolution?.satisfiesConstraint ?? true)
+                ? nil : Color.btDestructive
+        ) { EmptyView() }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 5)
     }
@@ -200,68 +258,6 @@ struct SnookerTacticsView: View {
             return "\(advanced)半斯诺克 · \(spin) · \(cushion)"
         }
         return "\(advanced)完全斯诺克 · 余量 \(Int(sol.margin.rounded()))° · \(spin) · \(cushion)"
-    }
-
-    // MARK: - Action column
-
-    private var actionColumn: some View {
-        VStack(spacing: 6) {
-            Button { vm.solve() } label: {
-                actionLabel(title: "求解", system: "function",
-                            tint: vm.isComputing ? Color.btPrimary.opacity(0.4) : Color.btPrimary)
-            }
-            .buttonStyle(.plain)
-            .disabled(vm.isPlaying || vm.isComputing || !vm.hasConstraint)
-
-            HStack(spacing: 6) {
-                smallButton(tint: .white.opacity(0.14), label: "下一解",
-                            system: "arrow.triangle.2.circlepath") {
-                    vm.nextSolution()
-                }
-                .disabled(vm.isPlaying || vm.solutions.count < 2)
-
-                smallButton(tint: vm.canStrike ? Color.btPrimary : Color.btPrimary.opacity(0.3),
-                            label: "击球", system: "play.fill") {
-                    vm.play()
-                }
-                .disabled(!vm.canStrike)
-            }
-
-            #if targetEnvironment(simulator)
-            Button { exportSolution() } label: {
-                actionLabel(title: "导出", system: "square.and.arrow.up", tint: .white.opacity(0.14))
-            }
-            .buttonStyle(.plain)
-            .disabled(vm.isPlaying || vm.currentSolution == nil)
-            #endif
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
-    }
-
-    private func actionLabel(title: String, system: String, tint: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: system).font(.system(size: 13, weight: .bold))
-            Text(title).font(.system(size: 13, weight: .bold, design: .rounded))
-        }
-        .foregroundStyle(.white)
-        .frame(width: 92, height: 38)
-        .background(tint, in: Capsule())
-    }
-
-    @ViewBuilder
-    private func smallButton(tint: Color, label: String, system: String,
-                             action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 43, height: 38)
-                .background(tint, in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 0.5))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     // MARK: - Palette
@@ -344,30 +340,17 @@ struct SnookerTacticsView: View {
         flash("已移回球库")
     }
 
-    // MARK: - Export (simulator only)
-
-    #if targetEnvironment(simulator)
-    private func exportSolution() {
-        guard let sequence = vm.makeExportSequence() else {
-            flash("无可导出解")
-            return
-        }
-        do {
-            let url = try PositionPlaySequenceArchive.archive(sequence)
-            flash("已存入内容库：\(url.lastPathComponent)")
-        } catch {
-            flash("序列归档失败：\(error.localizedDescription)")
-        }
-    }
-    #endif
-
     // MARK: - Toolbar menu
 
+    /// 条 21.6 同规范：齿轮与三点菜单合并为单个省略号菜单，标题居中。
     private var moreMenu: some View {
         Menu {
             Section("求解范围") {
                 Toggle("允许左右塞", isOn: $vm.allowSideSpin)
                 Toggle("仅基础走位（≤1 库）", isOn: $vm.basicPositionOnly)
+            }
+            Section("显示") {
+                BTTableGridMenuToggle(scene: vm.scene)
             }
             Section {
                 Button("清空桌面", systemImage: "trash") { vm.clearTable() }

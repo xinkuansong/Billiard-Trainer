@@ -6,8 +6,9 @@ struct GeometricAngleQuizView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var vm: GeometricAngleViewModel
-    @FocusState private var inputFocused: Bool
     @State private var showSubscription = false
+    /// 条 5：弃系统键盘（弹出遮输入框/确认键），改用 2D 瞄准训练同款数字键盘 HUD。
+    @State private var isInputting = false
 
     init() {
         _vm = StateObject(wrappedValue: GeometricAngleViewModel(limiter: AngleUsageLimiter()))
@@ -28,8 +29,6 @@ struct GeometricAngleQuizView: View {
                     resultSection
                 } else if vm.limiter.isLimitReached {
                     limitReachedCard
-                } else if vm.currentAngle > 0 {
-                    inputSection
                 }
             }
             .padding(.horizontal, Spacing.lg)
@@ -38,6 +37,7 @@ struct GeometricAngleQuizView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(Color.black.ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
+        .safeAreaInset(edge: .bottom, spacing: 0) { keypadInset }
         .navigationTitle("角度预测")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -66,14 +66,11 @@ struct GeometricAngleQuizView: View {
     // MARK: - Canvas
 
     private var angleCanvas: some View {
-        BTAimTableView(style: .feltOnly) { felt in
-            AnglePredictionFigure(
-                angle: vm.currentAngle,
-                showReference: vm.showReferenceGrid,
-                showResult: vm.showResult,
-                felt: felt
-            )
-        }
+        AnglePredictionFigure(
+            angle: vm.currentAngle,
+            showReference: vm.showReferenceGrid,
+            showResult: vm.showResult
+        )
     }
 
     // MARK: - Top stats capsule（统一指标条）
@@ -82,42 +79,27 @@ struct GeometricAngleQuizView: View {
     private var statsCapsule: some View {
         HStack {
             HStack(spacing: Spacing.sm) {
-                capsuleItem(label: "次数", value: "\(vm.practiceCount)")
+                BTReadout(label: "次数", value: "\(vm.practiceCount)")
                 divider
-                capsuleItem(label: "正确率", value: String(format: "%.0f%%", vm.accuracyRate))
+                BTReadout(label: "正确率", value: String(format: "%.0f%%", vm.accuracyRate))
                 divider
-                capsuleItem(label: "平均", value: String(format: "%.1f°", vm.averageError))
+                BTReadout(label: "平均", value: String(format: "%.1f°", vm.averageError))
                 if !vm.limiter.isPremium {
                     divider
-                    Text("剩余 \(vm.limiter.remainingToday)")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.btAccent)
+                    BTReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
+                              emphasis: .adjustable, size: .compact)
                 }
             }
             .foregroundStyle(.white)
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
-            .background(.ultraThinMaterial)
-            .environment(\.colorScheme, .dark)
-            .clipShape(Capsule())
-            .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+            .btHudGlass()
 
             Spacer()
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.xs)
         .padding(.bottom, Spacing.sm)
-    }
-
-    private func capsuleItem(label: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.6))
-            Text(value)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-        }
     }
 
     private var divider: some View {
@@ -128,8 +110,8 @@ struct GeometricAngleQuizView: View {
 
     private var actionChips: some View {
         HStack(spacing: Spacing.sm) {
-            actionChip(icon: "die.face.5.fill", title: "换题", filled: true) {
-                inputFocused = false
+            actionChip(icon: "die.face.5.fill", title: "换题", filled: false) {
+                isInputting = false
                 vm.generateRandomAngle()
             }
             .disabled(vm.limiter.isLimitReached)
@@ -142,7 +124,56 @@ struct GeometricAngleQuizView: View {
             }
 
             Spacer()
+
+            // 答题（条 5：交互对齐 2D 瞄准训练——主操作弹数字键盘 HUD）。
+            if vm.currentAngle > 0, !vm.showResult, !vm.limiter.isLimitReached, !isInputting {
+                actionChip(icon: "pencil.and.list.clipboard", title: "答题", filled: true) {
+                    vm.userInput = ""
+                    isInputting = true
+                }
+            }
         }
+    }
+
+    // MARK: - 数字键盘 HUD（条 5：复用 2D 瞄准训练的 NumericKeypadHUD，无系统键盘遮挡）
+
+    @ViewBuilder
+    private var keypadInset: some View {
+        if isInputting, !vm.showResult, !vm.limiter.isLimitReached {
+            NumericKeypadHUD(
+                input: $vm.userInput,
+                title: "估算角度",
+                subtitle: "范围 0° – 90°",
+                onSubmit: {
+                    isInputting = false
+                    vm.submitAnswer()
+                },
+                onCancel: {
+                    vm.userInput = ""
+                    isInputting = false
+                }
+            )
+        }
+    }
+
+    /// 场景页主操作胶囊（SPEC §8.1：品牌绿实底胶囊，禁用常规页 BTButtonStyle.primary）。
+    /// 禁用态走 §1.7 状态语法：仪表玻璃底 + 文字 30%（治实拍禁用态难辨）。
+    private func sceneCapsuleButton(_ title: String, icon: String? = nil,
+                                    enabled: Bool = true,
+                                    action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                if let icon { Image(systemName: icon).font(.system(size: 14, weight: .semibold)) }
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(enabled ? .white : .white.opacity(0.3))
+            .padding(.horizontal, Spacing.xl)
+            .padding(.vertical, 11)
+            .background(Capsule().fill(enabled ? Color.btPrimary : Color.white.opacity(0.08)))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 
     private func actionChip(icon: String, title: String, filled: Bool,
@@ -162,51 +193,6 @@ struct GeometricAngleQuizView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Input
-
-    private var inputSection: some View {
-        VStack(spacing: Spacing.lg) {
-            Text("请估算角度")
-                .font(.btHeadline)
-                .foregroundStyle(.white)
-
-            HStack(spacing: Spacing.xs) {
-                TextField("0", text: $vm.userInput)
-                    .keyboardType(.numberPad)
-                    .font(.btLargeTitle)
-                    .foregroundStyle(.white)
-                    .multilineTextAlignment(.center)
-                    .focused($inputFocused)
-                Text("°")
-                    .font(.btTitle.weight(.regular))
-                    .foregroundStyle(.white.opacity(0.6))
-            }
-            .frame(width: 180, height: 64)
-            .background(.white.opacity(0.08))
-            .overlay(
-                RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .stroke(Color.btPrimary, lineWidth: 2)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-
-            Text("范围: 0° - 90°")
-                .font(.btCaption)
-                .foregroundStyle(.white.opacity(0.45))
-
-            Button("确认") {
-                inputFocused = false
-                vm.submitAnswer()
-            }
-            .buttonStyle(BTButtonStyle.primary)
-            .disabled(vm.userInput.isEmpty)
-        }
-        .padding(Spacing.xl)
-        .frame(maxWidth: .infinity)
-        .background(.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-        .onAppear { inputFocused = true }
-    }
-
     // MARK: - Freemium Gate
 
     private var limitReachedCard: some View {
@@ -224,12 +210,9 @@ struct GeometricAngleQuizView: View {
                 .foregroundStyle(.white.opacity(0.65))
                 .multilineTextAlignment(.center)
 
-            Button {
+            sceneCapsuleButton("解锁全部内容", icon: "crown.fill") {
                 showSubscription = true
-            } label: {
-                Label("解锁全部内容", systemImage: "crown.fill")
             }
-            .buttonStyle(BTButtonStyle.primary)
         }
         .padding(Spacing.xl)
         .frame(maxWidth: .infinity)
@@ -254,11 +237,12 @@ struct GeometricAngleQuizView: View {
                 }
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("你答了 ") + Text("\(Int(last.userAngle))°").bold() +
+                    Text("你答了 ") + Text("\(Int(last.userAngle))°").bold().monospacedDigit() +
                     Text("，实际是 ") + Text("\(Int(round(last.actualAngle)))°")
-                        .bold().foregroundColor(.btPrimary)
+                        .bold().monospacedDigit().foregroundColor(.btPrimary)
                     Text("误差 \(Int(round(last.error)))°")
                         .font(.btTitle)
+                        .monospacedDigit()
                         .foregroundStyle(vm.lastErrorRating.color)
                 }
                 .font(.btBody)
@@ -270,15 +254,35 @@ struct GeometricAngleQuizView: View {
                 Text("今日免费次数已用完")
                     .font(.btSubheadlineMedium)
                     .foregroundStyle(.white.opacity(0.65))
-                Button {
+                sceneCapsuleButton("解锁全部内容", icon: "crown.fill") {
                     showSubscription = true
-                } label: {
-                    Label("解锁全部内容", systemImage: "crown.fill")
                 }
-                .buttonStyle(BTButtonStyle.primary)
             } else {
-                Button("下一题") { vm.nextQuestion() }
-                    .buttonStyle(BTButtonStyle.primary)
+                sceneCapsuleButton("下一题") { vm.nextQuestion() }
+            }
+
+            // 学↔练闭环（T-P18-51）：偏差较大 → 回看原理补课；随时可去真台把估角落地。
+            HStack(spacing: Spacing.lg) {
+                if vm.lastErrorRating == .off {
+                    NavigationLink(value: AngleRoute.aimingPrinciple) {
+                        Label("回看原理", systemImage: "book")
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.85))
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(Color.white.opacity(0.12)))
+                    }
+                    .buttonStyle(.plain)
+                }
+                NavigationLink(value: AngleRoute.sceneAiming2D) {
+                    Label("去真台练", systemImage: "target")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, 7)
+                        .background(Capsule().fill(Color.white.opacity(0.12)))
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(Spacing.xl)
@@ -290,88 +294,104 @@ struct GeometricAngleQuizView: View {
 
 // MARK: - Angle Prediction Figure
 
-/// 角度预测图形：在拟真台面上，以母球为顶点画出「参考线 + 角度线」夹角，
-/// 配精致量角弧、可选刻度参考与结果角度数；目标球落在角度线末端，贴近真实一杆。
+/// 角度预测题面（真台化，T-P18-46）：真实台呢特写上，以母球为顶点画出
+/// 「参考线 + 角度线」夹角。角度线 = 瞄准线语义（白实线，§1.2）；量角弧 = 品牌绿 + 白读数；
+/// 参考线含 90°（原缺），标签钳入画布防裁切（原 75° 被裁）。
 private struct AnglePredictionFigure: View {
     let angle: Double
     let showReference: Bool
     let showResult: Bool
-    let felt: CGRect
 
     var body: some View {
-        let minDim = min(felt.width, felt.height)
-        let rayLen = min(felt.width * 0.74, felt.height * 0.82)
-        let vertex = CGPoint(x: felt.minX + felt.width * 0.15, y: felt.minY + felt.height * 0.82)
-        let rad = angle * .pi / 180
-        let refEnd = CGPoint(x: vertex.x + rayLen, y: vertex.y)
-        let angEnd = CGPoint(x: vertex.x + rayLen * cos(rad), y: vertex.y - rayLen * sin(rad))
-        let arcR = rayLen * 0.28
-        let cueD = minDim * 0.10
-        let targetD = minDim * 0.085
+        // 台呢特写：竖向覆盖约 0.62m 台面 → 球按真实球径成像（约 30pt），射线比例真实。
+        BTTableFigure(orientation: .landscape,
+                      closeup: (center: .zero, halfHeight: 0.31)) { proj in
+            let w = proj.size.width
+            let h = proj.size.height
+            let rayLen = min(w * 0.74, h * 0.82)
+            let vertex = CGPoint(x: w * 0.15, y: h * 0.82)
+            let rad = angle * .pi / 180
+            let refEnd = CGPoint(x: vertex.x + rayLen, y: vertex.y)
+            let angEnd = CGPoint(x: vertex.x + rayLen * cos(rad), y: vertex.y - rayLen * sin(rad))
+            let arcR = rayLen * 0.28
+            let d = proj.ballDiameter
 
-        ZStack {
-            if showReference {
-                ForEach([15, 30, 45, 60, 75], id: \.self) { a in
-                    let r2 = Double(a) * .pi / 180
+            ZStack {
+                if showReference {
+                    // 参考线补 90°（原 [15,30,45,60,75] 无 90，题目量程到 90°）。
+                    ForEach([15, 30, 45, 60, 75, 90], id: \.self) { a in
+                        let r2 = Double(a) * .pi / 180
+                        Path { p in
+                            p.move(to: vertex)
+                            p.addLine(to: CGPoint(x: vertex.x + rayLen * cos(r2),
+                                                  y: vertex.y - rayLen * sin(r2)))
+                        }
+                        .stroke(FigureLine.hint.opacity(0.3),
+                                style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                        Text("\(a)°")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .position(clamped(
+                                CGPoint(x: vertex.x + (rayLen + 12) * cos(r2),
+                                        y: vertex.y - (rayLen + 12) * sin(r2)),
+                                in: proj.size))
+                    }
+                }
+
+                // 角度扇形高亮（凸显"夹角"这个重点；品牌绿弱底，§1.2 角度弧家族）。
+                if angle > 0 {
                     Path { p in
                         p.move(to: vertex)
-                        p.addLine(to: CGPoint(x: vertex.x + rayLen * cos(r2), y: vertex.y - rayLen * sin(r2)))
+                        p.addArc(center: vertex, radius: arcR,
+                                 startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
+                        p.closeSubpath()
                     }
-                    .stroke(Color.white.opacity(0.18), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    Text("\(a)°")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.5))
-                        .position(x: vertex.x + (rayLen + 12) * cos(r2),
-                                  y: vertex.y - (rayLen + 12) * sin(r2))
+                    .fill(FigureLine.contact.opacity(0.13))
                 }
-            }
 
-            // 角度扇形高亮（凸显"夹角"这个重点）
-            if angle > 0 {
-                Path { p in
-                    p.move(to: vertex)
-                    p.addArc(center: vertex, radius: arcR,
-                             startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
-                    p.closeSubpath()
+                // 参考线（基准 0°）：对照线语义，白细线。
+                Path { p in p.move(to: vertex); p.addLine(to: refEnd) }
+                    .stroke(FigureLine.hint, lineWidth: proj.lineHintWidth)
+
+                // 角度线：瞄准线语义（白实线 lineMain）。
+                Path { p in p.move(to: vertex); p.addLine(to: angEnd) }
+                    .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
+
+                // 量角弧：品牌绿（§1.2 角度弧 = 绿弧 + 白读数）。
+                if angle > 0 {
+                    Path { p in
+                        p.addArc(center: vertex, radius: arcR,
+                                 startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
+                    }
+                    .stroke(FigureLine.contact, lineWidth: proj.lineHintWidth)
                 }
-                .fill(Color.yellow.opacity(0.16))
-            }
 
-            // 参考线（基准 0°）
-            Path { p in p.move(to: vertex); p.addLine(to: refEnd) }
-                .stroke(Color.white.opacity(0.85), lineWidth: 2)
+                BTFigureBall(number: 1, diameter: d).position(angEnd)
+                BTFigureBall(diameter: d).position(vertex)
 
-            // 角度线
-            Path { p in p.move(to: vertex); p.addLine(to: angEnd) }
-                .stroke(Color.white, lineWidth: 3)
+                Text("0°")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .position(x: refEnd.x - 14, y: refEnd.y + 14)
 
-            // 量角弧
-            if angle > 0 {
-                Path { p in
-                    p.addArc(center: vertex, radius: arcR,
-                             startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
+                if showResult {
+                    Text("\(Int(round(angle)))°")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.black.opacity(0.45), in: Capsule())
+                        .position(x: vertex.x + (arcR + 22) * cos(rad / 2),
+                                  y: vertex.y - (arcR + 22) * sin(rad / 2))
                 }
-                .stroke(Color.yellow, lineWidth: 3)
-            }
-
-            BTRealisticBall(kind: .target, diameter: targetD).position(angEnd)
-            BTRealisticBall(kind: .cue, diameter: cueD).position(vertex)
-
-            Text("0°")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.75))
-                .position(x: refEnd.x - 14, y: refEnd.y + 14)
-
-            if showResult {
-                Text("\(Int(round(angle)))°")
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(.yellow)
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Color.black.opacity(0.45), in: Capsule())
-                    .position(x: vertex.x + (arcR + 22) * cos(rad / 2),
-                              y: vertex.y - (arcR + 22) * sin(rad / 2))
             }
         }
+    }
+
+    /// 把标签位置钳入画布内（治 75°/90° 标签贴边被裁）。
+    private func clamped(_ p: CGPoint, in size: CGSize) -> CGPoint {
+        CGPoint(x: min(max(p.x, 12), size.width - 12),
+                y: min(max(p.y, 10), size.height - 10))
     }
 }
 

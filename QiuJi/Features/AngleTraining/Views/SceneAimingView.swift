@@ -2,23 +2,25 @@ import SwiftUI
 import SwiftData
 import SceneKit
 
-/// 3D 瞄准训练 page. Mirrors `Scene2DAimingView`'s layout (top progress
-/// pill / result HUD, FAB column, numeric-keypad bottom inset, settings
-/// sheet) so that the only behavioural delta from the 2D page is a single
-/// segmented 2D / 3D toggle that flips the rendered camera mode.
-struct Scene3DAimingView: View {
+/// 瞄准训练（T-P18-48 拆两卡）：单 View 由两个 route 以 `initialCameraMode`
+/// 参数化——「2D 瞄准训练」俯视练几何判断 / 「3D 瞄准训练」站位练临场球感。
+/// 页内不再提供 2D ⇄ 3D toggle；成绩按视角分记 `quizType`（scene2D / scene3D）。
+/// 入口流程（T-P18-48）：点卡先弹完整训练设置（模式/类型）再开始，训练中齿轮可换。
+struct SceneAimingView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var vm: AimingQuizViewModel
     @State private var showSubscription = false
 
-    /// Live camera mode, driven by the 2D / 3D segmented toggle. Default
-    /// `.perspective3D` so the page opens in the 3D study view.
-    @State private var cameraMode: AngleTrainingScene.CameraMode = .perspective3D
+    /// Camera mode is fixed per route (2D top-down or 3D perspective).
+    private let cameraMode: AngleTrainingScene.CameraMode
 
-    init() {
+    init(initialCameraMode: AngleTrainingScene.CameraMode) {
+        self.cameraMode = initialCameraMode
         _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: AngleUsageLimiter()))
     }
+
+    private var is3D: Bool { cameraMode == .perspective3D }
 
     var body: some View {
         ZStack {
@@ -29,7 +31,7 @@ struct Scene3DAimingView: View {
         .background(Color.black.ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) { topInset }
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomInset }
-        .navigationTitle("3D 瞄准训练")
+        .navigationTitle(is3D ? "3D 角度训练" : "2D 角度训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -46,11 +48,22 @@ struct Scene3DAimingView: View {
             settingsSheet.presentationDetents([.medium])
         }
         .onAppear {
-            vm.quizTypeLabel = "scene3D"
+            vm.quizTypeLabel = is3D ? "scene3D" : "scene2D"
             vm.configure(context: modelContext)
-            vm.setupScene(initialCameraMode: .perspective3D, enhanced: true)
-            // Land down the natural cue→target aim line on first open.
-            applyAimingPoseForCurrentQuestion()
+            // 入口流程（T-P18-48）：先建场景但不出题，弹完整训练设置，
+            // 用户点「开始训练」后才 startTest。
+            // 渲染统一（条 11.2）：弃 enhanced 管线（IBL+studio 光把台呢抬得发灰白），
+            // 与其他球桌页同走 plain 管线，观感一致。
+            vm.setupScene(initialCameraMode: cameraMode, enhanced: false, autoStart: false)
+            vm.showSettings = true
+        }
+        // Sheet dismissed by swipe before ever starting → start with the
+        // currently-selected defaults so the page is never a dead end.
+        .onChange(of: vm.showSettings) { _, showing in
+            if !showing, vm.currentQuestion == nil, !vm.testFinished {
+                vm.startTest()
+                applyAimingPoseForCurrentQuestion()
+            }
         }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
@@ -60,49 +73,23 @@ struct Scene3DAimingView: View {
         .onChange(of: vm.questionIndex) { _, _ in
             applyAimingPoseForCurrentQuestion()
         }
-        // Animated 2D ⇄ 3D transition when the user taps the toggle.
-        // `setCameraMode` + the scene's `transitionToPerspective` already
-        // land the camera at the aim pose down the cue → target line; no
-        // additional re-aim call is needed.
-        .onChange(of: cameraMode) { _, newValue in
-            vm.scene.setCameraMode(newValue, animated: true)
-            // Re-issue any active visualization so its line-label flag picks
-            // up the new mode (3D hides 瞄准线 / 进球线 inline text).
-            vm.refreshVisualization()
-        }
     }
 
-    // MARK: - Top inset (progress pill OR result HUD, plus 2D / 3D toggle)
+    // MARK: - Top inset (progress pill OR result HUD)
 
     @ViewBuilder
     private var topInset: some View {
         HStack(spacing: Spacing.sm) {
             if vm.phase == .showingResult, let record = vm.sessionResults.last {
                 resultHUD(record: record)
-            } else {
+            } else if vm.currentQuestion != nil {
                 progressPill
             }
             Spacer()
-            modeToggle
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.xs)
         .animation(.easeInOut(duration: 0.2), value: vm.phase)
-    }
-
-    /// 2D / 3D segmented control. Replaces the old 观察 / 瞄准 picker —
-    /// observation vs aiming is now driven by the vertical swipe gesture
-    /// (zoom = 0 → low aiming pose, zoom = 1 → high observation pose).
-    private var modeToggle: some View {
-        Picker("视图", selection: $cameraMode) {
-            Text("2D").tag(AngleTrainingScene.CameraMode.topDown2DRotated)
-            Text("3D").tag(AngleTrainingScene.CameraMode.perspective3D)
-        }
-        .pickerStyle(.segmented)
-        // 72 leaves room for "2D"/"3D" labels but keeps the pill room
-        // wide enough to render its 4 cells on a single line.
-        .frame(width: 72)
-        .environment(\.colorScheme, .dark)
     }
 
     // MARK: - Bottom inset (numeric keypad while inputting)
@@ -117,7 +104,38 @@ struct Scene3DAimingView: View {
                 onSubmit: { vm.submitAnswer() },
                 onCancel: { vm.cancelAnswerInput() }
             )
+        } else if !is3D, !vm.testFinished {
+            decorativePalette
         }
+    }
+
+    // MARK: - 装饰性球库（条 6.4：不可交互，仅为页面布局与其他球桌页一致）
+
+    /// 两排 16 球、当前题目标球高亮，其余压暗；不可点、不可拖。
+    private var decorativePalette: some View {
+        let all = PositionPlayBall.allKeys
+        let row1 = Array(all.prefix(8))
+        let row2 = Array(all.dropFirst(8))
+        return VStack(spacing: 3) {
+            ForEach([row1, row2], id: \.self) { keys in
+                HStack(spacing: 0) {
+                    ForEach(keys, id: \.self) { key in
+                        PoolBallFace(key: key, diameter: 36)
+                            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 38)
+                            .opacity(PositionPlayBall.number(for: key) == vm.targetBallNumber ? 1 : 0.25)
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
+        .background(Color(white: 0.11))
+        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
+        .allowsHitTesting(false)
+        .environment(\.colorScheme, .dark)
     }
 
     // MARK: - Scene (fullscreen)
@@ -125,13 +143,13 @@ struct Scene3DAimingView: View {
     private var sceneFullscreen: some View {
         AngleSceneView(
             scene: vm.scene,
-            cameraMode: $cameraMode,
+            cameraMode: .constant(cameraMode),
             interactionMode: interactionMode,
             // Anchor-lock only matters in 3D — in 2D the camera is already
             // fixed top-down. The lock guard inside AngleSceneView already
             // bypasses it for non-perspective modes, so this is just an
             // extra defence.
-            locksCueBallScreenAnchor: cameraMode == .perspective3D,
+            locksCueBallScreenAnchor: is3D,
             onPocketTapped: { _ in /* fixed by question */ }
         )
         .ignoresSafeArea(edges: .bottom)
@@ -145,7 +163,7 @@ struct Scene3DAimingView: View {
     /// result HUD aren't fighting touch events.
     private var interactionMode: AngleSceneView.InteractionMode {
         guard vm.phase == .observing else { return .none }
-        return cameraMode == .perspective3D ? .cameraControl : .tapsOnly
+        return is3D ? .cameraControl : .tapsOnly
     }
 
     // MARK: - Overlay (FAB column)
@@ -153,18 +171,14 @@ struct Scene3DAimingView: View {
     private var overlayLayer: some View {
         ZStack(alignment: .bottomTrailing) {
             Color.clear
-            if vm.phase == .observing, !vm.testFinished {
-                VStack(spacing: Spacing.md) {
-                    BTSceneFAB(
-                        icon: vm.showAimingAssist ? "eye.slash.fill" : "scope",
-                        title: vm.showAimingAssist ? "隐藏" : "辅助"
-                    ) {
+            // 条 6.4/7.2：隐藏/答题改文字动作按钮（BTTextActionButton），
+            // 右下竖排，与全局击打页动作列同一布局语法。
+            if vm.phase == .observing, !vm.testFinished, vm.currentQuestion != nil {
+                VStack(spacing: 8) {
+                    BTTextActionButton(title: vm.showAimingAssist ? "隐藏" : "辅助") {
                         vm.toggleAimingAssist()
                     }
-                    .opacity(vm.showAimingAssist ? 1.0 : 0.92)
-
-                    BTSceneFAB(icon: "pencil.and.list.clipboard", title: "答题",
-                               variant: .primary) {
+                    BTTextActionButton(title: "答题", role: .primary) {
                         vm.openAnswerInput()
                     }
                 }
@@ -172,7 +186,7 @@ struct Scene3DAimingView: View {
                 .padding(.bottom, Spacing.xl + 64)
                 .transition(.scale.combined(with: .opacity))
             } else if vm.phase == .showingResult, !vm.testFinished {
-                BTSceneFAB(icon: "arrow.right", title: nextButtonTitle, variant: .primary) {
+                BTTextActionButton(title: nextButtonTitle, role: .primary) {
                     vm.advanceToNext()
                 }
                 .padding(.trailing, Spacing.lg)
@@ -185,47 +199,29 @@ struct Scene3DAimingView: View {
 
     // MARK: - Top progress pill (observing / inputting)
 
+    /// 统计 chip 单字前缀（题/袋/差/剩，T-P18-49）：SF 图标换单字 label，
+    /// 与几何角度训练指标条同一 `BTReadout` 语法。
     private var progressPill: some View {
         HStack(spacing: Spacing.md) {
-            HStack(spacing: 4) {
-                Image(systemName: "list.number").font(.btCaption)
-                Text(progressText)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-            }
-            .fixedSize(horizontal: true, vertical: false)
+            BTReadout(label: "题", value: progressText)
+                .fixedSize(horizontal: true, vertical: false)
             divider
-            HStack(spacing: 4) {
-                Image(systemName: "scope").font(.btCaption)
-                Text(targetPocketText)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-            }
-            .fixedSize(horizontal: true, vertical: false)
+            BTReadout(label: "袋", value: targetPocketText)
+                .fixedSize(horizontal: true, vertical: false)
             divider
-            HStack(spacing: 4) {
-                Image(systemName: "chart.bar.fill").font(.btCaption)
-                Text(averageErrorText)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .lineLimit(1)
-            }
-            .fixedSize(horizontal: true, vertical: false)
+            BTReadout(label: "差", value: averageErrorText)
+                .fixedSize(horizontal: true, vertical: false)
             if !vm.limiter.isPremium {
                 divider
-                Text("剩余 \(vm.limiter.remainingToday)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.btAccent)
-                    .lineLimit(1)
+                BTReadout(label: "剩", value: "\(vm.limiter.remainingToday)",
+                          emphasis: .adjustable, size: .compact)
                     .fixedSize(horizontal: true, vertical: false)
             }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(.ultraThinMaterial)
-        .environment(\.colorScheme, .dark)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        .btHudGlass()
     }
 
     private var divider: some View {
@@ -264,20 +260,18 @@ struct Scene3DAimingView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.xs)
-        .background(.ultraThinMaterial)
-        .environment(\.colorScheme, .dark)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        .btHudGlass()
     }
 
     private func resultStat(label: String, value: String, color: Color) -> some View {
         HStack(spacing: 3) {
             Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.65))
+                .font(HUDStyle.labelFont)
+                .foregroundStyle(HUDStyle.labelColor)
             Text(value)
-                .font(.system(size: 13, weight: .bold, design: .rounded))
+                .font(HUDStyle.valueFont)
                 .foregroundStyle(color)
+                .monospacedDigit()
         }
     }
 
@@ -291,6 +285,8 @@ struct Scene3DAimingView: View {
 
     // MARK: - Settings Sheet
 
+    /// 完整训练设置（T-P18-48 入口流程）：进页先弹本 sheet 再开始；训练中
+    /// 齿轮再开、点「开始训练」按新设置重开一轮。§1.6：浮出层统一暗材质。
     private var settingsSheet: some View {
         NavigationStack {
             List {
@@ -317,18 +313,26 @@ struct Scene3DAimingView: View {
                         }
                     }
                 }
+                Section("显示") {
+                    BTTableGridMenuToggle(scene: vm.scene)
+                }
             }
             .navigationTitle("训练设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") {
+                    Button(vm.currentQuestion == nil ? "开始训练" : "重新开始") {
                         vm.showSettings = false
                         vm.startTest()
+                        applyAimingPoseForCurrentQuestion()
                     }
+                    .fontWeight(.semibold)
                 }
             }
         }
+        // §1.6 浮出层统一暗材质：preferredColorScheme 能同时压暗 sheet 的
+        // presentation 背景（environment(\.colorScheme) 只影响内容层）。
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Summary
@@ -359,9 +363,8 @@ struct Scene3DAimingView: View {
             }
         }
         .padding(Spacing.xl)
-        .background(.ultraThinMaterial)
+        .btHudGlass(in: RoundedRectangle(cornerRadius: BTRadius.xl))
         .environment(\.colorScheme, .dark)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.xl))
         .padding(.horizontal, Spacing.lg)
         .sheet(isPresented: $showSubscription) {
             SubscriptionView().environmentObject(subscriptionManager)
@@ -370,7 +373,7 @@ struct Scene3DAimingView: View {
 
     private func summaryCard(title: String, value: String) -> some View {
         VStack(spacing: Spacing.xs) {
-            Text(value).font(.btTitle2).foregroundStyle(.white)
+            Text(value).font(.btTitle2).foregroundStyle(.white).monospacedDigit()
             Text(title).font(.btCaption).foregroundStyle(.white.opacity(0.6))
         }
         .frame(maxWidth: .infinity)

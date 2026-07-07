@@ -3,7 +3,7 @@ import SceneKit
 
 /// 「打一走二想三」走位规划卡。
 ///
-/// 右侧角色轨选 ①球/①袋 · ②球/②袋 · ③球（随时改派）；② 自动画白球停球**扇形引导**
+/// 底部角色横排选 ①球/①袋 · ②球/②袋 · ③球（随时改派）；② 自动画白球停球**扇形引导**
 /// （无③两侧、有③单侧）。上方工具画真正的**落区/落点/过点**约束，`PositionPlaySolver`
 /// 反解「打一」的塞与力度，可「下一解」翻档、击球。打进①后窗口前滑续打。
 struct PlanThreeView: View {
@@ -17,6 +17,8 @@ struct PlanThreeView: View {
     @StateObject private var vm = PlanThreeViewModel()
     @State private var hasAppeared = false
     @State private var projector = TableProjector()
+    @State private var showBreakPicker = false
+    @State private var showSpinPad = false
 
     @State private var draggingKey: String?
     @State private var dragLocation: CGPoint = .zero
@@ -25,10 +27,6 @@ struct PlanThreeView: View {
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
     @State private var banner: String?
-
-    // 「试打」（T-P18-08）：带当前球局快照进自由击球（编排台自由模式）。
-    @State private var goFreePlay = false
-    @State private var freePlayBoard: BoardSnapshot?
 
     private static let paletteColumns = 8
     private static let c1 = Color(red: 0.36, green: 0.92, blue: 0.55)
@@ -40,18 +38,27 @@ struct PlanThreeView: View {
             Color.black.ignoresSafeArea()
             VStack(spacing: 0) {
                 topToolRow
-                HStack(spacing: 0) {
-                    ZStack {
-                        sceneContainer
-                        if vm.activeTool != .none { drawingOverlay }
+                // 台面全宽（T-P18-49）：角色选择移入底部横排（roleRow），
+                // 不再用右侧竖排挤压台面。
+                ZStack(alignment: .bottom) {
+                    sceneContainer
+                    if vm.activeTool != .none { drawingOverlay }
+                    if !vm.isBreakMode {
+                        leftColumn
+                        rightColumn
                     }
-                    roleRail
+                    if showSpinPad {
+                        BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                         onClose: { showSpinPad = false })
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                 }
                 bottomBar
             }
             if let key = draggingKey { dragGhost(key) }
             bannerView
         }
+        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .coordinateSpace(name: "planthree")
         .onPreferenceChange(PlanThreeFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -67,8 +74,10 @@ struct PlanThreeView: View {
             ToolbarItem(placement: .principal) { navStatus }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
-        .navigationDestination(isPresented: $goFreePlay) {
-            PositionPlayComposerView(initialBoard: freePlayBoard, initialMode: .free)
+        .sheet(isPresented: $showBreakPicker) {
+            BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
+                .presentationDetents([.height(360)])
+                .presentationDragIndicator(.visible)
         }
         .onAppear {
             if !hasAppeared {
@@ -89,7 +98,7 @@ struct PlanThreeView: View {
                 .lineLimit(1)
             HStack(spacing: 4) {
                 if vm.isComputing { ProgressView().controlSize(.mini).tint(.white) }
-                Text(vm.statusText)
+                Text(vm.breakRunner?.statusText ?? vm.statusText)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.65))
                     .lineLimit(1)
@@ -101,6 +110,36 @@ struct PlanThreeView: View {
 
     private var topToolRow: some View {
         HStack(spacing: Spacing.sm) {
+            if vm.isBreakMode {
+                breakModePill
+                Spacer(minLength: 0)
+            } else {
+                toolChips
+            }
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.black)
+        .environment(\.colorScheme, .dark)
+    }
+
+    /// 开球模式标识胶囊（T-P18-47）。
+    private var breakModePill: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "triangle")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.btPrimary)
+            Text("开球 · \(vm.breakRunner.map { BreakFlowRunner.title(for: $0.game) } ?? "")")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white.opacity(0.92))
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 6)
+        .btHudGlass()
+    }
+
+    @ViewBuilder
+    private var toolChips: some View {
             BTChipRow(
                 options: ["落区", "落点", "过点", "摆球"],
                 selection: Binding(
@@ -125,18 +164,6 @@ struct PlanThreeView: View {
             )
             .disabled(vm.isPlaying)
 
-            if vm.activeTool == .region {
-                BTChipRow(
-                    options: PlanThreeViewModel.RegionShape.allCases.map { $0.rawValue },
-                    selection: Binding(
-                        get: { vm.regionShape == .rect ? 0 : 1 },
-                        set: { vm.regionShape = $0 == 0 ? .rect : .circle }
-                    ),
-                    scrollable: false
-                )
-                .disabled(vm.isPlaying)
-            }
-
             Spacer(minLength: 0)
 
             Button { vm.clearConstraint() } label: {
@@ -146,11 +173,6 @@ struct PlanThreeView: View {
             }
             .disabled(vm.isPlaying || !vm.hasConstraint)
             .accessibilityLabel("清除约束")
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.xs)
-        .background(Color.black)
-        .environment(\.colorScheme, .dark)
     }
 
     // MARK: - Scene
@@ -161,19 +183,40 @@ struct PlanThreeView: View {
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
             autoFitsRotatedTable: true,
-            onPocketTapped: { vm.selectPocket(at: $0) },
-            draggableBallNodes: vm.activeTool == .none ? vm.draggableBalls : [],
-            onDragBegan: { vm.dragBegan(node: $0) },
-            onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
-            onDragEnded: { vm.dragEnded(node: $0) },
-            onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },
-            selectableBallNodes: vm.activeTool == .none ? vm.selectableBalls : [],
+            onPocketTapped: { if !vm.isBreakMode { vm.selectPocket(at: $0) } },
+            // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
+            draggableBallNodes: vm.breakRunner?.draggableCue
+                ?? (vm.activeTool == .none ? vm.draggableBalls : []),
+            onDragBegan: { node in
+                if let runner = vm.breakRunner { runner.dragBegan(node: node) }
+                else { vm.dragBegan(node: node) }
+            },
+            onDragMoved: { node, world in
+                if let runner = vm.breakRunner { runner.dragMoved(node: node, worldPosition: world) }
+                else { vm.dragMoved(node: node, worldPosition: world) }
+            },
+            onDragEnded: { node in
+                if let runner = vm.breakRunner { runner.dragEnded(node: node) }
+                else { vm.dragEnded(node: node) }
+            },
+            onDragEndedAt: { node, localPoint in
+                guard !vm.isBreakMode else { return }
+                handleTableDragEnd(node: node, localPoint: localPoint)
+            },
+            selectableBallNodes: (vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,
             onBallTapped: { vm.selectBall(node: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
+        // 三档轨迹标注切换（条 12.5）：全击打页统一放球桌区右上角。
+        .overlay(alignment: .topTrailing) {
+            if !vm.isBreakMode {
+                BTTrajectoryDetailChip { vm.redrawTrajectory() }
+                    .padding(Spacing.sm)
+            }
+        }
     }
 
     private var drawingOverlay: some View {
@@ -200,10 +243,12 @@ struct PlanThreeView: View {
         return CanvasPoint(x: Double(n.x), y: Double(n.y))
     }
 
-    // MARK: - Role rail (right)
+    // MARK: - Role row (Z6, above palette — T-P18-49)
 
-    private var roleRail: some View {
-        VStack(spacing: 8) {
+    /// 角色选择横排（球1→袋→球2→袋→球3 + 清空）：从右侧竖排移入 Z6
+    /// 球库行上方，台面恢复全宽。
+    private var roleRow: some View {
+        HStack(spacing: 6) {
             ForEach(PlanThreeRole.order, id: \.rawValue) { role in
                 roleChip(role)
             }
@@ -211,18 +256,16 @@ struct PlanThreeView: View {
                 Image(systemName: "arrow.counterclockwise")
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.white.opacity(0.7))
-                    .frame(width: 52, height: 30)
-                    .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                    .frame(width: 34, height: 40)
+                    .background(.white.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .disabled(vm.isPlaying)
             .accessibilityLabel("清空计划")
-            Spacer(minLength: 0)
         }
-        .padding(.vertical, Spacing.sm)
-        .padding(.horizontal, 6)
-        .frame(width: 70)
-        .background(Color(white: 0.08))
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity)
         .environment(\.colorScheme, .dark)
     }
 
@@ -231,23 +274,24 @@ struct PlanThreeView: View {
         let filled = vm.isFilled(role)
         let accent = roleColor(role)
         return Button { vm.armRole(role) } label: {
-            VStack(spacing: 3) {
+            HStack(spacing: 4) {
                 Text(roleTitle(role))
                     .font(.system(size: 10, weight: .bold, design: .rounded))
                     .foregroundStyle(accent)
                 roleContent(role, filled: filled, accent: accent)
             }
-            .frame(width: 56, height: 56)
+            .frame(maxWidth: .infinity)
+            .frame(height: 40)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 10)
                     .fill(armed ? accent.opacity(0.18) : Color.white.opacity(0.05))
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: 10)
                     .stroke(armed ? accent : accent.opacity(filled ? 0.5 : 0.22),
                             style: StrokeStyle(lineWidth: armed ? 2 : 1, dash: filled ? [] : [4, 3]))
             )
-            .scaleEffect(armed ? 1.04 : 1)
+            .scaleEffect(armed ? 1.03 : 1)
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: armed)
         }
         .buttonStyle(.plain)
@@ -258,16 +302,16 @@ struct PlanThreeView: View {
     private func roleContent(_ role: PlanThreeRole, filled: Bool, accent: Color) -> some View {
         if role.isBall {
             if let key = vm.ballKey(for: role) {
-                PoolBallFace(key: key, diameter: 26)
+                PoolBallFace(key: key, diameter: 22)
                     .overlay(Circle().stroke(.white.opacity(0.2), lineWidth: 0.5))
             } else {
                 Image(systemName: "circle.dashed")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(accent.opacity(0.55))
             }
         } else {
             Image(systemName: filled ? "scope" : "circle.dashed")
-                .font(.system(size: 18, weight: filled ? .bold : .semibold))
+                .font(.system(size: 15, weight: filled ? .bold : .semibold))
                 .foregroundStyle(filled ? accent : accent.opacity(0.55))
         }
     }
@@ -290,15 +334,79 @@ struct PlanThreeView: View {
         }
     }
 
+    // MARK: - Side columns（条 21.3 + 条 18 同规范）
+
+    private var leftColumn: some View {
+        VStack(spacing: 8) {
+            Spacer(minLength: 0)
+            BTTextActionButton(title: "求解", role: .primary,
+                               isDisabled: vm.isPlaying || vm.isComputing || !vm.hasConstraint) {
+                vm.solve()
+            }
+            BTTextActionButton(title: "下一解",
+                               isDisabled: vm.isPlaying || vm.solutions.count < 2) {
+                vm.nextSolution()
+            }
+            BTBreakSideButton(isEnabled: !vm.isPlaying && !vm.isComputing) {
+                showBreakPicker = true
+            }
+        }
+        .padding(.leading, 8)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+    }
+
+    private var rightColumn: some View {
+        VStack(spacing: 10) {
+            Spacer(minLength: 0)
+            BTShotInstrumentColumn(
+                spinX: vm.spinX, spinY: vm.spinY,
+                onSpinTap: { if vm.hasSolutions { showSpinPad = true } },
+                velocity: velocityBinding,
+                range: ShotTuning.velocityRange,
+                isDisabled: vm.isPlaying || !vm.hasSolutions
+            )
+            .frame(width: 36, height: 220)
+            BTShotActionColumn(
+                strikeTitle: vm.isPlaying ? "击球中" : "打一",
+                strikeEnabled: vm.canStrike,
+                onStrike: { vm.play() },
+                undoEnabled: !vm.isPlaying && vm.canUndoShot,
+                onUndo: { vm.undoLastShot() },
+                playbackEnabled: !vm.isPlaying && vm.canPlayback,
+                onPlayback: { vm.replayLastShot() }
+            )
+        }
+        .padding(.trailing, 8)
+        .padding(.bottom, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+    }
+
+    private var velocityBinding: Binding<Double> {
+        Binding(get: { vm.velocity }, set: { vm.adjustCurrentSolution(velocity: $0) })
+    }
+
+    private var spinXBinding: Binding<Double> {
+        Binding(get: { vm.spinX }, set: { vm.adjustCurrentSolution(spinX: $0) })
+    }
+
+    private var spinYBinding: Binding<Double> {
+        Binding(get: { vm.spinY }, set: { vm.adjustCurrentSolution(spinY: $0) })
+    }
+
     // MARK: - Bottom bar
 
     private var bottomBar: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                solutionRow
-                paletteBar
+        Group {
+            if let runner = vm.breakRunner {
+                BreakControlBar(runner: runner, onCancel: { vm.cancelBreakFlow() })
+            } else {
+                VStack(spacing: 0) {
+                    solutionRow
+                    roleRow
+                    paletteBar
+                }
             }
-            actionColumn
         }
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
@@ -306,22 +414,15 @@ struct PlanThreeView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// 当前解的只读指示行（统一 `ShotControlBar`，T-P18-10）+「试打」入口（T-P18-08）。
+    /// 当前解摘要行（统一 `ShotControlBar`，T-P18-10）。
     private var solutionRow: some View {
         ShotControlBar(
             spinX: vm.spinX, spinY: vm.spinY,
-            power: .readOnly(
-                velocity: vm.hasSolutions ? vm.velocity : nil,
-                subtitle: vm.currentSolution.map(solutionSubtitle),
-                subtitleTint: (vm.currentSolution?.satisfiesConstraint ?? true)
-                    ? nil : Color.btDestructive
-            )
-        ) {
-            ShotTryFreePlayButton(isEnabled: !vm.isPlaying && !vm.onTableKeys.isEmpty) {
-                freePlayBoard = vm.currentSnapshot()
-                goFreePlay = true
-            }
-        }
+            velocity: vm.hasSolutions ? vm.velocity : nil,
+            subtitle: vm.currentSolution.map(solutionSubtitle),
+            subtitleTint: (vm.currentSolution?.satisfiesConstraint ?? true)
+                ? nil : Color.btDestructive
+        ) { EmptyView() }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 5)
     }
@@ -332,55 +433,6 @@ struct PlanThreeView: View {
         let advanced = sol.beyondCushionBudget ? "进阶 · " : ""
         if !sol.satisfiesConstraint { return "\(advanced)最接近解 · \(spin) · \(cushion)" }
         return "\(advanced)\(spin) · \(cushion)"
-    }
-
-    // MARK: - Action column
-
-    private var actionColumn: some View {
-        VStack(spacing: 6) {
-            Button { vm.solve() } label: {
-                actionLabel(title: "求解", system: "function",
-                            tint: vm.isComputing ? Color.btPrimary.opacity(0.4) : Color.btPrimary)
-            }
-            .buttonStyle(.plain)
-            .disabled(vm.isPlaying || vm.isComputing || !vm.hasConstraint)
-
-            HStack(spacing: 6) {
-                smallButton(tint: .white.opacity(0.14), label: "下一解",
-                            system: "arrow.triangle.2.circlepath") { vm.nextSolution() }
-                    .disabled(vm.isPlaying || vm.solutions.count < 2)
-                smallButton(tint: vm.canStrike ? Color.btPrimary : Color.btPrimary.opacity(0.3),
-                            label: "打一", system: "play.fill") { vm.play() }
-                    .disabled(!vm.canStrike)
-            }
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
-    }
-
-    private func actionLabel(title: String, system: String, tint: Color) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: system).font(.system(size: 13, weight: .bold))
-            Text(title).font(.system(size: 13, weight: .bold, design: .rounded))
-        }
-        .foregroundStyle(.white)
-        .frame(width: 92, height: 38)
-        .background(tint, in: Capsule())
-    }
-
-    @ViewBuilder
-    private func smallButton(tint: Color, label: String, system: String,
-                             action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 43, height: 38)
-                .background(tint, in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 0.5))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
     }
 
     // MARK: - Palette
@@ -464,11 +516,15 @@ struct PlanThreeView: View {
 
     // MARK: - Toolbar menu
 
+    /// 条 21.6 同规范：齿轮与三点菜单合并为单个省略号菜单，标题居中。
     private var moreMenu: some View {
         Menu {
             Section("求解范围") {
                 Toggle("允许左右塞", isOn: $vm.allowSideSpin)
                 Toggle("仅基础走位（≤1 库）", isOn: $vm.basicPositionOnly)
+            }
+            Section("显示") {
+                BTTableGridMenuToggle(scene: vm.scene)
             }
             Section {
                 Button("清空桌面", systemImage: "trash") { vm.clearTable() }

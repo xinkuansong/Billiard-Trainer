@@ -221,25 +221,28 @@ final class DiamondSystemViewModel: ObservableObject {
         let path = sol.path
         guard path.count >= 2 else { return }
 
-        // 真实模式：先画理想对照路线（浅蓝虚线）。
+        // 真实模式：理想对照 = 线语言统一白虚线（T-P18-41，弃浅蓝）。
         if let ideal = sol.idealPath, ideal.count >= 2 {
             for i in 0..<(ideal.count - 1) {
                 let dash = scene.addDashedLine(from: ideal[i], to: ideal[i + 1],
-                                               color: UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 0.8),
-                                               radius: 0.003)
+                                               color: TrajectoryStyle.hintColor,
+                                               radius: TrajectoryStyle.lineHint,
+                                               dash: TrajectoryStyle.hintDash,
+                                               gap: TrajectoryStyle.hintGap)
                 pathNodes.append(dash)
             }
         }
 
-        // 实际走位（真实模式按缩小因子追迹）：黄色实线 + 红色碰库点。
+        // 实际走位 = 母球路径 → 身份色白实线（弃黄）+ 金色碰库点（方案标记，弃红）。
         for i in 0..<(path.count - 1) {
             let line = scene.addLine(from: path[i], to: path[i + 1],
-                                     color: UIColor.systemYellow, radius: 0.0045)
+                                     color: TrajectoryStyle.aimColor,
+                                     radius: TrajectoryStyle.lineMain)
             pathNodes.append(line)
         }
         if path.count > 2 {
             for p in path[1..<(path.count - 1)] {
-                let dot = scene.addBall(at: p, color: UIColor.systemRed, radius: 0.011)
+                let dot = scene.addBall(at: p, color: TrajectoryStyle.traceColor, radius: 0.011)
                 pathNodes.append(dot)
             }
         }

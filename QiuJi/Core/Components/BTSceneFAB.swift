@@ -5,7 +5,7 @@ import SwiftUI
 /// 全部 2D 球桌页（分离角/反射/翻袋/2D 瞄准）右下角的浮动操作一律使用本组件：
 /// - `primary`：品牌绿渐变实底——页面的主操作（击球 / 答题 / 下一解）。
 /// - `neutral`：半透明深色——次操作（重置 / 调整 / 辅助）。
-/// 统一尺寸 56pt、图标 19pt + 10pt 标签、阴影与描边一致。
+/// 统一尺寸 56pt、图标 19pt + 10pt 标签、发丝描边（无阴影，仪表玻璃规范 T-P18-45）。
 struct BTSceneFAB: View {
     enum Variant {
         case primary
@@ -28,8 +28,8 @@ struct BTSceneFAB: View {
             .foregroundStyle(.white)
             .frame(width: 56, height: 56)
             .background(background, in: Circle())
-            .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 0.5))
-            .shadow(color: .black.opacity(0.35), radius: 6, y: 3)
+            // 仪表玻璃规范（T-P18-45）：黑场上无阴影，发丝描边做分层。
+            .overlay(Circle().stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         }
         .buttonStyle(.plain)
     }

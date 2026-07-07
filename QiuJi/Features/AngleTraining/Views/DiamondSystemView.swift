@@ -24,6 +24,7 @@ struct DiamondSystemView: View {
                 Button { showInfo = true } label: {
                     Image(systemName: "info.circle").foregroundStyle(.white.opacity(0.75))
                 }
+                .accessibilityLabel("原理")
             }
         }
         .sheet(isPresented: $showInfo) {
@@ -55,11 +56,14 @@ struct DiamondSystemView: View {
 
     // MARK: - Top inset
 
+    /// SPEC §8.4：顶部控制区 ≤2 行 —— 库数 / 理想·真实（含内联发力）两行；
+    /// 求解状态 pill 改浮层（不挤压球桌）。
     private var topInset: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             cushionPicker
-            ReflectionModeControl(realMode: $vm.realMode, power: $vm.reflectionPower)
-            infoPill
+            ScrollView(.horizontal, showsIndicators: false) {
+                ReflectionModeControl(realMode: $vm.realMode, power: $vm.reflectionPower)
+            }
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.xs)
@@ -100,38 +104,30 @@ struct DiamondSystemView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(.ultraThinMaterial)
-        .environment(\.colorScheme, .dark)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        .btHudGlass()
     }
 
     private var solutionPill: some View {
         HStack(spacing: Spacing.sm) {
             HStack(spacing: 4) {
                 Image(systemName: "scope").font(.system(size: 12, weight: .semibold))
-                Text("\(vm.currentCushions) 库")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .foregroundStyle(.btAccent)
+                // 库数 = 方案量值 → 金（HUD 状态语法：金管数值）。
+                BTReadout(value: "\(vm.currentCushions) 库", emphasis: .adjustable)
             }
-            .foregroundStyle(.btAccent)
             divider
             Text(vm.currentRailText)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .lineLimit(1)
             if vm.solutionCount > 1 {
                 divider
-                Text("\(vm.currentIndex + 1)/\(vm.solutionCount)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.7))
+                BTReadout(value: "\(vm.currentIndex + 1)/\(vm.solutionCount)", size: .compact)
             }
         }
         .foregroundStyle(.white)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(.ultraThinMaterial)
-        .environment(\.colorScheme, .dark)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        .btHudGlass()
     }
 
     private var noSolutionText: String {
@@ -148,10 +144,7 @@ struct DiamondSystemView: View {
         .foregroundStyle(.btWarning)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
-        .background(.ultraThinMaterial)
-        .environment(\.colorScheme, .dark)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.3), radius: 4, y: 2)
+        .btHudGlass()
     }
 
     private var divider: some View {
@@ -163,6 +156,16 @@ struct DiamondSystemView: View {
     private var overlayLayer: some View {
         ZStack(alignment: .bottomTrailing) {
             Color.clear
+            // 求解状态 pill：浮层贴左下（SPEC §8.4，不占顶部行、不挤压球桌）。
+            VStack {
+                Spacer()
+                HStack {
+                    infoPill
+                    Spacer()
+                }
+                .padding(.leading, Spacing.lg)
+                .padding(.bottom, Spacing.xl + 16)
+            }
             VStack(spacing: Spacing.md) {
                 if vm.solutionCount > 1 {
                     BTSceneFAB(icon: "arrow.triangle.2.circlepath", title: "下一解",
@@ -202,11 +205,11 @@ private struct ReflectionSolverInfoSheet: View {
                     )
                     principleBlock(
                         title: "操作",
-                        body: "拖动母球（白）与目标球（黑）到任意位置；顶部选「自动」求最少库数，或手选 1–4 库。黄线即走位、红点是碰库点。多条解时点「下一解」切换不同撞库顺序；点「重置」恢复默认摆球。"
+                        body: "拖动母球（白）与目标球（黑）到任意位置；顶部选「自动」求最少库数，或手选 1–4 库。白色实线即母球走位、金点是碰库点。多条解时点「下一解」切换不同撞库顺序；点「重置」恢复默认摆球。"
                     )
                     principleBlock(
                         title: "理想 / 真实模式",
-                        body: "顶部可切换「理想 / 真实」。真实模式按缩小因子让反射「偏短」（反射角相对法线略小于入射角，模拟真实库呢吸收），并用蓝色虚线叠加理想路线作对照。拖动缩小因子滑块（0.50–1.00），几次试打后即可拟合你常玩球台与发力的手感；该因子两页通用并会被记住。"
+                        body: "顶部可切换「理想 / 真实」。真实模式用真实物理引擎按力度模拟反射：力越大越接近镜面反射，力越小反射越「偏短」（反射角相对法线略小于入射角，模拟真实库呢吸收），并用白色虚线叠加理想路线作对照。拖动力度滑块（m/s），几次试打后即可拟合你常玩球台与力度的手感；该设置与翻袋解球器共享并会被记住。"
                     )
                     principleBlock(
                         title: "实战提示",
@@ -223,6 +226,8 @@ private struct ReflectionSolverInfoSheet: View {
                 }
             }
         }
+        // §1.6：Z7 浮出层统一暗材质（T-P18-49）。
+        .preferredColorScheme(.dark)
     }
 
     private func principleBlock(title: String, body: String) -> some View {

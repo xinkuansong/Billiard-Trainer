@@ -92,7 +92,7 @@ struct HistoryCalendarView: View {
     private var monthNavigator: some View {
         HStack {
             Button(action: vm.previousMonth) {
-                Image(systemName: "chevron.left")
+                Image(systemName: BTIcon.chevronLeft)
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
@@ -103,7 +103,7 @@ struct HistoryCalendarView: View {
                 .foregroundStyle(.btText)
             Spacer()
             Button(action: vm.nextMonth) {
-                Image(systemName: "chevron.right")
+                Image(systemName: BTIcon.chevronRight)
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
@@ -265,7 +265,7 @@ struct HistoryCalendarView: View {
     // 紧凑型空状态：内嵌在日历下方，不使用整屏 BTEmptyState（会被 Tab 栏遮挡，见 UR-20260529 U-03）。
     private var emptyState: some View {
         VStack(spacing: Spacing.md) {
-            Image(systemName: "calendar.badge.plus")
+            Image(systemName: BTIcon.calendarPlus)
                 .font(.btTitle)
                 .foregroundStyle(.btTextTertiary)
             Text("还没有训练记录")
@@ -288,7 +288,7 @@ struct HistoryCalendarView: View {
         HStack {
             Spacer()
             VStack(spacing: Spacing.sm) {
-                Image(systemName: "moon.zzz")
+                Image(systemName: BTIcon.moonZzz)
                     .font(.btTitle)
                     .foregroundStyle(.btTextTertiary)
                 Text("当天无训练记录")
@@ -326,7 +326,7 @@ struct HistoryCalendarView: View {
 
             if locked {
                 HStack(spacing: Spacing.xs) {
-                    Image(systemName: "lock.fill")
+                    Image(systemName: BTIcon.lock)
                         .font(.btCaption)
                     Text("Pro")
                         .font(.btCaption2)
@@ -334,7 +334,7 @@ struct HistoryCalendarView: View {
                 .foregroundStyle(.btAccent)
             }
 
-            Image(systemName: "chevron.right")
+            Image(systemName: BTIcon.chevronRight)
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }
@@ -369,7 +369,7 @@ struct HistoryCalendarView: View {
 
             Spacer()
 
-            Image(systemName: "chevron.right")
+            Image(systemName: BTIcon.chevronRight)
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }

@@ -2177,10 +2177,14 @@ final class PocketBehaviorDiagTests: XCTestCase {
             print(String(format: "v%.1f 进=%@ 球心距孔心min=%.1fmm 终点=(%.3f, %.3f) 事件: %@",
                          speed, potted ? "Y" : "N", minD * 1000, lastPos.x, lastPos.z,
                          eventDesc.joined(separator: " → ")))
-            // 标定契约（pocketNoseRestitution）：常规力度（0.6–2.4 m/s，覆盖 App 力度条「中」档）
-            // 沿库球必进角袋。v0.4 极低速死在袋口、大力进/不进均不锁死（混沌 rattle 区，仅观察）。
-            if (0.6...2.4).contains(speed) {
+            // 标定契约（pocketNoseRestitution = 0.70，问题集合条 14 收紧）：
+            // 低中力度（0.6–1.8 m/s）沿库球必进角袋；中大力（≥2.4 m/s）冲袋必被
+            // 鼻尖 rattle 拒绝（「不该进的球」不进）。v0.4 极低速死在袋口，仅观察。
+            if (0.6...1.8).contains(speed) {
                 XCTAssertTrue(potted, String(format: "v%.1f 贴库沿库球应进角袋（鼻尖恢复系数标定破坏）", speed))
+            }
+            if speed >= 2.4 {
+                XCTAssertFalse(potted, String(format: "v%.1f 大力冲袋应被鼻尖拒绝（条 14 容错收紧破坏）", speed))
             }
         }
         print("===END-DIAG-R===\n")
@@ -2188,12 +2192,13 @@ final class PocketBehaviorDiagTests: XCTestCase {
 
     /// R2. 端到端（App 真实路径）：母球击打贴库目标球进右下角袋，走 `ShotPredictor.predict`
     /// （瞄准管道贴库豁免 + 鼻尖恢复系数标定后的整链验证）。
+    /// 0.70 标定（条 14 容错收紧）后窗口：v1.0–1.2 进、更大力被鼻尖拒绝——贴库球需控力。
     func test_R2_railFrozenEndToEnd() throws {
         let target = SCNVector3(0.5, sY + R, 0.635 - R)   // 紧贴下长库
         let cue = SCNVector3(-0.2, sY + R, 0.30)
         print("\n===DIAG-R2 贴库球端到端（predict，袋3）===")
         var anyPotted = false
-        for vel in [Float(1.6), 2.0, 2.4, 3.0] {
+        for vel in [Float(0.8), 1.0, 1.2, 1.4, 1.6, 2.0, 2.4, 3.0] {
             let input = ShotInput(cueBall: cue, targetBall: target, pocketIndex: 3,
                                   velocity: vel, spinX: 0, spinY: 0, surfaceY: sY)
             let pred = ShotPredictor.predict(input)

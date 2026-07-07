@@ -248,29 +248,35 @@ final class BankShotViewModel: ObservableObject {
         let path = sol.objectPath
         guard path.count >= 2 else { return }
 
-        // 真实模式：先画理想对照进球线（浅蓝虚线，区别于青色库面法线）。
+        // 目标球身份色（本页目标球固定黑 8 → 亮灰变体，T-P18-41 线语言）。
+        let potColor = TrajectoryStyle.potColor(for: "_8")
+
+        // 真实模式：理想对照 = 线语言统一白虚线（弃浅蓝）。
         if let ideal = sol.idealObjectPath, ideal.count >= 2 {
             for i in 0..<(ideal.count - 1) {
                 let dash = scene.addDashedLine(from: ideal[i], to: ideal[i + 1],
-                                               color: UIColor(red: 0.45, green: 0.75, blue: 1.0, alpha: 0.8),
-                                               radius: 0.003)
+                                               color: TrajectoryStyle.hintColor,
+                                               radius: TrajectoryStyle.lineHint,
+                                               dash: TrajectoryStyle.hintDash,
+                                               gap: TrajectoryStyle.hintGap)
                 pathNodes.append(dash)
             }
         }
 
-        // 进球线（目标球的翻袋路线）：黄线 + 反弹红点（教学路线色保持黄，仅统一线宽）。
+        // 进球线（目标球的翻袋路线）：目标球本色实线（弃黄）+ 金色反弹点（方案标记）。
         for i in 0..<(path.count - 1) {
             let line = scene.addLine(from: path[i], to: path[i + 1],
-                                     color: UIColor.systemYellow, radius: TrajectoryStyle.potRadius)
+                                     color: potColor, radius: TrajectoryStyle.lineMain)
             pathNodes.append(line)
         }
         for p in sol.cushionPoints {
-            let dot = scene.addBall(at: p, color: UIColor.systemRed, radius: 0.012)
+            let dot = scene.addBall(at: p, color: TrajectoryStyle.traceColor, radius: 0.012)
             pathNodes.append(dot)
-            // 反射法线：在反弹点画一条短的库面法线，直观体现「入射角 = 反射角」。
+            // 反射法线（释义层）：白细线，直观体现「入射角 = 反射角」（弃青）。
             if let normal = railNormalSegment(at: p) {
                 let nLine = scene.addLine(from: normal.0, to: normal.1,
-                                          color: UIColor.systemTeal.withAlphaComponent(0.85), radius: 0.0022)
+                                          color: TrajectoryStyle.hintColor,
+                                          radius: TrajectoryStyle.lineHint)
                 pathNodes.append(nLine)
             }
         }
@@ -280,18 +286,18 @@ final class BankShotViewModel: ObservableObject {
                                 radius: TrajectoryStyle.aimRadius)
         pathNodes.append(aim)
 
-        // 幽灵球（半透明）+ 接触点。
+        // 假想球（半透明）+ 接触点（品牌绿，T-P18-41）。
         pathNodes.append(addGhostSphere(at: sol.ghost))
         let contactDot = scene.addBall(at: SCNVector3(sol.contact.x, sol.contact.y + 0.001, sol.contact.z),
-                                       color: UIColor.systemGreen, radius: 0.009)
+                                       color: TrajectoryStyle.contactColor, radius: 0.009)
         pathNodes.append(contactDot)
 
-        // 行内文字标注。
+        // 行内文字标注（标签随线色）。
         if let firstHop = path.dropFirst().first {
             pathNodes.append(scene.addFlatLabel(
                 text: "进球线",
                 at: midpoint(path[0], firstHop, lift: 0.004),
-                color: UIColor.systemYellow, fontSize: 14))
+                color: potColor, fontSize: 14))
         }
         pathNodes.append(scene.addFlatLabel(
             text: "瞄准线",

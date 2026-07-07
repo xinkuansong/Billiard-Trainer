@@ -108,10 +108,17 @@ struct MainTabView: View {
             AngleDynamicView()
         case .geometricQuiz:
             GeometricAngleQuizView()
-        case .scene2DAiming:
-            Scene2DAimingView()
-        case .scene3DAiming:
-            Scene3DAimingView()
+        case .sceneAiming2D:
+            // T-P18-48 拆两卡：同一 View 两个 route，视角固定、成绩分记。
+            SceneAimingView(initialCameraMode: .topDown2DRotated)
+        case .sceneAiming3D:
+            SceneAimingView(initialCameraMode: .perspective3D)
+        case .aimPointTraining:
+            AimPointTrainingView()
+        case .aimPointScene2D:
+            AimPointSceneTrainingView(initialCameraMode: .topDown2DRotated)
+        case .aimPointScene3D:
+            AimPointSceneTrainingView(initialCameraMode: .perspective3D)
         case .ballFeel:
             BallFeelView()
         case .bankShot:
@@ -123,8 +130,8 @@ struct MainTabView: View {
         case .positionPlayComposer:
             PositionPlayComposerView()
         case .freePlay:
-            // 自由击球（ADR-P18-01）：编排台自由瞄准模式直达入口。
-            PositionPlayComposerView(initialMode: .free)
+            // 自由击球（条 15 / ADR-P18-01 拆页）：球库 + 开球 + 对局的独立页面。
+            FreePlayView()
         case .positionPlaySolver:
             SiluTrainerView()
         case .planThree:
@@ -133,8 +140,6 @@ struct MainTabView: View {
             SnookerTacticsView()
         case .ballExtraction:
             BallExtractionView()
-        case .rackGenerator:
-            RackGeneratorView()
         case .batchDrillStudio:
             #if targetEnvironment(simulator)
             BatchDrillStudioView()

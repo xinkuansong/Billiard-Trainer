@@ -64,7 +64,7 @@ struct TrainingHomeView: View {
                 Button {
                     router.trainingPath.append(TrainingRoute.planList)
                 } label: {
-                    Image(systemName: "person.2")
+                    Image(systemName: BTIcon.personGroup)
                         .font(.btBody)
                         .foregroundStyle(.btTextSecondary)
                         .frame(width: 44, height: 44)
@@ -83,7 +83,7 @@ struct TrainingHomeView: View {
                         Label("新建自定义计划", systemImage: "plus")
                     }
                 } label: {
-                    Image(systemName: "ellipsis")
+                    Image(systemName: BTIcon.menu)
                         .font(.btBody)
                         .foregroundStyle(.btTextSecondary)
                         .frame(width: 44, height: 44)
@@ -203,7 +203,7 @@ struct TrainingHomeView: View {
             Spacer()
 
             if drill.isCompleted {
-                Image(systemName: "checkmark.circle.fill")
+                Image(systemName: BTIcon.checkmarkCircle)
                     .font(.btTitle)
                     .foregroundStyle(.btSuccess)
             } else if isCurrentDrill {
@@ -219,7 +219,7 @@ struct TrainingHomeView: View {
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
                 }
             } else {
-                Image(systemName: "ellipsis")
+                Image(systemName: BTIcon.menu)
                     .font(.btBody)
                     .foregroundStyle(.btTextTertiary)
                     .frame(width: 44, height: 44)
@@ -234,7 +234,7 @@ struct TrainingHomeView: View {
 
     private var allCompletedBanner: some View {
         HStack(spacing: Spacing.md) {
-            Image(systemName: "checkmark.seal.fill")
+            Image(systemName: BTIcon.completeSeal)
                 .font(.btStatNumber)
                 .foregroundStyle(.btSuccess)
 
@@ -422,7 +422,7 @@ struct TrainingHomeView: View {
                     .font(.btStatNumber)
                     .foregroundStyle(Color.btAccent)
                     .monospacedDigit()
-                Image(systemName: "hammer.fill")
+                Image(systemName: BTIcon.hammer)
                     .font(.btMicro)
                     .foregroundStyle(Color.btAccent.opacity(0.7))
             }
@@ -479,7 +479,7 @@ struct TrainingHomeView: View {
 
                     Spacer()
 
-                    Image(systemName: "chevron.right")
+                    Image(systemName: BTIcon.chevronRight)
                         .font(.btFootnote14)
                         .foregroundStyle(.btTextTertiary)
                 }
@@ -490,7 +490,7 @@ struct TrainingHomeView: View {
                     .monospacedDigit()
 
                 HStack(spacing: 2) {
-                    Image(systemName: "slider.horizontal.3")
+                    Image(systemName: BTIcon.sliders)
                         .font(.btMicro)
                     Text("自定义")
                         .font(.btCaption2)

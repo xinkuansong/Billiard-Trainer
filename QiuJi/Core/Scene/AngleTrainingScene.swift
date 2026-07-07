@@ -52,12 +52,21 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Visualization Nodes (pre-created, toggled via isHidden)
 
+    /// 当前目标球号（`applyBallLayout` 记录）：进球线/标签随球色的取色依据（T-P18-41）。
+    private(set) var currentTargetNumber: Int?
+
+    /// 目标球换号时更新取色依据（条 2：角度与打点目标球可选）。
+    func setCurrentTargetNumber(_ number: Int?) {
+        currentTargetNumber = number
+    }
     private(set) var ghostBallNode: SCNNode?
     private(set) var pocketLineNode: SCNNode?
     private(set) var strikeLineNode: SCNNode?
     private(set) var contactDotNode: SCNNode?
     private(set) var angleArcNode: SCNNode?
     private(set) var perpLineNode: SCNNode?
+    /// 4x8 台面网格叠加（条 16）：`setTableGridVisible` 懒建。
+    private var tableGridNode: SCNNode?
 
     // MARK: - Setup
 
@@ -144,6 +153,7 @@ final class AngleTrainingScene: SCNScene {
     /// Show only specified balls, hide all others. Position them at given locations.
     /// Falls back to procedural balls if USDZ balls weren't extracted.
     func applyBallLayout(cueBallPosition: SCNVector3, targetBallNumber: Int, targetPosition: SCNVector3) {
+        currentTargetNumber = targetBallNumber
         let correctY = surfaceY + AngleSceneCalculator.ballRadius
         let cuePos = SCNVector3(cueBallPosition.x, correctY, cueBallPosition.z)
         let targetPos = SCNVector3(targetPosition.x, correctY, targetPosition.z)
@@ -572,9 +582,9 @@ final class AngleTrainingScene: SCNScene {
         let visualPlane = SCNPlane(width: planeSize, height: planeSize)
         let visualMat = SCNMaterial()
         visualMat.lightingModel = .constant
-        // 略亮中性深灰（约纯黑 + 12%），读作"暗房地板"：给桌腿一个可辨识的落地
-        // 背衬（FL-023 腿部可见性方案的一半，另一半是 `setupLegFillLighting`）。
-        visualMat.diffuse.contents = UIColor(red: 0.12, green: 0.128, blue: 0.14, alpha: 1.0)
+        // 渲染统一（问题集合条 11.1）：台面以下地面改**纯黑**，与场景背景融为一体；
+        // 桌腿可见性仍由 `setupLegFillLighting` 补光承担（FL-023 的另一半）。
+        visualMat.diffuse.contents = UIColor.black
         visualMat.writesToDepthBuffer = true
         visualMat.readsFromDepthBuffer = true
         visualMat.isDoubleSided = false
@@ -1041,12 +1051,102 @@ final class AngleTrainingScene: SCNScene {
         return node
     }
 
+    // MARK: - Trajectory polylines（线语言 v2，问题集合条 12）
+
+    /// 沿折线按**弧长**铺虚线：真实轨迹采样点很密，逐段 `addDashedLine` 会退化成实线；
+    /// 这里按整数周期索引遍历 on 段再与折线段求交（FL-024 教训：浮点相位累积推进会因
+    /// Float 精度下 step 下溢为 0 导致主线程死循环；整数索引循环有界，必然终止）。
+    func addDashedPolyline(_ pts: [SCNVector3], color: UIColor,
+                           radius: Float = TrajectoryStyle.lineMain,
+                           dash: Float = TrajectoryStyle.mainDash,
+                           gap: Float = TrajectoryStyle.mainGap,
+                           into nodes: inout [SCNNode]) {
+        guard pts.count >= 2, dash > 1e-4, gap > 1e-4 else { return }
+        let period = dash + gap
+        var arc: Float = 0
+        func lerp(_ a: SCNVector3, _ b: SCNVector3, _ t: Float) -> SCNVector3 {
+            SCNVector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
+        }
+        for i in 0..<(pts.count - 1) {
+            let a = pts[i], b = pts[i + 1]
+            let len = AngleSceneCalculator.horizontalDistance(a, b)
+            guard len > 1e-6 else { continue }
+            let firstK = Int((arc / period).rounded(.down))
+            let lastK = Int(((arc + len) / period).rounded(.down))
+            for k in firstK...lastK {
+                let onStart = Float(k) * period
+                let s = max(onStart, arc)
+                let e = min(onStart + dash, arc + len)
+                guard e - s > 1e-4 else { continue }
+                nodes.append(addLine(from: lerp(a, b, (s - arc) / len),
+                                     to: lerp(a, b, (e - arc) / len),
+                                     color: color, radius: radius))
+            }
+            arc += len
+        }
+    }
+
+    /// 母球轨迹（线语言 v2）：碰前段 = 白**实线**瞄准线；碰后段 = 白**虚线**轨迹。
+    /// `contact` = 首次球-球碰撞时母球位置；nil（空杆）时以首个吃库拐点为界——
+    /// 瞄准线延伸到库边（条 12.5），吃库反弹后为虚线轨迹。
+    /// `detail == .minimal` 时只画实线瞄准段（三档标注最简档）。
+    func addCueTrajectory(_ pts: [SCNVector3], contact: SCNVector3?,
+                          detail: TrajectoryDetail = .full,
+                          into nodes: inout [SCNNode]) {
+        guard pts.count >= 2 else { return }
+        let split = cueSplitIndex(pts, contact: contact)
+        // 实线瞄准段。
+        for i in 0..<split {
+            nodes.append(addLine(from: pts[i], to: pts[i + 1],
+                                 color: TrajectoryStyle.aimColor,
+                                 radius: TrajectoryStyle.aimRadius))
+        }
+        // 虚线轨迹段。
+        if detail != .minimal, split < pts.count - 1 {
+            addDashedPolyline(Array(pts[split...]), color: TrajectoryStyle.aimColor,
+                              radius: TrajectoryStyle.aimRadius, into: &nodes)
+        }
+    }
+
+    /// 被带动球轨迹（含目标球）：本球色**虚线**（黑 8 亮灰变体，条 12.2/12.4）。
+    func addObjectTrajectory(_ pts: [SCNVector3], ballKey: String,
+                             into nodes: inout [SCNNode]) {
+        addDashedPolyline(pts, color: TrajectoryStyle.potColor(for: ballKey),
+                          radius: TrajectoryStyle.potRadius, into: &nodes)
+    }
+
+    /// 母球折线的实/虚分界索引：优先取距 `contact` 最近的采样点；
+    /// 空杆时取首个显著方向变化点（吃库反弹），全程直线则整条为瞄准线。
+    private func cueSplitIndex(_ pts: [SCNVector3], contact: SCNVector3?) -> Int {
+        if let c = contact {
+            var best = pts.count - 1
+            var bestD = Float.greatestFiniteMagnitude
+            for (i, p) in pts.enumerated() {
+                let dx = p.x - c.x, dz = p.z - c.z
+                let d = dx * dx + dz * dz
+                if d < bestD { bestD = d; best = i }
+            }
+            return best
+        }
+        guard pts.count >= 3 else { return pts.count - 1 }
+        let cosThreshold: Float = 0.9986   // ≈ 3°
+        for i in 1..<(pts.count - 1) {
+            let ax = pts[i].x - pts[i - 1].x, az = pts[i].z - pts[i - 1].z
+            let bx = pts[i + 1].x - pts[i].x, bz = pts[i + 1].z - pts[i].z
+            let la = sqrtf(ax * ax + az * az), lb = sqrtf(bx * bx + bz * bz)
+            guard la > 1e-5, lb > 1e-5 else { continue }
+            let dot = (ax * bx + az * bz) / (la * lb)
+            if dot < cosThreshold { return i }
+        }
+        return pts.count - 1
+    }
+
     // MARK: - Shared selection ring & teaching overlays
 
     /// 选中环颜色（亮绿，统一全 App 点选球反馈）。
     static let selectionRingColor = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 0.95)
-    /// 90° 分离角辅助线颜色（暖黄虚线，区别于青色进球垂线）。
-    static let separationLineColor = UIColor(red: 1.0, green: 0.82, blue: 0.26, alpha: 0.92)
+    /// 90° 分离角辅助线颜色 = 线语言统一品牌绿短虚线（DR-021，弃白免与母球轨迹混淆）。
+    static let separationLineColor = TrajectoryStyle.separationColor
 
     /// 在 `center` 处画一个圆环（由短线段拼成），返回持有所有段的父节点，便于统一清理。
     @discardableResult
@@ -1075,47 +1175,8 @@ final class AngleTrainingScene: SCNScene {
                 radius: AngleSceneCalculator.ballRadius * 1.75, color: color)
     }
 
-    // MARK: - Free-aim drag handle (P18 B2 T-P18-06)
-
-    /// 自由瞄准拖动手柄：瞄准射线上的小圆环节点，拖动改变瞄准方向。
-    /// `AngleSceneView` 对它做 44pt 屏幕命中判定（优先于拖球）。
-    private(set) var aimHandleNode: SCNNode?
-
-    /// 创建手柄节点（幂等）。默认隐藏，由 ViewModel 经 `updateAimHandle` 控制显隐与位置。
-    func setupAimHandle() {
-        guard aimHandleNode == nil else { return }
-        let color = UIColor(named: "btAccent") ?? .systemYellow
-        let mat = SCNMaterial()
-        mat.diffuse.contents = color
-        mat.emission.contents = color.withAlphaComponent(0.55)
-        mat.lightingModel = .constant
-
-        // SCNTorus 默认躺在 XZ 平面，正好贴合顶视台面。
-        let torus = SCNTorus(ringRadius: 0.032, pipeRadius: 0.0042)
-        torus.materials = [mat]
-        let node = SCNNode(geometry: torus)
-
-        let dot = SCNSphere(radius: 0.0075)
-        dot.segmentCount = 16
-        dot.materials = [mat]
-        node.addChildNode(SCNNode(geometry: dot))
-
-        node.isHidden = true
-        node.name = "aimHandle"
-        rootNode.addChildNode(node)
-        aimHandleNode = node
-    }
-
-    /// 移动 / 隐藏手柄（nil = 隐藏）。
-    func updateAimHandle(position: SCNVector3?) {
-        guard let handle = aimHandleNode else { return }
-        if let position {
-            handle.position = position
-            handle.isHidden = false
-        } else {
-            handle.isHidden = true
-        }
-    }
+    // 注：自由瞄准手柄圆环节点已删除（T-P18-43，设计稿 §1.5「砍」）——粗调改为
+    // `AngleSceneView.onAimDragged` 手指跟随（空白处起手拖动即指哪打哪），瞄准线上不再放控件。
 
     /// 90° 分离角辅助线：过首次碰撞点（≈幽灵球中心），沿切线方向（垂直于撞击线）双向延伸。
     /// 由调用方按用户设置（`UserPreferences.showSeparationAngle`）决定是否调用。
@@ -1132,7 +1193,9 @@ final class AngleTrainingScene: SCNScene {
         let a = SCNVector3(center.x - ux * half, y, center.z - uz * half)
         let b = SCNVector3(center.x + ux * half, y, center.z + uz * half)
         nodes.append(addDashedLine(from: a, to: b, color: AngleTrainingScene.separationLineColor,
-                                   radius: 0.0026, dash: 0.028, gap: 0.020))
+                                   radius: TrajectoryStyle.lineHint,
+                                   dash: TrajectoryStyle.hintDash * 0.7,
+                                   gap: TrajectoryStyle.hintGap * 0.7))
         return true
     }
 
@@ -1270,26 +1333,126 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Visualization Setup (pre-create all nodes once)
 
+    /// 虚线条纹纹理（白段 + 透明 gap，比例 = `mainDash:mainGap`）：供需逐帧改长度的
+    /// 常驻线节点（进球线预览）以纹理方式呈现虚线，避免每帧重建段节点。
+    static let dashStripeTexture: UIImage = {
+        let h = 64
+        let dashFrac = CGFloat(TrajectoryStyle.mainDash / (TrajectoryStyle.mainDash + TrajectoryStyle.mainGap))
+        let size = CGSize(width: 4, height: CGFloat(h))
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            UIColor.clear.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            UIColor.white.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: 4, height: size.height * dashFrac))
+        }
+    }()
+
+    /// 虚线纹理一周期对应的世界长度（米）。
+    static let dashStripePeriod: Float = TrajectoryStyle.mainDash + TrajectoryStyle.mainGap
+
+    // MARK: - 4x8 台面网格（条 16）
+
+    /// 显隐 4x8 台面网格：短边 4 等分（3 条纵长线）+ 长边 8 等分（7 条横线），
+    /// 白色低透明细线贴台呢，教学定位参考。首次开启时懒建，此后仅切换 isHidden。
+    func setTableGridVisible(_ visible: Bool) {
+        if let grid = tableGridNode {
+            grid.isHidden = !visible
+            return
+        }
+        guard visible else { return }
+
+        let grid = SCNNode()
+        grid.name = "tableGrid"
+        let mat = SCNMaterial()
+        mat.diffuse.contents = UIColor.white.withAlphaComponent(0.28)
+        mat.lightingModel = .constant
+        mat.isDoubleSided = true
+        let y = surfaceY + 0.0015
+        let halfL = AngleSceneCalculator.innerLength / 2
+        let halfW = AngleSceneCalculator.innerWidth / 2
+        let lineW: CGFloat = 0.0022
+
+        func addLine(from a: SCNVector3, to b: SCNVector3) {
+            let dx = b.x - a.x, dz = b.z - a.z
+            let len = sqrtf(dx * dx + dz * dz)
+            guard len > 1e-4 else { return }
+            let geo = SCNCylinder(radius: lineW / 2, height: CGFloat(len))
+            geo.radialSegmentCount = 6
+            geo.materials = [mat]
+            let node = SCNNode(geometry: geo)
+            node.position = SCNVector3((a.x + b.x) / 2, y, (a.z + b.z) / 2)
+            node.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
+                                              to: simd_normalize(simd_float3(dx, 0, dz)))
+            grid.addChildNode(node)
+        }
+
+        // 长边 8 等分 → 7 条横线（垂直长轴）。
+        for i in 1..<8 {
+            let x = -halfL + AngleSceneCalculator.innerLength * Float(i) / 8
+            addLine(from: SCNVector3(x, y, -halfW), to: SCNVector3(x, y, halfW))
+        }
+        // 短边 4 等分 → 3 条纵线（沿长轴）。
+        for i in 1..<4 {
+            let z = -halfW + AngleSceneCalculator.innerWidth * Float(i) / 4
+            addLine(from: SCNVector3(-halfL, y, z), to: SCNVector3(halfL, y, z))
+        }
+
+        rootNode.addChildNode(grid)
+        tableGridNode = grid
+    }
+
     func setupVisualizationNodes() {
         let r = AngleSceneCalculator.ballRadius
 
-        let ghostSphere = SCNSphere(radius: CGFloat(r))
-        ghostSphere.segmentCount = 24
-        let ghostMat = SCNMaterial()
-        // 提高假想球不透明度让其轮廓更明显；同时加微弱发光让它在 2D 顶视图上更跳脱。
-        ghostMat.diffuse.contents = UIColor.yellow.withAlphaComponent(0.7)
-        ghostMat.emission.contents = UIColor(red: 0.6, green: 0.5, blue: 0, alpha: 1)
-        ghostMat.lightingModel = .constant
-        ghostSphere.materials = [ghostMat]
-        let ghost = SCNNode(geometry: ghostSphere)
+        // 假想球（重叠标注 L0，T-P18-42）：品牌绿虚线圈替代旧黄色实心球。
+        // 圈 = 母球瞄准落点轮廓，贴台呢平放；与接触点绿点构成全场景常驻的
+        // 「什么角度打哪里」教学层（设计稿 §1.3）。节点中心仍在球心高度，
+        // 调用方 API（position = 假想球球心、isHidden 开关）不变。
+        let ghost = SCNNode()
+        let ringMat = SCNMaterial()
+        ringMat.diffuse.contents = TrajectoryStyle.contactColor
+        ringMat.lightingModel = .constant
+        let dashCount = 16
+        let ringDashLen = 2 * Float.pi * r / Float(dashCount) * 0.55
+        for i in 0..<dashCount {
+            let theta = Float(i) / Float(dashCount) * 2 * .pi
+            let segGeo = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineHint),
+                                     height: CGFloat(ringDashLen))
+            segGeo.materials = [ringMat]
+            let seg = SCNNode(geometry: segGeo)
+            seg.position = SCNVector3(r * cosf(theta), -r + 0.002, r * sinf(theta))
+            // 圆柱轴默认 +Y，转到圆周切线方向平躺。
+            seg.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
+                                             to: simd_float3(-sinf(theta), 0, cosf(theta)))
+            ghost.addChildNode(seg)
+        }
+        // 瞄准点红心（线语言 v2，条 1.6/4.2）：假想球球心是瞄准参考点，
+        // 作为 ghost 子节点随其显隐/移动，所有用假想球的页面自动获得。
+        let aimDotGeo = SCNSphere(radius: 0.0065)
+        aimDotGeo.segmentCount = 12
+        let aimDotMat = SCNMaterial()
+        aimDotMat.diffuse.contents = TrajectoryStyle.aimPointColor
+        aimDotMat.lightingModel = .constant
+        aimDotGeo.materials = [aimDotMat]
+        let aimDot = SCNNode(geometry: aimDotGeo)
+        aimDot.position = SCNVector3(0, -r + 0.004, 0)   // 球心正下方贴台呢，顶视/斜视均可见
+        aimDot.name = "ghostAimDot"
+        ghost.addChildNode(aimDot)
+
         ghost.isHidden = true
         ghost.name = "ghostBall"
         rootNode.addChildNode(ghost)
         ghostBallNode = ghost
 
-        let plCyl = SCNCylinder(radius: 0.004, height: 1)
+        // 进球线：颜色运行时随目标球本色；线语言 v2（条 12.2）改为**虚线**——
+        // 单根圆柱贴条纹纹理（白段 + 透明 gap），wrapT=.repeat + contentsTransform
+        // 随长度缩放，拖动逐帧改长度也无需重建虚线段节点。
+        let plCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
         let plMat = SCNMaterial()
-        plMat.diffuse.contents = UIColor.systemRed
+        plMat.diffuse.contents = Self.dashStripeTexture
+        plMat.diffuse.wrapT = .repeat
+        plMat.multiply.contents = TrajectoryStyle.potColor(forNumber: nil)
         plMat.lightingModel = .constant
         plCyl.materials = [plMat]
         let pl = SCNNode(geometry: plCyl)
@@ -1298,7 +1461,7 @@ final class AngleTrainingScene: SCNScene {
         rootNode.addChildNode(pl)
         pocketLineNode = pl
 
-        let slCyl = SCNCylinder(radius: 0.004, height: 1)
+        let slCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
         let slMat = SCNMaterial()
         slMat.diffuse.contents = UIColor.white
         slMat.lightingModel = .constant
@@ -1309,10 +1472,11 @@ final class AngleTrainingScene: SCNScene {
         rootNode.addChildNode(sl)
         strikeLineNode = sl
 
+        // 接触点：品牌绿（T-P18-41 线语言，弃黄）。
         let dotSphere = SCNSphere(radius: 0.009)
         dotSphere.segmentCount = 16
         let dotMat = SCNMaterial()
-        dotMat.diffuse.contents = UIColor.systemYellow
+        dotMat.diffuse.contents = TrajectoryStyle.contactColor
         dotMat.lightingModel = .constant
         dotSphere.materials = [dotMat]
         let dot = SCNNode(geometry: dotSphere)
@@ -1327,12 +1491,25 @@ final class AngleTrainingScene: SCNScene {
         rootNode.addChildNode(arc)
         angleArcNode = arc
 
-        let ppCyl = SCNCylinder(radius: 0.002, height: 1)
+        // 90° 释义线（过假想球球心、垂直于撞击线）：品牌绿短虚线（DR-021）。
+        // 长度恒定（±4R）→ 虚线段一次性建成子节点，更新时只动父节点位姿，拖动零重建。
+        let pp = SCNNode()
+        let perpHalf = AngleSceneCalculator.ballRadius * 4
         let ppMat = SCNMaterial()
-        ppMat.diffuse.contents = UIColor.yellow.withAlphaComponent(0.4)
+        ppMat.diffuse.contents = TrajectoryStyle.separationColor
         ppMat.lightingModel = .constant
-        ppCyl.materials = [ppMat]
-        let pp = SCNNode(geometry: ppCyl)
+        let dashLen = TrajectoryStyle.hintDash * 0.7   // 短虚线：比对照线更碎，一眼区分「释义」
+        let gapLen = TrajectoryStyle.hintGap * 0.7
+        var yCursor = -perpHalf
+        while yCursor < perpHalf {
+            let segLen = min(dashLen, perpHalf - yCursor)
+            let segGeo = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineHint), height: CGFloat(segLen))
+            segGeo.materials = [ppMat]
+            let seg = SCNNode(geometry: segGeo)
+            seg.position = SCNVector3(0, yCursor + segLen / 2, 0)
+            pp.addChildNode(seg)
+            yCursor += segLen + gapLen
+        }
         pp.isHidden = true
         pp.name = "perpLine"
         rootNode.addChildNode(pp)
@@ -1352,6 +1529,12 @@ final class AngleTrainingScene: SCNScene {
 
     /// Update the on-table aiming visualization (ghost ball, strike / pocket
     /// lines, optional angle arc + numeric label, optional line text labels).
+    /// - Parameter showAngleAnnotations: when `false`, suppresses the numeric
+    ///   angle arc (e.g. "20°"). Used by quiz assist mode where the value is
+    ///   the answer being tested (T-P18-48).
+    /// - Parameter showOverlapMarkers: contact dot + 90° separation short dash
+    ///   （§1.2/§1.3 重叠标注 L1）。Independent of the numeric arc so assist
+    ///   mode can keep the markers without revealing the answer.
     /// - Parameter showLineLabels: when `false`, suppresses the "瞄准线" /
     ///   "进球线" inline text labels lying flat on the cloth. The angle
     ///   numeric value (e.g. "20°") is still rendered when
@@ -1362,6 +1545,7 @@ final class AngleTrainingScene: SCNScene {
         targetBall: SCNVector3,
         pocket: SCNVector3,
         showAngleAnnotations: Bool = true,
+        showOverlapMarkers: Bool = true,
         showLineLabels: Bool = true
     ) {
         let r = AngleSceneCalculator.ballRadius
@@ -1383,27 +1567,57 @@ final class AngleTrainingScene: SCNScene {
             targetBall.z - pocketDir.z * reverseLen
         )
         updateLineNode(pocketLineNode, from: pocket, to: pocketLineEnd)
+        // 进球线绑定目标球本色（黑 8 取亮灰变体）；虚线由条纹纹理呈现，色走 multiply。
+        pocketLineNode?.geometry?.firstMaterial?.multiply.contents =
+            TrajectoryStyle.potColor(forNumber: currentTargetNumber)
         pocketLineNode?.isHidden = false
 
         updateLineNode(strikeLineNode, from: cueBall, to: ghostPos)
         strikeLineNode?.isHidden = false
 
-        if showAngleAnnotations {
+        if showOverlapMarkers {
             let contact = AngleSceneCalculator.contactPointPosition(targetBall: targetBall, pocket: pocket)
             contactDotNode?.position = SCNVector3(contact.x, contact.y + 0.001, contact.z)
             contactDotNode?.isHidden = false
 
-            updatePerpLine(targetBall: targetBall, pocket: pocket)
+            updatePerpLine(ghost: ghostPos, targetBall: targetBall, pocket: pocket)
             perpLineNode?.isHidden = false
+        } else {
+            contactDotNode?.isHidden = true
+            perpLineNode?.isHidden = true
+        }
 
+        if showAngleAnnotations {
             updateAngleArc(cueBall: cueBall, targetBall: targetBall, pocket: pocket, ghost: ghostPos,
                            showLineLabels: showLineLabels)
             angleArcNode?.isHidden = false
         } else {
-            contactDotNode?.isHidden = true
-            perpLineNode?.isHidden = true
             angleArcNode?.isHidden = true
         }
+    }
+
+    // MARK: - Overlap Annotation L0 helpers (T-P18-42)
+
+    /// 重叠标注 L0：把共享接触点绿点摆到「假想球→目标球」连线上的切点。
+    /// 自由瞄准 / 解叠加等不走 `updateVisualization` 的路径共用本方法补齐 L0。
+    func updateContactDot(ghostCenter: SCNVector3, targetCenter: SCNVector3) {
+        guard let dot = contactDotNode else { return }
+        let r = AngleSceneCalculator.ballRadius
+        let dx = targetCenter.x - ghostCenter.x
+        let dz = targetCenter.z - ghostCenter.z
+        let len = sqrtf(dx * dx + dz * dz)
+        guard len > 1e-5 else {
+            dot.isHidden = true
+            return
+        }
+        dot.position = SCNVector3(ghostCenter.x + dx / len * r,
+                                  ghostCenter.y + 0.001,
+                                  ghostCenter.z + dz / len * r)
+        dot.isHidden = false
+    }
+
+    func hideContactDot() {
+        contactDotNode?.isHidden = true
     }
 
     private func unitXZ(from a: SCNVector3, to b: SCNVector3) -> SCNVector3 {
@@ -1426,6 +1640,11 @@ final class AngleTrainingScene: SCNScene {
 
         if let cyl = node.geometry as? SCNCylinder {
             cyl.height = CGFloat(length)
+            // 虚线纹理节点（进球线）：随长度缩放条纹重复数，保持虚线节奏恒定。
+            if node.name == "pocketLine", let mat = cyl.firstMaterial {
+                let repeats = max(1, length / Self.dashStripePeriod)
+                mat.diffuse.contentsTransform = SCNMatrix4MakeScale(1, repeats, 1)
+            }
         }
         node.position = SCNVector3(
             (start.x + end.x) / 2,
@@ -1435,17 +1654,20 @@ final class AngleTrainingScene: SCNScene {
         node.look(at: end, up: rootNode.worldUp, localFront: SCNVector3(0, 1, 0))
     }
 
-    private func updatePerpLine(targetBall: SCNVector3, pocket: SCNVector3) {
+    /// 90° 释义线过**假想球球心**（母球碰撞瞬间的位置）——定杆母球沿此切线离开；
+    /// 方向垂直于撞击线（假想球→目标球，与进球线同向）。DR-021 修正：原锚在目标球心。
+    private func updatePerpLine(ghost: SCNVector3, targetBall: SCNVector3, pocket: SCNVector3) {
+        guard let node = perpLineNode else { return }
         let dx = pocket.x - targetBall.x
         let dz = pocket.z - targetBall.z
         let dist = sqrtf(dx * dx + dz * dz)
         guard dist > 0.001 else { return }
+        // 虚线段建在父节点局部 +Y 轴上，这里只需摆位姿（look 的 localFront = +Y）。
         let perpX = -dz / dist
         let perpZ = dx / dist
-        let len: Float = AngleSceneCalculator.ballRadius * 4
-        let start = SCNVector3(targetBall.x - perpX * len, targetBall.y, targetBall.z - perpZ * len)
-        let end = SCNVector3(targetBall.x + perpX * len, targetBall.y, targetBall.z + perpZ * len)
-        updateLineNode(perpLineNode, from: start, to: end)
+        node.position = ghost
+        let lookTarget = SCNVector3(ghost.x + perpX, ghost.y, ghost.z + perpZ)
+        node.look(at: lookTarget, up: rootNode.worldUp, localFront: SCNVector3(0, 1, 0))
     }
 
     /// Draw the cut-angle arc at GHOST in the wedge formed by the two FORWARD rays
@@ -1473,7 +1695,8 @@ final class AngleTrainingScene: SCNScene {
         if delta < -.pi { delta += 2 * .pi }
         // atan2 wrap already gives the acute-side sweep (|delta| ≤ π).
 
-        let arcColor = UIColor.systemBlue
+        // 角度弧 = 品牌绿 + 白读数（T-P18-41 线语言，弃蓝）。
+        let arcColor = TrajectoryStyle.contactColor
         let arcRadius: Float = r * 2.6
         let segments = 24
         // Single arc on the BACKWARD wedge (between strike-backward = ghost→cue and
@@ -1525,7 +1748,7 @@ final class AngleTrainingScene: SCNScene {
             ghost.z + labelDist * sinf(labelAngle)
         )
         let horizontalDir = SCNVector3(0, 0, 1)
-        let label = makeAlignedFlatTextNode(text: angleText, color: arcColor,
+        let label = makeAlignedFlatTextNode(text: angleText, color: .white,
                                             fontSize: angleFontSize, scale: angleTextScale, weight: .bold,
                                             alignDir: horizontalDir)
         label.position = labelPos
@@ -1539,7 +1762,9 @@ final class AngleTrainingScene: SCNScene {
             addInlineLineLabel(text: "瞄准线", color: .white,
                                lineStart: cueBall, lineEnd: ghost,
                                tParam: strikeLabelT, sideOffset: lineLabelOffset)
-            addInlineLineLabel(text: "进球线", color: .systemRed,
+            // 标签随进球线同色（T-P18-41：进球线绑定目标球本色）。
+            addInlineLineLabel(text: "进球线",
+                               color: TrajectoryStyle.potColor(forNumber: currentTargetNumber),
                                lineStart: targetBall, lineEnd: pocket,
                                tParam: pocketLabelT, sideOffset: lineLabelOffset)
         }
@@ -1560,11 +1785,15 @@ final class AngleTrainingScene: SCNScene {
         // SceneKit Y rotation: local +X → (cos yaw, 0, -sin yaw), so:
         //   cos yaw = dx, -sin yaw = dz  →  yaw = atan2(-dz, dx)
         var yaw = atan2(-dir.z, dir.x)
-        // Camera in topDown2DRotated has up = world +X (screen-up = +X).
-        // After lay-flat + parent yaw, text ascent ends up at (-sin yaw, 0, -cos yaw).
-        // Ascent has positive X (i.e. visually upright on screen) iff sin yaw < 0,
-        // which corresponds to dz > 0. So flip 180° when dz < 0.
-        if dir.z < 0 { yaw += .pi }
+        // Camera in topDown2DRotated has up = world +X (screen-up = +X), right = +Z.
+        // After lay-flat + parent yaw, text ascent ends up at (-sin yaw, 0, -cos yaw),
+        // its screen-up component = dz. 常规线：dz < 0 时翻 180° 保证字面朝上。
+        // T-P18-35：接近屏幕垂直的线（|dz| 很小）字面朝向不再是主要信息，
+        // 此时改为保证**读向**从屏幕上→下（中文竖排习惯），即基线的屏幕上分量
+        // (dx) 为负；否则「瞄准线」出现下→上读向，观感像倒置。
+        let nearVertical = abs(dir.z) < 0.15
+        let shouldFlip = nearVertical ? dir.x > 0 : dir.z < 0
+        if shouldFlip { yaw += .pi }
 
         // 字号介于初版（20）与上次过小（16）之间，配合更大的 sideOffset 留白后视觉刚好。
         let textChild = makeFlatTextChild(text: text, color: color,

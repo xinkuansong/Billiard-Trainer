@@ -2,19 +2,25 @@ import SwiftUI
 
 // MARK: - 自由瞄准角度齿轮（竖向棘轮标尺）
 
-/// 贴球桌右缘的竖向刻度齿轮：拖动微调自由瞄准方向。内容跟手——往上拖刻度上滚、读数递增
-/// （= 屏幕顺时针/向右），灵敏度 0.3°/pt（刻度 1:1 随指 ≈3.33pt/°），越过整度给一次轻震。
-/// `bearing` 由 `PositionPlayViewModel.freeAimBearingDeg` 喂入（0°=屏幕正上、顺时针增）。
-/// 原生于批量出片台（sim-only），P18 B2 下沉共享供编排台自由模式/自由击球/分离角手动瞄准复用。
+/// 贴球桌左缘的竖向刻度齿轮：拖动微调自由瞄准方向（控件瘦身 v2，问题集合条 13.1）。
+///
+/// **纯相对微调**——无绝对角度概念（去 bearing 刻度锚定）：手指滑屏是粗调、
+/// 这里是细调，刻度只是「转了多少」的手感反馈，不代表任何绝对方位。
+/// 内容跟手——往上拖刻度上滚（= 屏幕顺时针/向右），灵敏度 0.15°/pt（比旧 0.3 减半，
+/// 细调更稳），越过整度给一次轻震。
+///
+/// T-P18-43（设计稿 §1.5/§1.7 刻度语法）：**只画刻度不画数值**——打点精确到毫米级，
+/// 用户看的是台面上的瞄准效果不是数字；三级刻度 1°/5°/10° = 白 15/25/40%，当前位置金线。
 struct BTAimWheel: View {
-    let bearing: Double
     let onNudge: (Float) -> Void
 
-    private let degreesPerPoint: Float = 0.3
+    private let degreesPerPoint: Float = 0.15
     private var pointsPerDegree: CGFloat { CGFloat(1 / degreesPerPoint) }
 
+    /// 相对累计转量（度），只用于刻度滚动的视觉反馈。
+    @State private var accumulated: Double = 0
     @State private var lastHeight: CGFloat = 0
-    @State private var lastTick: Int = .min
+    @State private var lastTick: Int = 0
     private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
@@ -23,50 +29,37 @@ struct BTAimWheel: View {
             let mid = h / 2
             let ppd = pointsPerDegree
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.black.opacity(0.55))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(.white.opacity(0.12), lineWidth: 0.5))
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(HUDStyle.glassTint)
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
 
                 Canvas { ctx, size in
                     let w = size.width
                     let span = Double(h / ppd)
-                    let from = Int((bearing - span / 2 - 2).rounded(.down))
-                    let to = Int((bearing + span / 2 + 2).rounded(.up))
+                    let from = Int((accumulated - span / 2 - 2).rounded(.down))
+                    let to = Int((accumulated + span / 2 + 2).rounded(.up))
                     for d in from...to {
-                        let y = mid + CGFloat(Double(d) - bearing) * ppd
+                        let y = mid + CGFloat(Double(d) - accumulated) * ppd
                         guard y >= -2, y <= h + 2 else { continue }
                         let norm = ((d % 360) + 360) % 360
                         let isMajor = norm % 10 == 0
                         let isMed = norm % 5 == 0
-                        let len: CGFloat = isMajor ? w * 0.5 : (isMed ? w * 0.34 : w * 0.2)
+                        // 刻度语法（§1.7）：三级刻度线居中横排，白 40 / 25 / 15%，无数值。
+                        let len: CGFloat = isMajor ? w * 0.62 : (isMed ? w * 0.42 : w * 0.26)
                         var p = Path()
-                        p.move(to: CGPoint(x: w - len, y: y))
-                        p.addLine(to: CGPoint(x: w - 4, y: y))
-                        ctx.stroke(p, with: .color(.white.opacity(isMajor ? 0.85 : (isMed ? 0.5 : 0.28))),
+                        p.move(to: CGPoint(x: (w - len) / 2, y: y))
+                        p.addLine(to: CGPoint(x: (w + len) / 2, y: y))
+                        ctx.stroke(p, with: .color(HUDStyle.tickColor(major: isMajor, mid: isMed)),
                                    lineWidth: isMajor ? 1.4 : 0.8)
-                        if isMajor {
-                            let t = Text("\(norm)")
-                                .font(.system(size: 9, weight: .semibold, design: .rounded))
-                                .foregroundColor(.white.opacity(0.7))
-                            ctx.draw(t, at: CGPoint(x: w - len - 8, y: y), anchor: .trailing)
-                        }
                     }
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
+                // 当前位置指示 = 金色短线（§1.7 刻度语法）。
                 Rectangle()
-                    .fill(Color.btAccent)
+                    .fill(HUDStyle.tickIndicator)
                     .frame(height: 1.5)
-
-                Text("\(((Int(bearing.rounded()) % 360) + 360) % 360)°")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-                    .padding(.horizontal, 5)
-                    .padding(.vertical, 2)
-                    .background(Color.btAccent, in: Capsule())
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.leading, 3)
             }
             .contentShape(Rectangle())
             .gesture(
@@ -74,8 +67,10 @@ struct BTAimWheel: View {
                     .onChanged { v in
                         let dy = v.translation.height - lastHeight
                         lastHeight = v.translation.height
-                        onNudge(Float(-dy) * degreesPerPoint)
-                        let t = Int(bearing.rounded())
+                        let delta = Float(-dy) * degreesPerPoint
+                        onNudge(delta)
+                        accumulated += Double(delta)
+                        let t = Int(accumulated.rounded())
                         if t != lastTick {
                             haptic.impactOccurred(intensity: 0.5)
                             lastTick = t

@@ -225,7 +225,7 @@ struct DrillDetailView: View {
                 .foregroundStyle(.btText)
 
             HStack(spacing: Spacing.md) {
-                Image(systemName: "target")
+                Image(systemName: BTIcon.target)
                     .font(.btTitle)
                     .foregroundStyle(.btPrimary)
 
@@ -251,7 +251,7 @@ struct DrillDetailView: View {
 
     private var notesCard: some View {
         HStack(spacing: Spacing.md) {
-            Image(systemName: "square.and.pencil")
+            Image(systemName: BTIcon.editPad)
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
@@ -413,7 +413,7 @@ struct DrillDetailView: View {
                     ZStack {
                         RoundedRectangle(cornerRadius: BTRadius.sm)
                             .fill(Color.btBGTertiary)
-                        Image(systemName: "play.slash.fill")
+                        Image(systemName: BTIcon.playSlashed)
                             .font(.system(size: 22))
                             .foregroundStyle(.btTextTertiary)
                     }
@@ -451,7 +451,7 @@ struct DrillDetailView: View {
             if isLocked {
                 Button { showSubscription = true } label: {
                     HStack(spacing: Spacing.sm) {
-                        Image(systemName: "crown.fill")
+                        Image(systemName: BTIcon.crown)
                             .font(.btFootnote14)
                         Text("解锁 Pro")
                     }
@@ -460,7 +460,7 @@ struct DrillDetailView: View {
             } else {
                 Button { dismiss() } label: {
                     HStack(spacing: Spacing.xs) {
-                        Image(systemName: "xmark")
+                        Image(systemName: BTIcon.close)
                             .font(.btFootnote14)
                         Text("关闭")
                     }
@@ -472,7 +472,7 @@ struct DrillDetailView: View {
                     // TODO: Add to active training
                 } label: {
                     HStack(spacing: Spacing.xs) {
-                        Image(systemName: "plus.circle.fill")
+                        Image(systemName: BTIcon.plusCircleFilled)
                             .font(.btFootnote14)
                         Text("加入训练")
                     }
@@ -617,7 +617,7 @@ private struct DrillVideoPlayerSheet: View {
                 .ignoresSafeArea()
             } else {
                 VStack(spacing: Spacing.md) {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: BTIcon.warningTriangle)
                         .font(.system(size: 36))
                         .foregroundStyle(.yellow)
                     Text("视频暂不可用")
@@ -632,7 +632,7 @@ private struct DrillVideoPlayerSheet: View {
                     Button {
                         dismiss()
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
+                        Image(systemName: BTIcon.closeFilled)
                             .font(.system(size: 28))
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.9))

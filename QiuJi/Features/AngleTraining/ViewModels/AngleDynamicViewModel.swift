@@ -12,6 +12,11 @@ final class AngleDynamicViewModel: ObservableObject {
 
     // MARK: - Published State
 
+    /// 在桌球键（条 2：球库加减球）。
+    @Published private(set) var onTableKeys: [String] = []
+    /// 当前目标球键（条 2：目标球可选换号）。
+    @Published private(set) var selectedTargetKey: String?
+
     @Published var selectedPocketIndex: Int = -1
     @Published private(set) var isDragging: Bool = false
     @Published private(set) var isFeasible: Bool = true
@@ -30,10 +35,22 @@ final class AngleDynamicViewModel: ObservableObject {
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
 
-    // MARK: - Draggable Nodes
+    // MARK: - Draggable / Selectable Nodes
 
     var draggableBalls: [SCNNode] {
-        [scene.cueBallNode, scene.targetBallNodes.first].compactMap { $0 }
+        onTableKeys.compactMap { scene.allBallNodes[$0] }
+    }
+
+    /// 可点选为目标球的节点（在桌、非母球）。
+    var selectableBalls: [SCNNode] {
+        onTableKeys
+            .filter { !PositionPlayBall.isCue($0) }
+            .compactMap { scene.allBallNodes[$0] }
+    }
+
+    /// 当前目标球节点。
+    var targetNode: SCNNode? {
+        selectedTargetKey.flatMap { scene.allBallNodes[$0] }
     }
 
     // MARK: - Setup
@@ -54,14 +71,96 @@ final class AngleDynamicViewModel: ObservableObject {
         let surfaceY = scene.surfaceY
         let r = AngleSceneCalculator.ballRadius
 
-        let cuePos = SCNVector3(
-            -AngleSceneCalculator.innerLength / 2 * 0.6,
-            surfaceY + r,
-            0
-        )
-        let targetPos = SCNVector3(0, surfaceY + r, 0)
+        scene.hideAllBalls()
+        scene.showBall(key: PositionPlayBall.cueKey,
+                       scenePosition: SCNVector3(
+                           -AngleSceneCalculator.innerLength / 2 * 0.6, surfaceY + r, 0))
+        scene.showBall(key: "_8", scenePosition: SCNVector3(0, surfaceY + r, 0))
+        selectedTargetKey = "_8"
+        scene.setCurrentTargetNumber(8)
+        refreshOnTableKeys()
+    }
 
-        scene.applyBallLayout(cueBallPosition: cuePos, targetBallNumber: 8, targetPosition: targetPos)
+    // MARK: - Palette (条 2：加减球 / 目标球可选)
+
+    private func refreshOnTableKeys() {
+        onTableKeys = PositionPlayBall.allKeys.filter {
+            !(scene.allBallNodes[$0]?.isHidden ?? true)
+        }
+    }
+
+    /// 从球库上一颗球（自动找空位）；若为目标球且当前无目标则自动选中。
+    func placeFromPalette(_ key: String) {
+        guard scene.allBallNodes[key]?.isHidden ?? false else { return }
+        let surfaceY = scene.surfaceY
+        let r = AngleSceneCalculator.ballRadius
+        let halfL = AngleSceneCalculator.innerLength / 2
+        let halfW = AngleSceneCalculator.innerWidth / 2
+
+        var pos = SCNVector3(0, surfaceY + r, 0)
+        var found = false
+        outer: for x in stride(from: -0.7, through: 0.7, by: 0.2) {
+            for z in stride(from: -0.35, through: 0.35, by: 0.14) {
+                let candidate = SCNVector3(Float(x) * halfL, surfaceY + r, Float(z) * halfW)
+                if !overlapsExisting(candidate) {
+                    pos = candidate
+                    found = true
+                    break outer
+                }
+            }
+        }
+        guard found else { return }
+        scene.showBall(key: key, scenePosition: pos)
+        refreshOnTableKeys()
+        if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+            selectTarget(key: key)
+        } else {
+            updatePocketHighlights()
+            updateCalculations()
+        }
+    }
+
+    /// 撤下一颗在桌球（母球不可撤）。
+    func removeFromTable(_ key: String) {
+        guard !PositionPlayBall.isCue(key), onTableKeys.contains(key) else { return }
+        scene.hideBall(key: key)
+        refreshOnTableKeys()
+        if selectedTargetKey == key {
+            selectedTargetKey = onTableKeys.first { !PositionPlayBall.isCue($0) }
+            scene.setCurrentTargetNumber(selectedTargetKey.flatMap { PositionPlayBall.number(for: $0) })
+            selectBestPocket()
+        }
+        updatePocketHighlights()
+        updateCalculations()
+    }
+
+    /// 点选目标球（条 2：目标球可换号，进球线取色随之切换）。
+    func selectTarget(key: String) {
+        guard !PositionPlayBall.isCue(key), onTableKeys.contains(key) else { return }
+        selectedTargetKey = key
+        scene.setCurrentTargetNumber(PositionPlayBall.number(for: key))
+        selectBestPocket()
+        updateCalculations()
+    }
+
+    private func overlapsExisting(_ pos: SCNVector3) -> Bool {
+        for k in onTableKeys {
+            guard let node = scene.allBallNodes[k], !node.isHidden else { continue }
+            if AngleSceneCalculator.horizontalDistance(pos, node.position)
+                < 2.2 * AngleSceneCalculator.ballRadius {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// 其余在桌球（排除母球与目标球）作为遮挡障碍。
+    private var obstaclePositions: [SCNVector3] {
+        onTableKeys.compactMap { key in
+            guard key != selectedTargetKey, !PositionPlayBall.isCue(key),
+                  let node = scene.allBallNodes[key], !node.isHidden else { return nil }
+            return node.position
+        }
     }
 
     // MARK: - Drag Handling
@@ -77,27 +176,46 @@ final class AngleDynamicViewModel: ObservableObject {
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
-        let cueBall = scene.cueBallNode
-        let targetBall = scene.targetBallNodes.first
-
-        let otherBall: SCNNode?
-        if node === cueBall {
-            otherBall = targetBall
-        } else {
-            otherBall = cueBall
-        }
-
-        guard let other = otherBall else { return }
-
-        var clamped = AngleSceneCalculator.clampBallPosition(
-            worldPosition, otherBall: other.position, surfaceY: scene.surfaceY
-        )
+        var clamped = clampMultiBall(worldPosition, movingNode: node)
         clamped = AngleSceneCalculator.clampAwayFromPockets(clamped, surfaceY: scene.surfaceY)
         node.position = clamped
 
         // Live update during drag: keep visualization & data panel in sync without
         // hiding anything. Pocket selection stays fixed; calculations recompute.
         updateCalculations()
+    }
+
+    /// 多球互斥钳制：台面范围内推开与其它在桌球的重叠。
+    private func clampMultiBall(_ worldPosition: SCNVector3, movingNode: SCNNode) -> SCNVector3 {
+        let r = AngleSceneCalculator.ballRadius
+        let halfL = AngleSceneCalculator.innerLength / 2
+        let halfW = AngleSceneCalculator.innerWidth / 2
+        let minDist = 2 * r * 1.02
+        var p = worldPosition
+
+        for _ in 0..<6 {
+            var moved = false
+            for k in onTableKeys {
+                guard let other = scene.allBallNodes[k], other !== movingNode,
+                      !other.isHidden else { continue }
+                let dx = p.x - other.position.x
+                let dz = p.z - other.position.z
+                let dist = sqrtf(dx * dx + dz * dz)
+                if dist < minDist {
+                    if dist > 0.0001 {
+                        p.x = other.position.x + (dx / dist) * minDist
+                        p.z = other.position.z + (dz / dist) * minDist
+                    } else {
+                        p.x += minDist
+                    }
+                    moved = true
+                }
+            }
+            p.x = max(-halfL + r, min(halfL - r, p.x))
+            p.z = max(-halfW + r, min(halfW - r, p.z))
+            if !moved { break }
+        }
+        return SCNVector3(p.x, scene.surfaceY + r, p.z)
     }
 
     func dragEnded(node: SCNNode) {
@@ -124,7 +242,7 @@ final class AngleDynamicViewModel: ObservableObject {
     /// 根据当前球位选「最优袋口」——只在初始化 / 随机摆球 / 重置 时调用，
     /// **不在** drag 结束时调用，以避免目标球越过中线时袋口被自动顶替。
     func selectBestPocket() {
-        guard let cue = scene.cueBallNode, let target = scene.targetBallNodes.first else { return }
+        guard let cue = scene.cueBallNode, let target = targetNode else { return }
         let pocketCount = AngleSceneCalculator.pocketPositions(surfaceY: scene.surfaceY).count
 
         var bestIndex = 0
@@ -170,18 +288,30 @@ final class AngleDynamicViewModel: ObservableObject {
             cueBall: cueBall, targetBall: targetBall, pocket: aim
         )
         if angle >= AngleSceneCalculator.maxCutAngle {
-            return (false, "切球角过大，该角度不可进球")
+            return (false, "切角过大，该角度不可进球")
         }
         if AngleSceneCalculator.isCueBallBlocking(
             cueBall: cueBall, targetBall: targetBall, pocket: aim
         ) {
             return (false, "白球遮挡进球路线")
         }
+        // 其余在桌球遮挡「母球→假想球」或「目标球→进球点」路径（条 2 多球）。
+        let obstacles = obstaclePositions
+        if !obstacles.isEmpty {
+            let ghost = AngleSceneCalculator.ghostBallPosition(
+                targetBall: targetBall, pocket: aim,
+                ballRadius: AngleSceneCalculator.ballRadius
+            )
+            if AngleSceneCalculator.isPathBlocked(from: cueBall, to: ghost, obstacles: obstacles)
+                || AngleSceneCalculator.isPathBlocked(from: targetBall, to: aim, obstacles: obstacles) {
+                return (false, "有球遮挡进球路线")
+            }
+        }
         return (true, "")
     }
 
     private func updatePocketHighlights() {
-        guard let cue = scene.cueBallNode, let target = scene.targetBallNodes.first else { return }
+        guard let cue = scene.cueBallNode, let target = targetNode else { return }
 
         for (i, marker) in pocketMarkers.enumerated() {
             if i == selectedPocketIndex {
@@ -198,7 +328,7 @@ final class AngleDynamicViewModel: ObservableObject {
     // MARK: - Calculations
 
     func updateCalculations() {
-        guard let cue = scene.cueBallNode, let target = scene.targetBallNodes.first,
+        guard let cue = scene.cueBallNode, let target = targetNode,
               selectedPocketIndex >= 0 else {
             isFeasible = false
             scene.hideAllVisualization()
@@ -270,17 +400,21 @@ final class AngleDynamicViewModel: ObservableObject {
             )
         }
 
-        var cuePos = randomPos()
-        var targetPos = randomPos()
-
-        var attempts = 0
-        while AngleSceneCalculator.ballsOverlap(cuePos, targetPos), attempts < 50 {
-            targetPos = randomPos()
-            attempts += 1
+        // 为全部在桌球生成互不重叠的随机位。
+        var placed: [SCNVector3] = []
+        var newPositions: [String: SCNVector3] = [:]
+        for key in onTableKeys {
+            var pos = randomPos()
+            var attempts = 0
+            while placed.contains(where: { AngleSceneCalculator.ballsOverlap(pos, $0) }),
+                  attempts < 50 {
+                pos = randomPos()
+                attempts += 1
+            }
+            pos = AngleSceneCalculator.clampAwayFromPockets(pos, surfaceY: surfaceY)
+            placed.append(pos)
+            newPositions[key] = pos
         }
-
-        cuePos = AngleSceneCalculator.clampAwayFromPockets(cuePos, surfaceY: surfaceY)
-        targetPos = AngleSceneCalculator.clampAwayFromPockets(targetPos, surfaceY: surfaceY)
 
         scene.hideAllVisualization()
         scene.hideCueStick()
@@ -288,8 +422,9 @@ final class AngleDynamicViewModel: ObservableObject {
         SCNTransaction.begin()
         SCNTransaction.animationDuration = 0.3
         SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        scene.cueBallNode?.position = cuePos
-        scene.targetBallNodes.first?.position = targetPos
+        for (key, pos) in newPositions {
+            scene.allBallNodes[key]?.position = pos
+        }
         SCNTransaction.commit()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in

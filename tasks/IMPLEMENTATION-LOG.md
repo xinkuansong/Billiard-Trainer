@@ -701,3 +701,16 @@
 - **日期**：2026-07-02
 - **回写目标**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训。
 - **已应用至**：✅ `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训（2026-07-02，PD-025）
+
+## DR-021
+- **任务**：B3.5 线语言修正——90° 分离角释义线锚点与颜色（用户裁决：「90 度分离角是针对母球的，相当于是穿过假想球的球心，不是目标球；颜色也要换，不然会和母球的轨迹线重合」）。
+- **原始规范**：设计稿 v4 §1.2 / T-P18-41 落地：90° 释义线 = **白**短虚线；`AngleTrainingScene.perpLineNode` 与分离角页 `drawPottingPerpendicular` 均锚在**目标球球心**、垂直于进球线。
+- **调整后**：
+  1. **锚点 = 假想球球心**（母球碰撞瞬间位置）：90° 法则讲的是母球碰后沿切线离开，切线过碰撞瞬间的母球球心。`updatePerpLine` 签名加 `ghost:` 参数；`drawPottingPerpendicular` 改锚 `p.firstContact ?? p.ghost`；`addSeparationAngleLine` 原本就锚 `firstContact ?? ghost` 不动。
+  2. **颜色 = 品牌绿短虚线**（`TrajectoryStyle.separationColor` token 单点换色，全部消费方自动生效）：定杆时该线与母球白色轨迹线**共线重合**，白色无法区分；绿与假想球圈/接触点/角度弧同「教学标注」家族，语义自洽（线过绿圈圆心）。
+- **原因**：物理语义错误（锚错球）+ 白色与瞄准线/母球轨迹冲突（定杆场景完全重合不可辨）。
+- **影响组件**：`TrajectoryStyle.separationColor`（PoolBallFace.swift）、`AngleTrainingScene`（perpLineNode 注释/`updatePerpLine(ghost:targetBall:pocket:)`/`separationLineColor` 注释）、`ShotSimulationViewModel.drawPottingPerpendicular`、设计稿 v4 §1.2 行同步。
+- **验证**：`make build` ✅；`testB3PlusGate` + `testB2ShotControls` 复跑 TEST SUCCEEDED；b3p-06 与 b2-01 裁剪核验——绿短虚线过假想球绿圈圆心、垂直于进球线，与母球白轨迹可辨。
+- **日期**：2026-07-05
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog；设计稿 `docs/research/20260704-练习Tab功能契约梳理.md` §1.2。
+- **已应用至**：✅ 设计稿 §1.2 行（2026-07-05）；✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-07-05，DR-021）。

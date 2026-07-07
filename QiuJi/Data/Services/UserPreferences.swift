@@ -122,6 +122,16 @@ final class UserPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(showSeparationAngle, forKey: "showSeparationAngle") }
     }
 
+    // 三档轨迹标注（问题集合条 12.5，全击打页统一）：全部球 / 母球+目标球 / 仅瞄准线+假想球。
+    @Published var trajectoryDetail: TrajectoryDetail {
+        didSet { UserDefaults.standard.set(trajectoryDetail.rawValue, forKey: "trajectoryDetail") }
+    }
+
+    // 4×8 台面网格叠加（问题集合条 16，全球桌页面统一）。默认关闭。
+    @Published var showTableGrid: Bool {
+        didSet { UserDefaults.standard.set(showTableGrid, forKey: "showTableGrid") }
+    }
+
     private init() {
         let sportRaw = UserDefaults.standard.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
         self.preferredSport = PreferredSport(rawValue: sportRaw) ?? .chinese8
@@ -157,6 +167,13 @@ final class UserPreferences: ObservableObject {
 
         // 默认关闭（可选辅助线）。
         self.showSeparationAngle = (UserDefaults.standard.object(forKey: "showSeparationAngle") as? Bool) ?? false
+
+        // 默认最全档（条 12.5）。
+        let detailRaw = UserDefaults.standard.object(forKey: "trajectoryDetail") as? Int
+        self.trajectoryDetail = detailRaw.flatMap { TrajectoryDetail(rawValue: $0) } ?? .full
+
+        // 默认关闭（条 16）。
+        self.showTableGrid = (UserDefaults.standard.object(forKey: "showTableGrid") as? Bool) ?? false
     }
 
     // MARK: - Summaries

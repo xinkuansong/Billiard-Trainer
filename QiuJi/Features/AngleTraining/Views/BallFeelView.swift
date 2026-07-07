@@ -1,4 +1,5 @@
 import SwiftUI
+import SceneKit
 
 struct BallFeelView: View {
     var body: some View {
@@ -8,6 +9,10 @@ struct BallFeelView: View {
                 visualAnchorsSection
                 trainingAdviceSection
                 perspectiveDifferenceSection
+                // 学→练导流（T-P18-51）：厚度锚点学完 → 真台俯视练几何判断。
+                PracticeCTA(title: "用真台验证",
+                            destination: "2D 角度训练 · 在真实台面上练厚度锚点",
+                            route: .sceneAiming2D)
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
@@ -35,20 +40,24 @@ struct BallFeelView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("从计算到直觉")
+                Text("大脑的综合校正器")
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
                     .frame(maxWidth: .infinity, alignment: .center)
 
-                Text("球感并非某种天分，而是大脑对瞄球操作规律的内化结果。初学者需要借助几何概念和计算来确定三角函数关系，而经验丰富的球手则在直觉层面已将这些关系内化为身体的直觉反应。")
+                Text("这里说的球感，特指瞄准的球感：看一眼球形，就「知道」该打哪里。几何公式给出的是理想答案，但真实击球中还有一串公式覆盖不到的偏差——球感的本质，就是大脑把这些偏差凭经验一次性校正掉。")
                     .font(.btBody)
                     .foregroundStyle(.btTextSecondary)
 
-                Text("这种转化意味着你不再需要在大脑中进行复杂的三角函数计算，而是看到目标球和袋的位置直觉感知偏移量。")
-                    .font(.btBody)
-                    .foregroundStyle(.btTextSecondary)
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    feelFactor("视角误差", "俯视图里的角度和俯身瞄球时看到的角度不一样：3D 透视会压缩纵深，同一个 30° 在站位视角看起来更「厚」。")
+                    feelFactor("身高与站位", "身高、俯身深度、主视眼不同，看到的两球重叠关系就不同——每个人的「半球」长得不一样。")
+                    feelFactor("袋口容错", "袋口不是一个点而是一段区间：距离越近、角度越正容错越大。球感包含对「这杆能松多少」的判断。")
+                    feelFactor("出杆习惯", "每个人的出杆都有微小的系统性偏差（偏左/偏右、抬杆），老手的球感里已经内置了对自己习惯的补偿。")
+                    feelFactor("台呢与器材", "台呢新旧、球的洁净度影响碰撞与滚动，手感会随球房环境微调。")
+                }
 
-                Text("本模块旨在帮助你通过「视觉锚点」训练，建立从角度到瞄准点直觉的桥梁，让每一次瞄球都像呼吸一样自然。")
+                Text("因此球感不是天分，而是大量重复后大脑内化的校正模型。本模块与后续训练页的目标，就是用「视觉锚点 + 即时误差反馈」加速这个内化过程。")
                     .font(.btBody)
                     .foregroundStyle(.btTextSecondary)
             }
@@ -56,6 +65,18 @@ struct BallFeelView: View {
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+    }
+
+    private func feelFactor(_ name: String, _ desc: String) -> some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Text(name)
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btPrimary)
+                .frame(width: 76, alignment: .leading)
+            Text(desc)
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+        }
     }
 
     // MARK: - Section 2: Visual Anchors
@@ -95,13 +116,16 @@ struct BallFeelView: View {
     }
 
     private func overlapCanvas(overlapFraction: CGFloat) -> some View {
-        BTAimTableView(style: .feltOnly) { felt in
-            let d = min(felt.width, felt.height) * 0.64
-            let separation = d * (1 - overlapFraction)
-            BTRealisticBall(kind: .target, diameter: d, showsContactShadow: false)
-                .position(x: felt.midX + separation / 2, y: felt.midY)
-            BTRealisticBall(kind: .cue, diameter: d, showsContactShadow: false)
-                .position(x: felt.midX - separation / 2, y: felt.midY)
+        // 真台特写（T-P18-46）：从母球视角的两球重叠，真实台呢底 + 真球面。
+        let r = CGFloat(AngleSceneCalculator.ballRadius)
+        return BTTableFigure(orientation: .landscape,
+                             closeup: (center: .zero, halfHeight: r * 1.6)) { proj in
+            let d = proj.ballDiameter
+            let sep = d * (1 - overlapFraction)
+            BTFigureBall(number: 1, diameter: d, showsShadow: false)
+                .position(x: proj.size.width / 2 + sep / 2, y: proj.size.height / 2)
+            BTFigureBall(diameter: d, showsShadow: false)
+                .position(x: proj.size.width / 2 - sep / 2, y: proj.size.height / 2)
         }
     }
 
@@ -175,7 +199,7 @@ struct BallFeelView: View {
                     }
 
                 perspectiveCanvas
-                    .frame(height: 100)
+                    .frame(height: 130)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
                     .overlay(alignment: .bottomLeading) {
                         Text("站位视角（3D）")
@@ -189,19 +213,9 @@ struct BallFeelView: View {
                     }
             }
 
-            HStack {
-                Spacer()
-                VStack(spacing: Spacing.sm) {
-                    Image(systemName: "info.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.btPrimary)
-                    Text("实战中从立姿俯视球台，球与球的重叠关系会因视角而产生偏差。使用 3D 模式练习，可以缩小训练与实战的视角差距。")
-                        .font(.btFootnote)
-                        .foregroundStyle(.btTextSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                Spacer()
-            }
+            Text("上下两图是**同一杆 30° 切球**：俯视图（2D）里角度一目了然；俯身到出杆高度（3D）后，透视把纵深压缩，两球的重叠关系看起来明显更「厚」。这段视角差正是训练要校正的对象——先在 2D 建立几何判断，再到 3D 视角复核同一杆球，逐步让两个视角在大脑里对上号。")
+                .font(.btFootnote)
+                .foregroundStyle(.btTextSecondary)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
@@ -209,52 +223,150 @@ struct BallFeelView: View {
     }
 
     private var topDownCanvas: some View {
-        BTAimTableView(style: .feltOnly) { felt in
-            let d = min(felt.width, felt.height) * 0.22
-            let target = CGPoint(x: felt.minX + felt.width * 0.56, y: felt.minY + felt.height * 0.48)
-            let cue = CGPoint(x: felt.minX + felt.width * 0.30, y: felt.minY + felt.height * 0.70)
-            let pocket = CGPoint(x: felt.maxX - d * 0.5, y: felt.minY + d * 0.5)
+        BallFeelTopDownFigure()
+    }
 
-            BTPocketMark(diameter: d * 0.9).position(pocket)
+    /// 站位视角（条 3.2 重做）：真实 SceneKit 场景从出杆高度渲染同一杆 30° 球——
+    /// 与 2D 图同一世界布局、同一张桌、真实透视，替代旧简笔画。
+    private var perspectiveCanvas: some View {
+        Group {
+            if let img = BallFeelPerspectiveRenderer.snapshot() {
+                Image(uiImage: img)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            } else {
+                Color.black
+            }
+        }
+    }
+}
 
-            Path { p in p.move(to: target); p.addLine(to: pocket) }
-                .stroke(Color.white.opacity(0.75), style: StrokeStyle(lineWidth: 1.6, dash: [5, 3]))
-            Path { p in p.move(to: cue); p.addLine(to: target) }
-                .stroke(Color.cyan, style: StrokeStyle(lineWidth: 1.6, dash: [5, 3]))
+// MARK: - 站位视角真台渲染（条 3.2）
 
-            Text("30°")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.yellow)
-                .padding(.horizontal, 4).padding(.vertical, 1)
-                .background(Color.black.opacity(0.4), in: Capsule())
-                .position(x: target.x + 26, y: target.y - 12)
+/// 离屏渲染「30° 切球」的第一人称站位视角：同 `BallFeelTopDownFigure` 的世界布局，
+/// 相机放在母球后方出杆高度、看向目标球。首渲后内存缓存。
+@MainActor
+private enum BallFeelPerspectiveRenderer {
+    static let shotLayout: (cue: CGPoint, target: CGPoint) = {
+        let r = CGFloat(AngleSceneCalculator.ballRadius)
+        let targetW = CGPoint(x: 0.35, y: -0.10)
+        let pocketW3 = AngleSceneCalculator.pocketMarkerPositions(surfaceY: 0)[1]
+        let pocketW = CGPoint(x: CGFloat(pocketW3.x), y: CGFloat(pocketW3.z))
+        let len = hypot(pocketW.x - targetW.x, pocketW.y - targetW.y)
+        let potDir = CGPoint(x: (pocketW.x - targetW.x) / len,
+                             y: (pocketW.y - targetW.y) / len)
+        let ghostW = CGPoint(x: targetW.x - 2 * r * potDir.x,
+                             y: targetW.y - 2 * r * potDir.y)
+        let a: CGFloat = 30 * .pi / 180
+        let aimDir = CGPoint(x: potDir.x * cos(a) - potDir.y * sin(a),
+                             y: potDir.x * sin(a) + potDir.y * cos(a))
+        let cueW = CGPoint(x: ghostW.x - aimDir.x * 0.5, y: ghostW.y - aimDir.y * 0.5)
+        return (cueW, targetW)
+    }()
 
-            BTRealisticBall(kind: .target, diameter: d).position(target)
-            BTRealisticBall(kind: .cue, diameter: d).position(cue)
+    private static var cached: UIImage?
+
+    static func snapshot() -> UIImage? {
+        if let cached { return cached }
+        guard let device = MTLCreateSystemDefaultDevice() else { return nil }
+
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        scene.background.contents = UIColor.black
+        scene.hideCueStick()
+
+        let (cueW, targetW) = shotLayout
+        let sY = scene.surfaceY
+        scene.applyBallLayout(
+            cueBallPosition: SCNVector3(Float(cueW.x), sY, Float(cueW.y)),
+            targetBallNumber: 1,
+            targetPosition: SCNVector3(Float(targetW.x), sY, Float(targetW.y)))
+
+        // 相机：母球后方 0.45m、台面上方 0.30m（≈ 俯身出杆的眼位），看向目标球。
+        let dir = CGPoint(x: targetW.x - cueW.x, y: targetW.y - cueW.y)
+        let dLen = max(hypot(dir.x, dir.y), 0.001)
+        let u = CGPoint(x: dir.x / dLen, y: dir.y / dLen)
+        let camera = SCNCamera()
+        camera.fieldOfView = 50
+        camera.zNear = 0.01
+        let camNode = SCNNode()
+        camNode.camera = camera
+        camNode.position = SCNVector3(Float(cueW.x - u.x * 0.45),
+                                      sY + 0.30,
+                                      Float(cueW.y - u.y * 0.45))
+        scene.rootNode.addChildNode(camNode)
+        camNode.look(at: SCNVector3(Float(targetW.x), sY + AngleSceneCalculator.ballRadius,
+                                    Float(targetW.y)))
+
+        let renderer = SCNRenderer(device: device, options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = camNode
+        renderer.autoenablesDefaultLighting = false
+        let image = renderer.snapshot(atTime: 0,
+                                      with: CGSize(width: 1200, height: 400),
+                                      antialiasingMode: .multisampling4X)
+        camNode.removeFromParentNode()
+        cached = image
+        return image
+    }
+}
+
+// MARK: - Top-down real-table figure
+
+/// 真台俯视对比图（T-P18-46）：真实 USDZ 台底图 + §1.2 线语言
+/// （瞄准线白实线 / 进球线绑球色 / 假想球绿圈），几何按真实球径与 30° 切角解算。
+private struct BallFeelTopDownFigure: View {
+    private struct Layout {
+        let target: CGPoint
+        let pocket: CGPoint
+        let ghost: CGPoint
+        let cue: CGPoint
+        let d: CGFloat
+    }
+
+    var body: some View {
+        BTTableFigure(orientation: .landscape) { proj in
+            let l = layout(proj)
+            ZStack {
+                Path { p in p.move(to: l.target); p.addLine(to: l.pocket) }
+                    .stroke(FigureLine.pot(number: 1),
+                            style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [6, 4]))
+                Path { p in p.move(to: l.cue); p.addLine(to: l.ghost) }
+                    .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
+
+                BTGhostCircle(diameter: l.d).position(l.ghost)
+                BTFigureBall(number: 1, diameter: l.d).position(l.target)
+                BTFigureBall(diameter: l.d).position(l.cue)
+
+                BTFigureTag(text: "30°")
+                    .position(x: l.ghost.x + l.d * 1.3, y: l.ghost.y - l.d * 0.9)
+            }
         }
     }
 
-    private var perspectiveCanvas: some View {
-        BTAimTableView(style: .feltOnly) { felt in
-            // 透视压暗：近端（底部）更暗，模拟站位低视角看台面的纵深。
-            LinearGradient(colors: [.clear, .black.opacity(0.45)],
-                           startPoint: .top, endPoint: .bottom)
+    private func layout(_ proj: TableFigureProjection) -> Layout {
+        let r = CGFloat(AngleSceneCalculator.ballRadius)
+        let targetW = CGPoint(x: 0.35, y: -0.10)
+        let pocketW3 = AngleSceneCalculator.pocketMarkerPositions(surfaceY: 0)[1]
+        let pocketW = CGPoint(x: CGFloat(pocketW3.x), y: CGFloat(pocketW3.z))
+        let len = hypot(pocketW.x - targetW.x, pocketW.y - targetW.y)
+        let potDir = CGPoint(x: (pocketW.x - targetW.x) / len,
+                             y: (pocketW.y - targetW.y) / len)
+        let ghostW = CGPoint(x: targetW.x - 2 * r * potDir.x,
+                             y: targetW.y - 2 * r * potDir.y)
+        // 30° 切角的母球位（进球方向绕假想球旋 30°）。
+        let a: CGFloat = 30 * .pi / 180
+        let cosA: CGFloat = cos(a)
+        let sinA: CGFloat = sin(a)
+        let aimDir = CGPoint(x: potDir.x * cosA - potDir.y * sinA,
+                             y: potDir.x * sinA + potDir.y * cosA)
+        let cueW = CGPoint(x: ghostW.x - aimDir.x * 0.5, y: ghostW.y - aimDir.y * 0.5)
 
-            let farD = min(felt.width, felt.height) * 0.22
-            let nearD = min(felt.width, felt.height) * 0.42
-            let target = CGPoint(x: felt.minX + felt.width * 0.52, y: felt.minY + felt.height * 0.34)
-            let cue = CGPoint(x: felt.minX + felt.width * 0.46, y: felt.minY + felt.height * 0.74)
-
-            BTRealisticBall(kind: .target, diameter: farD, showsContactShadow: false).position(target)
-            BTRealisticBall(kind: .cue, diameter: nearD).position(cue)
-
-            Text("30°")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.yellow)
-                .padding(.horizontal, 4).padding(.vertical, 1)
-                .background(Color.black.opacity(0.4), in: Capsule())
-                .position(x: target.x + 24, y: target.y - 6)
-        }
+        return Layout(target: proj.point(x: targetW.x, z: targetW.y),
+                      pocket: proj.point(x: pocketW.x, z: pocketW.y),
+                      ghost: proj.point(x: ghostW.x, z: ghostW.y),
+                      cue: proj.point(x: cueW.x, z: cueW.y),
+                      d: proj.ballDiameter)
     }
 }
 

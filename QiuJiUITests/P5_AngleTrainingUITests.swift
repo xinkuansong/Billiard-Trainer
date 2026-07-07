@@ -43,7 +43,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["进球点对照表"].waitForExistence(timeout: 3), "进球点对照表 card should exist in 学")
         // 练
         XCTAssertTrue(switchHomeTab("练"), "Should switch to 练 segment")
-        XCTAssertTrue(app.buttons["几何角度训练"].waitForExistence(timeout: 3), "几何角度训练 card should exist in 练")
+        XCTAssertTrue(app.buttons["角度预测"].waitForExistence(timeout: 3), "角度预测 card should exist in 练")
         // 打
         XCTAssertTrue(switchHomeTab("打"), "Should switch to 打 segment")
         XCTAssertTrue(app.buttons["自由击球"].waitForExistence(timeout: 3), "自由击球 card should exist in 打")
@@ -127,7 +127,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
         guard tableCard.waitForExistence(timeout: 3) else { return }
         tableCard.tap()
         sleep(1)
-        XCTAssertTrue(app.staticTexts["拖动查看接触点"].waitForExistence(timeout: 3), "Interactive hint should be visible")
+        XCTAssertTrue(app.staticTexts["拖动查看瞄准点与接触点"].waitForExistence(timeout: 3), "Interactive hint should be visible")
         app.scrollDown(times: 2)
         XCTAssertTrue(app.staticTexts["原理说明"].waitForExistence(timeout: 3), "Principle section should be visible")
     }
@@ -136,7 +136,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
 
     func testNavigateToGeometricQuiz() {
         guard switchHomeTab("练") else { return }
-        let quizCard = app.buttons["几何角度训练"]
+        let quizCard = app.buttons["角度预测"]
         guard quizCard.waitForExistence(timeout: 3) else { return }
         quizCard.tap()
         sleep(2)
@@ -153,8 +153,8 @@ final class P5_AngleTrainingUITests: XCTestCase {
         guard freePlayCard.waitForExistence(timeout: 3) else { return }
         freePlayCard.tap()
         sleep(2)
-        // 编排台导航标题为序列名（默认「未命名走位」）。
-        XCTAssertTrue(app.navigationBars["未命名走位"].waitForExistence(timeout: 5),
+        // 编排台默认名时标题显示页面名「走位编排台」（T-P18-37）。
+        XCTAssertTrue(app.navigationBars["走位编排台"].waitForExistence(timeout: 5),
                       "Free play should open the composer in free aim mode")
     }
 }

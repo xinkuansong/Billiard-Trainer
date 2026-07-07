@@ -22,14 +22,17 @@ struct BTChipRow: View {
         HStack(spacing: Spacing.sm) {
             ForEach(options.indices, id: \.self) { i in
                 Button { selection = i } label: {
-                    Text(options[i])
+                    // 状态语法（T-P18-45）：选中 = tint 实底白字；未选 = 仪表玻璃底 + 白 75% 字。
+                    let label = Text(options[i])
                         .font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(selection == i ? .white : .white.opacity(0.7))
+                        .foregroundStyle(selection == i ? .white : HUDStyle.chipTextUnselected)
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, 6)
-                        .background(
-                            Capsule().fill(selection == i ? tint : Color.white.opacity(0.12))
-                        )
+                    if selection == i {
+                        label.background(Capsule().fill(tint))
+                    } else {
+                        label.btHudGlass()
+                    }
                 }
                 .buttonStyle(.plain)
             }
@@ -38,8 +41,9 @@ struct BTChipRow: View {
 }
 
 /// 翻袋 / 反射两页共用的「理想 / 真实」反射模式控件：
-/// - 胶囊分段切换理想（入射角=反射角）与真实（物理引擎按发力模拟，反射偏短）；
-/// - 真实模式下展开**发力**滑块（m/s），发力越大越接近镜面反射、越小翻库越「偏短」。
+/// - 胶囊分段切换理想（入射角=反射角）与真实（物理引擎按力度模拟，反射偏短）；
+/// - 真实模式下**同行内联**力度滑块（m/s），力度越大越接近镜面反射、越小翻库越「偏短」。
+/// - 单行紧凑形态（SPEC §8.4「顶部控制区 ≤2 行」，T-P18-32）；说明文案收进页面 (i) sheet。
 struct ReflectionModeControl: View {
     @Binding var realMode: Bool
     @Binding var power: Double
@@ -48,34 +52,31 @@ struct ReflectionModeControl: View {
     private static let maxPower = Double(CushionReflectionSettings.maxPower)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
+        HStack(spacing: Spacing.sm) {
             BTChipRow(
                 options: ["理想", "真实"],
-                selection: Binding(get: { realMode ? 1 : 0 }, set: { realMode = $0 == 1 })
+                selection: Binding(get: { realMode ? 1 : 0 }, set: { realMode = $0 == 1 }),
+                scrollable: false
             )
 
             if realMode {
                 HStack(spacing: Spacing.sm) {
-                    Text("发力")
+                    // 术语词表（T-P18-50）：发力 → 力度。
+                    Text("力度")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(0.75))
                     Slider(value: $power, in: Self.minPower...Self.maxPower, step: 0.1)
                         .tint(.btAccent)
+                        .frame(width: 120)
                     Text(String(format: "%.1f", power))
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.btAccent)
-                        .frame(width: 44, alignment: .trailing)
                         .monospacedDigit()
                 }
                 .padding(.horizontal, Spacing.md)
-                .padding(.vertical, 6)
-                .background(.ultraThinMaterial)
-                .environment(\.colorScheme, .dark)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-                Text("真实物理引擎按发力模拟翻库：力越大越接近镜面反射，力越小越「偏短」。蓝色虚线为理想路线对照。")
-                    .font(.btCaption2)
-                    .foregroundStyle(.white.opacity(0.55))
+                .padding(.vertical, 4)
+                .btHudGlass()
+                .transition(.opacity.combined(with: .move(edge: .leading)))
             }
         }
         .animation(.easeInOut(duration: 0.2), value: realMode)

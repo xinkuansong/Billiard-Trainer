@@ -33,9 +33,10 @@ struct BallExtractionView: View {
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
 
-    // 送编排台 / 思路训练器
+    // 送编排台 / 思路训练器 / 打一走二想三（T-P18-51 三目的地）
     @State private var goComposer = false
     @State private var goSilu = false
+    @State private var goPlanThree = false
     @State private var confirmedBoard: BoardSnapshot?
 
     var body: some View {
@@ -52,11 +53,23 @@ struct BallExtractionView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        // 标题统一品牌绿（SPEC §8.3）：.toolbarColorScheme(.dark) 会把系统标题渲染成白色，
+        // 须自带 principal 绿标题（与思路训练器等场景页同款）。
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("拍照建球形")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.btPrimary)
+            }
+        }
         .navigationDestination(isPresented: $goComposer) {
             PositionPlayComposerView(initialBoard: confirmedBoard)
         }
         .navigationDestination(isPresented: $goSilu) {
             SiluTrainerView(initialBoard: confirmedBoard)
+        }
+        .navigationDestination(isPresented: $goPlanThree) {
+            PlanThreeView(initialBoard: confirmedBoard)
         }
         .onChange(of: photoItem) { _, item in loadPhoto(item) }
         .onPreferenceChange(ExtractFramePreference.self) { frames in
@@ -79,6 +92,7 @@ struct BallExtractionView: View {
 
     private func stepHeader(_ hint: String) -> some View {
         VStack(spacing: 4) {
+            // 步骤指示（T-P18-51）：进度条 + 「第 n 步 · 步骤名」，用户始终知道身在四步中的哪一步。
             HStack(spacing: 6) {
                 ForEach(BallExtractionViewModel.Step.allCases, id: \.self) { s in
                     Capsule()
@@ -86,6 +100,9 @@ struct BallExtractionView: View {
                         .frame(height: 3)
                 }
             }
+            Text("第 \(vm.step.rawValue + 1) 步 / 共 4 步 · \(vm.step.title)")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(Color.btPrimary)
             Text(hint)
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(.white.opacity(0.7))
@@ -101,6 +118,7 @@ struct BallExtractionView: View {
 
     private var pickStep: some View {
         VStack(spacing: Spacing.lg) {
+            stepHeader("拍摄或选择一张球桌照片")
             Spacer()
             Image(systemName: "camera.viewfinder")
                 .font(.system(size: 56, weight: .light))
@@ -389,18 +407,32 @@ struct BallExtractionView: View {
                 paletteTwoRows(PositionPlayBall.allKeys) { key in confirmCell(key) }
                     .frame(maxWidth: .infinity)
 
-                // 三个按钮挤进原两按钮的高度区间（≤90pt），不撑高底栏。
-                VStack(spacing: 4) {
-                    columnPrimary("送入编排台", enabled: !vm.onTableKeys.isEmpty, height: 28) {
-                        confirmedBoard = vm.currentSnapshot()
-                        goComposer = true
+                // 送入三目的地（T-P18-51）收进一个菜单，按钮列不撑高底栏。
+                VStack(spacing: 6) {
+                    Menu {
+                        Button {
+                            confirmedBoard = vm.currentSnapshot()
+                            goComposer = true
+                        } label: { Label("自由走位", systemImage: "scope") }
+                        Button {
+                            confirmedBoard = vm.currentSnapshot()
+                            goSilu = true
+                        } label: { Label("思路训练", systemImage: "lightbulb") }
+                        Button {
+                            confirmedBoard = vm.currentSnapshot()
+                            goPlanThree = true
+                        } label: { Label("打一走二想三", systemImage: "3.circle") }
+                    } label: {
+                        Text("送入…")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .frame(width: 96, height: 42)
+                            .background(vm.onTableKeys.isEmpty ? Color.btPrimary.opacity(0.3)
+                                                               : Color.btPrimary,
+                                        in: Capsule())
                     }
-                    columnPrimary("送入思路训练器", enabled: !vm.onTableKeys.isEmpty,
-                                  tint: .btAccent, height: 28) {
-                        confirmedBoard = vm.currentSnapshot()
-                        goSilu = true
-                    }
-                    columnSecondary("重新标记", height: 28) { vm.enterMarkBalls() }
+                    .disabled(vm.onTableKeys.isEmpty)
+                    columnSecondary("重新标记", height: 36) { vm.enterMarkBalls() }
                 }
             }
             .padding(.horizontal, Spacing.sm)

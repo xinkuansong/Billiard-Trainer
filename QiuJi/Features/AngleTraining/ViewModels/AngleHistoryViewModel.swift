@@ -11,8 +11,9 @@ enum AngleQuizTypeFilter: String, CaseIterable, Hashable {
     case all = "全部"
     case geometric = "几何"
     case table2D = "球台 2D"
-    case scene2D = "场景 2D"
-    case scene3D = "场景 3D"
+    // T-P18-48 拆两卡后与入口卡命名对齐：2D / 3D 角度训练分记（条 6.5/7.3 改名）。
+    case scene2D = "2D 角度"
+    case scene3D = "3D 角度"
 
     var queryValue: String? {
         switch self {

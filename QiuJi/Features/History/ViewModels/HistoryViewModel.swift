@@ -65,35 +65,55 @@ struct AngleTrainingSession: Identifiable, Hashable {
 /// Stable mapping between the persisted `quizType` string and a human
 /// display name. Kept in one place so renames stay consistent across views.
 enum AngleQuizType {
-    case geometric, scene2D, scene3D, table2D, unknown
+    case geometric, scene2D, scene3D, table2D
+    case aimPoint, aimPoint2D, aimPoint3D
+    case unknown
 
     init(rawValue: String) {
         switch rawValue {
-        case "geometric": self = .geometric
-        case "scene2D":   self = .scene2D
-        case "scene3D":   self = .scene3D
-        case "table2D":   self = .table2D
-        default:          self = .unknown
+        case "geometric":  self = .geometric
+        case "scene2D":    self = .scene2D
+        case "scene3D":    self = .scene3D
+        case "table2D":    self = .table2D
+        case "aimPoint":   self = .aimPoint
+        case "aimPoint2D": self = .aimPoint2D
+        case "aimPoint3D": self = .aimPoint3D
+        default:           self = .unknown
         }
     }
 
     var displayNameZh: String {
         switch self {
-        case .geometric: return "几何角度训练"
-        case .scene2D:   return "2D 瞄准训练"
-        case .scene3D:   return "3D 瞄准训练"
-        case .table2D:   return "球台角度练习"
-        case .unknown:   return "角度训练"
+        // T-P18-50 页名=卡名：卡与页统一为「角度预测」。
+        case .geometric:  return "角度预测"
+        case .scene2D:    return "2D 角度训练"
+        case .scene3D:    return "3D 角度训练"
+        case .table2D:    return "球台角度练习"
+        case .aimPoint:   return "瞄准点训练"
+        case .aimPoint2D: return "2D 瞄准点训练"
+        case .aimPoint3D: return "3D 瞄准点训练"
+        case .unknown:    return "角度训练"
+        }
+    }
+
+    /// 误差是否以毫米计（瞄准点训练家族），否则以角度计。
+    var usesMMError: Bool {
+        switch self {
+        case .aimPoint, .aimPoint2D, .aimPoint3D: return true
+        default: return false
         }
     }
 
     var iconSystemName: String {
         switch self {
-        case .geometric: return "ruler.fill"
-        case .scene2D:   return "square.grid.2x2.fill"
-        case .scene3D:   return "rotate.3d.fill"
-        case .table2D:   return "scope"
-        case .unknown:   return "scope"
+        case .geometric:  return "ruler.fill"
+        case .scene2D:    return "square.grid.2x2.fill"
+        case .scene3D:    return "rotate.3d.fill"
+        case .table2D:    return "scope"
+        case .aimPoint:   return "smallcircle.filled.circle"
+        case .aimPoint2D: return "dot.scope"
+        case .aimPoint3D: return "dot.scope"
+        case .unknown:    return "scope"
         }
     }
 }

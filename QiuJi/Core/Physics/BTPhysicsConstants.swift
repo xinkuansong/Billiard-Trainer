@@ -72,10 +72,12 @@ enum TablePhysics {
     /// 物理依据：鼻尖是皮革/橡胶包头 + 斜面剪切接触，吸能远大于库边正撞；单冲量刚体
     /// 反射无法表达真实球「贴着圆角卷进袋喉」的连续接触，用低恢复近似其净效果。
     /// 标定基准（DIAG-R，`PocketBehaviorDiagTests.test_R_railFrozenCornerEntry`）：
-    /// 贴库球沿库滚向角袋应「低中力度进、大力 rattle 弹出」。扫值结果（2026-07-04）：
-    ///   0.45 → 0.6–3.0 全进；0.60 → 0.6–4.0 进、5.0+ 弹出；0.75 → 仅 ≤1.0 进（中力也弹，太弹）。
-    /// 取 0.60：App 力度条常用区（≤4 m/s）沿库球稳定进袋，超大力如实弹出。
-    static let pocketNoseRestitution: Float = 0.60
+    /// 贴库球沿库滚向角袋应「低中力度进、大力 rattle 弹出」。扫值结果（2026-07-07，问题集合条 14）：
+    ///   0.60 → 0.6–4.0 全进、5.0+ 弹出（用户反馈：不该进的大力球也进，太松）；
+    ///   0.70 → 0.6–1.8 进、2.4+ rattle 弹出；
+    ///   0.75 → 仅 ≤1.0 进（中低力也弹，太弹）。
+    /// 取 0.70：低中力沿库球稳定进袋，中大力（≥2.4 m/s）冲袋如实被鼻尖拒绝。
+    static let pocketNoseRestitution: Float = 0.70
 
     // MARK: 物理系数
     static let clothFriction: Float = 0.2
@@ -170,19 +172,39 @@ enum StrokePhysics {
         }
     }
 
-    /// 力度条满格 (100) 对应的杆头速度 (m/s)
-    static let maxVelocity: Float = 6.5
-    /// 幂函数曲线指数 — 前段细腻、后段爆发
-    static let powerGamma: Float = 1.8
-    /// 力度条死区 (0-100)
-    static let deadZone: Float = 2.0
+}
 
-    /// 将 0-100 力度映射为杆头速度 (m/s)（旧接口，保留兼容）。
-    static func velocity(forPower p: Float) -> Float {
-        let clamped = min(max(p, 0), 100)
-        guard clamped >= deadZone else { return 0 }
-        let normalized = clamped / 100.0
-        return maxVelocity * powf(normalized, powerGamma)
+// MARK: - 击球调参量程（UI 单一真源）
+
+enum ShotTuning {
+    /// 全 App 力度滑条统一量程 (m/s) — 编排台 / 分离角 / 批量出片台 / ShotControlBar
+    /// / 导出 HUD / drill 回放力度条共用，禁止内联重复字面量。
+    /// 控件瘦身 v2（问题集合条 13.2）：上限 6.0 → 8.0（冲球/大力开球需要 >6 m/s）。
+    static let velocityRange: ClosedRange<Double> = 0.5...8.0
+
+    /// 全 App 击打页默认力度 (m/s)（条 13.2：低速走位是常态，默认从 3.3 降至 1.5）。
+    static let defaultVelocity: Double = 1.5
+
+    /// 力度条非线性映射指数（条 13.2：低段细、高段快）。
+    /// 视觉行程 fraction ∈ [0,1] → 速度 v = lo + span·fraction^γ：
+    /// γ>1 时低速区占据更长的滑动行程（细调），高速区收窄（快速拉满）。
+    static let velocityCurveGamma: Double = 1.8
+
+    /// 速度 → 力度条视觉行程（0 = 条底，1 = 条顶）。
+    static func fraction(forVelocity v: Double,
+                         in range: ClosedRange<Double> = velocityRange) -> Double {
+        let span = range.upperBound - range.lowerBound
+        guard span > 1e-9 else { return 0 }
+        let linear = min(max((v - range.lowerBound) / span, 0), 1)
+        return pow(linear, 1 / velocityCurveGamma)
+    }
+
+    /// 力度条视觉行程 → 速度。
+    static func velocity(forFraction f: Double,
+                         in range: ClosedRange<Double> = velocityRange) -> Double {
+        let span = range.upperBound - range.lowerBound
+        let clamped = min(max(f, 0), 1)
+        return range.lowerBound + span * pow(clamped, velocityCurveGamma)
     }
 }
 

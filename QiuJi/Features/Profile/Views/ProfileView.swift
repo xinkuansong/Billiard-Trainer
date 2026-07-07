@@ -103,7 +103,7 @@ struct ProfileView: View {
                     Circle()
                         .fill(Color.btPrimary.opacity(0.15))
                         .frame(width: 56, height: 56)
-                    Image(systemName: "person.fill")
+                    Image(systemName: BTIcon.person)
                         .font(.btTitle)
                         .foregroundStyle(.btPrimary)
                 }
@@ -116,7 +116,7 @@ struct ProfileView: View {
                         Text("修改信息")
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
-                        Image(systemName: "chevron.right")
+                        Image(systemName: BTIcon.chevronRight)
                             .font(.btMicro)
                             .foregroundStyle(.btTextTertiary)
                     }
@@ -155,7 +155,7 @@ struct ProfileView: View {
     private var monthlyOverview: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: "calendar")
+                Image(systemName: BTIcon.calendar)
                     .font(.btFootnote14)
                     .foregroundStyle(.btTextSecondary)
                 Text("本月概览")
@@ -197,7 +197,7 @@ struct ProfileView: View {
                     Circle()
                         .fill(Color.btBGTertiary)
                         .frame(width: 56, height: 56)
-                    Image(systemName: "person.fill")
+                    Image(systemName: BTIcon.person)
                         .font(.btTitle)
                         .foregroundStyle(.btTextTertiary)
                 }
@@ -213,7 +213,7 @@ struct ProfileView: View {
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
+                Image(systemName: BTIcon.chevronRight)
                     .font(.btFootnote)
                     .foregroundStyle(.btTextTertiary)
             }
@@ -226,7 +226,7 @@ struct ProfileView: View {
 
     private var guestWarning: some View {
         HStack(alignment: .top, spacing: Spacing.md) {
-            Image(systemName: "exclamationmark.triangle.fill")
+            Image(systemName: BTIcon.warningTriangle)
                 .font(.btHeadline)
                 .foregroundStyle(.btAccent)
 
@@ -258,7 +258,7 @@ struct ProfileView: View {
                         Text("了解更多")
                             .font(.btFootnote).fontWeight(.medium)
                             .foregroundStyle(.btAccent)
-                        Image(systemName: "chevron.right")
+                        Image(systemName: BTIcon.chevronRight)
                             .font(.btMicro).fontWeight(.semibold)
                             .foregroundStyle(.btAccent)
                     }
@@ -271,7 +271,7 @@ struct ProfileView: View {
                     Circle()
                         .fill(Color.btAccent.opacity(0.2))
                         .frame(width: 56, height: 56)
-                    Image(systemName: "star.fill")
+                    Image(systemName: BTIcon.star)
                         .font(.btStatNumber)
                         .foregroundStyle(.btAccent)
                 }
@@ -449,7 +449,7 @@ private struct ProfileMenuRow: View {
                     .foregroundStyle(detailColor)
             }
 
-            Image(systemName: "chevron.right")
+            Image(systemName: BTIcon.chevronRight)
                 .font(.btCaption).fontWeight(.medium)
                 .foregroundStyle(.btTextTertiary)
         }

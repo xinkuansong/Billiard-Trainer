@@ -593,20 +593,33 @@ enum SequenceVideoExporter {
             let aimR = TrajectoryStyle.aimRadius * lineScale * options.aimLineScale
             let potR = TrajectoryStyle.potRadius * lineScale * options.aimLineScale
             var lines: [SCNNode] = []
-            lines.append(contentsOf: polyline(pred.cuePath, color: TrajectoryStyle.aimColor,
-                                              radius: aimR))
-            lines.append(contentsOf: polyline(objPath,
-                                              color: TrajectoryStyle.potColor(for: step.shot.targetKey),
-                                              radius: potR))
-            // 联动球路径同样随各自球色（extraBallPaths 键 = 桌面球键）。
+            // 线语言 v2（条 12，渲染管线与 App 同源）：母球碰前白实线 + 碰后白虚线；
+            // 目标球/联动球本色虚线（extraBallPaths 键 = 桌面球键）。
+            let liftedCue = pred.cuePath.map { SCNVector3($0.x, yLevel, $0.z) }
+            let liftedContact = pred.firstContact.map { SCNVector3($0.x, yLevel, $0.z) }
+            var cueNodes: [SCNNode] = []
+            scene.addCueTrajectory(liftedCue, contact: liftedContact, into: &cueNodes)
+            // 导出线宽需按 3D 远端补粗 × 导出变细缩放——覆写共享方法产出的半径。
+            for n in cueNodes { (n.geometry as? SCNCylinder)?.radius = CGFloat(aimR) }
+            lines.append(contentsOf: cueNodes)
+            var objNodes: [SCNNode] = []
+            scene.addObjectTrajectory(objPath.map { SCNVector3($0.x, yLevel, $0.z) },
+                                      ballKey: step.shot.targetKey, into: &objNodes)
             for (key, pts) in pred.extraBallPaths {
-                lines.append(contentsOf: polyline(pts, color: TrajectoryStyle.potColor(for: key),
-                                                  radius: potR))
+                scene.addObjectTrajectory(pts.map { SCNVector3($0.x, yLevel, $0.z) },
+                                          ballKey: key, into: &objNodes)
             }
-            // 假想球：袋口模式显示在母球瞄准终点（与编排台/分离角同语义）。
+            for n in objNodes { (n.geometry as? SCNCylinder)?.radius = CGFloat(potR) }
+            lines.append(contentsOf: objNodes)
+            // 假想球：袋口模式显示在母球瞄准终点（重叠标注 L0：绿虚线圈 + 接触点绿点，
+            // 与 App 内同语义同源，T-P18-42）。
             if !step.shot.isFree, let ghost = scene.ghostBallNode {
                 ghost.position = SCNVector3(pred.ghost.x, yLevel, pred.ghost.z)
                 ghost.isHidden = false
+                if let target = scene.allBallNodes[step.shot.targetKey], !target.isHidden {
+                    scene.updateContactDot(ghostCenter: ghost.position,
+                                           targetCenter: target.position)
+                }
             }
             return lines
         }
@@ -614,6 +627,7 @@ enum SequenceVideoExporter {
         /// 收掉假想球等非线节点装饰（与移除 `drawAimLines` 返回的线节点配套调用）。
         func hideAimDecorations() {
             scene.ghostBallNode?.isHidden = true
+            scene.hideContactDot()
         }
 
         /// 第2拍·亮方案：把球杆摆到**静止瞄准位**（`pullBack=0`，杆头贴母球击球点）并显示。
@@ -667,16 +681,6 @@ enum SequenceVideoExporter {
             return nil
         }
 
-        private func polyline(_ pts: [SCNVector3], color: UIColor, radius: Float) -> [SCNNode] {
-            guard pts.count >= 2 else { return [] }
-            let lifted = pts.map { SCNVector3($0.x, yLevel, $0.z) }
-            var nodes: [SCNNode] = []
-            for i in 0..<(lifted.count - 1) {
-                nodes.append(scene.addLine(from: lifted[i], to: lifted[i + 1],
-                                           color: color, radius: radius))
-            }
-            return nodes
-        }
     }
 
     // MARK: - Shot HUD (ADR-P11-13)
@@ -728,9 +732,10 @@ enum SequenceVideoExporter {
                     // 真实比例（ADR-P11-13）：教学素材上的打点可照搬到真球，
                     // 红斑位置/大小与打点盘同一几何，含打滑极限虚线圈。
                     BTSpinMiniIcon(spinX: spinX, spinY: spinY, diameter: 56 * k, trueScale: true)
+                    // 打点/力度 = 方案量值 → 金（HUD 仪表玻璃语法，导出同款，T-P18-45）。
                     Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
-                        .font(.system(size: 20 * k, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.78))
+                        .font(.system(size: 20 * k, weight: .bold, design: .rounded))
+                        .foregroundStyle(HUDStyle.valueAdjustable)
                         .monospacedDigit()
                 }
                 HStack(spacing: 12 * k) {
@@ -738,13 +743,14 @@ enum SequenceVideoExporter {
                         .fill(.white.opacity(0.16))
                         .frame(width: 220 * k, height: 8 * k)
                         .overlay(alignment: .leading) {
+                            // 刻度语法：力度水位 = 金色填充。
                             Capsule()
-                                .fill(Color.btPrimary)
+                                .fill(HUDStyle.tickIndicator)
                                 .frame(width: 220 * k * powerFraction)
                         }
                     Text("\(PowerDisplay.name(velocity)) \(String(format: "%.1f", velocity)) m/s")
-                        .font(.system(size: 20 * k, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 20 * k, weight: .bold, design: .rounded))
+                        .foregroundStyle(HUDStyle.valueAdjustable)
                         .monospacedDigit()
                 }
             }
@@ -754,9 +760,10 @@ enum SequenceVideoExporter {
             .fixedSize()
         }
 
-        /// 填充比例与编排台力度滑条同量程（0.5–6.0 m/s）。
+        /// 填充比例与编排台力度滑条同量程（ShotTuning.velocityRange 单一真源）。
         private var powerFraction: CGFloat {
-            CGFloat(min(max((velocity - 0.5) / 5.5, 0), 1))
+            let r = ShotTuning.velocityRange
+            return CGFloat(min(max((velocity - r.lowerBound) / (r.upperBound - r.lowerBound), 0), 1))
         }
     }
 

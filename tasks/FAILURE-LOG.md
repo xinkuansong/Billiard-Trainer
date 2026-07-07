@@ -254,3 +254,13 @@
 - **日期**：2026-07-02
 - **规则改进建议**：①判断「几何是否存在/可渲染」**禁止用包围盒或顶点数**——孤立顶点撑出假象；必须数被索引/面片引用的顶点，或把目标材质替换成高亮色渲染直接验证。②SceneKit USDZ 导入红线：GeomSubset 含 ≥256 顶点的面 → 整个子集静默丢弃；Blender 合并/limited dissolve 后导出必须先三角化（或校验 max n-gon < 256）。③修复/嫁接 USDZ 资产用 USD 工具链（`Sdf.CopySpec`+`UsdUtils.CreateNewUsdzPackage`），禁经 SceneKit `write(to:)` 往返——线性空间纯色会被二次伽马漂移。④连续两轮诊断结论被用户直觉质疑时，回到资产/数据源头做新旧版本二进制对比，而非在渲染参数层继续迭代。
 - **已应用至**：`QiuJi/Resources/TaiQiuZhuo.usdz`（修复版资产）；回写 `20-swiftui-developer.mdc` § 经验教训 / FL-023（2026-07-02）
+
+## FL-024
+- **任务**：T-P18-42 重叠标注三档验收（`testB2ShotControls` 截图门）时发现分离角手动模式主线程死循环。
+- **现象**：截图门连跑 3 次失败于「Timed out while evaluating UI query」；录屏显示切「手动」后页面冻结（求解 spinner 由渲染服务器驱动仍在转、chip 选中态未刷新），App 对辅助功能查询无响应。
+- **严重程度**：P0（主线程死循环，手动模式必现挂死；潜伏自 T-P18-09/B2，T-P18-41 改虚线常量后在该测试场景下成为确定性触发）。
+- **根因**：✅ 已定位（`sample` 进程采样直接抓到主线程栈顶）。`ShotSimulationViewModel.addDashedPath` 用**浮点相位累积推进**铺虚线：`step = min(dash - phase, len - t); t += step`。Float32 精度下当 `arc + t` 较大时 `truncatingRemainder` 量化使 `phase` 逼近 `dash`，`step` 下溢到小于 `t` 的 ULP → `t += step` 不再改变 `t` → `while t < len` 死循环。触发依赖轨迹弧长与虚线周期的具体组合，故此前未爆。
+- **解决**：✅ 已修复（2026-07-05）。重写为**整数周期索引**算法：第 k 个 on 段覆盖全局弧长 `[k·period, k·period+dash)`，对每折线段求 `firstK...lastK` 交集落段——循环以整数计数有界，必然终止；另加 `dash/gap > 1e-4` 入参护栏。验证：`testB2ShotControls` 复跑 TEST SUCCEEDED（10 张截图全出），手动模式对照虚线视觉不变。
+- **日期**：2026-07-05
+- **规则改进建议**：**浮点增量推进的 while 循环（`t += step` 型）一律禁止**——`step` 由减法/取余导出时必然存在下溢为 0 的参数组合，表现为偶发整机挂死；铺设周期性几何（虚线/刻度/网格）必须用整数索引推导区间再求交。UI 测试出现「Timed out while evaluating UI query」先怀疑主线程死循环，用 `sample <pid>` 采样直取栈顶，不要猜。
+- **已应用至**：`QiuJi/Features/AngleTraining/ViewModels/ShotSimulationViewModel.swift`（整数周期重写）；回写 `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训 / FL-024（2026-07-05）

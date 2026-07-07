@@ -113,8 +113,8 @@ struct ShotPrediction {
     /// 母球末帧水平速度大小（m/s）。`0` = 真正停稳；显著 >0 = 模拟被 maxEvents/maxTime 截断、
     /// 末帧并非真实停点（走位反解器据此剔除「高速假停」的落区解，ADR-P13-01）。
     var cueFinalSpeed: Float = 0
-    /// 自由球模拟（ADR-P11-03）中除母球外**发生位移**的球的轨迹折线（球名 → 折线）。
-    /// 袋口模式恒为空（目标球轨迹走 `objectPath`）。
+    /// 除母球（及袋口模式的目标球，其轨迹走 `objectPath`）外**发生位移**的球的轨迹折线
+    /// （球名 → 折线）。线语言 v2（条 12.4）：袋口模式也填充被串动的障碍球，供各页画本色虚线。
     var extraBallPaths: [String: [SCNVector3]] = [:]
     /// 本杆进袋（离场）的全部球名（含母球 scratch、被串入袋的障碍球）。
     var pocketedBalls: [String] = []
@@ -184,7 +184,7 @@ enum ShotPredictor {
         result.cutAngleDeg = cutAngle
         if cutAngle >= AngleSceneCalculator.maxCutAngle {
             result.feasible = false
-            result.infeasibleReason = "当前角度无法进袋（切球角过大）"
+            result.infeasibleReason = "当前角度无法进袋（切角过大）"
             return nil
         }
         if AngleSceneCalculator.isCueBallBlocking(
@@ -236,6 +236,7 @@ enum ShotPredictor {
         // 全场最终静止位置 + 母球末速（走位序列链 / 高速假停护栏）。取自引擎真实末帧。
         var finals: [String: SCNVector3] = [:]
         var pocketed: [String] = []
+        var extraPaths: [String: [SCNVector3]] = [:]
         for (name, frames) in run.recorder.framesByBallName {
             if let last = frames.max(by: { $0.time < $1.time }) {
                 finals[name] = last.position
@@ -245,7 +246,13 @@ enum ShotPredictor {
                 }
             }
             if run.recorder.isBallPocketed(name) { pocketed.append(name) }
+            // 被串动的障碍球轨迹（线语言 v2，条 12.4）：袋口模式也补齐，供各页画本色虚线。
+            if name != ShotInput.cueBallName, name != ShotInput.targetBallName {
+                let pts = polyline(playback, ballName: name, duration: duration)
+                if pathLengthXZ(pts) > 0.02 { extraPaths[name] = pts }
+            }
         }
+        result.extraBallPaths = extraPaths
         if potted, !pocketed.contains(ShotInput.targetBallName) { pocketed.append(ShotInput.targetBallName) }
         if !potted { pocketed.removeAll { $0 == ShotInput.targetBallName } }
         result.finalPositions = finals

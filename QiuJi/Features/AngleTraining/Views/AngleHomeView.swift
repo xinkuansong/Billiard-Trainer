@@ -7,8 +7,16 @@ enum AngleRoute: Hashable {
     case aimingPrinciple
     case angleDynamic
     case geometricQuiz
-    case scene2DAiming
-    case scene3DAiming
+    /// 2D 瞄准训练（T-P18-48 拆两卡）：俯视练几何判断。
+    case sceneAiming2D
+    /// 3D 瞄准训练（T-P18-48 拆两卡）：站位视角练临场球感。
+    case sceneAiming3D
+    /// 瞄准点训练（条 8）：给角度拖假想球，mm 误差反馈。
+    case aimPointTraining
+    /// 2D 瞄准点训练（条 9）：真台出题，瞄准线微调 + 自动击球验证。
+    case aimPointScene2D
+    /// 3D 瞄准点训练（条 10）：站位相机版。
+    case aimPointScene3D
     case ballFeel
     case bankShot
     case diamondSystem
@@ -20,7 +28,6 @@ enum AngleRoute: Hashable {
     case planThree
     case snookerTactics
     case ballExtraction
-    case rackGenerator
     /// 批量出片台（仅模拟器，内容生产工具）。
     case batchDrillStudio
 }
@@ -109,7 +116,7 @@ struct AngleHomeView: View {
               coverTop: Color(red: 0.48, green: 0.36, blue: 0.72),
               coverBottom: Color(red: 0.28, green: 0.20, blue: 0.46)),
         .init(route: .contactPointTable, glyph: "表",
-              title: "进球点对照表", subtitle: "常用角度的进球点速查",
+              title: "瞄准点对照表", subtitle: "常用角度的瞄准点速查",
               coverTop: Color(red: 0.42, green: 0.45, blue: 0.50),
               coverBottom: Color(red: 0.24, green: 0.26, blue: 0.30))
         // 「球理」入口卡（P12 阶段 1 产物）：理论详情页落地后在此追加，
@@ -119,17 +126,29 @@ struct AngleHomeView: View {
     /// 「练」——测验类：练角度直觉。
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, glyph: "角",
-              title: "几何角度训练", subtitle: "看球形，估切角，练直觉",
+              title: "角度预测", subtitle: "看球形，估切角，练直觉",
               coverTop: Color(red: 0.85, green: 0.52, blue: 0.13),
               coverBottom: Color(red: 0.55, green: 0.32, blue: 0.05)),
-        .init(route: .scene2DAiming, glyph: "2D",
-              title: "2D 瞄准训练", subtitle: "俯视真台的角度预测测验",
+        .init(route: .sceneAiming2D, glyph: "瞄",
+              title: "2D 角度训练", subtitle: "俯视真台，练几何角度判断",
               coverTop: Color(red: 0.0, green: 0.60, blue: 0.60),
               coverBottom: Color(red: 0.0, green: 0.36, blue: 0.40), chip: "2D"),
-        .init(route: .scene3DAiming, glyph: "3D",
-              title: "3D 瞄准训练", subtitle: "真实视角的角度预测测验",
-              coverTop: Color(red: 0.30, green: 0.34, blue: 0.78),
-              coverBottom: Color(red: 0.16, green: 0.18, blue: 0.48), chip: "3D")
+        .init(route: .sceneAiming3D, glyph: "临",
+              title: "3D 角度训练", subtitle: "站位视角，练临场球感",
+              coverTop: Color(red: 0.13, green: 0.42, blue: 0.66),
+              coverBottom: Color(red: 0.05, green: 0.24, blue: 0.42), chip: "3D"),
+        .init(route: .aimPointTraining, glyph: "拖",
+              title: "瞄准点训练", subtitle: "给角度拖假想球，毫米级误差",
+              coverTop: Color(red: 0.72, green: 0.28, blue: 0.30),
+              coverBottom: Color(red: 0.44, green: 0.14, blue: 0.16)),
+        .init(route: .aimPointScene2D, glyph: "调",
+              title: "2D 瞄准点训练", subtitle: "微调瞄准线选打点，击球验证",
+              coverTop: Color(red: 0.0, green: 0.52, blue: 0.48),
+              coverBottom: Color(red: 0.0, green: 0.30, blue: 0.28), chip: "2D"),
+        .init(route: .aimPointScene3D, glyph: "临",
+              title: "3D 瞄准点训练", subtitle: "站位视角微调打点，击球验证",
+              coverTop: Color(red: 0.30, green: 0.34, blue: 0.72),
+              coverBottom: Color(red: 0.16, green: 0.18, blue: 0.44), chip: "3D")
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。
@@ -147,21 +166,17 @@ struct AngleHomeView: View {
 
     private let basePlayEntries: [AngleEntry] = [
         .init(route: .freePlay, glyph: "击",
-              title: "自由击球", subtitle: "随意摆球，任意方向试一杆",
+              title: "自由击球", subtitle: "开球散局起手，完整对局体验",
               coverTop: Color(red: 0.13, green: 0.42, blue: 0.85),
               coverBottom: Color(red: 0.05, green: 0.22, blue: 0.52), chip: "物理"),
         .init(route: .shotSimulation, glyph: "分",
-              title: "分离角与走位", subtitle: "看清碰撞后母球往哪走",
+              title: "分离角与走位", subtitle: "教学演示：看懂碰撞后母球走向",
               coverTop: Color(red: 0.13, green: 0.55, blue: 0.36),
               coverBottom: Color(red: 0.06, green: 0.33, blue: 0.20), chip: "物理"),
         .init(route: .positionPlayComposer, glyph: "走",
-              title: "走位编排台", subtitle: "逐杆编排击打，推演整套走位",
+              title: "自由走位", subtitle: "逐杆编排击打，推演整套走位",
               coverTop: Color(red: 0.72, green: 0.55, blue: 0.13),
               coverBottom: Color(red: 0.45, green: 0.33, blue: 0.05), chip: "物理"),
-        .init(route: .rackGenerator, glyph: "开",
-              title: "球形生成器", subtitle: "真实开球散局，随开随练",
-              coverTop: Color(red: 0.78, green: 0.30, blue: 0.10),
-              coverBottom: Color(red: 0.48, green: 0.16, blue: 0.04), chip: "物理"),
         .init(route: .ballExtraction, glyph: "拍",
               title: "拍照建球形", subtitle: "拍下真实球局，导入沙盘复盘",
               coverTop: Color(red: 0.16, green: 0.50, blue: 0.62),
@@ -171,11 +186,11 @@ struct AngleHomeView: View {
     /// 「解」——教练类：给定局面，让引擎反解怎么打。
     private let solveEntries: [AngleEntry] = [
         .init(route: .positionPlaySolver, glyph: "思",
-              title: "思路训练器", subtitle: "想让母球停哪？反解塞与力度",
+              title: "思路训练", subtitle: "单杆走位反解：定落点，解塞与力度",
               coverTop: Color(red: 0.50, green: 0.20, blue: 0.62),
               coverBottom: Color(red: 0.28, green: 0.10, blue: 0.40), chip: "物理"),
         .init(route: .planThree, glyph: "三",
-              title: "打一走二想三", subtitle: "连续三杆的走位路线规划",
+              title: "打一走二想三", subtitle: "三杆连续走位规划，练全局思路",
               coverTop: Color(red: 0.16, green: 0.46, blue: 0.62),
               coverBottom: Color(red: 0.08, green: 0.26, blue: 0.38), chip: "走位"),
         .init(route: .snookerTactics, glyph: "斯",
@@ -183,11 +198,11 @@ struct AngleHomeView: View {
               coverTop: Color(red: 0.60, green: 0.10, blue: 0.30),
               coverBottom: Color(red: 0.34, green: 0.04, blue: 0.16), chip: "物理"),
         .init(route: .bankShot, glyph: "翻",
-              title: "翻袋解球器", subtitle: "自动求 1–3 库翻袋路线",
+              title: "翻袋解球器", subtitle: "目标球翻库进袋：求 1–3 库路线",
               coverTop: Color(red: 0.62, green: 0.14, blue: 0.14),
               coverBottom: Color(red: 0.36, green: 0.06, blue: 0.06), chip: "2D"),
         .init(route: .diamondSystem, glyph: "反",
-              title: "反射解球器", subtitle: "母球吃库解球的反射路线",
+              title: "反射解球器", subtitle: "母球吃库绕障碍碰球的路线",
               coverTop: Color(red: 0.0, green: 0.45, blue: 0.55),
               coverBottom: Color(red: 0.0, green: 0.26, blue: 0.34), chip: "2D")
     ]
@@ -481,6 +496,49 @@ private struct AngleGridCard: View {
                     .padding(Spacing.sm)
             }
         }
+    }
+}
+
+// MARK: - Learn → Practice CTA（T-P18-51 学→练导流，设计稿 §3.1/§5-10）
+
+/// 学页页末导流卡：把「刚学的概念」接到「能练它的页面」。
+/// 走 `NavigationLink(value: AngleRoute)`，复用练习 Tab 根部的 navigationDestination。
+struct PracticeCTA: View {
+    let title: String
+    let destination: String
+    let route: AngleRoute
+
+    var body: some View {
+        NavigationLink(value: route) {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: "figure.walk.arrival")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(Color.btPrimary)
+                    .frame(width: 40, height: 40)
+                    .background(Color.btPrimaryMuted, in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.btHeadline)
+                        .foregroundStyle(.btText)
+                    Text(destination)
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.btTextSecondary)
+            }
+            .padding(Spacing.lg)
+            .background(.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            .overlay(
+                RoundedRectangle(cornerRadius: BTRadius.lg)
+                    .stroke(Color.btPrimary.opacity(0.35), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title)
     }
 }
 

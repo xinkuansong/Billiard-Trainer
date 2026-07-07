@@ -983,20 +983,6 @@ enum AngleSceneCalculator {
         return SCNVector3(nx / len, 0, nz / len)
     }
 
-    /// 母球球心沿 `dir` 到库边（球心可达极限 = 内沿 − R）的射线距离，供瞄准手柄限位。
-    static func rayDistanceToCushion(from p: SCNVector3, dir: SCNVector3) -> Float {
-        let limX = innerLength / 2 - ballRadius
-        let limZ = innerWidth / 2 - ballRadius
-        var t: Float = .greatestFiniteMagnitude
-        if abs(dir.x) > 1e-5 {
-            t = min(t, ((dir.x > 0 ? limX : -limX) - p.x) / dir.x)
-        }
-        if abs(dir.z) > 1e-5 {
-            t = min(t, ((dir.z > 0 ? limZ : -limZ) - p.z) / dir.z)
-        }
-        return max(0.05, t)
-    }
-
     // MARK: - Thickness name (通称)
 
     static func thicknessName(cutAngle: Double) -> String {

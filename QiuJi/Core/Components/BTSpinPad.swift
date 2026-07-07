@@ -182,12 +182,12 @@ private struct SpinNudgeButton: View {
     @State private var ticks = 0
     @State private var isPressing = false
 
-    private let hitSize: CGFloat = 44
-    private let iconSize: CGFloat = 36
+    private let hitSize: CGFloat = 40
+    private let iconSize: CGFloat = 30
 
     var body: some View {
         Image(systemName: icon)
-            .font(.system(size: 17, weight: .bold))
+            .font(.system(size: 15, weight: .bold))
             .foregroundStyle(.white.opacity(isPressing ? 1 : 0.82))
             .frame(width: iconSize, height: iconSize)
             .background(.white.opacity(isPressing ? 0.24 : 0.12), in: Circle())
@@ -243,31 +243,19 @@ private struct SpinNudgeButton: View {
 /// 系统 sheet——sheet 底下是纯黑+压暗层，材质会显得过深（用户点名要「有些透明」的观感）。
 ///
 /// 交互：拖打点盘做**粗选**（点哪跳哪）；四向键做 ±1% **微调**（合矢量钳在打滑极限，撞墙停住），
-/// 长按连发。十字宽度 44+12+128+12+44=240pt → 调用方应给 `maxWidth: 264`（含卡片左右 padding）。
+/// 长按连发。控件瘦身 v2（条 13.3）：盘缩至 104pt、十字更紧凑、背景近透明（透出台面），
+/// 十字宽度 40+10+104+10+40=204pt → 调用方应给 `maxWidth: 228`（含卡片左右 padding）。
+/// 点盘外任意处关闭由 `BTSpinPadOverlay` 的捕获层承担。
 struct BTSpinPadCard: View {
     @Binding var spinX: Double
     @Binding var spinY: Double
     var onClose: () -> Void
 
     /// 命中框与打点盘之间的死区（防误触），同时作为上/下键与盘的纵向间距。
-    private let crossGap: CGFloat = 12
+    private let crossGap: CGFloat = 10
 
     var body: some View {
-        VStack(spacing: Spacing.sm) {
-            HStack {
-                Text("打点")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-                Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 20))
-                        .foregroundStyle(.white.opacity(0.45))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("关闭打点")
-            }
-
+        VStack(spacing: Spacing.xs) {
             VStack(spacing: crossGap) {
                 SpinNudgeButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
                     nudge(.up)
@@ -277,7 +265,7 @@ struct BTSpinPadCard: View {
                         nudge(.left)
                     }
                     BTSpinPad(spinX: $spinX, spinY: $spinY)
-                        .frame(width: 128, height: 128)
+                        .frame(width: 104, height: 104)
                     SpinNudgeButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
                         nudge(.right)
                     }
@@ -287,10 +275,11 @@ struct BTSpinPadCard: View {
                 }
             }
 
-            HStack(spacing: Spacing.lg) {
+            HStack(spacing: Spacing.md) {
+                // 打点 = 可调量值 → 金（金管数值，T-P18-45）。
                 Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(HUDStyle.valueAdjustable)
                     .monospacedDigit()
                 Button {
                     spinX = 0
@@ -300,15 +289,23 @@ struct BTSpinPadCard: View {
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white)
                         .padding(.horizontal, Spacing.md)
-                        .padding(.vertical, 5)
+                        .padding(.vertical, 4)
                         .background(.white.opacity(0.14), in: Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(Spacing.md)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: BTRadius.xl))
-        .overlay(RoundedRectangle(cornerRadius: BTRadius.xl).stroke(.white.opacity(0.08), lineWidth: 0.5))
+        .padding(Spacing.sm)
+        // 近透明底（条 13.3）：只留 22% 黑 + 细模糊，透出台面绿；发丝描边保分层。
+        .background {
+            RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
+                .fill(Color.black.opacity(0.22))
+                .background(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
+                    .fill(.ultraThinMaterial.opacity(0.5)))
+                .environment(\.colorScheme, .dark)
+        }
+        .overlay(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
+            .strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         .environment(\.colorScheme, .dark)
     }
 
@@ -318,6 +315,27 @@ struct BTSpinPadCard: View {
         spinX = r.x
         spinY = r.y
         return r.moved
+    }
+}
+
+/// 打点盘浮层（条 13.3）：卡片 + **点盘外任意处关闭**的全屏捕获层。
+/// 调用方放进球桌 ZStack 即可（代替直接放 `BTSpinPadCard`）。
+struct BTSpinPadOverlay: View {
+    @Binding var spinX: Double
+    @Binding var spinY: Double
+    var bottomPadding: CGFloat = 80
+    var onClose: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // 近乎不可见的命中层：点卡片外任意处关闭。
+            Color.black.opacity(0.001)
+                .contentShape(Rectangle())
+                .onTapGesture { onClose() }
+            BTSpinPadCard(spinX: $spinX, spinY: $spinY, onClose: onClose)
+                .frame(maxWidth: 228)
+                .padding(.bottom, bottomPadding)
+        }
     }
 }
 

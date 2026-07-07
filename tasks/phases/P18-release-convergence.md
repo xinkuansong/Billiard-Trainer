@@ -28,6 +28,7 @@
 | B2 | WP-A 统一击球交互：手动瞄准 + 自由击球模式 + ShotControlBar | B1（新入口卡挂新 IA） | 2–3 |
 | B3 | WP-D 风格收口：组件归位/单一真源/明暗策略/力度清理 | B2（ShotControlBar 先就位） | 1 |
 | B3+ | 截图审查追加项（2026-07-04）：导航栏/顶部区规范 + 色彩语义 + 冗余合并 + 若干 bug | B3（先立 SPEC 规范再逐页对齐） | 1–2 |
+| B3.5 | 品牌统一设计（2026-07-04）：线语言/重叠标注/HUD 仪表玻璃/瞄准力度交互重做/学练真台化/开球内置生成器下线 | B3+（设计真源 v4 已定稿） | 4–6 |
 | B4 | WP-C 观感反馈：落袋下沉 + 音效接线 + 贴近球放大镜 | 无强依赖，可与 B3 换序 | 1 |
 | B5 | 合规与产品收口：占位链接/PIPL 弹窗/试一杆/通知/埋点/iPhone-only/权益审计 | P1「试一杆」依赖 B2 自由击球 | 1–2 |
 | B6 | WP-E 内容：标注模板 v2 + 精选视频回填（含体积实测） | 无（重渲可后台跑） | 1 |
@@ -43,7 +44,7 @@
 | T-P18-H2 音效素材下载（H-18） | ⏳ | Freesound CC0，4 类 7 文件，30–45min；B4 音效接线的前置 |
 | T-P18-H3 隐私政策页面上线（H-09） | ⏳ | 与 B5 R1 占位链接修复联动 |
 | T-P18-H4 TP-P7 订阅人工测试 | ⏳ | StoreKit sandbox，30min |
-| T-P18-H5 ADR-P10-09 真机手感验收 | ⏳ | 分离角页+编排台过验收单（#1-d，v1.0 前必做） |
+| T-P18-H5 ADR-P10-09 真机手感验收 | ⏳ | 分离角页+编排台过验收单（#1-d，v1.0 前必做）。**追加（T-P18-43/44）**：自由瞄准手指跟随灵敏度、刻度轮阻尼、力度柱档位手感一并验收 |
 
 ---
 
@@ -73,11 +74,11 @@
 
 | 任务 | 内容 | DoD | 状态 |
 |------|------|-----|------|
-| T-P18-11 | 组件归位：`BTChipRow`/`ReflectionModeControl` 移 `Core/Components/`；Scene3D 自绘 64pt FAB 已在 T-P18-10 处理则跳过 | build 过、9 个引用文件不破 | ⏳ |
-| T-P18-12 | 单一真源清理（10-b/10-c）：`DrillSpinIndicator` 换 `BTSpinMiniIcon(trueScale:true)`；删死 API `StrokePhysics.velocity(forPower:)`（连带 L165–169 常量核对）；`DrillPowerBar` 量程 1.0/6.5→0.5/6.0；三处内联 `0.5...6.0` 抽 `ShotTuning.velocityRange` | 3–4 条带 spin drill 回放目验 | ⏳ |
-| T-P18-13 | 明暗策略文档化 + 瞄准辅助显示策略表（10-d）：`UI-IMPLEMENTATION-SPEC.md` 写三档明暗策略 + 「8 场景页 × 6 辅助元素」矩阵；`GeometricAngleQuizView` 按场景页规范对齐 | SPEC 更新 + 逐页对齐 | ⏳ |
-| T-P18-14 | BTIcon 迁移第一批（Top10 文件中取 3–5 个）+ 统一 symbol modifier 封装；其余批次容忍到 1.0.x | 迁移文件截图核验 | ⏳ |
-| ✅门 | **UI 美观性验收**：drill 回放/几何测验页/迁移图标页截图核验 | 截图结论记录 | ⏳ |
+| T-P18-11 | 组件归位：`BTChipRow`/`ReflectionModeControl` 移 `Core/Components/`；Scene3D 自绘 64pt FAB 已在 T-P18-10 处理则跳过 | build 过、9 个引用文件不破 | ✅ 2026-07-04（`git mv` → `Core/Components/ReflectionModeControl.swift`；xcodegen 重生；`make build` ✅） |
+| T-P18-12 | 单一真源清理（10-b/10-c）：`DrillSpinIndicator` 换 `BTSpinMiniIcon(trueScale:true)`；删死 API `StrokePhysics.velocity(forPower:)`（连带 L165–169 常量核对）；`DrillPowerBar` 量程 1.0/6.5→0.5/6.0；三处内联 `0.5...6.0` 抽 `ShotTuning.velocityRange` | 3–4 条带 spin drill 回放目验 | ✅ 2026-07-04（`DrillSpinIndicator` 整块删除换 `BTSpinMiniIcon(trueScale:true)`；死 API + maxVelocity/powerGamma/deadZone 三常量确认无他用后删；新增 `ShotTuning.velocityRange`（BTPhysicsConstants），4 处内联量程 + 导出 HUD powerFraction 全部改引用；`DrillPowerBar` vMin/vMax 改引 velocityRange（0.5/6.0）；c003/c004/c017 三条带塞 drill 详情+回放截图目验） |
+| T-P18-13 | 明暗策略文档化 + 瞄准辅助显示策略表（10-d）：`UI-IMPLEMENTATION-SPEC.md` 写三档明暗策略 + 「8 场景页 × 6 辅助元素」矩阵；`GeometricAngleQuizView` 按场景页规范对齐 | SPEC 更新 + 逐页对齐 | ✅ 2026-07-04（SPEC 新增 §八：三档明暗策略（场景页黑底/常规页随系统/特例页三张列名）+ 8 场景页 × 6 辅助元素矩阵 + `showSeparationAngle` 覆盖范围声明（6 处）+ 无障碍基线；`GeometricAngleQuizView` 三处 `BTButtonStyle.primary` 换场景页品牌绿胶囊 `sceneCapsuleButton`） |
+| T-P18-14 | BTIcon 迁移第一批（Top10 文件中取 3–5 个）+ 统一 symbol modifier 封装；其余批次容忍到 1.0.x | 迁移文件截图核验 | ✅ 2026-07-04（迁移 5 文件：ActiveTrainingView/DrillDetailView/ProfileView/TrainingHomeView/HistoryCalendarView 共 38 处裸 symbol → `BTIcon.*`；补常量 hammer/sliders；新增 `Image.btSymbol(size:weight:)` 统一渲染 modifier（U-I06）；训练/历史/我的三页截图核验无渲染异常） |
+| ✅门 | **UI 美观性验收**：drill 回放/几何测验页/迁移图标页截图核验 | 截图结论记录 | ✅ 2026-07-04 通过：新增 `testB3StyleGate` 专项巡游 11 张（b3-00/01/02 三条带塞 drill 详情=trueScale 红斑+打滑虚线圈正确、playing 帧指示器随回放隐藏 / b3-04/05 几何测验输入+结果卡=品牌绿胶囊对齐场景语言 / b3-06/07/08 迁移图标三页正常）；TEST SUCCEEDED |
 
 ## B3+ — 截图审查追加项（2026-07-04）
 
@@ -98,17 +99,17 @@
 
 | 任务 | 内容 | DoD | 状态 |
 |------|------|-----|------|
-| T-P18-31 | **导航栏规范化**：`UI-IMPLEMENTATION-SPEC.md` 定义并逐页对齐——① 场景页标题颜色统一（「拍照建球形」当前为白，其余品牌绿，选一条统一）；② 右上角控件语义分工：设置=齿轮、帮助=(i)、文档操作=省略号，逐页核对现有齿轮/省略号内容归位 | 规范写入 SPEC；12 场景页导航栏截图对照一致 | ⏳ |
-| T-P18-32 | **顶部控制区「最多两行」硬规范**：`UI-IMPLEMENTATION-SPEC.md` 定「场景页顶部控制区 ≤2 行，超出收进抽屉/浮层」；翻袋/反射页常驻长说明文案（「真实物理引擎按发力模拟翻库…」）收进 (i) 或首次显示一次后收起，释放球桌面积 | 翻袋/反射球桌尺寸与分离角页趋于一致；截图核验 | ⏳ |
-| T-P18-33 | **入口副标题去歧义**：`AngleHomeView` 对冗余诊断表中「思路↔三杆」「分离角↔自由击球」「翻袋↔反射」的入口卡副标题重写，一眼看清各自用途差异 | 副标题单行可读、差异明确；截图核验 | ⏳ |
-| T-P18-34 | **3D 瞄准页顶部黑带排查**：截图 3 顶部 toggle 与台面间大块纯黑（相机取景未铺满），确认是布局/相机 rig 问题并修复 | 顶部无异常黑带；2D/3D 切换后取景正常 | ⏳ |
-| T-P18-35 | **角度与打点轨迹文字朝向 bug**：截图 5「瞄准线」「进球线」标注疑似倒置/镜像，查 `AngleTrainingScene` 文字节点 billboard/朝向处理 | 先确认复现，修复后文字正向可读 | ⏳ |
-| T-P18-36 | **球形生成器「送入」收敛**：底部竖排四个全宽灰按钮（送入编排台/思路/打一走二想三/换一局）收成「送入…」菜单或一排胶囊，与全 App 胶囊语言对齐；释放面板高度 | 分发动作可达性不降、视觉统一；截图核验 | ⏳ |
-| T-P18-37 | **编排台默认标题去「未命名」**：首次进入导航栏标题不再直接暴露「未命名走位」；默认标题用「走位编排台」或默认文档名改「新走位 · M月D日」，文档名放次级位置 | 首次进入标题不显「未命名」；截图核验 | ⏳ |
-| T-P18-38 | **2D/3D 瞄准合并为一卡**（冗余诊断）：`AngleHomeView` 合成一张「瞄准训练」卡（默认 2D 可切 3D）；`AngleRoute` 收敛；成绩 `quizTypeLabel` 按模式分记；同步 `ScreenshotTourUITests`/`P5_AngleTrainingUITests` | 两 UI 测试全绿；入口卡数减一无功能丢失 | ⏳ |
-| T-P18-39 | **色彩语义定义**：`UI-IMPLEMENTATION-SPEC.md` 明确 品牌绿=主操作 / 橙=次级操作（试打） / 黄=控件量值（发力滑条） / 状态色单列，消除橙同时表「次级/警示/进行中」的混用；逐页对齐 | 规范写入 SPEC；橙/黄用途逐页核对一致 | ⏳ |
-| T-P18-40 | **角色选择器统一组件**：做斯诺克（顶部 chip）与打一走二想三（右侧竖排卡片）给球指定角色是同一语义，收敛为同一视觉组件（选中态样式一致）；三杆页角色多可保留竖排布局但复用组件与配色 | 两页角色选择器视觉一致；截图核验 | ⏳（S–M，若成本超预算可降 v1.x） |
-| ✅门 | **UI 美观性验收**：导航栏/顶部区/角色选择器/送入菜单/2D3D 合并卡/编排台标题逐张截图核验（含 Dark Mode） | 截图结论记录 | ⏳ |
+| T-P18-31 | **导航栏规范化**：`UI-IMPLEMENTATION-SPEC.md` 定义并逐页对齐——① 场景页标题颜色统一（「拍照建球形」当前为白，其余品牌绿，选一条统一）；② 右上角控件语义分工：设置=齿轮、帮助=(i)、文档操作=省略号，逐页核对现有齿轮/省略号内容归位 | 规范写入 SPEC；12 场景页导航栏截图对照一致 | ✅ 2026-07-04：SPEC §8.3 写入；`BallExtractionView` 加 principal 绿标题；思路/三杆/斯诺克三页省略号菜单拆出齿轮 settingsMenu（求解范围归设置、清空/重摆留省略号） |
+| T-P18-32 | **顶部控制区「最多两行」硬规范**：`UI-IMPLEMENTATION-SPEC.md` 定「场景页顶部控制区 ≤2 行，超出收进抽屉/浮层」；翻袋/反射页常驻长说明文案（「真实物理引擎按发力模拟翻库…」）收进 (i) 或首次显示一次后收起，释放球桌面积 | 翻袋/反射球桌尺寸与分离角页趋于一致；截图核验 | ✅ 2026-07-04：SPEC §8.4 写入；`ReflectionModeControl` 压成单行内联滑条、长文案删除并入 (i) 原理页；翻袋/反射顶部收到 2 行、方案 pill 改浮层 |
+| T-P18-33 | **入口副标题去歧义**：`AngleHomeView` 对冗余诊断表中「思路↔三杆」「分离角↔自由击球」「翻袋↔反射」的入口卡副标题重写，一眼看清各自用途差异 | 副标题单行可读、差异明确；截图核验 | ✅ 2026-07-04：五张卡副标题重写（思路=单杆走位反解、三杆=连续三杆规划、分离角=看懂分离角规则、自由击球=自由摆球任意打、翻袋=目标球翻库进袋、反射=母球绕库碰球）；b3p-01 截图核验 |
+| T-P18-34 | **3D 瞄准页顶部黑带排查**：截图 3 顶部 toggle 与台面间大块纯黑（相机取景未铺满），确认是布局/相机 rig 问题并修复 | 顶部无异常黑带；2D/3D 切换后取景正常 | ✅ 2026-07-04：根因=地面 `ground_visual` 灰面在低角度相机下与纯黑背景硬切；改径向渐变纹理（中心深灰→边缘纯黑）平滑融入背景；b3p-05 截图核验无黑带 |
+| T-P18-35 | **角度与打点轨迹文字朝向 bug**：截图 5「瞄准线」「进球线」标注疑似倒置/镜像，查 `AngleTrainingScene` 文字节点 billboard/朝向处理 | 先确认复现，修复后文字正向可读 | ✅ 2026-07-04：复现确认；`addInlineLineLabel` yaw 翻转逻辑对近竖直线（abs(dir.z)<0.15）改按 dir.x 判定，保证竖排中文自上而下；b3p-06 及放大裁图核验「瞄准线」「进球线」均正向可读 |
+| T-P18-36 | **球形生成器「送入」收敛**：底部竖排四个全宽灰按钮（送入编排台/思路/打一走二想三/换一局）收成「送入…」菜单或一排胶囊，与全 App 胶囊语言对齐；释放面板高度 | 分发动作可达性不降、视觉统一；截图核验 | ✅ 2026-07-04：三个送入按钮收成「送入…」Menu（三目的地保留），并列「换一局」胶囊；b3p 截图核验 |
+| T-P18-37 | **编排台默认标题去「未命名」**：首次进入导航栏标题不再直接暴露「未命名走位」；默认标题用「走位编排台」或默认文档名改「新走位 · M月D日」，文档名放次级位置 | 首次进入标题不显「未命名」；截图核验 | ✅ 2026-07-04：`navTitleText` 对「未命名走位」回退显示「走位编排台」；截图核验 |
+| T-P18-38 | **2D/3D 瞄准合并为一卡**（冗余诊断）：`AngleHomeView` 合成一张「瞄准训练」卡（默认 2D 可切 3D）；`AngleRoute` 收敛；成绩 `quizTypeLabel` 按模式分记；同步 `ScreenshotTourUITests`/`P5_AngleTrainingUITests` | 两 UI 测试全绿；入口卡数减一无功能丢失 | ✅ 2026-07-04：`Scene3DAimingView`→`SceneAimingView`（默认 2D 可切 3D），`Scene2DAimingView` 删除；`AngleRoute.sceneAiming` 收敛；`quizTypeLabel` 按模式分记 scene2D/scene3D；两 UI 测试更新后全绿 |
+| T-P18-39 | **色彩语义定义**：`UI-IMPLEMENTATION-SPEC.md` 明确 品牌绿=主操作 / 橙=次级操作（试打） / 黄=控件量值（发力滑条） / 状态色单列，消除橙同时表「次级/警示/进行中」的混用；逐页对齐 | 规范写入 SPEC；橙/黄用途逐页核对一致 | ✅ 2026-07-04：SPEC §8.5 写入（绿=主操作/品牌、橙=次级操作、金=量值与商业化、状态色单列）；逐页核对无新增混用 |
+| T-P18-40 | **角色选择器统一组件**：做斯诺克（顶部 chip）与打一走二想三（右侧竖排卡片）给球指定角色是同一语义，收敛为同一视觉组件（选中态样式一致）；三杆页角色多可保留竖排布局但复用组件与配色 | 两页角色选择器视觉一致；截图核验 | ⏸ 降 v1.x（2026-07-04）：两处语义相近但结构差异大（横向 chip 行 vs 竖排卡含徽标/状态），强行统一成本超 S–M 预算且有布局回退风险；按任务行既定条款降级 |
+| ✅门 | **UI 美观性验收**：导航栏/顶部区/角色选择器/送入菜单/2D3D 合并卡/编排台标题逐张截图核验（含 Dark Mode） | 截图结论记录 | ✅ 2026-07-04 通过：`testB3PlusGate` 13 张（b3p-01 副标题+合并卡 / 02-05 瞄准训练 2D 默认+3D 无黑带 / 06 轨迹文字正向 / 07-08 翻袋反射两行顶部+浮层 pill / 09 思路齿轮拆分 / 10 送入菜单 / 11-12 编排台标题 / 13 拍照建球形绿标题）；Dark Mode 复跑 `testB3StyleGate` 11 张（训练/记录/我的/详情/几何测验暗色正常）；均 TEST SUCCEEDED |
 
 ### 转 v1.x（不在本 Phase，另立卡）
 
@@ -117,12 +118,87 @@
 | 翻袋解球器 + 反射解球器合并为一页「解球计算器」（顶部切「翻袋进袋/绕库碰球」模式） | 合并成本与 #4 引擎化高度耦合，一起做减半；v1.0 先靠 T-P18-33 入口文案区分 | 随 v1.x #4（翻袋解球引擎化） |
 | 拍照建球形空态加示例入口（「用示例照片试试」+ 示例球形） | 当前纯空态，无照片时页面为死路；非发布硬闸门 | v1.x |
 
+## B3.5 — 品牌统一设计（2026-07-04 立批）
+
+> 来源：用户驱动「练习 Tab 整体重新统一设计，形成有品牌风格的东西」+ screenshot-v5 十六张实拍逐张审查 + 用户 13 条设计裁决。设计真源：`docs/research/20260704-练习Tab功能契约梳理.md`（v4，含设计语言「教练仪表盘」/ 线语言 7 token / 重叠标注三档 / HUD 仪表玻璃 / 交互重做 / HUD 七分区 / 15 页逐页砍增改 / 结论 12 条）。**排序**：语言地基（41/45/42）→ 交互重做（43/44）→ 页面重构（46/47/48）→ 收口（49/50/51）→ SPEC 定稿（52）。每 2–3 个任务挂一次截图验收门（含 Dark Mode）；渲染管线改动需抽 2–3 条序列重新出片核验。
+
+| 任务 | 内容 | DoD | 状态 |
+|------|------|-----|------|
+| T-P18-41 | **线语言 token 落 DesignSystem** + 8 场景页收编（瞄准线白固定 / 进球线绑目标球本色·深色球高明度变体 / 球迹线金 / 对照线白虚线弃蓝 / 90° 分离角白短虚线 / 两档线宽 lineMain·lineHint）+ `SequenceVideoExporter` 同源换装 | 逐页截图核验线色线宽一致；抽 2 条序列重出片核验 | ✅ 2026-07-04：`TrajectoryStyle` 扩展为线语言唯一真源（lineMain=0.0028/lineHint=0.0020/traceColor 金/hintColor 白虚/separationColor 白短虚/contactColor 绿/hintDash·hintGap；aimRadius·potRadius 并轨 lineMain 保兼容）。设计裁决落地：**线色=球的身份**（白=母球路径、目标球本色=该球路径）+ **线型=信息性质**（实线=真实/解，虚线=对照，短虚线=释义）；金退出轨迹专属方案标记。收编：`AngleTrainingScene` 静态可视化（进球线+标签绑球色〔新增 `currentTargetNumber`〕、接触点绿弃黄、90° 垂线白短虚弃黄实线〔定长虚段一次建成拖动零重建〕、角度弧绿+白读数弃蓝、分离角线白短虚弃暖黄）；分离角页（对照白虚弃浅蓝、90° 线弃青）；翻袋（解路线绑球色弃黄、反弹点金弃红、法线白细弃青、对照白虚、接触点绿）；反射（母球路径白弃黄、碰库点金弃红、对照白虚）。导出器经 token 同源自动生效。**验证（真实输出）**：build ✅；`testB3PlusGate` 复跑 Passed，b3p-06（29° 白读数/白短虚垂线/8 号亮灰进球线/绿接触点）b3p-08/09（翻袋反射新线色）核验；drill_c001+c018 两序列重出片 TEST SUCCEEDED，静帧核验母球白弧线+1 号黄进球线+线宽统一。**后续修正（DR-021，2026-07-05）**：90° 释义线锚点目标球心→**假想球球心**（90° 法则讲母球去向）、白→**品牌绿**短虚线（定杆时白线与母球白轨迹共线不可辨），token 单点换色全消费方生效，两道截图门复跑核验 |
+| T-P18-42 | **重叠标注三档组件化**（L0 假想球圈+接触点常驻 / L1 +切角小数值 / L2 全指标仅角度与打点页）+ 逐页配档表落 SPEC | 全瞄准场景 L0 可见；配档表+理由入 SPEC | ✅ 2026-07-05：**L0 组件化在场景层单点完成**——`AngleTrainingScene.ghostBallNode` 由黄色实心球重建为**品牌绿虚线圈**（16 段贴台呢平放，contactColor+lineHint，节点 API 不变 ⇒ 静态可视化/自由瞄准/解叠加/导出器全部自动换装）+ 新增 `updateContactDot(ghostCenter:targetCenter:)`/`hideContactDot()` 共享助手。接线补齐「圈+点成对」：分离角手动、编排台自由瞄准/袋口解、思路（解+几何预览）、三杆（①球预览+解）、**斯诺克解出后首次显示 L0**（`firstContact`=首碰瞬间母球球心摆圈）、导出器 `drawAimLines`。配档表+理由落 SPEC §8.7（L0-L2 定义/12 行逐页档位/显隐原则），§8.2 ghost 列指向 §8.7。**过程中揪出 P0**：`testB2ShotControls` 三连挂「Timed out while evaluating UI query」，`sample` 采样定位 `addDashedPath` 浮点相位推进死循环（潜伏自 B2，41 改虚线常量后必现）→ 重写为整数周期索引算法（FL-024，已回写 geometry SKILL）。**验证（真实输出）**：build ✅；`testB3PlusGate` Passed（b3p-06 裁剪核验绿虚圈+绿点+29° 弧）、`testB2ShotControls` Passed 10 张（手动模式圈+点、思路/三杆/斯诺克解预览）；两序列重出片 TEST SUCCEEDED，s01_still 核验导出侧绿虚圈+接触点同源 |
+| T-P18-43 | **自由瞄准重做**：台面手指跟随粗调（球上起手仍移球）+ 刻度轮去数值只留三级刻度 + 删瞄准线手柄圆环（编排台/分离角手动） | 真机/模拟器手感走查；截图核验 | ✅ 2026-07-05：**粗调=手指跟随**——`AngleSceneView` 手柄 44pt 命中判定删除，pan 起手未命中球即进入瞄准跟随分支（`onAimDragged`，.began 起逐帧回调台面世界坐标，指哪打哪；球命中优先移球不变）；**手柄圆环删净**——`AngleTrainingScene.setupAimHandle/updateAimHandle/aimHandleNode` 整体删除，两 VM（编排台/分离角）删 `freeAimHandleDist` 与手柄摆位段，`handleAimHandleDrag`→`handleAimDrag`（纯方向设定），死几何 API `rayDistanceToCushion` 连带删除；**刻度轮去数值**——`BTAimWheel` 删角度数值胶囊与整十度数字标签，只留 1°/5°/10° 三级刻度（`HUDStyle.tickColor` 新助手，白 40/25/15%）+ 金色当前位置线，刻度居中横排；批量出片台经共享组件自动生效。**验证（真实输出）**：`make build` ✅；`testB2ShotControls` TEST SUCCEEDED 10 张——b2-01/02 分离角瞄准线无圆环、刻度轮无数值、金指示线正常，b2-03 编排台自由模式同落位，b2-04–07 无回退。⚠️ 待真机：手指跟随灵敏度/刻度轮阻尼手感（挂 H 项随 ADR-P10-09 手感验收一并过） |
+| T-P18-44 | **ShotControlBar v2**：右缘竖直力度柱（离散档+暗调渐变+BTReadout 读数）+ 打点盘置顶成仪表柱 + 底部条简化，6 页换装 | 6 页截图核验；量程仍 `ShotTuning.velocityRange` 单一真源 | ✅ 2026-07-05：新建 `BTShotInstrumentColumn`（Z3a 右缘仪表柱：打点盘迷你图示置顶点开打点盘 + 竖直力度柱〔三级刻度与瞄准轮同族、`HUDStyle.powerGradient` 暗绿→暗金→暗橙水位渐变、金档位线、0.1 步进 detent 轻触感〕+ `BTReadout` 金读数 fixedSize 防折行）；瞄准刻度轮移**左**缘，与力度柱分居两侧（§1.5）。换装：分离角/编排台/批量出片台（editable 底部控制行删除）+ 球形生成器（开球量程仍 `RackGeneratorViewModel.powerRange` 专用）；场景页力度量程一律 `ShotTuning.velocityRange` 单一真源。`ShotControlBar` v2：**删 editable 形态**（签名平铺 velocity/subtitle/subtitleTint），B 类三页（思路/三杆/斯诺克）底栏只留解读数+试打。**验证（真实输出）**：`make xcodegen`+`make build` ✅；`testB2ShotControls` 浅色+Dark Mode 各 TEST SUCCEEDED 10 张——b2-01/02 左轮右柱落位、渐变水位+金读数「中 3.3」、底部条只剩重置/击球；b2-03 编排台同款、球库+击球正常；b2-04 生成器「大力 7.0」不折行；b2-05–07 B 类解读数行无回退；Dark 与浅色一致（场景页黑底常量） |
+| T-P18-45 | **HUD 风格 token**（仪表玻璃配方/三种形状/文字三级/状态语法/刻度语法）+ **`BTReadout` 组件化** + 读数换装 + 等宽数字扫齐 + 导出 HUD 同款 | 逐页 HUD 截图「裁掉台面仍认得出球迹」；违例清零 | ✅ 2026-07-04：新建 `HUDStyle.swift`（DesignSystem 唯一真源：glassTint 黑 60%/hairline 白 12% 0.5pt/文字三级 label·value·title/value 三通道白测量·金可调·红失误/chip 状态语法/刻度三级 40·25·15%+金指示）+ `View.btHudGlass(in:)` 修饰器（暗玻璃+模糊+发丝描边，**无阴影**）；新建 `BTReadout`（label+value 仪表窗，regular/compact 两档，等宽圆体数字）。换装：角度与打点指标条（5 读数）、分离角夹角、翻袋/反射三态 pill（库数金・切球读数化・序号 compact）、瞄准训练进度 pill/答题 HUD/总结卡、角度预测统计条、编排台瞄准胶囊——**全部弃 ultraThinMaterial+shadow 改 hudGlass**。组件收编：`BTChipRow` 未选态玻璃底+白 75% 字、`BTSceneFAB` 去阴影、`BTAimWheel` 刻度三级 40/25/15%+金数字弃金底、`BTSpinPadCard` 玻璃底+绿 title+金读数、`ShotControlBar` 力度读数金（可调/解量值）+ subtitle 等宽。导出 `ShotHUDView`：打点/力度读数金 + 力度水位金填充。**验证（真实输出）**：build ✅；`testB3PlusGate`+`testScenePopups` Passed，b3p-06（指标条仪表窗）/b3p-08（解 pill 金库数）/b3p-04（进度 pill）/p01（打点盘）/p04（统计条）核验；两序列重出片 TEST SUCCEEDED，静帧核验 HUD 条金量值同款 |
+| T-P18-46 | **学练四页真台化**：瞄准原理插图 / 球感锚点卡 / 进球点对照表（俯视重设计：同时见瞄准点+接触点）/ 角度预测题面（补 90° 参考线、修 75° 标签裁切） | 四页截图核验风格与场景页同源 | ✅ 2026-07-05：新建共享基建 `TableFigureRenderer`（真实 USDZ 空台离屏渲一次缓存成底图，全台/特写两种取景，正交映射钉死坐标契约：landscape 屏右=+X 屏上=−Z / portrait 屏上=+X；世界米→视图点线性换算）+ `BTTableFigure`（SwiftUI 容器，`TableFigureProjection` 暴露世界坐标摆球画线、`ballDiameter`/线宽同场景物理粗细）+ `FigureLine`（SwiftUI 侧从 `TrajectoryStyle` 同源取色零私设）+ `BTFigureBall`（`PoolBallFace` 真球面+接地影）/`BTGhostCircle`（品牌绿虚线圈）/`BTContactDot`/`BTFigureTag`。四页换装：①瞄准原理——切角全景换半台特写真台（真实右上角袋，进球线绑 1 号黄实线/瞄准线白实线/α 弧品牌绿+白读数/假想球绿圈+接触点），公式 30° 示例与厚薄四卡换台呢特写+真球面（d 标尺金=量值），术语扫替（切球角→切角、幽灵球→假想球）；②球感——四档锚点卡真台特写、2D 对比图整台真台+§1.2 线语言、30° 标签黄→白；③进球点对照表——抽象圆盘重设计为俯视真台交互图（瞄准方向竖直白实线为基准，拖滑条进球线转 α、假想球绕目标球转，瞄准点/接触点/横移 d 金标尺同见），术语扫替；④角度预测——题面台呢特写真台化（球按真实球径）、参考线补 90°、标签钳入画布治 75° 裁切、角度线/参考线/量角弧走 §1.2（白实线/白虚线/品牌绿）、确认钮禁用态走 §1.7（玻璃底+文字 30%）。**验证（真实输出）**：build ✅；`testAngleLearningPages`（扩至四页+滚动帧+参考线帧）TEST SUCCEEDED，10 张截图逐张核验：真台底图与场景页同源、线语言/重叠标注同款、90° 参考线齐全无裁切、禁用态可辨 |
+| T-P18-47 | **开球内置**编排台/思路/三杆（Z7 玩法选择+摆架+开球区拖白球+就地散局，复用 RackLayout/BreakSimulator）+ **球形生成器页下线**（入口卡/路由删除，core 保留）+ 测试同步 | 三页开球流程走通；生成器入口消失无死链；UI 测试全绿 | ✅ 2026-07-05：新建 `Core/Rack/BreakFlowRunner`（生成器 VM 的「摆架→开球区拖母球→BreakSimulator 真实散局→就地落座」闭环下沉为可嵌入 runner：seed 换局+塞扰动、刮杆补回开球区、`onSettled(board)` 交付宿主；同文件出共享 UI `BreakGamePickerSheet` 暗材质玩法选择〔中八/9/6/5/4，斯诺克不加——用户拍板〕、`BreakControlBar` 取消/换一局/开球、`BreakEntryTile` 球库行首入口块）。三宿主接入（编排台/思路/三杆 VM 各 +`startBreakFlow/cancelBreakFlow`）：进开球模式自存 `currentSnapshot()`、挂起求解/约束/角色/可视化（含 `hideAllVisualization` 清假想球残留），拖拽只路由 runner 母球（限开球区），散局落座为新真相（编排台自动选下一杆、思路/三杆清角色重选），取消恢复进场前球形；顶行开球 pill、导航副标 runner 状态。生成器页下线：`AngleRoute.rackGenerator`/入口卡/`MainTabView` case/两个页面文件删除，pbxproj 同步；`ScreenshotTourUITests` 生成器段改为编排台内置开球三连拍 + 思路/三杆摆架帧。**验证（真实输出）**：build ✅；`testB2ShotControls` TEST SUCCEEDED（b2-04a 玩法 sheet / b2-04b 摆架+瞄准线+开球条 / b2-04c 散局落座自动进编排、b2-05/06-break-racked 思路与三杆同款、取消后试打正常=恢复验证）；`RackGeneratorTests`+`BreakRackPhysicsTests`（core 不动）TEST SUCCEEDED |
+| T-P18-48 | **2D/3D 拆两卡**（隐藏页内 toggle、成绩分记、标题「2D/3D 瞄准训练」）+ 瞄准训练入口先弹完整训练设置再开始（训练中可换）+ 辅助线统一接线 | 两 UI 测试全绿；截图核验 | ✅ 2026-07-05：**拆两卡**——`AngleRoute.sceneAiming` → `sceneAiming2D/3D` 两 route，`SceneAimingView(initialCameraMode:)` 参数化（视角固定常量、页内 2D⇄3D toggle 删除、标题「2D/3D 瞄准训练」），练分段入口卡×2（瞄 2D 青绿 / 临 3D 深蓝）；**成绩分记**——`quizTypeLabel` 按 route 固定 scene2D/scene3D（历史口径沿用），`AngleQuizTypeFilter` 标签对齐新卡名（场景 2D/3D→2D/3D 瞄准）；**入口流程**——`setupScene` 新增 `autoStart:false`，进页先弹完整训练设置 sheet（练习模式+训练类型，`preferredColorScheme(.dark)` 治浮出层浅色违例〔§1.6，environment 方式压不暗 presentation 背景已踩坑〕，「开始训练/重新开始」金主钮），滑关兜底按当前默认开题不留死端；训练中齿轮可换=重开一轮；**辅助线统一接线**——`updateVisualization` 拆 `showOverlapMarkers`（接触点+90° 品牌绿短虚线，§1.2/§1.3 L1）与 `showAngleAnnotations`（数值角弧）两独立开关，辅助档改为保留重叠标注+90° 短虚线、仅隐藏数值弧（数值即答案）。**验证（真实输出）**：build ✅；`testB3PlusGate`（b3p-04 2D / b3p-04b 辅助档 90° 绿短虚+接触点 / b3p-05 3D 站位）+ `testUnifiedDesignPages`（u03b-settings 暗材质 sheet + u03b-2d）均 TEST SUCCEEDED，截图逐张核验 |
+| T-P18-49 | 三杆角色下移 Z6 底部横排（台面恢复全宽）+ 求解三态（思路/三杆/斯诺克：就绪/求解中/尚无解）+ 编排台失误态去重 + 设置 sheet 暗材质 + 统计 chip 加字前缀 | 逐项截图核验 | ✅ 2026-07-05：**三杆角色下移**——`PlanThreeView` 右侧 70pt 竖排 `roleRail` 删除，台面恢复全宽；Z6 新增 `roleRow`（解读数行下、球库行上：①球→①袋→②球→②袋→③球 横排 chip + 清空钮，armed/filled 视觉语法不变），VM 提示文案「右侧」→「下方」四处同步；**求解三态**——核验三解页（思路/三杆/斯诺克）B2 期已具备完整三态：就绪 hint（「已就绪，点求解…」）→「求解中…」（Z1 副标题+mini spinner）→ 有解 `解 n/N · 进阶/最接近解` / 尚无解（「未找到解（试着…）」），本任务零改动仅确认与契约 §3.4 一致；**编排台失误去重**——`makeStatus` 删两处「母球进袋（失误）」早退，scratch 状态由 Z2 红 pill 唯一承担、Z1 副标题回中性（自由球/进袋/未进袋事实描述）；**sheet 暗材质收尾**——翻袋/反射两个原理 sheet 加 `preferredColorScheme(.dark)`（练习 Tab 浅色 sheet 清零；info 按钮补 AX label「原理」）；**统计 chip 加字**——瞄准训练进度 pill 三个 SF 图标换单字 label（题/袋/差/剩），与几何角度训练指标条同 `BTReadout` 语法。**验证（真实输出）**：build ✅；`testB2ShotControls` TEST SUCCEEDED（b2-06 三杆全宽台面+底部角色横排核验、开球模式无回归）；`testScenePopups` TEST SUCCEEDED（p03b 反射原理 sheet 暗材质核验） |
+| T-P18-50 | 翻袋顶部重排（袋口台面直点+两行无截断）+ 多解则补「下一解」对齐反射 + 术语扫替（切角/假想球/力度）+ 页名=卡名（角度预测/翻袋解球器）+ 词表落 SPEC | 截图核验；全 Tab 术语 grep 清零 | ✅ 2026-07-05：袋口 chip 行删除改台面直点选定（高亮圈），顶部两行无截断（§8.4）；「下一解」FAB 对齐反射页；用户可见字符串扫替清零（切角/假想球/力度，含 `ShotPredictor`/`AngleDynamicViewModel` 不可行文案）；页名=卡名（角度预测/翻袋解球器，历史筛选同步）；词表落 SPEC §8.8（11 条规范术语+禁用别名）。验证：build ✅；`testB3PlusGate`+P5 全套 TEST SUCCEEDED（两处过期断言随台词更新），翻袋理想/真实两帧截图核验（解 pill「切角 14°/15°」） |
+| T-P18-51 | 学→练 CTA 导流三条 + 答错回原理 + 拍照送入三目的地/步骤指示 + 角度与打点首拖提示 | 链路点击走通；截图核验 | ✅ 2026-07-05：新增 `PracticeCTA` 学页导流卡（`NavigationLink(value: AngleRoute)`）——原理→角度预测、球感→2D 瞄准训练、角度预测结果卡「去真台练」常驻+偏差较大补「回看原理」；拍照建球形送入收成「送入…」菜单三目的地（编排台/思路/**三杆**）+ 步骤指示「第 n 步 / 共 4 步 · 步骤名」；角度与打点首拖提示（`@AppStorage` 一次性，拖动后让位袋口提示）。验证：build ✅；新增 `testLearnPracticeFlow` TEST SUCCEEDED，lp01–06 六帧截图核验（CTA 卡/到达页/结果卡双链/首拖 banner/步骤指示） |
+| T-P18-52 | 设计稿定稿入 SPEC §9（9.1 设计语言/9.2 HUD 分区/9.3 每页契约/9.4 重叠标注配档表）+ Changelog | SPEC 更新；Changelog 记录 | ✅ 2026-07-05：SPEC 新增「九、练习体验品牌设计定稿」——§9.1 设计语言（五签名元素 + 代码唯一真源索引表：TrajectoryStyle/场景层重叠标注/BTReadout/BTAimWheel·BTShotInstrumentColumn/HUDStyle，信号色四通道封闭）、§9.2 HUD 七分区（含铁律三条，Z6 补开球入口、Z7 注明 preferredColorScheme(.dark)）、§9.3 逐页契约（16 页现行形态表 + 全局项，含生成器已下线注记）、§9.4 指向 §8.7 不重复维护；Changelog 记录。**B3.5 批 12 任务全部 ✅ 收官** |
+| ✅门 | **UI 美观性验收**：分段验收（41/45/42 后一次、43/44 后一次、46/47/48 后一次、49/50/51 后一次），每次含 Dark Mode | 截图结论记录 | 🔄 **第一段（41/45/42）✅ 2026-07-05**：浅色 `testB3PlusGate` 13 张 + `testB2ShotControls` 10 张 + `testScenePopups` 5 张逐张核验（线语言/仪表玻璃读数/绿虚圈+接触点三件套全落位，裁剪放大核验 b3p-06 与 b2-02 细节）；**Dark Mode 复跑 `testB3PlusGate` 13 张 TEST SUCCEEDED**（场景页黑底设计常量不变、练习首页暗色网格正常）。产物 `build/b42gate*`、`build/b42dark`、`build/b45hud`。**第二段（43/44）✅ 2026-07-05**：`testB2ShotControls` 浅色 + Dark Mode 各 10 张 TEST SUCCEEDED 逐张核验——瞄准线无手柄圆环、左轮（无数值三级刻度+金指示）右柱（渐变水位+金读数）两根尺子对称落位、底部条简化后无破版、B 类三页无回退、生成器读数不折行；产物 `build/b43gate`、`build/b44gate`、`build/b44dark`。余两段随 46/47/48、49/50/51 | 
+
+## B3.6 — 练习 Tab 问题集合批（2026-07-06/07 立批并收官）
+
+> 来源：用户《问题集合.md》25 条（需求真源，与 SPEC §9 冲突处以问题集合为准）+ 4 项关键决策确认（拆两页/完整规则引擎/袋口鼻尖标定/地基优先）。计划真源：`~/.cursor/plans/练习tab问题集合落地_9ed76669.plan.md`。执行方式：每任务单独 todo list、逐任务 build + 截图/测试验收。
+
+| 任务 | 内容 | 状态 |
+|------|------|------|
+| A1 | 线语言 v2：进球线/母球击后轨迹改虚线（本色绑定保留）、所有被带动球轨迹画出、假想球心红点（瞄准点）、去球选中圆圈 | ✅ |
+| A2 | `BTTrajectoryDetailChip` 三档标注（全部球轨迹/母球+目标球/仅瞄准线+假想球）接入全部击打页，自由模式未碰球瞄准线延伸至库边 | ✅ |
+| A3 | 控件瘦身：`BTAimWheel` 纯相对微调去数值；力度柱量程 0.5–8.0 + 非线性 γ=1.8 + 两行读数 + 默认 1.5；`BTSpinPadOverlay` 紧凑近透明点外关闭 | ✅ |
+| A4 | 布局规范 v2（条 18，最高优先）：仪表柱底部与下角袋齐平、右侧 `BTShotActionColumn`（击球/上一杆/回放文字钮竖排）、左侧 `BTBreakSideButton`（无开球页禁用态常驻）、球库两排居中放大 | ✅ |
+| A5 | 4×8 台面网格 `BTTableGridMenuToggle`（`UserPreferences.showTableGrid`）入各球桌页设置 | ✅ |
+| A6 | 渲染统一：地面中心纯黑；2D/3D 瞄准页发灰白根因（enhanced 管线）收敛到 plain 观感 | ✅ |
+| A7 | 袋口容错：`pocketNoseRestitution` 0.60→**0.70**（`PocketBehaviorDiagTests` 力度扫描标定：低中力沿库进袋、≥2.4 m/s 冲袋被鼻尖拒绝） | ✅ |
+| A8 | 全局用户可见文案 α→θ（θ=切角入 SPEC §8.8 术语表） | ✅ |
+| B1–B3 | 瞄准原理（名词系统/θ 标注位/d=2R·sinθ 推导）、浅谈球感（定义重写+视角差异图重做）、瞄准点对照表（改名/标注对调修正/估角误差交互演示） | ✅ |
+| C1–C4 | 角度与打点加球库+目标球可选；角度预测键盘遮挡修复+交互对齐；2D/3D 瞄准训练改名「2D/3D 角度训练」+随机球号+进球线颜色修复+渲染修正 | ✅ |
+| D1–D3 | 新页三张：瞄准点训练（拖假想球+mm 误差、`AngleTestResult` 扩展）/2D 瞄准点训练（瞄准线微调+辅助线交点误差+自动击球）/3D 瞄准点训练 | ✅ |
+| E1 | 编排台改名「自由走位」：去开球去录制、进袋/自由合并为 `BTAimModeToggleButton` 单钮切换（保留进袋瞄准点） | ✅ |
+| E2 | 「自由击球」新页 `FreePlayView`：开球状态机（开球→开球中→重开/完成，`BreakFlowRunner` 增 `.settled` 相位 + `autoDeliverOnSettle`） | ✅ |
+| E3 | 中八/追分规则调研文档（`docs/research/`）+ `BilliardRulesEngine`（`ChineseEightBallRules`/`ZhuifenRules`：开球定边/花色分边/犯规自由球/8 号胜负/追分计分轮转）接入自由击球；`BilliardRulesEngineTests` 全绿 | ✅ |
+| E4 | 分离角与走位：换 `PositionPlayViewModel` 底座、进袋/自由切换、球库限 2 目标球（`maxTargetBalls`）、默认教学球形、布局对齐 A4 | ✅ |
+| E5 | 批量出片台：布局按 A4、「点换」（选球与母球换位）、「辅助线」（两步确认+±10° 轴吸附+线上球自动均分+不进 JSON+击球隐藏，`BatchGuideLine`） | ✅ |
+| E6 | 思路训练器改名「思路训练」+ 三解页（思路/三杆/斯诺克）同规范：落区只留矩形、「求解/下一解」文字钮左侧竖排、右侧仪表柱+击球/上一杆/回放（VM 新增 `adjustCurrentSolution`〔求解后微调力度/打点即重预测〕、`undoLastShot`/`replayLastShot`）、删导出删试打、齿轮并入省略号菜单标题居中；入口卡/拍照送入/UI 测试同步改名 | ✅ 2026-07-07（build ✅；`testB2ShotControls` TEST SUCCEEDED，b2-05/06/07 截图核验三页新布局；`QiuJiTests` 454/454 绿 2 skip） |
+| ✅门 | 总验收：问题集合 1–25 逐条核验 + 全量单测 + SPEC/PROGRESS/Hub 回写 | ✅ 2026-07-07（见下验收清单；`QiuJiTests` 454 tests 0 failures TEST SUCCEEDED） |
+
+### 问题集合 1–25 验收清单（2026-07-07）
+
+| 条 | 内容摘要 | 落地任务 | 状态 |
+|----|---------|---------|------|
+| 1 | 瞄准原理页重组（名词系统/标注/公式推导） | B1 | ✅ |
+| 2 | 角度与打点加球库、目标球可选 | C1 | ✅ |
+| 3 | 浅谈球感重写 + 视角差异图重做 | B2 | ✅ |
+| 4 | 瞄准点对照表改名/标注修正/红点/估角演示（4.4 α→θ） | B3 + A8 | ✅ |
+| 5 | 角度预测键盘遮挡 + 交互对齐 | C2 | ✅ |
+| 6 | 2D 角度训练改名/随机球号/进球线颜色/渲染（6.3 发灰白） | C3 + A6 | ✅ |
+| 7 | 3D 角度训练同步 | C4 | ✅ |
+| 8 | 新页·瞄准点训练（拖假想球 + mm 误差） | D1 | ✅ |
+| 9 | 新页·2D 瞄准点训练（微调 + 交点误差 + 自动击球） | D2 | ✅ |
+| 10 | 新页·3D 瞄准点训练 | D3 | ✅ |
+| 11 | 地面纯黑渲染统一 | A6 | ✅ |
+| 12 | 线语言 v2 + 三档标注（12.5） | A1 + A2 | ✅ |
+| 13 | 控件瘦身（刻度轮/力度条/打点盘/默认 1.5） | A3 | ✅ |
+| 14 | 袋口容错（鼻尖恢复系数标定 0.70） | A7 | ✅ |
+| 15 | 自由击球新页 + 开球状态机 + 规则引擎（15.10） | E2 + E3 | ✅ |
+| 16 | 4×8 网格入设置 | A5 | ✅ |
+| 17 | 分离角与走位（进袋/自由、限 2 目标球） | E4 | ✅ |
+| 18 | 布局规范 v2（最高优先级） | A4（全页收编） | ✅ |
+| 19 | 编排台→自由走位（去开球去录制、单钮切换） | E1 | ✅ |
+| 20 | 批量出片台（点换 + 辅助线） | E5 | ✅ |
+| 21 | 思路训练（改名/按钮重排/微调/菜单合并/删导出试打） | E6 | ✅ |
+| 22 | 打一走二想三同规范 | E6 | ✅ |
+| 23 | 做斯诺克同规范 | E6 | ✅ |
+| 24 | 翻袋/反射解球器**不动** | —（未触碰） | ✅ |
+| 25 | 元规则：与既有 SPEC 冲突以问题集合为准，落地后回写 | final（SPEC §10 + Changelog） | ✅ |
+
 ## B4 — WP-C 观感反馈
 
 | 任务 | 内容 | DoD | 状态 |
 |------|------|-----|------|
 | T-P18-15 | 落袋下沉观感（D1=方案 A）：`TrajectoryPlayback` 追加与导出器同参数 Y 下沉（常量抽单一真源，导出器 L416–421 改引用）；2D 顶视叠加「缩放 0.85+阴影淡出」 | 6 条回放路径落袋帧目验无退化 | ⏳ |
-| T-P18-16 | 音效接线：`RackGeneratorViewModel` 开球回放补 `ShotAudioScheduler.play/cancel`（~10 行）；素材到位（H-18）后真机听感验收 | 素材缺失时静默 no-op 不破 | ⏳ |
+| T-P18-16 | 音效接线：`BreakFlowRunner` 开球回放补 `ShotAudioScheduler.play/cancel`（~10 行；原生成器页已下线，T-P18-47 后开球闭环在此）；素材到位（H-18）后真机听感验收 | 素材缺失时静默 no-op 不破 | ⏳ |
 | T-P18-17 | 贴近球放大镜（D9，10-e）：loupe 从 `BallExtractionView` L644–664 抽 `Core/Components/BTLoupe.swift`（参数化）；拖球球心距<3R 自动浮现；接入编排台/自由击球/分离角 | 拖球流畅无遮挡冲突 | ⏳ |
 | ✅门 | **UI 美观性验收**：落袋帧/放大镜浮现截图核验 | 截图结论记录 | ⏳ |
 

@@ -2,6 +2,8 @@ import SwiftUI
 
 struct ContactPointTableView: View {
     @State private var sliderAngle: Double = 30
+    /// 估角演示：母球沿真实瞄准线到假想球的距离（米）。
+    @State private var estimationDistance: Double = 0.55
 
     // 设计决策（P9-05 APPROVED）：移除球种切换，固定中八球径 R=28.575mm。
     private let ballRadiusMM: Double = 28.575
@@ -40,13 +42,14 @@ struct ContactPointTableView: View {
             VStack(spacing: Spacing.xxl) {
                 interactiveSection
                 principleSection
+                estimationSection
                 staticTable
                 sineCurveSection
             }
             .padding(Spacing.lg)
         }
         .background(.btBG)
-        .navigationTitle("进球点对照表")
+        .navigationTitle("瞄准点对照表")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
     }
@@ -55,14 +58,13 @@ struct ContactPointTableView: View {
 
     private var interactiveSection: some View {
         VStack(spacing: Spacing.lg) {
-            Text("拖动查看接触点")
+            Text("拖动查看瞄准点与接触点")
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
-            Circle()
-                .fill(.btBGTertiary)
-                .frame(width: 160, height: 160)
-                .overlay { ballDiagram(angle: sliderAngle, size: 160) }
+            aimFigure
+                .frame(height: 220)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
             VStack(spacing: Spacing.xs) {
                 Text("\(Int(sliderAngle))°")
@@ -108,6 +110,65 @@ struct ContactPointTableView: View {
         standardAngles.first(where: { abs($0.angle - angle) < 0.5 })?.commonName
     }
 
+    // MARK: - 俯视真台交互图（T-P18-46 重设计）
+
+    /// 俯视图真台渲染：以**母球方向为竖直基准**（瞄准线白实线），拖滑条时进球方向
+    /// 转 α、假想球绕目标球转动 —— 同时看见瞄准点（假想球心）与接触点（绿点）。
+    private var aimFigure: some View {
+        let r = CGFloat(AngleSceneCalculator.ballRadius)
+        return BTTableFigure(orientation: .landscape,
+                             closeup: (center: .zero, halfHeight: r * 4.3)) { proj in
+            let d = proj.ballDiameter
+            let rad = sliderAngle * .pi / 180
+            // 目标球略靠上，给下方母球来向留空间。
+            let target = CGPoint(x: proj.size.width / 2, y: proj.size.height * 0.40)
+            // 进球方向与竖直瞄准方向夹 α（向右转）；假想球 = 目标球心 − 2R×进球方向。
+            let potDir = CGPoint(x: sin(rad), y: -cos(rad))
+            let ghost = CGPoint(x: target.x - d * potDir.x, y: target.y - d * potDir.y)
+            let contact = CGPoint(x: (target.x + ghost.x) / 2, y: (target.y + ghost.y) / 2)
+            let potEnd = CGPoint(x: target.x + potDir.x * d * 2.4,
+                                 y: target.y + potDir.y * d * 2.4)
+
+            ZStack {
+                // 进球线（目标球 → 袋口方向）：绑球色虚线（线语言 v2）。
+                Path { p in p.move(to: target); p.addLine(to: potEnd) }
+                    .stroke(FigureLine.pot(number: 1),
+                            style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [6, 4]))
+
+                // 瞄准线（母球方向，竖直白实线，穿过假想球心 = 瞄准点）。
+                Path { p in
+                    p.move(to: CGPoint(x: ghost.x, y: proj.size.height - 8))
+                    p.addLine(to: CGPoint(x: ghost.x, y: ghost.y))
+                }
+                .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
+
+                // 横移量 d 标尺（金 = 量值）：目标球心 → 假想球心的横向偏移。
+                if sliderAngle > 3 {
+                    let dimY = proj.size.height * 0.88
+                    Path { p in
+                        p.move(to: CGPoint(x: target.x, y: dimY))
+                        p.addLine(to: CGPoint(x: ghost.x, y: dimY))
+                    }
+                    .stroke(Color.btAccent, lineWidth: 1.4)
+                }
+
+                BTGhostCircle(diameter: d).position(ghost)
+                BTFigureBall(number: 1, diameter: d).position(target)
+                // 接触点浮于球面之上（否则被目标球盖住）。
+                BTContactDot(diameter: max(4, d * 0.22)).position(contact)
+
+                BTFigureTag(text: "袋口方向", color: FigureLine.pot(number: 1))
+                    .position(x: potEnd.x, y: potEnd.y - 12)
+                // 条 4.1/4.2：瞄准点 = 假想球心（红），接触点 = 两球相切处（绿）。
+                BTFigureTag(text: "瞄准点", color: FigureLine.aimPoint)
+                    .position(x: ghost.x + d * 0.95, y: ghost.y + d * 0.35)
+                BTFigureTag(text: "接触点", color: FigureLine.contact)
+                    .position(x: contact.x - d * 0.95, y: contact.y)
+            }
+            .animation(.easeOut(duration: 0.12), value: sliderAngle)
+        }
+    }
+
     // MARK: - Principle
 
     private var principleSection: some View {
@@ -119,7 +180,7 @@ struct ContactPointTableView: View {
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
             }
-            Text("d = 2R × sin(α)")
+            Text("d = 2R × sin(θ)")
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.btPrimary)
             HStack(spacing: 0) {
@@ -127,8 +188,8 @@ struct ContactPointTableView: View {
                     .fill(.btAccent)
                     .frame(width: 4)
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("d 为横移量（幽灵球中心偏移目标球中心的距离），α 为切球角，R 为球半径。")
-                    Text("d/R = 2sin(α) 为无量纲比，表中「d(mm)」按中八球径 57.15mm 计算。")
+                    Text("d 为横移量（假想球中心偏移目标球中心的距离），θ 为切角，R 为球半径。")
+                    Text("d/R = 2sin(θ) 为无量纲比，表中「d(mm)」按中八球径 57.15mm 计算。")
                 }
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
@@ -139,6 +200,124 @@ struct ContactPointTableView: View {
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+
+    // MARK: - 中心连线估角与距离误差（条 4.5）
+
+    /// 实战中看不见假想球，常用「母球–目标球中心连线」代替真实瞄准线来估角。
+    /// 本节交互演示：两线夹角 Δ 随母球距离增大而变小 → 远台估角更可靠。
+    private var estimationSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "scope")
+                    .foregroundStyle(.btPrimary)
+                Text("实战估角：中心连线法")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+            }
+
+            Text("台面上并不存在假想球，真实瞄准线（白）也就无从直接看见。实战里常用的替代方法：把母球与目标球**球心连线**（金色虚线）当作近似瞄准线来估计切角 θ。")
+                .font(.btCallout)
+                .foregroundStyle(.btTextSecondary)
+
+            estimationFigure
+                .frame(height: 190)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+
+            VStack(spacing: Spacing.xs) {
+                Text(String(format: "估角误差 Δ ≈ %.1f°", estimationErrorDegrees))
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .foregroundStyle(.btPrimary)
+                Text("两线夹角 = 用中心连线估角时引入的角度误差")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+            .frame(maxWidth: .infinity)
+
+            HStack {
+                Text("近")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+                Slider(value: $estimationDistance, in: 0.30...1.60)
+                    .tint(.btPrimary)
+                Text("远")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+
+            HStack(spacing: 0) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(.btAccent)
+                    .frame(width: 4)
+                Text("两线在目标球附近相差固定的一段横移量（≤2R），距离越远，同样的横移量对应的夹角越小。因此**远台用中心连线估角误差很小**；近台两线夹角明显，需要有意识地把估出的角度再修正一点。")
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextSecondary)
+                    .padding(.leading, Spacing.sm)
+            }
+        }
+        .padding(Spacing.lg)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+    }
+
+    /// 演示用固定布局：θ=30° 切球，滑条改变母球沿真实瞄准线的距离。
+    private var estimationLayout: (cue: CGPoint, target: CGPoint, ghost: CGPoint, potDir: CGPoint) {
+        let r = Double(AngleSceneCalculator.ballRadius)
+        let target = CGPoint(x: 0.75, y: -0.25)
+        let corner = CGPoint(x: 1.27, y: -0.635)
+        let pv = CGPoint(x: corner.x - target.x, y: corner.y - target.y)
+        let pLen = hypot(pv.x, pv.y)
+        let potDir = CGPoint(x: pv.x / pLen, y: pv.y / pLen)
+        let ghost = CGPoint(x: target.x - 2 * r * potDir.x, y: target.y - 2 * r * potDir.y)
+        let a: Double = 30.0 * .pi / 180
+        let cosA: Double = cos(a)
+        let sinA: Double = sin(a)
+        let aimX: Double = Double(potDir.x) * cosA - Double(potDir.y) * sinA
+        let aimY: Double = Double(potDir.x) * sinA + Double(potDir.y) * cosA
+        let cueX: Double = Double(ghost.x) - aimX * estimationDistance
+        let cueY: Double = Double(ghost.y) - aimY * estimationDistance
+        let cue = CGPoint(x: cueX, y: cueY)
+        return (cue, target, ghost, potDir)
+    }
+
+    private var estimationErrorDegrees: Double {
+        let l = estimationLayout
+        let v1 = CGPoint(x: l.ghost.x - l.cue.x, y: l.ghost.y - l.cue.y)
+        let v2 = CGPoint(x: l.target.x - l.cue.x, y: l.target.y - l.cue.y)
+        let dot = v1.x * v2.x + v1.y * v2.y
+        let mag = hypot(v1.x, v1.y) * hypot(v2.x, v2.y)
+        guard mag > 0 else { return 0 }
+        return acos(min(max(dot / mag, -1), 1)) * 180 / .pi
+    }
+
+    private var estimationFigure: some View {
+        BTTableFigure(orientation: .landscape) { proj in
+            let l = estimationLayout
+            let cue = proj.point(x: l.cue.x, z: l.cue.y)
+            let target = proj.point(x: l.target.x, z: l.target.y)
+            let ghost = proj.point(x: l.ghost.x, z: l.ghost.y)
+            let d = proj.ballDiameter
+
+            ZStack {
+                // 真实瞄准线：母球 → 假想球心（白实线）。
+                Path { p in p.move(to: cue); p.addLine(to: ghost) }
+                    .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
+                // 中心连线估角线：母球 → 目标球心（金虚线）。
+                Path { p in p.move(to: cue); p.addLine(to: target) }
+                    .stroke(Color.btAccent,
+                            style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [5, 4]))
+
+                BTGhostCircle(diameter: d).position(ghost)
+                BTFigureBall(number: 1, diameter: d).position(target)
+                BTFigureBall(diameter: d).position(cue)
+
+                BTFigureTag(text: "真实瞄准线")
+                    .position(x: (cue.x + ghost.x) / 2, y: (cue.y + ghost.y) / 2 - 14)
+                BTFigureTag(text: "中心连线", color: .btAccent)
+                    .position(x: (cue.x + target.x) / 2, y: (cue.y + target.y) / 2 + 14)
+            }
+            .animation(.easeOut(duration: 0.12), value: estimationDistance)
+        }
     }
 
     // MARK: - Static table (expanded)
@@ -165,8 +344,8 @@ struct ContactPointTableView: View {
 
     private var headerRow: some View {
         HStack(spacing: 0) {
-            Text("切球角").font(.btCaption2).frame(width: 44, alignment: .leading)
-            Text("sin(α)").font(.btCaption2).frame(width: 44)
+            Text("切角").font(.btCaption2).frame(width: 44, alignment: .leading)
+            Text("sin(θ)").font(.btCaption2).frame(width: 44)
             Text("d/R").font(.btCaption2).frame(width: 36)
             Text("偏移%").font(.btCaption2).frame(width: 40)
             Text("d(mm)").font(.btCaption2).frame(width: 44)
@@ -323,47 +502,6 @@ struct ContactPointTableView: View {
         }
     }
 
-    // MARK: - Ball diagram
-
-    private func ballDiagram(angle: Double, size: CGFloat) -> some View {
-        Canvas { ctx, canvasSize in
-            let r = min(canvasSize.width, canvasSize.height) / 2 - 4
-            let center = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-
-            ctx.stroke(Path(ellipseIn: CGRect(x: center.x - r, y: center.y - r,
-                                              width: 2 * r, height: 2 * r)),
-                       with: .color(.btTextSecondary), lineWidth: 1.5)
-
-            let dotR: CGFloat = 2
-            ctx.fill(Path(ellipseIn: CGRect(x: center.x - dotR, y: center.y - dotR,
-                                            width: 2 * dotR, height: 2 * dotR)),
-                     with: .color(.btTextTertiary))
-
-            let offset = sin(angle * .pi / 180.0)
-            let cpX = center.x - r * offset
-            let cpR: CGFloat = max(3, r * 0.15)
-            ctx.fill(Path(ellipseIn: CGRect(x: cpX - cpR, y: center.y - cpR,
-                                            width: 2 * cpR, height: 2 * cpR)),
-                     with: .color(.btPrimary))
-
-            if size > 50 {
-                let arrowStart = CGPoint(x: center.x + r + 6, y: center.y)
-                let arrowEnd   = CGPoint(x: center.x + r + 18, y: center.y)
-                var arrow = Path()
-                arrow.move(to: arrowStart)
-                arrow.addLine(to: arrowEnd)
-                ctx.stroke(arrow, with: .color(.btTextTertiary), lineWidth: 1.5)
-
-                var head = Path()
-                head.move(to: arrowEnd)
-                head.addLine(to: CGPoint(x: arrowEnd.x - 4, y: arrowEnd.y - 3))
-                head.move(to: arrowEnd)
-                head.addLine(to: CGPoint(x: arrowEnd.x - 4, y: arrowEnd.y + 3))
-                ctx.stroke(head, with: .color(.btTextTertiary), lineWidth: 1.5)
-            }
-        }
-        .frame(width: size, height: size)
-    }
 }
 
 // MARK: - Preview

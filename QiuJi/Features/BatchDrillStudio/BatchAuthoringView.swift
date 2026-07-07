@@ -281,6 +281,13 @@ struct BatchAuthoringView: View {
     @State private var paletteFrame: CGRect = .zero
     @State private var banner: String?
 
+    // 点换（条 20.3）：激活后点桌上另一颗球，与母球交换位置。
+    @State private var swapMode = false
+
+    // 辅助线（条 20.4–20.9）：两步确认起/终点，±10° 吸附水平/垂直，白色；
+    // 在线上的球自动均分；不进 JSON（仅场景节点）；击球时隐藏。
+    @StateObject private var guide = BatchGuideLine()
+
     private static let paletteColumns = 8
 
     private var drill: BatchDrill? { context.current }
@@ -293,21 +300,58 @@ struct BatchAuthoringView: View {
                 ZStack(alignment: .bottom) {
                     sceneContainer
                     if solver.isSolvingTool { drawingOverlay }
-                    if composer.aimMode == .free {
-                        BTAimWheel(
-                            bearing: Double(composer.freeAimBearingDeg ?? 0),
-                            onNudge: { composer.nudgeFreeAim(byDegrees: $0) }
-                        )
-                        .frame(width: 46, height: 240)
-                        .padding(.trailing, 8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
-                        .allowsHitTesting(!composer.isPlaying)
+                    if guide.isPicking { guideOverlay }
+                    // 布局规范 v2（条 18 + 条 20.1/20.5）：左 = 辅助线按钮（刻度轮上方）+
+                    // 刻度轮 + 开球禁用态；右 = 点换 + 打点/力度柱 + 击球/上一杆/回放列。
+                    VStack(spacing: 10) {
+                        Spacer(minLength: 0)
+                        BTTextActionButton(title: guide.phase == .off ? "辅助线" : "清除线",
+                                           isDisabled: composer.isPlaying) {
+                            guideButtonTapped()
+                        }
+                        if composer.aimMode == .free {
+                            BTAimWheel(onNudge: { composer.nudgeFreeAim(byDegrees: $0) })
+                                .frame(width: 34, height: 200)
+                                .allowsHitTesting(!composer.isPlaying)
+                        }
+                        BTBreakSideButton(isEnabled: false) {}
                     }
+                    .padding(.leading, 8)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+
+                    VStack(spacing: 10) {
+                        Spacer(minLength: 0)
+                        BTTextActionButton(title: "点换",
+                                           role: swapMode ? .primary : .plain,
+                                           isDisabled: composer.isPlaying) {
+                            toggleSwapMode()
+                        }
+                        BTShotInstrumentColumn(
+                            spinX: composer.spinX, spinY: composer.spinY,
+                            onSpinTap: { showSpinPad = true },
+                            velocity: $composer.velocity,
+                            range: ShotTuning.velocityRange,
+                            isDisabled: composer.isPlaying
+                        )
+                        .frame(width: 36, height: 220)
+                        BTShotActionColumn(
+                            strikeTitle: composer.isPlaying ? "击球中" : "击球",
+                            strikeEnabled: strikeEnabled,
+                            onStrike: { strike() },
+                            undoEnabled: !composer.isPlaying && composer.canReplay,
+                            onUndo: { composer.replayCurrent() },
+                            playbackEnabled: !composer.isPlaying && composer.canPlayback,
+                            onPlayback: { composer.replayLastShot() }
+                        )
+                    }
+                    .padding(.trailing, 8)
+                    .padding(.bottom, 8)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+
                     if showSpinPad {
-                        BTSpinPadCard(spinX: $composer.spinX, spinY: $composer.spinY,
-                                      onClose: { showSpinPad = false })
-                            .frame(maxWidth: 264)
-                            .padding(.bottom, 80)
+                        BTSpinPadOverlay(spinX: $composer.spinX, spinY: $composer.spinY,
+                                         onClose: { showSpinPad = false })
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
@@ -481,17 +525,25 @@ struct BatchAuthoringView: View {
             draggableBallNodes: solver.activeTool == .arrange ? composer.draggableBalls : [],
             onDragBegan: { composer.dragBegan(node: $0) },
             onDragMoved: { composer.dragMoved(node: $0, worldPosition: $1) },
-            onDragEnded: { composer.dragEnded(node: $0) },
+            onDragEnded: { node in
+                composer.dragEnded(node: node)
+                redistributeGuideBalls()   // 拖球落在辅助线上 → 自动均分（条 20.6）
+            },
             onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },
             selectableBallNodes: composer.selectableBalls,
-            onBallTapped: { composer.selectTarget(node: $0) },
+            onBallTapped: { handleBallTapped($0) },
             onTableTapped: { composer.handleTableTap(world: $0) },
-            onAimHandleDragged: { composer.handleAimHandleDrag(world: $0) },
+            onAimDragged: { composer.handleAimDrag(world: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
+        // 三档轨迹标注切换（条 12.5）：全击打页统一放球桌区右上角。
+        .overlay(alignment: .topTrailing) {
+            BTTrajectoryDetailChip { composer.recompute() }
+                .padding(Spacing.sm)
+        }
     }
 
     private var drawingOverlay: some View {
@@ -518,15 +570,12 @@ struct BatchAuthoringView: View {
         return CanvasPoint(x: Double(n.x), y: Double(n.y))
     }
 
-    // MARK: - Bottom bar (composer control row + palette + actions)
+    // MARK: - Bottom bar（条 20.2：原球库右侧按键上移，两排球上方一字排开）
 
     private var bottomBar: some View {
-        HStack(spacing: 0) {
-            VStack(spacing: 0) {
-                controlRow
-                paletteBar
-            }
-            actionColumn
+        VStack(spacing: 4) {
+            saveRow
+            paletteBar
         }
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
@@ -534,61 +583,28 @@ struct BatchAuthoringView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private var controlRow: some View {
-        HStack(spacing: Spacing.sm) {
-            Button { showSpinPad = true } label: {
-                BTSpinMiniIcon(spinX: composer.spinX, spinY: composer.spinY, diameter: 34)
-            }
-            .buttonStyle(.plain)
-            .disabled(composer.isPlaying)
-
-            Slider(value: $composer.velocity, in: 0.5...6.0, step: 0.1)
-                .tint(Color.btPrimary)
-                .disabled(composer.isPlaying)
-
-            Text("\(PowerDisplay.name(composer.velocity)) \(String(format: "%.1f", composer.velocity))")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .monospacedDigit()
-                .frame(width: 58, alignment: .trailing)
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 4)
-    }
-
-    private var actionColumn: some View {
-        VStack(spacing: 6) {
-            Button { strike() } label: {
-                HStack(spacing: 5) {
-                    CueStickShape().frame(width: 15, height: 15).foregroundStyle(.white)
-                    Text(composer.isPlaying ? "击球中" : "击球")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 96, height: 40)
-                .background(strikeEnabled ? Color.btPrimary : Color.btPrimary.opacity(0.3), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(!strikeEnabled)
-
-            HStack(spacing: 6) {
-                smallButton(system: "arrow.uturn.backward", label: "重打（删末杆并退回）",
-                            tint: .white.opacity(0.14)) { composer.replayCurrent() }
-                    .disabled(composer.isPlaying || !composer.canReplay)
-                smallButton(system: "clock.arrow.circlepath", label: "回上一杆球形（保留记录，可再追加）",
-                            tint: .white.opacity(0.14)) { composer.restorePreviousBoard() }
-                    .disabled(composer.isPlaying || !composer.canReplay)
-            }
-
+    /// 保存/序列操作横排（条 20.2）：杆数 + 回上一杆球形 + 两个保存去向。
+    private var saveRow: some View {
+        HStack(spacing: 8) {
             Text("\(composer.stepCount) 杆")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(.white)
                 .monospacedDigit()
-                .frame(width: 96, height: 22)
+                .frame(width: 56, height: 28)
                 .background(.white.opacity(0.08), in: Capsule())
 
+            Button { composer.restorePreviousBoard() } label: {
+                actionPill(title: "回上一杆球形", system: "clock.arrow.circlepath",
+                           tint: .white.opacity(0.14))
+            }
+            .buttonStyle(.plain)
+            .disabled(composer.isPlaying || !composer.canReplay)
+
+            Spacer(minLength: 0)
+
             Button { save(mode: .stay) } label: {
-                actionPill(title: "保存·选下张图", system: "square.and.arrow.down", tint: .white.opacity(0.16))
+                actionPill(title: "保存·选下张图", system: "square.and.arrow.down",
+                           tint: .white.opacity(0.16))
             }
             .buttonStyle(.plain)
             .disabled(composer.isPlaying)
@@ -599,8 +615,8 @@ struct BatchAuthoringView: View {
             .buttonStyle(.plain)
             .disabled(composer.isPlaying)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 6)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.top, 5)
     }
 
     private func actionPill(title: String, system: String, tint: Color) -> some View {
@@ -610,7 +626,8 @@ struct BatchAuthoringView: View {
                 .lineLimit(1).minimumScaleFactor(0.7)
         }
         .foregroundStyle(.white)
-        .frame(width: 96, height: 34)
+        .padding(.horizontal, 10)
+        .frame(height: 28)
         .background(tint, in: Capsule())
     }
 
@@ -618,23 +635,126 @@ struct BatchAuthoringView: View {
         !composer.isPlaying && !composer.isComputing && composer.isFeasible
     }
 
-    @ViewBuilder
-    private func smallButton(system: String, label: String, tint: Color,
-                             action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 43, height: 40)
-                .background(tint, in: Circle())
-                .overlay(Circle().stroke(.white.opacity(0.12), lineWidth: 0.5))
+    // MARK: - 点换（条 20.3）
+
+    private func toggleSwapMode() {
+        swapMode.toggle()
+        if swapMode {
+            guard composer.onTableKeys.contains(PositionPlayBall.cueKey) else {
+                swapMode = false
+                flash("桌面无母球，无法点换")
+                return
+            }
+            flash("点换：点击桌上另一颗球，与母球交换位置")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(label)
+    }
+
+    /// 点球分流：点换模式 = 与母球交换位置；其余 = 原目标球选择。
+    private func handleBallTapped(_ node: SCNNode) {
+        if swapMode {
+            performSwap(node)
+        } else {
+            composer.selectTarget(node: node)
+        }
+    }
+
+    private func performSwap(_ node: SCNNode) {
+        swapMode = false
+        guard let key = composer.scene.ballKey(for: node),
+              key != PositionPlayBall.cueKey,
+              let cue = composer.scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
+            flash("请点击桌上一颗非母球")
+            return
+        }
+        let cuePos = cue.position
+        cue.position = node.position
+        node.position = cuePos
+        composer.recompute()
+        flash("已交换母球与 \(PositionPlayBall.shortLabel(for: key)) 的位置")
+    }
+
+    // MARK: - 辅助线（条 20.4–20.9）
+
+    private func guideButtonTapped() {
+        if guide.phase == .off {
+            guide.begin()
+        } else {
+            guide.clear(scene: composer.scene)
+        }
+    }
+
+    /// 辅助线取点覆盖层：拖/点选起点或终点（世界坐标经 projector 反投影）。
+    private var guideOverlay: some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0, coordinateSpace: .named("batchAuthor"))
+                    .onChanged { setGuidePoint(at: $0.location) }
+                    .onEnded { setGuidePoint(at: $0.location) }
+            )
+            .overlay(alignment: .top) { guideControls }
+    }
+
+    private func setGuidePoint(at location: CGPoint) {
+        guard sceneFrame != .zero else { return }
+        let local = CGPoint(x: location.x - sceneFrame.minX, y: location.y - sceneFrame.minY)
+        guard let world = projector.unproject?(local) else { return }
+        guide.setPoint(world, scene: composer.scene)
+    }
+
+    /// 辅助线阶段提示 + 确认/取消（两步确认，条 20.5）。
+    private var guideControls: some View {
+        HStack(spacing: Spacing.sm) {
+            if let hint = guide.hint {
+                Text(hint)
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+            }
+            Button {
+                if guide.confirm(scene: composer.scene) {
+                    redistributeGuideBalls()
+                }
+            } label: {
+                Text("确认")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12).frame(height: 26)
+                    .background(guide.hasCurrentPoint ? Color.btPrimary : Color.btPrimary.opacity(0.3),
+                                in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .disabled(!guide.hasCurrentPoint)
+            Button {
+                guide.clear(scene: composer.scene)
+            } label: {
+                Text("取消")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .padding(.horizontal, 12).frame(height: 26)
+                    .background(.white.opacity(0.12), in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 6)
+        .btHudGlass()
+        .padding(.top, Spacing.sm)
+    }
+
+    /// 均分摆球（条 20.6）：把落在辅助线上的球调整到均分位置（1 球中点、2 球 1/3 与 2/3，
+    /// 端点不放球），然后触发重算。
+    private func redistributeGuideBalls() {
+        if guide.redistribute(keys: composer.onTableKeys, scene: composer.scene) {
+            composer.recompute()
+            flash("在线球已均分排布")
+        }
     }
 
     /// 击球：消费编排引擎的当前解推演并记一杆；完成后清掉本杆约束/解，准备下一杆。
+    /// 辅助线在击球时隐藏（条 20.8）。
     private func strike() {
+        guide.clear(scene: composer.scene)
         composer.play()
         // 击球后桌面前进、自动选下一杆（由 composer 处理）；清掉求解层上一杆约束。
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -700,6 +820,7 @@ struct BatchAuthoringView: View {
                 } else {
                     composer.placeFromPalette(key)
                 }
+                redistributeGuideBalls()   // 新球落在辅助线上 → 自动均分（条 20.6）
             }
     }
 
@@ -732,6 +853,9 @@ struct BatchAuthoringView: View {
             Section {
                 Button("重打", systemImage: "arrow.uturn.backward") { composer.replayCurrent() }
                     .disabled(!composer.canReplay)
+            }
+            Section("显示") {
+                BTTableGridMenuToggle(scene: composer.scene)
             }
         } label: {
             Image(systemName: "ellipsis.circle")
@@ -813,6 +937,151 @@ struct BatchAuthoringView: View {
             Color.clear.preference(key: BatchAuthorFramePreference.self,
                                    value: [id: geo.frame(in: .named("batchAuthor"))])
         }
+    }
+}
+
+// MARK: - 辅助线（条 20.4–20.9）
+
+/// 出片台辅助线状态机：起点/终点两步确认；终点与水平/垂直夹角 < 10° 自动吸附
+/// （SceneKit X–Z 台面系：吸附 = 对齐 X 轴向或 Z 轴向）；白色；只存在于场景节点
+/// （不进 JSON）；击球时由宿主 `clear` 隐藏。
+@MainActor
+final class BatchGuideLine: ObservableObject {
+    enum Phase: Equatable { case off, pickStart, pickEnd, placed }
+
+    @Published private(set) var phase: Phase = .off
+    private(set) var startPoint: SCNVector3?
+    private(set) var endPoint: SCNVector3?
+    private var nodes: [SCNNode] = []
+
+    /// 吸附阈值（度）：与水平/垂直夹角小于该值时归为轴向线（条 20.4）。
+    static let snapDeg: Float = 10
+
+    var isPicking: Bool { phase == .pickStart || phase == .pickEnd }
+
+    /// 当前阶段是否已有可确认的点。
+    var hasCurrentPoint: Bool {
+        switch phase {
+        case .pickStart: return startPoint != nil
+        case .pickEnd: return endPoint != nil
+        default: return false
+        }
+    }
+
+    var hint: String? {
+        switch phase {
+        case .off, .placed: return nil
+        case .pickStart: return startPoint == nil ? "点按球桌选起点" : "可拖动微调起点"
+        case .pickEnd: return endPoint == nil ? "点按球桌选终点" : "±10° 自动吸附水平/垂直"
+        }
+    }
+
+    func begin() {
+        startPoint = nil
+        endPoint = nil
+        phase = .pickStart
+    }
+
+    /// 取点（世界坐标）：pickStart 设起点，pickEnd 设终点（带轴向吸附）。
+    func setPoint(_ world: SCNVector3, scene: AngleTrainingScene) {
+        let y = scene.surfaceY + 0.003
+        let p = SCNVector3(world.x, y, world.z)
+        switch phase {
+        case .pickStart:
+            startPoint = p
+        case .pickEnd:
+            guard let a = startPoint else { return }
+            endPoint = snapped(end: p, from: a)
+        default:
+            return
+        }
+        render(scene: scene)
+    }
+
+    /// 确认当前点：起点 → 进入终点阶段；终点 → 定线。返回 true = 辅助线已就位
+    /// （宿主随即做一次均分摆球）。
+    @discardableResult
+    func confirm(scene: AngleTrainingScene) -> Bool {
+        switch phase {
+        case .pickStart where startPoint != nil:
+            phase = .pickEnd
+            return false
+        case .pickEnd where endPoint != nil:
+            phase = .placed
+            render(scene: scene)
+            return true
+        default:
+            return false
+        }
+    }
+
+    func clear(scene: AngleTrainingScene) {
+        scene.clearResultNodes(nodes: &nodes)
+        startPoint = nil
+        endPoint = nil
+        phase = .off
+    }
+
+    /// 终点吸附：与 X 轴向夹角 < 10° → 对齐起点 Z（水平）；与 Z 轴向夹角 < 10° →
+    /// 对齐起点 X（垂直）；其余保留原始终点（条 20.4）。
+    private func snapped(end: SCNVector3, from start: SCNVector3) -> SCNVector3 {
+        let dx = abs(end.x - start.x)
+        let dz = abs(end.z - start.z)
+        guard dx > 1e-5 || dz > 1e-5 else { return end }
+        let angleToXAxis = atan2f(dz, dx) * 180 / .pi
+        if angleToXAxis < Self.snapDeg { return SCNVector3(end.x, end.y, start.z) }
+        if angleToXAxis > 90 - Self.snapDeg { return SCNVector3(start.x, end.y, end.z) }
+        return end
+    }
+
+    /// 渲染：白色细线 + 起/终点小十字（条 20.9）。
+    private func render(scene: AngleTrainingScene) {
+        scene.clearResultNodes(nodes: &nodes)
+        let white = UIColor.white.withAlphaComponent(0.9)
+        func cross(_ c: SCNVector3) {
+            let r: Float = 0.018
+            nodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
+                                       to: SCNVector3(c.x + r, c.y, c.z), color: white, radius: 0.0022))
+            nodes.append(scene.addLine(from: SCNVector3(c.x, c.y, c.z - r),
+                                       to: SCNVector3(c.x, c.y, c.z + r), color: white, radius: 0.0022))
+        }
+        if let a = startPoint { cross(a) }
+        if let b = endPoint { cross(b) }
+        if let a = startPoint, let b = endPoint {
+            nodes.append(scene.addLine(from: a, to: b, color: white, radius: 0.0018))
+        }
+    }
+
+    /// 均分摆球（条 20.6）：统计球心落在线上（距线段 < 1.2R 且不在端点）的在桌球，
+    /// 按沿线投影排序后摆到 i/(n+1) 等分点（端点不放球）。返回 true = 有球被调整。
+    func redistribute(keys: [String], scene: AngleTrainingScene) -> Bool {
+        guard phase == .placed, let a = startPoint, let b = endPoint else { return false }
+        let abx = b.x - a.x, abz = b.z - a.z
+        let len2 = abx * abx + abz * abz
+        guard len2 > 1e-6 else { return false }
+        let r = AngleSceneCalculator.ballRadius
+
+        var onLine: [(key: String, t: Float)] = []
+        for key in keys {
+            guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
+            let px = node.position.x - a.x, pz = node.position.z - a.z
+            let t = (px * abx + pz * abz) / len2
+            guard t > 0.02, t < 0.98 else { continue }        // 端点不算
+            let cx = a.x + abx * t, cz = a.z + abz * t
+            let dx = node.position.x - cx, dz = node.position.z - cz
+            if sqrtf(dx * dx + dz * dz) < r * 1.2 { onLine.append((key, t)) }
+        }
+        guard !onLine.isEmpty else { return false }
+
+        onLine.sort { $0.t < $1.t }
+        let n = onLine.count
+        let y = scene.surfaceY + r
+        for (i, item) in onLine.enumerated() {
+            let f = Float(i + 1) / Float(n + 1)
+            scene.allBallNodes[item.key]?.position =
+                SCNVector3(a.x + abx * f, y, a.z + abz * f)
+        }
+        return true
     }
 }
 

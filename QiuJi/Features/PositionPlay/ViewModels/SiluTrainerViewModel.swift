@@ -1,6 +1,7 @@
 import Foundation
 import SceneKit
 import SwiftUI
+import Combine
 
 /// 思路训练器 ViewModel（走位反解器，ADR-P13-01）。
 ///
@@ -104,6 +105,14 @@ final class SiluTrainerViewModel: ObservableObject {
     private let solveQueue = DispatchQueue(label: "com.qiuji.silu-solve", qos: .userInitiated)
     private var solveGeneration = 0
     private var surfaceY: Float { scene.surfaceY }
+
+    // MARK: - Last shot（条 21.3：上一杆/回放）
+
+    /// 上一杆完整上下文：击打前快照 + 意图 + 预测。上一杆 = 恢复 before；回放 = 重播动画。
+    private var lastShotContext: (before: BoardSnapshot, shot: PlannedShot,
+                                  prediction: ShotPrediction)?
+    @Published private(set) var canUndoShot = false
+    @Published private(set) var canPlayback = false
 
     // MARK: - Setup
 
@@ -452,10 +461,53 @@ final class SiluTrainerViewModel: ObservableObject {
 
     // MARK: - Solution display
 
+    /// 三档轨迹标注切换后重绘当前解（`BTTrajectoryDetailChip` 触发，条 12.5）。
+    func redrawTrajectory() {
+        guard !isPlaying, let sol = currentSolution else { return }
+        drawTrajectory(sol.prediction, shot: sol.shot)
+    }
+
     func nextSolution() {
         guard !solutions.isEmpty else { return }
         currentIndex = (currentIndex + 1) % solutions.count
         showSolution(at: currentIndex)
+    }
+
+    /// 微调当前解（条 21.4）：求解完成后用户改打点/力度，按新参数重预测替换当前解
+    /// （轨迹/进袋结果如实更新，用户可对照约束自行取舍）。
+    func adjustCurrentSolution(velocity v: Double? = nil,
+                               spinX sx: Double? = nil, spinY sy: Double? = nil) {
+        guard !isPlaying, !isComputing, let sol = currentSolution else { return }
+        var shot = sol.shot
+        if let v { shot.velocity = v }
+        if let sx { shot.spinX = sx }
+        if let sy { shot.spinY = sy }
+        let before = currentSnapshot()
+        let y = surfaceY
+        let idx = currentIndex
+        solveGeneration += 1
+        let gen = solveGeneration
+        isComputing = true
+
+        solveQueue.async { [weak self] in
+            let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+            DispatchQueue.main.async {
+                guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
+                self.isComputing = false
+                guard let pred, self.solutions.indices.contains(idx) else { return }
+                self.solutions[idx] = PositionPlaySolution(
+                    shot: shot, prediction: pred,
+                    cushionCount: pred.cueCushionCount,
+                    potted: pred.simObjectPotted,
+                    margin: sol.margin,
+                    summary: "微调 · " + SiluSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
+                        + String(format: " · %.1f m/s", shot.velocity),
+                    satisfiesConstraint: sol.satisfiesConstraint,
+                    beyondCushionBudget: sol.beyondCushionBudget
+                )
+                self.showSolution(at: idx)
+            }
+        }
     }
 
     private func showSolution(at index: Int) {
@@ -486,28 +538,33 @@ final class SiluTrainerViewModel: ObservableObject {
     private func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
-        addPolyline(p.cuePath, color: TrajectoryStyle.aimColor, radius: TrajectoryStyle.aimRadius)
-        var objPath = p.objectPath
-        if p.objectPocketed, let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
-            objPath = PositionPlayShotSolver.extendPathToPocketRim(objPath, pocketIndex: pocketIndex, surfaceY: surfaceY)
+        // 线语言 v2（条 12）+ 三档标注（条 12.5）：母球碰前白实线 + 碰后白虚线；
+        // 目标球/被带动球本色虚线。
+        let detail = UserPreferences.shared.trajectoryDetail
+        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
+                               into: &trajectoryNodes)
+        if detail != .minimal {
+            var objPath = p.objectPath
+            if p.objectPocketed, let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
+                objPath = PositionPlayShotSolver.extendPathToPocketRim(objPath, pocketIndex: pocketIndex, surfaceY: surfaceY)
+            }
+            scene.addObjectTrajectory(objPath, ballKey: shot.targetKey, into: &trajectoryNodes)
         }
-        addPolyline(objPath, color: TrajectoryStyle.potColor(for: shot.targetKey), radius: TrajectoryStyle.potRadius)
-        for (key, pts) in p.extraBallPaths {
-            addPolyline(pts, color: TrajectoryStyle.potColor(for: key, alpha: 0.85), radius: TrajectoryStyle.potRadius)
+        if detail == .full {
+            for (key, pts) in p.extraBallPaths {
+                scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
+            }
         }
         if let ghost = scene.ghostBallNode {
             ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
             ghost.isHidden = false
+            // 重叠标注 L0（T-P18-42）：假想球圈 + 接触点绿点成对出现。
+            if let target = scene.allBallNodes[shot.targetKey], !target.isHidden {
+                scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target.position)
+            }
         }
         if UserPreferences.shared.showSeparationAngle {
             scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
-        }
-    }
-
-    private func addPolyline(_ pts: [SCNVector3], color: UIColor, radius: Float) {
-        guard pts.count >= 2 else { return }
-        for i in 0..<(pts.count - 1) {
-            trajectoryNodes.append(scene.addLine(from: pts[i], to: pts[i + 1], color: color, radius: radius))
         }
     }
 
@@ -604,23 +661,23 @@ final class SiluTrainerViewModel: ObservableObject {
 
     // MARK: - Selection feedback + instant geometry preview
 
-    /// 选中反馈：目标球绿色选中环（常驻）；无解时再叠加几何预览（假想球 + 瞄准线 + 进球线，
-    /// 纯几何即时绘制，不跑物理），让「点球选目标 / 点袋选袋」立刻可见，无需先求解。
+    /// 选中反馈（线语言 v2，条 12.3：弃选中环——假想球圈 + 进球线已明确标示选中目标球）：
+    /// 无解时叠加几何预览（假想球 + 瞄准线 + 进球线，纯几何即时绘制，不跑物理），
+    /// 让「点球选目标 / 点袋选袋」立刻可见，无需先求解。
     private func refreshOverlays() {
         scene.clearResultNodes(nodes: &selectionNodes)
         guard !isPlaying else { return }
         let showingSolution = currentSolution != nil && !isComputing
         guard let tkey = selectedTargetKey,
               let tn = scene.allBallNodes[tkey], !tn.isHidden else {
-            if !showingSolution { scene.ghostBallNode?.isHidden = true }
+            if !showingSolution {
+                scene.ghostBallNode?.isHidden = true
+                scene.hideContactDot()
+            }
             return
         }
-        // 目标球选中环（亮绿）。
-        let ringColor = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 0.95)
-        strokeCircle(center: tn.position, radius: AngleSceneCalculator.ballRadius * 1.75,
-                     color: ringColor, into: &selectionNodes)
 
-        // 已有解时由轨迹叠加负责其余渲染，这里只保留选中环。
+        // 已有解时由轨迹叠加负责渲染。
         guard !showingSolution, selectedPocketIndex >= 0,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return }
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
@@ -628,16 +685,18 @@ final class SiluTrainerViewModel: ObservableObject {
             targetBall: tn.position, pocketIndex: selectedPocketIndex, surfaceY: surfaceY)
         let ghost = AngleSceneCalculator.ghostBallPosition(
             targetBall: tn.position, pocket: aim, ballRadius: AngleSceneCalculator.ballRadius)
-        // 瞄准线（母球→假想球，淡白）+ 进球线（目标球→袋口，随球色）。
+        // 瞄准线（母球→假想球，淡白实线）+ 进球线（目标球→袋口，随球色虚线）。
         selectionNodes.append(scene.addLine(from: cue.position, to: ghost,
                                             color: UIColor.white.withAlphaComponent(0.45),
                                             radius: TrajectoryStyle.aimRadius))
-        selectionNodes.append(scene.addLine(from: tn.position, to: pockets[selectedPocketIndex],
-                                            color: TrajectoryStyle.potColor(for: tkey, alpha: 0.55),
-                                            radius: TrajectoryStyle.aimRadius))
+        scene.addDashedPolyline([tn.position, pockets[selectedPocketIndex]],
+                                color: TrajectoryStyle.potColor(for: tkey, alpha: 0.55),
+                                radius: TrajectoryStyle.aimRadius, into: &selectionNodes)
         if let g = scene.ghostBallNode {
             g.position = SCNVector3(ghost.x, surfaceY + AngleSceneCalculator.ballRadius, ghost.z)
             g.isHidden = false
+            // 重叠标注 L0（T-P18-42）：几何预览同样补齐接触点绿点。
+            scene.updateContactDot(ghostCenter: g.position, targetCenter: tn.position)
         }
     }
 
@@ -676,6 +735,11 @@ final class SiluTrainerViewModel: ObservableObject {
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
 
+        // 记录上一杆上下文（条 21.3）：击打前快照 + 意图 + 预测，供上一杆/回放。
+        lastShotContext = (currentSnapshot(), sol.shot, sol.prediction)
+        canUndoShot = false
+        canPlayback = false
+
         isPlaying = true
         statusText = "运杆…"
         clearConstraintNodes()
@@ -683,6 +747,95 @@ final class SiluTrainerViewModel: ObservableObject {
         scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity)) { [weak self] in
             self?.launchBalls(sol: sol, recorder: recorder)
         }
+    }
+
+    /// 上一杆（条 21.3）：回到上次击打前的球形（约束/解已随击打清空，回到摆球态）。
+    func undoLastShot() {
+        guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
+        loadBoard(ctx.before)
+        canUndoShot = false
+        canPlayback = false
+        lastShotContext = nil
+        statusText = "已退回上一杆击打前"
+    }
+
+    /// 回放上一杆击打过程（条 21.3）：退回击打前重播动画，播完回到击打后局面。
+    func replayLastShot() {
+        guard !isPlaying, canPlayback, let ctx = lastShotContext,
+              let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
+        let after = currentSnapshot()
+        isPlaying = true
+        clearTrajectory()
+        clearConstraintNodes()
+        scene.clearResultNodes(nodes: &selectionNodes)
+        scene.hideCueStick()
+        statusText = "回放上一杆…"
+
+        scene.hideAllBalls()
+        for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+
+        guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
+              let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
+            finishPlayback(after: after)
+            return
+        }
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim,
+                           velocity: Float(ctx.shot.velocity)) { [weak self] in
+            self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+        }
+    }
+
+    private func runPlaybackAnimation(
+        ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
+        recorder: TrajectoryRecorder, after: BoardSnapshot
+    ) {
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let settle = playback.perceptibleSettleTime()
+
+        var cueAction: SCNAction?
+        for key in onTableKeys {
+            guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
+            let name = PositionPlayShotSolver.predName(boardKey: key, shot: ctx.shot)
+            let action = playback.action(for: node, ballName: name, speed: 1.0,
+                                         removeOnPocket: false, maxSimTime: settle)
+            if key == PositionPlayBall.cueKey { cueAction = action }
+            else if let action { node.runAction(action) }
+        }
+        let tail: TimeInterval = ctx.prediction.pocketedBalls.isEmpty
+            ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
+        if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
+            cueNode.runAction(cueAction) { [weak self] in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    self?.finishPlayback(after: after)
+                }
+            }
+            ShotAudioScheduler.shared.play(prediction: ctx.prediction)
+        } else {
+            finishPlayback(after: after)
+        }
+    }
+
+    /// 回放收尾：清动画、恢复击打后局面（保留上一杆上下文，可反复回放/退回）。
+    private func finishPlayback(after: BoardSnapshot) {
+        ShotAudioScheduler.shared.cancel()
+        for key in PositionPlayBall.allKeys {
+            guard let node = scene.allBallNodes[key] else { continue }
+            if node.parent == nil { scene.rootNode.addChildNode(node) }
+            node.removeAllActions()
+            node.opacity = 1
+        }
+        isPlaying = false
+        scene.hideCueStick()
+        let ctx = lastShotContext
+        loadBoard(after)
+        lastShotContext = ctx   // loadBoard 不动上下文，但显式保底
+        canUndoShot = ctx != nil
+        canPlayback = ctx != nil
+        statusText = "回放结束 · 球停在击打后局面"
     }
 
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
@@ -750,6 +903,9 @@ final class SiluTrainerViewModel: ObservableObject {
         scene.hideCueStick()
         resetParamDisplay()
         refreshOverlays()
+
+        canUndoShot = lastShotContext != nil
+        canPlayback = lastShotContext?.prediction.recorder != nil
 
         let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
         statusText = cueGone
@@ -826,5 +982,56 @@ final class SiluTrainerViewModel: ObservableObject {
         if selectedPocketIndex < 0 { return "点击袋口选择目标袋" }
         if currentConstraint() == nil { return toolHint() }
         return "已就绪，点「求解」反解走位"
+    }
+
+    // MARK: - Break flow（T-P18-47：内置开球，替代球形生成器页）
+
+    /// 开球模式 runner。非 nil = 开球模式：约束/求解/摆球交互全部挂起。
+    @Published private(set) var breakRunner: BreakFlowRunner?
+    var isBreakMode: Bool { breakRunner != nil }
+    private var boardBeforeBreak: BoardSnapshot?
+    private var breakChangeForwarder: AnyCancellable?
+
+    /// 进入开球模式：存当前桌面 → 清约束与解 → 摆架。
+    func startBreakFlow(game: RackGame) {
+        guard !isPlaying, breakRunner == nil else { return }
+        activeTool = .none
+        boardBeforeBreak = currentSnapshot()
+        selectedTargetKey = nil
+        selectedPocketIndex = -1
+        clearConstraint()
+        invalidateSolutions()
+        scene.clearResultNodes(nodes: &selectionNodes)
+        scene.hideAllVisualization()   // 假想球等持久可视化节点不在 selectionNodes 内
+        scene.hideCueStick()
+        let runner = BreakFlowRunner(scene: scene, game: game)
+        breakChangeForwarder = runner.objectWillChange
+            .sink { [weak self] _ in self?.objectWillChange.send() }
+        runner.onSettled = { [weak self] board in
+            guard let self else { return }
+            self.teardownBreakFlow()
+            self.loadBoard(board)
+        }
+        breakRunner = runner
+        runner.rackUp()
+    }
+
+    /// 取消开球模式并恢复进场前桌面。
+    func cancelBreakFlow() {
+        guard let runner = breakRunner else { return }
+        runner.cancel()
+        let restore = boardBeforeBreak
+        teardownBreakFlow()
+        if let restore, !restore.onTable.isEmpty {
+            loadBoard(restore)
+        } else {
+            clearTable()
+        }
+    }
+
+    private func teardownBreakFlow() {
+        breakRunner = nil
+        breakChangeForwarder = nil
+        boardBeforeBreak = nil
     }
 }
