@@ -47,70 +47,31 @@ struct PositionPlayComposerView: View {
 
     /// 球库固定序（#1）：第一行 = 母球 + 1–7，第二行 = 8–15；每行 8 个槽位。
     private static let paletteColumns = 8
+    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
+    private static let topRowHeight: CGFloat = 46
+    private static let bottomBarHeight: CGFloat = 94
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 0) {
-                topInfoRow
-                ZStack(alignment: .bottom) {
-                    sceneContainer
-                    // 布局规范 v2（条 18）：动作列贴底部角袋区，仪表柱在其上方
-                    // （柱底 ≈ 下角袋橡胶上沿）；左 = 瞄准刻度轮 + 开球，右 = 打点/力度 + 动作列。
-                    if !vm.isBreakMode {
-                        VStack(spacing: 10) {
-                            Spacer(minLength: 0)
-                            if vm.aimMode == .free {
-                                BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
-                                    .frame(width: 34, height: 220)
-                                    .allowsHitTesting(!vm.isPlaying)
-                            }
-                            // 条 19.2：自由走位无开球——按条 18.4 显示禁用态。
-                            BTBreakSideButton(isEnabled: false) {}
-                        }
-                        .padding(.leading, 8)
-                        .padding(.bottom, 8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomLeading)
-
-                        VStack(spacing: 10) {
-                            Spacer(minLength: 0)
-                            BTShotInstrumentColumn(
-                                spinX: vm.spinX, spinY: vm.spinY,
-                                onSpinTap: { showSpinPad = true },
-                                velocity: $vm.velocity,
-                                range: ShotTuning.velocityRange,
-                                isDisabled: vm.isPlaying
-                            )
-                            .frame(width: 36, height: 240)
-                            // 条 18.2：击球/上一杆/回放竖排贴右下角袋区。
-                            BTShotActionColumn(
-                                strikeTitle: vm.isPlaying ? "击球中" : "击球",
-                                strikeEnabled: strikeEnabled,
-                                onStrike: { vm.play() },
-                                undoEnabled: !vm.isPlaying && vm.canReplay,
-                                onUndo: { vm.replayCurrent() },
-                                playbackEnabled: !vm.isPlaying && vm.canPlayback,
-                                onPlayback: { vm.replayLastShot() }
-                            )
-                        }
-                        .padding(.trailing, 8)
-                        .padding(.bottom, 8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomTrailing)
-                    }
-                    // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（系统 sheet 底下是
-                    // 纯黑+压暗层会显得过深，ADR-P11-09）。
-                    if showSpinPad {
-                        BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                         onClose: { showSpinPad = false })
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+        GeometryReader { geo in
+            let extents = vm.tableOuterHalfExtents
+            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let proxy = ShotStageProxy(
+                sceneSize: CGSize(width: geo.size.width, height: sceneH),
+                halfLength: extents.length, halfWidth: extents.width
+            )
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topInfoRow
+                        .frame(height: Self.topRowHeight)
+                    stage(proxy)
+                        .frame(height: sceneH)
+                    bottomBar(proxy)
+                        .frame(height: Self.bottomBarHeight)
                 }
-                bottomBar
+                if let key = draggingKey { dragGhost(key) }
+                bannerView
             }
-            if let key = draggingKey { dragGhost(key) }
-            bannerView
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .coordinateSpace(name: "composer")
@@ -165,6 +126,62 @@ struct PositionPlayComposerView: View {
             : "清空桌面上所有球？"
     }
 
+    // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
+
+    private func stage(_ proxy: ShotStageProxy) -> some View {
+        ZStack(alignment: .topLeading) {
+            sceneContainer
+
+            if !vm.isBreakMode && proxy.isValid {
+                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
+                BTTrajectoryDetailChip { vm.recompute() }
+                    .btChipBandPlacement(proxy)
+                    .allowsHitTesting(!vm.isPlaying)
+
+                // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
+                if vm.aimMode == .free {
+                    BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                        .btStageFrame(proxy.aimWheelFrame())
+                        .allowsHitTesting(!vm.isPlaying)
+                }
+
+                // G6 开球按钮（条 19.2 本页无开球，禁用态）：左下角，底边齐球桌底线。
+                BTBreakSideButton(isEnabled: false) {}
+                    .btStageFrame(proxy.breakButtonFrame())
+
+                // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
+                BTShotInstrumentColumn(
+                    spinX: vm.spinX, spinY: vm.spinY,
+                    onSpinTap: { showSpinPad = true },
+                    velocity: $vm.velocity,
+                    range: ShotTuning.velocityRange,
+                    isDisabled: vm.isPlaying
+                )
+                .btStageFrame(proxy.instrumentFrame())
+
+                // 条 18.2：击球/上一杆/回放竖排，右下角底边齐球桌底线。
+                BTShotActionColumn(
+                    strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                    strikeEnabled: strikeEnabled,
+                    onStrike: { vm.play() },
+                    undoEnabled: !vm.isPlaying && vm.canReplay,
+                    onUndo: { vm.replayCurrent() },
+                    playbackEnabled: !vm.isPlaying && vm.canPlayback,
+                    onPlayback: { vm.replayLastShot() }
+                )
+                .btStageFrame(proxy.actionColumnFrame())
+            }
+
+            // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（ADR-P11-09）。
+            if showSpinPad {
+                BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
+                                 onClose: { showSpinPad = false })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+    }
+
     // MARK: - Scene container (table only, zero overlays #2/#3)
 
     private var sceneContainer: some View {
@@ -204,13 +221,6 @@ struct PositionPlayComposerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
-        // 三档轨迹标注切换（条 12.5）：全击打页统一放球桌区右上角。
-        .overlay(alignment: .topTrailing) {
-            if !vm.isBreakMode {
-                BTTrajectoryDetailChip { vm.recompute() }
-                    .padding(Spacing.sm)
-            }
-        }
     }
 
     // MARK: - Nav status (#2：状态文案上移导航栏，不占球桌)
@@ -262,8 +272,7 @@ struct PositionPlayComposerView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.xs)
-        .padding(.bottom, Spacing.xs)
+        .frame(maxHeight: .infinity)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
     }
@@ -316,12 +325,10 @@ struct PositionPlayComposerView: View {
         .btHudGlass()
     }
 
-    /// 开球模式标识胶囊（T-P18-47）：玩法名 + 提示。
+    /// 开球模式标识胶囊（T-P18-47）：玩法名 + 提示（G9：摆架图形与开球按钮同源）。
     private var breakModePill: some View {
         HStack(spacing: 4) {
-            Image(systemName: "triangle")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.btPrimary)
+            BreakRackGlyph(color: .btPrimary, size: 13)
             Text("开球 · \(vm.breakRunner.map { BreakFlowRunner.title(for: $0.game) } ?? "")")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.92))
@@ -346,14 +353,15 @@ struct PositionPlayComposerView: View {
 
     // MARK: - Bottom bar (布局规范 v2：动作按钮上移球桌区，底部只留球库，条 18)
 
-    private var bottomBar: some View {
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
         Group {
             if vm.isBreakMode {
                 breakBar
             } else {
-                paletteBar
+                paletteBar(proxy)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .background(frameReader(id: "palette"))
@@ -375,23 +383,23 @@ struct PositionPlayComposerView: View {
 
     // MARK: - Palette bar (条 18.4：两排中心与球桌中心对齐、球加大、高度缩减)
 
-    private var paletteBar: some View {
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         // #5a：球库常显全部 16 颗（母球 + 1–7 / 8–15 固定槽位）；在桌球变暗、不可拖，
-        // 点击在桌球 = 让桌上对应球放大脉冲提示其位置。
+        // 点击在桌球 = 让桌上对应球放大脉冲提示其位置。G8：排球总宽 = 球桌宽、居中。
         let all = PositionPlayBall.allKeys
         let row1 = Array(all.prefix(Self.paletteColumns))
         let row2 = Array(all.dropFirst(Self.paletteColumns))
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
         return VStack(spacing: 3) {
-            paletteRow(row1)
-            paletteRow(row2)
+            paletteRow(row1, columnWidth: columnWidth)
+            paletteRow(row2, columnWidth: columnWidth)
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 4)
         .frame(maxWidth: .infinity)
     }
 
     /// 一行球库槽位：固定 8 槽，每槽一颗球（含在桌变暗球）。
-    private func paletteRow(_ keys: [String]) -> some View {
+    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
@@ -401,8 +409,7 @@ struct PositionPlayComposerView: View {
                         Color.clear
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
+                .frame(width: columnWidth, height: 38)
             }
         }
     }

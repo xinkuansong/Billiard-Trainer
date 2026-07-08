@@ -1,11 +1,13 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - 瞄准点训练（问题集合条 8）
+// MARK: - 瞄准点训练（问题集合 v3 批次 S3：G1 口径 + P8.1–P8.6）
 //
-// 出题型：给切角 θ 问瞄准点。目标球固定 1 号，用户拖动假想球（虚线圈 + 红心点）
-// 绕目标球移动使两球重叠关系符合题目角度；白色瞄准线穿假想球心随动。
-// 提交后展示正确瞄准线（红色）；误差以 mm 计（偏大为正、偏小为负），
+// 出题型：给切角 θ 问瞄准点。目标球固定 1 号，用户拖动假想球（虚线圈，无球心红点）
+// 绕目标球移动；白色瞄准线竖直穿假想球心随动。瞄准点按 G1 定义 = 瞄准线与
+// 「过目标球心且垂直于瞄准线的直线」（图中水平线）的交点，用红色小点标注。
+// 切向口径（P8.4）：「向左切」= 目标球向左移动 ⇒ 母球应打目标球右侧（瞄准点在右侧）。
+// 提交后展示正确瞄准线（红色）；误差以 mm 计（偏大为正 = 瞄薄、偏小为负 = 瞄厚），
 // 历史统计取绝对值平均，写入 `AngleTestResult`（quizType = "aimPoint"，errorMM 有符号）。
 
 @MainActor
@@ -13,7 +15,7 @@ final class AimPointTrainingViewModel: ObservableObject {
 
     struct Question {
         let angleDegrees: Double
-        /// 进球方向在瞄准方向右侧（true）或左侧。
+        /// true = 向右切：目标球向右移动 ⇒ 母球打目标球左侧（瞄准点在目标球左侧）。
         let cutsRight: Bool
     }
 
@@ -56,6 +58,13 @@ final class AimPointTrainingViewModel: ObservableObject {
         showResult = false
     }
 
+    /// 测试注入（AimPointGeometryTests）：绕过随机出题直接设定题目。
+    func setQuestionForTesting(_ q: Question) {
+        question = q
+        userPhi = 0
+        showResult = false
+    }
+
     func submit() {
         guard let q = question, !showResult else { return }
 
@@ -83,22 +92,24 @@ final class AimPointTrainingViewModel: ObservableObject {
 
     // MARK: - Derived
 
-    /// 用户当前朝进球侧的横向偏移（mm，可为负 = 拖错侧）。
+    /// 用户当前朝正确瞄准侧的偏移（mm，可为负 = 拖错侧）。
+    /// P8.4 口径：向右切（目标球向右动）⇒ 瞄准侧 = 目标球左侧（φ < 0）。
+    /// G1 数值关系：竖直瞄准线到目标球心的垂距 = 2R·|sin φ|，与假想球心横移同值。
     var userOffsetMM: Double {
         guard let q = question else { return 0 }
-        let lateral = sin(userPhi) * 2 * Self.ballRadiusMM
-        return q.cutsRight ? lateral : -lateral
+        let lateral = sin(userPhi) * 2 * Self.ballRadiusMM   // 正 = 右侧
+        return q.cutsRight ? -lateral : lateral
     }
 
     func correctOffsetMM(for q: Question) -> Double {
         2 * Self.ballRadiusMM * sin(q.angleDegrees * .pi / 180)
     }
 
-    /// 正确 φ（带侧向符号，弧度）。
+    /// 正确 φ（带侧向符号，弧度）：向右切 ⇒ 假想球/瞄准点在目标球左侧（φ < 0）。
     var correctPhi: Double {
         guard let q = question else { return 0 }
         let phi = q.angleDegrees * .pi / 180
-        return q.cutsRight ? phi : -phi
+        return q.cutsRight ? -phi : phi
     }
 
     var lastError: RoundResult? { sessionResults.last }
@@ -161,24 +172,29 @@ struct AimPointTrainingView: View {
 
     // MARK: - Stats
 
+    /// P8.6：统计恒单行（紧凑档 + 短标签 + lineLimit(1)，禁止折行）。
     private var statsCapsule: some View {
         HStack {
             HStack(spacing: Spacing.sm) {
-                BTReadout(label: "次数", value: "\(vm.sessionResults.count)")
+                BTReadout(label: "题", value: "\(vm.sessionResults.count)", size: .compact)
                 divider
-                BTReadout(label: "本次平均",
+                BTReadout(label: "均差",
                           value: vm.sessionResults.isEmpty
-                              ? "—" : String(format: "%.1fmm", vm.sessionMeanAbsMM))
+                              ? "—" : String(format: "%.1fmm", vm.sessionMeanAbsMM),
+                          size: .compact)
                 if let hist = vm.historicalMeanAbsMM {
                     divider
-                    BTReadout(label: "历史平均", value: String(format: "%.1fmm", hist))
+                    BTReadout(label: "历史", value: String(format: "%.1fmm", hist),
+                              size: .compact)
                 }
                 if !vm.limiter.isPremium {
                     divider
-                    BTReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
+                    BTReadout(label: "剩", value: "\(vm.limiter.remainingToday)",
                               emphasis: .adjustable, size: .compact)
                 }
             }
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
             .foregroundStyle(.white)
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
@@ -199,7 +215,7 @@ struct AimPointTrainingView: View {
 
     private var figureCard: some View {
         AimPointDragFigure(vm: vm)
-            .frame(height: 300)
+            .frame(height: 320)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
@@ -211,7 +227,7 @@ struct AimPointTrainingView: View {
                 Text("切角 θ = \(Int(q.angleDegrees))° · 向\(q.cutsRight ? "右" : "左")切")
                     .font(.system(size: 22, weight: .heavy, design: .rounded))
                     .foregroundStyle(.white)
-                Text("拖动假想球，使其与目标球的重叠关系符合该切角，然后提交")
+                Text("向\(q.cutsRight ? "右" : "左")切 = 目标球向\(q.cutsRight ? "右" : "左")移动，母球应打目标球\(q.cutsRight ? "左" : "右")侧。拖动假想球，使红色瞄准点符合该切角，然后提交")
                     .font(.btFootnote)
                     .foregroundStyle(.white.opacity(0.6))
                     .multilineTextAlignment(.center)
@@ -243,7 +259,7 @@ struct AimPointTrainingView: View {
                     .font(.btFootnote)
                     .foregroundStyle(.white.opacity(0.6))
 
-                Text(last.errorMM >= 0 ? "瞄厚了一点（偏移偏大）" : "瞄薄了一点（偏移偏小）")
+                Text(last.errorMM >= 0 ? "瞄薄了一点（偏移偏大）" : "瞄厚了一点（偏移偏小）")
                     .font(.btCaption)
                     .foregroundStyle(.white.opacity(0.45))
             }
@@ -305,35 +321,51 @@ private struct AimPointDragFigure: View {
 
     var body: some View {
         let r = CGFloat(AngleSceneCalculator.ballRadius)
+        // P8.5：特写取景收紧（4.3R → 2.7R 半高），目标球占比放大约 60%。
         BTTableFigure(orientation: .landscape,
-                      closeup: (center: .zero, halfHeight: r * 4.3)) { proj in
+                      closeup: (center: .zero, halfHeight: r * 2.7)) { proj in
             let d = proj.ballDiameter
-            let target = CGPoint(x: proj.size.width / 2, y: proj.size.height * 0.40)
+            let target = CGPoint(x: proj.size.width / 2, y: proj.size.height * 0.34)
             let ghost = ghostCenter(target: target, d: d, phi: vm.userPhi)
+            // G1 瞄准点 = 竖直瞄准线与过目标球心水平线的交点（垂足）。
+            let userAimPoint = CGPoint(x: ghost.x, y: target.y)
 
             ZStack {
-                // 用户瞄准线：白实线，竖直穿假想球心（条 8.3）。
+                // P8.1：过目标球心的水平线（= G1 定义中垂直于瞄准线的直线）。
+                Path { p in
+                    p.move(to: CGPoint(x: 6, y: target.y))
+                    p.addLine(to: CGPoint(x: proj.size.width - 6, y: target.y))
+                }
+                .stroke(FigureLine.hint.opacity(0.7),
+                        style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [5, 4]))
+
+                // 用户瞄准线：白实线，竖直穿假想球心，延伸过水平线（G1 交点可见）。
                 Path { p in
                     p.move(to: CGPoint(x: ghost.x, y: proj.size.height - 6))
-                    p.addLine(to: ghost)
+                    p.addLine(to: CGPoint(x: ghost.x, y: target.y - d * 0.9))
                 }
                 .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
 
-                // 提交后：正确瞄准线（红色，条 8.4）。
+                // 提交后：正确瞄准线（红色）+ 正确瞄准点（水平线上的交点，条 8.3/8.4）。
                 if vm.showResult {
                     let correct = ghostCenter(target: target, d: d, phi: vm.correctPhi)
                     Path { p in
                         p.move(to: CGPoint(x: correct.x, y: proj.size.height - 6))
-                        p.addLine(to: correct)
+                        p.addLine(to: CGPoint(x: correct.x, y: target.y - d * 0.9))
                     }
                     .stroke(Color(uiColor: TrajectoryStyle.aimPointColor),
                             lineWidth: proj.lineMainWidth)
-                    BTAimPointDot(diameter: max(5, d * 0.2))
-                        .position(correct)
+                    BTAimPointDot(diameter: max(5, d * 0.12))
+                        .position(CGPoint(x: correct.x, y: target.y))
                 }
 
                 BTFigureBall(number: 1, diameter: d).position(target)
-                BTGhostCircle(diameter: d).position(ghost)
+                // P8.2：假想球不再带球心红点。
+                BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)
+                // P8.3：G1 瞄准点用红色小点标注（提交后与正确点同屏对照）。
+                BTAimPointDot(diameter: max(4, d * 0.10))
+                    .position(userAimPoint)
+                    .opacity(vm.showResult ? 0.55 : 1)
             }
             .contentShape(Rectangle())
             .gesture(

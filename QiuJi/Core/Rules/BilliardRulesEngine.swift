@@ -65,6 +65,9 @@ protocol BilliardRulesEngine: AnyObject {
     /// 裁决一杆并推进状态机。
     @discardableResult
     func judge(_ facts: ShotFacts) -> ShotRuling
+    /// 当前击球方**合法首触**的目标球集合（桌面球键 "_n"，不含母球）。
+    /// 用于拦截用户选择不合法目标球（v3 P10.2）。空集合 = 无合法目标。
+    func legalTargetKeys(tableKeys: Set<String>) -> Set<String>
 }
 
 // MARK: - Ball classification helpers
@@ -207,6 +210,21 @@ final class ChineseEightBallRules: BilliardRulesEngine {
         return ShotRuling(nextPlayer: currentPlayer,
                           message: "未进球，轮到 \(playerLabel(currentPlayer))")
     }
+
+    /// 合法目标（调研 §1.4/§1.5 首触规则）：
+    /// - 开放局：除 8 号外任意球；
+    /// - 已定花色 + 本方球未清空：仅本方花色；
+    /// - 已定花色 + 本方球已清空：仅 8 号。
+    func legalTargetKeys(tableKeys: Set<String>) -> Set<String> {
+        let targets = tableKeys.filter { BallGroup.of($0) != nil }
+        guard let own = group(of: currentPlayer) else {
+            return targets.filter { BallGroup.of($0) != .eight }
+        }
+        if ownGroupCleared(player: currentPlayer, tableBefore: tableKeys) {
+            return targets.filter { BallGroup.of($0) == .eight }
+        }
+        return targets.filter { BallGroup.of($0) == own }
+    }
 }
 
 // MARK: - 追分规则引擎（9 球系少球玩法）
@@ -300,5 +318,11 @@ final class ZhuifenRules: BilliardRulesEngine {
         currentPlayer = shooter.other
         return ShotRuling(nextPlayer: currentPlayer,
                           message: "未进球，轮到 \(currentPlayer.displayName)")
+    }
+
+    /// 合法目标（调研 §2.2 首触最小号）：仅台面最小号球。
+    func legalTargetKeys(tableKeys: Set<String>) -> Set<String> {
+        guard let lowest = tableKeys.compactMap(ballNumber).min() else { return [] }
+        return tableKeys.filter { ballNumber($0) == lowest }
     }
 }

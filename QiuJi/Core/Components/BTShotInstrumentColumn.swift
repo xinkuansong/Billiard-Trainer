@@ -34,6 +34,8 @@ struct BTShotInstrumentColumn: View {
     }
 
     var body: some View {
+        // 顺序（G5）：打点迷你图 + 两行读数在**顶部固定区**，力度条本体在**底部**填充——
+        // 使力度条本体底部与左侧刻度轮底部齐平、且两者等长（顶部固定区不计入条长）。
         VStack(spacing: 6) {
             if let onSpinTap {
                 Button(action: onSpinTap) {
@@ -43,8 +45,6 @@ struct BTShotInstrumentColumn: View {
                 .accessibilityLabel("打点")
                 .disabled(isDisabled)
             }
-
-            powerBar
 
             // 两行读数（条 13.2）：上 = 力度名，下 = 速度值；fixedSize 防折行。
             VStack(spacing: 0) {
@@ -57,6 +57,8 @@ struct BTShotInstrumentColumn: View {
                     .monospacedDigit()
             }
             .fixedSize()
+
+            powerBar
         }
         .opacity(isDisabled ? 0.5 : 1)
     }

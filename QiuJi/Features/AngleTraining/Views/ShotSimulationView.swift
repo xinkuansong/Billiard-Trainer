@@ -24,6 +24,9 @@ struct ShotSimulationView: View {
     @State private var banner: String?
 
     private static let paletteColumns = 8
+    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
+    private static let topRowHeight: CGFloat = 46
+    private static let bottomBarHeight: CGFloat = 94
 
     /// 默认教学球形：母球左下、黑 8 靠右上角袋（沿用 v2 的 placeBallsAtDefaults 坐标）。
     private static var defaultBoard: BoardSnapshot {
@@ -37,62 +40,26 @@ struct ShotSimulationView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 0) {
-                topInfoRow
-                ZStack(alignment: .bottom) {
-                    sceneContainer
-                    VStack(spacing: 10) {
-                        Spacer(minLength: 0)
-                        if vm.aimMode == .free {
-                            BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
-                                .frame(width: 34, height: 220)
-                                .allowsHitTesting(!vm.isPlaying)
-                        }
-                        // 条 17.6：本页无开球——按条 18.4 显示禁用态。
-                        BTBreakSideButton(isEnabled: false) {}
-                    }
-                    .padding(.leading, 8)
-                    .padding(.bottom, 8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomLeading)
-
-                    VStack(spacing: 10) {
-                        Spacer(minLength: 0)
-                        BTShotInstrumentColumn(
-                            spinX: vm.spinX, spinY: vm.spinY,
-                            onSpinTap: { showSpinPad = true },
-                            velocity: $vm.velocity,
-                            range: ShotTuning.velocityRange,
-                            isDisabled: vm.isPlaying
-                        )
-                        .frame(width: 36, height: 240)
-                        BTShotActionColumn(
-                            strikeTitle: vm.isPlaying ? "击球中" : "击球",
-                            strikeEnabled: strikeEnabled,
-                            onStrike: { vm.play() },
-                            undoEnabled: !vm.isPlaying && vm.canReplay,
-                            onUndo: { vm.replayCurrent() },
-                            playbackEnabled: !vm.isPlaying && vm.canPlayback,
-                            onPlayback: { vm.replayLastShot() }
-                        )
-                    }
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 8)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity,
-                           alignment: .bottomTrailing)
-
-                    if showSpinPad {
-                        BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                         onClose: { showSpinPad = false })
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+        GeometryReader { geo in
+            let extents = vm.tableOuterHalfExtents
+            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let proxy = ShotStageProxy(
+                sceneSize: CGSize(width: geo.size.width, height: sceneH),
+                halfLength: extents.length, halfWidth: extents.width
+            )
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topInfoRow
+                        .frame(height: Self.topRowHeight)
+                    stage(proxy)
+                        .frame(height: sceneH)
+                    bottomBar(proxy)
+                        .frame(height: Self.bottomBarHeight)
                 }
-                bottomBar
+                if let key = draggingKey { dragGhost(key) }
+                bannerView
             }
-            if let key = draggingKey { dragGhost(key) }
-            bannerView
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .coordinateSpace(name: "simulation")
@@ -116,6 +83,61 @@ struct ShotSimulationView: View {
                 vm.maxTargetBalls = 2
                 vm.setupScene()
                 vm.loadBoard(Self.defaultBoard)
+            }
+        }
+    }
+
+    // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
+
+    private func stage(_ proxy: ShotStageProxy) -> some View {
+        ZStack(alignment: .topLeading) {
+            sceneContainer
+
+            if proxy.isValid {
+                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
+                BTTrajectoryDetailChip { vm.recompute() }
+                    .btChipBandPlacement(proxy)
+                    .allowsHitTesting(!vm.isPlaying)
+
+                // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
+                if vm.aimMode == .free {
+                    BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                        .btStageFrame(proxy.aimWheelFrame())
+                        .allowsHitTesting(!vm.isPlaying)
+                }
+
+                // G6 开球按钮（本页无开球，禁用态）：左下角，底边齐球桌底线。
+                BTBreakSideButton(isEnabled: false) {}
+                    .btStageFrame(proxy.breakButtonFrame())
+
+                // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
+                BTShotInstrumentColumn(
+                    spinX: vm.spinX, spinY: vm.spinY,
+                    onSpinTap: { showSpinPad = true },
+                    velocity: $vm.velocity,
+                    range: ShotTuning.velocityRange,
+                    isDisabled: vm.isPlaying
+                )
+                .btStageFrame(proxy.instrumentFrame())
+
+                // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
+                BTShotActionColumn(
+                    strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                    strikeEnabled: strikeEnabled,
+                    onStrike: { vm.play() },
+                    undoEnabled: !vm.isPlaying && vm.canReplay,
+                    onUndo: { vm.replayCurrent() },
+                    playbackEnabled: !vm.isPlaying && vm.canPlayback,
+                    onPlayback: { vm.replayLastShot() }
+                )
+                .btStageFrame(proxy.actionColumnFrame())
+            }
+
+            if showSpinPad {
+                BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
+                                 onClose: { showSpinPad = false })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
         }
     }
@@ -145,10 +167,6 @@ struct ShotSimulationView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
-        .overlay(alignment: .topTrailing) {
-            BTTrajectoryDetailChip { vm.recompute() }
-                .padding(Spacing.sm)
-        }
     }
 
     // MARK: - Nav status
@@ -188,8 +206,7 @@ struct ShotSimulationView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.xs)
-        .padding(.bottom, Spacing.xs)
+        .frame(maxHeight: .infinity)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
     }
@@ -248,8 +265,9 @@ struct ShotSimulationView: View {
 
     // MARK: - Bottom bar (条 18：底部只留球库)
 
-    private var bottomBar: some View {
-        paletteBar
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+        paletteBar(proxy)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(white: 0.11))
             .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
             .background(frameReader(id: "palette"))
@@ -260,22 +278,22 @@ struct ShotSimulationView: View {
         !vm.isPlaying && !vm.isComputing && vm.isFeasible
     }
 
-    // MARK: - Palette bar（条 17.2/17.4：球库开放，摆球上限 2 由 VM 校验）
+    // MARK: - Palette bar（条 17.2/17.4：球库开放，摆球上限 2 由 VM 校验；G8 总宽=球桌宽）
 
-    private var paletteBar: some View {
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         let all = PositionPlayBall.allKeys
         let row1 = Array(all.prefix(Self.paletteColumns))
         let row2 = Array(all.dropFirst(Self.paletteColumns))
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
         return VStack(spacing: 3) {
-            paletteRow(row1)
-            paletteRow(row2)
+            paletteRow(row1, columnWidth: columnWidth)
+            paletteRow(row2, columnWidth: columnWidth)
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 4)
         .frame(maxWidth: .infinity)
     }
 
-    private func paletteRow(_ keys: [String]) -> some View {
+    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
@@ -285,8 +303,7 @@ struct ShotSimulationView: View {
                         Color.clear
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
+                .frame(width: columnWidth, height: 38)
             }
         }
     }

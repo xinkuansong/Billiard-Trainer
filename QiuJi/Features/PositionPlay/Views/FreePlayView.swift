@@ -6,7 +6,9 @@ import SceneKit
 /// 与「自由走位」（编排台）的分工：自由走位 = 纯摆球/编排推演（无开球）；
 /// 自由击球 = 从开球开始的完整对局体验。开球按钮状态机（条 15.8/15.9）：
 /// 开球 → 开球中 → 重开（换 seed 重摆）；停稳后点「完成」才送入击打阶段。
-/// E3 将在本页接入中八/追分完整规则引擎。
+///
+/// 布局（问题集合 v3 §S1 基准页）：控件相对**屏幕内实际球桌矩形**贴边定位
+/// （`ShotStageProxy`，G3–G11），顶栏/底栏高度固定 ⇒ 球桌尺寸严格锁定不抖动（G10）。
 struct FreePlayView: View {
     @StateObject private var vm = PositionPlayViewModel()
     @State private var hasAppeared = false
@@ -14,14 +16,6 @@ struct FreePlayView: View {
     @State private var showBreakPicker = false
 
     @State private var projector = TableProjector()
-
-    // Palette drag-to-place state (freeplay coordinate space)
-    @State private var draggingKey: String?
-    @State private var dragLocation: CGPoint = .zero
-    @State private var dragOverTable = false
-
-    @State private var sceneFrame: CGRect = .zero
-    @State private var paletteFrame: CGRect = .zero
 
     @State private var banner: String?
     @State private var showClearTableConfirm = false
@@ -35,74 +29,33 @@ struct FreePlayView: View {
     @State private var currentPlayerLabel = ""
 
     private static let paletteColumns = 8
+    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
+    private static let topRowHeight: CGFloat = 46
+    private static let bottomBarHeight: CGFloat = 94
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 0) {
-                topInfoRow
-                ZStack(alignment: .bottom) {
-                    sceneContainer
-                    if !vm.isBreakMode {
-                        VStack(spacing: 10) {
-                            Spacer(minLength: 0)
-                            if vm.aimMode == .free {
-                                BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
-                                    .frame(width: 34, height: 220)
-                                    .allowsHitTesting(!vm.isPlaying)
-                            }
-                            // 条 18.3：开球按钮固定左下——本页有真实开球流程。
-                            BTBreakSideButton(isEnabled: !vm.isPlaying) {
-                                showBreakPicker = true
-                            }
-                        }
-                        .padding(.leading, 8)
-                        .padding(.bottom, 8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomLeading)
-
-                        VStack(spacing: 10) {
-                            Spacer(minLength: 0)
-                            BTShotInstrumentColumn(
-                                spinX: vm.spinX, spinY: vm.spinY,
-                                onSpinTap: { showSpinPad = true },
-                                velocity: $vm.velocity,
-                                range: ShotTuning.velocityRange,
-                                isDisabled: vm.isPlaying
-                            )
-                            .frame(width: 36, height: 240)
-                            BTShotActionColumn(
-                                strikeTitle: vm.isPlaying ? "击球中" : "击球",
-                                strikeEnabled: strikeEnabled,
-                                onStrike: { vm.play() },
-                                undoEnabled: !vm.isPlaying && vm.canReplay,
-                                onUndo: { vm.replayCurrent() },
-                                playbackEnabled: !vm.isPlaying && vm.canPlayback,
-                                onPlayback: { vm.replayLastShot() }
-                            )
-                        }
-                        .padding(.trailing, 8)
-                        .padding(.bottom, 8)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity,
-                               alignment: .bottomTrailing)
-                    }
-                    if showSpinPad {
-                        BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                         onClose: { showSpinPad = false })
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+        GeometryReader { geo in
+            let extents = vm.tableOuterHalfExtents
+            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let proxy = ShotStageProxy(
+                sceneSize: CGSize(width: geo.size.width, height: sceneH),
+                halfLength: extents.length, halfWidth: extents.width
+            )
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topInfoRow
+                        .frame(height: Self.topRowHeight)
+                    stage(proxy)
+                        .frame(height: sceneH)
+                    bottomBar(proxy)
+                        .frame(height: Self.bottomBarHeight)
                 }
-                bottomBar
+                bannerView
             }
-            if let key = draggingKey { dragGhost(key) }
-            bannerView
+            .coordinateSpace(name: "freeplay")
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
-        .coordinateSpace(name: "freeplay")
-        .onPreferenceChange(FreePlayFramePreference.self) { frames in
-            if let s = frames["scene"] { sceneFrame = s }
-            if let p = frames["palette"] { paletteFrame = p }
-        }
         .navigationTitle("自由击球")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -144,6 +97,81 @@ struct FreePlayView: View {
                 vm.onShotSettled = { facts in handleShotSettled(facts) }
             }
         }
+    }
+
+    // MARK: - Stage（scene + 贴边控件，G3–G11）
+
+    private func stage(_ proxy: ShotStageProxy) -> some View {
+        ZStack(alignment: .topLeading) {
+            sceneContainer
+
+            if !vm.isBreakMode && proxy.isValid {
+                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右（放球桌上方空隙带内）。
+                BTTrajectoryDetailChip { vm.recompute() }
+                    .padding(.trailing, 8)
+                    .padding(.bottom, 2)
+                    .frame(maxWidth: .infinity,
+                           maxHeight: proxy.chipBandHeight,
+                           alignment: .bottomTrailing)
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .allowsHitTesting(!vm.isPlaying)
+
+                // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
+                if vm.aimMode == .free {
+                    let f = proxy.aimWheelFrame()
+                    BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                        .frame(width: f.width, height: f.height)
+                        .position(x: f.midX, y: f.midY)
+                        .allowsHitTesting(!vm.isPlaying)
+                }
+
+                // G6/G9 开球按钮：左下角，底边齐球桌底线（本页有真实开球流程）。
+                let bf = proxy.breakButtonFrame()
+                BTBreakSideButton(isEnabled: !vm.isPlaying) { showBreakPicker = true }
+                    .frame(width: bf.width, height: bf.height)
+                    .position(x: bf.midX, y: bf.midY)
+
+                // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
+                let inf = proxy.instrumentFrame()
+                BTShotInstrumentColumn(
+                    spinX: vm.spinX, spinY: vm.spinY,
+                    onSpinTap: { showSpinPad = true },
+                    velocity: $vm.velocity,
+                    range: ShotTuning.velocityRange,
+                    isDisabled: vm.isPlaying
+                )
+                .frame(width: inf.width, height: inf.height)
+                .position(x: inf.midX, y: inf.midY)
+
+                // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
+                let af = proxy.actionColumnFrame()
+                BTShotActionColumn(
+                    strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                    strikeEnabled: strikeEnabled,
+                    onStrike: { vm.play() },
+                    undoEnabled: !vm.isPlaying && vm.canReplay,
+                    onUndo: { vm.replayCurrent() },
+                    playbackEnabled: !vm.isPlaying && vm.canPlayback,
+                    onPlayback: { vm.replayLastShot() }
+                )
+                .frame(width: af.width, height: af.height)
+                .position(x: af.midX, y: af.midY)
+            }
+
+            if showSpinPad {
+                BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
+                                 onClose: { showSpinPad = false })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        // G10：stage 区域高度恒定（顶/底栏固定）⇒ 球桌尺寸锁定。
+        // 标识放在铺满 stage 的 background 元素上：frame 稳定（不随子控件增减联动），
+        // 且不改变子控件（break.entry 等）的可及性树。
+        .background(
+            Color.clear
+                .accessibilityElement()
+                .accessibilityIdentifier("freeplay.stage")
+        )
     }
 
     // MARK: - Rules session (条 15.10)
@@ -190,7 +218,8 @@ struct FreePlayView: View {
             interactionMode: .tapsOnly,
             autoFitsRotatedTable: true,
             onPocketTapped: { if !vm.isBreakMode { vm.selectPocket(at: $0) } },
-            draggableBallNodes: vm.breakRunner?.draggableCue ?? vm.draggableBalls,
+            // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
+            draggableBallNodes: vm.breakRunner?.draggableCue ?? vm.draggableCueOnly,
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else { vm.dragBegan(node: node) }
@@ -206,25 +235,29 @@ struct FreePlayView: View {
                 if let runner = vm.breakRunner { runner.dragEnded(node: node) }
                 else { vm.dragEnded(node: node) }
             },
-            onDragEndedAt: { node, localPoint in
-                guard !vm.isBreakMode else { return }
-                handleTableDragEnd(node: node, localPoint: localPoint)
-            },
             selectableBallNodes: vm.isBreakMode ? [] : vm.selectableBalls,
-            onBallTapped: { vm.selectTarget(node: $0) },
+            onBallTapped: { node in handleTargetTap(node) },
             onTableTapped: { if !vm.isBreakMode { vm.handleTableTap(world: $0) } },
             onAimDragged: { if !vm.isBreakMode { vm.handleAimDrag(world: $0) } },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(frameReader(id: "scene"))
         .clipped()
-        .overlay(alignment: .topTrailing) {
-            if !vm.isBreakMode {
-                BTTrajectoryDetailChip { vm.recompute() }
-                    .padding(Spacing.sm)
+    }
+
+    /// P10.2：按当前玩法规则拦截不合法目标球选择，并给出提示。
+    private func handleTargetTap(_ node: SCNNode) {
+        guard !vm.isBreakMode else { return }
+        if let rules, vm.aimMode == .pocket, let key = vm.scene.ballKey(for: node),
+           !PositionPlayBall.isCue(key) {
+            let tableTargets = Set(vm.onTableKeys.filter { $0 != PositionPlayBall.cueKey })
+            let legal = rules.legalTargetKeys(tableKeys: tableTargets)
+            if !legal.contains(key) {
+                flash("按当前规则不能打 \(PositionPlayBall.shortLabel(for: key)) 号球")
+                return
             }
         }
+        vm.selectTarget(node: node)
     }
 
     // MARK: - Nav status
@@ -271,8 +304,7 @@ struct FreePlayView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.xs)
-        .padding(.bottom, Spacing.xs)
+        .frame(maxHeight: .infinity)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
     }
@@ -324,9 +356,7 @@ struct FreePlayView: View {
 
     private var breakModePill: some View {
         HStack(spacing: 4) {
-            Image(systemName: "triangle")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.btPrimary)
+            BreakRackGlyph(color: .btPrimary, size: 13)
             Text("开球 · \(vm.breakRunner.map { BreakFlowRunner.title(for: $0.game) } ?? "")")
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.92))
@@ -373,7 +403,7 @@ struct FreePlayView: View {
 
     // MARK: - Bottom bar
 
-    private var bottomBar: some View {
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
         Group {
             if let runner = vm.breakRunner {
                 FreePlayBreakBar(runner: runner, onCancel: {
@@ -381,12 +411,12 @@ struct FreePlayView: View {
                     vm.cancelBreakFlow()
                 })
             } else {
-                paletteBar
+                paletteBar(proxy)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-        .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)
     }
 
@@ -394,22 +424,23 @@ struct FreePlayView: View {
         !vm.isPlaying && !vm.isComputing && vm.isFeasible
     }
 
-    // MARK: - Palette bar
+    // MARK: - Palette bar（G8：排球总宽 = 球桌宽、居中；P10.1：只读参考，禁止摆球）
 
-    private var paletteBar: some View {
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         let all = PositionPlayBall.allKeys
         let row1 = Array(all.prefix(Self.paletteColumns))
         let row2 = Array(all.dropFirst(Self.paletteColumns))
+        // G8：排球总宽 = 球桌宽——固定列宽求和 = 球桌宽，居中，两侧留白给按键让位。
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
         return VStack(spacing: 3) {
-            paletteRow(row1)
-            paletteRow(row2)
+            paletteRow(row1, columnWidth: columnWidth)
+            paletteRow(row2, columnWidth: columnWidth)
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 4)
         .frame(maxWidth: .infinity)
     }
 
-    private func paletteRow(_ keys: [String]) -> some View {
+    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
@@ -419,64 +450,23 @@ struct FreePlayView: View {
                         Color.clear
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
+                .frame(width: columnWidth, height: 38)
             }
         }
     }
 
+    /// P10.1：本页禁止手动摆球——球库仅作剩余球参考，点击提示「开球后自动摆球」。
     private func ballToken(_ key: String) -> some View {
         let onTable = vm.onTableKeys.contains(key)
-        return PoolBallFace(key: key, diameter: 36)
+        return PoolBallFace(key: key, diameter: 34)
             .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
-            .frame(width: 38, height: 38)
+            .frame(width: 36, height: 36)
             .contentShape(Circle())
-            .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
+            .opacity(onTable ? 0.28 : 0.85)
             .onTapGesture {
-                if onTable { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
+                if onTable { vm.pulseTableBall(key) }
+                else { flash("本页从开球开始，不支持手动摆球") }
             }
-            .gesture(paletteDrag(key), including: onTable ? .subviews : .all)
-    }
-
-    private func paletteDrag(_ key: String) -> some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .named("freeplay"))
-            .onChanged { value in
-                guard !vm.isPlaying else { return }
-                draggingKey = key
-                dragLocation = value.location
-                dragOverTable = sceneFrame.contains(value.location)
-            }
-            .onEnded { value in
-                let loc = value.location
-                defer { draggingKey = nil; dragOverTable = false }
-                guard !vm.isPlaying, sceneFrame.contains(loc) else { return }
-                let local = CGPoint(x: loc.x - sceneFrame.minX, y: loc.y - sceneFrame.minY)
-                if let world = projector.unproject?(local) {
-                    vm.placeFromPalette(key, atWorld: world)
-                } else {
-                    vm.placeFromPalette(key)
-                }
-            }
-    }
-
-    @ViewBuilder
-    private func dragGhost(_ key: String) -> some View {
-        PoolBallFace(key: key, diameter: 42)
-            .overlay(Circle().stroke(dragOverTable ? Color.btSuccess : .white.opacity(0.4),
-                                     lineWidth: dragOverTable ? 2.5 : 1))
-            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-            .position(dragLocation)
-            .allowsHitTesting(false)
-    }
-
-    // MARK: - Table ball dragged back to palette → remove
-
-    private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
-        guard sceneFrame != .zero, paletteFrame != .zero else { return }
-        let composerPoint = CGPoint(x: localPoint.x + sceneFrame.minX, y: localPoint.y + sceneFrame.minY)
-        guard paletteFrame.contains(composerPoint), let key = vm.scene.ballKey(for: node) else { return }
-        vm.removeFromTable(key)
-        flash("已移回球库")
     }
 
     // MARK: - Toolbar menu
@@ -522,15 +512,6 @@ struct FreePlayView: View {
         withAnimation { banner = message }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
             withAnimation { banner = nil }
-        }
-    }
-
-    // MARK: - Frame reader
-
-    private func frameReader(id: String) -> some View {
-        GeometryReader { geo in
-            Color.clear.preference(key: FreePlayFramePreference.self,
-                                   value: [id: geo.frame(in: .named("freeplay"))])
         }
     }
 }
@@ -607,16 +588,6 @@ private struct FreePlayBreakBar: View {
             .accessibilityIdentifier("break.strike")
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, 12)
-    }
-}
-
-// MARK: - Frame preference
-
-private struct FreePlayFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
     }
 }
 

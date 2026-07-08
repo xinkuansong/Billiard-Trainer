@@ -295,6 +295,21 @@ final class PositionPlayViewModel: ObservableObject {
             .compactMap { scene.allBallNodes[$0] }
     }
 
+    /// 仅母球可拖（自由击球页 P10.1：禁止摆球，母球仍可拖用于自由球/走位微调）。
+    var draggableCueOnly: [SCNNode] {
+        guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return [] }
+        return [cue]
+    }
+
+    /// 球桌外框实测半尺寸（世界 X/Z）；供屏幕布局对齐球桌矩形（ShotStageProxy）。
+    /// 装桌前 cameraRig 尚未回填时用 USDZ 兜底常量。
+    var tableOuterHalfExtents: (length: Double, width: Double) {
+        if let rig = scene.cameraRig {
+            return (rig.tableOuterHalfLength, rig.tableOuterHalfWidth)
+        }
+        return (ShotTableLayout.defaultHalfLength, ShotTableLayout.defaultHalfWidth)
+    }
+
     // MARK: - Palette (place / remove)
 
     private func refreshOnTableKeys() {

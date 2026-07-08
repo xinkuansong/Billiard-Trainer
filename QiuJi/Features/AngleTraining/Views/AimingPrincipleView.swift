@@ -54,7 +54,7 @@ struct AimingPrincipleView: View {
                 termRow("假想球", "与母球等大的虚拟球（虚线圈）：碰撞瞬间母球应到达的位置，恰好与目标球相切。")
                 termRow("瞄准线", "母球球心 → 假想球球心的直线（白色实线），是你出杆的方向。")
                 termRow("进球线", "目标球球心 → 袋口中心的直线（随目标球本色的虚线）。")
-                termRow("瞄准点", "假想球的球心（红点）。瞄准时眼睛盯住的参考点。")
+                termRow("瞄准点", "瞄准线与「过目标球心、垂直于瞄准线的直线」的交点（红点）。它参考目标球定义：瞄准线穿过目标球时在球内/球面上，从旁边经过时在球外——不是假想球心。")
                 termRow("接触点", "碰撞瞬间两球球面相触的点（绿点），在目标球表面、两球心连线上。")
             }
         }
@@ -132,10 +132,10 @@ struct AimingPrincipleView: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 derivationStep(1, "假想球心 G 在进球线的反向延长线上，与目标球心 T 相距恰好 2R（两球相切时球心距 = 两个半径）。")
                 derivationStep(2, "从 T 向瞄准线作垂线，得到直角三角形：斜边 GT = 2R，G 处的夹角就是切角 θ。")
-                derivationStep(3, "直角三角形中「对边 = 斜边 × sin(夹角)」，所以垂线段长 d = 2R × sin(θ)。d 就是瞄准点相对目标球心的横移量。")
+                derivationStep(3, "直角三角形中「对边 = 斜边 × sin(夹角)」，所以垂线段长 d = 2R × sin(θ)。这条垂线的垂足就是瞄准点：它到目标球心的距离恰好是 d。")
             }
 
-            Text("这就是为什么知道了角度就能找到瞄准点：θ 决定 sin(θ)，sin(θ) 决定横移量 d，d 决定假想球（瞄准点）该放在哪。")
+            Text("这就是为什么知道了角度就能找到瞄准点：θ 决定 sin(θ)，sin(θ) 决定偏移量 d，d 决定瞄准点在过目标球心垂线上的位置。")
                 .font(.btFootnote)
                 .foregroundStyle(.btTextTertiary)
         }
@@ -178,7 +178,7 @@ struct AimingPrincipleView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                formulaRow("d", "横移量（假想球中心偏移目标球中心的距离）")
+                formulaRow("d", "偏移量（瞄准点到目标球心的距离，也等于假想球心的横移量）")
                 formulaRow("R", "球半径（中八 28.575mm）")
                 formulaRow("θ", "切角（0°–90°）")
                 formulaRow("d/R", "= 2sin(θ)，无量纲比")
@@ -243,8 +243,8 @@ struct AimingPrincipleView: View {
             ghostBallStep(number: 2, title: "放置假想球",
                          description: "在进球线反方向放置一个与母球等大的圆。假想球中心 = 目标球中心 − 2R × 进球方向。")
 
-            ghostBallStep(number: 3, title: "瞄准球心",
-                         description: "母球只需朝向假想球的圆心（红点 = 瞄准点）出杆。接触瞬间，白球与目标球连心线与进球线重合。")
+            ghostBallStep(number: 3, title: "沿瞄准线出杆",
+                         description: "母球朝假想球圆心方向出杆。这条瞄准线与「过目标球心的垂线」的交点就是瞄准点（红点）——瞄准线定了，瞄准点随之确定。接触瞬间，白球与目标球连心线与进球线重合。")
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
@@ -327,9 +327,11 @@ struct AimingPrincipleView: View {
 
 // MARK: - Aiming geometry figures
 
-/// 切角全景（真台化，T-P18-46 / 条 1 修订）：真实 USDZ 台底图上，用 §1.2 线语言画出
-/// 母球 / 目标球 / 假想球（球心红点 = 瞄准点）/ 进球线（绑球色，带文字标签）/
+/// 切角全景（真台化，T-P18-46 / G1 口径）：真实 USDZ 台底图上，用 §1.2 线语言画出
+/// 母球 / 目标球 / 假想球（虚线圈，无球心红点）/ 进球线（绑球色，带文字标签）/
 /// 瞄准线（白实线，带文字标签）/ θ 弧——标在两线**反向延长线**的夹角处（条 1.3）。
+/// 瞄准点（红点）按 G1 定义 = 目标球心到瞄准线的垂足，位于「过目标球心、垂直于
+/// 瞄准线的直线」（白色细虚线）与瞄准线的交点处。
 /// 几何走世界坐标真源：假想球 = 目标球心 − 2R×进球方向，瞄向真实右上角袋。
 private struct AimingFigure: View {
     /// 名词系统模式：加标「瞄准点 / 接触点」详注（条 1.1 配图）。
@@ -345,6 +347,8 @@ private struct AimingFigure: View {
         let ghost: CGPoint
         let cue: CGPoint
         let contact: CGPoint
+        /// G1 瞄准点：目标球心到瞄准线的垂足。
+        let aimPoint: CGPoint
         let d: CGFloat
         let potAngle: CGFloat
         let aimAngle: CGFloat
@@ -365,8 +369,8 @@ private struct AimingFigure: View {
                     .stroke(FigureLine.pot(number: targetNumber),
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [6, 4]))
 
-                // 瞄准线（母球 → 假想球）：白实线 lineMain。
-                Path { p in p.move(to: l.cue); p.addLine(to: l.ghost) }
+                // 瞄准线（母球 → 假想球，延伸至 G1 瞄准点）：白实线 lineMain。
+                Path { p in p.move(to: l.cue); p.addLine(to: l.aimPoint) }
                     .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
 
                 // 反向延长线（细虚线）：两条线过假想球心向后延伸，θ 标在这里（条 1.3）。
@@ -394,11 +398,31 @@ private struct AimingFigure: View {
                 }
                 .stroke(FigureLine.contact, lineWidth: proj.lineHintWidth)
 
-                BTGhostCircle(diameter: l.d).position(l.ghost)
+                // G1 垂线（过目标球心、垂直于瞄准线，白色细虚线）：与瞄准线交于瞄准点。
+                // 方向 = 目标球心 → 垂足，向两端各延一段。
+                if showsGlossaryLabels {
+                    let v = CGPoint(x: l.aimPoint.x - l.target.x,
+                                    y: l.aimPoint.y - l.target.y)
+                    let vLen = max(hypot(v.x, v.y), 0.001)
+                    let u = CGPoint(x: v.x / vLen, y: v.y / vLen)
+                    let ext = l.d * 0.8
+                    Path { p in
+                        p.move(to: CGPoint(x: l.target.x - u.x * ext,
+                                           y: l.target.y - u.y * ext))
+                        p.addLine(to: CGPoint(x: l.aimPoint.x + u.x * ext,
+                                              y: l.aimPoint.y + u.y * ext))
+                    }
+                    .stroke(FigureLine.hint.opacity(0.7),
+                            style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [4, 3]))
+                }
+
+                BTGhostCircle(diameter: l.d, showsAimPoint: false).position(l.ghost)
                 BTFigureBall(number: targetNumber, diameter: l.d).position(l.target)
                 BTFigureBall(diameter: l.d).position(l.cue)
                 // 接触点画在球面之上（与场景页 contactDot 浮于球面同序）。
                 BTContactDot(diameter: max(4, l.d * 0.22)).position(l.contact)
+                // G1 瞄准点（红点）：目标球心到瞄准线的垂足，画在瞄准线上。
+                BTAimPointDot(diameter: max(4, l.d * 0.14)).position(l.aimPoint)
 
                 BTFigureTag(text: "θ \(Int(cutAngleDeg))°")
                     .position(x: l.ghost.x - (l.arcR + 18) * cos((l.potAngle + l.aimAngle) / 2),
@@ -417,7 +441,7 @@ private struct AimingFigure: View {
 
                 if showsGlossaryLabels {
                     BTFigureTag(text: "瞄准点", color: FigureLine.aimPoint)
-                        .position(x: l.ghost.x + l.d * 0.15, y: l.ghost.y + l.d / 2 + 13)
+                        .position(x: l.aimPoint.x + l.d * 0.15, y: l.aimPoint.y + l.d / 2 + 13)
                     BTFigureTag(text: "接触点", color: FigureLine.contact)
                         .position(x: l.contact.x + l.d * 0.4, y: l.contact.y - l.d * 0.9)
                 }
@@ -458,12 +482,20 @@ private struct AimingFigure: View {
         let cue = proj.point(x: cueW.x, z: cueW.y)
         let d = proj.ballDiameter
 
+        // G1 瞄准点：目标球心到瞄准线（cue→ghost）的垂足（投影为仿射变换，
+        // 视图坐标下计算与世界坐标等价）。
+        let aimPoint = AimPointGeometry.aimPoint(
+            lineOrigin: cue,
+            direction: CGPoint(x: ghost.x - cue.x, y: ghost.y - cue.y),
+            targetCenter: target)
+
         return Layout(target: target,
                       pocket: pocket,
                       ghost: ghost,
                       cue: cue,
                       contact: CGPoint(x: (target.x + ghost.x) / 2,
                                        y: (target.y + ghost.y) / 2),
+                      aimPoint: aimPoint,
                       d: d,
                       potAngle: atan2(pocket.y - ghost.y, pocket.x - ghost.x),
                       aimAngle: atan2(ghost.y - cue.y, ghost.x - cue.x),
@@ -536,13 +568,17 @@ private struct DerivationFigure: View {
                 }
                 .stroke(FigureLine.contact, lineWidth: proj.lineHintWidth)
 
-                BTGhostCircle(diameter: d).position(g)
+                BTGhostCircle(diameter: d, showsAimPoint: false).position(g)
                 BTFigureBall(number: 1, diameter: d).position(t)
+                // G1 瞄准点 = 垂足 F（红点，在瞄准线上）。
+                BTAimPointDot(diameter: max(4, d * 0.14)).position(f)
 
                 BTFigureTag(text: "G 假想球心", color: FigureLine.contact)
                     .position(x: g.x - d * 0.3, y: g.y + d / 2 + 12)
                 BTFigureTag(text: "T 目标球心")
                     .position(x: t.x + d * 0.4, y: t.y - d / 2 - 11)
+                BTFigureTag(text: "F 瞄准点", color: FigureLine.aimPoint)
+                    .position(x: f.x + d * 0.2, y: f.y + d * 0.5 + 10)
                 BTFigureTag(text: "θ", color: FigureLine.contact)
                     .position(x: g.x + d * 1.28, y: g.y - d * 0.42)
 
@@ -587,7 +623,7 @@ private struct FormulaFigure: View {
                     .foregroundStyle(Color.btAccent)
                     .position(x: (ghost.x + target.x) / 2, y: dimY - 11)
 
-                BTGhostCircle(diameter: d).position(ghost)
+                BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)
                 BTFigureBall(number: 1, diameter: d).position(target)
 
                 Text("sin(30°) = 0.5 → d = R")

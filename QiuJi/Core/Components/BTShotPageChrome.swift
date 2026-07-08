@@ -68,6 +68,8 @@ struct BTTextActionButton: View {
     let title: String
     var role: Role = .plain
     var isDisabled: Bool = false
+    /// 按钮宽度（贴边布局下右侧留白窄，压到 46 以不超出球桌右侧黑边区，G6/G11）。
+    var width: CGFloat = 56
     let action: () -> Void
 
     var body: some View {
@@ -75,7 +77,7 @@ struct BTTextActionButton: View {
             Text(title)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(foreground)
-                .frame(width: 56, height: 30)
+                .frame(width: width, height: 30)
                 .background(background, in: Capsule())
                 .overlay(Capsule().strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         }
@@ -111,14 +113,50 @@ struct BTShotActionColumn: View {
     var onUndo: () -> Void
     var playbackEnabled: Bool
     var onPlayback: () -> Void
+    /// 按钮宽度（贴边右柱用窄款，默认 46；见 `ShotStageMetrics.actionColumnWidth`）。
+    var buttonWidth: CGFloat = ShotStageMetrics.actionColumnWidth
 
     var body: some View {
         VStack(spacing: 8) {
             BTTextActionButton(title: strikeTitle, role: .primary,
-                               isDisabled: !strikeEnabled, action: onStrike)
-            BTTextActionButton(title: "上一杆", isDisabled: !undoEnabled, action: onUndo)
-            BTTextActionButton(title: "回放", isDisabled: !playbackEnabled, action: onPlayback)
+                               isDisabled: !strikeEnabled, width: buttonWidth, action: onStrike)
+            BTTextActionButton(title: "上一杆", isDisabled: !undoEnabled,
+                               width: buttonWidth, action: onUndo)
+            BTTextActionButton(title: "回放", isDisabled: !playbackEnabled,
+                               width: buttonWidth, action: onPlayback)
         }
+    }
+}
+
+// MARK: - 开球排球图标（G9：三角形内含三个圆圈，示意码球）
+
+/// 开球按钮/胶囊统一图标：等边三角形描边 + 内部三颗球（1 顶 2 底的迷你球堆）。
+/// 单点定义，`BTBreakSideButton` 与 `breakModePill` 共用（改一处全局生效）。
+struct BreakRackGlyph: View {
+    var color: Color
+    var size: CGFloat = 15
+
+    var body: some View {
+        Canvas { ctx, canvas in
+            let w = canvas.width, h = canvas.height
+            let inset = w * 0.06
+            let apex = CGPoint(x: w / 2, y: inset)
+            let bl = CGPoint(x: inset, y: h - inset)
+            let br = CGPoint(x: w - inset, y: h - inset)
+            var tri = Path()
+            tri.move(to: apex); tri.addLine(to: bl); tri.addLine(to: br); tri.closeSubpath()
+            ctx.stroke(tri, with: .color(color), lineWidth: max(1, w * 0.08))
+            // 三颗球：顶部 1 颗、底部 2 颗（球堆前三排的顶部三角）。
+            let r = w * 0.135
+            let topBall = CGPoint(x: w / 2, y: h * 0.40)
+            let leftBall = CGPoint(x: w * 0.35, y: h * 0.68)
+            let rightBall = CGPoint(x: w * 0.65, y: h * 0.68)
+            for c in [topBall, leftBall, rightBall] {
+                let rect = CGRect(x: c.x - r, y: c.y - r, width: r * 2, height: r * 2)
+                ctx.fill(Path(ellipseIn: rect), with: .color(color))
+            }
+        }
+        .frame(width: size, height: size)
     }
 }
 
@@ -131,12 +169,11 @@ struct BTBreakSideButton: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 2) {
-                Image(systemName: "triangle")
-                    .font(.system(size: 12, weight: .semibold))
+                BreakRackGlyph(color: isEnabled ? Color.btPrimary : .white.opacity(0.35), size: 16)
                 Text("开球")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(isEnabled ? Color.btPrimary : .white.opacity(0.35))
             }
-            .foregroundStyle(isEnabled ? Color.btPrimary : .white.opacity(0.35))
             .frame(width: 48, height: 46)
             .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }

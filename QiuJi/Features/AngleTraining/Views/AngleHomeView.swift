@@ -164,11 +164,8 @@ struct AngleHomeView: View {
         return entries
     }
 
+    /// P11.1：入口顺序 = 分离角与走位、自由走位、自由击球、拍照建球形（、批量出片台）。
     private let basePlayEntries: [AngleEntry] = [
-        .init(route: .freePlay, glyph: "击",
-              title: "自由击球", subtitle: "开球散局起手，完整对局体验",
-              coverTop: Color(red: 0.13, green: 0.42, blue: 0.85),
-              coverBottom: Color(red: 0.05, green: 0.22, blue: 0.52), chip: "物理"),
         .init(route: .shotSimulation, glyph: "分",
               title: "分离角与走位", subtitle: "教学演示：看懂碰撞后母球走向",
               coverTop: Color(red: 0.13, green: 0.55, blue: 0.36),
@@ -177,6 +174,10 @@ struct AngleHomeView: View {
               title: "自由走位", subtitle: "逐杆编排击打，推演整套走位",
               coverTop: Color(red: 0.72, green: 0.55, blue: 0.13),
               coverBottom: Color(red: 0.45, green: 0.33, blue: 0.05), chip: "物理"),
+        .init(route: .freePlay, glyph: "击",
+              title: "自由击球", subtitle: "开球散局起手，完整对局体验",
+              coverTop: Color(red: 0.13, green: 0.42, blue: 0.85),
+              coverBottom: Color(red: 0.05, green: 0.22, blue: 0.52), chip: "物理"),
         .init(route: .ballExtraction, glyph: "拍",
               title: "拍照建球形", subtitle: "拍下真实球局，导入沙盘复盘",
               coverTop: Color(red: 0.16, green: 0.50, blue: 0.62),

@@ -2,12 +2,14 @@ import SwiftUI
 import SwiftData
 import SceneKit
 
-// MARK: - 2D/3D 瞄准点训练（问题集合条 9/10）
+// MARK: - 2D/3D 瞄准点训练（问题集合 v3 批次 S3：G1 口径）
 //
 // 瞄准训练最终版：给定母球/目标球/袋口并**展示进球线**（虚线，绑目标球色）；
-// 瞄准线初始 = 两球心连线；手指粗调 + 刻度轮微调；过目标球心、垂直于两球心连线的
-// 辅助线（白色细虚线）与瞄准线的交点 = 用户选择的打点。提交后展示正确瞄准线（红），
-// 误差 = 辅助线上两交点距离（mm，偏大为正）；3 秒后按用户瞄准线物理击球，然后下一题。
+// 瞄准线初始 = 两球心连线；手指粗调 + 刻度轮微调。
+// G1 口径：瞄准点 = 瞄准线与「过目标球心且垂直于瞄准线的直线」的交点（垂足）；
+// 辅助线（白色细虚线）随用户瞄准线旋转、恒与其垂直。误差 = 用户瞄准点与正确瞄准点
+// 相对目标球心的有符号偏移之差（mm，偏大为正 = 瞄薄）；正确瞄准点提交后以红色小点
+// 标注；3 秒后按用户瞄准线物理击球，然后下一题。
 
 @MainActor
 final class AimPointSceneQuizViewModel: ObservableObject {
@@ -112,7 +114,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         redrawLines()
     }
 
-    // MARK: - Submit（条 9.6/9.7）
+    // MARK: - Submit（条 9.6/9.7，G1 口径）
 
     func submit() {
         guard phase == .aiming, let q = question,
@@ -129,14 +131,28 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         )
         let correctDir = normalizedXZ(from: cue.position, to: ghost)
 
-        // 辅助线上的两交点：s 为沿辅助线（过目标球心、垂直于两球心连线）的有符号距离。
-        guard let sUser = auxIntersection(cue: cue.position, target: target.position, dir: aimDir),
-              let sCorrect = auxIntersection(cue: cue.position, target: target.position,
-                                             dir: correctDir) else { return }
+        // G1 瞄准点：目标球心到各瞄准线的垂足（XZ 平面，AimPointGeometry 唯一真源）。
+        let cueP = xzPoint(cue.position)
+        let targetP = xzPoint(target.position)
+        let userFoot = AimPointGeometry.aimPoint(
+            lineOrigin: cueP, direction: xzPoint(aimDir), targetCenter: targetP)
+        let correctFoot = AimPointGeometry.aimPoint(
+            lineOrigin: cueP, direction: xzPoint(correctDir), targetCenter: targetP)
 
-        // 偏大为正（与瞄准点训练同约定）：以正确交点所在侧为正方向。
-        let sideSign: Double = sCorrect >= 0 ? 1 : -1
-        let errorMM = (Double(sUser) - Double(sCorrect)) * sideSign * 1000
+        // 参考法向 = 目标球心 → 正确瞄准点（正确解所在侧为正，可区分瞄错侧）。
+        // 直球退化（正确垂距 ≈ 0）时以用户侧为正，误差 = 用户垂距（恒偏大）。
+        var normal = CGPoint(x: correctFoot.x - targetP.x, y: correctFoot.y - targetP.y)
+        if hypot(normal.x, normal.y) < 1e-6 {
+            normal = CGPoint(x: userFoot.x - targetP.x, y: userFoot.y - targetP.y)
+        }
+        let sCorrect = Double(hypot(correctFoot.x - targetP.x, correctFoot.y - targetP.y))
+        let sUser = hypot(normal.x, normal.y) < 1e-9
+            ? 0
+            : Double(AimPointGeometry.signedOffset(
+                lineOrigin: cueP, direction: xzPoint(aimDir),
+                targetCenter: targetP, positiveNormal: normal))
+        // 偏大为正（= 瞄薄，与瞄准点训练同约定）。
+        let errorMM = (sUser - sCorrect) * 1000
 
         lastErrorMM = errorMM
         sessionResults.append(RoundResult(errorMM: errorMM))
@@ -147,8 +163,8 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
         Task {
             let result = AngleTestResult(
-                actualAngle: abs(Double(sCorrect)) * 1000,
-                userAngle: Double(sUser) * sideSign * 1000,
+                actualAngle: sCorrect * 1000,
+                userAngle: sUser * 1000,
                 pocketType: q.pocketType.rawValue,
                 quizType: quizTypeLabel,
                 errorMM: errorMM
@@ -228,9 +244,9 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             color: TrajectoryStyle.potColor(forNumber: targetBallNumber)
         ))
 
-        // 辅助线（条 9.6）：过目标球心、垂直于两球心连线，白色细虚线。
-        let center = normalizedXZ(from: cue.position, to: target.position)
-        let n = SCNVector3(-center.z, 0, center.x)
+        // 辅助线（G1）：过目标球心、垂直于**用户瞄准线**，随瞄准旋转，白色细虚线。
+        // 它与瞄准线的交点即 G1 瞄准点（垂足）。
+        let n = SCNVector3(-aimDir.z, 0, aimDir.x)
         let auxHalf = AngleSceneCalculator.ballRadius * 7
         lineNodes.append(scene.addDashedLine(
             from: SCNVector3(target.position.x - n.x * auxHalf, y, target.position.z - n.z * auxHalf),
@@ -246,7 +262,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             color: .white
         ))
 
-        // 提交后：正确瞄准线（红，条 9.6）。
+        // 提交后：正确瞄准线（红）+ 正确瞄准点红色小点（G1 垂足）。
         if let correctDir {
             let correctEnd = aimLineEnd(cue: cue.position, target: target.position, dir: correctDir)
             lineNodes.append(scene.addLine(
@@ -254,7 +270,29 @@ final class AimPointSceneQuizViewModel: ObservableObject {
                 to: SCNVector3(correctEnd.x, y, correctEnd.z),
                 color: TrajectoryStyle.aimPointColor
             ))
+            let foot = AimPointGeometry.aimPoint(
+                lineOrigin: xzPoint(cue.position), direction: xzPoint(correctDir),
+                targetCenter: xzPoint(target.position))
+            lineNodes.append(addDotNode(
+                at: SCNVector3(Float(foot.x), y, Float(foot.y)),
+                color: TrajectoryStyle.aimPointColor
+            ))
         }
+    }
+
+    /// 瞄准点标记小点（贴台面的小圆片）。
+    private func addDotNode(at position: SCNVector3, color: UIColor) -> SCNNode {
+        let geo = SCNCylinder(radius: 0.007, height: 0.001)
+        geo.radialSegmentCount = 16
+        let mat = SCNMaterial()
+        mat.diffuse.contents = color
+        mat.emission.contents = color
+        mat.lightingModel = .constant
+        geo.materials = [mat]
+        let node = SCNNode(geometry: geo)
+        node.position = position
+        scene.rootNode.addChildNode(node)
+        return node
     }
 
     private func clearLines() {
@@ -297,17 +335,9 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         return SCNVector3(cue.x + dir.x * tMax, cue.y, cue.z + dir.z * tMax)
     }
 
-    /// 瞄准射线与辅助线的交点参数 s（沿辅助线的有符号距离，米）。nil = 平行无交点。
-    private func auxIntersection(cue: SCNVector3, target: SCNVector3,
-                                 dir: SCNVector3) -> Float? {
-        let center = normalizedXZ(from: cue, to: target)
-        let n = SCNVector3(-center.z, 0, center.x)
-        // 解 cue + t·dir = target + s·n
-        let dx = target.x - cue.x, dz = target.z - cue.z
-        let det = dir.x * (-n.z) - (-n.x) * dir.z
-        guard abs(det) > 1e-6 else { return nil }
-        let s = (dir.x * dz - dir.z * dx) / det
-        return s
+    /// SceneKit 水平面 XZ → 平面点（AimPointGeometry 入参约定：x→x，z→y）。
+    private func xzPoint(_ v: SCNVector3) -> CGPoint {
+        CGPoint(x: CGFloat(v.x), y: CGFloat(v.z))
     }
 
     // MARK: - Camera（3D 站位视角随题取景）
@@ -423,7 +453,7 @@ struct AimPointSceneTrainingView: View {
             Text(String(format: "误差 %@%.1f mm", errorMM >= 0 ? "+" : "", errorMM))
                 .font(.system(size: 14, weight: .bold, design: .rounded))
                 .monospacedDigit()
-            Text(errorMM >= 0 ? "偏厚" : "偏薄")
+            Text(errorMM >= 0 ? "偏薄" : "偏厚")
                 .font(.btCaption)
                 .foregroundStyle(.white.opacity(0.6))
             divider

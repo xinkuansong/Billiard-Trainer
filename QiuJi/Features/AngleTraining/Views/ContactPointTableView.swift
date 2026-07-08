@@ -113,7 +113,8 @@ struct ContactPointTableView: View {
     // MARK: - 俯视真台交互图（T-P18-46 重设计）
 
     /// 俯视图真台渲染：以**母球方向为竖直基准**（瞄准线白实线），拖滑条时进球方向
-    /// 转 α、假想球绕目标球转动 —— 同时看见瞄准点（假想球心）与接触点（绿点）。
+    /// 转 α、假想球绕目标球转动。G1 口径：瞄准点（红点）= 瞄准线与「过目标球心且
+    /// 垂直于瞄准线的直线」（水平白虚线）的交点，到球心的距离 = d = 2R·sin(θ)。
     private var aimFigure: some View {
         let r = CGFloat(AngleSceneCalculator.ballRadius)
         return BTTableFigure(orientation: .landscape,
@@ -128,6 +129,8 @@ struct ContactPointTableView: View {
             let contact = CGPoint(x: (target.x + ghost.x) / 2, y: (target.y + ghost.y) / 2)
             let potEnd = CGPoint(x: target.x + potDir.x * d * 2.4,
                                  y: target.y + potDir.y * d * 2.4)
+            // G1 瞄准点：竖直瞄准线与过目标球心水平线的交点（垂足）。
+            let aimPoint = CGPoint(x: ghost.x, y: target.y)
 
             ZStack {
                 // 进球线（目标球 → 袋口方向）：绑球色虚线（线语言 v2）。
@@ -135,33 +138,42 @@ struct ContactPointTableView: View {
                     .stroke(FigureLine.pot(number: 1),
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [6, 4]))
 
-                // 瞄准线（母球方向，竖直白实线，穿过假想球心 = 瞄准点）。
+                // G1 垂线：过目标球心、垂直于瞄准线（水平白细虚线）。
+                Path { p in
+                    p.move(to: CGPoint(x: target.x - d * 2.0, y: target.y))
+                    p.addLine(to: CGPoint(x: target.x + d * 2.0, y: target.y))
+                }
+                .stroke(FigureLine.hint.opacity(0.7),
+                        style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [5, 4]))
+
+                // 瞄准线（母球方向，竖直白实线，延伸过垂线交点 = 瞄准点）。
                 Path { p in
                     p.move(to: CGPoint(x: ghost.x, y: proj.size.height - 8))
-                    p.addLine(to: CGPoint(x: ghost.x, y: ghost.y))
+                    p.addLine(to: CGPoint(x: ghost.x, y: target.y - d * 0.4))
                 }
                 .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
 
-                // 横移量 d 标尺（金 = 量值）：目标球心 → 假想球心的横向偏移。
+                // 偏移量 d 标尺（金 = 量值）：目标球心 → 瞄准点（G1：d 就在垂线上）。
                 if sliderAngle > 3 {
-                    let dimY = proj.size.height * 0.88
                     Path { p in
-                        p.move(to: CGPoint(x: target.x, y: dimY))
-                        p.addLine(to: CGPoint(x: ghost.x, y: dimY))
+                        p.move(to: target)
+                        p.addLine(to: aimPoint)
                     }
-                    .stroke(Color.btAccent, lineWidth: 1.4)
+                    .stroke(Color.btAccent, lineWidth: 2.0)
                 }
 
-                BTGhostCircle(diameter: d).position(ghost)
+                BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)
                 BTFigureBall(number: 1, diameter: d).position(target)
                 // 接触点浮于球面之上（否则被目标球盖住）。
                 BTContactDot(diameter: max(4, d * 0.22)).position(contact)
+                // G1 瞄准点（红点）：在垂线与瞄准线的交点处。
+                BTAimPointDot(diameter: max(4, d * 0.14)).position(aimPoint)
 
                 BTFigureTag(text: "袋口方向", color: FigureLine.pot(number: 1))
                     .position(x: potEnd.x, y: potEnd.y - 12)
-                // 条 4.1/4.2：瞄准点 = 假想球心（红），接触点 = 两球相切处（绿）。
+                // G1：瞄准点 = 垂足（红），接触点 = 两球相切处（绿）。
                 BTFigureTag(text: "瞄准点", color: FigureLine.aimPoint)
-                    .position(x: ghost.x + d * 0.95, y: ghost.y + d * 0.35)
+                    .position(x: aimPoint.x + d * 0.95, y: aimPoint.y - d * 0.35)
                 BTFigureTag(text: "接触点", color: FigureLine.contact)
                     .position(x: contact.x - d * 0.95, y: contact.y)
             }
@@ -188,7 +200,7 @@ struct ContactPointTableView: View {
                     .fill(.btAccent)
                     .frame(width: 4)
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("d 为横移量（假想球中心偏移目标球中心的距离），θ 为切角，R 为球半径。")
+                    Text("d 为偏移量：瞄准点（瞄准线与过目标球心垂线的交点，红点）到目标球心的距离，也等于假想球心的横移量。θ 为切角，R 为球半径。")
                     Text("d/R = 2sin(θ) 为无量纲比，表中「d(mm)」按中八球径 57.15mm 计算。")
                 }
                 .font(.btCallout)

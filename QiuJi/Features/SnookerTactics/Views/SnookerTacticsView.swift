@@ -28,26 +28,33 @@ struct SnookerTacticsView: View {
     @State private var banner: String?
 
     private static let paletteColumns = 8
+    /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
+    private static let topRowHeight: CGFloat = 46
+    /// 底栏 = 球库两行（G12 后无解摘要行）。
+    private static let bottomBarHeight: CGFloat = 78
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 0) {
-                topToolRow
-                ZStack(alignment: .bottom) {
-                    sceneContainer
-                    leftColumn
-                    rightColumn
-                    if showSpinPad {
-                        BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                         onClose: { showSpinPad = false })
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
+        GeometryReader { geo in
+            let rig = vm.scene.cameraRig
+            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let proxy = ShotStageProxy(
+                sceneSize: CGSize(width: geo.size.width, height: sceneH),
+                halfLength: rig?.tableOuterHalfLength ?? ShotTableLayout.defaultHalfLength,
+                halfWidth: rig?.tableOuterHalfWidth ?? ShotTableLayout.defaultHalfWidth
+            )
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topToolRow
+                        .frame(height: Self.topRowHeight)
+                    stage(proxy)
+                        .frame(height: sceneH)
+                    bottomBar(proxy)
+                        .frame(height: Self.bottomBarHeight)
                 }
-                bottomBar
+                if let key = draggingKey { dragGhost(key) }
+                bannerView
             }
-            if let key = draggingKey { dragGhost(key) }
-            bannerView
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .coordinateSpace(name: "snooker")
@@ -131,10 +138,48 @@ struct SnookerTacticsView: View {
             .accessibilityLabel("清除角色选择")
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.xs)
+        .frame(maxHeight: .infinity)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
     }
+
+    // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
+
+    private func stage(_ proxy: ShotStageProxy) -> some View {
+        ZStack(alignment: .topLeading) {
+            sceneContainer
+
+            if proxy.isValid {
+                // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
+                BTTrajectoryDetailChip { vm.redrawTrajectory() }
+                    .btChipBandPlacement(proxy)
+                    .allowsHitTesting(!vm.isPlaying)
+
+                // 左下（条 21.3 + G6）：求解/下一解叠在开球按钮（禁用态）上方，
+                // 右缘贴球桌左缘、底边齐球桌底线。
+                leftColumn
+                    .btStageFrame(proxy.bottomLeadingFrame(size: Self.leftColumnSize))
+
+                // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
+                instrumentColumn
+                    .btStageFrame(proxy.instrumentFrame())
+
+                // 条 18.2：击球/上一杆/回放，右下角底边齐球桌底线。
+                actionColumn
+                    .btStageFrame(proxy.actionColumnFrame())
+            }
+
+            if showSpinPad {
+                BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                 onClose: { showSpinPad = false })
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+        }
+    }
+
+    /// 左下控件叠尺寸：求解 30 + 8 + 下一解 30 + 8 + 开球 46。
+    private static let leftColumnSize = CGSize(width: 48, height: 122)
 
     // MARK: - Scene
 
@@ -158,58 +203,47 @@ struct SnookerTacticsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
-        // 三档轨迹标注切换（条 12.5）：全击打页统一放球桌区右上角。
-        .overlay(alignment: .topTrailing) {
-            BTTrajectoryDetailChip { vm.redrawTrajectory() }
-                .padding(Spacing.sm)
-        }
     }
 
     // MARK: - Side columns（条 21.3 + 条 18 同规范）
 
     private var leftColumn: some View {
         VStack(spacing: 8) {
-            Spacer(minLength: 0)
             BTTextActionButton(title: "求解", role: .primary,
-                               isDisabled: vm.isPlaying || vm.isComputing || !vm.hasConstraint) {
+                               isDisabled: vm.isPlaying || vm.isComputing || !vm.hasConstraint,
+                               width: 46) {
                 vm.solve()
             }
             BTTextActionButton(title: "下一解",
-                               isDisabled: vm.isPlaying || vm.solutions.count < 2) {
+                               isDisabled: vm.isPlaying || vm.solutions.count < 2,
+                               width: 46) {
                 vm.nextSolution()
             }
             // 本页无开球——按条 18.4 显示禁用态。
             BTBreakSideButton(isEnabled: false) {}
         }
-        .padding(.leading, 8)
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
     }
 
-    private var rightColumn: some View {
-        VStack(spacing: 10) {
-            Spacer(minLength: 0)
-            BTShotInstrumentColumn(
-                spinX: vm.spinX, spinY: vm.spinY,
-                onSpinTap: { if vm.hasSolutions { showSpinPad = true } },
-                velocity: velocityBinding,
-                range: ShotTuning.velocityRange,
-                isDisabled: vm.isPlaying || !vm.hasSolutions
-            )
-            .frame(width: 36, height: 220)
-            BTShotActionColumn(
-                strikeTitle: vm.isPlaying ? "击球中" : "击球",
-                strikeEnabled: vm.canStrike,
-                onStrike: { vm.play() },
-                undoEnabled: !vm.isPlaying && vm.canUndoShot,
-                onUndo: { vm.undoLastShot() },
-                playbackEnabled: !vm.isPlaying && vm.canPlayback,
-                onPlayback: { vm.replayLastShot() }
-            )
-        }
-        .padding(.trailing, 8)
-        .padding(.bottom, 8)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+    private var instrumentColumn: some View {
+        BTShotInstrumentColumn(
+            spinX: vm.spinX, spinY: vm.spinY,
+            onSpinTap: { if vm.hasSolutions { showSpinPad = true } },
+            velocity: velocityBinding,
+            range: ShotTuning.velocityRange,
+            isDisabled: vm.isPlaying || !vm.hasSolutions
+        )
+    }
+
+    private var actionColumn: some View {
+        BTShotActionColumn(
+            strikeTitle: vm.isPlaying ? "击球中" : "击球",
+            strikeEnabled: vm.canStrike,
+            onStrike: { vm.play() },
+            undoEnabled: !vm.isPlaying && vm.canUndoShot,
+            onUndo: { vm.undoLastShot() },
+            playbackEnabled: !vm.isPlaying && vm.canPlayback,
+            onPlayback: { vm.replayLastShot() }
+        )
     }
 
     private var velocityBinding: Binding<Double> {
@@ -224,66 +258,41 @@ struct SnookerTacticsView: View {
         Binding(get: { vm.spinY }, set: { vm.adjustCurrentSolution(spinY: $0) })
     }
 
-    // MARK: - Bottom bar
+    // MARK: - Bottom bar（G12：删除解摘要行，底部只留球库；解读数入口 = 右柱打点/力度）
 
-    private var bottomBar: some View {
-        VStack(spacing: 0) {
-            solutionRow
-            paletteBar
-        }
-        .background(Color(white: 0.11))
-        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-        .background(frameReader(id: "palette"))
-        .environment(\.colorScheme, .dark)
-    }
-
-    /// 当前解摘要行（统一 `ShotControlBar`，T-P18-10）。
-    private var solutionRow: some View {
-        ShotControlBar(
-            spinX: vm.spinX, spinY: vm.spinY,
-            velocity: vm.hasSolutions ? vm.velocity : nil,
-            subtitle: vm.currentSolution.map(solutionSubtitle),
-            subtitleTint: (vm.currentSolution?.satisfiesConstraint ?? true)
-                ? nil : Color.btDestructive
-        ) { EmptyView() }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 5)
-    }
-
-    private func solutionSubtitle(_ sol: PositionPlaySolution) -> String {
-        let cushion = sol.cushionCount == 0 ? "不吃库" : "\(sol.cushionCount) 库"
-        let spin = SiluSpinLabel.text(spinX: sol.shot.spinX, spinY: sol.shot.spinY)
-        let advanced = sol.beyondCushionBudget ? "进阶 · " : ""
-        if !sol.satisfiesConstraint {
-            return "\(advanced)半斯诺克 · \(spin) · \(cushion)"
-        }
-        return "\(advanced)完全斯诺克 · 余量 \(Int(sol.margin.rounded()))° · \(spin) · \(cushion)"
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+        paletteBar(proxy)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(white: 0.11))
+            .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
+            .background(frameReader(id: "palette"))
+            .environment(\.colorScheme, .dark)
     }
 
     // MARK: - Palette
 
-    private var paletteBar: some View {
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         // #5a：球库常显全部 16 颗；在桌球变暗、不可拖，点击在桌球 = 桌上对应球放大脉冲提示位置。
+        // G8：排球总宽 = 球桌宽、居中，两侧留白。
         let all = PositionPlayBall.allKeys
         let row1 = Array(all.prefix(Self.paletteColumns))
         let row2 = Array(all.dropFirst(Self.paletteColumns))
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
         return VStack(spacing: 4) {
-            paletteRow(row1)
-            paletteRow(row2)
+            paletteRow(row1, columnWidth: columnWidth)
+            paletteRow(row2, columnWidth: columnWidth)
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 5)
         .frame(maxWidth: .infinity)
     }
 
-    private func paletteRow(_ keys: [String]) -> some View {
+    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
                     if i < keys.count { ballToken(keys[i]) } else { Color.clear }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 32)
+                .frame(width: columnWidth, height: 32)
             }
         }
     }
