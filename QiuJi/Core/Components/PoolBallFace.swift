@@ -137,7 +137,7 @@ enum PoolBallStyle {
 /// 线语言统一真源（ADR-P11-12 + T-P18-41 + 线语言 v2，问题集合条 12）。
 /// App 内 8 场景页与渲染管线（`SequenceVideoExporter`/缩略图）全部从这里取色取宽：
 /// - 瞄准线 = 白实线（用户即将做的；母球碰前段）
-/// - 进球线 = 绑定目标球本色**虚线**（黑 8 等深色取亮灰变体）
+/// - 进球线 = 绑定目标球本色**虚线**（含黑 8 本色黑，v3 P4.3；无目标语义兜底亮灰）
 /// - 母球碰后轨迹 / 其它被带动球轨迹 = 各自球色**虚线**（`mainDash/mainGap` 节奏）
 /// - 球迹线 = 金（引擎算出的解路径，品牌线）
 /// - 对照线 = 白虚线（理想/自动解参考，弃旧蓝色）
@@ -165,9 +165,10 @@ enum TrajectoryStyle {
     static let aimColor = UIColor.white.withAlphaComponent(0.95)
 
     /// 进球线颜色 = 目标球球色（标准色板，9..15 花色取主色）。
-    /// 黑 8 在深绿台呢上不可见 → 例外用亮灰；无目标球语义（自由球/未知键）同此兜底。
+    /// 黑 8 也按本色（黑）——问题集合 v3 P4.3 撤销旧亮灰例外，规则全号覆盖；
+    /// 无目标球语义（自由球/未知键）仍取亮灰兜底。
     static func potColor(for targetKey: String, alpha: CGFloat = 0.95) -> UIColor {
-        guard let n = PositionPlayBall.number(for: targetKey), n != 8 else {
+        guard PositionPlayBall.number(for: targetKey) != nil else {
             return UIColor(white: 0.85, alpha: alpha)
         }
         return UIColor(PoolBallStyle.style(for: targetKey).color).withAlphaComponent(alpha)

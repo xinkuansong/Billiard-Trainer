@@ -144,6 +144,7 @@ struct GeometricAngleQuizView: View {
                 input: $vm.userInput,
                 title: "估算角度",
                 subtitle: "范围 0° – 90°",
+                compact: true,   // P5.1：紧凑键盘，不遮挡「换题 / 显示参考」
                 onSubmit: {
                     isInputting = false
                     vm.submitAnswer()

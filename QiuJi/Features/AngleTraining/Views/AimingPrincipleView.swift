@@ -57,6 +57,19 @@ struct AimingPrincipleView: View {
                 termRow("瞄准点", "瞄准线与「过目标球心、垂直于瞄准线的直线」的交点（红点）。它参考目标球定义：瞄准线穿过目标球时在球内/球面上，从旁边经过时在球外——不是假想球心。")
                 termRow("接触点", "碰撞瞬间两球球面相触的点（绿点），在目标球表面、两球心连线上。")
             }
+
+            // P1.3（问题集合 v3）：接触点 ≠ 瞄准点的常见误区提示。
+            HStack(alignment: .top, spacing: Spacing.sm) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.btAccent)
+                Text("常见误区：从目标球看向袋口方向（沿进球线）时，你在目标球上看到的那个点，其实是击球过程中正确的「母球与目标球的接触点」（绿点），而不是瞄准点（红点）。直接瞄着这个点打，母球会打厚偏离——瞄准点永远在接触点靠外一侧。")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+            }
+            .padding(Spacing.md)
+            .background(Color.btAccent.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
@@ -357,11 +370,13 @@ private struct AimingFigure: View {
     }
 
     var body: some View {
-        // 半台特写取景（覆盖右上 1/4 台 + 袋口）：球与标注放大约一倍，教学更易读；
-        // 底图仍是同一张真台（含真实库边与右上角袋）。取景比旧版放宽（条 1.3：
-        // 假想球/目标球周边留白更足，不拥挤）。
+        // 半台特写取景（覆盖右上 1/4 台 + 袋口方向）：底图是同一张真台（含真实库边）。
+        // P1.1（问题集合 v3）：母球沿瞄准线距假想球拉开到 0.42m（旧 0.24m），取景
+        // halfHeight 0.30→0.36、中心 x 0.50→0.40——数值核验（aspect≈1.44）：
+        // 视窗 X∈[−0.12,0.92]、Z∈[−0.52,0.20]；cue≈(−0.018,−0.084) 全球在框内
+        //（左缘余量 ≈0.10m），进球线可见段 ≈0.56m（旧取景下几乎不可见）。
         BTTableFigure(orientation: .landscape,
-                      closeup: (center: CGPoint(x: 0.50, y: -0.16), halfHeight: 0.30)) { proj in
+                      closeup: (center: CGPoint(x: 0.40, y: -0.16), halfHeight: 0.36)) { proj in
             let l = layout(proj)
             ZStack {
                 // 进球线（目标球 → 袋口）：绑目标球本色（线语言 v2 虚线）。
@@ -427,6 +442,7 @@ private struct AimingFigure: View {
                 BTFigureTag(text: "θ \(Int(cutAngleDeg))°")
                     .position(x: l.ghost.x - (l.arcR + 18) * cos((l.potAngle + l.aimAngle) / 2),
                               y: l.ghost.y - (l.arcR + 18) * sin((l.potAngle + l.aimAngle) / 2))
+                // 标签在球正下方（取景左缘余量 ≈0.10m ≈ 1.8 球径，可容纳）。
                 BTFigureTag(text: "母球").position(x: l.cue.x, y: l.cue.y + l.d / 2 + 12)
                 BTFigureTag(text: "目标球").position(x: l.target.x + l.d * 0.8,
                                                      y: l.target.y + l.d / 2 + 14)
@@ -436,8 +452,9 @@ private struct AimingFigure: View {
                 // 线标签（条 1.2）：贴线段靠端点 30% 处外侧，避开假想球标注群。
                 BTFigureTag(text: "瞄准线")
                     .position(alongLabel(from: l.cue, to: l.ghost, t: 0.32, offset: 14))
+                // t=0.35：取景右缘约在 target→pocket 的 t≈0.53 处，再靠外会被裁掉。
                 BTFigureTag(text: "进球线", color: FigureLine.pot(number: targetNumber))
-                    .position(alongLabel(from: l.target, to: l.pocket, t: 0.55, offset: -14))
+                    .position(alongLabel(from: l.target, to: l.pocket, t: 0.35, offset: -14))
 
                 if showsGlossaryLabels {
                     BTFigureTag(text: "瞄准点", color: FigureLine.aimPoint)
@@ -474,7 +491,8 @@ private struct AimingFigure: View {
         let sinA: CGFloat = sin(a)
         let aimDir = CGPoint(x: potDir.x * cosA - potDir.y * sinA,
                              y: potDir.x * sinA + potDir.y * cosA)
-        let cueW = CGPoint(x: ghostW.x - aimDir.x * 0.24, y: ghostW.y - aimDir.y * 0.24)
+        // P1.1：母球沿瞄准线距假想球 0.42m（旧 0.24m 过近致文字拥挤）。
+        let cueW = CGPoint(x: ghostW.x - aimDir.x * 0.42, y: ghostW.y - aimDir.y * 0.42)
 
         let target = proj.point(x: targetW.x, z: targetW.y)
         let pocket = proj.point(x: pocketW.x, z: pocketW.y)

@@ -86,6 +86,12 @@ final class AngleTrainingScene: SCNScene {
         setupTable()
         setupCamera()
         setupLighting()
+
+        // 台面网格重放（G2 根因修复）：makeUIView 可能先于本方法按偏好建网格，
+        // 彼时 surfaceY 还是默认值，网格会埋进桌身。表面高度就位后重建。
+        if let grid = tableGridNode, !grid.isHidden {
+            setTableGridVisible(true)
+        }
     }
 
     // MARK: - Table
@@ -1356,19 +1362,28 @@ final class AngleTrainingScene: SCNScene {
     /// 显隐 4x8 台面网格：短边 4 等分（3 条纵长线）+ 长边 8 等分（7 条横线），
     /// 白色低透明细线贴台呢，教学定位参考。首次开启时懒建，此后仅切换 isHidden。
     func setTableGridVisible(_ visible: Bool) {
+        let y = surfaceY + 0.0015
         if let grid = tableGridNode {
-            grid.isHidden = !visible
-            return
+            // 台面高度未变：仅切换显隐。若 scene 在网格懒建后才 setupTable
+            //（如进页时偏好已开启，makeUIView 先于 VM setupScene 调用），
+            // 旧网格建在默认 surfaceY 上、埋进桌身不可见——移除重建。
+            if abs(grid.position.y - y) < 1e-4 {
+                grid.isHidden = !visible
+                return
+            }
+            grid.removeFromParentNode()
+            tableGridNode = nil
         }
         guard visible else { return }
 
         let grid = SCNNode()
         grid.name = "tableGrid"
+        grid.position = SCNVector3(0, y, 0)
         let mat = SCNMaterial()
-        mat.diffuse.contents = UIColor.white.withAlphaComponent(0.28)
+        // G2（问题集合 v3）：网格提亮为灰白色——0.28 alpha 在深色台呢上过暗。
+        mat.diffuse.contents = UIColor.white.withAlphaComponent(0.55)
         mat.lightingModel = .constant
         mat.isDoubleSided = true
-        let y = surfaceY + 0.0015
         let halfL = AngleSceneCalculator.innerLength / 2
         let halfW = AngleSceneCalculator.innerWidth / 2
         let lineW: CGFloat = 0.0022
@@ -1381,7 +1396,8 @@ final class AngleTrainingScene: SCNScene {
             geo.radialSegmentCount = 6
             geo.materials = [mat]
             let node = SCNNode(geometry: geo)
-            node.position = SCNVector3((a.x + b.x) / 2, y, (a.z + b.z) / 2)
+            // Y 由父节点 grid.position.y 承担，子节点相对 0。
+            node.position = SCNVector3((a.x + b.x) / 2, 0, (a.z + b.z) / 2)
             node.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
                                               to: simd_normalize(simd_float3(dx, 0, dz)))
             grid.addChildNode(node)

@@ -4,17 +4,22 @@ import SceneKit
 struct BallFeelView: View {
     var body: some View {
         ScrollView {
+            // P2.1（问题集合 v3）：水平边距由各分节自管——视角差异节全宽出血
+            //（2D 图延伸至屏幕宽度），其余分节保持页级 lg 边距。
             VStack(spacing: Spacing.xxl) {
                 whatIsBallFeelSection
+                    .padding(.horizontal, Spacing.lg)
                 visualAnchorsSection
+                    .padding(.horizontal, Spacing.lg)
                 trainingAdviceSection
+                    .padding(.horizontal, Spacing.lg)
                 perspectiveDifferenceSection
                 // 学→练导流（T-P18-51）：厚度锚点学完 → 真台俯视练几何判断。
                 PracticeCTA(title: "用真台验证",
                             destination: "2D 角度训练 · 在真实台面上练厚度锚点",
                             route: .sceneAiming2D)
+                    .padding(.horizontal, Spacing.lg)
             }
-            .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
         }
         .background(.btBG)
@@ -177,16 +182,20 @@ struct BallFeelView: View {
 
     // MARK: - Section 4: 2D vs 3D Perspective
 
+    /// P2.1（问题集合 v3）：本节改为**全宽出血带**——2D 图延伸至屏幕宽度
+    ///（高度按球桌外框宽高比自适应，全台恰好占满图宽），3D 图同宽保持上下对照；
+    /// 文字保留水平内边距。
     private var perspectiveDifferenceSection: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("2D 到 3D 的视角差异")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
+                .padding(.horizontal, Spacing.lg)
 
             VStack(spacing: Spacing.md) {
                 topDownCanvas
-                    .frame(height: 100)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                    .aspectRatio(Self.tableOuterAspect, contentMode: .fit)
+                    .frame(maxWidth: .infinity)
                     .overlay(alignment: .bottomLeading) {
                         Text("俯视角度（2D）")
                             .font(.btCaption)
@@ -200,7 +209,8 @@ struct BallFeelView: View {
 
                 perspectiveCanvas
                     .frame(height: 130)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                    .frame(maxWidth: .infinity)
+                    .clipped()
                     .overlay(alignment: .bottomLeading) {
                         Text("站位视角（3D）")
                             .font(.btCaption)
@@ -216,11 +226,15 @@ struct BallFeelView: View {
             Text("上下两图是**同一杆 30° 切球**：俯视图（2D）里角度一目了然；俯身到出杆高度（3D）后，透视把纵深压缩，两球的重叠关系看起来明显更「厚」。这段视角差正是训练要校正的对象——先在 2D 建立几何判断，再到 3D 视角复核同一杆球，逐步让两个视角在大脑里对上号。")
                 .font(.btFootnote)
                 .foregroundStyle(.btTextSecondary)
+                .padding(.horizontal, Spacing.lg)
         }
-        .padding(Spacing.lg)
+        .padding(.vertical, Spacing.lg)
         .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
+
+    /// 球桌外框宽高比（横放，真源 = `CameraRig` 实测外框半幅）：全台取景下按此比例
+    /// 设定视图宽高，球桌恰好横向占满图宽（仅留 `rotatedFitMargin` 安全余量）。
+    private static let tableOuterAspect: CGFloat = 1.4055 / 0.7995
 
     private var topDownCanvas: some View {
         BallFeelTopDownFigure()

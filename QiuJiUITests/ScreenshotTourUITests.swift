@@ -103,7 +103,7 @@ final class ScreenshotTourUITests: XCTestCase {
         let pages: [(String, String, String)] = [
             ("学", "瞄准原理", "a09-aiming-principle"),
             ("学", "浅谈球感", "a11-ball-feel"),
-            ("学", "进球点对照表", "a10-contact-point"),
+            ("学", "瞄准点对照表", "a10-contact-point"),
             ("练", "角度预测", "a12-geometric-quiz"),
         ]
         for (tab, label, name) in pages {
@@ -119,6 +119,10 @@ final class ScreenshotTourUITests: XCTestCase {
                 app.swipeUp()
                 sleep(1)
                 snap("\(name)-scrolled")
+                // 页底第三帧：核验页尾插图卡（P2.1 全宽 2D 图 / 对照表估角图等）。
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled2")
                 popBack()
                 sleep(1)
             }
@@ -791,7 +795,7 @@ final class ScreenshotTourUITests: XCTestCase {
             ("学", "瞄准原理", "09-angle-aiming-principle"),
             ("学", "角度与打点", "10-angle-dynamic"),
             ("学", "浅谈球感", "11-angle-ball-feel"),
-            ("学", "进球点对照表", "15-angle-contact-point-table"),
+            ("学", "瞄准点对照表", "15-angle-contact-point-table"),
             ("练", "角度预测", "12-angle-geometric-quiz"),
             ("练", "2D 角度训练", "13-angle-scene-aiming"),
         ]

@@ -62,8 +62,10 @@ struct ContactPointTableView: View {
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
+            // P3.1（问题集合 v3）：卡片加高 220→260，配合图内几何调整（目标球下移、
+            // 进球线延伸缩短），拖动全程「袋口方向」标签不再超出卡片。
             aimFigure
-                .frame(height: 220)
+                .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
             VStack(spacing: Spacing.xs) {
@@ -118,17 +120,18 @@ struct ContactPointTableView: View {
     private var aimFigure: some View {
         let r = CGFloat(AngleSceneCalculator.ballRadius)
         return BTTableFigure(orientation: .landscape,
-                             closeup: (center: .zero, halfHeight: r * 4.3)) { proj in
+                             closeup: (center: .zero, halfHeight: r * 5.0)) { proj in
             let d = proj.ballDiameter
             let rad = sliderAngle * .pi / 180
-            // 目标球略靠上，给下方母球来向留空间。
-            let target = CGPoint(x: proj.size.width / 2, y: proj.size.height * 0.40)
+            // P3.1 数值核验（h=260, d≈52）：target.y=0.44h、进球线延伸 1.6d 时，
+            // 0° 处 potEnd.y≈31、标签 y≈19 仍在框内（旧 0.40h/2.4d 时 0° 溢出到 −46）。
+            let target = CGPoint(x: proj.size.width / 2, y: proj.size.height * 0.44)
             // 进球方向与竖直瞄准方向夹 α（向右转）；假想球 = 目标球心 − 2R×进球方向。
             let potDir = CGPoint(x: sin(rad), y: -cos(rad))
             let ghost = CGPoint(x: target.x - d * potDir.x, y: target.y - d * potDir.y)
             let contact = CGPoint(x: (target.x + ghost.x) / 2, y: (target.y + ghost.y) / 2)
-            let potEnd = CGPoint(x: target.x + potDir.x * d * 2.4,
-                                 y: target.y + potDir.y * d * 2.4)
+            let potEnd = CGPoint(x: target.x + potDir.x * d * 1.6,
+                                 y: target.y + potDir.y * d * 1.6)
             // G1 瞄准点：竖直瞄准线与过目标球心水平线的交点（垂足）。
             let aimPoint = CGPoint(x: ghost.x, y: target.y)
 
@@ -273,10 +276,13 @@ struct ContactPointTableView: View {
     }
 
     /// 演示用固定布局：θ=30° 切球，滑条改变母球沿真实瞄准线的距离。
-    private var estimationLayout: (cue: CGPoint, target: CGPoint, ghost: CGPoint, potDir: CGPoint) {
+    private var estimationLayout: (cue: CGPoint, target: CGPoint, ghost: CGPoint,
+                                   potDir: CGPoint, pocket: CGPoint) {
         let r = Double(AngleSceneCalculator.ballRadius)
         let target = CGPoint(x: 0.75, y: -0.25)
-        let corner = CGPoint(x: 1.27, y: -0.635)
+        // 右上角袋视觉标记位（与其他插图同真源）。
+        let pocketW3 = AngleSceneCalculator.pocketMarkerPositions(surfaceY: 0)[1]
+        let corner = CGPoint(x: CGFloat(pocketW3.x), y: CGFloat(pocketW3.z))
         let pv = CGPoint(x: corner.x - target.x, y: corner.y - target.y)
         let pLen = hypot(pv.x, pv.y)
         let potDir = CGPoint(x: pv.x / pLen, y: pv.y / pLen)
@@ -289,7 +295,7 @@ struct ContactPointTableView: View {
         let cueX: Double = Double(ghost.x) - aimX * estimationDistance
         let cueY: Double = Double(ghost.y) - aimY * estimationDistance
         let cue = CGPoint(x: cueX, y: cueY)
-        return (cue, target, ghost, potDir)
+        return (cue, target, ghost, potDir, corner)
     }
 
     private var estimationErrorDegrees: Double {
@@ -308,9 +314,15 @@ struct ContactPointTableView: View {
             let cue = proj.point(x: l.cue.x, z: l.cue.y)
             let target = proj.point(x: l.target.x, z: l.target.y)
             let ghost = proj.point(x: l.ghost.x, z: l.ghost.y)
+            let pocket = proj.point(x: l.pocket.x, z: l.pocket.y)
             let d = proj.ballDiameter
 
             ZStack {
+                // P3.2（问题集合 v3）：进球线（目标球 → 袋口，绑球色虚线）一并画出，
+                // 读者能看到估角针对的是哪一杆球。
+                Path { p in p.move(to: target); p.addLine(to: pocket) }
+                    .stroke(FigureLine.pot(number: 1),
+                            style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [6, 4]))
                 // 真实瞄准线：母球 → 假想球心（白实线）。
                 Path { p in p.move(to: cue); p.addLine(to: ghost) }
                     .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
@@ -327,6 +339,9 @@ struct ContactPointTableView: View {
                     .position(x: (cue.x + ghost.x) / 2, y: (cue.y + ghost.y) / 2 - 14)
                 BTFigureTag(text: "中心连线", color: .btAccent)
                     .position(x: (cue.x + target.x) / 2, y: (cue.y + target.y) / 2 + 14)
+                BTFigureTag(text: "进球线", color: FigureLine.pot(number: 1))
+                    .position(x: (target.x + pocket.x) / 2 + 10,
+                              y: (target.y + pocket.y) / 2 + 14)
             }
             .animation(.easeOut(duration: 0.12), value: estimationDistance)
         }

@@ -7,10 +7,16 @@ struct NumericKeypadHUD: View {
     @Binding var input: String
     let title: String
     let subtitle: String?
+    /// P5.1（问题集合 v3）：紧凑档——键高/读数再压一档，保证角度预测页
+    /// 「换题 / 显示参考」按钮在键盘弹出时仍完整可见。
+    var compact: Bool = false
     let onSubmit: () -> Void
     let onCancel: () -> Void
 
     private let maxLength = 3 // angles 0-90 (or 0-100 just in case)
+
+    private var keyHeight: CGFloat { compact ? 36 : 48 }
+    private var displayFontSize: CGFloat { compact ? 24 : 38 }
 
     var body: some View {
         VStack(spacing: Spacing.sm) {
@@ -37,15 +43,15 @@ struct NumericKeypadHUD: View {
             // Big number display
             HStack(alignment: .lastTextBaseline, spacing: 4) {
                 Text(input.isEmpty ? "0" : input)
-                    .font(.system(size: 38, weight: .bold, design: .rounded))
+                    .font(.system(size: displayFontSize, weight: .bold, design: .rounded))
                     .foregroundStyle(input.isEmpty ? .btTextTertiary : .btText)
                     .contentTransition(.numericText())
                 Text("°")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
+                    .font(.system(size: displayFontSize * 0.68, weight: .semibold, design: .rounded))
                     .foregroundStyle(.btTextSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
+            .padding(.vertical, compact ? 2 : 4)
 
             // 3×4 keypad grid
             VStack(spacing: 6) {
@@ -96,10 +102,12 @@ struct NumericKeypadHUD: View {
             ZStack {
                 Group {
                     if let icon {
-                        Image(systemName: icon).font(.system(size: 20, weight: .medium))
+                        Image(systemName: icon)
+                            .font(.system(size: compact ? 17 : 20, weight: .medium))
                     } else if let label {
                         Text(label)
-                            .font(.system(size: role == .submit ? 17 : 24,
+                            .font(.system(size: role == .submit ? (compact ? 15 : 17)
+                                                                : (compact ? 20 : 24),
                                           weight: role == .submit ? .semibold : .regular,
                                           design: .rounded))
                     }
@@ -107,7 +115,7 @@ struct NumericKeypadHUD: View {
                 .foregroundStyle(role == .submit ? .white : .btText)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 48)
+            .frame(height: keyHeight)
             .background(background(for: role))
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         }

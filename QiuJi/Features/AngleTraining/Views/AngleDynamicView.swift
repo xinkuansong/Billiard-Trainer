@@ -8,23 +8,41 @@ struct AngleDynamicView: View {
     /// 首拖提示（T-P18-51）：首次进页不知道球能拖，提示常驻到第一次拖动为止（跨启动记忆）。
     @AppStorage("angleDynamic.hasDraggedOnce") private var hasDraggedOnce = false
 
+    /// G10（问题集合 v3 P4.1）：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒
+    /// 球桌渲染尺寸锁定且与其他击打页一致；球库在球桌下方独立栏，不再遮挡球桌。
+    private static let topRowHeight: CGFloat = 46
+    private static let bottomBarHeight: CGFloat = 94
+
+    /// 球桌外框实测半尺寸（装桌前用 USDZ 兜底常量），供 ShotStageProxy 对齐球桌矩形。
+    private var tableExtents: (length: Double, width: Double) {
+        if let rig = vm.scene.cameraRig {
+            return (rig.tableOuterHalfLength, rig.tableOuterHalfWidth)
+        }
+        return (ShotTableLayout.defaultHalfLength, ShotTableLayout.defaultHalfWidth)
+    }
+
     var body: some View {
-        ZStack {
-            sceneFullscreen
-            overlayLayer
-        }
-        .background(Color.black.ignoresSafeArea())
-        .safeAreaInset(edge: .top, spacing: 0) {
-            // 横向滚动兜底：极窄设备（如 iPhone SE）也能完整看到所有指标
-            ScrollView(.horizontal, showsIndicators: false) {
-                primaryMetricChip
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.xs)
+        GeometryReader { geo in
+            let extents = tableExtents
+            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let proxy = ShotStageProxy(
+                sceneSize: CGSize(width: geo.size.width, height: sceneH),
+                halfLength: extents.length, halfWidth: extents.width
+            )
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topChipRow
+                        .frame(height: Self.topRowHeight)
+                    ZStack {
+                        sceneFullscreen
+                        overlayLayer
+                    }
+                    .frame(height: sceneH)
+                    paletteBar(proxy)
+                        .frame(height: Self.bottomBarHeight)
+                }
             }
-            .scrollBounceBehavior(.basedOnSize)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            paletteBar
         }
         .navigationTitle("角度与打点")
         .navigationBarTitleDisplayMode(.inline)
@@ -47,6 +65,20 @@ struct AngleDynamicView: View {
                 vm.setupScene()
             }
         }
+    }
+
+    // MARK: - Top chip row（固定高度，G10）
+
+    private var topChipRow: some View {
+        // 横向滚动兜底：极窄设备（如 iPhone SE）也能完整看到所有指标
+        ScrollView(.horizontal, showsIndicators: false) {
+            primaryMetricChip
+                .padding(.horizontal, Spacing.lg)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(maxHeight: .infinity, alignment: .center)
+        .background(Color.black)
+        .environment(\.colorScheme, .dark)
     }
 
     // MARK: - Scene (fullscreen)
@@ -74,7 +106,7 @@ struct AngleDynamicView: View {
                 }
             }
         )
-        .ignoresSafeArea(edges: .bottom)
+        .clipped()
     }
 
     // MARK: - Floating overlays (status banner only — all metrics live in the top chip)
@@ -154,27 +186,28 @@ struct AngleDynamicView: View {
         Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
     }
 
-    // MARK: - 球库（条 2：加减球 / 换目标球）
+    // MARK: - 球库（条 2：加减球 / 换目标球；G8：排球总宽 = 球桌宽、两侧留白）
 
     private static let paletteColumns = 8
 
-    private var paletteBar: some View {
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         let all = PositionPlayBall.allKeys
         let row1 = Array(all.prefix(Self.paletteColumns))
         let row2 = Array(all.dropFirst(Self.paletteColumns))
+        // G8：固定列宽求和 = 球桌宽，居中，两侧留白。
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
         return VStack(spacing: 3) {
-            paletteRow(row1)
-            paletteRow(row2)
+            paletteRow(row1, columnWidth: columnWidth)
+            paletteRow(row2, columnWidth: columnWidth)
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .environment(\.colorScheme, .dark)
     }
 
-    private func paletteRow(_ keys: [String]) -> some View {
+    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
@@ -184,8 +217,7 @@ struct AngleDynamicView: View {
                         Color.clear
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .frame(height: 38)
+                .frame(width: columnWidth, height: 38)
             }
         }
     }
@@ -209,6 +241,8 @@ struct AngleDynamicView: View {
                     vm.placeFromPalette(key)
                 }
             }
+            .accessibilityLabel("球库 \(key)")
+            .accessibilityIdentifier("paletteBall_\(key)")
     }
 
     // MARK: - Status banner (bottom)

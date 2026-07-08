@@ -22,15 +22,50 @@ struct SceneAimingView: View {
 
     private var is3D: Bool { cameraMode == .perspective3D }
 
-    var body: some View {
-        ZStack {
-            sceneFullscreen
-            overlayLayer
-            if vm.testFinished { summaryOverlay }
+    /// G10（问题集合 v3 P6.1）：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒
+    /// 球桌渲染尺寸锁定（答题键盘改浮层，弹出不再压缩球桌）；2D 底栏 = 装饰球库。
+    private static let topRowHeight: CGFloat = 46
+    private static let bottomBarHeight: CGFloat = 94
+
+    /// 球桌外框实测半尺寸（装桌前 USDZ 兜底），供 ShotStageProxy 对齐球桌矩形。
+    private var tableExtents: (length: Double, width: Double) {
+        if let rig = vm.scene.cameraRig {
+            return (rig.tableOuterHalfLength, rig.tableOuterHalfWidth)
         }
-        .background(Color.black.ignoresSafeArea())
-        .safeAreaInset(edge: .top, spacing: 0) { topInset }
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomInset }
+        return (ShotTableLayout.defaultHalfLength, ShotTableLayout.defaultHalfWidth)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let extents = tableExtents
+            let bottomH: CGFloat = is3D ? 0 : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomH, 1)
+            let proxy = ShotStageProxy(
+                sceneSize: CGSize(width: geo.size.width, height: sceneH),
+                halfLength: extents.length, halfWidth: extents.width
+            )
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topInset
+                        .frame(height: Self.topRowHeight)
+                    ZStack {
+                        sceneFullscreen
+                        overlayLayer(proxy)
+                    }
+                    .frame(height: sceneH)
+                    if !is3D {
+                        decorativePalette(proxy)
+                            .frame(height: Self.bottomBarHeight)
+                    }
+                }
+                // 答题键盘：浮层（不改变 scene 高度，G10 球桌尺寸锁定）。
+                if vm.phase == .inputting, !vm.testFinished {
+                    keypadOverlay
+                }
+                if vm.testFinished { summaryOverlay }
+            }
+        }
         .navigationTitle(is3D ? "3D 角度训练" : "2D 角度训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -88,50 +123,50 @@ struct SceneAimingView: View {
             Spacer()
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.xs)
+        .frame(maxHeight: .infinity, alignment: .center)
+        .background(Color.black)
         .animation(.easeInOut(duration: 0.2), value: vm.phase)
+        .environment(\.colorScheme, .dark)
     }
 
-    // MARK: - Bottom inset (numeric keypad while inputting)
+    // MARK: - 答题键盘浮层（G10：不改变 scene 高度）
 
-    @ViewBuilder
-    private var bottomInset: some View {
-        if vm.phase == .inputting, !vm.testFinished {
-            NumericKeypadHUD(
-                input: $vm.userInput,
-                title: "第 \(vm.questionIndex + 1) 题",
-                subtitle: vm.currentQuestion.map { "目标袋口：\($0.pocket.label)" },
-                onSubmit: { vm.submitAnswer() },
-                onCancel: { vm.cancelAnswerInput() }
-            )
-        } else if !is3D, !vm.testFinished {
-            decorativePalette
-        }
+    private var keypadOverlay: some View {
+        NumericKeypadHUD(
+            input: $vm.userInput,
+            title: "第 \(vm.questionIndex + 1) 题",
+            subtitle: vm.currentQuestion.map { "目标袋口：\($0.pocket.label)" },
+            compact: true,
+            onSubmit: { vm.submitAnswer() },
+            onCancel: { vm.cancelAnswerInput() }
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - 装饰性球库（条 6.4：不可交互，仅为页面布局与其他球桌页一致）
 
     /// 两排 16 球、当前题目标球高亮，其余压暗；不可点、不可拖。
-    private var decorativePalette: some View {
+    /// G8：排球总宽 = 球桌宽（固定列宽求和），两侧留白。
+    private func decorativePalette(_ proxy: ShotStageProxy) -> some View {
         let all = PositionPlayBall.allKeys
         let row1 = Array(all.prefix(8))
         let row2 = Array(all.dropFirst(8))
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let columnWidth = max(libraryWidth / 8, 1)
         return VStack(spacing: 3) {
             ForEach([row1, row2], id: \.self) { keys in
                 HStack(spacing: 0) {
                     ForEach(keys, id: \.self) { key in
-                        PoolBallFace(key: key, diameter: 36)
+                        PoolBallFace(key: key, diameter: 34)
                             .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 38)
+                            .frame(width: columnWidth, height: 38)
                             .opacity(PositionPlayBall.number(for: key) == vm.targetBallNumber ? 1 : 0.25)
                     }
                 }
             }
         }
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color(white: 0.11))
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .allowsHitTesting(false)
@@ -150,9 +185,12 @@ struct SceneAimingView: View {
             // bypasses it for non-perspective modes, so this is just an
             // extra defence.
             locksCueBallScreenAnchor: is3D,
+            // P6.1：2D 走统一自适应取景（球桌大小与其他击打页一致，
+            // ShotStageProxy 的球桌矩形据此解析；3D 透视不受影响）。
+            autoFitsRotatedTable: !is3D,
             onPocketTapped: { _ in /* fixed by question */ }
         )
-        .ignoresSafeArea(edges: .bottom)
+        .clipped()
     }
 
     /// 3D + observing: full pan/pinch so the user can swipe yaw and zoom
@@ -168,33 +206,57 @@ struct SceneAimingView: View {
 
     // MARK: - Overlay (FAB column)
 
-    private var overlayLayer: some View {
-        ZStack(alignment: .bottomTrailing) {
+    private func overlayLayer(_ proxy: ShotStageProxy) -> some View {
+        ZStack(alignment: .topLeading) {
             Color.clear
-            // 条 6.4/7.2：隐藏/答题改文字动作按钮（BTTextActionButton），
-            // 右下竖排，与全局击打页动作列同一布局语法。
+            // P6.2：辅助/答题放**球桌右侧**（2D 走 ShotStageProxy 贴边——左缘贴
+            // 球桌右缘、底边齐球桌底线，与全局击打页动作列同一布局语法；
+            // 3D 透视无球桌矩形，保持右下浮动）。
             if vm.phase == .observing, !vm.testFinished, vm.currentQuestion != nil {
-                VStack(spacing: 8) {
-                    BTTextActionButton(title: vm.showAimingAssist ? "隐藏" : "辅助") {
-                        vm.toggleAimingAssist()
-                    }
-                    BTTextActionButton(title: "答题", role: .primary) {
-                        vm.openAnswerInput()
+                positioned(proxy, size: CGSize(width: ShotStageMetrics.actionColumnWidth,
+                                               height: 68)) {
+                    VStack(spacing: 8) {
+                        BTTextActionButton(title: vm.showAimingAssist ? "隐藏" : "辅助",
+                                           width: ShotStageMetrics.actionColumnWidth) {
+                            vm.toggleAimingAssist()
+                        }
+                        BTTextActionButton(title: "答题", role: .primary,
+                                           width: ShotStageMetrics.actionColumnWidth) {
+                            vm.openAnswerInput()
+                        }
                     }
                 }
-                .padding(.trailing, Spacing.lg)
-                .padding(.bottom, Spacing.xl + 64)
-                .transition(.scale.combined(with: .opacity))
             } else if vm.phase == .showingResult, !vm.testFinished {
-                BTTextActionButton(title: nextButtonTitle, role: .primary) {
-                    vm.advanceToNext()
+                positioned(proxy, size: CGSize(width: ShotStageMetrics.actionColumnWidth,
+                                               height: 30)) {
+                    BTTextActionButton(title: nextButtonTitle, role: .primary,
+                                       width: ShotStageMetrics.actionColumnWidth) {
+                        vm.advanceToNext()
+                    }
                 }
-                .padding(.trailing, Spacing.lg)
-                .padding(.bottom, Spacing.xl + 64)
-                .transition(.scale.combined(with: .opacity))
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.phase)
+    }
+
+    /// 动作按钮组按 2D/3D 分别定位：2D 贴球桌右缘齐底线（G6/G11），3D 右下浮动。
+    @ViewBuilder
+    private func positioned<Content: View>(
+        _ proxy: ShotStageProxy, size: CGSize,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if !is3D, proxy.isValid {
+            content()
+                .btStageFrame(proxy.bottomTrailingFrame(size: size))
+                .transition(.scale.combined(with: .opacity))
+        } else {
+            content()
+                .padding(.trailing, Spacing.lg)
+                .padding(.bottom, Spacing.xl + 64)
+                .frame(maxWidth: .infinity, maxHeight: .infinity,
+                       alignment: .bottomTrailing)
+                .transition(.scale.combined(with: .opacity))
+        }
     }
 
     // MARK: - Top progress pill (observing / inputting)
