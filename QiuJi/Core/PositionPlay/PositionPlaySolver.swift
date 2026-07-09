@@ -48,6 +48,16 @@ enum PositionPlaySolver {
         /// （用户拍板「优先+兜底」，绝不因预算给出「无解」）。
         var maxCushions: Int? = nil
 
+        /// 塞幅/杆法预算（E3，「优先+兜底」同 `maxCushions` 语义）。nil = 不限（默认）；
+        /// 设值（如 `.vertical`）= 优先返回杆法档 ≤ 此值的解，仅当其为空才回退展示更难杆法解
+        /// 并标 `beyondSpinBudget`。预算 ≤ `.vertical` 时走**前置剪枝快路径**：先只扫 spinX=0 列
+        /// （combos 约减半，更快），无预算内解才回退全网格重扫——绝不因预算给出「无解」。
+        var maxSpinTier: ShotDifficultyTier? = nil
+
+        /// 扰动容错分析开关（E5，默认关）：开启后对最终代表解做 ~6 次参数扰动
+        /// （瞄准 ±0.5° / 力度 ±8% / 打点 ±0.05R）轻量评估，产出 `PositionPlaySolution.robustness`。
+        var robustnessEnabled: Bool = false
+
         /// 离线默认（数秒~十几秒）。横塞降维（±0.3 三档，0 优先），竖塞五档。
         static let standard = SearchParams(
             spinXValues: [-0.3, 0, 0.3],
@@ -107,20 +117,141 @@ enum PositionPlaySolver {
         setup: Setup, targetKey: String, pocket: String,
         constraint: SolveConstraint, params: SearchParams? = nil
     ) -> [PositionPlaySolution] {
+        let p: SearchParams
+        switch constraint {
+        case .restRegion: p = params ?? .standard
+        case .passThrough: p = params ?? .passThrough
+        }
+
+        // —— E3 塞幅预算前置剪枝快路径：预算不含横塞时先只扫 spinX=0 列（combos 约减半，
+        // 更快）；仅当剪枝路径无「预算内 + 满足约束」解才回退全网格重扫（完备性兜底）。——
+        var solutions: [PositionPlaySolution]
+        let hasSideColumns = p.spinXValues.contains { abs($0) > DifficultyModel.spinEps }
+        if let cap = p.maxSpinTier, cap <= .vertical, hasSideColumns {
+            var pruned = p
+            pruned.spinXValues = [0]
+            solutions = solveCore(setup: setup, targetKey: targetKey, pocket: pocket,
+                                  constraint: constraint, params: pruned)
+            if !solutions.contains(where: { $0.difficultyTier <= cap && $0.satisfiesConstraint }) {
+                solutions = solveCore(setup: setup, targetKey: targetKey, pocket: pocket,
+                                      constraint: constraint, params: p)
+            }
+        } else {
+            solutions = solveCore(setup: setup, targetKey: targetKey, pocket: pocket,
+                                  constraint: constraint, params: p)
+        }
+        return applyCushionBudget(applySpinTierBudget(solutions, cap: p.maxSpinTier),
+                                  maxCushions: p.maxCushions)
+    }
+
+    /// 按约束分派核心求解（预算装饰之内的裸求解）。
+    private static func solveCore(
+        setup: Setup, targetKey: String, pocket: String,
+        constraint: SolveConstraint, params: SearchParams
+    ) -> [PositionPlaySolution] {
         switch constraint {
         case let .restRegion(region):
-            let p = params ?? .standard
-            return applyCushionBudget(
-                solveRestRegion(setup: setup, targetKey: targetKey, pocket: pocket,
-                                region: region, params: p),
-                maxCushions: p.maxCushions)
+            var sols = solveRestRegion(setup: setup, targetKey: targetKey, pocket: pocket,
+                                       region: region, params: params)
+            if params.robustnessEnabled {
+                sols = sols.map {
+                    var s = $0
+                    s.robustness = measureRobustness($0, setup: setup, targetKey: targetKey,
+                                                     pocket: pocket, region: region)
+                    return s
+                }
+            }
+            return sols
         case let .passThrough(point, vMin):
-            let p = params ?? .passThrough
-            return applyCushionBudget(
-                solvePassThrough(setup: setup, targetKey: targetKey, pocket: pocket,
-                                 point: point, vMin: vMin, params: p),
-                maxCushions: p.maxCushions)
+            return solvePassThrough(setup: setup, targetKey: targetKey, pocket: pocket,
+                                    point: point, vMin: vMin, params: params)
         }
+    }
+
+    // MARK: - E5 扰动容错分析
+
+    /// 对一个代表解做 6 次参数扰动（瞄准 ±0.5° / 力度 ±8% / 打点 ±0.05R），统计
+    /// 「扰动后仍进球 + 真停稳 + 停点在落区内」的比例（0–1，越大越抗执行误差）。
+    /// 轻量实现：解析 rollout 为主（每次 ~µs 级）、覆盖不了的扰动点回退引擎 scoring-only；
+    /// 只对最终解列表（每桶 1 个，通常 2–4 个）计算，开销相对扫描阶段 <2%。
+    ///
+    /// 动机（教学）：margin 只度量结果空间余量，不知参数空间敏感度——力度差一点就换
+    /// 吃库拓扑的「悬崖解」margin 再深也不该推荐给学员。
+    private static func measureRobustness(
+        _ sol: PositionPlaySolution, setup: Setup, targetKey: String, pocket: String,
+        region: SolveRegion
+    ) -> Double {
+        guard let baseOffset = sol.prediction.aimOffsetUsed, let ctx = aimContext(setup) else { return 0 }
+        let y = setup.surfaceY
+        let shot = sol.shot
+        let aimDelta = Float(0.5) * .pi / 180
+        let velocityFactor = 0.08
+        let spinDelta = 0.05
+        // 打点扰动不得越过打滑极限（物理上限，非搜索约束）。
+        func clampSpinY(_ sy: Double) -> Double {
+            let limit = Double(CuePhysics.miscueLimitFraction)
+            let maxY = (limit * limit - shot.spinX * shot.spinX).squareRoot()
+            return min(max(sy, -maxY), maxY)
+        }
+        struct Probe { let off: Float; let v: Double; let sx: Double; let sy: Double }
+        let probes: [Probe] = [
+            Probe(off: baseOffset + aimDelta, v: shot.velocity, sx: shot.spinX, sy: shot.spinY),
+            Probe(off: baseOffset - aimDelta, v: shot.velocity, sx: shot.spinX, sy: shot.spinY),
+            Probe(off: baseOffset, v: shot.velocity * (1 + velocityFactor), sx: shot.spinX, sy: shot.spinY),
+            Probe(off: baseOffset, v: shot.velocity * (1 - velocityFactor), sx: shot.spinX, sy: shot.spinY),
+            Probe(off: baseOffset, v: shot.velocity, sx: shot.spinX, sy: clampSpinY(shot.spinY + spinDelta)),
+            Probe(off: baseOffset, v: shot.velocity, sx: shot.spinX, sy: clampSpinY(shot.spinY - spinDelta))
+        ]
+        var succeeded = 0
+        for p in probes {
+            let input = ShotInput(
+                cueBall: setup.cue, targetBall: setup.target, pocketIndex: setup.pocketIndex,
+                velocity: Float(p.v), spinX: Float(p.sx), spinY: Float(p.sy),
+                surfaceY: y, obstacles: setup.obstacles
+            )
+            let fast = AnalyticShotRollout.evaluate(
+                aimDir: ctx.aimDir.rotatedY(p.off), velocity: Float(p.v),
+                input: input, geometry: ctx.geometry, ghost: ctx.ghost, maxTime: 15.0
+            )
+            var success = false
+            if !fast.needsFullSim, fast.cueFirstBallHit == nil {
+                if fast.pottedSelected, fast.cueRested, !fast.cuePocketed, let stop = fast.cueFinalPos {
+                    success = region.signedDistanceMeters(fromScene: stop, surfaceY: y) <= 0
+                }
+            } else {
+                // rollout 覆盖不了（级联/kiss/碰前吃库等）⇒ 引擎 scoring-only 裁决。
+                let c = evaluate(setup: setup, targetKey: targetKey, pocket: pocket,
+                                 spinX: p.sx, spinY: p.sy, velocity: p.v, aimOffset: p.off)
+                if c.potted, cueRestedInPlace(c.prediction),
+                   let stop = c.prediction.finalPositions[ShotInput.cueBallName] {
+                    success = region.signedDistanceMeters(fromScene: stop, surfaceY: y) <= 0
+                }
+            }
+            if success { succeeded += 1 }
+        }
+        return Double(succeeded) / Double(probes.count)
+    }
+
+    /// 塞幅/杆法预算「优先+兜底」（E3）：`cap=nil` 不限（默认，零行为变化）。三级偏好：
+    /// ① 预算内且满足约束的解 → 只返回这些；② 无①但有满足约束的更难杆法解 → 返回并标
+    /// `beyondSpinBudget`（教学语义「这里必须加塞」）；③ 全是降级解 → 预算内优先、否则原样。
+    /// 绝不因预算给出「无解」。
+    private static func applySpinTierBudget(
+        _ solutions: [PositionPlaySolution], cap: ShotDifficultyTier?
+    ) -> [PositionPlaySolution] {
+        guard let cap else { return solutions }
+        let withinSatisfying = solutions.filter { $0.difficultyTier <= cap && $0.satisfiesConstraint }
+        if !withinSatisfying.isEmpty { return withinSatisfying }
+        let beyondSatisfying = solutions.filter { $0.satisfiesConstraint }
+        if !beyondSatisfying.isEmpty {
+            return beyondSatisfying.map {
+                var s = $0
+                s.beyondSpinBudget = true
+                return s
+            }
+        }
+        let within = solutions.filter { $0.difficultyTier <= cap }
+        return within.isEmpty ? solutions : within
     }
 
     /// 走位复杂度预算「优先+兜底」：`maxCushions=nil` 不限（默认，原样返回，零行为变化）；
@@ -376,7 +507,10 @@ enum PositionPlaySolver {
         let engine: Candidate?
         let signed: Float        // 停点到落区有符号距离（区内为负）
         let cushion: Int         // 碰球后母球吃库数
-        var spinMag: Double { (spinX * spinX + spinY * spinY).squareRoot() }
+        /// 执行难度加权范数（E1）：横塞权重 2.5×高低杆 + 力度惩罚（取代旧对称 spinMag）。
+        var effort: Double { DifficultyModel.executionEffort(spinX: spinX, spinY: spinY, velocity: velocity) }
+        /// 是否带横塞（0 库特判用）。
+        var hasSideSpin: Bool { abs(spinX) > DifficultyModel.spinEps }
     }
 
     private static func solveRestRegion(
@@ -402,10 +536,16 @@ enum PositionPlaySolver {
         }
 
         func requiredMargin(_ k: Int) -> Float { params.marginBase + Float(k) * params.marginPerCushion }
-        // 桶内代表偏好（用户拍板「越少加塞越好」）：加塞最少优先，同塞取扎入更深者；
-        // 再以 (velocity, spinX, spinY) 定序，保证并行扫描下的确定性。
+        // 桶内代表偏好（E1 可执行性感知，用户拍板「越少加塞越好」升级为难度加权）：
+        // ① 0 库桶特判——母球不吃库时横塞几乎零走位收益却最难执行，同桶存在无横塞解则
+        //   无横塞者恒优先（可替代性以同桶扫描结果为证据）；
+        // ② 执行难度加权范数（横塞 2.5×高低杆 + 力度惩罚）小者优先，同难度取扎入更深者；
+        // ③ 再以 (velocity, spinX, spinY) 定序，保证并行扫描下的确定性。
         func preferLessSpin(_ a: ScoredPoint, than b: ScoredPoint) -> Bool {
-            if abs(a.spinMag - b.spinMag) > 1e-9 { return a.spinMag < b.spinMag }
+            if a.cushion == 0, b.cushion == 0, a.hasSideSpin != b.hasSideSpin {
+                return !a.hasSideSpin
+            }
+            if abs(a.effort - b.effort) > 1e-9 { return a.effort < b.effort }
             if abs(a.signed - b.signed) > 1e-9 { return a.signed < b.signed }
             if a.velocity != b.velocity { return a.velocity < b.velocity }
             if a.spinX != b.spinX { return a.spinX < b.spinX }
@@ -477,7 +617,8 @@ enum PositionPlaySolver {
                 if !ordered.isEmpty {
                     return ordered.map { makeRegionSolution(finalizeCandidate($0.0, setup: setup),
                                                             signed: $0.1, cushion: $0.2,
-                                                            satisfied: $0.1 <= 0, region: region) }
+                                                            satisfied: $0.1 <= 0, region: region,
+                                                            setup: setup) }
                 }
             }
         } else {
@@ -493,17 +634,18 @@ enum PositionPlaySolver {
                         settled.append(m)
                     }
                 }
-                // 排序：库少优先 → 加塞少优先 → 扎入更深（更鲁棒）。
+                // 排序：库少优先 → 执行难度小优先（E1 加权范数）→ 扎入更深（更鲁棒）。
                 let ordered = settled.sorted {
                     if $0.2 != $1.2 { return $0.2 < $1.2 }
-                    let s0 = spinMagnitude($0.0), s1 = spinMagnitude($1.0)
+                    let s0 = candidateEffort($0.0), s1 = candidateEffort($1.0)
                     if abs(s0 - s1) > 1e-9 { return s0 < s1 }
                     return $0.1 < $1.1
                 }
                 if !ordered.isEmpty {
                     return ordered.map { makeRegionSolution(finalizeCandidate($0.0, setup: setup),
                                                             signed: $0.1, cushion: $0.2,
-                                                            satisfied: true, region: region) }
+                                                            satisfied: true, region: region,
+                                                            setup: setup) }
                 }
             }
             // 降级：无合格解。取「能进球」的最接近解求精——求精后可能反升级为满足约束。
@@ -513,7 +655,7 @@ enum PositionPlaySolver {
                 let satisfied = m.signed <= 0 && (-m.signed) >= requiredMargin(m.cushion)
                 return [makeRegionSolution(finalizeCandidate(m.candidate, setup: setup),
                                            signed: m.signed, cushion: m.cushion,
-                                           satisfied: satisfied, region: region)]
+                                           satisfied: satisfied, region: region, setup: setup)]
             }
         }
         // 连进球解都没有：取「能进球与否不论」里停点最接近落区者，标注未进袋。
@@ -527,7 +669,7 @@ enum PositionPlaySolver {
                                          region: region, requirePotted: false) {
                 return [makeRegionSolution(finalizeCandidate(m.candidate, setup: setup),
                                            signed: m.signed, cushion: m.cushion,
-                                           satisfied: false, region: region)]
+                                           satisfied: false, region: region, setup: setup)]
             }
         }
         return []
@@ -652,9 +794,9 @@ enum PositionPlaySolver {
         return (c, signed, cushion)
     }
 
-    /// 加塞幅值（接触点偏移/R 的模）。用于「越少加塞越好」排序。
-    private static func spinMagnitude(_ c: Candidate) -> Double {
-        (c.spinX * c.spinX + c.spinY * c.spinY).squareRoot()
+    /// 候选执行难度（E1 加权范数：横塞 2.5×高低杆 + 力度惩罚）。用于「越易执行越好」排序。
+    private static func candidateEffort(_ c: Candidate) -> Double {
+        DifficultyModel.executionEffort(spinX: c.spinX, spinY: c.spinY, velocity: c.velocity)
     }
 
     /// 母球是否真正「停在桌面某处」：未 scratch（进袋 = 无停点）且末速接近 0（≠ 截断假停）。
@@ -663,8 +805,32 @@ enum PositionPlaySolver {
         !p.cuePocketed && p.cueFinalSpeed < restSpeedTolerance
     }
 
+    /// 综合难度评分 + 档位（E2/E4）：塞加权范数 + 力度惩罚 + 进球难度（切角/球距，
+    /// 同一次求解内为常量——只影响绝对评分与标注，不影响解间排序）。
+    private static func difficulty(
+        _ c: Candidate, setup: Setup
+    ) -> (score: Double, tier: ShotDifficultyTier) {
+        let dist = Double(AngleSceneCalculator.horizontalDistance(setup.cue, setup.target))
+        let score = DifficultyModel.score(
+            spinX: c.spinX, spinY: c.spinY, velocity: c.velocity,
+            cutAngleDeg: c.prediction.cutAngleDeg, cueTargetDistance: dist)
+        return (score, DifficultyModel.tier(spinX: c.spinX, spinY: c.spinY))
+    }
+
+    /// 难度文案（E2/E4）：档位语义 + 综合难度档；薄球（切角超阈）加标注。
+    private static func difficultyText(
+        tier: ShotDifficultyTier, score: Double, cutAngleDeg: Double?
+    ) -> String {
+        var t = "\(tier.label) · 难度\(DifficultyModel.gradeLabel(score))"
+        if let cut = cutAngleDeg, cut > DifficultyModel.thinCutLabelDeg {
+            t += "（薄球）"
+        }
+        return t
+    }
+
     private static func makeRegionSolution(
-        _ c: Candidate, signed: Float, cushion: Int, satisfied: Bool, region: SolveRegion
+        _ c: Candidate, signed: Float, cushion: Int, satisfied: Bool, region: SolveRegion,
+        setup: Setup
     ) -> PositionPlaySolution {
         let margin = -signed   // 区内深度（正=离边界多远，越大越鲁棒）；区外为负。
         let constraintText: String
@@ -685,11 +851,14 @@ enum PositionPlaySolver {
                 constraintText = "未进袋（最接近解）· 距落区约 \(cm)cm"
             }
         }
-        let summary = "\(spinText(c.spinX, c.spinY)) · \(PowerDisplay.name(c.velocity)) \(String(format: "%.1f", c.velocity)) · \(cushionText(cushion)) · \(constraintText)"
+        let d = difficulty(c, setup: setup)
+        let diffText = difficultyText(tier: d.tier, score: d.score, cutAngleDeg: c.prediction.cutAngleDeg)
+        let summary = "\(spinText(c.spinX, c.spinY)) · \(PowerDisplay.name(c.velocity)) \(String(format: "%.1f", c.velocity)) · \(cushionText(cushion)) · \(diffText) · \(constraintText)"
         return PositionPlaySolution(
             shot: c.shot, prediction: c.prediction, cushionCount: cushion,
             potted: c.potted, margin: margin, summary: summary,
-            satisfiesConstraint: satisfied && c.potted && signed <= 0
+            satisfiesConstraint: satisfied && c.potted && signed <= 0,
+            difficultyScore: d.score, difficultyTier: d.tier
         )
     }
 
@@ -794,17 +963,20 @@ enum PositionPlaySolver {
                 solutions.append(makePassSolution(
                     finalizeCandidate(rep, setup: setup),
                     cushion: s.cushionsBeforeP, nearestPocket: bestNearest,
-                    velocityRange: (lo, hi)))
+                    velocityRange: (lo, hi), setup: setup))
                 i = j + 1
             }
         }
 
-        // 排序：库少优先 → 「过 P 后第一颗球离袋距离」升序（K 球质量）→ 加塞少优先（用户拍板）。
+        // 排序：库少优先 → 「过 P 后第一颗球离袋距离」升序（K 球质量）→ 执行难度小优先
+        // （E1 加权范数，取代旧对称塞幅）。
         solutions.sort {
             if $0.cushionCount != $1.cushionCount { return $0.cushionCount < $1.cushionCount }
             if abs($0.margin - $1.margin) > 1e-4 { return $0.margin < $1.margin }
-            let s0 = ($0.shot.spinX * $0.shot.spinX + $0.shot.spinY * $0.shot.spinY).squareRoot()
-            let s1 = ($1.shot.spinX * $1.shot.spinX + $1.shot.spinY * $1.shot.spinY).squareRoot()
+            let s0 = DifficultyModel.executionEffort(
+                spinX: $0.shot.spinX, spinY: $0.shot.spinY, velocity: $0.shot.velocity)
+            let s1 = DifficultyModel.executionEffort(
+                spinX: $1.shot.spinX, spinY: $1.shot.spinY, velocity: $1.shot.velocity)
             return s0 < s1
         }
         return solutions
@@ -963,7 +1135,8 @@ enum PositionPlaySolver {
     }
 
     private static func makePassSolution(
-        _ c: Candidate, cushion: Int, nearestPocket: Float, velocityRange: (Double, Double)
+        _ c: Candidate, cushion: Int, nearestPocket: Float, velocityRange: (Double, Double),
+        setup: Setup
     ) -> PositionPlaySolution {
         let hasK = nearestPocket < .greatestFiniteMagnitude
         let kText: String
@@ -972,11 +1145,14 @@ enum PositionPlaySolver {
         } else {
             kText = "过点（过点后未再碰球）"
         }
-        let summary = "\(spinText(c.spinX, c.spinY)) · \(PowerDisplay.name(c.velocity)) \(String(format: "%.1f", c.velocity)) · \(cushionText(cushion)) · \(kText)"
+        let d = difficulty(c, setup: setup)
+        let diffText = difficultyText(tier: d.tier, score: d.score, cutAngleDeg: c.prediction.cutAngleDeg)
+        let summary = "\(spinText(c.spinX, c.spinY)) · \(PowerDisplay.name(c.velocity)) \(String(format: "%.1f", c.velocity)) · \(cushionText(cushion)) · \(diffText) · \(kText)"
         return PositionPlaySolution(
             shot: c.shot, prediction: c.prediction, cushionCount: cushion,
             potted: c.potted, margin: nearestPocket, summary: summary,
-            satisfiesConstraint: c.potted
+            satisfiesConstraint: c.potted,
+            difficultyScore: d.score, difficultyTier: d.tier
         )
     }
 
@@ -1195,10 +1371,11 @@ enum PositionPlaySolver {
         let cells = cellsOpt.compactMap { $0 }
         guard !cells.isEmpty else { return [] }
 
-        /// 覆盖余量大优先 → 加塞少 → 力度小 → 瞄准偏移小（确定性 tie-break）。
+        /// 覆盖余量大优先 → 执行难度小（E1 加权范数）→ 力度小 → 瞄准偏移小（确定性 tie-break）。
         func betterCoverage(_ a: SnookerCell, _ b: SnookerCell) -> Bool {
             if abs(a.coverageDeg - b.coverageDeg) > 1e-4 { return a.coverageDeg > b.coverageDeg }
-            let s0 = a.sx * a.sx + a.sy * a.sy, s1 = b.sx * b.sx + b.sy * b.sy
+            let s0 = DifficultyModel.executionEffort(spinX: a.sx, spinY: a.sy, velocity: a.v)
+            let s1 = DifficultyModel.executionEffort(spinX: b.sx, spinY: b.sy, velocity: b.v)
             if abs(s0 - s1) > 1e-9 { return s0 < s1 }
             if a.v != b.v { return a.v < b.v }
             return abs(a.off) < abs(b.off)
@@ -1242,8 +1419,10 @@ enum PositionPlaySolver {
             let ordered = settled.sorted {
                 if $0.cushion != $1.cushion { return $0.cushion < $1.cushion }
                 if abs($0.coverageDeg - $1.coverageDeg) > 1e-4 { return $0.coverageDeg > $1.coverageDeg }
-                let s0 = $0.shot.spinX * $0.shot.spinX + $0.shot.spinY * $0.shot.spinY
-                let s1 = $1.shot.spinX * $1.shot.spinX + $1.shot.spinY * $1.shot.spinY
+                let s0 = DifficultyModel.executionEffort(
+                    spinX: $0.shot.spinX, spinY: $0.shot.spinY, velocity: $0.shot.velocity)
+                let s1 = DifficultyModel.executionEffort(
+                    spinX: $1.shot.spinX, spinY: $1.shot.spinY, velocity: $1.shot.velocity)
                 if abs(s0 - s1) > 1e-9 { return s0 < s1 }
                 return $0.shot.velocity < $1.shot.velocity
             }
@@ -1307,11 +1486,17 @@ enum PositionPlaySolver {
         } else {
             covTxt = "半斯诺克 · 仍露约 \(Int((-s.coverageDeg).rounded()))°"
         }
-        let summary = "\(spin) · \(power) · \(cushionTxt) · \(covTxt)"
+        // 斯诺克无进球语义 ⇒ 切角/球距不参与评分（E4 输入传 nil）。
+        let score = DifficultyModel.score(
+            spinX: s.shot.spinX, spinY: s.shot.spinY, velocity: s.shot.velocity)
+        let tier = DifficultyModel.tier(spinX: s.shot.spinX, spinY: s.shot.spinY)
+        let diffText = difficultyText(tier: tier, score: score, cutAngleDeg: nil)
+        let summary = "\(spin) · \(power) · \(cushionTxt) · \(diffText) · \(covTxt)"
         return PositionPlaySolution(
             shot: s.shot, prediction: s.prediction, cushionCount: s.cushion,
             potted: false, margin: s.coverageDeg, summary: summary,
-            satisfiesConstraint: s.full)
+            satisfiesConstraint: s.full,
+            difficultyScore: score, difficultyTier: tier)
     }
 
     /// 力度等差采样（含上界）。

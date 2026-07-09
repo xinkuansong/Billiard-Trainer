@@ -113,4 +113,14 @@ struct PositionPlaySolution: Identifiable {
     /// 是否为「走位复杂度预算」兜底解：用户选了「仅基础走位（≤N 库）」但该预算内无解，
     /// 回退展示的超预算（更多吃库）解，UI 标「进阶」。默认 false（不限预算 / 预算内解）。
     var beyondCushionBudget: Bool = false
+    /// 综合执行难度评分（E2，`DifficultyModel.score`：塞加权范数 + 力度惩罚 + 切角/球距）。
+    /// 越大越难；用户可读档位见 `DifficultyModel.gradeLabel`。
+    var difficultyScore: Double = 0
+    /// 所需杆法档位（E2）：中杆即可 / 需高低杆 / 需横塞 / 需极限塞。
+    var difficultyTier: ShotDifficultyTier = .center
+    /// 是否为「塞幅预算」兜底解（E3）：`maxSpinTier` 预算内无解、回退展示的更难杆法解。
+    var beyondSpinBudget: Bool = false
+    /// 扰动容错度（E5，0–1）：对本解做小幅参数扰动（瞄准/力度/打点）后仍满足约束的比例。
+    /// nil = 未启用容错分析（默认关，`SearchParams.robustnessEnabled`）。
+    var robustness: Double?
 }

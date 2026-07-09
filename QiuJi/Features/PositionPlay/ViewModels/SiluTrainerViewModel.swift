@@ -446,16 +446,18 @@ final class SiluTrainerViewModel: ObservableObject {
     }
 
     /// 由可选开关构造搜索参数：基底按约束类型取（落区/落点用 `.standard`、过点用 `.passThrough`），
-    /// 再叠加「禁左右塞」（spinX 降为单值 0，精修自动锁横塞）与「仅基础走位」（吃库上限 1）。
-    /// 默认两开关均放开 ⇒ 与基底完全一致（零行为变化）。
+    /// 再叠加「禁左右塞」（E3 塞幅预算 `.vertical`：优先无横塞解——前置剪枝更快；确实无解才
+    /// 兜底展示横塞解并标注，绝不因开关给出「无解」）与「仅基础走位」（吃库上限 1）。
+    /// 另开启扰动容错分析（E5）：思路训练是教学页，每个解产出容错度供学员取舍。
     private func searchParams(for constraint: SolveConstraint) -> PositionPlaySolver.SearchParams {
         var params: PositionPlaySolver.SearchParams
         switch constraint {
         case .restRegion: params = .standard
         case .passThrough: params = .passThrough
         }
-        if !allowSideSpin { params.spinXValues = [0] }
+        if !allowSideSpin { params.maxSpinTier = .vertical }
         params.maxCushions = basicPositionOnly ? 1 : nil
+        params.robustnessEnabled = true
         return params
     }
 
@@ -503,7 +505,12 @@ final class SiluTrainerViewModel: ObservableObject {
                     summary: "微调 · " + SiluSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
                     satisfiesConstraint: sol.satisfiesConstraint,
-                    beyondCushionBudget: sol.beyondCushionBudget
+                    beyondCushionBudget: sol.beyondCushionBudget,
+                    difficultyScore: DifficultyModel.score(
+                        spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
+                        cutAngleDeg: pred.cutAngleDeg),
+                    difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
+                    beyondSpinBudget: sol.beyondSpinBudget
                 )
                 self.showSolution(at: idx)
             }
@@ -526,11 +533,15 @@ final class SiluTrainerViewModel: ObservableObject {
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
         let prefix = solutions.count > 1 ? "解 \(currentIndex + 1)/\(solutions.count) · " : ""
         // 「仅基础走位」预算内无解、回退的多库解：标「进阶」（用户拍板兜底语义）。
-        let advanced = sol.beyondCushionBudget ? "进阶（超基础走位）· " : ""
+        var advanced = sol.beyondCushionBudget ? "进阶（超基础走位）· " : ""
+        // 「禁左右塞」预算内无解、回退的横塞解（E3 兜底）：如实标注「此走位必须加塞」。
+        if sol.beyondSpinBudget { advanced += "进阶（需横塞）· " }
+        // 扰动容错度（E5）：小幅执行误差下仍满足约束的比例，教学取舍参考。
+        let robust = sol.robustness.map { " · 容错 \(Int(($0 * 100).rounded()))%" } ?? ""
         if !sol.satisfiesConstraint {
-            return prefix + advanced + "最接近解（未满足约束）· " + sol.summary
+            return prefix + advanced + "最接近解（未满足约束）· " + sol.summary + robust
         }
-        return prefix + advanced + sol.summary
+        return prefix + advanced + sol.summary + robust
     }
 
     // MARK: - Trajectory + constraint rendering

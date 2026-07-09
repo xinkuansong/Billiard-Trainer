@@ -983,7 +983,12 @@ extension PlanThreeViewModel {
                     summary: "微调 · " + SiluSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
                     satisfiesConstraint: sol.satisfiesConstraint,
-                    beyondCushionBudget: sol.beyondCushionBudget
+                    beyondCushionBudget: sol.beyondCushionBudget,
+                    difficultyScore: DifficultyModel.score(
+                        spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
+                        cutAngleDeg: pred.cutAngleDeg),
+                    difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
+                    beyondSpinBudget: sol.beyondSpinBudget
                 )
                 self.showSolution(at: idx)
             }
