@@ -84,7 +84,16 @@ class EventDrivenEngine {
     ///   让贴墙帧足够密、回放轨迹不外推穿墙。求解器的数十次短模拟保持 false（用固定 `maxEvolveStep`
     ///   粗步，避免把每杆求解拖慢一个数量级）——其只需结果（进/吃库/方向），且引擎级方向兜底/settle
     ///   收袋（见 `enforceTableBounds`，**始终生效**）已保证结果正确性（球不会停在台外）。
-    func simulate(maxEvents: Int = 1000, maxTime: Float = 10.0, highFidelityBounds: Bool = false) {
+    /// - Parameter earlyStopBallNames: 反解搜索早停（B1，性能优化方案）：非 nil 时，当这些「兴趣球」
+    ///   全部落袋/停稳，且其余仍在运动的球按**能量上界行程**（含碰撞链式接力）不可能再触及任何兴趣球
+    ///   时提前结束模拟。保守判据 ⇒ **兴趣球的终态与不早停逐位一致**；代价是其余球的末位可能停在
+    ///   「仍在滚动」的中间帧（走位反解不消费它们）。展示用最终模拟必须保持 nil。
+    /// - Parameter stopAfterContactBetween: 瞄准评分专用早停（B1）：非 nil 时，两球间**首次碰撞**
+    ///   解算并记帧后立即结束。瞄准评分只消费「碰前事件 + 碰后第一帧方向」——碰撞发生 ⇒ 之后的
+    ///   演进对评分零贡献，直接截断；碰撞不发生 ⇒ 永不触发，回退整程模拟。评分值与整程逐位一致。
+    func simulate(maxEvents: Int = 1000, maxTime: Float = 10.0, highFidelityBounds: Bool = false,
+                  earlyStopBallNames: Set<String>? = nil,
+                  stopAfterContactBetween: (String, String)? = nil) {
         PerformanceProfiler.begin(ProfilerLabel.simulate)
         defer { PerformanceProfiler.end(ProfilerLabel.simulate) }
 
@@ -121,6 +130,7 @@ class EventDrivenEngine {
                 invalidateCache(for: nextEvent)
                 recordSnapshot()
                 eventCount += 1
+                if isContactStopEvent(nextEvent, pair: stopAfterContactBetween) { break }
                 
                 // 保护：避免连续零时刻事件导致主线程长时间卡死
                 if zeroTimeEventStreak > 80 {
@@ -184,6 +194,9 @@ class EventDrivenEngine {
             
             eventCount += 1
             
+            // 瞄准评分早停（B1）：两具名球首次碰撞已解算并记帧 ⇒ 评分消费量齐备，截断尾部演进。
+            if isContactStopEvent(nextEvent, pair: stopAfterContactBetween) { break }
+            
             // 提前终止检查（Ref: pooltool event.time == np.inf → done）：
             // 每 8 步检查一次是否所有活动球已 stationary，以避免不必要的碰撞扫描。
             // 这是最主要的加速手段：开球后若球已全部静止，无需继续跑满 15s。
@@ -194,8 +207,60 @@ class EventDrivenEngine {
                 if allAtRest {
                     break
                 }
+                if let interest = earlyStopBallNames, canEarlyStop(interest: interest) {
+                    break
+                }
             }
         }
+    }
+
+    /// 瞄准评分早停判定：本事件是否为 `pair` 两球间的球-球碰撞（无序匹配）。
+    private func isContactStopEvent(_ event: PhysicsEvent, pair: (String, String)?) -> Bool {
+        guard let (x, y) = pair else { return false }
+        if case let .ballBall(a, b) = event.type {
+            return (a == x && b == y) || (a == y && b == x)
+        }
+        return false
+    }
+
+    /// 早停保守判据（B1）：兴趣球全部「落袋或线速度归零（stationary/spinning 原地自转）」，
+    /// 且其余运动球的**总行程预算**无法触及任何兴趣球。
+    ///
+    /// 行程预算 = Σ 每球动能上界行程：E/m = v²/2 + (I/m)·ω²/2 = v²/2 + R²ω²/5，全部转成线动能
+    /// 后按**最宽松的滚动摩擦**减速可走 E/(μ_roll·g) 米。等质量碰撞 Σv² 不增（e≤1）、吃库只衰减
+    /// ⇒ 链式接力的总路径 ≤ 该预算；接力换球每跳最多把「扰动前沿」额外推进 2R ⇒ 松弛量 = 球数·2R。
+    /// 判据不满足则继续模拟——绝不改变兴趣球结果，只放弃可证明无关的尾部滚动。
+    private func canEarlyStop(interest: Set<String>) -> Bool {
+        let r = BallPhysics.radius
+        var interestPositions: [SCNVector3] = []
+        for name in interest {
+            guard let b = balls[name] else { continue }   // 兴趣球不在场（如无该球）不阻塞
+            if b.isPocketed { continue }
+            guard b.state == .stationary || b.state == .spinning else { return false }
+            interestPositions.append(b.position)
+        }
+        if interestPositions.isEmpty { return true }   // 兴趣球全落袋 ⇒ 命运已定
+
+        var totalBudget: Float = 0
+        var minDist = Float.greatestFiniteMagnitude
+        var others = 0
+        for name in ballOrder {
+            guard let b = balls[name], !b.isPocketed, !interest.contains(name) else { continue }
+            others += 1
+            guard b.state == .sliding || b.state == .rolling else { continue }   // 原地自转不产生位移
+            let v2 = b.velocity.x * b.velocity.x + b.velocity.z * b.velocity.z
+            let w = b.angularVelocity
+            let w2 = w.x * w.x + w.y * w.y + w.z * w.z
+            let energyPerMass = v2 / 2 + r * r * w2 / 5
+            totalBudget += energyPerMass / (SpinPhysics.rollingFriction * TablePhysics.gravity)
+            for p in interestPositions {
+                let dx = b.position.x - p.x, dz = b.position.z - p.z
+                minDist = min(minDist, sqrtf(dx * dx + dz * dz))
+            }
+        }
+        if totalBudget <= 0 { return true }   // 无运动球（仅原地自转）⇒ 兴趣球安全
+        let slack = Float(others) * 2 * r + 0.05
+        return totalBudget + slack < minDist - 2 * r
     }
     
     /// Get trajectory recorder
@@ -817,61 +882,16 @@ class EventDrivenEngine {
     }
     
     /// Resolve ball-cushion collision using pure computation.
+    /// 完整解算编排已抽至 `EngineNumerics.resolveCushionImpact`（B3 单一真源，
+    /// 引擎与 `AnalyticShotRollout` 共用）；此处仅做引擎状态表的读写包装。
     /// - Returns: `true` 当冲量真正施加；`false` 当事件因球已退离库面而被跳过。
     @discardableResult
     private func resolveBallCushionCollision(ball: String, cushionIndex: Int, normal: SCNVector3) -> Bool {
         guard var state = balls[ball] else { return false }
         guard !state.isPocketed else { return false }
-        
-        let linearCount = tableGeometry.linearCushions.count
-        let resolvedNormal: SCNVector3
-        // 该段恢复系数：线性库边可携带各自的恢复系数（袋口喉腔壁更"死"），圆弧库用全局值。
-        var restitution = TablePhysics.cushionRestitution
-        
-        if cushionIndex >= linearCount {
-            let arcIdx = cushionIndex - linearCount
-            if arcIdx < tableGeometry.circularCushions.count {
-                let arc = tableGeometry.circularCushions[arcIdx]
-                resolvedNormal = arc.normal(at: state.position)
-                if let e = arc.restitution { restitution = e }
-            } else {
-                resolvedNormal = normal
-            }
-        } else {
-            resolvedNormal = normal
-            if cushionIndex >= 0, cushionIndex < linearCount,
-               let e = tableGeometry.linearCushions[cushionIndex].restitution {
-                restitution = e
-            }
-        }
-
-        // 库边只能「推」不能「拉」（物理护栏，FL 根因修复·吃库竞态，2026-06-12）：
-        // resolvedNormal 指向台内（线性库存储法向 / 弧由弧心指向球），球逼近库面 ⇔ v·n < 0。
-        // 若解析时球已在退离（v·n ≥ 0，如事件排定后状态被事件流外的突变改写），施加冲量
-        // 是非物理的——`resolveCushionCollisionPure` 会按速度方向自动翻转接触系，把退离球
-        // 再次反射**回库内**。此处跳过过时事件；v·n = 0（纯切向擦库）时 Han 的法向冲量本为
-        // 零，跳过与解析等价。
-        let approachSpeed = state.velocity.x * resolvedNormal.x + state.velocity.z * resolvedNormal.z
-        guard approachSpeed < 0 else { return false }
-        
-        // Ref: pooltool/physics/resolve/ball_cushion/core.py CoreBallLCushionCollision.make_kiss
-        // Move the ball to exactly R + spacer distance from the cushion surface before
-        // applying the reflection impulse. Without this, accumulated floating-point drift
-        // leaves the ball slightly inside the cushion wall; the reflected velocity then
-        // points inward, causing repeated zero-time re-detections ("cushion oscillation").
-        EngineNumerics.makeBallCushionKiss(state: &state, cushionIndex: cushionIndex, normal: resolvedNormal, geometry: tableGeometry)
-        
-        let result = CollisionResolver.resolveCushionCollisionPure(
-            velocity: state.velocity,
-            angularVelocity: state.angularVelocity,
-            normal: resolvedNormal,
-            restitution: restitution
-        )
-        
-        state.velocity = result.velocity
-        state.angularVelocity = result.angularVelocity
-        state.state = EngineNumerics.determineMotionState(state)
-        
+        let applied = EngineNumerics.resolveCushionImpact(
+            state: &state, cushionIndex: cushionIndex, normal: normal, geometry: tableGeometry)
+        guard applied else { return false }
         balls[ball] = state
         return true
     }

@@ -244,6 +244,19 @@
 
 ---
 
+### H-20 — 反解求解器真机性能基线（B0/B5）
+
+- **状态**：⏳ 待完成（非阻塞——B1–B4 优化已按模拟器口径收官；B5 于 2026-07-08 收尾时设备仍 unavailable，真机对照表为唯一遗留项，连接后随时可补）
+- **背景**：反解求解器优化方案（`docs/research/20260708-反解求解器性能优化方案.md`）B0 已建好四条基准（`QiuJiTests/SolverPerformanceTests`），模拟器基线已落档；真机（iPhone）无可用连接未测。
+- **做什么**：
+  1. iPhone 连接 Mac 并信任，确认 `xcrun devicectl list devices` 显示 available。
+  2. 运行：`xcodebuild -project QiuJi.xcodeproj -scheme QiuJi -destination 'platform=iOS,name=<你的 iPhone 名>' -only-testing:QiuJiTests/SolverPerformanceTests test`（或告知 AI「跑真机求解器基准」由其代跑）。
+  3. 把测试输出中 4 行 `⏱️ [PERF-B0]` 数字填入方案文件 §1 表格（新增「真机」列）。
+- **预计时长**：15 分钟
+- **影响任务**：优化方案 B5（真机验收门：情形 A/B <0.5s、斯诺克 <1s）
+
+---
+
 ## [BLOCKING] H-14 — 腾讯云轻量服务器购买与初始化
 
 - **状态**：✅ 已完成（2026-03-29）

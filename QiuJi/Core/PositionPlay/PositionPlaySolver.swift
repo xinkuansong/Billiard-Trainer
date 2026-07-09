@@ -36,16 +36,12 @@ enum PositionPlaySolver {
         /// 情形 B：母球过 P 时的最小速度（m/s），低于此视为「快停下」不算经过。
         var passMinSpeed: Float
 
-        /// 情形 A 局部精修：在粗网格代表解附近做**拓扑锁定的模式搜索**抛光停点。
-        /// 粗网格只定位 basin，精修在同一吃库拓扑的连续 (spinX,spinY,velocity) 邻域里把停点推向落区/落点
-        /// （治「basin 找对、采样太粗」；治不了「basin 整个被跳过」——后者靠加密 spinX，非本机制）。
+        /// 情形 A 局部求精（B3：停点曲线 velocity 轴细分求根，取代 Hooke-Jeeves 模式搜索）：
+        /// 在粗网格代表解 ±velocityStep 括号内做**拓扑锁定**（同吃库桶 + 进袋 + 真停稳）的
+        /// 确定性两轮 9 点细分，沿停点曲线把停点推向落区/落点更深处（分辨率 ~velocityStep/32）。
+        /// 塞维保持网格分辨率——精修职责收敛到 velocity 轴（旧模式搜索的主要收益轴）。
+        /// 粗网格只定位 basin；「basin 整个被跳过」靠加密 spinX，非本机制。
         var refineEnabled: Bool = true
-        /// 精修初始步长（spin = 接触点偏移/R；vel = m/s），约半个网格步。
-        var refineSpinStep: Double = 0.15
-        var refineVelStep: Double = 0.15
-        /// 精修终止步长（spin/vel 共用）与最大迭代轮数。
-        var refineMinStep: Double = 0.02
-        var refineMaxIters: Int = 12
 
         /// 走位复杂度预算（吃库数上限）。nil = 不限（默认，原行为）；设值（如 1）= 「仅基础走位」——
         /// **优先**返回吃库 ≤ 此值的解，**仅当其为空**才回退展示超预算解并标 `beyondCushionBudget`
@@ -163,23 +159,58 @@ enum PositionPlaySolver {
     /// 跑一个候选：用走位反解快速路径（共享 `prepareAim`/`buildPrediction`，黄金分割轻量瞄准）。
     /// `aimOffset` 为预解的记忆化瞄准（跨 spinY 复用）；为 nil 时现解。
     /// **漏进重解护栏**：复用 aim 没进、但该 spin 自解 aim 可能进 ⇒ 对漏进者单独重解一次，保完备性。
+    /// **scoring-only（B1）**：搜索候选一律跳过展示后处理 + 引擎早停（物理判定不变）；
+    /// 上屏代表解经 `finalizeCandidate` 用同一 aimOffset 重建完整 prediction。
+    /// `aimSearchCenter`：非 nil 且 `aimOffset == nil` 时，瞄准现解用窄括号热启动（精修邻居用）。
     private static func evaluate(
         setup: Setup, targetKey: String, pocket: String,
-        spinX: Double, spinY: Double, velocity: Double, aimOffset: Float?
+        spinX: Double, spinY: Double, velocity: Double, aimOffset: Float?,
+        aimSearchCenter: Float? = nil
     ) -> Candidate {
         let input = ShotInput(
             cueBall: setup.cue, targetBall: setup.target, pocketIndex: setup.pocketIndex,
             velocity: Float(velocity), spinX: Float(spinX), spinY: Float(spinY),
             surfaceY: setup.surfaceY, obstacles: setup.obstacles
         )
-        var pred = ShotPredictor.predictForPositionSolve(input, aimOffset: aimOffset)
+        var pred = predictScoring(input, aimOffset: aimOffset, aimSearchCenter: aimSearchCenter)
         if aimOffset != nil, pred.feasible, !pred.objectPocketed {
-            let reSolved = ShotPredictor.predictForPositionSolve(input, aimOffset: nil)
+            let reSolved = predictScoring(input, aimOffset: nil, aimSearchCenter: nil)
             if reSolved.objectPocketed { pred = reSolved }
         }
         let shot = PlannedShot(targetKey: targetKey, pocket: pocket,
                                velocity: velocity, spinX: spinX, spinY: spinY)
         return Candidate(spinX: spinX, spinY: spinY, velocity: velocity, shot: shot, prediction: pred)
+    }
+
+    /// scoring-only 预测（B1）：窄括号热启动时先自解瞄准再走快速路径。
+    private static func predictScoring(
+        _ input: ShotInput, aimOffset: Float?, aimSearchCenter: Float?
+    ) -> ShotPrediction {
+        if aimOffset == nil, let center = aimSearchCenter {
+            var probe = ShotPrediction()
+            guard let ctx = ShotPredictor.prepareAim(input, into: &probe) else { return probe }
+            let narrowHalf = Float(2.0) * .pi / 180   // 邻居最优瞄准必在种子附近（±2° 覆盖 squirt/throw 漂移）
+            let off = ShotPredictor.positionAimOffset(input: input, context: ctx,
+                                                      center: center, halfRange: narrowHalf)
+            return ShotPredictor.predictForPositionSolve(input, aimOffset: off,
+                                                         includePresentation: false)
+        }
+        return ShotPredictor.predictForPositionSolve(input, aimOffset: aimOffset,
+                                                     includePresentation: false)
+    }
+
+    /// 把 scoring-only 候选重建为**完整 prediction**（含轨迹折线/extraBallPaths/分离角，无早停）。
+    /// 用候选实际使用的 `aimOffsetUsed` ⇒ 同物理同判定，只补展示量（B1「画面=物理」终验路径）。
+    private static func finalizeCandidate(_ c: Candidate, setup: Setup) -> Candidate {
+        guard let offset = c.prediction.aimOffsetUsed else { return c }   // 不可行候选无重建必要
+        let input = ShotInput(
+            cueBall: setup.cue, targetBall: setup.target, pocketIndex: setup.pocketIndex,
+            velocity: Float(c.velocity), spinX: Float(c.spinX), spinY: Float(c.spinY),
+            surfaceY: setup.surfaceY, obstacles: setup.obstacles
+        )
+        let full = ShotPredictor.predictForPositionSolve(input, aimOffset: offset)
+        return Candidate(spinX: c.spinX, spinY: c.spinY, velocity: c.velocity,
+                         shot: c.shot, prediction: full)
     }
 
     /// 瞄准几何上下文（仅取决于母球/目标球/袋口，与塞/力度无关）。nil = 几何不可进袋（无可进解）。
@@ -192,23 +223,42 @@ enum PositionPlaySolver {
         return ShotPredictor.prepareAim(baseInput, into: &probe)
     }
 
-    /// 候选矩阵 `[comboIdx][velIdx]`，全并行。两段并行：
-    /// ① 瞄准记忆化——对每个唯一 `(spinX, velocity)` 只解一次轻量瞄准（squirt 仅随 spinX）；
-    /// ② 按记忆化 aim 并行跑全部 `(spinX, spinY, velocity)` 候选。
-    /// 空 = 几何不可进袋（无任何可进解）。各迭代写互不相交下标，`withUnsafeMutableBufferPointer` 并发安全。
-    private static func candidateMatrix(
+    // MARK: - 快速扫描层（B3：单球解析 rollout + 引擎回退）
+
+    /// 一个扫描格子：rollout 快速评估（`fast`）或引擎回退候选（`engine`）二选一。
+    /// 快速格子只承载扫描消费的结果量；**任何被选为代表/降级解的格子都会经
+    /// `materializeRegion` 引擎复核**——扫描层加速，上屏判定不降级。
+    private struct ScanCell {
+        let spinX: Double
+        let spinY: Double
+        let velocity: Double
+        /// 本格实际使用的瞄准偏移（记忆化 aim 或漏进重解后的 aim）。
+        let aimOffset: Float
+        let fast: AnalyticShotRollout.ShotOutcome?
+        let engine: Candidate?
+    }
+
+    /// 扫描矩阵 `[comboIdx][velIdx]`（B3）：结构与瞄准记忆化跟旧 `candidateMatrix` 完全一致，
+    /// 仅把每格的引擎全模拟换成 rollout 快速评估；rollout 自报覆盖不了的格子
+    /// （碰前吃库/kiss 风险/级联/截断）在并行段内就地回退引擎（语义与旧路径逐位一致）。
+    /// `upgradeOnCueBallHit`：情形 A 母球碰后撞第三球 = 级联 ⇒ 回退引擎；
+    /// 情形 B 撞球是 K 球语义的一部分 ⇒ 保留 fast 格子由过点查询消费。
+    private static func scanMatrix(
         setup: Setup, targetKey: String, pocket: String,
-        combos: [(Double, Double)], velocities: [Double]
-    ) -> [[Candidate]] {
-        guard !combos.isEmpty, !velocities.isEmpty, let ctx = aimContext(setup) else { return [] }
+        ctx: ShotPredictor.AimContext,
+        combos: [(Double, Double)], velocities: [Double],
+        upgradeOnCueBallHit: Bool
+    ) -> [[ScanCell]] {
+        guard !combos.isEmpty, !velocities.isEmpty else { return [] }
         let velCount = velocities.count
 
-        // ① 记忆化瞄准：唯一 spinX × velocity。
+        // ① 记忆化瞄准：唯一 spinX × velocity（与旧路径同一段，B2 解析评分）。
         let uniqueSpinX = Array(Set(combos.map { $0.0 })).sorted()
         let sxIndex = Dictionary(uniqueKeysWithValues: uniqueSpinX.enumerated().map { ($1, $0) })
         var aimKeys: [(Double, Double)] = []
         for sx in uniqueSpinX { for v in velocities { aimKeys.append((sx, v)) } }
         var offsets = [Float](repeating: 0, count: aimKeys.count)
+        PerformanceProfiler.begin(ProfilerLabel.solverAimMemo)
         offsets.withUnsafeMutableBufferPointer { buf in
             let base = buf.baseAddress!
             DispatchQueue.concurrentPerform(iterations: aimKeys.count) { i in
@@ -221,28 +271,75 @@ enum PositionPlaySolver {
                 (base + i).pointee = ShotPredictor.positionAimOffset(input: inp, context: ctx)
             }
         }
+        PerformanceProfiler.end(ProfilerLabel.solverAimMemo)
 
-        // ② 全候选并行预测（复用记忆化 aim）。
+        // ② 全候选并行快速评估（rollout；覆盖不了的格子就地引擎回退）。
         let total = combos.count * velCount
-        var flat = [Candidate?](repeating: nil, count: total)
+        var flat = [ScanCell?](repeating: nil, count: total)
+        PerformanceProfiler.begin(ProfilerLabel.solverCandidateEval)
         flat.withUnsafeMutableBufferPointer { buf in
             let base = buf.baseAddress!
             DispatchQueue.concurrentPerform(iterations: total) { idx in
                 let ci = idx / velCount, vi = idx % velCount
                 let (sx, sy) = combos[ci]
                 let aim = offsets[sxIndex[sx]! * velCount + vi]
-                (base + idx).pointee = evaluate(
-                    setup: setup, targetKey: targetKey, pocket: pocket,
-                    spinX: sx, spinY: sy, velocity: velocities[vi], aimOffset: aim)
+                (base + idx).pointee = makeScanCell(
+                    setup: setup, targetKey: targetKey, pocket: pocket, ctx: ctx,
+                    spinX: sx, spinY: sy, velocity: velocities[vi], memoAim: aim,
+                    upgradeOnCueBallHit: upgradeOnCueBallHit)
             }
         }
+        PerformanceProfiler.end(ProfilerLabel.solverCandidateEval)
 
-        var matrix: [[Candidate]] = []
+        var matrix: [[ScanCell]] = []
         matrix.reserveCapacity(combos.count)
         for ci in 0..<combos.count {
             matrix.append((0..<velCount).compactMap { flat[ci * velCount + $0] })
         }
         return matrix
+    }
+
+    /// 单格评估：rollout 快速路径 + 漏进重解护栏（与引擎路径 `evaluate` 同语义）+ 引擎回退。
+    private static func makeScanCell(
+        setup: Setup, targetKey: String, pocket: String,
+        ctx: ShotPredictor.AimContext,
+        spinX: Double, spinY: Double, velocity: Double, memoAim: Float,
+        upgradeOnCueBallHit: Bool
+    ) -> ScanCell {
+        let input = ShotInput(
+            cueBall: setup.cue, targetBall: setup.target, pocketIndex: setup.pocketIndex,
+            velocity: Float(velocity), spinX: Float(spinX), spinY: Float(spinY),
+            surfaceY: setup.surfaceY, obstacles: setup.obstacles
+        )
+        // maxTime 15s：与引擎路径 `predictForPositionSolve` 默认上限同口径。
+        var fast = AnalyticShotRollout.evaluate(
+            aimDir: ctx.aimDir.rotatedY(memoAim), velocity: Float(velocity),
+            input: input, geometry: ctx.geometry, ghost: ctx.ghost, maxTime: 15.0
+        )
+        var usedAim = memoAim
+        // 漏进重解护栏：复用 aim 没进、但该 spin 自解 aim 可能进 ⇒ 重解一次（引擎路径同语义）。
+        if !fast.needsFullSim, !fast.pottedSelected {
+            let reAim = ShotPredictor.positionAimOffset(input: input, context: ctx)
+            if abs(reAim - memoAim) > 1e-7 {
+                let retry = AnalyticShotRollout.evaluate(
+                    aimDir: ctx.aimDir.rotatedY(reAim), velocity: Float(velocity),
+                    input: input, geometry: ctx.geometry, ghost: ctx.ghost, maxTime: 15.0
+                )
+                if !retry.needsFullSim, retry.pottedSelected {
+                    fast = retry
+                    usedAim = reAim
+                }
+            }
+        }
+        if fast.needsFullSim || (upgradeOnCueBallHit && fast.cueFirstBallHit != nil) {
+            let c = evaluate(setup: setup, targetKey: targetKey, pocket: pocket,
+                             spinX: spinX, spinY: spinY, velocity: velocity, aimOffset: memoAim)
+            return ScanCell(spinX: spinX, spinY: spinY, velocity: velocity,
+                            aimOffset: c.prediction.aimOffsetUsed ?? memoAim,
+                            fast: nil, engine: c)
+        }
+        return ScanCell(spinX: spinX, spinY: spinY, velocity: velocity,
+                        aimOffset: usedAim, fast: fast, engine: nil)
     }
 
     /// 合法打点组合（横塞 × 竖塞，剔除幅值 > 0.5R 打滑极限）。
@@ -269,6 +366,19 @@ enum PositionPlaySolver {
 
     // MARK: - Case A: rest region
 
+    /// 一个已打分的扫描点（网格格子或求精后的 off-grid 点）。`engine != nil` 表示该点
+    /// 已有引擎候选（回退格 / 复核产物），signed/cushion 即引擎口径。
+    private struct ScoredPoint {
+        let spinX: Double
+        let spinY: Double
+        let velocity: Double
+        let aimOffset: Float
+        let engine: Candidate?
+        let signed: Float        // 停点到落区有符号距离（区内为负）
+        let cushion: Int         // 碰球后母球吃库数
+        var spinMag: Double { (spinX * spinX + spinY * spinY).squareRoot() }
+    }
+
     private static func solveRestRegion(
         setup: Setup, targetKey: String, pocket: String,
         region: SolveRegion, params: SearchParams
@@ -276,197 +386,275 @@ enum PositionPlaySolver {
         let combos = spinCombos(xValues: params.spinXValues, yValues: params.spinYValues)
         let velocities = velocitySamples(params)
         let y = setup.surfaceY
+        guard let ctx = aimContext(setup) else { return [] }
 
-        // 每个吃库桶（碰球后母球吃库数）的最佳合格解 + 全局最接近（降级用）。
-        struct Scored {
-            let candidate: Candidate
-            let signed: Float        // 停点到落区有符号距离（区内为负）
-            let cushion: Int         // 碰球后母球吃库数
-        }
-        var pottedScored: [Scored] = []
+        // —— 扫描（B3）：rollout 快速评估为主、引擎按需回退（碰前吃库/kiss/级联/截断）。——
+        let cells = scanMatrix(setup: setup, targetKey: targetKey, pocket: pocket, ctx: ctx,
+                               combos: combos, velocities: velocities,
+                               upgradeOnCueBallHit: true).flatMap { $0 }
 
-        let candidates = candidateMatrix(setup: setup, targetKey: targetKey, pocket: pocket,
-                                         combos: combos, velocities: velocities).flatMap { $0 }
-
-        for c in candidates {
-            guard c.potted, cueRestedInPlace(c.prediction),
-                  let stop = c.prediction.finalPositions[ShotInput.cueBallName] else { continue }
-            let signed = region.signedDistanceMeters(fromScene: stop, surfaceY: y)
-            let cushion = max(0, c.prediction.cueCushionCount - c.prediction.cueCushionsBeforeContact)
-            pottedScored.append(Scored(candidate: c, signed: signed, cushion: cushion))
-        }
-
-        // 合格解：在区内（signed<=0）且余量(-signed) >= requiredMargin(cushion)。
-        // 桶内选代表（用户拍板「越少加塞越好」）：在「够稳」的候选里**优先加塞最少**，
-        // 同塞再取扎入更深者。这样每个库桶展示的是该库数下最朴素的解。
-        func requiredMargin(_ k: Int) -> Float { params.marginBase + Float(k) * params.marginPerCushion }
-        func preferLessSpin(_ a: Scored, than b: Scored) -> Bool {
-            let sa = spinMagnitude(a.candidate), sb = spinMagnitude(b.candidate)
-            if abs(sa - sb) > 1e-9 { return sa < sb }
-            return a.signed < b.signed
-        }
-        var bestPerBucket: [Int: Scored] = [:]
-        for s in pottedScored where s.signed <= 0 && (-s.signed) >= requiredMargin(s.cushion) {
-            if let cur = bestPerBucket[s.cushion] {
-                if preferLessSpin(s, than: cur) { bestPerBucket[s.cushion] = s }
-            } else {
-                bestPerBucket[s.cushion] = s
+        // 潜在解打分：进袋 + 真停稳 + 有停点。
+        var pottedScored: [ScoredPoint] = []
+        for cell in cells {
+            if let s = scoreRegionCell(cell, region: region, y: y), sIsPotted(cell) {
+                pottedScored.append(s)
             }
         }
 
-        // 把精修后的候选重新打分为 Scored（拓扑被精修锁定，cushion 不变；精修失效则回退种子）。
-        func rescore(_ c: Candidate, fallback: Scored) -> Scored {
-            guard c.potted, cueRestedInPlace(c.prediction),
-                  let stop = c.prediction.finalPositions[ShotInput.cueBallName] else { return fallback }
-            let signed = region.signedDistanceMeters(fromScene: stop, surfaceY: y)
-            let cushion = max(0, c.prediction.cueCushionCount - c.prediction.cueCushionsBeforeContact)
-            return Scored(candidate: c, signed: signed, cushion: cushion)
+        func requiredMargin(_ k: Int) -> Float { params.marginBase + Float(k) * params.marginPerCushion }
+        // 桶内代表偏好（用户拍板「越少加塞越好」）：加塞最少优先，同塞取扎入更深者；
+        // 再以 (velocity, spinX, spinY) 定序，保证并行扫描下的确定性。
+        func preferLessSpin(_ a: ScoredPoint, than b: ScoredPoint) -> Bool {
+            if abs(a.spinMag - b.spinMag) > 1e-9 { return a.spinMag < b.spinMag }
+            if abs(a.signed - b.signed) > 1e-9 { return a.signed < b.signed }
+            if a.velocity != b.velocity { return a.velocity < b.velocity }
+            if a.spinX != b.spinX { return a.spinX < b.spinX }
+            return a.spinY < b.spinY
         }
-        func refined(_ s: Scored) -> Scored {
-            let r = refineCandidate(seed: s.candidate, seedCushion: s.cushion, setup: setup,
-                                    targetKey: targetKey, pocket: pocket, region: region, params: params)
-            return rescore(r, fallback: s)
+        func closerFirst(_ a: ScoredPoint, _ b: ScoredPoint) -> Bool {
+            if abs(a.signed - b.signed) > 1e-9 { return a.signed < b.signed }
+            return preferLessSpin(a, than: b)
+        }
+
+        /// 每桶按偏好保留前 3 个候选（引擎复核失败时的备选）。
+        func topPerBucket(
+            _ scored: [ScoredPoint], qualifies: (ScoredPoint) -> Bool,
+            better: (ScoredPoint, ScoredPoint) -> Bool
+        ) -> [Int: [ScoredPoint]] {
+            var buckets: [Int: [ScoredPoint]] = [:]
+            for s in scored where qualifies(s) {
+                var list = buckets[s.cushion] ?? []
+                list.append(s)
+                list.sort(by: better)
+                if list.count > 3 { list.removeLast(list.count - 3) }
+                buckets[s.cushion] = list
+            }
+            return buckets
+        }
+
+        /// 桶代表落地流水线：曲线求精（B3，refineEnabled 时）→ 引擎复核物化。
+        /// 复核顺序：求精点 → 原种子 → 桶内次优（求精/复核失败都有确定性退路）。
+        func settle(
+            _ list: [ScoredPoint], keepBucket: Bool
+        ) -> (candidate: Candidate, signed: Float, cushion: Int)? {
+            guard let seed = list.first else { return nil }
+            var attempts: [ScoredPoint] = []
+            if params.refineEnabled {
+                let polished = PerformanceProfiler.measureSample(ProfilerLabel.solverRefine) {
+                    polishVelocityCurve(seed, setup: setup, targetKey: targetKey, pocket: pocket,
+                                        ctx: ctx, region: region, params: params)
+                }
+                attempts.append(polished)
+            }
+            attempts.append(contentsOf: list)
+            for a in attempts {
+                if let m = materializeRegion(a, setup: setup, targetKey: targetKey, pocket: pocket,
+                                             region: region, requirePotted: true) {
+                    // 引擎复核后的吃库桶若漂移（rollout 与引擎在边界档位的罕见分歧），
+                    // 弃用该点试下一备选——桶语义以引擎为准，不迁桶以保桶唯一性。
+                    if keepBucket && m.cushion != seed.cushion { continue }
+                    return m
+                }
+            }
+            return nil
         }
 
         if region.isPoint {
             // 落点：最小化到点距离。对所有可进解按吃库桶取「最近代表」（不要求命中也返回），
-            // 精修后库少 → 更近排序；容差内（signed<=0）才标满足约束。
-            var closestPerBucket: [Int: Scored] = [:]
-            for s in pottedScored {
-                if let cur = closestPerBucket[s.cushion] {
-                    if s.signed < cur.signed { closestPerBucket[s.cushion] = s }
-                } else { closestPerBucket[s.cushion] = s }
-            }
-            if !closestPerBucket.isEmpty {
-                let ordered = closestPerBucket.values.map(refined).sorted {
-                    if $0.cushion != $1.cushion { return $0.cushion < $1.cushion }
-                    return $0.signed < $1.signed
+            // 求精后库少 → 更近排序；容差内（signed<=0）才标满足约束。
+            let buckets = topPerBucket(pottedScored, qualifies: { _ in true }, better: closerFirst)
+            if !buckets.isEmpty {
+                var settled: [(Candidate, Float, Int)] = []
+                for key in buckets.keys.sorted() {
+                    if let m = settle(buckets[key]!, keepBucket: true), !settled.contains(where: { $0.2 == m.cushion }) {
+                        settled.append(m)
+                    }
                 }
-                return ordered.map { makeRegionSolution($0.candidate, signed: $0.signed, cushion: $0.cushion,
-                                                         satisfied: $0.signed <= 0, region: region) }
+                let ordered = settled.sorted {
+                    if $0.2 != $1.2 { return $0.2 < $1.2 }
+                    return $0.1 < $1.1
+                }
+                if !ordered.isEmpty {
+                    return ordered.map { makeRegionSolution(finalizeCandidate($0.0, setup: setup),
+                                                            signed: $0.1, cushion: $0.2,
+                                                            satisfied: $0.1 <= 0, region: region) }
+                }
             }
         } else {
-            if !bestPerBucket.isEmpty {
-                // 每桶代表解局部精修（停点推向落区更深处，拓扑锁定不跨库），再排序。
-                let polished = bestPerBucket.values.map(refined)
-                // 排序：库少优先 → 加塞少优先 → 扎入更深（更鲁棒）。
-                let ordered = polished.sorted {
-                    if $0.cushion != $1.cushion { return $0.cushion < $1.cushion }
-                    let s0 = spinMagnitude($0.candidate), s1 = spinMagnitude($1.candidate)
-                    if abs(s0 - s1) > 1e-9 { return s0 < s1 }
-                    return $0.signed < $1.signed
+            // 合格解：在区内（signed<=0）且余量(-signed) >= requiredMargin(cushion)。
+            let buckets = topPerBucket(
+                pottedScored,
+                qualifies: { $0.signed <= 0 && (-$0.signed) >= requiredMargin($0.cushion) },
+                better: preferLessSpin)
+            if !buckets.isEmpty {
+                var settled: [(Candidate, Float, Int)] = []
+                for key in buckets.keys.sorted() {
+                    if let m = settle(buckets[key]!, keepBucket: true), !settled.contains(where: { $0.2 == m.cushion }) {
+                        settled.append(m)
+                    }
                 }
-                return ordered.map { makeRegionSolution($0.candidate, signed: $0.signed, cushion: $0.cushion,
-                                                         satisfied: true, region: region) }
+                // 排序：库少优先 → 加塞少优先 → 扎入更深（更鲁棒）。
+                let ordered = settled.sorted {
+                    if $0.2 != $1.2 { return $0.2 < $1.2 }
+                    let s0 = spinMagnitude($0.0), s1 = spinMagnitude($1.0)
+                    if abs(s0 - s1) > 1e-9 { return s0 < s1 }
+                    return $0.1 < $1.1
+                }
+                if !ordered.isEmpty {
+                    return ordered.map { makeRegionSolution(finalizeCandidate($0.0, setup: setup),
+                                                            signed: $0.1, cushion: $0.2,
+                                                            satisfied: true, region: region) }
+                }
             }
-            // 降级：无合格解。取「能进球」的最接近解精修——精修后可能反升级为满足约束。
-            if let closest = pottedScored.min(by: { $0.signed < $1.signed }) {
-                let r = refined(closest)
-                let satisfied = r.signed <= 0 && (-r.signed) >= requiredMargin(r.cushion)
-                return [makeRegionSolution(r.candidate, signed: r.signed, cushion: r.cushion,
+            // 降级：无合格解。取「能进球」的最接近解求精——求精后可能反升级为满足约束。
+            let closestSorted = pottedScored.sorted(by: closerFirst)
+            if !closestSorted.isEmpty,
+               let m = settle(Array(closestSorted.prefix(3)), keepBucket: false) {
+                let satisfied = m.signed <= 0 && (-m.signed) >= requiredMargin(m.cushion)
+                return [makeRegionSolution(finalizeCandidate(m.candidate, setup: setup),
+                                           signed: m.signed, cushion: m.cushion,
                                            satisfied: satisfied, region: region)]
             }
         }
-        // 连进球解都没有：取「能进球与否不论」里停点最接近落区者，标注未进袋（复用已算候选）。
-        var fallback: Scored?
-        for c in candidates {
-            guard c.prediction.feasible, cueRestedInPlace(c.prediction),
-                  let stop = c.prediction.finalPositions[ShotInput.cueBallName] else { continue }
-            let signed = region.signedDistanceMeters(fromScene: stop, surfaceY: y)
-            let cushion = max(0, c.prediction.cueCushionCount - c.prediction.cueCushionsBeforeContact)
-            if fallback == nil || signed < fallback!.signed {
-                fallback = Scored(candidate: c, signed: signed, cushion: cushion)
+        // 连进球解都没有：取「能进球与否不论」里停点最接近落区者，标注未进袋。
+        var fallbacks: [ScoredPoint] = []
+        for cell in cells {
+            if let s = scoreRegionCell(cell, region: region, y: y) { fallbacks.append(s) }
+        }
+        fallbacks.sort(by: closerFirst)
+        for f in fallbacks.prefix(3) {
+            if let m = materializeRegion(f, setup: setup, targetKey: targetKey, pocket: pocket,
+                                         region: region, requirePotted: false) {
+                return [makeRegionSolution(finalizeCandidate(m.candidate, setup: setup),
+                                           signed: m.signed, cushion: m.cushion,
+                                           satisfied: false, region: region)]
             }
         }
-        if let f = fallback {
-            return [makeRegionSolution(f.candidate, signed: f.signed, cushion: f.cushion,
-                                       satisfied: false, region: region)]
-        }
         return []
+    }
+
+    /// 格子是否进袋（快速/引擎两口径）。
+    private static func sIsPotted(_ cell: ScanCell) -> Bool {
+        if let f = cell.fast { return f.pottedSelected }
+        return cell.engine?.potted ?? false
+    }
+
+    /// 情形 A 打分：进袋与否不论，只要「真停稳 + 有停点」即产出 ScoredPoint（潜在解由调用方
+    /// 再叠加进袋过滤；最终降级支需要非进袋停点）。
+    private static func scoreRegionCell(
+        _ cell: ScanCell, region: SolveRegion, y: Float
+    ) -> ScoredPoint? {
+        if let f = cell.fast {
+            guard f.cueRested, !f.cuePocketed, let stop = f.cueFinalPos else { return nil }
+            return ScoredPoint(spinX: cell.spinX, spinY: cell.spinY, velocity: cell.velocity,
+                               aimOffset: cell.aimOffset, engine: nil,
+                               signed: region.signedDistanceMeters(fromScene: stop, surfaceY: y),
+                               cushion: f.cueCushionsAfterContact)
+        }
+        guard let c = cell.engine, c.prediction.feasible, cueRestedInPlace(c.prediction),
+              let stop = c.prediction.finalPositions[ShotInput.cueBallName] else { return nil }
+        let cushion = max(0, c.prediction.cueCushionCount - c.prediction.cueCushionsBeforeContact)
+        return ScoredPoint(spinX: cell.spinX, spinY: cell.spinY, velocity: cell.velocity,
+                           aimOffset: cell.aimOffset, engine: c,
+                           signed: region.signedDistanceMeters(fromScene: stop, surfaceY: y),
+                           cushion: cushion)
+    }
+
+    /// B3 曲线求精（取代 Hooke-Jeeves 模式搜索）：固定 (spinX, spinY)，在种子 ±velocityStep
+    /// 括号内沿「velocity → 停点有符号距离」曲线做**确定性两轮 9 点细分**（拓扑锁定：只接受
+    /// 进袋 + 真停稳 + 同吃库桶的点），把停点推向落区/落点更深处。分辨率 ~velocityStep/32。
+    /// 每个探测点瞄准用种子 aim 窄括号热启动（±2°，B1 同款——邻域最优瞄准必在种子附近）。
+    private static func polishVelocityCurve(
+        _ seed: ScoredPoint, setup: Setup, targetKey: String, pocket: String,
+        ctx: ShotPredictor.AimContext, region: SolveRegion, params: SearchParams
+    ) -> ScoredPoint {
+        let y = setup.surfaceY
+        let narrowHalf = Float(2.0) * .pi / 180
+
+        func scoreAt(_ v: Double) -> ScoredPoint? {
+            let input = ShotInput(
+                cueBall: setup.cue, targetBall: setup.target, pocketIndex: setup.pocketIndex,
+                velocity: Float(v), spinX: Float(seed.spinX), spinY: Float(seed.spinY),
+                surfaceY: setup.surfaceY, obstacles: setup.obstacles
+            )
+            let aim = ShotPredictor.positionAimOffset(
+                input: input, context: ctx, center: seed.aimOffset, halfRange: narrowHalf)
+            let fast = AnalyticShotRollout.evaluate(
+                aimDir: ctx.aimDir.rotatedY(aim), velocity: Float(v),
+                input: input, geometry: ctx.geometry, ghost: ctx.ghost, maxTime: 15.0
+            )
+            if !fast.needsFullSim, fast.cueFirstBallHit == nil {
+                guard fast.pottedSelected, fast.cueRested, !fast.cuePocketed,
+                      let stop = fast.cueFinalPos else { return nil }
+                return ScoredPoint(spinX: seed.spinX, spinY: seed.spinY, velocity: v,
+                                   aimOffset: aim, engine: nil,
+                                   signed: region.signedDistanceMeters(fromScene: stop, surfaceY: y),
+                                   cushion: fast.cueCushionsAfterContact)
+            }
+            // rollout 覆盖不了的邻域点走引擎（与种子为引擎回退格的情形同路）。
+            let c = evaluate(setup: setup, targetKey: targetKey, pocket: pocket,
+                             spinX: seed.spinX, spinY: seed.spinY, velocity: v,
+                             aimOffset: nil, aimSearchCenter: seed.aimOffset)
+            guard c.potted, cueRestedInPlace(c.prediction),
+                  let stop = c.prediction.finalPositions[ShotInput.cueBallName] else { return nil }
+            let cushion = max(0, c.prediction.cueCushionCount - c.prediction.cueCushionsBeforeContact)
+            return ScoredPoint(spinX: seed.spinX, spinY: seed.spinY, velocity: v,
+                               aimOffset: c.prediction.aimOffsetUsed ?? seed.aimOffset, engine: c,
+                               signed: region.signedDistanceMeters(fromScene: stop, surfaceY: y),
+                               cushion: cushion)
+        }
+
+        var best = seed
+        var lo = max(params.velocityMin, seed.velocity - params.velocityStep)
+        var hi = min(params.velocityMax, seed.velocity + params.velocityStep)
+        for _ in 0..<2 {
+            let n = 8
+            var roundBest = best
+            for i in 0...n {
+                let v = lo + (hi - lo) * Double(i) / Double(n)
+                guard abs(v - best.velocity) > 1e-9 else { continue }
+                guard let s = scoreAt(v), s.cushion == seed.cushion else { continue }
+                if s.signed < roundBest.signed - 1e-6 { roundBest = s }
+            }
+            best = roundBest
+            let span = (hi - lo) / Double(n)
+            lo = max(params.velocityMin, best.velocity - span)
+            hi = min(params.velocityMax, best.velocity + span)
+        }
+        return best
+    }
+
+    /// 把扫描/求精胜出点物化为引擎候选（全保真判定护栏，B3）：快速点经引擎 scoring-only 复核，
+    /// 引擎点直接复用其候选；signed/cushion 一律以引擎预测为准（画面=物理）。
+    /// nil = 复核失败（进袋/停稳被引擎推翻）——调用方按确定性顺序试下一备选。
+    private static func materializeRegion(
+        _ s: ScoredPoint, setup: Setup, targetKey: String, pocket: String,
+        region: SolveRegion, requirePotted: Bool
+    ) -> (candidate: Candidate, signed: Float, cushion: Int)? {
+        let y = setup.surfaceY
+        let c: Candidate
+        if let e = s.engine {
+            c = e
+        } else {
+            c = evaluate(setup: setup, targetKey: targetKey, pocket: pocket,
+                         spinX: s.spinX, spinY: s.spinY, velocity: s.velocity,
+                         aimOffset: s.aimOffset)
+        }
+        if requirePotted {
+            guard c.potted else { return nil }
+        } else {
+            guard c.prediction.feasible else { return nil }
+        }
+        guard cueRestedInPlace(c.prediction),
+              let stop = c.prediction.finalPositions[ShotInput.cueBallName] else { return nil }
+        let signed = region.signedDistanceMeters(fromScene: stop, surfaceY: y)
+        let cushion = max(0, c.prediction.cueCushionCount - c.prediction.cueCushionsBeforeContact)
+        return (c, signed, cushion)
     }
 
     /// 加塞幅值（接触点偏移/R 的模）。用于「越少加塞越好」排序。
     private static func spinMagnitude(_ c: Candidate) -> Double {
         (c.spinX * c.spinX + c.spinY * c.spinY).squareRoot()
-    }
-
-    /// 情形 A 局部精修：拓扑锁定的模式搜索（Hooke-Jeeves 坐标式）。在种子解附近的连续
-    /// `(spinX, spinY, velocity)` 邻域里最小化「停点有符号距离」objective，**只接受**「进袋 + 真停稳 +
-    /// 碰球后吃库数与种子相同」的样本（其余记 +∞）——故永不跨越拓扑悬崖外推，只抛光已找到的 basin。
-    /// 确定性（贪心 + 固定探测顺序），不破坏测试。每轮 6 邻居并行评估。
-    private static func refineCandidate(
-        seed: Candidate, seedCushion: Int,
-        setup: Setup, targetKey: String, pocket: String,
-        region: SolveRegion, params: SearchParams
-    ) -> Candidate {
-        guard params.refineEnabled else { return seed }
-        let y = setup.surfaceY
-        let limit = Double(CuePhysics.miscueLimitFraction)
-
-        func objective(_ c: Candidate) -> Float {
-            guard c.potted, cueRestedInPlace(c.prediction),
-                  let stop = c.prediction.finalPositions[ShotInput.cueBallName] else {
-                return .greatestFiniteMagnitude
-            }
-            let cushion = max(0, c.prediction.cueCushionCount - c.prediction.cueCushionsBeforeContact)
-            guard cushion == seedCushion else { return .greatestFiniteMagnitude }  // 拓扑锁
-            return region.signedDistanceMeters(fromScene: stop, surfaceY: y)
-        }
-        func legalSpin(_ x: Double, _ yv: Double) -> Bool {
-            (x * x + yv * yv).squareRoot() <= limit + 1e-6
-        }
-
-        var best = seed
-        var bestObj = objective(seed)
-        guard bestObj < .greatestFiniteMagnitude else { return seed }  // 种子无效（不应发生）
-
-        var spinStep = params.refineSpinStep
-        var velStep = params.refineVelStep
-        var iters = 0
-        while iters < params.refineMaxIters && (spinStep > params.refineMinStep || velStep > params.refineMinStep) {
-            iters += 1
-            // 6 邻居：±spinX、±spinY、±velocity（越界/越打滑极限者剔除）。
-            // **只精修网格实际搜过的轴**：若某塞轴被刻意塌缩为单值（如「禁左右塞」spinXValues=[0]），
-            // 精修不得沿该轴探测，否则会把被禁的塞重新引回（违背用户约束）。
-            var probes: [(Double, Double, Double)] = []
-            if params.spinXValues.count > 1 {
-                for dx in [-spinStep, spinStep] where legalSpin(best.spinX + dx, best.spinY) {
-                    probes.append((best.spinX + dx, best.spinY, best.velocity))
-                }
-            }
-            if params.spinYValues.count > 1 {
-                for dy in [-spinStep, spinStep] where legalSpin(best.spinX, best.spinY + dy) {
-                    probes.append((best.spinX, best.spinY + dy, best.velocity))
-                }
-            }
-            for dv in [-velStep, velStep] {
-                let v = min(max(best.velocity + dv, params.velocityMin), params.velocityMax)
-                if abs(v - best.velocity) > 1e-9 { probes.append((best.spinX, best.spinY, v)) }
-            }
-            guard !probes.isEmpty else { break }
-
-            var evaluated = [Candidate?](repeating: nil, count: probes.count)
-            evaluated.withUnsafeMutableBufferPointer { buf in
-                let base = buf.baseAddress!
-                DispatchQueue.concurrentPerform(iterations: probes.count) { i in
-                    let (sx, sy, v) = probes[i]
-                    (base + i).pointee = evaluate(setup: setup, targetKey: targetKey, pocket: pocket,
-                                                  spinX: sx, spinY: sy, velocity: v, aimOffset: nil)
-                }
-            }
-            var movedObj = bestObj
-            var movedTo: Candidate?
-            for c in evaluated.compactMap({ $0 }) {
-                let o = objective(c)
-                if o < movedObj - 1e-6 { movedObj = o; movedTo = c }
-            }
-            if let m = movedTo {
-                best = m; bestObj = movedObj   // 贪心移动，保持步长
-            } else {
-                spinStep /= 2; velStep /= 2     // 无改进 → 收缩步长
-            }
-        }
-        return best
     }
 
     /// 母球是否真正「停在桌面某处」：未 scratch（进袋 = 无停点）且末速接近 0（≠ 截断假停）。
@@ -516,6 +704,7 @@ enum PositionPlaySolver {
         let p = scenePoint(point, surfaceY: setup.surfaceY)
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: setup.surfaceY)
         let minSpeed = max(params.passMinSpeed, Float(vMin))
+        guard let ctx = aimContext(setup) else { return [] }
 
         // 一次速度采样的通过信息。
         struct PassSample {
@@ -525,26 +714,64 @@ enum PositionPlaySolver {
             let firstBallNearestPocket: Float?
         }
 
-        // 候选矩阵（aim 记忆化 + 全并行，热点已在此消化）；逐塞做速度分段为轻量后处理。
-        let matrix = candidateMatrix(setup: setup, targetKey: targetKey, pocket: pocket,
-                                     combos: combos, velocities: velocities)
-        var solutions: [PositionPlaySolution] = []
-        for (ci, combo) in combos.enumerated() where ci < matrix.count {
-            let (sx, sy) = combo
-            let row = matrix[ci]   // 与 velocities 同序同长
-            var samples: [PassSample?] = []
-            samples.reserveCapacity(row.count)
-            for c in row {
+        // —— 扫描（B3）：rollout 快速评估 + 过点闭式段查询；歧义格（撞球/截断后仍可能过点）
+        // 就地回退引擎（语义与旧全引擎路径逐格一致）。撞球在情形 B 是 K 球语义 ⇒ 不升级。——
+        let matrix = scanMatrix(setup: setup, targetKey: targetKey, pocket: pocket, ctx: ctx,
+                                combos: combos, velocities: velocities,
+                                upgradeOnCueBallHit: false)
+        guard !matrix.isEmpty else { return [] }
+
+        /// 单格 → 过点样本（并行，各写互不相交下标）。
+        func resolveSample(_ cell: ScanCell) -> PassSample? {
+            // 引擎格（碰前吃库/kiss/级联回退）：旧口径 passInfo 回放查询。
+            if let c = cell.engine {
                 guard c.potted,
                       let pass = passInfo(c, p: p, minSpeed: minSpeed, surfaceY: setup.surfaceY,
                                           obstacles: setup.obstacles, pockets: pockets,
-                                          tol: params.passTolerance) else {
-                    samples.append(nil); continue
-                }
-                samples.append(PassSample(velocity: c.velocity,
-                                          cushionsBeforeP: pass.cushionsBeforeP,
-                                          firstBallNearestPocket: pass.firstBallNearestPocket))
+                                          tol: params.passTolerance) else { return nil }
+                return PassSample(velocity: c.velocity, cushionsBeforeP: pass.cushionsBeforeP,
+                                  firstBallNearestPocket: pass.firstBallNearestPocket)
             }
+            guard let fast = cell.fast, fast.pottedSelected else { return nil }
+            switch passInfoFast(fast, p: p, minSpeed: minSpeed,
+                                obstacles: setup.obstacles, pockets: pockets,
+                                tol: params.passTolerance) {
+            case .pass(let pr):
+                return PassSample(velocity: cell.velocity, cushionsBeforeP: pr.cushionsBeforeP,
+                                  firstBallNearestPocket: pr.firstBallNearestPocket)
+            case .noPass:
+                return nil
+            case .ambiguous:
+                // 母球撞球/截断处路径中止且尚未过点：级联后仍可能过点 ⇒ 引擎全模拟裁决。
+                let c = evaluate(setup: setup, targetKey: targetKey, pocket: pocket,
+                                 spinX: cell.spinX, spinY: cell.spinY, velocity: cell.velocity,
+                                 aimOffset: cell.aimOffset)
+                guard c.potted,
+                      let pass = passInfo(c, p: p, minSpeed: minSpeed, surfaceY: setup.surfaceY,
+                                          obstacles: setup.obstacles, pockets: pockets,
+                                          tol: params.passTolerance) else { return nil }
+                return PassSample(velocity: c.velocity, cushionsBeforeP: pass.cushionsBeforeP,
+                                  firstBallNearestPocket: pass.firstBallNearestPocket)
+            }
+        }
+
+        let velCount = velocities.count
+        var samplesFlat = [PassSample?](repeating: nil, count: combos.count * velCount)
+        PerformanceProfiler.begin(ProfilerLabel.solverPassInfo)
+        samplesFlat.withUnsafeMutableBufferPointer { buf in
+            let base = buf.baseAddress!
+            DispatchQueue.concurrentPerform(iterations: combos.count * velCount) { idx in
+                let ci = idx / velCount, vi = idx % velCount
+                guard ci < matrix.count, vi < matrix[ci].count else { return }
+                (base + idx).pointee = resolveSample(matrix[ci][vi])
+            }
+        }
+        PerformanceProfiler.end(ProfilerLabel.solverPassInfo)
+
+        var solutions: [PositionPlaySolution] = []
+        for (ci, combo) in combos.enumerated() where ci < matrix.count {
+            let (sx, sy) = combo
+            let samples = Array(samplesFlat[(ci * velCount)..<((ci + 1) * velCount)])
             // 连续命中（且到 P 前吃库数相同）聚成速度分段，取中值为代表（off-grid，单独现解瞄准）。
             var i = 0
             while i < samples.count {
@@ -565,7 +792,8 @@ enum PositionPlaySolver {
                 let rep = evaluate(setup: setup, targetKey: targetKey, pocket: pocket,
                                    spinX: sx, spinY: sy, velocity: midV, aimOffset: nil)
                 solutions.append(makePassSolution(
-                    rep, cushion: s.cushionsBeforeP, nearestPocket: bestNearest,
+                    finalizeCandidate(rep, setup: setup),
+                    cushion: s.cushionsBeforeP, nearestPocket: bestNearest,
                     velocityRange: (lo, hi)))
                 i = j + 1
             }
@@ -588,29 +816,55 @@ enum PositionPlaySolver {
     }
 
     /// 判定母球是否在 v>minSpeed 时经过 P；并统计到 P 前吃库数与过 P 后第一颗碰撞球离袋最近距离。
+    ///
+    /// **B1 事件段扫描**：不再对全程做 dt=0.01 均匀回放采样，而是按母球的**事件帧段**扫描——
+    /// 每段先用「弦线段-点距离 − 曲率松弛」做保守下界剪枝（滚动/静止段解析演进为直线 ⇒ 下界精确；
+    /// 滑动段可能因塞弧线弯曲 ⇒ 减去 aT²/8 抛物线偏差上界），只有**可能过 P** 的段才做段内
+    /// dt=0.01 局部加密。判定语义与全程采样一致（同网格密度），只是跳过了不可能命中的段。
     private static func passInfo(
         _ c: Candidate, p: SCNVector3, minSpeed: Float, surfaceY: Float,
         obstacles: [ObstacleBall], pockets: [SCNVector3], tol: Float
     ) -> PassResult? {
         guard let recorder = c.prediction.recorder, c.prediction.duration > 0 else { return nil }
+        guard let cueFrames = recorder.framesByBallName[ShotInput.cueBallName],
+              cueFrames.count >= 1 else { return nil }
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius)
-        let duration = c.prediction.duration
+        let frames = cueFrames.sorted { $0.time < $1.time }
         let dt: Float = 0.01
-        var t: Float = 0
+        /// 滑动段弧线偏差上界系数：偏差 ≤ a⊥·T²/8，a⊥ ≤ μ_slide·g ~ 2–3 m/s²，取 a=10 保守 ⇒ 10/8。
+        let slidingSlackCoeff: Float = 10.0 / 8.0
         var bestDist = Float.greatestFiniteMagnitude
         var bestTime: Float = 0
         var bestSpeed: Float = 0
-        while t <= duration {
-            if let st = playback.stateAt(ballName: ShotInput.cueBallName, time: t) {
-                let dx = st.position.x - p.x, dz = st.position.z - p.z
-                let d = sqrtf(dx * dx + dz * dz)
-                if d < bestDist {
-                    bestDist = d
-                    bestTime = t
-                    bestSpeed = sqrtf(st.velocity.x * st.velocity.x + st.velocity.z * st.velocity.z)
-                }
+
+        func sample(_ t: Float) {
+            guard let st = playback.stateAt(ballName: ShotInput.cueBallName, time: t) else { return }
+            let dx = st.position.x - p.x, dz = st.position.z - p.z
+            let d = sqrtf(dx * dx + dz * dz)
+            if d < bestDist {
+                bestDist = d
+                bestTime = t
+                bestSpeed = sqrtf(st.velocity.x * st.velocity.x + st.velocity.z * st.velocity.z)
             }
-            t += dt
+        }
+
+        sample(frames[0].time)
+        for i in 0..<(frames.count - 1) {
+            let a = frames[i], b = frames[i + 1]
+            let span = b.time - a.time
+            guard span > 1e-6 else { sample(b.time); continue }
+            let chord = ShotPredictor.segmentPointDistanceXZ(a: a.position, b: b.position, p: p)
+            // 段内路径到弦的最大偏差：滑动段为抛物线上界；滚动/旋转/静止段解析演进沿直线 ⇒ 0。
+            let slack: Float = (a.state == .sliding) ? slidingSlackCoeff * span * span : 0
+            let lowerBound = chord - slack
+            // 剪枝：段内不可能比「当前最优」与「容差」都更近 ⇒ 跳过（不影响 bestDist<tol 判定与最优点）。
+            if lowerBound >= min(bestDist, tol) { sample(b.time); continue }
+            var t = a.time
+            while t < b.time {
+                sample(t)
+                t += dt
+            }
+            sample(b.time)
         }
         guard bestDist < tol, bestSpeed > minSpeed else { return nil }
 
@@ -635,6 +889,77 @@ enum PositionPlaySolver {
             nearest = pockets.map { AngleSceneCalculator.horizontalDistance(ob.position, $0) }.min()
         }
         return PassResult(cushionsBeforeP: cushionsBeforeP, firstBallNearestPocket: nearest)
+    }
+
+    /// 快速格的过点裁决。`.ambiguous` = 本层无法下「未过点」结论（母球在撞球/截断处路径中止，
+    /// 级联/继续滚动仍可能过 P），须回退引擎——**宁可多跑一次引擎，不可漏解**。
+    private enum FastPassOutcome {
+        case pass(PassResult)
+        case noPass
+        case ambiguous
+    }
+
+    /// `passInfo` 的解析版（B3）：对 rollout 闭式路径段做同一套「弦距下界剪枝 + 段内 dt=0.01
+    /// 局部加密」查询（段就是引擎的事件帧段，滑动段同一 aT²/8 曲率松弛），判定语义与引擎版一致。
+    /// 快速格无碰前吃库（该档已回退引擎）⇒ 到 P 前吃库数 = 碰球后吃库时刻 < bestTime 的计数。
+    private static func passInfoFast(
+        _ o: AnalyticShotRollout.ShotOutcome, p: SCNVector3, minSpeed: Float,
+        obstacles: [ObstacleBall], pockets: [SCNVector3], tol: Float
+    ) -> FastPassOutcome {
+        guard !o.cueSegments.isEmpty else { return .ambiguous }
+        let dt: Float = 0.01
+        let slidingSlackCoeff: Float = 10.0 / 8.0   // 与引擎版 passInfo 同一保守上界
+        var bestDist = Float.greatestFiniteMagnitude
+        var bestTime: Float = 0
+        var bestSpeed: Float = 0
+
+        for seg in o.cueSegments {
+            func sample(_ dtLocal: Float) {
+                let pos = seg.position(at: dtLocal)
+                let dx = pos.x - p.x, dz = pos.z - p.z
+                let d = sqrtf(dx * dx + dz * dz)
+                if d < bestDist {
+                    bestDist = d
+                    bestTime = seg.t0 + dtLocal
+                    let v = seg.velocity(at: dtLocal)
+                    bestSpeed = sqrtf(v.x * v.x + v.z * v.z)
+                }
+            }
+            let chord = ShotPredictor.segmentPointDistanceXZ(
+                a: seg.position, b: seg.position(at: seg.duration), p: p)
+            let slack: Float = (seg.state == .sliding)
+                ? slidingSlackCoeff * seg.duration * seg.duration : 0
+            if chord - slack >= min(bestDist, tol) {
+                sample(0); sample(seg.duration); continue
+            }
+            var t: Float = 0
+            while t < seg.duration {
+                sample(t)
+                t += dt
+            }
+            sample(seg.duration)
+        }
+
+        if bestDist < tol, bestSpeed > minSpeed {
+            let cushionsBeforeP = o.cueCushionTimes.filter { $0 < bestTime }.count
+            // 过 P 后母球碰到的第一颗球（引擎版扫 ballBall 事件的同语义）：
+            // P 在母-目首碰之前 ⇒ 目标球；否则 ⇒ rollout 上报的首颗静止球（若在 P 之后）。
+            var firstBallName: String?
+            if let ct = o.contactTime, bestTime < ct {
+                firstBallName = ShotInput.targetBallName
+            } else if let hit = o.cueFirstBallHit, let ht = o.cueFirstBallHitTime, ht > bestTime {
+                firstBallName = hit
+            }
+            var nearest: Float?
+            if let name = firstBallName,
+               let ob = obstacles.first(where: { $0.name == name }) {
+                nearest = pockets.map { AngleSceneCalculator.horizontalDistance(ob.position, $0) }.min()
+            }
+            return .pass(PassResult(cushionsBeforeP: cushionsBeforeP, firstBallNearestPocket: nearest))
+        }
+        // 未过点：仅当母球路径**完整走到停稳/落袋**才可下结论；撞球中止或截断 ⇒ 歧义回退。
+        if o.cueFirstBallHit != nil || !(o.cueRested || o.cuePocketed) { return .ambiguous }
+        return .noPass
     }
 
     private static func makePassSolution(
@@ -749,33 +1074,172 @@ enum PositionPlaySolver {
             }
         }
 
-        var scoredOpt = [SnookerScored?](repeating: nil, count: cands.count)
-        scoredOpt.withUnsafeMutableBufferPointer { buf in
-            let base = buf.baseAddress!
-            DispatchQueue.concurrentPerform(iterations: cands.count) { i in
-                let c = cands[i]
-                let ang = baseAngle + Float(c.off)
-                let aimDir = SCNVector3(cosf(ang), 0, sinf(ang))
-                let pred = ShotPredictor.simulateFree(
-                    cueBall: cue, aimDir: aimDir, velocity: Float(c.v),
-                    spinX: Float(c.sx), spinY: Float(c.sy), surfaceY: surfaceY, balls: balls)
-                (base + i).pointee = evaluateSnooker(
-                    pred, targetKey: targetKey, blockerKey: blockerKey,
-                    spinX: c.sx, spinY: c.sy, velocity: c.v)
+        // —— 扫描（B4）：自由球单球 rollout 快评为主，级联/kiss/截断格就地回退引擎
+        // （scoring-only + 早停，B1 语义保留）。空杆/首触非目标/进袋等必败候选由快评直接下结论。——
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        let interest: Set<String> = [ShotInput.cueBallName, targetKey, blockerKey]
+        guard let blockerPos = balls.first(where: { $0.name == blockerKey })?.position else { return [] }
+
+        /// 一个扫描格（快评结论或引擎回退候选）。约束量口径对齐 `evaluateSnooker`；
+        /// 任何被选为代表的格子都会经 `settle` 引擎全保真复核——扫描加速，上屏判定不降级。
+        struct SnookerCell {
+            let off: Double; let sx: Double; let sy: Double; let v: Double
+            let cushion: Int
+            let coverageDeg: Float
+            let full: Bool
+        }
+
+        let comboCount = combos.count
+        let velCount = velocities.count
+        func cellIndex(aim: Int, combo: Int, vel: Int) -> Int {
+            (aim * comboCount + combo) * velCount + vel
+        }
+
+        /// 引擎回退评估一格（scoring-only + 早停）。nil = 硬约束不满足（必败格）。
+        func engineCell(_ i: Int) -> SnookerCell? {
+            let c = cands[i]
+            let ang = baseAngle + Float(c.off)
+            let aimDir = SCNVector3(cosf(ang), 0, sinf(ang))
+            let pred = ShotPredictor.simulateFree(
+                cueBall: cue, aimDir: aimDir, velocity: Float(c.v),
+                spinX: Float(c.sx), spinY: Float(c.sy), surfaceY: surfaceY, balls: balls,
+                includePresentation: false, earlyStopBallNames: interest)
+            guard let s = evaluateSnooker(pred, targetKey: targetKey, blockerKey: blockerKey,
+                                          spinX: c.sx, spinY: c.sy, velocity: c.v) else { return nil }
+            return SnookerCell(off: c.off, sx: c.sx, sy: c.sy, v: c.v,
+                               cushion: s.cushion, coverageDeg: s.coverageDeg, full: s.full)
+        }
+
+        // —— 阶段 1：全网格 rollout 快评（并行）。结论确定的格子（合法/必败）就地落地；
+        // 级联/kiss/截断 = 歧义格，只标记不模拟（交给粗细两阶段）。——
+        var cellsOpt = [SnookerCell?](repeating: nil, count: cands.count)
+        var ambiguous = [Bool](repeating: false, count: cands.count)
+        PerformanceProfiler.begin(ProfilerLabel.solverCandidateEval)
+        cellsOpt.withUnsafeMutableBufferPointer { buf in
+            ambiguous.withUnsafeMutableBufferPointer { ambBuf in
+                let base = buf.baseAddress!
+                let amb = ambBuf.baseAddress!
+                DispatchQueue.concurrentPerform(iterations: cands.count) { i in
+                    let c = cands[i]
+                    let ang = baseAngle + Float(c.off)
+                    let aimDir = SCNVector3(cosf(ang), 0, sinf(ang))
+                    let fast = AnalyticShotRollout.evaluateFreeShot(
+                        cueBall: cue, aimDir: aimDir, velocity: Float(c.v),
+                        spinX: Float(c.sx), spinY: Float(c.sy), surfaceY: surfaceY,
+                        balls: balls, geometry: geometry)
+                    if fast.needsFullSim {
+                        (amb + i).pointee = true
+                        return
+                    }
+                    // 快评硬约束（与 evaluateSnooker 同序同语义）：母球不进袋 + 真停稳 +
+                    // 目标球不进袋 + 首触必须是目标球。blocker 未被扰动（否则已回退）⇒ 终位 = 初始位。
+                    guard !fast.cuePocketed, fast.cueRested,
+                          fast.firstBallHit == targetKey, !fast.firstHitPocketed,
+                          let finalC = fast.cueFinalPos, let finalT = fast.firstHitFinalPos else { return }
+                    let cov = AngleSceneCalculator.snookerCoverage(
+                        cue: finalC, snookered: finalT, blocker: blockerPos)
+                    (base + i).pointee = SnookerCell(off: c.off, sx: c.sx, sy: c.sy, v: c.v,
+                                                     cushion: fast.cueCushionCount,
+                                                     coverageDeg: cov.marginDegrees,
+                                                     full: cov.isFullSnooker)
+                }
             }
         }
-        let scored = scoredOpt.compactMap { $0 }
-        guard !scored.isEmpty else { return [] }
 
-        // 完全斯诺克解：按吃库桶取覆盖余量最大代表。
-        var bestPerBucket: [Int: SnookerScored] = [:]
-        for s in scored where s.full {
-            if let cur = bestPerBucket[s.cushion] {
-                if s.coverageDeg > cur.coverageDeg { bestPerBucket[s.cushion] = s }
-            } else { bestPerBucket[s.cushion] = s }
+        // —— 阶段 2（粗）：歧义格按 (aim 步 3 × vel 步 2 × 全塞) 粗网格引擎评估（方案 B4
+        // 「粗力度找可行邻域」）。级联解（母/目标球二次撞 blocker 后的停位）只能引擎裁决。——
+        var coarseIdx: [Int] = []
+        for a in stride(from: 0, to: aimOffsets.count, by: 3) {
+            for ci in 0..<comboCount {
+                for v in stride(from: 0, to: velCount, by: 2) {
+                    let i = cellIndex(aim: a, combo: ci, vel: v)
+                    if ambiguous[i] { coarseIdx.append(i) }
+                }
+            }
         }
-        if !bestPerBucket.isEmpty {
-            let ordered = bestPerBucket.values.sorted {
+        cellsOpt.withUnsafeMutableBufferPointer { buf in
+            let base = buf.baseAddress!
+            DispatchQueue.concurrentPerform(iterations: coarseIdx.count) { k in
+                let i = coarseIdx[k]
+                (base + i).pointee = engineCell(i)
+            }
+        }
+
+        // —— 阶段 3（细）：只对「可行粗格」的邻域（aim ±2 × vel ±1，同塞行）内尚未评估的
+        // 歧义格加密至全分辨率——必败区域整片跳过。窄可行带漏检风险由金标准回归护栏。——
+        var refineSet = Set<Int>()
+        for i in coarseIdx where cellsOpt[i] != nil {
+            let a = i / (comboCount * velCount)
+            let rem = i % (comboCount * velCount)
+            let ci = rem / velCount
+            let v = rem % velCount
+            for da in -2...2 {
+                for dv in -1...1 {
+                    let na = a + da, nv = v + dv
+                    guard na >= 0, na < aimOffsets.count, nv >= 0, nv < velCount else { continue }
+                    let ni = cellIndex(aim: na, combo: ci, vel: nv)
+                    if ambiguous[ni], cellsOpt[ni] == nil { refineSet.insert(ni) }
+                }
+            }
+        }
+        let refineIdx = refineSet.sorted()
+        cellsOpt.withUnsafeMutableBufferPointer { buf in
+            let base = buf.baseAddress!
+            DispatchQueue.concurrentPerform(iterations: refineIdx.count) { k in
+                let i = refineIdx[k]
+                (base + i).pointee = engineCell(i)
+            }
+        }
+        PerformanceProfiler.end(ProfilerLabel.solverCandidateEval)
+
+        let cells = cellsOpt.compactMap { $0 }
+        guard !cells.isEmpty else { return [] }
+
+        /// 覆盖余量大优先 → 加塞少 → 力度小 → 瞄准偏移小（确定性 tie-break）。
+        func betterCoverage(_ a: SnookerCell, _ b: SnookerCell) -> Bool {
+            if abs(a.coverageDeg - b.coverageDeg) > 1e-4 { return a.coverageDeg > b.coverageDeg }
+            let s0 = a.sx * a.sx + a.sy * a.sy, s1 = b.sx * b.sx + b.sy * b.sy
+            if abs(s0 - s1) > 1e-9 { return s0 < s1 }
+            if a.v != b.v { return a.v < b.v }
+            return abs(a.off) < abs(b.off)
+        }
+
+        /// 代表格落地：引擎**全保真**重建 + 复核（硬约束/覆盖/吃库桶以引擎为准），
+        /// 不符自动试备选——快评只加速搜索，上屏数值全部引擎口径（比基线多一道复核）。
+        func settle(_ list: [SnookerCell], requireFull: Bool, keepBucket: Bool) -> SnookerScored? {
+            for cell in list {
+                let ang = baseAngle + Float(cell.off)
+                let aimDir = SCNVector3(cosf(ang), 0, sinf(ang))
+                let pred = ShotPredictor.simulateFree(
+                    cueBall: cue, aimDir: aimDir, velocity: Float(cell.v),
+                    spinX: Float(cell.sx), spinY: Float(cell.sy), surfaceY: surfaceY, balls: balls)
+                guard let s = evaluateSnooker(pred, targetKey: targetKey, blockerKey: blockerKey,
+                                              spinX: cell.sx, spinY: cell.sy, velocity: cell.v) else { continue }
+                if requireFull && !s.full { continue }
+                if keepBucket && s.cushion != cell.cushion { continue }
+                return s
+            }
+            return nil
+        }
+
+        // 完全斯诺克解：每桶按覆盖余量保留前 3 备选，代表经引擎复核落地。
+        var buckets: [Int: [SnookerCell]] = [:]
+        for cell in cells where cell.full {
+            var list = buckets[cell.cushion] ?? []
+            list.append(cell)
+            list.sort(by: betterCoverage)
+            if list.count > 3 { list.removeLast(list.count - 3) }
+            buckets[cell.cushion] = list
+        }
+        if !buckets.isEmpty {
+            var settled: [SnookerScored] = []
+            for key in buckets.keys.sorted() {
+                if let s = settle(buckets[key]!, requireFull: true, keepBucket: true),
+                   !settled.contains(where: { $0.cushion == s.cushion }) {
+                    settled.append(s)
+                }
+            }
+            let ordered = settled.sorted {
                 if $0.cushion != $1.cushion { return $0.cushion < $1.cushion }
                 if abs($0.coverageDeg - $1.coverageDeg) > 1e-4 { return $0.coverageDeg > $1.coverageDeg }
                 let s0 = $0.shot.spinX * $0.shot.spinX + $0.shot.spinY * $0.shot.spinY
@@ -783,12 +1247,17 @@ enum PositionPlaySolver {
                 if abs(s0 - s1) > 1e-9 { return s0 < s1 }
                 return $0.shot.velocity < $1.shot.velocity
             }
-            return applyCushionBudget(ordered.map(makeSnookerSolution), maxCushions: params.maxCushions)
+            if !ordered.isEmpty {
+                return applyCushionBudget(ordered.map { makeSnookerSolution($0) },
+                                          maxCushions: params.maxCushions)
+            }
         }
 
-        // 降级：无完全斯诺克——返回覆盖余量最大（最接近挡死）的单个解，标半斯诺克。
-        if let closest = scored.max(by: { $0.coverageDeg < $1.coverageDeg }) {
-            return [makeSnookerSolution(closest)]
+        // 降级：无完全斯诺克——覆盖余量最大（最接近挡死）的单个解，标半斯诺克；
+        // 引擎复核失败依次试更次优（最多 8 个），全败则如实返回空。
+        let closest = cells.sorted(by: betterCoverage)
+        if let s = settle(Array(closest.prefix(8)), requireFull: false, keepBucket: false) {
+            return [makeSnookerSolution(s)]
         }
         return []
     }

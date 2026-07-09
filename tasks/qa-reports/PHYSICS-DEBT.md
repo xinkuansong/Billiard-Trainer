@@ -67,8 +67,8 @@
 
 | ID | 严重度 | 标题 | 证据 | 影响 | 建议 |
 |----|-------|------|------|------|------|
-| **D-D1** | 🟡 | 单次 predict 150-200ms；满台序列数百 ms | `solveAimOffset` 粗±12°/0.5°(49)+中(13)+细(13) ≈ 75 次短模拟，每次 500ev/15s（ShotPredictor.swift:626-629, 577-578） | 编辑模式跟手度差；P11 满台求解明显延迟 | 求解 sim 用更短 maxTime/事件数搜索、最终再全保真；或缓存/增量；评估 Han 闭式解外是否可解析剪枝 |
-| **D-D2** | 🟢 ◑ | 搜索与最终模拟均 500/15，未分级 | ShotPredictor.swift:577（searchEvents=500/searchTime=15）注释自陈历史上为修"双景观错位"提到与最终同保真 | 搜索阶段保真度过剩 | **◑ 部分（2026-06-05，见 §5.4）**：500/15 已抽为 `AimScoring.searchMaxEvents/searchMaxTime` 具名常量（值不变）。**降保真本身未做**——属行为/性能改动（D-D1 同源），有"双景观错位"回归风险，留待专门做性能优化时在矩阵护栏下验证 |
+| **D-D1** | 🟢 ◑ | 单次 predict 150-200ms；满台序列数百 ms | `solveAimOffset` 粗±12°/0.5°(49)+中(13)+细(13) ≈ 75 次短模拟，每次 500ev/15s（ShotPredictor.swift:626-629, 577-578） | 编辑模式跟手度差；P11 满台求解明显延迟 | **◑ 主体已偿（2026-07-08，见 §5.9）**：反解求解器路径经 B1–B4（scoring-only+早停 / 解析瞄准 / 单球解析 rollout / 斯诺克分层搜索）情形 A/B **−93%**、批量 **−94%**、斯诺克 **−80%**。残留：单杆 `predict` 全保真展示路径本身未动（中位 ~125ms，见 §5.6(3)，编辑跟手已够用）；斯诺克级联格仍需引擎裁决（≤500ms 未达） |
+| **D-D2** | 🟢 ◑ | 搜索与最终模拟均 500/15，未分级 | ShotPredictor.swift:577（searchEvents=500/searchTime=15）注释自陈历史上为修"双景观错位"提到与最终同保真 | 搜索阶段保真度过剩 | **◑ 分级已在反解路径落地（2026-07-08，见 §5.9）**：搜索层 scoring-only（跳 polyline/extraBallPaths + 兴趣球早停 + 碰撞截断）+ 解析 rollout，代表解一律引擎**全保真复核后上屏**——即「搜索降成本、终验全保真」的安全分级。注意护栏结论：`highFidelityBounds` 在 scoring-only 中**不可关**（近库自适应子步在多球盘面改变轨迹，非纯展示量，`ScoringOnlyConsistencyTests` 打回一次）。`solveAimOffset` 的 500/15 本身未降（已被解析瞄准层旁路，仅袋口模式 predict 使用） |
 
 ---
 
@@ -277,3 +277,12 @@
 - `test_S_cueRailReboundScan`：贴库线幽灵反弹 0、平行出射 0（1197 次吃库）。
 - `test_solveDrillC005` 117s（基线 123s，无性能回退）；`PhysicsInvariant`/`PhysicsMatrix`/`PhysicsScenario`/`CushionDiagnostics`/`PositionPlayFreeAim` 全过。
 - 仅 3 个 `PhysicsEngineTests` 预存失败（与修复前**完全同集**，断言为袋口毫米级距离偏差，属其他未提交工作遗留，另行处理）。
+
+### 5.9 D-D1/D-D2 主体偿还 · 反解求解器分层提速 B0–B5（2026-07-08）
+
+> 方案真源：`docs/research/20260708-反解求解器性能优化方案.md`；实施记录与 ADR-P13-01…04 见 `tasks/phases/P13-position-play-solver.md`。此处只登记债务台账口径的结论。
+
+- **D-D1（求解慢）主体偿还**：反解四条路径（思路训练情形 A / 三杆规划情形 B / 批量出片 / 做斯诺克）经 B1–B4 分层改造——B1 scoring-only + 引擎早停、B2 解析瞄准层（`AnalyticAimModel`，黄金分割评分换闭式推演）、B3 单球解析 rollout（`AnalyticShotRollout`，扫描层替代全量引擎模拟）、B4 斯诺克三层搜索（rollout 快评 → 歧义格粗细两阶段引擎评估 → 代表解全保真复核）。**实测（模拟器 `SolverPerformanceTests`）**：情形 A 2.28→0.15s、情形 B 1.98→0.13s、批量 7.42→0.47s、斯诺克 36.56→7.2s。
+- **D-D2（保真分级）以更安全的形式落地**：不是降低搜索模拟的 `maxEvents/maxTime`（原风险：双景观错位），而是「搜索层解析/scoring-only + 每个上屏解引擎全保真复核」——搜索与终验分级、物理真值单一来源不变。**护栏结论**：`highFidelityBounds` 对 scoring-only 也不可关（近库自适应子步在多球盘面改变轨迹，非纯展示量），`ScoringOnlyConsistencyTests` 常驻守卫。
+- **残留（如实）**：① 单杆 `predict` 展示路径未动（~125ms 中位，够用）；② 斯诺克级联歧义格只能引擎裁决，≤500ms 目标未达（穿透级联递归解析经 B5 复评**暂不做**——需在解析层重建多球事件循环，等于第二个引擎，维护/对拍成本远超 7s→0.5s 的收益，且斯诺克为低频功能）；③ 真机基线仍欠 H-20（设备未连接）。
+- **回归网**：`AnalyticAimParityTests` + `AnalyticRolloutParityTests` + `ScoringOnlyConsistencyTests` 常驻对拍；`BatchSequenceReplayRegressionTests` 重放 `content/position_play/sequences/` 全部 91 条 drill 序列（171 杆，覆盖 62 drill 成品内容）与 HEAD 基线 worktree 对拍 **dump 逐字节一致**（优化零改变展示物理）。

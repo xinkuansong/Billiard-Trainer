@@ -105,6 +105,8 @@
 		592CDC2209CA8CBC4ADF593C /* BTDrillCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5744ECCE17A177B77E664309 /* BTDrillCard.swift */; };
 		5948C8C8083986091267C25A /* BallMotionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19583A8AEAF689C82EA90E57 /* BallMotionState.swift */; };
 		5A7E5B590CE0C1D044318BD9 /* EngineNumerics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875E7F4BD682B761D7DABDE1 /* EngineNumerics.swift */; };
+		5B21AA83C4D90E71A2F30B11 /* AnalyticAimModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C32BB94D5EA1F82B3041C22 /* AnalyticAimModel.swift */; };
+		7D43CC05E6FB201093051D33 /* AnalyticShotRollout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E54DD16F70C312BA4162E44 /* AnalyticShotRollout.swift */; };
 		5A96C146323B16EB4DEF6C2B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 735EF922FB756EE5E610B985 /* RootView.swift */; };
 		5B09608163B062D2A61F12B7 /* BankShotViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6961142D52258C5AE920509 /* BankShotViewModel.swift */; };
 		5B7EA3CC09EEB2AD3F461AE3 /* P6_HistoryStatsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DC7D67405452C3ED5507F1 /* P6_HistoryStatsUITests.swift */; };
@@ -157,6 +159,11 @@
 		817EA63EA303A31807E5F471 /* AimingCameraConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B9F9E429072253E0310601 /* AimingCameraConfig.swift */; };
 		819EBDACF716AD00FB40A970 /* ScreenshotTourUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59556D5EF0242F770CF7BC3C /* ScreenshotTourUITests.swift */; };
 		82284E3269F576B0368FAA5C /* PlanThreeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AABFDBCA6EBEEBFE1C9881 /* PlanThreeViewModel.swift */; };
+		82872D6EC08777170995EFB7 /* SolverPerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A671D23AD7A6ABFD34EFB5 /* SolverPerformanceTests.swift */; };
+		7C1B9E4D2A6F58301D4C7B21 /* BatchSequenceReplayRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E8D2C7A9B415F60E2A81D43 /* BatchSequenceReplayRegressionTests.swift */; };
+		E4F1A2B3C5D6E7F80912AB34 /* ScoringOnlyConsistencyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A8B7C6D5E4F3A2B1C0D9E85 /* ScoringOnlyConsistencyTests.swift */; };
+		D7E8F90A1B2C3D4E5F607182 /* AnalyticAimParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6D7E8F90A1B2C3D4E5F6071 /* AnalyticAimParityTests.swift */; };
+		E8F90A1B2C3D4E5F60718293 /* AnalyticRolloutParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F90A1B2C3D4E5F6071829304 /* AnalyticRolloutParityTests.swift */; };
 		846C5BA98D93C9EF885D7354 /* ReachabilityVizTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A00C38A3C292B1E764FD8E /* ReachabilityVizTests.swift */; };
 		860519094D09B4A7B8BC6B67 /* PositioningFormationRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EFC2453CBB90B9B308C5849 /* PositioningFormationRenderTests.swift */; };
 		865BACC4AE602B16CA9CF9C2 /* SnookerTacticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A78C83E43E47CE5791B7F1 /* SnookerTacticsViewModel.swift */; };
@@ -416,6 +423,11 @@
 		413A9750E796A75614DC285D /* PerformanceProfiler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceProfiler.swift; sourceTree = "<group>"; };
 		419BA103F0D46C06EBA9EDFD /* HistoryAccessControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryAccessControllerTests.swift; sourceTree = "<group>"; };
 		4382C44FC1209A6EBF4A58F7 /* PositionPlaySolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionPlaySolver.swift; sourceTree = "<group>"; };
+		44A671D23AD7A6ABFD34EFB5 /* SolverPerformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SolverPerformanceTests.swift; sourceTree = "<group>"; };
+		3E8D2C7A9B415F60E2A81D43 /* BatchSequenceReplayRegressionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchSequenceReplayRegressionTests.swift; sourceTree = "<group>"; };
+		9A8B7C6D5E4F3A2B1C0D9E85 /* ScoringOnlyConsistencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringOnlyConsistencyTests.swift; sourceTree = "<group>"; };
+		C6D7E8F90A1B2C3D4E5F6071 /* AnalyticAimParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticAimParityTests.swift; sourceTree = "<group>"; };
+		F90A1B2C3D4E5F6071829304 /* AnalyticRolloutParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticRolloutParityTests.swift; sourceTree = "<group>"; };
 		44CF7735B9B15754CDA229F2 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		45190E4F99EF7917A2AC88EE /* CameraRig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraRig.swift; sourceTree = "<group>"; };
 		4534851506FA07E139DB3F39 /* ShotIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotIntent.swift; sourceTree = "<group>"; };
@@ -493,6 +505,8 @@
 		85E578F78E7A2F8517BEF9CE /* DrillShotResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillShotResolver.swift; sourceTree = "<group>"; };
 		86093504ECC50E5D15D1B89C /* SceneAimingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneAimingView.swift; sourceTree = "<group>"; };
 		875E7F4BD682B761D7DABDE1 /* EngineNumerics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineNumerics.swift; sourceTree = "<group>"; };
+		6C32BB94D5EA1F82B3041C22 /* AnalyticAimModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticAimModel.swift; sourceTree = "<group>"; };
+		8E54DD16F70C312BA4162E44 /* AnalyticShotRollout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticShotRollout.swift; sourceTree = "<group>"; };
 		88A78C83E43E47CE5791B7F1 /* SnookerTacticsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnookerTacticsViewModel.swift; sourceTree = "<group>"; };
 		88F748F9B8CCA0CDEF7186B1 /* SiluTrainerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiluTrainerView.swift; sourceTree = "<group>"; };
 		895E10D1F6418884F4651E23 /* frame_03.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = frame_03.png; sourceTree = "<group>"; };
@@ -894,6 +908,11 @@
 				F873073B2D32D4FF186A056A /* ShotScenarioRenderTests.swift */,
 				D25C0F7EB6D5F34BC89FCD60 /* ShotTableLayoutTests.swift */,
 				8ECA9C8A2F8BB2433A59CF5E /* SnookerSolverTests.swift */,
+				C6D7E8F90A1B2C3D4E5F6071 /* AnalyticAimParityTests.swift */,
+				F90A1B2C3D4E5F6071829304 /* AnalyticRolloutParityTests.swift */,
+				9A8B7C6D5E4F3A2B1C0D9E85 /* ScoringOnlyConsistencyTests.swift */,
+				44A671D23AD7A6ABFD34EFB5 /* SolverPerformanceTests.swift */,
+				3E8D2C7A9B415F60E2A81D43 /* BatchSequenceReplayRegressionTests.swift */,
 				E02A9061344DF8835F43CB2F /* StatisticsViewModelTests.swift */,
 				8AB4C545865FA4A818E62019 /* SwiftDataModelTests.swift */,
 				CD1D0F2441D614EB02F58503 /* SyncQueueManagerTests.swift */,
@@ -950,6 +969,8 @@
 		71FEFEC70A0B267E5A313D2A /* Physics */ = {
 			isa = PBXGroup;
 			children = (
+				6C32BB94D5EA1F82B3041C22 /* AnalyticAimModel.swift */,
+				8E54DD16F70C312BA4162E44 /* AnalyticShotRollout.swift */,
 				9E0002A44D311EF2D4835FDC /* AnalyticalMotion.swift */,
 				19583A8AEAF689C82EA90E57 /* BallMotionState.swift */,
 				07B466FA95BA6DABC1671606 /* BTPhysicsConstants.swift */,
@@ -1673,6 +1694,8 @@
 				A926E4F7A2D1B8FFF9728972 /* DrillThumbnailRenderer.swift in Sources */,
 				9A72988F010343B1DB6DEAFE /* DrillTutorialView.swift in Sources */,
 				5A7E5B590CE0C1D044318BD9 /* EngineNumerics.swift in Sources */,
+				5B21AA83C4D90E71A2F30B11 /* AnalyticAimModel.swift in Sources */,
+				7D43CC05E6FB201093051D33 /* AnalyticShotRollout.swift in Sources */,
 				523CFD96A3510E8C4E2900D1 /* EnhancedEnvironment.swift in Sources */,
 				93A9F111AA8485FC81487980 /* EventCache.swift in Sources */,
 				D2119D6784959FBF29337563 /* EventDrivenEngine.swift in Sources */,
@@ -1849,6 +1872,11 @@
 				903373543E563A92B30E02F0 /* ShotScenarioRenderTests.swift in Sources */,
 				BF5C55A0302736B16FFE87BB /* ShotTableLayoutTests.swift in Sources */,
 				17CE95ED7AB7347F0A9C3A01 /* SnookerSolverTests.swift in Sources */,
+				82872D6EC08777170995EFB7 /* SolverPerformanceTests.swift in Sources */,
+				7C1B9E4D2A6F58301D4C7B21 /* BatchSequenceReplayRegressionTests.swift in Sources */,
+				E4F1A2B3C5D6E7F80912AB34 /* ScoringOnlyConsistencyTests.swift in Sources */,
+				D7E8F90A1B2C3D4E5F607182 /* AnalyticAimParityTests.swift in Sources */,
+				E8F90A1B2C3D4E5F60718293 /* AnalyticRolloutParityTests.swift in Sources */,
 				B088E54B6D20C769C5184506 /* StatisticsViewModelTests.swift in Sources */,
 				B7A583F58364A445D89739BC /* SwiftDataModelTests.swift in Sources */,
 				708C7377EF14A1488E339089 /* SyncQueueManagerTests.swift in Sources */,

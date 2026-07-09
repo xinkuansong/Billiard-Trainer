@@ -111,6 +111,33 @@ final class PerformanceProfiler {
 #endif
     }
 
+    /// 线程安全地记录一个外部测得的耗时样本（ms）。
+    /// 与 `begin`/`end` 的区别：`begin`/`end` 共享同一 label 的挂起时刻，**并发调用会互相覆盖**；
+    /// 并发热点（`DispatchQueue.concurrentPerform` 内）应在调用方本地计时后用本方法累计。
+    static func recordSample(_ label: String, ms: Double) {
+#if DEBUG
+        shared.lock.lock()
+        defer { shared.lock.unlock() }
+        if shared.stats[label] == nil {
+            shared.stats[label] = SectionStats(label: label)
+        }
+        shared.stats[label]!.record(ms)
+#endif
+    }
+
+    /// 对闭包本地计时并以 `recordSample` 累计（并发安全），返回闭包结果。
+    @discardableResult
+    static func measureSample<T>(_ label: String, block: () -> T) -> T {
+#if DEBUG
+        let t0 = CACurrentMediaTime()
+        let result = block()
+        recordSample(label, ms: (CACurrentMediaTime() - t0) * 1000.0)
+        return result
+#else
+        return block()
+#endif
+    }
+
     // MARK: - Reporting
 
     private static let reportLogger = Logger(subsystem: "com.billiardtrainer", category: "Profiler")
@@ -165,6 +192,29 @@ final class PerformanceProfiler {
 #endif
     }
 
+    /// 返回统计报告纯文本（测试输出用；DEBUG 之外返回空串）。
+    static func reportText() -> String {
+#if DEBUG
+        shared.lock.lock()
+        let snapshot = shared.stats
+        shared.lock.unlock()
+        guard !snapshot.isEmpty else { return "" }
+        let sorted = snapshot.values.sorted { $0.totalMs > $1.totalMs }
+        var lines: [String] = [String(format: "  %-36@ %6@ %10@ %9@ %9@ %9@",
+                                      "区段" as NSString, "次数" as NSString, "总计ms" as NSString,
+                                      "均值ms" as NSString, "最小ms" as NSString, "最大ms" as NSString)]
+        for s in sorted {
+            let minStr: String = s.minMs == .infinity ? "    —" : String(format: "%9.2f", s.minMs)
+            lines.append(String(
+                format: "  %-36@ %6d %10.1f %9.2f %@ %9.2f",
+                s.label as NSString, s.callCount, s.totalMs, s.avgMs, minStr as NSString, s.maxMs))
+        }
+        return lines.joined(separator: "\n")
+#else
+        return ""
+#endif
+    }
+
     /// 重置所有统计数据
     static func reset() {
 #if DEBUG
@@ -214,4 +264,13 @@ enum ProfilerLabel {
     static let executeStroke    = "Shot.executeStroke"
     static let buildEngine      = "Shot.buildEngine"
     static let applyResult      = "Shot.applyResult"
+
+    // 反解求解器分段（B0 基线；并发热点一律用 recordSample/measureSample）
+    static let solverAimMemo        = "Solver.aimMemoization"       // 候选矩阵 ① 瞄准记忆化（外层墙钟）
+    static let solverCandidateEval  = "Solver.candidateEval"        // 候选矩阵 ② 全候选评估（外层墙钟）
+    static let solverRefine         = "Solver.refine"               // 情形 A 局部精修（每桶代表解一次）
+    static let solverPassInfo       = "Solver.passInfo"             // 情形 B 过点回放采样（每候选）
+    static let predictorRunShot     = "Predictor.runShot"           // 单次事件模拟（含瞄准短模拟）
+    static let predictorPostProcess = "Predictor.postProcess"       // buildPrediction/simulateFree 后处理（polyline 等）
+    static let predictorSimFreeEngine = "Predictor.simulateFree.engine" // simulateFree 引擎模拟段
 }

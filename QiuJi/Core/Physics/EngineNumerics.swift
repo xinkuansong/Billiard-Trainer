@@ -268,6 +268,62 @@ enum EngineNumerics {
         }
     }
 
+    // MARK: - 库边碰撞完整解算（单一真源，引擎与解析 rollout 共用）
+
+    /// 库边碰撞的**完整解算编排**：恢复系数选择（线性段各自可携带 / 圆弧段可携带，否则全局值）
+    /// → 「只推不拉」护栏（球已退离库面的过时事件跳过）→ make-kiss 贴合 → Han 纯解算 → 状态机更新。
+    ///
+    /// 从 `EventDrivenEngine.resolveBallCushionCollision` 原样抽出（B3）：引擎事件循环与
+    /// `AnalyticShotRollout` 单球解析推演**同吃这一份**，杜绝平行物理（方案红线 2）。
+    /// - Returns: `true` 当冲量真正施加；`false` 当事件因球已退离库面而被跳过。
+    @discardableResult
+    static func resolveCushionImpact(
+        state: inout BallState, cushionIndex: Int, normal: SCNVector3, geometry: TableGeometry
+    ) -> Bool {
+        let linearCount = geometry.linearCushions.count
+        let resolvedNormal: SCNVector3
+        // 该段恢复系数：线性库边可携带各自的恢复系数（袋口喉腔壁更"死"），圆弧库用全局值。
+        var restitution = TablePhysics.cushionRestitution
+
+        if cushionIndex >= linearCount {
+            let arcIdx = cushionIndex - linearCount
+            if arcIdx < geometry.circularCushions.count {
+                let arc = geometry.circularCushions[arcIdx]
+                resolvedNormal = arc.normal(at: state.position)
+                if let e = arc.restitution { restitution = e }
+            } else {
+                resolvedNormal = normal
+            }
+        } else {
+            resolvedNormal = normal
+            if cushionIndex >= 0, cushionIndex < linearCount,
+               let e = geometry.linearCushions[cushionIndex].restitution {
+                restitution = e
+            }
+        }
+
+        // 库边只能「推」不能「拉」（物理护栏，FL 根因修复·吃库竞态，2026-06-12）：
+        // resolvedNormal 指向台内（线性库存储法向 / 弧由弧心指向球），球逼近库面 ⇔ v·n < 0。
+        // 若解析时球已在退离（v·n ≥ 0），施加冲量是非物理的——跳过过时事件；
+        // v·n = 0（纯切向擦库）时 Han 的法向冲量本为零，跳过与解析等价。
+        let approachSpeed = state.velocity.x * resolvedNormal.x + state.velocity.z * resolvedNormal.z
+        guard approachSpeed < 0 else { return false }
+
+        makeBallCushionKiss(state: &state, cushionIndex: cushionIndex, normal: resolvedNormal, geometry: geometry)
+
+        let result = CollisionResolver.resolveCushionCollisionPure(
+            velocity: state.velocity,
+            angularVelocity: state.angularVelocity,
+            normal: resolvedNormal,
+            restitution: restitution
+        )
+
+        state.velocity = result.velocity
+        state.angularVelocity = result.angularVelocity
+        state.state = determineMotionState(state)
+        return true
+    }
+
     // MARK: - 几何谓词
 
     /// Returns the closest point on the infinite line through segStart–segEnd to the given point,

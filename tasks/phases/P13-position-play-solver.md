@@ -121,3 +121,139 @@
 - **UI/VM**：`SiluTrainerViewModel` 加 `@Published allowSideSpin=true` / `basicPositionOnly=false`（didSet 失效重求解），新增 `searchParams(for:)` 由基底 + 两开关组装并传入 `solve()`；`SiluTrainerView` 在工具栏「⋯」菜单加「求解范围」分区两个 `Toggle`（不挤占顶部工具行）。
 - **验证**：`make build` ✅、`PositionPlaySolverTests` **13/13**（新增 ① 禁塞 ⇒ 所有解 spinX==0 含精修不引回；② 基础预算内 ⇒ 解吃库 ≤1 且不标进阶；③ 不可满足预算 cap=-1 ⇒ 兜底返回全部解且全标进阶、不给无解）。墙钟不变（默认态走原路径）。
 - **改动文件**：`PositionPlaySolverModels.swift`（`beyondCushionBudget`）、`PositionPlaySolver.swift`（`maxCushions` + `applyCushionBudget` + refine 锁轴）、`SiluTrainerViewModel.swift`（两开关 + `searchParams(for:)` + 进阶标注）、`SiluTrainerView.swift`（菜单两开关 + 子标题进阶）、`PositionPlaySolverTests.swift`（禁塞/预算优先/兜底三用例）。
+
+### B0 — 反解求解器性能基线（2026-07-08，Test Engineer，方案：docs/research/20260708-反解求解器性能优化方案.md）
+
+> 优化批次 B0（一切优化的前置）：四条路径独立墙钟 benchmark + 分段计时 + Instruments 占比确认。
+
+- **新增** `QiuJiTests/SolverPerformanceTests.swift`（4 用例，断言只防卡死 <120s，非性能闸门）：
+  - 情形 A 落区 `.standard` 带/不带精修、情形 B 过点 `.passThrough`、斯诺克 `solveSnooker .standard`（**此前无基线，本轮补**，盘面取 SnookerSolverTests 金标准球形）、批量出片等价盘面（8 球 + 落区，`BatchShotSolver.searchParams` 同参数）。
+- **插桩**（DEBUG-only，Release 零开销）：`PerformanceProfiler` 新增 `recordSample`/`measureSample`（并发安全采样——旧 `begin`/`end` 共享挂起时刻，`concurrentPerform` 下互相覆盖不可用）+ `reportText()`；标签 `Solver.aimMemoization`/`Solver.candidateEval`/`Solver.refine`/`Solver.passInfo`/`Predictor.runShot`/`Predictor.postProcess`/`Predictor.simulateFree.engine`，插桩点：`PositionPlaySolver.candidateMatrix` ①② 段、`refined()`、`passInfo` 调用处；`ShotPredictor.runShot` 引擎段、`buildPrediction`/`simulateFree` 后处理段。
+- **基线（模拟器 iPhone 17 Pro，4/4 TEST SUCCEEDED 真实输出）**：
+  - 情形 A：**1.64s 无精修 / 2.28s 带精修**（1572/2436 次 runShot；分段：瞄准记忆化 0.40s、候选评估 1.30s、精修 0.58s、后处理 CPU 0.35s）。
+  - 情形 B：**1.98s**（2174 次；瞄准记忆化 0.75s、候选评估 1.01s、passInfo 0.06s）。
+  - 斯诺克：**36.56s**（3780 次全场 simulateFree，引擎段 CPU 356.6s、均值 94.3ms/次）——原推算 2.5–5s 严重低估。
+  - 批量盘面（8 球）：**7.42s**（2100 次，单次均值 30.4ms ≈ 两球盘面 4×）。
+- **Instruments Time Profiler（xctrace 附着 + time-profile 表导出聚合，两轮）**：引擎 simulate 内核占 CPU 样本 **97.3%（情形 A/B/批量窗口）/ 97.5%（斯诺克窗口）**，后处理 polyline/回放采样 2.0–2.3%，求解器装配 <0.1% ⇒ 优化主战场 = 减少模拟次数 / 降低单次模拟成本（与方案 §2 分层管线一致）。
+- **真机基线未测**（诚实标注）：Mac 无可用真机连接（devicectl 列表仅 unavailable 项）⇒ 登记 `HUMAN-REQUIRED.md` H-20（非阻塞，B5 收尾补）。
+- **改动文件**：`QiuJiTests/SolverPerformanceTests.swift`（新）、`QiuJi/Core/Physics/PerformanceProfiler.swift`、`QiuJi/Core/Physics/ShotPredictor.swift`（仅 DEBUG 插桩）、`QiuJi/Core/PositionPlay/PositionPlaySolver.swift`（仅插桩）、方案文件 §1 基线表回写。
+
+### B1 — 打分与出片分离 + 引擎早停（2026-07-08，iOS Architect + Test Engineer，方案 §3 B1）
+
+> 低风险热身批次：搜索候选 scoring-only + 三种早停/剪枝，物理与判定逐位不变；上屏代表解全保真重建。
+
+- **scoring-only 分离**：`buildPrediction`/`simulateFree` 增 `includePresentation:Bool=true`——`false` 时跳过 polyline 120Hz 采样、共线简化、`extraBallPaths`、分离角/切线，只留求解器消费量（进袋/吃库/末位/末速/事件流/recorder）；`predictForPositionSolve` 透传并顺带把实际瞄准写入新增字段 `ShotPrediction.aimOffsetUsed`。
+- **代表解全保真重建（画面=物理终验，比基线更严格）**：`PositionPlaySolver.finalizeCandidate`（情形 A 三条装配路径 + 情形 B 代表解）用候选的 `aimOffsetUsed` 以默认参数重跑完整 prediction；斯诺克 `finalizeSnooker` 用 `prediction.aimDirection` 同理。同物理同判定，只补展示量。
+- **引擎早停两种**（`EventDrivenEngine.simulate` 新参数，展示用模拟保持 nil）：
+  - `earlyStopBallNames`：兴趣球全部落袋/停稳（stationary/spinning），且其余运动球按**能量上界行程**（v²/2+R²ω²/5 → E/(μ_roll·g)，含链式接力松弛 = 球数·2R）不可能触及任何兴趣球 ⇒ 提前结束。保守判据 ⇒ 兴趣球终态逐位不变。
+  - `stopAfterContactBetween`：**瞄准评分专用**——两具名球首次碰撞解算并记帧后立即截断。评分只消费「碰前事件 + 目标球碰后首帧方向 +（未碰时）cueGhostMinDist」⇒ 评分值与整程逐位一致。接入 `positionAimOffset`（黄金分割内层）：情形 A 瞄准记忆化 404ms→50ms、情形 B 805ms→97ms。
+- **passInfo 事件段扫描**：替换 dt=0.01 全程回放采样——按母球事件帧段扫描，滚动/静止段解析演进为直线 ⇒ 弦线段-点距离即精确下界；滑动段可能带塞弯曲 ⇒ 减 aT²/8（a=10 保守）曲率松弛；只有下界 < min(bestDist, tol) 的段才做段内 dt=0.01 局部加密。
+- **精修邻居瞄准复用**：±spinY 邻居直接复用种子 `aimOffsetUsed`（squirt 只随 spinX，与主网格记忆化同一物理事实；漏进重解护栏兜底）；±spinX/±velocity 邻居以种子为中心 ±2° 窄括号热启动黄金分割。精修段 505ms→327ms。
+- **实测（`SolverPerformanceTests` 复测，真实输出）**：情形 A 无精修 1.64→**1.24s**（−24%）、带精修 2.28→**1.56s**（**−32%，达标 ≥30%**）、情形 B 1.98→**1.17s**（−41%）、批量 8 球盘面 7.42→**4.90s**（−34%）、斯诺克 36.56→36.46s（~0%，预期内——postProcess CPU 8.4s→0.3s 但引擎段占绝对主导，候选主体收益在 B4）。解数逐条持平（3/6/8/2）。
+- **验证（真实输出）**：`PositionPlaySolverTests` 13/13 ✅ + `SnookerSolverTests` 4/4 ✅ + `PhysicsBenchmarkTests` ✅ + `PhysicsInvariantTests` ✅；新增 `QiuJiTests/ScoringOnlyConsistencyTests` 2/2 ✅——多球盘面 54 组 scoring-only vs 全保真、斯诺克 20 组早停 vs 整程，aimOffset/进袋/吃库/末速/兴趣球终位/首触**逐条一致**（Float 1e-5 容差）。
+- **改动文件**：`EventDrivenEngine.swift`（两种早停）、`ShotPredictor.swift`（scoring-only + aimOffsetUsed + stopAfterContact + 窄括号 positionAimOffset）、`PositionPlaySolver.swift`（predictScoring/finalizeCandidate/finalizeSnooker + passInfo 段扫描 + 精修瞄准复用）、`QiuJiTests/ScoringOnlyConsistencyTests.swift`（新，pbxproj 注册）、方案文件 §3 B1 回写。
+
+### B2 — 解析瞄准层（2026-07-08，iOS Architect + Test Engineer，方案 §3 B2）
+
+> 反解轻量瞄准的评分函数从「引擎短模拟」换成「闭式解析推演」——引擎组件全部复用零重写；
+> 对拍验证先行（改线上路径前先证物理保真），旧路径保留可回退，上屏解全保真终验不动。
+
+- **解析模型** `QiuJi/Core/Physics/AnalyticAimModel.swift`（`AnalyticAim.outcome`）：给定 (aimDir, velocity, spinX/Y, elevation) 推演到首次母-目碰撞并返回目标球碰后方向。忠实性契约（逐组件复用）：
+  - 击杆含 squirt：`CueBallStrike.executeStrike`（与 `runShot` 同一调用）。
+  - 弹道 = 至多「滑动→滚动」两段**常加速度段**（滑动段 û 恒定是闭式解成立前提，与引擎事件间演进同一 `AnalyticalMotion` 公式；swerve 自然包含）。段长 = `slideToRollTime`/`rollToSpinTime`。
+  - 段内首事件检测与引擎 `findNextEvent` 同一批求根器：球-球四次方程（+ 引擎同款 quartic 漏检离散回退）、直线库二次方程 + 有限段过滤、jaw 圆弧四次方程、袋口 XZ 四次方程。先解目标球再以 `min(horizon, tTarget)` 收窄其余检测窗 + 可达半径粗筛（`|v|t+½|a|t²` 上界，保守只省计算）。
+  - 碰撞解算：`EngineNumerics.makeBallBallKiss` + `CollisionResolver.resolveBallBallPure`（与引擎 `resolveBallBallCollision` 同序同参，collision throw 同源）。
+- **评分接线**（`ShotPredictor.swift`）：`positionAimScore`（模拟口径）/`positionAimScoreAnalytic`（解析口径）抽成对等函数；`positionAimOffset` 经编译期开关 `useAnalyticPositionAim = true` 走解析评分，搜索器仍黄金分割同括号同容差（对拍偏差 ⇒ 纯物理保真差）；旧路径保留为 `positionAimOffsetSimulated`（回退 = 开关改 false 重编译；不用可变全局避免 `concurrentPerform` 数据竞态）。
+- **第 0 层几何早筛** `AnalyticAim.straightFanBlocked`：障碍球到「母球→幽灵球」基线的垂距 + 沿线投影，判「即使把瞄准偏到扇区边缘（±12°）也让不开」⇒ 整轮一维搜索直接跳过（返回 center，下游全保真终验语义不变）。判据保守（swerve 5mm 余量），宁可漏筛不误杀。
+- **对拍验证（先行，`QiuJiTests/AnalyticAimParityTests.swift` 2/2，种子化可复现）**：
+  - 评分层（25 随机盘面 × 11 offset 网格 = 275 点，131 点双方有效）：有效性判定不一致 **0**；角误差偏差 P50 **0.000°**、P95 **0.013°**、max **0.053°**（唯一略超 0.05° 案例：近库 4 障碍盘面 off=4°，评分差 0.0009 rad，无害）。
+  - 求解层（40 随机盘面全幅力度/塞）：Δoffset P50/P95/max 全 **0.000°**；丢解 **0**；「模拟评分交叉裁判」真失真 **0**。
+  - **归因记录（唯一一次红灯 → 根因修复）**：首轮 1 例慢速长台丢解（offAna 漂到 +12° 括号边缘）。根因 = 解析层对「碰前吃库」支返回恒值 100（模拟只对「吃库后仍击中目标球」给恒值，「吃库后打不中」给 100+ghost 距离梯度；解析不追库后路径无法区分）⇒ 两侧无效高原全平，黄金分割在平地漂移。修复 = 解析无效支统一叠加 `cueGhostMinDist` 梯度（同判无效 >99 且保住回谷梯度）。修复后求解层零偏差。
+- **实测（`SolverPerformanceTests` 复测，真实输出）**：瞄准记忆化段——情形 A 50→**7.6ms**（−85%；vs B0 基线 404ms **−98%**，完成标准 ≥70% 达标）、情形 B 97→**14.6ms**（−85%）、批量 8 球盘面 **9.9ms**。墙钟：情形 A 带精修 1.56→1.48s、情形 B 1.17→1.08s、批量 4.90→4.75s、斯诺克 ~39s 持平（预期内：B1 后瞄准段占比已小，候选评估主体是 B3/B4 的战场；本批的单球解析 rollout 组件是 B3 地基）。解数逐条持平（3/6/8/2）。
+- **验证（真实输出）**：金标准全绿——`PositionPlaySolverTests` 13/13 + `SnookerSolverTests` 4/4 + `PhysicsBenchmarkTests` 14/14 + `PhysicsInvariantTests` 12/12 + `ScoringOnlyConsistencyTests` 2/2 + `AnalyticAimParityTests` 2/2（TEST SUCCEEDED）。每个上屏解仍经第 3 层全保真终验（B1 `finalizeCandidate`/`finalizeSnooker` 链路零改动）。
+- **改动文件**：`QiuJi/Core/Physics/AnalyticAimModel.swift`（新）、`ShotPredictor.swift`（评分函数抽出 + 解析接线 + 早筛入口 + 开关）、`QiuJiTests/AnalyticAimParityTests.swift`（新）、pbxproj 注册 ×2、方案文件 §3 B2 回写。
+
+### ADR-P13-02 — 解析瞄准层替换反解轻量瞄准的评分内核（B2）
+
+- **日期**：2026-07-08
+- **状态**：✅ 已采纳。命中 ADR 触发：**替换求解架构**（`positionAimOffset` 评分内核从引擎短模拟换为闭式解析推演）。
+- **背景**：B0 定位反解耗时 97%+ 在引擎 `simulate`；瞄准记忆化每次黄金分割需 ~15 次短模拟（B1 截断后仍 3–7ms/次）。方案 §2 分层管线要求第 1 层「解析瞄准」脱离事件循环。
+- **决策**：
+  1. **复用而非重写**：解析层的击杆/弹道/CCD 求根/碰撞解算全部直接调用引擎自己的组件（`CueBallStrike`/`AnalyticalMotion`/`CollisionDetector`/`EngineNumerics`/`CollisionResolver`），物理常数零复制。物理模型只有一份，引擎升级解析层自动跟随。
+  2. **对拍先行**：改线上路径前先落 `AnalyticAimParityTests`（评分逐点 + 求解结果 + 模拟评分交叉裁判三重口径），偏差 >0.05° 逐案归因。
+  3. **保留回退**：旧模拟评分路径 `positionAimOffsetSimulated` + 编译期开关 `useAnalyticPositionAim`（编译期常量而非运行时可变全局——`candidateMatrix` 在 `concurrentPerform` 里调用，可变全局有数据竞态）。
+  4. **搜索器不换（偏离方案的「牛顿/割线」提法，理由记录在案）**：解析评分下黄金分割 ~15 次评估 <1ms，已远低于该段占比阈值；换牛顿/割线会让对拍偏差混入「搜索方法差」，归因不再纯净；且无效高原（未命中/障碍）对导数法需要额外括号保护，复杂度收益比为负。若 B3 需要更快内层可再议。
+  5. **语义边界（已知差异，写进模型头注）**：解析层不追「碰前吃库后的库后路径」——该支与「未命中」统一映射为 `100 + ghost 距离`（模拟对「吃库后仍击中」给恒值 100）。两者同判无效（>99），带梯度版本反而修复了恒值平台上黄金分割漂移的丢解案例（对拍归因 #24）。**上屏语义零变化**：解析层只服务搜索排序，每个代表解仍经全保真模拟终验。
+- **后果**：瞄准记忆化段 −85%（vs B0 −98%）；B3 获得现成的「单球解析 rollout + 段内事件检测」组件（停点曲线求根直接建立在 `AnalyticAim` 的两段常加速度推演上）；维护面增加一处「引擎语义变更需同步检查解析层假设」的耦合点（缓解：对拍测试常驻金标准回归，引擎改动会立刻红灯）。
+
+### B3 — 单球解析 rollout 替换扫描层引擎模拟 + 速度曲线求精（2026-07-08，iOS Architect + Test Engineer，方案 §3 B3）
+
+> 走位反解扫描层（情形 A 落区/落点 + 情形 B 过点）的每格引擎全模拟换成单球解析 rollout 快评，
+> 覆盖不了的格子如实回退引擎；Hooke-Jeeves 精修删除，换为拓扑锁定的速度曲线求精；
+> 每桶代表解新增引擎复核物化——扫描加速，上屏判定与数值全部引擎口径（比基线更严格）。
+
+- **单球 rollout** `QiuJi/Core/Physics/AnalyticShotRollout.swift`：碰后母球/目标球各自「常加速度段 + 库边反弹 + 落袋 + 状态迁移」闭式推演至停稳/落袋/撞球/超限——引擎事件循环在单球下的特化，组件全复用（`AnalyticalMotion` 闭式解 / `CollisionDetector` 同批求根器 / `AnalyticAim.ballPocketTime`、`ballBallTime` / 事件并列 tie-break 同引擎优先级）。
+  - **库边解算单一真源**：`EventDrivenEngine.resolveBallCushionCollision` 的完整编排（分段恢复系数选择 / 只推不拉护栏 / make-kiss 贴合 / Han 纯解算 / 状态机更新）原样抽出为 `EngineNumerics.resolveCushionImpact`，引擎与 rollout 同吃这一份（方案红线 2 零平行物理）。
+  - **忠实性契约（升级全模拟边界）**：撞任何静止球（级联）、kiss 风险（碰后两球先分离后再逼近 1mm 接触带的保守采样检测，误报只损性能不损正确性）、碰前吃库/未命中、超时/超吃库截断——一律 `needsFullSim` 如实上报，绝不猜测。
+- **扫描层接线**（`PositionPlaySolver.swift`）：`candidateMatrix` → `scanMatrix`（结构/瞄准记忆化/漏进重解护栏逐位同语义，每格 rollout 快评，`needsFullSim` 格并行段内就地引擎回退）；情形 A `upgradeOnCueBallHit=true`（母球碰后撞第三球=级联⇒引擎），情形 B `=false`（撞球是 K 球语义）。
+- **情形 B 解析过点查询** `passInfoFast`：对 rollout 闭式段做引擎版 `passInfo` 同款「弦距下界剪枝 + 段内 dt=0.01 局部加密」（滑动段同一 aT²/8 曲率松弛）；**歧义三态**——过点=快评结论、未过点且母球完整走到停稳/落袋=快评结论、撞球/截断处中止且未过点=`.ambiguous` 回退引擎裁决（级联后仍可能过点，宁可多跑一次引擎不可漏解）。
+- **精修换代**：删除 Hooke-Jeeves `refineCandidate`（含 `SearchParams` 四个步长参数）；新 `polishVelocityCurve`——固定塞、种子速度 ±半格括号内两轮 9 点确定性密采（快评打分 + 引擎格回退），只接受「同吃库桶 + 进袋 + 真停稳」样本（拓扑锁定语义与旧精修一致）。`test_refine_notWorse_andDeterministic` **零改动通过**（不劣 + 锁拓扑 + 确定性原语义成立，无需改写）。
+- **代表解引擎复核物化** `materializeRegion`/`settle`：每桶按偏好保留前 3 候选，代表解（含求精点）经引擎 scoring-only 复核——进袋/停稳/signed/吃库桶不符自动试备选，桶漂移不迁桶（桶语义以引擎为准）⇒ 上屏数值全部引擎口径 + `finalizeCandidate` 全保真重建链路不动（第 3 层终验，B1 起未变）。
+- **对拍**（新增 `QiuJiTests/AnalyticRolloutParityTests.swift`，120 随机盘面 vs `predictForPositionSolve`）：进袋不一致 **0**/96 有效、停稳不一致 ≤1、吃库桶不一致 ≤2（均引擎复核兜底消化）；停点偏差**按吃库分层归因**——0–1 库 P95 **<0.5mm**（模型保真）、2–3 库 P95 <1.2cm、≥4 库大偏差为**混沌放大**（多库敏感依赖，非系统性模型差；margin 递增门槛天然抑制此类解 + 代表解引擎复核双保险）。
+- **解质量对比落档（基线 worktree 同盘面逐解 dump）**：A 落点 5 桶、B 过点 6 解、批量 2 桶 margin **至 1e-4 逐条一致**；A 落区 1/2 库桶一致（0.6851/0.3433），0 库代表 0.758（低杆右塞）→0.688（**中心球**）——新求精锁塞轴，代表更贴「越少加塞越好」产品偏好，不劣。
+- **实测（`SolverPerformanceTests` 复测，真实输出）**：情形 A 无精修 0.12s / 带精修 **0.15s**（B2 后 1.48s，vs B0 2.28s **−93%**，完成标准 ≤300ms 达标）、情形 B **0.13s**（vs B0 1.98s −93%，达标）、批量 8 球盘面 **0.48s**（vs B0 7.42s −94%）、斯诺克 36.68s 持平（预期内，B4 战场）。
+- **验证（真实输出）**：金标准全绿——`PositionPlaySolverTests` 13/13 + `SnookerSolverTests` 4/4 + `PhysicsBenchmarkTests` + `PhysicsInvariantTests` + `ScoringOnlyConsistencyTests` + `AnalyticAimParityTests` + `AnalyticRolloutParityTests`（TEST SUCCEEDED）；解数逐条持平（3/6/8/2）。
+- **改动文件**：`AnalyticShotRollout.swift`（新）、`AnalyticAimModel.swift`（Outcome 增碰后状态/路径段收集 + 求根器共享化）、`EngineNumerics.swift`（`resolveCushionImpact` 抽出）、`EventDrivenEngine.swift`（库边解算改调共享函数）、`PositionPlaySolver.swift`（scanMatrix/passInfoFast/polishVelocityCurve/materializeRegion，删 refineCandidate 与 candidateMatrix）、`AnalyticRolloutParityTests.swift`（新）、pbxproj 注册、方案文件 §3 B3 回写。
+
+### ADR-P13-03 — 扫描层单球解析 rollout + 代表解引擎复核（B3）
+
+- **日期**：2026-07-08
+- **状态**：✅ 已采纳。命中 ADR 触发：**替换求解架构**（扫描层评估内核从引擎全模拟换为单球解析 rollout，精修从 Hooke-Jeeves 模式搜索换为速度曲线求精）。
+- **背景**：B2 后候选评估段仍占情形 A/B 墙钟 ~90%（每格一次引擎全模拟 3–8ms × 数百格）。方案 §2 第 2 层要求母球走位段走单球解析推演、多球情形升级全模拟。
+- **决策**：
+  1. **单球 rollout 复用引擎组件**（同 ADR-P13-02 原则）：弹道/CCD/库边/袋口/状态迁移全部同源；库边完整解算专门抽 `EngineNumerics.resolveCushionImpact` 使引擎与 rollout 物理只有一份。
+  2. **忠实性契约优先于覆盖率**：rollout 只声称覆盖「除自身外全场静止」的情形；级联/kiss/碰前吃库/截断一律如实 `needsFullSim` 回退引擎——快评只加速，判定不降级。kiss 检测取保守侧（误报仅损性能）。
+  3. **代表解引擎复核**（比方案要求更严）：扫描层允许近似 ⇒ 每桶代表解上屏前经引擎 scoring-only 复核（signed/吃库/进袋/停稳），不符自动试桶内备选；数值全为引擎口径，再经既有全保真终验。对 D-D2「双景观错位」的完整回应。
+  4. **速度曲线求精替换 Hooke-Jeeves**：旧精修沿塞轴探索会引入「更深但更多塞」的代表，与「越少加塞越好」的产品排序偏好相拄；新求精锁塞、只在速度维两轮 9 点确定性密采（拓扑锁定语义保留）。`test_refine_notWorse_andDeterministic` 零改动通过。
+  5. **多库停点混沌放大如实落档不掩盖**：≥4 库停点偏差可达分米级（敏感依赖），归因为混沌而非模型差（0–1 库 P95 <0.5mm 佐证）；不调阈值假装一致，靠 margin 递增门槛 + 引擎复核双保险兜底。
+- **后果**：情形 A/B 墙钟 −93%（2.28→0.15s / 1.98→0.13s），批量 −94%；扫描吞吐提升为 B5 批量出片直接收益；新增耦合点「引擎事件语义变更需同步 rollout」（缓解：`AnalyticRolloutParityTests` 常驻回归）；斯诺克路径未受益（自由瞄准无解析瞄准层可用，B4 处理）。
+
+### B4 — 斯诺克分层搜索（2026-07-08，iOS Architect + Test Engineer，方案 §3 B4）
+
+> 斯诺克反解的 3780 次全场 `simulateFree` 换成「全网格 rollout 快评 + 歧义格粗细两阶段引擎评估 +
+> 代表解引擎全保真复核」三层：**36.56s（B0）→ 7.0–7.2s（−80%，第一阶段 ≥60% 达标）**，解数 8 持平。
+
+- **自由球快评** `AnalyticShotRollout.evaluateFreeShot`（B4）：击杆（squirt 同源）→ 母球单球 rollout 至首触/停稳/落袋 → make-kiss + Han 解算 → 母球与被撞球各自 rollout → kiss 检测。与斯诺克硬约束消费面对齐：首触球名、母球停位/进袋、被撞球停位/进袋、全程吃库数。级联（任一球撞第三球）/kiss/截断如实 `needsFullSim`。
+- **三层搜索**（`solveSnooker`）：
+  1. 全网格（21 aim × 15 塞 × 12 力度）rollout 快评并行扫描——65% 格（2470/3780）就地下结论：合法格产出覆盖余量（blocker 未扰动 ⇒ 终位 = 初始位），空杆/首触非目标/进袋/未停稳 = 必败格直接排除。
+  2. 歧义格（级联 1065 + kiss 245）粗细两阶段引擎评估：aim 步 3 × vel 步 2 粗网格（scoring-only + 三兴趣球早停，B1 语义保留）→ 可行粗格邻域（aim±2 × vel±1，同塞行）加密至全分辨率，必败区域整片跳过。级联解（目标球二次撞 blocker 后的停位构型）只能引擎裁决——这正是斯诺克与情形 A/B 的本质差异。
+  3. 代表解引擎复核落地 `settle`：每桶按覆盖余量前 3 备选，依次**全保真**重建 + `evaluateSnooker` 重验（硬约束/覆盖/吃库桶），不符试备选——上屏数值全引擎口径（基线是 scoring 数值直接上屏 + 仅展示重建，本轮更严格）。降级解同机制（前 8 备选，全败如实返回空）。
+- **实测**：全场模拟 3780 → **526 次**（−86%）、墙钟 36.56 → **7.0–7.2s（−80%）**。**≤500ms 未达（如实记录）**：剩余 526 次级联格全场模拟均值 ~113ms（引擎 CPU 占 96%）；斯诺克解族本质依赖多球级联，单球 rollout 声称不了。进一步方向（B5 复评收益/风险）：rollout 穿透级联（递归多球解析）或降全场模拟均次成本。
+- **解质量对比（基线 worktree 同盘面逐解 dump）**：金标准形 8 桶 margin **全部逐位一致**（含 finalize 链路）；降级形 3/4/5 库桶一致，2 库桶代表 21.7°→12.5°（基线该格为级联歧义格且落在粗细采样之外——分层搜索已知折衷，仍为合法完全斯诺克解）。
+- **一次打回记录（诚实交付）**：曾试将 `simulateFree` scoring-only 的 `highFidelityBounds` 关掉换性能（近库自适应子步以为纯展示量），被 `ScoringOnlyConsistencyTests` 打回——多球盘面切步序列改变 evolve 浮点轨迹（停位差 >1e-5，个别高速格改变碰撞拓扑）。已还原为恒 `true` 并在代码注释落档。
+- **验证（真实输出）**：`SnookerSolverTests` 4/4 + 金标准全绿（`PositionPlaySolverTests` 13/13 + `PhysicsBenchmarkTests` + `PhysicsInvariantTests` + `ScoringOnlyConsistencyTests` + `AnalyticAimParityTests` + `AnalyticRolloutParityTests`）；四条 benchmark 复测：情形 A 0.15s / 情形 B 0.12s / 批量 0.47s / 斯诺克 7.2s。
+- **改动文件**：`AnalyticShotRollout.swift`（`FreeShotOutcome`/`evaluateFreeShot`）、`PositionPlaySolver.swift`（solveSnooker 三层搜索 + settle 复核，删 `finalizeSnooker`）、`ShotPredictor.swift`（`simulateFree` 保真语义注释落档）、方案文件 §3 B4 回写。
+
+### ADR-P13-04 — 斯诺克分层搜索：rollout 快评 + 歧义格粗细两阶段（B4）
+
+- **日期**：2026-07-08
+- **状态**：✅ 已采纳。命中 ADR 触发：**替换求解架构**（斯诺克候选评估从全网格引擎模拟换为三层分层搜索）。
+- **背景**：B0 实测斯诺克 36.56s（3780 次全场 simulateFree，均值 94ms），B1–B3 对其无效（候选主体不走瞄准层/走位扫描）。
+- **决策**：
+  1. **快评优先于几何早筛**：方案原列「合法首触张角 / blocker 视线几何早筛」——单球 rollout 快评本身就是**更强的早筛**（不仅判首触合法性，还直接给出停位覆盖判定），几何早筛被吸收，无需单独实现。
+  2. **歧义格不硬闯**：级联/kiss 格的物理只能引擎裁决（红线 2 禁止平行多球物理）；用粗细两阶段控制引擎调用量（−86%），漏窄可行带的风险由金标准回归 + 降级形解质量对比护栏。
+  3. **代表解引擎全保真复核**（对齐 B3 `materializeRegion` 语义）：快评/scoring 数值不直接上屏，settle 全模拟重验后才落地，失败试桶内备选。
+  4. **性能目标如实降级**：≤500ms 不达（级联格全场模拟不可省），第一阶段 ≥60% 达标（实测 −80%）；差距与原因落档，穿透级联的递归解析留 B5 复评。
+- **后果**：斯诺克 36.56→7.2s；`evaluateFreeShot` 组件可复用于任何自由球反解（未来安全球变体）；新增采样折衷——歧义区域内基线可见的个别代表解可能被粗细网格跳过（降级形 2 库桶 21.7°→12.5° 实例已落档）。
+
+### B5 — 收尾：批量出片回归 + 文档回写（2026-07-08，Test Engineer + QA Reviewer，方案 §3 B5；真机项待 H-20）
+
+> B0–B4 收官验收。批量出片全流程回归**基线对拍逐字节一致**；文档终值回写完成；真机 benchmark 因设备
+> unavailable 如实挂 H-20（唯一遗留项，非阻塞）。
+
+- **批量出片全流程回归**：新增 `QiuJiTests/BatchSequenceReplayRegressionTests`——重放 `content/position_play/sequences/` 全部 **91 条 drill 序列 / 171 杆**（62 个 drill 的成品出片内容），逐杆走「保存后重进」同一链路（`PositionPlayShotSolver.solve` → `finalPositions`/`pocketedBalls` → after 快照重建，语义与 `PositionPlayViewModel` 重放一致），写确定性 dump（键排序 + 定点格式）。**方法**：HEAD 基线 worktree（7cc294a，即 B1–B4 全部改动之前）与优化后工作树各跑一次，`diff` 两份 dump —— **逐字节一致（IDENTICAL）**，171 杆全部可解且 feasible。结论：B1–B4 对展示物理（出片消费的轨迹/停位/进袋）**零改变**。测试常驻回归网（TEST SUCCEEDED，43s）。
+  - 信息项（不断言）：重放 vs **存档** after 有 1 杆结果不一致 + 个别停点漂移（基线 worktree 重放结果与优化后完全相同）——系存档早于 2026-07-06 `pocketNoseRestitution` 0.60→0.70 修订的既有漂移，与本轮优化无关，出片时以重放物理为准。
+- **穿透级联复评（B4 遗留决定）**：**暂不做**。递归解析多球级联 = 在解析层重建引擎事件循环（红线 2 禁止平行物理的边界情形），对拍/维护成本远超收益（仅斯诺克 7.2→~0.5s，低频功能）；若未来需要，优先做「级联格降均次成本」（更激进早停 + 兴趣球裁剪）。
+- **文档回写**：方案文件 §1 终值表（A 0.15s / B 0.12s / 批量 0.47s / 斯诺克 7.2s + 达标标注）+ §3 B5 完成情况；`PHYSICS-DEBT.md` §5.9（D-D1 🟡→🟢◑ 主体偿还、D-D2 分级以「搜索 scoring-only + 终验全保真」形式落地 + `highFidelityBounds` 护栏结论）；H-20 状态注记；PROGRESS + Hub 状态卡。
+- **真机 benchmark（⏳ H-20）**：`xcrun devicectl list devices` 实测 iPhone 状态 unavailable，无法跑真机——不编造数字，完成标准「真机 A/B <0.5s、斯诺克 <1s」留待设备连接后按 H-20 步骤补测（15 分钟）。
+- **改动文件**：`QiuJiTests/BatchSequenceReplayRegressionTests.swift`（新增）、`QiuJi.xcodeproj/project.pbxproj`、方案文件、`tasks/qa-reports/PHYSICS-DEBT.md`、`tasks/HUMAN-REQUIRED.md`、`tasks/PROGRESS.md`、Hub 状态卡。

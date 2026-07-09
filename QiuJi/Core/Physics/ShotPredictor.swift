@@ -121,6 +121,9 @@ struct ShotPrediction {
     /// 按时间排序的关键事件（球-球碰撞 / 吃库 / 落袋）。默认空——仅 `predict` / `simulateFree`
     /// 填充。旧调用与序列化零影响（ADR-P13-01，走位反解器消费）。
     var events: [ShotEvent] = []
+    /// 本次预测实际使用的瞄准偏移（弧度，相对几何基线 `aimDirection` 前的 ctx.aimDir）。
+    /// 仅走位反解快速路径填充（B1：代表解用同一 offset 重建完整 prediction，保证同物理）。
+    var aimOffsetUsed: Float?
 }
 
 // MARK: - Predictor
@@ -204,9 +207,17 @@ enum ShotPredictor {
     /// 用给定发射方向 `finalAim` 跑一次完整模拟并提取全部预测字段（轨迹/进袋/吃库/末位/末速/分离角）。
     /// `result` 须已由 `prepareAim` 回填瞄准/几何字段。**唯一真相**：`predict` 与走位反解快速路径共用，
     /// 避免副本漂移（ADR-P13-01，画面=物理 ADR-P10-06）。
+    ///
+    /// - Parameter includePresentation: `false` = scoring-only（B1，仅反解搜索用）——跳过展示层后处理
+    ///   （cuePath/objectPath 120Hz 采样折线、extraBallPaths、分离角/切线），只保留求解器消费的
+    ///   结果量（进袋/吃库/末位/末速/事件流/recorder）。**物理模拟与判定逐位不变**；上屏代表解
+    ///   用同一 aimOffset 以 `true` 重建完整 prediction。
+    /// - Parameter searchEarlyStop: `true` = 引擎「母球+目标球命运已定」早停（仅反解搜索用，保守判据
+    ///   不改变两球结果；见 `EventDrivenEngine.simulate(earlyStopBallNames:)`）。
     static func buildPrediction(
         finalAim: SCNVector3, context ctx: AimContext, input: ShotInput,
-        result: ShotPrediction, maxEvents: Int, maxTime: Float
+        result: ShotPrediction, maxEvents: Int, maxTime: Float,
+        includePresentation: Bool = true, searchEarlyStop: Bool = false
     ) -> ShotPrediction {
         var result = result
         let y = input.surfaceY
@@ -214,15 +225,23 @@ enum ShotPredictor {
         let run = runShot(
             aimDir: finalAim, velocity: input.velocity, input: input,
             geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
-            maxEvents: maxEvents, maxTime: maxTime, highFidelity: true
+            maxEvents: maxEvents, maxTime: maxTime, highFidelity: true,
+            earlyStop: searchEarlyStop
         )
+#if DEBUG
+        let postStart = Date()   // B0 分段计时：buildPrediction 后处理（polyline/extraPaths 等）
+#endif
         // 轨迹折线（母球白 / 目标球橙）直接取自引擎真实模拟，不做显示层钳制。
-        let playback = TrajectoryPlayback(recorder: run.recorder, surfaceY: y + r)
         let duration = run.recorder.duration
         result.recorder = run.recorder
         result.duration = duration
-        result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: duration)
-        result.objectPath = polyline(playback, ballName: ShotInput.targetBallName, duration: duration)
+        let playback: TrajectoryPlayback? = includePresentation
+            ? TrajectoryPlayback(recorder: run.recorder, surfaceY: y + r)
+            : nil
+        if let playback {
+            result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: duration)
+            result.objectPath = polyline(playback, ballName: ShotInput.targetBallName, duration: duration)
+        }
 
         result.cuePocketed = run.cuePocketed
         let potted = run.pottedSelected
@@ -247,7 +266,7 @@ enum ShotPredictor {
             }
             if run.recorder.isBallPocketed(name) { pocketed.append(name) }
             // 被串动的障碍球轨迹（线语言 v2，条 12.4）：袋口模式也补齐，供各页画本色虚线。
-            if name != ShotInput.cueBallName, name != ShotInput.targetBallName {
+            if let playback, name != ShotInput.cueBallName, name != ShotInput.targetBallName {
                 let pts = polyline(playback, ballName: name, duration: duration)
                 if pathLengthXZ(pts) > 0.02 { extraPaths[name] = pts }
             }
@@ -258,8 +277,8 @@ enum ShotPredictor {
         result.finalPositions = finals
         result.pocketedBalls = pocketed
 
-        // 分离角：首次球-球碰撞后两球速度方向夹角。
-        if let contactTime = run.firstContactTime {
+        // 分离角：首次球-球碰撞后两球速度方向夹角（展示量，scoring-only 跳过）。
+        if includePresentation, let contactTime = run.firstContactTime {
             let cueVel = velocityAfter(run.recorder, ballName: ShotInput.cueBallName, time: contactTime)
             let objVel = velocityAfter(run.recorder, ballName: ShotInput.targetBallName, time: contactTime)
             if let cueVel, let objVel {
@@ -275,6 +294,10 @@ enum ShotPredictor {
             }
             result.firstContact = positionAt(run.recorder, ballName: ShotInput.cueBallName, time: contactTime)
         }
+#if DEBUG
+        PerformanceProfiler.recordSample(ProfilerLabel.predictorPostProcess,
+                                         ms: Date().timeIntervalSince(postStart) * 1000)
+#endif
         return result
     }
 
@@ -284,6 +307,10 @@ enum ShotPredictor {
     /// 全部在桌球（`balls`）作为真实碰撞体一并模拟。不做任何瞄准求解与可行性闸门（恒 feasible）——
     /// 用于安全球 / 轻推贴球 / 纯走位等非进攻击打。球名沿用调用方传入的名字（建议 USDZ 键），
     /// 母球名固定 `ShotInput.cueBallName`。
+    /// - Parameter includePresentation: `false` = scoring-only（B1，仅反解搜索用）——跳过 polyline /
+    ///   extraBallPaths 展示后处理，物理与判定不变；上屏代表解用同参数以 `true` 重建。
+    /// - Parameter earlyStopBallNames: 引擎早停兴趣球集（保守判据，见 `EventDrivenEngine.simulate`）。
+    ///   展示用调用保持 nil。
     static func simulateFree(
         cueBall: SCNVector3,
         aimDir: SCNVector3,
@@ -293,7 +320,9 @@ enum ShotPredictor {
         surfaceY: Float,
         balls: [ObstacleBall],
         maxEvents: Int = 500,
-        maxTime: Float = 15.0
+        maxTime: Float = 15.0,
+        includePresentation: Bool = true,
+        earlyStopBallNames: Set<String>? = nil
     ) -> ShotPrediction {
         let y = surfaceY
         let r = BallPhysics.radius
@@ -318,9 +347,21 @@ enum ShotPredictor {
                 state: .stationary, name: b.name
             ))
         }
-        engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true)
+        // 注意：`highFidelityBounds` 在多球盘面**不是纯展示量**——近库自适应子步会改变
+        // evolve 切步序列进而微移轨迹（实测停位差可超 1e-5，个别高速格甚至改变碰撞拓扑），
+        // 故 scoring-only 也必须保持 true（B4 曾试关闭换性能，被 `ScoringOnlyConsistencyTests`
+        // 打回——scoring 与全保真必须逐位同物理）。
+        PerformanceProfiler.measureSample(ProfilerLabel.predictorSimFreeEngine) {
+            engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true,
+                            earlyStopBallNames: earlyStopBallNames)
+        }
+#if DEBUG
+        let postStart = Date()   // B0 分段计时：simulateFree 后处理（polyline/extraPaths 等）
+#endif
         let recorder = engine.getTrajectoryRecorder()
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: y + r)
+        let playback: TrajectoryPlayback? = includePresentation
+            ? TrajectoryPlayback(recorder: recorder, surfaceY: y + r)
+            : nil
         let duration = recorder.duration
 
         var result = ShotPrediction()
@@ -328,7 +369,9 @@ enum ShotPredictor {
         result.aimDirection = dir
         result.recorder = recorder
         result.duration = duration
-        result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: duration)
+        if let playback {
+            result.cuePath = polyline(playback, ballName: ShotInput.cueBallName, duration: duration)
+        }
         result.cuePocketed = recorder.isBallPocketed(ShotInput.cueBallName)
 
         var finals: [String: SCNVector3] = [:]
@@ -343,7 +386,7 @@ enum ShotPredictor {
                 }
             }
             if recorder.isBallPocketed(name) { pocketed.append(name) }
-            if name != ShotInput.cueBallName {
+            if let playback, name != ShotInput.cueBallName {
                 let pts = polyline(playback, ballName: name, duration: duration)
                 if pathLengthXZ(pts) > 0.02 { extraPaths[name] = pts }
             }
@@ -371,6 +414,10 @@ enum ShotPredictor {
         if let contactTime = firstBallBallTime(engine) {
             result.firstContact = positionAt(recorder, ballName: ShotInput.cueBallName, time: contactTime)
         }
+#if DEBUG
+        PerformanceProfiler.recordSample(ProfilerLabel.predictorPostProcess,
+                                         ms: Date().timeIntervalSince(postStart) * 1000)
+#endif
         return result
     }
 
@@ -425,10 +472,16 @@ enum ShotPredictor {
     }
 
     /// 以 `aimDir` 方向、`velocity` 力度发射母球并模拟，返回结果。
+    /// `earlyStop` = 反解搜索早停（母球+目标球命运已定即结束，保守判据不改两球结果；B1）。
+    /// `stopAfterContact` = 瞄准评分专用（B1）：母球与目标球**首次碰撞**解算后立即截断。
+    /// 仅当调用方只消费「碰前事件 + 目标球碰后第一帧方向 + 未碰时的 cueGhostMinDist」时可用
+    /// （`positionAimOffset` 的评分正是如此）——评分值与整程模拟逐位一致；其余字段（进袋/停点）
+    /// 在截断后**不完整**，禁止消费。
     private static func runShot(
         aimDir: SCNVector3, velocity: Float, input: ShotInput,
         geometry: TableGeometry, pocketCenter: SCNVector3, ghost: SCNVector3,
-        maxEvents: Int, maxTime: Float, highFidelity: Bool = false
+        maxEvents: Int, maxTime: Float, highFidelity: Bool = false, earlyStop: Bool = false,
+        stopAfterContact: Bool = false
     ) -> RunResult {
         let y = input.surfaceY
         let r = BallPhysics.radius
@@ -456,7 +509,16 @@ enum ShotPredictor {
                 state: .stationary, name: ob.name
             ))
         }
-        engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: highFidelity)
+        let interest: Set<String>? = earlyStop
+            ? [ShotInput.cueBallName, ShotInput.targetBallName]
+            : nil
+        let contactPair: (String, String)? = stopAfterContact
+            ? (ShotInput.cueBallName, ShotInput.targetBallName)
+            : nil
+        PerformanceProfiler.measureSample(ProfilerLabel.predictorRunShot) {
+            engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: highFidelity,
+                            earlyStopBallNames: interest, stopAfterContactBetween: contactPair)
+        }
         let recorder = engine.getTrajectoryRecorder()
 
         var minDist = Float.greatestFiniteMagnitude
@@ -738,47 +800,142 @@ extension ShotPredictor {
 
     /// 走位反解专用预测：可传入预解的 `aimOffset`（跨 spinY 复用）；为 nil 时用轻量一维瞄准现解。
     /// 共享 `prepareAim` + `buildPrediction`，结果字段与 `predict` 同口径。
+    ///
+    /// `includePresentation: false` = scoring-only 搜索模式（B1）：跳过展示后处理 + 引擎
+    /// 「母球+目标球命运已定」早停；物理与判定结果不变。代表解上屏前必须用同一
+    /// `prediction.aimOffsetUsed` 以默认 `true` 重建完整 prediction。
     static func predictForPositionSolve(
         _ input: ShotInput, aimOffset: Float? = nil,
-        maxEvents: Int = 500, maxTime: Float = 15.0
+        maxEvents: Int = 500, maxTime: Float = 15.0,
+        includePresentation: Bool = true
     ) -> ShotPrediction {
         var result = ShotPrediction()
         guard let ctx = prepareAim(input, into: &result) else { return result }
         let offset = aimOffset ?? positionAimOffset(input: input, context: ctx)
+        result.aimOffsetUsed = offset
         let finalAim = ctx.aimDir.rotatedY(offset)
         return buildPrediction(finalAim: finalAim, context: ctx, input: input,
-                               result: result, maxEvents: maxEvents, maxTime: maxTime)
+                               result: result, maxEvents: maxEvents, maxTime: maxTime,
+                               includePresentation: includePresentation,
+                               searchEarlyStop: !includePresentation)
     }
 
     /// 轻量一维瞄准：方向景观平滑单峰（见 `solveAimOffset` 注释），用**黄金分割**求极小，
     /// ~15 次短模拟 vs 原三级网格 75 次。精度 0.05° 足够——进袋由 `buildPrediction` 全模拟硬校验。
     /// 评分与 `solveAimOffset` 同口径：目标球碰后离开方向对齐进球管道、碰前吃库判无效。
     /// **与 spinY 无关**（squirt 只来自横塞 spinX）⇒ 可对一组候选只解一次、跨 spinY 复用。
-    static func positionAimOffset(input: ShotInput, context ctx: AimContext) -> Float {
+    ///
+    /// `center`/`halfRange`：可选窄括号热启动（B1，精修 ±velocity/±spinX 邻居用——邻居的最优
+    /// 瞄准必在种子 offset 附近，窄括号把 ~15 次短模拟压到 ~9 次）。默认全幅 ±12°。
+    /// B2 特性开关：轻量瞄准的评分函数走解析层（`AnalyticAim`，默认）还是整程模拟。
+    /// 对拍验证（`AnalyticAimParityTests`）：评分偏差 P95 0.013°、求解 Δoffset 全量 0°、
+    /// 零丢解零失真。回退 = 改为 `false` 重编译（编译期常量，避免并发路径上的可变全局）。
+    static let useAnalyticPositionAim = true
+
+    static func positionAimOffset(
+        input: ShotInput, context ctx: AimContext,
+        center: Float = 0, halfRange: Float? = nil
+    ) -> Float {
+        let deg = Float.pi / 180
+        let half = halfRange ?? AimScoring.coarseHalfRangeDeg * deg
+        // 第 0 层几何早筛（B2）：障碍球把整个瞄准扇区挡死 ⇒ 括号内不存在直击候选，
+        // 直接返回 center（该候选照旧被下游全保真终验否决，语义不变），省掉整轮一维搜索。
+        // 判据保守（考虑扇区边缘全力绕行 + swerve 余量），宁可漏筛不误杀。
+        if AnalyticAim.straightFanBlocked(
+            cue: input.cueBall, ghost: ctx.ghost, obstacles: input.obstacles,
+            fanHalfAngle: half + abs(center)
+        ) {
+            return center
+        }
+        let score: (Float) -> Float = useAnalyticPositionAim
+            ? { positionAimScoreAnalytic(input: input, context: ctx, offset: $0) }
+            : { positionAimScore(input: input, context: ctx, offset: $0) }
+        return goldenSectionMin(score,
+                                lower: center - half,
+                                upper: center + half,
+                                tol: 0.05 * deg)
+    }
+
+    /// 整程模拟口径的黄金分割瞄准（B2 前的线上路径，作回退与对拍基准保留；
+    /// 与 `positionAimOffsetAnalytic` 同括号同容差，仅评分函数不同）。
+    static func positionAimOffsetSimulated(
+        input: ShotInput, context ctx: AimContext,
+        center: Float = 0, halfRange: Float? = nil
+    ) -> Float {
+        let deg = Float.pi / 180
+        let half = halfRange ?? AimScoring.coarseHalfRangeDeg * deg
+        return goldenSectionMin({ positionAimScore(input: input, context: ctx, offset: $0) },
+                                lower: center - half,
+                                upper: center + half,
+                                tol: 0.05 * deg)
+    }
+
+    /// 走位反解瞄准评分（整程模拟口径，`positionAimOffset` 的目标函数）。
+    /// internal：解析层对拍测试（B2-4）需要在同一 offset 上交叉评估两套评分。
+    static func positionAimScore(
+        input: ShotInput, context ctx: AimContext, offset: Float
+    ) -> Float {
         let adx = input.targetBall.x - ctx.ghost.x
         let adz = input.targetBall.z - ctx.ghost.z
         let adl = max(sqrtf(adx * adx + adz * adz), 1e-5)
         let aimDirX = adx / adl, aimDirZ = adz / adl
-
-        func score(_ offset: Float) -> Float {
-            let run = runShot(
-                aimDir: ctx.aimDir.rotatedY(offset), velocity: input.velocity, input: input,
-                geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
-                maxEvents: AimScoring.searchMaxEvents, maxTime: AimScoring.searchMaxTime
-            )
-            guard let od = run.objPostContactDir else {
-                return AimScoring.invalidCandidate + run.cueGhostMinDist
-            }
-            guard run.cueCushionsBeforeContact == 0 else { return AimScoring.invalidCandidate }
-            let dot = max(-1, min(1, od.x * aimDirX + od.z * aimDirZ))
-            return acosf(dot) + abs(offset) * AimScoring.offsetRegularization
+        // stopAfterContact：评分只消费碰前事件 + 目标球碰后首帧方向（+未碰时 cueGhostMinDist），
+        // 首次母-目碰撞解算后即截断 ⇒ 评分值与整程逐位一致、单次模拟成本大幅下降（B1）。
+        let run = runShot(
+            aimDir: ctx.aimDir.rotatedY(offset), velocity: input.velocity, input: input,
+            geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
+            maxEvents: AimScoring.searchMaxEvents, maxTime: AimScoring.searchMaxTime,
+            earlyStop: true, stopAfterContact: true
+        )
+        guard let od = run.objPostContactDir else {
+            return AimScoring.invalidCandidate + run.cueGhostMinDist
         }
+        guard run.cueCushionsBeforeContact == 0 else { return AimScoring.invalidCandidate }
+        let dot = max(-1, min(1, od.x * aimDirX + od.z * aimDirZ))
+        return acosf(dot) + abs(offset) * AimScoring.offsetRegularization
+    }
 
+    /// 解析瞄准（B2）：评分口径与 `positionAimOffset` 逐项一致（碰后方向对齐 `d_pipe`、
+    /// 碰前吃库判无效、未命中叠加 cueGhostMinDist 梯度、|offset| 正则），但单次评估走
+    /// `AnalyticAim.outcome` 闭式解（击杆/弹道/CCD/碰撞解算全部复用引擎组件，不进事件循环）。
+    /// 搜索器与线上路径同为黄金分割、同括号同容差——对拍偏差（B2-4）因此**只反映
+    /// 解析模型 vs 整程模拟的物理保真差**，不混入搜索方法差。
+    static func positionAimOffsetAnalytic(
+        input: ShotInput, context ctx: AimContext,
+        center: Float = 0, halfRange: Float? = nil
+    ) -> Float {
         let deg = Float.pi / 180
-        return goldenSectionMin(score,
-                                lower: -AimScoring.coarseHalfRangeDeg * deg,
-                                upper: AimScoring.coarseHalfRangeDeg * deg,
+        let half = halfRange ?? AimScoring.coarseHalfRangeDeg * deg
+        return goldenSectionMin({ positionAimScoreAnalytic(input: input, context: ctx, offset: $0) },
+                                lower: center - half,
+                                upper: center + half,
                                 tol: 0.05 * deg)
+    }
+
+    /// 解析瞄准评分（`positionAimOffsetAnalytic` 的目标函数，与 `positionAimScore` 同口径）。
+    static func positionAimScoreAnalytic(
+        input: ShotInput, context ctx: AimContext, offset: Float
+    ) -> Float {
+        let adx = input.targetBall.x - ctx.ghost.x
+        let adz = input.targetBall.z - ctx.ghost.z
+        let adl = max(sqrtf(adx * adx + adz * adz), 1e-5)
+        let aimDirX = adx / adl, aimDirZ = adz / adl
+        let out = AnalyticAim.outcome(
+            aimDir: ctx.aimDir.rotatedY(offset), velocity: input.velocity,
+            input: input, geometry: ctx.geometry, ghost: ctx.ghost,
+            maxTime: AimScoring.searchMaxTime
+        )
+        guard let od = out.objPostContactDir else {
+            // 未（先）碰到目标球（含先吃库/先撞障碍/先落袋）：统一叠加 ghost 距离梯度。
+            // **不要**对 cueHitCushionFirst 返回恒值 100：模拟的恒值 100 只出现在
+            // 「吃库后仍击中目标球」的绕库支（解析层不追库后路径，无法区分）；而未击中
+            // 支在模拟里带 100+dist 梯度。若解析对吃库支给恒值，黄金分割会在两侧
+            // 平坦高原上漂到括号边缘（对拍案例 #24 丢解根因）。两种映射同判无效（>99），
+            // 带梯度版还能把搜索从高原拉回有效谷——取带梯度版。
+            return AimScoring.invalidCandidate + out.cueGhostMinDist
+        }
+        let dot = max(-1, min(1, od.x * aimDirX + od.z * aimDirZ))
+        return acosf(dot) + abs(offset) * AimScoring.offsetRegularization
     }
 
     /// 黄金分割一维极小化（要求 `f` 在 [lower, upper] 上拟单峰）。
