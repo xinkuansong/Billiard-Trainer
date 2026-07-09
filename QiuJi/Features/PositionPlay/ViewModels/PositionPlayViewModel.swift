@@ -151,6 +151,10 @@ final class PositionPlayViewModel: ObservableObject {
     private let predictQueue = DispatchQueue(label: "com.qiuji.positionplay-predict", qos: .userInitiated)
     private var predictGeneration = 0
     private var pendingPredict: DispatchWorkItem?
+    /// 单飞标志（P3 在途合并）：true = 后台正有一次求解在跑。主线程读写。
+    private var predictInFlight = false
+    /// 末班车标记（P3）：在途期间来过新请求 ⇒ 收尾时用最新 UI 状态补跑一次（丢弃中间态）。
+    private var predictRerunWanted = false
 
     private var surfaceY: Float { scene.surfaceY }
 
@@ -633,50 +637,72 @@ final class PositionPlayViewModel: ObservableObject {
         predictGeneration += 1
         pendingPredict?.cancel()
         pendingPredict = nil
+        predictRerunWanted = false
         isComputing = false
     }
 
+    /// 预测调度 =「20ms 去抖 + 单飞 + 末班车」（瞄准预测性能优化 P3）：
+    /// 去抖窗口内只保留最新意图；在途任务跑完后若期间有过新请求，只用**最新** UI 状态补跑一次
+    /// （丢弃中间态），替代旧「排队跑完一个作废一个」。一致性红线：`predictGeneration` 代际检查
+    /// 保留——任何最终上屏的解必对应最新一次 intent，绝不展示旧解。
     func recompute() {
         guard !isPlaying else { return }
         refreshFreeAimOverlay()
 
-        guard let intent = currentShotIntent() else {
+        guard currentShotIntent() != nil else {
+            // 信息不全 ⇒ 作废在途/待跑求解（红线：清空后绝不让旧解回填上屏）。
+            invalidatePendingPredict()
             clearTrajectory()
             isFeasible = false
             solvedShot = nil
-            isComputing = false
             scene.hideCueStick()
             statusText = needsSetupHint()
             return
         }
+
+        predictGeneration += 1
+        isComputing = true
+        pendingPredict?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.launchSolveIfIdle() }
+        pendingPredict = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02, execute: work)
+    }
+
+    /// 去抖到期后的发射口（主线程）：空闲即按**当前**UI 状态起后台求解；在途则只记「末班车」标记。
+    private func launchSolveIfIdle() {
+        guard !isPlaying else { return }
+        if predictInFlight {
+            predictRerunWanted = true
+            return
+        }
+        guard let intent = currentShotIntent() else { return }
         let before = currentSnapshot()
         let shot = intent
         let y = surfaceY
-
-        predictGeneration += 1
         let gen = predictGeneration
-        isComputing = true
-        pendingPredict?.cancel()
-        let work = DispatchWorkItem { [weak self] in
-            guard let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y) else {
-                DispatchQueue.main.async { [weak self] in
-                    guard let self, self.predictGeneration == gen else { return }
-                    self.isComputing = false
+        predictInFlight = true
+        predictQueue.async { [weak self] in
+            let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.predictInFlight = false
+                // 末班车：在途期间来过新请求 ⇒ 用最新状态补跑（本结果 gen 已过期，下方代际检查自然丢弃）。
+                if self.predictRerunWanted {
+                    self.predictRerunWanted = false
+                    self.launchSolveIfIdle()
+                }
+                guard self.predictGeneration == gen, !self.isPlaying else { return }
+                self.isComputing = false
+                guard let pred else {
                     self.isFeasible = false
                     self.solvedShot = nil
                     self.statusText = self.needsSetupHint()
+                    return
                 }
-                return
-            }
-            DispatchQueue.main.async {
-                guard let self, self.predictGeneration == gen, !self.isPlaying else { return }
-                self.isComputing = false
                 self.solvedShot = SolvedShot(before: before, shot: shot, prediction: pred)
                 self.apply(pred)
             }
         }
-        pendingPredict = work
-        predictQueue.asyncAfter(deadline: .now() + 0.02, execute: work)
     }
 
     /// 当前 UI 状态 → 作者意图。nil = 信息不全（缺母球/目标/袋口/瞄准方向）。

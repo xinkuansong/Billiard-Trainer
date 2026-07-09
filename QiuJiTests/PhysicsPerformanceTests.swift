@@ -50,6 +50,26 @@ final class PhysicsPerformanceTests: XCTestCase {
         XCTAssertLessThan(median, budgetMs, "满台 predict 中位 \(median)ms 超预算 \(budgetMs)ms")
     }
 
+    /// UI 进袋预测路径（`predictForPositionSolve`，瞄准预测性能优化 P1 后 PositionPlay 三页实时管线）
+    /// 中位耗时，仅记录供前后对比，不设硬阈值。与 `test_perf_singlePredict_withinBudget` 同盘面，
+    /// 便于直接对照 `predict`（三级网格 75 次模拟）与快路径（黄金分割解析评分 + 1 次全保真）的差距。
+    func test_perf_positionSolvePredict_record() {
+        let sY = surfaceY
+        let input = ShotInput(
+            cueBall: SCNVector3(-0.2, sY + R, 0.0),
+            targetBall: SCNVector3(0.4, sY + R, 0.0),
+            pocketIndex: 1, velocity: 3.3, spinX: 0, spinY: 0, surfaceY: sY)
+        for _ in 0..<2 { _ = ShotPredictor.predictForPositionSolve(input, includePresentation: true) }
+        var times: [Double] = []
+        for _ in 0..<7 {
+            let t0 = CFAbsoluteTimeGetCurrent()
+            _ = ShotPredictor.predictForPositionSolve(input, includePresentation: true)
+            times.append((CFAbsoluteTimeGetCurrent() - t0) * 1000)
+        }
+        times.sort()
+        print(String(format: "[PERF-positionSolve] UI 进袋预测（快路径）中位 %.1fms", times[times.count / 2]))
+    }
+
     /// Xcode 性能指标基线（供本地/真机回归对比，不设硬阈值，仅记录）。
     func test_perf_singlePredict_measureMetric() {
         let sY = surfaceY

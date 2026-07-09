@@ -645,8 +645,12 @@ enum ShotPredictor {
     ///   · **管道法是直击**：碰目标球前吃库（绕库 banking / kick）的偏移一律判为**无效候选**，
     ///     绝不退化成"母球绕库蹭袋"。
     private enum AimScoring {
-        /// 搜索阶段每次短模拟的事件/时长上限。**与最终模拟同保真**——降保真会与最终全保真产生双景观
-        /// 错位（搜到的解上报时变样）。
+        /// 搜索阶段每次短模拟的事件/时长上限。**与最终模拟同保真**（同引擎同参数同子步；
+        /// 降保真会与最终全保真产生双景观错位，B4 已否决）。搜索模拟另加「母-目首次碰撞后截断」
+        /// （`earlyStop` + `stopAfterContact`）——截断≠降保真：评分只消费碰前事件 + 目标球碰后
+        /// 首帧方向（未命中时 cueGhostMinDist），首碰解算后的演化与评分无关，截断前物理逐位
+        /// 不变（论证与实测见 B1 / `positionAimScore` / `EventDrivenEngine.simulate` 文档，
+        /// 一致性由 `ScoringOnlyConsistencyTests` 守护）。
         static let searchMaxEvents = 500
         static let searchMaxTime: Float = 15.0
         /// 无效候选基线（碰前吃库的绕库解 / 未碰到目标球）。远大于方向误差上限 π(≈3.14)，
@@ -678,11 +682,15 @@ enum ShotPredictor {
         let aimDirX = adx / adl, aimDirZ = adz / adl
 
         // 管道瞄准法求解目标：碰后实际离开方向对齐管道方向 `d_pipe`（= aimDir）。一维 throw 补偿反解。
+        // stopAfterContact：评分只消费碰前事件 + 目标球碰后首帧方向（+未碰时 cueGhostMinDist），
+        // 首次母-目碰撞解算后即截断 ⇒ 评分值与整程逐位一致、单次模拟成本大幅下降
+        //（与 `positionAimScore` 同参数，论证见 B1 + `EventDrivenEngine.simulate` 文档）。
         func score(_ offset: Float) -> Float {
             let run = runShot(
                 aimDir: baseAim.rotatedY(offset), velocity: velocity, input: input,
                 geometry: geometry, pocketCenter: pocketCenter, ghost: ghost,
-                maxEvents: searchEvents, maxTime: searchTime
+                maxEvents: searchEvents, maxTime: searchTime,
+                earlyStop: true, stopAfterContact: true
             )
             guard let od = run.objPostContactDir else {
                 // 未碰到目标球：无效候选，叠加母球-幽灵球距离做梯度，把搜索拉回真正击中目标球。

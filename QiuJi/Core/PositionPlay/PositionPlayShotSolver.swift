@@ -41,7 +41,11 @@ enum PositionPlayShotSolver {
             velocity: Float(shot.velocity), spinX: Float(shot.spinX), spinY: Float(shot.spinY),
             surfaceY: surfaceY, obstacles: obstacles
         )
-        return ShotPredictor.predict(input)
+        // 快路径（瞄准预测性能优化 P1）：黄金分割 + 解析瞄准评分（~15 次闭式评估）+ 1 次全保真模拟，
+        // 替代 `predict` 的三级网格 75 次模拟。对拍保证：`AnalyticAimParityTests`（Δoffset 全量 0°、零丢解）
+        // + `PositionPlaySolverTests.test_fastPath_matchesPredict_potOutcome`（进袋判定一致）
+        // + `BatchSequenceReplayRegressionTests`（171 杆重放 dump 对拍）。
+        return ShotPredictor.predictForPositionSolve(input, includePresentation: true)
     }
 
     /// 桌面球键 → 引擎球名（自由模式 `targetKey` 为空串，所有非母球保留原键名）。
