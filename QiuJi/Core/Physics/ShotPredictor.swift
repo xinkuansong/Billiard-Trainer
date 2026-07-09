@@ -42,6 +42,20 @@ struct ShotInput {
     /// 碰撞，但**不是求解目标**——瞄准评分仍只盯 cueBall/object 两个具名球（零评分改动）。
     var obstacles: [ObstacleBall] = []
 
+    /// 翻袋库序（W1，ADR-P18-XX / 20260709 翻袋反射页重构方案 §2.1）。
+    /// nil / 空 = 直击（现行为逐位不变）；非空 = 反解「母球**直击**目标球，目标球经该库序
+    /// 真实翻库进 `pocketIndex` 袋」。种子方向来自镜像展开（`BankShotCalculator.bankSeedPath`），
+    /// 评分判据 = 引擎口径真实进袋（squirt / throw / 传旋 / 速度衰减全由引擎裁决）。
+    /// 类型直接复用 `BankShotCalculator.Rail`（同 target 无编译边界，库枚举语义单一真源）。
+    var bankRails: [BankShotCalculator.Rail]? = nil
+
+    /// 反射/kick 库序（W2，20260709 翻袋反射页重构方案 §2.1）。
+    /// nil / 空 = 直击（现行为逐位不变）；非空 = 反解「母球以真实击杆状态（滑动→自然滚动
+    /// 过渡）经该库序碰到目标球」——『碰到』= 引擎口径的真实球-球碰撞事件，障碍球是真实
+    /// 碰撞体。无进袋语义（`pocketIndex` 不参与判定）。种子方向来自镜像展开
+    /// （`DiamondSystemCalculator.kickSeedPath`）。与 `bankRails` 互斥（bank 优先）。
+    var kickRails: [DiamondSystemCalculator.Rail]? = nil
+
     static let cueBallName = "cueBall"
     static let targetBallName = "object"
 }
@@ -124,6 +138,9 @@ struct ShotPrediction {
     /// 本次预测实际使用的瞄准偏移（弧度，相对几何基线 `aimDirection` 前的 ctx.aimDir）。
     /// 仅走位反解快速路径填充（B1：代表解用同一 offset 重建完整 prediction，保证同物理）。
     var aimOffsetUsed: Float?
+    /// kick 反解成功判据（W2）：母球首次球-球碰撞对象 == 目标球，且碰前吃库数 ≥ 指定库序数。
+    /// 仅 `kickRails` 非空的预测填充；直击/翻袋管线恒为 false。
+    var kickContactMade: Bool = false
 }
 
 // MARK: - Predictor
@@ -139,6 +156,17 @@ enum ShotPredictor {
         // 1) 瞄准几何 + 可行性闸门（不可进直接返回）。
         var result = ShotPrediction()
         guard let ctx = prepareAim(input, into: &result) else { return result }
+
+        // 1b) 翻袋反解（W1）：四层管线求瞄准偏移 + 代表解引擎全保真终验物化。
+        if let rails = input.bankRails, !rails.isEmpty {
+            return predictBank(input: input, rails: rails, context: ctx, result: result,
+                               maxEvents: maxEvents, maxTime: maxTime)
+        }
+        // 1c) 反射/kick 反解（W2）：同管线（种子 → 解析目标函数 → 歧义回退 → 终验物化）。
+        if let rails = input.kickRails, !rails.isEmpty {
+            return predictKick(input: input, rails: rails, context: ctx, result: result,
+                               maxEvents: maxEvents, maxTime: maxTime)
+        }
 
         // 2) 闭环瞄准求解：短模拟评分搜索使目标球进选定袋的发射方向（吸收 squirt/throw/swerve）。
         let bestOffset = solveAimOffset(
@@ -167,6 +195,14 @@ enum ShotPredictor {
     /// 计算瞄准几何（幽灵球法 + 进球管道修正）并跑可行性闸门，顺带回填 `result` 的瞄准/几何字段。
     /// 返回 nil = 几何不可进袋（`result` 已置 `feasible=false` + 原因，调用方直接返回）。
     static func prepareAim(_ input: ShotInput, into result: inout ShotPrediction) -> AimContext? {
+        // 翻袋库序：瞄准几何改由镜像展开种子给出（bank 分支）。
+        if let rails = input.bankRails, !rails.isEmpty {
+            return prepareBankAim(input, rails: rails, into: &result)
+        }
+        // 反射/kick 库序：瞄准几何 = 母球经镜像展开首库反弹点的出发方向（kick 分支）。
+        if let rails = input.kickRails, !rails.isEmpty {
+            return prepareKickAim(input, rails: rails, into: &result)
+        }
         let y = input.surfaceY
         let r = BallPhysics.radius
         // 若调用方提供 `pocketAimOverride`（反解把进球点当自由变量），直接采用该进球点。
@@ -202,6 +238,96 @@ enum ShotPredictor {
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: y)
         return AimContext(aimPoint: aimPoint, ghost: ghost, aimDir: aimDir,
                           geometry: geometry, pocketCenter: pockets[input.pocketIndex])
+    }
+
+    // MARK: - Bank aim geometry（W1，第 0 层：镜像展开种子）
+
+    /// 翻袋瞄准几何：镜像展开种子路径给出目标球出发方向 → 幽灵球 / 瞄准线。
+    /// 返回 nil = 该库序无几何种子或切角/母球占位不可行（候选淘汰，`result` 已置原因）。
+    /// 坐标契约：SceneKit 世界系，XZ 水平面、+Y 朝上；ghost = target − 2R·unit(出发方向)。
+    static func prepareBankAim(
+        _ input: ShotInput, rails: [BankShotCalculator.Rail], into result: inout ShotPrediction
+    ) -> AimContext? {
+        let y = input.surfaceY
+        let r = BallPhysics.radius
+        guard let seedPath = BankShotCalculator.bankSeedPath(
+            object: input.targetBall, pocketIndex: input.pocketIndex,
+            rails: rails, surfaceY: y
+        ), seedPath.count >= 2 else {
+            result.feasible = false
+            result.infeasibleReason = "该库序无几何种子路线"
+            return nil
+        }
+        // 目标球出发方向（XZ 单位向量，指向首库反弹点）。
+        let firstHop = seedPath[1]
+        let dir = unitXZ(from: seedPath[0], to: firstHop)
+        let ghost = SCNVector3(input.targetBall.x - 2 * r * dir.x,
+                               input.targetBall.y,
+                               input.targetBall.z - 2 * r * dir.z)
+        let aimDir = unitXZ(from: input.cueBall, to: ghost)
+        result.aimDirection = aimDir
+        result.ghost = ghost
+        result.pocketAimPoint = seedPath[seedPath.count - 1]
+
+        // 切角 = 瞄准线 vs 目标球出发线（把首库反弹点当作「进球点」复用同一几何）。
+        let cutAngle = AngleSceneCalculator.cutAngle(
+            cueBall: input.cueBall, targetBall: input.targetBall, pocket: firstHop
+        )
+        result.cutAngleDeg = cutAngle
+        if cutAngle >= AngleSceneCalculator.maxCutAngle {
+            result.feasible = false
+            result.infeasibleReason = "当前角度无法翻袋（切角过大）"
+            return nil
+        }
+        // 母球占位：不能坐在目标球的出发线段上。
+        if AngleSceneCalculator.isCueBallBlocking(
+            cueBall: input.cueBall, targetBall: input.targetBall, pocket: firstHop
+        ) {
+            result.feasible = false
+            result.infeasibleReason = "母球挡住目标球出发路线"
+            return nil
+        }
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        let pockets = AngleSceneCalculator.pocketPositions(surfaceY: y)
+        return AimContext(aimPoint: result.pocketAimPoint, ghost: ghost, aimDir: aimDir,
+                          geometry: geometry, pocketCenter: pockets[input.pocketIndex])
+    }
+
+    // MARK: - Kick aim geometry（W2，第 0 层：镜像展开种子）
+
+    /// 反射/kick 瞄准几何：镜像展开种子路径给出母球出发方向（指向首库反弹点）。
+    /// 返回 nil = 该库序无几何种子（候选淘汰，`result` 已置原因）。
+    /// 坐标契约：SceneKit 世界系，XZ 水平面、+Y 朝上；kick 无幽灵球反推（母球自己是运动体），
+    /// `ghost` 复用为**接触锚点** = 目标球心沿种子末段来向反向退 2R（评分 miss 梯度锚）。
+    static func prepareKickAim(
+        _ input: ShotInput, rails: [DiamondSystemCalculator.Rail], into result: inout ShotPrediction
+    ) -> AimContext? {
+        let y = input.surfaceY
+        let r = BallPhysics.radius
+        guard let seedPath = DiamondSystemCalculator.kickSeedPath(
+            cue: input.cueBall, target: input.targetBall, rails: rails, surfaceY: y
+        ), seedPath.count >= 3 else {
+            result.feasible = false
+            result.infeasibleReason = "该库序无几何种子路线"
+            return nil
+        }
+        // 母球出发方向（XZ 单位向量，指向首库反弹点）。
+        let aimDir = unitXZ(from: seedPath[0], to: seedPath[1])
+        // 接触锚点：种子末段（末库反弹点 → 目标球心）来向反向退 2R。
+        let lastHop = seedPath[seedPath.count - 2]
+        let approach = unitXZ(from: lastHop, to: seedPath[seedPath.count - 1])
+        let ghost = SCNVector3(input.targetBall.x - 2 * r * approach.x,
+                               input.targetBall.y,
+                               input.targetBall.z - 2 * r * approach.z)
+        result.aimDirection = aimDir
+        result.ghost = ghost
+        // kick 无进袋语义：`pocketAimPoint` 置目标球心（`pocketIndex` 不参与判定）。
+        result.pocketAimPoint = SCNVector3(input.targetBall.x, input.targetBall.y + r,
+                                           input.targetBall.z)
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: y)
+        // AimContext.pocketCenter 以目标球心占位（runShot 的 objMinDist 在 kick 评分中不消费）。
+        return AimContext(aimPoint: result.pocketAimPoint, ghost: ghost, aimDir: aimDir,
+                          geometry: geometry, pocketCenter: result.pocketAimPoint)
     }
 
     /// 用给定发射方向 `finalAim` 跑一次完整模拟并提取全部预测字段（轨迹/进袋/吃库/末位/末速/分离角）。
@@ -724,6 +850,553 @@ enum ShotPredictor {
         let m = bestOf(center: c, halfRange: AimScoring.midHalfRangeDeg * deg, step: AimScoring.midStepDeg * deg)
         let f = bestOf(center: m, halfRange: AimScoring.fineHalfRangeDeg * deg, step: AimScoring.fineStepDeg * deg)
         return f
+    }
+
+    // MARK: - Bank aim solver（W1，四层管线：解析目标函数 → 歧义引擎回退 → 终验物化）
+
+    /// 翻袋反解常量（20260709 翻袋反射页重构方案 §2.2）。
+    private enum BankScoring {
+        /// 镜像种子附近的搜索半幅（度）：种子由纯几何反射给出，真实物理（回弹缩角 +
+        /// 传旋 + 衰减）在长路径/多库下修正量可达数度（实测 ±3° 不够，见 W1 诊断），
+        /// 取 ±8°；吃库数偏离惩罚负责把搜索拉回该库序拓扑族。
+        static let searchHalfRangeDeg: Float = 8.0
+        static let coarseStepDeg: Float = 0.4
+        static let refineHalfRangeDeg: Float = 0.3
+        static let refineTolDeg: Float = 0.02
+        /// 精修候选数上限与候选间最小间隔（度）：终验失败时自动试备选（B1 finalize 模式）。
+        static let maxCandidates = 3
+        static let candidateSeparationDeg: Float = 0.5
+        /// 粗扫阶段歧义点的引擎评估上限（每库序）：解析候选足够时歧义点整批跳过；
+        /// 不足时按序限量引擎评估。被跳过的歧义点只意味着「该 offset 未参与候选竞争」
+        /// （宁可少解），任何最终上屏解仍必经引擎终验——有效性判定从不降级。
+        static let maxScanEngineEvals = 8
+        /// 无效候选基线（母球段吃库 / 未命中目标球），与 `AimScoring.invalidCandidate` 同语义。
+        static let invalid: Float = 100
+        /// 吃库数偏离指定库序的搜索惩罚（m/库）：只用于把搜索拉回目标拓扑，
+        /// 最终取舍一律由引擎终验（真实进袋）裁决，不构成判定阈值。
+        static let cushionMismatchPenalty: Float = 0.5
+        /// 进袋成功档基线分（远低于任何 miss 距离）；叠加 |offset| 微正则使解唯一稳定。
+        static let pottedScore: Float = -1
+        static let offsetRegularization: Float = 1e-3
+    }
+
+    /// 翻袋反解主流程：粗扫（解析层为主）→ 谷底精修 → 引擎 scoring-only 终验 →
+    /// 首个通过者全保真重建上屏；全部候选失败时如实返回「未进袋」的全保真预测，
+    /// **绝不回退几何解**（jaw 截断口径，方案 §2.3）。
+    private static func predictBank(
+        input: ShotInput, rails: [BankShotCalculator.Rail], context ctx: AimContext,
+        result: ShotPrediction, maxEvents: Int, maxTime: Float
+    ) -> ShotPrediction {
+        let deg = Float.pi / 180
+        let half = BankScoring.searchHalfRangeDeg * deg
+        let step = BankScoring.coarseStepDeg * deg
+
+        // 第 1/2 层：粗扫。解从镜像种子（offset 0）向外衰减聚集 ⇒ **中心向外**评估，
+        // 找到进袋候选后再多看几个点即收敛（早停只影响备选覆盖面，不影响判定口径）。
+        // 解析评估 µs 级；歧义点限量引擎 scoring-only——预算耗尽的歧义点按无效跳过
+        //（宁可少解侧；精修与终验不受预算限制）。
+        var offsets: [Float] = [0]
+        var k = 1
+        while Float(k) * step <= half + 1e-6 {
+            offsets.append(Float(k) * step)
+            offsets.append(-Float(k) * step)
+            k += 1
+        }
+        var engineBudget = BankScoring.maxScanEngineEvals
+        var scan: [(off: Float, s: Float)] = []
+        var evalsAfterPotted = -1
+        for o in offsets {
+            let s: Float
+            if let analytic = bankAnalyticScore(offset: o, input: input, context: ctx, rails: rails) {
+                s = analytic
+            } else if engineBudget > 0 {
+                engineBudget -= 1
+                s = bankEngineScore(aimDir: ctx.aimDir.rotatedY(o), input: input,
+                                    context: ctx, rails: rails)
+            } else {
+                s = BankScoring.invalid
+            }
+            scan.append((o, s))
+            if s < 0 && evalsAfterPotted < 0 { evalsAfterPotted = 0 }
+            if evalsAfterPotted >= 0 {
+                evalsAfterPotted += 1
+                if evalsAfterPotted > 4 { break }
+            }
+        }
+        scan.sort { $0.s < $1.s }
+
+        // 精修目标函数：解析优先，歧义点限额引擎（与粗扫共享同一预算池思路，独立限额）。
+        // 预算耗尽后歧义点按无效处理——精修退化为「以粗扫点直接进终验」，判定口径不变。
+        var refineEngineBudget = BankScoring.maxScanEngineEvals
+        func score(_ offset: Float) -> Float {
+            if let s = bankAnalyticScore(offset: offset, input: input, context: ctx, rails: rails) {
+                return s
+            }
+            guard refineEngineBudget > 0 else { return BankScoring.invalid }
+            refineEngineBudget -= 1
+            return bankEngineScore(aimDir: ctx.aimDir.rotatedY(offset), input: input,
+                                   context: ctx, rails: rails)
+        }
+
+        // 谷底去重：按分数序贪心挑相互间隔 ≥ candidateSeparation 的候选中心。
+        let sep = BankScoring.candidateSeparationDeg * deg
+        var centers: [Float] = []
+        for entry in scan where entry.s < BankScoring.invalid {
+            if centers.allSatisfy({ abs($0 - entry.off) >= sep }) {
+                centers.append(entry.off)
+            }
+            if centers.count >= BankScoring.maxCandidates { break }
+        }
+
+        // 精修：每个谷底黄金分割极小化（同目标函数，tol 0.02°）。
+        let refined: [Float] = centers.map { c in
+            goldenSectionMin(score,
+                             lower: c - BankScoring.refineHalfRangeDeg * deg,
+                             upper: c + BankScoring.refineHalfRangeDeg * deg,
+                             tol: BankScoring.refineTolDeg * deg)
+        }
+
+        // 括号内无任何有效候选（未命中 / 母球段吃库）：无需进引擎，直接如实返回
+        // 「未进袋」的瞄准几何结果（feasible 保持 true——几何可行、只是该库序解不出）。
+        guard !refined.isEmpty else {
+            var final = result
+            final.aimOffsetUsed = 0
+            return final
+        }
+
+        // 第 3 层：引擎终验（scoring-only 与全保真逐位同物理，B1）；首个真进袋者全保真物化。
+        var firstProbe: (off: Float, pred: ShotPrediction)?
+        for off in refined {
+            let probe = buildPrediction(
+                finalAim: ctx.aimDir.rotatedY(off), context: ctx, input: input,
+                result: result, maxEvents: maxEvents, maxTime: maxTime,
+                includePresentation: false, searchEarlyStop: true
+            )
+            if probe.simObjectPotted && probe.cueCushionsBeforeContact == 0 {
+                var final = buildPrediction(
+                    finalAim: ctx.aimDir.rotatedY(off), context: ctx, input: input,
+                    result: result, maxEvents: maxEvents, maxTime: maxTime
+                )
+                final.aimOffsetUsed = off
+                return final
+            }
+            if firstProbe == nil { firstProbe = (off, probe) }
+        }
+
+        // 全部候选未通过终验：如实返回最优候选的 scoring-only 预测（物理与全保真逐位一致，
+        // 仅无展示折线——调用方只据 simObjectPotted 淘汰该库序）。宁可少解，不出几何假解。
+        var final = firstProbe?.pred ?? result
+        final.aimOffsetUsed = firstProbe?.off ?? 0
+        return final
+    }
+
+    /// 翻袋瞄准评分（predictBank 的目标函数）。
+    /// 第 1 层解析：`AnalyticAim`（母球段闭式）+ `AnalyticShotRollout.rollout`（目标球段
+    /// 单球多库闭式，库边解算与引擎共用 `EngineNumerics.resolveCushionImpact`）；
+    /// 第 2 层：解析覆盖不了（级联 / kiss / 截断）就地换引擎 scoring-only 评估——判定不降级。
+    /// 评分：进袋 = pottedScore + |offset| 正则；未进 = 目标球路径到袋心最近距离
+    /// + 吃库数偏离惩罚；母球段吃库 / 未命中 = 无效候选。
+    static func bankAimScore(
+        offset: Float, input: ShotInput, context ctx: AimContext,
+        rails: [BankShotCalculator.Rail]
+    ) -> Float {
+        bankAnalyticScore(offset: offset, input: input, context: ctx, rails: rails)
+            ?? bankEngineScore(aimDir: ctx.aimDir.rotatedY(offset), input: input,
+                               context: ctx, rails: rails)
+    }
+
+    /// 第 1 层解析评分。返回 nil = 解析层覆盖不了（撞第三球级联 / 截断 / kiss 风险），
+    /// 调用方决定回退引擎或（粗扫预算耗尽时）按无效跳过——宁可少解，不出假解。
+    private static func bankAnalyticScore(
+        offset: Float, input: ShotInput, context ctx: AimContext,
+        rails: [BankShotCalculator.Rail]
+    ) -> Float? {
+        let aimDir = ctx.aimDir.rotatedY(offset)
+        let out = AnalyticAim.outcome(
+            aimDir: aimDir, velocity: input.velocity, input: input,
+            geometry: ctx.geometry, ghost: ctx.ghost, maxTime: AimScoring.searchMaxTime
+        )
+        if out.cueHitCushionFirst { return BankScoring.invalid }
+        guard let cueAfter = out.cueAfterContact, let objAfter = out.objAfterContact,
+              let contactTime = out.contactTime else {
+            // 未（先）碰到目标球：无效候选 + ghost 距离梯度（把搜索拉回击中目标球）。
+            return BankScoring.invalid + out.cueGhostMinDist
+        }
+
+        let y = input.surfaceY
+        let r = BallPhysics.radius
+        var staticBalls: [(name: String, position: SCNVector3)] = []
+        staticBalls.reserveCapacity(input.obstacles.count)
+        for ob in input.obstacles
+        where ob.name != ShotInput.cueBallName && ob.name != ShotInput.targetBallName {
+            staticBalls.append((ob.name, SCNVector3(ob.position.x, y + r, ob.position.z)))
+        }
+
+        let objRoll = AnalyticShotRollout.rollout(
+            from: objAfter, startTime: contactTime, geometry: ctx.geometry,
+            staticBalls: staticBalls, maxTime: AimScoring.searchMaxTime)
+
+        // 目标球撞上障碍球：翻袋语义下候选**淘汰**（方案 §4.3「撞障碍 = 候选自然淘汰」，
+        // 级联进袋不是用户要的干净翻袋解）——给到袋心的 miss 梯度引导搜索绕开障碍，
+        // 不烧引擎预算。
+        if objRoll.firstBallHit != nil {
+            let miss = minSegmentsDistanceXZ(objRoll.segments, to: ctx.pocketCenter)
+            let mismatch = Float(abs(objRoll.cushionCount - rails.count))
+            return miss + BankScoring.cushionMismatchPenalty * (mismatch + 1)
+        }
+        // 目标球段截断（超时/超吃库上限）：歧义，如实上报 nil（判定不降级，回退引擎）。
+        guard objRoll.completed else { return nil }
+
+        let cueRoll = AnalyticShotRollout.rollout(
+            from: cueAfter, startTime: contactTime, geometry: ctx.geometry,
+            staticBalls: staticBalls, maxTime: AimScoring.searchMaxTime)
+        // 母球与目标球碰后路径再度靠近（kiss）：两球需耦合解算，回退引擎。
+        // 母球撞障碍/截断**不**影响目标球单球判定（级联扰动由第 3 层引擎终验兜底），
+        // 评分口径照常。
+        if AnalyticShotRollout.kissRisk(cue: cueRoll, obj: objRoll, from: contactTime) {
+            return nil
+        }
+
+        // 进选定袋（吃库数 ≥ 库序数：贴袋入口擦 jaw 会多计一次，属合法进袋路线）。
+        if objRoll.pocketId == "pocket_\(input.pocketIndex)",
+           objRoll.cushionCount >= rails.count {
+            return BankScoring.pottedScore + abs(offset) * BankScoring.offsetRegularization
+        }
+        // 未进：目标球路径到袋心最近距离 + 吃库数偏离惩罚（把搜索拉回目标拓扑）。
+        let miss = minSegmentsDistanceXZ(objRoll.segments, to: ctx.pocketCenter)
+        let mismatch = Float(abs(objRoll.cushionCount - rails.count))
+        return miss + BankScoring.cushionMismatchPenalty * mismatch
+    }
+
+    /// 第 2 层引擎评估（歧义候选专用）：scoring-only + 兴趣球早停整程模拟，评分口径
+    /// 与解析层一致（进袋 / miss 距离 / 直击判据），物理为引擎全语义（级联 / kiss 如实）。
+    private static func bankEngineScore(
+        aimDir: SCNVector3, input: ShotInput, context ctx: AimContext,
+        rails: [BankShotCalculator.Rail]
+    ) -> Float {
+        let run = runShot(
+            aimDir: aimDir, velocity: input.velocity, input: input,
+            geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
+            maxEvents: AimScoring.searchMaxEvents, maxTime: AimScoring.searchMaxTime,
+            earlyStop: true
+        )
+        guard run.firstContactTime != nil else {
+            return BankScoring.invalid + run.cueGhostMinDist
+        }
+        guard run.cueCushionsBeforeContact == 0 else { return BankScoring.invalid }
+        if run.pottedSelected, run.objCushionsBeforePocket >= rails.count {
+            return BankScoring.pottedScore
+        }
+        let mismatch = Float(abs(run.objCushionsBeforePocket - rails.count))
+        return run.objMinDist + BankScoring.cushionMismatchPenalty * mismatch
+    }
+
+    // MARK: - Kick aim solver（W2，同 bank 四层管线；常量复用 `BankScoring`——同量纲同语义）
+
+    /// kick 首碰信息（`ShotPrediction.events` / `RunResult.events` 通用口径）：
+    /// - `contacted`：母球首次球-球碰撞对象是否为目标球（碰前落袋 = false）。
+    /// - `cushionsBefore`：该首碰（或流结束）前母球吃库数。
+    /// - `hitOtherFirst`：母球先撞上了障碍球（首碰非目标球）。
+    static func kickContactInfo(
+        events: [ShotEvent]
+    ) -> (contacted: Bool, cushionsBefore: Int, hitOtherFirst: Bool) {
+        var cushions = 0
+        for ev in events {
+            switch ev.kind {
+            case let .ballBall(a, b):
+                guard a == ShotInput.cueBallName || b == ShotInput.cueBallName else { continue }
+                let other = a == ShotInput.cueBallName ? b : a
+                if other == ShotInput.targetBallName { return (true, cushions, false) }
+                return (false, cushions, true)
+            case .ballCushion(let ball) where ball == ShotInput.cueBallName:
+                cushions += 1
+            case .pocket(let ball, _) where ball == ShotInput.cueBallName:
+                return (false, cushions, false)   // 碰到目标球前母球落袋：失败
+            default:
+                break
+            }
+        }
+        return (false, cushions, false)
+    }
+
+    /// kick 反解主流程：粗扫（解析层为主）→ 谷底精修 → 引擎 scoring-only 终验 →
+    /// 首个「真实碰到目标球且库序拓扑吻合」者全保真重建上屏；全部候选失败时如实返回
+    /// `kickContactMade == false` 的预测，**绝不回退几何解**（与 bank 同口径）。
+    private static func predictKick(
+        input: ShotInput, rails: [DiamondSystemCalculator.Rail], context ctx: AimContext,
+        result: ShotPrediction, maxEvents: Int, maxTime: Float
+    ) -> ShotPrediction {
+        let deg = Float.pi / 180
+        let half = BankScoring.searchHalfRangeDeg * deg
+        let step = BankScoring.coarseStepDeg * deg
+
+        // 第 1/2 层：中心向外粗扫 + 命中后早停（与 predictBank 同节奏）。
+        var offsets: [Float] = [0]
+        var k = 1
+        while Float(k) * step <= half + 1e-6 {
+            offsets.append(Float(k) * step)
+            offsets.append(-Float(k) * step)
+            k += 1
+        }
+        var engineBudget = BankScoring.maxScanEngineEvals
+        var scan: [(off: Float, s: Float)] = []
+        var evalsAfterHit = -1
+        for o in offsets {
+            let s: Float
+            if let analytic = kickAnalyticScore(offset: o, input: input, context: ctx, rails: rails) {
+                s = analytic
+            } else if engineBudget > 0 {
+                engineBudget -= 1
+                s = kickEngineScore(aimDir: ctx.aimDir.rotatedY(o), input: input,
+                                    context: ctx, rails: rails)
+            } else {
+                s = BankScoring.invalid
+            }
+            scan.append((o, s))
+            if s < 0 && evalsAfterHit < 0 { evalsAfterHit = 0 }
+            if evalsAfterHit >= 0 {
+                evalsAfterHit += 1
+                if evalsAfterHit > 4 { break }
+            }
+        }
+        scan.sort { $0.s < $1.s }
+
+        var refineEngineBudget = BankScoring.maxScanEngineEvals
+        func score(_ offset: Float) -> Float {
+            if let s = kickAnalyticScore(offset: offset, input: input, context: ctx, rails: rails) {
+                return s
+            }
+            guard refineEngineBudget > 0 else { return BankScoring.invalid }
+            refineEngineBudget -= 1
+            return kickEngineScore(aimDir: ctx.aimDir.rotatedY(offset), input: input,
+                                   context: ctx, rails: rails)
+        }
+
+        // 谷底去重 + 黄金分割精修（同 predictBank）。
+        let sep = BankScoring.candidateSeparationDeg * deg
+        var centers: [Float] = []
+        for entry in scan where entry.s < BankScoring.invalid {
+            if centers.allSatisfy({ abs($0 - entry.off) >= sep }) {
+                centers.append(entry.off)
+            }
+            if centers.count >= BankScoring.maxCandidates { break }
+        }
+        let refined: [Float] = centers.map { c in
+            goldenSectionMin(score,
+                             lower: c - BankScoring.refineHalfRangeDeg * deg,
+                             upper: c + BankScoring.refineHalfRangeDeg * deg,
+                             tol: BankScoring.refineTolDeg * deg)
+        }
+        guard !refined.isEmpty else {
+            var final = result
+            final.aimOffsetUsed = 0
+            return final
+        }
+
+        // 第 3 层：引擎终验；首个真实碰到目标球（拓扑吻合）者全保真物化。
+        // 性能口径（W2 benchmark 驱动）：解析层已判成功档的候选（对拍假阳性 0）直接做
+        // 全保真物化，用该次模拟自身的事件流终验——终验与物化合并为一次引擎模拟；
+        // 判定仍以引擎事件流为准，不降级。解析未判成功的候选保留 scoring-only 探测。
+        var firstProbe: (off: Float, pred: ShotPrediction)?
+        for off in refined {
+            let analyticSuccess = kickAnalyticScore(
+                offset: off, input: input, context: ctx, rails: rails).map { $0 < 0 } ?? false
+            let probe = buildPrediction(
+                finalAim: ctx.aimDir.rotatedY(off), context: ctx, input: input,
+                result: result, maxEvents: maxEvents, maxTime: maxTime,
+                includePresentation: analyticSuccess, searchEarlyStop: !analyticSuccess
+            )
+            let info = kickContactInfo(events: probe.events)
+            if info.contacted && info.cushionsBefore >= rails.count {
+                var final = analyticSuccess ? probe : buildPrediction(
+                    finalAim: ctx.aimDir.rotatedY(off), context: ctx, input: input,
+                    result: result, maxEvents: maxEvents, maxTime: maxTime
+                )
+                final.aimOffsetUsed = off
+                final.kickContactMade = true
+                return final
+            }
+            if firstProbe == nil { firstProbe = (off, probe) }
+        }
+
+        // 全部候选未通过终验：如实返回最优候选的 scoring-only 预测（宁可少解，不出几何假解）。
+        var final = firstProbe?.pred ?? result
+        final.aimOffsetUsed = firstProbe?.off ?? 0
+        let info = kickContactInfo(events: final.events)
+        final.kickContactMade = info.contacted && info.cushionsBefore >= rails.count
+        return final
+    }
+
+    /// 翻袋反解全枚举入口（W3 翻袋页 UI 单次求解口径，与 `predictKickAll` 对称）：
+    /// 对指定袋口枚举全部 1...maxCushions 库合法库序，**每条库序独立并行**走完整四层管线。
+    /// 返回全部「引擎终验真实进选定袋」的解，按库序枚举顺序稳定排列。
+    /// `baseInput.bankRails` 由本函数逐条覆盖，调用方无需预置。
+    static func predictBankAll(
+        _ baseInput: ShotInput, maxCushions: Int = 3,
+        maxEvents: Int = 500, maxTime: Float = 15.0
+    ) -> [(rails: [BankShotCalculator.Rail], prediction: ShotPrediction)] {
+        let sequences = BankShotCalculator.candidateRailSequences(maxCushions: maxCushions)
+        var predictions = [ShotPrediction?](repeating: nil, count: sequences.count)
+        predictions.withUnsafeMutableBufferPointer { buf in
+            let base = buf.baseAddress!
+            DispatchQueue.concurrentPerform(iterations: sequences.count) { i in
+                var input = baseInput
+                input.bankRails = sequences[i]
+                (base + i).pointee = predict(input, maxEvents: maxEvents, maxTime: maxTime)
+            }
+        }
+        var out: [(rails: [BankShotCalculator.Rail], prediction: ShotPrediction)] = []
+        for (i, rails) in sequences.enumerated() {
+            guard let pred = predictions[i], pred.feasible, pred.simObjectPotted else { continue }
+            out.append((rails, pred))
+        }
+        return out
+    }
+
+    /// kick 反解全枚举入口（W2 性能口径 = W3 反射页 UI 单次求解口径）：
+    /// 枚举全部 1...maxCushions 库合法库序，**每条库序独立并行**走完整四层管线
+    /// （库序间零共享可变状态，`predict` 已在 `PositionPlaySolver` 并发热点中验证线程安全）。
+    /// 返回全部「引擎终验真实碰到目标球」的解，按库序枚举顺序稳定排列。
+    /// `baseInput.kickRails` 由本函数逐条覆盖，调用方无需预置。
+    static func predictKickAll(
+        _ baseInput: ShotInput, maxCushions: Int = 3,
+        maxEvents: Int = 500, maxTime: Float = 15.0
+    ) -> [(rails: [DiamondSystemCalculator.Rail], prediction: ShotPrediction)] {
+        let sequences = DiamondSystemCalculator.candidateRailSequences(maxCushions: maxCushions)
+        var predictions = [ShotPrediction?](repeating: nil, count: sequences.count)
+        predictions.withUnsafeMutableBufferPointer { buf in
+            let base = buf.baseAddress!
+            DispatchQueue.concurrentPerform(iterations: sequences.count) { i in
+                var input = baseInput
+                input.kickRails = sequences[i]
+                (base + i).pointee = predict(input, maxEvents: maxEvents, maxTime: maxTime)
+            }
+        }
+        var out: [(rails: [DiamondSystemCalculator.Rail], prediction: ShotPrediction)] = []
+        for (i, rails) in sequences.enumerated() {
+            guard let pred = predictions[i], pred.feasible, pred.kickContactMade else { continue }
+            out.append((rails, pred))
+        }
+        return out
+    }
+
+    /// kick 瞄准评分（predictKick 的目标函数；internal 供对拍测试交叉评估）。
+    /// 第 1 层解析：击杆（`CueBallStrike` 同源）→ 母球单球 rollout（目标球 + 障碍球全部为
+    /// 静止碰撞体）至首碰/停稳/落袋——kick 成功判据在首碰即定，无需碰后推演，解析覆盖面
+    /// 天然完整；唯一歧义 = rollout 截断（超时/超吃库上限），回退引擎。
+    static func kickAimScore(
+        offset: Float, input: ShotInput, context ctx: AimContext,
+        rails: [DiamondSystemCalculator.Rail]
+    ) -> Float {
+        kickAnalyticScore(offset: offset, input: input, context: ctx, rails: rails)
+            ?? kickEngineScore(aimDir: ctx.aimDir.rotatedY(offset), input: input,
+                               context: ctx, rails: rails)
+    }
+
+    /// 第 1 层解析评分。返回 nil = rollout 截断歧义（回退引擎）。
+    /// 评分：碰到目标球且吃库数 ≥ 库序数 = 成功档（pottedScore + |offset| 正则）；
+    /// 碰到但拓扑不符 = 吃库偏离惩罚；先撞障碍 = miss 到接触锚点 + 偏离惩罚（+1 档）；
+    /// 停稳未达 = miss + 偏离惩罚；碰前落袋 = 无效候选。
+    private static func kickAnalyticScore(
+        offset: Float, input: ShotInput, context ctx: AimContext,
+        rails: [DiamondSystemCalculator.Rail]
+    ) -> Float? {
+        let aimDir = ctx.aimDir.rotatedY(offset)
+        let y = input.surfaceY
+        let r = BallPhysics.radius
+        let strike = CueBallStrike.executeStrike(
+            aimDirection: aimDir, velocity: input.velocity,
+            spinX: input.spinX, spinY: input.spinY, elevation: input.elevation
+        )
+        var cue = BallState(
+            position: SCNVector3(input.cueBall.x, y + r, input.cueBall.z),
+            velocity: strike.velocity, angularVelocity: strike.angularVelocity,
+            state: .sliding, name: ShotInput.cueBallName
+        )
+        cue.state = EngineNumerics.determineMotionState(cue)
+
+        var staticBalls: [(name: String, position: SCNVector3)] = [
+            (ShotInput.targetBallName, SCNVector3(input.targetBall.x, y + r, input.targetBall.z))
+        ]
+        staticBalls.reserveCapacity(input.obstacles.count + 1)
+        for ob in input.obstacles
+        where ob.name != ShotInput.cueBallName && ob.name != ShotInput.targetBallName {
+            staticBalls.append((ob.name, SCNVector3(ob.position.x, y + r, ob.position.z)))
+        }
+
+        let roll = AnalyticShotRollout.rollout(
+            from: cue, startTime: 0, geometry: ctx.geometry,
+            staticBalls: staticBalls, maxTime: AimScoring.searchMaxTime)
+
+        if let hit = roll.firstBallHit {
+            let mismatch = Float(abs(roll.cushionCount - rails.count))
+            if hit == ShotInput.targetBallName {
+                if roll.cushionCount >= rails.count {
+                    return BankScoring.pottedScore + abs(offset) * BankScoring.offsetRegularization
+                }
+                return BankScoring.cushionMismatchPenalty * mismatch
+            }
+            // 先撞障碍球：候选淘汰（真实碰撞体语义），miss 梯度引导搜索绕开，不烧引擎预算。
+            let miss = minSegmentsDistanceXZ(roll.segments, to: ctx.ghost)
+            return miss + BankScoring.cushionMismatchPenalty * (mismatch + 1)
+        }
+        // 截断（超时/超吃库上限）：歧义，如实上报 nil（判定不降级，回退引擎）。
+        guard roll.completed else { return nil }
+        // 碰到目标球前母球落袋：无效候选。
+        if roll.pocketId != nil { return BankScoring.invalid }
+        // 停稳未达：miss = 母球路径到接触锚点最近距离 + 吃库数偏离惩罚。
+        let miss = minSegmentsDistanceXZ(roll.segments, to: ctx.ghost)
+        let mismatch = Float(abs(roll.cushionCount - rails.count))
+        return miss + BankScoring.cushionMismatchPenalty * mismatch
+    }
+
+    /// 第 2 层引擎评估（歧义候选专用）：scoring-only + 兴趣球早停整程模拟，评分口径
+    /// 与解析层一致（成功档 / miss 梯度 / 偏离惩罚 / 碰前落袋无效）。
+    private static func kickEngineScore(
+        aimDir: SCNVector3, input: ShotInput, context ctx: AimContext,
+        rails: [DiamondSystemCalculator.Rail]
+    ) -> Float {
+        let run = runShot(
+            aimDir: aimDir, velocity: input.velocity, input: input,
+            geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
+            maxEvents: AimScoring.searchMaxEvents, maxTime: AimScoring.searchMaxTime,
+            earlyStop: true
+        )
+        let info = kickContactInfo(events: run.events)
+        let mismatch = Float(abs(info.cushionsBefore - rails.count))
+        if info.contacted {
+            if info.cushionsBefore >= rails.count { return BankScoring.pottedScore }
+            return BankScoring.cushionMismatchPenalty * mismatch
+        }
+        if info.hitOtherFirst {
+            return run.cueGhostMinDist + BankScoring.cushionMismatchPenalty * (mismatch + 1)
+        }
+        // 碰前落袋：无效候选（run 事件流含 pocket(cue) 时 contactInfo 已返回 false）。
+        if run.cuePocketed { return BankScoring.invalid }
+        return run.cueGhostMinDist + BankScoring.cushionMismatchPenalty * mismatch
+    }
+
+    /// 常加速度路径段集合到某点的最近水平距离（每段折线采样，与 ghost 距离累计同量级近似）。
+    private static func minSegmentsDistanceXZ(
+        _ segments: [BallPathSegment], to point: SCNVector3
+    ) -> Float {
+        var minDist = Float.greatestFiniteMagnitude
+        for seg in segments {
+            let samples = 12
+            var prev = seg.position(at: 0)
+            for i in 0...samples {
+                let dt = seg.duration * Float(i) / Float(samples)
+                let p = seg.position(at: dt)
+                if i == 0 {
+                    let dx = p.x - point.x, dz = p.z - point.z
+                    minDist = min(minDist, sqrtf(dx * dx + dz * dz))
+                } else {
+                    minDist = min(minDist, segmentPointDistanceXZ(a: prev, b: p, p: point))
+                }
+                prev = p
+            }
+        }
+        return minDist
     }
 
     /// 取某球在 `time` 之后第一帧的速度（即碰撞解算后的速度）。

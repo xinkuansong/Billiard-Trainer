@@ -238,26 +238,20 @@ enum CushionReflectionSolver {
     }
 }
 
-/// 翻袋 / 反射两页共享的「真实反射模式」设置（持久化于 UserDefaults，两页通用）。
-/// 真实模式用物理引擎按**发力**模拟翻库（`EngineCushionTracer`）；发力越大越接近镜面反射。
+/// 翻袋 / 反射两页共享的**力度**设置（持久化于 UserDefaults，两页通用）。
+/// W4 引擎反解后「理想/真实」概念消亡（`realMode` 已退役删除，20260709 翻袋反射页
+/// 重构方案 §4.2）：力度是求解输入，改力度 → 重求解。
 enum CushionReflectionSettings {
-    static let realModeKey = "cushionReflectionRealMode"
     static let powerKey = "cushionReflectionPower"
 
-    /// 发力（m/s）合法区间与默认值。
+    /// 力度（m/s）合法区间与默认值。
     static let minPower: Float = 1.0
     static let maxPower: Float = 4.5
     static let defaultPower: Float = 2.4
 
-    /// 是否启用真实模式（默认 false = 理想模式）。
-    static var realMode: Bool {
-        get { UserDefaults.standard.bool(forKey: realModeKey) }
-        set { UserDefaults.standard.set(newValue, forKey: realModeKey) }
-    }
-
     static func clampPower(_ p: Float) -> Float { min(maxPower, max(minPower, p)) }
 
-    /// 发力（m/s，默认 `defaultPower`）；仅真实模式下生效。
+    /// 力度（m/s，默认 `defaultPower`）：引擎反解的求解输入。
     static var power: Float {
         get {
             let stored = UserDefaults.standard.object(forKey: powerKey) as? Double

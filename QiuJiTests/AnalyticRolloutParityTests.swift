@@ -189,4 +189,146 @@ final class AnalyticRolloutParityTests: XCTestCase {
         XCTAssertLessThanOrEqual(p95Low, 0.002, "0–1 库停点偏差 P95 超 2mm——非混沌层失真=真模型 bug")
         XCTAssertLessThanOrEqual(p95Mid, 0.05, "2–3 库停点偏差 P95 超 5cm——超出混沌放大可解释范围")
     }
+
+    // MARK: - W1 翻袋目标函数对拍（解析层 vs 引擎 scoring-only，同 offset 同盘面）
+
+    /// 翻袋反解目标函数（`ShotPredictor.bankAimScore` 的解析层判定）vs 引擎口径的
+    /// 逐点对拍：随机盘面 × 随机库序，围绕镜像种子扫 offset 网格，比较两边的
+    /// 「进选定袋」判定与 miss 趋势。歧义档位（解析层已主动回退引擎）不计失真。
+    /// 断言口径：解析判「进袋」而引擎判「不进」的假阳性 ≤ 5%（终验层兜底但不应大面积
+    /// 依赖）；解析判「不进」而引擎判「进」的漏解 ≤ 5%（宁慢勿假但不应大面积丢解）。
+    func test_bankObjective_parityWithEngine() {
+        var rng = SplitMix64(state: 0xB4A2_0001)
+        let railPool = BankShotCalculator.candidateRailSequences(maxCushions: 2)
+        var compared = 0
+        var analyticPotted = 0
+        var falsePositive = 0   // 解析进袋、引擎未进
+        var falseNegative = 0   // 解析未进（非歧义）、引擎进
+        var boards = 0
+        var attempts = 0
+
+        while boards < 30 && attempts < 400 {
+            attempts += 1
+            let cue = scene(Double.random(in: 0.1...0.9, using: &rng),
+                            Double.random(in: 0.08...0.42, using: &rng))
+            let target = scene(Double.random(in: 0.15...0.85, using: &rng),
+                               Double.random(in: 0.1...0.4, using: &rng))
+            guard cue.distanceXZ(to: target) > 6 * BallPhysics.radius else { continue }
+            let rails = railPool[Int.random(in: 0..<railPool.count, using: &rng)]
+            let pocketIndex = Int.random(in: 0...5, using: &rng)
+            let velocity = Float.random(in: 2.4...4.6, using: &rng)
+
+            let input = ShotInput(
+                cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
+                velocity: velocity, spinX: 0, spinY: 0, surfaceY: sY,
+                bankRails: rails)
+            var probe = ShotPrediction()
+            guard let ctx = ShotPredictor.prepareAim(input, into: &probe) else { continue }
+            boards += 1
+
+            for offDeg: Float in [-2, -1, -0.5, 0, 0.5, 1, 2] {
+                let off = offDeg * deg
+                let sAna = ShotPredictor.bankAimScore(
+                    offset: off, input: input, context: ctx, rails: rails)
+                // 引擎真值：同 offset 全程 scoring-only 模拟。
+                let ref = ShotPredictor.predictForPositionSolve(
+                    input, aimOffset: off, includePresentation: false)
+                let refPotted = ref.simObjectPotted && ref.cueCushionsBeforeContact == 0
+                    && ref.objectCushionCount >= rails.count
+                compared += 1
+
+                let anaPotted = sAna < 0   // pottedScore 档
+                if anaPotted { analyticPotted += 1 }
+                if anaPotted && !refPotted {
+                    falsePositive += 1
+                    print("⚠️ [W1 对拍·bank] 解析假阳性 off=\(offDeg)° score=\(sAna) " +
+                          "rails=\(rails.map(\.label)) pkt=\(pocketIndex) v=\(velocity)")
+                } else if !anaPotted && sAna < 90 && refPotted {
+                    // sAna ≥ 90 属无效/歧义档（解析层本会回退引擎），不计漏解。
+                    falseNegative += 1
+                    print("⚠️ [W1 对拍·bank] 解析漏解 off=\(offDeg)° score=\(sAna) " +
+                          "rails=\(rails.map(\.label)) pkt=\(pocketIndex) v=\(velocity)")
+                }
+            }
+        }
+
+        print("📊 [W1 对拍·bank] 盘面=\(boards) 对比点=\(compared) 解析进袋=\(analyticPotted) " +
+              "假阳性=\(falsePositive) 漏解=\(falseNegative)")
+        XCTAssertGreaterThanOrEqual(boards, 25, "可行盘面生成不足")
+        XCTAssertGreaterThan(compared, 100, "对比样本过少")
+        XCTAssertLessThanOrEqual(Float(falsePositive), Float(max(compared, 1)) * 0.05,
+                                 "解析层大面积假阳性——终验兜得住但解析模型失真需排查")
+        XCTAssertLessThanOrEqual(Float(falseNegative), Float(max(compared, 1)) * 0.05,
+                                 "解析层大面积漏解——好解被错过，检查 rollout 袋口判定口径")
+    }
+
+    // MARK: - W2 反射/kick 目标函数对拍（解析层 vs 引擎 scoring-only，同 offset 同盘面）
+
+    /// kick 反解目标函数（`ShotPredictor.kickAimScore` 的解析层判定）vs 引擎口径的
+    /// 逐点对拍：随机盘面 × 随机库序，围绕镜像种子扫 offset 网格，比较两边的
+    /// 「真实碰到目标球且库序拓扑吻合」判定。歧义档位（解析层已主动回退引擎）不计失真。
+    /// 断言口径与 bank 对拍一致：假阳性 ≤ 5%、漏解 ≤ 5%。
+    func test_kickObjective_parityWithEngine() {
+        var rng = SplitMix64(state: 0x4B1C_0002)
+        let railPool = DiamondSystemCalculator.candidateRailSequences(maxCushions: 2)
+        var compared = 0
+        var analyticContact = 0
+        var falsePositive = 0   // 解析判碰到、引擎未碰到
+        var falseNegative = 0   // 解析判未碰到（非歧义）、引擎碰到
+        var boards = 0
+        var attempts = 0
+
+        while boards < 30 && attempts < 400 {
+            attempts += 1
+            let cue = scene(Double.random(in: 0.1...0.9, using: &rng),
+                            Double.random(in: 0.08...0.42, using: &rng))
+            let target = scene(Double.random(in: 0.15...0.85, using: &rng),
+                               Double.random(in: 0.1...0.4, using: &rng))
+            guard cue.distanceXZ(to: target) > 6 * BallPhysics.radius else { continue }
+            let rails = railPool[Int.random(in: 0..<railPool.count, using: &rng)]
+            let velocity = Float.random(in: 2.4...4.6, using: &rng)
+
+            let input = ShotInput(
+                cueBall: cue, targetBall: target, pocketIndex: 0,
+                velocity: velocity, spinX: 0, spinY: 0, surfaceY: sY,
+                kickRails: rails)
+            var probe = ShotPrediction()
+            guard let ctx = ShotPredictor.prepareAim(input, into: &probe) else { continue }
+            boards += 1
+
+            for offDeg: Float in [-2, -1, -0.5, 0, 0.5, 1, 2] {
+                let off = offDeg * deg
+                let sAna = ShotPredictor.kickAimScore(
+                    offset: off, input: input, context: ctx, rails: rails)
+                // 引擎真值：同 offset 全程 scoring-only 模拟 + 事件流判据。
+                let ref = ShotPredictor.predictForPositionSolve(
+                    input, aimOffset: off, includePresentation: false)
+                let info = ShotPredictor.kickContactInfo(events: ref.events)
+                let refContact = info.contacted && info.cushionsBefore >= rails.count
+                compared += 1
+
+                let anaContact = sAna < 0   // pottedScore 成功档
+                if anaContact { analyticContact += 1 }
+                if anaContact && !refContact {
+                    falsePositive += 1
+                    print("⚠️ [W2 对拍·kick] 解析假阳性 off=\(offDeg)° score=\(sAna) " +
+                          "rails=\(rails.map(\.label)) v=\(velocity)")
+                } else if !anaContact && sAna < 90 && refContact {
+                    // sAna ≥ 90 属无效/歧义档（解析层本会回退引擎），不计漏解。
+                    falseNegative += 1
+                    print("⚠️ [W2 对拍·kick] 解析漏解 off=\(offDeg)° score=\(sAna) " +
+                          "rails=\(rails.map(\.label)) v=\(velocity)")
+                }
+            }
+        }
+
+        print("📊 [W2 对拍·kick] 盘面=\(boards) 对比点=\(compared) 解析碰到=\(analyticContact) " +
+              "假阳性=\(falsePositive) 漏解=\(falseNegative)")
+        XCTAssertGreaterThanOrEqual(boards, 25, "可行盘面生成不足")
+        XCTAssertGreaterThan(compared, 100, "对比样本过少")
+        XCTAssertLessThanOrEqual(Float(falsePositive), Float(max(compared, 1)) * 0.05,
+                                 "解析层大面积假阳性——终验兜得住但解析模型失真需排查")
+        XCTAssertLessThanOrEqual(Float(falseNegative), Float(max(compared, 1)) * 0.05,
+                                 "解析层大面积漏解——好解被错过，检查单球 rollout 首碰口径")
+    }
 }

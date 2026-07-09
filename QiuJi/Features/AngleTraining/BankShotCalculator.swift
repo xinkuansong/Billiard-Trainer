@@ -198,6 +198,29 @@ enum BankShotCalculator {
         return Array(real.prefix(limit))
     }
 
+    // MARK: - Engine bank-solve seeds (W1，20260709 翻袋反射页重构方案 §2.1)
+
+    /// 镜像展开种子路径（引擎反解第 0 层）：固定库序下目标球 → 反弹点… → 进球点的
+    /// 纯几何折线。仅作为 `ShotPredictor` bank 反解的**方向种子**，不再直接上屏。
+    static func bankSeedPath(
+        object: SCNVector3, pocketIndex: Int, rails: [Rail], surfaceY: Float
+    ) -> [SCNVector3]? {
+        let y = surfaceY + ballRadius
+        let objPt = SCNVector3(object.x, y, object.z)
+        return solveSequence(object: objPt, pocketIndex: pocketIndex, rails: rails,
+                             y: y, surfaceY: surfaceY)
+    }
+
+    /// 全部合法库序候选（长度 1...maxCushions，相邻不相同不正对）。
+    /// 引擎反解的多解枚举入口（W3 消费；W1 benchmark 用它构造「单袋全枚举」口径）。
+    static func candidateRailSequences(maxCushions: Int) -> [[Rail]] {
+        var out: [[Rail]] = []
+        for n in 1...max(1, maxCushions) {
+            out.append(contentsOf: railSequences(length: n))
+        }
+        return out
+    }
+
     // MARK: - Sequence solving (mirror unfolding)
 
     /// 解一个固定库序：目标球 → rails → 袋口。返回 [目标球, P1…Pk, 进球点] 或 nil。

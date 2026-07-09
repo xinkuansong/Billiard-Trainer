@@ -156,4 +156,113 @@ final class SolverPerformanceTests: XCTestCase {
 
         XCTAssertLessThan(e, 120, "批量出片盘面求解不应卡死")
     }
+
+    // MARK: - W1 翻袋引擎反解（单袋全枚举口径，目标：典型 ≤0.5s / 最坏 ≤1s，以实测为准）
+
+    /// 翻袋反解「单袋全枚举」：对指定袋口枚举全部 1–3 库合法库序（28 条），逐条走
+    /// 四层管线（`ShotPredictor.predict` bank 分支）。这正是 W3 UI 单次求解的口径。
+    private func bankSolveAllSequences(
+        cue: SCNVector3, target: SCNVector3, pocketIndex: Int, velocity: Float,
+        obstacles: [ObstacleBall] = []
+    ) -> Int {
+        var potted = 0
+        for rails in BankShotCalculator.candidateRailSequences(maxCushions: 3) {
+            let pred = ShotPredictor.predict(ShotInput(
+                cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
+                velocity: velocity, spinX: 0, spinY: 0, surfaceY: sY,
+                obstacles: obstacles, bankRails: rails))
+            if pred.feasible, pred.simObjectPotted { potted += 1 }
+        }
+        return potted
+    }
+
+    /// 典型盘面：两球中台、无障碍，单袋（右下角袋）全枚举。
+    func test_perf_bankSolve_typicalBoard_singlePocket() {
+        let cue = SCNVector3(-0.5, sY + BallPhysics.radius, -0.2)
+        let target = SCNVector3(0.1, sY + BallPhysics.radius, 0.1)
+
+        PerformanceProfiler.reset()
+        let t0 = Date()
+        let potted = bankSolveAllSequences(cue: cue, target: target, pocketIndex: 1, velocity: 3.6)
+        let e = Date().timeIntervalSince(t0)
+        print("⏱️ [PERF-W1] 翻袋典型盘面 单袋全枚举（28 库序）= \(String(format: "%.3f", e))s，进袋解=\(potted)")
+        printSegments("翻袋典型盘面")
+
+        XCTAssertGreaterThan(potted, 0, "典型盘面应有翻袋解")
+        XCTAssertLessThan(e, 120, "翻袋求解不应卡死")
+    }
+
+    /// 最坏侧盘面：目标球近库 + 4 颗障碍球（歧义回退引擎的比例升高），单袋全枚举。
+    func test_perf_bankSolve_worstBoard_obstacles() {
+        let cue = SCNVector3(0.6, sY + BallPhysics.radius, 0.35)
+        let target = SCNVector3(-0.8, sY + BallPhysics.radius, -0.5)
+        let obstacles = [
+            ObstacleBall(name: "_2", position: SCNVector3(-0.3, sY + BallPhysics.radius, -0.1)),
+            ObstacleBall(name: "_3", position: SCNVector3(0.0, sY + BallPhysics.radius, 0.3)),
+            ObstacleBall(name: "_4", position: SCNVector3(-0.6, sY + BallPhysics.radius, 0.2)),
+            ObstacleBall(name: "_5", position: SCNVector3(0.3, sY + BallPhysics.radius, -0.35))
+        ]
+
+        PerformanceProfiler.reset()
+        let t0 = Date()
+        let potted = bankSolveAllSequences(
+            cue: cue, target: target, pocketIndex: 1, velocity: 4.2, obstacles: obstacles)
+        let e = Date().timeIntervalSince(t0)
+        print("⏱️ [PERF-W1] 翻袋最坏侧盘面（近库 + 4 障碍）单袋全枚举 = \(String(format: "%.3f", e))s，进袋解=\(potted)")
+        printSegments("翻袋最坏侧盘面")
+
+        XCTAssertLessThan(e, 120, "翻袋最坏盘面求解不应卡死")
+    }
+
+    // MARK: - W2 反射/kick 引擎反解（全枚举口径，目标：≤0.3s，以实测为准）
+
+    /// kick 反解「全枚举」：全部 1–3 库合法库序（28 条）经 `ShotPredictor.predictKickAll`
+    /// 并行走四层管线。这正是 W3 反射页 UI 单次求解的口径（生产同一入口）。
+    private func kickSolveAllSequences(
+        cue: SCNVector3, target: SCNVector3, velocity: Float,
+        obstacles: [ObstacleBall] = []
+    ) -> Int {
+        ShotPredictor.predictKickAll(ShotInput(
+            cueBall: cue, targetBall: target, pocketIndex: 0,
+            velocity: velocity, spinX: 0, spinY: 0, surfaceY: sY,
+            obstacles: obstacles)).count
+    }
+
+    /// 典型解球盘面：两球中台、无障碍，1–3 库全枚举。
+    func test_perf_kickSolve_typicalBoard() {
+        let cue = SCNVector3(-0.5, sY + BallPhysics.radius, -0.2)
+        let target = SCNVector3(0.4, sY + BallPhysics.radius, 0.25)
+
+        PerformanceProfiler.reset()
+        let t0 = Date()
+        let contacted = kickSolveAllSequences(cue: cue, target: target, velocity: 3.6)
+        let e = Date().timeIntervalSince(t0)
+        print("⏱️ [PERF-W2] 反射典型盘面 全枚举（28 库序）= \(String(format: "%.3f", e))s，碰到解=\(contacted)")
+        printSegments("反射典型盘面")
+
+        XCTAssertGreaterThan(contacted, 0, "典型盘面应有 kick 解")
+        XCTAssertLessThan(e, 120, "kick 求解不应卡死")
+    }
+
+    /// 最坏侧盘面：被障碍球半包围的解球局（歧义回退比例升高），1–3 库全枚举。
+    func test_perf_kickSolve_worstBoard_obstacles() {
+        let cue = SCNVector3(0.6, sY + BallPhysics.radius, 0.35)
+        let target = SCNVector3(-0.8, sY + BallPhysics.radius, -0.5)
+        let obstacles = [
+            ObstacleBall(name: "_2", position: SCNVector3(-0.55, sY + BallPhysics.radius, -0.3)),
+            ObstacleBall(name: "_3", position: SCNVector3(-0.3, sY + BallPhysics.radius, -0.45)),
+            ObstacleBall(name: "_4", position: SCNVector3(0.0, sY + BallPhysics.radius, 0.1)),
+            ObstacleBall(name: "_5", position: SCNVector3(-0.2, sY + BallPhysics.radius, 0.25))
+        ]
+
+        PerformanceProfiler.reset()
+        let t0 = Date()
+        let contacted = kickSolveAllSequences(
+            cue: cue, target: target, velocity: 4.2, obstacles: obstacles)
+        let e = Date().timeIntervalSince(t0)
+        print("⏱️ [PERF-W2] 反射最坏侧盘面（障碍半包围）全枚举 = \(String(format: "%.3f", e))s，碰到解=\(contacted)")
+        printSegments("反射最坏侧盘面")
+
+        XCTAssertLessThan(e, 120, "kick 最坏盘面求解不应卡死")
+    }
 }

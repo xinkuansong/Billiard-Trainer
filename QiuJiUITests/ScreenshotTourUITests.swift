@@ -207,20 +207,21 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
-    /// 反射 / 翻袋解球器「真实反射模式」专项截图：理想态 → 切真实（叠加蓝色虚线对照 + 缩小因子滑块）→ 拉到最小因子。
+    /// 反射 / 翻袋解球器专项截图（W4/W5 版面）：默认解 → 下一解（贴边动作列）→
+    /// 球库拖入障碍球（真实碰撞体重求解）→ 右缘力度柱拉高（力度 = 求解输入）→ 击打演示。
     func testReflectionRealMode() {
         sleep(3)
         app.switchTab(.angle)
         sleep(2)
 
         openSolver(entry: "反射解球器")
-        captureSolverRealMode(prefix: "r01-reflection")
+        captureSolverStates(prefix: "r01-reflection")
         popBack(); sleep(1)
 
         openSolver(entry: "翻袋解球器")
         // 翻袋页默认袋口（左上）可能无解：逐个袋口找到有解的那个。
         ensureBankSolution()
-        captureSolverRealMode(prefix: "r02-bankshot")
+        captureSolverStates(prefix: "r02-bankshot")
         popBack(); sleep(1)
     }
 
@@ -229,7 +230,7 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(3)
         openSolverVerified(entry: "翻袋解球器", navTitle: "翻袋解球器")
         ensureBankSolution()
-        captureSolverRealMode(prefix: "r02-bankshot")
+        captureSolverStates(prefix: "r02-bankshot")
     }
 
     /// 仅动作库：网格缩略图 + 详情页，单独成测，用于验证 USDZ 2D 顶视渲染
@@ -540,19 +541,15 @@ final class ScreenshotTourUITests: XCTestCase {
             popBack(); sleep(1)
         }
 
-        // 翻袋/反射：顶部 ≤2 行 + 浮层解 pill + 内联发力（T-P18-32）。
+        // 翻袋/反射：顶部 1 行库数 chip + 浮层解 pill + 右缘力度柱（W4 版面）。
         if openSolverVerified(entry: "翻袋解球器", navTitle: "翻袋解球器", homeTab: "解") {
-            sleep(2)
-            snap("b3p-07-bankshot-ideal")
-            if tapIfExists("真实", timeout: 3) {
-                sleep(4)
-                snap("b3p-08-bankshot-real")
-            }
+            sleep(3)
+            snap("b3p-07-bankshot")
             popBack(); sleep(1)
         }
         if openSolverVerified(entry: "反射解球器", navTitle: "反射解球器", homeTab: "解") {
-            sleep(2)
-            snap("b3p-09-reflection-ideal")
+            sleep(3)
+            snap("b3p-09-reflection")
             popBack(); sleep(1)
         }
 
@@ -581,7 +578,7 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     /// 弹层 / 展开态核验（ADR-P11-08/09）：分离角打点盘 sheet、编排台打点盘 sheet、
-    /// 反射「真实」模式滑块、角度预测左对齐指标条。
+    /// 反射原理 sheet 暗材质、角度预测左对齐指标条。
     func testScenePopups() {
         sleep(3)
         app.switchTab(.angle)
@@ -613,13 +610,6 @@ final class ScreenshotTourUITests: XCTestCase {
 
         if openSolverVerified(entry: "反射解球器", navTitle: "反射解球器", homeTab: "解") {
             sleep(2)
-            if app.buttons["真实"].waitForExistence(timeout: 3) {
-                app.buttons["真实"].tap()
-                sleep(2)
-                snap("p03-reflection-real")
-                _ = tapIfExists("理想", timeout: 2)
-                sleep(1)
-            }
             // 原理 sheet 暗材质核验（T-P18-49，§1.6 Z7 浮出层）。
             if tapIfExists("原理", timeout: 3) {
                 sleep(2)
@@ -690,30 +680,89 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
-    private func captureSolverRealMode(prefix: String) {
-        // 归一到「理想」模式（共享设置可能残留真实态）。
-        if app.buttons["理想"].waitForExistence(timeout: 3) {
-            app.buttons["理想"].tap()
-            sleep(2)
-        }
-        snap("\(prefix)-ideal")
+    /// W4/W5 版面截图：默认解 → 下一解 → 球库拖入障碍球（真实碰撞体，重求解）→
+    /// 力度柱拉高（力度 = 求解输入，改力度会重新求解）→ 击打演示（出杆 + 回放 + 自动复位）。
+    private func captureSolverStates(prefix: String) {
+        sleep(4)   // 等首次引擎求解完成。
+        snap("\(prefix)-default")
 
-        // 切到「真实」模式（分段控件）。
-        if app.buttons["真实"].waitForExistence(timeout: 3) {
-            app.buttons["真实"].tap()
-            sleep(2)
-            // 先把因子拉回接近 1，再截「默认真实」与「最小因子」两态。
-            let slider = app.sliders.firstMatch
-            if slider.waitForExistence(timeout: 2) {
-                slider.adjust(toNormalizedSliderPosition: 0.75)   // ≈0.95
-                sleep(2)
-                snap("\(prefix)-real-095")
-                slider.adjust(toNormalizedSliderPosition: 0.0)    // 0.80
-                sleep(2)
-                snap("\(prefix)-real-min-factor")
-            } else {
-                snap("\(prefix)-real-default")
+        // 贴边动作列「下一解」：多解时切换（禁用态 = 单解，跳过）。
+        let next = app.buttons["下一解"]
+        if next.waitForExistence(timeout: 2), next.isEnabled {
+            next.tap()
+            sleep(1)
+            snap("\(prefix)-next-solution")
+        }
+
+        // 球库拖 1 号球上桌 = 障碍球（拖到球桌中带偏左，避开右缘力度柱）。
+        let palette = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'paletteBall__1'")).firstMatch
+        if palette.waitForExistence(timeout: 2) {
+            let start = palette.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let target = app.coordinate(withNormalizedOffset: CGVector(dx: 0.40, dy: 0.5))
+            start.press(forDuration: 0.15, thenDragTo: target)
+            sleep(4)
+            snap("\(prefix)-obstacle")
+        }
+
+        // 右缘力度柱从低拖高（相对增量拖动）→ 重求解。
+        let power = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'solver.power'")).firstMatch
+        if power.waitForExistence(timeout: 2) {
+            let from = power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+            let to = power.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2))
+            from.press(forDuration: 0.1, thenDragTo: to)
+            sleep(4)
+            snap("\(prefix)-high-power")
+        }
+
+        // W5 击打演示：出杆 → TrajectoryPlayback 回放（演示中 pill + 停止钮 + 控件锁定）→
+        // 感知静止后自动复位（解线重绘、击打钮回位）。无解态（如翻袋高力度）按钮禁用则跳过。
+        let strike = app.buttons["solver.strike"]
+        if strike.waitForExistence(timeout: 2), strike.isEnabled {
+            strike.tap()
+            sleep(2)   // 回杆/出杆中或回放初段。
+            snap("\(prefix)-strike-playing")
+            // 等自动复位：击打钮重新出现（回放中动作列是单「停止」钮）。
+            for _ in 0..<14 {
+                if app.buttons["solver.strike"].exists { break }
+                sleep(1)
             }
+            sleep(1)
+            snap("\(prefix)-strike-reset")
+        }
+
+        // W6 自由模式：切自由（瞄准线 + 首碰胶囊 + 刻度轮 + 恢复球形）→ 击球（simulateFree
+        // 真物理，球停在哪是哪）→ 恢复球形（回最近求解快照）→ 切回求解（缓存命中直显）。
+        let modeToggle = app.buttons["solver.mode"]
+        if modeToggle.waitForExistence(timeout: 2) {
+            modeToggle.tap()
+            sleep(2)
+            snap("\(prefix)-free-default")
+
+            let freeStrike = app.buttons["击球"]
+            if freeStrike.waitForExistence(timeout: 2), freeStrike.isEnabled {
+                freeStrike.tap()
+                // 等击球完成（击球中 → 回「击球」且可用）。
+                for _ in 0..<16 {
+                    let b = app.buttons["击球"]
+                    if b.exists, b.isEnabled { break }
+                    sleep(1)
+                }
+                sleep(1)
+                snap("\(prefix)-free-after-shot")
+            }
+
+            let restore = app.buttons["solver.restore"]
+            if restore.waitForExistence(timeout: 2), restore.isEnabled {
+                restore.tap()
+                sleep(1)
+                snap("\(prefix)-free-restored")
+            }
+
+            modeToggle.tap()
+            sleep(2)   // 缓存命中应直显（无求解等待）。
+            snap("\(prefix)-back-to-solve")
         }
     }
 

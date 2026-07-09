@@ -180,6 +180,29 @@ enum DiamondSystemCalculator {
         return Array(real.prefix(limit))
     }
 
+    // MARK: - Engine kick-solve seeds (W2，20260709 翻袋反射页重构方案 §2.1)
+
+    /// 镜像展开种子路径（引擎 kick 反解第 0 层）：固定库序下母球 → 反弹点… → 目标球心的
+    /// 纯几何折线。仅作为 `ShotPredictor` kick 反解的**方向种子**，不再直接上屏。
+    static func kickSeedPath(
+        cue: SCNVector3, target: SCNVector3, rails: [Rail], surfaceY: Float
+    ) -> [SCNVector3]? {
+        let y = surfaceY + AngleSceneCalculator.ballRadius
+        let cuePt = SCNVector3(cue.x, y, cue.z)
+        let targetPt = SCNVector3(target.x, y, target.z)
+        return solveSequence(cue: cuePt, target: targetPt, rails: rails, y: y)
+    }
+
+    /// 全部合法库序候选（长度 1...maxCushions，相邻不相同不正对）。
+    /// 引擎 kick 反解的多解枚举入口（W3 消费；W2 benchmark 用它构造「全枚举」口径）。
+    static func candidateRailSequences(maxCushions: Int) -> [[Rail]] {
+        var out: [[Rail]] = []
+        for n in 1...max(1, maxCushions) {
+            out.append(contentsOf: railSequences(length: n))
+        }
+        return out
+    }
+
     /// Solve one fixed rail sequence by mirror unfolding. Returns [cue, P1…Pk, target]
     /// or nil if any cushion falls outside its rail segment.
     private static func solveSequence(cue: SCNVector3, target: SCNVector3,

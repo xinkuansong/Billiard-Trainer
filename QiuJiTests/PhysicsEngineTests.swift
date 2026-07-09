@@ -429,6 +429,269 @@ final class PhysicsEngineTests: XCTestCase {
         }
     }
 
+    // MARK: - 翻袋引擎反解（W1，20260709 翻袋反射页重构方案 §2）
+
+    /// 对一组库序逐条反解，返回全部「引擎终验真进袋」的预测（W3 多解枚举的最小内核）。
+    private func solveBankSequences(
+        cue: SCNVector3, target: SCNVector3, pocketIndex: Int, velocity: Float,
+        maxCushions: Int = 2, obstacles: [ObstacleBall] = []
+    ) -> [(rails: [BankShotCalculator.Rail], pred: ShotPrediction)] {
+        let sY = BTTablePhysics.surfaceY
+        var out: [(rails: [BankShotCalculator.Rail], pred: ShotPrediction)] = []
+        for rails in BankShotCalculator.candidateRailSequences(maxCushions: maxCushions) {
+            let input = ShotInput(
+                cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
+                velocity: velocity, spinX: 0, spinY: 0, surfaceY: sY,
+                obstacles: obstacles, bankRails: rails)
+            let pred = ShotPredictor.predict(input)
+            if pred.feasible, pred.simObjectPotted { out.append((rails, pred)) }
+        }
+        return out
+    }
+
+    /// 经典跨台翻袋盘面（目标球中台、翻长库进对侧袋）：1–2 库枚举中至少应有一条
+    /// 引擎背书的真实进袋解；解必须满足「母球段直击（碰前 0 库）+ 目标球落袋前
+    /// 吃库数 ≥ 库序数」的翻袋语义。
+    func test_bankSolve_typicalBoard_findsEnginePottedSolution() {
+        let sY = BTTablePhysics.surfaceY
+        let cue = SCNVector3(-0.5, sY + R, -0.2)
+        let target = SCNVector3(0.1, sY + R, 0.1)
+        let solutions = solveBankSequences(
+            cue: cue, target: target, pocketIndex: 1, velocity: 3.6)
+        XCTAssertFalse(solutions.isEmpty, "典型盘面 1–2 库枚举应至少有一条引擎真进袋的翻袋解")
+        for (rails, pred) in solutions {
+            XCTAssertEqual(pred.cueCushionsBeforeContact, 0,
+                           "翻袋解母球必须直击目标球（库序 \(rails.map(\.label))）")
+            XCTAssertGreaterThanOrEqual(pred.objectCushionCount, rails.count,
+                                        "目标球落袋前吃库数应 ≥ 指定库序数（库序 \(rails.map(\.label))）")
+            XCTAssertNotNil(pred.aimOffsetUsed, "翻袋解应回填 aimOffsetUsed（B1 重建口径）")
+            XCTAssertTrue(pred.objectPocketed, "画面=物理：objectPocketed 应与 simObjectPotted 一致")
+        }
+    }
+
+    /// 兼容性：`bankRails` 默认 nil 时行为与旧直击管线逐位一致（同一盘面直击应照常进袋）。
+    func test_bankRails_nilDefault_directShotUnchanged() {
+        let sY = BTTablePhysics.surfaceY
+        let target = SCNVector3(0.6, sY + R, 0.3)
+        let pocketIndex = 3
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: target, pocketIndex: pocketIndex, surfaceY: sY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(
+            targetBall: target, pocket: pocket, ballRadius: R)
+        let pd = horizontalDir(SCNVector3(pocket.x - target.x, 0, pocket.z - target.z))
+        let cue = SCNVector3(ghost.x - pd.x * 0.5, sY + R, ghost.z - pd.z * 0.5)
+        let input = ShotInput(
+            cueBall: cue, targetBall: target, pocketIndex: pocketIndex,
+            velocity: 3.0, spinX: 0, spinY: 0, surfaceY: sY)
+        XCTAssertNil(input.bankRails, "bankRails 默认必须为 nil（直击兼容）")
+        let pred = ShotPredictor.predict(input)
+        XCTAssertTrue(pred.feasible)
+        XCTAssertTrue(pred.objectPocketed, "直球应照常进袋（bank 分支不得影响直击管线）")
+        XCTAssertEqual(pred.objectCushionCount, 0, "直球目标球落袋前不应吃库")
+    }
+
+    /// 障碍球是真实碰撞体：把障碍球压在种子出发线上，引擎终验不得放行「穿球」假解。
+    /// 若仍有解进袋，其事件流须包含目标球与该障碍的真实碰撞（物理诚实），
+    /// 否则该库序自然淘汰（simObjectPotted=false）。
+    func test_bankSolve_obstacleOnSeedLine_noGhostThroughSolution() {
+        let sY = BTTablePhysics.surfaceY
+        let cue = SCNVector3(-0.5, sY + R, -0.2)
+        let target = SCNVector3(0.1, sY + R, 0.1)
+        // 先取无障碍时的第一条解，把障碍球放在其目标球路径中点上。
+        let clean = solveBankSequences(cue: cue, target: target, pocketIndex: 1, velocity: 3.6)
+        guard let first = clean.first, first.pred.objectPath.count >= 2 else {
+            XCTFail("前置：无障碍时应有翻袋解"); return
+        }
+        let path = first.pred.objectPath
+        let mid = path[path.count / 2]
+        let blocker = ObstacleBall(name: "_5", position: SCNVector3(mid.x, sY + R, mid.z))
+        let input = ShotInput(
+            cueBall: cue, targetBall: target, pocketIndex: 1,
+            velocity: 3.6, spinX: 0, spinY: 0, surfaceY: sY,
+            obstacles: [blocker], bankRails: first.rails)
+        let pred = ShotPredictor.predict(input)
+        if pred.simObjectPotted {
+            // 仍进袋只有两种诚实结局：(a) 求解器换了瞄准偏移、路径真实绕开障碍
+            //（与障碍全程保持 ≥2R）；(b) 与障碍发生了真实碰撞事件后仍进。禁止穿球。
+            let hitBlocker = pred.events.contains {
+                if case let .ballBall(a, b) = $0.kind { return a == "_5" || b == "_5" }
+                return false
+            }
+            if !hitBlocker {
+                var minDist = Float.greatestFiniteMagnitude
+                for path in [pred.objectPath, pred.cuePath] where path.count >= 2 {
+                    for i in 0..<(path.count - 1) {
+                        minDist = min(minDist, ShotPredictor.segmentPointDistanceXZ(
+                            a: path[i], b: path[i + 1], p: blocker.position))
+                    }
+                }
+                XCTAssertGreaterThanOrEqual(
+                    minDist, 2 * R - 0.002,
+                    "未碰障碍却进袋 ⇒ 路径必须真实绕开障碍（≥2R），禁止穿球假解")
+            }
+        }
+        // 无论进否，画面=物理不变量恒成立。
+        XCTAssertEqual(pred.objectPocketed, pred.simObjectPotted)
+    }
+
+    /// 力度是求解输入：同一可解库序把力度压到极低，目标球滚不到袋口 ⇒ 如实报未进袋
+    /// （绝不回退几何解谎报可进）。
+    func test_bankSolve_insufficientPower_honestlyNotPotted() {
+        let sY = BTTablePhysics.surfaceY
+        let cue = SCNVector3(-0.5, sY + R, -0.2)
+        let target = SCNVector3(0.1, sY + R, 0.1)
+        let clean = solveBankSequences(cue: cue, target: target, pocketIndex: 1, velocity: 3.6)
+        guard let first = clean.first else { XCTFail("前置：应有翻袋解"); return }
+        let input = ShotInput(
+            cueBall: cue, targetBall: target, pocketIndex: 1,
+            velocity: 0.8, spinX: 0, spinY: 0, surfaceY: sY, bankRails: first.rails)
+        let pred = ShotPredictor.predict(input)
+        XCTAssertFalse(pred.simObjectPotted, "极低力度翻袋应如实报未进袋（力度是求解输入）")
+        XCTAssertTrue(pred.feasible, "几何仍可行，只是力度不足——不可行原因不得混淆")
+    }
+
+    /// 无几何种子的库序（镜像展开解不出）：feasible=false + 原因，直接淘汰不进引擎。
+    func test_bankSolve_noSeedSequence_infeasible() {
+        let sY = BTTablePhysics.surfaceY
+        // 目标球贴左长库，向左库（自身贴着的库）翻 1 库进左下角袋：首段几乎零长，无种子。
+        let target = SCNVector3(-1.0, sY + R, -0.6)
+        let input = ShotInput(
+            cueBall: SCNVector3(0.5, sY + R, 0.3), targetBall: target, pocketIndex: 0,
+            velocity: 3.0, spinX: 0, spinY: 0, surfaceY: sY,
+            bankRails: [.left])
+        let pred = ShotPredictor.predict(input)
+        if !pred.feasible {
+            XCTAssertFalse(pred.infeasibleReason.isEmpty, "不可行必须带原因")
+        } else {
+            // 若几何上竟有种子，则引擎终验裁决——两种结局都必须是引擎口径，无几何假解。
+            XCTAssertEqual(pred.objectPocketed, pred.simObjectPotted, "画面=物理不变量")
+        }
+    }
+
+    // MARK: - 反射/kick 引擎反解（W2，20260709 翻袋反射页重构方案 §2.1）
+
+    /// 对一组库序 kick 反解（生产入口 `predictKickAll`，并行），
+    /// 返回全部「引擎终验真实碰到目标球」的预测。
+    private func solveKickSequences(
+        cue: SCNVector3, target: SCNVector3, velocity: Float,
+        maxCushions: Int = 2, obstacles: [ObstacleBall] = []
+    ) -> [(rails: [DiamondSystemCalculator.Rail], pred: ShotPrediction)] {
+        let sY = BTTablePhysics.surfaceY
+        let input = ShotInput(
+            cueBall: cue, targetBall: target, pocketIndex: 0,
+            velocity: velocity, spinX: 0, spinY: 0, surfaceY: sY,
+            obstacles: obstacles)
+        return ShotPredictor.predictKickAll(input, maxCushions: maxCushions)
+            .map { ($0.rails, $0.prediction) }
+    }
+
+    /// 典型解球盘面（两球中台、无遮挡）：1–2 库枚举中至少应有一条引擎背书的
+    /// 真实 kick 解；解必须满足「母球首碰 = 目标球 + 碰前吃库数 ≥ 库序数」。
+    func test_kickSolve_typicalBoard_findsEngineContactSolution() {
+        let sY = BTTablePhysics.surfaceY
+        let cue = SCNVector3(-0.5, sY + R, -0.2)
+        let target = SCNVector3(0.4, sY + R, 0.25)
+        let solutions = solveKickSequences(cue: cue, target: target, velocity: 3.6)
+        XCTAssertFalse(solutions.isEmpty, "典型盘面 1–2 库枚举应至少有一条引擎真实碰到的 kick 解")
+        for (rails, pred) in solutions {
+            let info = ShotPredictor.kickContactInfo(events: pred.events)
+            XCTAssertTrue(info.contacted, "kick 解母球首碰必须是目标球（库序 \(rails.map(\.label))）")
+            XCTAssertGreaterThanOrEqual(info.cushionsBefore, rails.count,
+                                        "母球碰前吃库数应 ≥ 指定库序数（库序 \(rails.map(\.label))）")
+            XCTAssertNotNil(pred.aimOffsetUsed, "kick 解应回填 aimOffsetUsed（B1 重建口径）")
+        }
+    }
+
+    /// 兼容性：`kickRails` 默认 nil 时行为与旧直击管线逐位一致。
+    func test_kickRails_nilDefault_directShotUnchanged() {
+        let sY = BTTablePhysics.surfaceY
+        let target = SCNVector3(0.6, sY + R, 0.3)
+        let input = ShotInput(
+            cueBall: SCNVector3(0.0, sY + R, 0.0), targetBall: target, pocketIndex: 3,
+            velocity: 3.0, spinX: 0, spinY: 0, surfaceY: sY)
+        XCTAssertNil(input.kickRails, "kickRails 默认必须为 nil（直击兼容）")
+        let pred = ShotPredictor.predict(input)
+        XCTAssertFalse(pred.kickContactMade, "直击管线恒不填充 kickContactMade")
+        XCTAssertEqual(pred.objectPocketed, pred.simObjectPotted, "画面=物理不变量")
+    }
+
+    /// 障碍球是真实碰撞体：把障碍球压在母球种子路线上，引擎终验不得放行「穿球」假解。
+    func test_kickSolve_obstacleOnSeedLine_noGhostThroughSolution() {
+        let sY = BTTablePhysics.surfaceY
+        let cue = SCNVector3(-0.5, sY + R, -0.2)
+        let target = SCNVector3(0.4, sY + R, 0.25)
+        let clean = solveKickSequences(cue: cue, target: target, velocity: 3.6)
+        guard let first = clean.first, first.pred.cuePath.count >= 2 else {
+            XCTFail("前置：无障碍时应有 kick 解"); return
+        }
+        // 障碍压在母球真实路径中点上。
+        let path = first.pred.cuePath
+        let mid = path[path.count / 2]
+        let blocker = ObstacleBall(name: "_5", position: SCNVector3(mid.x, sY + R, mid.z))
+        let input = ShotInput(
+            cueBall: cue, targetBall: target, pocketIndex: 0,
+            velocity: 3.6, spinX: 0, spinY: 0, surfaceY: sY,
+            obstacles: [blocker], kickRails: first.rails)
+        let pred = ShotPredictor.predict(input)
+        if pred.kickContactMade {
+            // 仍成功只有两种诚实结局：(a) 求解器换了瞄准偏移、母球**碰目标球前**真实绕开
+            // 障碍（首碰是目标球是判据本身）；(b) 碰到目标球**之后**与障碍发生了真实碰撞
+            // 事件（障碍被撞开后母球可合法经过其原位置）。禁止无碰撞事件的穿球。
+            let hitBlocker = pred.events.contains {
+                if case let .ballBall(a, b) = $0.kind { return a == "_5" || b == "_5" }
+                return false
+            }
+            if !hitBlocker {
+                var minDist = Float.greatestFiniteMagnitude
+                let cp = pred.cuePath
+                for i in 0..<(cp.count - 1) {
+                    minDist = min(minDist, ShotPredictor.segmentPointDistanceXZ(
+                        a: cp[i], b: cp[i + 1], p: blocker.position))
+                }
+                XCTAssertGreaterThanOrEqual(
+                    minDist, 2 * R - 0.002,
+                    "未碰障碍却成功 ⇒ 母球路径必须真实绕开障碍（≥2R），禁止穿球假解")
+            }
+        }
+    }
+
+    /// 力度是求解输入：同一可解库序把力度压到极低，母球滚不到目标球 ⇒ 如实报未碰到
+    /// （绝不回退几何解谎报可解）。
+    func test_kickSolve_insufficientPower_honestlyNoContact() {
+        let sY = BTTablePhysics.surfaceY
+        let cue = SCNVector3(-0.5, sY + R, -0.2)
+        let target = SCNVector3(0.4, sY + R, 0.25)
+        let clean = solveKickSequences(cue: cue, target: target, velocity: 3.6)
+        guard let first = clean.first else { XCTFail("前置：应有 kick 解"); return }
+        let input = ShotInput(
+            cueBall: cue, targetBall: target, pocketIndex: 0,
+            velocity: 0.6, spinX: 0, spinY: 0, surfaceY: sY, kickRails: first.rails)
+        let pred = ShotPredictor.predict(input)
+        XCTAssertFalse(pred.kickContactMade, "极低力度 kick 应如实报未碰到（力度是求解输入）")
+        XCTAssertTrue(pred.feasible, "几何仍可行，只是力度不足——不可行原因不得混淆")
+    }
+
+    /// 无几何种子的库序（镜像展开解不出）：feasible=false + 原因，直接淘汰不进引擎。
+    func test_kickSolve_noSeedSequence_infeasible() {
+        let sY = BTTablePhysics.surfaceY
+        // 母球贴左长库，向左库（自身贴着的库）翻 1 库去碰远处目标球：首段几乎零长，无种子。
+        let cue = SCNVector3(-1.0, sY + R, -0.6)
+        let input = ShotInput(
+            cueBall: cue, targetBall: SCNVector3(0.5, sY + R, 0.3), pocketIndex: 0,
+            velocity: 3.0, spinX: 0, spinY: 0, surfaceY: sY,
+            kickRails: [.left])
+        let pred = ShotPredictor.predict(input)
+        if !pred.feasible {
+            XCTAssertFalse(pred.infeasibleReason.isEmpty, "不可行必须带原因")
+        } else {
+            // 若几何上竟有种子，则引擎终验裁决——结局必须是引擎口径，无几何假解。
+            let info = ShotPredictor.kickContactInfo(events: pred.events)
+            XCTAssertEqual(pred.kickContactMade,
+                           info.contacted && info.cushionsBefore >= 1,
+                           "kickContactMade 必须与引擎事件流判据一致")
+        }
+    }
+
     // MARK: - Helpers
 
     private func horizontalDir(_ v: SCNVector3) -> SCNVector3 {

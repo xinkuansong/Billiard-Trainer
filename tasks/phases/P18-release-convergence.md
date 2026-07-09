@@ -267,3 +267,18 @@
 - **影响**：新组件 `Core/Components/ShotControlBar.swift`；`Scene3DAimingView` 自绘 64pt FAB 删除、统一 `BTSceneFAB`（T-P18-11 对应项已完成）；`ScreenshotTourUITests` 新增 `testB2ShotControls` 专项巡游作为该交互的截图回归锚点。
 - **备选与否决**：自由击球独立第 13 个场景页（否决，见 ADR-P18-01）；ShotControlBar 吞并背景/边距/球库（否决：各页版式差异大，强并会造成布局回退，只统一「打点+力度」行为语义）；B 类试打放 toolbar 菜单（否决：可发现性差，解出来就该一眼看到试打）。
 - **验证**：`make build` ✅；`ScreenshotTourUITests` 10/10 + `P5_AngleTrainingUITests` 8/8 全绿（19min）；b2-01…07 十张截图逐张核验通过（见 B2 验收门）；`QiuJiTests` 437/437 绿（2 skip，0 failures，3006s，TEST SUCCEEDED）。
+
+### ADR-P18-03 — 翻袋引擎反解（`ShotInput.bankRails` + 四层管线，W1）
+
+- **日期**：2026-07-09
+- **状态**：已采纳（翻袋反射页重构方案 W1 落地；真源 `docs/research/20260709-翻袋反射页重构方案.md` v2 §2）
+- **背景**：翻袋/反射解球器现为「几何幽灵球反推 + 单球追迹」混合口径，演示线与真实物理（squirt / 两球碰撞 throw / 传旋 / 速度衰减）不一致。用户拍板「严格教学 App，求解必须基于真实物理」，WP-B 4-a 由 v1.x 提前并入。这是把已有引擎能力（B1 scoring-only / B2 `AnalyticAim` / B3 `AnalyticShotRollout`）接完整，非新增物理，不违反 2026-06-18 物理封版纪律。
+- **决策**：
+  1. **求解语义进 `ShotPredictor`**：`ShotInput` 增 `bankRails: [BankShotCalculator.Rail]?`（nil = 直击，现行为逐位不变）。非空时 `predict` 走 bank 分支：反解「母球直击目标球（碰前吃库 == 0 硬判据），目标球经指定库序真实翻库进选定袋」。
+  2. **四层管线**：第 0 层镜像展开种子（`BankShotCalculator.solveSequence` 降级为种子生成器，经内部 API `bankSeedPath` 暴露）；第 1 层解析目标函数（`AnalyticAim` 母球段闭式 + `AnalyticShotRollout.rollout` 目标球段单球多库闭式，miss = 目标球路径到袋心最近距离 + 吃库数偏离惩罚）；第 2 层歧义回退（目标球段截断 / kiss 风险的候选就地换引擎 scoring-only 评估，粗扫/精修各限额 8 次引擎评估，预算耗尽按无效跳过 = 宁可少解）；第 3 层代表解引擎全保真终验物化（scoring-only 验证 → 通过者同 offset 全保真重建 `ShotPrediction`，失败自动试备选 ≤3）。
+  3. **搜索**：种子附近 ±8° 中心向外粗扫（0.4° 步长，进袋候选出现后再看 4 点即早停）→ 谷底黄金分割精修（tol 0.02°）。方案原文「secant 求根」改为黄金分割极小化同一目标（miss→0），语义等价、对非单调段更稳。
+  4. **诚实口径**：目标球撞障碍 = 候选淘汰（真实碰撞体语义，方案 §4.3）；jaw 截断 / 终验不进 = 该库序如实返回 `simObjectPotted=false`，绝不回退几何解；力度是求解输入，力不足如实报未进。
+  5. **边界决策**：`bankRails` 元素类型直接用 `BankShotCalculator.Rail`（Features 层枚举）——同 target 无编译边界，避免在 Core 复制库枚举造成双真源；`Core/Physics` 对 `Features/AngleTraining` 的这一处类型依赖以本 ADR 记录在案，W3 接线时若引入 SPM 模块化再行下沉。
+- **影响**：`ShotPredictor.swift`（bank 分支 ~250 行，直击管线零改动）；`BankShotCalculator` 增 `bankSeedPath` / `candidateRailSequences` 内部 API；UI 零改动（W3 接线）。
+- **备选与否决**：几何避障过滤（v1 方案，否决：障碍球作真实碰撞体进反解更正确）；每候选全程引擎搜索（否决：28 库序 × 45 点 × ~15ms 超秒级预算，解析层单点 µs 级）；在 Core 新建 `BankRail` 枚举（否决：双真源）。
+- **验证（真实输出）**：`PhysicsEngineTests` 新增 5 条翻袋用例全绿（典型盘面有解 + 直击不变量 + nil 兼容 + 障碍无穿球假解 + 低力度诚实未进）；`AnalyticRolloutParityTests.test_bankObjective_parityWithEngine` 对拍 30 盘面 × 210 点：假阳性 0、漏解 0；benchmark `[PERF-W1]` 单袋全枚举（28 库序）典型盘面 0.222s（目标 ≤0.5s ✅）、最坏侧（近库 + 4 障碍）0.684s（目标 ≤1s ✅）；回归面 `PhysicsEngineTests`+`PhysicsInvariantTests`+`ScoringOnlyConsistencyTests`+`PositionPlaySolverTests`+`SnookerSolverTests`+`AnalyticAimParityTests`+`DifficultySolverTests` 全绿；B0 既有 benchmark 同轮对比在噪声内（情形 A 0.15s / B 0.13s / 斯诺克 7.16s / 批量 0.47s）。全量 `QiuJiTests` 改前基线 491/491（2 skip）绿，改后全量回归另附。

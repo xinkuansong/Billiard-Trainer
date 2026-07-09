@@ -31,18 +31,21 @@ struct BTTableGridMenuToggle: View {
 // MARK: - 进袋/自由 单按钮点击切换（条 15.2：全页统一）
 
 /// 瞄准模式切换：单个胶囊按钮，显示当前模式，点击切换到另一模式。
+/// `solvedLabel`/`solvedIcon` 可定制非自由态文案（默认「进袋」；翻袋/反射解球页用「求解」，W6）。
 struct BTAimModeToggleButton: View {
     /// 当前是否自由模式。
     let isFree: Bool
     var isDisabled: Bool = false
+    var solvedLabel: String = "进袋"
+    var solvedIcon: String = "circle.circle"
     let onToggle: () -> Void
 
     var body: some View {
         Button(action: onToggle) {
             HStack(spacing: 5) {
-                Image(systemName: isFree ? "scope" : "circle.circle")
+                Image(systemName: isFree ? "scope" : solvedIcon)
                     .font(.system(size: 12, weight: .semibold))
-                Text(isFree ? "自由" : "进袋")
+                Text(isFree ? "自由" : solvedLabel)
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                 Image(systemName: "arrow.2.squarepath")
                     .font(.system(size: 10, weight: .semibold))
@@ -56,7 +59,7 @@ struct BTAimModeToggleButton: View {
         .buttonStyle(.plain)
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.42 : 1)
-        .accessibilityLabel("瞄准模式：\(isFree ? "自由" : "进袋")，点击切换")
+        .accessibilityLabel("瞄准模式：\(isFree ? "自由" : solvedLabel)，点击切换")
     }
 }
 
