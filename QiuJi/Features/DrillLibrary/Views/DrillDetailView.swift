@@ -8,6 +8,8 @@ struct DrillDetailView: View {
     @State private var drill: DrillContent?
     @State private var showSubscription = false
     @State private var showTutorial = false
+    /// 「上手试打」push（试打模式方案 §1.6：入口直进试打页，不做预览页）。
+    @State private var showTryout = false
     @State private var playingVideo: DrillVideo?
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
@@ -94,6 +96,11 @@ struct DrillDetailView: View {
                 DrillTutorialView(drill: drill)
             }
         }
+        .navigationDestination(isPresented: $showTryout) {
+            if let drill {
+                PositionPlayComposerView(sourceDrill: drill)
+            }
+        }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
                 .environmentObject(subscriptionManager)
@@ -108,8 +115,16 @@ struct DrillDetailView: View {
     private func tableSection(_ drill: DrillContent) -> some View {
         // 留一点点横向内边距（8pt），露出的是页面浅灰背景而非球台绿边——
         // 绿边已由 DrillSceneView 的相框比例(1.81)+取景(0.77)消除，与此 padding 无关。
-        DrillSceneView(drill: drill)
-            .padding(.horizontal, Spacing.sm)
+        // 「上手试打」（试打模式方案 §1.6）：Premium 锁定态带皇冠、点击弹订阅（Freemium 钩子）；
+        // 解锁态直进试打页（复用 showTutorial 同 push 模式）。
+        DrillSceneView(
+            drill: drill,
+            tryoutLocked: isLocked,
+            onTryoutTap: {
+                if isLocked { showSubscription = true } else { showTryout = true }
+            }
+        )
+        .padding(.horizontal, Spacing.sm)
     }
 
     // MARK: - Action Icon Row (gray, not green)

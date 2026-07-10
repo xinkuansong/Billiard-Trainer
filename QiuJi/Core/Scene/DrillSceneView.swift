@@ -317,9 +317,13 @@ final class DrillSceneController: ObservableObject {
     }
 }
 
-/// 详情页 live USDZ 2D 顶视球桌（2:1）+ 回放按钮。
+/// 详情页 live USDZ 2D 顶视球桌（2:1）+ 回放按钮 + 可选「上手试打」入口（试打模式方案 §1.6）。
 struct DrillSceneView: View {
     let drill: DrillContent
+    /// Premium 锁定态：试打按钮带皇冠（点击由宿主弹订阅页，Freemium 钩子）。
+    var tryoutLocked: Bool = false
+    /// 「上手试打」点击回调。nil = 不显示试打按钮（既有调用零改动）。
+    var onTryoutTap: (() -> Void)? = nil
     @StateObject private var controller = DrillSceneController()
     @State private var didAppear = false
 
@@ -360,6 +364,30 @@ struct DrillSceneView: View {
             .padding(Spacing.md)
             .accessibilityLabel("回放")
             .accessibilityIdentifier("drillPlayButton")
+        }
+        // 「上手试打」胶囊：与回放按钮同层覆层，对角 bottomTrailing（§1.6 入口）。
+        .overlay(alignment: .bottomTrailing) {
+            if let onTryoutTap {
+                Button(action: onTryoutTap) {
+                    HStack(spacing: 4) {
+                        if tryoutLocked {
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.btAccent)
+                        }
+                        Text("上手试打")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .background(.black.opacity(0.4))
+                    .clipShape(Capsule())
+                }
+                .padding(Spacing.md)
+                .accessibilityLabel("上手试打")
+                .accessibilityIdentifier("drillTryoutButton")
+            }
         }
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .onAppear {

@@ -15,12 +15,20 @@ struct PositionPlayComposerView: View {
     let initialBoard: BoardSnapshot?
     /// 可选初始瞄准模式（ADR-P18-01「自由击球」入口传 `.free`）。nil = 默认（进袋）。
     let initialMode: PositionPlayViewModel.AimMode?
+    /// 试打模式来源 drill（方案 20260709-动作库试打模式）：非 nil 时进入试打变体——
+    /// 标题 = drill 名、隐藏开球/重命名、左下「重摆球形」一键回 drill 初始布局、
+    /// 进场说明卡（§1.8）；球库与拖球保持编排台原样。默认自由模式（§1.1 自己上手试线路）。
+    let sourceDrill: DrillContent?
 
     init(initialBoard: BoardSnapshot? = nil,
-         initialMode: PositionPlayViewModel.AimMode? = nil) {
+         initialMode: PositionPlayViewModel.AimMode? = nil,
+         sourceDrill: DrillContent? = nil) {
         self.initialBoard = initialBoard
         self.initialMode = initialMode
+        self.sourceDrill = sourceDrill
     }
+
+    private var isTryout: Bool { sourceDrill != nil }
 
     @StateObject private var vm = PositionPlayViewModel()
     @State private var hasAppeared = false
@@ -40,6 +48,16 @@ struct PositionPlayComposerView: View {
     @State private var showRename = false
     @State private var renameText = ""
     @State private var banner: String?
+
+    // Tryout mode state（试打变体）
+    /// drill 初始布局快照（「重摆球形」回退目标）。
+    @State private var tryoutBoard: BoardSnapshot?
+    /// 进场说明卡显示态：落位后淡入，首次交互/点卡淡出，顶栏 info 召回。
+    @State private var showBrief = false
+    /// 首次手势提示（D3）：合并为说明卡底部一行，跨启动记忆（参照「角度与打点」首拖提示模式）。
+    @AppStorage("drillTryout.hasSeenGestureHint") private var hasSeenGestureHint = false
+    /// 进场淡入（D3）：试打变体球形落位后台面淡入。
+    @State private var stageRevealed = false
 
     // Destructive confirmations
     @State private var showClearTableConfirm = false
@@ -66,6 +84,8 @@ struct PositionPlayComposerView: View {
                         .frame(height: Self.topRowHeight)
                     stage(proxy)
                         .frame(height: sceneH)
+                        // D3 进场淡入：仅试打变体，球形落位后台面淡入（非试打路径恒为 1，零影响）。
+                        .opacity(isTryout && !stageRevealed ? 0 : 1)
                     bottomBar(proxy)
                         .frame(height: Self.bottomBarHeight)
                 }
@@ -87,6 +107,9 @@ struct PositionPlayComposerView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) { navStatus }
+            if isTryout {
+                ToolbarItem(placement: .topBarTrailing) { briefInfoButton }
+            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .alert("命名走位序列", isPresented: $showRename) {
@@ -114,10 +137,64 @@ struct PositionPlayComposerView: View {
             if !hasAppeared {
                 hasAppeared = true
                 vm.setupScene()
-                if let initialBoard { vm.loadBoard(initialBoard) }
-                if let initialMode { vm.aimMode = initialMode }
+                if let sourceDrill {
+                    // 试打变体：载入 drill 根级球局，默认自由模式（§1.1），球落位后说明卡淡入。
+                    if let board = DrillBoardBuilder.board(for: sourceDrill) {
+                        tryoutBoard = board
+                        vm.loadBoard(board)
+                    }
+                    vm.aimMode = initialMode ?? .free
+                    withAnimation(.easeIn(duration: 0.45).delay(0.1)) { stageRevealed = true }
+                    withAnimation(.easeInOut(duration: 0.35).delay(0.6)) { showBrief = true }
+                } else {
+                    if let initialBoard { vm.loadBoard(initialBoard) }
+                    if let initialMode { vm.aimMode = initialMode }
+                }
             }
         }
+    }
+
+    // MARK: - Tryout helpers（试打变体）
+
+    /// 首次交互（拖瞄/拖球/击球/点桌面）自动淡出说明卡（§1.8 交互红线：不阻断操作）；
+    /// 首次交互同时记忆「已见手势提示」（D3，跨启动）。
+    private func dismissBriefOnInteraction() {
+        if isTryout, !hasSeenGestureHint { hasSeenGestureHint = true }
+        guard showBrief else { return }
+        withAnimation(.easeOut(duration: 0.25)) { showBrief = false }
+    }
+
+    /// 顶栏 info：召回说明卡。
+    private var briefInfoButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) { showBrief.toggle() }
+        } label: {
+            Image(systemName: "info.circle")
+        }
+        .accessibilityLabel("试打说明")
+        .accessibilityIdentifier("tryout.info")
+    }
+
+    /// 左下「重摆球形」（一等公民，替代清空桌面/清空重来）：一键回 drill 初始布局。
+    /// `loadBoard` 有 `!isPlaying` 闸 ⇒ 回放中禁用。
+    private var rearrangeButton: some View {
+        Button {
+            if let tryoutBoard { vm.loadBoard(tryoutBoard) }
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("重摆球形")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(tryoutBoard != nil ? Color.btPrimary : .white.opacity(0.35))
+            .frame(width: 52, height: 46)
+            .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(tryoutBoard == nil || vm.isPlaying)
+        .accessibilityIdentifier("tryout.rearrange")
+        .accessibilityLabel("重摆球形")
     }
 
     private var clearTableWarning: String {
@@ -145,9 +222,15 @@ struct PositionPlayComposerView: View {
                         .allowsHitTesting(!vm.isPlaying)
                 }
 
-                // G6 开球按钮（条 19.2 本页无开球，禁用态）：左下角，底边齐球桌底线。
-                BTBreakSideButton(isEnabled: false) {}
-                    .btStageFrame(proxy.breakButtonFrame())
+                // G6 左下角：试打变体 = 「重摆球形」一等公民（§1.7 隐藏开球）；
+                // 编排台 = 开球按钮（条 19.2 本页无开球，禁用态）。底边齐球桌底线。
+                if isTryout {
+                    rearrangeButton
+                        .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
+                } else {
+                    BTBreakSideButton(isEnabled: false) {}
+                        .btStageFrame(proxy.breakButtonFrame())
+                }
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                 BTShotInstrumentColumn(
@@ -163,13 +246,35 @@ struct PositionPlayComposerView: View {
                 BTShotActionColumn(
                     strikeTitle: vm.isPlaying ? "击球中" : "击球",
                     strikeEnabled: strikeEnabled,
-                    onStrike: { vm.play() },
+                    onStrike: {
+                        dismissBriefOnInteraction()
+                        vm.play()
+                    },
                     undoEnabled: !vm.isPlaying && vm.canReplay,
                     onUndo: { vm.replayCurrent() },
                     playbackEnabled: !vm.isPlaying && vm.canPlayback,
                     onPlayback: { vm.replayLastShot() }
                 )
                 .btStageFrame(proxy.actionColumnFrame())
+            }
+
+            // 进场说明卡（§1.8）：贴球桌上方淡入，非 modal 不阻断操作。
+            if isTryout, showBrief, let sourceDrill {
+                DrillTryoutBriefCard(
+                    drill: sourceDrill,
+                    footnote: hasSeenGestureHint
+                        ? nil
+                        : "拖动台面瞄准 · 拖动球改摆 · 点「击球」试打"
+                ) {
+                    // 点卡关闭也视为「已见手势提示」（D3 跨启动记忆）。
+                    if !hasSeenGestureHint { hasSeenGestureHint = true }
+                    withAnimation(.easeOut(duration: 0.25)) { showBrief = false }
+                }
+                .padding(.horizontal, 64)
+                .padding(.top, proxy.isValid ? max(proxy.tableRect.minY + 6, 6) : 40)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .transition(.opacity)
+                .zIndex(5)
             }
 
             // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（ADR-P11-09）。
@@ -194,6 +299,7 @@ struct PositionPlayComposerView: View {
             // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
             draggableBallNodes: vm.breakRunner?.draggableCue ?? vm.draggableBalls,
             onDragBegan: { node in
+                dismissBriefOnInteraction()
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else { vm.dragBegan(node: node) }
             },
@@ -214,8 +320,14 @@ struct PositionPlayComposerView: View {
             },
             selectableBallNodes: vm.isBreakMode ? [] : vm.selectableBalls,
             onBallTapped: { vm.selectTarget(node: $0) },
-            onTableTapped: { if !vm.isBreakMode { vm.handleTableTap(world: $0) } },
-            onAimDragged: { if !vm.isBreakMode { vm.handleAimDrag(world: $0) } },
+            onTableTapped: {
+                dismissBriefOnInteraction()
+                if !vm.isBreakMode { vm.handleTableTap(world: $0) }
+            },
+            onAimDragged: {
+                dismissBriefOnInteraction()
+                if !vm.isBreakMode { vm.handleAimDrag(world: $0) }
+            },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -226,9 +338,10 @@ struct PositionPlayComposerView: View {
     // MARK: - Nav status (#2：状态文案上移导航栏，不占球桌)
 
     /// 首次进入不暴露「未命名走位」（T-P18-37）：默认名时标题显示页面名「自由走位」
-    /// （条 19.4 改名），用户重命名后才显示文档名。
+    /// （条 19.4 改名），用户重命名后才显示文档名。试打变体标题 = drill 名（§1.7）。
     private var navTitleText: String {
-        vm.sequence.name == "未命名走位" ? "自由走位" : vm.sequence.name
+        if let sourceDrill { return sourceDrill.nameZh }
+        return vm.sequence.name == "未命名走位" ? "自由走位" : vm.sequence.name
     }
 
     private var navStatus: some View {
@@ -423,6 +536,8 @@ struct PositionPlayComposerView: View {
             .frame(width: 38, height: 38)
             .contentShape(Circle())
             .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
+            .accessibilityElement()
+            .accessibilityIdentifier("paletteBall_\(key)")
             .onTapGesture {
                 if onTable { vm.pulseTableBall(key) } else { vm.placeFromPalette(key) }
             }
@@ -433,6 +548,7 @@ struct PositionPlayComposerView: View {
         DragGesture(minimumDistance: 10, coordinateSpace: .named("composer"))
             .onChanged { value in
                 guard !vm.isPlaying else { return }
+                dismissBriefOnInteraction()
                 draggingKey = key
                 dragLocation = value.location
                 dragOverTable = sceneFrame.contains(value.location)
@@ -473,21 +589,26 @@ struct PositionPlayComposerView: View {
 
     // MARK: - Toolbar menu
 
+    /// 试打变体（§1.7）：隐藏「重命名」，清空桌面/清空重来由「重摆球形」一等公民按钮取代。
     private var moreMenu: some View {
         Menu {
-            Button("重命名", systemImage: "pencil") {
-                renameText = vm.sequence.name
-                showRename = true
+            if !isTryout {
+                Button("重命名", systemImage: "pencil") {
+                    renameText = vm.sequence.name
+                    showRename = true
+                }
             }
             Section("显示") {
                 BTTableGridMenuToggle(scene: vm.scene)
             }
-            Section {
-                Button("清空桌面", systemImage: "trash", role: vm.isRecording ? .destructive : nil) {
-                    if vm.isRecording { showClearTableConfirm = true } else { vm.clearTable() }
-                }
-                Button("清空并重来", systemImage: "arrow.counterclockwise", role: .destructive) {
-                    showResetConfirm = true
+            if !isTryout {
+                Section {
+                    Button("清空桌面", systemImage: "trash", role: vm.isRecording ? .destructive : nil) {
+                        if vm.isRecording { showClearTableConfirm = true } else { vm.clearTable() }
+                    }
+                    Button("清空并重来", systemImage: "arrow.counterclockwise", role: .destructive) {
+                        showResetConfirm = true
+                    }
                 }
             }
         } label: {
