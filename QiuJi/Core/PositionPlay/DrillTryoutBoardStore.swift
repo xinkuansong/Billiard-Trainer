@@ -32,8 +32,18 @@ struct DrillTryoutFormation: Identifiable {
     let stepCount: Int
     /// 首杆意图（说明卡「局面目标/参考打法」；空序列为 nil）。
     let firstShot: PlannedShot?
+    /// 完整逐杆序列（Q19.2④ 序列模式逐杆播放；空 = 无多杆数据，序列模式降级）。
+    let steps: [SequenceStep]
 
     var id: String { fileName }
+
+    /// 选球形副标题球数（Q19.2①）：初始在桌目标球数，**不含母球**。
+    var objectBallCount: Int {
+        initial.onTable.keys.filter { !PositionPlayBall.isCue($0) }.count
+    }
+
+    /// 是否具备可逐杆播放的序列（≥1 杆）。
+    var hasSequence: Bool { !steps.isEmpty }
 }
 
 /// 从 Bundle `DrillBoards/` 加载 drill 的试打球形集合。
@@ -64,7 +74,8 @@ enum DrillTryoutBoardStore {
                     fileName: url.lastPathComponent,
                     initial: sequence.initial,
                     stepCount: sequence.steps.count,
-                    firstShot: sequence.steps.first?.shot
+                    firstShot: sequence.steps.first?.shot,
+                    steps: sequence.steps
                 )
             }
     }

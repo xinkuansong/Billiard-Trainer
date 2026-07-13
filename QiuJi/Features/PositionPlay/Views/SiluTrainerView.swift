@@ -161,16 +161,10 @@ struct SiluTrainerView: View {
             )
             .disabled(vm.isPlaying)
 
-            Spacer(minLength: 0)
+            // Q15.3：清除键正常尺寸、紧贴「摆球」chip 右侧（常驻，无约束时灰禁不增删避免布局跳变）。
+            BTEraserButton(isEnabled: !vm.isPlaying && vm.hasConstraint) { vm.clearConstraint() }
 
-            // 常驻（#9）：无约束时变灰禁用，不增删避免布局跳变。
-            Button { vm.clearConstraint() } label: {
-                Image(systemName: "eraser")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(vm.hasConstraint ? 0.8 : 0.3))
-            }
-            .disabled(vm.isPlaying || !vm.hasConstraint)
-            .accessibilityLabel("清除约束")
+            Spacer(minLength: 0)
     }
 
     // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
@@ -179,6 +173,11 @@ struct SiluTrainerView: View {
         ZStack(alignment: .topLeading) {
             sceneContainer
             if vm.activeTool != .none { drawingOverlay }
+
+            // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
+            if let runner = vm.breakRunner {
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy)
+            }
 
             if !vm.isBreakMode && proxy.isValid {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
@@ -241,6 +240,8 @@ struct SiluTrainerView: View {
             },
             selectableBallNodes: (vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,
             onBallTapped: { vm.selectTarget(node: $0) },
+            // G18/V6：开球模式拖屏调瞄准（G13 相对语义）；非开球模式本页无自由拖瞄，忽略。
+            onAimNudged: { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

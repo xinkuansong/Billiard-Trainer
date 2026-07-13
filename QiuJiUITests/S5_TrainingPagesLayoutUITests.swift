@@ -57,10 +57,10 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         return false
     }
 
-    /// P4.1–P4.3：角度与打点——默认布局（球桌上、球库下、宽度对齐）+ 黑 8 上桌进球线黑色。
+    /// P4.1–P4.3：角度与瞄准——默认布局（球桌上、球库下、宽度对齐）+ 黑 8 上桌进球线黑色。
     func testAngleDynamicLayout() throws {
-        guard openCard(homeTab: "学", title: "角度与打点") else {
-            XCTFail("未能进入角度与打点"); return
+        guard openCard(homeTab: "学", title: "角度与瞄准") else {
+            XCTFail("未能进入角度与瞄准"); return
         }
         sleep(2)
         snap("s5-01-angledynamic-default")
@@ -137,8 +137,8 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
 
     /// G2：台面网格提亮——齿轮菜单开启「台面网格 4×8」后截图核验灰白网格。
     func testTableGridBrightness() throws {
-        guard openCard(homeTab: "学", title: "角度与打点") else {
-            XCTFail("未能进入角度与打点"); return
+        guard openCard(homeTab: "学", title: "角度与瞄准") else {
+            XCTFail("未能进入角度与瞄准"); return
         }
         sleep(2)
 

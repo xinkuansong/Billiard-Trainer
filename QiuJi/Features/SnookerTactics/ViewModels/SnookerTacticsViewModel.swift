@@ -2,15 +2,21 @@ import Foundation
 import SceneKit
 import SwiftUI
 
-/// 做斯诺克战术工具 ViewModel（安全球反解，ADR-P16-01）。
+/// 防守战术工具 ViewModel（安全球反解，ADR-P16-01；V8 中八语义重做）。
 ///
-/// 独立页面、布局参考思路训练器（`SiluTrainerViewModel`），但语义是**防守/安全球**：摆球后选一颗
-/// **目标球**（这一杆要合法首触、且要把对手困住的球）+ 一颗**指定障碍球**，由 `PositionPlaySolver.solveSnooker`
-/// 反解出塞/力度/瞄准，使击球后母球合法碰到目标球、不进袋，并停在「从母球看目标球的视线被障碍球完全挡死」
-/// 的位置。结果默认显示最优解、可「下一解」翻档；塞/力度控件为只读指示器。
+/// 独立页面、布局参考思路训练器（`SiluTrainerViewModel`），语义是**防守/安全球**：摆球后只选一颗
+/// **目标球**（我方将合法首触的球），系统按**中八规则**推断防守对象——击打目标球后让**对方球组**
+/// （目标全色 1–7 则对方=花色 9–15，反之；对方组清空只剩 8 号则防 8 号）全部/尽量不可见。
+/// 由 `PositionPlaySolver.solveSnooker` 反解出塞/力度/瞄准，使击球后母球合法碰到目标球、不进袋、
+/// 并停在「对方球组视线被其它球挡死（完全斯诺克）或只剩长台/大切角（高难度可行解）」的位置。
+/// 结果默认显示最优解、可「下一解」翻档；塞/力度控件为只读指示器。
 ///
-/// 坐标契约：摆球快照为归一化系（x∈[0,1]、y∈[0,0.5]）；几何遮挡判定在 SceneKit 世界系 X–Z（见
-/// `AngleSceneCalculator.snookerCoverage`）。自由球命名沿用 board key（母球 `cueBall`），与 `predName` 一致。
+/// 规则：台面同时存在全色与花色时**不得以 8 号为目标球**（选球拦截 + 提示，对齐
+/// `BilliardRulesEngine.legalTargetKeys` 中八首触语义）。
+///
+/// 坐标契约：摆球快照为归一化系（x∈[0,1]、y∈[0,0.5]）；几何遮挡/可见性判定在 SceneKit 世界系
+/// X–Z 平面、Y 朝上、单位米（见 `AngleSceneCalculator.defenseCoverage`/`snookerCoverage`）。
+/// 自由球命名沿用 board key（母球 `cueBall`），与 `predName` 一致。
 @MainActor
 final class SnookerTacticsViewModel: ObservableObject {
 
@@ -19,10 +25,8 @@ final class SnookerTacticsViewModel: ObservableObject {
     enum Tool: Equatable {
         /// 摆球（拖动 / 球库增删）。
         case none
-        /// 点选目标球（首触 + 被困）。
+        /// 点选目标球（我方将合法首触的球）。
         case selectTarget
-        /// 点选障碍球（指定遮挡）。
-        case selectBlocker
     }
 
     // MARK: - Scene
@@ -35,20 +39,51 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     @Published private(set) var onTableKeys: [String] = []
     @Published private(set) var selectedTargetKey: String?
-    @Published private(set) var selectedBlockerKey: String?
 
     var paletteKeys: [String] {
         PositionPlayBall.allKeys.filter { !onTableKeys.contains($0) }
     }
 
-    // MARK: - Published tool state
+    // MARK: - 中八规则：对方球组推断 + 8 号目标拦截（对齐 legalTargetKeys 语义）
 
-    @Published var activeTool: Tool = .none {
-        didSet { if oldValue != activeTool { statusText = toolHint() } }
+    /// 目标球所属组的**对方球组**在桌球键（中八）：
+    /// - 目标全色（1–7）→ 对方 = 在桌花色（9–15）；花色已清空 → 只剩 8 号则防 8 号；
+    /// - 目标花色 → 对方 = 在桌全色；全色已清空 → 只剩 8 号则防 8 号；
+    /// - 目标 8 号（仅单组在桌时合法）→ 对方 = 在桌的那一组。
+    var opponentKeys: [String] {
+        guard let t = selectedTargetKey else { return [] }
+        return Self.opponentKeys(for: t, onTable: onTableKeys)
     }
 
-    /// 两颗角色球都选齐才能求解。
-    var hasConstraint: Bool { selectedTargetKey != nil && selectedBlockerKey != nil }
+    nonisolated static func opponentKeys(for targetKey: String, onTable: [String]) -> [String] {
+        let solids = onTable.filter { BallGroup.of($0) == .solid }.sorted()
+        let stripes = onTable.filter { BallGroup.of($0) == .stripe }.sorted()
+        let hasEight = onTable.contains("_8")
+        switch BallGroup.of(targetKey) {
+        case .solid:  return stripes.isEmpty ? (hasEight ? ["_8"] : []) : stripes
+        case .stripe: return solids.isEmpty ? (hasEight ? ["_8"] : []) : solids
+        case .eight:
+            if !solids.isEmpty { return solids }
+            if !stripes.isEmpty { return stripes }
+            return []
+        case .none:   return []
+        }
+    }
+
+    /// 该球是否可作目标球（中八首触合法性拦截，对齐 `legalTargetKeys`）：
+    /// 母球/非法键不可；台面**同时**存在全色与花色时 8 号不可（须先清本方组）。
+    nonisolated static func canTarget(_ key: String, onTable: [String]) -> Bool {
+        guard !PositionPlayBall.isCue(key), BallGroup.of(key) != nil else { return false }
+        if BallGroup.of(key) == .eight {
+            let hasSolid = onTable.contains { BallGroup.of($0) == .solid }
+            let hasStripe = onTable.contains { BallGroup.of($0) == .stripe }
+            return !(hasSolid && hasStripe)
+        }
+        return true
+    }
+
+    /// 目标球已选、且推断出至少一颗对方球，方可求解。
+    var canSolve: Bool { selectedTargetKey != nil && !opponentKeys.isEmpty }
 
     // MARK: - Published solve options（与思路训练器同口径，默认完整能力）
 
@@ -72,7 +107,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "拖动摆球 · 选「目标球」（青环）与「障碍球」（红环），再点求解"
+    @Published private(set) var statusText = "拖动摆球 · 选一颗「目标球」（我方要打的球），再点求解"
 
     var currentSolution: PositionPlaySolution? {
         guard solutions.indices.contains(currentIndex) else { return nil }
@@ -84,6 +119,12 @@ final class SnookerTacticsViewModel: ObservableObject {
             && (currentSolution?.prediction.duration ?? 0) > 0.05
     }
 
+    // MARK: - Published tool state
+
+    @Published var activeTool: Tool = .none {
+        didSet { if oldValue != activeTool { statusText = toolHint() } }
+    }
+
     // MARK: - Internals
 
     private var lastAimDirection: SCNVector3?
@@ -91,10 +132,16 @@ final class SnookerTacticsViewModel: ObservableObject {
     private var solveGeneration = 0
     private var surfaceY: Float { scene.surfaceY }
 
-    // MARK: - Last shot（条 21.3 同规范：上一杆/回放）
+    // MARK: - Last shot（G17：上一杆完整恢复 / 回放）
 
-    private var lastShotContext: (before: BoardSnapshot, shot: PlannedShot,
-                                  prediction: ShotPrediction)?
+    /// 防守页「上一杆」完整上下文 = 共享求解快照（`SolveShotSnapshot`，V3 落地）+ 本页选择模型（目标球）。
+    /// 上一杆 = 回到击打前**完整状态**（球形 + 目标球 + 解集缓存 + 打点/力度/瞄准 + 求解选项，免重解）。
+    /// （internal：供单测直接验证「快照→恢复」逐字段一致。）
+    struct UndoContext {
+        var snapshot: SolveShotSnapshot
+        var selectedTargetKey: String?
+    }
+    private var lastShotContext: UndoContext?
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -111,12 +158,14 @@ final class SnookerTacticsViewModel: ObservableObject {
     }
 
     private func applyDefaultLayout() {
-        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.24, y: 0.32))
-        place(key: "_1", normalized: CanvasPoint(x: 0.74, y: 0.17))
-        place(key: "_8", normalized: CanvasPoint(x: 0.52, y: 0.27))
+        // 双组在桌的示例局：全色 _1/_2 + 花色 _9/_10。默认目标 = _1（全色）⇒ 防花色组。
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.22, y: 0.30))
+        place(key: "_1", normalized: CanvasPoint(x: 0.54, y: 0.20))
+        place(key: "_2", normalized: CanvasPoint(x: 0.40, y: 0.35))
+        place(key: "_9", normalized: CanvasPoint(x: 0.72, y: 0.16))
+        place(key: "_10", normalized: CanvasPoint(x: 0.80, y: 0.32))
         refreshOnTableKeys()
         selectedTargetKey = "_1"
-        selectedBlockerKey = "_8"
         refreshOverlays()
     }
 
@@ -127,7 +176,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         for (key, pt) in snapshot.onTable { place(key: key, normalized: pt) }
         refreshOnTableKeys()
         selectedTargetKey = nil
-        selectedBlockerKey = nil
+        autoSelectTarget()
         refreshOverlays()
         invalidateSolutions()
     }
@@ -159,7 +208,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         guard !isPlaying else { return }
         place(key: key, normalized: freeNormalizedSlot())
         refreshOnTableKeys()
-        assignDefaultRoleIfNeeded(key)
+        assignTargetIfNeeded(key)
         invalidateSolutions()
     }
 
@@ -169,26 +218,24 @@ final class SnookerTacticsViewModel: ObservableObject {
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
         place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)))
         refreshOnTableKeys()
-        assignDefaultRoleIfNeeded(key)
+        assignTargetIfNeeded(key)
         invalidateSolutions()
     }
 
-    /// 新摆上的非母球：若目标/障碍尚缺，自动补位（先目标后障碍），降低首用门槛。
-    private func assignDefaultRoleIfNeeded(_ key: String) {
-        guard !PositionPlayBall.isCue(key) else { return }
-        if selectedTargetKey == nil, key != selectedBlockerKey {
-            selectedTargetKey = key
-        } else if selectedBlockerKey == nil, key != selectedTargetKey {
-            selectedBlockerKey = key
-        }
+    /// 新摆上的球：若尚无目标球且该球可作合法目标（非母球、非双组在桌的 8 号），自动补为目标球。
+    private func assignTargetIfNeeded(_ key: String) {
+        guard selectedTargetKey == nil, Self.canTarget(key, onTable: onTableKeys) else { return }
+        selectedTargetKey = key
     }
 
     func removeFromTable(_ key: String) {
         guard !isPlaying else { return }
         scene.hideBall(key: key)
         if selectedTargetKey == key { selectedTargetKey = nil }
-        if selectedBlockerKey == key { selectedBlockerKey = nil }
         refreshOnTableKeys()
+        // 目标球若非法（双组在桌残留 8 号目标）则清除。
+        if let t = selectedTargetKey, !Self.canTarget(t, onTable: onTableKeys) { selectedTargetKey = nil }
+        if selectedTargetKey == nil { autoSelectTarget() }
         invalidateSolutions()
     }
 
@@ -196,6 +243,23 @@ final class SnookerTacticsViewModel: ObservableObject {
         let scenePos = AngleSceneCalculator.normalizedToScene(
             point: CGPoint(x: normalized.x, y: normalized.y), surfaceY: surfaceY)
         scene.showBall(key: key, scenePosition: scenePos)
+    }
+
+    /// 无目标球时自动选一颗合法目标（离母球最近者）。
+    private func autoSelectTarget() {
+        guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
+            selectedTargetKey = nil
+            return
+        }
+        let candidates = onTableKeys.filter { Self.canTarget($0, onTable: onTableKeys) }
+        selectedTargetKey = candidates.min { a, b in
+            distanceToCue(a, cue: cue.position) < distanceToCue(b, cue: cue.position)
+        }
+    }
+
+    private func distanceToCue(_ key: String, cue: SCNVector3) -> Float {
+        guard let node = scene.allBallNodes[key], !node.isHidden else { return .greatestFiniteMagnitude }
+        return AngleSceneCalculator.horizontalDistance(cue, node.position)
     }
 
     private func freeNormalizedSlot() -> CanvasPoint {
@@ -267,27 +331,22 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     // MARK: - Selection
 
-    /// 点球：按当前工具设为目标 / 障碍。同一颗不能既是目标又是障碍（自动让位）。
+    /// 点球：设为目标球。8 号在双组在桌时不可作目标（拦截 + 提示，对齐中八首触规则）。
     func selectBall(node: SCNNode) {
         guard let key = scene.ballKey(for: node) else { return }
         guard !isPlaying, onTableKeys.contains(key), !PositionPlayBall.isCue(key) else { return }
-        switch activeTool {
-        case .selectTarget:
-            selectedTargetKey = key
-            if selectedBlockerKey == key { selectedBlockerKey = nil }
-        case .selectBlocker:
-            selectedBlockerKey = key
-            if selectedTargetKey == key { selectedTargetKey = nil }
-        case .none:
+        guard activeTool == .selectTarget else { return }
+        guard Self.canTarget(key, onTable: onTableKeys) else {
+            statusText = "台面同时有全色与花色，不能选 8 号做目标球（须先清完本方组）"
             return
         }
+        selectedTargetKey = key
         refreshOverlays()
         invalidateSolutions()
     }
 
     func clearSelection() {
         selectedTargetKey = nil
-        selectedBlockerKey = nil
         refreshOverlays()
         invalidateSolutions()
         statusText = toolHint()
@@ -304,7 +363,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         scene.hideCueStick()
         resetParamDisplay()
         refreshOverlays()
-        statusText = hasConstraint ? "已就绪，点「求解」反解做斯诺克" : toolHint()
+        statusText = canSolve ? readyHint() : toolHint()
     }
 
     private func resetParamDisplay() {
@@ -313,8 +372,13 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     func solve() {
         guard !isPlaying else { return }
-        guard let targetKey = selectedTargetKey, let blockerKey = selectedBlockerKey else {
+        guard let targetKey = selectedTargetKey else {
             statusText = needsSetupHint()
+            return
+        }
+        let opponents = opponentKeys
+        guard !opponents.isEmpty else {
+            statusText = "没有需要隐藏的对方球（对方球组已空）"
             return
         }
         let before = currentSnapshot()
@@ -331,7 +395,7 @@ final class SnookerTacticsViewModel: ObservableObject {
 
         solveQueue.async { [weak self] in
             let result = PositionPlaySolver.solveSnooker(
-                before: before, targetKey: targetKey, blockerKey: blockerKey,
+                before: before, targetKey: targetKey, opponentKeys: opponents,
                 surfaceY: y, params: params)
             DispatchQueue.main.async {
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
@@ -339,7 +403,7 @@ final class SnookerTacticsViewModel: ObservableObject {
                 self.solutions = result
                 self.currentIndex = 0
                 if result.isEmpty {
-                    self.statusText = "未找到斯诺克解（试着移动障碍球到母球与目标球之间，或换障碍球）"
+                    self.statusText = "未找到可行防守解（母球难以合法碰目标球并停稳；试着移动母球/目标球）"
                     self.resetParamDisplay()
                     self.refreshOverlays()
                 } else {
@@ -379,7 +443,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         let prefix = solutions.count > 1 ? "解 \(currentIndex + 1)/\(solutions.count) · " : ""
         let advanced = sol.beyondCushionBudget ? "进阶（超基础走位）· " : ""
         if !sol.satisfiesConstraint {
-            return prefix + advanced + "最接近解（未完全挡死）· " + sol.summary
+            return prefix + advanced + "高难度可行解（未完全斯诺克）· " + sol.summary
         }
         return prefix + advanced + sol.summary
     }
@@ -389,20 +453,15 @@ final class SnookerTacticsViewModel: ObservableObject {
     private func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
-        // 线语言 v2（条 12）+ 三档标注（条 12.5）：母球碰前白实线 + 碰后白虚线；
-        // 被带动球本色虚线（本页自由反解无 objectPath，目标球轨迹也在 extraBallPaths）。
         let detail = UserPreferences.shared.trajectoryDetail
         scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
                                into: &trajectoryNodes)
         if detail != .minimal {
             for (key, pts) in p.extraBallPaths {
-                // 「双」档只保留目标球轨迹。
                 if detail == .core, key != shot.targetKey { continue }
                 scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
             }
         }
-        // 重叠标注 L0（T-P18-42）：自由反解无 ghost 字段，用首碰瞬间母球球心
-        // （`firstContact` 即假想球球心）摆圈 + 接触点绿点；无碰撞则保持隐藏。
         if let ghostCenter = p.firstContact, let ghost = scene.ghostBallNode,
            let target = scene.allBallNodes[shot.targetKey], !target.isHidden {
             ghost.position = SCNVector3(ghostCenter.x,
@@ -432,37 +491,54 @@ final class SnookerTacticsViewModel: ObservableObject {
         node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
     }
 
-    /// 角色环 + 斯诺克遮挡可视化。无解时画当前摆位的角色环；有解时画三球**终位**的遮挡视线
-    /// （完全挡死 = 灰视线，半斯诺克 = 红视线）+ 障碍球终位红环 + 母球终位白环。
+    /// 角色环 + 防守可见性可视化。
+    /// - 有解时：画母球终位（白环）+ 目标球终位（青环）+ 对每颗对方球终位画视线——
+    ///   被挡死 = 灰视线 + 灰环；仍可见 = 红视线 + 红环。
+    /// - 编辑态：目标球青环 + 对方球组红环（提示要隐藏谁）。
     private func refreshOverlays() {
         scene.clearResultNodes(nodes: &overlayNodes)
         guard !isPlaying else { return }
         let cyan = UIColor(red: 0.2, green: 0.85, blue: 0.95, alpha: 0.95)
         let red = UIColor(red: 0.98, green: 0.36, blue: 0.34, alpha: 0.95)
+        let gray = UIColor(white: 0.7, alpha: 0.85)
         let r = AngleSceneCalculator.ballRadius
 
         if let sol = currentSolution, sol.prediction.feasible, !isComputing,
-           let finalC = sol.prediction.finalPositions[ShotInput.cueBallName],
-           let tkey = selectedTargetKey, let bkey = selectedBlockerKey,
-           let finalT = sol.prediction.finalPositions[tkey],
-           let finalB = sol.prediction.finalPositions[bkey] {
-            // 终位遮挡视线。
-            let lineColor = sol.satisfiesConstraint
-                ? UIColor(white: 0.7, alpha: 0.85) : red
-            overlayNodes.append(scene.addLine(from: finalC, to: finalT, color: lineColor,
-                                              radius: TrajectoryStyle.aimRadius))
-            strokeCircle(center: finalB, radius: r * 1.55, color: red)        // 障碍终位
-            strokeCircle(center: finalT, radius: r * 1.55, color: cyan)       // 目标终位
+           let finalC = sol.prediction.finalPositions[ShotInput.cueBallName] {
+            // 击球后的对方球终位（剔除进袋球）+ 全部非母球终位（互相遮挡候选）。
+            let potted = Set(sol.prediction.pocketedBalls)
+            var finalNonCue: [(key: String, pos: SCNVector3)] = []
+            for (name, pos) in sol.prediction.finalPositions
+            where name != ShotInput.cueBallName && !potted.contains(name) {
+                finalNonCue.append((name, pos))
+            }
+            let opponents = opponentKeys.compactMap { key -> (key: String, pos: SCNVector3)? in
+                guard let hit = finalNonCue.first(where: { $0.key == key }) else { return nil }
+                return (key, hit.pos)
+            }
+            let coverage = AngleSceneCalculator.defenseCoverage(
+                cueFinal: finalC, opponents: opponents, nonCueBalls: finalNonCue, surfaceY: surfaceY)
+            for c in coverage {
+                guard let opp = opponents.first(where: { $0.key == c.key }) else { continue }
+                let color = c.blocked ? gray : red
+                overlayNodes.append(scene.addLine(from: finalC, to: opp.pos, color: color,
+                                                  radius: TrajectoryStyle.aimRadius))
+                strokeCircle(center: opp.pos, radius: r * 1.5, color: color)
+            }
+            if let tkey = selectedTargetKey, let finalT = finalNonCue.first(where: { $0.key == tkey })?.pos {
+                strokeCircle(center: finalT, radius: r * 1.55, color: cyan)   // 目标球终位
+            }
             strokeCircle(center: finalC, radius: r * 1.4, color: UIColor(white: 0.92, alpha: 0.9)) // 母球终位
             return
         }
 
-        // 无解 / 编辑态：画当前摆位的角色环。
+        // 无解 / 编辑态：目标球青环 + 对方球组红环。
         if let tkey = selectedTargetKey, let tn = scene.allBallNodes[tkey], !tn.isHidden {
             strokeCircle(center: tn.position, radius: r * 1.75, color: cyan)
         }
-        if let bkey = selectedBlockerKey, let bn = scene.allBallNodes[bkey], !bn.isHidden {
-            strokeCircle(center: bn.position, radius: r * 1.75, color: red)
+        for okey in opponentKeys {
+            guard let on = scene.allBallNodes[okey], !on.isHidden else { continue }
+            strokeCircle(center: on.position, radius: r * 1.5, color: red)
         }
     }
 
@@ -512,7 +588,8 @@ final class SnookerTacticsViewModel: ObservableObject {
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
-        lastShotContext = (currentSnapshot(), sol.shot, sol.prediction)
+        // 记录上一杆上下文（G17）：击打前完整求解快照 + 本页选择模型（目标球），供上一杆完整恢复/回放。
+        lastShotContext = makeUndoContext(shot: sol.shot, prediction: sol.prediction)
         canUndoShot = false
         canPlayback = false
 
@@ -565,20 +642,69 @@ final class SnookerTacticsViewModel: ObservableObject {
         }
     }
 
-    /// 上一杆（条 21.3 同规范）：回到上次击打前的球形（角色选择重置）。
+    /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
+    func makeUndoContext(shot: PlannedShot, prediction: ShotPrediction) -> UndoContext {
+        UndoContext(
+            snapshot: SolveShotSnapshot(
+                before: currentSnapshot(), shot: shot, prediction: prediction,
+                solutions: solutions, currentIndex: currentIndex, draft: nil,
+                velocity: velocity, spinX: spinX, spinY: spinY,
+                allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
+            selectedTargetKey: selectedTargetKey)
+    }
+
+    /// 把击打前完整快照原样恢复到场景与状态（G17，不重解）。
+    func restore(from ctx: UndoContext) {
+        let snap = ctx.snapshot
+        scene.hideAllBalls()
+        clearTrajectory()
+        scene.clearResultNodes(nodes: &overlayNodes)
+        scene.hideCueStick()
+        for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+
+        // 求解选项须先于 solutions 恢复（值不变时 didSet 不触发失效；随后回填的 solutions 覆盖任何失效）。
+        allowSideSpin = snap.allowSideSpin
+        basicPositionOnly = snap.basicPositionOnly
+
+        // 选择模型（目标球）。
+        selectedTargetKey = ctx.selectedTargetKey
+        activeTool = .none
+
+        // 解回填（「解还在」，免重解）。
+        solveGeneration += 1
+        isComputing = false
+        solutions = snap.solutions
+        currentIndex = snap.currentIndex
+        velocity = snap.velocity
+        spinX = snap.spinX
+        spinY = snap.spinY
+
+        if currentSolution != nil {
+            showSolution(at: currentIndex)   // 轨迹 + 球杆瞄准 + 防守叠加
+        } else {
+            refreshOverlays()
+        }
+    }
+
+    /// 上一杆（G17）：回到上次击打前的**完整状态**——球形、目标球、已求出的解（缓存回填）、
+    /// 打点/力度/瞄准、求解选项，均逐字段还原（无需重选、无需重求解）。
     func undoLastShot() {
         guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
-        loadBoard(ctx.before)
+        restore(from: ctx)
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
-        statusText = "已退回上一杆击打前 · 重选目标球与障碍球"
+        statusText = ctx.snapshot.solutions.isEmpty
+            ? "已退回上一杆击打前 · 重选目标球"
+            : "已退回上一杆击打前 · 球形/目标/解已还原"
     }
 
     /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
-        guard !isPlaying, canPlayback, let ctx = lastShotContext,
-              let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
+        guard !isPlaying, canPlayback, let ctx = lastShotContext else { return }
+        let snap = ctx.snapshot
+        guard let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
         isPlaying = true
         clearTrajectory()
@@ -587,28 +713,28 @@ final class SnookerTacticsViewModel: ObservableObject {
         statusText = "回放上一杆…"
 
         scene.hideAllBalls()
-        for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
+        for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
         refreshOnTableKeys()
 
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
-              let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
+              let aim = aimDirection(path: snap.prediction.cuePath, from: cueNode.position) else {
             finishPlayback(after: after)
             return
         }
-        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX)
         scene.runCueStroke(strikePosition: strikePos, aim: aim,
-                           velocity: Float(ctx.shot.velocity)) { [weak self] in
-            self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+                           velocity: Float(snap.shot.velocity)) { [weak self] in
+            self?.runPlaybackAnimation(snapshot: snap, recorder: recorder, after: after)
         }
     }
 
     private func runPlaybackAnimation(
-        ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
+        snapshot snap: SolveShotSnapshot,
         recorder: TrajectoryRecorder, after: BoardSnapshot
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let settle = playback.perceptibleSettleTime()
+        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var cueAction: SCNAction?
         for key in onTableKeys {
@@ -618,7 +744,7 @@ final class SnookerTacticsViewModel: ObservableObject {
             if key == PositionPlayBall.cueKey { cueAction = action }
             else if let action { node.runAction(action) }
         }
-        let tail: TimeInterval = ctx.prediction.pocketedBalls.isEmpty
+        let tail: TimeInterval = snap.prediction.pocketedBalls.isEmpty
             ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
         if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
             cueNode.runAction(cueAction) { [weak self] in
@@ -627,7 +753,7 @@ final class SnookerTacticsViewModel: ObservableObject {
                     self?.finishPlayback(after: after)
                 }
             }
-            ShotAudioScheduler.shared.play(prediction: ctx.prediction)
+            ShotAudioScheduler.shared.play(prediction: snap.prediction)
         } else {
             finishPlayback(after: after)
         }
@@ -654,11 +780,10 @@ final class SnookerTacticsViewModel: ObservableObject {
     private func launchBalls(sol: PositionPlaySolution, recorder: TrajectoryRecorder) {
         statusText = "击球中…"
         clearTrajectory()
-        // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        // #11：按「感知静止时刻」截断，避免击球态在球看着停后仍滞留数秒。
-        let settle = playback.perceptibleSettleTime()
+        // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
+        let settle = playback.duration
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
@@ -677,7 +802,6 @@ final class SnookerTacticsViewModel: ObservableObject {
                     self?.finishStrike(sol: sol)
                 }
             }
-            // 音效在全部球体动画挂载后起播：避免音频引擎冷启动阻塞主线程时，跟杆先于球推进。
             ShotAudioScheduler.shared.play(prediction: sol.prediction)
         } else {
             finishStrike(sol: sol)
@@ -699,7 +823,8 @@ final class SnookerTacticsViewModel: ObservableObject {
         isPlaying = false
         refreshOnTableKeys()
         if let t = selectedTargetKey, !onTableKeys.contains(t) { selectedTargetKey = nil }
-        if let b = selectedBlockerKey, !onTableKeys.contains(b) { selectedBlockerKey = nil }
+        if let t = selectedTargetKey, !Self.canTarget(t, onTable: onTableKeys) { selectedTargetKey = nil }
+        if selectedTargetKey == nil { autoSelectTarget() }
 
         solveGeneration += 1
         solutions = []
@@ -710,12 +835,12 @@ final class SnookerTacticsViewModel: ObservableObject {
         refreshOverlays()
 
         canUndoShot = lastShotContext != nil
-        canPlayback = lastShotContext?.prediction.recorder != nil
+        canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
         let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
         statusText = cueGone
             ? "母球进袋（scratch）· 重新摆母球或「恢复默认」"
-            : "已击打 · 母球停在终点，可重选角色再求解"
+            : "已击打 · 母球停在终点，可重选目标球再求解"
     }
 
     private func boardKey(forPredName name: String) -> String {
@@ -743,7 +868,7 @@ final class SnookerTacticsViewModel: ObservableObject {
             potted: Array(potted), cuePocketed: sol.prediction.cuePocketed,
             objectPocketed: sol.prediction.objectPocketed, note: sol.summary)
         let label = selectedTargetKey.map { PositionPlayBall.shortLabel(for: $0) } ?? "?"
-        return PositionPlaySequence(name: "做斯诺克-\(label)号", initial: before, steps: [step])
+        return PositionPlaySequence(name: "防守-\(label)号", initial: before, steps: [step])
     }
 
     // MARK: - Reset
@@ -752,7 +877,6 @@ final class SnookerTacticsViewModel: ObservableObject {
         guard !isPlaying else { return }
         scene.hideAllBalls()
         selectedTargetKey = nil
-        selectedBlockerKey = nil
         refreshOnTableKeys()
         invalidateSolutions()
     }
@@ -764,20 +888,63 @@ final class SnookerTacticsViewModel: ObservableObject {
         invalidateSolutions()
     }
 
+    // MARK: - UITest 取证钩子（仅 launch arg 触发；生产不调用）
+
+    /// 注入确定性盘面并求解，供 V8 三态截图取证（完全斯诺克 / 高难度可行解 / 诚实无解）。
+    /// 盘面经 `SnookerSolverTests` 探针实测确认状态（`test_probe_scenarioBoards`，已删除）。
+    func uiTestConfigure(_ scenario: String) {
+        guard !isPlaying else { return }
+        func setBoard(_ pts: [String: CanvasPoint], target: String) {
+            scene.hideAllBalls()
+            for (k, pt) in pts { place(key: k, normalized: pt) }
+            refreshOnTableKeys()
+            selectedTargetKey = target
+            refreshOverlays()
+            invalidateSolutions()
+        }
+        switch scenario {
+        case "full":   // 完全斯诺克（对方花色 _9 全挡死）。
+            setBoard([PositionPlayBall.cueKey: CanvasPoint(x: 0.30, y: 0.25),
+                      "_1": CanvasPoint(x: 0.55, y: 0.25),
+                      "_2": CanvasPoint(x: 0.50, y: 0.22),
+                      "_9": CanvasPoint(x: 0.46, y: 0.19)], target: "_1")
+            solve()
+        case "partial":  // 无完全解 ⇒ 高难度可行解（三颗花色分散，挡死 2/3）。
+            setBoard([PositionPlayBall.cueKey: CanvasPoint(x: 0.50, y: 0.08),
+                      "_1": CanvasPoint(x: 0.50, y: 0.28),
+                      "_9": CanvasPoint(x: 0.06, y: 0.40),
+                      "_10": CanvasPoint(x: 0.94, y: 0.40),
+                      "_11": CanvasPoint(x: 0.50, y: 0.46)], target: "_1")
+            solve()
+        case "none":   // 诚实无解：同伴球 _2 全遮目标球首触线，母球无法合法首触 _1。
+            setBoard([PositionPlayBall.cueKey: CanvasPoint(x: 0.18, y: 0.25),
+                      "_2": CanvasPoint(x: 0.28, y: 0.25),
+                      "_1": CanvasPoint(x: 0.82, y: 0.25),
+                      "_9": CanvasPoint(x: 0.60, y: 0.42)], target: "_1")
+            solve()
+        default:
+            break   // clearkey / undo：保留默认球形。
+        }
+    }
+
     // MARK: - Hints
 
     private func toolHint() -> String {
         switch activeTool {
-        case .none: return "拖动摆球 · 选「目标球」（青环）与「障碍球」（红环），再点求解"
-        case .selectTarget: return "点选一颗目标球（这一杆要碰、且要困住对手的球）"
-        case .selectBlocker: return "点选一颗障碍球（用它把目标球挡住）"
+        case .none: return "拖动摆球 · 选一颗「目标球」（我方要打的球），再点求解"
+        case .selectTarget: return "点选一颗目标球（我方将合法首触的球，系统按中八规则推断防守对方球组）"
         }
+    }
+
+    private func readyHint() -> String {
+        let n = opponentKeys.count
+        return "已就绪 · 将让对方 \(n) 球尽量看不到，点「求解」反解防守"
     }
 
     private func needsSetupHint() -> String {
         if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请先把母球摆上桌" }
         if selectedTargetKey == nil { return "用「目标球」工具点选一颗目标球" }
-        if selectedBlockerKey == nil { return "用「障碍球」工具点选一颗障碍球" }
-        return "已就绪，点「求解」反解做斯诺克"
+        if opponentKeys.isEmpty { return "没有需要隐藏的对方球（对方球组已空）" }
+        return readyHint()
     }
 }

@@ -74,7 +74,7 @@ struct SceneAimingView: View {
                 Button {
                     vm.showSettings.toggle()
                 } label: {
-                    Image(systemName: "gearshape.fill")
+                    Image(systemName: "ellipsis.circle")
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }

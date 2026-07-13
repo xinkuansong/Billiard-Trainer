@@ -112,12 +112,13 @@ final class SolverPerformanceTests: XCTestCase {
         let board = BoardSnapshot(onTable: [
             PositionPlayBall.cueKey: CanvasPoint(x: 0.30, y: 0.25),
             "_1": CanvasPoint(x: 0.55, y: 0.25),
-            "_8": CanvasPoint(x: 0.50, y: 0.22)])
+            "_2": CanvasPoint(x: 0.50, y: 0.22),
+            "_9": CanvasPoint(x: 0.46, y: 0.19)])
 
         PerformanceProfiler.reset()
         let t0 = Date()
         let sols = PositionPlaySolver.solveSnooker(
-            before: board, targetKey: "_1", blockerKey: "_8", surfaceY: sY, params: .standard)
+            before: board, targetKey: "_1", opponentKeys: ["_9"], surfaceY: sY, params: .standard)
         let e = Date().timeIntervalSince(t0)
         print("⏱️ [PERF-B0] 斯诺克 solveSnooker .standard = \(String(format: "%.2f", e))s，解数=\(sols.count)")
         printSegments("斯诺克")

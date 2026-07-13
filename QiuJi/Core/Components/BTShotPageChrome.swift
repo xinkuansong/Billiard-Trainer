@@ -163,6 +163,62 @@ struct BreakRackGlyph: View {
     }
 }
 
+// MARK: - 解球器页共享导航件（V9 条 17：翻袋 / 反射两页同构，抽共享避免双真源）
+//
+// 两页（翻袋 `BankShotView` / 反射 `DiamondSystemView`）统一到三解页（防守 `SnookerTacticsView`）
+// 的标题样式：principal 品牌绿 14pt 标题 + 11pt 副标题承载解描述 / 无解说明（条 17.1/17.2/17.7）；
+// 右上三点菜单承载原理说明入口 + 台面网格 Toggle + 恢复默认（条 17.9，G19 口径）。
+
+/// principal 标题 + 副标题（同 `SnookerTacticsView.navStatus`）。副标题承载状态文案
+/// （解读数 / 求解中 / 无解 / 自由首碰），替代原球桌左下 overlay pill。
+struct BTSolverNavStatus: View {
+    let title: String
+    var isBusy: Bool = false
+    let statusText: String
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(title)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.btPrimary)
+                .lineLimit(1)
+            HStack(spacing: 4) {
+                if isBusy { ProgressView().controlSize(.mini).tint(.white) }
+                Text(statusText)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.65))
+                    .lineLimit(1)
+            }
+        }
+    }
+}
+
+/// 右上三点菜单（条 17.9，G19）：原理说明入口 + 台面网格 4×8 Toggle + 恢复默认。
+/// 替代原 `info.circle` 直接开原理 sheet 的入口。
+struct BTSolverMoreMenu: View {
+    let scene: AngleTrainingScene
+    let onPrinciple: () -> Void
+    let onReset: () -> Void
+
+    var body: some View {
+        Menu {
+            Section {
+                Button("原理说明", systemImage: "info.circle") { onPrinciple() }
+            }
+            Section("显示") {
+                BTTableGridMenuToggle(scene: scene)
+            }
+            Section {
+                Button("恢复默认", systemImage: "arrow.counterclockwise") { onReset() }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .foregroundStyle(.white.opacity(0.9))
+        }
+        .accessibilityLabel("更多")
+    }
+}
+
 // MARK: - 开球按钮（固定左侧，条 18.3；无开球场景 = 禁用态）
 
 struct BTBreakSideButton: View {

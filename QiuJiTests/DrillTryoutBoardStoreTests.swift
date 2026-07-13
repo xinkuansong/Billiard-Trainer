@@ -60,6 +60,17 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
 
         // 杆数随球形递增（5/8/10/15），排序稳定
         XCTAssertEqual(formations.map(\.stepCount), [5, 8, 10, 15])
+
+        // Q19.2①：选球形副标题球数不含白球（6 球含母球 ⇒ objectBallCount = 5）
+        XCTAssertEqual(first.objectBallCount, 5, "球数应排除母球")
+        XCTAssertFalse(
+            first.initial.onTable.keys.contains(PositionPlayBall.cueKey) && first.objectBallCount == first.initial.onTable.count,
+            "objectBallCount 不应把母球计入")
+
+        // Q19.2④：完整逐杆序列已随 formation 传出（序列模式数据通路）
+        XCTAssertEqual(first.steps.count, first.stepCount, "steps 应与 stepCount 一致")
+        XCTAssertTrue(first.hasSequence, "多杆 drill 应具备序列")
+        XCTAssertEqual(first.steps.first?.shot.pocket, shot.pocket, "首杆应与 firstShot 一致")
     }
 
     /// 旧式单序列文件（drill_c001-…）也能加载。

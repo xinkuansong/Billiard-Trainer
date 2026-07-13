@@ -1,11 +1,12 @@
 import SwiftUI
 import SceneKit
 
-/// 做斯诺克战术工具（安全球反解，ADR-P16-01）。
+/// 防守战术工具（安全球反解，ADR-P16-01；V8 中八语义重做）。
 ///
-/// 独立页面、布局参考思路训练器：顶部工具行（目标/障碍/摆球）→ 球桌 → 底部条（解指示 + 球库 + 操作列）。
-/// 选目标球（青环）+ 障碍球（红环）后点「求解」，由 `PositionPlaySolver.solveSnooker` 反解出令母球
-/// 合法首触目标球、不进袋、并停在被障碍球完全挡死位置的塞/力度/瞄准。
+/// 独立页面、布局参考思路训练器：顶部工具行（目标/摆球 + 清除键）→ 球桌 → 底部条（解指示 + 球库 + 操作列）。
+/// 只选一颗目标球（青环，我方要打的球），系统按中八规则推断对方球组，由
+/// `PositionPlaySolver.solveSnooker` 反解出令母球合法首触目标球、不进袋、并停在让对方球组
+/// 完全斯诺克（或只剩长台/大切角高难度球）的塞/力度/瞄准。
 struct SnookerTacticsView: View {
     /// 可选初始球形（如「拍照建球形」产出的快照）。nil = 默认开箱球形。
     let initialBoard: BoardSnapshot?
@@ -62,7 +63,7 @@ struct SnookerTacticsView: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
-        .navigationTitle("做斯诺克")
+        .navigationTitle("防守")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -77,6 +78,11 @@ struct SnookerTacticsView: View {
                 hasAppeared = true
                 vm.setupScene()
                 if let initialBoard { vm.loadBoard(initialBoard) }
+                // UITest 取证钩子（仅 launch arg 触发；生产无这些 arg ⇒ 不注入）。
+                let args = ProcessInfo.processInfo.arguments
+                if args.contains("-snooker.full") { vm.uiTestConfigure("full") }
+                else if args.contains("-snooker.partial") { vm.uiTestConfigure("partial") }
+                else if args.contains("-snooker.none") { vm.uiTestConfigure("none") }
             }
         }
     }
@@ -85,7 +91,7 @@ struct SnookerTacticsView: View {
 
     private var navStatus: some View {
         VStack(spacing: 1) {
-            Text("做斯诺克")
+            Text("防守")
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.btPrimary)
                 .lineLimit(1)
@@ -104,19 +110,17 @@ struct SnookerTacticsView: View {
     private var topToolRow: some View {
         HStack(spacing: Spacing.sm) {
             BTChipRow(
-                options: ["目标球", "障碍球", "摆球"],
+                options: ["目标球", "摆球"],
                 selection: Binding(
                     get: {
                         switch vm.activeTool {
                         case .selectTarget: return 0
-                        case .selectBlocker: return 1
-                        case .none: return 2
+                        case .none: return 1
                         }
                     },
                     set: {
                         switch $0 {
                         case 0: vm.activeTool = .selectTarget
-                        case 1: vm.activeTool = .selectBlocker
                         default: vm.activeTool = .none
                         }
                     }
@@ -125,17 +129,10 @@ struct SnookerTacticsView: View {
             )
             .disabled(vm.isPlaying)
 
-            Spacer(minLength: 0)
+            // Q15.3：清除键正常尺寸（BTEraserButton 42×32）、紧贴「摆球」chip 右侧（与打三/思路同布局）。
+            BTEraserButton(isEnabled: !vm.isPlaying && vm.selectedTargetKey != nil) { vm.clearSelection() }
 
-            // 常驻（#9）：无选择时变灰禁用，不增删避免布局跳变。
-            let hasSelection = vm.selectedTargetKey != nil || vm.selectedBlockerKey != nil
-            Button { vm.clearSelection() } label: {
-                Image(systemName: "eraser")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white.opacity(hasSelection ? 0.8 : 0.3))
-            }
-            .disabled(vm.isPlaying || !hasSelection)
-            .accessibilityLabel("清除角色选择")
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity)
@@ -184,8 +181,7 @@ struct SnookerTacticsView: View {
     // MARK: - Scene
 
     private var sceneContainer: some View {
-        let selectable: [SCNNode] = (vm.activeTool == .selectTarget || vm.activeTool == .selectBlocker)
-            ? vm.selectableBalls : []
+        let selectable: [SCNNode] = vm.activeTool == .selectTarget ? vm.selectableBalls : []
         return AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
@@ -210,7 +206,7 @@ struct SnookerTacticsView: View {
     private var leftColumn: some View {
         VStack(spacing: 8) {
             BTTextActionButton(title: "求解", role: .primary,
-                               isDisabled: vm.isPlaying || vm.isComputing || !vm.hasConstraint,
+                               isDisabled: vm.isPlaying || vm.isComputing || !vm.canSolve,
                                width: 46) {
                 vm.solve()
             }

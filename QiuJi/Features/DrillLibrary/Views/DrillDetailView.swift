@@ -168,7 +168,7 @@ struct DrillDetailView: View {
                             Text(formation.title)
                                 .font(.btBody)
                                 .foregroundStyle(.primary)
-                            Text("\(formation.stepCount) 杆 · \(formation.initial.onTable.count) 球")
+                            Text("\(formation.stepCount) 杆 · \(formation.objectBallCount) 球")
                                 .font(.btCaption2)
                                 .foregroundStyle(.secondary)
                         }

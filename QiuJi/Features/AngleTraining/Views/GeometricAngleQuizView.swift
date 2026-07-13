@@ -53,6 +53,10 @@ struct GeometricAngleQuizView: View {
         .onAppear {
             vm.configure(context: modelContext)
             vm.generateRandomAngle()
+            // UITest-only 确定性角度（默认 0 → 不生效，生产行为不变）：
+            // 供 Q4 90° 最坏帧截图核验（`-geometricQuiz.forcedAngle 90`）。
+            let forced = UserDefaults.standard.double(forKey: "geometricQuiz.forcedAngle")
+            if forced > 0 { vm.currentAngle = min(forced, 90) }
         }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
@@ -309,13 +313,22 @@ private struct AnglePredictionFigure: View {
                       closeup: (center: .zero, halfHeight: 0.31)) { proj in
             let w = proj.size.width
             let h = proj.size.height
-            let rayLen = min(w * 0.74, h * 0.82)
-            let vertex = CGPoint(x: w * 0.15, y: h * 0.82)
+            let d = proj.ballDiameter
+            let ballR = d / 2
+            // Q4（问题集合 v5 V4）：整体垂直居中，全角度域（含 90°）1 号球完整可见。
+            // 坐标契约：SwiftUI 画布 y 向下、原点左上、单位 pt。旧值 vertex.y=0.82h、
+            // rayLen=0.82h ⇒ 90° 时 1 号球心 y=0、上半球被裁。
+            // 闭式：内容纵向带 = rayLen + 2R（顶 = 90° 时 1 号球上缘，底 = 母球下缘）；
+            // 令其在画布内居中 ⇒ vertex.y = h/2 + rayLen/2，上下留白 = (h − rayLen − 2R)/2
+            // 恒相等。margin 保证纵向预算受限时留白 ≥ margin；水平仍以 w*0.74 封顶防越界。
+            // 数值核验（h=320,R≈14.7）：0°/45°/90° 三帧 1 号球完整落在 [0,320]，90° 上缘 y≈20。
+            let margin: CGFloat = 20
+            let rayLen = min(w * 0.74, h - 2 * margin - 2 * ballR)
+            let vertex = CGPoint(x: w * 0.15, y: h / 2 + rayLen / 2)
             let rad = angle * .pi / 180
             let refEnd = CGPoint(x: vertex.x + rayLen, y: vertex.y)
             let angEnd = CGPoint(x: vertex.x + rayLen * cos(rad), y: vertex.y - rayLen * sin(rad))
             let arcR = rayLen * 0.28
-            let d = proj.ballDiameter
 
             ZStack {
                 if showReference {

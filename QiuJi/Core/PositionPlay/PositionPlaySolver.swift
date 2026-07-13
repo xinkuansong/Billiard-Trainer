@@ -1196,37 +1196,59 @@ enum PositionPlaySolver {
         )
     }
 
-    /// 一个做斯诺克候选的评估结果。
+    /// 防守评分（V8）：从母球终位对**对方球组**逐球评估——挡死几颗 + 未挡死球对手进球难度。
+    struct DefenseScore {
+        /// 被完全挡死（完全斯诺克）的对方球数。
+        let blockedCount: Int
+        /// 需隐藏的对方球总数（击球后仍在台面的对方球）。
+        let opponentCount: Int
+        /// 最弱环（对手最容易打的那颗）难度 [0,1]：挡死记 1。maximin 防守目标——把它抬高。
+        let minDifficulty: Double
+        /// 所有对方球难度之和（次级偏好）。
+        let sumDifficulty: Double
+        /// 已挡死球的覆盖余量和（度，稳健度 tie-break：多挡几度更抗薄擦解开）。
+        let coverageMarginSum: Float
+        /// 是否完全斯诺克（对方球全部挡死）。
+        var full: Bool { opponentCount > 0 && blockedCount == opponentCount }
+    }
+
+    /// 一个防守候选的评估结果。
     private struct SnookerScored {
         let shot: PlannedShot
         let prediction: ShotPrediction
         let cushion: Int          // 母球吃库数
-        let coverageDeg: Float    // 覆盖余量（度）：正 = 完全挡死且多挡 N°、负 = 露出 N°
-        var full: Bool            // 是否完全斯诺克
+        let defense: DefenseScore
+        var full: Bool { defense.full }
     }
 
-    /// 做斯诺克反解。硬约束：①母球合法首触 `targetKey`；②母球不进袋；③目标球不进袋；
-    /// ④母球真停稳；⑤停稳后从母球看向目标球终位的视线被 `blockerKey` **完全挡死**
-    /// （`AngleSceneCalculator.snookerCoverage`，用三球**终位**判定）。
-    /// 排序：库少优先 → 覆盖余量大优先 → 加塞少优先 → 力度小优先。
-    /// 无完全斯诺克解时返回覆盖余量最大的**降级解**（半斯诺克，`satisfiesConstraint == false`）。
+    /// 防守反解（安全球，V8 中八语义）。硬约束：①母球合法首触 `targetKey`（我方将击打的球）；
+    /// ②母球不进袋；③母球真停稳。软目标：停稳后让**对方球组** `opponentKeys` 尽量不可见——
+    /// 完全斯诺克（全部被某颗球挡死，`AngleSceneCalculator.defenseCoverage`）为最优；无完全解时
+    /// 返回「高难度可行解」（对方球全部剩长台/大切角/无可行袋），标 `satisfiesConstraint == false`。
+    /// 排序：挡死球多优先 → 最弱环难度大优先 → 难度和大优先 → 覆盖余量大 → 执行难度小 → 力度小。
+    /// 无任何合法停稳解时诚实返回空。
     static func solveSnooker(
-        before: BoardSnapshot, targetKey: String, blockerKey: String,
+        before: BoardSnapshot, targetKey: String, opponentKeys: [String],
         surfaceY: Float, params: SnookerParams = .standard
     ) -> [PositionPlaySolution] {
         guard let cuePt = before.onTable[PositionPlayBall.cueKey],
               let targetPt = before.onTable[targetKey],
-              before.onTable[blockerKey] != nil,
-              targetKey != blockerKey, !PositionPlayBall.isCue(targetKey),
-              !PositionPlayBall.isCue(blockerKey) else { return [] }
+              !PositionPlayBall.isCue(targetKey),
+              !opponentKeys.isEmpty,
+              !opponentKeys.contains(targetKey),
+              opponentKeys.allSatisfy({ before.onTable[$0] != nil && !PositionPlayBall.isCue($0) })
+        else { return [] }
 
         let cue = scenePoint(cuePt, surfaceY: surfaceY)
         let target = scenePoint(targetPt, surfaceY: surfaceY)
-        // 所有非母球作真实碰撞体（含目标球与障碍球），按 board key 命名（与 `predName` 自由球分支一致）。
+        // 所有非母球作真实碰撞体（含目标球与对方球），按 board key 命名（与 `predName` 自由球分支一致）。
         let balls: [ObstacleBall] = before.onTable.compactMap { key, pt in
             guard key != PositionPlayBall.cueKey else { return nil }
             return ObstacleBall(name: key, position: scenePoint(pt, surfaceY: surfaceY))
         }
+        // 初始终位查找表（快评路径：未被扰动的球终位 = 初位）。
+        let initialPositions: [String: SCNVector3] = Dictionary(
+            uniqueKeysWithValues: balls.map { ($0.name, $0.position) })
 
         // 瞄准基方向（母球→目标球）与「球心扫过目标球」的可接触张角半角。
         let dx = target.x - cue.x, dz = target.z - cue.z
@@ -1253,16 +1275,15 @@ enum PositionPlaySolver {
         // —— 扫描（B4）：自由球单球 rollout 快评为主，级联/kiss/截断格就地回退引擎
         // （scoring-only + 早停，B1 语义保留）。空杆/首触非目标/进袋等必败候选由快评直接下结论。——
         let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
-        let interest: Set<String> = [ShotInput.cueBallName, targetKey, blockerKey]
-        guard let blockerPos = balls.first(where: { $0.name == blockerKey })?.position else { return [] }
+        let interest: Set<String> = Set([ShotInput.cueBallName, targetKey] + opponentKeys)
 
         /// 一个扫描格（快评结论或引擎回退候选）。约束量口径对齐 `evaluateSnooker`；
         /// 任何被选为代表的格子都会经 `settle` 引擎全保真复核——扫描加速，上屏判定不降级。
         struct SnookerCell {
             let off: Double; let sx: Double; let sy: Double; let v: Double
             let cushion: Int
-            let coverageDeg: Float
-            let full: Bool
+            let defense: DefenseScore
+            var full: Bool { defense.full }
         }
 
         let comboCount = combos.count
@@ -1280,10 +1301,11 @@ enum PositionPlaySolver {
                 cueBall: cue, aimDir: aimDir, velocity: Float(c.v),
                 spinX: Float(c.sx), spinY: Float(c.sy), surfaceY: surfaceY, balls: balls,
                 includePresentation: false, earlyStopBallNames: interest)
-            guard let s = evaluateSnooker(pred, targetKey: targetKey, blockerKey: blockerKey,
-                                          spinX: c.sx, spinY: c.sy, velocity: c.v) else { return nil }
+            guard let s = evaluateSnooker(pred, targetKey: targetKey, opponentKeys: opponentKeys,
+                                          spinX: c.sx, spinY: c.sy, velocity: c.v,
+                                          surfaceY: surfaceY) else { return nil }
             return SnookerCell(off: c.off, sx: c.sx, sy: c.sy, v: c.v,
-                               cushion: s.cushion, coverageDeg: s.coverageDeg, full: s.full)
+                               cushion: s.cushion, defense: s.defense)
         }
 
         // —— 阶段 1：全网格 rollout 快评（并行）。结论确定的格子（合法/必败）就地落地；
@@ -1307,23 +1329,27 @@ enum PositionPlaySolver {
                         (amb + i).pointee = true
                         return
                     }
-                    // 快评硬约束（与 evaluateSnooker 同序同语义）：母球不进袋 + 真停稳 +
-                    // 目标球不进袋 + 首触必须是目标球。blocker 未被扰动（否则已回退）⇒ 终位 = 初始位。
+                    // 快评硬约束（与 evaluateSnooker 同序同语义）：母球不进袋 + 真停稳 + 首触必须是目标球。
+                    // 无级联（否则已 needsFullSim）⇒ 除目标球外所有球终位 = 初始位；目标球终位 = firstHitFinalPos。
                     guard !fast.cuePocketed, fast.cueRested,
-                          fast.firstBallHit == targetKey, !fast.firstHitPocketed,
-                          let finalC = fast.cueFinalPos, let finalT = fast.firstHitFinalPos else { return }
-                    let cov = AngleSceneCalculator.snookerCoverage(
-                        cue: finalC, snookered: finalT, blocker: blockerPos)
+                          fast.firstBallHit == targetKey,
+                          let finalC = fast.cueFinalPos else { return }
+                    var finalPositions = initialPositions
+                    if fast.firstHitPocketed {
+                        finalPositions[targetKey] = nil
+                    } else if let ft = fast.firstHitFinalPos {
+                        finalPositions[targetKey] = ft
+                    }
+                    let defense = defenseScore(cueFinal: finalC, opponentKeys: opponentKeys,
+                                               finalPositions: finalPositions, surfaceY: surfaceY)
                     (base + i).pointee = SnookerCell(off: c.off, sx: c.sx, sy: c.sy, v: c.v,
-                                                     cushion: fast.cueCushionCount,
-                                                     coverageDeg: cov.marginDegrees,
-                                                     full: cov.isFullSnooker)
+                                                     cushion: fast.cueCushionCount, defense: defense)
                 }
             }
         }
 
         // —— 阶段 2（粗）：歧义格按 (aim 步 3 × vel 步 2 × 全塞) 粗网格引擎评估（方案 B4
-        // 「粗力度找可行邻域」）。级联解（母/目标球二次撞 blocker 后的停位）只能引擎裁决。——
+        // 「粗力度找可行邻域」）。级联解（母/目标球二次撞对方球后的停位）只能引擎裁决。——
         var coarseIdx: [Int] = []
         for a in stride(from: 0, to: aimOffsets.count, by: 3) {
             for ci in 0..<comboCount {
@@ -1371,17 +1397,24 @@ enum PositionPlaySolver {
         let cells = cellsOpt.compactMap { $0 }
         guard !cells.isEmpty else { return [] }
 
-        /// 覆盖余量大优先 → 执行难度小（E1 加权范数）→ 力度小 → 瞄准偏移小（确定性 tie-break）。
-        func betterCoverage(_ a: SnookerCell, _ b: SnookerCell) -> Bool {
-            if abs(a.coverageDeg - b.coverageDeg) > 1e-4 { return a.coverageDeg > b.coverageDeg }
-            let s0 = DifficultyModel.executionEffort(spinX: a.sx, spinY: a.sy, velocity: a.v)
-            let s1 = DifficultyModel.executionEffort(spinX: b.sx, spinY: b.sy, velocity: b.v)
+        /// 防守优劣：挡死球多优先 → 最弱环难度大 → 难度和大 → 覆盖余量大 → 执行难度小 → 力度小 → 瞄准偏移小。
+        func betterDefense(_ a: DefenseScore, _ ea: (sx: Double, sy: Double, v: Double, off: Double),
+                           _ b: DefenseScore, _ eb: (sx: Double, sy: Double, v: Double, off: Double)) -> Bool {
+            if a.blockedCount != b.blockedCount { return a.blockedCount > b.blockedCount }
+            if abs(a.minDifficulty - b.minDifficulty) > 1e-6 { return a.minDifficulty > b.minDifficulty }
+            if abs(a.sumDifficulty - b.sumDifficulty) > 1e-6 { return a.sumDifficulty > b.sumDifficulty }
+            if abs(a.coverageMarginSum - b.coverageMarginSum) > 1e-4 { return a.coverageMarginSum > b.coverageMarginSum }
+            let s0 = DifficultyModel.executionEffort(spinX: ea.sx, spinY: ea.sy, velocity: ea.v)
+            let s1 = DifficultyModel.executionEffort(spinX: eb.sx, spinY: eb.sy, velocity: eb.v)
             if abs(s0 - s1) > 1e-9 { return s0 < s1 }
-            if a.v != b.v { return a.v < b.v }
-            return abs(a.off) < abs(b.off)
+            if ea.v != eb.v { return ea.v < eb.v }
+            return abs(ea.off) < abs(eb.off)
+        }
+        func betterCell(_ a: SnookerCell, _ b: SnookerCell) -> Bool {
+            betterDefense(a.defense, (a.sx, a.sy, a.v, a.off), b.defense, (b.sx, b.sy, b.v, b.off))
         }
 
-        /// 代表格落地：引擎**全保真**重建 + 复核（硬约束/覆盖/吃库桶以引擎为准），
+        /// 代表格落地：引擎**全保真**重建 + 复核（硬约束/防守/吃库桶以引擎为准），
         /// 不符自动试备选——快评只加速搜索，上屏数值全部引擎口径（比基线多一道复核）。
         func settle(_ list: [SnookerCell], requireFull: Bool, keepBucket: Bool) -> SnookerScored? {
             for cell in list {
@@ -1390,8 +1423,9 @@ enum PositionPlaySolver {
                 let pred = ShotPredictor.simulateFree(
                     cueBall: cue, aimDir: aimDir, velocity: Float(cell.v),
                     spinX: Float(cell.sx), spinY: Float(cell.sy), surfaceY: surfaceY, balls: balls)
-                guard let s = evaluateSnooker(pred, targetKey: targetKey, blockerKey: blockerKey,
-                                              spinX: cell.sx, spinY: cell.sy, velocity: cell.v) else { continue }
+                guard let s = evaluateSnooker(pred, targetKey: targetKey, opponentKeys: opponentKeys,
+                                              spinX: cell.sx, spinY: cell.sy, velocity: cell.v,
+                                              surfaceY: surfaceY) else { continue }
                 if requireFull && !s.full { continue }
                 if keepBucket && s.cushion != cell.cushion { continue }
                 return s
@@ -1399,12 +1433,12 @@ enum PositionPlaySolver {
             return nil
         }
 
-        // 完全斯诺克解：每桶按覆盖余量保留前 3 备选，代表经引擎复核落地。
+        // 完全斯诺克解：每桶按防守优劣保留前 3 备选，代表经引擎复核落地。
         var buckets: [Int: [SnookerCell]] = [:]
         for cell in cells where cell.full {
             var list = buckets[cell.cushion] ?? []
             list.append(cell)
-            list.sort(by: betterCoverage)
+            list.sort(by: betterCell)
             if list.count > 3 { list.removeLast(list.count - 3) }
             buckets[cell.cushion] = list
         }
@@ -1418,13 +1452,8 @@ enum PositionPlaySolver {
             }
             let ordered = settled.sorted {
                 if $0.cushion != $1.cushion { return $0.cushion < $1.cushion }
-                if abs($0.coverageDeg - $1.coverageDeg) > 1e-4 { return $0.coverageDeg > $1.coverageDeg }
-                let s0 = DifficultyModel.executionEffort(
-                    spinX: $0.shot.spinX, spinY: $0.shot.spinY, velocity: $0.shot.velocity)
-                let s1 = DifficultyModel.executionEffort(
-                    spinX: $1.shot.spinX, spinY: $1.shot.spinY, velocity: $1.shot.velocity)
-                if abs(s0 - s1) > 1e-9 { return s0 < s1 }
-                return $0.shot.velocity < $1.shot.velocity
+                return betterDefense($0.defense, ($0.shot.spinX, $0.shot.spinY, $0.shot.velocity, 0),
+                                     $1.defense, ($1.shot.spinX, $1.shot.spinY, $1.shot.velocity, 0))
             }
             if !ordered.isEmpty {
                 return applyCushionBudget(ordered.map { makeSnookerSolution($0) },
@@ -1432,24 +1461,60 @@ enum PositionPlaySolver {
             }
         }
 
-        // 降级：无完全斯诺克——覆盖余量最大（最接近挡死）的单个解，标半斯诺克；
-        // 引擎复核失败依次试更次优（最多 8 个），全败则如实返回空。
-        let closest = cells.sorted(by: betterCoverage)
-        if let s = settle(Array(closest.prefix(8)), requireFull: false, keepBucket: false) {
-            return [makeSnookerSolution(s)]
+        // 降级：无完全斯诺克——返回防守最优的「高难度可行解」（最多 3 个不同代表），标未完全。
+        // 引擎复核失败依次试更次优（最多 12 个），全败则如实返回空。
+        let closest = cells.sorted(by: betterCell)
+        var partials: [SnookerScored] = []
+        var used = Set<String>()
+        for cell in closest.prefix(12) {
+            guard partials.count < 3 else { break }
+            guard let s = settle([cell], requireFull: false, keepBucket: false) else { continue }
+            let key = "\(s.cushion)|\(Int((s.defense.minDifficulty * 100).rounded()))|\(s.defense.blockedCount)"
+            if used.contains(key) { continue }
+            used.insert(key)
+            partials.append(s)
+        }
+        if !partials.isEmpty {
+            let ordered = partials.sorted {
+                betterDefense($0.defense, ($0.shot.spinX, $0.shot.spinY, $0.shot.velocity, 0),
+                              $1.defense, ($1.shot.spinX, $1.shot.spinY, $1.shot.velocity, 0))
+            }
+            return ordered.map { makeSnookerSolution($0) }
         }
         return []
     }
 
-    /// 评估一个做斯诺克候选；不满足首触/进袋/真停硬约束 ⇒ nil。
+    /// 从母球终位 + 全部非母球终位（已剔除进袋球）计算防守评分。对方球若已进袋则不计入。
+    private static func defenseScore(
+        cueFinal: SCNVector3, opponentKeys: [String],
+        finalPositions: [String: SCNVector3], surfaceY: Float
+    ) -> DefenseScore {
+        let opponents: [(key: String, pos: SCNVector3)] = opponentKeys.compactMap { key in
+            guard let p = finalPositions[key] else { return nil }
+            return (key, p)
+        }
+        guard !opponents.isEmpty else {
+            return DefenseScore(blockedCount: 0, opponentCount: 0,
+                                minDifficulty: 0, sumDifficulty: 0, coverageMarginSum: 0)
+        }
+        let nonCue: [(key: String, pos: SCNVector3)] = finalPositions.map { ($0.key, $0.value) }
+        let cov = AngleSceneCalculator.defenseCoverage(
+            cueFinal: cueFinal, opponents: opponents, nonCueBalls: nonCue, surfaceY: surfaceY)
+        let blocked = cov.filter { $0.blocked }
+        let diffs = cov.map { $0.blocked ? 1.0 : $0.pottingDifficulty }
+        return DefenseScore(
+            blockedCount: blocked.count, opponentCount: opponents.count,
+            minDifficulty: diffs.min() ?? 0, sumDifficulty: diffs.reduce(0, +),
+            coverageMarginSum: blocked.reduce(0) { $0 + $1.coverageMarginDeg })
+    }
+
+    /// 评估一个防守候选；不满足首触/进袋/真停硬约束 ⇒ nil。
     private static func evaluateSnooker(
-        _ pred: ShotPrediction, targetKey: String, blockerKey: String,
-        spinX: Double, spinY: Double, velocity: Double
+        _ pred: ShotPrediction, targetKey: String, opponentKeys: [String],
+        spinX: Double, spinY: Double, velocity: Double, surfaceY: Float
     ) -> SnookerScored? {
         // 母球不进袋 + 真停稳。
         guard !pred.cuePocketed, pred.cueFinalSpeed < restSpeedTolerance else { return nil }
-        // 目标球不进袋（它要留在台面当诱饵）。
-        guard !pred.pocketedBalls.contains(targetKey) else { return nil }
         // 合法首触：母球第一次球-球碰撞的另一方必须是目标球。
         var firstOther: String?
         for e in pred.events {
@@ -1459,12 +1524,16 @@ enum PositionPlaySolver {
             }
         }
         guard firstOther == targetKey else { return nil }
-        // 三球终位齐备。
-        guard let finalC = pred.finalPositions[ShotInput.cueBallName],
-              let finalT = pred.finalPositions[targetKey],
-              let finalB = pred.finalPositions[blockerKey] else { return nil }
+        guard let finalC = pred.finalPositions[ShotInput.cueBallName] else { return nil }
 
-        let cov = AngleSceneCalculator.snookerCoverage(cue: finalC, snookered: finalT, blocker: finalB)
+        // 全部非母球终位（剔除进袋球），供多球防守评估。
+        let potted = Set(pred.pocketedBalls)
+        var finalPositions: [String: SCNVector3] = [:]
+        for (name, pos) in pred.finalPositions where name != ShotInput.cueBallName && !potted.contains(name) {
+            finalPositions[name] = pos
+        }
+        let defense = defenseScore(cueFinal: finalC, opponentKeys: opponentKeys,
+                                   finalPositions: finalPositions, surfaceY: surfaceY)
         let cushion = pred.events.reduce(0) { acc, e in
             if case let .ballCushion(ball) = e.kind, ball == ShotInput.cueBallName { return acc + 1 }
             return acc
@@ -1472,21 +1541,23 @@ enum PositionPlaySolver {
         let shot = PlannedShot(
             targetKey: targetKey, pocket: "", velocity: velocity, spinX: spinX, spinY: spinY,
             freeAim: canvasDirection(fromScene: pred.aimDirection))
-        return SnookerScored(shot: shot, prediction: pred, cushion: cushion,
-                             coverageDeg: cov.marginDegrees, full: cov.isFullSnooker)
+        return SnookerScored(shot: shot, prediction: pred, cushion: cushion, defense: defense)
     }
 
     private static func makeSnookerSolution(_ s: SnookerScored) -> PositionPlaySolution {
         let cushionTxt = cushionText(s.cushion)
         let spin = spinText(s.shot.spinX, s.shot.spinY)
         let power = "\(PowerDisplay.name(s.shot.velocity)) \(String(format: "%.1f", s.shot.velocity))"
+        let d = s.defense
         let covTxt: String
-        if s.full {
-            covTxt = "完全斯诺克 · 余量约 \(Int(s.coverageDeg.rounded()))°"
+        if d.full {
+            let avgMargin = d.opponentCount > 0 ? Int((d.coverageMarginSum / Float(d.opponentCount)).rounded()) : 0
+            covTxt = "完全斯诺克 · 对方 \(d.opponentCount) 球全挡死 · 均余量约 \(avgMargin)°"
         } else {
-            covTxt = "半斯诺克 · 仍露约 \(Int((-s.coverageDeg).rounded()))°"
+            let pct = Int((d.minDifficulty * 100).rounded())
+            covTxt = "高难度可行解 · 挡死 \(d.blockedCount)/\(d.opponentCount) · 对手最易球难度约 \(pct)%"
         }
-        // 斯诺克无进球语义 ⇒ 切角/球距不参与评分（E4 输入传 nil）。
+        // 防守无进球语义 ⇒ 切角/球距不参与执行评分（E4 输入传 nil）。
         let score = DifficultyModel.score(
             spinX: s.shot.spinX, spinY: s.shot.spinY, velocity: s.shot.velocity)
         let tier = DifficultyModel.tier(spinX: s.shot.spinX, spinY: s.shot.spinY)
@@ -1494,8 +1565,8 @@ enum PositionPlaySolver {
         let summary = "\(spin) · \(power) · \(cushionTxt) · \(diffText) · \(covTxt)"
         return PositionPlaySolution(
             shot: s.shot, prediction: s.prediction, cushionCount: s.cushion,
-            potted: false, margin: s.coverageDeg, summary: summary,
-            satisfiesConstraint: s.full,
+            potted: false, margin: Float(d.minDifficulty), summary: summary,
+            satisfiesConstraint: d.full,
             difficultyScore: score, difficultyTier: tier)
     }
 

@@ -229,13 +229,18 @@ final class CameraRig {
             targetYaw = atan2(-flatAim.z / len, -flatAim.x / len)
         }
 
+        // Q5/Q9（问题集合 v5）：每题进场默认落在**最高机位（zoom=1）**——即竖滑可达的
+        // 上界（= stand/观察 pose 的 radius/height/pitch/fov）。用户仍可下滑压低（
+        // `handleVerticalSwipe` 把 targetZoom 钳在 [0,1]，本 pose 落地后 `update` 回填
+        // targetZoom=1）。仅改本进场目标值，不动 `AimingCameraConfig` 的 zoom 梯定义与
+        // `applyCameraTransform`（zoom→pose 映射保持不变，z=1 时恰给出下列值，自洽）。
         let targetPose = SmoothPose(
             yaw: targetYaw,
-            pitch: config.aimPitchRad,
-            radius: lerp(config.minRadius, config.maxRadius, 0.0),
+            pitch: config.standPitchRad,
+            radius: lerp(config.minRadius, config.maxRadius, 1.0),
             pivot: targetPivot,
-            fov: Float(config.aimFov),
-            height: config.minHeight
+            fov: Float(config.standFov),
+            height: config.maxHeight
         )
         // 0.6s matches `enterObservation`. Δheight ≈ 1m and Δpitch ≈ 30°,
         // so a shorter duration shows up as a perceptible "snap" mid-motion.

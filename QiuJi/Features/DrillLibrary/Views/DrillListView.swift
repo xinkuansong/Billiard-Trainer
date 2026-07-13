@@ -7,6 +7,11 @@ struct DrillListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
 
+    /// Q19.1：侧栏点击回组顶（无记忆）——每次点击分组（含重复点击当前分组）自增，
+    /// 触发右侧内容列表滚动到顶部锚点。
+    @State private var scrollToken = 0
+    private static let gridTopAnchor = "drillGridTop"
+
     private let gridColumns = [
         GridItem(.flexible(), spacing: Spacing.md),
         GridItem(.flexible(), spacing: Spacing.md),
@@ -94,6 +99,7 @@ struct DrillListView: View {
                     isSelected: viewModel.categoryFilter == nil
                 ) {
                     viewModel.categoryFilter = nil
+                    scrollToken &+= 1
                 }
 
                 ForEach(DrillCategory.allCases) { category in
@@ -103,6 +109,7 @@ struct DrillListView: View {
                         isSelected: viewModel.categoryFilter == category
                     ) {
                         viewModel.categoryFilter = category
+                        scrollToken &+= 1
                     }
                 }
             }
@@ -163,8 +170,12 @@ struct DrillListView: View {
             gridEmptyState
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
+            ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
+                    Color.clear
+                        .frame(height: 0)
+                        .id(Self.gridTopAnchor)
                     ForEach(viewModel.drillsByCategory, id: \.category.id) { group in
                         Section {
                             LazyVGrid(columns: gridColumns, spacing: Spacing.md) {
@@ -187,6 +198,19 @@ struct DrillListView: View {
                     }
                 }
                 .padding(.bottom, Spacing.xxxxl)
+            }
+            // Q19.1：点击/重复点击分组即回组顶。立即滚一次（同分组内容不变的情形），
+            // 再于筛选去抖（300ms）+ 列表重建后补滚一次（切换分组的情形）。
+            .onChange(of: scrollToken) { _, _ in
+                withAnimation(.easeOut(duration: 0.25)) {
+                    proxy.scrollTo(Self.gridTopAnchor, anchor: .top)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
+                    withAnimation(.easeOut(duration: 0.25)) {
+                        proxy.scrollTo(Self.gridTopAnchor, anchor: .top)
+                    }
+                }
+            }
             }
         }
     }

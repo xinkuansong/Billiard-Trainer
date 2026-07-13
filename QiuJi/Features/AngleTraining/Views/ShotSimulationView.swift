@@ -161,7 +161,7 @@ struct ShotSimulationView: View {
             selectableBallNodes: vm.selectableBalls,
             onBallTapped: { vm.selectTarget(node: $0) },
             onTableTapped: { vm.handleTableTap(world: $0) },
-            onAimDragged: { vm.handleAimDrag(world: $0) },
+            onAimNudged: { vm.nudgeFreeAim(byDegrees: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

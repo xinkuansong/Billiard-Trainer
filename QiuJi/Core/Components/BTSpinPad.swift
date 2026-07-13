@@ -20,7 +20,9 @@ struct BTSpinPad: View {
         GeometryReader { geo in
             let size = min(geo.size.width, geo.size.height)
             let cx = geo.size.width / 2, cy = geo.size.height / 2
-            let inset: CGFloat = 5
+            // G16：白盘半径明显增大（卡片/盘区尺寸不变，仅收窄内边距使母球盘更大）；
+            // 打滑极限虚线圈 / 皮头接触斑均以 ballR 为基准，随盘径等比放大。
+            let inset: CGFloat = 2
             let ballR = size / 2 - inset
             let placementLimit = miscue / pull
             let placeX = spinX / pull, placeY = spinY / pull

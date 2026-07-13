@@ -21,10 +21,11 @@ extension XCUIApplication {
 
     // MARK: - Launch Helpers
 
-    static func launchClean() -> XCUIApplication {
+    static func launchClean(extraArgs: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
         app.launchArguments += ["-AppleLocale", "zh_CN"]
+        app.launchArguments += extraArgs
         app.launch()
         // 偶发：安装/启动竞态导致 app 进程秒退。用进程状态判断（不走 AX 快照，
         // 避免主线程繁忙时误判），不在前台才重启动。

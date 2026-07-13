@@ -15,6 +15,12 @@ final class DrillTryoutUITests: XCTestCase {
         continueAfterFailure = true
     }
 
+    /// 类型无关地按 identifier 查元素（SwiftUI 有时把带 id 的容器暴露为 other 而非 button）。
+    private func element(id: String) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@", id)).firstMatch
+    }
+
     private func snap(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
@@ -76,37 +82,49 @@ final class DrillTryoutUITests: XCTestCase {
             "说明卡杆数应取序列 stepCount（球形1 = 5 杆）")
         snap("t02-tryout-brief-c042")
 
-        // ③ 首次交互（点桌面设瞄准）说明卡淡出
+        // ③ 首次交互（点桌面）说明卡淡出
         app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.35)).tap()
         sleep(1)
         XCTAssertFalse(brief.exists, "首次交互后说明卡应淡出")
         snap("t03-brief-dismissed")
 
-        // ③ info 召回 + 点卡关闭
+        // ③ Q19.2③：info 内容并入三点菜单——经三点菜单「试打说明」召回说明卡
+        app.buttons["composer.more"].tap()
+        sleep(1)
         let info = app.buttons["tryout.info"]
-        XCTAssertTrue(info.waitForExistence(timeout: 3), "顶栏应有 info 召回按钮")
+        XCTAssertTrue(info.waitForExistence(timeout: 3), "三点菜单应含「试打说明」召回项")
         info.tap()
         sleep(1)
-        XCTAssertTrue(brief.exists, "info 应能召回说明卡")
+        XCTAssertTrue(brief.exists, "菜单「试打说明」应能召回说明卡")
         snap("t04-brief-recalled")
         brief.tap()
         sleep(1)
         XCTAssertFalse(brief.exists, "点卡应关闭说明卡")
 
-        // ⑤ 击球 → 重摆回初始布局（完成标准项，找不到击球钮即失败）
-        var strike = app.buttons["击球"].firstMatch
+        // ⑤ Q19.2④：多杆序列 drill 默认进「序列」模式，点「击打」逐杆演示走完整条序列
+        XCTAssertTrue(app.buttons["tryoutMode_序列"].waitForExistence(timeout: 3),
+                      "有序列 drill 应出现三模式选择（序列/进袋/自由）")
+        XCTAssertTrue(element(id: "tryout.sequenceStepBar").waitForExistence(timeout: 3),
+                      "默认应处于序列模式（当前杆信息条在位）")
+        var strike = app.buttons["击打"].firstMatch
         if !strike.waitForExistence(timeout: 3) {
-            strike = app.staticTexts["击球"].firstMatch
-            XCTAssertTrue(strike.waitForExistence(timeout: 3), "试打页应有「击球」按钮")
+            strike = app.staticTexts["击打"].firstMatch
+            XCTAssertTrue(strike.waitForExistence(timeout: 3), "序列模式应有「击打」按钮")
         }
         strike.tap()
-        sleep(8)
-        snap("t05-after-strike")
+        sleep(3)
+        snap("t05a-sequence-playing")   // 播放中帧
+        sleep(14)
+        snap("t05b-sequence-finished")  // 序列走完帧
+        // 重摆球形 = 从头重演
         app.buttons["tryout.rearrange"].tap()
         sleep(2)
-        snap("t06-rearranged-after-strike")
+        snap("t06-sequence-restart")
 
-        // ⑥ 拖球改摆（球库拖 9 号上桌；球形1 在桌 = 母球+1..5，9 号在库）后重摆仍回初始布局
+        // ⑥ 切到「自由」模式：球库恢复可编辑（序列模式为只读）；拖 9 号上桌后重摆回初始
+        app.buttons["tryoutMode_自由"].tap()
+        sleep(2)
+        snap("t06b-free-mode")
         let palette9 = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'paletteBall__9'")).firstMatch
         if palette9.waitForExistence(timeout: 3) {
@@ -119,6 +137,98 @@ final class DrillTryoutUITests: XCTestCase {
             app.buttons["tryout.rearrange"].tap()
             sleep(2)
             snap("t08-rearranged-after-drag")
+        }
+    }
+
+    // MARK: - Q19.2④ 序列模式切换（序列 ⇄ 进袋 ⇄ 自由）
+
+    func testTryoutSequenceModeSwitching() {
+        app = XCUIApplication.launchClean()
+        openDrillDetail(search: "蛇彩", drillId: "drill_c042")
+        app.buttons["drillTryoutButton"].tap()
+        sleep(2)
+        let formation0 = app.buttons["tryoutFormation_0"]
+        XCTAssertTrue(formation0.waitForExistence(timeout: 4))
+        formation0.tap()
+        sleep(5)
+
+        // 默认序列模式：当前杆信息条在位、无打点/力度仪表（隐藏）。
+        XCTAssertTrue(app.buttons["tryoutMode_序列"].waitForExistence(timeout: 5))
+        XCTAssertTrue(element(id: "tryout.sequenceStepBar").waitForExistence(timeout: 3),
+                      "序列模式应显示当前杆信息条")
+        snap("s01-sequence-default")
+
+        // 切进袋模式：信息条消失，出现常规击球动作列。
+        app.buttons["tryoutMode_进袋"].tap()
+        sleep(2)
+        XCTAssertFalse(element(id: "tryout.sequenceStepBar").exists,
+                       "进袋模式不应有序列信息条")
+        XCTAssertTrue(app.buttons["击球"].firstMatch.waitForExistence(timeout: 3)
+                      || app.staticTexts["击球"].firstMatch.exists,
+                      "进袋模式应有常规「击球」按钮")
+        snap("s02-pocket-mode")
+
+        // 切自由模式回归可用。
+        app.buttons["tryoutMode_自由"].tap()
+        sleep(2)
+        snap("s03-free-mode")
+
+        // 切回序列模式：信息条回来。
+        app.buttons["tryoutMode_序列"].tap()
+        sleep(2)
+        XCTAssertTrue(element(id: "tryout.sequenceStepBar").waitForExistence(timeout: 3),
+                      "切回序列模式应恢复信息条")
+        snap("s04-back-to-sequence")
+    }
+
+    // MARK: - Q19.1 侧栏点击分组回组顶（含重复点击当前分组）
+
+    func testSidebarTapScrollsToGroupTop() {
+        app = XCUIApplication.launchClean()
+        app.switchTab(.drillLibrary)
+        sleep(2)
+
+        // 「全部」视图：内容长、可滚动。
+        let all = app.buttons["sidebar_全部"]
+        XCTAssertTrue(all.waitForExistence(timeout: 5), "侧栏应有「全部」项")
+        all.tap()
+        sleep(1)
+
+        let firstCard = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'drillCard_'")).firstMatch
+        XCTAssertTrue(firstCard.waitForExistence(timeout: 5), "内容列表应有卡片")
+        let firstId = firstCard.identifier
+        let topY = firstCard.frame.minY
+        snap("q191-01-top")
+
+        // 向下滚动若干屏。
+        app.swipeUp(); app.swipeUp(); app.swipeUp()
+        sleep(1)
+        snap("q191-02-scrolled")
+
+        // 重复点击当前分组「全部」——应回到组顶。
+        all.tap()
+        sleep(2)
+        snap("q191-03-back-to-top")
+
+        let sameCard = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@", firstId)).firstMatch
+        XCTAssertTrue(sameCard.waitForExistence(timeout: 3),
+                      "回顶后原首卡应重新可见（\(firstId)）")
+        XCTAssertEqual(sameCard.frame.minY, topY, accuracy: 40,
+                       "重复点击当前分组应回到组顶（首卡回到原纵向位置）")
+
+        // 切换到具体分组亦回顶。
+        let accuracy = app.buttons["sidebar_准度训练"]
+        if accuracy.waitForExistence(timeout: 3) {
+            app.swipeUp(); app.swipeUp()
+            sleep(1)
+            accuracy.tap()
+            sleep(2)
+            snap("q191-04-category-top")
+            let catFirst = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH 'drillCard_'")).firstMatch
+            XCTAssertTrue(catFirst.waitForExistence(timeout: 3), "切分组后应显示该组内容且在顶部")
         }
     }
 

@@ -96,8 +96,8 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
     }
 
     func testSnookerLayout() throws {
-        guard openCard(homeTab: "解", title: "做斯诺克") else {
-            XCTFail("未能进入做斯诺克"); return
+        guard openCard(homeTab: "解", title: "防守") else {
+            XCTFail("未能进入防守"); return
         }
         snap("s2-05-snooker")
     }

@@ -150,7 +150,9 @@ final class PositionPlayViewModel: ObservableObject {
     private var lastShotWasRecorded = false
     private let predictQueue = DispatchQueue(label: "com.qiuji.positionplay-predict", qos: .userInitiated)
     private var predictGeneration = 0
-    private var pendingPredict: DispatchWorkItem?
+    /// 求解触发去抖调度（G14）：交互态（拖瞄准线/拖球/刻度轮）挂起求解、停 0.5s 才触发；
+    /// 离散态（点选/参数）按原 ~20ms 快速触发。
+    private let solveScheduler = SolveDebounceScheduler()
     /// 单飞标志（P3 在途合并）：true = 后台正有一次求解在跑。主线程读写。
     private var predictInFlight = false
     /// 末班车标记（P3）：在途期间来过新请求 ⇒ 收尾时用最新 UI 状态补跑一次（丢弃中间态）。
@@ -322,7 +324,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 从球库把一颗球放上桌（自动找一个空位）。
     func placeFromPalette(_ key: String) {
-        guard !isPlaying, withinTargetBallCap(adding: key) else { return }
+        guard !isPlaying, !isSequenceMode, withinTargetBallCap(adding: key) else { return }
         let pos = freeNormalizedSlot()
         place(key: key, normalized: pos)
         refreshOnTableKeys()
@@ -335,7 +337,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 从球库把一颗球放到指定世界坐标（拖拽落点）。落点会被钳制在台面且不与其它球重叠。
     func placeFromPalette(_ key: String, atWorld world: SCNVector3) {
-        guard !isPlaying, withinTargetBallCap(adding: key) else { return }
+        guard !isPlaying, !isSequenceMode, withinTargetBallCap(adding: key) else { return }
         guard let node = scene.allBallNodes[key] else { return }
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
@@ -401,15 +403,15 @@ final class PositionPlayViewModel: ObservableObject {
         guard !isPlaying else { return }
         let clamped = clampMultiBall(worldPosition, movingNode: node)
         node.position = clamped
-        refreshSelectionRing()   // 即时跟随（recompute 有防抖，避免选中环滞后）
-        recompute()
+        refreshSelectionRing()   // 即时跟随（选中环无防抖，避免滞后）
+        recompute(interactive: true)   // G14：拖球期间不求解，仅几何预览
     }
 
     func dragEnded(node: SCNNode) {
         guard !isPlaying else { return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
-        recompute()
+        recompute(interactive: true)   // G14：拖球结束后按 idle 0.5s（无新输入）触发求解
     }
 
     /// 多球摆位钳制：库内 + 远离袋口 + 不与任意其他在桌球重叠。
@@ -516,18 +518,14 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     /// 自由模式微调瞄准角：`delta > 0` = 屏幕上顺时针（向右）旋转，与右侧角度齿轮「往上拖」一致。
+    /// 自由模式瞄准相对调整（G13）：`delta > 0` = 屏幕顺时针（向右）旋转，同刻度齿轮「往上拖」。
+    /// 台面空白处拖动（`onAimNudged`）与左缘刻度齿轮（`BTAimWheel`）共用本入口——均为对**当前**
+    /// 瞄准方向的增量旋转（第一落点只选中不转向由手势层保证）；G14：微调期间不求解、停 0.5s 才求解。
     func nudgeFreeAim(byDegrees delta: Float) {
         guard aimMode == .free, !isPlaying, abs(delta) > 1e-4 else { return }
         let base = freeAimDir ?? defaultFreeAim() ?? SCNVector3(1, 0, 0)
         freeAimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
-        recompute()
-    }
-
-    /// 手指跟随瞄准（T-P18-43）：台面空白处拖动，手指落点 → 新瞄准方向（母球 → 落点）。
-    func handleAimDrag(world: SCNVector3) {
-        guard aimMode == .free, !isPlaying,
-              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return }
-        setFreeAim(toward: world)
+        recompute(interactive: true)
     }
 
     // MARK: - Free-aim overlay (T-P18-06/08：假想球 + 切角，纯几何逐帧)
@@ -635,18 +633,22 @@ final class PositionPlayViewModel: ObservableObject {
     /// 作废一切在途求解（清空等使旧解失效的路径调用）。
     private func invalidatePendingPredict() {
         predictGeneration += 1
-        pendingPredict?.cancel()
-        pendingPredict = nil
+        solveScheduler.cancel()
         predictRerunWanted = false
         isComputing = false
     }
 
-    /// 预测调度 =「20ms 去抖 + 单飞 + 末班车」（瞄准预测性能优化 P3）：
+    /// 预测调度 =「去抖 + 单飞 + 末班车」（瞄准预测性能优化 P3 + 求解去抖 G14）：
     /// 去抖窗口内只保留最新意图；在途任务跑完后若期间有过新请求，只用**最新** UI 状态补跑一次
-    /// （丢弃中间态），替代旧「排队跑完一个作废一个」。一致性红线：`predictGeneration` 代际检查
-    /// 保留——任何最终上屏的解必对应最新一次 intent，绝不展示旧解。
-    func recompute() {
-        guard !isPlaying else { return }
+    /// （丢弃中间态）。一致性红线：`predictGeneration` 代际检查保留——任何最终上屏的解必对应最新一次
+    /// intent，绝不展示旧解。
+    ///
+    /// - Parameter interactive: G14 语义。`true` = 连续交互（拖瞄准线/拖球/刻度轮微调）——拖动过程中
+    ///   **不求解**，只保留纯几何预览（假想球/首碰点/瞄准线），停 0.5s（无新输入）后才触发求解；
+    ///   `false` = 离散变更（点选目标/袋口、参数微调），按 ~20ms 快速触发（原手感）。
+    func recompute(interactive: Bool = false) {
+        // 序列模式（Q19.2④）：不做自由/袋口求解——逐杆预览与播放走专用状态机。
+        guard !isPlaying, !isSequenceMode else { return }
         refreshFreeAimOverlay()
 
         guard currentShotIntent() != nil else {
@@ -661,11 +663,43 @@ final class PositionPlayViewModel: ObservableObject {
         }
 
         predictGeneration += 1
-        isComputing = true
-        pendingPredict?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.launchSolveIfIdle() }
-        pendingPredict = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.02, execute: work)
+        if interactive {
+            // 拖动中只做纯几何预览：清掉上一次求解的物理轨迹，避免与实时预览方向不一致的残影。
+            isComputing = false
+            showGeometryPreviewOnly()
+        } else {
+            isComputing = true
+        }
+        solveScheduler.schedule(interactive: interactive) { [weak self] in self?.launchSolveIfIdle() }
+    }
+
+    /// G14 拖动中的纯几何预览：保留 `refreshFreeAimOverlay` 刚刷新的假想球/接触点，
+    /// 自由模式补一条闭式瞄准线（cue→假想球，空杆延伸到库边），并清掉待物理求解的旧轨迹与球杆。
+    private func showGeometryPreviewOnly() {
+        scene.clearResultNodes(nodes: &trajectoryNodes)
+        scene.hideCueStick()
+        if aimMode == .free {
+            drawFreeAimPreviewLine()
+        } else {
+            // 袋口模式无闭式预览：拖动中隐藏残留假想球/接触点，球位实时跟随即为反馈。
+            scene.ghostBallNode?.isHidden = true
+            scene.hideContactDot()
+        }
+    }
+
+    /// 自由模式闭式瞄准线预览（纯几何，逐帧）：母球 → 首碰假想球（无碰则延伸到库内边界）。
+    private func drawFreeAimPreviewLine() {
+        guard aimMode == .free,
+              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
+              let dir = freeAimDir else { return }
+        let end: SCNVector3
+        if let contact = freeAimContact {
+            end = SCNVector3(contact.ghost.x, cue.position.y, contact.ghost.z)
+        } else {
+            end = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: dir)
+        }
+        trajectoryNodes.append(scene.addLine(from: cue.position, to: end,
+                                             color: .white, radius: TrajectoryStyle.aimRadius))
     }
 
     /// 去抖到期后的发射口（主线程）：空闲即按**当前**UI 状态起后台求解；在途则只记「末班车」标记。
@@ -681,6 +715,7 @@ final class PositionPlayViewModel: ObservableObject {
         let y = surfaceY
         let gen = predictGeneration
         predictInFlight = true
+        isComputing = true   // 交互 idle 触发路径：求解真正开始时才亮出计算态（拖动预览期为 false）
         predictQueue.async { [weak self] in
             let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
             DispatchQueue.main.async {
@@ -922,8 +957,8 @@ final class PositionPlayViewModel: ObservableObject {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
         let speed: Float = 1.0
-        // #11：末段慢速 creep 肉眼不可见，按「感知静止时刻」截断，避免「击球中」状态滞留数秒。
-        let settle = playback.perceptibleSettleTime()
+        // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
+        let settle = playback.duration
 
         var cueAction: SCNAction?
         for key in onTableKeys {
@@ -1179,7 +1214,7 @@ final class PositionPlayViewModel: ObservableObject {
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let settle = playback.perceptibleSettleTime()
+        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var cueAction: SCNAction?
         for key in onTableKeys {
@@ -1309,6 +1344,261 @@ final class PositionPlayViewModel: ObservableObject {
         sequence.updatedAt = Date()
     }
 
+    // MARK: - Sequence tryout mode（Q19.2④：动作库试打「序列」模式）
+
+    /// 试打序列模式：按 drill 出片序列 `steps` 逐杆演示（隐藏打点/力度/瞄准控件，
+    /// 点「击打」走完整序列，杆间停顿）。复用既有单杆回放骨架
+    /// （`PositionPlayShotSolver.solve` + `scene.runCueStroke` + `TrajectoryPlayback`），不另造播放器。
+
+    /// 逐杆信息（供 View 渲染当前杆的目标/袋口/打点/力度）。
+    struct SequenceStepInfo {
+        let index: Int          // 0-based
+        let total: Int
+        let isFree: Bool
+        let targetLabel: String?
+        let pocketName: String?
+        let spinPhrase: String
+        let powerPhrase: String
+    }
+
+    /// 序列模式激活标志（进袋/自由/序列三选一里的「序列」）。
+    @Published private(set) var isSequenceMode = false
+    /// 当前正在逐杆演示（一次「击打」走完整条序列）。
+    @Published private(set) var isSequencePlaying = false
+    /// 当前呈现/播放的杆序（0-based）。
+    @Published private(set) var sequenceStepIndex = 0
+    /// 演示是否已走完整条序列（终帧提示 + 「重摆球形」重来）。
+    @Published private(set) var sequenceFinished = false
+
+    private var sequenceSteps: [SequenceStep] = []
+    /// 杆间停顿（秒）。
+    private static let sequenceInterShotPause: TimeInterval = 0.7
+
+    /// 该 drill 是否具备可逐杆播放的序列（≥1 杆）。
+    var hasSequence: Bool { !sequenceSteps.isEmpty }
+
+    /// 注入试打序列（View onAppear 调用一次）。
+    func configureSequence(_ steps: [SequenceStep]) {
+        sequenceSteps = steps
+    }
+
+    /// 当前杆结构化信息（无有效杆返回 nil）。
+    var currentSequenceInfo: SequenceStepInfo? {
+        guard sequenceStepIndex >= 0, sequenceStepIndex < sequenceSteps.count else { return nil }
+        let step = sequenceSteps[sequenceStepIndex]
+        return SequenceStepInfo(
+            index: sequenceStepIndex,
+            total: sequenceSteps.count,
+            isFree: step.shot.isFree,
+            targetLabel: step.shot.isFree ? nil : PositionPlayBall.shortLabel(for: step.shot.targetKey),
+            pocketName: step.shot.isFree ? nil : PocketDisplay.name(id: step.shot.pocket),
+            spinPhrase: DrillTryoutBrief.spinPhrase(x: step.shot.spinX, y: step.shot.spinY),
+            powerPhrase: DrillTryoutBrief.powerPhrase(step.shot.velocity)
+        )
+    }
+
+    /// 进入序列模式：复位到第 0 杆击打前并预览该杆轨迹。
+    func enterSequenceMode() {
+        guard hasSequence, !isPlaying, !isSequencePlaying else { return }
+        invalidatePendingPredict()
+        isSequenceMode = true
+        isSequencePlaying = false
+        sequenceFinished = false
+        sequenceStepIndex = 0
+        presentSequenceStep(0)
+    }
+
+    /// 退出序列模式（切到进袋/自由）：清预览态，交由宿主 `loadBoard(initial)` 恢复正常求解。
+    func exitSequenceMode() {
+        guard isSequenceMode else { return }
+        isSequencePlaying = false
+        isSequenceMode = false
+        sequenceFinished = false
+        clearTrajectory()
+        scene.hideCueStick()
+    }
+
+    /// 「重摆球形」在序列模式下 = 从头重演（复位到第 0 杆）。
+    func restartSequence() {
+        guard isSequenceMode, !isPlaying, !isSequencePlaying else { return }
+        sequenceFinished = false
+        sequenceStepIndex = 0
+        presentSequenceStep(0)
+    }
+
+    /// 呈现第 i 杆击打前局面 + 预览轨迹/瞄准（静态，不播放）。
+    private func presentSequenceStep(_ i: Int) {
+        guard i >= 0, i < sequenceSteps.count else { return }
+        sequenceStepIndex = i
+        let step = sequenceSteps[i]
+        scene.hideAllBalls()
+        for (key, pt) in step.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+        // 恢复该杆参数供假想球/瞄准线绘制（didSet 的 recompute 已被 isSequenceMode 拦截）。
+        restoreShotParams(step.shot)
+        if let pred = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY),
+           pred.feasible {
+            solvedShot = SolvedShot(before: step.before, shot: step.shot, prediction: pred)
+            apply(pred)
+        } else {
+            solvedShot = nil
+            clearTrajectory()
+            scene.hideCueStick()
+        }
+        statusText = sequenceStatusText(i)
+    }
+
+    /// 一次「击打」从当前呈现杆走完整条序列（逐杆播放、杆间停顿）。
+    func playSequence() {
+        guard isSequenceMode, hasSequence, !isPlaying, !isSequencePlaying else { return }
+        isSequencePlaying = true
+        sequenceFinished = false
+        runSequenceStep(sequenceFinished ? 0 : sequenceStepIndex)
+    }
+
+    private func runSequenceStep(_ i: Int) {
+        guard isSequencePlaying, i < sequenceSteps.count else {
+            finishSequencePlayback()
+            return
+        }
+        sequenceStepIndex = i
+        let step = sequenceSteps[i]
+        // 摆回该杆击打前。
+        scene.hideAllBalls()
+        for (key, pt) in step.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+        clearTrajectory()
+        scene.hideCueStick()
+
+        guard let pred = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY),
+              pred.feasible, let recorder = pred.recorder, pred.duration > 0.05,
+              let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
+              let aim = aimDirection(path: pred.cuePath, from: cueNode.position) else {
+            // 本杆不可行：直接落到该杆结果并推进（不阻断整条演示）。
+            applySequenceRest(step: step, prediction: nil)
+            scheduleNextSequenceStep(after: i)
+            return
+        }
+
+        isPlaying = true
+        statusText = sequenceStatusText(i) + " · 运杆…"
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity)) { [weak self] in
+            self?.runSequencePlayback(step: step, prediction: pred, recorder: recorder, index: i)
+        }
+    }
+
+    /// 触球瞬间：收杆、按真实轨迹回放球体（复用 `TrajectoryPlayback` 骨架）。
+    private func runSequencePlayback(step: SequenceStep, prediction: ShotPrediction,
+                                     recorder: TrajectoryRecorder, index i: Int) {
+        statusText = sequenceStatusText(i) + " · 击球中…"
+        clearTrajectory()
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let settle = playback.duration   // G15：播到引擎自然静止
+
+        var cueAction: SCNAction?
+        for key in onTableKeys {
+            guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
+            let name = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+            let action = playback.action(for: node, ballName: name, speed: 1.0,
+                                         removeOnPocket: false, maxSimTime: settle)
+            if key == PositionPlayBall.cueKey {
+                cueAction = action
+            } else if let action {
+                node.runAction(action)
+            }
+        }
+        let tail: TimeInterval = prediction.pocketedBalls.isEmpty
+            ? 0
+            : TrajectoryPlayback.pocketSettleDuration + 0.1
+        if let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] {
+            cueNode.runAction(cueAction) { [weak self] in
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                    guard let self else { return }
+                    self.applySequenceRest(step: step, prediction: prediction)
+                    self.scheduleNextSequenceStep(after: i)
+                }
+            }
+            ShotAudioScheduler.shared.play(prediction: prediction)
+        } else {
+            applySequenceRest(step: step, prediction: prediction)
+            scheduleNextSequenceStep(after: i)
+        }
+    }
+
+    /// 一杆演示收尾：把球体落到静止位（有预测用引擎终位，否则用录制 after），清动画。
+    private func applySequenceRest(step: SequenceStep, prediction: ShotPrediction?) {
+        ShotAudioScheduler.shared.cancel()
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        if let pred = prediction {
+            let potted = Set(pred.pocketedBalls.map { boardKey(forPredName: $0, shot: step.shot) })
+            for key in onTableKeys {
+                guard let node = scene.allBallNodes[key] else { continue }
+                if node.parent == nil { scene.rootNode.addChildNode(node) }
+                node.removeAllActions()
+                node.opacity = 1
+                if potted.contains(key) {
+                    node.isHidden = true
+                } else {
+                    node.isHidden = false
+                    let predName = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+                    if let p = pred.finalPositions[predName] {
+                        node.position = SCNVector3(p.x, yLevel, p.z)
+                    }
+                }
+            }
+        } else {
+            scene.hideAllBalls()
+            for (key, pt) in step.after.onTable { place(key: key, normalized: pt) }
+        }
+        refreshOnTableKeys()
+        isPlaying = false
+        scene.hideCueStick()
+        clearTrajectory()
+    }
+
+    private func scheduleNextSequenceStep(after i: Int) {
+        guard isSequencePlaying else { return }
+        let next = i + 1
+        guard next < sequenceSteps.count else {
+            finishSequencePlayback()
+            return
+        }
+        statusText = sequenceStatusText(next) + " ·（衔接下一杆…）"
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(Self.sequenceInterShotPause * 1_000_000_000))
+            guard self.isSequencePlaying else { return }
+            self.runSequenceStep(next)
+        }
+    }
+
+    private func finishSequencePlayback() {
+        isSequencePlaying = false
+        isPlaying = false
+        sequenceFinished = true
+        scene.hideCueStick()
+        statusText = "序列演示完成 · 点「重摆球形」再看一遍"
+    }
+
+    /// 序列模式副标题：第 n/N 杆 · 打 X 号 → 袋口 · 打点 · 力度。
+    private func sequenceStatusText(_ i: Int) -> String {
+        guard i >= 0, i < sequenceSteps.count else { return "序列演示完成" }
+        let step = sequenceSteps[i]
+        var parts = ["第 \(i + 1)/\(sequenceSteps.count) 杆"]
+        if step.shot.isFree {
+            parts.append("自由球")
+        } else {
+            let target = PositionPlayBall.shortLabel(for: step.shot.targetKey)
+            let pocket = PocketDisplay.name(id: step.shot.pocket)
+            parts.append(pocket == "—" ? "打 \(target) 号" : "打 \(target) 号 → \(pocket)")
+        }
+        parts.append(DrillTryoutBrief.spinPhrase(x: step.shot.spinX, y: step.shot.spinY))
+        parts.append(DrillTryoutBrief.powerPhrase(step.shot.velocity))
+        return parts.joined(separator: " · ")
+    }
+
     // MARK: - Break flow（T-P18-47：内置开球，替代球形生成器页）
 
     /// 开球模式 runner。非 nil = 开球模式：台面交互与求解全部挂起，
@@ -1362,4 +1652,56 @@ final class PositionPlayViewModel: ObservableObject {
         breakChangeForwarder = nil
         boardBeforeBreak = nil
     }
+}
+
+// MARK: - Solve trigger debounce (G14)
+
+/// 求解触发去抖调度（问题集合 v5 · G14）：把「何时真正发起求解」与求解本身解耦，便于单测时序而
+/// 不触真实求解。
+/// - **交互态**（拖瞄准线 / 拖球 / 刻度轮微调）：每次输入都取消上一次待跑并按 `idleInterval` 重排，
+///   故拖动过程中持续输入 ⇒ 永不触发；停止输入（无新调用）满 `idleInterval` 后才触发一次。
+/// - **离散态**（点选目标/袋口、参数微调）：按 `fastInterval` 触发（保留原 ~20ms 手感）。
+@MainActor
+final class SolveDebounceScheduler {
+    /// G14 规范：拖动/连续调节停止后，停 0.5s（无新输入）才触发求解。
+    static let defaultIdleInterval: TimeInterval = 0.5
+    /// 离散变更的快速去抖（原 `recompute` 20ms）。
+    static let defaultFastInterval: TimeInterval = 0.02
+
+    var idleInterval: TimeInterval
+    var fastInterval: TimeInterval
+
+    /// 延时执行注入点（默认主队列 asyncAfter）；单测替换为可控实现，断言时序而不等待真实时间。
+    var scheduleAfter: (TimeInterval, DispatchWorkItem) -> Void = { delay, work in
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private(set) var pending: DispatchWorkItem?
+    /// 最近一次排程使用的延时（单测断言：交互态 == idleInterval、离散态 == fastInterval）。
+    private(set) var lastScheduledDelay: TimeInterval?
+
+    init(idleInterval: TimeInterval = SolveDebounceScheduler.defaultIdleInterval,
+         fastInterval: TimeInterval = SolveDebounceScheduler.defaultFastInterval) {
+        self.idleInterval = idleInterval
+        self.fastInterval = fastInterval
+    }
+
+    /// 排一次求解触发；重复调用取消上一次待跑（拖动中每帧调用 ⇒ 只留最后一次）。
+    func schedule(interactive: Bool, _ fire: @escaping () -> Void) {
+        pending?.cancel()
+        let work = DispatchWorkItem(block: fire)
+        pending = work
+        let delay = interactive ? idleInterval : fastInterval
+        lastScheduledDelay = delay
+        scheduleAfter(delay, work)
+    }
+
+    func cancel() {
+        pending?.cancel()
+        pending = nil
+        lastScheduledDelay = nil
+    }
+
+    /// 是否有未取消的待跑求解（单测辅助）。
+    var hasPending: Bool { pending.map { !$0.isCancelled } ?? false }
 }

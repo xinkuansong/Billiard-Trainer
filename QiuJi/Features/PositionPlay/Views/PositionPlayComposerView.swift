@@ -112,9 +112,6 @@ struct PositionPlayComposerView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .principal) { navStatus }
-            if isTryout {
-                ToolbarItem(placement: .topBarTrailing) { briefInfoButton }
-            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .alert("命名走位序列", isPresented: $showRename) {
@@ -150,7 +147,13 @@ struct PositionPlayComposerView: View {
                         tryoutBoard = board
                         vm.loadBoard(board)
                     }
-                    vm.aimMode = initialMode ?? .free
+                    // Q19.2④：有逐杆序列 ⇒ 默认「序列」模式；无序列 drill 降级为自由模式（保持既有行为）。
+                    if let steps = tryoutFormation?.steps, !steps.isEmpty {
+                        vm.configureSequence(steps)
+                        vm.enterSequenceMode()
+                    } else {
+                        vm.aimMode = initialMode ?? .free
+                    }
                     withAnimation(.easeIn(duration: 0.45).delay(0.1)) { stageRevealed = true }
                     withAnimation(.easeInOut(duration: 0.35).delay(0.6)) { showBrief = true }
                 } else {
@@ -171,22 +174,16 @@ struct PositionPlayComposerView: View {
         withAnimation(.easeOut(duration: 0.25)) { showBrief = false }
     }
 
-    /// 顶栏 info：召回说明卡。
-    private var briefInfoButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.25)) { showBrief.toggle() }
-        } label: {
-            Image(systemName: "info.circle")
-        }
-        .accessibilityLabel("试打说明")
-        .accessibilityIdentifier("tryout.info")
-    }
-
     /// 左下「重摆球形」（一等公民，替代清空桌面/清空重来）：一键回 drill 初始布局。
     /// `loadBoard` 有 `!isPlaying` 闸 ⇒ 回放中禁用。
     private var rearrangeButton: some View {
         Button {
-            if let tryoutBoard { vm.loadBoard(tryoutBoard) }
+            // 序列模式：从头重演；其余模式：回 drill 初始布局。
+            if vm.isSequenceMode {
+                vm.restartSequence()
+            } else if let tryoutBoard {
+                vm.loadBoard(tryoutBoard)
+            }
         } label: {
             VStack(spacing: 2) {
                 Image(systemName: "arrow.counterclockwise")
@@ -216,53 +213,79 @@ struct PositionPlayComposerView: View {
         ZStack(alignment: .topLeading) {
             sceneContainer
 
+            // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
+            if let runner = vm.breakRunner {
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy)
+            }
+
             if !vm.isBreakMode && proxy.isValid {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
                 BTTrajectoryDetailChip { vm.recompute() }
                     .btChipBandPlacement(proxy)
                     .allowsHitTesting(!vm.isPlaying)
 
-                // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
-                if vm.aimMode == .free {
-                    BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
-                        .btStageFrame(proxy.aimWheelFrame())
-                        .allowsHitTesting(!vm.isPlaying)
-                }
-
-                // G6 左下角：试打变体 = 「重摆球形」一等公民（§1.7 隐藏开球）；
-                // 编排台 = 开球按钮（条 19.2 本页无开球，禁用态）。底边齐球桌底线。
-                if isTryout {
+                // Q19.2④ 序列模式：隐藏打点盘/力度条/瞄准条，仅逐杆播放。
+                if vm.isSequenceMode {
                     rearrangeButton
                         .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
+
+                    // 右下角单「击打」按钮：一次点击走完整条序列。
+                    BTShotActionColumn(
+                        strikeTitle: vm.isSequencePlaying ? "演示中" : "击打",
+                        strikeEnabled: !vm.isSequencePlaying && !vm.isPlaying,
+                        onStrike: {
+                            dismissBriefOnInteraction()
+                            vm.playSequence()
+                        },
+                        undoEnabled: false,
+                        onUndo: {},
+                        playbackEnabled: false,
+                        onPlayback: {}
+                    )
+                    .btStageFrame(proxy.actionColumnFrame())
                 } else {
-                    BTBreakSideButton(isEnabled: false) {}
-                        .btStageFrame(proxy.breakButtonFrame())
+                    // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
+                    if vm.aimMode == .free {
+                        BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                            .btStageFrame(proxy.aimWheelFrame())
+                            .allowsHitTesting(!vm.isPlaying)
+                    }
+
+                    // G6 左下角：试打变体 = 「重摆球形」一等公民（§1.7 隐藏开球）；
+                    // 编排台 = 开球按钮（条 19.2 本页无开球，禁用态）。底边齐球桌底线。
+                    if isTryout {
+                        rearrangeButton
+                            .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
+                    } else {
+                        BTBreakSideButton(isEnabled: false) {}
+                            .btStageFrame(proxy.breakButtonFrame())
+                    }
+
+                    // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
+                    BTShotInstrumentColumn(
+                        spinX: vm.spinX, spinY: vm.spinY,
+                        onSpinTap: { showSpinPad = true },
+                        velocity: $vm.velocity,
+                        range: ShotTuning.velocityRange,
+                        isDisabled: vm.isPlaying
+                    )
+                    .btStageFrame(proxy.instrumentFrame())
+
+                    // 条 18.2：击球/上一杆/回放竖排，右下角底边齐球桌底线。
+                    BTShotActionColumn(
+                        strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                        strikeEnabled: strikeEnabled,
+                        onStrike: {
+                            dismissBriefOnInteraction()
+                            vm.play()
+                        },
+                        undoEnabled: !vm.isPlaying && vm.canReplay,
+                        onUndo: { vm.replayCurrent() },
+                        playbackEnabled: !vm.isPlaying && vm.canPlayback,
+                        onPlayback: { vm.replayLastShot() }
+                    )
+                    .btStageFrame(proxy.actionColumnFrame())
                 }
-
-                // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
-                BTShotInstrumentColumn(
-                    spinX: vm.spinX, spinY: vm.spinY,
-                    onSpinTap: { showSpinPad = true },
-                    velocity: $vm.velocity,
-                    range: ShotTuning.velocityRange,
-                    isDisabled: vm.isPlaying
-                )
-                .btStageFrame(proxy.instrumentFrame())
-
-                // 条 18.2：击球/上一杆/回放竖排，右下角底边齐球桌底线。
-                BTShotActionColumn(
-                    strikeTitle: vm.isPlaying ? "击球中" : "击球",
-                    strikeEnabled: strikeEnabled,
-                    onStrike: {
-                        dismissBriefOnInteraction()
-                        vm.play()
-                    },
-                    undoEnabled: !vm.isPlaying && vm.canReplay,
-                    onUndo: { vm.replayCurrent() },
-                    playbackEnabled: !vm.isPlaying && vm.canPlayback,
-                    onPlayback: { vm.replayLastShot() }
-                )
-                .btStageFrame(proxy.actionColumnFrame())
             }
 
             // 进场说明卡（§1.8）：贴球桌上方淡入，非 modal 不阻断操作。
@@ -303,9 +326,9 @@ struct PositionPlayComposerView: View {
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
             autoFitsRotatedTable: true,
-            onPocketTapped: { if !vm.isBreakMode { vm.selectPocket(at: $0) } },
-            // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
-            draggableBallNodes: vm.breakRunner?.draggableCue ?? vm.draggableBalls,
+            onPocketTapped: { if !vm.isBreakMode && !vm.isSequenceMode { vm.selectPocket(at: $0) } },
+            // 开球模式：仅母球可拖（限开球区）；序列模式：台面只读（逐杆演示），其余台面交互挂起。
+            draggableBallNodes: vm.isSequenceMode ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),
             onDragBegan: { node in
                 dismissBriefOnInteraction()
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
@@ -326,15 +349,17 @@ struct PositionPlayComposerView: View {
                 guard !vm.isBreakMode else { return }
                 handleTableDragEnd(node: node, localPoint: localPoint)
             },
-            selectableBallNodes: vm.isBreakMode ? [] : vm.selectableBalls,
-            onBallTapped: { vm.selectTarget(node: $0) },
+            selectableBallNodes: (vm.isBreakMode || vm.isSequenceMode) ? [] : vm.selectableBalls,
+            onBallTapped: { if !vm.isSequenceMode { vm.selectTarget(node: $0) } },
             onTableTapped: {
                 dismissBriefOnInteraction()
-                if !vm.isBreakMode { vm.handleTableTap(world: $0) }
+                if !vm.isBreakMode && !vm.isSequenceMode { vm.handleTableTap(world: $0) }
             },
-            onAimDragged: {
+            onAimNudged: {
                 dismissBriefOnInteraction()
-                if !vm.isBreakMode { vm.handleAimDrag(world: $0) }
+                if vm.isSequenceMode { return }
+                if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
+                else { vm.nudgeFreeAim(byDegrees: $0) }
             },
             projector: projector
         )
@@ -378,6 +403,15 @@ struct PositionPlayComposerView: View {
         HStack(spacing: Spacing.sm) {
             if vm.isBreakMode {
                 breakModePill
+            } else if isTryout && vm.hasSequence {
+                // Q19.2④：试打三模式选择（序列/进袋/自由）。
+                tryoutModeSelector
+                if vm.isSequenceMode {
+                    sequenceStepBar
+                } else {
+                    aimCapsule
+                    if vm.cuePocketed { scratchPill }
+                }
             } else {
                 // 条 15.2/15.3：进袋/自由单按钮点击切换，切自由保留进袋瞄准方向。
                 BTAimModeToggleButton(isFree: vm.aimMode == .free,
@@ -396,6 +430,100 @@ struct PositionPlayComposerView: View {
         .frame(maxHeight: .infinity)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
+    }
+
+    // MARK: - Tryout sequence mode (Q19.2④)
+
+    /// 试打三模式选择：序列 / 进袋 / 自由。切换即刷新台面与控件。
+    private enum TryoutMode: String, CaseIterable { case sequence = "序列", pocket = "进袋", free = "自由" }
+
+    private var currentTryoutMode: TryoutMode {
+        if vm.isSequenceMode { return .sequence }
+        return vm.aimMode == .free ? .free : .pocket
+    }
+
+    private var tryoutModeSelector: some View {
+        HStack(spacing: 2) {
+            ForEach(TryoutMode.allCases, id: \.self) { mode in
+                let selected = currentTryoutMode == mode
+                Button {
+                    selectTryoutMode(mode)
+                } label: {
+                    Text(mode.rawValue)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(selected ? .black : .white.opacity(0.85))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(selected ? Color.btPrimary : Color.clear, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("tryoutMode_\(mode.rawValue)")
+            }
+        }
+        .padding(3)
+        .btHudGlass(in: Capsule())
+        .disabled(vm.isPlaying || vm.isSequencePlaying)
+        .opacity(vm.isPlaying || vm.isSequencePlaying ? 0.5 : 1)
+    }
+
+    private func selectTryoutMode(_ mode: TryoutMode) {
+        guard !vm.isPlaying, !vm.isSequencePlaying, mode != currentTryoutMode else { return }
+        switch mode {
+        case .sequence:
+            vm.enterSequenceMode()
+        case .pocket:
+            vm.exitSequenceMode()
+            if let tryoutBoard { vm.loadBoard(tryoutBoard) }
+            vm.aimMode = .pocket
+        case .free:
+            vm.exitSequenceMode()
+            if let tryoutBoard { vm.loadBoard(tryoutBoard) }
+            vm.aimMode = .free
+        }
+    }
+
+    /// 序列模式当前杆信息条：第 n/N 杆 · 打 X 号 → 袋口 · 打点 · 力度。
+    @ViewBuilder
+    private var sequenceStepBar: some View {
+        if let info = vm.currentSequenceInfo {
+            HStack(spacing: 6) {
+                Text("第 \(info.index + 1)/\(info.total) 杆")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.btPrimary)
+                Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                if info.isFree {
+                    Text("自由球")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.9))
+                } else {
+                    Text("\(info.targetLabel ?? "") 号" + (info.pocketName.map { " → \($0)" } ?? ""))
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .lineLimit(1)
+                }
+                Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                Text("\(info.spinPhrase) · \(info.powerPhrase)")
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, 6)
+            .btHudGlass()
+            .accessibilityIdentifier("tryout.sequenceStepBar")
+        } else if vm.sequenceFinished {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.btPrimary)
+                Text("序列演示完成")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.9))
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, 6)
+            .btHudGlass()
+        }
     }
 
     /// 角度/厚薄（袋口模式）或自由球标识——统一信息胶囊样式。
@@ -600,6 +728,13 @@ struct PositionPlayComposerView: View {
     /// 试打变体（§1.7）：隐藏「重命名」，清空桌面/清空重来由「重摆球形」一等公民按钮取代。
     private var moreMenu: some View {
         Menu {
+            if isTryout {
+                // Q19.2③：右上角 i 内容并入三点菜单（G19 口径）——说明卡召回入口。
+                Button("试打说明", systemImage: "info.circle") {
+                    withAnimation(.easeInOut(duration: 0.25)) { showBrief.toggle() }
+                }
+                .accessibilityIdentifier("tryout.info")
+            }
             if !isTryout {
                 Button("重命名", systemImage: "pencil") {
                     renameText = vm.sequence.name
@@ -622,6 +757,7 @@ struct PositionPlayComposerView: View {
         } label: {
             Image(systemName: "ellipsis.circle")
         }
+        .accessibilityIdentifier("composer.more")
     }
 
     @ViewBuilder

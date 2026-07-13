@@ -1,0 +1,62 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "9B456D2E-C90E-4324-8E98-51A4CCA930A1",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "AA645106-9EA6-4041-9205-92DAD5090A4F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "v8-snooker-clearkey_0_8164D156-F270-41B5-8D91-B8B9CF1329C1.png",
+        "timestamp" : 1783948635.631
+      }
+    ],
+    "testIdentifier" : "S8_SnookerV8UITests/testV8ClearKeyLayout()",
+    "testIdentifierURL" : "test://com.apple.xcode/QiuJi/QiuJiUITests/S8_SnookerV8UITests/testV8ClearKeyLayout"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "9B456D2E-C90E-4324-8E98-51A4CCA930A1",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "F3C51009-34AA-43CA-9E33-7C478AC47C25.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "v8-complete-snooker_0_48D92BC2-D01A-48FD-A297-1022C0651564.png",
+        "timestamp" : 1783948655.865
+      }
+    ],
+    "testIdentifier" : "S8_SnookerV8UITests/testV8CompleteSnooker()",
+    "testIdentifierURL" : "test://com.apple.xcode/QiuJi/QiuJiUITests/S8_SnookerV8UITests/testV8CompleteSnooker"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "9B456D2E-C90E-4324-8E98-51A4CCA930A1",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "B889D867-677C-4952-90EC-3EBA7731624A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "v8-high-difficulty_0_18B21DD1-1D8C-48F1-B300-8FB02139E6D8.png",
+        "timestamp" : 1783948686.132
+      }
+    ],
+    "testIdentifier" : "S8_SnookerV8UITests/testV8HighDifficulty()",
+    "testIdentifierURL" : "test://com.apple.xcode/QiuJi/QiuJiUITests/S8_SnookerV8UITests/testV8HighDifficulty"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "9B456D2E-C90E-4324-8E98-51A4CCA930A1",
+        "deviceName" : "iPhone 17 Pro",
+        "exportedFileName" : "BB21F295-00D1-4994-BC1F-D9D29DC28AF5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "v8-no-solution_0_46EF53E6-F099-4A6C-82FD-051A9DEF24ED.png",
+        "timestamp" : 1783948699.19
+      }
+    ],
+    "testIdentifier" : "S8_SnookerV8UITests/testV8NoSolution()",
+    "testIdentifierURL" : "test://com.apple.xcode/QiuJi/QiuJiUITests/S8_SnookerV8UITests/testV8NoSolution"
+  }
+]

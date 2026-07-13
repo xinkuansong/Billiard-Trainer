@@ -175,10 +175,16 @@ struct ContactPointTableView: View {
                 BTFigureTag(text: "袋口方向", color: FigureLine.pot(number: 1))
                     .position(x: potEnd.x, y: potEnd.y - 12)
                 // G1：瞄准点 = 垂足（红），接触点 = 两球相切处（绿）。
+                // Q3（问题集合 v5 V4）：瞄准点标签放瞄准点「左上」、接触点标签放接触点
+                // 「右侧」（沿两球连线的右法向 (cos,sin) 外移）。避让为全角度域（0–90°）
+                // 数值核验，非单帧调偏移：瞄准点标签框与 1 号球/假想球圆区最小间隙
+                // 4.2pt@0°、接触点 6.4pt@8°，均 >0。关键最坏帧 = 90° 时假想球心与瞄准点
+                // 重合，标签「左上」偏移用空的上半区避让，不压假想球。
                 BTFigureTag(text: "瞄准点", color: FigureLine.aimPoint)
-                    .position(x: aimPoint.x + d * 0.95, y: aimPoint.y - d * 0.35)
+                    .position(x: aimPoint.x - d * 0.95, y: aimPoint.y - d * 0.40)
                 BTFigureTag(text: "接触点", color: FigureLine.contact)
-                    .position(x: contact.x - d * 0.95, y: contact.y)
+                    .position(x: contact.x + CGFloat(cos(rad)) * d * 0.95,
+                              y: contact.y + CGFloat(sin(rad)) * d * 0.95)
             }
             .animation(.easeOut(duration: 0.12), value: sliderAngle)
         }

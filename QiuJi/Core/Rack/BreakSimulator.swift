@@ -39,12 +39,14 @@ enum BreakSimulator {
     /// - Parameters:
     ///   - rack: 摆好的球架（`RackLayout.make`）。
     ///   - cuePosition: 母球在开球区的世界坐标；nil = 用球架默认开球点（正中）。
-    ///     母球位置即开球角度的唯一控制——瞄准方向**自动锁顶球**（指向球堆顶角球心）。
+    ///   - aimDirection: 开球瞄准方向（XZ 单位向量）；nil = **自动锁顶球**（指向球堆顶角球心）。
+    ///     G18（问题集合 v5·V6）：开放瞄准后由 `BreakFlowRunner` 传入用户调整过的方向。
     ///   - power: 杆头速度 (m/s)。
     ///   - spinX/spinY: 打点（接触点偏移/R）。
     ///   - maxEvents/maxTime: 模拟预算；默认给足（15 球开球实测远未触顶）。
     static func breakShot(rack: Rack,
                           cuePosition: SCNVector3? = nil,
+                          aimDirection: SCNVector3? = nil,
                           power: Float,
                           spinX: Float = 0,
                           spinY: Float = 0,
@@ -52,7 +54,7 @@ enum BreakSimulator {
                           maxTime: Float = 30) -> BreakResult {
         let cuePos = cuePosition ?? rack.cue
         let strike = CueBallStrike.executeStrike(
-            aimDirection: aimAtApex(rack: rack, from: cuePos),
+            aimDirection: aimDirection ?? aimAtApex(rack: rack, from: cuePos),
             velocity: power, spinX: spinX, spinY: spinY)
 
         let engine = EventDrivenEngine(

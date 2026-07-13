@@ -39,6 +39,9 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 自由模式「上一杆 / 回放」可用性。
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlaybackShot = false
+    /// 求解模式「上一杆 / 回放」可用性（G17，条 17.5）。
+    @Published private(set) var canUndoSolve = false
+    @Published private(set) var canReplaySolve = false
 
     /// 自由模式瞄准方向（场景 XZ 单位向量）。
     private var freeAimDir: SCNVector3?
@@ -52,6 +55,21 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 自由模拟中目标球（黑 8）的引擎名（球名沿用 USDZ 键约定）。
     private static let freeTargetName = "_8"
 
+    /// 求解模式「上一杆」完整上下文（G17，条 17.5）：击打（演示）前的**完整求解状态**——
+    /// 球形 + 库数 + 已求出的全部解（缓存回填，免重解）+ 当前解档位 + 力度。反射引擎解为
+    /// `KickEngineSolution`（非 PositionPlay 的 `PositionPlaySolution`），与共享 `SolveShotSnapshot`
+    /// 类型不兼容，故按方案「用 VM 层已有 solutions 即可」以本页原生类型承载（如实说明取舍）。
+    struct SolveUndoContext {
+        var board: [String: SCNVector3]
+        var cushions: Int?
+        var solutions: [KickEngineSolution]
+        var currentIndex: Int
+        var power: Double
+    }
+    private var lastSolveUndo: SolveUndoContext?
+    /// 恢复期抑制 `reflectionPower.didSet` 触发重求解（「上一杆」= 免重解，G17）。
+    private var isRestoringSolve = false
+
     var canRestoreSnapshot: Bool { lastSolveSnapshot != nil }
     var canFreeStrike: Bool {
         mode == .free && !isPlaying && freeAimDir != nil
@@ -62,7 +80,7 @@ final class DiamondSystemViewModel: ObservableObject {
     @Published var reflectionPower: Double = Double(CushionReflectionSettings.power) {
         didSet {
             CushionReflectionSettings.power = Float(reflectionPower)
-            recompute()
+            if !isRestoringSolve { recompute() }
         }
     }
 
@@ -264,8 +282,17 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 求解模式「击打」= 演示：回放该解的引擎全保真 `ShotPrediction`（母球绕库碰目标球、
     /// 两球碰后真实去向、障碍球被扰动），结束自动复原击打前球形。画面=物理=回放单一口径。
     func strike() {
-        guard canStrike, mode == .solve, let sol = currentSolution,
-              let cueNode = scene.cueBallNode,
+        guard canStrike, mode == .solve, let sol = currentSolution else { return }
+        // G17（条 17.5）：击打（演示）前捕获完整上下文，供「上一杆」全量恢复。
+        lastSolveUndo = makeSolveUndo()
+        canUndoSolve = false
+        canReplaySolve = false
+        runSolveDemo(sol)
+    }
+
+    /// 运行一次求解模式演示（出杆 → 回放 → 自动复位），不捕获上下文（供击打与「回放」复用）。
+    private func runSolveDemo(_ sol: KickEngineSolution) {
+        guard let cueNode = scene.cueBallNode,
               sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
         solveTask?.cancel()
         isSolving = false
@@ -281,6 +308,60 @@ final class DiamondSystemViewModel: ObservableObject {
         ) { [weak self] in
             self?.launchPlayback(sol)
         }
+    }
+
+    // MARK: - 求解模式「上一杆 / 回放」（G17，条 17.5）
+
+    /// 捕获当前求解状态为「上一杆」上下文（仅在有解时有意义）。
+    /// （internal：`strike()` 与单测共用同一处捕获逻辑，单一真源。）
+    func makeSolveUndo() -> SolveUndoContext? {
+        guard hasSolution else { return nil }
+        return SolveUndoContext(
+            board: captureBoard(), cushions: selectedCushions,
+            solutions: solutions, currentIndex: currentIndex, power: reflectionPower)
+    }
+
+    /// 把击打前完整状态原样恢复（G17，免重解）。
+    func restoreSolve(from ctx: SolveUndoContext) {
+        guard mode == .solve, !isPlaying else { return }
+        solveTask?.cancel()
+        isSolving = false
+        isRestoringSolve = true
+        reflectionPower = ctx.power
+        isRestoringSolve = false
+        applyBoard(ctx.board)
+        selectedCushions = ctx.cushions
+        solutions = ctx.solutions
+        displayed = ctx.cushions.map { n in solutions.filter { $0.cushions == n } } ?? solutions
+        solutionCount = displayed.count
+        if displayed.isEmpty {
+            hasSolution = false
+            currentIndex = 0
+            currentCushions = 0
+            currentRailText = ""
+            currentRobustnessPercent = nil
+            clearPath()
+        } else {
+            currentIndex = min(max(ctx.currentIndex, 0), displayed.count - 1)
+            drawCurrent()
+        }
+    }
+
+    /// 上一杆（G17）：回到上次击打（演示）前的完整状态（球形 + 库数 + 解集 + 档位 + 力度）。
+    func undoSolveShot() {
+        guard mode == .solve, !isPlaying, let ctx = lastSolveUndo else { return }
+        restoreSolve(from: ctx)
+        lastSolveUndo = nil
+        canUndoSolve = false
+        canReplaySolve = false
+    }
+
+    /// 回放上一杆：恢复击打前状态并重放该解的演示。
+    func replaySolveShot() {
+        guard mode == .solve, !isPlaying, let ctx = lastSolveUndo else { return }
+        restoreSolve(from: ctx)
+        guard let sol = currentSolution else { return }
+        runSolveDemo(sol)
     }
 
     /// 回放中「停止」：立即复位（快照即真源）。
@@ -302,8 +383,8 @@ final class DiamondSystemViewModel: ObservableObject {
         let playback = TrajectoryPlayback(
             recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius
         )
-        // #11：末段慢速 creep 肉眼不可见，按「感知静止时刻」截断，避免演示态滞留。
-        let settle = playback.perceptibleSettleTime()
+        // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
+        let settle = playback.duration
 
         var pairs: [(SCNNode, String)] = []
         if let cue = scene.cueBallNode { pairs.append((cue, ShotInput.cueBallName)) }
@@ -338,6 +419,8 @@ final class DiamondSystemViewModel: ObservableObject {
         applyBoard(strikeSnapshot)
         strikeSnapshot = [:]
         isPlaying = false
+        canUndoSolve = lastSolveUndo != nil
+        canReplaySolve = lastSolveUndo != nil
         drawCurrent()
     }
 
@@ -417,22 +500,13 @@ final class DiamondSystemViewModel: ObservableObject {
         return SCNVector3(dx / len, 0, dz / len)
     }
 
-    /// 刻度轮细调（T-P18-43）：`delta > 0` = 屏幕顺时针。
+    /// 自由模式瞄准相对调整（G13）：`delta > 0` = 屏幕顺时针。台面空白处拖动（`onAimNudged`）与
+    /// 左缘刻度齿轮（`BTAimWheel`）共用本入口——均为对**当前**瞄准方向的增量旋转（第一落点只选中
+    /// 不转向由手势层保证）。自由模式为纯几何预览（`freeAimFirstContact`），本就不求解，不受 G14 影响。
     func nudgeFreeAim(byDegrees delta: Float) {
         guard mode == .free, !isPlaying, abs(delta) > 1e-4 else { return }
         let base = freeAimDir ?? defaultFreeAim()
         freeAimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
-        refreshFreeAim()
-    }
-
-    /// 手指跟随瞄准：台面空白处拖动，落点 → 新瞄准方向（母球 → 落点）。
-    func handleAimDrag(world: SCNVector3) {
-        guard mode == .free, !isPlaying,
-              let cue = scene.cueBallNode, !cue.isHidden else { return }
-        let dx = world.x - cue.position.x, dz = world.z - cue.position.z
-        let len = sqrtf(dx * dx + dz * dz)
-        guard len > 0.02 else { return }
-        freeAimDir = SCNVector3(dx / len, 0, dz / len)
         refreshFreeAim()
     }
 
@@ -506,18 +580,9 @@ final class DiamondSystemViewModel: ObservableObject {
         return node
     }
 
-    /// 空杆瞄准线终点：射线与库内边界（缩一颗球半径）的首个交点。
-    /// 坐标契约：长库 = 常 Z（±halfW）、短库 = 常 X（±halfL），与 `clampMultiBall` 同式。
+    /// 空杆瞄准线终点：射线与库内边界（缩一颗球半径）的首个交点（几何单一真源）。
     private func rayToRail(from p: SCNVector3, dir: SCNVector3) -> SCNVector3 {
-        let halfL = AngleSceneCalculator.innerLength / 2 - AngleSceneCalculator.ballRadius
-        let halfW = AngleSceneCalculator.innerWidth / 2 - AngleSceneCalculator.ballRadius
-        var t = Float.greatestFiniteMagnitude
-        if dir.x > 1e-5 { t = min(t, (halfL - p.x) / dir.x) }
-        if dir.x < -1e-5 { t = min(t, (-halfL - p.x) / dir.x) }
-        if dir.z > 1e-5 { t = min(t, (halfW - p.z) / dir.z) }
-        if dir.z < -1e-5 { t = min(t, (-halfW - p.z) / dir.z) }
-        if !t.isFinite || t < 0 { t = 0 }
-        return SCNVector3(p.x + dir.x * t, p.y, p.z + dir.z * t)
+        AngleSceneCalculator.rayToInnerRail(from: p, dir: dir)
     }
 
     /// 选中解暗虚线参考（hint token）：母球绕库解线段，供照着练。
@@ -612,7 +677,7 @@ final class DiamondSystemViewModel: ObservableObject {
         let playback = TrajectoryPlayback(
             recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius
         )
-        let settle = playback.perceptibleSettleTime()
+        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var pairs: [(SCNNode, String)] = []
         if let cue = scene.cueBallNode { pairs.append((cue, ShotInput.cueBallName)) }
@@ -707,7 +772,9 @@ final class DiamondSystemViewModel: ObservableObject {
         // 球位 y 必须是真实球心高度：管线的接触锚点/瞄准几何直接沿用输入 y。
         let ballY = surfaceY + AngleSceneCalculator.ballRadius
         solveTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 120_000_000)
+            // G14：求解模式拖球/连续调节期间不求解——每次触发取消上一 task 并重排，
+            // 停 0.5s（无新输入）后才离开主线程反解（缓存命中直显，不受此延时影响）。
+            try? await Task.sleep(nanoseconds: UInt64(SolveDebounceScheduler.defaultIdleInterval * 1_000_000_000))
             if Task.isCancelled { return }
             let sols = await Task.detached(priority: .userInitiated) {
                 BankKickSolvePipeline.solveKick(
@@ -775,6 +842,49 @@ final class DiamondSystemViewModel: ObservableObject {
 
     private var currentSolution: KickEngineSolution? {
         displayed.indices.contains(currentIndex) ? displayed[currentIndex] : nil
+    }
+
+    // MARK: - Status text（条 17.1/17.2/17.7：解描述 / 无解说明入 principal 副标题）
+
+    /// 无解说明。
+    var noSolutionText: String {
+        if selectedCushions != nil { return "该库数下无解，换库数或移动球位" }
+        return "该位置暂无解，移动球位再试"
+    }
+
+    /// principal 副标题文案：求解态 = 解读数 / 求解中 / 无解；自由态 = 首碰通称（替代原左下 pill）。
+    var statusText: String {
+        if mode == .free {
+            if isPlaying { return "击球中…" }
+            guard let c = freeAimContact else { return "空杆 — 拖动台面或刻度轮瞄准" }
+            let name = BankKickFreePill.ballName(c.targetKey)
+            let deg = Int(c.cutAngleDeg.rounded())
+            let thick = AngleSceneCalculator.thicknessName(cutAngle: c.cutAngleDeg)
+            return thick == "—" ? "首碰 \(name) · 切角 \(deg)°" : "首碰 \(name) · 切角 \(deg)° · \(thick)"
+        }
+        if isPlaying { return "演示中…" }
+        if isDragging { return "拖动中 · 松手后求解" }
+        if isSolving { return "真实物理求解中…" }
+        guard hasSolution else { return noSolutionText }
+        var parts = ["\(currentCushions) 库"]
+        if !currentRailText.isEmpty { parts.append(currentRailText) }
+        parts.append(currentDifficultyTier.label)
+        if let robust = currentRobustnessPercent { parts.append("容错 \(robust)%") }
+        if solutionCount > 1 { parts.append("解 \(currentIndex + 1)/\(solutionCount)") }
+        return parts.joined(separator: " · ")
+    }
+
+    /// 球库点击在桌固定球（母球 / 黑 8）→ 桌上对应球放大脉冲提示位置（条 17.8）。
+    func pulsePaletteBall(_ key: String) {
+        let node: SCNNode? = key == PositionPlayBall.cueKey
+            ? scene.cueBallNode
+            : (key == Self.freeTargetName ? scene.targetBallNodes.first : scene.allBallNodes[key])
+        guard let node, !node.isHidden else { return }
+        node.removeAction(forKey: "palettePulse")
+        node.runAction(SCNAction.sequence([
+            SCNAction.scale(by: 1.35, duration: 0.15),
+            SCNAction.scale(by: 1.0 / 1.35, duration: 0.25)
+        ]), forKey: "palettePulse")
     }
 
     private func drawCurrent() {

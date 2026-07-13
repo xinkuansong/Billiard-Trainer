@@ -186,6 +186,105 @@ final class PositionPlayFreeAimTests: XCTestCase {
         XCTAssertFalse(AngleSceneCalculator.isPathBlocked(from: from, to: to, obstacles: []))
     }
 
+    // MARK: - G13 瞄准拖动相对旋转语义（问题集合 v5 · V1）
+
+    /// 屏幕点：绕轴心 `c`、半径 `r`、屏幕方位角 `degFromScreenRightCW`（+x 轴起、y 朝下顺时针为正）。
+    private func screenPoint(around c: CGPoint, radius: CGFloat, deg: Double) -> CGPoint {
+        let t = deg * .pi / 180
+        return CGPoint(x: c.x + radius * CGFloat(cos(t)), y: c.y + radius * CGFloat(sin(t)))
+    }
+
+    /// 金标准：手指绕母球公转 Δ° ⇒ 瞄准相对旋转 Δ°（屏幕顺时针为正），远杠杆区增益 1:1。
+    func test_aimNudge_relativeRotation_goldenAngles() {
+        let cue = CGPoint(x: 200, y: 300)
+        let r: CGFloat = 200   // > minLever(≈95.5) ⇒ 无衰减，公转角 == 旋转角
+
+        // 起手在正上方（-90°）。顺时针公转 +15° ⇒ +15°。
+        let up = screenPoint(around: cue, radius: r, deg: -90)
+        let cw = screenPoint(around: cue, radius: r, deg: -75)
+        XCTAssertEqual(AngleSceneCalculator.aimNudgeDegrees(cueScreen: cue, from: up, to: cw),
+                       15, accuracy: 0.05, "顺时针公转 15° 应产生 +15° 相对旋转")
+
+        // 逆时针公转 -15° ⇒ -15°。
+        let ccw = screenPoint(around: cue, radius: r, deg: -105)
+        XCTAssertEqual(AngleSceneCalculator.aimNudgeDegrees(cueScreen: cue, from: up, to: ccw),
+                       -15, accuracy: 0.05, "逆时针公转 15° 应产生 -15° 相对旋转")
+
+        // 径向拖动（沿同一射线远离母球）⇒ 不旋转。
+        let radialOut = screenPoint(around: cue, radius: r + 60, deg: -90)
+        XCTAssertEqual(AngleSceneCalculator.aimNudgeDegrees(cueScreen: cue, from: up, to: radialOut),
+                       0, accuracy: 1e-4, "径向拖动不应改变瞄准方向")
+    }
+
+    /// 近母球杠杆封顶：半径 < minLever 时角位移按 r/minLever 线性衰减（避免发散）。
+    func test_aimNudge_leverAttenuationNearCue() {
+        let cue = CGPoint(x: 200, y: 300)
+        let r: CGFloat = 50   // < minLever(≈95.493)
+        let minLever = 180.0 / Double.pi / 0.6
+        let atten = Double(r) / minLever
+        let up = screenPoint(around: cue, radius: r, deg: -90)
+        let cw = screenPoint(around: cue, radius: r, deg: -70)   // 顺时针公转 +20°
+        let expected = 20 * atten
+        XCTAssertEqual(Double(AngleSceneCalculator.aimNudgeDegrees(cueScreen: cue, from: up, to: cw)),
+                       expected, accuracy: 0.05, "近母球处 20° 公转应衰减到 \(expected)°")
+        XCTAssertLessThan(expected, 20, "衰减后应小于原始公转角")
+    }
+
+    /// 相对旋转端到端：给定拖动增量 → `rotatedAim` 后 bearing 变化量 == 该增量（屏幕顺时针为正）。
+    func test_aimNudge_appliedViaRotatedAim_matchesBearingDelta() {
+        let cue = CGPoint(x: 200, y: 300)
+        let r: CGFloat = 220
+        let from = screenPoint(around: cue, radius: r, deg: -90)
+        let to = screenPoint(around: cue, radius: r, deg: -60)   // +30° 顺时针
+        let delta = AngleSceneCalculator.aimNudgeDegrees(cueScreen: cue, from: from, to: to)
+        XCTAssertEqual(delta, 30, accuracy: 0.1)
+
+        // 当前瞄准 +X（bearing 0） → 旋转 delta → bearing 应恰好增加 delta。
+        let base = SCNVector3(1, 0, 0)
+        let rotated = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
+        let b0 = AngleSceneCalculator.bearingDeg(of: base)
+        let b1 = AngleSceneCalculator.bearingDeg(of: rotated)
+        XCTAssertEqual(b1 - b0, delta, accuracy: 0.1, "bearing 变化量应等于拖动相对增量")
+    }
+
+    // MARK: - G14 求解触发去抖时序（拖动不求解、停 0.5s 触发）
+
+    @MainActor
+    func test_solveDebounce_dragSuppressesUntilIdle() {
+        let sched = SolveDebounceScheduler(idleInterval: 0.5, fastInterval: 0.02)
+        var captured: [(delay: TimeInterval, work: DispatchWorkItem)] = []
+        sched.scheduleAfter = { delay, work in captured.append((delay, work)) }
+        var fireCount = 0
+
+        // 模拟一次连续拖动：5 次交互输入。
+        for _ in 0..<5 { sched.schedule(interactive: true) { fireCount += 1 } }
+
+        // 拖动过程中：绝不触发求解。
+        XCTAssertEqual(fireCount, 0, "拖动中不应触发求解")
+        // 交互态一律用 idle 间隔排程。
+        XCTAssertEqual(sched.lastScheduledDelay ?? -1, 0.5, accuracy: 1e-9)
+        // 前 4 次已被后续输入取消，只剩最后一次待跑。
+        XCTAssertEqual(captured.count, 5)
+        for i in 0..<4 { XCTAssertTrue(captured[i].work.isCancelled, "第 \(i) 次待跑应被取消") }
+        XCTAssertFalse(captured[4].work.isCancelled, "最后一次待跑应存活")
+        XCTAssertTrue(sched.hasPending)
+
+        // 停止输入满 idleInterval：最后一次 work 触发一次求解。
+        captured[4].work.perform()
+        XCTAssertEqual(fireCount, 1, "停 0.5s（无新输入）后只触发一次求解")
+    }
+
+    @MainActor
+    func test_solveDebounce_discreteUsesFastInterval() {
+        let sched = SolveDebounceScheduler(idleInterval: 0.5, fastInterval: 0.02)
+        var lastDelay: TimeInterval?
+        sched.scheduleAfter = { delay, _ in lastDelay = delay }
+        sched.schedule(interactive: false) { }
+        XCTAssertEqual(lastDelay ?? -1, 0.02, accuracy: 1e-9, "离散变更应走快速去抖间隔")
+        sched.schedule(interactive: true) { }
+        XCTAssertEqual(lastDelay ?? -1, 0.5, accuracy: 1e-9, "交互变更应走 idle 去抖间隔")
+    }
+
     func test_plannedShot_codable_backwardCompatible() throws {
         // 旧数据（无 freeAim 字段）应能解码且 isFree == false。
         let legacy = #"{"targetKey":"_1","pocket":"topRight","velocity":3.3,"spinX":0,"spinY":0}"#

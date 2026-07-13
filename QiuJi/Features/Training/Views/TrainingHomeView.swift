@@ -370,7 +370,7 @@ struct TrainingHomeView: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(plan.nameZh)
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.btHeadline)
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)

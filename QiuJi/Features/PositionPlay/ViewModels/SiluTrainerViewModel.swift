@@ -26,12 +26,8 @@ final class SiluTrainerViewModel: ObservableObject {
 
     enum RegionShape: String, CaseIterable { case rect = "矩形", circle = "圆" }
 
-    /// 约束草稿（归一化系）。
-    enum Draft {
-        case region(SolveRegion)
-        case restPoint(CanvasPoint)
-        case passPoint(CanvasPoint)
-    }
+    /// 约束草稿（归一化系）。共享定义见 `SolveConstraintDraft`（G17，跨反解页统一口径）。
+    typealias Draft = SolveConstraintDraft
 
     // MARK: - Scene
 
@@ -106,11 +102,18 @@ final class SiluTrainerViewModel: ObservableObject {
     private var solveGeneration = 0
     private var surfaceY: Float { scene.surfaceY }
 
-    // MARK: - Last shot（条 21.3：上一杆/回放）
+    // MARK: - Last shot（条 21.3 + G17：上一杆完整恢复 / 回放）
 
-    /// 上一杆完整上下文：击打前快照 + 意图 + 预测。上一杆 = 恢复 before；回放 = 重播动画。
-    private var lastShotContext: (before: BoardSnapshot, shot: PlannedShot,
-                                  prediction: ShotPrediction)?
+    /// 思路页「上一杆」完整上下文 = 共享求解快照 + 本页选择模型（目标球 + 袋口）。
+    /// 上一杆 = 回到击打前**完整状态**（球形 + 约束 + 解 + 打点/力度/瞄准 + 目标/袋口，免重解）；
+    /// 回放 = 重播击打动画。
+    /// （internal 而非 private：供单测直接验证「快照→恢复」逐字段一致，见 `PositionPlayUndoSnapshotTests`。）
+    struct UndoContext {
+        var snapshot: SolveShotSnapshot
+        var selectedTargetKey: String?
+        var selectedPocketIndex: Int
+    }
+    private var lastShotContext: UndoContext?
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -618,6 +621,9 @@ final class SiluTrainerViewModel: ObservableObject {
                     point: CGPoint(x: center.x, y: center.y), surfaceY: y)
                 strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale,
                              color: color, into: &constraintNodes)
+            case .sector:
+                // 扇形仅打三页默认落区，由页内独立路径渲染；思路训练 draft 不进 sector。
+                break
             }
         case .passPoint(let pt):
             let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
@@ -746,8 +752,8 @@ final class SiluTrainerViewModel: ObservableObject {
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
 
-        // 记录上一杆上下文（条 21.3）：击打前快照 + 意图 + 预测，供上一杆/回放。
-        lastShotContext = (currentSnapshot(), sol.shot, sol.prediction)
+        // 记录上一杆上下文（条 21.3 + G17）：击打前完整求解快照 + 本页选择模型，供上一杆完整恢复/回放。
+        lastShotContext = makeUndoContext(shot: sol.shot, prediction: sol.prediction)
         canUndoShot = false
         canPlayback = false
 
@@ -760,20 +766,81 @@ final class SiluTrainerViewModel: ObservableObject {
         }
     }
 
-    /// 上一杆（条 21.3）：回到上次击打前的球形（约束/解已随击打清空，回到摆球态）。
+    /// 上一杆（条 21.3 + G17）：回到上次击打前的**完整状态**——球形、目标球/袋口、约束、
+    /// 已求出的解（缓存回填，无需重画重求解）、打点/力度/瞄准，均逐字段还原。
     func undoLastShot() {
         guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
-        loadBoard(ctx.before)
+        restore(from: ctx)
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
-        statusText = "已退回上一杆击打前"
+        statusText = ctx.snapshot.solutions.isEmpty
+            ? "已退回上一杆击打前"
+            : "已退回上一杆击打前 · 球形/约束/解已还原"
+    }
+
+    /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
+    func makeUndoContext(shot: PlannedShot, prediction: ShotPrediction) -> UndoContext {
+        UndoContext(
+            snapshot: SolveShotSnapshot(
+                before: currentSnapshot(), shot: shot, prediction: prediction,
+                solutions: solutions, currentIndex: currentIndex, draft: draft,
+                velocity: velocity, spinX: spinX, spinY: spinY,
+                allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
+            selectedTargetKey: selectedTargetKey,
+            selectedPocketIndex: selectedPocketIndex)
+    }
+
+    /// 把击打前完整快照原样恢复到场景与状态（不重解）。
+    func restore(from ctx: UndoContext) {
+        let snap = ctx.snapshot
+        // 清动画/叠加，摆回击打前球形。
+        scene.hideAllBalls()
+        clearTrajectory()
+        clearConstraintNodes()
+        scene.clearResultNodes(nodes: &selectionNodes)
+        scene.hideCueStick()
+        for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+
+        // 求解选项须先于 solutions 恢复：值不变时 didSet 不触发失效；即便用户在击打后改过开关，
+        // 这里的失效也会被随后回填的 solutions 覆盖，故顺序保证正确。
+        allowSideSpin = snap.allowSideSpin
+        basicPositionOnly = snap.basicPositionOnly
+
+        // 选择模型（目标球 + 袋口）。
+        selectedTargetKey = ctx.selectedTargetKey
+        selectedPocketIndex = ctx.selectedPocketIndex
+        updatePocketHighlights()
+
+        // 约束草稿（保留落点/落区/过点的视觉与语义分叉）。
+        draft = snap.draft
+        hasConstraint = snap.draft != nil
+        // 工具复位到可点选态：约束已还原可见，用户可直接再选目标/袋或另画约束。
+        activeTool = .none
+
+        // 解回填（「解还在」，免重解）。
+        solveGeneration += 1
+        isComputing = false
+        solutions = snap.solutions
+        currentIndex = snap.currentIndex
+        velocity = snap.velocity
+        spinX = snap.spinX
+        spinY = snap.spinY
+
+        if currentSolution != nil {
+            showSolution(at: currentIndex)   // 轨迹 + 球杆瞄准 + 约束 + 叠加
+        } else {
+            renderConstraint()
+            refreshOverlays()
+        }
     }
 
     /// 回放上一杆击打过程（条 21.3）：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
-        guard !isPlaying, canPlayback, let ctx = lastShotContext,
-              let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
+        guard !isPlaying, canPlayback, let ctx = lastShotContext else { return }
+        let snap = ctx.snapshot
+        guard let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
         isPlaying = true
         clearTrajectory()
@@ -783,28 +850,28 @@ final class SiluTrainerViewModel: ObservableObject {
         statusText = "回放上一杆…"
 
         scene.hideAllBalls()
-        for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
+        for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
         refreshOnTableKeys()
 
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
-              let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
+              let aim = aimDirection(path: snap.prediction.cuePath, from: cueNode.position) else {
             finishPlayback(after: after)
             return
         }
-        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX)
         scene.runCueStroke(strikePosition: strikePos, aim: aim,
-                           velocity: Float(ctx.shot.velocity)) { [weak self] in
-            self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+                           velocity: Float(snap.shot.velocity)) { [weak self] in
+            self?.runPlaybackAnimation(snapshot: snap, recorder: recorder, after: after)
         }
     }
 
     private func runPlaybackAnimation(
-        ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
+        snapshot ctx: SolveShotSnapshot,
         recorder: TrajectoryRecorder, after: BoardSnapshot
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let settle = playback.perceptibleSettleTime()
+        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var cueAction: SCNAction?
         for key in onTableKeys {
@@ -856,8 +923,8 @@ final class SiluTrainerViewModel: ObservableObject {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
         let speed: Float = 1.0
-        // #11：按「感知静止时刻」截断，避免击球态在球看着停后仍滞留数秒。
-        let settle = playback.perceptibleSettleTime()
+        // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
+        let settle = playback.duration
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
@@ -916,7 +983,7 @@ final class SiluTrainerViewModel: ObservableObject {
         refreshOverlays()
 
         canUndoShot = lastShotContext != nil
-        canPlayback = lastShotContext?.prediction.recorder != nil
+        canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
         let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
         statusText = cueGone

@@ -846,6 +846,108 @@ enum AngleSceneCalculator {
         )
     }
 
+    // MARK: - Defense (V8：多被困球 + 多遮挡球联合可见性 + 对手进球难度)
+
+    /// 单颗被困球被**多颗候选遮挡球**评估：取「最能挡死」的那颗（完全斯诺克优先，
+    /// 都不完全时取覆盖余量最大者 = 最接近全遮）。坐标：世界系 X–Z 球心。
+    /// 注意：只有比被困球**更近**（`blockerCloser`）的遮挡球才可能先拦截母球视线，
+    /// 更远的遮挡球即便张角大也挡不住（其覆盖余量对本颗不成立），排序时按此过滤。
+    static func snookerCoverageMulti(
+        cue: SCNVector3, snookered: SCNVector3, blockers: [(key: String, pos: SCNVector3)],
+        ballRadius: Float = ballRadius
+    ) -> SnookerCoverage {
+        var best: SnookerCoverage?
+        for b in blockers {
+            let cov = snookerCoverage(cue: cue, snookered: snookered, blocker: b.pos,
+                                      ballRadius: ballRadius)
+            if best == nil || defenseRank(cov) > defenseRank(best!) { best = cov }
+        }
+        return best ?? SnookerCoverage(marginDegrees: -180, blockerCloser: false,
+                                       visibleHalfAngleDegrees: 0)
+    }
+
+    /// 遮挡候选排序键：完全斯诺克（更近 + 余量≥0）绝对优先；否则「更近 + 余量」大者更接近全遮，
+    /// 更远的遮挡球给一个显著的负基准（挡不住）。用于 `snookerCoverageMulti` 取最优遮挡。
+    private static func defenseRank(_ c: SnookerCoverage) -> Float {
+        if c.isFullSnooker { return 1000 + c.marginDegrees }        // 完全挡死：余量越大越稳
+        if c.blockerCloser { return c.marginDegrees }               // 更近但未全遮：余量（负）越大越接近
+        return -1000 + c.marginDegrees                              // 更远：挡不住
+    }
+
+    /// 一颗对方球从母球终位看的防守评估（V8）。
+    struct DefenseBallCoverage {
+        let key: String
+        /// 是否被某颗球完全挡死（完全斯诺克）。
+        let blocked: Bool
+        /// 最佳遮挡余量（度）：`blocked` 时 ≥0 且越大越稳；未遮挡时为「最接近全遮」的度量（多为负）。
+        let coverageMarginDeg: Float
+        /// 未遮挡时对手从母球终位把这颗球打进的**难度** [0,1]（长台 + 大切角 + 可行袋越少 → 越难 → 防守越好）；
+        /// `blocked` 记为 1（对手根本看不到，等价最难）。
+        let pottingDifficulty: Double
+    }
+
+    // MARK: 防守难度权重（V8 可跑 v1，待实测调优 —— 回写真源由主控做）
+
+    /// 未遮挡球「进球难度」中切角项权重（切角越大越难瞄准）。
+    static let defenseCutWeight = 0.6
+    /// 未遮挡球「进球难度」中球距项权重（长台越远越难）。
+    static let defenseDistanceWeight = 0.4
+    /// 球距难度归一参考长度（米）：满台长边 ≈ innerLength。
+    static var defenseDistanceReference: Float { innerLength }
+
+    /// 多颗对方球联合防守评估：对每颗对方球，用「除它与母球外的全部非母球」做遮挡候选取最佳遮挡；
+    /// 未被挡死的球计算对手进球难度（长台/大切角/可行袋）。
+    /// - Parameters:
+    ///   - cueFinal: 母球终位（世界系球心）。
+    ///   - opponents: 需要隐藏的对方球（key + 终位）。
+    ///   - nonCueBalls: 全部非母球终位（含对方球本身，可互相遮挡；也含我方球/8 号作遮挡体）。
+    ///   - surfaceY: 台面 Y。
+    static func defenseCoverage(
+        cueFinal: SCNVector3,
+        opponents: [(key: String, pos: SCNVector3)],
+        nonCueBalls: [(key: String, pos: SCNVector3)],
+        surfaceY: Float
+    ) -> [DefenseBallCoverage] {
+        let pockets = pocketPositions(surfaceY: surfaceY)
+        return opponents.map { opp in
+            let blockers = nonCueBalls.filter { $0.key != opp.key }
+            let cov = snookerCoverageMulti(cue: cueFinal, snookered: opp.pos, blockers: blockers)
+            if cov.isFullSnooker {
+                return DefenseBallCoverage(key: opp.key, blocked: true,
+                                           coverageMarginDeg: cov.marginDegrees,
+                                           pottingDifficulty: 1.0)
+            }
+            let diff = opponentPottingDifficulty(
+                cue: cueFinal, ball: opp.pos, pockets: pockets,
+                others: blockers.map { $0.pos })
+            return DefenseBallCoverage(key: opp.key, blocked: false,
+                                       coverageMarginDeg: cov.marginDegrees,
+                                       pottingDifficulty: diff)
+        }
+    }
+
+    /// 对手从母球终位把一颗可见球打进的难度 [0,1]。取「最易袋」（可行袋中切角最小者）：
+    /// 无任何可行袋 ⇒ 1（打不进 = 防守极好）；否则按切角 + 球距加权。`others` 用于袋线遮挡剔除。
+    static func opponentPottingDifficulty(
+        cue: SCNVector3, ball: SCNVector3, pockets: [SCNVector3], others: [SCNVector3]
+    ) -> Double {
+        var bestCutDeg: Double?
+        for pocket in pockets {
+            // 可行：切角 < 上限，且袋线（球→袋）未被其它球挡死。
+            guard isFeasible(cueBall: cue, targetBall: ball, pocket: pocket) else { continue }
+            let aim = SCNVector3(pocket.x, ball.y, pocket.z)
+            if isPathBlocked(from: ball, to: aim, obstacles: others) { continue }
+            let cut = cutAngle(cueBall: cue, targetBall: ball, pocket: pocket)
+            if bestCutDeg == nil || cut < bestCutDeg! { bestCutDeg = cut }
+        }
+        guard let cut = bestCutDeg else { return 1.0 }   // 无可行袋 ⇒ 对手打不进
+        let cutTerm = min(1.0, cut / 90.0)
+        let dist = Double(horizontalDistance(cue, ball))
+        let distTerm = min(1.0, dist / Double(defenseDistanceReference))
+        let d = defenseCutWeight * cutTerm + defenseDistanceWeight * distTerm
+        return min(1.0, max(0.0, d))
+    }
+
     // MARK: - Contact point position
 
     /// Contact point on the target ball surface at the moment of impact.
@@ -981,6 +1083,55 @@ enum AngleSceneCalculator {
         let len = sqrtf(nx * nx + nz * nz)
         guard len > 1e-5 else { return dir }
         return SCNVector3(nx / len, 0, nz / len)
+    }
+
+    /// G13 空白处拖动 = 「先选中瞄准线、再相对旋转」：把一段屏幕拖动换算成绕**母球屏幕投影**
+    /// 的角位移（度），供 `nudgeFreeAim` / `rotatedAim` 消费。第一落点不调用本函数（只选中不转向）。
+    ///
+    /// 坐标契约（几何任务，钉死后再落码）：
+    /// - 入参 `cueScreen` / `prev` / `cur` 均为 **SCNView 本地屏幕点**（原点左上、+x 右、+y 下，单位 pt）。
+    /// - 返回度数沿用「**屏幕顺时针为正**」约定，与 `rotatedAim(_:byDegrees:)`、`bearingDeg(of:)` 一致：
+    ///   y 朝下时 `atan2(dy, dx)` 递增即屏幕顺时针；两 2D 顶视相机均为**垂直俯拍**台面平面
+    ///   （所有台面点等深）⇒ 平面→屏幕为相似变换（等比、无镜像）⇒ 屏幕角位移 == 世界瞄准 bearing 角位移，
+    ///   可直接喂给 `rotatedAim`。
+    ///
+    /// 增益与「随母球距离缩放」（G13 目标 2）：采用**绕母球公转**模型——手指绕母球转过多少角度，
+    /// 瞄准线就转过多少（"抓住线甩"），故径向拖动不转向、切向拖动才转向，且天然随杠杆缩放：
+    /// 手指离母球越远（杠杆越长）同样位移旋转越小（细调），越近越粗。近母球处角增益发散，
+    /// 用 `maxGainDegPerPt` 封顶——等价最小杠杆臂 `minLever = (180/π)/maxGainDegPerPt`：
+    /// 手指落在 minLever 内时角位移按 `r/minLever` 线性衰减，令切向增益不超过 `maxGainDegPerPt` 度/pt。
+    /// - Parameter maxGainDegPerPt: 近母球封顶的最大切向角增益（度/pt）。默认 0.6（粗调，约为
+    ///   `BTAimWheel` 细调 0.15 度/pt 的 4 倍；远离母球时按 (180/π)/r 递减，典型 r≈200pt ⇒ ≈0.29 度/pt）。
+    static func aimNudgeDegrees(cueScreen: CGPoint, from prev: CGPoint, to cur: CGPoint,
+                                maxGainDegPerPt: CGFloat = 0.6) -> Float {
+        let minLever = CGFloat(180.0 / Double.pi) / maxGainDegPerPt
+        let vPrev = CGPoint(x: prev.x - cueScreen.x, y: prev.y - cueScreen.y)
+        let vCur  = CGPoint(x: cur.x  - cueScreen.x, y: cur.y  - cueScreen.y)
+        let rPrev = hypot(vPrev.x, vPrev.y)
+        let rCur  = hypot(vCur.x, vCur.y)
+        // 任一端点贴母球（半径退化到 <1pt）无法定义可靠角度 ⇒ 不旋转。
+        guard rPrev > 1, rCur > 1 else { return 0 }
+        var dPhi = atan2(Double(vCur.y), Double(vCur.x)) - atan2(Double(vPrev.y), Double(vPrev.x))
+        // 归一化到 [-π, π]，避免越过 ±180° 分支时的整圈突跳。
+        while dPhi > .pi { dPhi -= 2 * .pi }
+        while dPhi < -.pi { dPhi += 2 * .pi }
+        let atten = Double(min(1, min(rPrev, rCur) / minLever))
+        return Float(dPhi * 180 / .pi * atten)
+    }
+
+    /// 沿射线求与「库内边界（各方向缩一颗球半径）」的首个交点，用于空杆瞄准线延伸到库边。
+    /// 坐标契约：长库 = 常 Z（±(innerWidth/2 − R)）、短库 = 常 X（±(innerLength/2 − R)），
+    /// 与 `clampMultiBall` 同式。方向近乎零或无交点时返回起点。
+    static func rayToInnerRail(from p: SCNVector3, dir: SCNVector3) -> SCNVector3 {
+        let halfL = innerLength / 2 - ballRadius
+        let halfW = innerWidth / 2 - ballRadius
+        var t = Float.greatestFiniteMagnitude
+        if dir.x > 1e-5 { t = min(t, (halfL - p.x) / dir.x) }
+        if dir.x < -1e-5 { t = min(t, (-halfL - p.x) / dir.x) }
+        if dir.z > 1e-5 { t = min(t, (halfW - p.z) / dir.z) }
+        if dir.z < -1e-5 { t = min(t, (-halfW - p.z) / dir.z) }
+        if !t.isFinite || t < 0 { t = 0 }
+        return SCNVector3(p.x + dir.x * t, p.y, p.z + dir.z * t)
     }
 
     // MARK: - Thickness name (通称)

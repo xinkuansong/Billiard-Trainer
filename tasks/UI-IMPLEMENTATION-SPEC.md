@@ -799,7 +799,46 @@ struct BTShareCard: View {
 | 库 | 台边（1 库/2 库…） | 颗星（教学页解释钻石系统时可提及一次） |
 | 分离角 | 母球与目标球碰后路径夹角 | — |
 | 瞄准线 / 进球线 / 球迹线 | §8.2/设计稿 §1.2 线语言三名词 | 击球线、走位线 |
-| 页名 = 入口卡名 | 「角度预测」「2D/3D 角度训练」「翻袋解球器」等，卡与导航标题逐字一致；批改名：瞄准训练→角度训练、进球点对照表→瞄准点对照表、走位编排台→自由走位、思路训练器→思路训练 | 旧页名 |
+| 页名 = 入口卡名 | 「角度预测」「2D/3D 角度训练」「翻袋解球器」等，卡与导航标题逐字一致；批改名：瞄准训练→角度训练、进球点对照表→瞄准点对照表、走位编排台→自由走位、思路训练器→思路训练；**问题集合 v5 增补**：角度与打点→**角度与瞄准**、做斯诺克→**防守** | 旧页名 |
+
+### 8.9 瞄准与求解交互规范（问题集合 v5 定稿，2026-07-13）
+
+> 来源：`问题集合_v5.md` G13–G18 各批（V1–V10）执行结论提炼，语义不增删。适用范围：全部接了瞄准拖动 / 需要求解的场景页（自由击球、自由走位含试打变体、分离角与走位、批量出片台、翻袋自由、反射自由、2D/3D 瞄准点训练、思路训练、打一走二想三、防守、开球四宿主）。四条全局契约与后续新页一律遵守。
+
+**a. 瞄准拖动 = 选中 + 相对调整（G13，V1 定稿）**
+
+- 空白处起手拖动时，**第一落点只选中瞄准线、不转向**（`AngleSceneView.Coordinator.handlePan` 的 `.began` 不回调）；随后每帧把手指绕**母球屏幕投影**的角位移换算为瞄准线的相对旋转（喂 `rotatedAim`）——「抓住线甩」，径向拖动不转向、切向才转向。
+- 增益模型 = **绕母球公转**（杠杆自适应，非固定 度/pt）：手指绕母球公转 1° ⇒ 瞄准线转 1°；等价切向增益 = `(180/π)/r` 度/pt（r = 手指到母球屏幕距离 pt），故天然随母球距离缩放（远=细调、近=粗调）。近母球处发散，用最大切向增益 `maxGainDegPerPt = 0.6` 度/pt 封顶（`AngleSceneCalculator.aimNudgeDegrees` 默认参数；约为 `BTAimWheel` 细调 0.15 度/pt 的 4 倍）。**0.6 为代码默认，待真机手感定稿**——偏灵/偏钝调此单一常量。
+- **tap（点击）绝对指向语义按现状保留**（v5 只改拖动语义，未发现冲突）。
+- 开球模式（G18）的拖屏调向与左侧 `BTAimWheel` 复用同一 V1 链路（`aimNudgeDegrees` + `rotatedAim`）。
+
+**b. 求解去抖（G14，V1 定稿）**
+
+- 任何需要求解的瞄准/拖动变更（拖瞄准线、拖球、瞄准刻度条），拖动过程中**不触发求解**，只做纯几何预览（假想球 / 首碰点 / 闭式瞄准线，空杆延伸库边走共享 `rayToInnerRail`）。
+- 用户停下（无新输入）**0.5s idle** 后才触发求解（`SolveDebounceScheduler`：交互态拖动挂起 + 0.5s idle 触发；离散态保留 ~20ms）。
+- 落点：`PositionPlayViewModel.recompute(interactive:)` 调度层、`BankShotViewModel`/`DiamondSystemViewModel` 求解模式（原 120ms → 0.5s idle）、`BTAimWheel` 消费方及后续新页。纯几何预览路径（翻袋/反射自由模式拖动本就不求解）不受影响。
+
+**c. 开球通用规范（G18，V6 定稿）**
+
+- **单一真源** `BreakFlowRunner` + 共享 `BreakControlBar` + 共享 `BreakInstrumentsOverlay`；`FreePlayBreakBar` 已删除（消灭双开球条真源）。
+- 随机性**只保留球堆的球与球间距**（`RackLayout.jitterRadius` 保留；`breakJitter` 随机塞已删，spinX/spinY 恒 0）。
+- **开放瞄准**：开球模式支持拖屏调整瞄准方向（遵 G13 相对调整语义）+ 左侧 `BTAimWheel`；未手动调向时默认锁顶球跟随，手动调向后固定绝对方向。
+- **力度条默认 6 m/s**（`BreakFlowRunner.velocity`，常量 `defaultBreakVelocity = 6.0`，替代原固定 7.0），右侧 `BTShotInstrumentColumn` 绑定可调；布局遵 `ShotStageProxy` 标准（G4/G5/G7，左瞄准轮 + 右力度柱同底贴边，仅 `.racked` 可调）。
+- 按钮：`取消`（最左）/ `重开`（次级恒显，`reRack()` 换 seed 重摆，合并原「换一局」语义）/ 主按钮（最右：手动交付且停稳=`完成`，否则=`开球`）——相对旧 `FreePlayBreakBar` 完成/重开**位置互换**。
+- 适用宿主：自由击球（FreePlay）、思路训练（Q14）、打一走二想三（Q15.4）；自由走位 Composer 按既有设计开球入口为禁用态（已接好共享条/叠加/`onAimNudged` 路由，是否放开开球入口属**产品决策待确认**，见遗留项）。
+
+**d. 「上一杆」= 完整快照恢复（G17，V3 定稿 + V8/V9 扩展）**
+
+- 所有场景「上一杆」= 回到上一杆击打前的**完整状态**：球形 + 选择模型（目标/袋口或角色/约束）+ 解集缓存 + 打点/力度/瞄准 + 求解选项，**不重求解**（`isComputing`/`isSolving` 恒 false）。
+- 共享结构 `SolveShotSnapshot`（`before` 球形 + `shot` + `prediction` + `solutions`/`currentIndex` 解缓存 + `draft` 约束 + `velocity`/`spinX`/`spinY` + `allowSideSpin`/`basicPositionOnly`）+ `SolveConstraintDraft`（`region`/`restPoint`/`passPoint`，两页 `Draft` 上收单一口径）；页面特有选择模型由各 VM 的 `UndoContext` 以本快照为基座携带（思路=目标球+袋口，打三=①②③角色，防守=目标球）。
+- **翻袋/反射用页面原生类型 `SolveUndoContext`**（引擎解为 `BankEngineSolution`/`KickEngineSolution`，与 `SolveShotSnapshot` 的 `PositionPlaySolution` 类型不兼容，取舍已在真源 V9 段留档）；`SolveShotSnapshot` 结构未改。
+
+**e. 其余全局小件登记（V2/V4/V8）**
+
+- **回放禁尾速截断（G15，V2）**：删除 `TrajectoryPlayback.perceptibleSettleTime()` 方法及全部 14 个消费点，统一 `let settle = playback.duration`（播满引擎自然静止，不做 0.07 m/s 感知截断）；`stateAt` stationary 置零与 `EngineNumerics` 0.001 静止判定保留（物理语义）；`SequenceVideoExporter` 本就同口径无需改。副作用：收尾比旧截断晚 ~0.3–0.5s（被消除的 creep 尾段真实时长），属预期。
+- **打点盘 inset 5→2（G16，V2）**：`BTSpinPad` 一处改动（盘区 104×104、卡片 228 不变；白盘直径 94→100，打滑圈/皮头斑随 ballR 等比放大）。
+- **设置入口三点统一（G19，V2）**：`ellipsis.circle` 扫替练习 Tab（AngleDynamic/SceneAiming）+ 外围（CustomPlanBuilder/BTExerciseRow）；**ProfileView「偏好设置」行 `BTIcon.gear` 豁免保留**（iOS 设置风格导航行徽标，非图标按钮式入口）。翻袋/反射 i→三点（原理说明 + 网格 Toggle）随 Q17/Q18 落地。
+- **防守评分权重（V8）**：对手进球难度 `d = 0.6·(切角/90°) + 0.4·min(1, 球距/2.54m)`，权重集中在 `AngleSceneCalculator` 常量单点可调，**v1 待实测调优**（见遗留项）。
 
 ---
 
@@ -989,3 +1028,4 @@ struct BTShareCard: View {
 | 2026-07-08 | **共享控件 S1 改造**：`BTBreakSideButton` 三角形内加 `BreakRackGlyph` 三圆圈（G9）；`BTShotInstrumentColumn` 力度柱移至底部与 `BTAimWheel` 同底对齐（G5，顶部固定区 72pt=打点迷你图+读数）；`BTTextActionButton` 新参 `width`、`BTShotActionColumn` 新参 `buttonWidth`（G6/G11 窄款 46 容进右黑边）；`BTTrajectoryDetailChip` 位置规范修订：下沿贴球桌上沿、靠屏幕最右（G3 用户修订版）。`FreePlayView` 为 G 规范基准页（G10 顶栏 46/底栏 94 定高锁桌；stage AX 标识须挂 background 层，挂容器会吞子控件可及性）；P10.1 球库只读 + P10.2 `BilliardRulesEngine.legalTargetKeys` 非法目标球拦截 | API 变更/重构 | BTShotPageChrome, BTShotInstrumentColumn, BTTrajectoryDetailChip, FreePlayView, BilliardRulesEngine | v3 S1 |
 | 2026-07-08 | **瞄准点概念修正 G1 + 瞄准点训练页**（v3 S3）：新增 `AimPointGeometry`（瞄准点=瞄准线与过目标球心垂线交点/垂足，`offsetDistance`/`signedOffset`）；`AimingPrincipleView`/`ContactPointTableView` 文案与配图对齐 G1；`AimPointTrainingView` P8.1–P8.6（水平线、无假想球红点、红小瞄准点、左右切修正、球占比放大、统计单行）；`AimPointSceneTrainingView` P9.1 误差改垂足有符号偏移差、辅助线垂直用户瞄准线随转；`AimPointGeometryTests`+`S3_AimPointUITests` 验收 | 修正/新增 | AimPointGeometry（新）, AimingPrincipleView, ContactPointTableView, AimPointTrainingView, AimPointSceneTrainingView, BTTableFigure/BTAimPointDot | v3 S3 |
 | 2026-07-08 | **全局规范推广六击打页**（v3 S2，G3–G12 + P11.1/P12.1）：分离角与走位/自由走位/批量出片台/思路训练/打一走二想三/做斯诺克全部接入 `GeometryReader + ShotStageProxy`（顶/底栏定高锁桌 G10，chip/竖条/角落控件贴边 G3–G7，球库 8 列定宽=球桌宽 G8）；`ShotTableLayout` 新增修饰器 `btChipBandPlacement`/`btStageFrame` 与 `bottomLeadingFrame/bottomTrailingFrame`（页面禁止再自摆贴边控件）；**G12**：思路/三杆/斯诺克删底部 `ShotControlBar` 解摘要行（`ShotControlBar` 组件保留但击打页不再使用，解读数=右柱仪表）；**G9 修订**：思路/三杆开球按钮保持可用（内置开球 T-P18-47），开球胶囊图标统一 `BreakRackGlyph`；**P11.1**：打页入口顺序=分离角与走位→自由走位→自由击球→拍照建球形；**P12.1 根因**：`BatchGuideLine.startPoint/endPoint` 补 `@Published`（确认按钮 enabled 依赖 `hasCurrentPoint`，非发布属性不触发重渲）。左下多按钮页（求解/下一解/开球）用 `bottomLeadingFrame(size: 48×122)` 整叠贴边 | 重构/修正 | ShotSimulationView, PositionPlayComposerView, BatchAuthoringView, SiluTrainerView, PlanThreeView, SnookerTacticsView, ShotTableLayout, AngleHomeView, S2_ShotPagesLayoutUITests（新） | v3 S2 |
+| 2026-07-13 | **问题集合 v5 全批次落地**（G13–G19 + Q1–Q19，V1–V11 收官）：新增 SPEC **§8.9 瞄准与求解交互规范**——四条全局契约（a 瞄准拖动=选中+相对调整〔绕母球公转增益、封顶 0.6 度/pt，`AngleSceneCalculator.aimNudgeDegrees`〕；b 求解 0.5s idle 去抖〔`SolveDebounceScheduler`〕；c 开球通用规范〔单一真源 `BreakFlowRunner`+`BreakControlBar`+`BreakInstrumentsOverlay`、随机性只留球堆间距、开放瞄准、力度默认 6 m/s、完成/重开互换〕；d 上一杆完整快照〔`SolveShotSnapshot`+`SolveConstraintDraft`+页面 `UndoContext`，翻袋/反射用原生 `SolveUndoContext`〕）+ 全局小件登记（G15 回放禁尾速截断、G16 打点盘 inset 5→2、G19 三点入口统一含 ProfileView 豁免、V8 防守评分权重 0.6/0.4 待调优）；§8.8 词表增补页面改名（角度与打点→角度与瞄准、做斯诺克→防守）。总验收：全量 `QiuJiTests` **Executed 560 tests, 2 skipped, 0 failures**；关键 UI 套件全绿（S1/S2/S5/S6/S7/S8/ScreenshotTour/DrillTryout）；`clean` 全量重建后 3 例陈旧增量构建 SIGSEGV 转绿（非代码回归） | 新增/DR | SPEC §8.9/§8.8；`问题集合_v5.md` V1–V11 落地代码（AngleSceneView/AngleSceneCalculator/PositionPlayViewModel/SolveDebounceScheduler/BreakFlowRunner/BTShotPageChrome/BTSpinPad 等） | 问题集合 v5 |

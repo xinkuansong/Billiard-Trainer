@@ -105,6 +105,11 @@ struct FreePlayView: View {
         ZStack(alignment: .topLeading) {
             sceneContainer
 
+            // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱，默认 6 m/s），共享单一真源。
+            if let runner = vm.breakRunner {
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy)
+            }
+
             if !vm.isBreakMode && proxy.isValid {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右（放球桌上方空隙带内）。
                 BTTrajectoryDetailChip { vm.recompute() }
@@ -238,7 +243,10 @@ struct FreePlayView: View {
             selectableBallNodes: vm.isBreakMode ? [] : vm.selectableBalls,
             onBallTapped: { node in handleTargetTap(node) },
             onTableTapped: { if !vm.isBreakMode { vm.handleTableTap(world: $0) } },
-            onAimDragged: { if !vm.isBreakMode { vm.handleAimDrag(world: $0) } },
+            onAimNudged: {
+                if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
+                else { vm.nudgeFreeAim(byDegrees: $0) }
+            },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -406,7 +414,7 @@ struct FreePlayView: View {
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
         Group {
             if let runner = vm.breakRunner {
-                FreePlayBreakBar(runner: runner, onCancel: {
+                BreakControlBar(runner: runner, onCancel: {
                     pendingGame = nil
                     vm.cancelBreakFlow()
                 })
@@ -513,81 +521,6 @@ struct FreePlayView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
             withAnimation { banner = nil }
         }
-    }
-}
-
-// MARK: - 自由击球开球条（条 15.8/15.9 状态机：开球 → 开球中 → 重开；完成 = 手动进击打）
-
-private struct FreePlayBreakBar: View {
-    @ObservedObject var runner: BreakFlowRunner
-    let onCancel: () -> Void
-
-    /// 主按钮标题随状态机：racked=开球、computing/breaking=开球中、settled=重开。
-    private var mainTitle: String {
-        switch runner.phase {
-        case .racked: return "开球"
-        case .computing, .breaking: return "开球中"
-        case .settled: return "重开"
-        }
-    }
-
-    var body: some View {
-        HStack(spacing: Spacing.md) {
-            Button("取消") { onCancel() }
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white.opacity(0.8))
-                .padding(.horizontal, Spacing.lg)
-                .frame(height: 42)
-                .background(Color.white.opacity(0.10), in: Capsule())
-                .buttonStyle(.plain)
-                .disabled(runner.isBusy)
-
-            Spacer(minLength: 0)
-
-            // 「完成」（条 15.9）：停稳后手动送入击打阶段。
-            if runner.phase == .settled {
-                Button {
-                    runner.confirmSettled()
-                } label: {
-                    Text("完成")
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .frame(width: 84, height: 42)
-                        .background(Color.btPrimary, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("break.confirm")
-            }
-
-            Button {
-                switch runner.phase {
-                case .racked: runner.breakNow()
-                case .settled: runner.reRack()
-                default: break
-                }
-            } label: {
-                HStack(spacing: 5) {
-                    if runner.phase == .settled {
-                        Image(systemName: "arrow.counterclockwise")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
-                    } else {
-                        CueStickShape().frame(width: 15, height: 15).foregroundStyle(.white)
-                    }
-                    Text(mainTitle)
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
-                }
-                .frame(width: 92, height: 42)
-                .background(runner.isBusy ? Color.btPrimary.opacity(0.3)
-                            : (runner.phase == .settled ? Color.white.opacity(0.14) : Color.btPrimary),
-                            in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(runner.isBusy)
-            .accessibilityIdentifier("break.strike")
-        }
-        .padding(.horizontal, Spacing.lg)
     }
 }
 

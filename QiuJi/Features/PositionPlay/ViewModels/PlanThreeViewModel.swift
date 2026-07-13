@@ -59,9 +59,16 @@ enum PlanThreeSectorSolver {
         }
 
         // 有三号：按「分离切线·朝三号」点积取大侧（不脑算手性）。
+        let sign = preferredSide(ux: ux, uz: uz, ball2: t2, ball3: t3)
+        return [buildSector(sign: sign, ux: ux, uz: uz, gx: gx, gz: gz, surfaceY: surfaceY)].compactMap { $0 }
+    }
+
+    /// 朝三号那一侧的符号（+1/−1）：把中值切角方向对 u 的横向分量投影到「t2→t3」方向，取大者。
+    /// `compute`（视觉多段）与 `defaultRegion`（求解 SDF）共用，确保视觉扇形与求解扇形同侧（单一真源）。
+    static func preferredSide(ux: Float, uz: Float, ball2 t2: SCNVector3, ball3 t3: SCNVector3) -> Float {
         var wx = t3.x - t2.x, wz = t3.z - t2.z
         let wlen = sqrtf(wx * wx + wz * wz)
-        guard wlen > 1e-5 else { return [] }
+        guard wlen > 1e-5 else { return 1 }
         wx /= wlen; wz /= wlen
         func score(sign: Float) -> Float {
             let mid = (cutMinDeg + cutMaxDeg) / 2
@@ -72,8 +79,41 @@ enum PlanThreeSectorSolver {
             guard plen > 1e-6 else { return -2 }
             return (px / plen) * wx + (pz / plen) * wz
         }
-        let sign: Float = score(sign: 1) >= score(sign: -1) ? 1 : -1
-        return [buildSector(sign: sign, ux: ux, uz: uz, gx: gx, gz: gz, surfaceY: surfaceY)].compactMap { $0 }
+        return score(sign: 1) >= score(sign: -1) ? 1 : -1
+    }
+
+    /// 求解用**默认落区**（Q15.1）：把视觉扇形的**真实几何**打包为 `SolveRegion.sector`。
+    ///
+    /// 与视觉 `compute` 同源同参（同顶点=②假想球、同半径带 [sMin, sMax]、同角域 5°→20°、同朝③侧选择）。
+    /// - 顶点 `apex` = ②号球假想球位 `t2 − 2R·u`（u = ②→②有效进球点单位向量）。
+    /// - 停点方向 bearing = `bearing(u) + π + sign·θ`，θ∈[5°,20°]（母球从假想球外侧退出的方向）。
+    /// - 无③号 → 两侧两个角区间；有③号 → 朝③单侧一个角区间。
+    /// 半径带用**米**（sMin/sMax 物理停球距离，不做归一化）；视觉 `compute` 额外按库边裁剪多段折线，
+    /// 求解 SDF 用未裁剪的解析环形扇区（台面外的点物理上母球到不了，故不影响可行解，且更忠实几何）。
+    static func defaultRegion(ball2 t2: SCNVector3, aim2: SCNVector3,
+                              ball3: SCNVector3?, surfaceY: Float) -> SolveRegion? {
+        let ux0 = aim2.x - t2.x, uz0 = aim2.z - t2.z
+        let ulen = sqrtf(ux0 * ux0 + uz0 * uz0)
+        guard ulen > 1e-5 else { return nil }
+        let ux = ux0 / ulen, uz = uz0 / ulen
+        let r = AngleSceneCalculator.ballRadius
+        let apexScene = SCNVector3(t2.x - 2 * r * ux, surfaceY + r, t2.z - 2 * r * uz)
+        let apexN = AngleSceneCalculator.sceneToNormalized(position: apexScene)
+        let base = atan2f(uz, ux) + .pi   // 停点基方向 = u 反向的 bearing
+        let cmin = cutMinDeg * .pi / 180, cmax = cutMaxDeg * .pi / 180
+
+        func interval(sign: Float) -> SolveRegion.SectorAngleInterval {
+            let a = base + sign * cmin, b = base + sign * cmax
+            return SolveRegion.SectorAngleInterval(lo: Double(min(a, b)), hi: Double(max(a, b)))
+        }
+        var intervals: [SolveRegion.SectorAngleInterval] = []
+        if let t3 = ball3 {
+            intervals = [interval(sign: preferredSide(ux: ux, uz: uz, ball2: t2, ball3: t3))]
+        } else {
+            intervals = [interval(sign: 1), interval(sign: -1)]
+        }
+        return .sector(apex: CanvasPoint(x: Double(apexN.x), y: Double(apexN.y)),
+                       radiusMin: Double(sMin), radiusMax: Double(sMax), intervals: intervals)
     }
 
     /// 构建单侧扇形（沿切角 5°→20° 取样，离库裁剪）。
@@ -129,11 +169,8 @@ final class PlanThreeViewModel: ObservableObject {
 
     enum Tool: Equatable { case none, region, restPoint, passPoint }
     enum RegionShape: String, CaseIterable { case rect = "矩形", circle = "圆" }
-    enum Draft {
-        case region(SolveRegion)
-        case restPoint(CanvasPoint)
-        case passPoint(CanvasPoint)
-    }
+    /// 约束草稿（归一化系）。共享定义见 `SolveConstraintDraft`（G17，跨反解页统一口径）。
+    typealias Draft = SolveConstraintDraft
 
     // MARK: - Scene
 
@@ -198,10 +235,21 @@ final class PlanThreeViewModel: ObservableObject {
     var solveGeneration = 0
     var surfaceY: Float { scene.surfaceY }
 
-    // MARK: - Last shot（条 21.3 同规范：上一杆/回放）
+    // MARK: - Last shot（条 21.3 + G17：上一杆完整恢复 / 回放）
 
-    private var lastShotContext: (before: BoardSnapshot, shot: PlannedShot,
-                                  prediction: ShotPrediction)?
+    /// 打三页「上一杆」完整上下文 = 共享求解快照 + 本页选择模型（①②③ 角色指派）。
+    /// 上一杆 = 回到击打前**完整状态**（球形 + ①②③角色 + 约束 + 解 + 打点/力度/瞄准，免重解）。
+    /// （internal 而非 private：供单测直接验证「快照→恢复」逐字段一致，见 `PositionPlayUndoSnapshotTests`。）
+    struct UndoContext {
+        var snapshot: SolveShotSnapshot
+        var ball1Key: String?
+        var ball2Key: String?
+        var ball3Key: String?
+        var pocket1Index: Int
+        var pocket2Index: Int
+        var armedRole: PlanThreeRole?
+    }
+    private var lastShotContext: UndoContext?
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -427,8 +475,7 @@ extension PlanThreeViewModel {
 
     private func advanceAndArm() {
         armedRole = nextEmptyRole()
-        if let role = armedRole { statusText = hint(for: role) }
-        else { statusText = "齐了 · 用上方工具画落区/落点/过点，再「求解」" }
+        statusText = hintForState()
         invalidateSolutions()
     }
 
@@ -517,12 +564,51 @@ extension PlanThreeViewModel {
         statusText = hintForState()
     }
 
+    /// 台面在桌目标球数（不含母球）。
+    var objectBallCount: Int {
+        onTableKeys.filter { !PositionPlayBall.isCue($0) }.count
+    }
+
+    /// ②号球+②号袋就绪时的**默认落区扇形**（Q15.1，真实几何）。nil = ② 未就绪。
+    var sectorRegion: SolveRegion? {
+        guard let b2 = ball2Key, let n2 = scene.allBallNodes[b2], !n2.isHidden, pocket2Index >= 0 else {
+            return nil
+        }
+        let aim2 = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: n2.position, pocketIndex: pocket2Index, surfaceY: surfaceY)
+        var b3pos: SCNVector3?
+        if let b3 = ball3Key, let n3 = scene.allBallNodes[b3], !n3.isHidden { b3pos = n3.position }
+        return PlanThreeSectorSolver.defaultRegion(
+            ball2: n2.position, aim2: aim2, ball3: b3pos, surfaceY: surfaceY)
+    }
+
+    /// <3 球终局降级（Q15.2）：台面仅剩 ① 一颗目标球时，无②可走位 ⇒ 只求「打进①」，
+    /// 落区放开为全台面（任意停点均合格），母球停哪都行。
+    var canPotOnly: Bool {
+        ball1Key != nil && pocket1Index >= 0 && objectBallCount <= 1
+    }
+
+    /// 全台面落区（pot-only 用）：中心 = 台面中心、覆盖整个 playfield。
+    private var potOnlyRegion: SolveRegion {
+        .rect(center: CanvasPoint(x: 0.5, y: 0.25), halfWidth: 0.5, halfHeight: 0.25)
+    }
+
+    /// 当前是否可求解（工具/角色/球数任一路径就绪）。驱动「求解」按钮启用。
+    var canSolve: Bool { currentConstraint() != nil }
+
+    /// 扇形当前是否作为默认落区生效（未画自选约束且② 就绪）。用于视觉：默认=高亮、被自选降级=灰。
+    var sectorIsDefaultRegion: Bool { draft == nil && sectorRegion != nil }
+
     func currentConstraint() -> SolveConstraint? {
         switch draft {
         case .region(let r): return .restRegion(r)
         case .restPoint(let p): return .restRegion(.point(center: p, tolerance: pointTolerance))
         case .passPoint(let p): return .passThrough(point: p, vMin: passVMin)
-        case nil: return nil
+        case nil:
+            // 未画自选约束：② 就绪 ⇒ 扇形默认落区；否则 <3 球 pot-only 兜底。
+            if let sector = sectorRegion { return .restRegion(sector) }
+            if canPotOnly { return .restRegion(potOnlyRegion) }
+            return nil
         }
     }
 
@@ -537,8 +623,7 @@ extension PlanThreeViewModel {
         scene.hideCueStick()
         velocity = 3.0; spinX = 0; spinY = 0
         refreshOverlays()
-        if currentConstraint() != nil { statusText = "约束就绪，点「求解」反解打一杆法" }
-        else { statusText = hintForState() }
+        statusText = hintForState()
     }
 
     func solve() {
@@ -625,9 +710,18 @@ extension PlanThreeViewModel {
 
     func hintForState() -> String {
         if scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true { return "请把母球摆上桌" }
+        if objectBallCount == 0 { return "清台完成 🎉 · 用「恢复默认」重开一局" }
+        if ball1Key == nil { return hint(for: .ball1) }
+        if pocket1Index < 0 { return hint(for: .pocket1) }
+        // ①+①袋 就绪：优先扇形/自选约束，其次 <3 球 pot-only。
+        if draft != nil { return "约束就绪，点「求解」反解打一杆法" }
+        if sectorRegion != nil {
+            return "扇形为默认落区 · 点「求解」（或用工具画落区/落点/过点自定义）"
+        }
+        if canPotOnly { return "台面仅剩此球 · 点「求解」直接打进" }
+        // ≥2 球但②未就绪：引导设②走位，或自画约束。
         if let role = nextEmptyRole() { return hint(for: role) }
-        if currentConstraint() == nil { return "用上方工具画落区/落点/过点，再「求解」" }
-        return "约束就绪，点「求解」反解打一杆法"
+        return "用上方工具画落区/落点/过点，再「求解」"
     }
 
     func hint(for role: PlanThreeRole) -> String {
@@ -684,21 +778,26 @@ extension PlanThreeViewModel {
         if let b3 = ball3Key, let n3 = scene.allBallNodes[b3], !n3.isHidden { b3pos = n3.position }
         let sectors = PlanThreeSectorSolver.compute(
             ball2: n2.position, aim2: aim2, ball3: b3pos, surfaceY: surfaceY)
-        for s in sectors { addSector(s, color: Self.color2) }
+        // Q15.1：无自选约束 ⇒ 扇形为**默认落区**（高亮 color2）；用户自画约束 ⇒ 降级为参考（灰）。
+        let dimmed = draft != nil
+        let color = dimmed ? UIColor(white: 0.62, alpha: 1) : Self.color2
+        for s in sectors { addSector(s, color: color, dimmed: dimmed) }
     }
 
-    private func addSector(_ s: PlanThreeSector, color: UIColor) {
+    private func addSector(_ s: PlanThreeSector, color: UIColor, dimmed: Bool) {
         guard s.isValid else { return }
-        if let fill = makeSectorFill(s, color: color.withAlphaComponent(0.16)) {
+        let fillAlpha: CGFloat = dimmed ? 0.06 : 0.16
+        if let fill = makeSectorFill(s, color: color.withAlphaComponent(fillAlpha)) {
             scene.rootNode.addChildNode(fill)
             selectionNodes.append(fill)
         }
-        let edge = color.withAlphaComponent(0.9)
+        let edge = color.withAlphaComponent(dimmed ? 0.45 : 0.9)
+        let innerColor = color.withAlphaComponent(dimmed ? 0.28 : 0.5)
         let n = s.inner.count
         for i in 0..<(n - 1) {
             selectionNodes.append(scene.addLine(from: s.outer[i], to: s.outer[i + 1], color: edge, radius: 0.0024))
             selectionNodes.append(scene.addLine(from: s.inner[i], to: s.inner[i + 1],
-                                                color: color.withAlphaComponent(0.5), radius: 0.0016))
+                                                color: innerColor, radius: 0.0016))
         }
         selectionNodes.append(scene.addLine(from: s.inner[0], to: s.outer[0], color: edge, radius: 0.0024))
         selectionNodes.append(scene.addLine(from: s.inner[n - 1], to: s.outer[n - 1], color: edge, radius: 0.0024))
@@ -817,6 +916,9 @@ extension PlanThreeViewModel {
             case let .point(center, tol):
                 let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: center.x, y: center.y), surfaceY: y)
                 strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale, color: color, into: &constraintNodes)
+            case .sector:
+                // 扇形默认落区由 `renderSelection`/`addSector` 画，不进 draft；此处仅穷尽分支。
+                break
             }
         case .passPoint(let pt):
             let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
@@ -941,7 +1043,8 @@ extension PlanThreeViewModel {
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = lastAimDirection ?? aimDirection(path: sol.prediction.cuePath, from: cueNode.position)
         else { return }
-        lastShotContext = (currentSnapshot(), sol.shot, sol.prediction)
+        // 记录上一杆上下文（条 21.3 + G17）：击打前完整求解快照 + ①②③ 角色指派，供上一杆完整恢复/回放。
+        lastShotContext = makeUndoContext(shot: sol.shot, prediction: sol.prediction)
         canUndoShot = false
         canPlayback = false
 
@@ -995,20 +1098,82 @@ extension PlanThreeViewModel {
         }
     }
 
-    /// 上一杆（条 21.3 同规范）：回到上次击打前的球形（角色/约束重置，回到选①起点）。
+    /// 上一杆（条 21.3 + G17）：回到上次击打前的**完整状态**——球形、①②③ 角色指派、约束、
+    /// 已求出的解（缓存回填，无需重画重求解）、打点/力度/瞄准，均逐字段还原。
     func undoLastShot() {
         guard !isPlaying, canUndoShot, let ctx = lastShotContext else { return }
-        loadBoard(ctx.before)
+        restore(from: ctx)
         canUndoShot = false
         canPlayback = false
         lastShotContext = nil
-        statusText = "已退回上一杆击打前 · 重新指派①②③"
+        statusText = ctx.snapshot.solutions.isEmpty
+            ? "已退回上一杆击打前"
+            : "已退回上一杆击打前 · 球形/①②③/约束/解已还原"
+    }
+
+    /// 组装当前状态为「上一杆」完整上下文（击打前调用；`play()` 与单测共用同一处捕获逻辑）。
+    func makeUndoContext(shot: PlannedShot, prediction: ShotPrediction) -> UndoContext {
+        UndoContext(
+            snapshot: SolveShotSnapshot(
+                before: currentSnapshot(), shot: shot, prediction: prediction,
+                solutions: solutions, currentIndex: currentIndex, draft: draft,
+                velocity: velocity, spinX: spinX, spinY: spinY,
+                allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
+            ball1Key: ball1Key, ball2Key: ball2Key, ball3Key: ball3Key,
+            pocket1Index: pocket1Index, pocket2Index: pocket2Index, armedRole: armedRole)
+    }
+
+    /// 把击打前完整快照原样恢复到场景与状态（不重解）。
+    func restore(from ctx: UndoContext) {
+        let snap = ctx.snapshot
+        // 清动画/叠加，摆回击打前球形。
+        scene.hideAllBalls()
+        clearTrajectory()
+        clearConstraintNodes()
+        scene.clearResultNodes(nodes: &selectionNodes)
+        scene.hideCueStick()
+        for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        refreshOnTableKeys()
+
+        // 求解选项须先于 solutions 恢复（同思路页顺序理由）。
+        allowSideSpin = snap.allowSideSpin
+        basicPositionOnly = snap.basicPositionOnly
+
+        // 选择模型（①②③ 角色指派）。
+        ball1Key = ctx.ball1Key
+        ball2Key = ctx.ball2Key
+        ball3Key = ctx.ball3Key
+        pocket1Index = ctx.pocket1Index
+        pocket2Index = ctx.pocket2Index
+        armedRole = ctx.armedRole
+
+        // 约束草稿（保留落点/落区/过点的视觉与语义分叉）。
+        draft = snap.draft
+        hasConstraint = snap.draft != nil
+        activeTool = .none
+
+        // 解回填（「解还在」，免重解）。
+        solveGeneration += 1
+        isComputing = false
+        solutions = snap.solutions
+        currentIndex = snap.currentIndex
+        velocity = snap.velocity
+        spinX = snap.spinX
+        spinY = snap.spinY
+
+        if currentSolution != nil {
+            showSolution(at: currentIndex)   // 轨迹 + 球杆瞄准 + 约束 + 角色环/扇形叠加
+        } else {
+            renderConstraint()
+            refreshOverlays()
+        }
     }
 
     /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
     func replayLastShot() {
-        guard !isPlaying, canPlayback, let ctx = lastShotContext,
-              let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
+        guard !isPlaying, canPlayback, let ctx = lastShotContext else { return }
+        let snap = ctx.snapshot
+        guard let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
         isPlaying = true
         clearTrajectory()
@@ -1018,28 +1183,28 @@ extension PlanThreeViewModel {
         statusText = "回放上一杆…"
 
         scene.hideAllBalls()
-        for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
+        for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
         refreshOnTableKeys()
 
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
-              let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
+              let aim = aimDirection(path: snap.prediction.cuePath, from: cueNode.position) else {
             finishPlayback(after: after)
             return
         }
-        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX)
         scene.runCueStroke(strikePosition: strikePos, aim: aim,
-                           velocity: Float(ctx.shot.velocity)) { [weak self] in
-            self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+                           velocity: Float(snap.shot.velocity)) { [weak self] in
+            self?.runPlaybackAnimation(snapshot: snap, recorder: recorder, after: after)
         }
     }
 
     private func runPlaybackAnimation(
-        ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
+        snapshot ctx: SolveShotSnapshot,
         recorder: TrajectoryRecorder, after: BoardSnapshot
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let settle = playback.perceptibleSettleTime()
+        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var cueAction: SCNAction?
         for key in onTableKeys {
@@ -1088,7 +1253,7 @@ extension PlanThreeViewModel {
         clearTrajectory()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let settle = playback.perceptibleSettleTime()
+        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
         var cueAction: SCNAction?
         for key in onTableKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
@@ -1141,10 +1306,15 @@ extension PlanThreeViewModel {
         refreshOverlays()
 
         canUndoShot = lastShotContext != nil
-        canPlayback = lastShotContext?.prediction.recorder != nil
+        canPlayback = lastShotContext?.snapshot.prediction.recorder != nil
 
         let cueGone = scene.allBallNodes[PositionPlayBall.cueKey]?.isHidden ?? true
-        if cueGone {
+        // Q15.2 清台终局：台面无目标球 ⇒ 终局提示（清空后重开）。
+        if objectBallCount == 0 {
+            statusText = cueGone
+                ? "清台完成 🎉（母球也进袋）· 用「恢复默认」重开一局"
+                : "清台完成 🎉 · 用「恢复默认」重开一局"
+        } else if cueGone {
             statusText = "母球进袋（scratch）· 重新摆母球或「恢复默认」"
         } else if ball1Potted {
             statusText = armedRole.map { "①进袋 · 窗口前滑 · " + hint(for: $0) }
@@ -1201,5 +1371,44 @@ extension PlanThreeViewModel {
         clearConstraint()
         applyDefaultLayout()
         invalidateSolutions()
+    }
+
+    // MARK: - UITest hooks（仅 UI 测试注入确定性状态；生产无对应 launch arg 时永不触发，行为不变）
+
+    /// 直接指派①②③角色（绕过点选流程），供 UITest 确定性摆好扇形/pot-only 局面取证。
+    private func setPlanDirect(ball1: String?, pocket1: Int, ball2: String?, pocket2: Int, ball3: String?) {
+        ball1Key = ball1; pocket1Index = pocket1
+        ball2Key = ball2; pocket2Index = pocket2
+        ball3Key = ball3
+        armedRole = nextEmptyRole()
+        statusText = hintForState()
+        invalidateSolutions()
+    }
+
+    /// UITest 场景注入（Q15.1/Q15.2 截图取证）。scenario 见 `PlanThreeView` onAppear。
+    func uiTestConfigure(_ scenario: String) {
+        guard !isPlaying else { return }
+        let cue = CanvasPoint(x: 0.24, y: 0.30)
+        let b1 = CanvasPoint(x: 0.52, y: 0.16)
+        let b2 = CanvasPoint(x: 0.70, y: 0.34)
+        switch scenario {
+        case "twoBall", "twoBallDimmed":
+            loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: cue, "_1": b1, "_2": b2]))
+            setPlanDirect(ball1: "_1", pocket1: 1, ball2: "_2", pocket2: 3, ball3: nil)
+            if scenario == "twoBallDimmed" {
+                activeTool = .region
+                toolDrag(startNormalized: CanvasPoint(x: 0.40, y: 0.24),
+                         currentNormalized: CanvasPoint(x: 0.58, y: 0.40), ended: true)
+            }
+        case "oneBall":
+            loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: cue, "_1": b1]))
+            setPlanDirect(ball1: "_1", pocket1: 4, ball2: nil, pocket2: -1, ball3: nil)
+        case "cleared":
+            loadBoard(BoardSnapshot(onTable: [PositionPlayBall.cueKey: cue, "_1": b1]))
+            setPlanDirect(ball1: "_1", pocket1: 4, ball2: nil, pocket2: -1, ball3: nil)
+            removeFromTable("_1")   // 打进最后一颗（母球留台）⇒ 清台终局
+        default:
+            break
+        }
     }
 }

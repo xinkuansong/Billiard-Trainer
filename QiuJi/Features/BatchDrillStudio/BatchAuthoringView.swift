@@ -210,6 +210,9 @@ final class BatchShotSolver: ObservableObject {
             case let .point(center, tol):
                 strokeCircle(center: scenePoint(center, y: y), radius: Float(tol) * SolveRegion.sceneScale,
                              color: cyan, scene: scene)
+            case .sector:
+                // 批量台 draft 不进 sector；穷尽分支。
+                break
             }
         case .restPoint(let pt):
             let c = scenePoint(pt, y: y)
@@ -572,7 +575,7 @@ struct BatchAuthoringView: View {
             selectableBallNodes: composer.selectableBalls,
             onBallTapped: { handleBallTapped($0) },
             onTableTapped: { composer.handleTableTap(world: $0) },
-            onAimDragged: { composer.handleAimDrag(world: $0) },
+            onAimNudged: { composer.nudgeFreeAim(byDegrees: $0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

@@ -22,8 +22,13 @@ struct BankShotView: View {
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
 
-    /// 球库列数（障碍球 14 颗 = 2 行 × 7 列；G8 排球总宽 = 球桌宽）。
-    private static let paletteColumns = 7
+    /// 球库列数（条 17.8：全 16 球位 = 2 行 × 8 列；G8 排球总宽 = 球桌宽）。
+    private static let paletteColumns = 8
+
+    /// 固定在桌球（母球 / 黑 8 目标球）：球库位灰显、不可拖、点击脉冲提示（条 17.8）。
+    private static func isFixedBall(_ key: String) -> Bool {
+        key == PositionPlayBall.cueKey || key == "_8"
+    }
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight: CGFloat = 46
     private static let bottomBarHeight: CGFloat = 94
@@ -59,11 +64,16 @@ struct BankShotView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            // 条 17.1/17.2/17.7：principal 品牌绿标题 + 副标题承载解描述 / 无解说明（同三解页）。
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(title: "翻袋解球器", isBusy: vm.isSolving, statusText: vm.statusText)
+            }
+            // 条 17.9（G19）：i → 三点菜单（原理说明 + 台面网格 + 恢复默认）。
             ToolbarItem(placement: .topBarTrailing) {
-                Button { showInfo = true } label: {
-                    Image(systemName: "info.circle").foregroundStyle(.white.opacity(0.75))
-                }
-                .accessibilityLabel("原理")
+                BTSolverMoreMenu(scene: vm.scene,
+                                 onPrinciple: { showInfo = true },
+                                 onReset: { vm.reset() })
+                    .disabled(vm.isPlaying)
             }
         }
         .sheet(isPresented: $showInfo) {
@@ -148,23 +158,14 @@ struct BankShotView: View {
                     .btStageFrame(proxy.bottomTrailingFrame(size: CGSize(
                         width: ShotStageMetrics.actionColumnWidth, height: 106)))
 
-                // 左下「恢复球形」：回最近求解快照（含袋口，W6）。
+                // 左下：自由 = 「恢复球形」；求解 = 「下一解」（条 17.4：下一解移到左侧）。
                 if vm.mode == .free {
                     restoreButton
                         .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
+                } else {
+                    nextSolutionButton
+                        .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
                 }
-            }
-
-            // 状态 pill：求解态 = 解读数 / 求解中 / 无解；自由态 = 首碰胶囊（§1.3，
-            // 抬高避让左下「恢复球形」按钮）。
-            VStack {
-                Spacer()
-                HStack {
-                    infoPill
-                    Spacer()
-                }
-                .padding(.leading, Spacing.lg)
-                .padding(.bottom, vm.mode == .free ? 56 : Spacing.md)
             }
 
             // 打点盘浮层（自由模式，编排台同款 ADR-P11-09）。
@@ -203,8 +204,9 @@ struct BankShotView: View {
         .accessibilityLabel("恢复球形")
     }
 
-    /// 贴边动作列：求解态 = 击打（主）/下一解/重置，演示中单「停止」（W5）；
-    /// 自由态 = 击球/上一杆/回放（W6，条 18.2 三钮列）。
+    /// 贴边动作列（条 17.5：求解态收敛为 击打/上一杆/回放，与自由态、其他击打页同规范）。
+    /// 条 17.3：删演示中「停止」与「重置」（演示不可中断；重置移入三点菜单「恢复默认」）。
+    /// 求解态「上一杆」按 G17 全量恢复（球形 + 袋口 + 库数 + 解集 + 档位 + 力度）。
     @ViewBuilder
     private var actionColumn: some View {
         if vm.mode == .free {
@@ -217,31 +219,38 @@ struct BankShotView: View {
                 playbackEnabled: !vm.isPlaying && vm.canPlaybackShot,
                 onPlayback: { vm.replayLastShot() }
             )
-        } else if vm.isPlaying {
-            BTTextActionButton(title: "停止", role: .destructive,
-                               width: ShotStageMetrics.actionColumnWidth) {
-                vm.stopStrike()
-            }
-            .accessibilityIdentifier("solver.stop")
         } else {
-            VStack(spacing: 8) {
-                BTTextActionButton(title: "击打", role: .primary,
-                                   isDisabled: !vm.canStrike,
-                                   width: ShotStageMetrics.actionColumnWidth) {
-                    vm.strike()
-                }
-                .accessibilityIdentifier("solver.strike")
-                BTTextActionButton(title: "下一解",
-                                   isDisabled: vm.solutionCount <= 1,
-                                   width: ShotStageMetrics.actionColumnWidth) {
-                    vm.nextSolution()
-                }
-                BTTextActionButton(title: "重置",
-                                   width: ShotStageMetrics.actionColumnWidth) {
-                    vm.reset()
-                }
-            }
+            BTShotActionColumn(
+                strikeTitle: vm.isPlaying ? "击球中" : "击打",
+                strikeEnabled: vm.canStrike,
+                onStrike: { vm.strike() },
+                undoEnabled: !vm.isPlaying && vm.canUndoSolve,
+                onUndo: { vm.undoSolveShot() },
+                playbackEnabled: !vm.isPlaying && vm.canReplaySolve,
+                onPlayback: { vm.replaySolveShot() }
+            )
         }
+    }
+
+    /// 左下「下一解」（条 17.4）：求解态切换多解；单解禁用（对应自由态「恢复球形」位置带）。
+    private var nextSolutionButton: some View {
+        Button {
+            vm.nextSolution()
+        } label: {
+            VStack(spacing: 2) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 13, weight: .semibold))
+                Text("下一解")
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(vm.solutionCount > 1 ? Color.btPrimary : .white.opacity(0.35))
+            .frame(width: 52, height: 46)
+            .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(vm.solutionCount <= 1 || vm.isPlaying)
+        .accessibilityIdentifier("solver.nextSolution")
+        .accessibilityLabel("下一解")
     }
 
     private var sceneContainer: some View {
@@ -258,7 +267,7 @@ struct BankShotView: View {
             onDragEndedAt: { node, localPoint in
                 handleTableDragEnd(node: node, localPoint: localPoint)
             },
-            onAimDragged: { vm.handleAimDrag(world: $0) },   // 自由模式瞄准手柄（W6）。
+            onAimNudged: { vm.nudgeFreeAim(byDegrees: $0) },   // 自由模式瞄准相对调整（G13）。
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -266,154 +275,11 @@ struct BankShotView: View {
         .clipped()
     }
 
-    // MARK: - Info pill
-
-    @ViewBuilder
-    private var infoPill: some View {
-        HStack {
-            if vm.mode == .free {
-                freeContactPill
-            } else if vm.isPlaying {
-                demoPill
-            } else if vm.isDragging {
-                EmptyView()   // 拖动中只清线不重算，pill 隐藏（拖球结束触发求解）。
-            } else if vm.isSolving {
-                solvingPill
-            } else if vm.hasSolution {
-                solutionPill
-            } else {
-                noSolutionPill
-            }
-            Spacer()
-        }
-    }
-
-    private var demoPill: some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "play.fill").font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.btAccent)
-            Text("演示中…")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .btHudGlass()
-    }
-
-    /// 自由模式首碰胶囊（W6，编排台自由模式同款）：首碰球 · 切角 · 厚度通称；空杆提示。
-    private var freeContactPill: some View {
-        HStack(spacing: 4) {
-            if vm.isPlaying {
-                ProgressView().scaleEffect(0.7).tint(.white)
-                Text("击球中…")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-            } else if let contact = vm.freeAimContact {
-                Text("首碰")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-                Text(BankKickFreePill.ballName(contact.targetKey))
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                pillDivider
-                ThicknessOverlapIcon(cutAngle: contact.cutAngleDeg,
-                                     size: CGSize(width: 22, height: 12))
-                BTReadout(value: "\(Int(contact.cutAngleDeg.rounded()))°", size: .compact)
-                let name = AngleSceneCalculator.thicknessName(cutAngle: contact.cutAngleDeg)
-                if name != "—" {
-                    pillDivider
-                    Text(name)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.8))
-                }
-            } else {
-                Image(systemName: "scope").font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.75))
-                Text("空杆 — 拖动台面或刻度轮瞄准")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-            }
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .btHudGlass()
-    }
-
-    private var pillDivider: some View {
-        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
-    }
-
-    private var solvingPill: some View {
-        HStack(spacing: Spacing.sm) {
-            ProgressView().scaleEffect(0.7).tint(.white)
-            Text("真实物理求解中…")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .btHudGlass()
-    }
-
-    private var solutionPill: some View {
-        HStack(spacing: Spacing.sm) {
-            HStack(spacing: 4) {
-                Image(systemName: "arrow.uturn.left").font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.btAccent)
-                // 库数 = 方案量值 → 金（HUD 状态语法：金管数值）。
-                BTReadout(value: "\(vm.currentCushions) 库", emphasis: .adjustable)
-            }
-            divider
-            Text(vm.currentRailText)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .lineLimit(1)
-            divider
-            BTReadout(label: "切角", value: "\(vm.currentCutAngle)°")
-            divider
-            // 难度档（易/中白、难 btWarning，§8.5 不新造颜色）。
-            Text(vm.currentDifficultyTier.label)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(vm.currentDifficultyTier == .hard ? Color.btWarning : .white)
-            if let robust = vm.currentRobustnessPercent {
-                divider
-                Text("容错 \(robust)%")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-            }
-            if vm.solutionCount > 1 {
-                divider
-                BTReadout(value: "\(vm.currentIndex + 1)/\(vm.solutionCount)", size: .compact)
-            }
-        }
-        .foregroundStyle(.white)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .btHudGlass()
-    }
-
-    private var noSolutionText: String {
-        if vm.selectedCushions != nil { return "该库数下无解，换库数 / 袋口或移动球位" }
-        return "该袋暂无翻袋解，换袋口或移动球位再试"
-    }
-
-    private var noSolutionPill: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "exclamationmark.triangle.fill").font(.btCaption)
-            Text(noSolutionText)
-                .font(.system(size: 13, weight: .semibold))
-        }
-        .foregroundStyle(.btWarning)
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .btHudGlass()
-    }
-
-    private var divider: some View {
-        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 14)
-    }
-
     // MARK: - Bottom bar（W4 球库带：拖入 = 障碍球真实碰撞体，编排台同款交互）
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        let keys = BankShotViewModel.paletteKeys
+        // 条 17.8：球库含全 16 球位（母球 / 黑 8 固定在桌 → 球库位灰显）。
+        let keys = PositionPlayBall.allKeys
         let row1 = Array(keys.prefix(Self.paletteColumns))
         let row2 = Array(keys.dropFirst(Self.paletteColumns))
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
@@ -448,7 +314,8 @@ struct BankShotView: View {
     }
 
     private func ballToken(_ key: String) -> some View {
-        let onTable = vm.onTableObstacleKeys.contains(key)
+        // 母球 / 黑 8 = 固定在桌（灰显、不可拖、点击脉冲）；障碍球 = 现行增删（条 17.8）。
+        let onTable = Self.isFixedBall(key) || vm.onTableObstacleKeys.contains(key)
         return PoolBallFace(key: key, diameter: 36)
             .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
             .frame(width: 38, height: 38)
@@ -456,7 +323,9 @@ struct BankShotView: View {
             .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
             .accessibilityIdentifier("paletteBall_\(key)")
             .onTapGesture {
-                if onTable { vm.pulseTableBall(key) } else { vm.placeObstacle(key) }
+                if Self.isFixedBall(key) { vm.pulsePaletteBall(key) }
+                else if vm.onTableObstacleKeys.contains(key) { vm.pulseTableBall(key) }
+                else { vm.placeObstacle(key) }
             }
             .gesture(paletteDrag(key), including: onTable ? .subviews : .all)
     }

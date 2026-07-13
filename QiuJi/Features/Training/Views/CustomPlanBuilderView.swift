@@ -230,7 +230,7 @@ struct CustomPlanBuilderView: View {
                     ballsPerSet: item.ballsPerSet
                 )
             } label: {
-                Image(systemName: "gearshape")
+                Image(systemName: "ellipsis.circle")
                     .font(.btBody)
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)

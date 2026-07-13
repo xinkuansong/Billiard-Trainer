@@ -41,13 +41,25 @@ final class BreakFlowRunner: ObservableObject {
         gameOptions.first(where: { $0.game == game })?.title ?? "\(game.ballCount) 球"
     }
 
-    /// 开球杆头速度 (m/s)：重杆默认值（原生成器 powerRange 4–9 的常用档）。
-    /// 内置形态不暴露力度控制（散局多样性由「换一局」的 seed 扰动承担）。
-    static let breakPower: Float = 7.0
+    /// 开球默认杆头速度 (m/s)：G18（问题集合 v5·V6）——默认 6.0（替代固定 7.0），
+    /// 经右侧力度条 `BTShotInstrumentColumn` 可调，参与开球速度。
+    static let defaultBreakVelocity: Double = 6.0
 
     let game: RackGame
     @Published private(set) var phase: Phase = .racked
-    @Published private(set) var statusText = "拖动母球定开球点 · 点「开球」散局"
+    @Published private(set) var statusText = "拖屏调方向 · 拖母球定开球点 · 点「开球」散局"
+
+    /// 开球杆头速度 (m/s)：右侧力度柱绑定（G18）。默认 6.0，量程沿用 `ShotTuning.velocityRange`。
+    @Published var velocity: Double = BreakFlowRunner.defaultBreakVelocity
+
+    /// 当前开球瞄准方向（XZ 单位向量，SceneKit 世界系）。nil 时以「锁顶球」兜底。
+    /// G18：默认锁顶球，用户可拖屏（G13 相对语义）或左侧刻度轮调整。
+    @Published private(set) var aimDir: SCNVector3?
+    /// 用户是否手动调过瞄准。false = 自动锁顶球（母球移动即重瞄顶角）；一旦手动调过则固定方向。
+    private var aimManuallyAdjusted = false
+
+    /// 底部条主按钮是否显示为「完成」（仅手动交付宿主、且已停稳时）。
+    var showsConfirm: Bool { phase == .settled && !autoDeliverOnSettle }
 
     /// 停稳交付：散开球形（刮杆已补回开球区）。宿主负责 loadBoard + 销毁 runner。
     var onSettled: ((BoardSnapshot) -> Void)?
@@ -87,15 +99,16 @@ final class BreakFlowRunner: ObservableObject {
         for b in rack.balls { scene.showBall(key: b.key, scenePosition: b.position) }
         scene.showBall(key: PositionPlayBall.cueKey, scenePosition: rack.cue)
         phase = .racked
-        statusText = "拖动母球定开球点 · 点「开球」散局"
+        statusText = "拖屏调方向 · 拖母球定开球点 · 点「开球」散局"
+        // G18：每次摆架回到「自动锁顶球」默认瞄准（用户随后可拖屏/刻度轮微调）。
+        aimManuallyAdjusted = false
+        aimDir = BreakSimulator.aimAtApex(rack: rack, from: rack.cue)
         drawAimLine()
     }
 
-    /// 「换一局」：换随机种子重摆（seed 同时驱动开球塞扰动 → 散局真正变化）。
-    func nextRack() {
-        guard !isBusy else { return }
-        seed &+= 1
-        rackUp()
+    /// 当前生效的开球瞄准方向：用户调过则用 `aimDir`，否则实时锁顶球（随母球位置）。
+    private func resolvedAim(cuePos: SCNVector3) -> SCNVector3 {
+        aimDir ?? BreakSimulator.aimAtApex(rack: rack, from: cuePos)
     }
 
     // MARK: - Cue dragging
@@ -115,6 +128,24 @@ final class BreakFlowRunner: ObservableObject {
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
         guard phase == .racked else { return }
         node.position = clampToBreakBox(worldPosition)
+        // 未手动调向时，母球移动即重锁顶球（默认瞄准跟随开球点）；已手动调向则保持绝对方向。
+        if !aimManuallyAdjusted {
+            aimDir = BreakSimulator.aimAtApex(rack: rack, from: node.position)
+        }
+        drawAimLine()
+    }
+
+    // MARK: - Aim adjustment（G18：开放瞄准方向，遵循 G13 相对调整语义）
+
+    /// 相对微调开球瞄准方向：`delta > 0` = 屏幕顺时针（向右）旋转。
+    /// 台面空白处拖屏（`onAimNudged`，绕母球公转增益）与左缘刻度轮（`BTAimWheel`）共用本入口，
+    /// 均为对**当前**方向的增量旋转（第一落点只选中不转向由手势层保证，见 `AngleSceneView`）。
+    func nudgeAim(byDegrees delta: Float) {
+        guard phase == .racked, abs(delta) > 1e-4 else { return }
+        let cuePos = scene.allBallNodes[PositionPlayBall.cueKey]?.position ?? rack.cue
+        let base = resolvedAim(cuePos: cuePos)
+        aimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
+        aimManuallyAdjusted = true
         drawAimLine()
     }
 
@@ -142,10 +173,12 @@ final class BreakFlowRunner: ObservableObject {
     private func drawAimLine() {
         scene.clearResultNodes(nodes: &aimNodes)
         guard phase == .racked,
-              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
-              let apex = rack.balls.max(by: { $0.position.x < $1.position.x })?.position else { return }
-        let dir = BreakSimulator.aimAtApex(rack: rack, from: cue.position)
-        aimNodes.append(scene.addLine(from: cue.position, to: apex,
+              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return }
+        // G18：沿当前（可调）瞄准方向画线——前段淡绿对照线延伸到库内边界、
+        // 后段实线尾巴表示母球来向（同其他击打页瞄准语言）。
+        let dir = resolvedAim(cuePos: cue.position)
+        let forward = AngleSceneCalculator.rayToInnerRail(from: cue.position, dir: dir)
+        aimNodes.append(scene.addLine(from: cue.position, to: forward,
                                       color: TrajectoryStyle.hintColor.withAlphaComponent(0.5),
                                       radius: TrajectoryStyle.lineHint))
         let tail = SCNVector3(cue.position.x - dir.x * AngleSceneCalculator.ballRadius * 2,
@@ -163,9 +196,9 @@ final class BreakFlowRunner: ObservableObject {
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else { return }
         let cuePos = cueNode.position
         let theRack = rack
-        // seed 驱动的轻微随机塞（同局可复现、换一局即变）——散局多样性来源。
-        let jitter = breakJitter(seed: seed)
-        let (sx, sy) = clampSpin(jitter.spinX, jitter.spinY)
+        // G18：无随机塞——开球确定性由「瞄准方向 + 力度」用户控制，随机性只保留球堆间距（RackLayout jitter）。
+        let aim = resolvedAim(cuePos: cuePos)
+        let power = Float(velocity)
         breakGeneration += 1
         let gen = breakGeneration
         phase = .computing
@@ -174,8 +207,8 @@ final class BreakFlowRunner: ObservableObject {
 
         breakQueue.async { [weak self] in
             let result = BreakSimulator.breakShot(
-                rack: theRack, cuePosition: cuePos, power: Self.breakPower,
-                spinX: sx, spinY: sy)
+                rack: theRack, cuePosition: cuePos, aimDirection: aim, power: power,
+                spinX: 0, spinY: 0)
             DispatchQueue.main.async {
                 guard let self, self.breakGeneration == gen, self.phase == .computing else { return }
                 self.startPlayback(result)
@@ -190,10 +223,10 @@ final class BreakFlowRunner: ObservableObject {
             return
         }
         statusText = "运杆…"
-        let aim = BreakSimulator.aimAtApex(rack: rack, from: cueNode.position)
+        let aim = resolvedAim(cuePos: cueNode.position)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: 0)
         scene.runCueStroke(strikePosition: strikePos, aim: aim,
-                           velocity: Self.breakPower) { [weak self] in
+                           velocity: Float(velocity)) { [weak self] in
             guard let self, self.phase == .breaking else { return }
             self.runBreakMotion(result)
         }
@@ -209,7 +242,8 @@ final class BreakFlowRunner: ObservableObject {
                 node.runAction(action)
             }
         }
-        let settle = playback.perceptibleSettleTime()
+        // G15：开球收尾等到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
+        let settle = playback.duration
         let tail: TimeInterval = result.pocketed.isEmpty ? 0.15
             : TrajectoryPlayback.pocketSettleDuration + 0.15
         let finishAfter = max(0.05, TimeInterval(settle) + tail)
@@ -249,7 +283,8 @@ final class BreakFlowRunner: ObservableObject {
         }
     }
 
-    /// 「重开」（条 15.8）：`.settled` 阶段换 seed 重摆（球序变化来自 seed 驱动的摆球扰动）。
+    /// 「重开」（G18 统一：合并原「换一局」+「重开」为单一语义）：换 seed 重摆——
+    /// 重新洗球号 + 重新扰动球堆间距（`RackLayout` jitter）。`.racked` 与 `.settled` 均可用。
     func reRack() {
         guard phase == .settled || phase == .racked else { return }
         seed &+= 1
@@ -276,25 +311,6 @@ final class BreakFlowRunner: ObservableObject {
         for key in allKeys { scene.allBallNodes[key]?.removeAllActions() }
     }
 
-    // MARK: - Randomness（迁自生成器，seed 驱动）
-
-    private struct BreakJitter { let spinX: Float; let spinY: Float }
-
-    private func breakJitter(seed: UInt64) -> BreakJitter {
-        var rng = SeededGenerator(seed: seed &* 0x2545_F491_4F6C_DD1D ^ 0x9E37_79B9_7F4A_7C15)
-        let sx = Float.random(in: -0.10...0.10, using: &rng)
-        let sy = Float.random(in: -0.15...0.15, using: &rng)
-        return BreakJitter(spinX: sx, spinY: sy)
-    }
-
-    private func clampSpin(_ x: Float, _ y: Float) -> (Float, Float) {
-        let lim = CuePhysics.miscueLimitFraction
-        let r = sqrtf(x * x + y * y)
-        guard r > lim else { return (x, y) }
-        let s = lim / r
-        return (x * s, y * s)
-    }
-
     private func settledHint(_ result: BreakResult) -> String {
         if result.eightOnBreak { return "8 号开球落袋（按规则废局）· 可换一局重开" }
         if result.cueScratched { return "母球进袋（刮杆）· 已补回开球区" }
@@ -302,7 +318,16 @@ final class BreakFlowRunner: ObservableObject {
     }
 }
 
-// MARK: - 开球模式底部条（三宿主共用：取消 / 换一局 / 开球主按钮）
+// MARK: - 开球模式底部条（四宿主唯一共享条，G18/V6：取消 / 重开 / 开球|完成）
+//
+// 收敛原 `BreakControlBar`（自动交付宿主：Silu/PlanThree/Composer）与 FreePlay 私有
+// `FreePlayBreakBar`（手动交付）为单一真源。按钮语义（问题集合 v5·G18-5）：
+// - **取消**：退出开球模式，宿主恢复进场前球形（恒在最左）。
+// - **重开**：换 seed 重摆（= 原「换一局」+「重开」合并语义：重洗球号 + 重扰球堆间距），
+//   `.racked`/`.settled` 均可用（次级按钮）。
+// - **主按钮**：需手动交付（`autoDeliverOnSettle == false`，自由击球页）且已停稳 ⇒ 显示「完成」
+//   （交付击打阶段）；否则显示「开球」（`.racked` 触发散局）。
+// 「重开」与「完成」位置互换（相对旧 FreePlayBreakBar：完成移到最右主位、重开在其左）。
 
 struct BreakControlBar: View {
     @ObservedObject var runner: BreakFlowRunner
@@ -319,10 +344,13 @@ struct BreakControlBar: View {
                 .buttonStyle(.plain)
                 .disabled(runner.isBusy)
 
+            Spacer(minLength: 0)
+
+            // 重开（次级）：换 seed 重摆——恒显（racked/settled 均可）。
             Button {
-                runner.nextRack()
+                runner.reRack()
             } label: {
-                Label("换一局", systemImage: "arrow.2.squarepath")
+                Label("重开", systemImage: "arrow.2.squarepath")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.lg)
@@ -331,28 +359,80 @@ struct BreakControlBar: View {
             }
             .buttonStyle(.plain)
             .disabled(runner.isBusy)
+            .accessibilityIdentifier("break.rerack")
 
-            Spacer(minLength: 0)
-
-            Button {
-                runner.breakNow()
-            } label: {
-                HStack(spacing: 5) {
-                    CueStickShape().frame(width: 15, height: 15).foregroundStyle(.white)
-                    Text(runner.isBusy ? "开球中" : "开球")
+            // 主按钮（最右）：停稳待手动交付 ⇒ 「完成」；否则 ⇒ 「开球」。
+            if runner.showsConfirm {
+                Button {
+                    runner.confirmSettled()
+                } label: {
+                    Text("完成")
                         .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
+                        .frame(width: 92, height: 42)
+                        .background(Color.btPrimary, in: Capsule())
                 }
-                .frame(width: 92, height: 42)
-                .background(runner.isBusy ? Color.btPrimary.opacity(0.3) : Color.btPrimary,
-                            in: Capsule())
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("break.confirm")
+            } else {
+                Button {
+                    runner.breakNow()
+                } label: {
+                    HStack(spacing: 5) {
+                        CueStickShape().frame(width: 15, height: 15).foregroundStyle(.white)
+                        Text(runner.isBusy ? "开球中" : "开球")
+                            .font(.system(size: 13, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white)
+                    }
+                    .frame(width: 92, height: 42)
+                    .background(runner.isBusy ? Color.btPrimary.opacity(0.3) : Color.btPrimary,
+                                in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(runner.isBusy)
+                .accessibilityIdentifier("break.strike")
             }
-            .buttonStyle(.plain)
-            .disabled(runner.isBusy)
-            .accessibilityIdentifier("break.strike")
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, 12)
+    }
+}
+
+// MARK: - 开球模式贴边仪表（四宿主共享，G18/V6）
+//
+// 左侧瞄准刻度轮（`BTAimWheel`，G13 相对调瞄）+ 右侧力度柱（`BTShotInstrumentColumn`，默认 6 m/s）。
+// 遵循既有 `ShotStageProxy` 贴边标准（G4/G5/G7：右缘/左缘贴球桌、同底）。宿主开球模式统一叠加，
+// 避免逐页复制开球控件逻辑（单一真源）。
+
+struct BreakInstrumentsOverlay: View {
+    @ObservedObject var runner: BreakFlowRunner
+    let proxy: ShotStageProxy
+
+    var body: some View {
+        // 铺满 stage（origin 左上），使内部 `.position` 与球桌矩形同一坐标系 ⇒ 两竖条严格同底（G5）。
+        ZStack(alignment: .topLeading) {
+            if proxy.isValid {
+                // 仅摆架待开球（`.racked`）时可调；计算/回放/停稳期禁用（避免中途改参）。
+                let editable = runner.phase == .racked
+                let wf = proxy.aimWheelFrame()
+                BTAimWheel(onNudge: { runner.nudgeAim(byDegrees: $0) })
+                    .frame(width: wf.width, height: wf.height)
+                    .position(x: wf.midX, y: wf.midY)
+                    .allowsHitTesting(editable)
+                    .opacity(editable ? 1 : 0.5)
+
+                let inf = proxy.instrumentFrame()
+                BTShotInstrumentColumn(
+                    spinX: 0, spinY: 0,
+                    velocity: $runner.velocity,
+                    range: ShotTuning.velocityRange,
+                    isDisabled: !editable
+                )
+                .frame(width: inf.width, height: inf.height)
+                .position(x: inf.midX, y: inf.midY)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 }
 

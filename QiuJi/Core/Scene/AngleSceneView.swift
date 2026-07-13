@@ -52,10 +52,12 @@ struct AngleSceneView: UIViewRepresentable {
     /// 点击未命中球/袋口时，反投影到台面平面的世界坐标回调（走位编排器自由瞄准用）。
     var onTableTapped: ((SCNVector3) -> Void)?
 
-    /// 自由瞄准手指跟随（T-P18-43，设计稿 §1.5）：pan 起手**未命中球**即进入「瞄准跟随」
-    /// 分支（球命中优先移球），从 .began 起逐帧回调手指在台面平面的世界坐标——指哪打哪。
-    var onAimDragged: ((SCNVector3) -> Void)?
-    /// 瞄准跟随结束（可选，用于收尾震动/吸附）。
+    /// 自由瞄准拖动（G13 语义重做，问题集合 v5）：pan 起手**未命中球**即进入「瞄准调整」分支
+    /// （球命中优先移球）。**第一落点只选中当前瞄准线、不改变方向**；随后每帧回调一个相对角位移
+    /// （度，屏幕顺时针为正），由消费方按 `rotatedAim` 做增量旋转（绕母球公转模型，见
+    /// `AngleSceneCalculator.aimNudgeDegrees`）。取代旧的「逐帧回调手指台面点、指哪打哪」绝对语义。
+    var onAimNudged: ((Float) -> Void)?
+    /// 瞄准调整结束（可选，用于收尾震动/求解调度）。
     var onAimDragEnded: (() -> Void)?
 
     /// 坐标桥接（可选）。传入后由本视图填充 unproject/project 闭包。
@@ -137,7 +139,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.selectableBallNodes = selectableBallNodes
         context.coordinator.onBallTapped = onBallTapped
         context.coordinator.onTableTapped = onTableTapped
-        context.coordinator.onAimDragged = onAimDragged
+        context.coordinator.onAimNudged = onAimNudged
         context.coordinator.onAimDragEnded = onAimDragEnded
         if let projector, projector.unproject == nil {
             bindProjector(to: uiView)
@@ -175,11 +177,16 @@ struct AngleSceneView: UIViewRepresentable {
         var selectableBallNodes: [SCNNode] = []
         var onBallTapped: ((SCNNode) -> Void)?
         var onTableTapped: ((SCNVector3) -> Void)?
-        var onAimDragged: ((SCNVector3) -> Void)?
+        var onAimNudged: ((Float) -> Void)?
         var onAimDragEnded: (() -> Void)?
         private var draggedNode: SCNNode?
-        /// 本次 pan 是否在手指跟随瞄准（起手未命中球时进入；球命中优先移球）。
+        /// 本次 pan 是否在调整瞄准（起手未命中球时进入；球命中优先移球）。
         private var isAimFollowing = false
+        /// 瞄准调整的旋转轴心 = 母球屏幕投影（.began 捕获一次，2D 页相机不动故恒定）。
+        /// nil = 起手时母球不可投影（此 pan 内不产生转向，仅拦截相机平移）。
+        private var aimPivotScreen: CGPoint?
+        /// 上一帧手指屏幕点，用于逐帧求相对角位移（G13）。
+        private var lastAimTouch: CGPoint = .zero
 
         /// Dominant axis lock for 3D camera-pan gestures. Once decided
         /// (when cumulative motion crosses `panAxisLockThreshold`), the
@@ -337,6 +344,13 @@ struct AngleSceneView: UIViewRepresentable {
             return nil
         }
 
+        /// 母球视觉中心的屏幕投影（G13 瞄准调整的旋转轴心）。母球缺失/隐藏时返回 nil。
+        private func cueBallScreenPoint() -> CGPoint? {
+            guard let scnView, let cue = scene.cueBallNode, !cue.isHidden else { return nil }
+            let p = scnView.projectPoint(scene.visualCenter(of: cue))
+            return CGPoint(x: CGFloat(p.x), y: CGFloat(p.y))
+        }
+
         /// Project a screen point onto the table surface plane (y = planeY).
         private func unprojectToTablePlane(screenPoint: CGPoint, in view: SCNView, planeY: Float) -> SCNVector3? {
             let nearPoint = view.unprojectPoint(SCNVector3(Float(screenPoint.x), Float(screenPoint.y), 0))
@@ -371,23 +385,23 @@ struct AngleSceneView: UIViewRepresentable {
                     return
                 }
                 draggedNode = nil
-                // 手指跟随瞄准（T-P18-43）：起手未命中球即进入，从起手点就指向手指。
-                if onAimDragged != nil {
+                // 瞄准调整（G13）：起手未命中球即进入。**第一落点只选中瞄准线、不改变方向**，
+                // 故此处不回调；轴心 = 母球屏幕投影，记下起手点，后续 .changed 逐帧求相对角位移。
+                if onAimNudged != nil {
                     isAimFollowing = true
-                    let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
-                    if let world = unprojectToTablePlane(screenPoint: location, in: scnView, planeY: planeY) {
-                        onAimDragged?(world)
-                    }
+                    aimPivotScreen = cueBallScreenPoint()
+                    lastAimTouch = location
                     return
                 }
 
             case .changed:
                 if isAimFollowing {
-                    let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
-                    guard let world = unprojectToTablePlane(
-                        screenPoint: gesture.location(in: scnView), in: scnView, planeY: planeY
-                    ) else { return }
-                    onAimDragged?(world)
+                    let cur = gesture.location(in: scnView)
+                    if let pivot = aimPivotScreen {
+                        let deg = AngleSceneCalculator.aimNudgeDegrees(cueScreen: pivot, from: lastAimTouch, to: cur)
+                        if deg != 0 { onAimNudged?(deg) }
+                    }
+                    lastAimTouch = cur
                     return
                 }
                 if let ball = draggedNode {
@@ -404,6 +418,7 @@ struct AngleSceneView: UIViewRepresentable {
                 panCumY = 0
                 if isAimFollowing {
                     isAimFollowing = false
+                    aimPivotScreen = nil
                     onAimDragEnded?()
                     return
                 }

@@ -329,6 +329,10 @@ private struct AimPointDragFigure: View {
             let ghost = ghostCenter(target: target, d: d, phi: vm.userPhi)
             // G1 瞄准点 = 竖直瞄准线与过目标球心水平线的交点（垂足）。
             let userAimPoint = CGPoint(x: ghost.x, y: target.y)
+            // Q6（问题集合 v5 V4）：白瞄准线/红 ground truth 线与红瞄准点在本页收窄，
+            // 仅本页传参，不改全局 `lineMainWidth`/dot 系数真源。此特写 d≈118pt、
+            // lineMainWidth 恒被钳到上限 3.2pt，收到 ~1.8pt 仍清晰可辨。
+            let aimLineW = max(1.2, proj.lineMainWidth * 0.55)
 
             ZStack {
                 // P8.1：过目标球心的水平线（= G1 定义中垂直于瞄准线的直线）。
@@ -344,7 +348,7 @@ private struct AimPointDragFigure: View {
                     p.move(to: CGPoint(x: ghost.x, y: proj.size.height - 6))
                     p.addLine(to: CGPoint(x: ghost.x, y: target.y - d * 0.9))
                 }
-                .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
+                .stroke(FigureLine.aim, lineWidth: aimLineW)
 
                 // 提交后：正确瞄准线（红色）+ 正确瞄准点（水平线上的交点，条 8.3/8.4）。
                 if vm.showResult {
@@ -354,8 +358,8 @@ private struct AimPointDragFigure: View {
                         p.addLine(to: CGPoint(x: correct.x, y: target.y - d * 0.9))
                     }
                     .stroke(Color(uiColor: TrajectoryStyle.aimPointColor),
-                            lineWidth: proj.lineMainWidth)
-                    BTAimPointDot(diameter: max(5, d * 0.12))
+                            lineWidth: aimLineW)
+                    BTAimPointDot(diameter: max(5, d * 0.075))
                         .position(CGPoint(x: correct.x, y: target.y))
                 }
 
@@ -363,7 +367,7 @@ private struct AimPointDragFigure: View {
                 // P8.2：假想球不再带球心红点。
                 BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)
                 // P8.3：G1 瞄准点用红色小点标注（提交后与正确点同屏对照）。
-                BTAimPointDot(diameter: max(4, d * 0.10))
+                BTAimPointDot(diameter: max(4, d * 0.06))
                     .position(userAimPoint)
                     .opacity(vm.showResult ? 0.55 : 1)
             }

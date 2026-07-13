@@ -172,9 +172,9 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             try? await repository?.save(result)
         }
 
-        // 条 9.8：停留 3 秒 → 按用户瞄准线物理击球 → 下一题。
+        // 条 9.8 / Q7.3：停留 1.5 秒 → 按用户瞄准线物理击球（含运杆动画）→ 下一题。
         strikeTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
             self?.strike()
         }
@@ -189,9 +189,10 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         clearLines()
 
         let surfaceY = scene.surfaceY
+        let velocity: Float = 1.5
         let prediction = ShotPredictor.simulateFree(
             cueBall: cue.position, aimDir: aimDir,
-            velocity: 1.5, spinX: 0, spinY: 0,
+            velocity: velocity, spinX: 0, spinY: 0,
             surfaceY: surfaceY,
             balls: [ObstacleBall(name: "object", position: target.position)]
         )
@@ -200,13 +201,24 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             return
         }
 
-        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-        let settle = playback.perceptibleSettleTime()
+        // Q7.4：验证击球走单一权威运杆链路（运杆→出杆→触球起播），与其他击打页
+        // （`PositionPlayViewModel`/`SiluTrainerViewModel` 等）同口径 `AngleTrainingScene.runCueStroke`。
+        let strikePos = CueStroke.strikePosition(cue: cue.position, aim: aimDir, spinX: 0)
+        scene.runCueStroke(strikePosition: strikePos, aim: aimDir, velocity: velocity) { [weak self] in
+            self?.launchStrikePlayback(cue: cue, target: target, recorder: recorder)
+        }
+    }
 
-        let targetAction = playback.action(for: target, ballName: "object",
-                                           removeOnPocket: false, maxSimTime: settle)
-        if let targetAction { target.runAction(targetAction) }
+    /// 触球瞬间起播球体轨迹（收杆由 `runCueStroke` 的跟杆序列接管，勿在此 hideCueStick）。
+    private func launchStrikePlayback(cue: SCNNode, target: SCNNode, recorder: TrajectoryRecorder) {
+        let yLevel = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
+
+        if let targetAction = playback.action(for: target, ballName: "object",
+                                              removeOnPocket: false, maxSimTime: settle) {
+            target.runAction(targetAction)
+        }
 
         if let cueAction = playback.action(for: cue, ballName: ShotInput.cueBallName,
                                            removeOnPocket: false, maxSimTime: settle) {
@@ -254,27 +266,36 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             color: TrajectoryStyle.hintColor, radius: 0.0016, dash: 0.018, gap: 0.014
         ))
 
-        // 用户瞄准线：白实线，至目标球（假想球心）或库边（条 9.3）。
-        let userEnd = aimLineEnd(cue: cue.position, target: target.position, dir: aimDir)
+        // 用户瞄准线（Q7.1）：白实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在
+        // 射线与球面第一交点（接触点），并在垂足（瞄准点）+ 接触点各画一枚红点。
+        let userRes = aimLineResolution(cue: cue.position, target: target.position, dir: aimDir)
         lineNodes.append(scene.addLine(
             from: SCNVector3(cue.position.x, y, cue.position.z),
-            to: SCNVector3(userEnd.x, y, userEnd.z),
+            to: scenePoint(userRes.lineEnd, y: y),
             color: .white
         ))
+        if userRes.touchesBall {
+            lineNodes.append(addDotNode(at: scenePoint(userRes.aimPoint, y: y),
+                                        color: TrajectoryStyle.aimPointColor))
+            if let contact = userRes.contactPoint {
+                lineNodes.append(addDotNode(at: scenePoint(contact, y: y),
+                                            color: TrajectoryStyle.aimPointColor))
+            }
+        }
 
-        // 提交后：正确瞄准线（红）+ 正确瞄准点红色小点（G1 垂足）。
+        // 提交后：正确瞄准线（红）+ 正确瞄准点红色小点（G1 垂足，恒显）。
         if let correctDir {
-            let correctEnd = aimLineEnd(cue: cue.position, target: target.position, dir: correctDir)
+            let correctRes = aimLineResolution(cue: cue.position, target: target.position, dir: correctDir)
             lineNodes.append(scene.addLine(
                 from: SCNVector3(cue.position.x, y, cue.position.z),
-                to: SCNVector3(correctEnd.x, y, correctEnd.z),
+                to: scenePoint(correctRes.lineEnd, y: y),
                 color: TrajectoryStyle.aimPointColor
             ))
             let foot = AimPointGeometry.aimPoint(
                 lineOrigin: xzPoint(cue.position), direction: xzPoint(correctDir),
                 targetCenter: xzPoint(target.position))
             lineNodes.append(addDotNode(
-                at: SCNVector3(Float(foot.x), y, Float(foot.y)),
+                at: scenePoint(foot, y: y),
                 color: TrajectoryStyle.aimPointColor
             ))
         }
@@ -309,35 +330,25 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         return SCNVector3(dx / len, 0, dz / len)
     }
 
-    /// 瞄准线终点：与「以目标球心为圆心、2R 为半径的圆」相交则停在交点（假想球心位），
-    /// 否则延伸到库边。
-    private func aimLineEnd(cue: SCNVector3, target: SCNVector3, dir: SCNVector3) -> SCNVector3 {
-        let r2 = 2 * AngleSceneCalculator.ballRadius
-        let fx = cue.x - target.x, fz = cue.z - target.z
-        let b = 2 * (fx * dir.x + fz * dir.z)
-        let c = fx * fx + fz * fz - r2 * r2
-        let disc = b * b - 4 * c
-        if disc >= 0 {
-            let t = (-b - sqrtf(disc)) / 2
-            if t > 0 {
-                return SCNVector3(cue.x + dir.x * t, cue.y, cue.z + dir.z * t)
-            }
-        }
-        // 库边裁剪。
-        let halfL = AngleSceneCalculator.innerLength / 2 - AngleSceneCalculator.ballRadius
-        let halfW = AngleSceneCalculator.innerWidth / 2 - AngleSceneCalculator.ballRadius
-        var tMax = Float.greatestFiniteMagnitude
-        if dir.x > 1e-5 { tMax = min(tMax, (halfL - cue.x) / dir.x) }
-        if dir.x < -1e-5 { tMax = min(tMax, (-halfL - cue.x) / dir.x) }
-        if dir.z > 1e-5 { tMax = min(tMax, (halfW - cue.z) / dir.z) }
-        if dir.z < -1e-5 { tMax = min(tMax, (-halfW - cue.z) / dir.z) }
-        if tMax == .greatestFiniteMagnitude { tMax = 0 }
-        return SCNVector3(cue.x + dir.x * tMax, cue.y, cue.z + dir.z * tMax)
+    /// 用户/正确瞄准线的白线终点 + 红点解析（Q7.1，纯几何真源 `AimLineGeometry`）。
+    /// 未接触目标球时延伸的库边终点用 `rayToInnerRail`（V1 共享，各方向缩一颗球半径）。
+    private func aimLineResolution(cue: SCNVector3, target: SCNVector3,
+                                   dir: SCNVector3) -> AimLineGeometry.Resolution {
+        let railEnd = AngleSceneCalculator.rayToInnerRail(from: cue, dir: dir)
+        return AimLineGeometry.resolve(
+            cue: xzPoint(cue), dir: xzPoint(dir), target: xzPoint(target),
+            ballRadius: CGFloat(AngleSceneCalculator.ballRadius),
+            railEnd: xzPoint(railEnd))
     }
 
     /// SceneKit 水平面 XZ → 平面点（AimPointGeometry 入参约定：x→x，z→y）。
     private func xzPoint(_ v: SCNVector3) -> CGPoint {
         CGPoint(x: CGFloat(v.x), y: CGFloat(v.z))
+    }
+
+    /// 平面点（x→X，y→Z）→ SceneKit 世界点（贴台面高度 `y`）。`xzPoint` 的逆。
+    private func scenePoint(_ p: CGPoint, y: Float) -> SCNVector3 {
+        SCNVector3(Float(p.x), y, Float(p.y))
     }
 
     // MARK: - Camera（3D 站位视角随题取景）
@@ -373,13 +384,46 @@ struct AimPointSceneTrainingView: View {
 
     private var is3D: Bool { cameraMode == .perspective3D }
 
-    var body: some View {
-        ZStack {
-            sceneFullscreen
-            controlOverlay
+    /// G10：顶栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定；2D 底栏 = 装饰球库
+    /// （与 `SceneAimingView` 同一布局语法，Q7.2）。
+    private static let topRowHeight: CGFloat = 46
+    private static let bottomBarHeight: CGFloat = 94
+
+    /// 球桌外框实测半尺寸（装桌前 USDZ 兜底），供 `ShotStageProxy` 对齐球桌矩形。
+    private var tableExtents: (length: Double, width: Double) {
+        if let rig = vm.scene.cameraRig {
+            return (rig.tableOuterHalfLength, rig.tableOuterHalfWidth)
         }
-        .background(Color.black.ignoresSafeArea())
-        .safeAreaInset(edge: .top, spacing: 0) { topInset }
+        return (ShotTableLayout.defaultHalfLength, ShotTableLayout.defaultHalfWidth)
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let extents = tableExtents
+            let bottomH: CGFloat = is3D ? 0 : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomH, 1)
+            let proxy = ShotStageProxy(
+                sceneSize: CGSize(width: geo.size.width, height: sceneH),
+                halfLength: extents.length, halfWidth: extents.width
+            )
+            ZStack {
+                Color.black.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    topInset
+                        .frame(height: Self.topRowHeight)
+                    ZStack {
+                        sceneFullscreen
+                        controlOverlay(proxy)
+                    }
+                    .frame(height: sceneH)
+                    if !is3D {
+                        decorativePalette(proxy)
+                            .frame(height: Self.bottomBarHeight)
+                    }
+                }
+                if vm.limiter.isLimitReached, vm.phase == .aiming { limitCard }
+            }
+        }
         .navigationTitle(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -399,16 +443,43 @@ struct AimPointSceneTrainingView: View {
         }
     }
 
+    // MARK: - Scene
+
+    /// Q9：3D 模式下滑屏改为**控制摄像机**（横滑 yaw、竖滑 zoom 梯，同 3D 角度训练的
+    /// `.cameraControl` 分支）；瞄准调整由 `BTAimWheel` + 点击台面（绝对指向，G13 保留 tap 语义）承担。
+    /// 2D 模式保留拖动瞄准的 **G13 相对调整**（`onAimNudged`），不回退为「点哪指哪」。
     private var sceneFullscreen: some View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: .constant(cameraMode),
-            interactionMode: vm.phase == .aiming ? .tapsOnly : .none,
+            interactionMode: sceneInteractionMode,
             locksCueBallScreenAnchor: is3D,
+            // 2D 走统一自适应取景，使 ShotStageProxy 的球桌矩形与实际渲染对齐（Q7.2）。
+            autoFitsRotatedTable: !is3D,
             onPocketTapped: { _ in /* 袋口由题目固定 */ },
-            onAimDragged: { world in vm.aimToward(worldPoint: world) }
+            onTableTapped: tapAimHandler,
+            onAimNudged: dragAimHandler
         )
-        .ignoresSafeArea(edges: .bottom)
+        .clipped()
+    }
+
+    /// 3D：点击台面 = 绝对指向瞄准（G13 保留 tap 语义）；2D：nil（2D 不用 tap 瞄准，走拖动）。
+    private var tapAimHandler: ((SCNVector3) -> Void)? {
+        guard is3D else { return nil }
+        return { [vm] world in vm.aimToward(worldPoint: world) }
+    }
+
+    /// 2D：拖动 = G13 相对瞄准调整；3D：nil（滑屏让位给相机控制）。
+    private var dragAimHandler: ((Float) -> Void)? {
+        guard !is3D else { return nil }
+        return { [vm] delta in vm.nudgeAim(byDegrees: delta) }
+    }
+
+    /// 瞄准态：3D 用相机控制（滑屏调机位）、2D 用 tapsOnly（拖动=相对瞄准，拖球不适用）；
+    /// 结果/击球态锁死手势。
+    private var sceneInteractionMode: AngleSceneView.InteractionMode {
+        guard vm.phase == .aiming else { return .none }
+        return is3D ? .cameraControl : .tapsOnly
     }
 
     // MARK: - Top inset
@@ -424,8 +495,37 @@ struct AimPointSceneTrainingView: View {
             Spacer()
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.xs)
+        .frame(maxHeight: .infinity, alignment: .center)
+        .background(Color.black)
         .animation(.easeInOut(duration: 0.2), value: vm.phase)
+        .environment(\.colorScheme, .dark)
+    }
+
+    // MARK: - 装饰性球库（Q7.2：与其他球桌页一致，G8 排球总宽 = 球桌宽）
+
+    private func decorativePalette(_ proxy: ShotStageProxy) -> some View {
+        let all = PositionPlayBall.allKeys
+        let row1 = Array(all.prefix(8))
+        let row2 = Array(all.dropFirst(8))
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let columnWidth = max(libraryWidth / 8, 1)
+        return VStack(spacing: 3) {
+            ForEach([row1, row2], id: \.self) { keys in
+                HStack(spacing: 0) {
+                    ForEach(keys, id: \.self) { key in
+                        PoolBallFace(key: key, diameter: 34)
+                            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
+                            .frame(width: columnWidth, height: 38)
+                            .opacity(PositionPlayBall.number(for: key) == vm.targetBallNumber ? 1 : 0.25)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(white: 0.11))
+        .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
+        .allowsHitTesting(false)
+        .environment(\.colorScheme, .dark)
     }
 
     private var statsPill: some View {
@@ -457,7 +557,7 @@ struct AimPointSceneTrainingView: View {
                 .font(.btCaption)
                 .foregroundStyle(.white.opacity(0.6))
             divider
-            Text("3 秒后自动击球验证")
+            Text("1.5 秒后自动击球验证")
                 .font(.btCaption)
                 .foregroundStyle(.white.opacity(0.6))
         }
@@ -477,27 +577,45 @@ struct AimPointSceneTrainingView: View {
         return .btDestructive
     }
 
-    // MARK: - Controls（右列：刻度轮微调 + 提交）
+    // MARK: - Controls（瞄准刻度轮 + 提交）
+    //
+    // Q7.2：2D 走 ShotStageProxy 贴边——刻度轮右缘贴球桌左缘（G4），提交按钮左缘贴球桌右缘、
+    // 底边齐球桌底线（G6，参考 SceneAimingView/FreePlayView）；3D 透视无球桌矩形，保持浮动。
 
-    private var controlOverlay: some View {
-        ZStack(alignment: .bottomTrailing) {
-            Color.clear
-            if vm.phase == .aiming, !vm.limiter.isLimitReached {
-                VStack(spacing: Spacing.md) {
+    @ViewBuilder
+    private func controlOverlay(_ proxy: ShotStageProxy) -> some View {
+        if vm.phase == .aiming, !vm.limiter.isLimitReached {
+            if !is3D, proxy.isValid {
+                ZStack(alignment: .topLeading) {
+                    Color.clear
                     BTAimWheel { delta in vm.nudgeAim(byDegrees: delta) }
-                        .frame(width: 44, height: 170)
-                    BTTextActionButton(title: "提交", role: .primary) {
+                        .btStageFrame(proxy.aimWheelFrame())
+                    BTTextActionButton(title: "提交", role: .primary,
+                                       width: ShotStageMetrics.actionColumnWidth) {
                         vm.submit()
                     }
+                    .btStageFrame(proxy.bottomTrailingFrame(
+                        size: CGSize(width: ShotStageMetrics.actionColumnWidth, height: 30)))
                 }
-                .padding(.trailing, Spacing.lg)
-                .padding(.bottom, Spacing.xl + 40)
                 .transition(.opacity)
-            } else if vm.limiter.isLimitReached, vm.phase == .aiming {
-                limitCard
+                .animation(.easeInOut(duration: 0.25), value: vm.phase)
+            } else {
+                ZStack(alignment: .bottomTrailing) {
+                    Color.clear
+                    VStack(spacing: Spacing.md) {
+                        BTAimWheel { delta in vm.nudgeAim(byDegrees: delta) }
+                            .frame(width: 44, height: 170)
+                        BTTextActionButton(title: "提交", role: .primary) {
+                            vm.submit()
+                        }
+                    }
+                    .padding(.trailing, Spacing.lg)
+                    .padding(.bottom, Spacing.xl + 40)
+                    .transition(.opacity)
+                }
+                .animation(.easeInOut(duration: 0.25), value: vm.phase)
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: vm.phase)
     }
 
     private var limitCard: some View {

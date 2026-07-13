@@ -44,7 +44,7 @@ struct AngleDynamicView: View {
                 }
             }
         }
-        .navigationTitle("角度与打点")
+        .navigationTitle("角度与瞄准")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -54,7 +54,7 @@ struct AngleDynamicView: View {
                         BTTableGridMenuToggle(scene: vm.scene)
                     }
                 } label: {
-                    Image(systemName: "gearshape.fill")
+                    Image(systemName: "ellipsis.circle")
                         .foregroundStyle(.white.opacity(0.7))
                 }
             }

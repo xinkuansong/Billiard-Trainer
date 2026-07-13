@@ -93,7 +93,7 @@ struct BTExerciseRow: View {
 
             switch accessory {
             case .settings:
-                Image(systemName: "gearshape")
+                Image(systemName: "ellipsis.circle")
                     .font(.btFootnote14)
                     .foregroundStyle(.btTextTertiary)
             case .tutorial:

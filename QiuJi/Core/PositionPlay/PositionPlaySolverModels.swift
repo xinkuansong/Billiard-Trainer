@@ -31,15 +31,34 @@ enum SolveRegion {
     /// 几何上等价于半径 = tolerance 的圆（各向同性，复用圆公式），但语义是「最小化到点距离」，
     /// 装配/文案与落区分叉（求解返回最近代表、容差内才标满足，见 `solveRestRegion`）。
     case point(center: CanvasPoint, tolerance: Double)
+    /// 扇形（打一走二想三 ②号球停球扇形，Q15.1）：一个或多个**环形扇区**的并集，
+    /// 共享顶点 `apex`（②号球假想球位，归一化系）+ 半径带 `[radiusMin, radiusMax]`（**米**，
+    /// 非归一化——它们是物理停球距离 sMin/sMax）+ 若干角区间 `intervals`（场景 XZ 系 bearing 弧度，
+    /// bearing = atan2(z, x)，与 `AngleSceneCalculator.rotatedAim`/`bearingDeg` 同口径）。
+    /// 无③号 → 两侧两个扇区（intervals.count==2）；有③号 → 朝③那一侧单扇区。
+    /// SDF 取各扇区有符号距离的 `min`（并集：区内为负，取最深入者）。禁外接矩形近似——
+    /// 直接对环形扇区四条边界（内/外弧 + 两条径向边）算精确有符号距离。
+    case sector(apex: CanvasPoint, radiusMin: Double, radiusMax: Double, intervals: [SectorAngleInterval])
+
+    /// 扇形角区间（场景 XZ 系 bearing 弧度）。约定 `lo < hi` 且 `hi − lo < π`（本用途恒为 15°）。
+    struct SectorAngleInterval: Equatable {
+        var lo: Double
+        var hi: Double
+    }
 
     /// 是否为落点约束（语义分叉用）。
     var isPoint: Bool { if case .point = self { return true } else { return false } }
 
-    /// 约束中心（归一化）。落区/落点统一取中心点。
+    /// 是否为扇形约束（视觉/求解分叉用）。
+    var isSector: Bool { if case .sector = self { return true } else { return false } }
+
+    /// 约束中心（归一化）。落区/落点取中心点；扇形取顶点（假想球位）。
     var centerNormalized: CanvasPoint {
         switch self {
         case let .rect(center, _, _), let .circle(center, _), let .point(center, _):
             return center
+        case let .sector(apex, _, _, _):
+            return apex
         }
     }
 
@@ -80,12 +99,78 @@ enum SolveRegion {
             let outside = hypotf(max(dx, 0), max(dz, 0))
             let inside = min(max(dx, dz), 0)
             return outside + inside
+        case let .sector(apex, rMin, rMax, intervals):
+            // 顶点归一化→场景（仅平移+均匀缩放，无旋转/镜像 ⇒ 场景 bearing 与 intervals 一致）。
+            let a = AngleSceneCalculator.normalizedToScene(
+                point: CGPoint(x: apex.x, y: apex.y), surfaceY: surfaceY)
+            // radiusMin/Max 已是米，直接用（非归一化，不乘 sceneScale）。
+            var best = Float.greatestFiniteMagnitude
+            for iv in intervals {
+                best = min(best, Self.annularSectorSDF(
+                    p: p, apex: a, rMin: Float(rMin), rMax: Float(rMax),
+                    lo: Float(iv.lo), hi: Float(iv.hi)))
+            }
+            return best
         }
     }
 
     /// 场景点是否落在区内（含边界）。
     func contains(scene p: SCNVector3, surfaceY: Float) -> Bool {
         signedDistanceMeters(fromScene: p, surfaceY: surfaceY) <= 0
+    }
+
+    // MARK: - 环形扇区 SDF（Q15.1，纯 XZ 平面，米）
+
+    /// 单个环形扇区的有符号距离（区内为负）。边界 = 内弧 + 外弧 + 两条径向边（线段）。
+    /// signed = inside ? −d : +d，其中 d = 点到四条边界的最近距离——精确、鲁棒（数值草稿对齐
+    /// 暴力最近点，误差 ~1e-8）。角区间约定 `lo<hi` 且 `hi−lo<π`。
+    static func annularSectorSDF(p: SCNVector3, apex a: SCNVector3,
+                                 rMin: Float, rMax: Float, lo: Float, hi: Float) -> Float {
+        let vx = p.x - a.x, vz = p.z - a.z
+        let r = hypotf(vx, vz)
+        let phi = atan2f(vz, vx)
+        let inside = r >= rMin && r <= rMax && angleWithin(phi, lo: lo, hi: hi)
+        func edgeDist(_ ang: Float) -> Float {
+            let cx = cosf(ang), cz = sinf(ang)
+            let s0 = SCNVector3(a.x + rMin * cx, a.y, a.z + rMin * cz)
+            let s1 = SCNVector3(a.x + rMax * cx, a.y, a.z + rMax * cz)
+            return pointSegmentDistXZ(p, s0, s1)
+        }
+        let d = min(min(arcDistXZ(p, a, rMin, lo, hi), arcDistXZ(p, a, rMax, lo, hi)),
+                    min(edgeDist(lo), edgeDist(hi)))
+        return inside ? -d : d
+    }
+
+    /// 角 `phi` 是否落在 `[lo, hi]`（弧度）内。把 `phi−lo` 归一化到 (−π, π] 再判 `0…(hi−lo)`。
+    private static func angleWithin(_ phi: Float, lo: Float, hi: Float) -> Bool {
+        var d = phi - lo
+        while d > .pi { d -= 2 * .pi }
+        while d <= -.pi { d += 2 * .pi }
+        return d >= -1e-6 && d <= (hi - lo) + 1e-6
+    }
+
+    /// 点到「角区间受限圆弧」的最近距离：投影角在区间内 → ||v|−R|；否则取两端点较近者。
+    private static func arcDistXZ(_ p: SCNVector3, _ a: SCNVector3, _ radius: Float,
+                                  _ lo: Float, _ hi: Float) -> Float {
+        let vx = p.x - a.x, vz = p.z - a.z
+        let r = hypotf(vx, vz)
+        let phi = atan2f(vz, vx)
+        if angleWithin(phi, lo: lo, hi: hi) { return abs(r - radius) }
+        let eLo = SCNVector3(a.x + radius * cosf(lo), a.y, a.z + radius * sinf(lo))
+        let eHi = SCNVector3(a.x + radius * cosf(hi), a.y, a.z + radius * sinf(hi))
+        return min(AngleSceneCalculator.horizontalDistance(p, eLo),
+                   AngleSceneCalculator.horizontalDistance(p, eHi))
+    }
+
+    /// 点到线段的 XZ 平面最近距离。
+    private static func pointSegmentDistXZ(_ p: SCNVector3, _ a: SCNVector3, _ b: SCNVector3) -> Float {
+        let vx = b.x - a.x, vz = b.z - a.z
+        let ll = vx * vx + vz * vz
+        guard ll > 1e-12 else { return AngleSceneCalculator.horizontalDistance(p, a) }
+        var t = ((p.x - a.x) * vx + (p.z - a.z) * vz) / ll
+        t = max(0, min(1, t))
+        let cx = a.x + vx * t, cz = a.z + vz * t
+        return hypotf(p.x - cx, p.z - cz)
     }
 }
 
@@ -123,4 +208,56 @@ struct PositionPlaySolution: Identifiable {
     /// 扰动容错度（E5，0–1）：对本解做小幅参数扰动（瞄准/力度/打点）后仍满足约束的比例。
     /// nil = 未启用容错分析（默认关，`SearchParams.robustnessEnabled`）。
     var robustness: Double?
+}
+
+// MARK: - Constraint draft（跨反解页共享的「用户所画约束」草稿，G17）
+
+/// 反解页约束草稿（归一化系）——思路训练 / 打一走二想三共用。
+///
+/// 与 `SolveConstraint` 的区别：`Draft` **保留视觉/语义分叉**（`SolveConstraint` 会把
+/// 「落点 `.restPoint`」与「落区圆 `.region(.point)`」都塌缩为 `.restRegion(.point)`，
+/// 丢失了「琥珀十字+容差环」与「青色圈」的区别）。`Draft` 是「上一杆」忠实还原绘制层所需
+/// 的最小信息；`currentConstraint()` 由它派生 `SolveConstraint` 喂求解器。
+/// 各页 VM 以 `typealias Draft = SolveConstraintDraft` 复用，避免重复定义。
+enum SolveConstraintDraft {
+    case region(SolveRegion)
+    case restPoint(CanvasPoint)
+    case passPoint(CanvasPoint)
+}
+
+// MARK: - Undo snapshot（G17「上一杆」完整快照，共享口径）
+
+/// 反解页「上一杆」**完整快照**（纯内存态，不持久化 → 无 Codable / 向后兼容负担）。
+///
+/// 承载一杆击打前的**可恢复求解上下文**：桌面球形 + 该杆意图/预测 + 用户所画约束草稿 +
+/// **已求出的全部解（缓存回填，「上一杆」后无需重画约束、无需重新求解）** + 只读参数指示 +
+/// 求解选项。这是 `PositionPlayViewModel.restoreShotParams`（袋口/自由瞄准的全参数恢复）
+/// 在**反解页**（约束驱动、结果是「解集」）的对应物。
+///
+/// **页面特有的选择模型**（思路页的「目标球+袋口」、打三页的「①②③ 角色指派」）不进本结构，
+/// 由各 VM 以本快照为基座、另行携带（见各 VM 的 `*UndoContext`）。V8（防守）/V9（翻袋·反射）
+/// 落地时复用本结构，只需为其页面特有选择模型加一层同款 `UndoContext` 包装。
+struct SolveShotSnapshot {
+    /// 击打前的桌面球形（归一化系）。
+    var before: BoardSnapshot
+    /// 该杆意图（目标/袋口/打点/力度/自由瞄准）。
+    var shot: PlannedShot
+    /// 该杆物理预测（轨迹/进球线/回放 recorder）。
+    var prediction: ShotPrediction
+
+    /// 击打前已求出的全部解与当前档位——「解还在」：直接回填，免重解。
+    var solutions: [PositionPlaySolution]
+    var currentIndex: Int
+
+    /// 击打前用户所画的约束草稿（nil = 无约束）。
+    var draft: SolveConstraintDraft?
+
+    /// 只读参数指示（当前解的打点/力度）。
+    var velocity: Double
+    var spinX: Double
+    var spinY: Double
+
+    /// 求解选项（禁横塞 / 仅基础走位）。
+    var allowSideSpin: Bool
+    var basicPositionOnly: Bool
 }

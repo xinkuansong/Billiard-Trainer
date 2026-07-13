@@ -336,8 +336,10 @@ final class TrajectoryPlayback {
     ///   否则末尾的 `removeFromParentNode` 会与「播放结束复位」竞态，导致目标球被移除后无法恢复
     ///   （reset/拖动均无法重新挂回父节点 → 球永久消失）。`false` 时只淡出、保留节点。
     /// - Parameter maxSimTime: 截断回放的模拟时长上限（秒，模拟时间轴）。默认 `nil` = 整段
-    ///   `duration`。用于 #11「感知静止截断」：末段慢速 creep 肉眼不可见，按
-    ///   `perceptibleSettleTime()` 截断可让「击球中/开球中」状态在球看着停时及时结束。
+    ///   `duration`。**G15：回放/渲染一律播到引擎自然静止（`recorder.duration`），不做
+    ///   0.07 m/s 感知截断**——旧「感知静止截断」会把仍在 creep 的球冻在非终点位置，随后
+    ///   收尾快照瞬移到真实落点（肉眼「最后一跳」）；播满自然静止后落点已一致，无瞬移。
+    ///   各调用方均传 `duration`（等价 `nil`）；此参数保留作通用截断能力。
     func action(for node: SCNNode, ballName: String, speed: Float = 1.0,
                 removeOnPocket: Bool = true, maxSimTime: Float? = nil) -> SCNAction? {
         guard let frames = sortedFrames[ballName], frames.count > 1, duration > 1e-4 else { return nil }
@@ -438,26 +440,6 @@ final class TrajectoryPlayback {
         return time >= duration
     }
 
-    /// 「感知静止时刻」（#11）：所有未进袋球速度都降到 < `speedThreshold` 的最早时刻。
-    /// 真实模拟末段常有一段肉眼不可见的慢速 creep（低滚阻下减速到 0 的尾巴），整段
-    /// `recorder.duration` 远长于「看着停了」的时刻；回放/开球应在此截断收尾，否则会出现
-    /// 「球已停但仍处于开球态数秒」。从末尾向前扫，返回最后一次有球可感知运动之后的一帧。
-    func perceptibleSettleTime(speedThreshold: Float = 0.07, step: Float = 1.0 / 60.0) -> Float {
-        guard duration > step else { return duration }
-        let names = Array(sortedFrames.keys)
-        var t = duration
-        while t > 0 {
-            for name in names {
-                guard let s = stateAt(ballName: name, time: t), s.motionState != .pocketed else { continue }
-                if s.velocity.length() > speedThreshold {
-                    return min(duration, t + step)
-                }
-            }
-            t -= step
-        }
-        return min(duration, step)
-    }
-    
     // MARK: - Binary Search
     
     /// 找到最后一个 frame.time <= targetTime 的索引
