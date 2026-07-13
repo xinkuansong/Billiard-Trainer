@@ -19,13 +19,18 @@ struct PositionPlayComposerView: View {
     /// 标题 = drill 名、隐藏开球/重命名、左下「重摆球形」一键回 drill 初始布局、
     /// 进场说明卡（§1.8）；球库与拖球保持编排台原样。默认自由模式（§1.1 自己上手试线路）。
     let sourceDrill: DrillContent?
+    /// 试打球形（D4，与视频示范同源的出片序列）：非 nil 时初始布局/重摆目标/说明卡
+    /// 均取该序列；nil 回退 `DrillBoardBuilder` 的 shotIntent 路径。
+    let tryoutFormation: DrillTryoutFormation?
 
     init(initialBoard: BoardSnapshot? = nil,
          initialMode: PositionPlayViewModel.AimMode? = nil,
-         sourceDrill: DrillContent? = nil) {
+         sourceDrill: DrillContent? = nil,
+         tryoutFormation: DrillTryoutFormation? = nil) {
         self.initialBoard = initialBoard
         self.initialMode = initialMode
         self.sourceDrill = sourceDrill
+        self.tryoutFormation = tryoutFormation
     }
 
     private var isTryout: Bool { sourceDrill != nil }
@@ -138,8 +143,10 @@ struct PositionPlayComposerView: View {
                 hasAppeared = true
                 vm.setupScene()
                 if let sourceDrill {
-                    // 试打变体：载入 drill 根级球局，默认自由模式（§1.1），球落位后说明卡淡入。
-                    if let board = DrillBoardBuilder.board(for: sourceDrill) {
+                    // 试打变体：载入球形（优先出片序列 D4，兜底 shotIntent），
+                    // 默认自由模式（§1.1），球落位后说明卡淡入。
+                    if let board = tryoutFormation?.initial
+                        ?? DrillBoardBuilder.board(for: sourceDrill) {
                         tryoutBoard = board
                         vm.loadBoard(board)
                     }
@@ -262,6 +269,7 @@ struct PositionPlayComposerView: View {
             if isTryout, showBrief, let sourceDrill {
                 DrillTryoutBriefCard(
                     drill: sourceDrill,
+                    formation: tryoutFormation,
                     footnote: hasSeenGestureHint
                         ? nil
                         : "拖动台面瞄准 · 拖动球改摆 · 点「击球」试打"

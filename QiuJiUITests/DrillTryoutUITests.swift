@@ -39,7 +39,7 @@ final class DrillTryoutUITests: XCTestCase {
         sleep(3)
     }
 
-    // MARK: - 主流程：c042（3 杆 + 2 障碍球，非 Premium）
+    // MARK: - 主流程：c042（多球形 drill，非 Premium；D4 与视频示范同源）
 
     func testTryoutC042Flow() {
         app = XCUIApplication.launchClean()
@@ -51,6 +51,14 @@ final class DrillTryoutUITests: XCTestCase {
         snap("t01-detail-entry-unlocked")
 
         tryoutButton.tap()
+        sleep(2)
+
+        // ①b 多球形 drill 弹球形选择 sheet（c042 有 4 个出片序列球形）
+        let formation0 = app.buttons["tryoutFormation_0"]
+        XCTAssertTrue(formation0.waitForExistence(timeout: 4), "多球形 drill 应弹球形选择")
+        XCTAssertTrue(app.buttons["tryoutFormation_3"].exists, "c042 应列出 4 个球形")
+        snap("t00-formation-picker")
+        formation0.tap()
         sleep(5)
 
         // ② 试打页布局：标题 = drill 名、重摆在位、无开球钮
@@ -58,14 +66,14 @@ final class DrillTryoutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["tryout.rearrange"].waitForExistence(timeout: 3), "「重摆球形」应在位")
         XCTAssertFalse(app.buttons["break.entry"].exists, "试打页不应有开球按钮")
 
-        // ③/④ 进场说明卡：三行 + 多杆补充「共 3 杆」
+        // ③/④ 进场说明卡：三行 + 序列杆数「共 5 杆」（球形1 = 5 杆，取序列首杆真实参数）
         let brief = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'tryout.briefCard'")).firstMatch
         XCTAssertTrue(brief.waitForExistence(timeout: 4), "进场说明卡未出现")
         XCTAssertTrue(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS '共 3 杆'"))
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS '共 5 杆'"))
                 .firstMatch.exists,
-            "多杆 drill 说明卡应含「共 3 杆」")
+            "说明卡杆数应取序列 stepCount（球形1 = 5 杆）")
         snap("t02-tryout-brief-c042")
 
         // ③ 首次交互（点桌面设瞄准）说明卡淡出
@@ -98,13 +106,13 @@ final class DrillTryoutUITests: XCTestCase {
         sleep(2)
         snap("t06-rearranged-after-strike")
 
-        // ⑥ 拖球改摆（球库拖 3 号上桌）后重摆仍回 drill 初始布局
-        let palette3 = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == 'paletteBall__3'")).firstMatch
-        if palette3.waitForExistence(timeout: 3) {
+        // ⑥ 拖球改摆（球库拖 9 号上桌；球形1 在桌 = 母球+1..5，9 号在库）后重摆仍回初始布局
+        let palette9 = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'paletteBall__9'")).firstMatch
+        if palette9.waitForExistence(timeout: 3) {
             let tableCenter = app.windows.firstMatch
                 .coordinate(withNormalizedOffset: CGVector(dx: 0.42, dy: 0.42))
-            palette3.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            palette9.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
                 .press(forDuration: 0.3, thenDragTo: tableCenter)
             sleep(2)
             snap("t07-after-rearrange-drag")
@@ -131,19 +139,23 @@ final class DrillTryoutUITests: XCTestCase {
         snap("t11-locked-tap-subscription")
     }
 
-    // MARK: - D3：首次手势提示出现 / 二次进入不出现
+    // MARK: - D3：首次手势提示出现 / 二次进入不出现（兼作单球形直进回归）
 
     func testTryoutGestureHintFirstTimeOnly() {
         // 首启：参数域强制 hasSeenGestureHint=NO（覆盖持久值，不改产品代码）。
+        // 用单球形 drill c001：点入口应直进试打页（不弹球形选择，D4 单球形路径）。
         app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
         app.launchArguments += ["-drillTryout.hasSeenGestureHint", "NO"]
         app.launch()
         sleep(3)
 
-        openDrillDetail(search: "蛇彩", drillId: "drill_c042")
+        openDrillDetail(search: "直线", drillId: "drill_c001")
         app.buttons["drillTryoutButton"].tap()
         sleep(5)
+
+        // 单球形直进：不出现球形选择 sheet
+        XCTAssertFalse(app.buttons["tryoutFormation_0"].exists, "单球形 drill 不应弹球形选择")
 
         // 卡片外层 identifier 会覆盖子文本 identifier，故按 label 匹配提示行。
         let hint = app.staticTexts
@@ -162,7 +174,7 @@ final class DrillTryoutUITests: XCTestCase {
 
         // 二次启动（无覆盖参数）：读持久域 true → 说明卡仍在但无提示行。
         app = XCUIApplication.launchClean()
-        openDrillDetail(search: "蛇彩", drillId: "drill_c042")
+        openDrillDetail(search: "直线", drillId: "drill_c001")
         app.buttons["drillTryoutButton"].tap()
         sleep(5)
 

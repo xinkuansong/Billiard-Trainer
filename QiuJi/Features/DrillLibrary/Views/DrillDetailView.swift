@@ -10,6 +10,12 @@ struct DrillDetailView: View {
     @State private var showTutorial = false
     /// 「上手试打」push（试打模式方案 §1.6：入口直进试打页，不做预览页）。
     @State private var showTryout = false
+    /// 试打球形集合（D4，与视频示范同源；空 = 无序列，回退 shotIntent 球局）。
+    @State private var tryoutFormations: [DrillTryoutFormation] = []
+    /// 选中的试打球形（nil = shotIntent 兜底路径）。
+    @State private var selectedFormation: DrillTryoutFormation?
+    /// 多球形选择 sheet（>1 个球形时弹出，单球形直进）。
+    @State private var showFormationPicker = false
     @State private var playingVideo: DrillVideo?
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
@@ -98,8 +104,11 @@ struct DrillDetailView: View {
         }
         .navigationDestination(isPresented: $showTryout) {
             if let drill {
-                PositionPlayComposerView(sourceDrill: drill)
+                PositionPlayComposerView(sourceDrill: drill, tryoutFormation: selectedFormation)
             }
+        }
+        .sheet(isPresented: $showFormationPicker) {
+            formationPickerSheet
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
@@ -121,10 +130,61 @@ struct DrillDetailView: View {
             drill: drill,
             tryoutLocked: isLocked,
             onTryoutTap: {
-                if isLocked { showSubscription = true } else { showTryout = true }
+                if isLocked { showSubscription = true } else { startTryout() }
             }
         )
         .padding(.horizontal, Spacing.sm)
+    }
+
+    // MARK: - Tryout entry（D4：球形与视频示范同源）
+
+    /// 解锁态入口：>1 个球形弹选择，单球形/无序列直进。
+    private func startTryout() {
+        tryoutFormations = DrillTryoutBoardStore.formations(for: drillId)
+        if tryoutFormations.count > 1 {
+            showFormationPicker = true
+        } else {
+            selectedFormation = tryoutFormations.first
+            showTryout = true
+        }
+    }
+
+    /// 多球形选择 sheet：球形名 + 杆数，选中即进试打页（暗材质，与试打页衔接）。
+    private var formationPickerSheet: some View {
+        NavigationStack {
+            List(Array(tryoutFormations.enumerated()), id: \.element.id) { index, formation in
+                Button {
+                    selectedFormation = formation
+                    showFormationPicker = false
+                    showTryout = true
+                } label: {
+                    HStack(spacing: Spacing.md) {
+                        Text("\(index + 1)")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                            .foregroundStyle(.btPrimary)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(Color.btPrimary.opacity(0.14)))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(formation.title)
+                                .font(.btBody)
+                                .foregroundStyle(.primary)
+                            Text("\(formation.stepCount) 杆 · \(formation.initial.onTable.count) 球")
+                                .font(.btCaption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.btCaption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .accessibilityIdentifier("tryoutFormation_\(index)")
+            }
+            .navigationTitle("选择球形")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium, .large])
+        .preferredColorScheme(.dark)
     }
 
     // MARK: - Action Icon Row (gray, not green)

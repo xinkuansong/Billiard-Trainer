@@ -1,0 +1,90 @@
+{
+  "createdAt" : "2026-06-21T19:03:39Z",
+  "id" : "20651340-DD60-49B5-92C9-4AD937BCE4AC",
+  "initial" : {
+    "onTable" : {
+      "_1" : {
+        "x" : 0.5106210112571716,
+        "y" : 0.33910641074180603
+      },
+      "cueBall" : {
+        "x" : 0.5795873403549194,
+        "y" : 0.1494475156068802
+      }
+    }
+  },
+  "name" : "低杆扩大分离角",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.9472777843475342,
+            "y" : 0.48723408579826355
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_1" : {
+            "x" : 0.5106210112571716,
+            "y" : 0.33910641074180603
+          },
+          "cueBall" : {
+            "x" : 0.5795873403549194,
+            "y" : 0.1494475156068802
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "6E574D68-8333-4B0A-BE27-175C83D8247A",
+      "objectPocketed" : true,
+      "potted" : [
+        "_1"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "_1",
+        "velocity" : 3.3
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.20570847392082214,
+            "y" : 0.24435846507549286
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_1" : {
+            "x" : 0.5106210112571716,
+            "y" : 0.33910641074180603
+          },
+          "cueBall" : {
+            "x" : 0.5795873403549194,
+            "y" : 0.1494475156068802
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "C2B8C0F3-CBE9-42AF-B381-EB060007BCF0",
+      "objectPocketed" : true,
+      "potted" : [
+        "_1"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0,
+        "spinY" : -0.2950775890431162,
+        "targetKey" : "_1",
+        "velocity" : 3.3
+      }
+    }
+  ],
+  "updatedAt" : "2026-07-04T08:49:47Z"
+}

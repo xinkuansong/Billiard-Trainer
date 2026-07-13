@@ -47,6 +47,7 @@ targets:
           - "Resources/Videos/**"
           - "Resources/DrillThumbnails/**"
           - "Resources/DrillTutorials/**"
+          - "Resources/DrillBoards/**"
           - "Resources/Audio/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
       - path: QiuJi/Resources/Drills
@@ -66,6 +67,11 @@ targets:
         type: folder
         buildPhase: resources
       - path: QiuJi/Resources/DrillTutorials
+        type: folder
+        buildPhase: resources
+      # 试打球形序列（make tryout-sync 从 content/position_play/sequences/ 同步，
+      # 与视频示范同源；方案 20260709-动作库试打模式 D4）。
+      - path: QiuJi/Resources/DrillBoards
         type: folder
         buildPhase: resources
     resources:

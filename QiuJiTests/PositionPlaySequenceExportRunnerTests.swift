@@ -33,9 +33,22 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
     private let inputDir = "/Users/song/projects/13.billiard_trainer/build/position_play_sequences"
     private let outputDir = "/Users/song/projects/13.billiard_trainer/build/position_play_export"
 
+    /// 超重序列（杆数 ≥ 阈值）跳过 4K `full_3d@2160.mp4`：13 杆 4K(2160×4080) 逐帧离屏渲染实测
+    /// 会耗尽模拟器内 App 内存/触发测试超时而崩溃（5 杆可渲、8 杆起崩），故超重序列不出「外站备用」
+    /// 4K；App 内竖屏播放用的手机档 `full_3d.mp4` 仍正常产出。见 content/position_play/README.md。
+    private let heavy4KSkipThreshold = 6
+
+    private func exports4K(_ sequence: PositionPlaySequence) -> Bool {
+        sequence.steps.count < heavy4KSkipThreshold
+    }
+
     @MainActor
     func test_exportAllSequences() async throws {
         let fm = FileManager.default
+        // 续跑开关：环境变量在 `xcodebuild test` 下无法透传进模拟器 App 进程，
+        // 故同时支持在输出目录放置 `.resume` 标志文件触发（确定性，不依赖环境变量传播）。
+        let resumeCompleted = ProcessInfo.processInfo.environment["POSITION_EXPORT_RESUME"] == "1"
+            || fm.fileExists(atPath: "\(outputDir)/.resume")
         try? fm.createDirectory(atPath: inputDir, withIntermediateDirectories: true)
         try? fm.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
 
@@ -67,6 +80,11 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                 }
 
                 let outDir = URL(fileURLWithPath: outputDir).appendingPathComponent(dirName)
+                if resumeCompleted, exportIsComplete(sequence: sequence, at: outDir) {
+                    ok += 1
+                    print("SEQ-EXPORT ⏭️ \(dirName)（\(baseName)）：完整产物已存在，续跑跳过")
+                    continue
+                }
                 try? fm.removeItem(at: outDir)
                 try fm.createDirectory(at: outDir.appendingPathComponent("preview"),
                                        withIntermediateDirectories: true)
@@ -111,15 +129,18 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                         sequence: sub, options: .teachingVideo3D())
                     try moveReplacing(mp4, to: outDir.appendingPathComponent(String(format: "s%02d_3d.mp4", i + 1)))
                 }
-                let full3dHi = try await SequenceVideoExporter.exportVideo(
-                    sequence: sequence, options: .teachingVideo3DHi())
-                try moveReplacing(full3dHi, to: outDir.appendingPathComponent("full_3d@2160.mp4"))
+                if exports4K(sequence) {
+                    let full3dHi = try await SequenceVideoExporter.exportVideo(
+                        sequence: sequence, options: .teachingVideo3DHi())
+                    try moveReplacing(full3dHi, to: outDir.appendingPathComponent("full_3d@2160.mp4"))
+                }
 
                 ok += 1
+                let hi4K = exports4K(sequence) ? "full_3d@2160.mp4" : "（超重序列跳过 4K）"
                 print("SEQ-EXPORT ✅ \(dirName)（\(baseName)）：\(sequence.steps.count) 杆 → "
                       + "静帧 \(2 + sequence.steps.count) + cover + preview \(previewFrames.count) 帧 + "
                       + "full.mp4/gif + 单杆 mp4 ×\(sequence.steps.count) + "
-                      + "3D full_3d.mp4 + 单杆 3D ×\(sequence.steps.count) + full_3d@2160.mp4")
+                      + "3D full_3d.mp4 + 单杆 3D ×\(sequence.steps.count) + \(hi4K)")
             } catch {
                 failed.append("\(file)(\(error.localizedDescription))")
             }
@@ -143,5 +164,36 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
     private func moveReplacing(_ src: URL, to dst: URL) throws {
         try? FileManager.default.removeItem(at: dst)
         try FileManager.default.moveItem(at: src, to: dst)
+    }
+
+    /// 续跑只复用同一次引擎版本生成的完整目录。默认不开启，避免引擎升级后误用旧资产。
+    private func exportIsComplete(sequence: PositionPlaySequence, at directory: URL) -> Bool {
+        var relativePaths = [
+            "cover.png",
+            "initial.png",
+            "final.png",
+            "full.mp4",
+            "full.gif",
+            "full_3d.mp4"
+        ]
+        // 超重序列不出 4K，完整性判定亦不要求该文件（否则续跑会永远重渲）。
+        if exports4K(sequence) { relativePaths.append("full_3d@2160.mp4") }
+        relativePaths += (1...12).map { String(format: "preview/frame_%02d.png", $0) }
+        for index in sequence.steps.indices {
+            let number = index + 1
+            relativePaths += [
+                String(format: "s%02d_still.png", number),
+                String(format: "s%02d.mp4", number),
+                String(format: "s%02d_3d.mp4", number)
+            ]
+        }
+
+        return relativePaths.allSatisfy { relativePath in
+            let url = directory.appendingPathComponent(relativePath)
+            guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]) else {
+                return false
+            }
+            return values.isRegularFile == true && (values.fileSize ?? 0) > 0
+        }
     }
 }

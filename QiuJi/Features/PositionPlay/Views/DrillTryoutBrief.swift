@@ -28,20 +28,30 @@ enum DrillTryoutBrief {
     }
 
     /// 三行说明（缺素材的行自动省略，至少含「局面目标」）。
-    static func lines(for drill: DrillContent) -> [Line] {
+    /// 有出片序列球形（D4，与视频示范同源）时局面目标/参考打法取序列首杆真实参数；
+    /// 无序列 drill 走原 shotIntent 路径。
+    static func lines(for drill: DrillContent,
+                      formation: DrillTryoutFormation? = nil) -> [Line] {
         var lines: [Line] = []
-        lines.append(Line(label: "局面目标", text: goalText(for: drill)))
+        lines.append(Line(label: "局面目标", text: goalText(for: drill, formation: formation)))
         if let focus = drill.coachingPoints.first, !focus.isEmpty {
             lines.append(Line(label: "训练重点", text: focus))
         }
-        if let shot = drill.shotIntent?.shots.first {
+        if let shot = formation?.firstShot, !shot.isFree {
+            lines.append(Line(label: "参考打法", text: referenceText(
+                velocity: shot.velocity, spinX: shot.spinX, spinY: shot.spinY)))
+        } else if formation == nil, let shot = drill.shotIntent?.shots.first {
             lines.append(Line(label: "参考打法", text: referenceText(for: shot)))
         }
         return lines
     }
 
-    /// 局面目标：选袋方位转中文 + 多杆 drill 补充杆数。
-    static func goalText(for drill: DrillContent) -> String {
+    /// 局面目标：选袋方位转中文 + 多杆补充杆数。
+    static func goalText(for drill: DrillContent,
+                         formation: DrillTryoutFormation? = nil) -> String {
+        if let formation {
+            return goalText(forFormation: formation)
+        }
         let pocketId = drill.shotIntent?.shots.first?.pocket ?? drill.animation.pocket
         var text = "把目标球打进\(PocketDisplay.name(id: pocketId))"
         if let count = drill.shotIntent?.shots.count, count > 1 {
@@ -50,9 +60,34 @@ enum DrillTryoutBrief {
         return text
     }
 
+    /// 序列球形版局面目标：首杆选袋 + 杆数（首杆自由球/袋口缺失时省略袋口句）。
+    static func goalText(forFormation formation: DrillTryoutFormation) -> String {
+        var parts: [String] = []
+        if let shot = formation.firstShot, !shot.isFree {
+            let pocketName = PocketDisplay.name(id: shot.pocket)
+            if pocketName != "—" {
+                parts.append("把目标球打进\(pocketName)")
+            }
+        }
+        if formation.stepCount > 1 {
+            parts.append("本局共 \(formation.stepCount) 杆，进球后继续走位下一杆")
+        }
+        if parts.isEmpty {
+            parts.append("按视频示范球形自由练习")
+        }
+        return parts.joined(separator: "；")
+    }
+
     /// 参考打法：力度档（`PowerDisplay.name` 同口径）+ 杆法用语。
     static func referenceText(for shot: ShotIntent.Shot) -> String {
-        "\(powerPhrase(shot.velocity)) · \(spinPhrase(x: shot.spin?.x ?? 0, y: shot.spin?.y ?? 0))"
+        referenceText(velocity: shot.velocity,
+                      spinX: shot.spin?.x ?? 0, spinY: shot.spin?.y ?? 0)
+    }
+
+    /// 参考打法（通用入口）：`PlannedShot` 与 `ShotIntent.Spin` 打点符号语义一致
+    /// （x +左塞/−右塞，y +高杆/−低杆），两路共用。
+    static func referenceText(velocity: Double, spinX: Double, spinY: Double) -> String {
+        "\(powerPhrase(velocity)) · \(spinPhrase(x: spinX, y: spinY))"
     }
 
     /// 力度档名转人话（口径 = `PowerDisplay.name` 的五档分桶）。
@@ -82,13 +117,15 @@ enum DrillTryoutBrief {
 /// 半透明说明卡：贴球桌上方淡入，点卡或首次交互淡出。
 struct DrillTryoutBriefCard: View {
     let drill: DrillContent
+    /// 出片序列球形（D4）：非 nil 时局面目标/参考打法取序列首杆真实参数。
+    var formation: DrillTryoutFormation?
     /// 卡底部一行提示（D3 首次手势提示挂载位；nil 不显示）。
     var footnote: String?
     let onClose: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(DrillTryoutBrief.lines(for: drill)) { line in
+            ForEach(DrillTryoutBrief.lines(for: drill, formation: formation)) { line in
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(line.label)
                         .font(.system(size: 11, weight: .semibold, design: .rounded))

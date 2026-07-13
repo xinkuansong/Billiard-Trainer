@@ -4,6 +4,7 @@
 重新构建即可生效；目录为空时 App 自动静音（功能不受影响）。
 
 > 加载逻辑见 `QiuJi/Core/Audio/ShotSoundBank.swift`，事件调度见 `ShotAudioScheduler.swift`。
+> **自行实录方案**（场地/器材/逐类要求/后期规范）见本目录 `RECORDING-PLAN.md`。
 
 ## 命名约定
 

@@ -1,0 +1,53 @@
+{
+  "createdAt" : "2026-06-21T15:06:56Z",
+  "id" : "46A01BD5-DCB2-44FC-9FAD-8CBEE5A64AB6",
+  "initial" : {
+    "onTable" : {
+      "_1" : {
+        "x" : 0.4989173412322998,
+        "y" : 0.3627221882343292
+      },
+      "cueBall" : {
+        "x" : 0.4994756281375885,
+        "y" : 0.13062962889671326
+      }
+    }
+  },
+  "name" : "低杆缩杆回位",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_1" : {
+            "x" : 0.4989173412322998,
+            "y" : 0.3627221882343292
+          },
+          "cueBall" : {
+            "x" : 0.49702689051628113,
+            "y" : 0.13062959909439087
+          }
+        }
+      },
+      "cuePocketed" : true,
+      "id" : "80DCB9CD-CD5F-46A9-80EC-E5088F59B5E5",
+      "objectPocketed" : true,
+      "potted" : [
+        "_1",
+        "cueBall"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0.004131559261494554,
+        "spinY" : -0.3181300631350719,
+        "targetKey" : "_1",
+        "velocity" : 4.1
+      }
+    }
+  ],
+  "updatedAt" : "2026-07-04T06:36:19Z"
+}

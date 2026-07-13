@@ -22,6 +22,7 @@
 | `swiftui-developer.md` | SwiftUI / Canvas / 设计系统 | 界面与组件 |
 | `data-engineer.md` | SwiftData / 自建 REST API（用户数据 + Drill OTA） | 模型与同步 |
 | `content-engineer.md` | Drill JSON、计划内容 | `Resources/Drills/`、批量内容 |
+| `tutorial-writer.md` | 序列 JSON → 图文精讲（应用课模板 + 理论教练话） | 「给 drill_xxx 写精讲」 |
 | `qa-reviewer.md` | 验收 / DoD / 边界 | Phase 收尾、回归前检查 |
 | `test-engineer.md` | XCTest / XCUITest / Jest 自动化测试 + 人工测试计划 | 功能完成后补测试、生成人工测试清单 |
 | `manual-test-runner.md` | 人工测试执行引导 + 文档填充 | 执行 TP-Pn.md、收集结果、填充问题表与摘要 |
@@ -50,6 +51,7 @@
 - `swiftdata-cloudkit` — SwiftData 与 Drill 内容（Bundle + 自建 API OTA，ADR-002）
 - `rest-api-backend` — 自建 REST API 与用户侧同步、JWT、微信 OAuth
 - `content-engineering` — Drill Schema、坐标系、内容生产 SOP
+- `tutorial-authoring` — 走位序列 JSON → 图文精讲：digest 脚本、应用课模板、理论教练话转写、自查清单
 - `geometry-spatial-reasoning` — 几何/坐标/角度/相对位置：坐标契约、禁止脑算清单、数值草稿验证、不变量护栏
 
 ## 任务与文档

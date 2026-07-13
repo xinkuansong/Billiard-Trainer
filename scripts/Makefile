@@ -36,6 +36,7 @@ help:
 	@echo "  make run          Debug 构建 + 安装 + 在模拟器启动（一条龙）"
 	@echo "  make test         运行所有 XCTest"
 	@echo "  make position-export  走位序列 JSON → MP4/GIF（源 content/position_play/sequences/）"
+	@echo "  make tryout-sync  同步 drill 序列到 App Bundle 试打球形（Resources/DrillBoards/）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
 	@echo "  make export       从 Archive 导出 IPA"
 	@echo "  make upload       上传 IPA 到 App Store Connect"
@@ -148,6 +149,24 @@ position-export:
 	  test \
 	  | xcpretty || true
 	@echo "✅ 产物目录: $(BUILD_DIR)/position_play_export"
+
+# ────────────────────────────────────────────
+# 试打球形同步（方案 20260709-动作库试打模式 D4）
+# 输入：content/position_play/sequences/drill_c*.json（真相源，批量出片台产出，
+#       与视频示范同源）；seq_* 非 drill 序列不参与。
+# 输出：QiuJi/Resources/DrillBoards/（蓝色文件夹引用，进 App Bundle）
+# 序列在批量出片台更新后重跑本命令即可刷新试打球形（含删除失效文件）。
+# ────────────────────────────────────────────
+DRILL_BOARDS_DIR := $(PROJECT_ROOT)/QiuJi/Resources/DrillBoards
+
+.PHONY: tryout-sync
+tryout-sync:
+	@echo "→ 同步 drill 序列 → $(DRILL_BOARDS_DIR)"
+	@mkdir -p "$(DRILL_BOARDS_DIR)"
+	@rsync -a --delete \
+	  --include='drill_c*.json' --exclude='*' \
+	  "$(SEQUENCE_CONTENT_DIR)/" "$(DRILL_BOARDS_DIR)/"
+	@echo "✅ 已同步 $$(ls "$(DRILL_BOARDS_DIR)" | wc -l | tr -d ' ') 个球形序列"
 
 # ────────────────────────────────────────────
 # Release Archive
