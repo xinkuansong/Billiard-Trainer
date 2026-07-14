@@ -390,6 +390,8 @@ struct DrillSceneView: View {
                     .background(.black.opacity(0.4))
                     .clipShape(Capsule())
                 }
+                // F-DL-03：台面覆层试打钮按压（回放钮已接 BTPressableStyle.capsule）。
+                .buttonStyle(BTPressableStyle.capsule)
                 .padding(Spacing.md)
                 .accessibilityLabel("上手试打")
                 .accessibilityIdentifier("drillTryoutButton")

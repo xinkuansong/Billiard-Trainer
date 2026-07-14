@@ -59,11 +59,15 @@ struct DrillTutorialView: View {
                 if formations.count > 1 {
                     LazyVStack(alignment: .leading, spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
                         Section {
+                            // F-DL-05：球形切换短 opacity 过渡。
                             sectionList
+                                .id(selectedFormation)
+                                .transition(.opacity)
                         } header: {
                             formationPicker
                         }
                     }
+                    .animation(BTMotion.easeFast, value: selectedFormation)
                 } else {
                     LazyVStack(alignment: .leading, spacing: Spacing.xl) {
                         sectionList
@@ -110,28 +114,16 @@ struct DrillTutorialView: View {
 
     // MARK: - Header
 
+    /// F-DD-05：详情页已露 description / 分类等级；精讲头去重，只保留标题 + 阅读定位副文。
     private var header: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(spacing: Spacing.sm) {
-                Text(DrillCategory(rawValue: drill.category)?.nameZh ?? drill.category)
-                    .font(.btCaption2)
-                    .foregroundStyle(.btPrimary)
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, 3)
-                    .background(.btPrimary.opacity(0.12))
-                    .clipShape(Capsule())
-
-                BTLevelBadge(level: DrillLevel(rawValue: drill.level) ?? .L0)
-            }
-
+        VStack(alignment: .leading, spacing: Spacing.sm) {
             Text(drill.nameZh)
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            Text(drill.description)
+            Text("图文分步精讲")
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.md)
@@ -160,21 +152,62 @@ struct DrillTutorialView: View {
         "自检": .orange,
     ]
 
+    /// F-TU-06：「第N杆 / 开局…」主结构识别（不重开 DR-019 色议题）。
+    private static func isShotStructureTitle(_ title: String) -> Bool {
+        if title.contains("开局") { return true }
+        return title.hasPrefix("第") && title.contains("杆")
+    }
+
+    /// 解析「第3杆」「第一杆」中的杆序号；解析失败返回 nil（仍走阶梯字号）。
+    private static func shotStructureIndex(from title: String) -> Int? {
+        guard title.hasPrefix("第"),
+              let end = title.firstIndex(of: "杆") else { return nil }
+        let raw = String(title[title.index(after: title.startIndex)..<end])
+        if let n = Int(raw) { return n }
+        let cn: [Character: Int] = [
+            "一": 1, "二": 2, "三": 3, "四": 4, "五": 5,
+            "六": 6, "七": 7, "八": 8, "九": 9, "十": 10,
+        ]
+        if raw.count == 1, let n = cn[raw.first!] { return n }
+        if raw == "十" { return 10 }
+        if raw.hasPrefix("十"), raw.count == 2, let ones = cn[raw.last!] {
+            return 10 + ones
+        }
+        if raw.hasSuffix("十"), raw.count == 2, let tens = cn[raw.first!] {
+            return tens * 10
+        }
+        return nil
+    }
+
     private func sectionCard(_ section: TutorialSection, index: Int) -> some View {
-        let icon = Self.sectionIcons[section.title] ?? "doc.text.fill"
+        let isShot = Self.isShotStructureTitle(section.title)
+        let icon = isShot
+            ? (section.title.contains("开局") ? "flag.fill" : "number.circle.fill")
+            : (Self.sectionIcons[section.title] ?? "doc.text.fill")
         let accentColor = Self.sectionColors[section.title] ?? .btPrimary
+        let shotIndex = Self.shotStructureIndex(from: section.title)
 
         return VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(spacing: Spacing.sm) {
-                Image(systemName: icon)
-                    .font(.btFootnote14)
-                    .foregroundStyle(accentColor)
-                    .frame(width: 28, height: 28)
-                    .background(accentColor.opacity(0.12))
-                    .clipShape(Circle())
+                if isShot, let shotIndex {
+                    Text("\(shotIndex)")
+                        .font(.btCaption2)
+                        .fontWeight(.bold)
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.btText.opacity(0.85))
+                        .clipShape(Circle())
+                } else {
+                    Image(systemName: icon)
+                        .font(.btFootnote14)
+                        .foregroundStyle(isShot ? Color.btText : accentColor)
+                        .frame(width: 28, height: 28)
+                        .background((isShot ? Color.btText : accentColor).opacity(0.12))
+                        .clipShape(Circle())
+                }
 
                 Text(section.title)
-                    .font(.btHeadline)
+                    .font(isShot ? .btTitle2 : .btHeadline)
                     .foregroundStyle(.btText)
             }
 
@@ -214,9 +247,16 @@ struct DrillTutorialView: View {
                                     RoundedRectangle(cornerRadius: BTRadius.sm)
                                         .stroke(.btSeparator, lineWidth: 0.5)
                                 )
-                                .overlay { if hasClip { playBadge } }
+                                .overlay {
+                                    if hasClip {
+                                        playBadge
+                                    } else {
+                                        // F-TU-04：静态配图弱放大角标。
+                                        staticExpandBadge
+                                    }
+                                }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(BTPressableStyle.row)
                         .accessibilityIdentifier("tutorialPoster_\(imageName)")
                     } else {
                         missingImagePlaceholder
@@ -310,10 +350,28 @@ struct DrillTutorialView: View {
     /// 动态片段的播放角标（海报上居中），点击进全屏循环播放（决策 poster_tap）。
     private var playBadge: some View {
         Image(systemName: "play.circle.fill")
-            .font(.system(size: 44))
+            .font(.btDisplay)
             .symbolRenderingMode(.palette)
             .foregroundStyle(.white, .black.opacity(0.35))
             .shadow(color: .black.opacity(0.4), radius: 6, y: 1)
+    }
+
+    /// F-TU-04：静态配图可放大弱角标（右下，不抢 clip 播放标）。
+    private var staticExpandBadge: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .font(.btCaption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.white)
+                    .padding(Spacing.xs)
+                    .background(.black.opacity(0.45), in: Circle())
+                    .padding(Spacing.sm)
+            }
+        }
+        .allowsHitTesting(false)
     }
 
     /// F-TU-01：配图字段存在但 Bundle 加载失败时的弱占位（不进 Viewer）。
@@ -406,8 +464,7 @@ struct TutorialMediaViewer: View {
                         .tag(i)
                 }
             }
-            .tabViewStyle(.page(indexDisplayMode: items.count > 1 ? .automatic : .never))
-            .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+            .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
 
             topBar
@@ -425,11 +482,12 @@ struct TutorialMediaViewer: View {
     private var topBar: some View {
         HStack {
             if items.count > 1 {
+                // F-TU-07：保留 n/N，关闭系统页点，避免双重进度。
                 Text("\(index + 1) / \(items.count)")
                     .font(.btFootnote)
                     .foregroundStyle(.white.opacity(0.9))
                     .padding(.horizontal, Spacing.md)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, Spacing.xs)
                     .background(.black.opacity(0.35), in: Capsule())
             }
             Spacer()
@@ -437,7 +495,8 @@ struct TutorialMediaViewer: View {
                 dismiss()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 30))
+                    // F-TU-08：关闭钮收编 Font.bt*。
+                    .font(.btDisplaySmall)
                     .symbolRenderingMode(.palette)
                     .foregroundStyle(.white, .white.opacity(0.25))
             }
