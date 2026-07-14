@@ -18,6 +18,14 @@
 
 ## 当前状态
 
+- **UI 打磨第 4 波（W2-9 状态呈现/弹层/空态横切，串行收口）完成 ✅（2026-07-14，plan-delegated-execution：grok-4.5 执行子智能体〔用户指定，替代真源原定 opus〕+ 主控独立验收，0 轮返工）——W2-1 ~ W2-10 十批全部收官**：
+  - **新共享真源**：`Core/Components/BTToast.swift`（`BTToastTone` success/info/warning/error + `btToast()` modifier，顶栏胶囊 1.6s；收编 FreePlay/PlanThree/Silu/Composer/Snooker/ShotSimulation/BatchAuthoring/BallExtraction×2 共 9 处手写 flash/banner；FreePlay 规则限制提示由错色绿改金 warning；AngleDynamic 底栏常驻教学态特例注释留档）；`Core/Components/BTDailyLimitGate.swift`（角度 4 页日限手写卡三套→一套，皇冠+CTA 统一「解锁 Pro」，含 `BTProBadge` 统一网格/计划卡/列表行/历史行 PRO 角标）。
+  - **ST 组**：F-ST-02 训练首页/计划列表用 `BTDrillListSkeleton`、收藏页行骨架；F-ST-03 `BTMotion.easeFast`+`.transition(.opacity)` 全列表接通（含 DrillList 已声明未驱动的过渡）；F-ST-05 `BTEmptyState` 加 `actionStyle`，「创建计划」收进组件；F-ST-06 空态「还没有/暂无」口径拉齐；F-ST-08 `BTPremiumLock.fullMask` title/subtitle 参数化 + `premiumGate` 强制传文案 + progressive/fullMask CTA 统一实心金。
+  - **OV 组**：F-OV-01 detent 三档收编（短选择 280/360+把手、设置 medium+large+把手、说明 medium+large；Paywall/登录保持大 sheet）；F-OV-02 清除缓存/注销/删除计划改 confirmationDialog（取消在前；「结束训练」保留 alert）；F-OV-04 「已保存到相册」改非阻断 toast；F-OV-05 休息/场景总结覆层浅 scrim 0.32+opacity；F-OV-07 单按钮 dismiss 全库「确定」（rg「好的」清零）。
+  - **PF/CL/TU**：F-PF-03/04 Paywall CTA/定价卡/登录三钮补 `BTPressableStyle`（保 plain 语义与 Apple 反色）；F-PF-06 恢复购买 0.2→0.45；F-PF-11 Onboarding「角度感知训练」→「角度训练」；F-CL-03 骨架 4/3；F-CL-05 死参数接线（**锚点勘误**：在 `BTExerciseRow` 非 BTShareCard，改 `drillId` 接 `BTBakedDrillTable` 烘焙缩略）；F-CL-06 `BTLogoMark` deprecated 归档；F-TU-05 拍板落地：push/sheet 双形态保留，sheet chrome 统一（xmark 关闭钮+medium/large+把手）。
+  - **F-CL-04 有意保守（如实留档）**：ActiveTraining 休息覆层保留 W2-6 双环/结束态/numericText 成果，`BTRestTimer` 能力不足不硬换，代码注释说明。
+  - **主控独立验收（真实输出）**：逐文件读全量 diff 2148 行（快速模型纪律）；亲跑 `make build` **BUILD SUCCEEDED**；S2(6)+S5(5) 合跑 **Executed 11 tests, 0 failures, TEST SUCCEEDED**；rg 复查三项清零；截图 7 张逐张核验（`docs/ui-polish/screenshots-w2-9/`；paywall-press 实抓 loading 帧，按压 scale 由 BTPressableStyle 代码契约保证，留档）。
+  - **收官**：真源 `30-真改清单.md` 升 v6（十批全 ✅）；**人工冒烟清单已汇总 → `docs/ui-polish/31-收官人工冒烟清单.md`（按波列交互点，用户一次性过完，发现问题按批归属返工）。下一步：用户执行人工冒烟。**
 - **UI 打磨第 3 波（W2-6 + W2-7 + W2-8 并行 ×3）全部完成 ✅（2026-07-14，plan-parallel-delegated-execution：grok-4.5 执行子智能体 ×3 · worktree 隔离 + 主控独立验收，0 轮返工）**：
   - **交集实证与批次调整（真源 v5 已记）**：① F-TU-11（`DrillRecordView` 精讲入口失败提示）与 W2-6 记分条目同文件 → 由 W2-8 移交 W2-6；② v1 批次表漏排 21-组G（构建器 F-PL-07/08/12/14）→ 主控裁定归 W2-7（`CustomPlanBuilderView`，与 W2-6 无交集）；③ 组D 余项（F-TR-13/14、F-PL-02/05/09/15）按来源组归 W2-6。调整后三批文件集合两两不相交。
   - **W2-6 会话与记分**（23 条）：F-TR-03 休息覆层 token+BTButtonStyle、F-AT-07 僵尸态 800→250ms+0:00 禁 +30S（VM guard）、F-AT-05 结束钮 stopCircle+次级色（品牌绿=主操作语义纠正）、F-AT-06/12 底栏五钮 BTPressableStyle+BTIcon、F-AT-02/11 记分完成 easeFast 动画+轻触觉、F-AT-03/09 chevron 旋转+numericText、F-AT-08 DrillPicker 行内勾+tint（List 内守 .plain 命中）、F-AT-10 顶栏弱页码 pill、F-AT-04 拍板落地：双形态保留+收缩交接（浮标共用「继续训练」+play+计时，含自主修复：自由记录最小化后首页底栏也露继续条）、F-TR-05 排队文案去伪可点、F-TR-13/14 自定义卡对齐 PlanListView（72pt）、F-PL-02 露 planNameZh/weekTheme、F-PL-09「自定义模版」→「我的计划」、F-TU-11 精讲 nil→alert。
