@@ -237,6 +237,20 @@ enum BatchSequenceArchive {
 
     static let directory = BatchDrillCatalog.sequencesDir
 
+    /// F-BD-01：目标 stem/legacy 文件是否已存在（仅存在时才弹覆盖确认）。
+    static func hasExistingArchive(drillId: String, imageStem: String, legacy: Bool) -> Bool {
+        let fm = FileManager.default
+        let files = (try? fm.contentsOfDirectory(atPath: directory)) ?? []
+        if legacy {
+            return files.contains {
+                $0.hasPrefix("\(drillId)-") && !$0.contains("__") && $0.hasSuffix(".json")
+            }
+        }
+        let token = BatchDrillCatalog.formationToken(forImageStem: imageStem)
+        let stemPrefix = "\(drillId)__\(token)-"
+        return files.contains { $0.hasPrefix(stemPrefix) }
+    }
+
     /// - Parameters:
     ///   - imageStem: 来源截图的文件名（不含扩展名），用于派生球形 token。
     ///   - legacy: true = 覆盖旧版单序列存档（`drill_cNNN-…` 无 `__`），保持旧文件名格式；
@@ -404,13 +418,14 @@ struct BatchDrillStudioView: View {
     private func drillRow(_ drill: BatchDrill) -> some View {
         HStack(spacing: 12) {
             Image(systemName: drill.hasSavedSequence ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(drill.hasSavedSequence ? Color.green : Color.secondary)
+                // F-BD-05：已存勾选走 btSuccess。
+                .foregroundStyle(drill.hasSavedSequence ? Color.btSuccess : Color.secondary)
             VStack(alignment: .leading, spacing: 2) {
                 Text(drill.displayTitle).font(.system(size: 15, weight: .semibold))
                 HStack(spacing: 6) {
                     Text("\(drill.imageURLs.count) 张截图")
                     if drill.savedFormationCount > 0 {
-                        Text("· 已存 \(drill.savedFormationCount) 球形").foregroundStyle(.green)
+                        Text("· 已存 \(drill.savedFormationCount) 球形").foregroundStyle(Color.btSuccess)
                     }
                     if let c = drill.category { Text("· \(c)") }
                     if !drill.isRegistered {

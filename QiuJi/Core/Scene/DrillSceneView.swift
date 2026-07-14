@@ -39,7 +39,8 @@ final class DrillSceneController: ObservableObject {
     private var targetStart = SCNVector3Zero
     private var surfaceY: Float = 0
     private var trajectoryNodes: [SCNNode] = []
-    private var isPlaying = false
+    /// F-SC-01：回放锁定期间 chrome 可见；不改不可打断语义。
+    @Published private(set) var isPlaying = false
 
     /// 点播放到开始击打之间的预备停顿（秒），让动作不至于太快、先看清计划。
     private let preStrikePause: TimeInterval = 2.0
@@ -327,8 +328,8 @@ struct DrillSceneView: View {
     @StateObject private var controller = DrillSceneController()
     @State private var didAppear = false
 
-    /// 取景余量处的兜底背景（深台呢绿），替代默认黑，避免任何残留边缘露出黑边。
-    private static let feltBackground = UIColor(red: 0.11, green: 0.22, blue: 0.15, alpha: 1.0)
+    /// 取景余量处的兜底背景：与 `btTableFelt` 同源（F-SC-06），避免 letterbox 硬编码绿。
+    private static let feltBackground = UIColor(Color.btTableFelt)
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -354,15 +355,20 @@ struct DrillSceneView: View {
             Button {
                 controller.play()
             } label: {
+                // F-SC-01：回放锁定进行时视觉反馈——保持 play.fill + 降透明 + disabled；
+                // 不换 stop 图标（按钮不可点，stop 会成假 affordance，违 B3 诚实反馈）。
                 Image(systemName: "play.fill")
                     .font(.btFootnote14)
                     .foregroundStyle(.white)
                     .frame(width: 32, height: 32)
                     .background(.black.opacity(0.4))
                     .clipShape(Circle())
+                    .opacity(controller.isPlaying ? 0.4 : 1)
             }
+            .disabled(controller.isPlaying)
+            .buttonStyle(BTPressableStyle.capsule)
             .padding(Spacing.md)
-            .accessibilityLabel("回放")
+            .accessibilityLabel(controller.isPlaying ? "回放中" : "回放")
             .accessibilityIdentifier("drillPlayButton")
         }
         // 「上手试打」胶囊：与回放按钮同层覆层，对角 bottomTrailing（§1.6 入口）。
@@ -511,7 +517,8 @@ private struct DrillPowerBar: View {
             let h = g.size.height
             ZStack(alignment: .bottom) {
                 Capsule().fill(Color.black.opacity(0.30))
-                LinearGradient(colors: [.green, .yellow, .orange], startPoint: .bottom, endPoint: .top)
+                // F-SC-02：与击打页力度 chrome 同源。
+                LinearGradient(colors: HUDStyle.powerGradient, startPoint: .bottom, endPoint: .top)
                     .mask(alignment: .bottom) {
                         Capsule().frame(height: max(4, h * CGFloat(fraction)))
                     }

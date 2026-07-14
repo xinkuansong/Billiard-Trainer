@@ -166,6 +166,8 @@ struct FreePlayView: View {
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
                                  onClose: { showSpinPad = false })
+                    // F-PP-07：与同系页对齐贴底；不动 ShotStageProxy。
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }

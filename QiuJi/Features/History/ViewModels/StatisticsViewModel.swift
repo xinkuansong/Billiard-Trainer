@@ -50,6 +50,8 @@ final class StatisticsViewModel: ObservableObject {
     @Published var timeRange: StatisticsTimeRange = .week
     @Published var sessions: [TrainingSession] = []
     @Published var isLoading = false
+    /// F-ST-01（统计半条）：失败与空态分流。
+    @Published var errorMessage: String?
 
     var categoryMapping: [String: String] = [:]
 
@@ -399,8 +401,10 @@ final class StatisticsViewModel: ObservableObject {
         let repo = LocalTrainingSessionRepository(context: context)
         do {
             sessions = try await repo.fetchAll()
+            errorMessage = nil
         } catch {
             sessions = []
+            errorMessage = "加载统计数据失败"
         }
     }
 }

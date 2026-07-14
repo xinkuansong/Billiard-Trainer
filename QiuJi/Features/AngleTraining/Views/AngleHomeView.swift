@@ -351,7 +351,7 @@ struct AngleHomeView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.row)
         // 沿用 P18 B1 的分段定位标识，UI 测试（P5 / ScreenshotTour）无需改选择器。
         .accessibilityIdentifier("angleHomeTab_\(label)")
     }
@@ -373,7 +373,7 @@ struct AngleHomeView: View {
                                     NavigationLink(value: entry.route) {
                                         AngleGridCard(entry: entry)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(BTPressableStyle.row)
                                     // 卡片按钮会合并子元素 AX 标签，UI 测试需用 identifier 精确定位。
                                     .accessibilityIdentifier(entry.title)
                                 }
@@ -508,6 +508,7 @@ struct PracticeCTA: View {
     let title: String
     let destination: String
     let route: AngleRoute
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         NavigationLink(value: route) {
@@ -535,10 +536,11 @@ struct PracticeCTA: View {
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
             .overlay(
                 RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .stroke(Color.btPrimary.opacity(0.35), lineWidth: 1)
+                    // F-AK-12：弱化导流卡描边，保留 NavigationLink。
+                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 1)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.row)
         .accessibilityLabel(title)
     }
 }

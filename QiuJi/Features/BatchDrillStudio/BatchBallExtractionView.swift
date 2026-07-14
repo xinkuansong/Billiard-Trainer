@@ -70,12 +70,17 @@ struct BatchBallExtractionView: View {
 
     @ViewBuilder
     private var content: some View {
-        switch vm.step {
-        case .pickPhoto: pickStep
-        case .calibrate: if let img = vm.image { calibrateStep(img) }
-        case .markBalls: if let img = vm.image { markStep(img) }
-        case .confirm: confirmStep
+        Group {
+            switch vm.step {
+            case .pickPhoto: pickStep
+            case .calibrate: if let img = vm.image { calibrateStep(img) }
+            case .markBalls: if let img = vm.image { markStep(img) }
+            case .confirm: confirmStep
+            }
         }
+        // F-BD-06：四步向导切换 + 步骤条过渡；状态机不变。
+        .animation(BTMotion.springPanel, value: vm.step)
+        .transition(.opacity)
     }
 
     // MARK: - Step header
@@ -87,6 +92,7 @@ struct BatchBallExtractionView: View {
                     Capsule()
                         .fill(s.rawValue <= vm.step.rawValue ? Color.btPrimary : Color.white.opacity(0.15))
                         .frame(height: 3)
+                        .animation(BTMotion.springPanel, value: vm.step)
                 }
             }
             Text(hint)
@@ -189,17 +195,17 @@ struct BatchBallExtractionView: View {
             if saved {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 18))
-                    .foregroundStyle(.white, Color.green)
+                    .foregroundStyle(.white, Color.btSuccess)
                     .padding(6)
             }
         }
         .overlay(RoundedRectangle(cornerRadius: BTRadius.sm)
-            .stroke(saved ? Color.green.opacity(0.8) : .white.opacity(0.12), lineWidth: saved ? 2 : 1))
+            .stroke(saved ? Color.btSuccess.opacity(0.8) : .white.opacity(0.12), lineWidth: saved ? 2 : 1))
     }
 
     private func loadImage(_ url: URL) {
         guard let raw = UIImage(contentsOfFile: url.path) else {
-            vm.message = "无法读取图片：\(url.lastPathComponent)"
+            vm.flash("无法读取图片：\(url.lastPathComponent)", isError: true)
             return
         }
         vm.image = raw.rotated90Clockwise()
@@ -216,7 +222,7 @@ struct BatchBallExtractionView: View {
     private func editArchive(_ url: URL) {
         guard let drill = context.current else { return }
         guard let seq = BatchDrillCatalog.loadSequence(drillId: drill.drillId, imageURL: url) else {
-            vm.message = "读取存档失败：\(url.lastPathComponent)"
+            vm.flash("读取存档失败：\(url.lastPathComponent)", isError: true)
             return
         }
         context.sourceImageURL = url          // 保存时按同一 token 覆盖原存档
@@ -231,7 +237,7 @@ struct BatchBallExtractionView: View {
         guard let drill = context.current else { return }
         guard let url = BatchDrillCatalog.savedSequenceURL(drillId: drill.drillId, token: ""),
               let seq = BatchDrillCatalog.loadSequence(at: url) else {
-            vm.message = "读取旧版存档失败：\(drill.drillId)"
+            vm.flash("读取旧版存档失败：\(drill.drillId)", isError: true)
             return
         }
         context.sourceImageURL = nil
@@ -548,7 +554,7 @@ struct BatchBallExtractionView: View {
                 .background(.black.opacity(0.4), in: Circle())
                 .overlay(Circle().stroke(.white.opacity(enabled ? 0.3 : 0.1), lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(!enabled)
     }
 
@@ -568,7 +574,8 @@ struct BatchBallExtractionView: View {
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(enabled ? Color.btPrimary : Color.btPrimary.opacity(0.3), in: Capsule())
         }
-        .buttonStyle(.plain).disabled(!enabled)
+        .buttonStyle(BTPressableStyle.capsule)
+        .disabled(!enabled)
     }
 
     private func secondaryButton(_ title: String, action: @escaping () -> Void) -> some View {
@@ -577,7 +584,7 @@ struct BatchBallExtractionView: View {
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(Color.white.opacity(0.12), in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
     }
 
     // MARK: - Two-row palette + column buttons
@@ -609,7 +616,7 @@ struct BatchBallExtractionView: View {
                 .frame(width: 96, height: height)
                 .background(enabled ? tint : tint.opacity(0.3), in: Capsule())
         }
-        .buttonStyle(.plain).disabled(!enabled)
+        .buttonStyle(BTPressableStyle.capsule).disabled(!enabled)
     }
 
     private func columnSecondary(_ title: String, height: CGFloat = 42, action: @escaping () -> Void) -> some View {
@@ -619,7 +626,7 @@ struct BatchBallExtractionView: View {
                 .frame(width: 96, height: height)
                 .background(Color.white.opacity(0.12), in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
     }
 
     @ViewBuilder
@@ -628,12 +635,13 @@ struct BatchBallExtractionView: View {
             VStack {
                 Text(msg).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                     .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(Color.btDestructive, in: Capsule())
+                    .background(vm.messageIsError ? Color.btDestructive : Color.btSuccess, in: Capsule())
                     .padding(.top, 60)
                 Spacer()
             }
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(.easeInOut, value: vm.message)
+            // F-BD-07：banner 动效收编 BTMotion.springPanel。
+            .animation(BTMotion.springPanel, value: vm.message)
         }
     }
 

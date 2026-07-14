@@ -14,9 +14,21 @@ struct StatisticsView: View {
 
     var body: some View {
         Group {
-            if vm.isLoading {
+            if vm.isLoading && vm.sessions.isEmpty && vm.errorMessage == nil {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = vm.errorMessage {
+                // F-ST-01：失败与空态分流 + 重试入口。
+                BTEmptyState(
+                    icon: "exclamationmark.triangle",
+                    title: "加载失败",
+                    subtitle: error,
+                    actionTitle: "重试"
+                ) {
+                    Task { await vm.loadSessions(context: modelContext) }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, Spacing.lg)
             } else if vm.sessions.isEmpty {
                 // Users with no drill-based training sessions may still have
                 // angle-training records; expose those aggregates here so
@@ -53,7 +65,10 @@ struct StatisticsView: View {
             }
         }
         .task {
-            await vm.loadSessions(context: modelContext)
+            // 保活后仅首次无数据时加载，避免切 Tab 假闪（F-HI-04）。
+            if vm.sessions.isEmpty && vm.errorMessage == nil {
+                await vm.loadSessions(context: modelContext)
+            }
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
@@ -302,7 +317,7 @@ struct StatisticsView: View {
 
             successRateChart
 
-            chartLegend(color1: .btPrimary, label1: "成功率", color2: .btText, label2: "趋势线")
+            chartLegend(color1: .btPrimary, label1: "成功率", color2: .btText, label2: "均值线")
         }
         .statisticsCard()
     }
@@ -412,7 +427,8 @@ struct StatisticsView: View {
             Text(String(format: "%+.1f %@ (%+.0f%%)", value, unit, percent))
                 .font(.btFootnote14)
                 .fontWeight(.bold)
-                .foregroundStyle(.btPrimary)
+                // F-HI-06：环比下跌与分类对比拉齐用 btWarning。
+                .foregroundStyle(percent >= 0 ? Color.btPrimary : Color.btWarning)
             Text(compareLabel)
                 .font(.btCaption)
                 .foregroundStyle(.btTextSecondary)

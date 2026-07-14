@@ -33,15 +33,14 @@ struct HistoryCalendarView: View {
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
 
-            if activeTab == .history {
-                if vm.isLoading {
-                    ProgressView()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    historyContent
-                }
-            } else {
+            // F-HI-04：保活历史与统计，避免切 Tab 重建闪 ProgressView。
+            ZStack {
+                historyPane
+                    .opacity(activeTab == .history ? 1 : 0)
+                    .allowsHitTesting(activeTab == .history)
                 StatisticsView()
+                    .opacity(activeTab == .statistics ? 1 : 0)
+                    .allowsHitTesting(activeTab == .statistics)
             }
         }
         .background(Color.btBG.ignoresSafeArea())
@@ -74,6 +73,30 @@ struct HistoryCalendarView: View {
     }
 
     // MARK: - History Content
+
+    @ViewBuilder
+    private var historyPane: some View {
+        if vm.isLoading {
+            ProgressView()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let error = vm.errorMessage {
+            // F-HI-03：失败与空态分流，可读展示 + 重试。
+            VStack(spacing: Spacing.lg) {
+                BTEmptyState(
+                    icon: "exclamationmark.triangle",
+                    title: "加载失败",
+                    subtitle: error,
+                    actionTitle: "重试"
+                ) {
+                    Task { await vm.loadSessions(context: modelContext) }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.horizontal, Spacing.lg)
+        } else {
+            historyContent
+        }
+    }
 
     private var historyContent: some View {
         ScrollView {
@@ -208,7 +231,8 @@ struct HistoryCalendarView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 54)
         }
-        .buttonStyle(.plain)
+        // F-HI-02：日格按压；FL-004 保持 plain 基底语义（BTPressableStyle 无 tint）。
+        .buttonStyle(BTPressableStyle.row)
         .disabled(!day.isCurrentMonth)
     }
 
@@ -251,7 +275,7 @@ struct HistoryCalendarView: View {
             } label: {
                 sessionRow(session, locked: !accessible)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.row)
 
         case .angle(let angleSession):
             Button {
@@ -259,7 +283,7 @@ struct HistoryCalendarView: View {
             } label: {
                 angleRow(angleSession)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.row)
         }
     }
 
@@ -312,8 +336,9 @@ struct HistoryCalendarView: View {
         HStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
+                    // F-HI-05：锁定行 btTextTertiary 弱化、常规行 btPrimary；角度行沿用 btAccent 区分。
                     Circle()
-                        .fill(locked ? Color.btAccent : Color.btPrimary)
+                        .fill(locked ? Color.btTextTertiary : Color.btPrimary)
                         .frame(width: 10, height: 10)
                     Text(vm.displayName(for: session))
                         .font(.btHeadline)

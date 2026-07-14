@@ -9,6 +9,8 @@ struct GeometricAngleQuizView: View {
     @State private var showSubscription = false
     /// 条 5：弃系统键盘（弹出遮输入框/确认键），改用 2D 瞄准训练同款数字键盘 HUD。
     @State private var isInputting = false
+    /// F-AK-05：重置统计属破坏性清空，仅补确认闸。
+    @State private var showResetConfirm = false
 
     init() {
         _vm = StateObject(wrappedValue: GeometricAngleViewModel(limiter: AngleUsageLimiter()))
@@ -27,28 +29,39 @@ struct GeometricAngleQuizView: View {
 
                 if vm.showResult {
                     resultSection
+                        .transition(.opacity.combined(with: .move(edge: .bottom)))
                 } else if vm.limiter.isLimitReached {
                     limitReachedCard
+                        .transition(.opacity)
                 }
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxl)
+            .animation(BTMotion.easeChrome, value: vm.showResult)
+            .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
         }
         .scrollBounceBehavior(.basedOnSize)
         .background(Color.black.ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
         .safeAreaInset(edge: .bottom, spacing: 0) { keypadInset }
+        .animation(BTMotion.easeChrome, value: isInputting)
         .navigationTitle("角度预测")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button { vm.resetStatistics() } label: {
+                Button { showResetConfirm = true } label: {
                     Image(systemName: "arrow.counterclockwise")
                         .foregroundStyle(.white.opacity(0.75))
                 }
                 .accessibilityLabel("重置统计")
             }
+        }
+        .confirmationDialog("重置统计", isPresented: $showResetConfirm, titleVisibility: .visible) {
+            Button("重置", role: .destructive) { vm.resetStatistics() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("将清空本页练习次数、正确率与平均误差，此操作不可撤销。")
         }
         .onAppear {
             vm.configure(context: modelContext)
@@ -115,7 +128,9 @@ struct GeometricAngleQuizView: View {
     private var actionChips: some View {
         HStack(spacing: Spacing.sm) {
             actionChip(icon: "die.face.5.fill", title: "换题", filled: false) {
-                isInputting = false
+                withAnimation(BTMotion.easeChrome) {
+                    isInputting = false
+                }
                 vm.generateRandomAngle()
             }
             .disabled(vm.limiter.isLimitReached)
@@ -133,7 +148,9 @@ struct GeometricAngleQuizView: View {
             if vm.currentAngle > 0, !vm.showResult, !vm.limiter.isLimitReached, !isInputting {
                 actionChip(icon: "pencil.and.list.clipboard", title: "答题", filled: true) {
                     vm.userInput = ""
-                    isInputting = true
+                    withAnimation(BTMotion.easeChrome) {
+                        isInputting = true
+                    }
                 }
             }
         }
@@ -150,14 +167,19 @@ struct GeometricAngleQuizView: View {
                 subtitle: "范围 0° – 90°",
                 compact: true,   // P5.1：紧凑键盘，不遮挡「换题 / 显示参考」
                 onSubmit: {
-                    isInputting = false
+                    withAnimation(BTMotion.easeChrome) {
+                        isInputting = false
+                    }
                     vm.submitAnswer()
                 },
                 onCancel: {
                     vm.userInput = ""
-                    isInputting = false
+                    withAnimation(BTMotion.easeChrome) {
+                        isInputting = false
+                    }
                 }
             )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
         }
     }
 
@@ -177,7 +199,8 @@ struct GeometricAngleQuizView: View {
             .padding(.vertical, 11)
             .background(Capsule().fill(enabled ? Color.btPrimary : Color.white.opacity(0.08)))
         }
-        .buttonStyle(.plain)
+        // F-AK-01：场景绿胶囊轻量 press；禁 BTButtonStyle.primary。
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(!enabled)
     }
 
@@ -195,7 +218,7 @@ struct GeometricAngleQuizView: View {
             .padding(.vertical, 7)
             .background(Capsule().fill(filled ? Color.btPrimary : Color.white.opacity(0.12)))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
     }
 
     // MARK: - Freemium Gate
@@ -277,7 +300,7 @@ struct GeometricAngleQuizView: View {
                             .padding(.vertical, 7)
                             .background(Capsule().fill(Color.white.opacity(0.12)))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BTPressableStyle.capsule)
                 }
                 NavigationLink(value: AngleRoute.sceneAiming2D) {
                     Label("去真台练", systemImage: "target")
@@ -287,7 +310,7 @@ struct GeometricAngleQuizView: View {
                         .padding(.vertical, 7)
                         .background(Capsule().fill(Color.white.opacity(0.12)))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BTPressableStyle.capsule)
             }
         }
         .padding(Spacing.xl)

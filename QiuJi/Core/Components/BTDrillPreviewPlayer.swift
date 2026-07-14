@@ -21,6 +21,8 @@ struct BTDrillPreviewPlayer: View {
     @State private var frames: [UIImage] = []
     @State private var startDate: Date = Date()
     @State private var loaded: Bool = false
+    /// F-SC-03：区分加载中 / 失败，避免永久转圈。
+    @State private var loadFailed: Bool = false
 
     private let frameCount: Int = 8
     private let dwellNoPath: TimeInterval = 0.6
@@ -30,8 +32,10 @@ struct BTDrillPreviewPlayer: View {
         Group {
             if loaded, !frames.isEmpty {
                 playerView
+            } else if loadFailed {
+                failedPlaceholder
             } else {
-                placeholder
+                loadingPlaceholder
             }
         }
         .task { await loadFrames() }
@@ -63,18 +67,30 @@ struct BTDrillPreviewPlayer: View {
             .aspectRatio(contentMode: .fit)
     }
 
-    private var placeholder: some View {
+    private var loadingPlaceholder: some View {
         Rectangle()
             .fill(Color.btTableFelt)
             .aspectRatio(2.0, contentMode: .fit)
             .overlay(ProgressView().tint(.white.opacity(0.6)))
     }
 
+    /// 与 `BTBakedDrillTable` 缺图占位拉齐（F-SC-03）。
+    private var failedPlaceholder: some View {
+        ZStack {
+            Color.btTableFelt
+            Image(systemName: "rectangle.on.rectangle.angled")
+                .font(.system(size: 18, weight: .regular))
+                .foregroundStyle(.white.opacity(0.35))
+        }
+        .aspectRatio(2.0, contentMode: .fit)
+    }
+
     private var replayButton: some View {
         Button {
             startDate = Date()
         } label: {
-            Image(systemName: "arrow.counterclockwise")
+            // F-SC-07：台面覆层回放圆钮统一 `play.fill`；击打页右列文字「回放」不动。
+            Image(systemName: "play.fill")
                 .font(.btFootnote14)
                 .foregroundStyle(.white)
                 .frame(width: 32, height: 32)
@@ -82,6 +98,7 @@ struct BTDrillPreviewPlayer: View {
                 .clipShape(Circle())
         }
         .buttonStyle(BTPressableStyle.capsule)
+        .accessibilityLabel("回放")
     }
 
     // MARK: - Frame Loading
@@ -103,6 +120,7 @@ struct BTDrillPreviewPlayer: View {
             self.frames = loadedFrames
             self.startDate = Date()
             self.loaded = true
+            self.loadFailed = loadedFrames.isEmpty
         }
     }
 

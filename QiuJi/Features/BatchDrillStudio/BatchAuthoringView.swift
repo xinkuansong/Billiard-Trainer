@@ -283,6 +283,11 @@ struct BatchAuthoringView: View {
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
     @State private var banner: String?
+    /// F-BD-02：banner 成败分 tone。
+    @State private var bannerIsError = false
+    /// F-BD-01：覆盖确认（仅目标文件已存在时）。
+    @State private var pendingOverwriteStay = false
+    @State private var showOverwriteConfirm = false
 
     // 点换（条 20.3）：激活后点桌上另一颗球，与母球交换位置。
     @State private var swapMode = false
@@ -338,6 +343,18 @@ struct BatchAuthoringView: View {
             ToolbarItem(placement: .principal) { navStatus }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
+        .confirmationDialog(
+            "覆盖已存序列？",
+            isPresented: $showOverwriteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("覆盖", role: .destructive) {
+                performSave(mode: pendingOverwriteStay ? .stay : .nextDrill)
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("同图已有存档，保存将覆盖原杆序。")
+        }
         .onAppear {
             if !hasAppeared {
                 hasAppeared = true
@@ -371,7 +388,9 @@ struct BatchAuthoringView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.btPrimary)
                 .lineLimit(1)
-            Text(composer.isComputing ? "求解中…" : composer.statusText)
+            Text(solver.isComputing || composer.isComputing
+                  ? "求解中…"
+                  : composer.statusText)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.65))
                 .lineLimit(1)
@@ -456,7 +475,7 @@ struct BatchAuthoringView: View {
                             .background(solver.hasConstraint ? Color.btAccent : Color.btAccent.opacity(0.3),
                                         in: Capsule())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(BTPressableStyle.capsule)
                     .disabled(composer.isPlaying || solver.isComputing || !solver.hasConstraint)
                 }
             }
@@ -635,22 +654,22 @@ struct BatchAuthoringView: View {
                 actionPill(title: "回上一杆球形", system: "clock.arrow.circlepath",
                            tint: .white.opacity(0.14))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.capsule)
             .disabled(composer.isPlaying || !composer.canReplay)
 
             Spacer(minLength: 0)
 
-            Button { save(mode: .stay) } label: {
+            Button { requestSave(mode: .stay) } label: {
                 actionPill(title: "保存·选下张图", system: "square.and.arrow.down",
                            tint: .white.opacity(0.16))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.capsule)
             .disabled(composer.isPlaying)
 
-            Button { save(mode: .nextDrill) } label: {
+            Button { requestSave(mode: .nextDrill) } label: {
                 actionPill(title: "保存·下个drill", system: "arrow.right.circle", tint: Color.btAccent)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.capsule)
             .disabled(composer.isPlaying)
         }
         .padding(.horizontal, Spacing.sm)
@@ -906,11 +925,29 @@ struct BatchAuthoringView: View {
     /// `nextDrill` 跳到下一个还没有任何球形的 drill。
     private enum SaveMode { case stay, nextDrill }
 
-    private func save(mode: SaveMode) {
+    /// F-BD-01：仅当目标文件已存在时弹确认；不加「记住不再问」。
+    private func requestSave(mode: SaveMode) {
+        guard let drill = context.current else { return }
+        guard !composer.sequence.steps.isEmpty else {
+            flash("尚无击打：先「击球」记录至少一杆", isError: false)
+            return
+        }
+        let imageURL = context.sourceImageURL
+        let stem = imageURL?.deletingPathExtension().lastPathComponent ?? drill.drillId
+        let legacy = context.editingLegacyArchive
+        if BatchSequenceArchive.hasExistingArchive(drillId: drill.drillId, imageStem: stem, legacy: legacy) {
+            pendingOverwriteStay = (mode == .stay)
+            showOverwriteConfirm = true
+        } else {
+            performSave(mode: mode)
+        }
+    }
+
+    private func performSave(mode: SaveMode) {
         guard let drill = context.current else { return }
         var seq = composer.sequence
         guard !seq.steps.isEmpty else {
-            flash("尚无击打：先「击球」记录至少一杆")
+            flash("尚无击打：先「击球」记录至少一杆", isError: false)
             return
         }
         let imageURL = context.sourceImageURL
@@ -937,11 +974,11 @@ struct BatchAuthoringView: View {
                 if context.advanceToNextUnsaved() {
                     dismiss()   // drillId 变 → 拍照页 onChange 重置到下一 drill 的选图
                 } else {
-                    flash("全部 drill 均已开工（≥1 球形）🎉")
+                    flash("全部 drill 均已开工（≥1 球形）🎉", isError: false)
                 }
             }
         } catch {
-            flash("保存失败：\(error.localizedDescription)")
+            flash("保存失败：\(error.localizedDescription)", isError: true)
         }
     }
 
@@ -955,18 +992,25 @@ struct BatchAuthoringView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(Color.btSuccess, in: Capsule())
+                    .background(bannerIsError ? Color.btDestructive : Color.btSuccess, in: Capsule())
                     .padding(.top, 60)
                 Spacer()
             }
             .transition(.move(edge: .top).combined(with: .opacity))
+            .animation(BTMotion.springPanel, value: banner)
         }
     }
 
-    private func flash(_ message: String) {
-        withAnimation { banner = message }
+    private func flash(_ message: String, isError: Bool = false) {
+        bannerIsError = isError
+        withAnimation(BTMotion.springPanel) { banner = message }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            withAnimation { banner = nil }
+            withAnimation(BTMotion.springPanel) {
+                if banner == message {
+                    banner = nil
+                    bannerIsError = false
+                }
+            }
         }
     }
 
