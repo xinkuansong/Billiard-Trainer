@@ -116,22 +116,22 @@ final class W27ScreenshotUITests: XCTestCase {
         }
         sleep(2)
 
-        // 结束训练（溢出菜单）→ 心得页
-        let menus = app.buttons.matching(NSPredicate(format: "label CONTAINS '更多'"))
-        if menus.firstMatch.exists {
-            menus.firstMatch.tap()
-        } else {
-            // 顶部溢出菜单 fallback：直接找菜单项
-            let overflow = app.navigationBars.buttons.element(boundBy: app.navigationBars.buttons.count - 1)
-            if overflow.exists { overflow.tap() }
+        // 先让计时 >0（elapsedSeconds==0 且无 drill 时顶栏「结束」会直接 dismiss）
+        if tapLabel("继续", timeout: 6) {
+            sleep(3)
         }
-        sleep(1)
-        if !tapLabel("结束训练", timeout: 4) {
+
+        // 顶栏「结束」→ 确认弹窗「结束训练？」→「结束」→ 心得页（F-TS-11 秒级时长）
+        guard app.buttons["结束"].waitForExistence(timeout: 10) else {
             snap("flow-no-end-button")
             return
         }
+        app.buttons["结束"].tap()
         sleep(1)
-        _ = tapLabel("结束", timeout: 4)
+        let confirmEnd = app.alerts.buttons["结束"]
+        if confirmEnd.waitForExistence(timeout: 4) {
+            confirmEnd.tap()
+        }
         sleep(2)
 
         // 心得页（F-TS-05/10、F-TR-10）
@@ -143,7 +143,15 @@ final class W27ScreenshotUITests: XCTestCase {
             sleep(1)
             snap("after-note-with-count")
         }
-        _ = tapLabel("完成", timeout: 4)
+        // 键盘工具栏与底栏各有一个「完成」：先收键盘再点底栏
+        let doneButtons = app.buttons.matching(NSPredicate(format: "label == '完成'"))
+        if doneButtons.firstMatch.waitForExistence(timeout: 4) {
+            doneButtons.firstMatch.tap()
+            sleep(1)
+            if doneButtons.firstMatch.exists {
+                doneButtons.firstMatch.tap()
+            }
+        }
         sleep(2)
 
         // 总结页（F-TS-01/02/11）

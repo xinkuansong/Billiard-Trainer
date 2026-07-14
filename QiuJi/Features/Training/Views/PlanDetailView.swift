@@ -23,6 +23,14 @@ struct PlanDetailView: View {
     @State private var activeCurrentWeek: Int? = nil
 
     var body: some View {
+        // F-PL-10: capture real top safe-area inset before the hero ignores it,
+        // so the PRO tag avoids the notch without a magic number.
+        GeometryReader { proxy in
+            content(topSafeInset: proxy.safeAreaInsets.top)
+        }
+    }
+
+    private func content(topSafeInset: CGFloat) -> some View {
         ZStack(alignment: .bottom) {
             if isLoading {
                 ProgressView()
@@ -30,7 +38,7 @@ struct PlanDetailView: View {
             } else if let plan {
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
-                        heroHeader(plan)
+                        heroHeader(plan, topSafeInset: topSafeInset)
 
                         VStack(spacing: Spacing.xl) {
                             if let point = planCoachingPoint {
@@ -80,7 +88,7 @@ struct PlanDetailView: View {
 
     // MARK: - Hero Header（杂志封面，方向 A：色块 + 大字，无图片）
 
-    private func heroHeader(_ plan: OfficialPlan) -> some View {
+    private func heroHeader(_ plan: OfficialPlan, topSafeInset: CGFloat) -> some View {
         ZStack(alignment: .bottomLeading) {
             BTPlanCover(
                 targetLevel: plan.targetLevel,
@@ -124,8 +132,8 @@ struct PlanDetailView: View {
                     Spacer()
                 }
                 .padding(.horizontal, Spacing.lg)
-                // F-PL-10: avoid magic 60 — safe area + Spacing token.
-                .safeAreaPadding(.top, Spacing.sm)
+                // F-PL-10: avoid magic 60 — real safe-area inset + Spacing token.
+                .padding(.top, topSafeInset + Spacing.sm)
             }
         }
         .frame(height: 280)
