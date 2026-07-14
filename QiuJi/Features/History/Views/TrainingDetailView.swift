@@ -89,6 +89,8 @@ struct TrainingDetailView: View {
             HStack(spacing: Spacing.xxl) {
                 statItem(value: "\(totalBallsMade(session))", label: "进球")
                 statItem(value: "\(totalSets(session))", label: "组")
+                // F-TS-06: surface precomputed overallRate alongside summary hero metric.
+                statItem(value: "\(Int(overallRate(session) * 100))%", label: "成功率")
                 statItem(value: "\(session.totalDurationMinutes)", label: "分钟")
                 statItem(value: timeRange(session), label: "时段")
                 statItem(value: dateLabel(session.date), label: "日期")
@@ -120,9 +122,13 @@ struct TrainingDetailView: View {
                 Spacer()
                 let made = entry.sets.reduce(0) { $0 + $1.madeBalls }
                 let target = entry.sets.reduce(0) { $0 + $1.targetBalls }
+                let rate = target > 0 ? Double(made) / Double(target) : 0
                 Text("\(made)/\(target)")
                     .font(.btSubheadline)
                     .foregroundStyle(.btText)
+                Text("\(Int(rate * 100))%")
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(drillRateColor(rate))
             }
 
             VStack(spacing: Spacing.md) {
@@ -299,6 +305,11 @@ struct TrainingDetailView: View {
         let totalTarget = session.drillEntries.flatMap(\.sets).reduce(0) { $0 + $1.targetBalls }
         guard totalTarget > 0 else { return 0 }
         return Double(totalMade) / Double(totalTarget)
+    }
+
+    private func drillRateColor(_ rate: Double) -> Color {
+        if rate >= 0.7 { return .btPrimary }
+        return colorScheme == .dark ? .btTextSecondary : .btWarning
     }
 }
 

@@ -124,7 +124,8 @@ struct PlanDetailView: View {
                     Spacer()
                 }
                 .padding(.horizontal, Spacing.lg)
-                .padding(.top, 60)
+                // F-PL-10: avoid magic 60 — safe area + Spacing token.
+                .safeAreaPadding(.top, Spacing.sm)
             }
         }
         .frame(height: 280)
@@ -160,7 +161,7 @@ struct PlanDetailView: View {
 
     private func trainingPointsBar(_ text: String) -> some View {
         HStack(alignment: .top, spacing: Spacing.sm) {
-            Image(systemName: "lightbulb.fill")
+            Image(systemName: BTIcon.lightbulb)
                 .font(.btFootnote)
                 .foregroundStyle(.btAccent)
 
@@ -187,7 +188,7 @@ struct PlanDetailView: View {
             Group {
                 if isCurrentPlanActive {
                     HStack(spacing: Spacing.sm) {
-                        Image(systemName: "checkmark.circle.fill")
+                        Image(systemName: BTIcon.checkmarkCircle)
                             .foregroundStyle(.btSuccess)
                         Text("当前已激活此计划")
                             .font(.btSubheadlineMedium)
@@ -197,6 +198,7 @@ struct PlanDetailView: View {
                     .padding(Spacing.lg)
                     .background(Color.btSuccess.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
                 } else if !plan.isPremium || subscriptionManager.isPremium {
                     Button {
                         showActivateConfirm = true
@@ -204,6 +206,7 @@ struct PlanDetailView: View {
                         Label("开始此计划", systemImage: "play.fill")
                     }
                     .buttonStyle(BTButtonStyle.primary)
+                    .transition(.opacity)
                 } else {
                     Button {
                         showSubscription = true
@@ -211,8 +214,11 @@ struct PlanDetailView: View {
                         Label("解锁此计划", systemImage: "lock.fill")
                     }
                     .buttonStyle(BTButtonStyle.primary)
+                    .transition(.opacity)
                 }
             }
+            .animation(BTMotion.springPanel, value: isCurrentPlanActive)
+            // F-PL-13: bottom CTA horizontal inset stays Spacing.lg (Home xxl is out of W2-7 scope).
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.sm)
             .background(alignment: .bottom) {
@@ -293,7 +299,7 @@ struct PlanDetailView: View {
             } label: {
                 chapterHeader(week)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.row)
 
             if expandedWeeks.contains(week.weekNumber) {
                 VStack(spacing: Spacing.md) {
@@ -342,9 +348,11 @@ struct PlanDetailView: View {
 
                     Spacer(minLength: Spacing.sm)
 
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    // F-PL-11: single chevron + rotation instead of up/down symbol swap.
+                    Image(systemName: BTIcon.chevronDown)
                         .font(.btHeadline)
                         .foregroundStyle(.btTextTertiary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
 
                 Text("\(week.sessions.count) 天 · \(totalMinutes) 分钟")
@@ -538,8 +546,10 @@ struct PlanDetailView: View {
         modelContext.insert(newPlan)
         try? modelContext.save()
 
-        isCurrentPlanActive = true
-        hasActivePlan = true
+        withAnimation(BTMotion.springPanel) {
+            isCurrentPlanActive = true
+            hasActivePlan = true
+        }
     }
 }
 

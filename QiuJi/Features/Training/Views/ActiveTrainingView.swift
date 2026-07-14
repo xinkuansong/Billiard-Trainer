@@ -34,10 +34,9 @@ struct ActiveTrainingView: View {
                         drillSummaries: viewModel.drillSummaries,
                         trainingNote: viewModel.trainingNote,
                         onSave: {
+                            // F-TS-02: Summary owns success toast + dismiss; return persistence result.
                             viewModel.saveTraining(context: modelContext)
-                            if viewModel.didSaveSuccessfully {
-                                dismiss()
-                            }
+                            return viewModel.didSaveSuccessfully
                         },
                         onGenerateShareImage: {
                             showShareView = true

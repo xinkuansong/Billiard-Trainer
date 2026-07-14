@@ -140,7 +140,7 @@ struct PlanListView: View {
     private var customSectionHeader: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: "hammer.fill")
+                Image(systemName: BTIcon.hammer)
                     .font(.btCaption2)
                     .foregroundStyle(.btAccent)
                 Text("用户创建")
@@ -204,7 +204,7 @@ struct PlanListView: View {
                                 Label("删除", systemImage: "trash")
                             }
                         } label: {
-                            Image(systemName: "ellipsis.circle")
+                            Image(systemName: BTIcon.menuCircle)
                                 .font(.btCallout)
                                 .foregroundStyle(.btTextTertiary)
                                 .frame(width: 32, height: 32)
@@ -232,7 +232,7 @@ struct PlanListView: View {
 
                         if isActive {
                             HStack(spacing: 2) {
-                                Image(systemName: "checkmark.circle.fill")
+                                Image(systemName: BTIcon.checkmarkCircle)
                                     .font(.btMicro)
                                 Text("已激活")
                                     .font(.btCaption2)
@@ -246,7 +246,7 @@ struct PlanListView: View {
                     }
                 }
 
-                Image(systemName: "chevron.right")
+                Image(systemName: BTIcon.chevronRight)
                     .font(.btFootnote14)
                     .foregroundStyle(.btTextTertiary)
             }
@@ -273,7 +273,7 @@ struct PlanListView: View {
                     .font(.btDisplaySmall)
                     .foregroundStyle(Color.btAccent)
                     .monospacedDigit()
-                Image(systemName: "hammer.fill")
+                Image(systemName: BTIcon.hammer)
                     .font(.btCaption2)
                     .foregroundStyle(Color.btAccent.opacity(0.7))
             }
