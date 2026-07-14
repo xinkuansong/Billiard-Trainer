@@ -19,8 +19,6 @@ struct DrillDetailView: View {
     @State private var playingVideo: DrillVideo?
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     private var isFavorited: Bool {
@@ -44,19 +42,24 @@ struct DrillDetailView: View {
                             .foregroundStyle(.btText)
                             .padding(.horizontal, Spacing.lg)
 
-                        actionIconRow
+                        // F-DD-01：露出 Bundle 已有 description（转化页信息权重）。
+                        Text(drill.description)
+                            .font(.btCallout)
+                            .foregroundStyle(.btTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, Spacing.lg)
+
                         tagsRow(drill)
 
-                        notesCard
-
                         if isLocked {
+                            // F-DD-04/09：锁态紧凑预览、不露假「查看精讲」；不改 isPremium 门槛。
                             BTPremiumLock(mode: .progressive(visibleItems: 1), onSubscribeTap: {
                                 showSubscription = true
                             }) {
-                                coachingSection(drill)
+                                coachingSection(drill, includeTutorialCTA: false, maxPoints: 2)
                             }
                         } else {
-                            coachingSection(drill)
+                            coachingSection(drill, includeTutorialCTA: true)
                             criteriaSection(drill)
                             dimensionsSection(drill)
                             videoSection(drill)
@@ -91,7 +94,10 @@ struct DrillDetailView: View {
                 } label: {
                     Image(systemName: isFavorited ? "heart.fill" : "heart")
                         .foregroundStyle(isFavorited ? .btAccent : .btTextSecondary)
+                        .contentTransition(.symbolEffect(.replace))
+                        .symbolEffect(.bounce, value: isFavorited)
                 }
+                .accessibilityLabel(isFavorited ? "取消收藏" : "收藏")
             }
         }
         .task {
@@ -187,32 +193,6 @@ struct DrillDetailView: View {
         .preferredColorScheme(.dark)
     }
 
-    // MARK: - Action Icon Row (gray, not green)
-
-    private var actionIconRow: some View {
-        HStack(spacing: Spacing.xxl) {
-            actionIcon(symbol: "list.bullet", label: "要点")
-            actionIcon(symbol: "clock.arrow.circlepath", label: "历史")
-            actionIcon(symbol: "chart.line.uptrend.xyaxis", label: "图表")
-        }
-        .padding(.horizontal, Spacing.lg)
-    }
-
-    private func actionIcon(symbol: String, label: String) -> some View {
-        VStack(spacing: Spacing.xs) {
-            Image(systemName: symbol)
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
-                .frame(width: 44, height: 44)
-                .background(.btBGTertiary)
-                .clipShape(Circle())
-
-            Text(label)
-                .font(.btCaption2)
-                .foregroundStyle(.btTextSecondary)
-        }
-    }
-
     // MARK: - Tags Row
 
     private static let ballTypeDisplayNames: [String: String] = [
@@ -252,14 +232,27 @@ struct DrillDetailView: View {
 
     // MARK: - Coaching Points
 
-    private func coachingSection(_ drill: DrillContent) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
+    /// - Parameters:
+    ///   - includeTutorialCTA: 解锁态才露「查看精讲」（F-DD-04：锁态不露假按钮）。
+    ///   - maxPoints: 锁态 progressive 预览收束点数（F-DD-09）；`nil` = 全部。
+    private func coachingSection(
+        _ drill: DrillContent,
+        includeTutorialCTA: Bool,
+        maxPoints: Int? = nil
+    ) -> some View {
+        let points: [(offset: Int, element: String)] = {
+            let enumerated = Array(drill.coachingPoints.enumerated())
+            if let maxPoints { return Array(enumerated.prefix(maxPoints)) }
+            return enumerated
+        }()
+
+        return VStack(alignment: .leading, spacing: Spacing.md) {
             Text("训练要点")
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                ForEach(Array(drill.coachingPoints.enumerated()), id: \.offset) { index, point in
+                ForEach(points, id: \.offset) { index, point in
                     HStack(alignment: .top, spacing: Spacing.sm) {
                         Text("\(index + 1)")
                             .font(.btCaption2)
@@ -276,7 +269,7 @@ struct DrillDetailView: View {
                 }
             }
 
-            if drill.tutorial != nil {
+            if includeTutorialCTA, drill.tutorial != nil {
                 Button {
                     showTutorial = true
                 } label: {
@@ -285,7 +278,7 @@ struct DrillDetailView: View {
                 .buttonStyle(BTButtonStyle.primary)
             }
         }
-        .padding(Spacing.lg)
+        .padding(includeTutorialCTA ? Spacing.lg : Spacing.md)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .padding(.horizontal, Spacing.lg)
@@ -322,26 +315,6 @@ struct DrillDetailView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Notes Card
-
-    private var notesCard: some View {
-        HStack(spacing: Spacing.md) {
-            Image(systemName: BTIcon.editPad)
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
-
-            Text("点击此处输入备注")
-                .font(.btCallout)
-                .foregroundStyle(.btTextTertiary)
-
-            Spacer()
-        }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        .padding(.horizontal, Spacing.lg)
-    }
-
     // MARK: - Training Dimensions
 
     private func dimensionsSection(_ drill: DrillContent) -> some View {
@@ -359,17 +332,18 @@ struct DrillDetailView: View {
                                 .font(.btFootnote)
                                 .foregroundStyle(.btTextSecondary)
                             Spacer()
-                            Text("\(Int(dim.value * 100))%")
+                            // F-DD-02：定性呈现，避免伪精度百分数。
+                            Text(Self.dimensionWeightLabel(dim.value))
                                 .font(.btCaption)
                                 .foregroundStyle(.btTextSecondary)
                         }
 
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
+                                RoundedRectangle(cornerRadius: BTRadius.xxs)
                                     .fill(Color.btBGTertiary)
                                     .frame(height: 6)
-                                RoundedRectangle(cornerRadius: 3)
+                                RoundedRectangle(cornerRadius: BTRadius.xxs)
                                     .fill(Color.btPrimary)
                                     .frame(width: geo.size.width * dim.value, height: 6)
                             }
@@ -380,7 +354,7 @@ struct DrillDetailView: View {
             }
 
             if let primary = dims.max(by: { $0.value < $1.value }) {
-                Text("此 Drill 主要训练\(primary.name)能力")
+                Text("此 Drill 主要训练\(primary.name)能力（示意倾向，非测评数据）")
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)
             }
@@ -389,6 +363,15 @@ struct DrillDetailView: View {
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .padding(.horizontal, Spacing.lg)
+    }
+
+    /// F-DD-02：启发式权重 → 定性档，不用伪装百分数。
+    private static func dimensionWeightLabel(_ value: CGFloat) -> String {
+        switch value {
+        case 0.65...: return "重点"
+        case 0.4..<0.65: return "中等"
+        default: return "辅助"
+        }
     }
 
     private struct DimensionData {
@@ -482,24 +465,17 @@ struct DrillDetailView: View {
     }
 
     private var emptyVideoPlaceholder: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Spacing.sm) {
-                ForEach(0..<3, id: \.self) { _ in
-                    ZStack {
-                        RoundedRectangle(cornerRadius: BTRadius.sm)
-                            .fill(Color.btBGTertiary)
-                        Image(systemName: BTIcon.playSlashed)
-                            .font(.system(size: 22))
-                            .foregroundStyle(.btTextTertiary)
-                    }
-                    .frame(width: 96, height: 64)
-                }
-                Text("即将上线")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-                    .padding(.horizontal, Spacing.sm)
-            }
+        // F-DD-03：紧凑空态，不去铺三枚幽灵封面。
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: BTIcon.playSlashed)
+                .font(.btTitle2)
+                .foregroundStyle(.btTextTertiary)
+            Text("视频示范即将上线")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, Spacing.sm)
     }
 
     private func videoThumbnail(video: DrillVideo, index: Int) -> some View {
@@ -516,7 +492,8 @@ struct DrillDetailView: View {
                     .foregroundStyle(.btTextSecondary)
             }
         }
-        .buttonStyle(.plain)
+        // F-DD-06：缩略图按压反馈。
+        .buttonStyle(BTPressableStyle.row)
     }
 
     // MARK: - Bottom Bar
@@ -533,23 +510,12 @@ struct DrillDetailView: View {
                 }
                 .buttonStyle(GoldFilledButtonStyle())
             } else {
-                Button { dismiss() } label: {
+                // F-DL-02：隐藏空 CTA「加入训练」；底栏单钮全宽「上手试打」。
+                Button { startTryout() } label: {
                     HStack(spacing: Spacing.xs) {
-                        Image(systemName: BTIcon.close)
+                        Image(systemName: BTIcon.playCircleFilled)
                             .font(.btFootnote14)
-                        Text("关闭")
-                    }
-                }
-                .buttonStyle(BTButtonStyle.darkPill)
-                .frame(width: 100)
-
-                Button {
-                    // TODO: Add to active training
-                } label: {
-                    HStack(spacing: Spacing.xs) {
-                        Image(systemName: BTIcon.plusCircleFilled)
-                            .font(.btFootnote14)
-                        Text("加入训练")
+                        Text("上手试打")
                     }
                 }
                 .buttonStyle(BTButtonStyle.primary)
@@ -569,10 +535,13 @@ struct DrillDetailView: View {
     }
 
     private func toggleFavorite() {
-        if let existing = favorites.first(where: { $0.drillId == drillId }) {
-            modelContext.delete(existing)
-        } else {
-            modelContext.insert(DrillFavorite(drillId: drillId))
+        // F-DD-07：收藏切换短过渡。
+        withAnimation(BTMotion.easeFast) {
+            if let existing = favorites.first(where: { $0.drillId == drillId }) {
+                modelContext.delete(existing)
+            } else {
+                modelContext.insert(DrillFavorite(drillId: drillId))
+            }
         }
     }
 }
@@ -646,7 +615,7 @@ private struct VideoThumbnailView: View {
             )
 
             Image(systemName: failed ? "play.slash.fill" : "play.circle.fill")
-                .font(.system(size: 26))
+                .font(.btTitle)
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.4), radius: 3, y: 1)
         }
@@ -708,7 +677,7 @@ private struct DrillVideoPlayerSheet: View {
                         dismiss()
                     } label: {
                         Image(systemName: BTIcon.closeFilled)
-                            .font(.system(size: 28))
+                            .font(.btTitle)
                             .symbolRenderingMode(.hierarchical)
                             .foregroundStyle(.white.opacity(0.9))
                             .padding(Spacing.md)

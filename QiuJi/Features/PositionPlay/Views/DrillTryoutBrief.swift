@@ -124,15 +124,17 @@ struct DrillTryoutBriefCard: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             ForEach(DrillTryoutBrief.lines(for: drill, formation: formation)) { line in
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                     Text(line.label)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.btCaption2)
+                        .fontWeight(.semibold)
                         .foregroundStyle(.btPrimary)
                         .frame(width: 52, alignment: .leading)
                     Text(line.text)
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.btCaption)
+                        .fontWeight(.medium)
                         .foregroundStyle(.white.opacity(0.92))
                         .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -140,15 +142,15 @@ struct DrillTryoutBriefCard: View {
             }
             if let footnote {
                 Text(footnote)
-                    .font(.system(size: 10.5, weight: .medium))
+                    .font(.btMicro)
                     .foregroundStyle(.white.opacity(0.55))
                     .padding(.top, 2)
             }
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
-        .btHudGlass(in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .btHudGlass(in: RoundedRectangle(cornerRadius: BTRadius.md, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: BTRadius.md, style: .continuous))
         .onTapGesture { onClose() }
         .accessibilityIdentifier("tryout.briefCard")
     }
