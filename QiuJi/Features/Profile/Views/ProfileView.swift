@@ -92,6 +92,14 @@ struct ProfileView: View {
         } message: {
             Text("检测到本地训练记录，登录后可同步至云端，换机也不会丢失。")
         }
+        .alert("同步失败", isPresented: Binding(
+            get: { authState.errorMessage != nil },
+            set: { if !$0 { authState.errorMessage = nil } }
+        )) {
+            Button("好的", role: .cancel) { authState.errorMessage = nil }
+        } message: {
+            Text(authState.errorMessage ?? "数据同步失败，稍后会自动重试")
+        }
     }
 
     // MARK: - Logged In Header

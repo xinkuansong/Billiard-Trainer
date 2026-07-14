@@ -67,6 +67,7 @@ struct DrillRecordView: View {
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
         }
+        .scrollDismissesKeyboard(.interactively)
         .onAppear {
             if showSetTimer {
                 activeSetStartTime = Date()

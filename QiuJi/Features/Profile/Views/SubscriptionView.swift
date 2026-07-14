@@ -7,6 +7,7 @@ struct SubscriptionView: View {
     @State private var selectedProductID: String?
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
+    @State private var showPurchaseErrorAlert = false
 
     // Paywall uses a near-black background distinct from btBG to create a premium feel
     private static let bgPaywall = Color(red: 0x11 / 255.0, green: 0x11 / 255.0, blue: 0x11 / 255.0)
@@ -49,6 +50,11 @@ struct SubscriptionView: View {
             Button("好的") {}
         } message: {
             Text(restoreMessage)
+        }
+        .alert("购买失败", isPresented: $showPurchaseErrorAlert) {
+            Button("好的") {}
+        } message: {
+            Text(subscriptionManager.errorMessage ?? "购买未完成，请稍后重试")
         }
     }
 
@@ -366,7 +372,11 @@ struct SubscriptionView: View {
         guard let id = selectedProductID,
               let product = subscriptionManager.products.first(where: { $0.id == id }) else { return }
         let success = await subscriptionManager.purchase(product)
-        if success { dismiss() }
+        if success {
+            dismiss()
+        } else if subscriptionManager.errorMessage != nil {
+            showPurchaseErrorAlert = true
+        }
     }
 
     private func handleRestore() async {

@@ -98,8 +98,18 @@ struct PhoneLoginView: View {
                     Spacer().frame(height: Spacing.xxxl)
 
                     // MARK: - Login Button
-                    Button("登录") {
+                    Button {
                         login()
+                    } label: {
+                        HStack(spacing: Spacing.sm) {
+                            if isLoggingIn {
+                                ProgressView()
+                                    .tint(.white)
+                                Text("登录中")
+                            } else {
+                                Text("登录")
+                            }
+                        }
                     }
                     .buttonStyle(BTButtonStyle.primary)
                     .disabled(!canLogin || isLoggingIn)

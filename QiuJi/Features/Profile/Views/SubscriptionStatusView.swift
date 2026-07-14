@@ -92,13 +92,21 @@ struct SubscriptionStatusView: View {
             Button {
                 Task { await handleRestore() }
             } label: {
-                Text("恢复购买")
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextSecondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.md)
+                Group {
+                    if subscriptionManager.isLoading {
+                        ProgressView()
+                            .tint(.btTextSecondary)
+                    } else {
+                        Text("恢复购买")
+                            .font(.btCallout)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Spacing.md)
             }
             .buttonStyle(.plain)
+            .disabled(subscriptionManager.isLoading)
         }
     }
 
