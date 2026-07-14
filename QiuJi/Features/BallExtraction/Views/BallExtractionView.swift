@@ -19,6 +19,8 @@ struct BallExtractionView: View {
 
     @State private var photoItem: PhotosPickerItem?
     @State private var activeHandle: Int?
+    /// F-PP-04：选图异步加载进行时。
+    @State private var isLoadingPhoto = false
 
     /// 建球形拖动：死区破区后锁定的恒定错位（nil = 尚未破区）。
     /// 一次性闸门，破区后球标 1:1 跟随手指、反向拖动保留间距。`.onEnded` 清空。
@@ -136,8 +138,14 @@ struct BallExtractionView: View {
             }
             PhotosPicker(selection: $photoItem, matching: .images) {
                 HStack(spacing: 8) {
-                    Image(systemName: "photo.on.rectangle")
-                    Text("选择照片")
+                    if isLoadingPhoto {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "photo.on.rectangle")
+                    }
+                    Text(isLoadingPhoto ? "加载中…" : "选择照片")
                         .font(.system(size: 15, weight: .bold))
                 }
                 .foregroundStyle(.white)
@@ -145,6 +153,8 @@ struct BallExtractionView: View {
                 .background(Color.btPrimary, in: Capsule())
             }
             .buttonStyle(BTPressableStyle.capsule)
+            .disabled(isLoadingPhoto)
+            .opacity(isLoadingPhoto ? 0.7 : 1)
             Spacer()
         }
         .padding(Spacing.lg)
@@ -626,12 +636,13 @@ struct BallExtractionView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(Color.btDestructive, in: Capsule())
+                    // F-PP-05：错误 → btDestructive；提示/完成 → btSuccess。
+                    .background(vm.messageIsError ? Color.btDestructive : Color.btSuccess, in: Capsule())
                     .padding(.top, 60)
                 Spacer()
             }
             .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(.easeInOut, value: vm.message)
+            .animation(BTMotion.springPanel, value: vm.message)
         }
     }
 
@@ -711,15 +722,29 @@ struct BallExtractionView: View {
 
     private func loadPhoto(_ item: PhotosPickerItem?) {
         guard let item else { return }
+        isLoadingPhoto = true
         Task {
-            if let data = try? await item.loadTransferable(type: Data.self),
-               let img = UIImage(data: data) {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self),
+                      let img = UIImage(data: data) else {
+                    await MainActor.run {
+                        isLoadingPhoto = false
+                        vm.flash("无法读取照片，请重试", isError: true)
+                    }
+                    return
+                }
                 await MainActor.run {
                     vm.image = img
                     vm.corners = BallExtractionViewModel.defaultCorners
                     vm.marks = []
                     vm.activePaletteKey = PositionPlayBall.cueKey
                     vm.step = .calibrate
+                    isLoadingPhoto = false
+                }
+            } catch {
+                await MainActor.run {
+                    isLoadingPhoto = false
+                    vm.flash("照片加载失败：\(error.localizedDescription)", isError: true)
                 }
             }
         }

@@ -226,23 +226,26 @@ struct AngleDynamicView: View {
     private func ballToken(_ key: String) -> some View {
         let onTable = vm.onTableKeys.contains(key)
         let isTarget = vm.selectedTargetKey == key
-        return PoolBallFace(key: key, diameter: 36)
-            .overlay(
-                Circle().stroke(isTarget ? Color.btPrimary : .white.opacity(0.18),
-                                lineWidth: isTarget ? 2 : 0.5)
-            )
-            .frame(width: 38, height: 38)
-            .contentShape(Circle())
-            .opacity(onTable ? 0.3 : 1)
-            .onTapGesture {
-                if onTable {
-                    vm.removeFromTable(key)
-                } else {
-                    vm.placeFromPalette(key)
-                }
+        return Button {
+            if onTable {
+                vm.removeFromTable(key)
+            } else {
+                vm.placeFromPalette(key)
             }
-            .accessibilityLabel("球库 \(key)")
-            .accessibilityIdentifier("paletteBall_\(key)")
+        } label: {
+            PoolBallFace(key: key, diameter: 36)
+                .overlay(
+                    Circle().stroke(isTarget ? Color.btPrimary : .white.opacity(0.18),
+                                    lineWidth: isTarget ? 2 : 0.5)
+                )
+                .frame(width: 38, height: 38)
+                .contentShape(Circle())
+                .opacity(onTable ? 0.3 : 1)
+        }
+        // F-AK-04：球库按下反馈；不改 placeFromPalette / removeFromTable。
+        .buttonStyle(BTPressableStyle.row)
+        .accessibilityLabel("球库 \(key)")
+        .accessibilityIdentifier("paletteBall_\(key)")
     }
 
     // MARK: - Status banner (bottom)

@@ -143,14 +143,19 @@ struct AimPointTrainingView: View {
                 figureCard
                 if vm.showResult {
                     resultCard
+                        .transition(.opacity)
                 } else if vm.limiter.isLimitReached {
                     limitCard
+                        .transition(.opacity)
                 } else if vm.question != nil {
                     promptCard
+                        .transition(.opacity)
                 }
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxl)
+            .animation(BTMotion.easeChrome, value: vm.showResult)
+            .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
         }
         .scrollBounceBehavior(.basedOnSize)
         .background(Color.black.ignoresSafeArea())
@@ -310,7 +315,8 @@ struct AimPointTrainingView: View {
                 .padding(.vertical, 11)
                 .background(Capsule().fill(Color.btPrimary))
         }
-        .buttonStyle(.plain)
+        // F-SA-05：场景绿胶囊轻量 press。
+        .buttonStyle(BTPressableStyle.capsule)
     }
 }
 
@@ -384,7 +390,7 @@ private struct AimPointDragFigure: View {
                         vm.userPhi = min(max(phi, -.pi / 2), .pi / 2)
                     }
             )
-            .animation(.easeOut(duration: 0.1), value: vm.userPhi)
+            // F-SA-04：拖动跟手 1:1，去掉 value: userPhi 的隐式动画。
         }
     }
 

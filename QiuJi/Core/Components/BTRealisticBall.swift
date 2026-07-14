@@ -112,22 +112,9 @@ struct BTRealisticBall: View {
 
     // MARK: - Ghost ball
 
+    /// F-SC-09：库内转发 `BTGhostCircle`；不删文件、不改 Scene USDZ 假想球。
     private var ghostBody: some View {
-        ZStack {
-            Circle().fill(Color.white.opacity(0.14))
-            Circle().fill(
-                RadialGradient(
-                    colors: [.white.opacity(0.10), .clear],
-                    center: UnitPoint(x: 0.34, y: 0.30),
-                    startRadius: 0,
-                    endRadius: diameter * 0.55
-                )
-            )
-            Circle().strokeBorder(
-                Color.white.opacity(0.75),
-                style: StrokeStyle(lineWidth: max(1, diameter * 0.025), dash: [diameter * 0.10, diameter * 0.07])
-            )
-        }
+        BTGhostCircle(diameter: diameter)
     }
 }
 

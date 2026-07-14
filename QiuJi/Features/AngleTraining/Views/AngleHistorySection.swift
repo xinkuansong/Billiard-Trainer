@@ -64,6 +64,8 @@ struct AngleHistorySection: View {
                                     .stroke(vm.quizTypeFilter == filter ? Color.clear : Color.btSeparator, lineWidth: 1)
                             )
                     }
+                    // F-AK-06：筛选 chip 共享 press，对齐 segmentedPill 手感。
+                    .buttonStyle(BTPressableStyle.capsule)
                 }
             }
         }

@@ -63,8 +63,13 @@ struct SceneAimingView: View {
                 if vm.phase == .inputting, !vm.testFinished {
                     keypadOverlay
                 }
-                if vm.testFinished { summaryOverlay }
+                if vm.testFinished {
+                    summaryOverlay
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
             }
+            .animation(BTMotion.easeChrome, value: vm.phase)
+            .animation(BTMotion.easeChrome, value: vm.testFinished)
         }
         .navigationTitle(is3D ? "3D 角度训练" : "2D 角度训练")
         .navigationBarTitleDisplayMode(.inline)
@@ -248,14 +253,14 @@ struct SceneAimingView: View {
         if !is3D, proxy.isValid {
             content()
                 .btStageFrame(proxy.bottomTrailingFrame(size: size))
-                .transition(.scale.combined(with: .opacity))
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
         } else {
             content()
                 .padding(.trailing, Spacing.lg)
                 .padding(.bottom, Spacing.xl + 64)
                 .frame(maxWidth: .infinity, maxHeight: .infinity,
                        alignment: .bottomTrailing)
-                .transition(.scale.combined(with: .opacity))
+                .transition(.scale(scale: 0.95).combined(with: .opacity))
         }
     }
 
@@ -418,8 +423,14 @@ struct SceneAimingView: View {
                     Text("今日免费次数已用完").font(.btHeadline).foregroundStyle(.white)
                     Button { showSubscription = true } label: {
                         Label("解锁全部内容", systemImage: "crown.fill")
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Spacing.xl)
+                            .padding(.vertical, 11)
+                            .background(Capsule().fill(Color.btPrimary))
                     }
-                    .buttonStyle(BTButtonStyle.primary)
+                    // F-SA-05：场景绿胶囊轻量 press；禁 BTButtonStyle.primary。
+                    .buttonStyle(BTPressableStyle.capsule)
                     .padding(.horizontal, Spacing.xxxxl)
                 }
             }

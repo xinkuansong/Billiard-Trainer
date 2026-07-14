@@ -489,6 +489,9 @@ struct AimPointSceneTrainingView: View {
         HStack(spacing: Spacing.sm) {
             if vm.phase == .showingResult, let err = vm.lastErrorMM {
                 resultHUD(errorMM: err)
+            } else if vm.phase == .striking {
+                // F-SA-03：击球进行时 chrome；不延长物理、不改自动下一题。
+                strikingPill
             } else {
                 statsPill
             }
@@ -542,6 +545,20 @@ struct AimPointSceneTrainingView: View {
             }
         }
         .foregroundStyle(.white)
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .btHudGlass()
+    }
+
+    private var strikingPill: some View {
+        HStack(spacing: Spacing.sm) {
+            ProgressView()
+                .controlSize(.mini)
+                .tint(.white)
+            Text("击球验证中…")
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(.white)
+        }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
         .btHudGlass()
@@ -636,7 +653,7 @@ struct AimPointSceneTrainingView: View {
                     .padding(.vertical, 10)
                     .background(Capsule().fill(Color.btPrimary))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.capsule)
         }
         .padding(Spacing.xl)
         .btHudGlass(in: RoundedRectangle(cornerRadius: BTRadius.xl))

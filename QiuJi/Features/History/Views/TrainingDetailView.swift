@@ -57,7 +57,6 @@ struct TrainingDetailView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
-                    headerSection(session)
                     statsRow(session)
 
                     VStack(spacing: Spacing.md) {
@@ -82,19 +81,8 @@ struct TrainingDetailView: View {
         }
     }
 
-    // MARK: - Header
-
-    private func headerSection(_ session: TrainingSession) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text(primaryCategory(for: session).trainingNameZh)
-                .font(.btTitle2)
-                .foregroundStyle(.btText)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.top, Spacing.sm)
-    }
-
     // MARK: - Stats Row (horizontal scroll)
+    // F-HI-10：去掉与 toolbar principal 重复的正文大标题。
 
     private func statsRow(_ session: TrainingSession) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {

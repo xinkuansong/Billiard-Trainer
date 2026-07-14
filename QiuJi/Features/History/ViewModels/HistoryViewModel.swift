@@ -372,6 +372,7 @@ final class HistoryViewModel: ObservableObject {
         let repo = LocalTrainingSessionRepository(context: context)
         do {
             sessions = try await repo.fetchAll()
+            errorMessage = nil
         } catch {
             errorMessage = "加载训练记录失败"
         }

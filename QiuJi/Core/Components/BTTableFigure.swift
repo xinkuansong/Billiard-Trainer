@@ -29,8 +29,8 @@ struct BTTableFigure<Overlay: View>: View {
                         .aspectRatio(contentMode: .fill)
                     overlay(TableFigureProjection(backdrop: backdrop, size: geo.size))
                 } else {
-                    // 首渲（USDZ 解析）前的占位：黑场 + 极简加载指示，与场景页同调。
-                    Color.black
+                    // F-SC-04：台面加载占位用毛毡色，与预览/烘焙缺图同源（非页面黑底铁律）。
+                    Color.btTableFelt
                     ProgressView().tint(.white.opacity(0.4))
                 }
             }
