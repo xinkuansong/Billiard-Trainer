@@ -354,9 +354,17 @@ final class ActiveTrainingViewModel: ObservableObject {
         guard drillIndex < drillSetsData.count,
               setIndex < drillSetsData[drillIndex].count else { return }
         let wasCompleted = drillSetsData[drillIndex][setIndex].isCompleted
-        drillSetsData[drillIndex][setIndex].isCompleted.toggle()
+        // F-AT-02: animate completion / active-bar handoff
+        withAnimation(BTMotion.easeFast) {
+            drillSetsData[drillIndex][setIndex].isCompleted.toggle()
+        }
 
         guard !wasCompleted else { return }
+
+        // F-AT-11: light haptic only on incomplete → complete (no sound expansion)
+        let impact = UIImpactFeedbackGenerator(style: .light)
+        impact.prepare()
+        impact.impactOccurred()
 
         if drillSetsData[drillIndex].allSatisfy({ $0.isCompleted }) {
             if drillIndex < drills.count - 1 {
@@ -428,9 +436,12 @@ final class ActiveTrainingViewModel: ObservableObject {
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
         generator.notificationOccurred(.success)
+        // F-AT-07: chrome dismiss ≤300ms (was 800ms zombie at 0:00)
         Task {
-            try? await Task.sleep(for: .milliseconds(800))
-            isRestTimerActive = false
+            try? await Task.sleep(for: .milliseconds(250))
+            withAnimation(BTMotion.easeChrome) {
+                isRestTimerActive = false
+            }
             if let next = pendingDrillAdvance {
                 pendingDrillAdvance = nil
                 currentDrillIndex = next
@@ -459,6 +470,8 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     func addRestTime(_ seconds: Int) {
+        // F-AT-07: block +30S once countdown has hit zero (dismiss window)
+        guard isRestTimerActive, restSecondsRemaining > 0 else { return }
         restSecondsRemaining += seconds
         restTotalSeconds += seconds
         restEndDate = restEndDate?.addingTimeInterval(Double(seconds))

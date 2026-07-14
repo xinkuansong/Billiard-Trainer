@@ -16,6 +16,7 @@ struct DrillRecordView: View {
     @State private var showRestPicker = false
     @State private var activeSetStartTime: Date?
     @State private var tutorialDrill: DrillContent?
+    @State private var showTutorialUnavailable = false
     @Environment(\.colorScheme) private var colorScheme
 
     private var totalMade: Int {
@@ -86,6 +87,12 @@ struct DrillRecordView: View {
                     }
             }
         }
+        // F-TU-11: honest feedback when bundle load returns nil
+        .alert("暂时无法打开精讲", isPresented: $showTutorialUnavailable) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text("当前训练项的精讲内容暂不可用，请稍后再试。")
+        }
     }
 
     // MARK: - Drill Info Header
@@ -107,7 +114,13 @@ struct DrillRecordView: View {
         let drillId = drill.drillId
         Task {
             let content = await DrillContentService.shared.loadDrillFromBundle(id: drillId)
-            await MainActor.run { tutorialDrill = content }
+            await MainActor.run {
+                if let content {
+                    tutorialDrill = content
+                } else {
+                    showTutorialUnavailable = true
+                }
+            }
         }
     }
 
@@ -115,19 +128,22 @@ struct DrillRecordView: View {
 
     private var liveStatsBanner: some View {
         HStack(spacing: Spacing.md) {
-            Image(systemName: isAllCompleted ? "checkmark.seal.fill" : "chart.bar.fill")
+            Image(systemName: isAllCompleted ? BTIcon.completeSeal : BTIcon.chartBarFilled)
                 .font(.btStatNumber)
                 .foregroundStyle(isAllCompleted ? .btSuccess : .btPrimary)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(isAllCompleted ? "本项训练完成" : "训练进行中")
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
 
                 HStack(spacing: Spacing.xs) {
+                    // F-AT-09: numericText on made/target as well as rate
                     Text("共进球 \(totalMade)/\(totalTarget)")
                         .font(.btCaption)
                         .foregroundStyle(.btTextSecondary)
+                        .contentTransition(.numericText())
+                        .animation(BTMotion.easeFast, value: totalMade)
 
                     if totalTarget > 0 {
                         Text("·")
@@ -137,7 +153,7 @@ struct DrillRecordView: View {
                             .fontWeight(.medium)
                             .foregroundStyle(successRateColor)
                             .contentTransition(.numericText())
-                            .animation(.default, value: totalMade)
+                            .animation(BTMotion.easeFast, value: totalMade)
                     }
                 }
             }
@@ -147,6 +163,7 @@ struct DrillRecordView: View {
         .padding(Spacing.lg)
         .background(isAllCompleted ? Color.btSuccess.opacity(0.1) : Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .animation(BTMotion.easeFast, value: isAllCompleted)
     }
 
     // MARK: - Note Input
@@ -247,12 +264,12 @@ struct DrillRecordView: View {
 
     private func toggleItem(label: String, isOn: Binding<Bool>) -> some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(BTMotion.easeFast) {
                 isOn.wrappedValue.toggle()
             }
         } label: {
             HStack(spacing: Spacing.xs) {
-                Image(systemName: isOn.wrappedValue ? "checkmark" : "")
+                Image(systemName: isOn.wrappedValue ? BTIcon.checkmark : "")
                     .font(.btCaption2)
                     .fontWeight(.bold)
                     .foregroundStyle(.btPrimary)
@@ -263,15 +280,16 @@ struct DrillRecordView: View {
                     .foregroundStyle(isOn.wrappedValue ? .btText : .btTextSecondary)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.row)
     }
 
     // MARK: - Ball Table
 
     private var ballTableSection: some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
+            // F-AT-03: single chevron + rotation; content transition via springPanel
             Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(BTMotion.springPanel) {
                     showBallTable.toggle()
                 }
             } label: {
@@ -279,23 +297,27 @@ struct DrillRecordView: View {
                     Text("球台示意")
                         .font(.btSubheadlineMedium)
                         .foregroundStyle(.btText)
-                    Image(systemName: showBallTable ? "chevron.down" : "chevron.right")
+                    Image(systemName: BTIcon.chevronDown)
                         .font(.btCaption.weight(.medium))
                         .foregroundStyle(.btTextTertiary)
+                        .rotationEffect(.degrees(showBallTable ? 180 : 0))
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.row)
 
             if showBallTable, drill.animation != nil {
-                BTBakedDrillTable(drillId: drill.drillId)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    BTBakedDrillTable(drillId: drill.drillId)
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
 
-                if !drill.description.isEmpty {
-                    Text(drill.description)
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-                        .lineLimit(2)
+                    if !drill.description.isEmpty {
+                        Text(drill.description)
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                            .lineLimit(2)
+                    }
                 }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
         .padding(Spacing.lg)
