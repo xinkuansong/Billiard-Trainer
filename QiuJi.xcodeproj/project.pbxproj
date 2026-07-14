@@ -2072,6 +2072,7 @@
 				INFOPLIST_FILE = QiuJi/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "球迹";
 				INFOPLIST_KEY_NSCameraUsageDescription = "拍摄训练视频";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "将训练分享卡保存到相册";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "选择训练视频或图片";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -2190,6 +2191,7 @@
 				INFOPLIST_FILE = QiuJi/Resources/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = "球迹";
 				INFOPLIST_KEY_NSCameraUsageDescription = "拍摄训练视频";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "将训练分享卡保存到相册";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "选择训练视频或图片";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

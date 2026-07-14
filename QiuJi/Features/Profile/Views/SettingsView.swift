@@ -5,6 +5,8 @@ struct SettingsView: View {
     @EnvironmentObject private var authState: AuthState
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
+    @State private var showDeleteErrorAlert = false
+    @State private var deleteErrorMessage: String?
     @State private var showClearCacheConfirmation = false
     @State private var cacheSize: String = "计算中…"
 
@@ -43,14 +45,32 @@ struct SettingsView: View {
         } message: {
             Text("将永久删除你的账号和云端数据，本地数据保留。此操作不可撤销。")
         }
-        .alert("注销失败", isPresented: .constant(authState.errorMessage != nil && isDeletingAccount)) {
+        .alert("注销失败", isPresented: Binding(
+            get: { showDeleteErrorAlert },
+            set: { if !$0 { dismissDeleteError() } }
+        )) {
             Button("重试") { deleteAccount() }
-            Button("取消", role: .cancel) {
-                authState.errorMessage = nil
-                isDeletingAccount = false
-            }
+            Button("取消", role: .cancel) { dismissDeleteError() }
         } message: {
-            Text(authState.errorMessage ?? "网络问题，请稍后重试。")
+            Text(deleteErrorMessage ?? "网络问题，请稍后重试。")
+        }
+        .overlay {
+            if isDeletingAccount {
+                ZStack {
+                    Color.black.opacity(0.25).ignoresSafeArea()
+                    VStack(spacing: Spacing.md) {
+                        ProgressView()
+                            .tint(.btPrimary)
+                        Text("正在注销…")
+                            .font(.btCallout)
+                            .foregroundStyle(.btText)
+                    }
+                    .padding(Spacing.xxl)
+                    .background(Color.btBGSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                }
+                .allowsHitTesting(true)
+            }
         }
     }
 
@@ -156,10 +176,19 @@ struct SettingsView: View {
                 .padding(.leading, Spacing.xs)
 
             VStack(spacing: 0) {
-                Button { showDeleteConfirmation = true } label: {
-                    settingsRow(title: "注销账号", detail: nil, detailColor: .btDestructive, titleColor: .btDestructive)
+                Button {
+                    guard !isDeletingAccount else { return }
+                    showDeleteConfirmation = true
+                } label: {
+                    settingsRow(
+                        title: "注销账号",
+                        detail: isDeletingAccount ? "处理中…" : nil,
+                        detailColor: .btDestructive,
+                        titleColor: .btDestructive
+                    )
                 }
                 .buttonStyle(.plain)
+                .disabled(isDeletingAccount)
             }
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
@@ -213,16 +242,26 @@ struct SettingsView: View {
     }
 
     private func deleteAccount() {
+        guard !isDeletingAccount else { return }
         isDeletingAccount = true
+        deleteErrorMessage = nil
+        showDeleteErrorAlert = false
         Task {
             do {
                 try await BackendSyncService.shared.deleteAccount()
                 isDeletingAccount = false
                 authState.logout()
             } catch {
-                authState.errorMessage = "网络问题，请稍后重试。"
+                deleteErrorMessage = "网络问题，请稍后重试。"
+                isDeletingAccount = false
+                showDeleteErrorAlert = true
             }
         }
+    }
+
+    private func dismissDeleteError() {
+        showDeleteErrorAlert = false
+        deleteErrorMessage = nil
     }
 }
 

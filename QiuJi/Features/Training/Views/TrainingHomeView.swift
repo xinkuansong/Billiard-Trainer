@@ -8,6 +8,14 @@ struct TrainingHomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
+    @Query private var activePlans: [UserActivePlan]
+
+    private var activePlanSignature: String {
+        activePlans
+            .map { "\($0.planId)|\($0.isCustom)" }
+            .sorted()
+            .joined(separator: ";")
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -36,6 +44,9 @@ struct TrainingHomeView: View {
         }
         .task {
             await viewModel.load(context: modelContext)
+        }
+        .onChange(of: activePlanSignature) { _, _ in
+            Task { await viewModel.load(context: modelContext) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .didRequestResumeTraining)) { _ in
             router.resumeMinimizedTraining()

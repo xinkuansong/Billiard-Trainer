@@ -88,6 +88,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: 球迹
         INFOPLIST_KEY_NSCameraUsageDescription: 拍摄训练视频
         INFOPLIST_KEY_NSPhotoLibraryUsageDescription: 选择训练视频或图片
+        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: 将训练分享卡保存到相册
     info:
       path: QiuJi/Resources/Info.plist
       properties:

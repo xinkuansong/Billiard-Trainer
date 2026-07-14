@@ -1,4 +1,5 @@
 import SwiftUI
+import Photos
 
 struct TrainingShareView: View {
     let session: TrainingSessionSummary
@@ -7,10 +8,11 @@ struct TrainingShareView: View {
 
     @State private var selectedTheme: ShareCardTheme = .defaultGreen
     @State private var selectedFont: ShareCardFont = .system
-    @State private var hideNote = false
     @State private var hideSuccessRate = false
-    @State private var hideBallTable = false
     @State private var showSavedAlert = false
+    @State private var showSaveErrorAlert = false
+    @State private var saveErrorMessage = ""
+    @State private var isSavingToPhotos = false
 
     var body: some View {
         NavigationStack {
@@ -37,24 +39,32 @@ struct TrainingShareView: View {
             .alert("已保存到相册", isPresented: $showSavedAlert) {
                 Button("好的", role: .cancel) {}
             }
+            .alert("保存失败", isPresented: $showSaveErrorAlert) {
+                Button("好的", role: .cancel) {}
+            } message: {
+                Text(saveErrorMessage)
+            }
         }
     }
 
     // MARK: - Card Preview
 
+    private var shareCard: some View {
+        BTShareCard(
+            session: session,
+            theme: selectedTheme,
+            fontChoice: selectedFont,
+            hideSuccessRate: hideSuccessRate
+        )
+    }
+
     private var cardPreview: some View {
         ScrollView {
-            BTShareCard(
-                session: session,
-                theme: selectedTheme,
-                fontChoice: selectedFont,
-                hideSuccessRate: hideSuccessRate,
-                hideBallTable: hideBallTable
-            )
-            .frame(maxWidth: 361)
-            .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.18), radius: 12, x: 0, y: 4)
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, Spacing.xxl)
+            shareCard
+                .frame(maxWidth: 361)
+                .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.18), radius: 12, x: 0, y: 4)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.xxl)
         }
         .frame(maxWidth: .infinity)
     }
@@ -91,7 +101,7 @@ struct TrainingShareView: View {
             HStack(spacing: 0) {
                 ForEach(ShareCardFont.allCases, id: \.rawValue) { font in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(BTMotion.easeFast) {
                             selectedFont = font
                         }
                     } label: {
@@ -144,13 +154,14 @@ struct TrainingShareView: View {
                 .foregroundStyle(selectedTheme == theme ? .btText : .btTextSecondary)
         }
         .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
+            withAnimation(BTMotion.easeFast) {
                 selectedTheme = theme
             }
         }
     }
 
     // MARK: - Option Toggles
+    // F-TR-02: hide dead switches (隐藏备注 / 隐藏球台图). Keep wired「隐藏成功率」.
 
     private var optionToggles: some View {
         HStack(alignment: .top) {
@@ -158,17 +169,13 @@ struct TrainingShareView: View {
                 .font(.btSubheadline)
                 .foregroundStyle(.btTextSecondary)
             Spacer()
-            HStack(spacing: Spacing.sm) {
-                togglePill("隐藏备注", isActive: $hideNote)
-                togglePill("隐藏成功率", isActive: $hideSuccessRate)
-                togglePill("隐藏球台图", isActive: $hideBallTable)
-            }
+            togglePill("隐藏成功率", isActive: $hideSuccessRate)
         }
     }
 
     private func togglePill(_ title: String, isActive: Binding<Bool>) -> some View {
         Button {
-            withAnimation(.easeInOut(duration: 0.15)) {
+            withAnimation(BTMotion.easeFast) {
                 isActive.wrappedValue.toggle()
             }
         } label: {
@@ -196,8 +203,13 @@ struct TrainingShareView: View {
                 shareButton(icon: "camera.fill", label: "朋友圈", color: wechatGreen) {
                     // WeChat moments share — H-05 deferred
                 }
-                shareButton(icon: "arrow.down.to.line.compact", label: "保存相册", color: .btPrimary) {
-                    showSavedAlert = true
+                shareButton(
+                    icon: "arrow.down.to.line.compact",
+                    label: isSavingToPhotos ? "保存中" : "保存相册",
+                    color: .btPrimary,
+                    showsProgress: isSavingToPhotos
+                ) {
+                    Task { await saveCardToPhotos() }
                 }
             }
 
@@ -215,16 +227,27 @@ struct TrainingShareView: View {
         .padding(.bottom, Spacing.sm)
     }
 
-    private func shareButton(icon: String, label: String, color: Color, action: @escaping () -> Void) -> some View {
+    private func shareButton(
+        icon: String,
+        label: String,
+        color: Color,
+        showsProgress: Bool = false,
+        action: @escaping () -> Void
+    ) -> some View {
         Button(action: action) {
             VStack(spacing: Spacing.sm) {
                 ZStack {
                     Circle()
                         .fill(color)
                         .frame(width: 52, height: 52)
-                    Image(systemName: icon)
-                        .font(.btTitle)
-                        .foregroundStyle(.white)
+                    if showsProgress {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.btTitle)
+                            .foregroundStyle(.white)
+                    }
                 }
                 Text(label)
                     .font(.btCaption2)
@@ -233,6 +256,47 @@ struct TrainingShareView: View {
             }
         }
         .buttonStyle(.plain)
+        .disabled(showsProgress)
+    }
+
+    // MARK: - Save to Photos (F-TR-01)
+
+    @MainActor
+    private func saveCardToPhotos() async {
+        guard !isSavingToPhotos else { return }
+        isSavingToPhotos = true
+        defer { isSavingToPhotos = false }
+
+        let renderer = ImageRenderer(
+            content: shareCard
+                .frame(width: 361)
+        )
+        renderer.scale = UIScreen.main.scale
+
+        guard let image = renderer.uiImage else {
+            saveErrorMessage = "无法生成分享图，请稍后重试"
+            showSaveErrorAlert = true
+            return
+        }
+
+        let status = await PHPhotoLibrary.requestAuthorization(for: .addOnly)
+        guard status == .authorized || status == .limited else {
+            saveErrorMessage = "未获得相册权限，请在系统设置中允许球迹写入照片"
+            showSaveErrorAlert = true
+            return
+        }
+
+        do {
+            try await PHPhotoLibrary.shared().performChanges {
+                PHAssetChangeRequest.creationRequestForAsset(from: image)
+            }
+            showSavedAlert = true
+        } catch {
+            saveErrorMessage = error.localizedDescription.isEmpty
+                ? "保存到相册失败，请稍后重试"
+                : error.localizedDescription
+            showSaveErrorAlert = true
+        }
     }
 }
 

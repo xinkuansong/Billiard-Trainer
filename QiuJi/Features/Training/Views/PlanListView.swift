@@ -19,6 +19,9 @@ struct PlanListView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var planToDelete: CustomPlan?
     @State private var showDeleteConfirm = false
+    @State private var planToActivate: CustomPlan?
+    @State private var showActivateConfirm = false
+    @Query private var activePlans: [UserActivePlan]
 
     private var groupedPlans: [(level: String, plans: [OfficialPlan])] {
         let levelOrder = ["L0→L1", "L1", "L1→L2", "L2", "L3", "L3→L4"]
@@ -91,6 +94,27 @@ struct PlanListView: View {
         } message: {
             Text("确定要删除「\(planToDelete?.name ?? "")」吗？此操作不可撤销。")
         }
+        .alert("激活训练计划", isPresented: $showActivateConfirm) {
+            Button("取消", role: .cancel) { planToActivate = nil }
+            Button("确定激活") {
+                if let plan = planToActivate {
+                    activateCustomPlan(plan)
+                }
+                planToActivate = nil
+            }
+        } message: {
+            if hasActivePlan {
+                Text("当前已有激活的训练计划，激活新计划将替换旧计划。确定要继续吗？")
+            } else {
+                Text("确定要开始「\(planToActivate?.name ?? "")」训练计划吗？激活后将从第 1 周第 1 天开始。")
+            }
+        }
+    }
+
+    private var hasActivePlan: Bool { !activePlans.isEmpty }
+
+    private var activeCustomPlanId: String? {
+        activePlans.first(where: \.isCustom)?.planId
     }
 
     // MARK: - Custom Plans Section
@@ -147,7 +171,9 @@ struct PlanListView: View {
     }
 
     private func customPlanCard(_ plan: CustomPlan, issueNumber: Int) -> some View {
-        NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
+        let isActive = activeCustomPlanId == plan.id.uuidString
+
+        return NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
             HStack(spacing: Spacing.md) {
                 customThumbnail(issueNumber: issueNumber)
 
@@ -166,7 +192,8 @@ struct PlanListView: View {
                                 Label("编辑", systemImage: "pencil")
                             }
                             Button {
-                                activateCustomPlan(plan)
+                                planToActivate = plan
+                                showActivateConfirm = true
                             } label: {
                                 Label("激活此计划", systemImage: "play.circle")
                             }
@@ -190,17 +217,33 @@ struct PlanListView: View {
                         .foregroundStyle(.btTextSecondary)
                         .monospacedDigit()
 
-                    HStack(spacing: 2) {
-                        Image(systemName: "hammer")
-                            .font(.btMicro)
-                        Text("自定义")
-                            .font(.btCaption2)
+                    HStack(spacing: Spacing.sm) {
+                        HStack(spacing: 2) {
+                            Image(systemName: "hammer")
+                                .font(.btMicro)
+                            Text("自定义")
+                                .font(.btCaption2)
+                        }
+                        .foregroundStyle(.btAccent)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, 2)
+                        .background(Color.btAccent.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+
+                        if isActive {
+                            HStack(spacing: 2) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.btMicro)
+                                Text("已激活")
+                                    .font(.btCaption2)
+                            }
+                            .foregroundStyle(.btSuccess)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, 2)
+                            .background(Color.btSuccess.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+                        }
                     }
-                    .foregroundStyle(.btAccent)
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, 2)
-                    .background(Color.btAccent.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
                 }
 
                 Image(systemName: "chevron.right")
