@@ -8,30 +8,51 @@ struct TrainingSummaryView: View {
     let overallSuccessRate: Double
     let drillSummaries: [DrillSummary]
     let trainingNote: String
-    let onSave: () -> Void
+    /// Returns `true` when the session was persisted successfully.
+    let onSave: () -> Bool
     let onGenerateShareImage: () -> Void
     let onViewHistory: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dismiss) private var dismiss
 
-    private var durationMinutes: Int { elapsedSeconds / 60 }
+    @State private var isSaving = false
+    @State private var showSavedToast = false
+    @State private var animatedRate: Double = 0
+    @State private var statsRevealed = false
+
+    /// F-TS-11: honest duration copy for sub-minute sessions.
+    private var durationDisplay: (value: String, unit: String) {
+        if elapsedSeconds < 60 {
+            return ("不足 1", "分钟")
+        }
+        return ("\(elapsedSeconds / 60)", "分钟")
+    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: Spacing.xxl) {
-                    statsGrid
-                    drillBreakdownSection
-                    if !trainingNote.isEmpty {
-                        noteSection
+        ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: Spacing.xxl) {
+                        statsGrid
+                        drillBreakdownSection
+                        if !trainingNote.isEmpty {
+                            noteSection
+                        }
                     }
+                    .padding(.horizontal, Spacing.xl)
+                    .padding(.top, Spacing.lg)
+                    .padding(.bottom, Spacing.xxxl)
                 }
-                .padding(.horizontal, Spacing.xl)
-                .padding(.top, Spacing.lg)
-                .padding(.bottom, Spacing.xxxl)
+
+                bottomActionBar
             }
 
-            bottomActionBar
+            if showSavedToast {
+                savedToast
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.top, Spacing.md)
+            }
         }
         .background(Color.btBG.ignoresSafeArea())
         .toolbar {
@@ -39,6 +60,30 @@ struct TrainingSummaryView: View {
                 shareButton
             }
         }
+        .onAppear {
+            // F-TS-01: restrained ceremony — bar grows, numbers transition in.
+            withAnimation(BTMotion.springPanel) {
+                animatedRate = overallSuccessRate
+                statsRevealed = true
+            }
+        }
+    }
+
+    // MARK: - Saved Toast (F-TS-02)
+
+    private var savedToast: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(systemName: BTIcon.checkmarkCircle)
+                .foregroundStyle(.btSuccess)
+            Text("已保存")
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btText)
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.md)
+        .background(.ultraThinMaterial)
+        .clipShape(Capsule())
+        .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.08), radius: 8, y: 2)
     }
 
     // MARK: - Stats Grid (2×2 + 1 full-width)
@@ -46,7 +91,13 @@ struct TrainingSummaryView: View {
     private var statsGrid: some View {
         VStack(spacing: Spacing.md) {
             HStack(spacing: Spacing.md) {
-                statCard(label: "训练时长", value: "\(durationMinutes)", unit: "分钟", icon: "clock.fill", iconColor: .btPrimary)
+                statCard(
+                    label: "训练时长",
+                    value: durationDisplay.value,
+                    unit: durationDisplay.unit,
+                    icon: "clock.fill",
+                    iconColor: .btPrimary
+                )
                 statCard(label: "完成项目", value: "\(drillCount)", unit: "项", icon: "checklist", iconColor: .btPrimary)
             }
             HStack(spacing: Spacing.md) {
@@ -72,9 +123,10 @@ struct TrainingSummaryView: View {
             Spacer(minLength: Spacing.lg)
 
             HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-                Text(value)
+                Text(statsRevealed ? value : "—")
                     .font(.btStatNumber).fontWeight(.heavy)
                     .foregroundStyle(.btText)
+                    .contentTransition(.numericText())
                 Text(unit)
                     .font(.btFootnote).fontWeight(.semibold)
                     .foregroundStyle(.btTextSecondary)
@@ -85,6 +137,7 @@ struct TrainingSummaryView: View {
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.03), radius: 6, x: 0, y: 2)
+        .opacity(statsRevealed ? 1 : 0.85)
     }
 
     private var successRateCard: some View {
@@ -100,9 +153,10 @@ struct TrainingSummaryView: View {
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Text("\(Int(overallSuccessRate * 100))")
+                Text("\(Int(animatedRate * 100))")
                     .font(.btLargeTitle)
                     .foregroundStyle(.btText)
+                    .contentTransition(.numericText())
                 Text("%")
                     .font(.btCallout).fontWeight(.bold)
                     .foregroundStyle(.btTextSecondary)
@@ -114,7 +168,7 @@ struct TrainingSummaryView: View {
                         .fill(Color.btBGTertiary)
                     Capsule()
                         .fill(Color.btPrimary)
-                        .frame(width: geo.size.width * overallSuccessRate)
+                        .frame(width: geo.size.width * animatedRate)
                 }
             }
             .frame(height: 10)
@@ -264,15 +318,17 @@ struct TrainingSummaryView: View {
 
     private var bottomActionBar: some View {
         VStack(spacing: Spacing.md) {
-            Button(action: onSave) {
-                Text("保存训练")
+            Button(action: handleSave) {
+                Text(isSaving ? "保存中…" : "保存训练")
             }
             .buttonStyle(BTButtonStyle.primary)
+            .disabled(isSaving || showSavedToast)
 
             Button(action: onGenerateShareImage) {
                 Label("生成分享图", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(BTButtonStyle.secondary)
+            .disabled(isSaving || showSavedToast)
 
             Button(action: onViewHistory) {
                 Text("查看历史记录")
@@ -280,6 +336,7 @@ struct TrainingSummaryView: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.btTextTertiary)
             }
+            .disabled(isSaving || showSavedToast)
         }
         .padding(.horizontal, Spacing.xl)
         .padding(.top, Spacing.lg)
@@ -289,6 +346,26 @@ struct TrainingSummaryView: View {
                 .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.05), radius: 8, x: 0, y: -2)
                 .ignoresSafeArea(edges: .bottom)
         )
+    }
+
+    // MARK: - Save (F-TS-02)
+
+    private func handleSave() {
+        guard !isSaving, !showSavedToast else { return }
+        isSaving = true
+        let succeeded = onSave()
+        if succeeded {
+            withAnimation(BTMotion.springPanel) {
+                showSavedToast = true
+                isSaving = false
+            }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                dismiss()
+            }
+        } else {
+            isSaving = false
+        }
     }
 }
 
@@ -337,7 +414,7 @@ private let previewSummaries: [DrillSummary] = [
             overallSuccessRate: 0.72,
             drillSummaries: previewSummaries,
             trainingNote: "今天练习走位感觉明显进步，斯诺克直线进袋成功率很高，走位A还需要加强，下组尝试控制力道。",
-            onSave: {},
+            onSave: { true },
             onGenerateShareImage: {},
             onViewHistory: {}
         )
@@ -356,7 +433,7 @@ private let previewSummaries: [DrillSummary] = [
             overallSuccessRate: 0.72,
             drillSummaries: previewSummaries,
             trainingNote: "今天练习走位感觉明显进步，斯诺克直线进袋成功率很高，走位A还需要加强，下组尝试控制力道。",
-            onSave: {},
+            onSave: { true },
             onGenerateShareImage: {},
             onViewHistory: {}
         )
@@ -369,7 +446,7 @@ private let previewSummaries: [DrillSummary] = [
 #Preview("No Note") {
     NavigationStack {
         TrainingSummaryView(
-            elapsedSeconds: 1800,
+            elapsedSeconds: 45,
             drillCount: 2,
             totalSets: 6,
             totalBallsMade: 42,
@@ -393,7 +470,7 @@ private let previewSummaries: [DrillSummary] = [
                 ),
             ],
             trainingNote: "",
-            onSave: {},
+            onSave: { true },
             onGenerateShareImage: {},
             onViewHistory: {}
         )

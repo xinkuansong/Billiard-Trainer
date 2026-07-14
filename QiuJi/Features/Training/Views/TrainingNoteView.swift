@@ -13,20 +13,27 @@ struct TrainingNoteView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            hintSection
+            // F-TS-05: ScrollView so scrollDismissesKeyboard(.interactively) works.
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    hintSection
+                        .padding(.bottom, Spacing.md)
+
+                    editorSection
+                        .frame(minHeight: 220)
+                }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.lg)
-                .padding(.bottom, Spacing.md)
-
-            editorSection
-                .padding(.horizontal, Spacing.lg)
-
-            Spacer(minLength: 0)
+                .padding(.bottom, Spacing.xl)
+            }
+            .scrollDismissesKeyboard(.interactively)
+            .scrollIndicators(.hidden)
 
             if !note.isEmpty {
                 characterCountHint
                     .padding(.horizontal, Spacing.lg)
                     .padding(.bottom, Spacing.xs)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
             bottomBar
@@ -34,7 +41,16 @@ struct TrainingNoteView: View {
                 .padding(.vertical, Spacing.lg)
         }
         .background(Color.btBG.ignoresSafeArea())
-        .scrollDismissesKeyboard(.interactively)
+        .animation(BTMotion.easeFast, value: note.isEmpty)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完成") {
+                    isEditorFocused = false
+                }
+                .fontWeight(.semibold)
+            }
+        }
         .onAppear { isEditorFocused = true }
     }
 
@@ -71,7 +87,7 @@ struct TrainingNoteView: View {
         }
     }
 
-    // MARK: - Character Count
+    // MARK: - Character Count (F-TS-10)
 
     private var characterCountHint: some View {
         HStack {
@@ -84,33 +100,18 @@ struct TrainingNoteView: View {
         }
     }
 
-    // MARK: - Bottom Bar
+    // MARK: - Bottom Bar (F-TR-10)
 
     private var bottomBar: some View {
         HStack {
-            Button(action: onSkip) {
-                Text("跳过")
-                    .font(.btCallout)
-                    .fontWeight(.medium)
-                    .foregroundStyle(.btTextSecondary)
-            }
+            Button("跳过", action: onSkip)
+                .buttonStyle(BTButtonStyle.text)
 
             Spacer()
 
-            Button(action: onComplete) {
-                Text("完成")
-                    .font(.btCallout)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.xxxl)
-                    .padding(.vertical, Spacing.lg)
-                    .background(Color.btPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                    .shadow(
-                        color: colorScheme == .dark ? .clear : Color.btPrimary.opacity(0.15),
-                        radius: 8, y: 4
-                    )
-            }
+            Button("完成", action: onComplete)
+                .buttonStyle(BTButtonStyle.primary)
+                .frame(width: 120)
         }
     }
 }

@@ -30,7 +30,8 @@ struct TrainingSessionSummary {
 }
 
 enum ShareCardTheme: String, CaseIterable, Identifiable {
-    case defaultGreen = "基础绿"
+    /// F-TS-09: named by base tone (charcoal), matching nightBlue / deepPurple convention.
+    case defaultGreen = "炭灰"
     case blackWhite = "黑白"
     case nightBlue = "暗夜蓝"
     case deepPurple = "深紫"
@@ -55,8 +56,9 @@ enum ShareCardTheme: String, CaseIterable, Identifiable {
         }
     }
 
+    /// F-TS-03: selector swatch uses accent so themes are distinguishable at a glance.
     var previewColor: Color {
-        backgroundColor
+        accentColor
     }
 }
 
@@ -79,7 +81,7 @@ struct BTShareCard: View {
     let theme: ShareCardTheme
     var fontChoice: ShareCardFont = .system
     var hideSuccessRate: Bool = false
-    var hideBallTable: Bool = false
+    // F-TS-04 / W2-2: hideBallTable dead API removed — no ball-table region to toggle.
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -132,7 +134,7 @@ struct BTShareCard: View {
                 .font(.system(size: 22, weight: .bold, design: fontDesign))
                 .foregroundStyle(.white)
 
-            Text("共 \(session.completedDrills) 项 · \(session.durationMinutes) 分钟")
+            Text("共 \(session.completedDrills) 项 · \(Self.durationLabel(minutes: session.durationMinutes))")
                 .font(.btFootnote)
                 .foregroundStyle(.white.opacity(0.6))
         }
@@ -264,6 +266,12 @@ struct BTShareCard: View {
 
     private var fontDesign: Font.Design {
         fontChoice.fontDesign
+    }
+
+    /// F-TS-11: sub-minute sessions must not read as「0 分钟」.
+    static func durationLabel(minutes: Int) -> String {
+        if minutes < 1 { return "不足 1 分钟" }
+        return "\(minutes) 分钟"
     }
 }
 

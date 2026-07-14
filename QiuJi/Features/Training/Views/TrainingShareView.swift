@@ -139,25 +139,32 @@ struct TrainingShareView: View {
     }
 
     private func themeCircle(_ theme: ShareCardTheme) -> some View {
-        VStack(spacing: Spacing.sm) {
-            Circle()
-                .fill(theme.previewColor)
-                .frame(width: 40, height: 40)
-                .overlay(
-                    Circle()
-                        .stroke(selectedTheme == theme ? Color.btPrimary : Color.clear, lineWidth: 2)
-                        .padding(-3)
-                )
-            Text(theme.rawValue)
-                .font(.btCaption2)
-                .fontWeight(.regular)
-                .foregroundStyle(selectedTheme == theme ? .btText : .btTextSecondary)
-        }
-        .onTapGesture {
+        Button {
             withAnimation(BTMotion.easeFast) {
                 selectedTheme = theme
             }
+        } label: {
+            VStack(spacing: Spacing.sm) {
+                Circle()
+                    .fill(theme.previewColor)
+                    .frame(width: 40, height: 40)
+                    .overlay(
+                        Circle()
+                            .stroke(selectedTheme == theme ? Color.btPrimary : Color.clear, lineWidth: 2)
+                            .padding(-3)
+                    )
+                    // Charcoal/black accents need a hairline so swatches stay visible on dark panels.
+                    .overlay(
+                        Circle()
+                            .stroke(Color.btSeparator.opacity(0.5), lineWidth: 1)
+                    )
+                Text(theme.rawValue)
+                    .font(.btCaption2)
+                    .fontWeight(.regular)
+                    .foregroundStyle(selectedTheme == theme ? .btText : .btTextSecondary)
+            }
         }
+        .buttonStyle(BTPressableStyle.capsule)
     }
 
     // MARK: - Option Toggles
@@ -195,6 +202,7 @@ struct TrainingShareView: View {
     private let wechatGreen = Color(red: 0.027, green: 0.757, blue: 0.376)
 
     private var shareActions: some View {
+        // F-TS-08: keep toolbar「返回」only — drop duplicate bottom dismiss.
         HStack(alignment: .top) {
             HStack(spacing: Spacing.xl) {
                 shareButton(icon: "message.fill", label: "微信好友", color: wechatGreen) {
@@ -214,15 +222,6 @@ struct TrainingShareView: View {
             }
 
             Spacer()
-
-            Button {
-                dismiss()
-            } label: {
-                Text("返回")
-                    .font(.btSubheadline)
-                    .foregroundStyle(.btTextSecondary)
-            }
-            .padding(.top, Spacing.md)
         }
         .padding(.bottom, Spacing.sm)
     }
@@ -255,7 +254,7 @@ struct TrainingShareView: View {
                     .foregroundStyle(.btTextSecondary)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(showsProgress)
     }
 

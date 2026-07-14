@@ -48,7 +48,9 @@ struct CustomPlanBuilderView: View {
         }
         .sheet(isPresented: $viewModel.showDrillPicker) {
             DrillPickerSheet { content in
-                viewModel.addDrill(content)
+                withAnimation(BTMotion.springPanel) {
+                    viewModel.addDrill(content)
+                }
             }
         }
         .sheet(item: $drillSettingsTarget) { target in
@@ -57,10 +59,14 @@ struct CustomPlanBuilderView: View {
                 initialSets: target.sets,
                 initialBallsPerSet: target.ballsPerSet,
                 onSave: { newSets, newBalls in
-                    viewModel.updateDrillSettings(at: target.index, sets: newSets, ballsPerSet: newBalls)
+                    withAnimation(BTMotion.springPanel) {
+                        viewModel.updateDrillSettings(at: target.index, sets: newSets, ballsPerSet: newBalls)
+                    }
                 },
                 onDelete: {
-                    viewModel.removeDrill(at: target.index)
+                    withAnimation(BTMotion.springPanel) {
+                        viewModel.removeDrill(at: target.index)
+                    }
                 }
             )
         }
@@ -95,7 +101,7 @@ struct CustomPlanBuilderView: View {
                 Circle()
                     .fill(Color.btBGTertiary)
                     .frame(width: 40, height: 40)
-                Image(systemName: "pencil")
+                Image(systemName: BTIcon.pencil)
                     .font(.btCallout)
                     .foregroundStyle(.btTextSecondary)
             }
@@ -127,17 +133,18 @@ struct CustomPlanBuilderView: View {
 
             HStack(spacing: Spacing.lg) {
                 Button {
-                    withAnimation(.snappy(duration: 0.15)) {
+                    withAnimation(BTMotion.easeFast) {
                         viewModel.sessionsPerWeek = max(1, viewModel.sessionsPerWeek - 1)
                     }
                 } label: {
-                    Image(systemName: "minus")
+                    Image(systemName: BTIcon.minus)
                         .font(.btFootnote14)
                         .fontWeight(.medium)
                         .foregroundStyle(.btPrimary)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(BTPressableStyle.capsule)
                 .disabled(viewModel.sessionsPerWeek <= 1)
 
                 Text("\(viewModel.sessionsPerWeek)")
@@ -147,17 +154,18 @@ struct CustomPlanBuilderView: View {
                     .contentTransition(.numericText())
 
                 Button {
-                    withAnimation(.snappy(duration: 0.15)) {
+                    withAnimation(BTMotion.easeFast) {
                         viewModel.sessionsPerWeek = min(7, viewModel.sessionsPerWeek + 1)
                     }
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: BTIcon.plus)
                         .font(.btFootnote14)
                         .fontWeight(.medium)
                         .foregroundStyle(.btPrimary)
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(BTPressableStyle.capsule)
                 .disabled(viewModel.sessionsPerWeek >= 7)
             }
             .padding(Spacing.xs)
@@ -199,6 +207,7 @@ struct CustomPlanBuilderView: View {
                 .environment(\.editMode, .constant(.active))
                 .scrollDisabled(true)
                 .frame(height: CGFloat(viewModel.drillItems.count) * 80)
+                .animation(BTMotion.springPanel, value: viewModel.drillItems.count)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             }
         }
@@ -230,12 +239,13 @@ struct CustomPlanBuilderView: View {
                     ballsPerSet: item.ballsPerSet
                 )
             } label: {
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: BTIcon.menuCircle)
                     .font(.btBody)
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(BTPressableStyle.capsule)
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
@@ -267,19 +277,14 @@ struct CustomPlanBuilderView: View {
     }
 
     private var emptyDrillsPlaceholder: some View {
-        VStack(spacing: Spacing.md) {
-            Image(systemName: "list.bullet.rectangle.portrait")
-                .font(.btLargeTitle)
-                .foregroundStyle(.btTextTertiary)
-            Text("还没有添加训练项目")
-                .font(.btSubheadline)
-                .foregroundStyle(.btTextSecondary)
-            Text("点击下方按钮从动作库选择")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
-        }
+        // F-PL-14: reuse BTEmptyState; keep「添加训练项目」as separate section CTA below.
+        BTEmptyState(
+            icon: BTIcon.emptyDoc,
+            title: "还没有添加训练项目",
+            subtitle: "点击下方按钮从动作库选择"
+        )
+        .padding(.vertical, Spacing.md)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, Spacing.xxl)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
@@ -291,7 +296,7 @@ struct CustomPlanBuilderView: View {
             viewModel.showDrillPicker = true
         } label: {
             HStack(spacing: Spacing.sm) {
-                Image(systemName: "plus.circle.fill")
+                Image(systemName: BTIcon.plusCircleFilled)
                     .font(.btTitle2)
                     .fontWeight(.regular)
                     .foregroundStyle(.btPrimary)
@@ -304,7 +309,7 @@ struct CustomPlanBuilderView: View {
             .background(.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.row)
     }
 
     // MARK: - Save Menu
