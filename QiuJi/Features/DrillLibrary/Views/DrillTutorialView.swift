@@ -194,27 +194,33 @@ struct DrillTutorialView: View {
                 }
             }
 
-            if let imageName = section.image,
-               let uiImage = DrillTutorialImageStore.image(named: imageName) {
+            // F-TU-01: `image != nil` 但加载失败时显示弱占位（失败 chrome），图注仍可出现。
+            if let imageName = section.image {
+                let uiImage = DrillTutorialImageStore.image(named: imageName)
                 let hasClip = section.clip.flatMap {
                     DrillContentService.shared.tutorialClipURL(named: $0)
                 } != nil
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Button {
-                        openViewer(at: imageName)
-                    } label: {
-                        Image(uiImage: uiImage)
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: .infinity)
-                            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: BTRadius.sm)
-                                    .stroke(.btSeparator, lineWidth: 0.5)
-                            )
-                            .overlay { if hasClip { playBadge } }
+                    if let uiImage {
+                        Button {
+                            openViewer(at: imageName)
+                        } label: {
+                            Image(uiImage: uiImage)
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(maxWidth: .infinity)
+                                .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: BTRadius.sm)
+                                        .stroke(.btSeparator, lineWidth: 0.5)
+                                )
+                                .overlay { if hasClip { playBadge } }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("tutorialPoster_\(imageName)")
+                    } else {
+                        missingImagePlaceholder
                     }
-                    .buttonStyle(.plain)
 
                     if let caption = section.caption {
                         Text(caption)
@@ -310,6 +316,28 @@ struct DrillTutorialView: View {
             .shadow(color: .black.opacity(0.4), radius: 6, y: 1)
     }
 
+    /// F-TU-01：配图字段存在但 Bundle 加载失败时的弱占位（不进 Viewer）。
+    private var missingImagePlaceholder: some View {
+        VStack(spacing: Spacing.sm) {
+            Image(systemName: "photo")
+                .font(.btTitle)
+                .foregroundStyle(.btTextTertiary)
+            Text("配图暂缺")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 120)
+        .background(.btBGTertiary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .overlay(
+            RoundedRectangle(cornerRadius: BTRadius.sm)
+                .stroke(.btSeparator, lineWidth: 0.5)
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("配图暂缺")
+    }
+
     private func openViewer(at imageName: String) {
         let items = currentMediaItems
         guard let start = items.firstIndex(where: { $0.id == imageName }) else { return }
@@ -359,6 +387,8 @@ struct TutorialMediaViewer: View {
 
     let items: [TutorialMediaItem]
     @State private var index: Int
+    /// F-TU-10：fullScreenCover 进场短 opacity/scale 过渡。
+    @State private var entranceReady = false
     @Environment(\.dismiss) private var dismiss
 
     init(items: [TutorialMediaItem], startIndex: Int) {
@@ -372,7 +402,7 @@ struct TutorialMediaViewer: View {
 
             TabView(selection: $index) {
                 ForEach(Array(items.enumerated()), id: \.offset) { i, item in
-                    page(item, isActive: i == index)
+                    TutorialMediaPage(item: item, isActive: i == index, onDismiss: { dismiss() })
                         .tag(i)
                 }
             }
@@ -383,26 +413,11 @@ struct TutorialMediaViewer: View {
             topBar
         }
         .statusBarHidden()
-    }
-
-    @ViewBuilder
-    private func page(_ item: TutorialMediaItem, isActive: Bool) -> some View {
-        VStack(spacing: Spacing.md) {
-            if let clipURL = item.clipURL {
-                ZoomableContainer(swipeToDismiss: true, onDismiss: { dismiss() }) {
-                    LoopingPlayerView(url: clipURL, isActive: isActive)
-                }
-            } else {
-                ZoomableImageView(image: item.poster, onDismiss: { dismiss() })
-            }
-
-            if let caption = item.caption {
-                Text(caption)
-                    .font(.btCaption)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, Spacing.xl)
-                    .padding(.bottom, Spacing.xxl)
+        .opacity(entranceReady ? 1 : 0)
+        .scaleEffect(entranceReady ? 1 : 0.98)
+        .onAppear {
+            withAnimation(BTMotion.springPanel) {
+                entranceReady = true
             }
         }
     }
@@ -432,6 +447,55 @@ struct TutorialMediaViewer: View {
     }
 }
 
+/// 单页媒体：媒体 + caption 共享下滑偏移（F-TU-03）。
+private struct TutorialMediaPage: View {
+    let item: TutorialMediaItem
+    let isActive: Bool
+    let onDismiss: () -> Void
+
+    @State private var dismissDrag: CGFloat = 0
+
+    private var dismissOpacity: Double {
+        Double(max(0.4, 1.0 - abs(dismissDrag) / 400.0))
+    }
+
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            if let clipURL = item.clipURL {
+                ZoomableContainer(
+                    swipeToDismiss: true,
+                    onDismiss: onDismiss,
+                    dismissDrag: $dismissDrag
+                ) {
+                    LoopingPlayerView(url: clipURL, isActive: isActive)
+                }
+            } else {
+                ZoomableContainer(
+                    swipeToDismiss: true,
+                    onDismiss: onDismiss,
+                    dismissDrag: $dismissDrag
+                ) {
+                    Image(uiImage: item.poster)
+                        .resizable()
+                        .scaledToFit()
+                }
+            }
+
+            if let caption = item.caption {
+                Text(caption)
+                    .font(.btCaption)
+                    .foregroundStyle(.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.xl)
+                    .padding(.bottom, Spacing.xxl)
+            }
+        }
+        // F-TU-03：caption 与媒体一体跟手下滑 / 淡出。
+        .offset(y: dismissDrag)
+        .opacity(dismissOpacity)
+    }
+}
+
 // MARK: - Zoomable Container (reusable: pinch + double-tap zoom, drag pan, optional swipe-down dismiss)
 
 /// 通用「可缩放容器」（ADR-P12-02）：把任意内容（图片 / 视频播放层）包成可捏合/双击放大、
@@ -440,13 +504,17 @@ struct TutorialMediaViewer: View {
 struct ZoomableContainer<Content: View>: View {
     private let swipeToDismiss: Bool
     private let onDismiss: (() -> Void)?
+    /// When non-nil, parent owns dismiss offset/opacity (F-TU-03); this view only drives the binding.
+    private let externalDismissDrag: Binding<CGFloat>?
     private let content: Content
 
     init(swipeToDismiss: Bool = false,
          onDismiss: (() -> Void)? = nil,
+         dismissDrag: Binding<CGFloat>? = nil,
          @ViewBuilder content: () -> Content) {
         self.swipeToDismiss = swipeToDismiss
         self.onDismiss = onDismiss
+        self.externalDismissDrag = dismissDrag
         self.content = content()
     }
 
@@ -454,45 +522,74 @@ struct ZoomableContainer<Content: View>: View {
     @State private var lastScale: CGFloat = 1
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
-    @State private var dismissDrag: CGFloat = 0
+    @State private var internalDismissDrag: CGFloat = 0
 
     private let maxScale: CGFloat = 4
     private let dismissThreshold: CGFloat = 120
+
+    private var dismissDragValue: CGFloat {
+        externalDismissDrag?.wrappedValue ?? internalDismissDrag
+    }
+
+    private func setDismissDrag(_ value: CGFloat) {
+        if let externalDismissDrag {
+            externalDismissDrag.wrappedValue = value
+        } else {
+            internalDismissDrag = value
+        }
+    }
 
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .scaleEffect(scale)
-            .offset(x: offset.width, y: offset.height + dismissDrag)
-            .opacity(swipeToDismiss && scale <= 1 ? Double(max(0.4, 1.0 - abs(dismissDrag) / 400.0)) : 1.0)
+            // Parent applies dismiss offset when `externalDismissDrag` is set (F-TU-03).
+            .offset(
+                x: offset.width,
+                y: offset.height + (externalDismissDrag == nil ? dismissDragValue : 0)
+            )
+            .opacity(
+                swipeToDismiss && scale <= 1 && externalDismissDrag == nil
+                    ? Double(max(0.4, 1.0 - abs(dismissDragValue) / 400.0))
+                    : 1.0
+            )
             // simultaneous 让多图 TabView 翻页 / 视频自带控件不被吞掉；本手势只处理缩放后平移 + 纵向下滑关闭。
             .simultaneousGesture(dragGesture)
             .simultaneousGesture(magnification)
             .onTapGesture(count: 2) { toggleZoom() }
-            .animation(.interactiveSpring(), value: scale)
-            .animation(.interactiveSpring(), value: dismissDrag)
+            // F-TU-02：不对手势 onChanged 驱动值挂隐式 animation；松手/双击才用 spring。
     }
 
     private var magnification: some Gesture {
         MagnificationGesture()
             .onChanged { value in
-                scale = min(max(lastScale * value, 1), maxScale)
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    scale = min(max(lastScale * value, 1), maxScale)
+                }
             }
             .onEnded { _ in
                 lastScale = scale
-                if scale <= 1 { resetPan() }
+                if scale <= 1 {
+                    withAnimation(.interactiveSpring()) { resetPan() }
+                }
             }
     }
 
     private var dragGesture: some Gesture {
         DragGesture()
             .onChanged { value in
-                if scale > 1 {
-                    offset = CGSize(width: lastOffset.width + value.translation.width,
-                                    height: lastOffset.height + value.translation.height)
-                } else if swipeToDismiss, abs(value.translation.height) > abs(value.translation.width) {
-                    // 仅纵向拖动触发下滑关闭；横向 / 缩放=1 时不拦截（交给 TabView / 视频控件）。
-                    dismissDrag = value.translation.height
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    if scale > 1 {
+                        offset = CGSize(width: lastOffset.width + value.translation.width,
+                                        height: lastOffset.height + value.translation.height)
+                    } else if swipeToDismiss, abs(value.translation.height) > abs(value.translation.width) {
+                        // 仅纵向拖动触发下滑关闭；横向 / 缩放=1 时不拦截（交给 TabView / 视频控件）。
+                        setDismissDrag(value.translation.height)
+                    }
                 }
             }
             .onEnded { value in
@@ -503,35 +600,26 @@ struct ZoomableContainer<Content: View>: View {
                           abs(value.translation.height) > abs(value.translation.width) {
                     onDismiss?()
                 } else {
-                    dismissDrag = 0
+                    withAnimation(.interactiveSpring()) {
+                        setDismissDrag(0)
+                    }
                 }
             }
     }
 
     private func toggleZoom() {
-        if scale > 1 {
-            scale = 1; lastScale = 1; resetPan()
-        } else {
-            scale = 2.5; lastScale = 2.5
+        withAnimation(.interactiveSpring()) {
+            if scale > 1 {
+                scale = 1; lastScale = 1; resetPan()
+            } else {
+                scale = 2.5; lastScale = 2.5
+            }
         }
     }
 
     private func resetPan() {
         offset = .zero
         lastOffset = .zero
-    }
-}
-
-private struct ZoomableImageView: View {
-    let image: UIImage
-    let onDismiss: () -> Void
-
-    var body: some View {
-        ZoomableContainer(swipeToDismiss: true, onDismiss: onDismiss) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFit()
-        }
     }
 }
 
