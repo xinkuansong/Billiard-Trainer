@@ -96,7 +96,7 @@ struct ProfileView: View {
             get: { authState.errorMessage != nil },
             set: { if !$0 { authState.errorMessage = nil } }
         )) {
-            Button("好的", role: .cancel) { authState.errorMessage = nil }
+            Button("确定", role: .cancel) { authState.errorMessage = nil }
         } message: {
             Text(authState.errorMessage ?? "数据同步失败，稍后会自动重试")
         }

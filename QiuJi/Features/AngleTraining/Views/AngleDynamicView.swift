@@ -111,6 +111,8 @@ struct AngleDynamicView: View {
 
     // MARK: - Floating overlays (status banner only — all metrics live in the top chip)
 
+    /// F-OV-03 / OV-疑3: bottom HUD status is a **persistent teaching state**,
+    /// not an ephemeral flash. Do **not** migrate to shared `BTToast` (top capsule).
     private var overlayLayer: some View {
         VStack {
             Spacer()

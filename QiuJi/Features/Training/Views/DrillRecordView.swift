@@ -77,19 +77,30 @@ struct DrillRecordView: View {
         .onChange(of: showSetTimer) { _, newValue in
             activeSetStartTime = newValue ? Date() : nil
         }
+        // F-TU-05: keep sheet presentation; unify chrome (close + detent + drag indicator).
         .sheet(item: $tutorialDrill) { content in
             NavigationStack {
                 DrillTutorialView(drill: content)
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("关闭") { tutorialDrill = nil }
+                            Button {
+                                tutorialDrill = nil
+                            } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .symbolRenderingMode(.hierarchical)
+                                    .foregroundStyle(.btTextSecondary)
+                                    .font(.btTitle2)
+                            }
+                            .accessibilityLabel("关闭")
                         }
                     }
             }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
         }
         // F-TU-11: honest feedback when bundle load returns nil
         .alert("暂时无法打开精讲", isPresented: $showTutorialUnavailable) {
-            Button("好", role: .cancel) {}
+            Button("确定", role: .cancel) {}
         } message: {
             Text("当前训练项的精讲内容暂不可用，请稍后再试。")
         }
@@ -100,7 +111,7 @@ struct DrillRecordView: View {
     private var drillInfoHeader: some View {
         BTExerciseRow(
             drillName: drill.nameZh,
-            thumbnailAnimation: drill.animation,
+            drillId: drill.drillId,
             totalSets: setsData.count,
             completedSets: setsData.filter { $0.isCompleted }.count,
             madeBalls: totalMade,
@@ -223,7 +234,8 @@ struct DrillRecordView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .sheet(isPresented: $showRestPicker) {
             restDurationPicker
-                .presentationDetents([.height(250)])
+                .presentationDetents([.height(280)])
+                .presentationDragIndicator(.visible)
         }
     }
 

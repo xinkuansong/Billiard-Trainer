@@ -77,7 +77,9 @@ struct BankShotView: View {
             }
         }
         .sheet(isPresented: $showInfo) {
-            BankShotInfoSheet().presentationDetents([.medium, .large])
+            BankShotInfoSheet()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .onAppear {
             if !hasAppeared {

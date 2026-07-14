@@ -35,11 +35,13 @@ struct PlanListView: View {
     var body: some View {
         ScrollView {
             if isLoading {
-                ProgressView()
+                BTDrillListSkeleton()
+                    .transition(.opacity)
                     .frame(maxWidth: .infinity, minHeight: 300)
             } else {
                 LazyVStack(spacing: Spacing.xxxl) {
                     if plans.isEmpty && customPlans.isEmpty {
+                        // System content not ready — keep「暂无」tone (F-ST-06).
                         BTEmptyState(
                             icon: "calendar",
                             title: "暂无训练计划",
@@ -73,8 +75,10 @@ struct PlanListView: View {
                     customPlansSection
                 }
                 .padding(.vertical, Spacing.lg)
+                .transition(.opacity)
             }
         }
+        .animation(BTMotion.easeFast, value: isLoading)
         .background(.btBG)
         .navigationTitle("训练计划")
         .toolbar(.hidden, for: .tabBar)
@@ -88,7 +92,12 @@ struct PlanListView: View {
         .task {
             await loadPlans()
         }
-        .alert("删除计划", isPresented: $showDeleteConfirm) {
+        // F-OV-02: destructive clear/delete → confirmationDialog (cancel first).
+        .confirmationDialog(
+            "删除计划",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) { deleteCustomPlan() }
         } message: {
@@ -312,7 +321,9 @@ struct PlanListView: View {
     private func loadPlans() async {
         isLoading = true
         plans = await PlanContentService.shared.loadAllPlans()
-        isLoading = false
+        withAnimation(BTMotion.easeFast) {
+            isLoading = false
+        }
     }
 
     // MARK: - Section Header
@@ -397,13 +408,7 @@ private struct PlanCard: View {
                 VStack {
                     HStack {
                         Spacer()
-                        Text("PRO")
-                            .font(.system(size: 10, weight: .heavy))
-                            .foregroundStyle(.black)
-                            .padding(.horizontal, Spacing.sm)
-                            .padding(.vertical, 2)
-                            .background(Color.btAccent)
-                            .clipShape(Capsule())
+                        BTProBadge()
                     }
                     Spacer()
                 }

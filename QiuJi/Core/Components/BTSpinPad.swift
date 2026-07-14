@@ -241,13 +241,13 @@ private struct SpinNudgeButton: View {
 // MARK: - Spin pad card（共享浮层卡片，ADR-P11-09）
 
 /// 打点盘浮层卡片：半透明材质（`ultraThinMaterial`，透出底下球桌绿色，与旧「击球设置」
-/// HUD 同观感）+ 打点盘 + 四向微调键 + 读数 + 回中 + 右上 ✕。浮在球桌底缘使用，**不要**放进
+/// HUD 同观感）+ 打点盘 + 四向微调键 + 读数 + 回中。浮在球桌底缘使用，**不要**放进
 /// 系统 sheet——sheet 底下是纯黑+压暗层，材质会显得过深（用户点名要「有些透明」的观感）。
 ///
 /// 交互：拖打点盘做**粗选**（点哪跳哪）；四向键做 ±1% **微调**（合矢量钳在打滑极限，撞墙停住），
 /// 长按连发。控件瘦身 v2（条 13.3）：盘缩至 104pt、十字更紧凑、背景近透明（透出台面），
 /// 十字宽度 40+10+104+10+40=204pt → 调用方应给 `maxWidth: 228`（含卡片左右 padding）。
-/// 点盘外任意处关闭由 `BTSpinPadOverlay` 的捕获层承担。
+/// 关闭：无右上 ✕（CL-疑4）；点盘外任意处关闭由 `BTSpinPadOverlay` 捕获层承担。
 struct BTSpinPadCard: View {
     @Binding var spinX: Double
     @Binding var spinY: Double

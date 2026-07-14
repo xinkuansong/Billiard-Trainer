@@ -47,12 +47,12 @@ struct SubscriptionView: View {
             }
         }
         .alert("恢复购买", isPresented: $showRestoreAlert) {
-            Button("好的") {}
+            Button("确定") {}
         } message: {
             Text(restoreMessage)
         }
         .alert("购买失败", isPresented: $showPurchaseErrorAlert) {
-            Button("好的") {}
+            Button("确定") {}
         } message: {
             Text(subscriptionManager.errorMessage ?? "购买未完成，请稍后重试")
         }
@@ -274,7 +274,7 @@ struct SubscriptionView: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.row)
     }
 
     private func glassBackground(isSelected: Bool, isRecommended: Bool) -> some ShapeStyle {
@@ -322,6 +322,7 @@ struct SubscriptionView: View {
             .background(subscriptionManager.isPremium ? Color.btBGTertiary : Color.btPrimary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(selectedProductID == nil || subscriptionManager.isLoading || subscriptionManager.isPremium)
     }
 
@@ -351,17 +352,18 @@ struct SubscriptionView: View {
                 Button { Task { await handleRestore() } } label: {
                     Text("恢复购买")
                         .font(.btMicro)
-                        .foregroundStyle(.white.opacity(0.2))
+                        // F-PF-06: secondary action readable, still below primary CTA.
+                        .foregroundStyle(.white.opacity(0.45))
                 }
                 .disabled(subscriptionManager.isLoading)
 
                 Link("服务条款", destination: URL(string: "https://example.com/terms")!)
                     .font(.btMicro)
-                    .foregroundStyle(.white.opacity(0.2))
+                    .foregroundStyle(.white.opacity(0.35))
 
                 Link("隐私政策", destination: URL(string: "https://example.com/privacy")!)
                     .font(.btMicro)
-                    .foregroundStyle(.white.opacity(0.2))
+                    .foregroundStyle(.white.opacity(0.35))
             }
         }
     }

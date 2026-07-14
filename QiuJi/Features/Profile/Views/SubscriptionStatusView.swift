@@ -26,7 +26,7 @@ struct SubscriptionStatusView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .alert("恢复购买", isPresented: $showRestoreAlert) {
-            Button("好的") {}
+            Button("确定") {}
         } message: {
             Text(restoreMessage)
         }

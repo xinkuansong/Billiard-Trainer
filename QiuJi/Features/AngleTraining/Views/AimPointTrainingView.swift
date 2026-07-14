@@ -270,10 +270,7 @@ struct AimPointTrainingView: View {
             }
 
             if vm.limiter.isLimitReached {
-                Text("今日免费次数已用完")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.white.opacity(0.65))
-                sceneCapsuleButton("解锁全部内容") { showSubscription = true }
+                BTDailyLimitGate(compact: true) { showSubscription = true }
             } else {
                 sceneCapsuleButton("下一题") { vm.nextQuestion() }
             }
@@ -285,19 +282,7 @@ struct AimPointTrainingView: View {
     }
 
     private var limitCard: some View {
-        VStack(spacing: Spacing.md) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 32))
-                .foregroundStyle(.btAccent)
-            Text("今日免费次数已用完")
-                .font(.btHeadline)
-                .foregroundStyle(.white)
-            sceneCapsuleButton("解锁全部内容") { showSubscription = true }
-        }
-        .padding(Spacing.xl)
-        .frame(maxWidth: .infinity)
-        .background(.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        BTDailyLimitGate { showSubscription = true }
     }
 
     private func ratingColor(_ absMM: Double) -> Color {

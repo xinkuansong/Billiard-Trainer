@@ -56,9 +56,8 @@ struct BTDrillCard: View {
 
             VStack {
                 if drill.isPremium {
-                    Image(systemName: BTIcon.lock)
-                        .font(.btCallout)
-                        .foregroundStyle(.btTextTertiary)
+                    // F-ST-04: list row uses same PRO badge as grid cards.
+                    BTProBadge()
                 } else if let onFavoriteTap {
                     Button(action: onFavoriteTap) {
                         Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)
@@ -195,17 +194,7 @@ struct BTDrillGridCard: View {
     @ViewBuilder
     private var cardBadge: some View {
         if drill.isPremium {
-            HStack(spacing: 2) {
-                Image(systemName: BTIcon.lock)
-                    .font(.btMicro.weight(.bold))
-                Text("PRO")
-                    .font(.btCaption2.weight(.heavy))
-            }
-            .foregroundStyle(.white)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .background(Color.btAccent)
-            .clipShape(Capsule())
+            BTProBadge()
         } else if let onFavoriteTap {
             Button(action: onFavoriteTap) {
                 Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)

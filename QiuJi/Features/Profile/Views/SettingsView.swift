@@ -33,15 +33,24 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .task { cacheSize = calculateCacheSize() }
-        .alert("清除缓存", isPresented: $showClearCacheConfirmation) {
-            Button("确认清除", role: .destructive) { clearCache() }
+        // F-OV-02: destructive clear/delete → confirmationDialog (cancel first).
+        .confirmationDialog(
+            "清除缓存",
+            isPresented: $showClearCacheConfirmation,
+            titleVisibility: .visible
+        ) {
             Button("取消", role: .cancel) {}
+            Button("确认清除", role: .destructive) { clearCache() }
         } message: {
             Text("将清除所有缓存数据（\(cacheSize)），不会影响训练记录。")
         }
-        .alert("注销账号", isPresented: $showDeleteConfirmation) {
-            Button("确认注销", role: .destructive) { deleteAccount() }
+        .confirmationDialog(
+            "注销账号",
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
             Button("取消", role: .cancel) {}
+            Button("确认注销", role: .destructive) { deleteAccount() }
         } message: {
             Text("将永久删除你的账号和云端数据，本地数据保留。此操作不可撤销。")
         }

@@ -17,7 +17,7 @@ struct FreePlayView: View {
 
     @State private var projector = TableProjector()
 
-    @State private var banner: String?
+    @State private var toast: BTToastMessage?
     @State private var showClearTableConfirm = false
 
     // 规则对局（条 15.10）：开球「完成」后按玩法启用引擎；引擎只做裁决与轮转提示，
@@ -51,11 +51,11 @@ struct FreePlayView: View {
                     bottomBar(proxy)
                         .frame(height: Self.bottomBarHeight)
                 }
-                bannerView
             }
             .coordinateSpace(name: "freeplay")
+            .btToast($toast)
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .animation(BTMotion.springPanel, value: showSpinPad)
         .navigationTitle("自由击球")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
@@ -68,11 +68,11 @@ struct FreePlayView: View {
         }
         .confirmationDialog("清空桌面上所有球？",
                             isPresented: $showClearTableConfirm, titleVisibility: .visible) {
+            Button("取消", role: .cancel) {}
             Button("清空桌面", role: .destructive) {
                 endGame()
                 vm.clearTable()
             }
-            Button("取消", role: .cancel) {}
         }
         .sheet(isPresented: $showBreakPicker) {
             BreakGamePickerSheet { game in
@@ -263,7 +263,7 @@ struct FreePlayView: View {
             let tableTargets = Set(vm.onTableKeys.filter { $0 != PositionPlayBall.cueKey })
             let legal = rules.legalTargetKeys(tableKeys: tableTargets)
             if !legal.contains(key) {
-                flash("按当前规则不能打 \(PositionPlayBall.shortLabel(for: key)) 号球")
+                flash("按当前规则不能打 \(PositionPlayBall.shortLabel(for: key)) 号球", tone: .warning)
                 return
             }
         }
@@ -502,26 +502,14 @@ struct FreePlayView: View {
         }
     }
 
-    @ViewBuilder
-    private var bannerView: some View {
-        if let banner {
-            VStack {
-                Text(banner)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(Color.btSuccess, in: Capsule())
-                    .padding(.top, 60)
-                Spacer()
-            }
-            .transition(.move(edge: .top).combined(with: .opacity))
+    private func flash(_ message: String, tone: BTToastTone = .success) {
+        withAnimation(BTMotion.easeChrome) {
+            toast = BTToastMessage(message, tone: tone)
         }
-    }
-
-    private func flash(_ message: String) {
-        withAnimation { banner = message }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            withAnimation { banner = nil }
+        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
+            withAnimation(BTMotion.easeChrome) {
+                if toast?.text == message { toast = nil }
+            }
         }
     }
 }

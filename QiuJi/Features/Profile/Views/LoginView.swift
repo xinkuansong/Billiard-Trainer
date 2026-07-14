@@ -114,7 +114,8 @@ struct LoginView: View {
                 .background(colorScheme == .dark ? Color.white : Color.black)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             }
-            .buttonStyle(.plain)
+            // F-PF-04: keep plain tint semantics (FL-004/008); add scale via BTPressableStyle.
+            .buttonStyle(BTPressableStyle.capsule)
             .disabled(isAppleSignInLoading)
 
             Button {
@@ -131,7 +132,7 @@ struct LoginView: View {
                 .background(Self.wechatGreen)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.capsule)
 
             Button {
                 selectedFlow = .phone
@@ -148,7 +149,7 @@ struct LoginView: View {
                             .stroke(colorScheme == .dark ? Color.btPrimary : Color.btSeparator, lineWidth: 1)
                     )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(BTPressableStyle.capsule)
         }
         .padding(.horizontal, Spacing.xxl)
     }

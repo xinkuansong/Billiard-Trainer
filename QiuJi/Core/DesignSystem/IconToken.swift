@@ -6,7 +6,7 @@ import SwiftUI
 /// 1. **避免散落字面量** — 当前项目中 50+ 处散落的 `Image(systemName: "xxx")` 字符串迁移到此处后，
 ///    重设计时只需改一处。
 /// 2. **支持自定义资产** — `bt.*` 前缀预留给未来引入的自定义 SF Symbol 包；
-///    当前所有自定义图标走 SwiftUI 视图（`BTLogoMark` / `BTTrainingIcon` / `BTDrillCategoryIcon`）。
+///    当前所有自定义图标走 SwiftUI 视图（`BTBrandLogo` / `BTTrainingIcon` / `BTDrillCategoryIcon`）。
 /// 3. **语义不当占位检测** — `figure.pool.swim`（游泳）等不应再被引入，本枚举不暴露这些。
 ///
 /// ### 使用约定
@@ -128,7 +128,7 @@ enum BTIcon {
     static let sliders      = "slider.horizontal.3"
 
     // MARK: - Reserved for Future Custom Symbols
-    // 当前所有自定义图标通过 SwiftUI 视图实现（BTLogoMark / BTTrainingIcon /
+    // 当前所有自定义图标通过 SwiftUI 视图实现（BTBrandLogo / BTTrainingIcon /
     // BTDrillCategoryIcon），如未来引入 .symbol 自定义包，命名空间预留 "bt." 前缀。
     // 例如：static let btTraining = "bt.training"
 }

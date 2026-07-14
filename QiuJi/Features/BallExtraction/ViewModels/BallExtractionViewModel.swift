@@ -263,9 +263,8 @@ final class BallExtractionViewModel: ObservableObject {
     @Published var selectedKey: String? {
         didSet { if oldValue != selectedKey { refreshSelectionRing() } }
     }
-    @Published var message: String?
-    /// F-PP-05：横幅语义色分流（状态色仅状态反馈，危险色勿稀释）。
-    @Published var messageIsError = false
+    /// F-OV-03: shared toast tone (replaces message/messageIsError banner pair).
+    @Published var toast: BTToastMessage?
     private var selectionNodes: [SCNNode] = []
 
     /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲提示位置（#5a）。
@@ -391,7 +390,7 @@ final class BallExtractionViewModel: ObservableObject {
         refreshOnTableKeys()
         pushConfirmHistory()
         // F-PP-10：与编排台 flash 对齐；配色服从 F-PP-05（完成提示非危险色）。
-        flash("已移回球库", isError: false)
+        flash("已移回球库", tone: .success)
     }
 
     /// 改号：把当前选中球改为球库里的另一个号码（保持原位置）。
@@ -400,7 +399,7 @@ final class BallExtractionViewModel: ObservableObject {
         guard let old = selectedKey, old != newKey,
               let oldNode = scene.allBallNodes[old] else { return }
         if onTableKeys.contains(newKey) {
-            flash("\(PositionPlayBall.shortLabel(for: newKey)) 号已在桌上", isError: false)
+            flash("\(PositionPlayBall.shortLabel(for: newKey)) 号已在桌上", tone: .info)
             return
         }
         let pos = oldNode.position
@@ -479,13 +478,14 @@ final class BallExtractionViewModel: ObservableObject {
         return SCNVector3(p.x, surfaceY + r, p.z)
     }
 
-    func flash(_ text: String, isError: Bool = false) {
-        messageIsError = isError
-        message = text
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { [weak self] in
-            if self?.message == text {
-                self?.message = nil
-                self?.messageIsError = false
+    func flash(_ text: String, tone: BTToastTone = .success) {
+        withAnimation(BTMotion.easeChrome) {
+            toast = BTToastMessage(text, tone: tone)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) { [weak self] in
+            guard let self else { return }
+            withAnimation(BTMotion.easeChrome) {
+                if self.toast?.text == text { self.toast = nil }
             }
         }
     }

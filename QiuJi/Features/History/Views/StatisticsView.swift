@@ -45,7 +45,11 @@ struct StatisticsView: View {
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
                         timeRangePicker
-                        BTPremiumLock(mode: .fullMask) {
+                        BTPremiumLock(
+                            mode: .fullMask,
+                            title: "统计功能为 Pro 专属",
+                            subtitle: "升级 Pro 解锁训练统计、趋势图表和分类对比"
+                        ) {
                             showSubscription = true
                         } content: {
                             VStack(spacing: Spacing.lg) {

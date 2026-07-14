@@ -358,13 +358,7 @@ struct HistoryCalendarView: View {
             Spacer()
 
             if locked {
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: BTIcon.lock)
-                        .font(.btCaption)
-                    Text("Pro")
-                        .font(.btCaption2)
-                }
-                .foregroundStyle(.btAccent)
+                BTProBadge()
             }
 
             Image(systemName: BTIcon.chevronRight)

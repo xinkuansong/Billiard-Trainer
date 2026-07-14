@@ -85,6 +85,7 @@ final class TrainingHomeViewModel: ObservableObject {
 
     func load(context: ModelContext) async {
         isLoading = true
+        // View animates via `.animation(BTMotion.easeFast, value: isLoading)` (F-ST-03).
         defer { isLoading = false }
 
         let descriptor = FetchDescriptor<UserActivePlan>()

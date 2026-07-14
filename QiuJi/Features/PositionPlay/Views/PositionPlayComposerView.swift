@@ -52,7 +52,7 @@ struct PositionPlayComposerView: View {
 
     @State private var showRename = false
     @State private var renameText = ""
-    @State private var banner: String?
+    @State private var toast: BTToastMessage?
 
     // Tryout mode state（试打变体）
     /// drill 初始布局快照（「重摆球形」回退目标）。
@@ -95,10 +95,10 @@ struct PositionPlayComposerView: View {
                         .frame(height: Self.bottomBarHeight)
                 }
                 if let key = draggingKey { dragGhost(key) }
-                bannerView
             }
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .btToast($toast)
         .coordinateSpace(name: "composer")
         .onPreferenceChange(ComposerFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -123,8 +123,8 @@ struct PositionPlayComposerView: View {
             clearTableWarning,
             isPresented: $showClearTableConfirm, titleVisibility: .visible
         ) {
-            Button("清空桌面", role: .destructive) { vm.clearTable() }
             Button("取消", role: .cancel) {}
+            Button("清空桌面", role: .destructive) { vm.clearTable() }
         }
         .confirmationDialog(
             vm.isRecording
@@ -132,8 +132,8 @@ struct PositionPlayComposerView: View {
                 : "回到默认球形并重新开始？",
             isPresented: $showResetConfirm, titleVisibility: .visible
         ) {
-            Button("清空并重来", role: .destructive) { vm.resetAll() }
             Button("取消", role: .cancel) {}
+            Button("清空并重来", role: .destructive) { vm.resetAll() }
         }
         .onAppear {
             if !hasAppeared {
@@ -760,26 +760,14 @@ struct PositionPlayComposerView: View {
         .accessibilityIdentifier("composer.more")
     }
 
-    @ViewBuilder
-    private var bannerView: some View {
-        if let banner {
-            VStack {
-                Text(banner)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(Color.btSuccess, in: Capsule())
-                    .padding(.top, 60)
-                Spacer()
-            }
-            .transition(.move(edge: .top).combined(with: .opacity))
+    private func flash(_ message: String, tone: BTToastTone = .success) {
+        withAnimation(BTMotion.easeChrome) {
+            toast = BTToastMessage(message, tone: tone)
         }
-    }
-
-    private func flash(_ message: String) {
-        withAnimation { banner = message }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            withAnimation { banner = nil }
+        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
+            withAnimation(BTMotion.easeChrome) {
+                if toast?.text == message { toast = nil }
+            }
         }
     }
 

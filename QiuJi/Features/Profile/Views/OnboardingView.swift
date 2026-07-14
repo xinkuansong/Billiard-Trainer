@@ -22,7 +22,7 @@ struct OnboardingView: View {
 
                     featurePage(
                         icon: { AnyView(Image(systemName: "angle").font(.btLargeTitle).foregroundStyle(.btPrimary)) },
-                        title: "角度感知训练",
+                        title: "角度训练",
                         subtitle: "模拟球台场景，精准角度判断\n系统化提升你的比赛直觉"
                     )
                     .tag(1)

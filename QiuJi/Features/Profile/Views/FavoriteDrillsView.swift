@@ -12,8 +12,17 @@ struct FavoriteDrillsView: View {
     var body: some View {
         Group {
             if isLoading {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ScrollView {
+                    LazyVStack(spacing: Spacing.sm) {
+                        ForEach(0..<6, id: \.self) { _ in
+                            BTDrillCardSkeleton()
+                        }
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.md)
+                    .btShimmer()
+                }
+                .transition(.opacity)
             } else if drills.isEmpty {
                 BTEmptyState(
                     icon: "heart.slash",
@@ -25,6 +34,7 @@ struct FavoriteDrillsView: View {
                         router.switchTab(.drillLibrary)
                     }
                 )
+                .transition(.opacity)
             } else {
                 ScrollView {
                     LazyVStack(spacing: Spacing.sm) {
@@ -42,8 +52,10 @@ struct FavoriteDrillsView: View {
                     .padding(.horizontal, Spacing.lg)
                     .padding(.top, Spacing.md)
                 }
+                .transition(.opacity)
             }
         }
+        .animation(BTMotion.easeFast, value: isLoading)
         .background(.btBG)
         .navigationTitle("我的收藏")
         .navigationBarTitleDisplayMode(.inline)
@@ -59,7 +71,9 @@ struct FavoriteDrillsView: View {
         let favoriteIds = Set(favorites.map(\.drillId))
         let allDrills = await service.loadFallbackDrills()
         drills = allDrills.filter { favoriteIds.contains($0.id) }
-        isLoading = false
+        withAnimation(BTMotion.easeFast) {
+            isLoading = false
+        }
     }
 
     private func removeFavorite(_ drillId: String) {

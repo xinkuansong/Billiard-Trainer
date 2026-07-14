@@ -48,9 +48,9 @@ struct BallExtractionView: View {
                 .id(vm.step)
                 .transition(.opacity)
             if let key = draggingKey { dragGhost(key) }
-            banner
         }
         .animation(BTMotion.springPanel, value: vm.step)
+        .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "extract")
         .navigationTitle("拍照建球形")
         .navigationBarTitleDisplayMode(.inline)
@@ -628,24 +628,6 @@ struct BallExtractionView: View {
         .buttonStyle(BTPressableStyle.capsule)
     }
 
-    @ViewBuilder
-    private var banner: some View {
-        if let msg = vm.message {
-            VStack {
-                Text(msg)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    // F-PP-05：错误 → btDestructive；提示/完成 → btSuccess。
-                    .background(vm.messageIsError ? Color.btDestructive : Color.btSuccess, in: Capsule())
-                    .padding(.top, 60)
-                Spacer()
-            }
-            .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(BTMotion.springPanel, value: vm.message)
-        }
-    }
-
     // MARK: - Photo coordinate helpers
 
     /// 图像在容器内 aspect-fit 后占据的矩形。
@@ -729,7 +711,7 @@ struct BallExtractionView: View {
                       let img = UIImage(data: data) else {
                     await MainActor.run {
                         isLoadingPhoto = false
-                        vm.flash("无法读取照片，请重试", isError: true)
+                        vm.flash("无法读取照片，请重试", tone: .error)
                     }
                     return
                 }
@@ -744,7 +726,7 @@ struct BallExtractionView: View {
             } catch {
                 await MainActor.run {
                     isLoadingPhoto = false
-                    vm.flash("照片加载失败：\(error.localizedDescription)", isError: true)
+                    vm.flash("照片加载失败：\(error.localizedDescription)", tone: .error)
                 }
             }
         }

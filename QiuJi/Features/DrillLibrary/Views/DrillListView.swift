@@ -166,6 +166,7 @@ struct DrillListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if viewModel.drillsByCategory.isEmpty {
             gridEmptyState
+                .transition(.opacity)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             ScrollViewReader { proxy in
@@ -209,6 +210,7 @@ struct DrillListView: View {
                     }
                 }
             }
+            .transition(.opacity)
             }
         }
     }

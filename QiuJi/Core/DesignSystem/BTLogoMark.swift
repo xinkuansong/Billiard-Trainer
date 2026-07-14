@@ -1,13 +1,8 @@
 import SwiftUI
 
-/// 球迹品牌 Logo Mark — 程序化矢量绘制（无 PDF / SVG 依赖）。
-///
-/// 隐喻："球迹 = 球（圆点）+ 轨迹（弧线）"。
-/// - 母球（btPrimary 绿）位于 Mark 左下区域。
-/// - 金色（btAccent）轨迹弧线从母球右上切点出发，绕至右上目标点。
-/// - 整体内切于一个 1:1 的方形画布，可与 `RoundedRectangle(cornerRadius: 22.37%)` 组合得到 iOS 标准圆角。
-///
-/// 设计参数集中在 `Geometry` 命名空间，调整时只改这一处即可在所有引用点全局生效。
+/// Archived brand mark (F-CL-06 / W2-9). Production code must use `BTBrandLogo`.
+/// Kept for historical previews only — do **not** add new references.
+@available(*, deprecated, message: "Use BTBrandLogo instead (F-CL-06).")
 struct BTLogoMark: View {
 
     enum Style {

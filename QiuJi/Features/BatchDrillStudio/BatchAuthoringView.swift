@@ -282,9 +282,7 @@ struct BatchAuthoringView: View {
     @State private var dragOverTable = false
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
-    @State private var banner: String?
-    /// F-BD-02：banner 成败分 tone。
-    @State private var bannerIsError = false
+    @State private var toast: BTToastMessage?
     /// F-BD-01：覆盖确认（仅目标文件已存在时）。
     @State private var pendingOverwriteStay = false
     @State private var showOverwriteConfirm = false
@@ -324,10 +322,10 @@ struct BatchAuthoringView: View {
                         .frame(height: Self.bottomBarHeight)
                 }
                 if let key = draggingKey { dragGhost(key) }
-                bannerView
             }
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .animation(BTMotion.springPanel, value: showSpinPad)
+        .btToast($toast)
         .coordinateSpace(name: "batchAuthor")
         .onPreferenceChange(BatchAuthorFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -348,10 +346,10 @@ struct BatchAuthoringView: View {
             isPresented: $showOverwriteConfirm,
             titleVisibility: .visible
         ) {
+            Button("取消", role: .cancel) {}
             Button("覆盖", role: .destructive) {
                 performSave(mode: pendingOverwriteStay ? .stay : .nextDrill)
             }
-            Button("取消", role: .cancel) {}
         } message: {
             Text("同图已有存档，保存将覆盖原杆序。")
         }
@@ -929,7 +927,7 @@ struct BatchAuthoringView: View {
     private func requestSave(mode: SaveMode) {
         guard let drill = context.current else { return }
         guard !composer.sequence.steps.isEmpty else {
-            flash("尚无击打：先「击球」记录至少一杆", isError: false)
+            flash("尚无击打：先「击球」记录至少一杆", tone: .info)
             return
         }
         let imageURL = context.sourceImageURL
@@ -947,7 +945,7 @@ struct BatchAuthoringView: View {
         guard let drill = context.current else { return }
         var seq = composer.sequence
         guard !seq.steps.isEmpty else {
-            flash("尚无击打：先「击球」记录至少一杆", isError: false)
+            flash("尚无击打：先「击球」记录至少一杆", tone: .info)
             return
         }
         let imageURL = context.sourceImageURL
@@ -974,42 +972,21 @@ struct BatchAuthoringView: View {
                 if context.advanceToNextUnsaved() {
                     dismiss()   // drillId 变 → 拍照页 onChange 重置到下一 drill 的选图
                 } else {
-                    flash("全部 drill 均已开工（≥1 球形）🎉", isError: false)
+                    flash("全部 drill 均已开工（≥1 球形）🎉", tone: .success)
                 }
             }
         } catch {
-            flash("保存失败：\(error.localizedDescription)", isError: true)
+            flash("保存失败：\(error.localizedDescription)", tone: .error)
         }
     }
 
-    // MARK: - Banner
-
-    @ViewBuilder
-    private var bannerView: some View {
-        if let banner {
-            VStack {
-                Text(banner)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(bannerIsError ? Color.btDestructive : Color.btSuccess, in: Capsule())
-                    .padding(.top, 60)
-                Spacer()
-            }
-            .transition(.move(edge: .top).combined(with: .opacity))
-            .animation(BTMotion.springPanel, value: banner)
+    private func flash(_ message: String, tone: BTToastTone = .success) {
+        withAnimation(BTMotion.easeChrome) {
+            toast = BTToastMessage(message, tone: tone)
         }
-    }
-
-    private func flash(_ message: String, isError: Bool = false) {
-        bannerIsError = isError
-        withAnimation(BTMotion.springPanel) { banner = message }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.8) {
-            withAnimation(BTMotion.springPanel) {
-                if banner == message {
-                    banner = nil
-                    bannerIsError = false
-                }
+        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
+            withAnimation(BTMotion.easeChrome) {
+                if toast?.text == message { toast = nil }
             }
         }
     }

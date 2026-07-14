@@ -78,7 +78,9 @@ struct DiamondSystemView: View {
             }
         }
         .sheet(isPresented: $showInfo) {
-            ReflectionSolverInfoSheet().presentationDetents([.medium, .large])
+            ReflectionSolverInfoSheet()
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .onAppear {
             if !hasAppeared {

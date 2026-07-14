@@ -64,8 +64,13 @@ struct SceneAimingView: View {
                     keypadOverlay
                 }
                 if vm.testFinished {
-                    summaryOverlay
-                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                    // F-OV-05: modal summary — light scrim keeps table readable.
+                    ZStack {
+                        Color.black.opacity(0.32)
+                            .ignoresSafeArea()
+                        summaryOverlay
+                    }
+                    .transition(.opacity)
                 }
             }
             .animation(BTMotion.easeChrome, value: vm.phase)
@@ -85,7 +90,9 @@ struct SceneAimingView: View {
             }
         }
         .sheet(isPresented: $vm.showSettings) {
-            settingsSheet.presentationDetents([.medium])
+            settingsSheet
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .onAppear {
             vm.quizTypeLabel = is3D ? "scene3D" : "scene2D"
@@ -419,20 +426,8 @@ struct SceneAimingView: View {
             }
 
             if vm.limiter.isLimitReached {
-                VStack(spacing: Spacing.sm) {
-                    Text("今日免费次数已用完").font(.btHeadline).foregroundStyle(.white)
-                    Button { showSubscription = true } label: {
-                        Label("解锁全部内容", systemImage: "crown.fill")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, Spacing.xl)
-                            .padding(.vertical, 11)
-                            .background(Capsule().fill(Color.btPrimary))
-                    }
-                    // F-SA-05：场景绿胶囊轻量 press；禁 BTButtonStyle.primary。
-                    .buttonStyle(BTPressableStyle.capsule)
+                BTDailyLimitGate(compact: true) { showSubscription = true }
                     .padding(.horizontal, Spacing.xxxxl)
-                }
             }
         }
         .padding(Spacing.xl)

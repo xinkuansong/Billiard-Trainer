@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import Combine
+import SwiftUI
 
 enum BallTypeFilter: String, CaseIterable, Identifiable {
     case all = "全部"
@@ -52,7 +53,10 @@ final class DrillListViewModel: ObservableObject {
         let drills = await service.loadFallbackDrills()
         allDrills = drills
         applyFilters()
-        isLoading = false
+        // F-ST-03: drive the opacity transition declared on DrillListView.
+        withAnimation(BTMotion.easeFast) {
+            isLoading = false
+        }
     }
 
     #if DEBUG

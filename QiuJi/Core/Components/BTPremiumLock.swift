@@ -11,16 +11,14 @@ enum PremiumLockMode {
 
 struct BTPremiumLock<Content: View>: View {
     let mode: PremiumLockMode
+    var title: String = "升级 Pro 解锁更多内容"
+    var subtitle: String = "订阅后即可使用完整功能"
     var onSubscribeTap: () -> Void = {}
     @ViewBuilder let content: () -> Content
 
     @Environment(\.colorScheme) private var colorScheme
 
     private var goldColor: Color { .btAccent }
-
-    private var goldBadgeBg: Color {
-        Color.btAccent.opacity(colorScheme == .dark ? 0.15 : 0.12)
-    }
 
     var body: some View {
         switch mode {
@@ -51,7 +49,7 @@ struct BTPremiumLock<Content: View>: View {
 
             VStack(spacing: Spacing.md) {
                 lockIcon
-                goldOutlineCTA
+                goldFilledCTA
                 restorePurchaseLink
             }
             .frame(maxWidth: .infinity)
@@ -69,11 +67,11 @@ struct BTPremiumLock<Content: View>: View {
 
             VStack(spacing: Spacing.lg) {
                 fullMaskLockIcon
-                Text("统计功能为 Pro 专属")
+                Text(title)
                     .font(.btTitle)
                     .fontWeight(.bold)
                     .foregroundStyle(.btText)
-                Text("升级 Pro 解锁训练统计、趋势图表和分类对比")
+                Text(subtitle)
                     .font(.btSubheadline)
                     .foregroundStyle(.btTextSecondary)
                     .multilineTextAlignment(.center)
@@ -128,32 +126,14 @@ struct BTPremiumLock<Content: View>: View {
         }
     }
 
-    private var goldOutlineCTA: some View {
-        Button(action: onSubscribeTap) {
-            HStack(spacing: Spacing.sm) {
-                proBadge
-                Text("解锁 Pro")
-                    .font(.btHeadline)
-                    .foregroundStyle(goldColor)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .overlay(
-                RoundedRectangle(cornerRadius: BTRadius.full)
-                    .stroke(goldColor, lineWidth: 1.5)
-            )
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, Spacing.xxl)
-    }
-
+    /// F-ST-08: progressive + fullMask share solid-gold primary CTA.
     private var goldFilledCTA: some View {
         Button(action: onSubscribeTap) {
             HStack(spacing: Spacing.sm) {
                 Image(systemName: "crown.fill")
                     .font(.btSubheadline)
                     .foregroundStyle(.white)
-                Text("解锁 Pro")
+                Text(BTDailyLimitGate.unlockCTATitle)
                     .font(.btHeadline)
                     .foregroundStyle(.white)
             }
@@ -162,19 +142,8 @@ struct BTPremiumLock<Content: View>: View {
             .background(goldColor)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.full))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .padding(.horizontal, Spacing.xxl)
-    }
-
-    private var proBadge: some View {
-        Text("PRO")
-            .font(.btCaption2)
-            .fontWeight(.bold)
-            .foregroundStyle(goldColor)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(goldBadgeBg)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xxs))
     }
 }
 
@@ -182,6 +151,8 @@ struct BTPremiumLock<Content: View>: View {
 
 struct PremiumGateModifier: ViewModifier {
     let contentIsPremium: Bool
+    var title: String
+    var subtitle: String
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var showSubscription = false
 
@@ -190,7 +161,11 @@ struct PremiumGateModifier: ViewModifier {
             content
 
             if contentIsPremium && !subscriptionManager.isPremium {
-                BTPremiumLock(mode: .fullMask) {
+                BTPremiumLock(
+                    mode: .fullMask,
+                    title: title,
+                    subtitle: subtitle
+                ) {
                     showSubscription = true
                 } content: {
                     EmptyView()
@@ -205,8 +180,17 @@ struct PremiumGateModifier: ViewModifier {
 }
 
 extension View {
-    func premiumGate(isPremium: Bool) -> some View {
-        modifier(PremiumGateModifier(contentIsPremium: isPremium))
+    /// Requires contextual lock copy (F-ST-08) — no statistics-default string.
+    func premiumGate(
+        isPremium: Bool,
+        title: String,
+        subtitle: String
+    ) -> some View {
+        modifier(PremiumGateModifier(
+            contentIsPremium: isPremium,
+            title: title,
+            subtitle: subtitle
+        ))
     }
 }
 
@@ -214,7 +198,6 @@ extension View {
 
 #Preview("Progressive Lock Light") {
     BTPremiumLock(mode: .progressive(visibleItems: 2)) {
-        // Simulated visible content
     } content: {
         VStack(spacing: Spacing.sm) {
             ForEach(0..<2, id: \.self) { i in
@@ -235,7 +218,11 @@ extension View {
 }
 
 #Preview("Full Mask Light") {
-    BTPremiumLock(mode: .fullMask) {} content: {
+    BTPremiumLock(
+        mode: .fullMask,
+        title: "统计功能为 Pro 专属",
+        subtitle: "升级 Pro 解锁训练统计、趋势图表和分类对比"
+    ) {} content: {
         VStack(spacing: Spacing.sm) {
             ForEach(0..<6, id: \.self) { i in
                 HStack {
@@ -252,25 +239,4 @@ extension View {
         .padding(.horizontal, Spacing.lg)
     }
     .background(Color.btBG)
-}
-
-#Preview("Full Mask Dark") {
-    BTPremiumLock(mode: .fullMask) {} content: {
-        VStack(spacing: Spacing.sm) {
-            ForEach(0..<6, id: \.self) { i in
-                HStack {
-                    Text("被遮挡的内容行 \(i + 1)")
-                        .font(.btBody)
-                        .foregroundStyle(.btText)
-                    Spacer()
-                }
-                .padding()
-                .background(Color.btBGSecondary)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
-    }
-    .background(Color.btBG)
-    .preferredColorScheme(.dark)
 }

@@ -9,7 +9,8 @@ struct BTExerciseRow: View {
     }
 
     let drillName: String
-    let thumbnailAnimation: DrillAnimation?
+    /// F-CL-05: wire baked thumbnail when drill id is known (replaces dead animation param).
+    var drillId: String? = nil
     let totalSets: Int
     let completedSets: Int
     let madeBalls: Int
@@ -46,12 +47,20 @@ struct BTExerciseRow: View {
     // MARK: - Thumbnail
 
     private var thumbnail: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: BTRadius.md)
-                .fill(Color.btPrimaryMuted)
-            BTTrainingIcon(size: 30, filled: true)
+        Group {
+            if let drillId {
+                BTBakedDrillTable(drillId: drillId)
+                    .frame(width: 56, height: 56)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: BTRadius.md)
+                        .fill(Color.btPrimaryMuted)
+                    BTTrainingIcon(size: 30, filled: true)
+                }
+                .frame(width: 56, height: 56)
+            }
         }
-        .frame(width: 56, height: 56)
     }
 
     // MARK: - Center
@@ -115,7 +124,7 @@ struct BTExerciseRow: View {
     VStack(spacing: Spacing.sm) {
         BTExerciseRow(
             drillName: "直线球 - 中袋",
-            thumbnailAnimation: nil,
+            drillId: "drill_c006",
             totalSets: 5,
             completedSets: 3,
             madeBalls: 45,
@@ -123,38 +132,6 @@ struct BTExerciseRow: View {
         )
         BTExerciseRow(
             drillName: "斯诺克连续进攻",
-            thumbnailAnimation: nil,
-            totalSets: 3,
-            completedSets: 0,
-            madeBalls: 0,
-            targetBalls: 90
-        )
-        BTExerciseRow(
-            drillName: "K 球走位",
-            thumbnailAnimation: nil,
-            totalSets: 4,
-            completedSets: 3,
-            madeBalls: 72,
-            targetBalls: 120
-        )
-    }
-    .padding(Spacing.lg)
-    .background(Color.btBG)
-}
-
-#Preview("BTExerciseRow Dark") {
-    VStack(spacing: Spacing.sm) {
-        BTExerciseRow(
-            drillName: "直线球 - 中袋",
-            thumbnailAnimation: nil,
-            totalSets: 5,
-            completedSets: 3,
-            madeBalls: 45,
-            targetBalls: 180
-        )
-        BTExerciseRow(
-            drillName: "斯诺克连续进攻",
-            thumbnailAnimation: nil,
             totalSets: 3,
             completedSets: 0,
             madeBalls: 0,
@@ -163,5 +140,4 @@ struct BTExerciseRow: View {
     }
     .padding(Spacing.lg)
     .background(Color.btBG)
-    .preferredColorScheme(.dark)
 }

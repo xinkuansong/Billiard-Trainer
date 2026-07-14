@@ -26,7 +26,7 @@ struct SnookerTacticsView: View {
 
     @State private var sceneFrame: CGRect = .zero
     @State private var paletteFrame: CGRect = .zero
-    @State private var banner: String?
+    @State private var toast: BTToastMessage?
 
     private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
@@ -54,10 +54,10 @@ struct SnookerTacticsView: View {
                         .frame(height: Self.bottomBarHeight)
                 }
                 if let key = draggingKey { dragGhost(key) }
-                bannerView
             }
         }
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .btToast($toast)
         .coordinateSpace(name: "snooker")
         .onPreferenceChange(SnookerFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -368,26 +368,14 @@ struct SnookerTacticsView: View {
 
     // MARK: - Banner
 
-    @ViewBuilder
-    private var bannerView: some View {
-        if let banner {
-            VStack {
-                Text(banner)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(Color.btSuccess, in: Capsule())
-                    .padding(.top, 60)
-                Spacer()
-            }
-            .transition(.move(edge: .top).combined(with: .opacity))
+    private func flash(_ message: String, tone: BTToastTone = .success) {
+        withAnimation(BTMotion.easeChrome) {
+            toast = BTToastMessage(message, tone: tone)
         }
-    }
-
-    private func flash(_ message: String) {
-        withAnimation { banner = message }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-            withAnimation { banner = nil }
+        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
+            withAnimation(BTMotion.easeChrome) {
+                if toast?.text == message { toast = nil }
+            }
         }
     }
 

@@ -1,10 +1,16 @@
 import SwiftUI
 
 struct BTEmptyState: View {
+    enum ActionStyle {
+        case primary
+        case secondary
+    }
+
     let icon: String
     let title: String
     let subtitle: String
     var actionTitle: String? = nil
+    var actionStyle: ActionStyle = .primary
     var action: (() -> Void)? = nil
 
     var body: some View {
@@ -30,12 +36,19 @@ struct BTEmptyState: View {
 
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
-                    .buttonStyle(BTButtonStyle.primary)
+                    .buttonStyle(buttonStyle(for: actionStyle))
                     .padding(.horizontal, Spacing.xxl)
             }
         }
         .padding(Spacing.xxxxl)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func buttonStyle(for style: ActionStyle) -> BTButtonStyle {
+        switch style {
+        case .primary: return .primary
+        case .secondary: return .secondary
+        }
     }
 
     private var iconBadge: some View {

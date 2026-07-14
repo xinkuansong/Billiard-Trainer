@@ -58,8 +58,8 @@ struct GeometricAngleQuizView: View {
             }
         }
         .confirmationDialog("重置统计", isPresented: $showResetConfirm, titleVisibility: .visible) {
-            Button("重置", role: .destructive) { vm.resetStatistics() }
             Button("取消", role: .cancel) {}
+            Button("重置", role: .destructive) { vm.resetStatistics() }
         } message: {
             Text("将清空本页练习次数、正确率与平均误差，此操作不可撤销。")
         }
@@ -224,28 +224,7 @@ struct GeometricAngleQuizView: View {
     // MARK: - Freemium Gate
 
     private var limitReachedCard: some View {
-        VStack(spacing: Spacing.md) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 32))
-                .foregroundStyle(.btAccent)
-
-            Text("今日免费次数已用完")
-                .font(.btHeadline)
-                .foregroundStyle(.white)
-
-            Text("每日可免费练习 \(AngleUsageLimiter.dailyLimit) 题，升级 Pro 后不限次数。")
-                .font(.btSubheadline)
-                .foregroundStyle(.white.opacity(0.65))
-                .multilineTextAlignment(.center)
-
-            sceneCapsuleButton("解锁全部内容", icon: "crown.fill") {
-                showSubscription = true
-            }
-        }
-        .padding(Spacing.xl)
-        .frame(maxWidth: .infinity)
-        .background(.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        BTDailyLimitGate { showSubscription = true }
     }
 
     // MARK: - Result
@@ -279,12 +258,7 @@ struct GeometricAngleQuizView: View {
             }
 
             if vm.limiter.isLimitReached {
-                Text("今日免费次数已用完")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.white.opacity(0.65))
-                sceneCapsuleButton("解锁全部内容", icon: "crown.fill") {
-                    showSubscription = true
-                }
+                BTDailyLimitGate(compact: true) { showSubscription = true }
             } else {
                 sceneCapsuleButton("下一题") { vm.nextQuestion() }
             }

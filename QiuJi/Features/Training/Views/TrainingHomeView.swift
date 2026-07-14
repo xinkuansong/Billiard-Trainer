@@ -25,15 +25,19 @@ struct TrainingHomeView: View {
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
                         if viewModel.isLoading {
-                            ProgressView()
+                            BTDrillListSkeleton()
+                                .transition(.opacity)
                                 .frame(maxWidth: .infinity, minHeight: 300)
                         } else if viewModel.hasActivePlan {
                             activePlanContent
+                                .transition(.opacity)
                         } else {
                             emptyStateContent
+                                .transition(.opacity)
                         }
                     }
                     .padding(.bottom, 176)
+                    .animation(BTMotion.easeFast, value: viewModel.isLoading)
                 }
             }
             .background(.btBG)
@@ -419,7 +423,7 @@ struct TrainingHomeView: View {
                 VStack {
                     HStack {
                         Spacer()
-                        proTag
+                        BTProBadge()
                     }
                     Spacer()
                 }
@@ -428,16 +432,6 @@ struct TrainingHomeView: View {
         }
         .aspectRatio(0.92, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-    }
-
-    private var proTag: some View {
-        Text("PRO")
-            .font(.btMicro.weight(.heavy))
-            .foregroundStyle(.black)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, Spacing.xs)
-            .background(Color.btAccent)
-            .clipShape(Capsule())
     }
 
     private func customIssueThumbnail(number: Int) -> some View {
@@ -479,15 +473,14 @@ struct TrainingHomeView: View {
             if customPlans.isEmpty {
                 BTEmptyState(
                     icon: "list.bullet.clipboard",
-                    title: "暂无自定义计划",
-                    subtitle: "创建你自己的训练方案"
+                    title: "还没有自定义计划",
+                    subtitle: "创建你自己的训练方案",
+                    actionTitle: "创建计划",
+                    actionStyle: .secondary,
+                    action: {
+                        router.trainingPath.append(TrainingRoute.customPlanBuilder)
+                    }
                 )
-
-                Button("创建计划") {
-                    router.trainingPath.append(TrainingRoute.customPlanBuilder)
-                }
-                .buttonStyle(BTButtonStyle.secondary)
-                .padding(.horizontal, Spacing.xxl)
             } else {
                 ForEach(Array(customPlans.enumerated()), id: \.element.id) { index, plan in
                     NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {

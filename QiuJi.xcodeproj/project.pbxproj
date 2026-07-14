@@ -106,6 +106,7 @@
 		4FB3542B6768A8CC9F3AC2CE /* Typography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CF7735B9B15754CDA229F2 /* Typography.swift */; };
 		501D336A79548D42973DEB79 /* BTPlanCover.swift in Sources */ = {isa = PBXBuildFile; fileRef = F844989AC1B68AE2C5B7E963 /* BTPlanCover.swift */; };
 		5080247FAFA2809C5CA006E3 /* QiuJiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = C73374E53070E33615999A1D /* QiuJiApp.swift */; };
+		50A2D45F6127C39E3198228B /* W29ScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A19B67AA9DF80B237CF6F90 /* W29ScreenshotUITests.swift */; };
 		50D0C54D186542F0F66ECBE4 /* AdaptiveQuestionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F17763EF34913B1DEC4BF7 /* AdaptiveQuestionEngine.swift */; };
 		5116CD77DCDF9E5B1EC27FED /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BCDAF924A7000A3825AE3554 /* PrivacyInfo.xcprivacy */; };
 		523CFD96A3510E8C4E2900D1 /* EnhancedEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D9196447D748818E29107C /* EnhancedEnvironment.swift */; };
@@ -183,6 +184,7 @@
 		82284E3269F576B0368FAA5C /* PlanThreeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95AABFDBCA6EBEEBFE1C9881 /* PlanThreeViewModel.swift */; };
 		82872D6EC08777170995EFB7 /* SolverPerformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A671D23AD7A6ABFD34EFB5 /* SolverPerformanceTests.swift */; };
 		846C5BA98D93C9EF885D7354 /* ReachabilityVizTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A00C38A3C292B1E764FD8E /* ReachabilityVizTests.swift */; };
+		85BF571EA8E30603BB7225E4 /* BTToast.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748896FB9B75B10F855A885C /* BTToast.swift */; };
 		860519094D09B4A7B8BC6B67 /* PositioningFormationRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EFC2453CBB90B9B308C5849 /* PositioningFormationRenderTests.swift */; };
 		865BACC4AE602B16CA9CF9C2 /* SnookerTacticsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A78C83E43E47CE5791B7F1 /* SnookerTacticsViewModel.swift */; };
 		8771CBD4FB224205A0B25A31 /* BTPremiumLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = E59F66878FE8670E47BC70A6 /* BTPremiumLock.swift */; };
@@ -233,6 +235,7 @@
 		A84C6DEA2702048C7A1DF1AB /* PositionPlaySequenceArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B672B9CC6FCBEA6794B466 /* PositionPlaySequenceArchive.swift */; };
 		A926E4F7A2D1B8FFF9728972 /* DrillThumbnailRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0471F2D484E4EAB82772F02D /* DrillThumbnailRenderer.swift */; };
 		AA885F87A90D5681F389DFBE /* SequenceVideoExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C4FBDFDA7B1975833ECE84 /* SequenceVideoExporter.swift */; };
+		AA9F2BD6C591084D62E48E58 /* BTDailyLimitGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF65AB831748C562A45E5BA /* BTDailyLimitGate.swift */; };
 		AAFD8267F5482DD9F6270635 /* AngleTrainingScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7F99914247FC8EC366728E /* AngleTrainingScene.swift */; };
 		ADC2FC6D7C3FD23BF9A9FA23 /* TrajectoryPlaybackSettleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F25F3FA4FCA35A9D6BA46D4 /* TrajectoryPlaybackSettleTests.swift */; };
 		ADC60ED1265B69EC1C5FA50E /* SubscriptionStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1FF033885EBE1ADE9EAFF18 /* SubscriptionStatusView.swift */; };
@@ -463,6 +466,7 @@
 		4534BF2320B2581C14FA6F65 /* ShotTableLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotTableLayout.swift; sourceTree = "<group>"; };
 		471F22688215CB7FEBCDAC43 /* BTPressableStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPressableStyle.swift; sourceTree = "<group>"; };
 		47BF87199F6FC90C78C80096 /* PositionPlayUndoSnapshotTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionPlayUndoSnapshotTests.swift; sourceTree = "<group>"; };
+		4A19B67AA9DF80B237CF6F90 /* W29ScreenshotUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = W29ScreenshotUITests.swift; sourceTree = "<group>"; };
 		4A43FEBF8DD1EE58D131DDC6 /* frame_08.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = frame_08.png; sourceTree = "<group>"; };
 		4AEC734555F72CAB0256B3C9 /* AuthState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthState.swift; sourceTree = "<group>"; };
 		4C0A7C862C19FE9436834583 /* ActiveTrainingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingViewModel.swift; sourceTree = "<group>"; };
@@ -516,6 +520,7 @@
 		709C480D883FDD81DE02EAAB /* CueStroke.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueStroke.swift; sourceTree = "<group>"; };
 		72DE10E13E8C9991912EDC14 /* AngleSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleSceneView.swift; sourceTree = "<group>"; };
 		735EF922FB756EE5E610B985 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		748896FB9B75B10F855A885C /* BTToast.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTToast.swift; sourceTree = "<group>"; };
 		7567DAD9288290C02D2DE41C /* DifficultySolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DifficultySolverTests.swift; sourceTree = "<group>"; };
 		75A5AC73516B5EB76DFBDE39 /* P4_TrainingLogUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P4_TrainingLogUITests.swift; sourceTree = "<group>"; };
 		762FF5472730A423BAC4AC4C /* SyncQueueManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueManager.swift; sourceTree = "<group>"; };
@@ -702,6 +707,7 @@
 		FEF5030C2DCECC55991BB647 /* BilliardRulesEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BilliardRulesEngineTests.swift; sourceTree = "<group>"; };
 		FF12FD2E88EE49ED33F8779A /* BTBrandLogo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTBrandLogo.swift; sourceTree = "<group>"; };
 		FF49DC95958009673060AAE6 /* BreakRackPhysicsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BreakRackPhysicsTests.swift; sourceTree = "<group>"; };
+		FFF65AB831748C562A45E5BA /* BTDailyLimitGate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTDailyLimitGate.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -889,8 +895,9 @@
 				83AB04A08E5AE18D58F5EC34 /* S7_PlanThreeV7UITests.swift */,
 				8A3891EB8E65E3672680B4E3 /* S8_SnookerV8UITests.swift */,
 				59556D5EF0242F770CF7BC3C /* ScreenshotTourUITests.swift */,
-				EEF8998476D17D8C97FBE08C /* W27ScreenshotUITests.swift */,
 				69FE82CBEA4462DDE91577FB /* W26ScreenshotUITests.swift */,
+				EEF8998476D17D8C97FBE08C /* W27ScreenshotUITests.swift */,
+				4A19B67AA9DF80B237CF6F90 /* W29ScreenshotUITests.swift */,
 				F9BE2FAD751A636B01BDFF4F /* W210ScreenshotUITests.swift */,
 			);
 			path = QiuJiUITests;
@@ -1269,6 +1276,7 @@
 				F18CD15EF90AEB8F4C07F177 /* BTBakedDrillTable.swift */,
 				F267826CBDEB22DBBC035ECA /* BTButton.swift */,
 				968E67D444BA53E19C53ADE2 /* BTChipRow.swift */,
+				FFF65AB831748C562A45E5BA /* BTDailyLimitGate.swift */,
 				5744ECCE17A177B77E664309 /* BTDrillCard.swift */,
 				01A656C6DB93BB4A1C904124 /* BTDrillPreviewPlayer.swift */,
 				7AD5ADD9C93EBB528619CC02 /* BTEmptyState.swift */,
@@ -1294,6 +1302,7 @@
 				08B378BF24882FCA9DFD327C /* BTShotPageChrome.swift */,
 				168BE477F58F4609B2620410 /* BTSpinPad.swift */,
 				378DE6246DDDFD4820DC8B6D /* BTTableFigure.swift */,
+				748896FB9B75B10F855A885C /* BTToast.swift */,
 				B2D7081A5A48EE72FB70CC86 /* BTTogglePillGroup.swift */,
 				F33F1518CA1619BE7A980D01 /* BTTrajectoryDetailChip.swift */,
 				5FC09B1E9F1AE4588B77608B /* PoolBallFace.swift */,
@@ -1707,6 +1716,7 @@
 				197792AB9C4CA0D0599CD911 /* BTBrandLogo.swift in Sources */,
 				2DC1352B03F51C4BF975828E /* BTButton.swift in Sources */,
 				D7A3405B4DEE91535328B0DF /* BTChipRow.swift in Sources */,
+				AA9F2BD6C591084D62E48E58 /* BTDailyLimitGate.swift in Sources */,
 				592CDC2209CA8CBC4ADF593C /* BTDrillCard.swift in Sources */,
 				956745467A5FF72C2BC02EB6 /* BTDrillCategoryIcon.swift in Sources */,
 				A3DCBDF7F06EEF7C8B249F9A /* BTDrillPreviewPlayer.swift in Sources */,
@@ -1737,6 +1747,7 @@
 				E3F6959DCFEB5B67105F2400 /* BTShotPageChrome.swift in Sources */,
 				C25B6E4C6C85A93456B5204F /* BTSpinPad.swift in Sources */,
 				03AC70C22520783DAE94F48C /* BTTableFigure.swift in Sources */,
+				85BF571EA8E30603BB7225E4 /* BTToast.swift in Sources */,
 				4E2942FFED494A2A5402A0E3 /* BTTogglePillGroup.swift in Sources */,
 				FE4B639122CBF7ECF26C41A1 /* BTTrainingIcon.swift in Sources */,
 				D8E6322C47238255E9B5E477 /* BTTrajectoryDetailChip.swift in Sources */,
@@ -1921,8 +1932,9 @@
 				25EF3F328D6D5BE47ECD13F0 /* S8_SnookerV8UITests.swift in Sources */,
 				819EBDACF716AD00FB40A970 /* ScreenshotTourUITests.swift in Sources */,
 				5BAB2460C79ECE0CBC1D1D63 /* W210ScreenshotUITests.swift in Sources */,
-				3D996A19FDBE2B889DEB55C8 /* W27ScreenshotUITests.swift in Sources */,
 				68C3978BF7C3C33BC2879608 /* W26ScreenshotUITests.swift in Sources */,
+				3D996A19FDBE2B889DEB55C8 /* W27ScreenshotUITests.swift in Sources */,
+				50A2D45F6127C39E3198228B /* W29ScreenshotUITests.swift in Sources */,
 				AF973F41ACF3F0B3CC3C9484 /* XCUIApplication+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

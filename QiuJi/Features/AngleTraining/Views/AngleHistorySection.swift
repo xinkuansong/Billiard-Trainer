@@ -20,7 +20,7 @@ struct AngleHistorySection: View {
         VStack(spacing: Spacing.xxl) {
             if vm.allResults.isEmpty {
                 BTEmptyState(icon: "chart.line.uptrend.xyaxis",
-                             title: "暂无训练记录",
+                             title: "还没有训练记录",
                              subtitle: "完成角度训练后，误差趋势将在这里显示")
             } else {
                 quizTypeFilter

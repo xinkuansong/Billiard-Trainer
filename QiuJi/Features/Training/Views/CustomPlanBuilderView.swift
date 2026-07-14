@@ -425,7 +425,9 @@ private struct DrillSettingsSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        // F-OV-01: form/settings sheet — medium (+ large) + drag indicator.
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 

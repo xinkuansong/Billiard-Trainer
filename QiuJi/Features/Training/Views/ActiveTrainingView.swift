@@ -53,6 +53,9 @@ struct ActiveTrainingView: View {
                 }
 
                 if viewModel.isRestTimerActive {
+                    // F-CL-04: keep W2-6 rest overlay chrome (dual rings, end state,
+                    // numericText, card shell). Shared `BTRestTimer` lacks those;
+                    // swapping would regress W2-6 — document instead of hard-replace.
                     restCountdownOverlay
                         .transition(.opacity)
                 }
@@ -215,7 +218,7 @@ struct ActiveTrainingView: View {
                         let sets = index < viewModel.drillSetsData.count ? viewModel.drillSetsData[index] : []
                         BTExerciseRow(
                             drillName: drill.nameZh,
-                            thumbnailAnimation: drill.animation,
+                            drillId: drill.drillId,
                             totalSets: sets.count,
                             completedSets: sets.filter(\.isCompleted).count,
                             madeBalls: sets.reduce(0) { $0 + $1.madeBalls },
@@ -578,8 +581,9 @@ struct ActiveTrainingView: View {
         // F-AT-07: at 0:00 disable +30S to prevent accidental extend during dismiss window
         let restActionsEnabled = viewModel.restSecondsRemaining > 0
 
+        // F-OV-05: modal rest overlay — light scrim (table remains visible).
         return ZStack {
-            Color.black.opacity(0.3)
+            Color.black.opacity(0.32)
                 .ignoresSafeArea()
 
             VStack {

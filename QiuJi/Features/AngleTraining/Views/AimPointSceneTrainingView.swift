@@ -636,28 +636,8 @@ struct AimPointSceneTrainingView: View {
     }
 
     private var limitCard: some View {
-        VStack(spacing: Spacing.md) {
-            Image(systemName: "crown.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(.btAccent)
-            Text("今日免费次数已用完")
-                .font(.btHeadline)
-                .foregroundStyle(.white)
-            Button {
-                showSubscription = true
-            } label: {
-                Text("解锁全部内容")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.xl)
-                    .padding(.vertical, 10)
-                    .background(Capsule().fill(Color.btPrimary))
-            }
-            .buttonStyle(BTPressableStyle.capsule)
-        }
-        .padding(Spacing.xl)
-        .btHudGlass(in: RoundedRectangle(cornerRadius: BTRadius.xl))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        BTDailyLimitGate { showSubscription = true }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

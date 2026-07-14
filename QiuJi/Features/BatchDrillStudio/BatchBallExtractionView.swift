@@ -38,8 +38,8 @@ struct BatchBallExtractionView: View {
             Color.black.ignoresSafeArea()
             content
             if let key = draggingKey { dragGhost(key) }
-            banner
         }
+        .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "batchExtract")
         .navigationTitle(drill.map { "建球形 · \($0.drillId)" } ?? "建球形")
         .navigationBarTitleDisplayMode(.inline)
@@ -205,7 +205,7 @@ struct BatchBallExtractionView: View {
 
     private func loadImage(_ url: URL) {
         guard let raw = UIImage(contentsOfFile: url.path) else {
-            vm.flash("无法读取图片：\(url.lastPathComponent)", isError: true)
+            vm.flash("无法读取图片：\(url.lastPathComponent)", tone: .error)
             return
         }
         vm.image = raw.rotated90Clockwise()
@@ -222,7 +222,7 @@ struct BatchBallExtractionView: View {
     private func editArchive(_ url: URL) {
         guard let drill = context.current else { return }
         guard let seq = BatchDrillCatalog.loadSequence(drillId: drill.drillId, imageURL: url) else {
-            vm.flash("读取存档失败：\(url.lastPathComponent)", isError: true)
+            vm.flash("读取存档失败：\(url.lastPathComponent)", tone: .error)
             return
         }
         context.sourceImageURL = url          // 保存时按同一 token 覆盖原存档
@@ -237,7 +237,7 @@ struct BatchBallExtractionView: View {
         guard let drill = context.current else { return }
         guard let url = BatchDrillCatalog.savedSequenceURL(drillId: drill.drillId, token: ""),
               let seq = BatchDrillCatalog.loadSequence(at: url) else {
-            vm.flash("读取旧版存档失败：\(drill.drillId)", isError: true)
+            vm.flash("读取旧版存档失败：\(drill.drillId)", tone: .error)
             return
         }
         context.sourceImageURL = nil
@@ -627,22 +627,6 @@ struct BatchBallExtractionView: View {
                 .background(Color.white.opacity(0.12), in: Capsule())
         }
         .buttonStyle(BTPressableStyle.capsule)
-    }
-
-    @ViewBuilder
-    private var banner: some View {
-        if let msg = vm.message {
-            VStack {
-                Text(msg).font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-                    .background(vm.messageIsError ? Color.btDestructive : Color.btSuccess, in: Capsule())
-                    .padding(.top, 60)
-                Spacer()
-            }
-            .transition(.move(edge: .top).combined(with: .opacity))
-            // F-BD-07：banner 动效收编 BTMotion.springPanel。
-            .animation(BTMotion.springPanel, value: vm.message)
-        }
     }
 
     // MARK: - Photo coordinate helpers
