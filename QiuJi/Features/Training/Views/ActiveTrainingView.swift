@@ -8,6 +8,8 @@ struct ActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var showShareView = false
+    /// F-AT-04: brief shrink-toward-floating-pill transition when minimizing.
+    @State private var isMinimizing = false
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -56,6 +58,9 @@ struct ActiveTrainingView: View {
                         .transition(.opacity)
                 }
             }
+            // F-AT-04: shrink toward the bottom-trailing floating pill when minimizing.
+            .scaleEffect(isMinimizing ? 0.92 : 1, anchor: .bottomTrailing)
+            .opacity(isMinimizing ? 0.5 : 1)
             .animation(BTMotion.springPanel, value: viewModel.trainingPhase)
             .animation(BTMotion.springPanel, value: viewModel.isRestTimerActive)
             .navigationTitle(phaseTitle)
@@ -356,11 +361,11 @@ struct ActiveTrainingView: View {
 
                     Menu {
                         Button { viewModel.showEndConfirm = true } label: {
-                            Label("结束训练", systemImage: "stop.circle")
+                            Label("结束训练", systemImage: BTIcon.stopCircle)
                         }
                         if !viewModel.isTimerSkipped {
                             Button { viewModel.skipTimer() } label: {
-                                Label("跳过计时", systemImage: "forward.fill")
+                                Label("跳过计时", systemImage: BTIcon.forward)
                             }
                         } else {
                             Button { viewModel.unskipTimer() } label: {
@@ -368,27 +373,30 @@ struct ActiveTrainingView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: BTIcon.filter)
+                        Image(systemName: BTIcon.menu)
                             .font(.btHeadline)
                             .foregroundStyle(.btTextSecondary)
                     }
+                    .buttonStyle(BTPressableStyle.row)
                     .frame(width: 44, height: 44)
                     .accessibilityLabel("更多选项")
 
+                    // F-AT-05: brand green = primary action, not "end"; use stop + secondary tint
                     Button { viewModel.showEndConfirm = true } label: {
-                        Image(systemName: BTIcon.checkmarkCircle)
+                        Image(systemName: BTIcon.stopCircle)
                             .font(.btTitle)
-                            .foregroundStyle(.btPrimary)
+                            .foregroundStyle(.btTextSecondary)
                     }
+                    .buttonStyle(BTPressableStyle.row)
                     .frame(width: 44, height: 44)
-                    .accessibilityLabel("完成训练")
+                    .accessibilityLabel("结束训练")
                 }
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, Spacing.md)
 
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(viewModel.isPlanMode ? "按计划训练" : "自由记录")
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
@@ -399,6 +407,18 @@ struct ActiveTrainingView: View {
                     }
                 }
                 Spacer()
+                // F-AT-10: weak page position (does not change TabView binding)
+                if viewModel.drills.count > 1 {
+                    Text("\(viewModel.currentDrillIndex + 1) / \(viewModel.drills.count)")
+                        .font(.btCaption2)
+                        .foregroundStyle(.btTextTertiary)
+                        .monospacedDigit()
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xs)
+                        .background(Color.btBGTertiary.opacity(0.7))
+                        .clipShape(Capsule())
+                        .accessibilityLabel("第 \(viewModel.currentDrillIndex + 1) 项，共 \(viewModel.drills.count) 项")
+                }
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.sm)
@@ -446,9 +466,16 @@ struct ActiveTrainingView: View {
 
     private var bottomToolbar: some View {
         HStack(spacing: 0) {
-            toolbarItem(icon: "minus", label: "最小化") {
-                router.minimizeTraining(viewModel)
-                dismiss()
+            // F-AT-12 / F-AT-04: BTIcon.minus + spring handoff into minimized chrome
+            toolbarItem(icon: BTIcon.minus, label: "最小化") {
+                withAnimation(BTMotion.springPanel) {
+                    isMinimizing = true
+                    router.minimizeTraining(viewModel)
+                }
+                // Let the shrink-toward-pill read before the cover slides away (chrome ≤300ms).
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    dismiss()
+                }
             }
             .accessibilityLabel("最小化训练")
 
@@ -456,15 +483,15 @@ struct ActiveTrainingView: View {
 
             Menu {
                 Button { viewModel.showEndConfirm = true } label: {
-                    Label("结束训练", systemImage: "stop.circle")
+                    Label("结束训练", systemImage: BTIcon.stopCircle)
                 }
                 if !viewModel.isTimerSkipped {
                     Button { viewModel.skipTimer() } label: {
-                        Label("跳过计时", systemImage: "forward.fill")
+                        Label("跳过计时", systemImage: BTIcon.forward)
                     }
                 }
             } label: {
-                VStack(spacing: 2) {
+                VStack(spacing: Spacing.xs) {
                     Image(systemName: BTIcon.menu)
                         .font(.btTitle2)
                         .foregroundStyle(.btTextSecondary)
@@ -475,11 +502,12 @@ struct ActiveTrainingView: View {
                 }
                 .frame(width: 56)
             }
+            .buttonStyle(BTPressableStyle.row)
             .accessibilityLabel("更多选项")
 
             Spacer()
 
-            VStack(spacing: 2) {
+            VStack(spacing: Spacing.xs) {
                 Button {
                     viewModel.showDrillPicker = true
                 } label: {
@@ -494,7 +522,7 @@ struct ActiveTrainingView: View {
 
             Spacer()
 
-            toolbarItem(icon: "square.and.pencil", label: "心得") {
+            toolbarItem(icon: BTIcon.editPad, label: "心得") {
                 viewModel.endTraining()
             }
             .accessibilityLabel("记录心得")
@@ -502,7 +530,7 @@ struct ActiveTrainingView: View {
             Spacer()
 
             toolbarItem(
-                icon: "arrow.left.arrow.right",
+                icon: BTIcon.arrowLeftRight,
                 label: "切换",
                 tint: .btPrimary
             ) {
@@ -530,7 +558,7 @@ struct ActiveTrainingView: View {
 
     private func toolbarItem(icon: String, label: String, tint: Color = .btTextSecondary, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(spacing: 2) {
+            VStack(spacing: Spacing.xs) {
                 Image(systemName: icon)
                     .font(.btTitle2)
                     .foregroundStyle(tint)
@@ -541,12 +569,17 @@ struct ActiveTrainingView: View {
             }
             .frame(width: 56)
         }
+        .buttonStyle(BTPressableStyle.row)
     }
 
     // MARK: - Rest Countdown Overlay
 
     private var restCountdownOverlay: some View {
-        ZStack {
+        // F-TR-03: regular-page chrome tokens + press styles (not scene HUD)
+        // F-AT-07: at 0:00 disable +30S to prevent accidental extend during dismiss window
+        let restActionsEnabled = viewModel.restSecondsRemaining > 0
+
+        return ZStack {
             Color.black.opacity(0.3)
                 .ignoresSafeArea()
 
@@ -585,47 +618,40 @@ struct ActiveTrainingView: View {
                             .rotationEffect(.degrees(-90))
                             .animation(.linear(duration: 1), value: viewModel.restSecondsRemaining)
 
-                        VStack(spacing: 4) {
+                        VStack(spacing: Spacing.xs) {
                             Text(restTimeFormatted)
-                                .font(.system(size: 32, weight: .bold, design: .default))
+                                .font(.btLargeTitle)
+                                .monospacedDigit()
                                 .foregroundStyle(.btText)
                                 .contentTransition(.numericText())
                                 .animation(.default, value: viewModel.restSecondsRemaining)
 
-                            Text("组间休息")
-                                .font(.system(size: 13))
+                            Text(restActionsEnabled ? "组间休息" : "休息结束")
+                                .font(.btFootnote)
                                 .foregroundStyle(.btTextSecondary)
                         }
                     }
 
-                    Spacer().frame(height: 48)
+                    Spacer().frame(height: Spacing.xxxl)
 
-                    HStack(spacing: 12) {
+                    HStack(spacing: Spacing.md) {
                         Button {
                             viewModel.addRestTime(30)
                         } label: {
                             Text("+30S")
-                                .font(.system(size: 14, weight: .semibold))
-                                .tracking(0.7)
-                                .foregroundStyle(.btTextSecondary)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color.btSeparator.opacity(0.3))
-                                .clipShape(Capsule())
                         }
+                        .buttonStyle(BTButtonStyle.secondary)
+                        .disabled(!restActionsEnabled)
+                        .opacity(restActionsEnabled ? 1 : 0.4)
 
                         Button {
                             viewModel.skipRestTimer()
                         } label: {
                             Text("完成休息")
-                                .font(.system(size: 14, weight: .semibold))
-                                .tracking(0.7)
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Color.btPrimary)
-                                .clipShape(Capsule())
                         }
+                        .buttonStyle(BTButtonStyle.primary)
+                        .disabled(!restActionsEnabled)
+                        .opacity(restActionsEnabled ? 1 : 0.4)
                     }
                     .padding(.horizontal, Spacing.xxl)
 
@@ -686,6 +712,8 @@ struct DrillPickerSheet: View {
     @State private var searchText = ""
     @State private var isLoading = true
     @State private var addedCount = 0
+    /// F-AT-08: row-level confirmation for multi-select add (ids that were tapped).
+    @State private var addedDrillIds: Set<String> = []
 
     let onSelect: (DrillContent) -> Void
 
@@ -700,9 +728,13 @@ struct DrillPickerSheet: View {
     var body: some View {
         NavigationStack {
             List(filteredDrills) { drill in
+                let wasAdded = addedDrillIds.contains(drill.id)
                 Button {
                     onSelect(drill)
                     addedCount += 1
+                    withAnimation(BTMotion.easeFast) {
+                        addedDrillIds.insert(drill.id)
+                    }
                 } label: {
                     HStack {
                         VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -726,11 +758,16 @@ struct DrillPickerSheet: View {
 
                         Spacer()
 
-                        Image(systemName: BTIcon.plusCircle)
-                            .foregroundStyle(.btPrimary)
+                        Image(systemName: wasAdded ? BTIcon.checkmarkCircle : BTIcon.plusCircle)
+                            .foregroundStyle(wasAdded ? Color.btSuccess : Color.btPrimary)
                     }
                     .padding(.vertical, Spacing.xs)
+                    .padding(.horizontal, Spacing.xs)
+                    .background(wasAdded ? Color.btSuccess.opacity(0.08) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
                 }
+                // List rows need .plain for reliable hit-testing; F-AT-08 feedback is the
+                // plus→checkmark + row tint (press scale via BTPressableStyle breaks List taps).
                 .buttonStyle(.plain)
             }
             .listStyle(.plain)

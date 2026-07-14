@@ -71,13 +71,22 @@ struct MainTabView: View {
                 .tag(AppTab.profile)
         }
 
+            // F-AT-04: float shares copy/color/icon with home continue bar; springPanel handoff
             if router.minimizedTrainingVM != nil && router.selectedTab != .training {
-                BTFloatingIndicator(elapsedSeconds: router.minimizedTrainingVM?.elapsedSeconds ?? 0) {
+                BTFloatingIndicator(
+                    elapsedSeconds: router.minimizedTrainingVM?.elapsedSeconds ?? 0,
+                    title: "继续训练"
+                ) {
                     router.switchTab(.training)
                 }
                 .padding(.trailing, Spacing.lg)
                 .padding(.bottom, 60)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(
+                    .asymmetric(
+                        insertion: .scale(scale: 0.85, anchor: .bottomTrailing).combined(with: .opacity),
+                        removal: .opacity
+                    )
+                )
                 .animation(BTMotion.springPanel, value: router.isTrainingMinimized)
             }
         }

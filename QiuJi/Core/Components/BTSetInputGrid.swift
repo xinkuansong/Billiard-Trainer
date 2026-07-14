@@ -129,7 +129,7 @@ struct BTSetInputGrid: View {
 
     // MARK: - Row State
 
-    enum RowState {
+    enum RowState: Equatable {
         case completed, active, pending
     }
 
@@ -200,6 +200,9 @@ private struct SetRow: View {
                     .frame(width: 4)
             }
         }
+        // F-AT-02: animate completed fill + active bar (driven by ViewModel withAnimation)
+        .animation(BTMotion.easeFast, value: setData.isCompleted)
+        .animation(BTMotion.easeFast, value: rowState)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("第\(setData.id)组, \(setData.madeBalls)/\(setData.targetBalls)球")
     }
@@ -288,7 +291,7 @@ private struct SetRow: View {
                 if setData.isCompleted {
                     Circle()
                         .fill(Color.btPrimary)
-                    Image(systemName: "checkmark")
+                    Image(systemName: BTIcon.checkmark)
                         .font(.btCaption)
                         .fontWeight(.bold)
                         .foregroundStyle(.white)
@@ -301,7 +304,8 @@ private struct SetRow: View {
             .frame(width: 48, height: 48)
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        // F-AT-02: press feedback on highest-frequency complete control
+        .buttonStyle(BTPressableStyle.row)
         .highPriorityGesture(TapGesture().onEnded { onComplete() })
         .accessibilityLabel(setData.isCompleted ? "已完成" : "标记完成")
     }

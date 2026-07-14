@@ -43,7 +43,8 @@ struct PlanBrowseItem: Identifiable {
 
 enum PlanBrowseTab: String, CaseIterable {
     case official = "官方计划"
-    case custom = "自定义模版"
+    /// F-PL-09: align wording with PlanListView「我的计划」(was「自定义模版」)
+    case custom = "我的计划"
 }
 
 enum PlanLevelFilter: String, CaseIterable {

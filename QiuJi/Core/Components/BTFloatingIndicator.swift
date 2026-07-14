@@ -2,6 +2,8 @@ import SwiftUI
 
 struct BTFloatingIndicator: View {
     let elapsedSeconds: Int
+    /// F-AT-04: shared resume copy with TrainingHome full-width bar.
+    var title: String = "继续训练"
     var onTap: () -> Void
 
     @Environment(\.colorScheme) private var colorScheme
@@ -16,13 +18,12 @@ struct BTFloatingIndicator: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: Spacing.sm) {
-                Text("训练中")
+                Image(systemName: BTIcon.playCircle)
+                    .font(.btCaption.weight(.semibold))
+                Text(title)
                     .font(.btSubheadlineMedium)
                 Text(timeString)
                     .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                Image(systemName: "chevron.left")
-                    .font(.btCaption2)
-                    .fontWeight(.semibold)
             }
             .foregroundStyle(.white)
             .padding(.horizontal, Spacing.lg)
@@ -38,7 +39,7 @@ struct BTFloatingIndicator: View {
         }
         .buttonStyle(BTPressableStyle.capsule)
         .onAppear { isBreathing = true }
-        .accessibilityLabel("训练进行中 \(timeString)，点击返回")
+        .accessibilityLabel("\(title) \(timeString)，点击返回")
     }
 }
 

@@ -38,7 +38,9 @@ struct TrainingHomeView: View {
             }
             .background(.btBG)
 
-            if viewModel.hasActivePlan && !viewModel.isLoading {
+            // F-AT-04: show bottom chrome when minimized even without an active plan
+            // (free-record minimize must still surface the full-width「继续训练」bar).
+            if (viewModel.hasActivePlan || router.isTrainingMinimized) && !viewModel.isLoading {
                 fixedStartButton
             }
         }
@@ -181,6 +183,20 @@ struct TrainingHomeView: View {
 
                 Spacer()
             }
+
+            // F-PL-02: surface existing planNameZh / weekTheme (no new entry)
+            if !session.planNameZh.isEmpty {
+                Text(session.planNameZh)
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(1)
+            }
+            if !session.weekTheme.isEmpty {
+                Text(session.weekTheme)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+                    .lineLimit(2)
+            }
         }
     }
 
@@ -218,6 +234,7 @@ struct TrainingHomeView: View {
                     .font(.btTitle)
                     .foregroundStyle(.btSuccess)
             } else if isCurrentDrill {
+                // F-TR-06: press feedback aligned with primary chrome (compact label kept)
                 Button {
                     router.startTraining(mode: .plan(drills: session.drills))
                 } label: {
@@ -229,11 +246,14 @@ struct TrainingHomeView: View {
                         .background(Color.btPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
                 }
+                .buttonStyle(BTPressableStyle.capsule)
             } else {
-                Image(systemName: BTIcon.menu)
-                    .font(.btBody)
+                // F-TR-05: non-affordance queue label (was BTIcon.menu — looked tappable)
+                Text("排队")
+                    .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
                     .frame(width: 44, height: 44)
+                    .accessibilityLabel("排队中，尚未开始")
             }
         }
         .padding(Spacing.lg)
@@ -249,7 +269,7 @@ struct TrainingHomeView: View {
                 .font(.btStatNumber)
                 .foregroundStyle(.btSuccess)
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("今日训练已完成")
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
@@ -278,11 +298,17 @@ struct TrainingHomeView: View {
 
             Divider().foregroundStyle(.btSeparator)
 
-            if viewModel.selectedTab == .official {
-                officialPlanBrowsing
-            } else {
-                customPlanBrowsing
+            // F-PL-05: short opacity ≤200ms on segmented content swap
+            Group {
+                if viewModel.selectedTab == .official {
+                    officialPlanBrowsing
+                        .transition(.opacity)
+                } else {
+                    customPlanBrowsing
+                        .transition(.opacity)
+                }
             }
+            .animation(BTMotion.easeFast, value: viewModel.selectedTab)
         }
     }
 
@@ -376,14 +402,14 @@ struct TrainingHomeView: View {
                 endPoint: .bottom
             )
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(plan.nameZh)
                     .font(.btHeadline)
                     .foregroundStyle(.white)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 Text("\(planLevelName(plan.targetLevel)) · \(plan.durationWeeks) 周")
-                    .font(.system(size: 11, weight: .medium))
+                    .font(.btCaption2)
                     .foregroundStyle(.white.opacity(0.85))
                     .monospacedDigit()
             }
@@ -406,10 +432,10 @@ struct TrainingHomeView: View {
 
     private var proTag: some View {
         Text("PRO")
-            .font(.system(size: 10, weight: .heavy))
+            .font(.btMicro.weight(.heavy))
             .foregroundStyle(.black)
             .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, 2)
+            .padding(.vertical, Spacing.xs)
             .background(Color.btAccent)
             .clipShape(Capsule())
     }
@@ -425,17 +451,18 @@ struct TrainingHomeView: View {
                     )
                 )
 
-            VStack(spacing: 0) {
+            VStack(spacing: Spacing.xs) {
                 Text(String(format: "%02d", number))
-                    .font(.btStatNumber)
+                    .font(.btDisplaySmall)
                     .foregroundStyle(Color.btAccent)
                     .monospacedDigit()
                 Image(systemName: BTIcon.hammer)
-                    .font(.btMicro)
+                    .font(.btCaption2)
                     .foregroundStyle(Color.btAccent.opacity(0.7))
             }
         }
-        .frame(width: 56, height: 56)
+        // F-TR-14: align with PlanListView custom thumbnail (72)
+        .frame(width: 72, height: 72)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .accessibilityHidden(true)
     }
@@ -497,7 +524,7 @@ struct TrainingHomeView: View {
                     .foregroundStyle(.btTextSecondary)
                     .monospacedDigit()
 
-                HStack(spacing: 2) {
+                HStack(spacing: Spacing.xs) {
                     Image(systemName: BTIcon.sliders)
                         .font(.btMicro)
                     Text("自定义")
@@ -505,15 +532,16 @@ struct TrainingHomeView: View {
                 }
                 .foregroundStyle(.btAccent)
                 .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, 2)
+                .padding(.vertical, Spacing.xs)
                 .background(Color.btAccent.opacity(0.12))
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-                .padding(.top, 2)
+                .padding(.top, Spacing.xs)
             }
         }
-        .padding(colorScheme == .dark ? Spacing.md : Spacing.sm)
-        .background(colorScheme == .dark ? Color.btBGSecondary : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: colorScheme == .dark ? BTRadius.md : 0))
+        // F-TR-13: match PlanListView — both modes btBGSecondary + BTRadius.md
+        .padding(Spacing.md)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     // MARK: - Empty State
@@ -558,17 +586,22 @@ struct TrainingHomeView: View {
             Spacer()
 
             if router.isTrainingMinimized {
+                // F-AT-04: keep full-width form; share copy/color/icon language with float
                 Button {
                     resumeMinimizedTraining()
                 } label: {
                     HStack(spacing: Spacing.sm) {
-                        Circle()
-                            .fill(Color.white.opacity(0.3))
-                            .frame(width: 8, height: 8)
+                        Image(systemName: BTIcon.playCircle)
+                            .font(.btSubheadlineMedium)
                         Text("继续训练")
+                        if let elapsed = router.minimizedTrainingVM?.elapsedSeconds {
+                            Text(Self.formatElapsed(elapsed))
+                                .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        }
                     }
                 }
                 .buttonStyle(BTButtonStyle.primary)
+                .transition(.scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
             } else {
                 Button {
                     if let session = viewModel.todaySession {
@@ -580,8 +613,10 @@ struct TrainingHomeView: View {
                     Text("开始训练")
                 }
                 .buttonStyle(BTButtonStyle.primary)
+                .transition(.opacity)
             }
         }
+        .animation(BTMotion.springPanel, value: router.isTrainingMinimized)
         .shadow(color: colorScheme == .dark ? .clear : Color.btPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
         .padding(.horizontal, Spacing.xxl)
         .padding(.bottom, Spacing.sm)
@@ -598,6 +633,13 @@ struct TrainingHomeView: View {
 
     private func resumeMinimizedTraining() {
         router.resumeMinimizedTraining()
+    }
+
+    /// Shared elapsed formatting with `BTFloatingIndicator` (F-AT-04).
+    private static func formatElapsed(_ elapsedSeconds: Int) -> String {
+        let minutes = elapsedSeconds / 60
+        let seconds = elapsedSeconds % 60
+        return String(format: "%d:%02d", minutes, seconds)
     }
 }
 
