@@ -221,7 +221,7 @@ struct SubscriptionView: View {
         let activeBorder = isRecommended ? Color.btPrimary : borderColor
 
         return Button {
-            withAnimation(.spring(duration: 0.2)) {
+            withAnimation(BTMotion.easeFast) {
                 selectedProductID = product.id
             }
         } label: {

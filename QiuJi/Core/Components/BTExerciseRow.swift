@@ -37,7 +37,7 @@ struct BTExerciseRow: View {
             )
             .shadow(color: colorScheme == .dark ? .clear : Color.black.opacity(0.04), radius: 4, x: 0, y: 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.row)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(drillName), \(completedSets)/\(totalSets) 组, \(madeBalls)/\(targetBalls) 球")
         .accessibilityHint(accessory == .tutorial ? "查看动作精讲" : "")
@@ -93,7 +93,7 @@ struct BTExerciseRow: View {
 
             switch accessory {
             case .settings:
-                Image(systemName: "ellipsis.circle")
+                Image(systemName: BTIcon.menuCircle)
                     .font(.btFootnote14)
                     .foregroundStyle(.btTextTertiary)
             case .tutorial:

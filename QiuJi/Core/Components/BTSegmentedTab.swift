@@ -15,7 +15,7 @@ struct BTSegmentedTab<T: Hashable>: View {
             ForEach(tabs, id: \.self) { tab in
                 let isActive = tab == selected
                 Button {
-                    withAnimation(.easeInOut(duration: 0.25)) {
+                    withAnimation(BTMotion.easeFast) {
                         selected = tab
                     }
                 } label: {

@@ -38,7 +38,7 @@ struct BTSceneFAB: View {
         switch variant {
         case .primary:
             AnyShapeStyle(LinearGradient(
-                colors: [.btPrimary, Color(red: 0.0, green: 0.45, blue: 0.25)],
+                colors: [.btPrimary, HUDStyle.fabPrimaryEnd],
                 startPoint: .top, endPoint: .bottom
             ))
         case .neutral:

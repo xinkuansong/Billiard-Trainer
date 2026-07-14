@@ -154,7 +154,7 @@ struct PositionPlayComposerView: View {
                     } else {
                         vm.aimMode = initialMode ?? .free
                     }
-                    withAnimation(.easeIn(duration: 0.45).delay(0.1)) { stageRevealed = true }
+                    withAnimation(BTMotion.easeChrome.delay(0.1)) { stageRevealed = true }
                     withAnimation(.easeInOut(duration: 0.35).delay(0.6)) { showBrief = true }
                 } else {
                     if let initialBoard { vm.loadBoard(initialBoard) }
@@ -611,7 +611,7 @@ struct PositionPlayComposerView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(white: 0.11))
+        .background(HUDStyle.panelBackground)
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)

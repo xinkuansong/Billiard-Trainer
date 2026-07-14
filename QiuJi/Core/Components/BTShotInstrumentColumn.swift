@@ -71,14 +71,14 @@ struct BTShotInstrumentColumn: View {
             let w = geo.size.width
             let levelY = h * (1 - fraction)
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous)
                     .fill(HUDStyle.glassTint)
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .overlay(RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous)
                         .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
 
                 // 填充水位：暗调渐变（底暗绿 → 顶暗橙），按当前力度裁到水位线。
                 LinearGradient(colors: HUDStyle.powerGradient, startPoint: .bottom, endPoint: .top)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous))
                     .mask(alignment: .bottom) {
                         Rectangle().frame(height: max(0, h - levelY))
                     }

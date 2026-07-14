@@ -1,6 +1,12 @@
 import SwiftUI
 import SwiftData
 
+/// 误差趋势图「角袋 / 中袋」筛选（F-AK-11：与时段 `BTSegmentedTab` 同形态）。
+private enum PocketTrendFilter: String, CaseIterable {
+    case corner = "角袋"
+    case side = "中袋"
+}
+
 /// Embeddable content block (no outer ScrollView) that renders the
 /// aggregate angle-training statistics: quiz-type filter + 2×2 stat grid
 /// + time-range segmented tab + trend chart + range analysis.
@@ -8,7 +14,7 @@ struct AngleHistorySection: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
     @StateObject private var vm = AngleHistoryViewModel()
-    @State private var selectedSegment = 0
+    @State private var selectedPocket: PocketTrendFilter = .corner
 
     var body: some View {
         VStack(spacing: Spacing.xxl) {
@@ -106,12 +112,14 @@ struct AngleHistorySection: View {
 
     private var trendSection: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            HStack {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
                 Text("误差趋势")
                     .font(.btHeadline)
                     .foregroundStyle(.btPrimary)
-                Spacer()
-                pocketToggle
+                BTSegmentedTab(
+                    tabs: PocketTrendFilter.allCases,
+                    selected: $selectedPocket
+                ) { $0.rawValue }
             }
 
             if activeTrend.isEmpty {
@@ -122,7 +130,7 @@ struct AngleHistorySection: View {
             } else {
                 TrendLineChart(cornerPoints: vm.cornerTrend,
                                sidePoints: vm.sideTrend,
-                               selectedSegment: selectedSegment)
+                               selectedPocket: selectedPocket)
                     .frame(height: 180)
             }
 
@@ -146,33 +154,10 @@ struct AngleHistorySection: View {
                 radius: 4, x: 0, y: 1)
     }
 
-    private var pocketToggle: some View {
-        HStack(spacing: 0) {
-            ForEach(["角袋", "中袋"].indices, id: \.self) { idx in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { selectedSegment = idx }
-                } label: {
-                    Text(idx == 0 ? "角袋" : "中袋")
-                        .font(.btCaption)
-                        .fontWeight(selectedSegment == idx ? .semibold : .medium)
-                        .padding(.horizontal, Spacing.md)
-                        .padding(.vertical, Spacing.xs)
-                        .foregroundStyle(selectedSegment == idx ? .white : .btTextSecondary)
-                        .background(selectedSegment == idx ? Color.btPrimary : Color.clear)
-                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-                }
-            }
-        }
-        .padding(2)
-        .background(.btBGTertiary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-    }
-
     private var activeTrend: [AngleHistoryViewModel.TrendPoint] {
-        switch selectedSegment {
-        case 0: return vm.cornerTrend
-        case 1: return vm.sideTrend
-        default: return vm.overallTrend
+        switch selectedPocket {
+        case .corner: return vm.cornerTrend
+        case .side: return vm.sideTrend
         }
     }
 
@@ -239,7 +224,7 @@ struct AngleHistorySection: View {
 private struct TrendLineChart: View {
     let cornerPoints: [AngleHistoryViewModel.TrendPoint]
     let sidePoints: [AngleHistoryViewModel.TrendPoint]
-    let selectedSegment: Int
+    let selectedPocket: PocketTrendFilter
 
     var body: some View {
         Canvas { ctx, size in
@@ -266,20 +251,21 @@ private struct TrendLineChart: View {
                            style: StrokeStyle(lineWidth: 0.5, dash: [4, 4]))
             }
 
-            let mainPts = selectedSegment == 1 ? secondary : primary
-            let altPts = selectedSegment == 1 ? primary : secondary
+            let sideSelected = selectedPocket == .side
+            let mainPts = sideSelected ? secondary : primary
+            let altPts = sideSelected ? primary : secondary
 
             if altPts.count >= 2 {
                 drawLine(ctx: ctx, points: altPts, maxErr: maxErr,
                          padX: padX, padTop: padTop, chartW: chartW, chartH: chartH,
-                         color: selectedSegment == 1 ? .btPrimary : .btAccent,
+                         color: sideSelected ? .btPrimary : .btAccent,
                          dashed: true, showDots: false)
             }
 
             if mainPts.count >= 2 {
                 drawLine(ctx: ctx, points: mainPts, maxErr: maxErr,
                          padX: padX, padTop: padTop, chartW: chartW, chartH: chartH,
-                         color: selectedSegment == 1 ? .btAccent : .btPrimary,
+                         color: sideSelected ? .btAccent : .btPrimary,
                          dashed: false, showDots: true)
             }
 

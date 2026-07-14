@@ -398,7 +398,7 @@ struct BatchBallExtractionView: View {
         }
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, Spacing.sm)
-        .background(Color(white: 0.11))
+        .background(HUDStyle.panelBackground)
         .environment(\.colorScheme, .dark)
     }
 
@@ -477,7 +477,7 @@ struct BatchBallExtractionView: View {
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.sm)
         }
-        .background(Color(white: 0.11))
+        .background(HUDStyle.panelBackground)
         .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)
     }
@@ -558,7 +558,7 @@ struct BatchBallExtractionView: View {
         HStack(spacing: Spacing.sm) { buttons() }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
-            .background(Color(white: 0.11))
+            .background(HUDStyle.panelBackground)
             .environment(\.colorScheme, .dark)
     }
 

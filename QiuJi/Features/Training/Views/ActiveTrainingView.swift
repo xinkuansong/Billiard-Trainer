@@ -56,8 +56,8 @@ struct ActiveTrainingView: View {
                         .transition(.opacity)
                 }
             }
-            .animation(.easeInOut(duration: 0.3), value: viewModel.trainingPhase)
-            .animation(.easeInOut(duration: 0.25), value: viewModel.isRestTimerActive)
+            .animation(BTMotion.springPanel, value: viewModel.trainingPhase)
+            .animation(BTMotion.springPanel, value: viewModel.isRestTimerActive)
             .navigationTitle(phaseTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(
@@ -218,7 +218,7 @@ struct ActiveTrainingView: View {
                             targetBalls: sets.reduce(0) { $0 + $1.targetBalls },
                             onTap: {
                                 viewModel.currentDrillIndex = index
-                                withAnimation(.easeInOut(duration: 0.25)) {
+                                withAnimation(BTMotion.springPanel) {
                                     viewModel.showingOverview = false
                                 }
                             }
@@ -506,7 +506,7 @@ struct ActiveTrainingView: View {
                 label: "切换",
                 tint: .btPrimary
             ) {
-                withAnimation(.easeInOut(duration: 0.25)) {
+                withAnimation(BTMotion.springPanel) {
                     viewModel.showingOverview.toggle()
                 }
             }

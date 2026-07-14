@@ -167,7 +167,7 @@ struct SceneAimingView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(white: 0.11))
+        .background(HUDStyle.panelBackground)
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .allowsHitTesting(false)
         .environment(\.colorScheme, .dark)

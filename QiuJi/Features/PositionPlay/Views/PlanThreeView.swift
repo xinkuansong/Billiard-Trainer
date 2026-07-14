@@ -29,9 +29,9 @@ struct PlanThreeView: View {
     @State private var banner: String?
 
     private static let paletteColumns = 8
-    private static let c1 = Color(red: 0.36, green: 0.92, blue: 0.55)
-    private static let c2 = Color(red: 0.20, green: 0.85, blue: 0.95)
-    private static let c3 = Color(red: 1.0, green: 0.78, blue: 0.28)
+    private static let c1 = Color.btPlanRole1
+    private static let c2 = Color.btPlanRole2
+    private static let c3 = Color.btPlanRole3
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight: CGFloat = 46
     /// 底栏 = 角色横排 48 + 球库两行 68（G12 后无解摘要行）。
@@ -335,7 +335,7 @@ struct PlanThreeView: View {
                             style: StrokeStyle(lineWidth: armed ? 2 : 1, dash: filled ? [] : [4, 3]))
             )
             .scaleEffect(armed ? 1.03 : 1)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: armed)
+            .animation(BTMotion.springPanel, value: armed)
         }
         .buttonStyle(.plain)
         .disabled(vm.isPlaying)
@@ -445,7 +445,7 @@ struct PlanThreeView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(white: 0.11))
+        .background(HUDStyle.panelBackground)
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)

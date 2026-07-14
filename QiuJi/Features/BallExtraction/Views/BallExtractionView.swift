@@ -43,9 +43,12 @@ struct BallExtractionView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             content
+                .id(vm.step)
+                .transition(.opacity)
             if let key = draggingKey { dragGhost(key) }
             banner
         }
+        .animation(BTMotion.springPanel, value: vm.step)
         .coordinateSpace(name: "extract")
         .navigationTitle("拍照建球形")
         .navigationBarTitleDisplayMode(.inline)
@@ -141,6 +144,7 @@ struct BallExtractionView: View {
                 .frame(height: 48).frame(maxWidth: 220)
                 .background(Color.btPrimary, in: Capsule())
             }
+            .buttonStyle(BTPressableStyle.capsule)
             Spacer()
         }
         .padding(Spacing.lg)
@@ -333,7 +337,7 @@ struct BallExtractionView: View {
         }
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, Spacing.sm)
-        .background(Color(white: 0.11))
+        .background(HUDStyle.panelBackground)
         .environment(\.colorScheme, .dark)
     }
 
@@ -431,6 +435,7 @@ struct BallExtractionView: View {
                                                                : Color.btPrimary,
                                         in: Capsule())
                     }
+                    .buttonStyle(BTPressableStyle.capsule)
                     .disabled(vm.onTableKeys.isEmpty)
                     columnSecondary("重新标记", height: 36) { vm.enterMarkBalls() }
                 }
@@ -438,7 +443,7 @@ struct BallExtractionView: View {
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, Spacing.sm)
         }
-        .background(Color(white: 0.11))
+        .background(HUDStyle.panelBackground)
         .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)
     }
@@ -525,7 +530,7 @@ struct BallExtractionView: View {
         HStack(spacing: Spacing.sm) { buttons() }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
-            .background(Color(white: 0.11))
+            .background(HUDStyle.panelBackground)
             .environment(\.colorScheme, .dark)
     }
 
@@ -537,7 +542,7 @@ struct BallExtractionView: View {
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(enabled ? Color.btPrimary : Color.btPrimary.opacity(0.3), in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(!enabled)
     }
 
@@ -549,7 +554,7 @@ struct BallExtractionView: View {
                 .frame(maxWidth: .infinity).frame(height: 46)
                 .background(Color.white.opacity(0.12), in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
     }
 
     // MARK: - Two-row palette + column buttons（对齐走位编排台底部布局）
@@ -595,7 +600,7 @@ struct BallExtractionView: View {
                 .frame(width: 96, height: height)
                 .background(enabled ? tint : tint.opacity(0.3), in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(!enabled)
     }
 
@@ -610,7 +615,7 @@ struct BallExtractionView: View {
                 .frame(width: 96, height: height)
                 .background(Color.white.opacity(0.12), in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
     }
 
     @ViewBuilder

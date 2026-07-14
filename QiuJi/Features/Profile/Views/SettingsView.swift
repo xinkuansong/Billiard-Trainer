@@ -85,6 +85,7 @@ struct SettingsView: View {
                         .font(.btBody)
                         .foregroundStyle(.btText)
                 }
+                .tint(.btPrimary)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.md)
             }
@@ -108,6 +109,7 @@ struct SettingsView: View {
                         .font(.btBody)
                         .foregroundStyle(.btText)
                 }
+                .tint(.btPrimary)
                 Text("在所有击球轨迹上叠加一条过碰撞点、垂直于撞击线的辅助线，帮助判断母球分离方向。")
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)

@@ -45,15 +45,15 @@ struct BTDrillCardSkeleton: View {
                 .frame(width: 64, height: 64)
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: BTRadius.xxs)
                     .fill(Color.btBGTertiary)
                     .frame(width: 140, height: 16)
 
                 HStack(spacing: Spacing.sm) {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: BTRadius.xxs)
                         .fill(Color.btBGTertiary)
                         .frame(width: 50, height: 12)
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: BTRadius.xxs)
                         .fill(Color.btBGTertiary)
                         .frame(width: 36, height: 12)
                 }
@@ -77,7 +77,7 @@ private struct BTDrillGridCardSkeleton: View {
                 .aspectRatio(2.0, contentMode: .fit)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: BTRadius.xxs)
                     .fill(Color.btBGTertiary)
                     .frame(height: 14)
 
@@ -85,7 +85,7 @@ private struct BTDrillGridCardSkeleton: View {
                     RoundedRectangle(cornerRadius: BTRadius.full)
                         .fill(Color.btBGTertiary)
                         .frame(width: 48, height: 12)
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: BTRadius.xxs)
                         .fill(Color.btBGTertiary)
                         .frame(width: 28, height: 12)
                 }
@@ -110,7 +110,7 @@ struct BTDrillListSkeleton: View {
         VStack(spacing: Spacing.xl) {
             ForEach(0..<2, id: \.self) { section in
                 VStack(alignment: .leading, spacing: Spacing.sm) {
-                    RoundedRectangle(cornerRadius: 4)
+                    RoundedRectangle(cornerRadius: BTRadius.xxs)
                         .fill(Color.btBGTertiary)
                         .frame(width: 80, height: 16)
                         .padding(.horizontal, Spacing.lg)

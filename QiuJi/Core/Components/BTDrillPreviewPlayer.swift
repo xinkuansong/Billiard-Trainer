@@ -81,6 +81,7 @@ struct BTDrillPreviewPlayer: View {
                 .background(.black.opacity(0.4))
                 .clipShape(Circle())
         }
+        .buttonStyle(BTPressableStyle.capsule)
     }
 
     // MARK: - Frame Loading

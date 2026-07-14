@@ -15,6 +15,18 @@ enum HUDStyle {
     static let hairline = Color.white.opacity(0.12)
     static let hairlineWidth: CGFloat = 0.5
 
+    // MARK: 场景底栏 / 面板（ADR-P11-09 / SPEC §8.1）
+    /// 场景页底栏与控制面板底色。`Color(white: 0.11)` 唯一真源；**禁止**改成常规页 `btBG*`。
+    static let panelBackground = Color(white: 0.11)
+
+    // MARK: 尺子家族外壳（F-CL-01）
+    /// 瞄准轮 / 力度柱同族圆角。统一为 `BTRadius.md`（12）；原 AimWheel 字面量 10 收编至此。
+    static let rulerCornerRadius: CGFloat = BTRadius.md
+
+    // MARK: FAB 渐变（F-GL-07）
+    /// `BTSceneFAB` primary 渐变末端（逐位保留原 `Color(red:0, green:0.45, blue:0.25)`）。
+    static let fabPrimaryEnd = Color(red: 0.0, green: 0.45, blue: 0.25)
+
     // MARK: 文字三级
     static let labelFont = Font.system(size: 11, weight: .semibold, design: .rounded)
     static let labelColor = Color.white.opacity(0.55)

@@ -36,7 +36,7 @@ struct BTFloatingIndicator: View {
                 value: isBreathing
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .onAppear { isBreathing = true }
         .accessibilityLabel("训练进行中 \(timeString)，点击返回")
     }

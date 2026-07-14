@@ -70,7 +70,7 @@ struct ContactPointTableView: View {
 
             VStack(spacing: Spacing.xs) {
                 Text("\(Int(sliderAngle))°")
-                    .font(.system(size: 32, weight: .heavy, design: .rounded))
+                    .font(.btLargeTitle.weight(.heavy))
                     .foregroundStyle(.btText)
 
                 Text(String(format: "偏移 %.0f%%", sin(sliderAngle * .pi / 180) * 100))
@@ -247,7 +247,7 @@ struct ContactPointTableView: View {
 
             VStack(spacing: Spacing.xs) {
                 Text(String(format: "估角误差 Δ ≈ %.1f°", estimationErrorDegrees))
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .font(.btStatNumber.weight(.heavy))
                     .foregroundStyle(.btPrimary)
                 Text("两线夹角 = 用中心连线估角时引入的角度误差")
                     .font(.btCaption)

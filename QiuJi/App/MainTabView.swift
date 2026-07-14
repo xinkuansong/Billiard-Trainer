@@ -78,7 +78,7 @@ struct MainTabView: View {
                 .padding(.trailing, Spacing.lg)
                 .padding(.bottom, 60)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
-                .animation(.spring(duration: 0.3), value: router.isTrainingMinimized)
+                .animation(BTMotion.springPanel, value: router.isTrainingMinimized)
             }
         }
     }

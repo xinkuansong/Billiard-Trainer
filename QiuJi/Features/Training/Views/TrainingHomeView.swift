@@ -292,7 +292,7 @@ struct TrainingHomeView: View {
     private func filterChipButton(_ filter: PlanLevelFilter) -> some View {
         let isSelected = viewModel.selectedFilter == filter
         return Button {
-            withAnimation(.spring(duration: 0.2)) {
+            withAnimation(BTMotion.easeFast) {
                 viewModel.selectedFilter = filter
             }
         } label: {
@@ -312,9 +312,6 @@ struct TrainingHomeView: View {
         .buttonStyle(.plain)
     }
 
-    private static let chipActiveFillLight = Color(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0)
-    private static let chipActiveFillDark = Color(red: 0xF2 / 255.0, green: 0xF2 / 255.0, blue: 0xF7 / 255.0)
-
     private func chipTextColor(_ isSelected: Bool) -> Color {
         if isSelected {
             return colorScheme == .dark ? .black : Color.btBGSecondary
@@ -324,7 +321,7 @@ struct TrainingHomeView: View {
 
     private func chipBackground(_ isSelected: Bool) -> Color {
         if isSelected {
-            return colorScheme == .dark ? Self.chipActiveFillDark : Self.chipActiveFillLight
+            return colorScheme == .dark ? .btChipActiveFillDark : .btChipActiveFillLight
         }
         return colorScheme == .dark ? Color.btBGTertiary : Color.btBGSecondary
     }

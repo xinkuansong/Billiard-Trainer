@@ -213,7 +213,7 @@ private struct SetRow: View {
                     .foregroundStyle(.white)
                     .frame(width: 24, height: 24)
                     .background(Color.btWarning)
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xxs))
             } else {
                 Text("\(setData.id)")
                     .font(.btSubheadlineMedium)

@@ -18,6 +18,17 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         att.name = name
         att.lifetime = .keepAlways
         add(att)
+        // W2-1：同步落盘便于浅色/深色 FL-004 核验（与 ScreenshotTour 同口径）。
+        let dir = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/docs/ui-polish/screenshots-w2-1", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let appearance: String = {
+            switch XCUIDevice.shared.appearance {
+            case .light: return "light"
+            case .dark: return "dark"
+            @unknown default: return "unknown"
+            }
+        }()
+        try? shot.pngRepresentation.write(to: dir.appendingPathComponent("\(name)-\(appearance).png"))
     }
 
     @discardableResult

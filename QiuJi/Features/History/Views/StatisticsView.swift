@@ -77,7 +77,7 @@ struct StatisticsView: View {
     }
 
     private var chartAmberColor: Color {
-        colorScheme == .dark ? Color.btAccent : Color.btBallTarget
+        Color.btChartSeries
     }
 
     // MARK: - Empty

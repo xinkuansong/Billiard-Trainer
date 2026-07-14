@@ -18,13 +18,11 @@ struct DrillListView: View {
     ]
 
     private var chipActiveFill: Color {
-        colorScheme == .dark
-            ? Color(red: 0xF2 / 255.0, green: 0xF2 / 255.0, blue: 0xF7 / 255.0)
-            : Color(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0)
+        colorScheme == .dark ? .btChipActiveFillDark : .btChipActiveFillLight
     }
 
     private var chipActiveText: Color {
-        Color(uiColor: .systemBackground)
+        colorScheme == .dark ? .black : .white
     }
 
     var body: some View {
@@ -252,6 +250,7 @@ struct DrillListView: View {
                                     .stroke(isSelected ? Color.clear : Color.btSeparator, lineWidth: 0.5)
                             )
                     }
+                    .buttonStyle(BTPressableStyle.capsule)
                 }
             }
             .padding(.horizontal, Spacing.lg)

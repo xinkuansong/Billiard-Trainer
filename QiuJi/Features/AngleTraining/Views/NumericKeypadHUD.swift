@@ -24,7 +24,7 @@ struct NumericKeypadHUD: View {
             HStack {
                 VStack(alignment: .leading, spacing: 0) {
                     Text(title)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.btFootnote.weight(.semibold))
                         .foregroundStyle(.btText)
                     if let subtitle {
                         Text(subtitle)
@@ -41,7 +41,7 @@ struct NumericKeypadHUD: View {
             .padding(.top, Spacing.sm)
 
             // Big number display
-            HStack(alignment: .lastTextBaseline, spacing: 4) {
+            HStack(alignment: .lastTextBaseline, spacing: Spacing.xs) {
                 Text(input.isEmpty ? "0" : input)
                     .font(.system(size: displayFontSize, weight: .bold, design: .rounded))
                     .foregroundStyle(input.isEmpty ? .btTextTertiary : .btText)
@@ -51,14 +51,14 @@ struct NumericKeypadHUD: View {
                     .foregroundStyle(.btTextSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, compact ? 2 : 4)
+            .padding(.vertical, compact ? 2 : Spacing.xs)
 
             // 3×4 keypad grid
-            VStack(spacing: 6) {
+            VStack(spacing: Spacing.xs) {
                 keyRow(["1", "2", "3"])
                 keyRow(["4", "5", "6"])
                 keyRow(["7", "8", "9"])
-                HStack(spacing: 6) {
+                HStack(spacing: Spacing.xs) {
                     keyButton(label: nil, icon: "delete.left", role: .erase) { backspace() }
                     digitButton("0")
                     keyButton(label: "提交", icon: nil, role: .submit) {
@@ -80,7 +80,7 @@ struct NumericKeypadHUD: View {
     // MARK: - Helpers
 
     private func keyRow(_ digits: [String]) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: Spacing.xs) {
             ForEach(digits, id: \.self) { digitButton($0) }
         }
     }

@@ -29,7 +29,7 @@ struct BTOverflowMenu: View {
         Button {
             isPresented = true
         } label: {
-            Image(systemName: "ellipsis")
+            Image(systemName: BTIcon.menu)
                 .font(.btCallout)
                 .fontWeight(.medium)
                 .foregroundStyle(.btTextSecondary)
@@ -97,7 +97,7 @@ struct BTOverflowMenuPopup: View {
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
             .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.12), radius: 16, x: 0, y: 4)
             .frame(width: 220)
-            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .topTrailing)))
+            .transition(.opacity.combined(with: .scale(scale: 0.95, anchor: .topTrailing)))
         }
     }
 }
@@ -122,9 +122,9 @@ struct BTOverflowMenuPopup: View {
                 HStack {
                     Spacer()
                     Button {
-                        withAnimation(.easeOut(duration: 0.2)) { binding.wrappedValue.toggle() }
+                        withAnimation(BTMotion.easeFast) { binding.wrappedValue.toggle() }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(systemName: BTIcon.menu)
                             .font(.btCallout)
                             .fontWeight(.medium)
                             .foregroundStyle(.btTextSecondary)
@@ -165,9 +165,9 @@ struct BTOverflowMenuPopup: View {
                 HStack {
                     Spacer()
                     Button {
-                        withAnimation(.easeOut(duration: 0.2)) { binding.wrappedValue.toggle() }
+                        withAnimation(BTMotion.easeFast) { binding.wrappedValue.toggle() }
                     } label: {
-                        Image(systemName: "ellipsis")
+                        Image(systemName: BTIcon.menu)
                             .font(.btCallout)
                             .fontWeight(.medium)
                             .foregroundStyle(.btTextSecondary)

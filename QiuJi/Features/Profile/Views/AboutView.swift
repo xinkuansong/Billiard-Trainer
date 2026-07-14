@@ -71,8 +71,8 @@ struct AboutView: View {
                 Button { sendFeedback() } label: {
                     aboutRow(
                         icon: "envelope.fill",
-                        iconBG: Color.blue.opacity(0.12),
-                        iconColor: .blue,
+                        iconBG: Color.btPrimary.opacity(0.12),
+                        iconColor: .btPrimary,
                         title: "意见反馈"
                     )
                 }
@@ -110,8 +110,8 @@ struct AboutView: View {
                 } label: {
                     aboutRow(
                         icon: "doc.text.fill",
-                        iconBG: Color.gray.opacity(0.12),
-                        iconColor: .gray,
+                        iconBG: Color.btTextSecondary.opacity(0.12),
+                        iconColor: .btTextSecondary,
                         title: "用户协议"
                     )
                 }

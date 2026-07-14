@@ -174,7 +174,7 @@ struct BTPremiumLock<Content: View>: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
             .background(goldBadgeBg)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xxs))
     }
 }
 

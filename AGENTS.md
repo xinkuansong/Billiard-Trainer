@@ -53,7 +53,8 @@
 - `content-engineering` — Drill Schema、坐标系、内容生产 SOP
 - `tutorial-authoring` — 走位序列 JSON → 图文精讲：digest 脚本、应用课模板、理论教练话转写、自查清单
 - `geometry-spatial-reasoning` — 几何/坐标/角度/相对位置：坐标契约、禁止脑算清单、数值草稿验证、不变量护栏
-- `plan-delegated-execution` — 多会话方案全程委派执行：每批派给 opus-4.8 执行子智能体，主控独立验收 + 返工循环直至达标
+- `plan-delegated-execution` — 多会话方案全程委派执行（串行）：每批派给执行子智能体（模型主控路由，默认 opus-4.8），主控独立验收 + 返工循环直至达标
+- `plan-parallel-delegated-execution` — 串行版的并行扩展：批次分波（横切串行/页面域并行 ≤3）、worktree 隔离执行、主控串行合并逐批验证、模型按批次风险路由
 
 ## 任务与文档
 

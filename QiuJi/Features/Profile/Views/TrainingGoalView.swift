@@ -43,7 +43,7 @@ struct TrainingGoalView: View {
                     .stroke(Color.btPrimary, style: StrokeStyle(lineWidth: 10, lineCap: .round))
                     .frame(width: 120, height: 120)
                     .rotationEffect(.degrees(-90))
-                    .animation(.easeInOut(duration: 0.6), value: weeklyProgress)
+                    .animation(BTMotion.springPanel, value: weeklyProgress)
 
                 VStack(spacing: 2) {
                     Text("\(daysTrainedThisWeek)")

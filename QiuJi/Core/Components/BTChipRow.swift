@@ -35,7 +35,7 @@ struct BTChipRow: View {
                         label.btHudGlass()
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(BTPressableStyle.capsule)
             }
         }
     }

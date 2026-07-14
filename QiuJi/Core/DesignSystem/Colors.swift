@@ -25,6 +25,20 @@ extension Color {
     static let btBallTarget     = Color("btBallTarget")
     static let btPathCue        = Color("btPathCue")
     static let btPathTarget     = Color("btPathTarget")
+
+    // MARK: Filter chip（SPEC §6.3 / §7；F-TR-07 / F-DL-04 / F-ST-07）
+    /// Light 选中填充 `#1C1C1E`（训练首页筛选 Chip，SPEC §7；色值锁定勿改品牌绿）。
+    static let btChipActiveFillLight = Color(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0)
+    /// Dark 选中填充 `#F2F2F7`（SPEC §6.3）。
+    static let btChipActiveFillDark = Color(red: 0xF2 / 255.0, green: 0xF2 / 255.0, blue: 0xF7 / 255.0)
+
+    // MARK: Chart（F-ST-07：Light/Dark 统一系列色，禁球色/accent 分叉）
+    static let btChartSeries = Color.btAccent
+
+    // MARK: PlanThree ①②③ 角色 chrome（F-PP-09；就地命名，勿扩信号色语义）
+    static let btPlanRole1 = Color(red: 0.36, green: 0.92, blue: 0.55)
+    static let btPlanRole2 = Color(red: 0.20, green: 0.85, blue: 0.95)
+    static let btPlanRole3 = Color(red: 1.0, green: 0.78, blue: 0.28)
 }
 
 // MARK: - ShapeStyle extensions（使 .btXxx 在 foregroundStyle / background 上下文中可用）
@@ -52,6 +66,12 @@ extension ShapeStyle where Self == Color {
     static var btBallTarget:    Color { Color("btBallTarget") }
     static var btPathCue:       Color { Color("btPathCue") }
     static var btPathTarget:    Color { Color("btPathTarget") }
+    static var btChipActiveFillLight: Color { Color.btChipActiveFillLight }
+    static var btChipActiveFillDark:  Color { Color.btChipActiveFillDark }
+    static var btChartSeries:   Color { Color.btChartSeries }
+    static var btPlanRole1:     Color { Color.btPlanRole1 }
+    static var btPlanRole2:     Color { Color.btPlanRole2 }
+    static var btPlanRole3:     Color { Color.btPlanRole3 }
 }
 
 // MARK: - Hex Init

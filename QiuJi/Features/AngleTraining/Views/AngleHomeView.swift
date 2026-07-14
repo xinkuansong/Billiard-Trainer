@@ -489,7 +489,7 @@ private struct AngleGridCard: View {
         .overlay(alignment: .topTrailing) {
             if let chip = entry.chip {
                 Text(chip)
-                    .font(.system(size: 10, weight: .heavy))
+                    .font(.btMicro.weight(.heavy))
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.sm)
                     .padding(.vertical, 2)
@@ -513,7 +513,7 @@ struct PracticeCTA: View {
         NavigationLink(value: route) {
             HStack(spacing: Spacing.md) {
                 Image(systemName: "figure.walk.arrival")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.btTitle.weight(.semibold))
                     .foregroundStyle(Color.btPrimary)
                     .frame(width: 40, height: 40)
                     .background(Color.btPrimaryMuted, in: Circle())
@@ -526,8 +526,8 @@ struct PracticeCTA: View {
                         .foregroundStyle(.btTextSecondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                Image(systemName: BTIcon.chevronRight)
+                    .font(.btFootnote.weight(.semibold))
                     .foregroundStyle(.btTextSecondary)
             }
             .padding(Spacing.lg)

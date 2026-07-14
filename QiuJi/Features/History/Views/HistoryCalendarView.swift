@@ -84,6 +84,8 @@ struct HistoryCalendarView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, 96) // 预留底部 Tab 栏高度，避免空状态/列表压到 Tab 栏后方
+            .animation(BTMotion.springPanel, value: vm.selectedDate)
+            .animation(BTMotion.springPanel, value: vm.currentMonth)
         }
     }
 
@@ -91,7 +93,9 @@ struct HistoryCalendarView: View {
 
     private var monthNavigator: some View {
         HStack {
-            Button(action: vm.previousMonth) {
+            Button {
+                withAnimation(BTMotion.springPanel) { vm.previousMonth() }
+            } label: {
                 Image(systemName: BTIcon.chevronLeft)
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
@@ -102,7 +106,9 @@ struct HistoryCalendarView: View {
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
             Spacer()
-            Button(action: vm.nextMonth) {
+            Button {
+                withAnimation(BTMotion.springPanel) { vm.nextMonth() }
+            } label: {
                 Image(systemName: BTIcon.chevronRight)
                     .foregroundStyle(.btTextSecondary)
                     .frame(width: 44, height: 44)
@@ -158,7 +164,9 @@ struct HistoryCalendarView: View {
 
         return Button {
             if day.isCurrentMonth {
-                vm.selectedDate = day.date
+                withAnimation(BTMotion.springPanel) {
+                    vm.selectedDate = day.date
+                }
             }
         } label: {
             VStack(spacing: 2) {
@@ -193,7 +201,7 @@ struct HistoryCalendarView: View {
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
                         .background(Color.btPrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
                 } else {
                     Color.clear.frame(height: 14)
                 }

@@ -26,7 +26,7 @@ struct LoginView: View {
                     .padding(.bottom, Spacing.xxl)
 
                 Text("欢迎使用球迹")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.btChapterNumber)
                     .foregroundStyle(.btText)
                     .padding(.bottom, Spacing.sm)
 

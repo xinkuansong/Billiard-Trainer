@@ -160,9 +160,9 @@ struct TrainingDetailView: View {
 
     private var miniTableThumbnail: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: BTRadius.xxs)
                 .fill(Color.btTableFelt)
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: BTRadius.xxs)
                 .strokeBorder(Color.btTableCushion, lineWidth: 3)
             Circle()
                 .fill(Color.btBallCue)
@@ -237,8 +237,8 @@ struct TrainingDetailView: View {
             .frame(maxWidth: .infinity)
 
             BTOverflowMenu(items: [
-                BTMenuItem(icon: "square.and.arrow.up", iconColor: .blue, label: "生成分享图") {},
-                BTMenuItem(icon: "calendar", iconColor: .purple, label: "移动到某天") {},
+                BTMenuItem(icon: "square.and.arrow.up", iconColor: .btPrimary, label: "生成分享图") {},
+                BTMenuItem(icon: "calendar", iconColor: .btAccent, label: "移动到某天") {},
                 BTMenuItem(icon: "pencil", iconColor: .btPrimary, label: "编辑心得") {},
                 BTMenuItem(icon: "doc.on.doc", iconColor: .btAccent, label: "导入为模版") {},
                 BTMenuItem(icon: "trash", iconColor: .btDestructive, label: "删除", isDestructive: true) {},

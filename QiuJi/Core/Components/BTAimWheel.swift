@@ -29,9 +29,9 @@ struct BTAimWheel: View {
             let mid = h / 2
             let ppd = pointsPerDegree
             ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous)
                     .fill(HUDStyle.glassTint)
-                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .overlay(RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous)
                         .stroke(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
 
                 Canvas { ctx, size in
@@ -54,7 +54,7 @@ struct BTAimWheel: View {
                                    lineWidth: isMajor ? 1.4 : 0.8)
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: HUDStyle.rulerCornerRadius, style: .continuous))
 
                 // 当前位置指示 = 金色短线（§1.7 刻度语法）。
                 Rectangle()

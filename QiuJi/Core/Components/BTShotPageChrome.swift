@@ -56,7 +56,7 @@ struct BTAimModeToggleButton: View {
             .padding(.vertical, 6)
             .btHudGlass()
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.42 : 1)
         .accessibilityLabel("瞄准模式：\(isFree ? "自由" : solvedLabel)，点击切换")
@@ -84,7 +84,7 @@ struct BTTextActionButton: View {
                 .background(background, in: Capsule())
                 .overlay(Capsule().strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .disabled(isDisabled)
         .opacity(isDisabled ? 0.42 : 1)
     }
@@ -212,7 +212,7 @@ struct BTSolverMoreMenu: View {
                 Button("恢复默认", systemImage: "arrow.counterclockwise") { onReset() }
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
+            Image(systemName: BTIcon.menuCircle)
                 .foregroundStyle(.white.opacity(0.9))
         }
         .accessibilityLabel("更多")

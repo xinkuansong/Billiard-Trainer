@@ -62,7 +62,7 @@ struct ShotTryFreePlayButton: View {
             .frame(height: 28)
             .background(isEnabled ? Color.btAccent : .white.opacity(0.12), in: Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(BTPressableStyle.capsule)
         .accessibilityLabel("试打")
         .disabled(!isEnabled)
     }
@@ -78,6 +78,6 @@ struct ShotTryFreePlayButton: View {
         }
     }
     .padding()
-    .background(Color(white: 0.11))
+    .background(HUDStyle.panelBackground)
     .environment(\.colorScheme, .dark)
 }

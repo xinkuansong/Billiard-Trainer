@@ -283,7 +283,7 @@ struct PlanDetailView: View {
     private func weekSection(_ week: PlanWeek, plan: OfficialPlan, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             Button {
-                withAnimation(.spring(duration: 0.3)) {
+                withAnimation(BTMotion.springPanel) {
                     if expandedWeeks.contains(week.weekNumber) {
                         expandedWeeks.remove(week.weekNumber)
                     } else {
@@ -425,9 +425,9 @@ struct PlanDetailView: View {
         if let drill = drillContents[ref.drillId] {
             BTBakedDrillTable(drillId: drill.id)
                 .frame(width: 40, height: 20)
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.xxs))
         } else {
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: BTRadius.xxs)
                 .fill(Color.btBGQuaternary.opacity(0.5))
                 .frame(width: 40, height: 20)
                 .overlay {

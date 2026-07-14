@@ -82,6 +82,7 @@ private struct TextButtonBody: View {
             .font(.btCallout)
             .foregroundStyle(configuration.isPressed ? Color.btPrimary.opacity(0.6) : .btPrimary)
             .frame(minHeight: 44)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
@@ -96,6 +97,7 @@ private struct DestructiveButtonBody: View {
             .font(.btHeadline)
             .foregroundStyle(.btDestructive)
             .frame(minHeight: 44)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }

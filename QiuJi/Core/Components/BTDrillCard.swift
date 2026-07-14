@@ -56,12 +56,12 @@ struct BTDrillCard: View {
 
             VStack {
                 if drill.isPremium {
-                    Image(systemName: "lock.fill")
+                    Image(systemName: BTIcon.lock)
                         .font(.btCallout)
                         .foregroundStyle(.btTextTertiary)
                 } else if let onFavoriteTap {
                     Button(action: onFavoriteTap) {
-                        Image(systemName: isFavorited ? "heart.fill" : "heart")
+                        Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)
                             .font(.btCallout)
                             .foregroundStyle(isFavorited ? .btAccent : .btTextTertiary)
                     }
@@ -69,7 +69,7 @@ struct BTDrillCard: View {
 
                 Spacer()
 
-                Image(systemName: "chevron.right")
+                Image(systemName: BTIcon.chevronRight)
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)
             }
@@ -78,6 +78,11 @@ struct BTDrillCard: View {
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        // F-CL-02 / SPEC §6.5：行卡 Dark 描边对齐网格卡；只描边、禁阴影。
+        .overlay(
+            RoundedRectangle(cornerRadius: BTRadius.md)
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+        )
     }
 }
 
@@ -191,10 +196,10 @@ struct BTDrillGridCard: View {
     private var cardBadge: some View {
         if drill.isPremium {
             HStack(spacing: 2) {
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 9, weight: .bold))
+                Image(systemName: BTIcon.lock)
+                    .font(.btMicro.weight(.bold))
                 Text("PRO")
-                    .font(.system(size: 10, weight: .heavy))
+                    .font(.btCaption2.weight(.heavy))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, Spacing.sm)
@@ -203,8 +208,8 @@ struct BTDrillGridCard: View {
             .clipShape(Capsule())
         } else if let onFavoriteTap {
             Button(action: onFavoriteTap) {
-                Image(systemName: isFavorited ? "heart.fill" : "heart")
-                    .font(.system(size: 14, weight: .medium))
+                Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)
+                    .font(.btFootnote14.weight(.medium))
                     .foregroundStyle(isFavorited ? .btAccent : .white.opacity(0.9))
                     .frame(width: 30, height: 30)
                     .background(.black.opacity(0.35))
