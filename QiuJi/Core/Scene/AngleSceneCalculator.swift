@@ -1134,15 +1134,75 @@ enum AngleSceneCalculator {
         return SCNVector3(p.x + dir.x * t, p.y, p.z + dir.z * t)
     }
 
-    // MARK: - Thickness name (通称)
+    // MARK: - Ball thickness (经典球厚度通称 · 单一真源)
 
+    /// Classic ball-thickness naming: name ↔ cut angle ↔ overlap ↔ d/R.
+    ///
+    /// Angle contract (see `geometry-spatial-reasoning` + `table-geometry.md`):
+    /// - θ = geometric cut angle (degrees) between cue aim and object→pocket line.
+    /// - `overlap` ∈ [0, 1] = fraction of object-ball diameter still overlapping the
+    ///   cue silhouette when viewed along the aim (1 = full ball, 0 = grazing).
+    /// - Identity: `sin(θ) = 1 − overlap` (classic thickness), θ ∈ [0°, 90°].
+    /// - Aim-line lateral offset in ball radii: `d/R = 2·sin(θ) = 2·(1 − overlap)`.
+    ///
+    /// D1 (问题集合 v7): 「3/4 球」= overlap 0.75 → sinθ=0.25 → θ≈14.5°（非 48.6° 偏移口径）.
+    struct NamedBallThickness: Equatable, Sendable {
+        let name: String
+        /// Overlap fraction of ball diameter (classic thickness).
+        let overlap: Double
+        /// Display cut angle in degrees (1 decimal), from `asin(1 − overlap)`.
+        let cutAngleDegrees: Double
+        /// Lateral displacement in ball-radius units: `2·sin(θ)`.
+        let dOverR: Double
+
+        /// Build from classic overlap; cut angle and d/R are derived.
+        static func classic(name: String, overlap: Double) -> NamedBallThickness {
+            let clamped = min(1, max(0, overlap))
+            let sinTheta = 1 - clamped
+            let thetaDeg = asin(sinTheta) * 180 / .pi
+            let display = (thetaDeg * 10).rounded() / 10
+            return NamedBallThickness(
+                name: name,
+                overlap: clamped,
+                cutAngleDegrees: display,
+                dOverR: 2 * sinTheta
+            )
+        }
+    }
+
+    static let fullBall = NamedBallThickness.classic(name: "全球", overlap: 1.0)
+    static let threeQuarterBall = NamedBallThickness.classic(name: "3/4 球", overlap: 0.75)
+    static let halfBall = NamedBallThickness.classic(name: "半球", overlap: 0.5)
+    static let quarterBall = NamedBallThickness.classic(name: "1/4 球", overlap: 0.25)
+    static let thinBall = NamedBallThickness.classic(name: "极薄球", overlap: 0.0)
+
+    /// Canonical named thicknesses (classic overlap definition).
+    static let namedBallThicknesses: [NamedBallThickness] = [
+        fullBall, threeQuarterBall, halfBall, quarterBall, thinBall
+    ]
+
+    static func namedBallThickness(name: String) -> NamedBallThickness? {
+        namedBallThicknesses.first { $0.name == name }
+    }
+
+    /// Nearest named thickness within `tolerance` degrees, if any.
+    static func namedBallThickness(cutAngleDegrees: Double, tolerance: Double = 2.5) -> NamedBallThickness? {
+        namedBallThicknesses
+            .map { ($0, abs($0.cutAngleDegrees - cutAngleDegrees)) }
+            .filter { $0.1 <= tolerance }
+            .min(by: { $0.1 < $1.1 })?
+            .0
+    }
+
+    /// Display nickname for a cut angle. Classic-thickness naming only (D1);
+    /// legacy offset-fraction approximations (7.5°→"≈1/4 球", 10°→"≈1/3 球")
+    /// were removed — they are wrong under the classic overlap convention.
     static func thicknessName(cutAngle: Double) -> String {
-        if cutAngle < 2 { return "全球" }
-        if abs(cutAngle - 7.5) < 3 { return "≈1/4 球" }
-        if abs(cutAngle - 10) < 2 { return "≈1/3 球" }
-        if abs(cutAngle - 30) < 5 { return "半球" }
-        if abs(cutAngle - 48.6) < 5 { return "3/4 球" }
-        if cutAngle > 80 { return "极薄球" }
+        if let named = namedBallThickness(cutAngleDegrees: cutAngle, tolerance: 2.5) {
+            return named.name
+        }
+        // Wide tail for near-grazing cuts (legacy HUD behaviour).
+        if cutAngle > 80 { return thinBall.name }
         return "—"
     }
 }

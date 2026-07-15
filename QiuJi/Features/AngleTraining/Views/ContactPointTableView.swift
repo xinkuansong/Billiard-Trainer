@@ -14,28 +14,32 @@ struct ContactPointTableView: View {
         let commonName: String?
     }
 
-    private let standardAngles: [AngleEntry] = [
-        AngleEntry(id: 0, angle: 0, commonName: "全球"),
-        AngleEntry(id: 1, angle: 5, commonName: nil),
-        AngleEntry(id: 2, angle: 10, commonName: "≈1/3 球"),
-        AngleEntry(id: 3, angle: 15, commonName: nil),
-        AngleEntry(id: 4, angle: 20, commonName: nil),
-        AngleEntry(id: 5, angle: 25, commonName: nil),
-        AngleEntry(id: 6, angle: 30, commonName: "半球"),
-        AngleEntry(id: 7, angle: 35, commonName: nil),
-        AngleEntry(id: 8, angle: 40, commonName: nil),
-        AngleEntry(id: 9, angle: 45, commonName: nil),
-        AngleEntry(id: 10, angle: 48.6, commonName: "3/4 球"),
-        AngleEntry(id: 11, angle: 50, commonName: nil),
-        AngleEntry(id: 12, angle: 55, commonName: nil),
-        AngleEntry(id: 13, angle: 60, commonName: nil),
-        AngleEntry(id: 14, angle: 65, commonName: nil),
-        AngleEntry(id: 15, angle: 70, commonName: nil),
-        AngleEntry(id: 16, angle: 75, commonName: nil),
-        AngleEntry(id: 17, angle: 80, commonName: nil),
-        AngleEntry(id: 18, angle: 85, commonName: nil),
-        AngleEntry(id: 19, angle: 90, commonName: "极薄球"),
-    ]
+    /// 19×5° + classic 「3/4 球」14.5°（`AngleSceneCalculator.threeQuarterBall` 真源）.
+    private let standardAngles: [AngleEntry] = {
+        let tqb = AngleSceneCalculator.threeQuarterBall
+        return [
+            AngleEntry(id: 0, angle: 0, commonName: AngleSceneCalculator.fullBall.name),
+            AngleEntry(id: 1, angle: 5, commonName: nil),
+            AngleEntry(id: 2, angle: 10, commonName: nil),
+            AngleEntry(id: 3, angle: tqb.cutAngleDegrees, commonName: tqb.name),
+            AngleEntry(id: 4, angle: 15, commonName: nil),
+            AngleEntry(id: 5, angle: 20, commonName: nil),
+            AngleEntry(id: 6, angle: 25, commonName: nil),
+            AngleEntry(id: 7, angle: 30, commonName: AngleSceneCalculator.halfBall.name),
+            AngleEntry(id: 8, angle: 35, commonName: nil),
+            AngleEntry(id: 9, angle: 40, commonName: nil),
+            AngleEntry(id: 10, angle: 45, commonName: nil),
+            AngleEntry(id: 11, angle: 50, commonName: nil),
+            AngleEntry(id: 12, angle: 55, commonName: nil),
+            AngleEntry(id: 13, angle: 60, commonName: nil),
+            AngleEntry(id: 14, angle: 65, commonName: nil),
+            AngleEntry(id: 15, angle: 70, commonName: nil),
+            AngleEntry(id: 16, angle: 75, commonName: nil),
+            AngleEntry(id: 17, angle: 80, commonName: nil),
+            AngleEntry(id: 18, angle: 85, commonName: nil),
+            AngleEntry(id: 19, angle: 90, commonName: AngleSceneCalculator.thinBall.name),
+        ]
+    }()
 
     var body: some View {
         ScrollView {
@@ -396,7 +400,13 @@ struct ContactPointTableView: View {
         let dOverR = 2.0 * sinA
         let dMM = dOverR * ballRadiusMM
         let highlighted = entry.commonName != nil
-        let angleText = entry.angle == 48.6 ? "48.6°" : "\(Int(entry.angle))°"
+        let angleText: String = {
+            let a = entry.angle
+            if abs(a - a.rounded()) > 0.01 {
+                return String(format: "%.1f°", a)
+            }
+            return "\(Int(a))°"
+        }()
 
         return HStack(spacing: 0) {
             Text(angleText)
@@ -515,8 +525,11 @@ struct ContactPointTableView: View {
             }
             context.stroke(curve, with: .color(.btPrimary), lineWidth: 2.5)
 
-            // Special angle markers
-            let specialAngles: [(Double, String)] = [(0, "全球"), (10, "1/3球"), (30, "半球"), (48.6, "3/4球"), (90, "极薄")]
+            // Special angle markers (classic named thicknesses, single truth source).
+            let specialAngles: [(Double, String)] =
+                AngleSceneCalculator.namedBallThicknesses.map {
+                    ($0.cutAngleDegrees, $0.name.replacingOccurrences(of: " ", with: ""))
+                }
             for (angle, label) in specialAngles {
                 let x = padding.leading + plotW * angle / 90.0
                 let dR = 2.0 * sin(angle * .pi / 180)

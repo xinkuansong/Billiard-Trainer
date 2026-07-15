@@ -426,7 +426,7 @@ final class BallExtractionViewModel: ObservableObject {
 
     private func freeNormalizedSlot() -> CanvasPoint {
         let candidates: [CanvasPoint] = stride(from: 0.15, through: 0.85, by: 0.1).flatMap { x in
-            stride(from: 0.10, through: 0.42, by: 0.08).map { y in CanvasPoint(x: x, y: y) }
+            stride(from: 0.12, through: 0.40, by: 0.08).map { y in CanvasPoint(x: x, y: y) }
         }
         for c in candidates {
             let pos = AngleSceneCalculator.normalizedToScene(

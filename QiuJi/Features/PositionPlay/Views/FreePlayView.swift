@@ -154,6 +154,7 @@ struct FreePlayView: View {
                     strikeTitle: vm.isPlaying ? "击球中" : "击球",
                     strikeEnabled: strikeEnabled,
                     onStrike: { vm.play() },
+                    undoTitle: "重打",
                     undoEnabled: !vm.isPlaying && vm.canReplay,
                     onUndo: { vm.replayCurrent() },
                     playbackEnabled: !vm.isPlaying && vm.canPlayback,

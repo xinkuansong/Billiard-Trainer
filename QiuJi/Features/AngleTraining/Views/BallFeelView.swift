@@ -94,9 +94,21 @@ struct BallFeelView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())],
                       spacing: Spacing.lg) {
-                ballOverlapCard(name: "全球", angle: "0°", overlapFraction: 1.0)
-                ballOverlapCard(name: "半球", angle: "30°", overlapFraction: 0.5)
-                ballOverlapCard(name: "3/4 球", angle: "48.6°", overlapFraction: 0.25)
+                ballOverlapCard(
+                    name: AngleSceneCalculator.fullBall.name,
+                    angle: "0°",
+                    overlapFraction: CGFloat(AngleSceneCalculator.fullBall.overlap)
+                )
+                ballOverlapCard(
+                    name: AngleSceneCalculator.halfBall.name,
+                    angle: "30°",
+                    overlapFraction: CGFloat(AngleSceneCalculator.halfBall.overlap)
+                )
+                ballOverlapCard(
+                    name: AngleSceneCalculator.threeQuarterBall.name,
+                    angle: String(format: "%.1f°", AngleSceneCalculator.threeQuarterBall.cutAngleDegrees),
+                    overlapFraction: CGFloat(AngleSceneCalculator.threeQuarterBall.overlap)
+                )
                 ballOverlapCard(name: "薄球", angle: "~75°", overlapFraction: 0.08)
             }
         }

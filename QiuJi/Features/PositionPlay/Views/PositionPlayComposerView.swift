@@ -279,6 +279,7 @@ struct PositionPlayComposerView: View {
                             dismissBriefOnInteraction()
                             vm.play()
                         },
+                        undoTitle: "重打",
                         undoEnabled: !vm.isPlaying && vm.canReplay,
                         onUndo: { vm.replayCurrent() },
                         playbackEnabled: !vm.isPlaying && vm.canPlayback,

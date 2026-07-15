@@ -295,15 +295,32 @@ struct AimingPrincipleView: View {
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())],
                       spacing: Spacing.lg) {
-                thicknessCard(name: "全球", angle: "0°", offset: "0%", dOverR: "0", overlapFraction: 1.0)
-                thicknessCard(name: "3/4 球", angle: "14.5°", offset: "25%", dOverR: "0.50", overlapFraction: 0.75)
-                thicknessCard(name: "半球", angle: "30°", offset: "50%", dOverR: "1.0", overlapFraction: 0.5)
-                thicknessCard(name: "极薄球", angle: "90°", offset: "100%", dOverR: "2.0", overlapFraction: 0.0)
+                thicknessCard(from: AngleSceneCalculator.fullBall, offset: "0%")
+                thicknessCard(from: AngleSceneCalculator.threeQuarterBall, offset: "25%")
+                thicknessCard(from: AngleSceneCalculator.halfBall, offset: "50%")
+                thicknessCard(from: AngleSceneCalculator.thinBall, offset: "100%")
             }
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+    }
+
+    private func thicknessCard(from thickness: AngleSceneCalculator.NamedBallThickness,
+                               offset: String) -> some View {
+        let angleText = thickness.cutAngleDegrees == thickness.cutAngleDegrees.rounded()
+            ? "\(Int(thickness.cutAngleDegrees))°"
+            : String(format: "%.1f°", thickness.cutAngleDegrees)
+        let dOverRText = thickness.dOverR == thickness.dOverR.rounded()
+            ? String(format: "%.0f", thickness.dOverR)
+            : String(format: "%.2f", thickness.dOverR)
+        return thicknessCard(
+            name: thickness.name,
+            angle: angleText,
+            offset: offset,
+            dOverR: dOverRText,
+            overlapFraction: CGFloat(thickness.overlap)
+        )
     }
 
     private func thicknessCard(name: String, angle: String, offset: String, dOverR: String, overlapFraction: CGFloat) -> some View {

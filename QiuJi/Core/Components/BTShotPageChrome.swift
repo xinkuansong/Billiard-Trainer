@@ -112,6 +112,8 @@ struct BTShotActionColumn: View {
     var strikeTitle: String = "击球"
     var strikeEnabled: Bool
     var onStrike: () -> Void
+    /// 中钮文案：真 `undoLastShot` 页用「上一杆」；`replayCurrent`（重打）页传「重打」（v7 C5/D4）。
+    var undoTitle: String = "上一杆"
     var undoEnabled: Bool
     var onUndo: () -> Void
     var playbackEnabled: Bool
@@ -123,7 +125,7 @@ struct BTShotActionColumn: View {
         VStack(spacing: 8) {
             BTTextActionButton(title: strikeTitle, role: .primary,
                                isDisabled: !strikeEnabled, width: buttonWidth, action: onStrike)
-            BTTextActionButton(title: "上一杆", isDisabled: !undoEnabled,
+            BTTextActionButton(title: undoTitle, isDisabled: !undoEnabled,
                                width: buttonWidth, action: onUndo)
             BTTextActionButton(title: "回放", isDisabled: !playbackEnabled,
                                width: buttonWidth, action: onPlayback)
