@@ -31,12 +31,10 @@ final class AdaptiveQuestionEngine {
     private(set) var cornerZones: [Int: ZoneHistory]
     private(set) var sideZones:   [Int: ZoneHistory]
 
-    private static let storageKey = "AdaptiveQuestionEngine_v1"
-
     // MARK: - Init
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: Self.storageKey),
+        if let data = UserDefaults.standard.data(forKey: PracticeStorageKey.adaptiveQuestionEngine),
            let state = try? JSONDecoder().decode(PersistedState.self, from: data) {
             self.cornerZones = state.cornerZones
             self.sideZones   = state.sideZones
@@ -98,7 +96,7 @@ final class AdaptiveQuestionEngine {
     private func persist() {
         let state = PersistedState(cornerZones: cornerZones, sideZones: sideZones)
         if let data = try? JSONEncoder().encode(state) {
-            UserDefaults.standard.set(data, forKey: Self.storageKey)
+            UserDefaults.standard.set(data, forKey: PracticeStorageKey.adaptiveQuestionEngine)
         }
     }
 

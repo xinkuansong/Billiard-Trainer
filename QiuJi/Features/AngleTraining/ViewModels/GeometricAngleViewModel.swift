@@ -47,6 +47,7 @@ final class GeometricAngleViewModel: ObservableObject {
         let err = abs(currentAngle - userAngle)
         sessionResults.append(AnswerRecord(actualAngle: currentAngle, userAngle: userAngle, error: err))
         limiter.recordQuestion()
+        BTFeedback.quiz(errorDegrees: err)
 
         Task {
             let result = AngleTestResult(

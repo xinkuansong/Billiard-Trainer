@@ -74,15 +74,13 @@ final class AngleCalculatorTests: XCTestCase {
 
 final class AdaptiveQuestionEngineTests: XCTestCase {
 
-    private let engineStorageKey = "AdaptiveQuestionEngine_v1"
-
     override func setUp() {
         super.setUp()
-        UserDefaults.standard.removeObject(forKey: engineStorageKey)
+        UserDefaults.standard.removeObject(forKey: PracticeStorageKey.adaptiveQuestionEngine)
     }
 
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: engineStorageKey)
+        UserDefaults.standard.removeObject(forKey: PracticeStorageKey.adaptiveQuestionEngine)
         super.tearDown()
     }
 
@@ -197,18 +195,20 @@ final class AdaptiveQuestionEngineTests: XCTestCase {
 
 final class AngleUsageLimiterTests: XCTestCase {
 
-    private let countKey = "AngleUsage_count"
-    private let dateKey  = "AngleUsage_date"
+    private var suiteName: String!
+    private var defaults: UserDefaults!
 
     override func setUp() {
         super.setUp()
-        UserDefaults.standard.removeObject(forKey: countKey)
-        UserDefaults.standard.removeObject(forKey: dateKey)
+        suiteName = "AngleUsageLimiterTests.\(UUID().uuidString)"
+        defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
     }
 
     override func tearDown() {
-        UserDefaults.standard.removeObject(forKey: countKey)
-        UserDefaults.standard.removeObject(forKey: dateKey)
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults = nil
+        suiteName = nil
         super.tearDown()
     }
 
@@ -217,14 +217,14 @@ final class AngleUsageLimiterTests: XCTestCase {
     }
 
     func test_freshStart_zeroUsed() {
-        let limiter = AngleUsageLimiter()
+        let limiter = AngleUsageLimiter(defaults: defaults)
         XCTAssertEqual(limiter.questionsUsedToday, 0)
         XCTAssertEqual(limiter.remainingToday, 20)
         XCTAssertFalse(limiter.isLimitReached)
     }
 
     func test_recordQuestion_incrementsCount() {
-        let limiter = AngleUsageLimiter()
+        let limiter = AngleUsageLimiter(defaults: defaults)
         limiter.recordQuestion()
         limiter.recordQuestion()
         XCTAssertEqual(limiter.questionsUsedToday, 2)
@@ -232,14 +232,14 @@ final class AngleUsageLimiterTests: XCTestCase {
     }
 
     func test_limitReached_at20() {
-        let limiter = AngleUsageLimiter()
+        let limiter = AngleUsageLimiter(defaults: defaults)
         for _ in 0..<20 { limiter.recordQuestion() }
         XCTAssertTrue(limiter.isLimitReached)
         XCTAssertEqual(limiter.remainingToday, 0)
     }
 
     func test_premium_bypassesLimit() {
-        let limiter = AngleUsageLimiter()
+        let limiter = AngleUsageLimiter(defaults: defaults)
         for _ in 0..<25 { limiter.recordQuestion() }
         limiter.isPremium = true
         XCTAssertFalse(limiter.isLimitReached, "Premium users should not be limited")
@@ -249,21 +249,71 @@ final class AngleUsageLimiterTests: XCTestCase {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: Date())!
-        UserDefaults.standard.set(df.string(from: yesterday), forKey: dateKey)
-        UserDefaults.standard.set(15, forKey: countKey)
+        defaults.set(df.string(from: yesterday), forKey: PracticeStorageKey.angleUsageDate)
+        defaults.set(15, forKey: PracticeStorageKey.angleUsageCount)
 
-        let limiter = AngleUsageLimiter()
+        let limiter = AngleUsageLimiter(defaults: defaults)
         XCTAssertEqual(limiter.questionsUsedToday, 0, "Should reset for a new day")
     }
 
     func test_sameDay_restoresCount() {
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
-        UserDefaults.standard.set(df.string(from: Date()), forKey: dateKey)
-        UserDefaults.standard.set(7, forKey: countKey)
+        defaults.set(df.string(from: Date()), forKey: PracticeStorageKey.angleUsageDate)
+        defaults.set(7, forKey: PracticeStorageKey.angleUsageCount)
 
-        let limiter = AngleUsageLimiter()
+        let limiter = AngleUsageLimiter(defaults: defaults)
         XCTAssertEqual(limiter.questionsUsedToday, 7)
+    }
+
+    func test_shared_isSingleton() {
+        XCTAssertTrue(AngleUsageLimiter.shared === AngleUsageLimiter.shared)
+    }
+
+    func test_storageKeys_unchanged() {
+        XCTAssertEqual(PracticeStorageKey.angleUsageCount, "AngleUsage_count")
+        XCTAssertEqual(PracticeStorageKey.angleUsageDate, "AngleUsage_date")
+    }
+}
+
+// MARK: - BTFeedback Tests (C22)
+
+final class BTFeedbackTests: XCTestCase {
+
+    func test_outcome_forDegrees_bands() {
+        XCTAssertEqual(BTFeedback.outcome(forDegrees: 0), .correct)
+        XCTAssertEqual(BTFeedback.outcome(forDegrees: 3), .correct)
+        XCTAssertEqual(BTFeedback.outcome(forDegrees: 3.1), .close)
+        XCTAssertEqual(BTFeedback.outcome(forDegrees: 10), .close)
+        XCTAssertEqual(BTFeedback.outcome(forDegrees: 10.1), .off)
+    }
+
+    func test_outcome_forMM_bands() {
+        XCTAssertEqual(BTFeedback.outcome(forMM: 0), .correct)
+        XCTAssertEqual(BTFeedback.outcome(forMM: 2), .correct)
+        XCTAssertEqual(BTFeedback.outcome(forMM: 2.1), .close)
+        XCTAssertEqual(BTFeedback.outcome(forMM: 6), .close)
+        XCTAssertEqual(BTFeedback.outcome(forMM: 6.1), .off)
+    }
+
+    func test_notificationType_mapping() {
+        XCTAssertEqual(BTFeedback.notificationType(for: .correct), .success)
+        XCTAssertEqual(BTFeedback.notificationType(for: .close), .warning)
+        XCTAssertEqual(BTFeedback.notificationType(for: .off), .error)
+    }
+}
+
+// MARK: - PracticeStorageKey Tests (C24)
+
+final class PracticeStorageKeyTests: XCTestCase {
+
+    func test_rawValues_frozen() {
+        XCTAssertEqual(PracticeStorageKey.angleUsageCount, "AngleUsage_count")
+        XCTAssertEqual(PracticeStorageKey.angleUsageDate, "AngleUsage_date")
+        XCTAssertEqual(PracticeStorageKey.adaptiveQuestionEngine, "AdaptiveQuestionEngine_v1")
+        XCTAssertEqual(PracticeStorageKey.cushionReflectionPower, "cushionReflectionPower")
+        XCTAssertEqual(PracticeStorageKey.angleDynamicHasDraggedOnce, "angleDynamic.hasDraggedOnce")
+        XCTAssertEqual(PracticeStorageKey.geometricQuizForcedAngle, "geometricQuiz.forcedAngle")
     }
 }
 

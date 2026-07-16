@@ -191,6 +191,7 @@ final class AimingQuizViewModel: ObservableObject {
 
         engine.recordResult(angle: q.actualAngle, error: err, pocketType: q.pocketType)
         limiter.recordQuestion()
+        BTFeedback.quiz(errorDegrees: err)
 
         Task {
             let result = AngleTestResult(
