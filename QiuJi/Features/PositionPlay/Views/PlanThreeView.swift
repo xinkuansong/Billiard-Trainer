@@ -173,7 +173,16 @@ struct PlanThreeView: View {
     private func stage(_ proxy: ShotStageProxy) -> some View {
         ZStack(alignment: .topLeading) {
             sceneContainer
-            if vm.activeTool != .none { drawingOverlay }
+            if vm.activeTool != .none {
+                SolveConstraintDrawingOverlay(
+                    coordinateSpaceName: "planthree",
+                    sceneFrame: sceneFrame,
+                    unproject: { projector.unproject?($0) },
+                    onDrag: { start, current, ended in
+                        vm.toolDrag(startNormalized: start, currentNormalized: current, ended: ended)
+                    }
+                )
+            }
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
             if let runner = vm.breakRunner {
@@ -248,30 +257,6 @@ struct PlanThreeView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
-    }
-
-    private var drawingOverlay: some View {
-        Color.clear
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0, coordinateSpace: .named("planthree"))
-                    .onChanged { value in handleDraw(start: value.startLocation, current: value.location, ended: false) }
-                    .onEnded { value in handleDraw(start: value.startLocation, current: value.location, ended: true) }
-            )
-    }
-
-    private func handleDraw(start: CGPoint, current: CGPoint, ended: Bool) {
-        guard sceneFrame != .zero,
-              let s = normalized(fromComposer: start),
-              let c = normalized(fromComposer: current) else { return }
-        vm.toolDrag(startNormalized: s, currentNormalized: c, ended: ended)
-    }
-
-    private func normalized(fromComposer point: CGPoint) -> CanvasPoint? {
-        let local = CGPoint(x: point.x - sceneFrame.minX, y: point.y - sceneFrame.minY)
-        guard let world = projector.unproject?(local) else { return nil }
-        let n = AngleSceneCalculator.sceneToNormalized(position: world)
-        return CanvasPoint(x: Double(n.x), y: Double(n.y))
     }
 
     // MARK: - Role row (Z6, above palette — T-P18-49)

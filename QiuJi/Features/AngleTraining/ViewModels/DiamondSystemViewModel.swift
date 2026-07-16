@@ -233,12 +233,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 点在桌球的球库槽位 → 桌上对应球放大脉冲提示位置（编排台同款）。
     func pulseTableBall(_ key: String) {
         guard let node = scene.allBallNodes[key], !node.isHidden else { return }
-        node.removeAction(forKey: "palettePulse")
-        let pulse = SCNAction.sequence([
-            SCNAction.scale(by: 1.35, duration: 0.15),
-            SCNAction.scale(by: 1.0 / 1.35, duration: 0.25)
-        ])
-        node.runAction(pulse, forKey: "palettePulse")
+        TableBallPulse.pulse(node)
     }
 
     /// 台面上找一个不与在桌球重叠的空位（场景系网格扫描）。

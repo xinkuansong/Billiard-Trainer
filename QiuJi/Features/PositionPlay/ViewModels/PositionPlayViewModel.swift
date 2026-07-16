@@ -836,41 +836,22 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func drawTrajectory(_ p: ShotPrediction) {
         clearTrajectory()
-        let detail = UserPreferences.shared.trajectoryDetail
-        // 母球轨迹（线语言 v2，条 12）：碰前白实线瞄准线 + 碰后白虚线走位轨迹；
-        // 空杆时实线延伸到库边。
-        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
-                               into: &trajectoryNodes)
-        if detail != .minimal {
-            // 进球线延长（#8）：进袋时把目标球轨迹末端延伸到袋口圆边缘（jaw/袋弧碰撞已在真实轨迹中）。
-            var objPath = p.objectPath
-            if p.objectPocketed, let solved = solvedShot, !solved.shot.isFree,
-               let pocketIndex = ShotIntent.pocketIndex(for: solved.shot.pocket) {
-                objPath = PositionPlayShotSolver.extendPathToPocketRim(
-                    objPath, pocketIndex: pocketIndex, surfaceY: surfaceY
-                )
-            }
-            // 进球线随目标球球色虚线（黑 8 亮灰，线语言 v2）。
-            scene.addObjectTrajectory(objPath, ballKey: solvedShot?.shot.targetKey ?? "",
-                                      into: &trajectoryNodes)
-        }
-        if detail == .full {
-            // 所有被带动的球的真实轨迹（条 12.4），各随其球色虚线（extraBallPaths 键 = 桌面球键）。
-            for (key, pts) in p.extraBallPaths {
-                scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
-            }
-        }
-        // 假想球：袋口模式显示母球瞄准终点（重叠标注 L0：绿虚线圈 + 接触点绿点）。
-        if let solved = solvedShot, !solved.shot.isFree, let ghost = scene.ghostBallNode {
-            ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
-            ghost.isHidden = false
-            if let target = scene.allBallNodes[solved.shot.targetKey], !target.isHidden {
-                scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target.position)
-            }
-        }
-        if UserPreferences.shared.showSeparationAngle {
-            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
-        }
+        let shot = solvedShot?.shot
+        // 全量口径（C3 / D2）：objectPath + rim extend + ghost←`.ghost`。
+        // 自由球不显示假想球（与改前一致）。
+        TrajectoryRenderer.draw(
+            prediction: p,
+            options: .positionPlay,
+            context: .init(
+                prediction: p,
+                targetKey: shot?.targetKey ?? "",
+                pocket: (shot?.isFree == false) ? shot?.pocket : nil,
+                surfaceY: surfaceY,
+                showGhost: shot.map { !$0.isFree } ?? false
+            ),
+            scene: scene,
+            into: &trajectoryNodes
+        )
     }
 
     private func clearTrajectory() {
@@ -881,10 +862,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲，提示其位置（#5a）。
     func pulseTableBall(_ key: String) {
         guard !isPlaying, let node = scene.allBallNodes[key], !node.isHidden else { return }
-        node.removeAction(forKey: "libraryPulse")
-        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
-        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
-        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
+        TableBallPulse.pulse(node)
     }
 
     /// 选中环已移除（线语言 v2，条 12.3）：假想球圈 + 进球线已明确标示选中目标球，

@@ -453,28 +453,20 @@ final class SnookerTacticsViewModel: ObservableObject {
     private func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
-        let detail = UserPreferences.shared.trajectoryDetail
-        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
-                               into: &trajectoryNodes)
-        if detail != .minimal {
-            for (key, pts) in p.extraBallPaths {
-                if detail == .core, key != shot.targetKey { continue }
-                scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
-            }
-        }
-        if let ghostCenter = p.firstContact, let ghost = scene.ghostBallNode,
-           let target = scene.allBallNodes[shot.targetKey], !target.isHidden {
-            ghost.position = SCNVector3(ghostCenter.x,
-                                        surfaceY + AngleSceneCalculator.ballRadius,
-                                        ghostCenter.z)
-            ghost.isHidden = false
-            scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target.position)
-        } else {
-            scene.ghostBallNode?.isHidden = true
-        }
-        if UserPreferences.shared.showSeparationAngle {
-            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
-        }
+        // 防守口径（C3 / D2）：无 objectPath、ghost←firstContact，差异由 options 显式表达。
+        TrajectoryRenderer.draw(
+            prediction: p,
+            options: .snookerDefense,
+            context: .init(
+                prediction: p,
+                targetKey: shot.targetKey,
+                pocket: shot.pocket,
+                surfaceY: surfaceY,
+                showGhost: true
+            ),
+            scene: scene,
+            into: &trajectoryNodes
+        )
     }
 
     private func clearTrajectory() {
@@ -485,10 +477,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲提示位置（#5a）。
     func pulseTableBall(_ key: String) {
         guard !isPlaying, let node = scene.allBallNodes[key], !node.isHidden else { return }
-        node.removeAction(forKey: "libraryPulse")
-        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
-        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
-        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
+        TableBallPulse.pulse(node)
     }
 
     /// 角色环 + 防守可见性可视化。
@@ -498,10 +487,12 @@ final class SnookerTacticsViewModel: ObservableObject {
     private func refreshOverlays() {
         scene.clearResultNodes(nodes: &overlayNodes)
         guard !isPlaying else { return }
-        let cyan = UIColor(red: 0.2, green: 0.85, blue: 0.95, alpha: 0.95)
+        let cyan = BTScenePalette.constraintCyan
         let red = UIColor(red: 0.98, green: 0.36, blue: 0.34, alpha: 0.95)
         let gray = UIColor(white: 0.7, alpha: 0.85)
         let r = AngleSceneCalculator.ballRadius
+        // Snooker 环画在台呢高度（显式 y），与球心高度分离——D2/C17 参数化保留。
+        let ringY = surfaceY + 0.002
 
         if let sol = currentSolution, sol.prediction.feasible, !isComputing,
            let finalC = sol.prediction.finalPositions[ShotInput.cueBallName] {
@@ -523,34 +514,27 @@ final class SnookerTacticsViewModel: ObservableObject {
                 let color = c.blocked ? gray : red
                 overlayNodes.append(scene.addLine(from: finalC, to: opp.pos, color: color,
                                                   radius: TrajectoryStyle.aimRadius))
-                strokeCircle(center: opp.pos, radius: r * 1.5, color: color)
+                SceneStroke.strokeCircle(center: opp.pos, radius: r * 1.5, color: color,
+                                         y: ringY, scene: scene, into: &overlayNodes)
             }
             if let tkey = selectedTargetKey, let finalT = finalNonCue.first(where: { $0.key == tkey })?.pos {
-                strokeCircle(center: finalT, radius: r * 1.55, color: cyan)   // 目标球终位
+                SceneStroke.strokeCircle(center: finalT, radius: r * 1.55, color: cyan,
+                                         y: ringY, scene: scene, into: &overlayNodes)   // 目标球终位
             }
-            strokeCircle(center: finalC, radius: r * 1.4, color: UIColor(white: 0.92, alpha: 0.9)) // 母球终位
+            SceneStroke.strokeCircle(center: finalC, radius: r * 1.4, color: UIColor(white: 0.92, alpha: 0.9),
+                                     y: ringY, scene: scene, into: &overlayNodes) // 母球终位
             return
         }
 
         // 无解 / 编辑态：目标球青环 + 对方球组红环。
         if let tkey = selectedTargetKey, let tn = scene.allBallNodes[tkey], !tn.isHidden {
-            strokeCircle(center: tn.position, radius: r * 1.75, color: cyan)
+            SceneStroke.strokeCircle(center: tn.position, radius: r * 1.75, color: cyan,
+                                     y: ringY, scene: scene, into: &overlayNodes)
         }
         for okey in opponentKeys {
             guard let on = scene.allBallNodes[okey], !on.isHidden else { continue }
-            strokeCircle(center: on.position, radius: r * 1.5, color: red)
-        }
-    }
-
-    private func strokeCircle(center: SCNVector3, radius: Float, color: UIColor) {
-        let segments = 36
-        let y = surfaceY + 0.002
-        var prev: SCNVector3?
-        for i in 0...segments {
-            let a = Float(i) / Float(segments) * 2 * .pi
-            let p = SCNVector3(center.x + radius * cosf(a), y, center.z + radius * sinf(a))
-            if let pr = prev { overlayNodes.append(scene.addLine(from: pr, to: p, color: color, radius: 0.0022)) }
-            prev = p
+            SceneStroke.strokeCircle(center: on.position, radius: r * 1.5, color: red,
+                                     y: ringY, scene: scene, into: &overlayNodes)
         }
     }
 
@@ -628,7 +612,7 @@ final class SnookerTacticsViewModel: ObservableObject {
                     cushionCount: pred.cueCushionCount,
                     potted: pred.simObjectPotted,
                     margin: sol.margin,
-                    summary: "微调 · " + SiluSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
+                    summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
                     satisfiesConstraint: sol.satisfiesConstraint,
                     beyondCushionBudget: sol.beyondCushionBudget,
@@ -845,30 +829,6 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     private func boardKey(forPredName name: String) -> String {
         name == ShotInput.cueBallName ? PositionPlayBall.cueKey : name
-    }
-
-    // MARK: - Export (单步序列送生产管线，模拟器限定)
-
-    func makeExportSequence() -> PositionPlaySequence? {
-        guard let sol = currentSolution, sol.prediction.feasible else { return nil }
-        let before = currentSnapshot()
-        let potted = Set(sol.prediction.pocketedBalls.map { boardKey(forPredName: $0) })
-        var afterDict: [String: CanvasPoint] = [:]
-        for key in before.onTable.keys where !potted.contains(key) {
-            let predN = predName(boardKey: key)
-            if let p = sol.prediction.finalPositions[predN] {
-                let n = AngleSceneCalculator.sceneToNormalized(position: p)
-                afterDict[key] = CanvasPoint(x: Double(n.x), y: Double(n.y))
-            } else {
-                afterDict[key] = before.onTable[key]
-            }
-        }
-        let step = SequenceStep(
-            before: before, shot: sol.shot, after: BoardSnapshot(onTable: afterDict),
-            potted: Array(potted), cuePocketed: sol.prediction.cuePocketed,
-            objectPocketed: sol.prediction.objectPocketed, note: sol.summary)
-        let label = selectedTargetKey.map { PositionPlayBall.shortLabel(for: $0) } ?? "?"
-        return PositionPlaySequence(name: "防守-\(label)号", initial: before, steps: [step])
     }
 
     // MARK: - Reset
