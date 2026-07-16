@@ -242,7 +242,8 @@ enum CushionReflectionSolver {
 /// W4 引擎反解后「理想/真实」概念消亡（`realMode` 已退役删除，20260709 翻袋反射页
 /// 重构方案 §4.2）：力度是求解输入，改力度 → 重求解。
 enum CushionReflectionSettings {
-    static let powerKey = "cushionReflectionPower"
+    /// Compatibility alias — raw value lives in `PracticeStorageKey` (C24).
+    static var powerKey: String { PracticeStorageKey.cushionReflectionPower }
 
     /// 力度（m/s）合法区间与默认值。
     static let minPower: Float = 1.0
@@ -254,10 +255,15 @@ enum CushionReflectionSettings {
     /// 力度（m/s，默认 `defaultPower`）：引擎反解的求解输入。
     static var power: Float {
         get {
-            let stored = UserDefaults.standard.object(forKey: powerKey) as? Double
+            let stored = UserDefaults.standard.object(forKey: PracticeStorageKey.cushionReflectionPower) as? Double
             return clampPower(Float(stored ?? Double(defaultPower)))
         }
-        set { UserDefaults.standard.set(Double(clampPower(newValue)), forKey: powerKey) }
+        set {
+            UserDefaults.standard.set(
+                Double(clampPower(newValue)),
+                forKey: PracticeStorageKey.cushionReflectionPower
+            )
+        }
     }
 }
 

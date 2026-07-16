@@ -6,7 +6,7 @@ struct AngleDynamicView: View {
     @State private var hasAppeared = false
 
     /// 首拖提示（T-P18-51）：首次进页不知道球能拖，提示常驻到第一次拖动为止（跨启动记忆）。
-    @AppStorage("angleDynamic.hasDraggedOnce") private var hasDraggedOnce = false
+    @AppStorage(PracticeStorageKey.angleDynamicHasDraggedOnce) private var hasDraggedOnce = false
 
     /// G10：顶栏 / 底栏定高锁桌（C11 → `ShotStageMetrics`）。
     private static let topRowHeight = ShotStageMetrics.topRowHeight

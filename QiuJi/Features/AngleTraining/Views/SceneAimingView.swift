@@ -17,7 +17,7 @@ struct SceneAimingView: View {
 
     init(initialCameraMode: AngleTrainingScene.CameraMode) {
         self.cameraMode = initialCameraMode
-        _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: AngleUsageLimiter()))
+        _vm = StateObject(wrappedValue: AimingQuizViewModel(limiter: .shared))
     }
 
     private var is3D: Bool { cameraMode == .perspective3D }
@@ -70,10 +70,23 @@ struct SceneAimingView: View {
                         summaryOverlay
                     }
                     .transition(.opacity)
+                } else if vm.limiter.isLimitReached, vm.phase != .showingResult {
+                    // C23：满额主卡（full）；总结/结果区另用 compact。
+                    ZStack {
+                        Color.black.opacity(0.32)
+                            .ignoresSafeArea()
+                        BTDailyLimitGate { showSubscription = true }
+                            .padding(.horizontal, Spacing.lg)
+                    }
+                    .transition(.opacity)
+                    .sheet(isPresented: $showSubscription) {
+                        SubscriptionView().environmentObject(subscriptionManager)
+                    }
                 }
             }
             .animation(BTMotion.easeChrome, value: vm.phase)
             .animation(BTMotion.easeChrome, value: vm.testFinished)
+            .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
         }
         .navigationTitle(is3D ? "3D 角度训练" : "2D 角度训练")
         .navigationBarTitleDisplayMode(.inline)
@@ -244,11 +257,21 @@ struct SceneAimingView: View {
                     }
                 }
             } else if vm.phase == .showingResult, !vm.testFinished {
-                positioned(proxy, size: CGSize(width: ShotStageMetrics.actionColumnWidth,
-                                               height: 30)) {
-                    BTTextActionButton(title: nextButtonTitle, role: .primary,
-                                       width: ShotStageMetrics.actionColumnWidth) {
-                        vm.advanceToNext()
+                if vm.limiter.isLimitReached {
+                    // C23：结果区 compact（与 Geometric / AimPoint 一致）。
+                    VStack {
+                        Spacer()
+                        BTDailyLimitGate(compact: true) { showSubscription = true }
+                            .padding(.horizontal, Spacing.xl)
+                            .padding(.bottom, Spacing.xl)
+                    }
+                } else {
+                    positioned(proxy, size: CGSize(width: ShotStageMetrics.actionColumnWidth,
+                                                   height: 30)) {
+                        BTTextActionButton(title: nextButtonTitle, role: .primary,
+                                           width: ShotStageMetrics.actionColumnWidth) {
+                            vm.advanceToNext()
+                        }
                     }
                 }
             }
@@ -278,8 +301,7 @@ struct SceneAimingView: View {
 
     // MARK: - Top progress pill (observing / inputting)
 
-    /// 统计 chip 单字前缀（题/袋/差/剩，T-P18-49）：SF 图标换单字 label，
-    /// 与几何角度训练指标条同一 `BTReadout` 语法。
+    /// 统计 chip 前缀（题/袋/差/剩余，T-P18-49 / D9）：与几何角度训练同一 `BTReadout` 语法。
     private var progressPill: some View {
         HStack(spacing: Spacing.md) {
             BTReadout(label: "题", value: progressText)
@@ -292,7 +314,7 @@ struct SceneAimingView: View {
                 .fixedSize(horizontal: true, vertical: false)
             if !vm.limiter.isPremium {
                 divider
-                BTReadout(label: "剩", value: "\(vm.limiter.remainingToday)",
+                BTReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
                           emphasis: .adjustable, size: .compact)
                     .fixedSize(horizontal: true, vertical: false)
             }

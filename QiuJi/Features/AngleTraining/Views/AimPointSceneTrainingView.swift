@@ -62,7 +62,11 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
     func nextQuestion() {
         strikeTask?.cancel()
-        guard !limiter.isLimitReached else { return }
+        guard !limiter.isLimitReached else {
+            // C23：击球验证结束后若已满额，回到 aiming 以展示 full 主卡（避免卡在 striking）。
+            phase = .aiming
+            return
+        }
         clearLines()
         scene.hideCueStick()
         scene.hideAllVisualization()
@@ -157,6 +161,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         lastErrorMM = errorMM
         sessionResults.append(RoundResult(errorMM: errorMM))
         limiter.recordQuestion()
+        BTFeedback.quiz(errorMM: errorMM)
 
         phase = .showingResult
         redrawLines(correctDir: correctDir)
@@ -357,7 +362,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 struct AimPointSceneTrainingView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @StateObject private var vm = AimPointSceneQuizViewModel(limiter: AngleUsageLimiter())
+    @StateObject private var vm = AimPointSceneQuizViewModel(limiter: .shared)
     @State private var hasAppeared = false
     @State private var showSubscription = false
 
@@ -405,8 +410,25 @@ struct AimPointSceneTrainingView: View {
                             .frame(height: Self.bottomBarHeight)
                     }
                 }
-                if vm.limiter.isLimitReached, vm.phase == .aiming { limitCard }
+                if vm.limiter.isLimitReached {
+                    if vm.phase == .showingResult || vm.phase == .striking {
+                        // C23：结果/击球验证态用 compact（对齐 Geometric 结果区）。
+                        VStack {
+                            Spacer()
+                            BTDailyLimitGate(compact: true) { showSubscription = true }
+                                .padding(.horizontal, Spacing.xl)
+                                .padding(.bottom, Spacing.xl + 40)
+                        }
+                        .transition(.opacity)
+                    } else if vm.phase == .aiming {
+                        // C23：满额主卡（full）；取消原先撑满全屏的遮罩形态。
+                        limitCard
+                            .transition(.opacity)
+                    }
+                }
             }
+            .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
+            .animation(BTMotion.easeChrome, value: vm.phase)
         }
         .navigationTitle(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
         .navigationBarTitleDisplayMode(.inline)
@@ -532,7 +554,7 @@ struct AimPointSceneTrainingView: View {
                           ? "—" : String(format: "%.1fmm", vm.sessionMeanAbsMM))
             if !vm.limiter.isPremium {
                 divider
-                BTReadout(label: "剩", value: "\(vm.limiter.remainingToday)",
+                BTReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
                           emphasis: .adjustable, size: .compact)
             }
         }
@@ -629,8 +651,12 @@ struct AimPointSceneTrainingView: View {
     }
 
     private var limitCard: some View {
-        BTDailyLimitGate { showSubscription = true }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ZStack {
+            Color.black.opacity(0.32)
+                .ignoresSafeArea()
+            BTDailyLimitGate { showSubscription = true }
+                .padding(.horizontal, Spacing.lg)
+        }
     }
 }
 

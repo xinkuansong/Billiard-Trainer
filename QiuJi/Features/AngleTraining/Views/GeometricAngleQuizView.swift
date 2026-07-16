@@ -13,7 +13,7 @@ struct GeometricAngleQuizView: View {
     @State private var showResetConfirm = false
 
     init() {
-        _vm = StateObject(wrappedValue: GeometricAngleViewModel(limiter: AngleUsageLimiter()))
+        _vm = StateObject(wrappedValue: GeometricAngleViewModel(limiter: .shared))
     }
 
     // 暗色场景语言重做（ADR-P11-07）：黑底 + 顶部指标胶囊 + 右下 FAB，
@@ -74,7 +74,7 @@ struct GeometricAngleQuizView: View {
             vm.generateRandomAngle()
             // UITest-only 确定性角度（默认 0 → 不生效，生产行为不变）：
             // 供 Q4 90° 最坏帧截图核验（`-geometricQuiz.forcedAngle 90`）。
-            let forced = UserDefaults.standard.double(forKey: "geometricQuiz.forcedAngle")
+            let forced = UserDefaults.standard.double(forKey: PracticeStorageKey.geometricQuizForcedAngle)
             if forced > 0 { vm.currentAngle = min(forced, 90) }
         }
         .onReceive(subscriptionManager.$isPremium) { premium in

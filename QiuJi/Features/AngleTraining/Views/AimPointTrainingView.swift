@@ -75,6 +75,7 @@ final class AimPointTrainingViewModel: ObservableObject {
 
         sessionResults.append(RoundResult(question: q, errorMM: signedError))
         limiter.recordQuestion()
+        BTFeedback.quiz(errorMM: signedError)
         showResult = true
 
         Task {
@@ -156,7 +157,7 @@ final class AimPointTrainingViewModel: ObservableObject {
 struct AimPointTrainingView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @StateObject private var vm = AimPointTrainingViewModel(limiter: AngleUsageLimiter())
+    @StateObject private var vm = AimPointTrainingViewModel(limiter: .shared)
     @State private var showSubscription = false
 
     var body: some View {
@@ -224,7 +225,7 @@ struct AimPointTrainingView: View {
                 }
                 if !vm.limiter.isPremium {
                     divider
-                    BTReadout(label: "剩", value: "\(vm.limiter.remainingToday)",
+                    BTReadout(label: "剩余", value: "\(vm.limiter.remainingToday)",
                               emphasis: .adjustable, size: .compact)
                 }
             }
