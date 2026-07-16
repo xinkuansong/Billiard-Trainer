@@ -120,32 +120,23 @@ struct FreePlayView: View {
 
             if !vm.isBreakMode && proxy.isValid {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右（放球桌上方空隙带内）。
+                // C12（v7 W6）：贴边定位统一走共享修饰器，与 ShotSimulationView 同源。
                 BTTrajectoryDetailChip { vm.recompute() }
-                    .padding(.trailing, 8)
-                    .padding(.bottom, 2)
-                    .frame(maxWidth: .infinity,
-                           maxHeight: proxy.chipBandHeight,
-                           alignment: .bottomTrailing)
-                    .frame(maxHeight: .infinity, alignment: .top)
+                    .btChipBandPlacement(proxy)
                     .allowsHitTesting(!vm.isPlaying)
 
                 // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
                 if vm.aimMode == .free {
-                    let f = proxy.aimWheelFrame()
                     BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
-                        .frame(width: f.width, height: f.height)
-                        .position(x: f.midX, y: f.midY)
+                        .btStageFrame(proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
                 }
 
                 // G6/G9 开球按钮：左下角，底边齐球桌底线（本页有真实开球流程）。
-                let bf = proxy.breakButtonFrame()
                 BTBreakSideButton(isEnabled: !vm.isPlaying) { showBreakPicker = true }
-                    .frame(width: bf.width, height: bf.height)
-                    .position(x: bf.midX, y: bf.midY)
+                    .btStageFrame(proxy.breakButtonFrame())
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
-                let inf = proxy.instrumentFrame()
                 BTShotInstrumentColumn(
                     spinX: vm.spinX, spinY: vm.spinY,
                     onSpinTap: { showSpinPad = true },
@@ -153,11 +144,9 @@ struct FreePlayView: View {
                     range: ShotTuning.velocityRange,
                     isDisabled: vm.isPlaying
                 )
-                .frame(width: inf.width, height: inf.height)
-                .position(x: inf.midX, y: inf.midY)
+                .btStageFrame(proxy.instrumentFrame())
 
                 // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
-                let af = proxy.actionColumnFrame()
                 BTShotActionColumn(
                     strikeTitle: vm.isPlaying ? "击球中" : "击球",
                     strikeEnabled: strikeEnabled,
@@ -168,8 +157,7 @@ struct FreePlayView: View {
                     playbackEnabled: !vm.isPlaying && vm.canPlayback,
                     onPlayback: { vm.replayLastShot() }
                 )
-                .frame(width: af.width, height: af.height)
-                .position(x: af.midX, y: af.midY)
+                .btStageFrame(proxy.actionColumnFrame())
             }
 
             if showSpinPad {

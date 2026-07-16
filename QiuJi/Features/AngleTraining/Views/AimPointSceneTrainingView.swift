@@ -189,7 +189,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         clearLines()
 
         let surfaceY = scene.surfaceY
-        let velocity: Float = 1.5
+        let velocity = ShotTuning.aimPointVerifyVelocity
         let prediction = ShotPredictor.simulateFree(
             cueBall: cue.position, aimDir: aimDir,
             velocity: velocity, spinX: 0, spinY: 0,
@@ -275,11 +275,11 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             color: .white
         ))
         if userRes.touchesBall {
-            lineNodes.append(addDotNode(at: scenePoint(userRes.aimPoint, y: y),
-                                        color: TrajectoryStyle.aimPointColor))
+            lineNodes.append(scene.addAimPointMarker(at: scenePoint(userRes.aimPoint, y: y),
+                                                     color: TrajectoryStyle.aimPointColor))
             if let contact = userRes.contactPoint {
-                lineNodes.append(addDotNode(at: scenePoint(contact, y: y),
-                                            color: TrajectoryStyle.aimPointColor))
+                lineNodes.append(scene.addAimPointMarker(at: scenePoint(contact, y: y),
+                                                         color: TrajectoryStyle.aimPointColor))
             }
         }
 
@@ -294,26 +294,11 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             let foot = AimPointGeometry.aimPoint(
                 lineOrigin: xzPoint(cue.position), direction: xzPoint(correctDir),
                 targetCenter: xzPoint(target.position))
-            lineNodes.append(addDotNode(
+            lineNodes.append(scene.addAimPointMarker(
                 at: scenePoint(foot, y: y),
                 color: TrajectoryStyle.aimPointColor
             ))
         }
-    }
-
-    /// 瞄准点标记小点（贴台面的小圆片）。
-    private func addDotNode(at position: SCNVector3, color: UIColor) -> SCNNode {
-        let geo = SCNCylinder(radius: 0.007, height: 0.001)
-        geo.radialSegmentCount = 16
-        let mat = SCNMaterial()
-        mat.diffuse.contents = color
-        mat.emission.contents = color
-        mat.lightingModel = .constant
-        geo.materials = [mat]
-        let node = SCNNode(geometry: geo)
-        node.position = position
-        scene.rootNode.addChildNode(node)
-        return node
     }
 
     private func clearLines() {
@@ -628,7 +613,8 @@ struct AimPointSceneTrainingView: View {
                     Color.clear
                     VStack(spacing: Spacing.md) {
                         BTAimWheel { delta in vm.nudgeAim(byDegrees: delta) }
-                            .frame(width: 44, height: 170)
+                            .frame(width: ShotStageMetrics.aimWheelWidth,
+                                   height: ShotStageMetrics.aimWheelFloatingHeight)
                         BTTextActionButton(title: "提交", role: .primary) {
                             vm.submit()
                         }

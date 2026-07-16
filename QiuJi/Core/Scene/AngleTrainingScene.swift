@@ -1445,13 +1445,8 @@ final class AngleTrainingScene: SCNScene {
         }
         // 瞄准点红心（线语言 v2，条 1.6/4.2）：假想球球心是瞄准参考点，
         // 作为 ghost 子节点随其显隐/移动，所有用假想球的页面自动获得。
-        let aimDotGeo = SCNSphere(radius: 0.0065)
-        aimDotGeo.segmentCount = 12
-        let aimDotMat = SCNMaterial()
-        aimDotMat.diffuse.contents = TrajectoryStyle.aimPointColor
-        aimDotMat.lightingModel = .constant
-        aimDotGeo.materials = [aimDotMat]
-        let aimDot = SCNNode(geometry: aimDotGeo)
+        // C15/D8：几何走单一真源 `makeAimPointMarkerNode`（0.0065 球）。
+        let aimDot = Self.makeAimPointMarkerNode(color: TrajectoryStyle.aimPointColor)
         aimDot.position = SCNVector3(0, -r + 0.004, 0)   // 球心正下方贴台呢，顶视/斜视均可见
         aimDot.name = "ghostAimDot"
         ghost.addChildNode(aimDot)
@@ -1530,6 +1525,35 @@ final class AngleTrainingScene: SCNScene {
         pp.name = "perpLine"
         rootNode.addChildNode(pp)
         perpLineNode = pp
+    }
+
+    // MARK: - Aim Point Markers（C15/D8：瞄准点标记单一真源）
+
+    /// 瞄准点标记半径（D8 拍板：0.0065 球，随 ghost aimDot / `updateVisualization` 现状口径）。
+    static let aimPointMarkerRadius: CGFloat = 0.0065
+
+    /// 构建瞄准点标记节点（未挂载）：0.0065 半径小球 + constant 光照。
+    /// ghost aimDot 与独立标记共用本工厂，几何/材质单点定义。
+    static func makeAimPointMarkerNode(color: UIColor) -> SCNNode {
+        let geo = SCNSphere(radius: aimPointMarkerRadius)
+        geo.segmentCount = 12
+        let mat = SCNMaterial()
+        mat.diffuse.contents = color
+        mat.lightingModel = .constant
+        geo.materials = [mat]
+        return SCNNode(geometry: geo)
+    }
+
+    /// 在给定世界位置放一枚独立瞄准点标记（挂到 root，调用方持有并负责清理）。
+    /// 供瞄准点测验等不走 `updateVisualization` 常驻 ghost 的页面复用（消灭私有实现）。
+    @discardableResult
+    func addAimPointMarker(at position: SCNVector3,
+                           color: UIColor = TrajectoryStyle.aimPointColor) -> SCNNode {
+        let node = Self.makeAimPointMarkerNode(color: color)
+        node.name = "aimPointMarker"
+        node.position = position
+        rootNode.addChildNode(node)
+        return node
     }
 
     // MARK: - Show / Hide Visualization

@@ -55,6 +55,10 @@ enum ShotTableLayout {
 enum ShotStageMetrics {
     /// 瞄准刻度轮宽（G4/G7 竖长条）——与仪表柱同宽（用户修订：34/42 取平均 38）。
     static let aimWheelWidth: CGFloat = 38
+    /// 3D 透视浮动瞄准轮高度（C16 / v7 W6）：无球桌矩形驱动 `barLength` 时的固定高。
+    /// 原 AimPointScene 手写 44×170：宽 44 偏离 `aimWheelWidth` 无文档依据，已对齐 38；
+    /// 高 170 介于 `minBarLength`…`maxBarLength`，保留为浮动态命名常量。
+    static let aimWheelFloatingHeight: CGFloat = 170
     /// 打点+力度仪表柱宽（G4）——与刻度轮同宽。
     static let instrumentWidth: CGFloat = 38
     /// 仪表柱顶部固定区（打点迷你图 + 两行读数）高度——不计入力度条本体，

@@ -25,8 +25,8 @@ final class AimPointTrainingViewModel: ObservableObject {
         let errorMM: Double
     }
 
-    // 中八球径（与瞄准点对照表一致，P9-05）。
-    static let ballRadiusMM: Double = 28.575
+    // 中八球径 mm：派生自 SceneKit 真源，禁止页内硬编码（C16）。
+    static var ballRadiusMM: Double { Double(AngleSceneCalculator.ballRadius) * 1000 }
 
     @Published private(set) var question: Question?
     /// 用户假想球方位角 φ（弧度）：0 = 正下方（θ=0），右偏为正，范围 ±90°。
@@ -94,15 +94,25 @@ final class AimPointTrainingViewModel: ObservableObject {
 
     /// 用户当前朝正确瞄准侧的偏移（mm，可为负 = 拖错侧）。
     /// P8.4 口径：向右切（目标球向右动）⇒ 瞄准侧 = 目标球左侧（φ < 0）。
-    /// G1 数值关系：竖直瞄准线到目标球心的垂距 = 2R·|sin φ|，与假想球心横移同值。
+    /// G1：垂足几何走 `AimPointGeometry` 单一真源（C16）；数值 = 2R·|sin φ|。
     var userOffsetMM: Double {
         guard let q = question else { return 0 }
-        let lateral = sin(userPhi) * 2 * Self.ballRadiusMM   // 正 = 右侧
-        return q.cutsRight ? -lateral : lateral
+        let layout = Self.trainingPlaneLayout(phi: userPhi)
+        let positiveNormal = q.cutsRight
+            ? CGPoint(x: -1, y: 0)   // 正确侧 = 目标球左侧
+            : CGPoint(x: 1, y: 0)
+        return Double(AimPointGeometry.signedOffset(
+            lineOrigin: layout.cue, direction: layout.aimDir,
+            targetCenter: layout.target, positiveNormal: positiveNormal)) * 1000
     }
 
     func correctOffsetMM(for q: Question) -> Double {
-        2 * Self.ballRadiusMM * sin(q.angleDegrees * .pi / 180)
+        let phi = q.angleDegrees * .pi / 180
+        let signedPhi = q.cutsRight ? -phi : phi
+        let layout = Self.trainingPlaneLayout(phi: signedPhi)
+        return Double(AimPointGeometry.offsetDistance(
+            lineOrigin: layout.cue, direction: layout.aimDir,
+            targetCenter: layout.target)) * 1000
     }
 
     /// 正确 φ（带侧向符号，弧度）：向右切 ⇒ 假想球/瞄准点在目标球左侧（φ < 0）。
@@ -110,6 +120,18 @@ final class AimPointTrainingViewModel: ObservableObject {
         guard let q = question else { return 0 }
         let phi = q.angleDegrees * .pi / 180
         return q.cutsRight ? -phi : phi
+    }
+
+    /// 2D 训练图平面布局（米）：目标球原点；竖直瞄准线过假想球心（φ=0 正下方）。
+    /// 与 `AimPointDragFigure` 同构，供 `AimPointGeometry` 消费（C16）。
+    private static func trainingPlaneLayout(phi: Double)
+        -> (cue: CGPoint, aimDir: CGPoint, target: CGPoint) {
+        let r = CGFloat(AngleSceneCalculator.ballRadius)
+        let ghostX = CGFloat(sin(phi)) * 2 * r
+        // 母球在瞄准线上、假想球下方；方向朝上（视图 y 下为正时 φ 定义仍用 sin/cos 同构）。
+        let cue = CGPoint(x: ghostX, y: 2 * r)
+        let aimDir = CGPoint(x: 0, y: -1)
+        return (cue, aimDir, .zero)
     }
 
     var lastError: RoundResult? { sessionResults.last }
