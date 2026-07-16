@@ -185,6 +185,9 @@ enum ShotTuning {
     /// 全 App 击打页默认力度 (m/s)（条 13.2：低速走位是常态，默认从 3.3 降至 1.5）。
     static let defaultVelocity: Double = 1.5
 
+    /// 瞄准点场景测验「验证击球」杆速 (m/s)（C16；与默认力度同值，禁止页内魔法数）。
+    static let aimPointVerifyVelocity: Float = Float(defaultVelocity)
+
     /// 力度条非线性映射指数（条 13.2：低段细、高段快）。
     /// 视觉行程 fraction ∈ [0,1] → 速度 v = lo + span·fraction^γ：
     /// γ>1 时低速区占据更长的滑动行程（细调），高速区收窄（快速拉满）。
