@@ -163,6 +163,14 @@ struct AimPointTrainingView: View {
         .navigationTitle("瞄准点训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(title: "瞄准点训练")
+            }
+        }
         .onAppear {
             vm.configure(context: modelContext)
             if vm.question == nil { vm.nextQuestion() }

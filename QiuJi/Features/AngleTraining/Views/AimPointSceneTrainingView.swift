@@ -384,10 +384,9 @@ struct AimPointSceneTrainingView: View {
 
     private var is3D: Bool { cameraMode == .perspective3D }
 
-    /// G10：顶栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定；2D 底栏 = 装饰球库
-    /// （与 `SceneAimingView` 同一布局语法，Q7.2）。
-    private static let topRowHeight: CGFloat = 46
-    private static let bottomBarHeight: CGFloat = 94
+    /// G10：顶栏 / 底栏定高锁桌（C11 → `ShotStageMetrics`）；2D 底栏 = 装饰球库。
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     /// 球桌外框实测半尺寸（装桌前 USDZ 兜底），供 `ShotStageProxy` 对齐球桌矩形。
     private var tableExtents: (length: Double, width: Double) {
@@ -427,6 +426,14 @@ struct AimPointSceneTrainingView: View {
         .navigationTitle(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(title: is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
+            }
+        }
         .onAppear {
             if !hasAppeared {
                 hasAppeared = true

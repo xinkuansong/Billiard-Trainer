@@ -50,7 +50,7 @@ struct BatchBallExtractionView: View {
         .navigationDestination(isPresented: $goAuthor) {
             BatchAuthoringView(context: context)
         }
-        .onPreferenceChange(BatchExtractFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -682,16 +682,9 @@ struct BatchBallExtractionView: View {
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: BatchExtractFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("batchExtract"))])
         }
-    }
-}
-
-private struct BatchExtractFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
     }
 }
 #endif

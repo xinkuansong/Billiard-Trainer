@@ -171,12 +171,13 @@ struct BreakRackGlyph: View {
 // 的标题样式：principal 品牌绿 14pt 标题 + 11pt 副标题承载解描述 / 无解说明（条 17.1/17.2/17.7）；
 // 右上三点菜单承载原理说明入口 + 台面网格 Toggle + 恢复默认（条 17.9，G19 口径）。
 
-/// principal 标题 + 副标题（同 `SnookerTacticsView.navStatus`）。副标题承载状态文案
-/// （解读数 / 求解中 / 无解 / 自由首碰），替代原球桌左下 overlay pill。
+/// principal 标题 + 可选副标题（G20 / SPEC §8.3）。副标题承载状态文案
+/// （解读数 / 求解中 / 无解 / 自由首碰）；测验等无状态页传 `statusText: nil` 仅显品牌绿标题。
 struct BTSolverNavStatus: View {
     let title: String
     var isBusy: Bool = false
-    let statusText: String
+    /// `nil` 且非 busy 时隐藏副行（暗色测验页简化形态，组件同源）。
+    var statusText: String? = nil
 
     var body: some View {
         VStack(spacing: 1) {
@@ -184,16 +185,34 @@ struct BTSolverNavStatus: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(.btPrimary)
                 .lineLimit(1)
-            HStack(spacing: 4) {
-                if isBusy { ProgressView().controlSize(.mini).tint(.white) }
-                Text(statusText)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .lineLimit(1)
+            if isBusy || statusText != nil {
+                HStack(spacing: 4) {
+                    if isBusy { ProgressView().controlSize(.mini).tint(.white) }
+                    if let statusText {
+                        Text(statusText)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.65))
+                            .lineLimit(1)
+                    }
+                }
             }
         }
     }
 }
+
+// MARK: - Shot page frame preference（G20 / C9）
+
+/// Shared PreferenceKey for scene / palette frame reporting on shot pages.
+/// Replaces 9 private `*FramePreference` copies; `SolverFramePreference` is a migration alias.
+struct BTShotPageFramePreference: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
+}
+
+/// Migration alias for Bank/Diamond (and any leftover call sites). Prefer `BTShotPageFramePreference`.
+typealias SolverFramePreference = BTShotPageFramePreference
 
 /// 右上三点菜单（条 17.9，G19）：原理说明入口 + 台面网格 4×8 Toggle + 恢复默认。
 /// 替代原 `info.circle` 直接开原理 sheet 的入口。

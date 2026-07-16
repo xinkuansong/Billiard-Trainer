@@ -70,6 +70,21 @@ enum ShotStageMetrics {
     /// 竖条最大 / 最小长度（G7：1.2×220=264；小屏自适应下限）。
     static let maxBarLength: CGFloat = 264
     static let minBarLength: CGFloat = 150
+
+    // MARK: G10 chrome band heights（C11 / v7 W2）
+
+    /// Top inset / chip row height — locks scene height across shot pages.
+    static let topRowHeight: CGFloat = 46
+
+    /// Bottom band height tiers (palette / composer controls / PlanThree role row).
+    enum BottomBarHeight: CGFloat {
+        /// Silu / Snooker — palette only.
+        case paletteOnly = 78
+        /// Composer / FreePlay / ShotSim / Bank / Diamond / SceneAiming 2D / etc.
+        case composer = 94
+        /// PlanThree — palette + role row.
+        case planThree = 116
+    }
 }
 
 // MARK: - 布局代理（页面用它取贴边定位；值类型，S2 复用）

@@ -702,6 +702,17 @@
 - **回写目标**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训。
 - **已应用至**：✅ `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训（2026-07-02，PD-025）
 
+## DR-022
+- **任务**：问题集合 v7 W2 / G20 — `BTSolverNavStatus` 支持无副行简化形态（暗色测验页）。
+- **原始 API**：`statusText: String`（必填）+ `isBusy`；副行始终渲染。
+- **调整后**：`statusText: String? = nil`；`nil` 且非 busy 时仅显品牌绿标题（组件同源，禁止页内另写 `navStatus`）。
+- **原因**：五暗色测验页无状态副行，强塞空串仍占副行高度；G20 允许简化变体但须组件同源。
+- **影响组件**：`BTSolverNavStatus`（`BTShotPageChrome.swift`）；既有传 `String` 的沙盘/解球页兼容（隐式升为 `String?`）。
+- **验证**：`make build` ✅；暗色五页截图 `build/w2-screenshots/` 导航黑底+绿标题；`private var navStatus` = 0。
+- **日期**：2026-07-16
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §8.3 + Changelog。
+- **已应用至**：✅ SPEC §8.3 / Changelog（2026-07-16，DR-022）。
+
 ## DR-021
 - **任务**：B3.5 线语言修正——90° 分离角释义线锚点与颜色（用户裁决：「90 度分离角是针对母球的，相当于是穿过假想球的球心，不是目标球；颜色也要换，不然会和母球的轨迹线重合」）。
 - **原始规范**：设计稿 v4 §1.2 / T-P18-41 落地：90° 释义线 = **白**短虚线；`AngleTrainingScene.perpLineNode` 与分离角页 `drawPottingPerpendicular` 均锚在**目标球球心**、垂直于进球线。

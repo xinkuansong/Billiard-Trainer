@@ -58,13 +58,12 @@ struct BallExtractionView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        // 标题统一品牌绿（SPEC §8.3）：.toolbarColorScheme(.dark) 会把系统标题渲染成白色，
-        // 须自带 principal 绿标题（与思路训练器等场景页同款）。
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Text("拍照建球形")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.btPrimary)
+                BTSolverNavStatus(
+                    title: "拍照建球形",
+                    statusText: "第 \(vm.step.rawValue + 1) 步 · \(vm.step.title)"
+                )
             }
         }
         .navigationDestination(isPresented: $goComposer) {
@@ -77,7 +76,7 @@ struct BallExtractionView: View {
             PlanThreeView(initialBoard: confirmedBoard)
         }
         .onChange(of: photoItem) { _, item in loadPhoto(item) }
-        .onPreferenceChange(ExtractFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -695,7 +694,7 @@ struct BallExtractionView: View {
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: ExtractFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("extract"))])
         }
     }
@@ -733,14 +732,6 @@ struct BallExtractionView: View {
     }
 }
 
-// MARK: - Frame preference
-
-private struct ExtractFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
-    }
-}
 
 #Preview("Dark") {
     NavigationStack { BallExtractionView() }

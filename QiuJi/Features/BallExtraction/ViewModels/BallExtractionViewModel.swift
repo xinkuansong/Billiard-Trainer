@@ -479,14 +479,8 @@ final class BallExtractionViewModel: ObservableObject {
     }
 
     func flash(_ text: String, tone: BTToastTone = .success) {
-        withAnimation(BTMotion.easeChrome) {
-            toast = BTToastMessage(text, tone: tone)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) { [weak self] in
-            guard let self else { return }
-            withAnimation(BTMotion.easeChrome) {
-                if self.toast?.text == text { self.toast = nil }
-            }
+        BTToast.present(text, tone: tone) { [weak self] msg in
+            self?.toast = msg
         }
     }
 }

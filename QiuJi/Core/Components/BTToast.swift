@@ -57,6 +57,7 @@ enum BTToast {
     static let defaultDuration: TimeInterval = 1.6
 
     /// Present + auto-clear helper for `@State` / `@Published` toast bindings.
+    /// Prefer this over page-local `flash` wrappers (G20 / C10).
     @MainActor
     static func present(
         _ text: String,
@@ -72,6 +73,17 @@ enum BTToast {
                 assign(nil)
             }
         }
+    }
+
+    /// Convenience for `@Binding` / `@State` toast — same animation + duration as `present`.
+    @MainActor
+    static func flash(
+        _ text: String,
+        tone: BTToastTone = .success,
+        duration: TimeInterval = defaultDuration,
+        to message: Binding<BTToastMessage?>
+    ) {
+        present(text, tone: tone, duration: duration) { message.wrappedValue = $0 }
     }
 }
 

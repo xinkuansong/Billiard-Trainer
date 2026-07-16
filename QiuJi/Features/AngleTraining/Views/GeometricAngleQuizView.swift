@@ -48,7 +48,13 @@ struct GeometricAngleQuizView: View {
         .navigationTitle("角度预测")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(title: "角度预测")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showResetConfirm = true } label: {
                     Image(systemName: "arrow.counterclockwise")

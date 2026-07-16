@@ -327,7 +327,7 @@ struct BatchAuthoringView: View {
         .animation(BTMotion.springPanel, value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "batchAuthor")
-        .onPreferenceChange(BatchAuthorFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -338,7 +338,15 @@ struct BatchAuthoringView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) { navStatus }
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(
+                    title: drill?.drillId ?? "编排求解",
+                    isBusy: solver.isComputing || composer.isComputing,
+                    statusText: solver.isComputing || composer.isComputing
+                        ? "求解中…"
+                        : composer.statusText
+                )
+            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .confirmationDialog(
@@ -375,23 +383,6 @@ struct BatchAuthoringView: View {
                     composer.startRecording()
                 }
             }
-        }
-    }
-
-    // MARK: - Nav status
-
-    private var navStatus: some View {
-        VStack(spacing: 1) {
-            Text(drill?.drillId ?? "编排求解")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.btPrimary)
-                .lineLimit(1)
-            Text(solver.isComputing || composer.isComputing
-                  ? "求解中…"
-                  : composer.statusText)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(.white.opacity(0.65))
-                .lineLimit(1)
         }
     }
 
@@ -981,19 +972,12 @@ struct BatchAuthoringView: View {
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {
-        withAnimation(BTMotion.easeChrome) {
-            toast = BTToastMessage(message, tone: tone)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
-            withAnimation(BTMotion.easeChrome) {
-                if toast?.text == message { toast = nil }
-            }
-        }
+        BTToast.present(message, tone: tone) { toast = $0 }
     }
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: BatchAuthorFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("batchAuthor"))])
         }
     }
@@ -1143,13 +1127,6 @@ final class BatchGuideLine: ObservableObject {
                 SCNVector3(a.x + abx * f, y, a.z + abz * f)
         }
         return true
-    }
-}
-
-private struct BatchAuthorFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
     }
 }
 

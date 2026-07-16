@@ -30,8 +30,8 @@ struct FreePlayView: View {
 
     private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight: CGFloat = 46
-    private static let bottomBarHeight: CGFloat = 94
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     var body: some View {
         GeometryReader { geo in
@@ -63,7 +63,15 @@ struct FreePlayView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) { navStatus }
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(
+                    title: "自由击球",
+                    isBusy: vm.isComputing,
+                    statusText: vm.breakRunner?.statusText
+                        ?? (vm.isComputing ? "求解中…"
+                            : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
+                )
+            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .confirmationDialog("清空桌面上所有球？",
@@ -269,28 +277,6 @@ struct FreePlayView: View {
             }
         }
         vm.selectTarget(node: node)
-    }
-
-    // MARK: - Nav status
-
-    private var navStatus: some View {
-        VStack(spacing: 1) {
-            Text("自由击球")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.btPrimary)
-                .lineLimit(1)
-            HStack(spacing: 4) {
-                if vm.isComputing {
-                    ProgressView().controlSize(.mini).tint(.white)
-                }
-                Text(vm.breakRunner?.statusText
-                     ?? (vm.isComputing ? "求解中…"
-                         : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText)))
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .lineLimit(1)
-            }
-        }
     }
 
     // MARK: - Top info row
@@ -504,14 +490,7 @@ struct FreePlayView: View {
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {
-        withAnimation(BTMotion.easeChrome) {
-            toast = BTToastMessage(message, tone: tone)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
-            withAnimation(BTMotion.easeChrome) {
-                if toast?.text == message { toast = nil }
-            }
-        }
+        BTToast.present(message, tone: tone) { toast = $0 }
     }
 }
 

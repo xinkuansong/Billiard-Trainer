@@ -30,9 +30,9 @@ struct SnookerTacticsView: View {
 
     private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight: CGFloat = 46
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
     /// 底栏 = 球库两行（G12 后无解摘要行）。
-    private static let bottomBarHeight: CGFloat = 78
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.paletteOnly.rawValue
 
     var body: some View {
         GeometryReader { geo in
@@ -59,7 +59,7 @@ struct SnookerTacticsView: View {
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "snooker")
-        .onPreferenceChange(SnookerFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -70,7 +70,13 @@ struct SnookerTacticsView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) { navStatus }
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(
+                    title: "防守",
+                    isBusy: vm.isComputing,
+                    statusText: vm.statusText
+                )
+            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .onAppear {
@@ -83,24 +89,6 @@ struct SnookerTacticsView: View {
                 if args.contains("-snooker.full") { vm.uiTestConfigure("full") }
                 else if args.contains("-snooker.partial") { vm.uiTestConfigure("partial") }
                 else if args.contains("-snooker.none") { vm.uiTestConfigure("none") }
-            }
-        }
-    }
-
-    // MARK: - Nav status
-
-    private var navStatus: some View {
-        VStack(spacing: 1) {
-            Text("防守")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.btPrimary)
-                .lineLimit(1)
-            HStack(spacing: 4) {
-                if vm.isComputing { ProgressView().controlSize(.mini).tint(.white) }
-                Text(vm.statusText)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .lineLimit(1)
             }
         }
     }
@@ -369,32 +357,17 @@ struct SnookerTacticsView: View {
     // MARK: - Banner
 
     private func flash(_ message: String, tone: BTToastTone = .success) {
-        withAnimation(BTMotion.easeChrome) {
-            toast = BTToastMessage(message, tone: tone)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
-            withAnimation(BTMotion.easeChrome) {
-                if toast?.text == message { toast = nil }
-            }
-        }
+        BTToast.present(message, tone: tone) { toast = $0 }
     }
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: SnookerFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("snooker"))])
         }
     }
 }
 
-// MARK: - Frame preference
-
-private struct SnookerFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
-    }
-}
 
 #Preview("Dark") {
     NavigationStack { SnookerTacticsView() }

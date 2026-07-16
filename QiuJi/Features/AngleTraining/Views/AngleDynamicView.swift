@@ -8,10 +8,9 @@ struct AngleDynamicView: View {
     /// 首拖提示（T-P18-51）：首次进页不知道球能拖，提示常驻到第一次拖动为止（跨启动记忆）。
     @AppStorage("angleDynamic.hasDraggedOnce") private var hasDraggedOnce = false
 
-    /// G10（问题集合 v3 P4.1）：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒
-    /// 球桌渲染尺寸锁定且与其他击打页一致；球库在球桌下方独立栏，不再遮挡球桌。
-    private static let topRowHeight: CGFloat = 46
-    private static let bottomBarHeight: CGFloat = 94
+    /// G10：顶栏 / 底栏定高锁桌（C11 → `ShotStageMetrics`）。
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     /// 球桌外框实测半尺寸（装桌前用 USDZ 兜底常量），供 ShotStageProxy 对齐球桌矩形。
     private var tableExtents: (length: Double, width: Double) {
@@ -47,7 +46,13 @@ struct AngleDynamicView: View {
         .navigationTitle("角度与瞄准")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(Color.black, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(title: "角度与瞄准")
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
                     Section("显示") {

@@ -30,9 +30,9 @@ struct SiluTrainerView: View {
 
     private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight: CGFloat = 46
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
     /// 底栏 = 球库两行（G12 后无解摘要行）。
-    private static let bottomBarHeight: CGFloat = 78
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.paletteOnly.rawValue
 
     var body: some View {
         GeometryReader { geo in
@@ -59,7 +59,7 @@ struct SiluTrainerView: View {
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "silu")
-        .onPreferenceChange(SiluFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -70,7 +70,13 @@ struct SiluTrainerView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) { navStatus }
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(
+                    title: "思路训练",
+                    isBusy: vm.isComputing,
+                    statusText: vm.breakRunner?.statusText ?? vm.statusText
+                )
+            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .sheet(isPresented: $showBreakPicker) {
@@ -83,24 +89,6 @@ struct SiluTrainerView: View {
                 hasAppeared = true
                 vm.setupScene()
                 if let initialBoard { vm.loadBoard(initialBoard) }
-            }
-        }
-    }
-
-    // MARK: - Nav status
-
-    private var navStatus: some View {
-        VStack(spacing: 1) {
-            Text("思路训练")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.btPrimary)
-                .lineLimit(1)
-            HStack(spacing: 4) {
-                if vm.isComputing { ProgressView().controlSize(.mini).tint(.white) }
-                Text(vm.breakRunner?.statusText ?? vm.statusText)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .lineLimit(1)
             }
         }
     }
@@ -455,19 +443,12 @@ struct SiluTrainerView: View {
     // MARK: - Banner
 
     private func flash(_ message: String, tone: BTToastTone = .success) {
-        withAnimation(BTMotion.easeChrome) {
-            toast = BTToastMessage(message, tone: tone)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
-            withAnimation(BTMotion.easeChrome) {
-                if toast?.text == message { toast = nil }
-            }
-        }
+        BTToast.present(message, tone: tone) { toast = $0 }
     }
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: SiluFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("silu"))])
         }
     }
@@ -488,14 +469,6 @@ enum SiluSpinLabel {
     }
 }
 
-// MARK: - Frame preference
-
-private struct SiluFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
-    }
-}
 
 #Preview("Dark") {
     NavigationStack { SiluTrainerView() }

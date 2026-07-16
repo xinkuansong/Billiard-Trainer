@@ -71,8 +71,8 @@ struct PositionPlayComposerView: View {
     /// 球库固定序（#1）：第一行 = 母球 + 1–7，第二行 = 8–15；每行 8 个槽位。
     private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight: CGFloat = 46
-    private static let bottomBarHeight: CGFloat = 94
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     var body: some View {
         GeometryReader { geo in
@@ -100,7 +100,7 @@ struct PositionPlayComposerView: View {
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "composer")
-        .onPreferenceChange(ComposerFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -111,7 +111,14 @@ struct PositionPlayComposerView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) { navStatus }
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(
+                    title: navTitleText,
+                    isBusy: vm.isComputing,
+                    statusText: vm.breakRunner?.statusText
+                        ?? (vm.isComputing ? "求解中…" : vm.statusText)
+                )
+            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .alert("命名走位序列", isPresented: $showRename) {
@@ -369,31 +376,11 @@ struct PositionPlayComposerView: View {
         .clipped()
     }
 
-    // MARK: - Nav status (#2：状态文案上移导航栏，不占球桌)
-
-    /// 首次进入不暴露「未命名走位」（T-P18-37）：默认名时标题显示页面名「自由走位」
-    /// （条 19.4 改名），用户重命名后才显示文档名。试打变体标题 = drill 名（§1.7）。
+    /// 首次进入不暴露「未命名走位」（T-P18-37 / 条 19.4）：默认名时标题显示「自由走位」；
+    /// 用户重命名后才显示文档名。试打变体标题 = drill 名（§1.7）。
     private var navTitleText: String {
         if let sourceDrill { return sourceDrill.nameZh }
         return vm.sequence.name == "未命名走位" ? "自由走位" : vm.sequence.name
-    }
-
-    private var navStatus: some View {
-        VStack(spacing: 1) {
-            Text(navTitleText)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.btPrimary)   // 与其他场景页品牌绿标题统一（ADR-P11-07）
-                .lineLimit(1)
-            HStack(spacing: 4) {
-                if vm.isComputing {
-                    ProgressView().controlSize(.mini).tint(.white)
-                }
-                Text(vm.breakRunner?.statusText ?? (vm.isComputing ? "求解中…" : vm.statusText))
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .lineLimit(1)
-            }
-        }
     }
 
     // MARK: - Top info row（ADR-P11-08：信息行上移球桌上方，球桌全宽居中）
@@ -762,32 +749,16 @@ struct PositionPlayComposerView: View {
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {
-        withAnimation(BTMotion.easeChrome) {
-            toast = BTToastMessage(message, tone: tone)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
-            withAnimation(BTMotion.easeChrome) {
-                if toast?.text == message { toast = nil }
-            }
-        }
+        BTToast.present(message, tone: tone) { toast = $0 }
     }
 
     // MARK: - Frame reader
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: ComposerFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("composer"))])
         }
-    }
-}
-
-// MARK: - Frame preference
-
-private struct ComposerFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
     }
 }
 

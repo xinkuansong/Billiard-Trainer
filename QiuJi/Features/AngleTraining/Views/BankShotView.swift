@@ -30,8 +30,8 @@ struct BankShotView: View {
         key == PositionPlayBall.cueKey || key == "_8"
     }
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight: CGFloat = 46
-    private static let bottomBarHeight: CGFloat = 94
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     var body: some View {
         GeometryReader { geo in
@@ -53,7 +53,7 @@ struct BankShotView: View {
             }
         }
         .coordinateSpace(name: "bankshot")
-        .onPreferenceChange(SolverFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -376,20 +376,12 @@ struct BankShotView: View {
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: SolverFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("bankshot"))])
         }
     }
 }
 
-// MARK: - Frame preference（翻袋 / 反射两页共用）
-
-struct SolverFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
-    }
-}
 
 // MARK: - Principle sheet
 

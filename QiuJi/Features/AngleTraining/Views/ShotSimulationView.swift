@@ -25,8 +25,8 @@ struct ShotSimulationView: View {
 
     private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight: CGFloat = 46
-    private static let bottomBarHeight: CGFloat = 94
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     /// 默认教学球形：母球左下、黑 8 靠右上角袋（沿用 v2 的 placeBallsAtDefaults 坐标）。
     private static var defaultBoard: BoardSnapshot {
@@ -63,7 +63,7 @@ struct ShotSimulationView: View {
         .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "simulation")
-        .onPreferenceChange(SimulationFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -74,7 +74,13 @@ struct ShotSimulationView: View {
         .toolbarBackground(Color.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
-            ToolbarItem(placement: .principal) { navStatus }
+            ToolbarItem(placement: .principal) {
+                BTSolverNavStatus(
+                    title: "分离角与走位",
+                    isBusy: vm.isComputing,
+                    statusText: vm.isComputing ? "求解中…" : vm.statusText
+                )
+            }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .onAppear {
@@ -168,26 +174,6 @@ struct ShotSimulationView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
         .clipped()
-    }
-
-    // MARK: - Nav status
-
-    private var navStatus: some View {
-        VStack(spacing: 1) {
-            Text("分离角与走位")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.btPrimary)
-                .lineLimit(1)
-            HStack(spacing: 4) {
-                if vm.isComputing {
-                    ProgressView().controlSize(.mini).tint(.white)
-                }
-                Text(vm.isComputing ? "求解中…" : vm.statusText)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .lineLimit(1)
-            }
-        }
     }
 
     // MARK: - Top info row
@@ -381,34 +367,19 @@ struct ShotSimulationView: View {
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {
-        withAnimation(BTMotion.easeChrome) {
-            toast = BTToastMessage(message, tone: tone)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
-            withAnimation(BTMotion.easeChrome) {
-                if toast?.text == message { toast = nil }
-            }
-        }
+        BTToast.present(message, tone: tone) { toast = $0 }
     }
 
     // MARK: - Frame reader
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: SimulationFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("simulation"))])
         }
     }
 }
 
-// MARK: - Frame preference
-
-private struct SimulationFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
-    }
-}
 
 #Preview("Dark") {
     NavigationStack { ShotSimulationView() }

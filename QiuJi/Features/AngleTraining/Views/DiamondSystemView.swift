@@ -31,8 +31,8 @@ struct DiamondSystemView: View {
         key == PositionPlayBall.cueKey || key == "_8"
     }
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
-    private static let topRowHeight: CGFloat = 46
-    private static let bottomBarHeight: CGFloat = 94
+    private static let topRowHeight = ShotStageMetrics.topRowHeight
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     var body: some View {
         GeometryReader { geo in
@@ -54,7 +54,7 @@ struct DiamondSystemView: View {
             }
         }
         .coordinateSpace(name: "reflection")
-        .onPreferenceChange(SolverFramePreference.self) { frames in
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
@@ -376,7 +376,7 @@ struct DiamondSystemView: View {
 
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
-            Color.clear.preference(key: SolverFramePreference.self,
+            Color.clear.preference(key: BTShotPageFramePreference.self,
                                    value: [id: geo.frame(in: .named("reflection"))])
         }
     }
