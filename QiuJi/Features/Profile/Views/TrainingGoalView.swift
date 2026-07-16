@@ -96,7 +96,7 @@ struct TrainingGoalView: View {
             VStack(spacing: 0) {
                 ForEach(1...7, id: \.self) { days in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(BTMotion.easeInOutFast) {
                             prefs.weeklyGoalDays = days
                         }
                     } label: {
@@ -141,7 +141,7 @@ struct TrainingGoalView: View {
             VStack(spacing: 0) {
                 ForEach(durationOptions, id: \.self) { minutes in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(BTMotion.easeInOutFast) {
                             prefs.targetSessionMinutes = minutes
                         }
                     } label: {
@@ -218,7 +218,7 @@ struct TrainingGoalView: View {
             }
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-            .animation(.easeInOut(duration: 0.2), value: prefs.reminderEnabled)
+            .animation(BTMotion.easeInOutFast, value: prefs.reminderEnabled)
         }
     }
 

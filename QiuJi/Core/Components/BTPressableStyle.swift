@@ -23,6 +23,6 @@ struct BTPressableStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? pressedScale : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }

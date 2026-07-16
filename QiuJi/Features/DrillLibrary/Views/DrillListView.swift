@@ -201,11 +201,11 @@ struct DrillListView: View {
             // Q19.1：点击/重复点击分组即回组顶。立即滚一次（同分组内容不变的情形），
             // 再于筛选去抖（300ms）+ 列表重建后补滚一次（切换分组的情形）。
             .onChange(of: scrollToken) { _, _ in
-                withAnimation(.easeOut(duration: 0.25)) {
+                withAnimation(BTMotion.easeChrome) {
                     proxy.scrollTo(Self.gridTopAnchor, anchor: .top)
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) {
-                    withAnimation(.easeOut(duration: 0.25)) {
+                    withAnimation(BTMotion.easeChrome) {
                         proxy.scrollTo(Self.gridTopAnchor, anchor: .top)
                     }
                 }
@@ -236,7 +236,7 @@ struct DrillListView: View {
                 ForEach(BallTypeFilter.displayCases) { filter in
                     let isSelected = viewModel.ballTypeFilter == filter
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(BTMotion.easeInOutFast) {
                             viewModel.ballTypeFilter = filter
                         }
                     } label: {

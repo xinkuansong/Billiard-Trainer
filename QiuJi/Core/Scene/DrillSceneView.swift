@@ -350,7 +350,7 @@ struct DrillSceneView: View {
                         .transition(.opacity)
                 }
             }
-            .animation(.easeInOut(duration: 0.2), value: controller.showOverlay)
+            .animation(BTMotion.easeInOutFast, value: controller.showOverlay)
 
             Button {
                 controller.play()

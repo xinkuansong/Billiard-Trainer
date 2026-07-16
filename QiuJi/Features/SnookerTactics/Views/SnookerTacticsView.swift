@@ -57,7 +57,7 @@ struct SnookerTacticsView: View {
                 }
             }
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .animation(BTMotion.springPanel, value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "snooker")
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in

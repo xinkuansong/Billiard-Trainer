@@ -60,7 +60,7 @@ struct PlanThreeView: View {
                 }
             }
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .animation(BTMotion.springPanel, value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "planthree")
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in

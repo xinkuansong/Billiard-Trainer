@@ -514,7 +514,7 @@ struct AimPointSceneTrainingView: View {
         .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity, alignment: .center)
         .background(Color.black)
-        .animation(.easeInOut(duration: 0.2), value: vm.phase)
+        .animation(BTMotion.easeInOutFast, value: vm.phase)
         .environment(\.colorScheme, .dark)
     }
 
@@ -589,7 +589,7 @@ struct AimPointSceneTrainingView: View {
     }
 
     private var divider: some View {
-        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 14)
+        BTHudMetricSeparator()
     }
 
     private func ratingColor(_ absMM: Double) -> Color {
@@ -619,7 +619,7 @@ struct AimPointSceneTrainingView: View {
                         size: CGSize(width: ShotStageMetrics.actionColumnWidth, height: 30)))
                 }
                 .transition(.opacity)
-                .animation(.easeInOut(duration: 0.25), value: vm.phase)
+                .animation(BTMotion.easeInOutChrome, value: vm.phase)
             } else {
                 ZStack(alignment: .bottomTrailing) {
                     Color.clear
@@ -635,7 +635,7 @@ struct AimPointSceneTrainingView: View {
                     .padding(.bottom, Spacing.xl + 40)
                     .transition(.opacity)
                 }
-                .animation(.easeInOut(duration: 0.25), value: vm.phase)
+                .animation(BTMotion.easeInOutChrome, value: vm.phase)
             }
         }
     }

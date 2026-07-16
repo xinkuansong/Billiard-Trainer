@@ -128,7 +128,7 @@ struct AngleDynamicView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.md)
-        .animation(.easeInOut(duration: 0.25), value: statusBannerKey)
+        .animation(BTMotion.easeInOutChrome, value: statusBannerKey)
         .allowsHitTesting(false)
     }
 
@@ -190,7 +190,7 @@ struct AngleDynamicView: View {
     }
 
     private var divider: some View {
-        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+        BTHudMetricSeparator()
     }
 
     // MARK: - 球库（条 2：加减球 / 换目标球；G8：排球总宽 = 球桌宽、两侧留白）

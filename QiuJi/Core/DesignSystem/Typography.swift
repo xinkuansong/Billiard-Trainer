@@ -15,6 +15,10 @@ extension Font {
     static let btDisplay             = Font.system(size: 44, weight: .bold, design: .rounded)
     static let btDisplaySmall        = Font.system(size: 30, weight: .bold, design: .rounded)
     static let btLargeTitle          = Font.system(size: 32, weight: .bold, design: .rounded)
+    /// Practice-home cover glyph watermark (v7 C20). Source: `size: 56, weight: .black, design: .rounded`.
+    static let btCoverWatermark      = Font.system(size: 56, weight: .black, design: .rounded)
+    /// Hero SF Symbol without forcing bold (v7 C21 — `BTDailyLimitGate` crown). Source: `size: 32`.
+    static let btHeroSymbol          = Font.system(size: 32)
     static let btChapterNumber       = Font.system(size: 26, weight: .bold, design: .rounded)
 
     // MARK: - 标题级
@@ -35,6 +39,8 @@ extension Font {
     static let btSubheadline         = Font.system(size: 15, weight: .regular)
     static let btSubheadlineMedium   = Font.system(size: 15, weight: .medium)
     static let btSubheadlineSemibold = Font.system(size: 15, weight: .semibold)
+    /// Rounded CTA label (v7 C21 — `BTDailyLimitGate` unlock button). Source: `size: 15, weight: .semibold, design: .rounded`.
+    static let btCTALabelRounded     = Font.system(size: 15, weight: .semibold, design: .rounded)
     static let btFootnote14          = Font.system(size: 14, weight: .regular)
     static let btFootnote            = Font.system(size: 13, weight: .regular)
     static let btCaption             = Font.system(size: 12, weight: .regular)

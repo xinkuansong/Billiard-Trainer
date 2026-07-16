@@ -47,7 +47,7 @@ private struct PrimaryButtonBody: View {
             .background(configuration.isPressed ? Color.btPrimary.opacity(0.8) : Color.btPrimary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 
@@ -68,7 +68,7 @@ private struct SecondaryButtonBody: View {
                     .stroke(Color.btPrimary, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 
@@ -83,7 +83,7 @@ private struct TextButtonBody: View {
             .foregroundStyle(configuration.isPressed ? Color.btPrimary.opacity(0.6) : .btPrimary)
             .frame(minHeight: 44)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 
@@ -98,7 +98,7 @@ private struct DestructiveButtonBody: View {
             .foregroundStyle(.btDestructive)
             .frame(minHeight: 44)
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 
@@ -123,7 +123,7 @@ private struct DarkPillButtonBody: View {
             .background(configuration.isPressed ? fillColor.opacity(0.8) : fillColor)
             .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 
@@ -140,7 +140,7 @@ private struct IconCircleButtonBody: View {
             .background(configuration.isPressed ? Color.btPrimary.opacity(0.8) : Color.btPrimary)
             .clipShape(Circle())
             .scaleEffect(configuration.isPressed ? 0.92 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 
@@ -164,7 +164,7 @@ private struct SegmentedPillButtonBody: View {
                     .stroke(isSelected ? Color.clear : Color.btSeparator, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 

@@ -688,6 +688,17 @@
 - **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
 - **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-07-03，DR-020）。
 
+## PD-026
+- **任务**：B4 drill_c053 中袋角度 8 球形落地——精讲/试打 UI 截图核验时暴露两个既有 SwiftUI 渲染缺陷（c012/c042 亦复现，非 B4 内容问题）。
+- **模式描述**：**「跨数据源切换的 Lazy 容器行要复合 id；sheet 内容依赖动作时刻的 state 就用 sheet(item:)」**：
+  1. **LazyVStack + `ForEach(id: \.offset)` 跨数据源切换不重建行**：精讲 formations 分段切换后正文仍显示旧球形内容——Lazy 容器按 offset 复用已实例化行，外层 `.id(selection)` 不足以强制重建。修法：行级复合 id（`.id("\(selection)-\(index)")`）。
+  2. **`.sheet(isPresented:)` 内容闭包以陈旧 state 求值（iOS 26 复现）**：动作里先写 `@State` 数组再置 `isPresented=true`，sheet 呈现时列表渲染为空。修法：改 `.sheet(item:)`，用 `Identifiable` payload 携带数据快照，内容闭包从 payload 取数。
+- **适用场景**：任何「分段/Tab 切换驱动 Lazy 列表换内容」的视图；任何「点击动作先算数据再弹 sheet」的流程。
+- **效果**：drill_c053 精讲 A1→A5→A8 分段切换正文正确刷新；试打球形选择 sheet 8 项完整渲染（含 c042 回归 `testTryoutC042Flow` 通过）。
+- **日期**：2026-07-16
+- **回写目标**：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训。
+- **已应用至**：✅ `.cursor/rules/20-swiftui-developer.mdc` § 经验教训（2026-07-16，PD-026）
+
 ## PD-025
 - **任务**：P10 真实袋口重建（ADR-P10-09）——CAD 单一真源 + 「球心入孔圈即落袋」纯几何判据。
 - **模式描述**：**「收紧宽容判据前先审计它掩盖了什么；CCD 数值护栏必须与子步策略匹配」**。可复用纪律：
@@ -701,6 +712,21 @@
 - **日期**：2026-07-02
 - **回写目标**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训。
 - **已应用至**：✅ `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训（2026-07-02，PD-025）
+
+## DR-023
+- **任务**：问题集合 v7 W3 / G22 — 动效与设计 token 收编（C19/C20/C21）。
+- **调整后**：
+  1. **`BTMotion` 新 token**（值=原字面量，禁止调参）：`springLayout`（0.35/0.75）、`easeInOutFast`（easeInOut 0.2）、`easeInOutChrome`（easeInOut 0.25）、`easeInstant`（easeOut 0.12）、`easePress`（easeInOut 0.1）；既有 `springPanel`/`easeFast`/`easeChrome` 消费点扫齐。
+  2. **`AngleCoverPalette`**：练习首页 40 处封面 `Color(red:)` → 常量组（明暗同值，不发明 Dark 变体）。
+  3. **Typography**：`btCoverWatermark` / `btHeroSymbol` / `btCTALabelRounded`。
+  4. **HUD**：`HUDStyle.metricSeparatorHeight=12` + `BTHudMetricSeparator`（D5）；`BTDailyLimitGate` 字号 token 化。
+  5. **SPEC 红线（D6）**：新代码禁止新增字面量字号；全量迁移不入本轮。
+- **留档豁免（低频独特）**：`easeInOut(0.35).delay(0.6)` Composer brief；`easeInOut(0.3)` Onboarding；`easeOut(0.08)` NumericKeypadHUD；`easeInOut(0.83).repeatForever` BTPlanWeekTimeline；`easeInOut(1.5).repeatForever` BTFloatingIndicator。
+- **影响组件**：`BTMotion`、`AngleCoverPalette`、`Typography`、`HUDStyle`/`BTHudMetricSeparator`、`BTDailyLimitGate`、练习首页与各页动画消费点。
+- **验证**：`make build`；`QiuJiTests`；grep 已登记字面量仅剩 `BTMotion.swift` 定义；首页 Light/Dark 截图 `build/w3-screenshots/`。
+- **日期**：2026-07-16
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §1.4 + Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` Changelog。
+- **已应用至**：✅ SPEC §1.4 红线 + Changelog（2026-07-16，DR-023）；✅ `swiftui-design-system/SKILL.md` Changelog。
 
 ## DR-022
 - **任务**：问题集合 v7 W2 / G20 — `BTSolverNavStatus` 支持无副行简化形态（暗色测验页）。

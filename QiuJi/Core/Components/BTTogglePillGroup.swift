@@ -37,7 +37,7 @@ struct BTTogglePillGroup<T: Hashable>: View {
             ForEach(options, id: \.self) { option in
                 let isActive = option == selected
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
+                    withAnimation(BTMotion.easeInOutFast) {
                         selected = option
                     }
                 } label: {

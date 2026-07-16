@@ -244,7 +244,7 @@ struct AimPointTrainingView: View {
     }
 
     private var divider: some View {
-        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 14)
+        BTHudMetricSeparator()
     }
 
     // MARK: - Figure（拖假想球）

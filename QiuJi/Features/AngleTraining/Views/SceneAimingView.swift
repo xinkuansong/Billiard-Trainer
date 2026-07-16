@@ -155,7 +155,7 @@ struct SceneAimingView: View {
         .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity, alignment: .center)
         .background(Color.black)
-        .animation(.easeInOut(duration: 0.2), value: vm.phase)
+        .animation(BTMotion.easeInOutFast, value: vm.phase)
         .environment(\.colorScheme, .dark)
     }
 
@@ -265,7 +265,7 @@ struct SceneAimingView: View {
                 }
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.phase)
+        .animation(BTMotion.springLayout, value: vm.phase)
     }
 
     /// 动作按钮组按 2D/3D 分别定位：2D 贴球桌右缘齐底线（G6/G11），3D 右下浮动。
@@ -315,7 +315,7 @@ struct SceneAimingView: View {
     }
 
     private var divider: some View {
-        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 14)
+        BTHudMetricSeparator()
     }
 
     private var progressText: String {

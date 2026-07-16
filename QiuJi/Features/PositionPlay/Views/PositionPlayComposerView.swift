@@ -97,7 +97,7 @@ struct PositionPlayComposerView: View {
                 }
             }
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .animation(BTMotion.springPanel, value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "composer")
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
@@ -178,7 +178,7 @@ struct PositionPlayComposerView: View {
     private func dismissBriefOnInteraction() {
         if isTryout, !hasSeenGestureHint { hasSeenGestureHint = true }
         guard showBrief else { return }
-        withAnimation(.easeOut(duration: 0.25)) { showBrief = false }
+        withAnimation(BTMotion.easeChrome) { showBrief = false }
     }
 
     /// 左下「重摆球形」（一等公民，替代清空桌面/清空重来）：一键回 drill 初始布局。
@@ -307,7 +307,7 @@ struct PositionPlayComposerView: View {
                 ) {
                     // 点卡关闭也视为「已见手势提示」（D3 跨启动记忆）。
                     if !hasSeenGestureHint { hasSeenGestureHint = true }
-                    withAnimation(.easeOut(duration: 0.25)) { showBrief = false }
+                    withAnimation(BTMotion.easeChrome) { showBrief = false }
                 }
                 .padding(.horizontal, 64)
                 .padding(.top, proxy.isValid ? max(proxy.tableRect.minY + 6, 6) : 40)
@@ -478,7 +478,7 @@ struct PositionPlayComposerView: View {
                 Text("第 \(info.index + 1)/\(info.total) 杆")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(.btPrimary)
-                Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                BTHudMetricSeparator()
                 if info.isFree {
                     Text("自由球")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
@@ -489,7 +489,7 @@ struct PositionPlayComposerView: View {
                         .foregroundStyle(.white.opacity(0.9))
                         .lineLimit(1)
                 }
-                Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                BTHudMetricSeparator()
                 Text("\(info.spinPhrase) · \(info.powerPhrase)")
                     .font(.system(size: 12, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.8))
@@ -526,13 +526,13 @@ struct PositionPlayComposerView: View {
                     BTReadout(value: "\(Int(contact.cutAngleDeg.rounded()))°", size: .compact)
                     let name = AngleSceneCalculator.thicknessName(cutAngle: contact.cutAngleDeg)
                     if name != "—" {
-                        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                        BTHudMetricSeparator()
                         Text(name)
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.8))
                             .lineLimit(1)
                     }
-                    Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                    BTHudMetricSeparator()
                     Text("碰 \(PositionPlayBall.shortLabel(for: contact.targetKey))")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.8))
@@ -549,7 +549,7 @@ struct PositionPlayComposerView: View {
                 BTReadout(value: vm.cutAngleDeg.map { "\(Int($0.rounded()))°" } ?? "—°",
                           size: .compact)
                 if let angle = vm.cutAngleDeg {
-                    Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                    BTHudMetricSeparator()
                     Text(AngleSceneCalculator.thicknessName(cutAngle: angle))
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.8))
@@ -664,7 +664,7 @@ struct PositionPlayComposerView: View {
             if isTryout {
                 // Q19.2③：右上角 i 内容并入三点菜单（G19 口径）——说明卡召回入口。
                 Button("试打说明", systemImage: "info.circle") {
-                    withAnimation(.easeInOut(duration: 0.25)) { showBrief.toggle() }
+                    withAnimation(BTMotion.easeInOutChrome) { showBrief.toggle() }
                 }
                 .accessibilityIdentifier("tryout.info")
             }

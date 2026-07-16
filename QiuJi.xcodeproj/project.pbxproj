@@ -89,6 +89,7 @@
 		44B1C2BCA0AF097F8AD6E6D3 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CC3ED3C2AA5FE88FB2F39C6 /* KeychainService.swift */; };
 		44C7A5AD7B1E1ECD171F613C /* ShotPredictor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3911FCDF734395A7DC8702C7 /* ShotPredictor.swift */; };
 		4609FA1C48E77FAD2E63626E /* W8_TrajectoryScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA395C40194328084F80DA66 /* W8_TrajectoryScreenshotUITests.swift */; };
+		47149AA25ABFB6A6BFE07FC8 /* AngleCoverPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA3568CEBA1713EFFA510067 /* AngleCoverPalette.swift */; };
 		472EECA41370BCBDBE5E41CB /* HomographyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6B1C14A9E178424A46D8330 /* HomographyTests.swift */; };
 		47AC36A2FC83F82ED3EACA5D /* PersonalInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5390AB03849CA87B0F7D12E5 /* PersonalInfoView.swift */; };
 		4885DC705E965130D05CA93E /* HistoryCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D50198A5EB79439712905996 /* HistoryCalendarView.swift */; };
@@ -242,6 +243,7 @@
 		A7D381DC392297618EE6F73C /* TrainingSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50C32F6332796F363C92E238 /* TrainingSession.swift */; };
 		A80B424E7BC4C7F337CD9B93 /* ActiveTrainingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C0A7C862C19FE9436834583 /* ActiveTrainingViewModel.swift */; };
 		A84C6DEA2702048C7A1DF1AB /* PositionPlaySequenceArchive.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B672B9CC6FCBEA6794B466 /* PositionPlaySequenceArchive.swift */; };
+		A8A9DF1F52AD28FF7C2E911D /* W3_HomeCoverUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB6D2AF7B0811728F826CC39 /* W3_HomeCoverUITests.swift */; };
 		A926E4F7A2D1B8FFF9728972 /* DrillThumbnailRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0471F2D484E4EAB82772F02D /* DrillThumbnailRenderer.swift */; };
 		AA885F87A90D5681F389DFBE /* SequenceVideoExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C4FBDFDA7B1975833ECE84 /* SequenceVideoExporter.swift */; };
 		AA9F2BD6C591084D62E48E58 /* BTDailyLimitGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF65AB831748C562A45E5BA /* BTDailyLimitGate.swift */; };
@@ -651,6 +653,7 @@
 		BABB77B4A42C197D042CC0DE /* HistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryViewModel.swift; sourceTree = "<group>"; };
 		BB16B236A9B7895116711CE0 /* Contents.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Contents.json; sourceTree = "<group>"; };
 		BB58E4169F1794F6DB90591B /* AnalyticAimParityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticAimParityTests.swift; sourceTree = "<group>"; };
+		BB6D2AF7B0811728F826CC39 /* W3_HomeCoverUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = W3_HomeCoverUITests.swift; sourceTree = "<group>"; };
 		BB75956FCF2AC7002AC57E42 /* NumericKeypadHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NumericKeypadHUD.swift; sourceTree = "<group>"; };
 		BCDAF924A7000A3825AE3554 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		BCEF64AAD151D9BB5C977953 /* BTMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTMotion.swift; sourceTree = "<group>"; };
@@ -666,6 +669,7 @@
 		C6B26AD5DF27ECE95DFA2373 /* PlanThreeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanThreeView.swift; sourceTree = "<group>"; };
 		C73374E53070E33615999A1D /* QiuJiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiApp.swift; sourceTree = "<group>"; };
 		C8B2B0361ACA96C881BE340A /* AngleCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleCalculator.swift; sourceTree = "<group>"; };
+		CA3568CEBA1713EFFA510067 /* AngleCoverPalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleCoverPalette.swift; sourceTree = "<group>"; };
 		CAE6DAF8FA7B4879DC39DB3B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		CB3F70A527A5FA90B1649F4A /* AnalyticShotRollout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticShotRollout.swift; sourceTree = "<group>"; };
 		CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncPendingItem.swift; sourceTree = "<group>"; };
@@ -934,6 +938,7 @@
 				59556D5EF0242F770CF7BC3C /* ScreenshotTourUITests.swift */,
 				616C48BE158BF4654E4552DA /* W1_AimPointFilterUITests.swift */,
 				EA763A6DA262DFEB216AE89C /* W2_DarkQuizNavChromeUITests.swift */,
+				BB6D2AF7B0811728F826CC39 /* W3_HomeCoverUITests.swift */,
 				D636AC1F686C41C4DD33703B /* W4_BallPaletteUITests.swift */,
 				2237EC815E6A55EF5B10C9E4 /* W7_DailyLimitUITests.swift */,
 				FA395C40194328084F80DA66 /* W8_TrajectoryScreenshotUITests.swift */,
@@ -1052,6 +1057,7 @@
 		660964E14E390B3B25CFFFE4 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				CA3568CEBA1713EFFA510067 /* AngleCoverPalette.swift */,
 				FF12FD2E88EE49ED33F8779A /* BTBrandLogo.swift */,
 				F1131CEFFE51D5B8480CBB81 /* BTDrillCategoryIcon.swift */,
 				31B5F0C872617B9168B021DA /* BTLogoMark.swift */,
@@ -1747,6 +1753,7 @@
 				CBDBF085FC33CA11DDFA7803 /* AnalyticShotRollout.swift in Sources */,
 				14038B4B0EC9ABEBE22D01A9 /* AnalyticalMotion.swift in Sources */,
 				366DB51D357B9B2D4B7C99FC /* AngleCalculator.swift in Sources */,
+				47149AA25ABFB6A6BFE07FC8 /* AngleCoverPalette.swift in Sources */,
 				B5BF569262628B569ECA3571 /* AngleDynamicView.swift in Sources */,
 				09D3D6DAF2485A60A57D5AC5 /* AngleDynamicViewModel.swift in Sources */,
 				C0D95B6EF7769324C5C8EF8C /* AngleHistorySection.swift in Sources */,
@@ -2001,6 +2008,7 @@
 				3D996A19FDBE2B889DEB55C8 /* W27ScreenshotUITests.swift in Sources */,
 				50A2D45F6127C39E3198228B /* W29ScreenshotUITests.swift in Sources */,
 				FF1C920BD9CE324A8E6C0774 /* W2_DarkQuizNavChromeUITests.swift in Sources */,
+				A8A9DF1F52AD28FF7C2E911D /* W3_HomeCoverUITests.swift in Sources */,
 				B656236797D283AF836888F7 /* W4_BallPaletteUITests.swift in Sources */,
 				AD657BFBA2267171A303D747 /* W7_DailyLimitUITests.swift in Sources */,
 				4609FA1C48E77FAD2E63626E /* W8_TrajectoryScreenshotUITests.swift in Sources */,

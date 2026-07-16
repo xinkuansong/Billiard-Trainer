@@ -46,6 +46,11 @@ enum HUDStyle {
     static let chipTextUnselected = Color.white.opacity(0.75)
     static let chipTextDisabledOpacity: CGFloat = 0.3
 
+    // MARK: HUD 指标条竖分隔线（v7 C21 / D5）
+    /// Unified metric-row separator height — **12** (hit-page baseline; was 12/14 split).
+    static let metricSeparatorHeight: CGFloat = 12
+    static let metricSeparatorFill = Color.white.opacity(0.18)
+
     // MARK: 刻度语法（瞄准轮与力度柱同族）
     static let tickMajor = Color.white.opacity(0.40)
     static let tickMid = Color.white.opacity(0.25)
@@ -91,5 +96,14 @@ extension View {
 
     func btHudGlass<S: InsettableShape>(in shape: S) -> some View {
         modifier(HUDGlassModifier(shape: shape))
+    }
+}
+
+/// HUD 指标条竖分隔线（1×12，白 18%）— v7 C21 / D5 单一真源。
+struct BTHudMetricSeparator: View {
+    var body: some View {
+        Rectangle()
+            .fill(HUDStyle.metricSeparatorFill)
+            .frame(width: 1, height: HUDStyle.metricSeparatorHeight)
     }
 }

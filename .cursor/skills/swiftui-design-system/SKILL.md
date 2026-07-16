@@ -674,6 +674,12 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-07-16（v7 W3 / G22 · DR-023）— 动效与设计 token 收编：
+  - `BTMotion`：`springLayout` / `easeInOutFast` / `easeInOutChrome` / `easeInstant` / `easePress`（值=原字面量）；`springPanel` 消费点扫齐
+  - `AngleCoverPalette`：练习首页封面渐变常量组（明暗同值）
+  - Typography：`btCoverWatermark` / `btHeroSymbol` / `btCTALabelRounded`
+  - HUD：`metricSeparatorHeight=12` + `BTHudMetricSeparator`；`BTDailyLimitGate` 字号 token 化
+  - 红线：新代码禁止新增字面量字号（D6）
 - 2026-07-16（v7 W4 / G21）— 新增 `BTBallPaletteBar` 球库组件族：
   - `BTBallPaletteBar` / `BTBallPaletteToken` / `BTBallPaletteDragGhost` / `BTDecorativeBallPalette` / `BTReferenceBallPalette` / `BTBallPaletteDragBack`
   - D7 两档球径：紧凑 30 / 常规 36（默认）；拖拽死区统一 10；ghost 描边 success 2.5 / idle 1

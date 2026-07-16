@@ -105,20 +105,20 @@ struct AngleHomeView: View {
     private let learnEntries: [AngleEntry] = [
         .init(route: .aimingPrinciple, glyph: "瞄",
               title: "瞄准原理", subtitle: "切入角 · 假想球 · 厚薄球",
-              coverTop: Color(red: 0.16, green: 0.55, blue: 0.34),
-              coverBottom: Color(red: 0.09, green: 0.34, blue: 0.21)),
+              coverTop: AngleCoverPalette.aimingPrinciple.top,
+              coverBottom: AngleCoverPalette.aimingPrinciple.bottom),
         .init(route: .angleDynamic, glyph: "点",
               title: "角度与瞄准", subtitle: "切角变化如何影响打点",
-              coverTop: Color(red: 0.11, green: 0.46, blue: 0.95),
-              coverBottom: Color(red: 0.05, green: 0.24, blue: 0.58)),
+              coverTop: AngleCoverPalette.angleDynamic.top,
+              coverBottom: AngleCoverPalette.angleDynamic.bottom),
         .init(route: .ballFeel, glyph: "感",
               title: "浅谈球感", subtitle: "从理性分析到直觉判断",
-              coverTop: Color(red: 0.48, green: 0.36, blue: 0.72),
-              coverBottom: Color(red: 0.28, green: 0.20, blue: 0.46)),
+              coverTop: AngleCoverPalette.ballFeel.top,
+              coverBottom: AngleCoverPalette.ballFeel.bottom),
         .init(route: .contactPointTable, glyph: "表",
               title: "瞄准点对照表", subtitle: "常用角度的瞄准点速查",
-              coverTop: Color(red: 0.42, green: 0.45, blue: 0.50),
-              coverBottom: Color(red: 0.24, green: 0.26, blue: 0.30))
+              coverTop: AngleCoverPalette.contactPointTable.top,
+              coverBottom: AngleCoverPalette.contactPointTable.bottom)
         // 「球理」入口卡（P12 阶段 1 产物）：理论详情页落地后在此追加，
         // 路由预留 —— 详见 ADR-P18-01 / ADR-P12-01。
     ]
@@ -127,28 +127,28 @@ struct AngleHomeView: View {
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, glyph: "角",
               title: "角度预测", subtitle: "看球形，估切角，练直觉",
-              coverTop: Color(red: 0.85, green: 0.52, blue: 0.13),
-              coverBottom: Color(red: 0.55, green: 0.32, blue: 0.05)),
+              coverTop: AngleCoverPalette.geometricQuiz.top,
+              coverBottom: AngleCoverPalette.geometricQuiz.bottom),
         .init(route: .sceneAiming2D, glyph: "瞄",
               title: "2D 角度训练", subtitle: "俯视真台，练几何角度判断",
-              coverTop: Color(red: 0.0, green: 0.60, blue: 0.60),
-              coverBottom: Color(red: 0.0, green: 0.36, blue: 0.40), chip: "2D"),
+              coverTop: AngleCoverPalette.sceneAiming2D.top,
+              coverBottom: AngleCoverPalette.sceneAiming2D.bottom, chip: "2D"),
         .init(route: .sceneAiming3D, glyph: "临",
               title: "3D 角度训练", subtitle: "站位视角，练临场球感",
-              coverTop: Color(red: 0.13, green: 0.42, blue: 0.66),
-              coverBottom: Color(red: 0.05, green: 0.24, blue: 0.42), chip: "3D"),
+              coverTop: AngleCoverPalette.sceneAiming3D.top,
+              coverBottom: AngleCoverPalette.sceneAiming3D.bottom, chip: "3D"),
         .init(route: .aimPointTraining, glyph: "拖",
               title: "瞄准点训练", subtitle: "给角度拖假想球，毫米级误差",
-              coverTop: Color(red: 0.72, green: 0.28, blue: 0.30),
-              coverBottom: Color(red: 0.44, green: 0.14, blue: 0.16)),
+              coverTop: AngleCoverPalette.aimPointTraining.top,
+              coverBottom: AngleCoverPalette.aimPointTraining.bottom),
         .init(route: .aimPointScene2D, glyph: "调",
               title: "2D 瞄准点训练", subtitle: "微调瞄准线选打点，击球验证",
-              coverTop: Color(red: 0.0, green: 0.52, blue: 0.48),
-              coverBottom: Color(red: 0.0, green: 0.30, blue: 0.28), chip: "2D"),
+              coverTop: AngleCoverPalette.aimPointScene2D.top,
+              coverBottom: AngleCoverPalette.aimPointScene2D.bottom, chip: "2D"),
         .init(route: .aimPointScene3D, glyph: "临",
               title: "3D 瞄准点训练", subtitle: "站位视角微调打点，击球验证",
-              coverTop: Color(red: 0.30, green: 0.34, blue: 0.72),
-              coverBottom: Color(red: 0.16, green: 0.18, blue: 0.44), chip: "3D")
+              coverTop: AngleCoverPalette.aimPointScene3D.top,
+              coverBottom: AngleCoverPalette.aimPointScene3D.bottom, chip: "3D")
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。
@@ -158,8 +158,8 @@ struct AngleHomeView: View {
         // 仅模拟器：批量出片台（内容生产工具，真机/发布版不可见，不进正式 IA）。
         entries.append(.init(route: .batchDrillStudio, glyph: "批",
                              title: "批量出片台", subtitle: "drill 截图 → 序列 → 素材",
-                             coverTop: Color(red: 0.20, green: 0.40, blue: 0.70),
-                             coverBottom: Color(red: 0.10, green: 0.22, blue: 0.42), chip: "SIM"))
+                             coverTop: AngleCoverPalette.batchDrillStudio.top,
+                             coverBottom: AngleCoverPalette.batchDrillStudio.bottom, chip: "SIM"))
         #endif
         return entries
     }
@@ -168,44 +168,44 @@ struct AngleHomeView: View {
     private let basePlayEntries: [AngleEntry] = [
         .init(route: .shotSimulation, glyph: "分",
               title: "分离角与走位", subtitle: "教学演示：看懂碰撞后母球走向",
-              coverTop: Color(red: 0.13, green: 0.55, blue: 0.36),
-              coverBottom: Color(red: 0.06, green: 0.33, blue: 0.20), chip: "物理"),
+              coverTop: AngleCoverPalette.shotSimulation.top,
+              coverBottom: AngleCoverPalette.shotSimulation.bottom, chip: "物理"),
         .init(route: .positionPlayComposer, glyph: "走",
               title: "自由走位", subtitle: "逐杆编排击打，推演整套走位",
-              coverTop: Color(red: 0.72, green: 0.55, blue: 0.13),
-              coverBottom: Color(red: 0.45, green: 0.33, blue: 0.05), chip: "物理"),
+              coverTop: AngleCoverPalette.positionPlayComposer.top,
+              coverBottom: AngleCoverPalette.positionPlayComposer.bottom, chip: "物理"),
         .init(route: .freePlay, glyph: "击",
               title: "自由击球", subtitle: "开球散局起手，完整对局体验",
-              coverTop: Color(red: 0.13, green: 0.42, blue: 0.85),
-              coverBottom: Color(red: 0.05, green: 0.22, blue: 0.52), chip: "物理"),
+              coverTop: AngleCoverPalette.freePlay.top,
+              coverBottom: AngleCoverPalette.freePlay.bottom, chip: "物理"),
         .init(route: .ballExtraction, glyph: "拍",
               title: "拍照建球形", subtitle: "拍下真实球局，导入沙盘复盘",
-              coverTop: Color(red: 0.16, green: 0.50, blue: 0.62),
-              coverBottom: Color(red: 0.07, green: 0.28, blue: 0.36), chip: "识别")
+              coverTop: AngleCoverPalette.ballExtraction.top,
+              coverBottom: AngleCoverPalette.ballExtraction.bottom, chip: "识别")
     ]
 
     /// 「解」——教练类：给定局面，让引擎反解怎么打。
     private let solveEntries: [AngleEntry] = [
         .init(route: .positionPlaySolver, glyph: "思",
               title: "思路训练", subtitle: "单杆走位反解：定落点，解塞与力度",
-              coverTop: Color(red: 0.50, green: 0.20, blue: 0.62),
-              coverBottom: Color(red: 0.28, green: 0.10, blue: 0.40), chip: "物理"),
+              coverTop: AngleCoverPalette.positionPlaySolver.top,
+              coverBottom: AngleCoverPalette.positionPlaySolver.bottom, chip: "物理"),
         .init(route: .planThree, glyph: "三",
               title: "打一走二想三", subtitle: "三杆连续走位规划，练全局思路",
-              coverTop: Color(red: 0.16, green: 0.46, blue: 0.62),
-              coverBottom: Color(red: 0.08, green: 0.26, blue: 0.38), chip: "走位"),
+              coverTop: AngleCoverPalette.planThree.top,
+              coverBottom: AngleCoverPalette.planThree.bottom, chip: "走位"),
         .init(route: .snookerTactics, glyph: "防",
               title: "防守", subtitle: "反解安全球：让对方球组看不到或只剩难球",
-              coverTop: Color(red: 0.60, green: 0.10, blue: 0.30),
-              coverBottom: Color(red: 0.34, green: 0.04, blue: 0.16), chip: "物理"),
+              coverTop: AngleCoverPalette.snookerTactics.top,
+              coverBottom: AngleCoverPalette.snookerTactics.bottom, chip: "物理"),
         .init(route: .bankShot, glyph: "翻",
               title: "翻袋解球器", subtitle: "目标球翻库进袋：求 1–3 库路线",
-              coverTop: Color(red: 0.62, green: 0.14, blue: 0.14),
-              coverBottom: Color(red: 0.36, green: 0.06, blue: 0.06), chip: "2D"),
+              coverTop: AngleCoverPalette.bankShot.top,
+              coverBottom: AngleCoverPalette.bankShot.bottom, chip: "2D"),
         .init(route: .diamondSystem, glyph: "反",
               title: "反射解球器", subtitle: "母球吃库绕障碍碰球的路线",
-              coverTop: Color(red: 0.0, green: 0.45, blue: 0.55),
-              coverBottom: Color(red: 0.0, green: 0.26, blue: 0.34), chip: "2D")
+              coverTop: AngleCoverPalette.diamondSystem.top,
+              coverBottom: AngleCoverPalette.diamondSystem.bottom, chip: "2D")
     ]
 
     private func entries(for section: PracticeSection) -> [AngleEntry] {
@@ -473,7 +473,7 @@ private struct AngleGridCard: View {
             )
 
             Text(entry.glyph)
-                .font(.system(size: 56, weight: .black, design: .rounded))
+                .font(.btCoverWatermark)
                 .foregroundStyle(.white.opacity(0.22))
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)

@@ -61,7 +61,7 @@ struct ShotSimulationView: View {
                 }
             }
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .animation(BTMotion.springPanel, value: showSpinPad)
         .btToast($toast)
         .coordinateSpace(name: "simulation")
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
@@ -208,7 +208,7 @@ struct ShotSimulationView: View {
                     BTReadout(value: "\(Int(contact.cutAngleDeg.rounded()))°", size: .compact)
                     let name = AngleSceneCalculator.thicknessName(cutAngle: contact.cutAngleDeg)
                     if name != "—" {
-                        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                        BTHudMetricSeparator()
                         Text(name)
                             .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.8))
@@ -226,7 +226,7 @@ struct ShotSimulationView: View {
                 BTReadout(value: vm.cutAngleDeg.map { "\(Int($0.rounded()))°" } ?? "—°",
                           size: .compact)
                 if let angle = vm.cutAngleDeg {
-                    Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 12)
+                    BTHudMetricSeparator()
                     Text(AngleSceneCalculator.thicknessName(cutAngle: angle))
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.white.opacity(0.8))

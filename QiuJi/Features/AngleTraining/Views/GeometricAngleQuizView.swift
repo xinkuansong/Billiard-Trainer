@@ -126,7 +126,7 @@ struct GeometricAngleQuizView: View {
     }
 
     private var divider: some View {
-        Rectangle().fill(.white.opacity(0.18)).frame(width: 1, height: 14)
+        BTHudMetricSeparator()
     }
 
     // MARK: - 操作胶囊行（统一胶囊语言；置于画布下方避免遮挡表单）

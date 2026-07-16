@@ -162,7 +162,7 @@ struct OnboardingView: View {
                 Capsule()
                     .fill(index == currentPage ? Color.btPrimary : Color.btPrimary.opacity(0.2))
                     .frame(width: index == currentPage ? 24 : 8, height: 8)
-                    .animation(.easeInOut(duration: 0.25), value: currentPage)
+                    .animation(BTMotion.easeInOutChrome, value: currentPage)
             }
         }
     }

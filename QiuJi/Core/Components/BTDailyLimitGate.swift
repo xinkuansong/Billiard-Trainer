@@ -23,7 +23,7 @@ struct BTDailyLimitGate: View {
     private var cardBody: some View {
         VStack(spacing: Spacing.md) {
             Image(systemName: "crown.fill")
-                .font(.system(size: 32))
+                .font(.btHeroSymbol)
                 .foregroundStyle(.btAccent)
 
             Text("今日免费次数已用完")
@@ -37,7 +37,7 @@ struct BTDailyLimitGate: View {
 
             Button(action: onUnlock) {
                 Label(Self.unlockCTATitle, systemImage: "crown.fill")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.btCTALabelRounded)
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.xl)
                     .padding(.vertical, 11)
@@ -59,7 +59,7 @@ struct BTDailyLimitGate: View {
 
             Button(action: onUnlock) {
                 Label(Self.unlockCTATitle, systemImage: "crown.fill")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.btCTALabelRounded)
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.xl)
                     .padding(.vertical, 11)

@@ -91,6 +91,8 @@
 | `btDisplay` | 44pt | Bold | Rounded | 单屏唯一核心指标数字（训练总结成功率等）|
 | `btDisplaySmall` | 30pt | Bold | Rounded | 详情页 Hero 标题、卡片中等数字徽章 |
 | `btLargeTitle` | 32pt | Bold | Rounded | Tab 根页面标题（训练 / 动作库 / 角度 / 记录 / 我的）|
+| `btCoverWatermark` | 56pt | Black | Rounded | 练习首页封面大字水印（v7 C20）|
+| `btHeroSymbol` | 32pt | Regular | Default | Hero SF Symbol（不强制 bold；v7 C21 `BTDailyLimitGate` 皇冠）|
 | `btChapterNumber` | 26pt | Bold | Rounded | 章节序号（「第 N 周」「第 N 期」）|
 | `btTitle` | 20pt | Bold | Rounded | Section 大标题 |
 | `btTitle2` | 18pt | Semibold | Default | 次级标题、SubSection |
@@ -103,6 +105,7 @@
 | `btSubheadline` | 15pt | Regular | Default | 辅助信息 |
 | `btSubheadlineMedium` | 15pt | Medium | Default | 辅助强调 |
 | `btSubheadlineSemibold` | 15pt | Semibold | Default | 列表行序号、轻量强调 |
+| `btCTALabelRounded` | 15pt | Semibold | Rounded | CTA 胶囊标签（v7 C21 `BTDailyLimitGate` 解锁钮）|
 | `btFootnote14` | 14pt | Regular | Default | 介于 footnote 与 callout 间的辅助文字 |
 | `btFootnote` | 13pt | Regular | Default | 时间戳、次要说明 |
 | `btCaption` | 12pt | Regular | Default | 标签、图表轴 |
@@ -123,6 +126,11 @@
 - **核心展示数字** → `btDisplay` / `btDisplaySmall`
 - **章节序号** → `btChapterNumber`
 - **极小徽章/Timeline** → `btCaption2` / `btMicro`
+- **练习首页封面水印** → `btCoverWatermark`
+
+#### 红线（v7 D6 · 2026-07-16）
+
+- **新代码禁止新增字面量字号**（`.font(.system(size: …))` / 裸 `Font.system(size:)`）。缺 token 时先在 `Typography.swift` 登记再引用；存量页面按页渐进迁移，不要求本轮清零。
 
 ---
 
@@ -1034,5 +1042,7 @@ struct BTShareCard: View {
 | 2026-07-08 | **共享控件 S1 改造**：`BTBreakSideButton` 三角形内加 `BreakRackGlyph` 三圆圈（G9）；`BTShotInstrumentColumn` 力度柱移至底部与 `BTAimWheel` 同底对齐（G5，顶部固定区 72pt=打点迷你图+读数）；`BTTextActionButton` 新参 `width`、`BTShotActionColumn` 新参 `buttonWidth`（G6/G11 窄款 46 容进右黑边）；`BTTrajectoryDetailChip` 位置规范修订：下沿贴球桌上沿、靠屏幕最右（G3 用户修订版）。`FreePlayView` 为 G 规范基准页（G10 顶栏 46/底栏 94 定高锁桌；stage AX 标识须挂 background 层，挂容器会吞子控件可及性）；P10.1 球库只读 + P10.2 `BilliardRulesEngine.legalTargetKeys` 非法目标球拦截 | API 变更/重构 | BTShotPageChrome, BTShotInstrumentColumn, BTTrajectoryDetailChip, FreePlayView, BilliardRulesEngine | v3 S1 |
 | 2026-07-08 | **瞄准点概念修正 G1 + 瞄准点训练页**（v3 S3）：新增 `AimPointGeometry`（瞄准点=瞄准线与过目标球心垂线交点/垂足，`offsetDistance`/`signedOffset`）；`AimingPrincipleView`/`ContactPointTableView` 文案与配图对齐 G1；`AimPointTrainingView` P8.1–P8.6（水平线、无假想球红点、红小瞄准点、左右切修正、球占比放大、统计单行）；`AimPointSceneTrainingView` P9.1 误差改垂足有符号偏移差、辅助线垂直用户瞄准线随转；`AimPointGeometryTests`+`S3_AimPointUITests` 验收 | 修正/新增 | AimPointGeometry（新）, AimingPrincipleView, ContactPointTableView, AimPointTrainingView, AimPointSceneTrainingView, BTTableFigure/BTAimPointDot | v3 S3 |
 | 2026-07-08 | **全局规范推广六击打页**（v3 S2，G3–G12 + P11.1/P12.1）：分离角与走位/自由走位/批量出片台/思路训练/打一走二想三/做斯诺克全部接入 `GeometryReader + ShotStageProxy`（顶/底栏定高锁桌 G10，chip/竖条/角落控件贴边 G3–G7，球库 8 列定宽=球桌宽 G8）；`ShotTableLayout` 新增修饰器 `btChipBandPlacement`/`btStageFrame` 与 `bottomLeadingFrame/bottomTrailingFrame`（页面禁止再自摆贴边控件）；**G12**：思路/三杆/斯诺克删底部 `ShotControlBar` 解摘要行（`ShotControlBar` 组件保留但击打页不再使用，解读数=右柱仪表）；**G9 修订**：思路/三杆开球按钮保持可用（内置开球 T-P18-47），开球胶囊图标统一 `BreakRackGlyph`；**P11.1**：打页入口顺序=分离角与走位→自由走位→自由击球→拍照建球形；**P12.1 根因**：`BatchGuideLine.startPoint/endPoint` 补 `@Published`（确认按钮 enabled 依赖 `hasCurrentPoint`，非发布属性不触发重渲）。左下多按钮页（求解/下一解/开球）用 `bottomLeadingFrame(size: 48×122)` 整叠贴边 | 重构/修正 | ShotSimulationView, PositionPlayComposerView, BatchAuthoringView, SiluTrainerView, PlanThreeView, SnookerTacticsView, ShotTableLayout, AngleHomeView, S2_ShotPagesLayoutUITests（新） | v3 S2 |
+| 2026-07-16 | **问题集合 v7 W3（G22 动效/token · DR-023）**：`BTMotion` 新登记 `springLayout`/`easeInOutFast`/`easeInOutChrome`/`easeInstant`/`easePress`（值=原字面量）+ `springPanel` 消费扫齐；`AngleCoverPalette` 收编练习首页封面色；Typography `btCoverWatermark`/`btHeroSymbol`/`btCTALabelRounded`；HUD `BTHudMetricSeparator`（高 12，D5）；`BTDailyLimitGate` 字号 token 化；§1.4 增 D6 红线「新代码禁止新增字面量字号」 | DR/重构 | BTMotion, AngleCoverPalette, Typography, HUDStyle, BTDailyLimitGate, 多页动画消费点 | v7 W3 / DR-023 |
 | 2026-07-16 | **问题集合 v7 W2（G20 导航 chrome）**：暗色测验五页补 dark toolbar + `BTSolverNavStatus`（`statusText` 改可选，nil=仅标题）；7 页私有 `navStatus` + BallExtraction principal 收敛共享件；9 套 `*FramePreference` → `BTShotPageFramePreference`（`SolverFramePreference` 别名）；flash 收敛 `BTToast.present`；G10 顶/底栏高度入 `ShotStageMetrics`（`topRowHeight` + `BottomBarHeight` 三档）。§8.3 回写 G20 口径 | DR/重构 | BTShotPageChrome, BTToast, ShotTableLayout, 暗色测验五页 + 沙盘/解球页 | v7 W2 |
+| 2026-07-16 | **B4 截图核验暴露两个既有渲染缺陷修复（PD-026）**：① `DrillTutorialView` 精讲 formations 分段切换正文不刷新——LazyVStack `ForEach(id: \.offset)` 按 offset 复用旧行，行级复合 id（`selection-index`）修复；② `DrillDetailView` 试打球形选择 sheet 渲染空列表——`.sheet(isPresented:)` 内容闭包以陈旧 state 求值（iOS 26），改 `.sheet(item:)` + payload 快照。c042 回归 `testTryoutC042Flow` 通过 | PD/修复 | DrillTutorialView, DrillDetailView | B4 / PD-026 |
 | 2026-07-13 | **问题集合 v5 全批次落地**（G13–G19 + Q1–Q19，V1–V11 收官）：新增 SPEC **§8.9 瞄准与求解交互规范**——四条全局契约（a 瞄准拖动=选中+相对调整〔绕母球公转增益、封顶 0.6 度/pt，`AngleSceneCalculator.aimNudgeDegrees`〕；b 求解 0.5s idle 去抖〔`SolveDebounceScheduler`〕；c 开球通用规范〔单一真源 `BreakFlowRunner`+`BreakControlBar`+`BreakInstrumentsOverlay`、随机性只留球堆间距、开放瞄准、力度默认 6 m/s、完成/重开互换〕；d 上一杆完整快照〔`SolveShotSnapshot`+`SolveConstraintDraft`+页面 `UndoContext`，翻袋/反射用原生 `SolveUndoContext`〕）+ 全局小件登记（G15 回放禁尾速截断、G16 打点盘 inset 5→2、G19 三点入口统一含 ProfileView 豁免、V8 防守评分权重 0.6/0.4 待调优）；§8.8 词表增补页面改名（角度与打点→角度与瞄准、做斯诺克→防守）。总验收：全量 `QiuJiTests` **Executed 560 tests, 2 skipped, 0 failures**；关键 UI 套件全绿（S1/S2/S5/S6/S7/S8/ScreenshotTour/DrillTryout）；`clean` 全量重建后 3 例陈旧增量构建 SIGSEGV 转绿（非代码回归） | 新增/DR | SPEC §8.9/§8.8；`问题集合_v5.md` V1–V11 落地代码（AngleSceneView/AngleSceneCalculator/PositionPlayViewModel/SolveDebounceScheduler/BreakFlowRunner/BTShotPageChrome/BTSpinPad 等） | 问题集合 v5 |

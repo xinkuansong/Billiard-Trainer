@@ -212,8 +212,8 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         .frame(maxHeight: .infinity)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
-        .animation(.easeInOut(duration: 0.2), value: vm.currentIndex)
-        .animation(.easeInOut(duration: 0.2), value: vm.mode)   // §1.3 顶部行过渡。
+        .animation(BTMotion.easeInOutFast, value: vm.currentIndex)
+        .animation(BTMotion.easeInOutFast, value: vm.mode)   // §1.3 顶部行过渡。
         .disabled(vm.isPlaying)          // 演示/击球中锁顶部控件（W5/W6）。
         .opacity(vm.isPlaying ? 0.42 : 1)
     }
@@ -282,10 +282,10 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
         }
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.solutionCount)
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.hasSolution)
-        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: vm.mode)   // §1.3 过渡。
-        .animation(.spring(response: 0.34, dampingFraction: 0.86), value: showSpinPad)
+        .animation(BTMotion.springLayout, value: vm.solutionCount)
+        .animation(BTMotion.springLayout, value: vm.hasSolution)
+        .animation(BTMotion.springLayout, value: vm.mode)   // §1.3 过渡。
+        .animation(BTMotion.springPanel, value: showSpinPad)
         .environment(\.colorScheme, .dark)
     }
 

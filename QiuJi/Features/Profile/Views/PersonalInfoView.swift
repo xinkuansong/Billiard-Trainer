@@ -143,7 +143,7 @@ struct PersonalInfoView: View {
             VStack(spacing: 0) {
                 ForEach(YearsPlaying.allCases) { years in
                     Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
+                        withAnimation(BTMotion.easeInOutFast) {
                             prefs.yearsPlaying = years
                         }
                     } label: {

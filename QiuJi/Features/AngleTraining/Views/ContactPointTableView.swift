@@ -190,7 +190,7 @@ struct ContactPointTableView: View {
                     .position(x: contact.x + CGFloat(cos(rad)) * d * 0.95,
                               y: contact.y + CGFloat(sin(rad)) * d * 0.95)
             }
-            .animation(.easeOut(duration: 0.12), value: sliderAngle)
+            .animation(BTMotion.easeInstant, value: sliderAngle)
         }
     }
 
@@ -353,7 +353,7 @@ struct ContactPointTableView: View {
                     .position(x: (target.x + pocket.x) / 2 + 10,
                               y: (target.y + pocket.y) / 2 + 14)
             }
-            .animation(.easeOut(duration: 0.12), value: estimationDistance)
+            .animation(BTMotion.easeInstant, value: estimationDistance)
         }
     }
 
