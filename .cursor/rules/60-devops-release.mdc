@@ -6,6 +6,7 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-07-17 v0.3：新增经验教训 FL-025（显式 INFOPLIST_FILE 下 INFOPLIST_KEY_* 失效，产物 PlistBuddy 验证红线）
 - 2026-04-05 v0.2：默认模拟器从 iPhone 17 → iPhone 17 Pro；Makefile 提取 SIM_DEVICE 变量
 - 2026-03-27 v0.1：初始版本
 
@@ -86,3 +87,7 @@ Config/Secrets.xcconfig
 ### ⛔ FL-001 — xcconfig 中 URL 值含 `://` 会被截断
 **场景**：在 `.xcconfig` 文件中设置包含 `://` 的 URL（如 `API_BASE_URL`、`WECHAT_UNIVERSAL_LINK`）
 **强制检查点**：xcconfig 中 `//` 被解析为注释起始符。所有含 `://` 的值必须使用 `$()` 空变量打断双斜杠：`http:/$()/host:port`。配置修改后必须用 `PlistBuddy` 或 `defaults read` 验证构建产物 Info.plist 中的值完整无截断。
+
+### ⛔ FL-025 — 显式 INFOPLIST_FILE 下 `INFOPLIST_KEY_*` 全部失效（权限文案未进包 → 真机 TCC 秒杀）
+**场景**：给 Info.plist 加键（隐私权限文案、显示名等），而主 target 使用显式 `INFOPLIST_FILE`（本项目 `GENERATE_INFOPLIST_FILE = NO`）
+**强制检查点**：`INFOPLIST_KEY_*` 构建设置仅在 `GENERATE_INFOPLIST_FILE = YES` 时生效；本项目一律把键直写 `QiuJi/Resources/Info.plist`（xcodegen 走 `project.yml` 的 `info.properties`）。判断键是否生效**只认构建产物**：`/usr/libexec/PlistBuddy -c "Print :<Key>" <built .app>/Info.plist`，禁止以「pbxproj/project.yml 里有这行」为据。隐私权限键缺失的症状是真机首次弹框时 TCC 直接杀进程（秒闪退、无 alert）。

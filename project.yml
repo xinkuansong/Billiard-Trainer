@@ -85,15 +85,18 @@ targets:
         # 否则 @testable import QiuJi 无法解析（CJK 产物名会被 sanitize）。
         PRODUCT_MODULE_NAME: QiuJi
         INFOPLIST_FILE: QiuJi/Resources/Info.plist
-        INFOPLIST_KEY_CFBundleDisplayName: 球迹
-        INFOPLIST_KEY_NSCameraUsageDescription: 拍摄训练视频
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: 选择训练视频或图片
-        INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: 将训练分享卡保存到相册
+        # ⚠️ 勿在此用 INFOPLIST_KEY_*：主 target 显式 INFOPLIST_FILE（GENERATE_INFOPLIST_FILE=NO），
+        # INFOPLIST_KEY_* 会被 Xcode 全部忽略（W1 返工根因：权限文案未进包 → 真机 TCC 强杀闪退）。
+        # 权限文案等 Info.plist 键一律写在下方 info.properties（xcodegen 会重写 Info.plist）。
     info:
       path: QiuJi/Resources/Info.plist
       properties:
         CFBundleName: 球迹
         CFBundleDisplayName: 球迹
+        # 隐私权限文案（唯一生效真源；见上方 INFOPLIST_KEY_* 警告）
+        NSPhotoLibraryAddUsageDescription: 将训练分享卡保存到相册
+        NSPhotoLibraryUsageDescription: 选择训练视频或图片
+        NSCameraUsageDescription: 拍摄训练视频
         NSSupportsLiveActivities: true
         UIBackgroundModes:
           - audio

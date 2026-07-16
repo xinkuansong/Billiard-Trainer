@@ -215,7 +215,13 @@ struct CustomPlanBuilderView: View {
 
     private func drillRow(item: CustomDrillItem, index: Int) -> some View {
         HStack(spacing: Spacing.lg) {
-            miniTableThumbnail
+            BTBakedDrillTable(drillId: item.drillId)
+                .frame(width: 56, height: 56)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+                .overlay(
+                    RoundedRectangle(cornerRadius: BTRadius.xs)
+                        .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+                )
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(item.nameZh)
@@ -249,31 +255,6 @@ struct CustomPlanBuilderView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
-    }
-
-    private var miniTableThumbnail: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: BTRadius.xs)
-                .fill(Color.btTableFelt)
-
-            RoundedRectangle(cornerRadius: BTRadius.xs)
-                .strokeBorder(Color.btTableCushion, lineWidth: 3)
-
-            Circle()
-                .fill(Color.btBallCue)
-                .frame(width: 7, height: 7)
-                .offset(x: -6, y: 0)
-
-            Circle()
-                .fill(Color.btBallTarget)
-                .frame(width: 7, height: 7)
-                .offset(x: 6, y: 0)
-        }
-        .frame(width: 56, height: 56)
-        .overlay(
-            RoundedRectangle(cornerRadius: BTRadius.xs)
-                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-        )
     }
 
     private var emptyDrillsPlaceholder: some View {

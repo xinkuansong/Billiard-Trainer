@@ -65,6 +65,7 @@ enum TrainingPhase: Equatable {
 
 struct DrillSummary: Identifiable {
     let id: UUID
+    let drillId: String
     let nameZh: String
     let level: DrillLevel?
     let totalBallsMade: Int
@@ -540,6 +541,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             let possible = sets.reduce(0) { $0 + $1.targetBalls }
             summaries.append(DrillSummary(
                 id: drill.id,
+                drillId: drill.drillId,
                 nameZh: drill.nameZh,
                 level: drill.level,
                 totalBallsMade: made,

@@ -264,3 +264,13 @@
 - **日期**：2026-07-05
 - **规则改进建议**：**浮点增量推进的 while 循环（`t += step` 型）一律禁止**——`step` 由减法/取余导出时必然存在下溢为 0 的参数组合，表现为偶发整机挂死；铺设周期性几何（虚线/刻度/网格）必须用整数索引推导区间再求交。UI 测试出现「Timed out while evaluating UI query」先怀疑主线程死循环，用 `sample <pid>` 采样直取栈顶，不要猜。
 - **已应用至**：`QiuJi/Features/AngleTraining/ViewModels/ShotSimulationViewModel.swift`（整数周期重写）；回写 `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训 / FL-024（2026-07-05）
+
+## FL-025
+- **任务**：问题集合 v9 W1「训练分享保存相册卡死/闪退」首轮收官后用户真机复测仍秒闪退（返工第 1 轮）。
+- **现象**：真机点「保存相册」立即闪退；首轮模拟器单测 + UI 冒烟全绿、已判 ✅。
+- **严重程度**：P0（真机必现崩溃 + 首轮误收官）。
+- **根因**：✅ 已定位（双重）。**配置层**：主 target 显式 `INFOPLIST_FILE = QiuJi/Resources/Info.plist`（`GENERATE_INFOPLIST_FILE = NO`），pbxproj / project.yml 中的 `INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription` 等 `INFOPLIST_KEY_*` 设置**全部被 Xcode 静默忽略**，构建产物 Info.plist 无权限文案 → 首次 `PHPhotoLibrary.requestAuthorization` 需弹框时被 TCC 直接强杀。v9 方案 §二把「pbxproj 里有这行」误判为「权限文案已配置」。**测试层**：首轮 UI 冒烟用 `simctl privacy grant photos-add` 预授权限，跳过了弹框路径，恰好掩盖了唯一会崩的分支。
+- **解决**：✅ 已修复（2026-07-17，返工 1 轮）。三权限键（相册添加/相册读取/相机）直写 `QiuJi/Resources/Info.plist` + `project.yml` info.properties（留「INFOPLIST_KEY 不生效」警告注释防 xcodegen 回退）；PlistBuddy 实证 iphoneos + sim 两产物键在包内；新增 `PhotoPermissionInfoPlistTests`（断言 `Bundle.main` 含权限文案）；UI 冒烟改为 `privacy reset` 后走真实弹框（拦截器点「允许」）通过。产物 `build/w1r1-logs/`。
+- **日期**：2026-07-17
+- **规则改进建议**：①判断 Info.plist 键是否生效**只认构建产物**（PlistBuddy 查 built .app），禁止以 pbxproj/project.yml 里存在设置行为据；显式 INFOPLIST_FILE 的 target 中 `INFOPLIST_KEY_*` 一律无效。②涉及隐私权限的 UI 测试**必须至少覆盖一次真实弹框路径**（`simctl privacy reset` + 拦截器），`grant` 预授只能作为补充场景——预授会掩盖 TCC 强杀崩溃。
+- **已应用至**：`.cursor/rules/60-devops-release.mdc` § 经验教训 / FL-025（2026-07-17）；`.cursor/rules/55-test-engineer.mdc` § 经验教训 / FL-025（2026-07-17）

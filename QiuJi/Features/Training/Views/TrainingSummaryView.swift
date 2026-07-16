@@ -199,7 +199,7 @@ struct TrainingSummaryView: View {
         VStack(spacing: 0) {
             // Header row
             HStack(spacing: Spacing.md) {
-                drillThumbnail
+                drillThumbnail(drillId: drill.drillId)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: Spacing.sm) {
                         Text(drill.nameZh)
@@ -244,17 +244,14 @@ struct TrainingSummaryView: View {
         .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.02), radius: 4, x: 0, y: 1)
     }
 
-    private var drillThumbnail: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: BTRadius.sm)
-                .fill(Color.btPrimaryMuted)
-            BTTrainingIcon(size: 26, filled: true)
-        }
-        .frame(width: 48, height: 48)
-        .overlay(
-            RoundedRectangle(cornerRadius: BTRadius.sm)
-                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-        )
+    private func drillThumbnail(drillId: String) -> some View {
+        BTBakedDrillTable(drillId: drillId)
+            .frame(width: 48, height: 48)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            .overlay(
+                RoundedRectangle(cornerRadius: BTRadius.sm)
+                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+            )
     }
 
     private func setRow(_ set: DrillSummary.SetResult) -> some View {
@@ -373,7 +370,7 @@ struct TrainingSummaryView: View {
 
 private let previewSummaries: [DrillSummary] = [
     DrillSummary(
-        id: UUID(), nameZh: "定点红球进袋", level: .L1,
+        id: UUID(), drillId: "drill_c001", nameZh: "定点红球进袋", level: .L1,
         totalBallsMade: 31, totalBallsPossible: 40,
         sets: [
             .init(id: 1, madeBalls: 8, targetBalls: 10),
@@ -383,7 +380,7 @@ private let previewSummaries: [DrillSummary] = [
         ]
     ),
     DrillSummary(
-        id: UUID(), nameZh: "斯诺克直线进袋", level: .L0,
+        id: UUID(), drillId: "drill_c002", nameZh: "斯诺克直线进袋", level: .L0,
         totalBallsMade: 28, totalBallsPossible: 30,
         sets: [
             .init(id: 1, madeBalls: 10, targetBalls: 10),
@@ -392,7 +389,7 @@ private let previewSummaries: [DrillSummary] = [
         ]
     ),
     DrillSummary(
-        id: UUID(), nameZh: "走位练习 A", level: .L2,
+        id: UUID(), drillId: "drill_c003", nameZh: "走位练习 A", level: .L2,
         totalBallsMade: 28, totalBallsPossible: 50,
         sets: [
             .init(id: 1, madeBalls: 6, targetBalls: 10),
@@ -453,7 +450,7 @@ private let previewSummaries: [DrillSummary] = [
             overallSuccessRate: 0.42,
             drillSummaries: [
                 DrillSummary(
-                    id: UUID(), nameZh: "握杆稳定性训练", level: .L0,
+                    id: UUID(), drillId: "drill_c004", nameZh: "握杆稳定性训练", level: .L0,
                     totalBallsMade: 8, totalBallsPossible: 20,
                     sets: [
                         .init(id: 1, madeBalls: 4, targetBalls: 10),
@@ -461,7 +458,7 @@ private let previewSummaries: [DrillSummary] = [
                     ]
                 ),
                 DrillSummary(
-                    id: UUID(), nameZh: "中杆定杆基础", level: .L0,
+                    id: UUID(), drillId: "drill_c005", nameZh: "中杆定杆基础", level: .L0,
                     totalBallsMade: 5, totalBallsPossible: 20,
                     sets: [
                         .init(id: 1, madeBalls: 2, targetBalls: 10),

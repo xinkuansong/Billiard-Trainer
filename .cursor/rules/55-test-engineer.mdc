@@ -6,6 +6,7 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-07-17 v0.4：新增经验教训 FL-025（privacy grant 预授掩盖 TCC 强杀；真实弹框路径必测）
 - 2026-06-12 v0.3：新增经验教训 FL-021（并行 xcodebuild 杀 UI 测试 App 进程 / AX 误判反杀 / 假失败先取证）
 - 2026-03-29 v0.2：新增人工测试计划生成职责
 - 2026-03-29 v0.1：初始版本
@@ -190,3 +191,10 @@ backend/
 2. XCUITest 启动健康检查用进程态 `app.state == .runningForeground`；**禁止**用 AX 查询（`waitForExistence`）结果反推「App 没起来」并据此 terminate——App 主线程繁忙（SceneKit 渲染循环）时 AX 必假阴性，会反杀健康进程。
 3. 连续假失败时**先取证再改**：xcresult 导出录屏抽帧（`xcresulttool export attachments` + ffmpeg）看屏幕真相、`simctl spawn booted log show` 查 install/terminate 事件；禁止盲目加超时/重试。
 4. 弹层收起要走显式控件（关闭按钮 / AX 标识），坐标拖动收 sheet 会被 sheet 内容（如打点盘）吞手势产生副作用。
+
+### ⛔ FL-025 — `simctl privacy grant` 预授权限会掩盖 TCC 强杀崩溃
+**场景**：为涉及隐私权限的功能（相册/相机/定位等）写 UI 冒烟测试。
+**强制检查点**：
+1. 至少覆盖一次**真实弹框路径**：测试前 `simctl privacy reset <service>`，用 `addUIInterruptionMonitor`（或 springboard alert 查询）处理系统授权框点「允许」；`grant` 预授只能作为补充场景。
+2. 预授权限会完全跳过弹框分支——若 Info.plist 缺权限文案，唯一会崩（真机 TCC 秒杀）的分支恰好不被执行，测试全绿≠真机不崩。
+3. 权限文案存在性用单测钉死：断言 `Bundle.main.object(forInfoDictionaryKey: "NS…UsageDescription")` 非空（参考 `PhotoPermissionInfoPlistTests`）。

@@ -115,7 +115,9 @@ struct TrainingDetailView: View {
     private func drillCard(_ entry: DrillEntry) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(spacing: Spacing.md) {
-                miniTableThumbnail
+                BTBakedDrillTable(drillId: entry.drillId)
+                    .frame(width: 40, height: 40)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xxs))
                 Text(entry.drillNameZh)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
@@ -150,24 +152,6 @@ struct TrainingDetailView: View {
         .padding(Spacing.lg)
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-    }
-
-    private var miniTableThumbnail: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: BTRadius.xxs)
-                .fill(Color.btTableFelt)
-            RoundedRectangle(cornerRadius: BTRadius.xxs)
-                .strokeBorder(Color.btTableCushion, lineWidth: 3)
-            Circle()
-                .fill(Color.btBallCue)
-                .frame(width: 6, height: 6)
-                .offset(x: -4, y: 6)
-            Circle()
-                .fill(Color.btBallTarget)
-                .frame(width: 6, height: 6)
-                .offset(x: 4, y: -4)
-        }
-        .frame(width: 40, height: 40)
     }
 
     private func setRow(_ drillSet: DrillSet) -> some View {

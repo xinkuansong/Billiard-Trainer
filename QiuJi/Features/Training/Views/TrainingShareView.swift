@@ -59,8 +59,13 @@ struct TrainingShareView: View {
 
     private var cardPreview: some View {
         ScrollView {
+            // W1: preview uses the same bounded size as off-screen export
+            // (`ShareCardImageRenderer.cardWidth` × `cardHeight`).
             shareCard
-                .frame(maxWidth: 361)
+                .frame(
+                    width: ShareCardImageRenderer.cardWidth,
+                    height: ShareCardImageRenderer.cardHeight
+                )
                 .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.18), radius: 12, x: 0, y: 4)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.xxl)
@@ -214,7 +219,8 @@ struct TrainingShareView: View {
                     icon: "arrow.down.to.line.compact",
                     label: isSavingToPhotos ? "保存中" : "保存相册",
                     color: .btPrimary,
-                    showsProgress: isSavingToPhotos
+                    showsProgress: isSavingToPhotos,
+                    accessibilityId: "shareSaveToPhotos"
                 ) {
                     Task { await saveCardToPhotos() }
                 }
@@ -230,6 +236,7 @@ struct TrainingShareView: View {
         label: String,
         color: Color,
         showsProgress: Bool = false,
+        accessibilityId: String? = nil,
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
@@ -255,6 +262,8 @@ struct TrainingShareView: View {
         }
         .buttonStyle(BTPressableStyle.capsule)
         .disabled(showsProgress)
+        .accessibilityLabel(label)
+        .modifier(OptionalAccessibilityIdentifier(accessibilityId))
     }
 
     // MARK: - Save to Photos (F-TR-01)
@@ -265,13 +274,15 @@ struct TrainingShareView: View {
         isSavingToPhotos = true
         defer { isSavingToPhotos = false }
 
-        let renderer = ImageRenderer(
-            content: shareCard
-                .frame(width: 361)
-        )
-        renderer.scale = UIScreen.main.scale
+        // Let SwiftUI paint「保存中」before synchronous ImageRenderer work.
+        await Task.yield()
 
-        guard let image = renderer.uiImage else {
+        guard let image = ShareCardImageRenderer.render(
+            session: session,
+            theme: selectedTheme,
+            fontChoice: selectedFont,
+            hideSuccessRate: hideSuccessRate
+        ) else {
             saveErrorMessage = "无法生成分享图，请稍后重试"
             showSaveErrorAlert = true
             return
@@ -301,6 +312,18 @@ struct TrainingShareView: View {
                 ? "保存到相册失败，请稍后重试"
                 : error.localizedDescription
             showSaveErrorAlert = true
+        }
+    }
+}
+
+private struct OptionalAccessibilityIdentifier: ViewModifier {
+    let id: String?
+    init(_ id: String?) { self.id = id }
+    func body(content: Content) -> some View {
+        if let id {
+            content.accessibilityIdentifier(id)
+        } else {
+            content
         }
     }
 }
