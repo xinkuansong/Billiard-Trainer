@@ -353,23 +353,17 @@ struct SiluTrainerView: View {
 
     // MARK: - Toolbar menu
 
-    /// 条 21.6：齿轮与三点菜单合并为单个省略号菜单，标题居中。
+    /// 条 21.6 / G25：反解训练三点菜单模板（求解范围 → 显示 → 清空/恢复默认）。
     private var moreMenu: some View {
-        Menu {
-            Section("求解范围") {
+        BTSolverMoreMenu(
+            scene: vm.scene,
+            onClearTable: { vm.clearTable() },
+            onReset: { vm.resetAll() },
+            solveRange: {
                 Toggle("允许左右塞", isOn: $vm.allowSideSpin)
                 Toggle("仅基础走位（≤1 库）", isOn: $vm.basicPositionOnly)
             }
-            Section("显示") {
-                BTTableGridMenuToggle(scene: vm.scene)
-            }
-            Section {
-                Button("清空桌面", systemImage: "trash") { vm.clearTable() }
-                Button("恢复默认", systemImage: "arrow.counterclockwise") { vm.resetAll() }
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-        }
+        )
     }
 
     // MARK: - Banner

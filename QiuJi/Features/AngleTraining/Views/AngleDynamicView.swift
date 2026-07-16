@@ -54,14 +54,7 @@ struct AngleDynamicView: View {
                 BTSolverNavStatus(title: "角度与瞄准")
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Section("显示") {
-                        BTTableGridMenuToggle(scene: vm.scene)
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .foregroundStyle(.white.opacity(0.7))
-                }
+                BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
             }
         }
         .onAppear {

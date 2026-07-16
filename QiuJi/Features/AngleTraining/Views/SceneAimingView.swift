@@ -5,7 +5,7 @@ import SceneKit
 /// 瞄准训练（T-P18-48 拆两卡）：单 View 由两个 route 以 `initialCameraMode`
 /// 参数化——「2D 瞄准训练」俯视练几何判断 / 「3D 瞄准训练」站位练临场球感。
 /// 页内不再提供 2D ⇄ 3D toggle；成绩按视角分记 `quizType`（scene2D / scene3D）。
-/// 入口流程（T-P18-48）：点卡先弹完整训练设置（模式/类型）再开始，训练中齿轮可换。
+/// 入口流程（T-P18-48）：点卡先弹完整训练设置（模式/类型）再开始，训练中三点菜单可换。
 struct SceneAimingView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
@@ -376,7 +376,7 @@ struct SceneAimingView: View {
     // MARK: - Settings Sheet
 
     /// 完整训练设置（T-P18-48 入口流程）：进页先弹本 sheet 再开始；训练中
-    /// 齿轮再开、点「开始训练」按新设置重开一轮。§1.6：浮出层统一暗材质。
+    /// 三点再开、点「开始训练」按新设置重开一轮。§1.6：浮出层统一暗材质。
     private var settingsSheet: some View {
         NavigationStack {
             List {

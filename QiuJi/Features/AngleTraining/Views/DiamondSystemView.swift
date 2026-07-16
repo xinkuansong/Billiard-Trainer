@@ -4,11 +4,10 @@ import SwiftUI
 /// Place the cue & target balls anywhere; the app solves cushion-first kick routes
 /// (cue off 1–3 rails into the target) with the real physics engine.
 ///
-/// W4 版面（20260709 翻袋反射页重构方案 §1.2，与翻袋页同构，无袋口点选与切角读数）：
-/// 顶部 1 行库数 chip；右缘纯力度柱（力度 = 求解输入）；右下贴边动作列（下一解 / 重置）；
-/// 底部球库带（拖入 = 障碍球，真实碰撞体进反解模拟）。
-///
-/// W5（C18）：壳层收进 `SolverStageChrome`；本文件仅配置 + 注入。
+/// 版面由 `SolverStageChrome` 装配（与翻袋同构，无袋口点选）：顶行模式+库数 chip；
+/// 右缘力度柱（求解输入）；右下动作列（击打 / 上一杆 / 回放）；左下 Slot L1
+/// （下一解 / 恢复球形）；三点菜单（原理说明 → 显示·网格 → 恢复默认）；底部球库带。
+/// 本文件仅配置标题 / 原理文案注入。
 struct DiamondSystemView: View {
     @StateObject private var vm = DiamondSystemViewModel()
 

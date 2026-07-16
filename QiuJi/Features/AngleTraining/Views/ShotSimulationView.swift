@@ -304,18 +304,10 @@ struct ShotSimulationView: View {
     // MARK: - Toolbar menu
 
     private var moreMenu: some View {
-        Menu {
-            Section("显示") {
-                BTTableGridMenuToggle(scene: vm.scene)
-            }
-            Section {
-                Button("重置默认球形", systemImage: "arrow.counterclockwise") {
-                    vm.loadBoard(Self.defaultBoard)
-                }
-            }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-        }
+        BTSolverMoreMenu(
+            scene: vm.scene,
+            onReset: { vm.loadBoard(Self.defaultBoard) }
+        )
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {

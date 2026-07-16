@@ -193,6 +193,7 @@ struct AimPointTrainingView: View {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(title: "瞄准点训练")
             }
+            // C31 / G25：本页为 2D 特写图（无 AngleTrainingScene）→ 无可配台面网格，不并三点（留档）。
         }
         .onAppear {
             vm.configure(context: modelContext)
@@ -272,7 +273,9 @@ struct AimPointTrainingView: View {
                     .font(.system(size: 14, design: .monospaced))
                     .foregroundStyle(.btPrimary)
 
-                sceneCapsuleButton("提交瞄准点") { vm.submit() }
+                BTTextActionButton(title: "提交瞄准点", role: .primary, width: 120) {
+                    vm.submit()
+                }
             }
         }
         .padding(Spacing.xl)
@@ -303,7 +306,9 @@ struct AimPointTrainingView: View {
             if vm.limiter.isLimitReached {
                 BTDailyLimitGate(compact: true) { showSubscription = true }
             } else {
-                sceneCapsuleButton("下一题") { vm.nextQuestion() }
+                BTTextActionButton(title: "下一题", role: .primary, width: 112) {
+                    vm.nextQuestion()
+                }
             }
         }
         .padding(Spacing.xl)
@@ -320,19 +325,6 @@ struct AimPointTrainingView: View {
         if absMM <= 2 { return .btSuccess }
         if absMM <= 6 { return .btWarning }
         return .btDestructive
-    }
-
-    private func sceneCapsuleButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, Spacing.xl)
-                .padding(.vertical, 11)
-                .background(Capsule().fill(Color.btPrimary))
-        }
-        // F-SA-05：场景绿胶囊轻量 press。
-        .buttonStyle(BTPressableStyle.capsule)
     }
 }
 

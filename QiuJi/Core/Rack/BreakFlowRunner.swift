@@ -436,33 +436,9 @@ struct BreakInstrumentsOverlay: View {
     }
 }
 
-// MARK: - 球库行首「开球」入口块（三宿主共用）
-
-struct BreakEntryTile: View {
-    var isDisabled: Bool = false
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Image(systemName: "triangle")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("开球")
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(.white.opacity(0.85))
-            .frame(width: 44, height: 68)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).stroke(.white.opacity(0.12), lineWidth: 0.5))
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .opacity(isDisabled ? 0.4 : 1)
-        .accessibilityIdentifier("break.entry")
-    }
-}
-
 // MARK: - Z7 玩法选择 sheet（暗材质，§1.6/§4-5）
+//
+// C32：原 `BreakEntryTile`（球库行首开球块）零消费死代码已删；开球入口统一 `BTBreakSideButton`。
 
 /// 内置开球的玩法选择浮出层：选中即开始摆架。
 struct BreakGamePickerSheet: View {

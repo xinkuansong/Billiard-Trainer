@@ -25,6 +25,8 @@ extension XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
         app.launchArguments += ["-AppleLocale", "zh_CN"]
+        // 跳过 Onboarding，避免新鲜模拟器上 TabBar 尚未出现导致 switchTab 失败。
+        app.launchArguments += ["-hasCompletedOnboarding", "YES"]
         app.launchArguments += extraArgs
         app.launch()
         // 偶发：安装/启动竞态导致 app 进程秒退。用进程状态判断（不走 AX 快照，
@@ -33,6 +35,12 @@ extension XCUIApplication {
             sleep(3)
             if app.state == .runningForeground { break }
             app.launch()
+        }
+        // 兜底：若仍停在 Onboarding，点「跳过」。
+        let skip = app.buttons["跳过"]
+        if skip.waitForExistence(timeout: 2) {
+            skip.tap()
+            sleep(1)
         }
         return app
     }

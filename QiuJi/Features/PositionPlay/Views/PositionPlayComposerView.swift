@@ -38,6 +38,7 @@ struct PositionPlayComposerView: View {
     @StateObject private var vm = PositionPlayViewModel()
     @State private var hasAppeared = false
     @State private var showSpinPad = false
+    @State private var showBreakPicker = false
 
     @State private var projector = TableProjector()
 
@@ -120,6 +121,11 @@ struct PositionPlayComposerView: View {
                 )
             }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
+        }
+        .sheet(isPresented: $showBreakPicker) {
+            BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
+                .presentationDetents([.height(360)])
+                .presentationDragIndicator(.visible)
         }
         .alert("命名走位序列", isPresented: $showRename) {
             TextField("名称", text: $renameText)
@@ -248,11 +254,15 @@ struct PositionPlayComposerView: View {
                             .allowsHitTesting(!vm.isPlaying)
                     }
 
-                    // Slot L1：试打 = 「重摆球形」；编排台非开球宿主态按 D14 不显示禁用开球
-                    // （D12/W9b 再放开可点开球）。
+                    // Slot L1：试打 = 「重摆球形」；编排台（D12）= 可点开球（第四可达宿主）。
                     if isTryout {
                         rearrangeButton
                             .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
+                    } else {
+                        BTBreakSideButton(isEnabled: !vm.isPlaying && !vm.isComputing && !vm.isRecording) {
+                            showBreakPicker = true
+                        }
+                        .btStageFrame(proxy.breakButtonFrame())
                     }
 
                     // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
@@ -646,38 +656,36 @@ struct PositionPlayComposerView: View {
     // MARK: - Toolbar menu
 
     /// 试打变体（§1.7）：隐藏「重命名」，清空桌面/清空重来由「重摆球形」一等公民按钮取代。
+    /// 「清空并重来」为编排台页特有语义，不并入「恢复默认」文案（G25 留档豁免）。
     private var moreMenu: some View {
-        Menu {
-            if isTryout {
-                // Q19.2③：右上角 i 内容并入三点菜单（G19 口径）——说明卡召回入口。
-                Button("试打说明", systemImage: "info.circle") {
-                    withAnimation(BTMotion.easeInOutChrome) { showBrief.toggle() }
-                }
-                .accessibilityIdentifier("tryout.info")
-            }
-            if !isTryout {
-                Button("重命名", systemImage: "pencil") {
-                    renameText = vm.sequence.name
-                    showRename = true
-                }
-            }
-            Section("显示") {
-                BTTableGridMenuToggle(scene: vm.scene)
-            }
-            if !isTryout {
-                Section {
-                    Button("清空桌面", systemImage: "trash", role: vm.isRecording ? .destructive : nil) {
-                        if vm.isRecording { showClearTableConfirm = true } else { vm.clearTable() }
+        BTSolverMoreMenu(
+            scene: vm.scene,
+            accessibilityId: "composer.more",
+            pageExtras: {
+                if isTryout {
+                    // Q19.2③：说明卡召回入口。
+                    Button("试打说明", systemImage: "info.circle") {
+                        withAnimation(BTMotion.easeInOutChrome) { showBrief.toggle() }
                     }
-                    Button("清空并重来", systemImage: "arrow.counterclockwise", role: .destructive) {
-                        showResetConfirm = true
+                    .accessibilityIdentifier("tryout.info")
+                }
+                if !isTryout {
+                    Button("重命名", systemImage: "pencil") {
+                        renameText = vm.sequence.name
+                        showRename = true
+                    }
+                    Section {
+                        Button("清空桌面", systemImage: "trash",
+                               role: vm.isRecording ? .destructive : nil) {
+                            if vm.isRecording { showClearTableConfirm = true } else { vm.clearTable() }
+                        }
+                        Button("清空并重来", systemImage: "arrow.counterclockwise", role: .destructive) {
+                            showResetConfirm = true
+                        }
                     }
                 }
             }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-        }
-        .accessibilityIdentifier("composer.more")
+        )
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {

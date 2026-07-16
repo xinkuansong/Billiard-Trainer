@@ -127,6 +127,7 @@
 		591FEC7AB7A8375389823325 /* AimLineGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED35C243B78D8E90E862B049 /* AimLineGeometryTests.swift */; };
 		592CDC2209CA8CBC4ADF593C /* BTDrillCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5744ECCE17A177B77E664309 /* BTDrillCard.swift */; };
 		5948C8C8083986091267C25A /* BallMotionState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19583A8AEAF689C82EA90E57 /* BallMotionState.swift */; };
+		5A39B626096684DD8AF7EAED /* W9b_ShotPagesMenuUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F55BD7A68C23916A6B1E90DB /* W9b_ShotPagesMenuUITests.swift */; };
 		5A7E5B590CE0C1D044318BD9 /* EngineNumerics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875E7F4BD682B761D7DABDE1 /* EngineNumerics.swift */; };
 		5A96C146323B16EB4DEF6C2B /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 735EF922FB756EE5E610B985 /* RootView.swift */; };
 		5B09608163B062D2A61F12B7 /* BankShotViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6961142D52258C5AE920509 /* BankShotViewModel.swift */; };
@@ -735,6 +736,7 @@
 		F267826CBDEB22DBBC035ECA /* BTButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTButton.swift; sourceTree = "<group>"; };
 		F33F1518CA1619BE7A980D01 /* BTTrajectoryDetailChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTTrajectoryDetailChip.swift; sourceTree = "<group>"; };
 		F3C9E2B9105608AF1B112215 /* PhysicsEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsEngineTests.swift; sourceTree = "<group>"; };
+		F55BD7A68C23916A6B1E90DB /* W9b_ShotPagesMenuUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = W9b_ShotPagesMenuUITests.swift; sourceTree = "<group>"; };
 		F5705C21097C9C342C47C44E /* PhysicsBenchmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsBenchmarkTests.swift; sourceTree = "<group>"; };
 		F82A4BECD815708CB993F99C /* CustomPlanBuilderViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomPlanBuilderViewModel.swift; sourceTree = "<group>"; };
 		F844989AC1B68AE2C5B7E963 /* BTPlanCover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPlanCover.swift; sourceTree = "<group>"; };
@@ -945,6 +947,7 @@
 				2237EC815E6A55EF5B10C9E4 /* W7_DailyLimitUITests.swift */,
 				FA395C40194328084F80DA66 /* W8_TrajectoryScreenshotUITests.swift */,
 				0CFE97406D905FF965BF638B /* W9a_ShotPagesLayoutUITests.swift */,
+				F55BD7A68C23916A6B1E90DB /* W9b_ShotPagesMenuUITests.swift */,
 				69FE82CBEA4462DDE91577FB /* W26ScreenshotUITests.swift */,
 				EEF8998476D17D8C97FBE08C /* W27ScreenshotUITests.swift */,
 				4A19B67AA9DF80B237CF6F90 /* W29ScreenshotUITests.swift */,
@@ -2016,6 +2019,7 @@
 				AD657BFBA2267171A303D747 /* W7_DailyLimitUITests.swift in Sources */,
 				4609FA1C48E77FAD2E63626E /* W8_TrajectoryScreenshotUITests.swift in Sources */,
 				A358CC955B3B1981E4329DFC /* W9a_ShotPagesLayoutUITests.swift in Sources */,
+				5A39B626096684DD8AF7EAED /* W9b_ShotPagesMenuUITests.swift in Sources */,
 				AF973F41ACF3F0B3CC3C9484 /* XCUIApplication+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

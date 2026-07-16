@@ -440,6 +440,10 @@ struct AimPointSceneTrainingView: View {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(title: is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
             }
+            // C31 / G25：有台面场景 → 三点入口至少网格开关。
+            ToolbarItem(placement: .topBarTrailing) {
+                BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+            }
         }
         .onAppear {
             if !hasAppeared {

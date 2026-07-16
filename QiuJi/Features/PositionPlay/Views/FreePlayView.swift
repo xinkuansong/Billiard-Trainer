@@ -426,10 +426,8 @@ struct FreePlayView: View {
     // MARK: - Toolbar menu
 
     private var moreMenu: some View {
-        Menu {
-            Section("显示") {
-                BTTableGridMenuToggle(scene: vm.scene)
-            }
+        // 页特有：对局中「结束对局」与「清空桌面」同 Section（G25 自由击打模板）。
+        BTSolverMoreMenu(scene: vm.scene, pageExtras: {
             Section {
                 if rules != nil {
                     Button("结束对局", systemImage: "flag.checkered") {
@@ -441,9 +439,7 @@ struct FreePlayView: View {
                     showClearTableConfirm = true
                 }
             }
-        } label: {
-            Image(systemName: "ellipsis.circle")
-        }
+        })
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {

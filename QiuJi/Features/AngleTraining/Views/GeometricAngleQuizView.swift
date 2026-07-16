@@ -18,32 +18,39 @@ struct GeometricAngleQuizView: View {
 
     // 暗色场景语言重做（ADR-P11-07）：黑底 + 顶部指标胶囊 + 右下 FAB，
     // 与 2D/3D 瞄准训练、角度与打点等场景页同一套设计。
+    // C31：本页无可配显示项（无 SCN 台面网格）→ 不并三点；重置统计保留独立 trailing。
     var body: some View {
-        ScrollView {
-            VStack(spacing: Spacing.lg) {
-                angleCanvas
-                    .frame(height: 320)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        ZStack {
+            ScrollView {
+                VStack(spacing: Spacing.lg) {
+                    angleCanvas
+                        .frame(height: 320)
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
 
-                actionChips
+                    actionChips
 
-                if vm.showResult {
-                    resultSection
-                        .transition(.opacity.combined(with: .move(edge: .bottom)))
-                } else if vm.limiter.isLimitReached {
-                    limitReachedCard
-                        .transition(.opacity)
+                    if vm.showResult {
+                        resultSection
+                            .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    } else if vm.limiter.isLimitReached {
+                        limitReachedCard
+                            .transition(.opacity)
+                    }
                 }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.xxl)
+                .animation(BTMotion.easeChrome, value: vm.showResult)
+                .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.xxl)
-            .animation(BTMotion.easeChrome, value: vm.showResult)
-            .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
+            .scrollBounceBehavior(.basedOnSize)
+            .background(Color.black.ignoresSafeArea())
+            .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
+
+            // C30：NumericKeypadHUD 与 SceneAiming 同构——全屏 ZStack 底浮层（不改内容高度）。
+            if isInputting, !vm.showResult, !vm.limiter.isLimitReached {
+                keypadOverlay
+            }
         }
-        .scrollBounceBehavior(.basedOnSize)
-        .background(Color.black.ignoresSafeArea())
-        .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
-        .safeAreaInset(edge: .bottom, spacing: 0) { keypadInset }
         .animation(BTMotion.easeChrome, value: isInputting)
         .navigationTitle("角度预测")
         .navigationBarTitleDisplayMode(.inline)
@@ -162,52 +169,29 @@ struct GeometricAngleQuizView: View {
         }
     }
 
-    // MARK: - 数字键盘 HUD（条 5：复用 2D 瞄准训练的 NumericKeypadHUD，无系统键盘遮挡）
+    // MARK: - 数字键盘 HUD（C30：与 SceneAiming 同构 ZStack 底浮层）
 
-    @ViewBuilder
-    private var keypadInset: some View {
-        if isInputting, !vm.showResult, !vm.limiter.isLimitReached {
-            NumericKeypadHUD(
-                input: $vm.userInput,
-                title: "估算角度",
-                subtitle: "范围 0° – 90°",
-                compact: true,   // P5.1：紧凑键盘，不遮挡「换题 / 显示参考」
-                onSubmit: {
-                    withAnimation(BTMotion.easeChrome) {
-                        isInputting = false
-                    }
-                    vm.submitAnswer()
-                },
-                onCancel: {
-                    vm.userInput = ""
-                    withAnimation(BTMotion.easeChrome) {
-                        isInputting = false
-                    }
+    private var keypadOverlay: some View {
+        NumericKeypadHUD(
+            input: $vm.userInput,
+            title: "估算角度",
+            subtitle: "范围 0° – 90°",
+            compact: true,   // P5.1：紧凑键盘，不遮挡「换题 / 显示参考」
+            onSubmit: {
+                withAnimation(BTMotion.easeChrome) {
+                    isInputting = false
                 }
-            )
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
-    }
-
-    /// 场景页主操作胶囊（SPEC §8.1：品牌绿实底胶囊，禁用常规页 BTButtonStyle.primary）。
-    /// 禁用态走 §1.7 状态语法：仪表玻璃底 + 文字 30%（治实拍禁用态难辨）。
-    private func sceneCapsuleButton(_ title: String, icon: String? = nil,
-                                    enabled: Bool = true,
-                                    action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if let icon { Image(systemName: icon).font(.system(size: 14, weight: .semibold)) }
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                vm.submitAnswer()
+            },
+            onCancel: {
+                vm.userInput = ""
+                withAnimation(BTMotion.easeChrome) {
+                    isInputting = false
+                }
             }
-            .foregroundStyle(enabled ? .white : .white.opacity(0.3))
-            .padding(.horizontal, Spacing.xl)
-            .padding(.vertical, 11)
-            .background(Capsule().fill(enabled ? Color.btPrimary : Color.white.opacity(0.08)))
-        }
-        // F-AK-01：场景绿胶囊轻量 press；禁 BTButtonStyle.primary。
-        .buttonStyle(BTPressableStyle.capsule)
-        .disabled(!enabled)
+        )
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     private func actionChip(icon: String, title: String, filled: Bool,
@@ -266,7 +250,9 @@ struct GeometricAngleQuizView: View {
             if vm.limiter.isLimitReached {
                 BTDailyLimitGate(compact: true) { showSubscription = true }
             } else {
-                sceneCapsuleButton("下一题") { vm.nextQuestion() }
+                BTTextActionButton(title: "下一题", role: .primary, width: 112) {
+                    vm.nextQuestion()
+                }
             }
 
             // 学↔练闭环（T-P18-51）：偏差较大 → 回看原理补课；随时可去真台把估角落地。

@@ -299,36 +299,147 @@ struct BTShotPageFramePreference: PreferenceKey {
 /// Migration alias for Bank/Diamond (and any leftover call sites). Prefer `BTShotPageFramePreference`.
 typealias SolverFramePreference = BTShotPageFramePreference
 
-/// 右上三点菜单（条 17.9，G19）：原理说明入口 + 台面网格 4×8 Toggle + 恢复默认。
-/// 替代原 `info.circle` 直接开原理 sheet 的入口。
-struct BTSolverMoreMenu: View {
+/// 右上三点菜单（G19 图标 + G25 内容模板）。
+///
+/// 固定顺序：原理说明（可选）→ Section「求解范围」（可选）→ Section「显示」网格
+/// → 页特有项（`pageExtras`）→ 清空桌面（可选）→ 恢复默认（可选）。
+///
+/// 三套模板用法：
+/// - **解球器**：`onPrinciple` + `onReset`（Bank/Diamond / `SolverStageChrome`）
+/// - **反解训练**：`solveRange` + `onClearTable` + `onReset`（Silu / PlanThree / Snooker）
+/// - **自由击打**：`pageExtras` ± `onClearTable`/`onReset`（Composer / FreePlay / ShotSim）
+struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
     let scene: AngleTrainingScene
-    let onPrinciple: () -> Void
-    let onReset: () -> Void
+    var onPrinciple: (() -> Void)? = nil
+    var onClearTable: (() -> Void)? = nil
+    var clearTableRole: ButtonRole? = nil
+    var onReset: (() -> Void)? = nil
+    var labelOpacity: Double = 0.9
+    var accessibilityId: String? = nil
+    @ViewBuilder var solveRange: () -> SolveRange
+    @ViewBuilder var pageExtras: () -> PageExtras
 
     var body: some View {
         Menu {
-            Section {
-                Button("原理说明", systemImage: "info.circle") { onPrinciple() }
+            if let onPrinciple {
+                Section {
+                    Button("原理说明", systemImage: "info.circle") { onPrinciple() }
+                }
+            }
+            if hasSolveRange {
+                Section("求解范围") { solveRange() }
             }
             Section("显示") {
                 BTTableGridMenuToggle(scene: scene)
             }
-            Section {
-                Button("恢复默认", systemImage: "arrow.counterclockwise") { onReset() }
+            pageExtras()
+            if onClearTable != nil || onReset != nil {
+                Section {
+                    if let onClearTable {
+                        Button("清空桌面", systemImage: "trash", role: clearTableRole) {
+                            onClearTable()
+                        }
+                    }
+                    if let onReset {
+                        Button("恢复默认", systemImage: "arrow.counterclockwise") {
+                            onReset()
+                        }
+                    }
+                }
             }
         } label: {
             Image(systemName: BTIcon.menuCircle)
-                .foregroundStyle(.white.opacity(0.9))
+                .foregroundStyle(.white.opacity(labelOpacity))
         }
         .accessibilityLabel("更多")
+        .modifier(OptionalAccessibilityIdentifier(accessibilityId))
+    }
+
+    /// `EmptyView` 不渲染「求解范围」Section（反解三页传 Toggle；其余默认空）。
+    private var hasSolveRange: Bool { !(SolveRange.self == EmptyView.self) }
+}
+
+extension BTSolverMoreMenu where SolveRange == EmptyView, PageExtras == EmptyView {
+    /// 解球器模板 / 仅显示网格（测验页）。
+    init(scene: AngleTrainingScene,
+         onPrinciple: (() -> Void)? = nil,
+         onReset: (() -> Void)? = nil,
+         labelOpacity: Double = 0.9,
+         accessibilityId: String? = nil) {
+        self.init(
+            scene: scene,
+            onPrinciple: onPrinciple,
+            onClearTable: nil,
+            clearTableRole: nil,
+            onReset: onReset,
+            labelOpacity: labelOpacity,
+            accessibilityId: accessibilityId,
+            solveRange: { EmptyView() },
+            pageExtras: { EmptyView() }
+        )
+    }
+}
+
+extension BTSolverMoreMenu where PageExtras == EmptyView {
+    /// 反解训练模板：求解范围 + 显示 + 清空/恢复默认。
+    init(scene: AngleTrainingScene,
+         onClearTable: (() -> Void)? = nil,
+         clearTableRole: ButtonRole? = nil,
+         onReset: (() -> Void)? = nil,
+         labelOpacity: Double = 0.9,
+         accessibilityId: String? = nil,
+         @ViewBuilder solveRange: @escaping () -> SolveRange) {
+        self.init(
+            scene: scene,
+            onPrinciple: nil,
+            onClearTable: onClearTable,
+            clearTableRole: clearTableRole,
+            onReset: onReset,
+            labelOpacity: labelOpacity,
+            accessibilityId: accessibilityId,
+            solveRange: solveRange,
+            pageExtras: { EmptyView() }
+        )
+    }
+}
+
+extension BTSolverMoreMenu where SolveRange == EmptyView {
+    /// 自由击打模板：显示 + 页特有 ± 清空/恢复默认。
+    init(scene: AngleTrainingScene,
+         onClearTable: (() -> Void)? = nil,
+         clearTableRole: ButtonRole? = nil,
+         onReset: (() -> Void)? = nil,
+         labelOpacity: Double = 0.9,
+         accessibilityId: String? = nil,
+         @ViewBuilder pageExtras: @escaping () -> PageExtras) {
+        self.init(
+            scene: scene,
+            onPrinciple: nil,
+            onClearTable: onClearTable,
+            clearTableRole: clearTableRole,
+            onReset: onReset,
+            labelOpacity: labelOpacity,
+            accessibilityId: accessibilityId,
+            solveRange: { EmptyView() },
+            pageExtras: pageExtras
+        )
+    }
+}
+
+/// Applies `accessibilityIdentifier` only when non-nil（避免空串污染 AX 树）。
+private struct OptionalAccessibilityIdentifier: ViewModifier {
+    let id: String?
+    init(_ id: String?) { self.id = id }
+    func body(content: Content) -> some View {
+        if let id { content.accessibilityIdentifier(id) }
+        else { content }
     }
 }
 
 // MARK: - 开球按钮（Slot L1 · 开球 / 禁用开球；条 18.3）
 //
-// D14：无开球页**不显示**禁用占位；仅可达开球宿主（FreePlay / Silu / PlanThree；
-// Composer 放开属 W9b）渲染本按钮。外形尺寸 = `ShotStageMetrics.breakButtonSize`。
+// D14：无开球页**不显示**禁用占位；可达开球宿主（FreePlay / Silu / PlanThree / Composer）
+// 渲染本按钮。外形尺寸 = `ShotStageMetrics.breakButtonSize`。
 
 struct BTBreakSideButton: View {
     var isEnabled: Bool
