@@ -524,10 +524,7 @@ extension PlanThreeViewModel {
     /// 点击球库中已在桌的球 → 桌上对应球放大脉冲提示位置。
     func pulseTableBall(_ key: String) {
         guard !isPlaying, let node = scene.allBallNodes[key], !node.isHidden else { return }
-        node.removeAction(forKey: "libraryPulse")
-        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
-        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
-        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
+        TableBallPulse.pulse(node)
     }
 
     // MARK: Constraint drawing
@@ -757,16 +754,16 @@ extension PlanThreeViewModel {
 
     private func drawRoleRing(_ key: String?, color: UIColor) {
         guard let key, let n = scene.allBallNodes[key], !n.isHidden else { return }
-        strokeCircle(center: n.position, radius: AngleSceneCalculator.ballRadius * 1.75,
-                     color: color.withAlphaComponent(0.95), into: &selectionNodes)
+        SceneStroke.strokeCircle(center: n.position, radius: AngleSceneCalculator.ballRadius * 1.75,
+                                 color: color.withAlphaComponent(0.95), scene: scene, into: &selectionNodes)
     }
 
     private func drawPocketRing(_ index: Int, color: UIColor) {
         guard index >= 0 else { return }
         let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
         guard pockets.indices.contains(index) else { return }
-        strokeCircle(center: pockets[index], radius: AngleSceneCalculator.ballRadius * 2.2,
-                     color: color.withAlphaComponent(0.9), into: &selectionNodes)
+        SceneStroke.strokeCircle(center: pockets[index], radius: AngleSceneCalculator.ballRadius * 2.2,
+                                 color: color.withAlphaComponent(0.9), scene: scene, into: &selectionNodes)
     }
 
     /// ② 停球扇形引导（无③ → 两侧；有③ → 收缩到朝③那侧）。
@@ -862,34 +859,20 @@ extension PlanThreeViewModel {
     func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
-        // 线语言 v2（条 12）+ 三档标注（条 12.5）：母球碰前白实线 + 碰后白虚线；
-        // 目标球/被带动球本色虚线。
-        let detail = UserPreferences.shared.trajectoryDetail
-        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
-                               into: &trajectoryNodes)
-        if detail != .minimal {
-            var objPath = p.objectPath
-            if p.objectPocketed, let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
-                objPath = PositionPlayShotSolver.extendPathToPocketRim(objPath, pocketIndex: pocketIndex, surfaceY: surfaceY)
-            }
-            scene.addObjectTrajectory(objPath, ballKey: shot.targetKey, into: &trajectoryNodes)
-        }
-        if detail == .full {
-            for (key, pts) in p.extraBallPaths {
-                scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
-            }
-        }
-        if let ghost = scene.ghostBallNode {
-            ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
-            ghost.isHidden = false
-            // 重叠标注 L0（T-P18-42）：假想球圈 + 接触点绿点成对出现。
-            if let target = scene.allBallNodes[shot.targetKey], !target.isHidden {
-                scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target.position)
-            }
-        }
-        if UserPreferences.shared.showSeparationAngle {
-            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
-        }
+        // 全量口径（C3 / D2）：与 Composer/Silu 同 options。
+        TrajectoryRenderer.draw(
+            prediction: p,
+            options: .positionPlay,
+            context: .init(
+                prediction: p,
+                targetKey: shot.targetKey,
+                pocket: shot.pocket,
+                surfaceY: surfaceY,
+                showGhost: true
+            ),
+            scene: scene,
+            into: &trajectoryNodes
+        )
     }
 
     func clearTrajectory() {
@@ -901,37 +884,44 @@ extension PlanThreeViewModel {
 
     func renderConstraint() {
         clearConstraintNodes()
-        let color = UIColor(red: 0.2, green: 0.85, blue: 0.95, alpha: 0.95)
+        let color = BTScenePalette.constraintCyan
         let y = surfaceY + 0.002
         switch draft {
         case .region(let region):
             switch region {
             case let .circle(center, radius):
                 let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: center.x, y: center.y), surfaceY: y)
-                strokeCircle(center: c, radius: Float(radius) * SolveRegion.sceneScale, color: color, into: &constraintNodes)
+                SceneStroke.strokeCircle(center: c, radius: Float(radius) * SolveRegion.sceneScale,
+                                         color: color, scene: scene, into: &constraintNodes)
             case let .rect(center, hw, hh):
                 let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: center.x, y: center.y), surfaceY: y)
-                strokeRect(center: c, halfX: Float(hw) * SolveRegion.sceneScale,
-                           halfZ: Float(hh) * SolveRegion.sceneScale, color: color, into: &constraintNodes)
+                SceneStroke.strokeRect(center: c, halfX: Float(hw) * SolveRegion.sceneScale,
+                                       halfZ: Float(hh) * SolveRegion.sceneScale, color: color,
+                                       scene: scene, into: &constraintNodes)
             case let .point(center, tol):
                 let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: center.x, y: center.y), surfaceY: y)
-                strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale, color: color, into: &constraintNodes)
+                SceneStroke.strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale,
+                                         color: color, scene: scene, into: &constraintNodes)
             case .sector:
                 // 扇形默认落区由 `renderSelection`/`addSector` 画，不进 draft；此处仅穷尽分支。
                 break
             }
         case .passPoint(let pt):
             let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
-            strokeCircle(center: c, radius: AngleSceneCalculator.ballRadius, color: color, into: &constraintNodes)
+            SceneStroke.strokeCircle(center: c, radius: AngleSceneCalculator.ballRadius,
+                                     color: color, scene: scene, into: &constraintNodes)
             let r = AngleSceneCalculator.ballRadius * 1.6
             constraintNodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
-                                                  to: SCNVector3(c.x + r, c.y, c.z), color: color, radius: 0.0022))
+                                                  to: SCNVector3(c.x + r, c.y, c.z), color: color,
+                                                  radius: SceneStroke.lineRadius))
             constraintNodes.append(scene.addLine(from: SCNVector3(c.x, c.y, c.z - r),
-                                                  to: SCNVector3(c.x, c.y, c.z + r), color: color, radius: 0.0022))
+                                                  to: SCNVector3(c.x, c.y, c.z + r), color: color,
+                                                  radius: SceneStroke.lineRadius))
         case .restPoint(let pt):
             let amber = UIColor(red: 1.0, green: 0.78, blue: 0.28, alpha: 0.95)
             let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
-            strokeCircle(center: c, radius: Float(pointTolerance) * SolveRegion.sceneScale, color: amber, into: &constraintNodes)
+            SceneStroke.strokeCircle(center: c, radius: Float(pointTolerance) * SolveRegion.sceneScale,
+                                     color: amber, scene: scene, into: &constraintNodes)
             let r = AngleSceneCalculator.ballRadius * 1.4
             constraintNodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
                                                   to: SCNVector3(c.x + r, c.y, c.z), color: amber, radius: 0.0024))
@@ -939,28 +929,6 @@ extension PlanThreeViewModel {
                                                   to: SCNVector3(c.x, c.y, c.z + r), color: amber, radius: 0.0024))
         case nil:
             break
-        }
-    }
-
-    private func strokeCircle(center: SCNVector3, radius: Float, color: UIColor, into nodes: inout [SCNNode]) {
-        let segments = 36
-        var prev: SCNVector3?
-        for i in 0...segments {
-            let a = Float(i) / Float(segments) * 2 * .pi
-            let p = SCNVector3(center.x + radius * cosf(a), center.y, center.z + radius * sinf(a))
-            if let pr = prev { nodes.append(scene.addLine(from: pr, to: p, color: color, radius: 0.0022)) }
-            prev = p
-        }
-    }
-
-    private func strokeRect(center: SCNVector3, halfX: Float, halfZ: Float, color: UIColor, into nodes: inout [SCNNode]) {
-        let c = center
-        let corners = [
-            SCNVector3(c.x - halfX, c.y, c.z - halfZ), SCNVector3(c.x + halfX, c.y, c.z - halfZ),
-            SCNVector3(c.x + halfX, c.y, c.z + halfZ), SCNVector3(c.x - halfX, c.y, c.z + halfZ)
-        ]
-        for i in 0..<4 {
-            nodes.append(scene.addLine(from: corners[i], to: corners[(i + 1) % 4], color: color, radius: 0.0022))
         }
     }
 
@@ -1083,7 +1051,7 @@ extension PlanThreeViewModel {
                     cushionCount: pred.cueCushionCount,
                     potted: pred.simObjectPotted,
                     margin: sol.margin,
-                    summary: "微调 · " + SiluSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
+                    summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
                     satisfiesConstraint: sol.satisfiesConstraint,
                     beyondCushionBudget: sol.beyondCushionBudget,

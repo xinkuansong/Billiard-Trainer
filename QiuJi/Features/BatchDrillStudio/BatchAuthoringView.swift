@@ -194,33 +194,38 @@ final class BatchShotSolver: ObservableObject {
 
     private func renderConstraint(scene: AngleTrainingScene, surfaceY: Float) {
         clearConstraintNodes(scene: scene)
-        let cyan = UIColor(red: 0.2, green: 0.85, blue: 0.95, alpha: 0.95)
+        let cyan = BTScenePalette.constraintCyan
         let amber = UIColor(red: 1.0, green: 0.78, blue: 0.28, alpha: 0.95)
         let y = surfaceY + 0.002
         switch draft {
         case .region(let region):
             switch region {
             case let .circle(center, radius):
-                strokeCircle(center: scenePoint(center, y: y), radius: Float(radius) * SolveRegion.sceneScale,
-                             color: cyan, scene: scene)
+                SceneStroke.strokeCircle(center: scenePoint(center, y: y),
+                                         radius: Float(radius) * SolveRegion.sceneScale,
+                                         color: cyan, scene: scene, into: &constraintNodes)
             case let .rect(center, hw, hh):
-                strokeRect(center: scenePoint(center, y: y),
-                           halfX: Float(hw) * SolveRegion.sceneScale,
-                           halfZ: Float(hh) * SolveRegion.sceneScale, color: cyan, scene: scene)
+                SceneStroke.strokeRect(center: scenePoint(center, y: y),
+                                       halfX: Float(hw) * SolveRegion.sceneScale,
+                                       halfZ: Float(hh) * SolveRegion.sceneScale,
+                                       color: cyan, scene: scene, into: &constraintNodes)
             case let .point(center, tol):
-                strokeCircle(center: scenePoint(center, y: y), radius: Float(tol) * SolveRegion.sceneScale,
-                             color: cyan, scene: scene)
+                SceneStroke.strokeCircle(center: scenePoint(center, y: y),
+                                         radius: Float(tol) * SolveRegion.sceneScale,
+                                         color: cyan, scene: scene, into: &constraintNodes)
             case .sector:
                 // 批量台 draft 不进 sector；穷尽分支。
                 break
             }
         case .restPoint(let pt):
             let c = scenePoint(pt, y: y)
-            strokeCircle(center: c, radius: Float(pointTolerance) * SolveRegion.sceneScale, color: amber, scene: scene)
+            SceneStroke.strokeCircle(center: c, radius: Float(pointTolerance) * SolveRegion.sceneScale,
+                                     color: amber, scene: scene, into: &constraintNodes)
             strokeCross(center: c, arm: AngleSceneCalculator.ballRadius * 1.4, color: amber, scene: scene)
         case .passPoint(let pt):
             let c = scenePoint(pt, y: y)
-            strokeCircle(center: c, radius: AngleSceneCalculator.ballRadius, color: cyan, scene: scene)
+            SceneStroke.strokeCircle(center: c, radius: AngleSceneCalculator.ballRadius,
+                                     color: cyan, scene: scene, into: &constraintNodes)
             strokeCross(center: c, arm: AngleSceneCalculator.ballRadius * 1.6, color: cyan, scene: scene)
         case nil:
             break
@@ -229,27 +234,6 @@ final class BatchShotSolver: ObservableObject {
 
     private func scenePoint(_ p: CanvasPoint, y: Float) -> SCNVector3 {
         AngleSceneCalculator.normalizedToScene(point: CGPoint(x: p.x, y: p.y), surfaceY: y)
-    }
-
-    private func strokeCircle(center: SCNVector3, radius: Float, color: UIColor, scene: AngleTrainingScene) {
-        let segments = 36
-        var prev: SCNVector3?
-        for i in 0...segments {
-            let a = Float(i) / Float(segments) * 2 * .pi
-            let p = SCNVector3(center.x + radius * cosf(a), center.y, center.z + radius * sinf(a))
-            if let pr = prev { constraintNodes.append(scene.addLine(from: pr, to: p, color: color, radius: 0.0022)) }
-            prev = p
-        }
-    }
-
-    private func strokeRect(center c: SCNVector3, halfX: Float, halfZ: Float, color: UIColor, scene: AngleTrainingScene) {
-        let corners = [
-            SCNVector3(c.x - halfX, c.y, c.z - halfZ), SCNVector3(c.x + halfX, c.y, c.z - halfZ),
-            SCNVector3(c.x + halfX, c.y, c.z + halfZ), SCNVector3(c.x - halfX, c.y, c.z + halfZ)
-        ]
-        for i in 0..<4 {
-            constraintNodes.append(scene.addLine(from: corners[i], to: corners[(i + 1) % 4], color: color, radius: 0.0022))
-        }
     }
 
     private func strokeCross(center c: SCNVector3, arm r: Float, color: UIColor, scene: AngleTrainingScene) {

@@ -505,7 +505,7 @@ final class SiluTrainerViewModel: ObservableObject {
                     cushionCount: pred.cueCushionCount,
                     potted: pred.simObjectPotted,
                     margin: sol.margin,
-                    summary: "微调 · " + SiluSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
+                    summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
                     satisfiesConstraint: sol.satisfiesConstraint,
                     beyondCushionBudget: sol.beyondCushionBudget,
@@ -552,34 +552,20 @@ final class SiluTrainerViewModel: ObservableObject {
     private func drawTrajectory(_ p: ShotPrediction, shot: PlannedShot) {
         clearTrajectory()
         guard p.feasible else { scene.hideCueStick(); return }
-        // 线语言 v2（条 12）+ 三档标注（条 12.5）：母球碰前白实线 + 碰后白虚线；
-        // 目标球/被带动球本色虚线。
-        let detail = UserPreferences.shared.trajectoryDetail
-        scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail,
-                               into: &trajectoryNodes)
-        if detail != .minimal {
-            var objPath = p.objectPath
-            if p.objectPocketed, let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
-                objPath = PositionPlayShotSolver.extendPathToPocketRim(objPath, pocketIndex: pocketIndex, surfaceY: surfaceY)
-            }
-            scene.addObjectTrajectory(objPath, ballKey: shot.targetKey, into: &trajectoryNodes)
-        }
-        if detail == .full {
-            for (key, pts) in p.extraBallPaths {
-                scene.addObjectTrajectory(pts, ballKey: key, into: &trajectoryNodes)
-            }
-        }
-        if let ghost = scene.ghostBallNode {
-            ghost.position = SCNVector3(p.ghost.x, surfaceY + AngleSceneCalculator.ballRadius, p.ghost.z)
-            ghost.isHidden = false
-            // 重叠标注 L0（T-P18-42）：假想球圈 + 接触点绿点成对出现。
-            if let target = scene.allBallNodes[shot.targetKey], !target.isHidden {
-                scene.updateContactDot(ghostCenter: ghost.position, targetCenter: target.position)
-            }
-        }
-        if UserPreferences.shared.showSeparationAngle {
-            scene.addSeparationAngleLine(for: p, into: &trajectoryNodes)
-        }
+        // 全量口径（C3 / D2）：与 Composer/PlanThree 同 options。
+        TrajectoryRenderer.draw(
+            prediction: p,
+            options: .positionPlay,
+            context: .init(
+                prediction: p,
+                targetKey: shot.targetKey,
+                pocket: shot.pocket,
+                surfaceY: surfaceY,
+                showGhost: true
+            ),
+            scene: scene,
+            into: &trajectoryNodes
+        )
     }
 
     private func clearTrajectory() {
@@ -590,16 +576,13 @@ final class SiluTrainerViewModel: ObservableObject {
     /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲提示位置（#5a）。
     func pulseTableBall(_ key: String) {
         guard !isPlaying, let node = scene.allBallNodes[key], !node.isHidden else { return }
-        node.removeAction(forKey: "libraryPulse")
-        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
-        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
-        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
+        TableBallPulse.pulse(node)
     }
 
     /// 落区 / 过点叠加（青色，与轨迹区分）。
     private func renderConstraint() {
         clearConstraintNodes()
-        let color = UIColor(red: 0.2, green: 0.85, blue: 0.95, alpha: 0.95)
+        let color = BTScenePalette.constraintCyan
         let y = surfaceY + 0.002
         switch draft {
         case .region(let region):
@@ -607,39 +590,43 @@ final class SiluTrainerViewModel: ObservableObject {
             case let .circle(center, radius):
                 let c = AngleSceneCalculator.normalizedToScene(
                     point: CGPoint(x: center.x, y: center.y), surfaceY: y)
-                strokeCircle(center: c, radius: Float(radius) * SolveRegion.sceneScale,
-                             color: color, into: &constraintNodes)
+                SceneStroke.strokeCircle(center: c, radius: Float(radius) * SolveRegion.sceneScale,
+                                         color: color, scene: scene, into: &constraintNodes)
             case let .rect(center, hw, hh):
                 let c = AngleSceneCalculator.normalizedToScene(
                     point: CGPoint(x: center.x, y: center.y), surfaceY: y)
                 let dx = Float(hw) * SolveRegion.sceneScale
                 let dz = Float(hh) * SolveRegion.sceneScale
-                strokeRect(center: c, halfX: dx, halfZ: dz, color: color, into: &constraintNodes)
+                SceneStroke.strokeRect(center: c, halfX: dx, halfZ: dz, color: color,
+                                       scene: scene, into: &constraintNodes)
             case let .point(center, tol):
                 // 落区 draft 一般不携带 .point（落点走 .restPoint 草稿），此处兜底渲染容差环。
                 let c = AngleSceneCalculator.normalizedToScene(
                     point: CGPoint(x: center.x, y: center.y), surfaceY: y)
-                strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale,
-                             color: color, into: &constraintNodes)
+                SceneStroke.strokeCircle(center: c, radius: Float(tol) * SolveRegion.sceneScale,
+                                         color: color, scene: scene, into: &constraintNodes)
             case .sector:
                 // 扇形仅打三页默认落区，由页内独立路径渲染；思路训练 draft 不进 sector。
                 break
             }
         case .passPoint(let pt):
             let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
-            strokeCircle(center: c, radius: AngleSceneCalculator.ballRadius, color: color, into: &constraintNodes)
+            SceneStroke.strokeCircle(center: c, radius: AngleSceneCalculator.ballRadius,
+                                     color: color, scene: scene, into: &constraintNodes)
             // 十字标记。
             let r = AngleSceneCalculator.ballRadius * 1.6
             constraintNodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
-                                                  to: SCNVector3(c.x + r, c.y, c.z), color: color, radius: 0.0022))
+                                                  to: SCNVector3(c.x + r, c.y, c.z), color: color,
+                                                  radius: SceneStroke.lineRadius))
             constraintNodes.append(scene.addLine(from: SCNVector3(c.x, c.y, c.z - r),
-                                                  to: SCNVector3(c.x, c.y, c.z + r), color: color, radius: 0.0022))
+                                                  to: SCNVector3(c.x, c.y, c.z + r), color: color,
+                                                  radius: SceneStroke.lineRadius))
         case .restPoint(let pt):
             // 落点：琥珀色十字（目标点）+ 容差环（命中半径），与青色落区/过点区分。
             let amber = UIColor(red: 1.0, green: 0.78, blue: 0.28, alpha: 0.95)
             let c = AngleSceneCalculator.normalizedToScene(point: CGPoint(x: pt.x, y: pt.y), surfaceY: y)
-            strokeCircle(center: c, radius: Float(pointTolerance) * SolveRegion.sceneScale,
-                         color: amber, into: &constraintNodes)
+            SceneStroke.strokeCircle(center: c, radius: Float(pointTolerance) * SolveRegion.sceneScale,
+                                     color: amber, scene: scene, into: &constraintNodes)
             let r = AngleSceneCalculator.ballRadius * 1.4
             constraintNodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
                                                   to: SCNVector3(c.x + r, c.y, c.z), color: amber, radius: 0.0024))
@@ -647,28 +634,6 @@ final class SiluTrainerViewModel: ObservableObject {
                                                   to: SCNVector3(c.x, c.y, c.z + r), color: amber, radius: 0.0024))
         case nil:
             break
-        }
-    }
-
-    private func strokeCircle(center: SCNVector3, radius: Float, color: UIColor, into nodes: inout [SCNNode]) {
-        let segments = 36
-        var prev: SCNVector3?
-        for i in 0...segments {
-            let a = Float(i) / Float(segments) * 2 * .pi
-            let p = SCNVector3(center.x + radius * cosf(a), center.y, center.z + radius * sinf(a))
-            if let pr = prev { nodes.append(scene.addLine(from: pr, to: p, color: color, radius: 0.0022)) }
-            prev = p
-        }
-    }
-
-    private func strokeRect(center: SCNVector3, halfX: Float, halfZ: Float, color: UIColor, into nodes: inout [SCNNode]) {
-        let c = center
-        let corners = [
-            SCNVector3(c.x - halfX, c.y, c.z - halfZ), SCNVector3(c.x + halfX, c.y, c.z - halfZ),
-            SCNVector3(c.x + halfX, c.y, c.z + halfZ), SCNVector3(c.x - halfX, c.y, c.z + halfZ)
-        ]
-        for i in 0..<4 {
-            nodes.append(scene.addLine(from: corners[i], to: corners[(i + 1) % 4], color: color, radius: 0.0022))
         }
     }
 
@@ -991,39 +956,13 @@ final class SiluTrainerViewModel: ObservableObject {
             : "已击打 · 母球停在终点，可继续画约束再求解"
     }
 
-    // MARK: - Export (单步序列送生产管线，模拟器限定)
-
-    /// 把当前解组装成单步走位序列。nil = 无可导出解。
-    func makeExportSequence() -> PositionPlaySequence? {
-        guard let sol = currentSolution, sol.prediction.feasible else { return nil }
-        let before = currentSnapshot()
-        let potted = Set(sol.prediction.pocketedBalls.map { boardKey(forPredName: $0, shot: sol.shot) })
-        var afterDict: [String: CanvasPoint] = [:]
-        for key in before.onTable.keys where !potted.contains(key) {
-            let predN = PositionPlayShotSolver.predName(boardKey: key, shot: sol.shot)
-            if let p = sol.prediction.finalPositions[predN] {
-                let n = AngleSceneCalculator.sceneToNormalized(position: p)
-                afterDict[key] = CanvasPoint(x: Double(n.x), y: Double(n.y))
-            } else {
-                afterDict[key] = before.onTable[key]
-            }
-        }
-        let step = SequenceStep(
-            before: before, shot: sol.shot, after: BoardSnapshot(onTable: afterDict),
-            potted: Array(potted), cuePocketed: sol.prediction.cuePocketed,
-            objectPocketed: sol.prediction.objectPocketed,
-            note: sol.summary)
-        return PositionPlaySequence(name: "思路训练-\(PositionPlayBall.shortLabel(for: sol.shot.targetKey))号",
-                                    initial: before, steps: [step])
-    }
+    // MARK: - Reset
 
     private func boardKey(forPredName name: String, shot: PlannedShot) -> String {
         if name == ShotInput.cueBallName { return PositionPlayBall.cueKey }
         if name == ShotInput.targetBallName { return shot.targetKey }
         return name
     }
-
-    // MARK: - Reset
 
     func clearTable() {
         guard !isPlaying else { return }

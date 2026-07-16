@@ -270,10 +270,7 @@ final class BallExtractionViewModel: ObservableObject {
     /// 点击球库中「已在桌上」的球时，对应桌上球做一次放大→恢复脉冲提示位置（#5a）。
     func pulseTableBall(_ key: String) {
         guard let node = scene.allBallNodes[key], !node.isHidden else { return }
-        node.removeAction(forKey: "libraryPulse")
-        let up = SCNAction.scale(to: 1.7, duration: 0.18); up.timingMode = .easeOut
-        let down = SCNAction.scale(to: 1.0, duration: 0.24); down.timingMode = .easeIn
-        node.runAction(SCNAction.sequence([up, down]), forKey: "libraryPulse")
+        TableBallPulse.pulse(node)
     }
 
     /// 选中球的绿色选中环，跟随球位。
