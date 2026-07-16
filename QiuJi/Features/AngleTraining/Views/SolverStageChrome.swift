@@ -100,8 +100,6 @@ struct PrincipleInfoSheet: View {
 
 /// File-level constants (generic `SolverStageChrome` cannot hold static stored properties).
 private enum SolverStageChromeMetrics {
-    /// 球库列数（条 17.8：全 16 球位 = 2 行 × 8 列；G8 排球总宽 = 球桌宽）。
-    static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     static let topRowHeight = ShotStageMetrics.topRowHeight
     static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
@@ -153,7 +151,9 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                     bottomBar(proxy)
                         .frame(height: SolverStageChromeMetrics.bottomBarHeight)
                 }
-                if let key = draggingKey { dragGhost(key) }
+                if let key = draggingKey {
+                    BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+                }
             }
         }
         .coordinateSpace(name: coordinateSpaceName)
@@ -381,96 +381,47 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         .clipped()
     }
 
-    // MARK: - Bottom bar（球库带：拖入 = 障碍球真实碰撞体，编排台同款交互；W4 组件未接入，原样搬入）
+    // MARK: - Bottom bar（球库带：拖入 = 障碍球真实碰撞体；G21 BTBallPaletteBar）
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        // 条 17.8：球库含全 16 球位（母球 / 黑 8 固定在桌 → 球库位灰显）。
-        let keys = PositionPlayBall.allKeys
-        let row1 = Array(keys.prefix(SolverStageChromeMetrics.paletteColumns))
-        let row2 = Array(keys.dropFirst(SolverStageChromeMetrics.paletteColumns))
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
-        let columnWidth = max(libraryWidth / CGFloat(SolverStageChromeMetrics.paletteColumns), 1)
-        return VStack(spacing: 3) {
-            paletteRow(row1, columnWidth: columnWidth)
-            paletteRow(row2, columnWidth: columnWidth)
-        }
+        return BTBallPaletteBar(
+            coordinateSpace: coordinateSpaceName,
+            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            isPlaying: vm.isPlaying,
+            libraryWidth: libraryWidth,
+            isOnTable: { key in
+                SolverStageChromeMetrics.isFixedBall(key) || vm.onTableObstacleKeys.contains(key)
+            },
+            allowsDrag: { key in
+                !SolverStageChromeMetrics.isFixedBall(key) && !vm.onTableObstacleKeys.contains(key)
+            },
+            sceneFrame: sceneFrame,
+            unproject: { projector.unproject?($0) },
+            onTap: { key in
+                if SolverStageChromeMetrics.isFixedBall(key) { vm.pulsePaletteBall(key) }
+                else if vm.onTableObstacleKeys.contains(key) { vm.pulseTableBall(key) }
+                else { vm.placeObstacle(key, atWorld: nil) }
+            },
+            onPlace: { key, world in vm.placeObstacle(key, atWorld: world) },
+            draggingKey: $draggingKey,
+            dragLocation: $dragLocation,
+            dragOverTable: $dragOverTable
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(HUDStyle.panelBackground)
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .background(frameReader(id: "palette"))
         .environment(\.colorScheme, .dark)
-        .disabled(vm.isPlaying)          // 演示中锁球库（W5）。
+        .disabled(vm.isPlaying)
         .opacity(vm.isPlaying ? 0.55 : 1)
-    }
-
-    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            ForEach(0..<SolverStageChromeMetrics.paletteColumns, id: \.self) { i in
-                Group {
-                    if i < keys.count {
-                        ballToken(keys[i])
-                    } else {
-                        Color.clear
-                    }
-                }
-                .frame(width: columnWidth, height: 38)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func ballToken(_ key: String) -> some View {
-        // 母球 / 黑 8 = 固定在桌（灰显、不可拖、点击脉冲）；障碍球 = 现行增删（条 17.8）。
-        let onTable = SolverStageChromeMetrics.isFixedBall(key) || vm.onTableObstacleKeys.contains(key)
-        return PoolBallFace(key: key, diameter: 36)
-            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
-            .frame(width: 38, height: 38)
-            .contentShape(Circle())
-            .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
-            .accessibilityIdentifier("paletteBall_\(key)")
-            .onTapGesture {
-                if SolverStageChromeMetrics.isFixedBall(key) { vm.pulsePaletteBall(key) }
-                else if vm.onTableObstacleKeys.contains(key) { vm.pulseTableBall(key) }
-                else { vm.placeObstacle(key, atWorld: nil) }
-            }
-            .gesture(paletteDrag(key), including: onTable ? .subviews : .all)
-    }
-
-    private func paletteDrag(_ key: String) -> some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .named(coordinateSpaceName))
-            .onChanged { value in
-                draggingKey = key
-                dragLocation = value.location
-                dragOverTable = sceneFrame.contains(value.location)
-            }
-            .onEnded { value in
-                let loc = value.location
-                defer { draggingKey = nil; dragOverTable = false }
-                guard sceneFrame.contains(loc) else { return }
-                let local = CGPoint(x: loc.x - sceneFrame.minX, y: loc.y - sceneFrame.minY)
-                if let world = projector.unproject?(local) {
-                    vm.placeObstacle(key, atWorld: world)
-                } else {
-                    vm.placeObstacle(key, atWorld: nil)
-                }
-            }
-    }
-
-    @ViewBuilder
-    private func dragGhost(_ key: String) -> some View {
-        PoolBallFace(key: key, diameter: 42)
-            .overlay(Circle().stroke(dragOverTable ? Color.btSuccess : .white.opacity(0.4),
-                                     lineWidth: dragOverTable ? 2.5 : 1))
-            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-            .position(dragLocation)
-            .allowsHitTesting(false)
     }
 
     // 在桌障碍球拖回球库带 → 移除（编排台同款）。
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
-        guard sceneFrame != .zero, paletteFrame != .zero else { return }
-        let point = CGPoint(x: localPoint.x + sceneFrame.minX, y: localPoint.y + sceneFrame.minY)
-        guard paletteFrame.contains(point),
+        guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
+                                               sceneFrame: sceneFrame,
+                                               paletteFrame: paletteFrame),
               let key = vm.scene.ballKey(for: node),
               vm.onTableObstacleKeys.contains(key) else { return }
         vm.removeObstacle(key)

@@ -28,7 +28,6 @@ struct FreePlayView: View {
     @State private var scoreboardText = ""
     @State private var currentPlayerLabel = ""
 
-    private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight = ShotStageMetrics.topRowHeight
     private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
@@ -409,49 +408,19 @@ struct FreePlayView: View {
         !vm.isPlaying && !vm.isComputing && vm.isFeasible
     }
 
-    // MARK: - Palette bar（G8：排球总宽 = 球桌宽、居中；P10.1：只读参考，禁止摆球）
+    // MARK: - Palette bar（G8 + G21：BTReferenceBallPalette；P10.1 只读参考）
 
     private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let all = PositionPlayBall.allKeys
-        let row1 = Array(all.prefix(Self.paletteColumns))
-        let row2 = Array(all.dropFirst(Self.paletteColumns))
-        // G8：排球总宽 = 球桌宽——固定列宽求和 = 球桌宽，居中，两侧留白给按键让位。
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
-        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
-        return VStack(spacing: 3) {
-            paletteRow(row1, columnWidth: columnWidth)
-            paletteRow(row2, columnWidth: columnWidth)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            ForEach(0..<Self.paletteColumns, id: \.self) { i in
-                Group {
-                    if i < keys.count {
-                        ballToken(keys[i])
-                    } else {
-                        Color.clear
-                    }
-                }
-                .frame(width: columnWidth, height: 38)
-            }
-        }
-    }
-
-    /// P10.1：本页禁止手动摆球——球库仅作剩余球参考，点击提示「开球后自动摆球」。
-    private func ballToken(_ key: String) -> some View {
-        let onTable = vm.onTableKeys.contains(key)
-        return PoolBallFace(key: key, diameter: 34)
-            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
-            .frame(width: 36, height: 36)
-            .contentShape(Circle())
-            .opacity(onTable ? 0.28 : 0.85)
-            .onTapGesture {
+        return BTReferenceBallPalette(
+            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            libraryWidth: libraryWidth,
+            isOnTable: { vm.onTableKeys.contains($0) },
+            onTap: { key, onTable in
                 if onTable { vm.pulseTableBall(key) }
                 else { flash("本页从开球开始，不支持手动摆球") }
             }
+        )
     }
 
     // MARK: - Toolbar menu

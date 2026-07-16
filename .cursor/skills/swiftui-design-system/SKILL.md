@@ -489,6 +489,59 @@ BTEmptyState(
 | `BTArcSeparator` | `Features/Training/Views/PlanDetailView.swift` | DR-013 | 台球母题章节分隔（金色弧 + 母球） |
 | `BTPlanWeekTimeline` | `Core/Components/BTPlanWeekTimeline.swift` | DR-013 | 横向 N 点周进度条（四态 + 虚线连接 + Premium 锁） |
 | `BTPhaseTimeline` | `Core/Components/BTPhaseTimeline.swift` | DR-013 | 纵向阶段时间线（虚线 + 染色圆点） |
+| `BTBallPaletteBar` | `Core/Components/BTBallPaletteBar.swift` | G21 / W4 | 交互球库（拖拽幽灵 / 拖回删球回调 / pulse·place）；姊妹 `BTDecorativeBallPalette` / `BTReferenceBallPalette` |
+
+---
+
+## 十三·附、BTBallPaletteBar API（G21 / v7 W4）
+
+```swift
+// 两档球径（D7）：紧凑 30 / 常规 36（默认）
+BTBallPaletteMetrics.compactDiameter  // 30
+BTBallPaletteMetrics.regularDiameter  // 36
+BTBallPaletteMetrics.ghostDiameter    // 42
+BTBallPaletteMetrics.dragMinimumDistance // 10
+BTBallPaletteMetrics.rowSpacing       // 3
+
+// 交互球库（Composer / Silu / PlanThree / Snooker / ShotSim / Solver / BatchAuthoring）
+BTBallPaletteBar(
+    coordinateSpace: "composer",
+    ballDiameter: BTBallPaletteMetrics.regularDiameter, // 默认 36
+    isPlaying: vm.isPlaying,
+    libraryWidth: proxy.libraryWidth,
+    isOnTable: { vm.onTableKeys.contains($0) },
+    allowsDrag: nil, // 默认 !isOnTable；Solver 可覆盖固定球
+    sceneFrame: sceneFrame,
+    unproject: { projector.unproject?($0) },
+    onTap: { key in /* pulse / place */ },
+    onPlace: { key, world in /* place at world or default */ },
+    onDragInteraction: { /* 可选：关说明卡 */ },
+    draggingKey: $draggingKey,
+    dragLocation: $dragLocation,
+    dragOverTable: $dragOverTable
+)
+
+// ZStack 幽灵（与球库同 coordinateSpace）
+BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+
+// Extraction 等自定义底栏：单槽 token
+BTBallPaletteToken(...)
+
+// 装饰只读（C14 SceneAiming / AimPointScene）——姊妹组件，避免交互态 dummy Binding
+BTDecorativeBallPalette(
+    ballDiameter: BTBallPaletteMetrics.regularDiameter,
+    libraryWidth: proxy.libraryWidth,
+    opacityForKey: { key in /* 目标球 1 / 其余 0.25 */ }
+)
+
+// FreePlay 参考库（不可拖，点脉冲 / 提示）
+BTReferenceBallPalette(...)
+
+// 拖回删球 hit-test
+BTBallPaletteDragBack.hitPalette(localPoint:sceneFrame:paletteFrame:)
+```
+
+**豁免（留档）**：`AngleDynamicView` 保留 Button+目标描边的私有两行布局（无 drag/ghost）；Extraction / BatchExtract 保留 `paletteTwoRows` 侧栏按钮壳，token/ghost/drag 已走组件。
 
 ---
 
@@ -621,6 +674,10 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-07-16（v7 W4 / G21）— 新增 `BTBallPaletteBar` 球库组件族：
+  - `BTBallPaletteBar` / `BTBallPaletteToken` / `BTBallPaletteDragGhost` / `BTDecorativeBallPalette` / `BTReferenceBallPalette` / `BTBallPaletteDragBack`
+  - D7 两档球径：紧凑 30 / 常规 36（默认）；拖拽死区统一 10；ghost 描边 success 2.5 / idle 1
+  - 接入：Composer / Silu / PlanThree / Snooker / Extraction / SolverStageChrome / Batch 两页 / ShotSim / FreePlay；C14 装饰库 SceneAiming + AimPointScene
 - 2026-05-26（DR-014）— 全局字体密度优化：
   - `btDisplay` 48→44、`btDisplaySmall` 36→30、`btLargeTitle` 34→32、`btChapterNumber` 32→26、`btTitle` 22→20、`btTitle2` 20→18、`btTitleMedium` 19→17、`btStatNumber` 28→24
   - 新增 `btSubheadlineSemibold`（15pt semibold）、`btFootnote14`（14pt）、`btMicro`（10pt）的文档化

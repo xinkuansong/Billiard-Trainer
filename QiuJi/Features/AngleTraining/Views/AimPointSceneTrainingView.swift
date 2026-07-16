@@ -518,30 +518,20 @@ struct AimPointSceneTrainingView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    // MARK: - 装饰性球库（Q7.2：与其他球桌页一致，G8 排球总宽 = 球桌宽）
+    // MARK: - 装饰性球库（C14：BTDecorativeBallPalette）
 
     private func decorativePalette(_ proxy: ShotStageProxy) -> some View {
-        let all = PositionPlayBall.allKeys
-        let row1 = Array(all.prefix(8))
-        let row2 = Array(all.dropFirst(8))
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
-        let columnWidth = max(libraryWidth / 8, 1)
-        return VStack(spacing: 3) {
-            ForEach([row1, row2], id: \.self) { keys in
-                HStack(spacing: 0) {
-                    ForEach(keys, id: \.self) { key in
-                        PoolBallFace(key: key, diameter: 34)
-                            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
-                            .frame(width: columnWidth, height: 38)
-                            .opacity(PositionPlayBall.number(for: key) == vm.targetBallNumber ? 1 : 0.25)
-                    }
-                }
+        return BTDecorativeBallPalette(
+            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            libraryWidth: libraryWidth,
+            opacityForKey: { key in
+                PositionPlayBall.number(for: key) == vm.targetBallNumber ? 1 : 0.25
             }
-        }
+        )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(HUDStyle.panelBackground)
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
-        .allowsHitTesting(false)
         .environment(\.colorScheme, .dark)
     }
 

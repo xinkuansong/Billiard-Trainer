@@ -240,12 +240,13 @@ struct AngleDynamicView: View {
                 vm.placeFromPalette(key)
             }
         } label: {
-            PoolBallFace(key: key, diameter: 36)
+            PoolBallFace(key: key, diameter: BTBallPaletteMetrics.regularDiameter)
                 .overlay(
                     Circle().stroke(isTarget ? Color.btPrimary : .white.opacity(0.18),
                                     lineWidth: isTarget ? 2 : 0.5)
                 )
-                .frame(width: 38, height: 38)
+                .frame(width: BTBallPaletteMetrics.slotHeight(for: BTBallPaletteMetrics.regularDiameter),
+                       height: BTBallPaletteMetrics.slotHeight(for: BTBallPaletteMetrics.regularDiameter))
                 .contentShape(Circle())
                 .opacity(onTable ? 0.3 : 1)
         }

@@ -278,7 +278,6 @@ struct BatchAuthoringView: View {
     // 在线上的球自动均分；不进 JSON（仅场景节点）；击球时隐藏。
     @StateObject private var guide = BatchGuideLine()
 
-    private static let paletteColumns = 8
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     /// 顶部工具行含条件性的求解状态行，取两行高度上限常显。
     private static let topRowHeight: CGFloat = 72
@@ -305,7 +304,9 @@ struct BatchAuthoringView: View {
                     bottomBar(proxy)
                         .frame(height: Self.bottomBarHeight)
                 }
-                if let key = draggingKey { dragGhost(key) }
+                if let key = draggingKey {
+                    BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+                }
             }
         }
         .animation(BTMotion.springPanel, value: showSpinPad)
@@ -795,79 +796,35 @@ struct BatchAuthoringView: View {
     // MARK: - Palette
 
     private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        // G8：排球总宽 = 球桌宽、居中，两侧留白。
-        let all = PositionPlayBall.allKeys
-        let row1 = Array(all.prefix(Self.paletteColumns))
-        let row2 = Array(all.dropFirst(Self.paletteColumns))
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
-        let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
-        return VStack(spacing: 4) {
-            paletteRow(row1, columnWidth: columnWidth)
-            paletteRow(row2, columnWidth: columnWidth)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            ForEach(0..<Self.paletteColumns, id: \.self) { i in
-                Group {
-                    if i < keys.count { ballToken(keys[i]) } else { Color.clear }
-                }
-                .frame(width: columnWidth, height: 32)
-            }
-        }
-    }
-
-    private func ballToken(_ key: String) -> some View {
-        let onTable = composer.onTableKeys.contains(key)
-        return PoolBallFace(key: key, diameter: 30)
-            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
-            .frame(width: 32, height: 32)
-            .contentShape(Circle())
-            .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
-            .onTapGesture {
-                if onTable { composer.pulseTableBall(key) } else { composer.placeFromPalette(key) }
-            }
-            .gesture(paletteDrag(key), including: onTable ? .subviews : .all)
-    }
-
-    private func paletteDrag(_ key: String) -> some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .named("batchAuthor"))
-            .onChanged { value in
-                guard !composer.isPlaying else { return }
-                draggingKey = key
-                dragLocation = value.location
-                dragOverTable = sceneFrame.contains(value.location)
-            }
-            .onEnded { value in
-                let loc = value.location
-                defer { draggingKey = nil; dragOverTable = false }
-                guard !composer.isPlaying, sceneFrame.contains(loc) else { return }
-                let local = CGPoint(x: loc.x - sceneFrame.minX, y: loc.y - sceneFrame.minY)
-                if let world = projector.unproject?(local) {
-                    composer.placeFromPalette(key, atWorld: world)
-                } else {
-                    composer.placeFromPalette(key)
-                }
-                redistributeGuideBalls()   // 新球落在辅助线上 → 自动均分（条 20.6）
-            }
-    }
-
-    @ViewBuilder
-    private func dragGhost(_ key: String) -> some View {
-        PoolBallFace(key: key, diameter: 42)
-            .overlay(Circle().stroke(dragOverTable ? Color.btSuccess : .white.opacity(0.4),
-                                     lineWidth: dragOverTable ? 2.5 : 1))
-            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-            .position(dragLocation)
-            .allowsHitTesting(false)
+        return BTBallPaletteBar(
+            coordinateSpace: "batchAuthor",
+            ballDiameter: BTBallPaletteMetrics.compactDiameter,
+            isPlaying: composer.isPlaying,
+            libraryWidth: libraryWidth,
+            isOnTable: { composer.onTableKeys.contains($0) },
+            sceneFrame: sceneFrame,
+            unproject: { projector.unproject?($0) },
+            onTap: { key in
+                if composer.onTableKeys.contains(key) { composer.pulseTableBall(key) }
+                else { composer.placeFromPalette(key) }
+            },
+            onPlace: { key, world in
+                if let world { composer.placeFromPalette(key, atWorld: world) }
+                else { composer.placeFromPalette(key) }
+                redistributeGuideBalls()
+            },
+            draggingKey: $draggingKey,
+            dragLocation: $dragLocation,
+            dragOverTable: $dragOverTable
+        )
     }
 
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
-        guard sceneFrame != .zero, paletteFrame != .zero else { return }
-        let p = CGPoint(x: localPoint.x + sceneFrame.minX, y: localPoint.y + sceneFrame.minY)
-        guard paletteFrame.contains(p), let key = composer.scene.ballKey(for: node) else { return }
+        guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
+                                               sceneFrame: sceneFrame,
+                                               paletteFrame: paletteFrame),
+              let key = composer.scene.ballKey(for: node) else { return }
         composer.removeFromTable(key)
         flash("已移回球库")
     }

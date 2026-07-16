@@ -47,7 +47,9 @@ struct BallExtractionView: View {
             content
                 .id(vm.step)
                 .transition(.opacity)
-            if let key = draggingKey { dragGhost(key) }
+            if let key = draggingKey {
+                BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+            }
         }
         .animation(BTMotion.springPanel, value: vm.step)
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
@@ -76,6 +78,17 @@ struct BallExtractionView: View {
             PlanThreeView(initialBoard: confirmedBoard)
         }
         .onChange(of: photoItem) { _, item in loadPhoto(item) }
+        .onAppear {
+            // UITest 取证钩子（launch arg 仅测试注入，生产永不触发；同 PlanThree/Snooker onAppear 模式）：
+            // 跳过选图/标定/标球，直接以两颗演示标记进确认步，供球库拖放/删球/pulse 实操取证。
+            if ProcessInfo.processInfo.arguments.contains("-extract.confirmDemo"), vm.step == .pickPhoto {
+                vm.marks = [
+                    .init(key: PositionPlayBall.cueKey, uv: CGPoint(x: 0.35, y: 0.55)),
+                    .init(key: "_3", uv: CGPoint(x: 0.6, y: 0.45)),
+                ]
+                vm.enterConfirm()
+            }
+        }
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
@@ -352,11 +365,12 @@ struct BallExtractionView: View {
 
     private func markCell(_ key: String) -> some View {
         let marked = vm.marks.contains { $0.key == key }
-        return PoolBallFace(key: key, diameter: 32)
+        let d = BTBallPaletteMetrics.compactDiameter
+        return PoolBallFace(key: key, diameter: d)
             .opacity(marked ? 0.28 : 1)
             .overlay(Circle().stroke(vm.activePaletteKey == key ? Color.btPrimary : .clear,
                                      lineWidth: 2.5))
-            .frame(width: 32, height: 32)
+            .frame(width: d, height: d)
             .contentShape(Circle())
             .onTapGesture { vm.activePaletteKey = key }
     }
@@ -458,55 +472,36 @@ struct BallExtractionView: View {
     }
 
     private func confirmCell(_ key: String) -> some View {
-        // #5a：球库常显全部 16 颗；在桌球变暗、不可拖，点击在桌球 = 桌上对应球放大脉冲提示位置。
         let onTable = vm.onTableKeys.contains(key)
-        return PoolBallFace(key: key, diameter: 32)
-            .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 0.5))
-            .frame(width: 32, height: 32)
-            .contentShape(Circle())
-            .opacity(draggingKey == key ? 0.3 : (onTable ? 0.3 : 1))
-            .onTapGesture {
+        return BTBallPaletteToken(
+            key: key,
+            ballDiameter: BTBallPaletteMetrics.compactDiameter,
+            isOnTable: onTable,
+            isDragging: draggingKey == key,
+            allowsDrag: !onTable,
+            coordinateSpace: "extract",
+            sceneFrame: sceneFrame,
+            unproject: { projector.unproject?($0) },
+            onTap: {
                 if onTable { vm.pulseTableBall(key) }
                 else if vm.selectedKey != nil { vm.assignNumber(key) }
                 else { vm.addFromPalette(key) }
-            }
-            .gesture(paletteDrag(key), including: onTable ? .subviews : .all)
-    }
-
-    private func paletteDrag(_ key: String) -> some Gesture {
-        DragGesture(minimumDistance: 12, coordinateSpace: .named("extract"))
-            .onChanged { value in
-                draggingKey = key
-                dragLocation = value.location
-                dragOverTable = sceneFrame.contains(value.location)
-            }
-            .onEnded { value in
-                let loc = value.location
-                defer { draggingKey = nil; dragOverTable = false }
-                guard sceneFrame.contains(loc) else { return }
-                let local = CGPoint(x: loc.x - sceneFrame.minX, y: loc.y - sceneFrame.minY)
-                if let world = projector.unproject?(local) {
-                    vm.addFromPalette(key, atWorld: world)
-                } else {
-                    vm.addFromPalette(key)
-                }
-            }
-    }
-
-    @ViewBuilder
-    private func dragGhost(_ key: String) -> some View {
-        PoolBallFace(key: key, diameter: 42)
-            .overlay(Circle().stroke(dragOverTable ? Color.btSuccess : .white.opacity(0.4),
-                                     lineWidth: dragOverTable ? 2.5 : 1))
-            .shadow(color: .black.opacity(0.4), radius: 6, y: 2)
-            .position(dragLocation)
-            .allowsHitTesting(false)
+            },
+            onPlace: { world in
+                if let world { vm.addFromPalette(key, atWorld: world) }
+                else { vm.addFromPalette(key) }
+            },
+            draggingKey: $draggingKey,
+            dragLocation: $dragLocation,
+            dragOverTable: $dragOverTable
+        )
     }
 
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
-        guard sceneFrame != .zero, paletteFrame != .zero else { return }
-        let p = CGPoint(x: localPoint.x + sceneFrame.minX, y: localPoint.y + sceneFrame.minY)
-        guard paletteFrame.contains(p), let key = vm.scene.ballKey(for: node) else { return }
+        guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
+                                               sceneFrame: sceneFrame,
+                                               paletteFrame: paletteFrame),
+              let key = vm.scene.ballKey(for: node) else { return }
         vm.removeFromTable(key)
     }
 
@@ -590,7 +585,12 @@ struct BallExtractionView: View {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
                     if i < keys.count { cell(keys[i]) }
-                    else { Color.clear.frame(width: 32, height: 32) }
+                    else {
+                        Color.clear.frame(
+                            width: BTBallPaletteMetrics.compactDiameter,
+                            height: BTBallPaletteMetrics.compactDiameter
+                        )
+                    }
                 }
                 .frame(maxWidth: .infinity)
             }
