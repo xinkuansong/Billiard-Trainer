@@ -33,10 +33,11 @@ final class P3_DrillLibraryUITests: XCTestCase {
                        app.staticTexts["全部"].firstMatch.waitForExistence(timeout: 3)
         XCTAssertTrue(allFound, "Sidebar '全部' should exist")
 
-        let sidebarCat = app.descendants(matching: .any)["sidebar_基本功"]
+        // 侧栏标识来自 DrillCategory.nameZh（如「准度训练」「杆法训练」）。
+        let sidebarCat = app.descendants(matching: .any)["sidebar_准度训练"]
         let categoryFound = sidebarCat.waitForExistence(timeout: 5) ||
-                            app.descendants(matching: .any)["sidebar_准度"].waitForExistence(timeout: 3) ||
-                            app.descendants(matching: .any)["sidebar_杆法"].waitForExistence(timeout: 3)
+                            app.descendants(matching: .any)["sidebar_杆法训练"].waitForExistence(timeout: 3) ||
+                            app.descendants(matching: .any)["sidebar_走位训练"].waitForExistence(timeout: 3)
         XCTAssertTrue(categoryFound, "At least one sidebar category should exist")
     }
 

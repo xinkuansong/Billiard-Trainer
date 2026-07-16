@@ -40,14 +40,14 @@ final class P5_AngleTrainingUITests: XCTestCase {
     func testSegmentCards() {
         // 学（默认分段）
         XCTAssertTrue(app.buttons["瞄准原理"].waitForExistence(timeout: 3), "瞄准原理 card should exist in 学")
-        XCTAssertTrue(app.buttons["进球点对照表"].waitForExistence(timeout: 3), "进球点对照表 card should exist in 学")
+        XCTAssertTrue(app.buttons["瞄准点对照表"].waitForExistence(timeout: 3), "瞄准点对照表 card should exist in 学")
         // 练
         XCTAssertTrue(switchHomeTab("练"), "Should switch to 练 segment")
         XCTAssertTrue(app.buttons["角度预测"].waitForExistence(timeout: 3), "角度预测 card should exist in 练")
         // 打
         XCTAssertTrue(switchHomeTab("打"), "Should switch to 打 segment")
         XCTAssertTrue(app.buttons["自由击球"].waitForExistence(timeout: 3), "自由击球 card should exist in 打")
-        XCTAssertTrue(app.buttons["走位编排台"].waitForExistence(timeout: 3), "走位编排台 card should exist in 打")
+        XCTAssertTrue(app.buttons["自由走位"].waitForExistence(timeout: 3), "自由走位 card should exist in 打")
         // 解
         XCTAssertTrue(switchHomeTab("解"), "Should switch to 解 segment")
         XCTAssertTrue(app.buttons["翻袋解球器"].waitForExistence(timeout: 3), "翻袋解球器 card should exist in 解")
@@ -145,7 +145,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
                       "Geometric quiz view should open")
     }
 
-    // MARK: - Free Play（打，ADR-P18-01 直达编排台自由模式）
+    // MARK: - Free Play（打，ADR-P18-01 拆页后为独立 FreePlayView）
 
     func testNavigateToFreePlay() {
         guard switchHomeTab("打") else { return }
@@ -153,8 +153,8 @@ final class P5_AngleTrainingUITests: XCTestCase {
         guard freePlayCard.waitForExistence(timeout: 3) else { return }
         freePlayCard.tap()
         sleep(2)
-        // 编排台默认名时标题显示页面名「走位编排台」（T-P18-37）。
-        XCTAssertTrue(app.navigationBars["走位编排台"].waitForExistence(timeout: 5),
-                      "Free play should open the composer in free aim mode")
+        // 自由击球拆页（条 15 / ADR-P18-01）：独立页面标题为「自由击球」。
+        XCTAssertTrue(app.navigationBars["自由击球"].waitForExistence(timeout: 5),
+                      "Free play should open the standalone FreePlayView")
     }
 }
