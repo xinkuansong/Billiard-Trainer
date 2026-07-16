@@ -751,3 +751,18 @@
 - **替代方案**：
   - 按近似公式新写（90° 法则 + 高低杆修正常数）——最快但物理最糙、塞/库边不自洽，未采纳。
   - 只移植单母球预测——不足以算目标球路径与分离角，未采纳。
+
+### ADR-P9-04 — SolverStageChrome：Bank/Diamond 求解页共享壳容器
+
+- **日期**：2026-07-16
+- **状态**：已采纳
+- **背景**：`BankShotView` 与 `DiamondSystemView` 整页复制约 350+ 行（问题集合 v7 C18）：topRow、仪表柱/瞄准轮/动作列、球库拖拽、恢复/下一解、InfoSheet 均同构，仅 VM、标题、coordinateSpace、袋口点选（仅翻袋）不同。双份维护已导致文案/形态漂移。
+- **决策**：
+  1. 新增 `QiuJi/Features/AngleTraining/Views/SolverStageChrome.swift`：泛型容器 `SolverStageChrome<VM: SolverStageHosting>`，通过 `SolverStageHosting` 协议约束 VM 能力（求解、拖球、恢复、下一解等），`BankShotViewModel` / `DiamondSystemViewModel` 以 extension 适配。
+  2. 页面差异全部收敛为配置注入：标题、coordinateSpace 名、`onPocketTapped?`（仅 BankShot 传）、InfoSheet 内容块。
+  3. 两份同构 InfoSheet 合并为 `PrincipleInfoSheet(title:blocks:)` 模板。
+  4. 两页瘦身为纯配置装配（合计净删约 776 行），行为等价，VM 未改。
+- **理由**：跨页共享容器消灭双真源，后续 W9（左下插槽/菜单/轨迹 chip 统一）只需改一处；chrome 已在 W2 收敛（`BTSolverNavStatus` / `BTShotPageFramePreference`），合并面最小。
+- **影响**：新增跨页共享 View 容器 + VM 协议（跨模块边界变更，命中 ADR 触发清单）；`project.pbxproj` 登记新文件；后续新求解页可直接装配。
+- **验证**：worktree 内 `make build` SUCCEEDED；`QiuJiTests` 563 通过/0 失败/2 跳过（`w5-qiujitests.xcresult`）；`ScreenshotTourUITests` 翻袋/反射真实模式 2/2 通过；两页求解/自由/网格/菜单/下一解截图与改前基线对照一致（`build/w5-screenshots/`）。合并主树后 build 通过。
+- **替代方案**：继续双份维护并靠规范约束一致性——已被证明失效（漂移即本轮问题来源），未采纳；用 ViewBuilder 局部抽块（不抽整壳）——消不掉结构级复制，未采纳。
