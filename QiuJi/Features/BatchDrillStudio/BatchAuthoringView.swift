@@ -494,8 +494,7 @@ struct BatchAuthoringView: View {
                 }
                 .btStageFrame(guideButtonRect(proxy))
 
-                BTBreakSideButton(isEnabled: false) {}
-                    .btStageFrame(proxy.breakButtonFrame())
+                // D14：无开球页不显示禁用开球占位（辅助线仍锚定原 break 几何位）。
 
                 // 右柱：点换（仪表柱上方）+ 打点/力度柱 + 击球/上一杆/回放列。
                 BTTextActionButton(title: "点换",
@@ -515,7 +514,7 @@ struct BatchAuthoringView: View {
                 .btStageFrame(proxy.instrumentFrame())
 
                 BTShotActionColumn(
-                    strikeTitle: composer.isPlaying ? "击球中" : "击球",
+                    strikeTitle: composer.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
                     strikeEnabled: strikeEnabled,
                     onStrike: { strike() },
                     undoEnabled: !composer.isPlaying && composer.canReplay,

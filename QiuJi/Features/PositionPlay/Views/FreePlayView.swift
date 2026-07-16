@@ -147,7 +147,7 @@ struct FreePlayView: View {
 
                 // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
                 BTShotActionColumn(
-                    strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                    strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
                     strikeEnabled: strikeEnabled,
                     onStrike: { vm.play() },
                     undoTitle: "重打",

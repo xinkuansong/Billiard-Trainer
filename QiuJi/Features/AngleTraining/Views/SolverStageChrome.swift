@@ -44,6 +44,8 @@ protocol SolverStageHosting: ObservableObject {
     func nextSolution()
     func reset()
     func setupScene()
+    func recompute()
+    func refreshFreeAim()
     func dragBegan(node: SCNNode)
     func handleDrag(node: SCNNode, to worldPos: SCNVector3)
     func dragEnded(node: SCNNode)
@@ -236,6 +238,14 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             sceneContainer
 
             if proxy.isValid {
+                // G3 轨迹档位 chip（C28 / D15）：与 FreePlay/ShotSim 同带区。
+                BTTrajectoryDetailChip {
+                    if vm.mode == .free { vm.refreshFreeAim() }
+                    else { vm.recompute() }
+                }
+                .btChipBandPlacement(proxy)
+                .allowsHitTesting(!vm.isPlaying)
+
                 // 左缘瞄准刻度轮（W6 自由模式细调，T-P18-43）。
                 if vm.mode == .free {
                     BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
@@ -258,19 +268,17 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 .disabled(vm.isPlaying)
                 .opacity(vm.isPlaying ? 0.42 : 1)
 
-                // 右下贴边动作列：求解 = 击打/下一解/重置（回放中切单「停止」，W5）；
-                // 自由 = 击球/上一杆/回放（W6）。
+                // 右下贴边动作列：求解 = 击打/上一杆/回放；自由 = 击球/上一杆/回放（G6 actionColumnFrame）。
                 actionColumn
-                    .btStageFrame(proxy.bottomTrailingFrame(size: CGSize(
-                        width: ShotStageMetrics.actionColumnWidth, height: 106)))
+                    .btStageFrame(proxy.actionColumnFrame())
 
-                // 左下：自由 = 「恢复球形」；求解 = 「下一解」（条 17.4：下一解移到左侧）。
+                // Slot L1：自由 = 「恢复球形」；求解 = 「下一解」（G24 外形 = breakButtonSize）。
                 if vm.mode == .free {
                     restoreButton
-                        .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
+                        .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
                 } else {
                     nextSolutionButton
-                        .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
+                        .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
                 }
             }
 
@@ -289,25 +297,16 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// 左下「恢复球形」（W6）：回最近求解快照，切回求解命中缓存直显。
+    /// Slot L1「恢复球形」（W6）：回最近求解快照，切回求解命中缓存直显。
     private var restoreButton: some View {
-        Button {
+        BTSlotL1Button(
+            title: "恢复球形",
+            systemImage: "arrow.counterclockwise",
+            isEnabled: vm.canRestoreSnapshot && !vm.isPlaying,
+            accessibilityId: "solver.restore"
+        ) {
             vm.restoreSolveSnapshot()
-        } label: {
-            VStack(spacing: 2) {
-                Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 13, weight: .semibold))
-                Text("恢复球形")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(vm.canRestoreSnapshot ? Color.btPrimary : .white.opacity(0.35))
-            .frame(width: 52, height: 46)
-            .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .disabled(!vm.canRestoreSnapshot || vm.isPlaying)
-        .accessibilityIdentifier("solver.restore")
-        .accessibilityLabel("恢复球形")
     }
 
     /// 贴边动作列（条 17.5：求解态收敛为 击打/上一杆/回放，与自由态、其他击打页同规范）。
@@ -317,7 +316,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     private var actionColumn: some View {
         if vm.mode == .free {
             BTShotActionColumn(
-                strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
                 strikeEnabled: vm.canFreeStrike,
                 onStrike: { vm.freeStrike() },
                 undoEnabled: !vm.isPlaying && vm.canUndoShot,
@@ -327,7 +326,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             )
         } else {
             BTShotActionColumn(
-                strikeTitle: vm.isPlaying ? "击球中" : "击打",
+                strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.solutionDemo,
                 strikeEnabled: vm.canStrike,
                 onStrike: { vm.strike() },
                 undoEnabled: !vm.isPlaying && vm.canUndoSolve,
@@ -338,25 +337,16 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         }
     }
 
-    /// 左下「下一解」（条 17.4）：求解态切换多解；单解禁用（对应自由态「恢复球形」位置带）。
+    /// Slot L1「下一解」（条 17.4）：求解态切换多解；单解禁用。
     private var nextSolutionButton: some View {
-        Button {
+        BTSlotL1Button(
+            title: "下一解",
+            systemImage: "arrow.triangle.2.circlepath",
+            isEnabled: vm.solutionCount > 1 && !vm.isPlaying,
+            accessibilityId: "solver.nextSolution"
+        ) {
             vm.nextSolution()
-        } label: {
-            VStack(spacing: 2) {
-                Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 13, weight: .semibold))
-                Text("下一解")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(vm.solutionCount > 1 ? Color.btPrimary : .white.opacity(0.35))
-            .frame(width: 52, height: 46)
-            .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .disabled(vm.solutionCount <= 1 || vm.isPlaying)
-        .accessibilityIdentifier("solver.nextSolution")
-        .accessibilityLabel("下一解")
     }
 
     private var sceneContainer: some View {

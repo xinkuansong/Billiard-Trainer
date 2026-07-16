@@ -113,9 +113,7 @@ struct ShotSimulationView: View {
                         .allowsHitTesting(!vm.isPlaying)
                 }
 
-                // G6 开球按钮（本页无开球，禁用态）：左下角，底边齐球桌底线。
-                BTBreakSideButton(isEnabled: false) {}
-                    .btStageFrame(proxy.breakButtonFrame())
+                // D14：无开球页不显示禁用开球占位。
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                 BTShotInstrumentColumn(
@@ -129,7 +127,7 @@ struct ShotSimulationView: View {
 
                 // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
                 BTShotActionColumn(
-                    strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                    strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
                     strikeEnabled: strikeEnabled,
                     onStrike: { vm.play() },
                     undoTitle: "重打",

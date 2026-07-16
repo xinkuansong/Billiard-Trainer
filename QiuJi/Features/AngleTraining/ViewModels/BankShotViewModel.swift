@@ -927,6 +927,11 @@ final class BankShotViewModel: ObservableObject {
 
     /// 绘制引擎全保真解：目标球进袋线（本色实线）+ 碰库金点与法线 + 瞄准线/假想球/接触点
     /// + 母球碰后去向（暗虚线 hint，真实物理如实展示）。
+    ///
+    /// 三档轨迹标注（C28/D15，语义对齐 `TrajectoryRenderer` 口径）：
+    /// `.minimal` = 仅瞄准线（母球→假想球）+ 假想球；
+    /// `.core`    = + 进球线 + 母球碰后段 + 接触点；
+    /// `.full`    = + 碰库金点/库面法线/文字标注（释义层）。
     private func drawSolution(_ sol: BankEngineSolution) {
         clearPath()
         guard let cue = scene.cueBallNode?.position else { return }
@@ -934,67 +939,79 @@ final class BankShotViewModel: ObservableObject {
         let path = pred.objectPath
         guard path.count >= 2 else { return }
 
+        let detail = UserPreferences.shared.trajectoryDetail
+
         // 目标球身份色（本页目标球固定黑 8 → 亮灰变体，T-P18-41 线语言）。
         let potColor = TrajectoryStyle.potColor(for: "_8")
 
-        // 进球线（目标球的真实翻袋路线，引擎折线）。
-        for i in 0..<(path.count - 1) {
-            let line = scene.addLine(from: path[i], to: path[i + 1],
-                                     color: potColor, radius: TrajectoryStyle.lineMain)
-            pathNodes.append(line)
-        }
-
-        // 碰库点（金）+ 库面法线（白细线，「入射角=反射角」释义层）。
-        for touch in BankKickSolvePipeline.cushionTouchPoints(path) {
-            let dot = scene.addBall(at: touch.point, color: TrajectoryStyle.traceColor, radius: 0.012)
-            pathNodes.append(dot)
-            let len = AngleSceneCalculator.ballRadius * 2.2
-            let normalEnd = SCNVector3(touch.point.x + touch.inwardNormal.x * len,
-                                       touch.point.y,
-                                       touch.point.z + touch.inwardNormal.z * len)
-            let nLine = scene.addLine(from: touch.point, to: normalEnd,
-                                      color: TrajectoryStyle.hintColor,
-                                      radius: TrajectoryStyle.lineHint)
-            pathNodes.append(nLine)
-        }
-
-        // 母球碰后去向（真实物理，hint 虚线，不喧宾夺主）。
-        let cueAfter = BankKickSolvePipeline.pathToFirstContact(pred)
-        if let contactIdx = cueAfter.indices.last, pred.cuePath.count > contactIdx + 1 {
-            let rest = Array(pred.cuePath.suffix(from: contactIdx))
-            for i in 0..<(rest.count - 1) {
-                let dash = scene.addDashedLine(from: rest[i], to: rest[i + 1],
-                                               color: TrajectoryStyle.hintColor,
-                                               radius: TrajectoryStyle.lineHint,
-                                               dash: TrajectoryStyle.hintDash,
-                                               gap: TrajectoryStyle.hintGap)
-                pathNodes.append(dash)
+        if detail != .minimal {
+            // 进球线（目标球的真实翻袋路线，引擎折线）。
+            for i in 0..<(path.count - 1) {
+                let line = scene.addLine(from: path[i], to: path[i + 1],
+                                         color: potColor, radius: TrajectoryStyle.lineMain)
+                pathNodes.append(line)
             }
         }
 
-        // 瞄准线（母球 → 假想球）：白线。
+        if detail == .full {
+            // 碰库点（金）+ 库面法线（白细线，「入射角=反射角」释义层）。
+            for touch in BankKickSolvePipeline.cushionTouchPoints(path) {
+                let dot = scene.addBall(at: touch.point, color: TrajectoryStyle.traceColor, radius: 0.012)
+                pathNodes.append(dot)
+                let len = AngleSceneCalculator.ballRadius * 2.2
+                let normalEnd = SCNVector3(touch.point.x + touch.inwardNormal.x * len,
+                                           touch.point.y,
+                                           touch.point.z + touch.inwardNormal.z * len)
+                let nLine = scene.addLine(from: touch.point, to: normalEnd,
+                                          color: TrajectoryStyle.hintColor,
+                                          radius: TrajectoryStyle.lineHint)
+                pathNodes.append(nLine)
+            }
+        }
+
+        if detail != .minimal {
+            // 母球碰后去向（真实物理，hint 虚线，不喧宾夺主）。
+            let cueAfter = BankKickSolvePipeline.pathToFirstContact(pred)
+            if let contactIdx = cueAfter.indices.last, pred.cuePath.count > contactIdx + 1 {
+                let rest = Array(pred.cuePath.suffix(from: contactIdx))
+                for i in 0..<(rest.count - 1) {
+                    let dash = scene.addDashedLine(from: rest[i], to: rest[i + 1],
+                                                   color: TrajectoryStyle.hintColor,
+                                                   radius: TrajectoryStyle.lineHint,
+                                                   dash: TrajectoryStyle.hintDash,
+                                                   gap: TrajectoryStyle.hintGap)
+                    pathNodes.append(dash)
+                }
+            }
+        }
+
+        // 瞄准线（母球 → 假想球）：白线。三档常显（.minimal 的唯一主线）。
         let aim = scene.addLine(from: cue, to: pred.ghost, color: UIColor.white,
                                 radius: TrajectoryStyle.aimRadius)
         pathNodes.append(aim)
 
-        // 假想球（半透明）+ 接触点（品牌绿，T-P18-41；接触点 = 假想球心与目标球心中点）。
+        // 假想球（半透明）三档常显；接触点（品牌绿）core 起。
         pathNodes.append(addGhostSphere(at: pred.ghost))
-        let contact = SCNVector3((pred.ghost.x + path[0].x) / 2,
-                                 path[0].y + 0.001,
-                                 (pred.ghost.z + path[0].z) / 2)
-        pathNodes.append(scene.addBall(at: contact, color: TrajectoryStyle.contactColor, radius: 0.009))
-
-        // 行内文字标注（标签随线色）。
-        if let firstHop = path.dropFirst().first {
-            pathNodes.append(scene.addFlatLabel(
-                text: "进球线",
-                at: midpoint(path[0], firstHop, lift: 0.004),
-                color: potColor, fontSize: 14))
+        if detail != .minimal {
+            let contact = SCNVector3((pred.ghost.x + path[0].x) / 2,
+                                     path[0].y + 0.001,
+                                     (pred.ghost.z + path[0].z) / 2)
+            pathNodes.append(scene.addBall(at: contact, color: TrajectoryStyle.contactColor, radius: 0.009))
         }
-        pathNodes.append(scene.addFlatLabel(
-            text: "瞄准线",
-            at: midpoint(cue, pred.ghost, lift: 0.004),
-            color: UIColor.white, fontSize: 14))
+
+        if detail == .full {
+            // 行内文字标注（标签随线色，释义层）。
+            if let firstHop = path.dropFirst().first {
+                pathNodes.append(scene.addFlatLabel(
+                    text: "进球线",
+                    at: midpoint(path[0], firstHop, lift: 0.004),
+                    color: potColor, fontSize: 14))
+            }
+            pathNodes.append(scene.addFlatLabel(
+                text: "瞄准线",
+                at: midpoint(cue, pred.ghost, lift: 0.004),
+                color: UIColor.white, fontSize: 14))
+        }
     }
 
     private func addGhostSphere(at pos: SCNVector3) -> SCNNode {

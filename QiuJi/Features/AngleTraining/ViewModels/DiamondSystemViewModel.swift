@@ -896,32 +896,44 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 绘制引擎全保真解：母球绕库解线（白实线，至首碰目标球）+ 碰库金点 +
     /// 碰后两球去向（暗虚线 hint，真实物理如实展示）。
+    ///
+    /// 三档轨迹标注（C28/D15，语义对齐 `TrajectoryRenderer` 口径；本页母球先行无进球线）：
+    /// `.minimal` = 仅首段瞄准线（母球→首库）；
+    /// `.core`    = 完整解线 + 碰后两球去向；
+    /// `.full`    = + 碰库金点（释义层）。
     private func drawSolution(_ sol: KickEngineSolution) {
         clearPath()
         let pred = sol.prediction
         let route = BankKickSolvePipeline.pathToFirstContact(pred)
         guard route.count >= 2 else { return }
 
-        // 解线 = 母球走位（身份色白实线）。
-        for i in 0..<(route.count - 1) {
+        let detail = UserPreferences.shared.trajectoryDetail
+
+        // 解线 = 母球走位（身份色白实线）；.minimal 仅画首段（母球→首库）。
+        let segmentCount = detail == .minimal ? 1 : route.count - 1
+        for i in 0..<segmentCount {
             let line = scene.addLine(from: route[i], to: route[i + 1],
                                      color: TrajectoryStyle.aimColor,
                                      radius: TrajectoryStyle.lineMain)
             pathNodes.append(line)
         }
 
-        // 碰库点（金，引擎折线局部极值提取）。
-        for touch in BankKickSolvePipeline.cushionTouchPoints(route) {
-            let dot = scene.addBall(at: touch.point, color: TrajectoryStyle.traceColor, radius: 0.011)
-            pathNodes.append(dot)
+        if detail == .full {
+            // 碰库点（金，引擎折线局部极值提取，释义层）。
+            for touch in BankKickSolvePipeline.cushionTouchPoints(route) {
+                let dot = scene.addBall(at: touch.point, color: TrajectoryStyle.traceColor, radius: 0.011)
+                pathNodes.append(dot)
+            }
         }
 
-        // 碰后去向（hint 虚线）：母球剩余路径 + 目标球被撞后的真实滚动。
-        if pred.cuePath.count > route.count {
-            let rest = Array(pred.cuePath.suffix(from: route.count - 1))
-            appendHintDashes(rest)
+        if detail != .minimal {
+            // 碰后去向（hint 虚线）：母球剩余路径 + 目标球被撞后的真实滚动。
+            if pred.cuePath.count > route.count {
+                let rest = Array(pred.cuePath.suffix(from: route.count - 1))
+                appendHintDashes(rest)
+            }
+            appendHintDashes(pred.objectPath)
         }
-        appendHintDashes(pred.objectPath)
     }
 
     private func appendHintDashes(_ path: [SCNVector3]) {

@@ -5,10 +5,34 @@ import SwiftUI
 // 击打页共享布局件（各击打页复用，保证布局/风格全局一致）：
 // - `BTTextActionButton`：文字动作按钮（去图标，条 15.5/15.6）。
 // - `BTShotActionColumn`：击球 / 上一杆 / 回放 竖排列（贴右下角袋区，条 18.2）。
-// - `BTBreakSideButton`：开球按钮固定左侧（无开球场景显示禁用态，条 18.4）。
+// - `BTBreakSideButton`：开球按钮固定左侧（可达宿主可点；无开球页按 D14 **不显示**占位）。
+// - `BTSolverLeftColumn`：反解页「求解 / 下一解」竖叠（G24 / C26）。
+// - Slot L1（贴底）外形统一 `ShotStageMetrics.breakButtonSize`（48×46）。
 //
 // 摆放约定：左右两根竖排控件柱底部对齐球桌区下缘（≈ 下角袋橡胶带），
-// 左柱 = 瞄准刻度轮（自由模式）+ 开球；右柱 = 打点/力度仪表 + 动作列。
+// 左柱 = 瞄准刻度轮（自由模式）+ Slot L1；右柱 = 打点/力度仪表 + 动作列。
+
+// MARK: - 主击钮文案字典（G24 / C25 / D13）
+
+/// `BTShotActionColumn.strikeTitle` 合法取值（v7 W9a）。
+/// 自由试打 →「击球」；解演示 →「击打」；PlanThree →「打一」（D13）；忙碌态见下。
+enum BTStrikeTitle {
+    /// 自由试打页主击（FreePlay / ShotSim / Composer 自由 / Silu / Snooker / Batch / Bank·自由）。
+    static let freePlay = "击球"
+    /// 解演示主击（Bank/Diamond 求解态、Composer 序列模式）。
+    static let solutionDemo = "击打"
+    /// PlanThree 主击（D13 保留）。
+    static let planThree = "打一"
+    /// 击球进行中（自由试打 / 反解打出）。
+    static let freePlayBusy = "击球中"
+    /// 序列演示进行中（Composer 序列模式）。
+    static let sequenceBusy = "演示中"
+
+    /// 全量合法值（grep / 审查用）。
+    static let allLegal: Set<String> = [
+        freePlay, solutionDemo, planThree, freePlayBusy, sequenceBusy
+    ]
+}
 
 // MARK: - 台面网格设置项（条 16：4x8 网格，入各球桌页设置菜单）
 
@@ -109,7 +133,8 @@ struct BTTextActionButton: View {
 // MARK: - 击球 / 上一杆 / 回放 动作列（右侧角袋下方竖排，条 18.2）
 
 struct BTShotActionColumn: View {
-    var strikeTitle: String = "击球"
+    /// 主击文案：必须取自 `BTStrikeTitle` 合法值（G24 / C25）。
+    var strikeTitle: String = BTStrikeTitle.freePlay
     var strikeEnabled: Bool
     var onStrike: () -> Void
     /// 中钮文案：真 `undoLastShot` 页用「上一杆」；`replayCurrent`（重打）页传「重打」（v7 C5/D4）。
@@ -130,6 +155,66 @@ struct BTShotActionColumn: View {
             BTTextActionButton(title: "回放", isDisabled: !playbackEnabled,
                                width: buttonWidth, action: onPlayback)
         }
+    }
+}
+
+// MARK: - 反解「求解 / 下一解」竖叠（G24 / C26）
+
+/// Silu / PlanThree / Snooker 左下求解柱。Slot L1（开球等）由宿主叠在下方，外形见 `BTSlotL1Button`。
+struct BTSolverLeftColumn: View {
+    var canSolve: Bool
+    var onSolve: () -> Void
+    var canNext: Bool
+    var onNext: () -> Void
+    var buttonWidth: CGFloat = ShotStageMetrics.actionColumnWidth
+
+    /// 仅求解柱：30 + 8 + 30。
+    static let stackSize = CGSize(width: 48, height: 68)
+    /// 求解柱 + 间距 + Slot L1（开球 46）：与历史 Silu 族 122 对齐。
+    static let stackWithSlotL1Size = CGSize(
+        width: 48,
+        height: stackSize.height + 8 + ShotStageMetrics.breakButtonSize.height
+    )
+
+    var body: some View {
+        VStack(spacing: 8) {
+            BTTextActionButton(title: "求解", role: .primary,
+                               isDisabled: !canSolve, width: buttonWidth, action: onSolve)
+            BTTextActionButton(title: "下一解",
+                               isDisabled: !canNext, width: buttonWidth, action: onNext)
+        }
+    }
+}
+
+// MARK: - Slot L1 贴底角钮（G24：开球 | 禁用开球 | 下一解 | 恢复球形 | 重摆球形）
+
+/// 与 `BTBreakSideButton` 同外形尺寸（48×46 玻璃卡）。开球专用 glyph 仍用 `BTBreakSideButton`。
+struct BTSlotL1Button: View {
+    let title: String
+    let systemImage: String
+    var isEnabled: Bool
+    var accessibilityId: String
+    var accessibilityName: String? = nil
+    let action: () -> Void
+
+    private var size: CGSize { ShotStageMetrics.breakButtonSize }
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 2) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 13, weight: .semibold))
+                Text(title)
+                    .font(.system(size: 9, weight: .semibold, design: .rounded))
+            }
+            .foregroundStyle(isEnabled ? Color.btPrimary : .white.opacity(0.35))
+            .frame(width: size.width, height: size.height)
+            .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .accessibilityIdentifier(accessibilityId)
+        .accessibilityLabel(accessibilityName ?? title)
     }
 }
 
@@ -240,11 +325,16 @@ struct BTSolverMoreMenu: View {
     }
 }
 
-// MARK: - 开球按钮（固定左侧，条 18.3；无开球场景 = 禁用态）
+// MARK: - 开球按钮（Slot L1 · 开球 / 禁用开球；条 18.3）
+//
+// D14：无开球页**不显示**禁用占位；仅可达开球宿主（FreePlay / Silu / PlanThree；
+// Composer 放开属 W9b）渲染本按钮。外形尺寸 = `ShotStageMetrics.breakButtonSize`。
 
 struct BTBreakSideButton: View {
     var isEnabled: Bool
     var action: () -> Void
+
+    private var size: CGSize { ShotStageMetrics.breakButtonSize }
 
     var body: some View {
         Button(action: action) {
@@ -254,7 +344,7 @@ struct BTBreakSideButton: View {
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(isEnabled ? Color.btPrimary : .white.opacity(0.35))
             }
-            .frame(width: 48, height: 46)
+            .frame(width: size.width, height: size.height)
             .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)

@@ -181,31 +181,21 @@ struct PositionPlayComposerView: View {
         withAnimation(BTMotion.easeChrome) { showBrief = false }
     }
 
-    /// 左下「重摆球形」（一等公民，替代清空桌面/清空重来）：一键回 drill 初始布局。
+    /// Slot L1「重摆球形」（G24 外形 = breakButtonSize）：一键回 drill 初始布局。
     /// `loadBoard` 有 `!isPlaying` 闸 ⇒ 回放中禁用。
     private var rearrangeButton: some View {
-        Button {
-            // 序列模式：从头重演；其余模式：回 drill 初始布局。
+        BTSlotL1Button(
+            title: "重摆球形",
+            systemImage: "arrow.counterclockwise",
+            isEnabled: tryoutBoard != nil && !vm.isPlaying,
+            accessibilityId: "tryout.rearrange"
+        ) {
             if vm.isSequenceMode {
                 vm.restartSequence()
             } else if let tryoutBoard {
                 vm.loadBoard(tryoutBoard)
             }
-        } label: {
-            VStack(spacing: 2) {
-                Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 13, weight: .semibold))
-                Text("重摆球形")
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-            }
-            .foregroundStyle(tryoutBoard != nil ? Color.btPrimary : .white.opacity(0.35))
-            .frame(width: 52, height: 46)
-            .btHudGlass(in: RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .buttonStyle(.plain)
-        .disabled(tryoutBoard == nil || vm.isPlaying)
-        .accessibilityIdentifier("tryout.rearrange")
-        .accessibilityLabel("重摆球形")
     }
 
     private var clearTableWarning: String {
@@ -234,11 +224,11 @@ struct PositionPlayComposerView: View {
                 // Q19.2④ 序列模式：隐藏打点盘/力度条/瞄准条，仅逐杆播放。
                 if vm.isSequenceMode {
                     rearrangeButton
-                        .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
+                        .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
 
                     // 右下角单「击打」按钮：一次点击走完整条序列。
                     BTShotActionColumn(
-                        strikeTitle: vm.isSequencePlaying ? "演示中" : "击打",
+                        strikeTitle: vm.isSequencePlaying ? BTStrikeTitle.sequenceBusy : BTStrikeTitle.solutionDemo,
                         strikeEnabled: !vm.isSequencePlaying && !vm.isPlaying,
                         onStrike: {
                             dismissBriefOnInteraction()
@@ -258,14 +248,11 @@ struct PositionPlayComposerView: View {
                             .allowsHitTesting(!vm.isPlaying)
                     }
 
-                    // G6 左下角：试打变体 = 「重摆球形」一等公民（§1.7 隐藏开球）；
-                    // 编排台 = 开球按钮（条 19.2 本页无开球，禁用态）。底边齐球桌底线。
+                    // Slot L1：试打 = 「重摆球形」；编排台非开球宿主态按 D14 不显示禁用开球
+                    // （D12/W9b 再放开可点开球）。
                     if isTryout {
                         rearrangeButton
-                            .btStageFrame(proxy.bottomLeadingFrame(size: CGSize(width: 52, height: 46)))
-                    } else {
-                        BTBreakSideButton(isEnabled: false) {}
-                            .btStageFrame(proxy.breakButtonFrame())
+                            .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
                     }
 
                     // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
@@ -280,7 +267,7 @@ struct PositionPlayComposerView: View {
 
                     // 条 18.2：击球/上一杆/回放竖排，右下角底边齐球桌底线。
                     BTShotActionColumn(
-                        strikeTitle: vm.isPlaying ? "击球中" : "击球",
+                        strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
                         strikeEnabled: strikeEnabled,
                         onStrike: {
                             dismissBriefOnInteraction()

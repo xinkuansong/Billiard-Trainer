@@ -196,9 +196,9 @@ struct PlanThreeView: View {
                     .btChipBandPlacement(proxy)
                     .allowsHitTesting(!vm.isPlaying)
 
-                // 左下（条 21.3 + G6）：求解/下一解叠在开球按钮上方，右缘贴球桌左缘、底边齐球桌底线。
+                // 左下（G24）：BTSolverLeftColumn + Slot L1 开球。
                 leftColumn
-                    .btStageFrame(proxy.bottomLeadingFrame(size: Self.leftColumnSize))
+                    .btStageFrame(proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size))
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                 instrumentColumn
@@ -217,9 +217,6 @@ struct PlanThreeView: View {
             }
         }
     }
-
-    /// 左下控件叠尺寸：求解 30 + 8 + 下一解 30 + 8 + 开球 46。
-    private static let leftColumnSize = CGSize(width: 48, height: 122)
 
     // MARK: - Scene
 
@@ -355,16 +352,12 @@ struct PlanThreeView: View {
 
     private var leftColumn: some View {
         VStack(spacing: 8) {
-            BTTextActionButton(title: "求解", role: .primary,
-                               isDisabled: vm.isPlaying || vm.isComputing || !vm.canSolve,
-                               width: 46) {
-                vm.solve()
-            }
-            BTTextActionButton(title: "下一解",
-                               isDisabled: vm.isPlaying || vm.solutions.count < 2,
-                               width: 46) {
-                vm.nextSolution()
-            }
+            BTSolverLeftColumn(
+                canSolve: !vm.isPlaying && !vm.isComputing && vm.canSolve,
+                onSolve: { vm.solve() },
+                canNext: !vm.isPlaying && vm.solutions.count >= 2,
+                onNext: { vm.nextSolution() }
+            )
             BTBreakSideButton(isEnabled: !vm.isPlaying && !vm.isComputing) {
                 showBreakPicker = true
             }
@@ -383,7 +376,7 @@ struct PlanThreeView: View {
 
     private var actionColumn: some View {
         BTShotActionColumn(
-            strikeTitle: vm.isPlaying ? "击球中" : "打一",
+            strikeTitle: vm.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.planThree,
             strikeEnabled: vm.canStrike,
             onStrike: { vm.play() },
             undoEnabled: !vm.isPlaying && vm.canUndoShot,
