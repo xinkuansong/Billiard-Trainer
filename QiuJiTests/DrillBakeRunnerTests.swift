@@ -29,6 +29,7 @@ final class DrillBakeRunnerTests: XCTestCase {
         "drill_c005",  // positioning · 一库走位 · bottomRight
         "drill_c014",  // cueAction · 定杆 · bottomCenter
         "drill_c024",  // separation · 90°规则 · topRight
+        "drill_c053",  // accuracy · 中袋角度 A1 代表性球形 · bottomCenter（B4）
     ]
 
     /// 端到端：从 Bundle 读取试点 Drill 的 `shotIntent` → 烘焙 → 断言可进 + 打印回填 JSON。

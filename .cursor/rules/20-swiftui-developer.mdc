@@ -164,6 +164,12 @@ case profile     // 我的
 **场景**：在 `.sheet` 内修改 `@Published` 状态后需要在父视图弹出 `.alert` 时（如登录后弹数据迁移提示）
 **强制检查点**：禁止在 Sheet 内直接设置触发父视图 Alert 的布尔值后立即 `dismiss()`。SwiftUI 在 Sheet 动画期间不会呈现新 Alert。正确做法：设置 `pending` 标志 → `dismiss()` → 在 `.sheet(onDismiss:)` 回调中将 `pending` 转为 `showAlert = true`。
 
+### ⛔ PD-026 — Lazy 容器跨数据源切换要行级复合 id；数据驱动的 sheet 用 `sheet(item:)`
+**场景**：分段/Tab 切换驱动 `LazyVStack`/`List` 换正文；或点击动作先算好数据再弹 sheet
+**强制检查点**：
+1. `ForEach(id: \.offset)` 的 Lazy 行在数据源切换后会按 offset 复用旧行（正文不刷新）；必须给行加复合 id（如 `.id("\(selection)-\(index)")`），外层 `.id(selection)` 不够。
+2. `.sheet(isPresented:)` 的内容闭包可能以陈旧 `@State` 求值（iOS 26 实测渲染空列表）；凡「动作中先写 state 再弹 sheet」一律改 `.sheet(item:)` + `Identifiable` payload 携带数据快照。
+
 ### ⛔ FL-003 — 球桌 / 袋口几何禁止从模型网格反推
 **场景**：在 SceneKit / Canvas 中绘制球桌、袋口、库边、覆盖标记等任何视觉元素时
 **强制检查点**：

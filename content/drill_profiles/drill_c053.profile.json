@@ -1,0 +1,118 @@
+{
+  "drillId": "drill_c053",
+  "version": 1,
+  "methodology": "docs/research/20260716-drill变量覆盖设计方法论.md",
+  "_note": "B4 批内拍板（2026-07-16）：替换现有 drill_c053（B5a 审计标定其为 B2 中袋角度样板的现库对应物，重构 P1 首批）而非新建——沿用 id 免动 index.json 与 72 计数断言；旧单球形（切角 20.2°/入袋角 13°/topCenter）被本档案 8 球形矩阵完全取代，袋口统一为 bottomCenter（B2 固定变量）。坐标逐条取自 B2 § 2.3 球形表（scripts/b2_variable_coverage_midpocket.py 验算，4 位小数），未手工重算。",
+  "fixedVariables": {
+    "pocket": "bottomCenter（中袋主题钉死，下中袋 (0.5, +0.5268)）",
+    "entryAngle": "0°（目标球在进球线 X=0.5 上垂直入袋；控制变量，避免与切角难度混淆）"
+  },
+  "targetVariables": [
+    {
+      "name": "cutAngle",
+      "unit": "deg",
+      "levels": ["15", "30", "45", "60"],
+      "rationale": "厚薄教学锚点：15°≈3/4 球厚、30°=1/2 球厚、45°≈1/3 球厚、60°=极薄球（球厚≈13%）；>60° 归 specialShots"
+    },
+    {
+      "name": "side",
+      "levels": ["L", "R"],
+      "rationale": "左右切视线/送杆不对称，是独立训练点（PAT-S#3 同口径）"
+    }
+  ],
+  "conditionVariables": [
+    {
+      "name": "dtp",
+      "levels": ["0.12", "0.15", "0.20", "0.25"],
+      "rationale": "目标球→袋口距离（归一化，≈0.30/0.38/0.51/0.64 m）",
+      "sampling": "每档 ≥1 次散布（0.12×3、0.15×1、0.20×2、0.25×2）；上限 0.25 受可行域约束 dtp + d·cosθ ≤ 0.4543"
+    },
+    {
+      "name": "d",
+      "levels": ["0.18", "0.22", "0.25", "0.28", "0.35", "0.38"],
+      "rationale": "白球→ghost 距离，短/中/长全段覆盖",
+      "sampling": "与 θ、dtp 联动取值（可行域约束）；难档配长距离拉开难度上限"
+    },
+    {
+      "name": "nearRail",
+      "levels": ["false", "true"],
+      "rationale": "白球近库（距最近库边 < 0.06）为附加难度因子",
+      "sampling": "不强制全覆盖，自然散布：A4/A6 近上库，其余开阔位"
+    }
+  ],
+  "formations": [
+    {
+      "id": "A1",
+      "difficultyRank": 1,
+      "cue": { "x": 0.5647, "y": 0.1128 },
+      "target": { "x": 0.5, "y": 0.3768 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 15.0,
+      "variables": { "cutAngle": "15", "side": "R", "dtp": "0.15", "d": "0.25", "nearRail": "false" },
+      "representative": true
+    },
+    {
+      "id": "A2",
+      "difficultyRank": 2,
+      "cue": { "x": 0.4534, "y": 0.0804 },
+      "target": { "x": 0.5, "y": 0.2768 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 15.0,
+      "variables": { "cutAngle": "15", "side": "L", "dtp": "0.25", "d": "0.18", "nearRail": "false" }
+    },
+    {
+      "id": "A3",
+      "difficultyRank": 3,
+      "cue": { "x": 0.41, "y": 0.2284 },
+      "target": { "x": 0.5, "y": 0.4068 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 30.0,
+      "variables": { "cutAngle": "30", "side": "L", "dtp": "0.12", "d": "0.18", "nearRail": "false" }
+    },
+    {
+      "id": "A4",
+      "difficultyRank": 4,
+      "cue": { "x": 0.61, "y": 0.0638 },
+      "target": { "x": 0.5, "y": 0.2768 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 30.0,
+      "variables": { "cutAngle": "30", "side": "R", "dtp": "0.25", "d": "0.22", "nearRail": "true" }
+    },
+    {
+      "id": "A5",
+      "difficultyRank": 5,
+      "cue": { "x": 0.698, "y": 0.1863 },
+      "target": { "x": 0.5, "y": 0.4068 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 45.0,
+      "variables": { "cutAngle": "45", "side": "R", "dtp": "0.12", "d": "0.28", "nearRail": "false" }
+    },
+    {
+      "id": "A6",
+      "difficultyRank": 6,
+      "cue": { "x": 0.2525, "y": 0.0568 },
+      "target": { "x": 0.5, "y": 0.3268 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 45.0,
+      "variables": { "cutAngle": "45", "side": "L", "dtp": "0.20", "d": "0.35", "nearRail": "true" }
+    },
+    {
+      "id": "A7",
+      "difficultyRank": 7,
+      "cue": { "x": 0.7425, "y": 0.1643 },
+      "target": { "x": 0.5, "y": 0.3268 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 60.0,
+      "variables": { "cutAngle": "60", "side": "R", "dtp": "0.20", "d": "0.28", "nearRail": "false" }
+    },
+    {
+      "id": "A8",
+      "difficultyRank": 8,
+      "cue": { "x": 0.1709, "y": 0.1943 },
+      "target": { "x": 0.5, "y": 0.4068 },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 60.0,
+      "variables": { "cutAngle": "60", "side": "L", "dtp": "0.12", "d": "0.38", "nearRail": "false" }
+    }
+  ]
+}

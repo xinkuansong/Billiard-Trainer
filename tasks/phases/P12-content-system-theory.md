@@ -100,3 +100,31 @@
 - **遗留 / 非阻塞**：精讲 `clip` 的内容生产（gif→mp4 转码脚本）与首条多球形示范待排期；per-formation 视频归属标签（当前视频仍 drill 级顺序排）属后续增强。
 
 - **后续（2026-06-18，同日）— 视频也支持缩放**：用户走查发现「视频示范点进去不支持放大缩小」。把 `ZoomableImageView` 的缩放逻辑抽成**通用可复用** `ZoomableContainer<Content>`（捏合/双击放大 + 放大后平移 + 可选纵向下滑关闭，内部不依赖内容类型），统一用于三处：①精讲静态图、②精讲 clip（`LoopingPlayerView`）、③详情页示范视频（`DrillVideoPlayerSheet` 的 `VideoPlayer`，保留系统播放控件、缩放只读不拦截控件/scrubber，关闭走 sheet 自身 + 关闭钮故不开 swipeToDismiss）。`ZoomableContainer` 设为 internal 以便 `DrillDetailView` 跨文件复用。验证：`make build` BUILD SUCCEEDED、lint 0。改：`DrillTutorialView.swift`（抽 `ZoomableContainer` + clip 包裹）、`DrillDetailView.swift`（示范视频包裹）。**⏳ 待人工**：真机验证三处缩放手势与视频控件/翻页/下滑关闭共存无冲突（`simultaneousGesture` 行为需真机确认）。
+
+### ADR-P12-03 — 「一个 drill = N 个有覆盖依据的球形」承载方案（多球形沿既有 DrillBoards 线 + 变量档案 sidecar）
+
+- **日期**：2026-07-16
+- **状态**：✅ 已采纳（球形序列专业化方案 v1 批次 B3，iOS Architect）。命中 ADR 触发：**数据结构 / 内容承载策略决策**（多球形 + 变量档案元数据落位）。
+- **背景**：B2（`docs/research/20260716-drill变量覆盖设计方法论.md`）确立「一个 drill = N 个有覆盖依据的球形」结构——样板中袋角度球 8 个球形，每球形含 cue/target/pocket/行进线切角 θ/变量取值（dtp、d、侧别、近库）/难度序号。需要决定这套结构在数据层与 App 内如何承载，且 B5 全库审计与后续批量重构（B6+）需要**机器可读**的每球形变量取值。
+- **代码现状（2026-07-16 读码核实）**：
+  - 运行时单球形假设集中在 `shotIntent.shots.first`：`DrillShotResolver.shotInput(for:)`（L18–23）、`DrillBoardBuilder.board(for:)` / `referenceShot(for:)`（L33–42）、`DrillSceneView.setup`（L66，经 resolver）。`ShotIntent.shots[]` 的语义是**一个球形内的多杆序列**（注释 L21–22「combined/positioning 等多杆球」，全库唯一多杆实例 `drill_c042` 3 shots），不是多球形。
+  - **多球形承载线已存在且运行时已支持**（ADR-P12-02 + 试打模式 D4 + Q19.2④）：每球形一条 `PositionPlaySequence`（`content/position_play/sequences/drill_cNNN__<token>-<名称>-<N>杆.json` → `make tryout-sync`（Makefile L162–169）→ Bundle `DrillBoards/`），`DrillTryoutBoardStore.formations(for:)` 按文件名前缀聚合、试打页可选球形/逐杆播放；精讲侧 `tutorial.formations`（`DrillTutorialView` 吸顶分段控件）承载每球形隔离图文。现存 51 个 drill 有 `__<token>` 式样序列文件（共 87 个），其中 21 个 drill 已含 ≥2 个球形（如 c030 5 球形、c005/c010/c042 各 4 球形）——`ls DrillBoards/` 实测计数。
+- **选项**：
+  - **A. 沿用既有多球形线**：每球形一条 `PositionPlaySequence`（DrillBoards + tryout-sync）+ 精讲 `tutorial.formations` 分段；drill JSON 的 `shotIntent`/`animation` 保持**单代表性球形**（详情页演示/缩略图用）。
+  - **B. 扩展 drill JSON 承载多球形**：新增结构化 `formations` 字段（每球形含 shotIntent 级摆球 + 变量元数据），改 `DrillShotResolver`/`DrillBoardBuilder`/`DrillSceneView`/缩略图的 first 假设，详情页与试打页 UI 增加球形切换。
+  - 变量档案元数据落位子决策：**M1** drill JSON 新可选字段 / **M2** 仓库侧 sidecar JSON（不进 Bundle）/ **M3** 仅设计文档留档。
+- **决策**：**选 A + M2**。多球形沿既有 DrillBoards 序列 + `tutorial.formations` 线；变量档案落**机器可读 sidecar** `content/drill_profiles/<drillId>.profile.json`（仓库真源，不进 App Bundle），schema 草案见 `Resources/Drills/schema.md` §「多球形承载与变量档案（B3 定稿、B4 首用）」。
+- **原因**：
+  1. **运行时已全线支持 A**：试打选球形、逐杆序列播放、精讲分段均已上线（Q19.2④ 验收 6/6 UI 测试），A 的增量仅是「按 B2 设计生产内容」，零代码改动、零回归面。
+  2. **B 的改动面大且语义冲突**：`shotIntent.shots[]` 已被占用为「一球形内多杆」，再塞多球形会把两条正交轴（球形 × 杆）混进同一数组；如另开 `formations` 字段则与 DrillBoards 序列线形成**两套竞争的多球形表示**（同一球形在 drill JSON 与序列 JSON 各存一份坐标，必然漂移）。改动面覆盖 `DrillShotResolver` L18、`DrillBoardBuilder` L33/L41、`DrillSceneView` L66、`DrillThumbnailRenderer`、详情页/试打页 UI 与 `DrillContentValidationTests`——收益却只是把已有能力换个地方再实现一遍。
+  3. **变量档案选 M2（sidecar）**：唯二消费方是 B5 审计与 B6+ 批量重构，均为**仓库侧离线工具**（Python/脚本读文件），App 运行时今天没有任何 feature 消费 θ/dtp/d 档位——进 drill JSON（M1）会白白扩大解码面与校验面；仅设计文档（M3）不满足「机器可读」硬需求。sidecar 与 `content/position_play/` 同层，天然进 git 可 review。
+  4. **一致性**：延续 ADR-P12-02「多球形 = formations 加法式承载」与「内容真源在 `content/`、Bundle 是同步产物」的既有格局。
+- **决策后果与迁移路径**：
+  - drill JSON 的 `shotIntent`/`animation` 语义**收窄为「代表性球形」**（profile 中 `representative: true` 的那条，缺省难度#1）；schema.md 已注明。
+  - 球形与序列文件的对应靠文件名 token（`drill_cNNN__<token>-…`）↔ profile `formations[].sequenceToken` 关联；token 约定用 B2 球形 ID（如 `A1`…`A8`，不得含「-」，`DrillTryoutBoardStore.token(fromFileName:)` 解析约束）。
+  - **若未来 App 内要展示变量标签**（如试打选球形列表显示「θ=30° 右切」）：走加法式迁移——把 profile 的最小子集（标签串或结构化档位）提升为 drill JSON 可选字段，旧内容零改动，与 `shotIntent`/`formations` 先例同构；届时另立 ADR。
+  - B5 审计脚本读 `content/drill_profiles/`（存量 drill 无 profile = 审计输出「无变量档案」缺口行，正是审计要暴露的现状）。
+  - ⛔ 红线兼容：本承载不依赖也不允许「从存量 shotIntent 批量反推生成序列」——新球形的序列文件由 B2/审计设计**正向生成初始摆球**（initial-only 序列合法，`DrillTryoutBoardStore` 只要求 `initial.onTable` 非空，无 steps 时序列模式自动降级），示范击打 steps 仍由编排台人工录制（H-xx）。
+- **验证**：本批**零代码改动**（决策 + 文档），`DrillContentValidationTests` 无需重跑；schema.md 草案节已落。
+- **替代方案弃选理由汇总**：B（扩 drill JSON 多球形）——语义冲突 + 双真源漂移 + 改动面大，未采纳；M1（变量档案进 drill JSON）——运行时无消费方，扩大解码/校验面，未采纳（保留为未来加法式迁移路径）；M3（仅文档留档）——不满足 B5/B6 机器可读需求，未采纳。
+- **遗留**：B4 按本 ADR 落地中袋角度样板（见方案 v1 批次表）；profile 的 jsonschema 校验脚本可在 B5 建审计工具时顺手补（非本批范围）。

@@ -15,7 +15,15 @@ struct DrillDetailView: View {
     /// 选中的试打球形（nil = shotIntent 兜底路径）。
     @State private var selectedFormation: DrillTryoutFormation?
     /// 多球形选择 sheet（>1 个球形时弹出，单球形直进）。
-    @State private var showFormationPicker = false
+    /// 用 item 承载列表快照：iOS 26 上 `.sheet(isPresented:)` 内容闭包会以陈旧
+    /// state 求值（tryoutFormations 渲染为空，B4 发现，c042/c053 均复现）。
+    @State private var formationPicker: FormationPickerPayload?
+
+    /// sheet(item:) 载荷：球形列表快照。
+    private struct FormationPickerPayload: Identifiable {
+        let id = UUID()
+        let formations: [DrillTryoutFormation]
+    }
     @State private var playingVideo: DrillVideo?
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
@@ -113,8 +121,8 @@ struct DrillDetailView: View {
                 PositionPlayComposerView(sourceDrill: drill, tryoutFormation: selectedFormation)
             }
         }
-        .sheet(isPresented: $showFormationPicker) {
-            formationPickerSheet
+        .sheet(item: $formationPicker) { payload in
+            formationPickerSheet(payload.formations)
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
@@ -148,7 +156,7 @@ struct DrillDetailView: View {
     private func startTryout() {
         tryoutFormations = DrillTryoutBoardStore.formations(for: drillId)
         if tryoutFormations.count > 1 {
-            showFormationPicker = true
+            formationPicker = FormationPickerPayload(formations: tryoutFormations)
         } else {
             selectedFormation = tryoutFormations.first
             showTryout = true
@@ -156,35 +164,47 @@ struct DrillDetailView: View {
     }
 
     /// 多球形选择 sheet：球形名 + 杆数，选中即进试打页（暗材质，与试打页衔接）。
-    private var formationPickerSheet: some View {
+    private func formationPickerSheet(_ formations: [DrillTryoutFormation]) -> some View {
         NavigationStack {
-            List(Array(tryoutFormations.enumerated()), id: \.element.id) { index, formation in
-                Button {
-                    selectedFormation = formation
-                    showFormationPicker = false
-                    showTryout = true
-                } label: {
-                    HStack(spacing: Spacing.md) {
-                        Text("\(index + 1)")
-                            .font(.system(size: 15, weight: .bold, design: .rounded))
-                            .foregroundStyle(.btPrimary)
-                            .frame(width: 28, height: 28)
-                            .background(Circle().fill(Color.btPrimary.opacity(0.14)))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(formation.title)
-                                .font(.btBody)
-                                .foregroundStyle(.primary)
-                            Text("\(formation.stepCount) 杆 · \(formation.objectBallCount) 球")
-                                .font(.btCaption2)
-                                .foregroundStyle(.secondary)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(formations.enumerated()), id: \.element.id) { index, formation in
+                        Button {
+                            selectedFormation = formation
+                            formationPicker = nil
+                            showTryout = true
+                        } label: {
+                            HStack(spacing: Spacing.md) {
+                                Text("\(index + 1)")
+                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .foregroundStyle(.btPrimary)
+                                    .frame(width: 28, height: 28)
+                                    .background(Circle().fill(Color.btPrimary.opacity(0.14)))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(formation.title)
+                                        .font(.btBody)
+                                        .foregroundStyle(.primary)
+                                    Text("\(formation.stepCount) 杆 · \(formation.objectBallCount) 球")
+                                        .font(.btCaption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.btCaption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, Spacing.lg)
+                            .padding(.vertical, Spacing.md)
+                            .contentShape(Rectangle())
                         }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.btCaption2)
-                            .foregroundStyle(.tertiary)
+                        .accessibilityIdentifier("tryoutFormation_\(index)")
+
+                        if index < formations.count - 1 {
+                            Divider().padding(.leading, Spacing.lg + 28 + Spacing.md)
+                        }
                     }
                 }
-                .accessibilityIdentifier("tryoutFormation_\(index)")
+                .padding(.vertical, Spacing.sm)
             }
             .navigationTitle("选择球形")
             .navigationBarTitleDisplayMode(.inline)
@@ -706,7 +726,7 @@ private struct GoldFilledButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? Color.btAccent.opacity(0.8) : Color.btAccent)
             .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 

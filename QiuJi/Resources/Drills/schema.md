@@ -156,6 +156,90 @@ trajectories and **backfills** them into `animation` (`source: "baked"`). Render
    reachability report row. Copy the baked `animation` back into the drill JSON (`source: "baked"`).
 4. Confirm `feasible == ✅`. A `sim 进选定袋 == ⚠️` row is a P10 jaw-calibration follow-up, not a blocker.
 
+## Multi-Formation Drills & Variable-Coverage Profile（B3 定稿、B4 首用，ADR-P12-03）
+
+> 承载「一个 drill = N 个有覆盖依据的球形」（变量覆盖方法论见
+> `docs/research/20260716-drill变量覆盖设计方法论.md`）。**drill JSON 本身不扩字段**。
+
+### 承载结构（三件套）
+
+| 层 | 载体 | 说明 |
+|----|------|------|
+| 代表性球形 | drill JSON `shotIntent` / `animation` | **语义收窄**：仅承载代表性球形（profile 中 `representative: true`，缺省难度#1），供详情页演示与缩略图。多杆 `shots[]` 仍表示该球形内的击球序列，与多球形正交 |
+| 全部球形（可试打/可出片） | `content/position_play/sequences/drill_cNNN__<token>-<名称>-<N>杆.json` → `make tryout-sync` → Bundle `DrillBoards/` | 每球形一条 `PositionPlaySequence`；`<token>` = profile 的球形 ID（如 `A1`，**不得含 `-`**）。仅摆球无示范时 steps 可为空（initial-only），试打序列模式自动降级；示范 steps 由编排台人工录制（⛔ 禁止从存量 shotIntent 反推） |
+| 每球形图文精讲 | drill JSON `tutorial.formations`（ADR-P12-02） | `formations[].id` 与 profile 球形 ID 对齐 |
+
+### Variable Profile (sidecar, 机器可读)
+
+路径：`content/drill_profiles/<drillId>.profile.json`（仓库真源，**不进 App Bundle**；消费方 = B5 全库审计与批量重构脚本）。
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `drillId` | `String` | ✅ | e.g. `drill_c053` |
+| `version` | `Int` | ✅ | Profile schema version（当前 `1`） |
+| `methodology` | `String` | ✅ | 变量档案出处文档路径 |
+| `fixedVariables` | `{String: String}` | ✅ | 固定变量 → 取值与钉死理由，e.g. `{"pocket": "bottomCenter（中袋主题钉死）"}` |
+| `targetVariables` | `[TargetVariable]` | ✅ | 目标变量（全覆盖轴） |
+| `conditionVariables` | `[ConditionVariable]` | ✅ | 条件变量（散布采样轴） |
+| `formations` | `[FormationProfile]` | ✅ | 逐球形档案，难度序号升序 |
+
+#### `TargetVariable`
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `String` | e.g. `cutAngle`（行进线切角 θ） |
+| `unit` | `String?` | e.g. `deg` |
+| `levels` | `[String]` | 档位集合，e.g. `["15", "30", "45", "60"]`；非数值档写枚举串（如 `L`/`R`） |
+| `rationale` | `String` | 档位划分依据（教学锚点 / 外部基准） |
+
+#### `ConditionVariable`
+
+同 `TargetVariable` 字段，另加：
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sampling` | `String` | 采样策略说明（每档 ≥1 次 / 可行域约束等） |
+
+#### `FormationProfile`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `id` | `String` | ✅ | 球形 ID，e.g. `A1`；同时用作序列文件 token 与 `tutorial.formations[].id` |
+| `difficultyRank` | `Int` | ✅ | 难度序号 1..N（排序规则见方法论要素 6） |
+| `cue` / `target` | `Point` | ✅ | 归一化摆位（与本 schema 坐标系一致） |
+| `pocket` | `String` | ✅ | Pocket ID |
+| `cutAngleDeg` | `Double?` | ❌ | 行进线切角（设计值，脚本验算产出） |
+| `variables` | `{String: String}` | ✅ | 本球形各变量取值，键与 target/condition 变量 `name` 对应，e.g. `{"cutAngle": "30", "side": "R", "dtp": "0.25", "d": "0.22", "nearRail": "true"}` |
+| `representative` | `Bool?` | ❌ | `true` = 代表性球形（回填 drill JSON `shotIntent`/`animation`）；全档案至多一个，缺省难度#1 |
+| `sequenceToken` | `String?` | ❌ | 对应 DrillBoards 序列文件 token；缺省 = `id` |
+
+#### 最小示例
+
+```json
+{
+  "drillId": "drill_c053",
+  "version": 1,
+  "methodology": "docs/research/20260716-drill变量覆盖设计方法论.md",
+  "fixedVariables": { "pocket": "bottomCenter（中袋主题钉死）", "entryAngle": "0°（控制变量）" },
+  "targetVariables": [
+    { "name": "cutAngle", "unit": "deg", "levels": ["15", "30", "45", "60"], "rationale": "厚薄教学锚点" },
+    { "name": "side", "levels": ["L", "R"], "rationale": "左右切视线/送杆不对称" }
+  ],
+  "conditionVariables": [
+    { "name": "dtp", "levels": ["0.12", "0.15", "0.20", "0.25"], "rationale": "目标球距袋", "sampling": "每档≥1次，上限受可行域约束" }
+  ],
+  "formations": [
+    {
+      "id": "A1", "difficultyRank": 1,
+      "cue": { "x": 0.5647, "y": 0.1128 }, "target": { "x": 0.5, "y": 0.3768 },
+      "pocket": "bottomCenter", "cutAngleDeg": 15.0,
+      "variables": { "cutAngle": "15", "side": "R", "dtp": "0.15", "d": "0.25", "nearRail": "false" },
+      "representative": true
+    }
+  ]
+}
+```
+
 ## Pocket IDs
 
 | ID | Position |

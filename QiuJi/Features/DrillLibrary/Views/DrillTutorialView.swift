@@ -60,8 +60,10 @@ struct DrillTutorialView: View {
                     LazyVStack(alignment: .leading, spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
                         Section {
                             // F-DL-05：球形切换短 opacity 过渡。
+                            // 行 id 必须绑定 selectedFormation（见 sectionList）：LazyVStack 对
+                            // 已实例化行只按 ForEach id 复用，容器级 .id 在 iOS 26 上不触发行重建
+                            // （切换球形正文不刷新，B4 发现的存量缺陷）。
                             sectionList
-                                .id(selectedFormation)
                                 .transition(.opacity)
                         } header: {
                             formationPicker
@@ -92,8 +94,10 @@ struct DrillTutorialView: View {
 
     @ViewBuilder
     private var sectionList: some View {
+        // id 复合 selectedFormation：保证切换球形时 LazyVStack 行重建（而非按 offset 复用旧行）。
         ForEach(Array(currentSections.enumerated()), id: \.offset) { index, section in
             sectionCard(section, index: index)
+                .id("\(selectedFormation)-\(index)")
         }
     }
 
