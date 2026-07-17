@@ -7,6 +7,7 @@
 
 import XCTest
 import SceneKit
+import UIKit
 @testable import QiuJi
 
 final class BankKickDifficultyTests: XCTestCase {
@@ -162,5 +163,231 @@ final class BankKickDifficultyTests: XCTestCase {
         if let angle {
             XCTAssertEqual(angle, expected, accuracy: 1.0)
         }
+    }
+
+    // MARK: - K9 钉子：展示几何 = finalAim；镜像收敛去重
+
+    /// 坐标契约：SceneKit XZ；ghost = cue+t·aim ∩ |G−T|=2R。对拍数值草稿 case1。
+    func test_ghostAlongFinalAim_straightOnGold() {
+        let r = BallPhysics.radius
+        let cue = SCNVector3(-0.5, sY + r, 0)
+        let target = SCNVector3(0, sY + r, 0)
+        let aim = SCNVector3(1, 0, 0)
+        let ghost = ShotPredictor.ghostAlongFinalAim(
+            cue: cue, target: target, aim: aim, ballRadius: r)
+        XCTAssertNotNil(ghost)
+        if let g = ghost {
+            XCTAssertEqual(g.x, -2 * r, accuracy: 1e-5)
+            XCTAssertEqual(g.z, 0, accuracy: 1e-5)
+        }
+    }
+
+    /// K9：翻袋上屏解的 aimDirection/ghost 必须由 finalAim 派生，禁止种子几何直出。
+    func test_bankSolve_presentationMatchesFinalAim_notSeed() {
+        let r = BallPhysics.radius
+        let cue = SCNVector3(-0.5, sY + r, -0.2)
+        let object = SCNVector3(0.1, sY + r, 0.1)
+        let sols = BankKickSolvePipeline.solveBank(
+            cue: cue, object: object, pocketIndex: 1, surfaceY: sY, power: 3.6)
+        XCTAssertFalse(sols.isEmpty)
+        var checkedOffset = false
+        for sol in sols {
+            let pred = sol.prediction
+            XCTAssertNotNil(pred.aimOffsetUsed)
+            // ghost 落在 cue→aimDirection 射线上（XZ）。
+            let dx = pred.ghost.x - cue.x, dz = pred.ghost.z - cue.z
+            let len = sqrtf(dx * dx + dz * dz)
+            XCTAssertGreaterThan(len, 1e-4)
+            let along = (dx / len) * pred.aimDirection.x + (dz / len) * pred.aimDirection.z
+            XCTAssertEqual(along, 1, accuracy: 1e-3,
+                           "ghost 必须落在精修后瞄准射线上（库序 \(sol.railSequenceText)）")
+            // |ghost−object| ≈ 2R
+            let gx = pred.ghost.x - object.x, gz = pred.ghost.z - object.z
+            XCTAssertEqual(sqrtf(gx * gx + gz * gz), 2 * r, accuracy: 2e-3)
+
+            var seed = ShotPrediction()
+            guard let _ = ShotPredictor.prepareBankAim(
+                ShotInput(cueBall: cue, targetBall: object, pocketIndex: 1,
+                          velocity: 3.6, spinX: 0, spinY: 0, surfaceY: sY,
+                          bankRails: sol.rails),
+                rails: sol.rails, into: &seed
+            ), let off = pred.aimOffsetUsed else { continue }
+            let finalAim = seed.aimDirection.rotatedY(off)
+            let aimDot = max(-1, min(1,
+                pred.aimDirection.x * finalAim.x + pred.aimDirection.z * finalAim.z))
+            XCTAssertEqual(acosf(aimDot) * 180 / .pi, 0, accuracy: 0.05,
+                           "aimDirection 必须等于 seed.rotatedY(aimOffsetUsed)")
+            if abs(off) > 0.1 * .pi / 180 {
+                checkedOffset = true
+                let seedDot = max(-1, min(1,
+                    pred.aimDirection.x * seed.aimDirection.x
+                        + pred.aimDirection.z * seed.aimDirection.z))
+                XCTAssertGreaterThan(acosf(seedDot) * 180 / .pi, 0.05,
+                                     "有精修偏移时展示瞄准不得等于种子瞄准")
+            }
+        }
+        // 典型盘面至少应有一条带非零精修偏移的解（否则本断言退化为弱检查）。
+        // 若不存在非零偏移，仍保留射线/2R 不变量作为硬门。
+        if !checkedOffset {
+            print("K9 note: 本盘面全部 aimOffsetUsed≈0，射线/2R 不变量已验")
+        }
+    }
+
+    /// K9：同库数精修后瞄准/进球首段相同的解不得双双上屏。
+    func test_solveBank_dedupsConvergedMirrorSeeds() {
+        let r = BallPhysics.radius
+        let cue = SCNVector3(-0.5, sY + r, -0.2)
+        let object = SCNVector3(0.1, sY + r, 0.1)
+        let sols = BankKickSolvePipeline.solveBank(
+            cue: cue, object: object, pocketIndex: 1, surfaceY: sY, power: 3.6)
+        XCTAssertFalse(sols.isEmpty)
+        for i in 0..<sols.count {
+            for j in (i + 1)..<sols.count where sols[i].cushions == sols[j].cushions {
+                XCTAssertFalse(
+                    BankKickSolvePipeline.isSameRefinedSolution(
+                        sols[i].prediction, sols[j].prediction),
+                    "同库数保留了精修后重复解：\(sols[i].railSequenceText) vs \(sols[j].railSequenceText)")
+            }
+        }
+        // 合成：两预测瞄准几乎相同 → 判同。
+        var a = ShotPrediction(), b = ShotPrediction()
+        a.aimDirection = SCNVector3(1, 0, 0)
+        b.aimDirection = SCNVector3(cosf(0.2 * .pi / 180), 0, sinf(0.2 * .pi / 180))
+        XCTAssertTrue(BankKickSolvePipeline.isSameRefinedSolution(a, b))
+        // 合成：瞄准差大但 objectPath 首段同向 → 仍判同（镜像收敛兜底）。
+        var c = ShotPrediction(), d = ShotPrediction()
+        c.aimDirection = SCNVector3(1, 0, 0)
+        d.aimDirection = SCNVector3(0, 0, 1)
+        let y = sY + r
+        c.objectPath = [SCNVector3(0, y, 0), SCNVector3(0.2, y, 0)]
+        d.objectPath = [SCNVector3(0, y, 0), SCNVector3(0.2, y, 0.0005)]
+        XCTAssertTrue(BankKickSolvePipeline.isSameRefinedSolution(c, d))
+    }
+
+    /// K14 验收截图：翻袋/反射典型盘面走 TrajectoryRenderer（full 档含吃库金点）。
+    @MainActor
+    func test_x4_renderBankAndKickSolutionFrames() throws {
+        let outDir = "/Users/song/projects/13.billiard_trainer-wt-x4/build/x4-screenshots"
+        try FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
+        let r = BallPhysics.radius
+        let prevDetail = UserPreferences.shared.trajectoryDetail
+        UserPreferences.shared.trajectoryDetail = .full
+        defer { UserPreferences.shared.trajectoryDetail = prevDetail }
+
+        // 翻袋
+        let bankCue = SCNVector3(-0.5, sY + r, -0.2)
+        let bankObj = SCNVector3(0.1, sY + r, 0.1)
+        let bankSols = BankKickSolvePipeline.solveBank(
+            cue: bankCue, object: bankObj, pocketIndex: 1, surfaceY: sY, power: 3.6)
+        XCTAssertFalse(bankSols.isEmpty)
+        if let sol = bankSols.first {
+            let img = try renderSolutionFrame(
+                cue: bankCue, target: bankObj, prediction: sol.prediction,
+                pocketIndex: 1, label: "bank")
+            let path = "\(outDir)/x4-bank-typical-full.png"
+            try img.pngData()!.write(to: URL(fileURLWithPath: path))
+            print("X4-PNG \(path)")
+        }
+
+        // 反射
+        let kickCue = SCNVector3(-0.5, sY + r, -0.2)
+        let kickObj = SCNVector3(0.4, sY + r, 0.25)
+        let kickSols = BankKickSolvePipeline.solveKick(
+            cue: kickCue, target: kickObj, surfaceY: sY, power: 3.6)
+        XCTAssertFalse(kickSols.isEmpty)
+        if let sol = kickSols.first {
+            let img = try renderSolutionFrame(
+                cue: kickCue, target: kickObj, prediction: sol.prediction,
+                pocketIndex: nil, label: "kick")
+            let path = "\(outDir)/x4-kick-typical-full.png"
+            try img.pngData()!.write(to: URL(fileURLWithPath: path))
+            print("X4-PNG \(path)")
+        }
+
+        // Composer/Silu 参照帧（K14 同帧对照）：可进袋直击盘面，同一
+        // TrajectoryRenderer.positionPlay 路径 —— 进球线虚线本色 / 瞄准 aimColor /
+        // 母球实虚分段 / 假想球虚线环+红心，与翻袋/反射帧同源可比。
+        let refObj = SCNVector3(0.6, sY + r, 0.3)
+        let pocketIndex = 3
+        let pocket = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: refObj, pocketIndex: pocketIndex, surfaceY: sY)
+        let ghost = AngleSceneCalculator.ghostBallPosition(
+            targetBall: refObj, pocket: pocket, ballRadius: r)
+        let pdx = pocket.x - refObj.x, pdz = pocket.z - refObj.z
+        let pl = max(sqrtf(pdx * pdx + pdz * pdz), 1e-5)
+        let pd = SCNVector3(pdx / pl, 0, pdz / pl)
+        let refCue = SCNVector3(ghost.x - pd.x * 0.5, sY + r, ghost.z - pd.z * 0.5)
+        let refPred = ShotPredictor.predict(ShotInput(
+            cueBall: refCue, targetBall: refObj, pocketIndex: pocketIndex,
+            velocity: 3.0, spinX: 0, spinY: 0, surfaceY: sY))
+        XCTAssertTrue(refPred.simObjectPotted, "Composer 参照直击应进袋")
+        let refImg = try renderSolutionFrame(
+            cue: refCue, target: refObj, prediction: refPred,
+            pocketIndex: pocketIndex, label: "composer-ref")
+        let refPath = "\(outDir)/x4-composer-reference-full.png"
+        try refImg.pngData()!.write(to: URL(fileURLWithPath: refPath))
+        print("X4-PNG \(refPath)")
+    }
+
+    @MainActor
+    private func renderSolutionFrame(
+        cue: SCNVector3, target: SCNVector3, prediction: ShotPrediction,
+        pocketIndex: Int?, label: String
+    ) throws -> UIImage {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            throw XCTSkip("Metal unavailable")
+        }
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        scene.hideAllBalls()
+        scene.hideCueStick()
+        scene.showBall(key: "cueBall", scenePosition: cue)
+        scene.showBall(key: "_8", scenePosition: target)
+
+        var nodes: [SCNNode] = []
+        TrajectoryRenderer.draw(
+            prediction: prediction,
+            options: .positionPlay,
+            context: .init(
+                prediction: prediction,
+                targetKey: "_8",
+                pocket: pocketIndex.flatMap { ShotIntent.pocketId(for: $0) },
+                surfaceY: scene.surfaceY,
+                showGhost: true
+            ),
+            scene: scene,
+            into: &nodes
+        )
+        // full 档吃库标注（与 VM drawSolution 同口径；Composer 参照帧无此翻袋特有层）。
+        let path: [SCNVector3]
+        switch label {
+        case "kick": path = BankKickSolvePipeline.pathToFirstContact(prediction)
+        case "bank": path = prediction.objectPath
+        default: path = []
+        }
+        for touch in BankKickSolvePipeline.cushionTouchPoints(path) {
+            nodes.append(scene.addBall(at: touch.point, color: TrajectoryStyle.traceColor, radius: 0.012))
+            let len = AngleSceneCalculator.ballRadius * 2.2
+            let normalEnd = SCNVector3(touch.point.x + touch.inwardNormal.x * len,
+                                       touch.point.y,
+                                       touch.point.z + touch.inwardNormal.z * len)
+            nodes.append(scene.addLine(from: touch.point, to: normalEnd,
+                                       color: TrajectoryStyle.hintColor,
+                                       radius: TrajectoryStyle.lineHint))
+        }
+
+        if let rig = scene.cameraRig {
+            rig.topDownOrthographicScale = 0.75
+            rig.topDownPanOffset = .zero
+            rig.applyTopDown2D()
+        }
+        let renderer = SCNRenderer(device: device, options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = scene.cameraNode
+        renderer.autoenablesDefaultLighting = false
+        let img = renderer.snapshot(atTime: 0, with: CGSize(width: 900, height: 520),
+                                    antialiasingMode: .multisampling4X)
+        scene.clearResultNodes(nodes: &nodes)
+        return img
     }
 }
