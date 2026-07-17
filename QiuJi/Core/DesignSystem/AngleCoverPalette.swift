@@ -20,6 +20,11 @@ enum AngleCoverPalette {
         top: Color(red: 0.12, green: 0.58, blue: 0.50),
         bottom: Color(red: 0.05, green: 0.34, blue: 0.30)
     )
+    /// 瞄准修正（v12 Z1）— 暖橙棕，区别于旋转与加塞琥珀 / 瞄准方法青绿 / 几何测验橙。
+    static let aimingCorrection = Pair(
+        top: Color(red: 0.72, green: 0.38, blue: 0.22),
+        bottom: Color(red: 0.42, green: 0.20, blue: 0.12)
+    )
     /// 旋转与加塞（v11 Y2）— 琥珀，区别于瞄准方法青绿 / 浅谈球感紫 / 角度与瞄准蓝。
     static let spinAndEnglish = Pair(
         top: Color(red: 0.78, green: 0.42, blue: 0.16),
