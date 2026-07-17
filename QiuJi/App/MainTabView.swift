@@ -115,6 +115,8 @@ struct MainTabView: View {
             AimingPrincipleView()
         case .aimingMethods:
             AimingMethodsView()
+        case .aimingCorrection:
+            AimingCorrectionView()
         case .spinAndEnglish:
             SpinAndEnglishView()
         case .separationAngleAtlas:

@@ -7,6 +7,8 @@ enum AngleRoute: Hashable {
     case aimingPrinciple
     /// 瞄准方法（v11 Y1）：管道 / 接触点·重合比例 / 平行线。
     case aimingMethods
+    /// 瞄准修正（v12 Z1）：投掷 · 挤偏 · 弧线；几何之外的偏差。
+    case aimingCorrection
     /// 旋转与加塞（v11 Y2）：母球旋转状态 → 分离角；最小加塞 / 打滑极限。
     case spinAndEnglish
     /// 分离角图谱（v11 Y3）：8 档高低杆碰后→第一库轨迹对比。
@@ -117,6 +119,10 @@ struct AngleHomeView: View {
               title: "瞄准方法", subtitle: "管道 · 接触点 · 平行线",
               coverTop: AngleCoverPalette.aimingMethods.top,
               coverBottom: AngleCoverPalette.aimingMethods.bottom),
+        .init(route: .aimingCorrection, glyph: "偏",
+              title: "瞄准修正", subtitle: "投掷 · 塞偏 · 弧线：几何之外的偏差",
+              coverTop: AngleCoverPalette.aimingCorrection.top,
+              coverBottom: AngleCoverPalette.aimingCorrection.bottom),
         .init(route: .spinAndEnglish, glyph: "旋",
               title: "旋转与加塞", subtitle: "滑动 · 前旋后旋 · 分离角",
               coverTop: AngleCoverPalette.spinAndEnglish.top,
