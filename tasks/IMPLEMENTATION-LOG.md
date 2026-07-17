@@ -713,6 +713,17 @@
 - **回写目标**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训。
 - **已应用至**：✅ `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训（2026-07-02，PD-025）
 
+## DR-024
+- **任务**：问题集合 v8 X1 / K4（D-v8-4）— 3D 场景每题进场机位契约变更。
+- **原始规范**：v5 Q5/Q9：`CameraRig.enterAiming` 每题进场目标恒 `zoom=1`（stand 远景，站立观察上界），用户可竖滑压低。
+- **调整后**：`enterAiming` 目标改为**确定性近景 `zoom=0`**（aim 梯：`minRadius`/`minHeight`/`aimPitch`/`aimFov`）；竖滑/捏合仍可在 `[0,1]` 调整。配套修复：`SceneAimingView.onChange(questionIndex)` defer 到下一 runloop（`DispatchQueue.main.async`），消除 `advanceToNext` 先改 index、`nextQuestion()` 尚未 `applyBallLayout` 时 `cueBallNode==nil` 早退不复位的竞态；`AimPointSceneTrainingView` 同源同修。
+- **原因**：v5 契约叠加早退路径与 0.6s smoothToPose 竞态后，同页表现为「有的题正常（保住上一题近景）/ 有的特别远（成功拉到 zoom=1）」忽近忽远 bug（用户 D-v8-4 澄清）。取证文档 `build/x1-evidence/k4-reproduce-path.md`（路径 A ENTER→远 / 路径 B EARLY_RETURN→近）。
+- **影响组件**：`CameraRig.enterAiming`、`SceneAimingView`、`AimPointSceneTrainingView`；`AimingCameraConfig` zoom 梯定义未动。
+- **验证**：`X1_CameraAndAngleArcTests` 3/0（`entryZoom=0.00 prevZoom=1.00` 日志断言）；连续 5 题进场截图机位一致（`build/x1-screenshots/k4-q01..05`，MD5 互异证非同帧）。
+- **日期**：2026-07-17
+- **回写目标**：`问题集合_v8.md` K4 条目（真源）；v5 相关注释已在 `CameraRig.swift` 代码内更新。
+- **已应用至**：✅ `CameraRig.swift` 代码注释（2026-07-17，DR-024）；✅ `问题集合_v8.md` 波1 状态行。
+
 ## DR-023
 - **任务**：问题集合 v7 W3 / G22 — 动效与设计 token 收编（C19/C20/C21）。
 - **调整后**：
