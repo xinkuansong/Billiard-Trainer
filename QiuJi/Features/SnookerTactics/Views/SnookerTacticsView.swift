@@ -279,16 +279,13 @@ struct SnookerTacticsView: View {
 
     // MARK: - Toolbar menu
 
-    /// 条 21.6 / G25：反解训练三点菜单模板（求解范围 → 显示 → 清空/恢复默认）。
+    /// K12：三点菜单不再含「求解范围」（仅思路训练保留）；显示 → 清空/恢复默认。
     private var moreMenu: some View {
         BTSolverMoreMenu(
             scene: vm.scene,
             onClearTable: { vm.clearTable() },
             onReset: { vm.resetAll() },
-            solveRange: {
-                Toggle("允许左右塞", isOn: $vm.allowSideSpin)
-                Toggle("仅基础走位（≤1 库）", isOn: $vm.basicPositionOnly)
-            }
+            pageExtras: { EmptyView() }
         )
     }
 

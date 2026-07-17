@@ -85,11 +85,13 @@ final class SnookerTacticsViewModel: ObservableObject {
     /// 目标球已选、且推断出至少一颗对方球，方可求解。
     var canSolve: Bool { selectedTargetKey != nil && !opponentKeys.isEmpty }
 
-    // MARK: - Published solve options（与思路训练器同口径，默认完整能力）
+    // MARK: - Published solve options (K12: UI removed; snapshot-compat only; solve always full)
 
+    /// Retained for `SolveShotSnapshot` round-trip. Solve ignores this flag (always full capability).
     @Published var allowSideSpin: Bool = true {
         didSet { if oldValue != allowSideSpin { invalidateSolutions() } }
     }
+    /// Retained for `SolveShotSnapshot` round-trip. Solve ignores this flag (always full capability).
     @Published var basicPositionOnly: Bool = false {
         didSet { if oldValue != basicPositionOnly { invalidateSolutions() } }
     }
@@ -109,9 +111,17 @@ final class SnookerTacticsViewModel: ObservableObject {
     @Published private(set) var currentIndex = 0
     @Published private(set) var statusText = "拖动摆球 · 选一颗「目标球」（我方要打的球），再点求解"
 
+    // MARK: - Adjustment draft (K13 / X6 — same contract as SiluTrainerViewModel; X5 transplant source)
+    //
+    // `solutions[]` immutable after solve; `adjustmentDraft` holds forward-recomputed display/strike
+    // candidate. `currentSolution` = draft ?? catalog. adjust → Drafted (further tweak on draft);
+    // nextSolution / showSolution / invalidate / solve → Clean (draft discarded).
+
+    private var adjustmentDraft: PositionPlaySolution?
+
     var currentSolution: PositionPlaySolution? {
         guard solutions.indices.contains(currentIndex) else { return nil }
-        return solutions[currentIndex]
+        return adjustmentDraft ?? solutions[currentIndex]
     }
     var hasSolutions: Bool { !solutions.isEmpty }
     var canStrike: Bool {
@@ -359,6 +369,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         isComputing = false
         solutions = []
         currentIndex = 0
+        adjustmentDraft = nil
         clearTrajectory()
         scene.hideCueStick()
         resetParamDisplay()
@@ -383,9 +394,8 @@ final class SnookerTacticsViewModel: ObservableObject {
         }
         let before = currentSnapshot()
         let y = surfaceY
-        var params = PositionPlaySolver.SnookerParams.standard
-        if !allowSideSpin { params.spinXValues = [0] }
-        params.maxCushions = basicPositionOnly ? 1 : nil
+        // K12: always full capability; allowSideSpin / basicPositionOnly ignored (snapshot-compat only).
+        let params = PositionPlaySolver.SnookerParams.standard
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
@@ -402,6 +412,7 @@ final class SnookerTacticsViewModel: ObservableObject {
                 self.isComputing = false
                 self.solutions = result
                 self.currentIndex = 0
+                self.adjustmentDraft = nil
                 if result.isEmpty {
                     self.statusText = "未找到可行防守解（母球难以合法碰目标球并停稳；试着移动母球/目标球）"
                     self.resetParamDisplay()
@@ -417,13 +428,18 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     func nextSolution() {
         guard !solutions.isEmpty else { return }
+        adjustmentDraft = nil
         currentIndex = (currentIndex + 1) % solutions.count
         showSolution(at: currentIndex)
     }
 
     private func showSolution(at index: Int) {
         guard solutions.indices.contains(index) else { return }
-        let sol = solutions[index]
+        adjustmentDraft = nil
+        presentDisplayedSolution(solutions[index])
+    }
+
+    private func presentDisplayedSolution(_ sol: PositionPlaySolution) {
         velocity = sol.shot.velocity
         spinX = sol.shot.spinX
         spinY = sol.shot.spinY
@@ -586,17 +602,24 @@ final class SnookerTacticsViewModel: ObservableObject {
         }
     }
 
-    /// 微调当前解（条 21.4 同规范）：改打点/力度后按新参数重预测替换当前解。
+    /// 微调当前解（K13 草稿层，与 Silu 同契约）：正向重算写入 `adjustmentDraft`，不改 `solutions[]`。
     func adjustCurrentSolution(velocity v: Double? = nil,
                                spinX sx: Double? = nil, spinY sy: Double? = nil) {
-        guard !isPlaying, !isComputing, let sol = currentSolution else { return }
-        var shot = sol.shot
+        guard !isPlaying, !isComputing else { return }
+        guard solutions.indices.contains(currentIndex) else { return }
+        let catalog = solutions[currentIndex]
+        let base = adjustmentDraft ?? catalog
+        var shot = base.shot
         if let v { shot.velocity = v }
         if let sx { shot.spinX = sx }
         if let sy { shot.spinY = sy }
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
+        let margin = catalog.margin
+        let satisfies = catalog.satisfiesConstraint
+        let beyondCushion = catalog.beyondCushionBudget
+        let beyondSpin = catalog.beyondSpinBudget
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
@@ -606,22 +629,23 @@ final class SnookerTacticsViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
-                guard let pred, self.solutions.indices.contains(idx) else { return }
-                self.solutions[idx] = PositionPlaySolution(
+                guard let pred, self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
                     cushionCount: pred.cueCushionCount,
                     potted: pred.simObjectPotted,
-                    margin: sol.margin,
+                    margin: margin,
                     summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
-                    satisfiesConstraint: sol.satisfiesConstraint,
-                    beyondCushionBudget: sol.beyondCushionBudget,
+                    satisfiesConstraint: satisfies,
+                    beyondCushionBudget: beyondCushion,
                     difficultyScore: DifficultyModel.score(
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity),
                     difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: sol.beyondSpinBudget
+                    beyondSpinBudget: beyondSpin
                 )
-                self.showSolution(at: idx)
+                self.adjustmentDraft = drafted
+                self.presentDisplayedSolution(drafted)
             }
         }
     }
@@ -655,20 +679,46 @@ final class SnookerTacticsViewModel: ObservableObject {
         selectedTargetKey = ctx.selectedTargetKey
         activeTool = .none
 
-        // 解回填（「解还在」，免重解）。
+        // 解回填（「解还在」，免重解）。catalog 原样回填；击打若用微调则重建草稿层。
         solveGeneration += 1
         isComputing = false
         solutions = snap.solutions
         currentIndex = snap.currentIndex
-        velocity = snap.velocity
-        spinX = snap.spinX
-        spinY = snap.spinY
+        adjustmentDraft = nil
 
-        if currentSolution != nil {
-            showSolution(at: currentIndex)   // 轨迹 + 球杆瞄准 + 防守叠加
+        if solutions.indices.contains(currentIndex) {
+            let catalog = solutions[currentIndex]
+            if Self.shotParamsDiffer(catalog.shot, snap.shot) {
+                adjustmentDraft = PositionPlaySolution(
+                    shot: snap.shot, prediction: snap.prediction,
+                    cushionCount: snap.prediction.cueCushionCount,
+                    potted: snap.prediction.simObjectPotted,
+                    margin: catalog.margin,
+                    summary: "微调 · " + ShotSpinLabel.text(spinX: snap.shot.spinX, spinY: snap.shot.spinY)
+                        + String(format: " · %.1f m/s", snap.shot.velocity),
+                    satisfiesConstraint: catalog.satisfiesConstraint,
+                    beyondCushionBudget: catalog.beyondCushionBudget,
+                    difficultyScore: DifficultyModel.score(
+                        spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity),
+                    difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
+                    beyondSpinBudget: catalog.beyondSpinBudget
+                )
+                presentDisplayedSolution(adjustmentDraft!)
+            } else {
+                showSolution(at: currentIndex)
+            }
         } else {
+            velocity = snap.velocity
+            spinX = snap.spinX
+            spinY = snap.spinY
             refreshOverlays()
         }
+    }
+
+    private static func shotParamsDiffer(_ a: PlannedShot, _ b: PlannedShot) -> Bool {
+        abs(a.velocity - b.velocity) > 1e-9
+            || abs(a.spinX - b.spinX) > 1e-9
+            || abs(a.spinY - b.spinY) > 1e-9
     }
 
     /// 上一杆（G17）：回到上次击打前的**完整状态**——球形、目标球、已求出的解（缓存回填）、

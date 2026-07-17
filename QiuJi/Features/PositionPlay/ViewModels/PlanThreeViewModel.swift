@@ -199,9 +199,11 @@ final class PlanThreeViewModel: ObservableObject {
     var passVMin: Double = 0.3
     var pointTolerance: Double = 0.02
 
-    // MARK: - Published solve options
+    // MARK: - Published solve options (K12: UI removed; snapshot-compat only; solve always full)
 
+    /// Retained for `SolveShotSnapshot` round-trip. Solve ignores this flag (always full capability).
     @Published var allowSideSpin: Bool = true { didSet { if oldValue != allowSideSpin { invalidateSolutions() } } }
+    /// Retained for `SolveShotSnapshot` round-trip. Solve ignores this flag (always full capability).
     @Published var basicPositionOnly: Bool = false { didSet { if oldValue != basicPositionOnly { invalidateSolutions() } } }
 
     // MARK: - Published shot params (当前解只读指示)
@@ -219,8 +221,17 @@ final class PlanThreeViewModel: ObservableObject {
     @Published private(set) var currentIndex = 0
     @Published private(set) var statusText = "点下方①，再点桌上球设为一号球"
 
+    // MARK: - Adjustment draft (K13 / X6 — same contract as SiluTrainerViewModel; X5 transplant source)
+    //
+    // `solutions[]` immutable after solve; `adjustmentDraft` holds forward-recomputed display/strike
+    // candidate. `currentSolution` = draft ?? catalog. adjust → Drafted (further tweak on draft);
+    // nextSolution / showSolution / invalidate / solve → Clean (draft discarded).
+
+    private var adjustmentDraft: PositionPlaySolution?
+
     var currentSolution: PositionPlaySolution? {
-        solutions.indices.contains(currentIndex) ? solutions[currentIndex] : nil
+        guard solutions.indices.contains(currentIndex) else { return nil }
+        return adjustmentDraft ?? solutions[currentIndex]
     }
     var hasSolutions: Bool { !solutions.isEmpty }
     var canStrike: Bool {
@@ -616,6 +627,7 @@ extension PlanThreeViewModel {
         isComputing = false
         solutions = []
         currentIndex = 0
+        adjustmentDraft = nil
         clearTrajectory()
         scene.hideCueStick()
         velocity = 3.0; spinX = 0; spinY = 0
@@ -650,6 +662,7 @@ extension PlanThreeViewModel {
                 self.isComputing = false
                 self.solutions = result
                 self.currentIndex = 0
+                self.adjustmentDraft = nil
                 if result.isEmpty {
                     self.statusText = "未找到解（试着放大区域或换①目标袋）"
                     self.velocity = 3.0; self.spinX = 0; self.spinY = 0
@@ -660,15 +673,12 @@ extension PlanThreeViewModel {
         }
     }
 
+    /// K12: always full capability (`allowSideSpin` / `basicPositionOnly` ignored; snapshot-compat only).
     private func searchParams(for constraint: SolveConstraint) -> PositionPlaySolver.SearchParams {
-        var params: PositionPlaySolver.SearchParams
         switch constraint {
-        case .restRegion: params = .standard
-        case .passThrough: params = .passThrough
+        case .restRegion: return .standard
+        case .passThrough: return .passThrough
         }
-        if !allowSideSpin { params.spinXValues = [0] }
-        params.maxCushions = basicPositionOnly ? 1 : nil
-        return params
     }
 
     /// 三档轨迹标注切换后重绘当前解（`BTTrajectoryDetailChip` 触发，条 12.5）。
@@ -679,13 +689,18 @@ extension PlanThreeViewModel {
 
     func nextSolution() {
         guard !solutions.isEmpty else { return }
+        adjustmentDraft = nil
         currentIndex = (currentIndex + 1) % solutions.count
         showSolution(at: currentIndex)
     }
 
     private func showSolution(at index: Int) {
         guard solutions.indices.contains(index) else { return }
-        let sol = solutions[index]
+        adjustmentDraft = nil
+        presentDisplayedSolution(solutions[index])
+    }
+
+    private func presentDisplayedSolution(_ sol: PositionPlaySolution) {
         velocity = sol.shot.velocity
         spinX = sol.shot.spinX
         spinY = sol.shot.spinY
@@ -1027,17 +1042,24 @@ extension PlanThreeViewModel {
         }
     }
 
-    /// 微调当前解（条 21.4 同规范）：改打点/力度后按新参数重预测替换当前解。
+    /// 微调当前解（K13 草稿层，与 Silu 同契约）：正向重算写入 `adjustmentDraft`，不改 `solutions[]`。
     func adjustCurrentSolution(velocity v: Double? = nil,
                                spinX sx: Double? = nil, spinY sy: Double? = nil) {
-        guard !isPlaying, !isComputing, let sol = currentSolution else { return }
-        var shot = sol.shot
+        guard !isPlaying, !isComputing else { return }
+        guard solutions.indices.contains(currentIndex) else { return }
+        let catalog = solutions[currentIndex]
+        let base = adjustmentDraft ?? catalog
+        var shot = base.shot
         if let v { shot.velocity = v }
         if let sx { shot.spinX = sx }
         if let sy { shot.spinY = sy }
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
+        let margin = catalog.margin
+        let satisfies = catalog.satisfiesConstraint
+        let beyondCushion = catalog.beyondCushionBudget
+        let beyondSpin = catalog.beyondSpinBudget
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
@@ -1047,23 +1069,24 @@ extension PlanThreeViewModel {
             DispatchQueue.main.async {
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
-                guard let pred, self.solutions.indices.contains(idx) else { return }
-                self.solutions[idx] = PositionPlaySolution(
+                guard let pred, self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
                     cushionCount: pred.cueCushionCount,
                     potted: pred.simObjectPotted,
-                    margin: sol.margin,
+                    margin: margin,
                     summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
-                    satisfiesConstraint: sol.satisfiesConstraint,
-                    beyondCushionBudget: sol.beyondCushionBudget,
+                    satisfiesConstraint: satisfies,
+                    beyondCushionBudget: beyondCushion,
                     difficultyScore: DifficultyModel.score(
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
                         cutAngleDeg: pred.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: sol.beyondSpinBudget
+                    beyondSpinBudget: beyondSpin
                 )
-                self.showSolution(at: idx)
+                self.adjustmentDraft = drafted
+                self.presentDisplayedSolution(drafted)
             }
         }
     }
@@ -1122,21 +1145,48 @@ extension PlanThreeViewModel {
         hasConstraint = snap.draft != nil
         activeTool = .none
 
-        // 解回填（「解还在」，免重解）。
+        // 解回填（「解还在」，免重解）。catalog 原样回填；击打若用微调则重建草稿层。
         solveGeneration += 1
         isComputing = false
         solutions = snap.solutions
         currentIndex = snap.currentIndex
-        velocity = snap.velocity
-        spinX = snap.spinX
-        spinY = snap.spinY
+        adjustmentDraft = nil
 
-        if currentSolution != nil {
-            showSolution(at: currentIndex)   // 轨迹 + 球杆瞄准 + 约束 + 角色环/扇形叠加
+        if solutions.indices.contains(currentIndex) {
+            let catalog = solutions[currentIndex]
+            if Self.shotParamsDiffer(catalog.shot, snap.shot) {
+                adjustmentDraft = PositionPlaySolution(
+                    shot: snap.shot, prediction: snap.prediction,
+                    cushionCount: snap.prediction.cueCushionCount,
+                    potted: snap.prediction.simObjectPotted,
+                    margin: catalog.margin,
+                    summary: "微调 · " + ShotSpinLabel.text(spinX: snap.shot.spinX, spinY: snap.shot.spinY)
+                        + String(format: " · %.1f m/s", snap.shot.velocity),
+                    satisfiesConstraint: catalog.satisfiesConstraint,
+                    beyondCushionBudget: catalog.beyondCushionBudget,
+                    difficultyScore: DifficultyModel.score(
+                        spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity,
+                        cutAngleDeg: snap.prediction.cutAngleDeg),
+                    difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
+                    beyondSpinBudget: catalog.beyondSpinBudget
+                )
+                presentDisplayedSolution(adjustmentDraft!)
+            } else {
+                showSolution(at: currentIndex)
+            }
         } else {
+            velocity = snap.velocity
+            spinX = snap.spinX
+            spinY = snap.spinY
             renderConstraint()
             refreshOverlays()
         }
+    }
+
+    private static func shotParamsDiffer(_ a: PlannedShot, _ b: PlannedShot) -> Bool {
+        abs(a.velocity - b.velocity) > 1e-9
+            || abs(a.spinX - b.spinX) > 1e-9
+            || abs(a.spinY - b.spinY) > 1e-9
     }
 
     /// 回放上一杆击打过程：退回击打前重播动画，播完回到击打后局面。
