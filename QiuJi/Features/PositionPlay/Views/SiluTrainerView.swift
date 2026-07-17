@@ -30,8 +30,8 @@ struct SiluTrainerView: View {
 
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight = ShotStageMetrics.topRowHeight
-    /// 底栏 = 球库两行（G12 后无解摘要行）。
-    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.paletteOnly.rawValue
+    /// 底栏 = 球库两行 regular 36（与 Composer 同档；G12 后无解摘要行）。
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
     var body: some View {
         GeometryReader { geo in
@@ -322,7 +322,7 @@ struct SiluTrainerView: View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTBallPaletteBar(
             coordinateSpace: "silu",
-            ballDiameter: BTBallPaletteMetrics.compactDiameter,
+            ballDiameter: BTBallPaletteMetrics.regularDiameter,
             isPlaying: vm.isPlaying,
             libraryWidth: libraryWidth,
             isOnTable: { vm.onTableKeys.contains($0) },

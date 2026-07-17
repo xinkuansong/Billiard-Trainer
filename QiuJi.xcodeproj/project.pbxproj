@@ -268,6 +268,7 @@
 		B5BF569262628B569ECA3571 /* AngleDynamicView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B671C3150DE6FF92AF0432B4 /* AngleDynamicView.swift */; };
 		B656236797D283AF836888F7 /* W4_BallPaletteUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D636AC1F686C41C4DD33703B /* W4_BallPaletteUITests.swift */; };
 		B7A583F58364A445D89739BC /* SwiftDataModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AB4C545865FA4A818E62019 /* SwiftDataModelTests.swift */; };
+		B86904C0BF278DC0BC2687BA /* X2_BallPaletteUnifyUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FFDC521C70C367ABEE3AAA9 /* X2_BallPaletteUnifyUITests.swift */; };
 		B870137B531B62F9F0F15502 /* AimLineGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B22811AAE9D51FD8AB661C7 /* AimLineGeometry.swift */; };
 		B87CFB257107564792B397DD /* AimPointGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693DAF5A00DA1CBF54A04423 /* AimPointGeometryTests.swift */; };
 		B8A92B83771774F23249CEA8 /* P3_DrillLibraryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8C03C11C99852EA510D3B37 /* P3_DrillLibraryUITests.swift */; };
@@ -601,6 +602,7 @@
 		8D6E1BFB1BF757905A34BD59 /* PlanDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDetailView.swift; sourceTree = "<group>"; };
 		8ECA9C8A2F8BB2433A59CF5E /* SnookerSolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnookerSolverTests.swift; sourceTree = "<group>"; };
 		8F7B039F970E064A93B62F00 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		8FFDC521C70C367ABEE3AAA9 /* X2_BallPaletteUnifyUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = X2_BallPaletteUnifyUITests.swift; sourceTree = "<group>"; };
 		915ABFE20C69463DE6CA322A /* ShareCardImageRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardImageRendererTests.swift; sourceTree = "<group>"; };
 		9184BEF92552BBE303B1C376 /* DrillBoardBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillBoardBuilderTests.swift; sourceTree = "<group>"; };
 		91C163ACD11BEBC5526DA63E /* frame_07.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = frame_07.png; sourceTree = "<group>"; };
@@ -965,6 +967,7 @@
 				EEF8998476D17D8C97FBE08C /* W27ScreenshotUITests.swift */,
 				4A19B67AA9DF80B237CF6F90 /* W29ScreenshotUITests.swift */,
 				F9BE2FAD751A636B01BDFF4F /* W210ScreenshotUITests.swift */,
+				8FFDC521C70C367ABEE3AAA9 /* X2_BallPaletteUnifyUITests.swift */,
 			);
 			path = QiuJiUITests;
 			sourceTree = "<group>";
@@ -2040,6 +2043,7 @@
 				4609FA1C48E77FAD2E63626E /* W8_TrajectoryScreenshotUITests.swift in Sources */,
 				A358CC955B3B1981E4329DFC /* W9a_ShotPagesLayoutUITests.swift in Sources */,
 				5A39B626096684DD8AF7EAED /* W9b_ShotPagesMenuUITests.swift in Sources */,
+				B86904C0BF278DC0BC2687BA /* X2_BallPaletteUnifyUITests.swift in Sources */,
 				AF973F41ACF3F0B3CC3C9484 /* XCUIApplication+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
