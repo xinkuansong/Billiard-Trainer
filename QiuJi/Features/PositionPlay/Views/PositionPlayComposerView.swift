@@ -123,7 +123,7 @@ struct PositionPlayComposerView: View {
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .sheet(isPresented: $showBreakPicker) {
-            BreakGamePickerSheet { vm.startBreakFlow(game: $0) }
+            BreakGamePickerSheet { vm.startBreakFlow(game: $0, manualDeliver: true) }
                 .presentationDetents([.height(360)])
                 .presentationDragIndicator(.visible)
         }

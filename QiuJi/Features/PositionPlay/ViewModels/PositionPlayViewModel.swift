@@ -1588,9 +1588,9 @@ final class PositionPlayViewModel: ObservableObject {
     private var breakChangeForwarder: AnyCancellable?
 
     /// 进入开球模式：保存当前桌面 → 挂起求解与可视化 → 摆架。
-    /// `manualDeliver`（条 15.8/15.9，自由击球页）：停稳后不自动落座，
-    /// 由「重开/完成」状态机决定何时交付击打阶段。
-    func startBreakFlow(game: RackGame, manualDeliver: Bool = false) {
+    /// `manualDeliver`（K6 / D-v8-3a）：停稳后不自动落座，由「取消/重开/完成」
+    /// 三态决定何时交付击打阶段。默认 true（自由击球 + Composer 统一手动交付）。
+    func startBreakFlow(game: RackGame, manualDeliver: Bool = true) {
         guard !isPlaying, !isRecording, breakRunner == nil else { return }
         invalidatePendingPredict()
         clearTrajectory()
