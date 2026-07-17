@@ -174,6 +174,9 @@ final class ScreenshotTourUITests: XCTestCase {
 
         let pages: [(String, String, String)] = [
             ("学", "瞄准原理", "a09-aiming-principle"),
+            ("学", "瞄准方法", "a13-aiming-methods"),
+            ("学", "旋转与加塞", "a14-spin-and-english"),
+            ("学", "分离角图谱", "a15-separation-angle-atlas"),
             ("学", "浅谈球感", "a11-ball-feel"),
             ("学", "瞄准点对照表", "a10-contact-point"),
             ("练", "角度预测", "a12-geometric-quiz"),
@@ -183,6 +186,14 @@ final class ScreenshotTourUITests: XCTestCase {
             if tapIfExists(label, timeout: 4) {
                 sleep(3)
                 snap(name)
+                // 分离角图谱为场景交互页（非长文滚动）：额外等轨迹算完再拍默认态。
+                if name == "a15-separation-angle-atlas" {
+                    sleep(2)
+                    snap("\(name)-default")
+                    popBack()
+                    sleep(1)
+                    continue
+                }
                 // 角度预测：开参考线拍一帧（核 90° 参考线 + 标签不裁切）。
                 if tapIfExists("显示参考", timeout: 2) {
                     sleep(1)
@@ -195,10 +206,149 @@ final class ScreenshotTourUITests: XCTestCase {
                 app.swipeUp()
                 sleep(1)
                 snap("\(name)-scrolled2")
+                // 瞄准方法页（v11 Y1 r1）交互化后更长：补两帧盖平行线主图/
+                // Mosconi 变体/重合比例补充节/相关页面。
+                if name == "a13-aiming-methods" {
+                    app.swipeUp()
+                    sleep(1)
+                    snap("\(name)-scrolled3")
+                    app.swipeUp()
+                    sleep(1)
+                    snap("\(name)-scrolled4")
+                }
+                // 旋转与加塞（v11 Y2）：补帧盖旋转状态节 / 最小加塞 / 瞄准修正预告 / 相关页面。
+                if name == "a14-spin-and-english" {
+                    app.swipeUp()
+                    sleep(1)
+                    snap("\(name)-scrolled3")
+                    app.swipeUp()
+                    sleep(1)
+                    snap("\(name)-scrolled4")
+                }
                 popBack()
                 sleep(1)
             }
         }
+    }
+
+    /// v11 Y3：分离角图谱交互取证——默认态 / 拉高力度 / 拖球改切角。
+    func testSeparationAngleAtlasInteractions() {
+        // SceneKit 叠层下合成拖力度柱不可靠 → 启用页内 UI 测钩子（`-y3.uiHooks`）。
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-y3.uiHooks"])
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+        switchAngleHomeTab("学")
+        sleep(1)
+        guard tapIfExists("分离角图谱", timeout: 4) else {
+            XCTFail("分离角图谱卡不可达")
+            return
+        }
+        sleep(4) // 等 8 路并行 simulateFree
+        snap("y3-atlas-default")
+
+        // 性能取证：抽取最近一次 8×simulateFree 并行实测耗时（钩子读数）。
+        let simMs = app.staticTexts["y3.parallelSimMs"]
+        if simMs.waitForExistence(timeout: 3) {
+            print("[Y3-PERF] 8×simulateFree parallel \(simMs.label) ms (default scene, velocity 1.5)")
+        }
+
+        // 拉高力度（钩子设 5.5）→ 轨迹应随力度更新；顶栏读数离开 1.5。
+        // 用 label「高力度」定位（根视图 AX id 勿盖住子控件 identifier）。
+        let bump = app.buttons["高力度"]
+        XCTAssertTrue(bump.waitForExistence(timeout: 3), "y3.uiHooks「高力度」钩子不可达")
+        bump.tap()
+        sleep(5)
+        snap("y3-atlas-high-power")
+        XCTAssertTrue(app.staticTexts["5.5"].waitForExistence(timeout: 4),
+                      "拉高力度后应出现读数 5.5（顶栏或仪表柱）")
+        if simMs.exists {
+            print("[Y3-PERF] 8×simulateFree parallel \(simMs.label) ms (after bump, velocity 5.5)")
+        }
+
+        // 拖台面中部附近的球（改切角）→ 轨迹重算。
+        let table = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'separationAngleAtlas.root'")).firstMatch
+        if table.waitForExistence(timeout: 2) {
+            let start = table.coordinate(withNormalizedOffset: CGVector(dx: 0.42, dy: 0.48))
+            let end = table.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.42))
+            start.press(forDuration: 0.2, thenDragTo: end)
+            sleep(3)
+            snap("y3-atlas-drag-cut")
+        }
+
+        // 打开只读 8 点打点盘。
+        let spinMini = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == '打点'")).firstMatch
+        if spinMini.waitForExistence(timeout: 2), spinMini.isHittable {
+            spinMini.tap()
+            sleep(1)
+            snap("y3-atlas-spin-pad")
+        }
+
+        XCTAssertEqual(app.state, .runningForeground, "交互后 App 应仍在前台")
+    }
+
+    /// v11 Y1 返工 r1（FL-026）：瞄准方法页交互取证——管道节三态
+    /// （默认 φ=θ=30° 相切 / 拖到 5° 太厚 / 拖到 75° 太薄）+ 接触点碰合动画起终帧。
+    func testAimingMethodsInteractions() {
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+        switchAngleHomeTab("学")
+        sleep(1)
+        guard tapIfExists("瞄准方法", timeout: 4) else {
+            XCTFail("瞄准方法卡不可达")
+            return
+        }
+        sleep(3)
+
+        // 管道节：页面顶端已可见插图+徽章，小步上滚让底部滑杆离开 Home 指示条
+        // 区域（上一轮教训：滑杆贴屏幕底缘时 adjust 合成拖拽会误触系统手势）。
+        let phiSlider = app.sliders["aimingMethods.pipe.trialSlider"]
+        dragScrollUp(0.22)
+        if phiSlider.waitForExistence(timeout: 4), phiSlider.isHittable {
+            snap("y1r1-pipe-tangent") // 默认 φ=θ=30 → ✓相切徽章
+            phiSlider.adjust(toNormalizedSliderPosition: 0.0) // φ=5 < θ → 太厚
+            sleep(1)
+            snap("y1r1-pipe-thick")
+            phiSlider.adjust(toNormalizedSliderPosition: 1.0) // φ=75 > θ → 太薄
+            sleep(1)
+            snap("y1r1-pipe-thin")
+            XCTAssertEqual(app.state, .runningForeground, "adjust 后 App 应仍在前台")
+        } else {
+            XCTFail("试瞄滑杆不可达或不可点击")
+        }
+
+        // 接触点节：滚到播放键可点击，且其上方插图不被裁切，拍起点/碰合两帧。
+        let play = app.buttons["aimingMethods.contact.play"]
+        var guardCount = 0
+        while (!play.exists || !play.isHittable || play.frame.minY > 800), guardCount < 8 {
+            dragScrollUp(0.30)
+            guardCount += 1
+        }
+        if play.exists, play.frame.minY < 430 { // 插图顶被裁：回滚一点
+            dragScrollUp(-0.15)
+        }
+        if play.waitForExistence(timeout: 3), play.isHittable {
+            snap("y1r1-contact-start")
+            play.tap()
+            sleep(2) // 动画 1.2s
+            snap("y1r1-contact-merged")
+        } else {
+            XCTFail("碰合播放键不可达")
+        }
+    }
+
+    /// 受控小步滚动（正值向上滚 dy·屏高，负值向下），避开系统边缘手势。
+    private func dragScrollUp(_ dyNormalized: CGFloat) {
+        let scroll = app.scrollViews.firstMatch
+        let start = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.60))
+        let end = scroll.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.60 - dyNormalized))
+        start.press(forDuration: 0.05, thenDragTo: end,
+                    withVelocity: 300, thenHoldForDuration: 0.4)
+        usleep(500_000)
     }
 
     /// 问题集合 v5 V4 学习/训练页轻修取证：Q1 卡片字号、Q2 改名、Q3 对照表标签

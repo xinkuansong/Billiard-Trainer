@@ -5,6 +5,12 @@ import SwiftUI
 enum AngleRoute: Hashable {
     case contactPointTable
     case aimingPrinciple
+    /// 瞄准方法（v11 Y1）：管道 / 接触点·重合比例 / 平行线。
+    case aimingMethods
+    /// 旋转与加塞（v11 Y2）：母球旋转状态 → 分离角；最小加塞 / 打滑极限。
+    case spinAndEnglish
+    /// 分离角图谱（v11 Y3）：8 档高低杆碰后→第一库轨迹对比。
+    case separationAngleAtlas
     case angleDynamic
     case geometricQuiz
     /// 2D 瞄准训练（T-P18-48 拆两卡）：俯视练几何判断。
@@ -107,6 +113,18 @@ struct AngleHomeView: View {
               title: "瞄准原理", subtitle: "切入角 · 假想球 · 厚薄球",
               coverTop: AngleCoverPalette.aimingPrinciple.top,
               coverBottom: AngleCoverPalette.aimingPrinciple.bottom),
+        .init(route: .aimingMethods, glyph: "法",
+              title: "瞄准方法", subtitle: "管道 · 接触点 · 平行线",
+              coverTop: AngleCoverPalette.aimingMethods.top,
+              coverBottom: AngleCoverPalette.aimingMethods.bottom),
+        .init(route: .spinAndEnglish, glyph: "旋",
+              title: "旋转与加塞", subtitle: "滑动 · 前旋后旋 · 分离角",
+              coverTop: AngleCoverPalette.spinAndEnglish.top,
+              coverBottom: AngleCoverPalette.spinAndEnglish.bottom),
+        .init(route: .separationAngleAtlas, glyph: "谱",
+              title: "分离角图谱", subtitle: "高低杆 · 碰后轨迹 · 力度",
+              coverTop: AngleCoverPalette.separationAngleAtlas.top,
+              coverBottom: AngleCoverPalette.separationAngleAtlas.bottom),
         .init(route: .angleDynamic, glyph: "点",
               title: "角度与瞄准", subtitle: "切角变化如何影响打点",
               coverTop: AngleCoverPalette.angleDynamic.top,

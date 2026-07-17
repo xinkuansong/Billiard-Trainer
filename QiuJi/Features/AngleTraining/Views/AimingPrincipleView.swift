@@ -103,6 +103,32 @@ struct AimingPrincipleView: View {
             }
             .font(.btBody)
             .foregroundStyle(.btTextSecondary)
+
+            // v11 Y1：指向新学页「瞄准方法」（管道 / 厚薄 / 平行线），不改本节结构。
+            NavigationLink(value: AngleRoute.aimingMethods) {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.btSubheadlineMedium)
+                        .foregroundStyle(Color.btPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("还有其他瞄准法")
+                            .font(.btSubheadlineMedium)
+                            .foregroundStyle(.btText)
+                        Text("管道 · 接触点 · 平行线 → 瞄准方法")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                    Spacer()
+                    Image(systemName: BTIcon.chevronRight)
+                        .font(.btCaption.weight(.semibold))
+                        .foregroundStyle(.btTextTertiary)
+                }
+                .padding(Spacing.md)
+                .background(Color.btPrimaryMuted)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("还有其他瞄准法")
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)

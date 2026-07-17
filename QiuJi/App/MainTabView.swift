@@ -113,6 +113,12 @@ struct MainTabView: View {
             ContactPointTableView()
         case .aimingPrinciple:
             AimingPrincipleView()
+        case .aimingMethods:
+            AimingMethodsView()
+        case .spinAndEnglish:
+            SpinAndEnglishView()
+        case .separationAngleAtlas:
+            SeparationAngleAtlasView()
         case .angleDynamic:
             AngleDynamicView()
         case .geometricQuiz:

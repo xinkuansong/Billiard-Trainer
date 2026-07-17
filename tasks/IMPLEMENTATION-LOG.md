@@ -82,6 +82,16 @@
 
 ## DR 记录（设计调整）
 
+## DR-025
+- **任务**：问题集合 v11 Y3「分离角图谱」
+- **原始规范**：线语言 v2（SPEC §8.9 / 设计稿 §1.2）——线色 = 球的身份（白=母球路径；目标球本色=该球路径）。
+- **调整后**：**页内专用豁免**——「分离角图谱」8 条母球碰后轨迹用页内 8 色板（`SeparationAngleAtlasGeometry.trackColors`，高杆暖→低杆冷）区分 spinY 档位身份，**不**改全局 `TrajectoryStyle`，也不影响打区「分离角与走位」等其它页。瞄准线仍白实线、进球线仍目标球本色虚线。
+- **原因**：本页教学语义是「同一母球、8 种杆法并排对比」；若 8 条皆白则无法辨认高低杆差异，与 N2 验收语义冲突。
+- **影响组件**：`SeparationAngleAtlasView` / `SeparationAngleAtlasGeometry`；全局线语言与 `TrajectoryStyle` 不变。
+- **日期**：2026-07-18
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 页面契约 + § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 / Changelog（2026-07-18，DR-025）
+
 ## DR-001
 - **任务**：T-R0-02
 - **原始规范**：SKILL.md 中 `btBGTertiary` Light = `#F2F2F7`、`btBGQuaternary` Light = `#E5E5EA`、`btSeparator` Light = `#C6C6C8`（α1.0）

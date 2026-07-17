@@ -15,6 +15,21 @@ enum AngleCoverPalette {
         top: Color(red: 0.16, green: 0.55, blue: 0.34),
         bottom: Color(red: 0.09, green: 0.34, blue: 0.21)
     )
+    /// 瞄准方法（v11 Y1）— 青绿，区别于瞄准原理深绿 / 角度与瞄准蓝。
+    static let aimingMethods = Pair(
+        top: Color(red: 0.12, green: 0.58, blue: 0.50),
+        bottom: Color(red: 0.05, green: 0.34, blue: 0.30)
+    )
+    /// 旋转与加塞（v11 Y2）— 琥珀，区别于瞄准方法青绿 / 浅谈球感紫 / 角度与瞄准蓝。
+    static let spinAndEnglish = Pair(
+        top: Color(red: 0.78, green: 0.42, blue: 0.16),
+        bottom: Color(red: 0.48, green: 0.24, blue: 0.08)
+    )
+    /// 分离角图谱（v11 Y3）— 玫红紫，区别于旋转与加塞琥珀 / 分离角与走位绿 / 角度与瞄准蓝。
+    static let separationAngleAtlas = Pair(
+        top: Color(red: 0.72, green: 0.22, blue: 0.48),
+        bottom: Color(red: 0.42, green: 0.10, blue: 0.30)
+    )
     static let angleDynamic = Pair(
         top: Color(red: 0.11, green: 0.46, blue: 0.95),
         bottom: Color(red: 0.05, green: 0.24, blue: 0.58)

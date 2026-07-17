@@ -713,7 +713,7 @@ struct BTShareCard: View {
 
 | 档 | 策略 | 实施方式 | 适用页面 |
 |---|------|---------|---------|
-| ① 场景页 = 黑底暗语言 | 页面**不改系统 colorScheme**，用 `.background(Color.black.ignoresSafeArea())` + 白字 + 半透明白卡（`.white.opacity(0.06~0.12)`）；毛玻璃控件局部 `.environment(\.colorScheme, .dark)` 保证材质暗解析 | 黑底是设计常量，Light/Dark 下观感一致，无需双值 Token | 分离角与走位、走位编排台（含自由击球）、思路训练器、打一走二想三、做斯诺克、球形生成器、2D/3D 瞄准训练、角度与打点、几何角度预测、翻袋解球、反射解球、拍照建球形、批量出片台（SIM） |
+| ① 场景页 = 黑底暗语言 | 页面**不改系统 colorScheme**，用 `.background(Color.black.ignoresSafeArea())` + 白字 + 半透明白卡（`.white.opacity(0.06~0.12)`）；毛玻璃控件局部 `.environment(\.colorScheme, .dark)` 保证材质暗解析 | 黑底是设计常量，Light/Dark 下观感一致，无需双值 Token | 分离角与走位、分离角图谱（学）、走位编排台（含自由击球）、思路训练器、打一走二想三、做斯诺克、球形生成器、2D/3D 瞄准训练、角度与打点、几何角度预测、翻袋解球、反射解球、拍照建球形、批量出片台（SIM） |
 | ② 常规页 = 随系统 | Token 双值（§一/§六），不强制 colorScheme | 全部 Tab 常规页面 | 训练 / 动作库 / 练习首页 / 历史 / 我的 及其子页 |
 | ③ 特例页 = 强制 | 显式 `preferredColorScheme` | `SubscriptionView` 强 dark（自身 #111111）；`OnboardingView` 强 light（品牌首屏）；`TrainingShareView` 分享卡自身深色 | 仅此三页，新增特例须记 Changelog |
 
@@ -813,6 +813,12 @@ struct BTShareCard: View {
 | 库 | 台边（1 库/2 库…） | 颗星（教学页解释钻石系统时可提及一次） |
 | 分离角 | 母球与目标球碰后路径夹角 | — |
 | 瞄准线 / 进球线 / 球迹线 | §8.2/设计稿 §1.2 线语言三名词 | 击球线、走位线 |
+| 接触点 | 两球碰撞瞬间的球面切点（目标球侧 Pt=背袋点、母球侧 Pc=对应点，Q=碰合点）；与「瞄准点」严格区分（v11 Y1，FL-026 口径） | 撞击点 |
+| 管道 / 试瞄角 φ | 「瞄准方法」页管道瞄准法专用：瞄准线/进球线扩成的半径 R 圆管；用户试拖的瞄准角 φ（相切 ⇔ φ=θ）（v11 Y1） | 隧道（正文可括注一次） |
+| 切线 | 过接触点、垂直连心线的方向；滑动状态母球碰后沿切线离开（90° 法则 / 切线法则）（v11 Y2） | tangent line 直译混排 |
+| 滑动 / 前旋 / 后旋 / 自然滚动 | 母球旋转状态四态：滑动=纯平移（stun 括注，口语定杆括注）；前旋=高杆（口语跟进括注）；后旋=低杆（口语缩杆括注）；自然滚动=线速与自转匹配稳态（v11 Y2） | 英文单用；跟进/缩杆单用（可括注） |
+| 打滑极限 | 可靠打点上限 = `CuePhysics.miscueLimitFraction`·R（当前 0.5R）；超过易滑杆（滑杆=后果描述非术语）（v11 Y2） | miscue 直译 |
+| 挤偏 / 弧线 / 投掷 | squirt / swerve / throw 的规范中文名（英文仅括注）；深讲归「瞄准修正」页（v12），其余页只作一句话概念（v11 Y2 预告口径） | 让点/喷射单用 |
 | 页名 = 入口卡名 | 「角度预测」「2D/3D 角度训练」「翻袋解球器」等，卡与导航标题逐字一致；批改名：瞄准训练→角度训练、进球点对照表→瞄准点对照表、走位编排台→自由走位、思路训练器→思路训练；**问题集合 v5 增补**：角度与打点→**角度与瞄准**、做斯诺克→**防守** | 旧页名 |
 
 ### 8.9 瞄准与求解交互规范（问题集合 v5 定稿，2026-07-13）
@@ -906,6 +912,9 @@ struct BTShareCard: View {
 | 页 | 分类 | 核心职责 | 关键契约（已落地） |
 |---|---|---|---|
 | 瞄准原理 | 学 | 切角/假想球/厚度+公式 | 插图全真台化（`BTTableFigure`）；页末 CTA→角度预测 |
+| 瞄准方法 | 学 | 管道/接触点/平行线三法 | v11 Y1；θ 滑杆 + 交互插图；交叉引用瞄准原理/对照表 |
+| 旋转与加塞 | 学 | 旋转四态→分离角 | v11 Y2；示意路径 90°/60°/120°；CTA→分离角图谱 |
+| 分离角图谱 | 学 | 8 档高低杆碰后轨迹对比 | v11 Y3；SceneKit 真台+可拖双球；`ShotStageProxy` G10+右缘仪表柱 G5；力度可调、打点盘只读 8 色点；**页内 8 色轨迹豁免线语言 v2**（DR-025）；切片=碰后→第一库，**碰后未吃库降级为碰撞点→停球点**（低力度纯低杆场景，保 8 条齐全）；去抖+单飞+并行 `simulateFree` |
 | 角度与打点 | 学 | 拖两球实时看指标联动 | **L2 唯一持有页**；首拖提示（一次性）；90° 短虚线常驻 |
 | 浅谈球感 | 学 | 方法论+四档厚度锚点 | 锚点卡真台渲染；页末 CTA→2D 瞄准训练 |
 | 瞄准点对照表（原进球点对照表） | 学 | 速查工具 | 俯视真台交互图：瞄准点（红点）+接触点（绿点）+横移金标尺同见；新增估角误差交互演示（母球-目标球连线估角，远距误差变小） |
@@ -1059,4 +1068,8 @@ struct BTShareCard: View {
 | 2026-07-16 | **问题集合 v7 W3（G22 动效/token · DR-023）**：`BTMotion` 新登记 `springLayout`/`easeInOutFast`/`easeInOutChrome`/`easeInstant`/`easePress`（值=原字面量）+ `springPanel` 消费扫齐；`AngleCoverPalette` 收编练习首页封面色；Typography `btCoverWatermark`/`btHeroSymbol`/`btCTALabelRounded`；HUD `BTHudMetricSeparator`（高 12，D5）；`BTDailyLimitGate` 字号 token 化；§1.4 增 D6 红线「新代码禁止新增字面量字号」 | DR/重构 | BTMotion, AngleCoverPalette, Typography, HUDStyle, BTDailyLimitGate, 多页动画消费点 | v7 W3 / DR-023 |
 | 2026-07-16 | **问题集合 v7 W2（G20 导航 chrome）**：暗色测验五页补 dark toolbar + `BTSolverNavStatus`（`statusText` 改可选，nil=仅标题）；7 页私有 `navStatus` + BallExtraction principal 收敛共享件；9 套 `*FramePreference` → `BTShotPageFramePreference`（`SolverFramePreference` 别名）；flash 收敛 `BTToast.present`；G10 顶/底栏高度入 `ShotStageMetrics`（`topRowHeight` + `BottomBarHeight` 三档）。§8.3 回写 G20 口径 | DR/重构 | BTShotPageChrome, BTToast, ShotTableLayout, 暗色测验五页 + 沙盘/解球页 | v7 W2 |
 | 2026-07-16 | **B4 截图核验暴露两个既有渲染缺陷修复（PD-026）**：① `DrillTutorialView` 精讲 formations 分段切换正文不刷新——LazyVStack `ForEach(id: \.offset)` 按 offset 复用旧行，行级复合 id（`selection-index`）修复；② `DrillDetailView` 试打球形选择 sheet 渲染空列表——`.sheet(isPresented:)` 内容闭包以陈旧 state 求值（iOS 26），改 `.sheet(item:)` + payload 快照。c042 回归 `testTryoutC042Flow` 通过 | PD/修复 | DrillTutorialView, DrillDetailView | B4 / PD-026 |
+| 2026-07-18 | **v11 Y3 返工 r1**：默认力度 1.5 纯低杆（spinY=−0.5）碰后回拖停球、无 ballCushion ⇒ 旧切片返回空、第 8 条轨迹与「纯低杆」标注缺失；`SeparationAngleAtlasGeometry.pathAfterContactToFirstCueCushion` 扩展——碰后未吃库降级「碰撞点→停球点」，有吃库行为不变；补回归单测 `testPathSlice_lowPowerDraw_noCushion_fallsBackToStopPoint`；§9.3 契约同步 | 修复 | SeparationAngleAtlasGeometry, SeparationAngleAtlasTests, §9.3 | 问题集合 v11 Y3 r1 |
+| 2026-07-18 | **问题集合 v11 Y3「分离角图谱」+ DR-025**：学分段新交互页——SceneKit 真台 + 可拖母球/目标球（默认 ~30° 半球）+ spinY∈[±miscueLimit] 均匀 8 档并行 `simulateFree`，切片「首次球-球→其后母球首个 ballCushion」；仅两端标注「纯高杆/纯低杆」；右缘 `BTShotInstrumentColumn`（力度可调、打点盘只读 8 色点）；20ms 去抖+单飞+末班车；**页内 8 色板豁免线语言 v2「线色=球的身份」**（DR-025，不改 `TrajectoryStyle`）；注册 4 处 + 巡游 a15 帧 + `SeparationAngleAtlasTests` | 新增/DR | SeparationAngleAtlasView/ViewModel/Geometry, AngleHomeView, MainTabView, AngleCoverPalette, SpinAndEnglish CTA, SPEC §9.3 | 问题集合 v11 Y3 / DR-025 |
+| 2026-07-17 | **问题集合 v11 Y2「旋转与加塞」学页**（v11.3 边界重定 per D-v12-1）：学区新卡「旋转与加塞」——母球旋转状态四态（滑动/前旋/后旋/自然滚动）→ 分离角联动为主轴（分段选择器高亮三条示意路径：切线 90° / 前旋 60° / 后旋 120°，半球教学球形锁定）+ 最小加塞（T09）与打滑极限图（`CuePhysics.miscueLimitFraction` 真源）+ 投掷/挤偏/弧线一句话概念与「瞄准修正」文字预告（无跳转，Z 批落地后补链）；几何真源 `SpinAndEnglishGeometry`（复用 `AimingMethodsGeometry.scene`）+ 不变量单测；§8.8 词表增补「切线」「滑动/前旋/后旋/自然滚动」「打滑极限」「挤偏/弧线/投掷」 | 新增 | SpinAndEnglishView, SpinAndEnglishGeometry, AngleHomeView, MainTabView, AngleCoverPalette, §8.8 | 问题集合 v11 Y2 |
+| 2026-07-17 | **问题集合 v11 Y1「瞄准方法」学页**（含 FL-026 返工 r1）：学区新卡「瞄准方法」——管道瞄准法（双管道相切，试瞄角 φ 交互 + 三态徽章）/ 接触点瞄准法（点对点，Pt/Pc 碰合动画 + 心对点误导线）/ 平行线瞄准法（接触点连线过心平行，θ 联动；Mosconi 降为变体附注）+ 厚薄法补充节；几何真源 `AimingMethodsGeometry`（恒等式 Pc→Pt≡G−C 单测锁定）；§8.8 词表增补「接触点（Pt/Pc/Q）」「管道/试瞄角 φ」 | 新增 | AimingMethodsView, AimingMethodsGeometry, AngleHomeView, MainTabView, AngleCoverPalette, AimingPrincipleView CTA, §8.8 | 问题集合 v11 Y1 |
 | 2026-07-13 | **问题集合 v5 全批次落地**（G13–G19 + Q1–Q19，V1–V11 收官）：新增 SPEC **§8.9 瞄准与求解交互规范**——四条全局契约（a 瞄准拖动=选中+相对调整〔绕母球公转增益、封顶 0.6 度/pt，`AngleSceneCalculator.aimNudgeDegrees`〕；b 求解 0.5s idle 去抖〔`SolveDebounceScheduler`〕；c 开球通用规范〔单一真源 `BreakFlowRunner`+`BreakControlBar`+`BreakInstrumentsOverlay`、随机性只留球堆间距、开放瞄准、力度默认 6 m/s、完成/重开互换〕；d 上一杆完整快照〔`SolveShotSnapshot`+`SolveConstraintDraft`+页面 `UndoContext`，翻袋/反射用原生 `SolveUndoContext`〕）+ 全局小件登记（G15 回放禁尾速截断、G16 打点盘 inset 5→2、G19 三点入口统一含 ProfileView 豁免、V8 防守评分权重 0.6/0.4 待调优）；§8.8 词表增补页面改名（角度与打点→角度与瞄准、做斯诺克→防守）。总验收：全量 `QiuJiTests` **Executed 560 tests, 2 skipped, 0 failures**；关键 UI 套件全绿（S1/S2/S5/S6/S7/S8/ScreenshotTour/DrillTryout）；`clean` 全量重建后 3 例陈旧增量构建 SIGSEGV 转绿（非代码回归） | 新增/DR | SPEC §8.9/§8.8；`问题集合_v5.md` V1–V11 落地代码（AngleSceneView/AngleSceneCalculator/PositionPlayViewModel/SolveDebounceScheduler/BreakFlowRunner/BTShotPageChrome/BTSpinPad 等） | 问题集合 v5 |
