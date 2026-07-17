@@ -1022,6 +1022,8 @@ final class SiluTrainerViewModel: ObservableObject {
         scene.hideAllVisualization()   // 假想球等持久可视化节点不在 selectionNodes 内
         scene.hideCueStick()
         let runner = BreakFlowRunner(scene: scene, game: game)
+        // K6 / D-v8-3a：与 FreePlay 对齐——停稳后取消/重开/完成三态，不自动落座。
+        runner.autoDeliverOnSettle = false
         breakChangeForwarder = runner.objectWillChange
             .sink { [weak self] _ in self?.objectWillChange.send() }
         runner.onSettled = { [weak self] board in

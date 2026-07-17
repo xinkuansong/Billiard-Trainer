@@ -159,13 +159,29 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
             .matching(NSPredicate(format: "identifier == 'break.strike'")).firstMatch
         XCTAssertTrue(strike.waitForExistence(timeout: 4), "开球主按钮应出现")
         strike.tap()
-        sleep(10)   // 求解 + 运杆 + 散局 + 落座
+        sleep(10)   // 求解 + 运杆 + 散局停稳
+
+        // K6 / D-v8-3a：Composer 开球统一手动交付——停稳进 settled 三态
+        // （完成 / 重开 / 取消），不再自动落座。
+        let confirm = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'break.confirm'")).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 15),
+                      "停稳后应出现「完成」主钮（手动交付，D-v8-3a）")
+        let rerack = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'break.rerack'")).firstMatch
+        XCTAssertTrue(rerack.exists, "settled 应保留「重开」")
+        XCTAssertTrue(app.buttons["取消"].exists || app.staticTexts["取消"].exists
+                      || app.descendants(matching: .any)["取消"].exists,
+                      "settled 应保留「取消」")
         snap(app, "w9b-break-04-settled")
 
-        // 落座后开球模式应退出（入口重新可点，或至少不再显示开球条主钮）。
+        // 点「完成」交付击打阶段 → 开球模式退出（入口重新可点）。
+        confirm.tap()
+        sleep(2)
         let entryAgain = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'break.entry'")).firstMatch
         XCTAssertTrue(entryAgain.waitForExistence(timeout: 6),
-                      "散局落座后应回到编排态（开球入口复现）")
+                      "点「完成」落座后应回到编排态（开球入口复现）")
+        snap(app, "w9b-break-05-delivered")
     }
 }
