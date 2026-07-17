@@ -4,9 +4,12 @@ import SceneKit
 // MARK: - Metrics (G21 / D7)
 
 /// Shared ball-palette metrics. Diameters are the only two tiers (D7):
-/// compact 30 (Silu / PlanThree / Snooker / Extraction / Batch) and
-/// regular 36 (Composer / Solver / ShotSim / FreePlay / decorative). Default = 36.
+/// regular 36 is the App-wide interactive / decorative / reference default
+/// (Composer / ShotSim / Silu / PlanThree / Snooker / Bank / Diamond / Extraction /
+/// Batch shells / FreePlay reference / decorative quiz chrome).
+/// compact 30 remains as a numeric tier constant (no current consumers after K5/X2).
 enum BTBallPaletteMetrics {
+    /// Legacy D7 compact tier (30). Kept for API stability; no call sites after K5/X2.
     static let compactDiameter: CGFloat = 30
     static let regularDiameter: CGFloat = 36
     static let ghostDiameter: CGFloat = 42

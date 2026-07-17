@@ -365,7 +365,7 @@ struct BallExtractionView: View {
 
     private func markCell(_ key: String) -> some View {
         let marked = vm.marks.contains { $0.key == key }
-        let d = BTBallPaletteMetrics.compactDiameter
+        let d = BTBallPaletteMetrics.regularDiameter
         return PoolBallFace(key: key, diameter: d)
             .opacity(marked ? 0.28 : 1)
             .overlay(Circle().stroke(vm.activePaletteKey == key ? Color.btPrimary : .clear,
@@ -475,7 +475,7 @@ struct BallExtractionView: View {
         let onTable = vm.onTableKeys.contains(key)
         return BTBallPaletteToken(
             key: key,
-            ballDiameter: BTBallPaletteMetrics.compactDiameter,
+            ballDiameter: BTBallPaletteMetrics.regularDiameter,
             isOnTable: onTable,
             isDragging: draggingKey == key,
             allowsDrag: !onTable,
@@ -572,7 +572,7 @@ struct BallExtractionView: View {
     ) -> some View {
         let row1 = Array(keys.prefix(Self.paletteColumns))
         let row2 = Array(keys.dropFirst(Self.paletteColumns))
-        return VStack(spacing: 4) {
+        return VStack(spacing: BTBallPaletteMetrics.rowSpacing) {
             paletteRow(row1, cell: cell)
             paletteRow(row2, cell: cell)
         }
@@ -587,8 +587,8 @@ struct BallExtractionView: View {
                     if i < keys.count { cell(keys[i]) }
                     else {
                         Color.clear.frame(
-                            width: BTBallPaletteMetrics.compactDiameter,
-                            height: BTBallPaletteMetrics.compactDiameter
+                            width: BTBallPaletteMetrics.regularDiameter,
+                            height: BTBallPaletteMetrics.regularDiameter
                         )
                     }
                 }

@@ -281,8 +281,8 @@ struct BatchAuthoringView: View {
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     /// 顶部工具行含条件性的求解状态行，取两行高度上限常显。
     private static let topRowHeight: CGFloat = 72
-    /// 底栏 = 保存横排 33 + 球库两行 68。
-    private static let bottomBarHeight: CGFloat = 101
+    /// 底栏 = 保存横排 33 + 间距 4 + 球库两行 regular 36（79；K5/X2 前为 101 @ compact 30）。
+    private static let bottomBarHeight: CGFloat = 116
 
     private var drill: BatchDrill? { context.current }
 
@@ -798,7 +798,7 @@ struct BatchAuthoringView: View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTBallPaletteBar(
             coordinateSpace: "batchAuthor",
-            ballDiameter: BTBallPaletteMetrics.compactDiameter,
+            ballDiameter: BTBallPaletteMetrics.regularDiameter,
             isPlaying: composer.isPlaying,
             libraryWidth: libraryWidth,
             isOnTable: { composer.onTableKeys.contains($0) },

@@ -33,7 +33,7 @@ struct PlanThreeView: View {
     private static let c3 = Color.btPlanRole3
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight = ShotStageMetrics.topRowHeight
-    /// 底栏 = 角色横排 48 + 球库两行 68（G12 后无解摘要行）。
+    /// 底栏 = 角色横排 ~48 + 球库两行 regular 36（132；G12 后无解摘要行）。
     private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.planThree.rawValue
 
     var body: some View {
@@ -424,7 +424,7 @@ struct PlanThreeView: View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTBallPaletteBar(
             coordinateSpace: "planthree",
-            ballDiameter: BTBallPaletteMetrics.compactDiameter,
+            ballDiameter: BTBallPaletteMetrics.regularDiameter,
             isPlaying: vm.isPlaying,
             libraryWidth: libraryWidth,
             isOnTable: { vm.onTableKeys.contains($0) },

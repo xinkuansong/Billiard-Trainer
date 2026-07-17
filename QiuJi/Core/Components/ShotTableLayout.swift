@@ -80,14 +80,15 @@ enum ShotStageMetrics {
     /// Top inset / chip row height — locks scene height across shot pages.
     static let topRowHeight: CGFloat = 46
 
-    /// Bottom band height tiers (palette / composer controls / PlanThree role row).
+    /// Bottom band height tiers (regular-36 palette band / PlanThree role+palette).
+    /// K5/X2: Silu / Snooker join Composer at 94; PlanThree = role (~48) + 36-band.
     enum BottomBarHeight: CGFloat {
-        /// Silu / Snooker — palette only.
+        /// Legacy compact-30 palette-only band. No current consumers after K5/X2.
         case paletteOnly = 78
-        /// Composer / FreePlay / ShotSim / Bank / Diamond / SceneAiming 2D / etc.
+        /// Composer / FreePlay / ShotSim / Bank / Diamond / Silu / Snooker / SceneAiming 2D / etc.
         case composer = 94
-        /// PlanThree — palette + role row.
-        case planThree = 116
+        /// PlanThree — role row (~48) + regular-36 palette (was 116 @ compact 30).
+        case planThree = 132
     }
 }
 
