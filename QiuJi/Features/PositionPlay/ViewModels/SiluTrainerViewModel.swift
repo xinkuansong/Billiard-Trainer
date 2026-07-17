@@ -87,9 +87,26 @@ final class SiluTrainerViewModel: ObservableObject {
     @Published private(set) var currentIndex = 0
     @Published private(set) var statusText = "拖动摆球 · 点目标球选中（绿环）· 点袋口选袋，再选工具画约束"
 
+    // MARK: - Adjustment draft (K13 / X6 — semantic source for X5 bank/kick transplant)
+    //
+    // Contract (draft-layer state machine):
+    // - `solutions[]` is the immutable catalog after solve; never mutated by fine-tune.
+    // - `adjustmentDraft` is the forward-recomputed display/strike candidate for `currentIndex`.
+    // - `currentSolution` = draft ?? solutions[currentIndex]  → UI / canStrike / play() all read this.
+    // Transitions:
+    //   adjust(params)     Clean → Drafted | Drafted → Drafted (further tweak bases on draft)
+    //   nextSolution       Drafted/Clean → Clean(nextIndex); draft discarded; catalog shown
+    //   showSolution(at:)  → Clean(index); draft discarded
+    //   invalidate / solve → Clean; draft discarded
+    // Fine-tune = forward re-predict via `PositionPlayShotSolver` (no new physics); miscue circle
+    // clamp stays in `BTSpinPad`. Solve-range toggles do NOT constrain fine-tune spin axes.
+
+    /// Fine-tune draft for the current catalog index; nil means showing the catalog solution.
+    private var adjustmentDraft: PositionPlaySolution?
+
     var currentSolution: PositionPlaySolution? {
         guard solutions.indices.contains(currentIndex) else { return nil }
-        return solutions[currentIndex]
+        return adjustmentDraft ?? solutions[currentIndex]
     }
     var hasSolutions: Bool { !solutions.isEmpty }
     var canStrike: Bool { !isPlaying && !isComputing && (currentSolution?.prediction.feasible ?? false)
@@ -400,6 +417,7 @@ final class SiluTrainerViewModel: ObservableObject {
         isComputing = false
         solutions = []
         currentIndex = 0
+        adjustmentDraft = nil
         clearTrajectory()
         scene.hideCueStick()
         resetParamDisplay()
@@ -438,6 +456,7 @@ final class SiluTrainerViewModel: ObservableObject {
                 self.isComputing = false
                 self.solutions = result
                 self.currentIndex = 0
+                self.adjustmentDraft = nil
                 if result.isEmpty {
                     self.statusText = "未找到解（试着放大区域或换目标袋口）"
                     self.resetParamDisplay()
@@ -474,22 +493,31 @@ final class SiluTrainerViewModel: ObservableObject {
 
     func nextSolution() {
         guard !solutions.isEmpty else { return }
+        // Discard draft before advancing — cycling back must show the catalog original.
+        adjustmentDraft = nil
         currentIndex = (currentIndex + 1) % solutions.count
         showSolution(at: currentIndex)
     }
 
-    /// 微调当前解（条 21.4）：求解完成后用户改打点/力度，按新参数重预测替换当前解
-    /// （轨迹/进袋结果如实更新，用户可对照约束自行取舍）。
+    /// 微调当前解（K13 草稿层）：改打点/力度后经正向管线重算预测，写入 `adjustmentDraft`，
+    /// **不**改写 `solutions[idx]`。再次微调以当前草稿为基底；`nextSolution` 弃草稿回显原解。
     func adjustCurrentSolution(velocity v: Double? = nil,
                                spinX sx: Double? = nil, spinY sy: Double? = nil) {
-        guard !isPlaying, !isComputing, let sol = currentSolution else { return }
-        var shot = sol.shot
+        guard !isPlaying, !isComputing else { return }
+        guard solutions.indices.contains(currentIndex) else { return }
+        let catalog = solutions[currentIndex]
+        let base = adjustmentDraft ?? catalog
+        var shot = base.shot
         if let v { shot.velocity = v }
         if let sx { shot.spinX = sx }
         if let sy { shot.spinY = sy }
         let before = currentSnapshot()
         let y = surfaceY
         let idx = currentIndex
+        let margin = catalog.margin
+        let satisfies = catalog.satisfiesConstraint
+        let beyondCushion = catalog.beyondCushionBudget
+        let beyondSpin = catalog.beyondSpinBudget
         solveGeneration += 1
         let gen = solveGeneration
         isComputing = true
@@ -499,30 +527,37 @@ final class SiluTrainerViewModel: ObservableObject {
             DispatchQueue.main.async {
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
-                guard let pred, self.solutions.indices.contains(idx) else { return }
-                self.solutions[idx] = PositionPlaySolution(
+                guard let pred, self.solutions.indices.contains(idx), self.currentIndex == idx else { return }
+                let drafted = PositionPlaySolution(
                     shot: shot, prediction: pred,
                     cushionCount: pred.cueCushionCount,
                     potted: pred.simObjectPotted,
-                    margin: sol.margin,
+                    margin: margin,
                     summary: "微调 · " + ShotSpinLabel.text(spinX: shot.spinX, spinY: shot.spinY)
                         + String(format: " · %.1f m/s", shot.velocity),
-                    satisfiesConstraint: sol.satisfiesConstraint,
-                    beyondCushionBudget: sol.beyondCushionBudget,
+                    satisfiesConstraint: satisfies,
+                    beyondCushionBudget: beyondCushion,
                     difficultyScore: DifficultyModel.score(
                         spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
                         cutAngleDeg: pred.cutAngleDeg),
                     difficultyTier: DifficultyModel.tier(spinX: shot.spinX, spinY: shot.spinY),
-                    beyondSpinBudget: sol.beyondSpinBudget
+                    beyondSpinBudget: beyondSpin
                 )
-                self.showSolution(at: idx)
+                self.adjustmentDraft = drafted
+                self.presentDisplayedSolution(drafted)
             }
         }
     }
 
+    /// Present a catalog solution at `index`, clearing any fine-tune draft.
     private func showSolution(at index: Int) {
         guard solutions.indices.contains(index) else { return }
-        let sol = solutions[index]
+        adjustmentDraft = nil
+        presentDisplayedSolution(solutions[index])
+    }
+
+    /// Apply velocity/spin/trajectory/aim from a solution (catalog or draft) without clearing draft.
+    private func presentDisplayedSolution(_ sol: PositionPlaySolution) {
         velocity = sol.shot.velocity
         spinX = sol.shot.spinX
         spinY = sol.shot.spinY
@@ -784,21 +819,49 @@ final class SiluTrainerViewModel: ObservableObject {
         // 工具复位到可点选态：约束已还原可见，用户可直接再选目标/袋或另画约束。
         activeTool = .none
 
-        // 解回填（「解还在」，免重解）。
+        // 解回填（「解还在」，免重解）。catalog 原样回填；若击打用的是微调草稿则重建草稿层。
         solveGeneration += 1
         isComputing = false
         solutions = snap.solutions
         currentIndex = snap.currentIndex
-        velocity = snap.velocity
-        spinX = snap.spinX
-        spinY = snap.spinY
+        adjustmentDraft = nil
 
-        if currentSolution != nil {
-            showSolution(at: currentIndex)   // 轨迹 + 球杆瞄准 + 约束 + 叠加
+        if solutions.indices.contains(currentIndex) {
+            let catalog = solutions[currentIndex]
+            if Self.shotParamsDiffer(catalog.shot, snap.shot) {
+                adjustmentDraft = PositionPlaySolution(
+                    shot: snap.shot, prediction: snap.prediction,
+                    cushionCount: snap.prediction.cueCushionCount,
+                    potted: snap.prediction.simObjectPotted,
+                    margin: catalog.margin,
+                    summary: "微调 · " + ShotSpinLabel.text(spinX: snap.shot.spinX, spinY: snap.shot.spinY)
+                        + String(format: " · %.1f m/s", snap.shot.velocity),
+                    satisfiesConstraint: catalog.satisfiesConstraint,
+                    beyondCushionBudget: catalog.beyondCushionBudget,
+                    difficultyScore: DifficultyModel.score(
+                        spinX: snap.shot.spinX, spinY: snap.shot.spinY, velocity: snap.shot.velocity,
+                        cutAngleDeg: snap.prediction.cutAngleDeg),
+                    difficultyTier: DifficultyModel.tier(spinX: snap.shot.spinX, spinY: snap.shot.spinY),
+                    beyondSpinBudget: catalog.beyondSpinBudget
+                )
+                presentDisplayedSolution(adjustmentDraft!)
+            } else {
+                showSolution(at: currentIndex)
+            }
         } else {
+            velocity = snap.velocity
+            spinX = snap.spinX
+            spinY = snap.spinY
             renderConstraint()
             refreshOverlays()
         }
+    }
+
+    /// True when fine-tune params differ from the catalog shot (used to rehydrate draft on undo).
+    private static func shotParamsDiffer(_ a: PlannedShot, _ b: PlannedShot) -> Bool {
+        abs(a.velocity - b.velocity) > 1e-9
+            || abs(a.spinX - b.spinX) > 1e-9
+            || abs(a.spinY - b.spinY) > 1e-9
     }
 
     /// 回放上一杆击打过程（条 21.3）：退回击打前重播动画，播完回到击打后局面。
