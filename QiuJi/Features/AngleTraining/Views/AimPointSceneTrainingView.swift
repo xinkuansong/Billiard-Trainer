@@ -344,8 +344,24 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     // MARK: - Camera（3D 站位视角随题取景）
 
     private func applyAimingPoseIfNeeded() {
-        guard scene.currentCameraMode == .perspective3D,
-              let cue = scene.cueBallNode else { return }
+        guard scene.currentCameraMode == .perspective3D else {
+            #if DEBUG
+            print("[AimPointScene.applyAimingPose] skip (not perspective3D)")
+            #endif
+            return
+        }
+        guard let cue = scene.cueBallNode else {
+            #if DEBUG
+            print("[AimPointScene.applyAimingPose] EARLY_RETURN cueBallNode==nil zoom=\(scene.cameraRig?.zoom ?? -1)")
+            #endif
+            return
+        }
+        #if DEBUG
+        print(String(format:
+            "[AimPointScene.applyAimingPose] ENTER cue=(%.3f,%.3f,%.3f) prevZoom=%.2f",
+            cue.position.x, cue.position.y, cue.position.z,
+            scene.cameraRig?.zoom ?? -1))
+        #endif
         scene.cameraRig?.enterAiming(cueBallPosition: cue.position, targetDirection: aimDir)
     }
 

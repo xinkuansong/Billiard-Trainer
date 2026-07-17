@@ -1739,15 +1739,13 @@ final class AngleTrainingScene: SCNScene {
         let arcColor = TrajectoryStyle.contactColor
         let arcRadius: Float = r * 2.6
         let segments = 24
-        // Single arc on the BACKWARD wedge (between strike-backward = ghost→cue and
-        // pocket-backward = ghost→pocket-extension), where both visible line segments
-        // already exist. The vertically-opposite forward wedge has no strike-forward
-        // line drawn, so we don't put an arc there.
+        // K3：弧画在前向楔形（瞄准前向 ↔ 进球前向）。旧实现用 aStart+π 落在背向楔形。
+        // 坐标契约：SceneKit XZ 水平、Y 上；水平角 atan2(z,x)；见 build/x1-evidence/k3-*.
         for i in 0..<segments {
             let t0 = Float(i) / Float(segments)
             let t1 = Float(i + 1) / Float(segments)
-            let a0 = aStart + .pi + delta * t0
-            let a1 = aStart + .pi + delta * t1
+            let a0 = aStart + delta * t0
+            let a1 = aStart + delta * t1
             let p0 = SCNVector3(ghost.x + arcRadius * cosf(a0),
                                 ghost.y + 0.0015,
                                 ghost.z + arcRadius * sinf(a0))
@@ -1759,22 +1757,17 @@ final class AngleTrainingScene: SCNScene {
             angleArcNode?.addChildNode(seg)
         }
 
-        // Angle text on the OPPOSITE wedge from where the line labels live —
-        // i.e. the vertically-opposite arc, away from the strike-forward / pocket-forward
-        // direction so it doesn't crowd "瞄准线" / "进球线" text.
+        // Angle text on the FORWARD wedge bisector (or side of that wedge when tight).
         let cutAngle = AngleSceneCalculator.cutAngle(cueBall: cueBall, targetBall: targetBall, pocket: pocket)
 
-        let baseMidA = aStart + delta * 0.5 + .pi
+        let baseMidA = aStart + delta * 0.5
         let angleText = "\(Int(cutAngle.rounded()))°"
-        // Keep the numeric angle label horizontally oriented in the 2D table view.
-        // CameraRig.topDown2DRotated has screen-up = world +X, so screen-horizontal
-        // text baseline is world +Z.
         let strikeLabelT: Float = 0.36
         let pocketLabelT: Float = 0.55
         let lineLabelOffset = r * 2.6
         // For small angles or very short cue-target spacing, the wedge has too
-        // little visual room for the text. Move the label to the side while keeping
-        // it horizontal.
+        // little visual room for the text. Move the label to the side of the
+        // forward bisector while keeping alignment along the bisector/aim ray.
         let angleFontSize: CGFloat = 24
         let angleTextScale: Float = 0.0025
         let estimatedTextWorldWidth = Float(angleText.count) * Float(angleFontSize) * angleTextScale * 0.55
@@ -1787,10 +1780,11 @@ final class AngleTrainingScene: SCNScene {
             ghost.y + 0.003,
             ghost.z + labelDist * sinf(labelAngle)
         )
-        let horizontalDir = SCNVector3(0, 0, 1)
+        // Align baseline along the forward bisector (aim/pocket wedge mid), not fixed world +Z.
+        let alignDir = SCNVector3(cosf(baseMidA), 0, sinf(baseMidA))
         let label = makeAlignedFlatTextNode(text: angleText, color: .white,
                                             fontSize: angleFontSize, scale: angleTextScale, weight: .bold,
-                                            alignDir: horizontalDir)
+                                            alignDir: alignDir)
         label.position = labelPos
         angleArcNode?.addChildNode(label)
         angleArcNode?.position = SCNVector3(0, 0, 0)

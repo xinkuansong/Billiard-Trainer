@@ -79,10 +79,18 @@ struct GeometricAngleQuizView: View {
         .onAppear {
             vm.configure(context: modelContext)
             vm.generateRandomAngle()
-            // UITest-only 确定性角度（默认 0 → 不生效，生产行为不变）：
-            // 供 Q4 90° 最坏帧截图核验（`-geometricQuiz.forcedAngle 90`）。
-            let forced = UserDefaults.standard.double(forKey: PracticeStorageKey.geometricQuizForcedAngle)
-            if forced > 0 { vm.currentAngle = min(forced, 90) }
+            // UITest-only 确定性角度（含 0°）。launch 注入多为 String/NSNumber，不能只 as? Double。
+            // 例：`-geometricQuiz.forcedAngle 90` / `45` / `0`。未注入时 object==nil，生产不变。
+            if let obj = UserDefaults.standard.object(forKey: PracticeStorageKey.geometricQuizForcedAngle) {
+                let forced: Double?
+                if let d = obj as? Double { forced = d }
+                else if let n = obj as? NSNumber { forced = n.doubleValue }
+                else if let s = obj as? String { forced = Double(s) }
+                else { forced = nil }
+                if let forced {
+                    vm.currentAngle = min(max(forced, 0), 90)
+                }
+            }
         }
         .onReceive(subscriptionManager.$isPremium) { premium in
             vm.limiter.isPremium = premium
@@ -318,6 +326,8 @@ private struct AnglePredictionFigure: View {
             let refEnd = CGPoint(x: vertex.x + rayLen, y: vertex.y)
             let angEnd = CGPoint(x: vertex.x + rayLen * cos(rad), y: vertex.y - rayLen * sin(rad))
             let arcR = rayLen * 0.28
+            // K2：参考虚线单独缩短至球缘前，避免后绘制的 1 号球遮住刻度；题面角度线 / 球位仍走满 rayLen。
+            let refRayLen = max(rayLen - ballR, rayLen * 0.72)
 
             ZStack {
                 if showReference {
@@ -326,8 +336,8 @@ private struct AnglePredictionFigure: View {
                         let r2 = Double(a) * .pi / 180
                         Path { p in
                             p.move(to: vertex)
-                            p.addLine(to: CGPoint(x: vertex.x + rayLen * cos(r2),
-                                                  y: vertex.y - rayLen * sin(r2)))
+                            p.addLine(to: CGPoint(x: vertex.x + refRayLen * cos(r2),
+                                                  y: vertex.y - refRayLen * sin(r2)))
                         }
                         .stroke(FigureLine.hint.opacity(0.3),
                                 style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
@@ -335,8 +345,8 @@ private struct AnglePredictionFigure: View {
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.white.opacity(0.55))
                             .position(clamped(
-                                CGPoint(x: vertex.x + (rayLen + 12) * cos(r2),
-                                        y: vertex.y - (rayLen + 12) * sin(r2)),
+                                CGPoint(x: vertex.x + (refRayLen + 12) * cos(r2),
+                                        y: vertex.y - (refRayLen + 12) * sin(r2)),
                                 in: proj.size))
                     }
                 }

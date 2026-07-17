@@ -127,7 +127,7 @@ struct SceneAimingView: View {
         .onChange(of: vm.showSettings) { _, showing in
             if !showing, vm.currentQuestion == nil, !vm.testFinished {
                 vm.startTest()
-                applyAimingPoseForCurrentQuestion()
+                applyAimingPoseForCurrentQuestion(reason: "settingsDismissed.startTest")
             }
         }
         .onReceive(subscriptionManager.$isPremium) { premium in
@@ -135,8 +135,13 @@ struct SceneAimingView: View {
         }
         // Each new question re-frames the aim line so the cue ball stays
         // pinned to its anchor and the target is visible past it.
-        .onChange(of: vm.questionIndex) { _, _ in
-            applyAimingPoseForCurrentQuestion()
+        // K4：defer 到下一 runloop，避免 `advanceToNext` 先改 questionIndex
+        // 触发本回调时 `nextQuestion()` 尚未 `applyBallLayout` → cueBallNode 偶发 nil
+        // 早退，机位不复位（与成功走 enterAiming 的题形成忽近忽远）。
+        .onChange(of: vm.questionIndex) { _, idx in
+            DispatchQueue.main.async {
+                applyAimingPoseForCurrentQuestion(reason: "onChange.questionIndex=\(idx)")
+            }
         }
     }
 
@@ -414,7 +419,7 @@ struct SceneAimingView: View {
                     Button(vm.currentQuestion == nil ? "开始训练" : "重新开始") {
                         vm.showSettings = false
                         vm.startTest()
-                        applyAimingPoseForCurrentQuestion()
+                        applyAimingPoseForCurrentQuestion(reason: "settingsConfirm.startTest")
                     }
                     .fontWeight(.semibold)
                 }
@@ -472,12 +477,31 @@ struct SceneAimingView: View {
     /// ball layout, using the aiming pose (low/close). Only meaningful in
     /// `.perspective3D`; safe to call in 2D (the rig still updates yaw
     /// internally but the orthographic camera ignores yaw).
-    private func applyAimingPoseForCurrentQuestion() {
-        guard cameraMode == .perspective3D,
-              let cueBall = vm.scene.cueBallNode else { return }
+    private func applyAimingPoseForCurrentQuestion(reason: String = "unspecified") {
+        guard cameraMode == .perspective3D else {
+            #if DEBUG
+            print("[SceneAiming.applyAimingPose] skip reason=\(reason) (not perspective3D)")
+            #endif
+            return
+        }
+        guard let cueBall = vm.scene.cueBallNode else {
+            // K4 复现路径：早退不复位 → 保住上一题 zoom（常为近景「正常」）。
+            #if DEBUG
+            print("[SceneAiming.applyAimingPose] EARLY_RETURN cueBallNode==nil reason=\(reason) qIndex=\(vm.questionIndex) zoom=\(vm.scene.cameraRig?.zoom ?? -1)")
+            #endif
+            return
+        }
+        let dir = cueToTargetDirection()
+        #if DEBUG
+        print(String(format:
+            "[SceneAiming.applyAimingPose] ENTER reason=%@ qIndex=%d cue=(%.3f,%.3f,%.3f) dir=(%.3f,%.3f) prevZoom=%.2f",
+            reason, vm.questionIndex,
+            cueBall.position.x, cueBall.position.y, cueBall.position.z,
+            dir.x, dir.z, vm.scene.cameraRig?.zoom ?? -1))
+        #endif
         vm.scene.cameraRig?.enterAiming(
             cueBallPosition: cueBall.position,
-            targetDirection: cueToTargetDirection()
+            targetDirection: dir
         )
     }
 
