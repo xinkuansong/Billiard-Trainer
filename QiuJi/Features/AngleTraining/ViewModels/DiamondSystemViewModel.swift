@@ -517,7 +517,7 @@ final class DiamondSystemViewModel: ObservableObject {
         return balls
     }
 
-    /// 刷新自由瞄准覆盖：瞄准线（至假想球 / 空杆至库边）+ 假想球圈 + 接触点 + 球杆摆位；
+    /// 刷新自由瞄准覆盖：瞄准线（至假想球 / 空杆至库边）+ 标准假想球（ghostBallNode）+ 接触点 + 球杆摆位；
     /// 首碰胶囊数据走 `freeAimFirstContact`（纯几何，方案 §1.3）。
     func refreshFreeAim() {
         scene.clearResultNodes(nodes: &freeAimNodes)
@@ -525,6 +525,8 @@ final class DiamondSystemViewModel: ObservableObject {
               let cue = scene.cueBallNode, !cue.isHidden,
               let dir = freeAimDir else {
             freeAimContact = nil
+            scene.ghostBallNode?.isHidden = true
+            scene.contactDotNode?.isHidden = true
             if mode == .free { scene.hideCueStick() }
             return
         }
@@ -540,16 +542,19 @@ final class DiamondSystemViewModel: ObservableObject {
             end = rayToRail(from: cue.position, dir: dir)
         }
         freeAimNodes.append(scene.addLine(from: cue.position, to: end,
-                                          color: .white, radius: TrajectoryStyle.aimRadius))
+                                          color: TrajectoryStyle.aimColor,
+                                          radius: TrajectoryStyle.aimRadius))
         if let contact {
-            freeAimNodes.append(addGhostSphere(at: end))
-            if let targetNode = freeBallNode(for: contact.targetKey) {
-                let dot = SCNVector3((end.x + targetNode.position.x) / 2,
-                                     end.y + 0.001,
-                                     (end.z + targetNode.position.z) / 2)
-                freeAimNodes.append(scene.addBall(at: dot, color: TrajectoryStyle.contactColor,
-                                                  radius: 0.009))
+            if let ghost = scene.ghostBallNode {
+                ghost.position = end
+                ghost.isHidden = false
             }
+            if let targetNode = freeBallNode(for: contact.targetKey) {
+                scene.updateContactDot(ghostCenter: end, targetCenter: targetNode.position)
+            }
+        } else {
+            scene.ghostBallNode?.isHidden = true
+            scene.contactDotNode?.isHidden = true
         }
         scene.updateCueStick(
             cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX),
@@ -559,20 +564,6 @@ final class DiamondSystemViewModel: ObservableObject {
 
     private func freeBallNode(for key: String) -> SCNNode? {
         key == Self.freeTargetName ? scene.targetBallNodes.first : scene.allBallNodes[key]
-    }
-
-    private func addGhostSphere(at pos: SCNVector3) -> SCNNode {
-        let sphere = SCNSphere(radius: CGFloat(AngleSceneCalculator.ballRadius))
-        sphere.segmentCount = 24
-        let mat = SCNMaterial()
-        mat.diffuse.contents = UIColor.white.withAlphaComponent(0.45)
-        mat.emission.contents = UIColor(white: 0.5, alpha: 1)
-        mat.lightingModel = .constant
-        sphere.materials = [mat]
-        let node = SCNNode(geometry: sphere)
-        node.position = pos
-        scene.rootNode.addChildNode(node)
-        return node
     }
 
     /// 空杆瞄准线终点：射线与库内边界（缩一颗球半径）的首个交点（几何单一真源）。
@@ -601,6 +592,8 @@ final class DiamondSystemViewModel: ObservableObject {
     private func clearFreeOverlays() {
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
+        scene.ghostBallNode?.isHidden = true
+        scene.contactDotNode?.isHidden = true
         freeAimContact = nil
     }
 
@@ -894,61 +887,55 @@ final class DiamondSystemViewModel: ObservableObject {
 
     // MARK: - Drawing
 
-    /// 绘制引擎全保真解：母球绕库解线（白实线，至首碰目标球）+ 碰库金点 +
-    /// 碰后两球去向（暗虚线 hint，真实物理如实展示）。
+    /// 绘制引擎全保真解（K14）：走共享 `TrajectoryRenderer` / scene API——
+    /// 目标球被撞后本色虚线、母球白实/虚分段、假想球虚线环+红心；**保留** full 档吃库金点+法线。
     ///
-    /// 三档轨迹标注（C28/D15，语义对齐 `TrajectoryRenderer` 口径；本页母球先行无进球线）：
-    /// `.minimal` = 仅首段瞄准线（母球→首库）；
-    /// `.core`    = 完整解线 + 碰后两球去向；
-    /// `.full`    = + 碰库金点（释义层）。
+    /// 三档轨迹标注（C28/D15，与 Composer/Silu 同口径；kick 无进袋 rim 延伸）：
+    /// `.minimal` = 瞄准实线段 + 假想球；
+    /// `.core`    = + 目标球虚线 + 母球碰后虚线；
+    /// `.full`    = + 碰库金点/库面法线（反射特有释义层）。
     private func drawSolution(_ sol: KickEngineSolution) {
         clearPath()
         let pred = sol.prediction
-        let route = BankKickSolvePipeline.pathToFirstContact(pred)
-        guard route.count >= 2 else { return }
+        guard pred.cuePath.count >= 2 else { return }
 
         let detail = UserPreferences.shared.trajectoryDetail
+        let route = BankKickSolvePipeline.pathToFirstContact(pred)
 
-        // 解线 = 母球走位（身份色白实线）；.minimal 仅画首段（母球→首库）。
-        let segmentCount = detail == .minimal ? 1 : route.count - 1
-        for i in 0..<segmentCount {
-            let line = scene.addLine(from: route[i], to: route[i + 1],
-                                     color: TrajectoryStyle.aimColor,
-                                     radius: TrajectoryStyle.lineMain)
-            pathNodes.append(line)
-        }
+        TrajectoryRenderer.draw(
+            prediction: pred,
+            options: .positionPlay,
+            context: .init(
+                prediction: pred,
+                targetKey: Self.freeTargetName,
+                pocket: nil,
+                surfaceY: scene.surfaceY,
+                showGhost: true
+            ),
+            scene: scene,
+            into: &pathNodes
+        )
 
         if detail == .full {
-            // 碰库点（金，引擎折线局部极值提取，释义层）。
+            // 反射特有：碰库金点 + 库面法线（用户要求保留）。
             for touch in BankKickSolvePipeline.cushionTouchPoints(route) {
                 let dot = scene.addBall(at: touch.point, color: TrajectoryStyle.traceColor, radius: 0.011)
                 pathNodes.append(dot)
+                let len = AngleSceneCalculator.ballRadius * 2.2
+                let normalEnd = SCNVector3(touch.point.x + touch.inwardNormal.x * len,
+                                           touch.point.y,
+                                           touch.point.z + touch.inwardNormal.z * len)
+                let nLine = scene.addLine(from: touch.point, to: normalEnd,
+                                          color: TrajectoryStyle.hintColor,
+                                          radius: TrajectoryStyle.lineHint)
+                pathNodes.append(nLine)
             }
-        }
-
-        if detail != .minimal {
-            // 碰后去向（hint 虚线）：母球剩余路径 + 目标球被撞后的真实滚动。
-            if pred.cuePath.count > route.count {
-                let rest = Array(pred.cuePath.suffix(from: route.count - 1))
-                appendHintDashes(rest)
-            }
-            appendHintDashes(pred.objectPath)
-        }
-    }
-
-    private func appendHintDashes(_ path: [SCNVector3]) {
-        guard path.count >= 2 else { return }
-        for i in 0..<(path.count - 1) {
-            let dash = scene.addDashedLine(from: path[i], to: path[i + 1],
-                                           color: TrajectoryStyle.hintColor,
-                                           radius: TrajectoryStyle.lineHint,
-                                           dash: TrajectoryStyle.hintDash,
-                                           gap: TrajectoryStyle.hintGap)
-            pathNodes.append(dash)
         }
     }
 
     private func clearPath() {
         scene.clearResultNodes(nodes: &pathNodes)
+        scene.ghostBallNode?.isHidden = true
+        scene.contactDotNode?.isHidden = true
     }
 }

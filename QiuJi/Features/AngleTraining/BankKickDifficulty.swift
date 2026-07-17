@@ -231,8 +231,8 @@ enum BankKickSolvePipeline {
     static let bankSolutionLimit = 12
     /// 反射解上限。
     static let kickSolutionLimit = 16
-    /// 去重口径：瞄准方向差 < 0.3° 且引擎实测吃库数相同视为同一解
-    /// （不同库序种子可能收敛到同一真实路线）。
+    /// 去重口径（K9）：精修后瞄准方向差 < 0.3°，或 objectPath 首段方向差 < 0.3°，
+    /// 且库数相同 → 同一解（镜像种子收敛同解时不再双双上屏）。
     static let dedupAimSeparationRad = Float(0.3) * .pi / 180
 
     /// 翻袋单袋全枚举 → 装配难度/容错 → 好打优先排序（升序）→ 去重取前 N。
@@ -312,8 +312,9 @@ enum BankKickSolvePipeline {
 
     // MARK: 排序 + 去重
 
-    /// 好打分升序，tie-break 库数少 → 路径短；同吃库数且瞄准方向几乎相同的解去重
-    ///（保留排序更优者）。
+    /// 好打分升序，tie-break 库数少 → 路径短；同库数且精修后瞄准/进球首段几乎相同则去重
+    ///（保留排序更优者）。K9：比较 `prediction.aimDirection`（已由 finalAim 回写）与
+    /// `objectPath` 首段方向，不再依赖镜像种子瞄准角。
     private static func rank<S: RankableSolution>(_ solutions: [S], limit: Int) -> [S] {
         let sorted = solutions.sorted { lhs, rhs in
             if lhs.goodness != rhs.goodness { return lhs.goodness < rhs.goodness }
@@ -324,13 +325,32 @@ enum BankKickSolvePipeline {
         for sol in sorted {
             let isDup = out.contains { existing in
                 existing.cushions == sol.cushions &&
-                aimAngleDifference(existing.prediction.aimDirection,
-                                   sol.prediction.aimDirection) < dedupAimSeparationRad
+                isSameRefinedSolution(existing.prediction, sol.prediction)
             }
             if !isDup { out.append(sol) }
             if out.count >= limit { break }
         }
         return out
+    }
+
+    /// K9 去重判据：精修后瞄准方向接近，或目标球路径首段方向接近。
+    static func isSameRefinedSolution(_ a: ShotPrediction, _ b: ShotPrediction) -> Bool {
+        if aimAngleDifference(a.aimDirection, b.aimDirection) < dedupAimSeparationRad {
+            return true
+        }
+        if let da = firstSegmentDirXZ(a.objectPath), let db = firstSegmentDirXZ(b.objectPath),
+           aimAngleDifference(da, db) < dedupAimSeparationRad {
+            return true
+        }
+        return false
+    }
+
+    private static func firstSegmentDirXZ(_ path: [SCNVector3]) -> SCNVector3? {
+        guard path.count >= 2 else { return nil }
+        let dx = path[1].x - path[0].x, dz = path[1].z - path[0].z
+        let len = sqrtf(dx * dx + dz * dz)
+        guard len > 1e-4 else { return nil }
+        return SCNVector3(dx / len, 0, dz / len)
     }
 
     private static func aimAngleDifference(_ a: SCNVector3, _ b: SCNVector3) -> Float {

@@ -348,6 +348,17 @@ enum ShotPredictor {
         var result = result
         let y = input.surfaceY
         let r = BallPhysics.radius
+        // K9：展示/出杆几何统一由 finalAim 派生（禁止保留镜像种子 ghost/aimDirection）。
+        // 坐标契约：SceneKit XZ 水平面；aim 单位向量；直击/翻袋 ghost = 射线 cue+t·aim
+        // 与 |G−target|=2R 的首个正 t 交点。kick 的 ghost 在首碰后用 firstContact 回写。
+        let aimUnit = unitXZ(finalAim)
+        result.aimDirection = aimUnit
+        let isKick = !(input.kickRails ?? []).isEmpty
+        if !isKick, let g = ghostAlongFinalAim(
+            cue: input.cueBall, target: input.targetBall, aim: aimUnit, ballRadius: r
+        ) {
+            result.ghost = g
+        }
         let run = runShot(
             aimDir: finalAim, velocity: input.velocity, input: input,
             geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
@@ -419,12 +430,36 @@ enum ShotPredictor {
                 }
             }
             result.firstContact = positionAt(run.recorder, ballName: ShotInput.cueBallName, time: contactTime)
+            // kick：假想球/接触锚点 = 首次球-球碰撞时母球心（与 finalAim 一致的真实接触几何）。
+            if isKick, let contact = result.firstContact {
+                result.ghost = contact
+            }
         }
 #if DEBUG
         PerformanceProfiler.recordSample(ProfilerLabel.predictorPostProcess,
                                          ms: Date().timeIntervalSince(postStart) * 1000)
 #endif
         return result
+    }
+
+    /// K9：由精修后 `finalAim` 反推假想球心（SceneKit XZ，单位 m）。
+    /// 射线 `cue + t·aim`（t>0）与圆 `|P−target|_xz = 2R` 的较小正根；无交返回 nil。
+    static func ghostAlongFinalAim(
+        cue: SCNVector3, target: SCNVector3, aim: SCNVector3, ballRadius: Float
+    ) -> SCNVector3? {
+        let u = unitXZ(aim)
+        let dx = cue.x - target.x, dz = cue.z - target.z
+        let twoR = 2 * ballRadius
+        // |d + t·u|² = (2R)²  ⇒  t² + 2(d·u)t + |d|² − 4R² = 0
+        let b = 2 * (dx * u.x + dz * u.z)
+        let c = dx * dx + dz * dz - twoR * twoR
+        let disc = b * b - 4 * c
+        guard disc >= 0 else { return nil }
+        let s = sqrtf(disc)
+        let t1 = (-b - s) / 2
+        let t2 = (-b + s) / 2
+        guard let t = [t1, t2].filter({ $0 > 1e-4 }).min() else { return nil }
+        return SCNVector3(cue.x + t * u.x, cue.y, cue.z + t * u.z)
     }
 
     // MARK: - Free shot (ADR-P11-03)
@@ -1463,10 +1498,13 @@ enum ShotPredictor {
     }
 
     private static func unitXZ(from a: SCNVector3, to b: SCNVector3) -> SCNVector3 {
-        let dx = b.x - a.x, dz = b.z - a.z
-        let len = sqrtf(dx * dx + dz * dz)
+        unitXZ(SCNVector3(b.x - a.x, 0, b.z - a.z))
+    }
+
+    private static func unitXZ(_ v: SCNVector3) -> SCNVector3 {
+        let len = sqrtf(v.x * v.x + v.z * v.z)
         guard len > 0.0001 else { return SCNVector3(1, 0, 0) }
-        return SCNVector3(dx / len, 0, dz / len)
+        return SCNVector3(v.x / len, 0, v.z / len)
     }
 }
 
