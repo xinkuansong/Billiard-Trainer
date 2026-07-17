@@ -412,7 +412,7 @@ struct AngleHomeView: View {
                 .font(.btCaption)
                 .foregroundStyle(.btTextSecondary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.8)
+                .truncationMode(.tail)
             Spacer()
         }
         .padding(.horizontal, Spacing.md)
@@ -436,17 +436,18 @@ private struct AngleGridCard: View {
                 .clipped()
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
+                // K1 (D-v8-1): 去缩排，同页字号恒定 — 标题最多 2 行尾部省略，副标题单行省略
                 Text(entry.title)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
 
                 Text(entry.subtitle)
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+                    .truncationMode(.tail)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, Spacing.md)
