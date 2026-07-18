@@ -481,11 +481,12 @@ private struct ThrowCollisionFigure: View {
             ctx.draw(tLeave, at: CGPoint(x: leaveEnd.x, y: leaveEnd.y + side * 14),
                      anchor: side > 0 ? .topTrailing : .bottomTrailing)
 
-            // 摩擦标签放箭头尖「反接触点侧」（白球上方/下方空区），避免压住接触点标签与球面。
+            // 摩擦标签移到箭杆左侧（母球侧空区），与接触点标签、箭头本体全部错开。
             var tFr = Text("摩擦").font(.system(size: 10, weight: .semibold))
                 .foregroundColor(.orange)
-            ctx.draw(tFr, at: CGPoint(x: frEnd.x - 10, y: frEnd.y + side * 4),
-                     anchor: side > 0 ? .topTrailing : .bottomTrailing)
+            ctx.draw(tFr,
+                     at: CGPoint(x: contact.x - 12, y: contact.y + side * frLen * 0.55),
+                     anchor: .trailing)
 
             var tDelta = Text("Δ ×\(Int(exaggerate)) 夸大").font(.system(size: 11, weight: .bold))
                 .foregroundColor(Color.btPrimary)
