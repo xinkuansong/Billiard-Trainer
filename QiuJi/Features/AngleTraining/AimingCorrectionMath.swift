@@ -204,6 +204,83 @@ enum AimingCorrectionMath {
         CueBallStrike.squirtAngle(a: spinX) * 180 / .pi
     }
 
+    /// 「行进方向的右侧」单位向量（XZ）：right = forward × ŷ（右手系）。
+    /// 手性锚定见 `AimingCorrectionZ2EvidenceTests.testHandednessCalibration`：
+    /// 面向 −ẑ 时 right = +x̂；`signedAngleXZ` 正 ⇔ 偏向行进右侧。
+    static func rightOfXZ(_ dir: SCNVector3) -> SCNVector3 {
+        SCNVector3(-dir.z, 0, dir.x)
+    }
+
+    // MARK: - Z3: spin clamp / path sampling / solve comparison
+
+    /// 打点合成幅值钳制（与 `BTSpinPad` / `SpinPadMath` 同口径）：
+    /// √(spinX²+spinY²) ≤ `CuePhysics.miscueLimitFraction`(0.5)。
+    /// 固定 `y` 轴（高低杆档位），把 `x` 钳进当前档位下的可用横轴区间。
+    static func clampSpinX(_ x: Float, spinY y: Float) -> Float {
+        let limit = CuePhysics.miscueLimitFraction
+        let maxX = sqrtf(max(0, limit * limit - y * y))
+        return min(max(x, -maxX), maxX)
+    }
+
+    /// 碰前轨迹闭式采样（④ 节实况图 + 弧线数值草稿共用）：
+    /// 段内位置 = p + v·t + ½a·t²（`BallPathSegment.position(at:)`）。
+    static func samplePreContactPath(
+        _ segments: [BallPathSegment], samplesPerSegment: Int = 16
+    ) -> [SCNVector3] {
+        var pts: [SCNVector3] = []
+        for seg in segments {
+            let n = max(2, samplesPerSegment)
+            for i in 0..<n {
+                let dt = seg.duration * Float(i) / Float(n - 1)
+                pts.append(seg.position(at: dt))
+            }
+        }
+        return pts
+    }
+
+    /// 相对基准射线（origin + dir）分解的路径样点：along = 沿线前进量、
+    /// lateral = 向「行进右侧」的横向偏移（正 = 右）。弧线（swerve）数值草稿用。
+    static func pathOffsets(
+        _ segments: [BallPathSegment],
+        baseOrigin: SCNVector3, baseDir: SCNVector3,
+        samplesPerSegment: Int = 16
+    ) -> [(along: Float, lateral: Float)] {
+        let dir = unitXZ(baseDir)
+        let right = rightOfXZ(dir)
+        return samplePreContactPath(segments, samplesPerSegment: samplesPerSegment).map { p in
+            let dx = p.x - baseOrigin.x
+            let dz = p.z - baseOrigin.z
+            return (along: dx * dir.x + dz * dir.z,
+                    lateral: dx * right.x + dz * right.z)
+        }
+    }
+
+    /// ⑤ 节两档对比的页面契约（记入 SPEC §9.3；改值须同步契约与草稿）：
+    /// A = 中杆中速无塞；B = 低杆轻推 + 左塞（合成幅值 0.5 = 打滑极限上，
+    /// 与 Z1 Δ 扫描表 v=0.8/spinY=−0.4/spinX=+0.3 行同参）。
+    enum ComparisonProfile {
+        static let a: (velocity: Float, spinX: Float, spinY: Float) = (1.5, 0, 0)
+        static let b: (velocity: Float, spinX: Float, spinY: Float) = (0.8, 0.3, -0.4)
+    }
+
+    struct SolveComparison: Equatable {
+        let a: Snapshot
+        let b: Snapshot
+    }
+
+    /// ⑤ 节：两档参数各调一次 `compute`（同一教学局面）。
+    static func solveComparison(setup: TeachingSetup = teachingSetup()) -> SolveComparison? {
+        guard let a = compute(velocity: ComparisonProfile.a.velocity,
+                              spinX: ComparisonProfile.a.spinX,
+                              spinY: ComparisonProfile.a.spinY, setup: setup),
+              let b = compute(velocity: ComparisonProfile.b.velocity,
+                              spinX: ComparisonProfile.b.spinX,
+                              spinY: ComparisonProfile.b.spinY, setup: setup) else {
+            return nil
+        }
+        return SolveComparison(a: a, b: b)
+    }
+
     // MARK: - Z2 samples（投掷图 / 高低杆三联；只读解析层）
 
     /// 教学用高低杆三档（与 Z1 草稿 `spinY=±0.4 / 0` 对齐，禁止另造档位）。
@@ -258,10 +335,35 @@ enum AimingCorrectionMath {
         let aimDir: SCNVector3
         let lanes: [ThicknessLane]
         let velocity: Float
+        /// Z3：三联缓存 key 的一部分（左右塞轴解锁后三联随 spinX 变化）。
+        let spinX: Float
 
         var low: ThicknessLane? { lanes.first { $0.tier == .low } }
         var mid: ThicknessLane? { lanes.first { $0.tier == .mid } }
         var high: ThicknessLane? { lanes.first { $0.tier == .high } }
+    }
+
+    /// 弧线横向漂移（相对出发方向）：末点在「行进右侧」上的投影。
+    /// 正 = 向右弯，负 = 向左弯；内部用 `pathOffsets`（与 Z3 证据草稿同口径）。
+    static func swerveLateralSigned(
+        segments: [BallPathSegment]
+    ) -> (signedMeters: Float, signLabel: String)? {
+        guard let first = segments.first else { return nil }
+        let offsets = pathOffsets(
+            segments, baseOrigin: first.position, baseDir: first.velocity,
+            samplesPerSegment: 16
+        )
+        guard let last = offsets.last else { return nil }
+        let lateral = last.lateral
+        let label: String
+        if abs(lateral) < 5e-5 {
+            label = "近似直"
+        } else if lateral > 0 {
+            label = "向右弯"
+        } else {
+            label = "向左弯"
+        }
+        return (lateral, label)
     }
 
     /// 几何瞄准下的投掷图取样（排除求解 Δ 补偿，与 Z1 CIT 扫描同口径）。
@@ -334,7 +436,9 @@ enum AimingCorrectionMath {
             ))
         }
         guard let pot = potDir, let aim = aimDir, lanes.count == 3 else { return nil }
-        return ThicknessTriple(potDir: pot, aimDir: aim, lanes: lanes, velocity: velocity)
+        return ThicknessTriple(
+            potDir: pot, aimDir: aim, lanes: lanes, velocity: velocity, spinX: spinX
+        )
     }
 
     // MARK: - Private

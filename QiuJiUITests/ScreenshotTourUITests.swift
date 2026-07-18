@@ -175,6 +175,7 @@ final class ScreenshotTourUITests: XCTestCase {
         let pages: [(String, String, String)] = [
             ("学", "瞄准原理", "a09-aiming-principle"),
             ("学", "瞄准方法", "a13-aiming-methods"),
+            ("学", "瞄准修正", "a16-aiming-correction"),
             ("学", "旋转与加塞", "a14-spin-and-english"),
             ("学", "分离角图谱", "a15-separation-angle-atlas"),
             ("学", "浅谈球感", "a11-ball-feel"),
@@ -209,6 +210,15 @@ final class ScreenshotTourUITests: XCTestCase {
                 // 瞄准方法页（v11 Y1 r1）交互化后更长：补两帧盖平行线主图/
                 // Mosconi 变体/重合比例补充节/相关页面。
                 if name == "a13-aiming-methods" {
+                    app.swipeUp()
+                    sleep(1)
+                    snap("\(name)-scrolled3")
+                    app.swipeUp()
+                    sleep(1)
+                    snap("\(name)-scrolled4")
+                }
+                // 瞄准修正（v12 Z3）：六节长页，补帧盖④加塞 / ⑤求解对比+速查 / ⑥实战启示。
+                if name == "a16-aiming-correction" {
                     app.swipeUp()
                     sleep(1)
                     snap("\(name)-scrolled3")

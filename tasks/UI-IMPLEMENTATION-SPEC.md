@@ -913,6 +913,7 @@ struct BTShareCard: View {
 |---|---|---|---|
 | 瞄准原理 | 学 | 切角/假想球/厚度+公式 | 插图全真台化（`BTTableFigure`）；页末 CTA→角度预测 |
 | 瞄准方法 | 学 | 管道/接触点/平行线三法 | v11 Y1；θ 滑杆 + 交互插图；交叉引用瞄准原理/对照表 |
+| 瞄准修正 | 学 | 投掷/高低杆厚度/挤偏+弧线/求解补偿 | v12 Z3；六节结构 ①Δ实况 ②投掷 ③高低杆三联 ④加塞俯视 ⑤两档求解对比+定性速查 ⑥实战启示→思路训练；共享控件三轴（力度 `ShotTuning.velocityRange` + 高低杆三档 spinY=±0.4/0 + 左右塞，合成幅值钳 `miscueLimitFraction`）；20ms 去抖+单飞+末班车；插图一律 `BTTableFigure`+`BTFigureBall`/`BTGhostCircle`/`BTContactDot`/`BTFigureTag`/`FigureLine`（② closeup 特写、③ 单图三线选中高亮参照 SeparationPathsFigure）；速查表符号来源 `build/z1-evidence/quickref-symbols.txt` + `z2-evidence/z2-quickref-symbols.txt` + `z3-evidence/z3-quickref-symbols.txt`；AX `aimingCorrection.*`；巡游 a16 |
 | 旋转与加塞 | 学 | 旋转四态→分离角 | v11 Y2；示意路径 90°/60°/120°；CTA→分离角图谱 |
 | 分离角图谱 | 学 | 8 档高低杆碰后轨迹对比 | v11 Y3；SceneKit 真台+可拖双球；`ShotStageProxy` G10+右缘仪表柱 G5；力度可调、打点盘只读 8 色点；**页内 8 色轨迹豁免线语言 v2**（DR-025）；切片=碰后→第一库，**碰后未吃库降级为碰撞点→停球点**（低力度纯低杆场景，保 8 条齐全）；去抖+单飞+并行 `simulateFree` |
 | 角度与打点 | 学 | 拖两球实时看指标联动 | **L2 唯一持有页**；首拖提示（一次性）；90° 短虚线常驻 |
@@ -947,6 +948,7 @@ struct BTShareCard: View {
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-18 | **问题集合 v12 Z3「瞄准修正」收口 + ②③图风格重做**：②投掷/③高低杆插图由裸 Canvas（硬编码 RGB+Text）改为学区统一 `BTTableFigure` 语言；④加塞节（挤偏+弧线俯视实况，左右塞轴开放，打滑极限圆盘钳制）；⑤两档求解对比（A 中杆中速 / B 低杆轻推+左塞）+ 定性速查表（符号引 z1/z2/z3 草稿）；⑥实战启示核对；UI 巡游 a16 明/暗；§9.3 页面契约 | 新增/重构 | AimingCorrectionView/ViewModel/Math, ScreenshotTourUITests, §9.3 | 问题集合 v12 Z3 |
 | 2026-04-05 | 初始版本创建 | — | 全部 | T-R0-01 |
 | 2026-04-05 | btBGTertiary/btBGQuaternary/btSeparator Light 值修正（DR-001） | DR | 全局背景/分隔线 | T-R0-02 |
 | 2026-04-05 | btSurface 别名添加（= btBGSecondary） | 新增 | Colors.swift | T-R0-02 |
