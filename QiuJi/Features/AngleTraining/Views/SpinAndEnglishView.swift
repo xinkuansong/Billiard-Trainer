@@ -1,13 +1,18 @@
 import SwiftUI
 
-/// 旋转与加塞（问题集合 v11 Y2，边界 v11.3）：母球旋转状态 → 分离角联动为主轴；
-/// 最小加塞（T09）+ 打滑极限（`CuePhysics.miscueLimitFraction`）；投掷/加塞三件套
-/// 只留一句话概念，文案预告后续「瞄准修正」（v12，本轮不做 NavigationLink）。
-/// 几何真源 `SpinAndEnglishGeometry` + 数值草稿 `build/y2-evidence/`。
+/// 旋转与加塞（v11 Y2 → v12 Z4）：母球旋转状态 → 分离角联动为主轴；
+/// 切角滑杆驱动三路径实况球形；最小加塞（T09）+ 打滑极限；打点产生旋转；
+/// 左右塞与吃库反弹（定性示意）；投掷/挤偏/弧线一句话 + 真跳转「瞄准修正」。
+/// 几何真源 `SpinAndEnglishGeometry` + 数值草稿 `build/z4-evidence/`。
 struct SpinAndEnglishView: View {
     @State private var selectedSpin: SpinAndEnglishGeometry.SpinState = .stun
+    /// 共享切角 θ（5°–75°）；默认 30° = 半球。只驱动球形，示意角为教学折线。
+    @State private var cutAngleDeg: Double = AngleSceneCalculator.halfBall.cutAngleDegrees
 
     private var miscueLimit: Float { CuePhysics.miscueLimitFraction }
+    private var isHalfBall: Bool {
+        abs(cutAngleDeg - AngleSceneCalculator.halfBall.cutAngleDegrees) < 0.5
+    }
 
     var body: some View {
         ScrollView {
@@ -15,8 +20,10 @@ struct SpinAndEnglishView: View {
                 introSection
                 linkageSection
                 statesSection
+                tipContactSection
                 minimumEnglishSection
-                aimingCorrectionTeaser
+                cushionEnglishSection
+                aimingCorrectionCTA
                 crossRefsSection
             }
             .padding(.horizontal, Spacing.lg)
@@ -40,28 +47,48 @@ struct SpinAndEnglishView: View {
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
-            Text("本页主轴：旋转状态 → 分离角。加塞对瞄准的细修正见后续「瞄准修正」页（尚未上线）。")
+            Text("本页主轴：旋转状态 → 分离角；左右塞如何改吃库反弹见下文。挤偏、弧线、投掷对瞄准的细修正见「瞄准修正」。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.intro")
     }
 
     // MARK: - Main axis: spin → separation
 
     private var linkageSection: some View {
-        let scene = SpinAndEnglishGeometry.scene()
+        let scene = SpinAndEnglishGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         let sep = SpinAndEnglishGeometry.separationDegrees(scene: scene, state: selectedSpin)
         return VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("三种旋转 → 三条分离角走向")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            Text("下图同一杆（半球切角）：目标球沿进球线离开；母球碰后先沿切线出发，再按接触时的旋转前弯或后弯。点选状态可高亮对应轨迹。")
+            Text("下图同一杆几何：目标球沿进球线离开；母球碰后先沿切线出发，再按接触时的旋转前弯或后弯。拖动切角可改球形；点选状态可高亮对应轨迹。")
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
+
+            HStack {
+                Text("切角 θ")
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(.btText)
+                Spacer()
+                Text("\(Int(cutAngleDeg))°")
+                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.btPrimary)
+            }
+            Slider(value: $cutAngleDeg, in: 5...75, step: 1)
+                .tint(.btPrimary)
+                .accessibilityIdentifier("spinAndEnglish.thetaSlider")
+            Text(isHalfBall
+                 ? "默认 30°（半球）。此时示意角与半球口诀一致。"
+                 : "当前非半球：插图为教学折线示意，不声称精确分离角。实战随切角变化见「分离角图谱」。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
 
             Picker("旋转状态", selection: $selectedSpin) {
                 ForEach(SpinAndEnglishGeometry.SpinState.allCases) { state in
@@ -71,7 +98,7 @@ struct SpinAndEnglishView: View {
             .pickerStyle(.segmented)
             .accessibilityIdentifier("spinAndEnglish.spinPicker")
 
-            SeparationPathsFigure(selected: selectedSpin)
+            SeparationPathsFigure(selected: selectedSpin, cutAngleDeg: CGFloat(cutAngleDeg))
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityIdentifier("spinAndEnglish.figure")
@@ -81,29 +108,32 @@ struct SpinAndEnglishView: View {
                     .font(.btSubheadlineMedium)
                     .foregroundStyle(.btPrimary)
                 Spacer()
-                Text(String(format: "示意分离角 ≈ %.0f°", sep))
+                Text(String(format: "示意角 · 教学折线 ≈ %.0f°", sep))
                     .font(.system(size: 13, weight: .medium, design: .monospaced))
                     .foregroundStyle(.btTextSecondary)
             }
             .padding(Spacing.md)
             .background(Color.btPrimaryMuted)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            .accessibilityIdentifier("spinAndEnglish.sepReadout")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("滑动（stun / 定杆）：接触时几乎无前旋后旋，母球沿切线离开，与进球线夹角约 90°（90° 法则 / 切线法则）。")
-                Text("前旋（高杆 / 自然滚动）：接触时已有前旋或已自然滚动，母球从切线向前弯回瞄准线一侧——常用口诀是约 30° 偏离原瞄准线（30° 法则）。")
+                Text("前旋（高杆 / 自然滚动）：接触时已有前旋或已自然滚动，母球从切线向前弯回瞄准线一侧——半球口诀约 30° 偏离原瞄准线（30° 法则）。")
                 Text("后旋（低杆）：接触时后旋仍在，母球从切线向后弯，分离角大于 90°。")
             }
             .font(.btBody)
             .foregroundStyle(.btTextSecondary)
 
-            Text("示意角度按半球教学球形锁定（见数值草稿）；实战随切角、力度与滑动→滚动进度连续变化。App 内分离角辅助线的经验修正约为 90°±20°（高杆减小、低杆增大），仅作提示，不参与物理求解。")
+            Text("图上三条路径是教学折线（滑动 90° / 前旋 60° / 后旋 120°，相对进球线），用来记住口诀；实战分离角随切角、力度与滑动→滚动进度连续变化，见「分离角图谱」。App 内辅助线经验修正约为 90°±20°（高杆减小、低杆增大），仅作提示，不参与物理求解。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.linkage")
     }
 
     // MARK: - Spin states glossary
@@ -132,6 +162,8 @@ struct SpinAndEnglishView: View {
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.states")
     }
 
     private func stateRow(_ term: String, _ desc: String) -> some View {
@@ -146,6 +178,41 @@ struct SpinAndEnglishView: View {
         }
     }
 
+    // MARK: - Tip contact → spin
+
+    private var tipContactSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            Text("打点如何产生旋转")
+                .font(.btTitle)
+                .foregroundStyle(.btText)
+
+            Text("皮头打在母球正面的不同位置，接触瞬间把不同方向的旋转传给母球：高低打点改前后旋，左右打点改侧旋（加塞）。")
+                .font(.btBody)
+                .foregroundStyle(.btTextSecondary)
+
+            TipContactFigure(limitFraction: CGFloat(miscueLimit))
+                .frame(height: 200)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                .accessibilityIdentifier("spinAndEnglish.tipFigure")
+
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("高杆 / 低杆：改变接触瞬间的前旋或后旋，从而改变分离角（见上文主轴与「分离角图谱」）。")
+                Text("左塞 / 右塞：改变侧旋。侧旋主要改吃库后的反弹（见下节）；对瞄准线的挤偏、弧线与投掷细修正见「瞄准修正」。")
+            }
+            .font(.btBody)
+            .foregroundStyle(.btTextSecondary)
+
+            Text("可靠打点须落在打滑极限圈内（约 \(String(format: "%.0f", miscueLimit * 100))% 球半径）；圈外易滑杆，塞不再稳定传递。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+        }
+        .padding(Spacing.lg)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.tipContact")
+    }
+
     // MARK: - Minimum English + miscue
 
     private var minimumEnglishSection: some View {
@@ -158,6 +225,7 @@ struct SpinAndEnglishView: View {
             MiscueLimitFigure(limitFraction: CGFloat(miscueLimit))
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                .accessibilityIdentifier("spinAndEnglish.miscueFigure")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("能用中杆 + 高低杆（配合切线 / 30° / 90° 法则）完成的走位，尽量不要加左右塞——这就是最小加塞原则：每多一分塞，就多一分瞄准误差来源。")
@@ -169,18 +237,56 @@ struct SpinAndEnglishView: View {
             .font(.btBody)
             .foregroundStyle(.btTextSecondary)
 
-            Text("打滑极限数值 = CuePhysics.miscueLimitFraction（当前 \(String(format: "%.1f", miscueLimit))）。")
+            Text("打滑极限与 App 打点盘钳制同一常量（母球半径的 \(String(format: "%.0f", miscueLimit * 100))%）。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.minimumEnglish")
     }
 
-    // MARK: - Teaser only (no NavigationLink to v12)
+    // MARK: - Cushion × sidespin (qualitative)
 
-    private var aimingCorrectionTeaser: some View {
+    private var cushionEnglishSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            Text("左右塞与吃库反弹")
+                .font(.btTitle)
+                .foregroundStyle(.btText)
+
+            Text("无塞吃库时，可用「入射角 ≈ 反射角」作教学基线。侧旋会打破这条基线：顺塞让反弹更开，逆塞让反弹更闭——用来制造「反常」反弹角完成走位。")
+                .font(.btBody)
+                .foregroundStyle(.btTextSecondary)
+
+            CushionEnglishFigure()
+                .frame(height: 220)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                .accessibilityIdentifier("spinAndEnglish.cushionFigure")
+
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("顺塞（Running）：侧旋与反弹切向大致同向，吃库后反弹更开（离开库法线更大）。")
+                Text("逆塞（Reverse）：侧旋与反弹切向大致反向，吃库后反弹更闭（更靠近库法线）。")
+                Text("实战用途：走位优先用高低杆改分离角；左右塞留给需要改吃库反弹、或必须微调瞄准的场合。")
+            }
+            .font(.btBody)
+            .foregroundStyle(.btTextSecondary)
+
+            Text("上图为定性示意（非引擎实况采样）。口径来自最少加塞原则中「用加塞调反弹角」与撞库后顺/逆塞分类；精确轨迹请在「分离角图谱」或走位求解里看。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+        }
+        .padding(Spacing.lg)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.cushionEnglish")
+    }
+
+    // MARK: - Aiming correction CTA (true NavigationLink)
+
+    private var aimingCorrectionCTA: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("加塞还会改变瞄准")
                 .font(.btTitle)
@@ -190,22 +296,16 @@ struct SpinAndEnglishView: View {
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
-            HStack(alignment: .top, spacing: Spacing.sm) {
-                Image(systemName: "bookmark")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btAccent)
-                Text("详见后续学页「瞄准修正」（投掷 / 挤偏 / 弧线及其对瞄准的影响）。该页尚未上线，落地后将在此补跳转。")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-            }
-            .padding(Spacing.md)
-            .background(Color.btAccent.opacity(0.10))
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-            .accessibilityIdentifier("spinAndEnglish.aimingCorrectionTeaser")
+            PracticeCTA(title: "打开瞄准修正",
+                        destination: "投掷 · 挤偏 · 弧线：几何之外的偏差",
+                        route: .aimingCorrection)
+                .accessibilityIdentifier("spinAndEnglish.aimingCorrectionCTA")
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.aimingCorrectionSection")
     }
 
     // MARK: - Cross refs
@@ -227,7 +327,13 @@ struct SpinAndEnglishView: View {
             PracticeCTA(title: "打开分离角图谱",
                         destination: "8 档高低杆 · 碰后轨迹对比",
                         route: .separationAngleAtlas)
+
+            PracticeCTA(title: "打开瞄准修正",
+                        destination: "投掷 · 挤偏 · 弧线",
+                        route: .aimingCorrection)
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinAndEnglish.crossRefs")
     }
 }
 
@@ -235,9 +341,10 @@ struct SpinAndEnglishView: View {
 
 private struct SeparationPathsFigure: View {
     let selected: SpinAndEnglishGeometry.SpinState
+    let cutAngleDeg: CGFloat
 
     var body: some View {
-        let scene = SpinAndEnglishGeometry.scene()
+        let scene = SpinAndEnglishGeometry.scene(cutAngleDeg: cutAngleDeg)
         BTTableFigure(orientation: .landscape,
                       closeup: (center: CGPoint(x: 0.40, y: -0.16), halfHeight: 0.36)) { proj in
             let target = proj.point(x: scene.target.x, z: scene.target.y)
@@ -249,11 +356,9 @@ private struct SeparationPathsFigure: View {
             let d = proj.ballDiameter
 
             ZStack {
-                // Aim line (context) — dim.
                 Path { p in p.move(to: cue); p.addLine(to: ghost) }
                     .stroke(FigureLine.aim.opacity(0.35), lineWidth: proj.lineHintWidth)
 
-                // Object ball departure.
                 Path { p in p.move(to: target); p.addLine(to: potFar) }
                     .stroke(FigureLine.pot(number: 1),
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [5, 3]))
@@ -298,7 +403,96 @@ private struct SeparationPathsFigure: View {
     }
 }
 
-// MARK: - Miscue limit tip diagram (face-on cue ball)
+// MARK: - Tip contact face-on (tokenized)
+
+private struct TipContactFigure: View {
+    let limitFraction: CGFloat
+
+    private struct TipMark: Identifiable {
+        let id: String
+        let dx: CGFloat
+        let dy: CGFloat
+        let label: String
+        let color: Color
+    }
+
+    var body: some View {
+        GeometryReader { geo in
+            let side = min(geo.size.width * 0.40, geo.size.height * 0.82)
+            let cx = geo.size.width * 0.34
+            let cy = geo.size.height * 0.48
+            let r = side / 2
+            let limitR = r * limitFraction
+            let marks: [TipMark] = [
+                .init(id: "high", dx: 0, dy: -limitR * 0.72, label: "高杆 → 前旋", color: .btAccent),
+                .init(id: "low", dx: 0, dy: limitR * 0.72, label: "低杆 → 后旋", color: .btWarning),
+                .init(id: "left", dx: -limitR * 0.72, dy: 0, label: "左塞 → 侧旋", color: .btPrimary),
+                .init(id: "right", dx: limitR * 0.72, dy: 0, label: "右塞 → 侧旋", color: .btPrimary),
+            ]
+
+            ZStack {
+                RoundedRectangle(cornerRadius: BTRadius.md)
+                    .fill(Color.btTableFelt.opacity(0.35))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BTRadius.md)
+                            .stroke(Color.btSeparator, lineWidth: 1)
+                    )
+
+                // Cue-ball disk (tokens; not hardcoded RGB sphere).
+                Circle()
+                    .fill(Color.btBGTertiary)
+                    .overlay(Circle().stroke(Color.btSeparator, lineWidth: 1.5))
+                    .frame(width: side, height: side)
+                    .position(x: cx, y: cy)
+
+                Circle()
+                    .stroke(Color.btPrimary.opacity(0.85),
+                            style: StrokeStyle(lineWidth: 1.5, dash: [4, 3]))
+                    .frame(width: limitR * 2, height: limitR * 2)
+                    .position(x: cx, y: cy)
+
+                // Crosshair.
+                Path { p in
+                    p.move(to: CGPoint(x: cx, y: cy - r * 0.85))
+                    p.addLine(to: CGPoint(x: cx, y: cy + r * 0.85))
+                    p.move(to: CGPoint(x: cx - r * 0.85, y: cy))
+                    p.addLine(to: CGPoint(x: cx + r * 0.85, y: cy))
+                }
+                .stroke(Color.btTextTertiary.opacity(0.45), lineWidth: 1)
+
+                Circle()
+                    .fill(Color.btText.opacity(0.55))
+                    .frame(width: 5, height: 5)
+                    .position(x: cx, y: cy)
+
+                ForEach(marks) { m in
+                    Circle()
+                        .fill(m.color)
+                        .frame(width: 9, height: 9)
+                        .position(x: cx + m.dx, y: cy + m.dy)
+                }
+
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    ForEach(marks) { m in
+                        HStack(spacing: 6) {
+                            Circle().fill(m.color).frame(width: 8, height: 8)
+                            Text(m.label)
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextSecondary)
+                        }
+                    }
+                    Text("虚线内 = 可靠打点")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextTertiary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .position(x: geo.size.width * 0.72, y: cy)
+            }
+        }
+    }
+}
+
+// MARK: - Miscue limit tip diagram (tokenized)
 
 private struct MiscueLimitFigure: View {
     let limitFraction: CGFloat
@@ -306,33 +500,35 @@ private struct MiscueLimitFigure: View {
     var body: some View {
         GeometryReader { geo in
             let side = min(geo.size.width * 0.42, geo.size.height * 0.85)
-            let cx = geo.size.width * 0.38
+            let cx = geo.size.width * 0.36
             let cy = geo.size.height * 0.48
             let r = side / 2
             let limitR = r * limitFraction
 
             ZStack {
+                RoundedRectangle(cornerRadius: BTRadius.md)
+                    .fill(Color.btTableFelt.opacity(0.35))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BTRadius.md)
+                            .stroke(Color.btSeparator, lineWidth: 1)
+                    )
+
                 Circle()
                     .fill(Color.btBGTertiary)
-                    .frame(width: side, height: side)
-                    .position(x: cx, y: cy)
-                Circle()
-                    .stroke(Color.btSeparator, lineWidth: 1)
+                    .overlay(Circle().stroke(Color.btSeparator, lineWidth: 1.5))
                     .frame(width: side, height: side)
                     .position(x: cx, y: cy)
 
-                // Safe zone (miscue disk).
+                Circle()
+                    .fill(Color.btPrimary.opacity(0.12))
+                    .frame(width: limitR * 2, height: limitR * 2)
+                    .position(x: cx, y: cy)
                 Circle()
                     .stroke(Color.btPrimary.opacity(0.85),
                             style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
                     .frame(width: limitR * 2, height: limitR * 2)
                     .position(x: cx, y: cy)
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.12))
-                    .frame(width: limitR * 2, height: limitR * 2)
-                    .position(x: cx, y: cy)
 
-                // Center + sample tip points.
                 Circle()
                     .fill(Color.btText.opacity(0.7))
                     .frame(width: 5, height: 5)
@@ -354,7 +550,6 @@ private struct MiscueLimitFigure: View {
                 .position(x: geo.size.width * 0.78, y: cy)
             }
         }
-        .background(Color.btBG.opacity(0.35))
     }
 
     private func legendDot(_ color: Color, _ text: String) -> some View {
@@ -363,6 +558,62 @@ private struct MiscueLimitFigure: View {
             Text(text)
                 .font(.btCaption)
                 .foregroundStyle(.btTextSecondary)
+        }
+    }
+}
+
+// MARK: - Cushion english qualitative figure
+
+private struct CushionEnglishFigure: View {
+    var body: some View {
+        // Static teaching scene in table meters (X–Z); not engine-sampled.
+        let cue = CGPoint(x: -0.35, y: 0.05)
+        let impact = CGPoint(x: -0.02, y: 0.42)
+        let noSpin = CGPoint(x: 0.38, y: 0.18)
+        let running = CGPoint(x: 0.48, y: 0.02)
+        let reverse = CGPoint(x: 0.22, y: 0.32)
+
+        BTTableFigure(orientation: .landscape,
+                      closeup: (center: CGPoint(x: 0.08, y: 0.22), halfHeight: 0.42)) { proj in
+            let c = proj.point(x: cue.x, z: cue.y)
+            let hit = proj.point(x: impact.x, z: impact.y)
+            let a0 = proj.point(x: noSpin.x, z: noSpin.y)
+            let aRun = proj.point(x: running.x, z: running.y)
+            let aRev = proj.point(x: reverse.x, z: reverse.y)
+            let d = proj.ballDiameter
+
+            ZStack {
+                // Top cushion hint (screen-up = −Z → smaller screen-y near top of closeup).
+                Path { p in
+                    let y = proj.point(x: 0, z: 0.55).y
+                    p.move(to: CGPoint(x: 8, y: y))
+                    p.addLine(to: CGPoint(x: proj.size.width - 8, y: y))
+                }
+                .stroke(Color.btTextTertiary.opacity(0.5), lineWidth: 3)
+
+                Path { p in p.move(to: c); p.addLine(to: hit) }
+                    .stroke(FigureLine.aim.opacity(0.55), lineWidth: proj.lineHintWidth)
+
+                Path { p in p.move(to: hit); p.addLine(to: a0) }
+                    .stroke(FigureLine.separation,
+                            style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [5, 3]))
+                Path { p in p.move(to: hit); p.addLine(to: aRun) }
+                    .stroke(Color.btAccent, lineWidth: proj.lineMainWidth)
+                Path { p in p.move(to: hit); p.addLine(to: aRev) }
+                    .stroke(Color.btWarning, lineWidth: proj.lineMainWidth)
+
+                BTFigureBall(diameter: d).position(c)
+                BTContactDot(diameter: max(4, d * 0.22)).position(hit)
+
+                BTFigureTag(text: "入射", color: FigureLine.aim)
+                    .position(spinAlongLabel(from: c, to: hit, t: 0.45, offset: -14))
+                BTFigureTag(text: "无塞", color: FigureLine.separation)
+                    .position(spinAlongLabel(from: hit, to: a0, t: 0.7, offset: 14))
+                BTFigureTag(text: "顺塞更开", color: .btAccent)
+                    .position(spinAlongLabel(from: hit, to: aRun, t: 0.75, offset: -14))
+                BTFigureTag(text: "逆塞更闭", color: .btWarning)
+                    .position(spinAlongLabel(from: hit, to: aRev, t: 0.7, offset: 14))
+            }
         }
     }
 }

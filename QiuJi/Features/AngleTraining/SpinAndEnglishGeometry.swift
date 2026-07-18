@@ -1,13 +1,16 @@
 import CoreGraphics
 import Foundation
 
-/// 「旋转与加塞」页教学路径几何（v11 Y2）。
+/// 「旋转与加塞」页教学路径几何（v11 Y2 → v12 Z4）。
 ///
-/// 复用 `AimingMethodsGeometry.scene` 的半球（θ=30°）标准球形；碰后三条示意路径
-/// 的方向不变量由 `build/y2-evidence/y2-geometry-draft.txt` 锁定：
+/// 复用 `AimingMethodsGeometry.scene(cutAngleDeg:)`；默认半球（θ=30°）。
+/// 碰后三条示意路径相对进球方向 n **固定**为教学折线（见 `build/z4-evidence/`）：
 /// - 切线 ⊥ 连心线 n；stun 分离角 = 90°（T02/T03）
-/// - 前旋/自然滚动：相对瞄准线偏折约 30°（T01）→ 相对 n 为 60°
-/// - 后旋：切线反偏约 30°（T03）→ 相对 n 为 120°（分离角 > 90°）
+/// - 前旋/自然滚动：相对 n 为 60°（半球下 ≡ T01「约 30° 偏离瞄准线」）
+/// - 后旋：相对 n 为 120°（T03；分离角 > 90°）
+///
+/// 切角滑杆只驱动球形（C/G/T/Q），**不**把示意角重算成精确物理分离角。
+/// 非半球档 UI 须标注「示意角 · 教学折线」。
 ///
 /// 坐标契约：SceneKit 台面米坐标，水平面 X–Z（`CGPoint.x`=X，`.y`=Z），
 /// +X 右，屏上 = −Z；单位米。路径为教学折线，非 `simulateFree` 轨迹。
@@ -38,10 +41,14 @@ enum SpinAndEnglishGeometry {
         }
     }
 
-    /// 标准教学场景：半球切角，与 Y1 同球位。
+    /// 默认半球教学场景（不变量单测锁定位）。
     static func scene() -> AimingMethodsGeometry.Scene {
-        AimingMethodsGeometry.scene(
-            cutAngleDeg: CGFloat(AngleSceneCalculator.halfBall.cutAngleDegrees))
+        scene(cutAngleDeg: CGFloat(AngleSceneCalculator.halfBall.cutAngleDegrees))
+    }
+
+    /// 按切角 θ 生成教学球形（与瞄准方法页同入口）。
+    static func scene(cutAngleDeg: CGFloat) -> AimingMethodsGeometry.Scene {
+        AimingMethodsGeometry.scene(cutAngleDeg: cutAngleDeg)
     }
 
     /// 切线单位方向（stun 出发）：入射瞄准方向在 ⊥n 上的分量（T02/T03）。
@@ -60,17 +67,15 @@ enum SpinAndEnglishGeometry {
         return cross >= 0 ? 1 : -1
     }
 
-    /// 碰后示意方向（单位向量）。
+    /// 碰后示意方向（单位向量）。教学折线：相对 n 固定 90°/60°/120°。
     static func departureDir(scene: AimingMethodsGeometry.Scene, state: SpinState) -> CGPoint {
         let s = side(scene: scene)
         switch state {
         case .stun:
             return tangentDir(scene: scene)
         case .follow:
-            // T01：约 30° 偏离瞄准线 → 相对 n 为 60°（θ=30° 半球）
             return AimingMethodsGeometry.rotate(scene.potDir, byDegrees: s * 60)
         case .draw:
-            // T03：切线反偏 ~30° → 相对 n 为 120°
             return AimingMethodsGeometry.rotate(scene.potDir, byDegrees: s * 120)
         }
     }
@@ -91,9 +96,17 @@ enum SpinAndEnglishGeometry {
     // MARK: - Invariants (for evidence / tests)
 
     /// 分离角（度）：母球出发方向与进球方向 n 的夹角，0…180。
+    /// 对教学折线：任意 θ 下 stun/follow/draw 分别为 90/60/120（见 z4-cut-angle-scan）。
     static func separationDegrees(scene: AimingMethodsGeometry.Scene, state: SpinState) -> CGFloat {
         let d = departureDir(scene: scene, state: state)
         let c = max(-1, min(1, dot(d, scene.potDir)))
+        return acos(c) * 180 / .pi
+    }
+
+    /// 前旋示意方向相对瞄准线的夹角（度）。仅半球 θ=30° 时 ≈30°（T01 口诀）。
+    static func followAngleFromAimDegrees(scene: AimingMethodsGeometry.Scene) -> CGFloat {
+        let d = departureDir(scene: scene, state: .follow)
+        let c = max(-1, min(1, dot(d, scene.aimDir)))
         return acos(c) * 180 / .pi
     }
 

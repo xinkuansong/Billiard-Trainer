@@ -226,7 +226,7 @@ final class ScreenshotTourUITests: XCTestCase {
                     sleep(1)
                     snap("\(name)-scrolled4")
                 }
-                // 旋转与加塞（v11 Y2）：补帧盖旋转状态节 / 最小加塞 / 瞄准修正预告 / 相关页面。
+                // 旋转与加塞（v12 Z4）：页更长——补帧盖打点节 / 吃库反弹 / 瞄准修正 CTA / 相关页面。
                 if name == "a14-spin-and-english" {
                     app.swipeUp()
                     sleep(1)
@@ -234,6 +234,9 @@ final class ScreenshotTourUITests: XCTestCase {
                     app.swipeUp()
                     sleep(1)
                     snap("\(name)-scrolled4")
+                    app.swipeUp()
+                    sleep(1)
+                    snap("\(name)-scrolled5")
                 }
                 popBack()
                 sleep(1)
