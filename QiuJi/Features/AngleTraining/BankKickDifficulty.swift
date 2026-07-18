@@ -190,6 +190,7 @@ enum BankKickDifficulty {
 
 /// 翻袋页解（引擎全保真物化）。`cushions` = 种子库序数（chip/pill 的「N 库」语义，
 /// 与 `rails` 文案一致；引擎实测 `objectCushionCount` 含 jaw 擦碰、仅供诊断）。
+/// K10：`spinX`/`spinY` = 该解搜索/击打用的加塞（接触点偏移/R；+X 左塞 / −X 右塞）。
 struct BankEngineSolution: Identifiable {
     let id = UUID()
     let rails: [BankShotCalculator.Rail]
@@ -199,14 +200,20 @@ struct BankEngineSolution: Identifiable {
     let difficultyTier: BankKickDifficultyTier
     let robustness: Double?
     let pathLength: Double
+    let spinX: Float
+    let spinY: Float
 
     var goodness: Double {
         BankKickDifficulty.goodness(difficultyScore: difficultyScore, robustness: robustness)
     }
     var railSequenceText: String { rails.map(\.label).joined(separator: " → ") }
+    var spinLabel: String {
+        ShotSpinLabel.text(spinX: Double(spinX), spinY: Double(spinY))
+    }
 }
 
 /// 反射页解（引擎全保真物化）。`cushions` = 种子库序数（与 `rails` 文案一致）。
+/// K10：同翻袋，解携带搜索时的加塞。
 struct KickEngineSolution: Identifiable {
     let id = UUID()
     let rails: [DiamondSystemCalculator.Rail]
@@ -216,11 +223,16 @@ struct KickEngineSolution: Identifiable {
     let difficultyTier: BankKickDifficultyTier
     let robustness: Double?
     let pathLength: Double
+    let spinX: Float
+    let spinY: Float
 
     var goodness: Double {
         BankKickDifficulty.goodness(difficultyScore: difficultyScore, robustness: robustness)
     }
     var railSequenceText: String { rails.map(\.label).joined(separator: " → ") }
+    var spinLabel: String {
+        ShotSpinLabel.text(spinX: Double(spinX), spinY: Double(spinY))
+    }
 }
 
 // MARK: - 求解管线（VM 与测试共用的纯函数入口）
@@ -234,78 +246,90 @@ enum BankKickSolvePipeline {
     /// 去重口径（K9）：精修后瞄准方向差 < 0.3°，或 objectPath 首段方向差 < 0.3°，
     /// 且库数相同 → 同一解（镜像种子收敛同解时不再双双上屏）。
     static let dedupAimSeparationRad = Float(0.3) * .pi / 180
+    /// K10 加塞搜索档（与走位反解 `spinXValues` 同口径）：≈×3 全枚举成本。
+    /// 坐标契约：spinX = 接触点偏移/R，+左塞 / −右塞；本档只搜横塞，spinY 恒 0。
+    static let sideSpinSearchValues: [Float] = [-0.3, 0, 0.3]
 
     /// 翻袋单袋全枚举 → 装配难度/容错 → 好打优先排序（升序）→ 去重取前 N。
     /// 纯函数、线程安全，供 VM 后台任务与测试直接调用。
     /// `obstacles` = 球库拖入的在桌障碍球（W4，方案 §4.3）：**真实碰撞体**进反解模拟
     /// 与容错扰动（目标球/母球撞障碍 = 候选被引擎自然淘汰，非几何过滤）。
+    /// K10：外层枚举 `sideSpinSearchValues`；引擎管线（squirt）已支持，本函数只消费。
     static func solveBank(
         cue: SCNVector3, object: SCNVector3, pocketIndex: Int,
-        surfaceY: Float, power: Float, obstacles: [ObstacleBall] = []
+        surfaceY: Float, power: Float, obstacles: [ObstacleBall] = [],
+        spinXValues: [Float] = sideSpinSearchValues
     ) -> [BankEngineSolution] {
-        var input = ShotInput(
-            cueBall: cue, targetBall: object, pocketIndex: pocketIndex,
-            velocity: power, spinX: 0, spinY: 0, surfaceY: surfaceY
-        )
-        input.obstacles = obstacles
         let dx = Double(cue.x - object.x), dz = Double(cue.z - object.z)
         let distance = (dx * dx + dz * dz).squareRoot()
 
         var solutions: [BankEngineSolution] = []
-        for (rails, pred) in ShotPredictor.predictBankAll(input) {
-            let pathLength = Double(polylineLengthXZ(pred.objectPath))
-            // 库数取**种子库序数**（用户「1/2/3 库」chip 的语义）：引擎实测
-            // `objectCushionCount` 会把贴袋入口擦 jaw 也计入（W1 §2.2 合法进袋路线），
-            // 用于分桶/难度/pill 会失真（画面 1 库、读数 5 库）。
-            let cushions = rails.count
-            let score = BankKickDifficulty.bankScore(
-                cutAngleDeg: pred.cutAngleDeg, cueTargetDistance: distance,
-                cushions: cushions, pathLength: pathLength
+        for sx in spinXValues {
+            var input = ShotInput(
+                cueBall: cue, targetBall: object, pocketIndex: pocketIndex,
+                velocity: power, spinX: sx, spinY: 0, surfaceY: surfaceY
             )
-            let robustness = pred.aimOffsetUsed.flatMap {
-                BankKickDifficulty.measureBankRobustness(input: input, rails: rails, aimOffset: $0)
+            input.obstacles = obstacles
+            for (rails, pred) in ShotPredictor.predictBankAll(input) {
+                let pathLength = Double(polylineLengthXZ(pred.objectPath))
+                // 库数取**种子库序数**（用户「1/2/3 库」chip 的语义）：引擎实测
+                // `objectCushionCount` 会把贴袋入口擦 jaw 也计入（W1 §2.2 合法进袋路线），
+                // 用于分桶/难度/pill 会失真（画面 1 库、读数 5 库）。
+                let cushions = rails.count
+                let score = BankKickDifficulty.bankScore(
+                    cutAngleDeg: pred.cutAngleDeg, cueTargetDistance: distance,
+                    cushions: cushions, pathLength: pathLength
+                )
+                let robustness = pred.aimOffsetUsed.flatMap {
+                    BankKickDifficulty.measureBankRobustness(input: input, rails: rails, aimOffset: $0)
+                }
+                solutions.append(BankEngineSolution(
+                    rails: rails, prediction: pred, cushions: cushions,
+                    difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
+                    robustness: robustness, pathLength: pathLength,
+                    spinX: sx, spinY: 0
+                ))
             }
-            solutions.append(BankEngineSolution(
-                rails: rails, prediction: pred, cushions: cushions,
-                difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
-                robustness: robustness, pathLength: pathLength
-            ))
         }
         return rank(solutions, limit: bankSolutionLimit)
     }
 
     /// 反射全枚举 → 装配难度/容错 → 好打优先排序 → 去重取前 N。
-    /// `obstacles` 语义同 `solveBank`（真实碰撞体）。
+    /// `obstacles` 语义同 `solveBank`（真实碰撞体）。K10：同翻袋外层加塞档。
     static func solveKick(
         cue: SCNVector3, target: SCNVector3, surfaceY: Float, power: Float,
-        obstacles: [ObstacleBall] = []
+        obstacles: [ObstacleBall] = [],
+        spinXValues: [Float] = sideSpinSearchValues
     ) -> [KickEngineSolution] {
-        var input = ShotInput(
-            cueBall: cue, targetBall: target, pocketIndex: 0,
-            velocity: power, spinX: 0, spinY: 0, surfaceY: surfaceY
-        )
-        input.obstacles = obstacles
         var solutions: [KickEngineSolution] = []
-        for (rails, pred) in ShotPredictor.predictKickAll(input) {
-            let route = pathToFirstContact(pred)
-            let pathLength = Double(polylineLengthXZ(route))
-            let incidence = kickFirstRailIncidenceDeg(
-                cue: cue, target: target, rails: rails, surfaceY: surfaceY
+        for sx in spinXValues {
+            var input = ShotInput(
+                cueBall: cue, targetBall: target, pocketIndex: 0,
+                velocity: power, spinX: sx, spinY: 0, surfaceY: surfaceY
             )
-            // 同 bank：库数取种子库序数（chip 语义），引擎实测计数含 jaw 擦碰会失真。
-            let cushions = rails.count
-            let score = BankKickDifficulty.kickScore(
-                firstRailIncidenceDeg: incidence,
-                cushions: cushions, pathLength: pathLength
-            )
-            let robustness = pred.aimOffsetUsed.flatMap {
-                BankKickDifficulty.measureKickRobustness(input: input, rails: rails, aimOffset: $0)
+            input.obstacles = obstacles
+            for (rails, pred) in ShotPredictor.predictKickAll(input) {
+                let route = pathToFirstContact(pred)
+                let pathLength = Double(polylineLengthXZ(route))
+                let incidence = kickFirstRailIncidenceDeg(
+                    cue: cue, target: target, rails: rails, surfaceY: surfaceY
+                )
+                // 同 bank：库数取种子库序数（chip 语义），引擎实测计数含 jaw 擦碰会失真。
+                let cushions = rails.count
+                let score = BankKickDifficulty.kickScore(
+                    firstRailIncidenceDeg: incidence,
+                    cushions: cushions, pathLength: pathLength
+                )
+                let robustness = pred.aimOffsetUsed.flatMap {
+                    BankKickDifficulty.measureKickRobustness(input: input, rails: rails, aimOffset: $0)
+                }
+                solutions.append(KickEngineSolution(
+                    rails: rails, prediction: pred, cushions: cushions,
+                    difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
+                    robustness: robustness, pathLength: pathLength,
+                    spinX: sx, spinY: 0
+                ))
             }
-            solutions.append(KickEngineSolution(
-                rails: rails, prediction: pred, cushions: cushions,
-                difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
-                robustness: robustness, pathLength: pathLength
-            ))
         }
         return rank(solutions, limit: kickSolutionLimit)
     }
@@ -469,7 +493,7 @@ extension KickEngineSolution: RankableSolution {}
 
 // MARK: - 解缓存（LRU，方案 §4.1）
 
-/// 小容量 LRU：key = 全部球位量化毫米 + 袋口 + 力度步进（库数过滤是展示层后处理不进 key）。
+/// 小容量 LRU：key = 全部球位量化毫米 + 袋口 + 力度步进 + 塞档（库数过滤是展示层后处理不进 key）。
 /// 页面持有、退出释放，不落盘。任何 key 成分变化必 miss——绝不出现球形变了还展示旧解。
 struct BankKickSolveCache<Key: Hashable, Value> {
     let capacity: Int
@@ -501,15 +525,23 @@ struct BankKickSolveKey: Hashable {
     let pocketIndex: Int
     /// 力度量化到滑块步进（0.1 m/s）。
     let powerStep: Int
+    /// K10：塞维度。单档 = `quantizeSpinX(spinX)`；全档搜索（默认）= `multiSpinSearchProfile`。
+    let spinXCenti: Int
+
+    /// 全档 `sideSpinSearchValues` 搜索的 key 哨兵（与单档 centi 不撞车）。
+    static let multiSpinSearchProfile = 10_000
 
     static func quantizeMM(_ v: Float) -> Int32 { Int32((v * 1000).rounded()) }
     static func quantizePower(_ p: Double) -> Int { Int((p * 10).rounded()) }
+    static func quantizeSpinX(_ s: Float) -> Int { Int((s * 100).rounded()) }
 
     /// 统一构造：母球/目标球 + 全部障碍球（按名序稳定排列）量化进 key——
     /// 任何球位变化（含障碍球增删挪动）必 miss（§4.1 一致性红线）。
+    /// 默认 `spinXCenti = multiSpinSearchProfile`：一页一次求解覆盖全部加塞档。
     static func make(
         cue: SCNVector3, object: SCNVector3, obstacles: [ObstacleBall],
-        pocketIndex: Int, power: Double
+        pocketIndex: Int, power: Double,
+        spinXCenti: Int = multiSpinSearchProfile
     ) -> BankKickSolveKey {
         var mm: [Int32] = [quantizeMM(cue.x), quantizeMM(cue.z),
                            quantizeMM(object.x), quantizeMM(object.z)]
@@ -518,6 +550,7 @@ struct BankKickSolveKey: Hashable {
             mm.append(quantizeMM(ob.position.z))
         }
         return BankKickSolveKey(ballsMM: mm, pocketIndex: pocketIndex,
-                                powerStep: quantizePower(power))
+                                powerStep: quantizePower(power),
+                                spinXCenti: spinXCenti)
     }
 }

@@ -53,6 +53,8 @@ protocol SolverStageHosting: ObservableObject {
     func removeObstacle(_ key: String)
     func pulseTableBall(_ key: String)
     func pulsePaletteBall(_ key: String)
+    /// K11：求解模式微调（草稿层）；自由模式不走此路径。
+    func adjustCurrentSolution(velocity: Double?, spinX: Double?, spinY: Double?)
 }
 
 extension BankShotViewModel: SolverStageHosting {}
@@ -253,12 +255,12 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                         .allowsHitTesting(!vm.isPlaying)
                 }
 
-                // 右缘仪表柱：求解 = 纯力度柱（力度 = 求解输入，改力度重求解）；
-                // 自由 = 完整仪表柱（打点盘置顶 + 力度柱，§1.3）。两模式共享同一力度值。
+                // 右缘仪表柱：求解有解 = 打点盘+力度（微调走草稿层，D-v8-5b）；
+                // 求解无解 = 纯力度柱（力度 = 反解输入）；自由 = 完整仪表柱。
                 BTShotInstrumentColumn(
                     spinX: vm.spinX, spinY: vm.spinY,
-                    onSpinTap: vm.mode == .free ? { showSpinPad = true } : nil,
-                    velocity: $vm.reflectionPower,
+                    onSpinTap: canOpenSpinPad ? { showSpinPad = true } : nil,
+                    velocity: powerBinding,
                     range: Double(CushionReflectionSettings.minPower)
                         ... Double(CushionReflectionSettings.maxPower)
                 )
@@ -282,12 +284,13 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 }
             }
 
-            // 打点盘浮层（自由模式，编排台同款 ADR-P11-09）。
+            // 打点盘浮层（自由 / 求解有解；求解微调走草稿层，编排台同款 ADR-P11-09）。
             if showSpinPad {
-                BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
+                BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .accessibilityIdentifier("solver.spinPad")
             }
         }
         .animation(BTMotion.springLayout, value: vm.solutionCount)
@@ -295,6 +298,51 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         .animation(BTMotion.springLayout, value: vm.mode)   // §1.3 过渡。
         .animation(BTMotion.springPanel, value: showSpinPad)
         .environment(\.colorScheme, .dark)
+    }
+
+    /// 求解有解或自由模式可开打点盘。
+    private var canOpenSpinPad: Bool {
+        !vm.isPlaying && (vm.mode == .free || (vm.mode == .solve && vm.hasSolution))
+    }
+
+    /// 求解有解：力度写入草稿层；否则写 `reflectionPower`（触发全量反解 / 自由持久化）。
+    private var powerBinding: Binding<Double> {
+        Binding(
+            get: { vm.reflectionPower },
+            set: { newVal in
+                if vm.mode == .solve && vm.hasSolution {
+                    vm.adjustCurrentSolution(velocity: newVal, spinX: nil, spinY: nil)
+                } else {
+                    vm.reflectionPower = newVal
+                }
+            }
+        )
+    }
+
+    private var spinXBinding: Binding<Double> {
+        Binding(
+            get: { vm.spinX },
+            set: { newVal in
+                if vm.mode == .solve && vm.hasSolution {
+                    vm.adjustCurrentSolution(velocity: nil, spinX: newVal, spinY: nil)
+                } else {
+                    vm.spinX = newVal
+                }
+            }
+        )
+    }
+
+    private var spinYBinding: Binding<Double> {
+        Binding(
+            get: { vm.spinY },
+            set: { newVal in
+                if vm.mode == .solve && vm.hasSolution {
+                    vm.adjustCurrentSolution(velocity: nil, spinX: nil, spinY: newVal)
+                } else {
+                    vm.spinY = newVal
+                }
+            }
+        )
     }
 
     /// Slot L1「恢复球形」（W6）：回最近求解快照，切回求解命中缓存直显。

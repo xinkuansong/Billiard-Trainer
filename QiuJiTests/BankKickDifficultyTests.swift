@@ -59,9 +59,12 @@ final class BankKickDifficultyTests: XCTestCase {
 
     func test_solveCache_lruEvictionAndKeySensitivity() {
         var cache = BankKickSolveCache<BankKickSolveKey, Int>(capacity: 2)
-        let k1 = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 0, powerStep: 36)
-        let k2 = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 1, powerStep: 36)
-        let k3 = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 0, powerStep: 37)
+        let k1 = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 0, powerStep: 36,
+                                  spinXCenti: BankKickSolveKey.multiSpinSearchProfile)
+        let k2 = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 1, powerStep: 36,
+                                  spinXCenti: BankKickSolveKey.multiSpinSearchProfile)
+        let k3 = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 0, powerStep: 37,
+                                  spinXCenti: BankKickSolveKey.multiSpinSearchProfile)
 
         cache.insert(1, for: k1)
         cache.insert(2, for: k2)
@@ -72,7 +75,8 @@ final class BankKickDifficultyTests: XCTestCase {
         XCTAssertEqual(cache.value(for: k3), 3)
 
         // 任何 key 成分变化必 miss（球位毫米 / 袋口 / 力度步进）。
-        let moved = BankKickSolveKey(ballsMM: [1, 2, 3, 5], pocketIndex: 0, powerStep: 36)
+        let moved = BankKickSolveKey(ballsMM: [1, 2, 3, 5], pocketIndex: 0, powerStep: 36,
+                                     spinXCenti: BankKickSolveKey.multiSpinSearchProfile)
         XCTAssertNil(cache.value(for: moved))
     }
 
@@ -80,6 +84,32 @@ final class BankKickDifficultyTests: XCTestCase {
         XCTAssertEqual(BankKickSolveKey.quantizeMM(0.1234), 123)
         XCTAssertEqual(BankKickSolveKey.quantizeMM(-0.5), -500)
         XCTAssertEqual(BankKickSolveKey.quantizePower(3.6), 36)
+        XCTAssertEqual(BankKickSolveKey.quantizeSpinX(0.3), 30)
+        XCTAssertEqual(BankKickSolveKey.quantizeSpinX(-0.3), -30)
+        XCTAssertEqual(BankKickSolveKey.quantizeSpinX(0), 0)
+    }
+
+    /// K10：缓存 key 塞维度扩展——仅 spinXCenti 不同即 miss。
+    func test_solveKey_spinDimension_missesOnSpinOnly() {
+        var cache = BankKickSolveCache<BankKickSolveKey, Int>(capacity: 4)
+        let base = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 0, powerStep: 36,
+                                    spinXCenti: 0)
+        let left = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 0, powerStep: 36,
+                                    spinXCenti: 30)
+        let multi = BankKickSolveKey(ballsMM: [1, 2, 3, 4], pocketIndex: 0, powerStep: 36,
+                                     spinXCenti: BankKickSolveKey.multiSpinSearchProfile)
+        cache.insert(1, for: base)
+        XCTAssertNil(cache.value(for: left), "spinXCenti 不同必 miss")
+        XCTAssertNil(cache.value(for: multi), "全档哨兵与单档 0 必 miss")
+        cache.insert(2, for: multi)
+        XCTAssertEqual(cache.value(for: multi), 2)
+        XCTAssertEqual(cache.value(for: base), 1, "不同 spin 键互不覆盖")
+        XCTAssertNil(cache.value(for: left), "left 仍未写入")
+
+        let made = BankKickSolveKey.make(
+            cue: SCNVector3(0, 0, 0), object: SCNVector3(0.1, 0, 0.1),
+            obstacles: [], pocketIndex: 1, power: 3.6)
+        XCTAssertEqual(made.spinXCenti, BankKickSolveKey.multiSpinSearchProfile)
     }
 
     // MARK: - 求解管线集成（真实引擎，典型盘面）

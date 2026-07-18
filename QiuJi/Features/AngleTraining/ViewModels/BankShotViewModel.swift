@@ -32,7 +32,8 @@ final class BankShotViewModel: ObservableObject {
     // MARK: - Mode（W6：求解 / 自由，方案 §1.1）
 
     @Published private(set) var mode: BankKickPageMode = .solve
-    /// 自由模式打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低（打点盘 sheet 写入）。
+    /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
+    /// 自由模式：sheet 写入后刷新瞄准；求解模式：由 `adjustCurrentSolution` / `presentDisplayedSolution` 写入。
     @Published var spinX: Double = 0 { didSet { if mode == .free { refreshFreeAim() } } }
     @Published var spinY: Double = 0
     /// 自由模式首碰预览（纯几何，`AngleSceneCalculator.freeAimFirstContact`）；
@@ -68,11 +69,33 @@ final class BankShotViewModel: ObservableObject {
         var cushions: Int?
         var solutions: [BankEngineSolution]
         var currentIndex: Int
-        var power: Double
+        /// Catalog 全量反解时的力度（恢复 catalog 展示用）。
+        var catalogPower: Double
+        /// K11：击打时展示/演示用的力度与塞（可能是草稿）。
+        var struckPower: Double
+        var struckSpinX: Double
+        var struckSpinY: Double
+        var struckPrediction: ShotPrediction
     }
     private var lastSolveUndo: SolveUndoContext?
     /// 恢复期抑制 `reflectionPower.didSet` 触发重求解（「上一杆」= 免重解，G17）。
     private var isRestoringSolve = false
+    /// 展示 catalog/草稿时写入力度/塞，禁止误触发全量重解。
+    private var isPresentingSolution = false
+    /// 最近一次 `applySolutions` 时的反解力度（catalog 真源，微调不改写）。
+    private var catalogSolvePower: Double = Double(CushionReflectionSettings.power)
+
+    // MARK: - Adjustment draft (K11 / X5 — transplant of X6 K13 semantics)
+    //
+    // Contract (same state machine as SiluTrainerViewModel):
+    // - `solutions` / `displayed` catalog immutable after solve; fine-tune never mutates them.
+    // - `adjustmentDraft` = forward-repredicted display/strike candidate for `currentIndex`.
+    // - `currentSolution` = draft ?? displayed[currentIndex]
+    // Transitions: adjust → Drafted; nextSolution / show catalog / recompute → Clean (draft discarded).
+
+    private var adjustmentDraft: BankEngineSolution?
+    /// Fine-tune re-predict generation (discard stale async results).
+    private var adjustGeneration = 0
 
     var canRestoreSnapshot: Bool { lastSolveSnapshot != nil }
     var canFreeStrike: Bool {
@@ -80,12 +103,13 @@ final class BankShotViewModel: ObservableObject {
             && !(scene.cueBallNode?.isHidden ?? true)
     }
 
-    /// 力度（m/s）：引擎反解的求解输入，与反射解球器页共享同一持久化设置。
-    /// 改力度 → 重求解（去抖）。
+    /// 力度（m/s）：无解时 = 全量反解输入；有解时由 Chrome 走 `adjustCurrentSolution` 草稿微调。
+    /// 直接赋值（摆球后首解 / 恢复）仍触发去抖重解。
     @Published var reflectionPower: Double = Double(CushionReflectionSettings.power) {
         didSet {
             CushionReflectionSettings.power = Float(reflectionPower)
-            if !isRestoringSolve { recompute() }
+            if isRestoringSolve || isPresentingSolution { return }
+            if mode == .solve { recompute() }
         }
     }
 
@@ -314,24 +338,31 @@ final class BankShotViewModel: ObservableObject {
     /// 捕获当前求解状态为「上一杆」上下文（仅在有解时有意义）。
     /// （internal：`strike()` 与单测共用同一处捕获逻辑，单一真源。）
     func makeSolveUndo() -> SolveUndoContext? {
-        guard hasSolution else { return nil }
+        guard hasSolution, let shown = currentSolution else { return nil }
         return SolveUndoContext(
             board: captureBoard(), pocket: selectedPocket, cushions: selectedCushions,
-            solutions: solutions, currentIndex: currentIndex, power: reflectionPower)
+            solutions: solutions, currentIndex: currentIndex,
+            catalogPower: catalogSolvePower,
+            struckPower: reflectionPower,
+            struckSpinX: Double(shown.spinX), struckSpinY: Double(shown.spinY),
+            struckPrediction: shown.prediction)
     }
 
-    /// 把击打前完整状态原样恢复（G17，免重解）。
+    /// 把击打前完整状态原样恢复（G17，免重解）。catalog 原样回填；若击打用了微调则重建草稿层。
     func restoreSolve(from ctx: SolveUndoContext) {
         guard mode == .solve, !isPlaying else { return }
         solveTask?.cancel()
         isSolving = false
+        adjustGeneration += 1
+        catalogSolvePower = ctx.catalogPower
         isRestoringSolve = true
-        reflectionPower = ctx.power
+        reflectionPower = ctx.catalogPower
         isRestoringSolve = false
         applyBoard(ctx.board)
         selectedPocket = ctx.pocket
         selectedCushions = ctx.cushions
         solutions = ctx.solutions
+        adjustmentDraft = nil
         displayed = ctx.cushions.map { n in solutions.filter { $0.cushions == n } } ?? solutions
         solutionCount = displayed.count
         updatePocketHighlights()
@@ -345,7 +376,24 @@ final class BankShotViewModel: ObservableObject {
             clearPath()
         } else {
             currentIndex = min(max(ctx.currentIndex, 0), displayed.count - 1)
-            drawCurrent()
+            let catalog = displayed[currentIndex]
+            let paramsDiffer =
+                abs(catalog.spinX - Float(ctx.struckSpinX)) > 1e-6
+                || abs(catalog.spinY - Float(ctx.struckSpinY)) > 1e-6
+                || abs(ctx.struckPower - ctx.catalogPower) > 1e-9
+            if paramsDiffer {
+                adjustmentDraft = BankEngineSolution(
+                    rails: catalog.rails, prediction: ctx.struckPrediction,
+                    cushions: catalog.cushions,
+                    difficultyScore: catalog.difficultyScore,
+                    difficultyTier: catalog.difficultyTier,
+                    robustness: catalog.robustness, pathLength: catalog.pathLength,
+                    spinX: Float(ctx.struckSpinX), spinY: Float(ctx.struckSpinY)
+                )
+                presentDisplayedSolution(adjustmentDraft!, power: ctx.struckPower)
+            } else {
+                showSolution(at: currentIndex)
+            }
         }
     }
 
@@ -804,7 +852,10 @@ final class BankShotViewModel: ObservableObject {
 
     /// 应用求解结果（过滤、选路、绘制）。在主线程执行。
     private func applySolutions(_ sols: [BankEngineSolution], prevCushions: Int) {
+        adjustGeneration += 1
+        adjustmentDraft = nil
         solutions = sols
+        catalogSolvePower = reflectionPower
         // 最近求解快照（方案 §4.1）：求解成功即存球位 + 袋口，供自由模式「恢复球形」。
         if !sols.isEmpty {
             lastSolveSnapshot = (captureBoard(), selectedPocket)
@@ -836,13 +887,65 @@ final class BankShotViewModel: ObservableObject {
         } else if currentIndex >= displayed.count {
             currentIndex = 0
         }
-        drawCurrent()
+        showSolution(at: currentIndex)
     }
 
     func nextSolution() {
         guard !isPlaying, !displayed.isEmpty else { return }
+        // Discard draft before advancing — cycling back must show the catalog original.
+        adjustmentDraft = nil
         currentIndex = (currentIndex + 1) % displayed.count
-        drawCurrent()
+        showSolution(at: currentIndex)
+    }
+
+    /// K11 微调草稿层：改打点/力度后按当前解库序正向 `ShotPredictor.predict` 重算，
+    /// 写入 `adjustmentDraft`，**不**改写 `solutions`/`displayed`。再次微调以草稿为基底。
+    func adjustCurrentSolution(velocity v: Double? = nil,
+                               spinX sx: Double? = nil, spinY sy: Double? = nil) {
+        guard mode == .solve, !isPlaying, !isDragging else { return }
+        guard displayed.indices.contains(currentIndex) else { return }
+        let catalog = displayed[currentIndex]
+        let base = adjustmentDraft ?? catalog
+        let newPower = v ?? reflectionPower
+        let newSX = Float(sx ?? Double(base.spinX))
+        let newSY = Float(sy ?? Double(base.spinY))
+        guard let cue = scene.cueBallNode?.position,
+              let object = scene.targetBallNodes.first?.position else { return }
+        let surfaceY = scene.surfaceY
+        let pocket = selectedPocket
+        let rails = catalog.rails
+        let obstacles = currentObstacles()
+        let idx = currentIndex
+        // Supersede in-flight adjust (spin-pad continuous updates).
+        adjustGeneration += 1
+        let gen = adjustGeneration
+        isSolving = true
+
+        Task { [weak self] in
+            var input = ShotInput(
+                cueBall: cue, targetBall: object, pocketIndex: pocket,
+                velocity: Float(newPower), spinX: newSX, spinY: newSY,
+                surfaceY: surfaceY, bankRails: rails
+            )
+            input.obstacles = obstacles
+            let pred = await Task.detached(priority: .userInitiated) {
+                ShotPredictor.predict(input)
+            }.value
+            await MainActor.run {
+                guard let self, self.adjustGeneration == gen, !self.isPlaying else { return }
+                self.isSolving = false
+                guard self.displayed.indices.contains(idx), self.currentIndex == idx else { return }
+                let drafted = BankEngineSolution(
+                    rails: rails, prediction: pred, cushions: catalog.cushions,
+                    difficultyScore: catalog.difficultyScore,
+                    difficultyTier: catalog.difficultyTier,
+                    robustness: catalog.robustness, pathLength: catalog.pathLength,
+                    spinX: newSX, spinY: newSY
+                )
+                self.adjustmentDraft = drafted
+                self.presentDisplayedSolution(drafted, power: newPower)
+            }
+        }
     }
 
     func reset() {
@@ -857,8 +960,39 @@ final class BankShotViewModel: ObservableObject {
         recompute()
     }
 
-    private var currentSolution: BankEngineSolution? {
+    /// Display / strike path: draft overrides catalog at `currentIndex` (X6 same contract).
+    var currentSolution: BankEngineSolution? {
+        guard displayed.indices.contains(currentIndex) else { return nil }
+        return adjustmentDraft ?? displayed[currentIndex]
+    }
+
+    /// Catalog entry at `currentIndex` (ignores draft) — for tests / immutability asserts.
+    var catalogSolution: BankEngineSolution? {
         displayed.indices.contains(currentIndex) ? displayed[currentIndex] : nil
+    }
+
+    /// Present a catalog solution at `index`, clearing any fine-tune draft.
+    private func showSolution(at index: Int) {
+        guard displayed.indices.contains(index) else { return }
+        adjustmentDraft = nil
+        currentIndex = index
+        presentDisplayedSolution(displayed[index], power: catalogSolvePower)
+    }
+
+    /// Apply power/spin/trajectory from a solution (catalog or draft) without clearing draft.
+    private func presentDisplayedSolution(_ sol: BankEngineSolution, power: Double) {
+        isPresentingSolution = true
+        reflectionPower = power
+        spinX = Double(sol.spinX)
+        spinY = Double(sol.spinY)
+        isPresentingSolution = false
+        hasSolution = true
+        currentCushions = sol.cushions
+        currentRailText = sol.railSequenceText
+        currentCutAngle = Int((sol.prediction.cutAngleDeg ?? 0).rounded())
+        currentDifficultyTier = sol.difficultyTier
+        currentRobustnessPercent = sol.robustness.map { Int(($0 * 100).rounded()) }
+        drawSolution(sol)
     }
 
     // MARK: - Status text（条 17.1/17.2/17.7：解描述 / 无解说明入 principal 副标题）
@@ -882,10 +1016,11 @@ final class BankShotViewModel: ObservableObject {
         if isPlaying { return "演示中…" }
         if isDragging { return "拖动中 · 松手后求解" }
         if isSolving { return "真实物理求解中…" }
-        guard hasSolution else { return noSolutionText }
+        guard hasSolution, let sol = currentSolution else { return noSolutionText }
         var parts = ["\(currentCushions) 库"]
         if !currentRailText.isEmpty { parts.append(currentRailText) }
         parts.append("切角 \(currentCutAngle)°")
+        parts.append(sol.spinLabel)
         parts.append(currentDifficultyTier.label)
         if let robust = currentRobustnessPercent { parts.append("容错 \(robust)%") }
         if solutionCount > 1 { parts.append("解 \(currentIndex + 1)/\(solutionCount)") }
@@ -907,13 +1042,7 @@ final class BankShotViewModel: ObservableObject {
 
     private func drawCurrent() {
         guard let sol = currentSolution else { clearPath(); return }
-        hasSolution = true
-        currentCushions = sol.cushions
-        currentRailText = sol.railSequenceText
-        currentCutAngle = Int((sol.prediction.cutAngleDeg ?? 0).rounded())
-        currentDifficultyTier = sol.difficultyTier
-        currentRobustnessPercent = sol.robustness.map { Int(($0 * 100).rounded()) }
-        drawSolution(sol)
+        presentDisplayedSolution(sol, power: adjustmentDraft == nil ? catalogSolvePower : reflectionPower)
     }
 
     // MARK: - Pocket highlight

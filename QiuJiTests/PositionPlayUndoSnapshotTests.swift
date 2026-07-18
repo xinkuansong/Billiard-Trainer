@@ -273,7 +273,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         let solCountBefore = ctx.solutions.count
         let idxBefore = ctx.currentIndex
         let cushionsBefore = ctx.cushions
-        let powerBefore = ctx.power
+        let powerBefore = ctx.struckPower
         let boardBefore = ctx.board
 
         // 抹除当前求解状态（重置回默认，触发再求解），再恢复。
@@ -310,7 +310,7 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         let pocketBefore = ctx.pocket
         let solCountBefore = ctx.solutions.count
         let idxBefore = ctx.currentIndex
-        let powerBefore = ctx.power
+        let powerBefore = ctx.struckPower
         let boardBefore = ctx.board
 
         vm.reset()   // 复位到默认（袋口 0，触发再求解）
