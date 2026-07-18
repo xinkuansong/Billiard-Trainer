@@ -30,7 +30,8 @@ final class DiamondSystemViewModel: ObservableObject {
     // MARK: - Mode（W6：求解 / 自由，方案 §1.1）
 
     @Published private(set) var mode: BankKickPageMode = .solve
-    /// 自由模式打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低（打点盘 sheet 写入）。
+    /// 打点（接触点偏移/R）：spinX +左/−右、spinY +高/−低。
+    /// 自由模式：sheet 写入后刷新瞄准；求解模式：由 `adjustCurrentSolution` / `presentDisplayedSolution` 写入。
     @Published var spinX: Double = 0 { didSet { if mode == .free { refreshFreeAim() } } }
     @Published var spinY: Double = 0
     /// 自由模式首碰预览（纯几何，`AngleSceneCalculator.freeAimFirstContact`）；
@@ -64,11 +65,21 @@ final class DiamondSystemViewModel: ObservableObject {
         var cushions: Int?
         var solutions: [KickEngineSolution]
         var currentIndex: Int
-        var power: Double
+        var catalogPower: Double
+        var struckPower: Double
+        var struckSpinX: Double
+        var struckSpinY: Double
+        var struckPrediction: ShotPrediction
     }
     private var lastSolveUndo: SolveUndoContext?
     /// 恢复期抑制 `reflectionPower.didSet` 触发重求解（「上一杆」= 免重解，G17）。
     private var isRestoringSolve = false
+    private var isPresentingSolution = false
+    private var catalogSolvePower: Double = Double(CushionReflectionSettings.power)
+
+    // MARK: - Adjustment draft (K11 / X5 — transplant of X6 K13 semantics)
+    private var adjustmentDraft: KickEngineSolution?
+    private var adjustGeneration = 0
 
     var canRestoreSnapshot: Bool { lastSolveSnapshot != nil }
     var canFreeStrike: Bool {
@@ -76,11 +87,12 @@ final class DiamondSystemViewModel: ObservableObject {
             && !(scene.cueBallNode?.isHidden ?? true)
     }
 
-    /// 力度（m/s）：引擎反解的求解输入，与翻袋页共享同一持久化设置。改力度 → 重求解（去抖）。
+    /// 力度（m/s）：无解时 = 全量反解输入；有解时由 Chrome 走 `adjustCurrentSolution` 草稿微调。
     @Published var reflectionPower: Double = Double(CushionReflectionSettings.power) {
         didSet {
             CushionReflectionSettings.power = Float(reflectionPower)
-            if !isRestoringSolve { recompute() }
+            if isRestoringSolve || isPresentingSolution { return }
+            if mode == .solve { recompute() }
         }
     }
 
@@ -310,23 +322,30 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 捕获当前求解状态为「上一杆」上下文（仅在有解时有意义）。
     /// （internal：`strike()` 与单测共用同一处捕获逻辑，单一真源。）
     func makeSolveUndo() -> SolveUndoContext? {
-        guard hasSolution else { return nil }
+        guard hasSolution, let shown = currentSolution else { return nil }
         return SolveUndoContext(
             board: captureBoard(), cushions: selectedCushions,
-            solutions: solutions, currentIndex: currentIndex, power: reflectionPower)
+            solutions: solutions, currentIndex: currentIndex,
+            catalogPower: catalogSolvePower,
+            struckPower: reflectionPower,
+            struckSpinX: Double(shown.spinX), struckSpinY: Double(shown.spinY),
+            struckPrediction: shown.prediction)
     }
 
-    /// 把击打前完整状态原样恢复（G17，免重解）。
+    /// 把击打前完整状态原样恢复（G17，免重解）。catalog 原样回填；若击打用了微调则重建草稿层。
     func restoreSolve(from ctx: SolveUndoContext) {
         guard mode == .solve, !isPlaying else { return }
         solveTask?.cancel()
         isSolving = false
+        adjustGeneration += 1
+        catalogSolvePower = ctx.catalogPower
         isRestoringSolve = true
-        reflectionPower = ctx.power
+        reflectionPower = ctx.catalogPower
         isRestoringSolve = false
         applyBoard(ctx.board)
         selectedCushions = ctx.cushions
         solutions = ctx.solutions
+        adjustmentDraft = nil
         displayed = ctx.cushions.map { n in solutions.filter { $0.cushions == n } } ?? solutions
         solutionCount = displayed.count
         if displayed.isEmpty {
@@ -338,7 +357,24 @@ final class DiamondSystemViewModel: ObservableObject {
             clearPath()
         } else {
             currentIndex = min(max(ctx.currentIndex, 0), displayed.count - 1)
-            drawCurrent()
+            let catalog = displayed[currentIndex]
+            let paramsDiffer =
+                abs(catalog.spinX - Float(ctx.struckSpinX)) > 1e-6
+                || abs(catalog.spinY - Float(ctx.struckSpinY)) > 1e-6
+                || abs(ctx.struckPower - ctx.catalogPower) > 1e-9
+            if paramsDiffer {
+                adjustmentDraft = KickEngineSolution(
+                    rails: catalog.rails, prediction: ctx.struckPrediction,
+                    cushions: catalog.cushions,
+                    difficultyScore: catalog.difficultyScore,
+                    difficultyTier: catalog.difficultyTier,
+                    robustness: catalog.robustness, pathLength: catalog.pathLength,
+                    spinX: Float(ctx.struckSpinX), spinY: Float(ctx.struckSpinY)
+                )
+                presentDisplayedSolution(adjustmentDraft!, power: ctx.struckPower)
+            } else {
+                showSolution(at: currentIndex)
+            }
         }
     }
 
@@ -779,7 +815,10 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 应用求解结果（过滤、选路、绘制）。在主线程执行。
     private func applySolutions(_ sols: [KickEngineSolution], prevCushions: Int) {
+        adjustGeneration += 1
+        adjustmentDraft = nil
         solutions = sols
+        catalogSolvePower = reflectionPower
         // 最近求解快照（方案 §4.1）：求解成功即存球位，供自由模式「恢复球形」。
         if !sols.isEmpty {
             lastSolveSnapshot = captureBoard()
@@ -810,13 +849,62 @@ final class DiamondSystemViewModel: ObservableObject {
         } else if currentIndex >= displayed.count {
             currentIndex = 0
         }
-        drawCurrent()
+        showSolution(at: currentIndex)
     }
 
     func nextSolution() {
         guard !isPlaying, !displayed.isEmpty else { return }
+        adjustmentDraft = nil
         currentIndex = (currentIndex + 1) % displayed.count
-        drawCurrent()
+        showSolution(at: currentIndex)
+    }
+
+    /// K11 微调草稿层：改打点/力度后按当前解库序正向 `ShotPredictor.predict` 重算，
+    /// 写入 `adjustmentDraft`，**不**改写 `solutions`/`displayed`。
+    func adjustCurrentSolution(velocity v: Double? = nil,
+                               spinX sx: Double? = nil, spinY sy: Double? = nil) {
+        guard mode == .solve, !isPlaying, !isDragging else { return }
+        guard displayed.indices.contains(currentIndex) else { return }
+        let catalog = displayed[currentIndex]
+        let base = adjustmentDraft ?? catalog
+        let newPower = v ?? reflectionPower
+        let newSX = Float(sx ?? Double(base.spinX))
+        let newSY = Float(sy ?? Double(base.spinY))
+        guard let cue = scene.cueBallNode?.position,
+              let target = scene.targetBallNodes.first?.position else { return }
+        let surfaceY = scene.surfaceY
+        let rails = catalog.rails
+        let obstacles = currentObstacles()
+        let idx = currentIndex
+        adjustGeneration += 1
+        let gen = adjustGeneration
+        isSolving = true
+
+        Task { [weak self] in
+            var input = ShotInput(
+                cueBall: cue, targetBall: target, pocketIndex: 0,
+                velocity: Float(newPower), spinX: newSX, spinY: newSY,
+                surfaceY: surfaceY, kickRails: rails
+            )
+            input.obstacles = obstacles
+            let pred = await Task.detached(priority: .userInitiated) {
+                ShotPredictor.predict(input)
+            }.value
+            await MainActor.run {
+                guard let self, self.adjustGeneration == gen, !self.isPlaying else { return }
+                self.isSolving = false
+                guard self.displayed.indices.contains(idx), self.currentIndex == idx else { return }
+                let drafted = KickEngineSolution(
+                    rails: rails, prediction: pred, cushions: catalog.cushions,
+                    difficultyScore: catalog.difficultyScore,
+                    difficultyTier: catalog.difficultyTier,
+                    robustness: catalog.robustness, pathLength: catalog.pathLength,
+                    spinX: newSX, spinY: newSY
+                )
+                self.adjustmentDraft = drafted
+                self.presentDisplayedSolution(drafted, power: newPower)
+            }
+        }
     }
 
     func reset() {
@@ -828,8 +916,35 @@ final class DiamondSystemViewModel: ObservableObject {
         recompute()
     }
 
-    private var currentSolution: KickEngineSolution? {
+    /// Display / strike path: draft overrides catalog at `currentIndex` (X6 same contract).
+    var currentSolution: KickEngineSolution? {
+        guard displayed.indices.contains(currentIndex) else { return nil }
+        return adjustmentDraft ?? displayed[currentIndex]
+    }
+
+    var catalogSolution: KickEngineSolution? {
         displayed.indices.contains(currentIndex) ? displayed[currentIndex] : nil
+    }
+
+    private func showSolution(at index: Int) {
+        guard displayed.indices.contains(index) else { return }
+        adjustmentDraft = nil
+        currentIndex = index
+        presentDisplayedSolution(displayed[index], power: catalogSolvePower)
+    }
+
+    private func presentDisplayedSolution(_ sol: KickEngineSolution, power: Double) {
+        isPresentingSolution = true
+        reflectionPower = power
+        spinX = Double(sol.spinX)
+        spinY = Double(sol.spinY)
+        isPresentingSolution = false
+        hasSolution = true
+        currentCushions = sol.cushions
+        currentRailText = sol.railSequenceText
+        currentDifficultyTier = sol.difficultyTier
+        currentRobustnessPercent = sol.robustness.map { Int(($0 * 100).rounded()) }
+        drawSolution(sol)
     }
 
     // MARK: - Status text（条 17.1/17.2/17.7：解描述 / 无解说明入 principal 副标题）
@@ -853,9 +968,10 @@ final class DiamondSystemViewModel: ObservableObject {
         if isPlaying { return "演示中…" }
         if isDragging { return "拖动中 · 松手后求解" }
         if isSolving { return "真实物理求解中…" }
-        guard hasSolution else { return noSolutionText }
+        guard hasSolution, let sol = currentSolution else { return noSolutionText }
         var parts = ["\(currentCushions) 库"]
         if !currentRailText.isEmpty { parts.append(currentRailText) }
+        parts.append(sol.spinLabel)
         parts.append(currentDifficultyTier.label)
         if let robust = currentRobustnessPercent { parts.append("容错 \(robust)%") }
         if solutionCount > 1 { parts.append("解 \(currentIndex + 1)/\(solutionCount)") }
@@ -877,12 +993,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     private func drawCurrent() {
         guard let sol = currentSolution else { clearPath(); return }
-        hasSolution = true
-        currentCushions = sol.cushions
-        currentRailText = sol.railSequenceText
-        currentDifficultyTier = sol.difficultyTier
-        currentRobustnessPercent = sol.robustness.map { Int(($0 * 100).rounded()) }
-        drawSolution(sol)
+        presentDisplayedSolution(sol, power: adjustmentDraft == nil ? catalogSolvePower : reflectionPower)
     }
 
     // MARK: - Drawing
