@@ -204,6 +204,139 @@ enum AimingCorrectionMath {
         CueBallStrike.squirtAngle(a: spinX) * 180 / .pi
     }
 
+    // MARK: - Z2 samples（投掷图 / 高低杆三联；只读解析层）
+
+    /// 教学用高低杆三档（与 Z1 草稿 `spinY=±0.4 / 0` 对齐，禁止另造档位）。
+    enum SpinYTier: String, CaseIterable, Identifiable, Equatable {
+        case low, mid, high
+        var id: String { rawValue }
+        /// Z1 `quickref-symbols.txt` 扫描档。
+        var spinY: Float {
+            switch self {
+            case .low: return -0.4
+            case .mid: return 0
+            case .high: return 0.4
+            }
+        }
+        var label: String {
+            switch self {
+            case .low: return "低杆"
+            case .mid: return "中杆"
+            case .high: return "高杆"
+            }
+        }
+    }
+
+    /// ② 节碰撞放大图取样：几何瞄准下 `AnalyticAim.outcome` → `objPostContactDir`
+    /// （内部走 `resolveBallBallPure`）；接触点 = 假想球心与目标球心中点。
+    struct ThrowDiagramSample {
+        let ghost: SCNVector3
+        let target: SCNVector3
+        let contactPoint: SCNVector3
+        let potDir: SCNVector3
+        let objPostDir: SCNVector3
+        /// |∠(potDir, objPost)|（度）
+        let throwDegrees: Float
+        /// 接触面切向示意：从理想进球线旋向实际离开方向的单位切向（XZ）
+        let frictionTangentDir: SCNVector3
+        let velocity: Float
+        let spinY: Float
+        let spinX: Float
+    }
+
+    /// ③ 节单档：同一几何瞄准、同一力度下某 spinY 的碰后离开方向与厚薄偏向。
+    struct ThicknessLane {
+        let tier: SpinYTier
+        let objPostDir: SCNVector3
+        let thicknessBiasDegrees: Float
+        let throwDegrees: Float
+    }
+
+    /// ③ 节三联：低/中/高三档各跑一次解析层（Z1 符号：高杆偏薄、低杆偏厚）。
+    struct ThicknessTriple {
+        let potDir: SCNVector3
+        let aimDir: SCNVector3
+        let lanes: [ThicknessLane]
+        let velocity: Float
+
+        var low: ThicknessLane? { lanes.first { $0.tier == .low } }
+        var mid: ThicknessLane? { lanes.first { $0.tier == .mid } }
+        var high: ThicknessLane? { lanes.first { $0.tier == .high } }
+    }
+
+    /// 几何瞄准下的投掷图取样（排除求解 Δ 补偿，与 Z1 CIT 扫描同口径）。
+    static func throwDiagramSample(
+        velocity: Float,
+        spinX: Float,
+        spinY: Float,
+        setup: TeachingSetup = teachingSetup()
+    ) -> ThrowDiagramSample? {
+        guard let geo = analyticAtGeometricAim(
+            velocity: velocity, spinX: spinX, spinY: spinY, setup: setup
+        ), let objPost = geo.outcome.objPostContactDir else { return nil }
+
+        let ghost = geo.ctx.ghost
+        let target = setup.target
+        let contact = SCNVector3(
+            (ghost.x + target.x) * 0.5,
+            setup.surfaceY,
+            (ghost.z + target.z) * 0.5
+        )
+        let pot = geo.potDir
+        let throwDeg = throwAngleDegrees(potDir: pot, objPost: objPost)
+        // 切向示意：把 pot→obj 的有符号转角投影到水平切向（垂直于 potDir）
+        let signed = signedAngleXZ(from: pot, to: objPost)
+        let tangent = unitXZ(SCNVector3(-pot.z, 0, pot.x)) // pot 的左法向
+        // signed>0 ⇒ 绕 +Y 从 pot 旋向 obj ⇒ 沿 +tangent；取符号使箭头指向偏转侧
+        let friction = SCNVector3(
+            tangent.x * (signed >= 0 ? 1 : -1),
+            0,
+            tangent.z * (signed >= 0 ? 1 : -1)
+        )
+        return ThrowDiagramSample(
+            ghost: ghost,
+            target: target,
+            contactPoint: contact,
+            potDir: pot,
+            objPostDir: objPost,
+            throwDegrees: throwDeg,
+            frictionTangentDir: friction,
+            velocity: velocity,
+            spinY: spinY,
+            spinX: spinX
+        )
+    }
+
+    /// 固定力度下低/中/高三档厚薄三联（几何瞄准，`objPostContactDir`）。
+    static func thicknessTriple(
+        velocity: Float,
+        spinX: Float = 0,
+        setup: TeachingSetup = teachingSetup()
+    ) -> ThicknessTriple? {
+        var lanes: [ThicknessLane] = []
+        var potDir: SCNVector3?
+        var aimDir: SCNVector3?
+        for tier in SpinYTier.allCases {
+            guard let geo = analyticAtGeometricAim(
+                velocity: velocity, spinX: spinX, spinY: tier.spinY, setup: setup
+            ), let obj = geo.outcome.objPostContactDir else { return nil }
+            if potDir == nil { potDir = geo.potDir }
+            if aimDir == nil { aimDir = geo.ctx.aimDir }
+            let bias = thicknessBiasDegrees(
+                potDir: geo.potDir, aimDir: geo.ctx.aimDir, objPost: obj
+            )
+            let thr = throwAngleDegrees(potDir: geo.potDir, objPost: obj)
+            lanes.append(ThicknessLane(
+                tier: tier,
+                objPostDir: obj,
+                thicknessBiasDegrees: bias,
+                throwDegrees: thr
+            ))
+        }
+        guard let pot = potDir, let aim = aimDir, lanes.count == 3 else { return nil }
+        return ThicknessTriple(potDir: pot, aimDir: aim, lanes: lanes, velocity: velocity)
+    }
+
     // MARK: - Private
 
     private static func unitXZ(from a: SCNVector3, to b: SCNVector3) -> SCNVector3 {
