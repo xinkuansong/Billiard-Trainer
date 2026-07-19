@@ -40,9 +40,19 @@ struct AimingMethodsView: View {
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            Text("「瞄准原理」页的角度瞄准法，是第三人称读出切角 θ，再用 d = 2R·sin(θ) 翻成瞄准点。下面三种方法与它同一套几何，只是换了「怎么看见」：管道法把两条线都变成看得见的圆管，用相切代替点瞄准；接触点法把瞄准变成「两个点碰到一起」；平行线法用两球接触点的连线直接定出瞄准方向。")
+            Text("「瞄准原理」里的角度瞄准法：先读出切角 θ，再用 d = 2R·sin(θ) 翻成瞄准点。下面三种方法与它同一套几何，只是换了「怎么看见」。")
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                methodSummaryRow("管道法", "把瞄准线、进球线扩成圆管，用相切代替点瞄准")
+                methodSummaryRow("接触点法", "把瞄准变成「两个点碰到一起」")
+                methodSummaryRow("平行线法", "用两球接触点连线定出瞄准方向")
+            }
+
+            Text("拖动切角，三节主图同步变化。默认 30°（半球）。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
 
             Divider()
 
@@ -58,13 +68,22 @@ struct AimingMethodsView: View {
             Slider(value: $cutAngleDeg, in: 5...75, step: 1)
                 .tint(.btPrimary)
                 .accessibilityIdentifier("aimingMethods.thetaSlider")
-            Text("拖动切角，三节插图同步变化。默认 30°（半球）。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+    }
+
+    private func methodSummaryRow(_ term: String, _ desc: String) -> some View {
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            Text(term)
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btPrimary)
+                .frame(width: 72, alignment: .leading)
+            Text(desc)
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+        }
     }
 
     // MARK: - 补充：重合比例法（厚薄法）
@@ -79,7 +98,7 @@ struct AimingMethodsView: View {
                 .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            Text("俯身时不估 θ，改看母球与目标球在视线方向上的重合比例（厚度）：重合越多球越厚、θ 越小。下表数值全部来自经典球厚度真源，与对照表同一口径。")
+            Text("俯身时不估 θ，改看母球与目标球在视线方向上的重合比例（厚度）：叠得越多球越厚、θ 越小。")
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
@@ -89,11 +108,7 @@ struct AimingMethodsView: View {
                 thicknessRow(AngleSceneCalculator.quarterBall)
             }
 
-            Text("推演：经典定义 sin(θ) = 1 − 重合比例，又因瞄准点偏移 d = 2R·sin(θ)，故 d/R = 2·(1 − 重合比例)。同一几何，第一人称用「看起来叠了多少」读出 θ。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-
-            Text("完整 θ↔瞄准点速查见「瞄准点对照表」。")
+            Text("sin(θ) = 1 − 重合比例，又 d = 2R·sin(θ)，故 d/R = 2·(1 − 重合比例)。数值与「瞄准点对照表」同一口径。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }
@@ -139,6 +154,10 @@ struct AimingMethodsView: View {
             PracticeCTA(title: "打开瞄准点对照表",
                         destination: "常用角度的瞄准点速查",
                         route: .contactPointTable)
+
+            PracticeCTA(title: "打开瞄准修正",
+                        destination: "投掷 · 高低杆 · 加塞对瞄准的修正",
+                        route: .aimingCorrection)
         }
     }
 }
@@ -185,13 +204,19 @@ private struct PipeMethodSection: View {
             Slider(value: $trialAngleDeg, in: 5...75, step: 1)
                 .tint(.btPrimary)
                 .accessibilityIdentifier("aimingMethods.pipe.trialSlider")
+            Text("拖试瞄角：太厚＝两管相交，太薄＝相离，φ≈θ 时吸附为相切。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("把进球线和瞄准线各自扩成一条半径等于球半径 R 的管道（管宽恰好一个球径）：目标球沿进球管道滚向袋口，母球沿试瞄管道滚向目标球。瞄准正确时，两条管道恰好外切，切点就是两球的接触点 Q。")
-                Text("与角度瞄准法的推演：两管道外切 ⇔ 母球心恰好到达假想球心 G（此时球心距 = 2R）——与 d = 2R·sin(θ) 定出的瞄准线完全等价。管道只是给这条线加上球的体积，让「打厚打薄」变成看得见的相交与相离。加塞时管道中心随让点修正，这是它的常用场景（详见后续「旋转与加塞」页）。")
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                aimingStep(1, "把进球线、瞄准线各扩成半径 = 球半径 R 的管道（管宽恰好一个球径）。")
+                aimingStep(2, "目标球走黄管进袋；母球走白管靠近目标球。")
+                aimingStep(3, "瞄准正确时两管外切，切点就是接触点 Q。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
+
+            Text("两管外切 ⇔ 母球心到达假想球心 G（球心距 = 2R），与 d = 2R·sin(θ) 等价——管道只是把「打厚打薄」变成看得见的相交与相离。加塞时管道中心随让点修正，见「瞄准修正」。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
@@ -207,25 +232,24 @@ private struct PipeMethodSection: View {
         case .tangent:  ("✓ 相切 · 切点 = 接触点 Q", .btSuccess)
         case .tooThin:  ("太薄 · 管道相离", .btWarning)
         }
-        HStack(spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(text)
                 .font(.btSubheadlineMedium)
                 .foregroundStyle(color)
-            Spacer()
-            Text(String(format: "轴距 %.1f mm / 2R = %.1f mm",
+            Text(String(format: "轴距 %.1f mm · 相切时 = 2R（%.1f mm）",
                         result.distance * 1000, twoR * 1000))
                 .font(.system(size: 12, weight: .medium, design: .monospaced))
                 .foregroundStyle(.btTextSecondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Spacing.md)
         .background(color.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
     }
 }
 
-/// 双管道插图：进球管道（绑目标球色，T→袋）+ 试瞄管道（品牌绿，C 沿 φ），
+/// 双管道插图：进球管道（目标球本色，T→袋）+ 试瞄管道（瞄准线白，C 沿 φ）。
+/// 试瞄管必须用 `FigureLine.aim`，禁止品牌绿——绿管叠绿毡几乎不可见。
 /// 相切时点亮切点 Q。管道半径 = 球半径 R（世界尺度投影）。
 private struct PipeTubesFigure: View {
     let scene: AimingMethodsGeometry.Scene
@@ -241,6 +265,7 @@ private struct PipeTubesFigure: View {
             let q = proj.point(x: scene.contact.x, z: scene.contact.y)
             let d = proj.ballDiameter
             let rView = d / 2
+            let edgeW = max(proj.lineHintWidth, 1.4)
 
             let u = AimingMethodsGeometry.trialAimDir(scene: scene, trialAngleDeg: trialAngleDeg)
             let trialEndW = CGPoint(x: scene.cue.x + u.x * scene.cueDistance,
@@ -251,14 +276,15 @@ private struct PipeTubesFigure: View {
             let potFar = proj.point(x: potFarW.x, z: potFarW.y)
 
             ZStack {
+                // 进球管（黄）在下；试瞄管（白）在上，避免相切时被盖住。
                 tube(from: target, to: potFar, halfWidth: rView,
-                     color: FigureLine.pot(number: 1), lineWidth: proj.lineHintWidth)
+                     color: FigureLine.pot(number: 1), lineWidth: edgeW, fillOpacity: 0.16)
                 tube(from: cue, to: trialEnd, halfWidth: rView,
-                     color: .btPrimary, lineWidth: proj.lineHintWidth)
+                     color: FigureLine.aim, lineWidth: edgeW, fillOpacity: 0.20)
 
-                // 试瞄管中心线（细白）。
+                // 试瞄管中心线（略亮于管壁，标出瞄准轴）。
                 Path { p in p.move(to: cue); p.addLine(to: trialEnd) }
-                    .stroke(FigureLine.aim.opacity(0.7), lineWidth: proj.lineHintWidth)
+                    .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
 
                 BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)
                 BTFigureBall(number: 1, diameter: d).position(target)
@@ -276,7 +302,7 @@ private struct PipeTubesFigure: View {
 
                 BTFigureTag(text: "进球管道", color: FigureLine.pot(number: 1))
                     .position(alongLabel(from: target, to: potFar, t: 0.55, offset: -(rView + 13)))
-                BTFigureTag(text: "试瞄管道", color: .btPrimary)
+                BTFigureTag(text: "试瞄管道", color: FigureLine.aim)
                     .position(alongLabel(from: cue, to: trialEnd, t: 0.32, offset: rView + 13))
                 BTFigureTag(text: "母球").position(x: cue.x, y: cue.y + d / 2 + 12)
                 BTFigureTag(text: "假想球", color: FigureLine.contact)
@@ -286,7 +312,7 @@ private struct PipeTubesFigure: View {
     }
 
     private func tube(from a: CGPoint, to b: CGPoint, halfWidth: CGFloat,
-                      color: Color, lineWidth: CGFloat) -> some View {
+                      color: Color, lineWidth: CGFloat, fillOpacity: Double) -> some View {
         let dx = b.x - a.x, dy = b.y - a.y
         let len = max(hypot(dx, dy), 0.001)
         let px = -dy / len * halfWidth, py = dx / len * halfWidth
@@ -300,11 +326,11 @@ private struct PipeTubesFigure: View {
                 p.addLine(to: r1); p.addLine(to: r0)
                 p.closeSubpath()
             }
-            .fill(color.opacity(0.13))
+            .fill(color.opacity(fillOpacity))
             Path { p in p.move(to: l0); p.addLine(to: l1) }
-                .stroke(color.opacity(0.8), style: StrokeStyle(lineWidth: lineWidth, dash: [5, 3]))
+                .stroke(color.opacity(0.92), style: StrokeStyle(lineWidth: lineWidth, dash: [5, 3]))
             Path { p in p.move(to: r0); p.addLine(to: r1) }
-                .stroke(color.opacity(0.8), style: StrokeStyle(lineWidth: lineWidth, dash: [5, 3]))
+                .stroke(color.opacity(0.92), style: StrokeStyle(lineWidth: lineWidth, dash: [5, 3]))
         }
     }
 }
@@ -346,13 +372,19 @@ private struct ContactMethodSection: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("aimingMethods.contact.play")
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("先找目标球上的接触点 Pt——它在目标球背对袋口的一侧（球心沿进球方向后退一个半径 R 的球面点）；再找母球上的对应点 Pc——母球心沿同一进球方向前进一个半径 R 的球面点。瞄准，就是想象击球过程把这两个点碰到一起。")
-                Text("与角度瞄准法的推演：几何恒等式 Pc→Pt 与 C→G 同向等长，所以「两点碰合」发生的瞬间，母球心恰好落在假想球心 G——与 d = 2R·sin(θ) 殊途同归。")
-                Text(String(format: "注意是「点对点」不是「心对点」：让球心直指 Pt 的那条灰线，与真瞄准线相差约 %.1f°（当前 θ 与球距实算）——瞄它必打厚。接触点与瞄准点的区别见「瞄准原理」名词系统。", mislead))
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                aimingStep(1, "找 Pt：目标球背对袋口一侧，球心沿进球方向后退一个半径 R。")
+                aimingStep(2, "找 Pc：母球心沿同一进球方向前进一个半径 R。")
+                aimingStep(3, "瞄准 = 想象击球把这两个点碰到一起。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
+
+            Text("Pc→Pt 与 C→G 同向等长，「两点碰合」时母球心恰好落在假想球心 G，与 d = 2R·sin(θ) 殊途同归。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+
+            Text(String(format: "别「心对点」：灰线让球心直指 Pt，与真瞄准线差约 %.1f°——瞄它必打厚。接触点≠瞄准点见「瞄准原理」。", mislead))
+                .font(.btCaption)
+                .foregroundStyle(.btWarning)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
@@ -455,12 +487,15 @@ private struct ParallelMethodSection: View {
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("连接两球的接触点 Pc 与 Pt（金线），再过母球心作这条连线的平行线（白线）——它就是瞄准方向。碰撞瞬间，两球心恰好关于接触点 Q 点对称：从瞄准视角看，两球心分居切点两侧、距离相等。")
-                Text("与角度瞄准法的推演：由恒等式 Pc→Pt ≡ C→G，这条「平行线」不止平行——它与母球心到假想球心的连线完全重合同向。拖上方 θ 滑杆可以看到：无论切角怎么变，金线与白线始终平行。")
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                aimingStep(1, "连金线：两球接触点 Pc → Pt。")
+                aimingStep(2, "过母球心作金线的平行线（白线）——就是瞄准方向。")
+                aimingStep(3, "碰撞瞬间两球心关于接触点 Q 点对称。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
+
+            Text("由 Pc→Pt ≡ C→G，白线与母球心→假想球心连线同向重合。拖页顶切角 θ：金线与白线始终平行。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
 
             Divider()
 
@@ -471,7 +506,7 @@ private struct ParallelMethodSection: View {
                 MosconiVariantFigure()
                     .frame(height: 190)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                Text("另一种平行线作图：过目标球心作进球线，过母球心作它的平行线，两线间距即横移量，向进球线平移收拢后即得瞄准线。与本节主图同源，只是选了另一条参考线。")
+                Text("过目标球心作进球线，过母球心作平行线；两线间距 δ 即横移量，平移收拢后得瞄准线。与主图同源，只是换了参考线。")
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)
             }
@@ -630,7 +665,22 @@ private struct OverlapAimingFigure: View {
     }
 }
 
-// MARK: - Shared label helper
+// MARK: - Shared helpers
+
+/// 学页分步说明（对齐瞄准原理页 derivationStep 形态）。
+private func aimingStep(_ n: Int, _ text: String) -> some View {
+    HStack(alignment: .top, spacing: Spacing.sm) {
+        Text("\(n)")
+            .font(.btCaption2)
+            .fontWeight(.bold)
+            .foregroundStyle(.btPrimary)
+            .frame(width: 18, height: 18)
+            .background(Color.btPrimaryMuted, in: Circle())
+        Text(text)
+            .font(.btBody)
+            .foregroundStyle(.btTextSecondary)
+    }
+}
 
 /// 线段 a→b 上参数 t 处、向法线方向偏移 offset 的标签位置。
 private func alongLabel(from a: CGPoint, to b: CGPoint,
