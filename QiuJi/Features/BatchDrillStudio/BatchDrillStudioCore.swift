@@ -41,6 +41,8 @@ struct BatchDrill: Identifiable, Hashable {
     /// 一张图算一个球形：每张图各产一条独立序列；同图重存覆盖、异图并存。
     var id: String { drillId }
     var displayTitle: String { nameZh.map { "\(drillId) · \($0)" } ?? drillId }
+    /// 项目 15 无截图文件夹（仍可「新增球形」人工建形）。
+    var hasSourceImages: Bool { !imageURLs.isEmpty }
     /// 该 drill 是否已存至少一个球形（完成判定：≥1，不要求每张图都存）。
     var hasSavedSequence: Bool { !savedStems.isEmpty }
     /// 已落库球形数（含旧版占位）。
@@ -48,6 +50,13 @@ struct BatchDrill: Identifiable, Hashable {
     /// 某张图是否已存球形。
     func isImageSaved(_ url: URL) -> Bool {
         savedStems.contains(BatchDrillCatalog.formationToken(forImage: url))
+    }
+    /// 已存但未绑定截图的球形 token（人工 `manualNN` / 先例 `A1` 等；不含旧版 "" 占位）。
+    var unboundSavedTokens: [String] {
+        let imageTokens = Set(imageURLs.map { BatchDrillCatalog.formationToken(forImage: $0) })
+        return savedStems
+            .filter { !$0.isEmpty && !imageTokens.contains($0) }
+            .sorted()
     }
 }
 
@@ -92,15 +101,49 @@ enum BatchDrillCatalog {
         formationToken(forImageStem: url.deletingPathExtension().lastPathComponent)
     }
 
+    /// App 标识 `drill_c042` → 源文件夹名 `drill_042`（无截图条目仍需稳定 folderName）。
+    static func folderName(fromDrillId drillId: String) -> String? {
+        let prefix = "drill_c"
+        guard drillId.hasPrefix(prefix) else { return nil }
+        let num = drillId.dropFirst(prefix.count)
+        guard !num.isEmpty, num.allSatisfy(\.isNumber) else { return nil }
+        return "drill_\(num)"
+    }
+
+    /// 无图球形下一可用 token：`manual01`、`manual02`…（经 `formationToken` 清洗；与截图/`A1` 式 token 并存）。
+    static func nextManualToken(drillId: String) -> String {
+        let existing = loadSavedFormationMap()[drillId] ?? []
+        var n = 1
+        while n < 10_000 {
+            let token = formationToken(forImageStem: String(format: "manual%02d", n))
+            if !existing.contains(token) { return token }
+            n += 1
+        }
+        return formationToken(forImageStem: "manual\(Int(Date().timeIntervalSince1970))")
+    }
+
+    /// 已落库球形摘要（供「克隆已有球形」选单；只读 `initial`，不改坐标）。
+    static func savedFormationSummaries(drillId: String) -> [(token: String, name: String, initial: BoardSnapshot)] {
+        let tokens = (loadSavedFormationMap()[drillId] ?? []).sorted()
+        var result: [(token: String, name: String, initial: BoardSnapshot)] = []
+        for token in tokens {
+            guard let url = savedSequenceURL(drillId: drillId, token: token),
+                  let seq = loadSequence(at: url) else { continue }
+            result.append((token, seq.name, seq.initial))
+        }
+        return result
+    }
+
     /// 扫描并构建待出片目录（按 drill 号排序）。
+    /// 合并 `index.json` 全部登记 drill 与项目 15 有截图的文件夹；无截图条目 `imageURLs=[]`。
     static func load() -> [BatchDrill] {
         let fm = FileManager.default
         let categoryMap = loadCategoryMap()
         let nameMap = loadDrillNameMap()
         let savedMap = loadSavedFormationMap()
 
+        var imagesByDrillId: [String: (folder: String, urls: [URL])] = [:]
         let folders = (try? fm.contentsOfDirectory(atPath: sourceRoot)) ?? []
-        var drills: [BatchDrill] = []
         for folder in folders {
             var isDir: ObjCBool = false
             let full = "\(sourceRoot)/\(folder)"
@@ -112,7 +155,16 @@ enum BatchDrillCatalog {
                 .sorted()
                 .map { URL(fileURLWithPath: "\(full)/\($0)") }
             guard !images.isEmpty else { continue }
+            imagesByDrillId[drillId] = (folder, images)
+        }
 
+        // index 全量 ∪ 有截图文件夹（含未登记源目录）。
+        let allIds = Set(categoryMap.keys).union(imagesByDrillId.keys)
+        var drills: [BatchDrill] = []
+        for drillId in allIds {
+            let scanned = imagesByDrillId[drillId]
+            let images = scanned?.urls ?? []
+            let folder = scanned?.folder ?? folderName(fromDrillId: drillId) ?? drillId
             drills.append(BatchDrill(
                 folderName: folder,
                 drillId: drillId,
@@ -306,6 +358,9 @@ final class BatchAuthoringContext: ObservableObject {
     @Published var confirmedBoard: BoardSnapshot?
     /// 当前选用的源截图（决定球形 token；也用于序列命名）。
     @Published var sourceImageURL: URL?
+    /// 无图人工球形的归档 stem（= `manualNN` token 原料；与 `sourceImageURL` 互斥）。
+    /// 非 nil 时走人工球形保存路径（允许 initial-only / `steps:[]`）。
+    @Published var manualFormationStem: String?
     /// 待「续接编辑」的已存序列（走「改存档」入口时设置）：编排台据此重放重建、跳过拍照建球形。
     /// nil = 常规新建流程（拍照建球形 → 空录制）。
     @Published var editingSequence: PositionPlaySequence?
@@ -313,6 +368,9 @@ final class BatchAuthoringContext: ObservableObject {
     @Published var editingLegacyArchive = false
     /// 「保存」（留在本 drill 继续做下一张图）信号：拍照建球形页据此重置回选图栅格。
     @Published var pickerResetToken = UUID()
+
+    /// 是否人工无图球形路径（允许 0 杆保存；截图来源路径仍要求 ≥1 杆）。
+    var isManualFormationPath: Bool { manualFormationStem != nil }
 
     func reload() {
         drills = BatchDrillCatalog.load()
@@ -324,12 +382,28 @@ final class BatchAuthoringContext: ObservableObject {
     }
 
     /// 序列默认名：沿用已存在 drill 的中文名，否则用 drillId。
-    /// 多图 drill 追加「· 球形K」（K = 该图在排序中的序号），下游 formations 标题可辨。
-    func defaultSequenceName(for drill: BatchDrill, imageURL: URL? = nil) -> String {
+    /// 多图 drill 追加「· 球形K」（K = 该图在排序中的序号）；无图人工路径按 `manualNN` 编号。
+    func defaultSequenceName(for drill: BatchDrill, imageURL: URL? = nil,
+                             manualToken: String? = nil) -> String {
         let base = drill.nameZh ?? drill.drillId
-        guard drill.imageURLs.count > 1, let url = imageURL,
-              let idx = drill.imageURLs.firstIndex(of: url) else { return base }
-        return "\(base) · 球形\(idx + 1)"
+        if let url = imageURL, drill.imageURLs.count > 1,
+           let idx = drill.imageURLs.firstIndex(of: url) {
+            return "\(base) · 球形\(idx + 1)"
+        }
+        if let token = manualToken ?? manualFormationStem,
+           let n = Self.manualFormationNumber(in: token) {
+            return "\(base) · 球形\(n)"
+        }
+        return base
+    }
+
+    /// 从 `manual01` / 清洗后 token 解析编号；非人工 token 返回 nil。
+    static func manualFormationNumber(in token: String) -> Int? {
+        let prefix = "manual"
+        guard token.hasPrefix(prefix) else { return nil }
+        let digits = token.dropFirst(prefix.count)
+        guard !digits.isEmpty, digits.allSatisfy(\.isNumber), let n = Int(digits) else { return nil }
+        return n
     }
 
     /// 推进到下一个未保存的 drill（用于「保存并下一个」）。返回是否还有下一个。
@@ -341,6 +415,7 @@ final class BatchAuthoringContext: ObservableObject {
             current = next
             confirmedBoard = nil
             sourceImageURL = nil
+            manualFormationStem = nil
             editingSequence = nil
             editingLegacyArchive = false
             return true
@@ -423,7 +498,11 @@ struct BatchDrillStudioView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(drill.displayTitle).font(.system(size: 15, weight: .semibold))
                 HStack(spacing: 6) {
-                    Text("\(drill.imageURLs.count) 张截图")
+                    if drill.hasSourceImages {
+                        Text("\(drill.imageURLs.count) 张截图")
+                    } else {
+                        Text("无源图").foregroundStyle(.orange)
+                    }
                     if drill.savedFormationCount > 0 {
                         Text("· 已存 \(drill.savedFormationCount) 球形").foregroundStyle(Color.btSuccess)
                     }
@@ -444,6 +523,7 @@ struct BatchDrillStudioView: View {
         context.current = drill
         context.confirmedBoard = nil
         context.sourceImageURL = nil
+        context.manualFormationStem = nil
         context.editingSequence = nil
         context.editingLegacyArchive = false
         goExtract = true

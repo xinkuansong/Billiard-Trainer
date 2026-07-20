@@ -363,7 +363,11 @@ struct BatchAuthoringView: View {
                     if let board = context.confirmedBoard { composer.loadBoard(board) }
                     if let drill {
                         composer.renameSequence(
-                            context.defaultSequenceName(for: drill, imageURL: context.sourceImageURL))
+                            context.defaultSequenceName(
+                                for: drill,
+                                imageURL: context.sourceImageURL,
+                                manualToken: context.manualFormationStem
+                            ))
                     }
                     composer.startRecording()
                 }
@@ -855,14 +859,14 @@ struct BatchAuthoringView: View {
     private enum SaveMode { case stay, nextDrill }
 
     /// F-BD-01：仅当目标文件已存在时弹确认；不加「记住不再问」。
+    /// 人工无图路径允许 `steps:[]`（initial-only）；截图来源路径仍要求 ≥1 杆。
     private func requestSave(mode: SaveMode) {
         guard let drill = context.current else { return }
-        guard !composer.sequence.steps.isEmpty else {
+        if !context.isManualFormationPath, composer.sequence.steps.isEmpty {
             flash("尚无击打：先「击球」记录至少一杆", tone: .info)
             return
         }
-        let imageURL = context.sourceImageURL
-        let stem = imageURL?.deletingPathExtension().lastPathComponent ?? drill.drillId
+        let stem = archiveImageStem(for: drill)
         let legacy = context.editingLegacyArchive
         if BatchSequenceArchive.hasExistingArchive(drillId: drill.drillId, imageStem: stem, legacy: legacy) {
             pendingOverwriteStay = (mode == .stay)
@@ -875,16 +879,21 @@ struct BatchAuthoringView: View {
     private func performSave(mode: SaveMode) {
         guard let drill = context.current else { return }
         var seq = composer.sequence
-        guard !seq.steps.isEmpty else {
+        if !context.isManualFormationPath, seq.steps.isEmpty {
             flash("尚无击打：先「击球」记录至少一杆", tone: .info)
             return
         }
+        // initial-only：录制后若又摆过球，以当前桌面为 initial（steps 仍为空）。
+        if seq.steps.isEmpty {
+            seq.initial = composer.currentSnapshot()
+        }
         let imageURL = context.sourceImageURL
-        // 球形 token 绑定来源截图：同图覆盖、异图并存（无来源时退回 drillId 单键）。
-        let stem = imageURL?.deletingPathExtension().lastPathComponent ?? drill.drillId
+        // 球形 token：截图 stem / 人工 manualNN /（旧路径）drillId 单键。
+        let stem = archiveImageStem(for: drill)
         // 旧版存档编辑：保留原序列名（未绑定截图，defaultSequenceName 的「球形K」不适用）。
         if !context.editingLegacyArchive {
-            seq.name = context.defaultSequenceName(for: drill, imageURL: imageURL)
+            seq.name = context.defaultSequenceName(
+                for: drill, imageURL: imageURL, manualToken: context.manualFormationStem)
         }
         seq.updatedAt = Date()
         do {
@@ -897,6 +906,7 @@ struct BatchAuthoringView: View {
                 // 回拍照建球形选图栅格（同 drill），已存图打勾，自由挑下一张或跳过。
                 context.confirmedBoard = nil
                 context.sourceImageURL = nil
+                context.manualFormationStem = nil
                 context.pickerResetToken = UUID()
                 dismiss()
             case .nextDrill:
@@ -909,6 +919,15 @@ struct BatchAuthoringView: View {
         } catch {
             flash("保存失败：\(error.localizedDescription)", tone: .error)
         }
+    }
+
+    /// 归档用 imageStem：人工路径用 `manualFormationStem`；截图路径用文件名；否则 drillId。
+    private func archiveImageStem(for drill: BatchDrill) -> String {
+        if let manual = context.manualFormationStem { return manual }
+        if let url = context.sourceImageURL {
+            return url.deletingPathExtension().lastPathComponent
+        }
+        return drill.drillId
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {

@@ -387,6 +387,7 @@
 		F885F42FFB481422AACFC819 /* BTLogoMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31B5F0C872617B9168B021DA /* BTLogoMark.swift */; };
 		F9292DE3DB0D25F8E6DA75A1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3F9502353B85739CC2CE34FC /* Assets.xcassets */; };
 		F96D8A0FEC94A8F9A0E53A29 /* CueBallStrike.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29C0BEB682F897B503CE1D0E /* CueBallStrike.swift */; };
+		FA2B9DE74AB2B59EBD58B845 /* B1_ManualFormationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D5E954D43235BC423396532 /* B1_ManualFormationUITests.swift */; };
 		FC2CD3084BFC5498CA419808 /* DrillThumbnailBakeRunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABE431977CDD1DE1C25F8133 /* DrillThumbnailBakeRunnerTests.swift */; };
 		FC8CEA5F3F886C4D235611D6 /* CushionDiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B57FA5E81B78AEDA13430295 /* CushionDiagnosticsTests.swift */; };
 		FE4B639122CBF7ECF26C41A1 /* BTTrainingIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D69C5C48F78B0D32618C942 /* BTTrainingIcon.swift */; };
@@ -570,6 +571,7 @@
 		5BFAD9AFB0C65DB50252B78C /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
 		5C1CD2E6A342D91371CCA672 /* RestTimerAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerAttributes.swift; sourceTree = "<group>"; };
 		5C2BF330E94E4B67A32101AA /* PhotoPermissionInfoPlistTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoPermissionInfoPlistTests.swift; sourceTree = "<group>"; };
+		5D5E954D43235BC423396532 /* B1_ManualFormationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = B1_ManualFormationUITests.swift; sourceTree = "<group>"; };
 		5E124BFE3C2EB71A2D4D5D86 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
 		5E3E22770741742DAB820BB0 /* IconToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IconToken.swift; sourceTree = "<group>"; };
 		5E85924D86CF09618C0B8AF0 /* X3_BreakFlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = X3_BreakFlowUITests.swift; sourceTree = "<group>"; };
@@ -1006,6 +1008,7 @@
 				526F3688133F24EC1D16B3DD /* AimingCorrectionZ1UITests.swift */,
 				7E996B31A7F2BF13E4BF84A2 /* AimingCorrectionZ2UITests.swift */,
 				649484FEC06A1C1723A4FFE7 /* AimingCorrectionZ3UITests.swift */,
+				5D5E954D43235BC423396532 /* B1_ManualFormationUITests.swift */,
 				EFAA78C08A3D38F2EC1BDA10 /* DrillTryoutUITests.swift */,
 				AA1E0D5E145201FC10FE7508 /* P2_DataLayerUITests.swift */,
 				E8C03C11C99852EA510D3B37 /* P3_DrillLibraryUITests.swift */,
@@ -2121,6 +2124,7 @@
 				418BAA433AB01AB6F1D50F14 /* AimingCorrectionZ1UITests.swift in Sources */,
 				4DF6DD69924C154CB01234A2 /* AimingCorrectionZ2UITests.swift in Sources */,
 				48DB5BDEB8BDB8ACE26B796D /* AimingCorrectionZ3UITests.swift in Sources */,
+				FA2B9DE74AB2B59EBD58B845 /* B1_ManualFormationUITests.swift in Sources */,
 				E487B423BF7F9EAF1A1BD052 /* DrillTryoutUITests.swift in Sources */,
 				1EDB081DB64948EF984F7D72 /* P2_DataLayerUITests.swift in Sources */,
 				B8A92B83771774F23249CEA8 /* P3_DrillLibraryUITests.swift in Sources */,
