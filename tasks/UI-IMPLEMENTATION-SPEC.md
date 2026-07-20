@@ -804,7 +804,7 @@ struct BTShareCard: View {
 | 规范术语 | 含义 | 禁用别名 |
 |---|---|---|
 | 切角 θ | 瞄准线与进球线的夹角（0°=正撞）；全局用户可见符号统一 **θ**（问题集合条 4.4，A8 落地） | α（旧符号）、切球角、切球、cut angle 直译混排 |
-| 假想球 | 母球撞击目标球瞬间所在虚位（虚线圈，球心红点=瞄准点） | 幽灵球、ghost ball |
+| 假想球 | 母球撞击目标球瞬间所在虚位（虚线圈；球心记 **G**，红点=瞄准点） | 幽灵球、ghost ball |
 | 力度 | 击球初速（m/s，量程 `ShotTuning.velocityRange`） | 发力、power 直译 |
 | 厚度 | 重叠比例（正/半/薄…） | 厚薄度 |
 | 横移 mm | 接触点相对球心的横向偏移（毫米） | — |
@@ -915,7 +915,7 @@ struct BTShareCard: View {
 | 瞄准方法 | 学 | 管道/接触点/平行线三法 | v11 Y1；θ 滑杆 + 交互插图；交叉引用瞄准原理/对照表 |
 | 瞄准修正 | 学 | 投掷/高低杆厚度/挤偏+弧线/求解补偿 | v12 Z3；六节结构 ①Δ实况 ②投掷 ③高低杆三联 ④加塞俯视 ⑤两档求解对比+定性速查 ⑥实战启示→思路训练；共享控件三轴（力度 `ShotTuning.velocityRange` + 高低杆三档 spinY=±0.4/0 + 左右塞，合成幅值钳 `miscueLimitFraction`）；20ms 去抖+单飞+末班车；插图一律 `BTTableFigure`+`BTFigureBall`/`BTGhostCircle`/`BTContactDot`/`BTFigureTag`/`FigureLine`（② closeup 特写、③ 单图三线选中高亮参照 SeparationPathsFigure）；速查表符号来源 `build/z1-evidence/quickref-symbols.txt` + `z2-evidence/z2-quickref-symbols.txt` + `z3-evidence/z3-quickref-symbols.txt`；AX `aimingCorrection.*`；巡游 a16 |
 | 旋转与加塞 | 学 | 旋转四态→分离角 + 加塞本体 | v12 Z4（自 v11 Y2 重做）：共享切角 θ 滑杆（5°–75°，默认半球）驱动三路径球形；示意分离角为教学折线 90°/60°/120°（非半球不声称精确分离角，UI 标注「示意角 · 教学折线」）；打点→旋转示意 + 最小加塞/打滑极限（`miscueLimitFraction`）+ 左右塞×吃库反弹定性示意（T09/Jewett Run·Rev，非引擎实况）；挤偏/弧线/投掷一句话 + 真 `PracticeCTA`→`.aimingCorrection`；交叉引用瞄准原理/方法/分离角图谱/瞄准修正；插图 `BTTableFigure`+token 盘面；AX `spinAndEnglish.*`；巡游 a14 |
-| 分离角图谱 | 学 | 8 档高低杆碰后轨迹对比 | v11 Y3；SceneKit 真台+可拖双球；`ShotStageProxy` G10+右缘仪表柱 G5；力度可调、打点盘只读 8 色点；**页内 8 色轨迹豁免线语言 v2**（DR-025）；切片=碰后→第一库，**碰后未吃库降级为碰撞点→停球点**（低力度纯低杆场景，保 8 条齐全）；去抖+单飞+并行 `simulateFree` |
+| 分离角图谱 | 学 | 8 档高低杆碰后轨迹对比 | v15 W1（自 v11 Y3）：SceneKit 真台+可拖多球；`ShotStageProxy` G10；**左缘 8 只读迷你打点盘**（`aimWheelFrame`，高→低与 `trackColors`/spinY 同序）；右缘纯力度柱（`onSpinTap=nil`，底部弹出 8 点盘退役）；台面**无**「纯高杆/纯低杆」文字；底栏 `BTBallPaletteBar`（点击+拖放上桌、拖回库撤下；换目标/障碍进 `simulateFree`；母球不可撤；默认母+8）；**页内 8 色轨迹豁免线语言 v2**（DR-025）；切片=碰后→第一库，**碰后未吃库降级为碰撞点→停球点**；去抖+单飞+并行 `simulateFree` |
 | 角度与打点 | 学 | 拖两球实时看指标联动 | **L2 唯一持有页**；首拖提示（一次性）；90° 短虚线常驻 |
 | 浅谈球感 | 学 | 方法论+四档厚度锚点 | 锚点卡真台渲染；页末 CTA→2D 瞄准训练 |
 | 瞄准点对照表（原进球点对照表） | 学 | 速查工具 | 俯视真台交互图：瞄准点（红点）+接触点（绿点）+横移金标尺同见；新增估角误差交互演示（母球-目标球连线估角，远距误差变小） |
@@ -936,6 +936,22 @@ struct BTShareCard: View {
 
 全局项：页名=入口卡名；术语查 §8.8 词表；渲染管线与 App 同 token 同源；Z7 一律暗材质；学→练 CTA 三条（原理→预测、球感→2D、预测→真台）。埋点骨架（`practice_enter/core_action/result/handoff`）挂 B5。
 
+### 9.3.1 文档学页壳（问题集合 v14；六张浅色文档学页）
+
+> **范围**：瞄准原理 / 瞄准方法 / 瞄准修正 / 旋转与加塞 / 浅谈球感 / 瞄准点对照表。  
+> **排除（红线）**：`AngleDynamicView`（角度与瞄准）、`SeparationAngleAtlasView`（分离角图谱）——暗色沙盘，本契约不适用、禁止借壳改动。  
+> **不做**：精讲「为什么 / 怎么打 / 自检」三标签；动作库 / 蛇彩 CTA；统一成八页同滚动模板。
+
+| 零件 | 口径 | 代码锚点 |
+|---|---|---|
+| 字色 / 行距 | 主阅读路径 `.btText` + 明确行距（`LearnDocText.bodyLineSpacing` = 5）；脚注 / caption `.btTextSecondary`（`.learnDocFootnoteStyle()`）；禁止整页主文长期灰字墙 | `LearnDocChrome.swift` |
+| 节卡 | 标题层级（section=`btTitle` / subsection=`btHeadline`）+ 内边距 `Spacing.lg` + 圆角 `BTRadius.lg` + 背景 `.btBGSecondary` | `LearnDocSectionCard` |
+| 控件条 | `LearnControlStrip.Theta`（切角 θ，默认 5…75 step 1）+ `LearnControlStrip.LiveAxes`（力度 / 高低杆 / 左右塞，Binding，不绑 ViewModel）+ 可选 `ReadoutRow`；视觉对齐现网方法页 θ / 修正页 `sharedControls` | `LearnControlStrip.swift` |
+| CTA 密度 | 页末 `PracticeCTA` 大卡 **≤2**（D-v14-6）；超出改为文字 `NavigationLink` / chip；学→练优先保留；不新增动作库/蛇彩深链 | `PracticeCTA`（`AngleHomeView`） |
+| 插图红线 | 继续 `BTTableFigure` / `FigureLine` / 球组件；禁止再私设线色台面比例 | `BTTableFigure.swift` |
+
+B1 只落组件与本契约；六页业务接壳见 v14 B2/B3。
+
 ### 9.4 重叠标注配档表
 
 见 §8.7（T-P18-42 落定，含 L0/L1/L2 定义、12 行逐页档位与理由、显隐原则）。本节不重复维护；改档位改 §8.7。
@@ -948,6 +964,9 @@ struct BTShareCard: View {
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-20 | **问题集合 v15 W1「分离角图谱」图例/球库/学卡序**：去台面「纯高杆/纯低杆」；左缘 8 只读迷你打点盘（`aimWheelFrame`）；右缘纯力度柱；底栏接 `BTBallPaletteBar`（点+拖+拖回库）；学卡「角度与瞄准」↔「分离角图谱」对调；§9.3 契约同步 | 修正/重构 | SeparationAngleAtlasView/ViewModel, AngleHomeView, ScreenshotTourUITests, §9.3 | 问题集合 v15 W1 |
+| 2026-07-19 | **问题集合 v14 B1「文档学页壳」组件**：新增 `LearnDocSectionCard` + `LearnDocText`/`learnDocBodyStyle`/`learnDocFootnoteStyle` + `LearnControlStrip`（Theta / LiveAxes / ReadoutRow）；§9.3.1 文档学页壳短契约（字色行距/节卡/控件条/CTA≤2/插图红线/排除两沙盘页）；六学页业务接壳留 B2/B3 | 新增 | LearnDocChrome.swift, LearnControlStrip.swift, LearnDocChromeCompileTests, §9.3.1 | 问题集合 v14 B1 |
+| 2026-07-19 | **问题集合 v13 B2「瞄准方法」教学标注收口**：开篇符号图例（θ/φ/Q/Pt/Pc/G/管道·隧道）；接触点节默认碰合终帧 +「重播碰合过程」+ 误差角徽章常显；平行线主标 Q（点对称）；三节 d=2R·sinθ 等价说明收拢开篇一处；节内「当前 θ = N°」读数（非 sticky）；§8.8 假想球补球心 G；UI 测 `testAimingMethodsInteractions` 增 B2 取证帧 | 修正 | AimingMethodsView, ScreenshotTourUITests, §8.8 | 问题集合 v13 B2 |
 | 2026-07-18 | **问题集合 v12 Z4「旋转与加塞」页重做**：切角 θ 滑杆联动三路径；示意角教学折线 90/60/120（非半球诚实标注）；打点→旋转 + 吃库顺/逆塞定性示意（T09/Jewett，非引擎实况）；MiscueLimitFigure token 化；teaser→真 `PracticeCTA`→`.aimingCorrection`；a14 补 scrolled5；§9.3 契约 | 重构 | SpinAndEnglishView/Geometry, SpinAndEnglishGeometryTests, ScreenshotTourUITests, SpinAndEnglishZ4UITests, §9.3 | 问题集合 v12 Z4 |
 | 2026-07-18 | **问题集合 v12 Z3「瞄准修正」收口 + ②③图风格重做**：②投掷/③高低杆插图由裸 Canvas（硬编码 RGB+Text）改为学区统一 `BTTableFigure` 语言；④加塞节（挤偏+弧线俯视实况，左右塞轴开放，打滑极限圆盘钳制）；⑤两档求解对比（A 中杆中速 / B 低杆轻推+左塞）+ 定性速查表（符号引 z1/z2/z3 草稿）；⑥实战启示核对；UI 巡游 a16 明/暗；§9.3 页面契约 | 新增/重构 | AimingCorrectionView/ViewModel/Math, ScreenshotTourUITests, §9.3 | 问题集合 v12 Z3 |
 | 2026-04-05 | 初始版本创建 | — | 全部 | T-R0-01 |

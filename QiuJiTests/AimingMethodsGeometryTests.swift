@@ -94,4 +94,39 @@ final class AimingMethodsGeometryTests: XCTestCase {
         XCTAssertEqual(gt, 2 * r, accuracy: 1e-12)
         XCTAssertEqual(AngleSceneCalculator.halfBall.cutAngleDegrees, 30.0, accuracy: 1e-9)
     }
+
+    /// v13 B1：经典厚度 overlap = 1 − sin(θ°) 与 NamedBallThickness / 数值草稿一致。
+    func testClassicOverlap_matchesNamedBallThicknessAndDraft() {
+        // 草稿金标准：θ=30° → overlap=0.5；θ=45° → 1−√2/2 ≈ 0.292893
+        XCTAssertEqual(AimingMethodsGeometry.classicOverlap(cutAngleDegrees: 30),
+                       0.5, accuracy: 1e-12)
+        XCTAssertEqual(AimingMethodsGeometry.classicOverlap(cutAngleDegrees: 45),
+                       1 - sqrt(0.5), accuracy: 1e-12)
+        XCTAssertEqual(AimingMethodsGeometry.classicDOverR(cutAngleDegrees: 30),
+                       1.0, accuracy: 1e-12)
+        XCTAssertEqual(AimingMethodsGeometry.classicDOverR(cutAngleDegrees: 45),
+                       sqrt(2.0), accuracy: 1e-12)
+
+        for named in [AngleSceneCalculator.threeQuarterBall,
+                      AngleSceneCalculator.halfBall,
+                      AngleSceneCalculator.quarterBall] {
+            let ov = AimingMethodsGeometry.classicOverlap(
+                cutAngleDegrees: named.cutAngleDegrees)
+            XCTAssertEqual(ov, named.overlap, accuracy: 1e-3,
+                           "\(named.name) θ=\(named.cutAngleDegrees)°")
+            let dOverR = AimingMethodsGeometry.classicDOverR(
+                cutAngleDegrees: named.cutAngleDegrees)
+            XCTAssertEqual(dOverR, named.dOverR, accuracy: 1e-3, named.name)
+        }
+
+        // 最近命名厚度（tolerance 2.5°）：30°→半球；~48.6°→1/4 球；45° 无命中。
+        XCTAssertEqual(
+            AngleSceneCalculator.namedBallThickness(cutAngleDegrees: 30, tolerance: 2.5)?.name,
+            "半球")
+        XCTAssertEqual(
+            AngleSceneCalculator.namedBallThickness(cutAngleDegrees: 49, tolerance: 2.5)?.name,
+            "1/4 球")
+        XCTAssertNil(
+            AngleSceneCalculator.namedBallThickness(cutAngleDegrees: 45, tolerance: 2.5))
+    }
 }

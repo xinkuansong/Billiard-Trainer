@@ -24,6 +24,11 @@ final class ScreenshotTourUITests: XCTestCase {
         if let env = ProcessInfo.processInfo.environment["UI_POLISH_SHOT_DIR"], !env.isEmpty {
             return URL(fileURLWithPath: env, isDirectory: true)
         }
+        // File override avoids polluting docs/ui-polish when env isn't inherited by the runner.
+        if let fileDir = (try? String(contentsOfFile: "/tmp/qiuji-uitest/shot_dir", encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !fileDir.isEmpty {
+            return URL(fileURLWithPath: fileDir, isDirectory: true)
+        }
         let fileMode = (try? String(contentsOfFile: "/tmp/qiuji-uitest/appearance", encoding: .utf8))?
             .trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let mode: String
@@ -244,7 +249,7 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
-    /// v11 Y3：分离角图谱交互取证——默认态 / 拉高力度 / 拖球改切角。
+    /// v11 Y3 / v15 W1：分离角图谱交互取证——默认态 / 高力度 / 拖球 / 球库点上+拖上 / 左缘图例。
     func testSeparationAngleAtlasInteractions() {
         // SceneKit 叠层下合成拖力度柱不可靠 → 启用页内 UI 测钩子（`-y3.uiHooks`）。
         app.terminate()
@@ -260,6 +265,12 @@ final class ScreenshotTourUITests: XCTestCase {
         }
         sleep(4) // 等 8 路并行 simulateFree
         snap("y3-atlas-default")
+
+        // A2：左缘 8 只读迷你打点盘常驻（替代底部弹出盘）。
+        let legend = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'separationAngleAtlas.spinLegend'"))
+            .firstMatch
+        XCTAssertTrue(legend.waitForExistence(timeout: 3), "左缘 8 档色序图例不可达")
 
         // 性能取证：抽取最近一次 8×simulateFree 并行实测耗时（钩子读数）。
         let simMs = app.staticTexts["y3.parallelSimMs"]
@@ -291,20 +302,32 @@ final class ScreenshotTourUITests: XCTestCase {
             snap("y3-atlas-drag-cut")
         }
 
-        // 打开只读 8 点打点盘。
-        let spinMini = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "label == '打点'")).firstMatch
-        if spinMini.waitForExistence(timeout: 2), spinMini.isHittable {
-            spinMini.tap()
-            sleep(1)
-            snap("y3-atlas-spin-pad")
+        // A3：球库点击上桌（paletteBall__1）。
+        let tapBall = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'paletteBall__1'")).firstMatch
+        XCTAssertTrue(tapBall.waitForExistence(timeout: 3), "球库 _1 槽位不可达")
+        tapBall.tap()
+        sleep(3)
+        snap("y3-atlas-palette-tap")
+
+        // A3：球库拖放到台（paletteBall__2 → 台面中部）。
+        let dragBall = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'paletteBall__2'")).firstMatch
+        if dragBall.waitForExistence(timeout: 2), table.exists {
+            let start = dragBall.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let dest = table.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.40))
+            start.press(forDuration: 0.25, thenDragTo: dest)
+            sleep(3)
+            snap("y3-atlas-palette-drag")
+        } else {
+            XCTFail("球库拖放路径不可达（paletteBall__2 或台面）")
         }
 
         XCTAssertEqual(app.state, .runningForeground, "交互后 App 应仍在前台")
     }
 
-    /// v11 Y1 返工 r1（FL-026）：瞄准方法页交互取证——管道节三态
-    /// （默认 φ=θ=30° 相切 / 拖到 5° 太厚 / 拖到 75° 太薄）+ 接触点碰合动画起终帧。
+    /// v11 Y1 返工 r1（FL-026）+ v13 B1/B2：瞄准方法页交互取证——
+    /// 管道节三态、接触点终帧+误差徽章、平行线 Q、符号图例、厚薄跟 θ。
     func testAimingMethodsInteractions() {
         sleep(3)
         app.switchTab(.angle)
@@ -317,12 +340,38 @@ final class ScreenshotTourUITests: XCTestCase {
         }
         sleep(3)
 
-        // 管道节：页面顶端已可见插图+徽章，小步上滚让底部滑杆离开 Home 指示条
-        // 区域（上一轮教训：滑杆贴屏幕底缘时 adjust 合成拖拽会误触系统手势）。
+        // v13 B2 A6：开篇符号图例入镜（进页即可见，先拍再调 θ）。
+        let legend = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'aimingMethods.symbolLegend'"))
+            .firstMatch
+        XCTAssertTrue(legend.waitForExistence(timeout: 4), "符号图例不可达")
+        snap("v13-b2-symbol-legend")
+
+        // v13 B1：先在页顶把 θ 调到 45°（φ 跟随，后续管道默认仍相切），再取厚薄非 30° 帧。
+        let thetaSlider = app.sliders["aimingMethods.thetaSlider"]
+        XCTAssertTrue(thetaSlider.waitForExistence(timeout: 4) && thetaSlider.isHittable,
+                      "θ 滑杆不可达")
+        // θ ∈ [5,75] → 45° 归一化位置 ≈ (45−5)/(75−5) = 0.571
+        thetaSlider.adjust(toNormalizedSliderPosition: 0.571)
+        sleep(1)
+
+        // 管道节：B2 开篇图例加高后，需多滚直到 φ 滑杆可见且离开 Home 指示条
+        // （上一轮教训：滑杆贴屏幕底缘时 adjust 合成拖拽会误触系统手势）。
         let phiSlider = app.sliders["aimingMethods.pipe.trialSlider"]
-        dragScrollUp(0.22)
+        var pipeGuard = 0
+        while (!phiSlider.exists || !phiSlider.isHittable || phiSlider.frame.minY > 720
+                || phiSlider.frame.maxY > 820), pipeGuard < 10 {
+            dragScrollUp(0.28)
+            pipeGuard += 1
+        }
+        // 滑杆太靠顶则略回滚，保证管道图+徽章同帧。
+        if phiSlider.exists, phiSlider.frame.minY < 280 {
+            dragScrollUp(-0.12)
+        }
         if phiSlider.waitForExistence(timeout: 4), phiSlider.isHittable {
-            snap("y1r1-pipe-tangent") // 默认 φ=θ=30 → ✓相切徽章
+            snap("y1r1-pipe-tangent") // φ 已跟 θ=45 → ✓相切徽章
+            // v13 B2 D-v13-3：节内 θ 读数与管道卡同帧。
+            snap("v13-b2-pipe-theta-readout")
             phiSlider.adjust(toNormalizedSliderPosition: 0.0) // φ=5 < θ → 太厚
             sleep(1)
             snap("y1r1-pipe-thick")
@@ -334,7 +383,7 @@ final class ScreenshotTourUITests: XCTestCase {
             XCTFail("试瞄滑杆不可达或不可点击")
         }
 
-        // 接触点节：滚到播放键可点击，且其上方插图不被裁切，拍起点/碰合两帧。
+        // 接触点节：D-v13-2 默认终帧 + 误差角徽章常显；再重播取 B1 起/终帧。
         let play = app.buttons["aimingMethods.contact.play"]
         var guardCount = 0
         while (!play.exists || !play.isHittable || play.frame.minY > 800), guardCount < 8 {
@@ -345,13 +394,48 @@ final class ScreenshotTourUITests: XCTestCase {
             dragScrollUp(-0.15)
         }
         if play.waitForExistence(timeout: 3), play.isHittable {
+            // B2：进入即碰合终帧 + 误差徽章（无需先点播放）。
+            snap("v13-b2-contact-final-mislead-badge")
+            play.tap() // 重播：瞬回起点再动画到终帧
+            usleep(250_000) // 靠近起点，保留 B1 帧名
             snap("y1r1-contact-start")
-            play.tap()
             sleep(2) // 动画 1.2s
             snap("y1r1-contact-merged")
         } else {
             XCTFail("碰合播放键不可达")
         }
+
+        // 平行线主图：滚到节标题，拍 Q 标注 + 节内 θ 读数。
+        var parallelGuard = 0
+        let parallelTitle = app.staticTexts["平行线瞄准法"]
+        while (!parallelTitle.exists || parallelTitle.frame.minY > 520), parallelGuard < 10 {
+            dragScrollUp(0.32)
+            parallelGuard += 1
+        }
+        if parallelTitle.exists, parallelTitle.frame.minY < 60 {
+            dragScrollUp(-0.10)
+        }
+        snap("v13-b2-parallel-q-label")
+
+        // 滚到厚薄节标题可见，拍非 30° 重合示意（identifier 可能被子元素共享，故用标题定位）。
+        var overlapGuard = 0
+        let overlapTitle = app.staticTexts["补充：重合比例法（厚薄法）"]
+        while (!overlapTitle.exists || overlapTitle.frame.minY > 620), overlapGuard < 12 {
+            dragScrollUp(0.35)
+            overlapGuard += 1
+        }
+        if overlapTitle.exists, overlapTitle.frame.minY < 80 {
+            dragScrollUp(-0.12)
+        }
+        snap("v13-b1-overlap-theta45")
+        // 再上滚：厚薄表行高亮入镜。
+        dragScrollUp(0.28)
+        sleep(1)
+        snap("v13-b1-overlap-table-and-cta")
+        // 相关页 CTA（含旋转与加塞）入镜——需滚过前两条才见后两条。
+        dragScrollUp(0.40)
+        sleep(1)
+        snap("v13-b1-crossrefs-cta")
     }
 
     /// 受控小步滚动（正值向上滚 dy·屏高，负值向下），避开系统边缘手势。

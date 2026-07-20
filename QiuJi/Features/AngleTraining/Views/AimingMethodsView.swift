@@ -20,7 +20,7 @@ struct AimingMethodsView: View {
                 PipeMethodSection(cutAngleDeg: cutAngleDeg)
                 ContactMethodSection(cutAngleDeg: cutAngleDeg)
                 ParallelMethodSection(cutAngleDeg: cutAngleDeg)
-                overlapSection
+                overlapSection(cutAngleDeg: cutAngleDeg)
                 crossRefsSection
             }
             .padding(.horizontal, Spacing.lg)
@@ -40,7 +40,7 @@ struct AimingMethodsView: View {
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            Text("「瞄准原理」里的角度瞄准法：先读出切角 θ，再用 d = 2R·sin(θ) 翻成瞄准点。下面三种方法与它同一套几何，只是换了「怎么看见」。")
+            Text("「瞄准原理」里的角度瞄准法：先读出切角 θ，再用 d = 2R·sin(θ) 翻成瞄准点。下面三种方法与它同一套几何，只是换了「怎么看见」——殊途同归，都落到 d = 2R·sin(θ)。")
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
@@ -50,7 +50,11 @@ struct AimingMethodsView: View {
                 methodSummaryRow("平行线法", "用两球接触点连线定出瞄准方向")
             }
 
-            Text("拖动切角，三节主图同步变化。默认 30°（半球）。")
+            // A6：本页符号图例（子集与 SPEC §8.8 一致）。
+            symbolLegend
+                .accessibilityIdentifier("aimingMethods.symbolLegend")
+
+            Text("拖动切角 θ：管道 / 接触点 / 平行线 / Mosconi 变体 / 厚薄示意同步变化。默认 30°（半球）。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
 
@@ -74,6 +78,40 @@ struct AimingMethodsView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
+    /// A6：开篇符号图例——仅本页出场符号，口径对齐 SPEC §8.8。
+    private var symbolLegend: some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("符号图例")
+                .font(.btCaption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.btTextSecondary)
+            symbolLegendRow("θ", "切角：瞄准线与进球线的夹角")
+            symbolLegendRow("φ", "试瞄角（管道法）：拖到 φ≈θ 时两管相切")
+            symbolLegendRow("Q", "接触点：碰撞瞬间两球切点（碰合点）")
+            symbolLegendRow("Pt", "目标球侧接触点（背袋点）")
+            symbolLegendRow("Pc", "母球侧接触点（对应点）")
+            symbolLegendRow("G", "假想球球心（虚线圈中心）")
+            symbolLegendRow("管", "管道（隧道）：瞄准线/进球线扩成半径 R 的圆管")
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.btBG.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+    }
+
+    private func symbolLegendRow(_ symbol: String, _ desc: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+            Text(symbol)
+                .font(.btCaption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.btPrimary)
+                .frame(width: 28, alignment: .leading)
+            Text(desc)
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+        }
+    }
+
     private func methodSummaryRow(_ term: String, _ desc: String) -> some View {
         HStack(alignment: .top, spacing: Spacing.sm) {
             Text(term)
@@ -86,29 +124,48 @@ struct AimingMethodsView: View {
         }
     }
 
+    /// D-v13-3：节内小读数（非 sticky），滑杆滚出视野后仍可知当前 θ。
+    fileprivate static func sectionThetaReadout(_ cutAngleDeg: Double) -> some View {
+        Text("当前 θ = \(Int(cutAngleDeg))°")
+            .font(.btCaption)
+            .fontWeight(.medium)
+            .foregroundStyle(.btTextSecondary)
+            .monospacedDigit()
+            .accessibilityIdentifier("aimingMethods.sectionTheta")
+    }
+
     // MARK: - 补充：重合比例法（厚薄法）
 
-    private var overlapSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("补充：重合比例法（厚薄法）")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+    private func overlapSection(cutAngleDeg: Double) -> some View {
+        let nearest = AngleSceneCalculator.namedBallThickness(
+            cutAngleDegrees: cutAngleDeg, tolerance: 2.5)
+        return VStack(alignment: .leading, spacing: Spacing.lg) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("补充：重合比例法（厚薄法）")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                Spacer(minLength: Spacing.sm)
+                AimingMethodsView.sectionThetaReadout(cutAngleDeg)
+            }
 
-            OverlapAimingFigure()
+            OverlapAimingFigure(cutAngleDeg: cutAngleDeg)
                 .frame(height: 200)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("aimingMethods.overlap.figure")
 
-            Text("俯身时不估 θ，改看母球与目标球在视线方向上的重合比例（厚度）：叠得越多球越厚、θ 越小。")
+            Text("俯身时不估 θ，改看母球与目标球在视线方向上的重合比例（厚度）：叠得越多球越厚、θ 越小。图随页顶 θ 连续变化。")
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
-                thicknessRow(AngleSceneCalculator.threeQuarterBall)
-                thicknessRow(AngleSceneCalculator.halfBall)
-                thicknessRow(AngleSceneCalculator.quarterBall)
+                thicknessRow(AngleSceneCalculator.threeQuarterBall, highlighted: nearest?.name)
+                thicknessRow(AngleSceneCalculator.halfBall, highlighted: nearest?.name)
+                thicknessRow(AngleSceneCalculator.quarterBall, highlighted: nearest?.name)
             }
+            .accessibilityIdentifier("aimingMethods.overlap.table")
 
-            Text("sin(θ) = 1 − 重合比例，又 d = 2R·sin(θ)，故 d/R = 2·(1 − 重合比例)。数值与「瞄准点对照表」同一口径。")
+            Text("sin(θ) = 1 − 重合比例，故 d/R = 2·(1 − 重合比例)。数值与「瞄准点对照表」同一口径；靠近命名厚度时表行高亮。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }
@@ -117,17 +174,19 @@ struct AimingMethodsView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
-    private func thicknessRow(_ t: AngleSceneCalculator.NamedBallThickness) -> some View {
+    private func thicknessRow(_ t: AngleSceneCalculator.NamedBallThickness,
+                              highlighted: String?) -> some View {
         let angleText = t.cutAngleDegrees == t.cutAngleDegrees.rounded()
             ? "\(Int(t.cutAngleDegrees))°"
             : String(format: "%.1f°", t.cutAngleDegrees)
         let dText = t.dOverR == t.dOverR.rounded()
             ? String(format: "%.0f", t.dOverR)
             : String(format: "%.2f", t.dOverR)
+        let isOn = highlighted == t.name
         return HStack(spacing: Spacing.sm) {
             Text(t.name)
                 .font(.btSubheadlineMedium)
-                .foregroundStyle(.btPrimary)
+                .foregroundStyle(isOn ? .btPrimary : .btTextSecondary)
                 .frame(width: 64, alignment: .leading)
             Text("切角 \(angleText)")
                 .font(.btCaption)
@@ -136,7 +195,18 @@ struct AimingMethodsView: View {
             Text("d/R \(dText)")
                 .font(.system(size: 13, weight: .medium, design: .monospaced))
                 .foregroundStyle(.btTextSecondary)
+            if isOn {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.btPrimary)
+                    .accessibilityLabel("当前厚度")
+            }
         }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(isOn ? Color.btPrimaryMuted : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .accessibilityAddTraits(isOn ? .isSelected : [])
     }
 
     // MARK: - Cross refs
@@ -158,6 +228,10 @@ struct AimingMethodsView: View {
             PracticeCTA(title: "打开瞄准修正",
                         destination: "投掷 · 高低杆 · 加塞对瞄准的修正",
                         route: .aimingCorrection)
+
+            PracticeCTA(title: "打开旋转与加塞",
+                        destination: "旋转四态 · 分离角 · 打滑极限",
+                        route: .spinAndEnglish)
         }
     }
 }
@@ -180,9 +254,13 @@ private struct PipeMethodSection: View {
         let result = AimingMethodsGeometry.pipeVerdict(scene: scene,
                                                        trialAngleDeg: CGFloat(effectiveTrialDeg))
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("管道瞄准法（隧道瞄准法）")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+            HStack(alignment: .firstTextBaseline) {
+                Text("管道瞄准法（隧道瞄准法）")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                Spacer(minLength: Spacing.sm)
+                AimingMethodsView.sectionThetaReadout(cutAngleDeg)
+            }
 
             PipeTubesFigure(scene: scene,
                             trialAngleDeg: CGFloat(effectiveTrialDeg),
@@ -204,7 +282,7 @@ private struct PipeMethodSection: View {
             Slider(value: $trialAngleDeg, in: 5...75, step: 1)
                 .tint(.btPrimary)
                 .accessibilityIdentifier("aimingMethods.pipe.trialSlider")
-            Text("拖试瞄角：太厚＝两管相交，太薄＝相离，φ≈θ 时吸附为相切。")
+            Text("拖试瞄角：太厚＝两管相交，太薄＝相离，φ≈θ 时吸附为相切。改页顶 θ 时 φ 跟随到新 θ，默认保持相切。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
 
@@ -214,13 +292,17 @@ private struct PipeMethodSection: View {
                 aimingStep(3, "瞄准正确时两管外切，切点就是接触点 Q。")
             }
 
-            Text("两管外切 ⇔ 母球心到达假想球心 G（球心距 = 2R），与 d = 2R·sin(θ) 等价——管道只是把「打厚打薄」变成看得见的相交与相离。加塞时管道中心随让点修正，见「瞄准修正」。")
+            Text("两管外切 ⇔ 母球心到达假想球心 G（球心距 = 2R）。管道把「打厚打薄」变成看得见的相交与相离。加塞时管道中心随让点修正，见「瞄准修正」。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        // A4：页顶 θ 变化时试瞄角 φ 对齐到新 θ（吸附区内亦为相切）。
+        .onChange(of: cutAngleDeg) { _, newTheta in
+            trialAngleDeg = newTheta
+        }
     }
 
     @ViewBuilder
@@ -339,29 +421,36 @@ private struct PipeTubesFigure: View {
 
 private struct ContactMethodSection: View {
     let cutAngleDeg: Double
-    /// 碰合动画进度：0 = 起点（母球在 C），1 = 碰合（母球心到 G，Pc 与 Pt 重合于 Q）。
-    @State private var mergeProgress: CGFloat = 0
+    /// D-v13-2 / A7：进入即碰合终帧；按钮只负责重播。
+    @State private var mergeProgress: CGFloat = 1
 
     var body: some View {
         let scene = AimingMethodsGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         let mislead = AimingMethodsGeometry.misleadAngleDeg(scene: scene)
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("接触点瞄准法（点对点）")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+            HStack(alignment: .firstTextBaseline) {
+                Text("接触点瞄准法（点对点）")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                Spacer(minLength: Spacing.sm)
+                AimingMethodsView.sectionThetaReadout(cutAngleDeg)
+            }
 
             ContactMergeFigure(scene: scene, progress: mergeProgress)
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+
+            // A7：误差角徽章常显，不依赖播放。
+            misleadAngleBadge(degrees: mislead)
 
             Button {
                 mergeProgress = 0
                 withAnimation(.easeInOut(duration: 1.2)) { mergeProgress = 1 }
             } label: {
                 HStack(spacing: Spacing.sm) {
-                    Image(systemName: mergeProgress >= 1 ? "arrow.counterclockwise" : "play.fill")
+                    Image(systemName: "arrow.counterclockwise")
                         .font(.btFootnote.weight(.semibold))
-                    Text(mergeProgress >= 1 ? "重播碰合过程" : "播放：把两点碰到一起")
+                    Text("重播碰合过程")
                         .font(.btSubheadlineMedium)
                 }
                 .foregroundStyle(Color.btPrimary)
@@ -378,17 +467,29 @@ private struct ContactMethodSection: View {
                 aimingStep(3, "瞄准 = 想象击球把这两个点碰到一起。")
             }
 
-            Text("Pc→Pt 与 C→G 同向等长，「两点碰合」时母球心恰好落在假想球心 G，与 d = 2R·sin(θ) 殊途同归。")
+            Text("Pc→Pt 与 C→G 同向等长；两点碰合时母球心恰好落在假想球心 G。接触点≠瞄准点见「瞄准原理」。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
-
-            Text(String(format: "别「心对点」：灰线让球心直指 Pt，与真瞄准线差约 %.1f°——瞄它必打厚。接触点≠瞄准点见「瞄准原理」。", mislead))
-                .font(.btCaption)
-                .foregroundStyle(.btWarning)
         }
         .padding(Spacing.lg)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+    }
+
+    private func misleadAngleBadge(degrees: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text(String(format: "误差角约 %.1f° · 别「心对点」", degrees))
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btWarning)
+            Text("灰虚线让球心直指 Pt，与真瞄准线夹角如上——瞄它必打厚。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(Spacing.md)
+        .background(Color.btWarning.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .accessibilityIdentifier("aimingMethods.contact.misleadBadge")
     }
 }
 
@@ -479,13 +580,18 @@ private struct ParallelMethodSection: View {
     var body: some View {
         let scene = AimingMethodsGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("平行线瞄准法")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+            HStack(alignment: .firstTextBaseline) {
+                Text("平行线瞄准法")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                Spacer(minLength: Spacing.sm)
+                AimingMethodsView.sectionThetaReadout(cutAngleDeg)
+            }
 
             ParallelContactFigure(scene: scene)
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                .accessibilityIdentifier("aimingMethods.parallel.figure")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 aimingStep(1, "连金线：两球接触点 Pc → Pt。")
@@ -493,7 +599,7 @@ private struct ParallelMethodSection: View {
                 aimingStep(3, "碰撞瞬间两球心关于接触点 Q 点对称。")
             }
 
-            Text("由 Pc→Pt ≡ C→G，白线与母球心→假想球心连线同向重合。拖页顶切角 θ：金线与白线始终平行。")
+            Text("白线与母球心→假想球心连线同向重合；拖页顶切角 θ 时金线与白线始终平行。")
                 .font(.btCaption)
                 .foregroundStyle(.btTextTertiary)
 
@@ -503,10 +609,11 @@ private struct ParallelMethodSection: View {
                 Text("变体：Mosconi 平行线")
                     .font(.btSubheadlineMedium)
                     .foregroundStyle(.btText)
-                MosconiVariantFigure()
+                MosconiVariantFigure(cutAngleDeg: cutAngleDeg)
                     .frame(height: 190)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                Text("过目标球心作进球线，过母球心作平行线；两线间距 δ 即横移量，平移收拢后得瞄准线。与主图同源，只是换了参考线。")
+                    .accessibilityIdentifier("aimingMethods.mosconi.figure")
+                Text("过目标球心作进球线，过母球心作平行线；两线间距 δ 即横移量，平移收拢后得瞄准线。与主图同源，随页顶 θ 变化。")
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)
             }
@@ -518,6 +625,7 @@ private struct ParallelMethodSection: View {
 }
 
 /// 平行线主图：金色 Pc→Pt 连线 + 过母球心的白色平行线（= 瞄准线，指向 G）。
+/// A8：标出 Q（几何上 Q ≡ Pt = (G+T)/2），与正文「点对称」一致。
 private struct ParallelContactFigure: View {
     let scene: AimingMethodsGeometry.Scene
 
@@ -529,6 +637,7 @@ private struct ParallelContactFigure: View {
             let cue = proj.point(x: scene.cue.x, z: scene.cue.y)
             let pt = proj.point(x: scene.targetContact.x, z: scene.targetContact.y)
             let pc = proj.point(x: scene.cueContact.x, z: scene.cueContact.y)
+            let q = proj.point(x: scene.contact.x, z: scene.contact.y)
             let d = proj.ballDiameter
 
             // 金线沿 Pc→Pt 两端各延一点；白平行线过 C 同方向延长。
@@ -551,18 +660,25 @@ private struct ParallelContactFigure: View {
                 BTFigureBall(number: 1, diameter: d).position(target)
                 BTFigureBall(diameter: d).position(cue)
 
-                BTContactDot(diameter: max(4, d * 0.2)).position(pt)
+                BTContactDot(diameter: max(4, d * 0.2)).position(q)
                 Circle()
                     .fill(.white)
                     .overlay(Circle().stroke(FigureLine.contact, lineWidth: 1.2))
                     .frame(width: max(4, d * 0.16), height: max(4, d * 0.16))
                     .position(pc)
 
+                // A8：Q 与点对称提示（Q ≡ Pt）。
+                BTFigureTag(text: "Q（点对称）", color: FigureLine.contact)
+                    .position(x: q.x + d * 0.85, y: q.y - d * 0.75)
+                BTFigureTag(text: "Pt", color: FigureLine.contact)
+                    .position(x: pt.x + d * 0.45, y: pt.y + d * 0.55)
+                BTFigureTag(text: "Pc", color: FigureLine.contact)
+                    .position(x: pc.x - d * 0.45, y: pc.y - d * 0.5)
                 BTFigureTag(text: "接触点连线 Pc→Pt", color: Color.btAccent)
                     .position(alongLabel(from: goldA, to: goldB, t: 0.55, offset: -18))
                 BTFigureTag(text: "瞄准线（平行）")
                     .position(alongLabel(from: aimA, to: aimB, t: 0.30, offset: 20))
-                BTFigureTag(text: "假想球", color: FigureLine.contact)
+                BTFigureTag(text: "假想球 G", color: FigureLine.contact)
                     .position(x: ghost.x + d * 0.4, y: ghost.y + d / 2 + 14)
                 BTFigureTag(text: "母球").position(x: cue.x - d * 0.8, y: cue.y - d / 2 - 12)
             }
@@ -574,12 +690,13 @@ private struct ParallelContactFigure: View {
     }
 }
 
-// MARK: - Mosconi 变体附图（静态 30°；首轮 ParallelAimingFigure 降级保留）
+// MARK: - Mosconi 变体附图（随页顶 θ）
 
 private struct MosconiVariantFigure: View {
+    let cutAngleDeg: Double
+
     var body: some View {
-        let scene = AimingMethodsGeometry.scene(
-            cutAngleDeg: CGFloat(AngleSceneCalculator.halfBall.cutAngleDegrees))
+        let scene = AimingMethodsGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         BTTableFigure(orientation: .landscape,
                       closeup: (center: CGPoint(x: 0.40, y: -0.16), halfHeight: 0.36)) { proj in
             let target = proj.point(x: scene.target.x, z: scene.target.y)
@@ -629,21 +746,31 @@ private struct MosconiVariantFigure: View {
     }
 }
 
-// MARK: - 重合比例（厚薄）补充图：半球（30°）第一人称重叠
+// MARK: - 重合比例（厚薄）补充图：随页顶 θ（overlap = 1 − sinθ）
 
 private struct OverlapAimingFigure: View {
-    private let thickness = AngleSceneCalculator.halfBall
+    let cutAngleDeg: Double
 
     var body: some View {
         let r = CGFloat(AngleSceneCalculator.ballRadius)
-        let angleText = thickness.cutAngleDegrees == thickness.cutAngleDegrees.rounded()
-            ? "\(Int(thickness.cutAngleDegrees))°"
-            : String(format: "%.1f°", thickness.cutAngleDegrees)
+        let overlap = AimingMethodsGeometry.classicOverlap(cutAngleDegrees: cutAngleDeg)
+        let named = AngleSceneCalculator.namedBallThickness(
+            cutAngleDegrees: cutAngleDeg, tolerance: 2.5)
+        let angleText = cutAngleDeg == cutAngleDeg.rounded()
+            ? "\(Int(cutAngleDeg))°"
+            : String(format: "%.1f°", cutAngleDeg)
+        let label: String = {
+            if let named {
+                return "\(named.name) · 切角 \(angleText)"
+            }
+            return String(format: "重合 %.0f%% · 切角 %@", overlap * 100, angleText)
+        }()
 
         return BTTableFigure(orientation: .landscape,
                              closeup: (center: .zero, halfHeight: r * 2.4)) { proj in
             let d = proj.ballDiameter
-            let sep = d * (1 - CGFloat(thickness.overlap))
+            // 视图平面示意：球心水平间距 = 直径 × (1 − overlap)；非 SceneKit 世界坐标。
+            let sep = d * (1 - CGFloat(overlap))
             let target = CGPoint(x: proj.size.width / 2 + sep / 2, y: proj.size.height / 2 - 6)
             let cue = CGPoint(x: proj.size.width / 2 - sep / 2, y: proj.size.height / 2 - 6)
 
@@ -656,7 +783,7 @@ private struct OverlapAimingFigure: View {
                 BTFigureTag(text: "母球")
                     .position(x: cue.x - d * 0.45, y: cue.y + d / 2 + 14)
 
-                Text("\(thickness.name) · 切角 \(angleText)")
+                Text(label)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white.opacity(0.92))
                     .position(x: proj.size.width / 2, y: proj.size.height - 16)

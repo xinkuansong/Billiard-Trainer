@@ -2,17 +2,17 @@ import Foundation
 import SceneKit
 import SwiftUI
 
-/// 「分离角图谱」交互页 VM（v11 Y3）：真台 + 可拖双球 + 8 档 spinY 碰后轨迹。
+/// 「分离角图谱」交互页 VM（v11 Y3 / v15 W1）：真台 + 可拖多球 + 8 档 spinY 碰后轨迹。
 ///
 /// 性能契约：力度/拖球变更 → `SolveDebounceScheduler` ~20ms 去抖 + 单飞 + 末班车；
 /// 后台 `DispatchQueue.concurrentPerform` 并行 8 次 `simulateFree`。
+/// 球库语义对齐「角度与瞄准」：换目标 / 加减障碍 / 母球不可撤（D-v15-1/3）。
 @MainActor
 final class SeparationAngleAtlasViewModel: ObservableObject {
 
     let scene = AngleTrainingScene()
     private var pocketMarkers: [SCNNode] = []
     private var trajectoryNodes: [SCNNode] = []
-    private var labelNodes: [SCNNode] = []
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
     @Published var velocity: Double = ShotTuning.defaultVelocity
@@ -20,9 +20,13 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     @Published private(set) var isDragging = false
     @Published private(set) var isComputing = false
     @Published private(set) var statusText: String?
-    @Published private(set) var showSpinPad = false
 
-    /// 打点盘只读：固定展示中心（spinX=0）；8 点由 overlay 自绘。
+    /// 在桌球键（球库加减）。
+    @Published private(set) var onTableKeys: [String] = []
+    /// 当前目标球键（换号后进球线 / 切角 / 轨迹瞄准随之切换）。
+    @Published private(set) var selectedTargetKey: String?
+
+    /// 右侧仪表柱只读展示中心（spinX/Y=0）；左缘 8 盘图例为真源色序。
     let displaySpinX: Double = 0
     let displaySpinY: Double = 0
 
@@ -48,7 +52,18 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     }
 
     var draggableBalls: [SCNNode] {
-        [scene.cueBallNode, scene.allBallNodes["_8"]].compactMap { $0 }.filter { !$0.isHidden }
+        onTableKeys.compactMap { scene.allBallNodes[$0] }.filter { !$0.isHidden }
+    }
+
+    /// 可点选为目标球的节点（在桌、非母球）。
+    var selectableBalls: [SCNNode] {
+        onTableKeys
+            .filter { !PositionPlayBall.isCue($0) }
+            .compactMap { scene.allBallNodes[$0] }
+    }
+
+    var targetNode: SCNNode? {
+        selectedTargetKey.flatMap { scene.allBallNodes[$0] }
     }
 
     // MARK: - Setup
@@ -71,7 +86,105 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
                        scenePosition: SCNVector3(Float(s.cue.x), y, Float(s.cue.y)))
         scene.showBall(key: "_8",
                        scenePosition: SCNVector3(Float(s.target.x), y, Float(s.target.y)))
+        selectedTargetKey = "_8"
         scene.setCurrentTargetNumber(8)
+        refreshOnTableKeys()
+    }
+
+    // MARK: - Palette (D-v15-1/3：对齐角度与瞄准语义)
+
+    private func refreshOnTableKeys() {
+        onTableKeys = PositionPlayBall.allKeys.filter {
+            !(scene.allBallNodes[$0]?.isHidden ?? true)
+        }
+    }
+
+    /// 从球库上一颗球（自动找空位）；若当前无目标则自动选中非母球。
+    func placeFromPalette(_ key: String) {
+        guard scene.allBallNodes[key]?.isHidden ?? false else { return }
+        guard let pos = freeSlot() else { return }
+        scene.showBall(key: key, scenePosition: pos)
+        refreshOnTableKeys()
+        if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+            selectTarget(key: key)
+        } else {
+            updatePocketHighlights()
+            updateAimVisualization()
+            scheduleRecompute(interactive: false)
+        }
+    }
+
+    /// 从球库拖放到指定世界坐标（落点钳制 + 互斥）。
+    func placeFromPalette(_ key: String, atWorld world: SCNVector3) {
+        guard scene.allBallNodes[key]?.isHidden ?? false else { return }
+        guard let node = scene.allBallNodes[key] else { return }
+        var p = clampBall(world, moving: node)
+        p = AngleSceneCalculator.clampAwayFromPockets(p, surfaceY: scene.surfaceY)
+        scene.showBall(key: key, scenePosition: p)
+        refreshOnTableKeys()
+        if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
+            selectTarget(key: key)
+        } else {
+            updatePocketHighlights()
+            updateAimVisualization()
+            scheduleRecompute(interactive: false)
+        }
+    }
+
+    /// 撤下一颗在桌球（母球不可撤）。
+    func removeFromTable(_ key: String) {
+        guard !PositionPlayBall.isCue(key), onTableKeys.contains(key) else { return }
+        scene.hideBall(key: key)
+        refreshOnTableKeys()
+        if selectedTargetKey == key {
+            selectedTargetKey = onTableKeys.first { !PositionPlayBall.isCue($0) }
+            scene.setCurrentTargetNumber(selectedTargetKey.flatMap { PositionPlayBall.number(for: $0) })
+            selectBestPocket()
+        }
+        updatePocketHighlights()
+        updateAimVisualization()
+        scheduleRecompute(interactive: false)
+    }
+
+    /// 点选目标球（换号后切角 / 轨迹瞄准随之切换）。
+    func selectTarget(key: String) {
+        guard !PositionPlayBall.isCue(key), onTableKeys.contains(key) else { return }
+        selectedTargetKey = key
+        scene.setCurrentTargetNumber(PositionPlayBall.number(for: key))
+        selectBestPocket()
+        updateAimVisualization()
+        scheduleRecompute(interactive: false)
+    }
+
+    /// 点在桌球的球库槽位 → 脉冲提示位置。
+    func pulseTableBall(_ key: String) {
+        guard let node = scene.allBallNodes[key], !node.isHidden else { return }
+        TableBallPulse.pulse(node)
+    }
+
+    private func freeSlot() -> SCNVector3? {
+        let surfaceY = scene.surfaceY
+        let r = AngleSceneCalculator.ballRadius
+        let halfL = AngleSceneCalculator.innerLength / 2
+        let halfW = AngleSceneCalculator.innerWidth / 2
+        for x in stride(from: -0.7, through: 0.7, by: 0.2) {
+            for z in stride(from: -0.35, through: 0.35, by: 0.14) {
+                let candidate = SCNVector3(Float(x) * halfL, surfaceY + r, Float(z) * halfW)
+                if !overlapsExisting(candidate) { return candidate }
+            }
+        }
+        return nil
+    }
+
+    private func overlapsExisting(_ pos: SCNVector3) -> Bool {
+        for k in onTableKeys {
+            guard let node = scene.allBallNodes[k], !node.isHidden else { continue }
+            if AngleSceneCalculator.horizontalDistance(pos, node.position)
+                < 2.2 * AngleSceneCalculator.ballRadius {
+                return true
+            }
+        }
+        return false
     }
 
     // MARK: - Pocket
@@ -87,7 +200,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
 
     func selectBestPocket() {
         guard let cue = scene.cueBallNode,
-              let target = scene.allBallNodes["_8"], !target.isHidden else { return }
+              let target = targetNode, !target.isHidden else { return }
         let count = AngleSceneCalculator.pocketPositions(surfaceY: scene.surfaceY).count
         var best = 0
         var bestAngle = Double.greatestFiniteMagnitude
@@ -107,7 +220,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
 
     private func updatePocketHighlights() {
         guard let cue = scene.cueBallNode,
-              let target = scene.allBallNodes["_8"], !target.isHidden else { return }
+              let target = targetNode, !target.isHidden else { return }
         for (i, marker) in pocketMarkers.enumerated() {
             if i == selectedPocketIndex {
                 scene.setPocketHighlight(marker, style: .selected)
@@ -176,18 +289,10 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         return SCNVector3(p.x, scene.surfaceY + r, p.z)
     }
 
-    // MARK: - Velocity / spin pad
+    // MARK: - Velocity
 
     func onVelocityChanged() {
         scheduleRecompute(interactive: false)
-    }
-
-    func toggleSpinPad() {
-        showSpinPad.toggle()
-    }
-
-    func closeSpinPad() {
-        showSpinPad = false
     }
 
     // MARK: - Recompute (debounce + single-flight + last bus)
@@ -262,9 +367,11 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         let target: SCNVector3
     }
 
+    /// 目标球 + 全部障碍球进入 `simulateFree`（D-v15-3）。
     private func currentIntent() -> Intent? {
         guard let cueNode = scene.cueBallNode,
-              let targetNode = scene.allBallNodes["_8"], !targetNode.isHidden,
+              let targetKey = selectedTargetKey,
+              let targetNode = scene.allBallNodes[targetKey], !targetNode.isHidden,
               selectedPocketIndex >= 0 else { return nil }
         let potAim = AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: targetNode.position,
@@ -280,10 +387,20 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         let len = sqrtf(dx * dx + dz * dz)
         guard len > 1e-4 else { return nil }
         let aim = SCNVector3(dx / len, 0, dz / len)
+
+        // 目标球用引擎具名；其余在桌非母球作障碍（真实碰撞体）。
+        var balls: [ObstacleBall] = [
+            ObstacleBall(name: ShotInput.targetBallName, position: targetNode.position)
+        ]
+        for key in onTableKeys where key != targetKey && !PositionPlayBall.isCue(key) {
+            guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
+            balls.append(ObstacleBall(name: key, position: node.position))
+        }
+
         return Intent(
             cue: cueNode.position,
             aim: aim,
-            balls: [ObstacleBall(name: ShotInput.targetBallName, position: targetNode.position)],
+            balls: balls,
             ghost: ghost,
             potAim: potAim,
             target: targetNode.position
@@ -309,9 +426,9 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
 
     private func clearTrajectories() {
         scene.clearResultNodes(nodes: &trajectoryNodes)
-        scene.clearResultNodes(nodes: &labelNodes)
     }
 
+    /// 仅画 8 色碰后轨迹；端点文字标注已退役（v15 A1），改由左缘色盘图例表达。
     private func drawTrajectories(_ paths: [[SCNVector3]]) {
         clearTrajectories()
         for (i, path) in paths.enumerated() where path.count >= 2 {
@@ -320,25 +437,6 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
                 color: SeparationAngleAtlasGeometry.trackColor(at: i),
                 radius: TrajectoryStyle.lineMain,
                 into: &trajectoryNodes)
-        }
-        // 仅两端标注：纯高杆 / 纯低杆
-        if let high = paths.first, high.count >= 2 {
-            let mid = high[high.count / 2]
-            let pos = SCNVector3(mid.x, mid.y + 0.004, mid.z)
-            labelNodes.append(scene.addFlatLabel(
-                text: "纯高杆",
-                at: pos,
-                color: SeparationAngleAtlasGeometry.trackColor(at: 0),
-                fontSize: 16))
-        }
-        if let low = paths.last, low.count >= 2 {
-            let mid = low[low.count / 2]
-            let pos = SCNVector3(mid.x, mid.y + 0.004, mid.z)
-            labelNodes.append(scene.addFlatLabel(
-                text: "纯低杆",
-                at: pos,
-                color: SeparationAngleAtlasGeometry.trackColor(at: SeparationAngleAtlasGeometry.sampleCount - 1),
-                fontSize: 16))
         }
     }
 }

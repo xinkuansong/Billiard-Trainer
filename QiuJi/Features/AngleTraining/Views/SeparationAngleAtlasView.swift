@@ -1,16 +1,24 @@
 import SwiftUI
 import SceneKit
 
-/// 「分离角图谱」（v11 Y3）：学分段交互页——同一杆 8 种高低杆碰后轨迹对比。
+/// 「分离角图谱」（v11 Y3 / v15 W1）：学分段交互页——同一杆 8 种高低杆碰后轨迹对比。
 ///
-/// 布局：`ShotStageProxy` 定高锁桌（G10）+ 右缘 `BTShotInstrumentColumn` 贴边同底（G5）。
-/// 打点盘只读展示 8 个纵向采样点（与 8 色轨迹同色）；力度可调。
+/// 布局：`ShotStageProxy` 定高锁桌（G10）+ 右缘纯力度柱（G5，`onSpinTap=nil`）
+/// + 左缘 8 只读迷你打点盘（`aimWheelFrame`）+ 底栏 `BTBallPaletteBar`（点+拖）。
 struct SeparationAngleAtlasView: View {
     @StateObject private var vm = SeparationAngleAtlasViewModel()
     @State private var hasAppeared = false
 
+    @State private var projector = TableProjector()
+    @State private var draggingKey: String?
+    @State private var dragLocation: CGPoint = .zero
+    @State private var dragOverTable = false
+    @State private var sceneFrame: CGRect = .zero
+    @State private var paletteFrame: CGRect = .zero
+
     private static let topRowHeight = ShotStageMetrics.topRowHeight
-    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.paletteOnly.rawValue
+    private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
+    private static let coordinateSpace = "separationAngleAtlas"
 
     var body: some View {
         GeometryReader { geo in
@@ -27,10 +35,18 @@ struct SeparationAngleAtlasView: View {
                         .frame(height: Self.topRowHeight)
                     stage(proxy)
                         .frame(height: sceneH)
-                    bottomHint
+                    bottomBar(proxy)
                         .frame(height: Self.bottomBarHeight)
                 }
+                if let key = draggingKey {
+                    BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
+                }
             }
+        }
+        .coordinateSpace(name: Self.coordinateSpace)
+        .onPreferenceChange(BTShotPageFramePreference.self) { frames in
+            if let s = frames["scene"] { sceneFrame = s }
+            if let p = frames["palette"] { paletteFrame = p }
         }
         .navigationTitle("分离角图谱")
         .navigationBarTitleDisplayMode(.inline)
@@ -110,15 +126,36 @@ struct SeparationAngleAtlasView: View {
                 draggableBallNodes: vm.draggableBalls,
                 onDragBegan: { vm.dragBegan(node: $0) },
                 onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
-                onDragEnded: { vm.dragEnded(node: $0) }
+                onDragEnded: { vm.dragEnded(node: $0) },
+                onDragEndedAt: { node, localPoint in
+                    handleTableDragEnd(node: node, localPoint: localPoint)
+                },
+                selectableBallNodes: vm.selectableBalls,
+                onBallTapped: { node in
+                    if let key = vm.scene.ballKey(for: node) {
+                        vm.selectTarget(key: key)
+                    }
+                },
+                projector: projector
             )
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(frameReader(id: "scene"))
             .clipped()
 
             if proxy.isValid {
+                // A2：左缘 8 只读迷你打点盘（高→低自上而下，与 spinYLevels / trackColors 同序）
+                SeparationAngleAtlasSpinLegend()
+                    .btStageFrame(proxy.aimWheelFrame())
+                    .allowsHitTesting(false)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("separationAngleAtlas.spinLegend")
+                    .zIndex(2)
+
+                // 右缘纯力度柱（打点盘已退役至左缘图例；onSpinTap=nil）
                 BTShotInstrumentColumn(
                     spinX: vm.displaySpinX,
                     spinY: vm.displaySpinY,
-                    onSpinTap: { vm.toggleSpinPad() },
+                    onSpinTap: nil,
                     velocity: $vm.velocity,
                     range: ShotTuning.velocityRange
                 )
@@ -140,12 +177,6 @@ struct SeparationAngleAtlasView: View {
                 }
                 .zIndex(2)
                 .btStageFrame(proxy.instrumentFrame())
-            }
-
-            if vm.showSpinPad {
-                SeparationAngleAtlasSpinPadOverlay(onClose: { vm.closeSpinPad() })
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
 
             // UI 测钩子：SceneKit 叠层下合成拖力度柱不可靠；显式 bump 验证「高力度轨迹变化」。
@@ -174,107 +205,121 @@ struct SeparationAngleAtlasView: View {
                     .zIndex(5)
             }
         }
-        .animation(BTMotion.springPanel, value: vm.showSpinPad)
     }
 
-    // MARK: - Bottom
+    // MARK: - Bottom (BTBallPaletteBar：点击 + 拖放)
 
-    private var bottomHint: some View {
-        Text("拖母球/目标球改切角 · 调力度看分离轨迹 · 打点盘只读展示 8 档")
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(.white.opacity(0.55))
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, Spacing.lg)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(white: 0.11))
-            .overlay(alignment: .top) {
-                Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
-            }
-            .environment(\.colorScheme, .dark)
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        return VStack(spacing: 2) {
+            Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 左缘 8 档色序")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.white.opacity(0.45))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+            BTBallPaletteBar(
+                coordinateSpace: Self.coordinateSpace,
+                ballDiameter: BTBallPaletteMetrics.regularDiameter,
+                libraryWidth: libraryWidth,
+                isOnTable: { vm.onTableKeys.contains($0) },
+                sceneFrame: sceneFrame,
+                unproject: { projector.unproject?($0) },
+                onTap: { key in
+                    if PositionPlayBall.isCue(key), vm.onTableKeys.contains(key) {
+                        vm.pulseTableBall(key)
+                    } else if vm.onTableKeys.contains(key) {
+                        // 角度与瞄准语义：在桌非母球 → 撤下
+                        vm.removeFromTable(key)
+                    } else {
+                        vm.placeFromPalette(key)
+                    }
+                },
+                onPlace: { key, world in
+                    if let world { vm.placeFromPalette(key, atWorld: world) }
+                    else { vm.placeFromPalette(key) }
+                },
+                draggingKey: $draggingKey,
+                dragLocation: $dragLocation,
+                dragOverTable: $dragOverTable
+            )
+        }
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 4)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(white: 0.11))
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.08)).frame(height: 1)
+        }
+        .background(frameReader(id: "palette"))
+        .environment(\.colorScheme, .dark)
     }
-}
 
-// MARK: - Read-only 8-dot spin pad
+    // MARK: - Table ball dragged back to palette → remove
 
-/// 只读打点盘：纵向 8 个采样点与页内色板同色对应，不可拖（D-v11-3）。
-private struct SeparationAngleAtlasSpinPadOverlay: View {
-    var onClose: () -> Void
+    private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
+        guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
+                                               sceneFrame: sceneFrame,
+                                               paletteFrame: paletteFrame),
+              let key = vm.scene.ballKey(for: node) else { return }
+        vm.removeFromTable(key)
+    }
 
-    var body: some View {
-        ZStack(alignment: .bottom) {
-            Color.black.opacity(0.001)
-                .contentShape(Rectangle())
-                .onTapGesture { onClose() }
-            VStack(spacing: Spacing.sm) {
-                Text("8 档打点（只读）")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.85))
-                SeparationAngleAtlasSpinPad()
-                    .frame(width: 140, height: 140)
-                    .accessibilityIdentifier("separationAngleAtlas.spinPad")
-                Text("高杆 ↑ · 低杆 ↓ · 与台面轨迹同色")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.5))
-            }
-            .padding(Spacing.md)
-            .background {
-                RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
-                    .fill(Color.black.opacity(0.22))
-                    .background(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
-                        .fill(.ultraThinMaterial.opacity(0.5)))
-                    .environment(\.colorScheme, .dark)
-            }
-            .overlay(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
-                .strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
-            .padding(.bottom, 80)
-            .environment(\.colorScheme, .dark)
+    private func frameReader(id: String) -> some View {
+        GeometryReader { geo in
+            Color.clear.preference(key: BTShotPageFramePreference.self,
+                                   value: [id: geo.frame(in: .named(Self.coordinateSpace))])
         }
     }
 }
 
-private struct SeparationAngleAtlasSpinPad: View {
-    private let miscue = Double(CuePhysics.miscueLimitFraction)
-    private let pull = Double(CuePhysics.tipContactPullFactor)
+// MARK: - Left-edge read-only 8 mini spin pads (A2 / D-v15-2)
+
+/// 左缘竖列 8 个迷你只读打点盘：每档一点、与 `trackColors`/spinY 档一一对应。
+/// 高杆（index 0）在上 → 低杆（index 7）在下，与 `spinYLevels()` 同序。
+private struct SeparationAngleAtlasSpinLegend: View {
     private let levels = SeparationAngleAtlasGeometry.spinYLevels()
+    private let pull = Double(CuePhysics.tipContactPullFactor)
+    private let miscue = Double(CuePhysics.miscueLimitFraction)
 
     var body: some View {
         GeometryReader { geo in
-            let size = min(geo.size.width, geo.size.height)
-            let cx = geo.size.width / 2, cy = geo.size.height / 2
-            let ballR = size / 2 - 2
-            let placementLimit = miscue / pull
-            let miscueR = ballR * CGFloat(placementLimit)
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
-                                         center: .init(x: 0.38, y: 0.34),
-                                         startRadius: 2, endRadius: ballR * 2))
-                    .overlay(Circle().stroke(.white.opacity(0.5), lineWidth: 1))
-                    .frame(width: ballR * 2, height: ballR * 2)
-                    .position(x: cx, y: cy)
-                Path { p in
-                    p.move(to: CGPoint(x: cx, y: cy - ballR))
-                    p.addLine(to: CGPoint(x: cx, y: cy + ballR))
-                    p.move(to: CGPoint(x: cx - ballR, y: cy))
-                    p.addLine(to: CGPoint(x: cx + ballR, y: cy))
-                }
-                .stroke(.black.opacity(0.14), lineWidth: 1)
-                Circle()
-                    .stroke(.black.opacity(0.32), style: StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                    .frame(width: miscueR * 2, height: miscueR * 2)
-                    .position(x: cx, y: cy)
-                ForEach(0..<levels.count, id: \.self) { i in
-                    let sy = Double(levels[i])
-                    let placeY = sy / pull
-                    let dy = -CGFloat(placeY) * ballR
-                    Circle()
-                        .fill(Color(uiColor: SeparationAngleAtlasGeometry.trackColor(at: i)))
-                        .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 1))
-                        .frame(width: 10, height: 10)
-                        .position(x: cx, y: cy + dy)
+            let count = levels.count
+            let spacing: CGFloat = 3
+            let pad = max(min(geo.size.width - 2, (geo.size.height - spacing * CGFloat(count - 1)) / CGFloat(count)), 16)
+            VStack(spacing: spacing) {
+                ForEach(0..<count, id: \.self) { i in
+                    miniPad(index: i, size: pad)
                 }
             }
-            .allowsHitTesting(false)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
+        .accessibilityLabel("8 档高低杆色序图例，高杆在上低杆在下")
+    }
+
+    private func miniPad(index: Int, size: CGFloat) -> some View {
+        let sy = Double(levels[index])
+        let placeY = sy / pull
+        let ballR = size / 2 - 1
+        let placementLimit = miscue / pull
+        let dy = -CGFloat(placeY) * ballR
+        return ZStack {
+            Circle()
+                .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
+                                     center: .init(x: 0.38, y: 0.34),
+                                     startRadius: 1, endRadius: ballR * 2))
+                .overlay(Circle().stroke(.white.opacity(0.45), lineWidth: 0.8))
+            Circle()
+                .stroke(.black.opacity(0.28), style: StrokeStyle(lineWidth: 0.7, dash: [2, 2]))
+                .frame(width: ballR * 2 * CGFloat(placementLimit),
+                       height: ballR * 2 * CGFloat(placementLimit))
+            Circle()
+                .fill(Color(uiColor: SeparationAngleAtlasGeometry.trackColor(at: index)))
+                .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 0.8))
+                .frame(width: max(size * 0.22, 4), height: max(size * 0.22, 4))
+                .offset(y: dy)
+        }
+        .frame(width: size, height: size)
+        .accessibilityIdentifier("separationAngleAtlas.spinLegend.\(index)")
+        .allowsHitTesting(false)
     }
 }

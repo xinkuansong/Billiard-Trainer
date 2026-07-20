@@ -98,6 +98,20 @@ struct AimingMethodsGeometry {
         return (d, trialAngleDeg < scene.cutAngleDeg ? .tooThick : .tooThin)
     }
 
+    // MARK: - Classic ball thickness (overlap ↔ θ)
+
+    /// 经典球厚度：`overlap = 1 − sin(θ°)`，与 `NamedBallThickness` 恒等式一致。
+    /// θ 钳到 [0°, 90°]；坐标系无关（标量恒等式）。
+    static func classicOverlap(cutAngleDegrees: Double) -> Double {
+        let clamped = min(90, max(0, cutAngleDegrees))
+        return 1 - sin(clamped * .pi / 180)
+    }
+
+    /// 瞄准线横移（球半径单位）：`d/R = 2·sin(θ) = 2·(1 − overlap)`。
+    static func classicDOverR(cutAngleDegrees: Double) -> Double {
+        2 * (1 - classicOverlap(cutAngleDegrees: cutAngleDegrees))
+    }
+
     // MARK: - Contact-point method
 
     /// 「心对点」误导角：球心直指 Pt 的方向与真瞄准线 C→G 的夹角（度）。
