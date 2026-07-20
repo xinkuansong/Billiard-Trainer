@@ -18,6 +18,7 @@
 
 ## 当前状态
 
+- **问题集合 v16 立项 ⏳（2026-07-20，Orchestrator，纯文档，待用户拍板）**：练习 Tab 产品化——用户认可功能/UI 现状、要求增强产品属性；主控 6 方向分析（状态层/技能分/每日挑战/入口收敛/闭环补边/首次诊断）后按 `/issue-collection-restructure` 落成**《问题集合_v16.md》**（本轮需求真源）。核心诊断：练习 Tab 为静态工具箱、成绩数据不回流首页（违 docs/01 §4「数据回灌」护城河）。批次 **B1 状态层地基 → B2 每日挑战+streak+分享卡 ∥ B5 练→学深链 → B3 技能分 → B4 诊断测试**；P4 入口收敛与解→打存为练习默认缓做。锚点全部读码核实（AngleHomeView/AngleTestResult/AngleHistoryViewModel/AdaptiveQuestionEngine/AngleUsageLimiter/ShareCardImageRenderer/PracticeStorageKey）。**待用户拍板 D-v16-1～7**（范围与优先序/弱项数据源/挑战形态/技能分口径/深链映射/入口收敛/执行模型）。**下一步：用户裁决拍板项后按 B1 开工。**
 - **问题集合 v14 全部批次收官 ✅（2026-07-20，plan-delegated-execution：全程 cursor-grok-4.5-high-fast，B1–B3 均 0 轮返工）**：六文档学页壳统一——B1 组件（`LearnDocSectionCard`/`LearnDocText`/`LearnControlStrip`/`LearnDocTextLink`/`LearnDocFormulaNest`）+ B2 交互四页接壳 + B3 原理/球感接壳与公式降级 + 六页巡游取证。**主控验收 B3**：diff 亲读（无越界两沙盘）、落盘 build/单测 4/0/`testAngleLearningPages` 明暗绿亲核、原理/球感/公式截图目视、主树 `make build` SUCCEEDED。真源升 v14.5。证据 `build/v14-b{2,3}-*`。**下一步：无未完成问题集合批次；可选提交 v14 全量改动，或开新议题/动作库 R1 等。**
 - **问题集合 v15 全部批次收官 ✅（2026-07-20）**：分离角图谱 W1。真源升 v15.4。
 - **问题集合 v13 全部批次收官 ✅（2026-07-20）**：瞄准方法诚实性收口。真源升 v13.3。

@@ -26,17 +26,48 @@ final class TableModelLoader {
         "_8", "_9", "_10", "_11", "_12", "_13", "_14", "_15"
     ]
 
-    // MARK: - Public
+    // MARK: - Model Scene Cache
 
-    static func loadTable() -> TableModel? {
+    /// 解析 94 MB 的 TaiQiuZhuo.usdz 需要数秒（同步磁盘 IO + 网格/贴图解码），
+    /// 是所有 2D/3D 球桌页进页卡顿的根因。这里缓存解析结果（进程级、只读原型），
+    /// 每次 `loadTable()` 从原型 clone + 几何/材质副本（毫秒级）。
+    /// 锁同时串行化「加载缓存」与「从缓存 clone」——SceneKit 未承诺跨线程
+    /// 并发访问同一节点树安全（缩略图渲染、视频导出会在后台线程调用）。
+    private static let cacheLock = NSLock()
+    private static var cachedModelScene: SCNScene?
+
+    /// App 启动时后台预热：把 USDZ 解析挪出「首次进球桌页」的主线程临界区。
+    /// 可从任意线程调用；已缓存时为 no-op。
+    static func preloadModel() {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+        if cachedModelScene == nil {
+            cachedModelScene = parseModelScene()
+        }
+    }
+
+    /// 必须在持有 `cacheLock` 时调用。
+    private static func cachedOrParsedModelScene() -> SCNScene? {
+        if let scene = cachedModelScene { return scene }
+        let scene = parseModelScene()
+        cachedModelScene = scene
+        return scene
+    }
+
+    private static func parseModelScene() -> SCNScene? {
         guard let url = Bundle.main.url(forResource: "TaiQiuZhuo", withExtension: "usdz") else {
             return nil
         }
+        return try? SCNScene(url: url, options: [.checkConsistency: true])
+    }
 
-        let modelScene: SCNScene
-        do {
-            modelScene = try SCNScene(url: url, options: [.checkConsistency: true])
-        } catch {
+    // MARK: - Public
+
+    static func loadTable() -> TableModel? {
+        cacheLock.lock()
+        defer { cacheLock.unlock() }
+
+        guard let modelScene = cachedOrParsedModelScene() else {
             return nil
         }
 
@@ -51,7 +82,9 @@ final class TableModelLoader {
         }
 
         for child in modelScene.rootNode.childNodes {
-            container.addChildNode(child.clone())
+            let instance = child.clone()
+            deepCopyGeometryAndMaterials(in: instance)
+            container.addChildNode(instance)
         }
 
         let visualNode = SCNNode()
@@ -248,6 +281,21 @@ final class TableModelLoader {
             }
         }
         return nil
+    }
+
+    /// `SCNNode.clone()` 共享 geometry / material 实例。缓存原型后，下游会按管线
+    /// 就地改材质（plain/studio 台呢 tint 不同、球面加 shader modifier），若不隔离
+    /// 会串扰到原型和其他场景实例。这里给每个实例做 geometry + material 浅拷贝：
+    /// 顶点数据与贴图 contents 仍共享（重资产零复制），仅材质参数独立。
+    private static func deepCopyGeometryAndMaterials(in node: SCNNode) {
+        if let geometry = node.geometry {
+            let geoCopy = geometry.copy() as! SCNGeometry
+            geoCopy.materials = geometry.materials.map { $0.copy() as! SCNMaterial }
+            node.geometry = geoCopy
+        }
+        for child in node.childNodes {
+            deepCopyGeometryAndMaterials(in: child)
+        }
     }
 
     // MARK: - Helpers

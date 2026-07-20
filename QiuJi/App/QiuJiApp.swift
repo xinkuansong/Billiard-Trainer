@@ -52,6 +52,14 @@ struct QiuJiApp: App {
                     await subscriptionManager.checkEntitlements()
                 }
                 .task {
+                    // 预热球桌 USDZ 模型缓存：解析 94 MB 模型需数秒，若留到首次进
+                    // 2D/3D 球桌页会同步阻塞主线程（进页卡顿根因）。启动即在后台
+                    // 线程解析入缓存，之后各页 setupScene 只做毫秒级 clone。
+                    await Task.detached(priority: .userInitiated) {
+                        TableModelLoader.preloadModel()
+                    }.value
+                }
+                .task {
                     // 预热击球音频引擎：AVAudioEngine 首次冷启动会同步阻塞主线程，
                     // 若发生在首杆触球瞬间会让跟杆动画先于球体推进（视觉上球杆穿过母球）。
                     // 启动后延迟一拍预热，把这次冷启动挪出「首次击球」的动画临界区。
