@@ -17,6 +17,11 @@ struct AimingMethodsView: View {
         ScrollView {
             VStack(spacing: Spacing.xxl) {
                 introSection
+                LearnControlStrip.Theta(
+                    cutAngleDeg: $cutAngleDeg,
+                    caption: "拖动切角 θ：管道 / 接触点 / 平行线 / Mosconi / 厚薄同步。默认 30°（半球）。",
+                    accessibilityIdentifier: "aimingMethods.thetaSlider"
+                )
                 PipeMethodSection(cutAngleDeg: cutAngleDeg)
                 ContactMethodSection(cutAngleDeg: cutAngleDeg)
                 ParallelMethodSection(cutAngleDeg: cutAngleDeg)
@@ -35,14 +40,8 @@ struct AimingMethodsView: View {
     // MARK: - Intro + shared θ
 
     private var introSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("三种常用瞄准法")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text("「瞄准原理」里的角度瞄准法：先读出切角 θ，再用 d = 2R·sin(θ) 翻成瞄准点。下面三种方法与它同一套几何，只是换了「怎么看见」——殊途同归，都落到 d = 2R·sin(θ)。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+        LearnDocSectionCard(title: "三种常用瞄准法") {
+            LearnDocText.body("「瞄准原理」里的角度瞄准法：先读出切角 θ，再用 d = 2R·sin(θ) 翻成瞄准点。下面三种方法与它同一套几何，只是换了「怎么看见」——殊途同归，都落到 d = 2R·sin(θ)。")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 methodSummaryRow("管道法", "把瞄准线、进球线扩成圆管，用相切代替点瞄准")
@@ -53,29 +52,7 @@ struct AimingMethodsView: View {
             // A6：本页符号图例（子集与 SPEC §8.8 一致）。
             symbolLegend
                 .accessibilityIdentifier("aimingMethods.symbolLegend")
-
-            Text("拖动切角 θ：管道 / 接触点 / 平行线 / Mosconi 变体 / 厚薄示意同步变化。默认 30°（半球）。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
-
-            Divider()
-
-            HStack {
-                Text("切角 θ")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btText)
-                Spacer()
-                Text("\(Int(cutAngleDeg))°")
-                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.btPrimary)
-            }
-            Slider(value: $cutAngleDeg, in: 5...75, step: 1)
-                .tint(.btPrimary)
-                .accessibilityIdentifier("aimingMethods.thetaSlider")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     /// A6：开篇符号图例——仅本页出场符号，口径对齐 SPEC §8.8。
@@ -139,7 +116,7 @@ struct AimingMethodsView: View {
     private func overlapSection(cutAngleDeg: Double) -> some View {
         let nearest = AngleSceneCalculator.namedBallThickness(
             cutAngleDegrees: cutAngleDeg, tolerance: 2.5)
-        return VStack(alignment: .leading, spacing: Spacing.lg) {
+        return LearnDocSectionCard {
             HStack(alignment: .firstTextBaseline) {
                 Text("补充：重合比例法（厚薄法）")
                     .font(.btTitle)
@@ -154,9 +131,7 @@ struct AimingMethodsView: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("aimingMethods.overlap.figure")
 
-            Text("俯身时不估 θ，改看母球与目标球在视线方向上的重合比例（厚度）：叠得越多球越厚、θ 越小。图随页顶 θ 连续变化。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("俯身时不估 θ，改看母球与目标球在视线方向上的重合比例（厚度）：叠得越多球越厚、θ 越小。图随页顶 θ 连续变化。")
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 thicknessRow(AngleSceneCalculator.threeQuarterBall, highlighted: nearest?.name)
@@ -165,13 +140,8 @@ struct AimingMethodsView: View {
             }
             .accessibilityIdentifier("aimingMethods.overlap.table")
 
-            Text("sin(θ) = 1 − 重合比例，故 d/R = 2·(1 − 重合比例)。数值与「瞄准点对照表」同一口径；靠近命名厚度时表行高亮。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("sin(θ) = 1 − 重合比例，故 d/R = 2·(1 − 重合比例)。数值与「瞄准点对照表」同一口径；靠近命名厚度时表行高亮。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func thicknessRow(_ t: AngleSceneCalculator.NamedBallThickness,
@@ -211,15 +181,12 @@ struct AimingMethodsView: View {
 
     // MARK: - Cross refs
 
+    /// D-v14-6：页末 PracticeCTA 大卡 ≤2；其余轻量文字链。
     private var crossRefsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("相关页面")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
-
-            PracticeCTA(title: "回看角度瞄准法",
-                        destination: "瞄准原理 · 切角与 d = 2R·sin(θ)",
-                        route: .aimingPrinciple)
 
             PracticeCTA(title: "打开瞄准点对照表",
                         destination: "常用角度的瞄准点速查",
@@ -229,9 +196,13 @@ struct AimingMethodsView: View {
                         destination: "投掷 · 高低杆 · 加塞对瞄准的修正",
                         route: .aimingCorrection)
 
-            PracticeCTA(title: "打开旋转与加塞",
-                        destination: "旋转四态 · 分离角 · 打滑极限",
-                        route: .spinAndEnglish)
+            LearnDocTextLink(title: "回看角度瞄准法",
+                             subtitle: "瞄准原理 · 切角与 d = 2R·sin(θ)",
+                             route: .aimingPrinciple)
+
+            LearnDocTextLink(title: "打开旋转与加塞",
+                             subtitle: "旋转四态 · 分离角 · 打滑极限",
+                             route: .spinAndEnglish)
         }
     }
 }
@@ -253,7 +224,7 @@ private struct PipeMethodSection: View {
         let scene = AimingMethodsGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         let result = AimingMethodsGeometry.pipeVerdict(scene: scene,
                                                        trialAngleDeg: CGFloat(effectiveTrialDeg))
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        LearnDocSectionCard {
             HStack(alignment: .firstTextBaseline) {
                 Text("管道瞄准法（隧道瞄准法）")
                     .font(.btTitle)
@@ -270,21 +241,8 @@ private struct PipeMethodSection: View {
 
             verdictBadge(result)
 
-            HStack {
-                Text("试瞄角 φ")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btText)
-                Spacer()
-                Text("\(Int(effectiveTrialDeg))°")
-                    .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(result.verdict == .tangent ? .btSuccess : .btText)
-            }
-            Slider(value: $trialAngleDeg, in: 5...75, step: 1)
-                .tint(.btPrimary)
-                .accessibilityIdentifier("aimingMethods.pipe.trialSlider")
-            Text("拖试瞄角：太厚＝两管相交，太薄＝相离，φ≈θ 时吸附为相切。改页顶 θ 时 φ 跟随到新 θ，默认保持相切。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            // L5：局部试瞄 φ —— 视觉与页顶全局 θ 条区分（次级底 + 「局部/试瞄」标注）。
+            trialPhiControls(result: result)
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 aimingStep(1, "把进球线、瞄准线各扩成半径 = 球半径 R 的管道（管宽恰好一个球径）。")
@@ -292,17 +250,55 @@ private struct PipeMethodSection: View {
                 aimingStep(3, "瞄准正确时两管外切，切点就是接触点 Q。")
             }
 
-            Text("两管外切 ⇔ 母球心到达假想球心 G（球心距 = 2R）。管道把「打厚打薄」变成看得见的相交与相离。加塞时管道中心随让点修正，见「瞄准修正」。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("两管外切 ⇔ 母球心到达假想球心 G（球心距 = 2R）。管道把「打厚打薄」变成看得见的相交与相离。加塞时管道中心随让点修正，见「瞄准修正」。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         // A4：页顶 θ 变化时试瞄角 φ 对齐到新 θ（吸附区内亦为相切）。
         .onChange(of: cutAngleDeg) { _, newTheta in
             trialAngleDeg = newTheta
         }
+    }
+
+    /// 局部试瞄角 φ 控件（非 LearnControlStrip.Theta，避免与全局 θ 混淆）。
+    private func trialPhiControls(
+        result: (distance: CGFloat, verdict: AimingMethodsGeometry.PipeVerdict)
+    ) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                Text("局部试瞄")
+                    .font(.btCaption2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.btAccent)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(Color.btAccent.opacity(0.14), in: Capsule())
+                Text("仅本管道节 · 不改页顶 θ")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+
+            LearnControlStrip.ReadoutRow(
+                label: "试瞄角 φ",
+                value: "\(Int(effectiveTrialDeg))°",
+                labelEmphasis: .secondary,
+                valueSize: 15,
+                valueColor: result.verdict == .tangent ? .btSuccess : .btAccent
+            )
+            Slider(value: $trialAngleDeg, in: 5...75, step: 1)
+                .tint(.btAccent)
+                .accessibilityIdentifier("aimingMethods.pipe.trialSlider")
+            Text("拖试瞄角：太厚＝两管相交，太薄＝相离，φ≈θ 时吸附为相切。改页顶 θ 时 φ 跟随到新 θ，默认保持相切。")
+                .learnDocFootnoteStyle()
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.btBGTertiary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: BTRadius.md)
+                .stroke(Color.btAccent.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
+        )
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("aimingMethods.pipe.trialControls")
     }
 
     @ViewBuilder
@@ -427,7 +423,7 @@ private struct ContactMethodSection: View {
     var body: some View {
         let scene = AimingMethodsGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         let mislead = AimingMethodsGeometry.misleadAngleDeg(scene: scene)
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        LearnDocSectionCard {
             HStack(alignment: .firstTextBaseline) {
                 Text("接触点瞄准法（点对点）")
                     .font(.btTitle)
@@ -467,13 +463,8 @@ private struct ContactMethodSection: View {
                 aimingStep(3, "瞄准 = 想象击球把这两个点碰到一起。")
             }
 
-            Text("Pc→Pt 与 C→G 同向等长；两点碰合时母球心恰好落在假想球心 G。接触点≠瞄准点见「瞄准原理」。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("Pc→Pt 与 C→G 同向等长；两点碰合时母球心恰好落在假想球心 G。接触点≠瞄准点见「瞄准原理」。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func misleadAngleBadge(degrees: CGFloat) -> some View {
@@ -579,7 +570,7 @@ private struct ParallelMethodSection: View {
 
     var body: some View {
         let scene = AimingMethodsGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        LearnDocSectionCard {
             HStack(alignment: .firstTextBaseline) {
                 Text("平行线瞄准法")
                     .font(.btTitle)
@@ -599,9 +590,7 @@ private struct ParallelMethodSection: View {
                 aimingStep(3, "碰撞瞬间两球心关于接触点 Q 点对称。")
             }
 
-            Text("白线与母球心→假想球心连线同向重合；拖页顶切角 θ 时金线与白线始终平行。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("白线与母球心→假想球心连线同向重合；拖页顶切角 θ 时金线与白线始终平行。")
 
             Divider()
 
@@ -613,14 +602,9 @@ private struct ParallelMethodSection: View {
                     .frame(height: 190)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                     .accessibilityIdentifier("aimingMethods.mosconi.figure")
-                Text("过目标球心作进球线，过母球心作平行线；两线间距 δ 即横移量，平移收拢后得瞄准线。与主图同源，随页顶 θ 变化。")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
+                LearnDocText.footnote("过目标球心作进球线，过母球心作平行线；两线间距 δ 即横移量，平移收拢后得瞄准线。与主图同源，随页顶 θ 变化。")
             }
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 }
 
@@ -804,8 +788,7 @@ private func aimingStep(_ n: Int, _ text: String) -> some View {
             .frame(width: 18, height: 18)
             .background(Color.btPrimaryMuted, in: Circle())
         Text(text)
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
+            .learnDocBodyStyle()
     }
 }
 

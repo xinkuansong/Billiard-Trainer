@@ -947,10 +947,12 @@ struct BTShareCard: View {
 | 字色 / 行距 | 主阅读路径 `.btText` + 明确行距（`LearnDocText.bodyLineSpacing` = 5）；脚注 / caption `.btTextSecondary`（`.learnDocFootnoteStyle()`）；禁止整页主文长期灰字墙 | `LearnDocChrome.swift` |
 | 节卡 | 标题层级（section=`btTitle` / subsection=`btHeadline`）+ 内边距 `Spacing.lg` + 圆角 `BTRadius.lg` + 背景 `.btBGSecondary` | `LearnDocSectionCard` |
 | 控件条 | `LearnControlStrip.Theta`（切角 θ，默认 5…75 step 1）+ `LearnControlStrip.LiveAxes`（力度 / 高低杆 / 左右塞，Binding，不绑 ViewModel）+ 可选 `ReadoutRow`；视觉对齐现网方法页 θ / 修正页 `sharedControls` | `LearnControlStrip.swift` |
-| CTA 密度 | 页末 `PracticeCTA` 大卡 **≤2**（D-v14-6）；超出改为文字 `NavigationLink` / chip；学→练优先保留；不新增动作库/蛇彩深链 | `PracticeCTA`（`AngleHomeView`） |
+| CTA 密度 | 页末 `PracticeCTA` 大卡 **≤2**（D-v14-6）；超出改为 `LearnDocTextLink`（文字行 NavigationLink）或 chip；学→练优先保留；不新增动作库/蛇彩深链 | `PracticeCTA`（`AngleHomeView`）；`LearnDocTextLink` |
 | 插图红线 | 继续 `BTTableFigure` / `FigureLine` / 球组件；禁止再私设线色台面比例 | `BTTableFigure.swift` |
+| 局部试瞄 φ | 管道节试瞄角 **不得** 复用 `LearnControlStrip.Theta` 外观冒充全局 θ；须有「局部试瞄」标注 + 次级底区分 | `AimingMethodsView` 管道节 |
+| 公式降级 | 推导 / 速查用 `LearnDocFormulaNest`（`.btBGTertiary` + caption 标题）收拢；节卡可用 `titleLevel: .subsection`；默认不做 Disclosure（公式块＞2 处再局部折叠）；不压「名词 / 切角」同级主阅读权重；**不删**公式内容 | `LearnDocFormulaNest`；`AimingPrincipleView` |
 
-B1 只落组件与本契约；六页业务接壳见 v14 B2/B3。
+B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两页）。
 
 ### 9.4 重叠标注配档表
 
@@ -964,6 +966,8 @@ B1 只落组件与本契约；六页业务接壳见 v14 B2/B3。
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-20 | **问题集合 v14 B3「只读两页接壳 + 六页巡游」**：原理/球感接 `LearnDocSectionCard`+`LearnDocText`；公式/速查→`LearnDocFormulaNest` 次级卡收拢（D-v14-5）；学→练 CTA 保留 + 学页互链 `LearnDocTextLink`；球感全宽出血布局保留；`testAngleLearningPages` 扩 v14-b3 取证帧；§9.3.1 补公式降级口径 | 重构 | AimingPrincipleView, BallFeelView, LearnDocChrome, ScreenshotTourUITests, §9.3.1 | 问题集合 v14 B3 |
+| 2026-07-20 | **问题集合 v14 B2「交互四页接壳」**：方法/修正/旋转/对照表接 `LearnDocSectionCard`+`LearnDocText`；θ→`LearnControlStrip.Theta`、修正三轴→`LiveAxes`、对照表估距→`ReadoutRow`；管道 φ「局部试瞄」条与全局 θ 区分；CTA≤2 + 新增 `LearnDocTextLink`；§9.3.1 补 φ/轻量链口径；UI 测 `testV14B2InteractiveLearnShellShots` | 重构 | AimingMethods/Correction/SpinAndEnglish/ContactPointTable Views, LearnDocChrome, ScreenshotTourUITests, §9.3.1 | 问题集合 v14 B2 |
 | 2026-07-20 | **问题集合 v15 W1「分离角图谱」图例/球库/学卡序**：去台面「纯高杆/纯低杆」；左缘 8 只读迷你打点盘（`aimWheelFrame`）；右缘纯力度柱；底栏接 `BTBallPaletteBar`（点+拖+拖回库）；学卡「角度与瞄准」↔「分离角图谱」对调；§9.3 契约同步 | 修正/重构 | SeparationAngleAtlasView/ViewModel, AngleHomeView, ScreenshotTourUITests, §9.3 | 问题集合 v15 W1 |
 | 2026-07-19 | **问题集合 v14 B1「文档学页壳」组件**：新增 `LearnDocSectionCard` + `LearnDocText`/`learnDocBodyStyle`/`learnDocFootnoteStyle` + `LearnControlStrip`（Theta / LiveAxes / ReadoutRow）；§9.3.1 文档学页壳短契约（字色行距/节卡/控件条/CTA≤2/插图红线/排除两沙盘页）；六学页业务接壳留 B2/B3 | 新增 | LearnDocChrome.swift, LearnControlStrip.swift, LearnDocChromeCompileTests, §9.3.1 | 问题集合 v14 B1 |
 | 2026-07-19 | **问题集合 v13 B2「瞄准方法」教学标注收口**：开篇符号图例（θ/φ/Q/Pt/Pc/G/管道·隧道）；接触点节默认碰合终帧 +「重播碰合过程」+ 误差角徽章常显；平行线主标 Q（点对称）；三节 d=2R·sinθ 等价说明收拢开篇一处；节内「当前 θ = N°」读数（非 sticky）；§8.8 假想球补球心 G；UI 测 `testAimingMethodsInteractions` 增 B2 取证帧 | 修正 | AimingMethodsView, ScreenshotTourUITests, §8.8 | 问题集合 v13 B2 |

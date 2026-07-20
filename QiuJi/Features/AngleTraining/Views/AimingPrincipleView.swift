@@ -1,12 +1,12 @@
 import SwiftUI
 import SceneKit
 
-/// 瞄准原理（问题集合条 1 生产级重组）：
+/// 瞄准原理（问题集合条 1 生产级重组 → v14 B3 文档学页壳）：
 /// ① 名词系统（母球/目标球/假想球/瞄准线/进球线/瞄准点/接触点，配图逐一标注）
 /// ② 为什么用角度瞄准（第三人称角度 → 第一人称瞄准点的转化）
 /// ③ 什么是切角（θ 标在瞄准线与进球线**反向延长线**的夹角处）
-/// ④ 公式推导（d = 2R·sin(θ) 的几何来历，配直角三角形推导图）
-/// ⑤ 核心公式速查 ⑥ 假想球法三步 ⑦ 厚薄球对照 ⑧ 练习导流
+/// ④ 公式推导（D-v14-5：次级卡收拢）⑤ 核心公式速查（同上）
+/// ⑥ 假想球法三步 ⑦ 厚薄球对照 ⑧ 练习导流（D-v14-6：学→练 CTA + 轻量互链）
 struct AimingPrincipleView: View {
     var body: some View {
         ScrollView {
@@ -18,7 +18,7 @@ struct AimingPrincipleView: View {
                 coreFormulaSection
                 ghostBallSection
                 thicknessSection
-                // 学→练导流（T-P18-51）：原理学完 → 抽象估角第 1 步。
+                // 学→练导流（T-P18-51）：原理学完 → 抽象估角第 1 步。大卡 ≤2（本页 1）。
                 PracticeCTA(title: "去练一练",
                             destination: "角度预测 · 检验你的估角直觉",
                             route: .geometricQuiz)
@@ -35,14 +35,8 @@ struct AimingPrincipleView: View {
     // MARK: - Section 1: 名词系统
 
     private var termsSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("名词系统")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text("先统一语言：后面所有页面（学习、训练、对局）都使用同一套名词与同一套线条样式。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+        LearnDocSectionCard(title: "名词系统") {
+            LearnDocText.body("先统一语言：后面所有页面（学习、训练、对局）都使用同一套名词与同一套线条样式。")
 
             AimingFigure(showsGlossaryLabels: true)
                 .frame(height: 250)
@@ -58,22 +52,17 @@ struct AimingPrincipleView: View {
                 termRow("接触点", "碰撞瞬间两球球面相触的点（绿点），在目标球表面、两球心连线上。")
             }
 
-            // P1.3（问题集合 v3）：接触点 ≠ 瞄准点的常见误区提示。
+            // P1.3：接触点 ≠ 瞄准点——误区旁注保持次级色。
             HStack(alignment: .top, spacing: Spacing.sm) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 13))
                     .foregroundStyle(.btAccent)
-                Text("常见误区：从目标球看向袋口方向（沿进球线）时，你在目标球上看到的那个点，其实是击球过程中正确的「母球与目标球的接触点」（绿点），而不是瞄准点（红点）。直接瞄着这个点打，母球会打厚偏离——瞄准点永远在接触点靠外一侧。")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
+                LearnDocText.footnote("常见误区：从目标球看向袋口方向（沿进球线）时，你在目标球上看到的那个点，其实是击球过程中正确的「母球与目标球的接触点」（绿点），而不是瞄准点（红点）。直接瞄着这个点打，母球会打厚偏离——瞄准点永远在接触点靠外一侧。")
             }
             .padding(Spacing.md)
             .background(Color.btAccent.opacity(0.10))
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func termRow(_ term: String, _ desc: String) -> some View {
@@ -83,104 +72,59 @@ struct AimingPrincipleView: View {
                 .foregroundStyle(.btPrimary)
                 .frame(width: 52, alignment: .leading)
             Text(desc)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .learnDocBodyStyle()
         }
     }
 
     // MARK: - Section 2: 为什么用角度瞄准
 
     private var whyAngleSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("为什么用角度瞄准")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+        LearnDocSectionCard(title: "为什么用角度瞄准") {
+            LearnDocText.body("站在球桌旁（第三人称视角），你能看清瞄准线与进球线的夹角 θ——这是对一杆球最客观的描述：θ 越大，球越「薄」，越难打。")
+            LearnDocText.body("但俯身出杆时（第一人称视角），角度消失了：你只能看到母球、目标球和台面。这时能落实的只有一个「点」——瞄准点。")
+            LearnDocText.body("角度瞄准法做的就是这件事：先在第三人称把 θ 看出来，再用几何关系把 θ 翻译成第一人称可执行的瞄准点位置。这座桥梁就是下面的公式 d = 2R × sin(θ)。")
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("站在球桌旁（第三人称视角），你能看清瞄准线与进球线的夹角 θ——这是对一杆球最客观的描述：θ 越大，球越「薄」，越难打。")
-                Text("但俯身出杆时（第一人称视角），角度消失了：你只能看到母球、目标球和台面。这时能落实的只有一个「点」——瞄准点。")
-                Text("角度瞄准法做的就是这件事：先在第三人称把 θ 看出来，再用几何关系把 θ 翻译成第一人称可执行的瞄准点位置。这座桥梁就是下面的公式 d = 2R × sin(θ)。")
-            }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
-
-            // v11 Y1：指向新学页「瞄准方法」（管道 / 厚薄 / 平行线），不改本节结构。
-            NavigationLink(value: AngleRoute.aimingMethods) {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "arrow.right.circle.fill")
-                        .font(.btSubheadlineMedium)
-                        .foregroundStyle(Color.btPrimary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("还有其他瞄准法")
-                            .font(.btSubheadlineMedium)
-                            .foregroundStyle(.btText)
-                        Text("管道 · 接触点 · 平行线 → 瞄准方法")
-                            .font(.btCaption)
-                            .foregroundStyle(.btTextSecondary)
-                    }
-                    Spacer()
-                    Image(systemName: BTIcon.chevronRight)
-                        .font(.btCaption.weight(.semibold))
-                        .foregroundStyle(.btTextTertiary)
-                }
-                .padding(Spacing.md)
-                .background(Color.btPrimaryMuted)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("还有其他瞄准法")
+            // D-v14-6：同「学」互链用轻量文字行，不占 PracticeCTA 大卡配额。
+            LearnDocTextLink(
+                title: "还有其他瞄准法",
+                subtitle: "管道 · 接触点 · 平行线 → 瞄准方法",
+                route: .aimingMethods
+            )
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     // MARK: - Section 3: 什么是切角
 
     private var cutAngleSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("什么是切角 θ")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "什么是切角 θ") {
             AimingFigure(showsGlossaryLabels: false)
                 .frame(height: 250)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            Text("切角 θ 是瞄准线与进球线之间的夹角，范围 0°（正对）到 90°（极薄）。图中把 θ 标注在两条线的反向延长线（虚线）夹角处——两条线在假想球心相交，向后延长后夹角相同、且不与球重叠，读图更清晰。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("切角 θ 是瞄准线与进球线之间的夹角，范围 0°（正对）到 90°（极薄）。图中把 θ 标注在两条线的反向延长线（虚线）夹角处——两条线在假想球心相交，向后延长后夹角相同、且不与球重叠，读图更清晰。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
-    // MARK: - Section 4: 公式推导
+    // MARK: - Section 4: 公式推导（D-v14-5 次级收拢）
 
     private var derivationSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("公式从哪来")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+        LearnDocSectionCard(title: "公式从哪来", titleLevel: .subsection) {
+            LearnDocText.body("知道了切角 θ，就能算出瞄准点偏移量——不必先背公式，先记住「θ → 偏移 → 瞄准点」。")
 
-            DerivationFigure()
-                .frame(height: 210)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            LearnDocFormulaNest(title: "几何推导（速查）") {
+                DerivationFigure()
+                    .frame(height: 210)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                derivationStep(1, "假想球心 G 在进球线的反向延长线上，与目标球心 T 相距恰好 2R（两球相切时球心距 = 两个半径）。")
-                derivationStep(2, "从 T 向瞄准线作垂线，得到直角三角形：斜边 GT = 2R，G 处的夹角就是切角 θ。")
-                derivationStep(3, "直角三角形中「对边 = 斜边 × sin(夹角)」，所以垂线段长 d = 2R × sin(θ)。这条垂线的垂足就是瞄准点：它到目标球心的距离恰好是 d。")
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    derivationStep(1, "假想球心 G 在进球线的反向延长线上，与目标球心 T 相距恰好 2R（两球相切时球心距 = 两个半径）。")
+                    derivationStep(2, "从 T 向瞄准线作垂线，得到直角三角形：斜边 GT = 2R，G 处的夹角就是切角 θ。")
+                    derivationStep(3, "直角三角形中「对边 = 斜边 × sin(夹角)」，所以垂线段长 d = 2R × sin(θ)。这条垂线的垂足就是瞄准点：它到目标球心的距离恰好是 d。")
+                }
+
+                LearnDocText.footnote("这就是为什么知道了角度就能找到瞄准点：θ 决定 sin(θ)，sin(θ) 决定偏移量 d，d 决定瞄准点在过目标球心垂线上的位置。")
             }
-
-            Text("这就是为什么知道了角度就能找到瞄准点：θ 决定 sin(θ)，sin(θ) 决定偏移量 d，d 决定瞄准点在过目标球心垂线上的位置。")
-                .font(.btFootnote)
-                .foregroundStyle(.btTextTertiary)
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func derivationStep(_ n: Int, _ text: String) -> some View {
@@ -191,76 +135,64 @@ struct AimingPrincipleView: View {
                 .frame(width: 18, height: 18)
                 .background(Color.btPrimary, in: Circle())
             Text(text)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .learnDocFootnoteStyle()
         }
     }
 
-    // MARK: - Section 5: 核心公式速查
+    // MARK: - Section 5: 核心公式速查（D-v14-5 次级收拢）
 
     private var coreFormulaSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("核心公式")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+        LearnDocSectionCard(title: "核心公式", titleLevel: .subsection) {
+            LearnDocText.body("实战里最常用的是这一条：把切角翻成瞄准点偏移。")
 
-            HStack {
-                Spacer()
-                Text("d = 2R × sin(θ)")
-                    .font(.system(size: 20, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.btPrimary)
-                    .padding(.horizontal, Spacing.xl)
-                    .padding(.vertical, Spacing.md)
-                    .background(Color.btPrimaryMuted)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-                Spacer()
-            }
+            LearnDocFormulaNest(title: "速查表") {
+                HStack {
+                    Spacer()
+                    Text("d = 2R × sin(θ)")
+                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(.btPrimary)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, Spacing.sm)
+                        .background(Color.btPrimaryMuted)
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                    Spacer()
+                }
 
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                formulaRow("d", "偏移量（瞄准点到目标球心的距离，也等于假想球心的横移量）")
-                formulaRow("R", "球半径（中八 28.575mm）")
-                formulaRow("θ", "切角（0°–90°）")
-                formulaRow("d/R", "= 2sin(θ)，无量纲比")
-            }
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    formulaRow("d", "偏移量（瞄准点到目标球心的距离，也等于假想球心的横移量）")
+                    formulaRow("R", "球半径（中八 28.575mm）")
+                    formulaRow("θ", "切角（0°–90°）")
+                    formulaRow("d/R", "= 2sin(θ)，无量纲比")
+                }
 
-            Divider()
+                formulaExampleCanvas
+                    .frame(height: 140)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            formulaExampleCanvas
-                .frame(height: 140)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                LearnDocText.footnote("30° 示例：sin(30°) = 0.5，d = 2R × 0.5 = R，即假想球中心偏移一个球半径。")
 
-            Text("30° 示例：sin(30°) = 0.5，d = 2R × 0.5 = R，即假想球中心偏移一个球半径。")
-                .font(.btFootnote)
-                .foregroundStyle(.btTextSecondary)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("派生公式")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btText)
-                Text("接触点偏移 = R × sin(θ)")
-                    .font(.system(size: 15, design: .monospaced))
-                    .foregroundStyle(.btTextSecondary)
-                Text("仅描述目标球表面接触点位置，不是瞄准主公式。")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("派生公式")
+                        .font(.btCaption)
+                        .fontWeight(.semibold)
+                        .foregroundStyle(.btTextSecondary)
+                    Text("接触点偏移 = R × sin(θ)")
+                        .font(.system(size: 14, design: .monospaced))
+                        .foregroundStyle(.btTextSecondary)
+                    LearnDocText.footnote("仅描述目标球表面接触点位置，不是瞄准主公式。")
+                }
             }
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func formulaRow(_ symbol: String, _ desc: String) -> some View {
         HStack(alignment: .top, spacing: Spacing.sm) {
             Text(symbol)
-                .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                .font(.system(size: 13, weight: .semibold, design: .monospaced))
                 .foregroundStyle(.btPrimary)
                 .frame(width: 30, alignment: .trailing)
             Text(desc)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .learnDocFootnoteStyle()
         }
     }
 
@@ -271,11 +203,7 @@ struct AimingPrincipleView: View {
     // MARK: - Section 6: Ghost Ball Method
 
     private var ghostBallSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("假想球法（Ghost Ball）")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "假想球法（Ghost Ball）") {
             ghostBallStep(number: 1, title: "确定进球线",
                          description: "连接目标球中心与袋口中心点。")
 
@@ -285,9 +213,6 @@ struct AimingPrincipleView: View {
             ghostBallStep(number: 3, title: "沿瞄准线出杆",
                          description: "母球朝假想球圆心方向出杆。这条瞄准线与「过目标球心的垂线」的交点就是瞄准点（红点）——瞄准线定了，瞄准点随之确定。接触瞬间，白球与目标球连心线与进球线重合。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func ghostBallStep(number: Int, title: String, description: String) -> some View {
@@ -304,9 +229,7 @@ struct AimingPrincipleView: View {
                 Text(title)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
-                Text(description)
-                    .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
+                LearnDocText.body(description)
             }
         }
     }
@@ -314,11 +237,7 @@ struct AimingPrincipleView: View {
     // MARK: - Section 7: Thickness Concept
 
     private var thicknessSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("厚薄球概念")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "厚薄球概念") {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())],
                       spacing: Spacing.lg) {
                 thicknessCard(from: AngleSceneCalculator.fullBall, offset: "0%")
@@ -327,9 +246,6 @@ struct AimingPrincipleView: View {
                 thicknessCard(from: AngleSceneCalculator.thinBall, offset: "100%")
             }
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func thicknessCard(from thickness: AngleSceneCalculator.NamedBallThickness,

@@ -35,118 +35,51 @@ struct AimingCorrectionView: View {
     // MARK: - ① 开篇
 
     private var introSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
+        LearnDocSectionCard {
             Text("理想 vs 现实")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
                 .accessibilityIdentifier("aimingCorrection.intro.title")
 
-            Text("角度瞄准法假设碰撞无摩擦、母球走直线。真实球台两条都不成立：进球线可以固定，但「怎么瞄」会随力度与杆法变化。本页讲三个偏差源——投掷、高低杆对有效厚度的影响、加塞下的挤偏与弧线——以及自动求解如何把它们算进去。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("角度瞄准法假设碰撞无摩擦、母球走直线。真实球台两条都不成立：进球线可以固定，但「怎么瞄」会随力度与杆法变化。本页讲三个偏差源——投掷、高低杆对有效厚度的影响、加塞下的挤偏与弧线——以及自动求解如何把它们算进去。")
 
-            Text("几何瞄准点仍由切角决定（d = 2R·sinθ，详见「瞄准原理」「瞄准方法」）；下面只讲几何之外还要补的那一截。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("几何瞄准点仍由切角决定（d = 2R·sinθ，详见「瞄准原理」「瞄准方法」）；下面只讲几何之外还要补的那一截。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.intro")
     }
 
-    // MARK: - Shared controls（力度 + 高低杆 + 左右塞）
+    // MARK: - Shared controls（力度 + 高低杆 + 左右塞）→ LearnControlStrip.LiveAxes
 
     private var sharedControls: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("实况参数")
-                .font(.btSubheadlineMedium)
-                .foregroundStyle(.btText)
-
-            HStack {
-                Text("力度")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-                Spacer()
-                Text(String(format: "%.1f m/s", vm.velocity))
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.btPrimary)
-            }
-            Slider(
-                value: Binding(
-                    get: { vm.velocity },
-                    set: { vm.setVelocity($0) }
-                ),
-                in: ShotTuning.velocityRange,
-                step: 0.1
-            )
-            .tint(.btPrimary)
-            .accessibilityIdentifier("aimingCorrection.velocitySlider")
-
-            Text("高低杆")
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-            Picker("高低杆", selection: Binding(
+        LearnControlStrip.LiveAxes(
+            velocity: Binding(
+                get: { vm.velocity },
+                set: { vm.setVelocity($0) }
+            ),
+            spinYTier: Binding(
                 get: { vm.spinYTier },
                 set: { vm.setSpinYTier($0) }
-            )) {
-                ForEach(AimingCorrectionMath.SpinYTier.allCases) { tier in
-                    Text(tier.label).tag(tier)
-                }
-            }
-            .pickerStyle(.segmented)
-            .accessibilityIdentifier("aimingCorrection.spinYPicker")
-
-            HStack {
-                Text("左右塞")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-                Spacer()
-                Text(spinXReadout)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.btPrimary)
-            }
-            Slider(
-                value: Binding(
-                    get: { vm.spinX },
-                    set: { vm.setSpinX($0) }
-                ),
-                in: -vm.spinXMaxAbs...max(vm.spinXMaxAbs, 1e-6),
-                step: 0.01
-            )
-            .tint(.btPrimary)
-            .disabled(vm.spinXMaxAbs < 1e-4)
-            .accessibilityIdentifier("aimingCorrection.spinXSlider")
-
-            Text("拖动控件时 ①–④ 节插图按引擎实况实时重算（约 20ms 去抖）。左右塞与高低杆合成幅值钳在打滑极限内（0.5R，与打点盘同口径）。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
-        }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-        .accessibilityElement(children: .contain)
+            ),
+            spinX: Binding(
+                get: { vm.spinX },
+                set: { vm.setSpinX($0) }
+            ),
+            spinXRange: -vm.spinXMaxAbs...max(vm.spinXMaxAbs, 1e-6),
+            spinXDisabled: vm.spinXMaxAbs < 1e-4,
+            footer: "拖动控件时 ①–④ 节插图按引擎实况实时重算（约 20ms 去抖）。左右塞与高低杆合成幅值钳在打滑极限内（0.5R，与打点盘同口径）。",
+            velocityAccessibilityIdentifier: "aimingCorrection.velocitySlider",
+            spinYAccessibilityIdentifier: "aimingCorrection.spinYPicker",
+            spinXAccessibilityIdentifier: "aimingCorrection.spinXSlider"
+        )
         .accessibilityIdentifier("aimingCorrection.controls")
-    }
-
-    private var spinXReadout: String {
-        if abs(vm.spinX) < 0.005 { return "中塞 0" }
-        let side = vm.spinX > 0 ? "左塞" : "右塞"
-        return String(format: "%@ %+.2f", side, vm.spinX)
     }
 
     // MARK: - ① Δ 实况图
 
     private var idealVsRealitySection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("同一局面：几何瞄准 vs 求解瞄准")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text("虚线 = 假想球几何方向（角度瞄准法）；实线 = 自动求解的瞄准方向。两线夹角 Δ 与自动求解读的是同一份引擎数值。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+        LearnDocSectionCard(title: "同一局面：几何瞄准 vs 求解瞄准") {
+            LearnDocText.body("虚线 = 假想球几何方向（角度瞄准法）；实线 = 自动求解的瞄准方向。两线夹角 Δ 与自动求解读的是同一份引擎数值。")
 
             DeltaAimFigure(snapshot: vm.snapshot, setup: vm.setup)
                 .frame(height: 260)
@@ -176,13 +109,8 @@ struct AimingCorrectionView: View {
                     .foregroundStyle(.btWarning)
             }
 
-            Text("中杆中速、小切角时 Δ 往往很小，角度瞄准法够用；大切角、慢速或加塞时，这段偏差必须补偿。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("中杆中速、小切角时 Δ 往往很小，角度瞄准法够用；大切角、慢速或加塞时，这段偏差必须补偿。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section1")
     }
@@ -190,7 +118,7 @@ struct AimingCorrectionView: View {
     // MARK: - ② 投掷效应
 
     private var throwSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        LearnDocSectionCard {
             Text("投掷效应（Throw）")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
@@ -218,20 +146,13 @@ struct AimingCorrectionView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("碰撞瞬间，接触面摩擦把目标球拽离理想进球线——这就是投掷。下图夸大画出了实际离开方向相对进球线的夹角 Δ；离开方向数值与自动求解读的是同一份引擎实况。")
-                Text("切角投掷（CIT）：不加塞也会发生，切角越大越明显、到半球附近最明显（引擎草稿：同速下 30° 切角 1.55° > 15° 切角 1.12°，45° 与半球持平）。塞致投掷（SIT）：左右塞改变接触面相对滑动，目标球离开方向再偏一截——左塞的投掷分量把目标球向右带（引擎草稿核验；净方向还叠加挤偏，见④节）。")
-                Text("力度规律：越慢投掷越大（接触面相对速度越低，摩擦越大）。引擎草稿同局面：慢速投掷 1.454° > 快速 0.793°——轻推薄球容易不进，往往就是投掷把球带离进球线。")
+                LearnDocText.body("碰撞瞬间，接触面摩擦把目标球拽离理想进球线——这就是投掷。下图夸大画出了实际离开方向相对进球线的夹角 Δ；离开方向数值与自动求解读的是同一份引擎实况。")
+                LearnDocText.body("切角投掷（CIT）：不加塞也会发生，切角越大越明显、到半球附近最明显（引擎草稿：同速下 30° 切角 1.55° > 15° 切角 1.12°，45° 与半球持平）。塞致投掷（SIT）：左右塞改变接触面相对滑动，目标球离开方向再偏一截——左塞的投掷分量把目标球向右带（引擎草稿核验；净方向还叠加挤偏，见④节）。")
+                LearnDocText.body("力度规律：越慢投掷越大（接触面相对速度越低，摩擦越大）。引擎草稿同局面：慢速投掷 1.454° > 快速 0.793°——轻推薄球容易不进，往往就是投掷把球带离进球线。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
 
-            Text("切角与假想球几何见「瞄准原理」「瞄准方法」；本节省去复述。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("切角与假想球几何见「瞄准原理」「瞄准方法」；本节省去复述。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section2")
     }
@@ -239,7 +160,7 @@ struct AimingCorrectionView: View {
     // MARK: - ③ 高低杆改变有效厚度
 
     private var thicknessSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        LearnDocSectionCard {
             Text("高低杆改变有效厚度")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
@@ -274,20 +195,13 @@ struct AimingCorrectionView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("同一瞄准点下，上下旋改变碰撞瞬间接触面相对滑动方向，摩擦力水平分量变化，投掷方向跟着变——观感上就像「厚度变了」。")
-                Text("Z1 草稿同局面（v=1.5、无塞）：高杆 bias −0.726° > 中杆 −1.546°（相对中杆更偏薄）；低杆 bias −2.995° < 中杆（相对中杆更偏厚）。正值 = 偏薄侧（符号经 ±1.5° 瞄准扰动标定）。")
-                Text("实战翻译：高杆瞄厚一点、低杆瞄薄一点——补偿的是投掷带来的有效厚度变化，不是几何瞄准点公式本身变了。")
+                LearnDocText.body("同一瞄准点下，上下旋改变碰撞瞬间接触面相对滑动方向，摩擦力水平分量变化，投掷方向跟着变——观感上就像「厚度变了」。")
+                LearnDocText.body("Z1 草稿同局面（v=1.5、无塞）：高杆 bias −0.726° > 中杆 −1.546°（相对中杆更偏薄）；低杆 bias −2.995° < 中杆（相对中杆更偏厚）。正值 = 偏薄侧（符号经 ±1.5° 瞄准扰动标定）。")
+                LearnDocText.body("实战翻译：高杆瞄厚一点、低杆瞄薄一点——补偿的是投掷带来的有效厚度变化，不是几何瞄准点公式本身变了。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
 
-            Text("厚度与切角对照仍见「瞄准点对照表」；本页只讲杆法对有效厚度的修正。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("厚度与切角对照仍见「瞄准点对照表」；本页只讲杆法对有效厚度的修正。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section3")
     }
@@ -295,7 +209,7 @@ struct AimingCorrectionView: View {
     // MARK: - ④ 加塞：挤偏 + 弧线
 
     private var englishSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        LearnDocSectionCard {
             Text("加塞：挤偏与弧线")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
@@ -336,20 +250,13 @@ struct AimingCorrectionView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("挤偏（Squirt）：杆头打在球侧，出杆瞬间母球出发方向偏向加塞反侧——立即发生，与行程和速度基本无关。左塞（spinX>0）挤偏向右（引擎：squirt 为负；Z1 草稿左塞 +0.35 → −1.415°；Z3 同参 −1.232°）。这是三个偏差源里唯一不随力度变的。")
-                Text("弧线（Swerve）：滑动段侧旋与台呢摩擦使轨迹微弯，越慢累积越明显（Z3 草稿组合档：v=0.8 漂移 4.6mm > v=4.0 0.1mm）。注意：平杆纯左右塞时自转轴竖直、轨迹几乎不弯（Z3 草稿 ≈0）——弧线要叠加高低杆（自转轴倾斜）或抬杆仰角才明显（草稿仰角 5° 实测 8.9mm）。无塞时瞄准线、出发方向与碰前轨迹近乎重合；加塞后挤偏使瞄准线与实际出发分离——上图杆指向线（白虚线）、母球实际行进曲线（主色）、假想球位置可对照。")
-                Text("净效果 = 挤偏 + 弧线 + 到达后的塞致投掷（SIT），三者叠加没有简单口诀——所以才需要⑤节的自动求解。")
+                LearnDocText.body("挤偏（Squirt）：杆头打在球侧，出杆瞬间母球出发方向偏向加塞反侧——立即发生，与行程和速度基本无关。左塞（spinX>0）挤偏向右（引擎：squirt 为负；Z1 草稿左塞 +0.35 → −1.415°；Z3 同参 −1.232°）。这是三个偏差源里唯一不随力度变的。")
+                LearnDocText.body("弧线（Swerve）：滑动段侧旋与台呢摩擦使轨迹微弯，越慢累积越明显（Z3 草稿组合档：v=0.8 漂移 4.6mm > v=4.0 0.1mm）。注意：平杆纯左右塞时自转轴竖直、轨迹几乎不弯（Z3 草稿 ≈0）——弧线要叠加高低杆（自转轴倾斜）或抬杆仰角才明显（草稿仰角 5° 实测 8.9mm）。无塞时瞄准线、出发方向与碰前轨迹近乎重合；加塞后挤偏使瞄准线与实际出发分离——上图杆指向线（白虚线）、母球实际行进曲线（主色）、假想球位置可对照。")
+                LearnDocText.body("净效果 = 挤偏 + 弧线 + 到达后的塞致投掷（SIT），三者叠加没有简单口诀——所以才需要⑤节的自动求解。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
 
-            Text("母球旋转状态与分离角见「旋转与加塞」；本页只讲加塞对瞄准线的影响。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("母球旋转状态与分离角见「旋转与加塞」；本页只讲加塞对瞄准线的影响。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section4")
     }
@@ -357,7 +264,7 @@ struct AimingCorrectionView: View {
     // MARK: - ⑤ 求解对比 + 速查表
 
     private var solverCompareSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
+        LearnDocSectionCard {
             Text("自动求解在替你算什么")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
@@ -387,11 +294,7 @@ struct AimingCorrectionView: View {
                 .accessibilityIdentifier("aimingCorrection.compareReadout")
             }
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("收拢①–④：求解器用完整物理链——杆-球碰撞含挤偏 → 滑动/滚动含弧线 → 球-球摩擦碰撞含投掷——反向搜索瞄准方向，使目标球碰后方向正对袋口。力度和塞是搜索输入，每换一档瞄准线重算。上图档 A（中杆中速无塞，v=1.5）与档 B（低杆轻推+左塞，v=0.8 / spinY=−0.4 / spinX=+0.3）各调一次求解，几何基准虚线对照。")
-            }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("收拢①–④：求解器用完整物理链——杆-球碰撞含挤偏 → 滑动/滚动含弧线 → 球-球摩擦碰撞含投掷——反向搜索瞄准方向，使目标球碰后方向正对袋口。力度和塞是搜索输入，每换一档瞄准线重算。上图档 A（中杆中速无塞，v=1.5）与档 B（低杆轻推+左塞，v=0.8 / spinY=−0.4 / spinX=+0.3）各调一次求解，几何基准虚线对照。")
 
             Text("定性速查（方向不给度数；符号均经数值草稿核验）")
                 .font(.btSubheadlineMedium)
@@ -409,9 +312,6 @@ struct AimingCorrectionView: View {
             }
             .accessibilityIdentifier("aimingCorrection.quickref")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section5")
     }
@@ -448,27 +348,28 @@ struct AimingCorrectionView: View {
 
     // MARK: - Cross refs
 
+    /// D-v14-6：页末大卡 ≤2（学→练优先）；同「学」互链改文字行。
     private var crossRefsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Text("相关页面")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            PracticeCTA(
+            LearnDocTextLink(
                 title: "回看瞄准原理",
-                destination: "切入角 · 假想球 · d = 2R·sinθ",
+                subtitle: "切入角 · 假想球 · d = 2R·sinθ",
                 route: .aimingPrinciple
             )
 
-            PracticeCTA(
+            LearnDocTextLink(
                 title: "打开瞄准方法",
-                destination: "管道 · 接触点 · 平行线",
+                subtitle: "管道 · 接触点 · 平行线",
                 route: .aimingMethods
             )
 
-            PracticeCTA(
+            LearnDocTextLink(
                 title: "旋转与加塞",
-                destination: "旋转四态 · 分离角 · 打滑极限",
+                subtitle: "旋转四态 · 分离角 · 打滑极限",
                 route: .spinAndEnglish
             )
         }
@@ -479,15 +380,13 @@ struct AimingCorrectionView: View {
     // MARK: - ⑥ 导流
 
     private var practiceCTASection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
+        LearnDocSectionCard {
             Text("实战启示")
                 .font(.btTitle)
                 .foregroundStyle(.btText)
                 .accessibilityIdentifier("aimingCorrection.section6.title")
 
-            Text("边界感知：中杆中速小切角时，用角度瞄准法通常够用；大切角 + 慢速 + 加塞时，必须让求解（或经验补偿）把投掷、挤偏与弧线算进去。到「思路训练」里换力度与塞，直接看瞄准线怎么动。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("边界感知：中杆中速小切角时，用角度瞄准法通常够用；大切角 + 慢速 + 加塞时，必须让求解（或经验补偿）把投掷、挤偏与弧线算进去。到「思路训练」里换力度与塞，直接看瞄准线怎么动。")
 
             PracticeCTA(
                 title: "去思路训练看实况",
@@ -495,9 +394,6 @@ struct AimingCorrectionView: View {
                 route: .positionPlaySolver
             )
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section6")
     }

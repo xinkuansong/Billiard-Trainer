@@ -18,6 +18,13 @@ struct SpinAndEnglishView: View {
         ScrollView {
             VStack(spacing: Spacing.xxl) {
                 introSection
+                LearnControlStrip.Theta(
+                    cutAngleDeg: $cutAngleDeg,
+                    caption: isHalfBall
+                        ? "默认 30°（半球）。此时示意角与半球口诀一致。"
+                        : "当前非半球：插图为教学折线示意，不声称精确分离角。实战随切角变化见「分离角图谱」。",
+                    accessibilityIdentifier: "spinAndEnglish.thetaSlider"
+                )
                 linkageSection
                 statesSection
                 tipContactSection
@@ -38,22 +45,11 @@ struct SpinAndEnglishView: View {
     // MARK: - Intro
 
     private var introSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("接触瞬间的旋转决定分离角")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
+        LearnDocSectionCard(title: "接触瞬间的旋转决定分离角") {
+            LearnDocText.body("出杆后母球先滑动，再过渡到滚动。真正决定碰后母球走向的，不是你打了高杆还是低杆本身，而是碰到目标球那一瞬间母球处于哪种旋转状态。同一杆几何、不同接触旋转，会走出截然不同的分离角。")
 
-            Text("出杆后母球先滑动，再过渡到滚动。真正决定碰后母球走向的，不是你打了高杆还是低杆本身，而是碰到目标球那一瞬间母球处于哪种旋转状态。同一杆几何、不同接触旋转，会走出截然不同的分离角。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
-
-            Text("本页主轴：旋转状态 → 分离角；左右塞如何改吃库反弹见下文。挤偏、弧线、投掷对瞄准的细修正见「瞄准修正」。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("本页主轴：旋转状态 → 分离角；左右塞如何改吃库反弹见下文。挤偏、弧线、投掷对瞄准的细修正见「瞄准修正」。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.intro")
     }
@@ -63,32 +59,8 @@ struct SpinAndEnglishView: View {
     private var linkageSection: some View {
         let scene = SpinAndEnglishGeometry.scene(cutAngleDeg: CGFloat(cutAngleDeg))
         let sep = SpinAndEnglishGeometry.separationDegrees(scene: scene, state: selectedSpin)
-        return VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("三种旋转 → 三条分离角走向")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text("下图同一杆几何：目标球沿进球线离开；母球碰后先沿切线出发，再按接触时的旋转前弯或后弯。拖动切角可改球形；点选状态可高亮对应轨迹。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
-
-            HStack {
-                Text("切角 θ")
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btText)
-                Spacer()
-                Text("\(Int(cutAngleDeg))°")
-                    .font(.system(size: 16, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.btPrimary)
-            }
-            Slider(value: $cutAngleDeg, in: 5...75, step: 1)
-                .tint(.btPrimary)
-                .accessibilityIdentifier("spinAndEnglish.thetaSlider")
-            Text(isHalfBall
-                 ? "默认 30°（半球）。此时示意角与半球口诀一致。"
-                 : "当前非半球：插图为教学折线示意，不声称精确分离角。实战随切角变化见「分离角图谱」。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+        return LearnDocSectionCard(title: "三种旋转 → 三条分离角走向") {
+            LearnDocText.body("下图同一杆几何：目标球沿进球线离开；母球碰后先沿切线出发，再按接触时的旋转前弯或后弯。拖动切角可改球形；点选状态可高亮对应轨迹。")
 
             Picker("旋转状态", selection: $selectedSpin) {
                 ForEach(SpinAndEnglishGeometry.SpinState.allCases) { state in
@@ -118,20 +90,13 @@ struct SpinAndEnglishView: View {
             .accessibilityIdentifier("spinAndEnglish.sepReadout")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("滑动（stun / 定杆）：接触时几乎无前旋后旋，母球沿切线离开，与进球线夹角约 90°（90° 法则 / 切线法则）。")
-                Text("前旋（高杆 / 自然滚动）：接触时已有前旋或已自然滚动，母球从切线向前弯回瞄准线一侧——半球口诀约 30° 偏离原瞄准线（30° 法则）。")
-                Text("后旋（低杆）：接触时后旋仍在，母球从切线向后弯，分离角大于 90°。")
+                LearnDocText.body("滑动（stun / 定杆）：接触时几乎无前旋后旋，母球沿切线离开，与进球线夹角约 90°（90° 法则 / 切线法则）。")
+                LearnDocText.body("前旋（高杆 / 自然滚动）：接触时已有前旋或已自然滚动，母球从切线向前弯回瞄准线一侧——半球口诀约 30° 偏离原瞄准线（30° 法则）。")
+                LearnDocText.body("后旋（低杆）：接触时后旋仍在，母球从切线向后弯，分离角大于 90°。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
 
-            Text("图上三条路径是教学折线（滑动 90° / 前旋 60° / 后旋 120°，相对进球线），用来记住口诀；实战分离角随切角、力度与滑动→滚动进度连续变化，见「分离角图谱」。App 内辅助线经验修正约为 90°±20°（高杆减小、低杆增大），仅作提示，不参与物理求解。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("图上三条路径是教学折线（滑动 90° / 前旋 60° / 后旋 120°，相对进球线），用来记住口诀；实战分离角随切角、力度与滑动→滚动进度连续变化，见「分离角图谱」。App 内辅助线经验修正约为 90°±20°（高杆减小、低杆增大），仅作提示，不参与物理求解。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.linkage")
     }
@@ -139,11 +104,7 @@ struct SpinAndEnglishView: View {
     // MARK: - Spin states glossary
 
     private var statesSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("母球旋转状态")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "母球旋转状态") {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 stateRow("滑动", "stun：纯平移、几乎无前后旋。中杆、较短距离、偏快力度时常见。")
                 stateRow("自然滚动", "滑动被台呢摩擦「吃掉」后的稳态：线速度与自转匹配，既前进又前旋。")
@@ -151,17 +112,10 @@ struct SpinAndEnglishView: View {
                 stateRow("后旋", "低杆：碰后向后弯（缩杆走位）。后旋也会被摩擦逐渐吃掉。")
             }
 
-            Text("出杆后常见过程：滑动 →（可选）仍带后旋或已前旋 → 最终自然滚动。距离越长、力度越小，越容易在碰到目标球之前进入滚动；短距大力则更常以滑动状态接触。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("出杆后常见过程：滑动 →（可选）仍带后旋或已前旋 → 最终自然滚动。距离越长、力度越小，越容易在碰到目标球之前进入滚动；短距大力则更常以滑动状态接触。")
 
-            Text("切角、假想球与瞄准点本身见「瞄准原理」；本页不重复瞄准几何。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("切角、假想球与瞄准点本身见「瞄准原理」；本页不重复瞄准几何。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.states")
     }
@@ -181,14 +135,8 @@ struct SpinAndEnglishView: View {
     // MARK: - Tip contact → spin
 
     private var tipContactSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("打点如何产生旋转")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text("皮头打在母球正面的不同位置，接触瞬间把不同方向的旋转传给母球：高低打点改前后旋，左右打点改侧旋（加塞）。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+        LearnDocSectionCard(title: "打点如何产生旋转") {
+            LearnDocText.body("皮头打在母球正面的不同位置，接触瞬间把不同方向的旋转传给母球：高低打点改前后旋，左右打点改侧旋（加塞）。")
 
             TipContactFigure(limitFraction: CGFloat(miscueLimit))
                 .frame(height: 200)
@@ -196,19 +144,12 @@ struct SpinAndEnglishView: View {
                 .accessibilityIdentifier("spinAndEnglish.tipFigure")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("高杆 / 低杆：改变接触瞬间的前旋或后旋，从而改变分离角（见上文主轴与「分离角图谱」）。")
-                Text("左塞 / 右塞：改变侧旋。侧旋主要改吃库后的反弹（见下节）；对瞄准线的挤偏、弧线与投掷细修正见「瞄准修正」。")
+                LearnDocText.body("高杆 / 低杆：改变接触瞬间的前旋或后旋，从而改变分离角（见上文主轴与「分离角图谱」）。")
+                LearnDocText.body("左塞 / 右塞：改变侧旋。侧旋主要改吃库后的反弹（见下节）；对瞄准线的挤偏、弧线与投掷细修正见「瞄准修正」。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
 
-            Text("可靠打点须落在打滑极限圈内（约 \(String(format: "%.0f", miscueLimit * 100))% 球半径）；圈外易滑杆，塞不再稳定传递。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("可靠打点须落在打滑极限圈内（约 \(String(format: "%.0f", miscueLimit * 100))% 球半径）；圈外易滑杆，塞不再稳定传递。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.tipContact")
     }
@@ -217,33 +158,22 @@ struct SpinAndEnglishView: View {
 
     private var minimumEnglishSection: some View {
         let pct = Int((miscueLimit * 100).rounded())
-        return VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("最小加塞与打滑极限")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        return LearnDocSectionCard(title: "最小加塞与打滑极限") {
             MiscueLimitFigure(limitFraction: CGFloat(miscueLimit))
                 .frame(height: 180)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 .accessibilityIdentifier("spinAndEnglish.miscueFigure")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("能用中杆 + 高低杆（配合切线 / 30° / 90° 法则）完成的走位，尽量不要加左右塞——这就是最小加塞原则：每多一分塞，就多一分瞄准误差来源。")
-                Text(String(
+                LearnDocText.body("能用中杆 + 高低杆（配合切线 / 30° / 90° 法则）完成的走位，尽量不要加左右塞——这就是最小加塞原则：每多一分塞，就多一分瞄准误差来源。")
+                LearnDocText.body(String(
                     format: "打点偏离球心的可靠上限是母球半径的 %.0f%%（皮头打滑极限）。超过约 %.1fR，皮头容易打滑（滑杆），塞不再稳定传递。App 打点盘把可拖区域钳在这一比例内，与引擎常量一致。",
                     Float(pct), miscueLimit
                 ))
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
 
-            Text("打滑极限与 App 打点盘钳制同一常量（母球半径的 \(String(format: "%.0f", miscueLimit * 100))%）。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("打滑极限与 App 打点盘钳制同一常量（母球半径的 \(String(format: "%.0f", miscueLimit * 100))%）。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.minimumEnglish")
     }
@@ -251,14 +181,8 @@ struct SpinAndEnglishView: View {
     // MARK: - Cushion × sidespin (qualitative)
 
     private var cushionEnglishSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("左右塞与吃库反弹")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text("无塞吃库时，可用「入射角 ≈ 反射角」作教学基线。侧旋会打破这条基线：顺塞让反弹更开，逆塞让反弹更闭——用来制造「反常」反弹角完成走位。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+        LearnDocSectionCard(title: "左右塞与吃库反弹") {
+            LearnDocText.body("无塞吃库时，可用「入射角 ≈ 反射角」作教学基线。侧旋会打破这条基线：顺塞让反弹更开，逆塞让反弹更闭——用来制造「反常」反弹角完成走位。")
 
             CushionEnglishFigure()
                 .frame(height: 220)
@@ -266,20 +190,13 @@ struct SpinAndEnglishView: View {
                 .accessibilityIdentifier("spinAndEnglish.cushionFigure")
 
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("顺塞（Running）：侧旋与反弹切向大致同向，吃库后反弹更开（离开库法线更大）。")
-                Text("逆塞（Reverse）：侧旋与反弹切向大致反向，吃库后反弹更闭（更靠近库法线）。")
-                Text("实战用途：走位优先用高低杆改分离角；左右塞留给需要改吃库反弹、或必须微调瞄准的场合。")
+                LearnDocText.body("顺塞（Running）：侧旋与反弹切向大致同向，吃库后反弹更开（离开库法线更大）。")
+                LearnDocText.body("逆塞（Reverse）：侧旋与反弹切向大致反向，吃库后反弹更闭（更靠近库法线）。")
+                LearnDocText.body("实战用途：走位优先用高低杆改分离角；左右塞留给需要改吃库反弹、或必须微调瞄准的场合。")
             }
-            .font(.btBody)
-            .foregroundStyle(.btTextSecondary)
 
-            Text("上图为定性示意（非引擎实况采样）。口径来自最少加塞原则中「用加塞调反弹角」与撞库后顺/逆塞分类；精确轨迹请在「分离角图谱」或走位求解里看。")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
+            LearnDocText.footnote("上图为定性示意（非引擎实况采样）。口径来自最少加塞原则中「用加塞调反弹角」与撞库后顺/逆塞分类；精确轨迹请在「分离角图谱」或走位求解里看。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.cushionEnglish")
     }
@@ -287,28 +204,19 @@ struct SpinAndEnglishView: View {
     // MARK: - Aiming correction CTA (true NavigationLink)
 
     private var aimingCorrectionCTA: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("加塞还会改变瞄准")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
-            Text("左右塞还会带来挤偏（squirt）、弧线（swerve）与投掷（throw）等效应，使实际进球线相对几何瞄准产生偏差。")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
+        LearnDocSectionCard(title: "加塞还会改变瞄准") {
+            LearnDocText.body("左右塞还会带来挤偏（squirt）、弧线（swerve）与投掷（throw）等效应，使实际进球线相对几何瞄准产生偏差。")
 
             PracticeCTA(title: "打开瞄准修正",
                         destination: "投掷 · 挤偏 · 弧线：几何之外的偏差",
                         route: .aimingCorrection)
                 .accessibilityIdentifier("spinAndEnglish.aimingCorrectionCTA")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.aimingCorrectionSection")
     }
 
-    // MARK: - Cross refs
+    // MARK: - Cross refs（D-v14-6：页末大卡合计 ≤2；此处保留 1 张 + 上文瞄准修正）
 
     private var crossRefsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -316,21 +224,17 @@ struct SpinAndEnglishView: View {
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            PracticeCTA(title: "回看瞄准原理",
-                        destination: "切角 · 假想球 · 接触点",
-                        route: .aimingPrinciple)
-
-            PracticeCTA(title: "打开瞄准方法",
-                        destination: "管道 · 接触点 · 平行线",
-                        route: .aimingMethods)
-
             PracticeCTA(title: "打开分离角图谱",
                         destination: "8 档高低杆 · 碰后轨迹对比",
                         route: .separationAngleAtlas)
 
-            PracticeCTA(title: "打开瞄准修正",
-                        destination: "投掷 · 挤偏 · 弧线",
-                        route: .aimingCorrection)
+            LearnDocTextLink(title: "回看瞄准原理",
+                             subtitle: "切角 · 假想球 · 接触点",
+                             route: .aimingPrinciple)
+
+            LearnDocTextLink(title: "打开瞄准方法",
+                             subtitle: "管道 · 接触点 · 平行线",
+                             route: .aimingMethods)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.crossRefs")

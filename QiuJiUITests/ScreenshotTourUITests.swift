@@ -172,6 +172,8 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 轻量巡游：学练四页（瞄准原理 / 浅谈球感 / 进球点对照表 / 几何角度训练=角度预测），
     /// 用于视觉打磨的快速回归，避免完整巡游的会话态/Paywall 流程拖慢并触发模拟器不稳定。
     /// T-P18-46 真台化后每页加拍一帧下滑截图，覆盖页中下部的插图卡。
+    /// 学区六文档页 + 角度预测巡游（v14 B3：原理/球感接壳 + 六页取证帧）。
+    /// 依赖 `/tmp/qiuji-uitest/shot_dir` 或 `UI_POLISH_SHOT_DIR`，避免写入 docs/ui-polish 基线。
     func testAngleLearningPages() {
         sleep(3)
         app.switchTab(.angle)
@@ -189,63 +191,94 @@ final class ScreenshotTourUITests: XCTestCase {
         ]
         for (tab, label, name) in pages {
             switchAngleHomeTab(tab)
-            if tapIfExists(label, timeout: 4) {
-                sleep(3)
-                snap(name)
-                // 分离角图谱为场景交互页（非长文滚动）：额外等轨迹算完再拍默认态。
-                if name == "a15-separation-angle-atlas" {
-                    sleep(2)
-                    snap("\(name)-default")
-                    popBack()
-                    sleep(1)
-                    continue
-                }
-                // 角度预测：开参考线拍一帧（核 90° 参考线 + 标签不裁切）。
-                if tapIfExists("显示参考", timeout: 2) {
-                    sleep(1)
-                    snap("\(name)-reference")
-                }
+            var opened = tapIfExists(label, timeout: 4)
+            if !opened {
                 app.swipeUp()
-                sleep(1)
-                snap("\(name)-scrolled")
-                // 页底第三帧：核验页尾插图卡（P2.1 全宽 2D 图 / 对照表估角图等）。
-                app.swipeUp()
-                sleep(1)
-                snap("\(name)-scrolled2")
-                // 瞄准方法页（v11 Y1 r1）交互化后更长：补两帧盖平行线主图/
-                // Mosconi 变体/重合比例补充节/相关页面。
-                if name == "a13-aiming-methods" {
-                    app.swipeUp()
-                    sleep(1)
-                    snap("\(name)-scrolled3")
-                    app.swipeUp()
-                    sleep(1)
-                    snap("\(name)-scrolled4")
-                }
-                // 瞄准修正（v12 Z3）：六节长页，补帧盖④加塞 / ⑤求解对比+速查 / ⑥实战启示。
-                if name == "a16-aiming-correction" {
-                    app.swipeUp()
-                    sleep(1)
-                    snap("\(name)-scrolled3")
-                    app.swipeUp()
-                    sleep(1)
-                    snap("\(name)-scrolled4")
-                }
-                // 旋转与加塞（v12 Z4）：页更长——补帧盖打点节 / 吃库反弹 / 瞄准修正 CTA / 相关页面。
-                if name == "a14-spin-and-english" {
-                    app.swipeUp()
-                    sleep(1)
-                    snap("\(name)-scrolled3")
-                    app.swipeUp()
-                    sleep(1)
-                    snap("\(name)-scrolled4")
-                    app.swipeUp()
-                    sleep(1)
-                    snap("\(name)-scrolled5")
-                }
+                usleep(500_000)
+                opened = tapIfExists(label, timeout: 3)
+            }
+            if !opened {
+                app.swipeDown()
+                usleep(400_000)
+                opened = tapIfExists(label, timeout: 3)
+            }
+            guard opened else { continue }
+            sleep(3)
+            snap(name)
+            // v14 B3：六学页顶区别名帧（明/暗各跑一轮即可归档）。
+            if name == "a09-aiming-principle" { snap("v14-b3-principle-top") }
+            if name == "a13-aiming-methods" { snap("v14-b3-methods-top") }
+            if name == "a16-aiming-correction" { snap("v14-b3-correction-top") }
+            if name == "a14-spin-and-english" { snap("v14-b3-spin-top") }
+            if name == "a11-ball-feel" { snap("v14-b3-ballfeel-top") }
+            if name == "a10-contact-point" { snap("v14-b3-contact-top") }
+            // 分离角图谱为场景交互页（非长文滚动）：额外等轨迹算完再拍默认态。
+            if name == "a15-separation-angle-atlas" {
+                sleep(2)
+                snap("\(name)-default")
+                snap("v14-b3-atlas-top")
                 popBack()
                 sleep(1)
+                continue
             }
+            // 角度预测：开参考线拍一帧（核 90° 参考线 + 标签不裁切）。
+            if tapIfExists("显示参考", timeout: 2) {
+                sleep(1)
+                snap("\(name)-reference")
+            }
+            app.swipeUp()
+            sleep(1)
+            snap("\(name)-scrolled")
+            // 页底第三帧：核验页尾插图卡（P2.1 全宽 2D 图 / 对照表估角图等）。
+            app.swipeUp()
+            sleep(1)
+            snap("\(name)-scrolled2")
+            // v14 B3：原理公式次级卡；球感全宽出血节。
+            if name == "a09-aiming-principle" {
+                app.swipeUp()
+                sleep(1)
+                snap("v14-b3-principle-formula")
+                snap("\(name)-scrolled3")
+            }
+            if name == "a11-ball-feel" {
+                app.swipeUp()
+                sleep(1)
+                snap("v14-b3-ballfeel-perspective")
+                snap("\(name)-scrolled3")
+            }
+            // 瞄准方法页（v11 Y1 r1）交互化后更长：补两帧盖平行线主图/
+            // Mosconi 变体/重合比例补充节/相关页面。
+            if name == "a13-aiming-methods" {
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled3")
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled4")
+            }
+            // 瞄准修正（v12 Z3）：六节长页，补帧盖④加塞 / ⑤求解对比+速查 / ⑥实战启示。
+            if name == "a16-aiming-correction" {
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled3")
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled4")
+            }
+            // 旋转与加塞（v12 Z4）：页更长——补帧盖打点节 / 吃库反弹 / 瞄准修正 CTA / 相关页面。
+            if name == "a14-spin-and-english" {
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled3")
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled4")
+                app.swipeUp()
+                sleep(1)
+                snap("\(name)-scrolled5")
+            }
+            popBack()
+            sleep(1)
         }
     }
 
@@ -328,6 +361,56 @@ final class ScreenshotTourUITests: XCTestCase {
 
     /// v11 Y1 返工 r1（FL-026）+ v13 B1/B2：瞄准方法页交互取证——
     /// 管道节三态、接触点终帧+误差徽章、平行线 Q、符号图例、厚薄跟 θ。
+    /// v14 B2：四交互学页顶区 + 控件条取证（依赖 `/tmp/qiuji-uitest/shot_dir` 或
+    /// `UI_POLISH_SHOT_DIR`，避免写入 docs/ui-polish 基线）。
+    func testV14B2InteractiveLearnShellShots() {
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+        switchAngleHomeTab("学")
+        sleep(1)
+
+        let pages: [(label: String, snap: String, sliderId: String)] = [
+            ("瞄准方法", "v14-b2-methods", "aimingMethods.thetaSlider"),
+            ("瞄准修正", "v14-b2-correction", "aimingCorrection.velocitySlider"),
+            ("旋转与加塞", "v14-b2-spin", "spinAndEnglish.thetaSlider"),
+            ("瞄准点对照表", "v14-b2-contact", "contactPointTable.thetaSlider"),
+        ]
+        for page in pages {
+            switchAngleHomeTab("学")
+            var opened = tapIfExists(page.label, timeout: 4)
+            if !opened {
+                app.swipeUp()
+                usleep(500_000)
+                opened = tapIfExists(page.label, timeout: 3)
+            }
+            if !opened {
+                app.swipeDown()
+                usleep(400_000)
+                opened = tapIfExists(page.label, timeout: 3)
+            }
+            guard opened else {
+                XCTFail("\(page.label) 卡不可达")
+                continue
+            }
+            sleep(2)
+            XCTAssertTrue(app.navigationBars[page.label].waitForExistence(timeout: 6),
+                          "应进入 \(page.label)")
+            snap("\(page.snap)-top")
+            let slider = app.sliders[page.sliderId]
+            var guardCount = 0
+            while (!slider.exists || !slider.isHittable || slider.frame.minY > 700),
+                  guardCount < 6 {
+                dragScrollUp(0.22)
+                guardCount += 1
+            }
+            XCTAssertTrue(slider.waitForExistence(timeout: 4), "\(page.label) 主控件不可达")
+            snap("\(page.snap)-controls")
+            popBack()
+            sleep(1)
+        }
+    }
+
     func testAimingMethodsInteractions() {
         sleep(3)
         app.switchTab(.angle)

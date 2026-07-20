@@ -28,6 +28,9 @@ final class LearnDocChromeCompileTests: XCTestCase {
             LearnDocText.body("body")
             LearnDocText.footnote("note")
         }
+        let formula = LearnDocFormulaNest(title: "速查") {
+            LearnDocText.footnote("d = 2R·sin(θ)")
+        }
         let theta = LearnControlStrip.Theta(cutAngleDeg: .constant(30))
         let axes = LearnControlStrip.LiveAxes(
             velocity: .constant(ShotTuning.defaultVelocity),
@@ -37,6 +40,7 @@ final class LearnDocChromeCompileTests: XCTestCase {
         )
         let row = LearnControlStrip.ReadoutRow(label: "角", value: "30°")
         XCTAssertNotNil(card)
+        XCTAssertNotNil(formula)
         XCTAssertNotNil(theta)
         XCTAssertNotNil(axes)
         XCTAssertNotNil(row)

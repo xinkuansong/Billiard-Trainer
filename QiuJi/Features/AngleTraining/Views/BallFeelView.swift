@@ -1,6 +1,7 @@
 import SwiftUI
 import SceneKit
 
+/// 浅谈球感（v14 B3：文档学页壳 + 保留 P2.1 全宽出血布局）。
 struct BallFeelView: View {
     var body: some View {
         ScrollView {
@@ -14,7 +15,7 @@ struct BallFeelView: View {
                 trainingAdviceSection
                     .padding(.horizontal, Spacing.lg)
                 perspectiveDifferenceSection
-                // 学→练导流（T-P18-51）：厚度锚点学完 → 真台俯视练几何判断。
+                // 学→练导流（T-P18-51）：厚度锚点学完 → 真台俯视练几何判断。大卡 1≤2。
                 PracticeCTA(title: "用真台验证",
                             destination: "2D 角度训练 · 在真实台面上练厚度锚点",
                             route: .sceneAiming2D)
@@ -31,11 +32,7 @@ struct BallFeelView: View {
     // MARK: - Section 1: What is Ball Feel
 
     private var whatIsBallFeelSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("什么是球感")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "什么是球感") {
             HStack {
                 Spacer()
                 Image(systemName: "brain.head.profile.fill")
@@ -44,32 +41,23 @@ struct BallFeelView: View {
                 Spacer()
             }
 
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("大脑的综合校正器")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                    .frame(maxWidth: .infinity, alignment: .center)
+            Text("大脑的综合校正器")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-                Text("这里说的球感，特指瞄准的球感：看一眼球形，就「知道」该打哪里。几何公式给出的是理想答案，但真实击球中还有一串公式覆盖不到的偏差——球感的本质，就是大脑把这些偏差凭经验一次性校正掉。")
-                    .font(.btBody)
-                    .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("这里说的球感，特指瞄准的球感：看一眼球形，就「知道」该打哪里。几何公式给出的是理想答案，但真实击球中还有一串公式覆盖不到的偏差——球感的本质，就是大脑把这些偏差凭经验一次性校正掉。")
 
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    feelFactor("视角误差", "俯视图里的角度和俯身瞄球时看到的角度不一样：3D 透视会压缩纵深，同一个 30° 在站位视角看起来更「厚」。")
-                    feelFactor("身高与站位", "身高、俯身深度、主视眼不同，看到的两球重叠关系就不同——每个人的「半球」长得不一样。")
-                    feelFactor("袋口容错", "袋口不是一个点而是一段区间：距离越近、角度越正容错越大。球感包含对「这杆能松多少」的判断。")
-                    feelFactor("出杆习惯", "每个人的出杆都有微小的系统性偏差（偏左/偏右、抬杆），老手的球感里已经内置了对自己习惯的补偿。")
-                    feelFactor("台呢与器材", "台呢新旧、球的洁净度影响碰撞与滚动，手感会随球房环境微调。")
-                }
-
-                Text("因此球感不是天分，而是大量重复后大脑内化的校正模型。本模块与后续训练页的目标，就是用「视觉锚点 + 即时误差反馈」加速这个内化过程。")
-                    .font(.btBody)
-                    .foregroundStyle(.btTextSecondary)
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                feelFactor("视角误差", "俯视图里的角度和俯身瞄球时看到的角度不一样：3D 透视会压缩纵深，同一个 30° 在站位视角看起来更「厚」。")
+                feelFactor("身高与站位", "身高、俯身深度、主视眼不同，看到的两球重叠关系就不同——每个人的「半球」长得不一样。")
+                feelFactor("袋口容错", "袋口不是一个点而是一段区间：距离越近、角度越正容错越大。球感包含对「这杆能松多少」的判断。")
+                feelFactor("出杆习惯", "每个人的出杆都有微小的系统性偏差（偏左/偏右、抬杆），老手的球感里已经内置了对自己习惯的补偿。")
+                feelFactor("台呢与器材", "台呢新旧、球的洁净度影响碰撞与滚动，手感会随球房环境微调。")
             }
+
+            LearnDocText.body("因此球感不是天分，而是大量重复后大脑内化的校正模型。本模块与后续训练页的目标，就是用「视觉锚点 + 即时误差反馈」加速这个内化过程。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func feelFactor(_ name: String, _ desc: String) -> some View {
@@ -79,19 +67,14 @@ struct BallFeelView: View {
                 .foregroundStyle(.btPrimary)
                 .frame(width: 76, alignment: .leading)
             Text(desc)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+                .learnDocBodyStyle()
         }
     }
 
     // MARK: - Section 2: Visual Anchors
 
     private var visualAnchorsSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("从母球看过去")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "从母球看过去") {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())],
                       spacing: Spacing.lg) {
                 ballOverlapCard(
@@ -112,9 +95,6 @@ struct BallFeelView: View {
                 ballOverlapCard(name: "薄球", angle: "~75°", overlapFraction: 0.08)
             }
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func ballOverlapCard(name: String, angle: String, overlapFraction: CGFloat) -> some View {
@@ -149,11 +129,7 @@ struct BallFeelView: View {
     // MARK: - Section 3: Training Advice
 
     private var trainingAdviceSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.lg) {
-            Text("训练建议")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "训练建议") {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 trainingStep(number: 1, title: "理解原理",
                             description: "学习切入角、偏移量和假想球法的基本概念。")
@@ -167,9 +143,6 @@ struct BallFeelView: View {
                             description: "将练习中建立的记忆带到球桌前。")
             }
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private func trainingStep(number: Int, title: String, description: String) -> some View {
@@ -185,18 +158,15 @@ struct BallFeelView: View {
                 Text(title)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
-                Text(description)
-                    .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
+                LearnDocText.body(description)
             }
         }
     }
 
     // MARK: - Section 4: 2D vs 3D Perspective
 
-    /// P2.1（问题集合 v3）：本节改为**全宽出血带**——2D 图延伸至屏幕宽度
-    ///（高度按球桌外框宽高比自适应，全台恰好占满图宽），3D 图同宽保持上下对照；
-    /// 文字保留水平内边距。
+    /// P2.1（问题集合 v3）+ v14 B3：全宽出血带保留——2D 图延伸至屏幕宽度；
+    /// 标题/正文用与 `LearnDocSectionCard` 同级 token，**不**套节卡以免破坏出血。
     private var perspectiveDifferenceSection: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("2D 到 3D 的视角差异")
@@ -235,9 +205,7 @@ struct BallFeelView: View {
                     }
             }
 
-            Text("上下两图是**同一杆 30° 切球**：俯视图（2D）里角度一目了然；俯身到出杆高度（3D）后，透视把纵深压缩，两球的重叠关系看起来明显更「厚」。这段视角差正是训练要校正的对象——先在 2D 建立几何判断，再到 3D 视角复核同一杆球，逐步让两个视角在大脑里对上号。")
-                .font(.btFootnote)
-                .foregroundStyle(.btTextSecondary)
+            LearnDocText.body("上下两图是同一杆 30° 切球：俯视图（2D）里角度一目了然；俯身到出杆高度（3D）后，透视把纵深压缩，两球的重叠关系看起来明显更「厚」。这段视角差正是训练要校正的对象——先在 2D 建立几何判断，再到 3D 视角复核同一杆球，逐步让两个视角在大脑里对上号。")
                 .padding(.horizontal, Spacing.lg)
         }
         .padding(.vertical, Spacing.lg)

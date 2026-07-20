@@ -45,6 +45,12 @@ struct ContactPointTableView: View {
         ScrollView {
             VStack(spacing: Spacing.xxl) {
                 interactiveSection
+                LearnControlStrip.Theta(
+                    cutAngleDeg: $sliderAngle,
+                    range: 0...90,
+                    caption: "对照表范围 0°–90°（全厚→最薄）。",
+                    accessibilityIdentifier: "contactPointTable.thetaSlider"
+                )
                 principleSection
                 estimationSection
                 staticTable
@@ -61,30 +67,26 @@ struct ContactPointTableView: View {
     // MARK: - Interactive slider + ball
 
     private var interactiveSection: some View {
-        VStack(spacing: Spacing.lg) {
-            Text("拖动查看瞄准点与接触点")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
-
+        LearnDocSectionCard(title: "拖动查看瞄准点与接触点", titleLevel: .subsection) {
             // P3.1（问题集合 v3）：卡片加高 220→260，配合图内几何调整（目标球下移、
             // 进球线延伸缩短），拖动全程「袋口方向」标签不再超出卡片。
             aimFigure
                 .frame(height: 260)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            VStack(spacing: Spacing.xs) {
-                Text("\(Int(sliderAngle))°")
-                    .font(.btLargeTitle.weight(.heavy))
-                    .foregroundStyle(.btText)
-
-                Text(String(format: "偏移 %.0f%%", sin(sliderAngle * .pi / 180) * 100))
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btTextSecondary)
-
-                Text(String(format: "d/R = %.2f", 2.0 * sin(sliderAngle * .pi / 180)))
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(.btPrimary)
-
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                LearnControlStrip.ReadoutRow(
+                    label: "偏移",
+                    value: String(format: "%.0f%%", sin(sliderAngle * .pi / 180) * 100),
+                    labelEmphasis: .secondary,
+                    valueSize: 14
+                )
+                LearnControlStrip.ReadoutRow(
+                    label: "d/R",
+                    value: String(format: "%.2f", 2.0 * sin(sliderAngle * .pi / 180)),
+                    labelEmphasis: .secondary,
+                    valueSize: 14
+                )
                 if let name = commonName(for: sliderAngle) {
                     Text(name)
                         .font(.btCaption)
@@ -95,21 +97,7 @@ struct ContactPointTableView: View {
                         .clipShape(Capsule())
                 }
             }
-
-            HStack {
-                Text("0°")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-                Slider(value: $sliderAngle, in: 0...90, step: 1)
-                    .tint(.btPrimary)
-                Text("90°")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     private func commonName(for angle: Double) -> String? {
@@ -197,34 +185,13 @@ struct ContactPointTableView: View {
     // MARK: - Principle
 
     private var principleSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: "info.circle.fill")
-                    .foregroundStyle(.btPrimary)
-                Text("原理说明")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-            }
+        LearnDocSectionCard(title: "原理说明", titleLevel: .subsection) {
             Text("d = 2R × sin(θ)")
                 .font(.system(.body, design: .monospaced))
                 .foregroundStyle(.btPrimary)
-            HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(.btAccent)
-                    .frame(width: 4)
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("d 为偏移量：瞄准点（瞄准线与过目标球心垂线的交点，红点）到目标球心的距离，也等于假想球心的横移量。θ 为切角，R 为球半径。")
-                    Text("d/R = 2sin(θ) 为无量纲比，表中「d(mm)」按中八球径 57.15mm 计算。")
-                }
-                .font(.btCallout)
-                .foregroundStyle(.btTextSecondary)
-                .padding(.leading, Spacing.sm)
-            }
+            LearnDocText.body("d 为偏移量：瞄准点（瞄准线与过目标球心垂线的交点，红点）到目标球心的距离，也等于假想球心的横移量。θ 为切角，R 为球半径。")
+            LearnDocText.footnote("d/R = 2sin(θ) 为无量纲比，表中「d(mm)」按中八球径 57.15mm 计算。")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     // MARK: - 中心连线估角与距离误差（条 4.5）
@@ -232,57 +199,33 @@ struct ContactPointTableView: View {
     /// 实战中看不见假想球，常用「母球–目标球中心连线」代替真实瞄准线来估角。
     /// 本节交互演示：两线夹角 Δ 随母球距离增大而变小 → 远台估角更可靠。
     private var estimationSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: "scope")
-                    .foregroundStyle(.btPrimary)
-                Text("实战估角：中心连线法")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-            }
-
-            Text("台面上并不存在假想球，真实瞄准线（白）也就无从直接看见。实战里常用的替代方法：把母球与目标球**球心连线**（金色虚线）当作近似瞄准线来估计切角 θ。")
-                .font(.btCallout)
-                .foregroundStyle(.btTextSecondary)
+        LearnDocSectionCard(title: "实战估角：中心连线法", titleLevel: .subsection) {
+            LearnDocText.body("台面上并不存在假想球，真实瞄准线（白）也就无从直接看见。实战里常用的替代方法：把母球与目标球球心连线（金色虚线）当作近似瞄准线来估计切角 θ。")
 
             estimationFigure
                 .frame(height: 190)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
 
-            VStack(spacing: Spacing.xs) {
-                Text(String(format: "估角误差 Δ ≈ %.1f°", estimationErrorDegrees))
-                    .font(.btStatNumber.weight(.heavy))
-                    .foregroundStyle(.btPrimary)
-                Text("两线夹角 = 用中心连线估角时引入的角度误差")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
-            .frame(maxWidth: .infinity)
+            LearnControlStrip.ReadoutRow(
+                label: "估角误差 Δ",
+                value: String(format: "%.1f°", estimationErrorDegrees),
+                labelEmphasis: .primary,
+                valueSize: 16
+            )
+            LearnDocText.footnote("两线夹角 = 用中心连线估角时引入的角度误差")
 
-            HStack {
-                Text("近")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-                Slider(value: $estimationDistance, in: 0.30...1.60)
-                    .tint(.btPrimary)
-                Text("远")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
+            LearnControlStrip.ReadoutRow(
+                label: "母球距（近↔远）",
+                value: String(format: "%.2f m", estimationDistance),
+                labelEmphasis: .secondary,
+                valueSize: 14
+            )
+            Slider(value: $estimationDistance, in: 0.30...1.60)
+                .tint(.btPrimary)
+                .accessibilityIdentifier("contactPointTable.estimationSlider")
 
-            HStack(spacing: 0) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(.btAccent)
-                    .frame(width: 4)
-                Text("两线在目标球附近相差固定的一段横移量（≤2R），距离越远，同样的横移量对应的夹角越小。因此**远台用中心连线估角误差很小**；近台两线夹角明显，需要有意识地把估出的角度再修正一点。")
-                    .font(.btCallout)
-                    .foregroundStyle(.btTextSecondary)
-                    .padding(.leading, Spacing.sm)
-            }
+            LearnDocText.body("两线在目标球附近相差固定的一段横移量（≤2R），距离越远，同样的横移量对应的夹角越小。因此远台用中心连线估角误差很小；近台两线夹角明显，需要有意识地把估出的角度再修正一点。")
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     /// 演示用固定布局：θ=30° 切球，滑条改变母球沿真实瞄准线的距离。
@@ -360,15 +303,7 @@ struct ContactPointTableView: View {
     // MARK: - Static table (expanded)
 
     private var staticTable: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: "tablecells")
-                    .foregroundStyle(.btPrimary)
-                Text("对照表")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-            }
-
+        LearnDocSectionCard(title: "对照表", titleLevel: .subsection) {
             VStack(spacing: 0) {
                 headerRow
                 ForEach(standardAngles) { entry in
@@ -451,22 +386,11 @@ struct ContactPointTableView: View {
     // MARK: - Sine Curve Section
 
     private var sineCurveSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: "waveform.path")
-                    .foregroundStyle(.btPrimary)
-                Text("d/R = 2sin(θ) 曲线")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-            }
-
+        LearnDocSectionCard(title: "d/R = 2sin(θ) 曲线", titleLevel: .subsection) {
             sineCurveCanvas
                 .frame(height: 220)
                 .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
     private var sineCurveCanvas: some View {

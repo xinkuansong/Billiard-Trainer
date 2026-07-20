@@ -93,6 +93,81 @@ struct LearnDocSectionCard<Content: View>: View {
     }
 }
 
+// MARK: - Formula nest（D-v14-5：公式/速查视觉降级）
+
+/// 公式 / 推导 / 速查次级收拢区（问题集合 v14 B3 / D-v14-5）。
+///
+/// 口径：`.btBGTertiary` + caption 级标题；默认不做 Disclosure。
+/// 用于不与「名词 / 切角」等主节卡同级抢阅读权重；**不删**公式内容。
+struct LearnDocFormulaNest<Content: View>: View {
+    var title: String?
+    @ViewBuilder var content: () -> Content
+
+    init(title: String? = nil, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            if let title, !title.isEmpty {
+                Text(title)
+                    .font(.btCaption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.btTextSecondary)
+            }
+            content()
+        }
+        .padding(Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.btBGTertiary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+}
+
+// MARK: - Light cross-link（D-v14-6：超出 PracticeCTA 大卡配额时用）
+
+/// 学页轻量互链：文字行 NavigationLink，不占大卡配额。
+struct LearnDocTextLink: View {
+    let title: String
+    let subtitle: String?
+    let route: AngleRoute
+
+    init(title: String, subtitle: String? = nil, route: AngleRoute) {
+        self.title = title
+        self.subtitle = subtitle
+        self.route = route
+    }
+
+    var body: some View {
+        NavigationLink(value: route) {
+            HStack(spacing: Spacing.sm) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.btSubheadlineMedium)
+                        .foregroundStyle(.btPrimary)
+                    if let subtitle, !subtitle.isEmpty {
+                        Text(subtitle)
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: BTIcon.chevronRight)
+                    .font(.btCaption.weight(.semibold))
+                    .foregroundStyle(.btTextTertiary)
+            }
+            .padding(.vertical, Spacing.sm)
+            .padding(.horizontal, Spacing.md)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        }
+        .buttonStyle(BTPressableStyle.row)
+        .accessibilityLabel(title)
+    }
+}
+
 #if DEBUG
 #Preview("LearnDocChrome") {
     ScrollView {
@@ -104,6 +179,9 @@ struct LearnDocSectionCard<Content: View>: View {
             LearnDocSectionCard(title: "次节", titleLevel: .subsection) {
                 Text("也可对任意 Text 使用 .learnDocBodyStyle() / .learnDocFootnoteStyle()。")
                     .learnDocBodyStyle()
+            }
+            LearnDocFormulaNest(title: "公式速查（次级）") {
+                LearnDocText.footnote("d = 2R × sin(θ) — caption 区，不压主阅读。")
             }
         }
         .padding(Spacing.lg)
