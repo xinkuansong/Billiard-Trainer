@@ -30,8 +30,16 @@ struct BatchBallExtractionView: View {
     @State private var paletteFrame: CGRect = .zero
 
     @State private var goAuthor = false
+    @State private var showNewFormationOptions = false
+    @State private var showClonePicker = false
+    @State private var cloneCandidates: [(token: String, name: String, initial: BoardSnapshot)] = []
 
     private var drill: BatchDrill? { context.current }
+
+    /// 空台面起点：仅母球（厨房区惯例位，与编排台默认母球位一致；不生成任何目标球坐标）。
+    private static let emptyCueBoard = BoardSnapshot(
+        onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.30, y: 0.30)]
+    )
 
     var body: some View {
         ZStack {
@@ -51,6 +59,26 @@ struct BatchBallExtractionView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .navigationDestination(isPresented: $goAuthor) {
             BatchAuthoringView(context: context)
+        }
+        .confirmationDialog("新增球形起点", isPresented: $showNewFormationOptions, titleVisibility: .visible) {
+            Button("空台面（仅母球）") {
+                startManualFormation(initial: Self.emptyCueBoard)
+            }
+            Button("克隆已有球形…") {
+                presentClonePicker()
+            }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("跳过截图标定，直接进编排台摆球。克隆只复制已有球形的 initial，不改坐标。")
+        }
+        .confirmationDialog("选择要克隆的球形", isPresented: $showClonePicker, titleVisibility: .visible) {
+            ForEach(cloneCandidates, id: \.token) { item in
+                Button("\(item.token) · \(item.name)") {
+                    // 只复制 initial 快照；新球形另发 manualNN token，不覆盖来源。
+                    startManualFormation(initial: item.initial)
+                }
+            }
+            Button("取消", role: .cancel) {}
         }
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -112,7 +140,9 @@ struct BatchBallExtractionView: View {
 
     private var pickStep: some View {
         VStack(spacing: Spacing.md) {
-            stepHeader("每张图 = 一个球形。打勾＝已存：点图/「重做」进编排台，旧杆按当前物理重放到打完，连点「重打」逐杆回退修。未存点图建球形")
+            stepHeader(drill?.hasSourceImages == false
+                       ? "无源图：点「+ 新增球形」空台或克隆已有球形，直进编排台摆球保存"
+                       : "每张图 = 一个球形。打勾＝已存：点图/「重做」进编排台。也可「+ 新增球形」无图建形")
             if let drill {
                 ScrollView {
                     // 旧版存档（早期保存、未绑定截图，故任何图都不打勾）：单独给改存档入口。
@@ -165,6 +195,15 @@ struct BatchBallExtractionView: View {
                                     }
                                 }
                         }
+                        // 已存无图球形（manualNN / A1…）：打勾可点进续编；覆盖确认走同一 token。
+                        ForEach(drill.unboundSavedTokens, id: \.self) { token in
+                            manualFormationTile(token: token, saved: true)
+                                .contentShape(Rectangle())
+                                .onTapGesture { editManualArchive(token: token) }
+                        }
+                        newFormationTile
+                            .contentShape(Rectangle())
+                            .onTapGesture { showNewFormationOptions = true }
                     }
                     .padding(Spacing.md)
                 }
@@ -174,6 +213,54 @@ struct BatchBallExtractionView: View {
                 Spacer()
             }
         }
+    }
+
+    private var newFormationTile: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 28, weight: .semibold))
+                .foregroundStyle(Color.btPrimary)
+            Text("+ 新增球形")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("空台 / 克隆 · 跳过标定")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.55))
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 110)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: BTRadius.sm))
+        .overlay(RoundedRectangle(cornerRadius: BTRadius.sm)
+            .stroke(Color.btPrimary.opacity(0.55), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4])))
+    }
+
+    private func manualFormationTile(token: String, saved: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(token)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundStyle(.white)
+            Text("人工球形")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.55))
+            Spacer(minLength: 0)
+            Label("重做", systemImage: "arrow.counterclockwise")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: 110)
+        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: BTRadius.sm))
+        .overlay(alignment: .topTrailing) {
+            if saved {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(.white, Color.btSuccess)
+                    .padding(6)
+            }
+        }
+        .overlay(RoundedRectangle(cornerRadius: BTRadius.sm)
+            .stroke(saved ? Color.btSuccess.opacity(0.8) : .white.opacity(0.12), lineWidth: saved ? 2 : 1))
     }
 
     private func thumbnail(_ url: URL, saved: Bool) -> some View {
@@ -216,6 +303,7 @@ struct BatchBallExtractionView: View {
         vm.activePaletteKey = PositionPlayBall.cueKey
         vm.step = .calibrate
         context.sourceImageURL = url
+        context.manualFormationStem = nil
         context.editingSequence = nil
         context.editingLegacyArchive = false
     }
@@ -228,6 +316,7 @@ struct BatchBallExtractionView: View {
             return
         }
         context.sourceImageURL = url          // 保存时按同一 token 覆盖原存档
+        context.manualFormationStem = nil
         context.confirmedBoard = seq.initial
         context.editingSequence = seq
         context.editingLegacyArchive = false
@@ -243,9 +332,49 @@ struct BatchBallExtractionView: View {
             return
         }
         context.sourceImageURL = nil
+        context.manualFormationStem = nil
         context.confirmedBoard = seq.initial
         context.editingSequence = seq
         context.editingLegacyArchive = true
+        goAuthor = true
+    }
+
+    private func presentClonePicker() {
+        guard let drill = context.current else { return }
+        let items = BatchDrillCatalog.savedFormationSummaries(drillId: drill.drillId)
+        guard !items.isEmpty else {
+            vm.flash("尚无已存球形可克隆", tone: .info)
+            return
+        }
+        cloneCandidates = items
+        showClonePicker = true
+    }
+
+    /// 无图新增球形：仿 `editArchive` 直进编排台（跳过标定四步）；`manualNN` 新 token。
+    private func startManualFormation(initial: BoardSnapshot) {
+        guard let drill = context.current else { return }
+        let token = BatchDrillCatalog.nextManualToken(drillId: drill.drillId)
+        context.sourceImageURL = nil
+        context.manualFormationStem = token
+        context.confirmedBoard = initial
+        context.editingSequence = nil
+        context.editingLegacyArchive = false
+        goAuthor = true
+    }
+
+    /// 续编已存人工/无图球形：同一 token 覆盖；允许 initial-only。
+    private func editManualArchive(token: String) {
+        guard let drill = context.current else { return }
+        guard let url = BatchDrillCatalog.savedSequenceURL(drillId: drill.drillId, token: token),
+              let seq = BatchDrillCatalog.loadSequence(at: url) else {
+            vm.flash("读取存档失败：\(token)", tone: .error)
+            return
+        }
+        context.sourceImageURL = nil
+        context.manualFormationStem = token
+        context.confirmedBoard = seq.initial
+        context.editingSequence = seq
+        context.editingLegacyArchive = false
         goAuthor = true
     }
 
