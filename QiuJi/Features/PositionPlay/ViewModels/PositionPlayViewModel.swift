@@ -414,6 +414,26 @@ final class PositionPlayViewModel: ObservableObject {
         recompute(interactive: true)   // G14：拖球结束后按 idle 0.5s（无新输入）触发求解
     }
 
+    /// 摆球精调：按屏幕方向移动一颗在桌球一步（默认 0.5mm），经 `clampMultiBall` 钳制。
+    /// 返回是否真的发生了位移（撞库/叠球撞墙时为 false，供长按连发停住）。
+    @discardableResult
+    func nudgeBall(key: String,
+                   direction: BallNudgeDirection,
+                   stepMeters: Float = BallNudgeMath.fineStepMeters) -> Bool {
+        guard !isPlaying, onTableKeys.contains(key),
+              let node = scene.allBallNodes[key], !node.isHidden else { return false }
+        let d = BallNudgeMath.delta(for: direction, stepMeters: stepMeters)
+        let target = SCNVector3(node.position.x + d.dx, node.position.y, node.position.z + d.dz)
+        let clamped = clampMultiBall(target, movingNode: node)
+        let moved = abs(clamped.x - node.position.x) > 1e-7
+            || abs(clamped.z - node.position.z) > 1e-7
+        guard moved else { return false }
+        node.position = clamped
+        refreshSelectionRing()
+        recompute(interactive: true)
+        return true
+    }
+
     /// 多球摆位钳制：库内 + 远离袋口 + 不与任意其他在桌球重叠。
     private func clampMultiBall(_ pos: SCNVector3, movingNode: SCNNode) -> SCNVector3 {
         var p = AngleSceneCalculator.clampAwayFromPockets(pos, surfaceY: surfaceY)

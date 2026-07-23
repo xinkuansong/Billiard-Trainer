@@ -182,7 +182,7 @@ final class BatchShotSolver: ObservableObject {
 
     func toolHint() -> String {
         switch activeTool {
-        case .arrange: return "摆球：拖动球调位 / 球库拖入增球、拖回删球；下方设打点 + 力度点「击球」"
+        case .arrange: return "摆球：拖/点球调位（含母球）· 左侧四键 0.5mm 精调 · 球库增删 · 设打点力度后击球"
         case .free: return "自由瞄：点桌面 / 球 / 袋口设定母球方向，下方设打点 + 力度点「击球」（不进球的安全球 / 走位）"
         case .region: return "在球桌上拖出\(regionShape.rawValue)可行落区，点「求解」"
         case .restPoint: return "点按球桌标出母球期望停的落点，点「求解」"
@@ -273,6 +273,9 @@ struct BatchAuthoringView: View {
 
     // 点换（条 20.3）：激活后点桌上另一颗球，与母球交换位置。
     @State private var swapMode = false
+
+    /// 摆球精调焦点（含母球）。无选中时隐藏左侧四向键；离开摆球工具时清空。
+    @State private var arrangeFocusKey: String?
 
     // 辅助线（条 20.4–20.9）：两步确认起/终点，±10° 吸附水平/垂直，白色；
     // 在线上的球自动均分；不进 JSON（仅场景节点）；击球时隐藏。
@@ -400,6 +403,7 @@ struct BatchAuthoringView: View {
                             case 3: solver.activeTool = .arrange
                             default: solver.activeTool = .free
                             }
+                            if solver.activeTool != .arrange { arrangeFocusKey = nil }
                             // 自由 → 母球直瞄方向；其余（摆球 / 反解约束）→ 袋口模式。
                             composer.aimMode = solver.activeTool == .free ? .free : .pocket
                             solver.clearConstraint(scene: composer.scene)
@@ -498,6 +502,13 @@ struct BatchAuthoringView: View {
                 }
                 .btStageFrame(guideButtonRect(proxy))
 
+                // 摆球 + 已选球：左侧竖直四向键（0.5mm 步进，点按/长按）。
+                if solver.activeTool == .arrange, arrangeFocusKey != nil {
+                    ballNudgePad
+                        .btStageFrame(ballNudgePadRect(proxy))
+                        .allowsHitTesting(!composer.isPlaying)
+                }
+
                 // D14：无开球页不显示禁用开球占位（辅助线仍锚定原 break 几何位）。
 
                 // 右柱：点换（仪表柱上方）+ 打点/力度柱 + 击球/上一杆/回放列。
@@ -545,6 +556,38 @@ struct BatchAuthoringView: View {
         return CGRect(x: proxy.tableRect.minX - 46, y: above - 8 - 30, width: 46, height: 30)
     }
 
+    /// 摆球精调四键：贴左缘、台面竖向居中（避让辅助线钮）。
+    private func ballNudgePadRect(_ proxy: ShotStageProxy) -> CGRect {
+        let w: CGFloat = 40
+        let gap: CGFloat = 6
+        let h: CGFloat = 40 * 4 + gap * 3
+        let x = proxy.tableRect.minX - w
+        let guide = guideButtonRect(proxy)
+        var y = proxy.tableRect.midY - h / 2
+        // 若与辅助线重叠则上移到其上方。
+        if y + h > guide.minY - 4 {
+            y = guide.minY - 4 - h
+        }
+        y = max(proxy.tableRect.minY, y)
+        return CGRect(x: x, y: y, width: w, height: h)
+    }
+
+    private var ballNudgePad: some View {
+        VStack(spacing: 6) {
+            nudgeButton(dir: .up, icon: "chevron.up", label: "球位上移 0.5 毫米")
+            nudgeButton(dir: .down, icon: "chevron.down", label: "球位下移 0.5 毫米")
+            nudgeButton(dir: .left, icon: "chevron.left", label: "球位左移 0.5 毫米")
+            nudgeButton(dir: .right, icon: "chevron.right", label: "球位右移 0.5 毫米")
+        }
+    }
+
+    private func nudgeButton(dir: BallNudgeDirection, icon: String, label: String) -> some View {
+        BTHoldRepeatButton(icon: icon, accessibility: label) {
+            guard let key = arrangeFocusKey else { return false }
+            return composer.nudgeBall(key: key, direction: dir)
+        }
+    }
+
     /// 点换按钮：贴右缘、位于仪表柱上方 8pt。
     private func swapButtonRect(_ proxy: ShotStageProxy) -> CGRect {
         CGRect(x: proxy.tableRect.maxX, y: proxy.instrumentFrame().minY - 8 - 30,
@@ -561,14 +604,22 @@ struct BatchAuthoringView: View {
             autoFitsRotatedTable: true,
             onPocketTapped: { composer.selectPocket(at: $0) },
             draggableBallNodes: solver.activeTool == .arrange ? composer.draggableBalls : [],
-            onDragBegan: { composer.dragBegan(node: $0) },
+            onDragBegan: { node in
+                composer.dragBegan(node: node)
+                if solver.activeTool == .arrange,
+                   let key = composer.scene.ballKey(for: node) {
+                    arrangeFocusKey = key
+                }
+            },
             onDragMoved: { composer.dragMoved(node: $0, worldPosition: $1) },
             onDragEnded: { node in
                 composer.dragEnded(node: node)
                 redistributeGuideBalls()   // 拖球落在辅助线上 → 自动均分（条 20.6）
             },
             onDragEndedAt: { node, localPoint in handleTableDragEnd(node: node, localPoint: localPoint) },
-            selectableBallNodes: composer.selectableBalls,
+            // 摆球态可选中母球（精调焦点）；其余态保持「仅目标球」点选。
+            selectableBallNodes: solver.activeTool == .arrange
+                ? composer.draggableBalls : composer.selectableBalls,
             onBallTapped: { handleBallTapped($0) },
             onTableTapped: { composer.handleTableTap(world: $0) },
             onAimNudged: { composer.nudgeFreeAim(byDegrees: $0) },
@@ -683,13 +734,21 @@ struct BatchAuthoringView: View {
         }
     }
 
-    /// 点球分流：点换模式 = 与母球交换位置；其余 = 原目标球选择。
+    /// 点球分流：点换 / 摆球焦点（含母球）/ 目标球选择。
     private func handleBallTapped(_ node: SCNNode) {
         if swapMode {
             performSwap(node)
-        } else {
-            composer.selectTarget(node: node)
+            return
         }
+        if solver.activeTool == .arrange,
+           let key = composer.scene.ballKey(for: node) {
+            arrangeFocusKey = key
+            if !PositionPlayBall.isCue(key) {
+                composer.selectTarget(key: key)
+            }
+            return
+        }
+        composer.selectTarget(node: node)
     }
 
     private func performSwap(_ node: SCNNode) {
@@ -829,6 +888,7 @@ struct BatchAuthoringView: View {
                                                paletteFrame: paletteFrame),
               let key = composer.scene.ballKey(for: node) else { return }
         composer.removeFromTable(key)
+        if arrangeFocusKey == key { arrangeFocusKey = nil }
         flash("已移回球库")
     }
 

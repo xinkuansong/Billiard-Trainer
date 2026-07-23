@@ -129,8 +129,111 @@ final class BankKickDifficultyTests: XCTestCase {
         for sol in sols {
             XCTAssertTrue(sol.prediction.simObjectPotted, "上屏解必经引擎终验真实进袋")
             XCTAssertGreaterThanOrEqual(sol.cushions, 1)
+            XCTAssertEqual(sol.rails, sol.prediction.objectRailContacts,
+                           "非贴库盘面展示库序必须 = 引擎实测主库序")
+            XCTAssertEqual(sol.cushions, sol.rails.count)
+            XCTAssertFalse(sol.usedFrozenRailSeed, "非贴库盘面不得标扎库")
+            XCTAssertFalse(sol.prediction.bankFrozenRailSeed)
+            XCTAssertFalse(sol.railSequenceText.hasPrefix("扎库"), "非贴库文案不得带扎库前缀")
             if let r = sol.robustness {
                 XCTAssertTrue((0.0...1.0).contains(r), "容错应在 [0,1]")
+            }
+        }
+    }
+
+    // MARK: - 贴库预反射种子（扎自库弹出）
+
+    /// 坐标契约：SceneKit XZ；左长库 Z=−halfW；贴库球心 z=−halfW+R。
+    func test_frozenRailPreReflect_gateGeometry() {
+        let r = BallPhysics.radius
+        let halfW = AngleSceneCalculator.innerWidth / 2
+        let y = sY + r
+        let frozen = SCNVector3(0.2, y, -halfW + r)
+        XCTAssertTrue(BankShotCalculator.isFrozenToAnyRail(frozen))
+        XCTAssertEqual(BankShotCalculator.frozenRails(for: frozen), [.left])
+
+        // 驶离所贴库（+Z）→ ghost 不可达 → 预反射启用，ghost 回到合法区。
+        let away = SCNVector3(0.8, 0, 0.6)
+        let awayLen = sqrtf(away.x * away.x + away.z * away.z)
+        let awayUnit = SCNVector3(away.x / awayLen, 0, away.z / awayLen)
+        let pre = BankShotCalculator.maybePreReflectFrozenRailDeparture(
+            object: frozen, departureDir: awayUnit)
+        XCTAssertTrue(pre.used, "贴库驶离方向应触发预反射")
+        XCTAssertEqual(pre.rail, .left, "预反射库应为所贴库（终验首库期望）")
+        XCTAssertEqual(pre.dir.z, -awayUnit.z, accuracy: 1e-5, "长库预反射应翻 Z")
+        let g = SCNVector3(frozen.x - 2 * r * pre.dir.x, y, frozen.z - 2 * r * pre.dir.z)
+        XCTAssertTrue(BankShotCalculator.isCueCenterPlayable(g), "预反射后 ghost 必须可达")
+
+        // 种子本就扎自库（−Z）→ ghost 可达 → 不触发。
+        let into = SCNVector3(0.5, 0, -0.866)
+        let intoLen = sqrtf(into.x * into.x + into.z * into.z)
+        let intoUnit = SCNVector3(into.x / intoLen, 0, into.z / intoLen)
+        let noPre = BankShotCalculator.maybePreReflectFrozenRailDeparture(
+            object: frozen, departureDir: intoUnit)
+        XCTAssertFalse(noPre.used, "扎自库种子不得二次预反射")
+
+        // 台心球：同驶离方向 ghost 可达 → 门控不改方向。
+        let center = SCNVector3(0, y, 0)
+        XCTAssertFalse(BankShotCalculator.isFrozenToAnyRail(center))
+        let centerPre = BankShotCalculator.maybePreReflectFrozenRailDeparture(
+            object: center, departureDir: awayUnit)
+        XCTAssertFalse(centerPre.used)
+        XCTAssertEqual(centerPre.dir.x, awayUnit.x, accuracy: 1e-6)
+        XCTAssertEqual(centerPre.dir.z, awayUnit.z, accuracy: 1e-6)
+    }
+
+    /// 贴库盘面：至少一条库序的 prepareBankAim 启用预反射；若引擎终验出解则带扎库文案。
+    /// 袋口用右上(1)：孔心镜像展开对「贴左库 → 右库」有合法种子，驶离方向触发预反射。
+    func test_solveBank_frozenObject_preReflectSeedAndOptionalSolution() {
+        let r = BallPhysics.radius
+        let halfW = AngleSceneCalculator.innerWidth / 2
+        let y = sY + r
+        // 目标贴左长库；母球在台内偏左，便于扎库接触。
+        let object = SCNVector3(0.25, y, -halfW + r)
+        let cue = SCNVector3(0.05, y, -0.25)
+        let pocket = 1
+        XCTAssertTrue(BankShotCalculator.isFrozenToAnyRail(object))
+
+        var activated = false
+        for rails in BankShotCalculator.candidateRailSequences(maxCushions: 2) {
+            var input = ShotInput(
+                cueBall: cue, targetBall: object, pocketIndex: pocket,
+                velocity: 3.6, spinX: 0, spinY: 0, surfaceY: sY
+            )
+            input.bankRails = rails
+            var pred = ShotPrediction()
+            _ = ShotPredictor.prepareBankAim(input, rails: rails, into: &pred)
+            if pred.bankFrozenRailSeed {
+                activated = true
+                XCTAssertTrue(BankShotCalculator.isCueCenterPlayable(pred.ghost),
+                              "预反射后 ghost 必须在合法击球区")
+            }
+        }
+        XCTAssertTrue(activated, "贴库驶离型库序应至少激活一次预反射种子")
+
+        // 解自洽性（实测重标后必然成立；出解与否如实取决于库边回弹）：
+        // 库序/库数 = 实测主库序（贴库首弹重建补回自库）；扎库解 = 首库为所贴自库，
+        // 文案「扎库(左库)」；无空库序解（实为直击者已淘汰）。
+        let sols = BankKickSolvePipeline.solveBank(
+            cue: cue, object: object, pocketIndex: pocket, surfaceY: sY, power: 3.6)
+        for sol in sols {
+            XCTAssertTrue(sol.prediction.simObjectPotted)
+            XCTAssertFalse(sol.rails.isEmpty, "实测库序为空的直击不得标为翻袋解")
+            XCTAssertEqual(sol.cushions, sol.rails.count, "库数必须等于实测库序数")
+            XCTAssertEqual(sol.usedFrozenRailSeed, sol.rails.first == .left,
+                           "扎库标记必须与实测首库=所贴自库一致")
+            if sol.usedFrozenRailSeed {
+                XCTAssertTrue(sol.railSequenceText.hasPrefix("扎库(左库)"),
+                              "扎库文案应标明自库：\(sol.railSequenceText)")
+            }
+        }
+        // 同一杆去重（K9 修订：不再要求库数相同）：任意两解的精修瞄准/出球方向不得判同。
+        for i in sols.indices {
+            for j in sols.indices where j > i {
+                XCTAssertFalse(
+                    BankKickSolvePipeline.isSameRefinedSolution(
+                        sols[i].prediction, sols[j].prediction),
+                    "解列表不得包含同一物理解的重复标签")
             }
         }
     }
@@ -197,6 +300,20 @@ final class BankKickDifficultyTests: XCTestCase {
 
     // MARK: - K9 钉子：展示几何 = finalAim；镜像收敛去重
 
+    /// 回归：翻袋/反射 VM 必须创建 L0 可视化节点，否则 TrajectoryRenderer.showGhost 静默空转。
+    @MainActor
+    func test_bankAndKick_setupScene_createsGhostBallNode() {
+        let bank = BankShotViewModel()
+        bank.setupScene()
+        XCTAssertNotNil(bank.scene.ghostBallNode, "翻袋页缺 setupVisualizationNodes → 无假想球")
+        XCTAssertNotNil(bank.scene.contactDotNode)
+
+        let kick = DiamondSystemViewModel()
+        kick.setupScene()
+        XCTAssertNotNil(kick.scene.ghostBallNode, "反射页缺 setupVisualizationNodes → 无假想球")
+        XCTAssertNotNil(kick.scene.contactDotNode)
+    }
+
     /// 坐标契约：SceneKit XZ；ghost = cue+t·aim ∩ |G−T|=2R。对拍数值草稿 case1。
     func test_ghostAlongFinalAim_straightOnGold() {
         let r = BallPhysics.radius
@@ -235,12 +352,13 @@ final class BankKickDifficultyTests: XCTestCase {
             let gx = pred.ghost.x - object.x, gz = pred.ghost.z - object.z
             XCTAssertEqual(sqrtf(gx * gx + gz * gz), 2 * r, accuracy: 2e-3)
 
+            // 种子重建须用 seedRails（搜索锚）；展示 rails 已改实测重标，可能与种子不同。
             var seed = ShotPrediction()
             guard let _ = ShotPredictor.prepareBankAim(
                 ShotInput(cueBall: cue, targetBall: object, pocketIndex: 1,
                           velocity: 3.6, spinX: 0, spinY: 0, surfaceY: sY,
-                          bankRails: sol.rails),
-                rails: sol.rails, into: &seed
+                          bankRails: sol.seedRails),
+                rails: sol.seedRails, into: &seed
             ), let off = pred.aimOffsetUsed else { continue }
             let finalAim = seed.aimDirection.rotatedY(off)
             let aimDot = max(-1, min(1,
@@ -263,7 +381,8 @@ final class BankKickDifficultyTests: XCTestCase {
         }
     }
 
-    /// K9：同库数精修后瞄准/进球首段相同的解不得双双上屏。
+    /// K9（修订）：精修后瞄准/进球首段相同的解不得双双上屏——**不分库数**
+    /// （库数取自种子声明，同一物理解可能被不同种子标不同库数）。
     func test_solveBank_dedupsConvergedMirrorSeeds() {
         let r = BallPhysics.radius
         let cue = SCNVector3(-0.5, sY + r, -0.2)
@@ -272,11 +391,11 @@ final class BankKickDifficultyTests: XCTestCase {
             cue: cue, object: object, pocketIndex: 1, surfaceY: sY, power: 3.6)
         XCTAssertFalse(sols.isEmpty)
         for i in 0..<sols.count {
-            for j in (i + 1)..<sols.count where sols[i].cushions == sols[j].cushions {
+            for j in (i + 1)..<sols.count {
                 XCTAssertFalse(
                     BankKickSolvePipeline.isSameRefinedSolution(
                         sols[i].prediction, sols[j].prediction),
-                    "同库数保留了精修后重复解：\(sols[i].railSequenceText) vs \(sols[j].railSequenceText)")
+                    "保留了精修后重复解：\(sols[i].railSequenceText) vs \(sols[j].railSequenceText)")
             }
         }
         // 合成：两预测瞄准几乎相同 → 判同。
@@ -297,7 +416,7 @@ final class BankKickDifficultyTests: XCTestCase {
     /// K14 验收截图：翻袋/反射典型盘面走 TrajectoryRenderer（full 档含吃库金点）。
     @MainActor
     func test_x4_renderBankAndKickSolutionFrames() throws {
-        let outDir = "/Users/song/projects/13.billiard_trainer-wt-x4/build/x4-screenshots"
+        let outDir = "/Users/song/projects/13.billiard_trainer/build/x4-screenshots"
         try FileManager.default.createDirectory(atPath: outDir, withIntermediateDirectories: true)
         let r = BallPhysics.radius
         let prevDetail = UserPreferences.shared.trajectoryDetail
@@ -369,6 +488,8 @@ final class BankKickDifficultyTests: XCTestCase {
         }
         let scene = AngleTrainingScene()
         scene.setupScene(enhancedRendering: false)
+        // 与翻袋/反射 VM 同口径：无此调用则 ghostBallNode 为 nil，假想球无法上屏。
+        scene.setupVisualizationNodes()
         scene.hideAllBalls()
         scene.hideCueStick()
         scene.showBall(key: "cueBall", scenePosition: cue)
@@ -388,6 +509,8 @@ final class BankKickDifficultyTests: XCTestCase {
             scene: scene,
             into: &nodes
         )
+        XCTAssertFalse(scene.ghostBallNode?.isHidden ?? true,
+                       "\(label)：draw 后假想球应可见（L0）")
         // full 档吃库标注（与 VM drawSolution 同口径；Composer 参照帧无此翻袋特有层）。
         let path: [SCNVector3]
         switch label {

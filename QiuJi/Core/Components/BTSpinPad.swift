@@ -169,75 +169,6 @@ enum SpinPadMath {
     }
 }
 
-/// 打点盘方向微调键：点按走一步；长按后延迟 0.4s 触发**加速连发**（起步 ~8 次/秒，
-/// 按住渐进提到 ~20 次/秒）。每步轻触觉；撞到打滑极限时换「硬」反馈并停连发（撞墙停住）。
-///
-/// 命中区 44pt（HIG 最小点按目标），可见图标 36pt；外层用 12pt 间距与打点盘隔开做死区，
-/// 命中框与盘不交叠 → 点按键的触摸不会「漏」到盘上让红点乱跳。
-private struct SpinNudgeButton: View {
-    let icon: String
-    let accessibility: String
-    /// 执行一步微调，返回是否真的移动（false = 撞墙）。
-    let onStep: () -> Bool
-
-    @State private var repeatTimer: Timer?
-    @State private var ticks = 0
-    @State private var isPressing = false
-
-    private let hitSize: CGFloat = 40
-    private let iconSize: CGFloat = 30
-
-    var body: some View {
-        Image(systemName: icon)
-            .font(.system(size: 15, weight: .bold))
-            .foregroundStyle(.white.opacity(isPressing ? 1 : 0.82))
-            .frame(width: iconSize, height: iconSize)
-            .background(.white.opacity(isPressing ? 0.24 : 0.12), in: Circle())
-            .frame(width: hitSize, height: hitSize)
-            .contentShape(Circle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in
-                        guard !isPressing else { return }
-                        isPressing = true
-                        step()
-                        scheduleNext(after: 0.4)
-                    }
-                    .onEnded { _ in stop() }
-            )
-            .onDisappear { stop() }
-            .accessibilityLabel(accessibility)
-            .accessibilityAddTraits(.isButton)
-    }
-
-    private func step() {
-        if onStep() {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred(intensity: 0.6)
-        } else {
-            UIImpactFeedbackGenerator(style: .rigid).impactOccurred(intensity: 0.9)
-            repeatTimer?.invalidate()
-            repeatTimer = nil
-        }
-    }
-
-    private func scheduleNext(after delay: TimeInterval) {
-        repeatTimer?.invalidate()
-        repeatTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { _ in
-            guard isPressing else { return }
-            ticks += 1
-            step()
-            scheduleNext(after: max(0.05, 0.12 - Double(ticks) * 0.005))
-        }
-    }
-
-    private func stop() {
-        isPressing = false
-        ticks = 0
-        repeatTimer?.invalidate()
-        repeatTimer = nil
-    }
-}
-
 // MARK: - Spin pad card（共享浮层卡片，ADR-P11-09）
 
 /// 打点盘浮层卡片：半透明材质（`ultraThinMaterial`，透出底下球桌绿色，与旧「击球设置」
@@ -259,20 +190,20 @@ struct BTSpinPadCard: View {
     var body: some View {
         VStack(spacing: Spacing.xs) {
             VStack(spacing: crossGap) {
-                SpinNudgeButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
+                BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
                     nudge(.up)
                 }
                 HStack(spacing: crossGap) {
-                    SpinNudgeButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
+                    BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
                         nudge(.left)
                     }
                     BTSpinPad(spinX: $spinX, spinY: $spinY)
                         .frame(width: 104, height: 104)
-                    SpinNudgeButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
+                    BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
                         nudge(.right)
                     }
                 }
-                SpinNudgeButton(icon: "chevron.down", accessibility: "低杆增加 1%") {
+                BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") {
                     nudge(.down)
                 }
             }

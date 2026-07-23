@@ -152,6 +152,9 @@ final class BankShotViewModel: ObservableObject {
 
     func setupScene() {
         scene.setupScene(enhancedRendering: false)
+        // L0 假想球虚线圈 + 接触点绿点（与思路训练 / 编排台 / 打三同口径）。
+        // 未调用则 `ghostBallNode == nil`，TrajectoryRenderer 的 showGhost 静默空转。
+        scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         scene.setCameraMode(.topDown2DRotated, animated: false)
         rebuildGuides()
@@ -159,12 +162,12 @@ final class BankShotViewModel: ObservableObject {
         recompute()
     }
 
+    /// 长库钻石刻度点（无数字）。数字标注已去掉——翻袋页不依赖钻石计数。
     private func rebuildGuides() {
         scene.clearResultNodes(nodes: &guideNodes)
-        let labels = DiamondSystemCalculator.diamondLabels(surfaceY: scene.surfaceY)
         let ticks = DiamondSystemCalculator.diamondTicks(surfaceY: scene.surfaceY)
         guideNodes = scene.addDiamondGuides(
-            labels: labels,
+            labels: [],
             ticks: ticks,
             labelColor: UIColor.white.withAlphaComponent(0.55),
             tickColor: UIColor.white.withAlphaComponent(0.4)
@@ -383,12 +386,14 @@ final class BankShotViewModel: ObservableObject {
                 || abs(ctx.struckPower - ctx.catalogPower) > 1e-9
             if paramsDiffer {
                 adjustmentDraft = BankEngineSolution(
-                    rails: catalog.rails, prediction: ctx.struckPrediction,
+                    rails: catalog.rails, seedRails: catalog.seedRails,
+                    prediction: ctx.struckPrediction,
                     cushions: catalog.cushions,
                     difficultyScore: catalog.difficultyScore,
                     difficultyTier: catalog.difficultyTier,
                     robustness: catalog.robustness, pathLength: catalog.pathLength,
-                    spinX: Float(ctx.struckSpinX), spinY: Float(ctx.struckSpinY)
+                    spinX: Float(ctx.struckSpinX), spinY: Float(ctx.struckSpinY),
+                    usedFrozenRailSeed: catalog.usedFrozenRailSeed
                 )
                 presentDisplayedSolution(adjustmentDraft!, power: ctx.struckPower)
             } else {
@@ -913,7 +918,8 @@ final class BankShotViewModel: ObservableObject {
               let object = scene.targetBallNodes.first?.position else { return }
         let surfaceY = scene.surfaceY
         let pocket = selectedPocket
-        let rails = catalog.rails
+        // 重算沿**种子库序**（搜索锚）predict；展示库序按重算结果实测重标。
+        let rails = catalog.seedRails
         let obstacles = currentObstacles()
         let idx = currentIndex
         // Supersede in-flight adjust (spin-pad continuous updates).
@@ -935,12 +941,22 @@ final class BankShotViewModel: ObservableObject {
                 guard let self, self.adjustGeneration == gen, !self.isPlaying else { return }
                 self.isSolving = false
                 guard self.displayed.indices.contains(idx), self.currentIndex == idx else { return }
+                // 草稿库序同解集口径：实测主库序重标（重算轨迹可能已换拓扑/脱靶，
+                // 脱靶时保留原解标签避免 chip 闪变）。
+                let actualRails = BankShotCalculator.reconstructedRailContacts(
+                    object: object, departure: pred.objectDepartureDir,
+                    engineRails: pred.objectRailContacts
+                )
+                let frozenSet = BankShotCalculator.frozenRails(for: object)
                 let drafted = BankEngineSolution(
-                    rails: rails, prediction: pred, cushions: catalog.cushions,
+                    rails: actualRails.isEmpty ? catalog.rails : actualRails,
+                    seedRails: rails, prediction: pred,
+                    cushions: actualRails.isEmpty ? catalog.cushions : actualRails.count,
                     difficultyScore: catalog.difficultyScore,
                     difficultyTier: catalog.difficultyTier,
                     robustness: catalog.robustness, pathLength: catalog.pathLength,
-                    spinX: newSX, spinY: newSY
+                    spinX: newSX, spinY: newSY,
+                    usedFrozenRailSeed: actualRails.first.map(frozenSet.contains) ?? false
                 )
                 self.adjustmentDraft = drafted
                 self.presentDisplayedSolution(drafted, power: newPower)
@@ -998,7 +1014,17 @@ final class BankShotViewModel: ObservableObject {
     // MARK: - Status text（条 17.1/17.2/17.7：解描述 / 无解说明入 principal 副标题）
 
     /// 无解说明（含「暂无翻袋解」以便 UI 测试判定）。
+    /// 贴库球形给出扎库语义提示——与求解门控 `maybePreReflectFrozenRailDeparture` 同口径。
     var noSolutionText: String {
+        let frozen = scene.targetBallNodes.first.map {
+            BankShotCalculator.isFrozenToAnyRail($0.position)
+        } ?? false
+        if frozen {
+            if selectedCushions != nil {
+                return "目标球贴库，该库数下无可行翻袋解（需先扎库弹出），换库数 / 袋口或移动球位"
+            }
+            return "目标球贴库，暂无可行翻袋解（贴库翻袋需先扎库弹出），换袋口或移动球位再试"
+        }
         if selectedCushions != nil { return "该库数下无解，换库数 / 袋口或移动球位" }
         return "该袋暂无翻袋解，换袋口或移动球位再试"
     }
@@ -1067,15 +1093,14 @@ final class BankShotViewModel: ObservableObject {
     /// 三档轨迹标注（C28/D15，与 Composer/Silu `positionPlay` 同口径）：
     /// `.minimal` = 瞄准实线段 + 假想球；
     /// `.core`    = + 进球虚线 + 母球碰后虚线 + 接触点；
-    /// `.full`    = + 碰库金点/库面法线/文字标注（翻袋特有释义层）。
+    /// `.full`    = + 碰库金点/库面法线（翻袋特有释义层；线旁无「瞄准线/进球线」文字）。
     private func drawSolution(_ sol: BankEngineSolution) {
         clearPath()
-        guard let cue = scene.cueBallNode?.position else { return }
+        guard scene.cueBallNode?.position != nil else { return }
         let pred = sol.prediction
         guard pred.cuePath.count >= 2 || pred.objectPath.count >= 2 else { return }
 
         let detail = UserPreferences.shared.trajectoryDetail
-        let potColor = TrajectoryStyle.potColor(for: Self.freeTargetName)
 
         TrajectoryRenderer.draw(
             prediction: pred,
@@ -1105,21 +1130,7 @@ final class BankShotViewModel: ObservableObject {
                                           radius: TrajectoryStyle.lineHint)
                 pathNodes.append(nLine)
             }
-            if pred.objectPath.count >= 2 {
-                pathNodes.append(scene.addFlatLabel(
-                    text: "进球线",
-                    at: midpoint(pred.objectPath[0], pred.objectPath[1], lift: 0.004),
-                    color: potColor, fontSize: 14))
-            }
-            pathNodes.append(scene.addFlatLabel(
-                text: "瞄准线",
-                at: midpoint(cue, pred.ghost, lift: 0.004),
-                color: TrajectoryStyle.aimColor, fontSize: 14))
         }
-    }
-
-    private func midpoint(_ a: SCNVector3, _ b: SCNVector3, lift: Float) -> SCNVector3 {
-        SCNVector3((a.x + b.x) / 2, (a.y + b.y) / 2 + lift, (a.z + b.z) / 2)
     }
 
     private func clearPath() {

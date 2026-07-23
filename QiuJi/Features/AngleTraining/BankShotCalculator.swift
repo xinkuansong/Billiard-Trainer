@@ -27,6 +27,10 @@ enum BankShotCalculator {
     /// 母球可击打的最大切球角（与瞄准训练一致，用 89° 兼顾几何允许与数值稳定）。
     static let maxCutAngleDeg: Double = 80
 
+    /// 贴库判定余量（米）：球心到库面 − R < 此值视为贴库/近贴库。
+    /// 仅门控「扎自库预反射」种子；非贴库球形不改瞄准几何。
+    static let frozenRailMargin: Float = 0.005
+
     // MARK: - Rails
 
     /// 四条库：`left`/`right` 为长库（常 Z），`far`/`near` 为短库（常 X）。
@@ -219,6 +223,112 @@ enum BankShotCalculator {
             out.append(contentsOf: railSequences(length: n))
         }
         return out
+    }
+
+    // MARK: - Frozen-rail pre-reflect seed（贴库翻袋：扎自库弹出）
+
+    /// 目标球当前贴靠的库（可多条——角位贴两侧）。空 = 非贴库。
+    /// 坐标契约：SceneKit XZ；库面 = ±halfW（长）/ ±halfL（短）；贴库 = 球心到库面 − R < margin。
+    static func frozenRails(for object: SCNVector3) -> [Rail] {
+        let r = ballRadius
+        let m = frozenRailMargin
+        var out: [Rail] = []
+        if object.z - (-halfW) - r < m { out.append(.left) }
+        if halfW - object.z - r < m { out.append(.right) }
+        if object.x - (-halfL) - r < m { out.append(.far) }
+        if halfL - object.x - r < m { out.append(.near) }
+        return out
+    }
+
+    static func isFrozenToAnyRail(_ object: SCNVector3) -> Bool {
+        !frozenRails(for: object).isEmpty
+    }
+
+    /// 母球球心是否落在合法击球区内（中心距四库均 ≥ R）。
+    static func isCueCenterPlayable(_ p: SCNVector3) -> Bool {
+        let r = ballRadius
+        let eps: Float = 1e-5
+        return abs(p.x) <= halfL - r + eps && abs(p.z) <= halfW - r + eps
+    }
+
+    /// 假想球心是否越过指定库的合法边界（穿透库内侧）。
+    static func ghostPenetrates(_ ghost: SCNVector3, rail: Rail) -> Bool {
+        let r = ballRadius
+        let eps: Float = 1e-5
+        switch rail {
+        case .left:  return ghost.z < -halfW + r - eps
+        case .right: return ghost.z >  halfW - r + eps
+        case .far:   return ghost.x < -halfL + r - eps
+        case .near:  return ghost.x >  halfL - r + eps
+        }
+    }
+
+    /// 实测主库序重标：目标球贴库被打**扎向**自库时，首弹发生在 t≈0 的既有接触上，
+    /// 引擎不产生 ballCushion 事件——依碰后出发方向（朝库面分量 > sin 3° ≈ 0.05，
+    /// 排除沿库平行滚动的直击）把该次自库首弹补回事件序头部；非贴库/未扎向自库原样返回。
+    /// 展示层库序/库数的唯一真源（种子库序只作搜索锚，不再上屏）。
+    static func reconstructedRailContacts(
+        object: SCNVector3, departure: SCNVector3?, engineRails: [Rail]
+    ) -> [Rail] {
+        guard let dep = departure else { return engineRails }
+        let minInto: Float = 0.05
+        var best: (rail: Rail, into: Float)?
+        for rail in frozenRails(for: object) {
+            let into: Float
+            switch rail {
+            case .left:  into = -dep.z
+            case .right: into = dep.z
+            case .far:   into = -dep.x
+            case .near:  into = dep.x
+            }
+            if into > minInto, into > (best?.into ?? 0) { best = (rail, into) }
+        }
+        guard let hit = best?.rail, engineRails.first != hit else { return engineRails }
+        return [hit] + engineRails
+    }
+
+    /// 出发方向关于库面反射（长库翻 Z、短库翻 X）。
+    static func reflectDepartureDir(_ dir: SCNVector3, across rail: Rail) -> SCNVector3 {
+        if rail.isLong {
+            return SCNVector3(dir.x, 0, -dir.z)
+        }
+        return SCNVector3(-dir.x, 0, dir.z)
+    }
+
+    /// 贴库预反射门控：若沿种子出发方向算出的 ghost 不可达，且穿透目标球所贴库，
+    /// 则将该方向关于该库反射——母球可「先扎自库」，目标球弹出走原翻袋路线。
+    /// 非贴库 / ghost 可达 / 种子本就扎自库 → 原方向不变（不影响其他盘面）。
+    /// - Returns: 调整后的单位出发方向 + 是否启用了预反射 + 所反射的库
+    ///   （终验拓扑校验用：目标球实际首库必须是该库）。
+    static func maybePreReflectFrozenRailDeparture(
+        object: SCNVector3, departureDir: SCNVector3
+    ) -> (dir: SCNVector3, used: Bool, rail: Rail?) {
+        let r = ballRadius
+        let ghost = SCNVector3(
+            object.x - 2 * r * departureDir.x,
+            object.y,
+            object.z - 2 * r * departureDir.z
+        )
+        if isCueCenterPlayable(ghost) {
+            return (departureDir, false, nil)
+        }
+        let frozen = frozenRails(for: object)
+        guard !frozen.isEmpty else { return (departureDir, false, nil) }
+        for rail in frozen where ghostPenetrates(ghost, rail: rail) {
+            let reflected = reflectDepartureDir(departureDir, across: rail)
+            let len = sqrtf(reflected.x * reflected.x + reflected.z * reflected.z)
+            guard len > 1e-6 else { continue }
+            let unit = SCNVector3(reflected.x / len, 0, reflected.z / len)
+            let g2 = SCNVector3(
+                object.x - 2 * r * unit.x,
+                object.y,
+                object.z - 2 * r * unit.z
+            )
+            if isCueCenterPlayable(g2) {
+                return (unit, true, rail)
+            }
+        }
+        return (departureDir, false, nil)
     }
 
     // MARK: - Sequence solving (mirror unfolding)

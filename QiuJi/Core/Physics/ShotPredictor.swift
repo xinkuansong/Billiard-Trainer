@@ -141,6 +141,16 @@ struct ShotPrediction {
     /// kick 反解成功判据（W2）：母球首次球-球碰撞对象 == 目标球，且碰前吃库数 ≥ 指定库序数。
     /// 仅 `kickRails` 非空的预测填充；直击/翻袋管线恒为 false。
     var kickContactMade: Bool = false
+    /// 翻袋贴库预反射种子：目标球贴库且沿镜像出发方向的 ghost 不可达时，
+    /// `prepareBankAim` 将出发方向关于所贴库反射（扎自库弹出）。非贴库恒 false。
+    var bankFrozenRailSeed: Bool = false
+    /// 预反射所扎的自库（`bankFrozenRailSeed == true` 时有效）：终验拓扑校验的首库期望。
+    var bankFrozenRailSeedRail: BankShotCalculator.Rail? = nil
+    /// 目标球**落袋前**实际吃到的主库序列（四条主库线性段，连续同库合并；
+    /// jaw 直段/圆弧/中袋喉壁不计——与「库序」的用户语义一致）。终验拓扑校验/去重消费。
+    var objectRailContacts: [BankShotCalculator.Rail] = []
+    /// 目标球碰后离开方向（XZ 单位向量；nil = 未发生球-球碰撞）。贴库拓扑豁免判据消费。
+    var objectDepartureDir: SCNVector3? = nil
 }
 
 // MARK: - Predictor
@@ -259,8 +269,16 @@ enum ShotPredictor {
             return nil
         }
         // 目标球出发方向（XZ 单位向量，指向首库反弹点）。
+        // 贴库门控：若该方向使 ghost 落入库内不可达，则关于所贴库预反射（扎自库弹出）；
+        // 库序 rails 不变，多出的自库吃库由评分/终验的 `>= rails.count` 自然兼容。
         let firstHop = seedPath[1]
-        let dir = unitXZ(from: seedPath[0], to: firstHop)
+        let seedDir = unitXZ(from: seedPath[0], to: firstHop)
+        let pre = BankShotCalculator.maybePreReflectFrozenRailDeparture(
+            object: input.targetBall, departureDir: seedDir)
+        let dir = pre.dir
+        result.bankFrozenRailSeed = pre.used
+        result.bankFrozenRailSeedRail = pre.rail
+
         let ghost = SCNVector3(input.targetBall.x - 2 * r * dir.x,
                                input.targetBall.y,
                                input.targetBall.z - 2 * r * dir.z)
@@ -269,9 +287,14 @@ enum ShotPredictor {
         result.ghost = ghost
         result.pocketAimPoint = seedPath[seedPath.count - 1]
 
-        // 切角 = 瞄准线 vs 目标球出发线（把首库反弹点当作「进球点」复用同一几何）。
+        // 切角 / 占位：相对**实际**出发方向（预反射后为扎库方向；否则与 firstHop 共线）。
+        let departureProbe = SCNVector3(
+            input.targetBall.x + dir.x,
+            input.targetBall.y,
+            input.targetBall.z + dir.z
+        )
         let cutAngle = AngleSceneCalculator.cutAngle(
-            cueBall: input.cueBall, targetBall: input.targetBall, pocket: firstHop
+            cueBall: input.cueBall, targetBall: input.targetBall, pocket: departureProbe
         )
         result.cutAngleDeg = cutAngle
         if cutAngle >= AngleSceneCalculator.maxCutAngle {
@@ -281,7 +304,7 @@ enum ShotPredictor {
         }
         // 母球占位：不能坐在目标球的出发线段上。
         if AngleSceneCalculator.isCueBallBlocking(
-            cueBall: input.cueBall, targetBall: input.targetBall, pocket: firstHop
+            cueBall: input.cueBall, targetBall: input.targetBall, pocket: departureProbe
         ) {
             result.feasible = false
             result.infeasibleReason = "母球挡住目标球出发路线"
@@ -386,6 +409,8 @@ enum ShotPredictor {
         result.objectPocketed = potted
         result.cueCushionCount = run.cueCushions
         result.objectCushionCount = run.objCushionsBeforePocket
+        result.objectRailContacts = run.objectRailContacts
+        result.objectDepartureDir = run.objPostContactDir
         result.cueCushionsBeforeContact = run.cueCushionsBeforeContact
         result.events = run.events
 
@@ -621,6 +646,9 @@ enum ShotPredictor {
         /// 目标球在**落袋前**撞库次数（0 = 直接进袋；≥1 = 吃库/banking 进袋）。
         /// 求解器优先选「直接进袋」解：避免为了躲母球 scratch 而选到绕库的别扭进球路线。
         let objCushionsBeforePocket: Int
+        /// 目标球落袋前实际吃到的主库序列（连续同库合并；jaw/喉壁/圆弧不计）。
+        /// 翻袋终验拓扑校验消费（`ShotPrediction.objectRailContacts` 同源）。
+        let objectRailContacts: [BankShotCalculator.Rail]
         /// 目标球落袋前**撞库点离选定袋中心的最远距离 (m)**（无撞库 = 0）。遥测/诊断量（矩阵测试用其
         /// 统计「擦 jaw 再进」vs「远处翻袋」）；ADR-P10-04 纯几何驱动求解器不再据此评分。
         let objMaxPrepocketCushionDist: Float
@@ -721,6 +749,7 @@ enum ShotPredictor {
         // 不再用距离容差甄别）。同时统计目标球落袋前撞库次数（直接 vs 吃库进袋）。
         var objectPocketId: String?
         var objCushionsBeforePocket = 0
+        var objRailContacts: [BankShotCalculator.Rail] = []
         var objMaxPrepocketCushionDist: Float = 0
         var cueCushions = 0
         var cueCushionsBeforeContact = 0
@@ -742,12 +771,16 @@ enum ShotPredictor {
             switch ev {
             case .ballBall:
                 sawBallBall = true
-            case .ballCushion(let ball, _, _) where ball == ShotInput.targetBallName:
+            case .ballCushion(let ball, let cushionIndex, let normal) where ball == ShotInput.targetBallName:
                 if objectPocketId == nil {
                     objCushionsBeforePocket += 1
                     if let p = recorder.stateAt(ballName: ShotInput.targetBallName, time: et)?.position {
                         let dx = p.x - pocketCenter.x, dz = p.z - pocketCenter.z
                         objMaxPrepocketCushionDist = max(objMaxPrepocketCushionDist, sqrtf(dx * dx + dz * dz))
+                    }
+                    if let rail = mainRail(cushionIndex: cushionIndex, normal: normal),
+                       objRailContacts.last != rail {
+                        objRailContacts.append(rail)
                     }
                 }
             case .ballCushion(let ball, _, _) where ball == ShotInput.cueBallName:
@@ -769,11 +802,24 @@ enum ShotPredictor {
             objPostContactDir: objDir,
             cueGhostMinDist: cueGhostMinDist,
             objCushionsBeforePocket: objCushionsBeforePocket,
+            objectRailContacts: objRailContacts,
             objMaxPrepocketCushionDist: objMaxPrepocketCushionDist,
             cueCushions: cueCushions,
             cueCushionsBeforeContact: cueCushionsBeforeContact,
             events: events
         )
+    }
+
+    /// 库边事件 → 主库分类。四条主库 = `TableGeometry` linearCushions 前 6 段
+    /// （长库各 2 段、短库各 1 段），法向指向台内：+Z=左库(z=−halfW)、−Z=右库、
+    /// +X=底库(far, x=−halfL)、−X=顶库(near)。jaw 直段/圆弧/中袋喉壁（index ≥ 6）不计。
+    private static func mainRail(cushionIndex: Int, normal: SCNVector3) -> BankShotCalculator.Rail? {
+        guard cushionIndex < 6 else { return nil }
+        if normal.z > 0.9 { return .left }
+        if normal.z < -0.9 { return .right }
+        if normal.x > 0.9 { return .far }
+        if normal.x < -0.9 { return .near }
+        return nil
     }
 
     /// XZ 平面内点 `p` 到线段 `a–b` 的最近距离（internal：走位编排台障碍挡线提示复用）。
@@ -1000,6 +1046,8 @@ enum ShotPredictor {
         }
 
         // 第 3 层：引擎终验（scoring-only 与全保真逐位同物理，B1）；首个真进袋者全保真物化。
+        // 拓扑如实上报不在此裁决：真实进袋即物化，实际主库序（objectRailContacts）随
+        // 预测携带，展示层按实测重标（种子库序只作搜索锚，标签/库数不再取种子声明）。
         var firstProbe: (off: Float, pred: ShotPrediction)?
         for off in refined {
             let probe = buildPrediction(

@@ -188,12 +188,18 @@ enum BankKickDifficulty {
 
 // MARK: - 解模型（基于引擎全保真 ShotPrediction 装配，方案 §3）
 
-/// 翻袋页解（引擎全保真物化）。`cushions` = 种子库序数（chip/pill 的「N 库」语义，
-/// 与 `rails` 文案一致；引擎实测 `objectCushionCount` 含 jaw 擦碰、仅供诊断）。
+/// 翻袋页解（引擎全保真物化）。`rails`/`cushions` = **实测主库序**（引擎事件流主库
+/// 分类 + 贴库首弹重建，`BankShotCalculator.reconstructedRailContacts`）——画面、文案、
+/// 库数 chip 同一真源；种子库序只作搜索锚不上屏。jaw 擦碰不计（`objectCushionCount`
+/// 含 jaw、仅供诊断）。
 /// K10：`spinX`/`spinY` = 该解搜索/击打用的加塞（接触点偏移/R；+X 左塞 / −X 右塞）。
+/// `usedFrozenRailSeed` = 首库为目标球所贴自库（扎库解，文案「扎库(自库)」）。
 struct BankEngineSolution: Identifiable {
     let id = UUID()
     let rails: [BankShotCalculator.Rail]
+    /// 种子库序（搜索锚）：微调重算（K11 `adjustCurrentSolution`）沿原库序 predict 用；
+    /// 与展示 `rails`（实测）可能不同——扎库解种子不含自库。
+    let seedRails: [BankShotCalculator.Rail]
     let prediction: ShotPrediction
     let cushions: Int
     let difficultyScore: Double
@@ -202,11 +208,18 @@ struct BankEngineSolution: Identifiable {
     let pathLength: Double
     let spinX: Float
     let spinY: Float
+    let usedFrozenRailSeed: Bool
 
     var goodness: Double {
         BankKickDifficulty.goodness(difficultyScore: difficultyScore, robustness: robustness)
     }
-    var railSequenceText: String { rails.map(\.label).joined(separator: " → ") }
+    var railSequenceText: String {
+        guard usedFrozenRailSeed, let first = rails.first else {
+            return rails.map(\.label).joined(separator: " → ")
+        }
+        let rest = rails.dropFirst().map(\.label).joined(separator: " → ")
+        return rest.isEmpty ? "扎库(\(first.label))" : "扎库(\(first.label)) → \(rest)"
+    }
     var spinLabel: String {
         ShotSpinLabel.text(spinX: Double(spinX), spinY: Double(spinY))
     }
@@ -263,6 +276,7 @@ enum BankKickSolvePipeline {
         let dx = Double(cue.x - object.x), dz = Double(cue.z - object.z)
         let distance = (dx * dx + dz * dz).squareRoot()
 
+        let frozenSet = BankShotCalculator.frozenRails(for: object)
         var solutions: [BankEngineSolution] = []
         for sx in spinXValues {
             var input = ShotInput(
@@ -270,24 +284,34 @@ enum BankKickSolvePipeline {
                 velocity: power, spinX: sx, spinY: 0, surfaceY: surfaceY
             )
             input.obstacles = obstacles
-            for (rails, pred) in ShotPredictor.predictBankAll(input) {
+            for (seedRails, pred) in ShotPredictor.predictBankAll(input) {
                 let pathLength = Double(polylineLengthXZ(pred.objectPath))
-                // 库数取**种子库序数**（用户「1/2/3 库」chip 的语义）：引擎实测
-                // `objectCushionCount` 会把贴袋入口擦 jaw 也计入（W1 §2.2 合法进袋路线），
-                // 用于分桶/难度/pill 会失真（画面 1 库、读数 5 库）。
-                let cushions = rails.count
+                // 库序/库数取**实测主库序**（贴库首弹重建补回；jaw 擦碰不计——
+                // `objectCushionCount` 含 jaw 会失真「画面 1 库、读数 5 库」）。
+                // 种子库序只作搜索锚：±8° 精修后真实轨迹可能属别的拓扑族，按实测
+                // 重标才能保证画面 / 文案 / chip 一致；实测空 = 实为直击，非翻袋解。
+                let actualRails = BankShotCalculator.reconstructedRailContacts(
+                    object: object, departure: pred.objectDepartureDir,
+                    engineRails: pred.objectRailContacts
+                )
+                guard !actualRails.isEmpty else { continue }
+                let cushions = actualRails.count
+                let zhaKu = frozenSet.contains(actualRails[0])
                 let score = BankKickDifficulty.bankScore(
                     cutAngleDeg: pred.cutAngleDeg, cueTargetDistance: distance,
                     cushions: cushions, pathLength: pathLength
                 )
                 let robustness = pred.aimOffsetUsed.flatMap {
-                    BankKickDifficulty.measureBankRobustness(input: input, rails: rails, aimOffset: $0)
+                    BankKickDifficulty.measureBankRobustness(
+                        input: input, rails: seedRails, aimOffset: $0)
                 }
                 solutions.append(BankEngineSolution(
-                    rails: rails, prediction: pred, cushions: cushions,
+                    rails: actualRails, seedRails: seedRails, prediction: pred,
+                    cushions: cushions,
                     difficultyScore: score, difficultyTier: BankKickDifficulty.tier(score),
                     robustness: robustness, pathLength: pathLength,
-                    spinX: sx, spinY: 0
+                    spinX: sx, spinY: 0,
+                    usedFrozenRailSeed: zhaKu
                 ))
             }
         }
@@ -347,8 +371,9 @@ enum BankKickSolvePipeline {
         }
         var out: [S] = []
         for sol in sorted {
+            // 去重**不**要求库数相同：库数取自种子声明，同一物理解可能被不同种子
+            // 标不同库数（贴库盘面高发）——按精修后瞄准/出球方向判同即为同一杆。
             let isDup = out.contains { existing in
-                existing.cushions == sol.cushions &&
                 isSameRefinedSolution(existing.prediction, sol.prediction)
             }
             if !isDup { out.append(sol) }

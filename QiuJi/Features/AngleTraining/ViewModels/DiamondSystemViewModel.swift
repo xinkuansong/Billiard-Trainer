@@ -136,6 +136,9 @@ final class DiamondSystemViewModel: ObservableObject {
 
     func setupScene() {
         scene.setupScene(enhancedRendering: false)
+        // L0 假想球虚线圈 + 接触点绿点（与思路训练 / 编排台 / 打三同口径）。
+        // 未调用则 `ghostBallNode == nil`，TrajectoryRenderer 的 showGhost 静默空转。
+        scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
         scene.setCameraMode(.topDown2DRotated, animated: false)
         rebuildGuides()
@@ -143,12 +146,12 @@ final class DiamondSystemViewModel: ObservableObject {
         recompute()
     }
 
+    /// 钻石刻度点（无数字）。库边 1…7 数字已去掉——反射页靠路线与假想球读解，不靠计数。
     private func rebuildGuides() {
         scene.clearResultNodes(nodes: &guideNodes)
-        let labels = DiamondSystemCalculator.diamondLabels(surfaceY: scene.surfaceY)
         let ticks = DiamondSystemCalculator.diamondTicks(surfaceY: scene.surfaceY)
         guideNodes = scene.addDiamondGuides(
-            labels: labels,
+            labels: [],
             ticks: ticks,
             labelColor: UIColor.white.withAlphaComponent(0.6),
             tickColor: UIColor.white.withAlphaComponent(0.45)

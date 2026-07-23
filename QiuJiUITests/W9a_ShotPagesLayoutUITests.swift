@@ -151,7 +151,7 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
             let fullVsCore = tableRegionDiff(fullShot, coreShot)
             XCTAssertGreaterThan(fullVsMinimal, 100,
                                  "全↔瞄准线 台面像素差过小（\(fullVsMinimal)）——档位未改变线语言")
-            // 全↔双 仅差释义层（金点/法线/文字标注），降采样后量级小：实测 26，
+            // 全↔双 仅差释义层（金点/库面法线），降采样后量级小：实测 26，
             // 取 15 为下限（同帧重拍噪声实测 ≈0，仍有 15 px 裕度）。
             XCTAssertGreaterThan(fullVsCore, 15,
                                  "全↔双 台面像素差过小（\(fullVsCore)）——释义层未随档位隐去")
