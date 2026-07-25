@@ -283,7 +283,7 @@ enum BatchDrillCatalog {
 /// - 同一张图重复保存 → 覆盖（只删同 `drill_cNNN__<token>-` 旧文件）；
 /// - 不同图 → 各自独立并存；
 /// - **不触碰**旧版单序列 `drill_cNNN-…`（无 `__`）：它算该 drill 既有的一个球形，
-///   保留出片正常；如需淘汰由人工删除，绝不在写新球形时静默删旧（防误删既有成果）。
+///   保留出片正常；写新球形时绝不静默删旧。淘汰走选图页长按 → `deleteArchive`。
 /// 出片 runner 据文件名定位产物目录，再人工归位为 `drill_cNNN_*` / formations 接入精讲页。
 enum BatchSequenceArchive {
 
@@ -301,6 +301,30 @@ enum BatchSequenceArchive {
         let token = BatchDrillCatalog.formationToken(forImageStem: imageStem)
         let stemPrefix = "\(drillId)__\(token)-"
         return files.contains { $0.hasPrefix(stemPrefix) }
+    }
+
+    /// 删除某 drill × 球形 token 的已落库序列（作者显式淘汰）。
+    /// - Parameter token: 截图/`manualNN`/`A1` 等；`""` = 旧版单序列（无 `__`）。
+    /// - Returns: 实际删除的文件数；0 = 未找到。
+    @discardableResult
+    static func deleteArchive(drillId: String, token: String) throws -> Int {
+        let fm = FileManager.default
+        let files = (try? fm.contentsOfDirectory(atPath: directory)) ?? []
+        var removed = 0
+        if token.isEmpty {
+            for file in files
+            where file.hasPrefix("\(drillId)-") && !file.contains("__") && file.hasSuffix(".json") {
+                try fm.removeItem(atPath: "\(directory)/\(file)")
+                removed += 1
+            }
+        } else {
+            let stemPrefix = "\(drillId)__\(token)-"
+            for file in files where file.hasPrefix(stemPrefix) && file.hasSuffix(".json") {
+                try fm.removeItem(atPath: "\(directory)/\(file)")
+                removed += 1
+            }
+        }
+        return removed
     }
 
     /// - Parameters:

@@ -1,0 +1,191 @@
+{
+  "createdAt" : "2026-07-24T18:52:42Z",
+  "id" : "0041F12F-45EC-4116-8E0D-23E42CF99076",
+  "initial" : {
+    "onTable" : {
+      "cueBall" : {
+        "x" : 0.30000001192092896,
+        "y" : 0.30000001192092896
+      }
+    }
+  },
+  "name" : "斯登角度停球 · 球形2",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.3418487012386322,
+            "y" : 0.32301563024520874
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4985310137271881,
+            "y" : 0.34034550189971924
+          },
+          "cueBall" : {
+            "x" : 0.5783817768096924,
+            "y" : 0.1317957639694214
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "E28E74F3-137E-4C57-B739-2E01B14E8C3D",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0.009750479857127148,
+        "spinY" : -0.4680230331420899,
+        "targetKey" : "_8",
+        "velocity" : 1.6
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.2404460608959198,
+            "y" : 0.33948493003845215
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4985310137271881,
+            "y" : 0.34034550189971924
+          },
+          "cueBall" : {
+            "x" : 0.5783817768096924,
+            "y" : 0.1317957639694214
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "7DB8B19E-DC1F-4CF7-B21B-BC4C68E48AD0",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.0002495201428728538,
+        "spinY" : -0.1630230331420896,
+        "targetKey" : "_8",
+        "velocity" : 2
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.9798859357833862,
+            "y" : 0.33732643723487854
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4985310137271881,
+            "y" : 0.34034550189971924
+          },
+          "cueBall" : {
+            "x" : 0.5783817768096924,
+            "y" : 0.1317957639694214
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "B827BD26-C566-412F-8A89-9DD785F53222",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.0002495201428728538,
+        "spinY" : -0.08802303314208954,
+        "targetKey" : "_8",
+        "velocity" : 3
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.5705472230911255,
+            "y" : 0.33693844079971313
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4985310137271881,
+            "y" : 0.34034550189971924
+          },
+          "cueBall" : {
+            "x" : 0.5783817768096924,
+            "y" : 0.1317957639694214
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "BEDF2C6F-693E-4EEA-AA1A-D455FA52AFDE",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.0002495201428728538,
+        "spinY" : -0.06302303314208951,
+        "targetKey" : "_8",
+        "velocity" : 4
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.02464483119547367,
+            "y" : 0.3978976607322693
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4985310137271881,
+            "y" : 0.34034550189971924
+          },
+          "cueBall" : {
+            "x" : 0.5783817768096924,
+            "y" : 0.1317957639694214
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "934285C5-958B-4409-8428-3F611A1E7471",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.0002495201428728538,
+        "spinY" : -0.038023033142089525,
+        "targetKey" : "_8",
+        "velocity" : 5
+      }
+    }
+  ],
+  "updatedAt" : "2026-07-24T18:57:02Z"
+}

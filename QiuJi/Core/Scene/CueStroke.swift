@@ -70,12 +70,20 @@ enum CueStroke {
         }
     }
 
-    /// 含加塞横向偏移的击球点（杆头对准的母球表面点）：沿瞄准方向的法向偏移 `spinX·R`。
+    /// 含加塞横向偏移的击球点（杆头对准的母球击球中心）。
+    ///
+    /// - `spinX` 正 = 左塞（pooltool `a>0` = 球最左侧；与 `BTSpinPad` 屏幕左一致）
+    /// - `right = aim × ŷ`（与 `AimingCorrectionMath.rightOfXZ` 同构）；左塞挤偏向 right，
+    ///   杆头应在其对侧 ⇒ `cue − right·spinX·R`。
     static func strikePosition(cue: SCNVector3, aim: SCNVector3, spinX: Double) -> SCNVector3 {
         let r = AngleSceneCalculator.ballRadius
-        let perp = SCNVector3(-aim.z, 0, aim.x)
+        let len = sqrtf(aim.x * aim.x + aim.z * aim.z)
+        guard len > 1e-6 else { return cue }
+        let ax = aim.x / len, az = aim.z / len
+        // right = aim × ŷ；旧实现误用 `+ right·spinX`，左塞杆头落到挤偏同侧（右）。
+        let right = SCNVector3(-az, 0, ax)
         let lateral = Float(spinX) * r
-        return SCNVector3(cue.x + perp.x * lateral, cue.y, cue.z + perp.z * lateral)
+        return SCNVector3(cue.x - right.x * lateral, cue.y, cue.z - right.z * lateral)
     }
 }
 

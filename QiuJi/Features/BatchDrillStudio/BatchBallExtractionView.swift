@@ -33,6 +33,9 @@ struct BatchBallExtractionView: View {
     @State private var showNewFormationOptions = false
     @State private var showClonePicker = false
     @State private var cloneCandidates: [(token: String, name: String, initial: BoardSnapshot)] = []
+    /// 长按已存球形后待确认删除的目标（token + 展示名）。
+    @State private var pendingDelete: (token: String, label: String)?
+    @State private var showDeleteConfirm = false
 
     private var drill: BatchDrill? { context.current }
 
@@ -79,6 +82,18 @@ struct BatchBallExtractionView: View {
                 }
             }
             Button("取消", role: .cancel) {}
+        }
+        .confirmationDialog(
+            "删除此球形？",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("删除", role: .destructive) { confirmDeleteFormation() }
+            Button("取消", role: .cancel) { pendingDelete = nil }
+        } message: {
+            Text(pendingDelete.map {
+                "将移除内容库序列「\($0.label)」，不可撤销。源截图与 drill 课程不受影响。"
+            } ?? "")
         }
         .onPreferenceChange(BTShotPageFramePreference.self) { frames in
             if let s = frames["scene"] { sceneFrame = s }
@@ -141,8 +156,8 @@ struct BatchBallExtractionView: View {
     private var pickStep: some View {
         VStack(spacing: Spacing.md) {
             stepHeader(drill?.hasSourceImages == false
-                       ? "无源图：点「+ 新增球形」空台或克隆已有球形，直进编排台摆球保存"
-                       : "每张图 = 一个球形。打勾＝已存：点图/「重做」进编排台。也可「+ 新增球形」无图建形")
+                       ? "无源图：点「+ 新增球形」空台或克隆；长按已存可删除"
+                       : "每张图 = 一个球形。点图/「重做」续编；长按已存可删除；「+」无图建形")
             if let drill {
                 ScrollView {
                     // 旧版存档（早期保存、未绑定截图，故任何图都不打勾）：单独给改存档入口。
@@ -155,7 +170,7 @@ struct BatchBallExtractionView: View {
                                     Text("已有旧版存档（未绑定截图，图片不打勾）")
                                         .font(.system(size: 13, weight: .semibold))
                                         .foregroundStyle(.white)
-                                    Text("点此进编排台改存档 · 按当前物理重放")
+                                    Text("点此进编排台改存档 · 长按可删除")
                                         .font(.system(size: 11))
                                         .foregroundStyle(.white.opacity(0.6))
                                 }
@@ -168,6 +183,9 @@ struct BatchBallExtractionView: View {
                                         in: RoundedRectangle(cornerRadius: BTRadius.sm))
                         }
                         .buttonStyle(.plain)
+                        .simultaneousGesture(LongPressGesture(minimumDuration: 0.45).onEnded { _ in
+                            requestDelete(token: "", label: "旧版存档")
+                        })
                         .padding(.horizontal, Spacing.md)
                         .padding(.top, Spacing.md)
                     }
@@ -181,6 +199,11 @@ struct BatchBallExtractionView: View {
                             thumbnail(url, saved: saved)
                                 .contentShape(Rectangle())
                                 .onTapGesture { saved ? editArchive(url) : loadImage(url) }
+                                .onLongPressGesture(minimumDuration: 0.45) {
+                                    guard saved else { return }
+                                    let token = BatchDrillCatalog.formationToken(forImage: url)
+                                    requestDelete(token: token, label: url.lastPathComponent)
+                                }
                                 .overlay(alignment: .bottomTrailing) {
                                     if saved {
                                         Button { editArchive(url) } label: {
@@ -195,11 +218,14 @@ struct BatchBallExtractionView: View {
                                     }
                                 }
                         }
-                        // 已存无图球形（manualNN / A1…）：打勾可点进续编；覆盖确认走同一 token。
+                        // 已存无图球形（manualNN / A1…）：点进续编；长按删除。
                         ForEach(drill.unboundSavedTokens, id: \.self) { token in
                             manualFormationTile(token: token, saved: true)
                                 .contentShape(Rectangle())
                                 .onTapGesture { editManualArchive(token: token) }
+                                .onLongPressGesture(minimumDuration: 0.45) {
+                                    requestDelete(token: token, label: token)
+                                }
                         }
                         newFormationTile
                             .contentShape(Rectangle())
@@ -376,6 +402,28 @@ struct BatchBallExtractionView: View {
         context.editingSequence = seq
         context.editingLegacyArchive = false
         goAuthor = true
+    }
+
+    private func requestDelete(token: String, label: String) {
+        pendingDelete = (token, label)
+        showDeleteConfirm = true
+    }
+
+    /// 确认删除：只移除内容库序列 JSON，不动源截图 / drill 课程。
+    private func confirmDeleteFormation() {
+        guard let drill = context.current, let pending = pendingDelete else { return }
+        defer { pendingDelete = nil }
+        do {
+            let n = try BatchSequenceArchive.deleteArchive(drillId: drill.drillId, token: pending.token)
+            context.refreshSaved()
+            if n > 0 {
+                vm.flash("已删除球形 · \(pending.label)", tone: .success)
+            } else {
+                vm.flash("未找到可删文件：\(pending.label)", tone: .error)
+            }
+        } catch {
+            vm.flash("删除失败：\(error.localizedDescription)", tone: .error)
+        }
     }
 
     // MARK: - Step 2: calibrate corners

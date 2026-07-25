@@ -18,6 +18,7 @@
 
 ## 当前状态
 
+- **批量出片台删除球形 UI ✅（2026-07-25）**：进 drill 选图栅格后，长按已存截图 / `manualNN` / 旧版存档条 → 确认对话框 → `BatchSequenceArchive.deleteArchive` 删内容库序列 JSON（不动源截图与 drill 课程）→ `refreshSaved`。改动：`BatchDrillStudioCore.swift`、`BatchBallExtractionView.swift`。验证：`make build` **BUILD SUCCEEDED**。**下一步：模拟器点验长按删除手感。**
 - **批量出片台摆球精调四键 ✅（2026-07-24）**：摆球态 + 选中球（含母球）时球桌左侧竖直四向键；步进 0.5mm；点按/长按连发（复用抽离的 `BTHoldRepeatButton`）；无选中隐藏；仅批量出片台。坐标契约：rotated 顶视 screen↑=+X、screen→=+Z。改动：`BallNudgeMath` / `PositionPlayViewModel.nudgeBall` / `BatchAuthoringView` / `BTHoldRepeatButton`（打点盘改用共享件）。验证：`make build` BUILD SUCCEEDED；`BallNudgeMathTests` **2/0 TEST SUCCEEDED**。**下一步：模拟器点验摆球精调手感。**
 - **翻袋解球器线旁文字 ✅（2026-07-21）**：`BankShotViewModel.drawSolution` 轨迹·全档去掉贴地「瞄准线 / 进球线」`addFlatLabel`（线本体与 full 档金点/法线保留）。`make build` BUILD SUCCEEDED。
 - **翻袋贴库预反射种子 ⚠️ 返工（见 FL-027）→ ✅ 实测重标重构（2026-07-21）**：首轮（07-20）种子标签直出 + clamp 兜底产生假解/重复解/库数失真，用户打回。返工：删 clamp 兜底；`ShotPrediction` 新增 `objectRailContacts`（引擎事件流主库分类，jaw 不计）+ `objectDepartureDir`；`BankShotCalculator.reconstructedRailContacts` 补回贴库 t≈0 无事件首弹（碰后方向 >sin3° 扎向自库才补）；`BankEngineSolution` 库序/库数/扎库标记全部**实测派生**（实测空=直击淘汰，`seedRails` 单列作微调锚）；K9 去重去掉库数相同前置；文案「扎库(自库)」；去粘性 OR。证据：`BankKickDifficultyTests` 18/0、全量 QiuJiTests **656/0 失败（2 skipped）**（`build/frozen-rail-logs/full-suite3.log`）、诊断矩阵扎库标签一致 17/17、贴库出解 18%（假解淘汰后如实口径）vs 对照 70%。**下一步：用户真机点验贴库翻袋。**

@@ -68,6 +68,31 @@ final class BallFogDiagTests: XCTestCase {
         write(img, "grounding_3d.png")
     }
 
+    /// 加塞杆头平移手性：spinX 正 = 左塞 ⇒ 杆头在 −right 侧（right = aim×ŷ = rightOfXZ）。
+    /// 左塞挤偏向 right，杆头必须在其对侧；portrait 旋转顶视 aim=+X（屏上）时即屏左（−Z）。
+    func test_cue_strikePosition_leftEnglish_oppositeSquirtSide() {
+        let r = AngleSceneCalculator.ballRadius
+        let cue = SCNVector3(0, 0, 0)
+
+        // aim=+Z：rightOfXZ = −X；左塞杆头 → +X（对侧）
+        let aimZ = SCNVector3(0, 0, 1)
+        let leftZ = CueStroke.strikePosition(cue: cue, aim: aimZ, spinX: 0.3)
+        XCTAssertGreaterThan(leftZ.x, 0, "左塞杆头应在 −right 侧（aim=+Z → +X），got x=\(leftZ.x)")
+        XCTAssertEqual(leftZ.x, 0.3 * r, accuracy: 1e-6)
+        XCTAssertEqual(leftZ.z, 0, accuracy: 1e-6)
+
+        // aim=+X（旋转顶视「朝屏上」）：rightOfXZ = +Z；左塞杆头 → −Z（屏左）
+        let aimX = SCNVector3(1, 0, 0)
+        let leftX = CueStroke.strikePosition(cue: cue, aim: aimX, spinX: 0.3)
+        XCTAssertLessThan(leftX.z, 0, "左塞杆头应在 −right 侧（aim=+X → −Z / 屏左），got z=\(leftX.z)")
+        XCTAssertEqual(leftX.z, -0.3 * r, accuracy: 1e-6)
+        XCTAssertEqual(leftX.x, 0, accuracy: 1e-6)
+
+        // 右塞对称
+        let rightX = CueStroke.strikePosition(cue: cue, aim: aimX, spinX: -0.3)
+        XCTAssertGreaterThan(rightX.z, 0, "右塞应向 +Z（屏右）")
+    }
+
     /// 跟杆运动学：终点 `pullBack ≈ −3R`（杆头越过母球原中心约一颗球 +2R）、
     /// 送杆曲线从 0 单调向前到终点且全程减速（ease-out），停留 0.5s。
     @MainActor
