@@ -82,6 +82,20 @@
 
 ## DR 记录（设计调整）
 
+## DR-028
+- **任务**：球杆显隐与瞄准线绑定 + 运杆/回放衔接（问题集合 v19 W1）
+- **原始规范**：各页自行决定何时 `updateCueStick` / `hideCueStick`；Bank/Diamond 求解只画线不摆杆；开球瞄准期无杆；Composer G14 预览硬藏杆；AimPointScene 瞄准期无杆；回放/序列出杆前常先 `hideCueStick`；Bank 求解主击喂球心。
+- **调整后**：
+  1. **契约**：有稳定瞄准方向且台面正在画瞄准线 ⇒ 同步摆杆；无线/无方向 ⇒ 藏杆。写入 SPEC §8.9 **h**。
+  2. **调用点**：`BankShotViewModel`/`DiamondSystemViewModel.drawSolution` 末尾摆杆；`BreakFlowRunner.drawAimLine` 成功后摆杆、清线/取消藏杆；`PositionPlayViewModel.showGeometryPreviewOnly` 自由预览跟杆；`AimPointSceneTrainingView.redrawLines` 瞄准/结果停留跟杆（用户 aim，`spinX:0`）。
+  3. **C7 衔接**：瞄准与出杆同一 `aim` + `strikePosition(spinX:)`；禁止 `runCueStroke` 前无故 hide；上一杆短定格 ~0.1s；序列每步 ~0.4s 定格再运杆。
+  4. **例外不变**：SceneAiming/AimingQuiz 继续无杆；`.blocked` 仍藏杆（DR-027）。
+- **原因**：根因是「画线与摆杆生命周期未绑定」，不是球杆组件坏了。
+- **影响组件**：Bank/Diamond VM、BreakFlowRunner、PositionPlayViewModel、AimPointSceneTrainingView、SPEC §8.9；**不改** CueStick/CueClearance/CueStroke 公式。
+- **日期**：2026-07-27
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §8.9 h + Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §8.9 h / Changelog（2026-07-27，DR-028）
+
 ## DR-027
 - **任务**：球杆穿模修复（球遮挡抬杆 + 通用碰撞收杆 + 跟杆前向钳制）
 - **原始规范**：`CueStick.requiredElevation` 只算库边、上限 31.5°；`followThroughPull` 固定 −3R；收杆硬切 `hide()`；无球-杆碰撞守卫。

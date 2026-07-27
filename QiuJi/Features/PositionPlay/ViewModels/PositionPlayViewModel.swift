@@ -694,24 +694,28 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     /// G14 拖动中的纯几何预览：保留 `refreshFreeAimOverlay` 刚刷新的假想球/接触点，
-    /// 自由模式补一条闭式瞄准线（cue→假想球，空杆延伸到库边），并清掉待物理求解的旧轨迹与球杆。
+    /// 自由模式补一条闭式瞄准线（cue→假想球，空杆延伸到库边）并同步摆杆（C4）；清掉待物理求解的旧轨迹。
     private func showGeometryPreviewOnly() {
         scene.clearResultNodes(nodes: &trajectoryNodes)
-        scene.hideCueStick()
         if aimMode == .free {
             drawFreeAimPreviewLine()
         } else {
             // 袋口模式无闭式预览：拖动中隐藏残留假想球/接触点，球位实时跟随即为反馈。
+            // C1：无线 ⇒ 藏杆。
             scene.ghostBallNode?.isHidden = true
             scene.hideContactDot()
+            scene.hideCueStick()
         }
     }
 
-    /// 自由模式闭式瞄准线预览（纯几何，逐帧）：母球 → 首碰假想球（无碰则延伸到库内边界）。
+    /// 自由模式闭式瞄准线预览（纯几何，逐帧）：母球 → 首碰假想球（无碰则延伸到库内边界）+ 球杆跟手。
     private func drawFreeAimPreviewLine() {
         guard aimMode == .free,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
-              let dir = freeAimDir else { return }
+              let dir = freeAimDir else {
+            scene.hideCueStick()
+            return
+        }
         let end: SCNVector3
         if let contact = freeAimContact {
             end = SCNVector3(contact.ghost.x, cue.position.y, contact.ghost.z)
@@ -720,6 +724,12 @@ final class PositionPlayViewModel: ObservableObject {
         }
         trajectoryNodes.append(scene.addLine(from: cue.position, to: end,
                                              color: .white, radius: TrajectoryStyle.aimRadius))
+        // C4 / D-v19-3：预览线同现杆，实时跟随 `freeAimDir`。
+        lastAimDirection = dir
+        scene.updateCueStick(
+            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX),
+            aimDirection: dir
+        )
     }
 
     /// 去抖到期后的发射口（主线程）：空闲即按**当前**UI 状态起后台求解；在途则只记「末班车」标记。
@@ -1193,7 +1203,6 @@ final class PositionPlayViewModel: ObservableObject {
         scene.clearResultNodes(nodes: &selectionNodes)
         refreshFreeAimOverlay()
         clearTrajectory()
-        scene.hideCueStick()
         statusText = "回放上一杆…"
 
         // 摆回击打前（不动选中态/参数——isPlaying 下 place/recompute 的求解结果会被丢弃）。
@@ -1210,11 +1219,18 @@ final class PositionPlayViewModel: ObservableObject {
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )
-        scene.runCueStroke(
-            strikePosition: strikePos, aim: aim, velocity: Float(ctx.shot.velocity),
-            clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
-            self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+        // C7：静止瞄准短定格（0～0.2s）后直接运杆；禁止出杆前 `hideCueStick` 闪帧。
+        lastAimDirection = aim
+        scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard let self, self.isPlaying else { return }
+            self.scene.runCueStroke(
+                strikePosition: strikePos, aim: aim, velocity: Float(ctx.shot.velocity),
+                clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+            ) { [weak self] in
+                self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
+            }
         }
     }
 
@@ -1477,30 +1493,40 @@ final class PositionPlayViewModel: ObservableObject {
         scene.hideAllBalls()
         for (key, pt) in step.before.onTable { place(key: key, normalized: pt) }
         refreshOnTableKeys()
-        clearTrajectory()
-        scene.hideCueStick()
+        restoreShotParams(step.shot)
 
         guard let pred = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY),
               pred.feasible, let recorder = pred.recorder, pred.duration > 0.05,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = aimDirection(path: pred.cuePath, from: cueNode.position) else {
             // 本杆不可行：直接落到该杆结果并推进（不阻断整条演示）。
+            clearTrajectory()
+            scene.hideCueStick()
             applySequenceRest(step: step, prediction: nil)
             scheduleNextSequenceStep(after: i)
             return
         }
 
-        isPlaying = true
-        statusText = sequenceStatusText(i) + " · 运杆…"
+        // C7：预告线 + 杆同现 → 静止瞄准定格 0.3～0.5s → 直接运杆（出杆前不 hide）。
+        apply(pred)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+        lastAimDirection = aim
+        scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
+        isPlaying = true
+        statusText = sequenceStatusText(i) + " · 瞄准…"
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )
-        scene.runCueStroke(
-            strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity),
-            clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
-        ) { [weak self] in
-            self?.runSequencePlayback(step: step, prediction: pred, recorder: recorder, index: i)
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard let self, self.isSequencePlaying, self.isPlaying else { return }
+            self.statusText = self.sequenceStatusText(i) + " · 运杆…"
+            self.scene.runCueStroke(
+                strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity),
+                clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+            ) { [weak self] in
+                self?.runSequencePlayback(step: step, prediction: pred, recorder: recorder, index: i)
+            }
         }
     }
 

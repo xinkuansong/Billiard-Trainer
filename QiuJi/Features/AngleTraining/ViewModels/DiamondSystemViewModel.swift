@@ -311,9 +311,14 @@ final class DiamondSystemViewModel: ObservableObject {
         strikeSnapshot = captureBoard()
 
         // 出杆动画（运杆/出杆单一权威 `CueStroke`）：触球瞬间起播球体回放。
+        // C7：击球点与瞄准态同用 `strikePosition(spinX:)`，禁止球心冒充。
+        let aim = sol.prediction.aimDirection
+        let strikePos = CueStroke.strikePosition(
+            cue: cueNode.position, aim: aim, spinX: Double(sol.spinX)
+        )
         scene.runCueStroke(
-            strikePosition: cueNode.position,
-            aim: sol.prediction.aimDirection,
+            strikePosition: strikePos,
+            aim: aim,
             velocity: Float(reflectionPower)
         ) { [weak self] in
             self?.launchPlayback(sol)
@@ -358,6 +363,7 @@ final class DiamondSystemViewModel: ObservableObject {
             currentRailText = ""
             currentRobustnessPercent = nil
             clearPath()
+            scene.hideCueStick()
         } else {
             currentIndex = min(max(ctx.currentIndex, 0), displayed.count - 1)
             let catalog = displayed[currentIndex]
@@ -843,6 +849,7 @@ final class DiamondSystemViewModel: ObservableObject {
             currentRailText = ""
             currentRobustnessPercent = nil
             clearPath()
+            scene.hideCueStick()
             return
         }
 
@@ -996,7 +1003,11 @@ final class DiamondSystemViewModel: ObservableObject {
     }
 
     private func drawCurrent() {
-        guard let sol = currentSolution else { clearPath(); return }
+        guard let sol = currentSolution else {
+            clearPath()
+            scene.hideCueStick()
+            return
+        }
         presentDisplayedSolution(sol, power: adjustmentDraft == nil ? catalogSolvePower : reflectionPower)
     }
 
@@ -1011,8 +1022,15 @@ final class DiamondSystemViewModel: ObservableObject {
     /// `.full`    = + 碰库金点/库面法线（反射特有释义层）。
     private func drawSolution(_ sol: KickEngineSolution) {
         clearPath()
+        guard let cue = scene.cueBallNode, !cue.isHidden else {
+            scene.hideCueStick()
+            return
+        }
         let pred = sol.prediction
-        guard pred.cuePath.count >= 2 else { return }
+        guard pred.cuePath.count >= 2 else {
+            scene.hideCueStick()
+            return
+        }
 
         let detail = UserPreferences.shared.trajectoryDetail
         let route = BankKickSolvePipeline.pathToFirstContact(pred)
@@ -1046,6 +1064,15 @@ final class DiamondSystemViewModel: ObservableObject {
                 pathNodes.append(nLine)
             }
         }
+
+        // C2：求解画线同刻摆杆（与 `refreshFreeAim` 对齐）；aim + spinX 与出杆一致。
+        let aim = pred.aimDirection
+        scene.updateCueStick(
+            cueBallPosition: CueStroke.strikePosition(
+                cue: cue.position, aim: aim, spinX: Double(sol.spinX)
+            ),
+            aimDirection: aim
+        )
     }
 
     private func clearPath() {

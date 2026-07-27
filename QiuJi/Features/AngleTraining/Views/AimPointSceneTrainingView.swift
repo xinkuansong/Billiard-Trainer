@@ -304,6 +304,14 @@ final class AimPointSceneQuizViewModel: ObservableObject {
                 color: TrajectoryStyle.aimPointColor
             ))
         }
+
+        // C5 / D-v19-1：瞄准（及结果停留）阶段用户白线同现杆；沿用户 aim，spinX:0 与出杆一致。
+        if phase == .aiming || phase == .showingResult {
+            scene.updateCueStick(
+                cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: aimDir, spinX: 0),
+                aimDirection: aimDir
+            )
+        }
     }
 
     private func clearLines() {

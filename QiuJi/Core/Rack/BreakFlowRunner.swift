@@ -188,7 +188,10 @@ final class BreakFlowRunner: ObservableObject {
     private func drawAimLine() {
         scene.clearResultNodes(nodes: &aimNodes)
         guard phase == .racked,
-              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else { return }
+              let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
+            scene.hideCueStick()
+            return
+        }
         // 坐标契约（SceneKit 水平面 X–Z，Y 朝上）→ AimLineGeometry 平面点：x→x、z→y。
         let dir = resolvedAim(cuePos: cue.position)
         let y = cue.position.y
@@ -220,6 +223,11 @@ final class BreakFlowRunner: ObservableObject {
         aimNodes.append(scene.addLine(from: tail, to: cue.position,
                                       color: TrajectoryStyle.contactColor.withAlphaComponent(0.85),
                                       radius: TrajectoryStyle.lineMain))
+        // C3：开球瞄准线与球杆同现（aim + spinX 与 `breakNow`→`runCueStroke` 一致）。
+        scene.updateCueStick(
+            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX),
+            aimDirection: dir
+        )
     }
 
     // MARK: - Break
@@ -239,6 +247,8 @@ final class BreakFlowRunner: ObservableObject {
         phase = .computing
         statusText = "开球计算中…"
         scene.clearResultNodes(nodes: &aimNodes)
+        // 清瞄准线后藏杆；`runCueStroke` 起手会再 show，避免瞄准线消失后杆悬空。
+        scene.hideCueStick()
 
         breakQueue.async { [weak self] in
             let result = BreakSimulator.breakShot(
@@ -349,6 +359,7 @@ final class BreakFlowRunner: ObservableObject {
     func cancel() {
         cancelPlayback()
         scene.clearResultNodes(nodes: &aimNodes)
+        scene.hideCueStick()
     }
 
     private func cancelPlayback() {

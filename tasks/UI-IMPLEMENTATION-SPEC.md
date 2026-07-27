@@ -872,6 +872,19 @@ struct BTShareCard: View {
 - **测验页 trailing（C31）**：有可配项（台面网格 / 训练设置）必须提供三点入口——AimPointScene（2D/3D）补 `BTSolverMoreMenu` 网格；AimPointTraining（2D 特写、无 `AngleTrainingScene`）无可配项，代码注释留档不并三点；Geometric 无可配显示项 → **不并三点**，重置统计保留独立 trailing（与三点并存策略=「重置统计是破坏性动作，不塞菜单」）。
 - **测验页主操作按钮（C30）**：Geometric / AimPointTraining 主 CTA 一律 `BTTextActionButton`（与 SceneAiming / AimPointScene 同源）。`NumericKeypadHUD` 呈现契约 = **全屏 ZStack 底浮层**（与 SceneAiming 同构；不用 `safeAreaInset`，避免压缩球桌/画布高度）。
 
+**h. 球杆与瞄准线同现（问题集合 v19，DR-028）**
+
+> 产品默认契约：**有稳定瞄准方向且台面正在画瞄准线 ⇒ 同步摆杆**（`AngleTrainingScene.updateCueStick`）；无线 / 无方向 ⇒ `hideCueStick`。根因是「画线」与「摆杆」须绑定为同一生命周期事件，禁止用 delay/吞错压症状。
+
+- **同现调用点**：Bank/Diamond `drawSolution`（解上屏）；`BreakFlowRunner.drawAimLine`（开球 `.racked`）；`PositionPlayViewModel` 自由模式 G14 预览（`drawFreeAimPreviewLine`，D-v19-3）；AimPointScene `redrawLines` 在 aiming/showingResult 且有用户白线时（D-v19-1）。Silu / PlanThree / Snooker / 停稳有解 / 自由 `refreshFreeAim` / 导出器 `showCueAtRest` 已对齐，本条防回流。
+- **明确例外（继续无杆）**：SceneAiming / AimingQuiz 辅助与结果可视化（防泄题，D-v19-2）；`.blocked` 仍藏杆（DR-027）；缩略图/图文渲染/分离角图谱等无瞄准任务页；无瞄准线的浏览态**禁止**硬插杆。
+- **瞄准 → 运杆 / 回放衔接（C7）**：
+  1. 瞄准态与出杆必须使用**同一** `aim` + `CueStroke.strikePosition(cue:aim:spinX:)`（禁止瞄准带加塞、出杆喂球心）。
+  2. **禁止**在即将 `runCueStroke` 前无故 `hideCueStick`（会造成藏→show 闪帧）。`runCueStroke` 自 `drive(0)+show` 起手，已是瞄准贴球姿态。
+  3. 直播击球：瞄准期已摆好的杆 → 直接 `runCueStroke`。
+  4. 「上一杆」回放：恢复击打前盘面 → 静止瞄准定格 **0～~0.2s**（允许 0）→ `runCueStroke`。
+  5. 序列逐步演示：每步有预告线则杆同现 → 静止瞄准 **~0.3～0.5s** → `runCueStroke`；触球后仍由现有跟杆/淡出收杆，**不要**全程把杆杵在桌上。
+
 ---
 
 ## 九、练习体验品牌设计定稿（「球迹 · 教练仪表盘」，T-P18-52 收录设计稿 v4）
@@ -966,6 +979,7 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-27 | **球杆与瞄准线同现（DR-028 / v19 W1）**：有瞄准线⇒`updateCueStick`，无线⇒藏杆；Bank/Diamond 求解画线摆杆 + 出杆改 `strikePosition(spinX:)`；开球 `drawAimLine` 摆杆；Composer G14 预览跟杆；AimPointScene 瞄准跟杆；SceneAiming 保持无杆；回放/序列禁出杆前 hide + 短定格衔接；§8.9 追加 **h** | DR | Bank/Diamond VM、BreakFlowRunner、PositionPlayViewModel、AimPointScene、SPEC §8.9 | 问题集合 v19 W1 |
 | 2026-07-27 | **球杆穿模守卫（DR-027）**：抬杆含球遮挡、上限 60° 超限隐藏；`CueClearance` 全场球碰撞预测提前抽杆淡出；跟杆 −min(3R, 前方间隙)；`elevationOverride` 冻结整杆仰角；导出器同口径。纯渲染，不改物理 | DR | CueStick / CueStroke / CueClearance / AngleTrainingScene / SequenceVideoExporter | 球杆穿模修复 |
 | 2026-07-25 | **Logo Mark / App Icon 摆位改「环（O）光学居中」+ 占比放大（DR-026）**：① 摆位——`brand.logo-mark{,-dark}.svg` transform `translate(-559 -443)`→`translate(-456.4 -443)`（scale 1.492 不变）、`AppIcon.png` 图形右移 34px，环心偏移 −7.8%→−2.8%（SVG）/ −5.5%→−2.2%（Icon）；② 占比——App Icon 以环心为中心矢量重渲染放大 1.25×（图形宽 58.7%→73.7%）、`BTBrandLogo.onTile` 内边距 16%→10%（图形宽 57.2%→67.8%），`.onDisc` 保持 16% | DR | BTBrandLogo（Onboarding/Login/About/ShareCard）、主 App Icon | Logo 居中 + 放大 |
 | 2026-07-20 | **问题集合 v14 B3「只读两页接壳 + 六页巡游」**：原理/球感接 `LearnDocSectionCard`+`LearnDocText`；公式/速查→`LearnDocFormulaNest` 次级卡收拢（D-v14-5）；学→练 CTA 保留 + 学页互链 `LearnDocTextLink`；球感全宽出血布局保留；`testAngleLearningPages` 扩 v14-b3 取证帧；§9.3.1 补公式降级口径 | 重构 | AimingPrincipleView, BallFeelView, LearnDocChrome, ScreenshotTourUITests, §9.3.1 | 问题集合 v14 B3 |
