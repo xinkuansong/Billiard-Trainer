@@ -941,7 +941,13 @@ final class PositionPlayViewModel: ObservableObject {
         statusText = "运杆…"
 
         let strikePos = strikePosition(cue: cueNode.position)
-        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(solved.shot.velocity)) { [weak self] in
+        let clearancePlayback = TrajectoryPlayback(
+            recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
+        )
+        scene.runCueStroke(
+            strikePosition: strikePos, aim: aim, velocity: Float(solved.shot.velocity),
+            clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+        ) { [weak self] in
             self?.launchBalls(solved: solved, recorder: recorder)
         }
     }
@@ -1201,7 +1207,13 @@ final class PositionPlayViewModel: ObservableObject {
             return
         }
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
-        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(ctx.shot.velocity)) { [weak self] in
+        let clearancePlayback = TrajectoryPlayback(
+            recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
+        )
+        scene.runCueStroke(
+            strikePosition: strikePos, aim: aim, velocity: Float(ctx.shot.velocity),
+            clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+        ) { [weak self] in
             self?.runPlaybackAnimation(ctx: ctx, recorder: recorder, after: after)
         }
     }
@@ -1481,7 +1493,13 @@ final class PositionPlayViewModel: ObservableObject {
         isPlaying = true
         statusText = sequenceStatusText(i) + " · 运杆…"
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
-        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity)) { [weak self] in
+        let clearancePlayback = TrajectoryPlayback(
+            recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
+        )
+        scene.runCueStroke(
+            strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity),
+            clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+        ) { [weak self] in
             self?.runSequencePlayback(step: step, prediction: pred, recorder: recorder, index: i)
         }
     }

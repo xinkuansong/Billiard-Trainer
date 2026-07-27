@@ -309,13 +309,37 @@ final class AngleTrainingScene: SCNScene {
         cueStick?.hide()
     }
 
-    func updateCueStick(cueBallPosition: SCNVector3, aimDirection: SCNVector3, pullBack: Float = 0) {
+    /// Update / show the cue stick.
+    /// - Parameter elevationOverride: when non-nil, freeze elevation for the whole stroke
+    ///   (exporter path: follow-through loop must not re-solve as balls move). `nil` = auto.
+    func updateCueStick(
+        cueBallPosition: SCNVector3,
+        aimDirection: SCNVector3,
+        pullBack: Float = 0,
+        elevationOverride: Float? = nil
+    ) {
         // 显式重新摆杆（如击球后复位重新瞄准）会取消尚未结束的出杆/跟杆/收杆序列，
         // 避免延迟收杆把刚摆好的瞄准杆又隐藏（收杆/复位竞态）。
         cueStick?.rootNode.removeAction(forKey: "strokeAnim")
-        let elevation = CueStick.requiredElevation(
-            cueBallPosition: cueBallPosition, aimDirection: aimDirection
-        )
+        cueStick?.rootNode.removeAction(forKey: "cueFade")
+
+        let elevation: Float
+        if let frozen = elevationOverride {
+            elevation = frozen
+        } else {
+            let obstacles = cueObstacleCenters(excludingStrikeNear: cueBallPosition)
+            switch CueStick.requiredElevation(
+                cueBallPosition: cueBallPosition,
+                aimDirection: aimDirection,
+                obstacleCenters: obstacles
+            ) {
+            case .blocked:
+                hideCueStick()
+                return
+            case .angle(let a):
+                elevation = a
+            }
+        }
         cueStick?.update(
             cueBallPosition: cueBallPosition,
             aimDirection: aimDirection,
@@ -323,6 +347,7 @@ final class AngleTrainingScene: SCNScene {
             elevation: elevation
         )
         cueStick?.show()
+        cueStick?.rootNode.opacity = 1
     }
 
     func hideCueStick() {

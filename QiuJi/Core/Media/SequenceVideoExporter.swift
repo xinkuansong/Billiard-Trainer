@@ -351,7 +351,7 @@ enum SequenceVideoExporter {
             // 运杆/出杆动画（#10，与编排台同源）：回杆→蓄力→匀加速出杆，渲染到触球为止。
             // 跟杆/短停改由下面的运动帧循环**并行叠加**：母球离位与球杆送杆同刻发生，
             // 杜绝导出中「球静止时杆头穿过母球」（App 实时路径本就并行，此处对齐）。
-            var cueAnchor: (strikePos: SCNVector3, aim: SCNVector3)?
+            var cueAnchor: RenderContext.CueStrokeAnchor?
             if options.showCueStroke {
                 cueAnchor = try ctx.renderStrokeToContact(step: step, prediction: pred,
                                                           fps: fps, speed: options.playbackSpeed,
@@ -374,11 +374,25 @@ enum SequenceVideoExporter {
             // 末尾追加「入洞 + 停顿 + 淡出」的模拟时长，保证收杆前进袋的球也能播完消失动画。
             let tailSim: Float = pred.pocketedBalls.isEmpty
                 ? 0 : Float(TrajectoryPlayback.pocketSettleDuration * Double(options.playbackSpeed))
-            // 跟杆叠加时窗（模拟秒）：0→followSim 送杆（杆头 0→+2R），随后 holdSim 短停，之后收杆。
-            // 这段时间母球已在运动，杆头掠过其原位不会穿到球。
+            // 跟杆叠加时窗（模拟秒）：0→followSim 送杆，随后 holdSim 短停，之后收杆。
+            // Clearance：与实时 `runCueStroke` 同口径——全场球探测，预测碰撞则提前抽杆淡出。
             let followSim = Float(CueStroke.followThroughDuration)
             let holdSim = Float(CueStroke.exportFollowThroughHold) * options.playbackSpeed
-            let cueOverlayEndSim = followSim + holdSim
+            var cueOverlayEndSim = followSim + holdSim
+            if var anchor = cueAnchor,
+               let tStar = CueClearance.firstCollisionTime(
+                strikePosition: anchor.strikePos,
+                aimDirection: anchor.aim,
+                elevation: anchor.elevation,
+                endPull: anchor.endPull,
+                holdDuration: TimeInterval(holdSim),
+                ballsAt: { playback.allBallCentersByName(at: Float($0)) }
+               ) {
+                let retractStart = max(0, Float(tStar - CueClearance.retractLead))
+                cueOverlayEndSim = retractStart + Float(CueClearance.retractFade)
+                anchor.collisionRetractStart = retractStart
+                cueAnchor = anchor
+            }
             // 循环至少跑到跟杆结束：短杆（球早停）时也保证跟杆完整播完再收杆。
             let loopEndSim = max(duration + tailSim, cueAnchor != nil ? cueOverlayEndSim : 0)
             var cueHidden = false
@@ -436,16 +450,35 @@ enum SequenceVideoExporter {
                         lastOmega[key] = s.angularVelocity
                     }
                 }
-                // 跟杆叠加：球杆锚定在击球点，与球运动同刻送杆——0→followSim 减速送杆（杆头掠过母球原位、
-                // 母球已离位不穿球），followSim→cueOverlayEndSim 短停在 +2R，之后收杆。
-                if let anchor = cueAnchor {
-                    if t <= followSim + 1e-4 {
-                        ctx.scene.updateCueStick(cueBallPosition: anchor.strikePos, aimDirection: anchor.aim,
-                                                 pullBack: CueStroke.followThrough(at: TimeInterval(t)))
+                // 跟杆叠加：球杆锚定在击球点；仰角整杆冻结（elevationOverride），与实时同口径。
+                if let anchor = cueAnchor, !cueHidden {
+                    if let retractStart = anchor.collisionRetractStart, t >= retractStart - 1e-4 {
+                        let u = min(1, max(0, (t - retractStart) / Float(CueClearance.retractFade)))
+                        let pullAt = CueClearance.pullBackAfterContact(
+                            tau: TimeInterval(retractStart), endPull: anchor.endPull
+                        )
+                        let pull = pullAt + u * (CueClearance.retractPullExtra - min(0, pullAt))
+                        ctx.scene.updateCueStick(
+                            cueBallPosition: anchor.strikePos, aimDirection: anchor.aim,
+                            pullBack: pull, elevationOverride: anchor.elevation
+                        )
+                        ctx.scene.cueStick?.rootNode.opacity = CGFloat(1 - u)
+                        if u >= 1 - 1e-3 {
+                            ctx.scene.hideCueStick()
+                            cueHidden = true
+                        }
+                    } else if t <= followSim + 1e-4 {
+                        ctx.scene.updateCueStick(
+                            cueBallPosition: anchor.strikePos, aimDirection: anchor.aim,
+                            pullBack: CueStroke.followThrough(at: TimeInterval(t), endPull: anchor.endPull),
+                            elevationOverride: anchor.elevation
+                        )
                     } else if t <= cueOverlayEndSim + 1e-4 {
-                        ctx.scene.updateCueStick(cueBallPosition: anchor.strikePos, aimDirection: anchor.aim,
-                                                 pullBack: CueStroke.followThroughPull)
-                    } else if !cueHidden {
+                        ctx.scene.updateCueStick(
+                            cueBallPosition: anchor.strikePos, aimDirection: anchor.aim,
+                            pullBack: anchor.endPull, elevationOverride: anchor.elevation
+                        )
+                    } else {
                         ctx.scene.hideCueStick()
                         cueHidden = true
                     }
@@ -628,33 +661,69 @@ enum SequenceVideoExporter {
             scene.hideContactDot()
         }
 
+        /// Frozen cue pose for follow-through overlay (elevation frozen for whole stroke).
+        struct CueStrokeAnchor {
+            let strikePos: SCNVector3
+            let aim: SCNVector3
+            let elevation: Float
+            let endPull: Float
+            /// When set, start retract+fade at this sim-time (seconds after contact).
+            var collisionRetractStart: Float?
+        }
+
         /// 第2拍·亮方案：把球杆摆到**静止瞄准位**（`pullBack=0`，杆头贴母球击球点）并显示。
         /// 母球此刻未动，锚点与随后 `renderStrokeToContact` 一致，故起杆无缝衔接。
-        /// 无球杆节点 / 瞄准方向缺失时不显示。
+        /// 无球杆节点 / 瞄准方向缺失时不显示。Blocked elevation → hide.
         @discardableResult
         func showCueAtRest(step: SequenceStep, prediction: ShotPrediction)
-            -> (strikePos: SCNVector3, aim: SCNVector3)? {
+            -> CueStrokeAnchor? {
             guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
                   let aim = Self.aimDirection(path: prediction.cuePath, from: cueNode.position)
             else { return nil }
             let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
-            scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: 0)
-            return (strikePos, aim)
+            let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
+            switch CueStick.requiredElevation(
+                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+            ) {
+            case .blocked:
+                scene.hideCueStick()
+                return nil
+            case .angle(let elev):
+                let endPull = CueStroke.clampedFollowThroughPull(
+                    cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+                )
+                scene.updateCueStick(
+                    cueBallPosition: strikePos, aimDirection: aim, pullBack: 0,
+                    elevationOverride: elev
+                )
+                return CueStrokeAnchor(strikePos: strikePos, aim: aim, elevation: elev,
+                                       endPull: endPull, collisionRetractStart: nil)
+            }
         }
 
         /// 逐帧渲染一杆的运杆/出杆动画**直到触球**：回杆 smoothstep → 蓄力停顿 → 匀加速出杆，
         /// 触球瞬间杆速 = 目标球速 v。`speed` 与运动帧同一倍速，使运杆/击球节奏一致。
-        /// 返回击球锚点（击球点 + 瞄准方向）供触球后的跟杆叠加使用；无球杆/瞄准方向时返回 nil。
+        /// 返回击球锚点（含冻结仰角与钳制跟杆量）供触球后的跟杆叠加使用；无球杆/瞄准方向时返回 nil。
         ///
         /// **跟杆/短停不在此处**：改由运动帧循环与球运动**并行**驱动（母球一边离位、球杆一边送杆），
         /// 与实时场景一致——否则球静止时杆头越过母球原中心会视觉穿球（导出专属回归修复）。
         func renderStrokeToContact(step: SequenceStep, prediction: ShotPrediction,
                                    fps: Int, speed: Float, snapshot: () throws -> Void) rethrows
-            -> (strikePos: SCNVector3, aim: SCNVector3)? {
+            -> CueStrokeAnchor? {
             guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
                   let aim = Self.aimDirection(path: prediction.cuePath, from: cueNode.position)
             else { return nil }
             let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+            let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
+            guard case .angle(let elev) = CueStick.requiredElevation(
+                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+            ) else {
+                scene.hideCueStick()
+                return nil
+            }
+            let endPull = CueStroke.clampedFollowThroughPull(
+                cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
+            )
             let v = max(0.3, Float(step.shot.velocity))
             let total = CueStroke.totalDuration(velocity: v)
 
@@ -662,11 +731,15 @@ enum SequenceVideoExporter {
             var t: Float = 0
             while t <= Float(total) + 1e-4 {
                 let pull = CueStroke.pullBack(at: TimeInterval(t), velocity: v)
-                scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim, pullBack: pull)
+                scene.updateCueStick(
+                    cueBallPosition: strikePos, aimDirection: aim, pullBack: pull,
+                    elevationOverride: elev
+                )
                 try snapshot()
                 t += dt
             }
-            return (strikePos, aim)
+            return CueStrokeAnchor(strikePos: strikePos, aim: aim, elevation: elev,
+                                   endPull: endPull, collisionRetractStart: nil)
         }
 
         /// 母球路线首段方向（跳过过近采样点），与编排台 `aimDirection(path:from:)` 同逻辑。

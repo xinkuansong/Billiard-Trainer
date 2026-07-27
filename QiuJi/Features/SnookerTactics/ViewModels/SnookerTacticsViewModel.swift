@@ -597,7 +597,13 @@ final class SnookerTacticsViewModel: ObservableObject {
         statusText = "运杆…"
         scene.clearResultNodes(nodes: &overlayNodes)
         let strikePos = strikePosition(cue: cueNode.position)
-        scene.runCueStroke(strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity)) { [weak self] in
+        let clearancePlayback = TrajectoryPlayback(
+            recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
+        )
+        scene.runCueStroke(
+            strikePosition: strikePos, aim: aim, velocity: Float(sol.shot.velocity),
+            clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+        ) { [weak self] in
             self?.launchBalls(sol: sol, recorder: recorder)
         }
     }
@@ -756,8 +762,13 @@ final class SnookerTacticsViewModel: ObservableObject {
             return
         }
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX)
-        scene.runCueStroke(strikePosition: strikePos, aim: aim,
-                           velocity: Float(snap.shot.velocity)) { [weak self] in
+        let clearancePlayback = TrajectoryPlayback(
+            recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
+        )
+        scene.runCueStroke(
+            strikePosition: strikePos, aim: aim, velocity: Float(snap.shot.velocity),
+            clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+        ) { [weak self] in
             self?.runPlaybackAnimation(snapshot: snap, recorder: recorder, after: after)
         }
     }

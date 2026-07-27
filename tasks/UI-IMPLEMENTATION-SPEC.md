@@ -966,6 +966,7 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-27 | **球杆穿模守卫（DR-027）**：抬杆含球遮挡、上限 60° 超限隐藏；`CueClearance` 全场球碰撞预测提前抽杆淡出；跟杆 −min(3R, 前方间隙)；`elevationOverride` 冻结整杆仰角；导出器同口径。纯渲染，不改物理 | DR | CueStick / CueStroke / CueClearance / AngleTrainingScene / SequenceVideoExporter | 球杆穿模修复 |
 | 2026-07-25 | **Logo Mark / App Icon 摆位改「环（O）光学居中」+ 占比放大（DR-026）**：① 摆位——`brand.logo-mark{,-dark}.svg` transform `translate(-559 -443)`→`translate(-456.4 -443)`（scale 1.492 不变）、`AppIcon.png` 图形右移 34px，环心偏移 −7.8%→−2.8%（SVG）/ −5.5%→−2.2%（Icon）；② 占比——App Icon 以环心为中心矢量重渲染放大 1.25×（图形宽 58.7%→73.7%）、`BTBrandLogo.onTile` 内边距 16%→10%（图形宽 57.2%→67.8%），`.onDisc` 保持 16% | DR | BTBrandLogo（Onboarding/Login/About/ShareCard）、主 App Icon | Logo 居中 + 放大 |
 | 2026-07-20 | **问题集合 v14 B3「只读两页接壳 + 六页巡游」**：原理/球感接 `LearnDocSectionCard`+`LearnDocText`；公式/速查→`LearnDocFormulaNest` 次级卡收拢（D-v14-5）；学→练 CTA 保留 + 学页互链 `LearnDocTextLink`；球感全宽出血布局保留；`testAngleLearningPages` 扩 v14-b3 取证帧；§9.3.1 补公式降级口径 | 重构 | AimingPrincipleView, BallFeelView, LearnDocChrome, ScreenshotTourUITests, §9.3.1 | 问题集合 v14 B3 |
 | 2026-07-20 | **问题集合 v14 B2「交互四页接壳」**：方法/修正/旋转/对照表接 `LearnDocSectionCard`+`LearnDocText`；θ→`LearnControlStrip.Theta`、修正三轴→`LiveAxes`、对照表估距→`ReadoutRow`；管道 φ「局部试瞄」条与全局 θ 区分；CTA≤2 + 新增 `LearnDocTextLink`；§9.3.1 补 φ/轻量链口径；UI 测 `testV14B2InteractiveLearnShellShots` | 重构 | AimingMethods/Correction/SpinAndEnglish/ContactPointTable Views, LearnDocChrome, ScreenshotTourUITests, §9.3.1 | 问题集合 v14 B2 |

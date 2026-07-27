@@ -1,5 +1,19 @@
 import SceneKit
 
+/// Result of cue elevation solving.
+/// - `angle`: butt-up radians to use for rendering.
+/// - `blocked`: required elevation exceeds `maxElevationRadians` — caller must hide the stick
+///   rather than drawing a penetrating shaft (D1).
+enum CueElevation: Equatable {
+    case angle(Float)
+    case blocked
+
+    var radians: Float? {
+        if case .angle(let a) = self { return a }
+        return nil
+    }
+}
+
 /// Cue stick 3D model for angle training scenes.
 /// Supports USDZ model (preferred) or procedural fallback.
 final class CueStick {
@@ -7,25 +21,64 @@ final class CueStick {
     // MARK: - Constants
 
     private enum Constants {
-        static let length: Float = 1.45
-        static let buttRadius: Float = 0.014
+        static let length: Float = CueClearance.shaftLength
+        static let buttRadius: Float = CueClearance.buttRadius
         /// 皮头横截面半径——单一来源 `CuePhysics.tipContactRadius`（11mm 皮头 → 5.5mm）。
-        static let tipRadius: Float = CuePhysics.tipContactRadius
+        static let tipRadius: Float = CueClearance.tipRadius
         static let tipHeight: Float = 0.012
-        static var tipOffset: Float { AngleSceneCalculator.ballRadius + 0.001 }
+        static var tipOffset: Float { CueClearance.tipOffset }
         /// Cushion top above table surface; cue body must clear this when extending over a rail.
         static let railTopAboveSurface: Float = 0.038
         /// Extra clearance for visual safety so the shaft doesn't kiss the rail.
         static let railClearance: Float = 0.012
         /// Minimum elevation for a natural-looking stance even when far from any cushion.
         static let minElevationRadians: Float = 0.05
-        /// Cap to avoid wildly steep rendering angles.
-        static let maxElevationRadians: Float = 0.55
+        /// Cap: 60° (D1). Beyond this → `.blocked` (hide stick), never clamp-and-draw.
+        /// Reachability note: on legal layouts ball occlusion peaks ≈32° at s=2R; cushion
+        /// path uses `max(0.05, dist)` so peaks ≈23°. `.blocked` is a defensive guard only
+        /// (overlapping / synthetic configs, or future formula changes) — see DR-027.
+        static let maxElevationRadians: Float = Float.pi / 3
     }
 
-    /// Required elevation (positive = butt up) so the rear of the cue stick clears the cushion.
-    /// Considers the closest cushion the cue body would extend over (back direction).
-    static func requiredElevation(cueBallPosition: SCNVector3, aimDirection: SCNVector3) -> Float {
+    /// Public max elevation (tests / callers).
+    static var maxElevationRadians: Float { Constants.maxElevationRadians }
+    static var minElevationRadians: Float { Constants.minElevationRadians }
+
+    /// Required elevation (positive = butt up) so the shaft clears cushions **and**
+    /// balls behind the cue along the back direction.
+    ///
+    /// - Parameter obstacleCenters: world centres of balls that may occlude the shaft
+    ///   (already excluding the cue ball itself). Horizontal X–Z; Y ignored for occlusion.
+    ///
+    /// Ball occlusion (conservative): for each obstacle at horizontal offset along `back`,
+    /// if `lateral < R + shaftRadius(s)` and `s` in the occupied span covering max backswing,
+    /// need `atan2(R + shaftRadius(s) + clearance, s)`. Lateral does **not** reduce the
+    /// required rise (deliberately conservative). Take max over cushions and balls;
+    /// if that exceeds 60° → `.blocked`.
+    ///
+    /// - `.blocked` is **not reachable on legal non-overlapping layouts** with the current
+    ///   formulas (ball max ≈32.3° at s=2R; cushion max ≈23° due to `max(0.05, dist)` floor).
+    ///   Kept as a defensive hide-rather-than-penetrate guard. Do not inflate elev to “reach” it.
+    /// - Known inconsistency (render-only; physics unchanged this round): a large elevation
+    ///   cannot physically deliver a strong low-spin stun/draw shot, yet the engine still
+    ///   integrates as a level-cue strike. See IMPLEMENTATION-LOG DR-027.
+    static func requiredElevation(
+        cueBallPosition: SCNVector3,
+        aimDirection: SCNVector3,
+        obstacleCenters: [SCNVector3] = []
+    ) -> CueElevation {
+        let cushion = cushionElevation(cueBallPosition: cueBallPosition, aimDirection: aimDirection)
+        let ball = ballElevation(cueBallPosition: cueBallPosition, aimDirection: aimDirection,
+                                 obstacleCenters: obstacleCenters)
+        let needed = max(cushion, ball)
+        if needed > Constants.maxElevationRadians {
+            return .blocked
+        }
+        return .angle(max(Constants.minElevationRadians, needed))
+    }
+
+    /// Cushion-only elevation (uncapped except for the historical internal min).
+    private static func cushionElevation(cueBallPosition: SCNVector3, aimDirection: SCNVector3) -> Float {
         let halfL = AngleSceneCalculator.innerLength / 2
         let halfW = AngleSceneCalculator.innerWidth / 2
 
@@ -48,10 +101,43 @@ final class CueStick {
         guard distToCushion > 0 else { return Constants.minElevationRadians }
         if distToCushion >= Constants.length { return Constants.minElevationRadians }
 
-        // Cue tip sits at ball-center height; at distToCushion the shaft must be above rail top.
         let railRise = max(0, Constants.railTopAboveSurface - AngleSceneCalculator.ballRadius)
-        let needed = atan2f(railRise + Constants.railClearance, max(0.05, distToCushion))
-        return max(Constants.minElevationRadians, min(needed, Constants.maxElevationRadians))
+        return atan2f(railRise + Constants.railClearance, max(0.05, distToCushion))
+    }
+
+    /// Ball-occlusion elevation contribution (0 if none).
+    private static func ballElevation(
+        cueBallPosition: SCNVector3,
+        aimDirection: SCNVector3,
+        obstacleCenters: [SCNVector3]
+    ) -> Float {
+        guard !obstacleCenters.isEmpty else { return 0 }
+        let aim = CueClearance.normalizeFlat(aimDirection)
+        let back = SCNVector3(-aim.x, 0, -aim.z)
+        let r = AngleSceneCalculator.ballRadius
+        // Occupied span covers max backswing: [R, R+maxPull+length].
+        // Also consider tip-zone (0 < s < R): a ball jammed between pivot and tip
+        // (physically overlapping cue ball) still needs a steep / blocked elevation.
+        let sMin = r
+        let sMax = r + CueClearance.maxPullBack + CueClearance.shaftLength
+        var needed: Float = 0
+        for p in obstacleCenters {
+            let dx = p.x - cueBallPosition.x
+            let dz = p.z - cueBallPosition.z
+            let s = dx * back.x + dz * back.z
+            guard s > 1e-4, s <= sMax + 1e-4 else { continue }
+            let latX = dx - s * back.x
+            let latZ = dz - s * back.z
+            let lateral = sqrtf(latX * latX + latZ * latZ)
+            let shaftR = s >= sMin
+                ? CueClearance.shaftRadius(atDistanceAlongBack: s)
+                : CueClearance.tipRadius
+            guard lateral < r + shaftR else { continue }
+            // Conservative: required rise ignores lateral (as if ball were on the shaft line).
+            let elev = atan2f(r + shaftR + CueClearance.ballClearance, max(1e-4, s))
+            needed = max(needed, elev)
+        }
+        return needed
     }
 
     // MARK: - Nodes
@@ -199,5 +285,17 @@ final class CueStick {
 
     func hide() {
         rootNode.isHidden = true
+        rootNode.opacity = 1.0
+    }
+
+    /// Short opacity fade then hide (normal retract / clearance retract).
+    func fadeOut(duration: TimeInterval = CueClearance.retractFade, completion: (() -> Void)? = nil) {
+        rootNode.removeAction(forKey: "cueFade")
+        let fade = SCNAction.fadeOpacity(to: 0, duration: duration)
+        let hide = SCNAction.run { [weak self] _ in
+            self?.hide()
+            completion?()
+        }
+        rootNode.runAction(.sequence([fade, hide]), forKey: "cueFade")
     }
 }

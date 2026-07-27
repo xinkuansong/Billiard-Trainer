@@ -197,6 +197,21 @@ final class TrajectoryPlayback {
     }
     
     var duration: Float { recorder.duration }
+
+    /// All recorded ball names (cue + object + colliders) for clearance probes.
+    var ballNames: [String] { Array(sortedFrames.keys) }
+
+    /// World centres of **every** ball at simulation time `t`, keyed by ball name
+    /// (cue clearance D2 — ids required for per-ball separation latch).
+    func allBallCentersByName(at time: Float) -> [String: SCNVector3] {
+        var result: [String: SCNVector3] = [:]
+        for name in ballNames {
+            if let p = stateAt(ballName: name, time: time)?.position {
+                result[name] = p
+            }
+        }
+        return result
+    }
     
     init(recorder: TrajectoryRecorder, surfaceY: Float) {
         self.recorder = recorder

@@ -25,14 +25,36 @@ enum CueStroke {
     static let followThroughHold: TimeInterval = 1.5
     /// 导出逐帧：跟杆后的短停（避免教学视频每杆拖沓）。
     static let exportFollowThroughHold: TimeInterval = 0.2
-    /// 跟杆终点回杆量：杆头越过母球原中心约一颗球（杆头落在 +2R 处）⇒ `pullBack ≈ −3R`。
+    /// 跟杆终点回杆量上限：杆头越过母球原中心约一颗球（杆头落在 +2R 处）⇒ `pullBack ≈ −3R`。
+    /// Forward obstacles may clamp this via `clampedFollowThroughPull` (D3).
     static var followThroughPull: Float { -3 * AngleSceneCalculator.ballRadius }
 
-    /// 触球后送杆量（`pullBack`）：0 → `followThroughPull`，ease-out（触球瞬间最快、随后减速到停）。
-    static func followThrough(at t: TimeInterval) -> Float {
+    /// Clamp follow-through so the tip does not enter the nearest ball ahead along aim.
+    /// Returns `−min(3R, availableSurfaceGap)`, floored at 0 (no follow-through when gap is 0).
+    static func clampedFollowThroughPull(
+        cueBallPosition: SCNVector3,
+        aimDirection: SCNVector3,
+        obstacleCenters: [SCNVector3]
+    ) -> Float {
+        let gap = CueClearance.forwardSurfaceGap(
+            cueBallPosition: cueBallPosition,
+            aimDirection: aimDirection,
+            obstacleCenters: obstacleCenters
+        )
+        if gap == .greatestFiniteMagnitude {
+            return followThroughPull
+        }
+        let maxMag = -followThroughPull  // 3R
+        return -min(maxMag, gap)
+    }
+
+    /// 触球后送杆量（`pullBack`）：0 → `endPull`，ease-out（触球瞬间最快、随后减速到停）。
+    /// - Parameter endPull: defaults to unclamped `followThroughPull` (−3R).
+    static func followThrough(at t: TimeInterval, endPull: Float? = nil) -> Float {
+        let end = endPull ?? followThroughPull
         let u = Float(min(1, max(0, t / followThroughDuration)))
         let ease = 1 - (1 - u) * (1 - u)        // 减速曲线（ease-out）
-        return followThroughPull * ease
+        return end * ease
     }
 
     /// 速度下限，避免极慢杆出现除零 / 超长前推。
@@ -88,41 +110,149 @@ enum CueStroke {
 }
 
 extension AngleTrainingScene {
+    /// Obstacle ball centres for cue clearance (all visible balls except the cue ball).
+    func cueObstacleCenters(excludingStrikeNear strike: SCNVector3? = nil) -> [SCNVector3] {
+        var result: [SCNVector3] = []
+        for (key, node) in visibleBalls() {
+            if key == "cueBall" { continue }
+            if let strike {
+                let dx = node.position.x - strike.x
+                let dz = node.position.z - strike.z
+                if dx * dx + dz * dz < 1e-8 { continue }
+            }
+            result.append(node.position)
+        }
+        return result
+    }
+
     /// 运杆 / 出杆 / 跟杆动画（#10，单一权威，实时场景用）：
     /// 回杆 → 蓄力 → 匀加速出杆（触球瞬间杆速 = `velocity`，此刻触发 `onContact` 发球）→
-    /// 减速跟杆（杆头越过母球原中心约一颗球）→ 停留 `followThroughHold` → 收杆。
+    /// 减速跟杆（杆头越过母球原中心约一颗球，可被前方球钳制）→ 停留 `followThroughHold` → 淡出收杆。
     /// 无球杆节点时立即回调（直接发球）。
     ///
     /// - Parameter strikePosition: 杆头对准的母球击球点（含加塞偏移，见 `CueStroke.strikePosition`）。
+    /// - Parameter clearanceProbe: optional; given simulation time **after contact**, returns
+    ///   **all** ball centres keyed by stable id (for per-ball separation latch). When non-nil
+    ///   and a re-entry collision is predicted, retract early. When `nil`, pullBack timeline
+    ///   matches the pre-clearance behaviour (regression red line) aside from the final
+    ///   hard-cut hide → short fade.
     /// - Parameter onContact: 触球瞬间于主线程触发，由调用方启动球体轨迹回放；
     ///   **不要**在此 `hideCueStick`——收杆由本方法在跟杆 + 停留后接管。
-    func runCueStroke(strikePosition: SCNVector3, aim: SCNVector3, velocity: Float,
-                      onContact: @escaping () -> Void) {
+    func runCueStroke(
+        strikePosition: SCNVector3,
+        aim: SCNVector3,
+        velocity: Float,
+        clearanceProbe: ((TimeInterval) -> [String: SCNVector3])? = nil,
+        onContact: @escaping () -> Void
+    ) {
         guard let stick = cueStick else {
             onContact()
             return
         }
         let stickNode = stick.rootNode
+        let obstacles = cueObstacleCenters(excludingStrikeNear: strikePosition)
         // 击球点与瞄准方向全程固定 ⇒ 仰角恒定；逐帧直接驱动 `CueStick`，绕开 `updateCueStick`
         // （后者会取消 "strokeAnim" 以处理收杆/复位竞态，若经它驱动会自我取消）。
-        let elevation = CueStick.requiredElevation(cueBallPosition: strikePosition, aimDirection: aim)
+        let elevResult = CueStick.requiredElevation(
+            cueBallPosition: strikePosition, aimDirection: aim, obstacleCenters: obstacles
+        )
+        guard case .angle(let elevation) = elevResult else {
+            // Blocked: do not draw a penetrating stick; still fire the shot.
+            stick.hide()
+            onContact()
+            return
+        }
+        let endPull = CueStroke.clampedFollowThroughPull(
+            cueBallPosition: strikePosition, aimDirection: aim, obstacleCenters: obstacles
+        )
         let drive: (Float) -> Void = { [weak stick] pull in
             stick?.update(cueBallPosition: strikePosition, aimDirection: aim,
                           pullBack: pull, elevation: elevation)
         }
         drive(0)
         stick.show()
+        stickNode.opacity = 1
 
         let contactDur = CueStroke.totalDuration(velocity: velocity)
         let toContact = SCNAction.customAction(duration: contactDur) { _, elapsed in
             drive(CueStroke.pullBack(at: TimeInterval(elapsed), velocity: velocity))
         }
         let launch = SCNAction.run { _ in Task { @MainActor in onContact() } }
-        let followThrough = SCNAction.customAction(duration: CueStroke.followThroughDuration) { _, elapsed in
-            drive(CueStroke.followThrough(at: TimeInterval(elapsed)))
+
+        // Predict first post-contact collision across ALL balls (D2 — not cue-only).
+        let collisionT: TimeInterval? = clearanceProbe.flatMap { probe in
+            CueClearance.firstCollisionTime(
+                strikePosition: strikePosition,
+                aimDirection: aim,
+                elevation: elevation,
+                endPull: endPull,
+                holdDuration: CueStroke.followThroughHold,
+                ballsAt: probe
+            )
         }
-        let hold = SCNAction.wait(duration: CueStroke.followThroughHold)
-        let hide = SCNAction.run { [weak stick] _ in Task { @MainActor in stick?.hide() } }
-        stickNode.runAction(.sequence([toContact, launch, followThrough, hold, hide]), forKey: "strokeAnim")
+
+        let postContact = Self.makePostContactActions(
+            collisionT: collisionT,
+            endPull: endPull,
+            holdDuration: CueStroke.followThroughHold,
+            drive: drive,
+            stick: stick
+        )
+        stickNode.runAction(.sequence([toContact, launch] + postContact), forKey: "strokeAnim")
+    }
+
+    /// Build follow-through / hold / retract-or-fade action list after contact.
+    private static func makePostContactActions(
+        collisionT: TimeInterval?,
+        endPull: Float,
+        holdDuration: TimeInterval,
+        drive: @escaping (Float) -> Void,
+        stick: CueStick
+    ) -> [SCNAction] {
+        let followDur = CueStroke.followThroughDuration
+        let lead = CueClearance.retractLead
+        let fade = CueClearance.retractFade
+        let retractExtra = CueClearance.retractPullExtra
+
+        // No predicted collision: normal follow-through + hold + short fade (not hard cut).
+        guard let tStar = collisionT else {
+            let followThrough = SCNAction.customAction(duration: followDur) { _, elapsed in
+                drive(CueStroke.followThrough(at: TimeInterval(elapsed), endPull: endPull))
+            }
+            let hold = SCNAction.wait(duration: holdDuration)
+            let fadeOut = SCNAction.run { [weak stick] _ in
+                Task { @MainActor in stick?.fadeOut(duration: fade) }
+            }
+            return [followThrough, hold, fadeOut]
+        }
+
+        // Retract window starts at max(0, t* − lead).
+        let retractStart = max(0, tStar - lead)
+        var actions: [SCNAction] = []
+
+        if retractStart > 1e-4 {
+            // Play normal motion until retractStart.
+            let preDur = retractStart
+            let pre = SCNAction.customAction(duration: preDur) { _, elapsed in
+                let tau = TimeInterval(elapsed)
+                drive(CueClearance.pullBackAfterContact(tau: tau, endPull: endPull))
+            }
+            actions.append(pre)
+        }
+
+        // Capture pull at retract start for lerp.
+        let pullAtRetract = CueClearance.pullBackAfterContact(tau: retractStart, endPull: endPull)
+        let retract = SCNAction.customAction(duration: fade) { node, elapsed in
+            let u = Float(min(1, max(0, elapsed / CGFloat(fade))))
+            // Withdraw along back (more positive pullBack) while fading.
+            let pull = pullAtRetract + u * (retractExtra - min(0, pullAtRetract))
+            drive(pull)
+            node.opacity = CGFloat(1 - u)
+        }
+        let hide = SCNAction.run { [weak stick] _ in
+            Task { @MainActor in stick?.hide() }
+        }
+        actions.append(contentsOf: [retract, hide])
+        return actions
     }
 }

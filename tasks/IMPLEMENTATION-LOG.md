@@ -82,6 +82,26 @@
 
 ## DR 记录（设计调整）
 
+## DR-027
+- **任务**：球杆穿模修复（球遮挡抬杆 + 通用碰撞收杆 + 跟杆前向钳制）
+- **原始规范**：`CueStick.requiredElevation` 只算库边、上限 31.5°；`followThroughPull` 固定 −3R；收杆硬切 `hide()`；无球-杆碰撞守卫。
+- **调整后**：
+  1. **抬杆**：`CueElevation = angle | blocked`；库边与球遮挡取 max；上限 **60°**，超限 **隐藏球杆**（不硬画）；遮挡区间覆盖 `maxPullBack=0.15m`（≈v=2.9m/s）；`updateCueStick` 内部取 `visibleBalls()`，调用点零改；`elevationOverride` 冻结整杆仰角（导出跟杆循环）。
+  2. **碰撞守卫**：`CueClearance.firstCollisionTime` 遍历**所有**球；`runCueStroke(clearanceProbe:)` 默认 nil 时 pullBack 序列与改前等价；预测碰撞则 `t*−0.12s` 起 0.18s 抽杆淡出；正常收杆改为短淡出。
+  3. **跟杆钳制**：`clampedFollowThroughPull = −min(3R, 前方表面间隙)`，下限 0；实时与 `SequenceVideoExporter` 共用。
+- **原因**：杆后有球平放穿模；跟杆定格时倒旋/吃库/连锁球撞进杆身；前方贴球时 −3R 捅进目标球。
+- **影响组件**：`CueStick` / `CueStroke` / `CueClearance`（新）/ `AngleTrainingScene.updateCueStick` / `SequenceVideoExporter`；接线 VM：PositionPlay / Silu / SnookerTactics / PlanThree。
+- **已知不自洽（本轮不改物理）**：大仰角渲染时引擎仍按平杆积分——强力低杆与立杆姿态物理上不兼容。未接 UI「需架杆/立杆」提示（跨 VM 成本高，仅代码注释 + 本条留档）。
+- **返工 r1（2026-07-27，主控验收打回）**：
+  1. **软杆误报**：`tipOffset=R+1mm` 已小于碰撞阈值 `R+tipR+margin`；仅跳过 i=0 不够，v≲1.4 在 τ=1/60 误报 → 跟杆整段被跳过。修复为**按球分离闩锁**（曾经出过阈值才成为候选）；探针改为 `[String: SCNVector3]`。
+  2. **`worldPoint` 交叉验证**：新增 `test_shaftSegment_matchesSceneKitNode`（真实 SCNNode.convertPosition，含 30°/37°）。
+  3. **`.blocked` 可达性**：合法盘面球遮挡峰值 ≈32.3°（s=2R）；库边因 `max(0.05, dist)` 地板峰值 ≈23.2°。**.blocked 在合法盘面不可达**，仅作防御性护栏保留，禁止为可达而放大仰角公式。
+- **验证**：`make build` ✅；`CueClearanceTests` 全绿（含软杆 v 档无误报 + 倒旋回撤捕获 + SceneKit 交叉）；`SpinExportParityTests` + `TrajectoryPlaybackSpinTests` 不回归。证据：`build/cue-clearance-evidence/rework_latch_draft.txt`。
+- **主控独立验收（2026-07-27）**：逐文件读全量 diff；亲跑 `make build` **BUILD SUCCEEDED** ×2；亲跑 `CueClearanceTests` **12/0**、`SpinExportParityTests` 2/0、`TrajectoryPlaybackSpinTests` 8/0；亲跑 **`QiuJiTests` 全量 684 tests / 0 failures / 2 skipped**（基线 672 + 新增 12，无回归）。r1 前的软杆误报由主控数值草稿独立复现（v=0.4~1.2 均在 τ=1/60 误报）后打回。**未验**：无 SceneKit 离屏/真机截图，抬杆姿态与提前收杆时机待用户点验。
+- **日期**：2026-07-27
+- **回写目标**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md`；`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `.cursor/skills/geometry-spatial-reasoning/SKILL.md` § 经验教训 / DR-027（2026-07-27）；✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-07-27）
+
 ## DR-026
 - **任务**：品牌 Logo Mark / App Icon 摆位修正（用户反馈「logo 里的 O 看着不居中」）
 - **原始规范**：snail-QJ 图形按**整体外接框居中**摆放（`brand.logo-mark{,-dark}.svg` 用 `translate(-559 -443) scale(1.492)`；App Icon 白色图形外接框中心 x=505 ≈ 画布中心 512）。
