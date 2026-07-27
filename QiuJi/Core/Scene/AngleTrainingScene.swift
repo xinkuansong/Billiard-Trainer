@@ -173,6 +173,7 @@ final class AngleTrainingScene: SCNScene {
             // 场景，否则 reset/重新摆球后球仍不可见（球"消失"bug）。
             if cue.parent == nil { rootNode.addChildNode(cue) }
             cue.opacity = 1
+            BallSpinIntegrator.resetPose(cue)
             cue.position = cuePos
             cue.isHidden = false
             cueBallNode = cue
@@ -188,6 +189,7 @@ final class AngleTrainingScene: SCNScene {
         if let target = allBallNodes[targetKey] {
             if target.parent == nil { rootNode.addChildNode(target) }
             target.opacity = 1
+            BallSpinIntegrator.resetPose(target)
             target.position = targetPos
             target.isHidden = false
             targetBallNodes = [target]
@@ -220,14 +222,17 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Multi-ball free placement (Position-Play Composer, ADR-P11-01)
 
-    /// 显示并定位任意一颗 USDZ 球（防御性重挂 + 贴台面 Y）。`key`: `cueBall` / `_1`..`_15`。
-    /// 用于走位编排器的自由摆球——把 `allBallNodes` 里的现成节点按需上桌。
+    /// 显示并定位任意一颗 USDZ 球（防御性重挂 + 贴台面 Y + 姿态归零）。
+    /// `key`: `cueBall` / `_1`..`_15`。用于走位编排器的自由摆球——把 `allBallNodes` 里的
+    /// 现成节点按需上桌。摆球即「重新开局」，故与位置一样把回放转出来的球面姿态一并复位
+    /// （S5：否则同一杆反复播放起始姿态逐次漂移）。
     func showBall(key: String, scenePosition: SCNVector3) {
         guard let node = allBallNodes[key] else { return }
         let correctY = surfaceY + AngleSceneCalculator.ballRadius
         if node.parent == nil { rootNode.addChildNode(node) }
         node.removeAllActions()
         node.opacity = 1
+        BallSpinIntegrator.resetPose(node)
         node.position = SCNVector3(scenePosition.x, correctY, scenePosition.z)
         node.isHidden = false
         if key == "cueBall" { cueBallNode = node }

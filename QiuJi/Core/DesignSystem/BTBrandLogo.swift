@@ -32,20 +32,21 @@ struct BTBrandLogo: View {
             case .markOnly:
                 mark
             case .onTile:
-                tile(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous))
+                tile(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous), inset: 0.10)
             case .onDisc:
-                tile(Circle())
+                // 圆形底保持 16%：squircle 的边角比内切圆宽裕，缩到 10% 会让尾尖顶出圆外。
+                tile(Circle(), inset: 0.16)
             }
         }
         .frame(width: size, height: size)
         .accessibilityLabel("球迹")
     }
 
-    private func tile<S: Shape>(_ shape: S) -> some View {
+    private func tile<S: Shape>(_ shape: S, inset: CGFloat) -> some View {
         shape
             .fill(Color.btBGTertiary)
             .overlay {
-                mark.padding(size * 0.16)
+                mark.padding(size * inset)
             }
     }
 }

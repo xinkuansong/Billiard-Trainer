@@ -43,60 +43,7 @@ final class TrajectoryRecorder {
         return last.state == .pocketed
     }
     
-    /// 生成 SCNAction 序列回放轨迹
-    /// - Parameters:
-    ///   - node: 要动画的节点
-    ///   - ballName: 球名称
-    ///   - speed: 播放速度
-    ///   - surfaceY: 台面Y坐标，传入后会强制所有帧的 Y 坐标为此值（防止球飞离台面）
-    func action(for node: SCNNode, ballName: String, speed: Float = 1.0, surfaceY: Float? = nil) -> SCNAction? {
-        guard let frames = framesByBallName[ballName], frames.count > 1 else { return nil }
-        
-        var actions: [SCNAction] = []
-        for i in 1..<frames.count {
-            let prev = frames[i - 1]
-            let next = frames[i]
-            let dt = max(0.001, (next.time - prev.time) / speed)
-            
-            // 强制 Y 坐标贴合台面，防止浮点误差累积导致球飞离台面
-            var position = next.position
-            if let y = surfaceY {
-                position.y = y
-            }
-            
-            // 检测进袋：当球状态从非 pocketed 变为 pocketed 时
-            if next.state == .pocketed && prev.state != .pocketed {
-                // 移动到进袋位置 + 同时淡出
-                let move = SCNAction.move(to: position, duration: TimeInterval(dt))
-                let fadeOut = SCNAction.fadeOut(duration: min(0.3, TimeInterval(dt)))
-                actions.append(SCNAction.group([move, fadeOut]))
-                // 进袋后从场景中移除
-                actions.append(SCNAction.removeFromParentNode())
-                break  // 进袋后不再生成后续帧动作
-            }
-            
-            // 根据位移方向和距离计算滚动旋转
-            let displacement = next.position - prev.position
-            let distance = displacement.length()
-            
-            let move = SCNAction.move(to: position, duration: TimeInterval(dt))
-            
-            if distance > 0.0001 {
-                let rotationAngle = distance / BallPhysics.radius
-                let moveDir = displacement.normalized()
-                // 旋转轴 = Y轴 × 运动方向（球向前滚时绕垂直于运动方向的水平轴旋转）
-                let rotationAxis = SCNVector3(0, 1, 0).cross(moveDir).normalized()
-                if rotationAxis.length() > 0.001 {
-                    let rotate = SCNAction.rotate(by: CGFloat(rotationAngle), around: rotationAxis, duration: TimeInterval(dt))
-                    actions.append(SCNAction.group([move, rotate]))
-                } else {
-                    actions.append(move)
-                }
-            } else {
-                actions.append(move)
-            }
-        }
-        
-        return SCNAction.sequence(actions)
-    }
+    // 回放动作统一由 `TrajectoryPlayback.action(for:ballName:)` 生成（解析解逐帧求值 +
+    // 角速度积分自转）。此处旧的「事件帧线性插值 + 位移反推滚动」实现与其唯一调用方
+    // `SceneKitBridge` 已于 v17 W2 删除。
 }

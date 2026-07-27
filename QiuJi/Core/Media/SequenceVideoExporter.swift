@@ -385,8 +385,9 @@ enum SequenceVideoExporter {
             var potTimes: [String: Float] = [:]
             var potEntries: [String: (start: SCNVector3, legs: [TrajectoryPlayback.PocketEntryLeg])] = [:]
             var lastVel: [String: SCNVector3] = [:]
-            // 逐帧滚动：记录各球上一帧累积滚动弧度，用增量驱动球面自转（与 App `action(for:)` 同源）。
-            var lastRot: [String: Float] = [:]
+            // 逐帧自转：记录各球上一帧角速度，与本帧取均值做梯形积分（与 App `action(for:)` 同源）。
+            var lastOmega: [String: SCNVector3] = [:]
+            let frameSimDt = Float(1.0 / Double(fps)) * options.playbackSpeed
             var t: Float = 0
             while t <= loopEndSim + 1e-4 {
                 for key in onKeys {
@@ -425,17 +426,14 @@ enum SequenceVideoExporter {
                         node.position = SCNVector3(s.position.x, ctx.yLevel, s.position.z)
                         node.opacity = 1
                         lastVel[key] = s.velocity
-                        // 球面自转：绕 (up × 运动方向) 轴按本帧滚动弧度增量旋转，使号码/花纹随位移滚动
-                        //（而非平移滑行）。与 App `TrajectoryPlayback.action` 逻辑一致。
-                        let dRot = s.accumulatedRotation - (lastRot[key] ?? s.accumulatedRotation)
-                        if dRot > 1e-5, s.moveDirection.length() > 0.001 {
-                            let axis = SCNVector3(0, 1, 0).cross(s.moveDirection).normalized()
-                            if axis.length() > 0.001 {
-                                let q = simd_quatf(angle: dRot, axis: simd_float3(axis.x, axis.y, axis.z))
-                                node.simdOrientation = q * node.simdOrientation
-                            }
+                        // 球面自转：按引擎角速度 ω 逐帧四元数积分（v17，与 App
+                        // `TrajectoryPlayback.action` 同一口径 `BallSpinIntegrator`），
+                        // 加塞竖轴自转、低杆倒旋、定杆不转在导出视频里与 App 内一致。
+                        if let prev = lastOmega[key] {
+                            BallSpinIntegrator.advance(node: node, from: prev,
+                                                       to: s.angularVelocity, dt: frameSimDt)
                         }
-                        lastRot[key] = s.accumulatedRotation
+                        lastOmega[key] = s.angularVelocity
                     }
                 }
                 // 跟杆叠加：球杆锚定在击球点，与球运动同刻送杆——0→followSim 减速送杆（杆头掠过母球原位、
@@ -453,7 +451,7 @@ enum SequenceVideoExporter {
                     }
                 }
                 try snapshot()
-                t += Float(1.0 / Double(fps)) * options.playbackSpeed
+                t += frameSimDt
             }
             if cueAnchor != nil, !cueHidden { ctx.scene.hideCueStick() }
 

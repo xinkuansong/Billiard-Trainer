@@ -1,0 +1,191 @@
+{
+  "createdAt" : "2026-07-26T18:04:43Z",
+  "id" : "C0779CEF-8821-465A-BBB7-B2EC415A9E3C",
+  "initial" : {
+    "onTable" : {
+      "cueBall" : {
+        "x" : 0.30000001192092896,
+        "y" : 0.30000001192092896
+      }
+    }
+  },
+  "name" : "五档力度阶梯 · 球形1",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.9703657031059265,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.12151249498128891,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "49EF3040-F6BB-4307-A1EB-528AE38594D8",
+      "objectPocketed" : false,
+      "potted" : [
+
+      ],
+      "shot" : {
+        "freeAim" : {
+          "x" : 1,
+          "y" : 0
+        },
+        "pocket" : "",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "",
+        "velocity" : 0.6000000000000001
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.053602926433086395,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.12151249498128891,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "129804ED-E9ED-43C8-89BC-115D530C472E",
+      "objectPocketed" : false,
+      "potted" : [
+
+      ],
+      "shot" : {
+        "freeAim" : {
+          "x" : 1,
+          "y" : 0
+        },
+        "pocket" : "",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "",
+        "velocity" : 1.2000000000000002
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.969195544719696,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.12151249498128891,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "7584AD23-4AAC-4E6A-88D9-EEACD38FDD04",
+      "objectPocketed" : false,
+      "potted" : [
+
+      ],
+      "shot" : {
+        "freeAim" : {
+          "x" : 1,
+          "y" : 0
+        },
+        "pocket" : "",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "",
+        "velocity" : 2
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.015214437618851662,
+            "y" : 0.3543543219566345
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.12151249498128891,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "EEF2ADCB-80E0-4BEC-B07E-94AD994F3239",
+      "objectPocketed" : false,
+      "potted" : [
+
+      ],
+      "shot" : {
+        "freeAim" : {
+          "x" : 1,
+          "y" : 0
+        },
+        "pocket" : "",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "",
+        "velocity" : 3
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.9845544099807739,
+            "y" : 0.3543543219566345
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.12151249498128891,
+            "y" : 0.35435423254966736
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "CD85757C-54C8-4985-A028-67E3AEA8608B",
+      "objectPocketed" : false,
+      "potted" : [
+
+      ],
+      "shot" : {
+        "freeAim" : {
+          "x" : 1,
+          "y" : 0
+        },
+        "pocket" : "",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "",
+        "velocity" : 4.2
+      }
+    }
+  ],
+  "updatedAt" : "2026-07-26T18:08:02Z"
+}

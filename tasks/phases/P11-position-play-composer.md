@@ -274,3 +274,20 @@
 - **物理边界（诚实标注）**：仍是 **2D 平面物理**（球恒在球面高度），3D 只换相机——**跳球/扎杆腾空** 出不来，需扩物理引擎到三维（不在本 ADR 范围）。
 - **接入 demo（2026-06-18）**：`full_3d.mp4`（手机档 720×1360）已拷入 `Resources/Videos/drill_c042/`，`drill_c042.json` `videos` 追加 `{id:"full3d",file:"full_3d.mp4"}` 与既有 2D `full` **并存**；`make build` ✅ + bundle 内含两 mp4；`testDrillC042TutorialDemo` 通过，截图 `c042-02-detail-video` 确认详情页「视频示范 **2 段**」（第1段 2D 顶视 / 第2段 3D 斜视角），第2段缩略图由真实 `full_3d.mp4` AVAsset 解码渲染 ⇒ 播放器同路径可播。注意：`scripts/import-videos-to-app.py` 仅服务项目 15 的真机录屏（`take_NN.mp4`）且会重写 `videos`，**不适用**本 demo 的合成渲染视频，c042 走手工接入（与 ADR-P11-14 的 `full.mp4` 一致）。
 - **遗留**：a) 俯角下界（近库遮挡）用近似库顶坐标 (x≈1.34, y≈0.85)，已抽帧确认 30° 安全；b) ~~3D 视频接入 drill `videos` 字段消费~~ → drill_c042 已接入（见上）；OTA 通道（依赖 H-14）仍待做，其余 drill 的 3D 视频接入待批量出片后排期；c) 动态镜头（跟拍/环绕）为后续增强，本轮只做静态；d) 详情页缩略图标签为「第 N 段」泛化命名，无 2D/3D 文字区分（两段缩略图视觉可辨；如需文字标签须给 `DrillVideo` 加 `title` 字段+UI，超本轮范围）。
+
+### ADR-P11-16 — 球体姿态显示契约：由「位移弧长反推」改为「引擎角速度 ω 逐帧积分」（问题集合 v17）
+
+- **日期**：2026-07-25
+- **状态**：已实施（W1 回放层 + W2 导出器同源，全量单测 672/0）
+- **背景**：用户报「加塞后看不到球的旋转」。读码确证：物理层每帧都算出了角速度 ω 并写进 `BallFrame`，但渲染层从不消费它——球体朝向由「本帧走了多远 / R」反推，旋转轴写死为 `ŷ × v̂`（垂直运动方向的水平轴）。后果有三：① 加塞的竖轴分量 ω_y 被整体丢弃（顶视下恰恰最显眼）；② 低杆倒旋期球面仍按前滚方向转（方向错）；③ `.spinning`（位移为零的原地自转）因「有位移才转」的门槛完全不转。
+- **决策**：**显示契约改为消费引擎 ω**，不再从位移反推。
+  1. `PlaybackBallState` 退掉 `accumulatedRotation`/`moveDirection`，改透出 `angularVelocity`（世界系 rad/s，`.pocketed`/`.stationary` 归零）。
+  2. 新增 `BallSpinIntegrator`（`TrajectoryPlayback.swift`）：`delta(ω, Δt) = quat(angle: |ω|·Δt, axis: ω̂)`、`advance` 取**前后帧 ω 梯形均值**并每帧归一化四元数、`resetPose` 复位为单位姿态。
+  3. `TrajectoryPlayback.action` 的逐帧闭包按**模拟时间** Δt（`tSim − cursor.lastSimTime`）积分，慢放 `speed<1` 时转速与位移同比放慢；删掉「有位移才转」双门槛。
+  4. **姿态复位收口**到场景共享入口 `AngleTrainingScene.showBall`/`applyBallLayout`（外加 `DrillSceneView.resetBalls`、Bank/Diamond `restoreBall`），保证同一杆重播可复现。
+  5. **导出器同源**：`SequenceVideoExporter` 运动帧循环用同一个 `BallSpinIntegrator`，步长 `frameSimDt = playbackSpeed / fps`。
+  6. **不做视觉缩放**（D-v17-3）：高速段 60fps 采样必然频闪（v>5.4 m/s 视觉反转），如实渲染，要看清用既有 `action(speed:)` 慢放，禁止给 ω 乘系数。
+- **验证**：`make build` BUILD SUCCEEDED；`QiuJiTests` 全量 **672 tests / 0 failures**（2 skipped，日志 `build/v17-evidence/logs/w2-full-unit-tests.log`），物理网与 `TrajectoryPlaybackSettleTests` 全绿。新增 `TrajectoryPlaybackSpinTests` 8 例（纯滚动段新旧口径偏差 <1% ⇒ 没把已经对的改坏；`|ω|·Δt` 与 ω̂；`.spinning` 转且随衰减变慢；`.stationary` 不转；复位后重播姿态逐分量一致 1e-5）+ `SpinExportParityTests` 2 例：① 真实 `action` 闭包（由 `SCNRenderer.snapshot(atTime:)` 驱动）与导出器帧循环 121 帧最大姿态偏差 **6.9e-4 rad**；② 用导出同取景反解视频帧时刻，位置残差 ≤2.5 px。实证截图 `build/v17-evidence/{dv174-visibility,spin-sign,w2-export-parity}/`；离线出片 drill_c019（右塞 spinX=−0.405）抽帧与 App 侧同相位对照，红点相对球心偏移逐帧大幅变化（球确在转）且两侧每帧差 ≤1.9 px（6× 放大图上）。
+- **影响**：`Core/Physics/TrajectoryPlayback.swift`（状态/积分器/闭包/游标）、`Core/Media/SequenceVideoExporter.swift`（运动帧自转三行）、`Core/Scene/AngleTrainingScene.swift`、`Core/Scene/DrillSceneView.swift`、`BankShotViewModel`/`DiamondSystemViewModel`（复位）、删除 `Core/Physics/SceneKitBridge.swift` 与 `TrajectoryRecorder.action`（死代码）。**物理层零改动**——任何物理测试波动都应当作误改追查。
+- **替代方案**：给 ω 乘视觉系数「让旋转更明显」——伪造物理、与轨迹脱节，未采纳；只补一个旋转指示器 UI 而不改球体自转——答非所问（用户要的是球面真转），未采纳。
+- **遗留**：a) 存量出片资产（`build/position_play_export/` 除 drill_c019 外的 125 条）仍是旧口径渲染，需批量重出才带正确自转；b) 与 ADR-P10-04 Layer C ②「加塞旋转真实化」是两件事——那条是**物理层** drop/jaw 标定（依赖真实俯拍视频，人工 backlog），本轮只动渲染层，Layer C ② 仍未做。

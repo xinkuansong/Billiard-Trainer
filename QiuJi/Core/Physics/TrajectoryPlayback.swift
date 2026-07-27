@@ -13,10 +13,44 @@ struct PlaybackBallState {
     let position: SCNVector3
     let velocity: SCNVector3
     let motionState: BallMotionState
-    /// 从回放起点累积的滚动弧度（用于视觉旋转）
-    let accumulatedRotation: Float
-    /// 瞬时运动方向（用于确定旋转轴）
+    /// 引擎解析演进出的瞬时角速度（SceneKit 世界系，rad/s）。
+    ///
+    /// 球体姿态由它逐帧积分驱动（v17）：竖轴分量 `y` 即加塞自转，滑动段的转/滑不匹配
+    /// （低杆倒旋、定杆不转）也只在这里体现。旧口径「位移弧长 / R + 轴 = ŷ × v̂」只能表达
+    /// 纯滚动，会把加塞与倒旋全部丢弃。
+    let angularVelocity: SCNVector3
+    /// 瞬时运动方向（轨迹/入洞方向用；姿态不再依赖它）
     let moveDirection: SCNVector3
+}
+
+/// 球体自转积分（v17）：把世界系角速度 ω 在 Δt 内的转动表示成四元数增量。
+///
+/// 用法固定为**左乘**——`node.simdOrientation = delta * node.simdOrientation`——因为 ω 在
+/// 世界系（球节点父节点即场景根，无旋转），世界系增量须作用在既有姿态之外侧。
+/// 不对 ω 做任何视觉缩放（D-v17-3：如实渲染，需要看清用回放倍率慢放）。
+enum BallSpinIntegrator {
+
+    static func delta(angularVelocity: SCNVector3, dt: Float) -> simd_quatf {
+        let w = simd_float3(angularVelocity.x, angularVelocity.y, angularVelocity.z)
+        let mag = simd_length(w)
+        guard dt > 0, mag > 1e-6 else { return simd_quatf(angle: 0, axis: simd_float3(0, 1, 0)) }
+        return simd_quatf(angle: mag * dt, axis: w / mag)
+    }
+
+    /// 逐帧推进球节点姿态。`from`/`to` 取**平均角速度**（梯形积分），使减速段的积分与
+    /// 真实转过的角度一致；四元数每帧归一化，防止长回放累积漂移。
+    static func advance(node: SCNNode, from: SCNVector3, to: SCNVector3, dt: Float) {
+        guard dt > 0 else { return }
+        let mean = SCNVector3((from.x + to.x) * 0.5, (from.y + to.y) * 0.5, (from.z + to.z) * 0.5)
+        let q = delta(angularVelocity: mean, dt: dt)
+        node.simdOrientation = simd_normalize(q * node.simdOrientation)
+    }
+
+    /// 复位球体姿态（S5）：回放会把姿态转到任意角度，复位/重新摆球时必须一并归零，
+    /// 否则同一杆反复播放的起始姿态逐次漂移，截图取证与教学演示都无法复现。
+    static func resetPose(_ node: SCNNode) {
+        node.simdOrientation = simd_quatf(angle: 0, axis: simd_float3(0, 1, 0))
+    }
 }
 
 final class TrajectoryPlayback {
@@ -26,9 +60,6 @@ final class TrajectoryPlayback {
     
     /// 每个球的帧数据缓存（按时间排序，来自 recorder）
     private let sortedFrames: [String: [BallFrame]]
-    
-    /// 缓存：每个球各帧之间的累积滚动弧度前缀和
-    private var rotationPrefixSums: [String: [Float]] = [:]
     
     /// 已触发进袋的球名称集合（防止重复触发）
     private(set) var pocketedBalls: Set<String> = []
@@ -176,28 +207,6 @@ final class TrajectoryPlayback {
             sorted[name] = frames.sorted { $0.time < $1.time }
         }
         self.sortedFrames = sorted
-        
-        precomputeRotationPrefixSums()
-    }
-    
-    /// 预计算每个球在事件快照之间的累积滚动弧度前缀和
-    private func precomputeRotationPrefixSums() {
-        for (name, frames) in sortedFrames {
-            guard frames.count > 1 else {
-                rotationPrefixSums[name] = [0]
-                continue
-            }
-            var sums: [Float] = [0]
-            for i in 1..<frames.count {
-                let prev = frames[i - 1]
-                let next = frames[i]
-                let displacement = next.position - prev.position
-                let distance = displacement.length()
-                let angle = distance / BallPhysics.radius
-                sums.append(sums[i - 1] + angle)
-            }
-            rotationPrefixSums[name] = sums
-        }
     }
     
     /// 查询指定球在时刻 t 的精确状态
@@ -212,7 +221,7 @@ final class TrajectoryPlayback {
                 position: SCNVector3(f.position.x, surfaceY, f.position.z),
                 velocity: f.velocity,
                 motionState: f.state,
-                accumulatedRotation: 0,
+                angularVelocity: Self.omega(f),
                 moveDirection: SCNVector3Zero
             )
         }
@@ -223,7 +232,7 @@ final class TrajectoryPlayback {
                 position: SCNVector3(f.position.x, surfaceY, f.position.z),
                 velocity: f.velocity,
                 motionState: f.state,
-                accumulatedRotation: 0,
+                angularVelocity: Self.omega(f),
                 moveDirection: f.velocity.length() > 0.001 ? f.velocity.normalized() : SCNVector3Zero
             )
         }
@@ -237,7 +246,7 @@ final class TrajectoryPlayback {
                 position: SCNVector3(baseFrame.position.x, surfaceY, baseFrame.position.z),
                 velocity: SCNVector3Zero,
                 motionState: .pocketed,
-                accumulatedRotation: rotationPrefixSums[ballName]?[idx] ?? 0,
+                angularVelocity: SCNVector3Zero,
                 moveDirection: SCNVector3Zero
             )
         }
@@ -247,7 +256,7 @@ final class TrajectoryPlayback {
                 position: SCNVector3(baseFrame.position.x, surfaceY, baseFrame.position.z),
                 velocity: SCNVector3Zero,
                 motionState: .stationary,
-                accumulatedRotation: rotationPrefixSums[ballName]?[idx] ?? 0,
+                angularVelocity: SCNVector3Zero,
                 moveDirection: SCNVector3Zero
             )
         }
@@ -264,11 +273,7 @@ final class TrajectoryPlayback {
         }
         let clampedDt = min(dt, maxDt)
         
-        let angularVel3 = SCNVector3(
-            baseFrame.angularVelocity.x,
-            baseFrame.angularVelocity.y,
-            baseFrame.angularVelocity.z
-        )
+        let angularVel3 = Self.omega(baseFrame)
         
         let evolved: (position: SCNVector3, velocity: SCNVector3, angularVelocity: SCNVector3)
         
@@ -298,11 +303,8 @@ final class TrajectoryPlayback {
             evolved = (baseFrame.position, baseFrame.velocity, angularVel3)
         }
         
-        // 累积旋转 = 前缀和到 baseFrame + 本段解析位移产生的旋转
-        let basePrefixRotation = rotationPrefixSums[ballName]?[idx] ?? 0
         let segmentDisplacement = evolved.position - baseFrame.position
         let segmentDistance = segmentDisplacement.length()
-        let segmentRotation = segmentDistance / BallPhysics.radius
         
         let moveDir: SCNVector3
         if evolved.velocity.length() > 0.001 {
@@ -317,9 +319,14 @@ final class TrajectoryPlayback {
             position: SCNVector3(evolved.position.x, surfaceY, evolved.position.z),
             velocity: evolved.velocity,
             motionState: baseFrame.state,
-            accumulatedRotation: basePrefixRotation + segmentRotation,
+            angularVelocity: evolved.angularVelocity,
             moveDirection: moveDir
         )
+    }
+    
+    /// 帧内角速度取三分量（`SCNVector4` 的 `w` 位在记录侧未使用）。
+    private static func omega(_ frame: BallFrame) -> SCNVector3 {
+        SCNVector3(frame.angularVelocity.x, frame.angularVelocity.y, frame.angularVelocity.z)
     }
     
     /// 生成平滑回放动作（推荐替代 `TrajectoryRecorder.action`）。
@@ -330,7 +337,9 @@ final class TrajectoryPlayback {
     ///
     /// 这里改用 `SCNAction.customAction`：在**每一渲染帧**用 `stateAt` 的 `AnalyticalMotion`
     /// 解析解直接求当前时刻位置，按显示刷新率（ProMotion 可达 120Hz）连续插值，任何速度都顺滑；
-    /// 滚动旋转用累积滚动弧度的逐帧增量驱动；进袋时淡出并移除。求值与所绘轨迹折线同源、完全吻合。
+    /// 球体姿态用引擎角速度 ω 逐帧四元数积分驱动（v17：加塞竖轴自转、低杆倒旋、定杆不转
+    /// 都随之上屏，`.spinning` 段位置不动也照转）；进袋时淡出并移除。
+    /// 求值与所绘轨迹折线同源、完全吻合。
     /// - Parameter removeOnPocket: 进袋后是否把节点从父节点移除。默认 `true`（一次性回放，
     ///   球进袋即消失）。**可复用回放场景（如分离角页：播放后要复位重显原球）应传 `false`**——
     ///   否则末尾的 `removeFromParentNode` 会与「播放结束复位」竞态，导致目标球被移除后无法恢复
@@ -349,9 +358,9 @@ final class TrajectoryPlayback {
         let realDuration = TimeInterval(cap / spd)
         let willPocket = willBePocketed(ballName)
 
-        // 逐帧回放需要跨帧的可变状态（上一帧滚动弧度 / 是否已触发淡出）。
+        // 逐帧回放需要跨帧的可变状态（上一帧模拟时刻与角速度 / 是否已触发淡出）。
         let cursor = PlaybackCursor()
-        cursor.lastRotation = stateAt(ballName: ballName, time: 0)?.accumulatedRotation ?? 0
+        cursor.lastAngularVelocity = stateAt(ballName: ballName, time: 0)?.angularVelocity ?? SCNVector3Zero
 
         // 强引用 self：动画存续期间（绑定在节点上）保证 playback 不被释放；
         // playback 不持有节点，节点 `removeAllActions` 后即解除引用，无循环。
@@ -385,15 +394,12 @@ final class TrajectoryPlayback {
             node.position = SCNVector3(s.position.x, self.surfaceY, s.position.z)
             cursor.lastVelocity = s.velocity
 
-            let dRot = s.accumulatedRotation - cursor.lastRotation
-            if dRot > 1e-5, s.moveDirection.length() > 0.001 {
-                let axis = SCNVector3(0, 1, 0).cross(s.moveDirection).normalized()
-                if axis.length() > 0.001 {
-                    let q = simd_quatf(angle: dRot, axis: simd_float3(axis.x, axis.y, axis.z))
-                    node.simdOrientation = q * node.simdOrientation
-                }
-            }
-            cursor.lastRotation = s.accumulatedRotation
+            // 姿态按**模拟时间**积分 ω：慢放（speed < 1）时转速同比放慢，与位移一致。
+            // 这里不设「有位移才转」的门槛——纯自转（`.spinning`）恰恰是位移为零的那一段。
+            BallSpinIntegrator.advance(node: node, from: cursor.lastAngularVelocity,
+                                       to: s.angularVelocity, dt: tSim - cursor.lastSimTime)
+            cursor.lastSimTime = tSim
+            cursor.lastAngularVelocity = s.angularVelocity
         }
 
         if willPocket && removeOnPocket {
@@ -409,7 +415,10 @@ final class TrajectoryPlayback {
 
     /// 逐帧回放的跨帧可变游标（`customAction` 闭包按帧调用，需在闭包外保存状态）。
     private final class PlaybackCursor {
-        var lastRotation: Float = 0
+        /// 上一帧的模拟时刻（秒）——姿态积分的 Δt 来源。
+        var lastSimTime: Float = 0
+        /// 上一帧的角速度（梯形积分取两帧均值）。
+        var lastAngularVelocity = SCNVector3Zero
         /// 最近一帧的真实速度（进袋瞬间用作入洞方向与速度）。
         var lastVelocity = SCNVector3Zero
         var didFade = false

@@ -211,11 +211,13 @@ final class DrillSceneController: ObservableObject {
         if let cue = scene.cueBallNode {
             if cue.parent == nil { scene.rootNode.addChildNode(cue) }
             cue.removeAllActions(); cue.opacity = 1
+            BallSpinIntegrator.resetPose(cue)
             cue.position = SCNVector3(cueStart.x, yLevel, cueStart.z)
         }
         if let target = scene.targetBallNodes.first {
             if target.parent == nil { scene.rootNode.addChildNode(target) }
             target.removeAllActions(); target.opacity = 1
+            BallSpinIntegrator.resetPose(target)
             target.position = SCNVector3(targetStart.x, yLevel, targetStart.z)
         }
         // 回放结束、球归位后重新显示预览轨迹与指示器，并允许再次播放。
