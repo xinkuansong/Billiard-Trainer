@@ -82,6 +82,19 @@
 
 ## DR 记录（设计调整）
 
+## DR-031
+- **任务**：瞄准点场景测验验证击球「几何瞄对却常不进」
+- **原始规范**：提交后 1.5s 按**用户瞄准线**、`ShotTuning.aimPointVerifyVelocity`（= `defaultVelocity` 1.5 m/s）中杆无塞物理击球；评分 = 假想球几何 mm。
+- **调整后**：
+  1. 验证杆速 **3.3 m/s**（对齐 `DrillShotResolver.defaultVelocity`），压低 CIT。
+  2. `|errorMM| ≤ 2`（与 `BTFeedback.outcome(forMM:)` success 档同口径）时验证出杆用**几何正解** `correctDir`；超出仍打用户线。
+  3. 结果 HUD：「几何瞄准验证」/「按你的瞄准验证」；评分仍 mm，不引入物理补偿瞄准（与「瞄准修正」课分工）。
+- **原因**：评分真源（无摩擦假想球）与验证真源（含 CIT 的引擎）不一致，再叠加软力放大投掷，导致「几何已对」时进袋正反馈失真。
+- **影响组件**：`ShotTuning.aimPointVerifyVelocity`、`AimPointSceneQuizViewModel` / `AimPointSceneTrainingView`；SPEC §9.3 瞄准点场景契约。
+- **日期**：2026-07-28
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 / Changelog（2026-07-28，DR-031）
+
 ## DR-030
 - **任务**：问题集合 v21 W5「收口与接线」— 学区 CTA → 动作库 drill
 - **原始规范**：学页 `PracticeCTA` 仅走 `AngleRoute` 练习域目的地；SPEC §9.3.1 CTA 密度写「不新增动作库/蛇彩深链」；动作库详情仅在动作库 Tab 的 `navigationDestination(for: String.self)`。

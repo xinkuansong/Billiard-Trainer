@@ -185,8 +185,10 @@ enum ShotTuning {
     /// 全 App 击打页默认力度 (m/s)（条 13.2：低速走位是常态，默认从 3.3 降至 1.5）。
     static let defaultVelocity: Double = 1.5
 
-    /// 瞄准点场景测验「验证击球」杆速 (m/s)（C16；与默认力度同值，禁止页内魔法数）。
-    static let aimPointVerifyVelocity: Float = Float(defaultVelocity)
+    /// 瞄准点场景测验「验证击球」杆速 (m/s)（C16 / DR-031）。
+    /// 中等力度锚点（对齐 `DrillShotResolver.defaultVelocity`），压低 CIT，使几何接近正确时进袋反馈可信。
+    /// 禁止页内魔法数；评分仍用假想球几何 mm，验证不套物理补偿瞄准。
+    static let aimPointVerifyVelocity: Float = 3.3
 
     /// 力度条非线性映射指数（条 13.2：低段细、高段快）。
     /// 视觉行程 fraction ∈ [0,1] → 速度 v = lo + span·fraction^γ：

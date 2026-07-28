@@ -60,7 +60,7 @@ final class S5_AimPointSceneV5UITests: XCTestCase {
         if submit.waitForExistence(timeout: 4) {
             submit.tap()
             usleep(500_000)
-            snap("v5-q73-2d-result-countdown")   // 结果态（正确红线/红点 + 「1.5 秒后自动击球验证」）
+            snap("v5-q73-2d-result-countdown")   // 结果态（正确红线/红点 + 「1.5 秒后…验证」HUD；DR-031 文案分几何/用户）
             // 倒计时 1.5s 后进入 striking；此后运杆 ~0.6s + 出杆 + 跟杆，连续抓帧。
             for i in 0..<6 {
                 usleep(400_000)

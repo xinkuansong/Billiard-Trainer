@@ -9,7 +9,7 @@ import SceneKit
 // G1 口径：瞄准点 = 瞄准线与「过目标球心且垂直于瞄准线的直线」的交点（垂足）；
 // 辅助线（白色细虚线）随用户瞄准线旋转、恒与其垂直。误差 = 用户瞄准点与正确瞄准点
 // 相对目标球心的有符号偏移之差（mm，偏大为正 = 瞄薄）；正确瞄准点提交后以红色小点
-// 标注；1.5 秒后按用户瞄准线物理击球，然后下一题。
+// 标注；1.5 秒后物理击球验证（DR-031：|误差|≤2mm 用几何正解线，否则用户线；杆速中等），然后下一题。
 
 @MainActor
 final class AimPointSceneQuizViewModel: ObservableObject {
@@ -27,6 +27,8 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     @Published private(set) var targetBallNumber: Int = 8
     @Published private(set) var sessionResults: [RoundResult] = []
     @Published private(set) var lastErrorMM: Double?
+    /// 本轮验证是否走几何正解瞄准（与 `BTFeedback` mm success 档同口径，≤2mm）。
+    @Published private(set) var verifyUsesGeometricAim = false
 
     let scene = AngleTrainingScene()
     let limiter: AngleUsageLimiter
@@ -38,6 +40,8 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     private var repository: AngleTestRepositoryProtocol?
     /// 用户瞄准方向（XZ 单位向量）。
     private var aimDir = SCNVector3(1, 0, 0)
+    /// 提交后锁定的验证出杆方向（容差内 = 几何正解，否则 = 用户线）。
+    private var pendingStrikeDir = SCNVector3(1, 0, 0)
     private var strikeTask: Task<Void, Never>?
 
     init(limiter: AngleUsageLimiter) {
@@ -91,7 +95,9 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
         // 条 9.4：瞄准线初始 = 母球-目标球中心连线。
         aimDir = normalizedXZ(from: cuePos, to: targetPos)
+        pendingStrikeDir = aimDir
         lastErrorMM = nil
+        verifyUsesGeometricAim = false
         phase = .aiming
         redrawLines()
         applyAimingPoseIfNeeded()
@@ -159,6 +165,10 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         let errorMM = (sUser - sCorrect) * 1000
 
         lastErrorMM = errorMM
+        // DR-031：success 档（≤2mm，与 `BTFeedback.quiz(errorMM:)` 同口径）用几何正解验证，
+        // 避免「几何已对但仍按用户微偏线 + 软力打」导致进袋反馈失真；偏了仍打用户线。
+        verifyUsesGeometricAim = BTFeedback.outcome(forMM: abs(errorMM)) == .correct
+        pendingStrikeDir = verifyUsesGeometricAim ? correctDir : aimDir
         sessionResults.append(RoundResult(errorMM: errorMM))
         limiter.recordQuestion()
         BTFeedback.quiz(errorMM: errorMM)
@@ -177,7 +187,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             try? await repository?.save(result)
         }
 
-        // 条 9.8 / Q7.3：停留 1.5 秒 → 按用户瞄准线物理击球（含运杆动画）→ 下一题。
+        // 条 9.8 / Q7.3：停留 1.5 秒 → 物理击球验证（含运杆动画）→ 下一题。
         strikeTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
@@ -195,8 +205,9 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
         let surfaceY = scene.surfaceY
         let velocity = ShotTuning.aimPointVerifyVelocity
+        let strikeAim = pendingStrikeDir
         let prediction = ShotPredictor.simulateFree(
-            cueBall: cue.position, aimDir: aimDir,
+            cueBall: cue.position, aimDir: strikeAim,
             velocity: velocity, spinX: 0, spinY: 0,
             surfaceY: surfaceY,
             balls: [ObstacleBall(name: "object", position: target.position)]
@@ -208,8 +219,8 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
         // Q7.4：验证击球走单一权威运杆链路（运杆→出杆→触球起播），与其他击打页
         // （`PositionPlayViewModel`/`SiluTrainerViewModel` 等）同口径 `AngleTrainingScene.runCueStroke`。
-        let strikePos = CueStroke.strikePosition(cue: cue.position, aim: aimDir, spinX: 0)
-        scene.runCueStroke(strikePosition: strikePos, aim: aimDir, velocity: velocity) { [weak self] in
+        let strikePos = CueStroke.strikePosition(cue: cue.position, aim: strikeAim, spinX: 0)
+        scene.runCueStroke(strikePosition: strikePos, aim: strikeAim, velocity: velocity) { [weak self] in
             self?.launchStrikePlayback(cue: cue, target: target, recorder: recorder)
         }
     }
@@ -606,7 +617,9 @@ struct AimPointSceneTrainingView: View {
                 .font(.btCaption)
                 .foregroundStyle(.white.opacity(0.6))
             divider
-            Text("1.5 秒后自动击球验证")
+            Text(vm.verifyUsesGeometricAim
+                 ? "1.5 秒后几何瞄准验证"
+                 : "1.5 秒后按你的瞄准验证")
                 .font(.btCaption)
                 .foregroundStyle(.white.opacity(0.6))
         }
