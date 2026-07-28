@@ -46,11 +46,51 @@ enum BallSpinIntegrator {
         node.simdOrientation = simd_normalize(q * node.simdOrientation)
     }
 
-    /// 复位球体姿态（S5）：回放会把姿态转到任意角度，复位/重新摆球时必须一并归零，
-    /// 否则同一杆反复播放的起始姿态逐次漂移，截图取证与教学演示都无法复现。
+    /// 单位姿态（目标球 / 测试确定性路径）。
+    static let identityOrientation = simd_quatf(angle: 0, axis: simd_float3(0, 1, 0))
+
+    /// 复位球体姿态为单位四元数（目标球；母球请走场景层 home 姿态）。
     static func resetPose(_ node: SCNNode) {
-        node.simdOrientation = simd_quatf(angle: 0, axis: simd_float3(0, 1, 0))
+        node.simdOrientation = identityOrientation
     }
+
+    /// 把节点姿态设为给定四元数（已归一化）。
+    static func applyPose(_ node: SCNNode, _ orientation: simd_quatf) {
+        node.simdOrientation = simd_normalize(orientation)
+    }
+
+    /// 均匀随机单位四元数（Shoemake），用于母球新摆球初始朝向。
+    static func randomOrientation(
+        using rng: inout some RandomNumberGenerator
+    ) -> simd_quatf {
+        let u1 = Float.random(in: 0..<1, using: &rng)
+        let u2 = Float.random(in: 0..<1, using: &rng)
+        let u3 = Float.random(in: 0..<1, using: &rng)
+        let twoPi: Float = 2 * .pi
+        let s1 = sqrt(1 - u1)
+        let s2 = sqrt(u1)
+        return simd_normalize(simd_quatf(
+            ix: s1 * sin(twoPi * u2),
+            iy: s1 * cos(twoPi * u2),
+            iz: s2 * sin(twoPi * u3),
+            r:  s2 * cos(twoPi * u3)
+        ))
+    }
+
+    static func randomOrientation() -> simd_quatf {
+        var rng = SystemRandomNumberGenerator()
+        return randomOrientation(using: &rng)
+    }
+}
+
+/// 母球姿态策略（目标球始终单位姿态，与本枚举无关）。
+enum CueBallPosePolicy {
+    /// 新摆球：抽随机朝向并记为本局 home。
+    case reseat
+    /// 重打 / 复位到击打前：恢复 home（可复现）。
+    case home
+    /// 只改位置/显隐，不碰朝向（散局落定等，保留回放终态）。
+    case unchanged
 }
 
 final class TrajectoryPlayback {

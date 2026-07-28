@@ -107,7 +107,7 @@ final class BreakFlowRunner: ObservableObject {
         rack = RackLayout.make(game, seed: seed, surfaceY: surfaceY)
         scene.hideAllBalls()
         for b in rack.balls { scene.showBall(key: b.key, scenePosition: b.position) }
-        scene.showBall(key: PositionPlayBall.cueKey, scenePosition: rack.cue)
+        scene.showBall(key: PositionPlayBall.cueKey, scenePosition: rack.cue, cuePose: .reseat)
         phase = .racked
         statusText = "拖屏调方向 · 拖母球定开球点 · 点「开球」散局"
         // G18：每次摆架回到「自动锁顶球」默认瞄准（用户随后可拖屏/刻度轮微调）。
@@ -310,10 +310,12 @@ final class BreakFlowRunner: ObservableObject {
         for (key, pt) in board.onTable {
             let pos = AngleSceneCalculator.normalizedToScene(
                 point: CGPoint(x: pt.x, y: pt.y), surfaceY: surfaceY)
-            scene.showBall(key: key, scenePosition: pos)
+            // 散局落定：保留回放终态朝向；刮杆补点另走 reseat。
+            scene.showBall(key: key, scenePosition: pos, cuePose: .unchanged)
         }
         if result.cueScratched {
-            scene.showBall(key: PositionPlayBall.cueKey, scenePosition: rack.cue)
+            scene.showBall(key: PositionPlayBall.cueKey, scenePosition: rack.cue,
+                           cuePose: .reseat)
             let c = AngleSceneCalculator.sceneToNormalized(position: rack.cue)
             board.onTable[PositionPlayBall.cueKey] = CanvasPoint(x: Double(c.x), y: Double(c.y))
         }

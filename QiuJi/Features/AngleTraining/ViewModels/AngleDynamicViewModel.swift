@@ -74,7 +74,8 @@ final class AngleDynamicViewModel: ObservableObject {
         scene.hideAllBalls()
         scene.showBall(key: PositionPlayBall.cueKey,
                        scenePosition: SCNVector3(
-                           -AngleSceneCalculator.innerLength / 2 * 0.6, surfaceY + r, 0))
+                           -AngleSceneCalculator.innerLength / 2 * 0.6, surfaceY + r, 0),
+                       cuePose: .reseat)
         scene.showBall(key: "_8", scenePosition: SCNVector3(0, surfaceY + r, 0))
         selectedTargetKey = "_8"
         scene.setCurrentTargetNumber(8)
@@ -110,7 +111,7 @@ final class AngleDynamicViewModel: ObservableObject {
             }
         }
         guard found else { return }
-        scene.showBall(key: key, scenePosition: pos)
+        scene.showBall(key: key, scenePosition: pos, cuePose: .reseat)
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectTarget(key: key)

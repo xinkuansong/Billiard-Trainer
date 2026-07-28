@@ -184,7 +184,8 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 开箱默认球形：母球 + 1、2 号，便于立刻上手；用户可自由增删。
     private func applyDefaultLayout() {
-        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.30, y: 0.30))
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.30, y: 0.30),
+              cuePose: .reseat)
         place(key: "_1", normalized: CanvasPoint(x: 0.62, y: 0.20))
         place(key: "_2", normalized: CanvasPoint(x: 0.78, y: 0.34))
         refreshOnTableKeys()
@@ -203,7 +204,7 @@ final class PositionPlayViewModel: ObservableObject {
         canReplay = false
         canPlayback = false
         lastPlaybackContext = nil
-        applyBoard(snapshot)
+        applyBoard(snapshot, cuePose: .reseat)
     }
 
     /// 载入一条已存序列并进入「续接编辑」态（存档 + 在原有基础上修改）。
@@ -272,7 +273,7 @@ final class PositionPlayViewModel: ObservableObject {
         }
         // 停在崩掉那杆的击打前时，恢复该杆原击打参数，作者以原意图为起点修。
         if let shot = brokenShot { restoreShotParams(shot) }
-        applyBoard(landing)
+        applyBoard(landing, cuePose: .reseat)
         return (rebuilt.steps.count, archived.steps.count)
     }
 
@@ -326,7 +327,7 @@ final class PositionPlayViewModel: ObservableObject {
     func placeFromPalette(_ key: String) {
         guard !isPlaying, !isSequenceMode, withinTargetBallCap(adding: key) else { return }
         let pos = freeNormalizedSlot()
-        place(key: key, normalized: pos)
+        place(key: key, normalized: pos, cuePose: .reseat)
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -341,7 +342,8 @@ final class PositionPlayViewModel: ObservableObject {
         guard let node = scene.allBallNodes[key] else { return }
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
-        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)))
+        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
+              cuePose: .reseat)
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -360,11 +362,12 @@ final class PositionPlayViewModel: ObservableObject {
         recompute()
     }
 
-    private func place(key: String, normalized: CanvasPoint) {
+    private func place(key: String, normalized: CanvasPoint,
+                       cuePose: CueBallPosePolicy = .home) {
         let scenePos = AngleSceneCalculator.normalizedToScene(
             point: CGPoint(x: normalized.x, y: normalized.y), surfaceY: surfaceY
         )
-        scene.showBall(key: key, scenePosition: scenePos)
+        scene.showBall(key: key, scenePosition: scenePos, cuePose: cuePose)
     }
 
     /// 在台面网格上找一个不与现有球重叠的归一化空位。
@@ -1281,7 +1284,7 @@ final class PositionPlayViewModel: ObservableObject {
         }
         isPlaying = false
         scene.hideCueStick()
-        applyBoard(after)
+        applyBoard(after, cuePose: .unchanged)
         updatePocketHighlights()
     }
 
@@ -1353,10 +1356,13 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     /// 把一个桌面快照应用到场景（隐藏全部 → 显示快照里的球），并恢复编排求解。
-    private func applyBoard(_ snapshot: BoardSnapshot) {
+    /// - Parameter cuePose: 母球姿态——重打默认 `.home`；载入新局 `.reseat`；回放收尾 `.unchanged`。
+    private func applyBoard(_ snapshot: BoardSnapshot,
+                            cuePose: CueBallPosePolicy = .home) {
         scene.hideAllBalls()
         for (key, pt) in snapshot.onTable {
-            place(key: key, normalized: pt)
+            place(key: key, normalized: pt,
+                  cuePose: PositionPlayBall.isCue(key) ? cuePose : .home)
         }
         refreshOnTableKeys()
         if let t = selectedTargetKey, snapshot.onTable[t] == nil { selectedTargetKey = nil }

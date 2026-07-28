@@ -18,7 +18,8 @@
 
 ## 当前状态
 
-- **问题集合 v20 ✅ + v20.5 修订（2026-07-28）**：收官后用户点验「碰前只画一条」→ 按实况改画 **碰前 8 色线**（废止淡灰单条；D-v20-5 修订）。改 `CushionEnglishAtlasViewModel.drawTrajectories` + HUD/SPEC/真源。**下一步：模拟器点验碰前 8 线；或拍板 v16；v18 已暂缓。**
+- **母球初始朝向随机 ✅（2026-07-28）**：只随机母球；新摆球 `CueBallPosePolicy.reseat` 抽均匀四元数写入 `cueBallHomeOrientation`；重打/复位 `.home` 保持；散局落定/回放收尾 `.unchanged`。目标球仍单位姿态；缩略图烘焙钉死 identity。覆盖编排台/思路/三杆/斯诺克/翻袋·反射复位/开球/图谱/抽球确认/导出器等。证据：`make build` SUCCEEDED；`TrajectoryPlaybackSpinTests` **9/0**。**下一步：模拟器点验母球红点不再总在顶；或继续 v20.5/v19 点验；v16 待拍板；v18 已暂缓。**
+- **问题集合 v20 ✅ + v20.5 修订（2026-07-28）**：收官后用户点验「碰前只画一条」→ 按实况改画 **碰前 8 色线**（废止淡灰单条；D-v20-5 修订）。改 `CushionEnglishAtlasViewModel.drawTrajectories` + HUD/SPEC/真源。
 - **问题集合 v20 全部批次收官 ✅（2026-07-27，v20.4，plan-delegated-execution：`cursor-grok-4.5-high-fast`；W1+W2 均 0 轮返工）**：学区新卡「加塞吃库图谱」——中杆×8 档左右塞×碰后首库出射扇形；挤偏补偿隔离；独立学卡。**W1** Geometry+单测；**W2** View/VM+注册4处+SpinAndEnglish 导流+SPEC/DR-029+a17/交互测。证据 `build/v20-{logs,evidence,screenshots}/`。真源 `问题集合_v20.md`。
 - **问题集合 v19 全部批次收官 ✅（2026-07-27，v19.5，plan-delegated-execution：grok-4.5 执行 + 主控独立验收，0 轮返工）**：瞄准线⇔球杆同现。C1–C7：Bank/Diamond 求解画线摆杆 + 出杆 `strikePosition(spinX:)`；Break `drawAimLine` 摆杆；Composer G14 预览跟杆；AimPointScene 瞄准跟杆；SceneAiming 保持无杆；回放/序列禁出杆前 hide + 短定格；SPEC §8.9 **h** + DR-028。**主控验收**：diff 逐文件亲读；落盘 build/单测 42/0/UI 6+1/0 日志尾亲核；截图 01–06 目视；主树 `make build` SUCCEEDED。留档：Diamond 无单独截图、序列无独立录屏、全量单测未跑、AimPoint 取证为 Scene 2D 入口（同 VM）。证据 `build/v19-evidence/`。**下一步：模拟器点验跟手/衔接手感；或拍板 v16 / v20；v18 已暂缓。**
 - **问题集合 v18 ⏸ 暂缓（2026-07-27，v18.1）**：议题「不穿模前提下母球可行打点」真源已落盘（`问题集合_v18.md`），**不执行 W1–W4**。用户决议：**并入后续「高度维度」议题再做**（与仰角一等公民入口 / `v_eff` 同轴，单独先做易重工）。**D-v18-1（spinY 杆轴系）仍有效**；D-v18-2～7 未拍。穿模底线靠 DR-027；暂缓期接受打点盘可选摆不出的低杆、`.blocked` 藏杆仍发球。重启条件见真源「暂缓决议」。

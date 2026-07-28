@@ -1,4 +1,5 @@
 import SceneKit
+import simd
 
 /// SceneKit scene for angle training: loads the USDZ table model,
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
@@ -54,6 +55,9 @@ final class AngleTrainingScene: SCNScene {
 
     /// 当前目标球号（`applyBallLayout` 记录）：进球线/标签随球色的取色依据（T-P18-41）。
     private(set) var currentTargetNumber: Int?
+
+    /// 母球本局「击打前」朝向：新摆球时随机写入；重打/复位回到此姿态（不重新抽）。
+    private(set) var cueBallHomeOrientation: simd_quatf = BallSpinIntegrator.identityOrientation
 
     /// 目标球换号时更新取色依据（条 2：角度与打点目标球可选）。
     func setCurrentTargetNumber(_ number: Int?) {
@@ -173,7 +177,7 @@ final class AngleTrainingScene: SCNScene {
             // 场景，否则 reset/重新摆球后球仍不可见（球"消失"bug）。
             if cue.parent == nil { rootNode.addChildNode(cue) }
             cue.opacity = 1
-            BallSpinIntegrator.resetPose(cue)
+            reseatCueBallHome(on: cue)
             cue.position = cuePos
             cue.isHidden = false
             cueBallNode = cue
@@ -182,6 +186,7 @@ final class AngleTrainingScene: SCNScene {
             let node = addBall(at: cuePos, color: .white)
             node.name = "cueBall"
             fallbackCueBall = node
+            reseatCueBallHome(on: node)
             cueBallNode = node
         }
 
@@ -222,20 +227,58 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Multi-ball free placement (Position-Play Composer, ADR-P11-01)
 
-    /// 显示并定位任意一颗 USDZ 球（防御性重挂 + 贴台面 Y + 姿态归零）。
-    /// `key`: `cueBall` / `_1`..`_15`。用于走位编排器的自由摆球——把 `allBallNodes` 里的
-    /// 现成节点按需上桌。摆球即「重新开局」，故与位置一样把回放转出来的球面姿态一并复位
-    /// （S5：否则同一杆反复播放起始姿态逐次漂移）。
-    func showBall(key: String, scenePosition: SCNVector3) {
+    /// 显示并定位任意一颗 USDZ 球（防御性重挂 + 贴台面 Y + 姿态策略）。
+    /// `key`: `cueBall` / `_1`..`_15`。
+    /// - Parameter cuePose: 仅母球生效——`.reseat` 新摆球随机；`.home` 重打保持；
+    ///   `.unchanged` 保留当前朝向。目标球始终单位姿态。
+    func showBall(key: String, scenePosition: SCNVector3,
+                  cuePose: CueBallPosePolicy = .home) {
         guard let node = allBallNodes[key] else { return }
         let correctY = surfaceY + AngleSceneCalculator.ballRadius
         if node.parent == nil { rootNode.addChildNode(node) }
         node.removeAllActions()
         node.opacity = 1
-        BallSpinIntegrator.resetPose(node)
+        applyPosePolicy(cuePose, to: node, key: key)
         node.position = SCNVector3(scenePosition.x, correctY, scenePosition.z)
         node.isHidden = false
-        if key == "cueBall" { cueBallNode = node }
+        if key == PositionPlayBall.cueKey { cueBallNode = node }
+    }
+
+    /// 重打 / 击打后复位：母球回到本局 home，其它球单位姿态。
+    func restoreNodePose(_ node: SCNNode) {
+        if node === cueBallNode || node.name == PositionPlayBall.cueKey {
+            BallSpinIntegrator.applyPose(node, cueBallHomeOrientation)
+        } else {
+            BallSpinIntegrator.resetPose(node)
+        }
+    }
+
+    /// 强制写入母球 home（缩略图烘焙等需确定性朝向时用）；`apply == true` 时同步到节点。
+    func setCueBallHomeOrientation(_ orientation: simd_quatf, apply: Bool = true) {
+        cueBallHomeOrientation = simd_normalize(orientation)
+        if apply, let cue = cueBallNode ?? allBallNodes[PositionPlayBall.cueKey] {
+            BallSpinIntegrator.applyPose(cue, cueBallHomeOrientation)
+        }
+    }
+
+    private func reseatCueBallHome(on node: SCNNode) {
+        cueBallHomeOrientation = BallSpinIntegrator.randomOrientation()
+        BallSpinIntegrator.applyPose(node, cueBallHomeOrientation)
+    }
+
+    private func applyPosePolicy(_ policy: CueBallPosePolicy, to node: SCNNode, key: String) {
+        guard PositionPlayBall.isCue(key) else {
+            BallSpinIntegrator.resetPose(node)
+            return
+        }
+        switch policy {
+        case .reseat:
+            reseatCueBallHome(on: node)
+        case .home:
+            BallSpinIntegrator.applyPose(node, cueBallHomeOrientation)
+        case .unchanged:
+            break
+        }
     }
 
     /// 隐藏一颗球（进袋离场 / 撤下回库）。

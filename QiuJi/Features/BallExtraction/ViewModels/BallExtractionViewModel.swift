@@ -221,7 +221,8 @@ final class BallExtractionViewModel: ObservableObject {
     }
 
     private func applyConfirmState(_ snapshot: BoardSnapshot) {
-        loadSnapshot(snapshot)
+        // 撤销/重做只恢复位置，不重抽母球朝向。
+        loadSnapshot(snapshot, cuePose: .home)
     }
 
     /// 提交一步确认页历史：截断「前进」分支，追加当前桌面快照。
@@ -300,24 +301,29 @@ final class BallExtractionViewModel: ObservableObject {
             scene.cameraRig?.topDownPanOffset = .zero
             sceneReady = true
         }
-        loadSnapshot(snapshotFromMarks())
+        loadSnapshot(snapshotFromMarks(), cuePose: .reseat)
         step = .confirm
         confirmHistory = [currentSnapshot()]
         confirmCursor = 0
     }
 
-    private func loadSnapshot(_ snapshot: BoardSnapshot) {
+    private func loadSnapshot(_ snapshot: BoardSnapshot,
+                              cuePose: CueBallPosePolicy = .home) {
         scene.hideAllBalls()
-        for (key, pt) in snapshot.onTable { place(key: key, normalized: pt) }
+        for (key, pt) in snapshot.onTable {
+            place(key: key, normalized: pt,
+                  cuePose: PositionPlayBall.isCue(key) ? cuePose : .home)
+        }
         selectedKey = nil
         refreshOnTableKeys()
     }
 
-    private func place(key: String, normalized: CanvasPoint) {
+    private func place(key: String, normalized: CanvasPoint,
+                       cuePose: CueBallPosePolicy = .home) {
         let pos = AngleSceneCalculator.normalizedToScene(
             point: CGPoint(x: normalized.x, y: normalized.y), surfaceY: surfaceY
         )
-        scene.showBall(key: key, scenePosition: pos)
+        scene.showBall(key: key, scenePosition: pos, cuePose: cuePose)
     }
 
     private func refreshOnTableKeys() {
@@ -363,7 +369,7 @@ final class BallExtractionViewModel: ObservableObject {
 
     /// 从球库添加一颗球到台面（自动空位）。
     func addFromPalette(_ key: String) {
-        place(key: key, normalized: freeNormalizedSlot())
+        place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
         refreshOnTableKeys()
         selectedKey = key
         pushConfirmHistory()
@@ -374,7 +380,8 @@ final class BallExtractionViewModel: ObservableObject {
         guard let node = scene.allBallNodes[key] else { return }
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
-        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)))
+        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
+              cuePose: .reseat)
         refreshOnTableKeys()
         selectedKey = key
         pushConfirmHistory()
@@ -402,7 +409,8 @@ final class BallExtractionViewModel: ObservableObject {
         let pos = oldNode.position
         scene.hideBall(key: old)
         scene.allBallNodes[old]?.scale = SCNVector3(1, 1, 1)
-        scene.showBall(key: newKey, scenePosition: pos)
+        scene.showBall(key: newKey, scenePosition: pos,
+                       cuePose: PositionPlayBall.isCue(newKey) ? .reseat : .home)
         selectedKey = newKey
         refreshOnTableKeys()
         pushConfirmHistory()

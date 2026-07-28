@@ -40,6 +40,8 @@ enum DrillThumbnailRenderer {
         let cueScene = input?.cueBall ?? toScene(animation.cueBall.start, surfaceY: surfaceY)
         let targetScene = input?.targetBall ?? toScene(animation.targetBall.start, surfaceY: surfaceY)
         scene.applyBallLayout(cueBallPosition: cueScene, targetBallNumber: 8, targetPosition: targetScene)
+        // 缩略图烘焙需可复现：钉死母球单位姿态，避免随机朝向造成像素漂移。
+        scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation, apply: true)
         scene.hideCueStick()
 
         // 真实 USDZ 球相对台面偏小、缩略图里不醒目 → 放大球节点（顶视下只影响视觉大小）。

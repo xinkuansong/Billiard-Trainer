@@ -83,7 +83,8 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         let s = SeparationAngleAtlasGeometry.defaultTeachingScene()
         scene.hideAllBalls()
         scene.showBall(key: PositionPlayBall.cueKey,
-                       scenePosition: SCNVector3(Float(s.cue.x), y, Float(s.cue.y)))
+                       scenePosition: SCNVector3(Float(s.cue.x), y, Float(s.cue.y)),
+                       cuePose: .reseat)
         scene.showBall(key: "_8",
                        scenePosition: SCNVector3(Float(s.target.x), y, Float(s.target.y)))
         selectedTargetKey = "_8"
@@ -103,7 +104,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     func placeFromPalette(_ key: String) {
         guard scene.allBallNodes[key]?.isHidden ?? false else { return }
         guard let pos = freeSlot() else { return }
-        scene.showBall(key: key, scenePosition: pos)
+        scene.showBall(key: key, scenePosition: pos, cuePose: .reseat)
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectTarget(key: key)
@@ -120,7 +121,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         guard let node = scene.allBallNodes[key] else { return }
         var p = clampBall(world, moving: node)
         p = AngleSceneCalculator.clampAwayFromPockets(p, surfaceY: scene.surfaceY)
-        scene.showBall(key: key, scenePosition: p)
+        scene.showBall(key: key, scenePosition: p, cuePose: .reseat)
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectTarget(key: key)

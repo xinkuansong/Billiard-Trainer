@@ -281,7 +281,8 @@ final class PlanThreeViewModel: ObservableObject {
     }
 
     private func applyDefaultLayout() {
-        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.24, y: 0.30))
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.24, y: 0.30),
+              cuePose: .reseat)
         place(key: "_1", normalized: CanvasPoint(x: 0.52, y: 0.16))
         place(key: "_2", normalized: CanvasPoint(x: 0.70, y: 0.34))
         place(key: "_3", normalized: CanvasPoint(x: 0.86, y: 0.16))
@@ -332,7 +333,7 @@ final class PlanThreeViewModel: ObservableObject {
 
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
-        place(key: key, normalized: freeNormalizedSlot())
+        place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
         refreshOnTableKeys()
         invalidateSolutions()
     }
@@ -341,7 +342,8 @@ final class PlanThreeViewModel: ObservableObject {
         guard !isPlaying, let node = scene.allBallNodes[key] else { return }
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
-        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)))
+        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
+              cuePose: .reseat)
         refreshOnTableKeys()
         invalidateSolutions()
     }
@@ -354,10 +356,11 @@ final class PlanThreeViewModel: ObservableObject {
         invalidateSolutions()
     }
 
-    private func place(key: String, normalized: CanvasPoint) {
+    private func place(key: String, normalized: CanvasPoint,
+                       cuePose: CueBallPosePolicy = .home) {
         let scenePos = AngleSceneCalculator.normalizedToScene(
             point: CGPoint(x: normalized.x, y: normalized.y), surfaceY: surfaceY)
-        scene.showBall(key: key, scenePosition: scenePos)
+        scene.showBall(key: key, scenePosition: scenePos, cuePose: cuePose)
     }
 
     private func freeNormalizedSlot() -> CanvasPoint {

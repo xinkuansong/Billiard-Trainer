@@ -169,7 +169,8 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     private func applyDefaultLayout() {
         // 双组在桌的示例局：全色 _1/_2 + 花色 _9/_10。默认目标 = _1（全色）⇒ 防花色组。
-        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.22, y: 0.30))
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.22, y: 0.30),
+              cuePose: .reseat)
         place(key: "_1", normalized: CanvasPoint(x: 0.54, y: 0.20))
         place(key: "_2", normalized: CanvasPoint(x: 0.40, y: 0.35))
         place(key: "_9", normalized: CanvasPoint(x: 0.72, y: 0.16))
@@ -216,7 +217,7 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
-        place(key: key, normalized: freeNormalizedSlot())
+        place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
         refreshOnTableKeys()
         assignTargetIfNeeded(key)
         invalidateSolutions()
@@ -226,7 +227,8 @@ final class SnookerTacticsViewModel: ObservableObject {
         guard !isPlaying, let node = scene.allBallNodes[key] else { return }
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
-        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)))
+        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
+              cuePose: .reseat)
         refreshOnTableKeys()
         assignTargetIfNeeded(key)
         invalidateSolutions()
@@ -249,10 +251,11 @@ final class SnookerTacticsViewModel: ObservableObject {
         invalidateSolutions()
     }
 
-    private func place(key: String, normalized: CanvasPoint) {
+    private func place(key: String, normalized: CanvasPoint,
+                       cuePose: CueBallPosePolicy = .home) {
         let scenePos = AngleSceneCalculator.normalizedToScene(
             point: CGPoint(x: normalized.x, y: normalized.y), surfaceY: surfaceY)
-        scene.showBall(key: key, scenePosition: scenePos)
+        scene.showBall(key: key, scenePosition: scenePos, cuePose: cuePose)
     }
 
     /// 无目标球时自动选一颗合法目标（离母球最近者）。

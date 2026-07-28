@@ -147,7 +147,8 @@ final class SiluTrainerViewModel: ObservableObject {
     }
 
     private func applyDefaultLayout() {
-        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.30, y: 0.30))
+        place(key: PositionPlayBall.cueKey, normalized: CanvasPoint(x: 0.30, y: 0.30),
+              cuePose: .reseat)
         place(key: "_1", normalized: CanvasPoint(x: 0.62, y: 0.20))
         refreshOnTableKeys()
         selectedTargetKey = "_1"
@@ -197,7 +198,7 @@ final class SiluTrainerViewModel: ObservableObject {
 
     func placeFromPalette(_ key: String) {
         guard !isPlaying else { return }
-        place(key: key, normalized: freeNormalizedSlot())
+        place(key: key, normalized: freeNormalizedSlot(), cuePose: .reseat)
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -211,7 +212,8 @@ final class SiluTrainerViewModel: ObservableObject {
         guard let node = scene.allBallNodes[key] else { return }
         let clamped = clampMultiBall(world, movingNode: node)
         let n = AngleSceneCalculator.sceneToNormalized(position: clamped)
-        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)))
+        place(key: key, normalized: CanvasPoint(x: Double(n.x), y: Double(n.y)),
+              cuePose: .reseat)
         refreshOnTableKeys()
         if !PositionPlayBall.isCue(key), selectedTargetKey == nil {
             selectedTargetKey = key
@@ -229,10 +231,11 @@ final class SiluTrainerViewModel: ObservableObject {
         invalidateSolutions()
     }
 
-    private func place(key: String, normalized: CanvasPoint) {
+    private func place(key: String, normalized: CanvasPoint,
+                       cuePose: CueBallPosePolicy = .home) {
         let scenePos = AngleSceneCalculator.normalizedToScene(
             point: CGPoint(x: normalized.x, y: normalized.y), surfaceY: surfaceY)
-        scene.showBall(key: key, scenePosition: scenePos)
+        scene.showBall(key: key, scenePosition: scenePos, cuePose: cuePose)
     }
 
     private func freeNormalizedSlot() -> CanvasPoint {

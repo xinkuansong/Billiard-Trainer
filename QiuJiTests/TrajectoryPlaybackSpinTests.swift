@@ -203,25 +203,72 @@ final class TrajectoryPlaybackSpinTests: XCTestCase {
         XCTAssertGreaterThan(angleBetween(first.start, first.end), 1.0, "该杆应确实转过明显角度")
     }
 
-    /// 复位收口点实证：场景层重新摆球（走位编排台 / 各解页复位都经此入口）会清掉回放姿态。
+    /// 场景层姿态策略：`.home` 回到本局 home；`.reseat` / `applyBallLayout` 新抽；重打保持。
     @MainActor
-    func test_sceneShowBall_resetsBallPose() throws {
+    func test_sceneCueBallPose_reseatRandom_homeKeeps() throws {
         let scene = AngleTrainingScene()
         scene.setupScene(enhancedRendering: false)
         let node = try XCTUnwrap(scene.allBallNodes[PositionPlayBall.cueKey], "缺母球节点")
+
+        // 默认 home = 单位；`.home` 清掉回放漂移。
         node.simdOrientation = simd_quatf(angle: 2.0, axis: simd_float3(0, 1, 0))
-
         scene.showBall(key: PositionPlayBall.cueKey,
-                       scenePosition: SCNVector3(0, scene.surfaceY, 0))
-        assertQuatEqual(node.simdOrientation, simd_quatf(angle: 0, axis: simd_float3(0, 1, 0)),
-                        accuracy: 1e-5, "showBall 未复位球体姿态")
+                       scenePosition: SCNVector3(0, scene.surfaceY, 0),
+                       cuePose: .home)
+        assertQuatEqual(node.simdOrientation, BallSpinIntegrator.identityOrientation,
+                        accuracy: 1e-5, "showBall(.home) 未回到 home")
 
+        // 新摆球随机写入 home，且节点 = home。
+        scene.showBall(key: PositionPlayBall.cueKey,
+                       scenePosition: SCNVector3(0, scene.surfaceY, 0),
+                       cuePose: .reseat)
+        let home1 = scene.cueBallHomeOrientation
+        assertQuatEqual(node.simdOrientation, home1, accuracy: 1e-5,
+                        "reseat 后节点姿态应等于 home")
+
+        // 模拟击打后漂移，再 `.home`：必须回到同一 home（重打保持）。
         node.simdOrientation = simd_quatf(angle: -1.3, axis: simd_float3(1, 0, 0))
+        scene.showBall(key: PositionPlayBall.cueKey,
+                       scenePosition: SCNVector3(0.1, scene.surfaceY, 0),
+                       cuePose: .home)
+        assertQuatEqual(node.simdOrientation, home1, accuracy: 1e-5,
+                        "重打路径未保持本局 home")
+        assertQuatEqual(scene.cueBallHomeOrientation, home1, accuracy: 1e-5,
+                        "home 被意外改写")
+
+        // applyBallLayout = 新摆球：应换新 home（允许与旧 home 相同，极低概率；用种子抽两次对照）。
         scene.applyBallLayout(cueBallPosition: SCNVector3(-0.5, scene.surfaceY, 0),
                               targetBallNumber: 8,
                               targetPosition: SCNVector3(0.2, scene.surfaceY, 0))
-        assertQuatEqual(node.simdOrientation, simd_quatf(angle: 0, axis: simd_float3(0, 1, 0)),
-                        accuracy: 1e-5, "applyBallLayout 未复位球体姿态")
+        assertQuatEqual(node.simdOrientation, scene.cueBallHomeOrientation, accuracy: 1e-5,
+                        "applyBallLayout 后节点应等于新 home")
+
+        // 目标球始终单位姿态。
+        let target = try XCTUnwrap(scene.targetBallNodes.first)
+        assertQuatEqual(target.simdOrientation, BallSpinIntegrator.identityOrientation,
+                        accuracy: 1e-5, "目标球不应随机朝向")
+    }
+
+    func test_randomOrientation_isUnitAndVaries() {
+        var rng = SeededGenerator(seed: 42)
+        let a = BallSpinIntegrator.randomOrientation(using: &rng)
+        let b = BallSpinIntegrator.randomOrientation(using: &rng)
+        XCTAssertEqual(simd_length(a.vector), 1, accuracy: 1e-5)
+        XCTAssertEqual(simd_length(b.vector), 1, accuracy: 1e-5)
+        XCTAssertGreaterThan(angleBetween(a, b), 1e-3, "固定种子下连续两次应不同")
+    }
+
+    /// 可复现 RNG（仅测随机姿态分布，不进生产路径）。
+    private struct SeededGenerator: RandomNumberGenerator {
+        private var state: UInt64
+        init(seed: UInt64) { state = seed == 0 ? 0x4d595df4d0f33173 : seed }
+        mutating func next() -> UInt64 {
+            state &+= 0x9e3779b97f4a7c15
+            var z = state
+            z = (z ^ (z >> 30)) &* 0xbf58476d1ce4e5b9
+            z = (z ^ (z >> 27)) &* 0x94d049bb133111eb
+            return z ^ (z >> 31)
+        }
     }
 
     // MARK: - Helpers

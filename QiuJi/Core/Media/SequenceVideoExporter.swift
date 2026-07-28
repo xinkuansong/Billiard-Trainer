@@ -594,13 +594,19 @@ enum SequenceVideoExporter {
             return image.cgImage
         }
 
+        /// 首帧新摆球随机母球朝向；后续杆保留上一杆回放终态（`.unchanged`）。
+        private var hasSeatedCuePose = false
+
         func placeBoard(_ board: BoardSnapshot) {
             scene.hideAllBalls()
+            let cuePose: CueBallPosePolicy = hasSeatedCuePose ? .unchanged : .reseat
+            hasSeatedCuePose = true
             for (key, pt) in board.onTable {
                 let p = AngleSceneCalculator.normalizedToScene(
                     point: CGPoint(x: pt.x, y: pt.y), surfaceY: surfaceY
                 )
-                scene.showBall(key: key, scenePosition: p)
+                scene.showBall(key: key, scenePosition: p,
+                               cuePose: PositionPlayBall.isCue(key) ? cuePose : .home)
                 scene.allBallNodes[key]?.opacity = 1   // 上一杆进袋淡出后复用节点需复原
             }
         }

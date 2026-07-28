@@ -489,7 +489,7 @@ final class BankShotViewModel: ObservableObject {
         node.removeAllActions()
         node.opacity = 1
         node.isHidden = false
-        BallSpinIntegrator.resetPose(node)
+        scene.restoreNodePose(node)
         node.position = position
     }
 
