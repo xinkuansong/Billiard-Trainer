@@ -713,7 +713,7 @@ struct BTShareCard: View {
 
 | 档 | 策略 | 实施方式 | 适用页面 |
 |---|------|---------|---------|
-| ① 场景页 = 黑底暗语言 | 页面**不改系统 colorScheme**，用 `.background(Color.black.ignoresSafeArea())` + 白字 + 半透明白卡（`.white.opacity(0.06~0.12)`）；毛玻璃控件局部 `.environment(\.colorScheme, .dark)` 保证材质暗解析 | 黑底是设计常量，Light/Dark 下观感一致，无需双值 Token | 分离角与走位、分离角图谱（学）、走位编排台（含自由击球）、思路训练器、打一走二想三、做斯诺克、球形生成器、2D/3D 瞄准训练、角度与打点、几何角度预测、翻袋解球、反射解球、拍照建球形、批量出片台（SIM） |
+| ① 场景页 = 黑底暗语言 | 页面**不改系统 colorScheme**，用 `.background(Color.black.ignoresSafeArea())` + 白字 + 半透明白卡（`.white.opacity(0.06~0.12)`）；毛玻璃控件局部 `.environment(\.colorScheme, .dark)` 保证材质暗解析 | 黑底是设计常量，Light/Dark 下观感一致，无需双值 Token | 分离角与走位、分离角图谱（学）、加塞吃库图谱（学）、走位编排台（含自由击球）、思路训练器、打一走二想三、做斯诺克、球形生成器、2D/3D 瞄准训练、角度与打点、几何角度预测、翻袋解球、反射解球、拍照建球形、批量出片台（SIM） |
 | ② 常规页 = 随系统 | Token 双值（§一/§六），不强制 colorScheme | 全部 Tab 常规页面 | 训练 / 动作库 / 练习首页 / 历史 / 我的 及其子页 |
 | ③ 特例页 = 强制 | 显式 `preferredColorScheme` | `SubscriptionView` 强 dark（自身 #111111）；`OnboardingView` 强 light（品牌首屏）；`TrainingShareView` 分享卡自身深色 | 仅此三页，新增特例须记 Changelog |
 
@@ -927,8 +927,9 @@ struct BTShareCard: View {
 | 瞄准原理 | 学 | 切角/假想球/厚度+公式 | 插图全真台化（`BTTableFigure`）；页末 CTA→角度预测 |
 | 瞄准方法 | 学 | 管道/接触点/平行线三法 | v11 Y1；θ 滑杆 + 交互插图；交叉引用瞄准原理/对照表 |
 | 瞄准修正 | 学 | 投掷/高低杆厚度/挤偏+弧线/求解补偿 | v12 Z3；六节结构 ①Δ实况 ②投掷 ③高低杆三联 ④加塞俯视 ⑤两档求解对比+定性速查 ⑥实战启示→思路训练；共享控件三轴（力度 `ShotTuning.velocityRange` + 高低杆三档 spinY=±0.4/0 + 左右塞，合成幅值钳 `miscueLimitFraction`）；20ms 去抖+单飞+末班车；插图一律 `BTTableFigure`+`BTFigureBall`/`BTGhostCircle`/`BTContactDot`/`BTFigureTag`/`FigureLine`（② closeup 特写、③ 单图三线选中高亮参照 SeparationPathsFigure）；速查表符号来源 `build/z1-evidence/quickref-symbols.txt` + `z2-evidence/z2-quickref-symbols.txt` + `z3-evidence/z3-quickref-symbols.txt`；AX `aimingCorrection.*`；巡游 a16 |
-| 旋转与加塞 | 学 | 旋转四态→分离角 + 加塞本体 | v12 Z4（自 v11 Y2 重做）：共享切角 θ 滑杆（5°–75°，默认半球）驱动三路径球形；示意分离角为教学折线 90°/60°/120°（非半球不声称精确分离角，UI 标注「示意角 · 教学折线」）；打点→旋转示意 + 最小加塞/打滑极限（`miscueLimitFraction`）+ 左右塞×吃库反弹定性示意（T09/Jewett Run·Rev，非引擎实况）；挤偏/弧线/投掷一句话 + 真 `PracticeCTA`→`.aimingCorrection`；交叉引用瞄准原理/方法/分离角图谱/瞄准修正；插图 `BTTableFigure`+token 盘面；AX `spinAndEnglish.*`；巡游 a14 |
+| 旋转与加塞 | 学 | 旋转四态→分离角 + 加塞本体 | v12 Z4（自 v11 Y2 重做）：共享切角 θ 滑杆（5°–75°，默认半球）驱动三路径球形；示意分离角为教学折线 90°/60°/120°（非半球不声称精确分离角，UI 标注「示意角 · 教学折线」）；打点→旋转示意 + 最小加塞/打滑极限（`miscueLimitFraction`）+ 左右塞×吃库反弹定性示意（T09/Jewett Run·Rev，非引擎实况）；吃库节 `LearnDocTextLink`→`.cushionEnglishAtlas`（v20；页末 `PracticeCTA` 仍≤2）；挤偏/弧线/投掷一句话 + 真 `PracticeCTA`→`.aimingCorrection`；交叉引用瞄准原理/方法/分离角图谱/瞄准修正；插图 `BTTableFigure`+token 盘面；AX `spinAndEnglish.*`；巡游 a14 |
 | 分离角图谱 | 学 | 8 档高低杆碰后轨迹对比 | v15 W1（自 v11 Y3）：SceneKit 真台+可拖多球；`ShotStageProxy` G10；**左缘 8 只读迷你打点盘**（`aimWheelFrame`，高→低与 `trackColors`/spinY 同序）；右缘纯力度柱（`onSpinTap=nil`，底部弹出 8 点盘退役）；台面**无**「纯高杆/纯低杆」文字；底栏 `BTBallPaletteBar`（点击+拖放上桌、拖回库撤下；换目标/障碍进 `simulateFree`；母球不可撤；默认母+8）；**页内 8 色轨迹豁免线语言 v2**（DR-025）；切片=碰后→第一库，**碰后未吃库降级为碰撞点→停球点**；去抖+单飞+并行 `simulateFree` |
+| 加塞吃库图谱 | 学 | 中杆 × 8 档左右塞 × 吃库后出射 | v20 W2 + v20.5：SceneKit 真台+可拖多球；`ShotStageProxy` G10；**左缘 8 只读迷你打点盘**（横向左右塞点，左→右与 `spinXLevels`/`trackColors` 同序）；右缘纯力度柱（`onSpinTap=nil`）；底栏 `BTBallPaletteBar`（点+拖，语义对齐图谱 v15）；**页内 8 色轨迹豁免线语言 v2**（DR-029，左右塞轴）；每档 `aimDirCompensatingSquirt` + `simulateFree(spinY:0)`；**碰前/库后均 8 色实况**（碰前 `lineHint`+α0.55、库后 `lineMain`+`pathAfterFirstCueCushion`）；脚注诚实口径禁止「本图证明顺开逆闭」；学卡紧挨分离角图谱之后；巡游 a17 |
 | 角度与打点 | 学 | 拖两球实时看指标联动 | **L2 唯一持有页**；首拖提示（一次性）；90° 短虚线常驻 |
 | 浅谈球感 | 学 | 方法论+四档厚度锚点 | 锚点卡真台渲染；页末 CTA→2D 瞄准训练 |
 | 瞄准点对照表（原进球点对照表） | 学 | 速查工具 | 俯视真台交互图：瞄准点（红点）+接触点（绿点）+横移金标尺同见；新增估角误差交互演示（母球-目标球连线估角，远距误差变小） |
@@ -952,7 +953,7 @@ struct BTShareCard: View {
 ### 9.3.1 文档学页壳（问题集合 v14；六张浅色文档学页）
 
 > **范围**：瞄准原理 / 瞄准方法 / 瞄准修正 / 旋转与加塞 / 浅谈球感 / 瞄准点对照表。  
-> **排除（红线）**：`AngleDynamicView`（角度与瞄准）、`SeparationAngleAtlasView`（分离角图谱）——暗色沙盘，本契约不适用、禁止借壳改动。  
+> **排除（红线）**：`AngleDynamicView`（角度与瞄准）、`SeparationAngleAtlasView`（分离角图谱）、`CushionEnglishAtlasView`（加塞吃库图谱）——暗色沙盘，本契约不适用、禁止借壳改动。  
 > **不做**：精讲「为什么 / 怎么打 / 自检」三标签；动作库 / 蛇彩 CTA；统一成八页同滚动模板。
 
 | 零件 | 口径 | 代码锚点 |
@@ -979,6 +980,8 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-28 | **加塞吃库图谱碰前 8 线实况（v20.5 / D-v20-5 修订）**：废止「淡灰单条中杆预览」；碰前/库后均按该档 `simulateFree` 同序上色（碰前 hint+α0.55、库后 main） | 修正 | CushionEnglishAtlasViewModel, SPEC §9.3, 问题集合_v20 | 用户点验反馈 |
+| 2026-07-27 | **问题集合 v20 W2「加塞吃库图谱」+ DR-029**：学分段新交互页——SceneKit 真台 + 可拖多球 + spinX∈[±miscueLimit] 均匀 8 档并行 `simulateFree`（中杆 spinY=0，挤偏补偿瞄准），主色线切片「碰后首库→其后一段」；碰前淡灰预览（后于 v20.5 修订）；左缘 8 横向只读迷你盘 + 右缘力度柱；底栏球库；学卡紧挨分离角图谱之后；旋转与加塞吃库节 `LearnDocTextLink` 导流（PracticeCTA 仍≤2）；**页内 8 色板豁免线语言 v2**（DR-029）；巡游 a17 + 交互 UI 测 | 新增/DR | CushionEnglishAtlasView/ViewModel/Geometry, AngleHomeView, MainTabView, AngleCoverPalette, SpinAndEnglish, ScreenshotTourUITests, SPEC §9.3 | 问题集合 v20 W2 / DR-029 |
 | 2026-07-27 | **球杆与瞄准线同现（DR-028 / v19 W1）**：有瞄准线⇒`updateCueStick`，无线⇒藏杆；Bank/Diamond 求解画线摆杆 + 出杆改 `strikePosition(spinX:)`；开球 `drawAimLine` 摆杆；Composer G14 预览跟杆；AimPointScene 瞄准跟杆；SceneAiming 保持无杆；回放/序列禁出杆前 hide + 短定格衔接；§8.9 追加 **h** | DR | Bank/Diamond VM、BreakFlowRunner、PositionPlayViewModel、AimPointScene、SPEC §8.9 | 问题集合 v19 W1 |
 | 2026-07-27 | **球杆穿模守卫（DR-027）**：抬杆含球遮挡、上限 60° 超限隐藏；`CueClearance` 全场球碰撞预测提前抽杆淡出；跟杆 −min(3R, 前方间隙)；`elevationOverride` 冻结整杆仰角；导出器同口径。纯渲染，不改物理 | DR | CueStick / CueStroke / CueClearance / AngleTrainingScene / SequenceVideoExporter | 球杆穿模修复 |
 | 2026-07-25 | **Logo Mark / App Icon 摆位改「环（O）光学居中」+ 占比放大（DR-026）**：① 摆位——`brand.logo-mark{,-dark}.svg` transform `translate(-559 -443)`→`translate(-456.4 -443)`（scale 1.492 不变）、`AppIcon.png` 图形右移 34px，环心偏移 −7.8%→−2.8%（SVG）/ −5.5%→−2.2%（Icon）；② 占比——App Icon 以环心为中心矢量重渲染放大 1.25×（图形宽 58.7%→73.7%）、`BTBrandLogo.onTile` 内边距 16%→10%（图形宽 57.2%→67.8%），`.onDisc` 保持 16% | DR | BTBrandLogo（Onboarding/Login/About/ShareCard）、主 App Icon | Logo 居中 + 放大 |

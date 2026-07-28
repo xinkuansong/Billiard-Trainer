@@ -121,6 +121,8 @@ struct MainTabView: View {
             SpinAndEnglishView()
         case .separationAngleAtlas:
             SeparationAngleAtlasView()
+        case .cushionEnglishAtlas:
+            CushionEnglishAtlasView()
         case .angleDynamic:
             AngleDynamicView()
         case .geometricQuiz:

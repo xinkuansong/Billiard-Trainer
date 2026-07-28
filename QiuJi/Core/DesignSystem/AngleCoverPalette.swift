@@ -35,6 +35,11 @@ enum AngleCoverPalette {
         top: Color(red: 0.72, green: 0.22, blue: 0.48),
         bottom: Color(red: 0.42, green: 0.10, blue: 0.30)
     )
+    /// 加塞吃库图谱（v20 W2）— 青绿偏蓝，区别于分离角图谱玫红紫 / 瞄准方法青绿 / 角度与瞄准蓝。
+    static let cushionEnglishAtlas = Pair(
+        top: Color(red: 0.10, green: 0.58, blue: 0.62),
+        bottom: Color(red: 0.04, green: 0.32, blue: 0.48)
+    )
     static let angleDynamic = Pair(
         top: Color(red: 0.11, green: 0.46, blue: 0.95),
         bottom: Color(red: 0.05, green: 0.24, blue: 0.58)

@@ -195,7 +195,12 @@ struct SpinAndEnglishView: View {
                 LearnDocText.body("实战用途：走位优先用高低杆改分离角；左右塞留给需要改吃库反弹、或必须微调瞄准的场合。")
             }
 
-            LearnDocText.footnote("上图为定性示意（非引擎实况采样）。口径来自最少加塞原则中「用加塞调反弹角」与撞库后顺/逆塞分类；精确轨迹请在「分离角图谱」或走位求解里看。")
+            LearnDocText.footnote("上图为定性示意（非引擎实况采样）。口径来自最少加塞原则中「用加塞调反弹角」与撞库后顺/逆塞分类；精确吃库后扇形请打开「加塞吃库图谱」（引擎实况，已补偿挤偏）。")
+
+            LearnDocTextLink(title: "打开加塞吃库图谱",
+                             subtitle: "中杆 · 8 档左右塞 · 吃库后出射",
+                             route: .cushionEnglishAtlas)
+                .accessibilityIdentifier("spinAndEnglish.cushionEnglishAtlasLink")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("spinAndEnglish.cushionEnglish")

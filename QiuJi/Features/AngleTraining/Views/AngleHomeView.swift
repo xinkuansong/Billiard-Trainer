@@ -13,6 +13,8 @@ enum AngleRoute: Hashable {
     case spinAndEnglish
     /// 分离角图谱（v11 Y3）：8 档高低杆碰后→第一库轨迹对比。
     case separationAngleAtlas
+    /// 加塞吃库图谱（v20 W2）：中杆 × 8 档左右塞 × 吃库后出射扇形。
+    case cushionEnglishAtlas
     case angleDynamic
     case geometricQuiz
     /// 2D 瞄准训练（T-P18-48 拆两卡）：俯视练几何判断。
@@ -135,6 +137,10 @@ struct AngleHomeView: View {
               title: "分离角图谱", subtitle: "高低杆 · 碰后轨迹 · 力度",
               coverTop: AngleCoverPalette.separationAngleAtlas.top,
               coverBottom: AngleCoverPalette.separationAngleAtlas.bottom),
+        .init(route: .cushionEnglishAtlas, glyph: "塞",
+              title: "加塞吃库图谱", subtitle: "中杆 · 左右塞 · 吃库后出射",
+              coverTop: AngleCoverPalette.cushionEnglishAtlas.top,
+              coverBottom: AngleCoverPalette.cushionEnglishAtlas.bottom),
         .init(route: .ballFeel, glyph: "感",
               title: "浅谈球感", subtitle: "从理性分析到直觉判断",
               coverTop: AngleCoverPalette.ballFeel.top,

@@ -82,6 +82,16 @@
 
 ## DR 记录（设计调整）
 
+## DR-029
+- **任务**：问题集合 v20 W2「加塞吃库图谱」
+- **原始规范**：线语言 v2（SPEC §8.9 / 设计稿 §1.2）——线色 = 球的身份（白=母球路径；目标球本色=该球路径）。
+- **调整后**：**页内专用豁免**——「加塞吃库图谱」8 条母球轨迹用页内 8 色板（`CushionEnglishAtlasGeometry.trackColors`，左塞暖→右塞冷）区分 spinX 档位身份，**不**改全局 `TrajectoryStyle`，也不影响「分离角图谱」或其它页。碰前/库后均同序上色（v20.5：废止淡灰单条预览）；瞄准线仍白实线、进球线仍目标球本色虚线。
+- **原因**：本页教学语义是「同一母球、8 种左右塞并排对比库后扇形」；若 8 条皆白则无法辨认塞量差异，与 E1 验收语义冲突。仿 DR-025（高低杆轴豁免）。
+- **影响组件**：`CushionEnglishAtlasView` / `CushionEnglishAtlasViewModel` / `CushionEnglishAtlasGeometry`；全局线语言与 `TrajectoryStyle` 不变。
+- **日期**：2026-07-27
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 页面契约 + § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 / Changelog（2026-07-27，DR-029）
+
 ## DR-028
 - **任务**：球杆显隐与瞄准线绑定 + 运杆/回放衔接（问题集合 v19 W1）
 - **原始规范**：各页自行决定何时 `updateCueStick` / `hideCueStick`；Bank/Diamond 求解只画线不摆杆；开球瞄准期无杆；Composer G14 预览硬藏杆；AimPointScene 瞄准期无杆；回放/序列出杆前常先 `hideCueStick`；Bank 求解主击喂球心。

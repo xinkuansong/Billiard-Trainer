@@ -185,6 +185,7 @@ final class ScreenshotTourUITests: XCTestCase {
             ("学", "瞄准修正", "a16-aiming-correction"),
             ("学", "旋转与加塞", "a14-spin-and-english"),
             ("学", "分离角图谱", "a15-separation-angle-atlas"),
+            ("学", "加塞吃库图谱", "a17-cushion-english-atlas"),
             ("学", "浅谈球感", "a11-ball-feel"),
             ("学", "瞄准点对照表", "a10-contact-point"),
             ("练", "角度预测", "a12-geometric-quiz"),
@@ -212,11 +213,18 @@ final class ScreenshotTourUITests: XCTestCase {
             if name == "a14-spin-and-english" { snap("v14-b3-spin-top") }
             if name == "a11-ball-feel" { snap("v14-b3-ballfeel-top") }
             if name == "a10-contact-point" { snap("v14-b3-contact-top") }
-            // 分离角图谱为场景交互页（非长文滚动）：额外等轨迹算完再拍默认态。
+            // 分离角图谱 / 加塞吃库图谱为场景交互页（非长文滚动）：额外等轨迹算完再拍默认态。
             if name == "a15-separation-angle-atlas" {
                 sleep(2)
                 snap("\(name)-default")
                 snap("v14-b3-atlas-top")
+                popBack()
+                sleep(1)
+                continue
+            }
+            if name == "a17-cushion-english-atlas" {
+                sleep(2)
+                snap("\(name)-default")
                 popBack()
                 sleep(1)
                 continue
@@ -280,6 +288,76 @@ final class ScreenshotTourUITests: XCTestCase {
             popBack()
             sleep(1)
         }
+    }
+
+    /// v20 W2：加塞吃库图谱交互取证——默认态 / 高力度 / 拖球 / 球库点上+拖上 / 左缘横向图例。
+    func testCushionEnglishAtlasInteractions() {
+        // SceneKit 叠层下合成拖力度柱不可靠 → 启用页内 UI 测钩子（`-w2.uiHooks`）。
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-w2.uiHooks"])
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+        switchAngleHomeTab("学")
+        sleep(1)
+        guard tapIfExists("加塞吃库图谱", timeout: 4) else {
+            XCTFail("加塞吃库图谱卡不可达")
+            return
+        }
+        sleep(4) // 等 8 路并行 simulateFree
+        snap("w2-atlas-default")
+
+        let legend = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'cushionEnglishAtlas.spinLegend'"))
+            .firstMatch
+        XCTAssertTrue(legend.waitForExistence(timeout: 3), "左缘 8 档左右塞色序图例不可达")
+
+        let simMs = app.staticTexts["w2.parallelSimMs"]
+        if simMs.waitForExistence(timeout: 3) {
+            print("[W2-PERF] 8×simulateFree parallel \(simMs.label) ms (default scene, velocity 1.5)")
+        }
+
+        let bump = app.buttons["高力度"]
+        XCTAssertTrue(bump.waitForExistence(timeout: 3), "w2.uiHooks「高力度」钩子不可达")
+        bump.tap()
+        sleep(5)
+        snap("w2-atlas-high-power")
+        XCTAssertTrue(app.staticTexts["5.5"].waitForExistence(timeout: 4),
+                      "拉高力度后应出现读数 5.5（顶栏或仪表柱）")
+        if simMs.exists {
+            print("[W2-PERF] 8×simulateFree parallel \(simMs.label) ms (after bump, velocity 5.5)")
+        }
+
+        let table = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'cushionEnglishAtlas.root'")).firstMatch
+        if table.waitForExistence(timeout: 2) {
+            let start = table.coordinate(withNormalizedOffset: CGVector(dx: 0.42, dy: 0.48))
+            let end = table.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.42))
+            start.press(forDuration: 0.2, thenDragTo: end)
+            sleep(3)
+            snap("w2-atlas-drag-cut")
+        }
+
+        let tapBall = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'paletteBall__1'")).firstMatch
+        XCTAssertTrue(tapBall.waitForExistence(timeout: 3), "球库 _1 槽位不可达")
+        tapBall.tap()
+        sleep(3)
+        snap("w2-atlas-palette-tap")
+
+        let dragBall = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'paletteBall__2'")).firstMatch
+        if dragBall.waitForExistence(timeout: 2), table.exists {
+            let start = dragBall.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            let dest = table.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.40))
+            start.press(forDuration: 0.25, thenDragTo: dest)
+            sleep(3)
+            snap("w2-atlas-palette-drag")
+        } else {
+            XCTFail("球库拖放路径不可达（paletteBall__2 或台面）")
+        }
+
+        XCTAssertEqual(app.state, .runningForeground, "交互后 App 应仍在前台")
     }
 
     /// v11 Y3 / v15 W1：分离角图谱交互取证——默认态 / 高力度 / 拖球 / 球库点上+拖上 / 左缘图例。
