@@ -393,6 +393,13 @@ struct AimingCorrectionView: View {
                 destination: "自动求解 · 力度与塞如何改瞄准线",
                 route: .positionPlaySolver
             )
+
+            PracticeCTA(
+                title: "练挤偏认知",
+                destination: "免费钩子 · 直球近台带塞让点",
+                route: .drillDetail("drill_c073")
+            )
+            .accessibilityIdentifier("aimingCorrection.squirtDrillCTA")
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingCorrection.section6")

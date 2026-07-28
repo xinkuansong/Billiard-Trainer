@@ -1,0 +1,150 @@
+{
+  "drillId": "drill_c016",
+  "version": 1,
+  "methodology": "docs/research/20260716-drill变量覆盖设计方法论.md",
+  "_note": "v21 W4 R4：坐标由 scripts/v21_w4_r4_coords.py 推导；袋口 AngleSceneCalculator (0.5,0.5209)；让点方向引 W1：左塞→向左让。主题=碰库/走位，非让点准度。",
+  "fixedVariables": {
+    "pocket": "bottomCenter（代码真源 y=0.5209）",
+    "spin": "斯登 (0,0)",
+    "criteria": "进袋 + 母球滑向90°方向区域"
+  },
+  "targetVariables": [
+    {
+      "name": "cutAngle",
+      "levels": [
+        "20",
+        "30",
+        "40",
+        "45"
+      ],
+      "rationale": "有效切角档；sinθ 足够大才可见切线滑行（审计 R4）"
+    }
+  ],
+  "conditionVariables": [
+    {
+      "name": "cutSide",
+      "levels": [
+        "L",
+        "R"
+      ],
+      "rationale": "左右切散布",
+      "sampling": "档内交替"
+    },
+    {
+      "name": "velocity",
+      "levels": [
+        "3.0",
+        "3.2"
+      ],
+      "rationale": "中力；过大易冲过目标区",
+      "sampling": "小切角 3.0；大切角 3.2"
+    }
+  ],
+  "formations": [
+    {
+      "id": "A1",
+      "difficultyRank": 1,
+      "cue": {
+        "x": 0.5752,
+        "y": 0.1117
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3409
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 20.0,
+      "spin": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "20",
+        "cutSide": "R",
+        "dtp": "0.18",
+        "d": "0.22",
+        "velocity": "3.0",
+        "spinLevel": "斯登"
+      },
+      "representative": true
+    },
+    {
+      "id": "A2",
+      "difficultyRank": 2,
+      "cue": {
+        "x": 0.38,
+        "y": 0.1106
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3409
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 30.0,
+      "spin": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "30",
+        "cutSide": "L",
+        "dtp": "0.18",
+        "d": "0.24",
+        "velocity": "3.0",
+        "spinLevel": "斯登"
+      }
+    },
+    {
+      "id": "A3",
+      "difficultyRank": 3,
+      "cue": {
+        "x": 0.6543,
+        "y": 0.1545
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3609
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 40.0,
+      "spin": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "40",
+        "cutSide": "R",
+        "dtp": "0.16",
+        "d": "0.24",
+        "velocity": "3.2",
+        "spinLevel": "斯登"
+      }
+    },
+    {
+      "id": "A4",
+      "difficultyRank": 4,
+      "cue": {
+        "x": 0.3162,
+        "y": 0.1646
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3709
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 45.0,
+      "spin": {
+        "x": 0.0,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "45",
+        "cutSide": "L",
+        "dtp": "0.15",
+        "d": "0.26",
+        "velocity": "3.2",
+        "spinLevel": "斯登"
+      }
+    }
+  ]
+}

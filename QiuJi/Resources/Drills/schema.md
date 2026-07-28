@@ -209,9 +209,21 @@ trajectories and **backfills** them into `animation` (`source: "baked"`). Render
 | `cue` / `target` | `Point` | ✅ | 归一化摆位（与本 schema 坐标系一致） |
 | `pocket` | `String` | ✅ | Pocket ID |
 | `cutAngleDeg` | `Double?` | ❌ | 行进线切角（设计值，脚本验算产出） |
+| `spin` | `{ "x": number, "y": number }?` | ❌ | **结构化打点（D-v21-4）**：与 `ShotIntent.Spin` / 引擎 `spinX`/`spinY` 同义——`x`:+左塞/−右塞，`y`:+高杆/−低杆，∈[−1,1]；幅值须满足 √(x²+y²) ≤ `CuePhysics.miscueLimitFraction`(0.5)。缺省 = 无塞声明（中心击打）。见下方「spin 与 variables」 |
 | `variables` | `{String: String}` | ✅ | 本球形各变量取值，键与 target/condition 变量 `name` 对应，e.g. `{"cutAngle": "30", "side": "R", "dtp": "0.25", "d": "0.22", "nearRail": "true"}` |
 | `representative` | `Bool?` | ❌ | `true` = 代表性球形（回填 drill JSON `shotIntent`/`animation`）；全档案至多一个，缺省难度#1 |
 | `sequenceToken` | `String?` | ❌ | 对应 DrillBoards 序列文件 token；缺省 = `id` |
+
+##### `spin` 与 `variables` 档位标签（D-v21-4）
+
+| 层 | 载体 | 角色 |
+|----|------|------|
+| 档位标签 | `variables` 内自由字符串（如 `sideSpinLevels`: `"轻"`/`"中"`/`"满"`，或 `side`: `"L"`/`"R"`） | 教学/覆盖矩阵用语；人读友好；**不能**唯一还原引擎打点 |
+| 结构化数值 | `spin: {x,y}` | 审计脚本、烘焙入参、人工录制前的意图声明；与 `ShotIntent.Spin` 同口径 |
+
+- **为何需要**：initial-only 序列（`steps: []`）只有 `initial.onTable` 球位，**不含** spin/velocity（见 `问题集合_v21.md` §2.4）。几何主题 drill（如 c053）摆位即承载变量；**加塞 drill 的目标变量是 spin**，摆位看不出来——无 `spin` 字段时试打页只剩普通球形。
+- **消费方**：`content/drill_profiles/` 仓库真源上的审计 / 批量脚本 / 人工编排；**不进 App Bundle**（与 profile sidecar 整文件同策略）。App 运行时仍以示范序列 `steps[].shotIntent`（录制后）或代表性球形 drill JSON `shotIntent` 为准。
+- **一致性**：若同球形同时写了 `variables.side`/`spinLevel` 与 `spin`，以 `spin` 数值为准；档位标签须能由 `spin` 映射回（满塞 `|x|=0.5` 等），脚本可做交叉校验。
 
 #### 最小示例
 
@@ -233,6 +245,7 @@ trajectories and **backfills** them into `animation` (`source: "baked"`). Render
       "id": "A1", "difficultyRank": 1,
       "cue": { "x": 0.5647, "y": 0.1128 }, "target": { "x": 0.5, "y": 0.3768 },
       "pocket": "bottomCenter", "cutAngleDeg": 15.0,
+      "spin": { "x": 0.0, "y": 0.0 },
       "variables": { "cutAngle": "15", "side": "R", "dtp": "0.15", "d": "0.25", "nearRail": "false" },
       "representative": true
     }

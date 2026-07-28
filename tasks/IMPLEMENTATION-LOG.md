@@ -82,6 +82,19 @@
 
 ## DR 记录（设计调整）
 
+## DR-030
+- **任务**：问题集合 v21 W5「收口与接线」— 学区 CTA → 动作库 drill
+- **原始规范**：学页 `PracticeCTA` 仅走 `AngleRoute` 练习域目的地；SPEC §9.3.1 CTA 密度写「不新增动作库/蛇彩深链」；动作库详情仅在动作库 Tab 的 `navigationDestination(for: String.self)`。
+- **调整后**：
+  1. 新增 `AngleRoute.drillDetail(String)`；`MainTabView.angleDestination` 内嵌 `DrillDetailView(drillId:)`，练习 Tab 栈内可达，无需切 Tab。
+  2. 「瞄准修正」「旋转与加塞」各一条 `PracticeCTA`→`drill_c073`（免费钩子）；页末大卡仍 ≤2（旋转页「分离角图谱」降为 `LearnDocTextLink`）。
+  3. AX：`aimingCorrection.squirtDrillCTA` / `spinAndEnglish.squirtDrillCTA`；UI 测断言详情标题含「挤偏认知」。
+- **原因**：v21 加塞课入库后，学区概念页若不能一键进跟打 drill，用户仍感知「没有加塞课」；切 Tab + 搜索改动面更大且难测。
+- **影响组件**：`AngleRoute`、`MainTabView`、`AimingCorrectionView`、`SpinAndEnglishView`、`DrillDetailView`（复用）；SPEC §9.3.1。
+- **日期**：2026-07-28
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3.1 CTA 密度 + 旋转与加塞契约 + Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §9.3.1 / Changelog（2026-07-28，DR-030）
+
 ## DR-029
 - **任务**：问题集合 v20 W2「加塞吃库图谱」
 - **原始规范**：线语言 v2（SPEC §8.9 / 设计稿 §1.2）——线色 = 球的身份（白=母球路径；目标球本色=该球路径）。

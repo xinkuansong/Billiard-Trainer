@@ -40,6 +40,8 @@ enum AngleRoute: Hashable {
     case ballExtraction
     /// 批量出片台（仅模拟器，内容生产工具）。
     case batchDrillStudio
+    /// 学区 CTA → 动作库 drill 详情（v21 W5；练习 Tab 内嵌 DrillDetailView）。
+    case drillDetail(String)
 }
 
 // MARK: - Entry Model

@@ -165,6 +165,8 @@ struct MainTabView: View {
             #else
             EmptyView()
             #endif
+        case .drillDetail(let drillId):
+            DrillDetailView(drillId: drillId)
         }
     }
 

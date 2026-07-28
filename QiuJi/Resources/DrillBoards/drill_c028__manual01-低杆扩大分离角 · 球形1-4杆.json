@@ -1,0 +1,156 @@
+{
+  "createdAt" : "2026-07-25T08:52:21Z",
+  "id" : "A42E5F19-9221-46D6-9544-57CBA9DD8AC1",
+  "initial" : {
+    "onTable" : {
+      "cueBall" : {
+        "x" : 0.30000001192092896,
+        "y" : 0.30000001192092896
+      }
+    }
+  },
+  "name" : "低杆扩大分离角 · 球形1",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.4552675485610962,
+            "y" : 0.46428099274635315
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4992654621601105,
+            "y" : 0.3256551921367645
+          },
+          "cueBall" : {
+            "x" : 0.5636913776397705,
+            "y" : 0.11563640087842941
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "282B7A1D-220F-4EA1-AFF5-8BB7EF997087",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "_8",
+        "velocity" : 2.5
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.26088443398475647,
+            "y" : 0.2086440920829773
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4992654621601105,
+            "y" : 0.3256551921367645
+          },
+          "cueBall" : {
+            "x" : 0.5636913776397705,
+            "y" : 0.11563640087842941
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "2C6036F2-74CE-4300-B18F-AA20A59B6C45",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0,
+        "spinY" : -0.1662571978569031,
+        "targetKey" : "_8",
+        "velocity" : 2.5
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.03502645716071129,
+            "y" : 0.05294359102845192
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4992654621601105,
+            "y" : 0.3256551921367645
+          },
+          "cueBall" : {
+            "x" : 0.5636913776397705,
+            "y" : 0.11563640087842941
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "33D4232A-84B9-44CA-BE58-5214A37CF516",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0.00024952014287326664,
+        "spinY" : -0.33114203492800337,
+        "targetKey" : "_8",
+        "velocity" : 2.5
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.1778520792722702,
+            "y" : 0.15188315510749817
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.4992654621601105,
+            "y" : 0.3256551921367645
+          },
+          "cueBall" : {
+            "x" : 0.5636913776397705,
+            "y" : 0.11563640087842941
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "AF447D32-E32A-488F-A635-FEC0EEF2FF0A",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.0007984676738277989,
+        "spinY" : -0.49998234681447723,
+        "targetKey" : "_8",
+        "velocity" : 2.5
+      }
+    }
+  ],
+  "updatedAt" : "2026-07-25T08:54:01Z"
+}

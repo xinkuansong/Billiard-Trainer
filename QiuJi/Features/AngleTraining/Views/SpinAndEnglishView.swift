@@ -221,7 +221,7 @@ struct SpinAndEnglishView: View {
         .accessibilityIdentifier("spinAndEnglish.aimingCorrectionSection")
     }
 
-    // MARK: - Cross refs（D-v14-6：页末大卡合计 ≤2；此处保留 1 张 + 上文瞄准修正）
+    // MARK: - Cross refs（D-v14-6：页末大卡合计 ≤2；瞄准修正 + 挤偏 drill；图谱降为文字链）
 
     private var crossRefsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -229,9 +229,14 @@ struct SpinAndEnglishView: View {
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            PracticeCTA(title: "打开分离角图谱",
-                        destination: "8 档高低杆 · 碰后轨迹对比",
-                        route: .separationAngleAtlas)
+            PracticeCTA(title: "练挤偏认知",
+                        destination: "免费钩子 · 直球近台带塞让点",
+                        route: .drillDetail("drill_c073"))
+                .accessibilityIdentifier("spinAndEnglish.squirtDrillCTA")
+
+            LearnDocTextLink(title: "打开分离角图谱",
+                             subtitle: "8 档高低杆 · 碰后轨迹对比",
+                             route: .separationAngleAtlas)
 
             LearnDocTextLink(title: "回看瞄准原理",
                              subtitle: "切角 · 假想球 · 接触点",

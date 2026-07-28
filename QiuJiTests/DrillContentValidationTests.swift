@@ -23,7 +23,7 @@ final class DrillContentValidationTests: XCTestCase {
     }
 
     func test_index_totalDrillCount_is72() {
-        XCTAssertEqual(drillIndex.allDrillIds.count, 72, "Index should reference 72 drill IDs")
+        XCTAssertEqual(drillIndex.allDrillIds.count, 77, "Index should reference 77 drill IDs")
     }
 
     func test_index_allIdsUnique() {
@@ -48,7 +48,7 @@ final class DrillContentValidationTests: XCTestCase {
     }
 
     func test_loadedDrillCount_matches72() {
-        XCTAssertEqual(allDrills.count, 72, "Should load exactly 72 drills from bundle")
+        XCTAssertEqual(allDrills.count, 77, "Should load exactly 77 drills from bundle")
     }
 
     // MARK: - Schema Field Validation (every drill)

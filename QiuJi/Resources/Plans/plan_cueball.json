@@ -7,7 +7,7 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 75,
   "isPremium": false,
-  "description": "系统掌握五种基础杆法：定杆、高杆、低杆、斯登杆、加塞。配合准度训练，在 6 周内建立杆法意识。",
+  "description": "系统掌握五种基础杆法：定杆、高杆、低杆、斯登杆、加塞。配合准度训练，在 6 周内建立杆法意识。系统补加塞准度请选「加塞专项」。",
   "weeks": [
     {
       "weekNumber": 1,
@@ -176,32 +176,32 @@
     },
     {
       "weekNumber": 6,
-      "theme": "综合杆法检验",
+      "theme": "加塞与挤偏 — 让点入门",
       "sessions": [
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}, {"drillId": "drill_c003", "sets": 2, "ballsPerSet": 10}, {"drillId": "drill_c004", "sets": 2, "ballsPerSet": 10}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c005", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c073", "sets": 4, "ballsPerSet": 10}, {"drillId": "drill_c016", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c003", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c004", "sets": 3, "ballsPerSet": 10}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c074", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c075", "sets": 3, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c018", "sets": 2, "ballsPerSet": 10}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c005", "sets": 2, "ballsPerSet": 10}, {"drillId": "drill_c004", "sets": 2, "ballsPerSet": 10}, {"drillId": "drill_c003", "sets": 2, "ballsPerSet": 10}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c073", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c020", "sets": 2, "ballsPerSet": 10}, {"drillId": "drill_c021", "sets": 2, "ballsPerSet": 10}, {"drillId": "drill_c016", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         }

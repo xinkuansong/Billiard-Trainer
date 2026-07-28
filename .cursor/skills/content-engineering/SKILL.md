@@ -254,9 +254,12 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 
 ## 官方训练计划生产要点
 
-- 6套计划 ID：`plan_beginner` / `plan_cueball` / `plan_positioning` / `plan_intermediate` / `plan_advanced` / `plan_fullskill`
-- 每套计划的 `drillId` 必须已存在于 `index.json`（不能引用不存在的 Drill）
-- `isPremium: false` 仅限前两套（`plan_beginner`、`plan_cueball`），其余为付费
+- **10 套计划 ID**（`Plans/index.json`）：
+  - 综合/主线：`plan_beginner` / `plan_cueball` / `plan_positioning` / `plan_intermediate` / `plan_advanced` / `plan_fullskill`
+  - 专项（v22）：`plan_accuracy` / `plan_force` / `plan_separation` / `plan_english`
+- 每套计划的 `drillId` 必须已存在于 Drills `index.json`（不能引用不存在的 Drill）
+- **Freemium（D-v22-1）**：`isPremium: false` = `plan_beginner`、`plan_cueball`、**`plan_accuracy`（准度专项）**；其余（含力度/分离角/加塞专项与既有综合付费套）为 `true`
+- `plan_advanced`：docs 称「高级综合（多库/防守占位）」；加塞主路径是 `plan_english`，勿与之混名（D-v22-5）
 
 ## 内容体系三 SOP（ADR-P12-01，2026-06-14）
 

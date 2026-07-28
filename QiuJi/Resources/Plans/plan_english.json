@@ -1,0 +1,211 @@
+{
+  "id": "plan_english",
+  "nameZh": "加塞专项",
+  "nameEn": "English / Squirt Specialist",
+  "targetLevel": "L2",
+  "durationWeeks": 6,
+  "sessionsPerWeek": 3,
+  "minutesPerSession": 75,
+  "isPremium": true,
+  "description": "加塞专项 / 短板补强：6 周聚焦带塞进袋准度与挤偏让点（近台挤偏认知→长台挤偏放大→塞量阶梯→小/中大角度带塞→远台带塞准度）。⛔ 非碰库变线主题；不做综合主线杂烩。",
+  "weeks": [
+    {
+      "weekNumber": 1,
+      "theme": "挤偏认知·近台",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c073", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c073", "sets": 6, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c073", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 2,
+      "theme": "挤偏放大·长台",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c073", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c074", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c074", "sets": 6, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c074", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 3,
+      "theme": "塞量阶梯",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c074", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c075", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c075", "sets": 6, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c073", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c075", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 4,
+      "theme": "小角度带塞",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c075", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c076", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c076", "sets": 6, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c076", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 5,
+      "theme": "中大角度带塞",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c076", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c077", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c032", "sets": 2, "ballsPerSet": 12}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c077", "sets": 6, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c077", "sets": 5, "ballsPerSet": 12}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 6,
+      "theme": "远台带塞准度",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c077", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c078", "sets": 4, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c033", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c076", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c078", "sets": 5, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c078", "sets": 4, "ballsPerSet": 10}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "review", "durationMinutes": 5, "drills": []}
+          ]
+        }
+      ]
+    }
+  ]
+}

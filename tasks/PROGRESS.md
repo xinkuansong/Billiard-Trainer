@@ -18,6 +18,25 @@
 
 ## 当前状态
 
+- **问题集合 v22 全部批次收官 ✅（2026-07-28，v22.6，plan-delegated-execution：`cursor-grok-4.5-high-fast`；W1–W6 均 0 返工）**：四套专项（准度免费 / 力度·分离角·加塞 Pro）+ 文档 Freemium 同步；index **v6 / 10 套**。主控亲核 W6：docs/SKILL=D-v22-1、导流句未回滚 v21 钩子、`plan_advanced` 零 diff、截图准度免 PRO + 加塞详情、主树 build 绿。留档：`docs/09` 仍写「共 6 套」（非 §2.5）。证据 `build/v22-w{1..6}-*`。**下一步：可选模拟器点验货架；或拍板 v16；或 H-22 录制。**
+- **问题集合 v22 W6 ✅（2026-07-28，主控验收 0 返工）**：docs/04·07·08 + SKILL；description 导流；截图 01–09；真源 v22.6。证据 `build/v22-w6-*`。
+- **问题集合 v22 W5 ✅（2026-07-28，主控验收 0 返工）**：`plan_english`；index v6（10 套）；focused c073–c078 93/93 无 c018；亲读日志/截图 + 主树 build 绿。真源曾 v22.5。证据 `build/v22-w5-*`。
+- **问题集合 v22 W4 ✅（2026-07-28，主控验收 0 返工）**：`plan_separation`；index v5。证据 `build/v22-w4-*`。
+- **问题集合 v22 W1–W3 ✅（2026-07-28）**：定稿 + accuracy + force。证据 `build/v22-w{1,2,3}-*`。
+- **问题集合 v22 W3 ✅（2026-07-28，主控验收 0 返工）**：`plan_force` 4×3×70 Pro；focused forceControl 67/67；亲读 self-check/日志/截图 + 主树 build 绿。留档：详情 CTA 在模拟器可能因 StoreKit Pro 残留显示「开始此计划」（列表 PRO 标正确）。
+- **问题集合 v22 W2 ✅（2026-07-28，主控验收 0 返工）**：`plan_accuracy` + index v3；证据 `build/v22-w2-*`。真源曾 v22.2。
+- **问题集合 v22 W1 ✅（2026-07-28，主控验收 0 返工）**：真源 v22.1 拍板齐+定稿；证据 `build/v22-w1-evidence/`。
+- **问题集合 v22 拍板齐 ✅（2026-07-28）**：D-v22-1～6 全按推荐；**D-v22-2=A**。真源 `问题集合_v22.md`。
+- **问题集合 v21 全部批次收官 ✅（2026-07-28，v21.8，plan-delegated-execution：grok-4.5；W1–W5 均 0 返工）**：加塞训练线（让点/挤偏）+ R4；计数 **77**；计划接入；学区 CTA→c073（**DR-030**）；审计 M6+R4；H-22 录制异步。证据 `build/v21-w{1..5}-*`。
+- **问题集合 v22 立项 ✅（2026-07-28）**：官方专项计划货架（准度/力度/分离角/加塞）；W1–W6。真源 `问题集合_v22.md`。加塞专项依赖 v21 ✅（已满足）。
+- **问题集合 v21 W5 ✅（2026-07-28，主控验收 0 返工）**：计划 cueball W6 / intermediate W1；`AngleRoute.drillDetail`+两学页 CTA→c073；审计/SPEC/DR-030/H-22。主控亲读日志/截图 + 主树 build 绿。证据 `build/v21-w5-*`。
+- **问题集合 v21 W4 ✅（2026-07-28，主控验收 0 返工）**：R4；bake 18/18；c019 退役；计数 77。证据 `build/v21-w4-*`。
+- **问题集合 v21 W1–W3 ✅（2026-07-28）**：加塞新课 6 条入库。
+- **问题集合 v21 W3 ✅（2026-07-28，plan-delegated-execution：grok-4.5，主控验收 0 返工）**：加塞准度 c076/c077/c078。主控亲读 bake 16/16 ALL_OK、validation 20/0、截图（带塞列表/详情）、`spinKind` 与 spin 一致性 True；主树 `make build` SUCCEEDED。证据 `build/v21-w3-*`。真源升 v21.6。
+- **问题集合 v21 W2 ✅（2026-07-28，plan-delegated-execution：grok-4.5，主控验收 0 返工）**：基础加塞 c073–c075。主控亲读 bake 14/14 ALL_OK、validation 20/0、截图 01–03、profile spin、仅进袋、c073 免费；主树 `make build` SUCCEEDED。证据 `build/v21-w2-*`。真源升 v21.4。
+- **问题集合 v21 W1 ✅（2026-07-28，plan-delegated-execution：grok-4.5，0 轮返工）**：口径与承载基座。主控亲读：`s1-squirt.md`（左塞挤右→瞄准向左让；c018 旧文案 W4 修正）、`squirt-vs-power.md`（挤偏与力度无关）、`straight-scratch-scan.md`（dtp∈[0.12,0.25]）、`schema.md` spin 字段、`20260728-v21-W1口径备忘.md` 定稿表+六要素；日志 3/0 + TEST SUCCEEDED；主树 `make build` SUCCEEDED。证据 `build/v21-evidence/`。真源升 v21.2。
+- **问题集合 v21.1 拍板齐 ✅（2026-07-28）**：D-v21-1～7 全部按主控推荐 + 用户指定模型落地。**模型**：全批统一 `cursor-grok-4.5-high-fast`。**决议摘要**：拆开放；R4 并入；profile 扩 spin；c073 免费；录制内容先行；c018 吸 c019、终计数 77。真源 `问题集合_v21.md`。
+- **问题集合 v21 立项 ✅（2026-07-28，Orchestrator，纯文档，issue-collection-restructure）**：主题＝带塞进袋准度（让点/挤偏补偿），⛔ 非碰库变线。形态 A 跟打 drill；新增 c073–c078 ≈30 球形 + R4；批次 W1–W5。新发现：计划零引用加塞 drill；profile 无 spin。存疑 S1 让点方向 / S2 洗袋。真源 `问题集合_v21.md`（已升 v21.1）。
 - **母球初始朝向随机 ✅（2026-07-28）**：只随机母球；新摆球 `CueBallPosePolicy.reseat` 抽均匀四元数写入 `cueBallHomeOrientation`；重打/复位 `.home` 保持；散局落定/回放收尾 `.unchanged`。目标球仍单位姿态；缩略图烘焙钉死 identity。覆盖编排台/思路/三杆/斯诺克/翻袋·反射复位/开球/图谱/抽球确认/导出器等。证据：`make build` SUCCEEDED；`TrajectoryPlaybackSpinTests` **9/0**。**下一步：模拟器点验母球红点不再总在顶；或继续 v20.5/v19 点验；v16 待拍板；v18 已暂缓。**
 - **问题集合 v20 ✅ + v20.5 修订（2026-07-28）**：收官后用户点验「碰前只画一条」→ 按实况改画 **碰前 8 色线**（废止淡灰单条；D-v20-5 修订）。改 `CushionEnglishAtlasViewModel.drawTrajectories` + HUD/SPEC/真源。
 - **问题集合 v20 全部批次收官 ✅（2026-07-27，v20.4，plan-delegated-execution：`cursor-grok-4.5-high-fast`；W1+W2 均 0 轮返工）**：学区新卡「加塞吃库图谱」——中杆×8 档左右塞×碰后首库出射扇形；挤偏补偿隔离；独立学卡。**W1** Geometry+单测；**W2** View/VM+注册4处+SpinAndEnglish 导流+SPEC/DR-029+a17/交互测。证据 `build/v20-{logs,evidence,screenshots}/`。真源 `问题集合_v20.md`。

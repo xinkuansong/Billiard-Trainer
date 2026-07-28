@@ -1,0 +1,203 @@
+{
+  "drillId": "drill_c075",
+  "version": 1,
+  "methodology": "docs/research/20260716-drill变量覆盖设计方法论.md",
+  "_note": "v21 W2：坐标由 scripts/v21_w2_straight_spin_coords.py 推导；袋口取 AngleSceneCalculator 代码真源 (0.5,0.5209)；spin 结构化字段见 schema D-v21-4；让点方向引 W1：左塞→向左让。",
+  "fixedVariables": {
+    "pocket": "bottomCenter",
+    "cutAngle": "0°",
+    "spinY": "0",
+    "criteria": "仅目标球进袋"
+  },
+  "targetVariables": [
+    {
+      "name": "spinLevel",
+      "levels": [
+        "轻",
+        "中",
+        "满"
+      ],
+      "rationale": "塞量阶梯；满=0.5R=miscueLimit"
+    },
+    {
+      "name": "side",
+      "levels": [
+        "L",
+        "R"
+      ],
+      "rationale": "每档塞量左右全覆盖"
+    }
+  ],
+  "conditionVariables": [
+    {
+      "name": "dtp",
+      "levels": [
+        "0.22"
+      ],
+      "rationale": "钉在 W1 安全区中段",
+      "sampling": "全档案固定"
+    },
+    {
+      "name": "velocity",
+      "levels": [
+        "3.0",
+        "3.5"
+      ],
+      "rationale": "避开中低速洗袋带（W1：满塞 2.0–2.5 易跟进）",
+      "sampling": "轻/中 3.0–3.5；满 3.5"
+    }
+  ],
+  "formations": [
+    {
+      "id": "A1",
+      "difficultyRank": 1,
+      "cue": {
+        "x": 0.5,
+        "y": 0.0584
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3009
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 0.0,
+      "spin": {
+        "x": 0.15,
+        "y": 0.0
+      },
+      "variables": {
+        "side": "L",
+        "spinLevel": "轻",
+        "dtp": "0.22",
+        "d": "0.22",
+        "velocity": "3.0"
+      },
+      "representative": true
+    },
+    {
+      "id": "A2",
+      "difficultyRank": 2,
+      "cue": {
+        "x": 0.5,
+        "y": 0.0584
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3009
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 0.0,
+      "spin": {
+        "x": -0.15,
+        "y": 0.0
+      },
+      "variables": {
+        "side": "R",
+        "spinLevel": "轻",
+        "dtp": "0.22",
+        "d": "0.22",
+        "velocity": "3.5"
+      }
+    },
+    {
+      "id": "A3",
+      "difficultyRank": 3,
+      "cue": {
+        "x": 0.5,
+        "y": 0.0584
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3009
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 0.0,
+      "spin": {
+        "x": 0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "side": "L",
+        "spinLevel": "中",
+        "dtp": "0.22",
+        "d": "0.22",
+        "velocity": "3.0"
+      }
+    },
+    {
+      "id": "A4",
+      "difficultyRank": 4,
+      "cue": {
+        "x": 0.5,
+        "y": 0.0584
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3009
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 0.0,
+      "spin": {
+        "x": -0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "side": "R",
+        "spinLevel": "中",
+        "dtp": "0.22",
+        "d": "0.22",
+        "velocity": "3.5"
+      }
+    },
+    {
+      "id": "A5",
+      "difficultyRank": 5,
+      "cue": {
+        "x": 0.5,
+        "y": 0.0584
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3009
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 0.0,
+      "spin": {
+        "x": 0.5,
+        "y": 0.0
+      },
+      "variables": {
+        "side": "L",
+        "spinLevel": "满",
+        "dtp": "0.22",
+        "d": "0.22",
+        "velocity": "3.5"
+      }
+    },
+    {
+      "id": "A6",
+      "difficultyRank": 6,
+      "cue": {
+        "x": 0.5,
+        "y": 0.0584
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3009
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 0.0,
+      "spin": {
+        "x": -0.5,
+        "y": 0.0
+      },
+      "variables": {
+        "side": "R",
+        "spinLevel": "满",
+        "dtp": "0.22",
+        "d": "0.22",
+        "velocity": "3.5"
+      }
+    }
+  ]
+}

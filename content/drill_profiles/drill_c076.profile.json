@@ -1,0 +1,237 @@
+{
+  "drillId": "drill_c076",
+  "version": 1,
+  "methodology": "docs/research/20260716-drill变量覆盖设计方法论.md",
+  "_note": "v21 W3：坐标由 scripts/v21_w3_angle_spin_coords.py 推导；袋口 AngleSceneCalculator (0.5,0.5209)；顺塞=切向同侧塞、反塞=异侧塞；让点引 W1：左塞→向左让。",
+  "fixedVariables": {
+    "pocket": "bottomCenter（代码真源 y=0.5209）",
+    "spinY": "0（中杆）",
+    "spinLevel": "中(0.30)固定",
+    "criteria": "仅目标球进袋"
+  },
+  "targetVariables": [
+    {
+      "name": "cutAngle",
+      "levels": [
+        "15",
+        "30"
+      ],
+      "rationale": "小角度两档"
+    },
+    {
+      "name": "spinKind",
+      "levels": [
+        "running",
+        "reverse"
+      ],
+      "rationale": "真变量=顺/反塞（相对切向同侧/异侧），非绝对左右"
+    }
+  ],
+  "conditionVariables": [
+    {
+      "name": "cutSide",
+      "levels": [
+        "L",
+        "R"
+      ],
+      "rationale": "切侧散布；与 spin 组合决定顺/反",
+      "sampling": "pairwise"
+    },
+    {
+      "name": "dtp",
+      "levels": [
+        "0.18",
+        "0.20",
+        "0.22"
+      ],
+      "rationale": "距袋散布（洗袋安全区附近）",
+      "sampling": "条件加样"
+    },
+    {
+      "name": "d",
+      "levels": [
+        "0.22",
+        "0.25"
+      ],
+      "rationale": "母-ghost 距离散布（受 cueY≥0.05 约束）",
+      "sampling": "条件加样"
+    }
+  ],
+  "formations": [
+    {
+      "id": "A1",
+      "difficultyRank": 1,
+      "cue": {
+        "x": 0.5569,
+        "y": 0.0859
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3209
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 15.0,
+      "spin": {
+        "x": -0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "15",
+        "cutSide": "R",
+        "spinKind": "running",
+        "spinKindZh": "顺塞",
+        "side": "R",
+        "spinLevel": "中",
+        "dtp": "0.20",
+        "d": "0.22",
+        "velocity": "3.0"
+      },
+      "representative": true
+    },
+    {
+      "id": "A2",
+      "difficultyRank": 2,
+      "cue": {
+        "x": 0.5569,
+        "y": 0.0859
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3209
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 15.0,
+      "spin": {
+        "x": 0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "15",
+        "cutSide": "R",
+        "spinKind": "reverse",
+        "spinKindZh": "反塞",
+        "side": "L",
+        "spinLevel": "中",
+        "dtp": "0.20",
+        "d": "0.22",
+        "velocity": "3.0"
+      }
+    },
+    {
+      "id": "A3",
+      "difficultyRank": 3,
+      "cue": {
+        "x": 0.4431,
+        "y": 0.0859
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3209
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 15.0,
+      "spin": {
+        "x": 0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "15",
+        "cutSide": "L",
+        "spinKind": "running",
+        "spinKindZh": "顺塞",
+        "side": "L",
+        "spinLevel": "中",
+        "dtp": "0.20",
+        "d": "0.22",
+        "velocity": "3.5"
+      }
+    },
+    {
+      "id": "A4",
+      "difficultyRank": 4,
+      "cue": {
+        "x": 0.39,
+        "y": 0.1279
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3409
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 30.0,
+      "spin": {
+        "x": 0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "30",
+        "cutSide": "L",
+        "spinKind": "running",
+        "spinKindZh": "顺塞",
+        "side": "L",
+        "spinLevel": "中",
+        "dtp": "0.18",
+        "d": "0.22",
+        "velocity": "3.0"
+      }
+    },
+    {
+      "id": "A5",
+      "difficultyRank": 5,
+      "cue": {
+        "x": 0.39,
+        "y": 0.1279
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3409
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 30.0,
+      "spin": {
+        "x": -0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "30",
+        "cutSide": "L",
+        "spinKind": "reverse",
+        "spinKindZh": "反塞",
+        "side": "R",
+        "spinLevel": "中",
+        "dtp": "0.18",
+        "d": "0.22",
+        "velocity": "3.0"
+      }
+    },
+    {
+      "id": "A6",
+      "difficultyRank": 6,
+      "cue": {
+        "x": 0.625,
+        "y": 0.0819
+      },
+      "target": {
+        "x": 0.5,
+        "y": 0.3209
+      },
+      "pocket": "bottomCenter",
+      "cutAngleDeg": 30.0,
+      "spin": {
+        "x": 0.3,
+        "y": 0.0
+      },
+      "variables": {
+        "cutAngle": "30",
+        "cutSide": "R",
+        "spinKind": "reverse",
+        "spinKindZh": "反塞",
+        "side": "L",
+        "spinLevel": "中",
+        "dtp": "0.20",
+        "d": "0.25",
+        "velocity": "3.5"
+      }
+    }
+  ]
+}
