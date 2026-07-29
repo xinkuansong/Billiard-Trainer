@@ -18,6 +18,7 @@
 
 ## 当前状态
 
+- **角度预测竖直 0° 题面 ✅（2026-07-29）**：方案 A——0°=竖直正对、左右各摆至 90°、答题无符号；出题随机左右；参考双侧镜像；几何真源 `AnglePredictionGeometry`。改 `GeometricAngleQuizView/VM`、`PracticeStorageKey`、SPEC §9.3。证据：`make build` SUCCEEDED；`AnglePredictionGeometryTests`+`PracticeStorageKeyTests` **5/0**（`build/angle-prediction-vertical-*.log`）。**下一步：模拟器点验左右题面与参考扇；或继续 v23 点验。**
 - **问题集合 v23 D-v23-5.1 ✅ 空象限对角 + 瞄准线 keepout（2026-07-29，v23.13，DR-038）**：主方向 = 开边水平×垂直对角（更大空区）；keepout 含瞄准线+进球线+袋口；0.92d 靠球。证据：Placement **19/0**（`build/v23-open-quadrant-test.log`）。**下一步：模拟器点验；再做 W2/W3 抽样点验后收官。**
 - **问题集合 v23 D-v23-5 formal → 被 5.1 取代（v23.12 / DR-037）**：单轴边距过渡方案。
 - **问题集合 v23 D-v23-5⁗ ✅（v23.11，DR-036）**：进球线/袋口 keepout 基座。

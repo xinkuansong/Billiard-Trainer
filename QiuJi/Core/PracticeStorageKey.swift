@@ -19,4 +19,6 @@ enum PracticeStorageKey {
     static let showAimCloseup = "showAimCloseup"
     /// UITest-only forced geometric angle (production default 0 = unused).
     static let geometricQuizForcedAngle = "geometricQuiz.forcedAngle"
+    /// UITest-only forced swing side (`left` / `right`); unused when absent.
+    static let geometricQuizForcedSide = "geometricQuiz.forcedSide"
 }

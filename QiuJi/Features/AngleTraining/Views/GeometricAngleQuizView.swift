@@ -89,7 +89,15 @@ struct GeometricAngleQuizView: View {
                 else { forced = nil }
                 if let forced {
                     vm.currentAngle = min(max(forced, 0), 90)
+                    // 未注入 side 时钉右侧，保证截图/取证可复现。
+                    vm.currentSide = .right
                 }
+            }
+            if let raw = UserDefaults.standard.string(forKey: PracticeStorageKey.geometricQuizForcedSide)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased(),
+               let side = AnglePredictionSide(rawValue: raw) {
+                vm.currentSide = side
             }
         }
         .onReceive(subscriptionManager.$isPremium) { premium in
@@ -106,6 +114,7 @@ struct GeometricAngleQuizView: View {
     private var angleCanvas: some View {
         AnglePredictionFigure(
             angle: vm.currentAngle,
+            side: vm.currentSide,
             showReference: vm.showReferenceGrid,
             showResult: vm.showResult
         )
@@ -296,73 +305,71 @@ struct GeometricAngleQuizView: View {
 
 // MARK: - Angle Prediction Figure
 
-/// 角度预测题面（真台化，T-P18-46）：真实台呢特写上，以母球为顶点画出
-/// 「参考线 + 角度线」夹角。角度线 = 瞄准线语义（白实线，§1.2）；量角弧 = 品牌绿 + 白读数；
-/// 参考线含 90°（原缺），标签钳入画布防裁切（原 75° 被裁）。
+/// 角度预测题面（真台化，T-P18-46 / 竖直 0°）：真实台呢特写上，以母球为顶点画出
+/// 「竖直 0° 进球线参考 + 左右摆动的瞄准线」夹角。
+/// 角度线 = 瞄准线语义（白实线，§1.2）；量角弧 = 品牌绿 + 白读数；
+/// 参考线双侧镜像含 90°；答题无符号（左右同一 θ）。
+/// 几何真源：`AnglePredictionGeometry`（SwiftUI：x 右 y 下；0°=(0,−1)）。
 private struct AnglePredictionFigure: View {
     let angle: Double
+    let side: AnglePredictionSide
     let showReference: Bool
     let showResult: Bool
+
+    private let referenceDegrees = [15, 30, 45, 60, 75, 90]
 
     var body: some View {
         // 台呢特写：竖向覆盖约 0.62m 台面 → 球按真实球径成像（约 30pt），射线比例真实。
         BTTableFigure(orientation: .landscape,
                       closeup: (center: .zero, halfHeight: 0.31)) { proj in
-            let w = proj.size.width
-            let h = proj.size.height
             let d = proj.ballDiameter
             let ballR = d / 2
-            // Q4（问题集合 v5 V4）：整体垂直居中，全角度域（含 90°）1 号球完整可见。
-            // 坐标契约：SwiftUI 画布 y 向下、原点左上、单位 pt。旧值 vertex.y=0.82h、
-            // rayLen=0.82h ⇒ 90° 时 1 号球心 y=0、上半球被裁。
-            // 闭式：内容纵向带 = rayLen + 2R（顶 = 90° 时 1 号球上缘，底 = 母球下缘）；
-            // 令其在画布内居中 ⇒ vertex.y = h/2 + rayLen/2，上下留白 = (h − rayLen − 2R)/2
-            // 恒相等。margin 保证纵向预算受限时留白 ≥ margin；水平仍以 w*0.74 封顶防越界。
-            // 数值核验（h=320,R≈14.7）：0°/45°/90° 三帧 1 号球完整落在 [0,320]，90° 上缘 y≈20。
-            let margin: CGFloat = 20
-            let rayLen = min(w * 0.74, h - 2 * margin - 2 * ballR)
-            let vertex = CGPoint(x: w * 0.15, y: h / 2 + rayLen / 2)
-            let rad = angle * .pi / 180
-            let refEnd = CGPoint(x: vertex.x + rayLen, y: vertex.y)
-            let angEnd = CGPoint(x: vertex.x + rayLen * cos(rad), y: vertex.y - rayLen * sin(rad))
+            let (vertex, rayLen) = AnglePredictionGeometry.layout(
+                canvasSize: proj.size, ballRadius: ballR)
+            let refEnd = AnglePredictionGeometry.zeroEnd(from: vertex, length: rayLen)
+            let angEnd = AnglePredictionGeometry.point(
+                from: vertex, length: rayLen, angleDegrees: angle, side: side)
             let arcR = rayLen * 0.28
-            // K2：参考虚线单独缩短至球缘前，避免后绘制的 1 号球遮住刻度；题面角度线 / 球位仍走满 rayLen。
+            // K2：参考虚线单独缩短至球缘前，避免后绘制的 1 号球遮住刻度。
             let refRayLen = max(rayLen - ballR, rayLen * 0.72)
 
             ZStack {
                 if showReference {
-                    // 参考线补 90°（原 [15,30,45,60,75] 无 90，题目量程到 90°）。
-                    ForEach([15, 30, 45, 60, 75, 90], id: \.self) { a in
-                        let r2 = Double(a) * .pi / 180
-                        Path { p in
-                            p.move(to: vertex)
-                            p.addLine(to: CGPoint(x: vertex.x + refRayLen * cos(r2),
-                                                  y: vertex.y - refRayLen * sin(r2)))
+                    ForEach(AnglePredictionSide.allCases, id: \.self) { refSide in
+                        ForEach(referenceDegrees, id: \.self) { a in
+                            let tip = AnglePredictionGeometry.point(
+                                from: vertex, length: refRayLen,
+                                angleDegrees: Double(a), side: refSide)
+                            let label = AnglePredictionGeometry.point(
+                                from: vertex, length: refRayLen + 12,
+                                angleDegrees: Double(a), side: refSide)
+                            Path { p in
+                                p.move(to: vertex)
+                                p.addLine(to: tip)
+                            }
+                            .stroke(FigureLine.hint.opacity(0.3),
+                                    style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                            Text("\(a)°")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.55))
+                                .position(clamped(label, in: proj.size))
                         }
-                        .stroke(FigureLine.hint.opacity(0.3),
-                                style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        Text("\(a)°")
-                            .font(.system(size: 9, weight: .medium))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .position(clamped(
-                                CGPoint(x: vertex.x + (refRayLen + 12) * cos(r2),
-                                        y: vertex.y - (refRayLen + 12) * sin(r2)),
-                                in: proj.size))
                     }
                 }
 
-                // 角度扇形高亮（凸显"夹角"这个重点；品牌绿弱底，§1.2 角度弧家族）。
+                // 角度扇形高亮（夹角；品牌绿弱底）。弧段按几何采样，避免 SwiftUI 弧角约定歧义。
                 if angle > 0 {
                     Path { p in
                         p.move(to: vertex)
-                        p.addArc(center: vertex, radius: arcR,
-                                 startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
+                        p.addLine(to: AnglePredictionGeometry.zeroEnd(from: vertex, length: arcR))
+                        appendArcSamples(&p, vertex: vertex, radius: arcR,
+                                         angleDegrees: angle, side: side)
                         p.closeSubpath()
                     }
                     .fill(FigureLine.contact.opacity(0.13))
                 }
 
-                // 参考线（基准 0°）：对照线语义，白细线。
+                // 0° 参考线（竖直进球线语义）：对照线，白细线。
                 Path { p in p.move(to: vertex); p.addLine(to: refEnd) }
                     .stroke(FigureLine.hint, lineWidth: proj.lineHintWidth)
 
@@ -370,11 +377,12 @@ private struct AnglePredictionFigure: View {
                 Path { p in p.move(to: vertex); p.addLine(to: angEnd) }
                     .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
 
-                // 量角弧：品牌绿（§1.2 角度弧 = 绿弧 + 白读数）。
+                // 量角弧：品牌绿。
                 if angle > 0 {
                     Path { p in
-                        p.addArc(center: vertex, radius: arcR,
-                                 startAngle: .degrees(0), endAngle: .degrees(-angle), clockwise: true)
+                        p.move(to: AnglePredictionGeometry.zeroEnd(from: vertex, length: arcR))
+                        appendArcSamples(&p, vertex: vertex, radius: arcR,
+                                         angleDegrees: angle, side: side)
                     }
                     .stroke(FigureLine.contact, lineWidth: proj.lineHintWidth)
                 }
@@ -385,23 +393,41 @@ private struct AnglePredictionFigure: View {
                 Text("0°")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.75))
-                    .position(x: refEnd.x - 14, y: refEnd.y + 14)
+                    .position(clamped(
+                        CGPoint(x: refEnd.x + 16, y: refEnd.y + 2),
+                        in: proj.size))
 
                 if showResult {
+                    let labelPt = AnglePredictionGeometry.point(
+                        from: vertex, length: arcR + 22,
+                        angleDegrees: angle / 2, side: side)
                     Text("\(Int(round(angle)))°")
                         .font(.system(size: 15, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6).padding(.vertical, 2)
                         .background(Color.black.opacity(0.45), in: Capsule())
-                        .position(x: vertex.x + (arcR + 22) * cos(rad / 2),
-                                  y: vertex.y - (arcR + 22) * sin(rad / 2))
+                        .position(clamped(labelPt, in: proj.size))
                 }
             }
         }
     }
 
-    /// 把标签位置钳入画布内（治 75°/90° 标签贴边被裁）。
+    /// 从 0° 沿 `side` 扫到 `angleDegrees` 的折线弧（不含起点，调用方先 move）。
+    private func appendArcSamples(_ path: inout Path,
+                                  vertex: CGPoint,
+                                  radius: CGFloat,
+                                  angleDegrees: Double,
+                                  side: AnglePredictionSide) {
+        let steps = max(8, Int(ceil(angleDegrees)))
+        for i in 1...steps {
+            let t = angleDegrees * Double(i) / Double(steps)
+            path.addLine(to: AnglePredictionGeometry.point(
+                from: vertex, length: radius, angleDegrees: t, side: side))
+        }
+    }
+
+    /// 把标签位置钳入画布内（治贴边被裁）。
     private func clamped(_ p: CGPoint, in size: CGSize) -> CGPoint {
         CGPoint(x: min(max(p.x, 12), size.width - 12),
                 y: min(max(p.y, 10), size.height - 10))

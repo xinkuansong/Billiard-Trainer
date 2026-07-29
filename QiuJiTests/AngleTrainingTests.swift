@@ -314,6 +314,7 @@ final class PracticeStorageKeyTests: XCTestCase {
         XCTAssertEqual(PracticeStorageKey.cushionReflectionPower, "cushionReflectionPower")
         XCTAssertEqual(PracticeStorageKey.angleDynamicHasDraggedOnce, "angleDynamic.hasDraggedOnce")
         XCTAssertEqual(PracticeStorageKey.geometricQuizForcedAngle, "geometricQuiz.forcedAngle")
+        XCTAssertEqual(PracticeStorageKey.geometricQuizForcedSide, "geometricQuiz.forcedSide")
     }
 }
 

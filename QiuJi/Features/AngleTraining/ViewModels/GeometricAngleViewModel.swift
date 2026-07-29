@@ -8,6 +8,8 @@ final class GeometricAngleViewModel: ObservableObject {
     // MARK: - Published state
 
     @Published var currentAngle: Double = 0
+    /// 题面摆向：竖直 0° 的左/右一侧（答题仍用无符号度数）。
+    @Published var currentSide: AnglePredictionSide = .right
     @Published var userInput: String = ""
     @Published var showResult: Bool = false
     @Published var showReferenceGrid: Bool = false
@@ -36,6 +38,7 @@ final class GeometricAngleViewModel: ObservableObject {
 
     func generateRandomAngle() {
         currentAngle = Double.random(in: 1..<90)
+        currentSide = Bool.random() ? .left : .right
         showResult = false
         userInput = ""
     }
