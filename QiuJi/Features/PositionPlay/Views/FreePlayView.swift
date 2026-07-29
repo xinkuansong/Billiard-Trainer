@@ -126,7 +126,12 @@ struct FreePlayView: View {
 
                 // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
                 if vm.aimMode == .free {
-                    BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                    BTAimWheel(
+                        onNudge: { vm.nudgeFreeAim(byDegrees: $0) },
+                        degreesPerPoint: vm.aimWheelDegreesPerPoint,
+                        degreeHapticEnabled: false,
+                        onDragActiveChanged: { vm.setAimWheelDragging($0) }
+                    )
                         .btStageFrame(proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
                 }
@@ -157,6 +162,11 @@ struct FreePlayView: View {
                     onPlayback: { vm.replayLastShot() }
                 )
                 .btStageFrame(proxy.actionColumnFrame())
+            }
+
+            // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
+            if !vm.isBreakMode {
+                BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
             }
 
             if showSpinPad {
@@ -427,7 +437,7 @@ struct FreePlayView: View {
 
     private var moreMenu: some View {
         // 页特有：对局中「结束对局」与「清空桌面」同 Section（G25 自由击打模板）。
-        BTSolverMoreMenu(scene: vm.scene, pageExtras: {
+        BTSolverMoreMenu(scene: vm.scene, showsAimCloseupToggle: true, pageExtras: {
             Section {
                 if rules != nil {
                     Button("结束对局", systemImage: "flag.checkered") {

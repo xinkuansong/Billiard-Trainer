@@ -15,6 +15,8 @@ enum PracticeStorageKey {
     static let cushionReflectionPower = "cushionReflectionPower"
     /// First-drag coach tip dismissed (`AngleDynamicView` `@AppStorage`).
     static let angleDynamicHasDraggedOnce = "angleDynamic.hasDraggedOnce"
+    /// Aim closeup loupe HUD visibility (`UserPreferences`, default on).
+    static let showAimCloseup = "showAimCloseup"
     /// UITest-only forced geometric angle (production default 0 = unused).
     static let geometricQuizForcedAngle = "geometricQuiz.forcedAngle"
 }

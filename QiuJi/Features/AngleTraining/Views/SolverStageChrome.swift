@@ -30,6 +30,12 @@ protocol SolverStageHosting: ObservableObject {
     var canReplaySolve: Bool { get }
     var onTableObstacleKeys: [String] { get }
     var draggableNodes: [SCNNode] { get }
+    /// v23 W2：瞄准轮毫米口径增益（°/pt）。
+    var aimWheelDegreesPerPoint: Float { get }
+    /// v23 W3：近区特写快照（自由模式；nil = 不显示）。
+    var closeupSnapshot: AimCloseupSnapshot? { get }
+    /// v23 W3：瞄准轮拖动生命周期（特写显隐门）。
+    func setAimWheelDragging(_ active: Bool)
 
     func toggleMode()
     func selectCushions(_ n: Int?)
@@ -180,7 +186,8 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             ToolbarItem(placement: .topBarTrailing) {
                 BTSolverMoreMenu(scene: vm.scene,
                                  onPrinciple: { showInfo = true },
-                                 onReset: { vm.reset() })
+                                 onReset: { vm.reset() },
+                                 showsAimCloseupToggle: true)
                     .disabled(vm.isPlaying)
             }
         }
@@ -250,7 +257,12 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
 
                 // 左缘瞄准刻度轮（W6 自由模式细调，T-P18-43）。
                 if vm.mode == .free {
-                    BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                    BTAimWheel(
+                        onNudge: { vm.nudgeFreeAim(byDegrees: $0) },
+                        degreesPerPoint: vm.aimWheelDegreesPerPoint,
+                        degreeHapticEnabled: false,
+                        onDragActiveChanged: { vm.setAimWheelDragging($0) }
+                    )
                         .btStageFrame(proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
                 }
@@ -283,6 +295,9 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                         .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
                 }
             }
+
+            // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
+            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
 
             // 打点盘浮层（自由 / 求解有解；求解微调走草稿层，编排台同款 ADR-P11-09）。
             if showSpinPad {

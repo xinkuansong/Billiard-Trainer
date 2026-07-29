@@ -82,6 +82,109 @@
 
 ## DR 记录（设计调整）
 
+## DR-038
+- **任务**：问题集合 v23 W1b 热修 — 空象限对角 + 瞄准线 keepout（D-v23-5.1）
+- **原始规范（DR-037）**：单轴最大边距定方位；keepout 仅进球线/袋口。
+- **调整后**：
+  1. **空象限**：`openHorizontal × openVertical` 对角优先（四边距仍用来判哪边更大，但落点进「更大一块」而非单轴）。
+  2. 候选按 `freeRun`（沿方向到台边的 Norm 距离）排序；轮侧过滤保留。
+  3. `SightKeepout` 增 `aimStart/EndNorm`；`keepoutOverlap` 同时避瞄准线；AimPoint `fromWorld(..., cue:aimEnd:)`。
+- **原因**：单轴边距不够——空旷是象限；且只避进球线仍会盖瞄准线。
+- **影响组件**：`AimCloseupPlacement`、`AimPointSceneTrainingView`。
+- **日期**：2026-07-29
+- **回写目标**：SPEC Changelog；`问题集合_v23.md`
+- **已应用至**：✅ 真源 v23.13；✅ SPEC Changelog
+- **证据**：Placement 套件 **19/0**（`build/v23-open-quadrant-test.log`）。
+
+## DR-037
+- **任务**：问题集合 v23 W1b 热修 — HUD 四边空旷方位（D-v23-5 formal）
+- **原始规范（5‴/5⁗）**：方位靠象限对角 / −potDir；距离 0.92d；keepout 硬过滤进球线/袋口。
+- **调整后**：`EdgeClearance` 单轴最大边距定方位（过渡）；后由 DR-038 升为象限对角。
+- **原因**：用户点明「算到四边距离即知空旷方位」。
+- **影响组件**：`AimCloseupPlacement`。
+- **日期**：2026-07-29
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`问题集合_v23.md`
+- **已应用至**：✅ 后由 DR-038 覆盖
+- **证据**：`build/v23-edge-openness-test.log`。
+
+## DR-036
+- **任务**：问题集合 v23 W1b 热修 — HUD 进球视线避让（D-v23-5⁗）
+- **原始规范（D-v23-5‴）**：loupe 相对焦点偏移（0.92×直径），仅避焦点球 / 瞄准轮 / 提交热区。
+- **调整后**：
+  1. 新增 `AimCloseupPlacement.SightKeepout`（potStart/End Norm + 线段 margin + 袋口盘半径）；世界系工厂 `fromWorld(object:pocket:halfLength:halfWidth:)` 走与 `focusNorm` 同一 `mapRotated` 契约。
+  2. `center(..., sightKeepout:)`：硬过滤 loupe∩进球线段/袋口盘；全挂放大 gap 1.1×/1.25× → 最小重叠软降级。无 keepout 时与 5‴ 等价。方位选择后由 DR-037（四边空旷）接管。
+  3. `AimCloseupSnapshot.sightKeepout`；`BTAimCloseupOverlay` 透传；`AimPointSceneTrainingView` 用 `potLine` 同源填 keepout。自由瞄准页场景无进球线 ⇒ keepout nil（层集政策不变）。
+- **原因**：特写弹出时若盖住进球线/袋口，用户无法在全景完成进袋判断——与「加 HUD 而非推近相机」的结构性理由冲突。
+- **影响组件**：`AimCloseupPlacement`、`AimCloseupSnapshot`、`BTAimCloseupOverlay`、`AimPointSceneTrainingView`。
+- **日期**：2026-07-29
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog；`问题集合_v23.md` D-v23-5⁗
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-07-29，DR-036）；✅ `问题集合_v23.md` v23.11
+- **证据**：`make build` SUCCEEDED；`AimCloseupPlacementTests`+Coords+Axis **16/0**（`build/v23-w1b-sight-keepout-test.log`）。模拟器点验待用户。
+
+## DR-035
+- **任务**：问题集合 v23 W3 — 瞄准特写扩页至自由瞄准四页（D-v23-13）
+- **原始规范**：D-v23-1b 只接 `AimPointSceneTrainingView`，其余页 backlog；定位/开关/层集代码写在该页内。
+- **调整后**：
+  1. **快照真源** `AimCloseupBuilder.freeAim(cue:direction:balls:ballRadius:railEnd:halfLength:halfWidth:previouslyNear:)`（纯平面几何，无 SceneKit 依赖 ⇒ 可单测）：焦点 = 首碰球（沿射线最先碰到者），无接触则取近区内垂距最小者并标「打空」；层集 = 瞄准线 + 假想球圈 + 接触点，**不发明**进球线/垂线/瞄准点十字（D-v23-2′ 按页实况）。
+  2. **显隐门** `AimCloseupGate`（近区 ∧ 正在改瞄准，280ms sticky，`reset()` 用于离开自由模式/播放）：宿主 VM 持有并把 `onSnapshotChange` 转发进自己的 `@Published closeupSnapshot`（嵌套 ObservableObject 不会 republish）。`isNear` 回传做 3R/3.5R 滞回。
+  3. **共享浮层** `BTAimCloseupOverlay(snapshot:sceneSize:)`：三点菜单开关 + `AimCloseupPlacement.center` 定位 + 圆心滞回一处收口；`AimPointSceneTrainingView` 同步改用它，删掉页内重复定位代码。
+  4. 接入页：`FreePlayView`（非开球模式）/ `PositionPlayComposerView` / `ShotSimulationView`（共用 `PositionPlayViewModel`）/ `SolverStageChrome`（Bank/Diamond 自由模式，经 `SolverStageHosting` 新增 `closeupSnapshot` + `setAimWheelDragging`）。四页三点菜单加 `showsAimCloseupToggle: true`。开球页**不接**（球堆无可读接触几何）。
+- **原因**：满台俯视下近球接触几何不可读的问题在自由瞄准各页同样存在；若各页自写定位/层集会重演 FL-028（贴球、发明层）。
+- **影响组件**：新增 `AimCloseupBuilder`、`AimCloseupGate`、`BTAimCloseupOverlay`；改 `PositionPlayViewModel`、`BankShotViewModel`、`DiamondSystemViewModel`、`SolverStageChrome`（协议）、`FreePlayView`、`ShotSimulationView`、`PositionPlayComposerView`、`AimPointSceneTrainingView`、`BTShotPageChrome`（pageExtras init 透传开关）。
+- **日期**：2026-07-28
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-07-28，DR-035）
+- **证据**：`make build` SUCCEEDED；新单测 **12/0**（`build/v23-w3-test.log`：层集/近区带/滞回/多球首碰优先/换目标切构图/取景 + 门 3 例）。`QiuJiTests` 全量：瞄准 · 走位 · 翻袋反射 · 开球相关全绿；余 7 例失败（DrillList 计数 77≠72、试打序列、统计跨日）为**既有红**，已 `git stash --include-untracked` 基线复现同样 7 例（`build/v23-baseline-unrelated.log`）⇒ 与本轮无关，未修。已 `make run` 装模拟器；抽样点验待用户。
+
+## DR-034
+- **任务**：问题集合 v23 — 特写开关并入三点菜单（D-v23-11）+ W2 轮增益铺开（D-v23-12）
+- **原始规范**：特写常显不可关；毫米增益仅 AimPointScene，其余 6 处 `BTAimWheel` 写死 0.15°/pt + 整度震。
+- **调整后**：
+  1. `UserPreferences.showAimCloseup`（键 `showAimCloseup`，**默认开**）+ `BTAimCloseupMenuToggle`；由 `BTSolverMoreMenu(showsAimCloseupToggle:)` 并入既有 §显示 Section（不新开 Section，与「台面网格 4×8」同处）。关特写**不**关毫米增益（两条瓶颈可独立取舍）。
+  2. **杠杆臂真源** `AngleSceneCalculator.aimLeverMeters(cue:dir:balls:)`：首碰球（`freeAimFirstContact`）→ 射线前方最近球 → 最近球 → nil；nil ⇒ 调用方回落 `defaultDegreesPerPoint`。多球场景由首碰锁定，不用「选中目标」。
+  3. 接入 5 页：`FreePlayView` / `PositionPlayComposerView` / `ShotSimulationView`（三者共用 `PositionPlayViewModel.aimWheelDegreesPerPoint`）、`SolverStageChrome`（Bank/Diamond，经 `SolverStageHosting` 新增只读要求）、`BreakInstrumentsOverlay`（`BreakFlowRunner`，杠杆 = 母球→球堆首碰）。均同时 `degreeHapticEnabled: false`（D-v23-6 同口径）。`BatchAuthoringView` 按 D-v23-1a 排除，调用点未改 ⇒ 旧手感。
+  4. `BTAimWheel` **手势开始锁档**（`lockedGain`）：单次拖动内增益不变，满足 E2「无中途速度突变」红线（换球/换目标导致的档位跳变只在下次拖动生效）。
+- **原因**：固定角增益在远/近台输出毫米不一致（同 1pt，1m 处偏移是 0.5m 的 2 倍）；特写属辅助显示，需可关（部分用户嫌遮挡）。
+- **影响组件**：`UserPreferences`、`PracticeStorageKey`、`BTShotPageChrome`（`BTSolverMoreMenu` / 新 `BTAimCloseupMenuToggle`）、`BTAimWheel`、`AngleSceneCalculator`、`PositionPlayViewModel`、`BankShotViewModel`、`DiamondSystemViewModel`、`BreakFlowRunner`、`AimPointSceneTrainingView` 及 5 处轮调用页；SPEC §9.3。
+- **日期**：2026-07-28
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-07-28，DR-034）
+- **证据**：`make build` SUCCEEDED；单测 **31/0**（`build/v23-w2-test.log`）——`AimLeverTests` 4 例（杠杆臂选球规则）+ `AimWheelGainWiringTests` 5 例（**逐页真实场景接线实证**：走位系首碰球胜过更近侧球、空桌回落 0.15°/pt、翻袋、反射、开球顶球杠杆，均断 0.4 mm/pt 且细于旧档）。已 `make run` 装模拟器；抽样点验（5 页拖轮手感）待用户。
+
+## DR-033
+- **任务**：问题集合 v23 W1b — HUD 契约重做（同源几何放大 / 分层 / 避让定位）
+- **原始规范（DR-032）**：自绘扁平橙球示意卡；固定右上；内容固定为目标+线+ghost。
+- **调整后**：
+  1. **放大** = 同步画主场景用户瞄准几何 + 紧取景（`halfWorld≈3.2R`），非截图、非示意卡。
+  2. **`AimCloseupSnapshot` 可选层**：目标球 / 瞄准线 / 进球线 / 辅助线 / 假想球 / 母球 / 标记；页只填实况有的层（AimPoint 瞄准态无假想球圈 ⇒ HUD 不发明）。
+  3. 外观：`BTFigureBall` / `FigureLine` / `BTGhostCircle`；底色见下。
+  4. 定位：见 v23.7 / v23.8；**HUD 隐藏时 `previous=nil` 重新选角**（禁止默认 `.topTrailing` 滞回钉死）。
+  5. **坐标（点验热修）**：`AimCloseupCoords.mapRotated` 与 `topDown2DRotated` 同轴（screen-up=+X、screen-right=+Z）；禁止 landscape 映射（+X→右）导致 loupe 整盘约 90° 错向。轴向由 `AimCloseupAxisContractTests` 用**真实相机投影**反查，不靠注释声明。
+  6. **定位（v23.7，FL-028）**：滞回 = 中线 ±0.08 **模糊带内**保持 previous；`blockedSide` 钉死刻度轮对侧。
+  7. **底色（v23.7→v23.8）**：实测 plain 台呢扁平填充 RGB(25,111,18)；去掉径向变暗与重阴影（径向边缘仍会把 loupe 衬成贴纸）。`AimCloseupFeltParityTests` 像素比对（现逐通道一致 0.098/0.435/0.071）。禁止 `btTableFelt`。
+  8. **定位（v23.8）**：由屏角对齐改为 **`AimCloseupPlacement.center`**——相对焦点球屏幕位置偏移（默认间距 0.92×直径），钳入避轮/提交安全区；clamp 压塌时换候选方向。产品意图＝真放大镜（靠球但不盖球），非四角 chrome。
+- **原因**：用户点验要求「纯粹局部放大、按实际情况展示、位置有逻辑」；示意卡与钉死右上不符合共享瞄准组件目标；v23.7 后仍报位置/颜色——根因是圆心间距 0.58×d 只留 ~10pt 边隙（看起来仍贴球）+ 径向渐变把底色衬暗。
+- **影响组件**：`BTAimCloseupHUD`、`AimCloseupSnapshot`、`AimCloseupCoords`、`AimCloseupPlacement`、`AimPointSceneTrainingView`；SPEC §9.3。
+- **日期**：2026-07-28
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 / Changelog（2026-07-28，DR-033）
+- **证据**：`make build` SUCCEEDED；单测 **14/0**（`build/v23-w1b-v238-test3.log`）；合成图 `build/v23-evidence/w1-position-color/composite.png`；felt 像素一致
+
+## DR-032
+- **任务**：问题集合 v23 W1 — 近球瞄准特写 HUD + 瞄准轮连续毫米增益（AimPointScene 端到端）
+- **原始规范**：全景台面球占比小 + `BTAimWheel` 固定 0.15°/pt / 整度触感；无近区辅助。
+- **调整后**：
+  1. `AimProximityMath`：垂距 + `proj > 0`；**2R = 接触边界**；HUD 近区 enter **3R** / exit **3.5R** 滞回；擦身带（≥2R）标「打空」。
+  2. `AimWheelGain`：目标 **0.4 mm/pt**，`°/pt ∝ 1/d`（d 下限 0.08 m、上限 0.6°/pt）；AimPoint 页关闭整度触感。
+  3. `BTAimCloseupHUD`：**自绘 Canvas**（不复用 `BTTableFigure` 静态底图）；仅用户几何；训练态不泄正解；锚点场景区右上。
+  4. `BTAimWheel` 增参：`degreesPerPoint` / `degreeHapticEnabled` / `onDragActiveChanged`；未传参页行为与旧 0.15°/pt + 整度震一致。
+- **原因**：全景取景受 `rotatedUnifiedScale` 契约约束不可推近相机；固定角增益在远/近台输出毫米不一致；特写与精调须成对。
+- **影响组件**：`AimProximityMath`、`AimWheelGain`、`BTAimWheel`、`BTAimCloseupHUD`、`AimPointSceneQuizViewModel` / `AimPointSceneTrainingView`；SPEC §9.3。
+- **日期**：2026-07-28
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 / Changelog（2026-07-28，DR-032）
+- **证据**：`make build` SUCCEEDED；`AimProximityMathTests`+`AimWheelGainTests` **9/0**（`build/v23-w1-test.log`）。截图点验待用户模拟器。
+
 ## DR-031
 - **任务**：瞄准点场景测验验证击球「几何瞄对却常不进」
 - **原始规范**：提交后 1.5s 按**用户瞄准线**、`ShotTuning.aimPointVerifyVelocity`（= `defaultVelocity` 1.5 m/s）中杆无塞物理击球；评分 = 假想球几何 mm。

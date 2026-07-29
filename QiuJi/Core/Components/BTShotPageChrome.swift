@@ -52,6 +52,20 @@ struct BTTableGridMenuToggle: View {
     }
 }
 
+/// 近球瞄准特写 HUD 开关（v23 E3）。默认开启；关闭后近区拖轮不再浮出特写，
+/// 毫米级精调增益不受影响（两者可独立取舍）。
+struct BTAimCloseupMenuToggle: View {
+    @ObservedObject private var prefs = UserPreferences.shared
+
+    var body: some View {
+        Toggle("瞄准特写", isOn: Binding(
+            get: { prefs.showAimCloseup },
+            set: { prefs.showAimCloseup = $0 }
+        ))
+        .accessibilityIdentifier("menu.aimCloseup")
+    }
+}
+
 // MARK: - 进袋/自由 单按钮点击切换（条 15.2：全页统一）
 
 /// 瞄准模式切换：单个胶囊按钮，显示当前模式，点击切换到另一模式。
@@ -316,6 +330,8 @@ struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
     var onReset: (() -> Void)? = nil
     var labelOpacity: Double = 0.9
     var accessibilityId: String? = nil
+    /// 页内有近球瞄准特写时并入「显示」Section（v23 E3；目前仅瞄准点场景训练）。
+    var showsAimCloseupToggle: Bool = false
     @ViewBuilder var solveRange: () -> SolveRange
     @ViewBuilder var pageExtras: () -> PageExtras
 
@@ -331,6 +347,9 @@ struct BTSolverMoreMenu<SolveRange: View, PageExtras: View>: View {
             }
             Section("显示") {
                 BTTableGridMenuToggle(scene: scene)
+                if showsAimCloseupToggle {
+                    BTAimCloseupMenuToggle()
+                }
             }
             pageExtras()
             if onClearTable != nil || onReset != nil {
@@ -365,7 +384,8 @@ extension BTSolverMoreMenu where SolveRange == EmptyView, PageExtras == EmptyVie
          onPrinciple: (() -> Void)? = nil,
          onReset: (() -> Void)? = nil,
          labelOpacity: Double = 0.9,
-         accessibilityId: String? = nil) {
+         accessibilityId: String? = nil,
+         showsAimCloseupToggle: Bool = false) {
         self.init(
             scene: scene,
             onPrinciple: onPrinciple,
@@ -374,6 +394,7 @@ extension BTSolverMoreMenu where SolveRange == EmptyView, PageExtras == EmptyVie
             onReset: onReset,
             labelOpacity: labelOpacity,
             accessibilityId: accessibilityId,
+            showsAimCloseupToggle: showsAimCloseupToggle,
             solveRange: { EmptyView() },
             pageExtras: { EmptyView() }
         )
@@ -411,6 +432,7 @@ extension BTSolverMoreMenu where SolveRange == EmptyView {
          onReset: (() -> Void)? = nil,
          labelOpacity: Double = 0.9,
          accessibilityId: String? = nil,
+         showsAimCloseupToggle: Bool = false,
          @ViewBuilder pageExtras: @escaping () -> PageExtras) {
         self.init(
             scene: scene,
@@ -420,6 +442,7 @@ extension BTSolverMoreMenu where SolveRange == EmptyView {
             onReset: onReset,
             labelOpacity: labelOpacity,
             accessibilityId: accessibilityId,
+            showsAimCloseupToggle: showsAimCloseupToggle,
             solveRange: { EmptyView() },
             pageExtras: pageExtras
         )

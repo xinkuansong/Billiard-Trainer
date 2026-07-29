@@ -41,10 +41,10 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
 
     // MARK: - Bundle 加载（真实资源）
 
-    /// c042 多球形：4 个球形按文件名序，标题/杆数/布局与序列文件一致。
-    func test_c042_loadsFourFormationsAlignedWithSequences() throws {
+    /// c042 初级：仅保留 5 杆球形；8/10 → c069、15 → c071。
+    func test_c042_loadsFiveBallFormationAlignedWithSequence() throws {
         let formations = DrillTryoutBoardStore.formations(for: "drill_c042")
-        XCTAssertEqual(formations.count, 4, "c042 应有 4 个球形（与出片序列一致）")
+        XCTAssertEqual(formations.count, 1, "c042 应仅剩 5 杆初级球形")
 
         let first = try XCTUnwrap(formations.first)
         XCTAssertEqual(first.title, "初级蛇彩走位 · 球形1")
@@ -58,8 +58,7 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
         XCTAssertEqual(shot.pocket, "bottomCenter")
         XCTAssertEqual(shot.velocity, 0.9, accuracy: 0.001)
 
-        // 杆数随球形递增（5/8/10/15），排序稳定
-        XCTAssertEqual(formations.map(\.stepCount), [5, 8, 10, 15])
+        XCTAssertEqual(formations.map(\.stepCount), [5])
 
         // Q19.2①：选球形副标题球数不含白球（6 球含母球 ⇒ objectBallCount = 5）
         XCTAssertEqual(first.objectBallCount, 5, "球数应排除母球")
@@ -71,6 +70,19 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
         XCTAssertEqual(first.steps.count, first.stepCount, "steps 应与 stepCount 一致")
         XCTAssertTrue(first.hasSequence, "多杆 drill 应具备序列")
         XCTAssertEqual(first.steps.first?.shot.pocket, shot.pocket, "首杆应与 firstShot 一致")
+    }
+
+    /// 蛇彩档位拆分：中级 8/10 杆、高级 15 杆。
+    func test_snakeDrillFamily_formationsSplitByDifficulty() throws {
+        let mid = DrillTryoutBoardStore.formations(for: "drill_c069")
+        XCTAssertEqual(mid.map(\.stepCount), [8, 10])
+        XCTAssertEqual(mid.map(\.objectBallCount), [8, 10])
+        XCTAssertEqual(mid.map(\.title), ["中级蛇彩 · 球形1", "中级蛇彩 · 球形2"])
+
+        let adv = DrillTryoutBoardStore.formations(for: "drill_c071")
+        XCTAssertEqual(adv.map(\.stepCount), [15])
+        XCTAssertEqual(adv.first?.objectBallCount, 15)
+        XCTAssertEqual(adv.first?.title, "高级蛇彩贴库综合 · 球形1")
     }
 
     /// 旧式单序列文件（drill_c001-…）也能加载。

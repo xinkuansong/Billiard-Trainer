@@ -40,6 +40,8 @@ final class PositionPlayViewModel: ObservableObject {
         didSet { if oldValue != selectedTargetKey { refreshSelectionRing() } }
     }
     @Published var selectedPocketIndex: Int = -1
+    /// v23 W3：近区 ∧ 正在改瞄准时非 nil → 显示瞄准特写（自由模式）。
+    @Published private(set) var closeupSnapshot: AimCloseupSnapshot?
 
     /// 球库展示序（#1/#2）：在库球按固定顺序（母球、1…15）排列；
     /// 球上桌即从中消失、后续球补位（向上/向左流动），回库时按号序插回。
@@ -518,6 +520,7 @@ final class PositionPlayViewModel: ObservableObject {
         let len = sqrtf(dx * dx + dz * dz)
         guard len > 0.02 else { return }
         freeAimDir = SCNVector3(dx / len, 0, dz / len)
+        closeupGate.noteAimChanged()
         recompute()
     }
 
@@ -540,6 +543,35 @@ final class PositionPlayViewModel: ObservableObject {
         return AngleSceneCalculator.bearingDeg(of: d)
     }
 
+    /// v23 W3：特写显隐门（近区 ∧ 正在改瞄准）。
+    private lazy var closeupGate: AimCloseupGate = {
+        let gate = AimCloseupGate()
+        gate.onSnapshotChange = { [weak self] snap in self?.closeupSnapshot = snap }
+        return gate
+    }()
+
+    /// 瞄准轮拖动生命周期（松手后按 sticky 窗口收起特写）。
+    func setAimWheelDragging(_ active: Bool) {
+        closeupGate.setDragging(active)
+    }
+
+    /// v23 W2：瞄准轮毫米口径增益（°/pt）——杠杆臂 = 母球→首碰球（空杆取前方最近球）。
+    /// 桌面无其他球时回落旧固定档。
+    var aimWheelDegreesPerPoint: Float {
+        guard let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden else {
+            return AimWheelGain.defaultDegreesPerPoint
+        }
+        let balls: [(key: String, pos: SCNVector3)] = onTableKeys.compactMap { key in
+            guard !PositionPlayBall.isCue(key),
+                  let node = scene.allBallNodes[key], !node.isHidden else { return nil }
+            return (key, node.position)
+        }
+        guard let lever = AngleSceneCalculator.aimLeverMeters(
+            cue: cue.position, dir: freeAimDir, balls: balls
+        ) else { return AimWheelGain.defaultDegreesPerPoint }
+        return AimWheelGain.degreesPerPoint(distanceMeters: lever)
+    }
+
     /// 自由模式微调瞄准角：`delta > 0` = 屏幕上顺时针（向右）旋转，与右侧角度齿轮「往上拖」一致。
     /// 自由模式瞄准相对调整（G13）：`delta > 0` = 屏幕顺时针（向右）旋转，同刻度齿轮「往上拖」。
     /// 台面空白处拖动（`onAimNudged`）与左缘刻度齿轮（`BTAimWheel`）共用本入口——均为对**当前**
@@ -548,6 +580,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard aimMode == .free, !isPlaying, abs(delta) > 1e-4 else { return }
         let base = freeAimDir ?? defaultFreeAim() ?? SCNVector3(1, 0, 0)
         freeAimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
+        closeupGate.noteAimChanged()
         recompute(interactive: true)
     }
 
@@ -561,6 +594,7 @@ final class PositionPlayViewModel: ObservableObject {
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
               let dir = freeAimDir else {
             freeAimContact = nil
+            closeupGate.reset()
             if aimMode == .free {
                 scene.ghostBallNode?.isHidden = true
                 scene.hideContactDot()
@@ -585,6 +619,34 @@ final class PositionPlayViewModel: ObservableObject {
             scene.ghostBallNode?.isHidden = true
             scene.hideContactDot()
         }
+
+        updateCloseup(cue: cue.position, dir: dir, balls: balls, ballRadius: r)
+    }
+
+    /// v23 W3：与假想球/接触点**同源**的近区特写（自由模式），层集按本页实况：
+    /// 瞄准线 + 假想球圈 + 接触点，无进球线/垂线（场景里也没有）。
+    private func updateCloseup(
+        cue: SCNVector3, dir: SCNVector3,
+        balls: [(key: String, pos: SCNVector3)], ballRadius r: Float
+    ) {
+        let extents = tableOuterHalfExtents
+        let result = AimCloseupBuilder.freeAim(
+            cue: CGPoint(x: CGFloat(cue.x), y: CGFloat(cue.z)),
+            direction: CGPoint(x: CGFloat(dir.x), y: CGFloat(dir.z)),
+            balls: balls.map {
+                AimCloseupBuilder.Ball(
+                    pos: CGPoint(x: CGFloat($0.pos.x), y: CGFloat($0.pos.z)),
+                    number: PositionPlayBall.number(for: $0.key))
+            },
+            ballRadius: CGFloat(r),
+            railEnd: {
+                let end = AngleSceneCalculator.rayToInnerRail(from: cue, dir: dir)
+                return CGPoint(x: CGFloat(end.x), y: CGFloat(end.z))
+            }(),
+            halfLength: CGFloat(extents.length),
+            halfWidth: CGFloat(extents.width),
+            previouslyNear: closeupGate.isNear)
+        closeupGate.update(result)
     }
 
     /// 自动选目标（#6）：距母球最近的在桌目标球。

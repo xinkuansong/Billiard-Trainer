@@ -108,7 +108,12 @@ struct ShotSimulationView: View {
 
                 // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
                 if vm.aimMode == .free {
-                    BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                    BTAimWheel(
+                        onNudge: { vm.nudgeFreeAim(byDegrees: $0) },
+                        degreesPerPoint: vm.aimWheelDegreesPerPoint,
+                        degreeHapticEnabled: false,
+                        onDragActiveChanged: { vm.setAimWheelDragging($0) }
+                    )
                         .btStageFrame(proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
                 }
@@ -138,6 +143,9 @@ struct ShotSimulationView: View {
                 )
                 .btStageFrame(proxy.actionColumnFrame())
             }
+
+            // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
+            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
@@ -306,7 +314,8 @@ struct ShotSimulationView: View {
     private var moreMenu: some View {
         BTSolverMoreMenu(
             scene: vm.scene,
-            onReset: { vm.loadBoard(Self.defaultBoard) }
+            onReset: { vm.loadBoard(Self.defaultBoard) },
+            showsAimCloseupToggle: true
         )
     }
 

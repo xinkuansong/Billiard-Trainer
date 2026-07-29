@@ -132,6 +132,11 @@ final class UserPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(showTableGrid, forKey: "showTableGrid") }
     }
 
+    // 近球瞄准特写 HUD（v23 E3）。默认开启。
+    @Published var showAimCloseup: Bool {
+        didSet { UserDefaults.standard.set(showAimCloseup, forKey: PracticeStorageKey.showAimCloseup) }
+    }
+
     private init() {
         let sportRaw = UserDefaults.standard.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
         self.preferredSport = PreferredSport(rawValue: sportRaw) ?? .chinese8
@@ -174,6 +179,10 @@ final class UserPreferences: ObservableObject {
 
         // 默认关闭（条 16）。
         self.showTableGrid = (UserDefaults.standard.object(forKey: "showTableGrid") as? Bool) ?? false
+
+        // 默认开启（v23 E3）。
+        self.showAimCloseup =
+            (UserDefaults.standard.object(forKey: PracticeStorageKey.showAimCloseup) as? Bool) ?? true
     }
 
     // MARK: - Summaries

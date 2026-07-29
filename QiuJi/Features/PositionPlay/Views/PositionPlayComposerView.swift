@@ -249,7 +249,12 @@ struct PositionPlayComposerView: View {
                 } else {
                     // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
                     if vm.aimMode == .free {
-                        BTAimWheel(onNudge: { vm.nudgeFreeAim(byDegrees: $0) })
+                        BTAimWheel(
+                            onNudge: { vm.nudgeFreeAim(byDegrees: $0) },
+                            degreesPerPoint: vm.aimWheelDegreesPerPoint,
+                            degreeHapticEnabled: false,
+                            onDragActiveChanged: { vm.setAimWheelDragging($0) }
+                        )
                             .btStageFrame(proxy.aimWheelFrame())
                             .allowsHitTesting(!vm.isPlaying)
                     }
@@ -292,6 +297,9 @@ struct PositionPlayComposerView: View {
                     .btStageFrame(proxy.actionColumnFrame())
                 }
             }
+
+            // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
+            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
 
             // 进场说明卡（§1.8）：贴球桌上方淡入，非 modal 不阻断操作。
             if isTryout, showBrief, let sourceDrill {
@@ -661,6 +669,7 @@ struct PositionPlayComposerView: View {
         BTSolverMoreMenu(
             scene: vm.scene,
             accessibilityId: "composer.more",
+            showsAimCloseupToggle: true,
             pageExtras: {
                 if isTryout {
                     // Q19.2③：说明卡召回入口。

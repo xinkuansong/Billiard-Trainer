@@ -1065,6 +1065,31 @@ enum AngleSceneCalculator {
                               cutAngleDeg: Double(acosf(cosA)) * 180 / .pi)
     }
 
+    /// 瞄准轮增益的杠杆臂（米）：母球 → 首碰球心；无首碰（空杆）时取射线**前方**最近球，
+    /// 前方无球则回落到最近球；桌上无其他球返回 nil（调用方用默认档）。
+    ///
+    /// 坐标契约：场景 XZ 平面，`dir` 单位向量。杠杆臂直接喂 `AimWheelGain.degreesPerPoint`
+    /// 使同样一指位移在目标球处产生等毫米横移（v23 D-v23-4=B / W2）。
+    static func aimLeverMeters(
+        cue: SCNVector3, dir: SCNVector3?, balls: [(key: String, pos: SCNVector3)]
+    ) -> Float? {
+        guard !balls.isEmpty else { return nil }
+        func planarDistance(_ p: SCNVector3) -> Float {
+            hypotf(p.x - cue.x, p.z - cue.z)
+        }
+        if let dir, let contact = freeAimFirstContact(cue: cue, dir: dir, balls: balls),
+           let hit = balls.first(where: { $0.key == contact.targetKey }) {
+            return planarDistance(hit.pos)
+        }
+        if let dir {
+            let ahead = balls.filter { b in
+                (b.pos.x - cue.x) * dir.x + (b.pos.z - cue.z) * dir.z > 0
+            }
+            if let nearest = ahead.map({ planarDistance($0.pos) }).min() { return nearest }
+        }
+        return balls.map { planarDistance($0.pos) }.min()
+    }
+
     /// 瞄准方向 → 屏幕罗盘角（topDown2DRotated 取景：screen-up = world +X、
     /// screen-right = world +Z；0° = 屏幕正上方，顺时针为正）。
     /// 坐标契约：`dir` 为场景 XZ 单位向量，bearing = atan2(z, x)。

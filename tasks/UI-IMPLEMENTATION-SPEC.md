@@ -936,7 +936,7 @@ struct BTShareCard: View {
 | 角度预测 | 练 | 抽象估角第 1 步 | 题面真台化；参考线含 90°；键盘不遮挡输入；交互对齐 2D 角度训练；答错「回看原理」+ 常驻「去真台练」 |
 | 2D / 3D 角度训练（原瞄准训练） | 练 | 俯视练几何 / 站位练球感 | 两卡两 route 视角固定；进页先弹设置 sheet（暗材质）再开始；随机球号；plain 渲染管线；L1；辅助关闭=无任何线（答题公平） |
 | 瞄准点训练（新） | 练 | 给角度问瞄准点 | **G1（v3 S3）**：瞄准点=瞄准线与过目标球心垂线交点（水平线+红小点 `BTAimPointDot`），假想球仅虚线圈无球心红点；向左/右切口径=目标球移动方向（母球打对侧）；拖动假想球调 φ；提交后正确瞄准线（红）+正确瞄准点；误差 mm（大正小负）；顶栏统计单行 compact |
-| 2D / 3D 瞄准点训练（新） | 练 | 给球形求打点 | **G1（v3 S3）**：辅助线=过目标球心且垂直用户瞄准线（随瞄准旋转）；瞄准点=两线交点（垂足）；误差=用户/正确瞄准点相对目标球心有符号偏移之差 mm；提交后正确线红+正确瞄准点红小圆片；停留 1.5s 后物理击球验证（DR-031：杆速 3.3 m/s；\|误差\|≤2mm 用几何正解线，否则用户线；评分仍为 mm）；3D 为相机版 |
+| 2D / 3D 瞄准点训练（新） | 练 | 给球形求打点 | **G1（v3 S3）**：辅助线=过目标球心且垂直用户瞄准线（随瞄准旋转）；瞄准点=两线交点（垂足）；误差=用户/正确瞄准点相对目标球心有符号偏移之差 mm；提交后正确线红+正确瞄准点红小圆片；停留 1.5s 后物理击球验证（DR-031：杆速 3.3 m/s；\|误差\|≤2mm 用几何正解线，否则用户线；评分仍为 mm）；**DR-032/033/036 / v23**：近区∧改瞄 → 特写 HUD=**同源用户几何紧取景放大**（亮台呢底；`mapRotated` 与 `topDown2DRotated` 同轴；层按实况：线/进球线/垂线/真球/触球标记…；AimPoint 无假想球圈则不画；擦身「打空」；不泄正解；相对焦点避让（**空象限对角** D-v23-5.1）且 **不遮瞄准线/进球线/袋口**（`SightKeepout`），隐藏时重选角）；轮增益 0.4 mm/pt（∝1/d）关整度触感；3D 为相机版 |
 | 自由击球（新页） | 打 | 球库+开球+对局 | `FreePlayView`；开球状态机（开球→开球中→重开/完成）；中八/追分完整规则引擎（`BilliardRulesEngine`：轮转/判罚/胜负/计分） |
 | 自由走位（原走位编排台） | 打 | 旗舰：逐杆编排推演 | 手指跟随瞄准；仪表柱；**无开球无录制**；进袋/自由单钮切换（`BTAimModeToggleButton`，切自由保留进袋瞄准点）；失误只在 Z2 红 pill；L0 |
 | 分离角与走位 | 打 | 演示碰后走向 | `PositionPlayViewModel` 底座；进袋/自由切换；球库限 2 目标球；分离角弧+90° 短虚线 L1 常驻 |
@@ -980,6 +980,15 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-29 | **瞄准特写空象限对角（DR-038 / v23.13 / D-v23-5.1）**：主方向 = 开边 L/R × 开边 T/B 对角；`SightKeepout` 含瞄准线；0.92d 靠球；free-run 排序 | DR | AimCloseupPlacement, AimPointSceneTrainingView | 问题集合 v23 点验 |
+| 2026-07-29 | **瞄准特写四边空旷方位（DR-037 / v23.12）**：单轴最大边距（过渡，被 DR-038 取代） | DR | AimCloseupPlacement | 问题集合 v23 点验简化 |
+| 2026-07-29 | **瞄准特写进球视线避让（DR-036 / v23.11 / D-v23-5⁗）**：`SightKeepout`（进球线段 + 袋口盘）入 `AimCloseupPlacement.center`；候选优先 −potDir / ±perp；硬过滤圆∩keepout，全挂放大 gap→最小重叠；AimPoint 用 `potLine` 同源填 keepout；无 keepout 与 5‴ 等价 | DR | AimCloseupPlacement, AimCloseupSnapshot, BTAimCloseupOverlay, AimPointSceneTrainingView | 问题集合 v23 点验约束 |
+| 2026-07-28 | **瞄准特写扩页（DR-035 / v23.10）**：新增 `AimCloseupBuilder`（自由瞄准快照真源：首碰锁焦点、层集 = 瞄准线+假想球+接触点）、`AimCloseupGate`（近区 ∧ 正在改瞄准，280ms sticky）、`BTAimCloseupOverlay`（开关+定位+滞回收口）；接入自由击球 / 编排台 / 分离角 / 翻袋·反射自由模式，四页三点菜单加「瞄准特写」开关；AimPoint 页改用同一 overlay | 新增/DR | AimCloseupBuilder, AimCloseupGate, BTAimCloseupOverlay, PositionPlay/Bank/Diamond VM, SolverStageChrome, FreePlayView, ShotSimulationView, PositionPlayComposerView, AimPointSceneTrainingView | 问题集合 v23 W3 |
+| 2026-07-28 | **特写开关 + 轮增益铺开（DR-034 / v23.9）**：三点菜单 §显示 增「瞄准特写」（`UserPreferences.showAimCloseup`，默认开，与毫米增益解耦）；`AngleSceneCalculator.aimLeverMeters` 杠杆臂真源 → 5 轮页接毫米增益并关整度震（BatchAuthoring 排除）；`BTAimWheel` 手势开始锁档 | 新增/DR | UserPreferences, BTSolverMoreMenu, BTAimCloseupMenuToggle, BTAimWheel, AngleSceneCalculator, PositionPlay/Bank/Diamond VM, BreakFlowRunner | 问题集合 v23 W1b/W2 |
+| 2026-07-28 | **瞄准特写位置/颜色返修（DR-033 / v23.8）**：`AimCloseupPlacement.center` 相对焦点偏移（0.92×直径，避轮/提交）；扁平实测台呢 RGB(25,111,18)（去径向变暗）；felt 像素比对一致 | 修复/DR | AimCloseupPlacement, BTAimCloseupHUD, AimPointSceneTrainingView | 问题集合 v23 W1b 用户复报 |
+| 2026-07-28 | **瞄准特写点验热修（DR-033 / v23.6）**：`AimCloseupCoords.mapRotated` 对齐 `topDown2DRotated`（screen-up=+X）；HUD 隐藏时取消角位滞回；loupe 亮台呢底 | 修复/DR | AimCloseupCoords, BTAimCloseupHUD, AimCloseupPlacement, AimPointSceneTrainingView | 问题集合 v23 W1b 点验 |
+| 2026-07-28 | **瞄准特写契约重做（DR-033 / v23 W1b）**：同源几何紧取景放大（非示意卡/非截图）；`AimCloseupSnapshot` 可选层；台呢底 + `BTFigureBall`/`FigureLine`；`AimCloseupPlacement` 对焦点避让+滞回；AimPoint 同步用户线/进球线/垂线/标记 | DR | BTAimCloseupHUD, AimCloseupPlacement, AimPointSceneTrainingView, SPEC §9.3 | 问题集合 v23 W1b |
+| 2026-07-28 | **近球瞄准特写 + 轮毫米增益（DR-032 / v23 W1）**：`AimProximityMath` + `AimWheelGain`（0.4 mm/pt∝1/d）+ 初版 HUD；`BTAimWheel` 可配增益/触感/拖动手势。其余轮页仍 0.15°/pt（W2）；HUD 形态见 DR-033 | 新增/DR | AimProximityMath, AimWheelGain, BTAimWheel, AimPointSceneTrainingView | 问题集合 v23 W1 |
 | 2026-07-28 | **瞄准点验证击球可信反馈（DR-031）**：`ShotTuning.aimPointVerifyVelocity` 1.5→3.3 m/s（对齐动作库中等力度）；\|误差\|≤2mm（`BTFeedback` success 档）验证出杆改几何正解线，否则仍用户线；结果 HUD 文案区分「几何瞄准验证 / 按你的瞄准验证」；评分仍 mm | DR | ShotTuning, AimPointSceneTrainingView, SPEC §9.3 | 用户反馈瞄对不进 |
 | 2026-07-28 | **学区 CTA→动作库 drill 深链（DR-030 / v21 W5）**：`AngleRoute.drillDetail(String)` + `MainTabView.angleDestination` 内嵌 `DrillDetailView`；瞄准修正 / 旋转与加塞各加「练挤偏认知」→`drill_c073`（PracticeCTA≤2，旋转页分离角图谱降为 `LearnDocTextLink`）；计划 `plan_cueball` W6 / `plan_intermediate` W1 接入加塞 drill | 新增/DR | AngleRoute, MainTabView, AimingCorrectionView, SpinAndEnglishView, Plans, SPEC §9.3.1 | 问题集合 v21 W5 / DR-030 |
 | 2026-07-28 | **加塞吃库图谱碰前 8 线实况（v20.5 / D-v20-5 修订）**：废止「淡灰单条中杆预览」；碰前/库后均按该档 `simulateFree` 同序上色（碰前 hint+α0.55、库后 main） | 修正 | CushionEnglishAtlasViewModel, SPEC §9.3, 问题集合_v20 | 用户点验反馈 |

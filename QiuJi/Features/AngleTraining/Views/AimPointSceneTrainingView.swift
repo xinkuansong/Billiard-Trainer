@@ -29,6 +29,14 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     @Published private(set) var lastErrorMM: Double?
     /// 本轮验证是否走几何正解瞄准（与 `BTFeedback` mm success 档同口径，≤2mm）。
     @Published private(set) var verifyUsesGeometricAim = false
+    /// v23：毫米口径轮增益（°/pt）；默认旧值，redraw 后刷新。
+    @Published private(set) var aimWheelDegreesPerPoint: Float = AimWheelGain.defaultDegreesPerPoint
+    /// v23：近区 ∧ 正在改瞄准时非 nil → 显示特写 HUD。
+    @Published private(set) var closeupSnapshot: AimCloseupSnapshot?
+    /// v23.4：特写粗角位（chrome 让位 / 动画键）。
+    @Published private(set) var closeupCorner: AimCloseupPlacement.Corner = .topTrailing
+    /// 瞄准轮 / 台面拖瞄手势进行中（含松手短延迟）。
+    @Published private(set) var isAimGestureActive = false
 
     let scene = AngleTrainingScene()
     let limiter: AngleUsageLimiter
@@ -43,6 +51,10 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     /// 提交后锁定的验证出杆方向（容差内 = 几何正解，否则 = 用户线）。
     private var pendingStrikeDir = SCNVector3(1, 0, 0)
     private var strikeTask: Task<Void, Never>?
+    private var proximityWasNear = false
+    private var aimGestureClearTask: Task<Void, Never>?
+    /// Last near-band snapshot; HUD shows it only while `isAimGestureActive`.
+    private var pendingCloseupSnapshot: AimCloseupSnapshot?
 
     init(limiter: AngleUsageLimiter) {
         self.limiter = limiter
@@ -98,6 +110,11 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         pendingStrikeDir = aimDir
         lastErrorMM = nil
         verifyUsesGeometricAim = false
+        proximityWasNear = false
+        pendingCloseupSnapshot = nil
+        closeupSnapshot = nil
+        isAimGestureActive = false
+        aimGestureClearTask?.cancel()
         phase = .aiming
         redrawLines()
         applyAimingPoseIfNeeded()
@@ -111,6 +128,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         let dir = normalizedXZ(from: cue.position, to: worldPoint)
         guard dir.x != 0 || dir.z != 0 else { return }
         aimDir = dir
+        markAimGestureActive(sticky: true)
         redrawLines()
     }
 
@@ -122,6 +140,39 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         aimDir = SCNVector3(aimDir.x * cosD - aimDir.z * sinD, 0,
                             aimDir.x * sinD + aimDir.z * cosD)
         redrawLines()
+    }
+
+    /// 瞄准轮拖动手势生命周期（近区 HUD 门控）。
+    func setAimWheelDragging(_ active: Bool) {
+        if active {
+            markAimGestureActive(sticky: false)
+        } else {
+            scheduleAimGestureClear()
+        }
+    }
+
+    /// 2D 台面拖瞄：无轮 `onDragActiveChanged`，用短延迟粘性门控 HUD。
+    func noteTableAimDrag() {
+        markAimGestureActive(sticky: true)
+    }
+
+    private func markAimGestureActive(sticky: Bool) {
+        aimGestureClearTask?.cancel()
+        isAimGestureActive = true
+        refreshCloseupVisibility()
+        if sticky { scheduleAimGestureClear() }
+    }
+
+    private func scheduleAimGestureClear() {
+        aimGestureClearTask?.cancel()
+        aimGestureClearTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 280_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                self?.isAimGestureActive = false
+                self?.refreshCloseupVisibility()
+            }
+        }
     }
 
     // MARK: - Submit（条 9.6/9.7，G1 口径）
@@ -323,6 +374,100 @@ final class AimPointSceneQuizViewModel: ObservableObject {
                 aimDirection: aimDir
             )
         }
+
+        if phase == .aiming {
+            updateAimAssistState(cue: cue.position, target: target.position)
+        } else {
+            proximityWasNear = false
+            closeupSnapshot = nil
+            aimWheelDegreesPerPoint = AimWheelGain.defaultDegreesPerPoint
+        }
+    }
+
+    /// v23 / v23.4：毫米增益 + 近区特写（与 `redrawLines` **同源用户层**，紧取景放大）。
+    private func updateAimAssistState(cue: SCNVector3, target: SCNVector3) {
+        let cueP = xzPoint(cue)
+        let targetP = xzPoint(target)
+        let dirP = xzPoint(aimDir)
+        let r = CGFloat(AngleSceneCalculator.ballRadius)
+        let sample = AimProximityMath.advance(
+            cue: cueP, direction: dirP, target: targetP,
+            ballRadius: r, previouslyNear: proximityWasNear)
+        proximityWasNear = sample.isNear
+
+        let d = hypotf(target.x - cue.x, target.z - cue.z)
+        aimWheelDegreesPerPoint = AimWheelGain.degreesPerPoint(distanceMeters: d)
+
+        guard sample.isNear, let q = question else {
+            pendingCloseupSnapshot = nil
+            closeupSnapshot = nil
+            return
+        }
+
+        let userRes = aimLineResolution(cue: cue, target: target, dir: aimDir)
+        // AimPoint 场景瞄准态不画假想球圈（仅线 + 垂线 + 触球标记）⇒ HUD 同步不发明 ghost。
+        let potEnd = AngleSceneCalculator.effectivePocketAimPoint(
+            targetBall: target, pocketIndex: q.pocketIndex, surfaceY: scene.surfaceY)
+        let potEndP = xzPoint(potEnd)
+        let n = CGPoint(x: -dirP.y, y: dirP.x) // ⊥ aim in XZ plane (x→X, y→Z)
+        let nLen = hypot(n.x, n.y)
+        let auxHalf = r * 3.2
+        let aux: AimCloseupSegment? = nLen > 1e-9
+            ? AimCloseupSegment(
+                start: CGPoint(x: targetP.x - n.x / nLen * auxHalf,
+                               y: targetP.y - n.y / nLen * auxHalf),
+                end: CGPoint(x: targetP.x + n.x / nLen * auxHalf,
+                             y: targetP.y + n.y / nLen * auxHalf))
+            : nil
+
+        let halfL = CGFloat(scene.cameraRig?.tableOuterHalfLength
+                            ?? ShotTableLayout.defaultHalfLength)
+        let halfW = CGFloat(scene.cameraRig?.tableOuterHalfWidth
+                            ?? ShotTableLayout.defaultHalfWidth)
+        let focusNorm = AimCloseupPlacement.focusNormInRotatedTopDown(
+            worldXZ: targetP, halfLength: halfL, halfWidth: halfW)
+        // Fresh pick when HUD was hidden — default corner + hysteresis otherwise
+        // pins the loupe on the object ball (FL-028). Leading column blocked by
+        // the aim wheel / thumb. Center is offset from the focus (D-v23-5‴),
+        // not pinned to a screen corner.
+        closeupCorner = AimCloseupPlacement.corner(
+            focusNorm: focusNorm,
+            previous: closeupSnapshot != nil ? closeupCorner : nil,
+            blockedSide: .leading)
+
+        let cueInFrame = hypot(cueP.x - targetP.x, cueP.y - targetP.y) < r * 3.2 * 1.35
+        let snap = AimCloseupSnapshot(
+            band: sample.band,
+            focus: targetP,
+            ballRadius: r,
+            halfWorld: r * 3.2,
+            showsTargetBall: true,
+            targetBallNumber: targetBallNumber,
+            cue: cueInFrame ? cueP : nil,
+            aimLine: AimCloseupSegment(start: cueP, end: userRes.lineEnd),
+            potLine: AimCloseupSegment(start: targetP, end: potEndP),
+            auxLine: aux,
+            ghost: nil,
+            aimPointMarker: userRes.touchesBall ? userRes.aimPoint : nil,
+            contactMarker: userRes.touchesBall ? userRes.contactPoint : nil,
+            showMissCaption: sample.band == .skim,
+            focusNorm: focusNorm,
+            // D-v23-5.1：进球线/袋口 + 瞄准线避让；方位走空象限。
+            sightKeepout: .fromWorld(
+                object: targetP, pocket: potEndP,
+                halfLength: halfL, halfWidth: halfW,
+                cue: cueP, aimEnd: userRes.lineEnd)
+        )
+        pendingCloseupSnapshot = snap
+        closeupSnapshot = isAimGestureActive ? snap : nil
+    }
+
+    private func refreshCloseupVisibility() {
+        guard phase == .aiming, isAimGestureActive, let snap = pendingCloseupSnapshot else {
+            closeupSnapshot = nil
+            return
+        }
+        closeupSnapshot = snap
     }
 
     private func clearLines() {
@@ -412,6 +557,8 @@ struct AimPointSceneTrainingView: View {
     /// G10：顶栏 / 底栏定高锁桌（C11 → `ShotStageMetrics`）；2D 底栏 = 装饰球库。
     private static let topRowHeight = ShotStageMetrics.topRowHeight
     private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
+    /// 「提交」按钮高（贴球桌右下角），特写落底角时需为它让位。
+    private static let submitButtonHeight: CGFloat = 30
 
     /// 球桌外框实测半尺寸（装桌前 USDZ 兜底），供 `ShotStageProxy` 对齐球桌矩形。
     private var tableExtents: (length: Double, width: Double) {
@@ -438,6 +585,9 @@ struct AimPointSceneTrainingView: View {
                     ZStack {
                         sceneFullscreen
                         controlOverlay(proxy)
+                        BTAimCloseupOverlay(
+                            snapshot: vm.closeupSnapshot,
+                            sceneSize: CGSize(width: geo.size.width, height: sceneH))
                     }
                     .frame(height: sceneH)
                     if !is3D {
@@ -477,7 +627,7 @@ struct AimPointSceneTrainingView: View {
             }
             // C31 / G25：有台面场景 → 三点入口至少网格开关。
             ToolbarItem(placement: .topBarTrailing) {
-                BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+                BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7, showsAimCloseupToggle: true)
             }
         }
         .onAppear {
@@ -525,7 +675,10 @@ struct AimPointSceneTrainingView: View {
     /// 2D：拖动 = G13 相对瞄准调整；3D：nil（滑屏让位给相机控制）。
     private var dragAimHandler: ((Float) -> Void)? {
         guard !is3D else { return nil }
-        return { [vm] delta in vm.nudgeAim(byDegrees: delta) }
+        return { [vm] delta in
+            vm.nudgeAim(byDegrees: delta)
+            vm.noteTableAimDrag()
+        }
     }
 
     /// 瞄准态：3D 用相机控制（滑屏调机位）、2D 用 tapsOnly（拖动=相对瞄准，拖球不适用）；
@@ -650,14 +803,15 @@ struct AimPointSceneTrainingView: View {
             if !is3D, proxy.isValid {
                 ZStack(alignment: .topLeading) {
                     Color.clear
-                    BTAimWheel { delta in vm.nudgeAim(byDegrees: delta) }
+                    aimWheel
                         .btStageFrame(proxy.aimWheelFrame())
                     BTTextActionButton(title: "提交", role: .primary,
                                        width: ShotStageMetrics.actionColumnWidth) {
                         vm.submit()
                     }
                     .btStageFrame(proxy.bottomTrailingFrame(
-                        size: CGSize(width: ShotStageMetrics.actionColumnWidth, height: 30)))
+                        size: CGSize(width: ShotStageMetrics.actionColumnWidth,
+                                     height: Self.submitButtonHeight)))
                 }
                 .transition(.opacity)
                 .animation(BTMotion.easeInOutChrome, value: vm.phase)
@@ -665,7 +819,7 @@ struct AimPointSceneTrainingView: View {
                 ZStack(alignment: .bottomTrailing) {
                     Color.clear
                     VStack(spacing: Spacing.md) {
-                        BTAimWheel { delta in vm.nudgeAim(byDegrees: delta) }
+                        aimWheel
                             .frame(width: ShotStageMetrics.aimWheelWidth,
                                    height: ShotStageMetrics.aimWheelFloatingHeight)
                         BTTextActionButton(title: "提交", role: .primary) {
@@ -679,6 +833,16 @@ struct AimPointSceneTrainingView: View {
                 .animation(BTMotion.easeInOutChrome, value: vm.phase)
             }
         }
+    }
+
+    /// v23：连续毫米增益 + 关闭整度触感（D-v23-4=B / D-v23-6）。
+    private var aimWheel: some View {
+        BTAimWheel(
+            onNudge: { delta in vm.nudgeAim(byDegrees: delta) },
+            degreesPerPoint: vm.aimWheelDegreesPerPoint,
+            degreeHapticEnabled: false,
+            onDragActiveChanged: { active in vm.setAimWheelDragging(active) }
+        )
     }
 
     private var limitCard: some View {

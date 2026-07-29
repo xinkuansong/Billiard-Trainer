@@ -166,6 +166,16 @@ final class BreakFlowRunner: ObservableObject {
         drawAimLine()
     }
 
+    /// v23 W2：瞄准轮毫米口径增益（°/pt）——杠杆臂 = 母球→首碰球（通常为球堆顶球）。
+    var aimWheelDegreesPerPoint: Float {
+        let cuePos = scene.allBallNodes[PositionPlayBall.cueKey]?.position ?? rack.cue
+        let balls = rack.balls.enumerated().map { (key: "rack\($0.offset)", pos: $0.element.position) }
+        guard let lever = AngleSceneCalculator.aimLeverMeters(
+            cue: cuePos, dir: resolvedAim(cuePos: cuePos), balls: balls
+        ) else { return AimWheelGain.defaultDegreesPerPoint }
+        return AimWheelGain.degreesPerPoint(distanceMeters: lever)
+    }
+
     /// 母球钳在开球区（厨房半区）并避开袋口。
     private func clampToBreakBox(_ pos: SCNVector3) -> SCNVector3 {
         let r = AngleSceneCalculator.ballRadius
@@ -474,7 +484,11 @@ struct BreakInstrumentsOverlay: View {
                 // 仅摆架待开球（`.racked`）时可调；计算/回放/停稳期禁用（避免中途改参）。
                 let editable = runner.phase == .racked
                 let wf = proxy.aimWheelFrame()
-                BTAimWheel(onNudge: { runner.nudgeAim(byDegrees: $0) })
+                BTAimWheel(
+                    onNudge: { runner.nudgeAim(byDegrees: $0) },
+                    degreesPerPoint: runner.aimWheelDegreesPerPoint,
+                    degreeHapticEnabled: false
+                )
                     .frame(width: wf.width, height: wf.height)
                     .position(x: wf.midX, y: wf.midY)
                     .allowsHitTesting(editable)

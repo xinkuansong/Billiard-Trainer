@@ -37,6 +37,8 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 自由模式首碰预览（纯几何，`AngleSceneCalculator.freeAimFirstContact`）；
     /// nil = 空杆（当前方向碰不到球）。
     @Published private(set) var freeAimContact: AngleSceneCalculator.FreeAimContact?
+    /// v23 W3：近区 ∧ 正在改瞄准时非 nil → 显示瞄准特写（自由模式）。
+    @Published private(set) var closeupSnapshot: AimCloseupSnapshot?
     /// 自由模式「上一杆 / 回放」可用性。
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlaybackShot = false
@@ -548,6 +550,7 @@ final class DiamondSystemViewModel: ObservableObject {
         guard mode == .free, !isPlaying, abs(delta) > 1e-4 else { return }
         let base = freeAimDir ?? defaultFreeAim()
         freeAimDir = AngleSceneCalculator.rotatedAim(base, byDegrees: delta)
+        closeupGate.noteAimChanged()
         refreshFreeAim()
     }
 
@@ -563,6 +566,49 @@ final class DiamondSystemViewModel: ObservableObject {
         return balls
     }
 
+    /// v23 W3：特写显隐门（近区 ∧ 正在改瞄准）。
+    private lazy var closeupGate: AimCloseupGate = {
+        let gate = AimCloseupGate()
+        gate.onSnapshotChange = { [weak self] snap in self?.closeupSnapshot = snap }
+        return gate
+    }()
+
+    /// 瞄准轮拖动生命周期（松手后按 sticky 窗口收起特写）。
+    func setAimWheelDragging(_ active: Bool) {
+        closeupGate.setDragging(active)
+    }
+
+    /// v23 W3：与场景假想球/接触点同源的近区特写（层集 = 瞄准线 + 假想球 + 接触点）。
+    private func updateCloseup(cue: SCNVector3, dir: SCNVector3,
+                               balls: [(key: String, pos: SCNVector3)]) {
+        let railEnd = rayToRail(from: cue, dir: dir)
+        closeupGate.update(AimCloseupBuilder.freeAim(
+            cue: CGPoint(x: CGFloat(cue.x), y: CGFloat(cue.z)),
+            direction: CGPoint(x: CGFloat(dir.x), y: CGFloat(dir.z)),
+            balls: balls.map {
+                AimCloseupBuilder.Ball(
+                    pos: CGPoint(x: CGFloat($0.pos.x), y: CGFloat($0.pos.z)),
+                    number: PositionPlayBall.number(for: $0.key))
+            },
+            ballRadius: CGFloat(AngleSceneCalculator.ballRadius),
+            railEnd: CGPoint(x: CGFloat(railEnd.x), y: CGFloat(railEnd.z)),
+            halfLength: CGFloat(scene.cameraRig?.tableOuterHalfLength
+                                ?? ShotTableLayout.defaultHalfLength),
+            halfWidth: CGFloat(scene.cameraRig?.tableOuterHalfWidth
+                               ?? ShotTableLayout.defaultHalfWidth),
+            previouslyNear: closeupGate.isNear))
+    }
+
+    /// v23 W2：瞄准轮毫米口径增益（°/pt）——杠杆臂 = 母球→首碰球（空杆取前方最近球）。
+    /// 桌面无其他球时回落旧固定档。
+    var aimWheelDegreesPerPoint: Float {
+        guard let cue = scene.cueBallNode, !cue.isHidden,
+              let lever = AngleSceneCalculator.aimLeverMeters(
+                  cue: cue.position, dir: freeAimDir, balls: freeContactBalls()
+              ) else { return AimWheelGain.defaultDegreesPerPoint }
+        return AimWheelGain.degreesPerPoint(distanceMeters: lever)
+    }
+
     /// 刷新自由瞄准覆盖：瞄准线（至假想球 / 空杆至库边）+ 标准假想球（ghostBallNode）+ 接触点 + 球杆摆位；
     /// 首碰胶囊数据走 `freeAimFirstContact`（纯几何，方案 §1.3）。
     func refreshFreeAim() {
@@ -571,15 +617,18 @@ final class DiamondSystemViewModel: ObservableObject {
               let cue = scene.cueBallNode, !cue.isHidden,
               let dir = freeAimDir else {
             freeAimContact = nil
+            closeupGate.reset()
             scene.ghostBallNode?.isHidden = true
             scene.contactDotNode?.isHidden = true
             if mode == .free { scene.hideCueStick() }
             return
         }
+        let freeBalls = freeContactBalls()
         let contact = AngleSceneCalculator.freeAimFirstContact(
-            cue: cue.position, dir: dir, balls: freeContactBalls()
+            cue: cue.position, dir: dir, balls: freeBalls
         )
         freeAimContact = contact
+        updateCloseup(cue: cue.position, dir: dir, balls: freeBalls)
 
         let end: SCNVector3
         if let contact {

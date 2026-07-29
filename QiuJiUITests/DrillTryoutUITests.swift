@@ -59,12 +59,10 @@ final class DrillTryoutUITests: XCTestCase {
         tryoutButton.tap()
         sleep(2)
 
-        // ①b 多球形 drill 弹球形选择 sheet（c042 有 4 个出片序列球形）
-        let formation0 = app.buttons["tryoutFormation_0"]
-        XCTAssertTrue(formation0.waitForExistence(timeout: 4), "多球形 drill 应弹球形选择")
-        XCTAssertTrue(app.buttons["tryoutFormation_3"].exists, "c042 应列出 4 个球形")
-        snap("t00-formation-picker")
-        formation0.tap()
+        // ①b 单球形（仅 5 杆）跳过选择 sheet，直接进试打
+        XCTAssertFalse(
+            app.buttons["tryoutFormation_0"].waitForExistence(timeout: 2),
+            "c042 仅 1 个球形时不应弹选择 sheet")
         sleep(5)
 
         // ② 试打页布局：标题 = drill 名、重摆在位、无开球钮

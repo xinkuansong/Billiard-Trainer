@@ -6,21 +6,34 @@ import SwiftUI
 ///
 /// **纯相对微调**——无绝对角度概念（去 bearing 刻度锚定）：手指滑屏是粗调、
 /// 这里是细调，刻度只是「转了多少」的手感反馈，不代表任何绝对方位。
-/// 内容跟手——往上拖刻度上滚（= 屏幕顺时针/向右），灵敏度 0.15°/pt（比旧 0.3 减半，
-/// 细调更稳），越过整度给一次轻震。
+/// 内容跟手——往上拖刻度上滚（= 屏幕顺时针/向右）。
+///
+/// 默认灵敏度 `AimWheelGain.defaultDegreesPerPoint`（0.15°/pt）。v23 瞄准点页可传入
+/// 连续毫米口径增益（D-v23-4=B）并关闭整度触感（D-v23-6）。
 ///
 /// T-P18-43（设计稿 §1.5/§1.7 刻度语法）：**只画刻度不画数值**——打点精确到毫米级，
 /// 用户看的是台面上的瞄准效果不是数字；三级刻度 1°/5°/10° = 白 15/25/40%，当前位置金线。
 struct BTAimWheel: View {
     let onNudge: (Float) -> Void
+    /// Degrees of aim rotation per point of vertical drag.
+    var degreesPerPoint: Float = AimWheelGain.defaultDegreesPerPoint
+    /// Whole-degree light haptic. Disable for mm-calibrated gain (avoids implying 1° steps).
+    var degreeHapticEnabled: Bool = true
+    /// Drag lifecycle for closeup HUD gating (近区 ∧ 正在改瞄准).
+    var onDragActiveChanged: ((Bool) -> Void)? = nil
 
-    private let degreesPerPoint: Float = 0.15
-    private var pointsPerDegree: CGFloat { CGFloat(1 / degreesPerPoint) }
+    private var pointsPerDegree: CGFloat {
+        let dpp = max(degreesPerPoint, 1e-4)
+        return CGFloat(1 / dpp)
+    }
 
     /// 相对累计转量（度），只用于刻度滚动的视觉反馈。
     @State private var accumulated: Double = 0
     @State private var lastHeight: CGFloat = 0
     @State private var lastTick: Int = 0
+    @State private var dragStarted = false
+    /// 手势开始时锁定的增益（v23 E2 红线：单次拖动内不换档，避免速度突变）。
+    @State private var lockedGain: Float?
     private let haptic = UIImpactFeedbackGenerator(style: .light)
 
     var body: some View {
@@ -65,18 +78,30 @@ struct BTAimWheel: View {
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { v in
+                        if !dragStarted {
+                            dragStarted = true
+                            lockedGain = degreesPerPoint
+                            onDragActiveChanged?(true)
+                        }
                         let dy = v.translation.height - lastHeight
                         lastHeight = v.translation.height
-                        let delta = Float(-dy) * degreesPerPoint
+                        let delta = Float(-dy) * (lockedGain ?? degreesPerPoint)
                         onNudge(delta)
                         accumulated += Double(delta)
-                        let t = Int(accumulated.rounded())
-                        if t != lastTick {
-                            haptic.impactOccurred(intensity: 0.5)
-                            lastTick = t
+                        if degreeHapticEnabled {
+                            let t = Int(accumulated.rounded())
+                            if t != lastTick {
+                                haptic.impactOccurred(intensity: 0.5)
+                                lastTick = t
+                            }
                         }
                     }
-                    .onEnded { _ in lastHeight = 0 }
+                    .onEnded { _ in
+                        lastHeight = 0
+                        dragStarted = false
+                        lockedGain = nil
+                        onDragActiveChanged?(false)
+                    }
             )
         }
     }
