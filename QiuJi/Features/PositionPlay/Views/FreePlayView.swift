@@ -136,9 +136,26 @@ struct FreePlayView: View {
                         .allowsHitTesting(!vm.isPlaying)
                 }
 
-                // G6/G9 开球按钮：左下角，底边齐球桌底线（本页有真实开球流程）。
-                BTBreakSideButton(isEnabled: !vm.isPlaying) { showBreakPicker = true }
-                    .btStageFrame(proxy.breakButtonFrame())
+                // 左下：翻袋备选「下一解」（仅直击失败且多解时）+ 开球。
+                VStack(spacing: 8) {
+                    if vm.canCycleBankAlternatives {
+                        BTTextActionButton(
+                            title: "下一解",
+                            isDisabled: false,
+                            width: ShotStageMetrics.actionColumnWidth,
+                            action: { vm.nextBankAlternative() }
+                        )
+                        .accessibilityIdentifier("freeplay.nextBankAlternative")
+                    }
+                    BTBreakSideButton(isEnabled: !vm.isPlaying) { showBreakPicker = true }
+                }
+                .btStageFrame(
+                    proxy.bottomLeadingFrame(
+                        size: vm.canCycleBankAlternatives
+                            ? CGSize(width: 48, height: 30 + 8 + ShotStageMetrics.breakButtonSize.height)
+                            : ShotStageMetrics.breakButtonSize
+                    )
+                )
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                 BTShotInstrumentColumn(

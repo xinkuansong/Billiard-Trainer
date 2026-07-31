@@ -259,16 +259,37 @@ struct PositionPlayComposerView: View {
                             .allowsHitTesting(!vm.isPlaying)
                     }
 
-                    // Slot L1：试打 = 「重摆球形」；编排台（D12）= 可点开球（第四可达宿主）。
-                    if isTryout {
-                        rearrangeButton
-                            .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
-                    } else {
-                        BTBreakSideButton(isEnabled: !vm.isPlaying && !vm.isComputing && !vm.isRecording) {
-                            showBreakPicker = true
+                    // Slot L1：翻袋备选「下一解」+（试打「重摆」/ 编排台开球）。
+                    VStack(spacing: 8) {
+                        if vm.canCycleBankAlternatives {
+                            BTTextActionButton(
+                                title: "下一解",
+                                isDisabled: false,
+                                width: ShotStageMetrics.actionColumnWidth,
+                                action: { vm.nextBankAlternative() }
+                            )
+                            .accessibilityIdentifier("composer.nextBankAlternative")
                         }
-                        .btStageFrame(proxy.breakButtonFrame())
+                        if isTryout {
+                            rearrangeButton
+                        } else {
+                            BTBreakSideButton(
+                                isEnabled: !vm.isPlaying && !vm.isComputing && !vm.isRecording
+                            ) {
+                                showBreakPicker = true
+                            }
+                        }
                     }
+                    .btStageFrame(
+                        proxy.bottomLeadingFrame(
+                            size: {
+                                let base = ShotStageMetrics.breakButtonSize
+                                return vm.canCycleBankAlternatives
+                                    ? CGSize(width: 48, height: 30 + 8 + base.height)
+                                    : base
+                            }()
+                        )
+                    )
 
                     // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                     BTShotInstrumentColumn(

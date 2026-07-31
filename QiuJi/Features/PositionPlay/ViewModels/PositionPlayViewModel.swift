@@ -90,7 +90,7 @@ final class PositionPlayViewModel: ObservableObject {
     @Published var spinY: Double = 0 { didSet { onParamEdited() } }
 
     private func onParamEdited() {
-        guard !isPlaying else { return }
+        guard !isPlaying, !isPresentingBankAlternative else { return }
         recompute()
     }
 
@@ -108,6 +108,15 @@ final class PositionPlayViewModel: ObservableObject {
     @Published private(set) var isRecording = false
     /// 是否存在可「重打」回退的上一杆。
     @Published private(set) var canReplay = false
+    /// 直击几何失败后的翻袋备选目录（复用 `BankKickSolvePipeline.solveBank`）。
+    @Published private(set) var bankAlternatives: [BankEngineSolution] = []
+    @Published private(set) var bankAlternativeIndex: Int = 0
+    /// 翻袋备选 ≥2 时可「下一解」循环。
+    var canCycleBankAlternatives: Bool {
+        !isPlaying && !isComputing && bankAlternatives.count >= 2
+    }
+    /// 展示翻袋备选时暂禁 `spinX/Y` didSet → recompute，避免冲掉目录。
+    private var isPresentingBankAlternative = false
 
     // MARK: - Sequence (recording)
 
@@ -721,6 +730,8 @@ final class PositionPlayViewModel: ObservableObject {
         solveScheduler.cancel()
         predictRerunWanted = false
         isComputing = false
+        bankAlternatives = []
+        bankAlternativeIndex = 0
     }
 
     /// 预测调度 =「去抖 + 单飞 + 末班车」（瞄准预测性能优化 P3 + 求解去抖 G14）：
@@ -812,7 +823,28 @@ final class PositionPlayViewModel: ObservableObject {
         predictInFlight = true
         isComputing = true   // 交互 idle 触发路径：求解真正开始时才亮出计算态（拖动预览期为 false）
         predictQueue.async { [weak self] in
-            let pred = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+            let direct = PositionPlayShotSolver.solve(before: before, shot: shot, surfaceY: y)
+            var resolvedShot = shot
+            var resolvedPred = direct
+            var banks: [BankEngineSolution] = []
+            // 袋口模式 + 直击几何失败 → 翻袋备选（仅此时跑；自由瞄准不跑）。
+            if let direct, !shot.isFree, DirectPotBankFallback.shouldAttemptBank(afterDirect: direct),
+               let cuePt = before.onTable[PositionPlayBall.cueKey],
+               let targetPt = before.onTable[shot.targetKey],
+               let pocketIndex = ShotIntent.pocketIndex(for: shot.pocket) {
+                let cue = PositionPlayShotSolver.scenePoint(cuePt, surfaceY: y)
+                let object = PositionPlayShotSolver.scenePoint(targetPt, surfaceY: y)
+                let obstacles = DirectPotBankFallback.obstacles(
+                    before: before, targetKey: shot.targetKey, surfaceY: y)
+                banks = DirectPotBankFallback.solveBankAlternatives(
+                    cue: cue, object: object, pocketIndex: pocketIndex,
+                    surfaceY: y, power: Float(shot.velocity), obstacles: obstacles)
+                if let best = banks.first {
+                    resolvedPred = best.prediction
+                    resolvedShot.spinX = Double(best.spinX)
+                    resolvedShot.spinY = Double(best.spinY)
+                }
+            }
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.predictInFlight = false
@@ -823,16 +855,44 @@ final class PositionPlayViewModel: ObservableObject {
                 }
                 guard self.predictGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
-                guard let pred else {
+                guard let resolvedPred else {
                     self.isFeasible = false
                     self.solvedShot = nil
+                    self.bankAlternatives = []
+                    self.bankAlternativeIndex = 0
                     self.statusText = self.needsSetupHint()
                     return
                 }
-                self.solvedShot = SolvedShot(before: before, shot: shot, prediction: pred)
-                self.apply(pred)
+                self.bankAlternatives = banks
+                self.bankAlternativeIndex = 0
+                // 翻袋备选会改 spin；暂禁 didSet 重算以免立刻冲掉目录。
+                if !banks.isEmpty {
+                    self.isPresentingBankAlternative = true
+                    self.spinX = resolvedShot.spinX
+                    self.spinY = resolvedShot.spinY
+                    self.isPresentingBankAlternative = false
+                }
+                self.solvedShot = SolvedShot(before: before, shot: resolvedShot, prediction: resolvedPred)
+                self.apply(resolvedPred, bankCatalog: banks, bankIndex: 0)
             }
         }
+    }
+
+    /// 翻袋备选「下一解」（目录循环；直击成功时目录为空，按钮禁用）。
+    func nextBankAlternative() {
+        guard canCycleBankAlternatives, let solved = solvedShot else { return }
+        let next = (bankAlternativeIndex + 1) % bankAlternatives.count
+        bankAlternativeIndex = next
+        let bank = bankAlternatives[next]
+        var shot = solved.shot
+        shot.spinX = Double(bank.spinX)
+        shot.spinY = Double(bank.spinY)
+        isPresentingBankAlternative = true
+        spinX = shot.spinX
+        spinY = shot.spinY
+        isPresentingBankAlternative = false
+        solvedShot = SolvedShot(before: solved.before, shot: shot, prediction: bank.prediction)
+        apply(bank.prediction, bankCatalog: bankAlternatives, bankIndex: next)
     }
 
     /// 当前 UI 状态 → 作者意图。nil = 信息不全（缺母球/目标/袋口/瞄准方向）。
@@ -866,7 +926,11 @@ final class PositionPlayViewModel: ObservableObject {
         }
     }
 
-    private func apply(_ pred: ShotPrediction) {
+    private func apply(
+        _ pred: ShotPrediction,
+        bankCatalog: [BankEngineSolution] = [],
+        bankIndex: Int = 0
+    ) {
         isFeasible = pred.feasible
         cutAngleDeg = pred.cutAngleDeg
         refreshSelectionRing()
@@ -874,7 +938,11 @@ final class PositionPlayViewModel: ObservableObject {
         guard pred.feasible else {
             objectPocketed = false
             cuePocketed = false
-            statusText = pred.infeasibleReason.isEmpty ? "当前角度无法进袋" : pred.infeasibleReason
+            if bankCatalog.isEmpty, DirectPotBankFallback.shouldAttemptBank(afterDirect: pred) {
+                statusText = "当前角度无法进袋，且暂无翻袋备选"
+            } else {
+                statusText = pred.infeasibleReason.isEmpty ? "当前角度无法进袋" : pred.infeasibleReason
+            }
             clearTrajectory()
             scene.hideCueStick()
             lastAimDirection = nil
@@ -883,7 +951,7 @@ final class PositionPlayViewModel: ObservableObject {
 
         objectPocketed = pred.objectPocketed
         cuePocketed = pred.cuePocketed
-        statusText = makeStatus(pred)
+        statusText = makeStatus(pred, bankCatalog: bankCatalog, bankIndex: bankIndex)
         drawTrajectory(pred)
         updateCueStickAiming(pred)
         // 轨迹重绘会先 hideAllVisualization（连带假想球）；自由模式重新亮出首碰覆盖层。
@@ -892,7 +960,11 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// Z1 副标题保持中性（T-P18-49 失误态去重）：母球进袋由 Z2 红 pill
     /// （`scratchPill`）唯一承担，副标题只描述轨迹/进球事实，状态不出现两次。
-    private func makeStatus(_ p: ShotPrediction) -> String {
+    private func makeStatus(
+        _ p: ShotPrediction,
+        bankCatalog: [BankEngineSolution] = [],
+        bankIndex: Int = 0
+    ) -> String {
         if let solved = solvedShot, solved.shot.isFree {
             let potted = p.pocketedBalls.filter { $0 != ShotInput.cueBallName }
             if !potted.isEmpty {
@@ -900,6 +972,10 @@ final class PositionPlayViewModel: ObservableObject {
                 return "自由球 · \(labels) 号进袋"
             }
             return "自由球轨迹已就绪"
+        }
+        if bankCatalog.indices.contains(bankIndex) {
+            return DirectPotBankFallback.statusSummary(
+                bankCatalog[bankIndex], index: bankIndex, total: bankCatalog.count)
         }
         if p.objectPocketed { return "进袋 · 母球走位已就绪" }
         if let hint = obstacleBlockHint() { return hint }

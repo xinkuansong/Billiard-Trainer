@@ -1,0 +1,191 @@
+{
+  "createdAt" : "2026-07-29T19:15:44Z",
+  "id" : "37BD2604-9A73-4F8E-8D5F-878900CF89DC",
+  "initial" : {
+    "onTable" : {
+      "cueBall" : {
+        "x" : 0.30000001192092896,
+        "y" : 0.30000001192092896
+      }
+    }
+  },
+  "name" : "塞量阶梯 · 球形3",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.2859831154346466,
+            "y" : 0.19825488328933716
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.5029380917549133,
+            "y" : 0.3205135762691498
+          },
+          "cueBall" : {
+            "x" : 0.524027407169342,
+            "y" : 0.09360092878341675
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "77BEE9F6-321F-409F-B05D-2D337734C90B",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.0004990402857461187,
+        "spinY" : -0.24952015399932853,
+        "targetKey" : "_8",
+        "velocity" : 3.6
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.37718454003334045,
+            "y" : 0.06295850872993469
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.5029380917549133,
+            "y" : 0.3205135762691498
+          },
+          "cueBall" : {
+            "x" : 0.524027407169342,
+            "y" : 0.09360092878341675
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "B940C93F-8AC4-4C49-9B29-DB7B92ACECDD",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.22500959714253718,
+        "spinY" : -0.24838771621386152,
+        "targetKey" : "_8",
+        "velocity" : 3.6
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.37531042098999023,
+            "y" : 0.01686774007976055
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.5029380917549133,
+            "y" : 0.3205135762691498
+          },
+          "cueBall" : {
+            "x" : 0.524027407169342,
+            "y" : 0.09360092878341675
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "9647EED1-B247-4841-9EA9-9A8A11E7EA45",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : -0.4339395608077952,
+        "spinY" : -0.24838771621386152,
+        "targetKey" : "_8",
+        "velocity" : 3.6
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.12805865705013275,
+            "y" : 0.13076555728912354
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.5029380917549133,
+            "y" : 0.3205135762691498
+          },
+          "cueBall" : {
+            "x" : 0.524027407169342,
+            "y" : 0.09360092878341675
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "ABA5586E-8827-4902-AE93-8F92BC1A7188",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0.2260604391922052,
+        "spinY" : -0.24838771621386152,
+        "targetKey" : "_8",
+        "velocity" : 3.6
+      }
+    },
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.30426833033561707,
+            "y" : 0.028312113136053085
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "_8" : {
+            "x" : 0.5029380917549133,
+            "y" : 0.3205135762691498
+          },
+          "cueBall" : {
+            "x" : 0.524027407169342,
+            "y" : 0.09360092878341675
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "1C4ECD11-0392-43A3-A718-2A9191CBA3CE",
+      "objectPocketed" : true,
+      "potted" : [
+        "_8"
+      ],
+      "shot" : {
+        "pocket" : "bottomCenter",
+        "spinX" : 0.4339395608077952,
+        "spinY" : -0.24838771621386152,
+        "targetKey" : "_8",
+        "velocity" : 3.6
+      }
+    }
+  ],
+  "updatedAt" : "2026-07-29T19:21:10Z"
+}

@@ -82,6 +82,51 @@
 
 ## DR 记录（设计调整）
 
+## DR-041
+- **任务**：正常进袋页 — 直击几何失败时翻袋备选
+- **原始规范**：编排台 / 自由击球 / 思路 / 打三的袋口进袋为直击 only；切角 ≥89° 即「当前角度无法进袋」，不枚举翻袋。
+- **调整后**：
+  1. 新增 `DirectPotBankFallback`：闸门 + 文案 + `asPositionPlaySolutions`；求解一律 `BankKickSolvePipeline.solveBank`（不另写管线）。
+  2. `PositionPlayViewModel`：直击 `feasible==false` 后跑翻袋目录；状态「翻袋备选 · 库序」；≥2 解左下「下一解」。
+  3. `SiluTrainerViewModel` / `PlanThreeViewModel`：`PositionPlaySolver` 空且直击几何不可行时补翻袋目录（`satisfiesConstraint=false`）。
+  4. 自由瞄准 / 直击可行但不满足走位约束 → **不**触发。
+- **原因**：切角过大时直击物理不可行，但目标球吃库进袋常仍可打；翻袋页管线已成熟，作备选复用成本最低。
+- **影响组件**：`DirectPotBankFallback`、`PositionPlayViewModel`、`SiluTrainerViewModel`、`PlanThreeViewModel`、`FreePlayView`、`PositionPlayComposerView`、SPEC §8.9 i
+- **日期**：2026-07-30
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §8.9 i + Changelog
+- **已应用至**：✅ SPEC §8.9 i + Changelog（2026-07-30）
+- **证据**：`make build` SUCCEEDED；`DirectPotBankFallbackTests` **6/0**（`build/direct-pot-bank-fallback-test.log`）
+
+## DR-040
+- **任务**：问题集合 v24 — 动作库网格裁桌修复 + 列表大球
+- **原始规范（DR-039 热修后）**：列表/详情 `ballScale=1.0`；网格卡封面槽 **4:3** + `BTBakedDrillTable` `.fill` → 裁掉 2:1 烘焙图左右库边。
+- **调整后**：
+  1. **E1**：`BTDrillGridCard` / `BTDrillGridCardSkeleton` 封面 **4:3→2:1**；`BTBakedDrillTable` 增可选 `contentMode`（默认 `.fill`）。
+  2. **E2**：`Options.thumbnail.ballScale=1.8`；全量重烘 **77/77**。
+  3. **E3**：`Options.detail.ballScale` 仍 **1.0**；详情顶栏 live，不双套 PNG。
+  4. **D-v24-1=C**：方槽行卡本轮零行为变更（维持 fill 中心裁），契约留档。
+- **原因**：裁桌是显示槽比例错误；列表小槽需更大球可读，详情需真尺寸观感。
+- **影响组件**：`BTDrillCard`、`BTShimmer`、`BTBakedDrillTable`、`DrillStaticPreview`、`DrillThumbnails/*.png`
+- **日期**：2026-07-29
+- **回写目标**：`docs/research/20260729-drill缩略图静帧契约.md`；SPEC Changelog；`问题集合_v24.md`
+- **已应用至**：✅ 契约文档；✅ SPEC Changelog；✅ 真源 v24.2
+- **证据**：W1 `build/v24-w1-{build,test}.log` + `build/v24-w1-evidence/`；W2 bake **77/77**（`build/v24-w2-rebake.log`）+ `build/v24-w2-evidence/` + `make build` SUCCEEDED
+
+## DR-039
+- **任务**：Drill 缩略图 / 详情首帧静帧对齐现行渲染
+- **原始规范**：`DrillThumbnailRenderer` / `DrillSceneView` 强制 `hideCueStick`、实心折线、`targetBallNumber=8`、无 ghost；多序列扫目录无代表性语义。
+- **调整后**：
+  1. 新增共享真源 `DrillStaticPreview`：代表性选源（A1 → legacy → A* → manual）+ 真球键摆桌 + `TrajectoryRenderer` 线语言 v2 + ghost/接触点 + 瞄准位球杆（elevation/穿模）。
+  2. `DrillThumbnailRenderer` / `DrillSceneController` 首帧同契约；列表仍一 drill 一 PNG。
+  3. `DrillTryoutBoardStore.representative`；`TrajectoryRenderer.draw(detailOverride:)`。
+  4. 全量重烘 **77/77**。
+- **原因**：缩略图停在 DR-016/017，未跟上球杆同现 / 线语言 v2 / 多球形代表性语义。
+- **影响组件**：`DrillStaticPreview`、`DrillThumbnailRenderer`、`DrillSceneView`、`DrillTryoutBoardStore`、`TrajectoryRenderer`、`DrillThumbnails/*.png`
+- **日期**：2026-07-29
+- **回写目标**：`docs/research/20260729-drill缩略图静帧契约.md`；SPEC Changelog
+- **已应用至**：✅ 契约文档；✅ SPEC Changelog（2026-07-29）
+- **证据**：`make build` SUCCEEDED；`DrillStaticPreviewTests` **5/0**；bake **77/77**（`build/thumb-rebake.log`）；抽查 c001/c053/c073 含杆+线+ghost。
+
 ## DR-038
 - **任务**：问题集合 v23 W1b 热修 — 空象限对角 + 瞄准线 keepout（D-v23-5.1）
 - **原始规范（DR-037）**：单轴最大边距定方位；keepout 仅进球线/袋口。

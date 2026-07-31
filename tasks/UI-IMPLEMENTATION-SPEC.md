@@ -885,6 +885,13 @@ struct BTShareCard: View {
   4. 「上一杆」回放：恢复击打前盘面 → 静止瞄准定格 **0～~0.2s**（允许 0）→ `runCueStroke`。
   5. 序列逐步演示：每步有预告线则杆同现 → 静止瞄准 **~0.3～0.5s** → `runCueStroke`；触球后仍由现有跟杆/淡出收杆，**不要**全程把杆杵在桌上。
 
+**i. 直击失败 → 翻袋备选（DR-041）**
+
+- **触发**：仅当直击几何闸门失败（切角 ≥89° / 母球挡进球线 → `ShotPrediction.feasible == false`，或 `AngleSceneCalculator.isFeasible == false`）。直击可行但未进袋 / 走位约束无解时**不**跑翻袋。
+- **真源**：`DirectPotBankFallback` → `BankKickSolvePipeline.solveBank`（与翻袋页同一管线；禁止另写镜像/评分）。
+- **宿主**：编排台 / 自由击球（袋口模式自动接在 `PositionPlayViewModel` 求解后）；思路 / 打三（`PositionPlaySolver` 空结果且直击不可行时补目录）。自由瞄准模式不触发。
+- **UX**：状态文案前缀「翻袋备选」+ 库序；多解时「下一解」循环（编排台/自由击球左下；思路/打三既有下一解柱）。走位页备选**不声称**满足落区/过点（`satisfiesConstraint=false`）。
+
 ---
 
 ## 九、练习体验品牌设计定稿（「球迹 · 教练仪表盘」，T-P18-52 收录设计稿 v4）
@@ -980,6 +987,9 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-07-30 | **直击失败翻袋备选（DR-041）**：`DirectPotBankFallback` 复用 `BankKickSolvePipeline.solveBank`；仅 `feasible==false` / 直击几何不可行时触发；编排台·自由击球·思路·打三；文案「翻袋备选」+ 多解下一解；§8.9 **i** | DR | DirectPotBankFallback, PositionPlay/Silu/PlanThree VM, FreePlay/Composer View, SPEC §8.9 | 用户：角度过大加翻袋 |
+| 2026-07-29 | **动作库缩略图显示槽 + 列表大球（DR-040 / v24）**：网格卡/骨架封面 **4:3→2:1**（与烘焙同比，`.fill` 不裁左右库）；`Options.thumbnail.ballScale=1.8` 重烘 77；详情 live `detail.ballScale=1.0` 不动、不双套 PNG；方槽行卡维持 fill（D-v24-1=C）；`BTBakedDrillTable` 可选 `contentMode`；**未改** `AngleGridCard` 4:3 | DR | BTDrillGridCard, BTShimmer, BTBakedDrillTable, DrillStaticPreview, DrillThumbnails | 问题集合 v24 |
+| 2026-07-29 | **Drill 缩略图静帧对齐（DR-039）**：共享 `DrillStaticPreview`——代表性球形（A1/legacy/A*）首杆 + 真球号 + 瞄准位球杆 + 线语言 v2 + ghost；详情 `DrillSceneView` 首帧同契约；列表仍一 drill 一 PNG；全量重烘 77/77 | DR | DrillStaticPreview, DrillThumbnailRenderer, DrillSceneView, DrillTryoutBoardStore, TrajectoryRenderer, DrillThumbnails | 缩略图渲染落伍 |
 | 2026-07-29 | **角度预测竖直 0° 题面**：`AnglePredictionGeometry`——SwiftUI 画布 0°=竖直向上、左右摆至水平 90°（切角语义仍 0° 正对～90° 极薄）；出题随机左右；参考线双侧镜像；答题仍 0°–90° 无符号；UITest 可 `-geometricQuiz.forcedSide left\|right` | 修正 | AnglePredictionGeometry, GeometricAngleQuizView/VM, PracticeStorageKey | 用户反馈题面零点 |
 | 2026-07-29 | **瞄准特写空象限对角（DR-038 / v23.13 / D-v23-5.1）**：主方向 = 开边 L/R × 开边 T/B 对角；`SightKeepout` 含瞄准线；0.92d 靠球；free-run 排序 | DR | AimCloseupPlacement, AimPointSceneTrainingView | 问题集合 v23 点验 |
 | 2026-07-29 | **瞄准特写四边空旷方位（DR-037 / v23.12）**：单轴最大边距（过渡，被 DR-038 取代） | DR | AimCloseupPlacement | 问题集合 v23 点验简化 |

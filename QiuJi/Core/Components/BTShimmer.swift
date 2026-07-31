@@ -74,8 +74,8 @@ private struct BTDrillGridCardSkeleton: View {
         VStack(alignment: .leading, spacing: 0) {
             RoundedRectangle(cornerRadius: 0)
                 .fill(Color.btBGTertiary)
-                // F-CL-03: match real grid card aspect (4/3), avoid load→content jump.
-                .aspectRatio(4.0 / 3.0, contentMode: .fit)
+                // F-CL-03: match real grid card aspect (2:1), avoid load→content jump.
+                .aspectRatio(2.0, contentMode: .fit)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 RoundedRectangle(cornerRadius: BTRadius.xxs)

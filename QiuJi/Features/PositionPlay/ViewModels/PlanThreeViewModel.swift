@@ -660,14 +660,43 @@ extension PlanThreeViewModel {
             let result = PositionPlaySolver.solve(
                 before: before, targetKey: targetKey, pocket: pocketId,
                 constraint: constraint, surfaceY: y, params: params)
+            var final = result
+            var bankTried = false
+            var bankEmpty = false
+            var directInfeasible = false
+            // 走位反解空结果 + 直击几何不可行 → 翻袋备选（不声称满足①后走位约束）。
+            if result.isEmpty,
+               let cuePt = before.onTable[PositionPlayBall.cueKey],
+               let targetPt = before.onTable[targetKey],
+               let pocketIndex = ShotIntent.pocketIndex(for: pocketId) {
+                let cue = PositionPlayShotSolver.scenePoint(cuePt, surfaceY: y)
+                let object = PositionPlayShotSolver.scenePoint(targetPt, surfaceY: y)
+                directInfeasible = DirectPotBankFallback.isDirectPotInfeasible(
+                    cue: cue, target: object, pocketIndex: pocketIndex, surfaceY: y)
+                if directInfeasible {
+                    bankTried = true
+                    let banks = DirectPotBankFallback.solveBankAlternatives(
+                        cue: cue, object: object, pocketIndex: pocketIndex,
+                        surfaceY: y, power: 3.0,
+                        obstacles: DirectPotBankFallback.obstacles(
+                            before: before, targetKey: targetKey, surfaceY: y))
+                    bankEmpty = banks.isEmpty
+                    final = DirectPotBankFallback.asPositionPlaySolutions(
+                        banks, targetKey: targetKey, pocket: pocketId, velocity: 3.0)
+                }
+            }
             DispatchQueue.main.async {
                 guard let self, self.solveGeneration == gen, !self.isPlaying else { return }
                 self.isComputing = false
-                self.solutions = result
+                self.solutions = final
                 self.currentIndex = 0
                 self.adjustmentDraft = nil
-                if result.isEmpty {
-                    self.statusText = "未找到解（试着放大区域或换①目标袋）"
+                if final.isEmpty {
+                    self.statusText = DirectPotBankFallback.emptySolveMessage(
+                        directInfeasible: directInfeasible,
+                        bankAttempted: bankTried,
+                        bankEmpty: bankEmpty,
+                        positionHint: "未找到解（试着放大区域或换①目标袋）")
                     self.velocity = 3.0; self.spinX = 0; self.spinY = 0
                 } else {
                     self.showSolution(at: 0)
@@ -717,6 +746,7 @@ extension PlanThreeViewModel {
     private func solutionStatus(_ sol: PositionPlaySolution) -> String {
         let prefix = solutions.count > 1 ? "解 \(currentIndex + 1)/\(solutions.count) · " : ""
         let advanced = sol.beyondCushionBudget ? "进阶 · " : ""
+        if sol.summary.hasPrefix("翻袋备选") { return prefix + sol.summary }
         if !sol.satisfiesConstraint { return prefix + advanced + "最接近解 · " + sol.summary }
         return prefix + advanced + sol.summary
     }

@@ -19,15 +19,19 @@ enum DrillThumbnailStore {
 }
 
 /// 动作库 / 计划用的烘焙缩略图视图（2:1）。缺图时回退到干净台呢占位。
+///
+/// - Note: Default `.fill` keeps square row slots (64² etc.) ball-readable via center crop
+///   (v24 D-v24-1=C). Pass `.fit` only when a future caller wants a letterboxed full table.
 struct BTBakedDrillTable: View {
     let drillId: String
+    var contentMode: ContentMode = .fill
 
     var body: some View {
         Group {
             if let image = DrillThumbnailStore.image(for: drillId) {
                 Image(uiImage: image)
                     .resizable()
-                    .aspectRatio(2.0, contentMode: .fill)
+                    .aspectRatio(2.0, contentMode: contentMode)
             } else {
                 fallback
             }

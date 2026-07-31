@@ -111,7 +111,8 @@ struct BTDrillGridCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
-                .aspectRatio(4.0 / 3.0, contentMode: .fit)
+                // v24 / E1: match baked thumbnail 2:1 so `.fill` does not crop left/right cushions.
+                .aspectRatio(2.0, contentMode: .fit)
                 .overlay {
                     tableArea
                 }

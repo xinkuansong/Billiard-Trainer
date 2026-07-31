@@ -62,9 +62,10 @@ enum TrajectoryRenderer {
         options: Options,
         context: Context,
         scene: AngleTrainingScene,
-        into nodes: inout [SCNNode]
+        into nodes: inout [SCNNode],
+        detailOverride: TrajectoryDetail? = nil
     ) {
-        let detail = UserPreferences.shared.trajectoryDetail
+        let detail = detailOverride ?? UserPreferences.shared.trajectoryDetail
         scene.addCueTrajectory(p.cuePath, contact: p.firstContact, detail: detail, into: &nodes)
 
         if options.includeObjectPath, detail != .minimal {

@@ -38,10 +38,18 @@ final class DrillThumbnailBakeRunnerTests: XCTestCase {
 
         var ok = 0
         var failed: [String] = []
+        var sourceLog: [String] = []
         for id in ids {
             guard let drill = await DrillContentService.shared.loadDrillFromBundle(id: id) else {
                 failed.append("\(id)(load)")
                 continue
+            }
+            if let src = DrillStaticPreview.resolveSource(for: drill) {
+                sourceLog.append(
+                    "\(id) token=\(src.token.isEmpty ? "legacy" : src.token) kind=\(src.kind.rawValue) balls=\(src.board.onTable.count)"
+                )
+            } else {
+                sourceLog.append("\(id) token=? kind=unresolved")
             }
             guard let image = DrillThumbnailRenderer.render(drill: drill),
                   let png = image.pngData(), png.count > 4_000 else {
@@ -57,6 +65,7 @@ final class DrillThumbnailBakeRunnerTests: XCTestCase {
         }
 
         print("THUMB-BAKE done: \(ok)/\(ids.count) written to \(outputDir)")
+        for line in sourceLog { print("THUMB-SRC \(line)") }
         if !failed.isEmpty { print("THUMB-BAKE failures: \(failed.joined(separator: ", "))") }
         XCTAssertTrue(failed.isEmpty, "缩略图烘焙失败：\(failed.joined(separator: ", "))")
     }
