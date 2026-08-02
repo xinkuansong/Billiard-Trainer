@@ -345,9 +345,12 @@ struct PositionPlayComposerView: View {
             // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（ADR-P11-09）。
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
+                                 tableWidth: proxy.playingRect.width,
+                                 bottomPadding: proxy.spinPadBottomPadding,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .zIndex(20)
             }
         }
     }

@@ -110,8 +110,8 @@ enum SequenceVideoExporter {
         }
 
         /// 教学真实风格（竖版静帧用，#5b）：球桌长轴沿屏幕长边竖直铺满，
-        /// 1440×2560 场景（rotated 顶视）+ 160px HUD 条（合计 1440×2720），
-        /// 与教学视频取向一致；高分辨率保证 App 内放大查看球时仍清晰（球本身较小）。
+        /// 1440×2560 场景（rotated 顶视）+ 160px HUD 条（合计 1440×2720）。
+        /// 静帧高于视频档，便于精讲页放大查看球/线仍清晰。
         static func teaching() -> Options {
             var o = Options()
             o.size = CGSize(width: 1440, height: 2560)
@@ -119,12 +119,12 @@ enum SequenceVideoExporter {
             return o
         }
 
-        /// 教学视频（竖版，App 内竖屏播放主载体）：1440×2560 竖版场景（rotated 顶视，
-        /// 台面长轴竖直铺满）+ 160px HUD 条（合计 1440×2720）。
-        /// 高分辨率（2× 旧 720 档）保证播放器内放大时球边缘不糊。
+        /// 教学视频（竖版，App 内竖屏播放主载体）：1080×1920 竖版场景（rotated 顶视，
+        /// 台面长轴竖直铺满）+ 120px HUD 条（合计 1080×2040）。
+        /// 介于旧 720 档与 1440 静帧之间，兼顾清晰度与体积（正式分发走 OTA）。
         static func teachingVideo() -> Options {
             var o = Options()
-            o.size = CGSize(width: 1440, height: 2560)
+            o.size = CGSize(width: 1080, height: 1920)
             o.portrait = true
             // 三拍教学叙事：读球形 1.5s → 亮方案 1.5s → 执行；预告线变细。
             o.observeHold = 1.5
@@ -157,11 +157,11 @@ enum SequenceVideoExporter {
             return o
         }
 
-        /// 3D 教学视频（手机档，App 内竖屏播放主载体，ADR-P11-15）：1440×2560 竖屏 +
-        /// 静态斜视角透视（短边后方沿长轴）+ 160px HUD 条（合计 1440×2720）。
+        /// 3D 教学视频（手机档，App 内竖屏播放主载体，ADR-P11-15）：1080×1920 竖屏 +
+        /// 静态斜视角透视（短边后方沿长轴）+ 120px HUD 条（合计 1080×2040），与 2D 视频同档。
         static func teachingVideo3D() -> Options {
             var o = Options()
-            o.size = CGSize(width: 1440, height: 2560)
+            o.size = CGSize(width: 1080, height: 1920)
             o.portrait = true
             o.cameraMode = .perspective3D(Perspective3DConfig())
             // 三拍教学叙事：读球形 1.5s → 亮方案 1.5s → 执行；预告线变细（高分档 Hi 继承本预设）。
@@ -172,6 +172,7 @@ enum SequenceVideoExporter {
         }
 
         /// 3D 教学视频（高分档，外站备用）：2160×3840（4K 竖版）+ 240px HUD 条（合计 2160×4080）。
+        /// 当前出片默认配方**不调用**本档（用户拍板：本地预览/回填阶段不出 4K）。
         static func teachingVideo3DHi() -> Options {
             var o = teachingVideo3D()
             o.size = CGSize(width: 2160, height: 3840)

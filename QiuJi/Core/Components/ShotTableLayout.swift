@@ -48,6 +48,20 @@ enum ShotTableLayout {
         let y = (containerSize.height - tableH) / 2
         return CGRect(x: x, y: y, width: tableW, height: tableH)
     }
+
+    /// 击球区内框（库边橡皮内侧）屏幕矩形：与 `tableRect` 同心，按内外半尺寸比例缩放。
+    /// 坐标契约：rotated 顶视 screen 横轴↔Z（`halfWidth`）、竖轴↔X（`halfLength`）。
+    static func playingRect(outer: CGRect,
+                            outerHalfLength: Double,
+                            outerHalfWidth: Double) -> CGRect {
+        guard outer.width > 1, outer.height > 1,
+              outerHalfLength > 1e-6, outerHalfWidth > 1e-6 else { return outer }
+        let innerHalfL = Double(AngleSceneCalculator.innerLength) / 2
+        let innerHalfW = Double(AngleSceneCalculator.innerWidth) / 2
+        let w = outer.width * CGFloat(innerHalfW / outerHalfWidth)
+        let h = outer.height * CGFloat(innerHalfL / outerHalfLength)
+        return CGRect(x: outer.midX - w / 2, y: outer.midY - h / 2, width: w, height: h)
+    }
 }
 
 // MARK: - 共享布局度量（各击打页统一）
@@ -102,14 +116,20 @@ struct ShotStageProxy {
     let sceneSize: CGSize
     /// 球桌外框屏幕矩形。
     let tableRect: CGRect
+    /// 击球区内框屏幕矩形（库边内侧 / playfield；打点盘背景贴此宽，DR-042）。
+    let playingRect: CGRect
 
     init(sceneSize: CGSize,
          halfLength: Double = ShotTableLayout.defaultHalfLength,
          halfWidth: Double = ShotTableLayout.defaultHalfWidth) {
         self.sceneSize = sceneSize
-        self.tableRect = ShotTableLayout.tableRect(in: sceneSize,
-                                                   halfLength: halfLength,
-                                                   halfWidth: halfWidth)
+        let outer = ShotTableLayout.tableRect(in: sceneSize,
+                                              halfLength: halfLength,
+                                              halfWidth: halfWidth)
+        self.tableRect = outer
+        self.playingRect = ShotTableLayout.playingRect(outer: outer,
+                                                       outerHalfLength: halfLength,
+                                                       outerHalfWidth: halfWidth)
     }
 
     var isValid: Bool { tableRect.width > 1 && tableRect.height > 1 }
@@ -161,6 +181,11 @@ struct ShotStageProxy {
 
     /// 球库排球总宽 = 球桌宽（G8）。
     var libraryWidth: CGFloat { tableRect.width }
+
+    /// 打点盘贴击球区下沿：卡片底边 → stage 底边的距离（= `sceneHeight − playingRect.maxY`）。
+    var spinPadBottomPadding: CGFloat {
+        max(0, sceneSize.height - playingRect.maxY)
+    }
 
     /// 通用左下角控件 frame：右缘贴球桌左缘、底边齐球桌底线（G6）。
     func bottomLeadingFrame(size: CGSize) -> CGRect {

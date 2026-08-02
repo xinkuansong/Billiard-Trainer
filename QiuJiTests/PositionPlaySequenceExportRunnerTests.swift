@@ -9,16 +9,17 @@
 //       （真相源，进 git）；临时试渲也可手动丢 JSON 进 `build/position_play_sequences/` 收件箱；
 //    2. 项目根执行 `cd scripts && make position-export`（自动同步内容库 → 收件箱后渲染；
 //       或 Xcode 直接跑本测试，只消费收件箱）；
-//    3. 产物按默认配方输出到 `build/position_play_export/seq_<id8>/`：
+//    3. 产物按默认配方输出到 `build/position_play_export/<dir>/`：
 //         cover.png               卡片风格封面（球放大，首杆 before + 预告线，1280×640）
 //         preview/frame_NN.png    卡片风格动画帧序列（整段抽样 12 帧，1280×640）
 //         initial.png / final.png 开局 / 终局布局（竖版真实风格 1440×2560，长轴沿屏幕长边）
 //         sNN_still.png           每杆击球前静帧（带预告线，竖版教学配图 1440×2720）
-//         full.mp4                整段视频（2D 顶视 1440×2720；每杆预告线静帧→出杆线消失→运动→收尾）
-//         sNN.mp4                 单杆视频（2D 顶视 1440×2720）
+//         full.mp4                整段视频（2D 顶视 1080×2040；每杆预告线静帧→出杆线消失→运动→收尾）
 //         full.gif                整段分享 GIF（竖版 2D 顶视 720×1280）
-//         full_3d.mp4 / sNN_3d.mp4  3D 静态斜视角视频（手机档 1440×2720，App 内竖屏播放）
-//         full_3d@2160.mp4        3D 高分档整段视频（4K 竖版 2160×4080，外站备用）
+//         full_3d.mp4             3D 静态斜视角整段视频（1080×2040，App 内竖屏播放）
+//
+//  本轮配方（用户拍板 2026-08-01）：静帧 1440；2D/3D 视频 1080；不出 4K；
+//  不出单杆 mp4（sNN.mp4 / sNN_3d.mp4，与 full 重复度高）；每杆静帧仍出。
 //
 //  原理：解码 `PositionPlaySequence` → `SequenceVideoExporter` 逐 Step 用物理引擎
 //  （`PositionPlayShotSolver` → `ShotPredictor`）真实复现轨迹 → SceneKit 离屏逐帧渲染。
@@ -32,15 +33,6 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
 
     private let inputDir = "/Users/song/projects/13.billiard_trainer/build/position_play_sequences"
     private let outputDir = "/Users/song/projects/13.billiard_trainer/build/position_play_export"
-
-    /// 超重序列（杆数 ≥ 阈值）跳过 4K `full_3d@2160.mp4`：13 杆 4K(2160×4080) 逐帧离屏渲染实测
-    /// 会耗尽模拟器内 App 内存/触发测试超时而崩溃（5 杆可渲、8 杆起崩），故超重序列不出「外站备用」
-    /// 4K；App 内竖屏播放用的手机档 `full_3d.mp4` 仍正常产出。见 content/position_play/README.md。
-    private let heavy4KSkipThreshold = 6
-
-    private func exports4K(_ sequence: PositionPlaySequence) -> Bool {
-        sequence.steps.count < heavy4KSkipThreshold
-    }
 
     @MainActor
     func test_exportAllSequences() async throws {
@@ -75,7 +67,8 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                 let sequence = try decoder.decode(PositionPlaySequence.self,
                                                   from: Data(contentsOf: inURL))
                 guard !sequence.steps.isEmpty else {
-                    failed.append("\(file)(空序列)")
+                    // 0 杆球形（仅试打摆球、无可复现击打）跳过，不计入失败。
+                    print("SEQ-EXPORT ⏭️ \(dirName)（\(baseName)）：0 杆空序列，跳过")
                     continue
                 }
 
@@ -110,37 +103,16 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                 let fullGif = try SequenceVideoExporter.exportGIF(sequence: sequence)
                 try moveReplacing(fullGif, to: outDir.appendingPathComponent("full.gif"))
 
-                // 单杆视频（2D 顶视，真实风格）。
-                for i in sequence.steps.indices {
-                    let sub = SequenceVideoExporter.subSequence(sequence, stepIndex: i)
-                    let mp4 = try await SequenceVideoExporter.exportVideo(sequence: sub)
-                    let name = String(format: "s%02d.mp4", i + 1)
-                    try moveReplacing(mp4, to: outDir.appendingPathComponent(name))
-                }
-
-                // 3D 静态斜视角视频（ADR-P11-15，与 2D 并存）：
-                // 手机档整段 + 单杆 → App 内竖屏播放；高分档（2160×3840 4K）仅整段 → 外站备用。
+                // 3D 静态斜视角整段视频（ADR-P11-15，与 2D 并存）。
+                // 不出单杆 mp4 / 不出 4K（用户拍板：本地预览阶段）。
                 let full3d = try await SequenceVideoExporter.exportVideo(
                     sequence: sequence, options: .teachingVideo3D())
                 try moveReplacing(full3d, to: outDir.appendingPathComponent("full_3d.mp4"))
-                for i in sequence.steps.indices {
-                    let sub = SequenceVideoExporter.subSequence(sequence, stepIndex: i)
-                    let mp4 = try await SequenceVideoExporter.exportVideo(
-                        sequence: sub, options: .teachingVideo3D())
-                    try moveReplacing(mp4, to: outDir.appendingPathComponent(String(format: "s%02d_3d.mp4", i + 1)))
-                }
-                if exports4K(sequence) {
-                    let full3dHi = try await SequenceVideoExporter.exportVideo(
-                        sequence: sequence, options: .teachingVideo3DHi())
-                    try moveReplacing(full3dHi, to: outDir.appendingPathComponent("full_3d@2160.mp4"))
-                }
 
                 ok += 1
-                let hi4K = exports4K(sequence) ? "full_3d@2160.mp4" : "（超重序列跳过 4K）"
                 print("SEQ-EXPORT ✅ \(dirName)（\(baseName)）：\(sequence.steps.count) 杆 → "
                       + "静帧 \(2 + sequence.steps.count) + cover + preview \(previewFrames.count) 帧 + "
-                      + "full.mp4/gif + 单杆 mp4 ×\(sequence.steps.count) + "
-                      + "3D full_3d.mp4 + 单杆 3D ×\(sequence.steps.count) + \(hi4K)")
+                      + "full.mp4/gif + full_3d.mp4（无单杆 mp4 / 无 4K）")
             } catch {
                 failed.append("\(file)(\(error.localizedDescription))")
             }
@@ -176,16 +148,10 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
             "full.gif",
             "full_3d.mp4"
         ]
-        // 超重序列不出 4K，完整性判定亦不要求该文件（否则续跑会永远重渲）。
-        if exports4K(sequence) { relativePaths.append("full_3d@2160.mp4") }
         relativePaths += (1...12).map { String(format: "preview/frame_%02d.png", $0) }
         for index in sequence.steps.indices {
             let number = index + 1
-            relativePaths += [
-                String(format: "s%02d_still.png", number),
-                String(format: "s%02d.mp4", number),
-                String(format: "s%02d_3d.mp4", number)
-            ]
+            relativePaths.append(String(format: "s%02d_still.png", number))
         }
 
         return relativePaths.allSatisfy { relativePath in

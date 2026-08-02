@@ -509,9 +509,12 @@ struct BreakInstrumentsOverlay: View {
             // K7：开球打点盘（抄 FreePlay 非开球态范例；绑定 runner.spin*）。
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $runner.spinX, spinY: $runner.spinY,
+                                 tableWidth: proxy.playingRect.width,
+                                 bottomPadding: proxy.spinPadBottomPadding,
                                  onClose: { showSpinPad = false })
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(20)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

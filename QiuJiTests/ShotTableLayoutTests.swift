@@ -79,6 +79,28 @@ final class ShotTableLayoutTests: XCTestCase {
         XCTAssertEqual(ShotTableLayout.tableRect(in: .zero), .zero)
     }
 
+    // MARK: - 击球区内框（库边内侧）
+
+    func test_playingRect_scalesByInnerOuterHalfWidth() {
+        let size = CGSize(width: 402, height: 560)
+        let outer = ShotTableLayout.tableRect(in: size, halfLength: halfL, halfWidth: halfW)
+        let playing = ShotTableLayout.playingRect(outer: outer,
+                                                  outerHalfLength: halfL,
+                                                  outerHalfWidth: halfW)
+        let innerHalfW = Double(AngleSceneCalculator.innerWidth) / 2
+        let expectedW = outer.width * CGFloat(innerHalfW / halfW)
+        XCTAssertEqual(playing.width, expectedW, accuracy: 0.01)
+        XCTAssertEqual(playing.midX, outer.midX, accuracy: 0.01)
+        XCTAssertEqual(playing.midY, outer.midY, accuracy: 0.01)
+        XCTAssertLessThan(playing.width, outer.width)
+        let proxy = ShotStageProxy(sceneSize: size, halfLength: halfL, halfWidth: halfW)
+        XCTAssertEqual(proxy.playingRect.width, playing.width, accuracy: 0.01)
+        // 打点盘底边贴击球区下沿：padding = sceneHeight − playingRect.maxY。
+        XCTAssertEqual(proxy.spinPadBottomPadding,
+                       size.height - proxy.playingRect.maxY, accuracy: 0.01)
+        XCTAssertGreaterThanOrEqual(proxy.spinPadBottomPadding, 0)
+    }
+
     // MARK: - Proxy 贴边定位（G4/G5/G6）
 
     func test_proxy_edgeAlignment() {

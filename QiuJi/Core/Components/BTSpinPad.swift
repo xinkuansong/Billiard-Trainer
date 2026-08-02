@@ -169,6 +169,39 @@ enum SpinPadMath {
     }
 }
 
+// MARK: - Spin pad layout（背景贴球桌宽 / 白盘封顶）
+
+/// 打点盘卡片几何：背景宽 = 击球区内框屏宽（`ShotStageProxy.playingRect.width`，左右贴库边内侧）；
+/// 白盘直径随宽放大但封顶，不挤占四向键与底栏读数。
+enum SpinPadLayout {
+    /// 四向键命中框（与 `BTHoldRepeatButton` 默认一致，不缩键让路）。
+    static let keyHit: CGFloat = 40
+    /// 键与白盘间距（防误触）。
+    static let crossGap: CGFloat = 10
+    /// 卡片水平内边距（= `Spacing.sm`）。
+    static let horizontalPadding: CGFloat = Spacing.sm
+    /// 白盘直径上限（pt）：明显大于旧 104，又留出键区呼吸。
+    static let maxPadDiameter: CGFloat = 168
+    /// 极窄球桌时的白盘下限，避免缩成不可用。
+    static let minPadDiameter: CGFloat = 104
+    /// `tableWidth` 无效时的卡片宽兜底（旧紧凑卡量级）。
+    static let fallbackTableWidth: CGFloat = 280
+
+    /// 白盘直径：优先放大到 `maxPadDiameter`，但绝不挤掉左右键间距；
+    /// 空间够时不低于 `minPadDiameter`。
+    static func padDiameter(tableWidth: CGFloat) -> CGFloat {
+        let contentW = max(0, tableWidth - 2 * horizontalPadding)
+        let geometricMax = contentW - 2 * keyHit - 2 * crossGap
+        let capped = min(geometricMax, maxPadDiameter)
+        if capped >= minPadDiameter { return capped }
+        return max(0, geometricMax)
+    }
+
+    static func resolvedTableWidth(_ raw: CGFloat) -> CGFloat {
+        raw > 1 ? raw : fallbackTableWidth
+    }
+}
+
 // MARK: - Spin pad card（共享浮层卡片，ADR-P11-09）
 
 /// 打点盘浮层卡片：半透明材质（`ultraThinMaterial`，透出底下球桌绿色，与旧「击球设置」
@@ -176,32 +209,37 @@ enum SpinPadMath {
 /// 系统 sheet——sheet 底下是纯黑+压暗层，材质会显得过深（用户点名要「有些透明」的观感）。
 ///
 /// 交互：拖打点盘做**粗选**（点哪跳哪）；四向键做 ±1% **微调**（合矢量钳在打滑极限，撞墙停住），
-/// 长按连发。控件瘦身 v2（条 13.3）：盘缩至 104pt、十字更紧凑、背景近透明（透出台面），
-/// 十字宽度 40+10+104+10+40=204pt → 调用方应给 `maxWidth: 228`（含卡片左右 padding）。
+/// 长按连发。背景宽 = `tableWidth`（击球区内框屏宽，左右贴库边内侧）；白盘见 `SpinPadLayout`。
 /// 关闭：无右上 ✕（CL-疑4）；点盘外任意处关闭由 `BTSpinPadOverlay` 捕获层承担。
 struct BTSpinPadCard: View {
     @Binding var spinX: Double
     @Binding var spinY: Double
+    /// 击球区内框屏幕宽度（`playingRect.width`）；卡片背景与此等宽。
+    var tableWidth: CGFloat
     var onClose: () -> Void
 
-    /// 命中框与打点盘之间的死区（防误触），同时作为上/下键与盘的纵向间距。
-    private let crossGap: CGFloat = 10
+    private var padDiameter: CGFloat {
+        SpinPadLayout.padDiameter(tableWidth: SpinPadLayout.resolvedTableWidth(tableWidth))
+    }
 
     var body: some View {
+        let width = SpinPadLayout.resolvedTableWidth(tableWidth)
         VStack(spacing: Spacing.xs) {
-            VStack(spacing: crossGap) {
+            VStack(spacing: SpinPadLayout.crossGap) {
                 BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
                     nudge(.up)
                 }
-                HStack(spacing: crossGap) {
+                HStack(spacing: SpinPadLayout.crossGap) {
+                    Spacer(minLength: 0)
                     BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
                         nudge(.left)
                     }
                     BTSpinPad(spinX: $spinX, spinY: $spinY)
-                        .frame(width: 104, height: 104)
+                        .frame(width: padDiameter, height: padDiameter)
                     BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
                         nudge(.right)
                     }
+                    Spacer(minLength: 0)
                 }
                 BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") {
                     nudge(.down)
@@ -228,8 +266,9 @@ struct BTSpinPadCard: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(Spacing.sm)
-        // 近透明底（条 13.3）：只留 22% 黑 + 细模糊，透出台面绿；发丝描边保分层。
+        .padding(SpinPadLayout.horizontalPadding)
+        .frame(width: width)
+        // 近透明底：只留 22% 黑 + 细模糊，透出台面绿；发丝描边保分层。
         .background {
             RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
                 .fill(Color.black.opacity(0.22))
@@ -251,24 +290,37 @@ struct BTSpinPadCard: View {
     }
 }
 
-/// 打点盘浮层（条 13.3）：卡片 + **点盘外任意处关闭**的全屏捕获层。
-/// 调用方放进球桌 ZStack 即可（代替直接放 `BTSpinPadCard`）。
+/// 打点盘浮层：等宽卡片 + **铺满 stage** 的拦截层（点/拖卡片外 → 关闭，挡住台面瞄准与力度条误触）。
+/// 调用方放进球桌 ZStack，传入 `proxy.playingRect.width` 与 `proxy.spinPadBottomPadding`
+/// （宽/底均贴击球区内框，非外框）。
 struct BTSpinPadOverlay: View {
     @Binding var spinX: Double
     @Binding var spinY: Double
-    var bottomPadding: CGFloat = 80
+    /// 击球区内框屏幕宽度；卡片背景与此等宽（左右贴库边内侧）。
+    var tableWidth: CGFloat
+    /// 卡片底边到 stage 底的距离；贴击球区下沿时用 `proxy.spinPadBottomPadding`。
+    var bottomPadding: CGFloat = 0
     var onClose: () -> Void
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            // 近乎不可见的命中层：点卡片外任意处关闭。
-            Color.black.opacity(0.001)
+            // 铺满 stage、无视觉压暗：吞掉 tap/drag，避免落到 SceneKit 调瞄或右侧力度柱；松手关闭。
+            Color.clear
                 .contentShape(Rectangle())
-                .onTapGesture { onClose() }
-            BTSpinPadCard(spinX: $spinX, spinY: $spinY, onClose: onClose)
-                .frame(maxWidth: 228)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onEnded { _ in onClose() }
+                )
+                .accessibilityLabel("关闭打点")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { onClose() }
+
+            BTSpinPadCard(spinX: $spinX, spinY: $spinY,
+                          tableWidth: tableWidth, onClose: onClose)
                 .padding(.bottom, bottomPadding)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 

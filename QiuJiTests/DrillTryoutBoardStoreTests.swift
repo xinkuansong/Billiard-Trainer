@@ -85,12 +85,12 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
         XCTAssertEqual(adv.first?.title, "高级蛇彩贴库综合 · 球形1")
     }
 
-    /// 旧式单序列文件（drill_c001-…）也能加载。
-    func test_legacySingleSequence_loads() throws {
+    /// c001 仅保留 manual 序列（旧式无 token 单文件已删）。
+    func test_c001_loadsManualOnly() throws {
         let formations = DrillTryoutBoardStore.formations(for: "drill_c001")
         XCTAssertEqual(formations.count, 1)
         let f = try XCTUnwrap(formations.first)
-        XCTAssertEqual(f.token, "")
+        XCTAssertEqual(f.token, "manual01")
         XCTAssertGreaterThan(f.initial.onTable.count, 0)
     }
 

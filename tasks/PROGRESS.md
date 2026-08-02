@@ -18,6 +18,8 @@
 
 ## 当前状态
 
+- **动作库引擎媒体全量出片回填 ✅（2026-08-01，本地预览）**：静帧 **1440**、2D/3D 视频 **1080×2040**、**不出 4K / 不出单杆 mp4**（保留 `initial`/`sNN_still`/`final`）；`make position-export` **76/76** 可渲序列；`import-engine-export-to-app.py --prune` 回填 **60** drill（Videos≈11G + Tutorials≈2.1G），旧 `take_*` 在已回填 drill 上清除；`make tryout-sync` + `make build` SUCCEEDED。17 条无引擎片（多为 0 杆空序列或无序列）。**下一步：模拟器翻详情页看 2D/3D；其余 0 杆球形需补录后再出片；正式分发仍走 OTA。**
+- **打点盘全宽贴库边 ✅（2026-07-31 / 08-01，DR-042）**：宽=`playingRect.width`、底=`spinPadBottomPadding`（贴击球区内框下沿）；白盘封顶 168；stage 拦截关闭；9 处接线。证据 build + layout/spin 单测绿。**下一步：模拟器点验下沿对齐；或翻袋备选/v24 点验 / H-22。**
 - **直击失败翻袋备选 ✅（2026-07-30，DR-041）**：`DirectPotBankFallback` 复用 `BankKickSolvePipeline.solveBank`；仅直击几何失败时触发；编排台 / 自由击球 / 思路 / 打三；文案「翻袋备选」+ 多解下一解。证据：`make build` SUCCEEDED；`DirectPotBankFallbackTests` **6/0**（`build/direct-pot-bank-fallback-test.log`）。SPEC §8.9 i。**下一步：模拟器点验四处页切角过大时出翻袋备选；或 v24/v23 点验 / H-22。**
 - **问题集合 v24 全部收官 ✅（2026-07-29，v24.2，主控亲做，0 返工，DR-040）**：E1 网格/骨架封面 **4:3→2:1**；E2 列表 `ballScale=1.8` 重烘 **77/77**；E3 详情 live 仍 1.0、不双套 PNG；方槽 D-v24-1=C 维持 fill。证据 `build/v24-w{1,2}-*`。真源 `问题集合_v24.md`。**下一步：模拟器点验动作库网格完整桌+大球 / 详情顶栏真尺寸；或 v23/角度预测点验 / H-22。**
 - **Drill 缩略图静帧对齐 ✅（2026-07-29，DR-039）**：共享 `DrillStaticPreview`——代表性球形（A1→legacy→A*）首杆 + 真球号 + 瞄准位球杆 + 线语言 v2 + ghost；详情首帧同契约。契约后经 **DR-040 / v24** 修订显示槽与列表 1.8。

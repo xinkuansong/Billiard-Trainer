@@ -146,8 +146,7 @@ position-export:
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
-	  test \
-	  | xcpretty || true
+	  test
 	@echo "✅ 产物目录: $(BUILD_DIR)/position_play_export"
 
 # ────────────────────────────────────────────

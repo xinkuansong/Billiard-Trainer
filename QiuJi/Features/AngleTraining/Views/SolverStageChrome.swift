@@ -302,9 +302,12 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             // 打点盘浮层（自由 / 求解有解；求解微调走草稿层，编排台同款 ADR-P11-09）。
             if showSpinPad {
                 BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                 tableWidth: proxy.playingRect.width,
+                                 bottomPadding: proxy.spinPadBottomPadding,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .zIndex(20)
                     .accessibilityIdentifier("solver.spinPad")
             }
         }

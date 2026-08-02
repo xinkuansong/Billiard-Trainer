@@ -82,6 +82,23 @@
 
 ## DR 记录（设计调整）
 
+## DR-042
+- **任务**：打点盘全宽贴库边 + 防误触关闭
+- **原始规范**：控件瘦身 v2 / G16——卡片 `maxWidth: 228`、白盘框 104×104；`BTSpinPadOverlay` 用近透明 `Color.opacity(0.001)` + `onTapGesture` 点盘外关闭。
+- **调整后**：
+  1. 卡片宽 = `ShotStageProxy.playingRect.width`（击球区内框 / **库边内侧**；外框用 `tableRect`，打点盘不贴外沿）。
+  2. 卡片底边贴击球区下沿：`bottomPadding = proxy.spinPadBottomPadding`（= `sceneHeight − playingRect.maxY`；取代固定 80）。
+  3. `ShotTableLayout.playingRect`：外框同心缩放，比例 = `innerHalf / outerHalf`（横轴 Z=`innerWidth/2`）。
+  4. `SpinPadLayout`：白盘直径封顶 **168pt**，几何上永不挤掉四向键间距；多余宽度 Spacer 居中。
+  5. Overlay 铺满 stage 的**透明**拦截层（`Color.clear` + `DragGesture(minimumDistance:0)`）吞 tap/drag→`onClose`，挡住台面瞄准与力度柱误触；**无视觉压暗**。
+  6. 9 处交互式调用点传 `tableWidth` + `bottomPadding` + `zIndex(20)`（图谱只读迷你盘不动）。
+- **原因**：窄卡片易在手动瞄准时误拖台面；点力度条无法关闭；白盘相对背景过小；外框过宽应收到库边内侧；固定 bottomPadding 80 悬空，应贴下沿。
+- **影响组件**：`BTSpinPad`、`ShotTableLayout`/`ShotStageProxy`、9 击打页、SPEC §9.1-④ / G16 注记
+- **日期**：2026-07-31
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog + §9.1-④
+- **已应用至**：✅ SPEC Changelog + §9.1-④ / G16 注记（2026-07-31）
+- **证据**：`make build` SUCCEEDED；`SpinPadLayoutTests` + `ShotTableLayoutTests`（含 `playingRect`）
+
 ## DR-041
 - **任务**：正常进袋页 — 直击几何失败时翻袋备选
 - **原始规范**：编排台 / 自由击球 / 思路 / 打三的袋口进袋为直击 only；切角 ≥89° 即「当前角度无法进袋」，不枚举翻袋。

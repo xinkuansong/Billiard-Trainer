@@ -211,9 +211,12 @@ struct PlanThreeView: View {
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
+                                 tableWidth: proxy.playingRect.width,
+                                 bottomPadding: proxy.spinPadBottomPadding,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .zIndex(20)
             }
         }
     }
