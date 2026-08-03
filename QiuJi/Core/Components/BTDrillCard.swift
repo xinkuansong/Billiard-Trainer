@@ -138,32 +138,13 @@ struct BTDrillGridCard: View {
     }
 
     private var tableArea: some View {
-        ZStack(alignment: .bottom) {
-            BTBakedDrillTable(drillId: drill.id)
-            .clipShape(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: BTRadius.md,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 0,
-                    topTrailingRadius: BTRadius.md
-                )
-            )
-
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.35)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 36)
-            .clipShape(
-                UnevenRoundedRectangle(
-                    topLeadingRadius: 0,
-                    bottomLeadingRadius: 0,
-                    bottomTrailingRadius: 0,
-                    topTrailingRadius: 0
-                )
-            )
-        }
+        BTBakedDrillTable(drillId: drill.id)
+        .btThumbnailFrame(
+            cornerRadius: BTRadius.md,
+            topCornersOnly: true,
+            showsStroke: false,
+            colorScheme: colorScheme
+        )
         .overlay(alignment: .topLeading) {
             BTLevelBadge(level: level, onDarkSurface: true)
                 .padding(Spacing.sm)
@@ -255,10 +236,11 @@ struct BTDrillThumbnail: View {
 
     var body: some View {
         BTBakedDrillTable(drillId: drill.id)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-            .overlay(
-                RoundedRectangle(cornerRadius: BTRadius.sm)
-                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+            .btThumbnailFrame(
+                cornerRadius: BTRadius.sm,
+                topCornersOnly: false,
+                showsStroke: true,
+                colorScheme: colorScheme
             )
     }
 }
