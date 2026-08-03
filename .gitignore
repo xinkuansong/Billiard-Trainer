@@ -44,6 +44,11 @@ backend/.env
 # Large drill videos (handled via Git LFS / OTA later, not in git history)
 QiuJi/Resources/Videos/
 
+# Retired engine-rendered demo videos: 11 GB moved out of Resources/ so xcodegen
+# can never sweep them into the bundle again (v25 D-v25-1). Kept on disk, not
+# deleted (v25 red line 6). Resources/Videos/ now holds only real-person takes.
+archive/
+
 # Tutorial figures: 2.14 GiB of lossless PNG. Enter git only after HEIC
 # compression (v25 D-v25-2, batch W4) — W4 lifts this by narrowing the pattern.
 # Orphan frames never enter regardless of format (D-v25-10).
