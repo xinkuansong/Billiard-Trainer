@@ -90,6 +90,8 @@ struct BTDrillCard: View {
 struct BTDrillGridCard: View {
     let drill: DrillContent
     let isFavorited: Bool
+    /// Ever practiced (appears in any `TrainingSession` / `DrillEntry`).
+    var isCompleted: Bool = false
     var onFavoriteTap: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
@@ -98,14 +100,13 @@ struct BTDrillGridCard: View {
         DrillLevel(rawValue: drill.level) ?? .L0
     }
 
-    private var ballTypeLabel: String {
-        drill.ballType.map { type in
-            switch type {
-            case "chinese8": return "中式"
-            case "nineBall": return "9球"
-            default: return "通用"
-            }
-        }.joined(separator: "/")
+    private var tutorialKind: DrillTutorialKindHeuristic {
+        DrillTutorialKindResolver.resolve(for: drill)
+    }
+
+    /// E20: derived from shotIntent / tutorial / pocket — not category (redundant with section header).
+    private var infoSubtitle: String {
+        DrillCoverAnnotation.subtitle(for: drill)
     }
 
     var body: some View {
@@ -126,19 +127,10 @@ struct BTDrillGridCard: View {
                     .minimumScaleFactor(0.9)
                     .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
 
-                HStack(spacing: Spacing.xs) {
-                    Text(ballTypeLabel)
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-
-                    Text("·")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
-
-                    Text("推荐 \(drill.sets.defaultSets) 组")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-                }
+                Text(infoSubtitle)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(1)
             }
             .padding(.horizontal, Spacing.md)
             .padding(.vertical, Spacing.sm)
@@ -168,11 +160,11 @@ struct BTDrillGridCard: View {
             )
 
             LinearGradient(
-                colors: [.clear, .black.opacity(0.25)],
+                colors: [.clear, .black.opacity(0.35)],
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .frame(height: 32)
+            .frame(height: 36)
             .clipShape(
                 UnevenRoundedRectangle(
                     topLeadingRadius: 0,
@@ -187,7 +179,30 @@ struct BTDrillGridCard: View {
                 .padding(Spacing.sm)
         }
         .overlay(alignment: .topTrailing) {
-            cardBadge
+            VStack(alignment: .trailing, spacing: Spacing.xs) {
+                cardBadge
+                if isCompleted {
+                    completedCornerBadge
+                }
+            }
+            .padding(Spacing.sm)
+        }
+        .overlay(alignment: .bottomLeading) {
+            // E20: within-group distinctive annotation (distance / spin / shot count + pocket).
+            if let cover = DrillCoverAnnotation.coverLabel(for: drill) {
+                Text(cover)
+                    .font(.btCaption2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(.black.opacity(0.45), in: Capsule())
+                    .padding(Spacing.sm)
+                    .accessibilityLabel("动作特征 \(cover)")
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            // E19: tutorial presence + version corner badge.
+            tutorialCornerBadge
                 .padding(Spacing.sm)
         }
     }
@@ -207,6 +222,39 @@ struct BTDrillGridCard: View {
             }
         }
     }
+
+    private var completedCornerBadge: some View {
+        Image(systemName: BTIcon.completeSeal)
+            .font(.btCaption.weight(.semibold))
+            .foregroundStyle(.white)
+            .frame(width: 26, height: 26)
+            .background(Color.btSuccess.opacity(0.9))
+            .clipShape(Circle())
+            .accessibilityLabel("已完成")
+    }
+
+    @ViewBuilder
+    private var tutorialCornerBadge: some View {
+        switch tutorialKind {
+        case .none:
+            EmptyView()
+        case .modern:
+            coverMetaChip(text: "新版", accessibility: "有精讲，新版")
+        case .legacy:
+            coverMetaChip(text: "旧版", accessibility: "有精讲，旧版")
+        }
+    }
+
+    private func coverMetaChip(text: String, accessibility: String) -> some View {
+        Text(text)
+            .font(.btCaption2.weight(.heavy))
+            .foregroundStyle(.white)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, 2)
+            .background(Color.btPrimary.opacity(0.85), in: Capsule())
+            .accessibilityLabel(accessibility)
+    }
+
 }
 
 // MARK: - BTDrillThumbnail (shared mini table or fallback icon)
@@ -238,7 +286,13 @@ private let previewSample = DrillContent(
         targetBall: BallAnimation(start: CanvasPoint(x: 0.5, y: 0.43), path: [PathPoint(x: 0.5, y: 0.5268)]),
         pocket: "bottomCenter", cueDirection: CanvasPoint(x: 0.5, y: 0.0)
     ),
-    tutorial: nil
+    tutorial: DrillTutorial(sections: [
+        TutorialSection(
+            title: "技术原理",
+            content: "",
+            items: [TutorialItem(label: "要点", text: "直线")]
+        )
+    ])
 )
 
 private let previewPremium = DrillContent(
@@ -252,7 +306,12 @@ private let previewPremium = DrillContent(
         targetBall: BallAnimation(start: CanvasPoint(x: 0.7, y: 0.33), path: [PathPoint(x: 0.95, y: 0.5)]),
         pocket: "topRight", cueDirection: CanvasPoint(x: 0.7, y: 0.0)
     ),
-    tutorial: nil
+    tutorial: DrillTutorial(sections: [
+        TutorialSection(title: "动作要领", content: "legacy pure text"),
+        TutorialSection(title: "常见错误", content: "legacy"),
+        TutorialSection(title: "进阶变化", content: "legacy"),
+        TutorialSection(title: "练习建议", content: "legacy")
+    ])
 )
 
 #Preview("Row Card") {
@@ -268,8 +327,8 @@ private let previewPremium = DrillContent(
     let columns = [GridItem(.flexible(), spacing: Spacing.md), GridItem(.flexible())]
     LazyVGrid(columns: columns, spacing: Spacing.md) {
         BTDrillGridCard(drill: previewSample, isFavorited: false, onFavoriteTap: {})
-        BTDrillGridCard(drill: previewPremium, isFavorited: false)
-        BTDrillGridCard(drill: previewSample, isFavorited: true, onFavoriteTap: {})
+        BTDrillGridCard(drill: previewPremium, isFavorited: false, isCompleted: true)
+        BTDrillGridCard(drill: previewSample, isFavorited: true, isCompleted: true, onFavoriteTap: {})
     }
     .padding()
     .background(.btBG)
@@ -279,7 +338,7 @@ private let previewPremium = DrillContent(
     let columns = [GridItem(.flexible(), spacing: Spacing.md), GridItem(.flexible())]
     LazyVGrid(columns: columns, spacing: Spacing.md) {
         BTDrillGridCard(drill: previewSample, isFavorited: false, onFavoriteTap: {})
-        BTDrillGridCard(drill: previewPremium, isFavorited: false)
+        BTDrillGridCard(drill: previewPremium, isFavorited: false, isCompleted: true)
     }
     .padding()
     .background(.btBG)
