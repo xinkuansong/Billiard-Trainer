@@ -77,6 +77,12 @@ enum BatchDrillCatalog {
 
     private static let imageExts: Set<String> = ["png", "jpg", "jpeg", "heic"]
 
+    /// 已退役、不再出现在出片台的 drill（源截图目录可仍留在项目 15）。
+    /// - `drill_c019`：v21 W4 并入 `drill_c018` 后从 index 移除（D-v21-7）。
+    static let retiredDrillIds: Set<String> = [
+        "drill_c019",
+    ]
+
     /// 文件夹名 `drill_042` → App 标识 `drill_c042`（按号插入 "c"，保号宽度）。
     static func mapToDrillId(folderName: String) -> String? {
         let prefix = "drill_"
@@ -148,7 +154,8 @@ enum BatchDrillCatalog {
             var isDir: ObjCBool = false
             let full = "\(sourceRoot)/\(folder)"
             guard fm.fileExists(atPath: full, isDirectory: &isDir), isDir.boolValue,
-                  let drillId = mapToDrillId(folderName: folder) else { continue }
+                  let drillId = mapToDrillId(folderName: folder),
+                  !retiredDrillIds.contains(drillId) else { continue }
 
             let images = ((try? fm.contentsOfDirectory(atPath: full)) ?? [])
                 .filter { imageExts.contains(($0 as NSString).pathExtension.lowercased()) }
@@ -158,8 +165,9 @@ enum BatchDrillCatalog {
             imagesByDrillId[drillId] = (folder, images)
         }
 
-        // index 全量 ∪ 有截图文件夹（含未登记源目录）。
+        // index 全量 ∪ 有截图文件夹（含未登记源目录）；退役 id 一律排除。
         let allIds = Set(categoryMap.keys).union(imagesByDrillId.keys)
+            .subtracting(retiredDrillIds)
         var drills: [BatchDrill] = []
         for drillId in allIds {
             let scanned = imagesByDrillId[drillId]

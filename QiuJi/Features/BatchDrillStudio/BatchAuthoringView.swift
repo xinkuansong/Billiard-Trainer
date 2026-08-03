@@ -488,25 +488,29 @@ struct BatchAuthoringView: View {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
                 BTTrajectoryDetailChip { composer.recompute() }
                     .btChipBandPlacement(proxy)
-                    .allowsHitTesting(!composer.isPlaying)
+                    .allowsHitTesting(!sequenceBusy)
 
                 // 条 20.1/20.5 左柱：辅助线按钮（刻度轮/开球上方）+ 刻度轮（自由）+ 开球禁用态。
                 if composer.aimMode == .free {
                     BTAimWheel(onNudge: { composer.nudgeFreeAim(byDegrees: $0) })
                         .btStageFrame(proxy.aimWheelFrame())
-                        .allowsHitTesting(!composer.isPlaying)
+                        .allowsHitTesting(!sequenceBusy)
                 }
                 BTTextActionButton(title: guide.phase == .off ? "辅助线" : "清除线",
-                                   isDisabled: composer.isPlaying, width: 46) {
+                                   isDisabled: sequenceBusy, width: 46) {
                     guideButtonTapped()
                 }
                 .btStageFrame(guideButtonRect(proxy))
+
+                // 辅助线下方：两行「播放 / 序列」，预览内存录制序列。
+                playSequenceSideButton
+                    .btStageFrame(playSequenceButtonRect(proxy))
 
                 // 摆球 + 已选球：左侧竖直四向键（0.5mm 步进，点按/长按）。
                 if solver.activeTool == .arrange, arrangeFocusKey != nil {
                     ballNudgePad
                         .btStageFrame(ballNudgePadRect(proxy))
-                        .allowsHitTesting(!composer.isPlaying)
+                        .allowsHitTesting(!sequenceBusy)
                 }
 
                 // D14：无开球页不显示禁用开球占位（辅助线仍锚定原 break 几何位）。
@@ -514,7 +518,7 @@ struct BatchAuthoringView: View {
                 // 右柱：点换（仪表柱上方）+ 打点/力度柱 + 击球/上一杆/回放列。
                 BTTextActionButton(title: "点换",
                                    role: swapMode ? .primary : .plain,
-                                   isDisabled: composer.isPlaying, width: 46) {
+                                   isDisabled: sequenceBusy, width: 46) {
                     toggleSwapMode()
                 }
                 .btStageFrame(swapButtonRect(proxy))
@@ -524,17 +528,17 @@ struct BatchAuthoringView: View {
                     onSpinTap: { showSpinPad = true },
                     velocity: $composer.velocity,
                     range: ShotTuning.velocityRange,
-                    isDisabled: composer.isPlaying
+                    isDisabled: sequenceBusy
                 )
                 .btStageFrame(proxy.instrumentFrame())
 
                 BTShotActionColumn(
-                    strikeTitle: composer.isPlaying ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
+                    strikeTitle: sequenceBusy ? BTStrikeTitle.freePlayBusy : BTStrikeTitle.freePlay,
                     strikeEnabled: strikeEnabled,
                     onStrike: { strike() },
-                    undoEnabled: !composer.isPlaying && composer.canReplay,
+                    undoEnabled: !sequenceBusy && composer.canReplay,
                     onUndo: { composer.replayCurrent() },
-                    playbackEnabled: !composer.isPlaying && composer.canPlayback,
+                    playbackEnabled: !sequenceBusy && composer.canPlayback,
                     onPlayback: { composer.replayLastShot() }
                 )
                 .btStageFrame(proxy.actionColumnFrame())
@@ -552,27 +556,74 @@ struct BatchAuthoringView: View {
         }
     }
 
-    /// 辅助线按钮：贴左缘、位于刻度轮（自由模式）或开球按钮上方 8pt。
+    /// 左柱侧钮统一宽（与辅助线 / 点换一致）。
+    private static let sideButtonWidth: CGFloat = 46
+    private static let guideButtonHeight: CGFloat = 30
+    private static let playSequenceButtonHeight: CGFloat = 44
+    private static let sideButtonStackGap: CGFloat = 6
+
+    /// 辅助线按钮：贴左缘；其下紧接「播放序列」，整组底边距刻度轮/开球槽 8pt。
     private func guideButtonRect(_ proxy: ShotStageProxy) -> CGRect {
-        let above = composer.aimMode == .free
-            ? proxy.aimWheelFrame().minY : proxy.breakButtonFrame().minY
-        return CGRect(x: proxy.tableRect.minX - 46, y: above - 8 - 30, width: 46, height: 30)
+        let stack = leftGuideStackRect(proxy)
+        return CGRect(x: stack.minX, y: stack.minY,
+                      width: Self.sideButtonWidth, height: Self.guideButtonHeight)
     }
 
-    /// 摆球精调四键：贴左缘、台面竖向居中（避让辅助线钮）。
+    /// 「播放序列」：辅助线正下方，两行字高度 44。
+    private func playSequenceButtonRect(_ proxy: ShotStageProxy) -> CGRect {
+        let stack = leftGuideStackRect(proxy)
+        let y = stack.minY + Self.guideButtonHeight + Self.sideButtonStackGap
+        return CGRect(x: stack.minX, y: y,
+                      width: Self.sideButtonWidth, height: Self.playSequenceButtonHeight)
+    }
+
+    /// 辅助线 + 播放序列竖叠：底边 = 刻度轮（自由）或开球槽上方 8pt。
+    private func leftGuideStackRect(_ proxy: ShotStageProxy) -> CGRect {
+        let above = composer.aimMode == .free
+            ? proxy.aimWheelFrame().minY : proxy.breakButtonFrame().minY
+        let h = Self.guideButtonHeight + Self.sideButtonStackGap + Self.playSequenceButtonHeight
+        let y = above - 8 - h
+        return CGRect(x: proxy.tableRect.minX - Self.sideButtonWidth, y: y,
+                      width: Self.sideButtonWidth, height: h)
+    }
+
+    /// 摆球精调四键：贴左缘、台面竖向居中（避让辅助线+播放序列叠组）。
     private func ballNudgePadRect(_ proxy: ShotStageProxy) -> CGRect {
         let w: CGFloat = 40
         let gap: CGFloat = 6
         let h: CGFloat = 40 * 4 + gap * 3
         let x = proxy.tableRect.minX - w
-        let guide = guideButtonRect(proxy)
+        let stack = leftGuideStackRect(proxy)
         var y = proxy.tableRect.midY - h / 2
-        // 若与辅助线重叠则上移到其上方。
-        if y + h > guide.minY - 4 {
-            y = guide.minY - 4 - h
+        // 若与左柱叠组重叠则上移到其上方。
+        if y + h > stack.minY - 4 {
+            y = stack.minY - 4 - h
         }
         y = max(proxy.tableRect.minY, y)
         return CGRect(x: x, y: y, width: w, height: h)
+    }
+
+    /// 两行字侧钮（宽 46，与 `BTTextActionButton` 同族样式）。
+    private var playSequenceSideButton: some View {
+        let disabled = sequenceBusy || composer.stepCount < 1
+        return Button {
+            composer.previewPlayRecordedSequence()
+        } label: {
+            VStack(spacing: 1) {
+                Text("播放")
+                Text("序列")
+            }
+            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.85))
+            .multilineTextAlignment(.center)
+            .frame(width: Self.sideButtonWidth, height: Self.playSequenceButtonHeight)
+            .background(.white.opacity(0.12), in: Capsule())
+            .overlay(Capsule().strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+        }
+        .buttonStyle(BTPressableStyle.capsule)
+        .disabled(disabled)
+        .opacity(disabled ? 0.42 : 1)
+        .accessibilityLabel("播放当前录制序列")
     }
 
     private var ballNudgePad: some View {
@@ -672,6 +723,7 @@ struct BatchAuthoringView: View {
     }
 
     /// 保存/序列操作横排（条 20.2）：杆数 + 回上一杆球形 + 两个保存去向。
+    /// 「播放序列」在左柱辅助线下方（两行字侧钮），不占底栏。
     private var saveRow: some View {
         HStack(spacing: 8) {
             Text("\(composer.stepCount) 杆")
@@ -686,7 +738,7 @@ struct BatchAuthoringView: View {
                            tint: .white.opacity(0.14))
             }
             .buttonStyle(BTPressableStyle.capsule)
-            .disabled(composer.isPlaying || !composer.canReplay)
+            .disabled(sequenceBusy || !composer.canReplay)
 
             Spacer(minLength: 0)
 
@@ -695,16 +747,21 @@ struct BatchAuthoringView: View {
                            tint: .white.opacity(0.16))
             }
             .buttonStyle(BTPressableStyle.capsule)
-            .disabled(composer.isPlaying)
+            .disabled(sequenceBusy)
 
             Button { requestSave(mode: .nextDrill) } label: {
                 actionPill(title: "保存·下个drill", system: "arrow.right.circle", tint: Color.btAccent)
             }
             .buttonStyle(BTPressableStyle.capsule)
-            .disabled(composer.isPlaying)
+            .disabled(sequenceBusy)
         }
         .padding(.horizontal, Spacing.sm)
         .padding(.top, 5)
+    }
+
+    /// 单杆回放中，或整段序列预览中（含杆间停顿）——禁止序列级操作。
+    private var sequenceBusy: Bool {
+        composer.isPlaying || composer.isSequencePlaying
     }
 
     private func actionPill(title: String, system: String, tint: Color) -> some View {
@@ -720,7 +777,7 @@ struct BatchAuthoringView: View {
     }
 
     private var strikeEnabled: Bool {
-        !composer.isPlaying && !composer.isComputing && composer.isFeasible
+        !sequenceBusy && !composer.isComputing && composer.isFeasible
     }
 
     // MARK: - 点换（条 20.3）

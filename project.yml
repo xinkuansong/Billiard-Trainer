@@ -49,6 +49,7 @@ targets:
           - "Resources/DrillTutorials/**"
           - "Resources/DrillBoards/**"
           - "Resources/Audio/**"
+          - "Resources/Previews/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
       - path: QiuJi/Resources/Drills
         type: folder
@@ -60,13 +61,23 @@ targets:
       - path: QiuJi/Resources/Plans
         type: folder
         buildPhase: resources
-      - path: QiuJi/Resources/Videos
-        type: folder
-        buildPhase: resources
+      # ⚠️ 示范视频（Resources/Videos，约 11G）暂不打包：会让模拟器安装/启动
+      # 超时。缺文件时 DrillContentService.videoURL 返回 nil，详情页降级为
+      # 「视频示范即将上线」占位，功能不受影响。
+      # 需要真机验证视频功能时取消下面三行注释并重跑 `make xcodegen`。
+      # - path: QiuJi/Resources/Videos
+      #   type: folder
+      #   buildPhase: resources
       - path: QiuJi/Resources/DrillThumbnails
         type: folder
         buildPhase: resources
       - path: QiuJi/Resources/DrillTutorials
+        type: folder
+        buildPhase: resources
+      # 逐帧预览（BTDrillPreviewPlayer 按 `Previews/<drillId>/frame_NN.png` 解析）：
+      # 必须是 folder reference，否则 988 张同名 frame_NN.png 会平铺到包根
+      # 并触发 duplicate output file 构建失败。
+      - path: QiuJi/Resources/Previews
         type: folder
         buildPhase: resources
       # 试打球形序列（make tryout-sync 从 content/position_play/sequences/ 同步，

@@ -18,6 +18,7 @@
 
 ## 当前状态
 
+- **批量出片台隐藏退役 drill ✅（2026-08-02）**：`BatchDrillCatalog.retiredDrillIds` 排除 `drill_c019`（v21 并入 c018；源目录可仍留项目 15）。列表不再出现无 `nameZh` 的空壳行。
 - **动作库引擎媒体全量出片回填 ✅（2026-08-01，本地预览）**：静帧 **1440**、2D/3D 视频 **1080×2040**、**不出 4K / 不出单杆 mp4**（保留 `initial`/`sNN_still`/`final`）；`make position-export` **76/76** 可渲序列；`import-engine-export-to-app.py --prune` 回填 **60** drill（Videos≈11G + Tutorials≈2.1G），旧 `take_*` 在已回填 drill 上清除；`make tryout-sync` + `make build` SUCCEEDED。17 条无引擎片（多为 0 杆空序列或无序列）。**下一步：模拟器翻详情页看 2D/3D；其余 0 杆球形需补录后再出片；正式分发仍走 OTA。**
 - **打点盘全宽贴库边 ✅（2026-07-31 / 08-01，DR-042）**：宽=`playingRect.width`、底=`spinPadBottomPadding`（贴击球区内框下沿）；白盘封顶 168；stage 拦截关闭；9 处接线。证据 build + layout/spin 单测绿。**下一步：模拟器点验下沿对齐；或翻袋备选/v24 点验 / H-22。**
 - **直击失败翻袋备选 ✅（2026-07-30，DR-041）**：`DirectPotBankFallback` 复用 `BankKickSolvePipeline.solveBank`；仅直击几何失败时触发；编排台 / 自由击球 / 思路 / 打三；文案「翻袋备选」+ 多解下一解。证据：`make build` SUCCEEDED；`DirectPotBankFallbackTests` **6/0**（`build/direct-pot-bank-fallback-test.log`）。SPEC §8.9 i。**下一步：模拟器点验四处页切角过大时出翻袋备选；或 v24/v23 点验 / H-22。**

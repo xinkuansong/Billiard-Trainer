@@ -408,13 +408,13 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Drag
 
     func dragBegan(node: SCNNode) {
-        guard !isPlaying else { return }
+        guard !isPlaying, !isSequenceMode else { return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
     }
 
     func dragMoved(node: SCNNode, worldPosition: SCNVector3) {
-        guard !isPlaying else { return }
+        guard !isPlaying, !isSequenceMode else { return }
         let clamped = clampMultiBall(worldPosition, movingNode: node)
         node.position = clamped
         refreshSelectionRing()   // 即时跟随（选中环无防抖，避免滞后）
@@ -422,7 +422,7 @@ final class PositionPlayViewModel: ObservableObject {
     }
 
     func dragEnded(node: SCNNode) {
-        guard !isPlaying else { return }
+        guard !isPlaying, !isSequenceMode else { return }
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.0 / 1.15, duration: 0.15))
         recompute(interactive: true)   // G14：拖球结束后按 idle 0.5s（无新输入）触发求解
@@ -434,7 +434,7 @@ final class PositionPlayViewModel: ObservableObject {
     func nudgeBall(key: String,
                    direction: BallNudgeDirection,
                    stepMeters: Float = BallNudgeMath.fineStepMeters) -> Bool {
-        guard !isPlaying, onTableKeys.contains(key),
+        guard !isPlaying, !isSequenceMode, onTableKeys.contains(key),
               let node = scene.allBallNodes[key], !node.isHidden else { return false }
         let d = BallNudgeMath.delta(for: direction, stepMeters: stepMeters)
         let target = SCNVector3(node.position.x + d.dx, node.position.y, node.position.z + d.dz)
@@ -1074,7 +1074,7 @@ final class PositionPlayViewModel: ObservableObject {
     // MARK: - Strike (#10 运杆 + 击球)
 
     func play() {
-        guard !isPlaying, !isComputing,
+        guard !isPlaying, !isSequenceMode, !isComputing,
               let solved = solvedShot, solved.prediction.feasible,
               let recorder = solved.prediction.recorder, solved.prediction.duration > 0.05,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
@@ -1543,9 +1543,47 @@ final class PositionPlayViewModel: ObservableObject {
     private var sequenceSteps: [SequenceStep] = []
     /// 杆间停顿（秒）。
     private static let sequenceInterShotPause: TimeInterval = 0.7
+    /// 批量出片台「播放序列」：播完后恢复的编辑盘面与击打参数（非 nil = 预览中）。
+    private var recordedSequencePreviewRestore: RecordedSequencePreviewRestore?
+
+    /// 录制序列预览收尾态（盘面 + 击打参数；不改 `sequence.steps`）。
+    private struct RecordedSequencePreviewRestore {
+        let board: BoardSnapshot
+        let aimMode: AimMode
+        let velocity: Double
+        let spinX: Double
+        let spinY: Double
+        let selectedTargetKey: String?
+        let selectedPocketIndex: Int
+        let freeAimDir: SCNVector3?
+    }
 
     /// 该 drill 是否具备可逐杆播放的序列（≥1 杆）。
     var hasSequence: Bool { !sequenceSteps.isEmpty }
+
+    /// 批量出片台：预览播放内存录制序列（≥1 杆）。播完自动恢复编辑盘面与参数，不改录制内容。
+    func previewPlayRecordedSequence() {
+        guard !isPlaying, !isSequencePlaying, !isSequenceMode,
+              !sequence.steps.isEmpty else { return }
+        recordedSequencePreviewRestore = RecordedSequencePreviewRestore(
+            board: currentSnapshot(),
+            aimMode: aimMode,
+            velocity: velocity,
+            spinX: spinX,
+            spinY: spinY,
+            selectedTargetKey: selectedTargetKey,
+            selectedPocketIndex: selectedPocketIndex,
+            freeAimDir: freeAimDir
+        )
+        invalidatePendingPredict()
+        configureSequence(sequence.steps)
+        isSequenceMode = true
+        isSequencePlaying = true
+        sequenceFinished = false
+        sequenceStepIndex = 0
+        statusText = "序列预览 · 第 1/\(sequence.steps.count) 杆"
+        runSequenceStep(0)
+    }
 
     /// 注入试打序列（View onAppear 调用一次）。
     func configureSequence(_ steps: [SequenceStep]) {
@@ -1652,6 +1690,9 @@ final class PositionPlayViewModel: ObservableObject {
         }
 
         // C7：预告线 + 杆同现 → 静止瞄准定格 0.3～0.5s → 直接运杆（出杆前不 hide）。
+        // 须先写入本杆 solvedShot：`drawTrajectory` 用 `solvedShot.shot.targetKey` 取进球线球色；
+        // 不更新会沿用上一杆/编辑态目标键，颜色与当前目标球不一致。
+        solvedShot = SolvedShot(before: step.before, shot: step.shot, prediction: pred)
         apply(pred)
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
         lastAimDirection = aim
@@ -1765,7 +1806,35 @@ final class PositionPlayViewModel: ObservableObject {
         isPlaying = false
         sequenceFinished = true
         scene.hideCueStick()
+        if let restore = recordedSequencePreviewRestore {
+            recordedSequencePreviewRestore = nil
+            let shotCount = sequence.steps.count
+            // 须先退出序列模式，否则 applyBoard → recompute 会被挡。
+            isSequenceMode = false
+            sequenceFinished = false
+            clearTrajectory()
+            restoreEditingState(restore)
+            applyBoard(restore.board, cuePose: .unchanged)
+            updatePocketHighlights()
+            statusText = "序列预览完成 · \(shotCount) 杆"
+            return
+        }
         statusText = "序列演示完成 · 点「重摆球形」再看一遍"
+    }
+
+    /// 预览收尾：写回播放前的瞄准/力度/打点（中间可能多求一次；由随后 `applyBoard` 以正确盘面收口）。
+    private func restoreEditingState(_ restore: RecordedSequencePreviewRestore) {
+        velocity = restore.velocity
+        spinX = restore.spinX
+        spinY = restore.spinY
+        if restore.aimMode == .free {
+            freeAimDir = restore.freeAimDir
+            aimMode = .free
+        } else {
+            selectedTargetKey = restore.selectedTargetKey
+            selectedPocketIndex = restore.selectedPocketIndex
+            aimMode = .pocket
+        }
     }
 
     /// 序列模式副标题：第 n/N 杆 · 打 X 号 → 袋口 · 打点 · 力度。
