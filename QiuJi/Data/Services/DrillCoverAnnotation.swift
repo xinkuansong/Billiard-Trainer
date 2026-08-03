@@ -19,18 +19,6 @@ enum DrillCoverAnnotation {
         return tokens.prefix(2).joined(separator: "·")
     }
 
-    /// Subtitle under the title — pocket kept; category removed (redundant with section header).
-    static func subtitle(for drill: DrillContent) -> String {
-        let tokens = distinctiveTokens(for: drill)
-        if tokens.count >= 2 {
-            return tokens.prefix(2).joined(separator: " · ")
-        }
-        if let only = tokens.first {
-            return only
-        }
-        return pocketShortLabel(pocketID(for: drill)) ?? "—"
-    }
-
     // MARK: - Token derivation
 
     private static func distinctiveTokens(for drill: DrillContent) -> [String] {

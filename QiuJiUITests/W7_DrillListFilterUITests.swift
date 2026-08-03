@@ -27,14 +27,14 @@ final class W7_DrillListFilterUITests: XCTestCase {
         app.switchTab(.drillLibrary)
         sleep(3)
 
-        // R1: default fundamentals group — cover labels must differ across cards.
-        snap("w7r2-s1-default")
+        // R4: default state — cover labels only (no duplicate subtitle under title).
+        snap("w7r3-s1-default")
 
         let levelBeginner = app.descendants(matching: .any)["levelFilter_入门"]
         XCTAssertTrue(levelBeginner.waitForExistence(timeout: 5), "E18 level chip 入门 should exist")
         levelBeginner.tap()
         sleep(1)
-        snap("w7r2-s2-level-beginner")
+        snap("w7r3-s2-level-beginner")
 
         // Combined: 中式台球 × 准度训练 × 入门 × 新版精讲 (via filter Menu)
         let chinese = app.descendants(matching: .any)["ballType_中式台球"]
@@ -49,7 +49,7 @@ final class W7_DrillListFilterUITests: XCTestCase {
         XCTAssertTrue(menu.waitForExistence(timeout: 3), "R2 badge filter menu should exist")
         menu.tap()
         sleep(1)
-        snap("w7r2-s5-badge-menu")
+        snap("w7r3-s5-badge-menu")
 
         let modern = app.buttons["新版精讲"].firstMatch
         if modern.waitForExistence(timeout: 3) {
@@ -58,7 +58,7 @@ final class W7_DrillListFilterUITests: XCTestCase {
             app.menuItems["新版精讲"].tap()
         }
         sleep(1)
-        snap("w7r2-s3-combined-filters")
+        snap("w7r3-s3-combined-filters")
 
         let search = app.textFields["搜索动作"]
         XCTAssertTrue(search.waitForExistence(timeout: 3))
@@ -72,7 +72,7 @@ final class W7_DrillListFilterUITests: XCTestCase {
         )
         app.staticTexts["动作库"].firstMatch.tap()
         sleep(1)
-        snap("w7r2-s4-empty")
+        snap("w7r3-s4-empty")
     }
 
     func testW7_AngleHomeNoRegression() {
@@ -83,7 +83,7 @@ final class W7_DrillListFilterUITests: XCTestCase {
                 || app.staticTexts["练习"].waitForExistence(timeout: 3),
             "Angle/Practice home should load"
         )
-        snap("w7r2-s6-angle-home")
+        snap("w7r3-s6-angle-home")
     }
 
     private func snap(_ name: String) {

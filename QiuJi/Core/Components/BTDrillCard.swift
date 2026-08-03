@@ -104,11 +104,6 @@ struct BTDrillGridCard: View {
         DrillTutorialKindResolver.resolve(for: drill)
     }
 
-    /// E20: derived from shotIntent / tutorial / pocket — not category (redundant with section header).
-    private var infoSubtitle: String {
-        DrillCoverAnnotation.subtitle(for: drill)
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Color.clear
@@ -119,21 +114,16 @@ struct BTDrillGridCard: View {
                 }
                 .clipped()
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(drill.nameZh)
-                    .font(.btHeadline)
-                    .foregroundStyle(drill.isPremium ? .btTextTertiary : .btText)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.9)
-                    .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
-
-                Text(infoSubtitle)
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
+            // R4: title only — cover annotation already carries distance/pocket/spin;
+            // repeating it as a subtitle added height without information.
+            Text(drill.nameZh)
+                .font(.btHeadline)
+                .foregroundStyle(drill.isPremium ? .btTextTertiary : .btText)
+                .lineLimit(2)
+                .minimumScaleFactor(0.9)
+                .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
+                .padding(.horizontal, Spacing.md)
+                .padding(.vertical, Spacing.sm)
         }
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))

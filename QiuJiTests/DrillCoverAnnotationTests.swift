@@ -34,11 +34,11 @@ final class DrillCoverAnnotationTests: XCTestCase {
         XCTAssertTrue(label.hasPrefix("4杆"), "c010 tutorial has four 第N杆 sections, got \(label)")
     }
 
-    func test_subtitle_doesNotRepeatCategoryName() async throws {
+    func test_coverLabel_doesNotUseCategoryName() async throws {
         let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c006")
         let drill = try XCTUnwrap(loaded)
-        let subtitle = DrillCoverAnnotation.subtitle(for: drill)
-        XCTAssertFalse(subtitle.contains("基础"), "Category must not appear in subtitle: \(subtitle)")
-        XCTAssertTrue(subtitle.contains("下中袋") || subtitle.contains("台"), subtitle)
+        let label = try XCTUnwrap(DrillCoverAnnotation.coverLabel(for: drill))
+        XCTAssertFalse(label.contains("基础"), "Category must not appear on cover: \(label)")
+        XCTAssertTrue(label.contains("下中袋") || label.contains("台"), label)
     }
 }
