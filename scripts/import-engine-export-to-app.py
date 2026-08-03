@@ -17,6 +17,10 @@ import-engine-export-to-app.py — 引擎出片产物回填进 App Bundle（本�
   - 单序列 drill：full.mp4 / full_3d.mp4 / full.gif
   - 多序列 drill：以 `__` 后、`-` 前的 token 为前缀
       例 drill_c077__A3-… → A3_full.mp4 / A3_full_3d.mp4
+  - 静帧：引擎出片 `sNN_still.png` → 落位 `<drillId>_sNN.png`（去掉 `_still`，
+    与 content-engineering SKILL / JSON `image` 约定一致，D-v25-6）
+  - `manual01` 默认别名：token 为 `manual01` 时，额外写入无 token 前缀的副本
+    （`<drillId>_initial.png` / `<drillId>_sNN.png`），供 JSON 未写 manual 前缀时使用
   - seq_* 目录默认跳过（除非 --include-seq）；c042 历史 demo 用 drill 序列，不靠 seq_f4ded688
 
 用法：
@@ -33,6 +37,9 @@ import shutil
 import sys
 from collections import defaultdict
 from pathlib import Path
+
+STILL_STEP_RE = re.compile(r"^(s\d{2})_still$")
+MANUAL01_TOKEN = "manual01"
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPORT_ROOT = REPO_ROOT / "build" / "position_play_export"
@@ -84,6 +91,21 @@ def copy_file(src: Path, dst: Path, dry_run: bool) -> None:
     shutil.copy2(src, dst)
 
 
+def still_dest_stem(src_stem: str) -> str:
+    """Map export still stem → DrillTutorials stem (strip `_still`, idempotent).
+
+    Engine writes `s01_still.png`; JSON / SKILL expect `…_s01.png`.
+    Already-stripped stems (`s01`, `initial`, `final`) pass through unchanged.
+    """
+    m = STILL_STEP_RE.fullmatch(src_stem)
+    if m:
+        return m.group(1)
+    if src_stem.endswith("_still"):
+        # defensive: any other `*_still` → strip once
+        return src_stem[: -len("_still")]
+    return src_stem
+
+
 def import_one(
     export_dir: Path,
     drill_id: str,
@@ -110,16 +132,22 @@ def import_one(
         if vid_id:
             video_entries.append({"id": vid_id, "file": dst_name})
 
-    # Stills → DrillTutorials
+    # Stills → DrillTutorials（去掉 sNN_still 的 `_still`；与 JSON image 约定对齐）
     still_prefix = f"{drill_id}_{token}_" if multi else f"{drill_id}_"
+    write_manual01_alias = token == MANUAL01_TOKEN
     for src in sorted(export_dir.glob("*.png")):
         if src.name in {"cover.png"}:
             continue
         if src.name.startswith("preview"):
             continue
-        # initial / final / sNN_still
-        stem = src.stem  # initial, s01_still, final
-        copy_file(src, TUTORIALS_ROOT / f"{still_prefix}{stem}.png", dry_run)
+        dest_stem = still_dest_stem(src.stem)  # initial / s01 / final
+        primary = TUTORIALS_ROOT / f"{still_prefix}{dest_stem}.png"
+        copy_file(src, primary, dry_run)
+        # 默认取 manual01：JSON 未写 manual 前缀时指向无 token 文件名
+        if write_manual01_alias:
+            alias = TUTORIALS_ROOT / f"{drill_id}_{dest_stem}.png"
+            if alias != primary:
+                copy_file(src, alias, dry_run)
 
     # Preview frames
     preview_src = export_dir / "preview"
