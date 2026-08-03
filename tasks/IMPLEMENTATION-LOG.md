@@ -89,10 +89,11 @@
   2. 封面 glyph：`BTPlanCover` 内联 `system(size: 96, weight: .black, design: .rounded)` + 白 0.16；`AngleGridCard` 用 `btCoverWatermark` 56pt + 白 0.22。
   3. 动作库网格台面有 36pt 底渐变压暗；`BTDrillThumbnail` 64×64 仅 Dark 描边、无暗角。
 - **调整后**：
-  1. 合并为 `CoverPalette`（`typealias AngleCoverPalette = CoverPalette`）：学=绿 / 练=金琥珀 / 打=蓝青 / 解=石墨，区内仅明度阶梯；`PlanStyle.forLevel` 与分区色共用同一文件与饱和度约束；仍 Light/Dark 共用 RGB（不发明 Dark 变体）。
-  2. `CoverPalette.Glyph`：opacity=0.20、`gridAbsoluteSize`/`planListAbsoluteSize`、`sizeRatio`；Typography 增 `btCoverWatermark(size:)`；`BTPlanCover` 改用该 token，删除内联 `system(size: 96)`。
-  3. `BTThumbnailFrame` + `.btThumbnailFrame(...)`：描边/暗角/圆角三件套；网格卡与行卡缩略图同规范（网格描边仍在外卡）。
-- **原因**：三 Tab 封面色彩情绪割裂；glyph/相框规范分叉。
+  1. 合并为 `CoverPalette`（`typealias AngleCoverPalette = CoverPalette`）：学=绿 / 练=金琥珀 / 打=蓝青 / 解=石墨；`PlanStyle.forLevel` 同文件；Light/Dark 共用 RGB。
+  2. `CoverPalette.Glyph` + `btCoverWatermark(size:)`；`BTPlanCover` 删内联 `system(size: 96)`。
+  3. `BTThumbnailFrame`：网格卡与行卡同款相框。
+  4. **返工（主控验收标准 4 未过）**：区内阶梯改为每区独立 `ZoneLadder`（练区 B 地板防泥褐；解区起点压暗）；水印 Constraint A = sRGB `|ΔL|≥0.14`，`Glyph.color(against:)` 在白/深 token 间选择；白 opacity 0.20→0.26。单测 `CoverPaletteContrastTests`。
+- **原因**：三 Tab 封面色彩情绪割裂；glyph/相框规范分叉；共用明度公式使暖金变褐、石墨首档过浅。
 - **影响组件**：`CoverPalette`、`BTPlanCover`、`AngleGridCard`、`Typography`、`BTThumbnailFrame`、`BTDrillGridCard`、`BTDrillThumbnail`
 - **日期**：2026-08-04
 - **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §1.4/§2.3/Changelog + `.cursor/skills/swiftui-design-system/SKILL.md`

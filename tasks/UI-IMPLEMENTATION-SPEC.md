@@ -251,10 +251,13 @@ struct BTLevelBadge: View {
 
 | Glyph Token | 值 |
 |-------------|-----|
-| 透明度 | `CoverPalette.Glyph.opacity` = 0.20（Light/Dark 同） |
+| 白水印透明度 | `CoverPalette.Glyph.opacity` = 0.30（Light/Dark 同） |
+| 深色水印 | `darkColor` + `darkOpacity` 0.34；当白水印 `|ΔL| < minLuminanceDelta(0.14)` 时由 `Glyph.color(against:)` 自动选用 |
+| 可辨口径 | sRGB 相对亮度 \|ΔL\| ≥ 0.14（白：`opacity·(1−L)`；深：`darkOpacity·L`） |
 | 练习网格字号 | `btCoverWatermark` = 56pt black rounded |
 | 训练列表默认字号 | `CoverPalette.Glyph.planListAbsoluteSize` = 96 → `btCoverWatermark(size:)` |
 | 相对比例（文档） | `sizeRatio` = 0.48（相对封面短边） |
+| 分区阶梯 | **每区独立** `ZoneLadder`（B/S 起终点）；练区 topB 地板 ≥0.62 防泥褐；解区 topB 起点 ≤0.36 |
 
 | 相框 Token | 值 |
 |------------|-----|

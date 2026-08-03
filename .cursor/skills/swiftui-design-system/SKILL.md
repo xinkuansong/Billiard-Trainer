@@ -369,7 +369,8 @@ struct BTFilterChip: View {
 // 分区色：学绿 / 练金 / 打蓝青 / 解石墨；区内仅明度阶梯；明暗同 RGB
 CoverPalette.aimingPrinciple  // Pair(top:bottom:)
 CoverPalette.PlanStyle.forLevel("L1")
-CoverPalette.Glyph.opacity            // 0.20
+CoverPalette.Glyph.opacity            // 0.30 白水印
+CoverPalette.Glyph.color(against:)    // Constraint A：|ΔL|≥0.14 选白/深
 Font.btCoverWatermark                 // 56pt
 Font.btCoverWatermark(size: 96)       // 训练海报
 
@@ -382,7 +383,8 @@ view.btThumbnailFrame(
 ```
 
 - `typealias AngleCoverPalette = CoverPalette`（旧调用方无需改名）
-- 禁止为封面色板发明 Dark 专用变体
+- 分区阶梯用每区 `ZoneLadder`（练区防泥褐 B 地板；解区起点压暗）
+- 禁止为封面色板发明 Dark 专用变体；禁止按卡硬写 RGB 绕过阶梯
 
 ---
 
