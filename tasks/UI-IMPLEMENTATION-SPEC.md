@@ -91,7 +91,8 @@
 | `btDisplay` | 44pt | Bold | Rounded | 单屏唯一核心指标数字（训练总结成功率等）|
 | `btDisplaySmall` | 30pt | Bold | Rounded | 详情页 Hero 标题、卡片中等数字徽章 |
 | `btLargeTitle` | 32pt | Bold | Rounded | Tab 根页面标题（训练 / 动作库 / 角度 / 记录 / 我的）|
-| `btCoverWatermark` | 56pt | Black | Rounded | 练习首页封面大字水印（v7 C20）|
+| `btCoverWatermark` | 56pt（=`CoverPalette.Glyph.gridAbsoluteSize`） | Black | Rounded | 练习首页封面大字水印（v7 C20 / v27 W2 DR-044）|
+| `btCoverWatermark(size:)` | 动态 | Black | Rounded | 训练海报/Hero 可缩放水印（取代内联 `system(size:96)`）|
 | `btHeroSymbol` | 32pt | Regular | Default | Hero SF Symbol（不强制 bold；v7 C21 `BTDailyLimitGate` 皇冠）|
 | `btChapterNumber` | 26pt | Bold | Rounded | 章节序号（「第 N 周」「第 N 期」）|
 | `btTitle` | 20pt | Bold | Rounded | Section 大标题 |
@@ -126,7 +127,7 @@
 - **核心展示数字** → `btDisplay` / `btDisplaySmall`
 - **章节序号** → `btChapterNumber`
 - **极小徽章/Timeline** → `btCaption2` / `btMicro`
-- **练习首页封面水印** → `btCoverWatermark`
+- **练习首页封面水印** → `btCoverWatermark`；训练海报 → `btCoverWatermark(size:)`（透明度统一 `CoverPalette.Glyph.opacity` = 0.20）
 
 #### 红线（v7 D6 · 2026-07-16）
 
@@ -232,6 +233,36 @@ struct BTLevelBadge: View {
     var onDarkSurface: Bool = false
 }
 ```
+
+### 2.3c CoverPalette + BTThumbnailFrame — 封面色板与缩略图相框（DR-044）
+
+**文件路径**：
+- `QiuJi/Core/DesignSystem/CoverPalette.swift`（`typealias AngleCoverPalette = CoverPalette`）
+- `QiuJi/Core/DesignSystem/BTThumbnailFrame.swift`
+- 消费方：`BTPlanCover`、`AngleGridCard`、`BTDrillGridCard` / `BTDrillThumbnail`
+
+| 分区 | 主色系 | 区内变化 |
+|------|--------|----------|
+| 学 | 品牌绿（Hue≈145°，对齐 btPrimary） | 仅明度阶梯 |
+| 练 | 金/琥珀（Hue≈38°，对齐 btAccent） | 仅明度阶梯 |
+| 打 | 蓝青（Hue≈205°） | 仅明度阶梯 |
+| 解 | 石墨/冷灰（低饱和） | 仅明度阶梯 |
+| 训练计划 6 档 | 复用上述分区色对 + 同一饱和度预算 | `CoverPalette.PlanStyle.forLevel` |
+
+| Glyph Token | 值 |
+|-------------|-----|
+| 透明度 | `CoverPalette.Glyph.opacity` = 0.20（Light/Dark 同） |
+| 练习网格字号 | `btCoverWatermark` = 56pt black rounded |
+| 训练列表默认字号 | `CoverPalette.Glyph.planListAbsoluteSize` = 96 → `btCoverWatermark(size:)` |
+| 相对比例（文档） | `sizeRatio` = 0.48（相对封面短边） |
+
+| 相框 Token | 值 |
+|------------|-----|
+| 暗角 | 底→上渐变黑 `vignetteOpacity` 0.35；高 = min(36, height×0.28) |
+| 描边 | Dark 0.5pt `btSeparator`（行卡开；网格开在外卡） |
+| 圆角 | 网格台面顶 `BTRadius.md`；行卡 `BTRadius.sm` |
+
+⚠️ 封面色板 **不发明 Dark 专用变体**（与 v7 C20 契约一致）。
 
 ### 2.4b BTFilterChip — 筛选胶囊（DR-043）
 
@@ -1014,6 +1045,7 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-08-04 | **问题集合 v27 W2 封面色板分区收敛**（DR-044）：`CoverPalette` 合并练习 24 色对 + 训练 `PlanStyle`（学绿/练金/打蓝青/解石墨，区内明度阶梯；明暗同 RGB）；`btCoverWatermark(size:)` + `Glyph.opacity`；`BTThumbnailFrame` 统一网格/行卡相框 | 重构/DR | CoverPalette, BTPlanCover, AngleGridCard, Typography, BTThumbnailFrame, BTDrillCard | DR-044 / v27 W2 |
 | 2026-08-04 | **问题集合 v27 W1 浅色组件收口**（DR-043）：新增 `BTFilterChip`（训练 chip 为基准，三处切换）；`BTButtonStyle.goldFilled` 收编详情页私有金色钮；`BTLevelBadge(onDarkSurface:)` 覆层变体 + 网格卡换用；formationPickerSheet token 化（保留 dark scheme） | 新增/DR | BTFilterChip, BTButton, BTLevelBadge, BTDrillGridCard, TrainingHomeView, DrillListView, DrillDetailView | DR-043 / v27 W1 |
 | 2026-07-30 | **直击失败翻袋备选（DR-041）**：`DirectPotBankFallback` 复用 `BankKickSolvePipeline.solveBank`；仅 `feasible==false` / 直击几何不可行时触发；编排台·自由击球·思路·打三；文案「翻袋备选」+ 多解下一解；§8.9 **i** | DR | DirectPotBankFallback, PositionPlay/Silu/PlanThree VM, FreePlay/Composer View, SPEC §8.9 | 用户：角度过大加翻袋 |
 | 2026-07-29 | **动作库缩略图显示槽 + 列表大球（DR-040 / v24）**：网格卡/骨架封面 **4:3→2:1**（与烘焙同比，`.fill` 不裁左右库）；`Options.thumbnail.ballScale=1.8` 重烘 77；详情 live `detail.ballScale=1.0` 不动、不双套 PNG；方槽行卡维持 fill（D-v24-1=C）；`BTBakedDrillTable` 可选 `contentMode`；**未改** `AngleGridCard` 4:3 | DR | BTDrillGridCard, BTShimmer, BTBakedDrillTable, DrillStaticPreview, DrillThumbnails | 问题集合 v24 |

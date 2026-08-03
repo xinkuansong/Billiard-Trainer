@@ -363,6 +363,27 @@ struct BTFilterChip: View {
 // 调用方：TrainingHomeView、DrillListView（等级 + 球种）
 ```
 
+## 九-c、封面色板与缩略图相框（CoverPalette / BTThumbnailFrame — DR-044）
+
+```swift
+// 分区色：学绿 / 练金 / 打蓝青 / 解石墨；区内仅明度阶梯；明暗同 RGB
+CoverPalette.aimingPrinciple  // Pair(top:bottom:)
+CoverPalette.PlanStyle.forLevel("L1")
+CoverPalette.Glyph.opacity            // 0.20
+Font.btCoverWatermark                 // 56pt
+Font.btCoverWatermark(size: 96)       // 训练海报
+
+view.btThumbnailFrame(
+    cornerRadius: BTRadius.sm,
+    topCornersOnly: false,
+    showsStroke: true,
+    colorScheme: colorScheme
+)
+```
+
+- `typealias AngleCoverPalette = CoverPalette`（旧调用方无需改名）
+- 禁止为封面色板发明 Dark 专用变体
+
 ---
 
 ## 十、导航与 Tab Bar
@@ -694,13 +715,17 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-04（v27 W2 · DR-044）— 封面色板分区收敛：
+  - `CoverPalette`（`typealias AngleCoverPalette`）：学绿 / 练金 / 打蓝青 / 解石墨 + `PlanStyle`；明暗同 RGB
+  - Typography：`btCoverWatermark(size:)`；`CoverPalette.Glyph.opacity` = 0.20
+  - `BTThumbnailFrame`：网格卡与 64×64 行卡同款相框（描边/暗角/圆角）
 - 2026-08-04（v27 W1 · DR-043）— 浅色组件收口：
   - 新增 `BTFilterChip`；训练 / 动作库等级 / 球种三处收敛
   - `BTButtonStyle.goldFilled` 收编原 `DrillDetailView` 私有金色按钮
   - `BTLevelBadge(onDarkSurface:)` 覆层变体；`BTDrillGridCard` 左上角换用
 - 2026-07-16（v7 W3 / G22 · DR-023）— 动效与设计 token 收编：
   - `BTMotion`：`springLayout` / `easeInOutFast` / `easeInOutChrome` / `easeInstant` / `easePress`（值=原字面量）；`springPanel` 消费点扫齐
-  - `AngleCoverPalette`：练习首页封面渐变常量组（明暗同值）
+  - `AngleCoverPalette`：练习首页封面渐变常量组（明暗同值）→ **v27 W2 并入 `CoverPalette`**
   - Typography：`btCoverWatermark` / `btHeroSymbol` / `btCTALabelRounded`
   - HUD：`metricSeparatorHeight=12` + `BTHudMetricSeparator`；`BTDailyLimitGate` 字号 token 化
   - 红线：新代码禁止新增字面量字号（D6）

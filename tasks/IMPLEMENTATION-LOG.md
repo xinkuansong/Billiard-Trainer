@@ -82,6 +82,22 @@
 
 ## DR 记录（设计调整）
 
+## DR-044
+- **任务**：问题集合 v27 W2 — 封面色板分区收敛（E2/E3/E4 相框）
+- **原始规范**：
+  1. `AngleCoverPalette` 24 组独立高饱和 RGB 色对（橙/紫/玫红/蓝青混杂）；`BTPlanCover` 内联私有 `CoverStyle` 6 档色。
+  2. 封面 glyph：`BTPlanCover` 内联 `system(size: 96, weight: .black, design: .rounded)` + 白 0.16；`AngleGridCard` 用 `btCoverWatermark` 56pt + 白 0.22。
+  3. 动作库网格台面有 36pt 底渐变压暗；`BTDrillThumbnail` 64×64 仅 Dark 描边、无暗角。
+- **调整后**：
+  1. 合并为 `CoverPalette`（`typealias AngleCoverPalette = CoverPalette`）：学=绿 / 练=金琥珀 / 打=蓝青 / 解=石墨，区内仅明度阶梯；`PlanStyle.forLevel` 与分区色共用同一文件与饱和度约束；仍 Light/Dark 共用 RGB（不发明 Dark 变体）。
+  2. `CoverPalette.Glyph`：opacity=0.20、`gridAbsoluteSize`/`planListAbsoluteSize`、`sizeRatio`；Typography 增 `btCoverWatermark(size:)`；`BTPlanCover` 改用该 token，删除内联 `system(size: 96)`。
+  3. `BTThumbnailFrame` + `.btThumbnailFrame(...)`：描边/暗角/圆角三件套；网格卡与行卡缩略图同规范（网格描边仍在外卡）。
+- **原因**：三 Tab 封面色彩情绪割裂；glyph/相框规范分叉。
+- **影响组件**：`CoverPalette`、`BTPlanCover`、`AngleGridCard`、`Typography`、`BTThumbnailFrame`、`BTDrillGridCard`、`BTDrillThumbnail`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §1.4/§2.3/Changelog + `.cursor/skills/swiftui-design-system/SKILL.md`
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §1.4/§2.3c/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog（2026-08-04）
+
 ## DR-043
 - **任务**：问题集合 v27 W1 — 浅色组件收口（E5/E6/E4 徽章）
 - **原始规范**：
