@@ -165,7 +165,7 @@ struct BTDrillGridCard: View {
             )
         }
         .overlay(alignment: .topLeading) {
-            BTLevelBadge(level: level)
+            BTLevelBadge(level: level, onDarkSurface: true)
                 .padding(Spacing.sm)
         }
         .overlay(alignment: .topTrailing) {

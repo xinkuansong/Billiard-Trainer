@@ -16,6 +16,9 @@ enum DrillLevel: String, Codable, CaseIterable {
 
 struct BTLevelBadge: View {
     let level: DrillLevel
+    /// When true, use white label on black 45% fill (same family as grid-card feature capsules).
+    /// Default `false` preserves list / light-card appearance.
+    var onDarkSurface: Bool = false
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
@@ -29,6 +32,9 @@ struct BTLevelBadge: View {
     }
 
     private var textColor: Color {
+        if onDarkSurface {
+            return .white
+        }
         if colorScheme == .dark {
             return darkTextColor
         }
@@ -52,6 +58,9 @@ struct BTLevelBadge: View {
     }
 
     private var backgroundColor: Color {
+        if onDarkSurface {
+            return Color.black.opacity(0.45)
+        }
         if colorScheme == .dark {
             return darkTextColor.opacity(0.15)
         }
@@ -84,4 +93,14 @@ struct BTLevelBadge: View {
     .padding()
     .background(.btBG)
     .preferredColorScheme(.dark)
+}
+
+#Preview("On Dark Surface") {
+    HStack(spacing: Spacing.sm) {
+        ForEach(DrillLevel.allCases, id: \.self) { level in
+            BTLevelBadge(level: level, onDarkSurface: true)
+        }
+    }
+    .padding()
+    .background(Color.btTableFelt)
 }
