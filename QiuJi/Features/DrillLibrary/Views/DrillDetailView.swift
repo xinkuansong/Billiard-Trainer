@@ -17,6 +17,9 @@ struct DrillDetailView: View {
     /// 用 item 承载列表快照：iOS 26 上 `.sheet(isPresented:)` 内容闭包会以陈旧
     /// state 求值（tryoutFormations 渲染为空，B4 发现，c042/c053 均复现）。
     @State private var formationPicker: FormationPickerPayload?
+    /// E15：加入训练（自定义计划 / 今日训练）选择 sheet。
+    @State private var showAddToTraining = false
+    @State private var toast: BTToastMessage?
 
     /// sheet(item:) 载荷：球形列表快照。
     private struct FormationPickerPayload: Identifiable {
@@ -24,6 +27,8 @@ struct DrillDetailView: View {
         let formations: [DrillTryoutFormation]
     }
     @Query private var favorites: [DrillFavorite]
+    @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
+    @Query private var activePlans: [UserActivePlan]
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
@@ -34,6 +39,12 @@ struct DrillDetailView: View {
     private var isLocked: Bool {
         guard let drill else { return false }
         return drill.isPremium && !subscriptionManager.isPremium
+    }
+
+    private var activeCustomPlan: CustomPlan? {
+        guard let active = activePlans.first(where: \.isCustom),
+              let uuid = UUID(uuidString: active.planId) else { return nil }
+        return customPlans.first { $0.id == uuid }
     }
 
     var body: some View {
@@ -81,6 +92,10 @@ struct DrillDetailView: View {
             if drill != nil {
                 bottomBar
             }
+
+            if let toast {
+                BTToastBanner(message: toast)
+            }
         }
         .navigationBarTitleDisplayMode(.inline)
         // 固定顶栏始终显示材质背景，避免滚动内容穿透状态栏/标题（UR-20260529 U-06）。
@@ -120,6 +135,21 @@ struct DrillDetailView: View {
         }
         .sheet(item: $formationPicker) { payload in
             formationPickerSheet(payload.formations)
+        }
+        .sheet(isPresented: $showAddToTraining) {
+            if let drill {
+                AddDrillToTrainingSheet(
+                    drill: drill,
+                    customPlans: customPlans,
+                    activeCustomPlanId: activeCustomPlan?.id,
+                    onAddToPlan: { plan in
+                        addDrill(drill, to: plan)
+                    },
+                    onCreatePlan: { name, activate in
+                        createPlan(name: name, drill: drill, activateAsToday: activate)
+                    }
+                )
+            }
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
@@ -299,7 +329,7 @@ struct DrillDetailView: View {
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Standard Criteria
+    // MARK: - Standard Criteria（E17：达标标准与默认组次对照合并）
 
     private func criteriaSection(_ drill: DrillContent) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -307,19 +337,66 @@ struct DrillDetailView: View {
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
-            HStack(spacing: Spacing.md) {
-                Image(systemName: BTIcon.target)
-                    .font(.btTitle)
-                    .foregroundStyle(.btPrimary)
+            HStack(alignment: .top, spacing: Spacing.md) {
+                criteriaColumn(
+                    title: "目标",
+                    icon: BTIcon.target,
+                    value: drill.standardCriteria
+                )
 
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(drill.standardCriteria)
-                        .font(.btBodyMedium)
-                        .foregroundStyle(.btText)
+                Rectangle()
+                    .fill(Color.btSeparator)
+                    .frame(width: 1)
+                    .padding(.vertical, Spacing.xs)
 
-                    Text("默认 \(drill.sets.defaultSets) 组 × \(drill.sets.defaultBallsPerSet) 球")
-                        .font(.btFootnote)
-                        .foregroundStyle(.btTextSecondary)
+                criteriaColumn(
+                    title: "建议量",
+                    icon: "square.stack.3d.up",
+                    value: "\(drill.sets.defaultSets) 组 × \(drill.sets.defaultBallsPerSet) 球"
+                )
+                .frame(maxWidth: 140, alignment: .leading)
+            }
+        }
+        .padding(Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .padding(.horizontal, Spacing.lg)
+        .accessibilityIdentifier("criteriaSection")
+    }
+
+    private func criteriaColumn(title: String, icon: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Label(title, systemImage: icon)
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+                .labelStyle(.titleAndIcon)
+
+            Text(value)
+                .font(.btBodyMedium)
+                .foregroundStyle(.btText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Training Dimensions（E14 / D-v25-13：定性 chip，保留五维）
+
+    private func dimensionsSection(_ drill: DrillContent) -> some View {
+        let dims = trainingDimensions(for: drill)
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
+            Text("训练维度")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
+            // D-v25-13：五维全景 chip；去进度条与免责文案。
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 108), spacing: Spacing.sm)],
+                alignment: .leading,
+                spacing: Spacing.sm
+            ) {
+                ForEach(dims, id: \.name) { dim in
+                    dimensionChip(name: dim.name, weight: Self.dimensionWeightLabel(dim.value))
                 }
             }
         }
@@ -328,56 +405,19 @@ struct DrillDetailView: View {
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .padding(.horizontal, Spacing.lg)
+        .accessibilityIdentifier("dimensionsSection")
     }
 
-    // MARK: - Training Dimensions
-
-    private func dimensionsSection(_ drill: DrillContent) -> some View {
-        let dims = trainingDimensions(for: drill)
-        return VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("训练维度")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
-
-            VStack(spacing: Spacing.md) {
-                ForEach(dims, id: \.name) { dim in
-                    VStack(spacing: Spacing.xs) {
-                        HStack {
-                            Text(dim.name)
-                                .font(.btFootnote)
-                                .foregroundStyle(.btTextSecondary)
-                            Spacer()
-                            // F-DD-02：定性呈现，避免伪精度百分数。
-                            Text(Self.dimensionWeightLabel(dim.value))
-                                .font(.btCaption)
-                                .foregroundStyle(.btTextSecondary)
-                        }
-
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: BTRadius.xxs)
-                                    .fill(Color.btBGTertiary)
-                                    .frame(height: 6)
-                                RoundedRectangle(cornerRadius: BTRadius.xxs)
-                                    .fill(Color.btPrimary)
-                                    .frame(width: geo.size.width * dim.value, height: 6)
-                            }
-                        }
-                        .frame(height: 6)
-                    }
-                }
-            }
-
-            if let primary = dims.max(by: { $0.value < $1.value }) {
-                Text("此 Drill 主要训练\(primary.name)能力（示意倾向，非测评数据）")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
-        }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        .padding(.horizontal, Spacing.lg)
+    private func dimensionChip(name: String, weight: String) -> some View {
+        let emphasis = weight == "重点"
+        return Text("\(name) · \(weight)")
+            .font(.btCaption)
+            .foregroundStyle(emphasis ? Color.btPrimary : Color.btTextSecondary)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.xs + 2)
+            .background(emphasis ? Color.btPrimaryMuted : Color.btBGTertiary)
+            .clipShape(Capsule())
+            .accessibilityLabel("\(name)，\(weight)")
     }
 
     /// F-DD-02：启发式权重 → 定性档，不用伪装百分数。
@@ -443,7 +483,7 @@ struct DrillDetailView: View {
         ]
     }
 
-    // MARK: - Bottom Bar
+    // MARK: - Bottom Bar（E15：恢复「加入训练」且接线落库）
 
     private var bottomBar: some View {
         HStack(spacing: Spacing.md) {
@@ -457,7 +497,18 @@ struct DrillDetailView: View {
                 }
                 .buttonStyle(GoldFilledButtonStyle())
             } else {
-                // F-DL-02：隐藏空 CTA「加入训练」；底栏单钮全宽「上手试打」。
+                Button {
+                    showAddToTraining = true
+                } label: {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "plus.circle")
+                            .font(.btFootnote14)
+                        Text("加入训练")
+                    }
+                }
+                .buttonStyle(BTButtonStyle.secondary)
+                .accessibilityIdentifier("addToTrainingButton")
+
                 Button { startTryout() } label: {
                     HStack(spacing: Spacing.xs) {
                         Image(systemName: BTIcon.playCircleFilled)
@@ -466,12 +517,57 @@ struct DrillDetailView: View {
                     }
                 }
                 .buttonStyle(BTButtonStyle.primary)
+                .accessibilityIdentifier("bottomTryoutButton")
             }
         }
         .padding(.horizontal, Spacing.xxl)
         .padding(.vertical, Spacing.md)
         .background(Color.btBG.opacity(0.8))
         .background(.ultraThinMaterial)
+    }
+
+    // MARK: - Add to training (E15)
+
+    private func addDrill(_ drill: DrillContent, to plan: CustomPlan) {
+        do {
+            let result = try DrillTrainingPlanService.addDrill(drill, to: plan, context: modelContext)
+            showAddToTraining = false
+            flashAddResult(result)
+        } catch {
+            BTToast.present("加入失败，请稍后重试", tone: .error) { toast = $0 }
+        }
+    }
+
+    private func createPlan(name: String, drill: DrillContent, activateAsToday: Bool) {
+        do {
+            let (_, result) = try DrillTrainingPlanService.createPlan(
+                name: name,
+                drill: drill,
+                activateAsToday: activateAsToday,
+                context: modelContext
+            )
+            showAddToTraining = false
+            flashAddResult(result)
+        } catch DrillTrainingPlanService.ServiceError.emptyName {
+            BTToast.present("请填写计划名称", tone: .warning) { toast = $0 }
+        } catch {
+            BTToast.present("创建失败，请稍后重试", tone: .error) { toast = $0 }
+        }
+    }
+
+    private func flashAddResult(_ result: DrillTrainingPlanService.AddResult) {
+        let text: String
+        switch result {
+        case .added(let planName, let appearsInToday):
+            text = appearsInToday
+                ? "已加入今日训练「\(planName)」"
+                : "已加入计划「\(planName)」"
+        case .alreadyPresent(let planName, let appearsInToday):
+            text = appearsInToday
+                ? "已在今日训练「\(planName)」中"
+                : "已在计划「\(planName)」中"
+        }
+        BTToast.present(text, tone: .success) { toast = $0 }
     }
 
     // MARK: - Helpers
@@ -490,6 +586,128 @@ struct DrillDetailView: View {
                 modelContext.insert(DrillFavorite(drillId: drillId))
             }
         }
+    }
+}
+
+// MARK: - Add to training sheet
+
+private struct AddDrillToTrainingSheet: View {
+    let drill: DrillContent
+    let customPlans: [CustomPlan]
+    let activeCustomPlanId: UUID?
+    let onAddToPlan: (CustomPlan) -> Void
+    let onCreatePlan: (_ name: String, _ activateAsToday: Bool) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var newPlanName: String = ""
+    @State private var activateNewAsToday = true
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if let today = customPlans.first(where: { $0.id == activeCustomPlanId }) {
+                    Section {
+                        Button {
+                            onAddToPlan(today)
+                        } label: {
+                            planRow(
+                                title: "今日训练 · \(today.name)",
+                                subtitle: DrillTrainingPlanService.planContainsDrill(today, drillId: drill.id)
+                                    ? "已包含该动作"
+                                    : "加入后会出现在训练 Tab 今日清单",
+                                systemImage: "sun.max.fill",
+                                emphasized: true
+                            )
+                        }
+                        .accessibilityIdentifier("addToTodayTrainingRow")
+                    } header: {
+                        Text("今日训练")
+                    }
+                } else {
+                    Section {
+                        Text("当前没有自定义「今日训练」。可新建计划并设为今日，或先加入已有计划。")
+                            .font(.btFootnote)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                }
+
+                if !customPlans.isEmpty {
+                    Section("我的计划") {
+                        ForEach(customPlans, id: \.id) { plan in
+                            Button {
+                                onAddToPlan(plan)
+                            } label: {
+                                planRow(
+                                    title: plan.name,
+                                    subtitle: DrillTrainingPlanService.planContainsDrill(plan, drillId: drill.id)
+                                        ? "已包含 · \(plan.drills.count) 项"
+                                        : "\(plan.drills.count) 项 · 每周 \(plan.sessionsPerWeek) 练",
+                                    systemImage: plan.id == activeCustomPlanId
+                                        ? "checkmark.circle.fill"
+                                        : "list.bullet.clipboard",
+                                    emphasized: false
+                                )
+                            }
+                            .accessibilityIdentifier("addToPlan_\(plan.id.uuidString)")
+                        }
+                    }
+                }
+
+                Section("新建计划") {
+                    TextField("计划名称", text: $newPlanName)
+                        .accessibilityIdentifier("newPlanNameField")
+                    Toggle("设为今日训练", isOn: $activateNewAsToday)
+                    Button {
+                        let name = newPlanName.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let fallback = "从动作库 · \(drill.nameZh)"
+                        onCreatePlan(name.isEmpty ? fallback : name, activateNewAsToday)
+                    } label: {
+                        Label("创建并加入「\(drill.nameZh)」", systemImage: "plus.circle.fill")
+                    }
+                    .accessibilityIdentifier("createPlanAndAddButton")
+                }
+            }
+            .navigationTitle("加入训练")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .onAppear {
+            if newPlanName.isEmpty {
+                newPlanName = "从动作库 · \(drill.nameZh)"
+            }
+        }
+    }
+
+    private func planRow(
+        title: String,
+        subtitle: String,
+        systemImage: String,
+        emphasized: Bool
+    ) -> some View {
+        HStack(spacing: Spacing.md) {
+            Image(systemName: systemImage)
+                .foregroundStyle(emphasized ? Color.btPrimary : Color.btTextSecondary)
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.btBodyMedium)
+                    .foregroundStyle(.btText)
+                Text(subtitle)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+            }
+            Spacer()
+            Image(systemName: "plus")
+                .font(.btCaption)
+                .foregroundStyle(.btPrimary)
+        }
+        .contentShape(Rectangle())
     }
 }
 
@@ -512,7 +730,7 @@ private struct GoldFilledButtonStyle: ButtonStyle {
     NavigationStack {
         DrillDetailView(drillId: "drill_c001")
     }
-    .modelContainer(for: DrillFavorite.self, inMemory: true)
+    .modelContainer(ModelContainerFactory.makeInMemoryContainer())
     .environmentObject(SubscriptionManager.shared)
 }
 
@@ -520,7 +738,7 @@ private struct GoldFilledButtonStyle: ButtonStyle {
     NavigationStack {
         DrillDetailView(drillId: "drill_c001")
     }
-    .modelContainer(for: DrillFavorite.self, inMemory: true)
+    .modelContainer(ModelContainerFactory.makeInMemoryContainer())
     .environmentObject(SubscriptionManager.shared)
     .preferredColorScheme(.dark)
 }

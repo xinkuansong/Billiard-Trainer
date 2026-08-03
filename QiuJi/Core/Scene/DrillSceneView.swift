@@ -347,13 +347,14 @@ struct DrillSceneView: View {
             } label: {
                 // F-SC-01：回放锁定进行时视觉反馈——保持 play.fill + 降透明 + disabled；
                 // 不换 stop 图标（按钮不可点，stop 会成假 affordance，违 B3 诚实反馈）。
+                // E16：回放为次级幽灵钮，避免与右下「上手试打」主入口争抢注意力。
                 Image(systemName: "play.fill")
-                    .font(.btFootnote14)
-                    .foregroundStyle(.white)
-                    .frame(width: 32, height: 32)
-                    .background(.black.opacity(0.4))
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .frame(width: 28, height: 28)
+                    .background(.black.opacity(0.28))
                     .clipShape(Circle())
-                    .opacity(controller.isPlaying ? 0.4 : 1)
+                    .opacity(controller.isPlaying ? 0.35 : 1)
             }
             .disabled(controller.isPlaying)
             .buttonStyle(BTPressableStyle.capsule)
@@ -362,6 +363,7 @@ struct DrillSceneView: View {
             .accessibilityIdentifier("drillPlayButton")
         }
         // 「上手试打」胶囊：与回放按钮同层覆层，对角 bottomTrailing（§1.6 入口）。
+        // E16：主色实底胶囊，视觉权重大于左下回放幽灵钮。
         .overlay(alignment: .bottomTrailing) {
             if let onTryoutTap {
                 Button(action: onTryoutTap) {
@@ -372,13 +374,14 @@ struct DrillSceneView: View {
                                 .foregroundStyle(.btAccent)
                         }
                         Text("上手试打")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                     }
                     .padding(.horizontal, 12)
                     .frame(height: 32)
-                    .background(.black.opacity(0.4))
+                    .background(Color.btPrimary.opacity(tryoutLocked ? 0.72 : 0.92))
                     .clipShape(Capsule())
+                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
                 }
                 // F-DL-03：台面覆层试打钮按压（回放钮已接 BTPressableStyle.capsule）。
                 .buttonStyle(BTPressableStyle.capsule)
@@ -441,7 +444,9 @@ private struct DrillShotOverlay: View {
                                           barCenter: barCenter, barH: barH)
 
             ZStack {
-                DrillPowerBar(velocity: data.velocity)
+                // E16 / R1：条宽仅 10pt 且贴库边；标签须向台内偏，否则会被
+                // DrillSceneView.clipShape 裁掉末尾（如「m/s」的 s）。
+                DrillPowerBar(velocity: data.velocity, inwardBias: onRight ? -1 : 1)
                     .frame(width: powerW, height: barH)
                     .position(barCenter)
                 BTSpinMiniIcon(spinX: data.spinX, spinY: data.spinY,
@@ -499,9 +504,11 @@ private struct DrillShotOverlay: View {
 }
 
 /// 垂直力度条（对数刻度）：整条轨道铺满给定高度（≈短库 0.7），底→顶 绿→黄→橙 渐变，
-/// 填充高度按 `powerFraction` 映射；速度值（m/s）浮在条顶。
+/// 填充高度按 `powerFraction` 映射；速度读数浮在条顶。
 private struct DrillPowerBar: View {
     let velocity: Double
+    /// −1 = 条在右侧，标签向左（台内）偏；+1 = 条在左侧，标签向右偏。
+    var inwardBias: CGFloat = -1
     private var fraction: Double { DrillShotOverlay.powerFraction(velocity) }
 
     var body: some View {
@@ -517,15 +524,17 @@ private struct DrillPowerBar: View {
             }
             .overlay(Capsule().stroke(.white.opacity(0.18), lineWidth: 0.5))
             .overlay(alignment: .top) {
-                Text(String(format: "%.1f", velocity))
+                // E16：标明「力度」；单位放 a11y，缩短可视文案以免贴边裁切（R1）。
+                Text(String(format: "力度 %.1f", velocity))
                     .font(.system(size: 8, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .monospacedDigit()
                     .fixedSize()
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 1)
-                    .background(Color.black.opacity(0.5), in: Capsule())
-                    .offset(y: -3)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(Color.black.opacity(0.55), in: Capsule())
+                    .offset(x: inwardBias * 22, y: -4)
+                    .accessibilityLabel(String(format: "力度 %.1f 米每秒", velocity))
             }
         }
     }
