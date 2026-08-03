@@ -57,6 +57,9 @@ QiuJi/Resources/DrillTutorials/*.png
 # Engine preview frames: 520 MB, excluded from the app bundle (v25 D-v25-7).
 QiuJi/Resources/Previews/
 
+# Python bytecode from scripts/ tooling
+__pycache__/
+
 # Working / scratch assets (not part of the build)
 /TaiQiuZhuo.usdz
 *.usdz

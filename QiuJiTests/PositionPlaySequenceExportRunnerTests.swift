@@ -15,11 +15,10 @@
 //         initial.png / final.png 开局 / 终局布局（竖版真实风格 1440×2560，长轴沿屏幕长边）
 //         sNN_still.png           每杆击球前静帧（带预告线，竖版教学配图 1440×2720）
 //         full.mp4                整段视频（2D 顶视 1080×2040；每杆预告线静帧→出杆线消失→运动→收尾）
-//         full.gif                整段分享 GIF（竖版 2D 顶视 720×1280）
-//         full_3d.mp4             3D 静态斜视角整段视频（1080×2040，App 内竖屏播放）
 //
-//  本轮配方（用户拍板 2026-08-01）：静帧 1440；2D/3D 视频 1080；不出 4K；
-//  不出单杆 mp4（sNN.mp4 / sNN_3d.mp4，与 full 重复度高）；每杆静帧仍出。
+//  本轮配方（用户拍板 2026-08-03）：静帧 1440；2D 视频 1080；**停出 GIF 与 3D 视频**；
+//  不出 4K；不出单杆 mp4（sNN.mp4 / sNN_3d.mp4，与 full 重复度高）；每杆静帧仍出。
+//  停出的两项代码保留在本文件内（已注释），需要时放开即可。
 //
 //  原理：解码 `PositionPlaySequence` → `SequenceVideoExporter` 逐 Step 用物理引擎
 //  （`PositionPlayShotSolver` → `ShotPredictor`）真实复现轨迹 → SceneKit 离屏逐帧渲染。
@@ -54,6 +53,11 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
+        // 静帧-only：修开局图取景等场景，避免重编码全库视频。
+        // 环境变量在模拟器进程里常传不进，故同时认输出目录标志文件 `.stills-only`。
+        let stillsOnly = ProcessInfo.processInfo.environment["POSITION_EXPORT_STILLS_ONLY"] == "1"
+            || fm.fileExists(atPath: "\(outputDir)/.stills-only")
+
         var ok = 0
         var failed: [String] = []
         for file in jsonFiles {
@@ -73,6 +77,17 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                 }
 
                 let outDir = URL(fileURLWithPath: outputDir).appendingPathComponent(dirName)
+                if stillsOnly {
+                    try fm.createDirectory(at: outDir, withIntermediateDirectories: true)
+                    for (name, image) in SequenceVideoExporter.renderStills(sequence: sequence) {
+                        try writePNG(image, to: outDir.appendingPathComponent("\(name).png"))
+                    }
+                    ok += 1
+                    print("SEQ-EXPORT ✅ \(dirName)（\(baseName)）：\(sequence.steps.count) 杆 → "
+                          + "静帧-only \(2 + sequence.steps.count)（保留既有 cover/preview/mp4）")
+                    continue
+                }
+
                 if resumeCompleted, exportIsComplete(sequence: sequence, at: outDir) {
                     ok += 1
                     print("SEQ-EXPORT ⏭️ \(dirName)（\(baseName)）：完整产物已存在，续跑跳过")
@@ -97,22 +112,23 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
                     try writePNG(frame, to: outDir.appendingPathComponent(name))
                 }
 
-                // 整段视频 + 分享 GIF（2D 顶视，真实风格）。
+                // 整段视频（2D 顶视，真实风格）。
                 let fullMp4 = try await SequenceVideoExporter.exportVideo(sequence: sequence)
                 try moveReplacing(fullMp4, to: outDir.appendingPathComponent("full.mp4"))
-                let fullGif = try SequenceVideoExporter.exportGIF(sequence: sequence)
-                try moveReplacing(fullGif, to: outDir.appendingPathComponent("full.gif"))
 
-                // 3D 静态斜视角整段视频（ADR-P11-15，与 2D 并存）。
-                // 不出单杆 mp4 / 不出 4K（用户拍板：本地预览阶段）。
-                let full3d = try await SequenceVideoExporter.exportVideo(
-                    sequence: sequence, options: .teachingVideo3D())
-                try moveReplacing(full3d, to: outDir.appendingPathComponent("full_3d.mp4"))
+                // GIF 与 3D 视频已于 2026-08-03 停出（用户拍板：只保留 2D 视频）。
+                // 视频编码是全量重渲的耗时大头，砍掉这两项后全量出片从小时级降到分钟级。
+                // 代码保留，需要时取消注释即可（`exportIsComplete` 的续跑清单需同步恢复）。
+                // let fullGif = try SequenceVideoExporter.exportGIF(sequence: sequence)
+                // try moveReplacing(fullGif, to: outDir.appendingPathComponent("full.gif"))
+                // let full3d = try await SequenceVideoExporter.exportVideo(
+                //     sequence: sequence, options: .teachingVideo3D())
+                // try moveReplacing(full3d, to: outDir.appendingPathComponent("full_3d.mp4"))
 
                 ok += 1
                 print("SEQ-EXPORT ✅ \(dirName)（\(baseName)）：\(sequence.steps.count) 杆 → "
                       + "静帧 \(2 + sequence.steps.count) + cover + preview \(previewFrames.count) 帧 + "
-                      + "full.mp4/gif + full_3d.mp4（无单杆 mp4 / 无 4K）")
+                      + "full.mp4（无 GIF / 无 3D / 无单杆 mp4 / 无 4K）")
             } catch {
                 failed.append("\(file)(\(error.localizedDescription))")
             }
@@ -144,9 +160,10 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
             "cover.png",
             "initial.png",
             "final.png",
-            "full.mp4",
-            "full.gif",
-            "full_3d.mp4"
+            "full.mp4"
+            // GIF / 3D 已停出，续跑判定不再要求；恢复出片时同步放开。
+            // "full.gif",
+            // "full_3d.mp4"
         ]
         relativePaths += (1...12).map { String(format: "preview/frame_%02d.png", $0) }
         for index in sequence.steps.indices {

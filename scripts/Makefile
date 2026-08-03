@@ -35,8 +35,11 @@ help:
 	@echo "  make build        Debug 构建（仅验证编译，不安装/启动）"
 	@echo "  make run          Debug 构建 + 安装 + 在模拟器启动（一条龙）"
 	@echo "  make test         运行所有 XCTest"
-	@echo "  make position-export  走位序列 JSON → MP4/GIF（源 content/position_play/sequences/）"
+	@echo "  make position-export  走位序列 JSON → 静帧 + 2D mp4（源 content/position_play/sequences/）"
+	@echo "  make position-export-stills  只重渲静帧（修开局图等，保留既有 mp4）"
 	@echo "  make tryout-sync  同步 drill 序列到 App Bundle 试打球形（Resources/DrillBoards/）"
+	@echo "  make verify-tutorials  精讲资产全链路同步校验（序列→出片→回填→引用→结构）"
+	@echo "  make tutorial-ledger  生成精讲资产台账（docs/research/精讲资产台账.md）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
 	@echo "  make export       从 Archive 导出 IPA"
 	@echo "  make upload       上传 IPA 到 App Store Connect"
@@ -149,6 +152,26 @@ position-export:
 	  test
 	@echo "✅ 产物目录: $(BUILD_DIR)/position_play_export"
 
+.PHONY: position-export-stills
+position-export-stills:
+	@echo "→ 走位序列静帧-only 导出（开局图取首杆 before）..."
+	@mkdir -p $(BUILD_DIR)/position_play_sequences $(BUILD_DIR)/position_play_export $(DERIVED_DATA)
+	@touch $(BUILD_DIR)/position_play_export/.stills-only
+	@if ls $(SEQUENCE_CONTENT_DIR)/*.json >/dev/null 2>&1; then \
+	  cp -f $(SEQUENCE_CONTENT_DIR)/*.json $(BUILD_DIR)/position_play_sequences/; \
+	  echo "  已同步内容库序列: $$(ls $(SEQUENCE_CONTENT_DIR)/*.json | wc -l | tr -d ' ') 个"; \
+	fi
+	xcodebuild \
+	  $(PROJECT_FLAG) \
+	  -scheme $(SCHEME) \
+	  -configuration Debug \
+	  -derivedDataPath $(DERIVED_DATA) \
+	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
+	  test
+	@rm -f $(BUILD_DIR)/position_play_export/.stills-only
+	@echo "✅ 静帧已更新: $(BUILD_DIR)/position_play_export"
+
 # ────────────────────────────────────────────
 # 试打球形同步（方案 20260709-动作库试打模式 D4）
 # 输入：content/position_play/sequences/drill_c*.json（真相源，批量出片台产出，
@@ -166,6 +189,19 @@ tryout-sync:
 	  --include='drill_c*.json' --exclude='*' \
 	  "$(SEQUENCE_CONTENT_DIR)/" "$(DRILL_BOARDS_DIR)/"
 	@echo "✅ 已同步 $$(ls "$(DRILL_BOARDS_DIR)" | wc -l | tr -d ' ') 个球形序列"
+
+# ────────────────────────────────────────────
+# 精讲资产同步校验
+# 序列 JSON 更新后跑一次，确认出片产物、回填图、精讲引用与结构都跟上了。
+# 逐段说明与退出码见 scripts/verify_tutorial_sync.py 文件头。
+# ────────────────────────────────────────────
+.PHONY: verify-tutorials
+verify-tutorials:
+	@python3 $(PROJECT_ROOT)/scripts/verify_tutorial_sync.py $(ARGS)
+
+.PHONY: tutorial-ledger
+tutorial-ledger:
+	@python3 $(PROJECT_ROOT)/scripts/generate_tutorial_ledger.py
 
 # ────────────────────────────────────────────
 # Release Archive

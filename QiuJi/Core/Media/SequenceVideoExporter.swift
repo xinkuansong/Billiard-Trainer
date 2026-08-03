@@ -237,6 +237,9 @@ enum SequenceVideoExporter {
     // MARK: - Public: stills
 
     /// 教学静帧：`initial` 开局、`s0n_still` 每杆击球前（带预告线）、`final` 终局。
+    ///
+    /// 开局图取「第一杆击球前」盘面（`steps[0].before`），不盲信 `sequence.initial`。
+    /// 批量录制序列里 `initial` 常只剩母球，而真实开局在首杆 `before`（2026-08-03 实测 61 条）。
     static func renderStills(
         sequence: PositionPlaySequence,
         options: Options = .teaching()
@@ -244,7 +247,12 @@ enum SequenceVideoExporter {
         guard let ctx = RenderContext(options: options) else { return [] }
         var out: [(String, CGImage)] = []
 
-        ctx.placeBoard(sequence.initial)
+        let openingBoard = sequence.steps.first?.before ?? sequence.initial
+        if openingBoard.onTable.count != sequence.initial.onTable.count {
+            print("SEQ-EXPORT ⚠️ \(sequence.name)：initial 球数 \(sequence.initial.onTable.count)"
+                  + " ≠ 首杆 before \(openingBoard.onTable.count)，开局图改用首杆 before")
+        }
+        ctx.placeBoard(openingBoard)
         if let img = ctx.snapshot() { out.append(("initial", img)) }
 
         for (i, step) in sequence.steps.enumerated() {

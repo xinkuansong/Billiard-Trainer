@@ -200,6 +200,11 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--prune", action="store_true", help="删除目标目录中未回填的旧 take_*/旧文件")
     ap.add_argument("--include-seq", action="store_true", help="也处理 seq_* 目录（默认跳过）")
+    ap.add_argument(
+        "--skip-json",
+        action="store_true",
+        help="只回填媒体文件，不改 drill JSON 的 videos[]（v25 视频 UI 已下线，默认应开）",
+    )
     args = ap.parse_args()
 
     if not EXPORT_ROOT.is_dir():
@@ -252,10 +257,13 @@ def main() -> int:
             gif_name = f"{token}_full.gif" if multi else "full.gif"
             if (export_dir / "full.gif").is_file():
                 keep.add(gif_name)
-        status = rewrite_videos(drill_id, all_videos, args.dry_run)
-        print(f"  videos[{len(all_videos)}] json={status}")
-        if status == "updated":
-            updated += 1
+        if args.skip_json:
+            print(f"  videos[{len(all_videos)}] json=skipped")
+        else:
+            status = rewrite_videos(drill_id, all_videos, args.dry_run)
+            print(f"  videos[{len(all_videos)}] json={status}")
+            if status == "updated":
+                updated += 1
         if args.prune:
             n = prune_videos(drill_id, keep, args.dry_run)
             if n:
