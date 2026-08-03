@@ -212,6 +212,8 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 | 缩略图 | 跑 `DrillThumbnailBakeRunnerTests` 重烘焙 | `<drillId>.png` |
 
 校验：`python3 scripts/verify_tutorial_images.py`（总引用 / 失效数 / 按 drill 清单；有失效则 exit 1）。
+存量磁盘若仍带 `_still` / `manual01` 前缀分叉：先跑幂等脚本
+`python3 scripts/align_tutorial_image_names.py`（只改文件名，不改 JSON；与 import 脚本分工见该文件头注释）。
 
 ### 序列 → drill 接入清单（每条都做）
 
