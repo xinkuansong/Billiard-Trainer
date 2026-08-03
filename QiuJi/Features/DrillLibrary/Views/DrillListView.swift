@@ -6,7 +6,6 @@ struct DrillListView: View {
     @Query private var favorites: [DrillFavorite]
     @Query private var sessions: [TrainingSession]
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.colorScheme) private var colorScheme
 
     /// Q19.1：侧栏点击回组顶（无记忆）——每次点击分组（含重复点击当前分组）自增，
     /// 触发右侧内容列表滚动到顶部锚点。
@@ -304,39 +303,36 @@ struct DrillListView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Spacing.sm) {
                 ForEach(BallTypeFilter.displayCases) { filter in
-                    let isSelected = viewModel.ballTypeFilter == filter
-                    Button {
+                    BTFilterChip(
+                        title: filter.rawValue,
+                        isSelected: viewModel.ballTypeFilter == filter,
+                        accessibilityIdentifier: "ballType_\(filter.rawValue)"
+                    ) {
                         withAnimation(BTMotion.easeInOutFast) {
                             viewModel.ballTypeFilter = filter
                         }
-                    } label: {
-                        Text(filter.rawValue)
-                            .font(.btSubheadlineMedium)
-                            .foregroundStyle(chipActiveText(isSelected))
-                            .padding(.horizontal, Spacing.lg)
-                            .padding(.vertical, Spacing.sm)
-                            .background(isSelected ? chipActiveFill : Color.btBGSecondary)
-                            .clipShape(Capsule())
-                            .overlay(
-                                Capsule()
-                                    .stroke(isSelected ? Color.clear : Color.btSeparator, lineWidth: 0.5)
-                            )
                     }
-                    .buttonStyle(BTPressableStyle.capsule)
-                    .accessibilityIdentifier("ballType_\(filter.rawValue)")
                 }
             }
             .padding(.horizontal, Spacing.lg)
         }
     }
 
-    // MARK: - Level Chips (E18 — match Training Tab `filterChips`)
+    // MARK: - Level Chips (shared `BTFilterChip` — Training Tab baseline)
 
     private var levelChips: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Spacing.sm) {
                 ForEach(DrillLevelFilter.allCases) { filter in
-                    levelChipButton(filter)
+                    BTFilterChip(
+                        title: filter.rawValue,
+                        isSelected: viewModel.levelFilter == filter,
+                        accessibilityIdentifier: "levelFilter_\(filter.rawValue)"
+                    ) {
+                        withAnimation(BTMotion.easeFast) {
+                            viewModel.levelFilter = filter
+                        }
+                    }
                 }
             }
             .padding(.horizontal, Spacing.lg)
@@ -344,60 +340,6 @@ struct DrillListView: View {
         // Keep Training Tab chip chrome; tighten vertical rhythm so the grid stays scannable.
         .padding(.top, Spacing.sm)
         .padding(.bottom, Spacing.xs)
-    }
-
-    private func levelChipButton(_ filter: DrillLevelFilter) -> some View {
-        let isSelected = viewModel.levelFilter == filter
-        return Button {
-            withAnimation(BTMotion.easeFast) {
-                viewModel.levelFilter = filter
-            }
-        } label: {
-            Text(filter.rawValue)
-                .font(.btFootnote14.weight(.medium))
-                .foregroundStyle(trainingStyleChipText(isSelected))
-                .padding(.horizontal, Spacing.xl)
-                .padding(.vertical, Spacing.sm)
-                .background(trainingStyleChipBackground(isSelected))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule().stroke(trainingStyleChipBorder(isSelected), lineWidth: isSelected ? 0 : 1)
-                )
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("levelFilter_\(filter.rawValue)")
-    }
-
-    // MARK: - Chip Colors (Training Tab parity for level; ball-type keeps prior style)
-
-    private var chipActiveFill: Color {
-        colorScheme == .dark ? .btChipActiveFillDark : .btChipActiveFillLight
-    }
-
-    private func chipActiveText(_ isSelected: Bool) -> Color {
-        isSelected
-            ? (colorScheme == .dark ? .black : .white)
-            : .btTextSecondary
-    }
-
-    private func trainingStyleChipText(_ isSelected: Bool) -> Color {
-        if isSelected {
-            return colorScheme == .dark ? .black : Color.btBGSecondary
-        }
-        return colorScheme == .dark ? .btTextSecondary : .btText
-    }
-
-    private func trainingStyleChipBackground(_ isSelected: Bool) -> Color {
-        if isSelected {
-            return colorScheme == .dark ? .btChipActiveFillDark : .btChipActiveFillLight
-        }
-        return colorScheme == .dark ? Color.btBGTertiary : Color.btBGSecondary
-    }
-
-    private func trainingStyleChipBorder(_ isSelected: Bool) -> Color {
-        isSelected ? .clear : .btSeparator
     }
 
     // MARK: - Empty State

@@ -322,53 +322,19 @@ struct TrainingHomeView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: Spacing.sm) {
                 ForEach(PlanLevelFilter.allCases, id: \.self) { filter in
-                    filterChipButton(filter)
+                    BTFilterChip(
+                        title: filter.rawValue,
+                        isSelected: viewModel.selectedFilter == filter
+                    ) {
+                        withAnimation(BTMotion.easeFast) {
+                            viewModel.selectedFilter = filter
+                        }
+                    }
                 }
             }
             .padding(.horizontal, Spacing.lg)
         }
         .padding(.vertical, Spacing.md)
-    }
-
-    private func filterChipButton(_ filter: PlanLevelFilter) -> some View {
-        let isSelected = viewModel.selectedFilter == filter
-        return Button {
-            withAnimation(BTMotion.easeFast) {
-                viewModel.selectedFilter = filter
-            }
-        } label: {
-            Text(filter.rawValue)
-                .font(.btFootnote14.weight(.medium))
-                .foregroundStyle(chipTextColor(isSelected))
-                .padding(.horizontal, Spacing.xl)
-                .padding(.vertical, Spacing.sm)
-                .background(chipBackground(isSelected))
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule().stroke(chipBorderColor(isSelected), lineWidth: isSelected ? 0 : 1)
-                )
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func chipTextColor(_ isSelected: Bool) -> Color {
-        if isSelected {
-            return colorScheme == .dark ? .black : Color.btBGSecondary
-        }
-        return colorScheme == .dark ? .btTextSecondary : .btText
-    }
-
-    private func chipBackground(_ isSelected: Bool) -> Color {
-        if isSelected {
-            return colorScheme == .dark ? .btChipActiveFillDark : .btChipActiveFillLight
-        }
-        return colorScheme == .dark ? Color.btBGTertiary : Color.btBGSecondary
-    }
-
-    private func chipBorderColor(_ isSelected: Bool) -> Color {
-        isSelected ? .clear : .btSeparator
     }
 
     // MARK: - Official Plan List

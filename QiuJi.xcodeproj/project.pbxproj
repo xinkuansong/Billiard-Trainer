@@ -203,6 +203,7 @@
 		6E326ABC08B57E3C0B2E9533 /* DrillContentValidationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAB3BF140ACD4AE5A010B9A1 /* DrillContentValidationTests.swift */; };
 		6EDA1360E6904495F3F296DD /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = 97A540EE9B78F20882DEB717 /* Audio */; };
 		6F87DE9E6F20C7597D6DC4B7 /* BTScenePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CAFDF8D72DBEC3475A0AB95 /* BTScenePalette.swift */; };
+		6F995E513FD4BF885FAB0B1A /* BTFilterChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D77F940798543BAA1BD85FB /* BTFilterChip.swift */; };
 		6FEA28591DFFF96F93B6A644 /* TableGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EE626B8A33FFB05B2209D0A /* TableGeometry.swift */; };
 		708C7377EF14A1488E339089 /* SyncQueueManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1D0F2441D614EB02F58503 /* SyncQueueManagerTests.swift */; };
 		709C4D726A27302FD42AB73F /* AimingMethodsGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20294EB2325F0784C2A58C4 /* AimingMethodsGeometryTests.swift */; };
@@ -385,6 +386,7 @@
 		D313EF93CE0BC5DB8991DC12 /* AngleUsageLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA491E77FB4ECDB6A29B1B9D /* AngleUsageLimiter.swift */; };
 		D35BBBCEBDDB931D92508860 /* DrillTutorials in Resources */ = {isa = PBXBuildFile; fileRef = FB782386740AA156681ADDE4 /* DrillTutorials */; };
 		D44FD151B2FC3763FBBAB08A /* SyncPendingItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB6624C2B2FA442644E375C5 /* SyncPendingItem.swift */; };
+		D4874C736A58C3CAB36A0AD3 /* V27W1ScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9DD71C8CCBCBC46E22DC1C /* V27W1ScreenshotUITests.swift */; };
 		D63B40B379DF6256BC5295DC /* PhysicsMatrixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6791AA4CD47A95D48427269E /* PhysicsMatrixTests.swift */; };
 		D70AE6D827AFBEA7D781CB8F /* RestTimerLiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1836B37390BAEC9BCF6FB803 /* RestTimerLiveActivityManager.swift */; };
 		D7A3405B4DEE91535328B0DF /* BTChipRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 968E67D444BA53E19C53ADE2 /* BTChipRow.swift */; };
@@ -568,6 +570,7 @@
 		2C0796C8A5D0A91183E61E71 /* LocalTrainingSessionRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTrainingSessionRepositoryTests.swift; sourceTree = "<group>"; };
 		2C54FC912F009ECAA5915124 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2D2BDA0DB04E3856F668EF9C /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
+		2D77F940798543BAA1BD85FB /* BTFilterChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTFilterChip.swift; sourceTree = "<group>"; };
 		2D8F39940CAEA16E16C2063B /* DrillTryoutBoardStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillTryoutBoardStoreTests.swift; sourceTree = "<group>"; };
 		2D93ADC10EACDB071453AD75 /* BatchDrillStudioCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatchDrillStudioCore.swift; sourceTree = "<group>"; };
 		2DA8EB03D49D0E45F0840B8F /* V21W2BakeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V21W2BakeTests.swift; sourceTree = "<group>"; };
@@ -851,6 +854,7 @@
 		CE84737FF07208CE01E282F1 /* BTPlanWeekTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPlanWeekTimeline.swift; sourceTree = "<group>"; };
 		CF2AA91AC6A3B823914CF6D5 /* DrillTutorialKindResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillTutorialKindResolver.swift; sourceTree = "<group>"; };
 		CF45F20AAB7E5A58ECF26DF3 /* AimingPrincipleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AimingPrincipleView.swift; sourceTree = "<group>"; };
+		CF9DD71C8CCBCBC46E22DC1C /* V27W1ScreenshotUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V27W1ScreenshotUITests.swift; sourceTree = "<group>"; };
 		CFFB9ADFA948CC72780FD0EE /* CushionEnglishAtlasView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CushionEnglishAtlasView.swift; sourceTree = "<group>"; };
 		D0FA84F36F36106E4158FCBB /* BTShimmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTShimmer.swift; sourceTree = "<group>"; };
 		D1359BC3370F303C3D6D68D9 /* AngleHistorySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistorySection.swift; sourceTree = "<group>"; };
@@ -1141,6 +1145,7 @@
 				3890ECC946EDAEFCB1270B1F /* V22W5ScreenshotUITests.swift */,
 				83BE4F9687DAEE331BFE33AC /* V22W6ScreenshotUITests.swift */,
 				C878B782F5D5B4C64E91426E /* V25W2ScreenshotUITests.swift */,
+				CF9DD71C8CCBCBC46E22DC1C /* V27W1ScreenshotUITests.swift */,
 				616C48BE158BF4654E4552DA /* W1_AimPointFilterUITests.swift */,
 				77262BAC3BF54F52F52F165C /* W1_ShareSavePhotosUITests.swift */,
 				EA763A6DA262DFEB216AE89C /* W2_DarkQuizNavChromeUITests.swift */,
@@ -1615,6 +1620,7 @@
 				21147C5FB5CB8F85940493A4 /* BTEraserButton.swift */,
 				CCCEDF258227D303D7E6A197 /* BTExerciseRow.swift */,
 				EBA1E82C8D663C7882D8F0CB /* BTFeedback.swift */,
+				2D77F940798543BAA1BD85FB /* BTFilterChip.swift */,
 				186FCEB7609BFE5E05CAC6B0 /* BTFloatingIndicator.swift */,
 				46CB14AAFB1DF88EF5A220B1 /* BTHoldRepeatButton.swift */,
 				074C4B2623B62A104860F84A /* BTLevelBadge.swift */,
@@ -2050,6 +2056,7 @@
 				6B3A5B23F72E0E773ED3C018 /* BTEraserButton.swift in Sources */,
 				E1B88143BAF216AE1D6492BB /* BTExerciseRow.swift in Sources */,
 				C8D732154B13A1900C6D3A62 /* BTFeedback.swift in Sources */,
+				6F995E513FD4BF885FAB0B1A /* BTFilterChip.swift in Sources */,
 				4F5B27982E6DA19AC71F970D /* BTFloatingIndicator.swift in Sources */,
 				17444D6607BD43BE6DD9E7AA /* BTHoldRepeatButton.swift in Sources */,
 				22C56B1D3DF63694966EA737 /* BTLevelBadge.swift in Sources */,
@@ -2300,6 +2307,7 @@
 				50DD093B813A467B59428801 /* V22W5ScreenshotUITests.swift in Sources */,
 				7A183034E0E543DF63059F3D /* V22W6ScreenshotUITests.swift in Sources */,
 				F102AD6C370537D29029628D /* V25W2ScreenshotUITests.swift in Sources */,
+				D4874C736A58C3CAB36A0AD3 /* V27W1ScreenshotUITests.swift in Sources */,
 				3B8D245EB2FF0048809D111F /* W1_AimPointFilterUITests.swift in Sources */,
 				47C6A2549AF02A76C1C66900 /* W1_ShareSavePhotosUITests.swift in Sources */,
 				5BAB2460C79ECE0CBC1D1D63 /* W210ScreenshotUITests.swift in Sources */,
