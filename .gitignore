@@ -44,6 +44,14 @@ backend/.env
 # Large drill videos (handled via Git LFS / OTA later, not in git history)
 QiuJi/Resources/Videos/
 
+# Tutorial figures: 2.14 GiB of lossless PNG. Enter git only after HEIC
+# compression (v25 D-v25-2, batch W4) — W4 lifts this by narrowing the pattern.
+# Orphan frames never enter regardless of format (D-v25-10).
+QiuJi/Resources/DrillTutorials/*.png
+
+# Engine preview frames: 520 MB, excluded from the app bundle (v25 D-v25-7).
+QiuJi/Resources/Previews/
+
 # Working / scratch assets (not part of the build)
 /TaiQiuZhuo.usdz
 *.usdz
