@@ -57,7 +57,7 @@
 |-------|------|----------|-------------|
 | `title` | `String` | ✅ | Section heading, e.g. "技术原理" |
 | `content` | `String` | ✅ | Section body text (Chinese). May be `""` when `items` carry the content. Supports paragraphs (`\n\n`) and inline markdown (`**bold**`). |
-| `image` | `String?` | ❌ | Static poster figure under `Resources/DrillTutorials/<image>.png` (no extension). Tappable → fullscreen viewer (pinch zoom + gallery paging). |
+| `image` | `String?` | ❌ | Static poster figure under `Resources/DrillTutorials/<image>.png` (no extension). Tappable → fullscreen viewer (pinch zoom + gallery paging). Naming: see **Tutorial image naming** below. |
 | `clip` | `String?` | ❌ | Motion clip (mp4) under `Resources/DrillTutorials/<clip>.mp4` (no extension), ADR-P12-02. Pairs with `image` as the poster — shows a play badge; tap plays a muted loop fullscreen. **选用规则**：讲位置/几何/落点只配 `image`；讲运动/走位/杆法效果再加 `clip`（gif 先转静音循环 mp4）。 |
 | `caption` | `String?` | ❌ | Figure caption (small gray text under the image) |
 | `items` | `[TutorialItem]?` | ❌ | Structured "label + text" rows (DR-019). Labels `为什么`/`怎么打`/`自检` get accent colors; others render neutral (e.g. mistake names). |
@@ -65,6 +65,26 @@
 
 Standard section titles: `技术原理`, `动作要领`, `常见错误与纠正`, `进阶练习`.
 Multi-shot "applied lesson" template (ADR-P11-14) adds: `开局与击球顺序`, `第N杆：…`.
+
+### Tutorial image naming（D-v25-6）
+
+磁盘文件名必须与 JSON `image`（无扩展名）一致。回填脚本
+`scripts/import-engine-export-to-app.py` 负责把引擎出片名落到约定名：
+
+| 引擎出片 | 落位 `DrillTutorials/` | 说明 |
+|---|---|---|
+| `initial.png` | `<drillId>_initial.png` | 开局图 |
+| `sNN_still.png` | `<drillId>_sNN.png` | **去掉 `_still`**（JSON 写 `_sNN`，不写 `_sNN_still`） |
+| `final.png` | `<drillId>_final.png` | 收杆图（可选） |
+
+多序列导出目录带 `__<token>` 时，落位为 `<drillId>_<token>_…`（如
+`drill_c077_A3_s01.png`）。
+
+**默认取 `manual01`（c013 / c025 / c026 及同类）**：导出目录 token 为
+`manual01` / `manual02` / … 时，精讲若只覆盖**一条**默认序列，JSON `image`
+写**无 token 前缀**的形式（`drill_c013_s01`，不是 `drill_c013_manual01_s01`）。
+回填脚本对 `manual01` 额外写入无前缀副本；`manual02+` 只保留带 token 的文件名。
+校验：`python3 scripts/verify_tutorial_images.py`。
 
 ## `DrillVideo`
 

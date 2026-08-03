@@ -197,14 +197,21 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 
 ### 媒体配套（序列出片 → 资源目录）
 
-| 产物（`build/position_play_export/seq_<id8>/`） | 落位 | 命名 |
+回填入口：`scripts/import-engine-export-to-app.py`（D-v25-6：**改脚本落位名，不改 JSON
+`image`**）。引擎出片保留 `sNN_still.png`；脚本落位时去掉 `_still`，与下表及
+`schema.md`「Tutorial image naming」一致。幂等：同一导出目录重跑，目标文件名不变。
+
+| 产物（`build/position_play_export/<exportDir>/`） | 落位 | 命名 |
 |---|---|---|
 | `initial.png` | `Resources/DrillTutorials/` | `<drillId>_initial.png` |
-| `sNN_still.png`（带 HUD） | `Resources/DrillTutorials/` | `<drillId>_sNN.png` |
-| `full.mp4`（2D 顶视 1080×2040@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]` |
+| `sNN_still.png`（带 HUD） | `Resources/DrillTutorials/` | `<drillId>_sNN.png`（⛔ 不得落成 `_sNN_still`） |
+| `final.png` | `Resources/DrillTutorials/` | `<drillId>_final.png` |
+| `full.mp4`（2D 顶视 1080×2040@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]`（引擎片已于 v25 下线，字段预留真人示范） |
 | `full_3d.mp4`（3D 斜视角手机档 1080×2040@60 带 HUD，ADR-P11-15） | 本地预览 / 后续 OTA | `full_3d.mp4`，JSON `videos:` 追加 `{id:"full3d", file:"full_3d.mp4"}` |
-| 静帧 `initial` / `sNN_still` / `final`（1440） | `Resources/DrillTutorials/` | 见出片 README；默认不出单杆 mp4 / 不出 4K |
+| 多序列 `__<token>` | 同上，文件名加 token 中缀 | `<drillId>_<token>_sNN.png`；**`manual01` 额外写无前缀别名**（JSON 默认取 manual01，见 `schema.md`） |
 | 缩略图 | 跑 `DrillThumbnailBakeRunnerTests` 重烘焙 | `<drillId>.png` |
+
+校验：`python3 scripts/verify_tutorial_images.py`（总引用 / 失效数 / 按 drill 清单；有失效则 exit 1）。
 
 ### 序列 → drill 接入清单（每条都做）
 
