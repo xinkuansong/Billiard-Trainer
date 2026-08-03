@@ -10,6 +10,8 @@ enum BTButtonStyle {
     case darkPill
     case iconCircle
     case segmentedPill(isSelected: Bool)
+    /// Pro unlock CTA — btAccent fill, white label, 48pt capsule (DR-043).
+    case goldFilled
 }
 
 extension BTButtonStyle: ButtonStyle {
@@ -29,6 +31,8 @@ extension BTButtonStyle: ButtonStyle {
             IconCircleButtonBody(configuration: configuration)
         case .segmentedPill(let isSelected):
             SegmentedPillButtonBody(configuration: configuration, isSelected: isSelected)
+        case .goldFilled:
+            GoldFilledButtonBody(configuration: configuration)
         }
     }
 }
@@ -168,6 +172,25 @@ private struct SegmentedPillButtonBody: View {
     }
 }
 
+// MARK: - Gold Filled (Pro unlock)
+
+private struct GoldFilledButtonBody: View {
+    let configuration: ButtonStyleConfiguration
+
+    var body: some View {
+        configuration.label
+            .font(.btFootnote14)
+            .fontWeight(.bold)
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(configuration.isPressed ? Color.btAccent.opacity(0.8) : Color.btAccent)
+            .clipShape(Capsule())
+            .scaleEffect(configuration.isPressed ? 0.98 : 1)
+            .animation(BTMotion.easePress, value: configuration.isPressed)
+    }
+}
+
 // MARK: - Preview
 
 #Preview("Buttons Light") {
@@ -223,6 +246,12 @@ private struct SegmentedPillButtonBody: View {
                     Button("延迟") {}
                         .buttonStyle(BTButtonStyle.segmentedPill(isSelected: false))
                 }
+            }
+
+            Group {
+                Text("goldFilled").font(.btCaption).foregroundStyle(.btTextSecondary)
+                Button("解锁 Pro") {}
+                    .buttonStyle(BTButtonStyle.goldFilled)
             }
         }
         .padding(Spacing.xxl)
@@ -283,6 +312,12 @@ private struct SegmentedPillButtonBody: View {
                     Button("延迟") {}
                         .buttonStyle(BTButtonStyle.segmentedPill(isSelected: false))
                 }
+            }
+
+            Group {
+                Text("goldFilled").font(.btCaption).foregroundStyle(.btTextSecondary)
+                Button("解锁 Pro") {}
+                    .buttonStyle(BTButtonStyle.goldFilled)
             }
         }
         .padding(Spacing.xxl)

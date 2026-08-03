@@ -200,22 +200,22 @@ struct DrillDetailView: View {
                         } label: {
                             HStack(spacing: Spacing.md) {
                                 Text("\(index + 1)")
-                                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                                    .font(.btCTALabelRounded.weight(.bold))
                                     .foregroundStyle(.btPrimary)
                                     .frame(width: 28, height: 28)
                                     .background(Circle().fill(Color.btPrimary.opacity(0.14)))
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(formation.title)
                                         .font(.btBody)
-                                        .foregroundStyle(.primary)
+                                        .foregroundStyle(.btText)
                                     Text("\(formation.stepCount) 杆 · \(formation.objectBallCount) 球")
                                         .font(.btCaption2)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(.btTextSecondary)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
                                     .font(.btCaption2)
-                                    .foregroundStyle(.tertiary)
+                                    .foregroundStyle(.btTextTertiary)
                             }
                             .padding(.horizontal, Spacing.lg)
                             .padding(.vertical, Spacing.md)
@@ -495,7 +495,7 @@ struct DrillDetailView: View {
                         Text("解锁 Pro")
                     }
                 }
-                .buttonStyle(GoldFilledButtonStyle())
+                .buttonStyle(BTButtonStyle.goldFilled)
             } else {
                 Button {
                     showAddToTraining = true
@@ -708,21 +708,6 @@ private struct AddDrillToTrainingSheet: View {
                 .foregroundStyle(.btPrimary)
         }
         .contentShape(Rectangle())
-    }
-}
-
-private struct GoldFilledButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.btFootnote14)
-            .fontWeight(.bold)
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .frame(height: 48)
-            .background(configuration.isPressed ? Color.btAccent.opacity(0.8) : Color.btAccent)
-            .clipShape(Capsule())
-            .scaleEffect(configuration.isPressed ? 0.98 : 1)
-            .animation(BTMotion.easePress, value: configuration.isPressed)
     }
 }
 
