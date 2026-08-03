@@ -43,7 +43,7 @@ final class DrillListViewModelTests: XCTestCase {
     func test_loadDrills_totalDrillCount() async {
         await viewModel.loadDrills()
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
-        XCTAssertEqual(total, 72, "Total drills across all categories should be 72")
+        XCTAssertEqual(total, 77, "Total drills across all categories should match index.json (77)")
     }
 
     // MARK: - Search Filtering
@@ -56,7 +56,7 @@ final class DrillListViewModelTests: XCTestCase {
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
         XCTAssertGreaterThan(total, 0, "Searching '直线' should find at least one drill")
-        XCTAssertLessThan(total, 72, "Search should narrow down from 72")
+        XCTAssertLessThan(total, 77, "Search should narrow down from 77")
     }
 
     func test_searchFilter_noResults() async {
@@ -80,7 +80,7 @@ final class DrillListViewModelTests: XCTestCase {
         viewModel.applyFiltersSync()
         let restored = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
 
-        XCTAssertEqual(restored, 72)
+        XCTAssertEqual(restored, 77)
         XCTAssertGreaterThan(restored, narrowed)
     }
 
@@ -109,7 +109,7 @@ final class DrillListViewModelTests: XCTestCase {
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
         XCTAssertGreaterThan(total, 0, "Chinese8 filter should find drills")
-        XCTAssertLessThanOrEqual(total, 72)
+        XCTAssertLessThanOrEqual(total, 77)
     }
 
     func test_ballTypeFilter_nineBall() async {
@@ -129,7 +129,50 @@ final class DrillListViewModelTests: XCTestCase {
         viewModel.applyFiltersSync()
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
-        XCTAssertEqual(total, 72)
+        XCTAssertEqual(total, 77)
+    }
+
+    // MARK: - Level / Badge Filtering (W7 E18–E19)
+
+    func test_levelFilter_beginner_onlyL0() async {
+        await viewModel.loadDrills()
+        viewModel.levelFilter = .beginner
+        viewModel.applyFiltersSync()
+        let drills = viewModel.drillsByCategory.flatMap(\.drills)
+        XCTAssertFalse(drills.isEmpty)
+        XCTAssertTrue(drills.allSatisfy { $0.level == "L0" })
+    }
+
+    func test_badgeFilter_modernTutorial() async {
+        await viewModel.loadDrills()
+        viewModel.badgeFilter = .modernTutorial
+        viewModel.applyFiltersSync()
+        let drills = viewModel.drillsByCategory.flatMap(\.drills)
+        XCTAssertFalse(drills.isEmpty)
+        XCTAssertTrue(drills.allSatisfy {
+            DrillTutorialKindResolver.resolve(for: $0) == .modern
+        })
+    }
+
+    func test_badgeFilter_legacyTutorial() async {
+        await viewModel.loadDrills()
+        viewModel.badgeFilter = .legacyTutorial
+        viewModel.applyFiltersSync()
+        let drills = viewModel.drillsByCategory.flatMap(\.drills)
+        XCTAssertFalse(drills.isEmpty)
+        XCTAssertTrue(drills.allSatisfy {
+            DrillTutorialKindResolver.resolve(for: $0) == .legacy
+        })
+    }
+
+    func test_combinedFilters_emptyStatePath() async {
+        await viewModel.loadDrills()
+        viewModel.ballTypeFilter = .nineBall
+        viewModel.levelFilter = .beginner
+        viewModel.badgeFilter = .modernTutorial
+        viewModel.searchText = "zzzzz_nonexistent"
+        viewModel.applyFiltersSync()
+        XCTAssertTrue(viewModel.drillsByCategory.isEmpty)
     }
 
     func test_ballTypeFilter_combinedWithSearch() async {
