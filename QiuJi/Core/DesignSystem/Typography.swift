@@ -15,8 +15,18 @@ extension Font {
     static let btDisplay             = Font.system(size: 44, weight: .bold, design: .rounded)
     static let btDisplaySmall        = Font.system(size: 30, weight: .bold, design: .rounded)
     static let btLargeTitle          = Font.system(size: 32, weight: .bold, design: .rounded)
-    /// Practice-home cover glyph watermark (v7 C20). Source: `size: 56, weight: .black, design: .rounded`.
-    static let btCoverWatermark      = Font.system(size: 56, weight: .black, design: .rounded)
+    /// Practice-home cover glyph watermark (v7 C20 / v27 W2 DR-044).
+    /// Size = `CoverPalette.Glyph.gridAbsoluteSize` (56); weight black; rounded.
+    static let btCoverWatermark = Font.system(
+        size: CoverPalette.Glyph.gridAbsoluteSize,
+        weight: .black,
+        design: .rounded
+    )
+
+    /// Scalable cover watermark — same weight/design as `btCoverWatermark` (plan posters / hero).
+    static func btCoverWatermark(size: CGFloat) -> Font {
+        Font.system(size: size, weight: .black, design: .rounded)
+    }
     /// Hero SF Symbol without forcing bold (v7 C21 — `BTDailyLimitGate` crown). Source: `size: 32`.
     static let btHeroSymbol          = Font.system(size: 32)
     static let btChapterNumber       = Font.system(size: 26, weight: .bold, design: .rounded)

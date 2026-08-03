@@ -507,7 +507,7 @@ private struct AngleGridCard: View {
 
             Text(entry.glyph)
                 .font(.btCoverWatermark)
-                .foregroundStyle(.white.opacity(0.22))
+                .foregroundStyle(.white.opacity(CoverPalette.Glyph.opacity))
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
         }
