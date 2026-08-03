@@ -82,6 +82,22 @@
 
 ## DR 记录（设计调整）
 
+## DR-043
+- **任务**：问题集合 v27 W1 — 浅色组件收口（E5/E6/E4 徽章）
+- **原始规范**：
+  1. 筛选 Chip 在训练页 / 动作库等级 / 动作库球种三处各自实现，球种另用旧字号与描边。
+  2. `BTButtonStyle` 无 `goldFilled`；`DrillDetailView` 私有 `GoldFilledButtonStyle`；formationPickerSheet 用系统 `.primary/.secondary/.tertiary` 与 `Font.system(size:15,…)`。
+  3. `BTLevelBadge` 仅浅卡配色（彩字 + 15% 底），叠深绿台面对比不足。
+- **调整后**：
+  1. 新增 `BTFilterChip`（训练页样式为基准：`btFootnote14.medium` / `Spacing.xl` 水平内边距 / 选中 `btChipActiveFill*`）；三处调用方切换，私有配色函数删除。
+  2. `BTButtonStyle.goldFilled`（btAccent 胶囊 48 高，原页面私有样式原样收编）；formationPickerSheet 改 `btText*` + `.btCTALabelRounded.weight(.bold)`；保留 `.preferredColorScheme(.dark)`。
+  3. `BTLevelBadge(onDarkSurface:)` 默认 `false`；`BTDrillGridCard` 左上角覆层传 `true`（白字 + 黑 45% 底）。
+- **原因**：三 Tab 浅色筛选控件与详情页 token 割裂；网格卡覆层徽章不可读且不能反伤列表白卡。
+- **影响组件**：`BTFilterChip`（新）、`BTButtonStyle`、`BTLevelBadge`、`BTDrillGridCard`、`TrainingHomeView`、`DrillListView`、`DrillDetailView`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.1/§2.4/Changelog + `.cursor/skills/swiftui-design-system/SKILL.md`
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.1/§2.4b/§2.4/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §七/§九/§九-b/Changelog（2026-08-04）
+
 ## DR-042
 - **任务**：打点盘全宽贴库边 + 防误触关闭
 - **原始规范**：控件瘦身 v2 / G16——卡片 `maxWidth: 228`、白盘框 104×104；`BTSpinPadOverlay` 用近透明 `Color.opacity(0.001)` + `onTapGesture` 点盘外关闭。

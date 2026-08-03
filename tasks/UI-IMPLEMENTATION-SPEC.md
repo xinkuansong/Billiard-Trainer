@@ -150,6 +150,7 @@
 | `darkPill` | `#1C1C1E` 填充 + 白字，BTRadius.full 胶囊 | 底栏关闭/返回 | 仅叠加场景 |
 | `iconCircle` | 48pt 圆形，btPrimary 填充 + 白色 SF Symbol | 工具栏图标 | — |
 | `segmentedPill` | 选中：btPrimary 填充+白字；未选中：白底+灰边框 | 分段选项组 | — |
+| `goldFilled` | btAccent 填充 + 白字 bold，48pt 胶囊 | Pro 解锁 CTA | 仅付费解锁场景（DR-043） |
 
 **SwiftUI API**：
 
@@ -158,6 +159,7 @@ enum BTButtonStyle: ButtonStyle {
     case primary, secondary, text, destructive
     case darkPill, iconCircle
     case segmentedPill(isSelected: Bool)
+    case goldFilled
 }
 ```
 
@@ -226,6 +228,31 @@ struct BTDrillCard: View {
 ```swift
 struct BTLevelBadge: View {
     let level: DrillLevel   // enum: L0, L1, L2, L3, L4
+    /// 深绿台面覆层：白字 + 黑 45% 底；默认 false 保持列表白卡外观（DR-043）
+    var onDarkSurface: Bool = false
+}
+```
+
+### 2.4b BTFilterChip — 筛选胶囊（DR-043）
+
+**文件路径**：`QiuJi/Core/Components/BTFilterChip.swift`
+
+| 属性 | 规范 |
+|------|------|
+| 字号 | `btFootnote14.weight(.medium)` |
+| 内边距 | 水平 `Spacing.xl`，垂直 `Spacing.sm`；`minHeight` 44 |
+| 选中 Light | `btChipActiveFillLight`（`#1C1C1E`）+ `btBGSecondary` 字 |
+| 选中 Dark | `btChipActiveFillDark`（`#F2F2F7`）+ 黑字 |
+| 未选 | 底 `btBGSecondary`/`btBGTertiary` + `btSeparator` 1pt 描边 |
+
+**SwiftUI API**：
+
+```swift
+struct BTFilterChip: View {
+    let title: String
+    let isSelected: Bool
+    var accessibilityIdentifier: String? = nil
+    let action: () -> Void
 }
 ```
 
@@ -987,6 +1014,7 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-08-04 | **问题集合 v27 W1 浅色组件收口**（DR-043）：新增 `BTFilterChip`（训练 chip 为基准，三处切换）；`BTButtonStyle.goldFilled` 收编详情页私有金色钮；`BTLevelBadge(onDarkSurface:)` 覆层变体 + 网格卡换用；formationPickerSheet token 化（保留 dark scheme） | 新增/DR | BTFilterChip, BTButton, BTLevelBadge, BTDrillGridCard, TrainingHomeView, DrillListView, DrillDetailView | DR-043 / v27 W1 |
 | 2026-07-30 | **直击失败翻袋备选（DR-041）**：`DirectPotBankFallback` 复用 `BankKickSolvePipeline.solveBank`；仅 `feasible==false` / 直击几何不可行时触发；编排台·自由击球·思路·打三；文案「翻袋备选」+ 多解下一解；§8.9 **i** | DR | DirectPotBankFallback, PositionPlay/Silu/PlanThree VM, FreePlay/Composer View, SPEC §8.9 | 用户：角度过大加翻袋 |
 | 2026-07-29 | **动作库缩略图显示槽 + 列表大球（DR-040 / v24）**：网格卡/骨架封面 **4:3→2:1**（与烘焙同比，`.fill` 不裁左右库）；`Options.thumbnail.ballScale=1.8` 重烘 77；详情 live `detail.ballScale=1.0` 不动、不双套 PNG；方槽行卡维持 fill（D-v24-1=C）；`BTBakedDrillTable` 可选 `contentMode`；**未改** `AngleGridCard` 4:3 | DR | BTDrillGridCard, BTShimmer, BTBakedDrillTable, DrillStaticPreview, DrillThumbnails | 问题集合 v24 |
 | 2026-07-29 | **Drill 缩略图静帧对齐（DR-039）**：共享 `DrillStaticPreview`——代表性球形（A1/legacy/A*）首杆 + 真球号 + 瞄准位球杆 + 线语言 v2 + ghost；详情 `DrillSceneView` 首帧同契约；列表仍一 drill 一 PNG；全量重烘 77/77 | DR | DrillStaticPreview, DrillThumbnailRenderer, DrillSceneView, DrillTryoutBoardStore, TrajectoryRenderer, DrillThumbnails | 缩略图渲染落伍 |

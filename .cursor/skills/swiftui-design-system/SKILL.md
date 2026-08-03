@@ -260,7 +260,7 @@ VStack { ... }
 
 ---
 
-## 七、按钮规范（BTButton — 7 种样式）
+## 七、按钮规范（BTButton — 8 种样式）
 
 ```swift
 enum BTButtonStyle: ButtonStyle {
@@ -273,6 +273,8 @@ enum BTButtonStyle: ButtonStyle {
     case darkPill       // #1C1C1E 填充 + 白字，BTRadius.full 胶囊，高度 44pt
     case iconCircle     // 48pt 圆形，btPrimary 填充 + 白色 SF Symbol
     case segmentedPill(isSelected: Bool)  // 选中：btPrimary 填充+白字；未选中：白底+灰边框，高度 36pt
+    // DR-043
+    case goldFilled     // btAccent 填充 + 白字 bold，高度 48pt 胶囊 — 仅 Pro 解锁 CTA
 }
 
 // 使用规则：
@@ -280,7 +282,7 @@ enum BTButtonStyle: ButtonStyle {
 // - darkPill：仅底栏/叠加场景（如 DrillDetail 关闭按钮）
 // - iconCircle：工具栏图标（如训练页 + 添加按钮）
 // - segmentedPill：分段选项组（如设置偏好）
-// - Gold Filled / Gold Outline：仅 Pro 付费场景（BTPremiumLock 内部使用）
+// - goldFilled：仅 Pro 付费解锁场景（如 DrillDetail「解锁 Pro」）
 ```
 
 ---
@@ -329,9 +331,10 @@ enum BTButtonStyle: ButtonStyle {
 ```swift
 struct BTLevelBadge: View {
     let level: DrillLevel  // L0–L4
+    var onDarkSurface: Bool = false  // DR-043：深绿台面覆层 → 白字 + 黑 45% 底；默认 false 不改列表白卡
 }
 
-// 五级配色（Light Mode / Dark Mode）：
+// 五级配色（Light Mode / Dark Mode；onDarkSurface == false）：
 //
 // | 等级 | Light 文字色 | Light 底色      | Dark 文字色 | Dark 底色               |
 // |------|------------|----------------|------------|------------------------|
@@ -342,6 +345,22 @@ struct BTLevelBadge: View {
 // | L4   | 红色        | 浅红底 15%      | #EF5350    | rgba(239,83,80,0.15)   |
 //
 // displayName: L0「入门」L1「初级」L2「中级」L3「高级」L4「专家」
+// onDarkSurface：与 BTDrillGridCard 特征胶囊同族（白字 + Color.black.opacity(0.45)）
+```
+
+## 九-b、筛选胶囊（BTFilterChip — DR-043）
+
+```swift
+struct BTFilterChip: View {
+    let title: String
+    let isSelected: Bool
+    var accessibilityIdentifier: String? = nil
+    let action: () -> Void
+}
+
+// 基准：训练页 filterChips（SPEC §6.3 / §7）
+// 字号 btFootnote14.medium；水平 Spacing.xl；选中 btChipActiveFill*；未选 1pt btSeparator
+// 调用方：TrainingHomeView、DrillListView（等级 + 球种）
 ```
 
 ---
@@ -469,7 +488,8 @@ BTEmptyState(
 
 | 组件 | 文件路径 | 设计参考 | 状态 |
 |------|---------|---------|------|
-| `BTButton`（7 种样式） | `Core/Components/BTButton.swift` | `A-02/screen.png` | R0 升级 |
+| `BTButton`（8 种样式） | `Core/Components/BTButton.swift` | `A-02/screen.png` | R0 升级；DR-043 +goldFilled |
+| `BTFilterChip` | `Core/Components/BTFilterChip.swift` | — | DR-043 新增 |
 | `BTEmptyState` | `Core/Components/BTEmptyState.swift` | `A-03/screen.png` | 已有，R0 校验 |
 | `BTDrillCard` | `Core/Components/BTDrillCard.swift` | `P1-01/screen.png` | 已有，R0 添加缩略图 |
 | `BTLevelBadge` | `Core/Components/BTLevelBadge.swift` | `A-03/screen.png` | 已有，R0 修正配色 |
@@ -674,6 +694,10 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-04（v27 W1 · DR-043）— 浅色组件收口：
+  - 新增 `BTFilterChip`；训练 / 动作库等级 / 球种三处收敛
+  - `BTButtonStyle.goldFilled` 收编原 `DrillDetailView` 私有金色按钮
+  - `BTLevelBadge(onDarkSurface:)` 覆层变体；`BTDrillGridCard` 左上角换用
 - 2026-07-16（v7 W3 / G22 · DR-023）— 动效与设计 token 收编：
   - `BTMotion`：`springLayout` / `easeInOutFast` / `easeInOutChrome` / `easeInstant` / `easePress`（值=原字面量）；`springPanel` 消费点扫齐
   - `AngleCoverPalette`：练习首页封面渐变常量组（明暗同值）
