@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import AVKit
 
 struct DrillDetailView: View {
     let drillId: String
@@ -24,7 +23,6 @@ struct DrillDetailView: View {
         let id = UUID()
         let formations: [DrillTryoutFormation]
     }
-    @State private var playingVideo: DrillVideo?
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
@@ -70,7 +68,6 @@ struct DrillDetailView: View {
                             coachingSection(drill, includeTutorialCTA: true)
                             criteriaSection(drill)
                             dimensionsSection(drill)
-                            videoSection(drill)
                         }
                     }
                     .padding(.bottom, 100)
@@ -127,9 +124,6 @@ struct DrillDetailView: View {
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
                 .environmentObject(subscriptionManager)
-        }
-        .sheet(item: $playingVideo) { video in
-            DrillVideoPlayerSheet(drillId: drillId, video: video)
         }
     }
 
@@ -449,74 +443,6 @@ struct DrillDetailView: View {
         ]
     }
 
-    // MARK: - Video Section
-
-    @ViewBuilder
-    private func videoSection(_ drill: DrillContent) -> some View {
-        let videos = drill.videos ?? []
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("视频示范")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                Spacer()
-                if !videos.isEmpty {
-                    Text("\(videos.count) 段")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
-                }
-            }
-
-            if videos.isEmpty {
-                emptyVideoPlaceholder
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: Spacing.sm) {
-                        ForEach(Array(videos.enumerated()), id: \.element.id) { index, video in
-                            videoThumbnail(video: video, index: index)
-                        }
-                    }
-                }
-            }
-        }
-        .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        .padding(.horizontal, Spacing.lg)
-    }
-
-    private var emptyVideoPlaceholder: some View {
-        // F-DD-03：紧凑空态，不去铺三枚幽灵封面。
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: BTIcon.playSlashed)
-                .font(.btTitle2)
-                .foregroundStyle(.btTextTertiary)
-            Text("视频示范即将上线")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, Spacing.sm)
-    }
-
-    private func videoThumbnail(video: DrillVideo, index: Int) -> some View {
-        Button {
-            playingVideo = video
-        } label: {
-            VStack(spacing: Spacing.xs) {
-                VideoThumbnailView(drillId: drillId, file: video.file)
-                    .frame(width: 96, height: 64)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-
-                Text("第 \(index + 1) 段")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-            }
-        }
-        // F-DD-06：缩略图按压反馈。
-        .buttonStyle(BTPressableStyle.row)
-    }
-
     // MARK: - Bottom Bar
 
     private var bottomBar: some View {
@@ -562,154 +488,6 @@ struct DrillDetailView: View {
                 modelContext.delete(existing)
             } else {
                 modelContext.insert(DrillFavorite(drillId: drillId))
-            }
-        }
-    }
-}
-
-// MARK: - Video Thumbnail (first-frame extraction with cache)
-
-private actor VideoThumbnailCache {
-    static let shared = VideoThumbnailCache()
-
-    private var cache: [String: UIImage] = [:]
-    private var inflight: [String: Task<UIImage?, Never>] = [:]
-
-    func thumbnail(for url: URL) async -> UIImage? {
-        let key = url.absoluteString
-        if let cached = cache[key] {
-            return cached
-        }
-        if let existing = inflight[key] {
-            return await existing.value
-        }
-
-        let task = Task<UIImage?, Never> {
-            let asset = AVURLAsset(url: url)
-            let generator = AVAssetImageGenerator(asset: asset)
-            generator.appliesPreferredTrackTransform = true
-            generator.maximumSize = CGSize(width: 320, height: 320)
-
-            return await withCheckedContinuation { (continuation: CheckedContinuation<UIImage?, Never>) in
-                let time = CMTime(seconds: 0.1, preferredTimescale: 600)
-                generator.generateCGImagesAsynchronously(forTimes: [NSValue(time: time)]) { _, cgImage, _, _, _ in
-                    if let cgImage {
-                        continuation.resume(returning: UIImage(cgImage: cgImage))
-                    } else {
-                        continuation.resume(returning: nil)
-                    }
-                }
-            }
-        }
-        inflight[key] = task
-        let image = await task.value
-        inflight[key] = nil
-        if let image {
-            cache[key] = image
-        }
-        return image
-    }
-}
-
-private struct VideoThumbnailView: View {
-    let drillId: String
-    let file: String
-
-    @State private var image: UIImage?
-    @State private var failed = false
-
-    var body: some View {
-        ZStack {
-            Rectangle()
-                .fill(Color.btBGTertiary)
-
-            if let image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            }
-
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.35)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-
-            Image(systemName: failed ? "play.slash.fill" : "play.circle.fill")
-                .font(.btTitle)
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.4), radius: 3, y: 1)
-        }
-        .task(id: "\(drillId)/\(file)") {
-            guard image == nil,
-                  let url = DrillContentService.shared.videoURL(drillId: drillId, file: file)
-            else {
-                failed = (image == nil)
-                return
-            }
-            let result = await VideoThumbnailCache.shared.thumbnail(for: url)
-            await MainActor.run {
-                if let result {
-                    image = result
-                } else {
-                    failed = true
-                }
-            }
-        }
-    }
-}
-
-// MARK: - Video Player Sheet
-
-private struct DrillVideoPlayerSheet: View {
-    let drillId: String
-    let video: DrillVideo
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var player: AVPlayer?
-
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            if let player {
-                // 可缩放（ADR-P12-02）：捏合/双击放大、放大后拖动平移；保留系统播放控件。
-                ZoomableContainer {
-                    VideoPlayer(player: player)
-                        .onAppear { player.play() }
-                        .onDisappear { player.pause() }
-                }
-                .ignoresSafeArea()
-            } else {
-                VStack(spacing: Spacing.md) {
-                    Image(systemName: BTIcon.warningTriangle)
-                        .font(.system(size: 36))
-                        .foregroundStyle(.yellow)
-                    Text("视频暂不可用")
-                        .font(.btBody)
-                        .foregroundStyle(.white)
-                }
-            }
-
-            VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: BTIcon.closeFilled)
-                            .font(.btTitle)
-                            .symbolRenderingMode(.hierarchical)
-                            .foregroundStyle(.white.opacity(0.9))
-                            .padding(Spacing.md)
-                    }
-                }
-                Spacer()
-            }
-        }
-        .task {
-            if let url = DrillContentService.shared.videoURL(drillId: drillId, file: video.file) {
-                player = AVPlayer(url: url)
             }
         }
     }

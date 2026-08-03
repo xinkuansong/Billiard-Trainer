@@ -22,7 +22,7 @@
 | `sets` | `DrillSetsConfig` | ✅ | Default practice sets configuration |
 | `animation` | `DrillAnimation` | ✅ | Canvas animation data (hand-drawn `manual` or engine-`baked`) |
 | `tutorial` | `DrillTutorial?` | ❌ | Detailed coaching tutorial sections |
-| `videos` | `[DrillVideo]?` | ❌ | Bundled demo videos (real-person takes) |
+| `videos` | `[DrillVideo]?` | ❌ | 预留真人示范位，当前无内容；引擎渲染视频已于 v25 下线 |
 | `shotIntent` | `ShotIntent?` | ❌ | Physics shot intent (P10, ADR-P10-01). Source of truth for `baked` animations. |
 
 ## `DrillSetsConfig`
@@ -73,8 +73,9 @@ Multi-shot "applied lesson" template (ADR-P11-14) adds: `开局与击球顺序`,
 | `id` | `String` | Stable identifier, e.g. `take_01` |
 | `file` | `String` | Filename under `Resources/Videos/<drillId>/`, e.g. `take_01.mp4` |
 
-Videos are bundled at `QiuJi/Resources/Videos/<drillId>/<file>`. Populated by
-`scripts/import-videos-to-app.py` from the ShootersPool `_inbox` archive.
+预留字段：当前 JSON 侧应为 `[]`。引擎渲染视频已于 v25 下线；真人示范恢复时
+落位 `QiuJi/Resources/Videos/<drillId>/<file>`，并由归档脚本
+`scripts/import-videos-to-app.py`（或后续替代）写入。
 
 ## `DrillAnimation`
 

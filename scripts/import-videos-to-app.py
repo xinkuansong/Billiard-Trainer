@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 """
+⚠️ 归档（v25 W1）：引擎渲染视频已下线（D-v25-1），本脚本不再用于日常内容管线。
+保留文件以便未来「真人示范」恢复时参考落位约定与 JSON `videos` 写入格式。
+勿删除。
+
+---
 import-videos-to-app.py — _inbox 录屏复制并改名进入 QiuJi App Bundle
 
 源：/Users/song/projects/15.tutorial_video/assets/raw/shooterspool-recordings/_inbox/drill_NNN/*.mp4

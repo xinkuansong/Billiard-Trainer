@@ -291,14 +291,9 @@ actor DrillContentService {
         return nil
     }
 
-    /// Resolves a bundled video file for a given drill to a local URL.
-    /// Videos are packaged at `Resources/Videos/<drillId>/<file>` (e.g. `take_01.mp4`).
-    nonisolated func videoURL(drillId: String, file: String) -> URL? {
-        let name = (file as NSString).deletingPathExtension
-        let ext = (file as NSString).pathExtension
-        let subdir = "Videos/\(drillId)"
-        return Bundle.main.url(forResource: name, withExtension: ext, subdirectory: subdir)
-    }
+    // v25 W1：引擎渲染视频下线后无调用方；`DrillVideo` / `videos` 字段仍保留
+    // （D-v25-1 预留真人示范）。恢复真人示范时再恢复 Bundle 解析即可。
+    // nonisolated func videoURL(drillId: String, file: String) -> URL? { ... }
 
     /// Resolves a tutorial motion clip (mp4) bundled at `Resources/DrillTutorials/<name>.mp4`.
     /// Pass the `clip` name without extension (same convention as tutorial `image`). ADR-P12-02.

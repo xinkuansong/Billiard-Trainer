@@ -44,11 +44,14 @@ targets:
           - "**/.DS_Store"
           - "Resources/Drills/**"
           - "Resources/Plans/**"
+          # v25 W1：引擎渲染视频已下线，目录保留磁盘但不进包（红线：不 rm）。
           - "Resources/Videos/**"
           - "Resources/DrillThumbnails/**"
           - "Resources/DrillTutorials/**"
           - "Resources/DrillBoards/**"
           - "Resources/Audio/**"
+          # v25 W1 / D-v25-7：Previews 排除出包（BTDrillPreviewPlayer 未接线，
+          # 保留代码与磁盘资源，随时可恢复 folder reference）。
           - "Resources/Previews/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
       - path: QiuJi/Resources/Drills
@@ -61,10 +64,10 @@ targets:
       - path: QiuJi/Resources/Plans
         type: folder
         buildPhase: resources
-      # ⚠️ 示范视频（Resources/Videos，约 11G）暂不打包：会让模拟器安装/启动
-      # 超时。缺文件时 DrillContentService.videoURL 返回 nil，详情页降级为
-      # 「视频示范即将上线」占位，功能不受影响。
-      # 需要真机验证视频功能时取消下面三行注释并重跑 `make xcodegen`。
+      # ⚠️ v25 W1：示范视频（Resources/Videos）不打包。引擎渲染视频已下线
+      # （D-v25-1）；`videos` JSON 字段预留真人示范位。磁盘资源保留不 rm。
+      # sources.excludes 已登记 Resources/Videos/**。
+      # 恢复真人示范时：取消下面三行注释并重跑 `make xcodegen`。
       # - path: QiuJi/Resources/Videos
       #   type: folder
       #   buildPhase: resources
@@ -74,12 +77,14 @@ targets:
       - path: QiuJi/Resources/DrillTutorials
         type: folder
         buildPhase: resources
-      # 逐帧预览（BTDrillPreviewPlayer 按 `Previews/<drillId>/frame_NN.png` 解析）：
-      # 必须是 folder reference，否则 988 张同名 frame_NN.png 会平铺到包根
-      # 并触发 duplicate output file 构建失败。
-      - path: QiuJi/Resources/Previews
-        type: folder
-        buildPhase: resources
+      # ⚠️ v25 W1 / D-v25-7：逐帧预览（Resources/Previews，约 520 MB）排除出包。
+      # BTDrillPreviewPlayer 未接线（生产零调用），保留代码随时可恢复。
+      # sources.excludes 已登记 Resources/Previews/**。
+      # 恢复时取消下面三行注释；必须用 folder reference，否则同名 frame_NN.png
+      # 平铺到包根会触发 duplicate output file 构建失败。
+      # - path: QiuJi/Resources/Previews
+      #   type: folder
+      #   buildPhase: resources
       # 试打球形序列（make tryout-sync 从 content/position_play/sequences/ 同步，
       # 与视频示范同源；方案 20260709-动作库试打模式 D4）。
       - path: QiuJi/Resources/DrillBoards

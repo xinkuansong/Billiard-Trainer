@@ -125,7 +125,6 @@
 		4A0EFE2D61C56830E85C6035 /* BTPressableStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 471F22688215CB7FEBCDAC43 /* BTPressableStyle.swift */; };
 		4A1AF3AF407CBA6556F90F0F /* CustomPlanBuilderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 152AFA7E00371290237260DA /* CustomPlanBuilderView.swift */; };
 		4A22E99119E3F7FD6D340054 /* BTRealisticBall.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD25D75E041AE8C9050D9BFF /* BTRealisticBall.swift */; };
-		4A726CE0327A35168FA8BC83 /* Previews in Resources */ = {isa = PBXBuildFile; fileRef = E1527CA56E9893F9020299FD /* Previews */; };
 		4B46C1BEFB30F34D6B2D18AA /* AimCloseupBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55718E8D0BB67AD6D31C2155 /* AimCloseupBuilderTests.swift */; };
 		4B9AC46FC2E4B6BB3E5DD8D6 /* PositionPlayUndoSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47BF87199F6FC90C78C80096 /* PositionPlayUndoSnapshotTests.swift */; };
 		4D1949B8830C6EE9FDA6BEA8 /* PositionPlayFreeAimTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66AEB9A450EA50D57002446F /* PositionPlayFreeAimTests.swift */; };
@@ -857,7 +856,6 @@
 		E0E2E203E9CB35400E4FA6CF /* ShareCardImageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardImageRenderer.swift; sourceTree = "<group>"; };
 		E114E3D62E9589E7F045F8CF /* ShotSound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotSound.swift; sourceTree = "<group>"; };
 		E13CC0F58FF9C40B9C3379E7 /* V22W2PlanAccuracyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V22W2PlanAccuracyTests.swift; sourceTree = "<group>"; };
-		E1527CA56E9893F9020299FD /* Previews */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Previews; path = QiuJi/Resources/Previews; sourceTree = SOURCE_ROOT; };
 		E181C762128655C63B1DA678 /* DrillBakeRunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillBakeRunnerTests.swift; sourceTree = "<group>"; };
 		E1E92082A72E034DFB10F39B /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
 		E1FF033885EBE1ADE9EAFF18 /* SubscriptionStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionStatusView.swift; sourceTree = "<group>"; };
@@ -1726,7 +1724,6 @@
 				FB782386740AA156681ADDE4 /* DrillTutorials */,
 				67FC5A8F6C2EC56734890B52 /* Info.plist */,
 				2B41233060C251C56FD9369D /* Plans */,
-				E1527CA56E9893F9020299FD /* Previews */,
 				A6250E924B6DF39444691990 /* Products.storekit */,
 				EA3C188374F32CF49A03E2F5 /* TaiQiuZhuo.usdz */,
 			);
@@ -1954,7 +1951,6 @@
 				D35BBBCEBDDB931D92508860 /* DrillTutorials in Resources */,
 				8FDDC62A036381A49821F775 /* Drills in Resources */,
 				57BDFC2455F545B3722B058B /* Plans in Resources */,
-				4A726CE0327A35168FA8BC83 /* Previews in Resources */,
 				5116CD77DCDF9E5B1EC27FED /* PrivacyInfo.xcprivacy in Resources */,
 				DBCCFE0A99F8292AD1CDD69F /* Products.storekit in Resources */,
 				6681222358EC7E6EC98AC8DF /* TaiQiuZhuo.usdz in Resources */,

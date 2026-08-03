@@ -84,30 +84,5 @@
       }
     ]
   },
-  "videos": [
-    {
-      "id": "take_01",
-      "file": "take_01.mp4"
-    },
-    {
-      "id": "take_02",
-      "file": "take_02.mp4"
-    },
-    {
-      "id": "take_03",
-      "file": "take_03.mp4"
-    },
-    {
-      "id": "take_04",
-      "file": "take_04.mp4"
-    },
-    {
-      "id": "take_05",
-      "file": "take_05.mp4"
-    },
-    {
-      "id": "take_06",
-      "file": "take_06.mp4"
-    }
-  ]
+  "videos": []
 }

@@ -442,58 +442,5 @@
       }
     ]
   },
-  "videos": [
-    {
-      "id": "take_01",
-      "file": "take_01.mp4"
-    },
-    {
-      "id": "take_02",
-      "file": "take_02.mp4"
-    },
-    {
-      "id": "take_03",
-      "file": "take_03.mp4"
-    },
-    {
-      "id": "take_04",
-      "file": "take_04.mp4"
-    },
-    {
-      "id": "take_05",
-      "file": "take_05.mp4"
-    },
-    {
-      "id": "take_06",
-      "file": "take_06.mp4"
-    },
-    {
-      "id": "take_07",
-      "file": "take_07.mp4"
-    },
-    {
-      "id": "take_08",
-      "file": "take_08.mp4"
-    },
-    {
-      "id": "take_09",
-      "file": "take_09.mp4"
-    },
-    {
-      "id": "take_10",
-      "file": "take_10.mp4"
-    },
-    {
-      "id": "take_11",
-      "file": "take_11.mp4"
-    },
-    {
-      "id": "take_12",
-      "file": "take_12.mp4"
-    },
-    {
-      "id": "take_13",
-      "file": "take_13.mp4"
-    }
-  ]
+  "videos": []
 }
