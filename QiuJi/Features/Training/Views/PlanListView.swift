@@ -382,41 +382,24 @@ private struct PlanCard: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            BTPlanCover(targetLevel: plan.targetLevel, issueNumber: issueNumber)
-
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.6)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(plan.nameZh)
-                    .font(.btHeadline)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text("\(levelName) · \(plan.durationWeeks) 周")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .monospacedDigit()
-            }
-            .padding(Spacing.md)
-
-            if plan.isPremium {
-                VStack {
-                    HStack {
-                        Spacer()
-                        BTProBadge()
-                    }
-                    Spacer()
+        BTContentGridCard(
+            title: plan.nameZh,
+            subtitle: "\(levelName) · \(plan.durationWeeks) 周",
+            coverAspectRatio: 4.0 / 3.0
+        ) {
+            ZStack(alignment: .topTrailing) {
+                BTPlanCover(
+                    planId: plan.id,
+                    targetLevel: plan.targetLevel,
+                    issueNumber: issueNumber,
+                    mode: .list
+                )
+                if plan.isPremium {
+                    BTProBadge()
+                        .padding(Spacing.sm)
                 }
-                .padding(Spacing.sm)
             }
         }
-        .aspectRatio(0.92, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 }
 

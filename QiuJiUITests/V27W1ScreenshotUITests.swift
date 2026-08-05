@@ -54,10 +54,10 @@ final class V27W1ScreenshotUITests: XCTestCase {
             app.descendants(matching: .any)["levelFilter_全部"].waitForExistence(timeout: 5),
             "动作库等级 chip 应存在"
         )
+        // v28 W3: ball-type chips moved into filter Menu; keep menu reachable.
         XCTAssertTrue(
-            app.descendants(matching: .any)["ballType_全部"].waitForExistence(timeout: 3)
-                || app.descendants(matching: .any)["ballType_中式台球"].waitForExistence(timeout: 3),
-            "动作库球种 chip 应存在"
+            app.descendants(matching: .any)["badgeFilterMenu"].waitForExistence(timeout: 3),
+            "动作库筛选菜单应存在（含球种）"
         )
         savePNG("drill-library-chips-\(suffix)")
 

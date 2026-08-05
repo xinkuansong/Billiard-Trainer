@@ -2,28 +2,62 @@ import SwiftUI
 
 /// 训练计划「杂志封面」色卡 —— 方向 A：纯排版，无图片。
 ///
-/// 用一种饱和色调 + 一个超大中文字 + 编号小字代替真实封面图。
+/// 用一种饱和色调 + 课程主题水印 + 编号小字代替真实封面图。
 /// 等动作库素材（15.tutorial_video）到位后，可把渐变层整体替换为图片，结构不变。
 ///
 /// 色值 / 水印规范：`CoverPalette`（与练习页分区封面同一真源，v27 W2 / DR-044）。
 ///
-/// 复用场景：
-/// - 列表卡：方形海报，标题由调用方在底部叠加。
-/// - 详情页 Hero：280pt 全宽封面，标题由调用方在左下角叠加。
+/// 复用场景（v28 W2：列表态 / Hero 态参数分离）：
+/// - `.list`：网格/计划列表封面；期号可见；标题由 `BTContentGridCard` 放在封面下。
+/// - `.hero`：详情页全宽 Hero；隐藏期号；大字水印；标题仍由调用方叠在左下。
 struct BTPlanCover: View {
+    enum Mode: Equatable {
+        case list
+        case hero
+    }
+
+    let planId: String
     let targetLevel: String
     let issueNumber: Int
-    /// Absolute glyph size; `nil` = `CoverPalette.Glyph.planListAbsoluteSize` (token; was inline 96).
+    var mode: Mode = .list
+    /// Absolute glyph size override; `nil` resolves from `mode`.
     var glyphSize: CGFloat? = nil
-    var corner: CGFloat = BTRadius.md
-    /// 是否显示左上角「期号」标签。全屏 Hero（详情页）下隐藏，避免与状态栏/返回键
-    /// 重叠（UR-20260529 U-02）；列表海报保持显示。
-    var showIssueLabel: Bool = true
+    var corner: CGFloat? = nil
+    /// Explicit override; `nil` resolves from `mode` (list=true, hero=false).
+    var showIssueLabel: Bool? = nil
 
     private var style: CoverPalette.PlanStyle { CoverPalette.PlanStyle.forLevel(targetLevel) }
+    private var label: String { PlanCoverLabel.text(for: planId) }
+    private var displayLabel: String { PlanCoverLabel.displayText(for: planId) }
 
-    private var resolvedGlyphSize: CGFloat {
-        glyphSize ?? CoverPalette.Glyph.planListAbsoluteSize
+    private var resolvedBaseGlyphSize: CGFloat {
+        if let glyphSize { return glyphSize }
+        switch mode {
+        case .list: return CoverPalette.Glyph.planListAbsoluteSize
+        case .hero: return CoverPalette.Glyph.planHeroAbsoluteSize
+        }
+    }
+
+    private var resolvedLabelSize: CGFloat {
+        let scale: CGFloat
+        switch label.count {
+        case ...2: scale = 0.60
+        case 3: scale = 0.48
+        default: scale = 0.40
+        }
+        return resolvedBaseGlyphSize * scale
+    }
+
+    private var resolvedLabelVerticalOffset: CGFloat {
+        resolvedBaseGlyphSize * 0.06
+    }
+
+    private var resolvedCorner: CGFloat {
+        corner ?? (mode == .hero ? 0 : BTRadius.md)
+    }
+
+    private var resolvedShowIssueLabel: Bool {
+        showIssueLabel ?? (mode == .list)
     }
 
     var body: some View {
@@ -34,24 +68,22 @@ struct BTPlanCover: View {
                 endPoint: .bottomTrailing
             )
 
-            Text(style.glyph)
-                .font(.btCoverWatermark(size: resolvedGlyphSize))
+            Text(displayLabel)
+                .font(.btCoverWatermark(size: resolvedLabelSize))
                 .foregroundStyle(style.glyphColor)
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .multilineTextAlignment(.center)
+                .lineLimit(label.count == 4 ? 2 : 1)
+                .padding(.horizontal, Spacing.xl)
+                .offset(y: resolvedLabelVerticalOffset)
 
-            if showIssueLabel {
+            if resolvedShowIssueLabel {
                 VStack {
                     HStack(alignment: .top) {
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(String(format: "%02d", issueNumber))
-                                .font(.system(size: resolvedGlyphSize * 0.21, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                            Text("第 \(issueNumber) 期")
-                                .font(.system(size: resolvedGlyphSize * 0.095, weight: .semibold))
-                                .monospacedDigit()
-                        }
-                        .foregroundStyle(.white.opacity(0.92))
+                        Text("第 \(issueNumber) 期")
+                            .font(.system(size: resolvedBaseGlyphSize * 0.095, weight: .semibold))
+                            .monospacedDigit()
+                            .foregroundStyle(.white.opacity(0.92))
 
                         Spacer()
                     }
@@ -60,19 +92,51 @@ struct BTPlanCover: View {
                 .padding(Spacing.md)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: corner))
+        .clipShape(RoundedRectangle(cornerRadius: resolvedCorner))
         .accessibilityHidden(true)
+    }
+}
+
+enum PlanCoverLabel {
+    static func text(for planId: String) -> String {
+        switch planId {
+        case "plan_beginner": return "入门"
+        case "plan_cueball": return "杆法"
+        case "plan_accuracy": return "准度"
+        case "plan_force": return "控力"
+        case "plan_separation": return "分离角"
+        case "plan_english": return "加塞"
+        case "plan_positioning": return "走位"
+        case "plan_intermediate": return "中级综合"
+        case "plan_advanced": return "加塞多库"
+        case "plan_fullskill": return "全能综合"
+        default: return "训练"
+        }
+    }
+
+    static func displayText(for planId: String) -> String {
+        let label = text(for: planId)
+        guard label.count == 4 else { return label }
+        let split = label.index(label.startIndex, offsetBy: 2)
+        return "\(label[..<split])\n\(label[split...])"
     }
 }
 
 // MARK: - Previews
 
 #Preview("Covers") {
-    let levels = ["L0→L1", "L1", "L1→L2", "L2", "L3", "L3→L4"]
+    let samples = [
+        ("plan_beginner", "L0→L1"),
+        ("plan_cueball", "L1"),
+        ("plan_positioning", "L1→L2"),
+        ("plan_intermediate", "L2"),
+        ("plan_advanced", "L3"),
+        ("plan_fullskill", "L3→L4"),
+    ]
     let cols = [GridItem(.flexible(), spacing: 12), GridItem(.flexible())]
     return LazyVGrid(columns: cols, spacing: 12) {
-        ForEach(Array(levels.enumerated()), id: \.offset) { idx, lvl in
-            BTPlanCover(targetLevel: lvl, issueNumber: idx + 1)
+        ForEach(Array(samples.enumerated()), id: \.offset) { idx, sample in
+            BTPlanCover(planId: sample.0, targetLevel: sample.1, issueNumber: idx + 1)
                 .aspectRatio(0.85, contentMode: .fit)
         }
     }

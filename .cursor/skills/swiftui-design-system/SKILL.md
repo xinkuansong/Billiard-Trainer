@@ -360,19 +360,21 @@ struct BTFilterChip: View {
 
 // 基准：训练页 filterChips（SPEC §6.3 / §7）
 // 字号 btFootnote14.medium；水平 Spacing.xl；选中 btChipActiveFill*；未选 1pt btSeparator
-// 调用方：TrainingHomeView、DrillListView（等级 + 球种）
+// 调用方：TrainingHomeView、DrillListView（仅等级一行；球种在筛选 Menu，v28 W3）
 ```
 
-## 九-c、封面色板与缩略图相框（CoverPalette / BTThumbnailFrame — DR-044）
+## 九-c、封面色板与缩略图相框（CoverPalette / BTThumbnailFrame — DR-044 / DR-045）
 
 ```swift
 // 分区色：学绿 / 练金 / 打蓝青 / 解石墨；区内仅明度阶梯；明暗同 RGB
 CoverPalette.aimingPrinciple  // Pair(top:bottom:)
+// 计划色：独立六色编辑式色板（绿/蓝/青/黑金/棕金/红；DR-047）
 CoverPalette.PlanStyle.forLevel("L1")
 CoverPalette.Glyph.opacity            // 0.30 白水印
 CoverPalette.Glyph.color(against:)    // Constraint A：|ΔL|≥0.14 选白/深
 Font.btCoverWatermark                 // 56pt
-Font.btCoverWatermark(size: 96)       // 训练海报
+Font.btCoverWatermark(size: 96)       // 训练列表海报
+BTPlanCover(planId: ..., targetLevel: ..., issueNumber: ..., mode: .list) // 或 .hero
 
 view.btThumbnailFrame(
     cornerRadius: BTRadius.sm,
@@ -384,7 +386,25 @@ view.btThumbnailFrame(
 
 - `typealias AngleCoverPalette = CoverPalette`（旧调用方无需改名）
 - 分区阶梯用每区 `ZoneLadder`（练区防泥褐 B 地板；解区起点压暗）
+- 训练计划颜色按 `targetLevel`，主题水印按 `planId` 经 `PlanCoverLabel` 映射；2/3 字单行按 60%/48% 缩放，4 字按 2×2 双行与 40% 缩放，并保留 `Spacing.xl` 安全区；水印相对几何中心下移基础字号 6%；列表期号只显示「第 N 期」，禁止再叠两位数编号
 - 禁止为封面色板发明 Dark 专用变体；禁止按卡硬写 RGB 绕过阶梯
+
+## 九-d、共享表层语法与练习混合封面（DR-045 / v28）
+
+```swift
+BTContentGridCard(title:subtitle:coverAspectRatio:) { cover }
+BTLibrarySearchBar(placeholder:text:) { trailing }
+BTLibrarySectionHeader(systemImage:title:caption:)
+BTPracticeCover(visual: PracticeCoverCatalog.visual(for: route), chip: "2D")
+```
+
+- 学区封面 = `PracticeCoverVisual.geometric`；练/打/解 = `.tablePreview`；禁网格内启动 VM/求解器
+- 真台复用 `BTTableFigure` + `TableFigureRenderer` 缓存
+- 动作库网格：台面只留等级/Pro·收藏；完成与旧新版进标题下元信息（不再叠距离/袋口特征胶囊）
+- **DR-051**：练习首页默认封面恢复 v27 渐变底 + 路由语义单字水印；保留 v28 共享卡片壳、搜索栏、栏目头。`BTPracticeCover` 不再作为首页默认封面。
+- **DR-052**：练习首页单字水印改用 pre-v27 逐卡独立多彩渐变，通过 `CoverPalette.PracticeMulticolor` 消费历史色值；禁止退回学/练/打/解四分区同色阶或在 View 内硬编码 RGB。
+- **DR-053**：练习首页水印尽量用两字语义词；每个分组从 01 独立编号；高级入口的 `BTProBadge` 必须与真实订阅门控成对出现，非 Pro 点击统一弹 `SubscriptionView`。
+- **DR-054**：练习首页大字水印按 `CoverPalette.Glyph.gridAbsoluteSize * 0.06` 下移；类型标签固定在彩色封面右下角，Pro 徽标继续位于右上角。
 
 ---
 
@@ -717,6 +737,42 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-05 — 动作库网格卡去掉台面特征胶囊（距离/袋口），覆层仅留等级与 Pro/收藏。
+- 2026-08-05（DR-054）— 练习卡封面视觉重心调整：
+  - 大字水印按字号 6% 下移，对齐训练计划封面
+  - 类型标签移至封面右下角，Pro 徽标保留右上角
+- 2026-08-04（DR-053）— 计划期号去重与练习首页 Pro 分层：
+  - `BTPlanCover` 列表态只显示「第 N 期」；`plan_advanced` 使用「加塞／多库」双行水印
+  - `AngleGridCard` 采用两字语义水印、分组内独立编号；Pro 徽标必须同时接实际订阅门控
+- 2026-08-04（DR-052）— 练习首页恢复 pre-v27 逐卡多彩色板：
+  - 保留语义单字水印、chip 与 v28 `BTContentGridCard` / 搜索栏 / 栏目头
+  - 四分区同色阶替换为历史逐卡独立 RGB 渐变，统一收口到 `CoverPalette.PracticeMulticolor`
+- 2026-08-04（DR-051）— 练习首页恢复 v27 单字水印图标：
+  - 保留 v28 `BTContentGridCard` / 搜索栏 / 栏目头，只回退封面视觉
+  - 几何微插图与真台预览恢复为渐变底 + 瞄/法/偏/旋/角/走/翻等语义单字
+- 2026-08-04（DR-050）— 训练计划主题水印视觉重心下移：
+  - 水印向下偏移基础字号 6%，list/hero 按各自基础字号同比缩放
+  - 期号、字号、断行与卡片尺寸保持不变
+- 2026-08-04（DR-049）— 训练计划主题水印缩小与四字双行：
+  - 2/3 字单行缩为基础字号 60%/48%，避免抢占标题层级
+  - 4 字主题固定按 2×2 双行显示，字号取 40%，保留原期号与安全区
+- 2026-08-04（DR-048）— 训练计划封面改课程主题标签：
+  - `BTPlanCover` 新增必填 `planId`，颜色与文字职责拆分
+  - `PlanCoverLabel` 映射 10 套计划为入门/杆法/准度/控力/分离角/加塞/走位/三档综合
+  - 2–4 字分档缩放并保留水平安全区，禁止铺满或复制完整标题
+- 2026-08-04（DR-047）— 训练计划封面恢复 v27 W2 前六色大字杂志卡：
+  - 保留 v28 `BTContentGridCard` 与 `BTPlanCover.Mode` list/hero API
+  - `CoverPalette.PlanStyle` 从 teal 单色阶恢复入门绿 / 初级蓝 / 进阶青 / 中级黑金 / 高级棕金 / 专家红
+  - 文生图方案仅作比较，未纳入 App 资源
+- 2026-08-04（DR-046）— 训练首页当日内容卡：
+  - 白色摘要卡严格两行：首行栏目+计划+完成数，次行主题+周/天/时长；进度用不占行高的 2pt 底边线
+  - 动作行复用 `BTBakedDrillTable(.fill)`，90×50 专用裁口只裁烘焙 PNG 透明留边，须完整保留六袋四库；首页小行卡不加底部暗角、不另启运行时场景
+  - 删除图上序号；阶段色仅作小色点，阶段文字与组球数保持中性
+- 2026-08-04（v28 · DR-045）— 三 Tab 表层语法与专业内容封面：
+  - 新增 `BTContentGridCard` / `BTLibrarySearchBar` / `BTLibrarySectionHeader`
+  - 新增 `PracticeCoverVisual` + `BTPracticeCover`（学几何 / 练打解真台）
+  - `CoverPalette.PlanStyle` 独立计划色阶；`BTPlanCover.Mode` list/hero
+  - 动作库球种进 Menu；完成/旧新版迁元信息行
 - 2026-08-04（v27 W2 · DR-044）— 封面色板分区收敛：
   - `CoverPalette`（`typealias AngleCoverPalette`）：学绿 / 练金 / 打蓝青 / 解石墨 + `PlanStyle`；明暗同 RGB
   - Typography：`btCoverWatermark(size:)`；`CoverPalette.Glyph.opacity` = 0.20

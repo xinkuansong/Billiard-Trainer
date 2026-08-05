@@ -82,6 +82,138 @@
 
 ## DR 记录（设计调整）
 
+## DR-054
+- **任务**：练习首页封面水印与类型标签视觉重心调整
+- **原始规范**：练习卡大字水印按封面几何中心放置；`物理 / 走位 / 2D / 3D / 识别 / SIM` 等类型标签与 Pro 徽标共同堆叠在右上角。
+- **调整后**：
+  1. 大字水印按 `CoverPalette.Glyph.gridAbsoluteSize * 0.06` 向下偏移，与训练计划卡 DR-050 的相对偏移口径一致。
+  2. Pro 徽标继续留在右上角；类型标签独立移动到彩色封面右下角，分离付费属性与内容类型。
+- **原因**：练习卡水印视觉重心偏高；类型标签属于封面内容说明，放在右下角可避开左上编号和右上 Pro 状态，并让层级更清楚。
+- **影响组件**：`AngleGridCard`
+- **日期**：2026-08-05
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3d/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-d/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3d/Changelog（2026-08-05）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-d/Changelog（2026-08-05）
+- **证据**：`make build` → `BUILD SUCCEEDED`；`V28VisualUnificationUITests/testV28_LightScreenshots` 1/0；「练 / 打 / 解」截图目视确认水印下移、类型标签位于右下角且不与 Pro 徽标重叠。
+
+## DR-053
+- **任务**：训练计划期号去重与练习首页角标 / Pro 分层
+- **原始规范**：训练计划封面同时显示两位数编号与「第 N 期」，信息重复；高级计划标题仍为「高级专项：加塞与多库」且封面水印为「高级综合」；练习卡仅有单字水印，无分组内序号，首页也未对高级入口做一致的 Pro 标识与实际门控。
+- **调整后**：
+  1. 计划封面只保留「第 N 期」；`plan_advanced` 用户可见名称统一为「加塞与多库专项」，水印固定为「加塞／多库」两行。
+  2. 练习卡在每个「学 / 练 / 打 / 解」分组内从 01 重新编号；水印尽量使用两字语义词，避免单字显得空。
+  3. 每组选择高级入口显示 `BTProBadge` 并接真实门控：非 Pro 点击弹 `SubscriptionView`，Pro 用户正常路由。当前门控为学「分离角图谱 / 加塞吃库图谱」、练「3D 角度训练 / 3D 瞄准点训练」、打「自由走位 / 拍照建球形」、解「打一走二想三 / 防守」。
+- **原因**：减少封面重复信息，强化卡片识别密度，并让首页的付费提示与实际访问权限一致，避免只有视觉角标却可直接进入。
+- **影响组件**：`BTPlanCover`、`PlanCoverLabel`、`AngleHomeView`、`AngleGridCard`、`QiuJiApp`（仅 Debug 门控测试钩子）、`V28VisualUnificationUITests`、`plan_advanced.json`、计划索引
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/§2.3d/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-c/§九-d/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/§2.3d/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/§九-d/Changelog（2026-08-04）
+- **证据**：`make build` → `BUILD SUCCEEDED`；`V28VisualUnificationUITests/testV28_LightScreenshots` 1/0，截图确认期号去重、两字水印、分组编号与 PRO 徽标无重叠；`testPracticePremiumEntryShowsSubscription` 1/0，确认强制非 Pro 状态下弹订阅页且未进入内容页。
+
+## DR-052
+- **任务**：练习首页恢复 pre-v27 每卡独立多彩封面
+- **原始规范**：DR-051 将 v28 混合球桌预览回退为 v27 分区同色系的渐变单字水印（学绿 / 练金 / 打蓝 / 解灰）。
+- **调整后**：
+  1. 保留 DR-051 的语义单字水印、chip，以及 v28 `BTContentGridCard` / 搜索栏 / 栏目头 / 筛选布局。
+  2. 练习首页不再消费四分区色阶；改用 pre-v27 `AngleCoverPalette` 的逐卡独立配色，恢复绿、青、橙、琥珀、玫红、蓝、紫、红等历史 RGB 渐变。
+  3. 历史色值收口到 `CoverPalette.PracticeMulticolor`，不在 View 内硬编码；训练计划与其他页面继续使用现有色板。
+- **原因**：用户确认所指的旧版是“各种颜色”的更早版本，而非 v27 的分区同色系版本；逐卡色彩差异也能提升双列网格中的入口辨识度。
+- **影响组件**：`CoverPalette.PracticeMulticolor`、`AngleHomeView`、`AngleGridCard`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3d/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-d/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3d/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-d/Changelog（2026-08-04）
+- **证据**：`xcodebuild ... build` → `BUILD SUCCEEDED`；`V28VisualUnificationUITests/testV28_LightScreenshots` 1/0；截图 `build/v28-screenshots/practice-{all,学,练,打,解}-Light.png` 目视确认逐卡多彩渐变恢复。
+
+## DR-051
+- **任务**：练习首页封面图标恢复 v27 单字水印
+- **原始规范**：v28 W1 将练习首页卡片封面从渐变单字水印替换为“学=几何微插图、练/打/解=真台轨迹预览”。
+- **调整后**：
+  1. 保留 v28 `BTContentGridCard`、共享搜索栏、栏目头与筛选布局。
+  2. 仅恢复 v27 的渐变底 + 路由语义单字水印（瞄/法/偏/旋/角/走/翻等）及原 2D/3D/物理 chip。
+  3. 移除练习首页对球桌背景的预热；`PracticeCoverCatalog` 暂保留供 v28 组件与测试追溯，不再作为首页生产封面。
+- **原因**：双列卡片封面尺寸不足以承载真实球桌、球与多条轨迹；缩小后形成视觉噪声。单字水印在该尺寸下识别更直接，且用户明确要求恢复约 2–3 个版本前的图标。
+- **影响组件**：`AngleHomeView`、`AngleGridCard`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3d/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-d/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3d/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-d/Changelog（2026-08-04）
+- **证据**：`make build` → `BUILD SUCCEEDED`；`V28VisualUnificationUITests/testV28_LightScreenshots` 1/0；截图 `build/v28-screenshots/practice-{all,学,练,打,解}-Light.png` 目视确认单字水印恢复。
+
+## DR-050
+- **任务**：训练计划主题水印视觉重心下移
+- **原始规范**：主题水印按封面几何中心放置；左上期号与粗圆体字形共同造成视觉重心偏上。
+- **调整后**：仅对主题水印增加基础字号 6% 的向下偏移（list 默认约 5.8pt，hero 默认约 10.2pt）；期号、背景、字号、断行和卡片尺寸不变。
+- **原因**：通过水印自身的相对偏移修正视觉重心，避免移动整个封面内容层或引入按卡片高度写死的 magic number。
+- **影响组件**：`BTPlanCover`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog（2026-08-04）
+
+## DR-049
+- **任务**：训练计划主题水印缩小并为四字主题改用双行
+- **原始规范**：DR-048 将 2/3/4 字统一单行展示，字号分别为基础字号的 72%/58%/46%；两字仍偏大，四字横向占幅过宽。
+- **调整后**：
+  1. 2/3 字主题继续单行，字号缩小为基础字号的 60%/48%。
+  2. 4 字主题固定按 2×2 断行（中级／综合、高级／综合、全能／综合），字号为基础字号的 40%，居中显示。
+  3. 保留原 `Spacing.xl` 水平安全区、六色背景、期号与卡片尺寸。
+- **原因**：主题水印应辅助识别而非充当第二标题；四字单行即使缩放仍会形成横向满幅，固定双行可保持紧凑视觉重心。
+- **影响组件**：`BTPlanCover`、`PlanCoverLabel`、`CoverPaletteContrastTests`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog（2026-08-04）
+
+## DR-048
+- **任务**：训练计划封面从等级单字改为课程主题标签
+- **原始规范**：`CoverPalette.PlanStyle` 同时按 `targetLevel` 决定颜色与「入/初/进/中/高/专」等级水印；`BTPlanCover` 不接收计划身份，同等级计划只能显示相同字样。
+- **调整后**：
+  1. 颜色继续由 `targetLevel` 决定；封面文字改由 `planId` 经 `PlanCoverLabel` 单点映射为课程主题：入门、杆法、准度、控力、分离角、加塞、走位、中级综合、高级综合、全能综合。
+  2. `BTPlanCover` API 新增必填 `planId`；训练首页、计划列表、计划详情与共享卡片 Preview 全部接线。
+  3. 水印按 2/3/4 字分别取基础字号的 72%/58%/46%，并保留水平 `Spacing.xl` 安全区，避免铺满封面或压住左上期号。
+- **原因**：等级单字过度抽象，双字等级又与卡片标题重复且铺满封面；课程主题标签能提供第二层信息，同时不重复完整标题。
+- **影响组件**：`BTPlanCover`、`PlanCoverLabel`、`CoverPalette.PlanStyle`、`TrainingHomeView`、`PlanListView`、`PlanDetailView`、`BTContentGridCard`、`CoverPaletteContrastTests`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog（2026-08-04）
+
+## DR-047
+- **任务**：训练计划封面回归六色大字杂志卡
+- **原始规范**：DR-045 将训练计划 6 档封面收敛为 teal→indigo 单色相明度阶梯；大字与期号结构不变。
+- **调整后**：
+  1. 保留 v28 的 `BTContentGridCard` 共享外壳与 `BTPlanCover.Mode` list/hero API。
+  2. `CoverPalette.PlanStyle` 恢复 v27 W2 前六色编辑式色板：入门绿、初级蓝、进阶青、中级黑金、高级棕金、专家红；恢复原有低透明度大字水印。
+  3. 放弃文生图封面方向；生图仅用于方案比较，未纳入 App 资源。
+- **原因**：用户目视对比后确认文生图在双列缩略图中无法稳定表达训练主题；teal 单色阶又削弱计划间识别。旧六色大字方案在小尺寸下信息最直接，且与现有标题/期号结构兼容。
+- **影响组件**：`CoverPalette.PlanStyle`、`BTPlanCover`（视觉消费，API 不变）、`CoverPaletteContrastTests`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog（2026-08-04）
+
+## DR-046
+- **任务**：训练首页「今日安排」内容层级与动作缩略图重设计
+- **原始规范**：周/天/完成数、栏目标题、计划名、周主题分散为多行弱文本；动作卡仅有序号、名称与组数，没有球形预览，且「第 N 项 / 共 N 项」与序号重复。
+- **调整后**：
+  1. 当日信息压成两行白色摘要卡：首行「今日安排 + 计划名 + 完成数」；次行「周主题 + 周/天/时长」；删除元信息胶囊，进度改为不占行高的 2pt 卡片底边线。
+  2. 动作卡接入 `BTBakedDrillTable(drillId:contentMode:.fill)` 的 90×50pt 专用裁口：仅裁烘焙 PNG 左右透明留边，六袋与四边库完整；不使用底部暗角，不启动 SceneKit / VM / 求解器。
+  3. 删除图上序号；动作元信息改为中性阶段文字 + 5pt 语义色点 +「N 组 × N 球」，保留完成 / 当前 / 排队状态。
+- **原因**：底层问题是当日训练缺少单一视觉焦点与球形辨识能力，不是单纯缺一张装饰图片；现有 `TodayDrillItem.drillId` 与离线缩略图缓存已能零数据改动实现真实预览。
+- **影响组件**：`TrainingHomeView.todayScheduleHeader`、`todayDrillCard`、`BTBakedDrillTable`（复用）
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` Changelog（2026-08-04）
+
+## DR-045
+- **任务**：问题集合 v28 — 三 Tab 表层语法与专业内容封面（W0–W4）
+- **原始规范**：
+  1. 练习 / 动作库 / 训练计划卡片各自实现外壳；练习封面为大字水印渐变海报；动作库双行 chip（球种+等级）；计划色复用学/练/打/解色对。
+  2. 旧版/新版角标叠在烘焙台面四角；完成态同叠右上。
+- **调整后**：
+  1. 共享 `BTContentGridCard` / `BTLibrarySearchBar` / `BTLibrarySectionHeader`；练习混合封面 `PracticeCoverVisual` + `BTPracticeCover`（学=几何微插图，练/打/解=真台静态预览，分区色仅 tint）。
+  2. `CoverPalette.PlanStyle` 独立 teal→indigo 等级阶梯；`BTPlanCover.Mode` 分 list/hero；训练首页/计划列表接共享壳。
+  3. 动作库只留一行等级 chip；球种+精讲进筛选菜单；完成/旧新版移到标题下元信息行。
+- **原因**：v27 统一了 token，但三 Tab 骨架/密度/内容表达仍割裂；大字水印无法预告目的页。
+- **影响组件**：`BTContentGridCard`、`BTLibrarySearchBar`、`BTLibrarySectionHeader`、`BTPracticeCover`、`PracticeCoverCatalog`、`BTPlanCover`、`CoverPalette`、`AngleHomeView`、`TrainingHomeView`、`PlanListView`、`DrillListView`、`BTDrillGridCard`
+- **日期**：2026-08-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog + §2.3c；`.cursor/skills/swiftui-design-system/SKILL.md`
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/§2.3d/Changelog（2026-08-04）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/§九-d/Changelog（2026-08-04）
+
 ## DR-044
 - **任务**：问题集合 v27 W2 — 封面色板分区收敛（E2/E3/E4 相框）
 - **原始规范**：

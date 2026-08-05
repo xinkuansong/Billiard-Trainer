@@ -24,9 +24,10 @@ struct DrillListView: View {
     var body: some View {
         VStack(spacing: 0) {
             pageHeader
-            searchBar
-            ballTypeChips
-                .padding(.top, Spacing.sm)
+            BTLibrarySearchBar(placeholder: "搜索动作", text: $viewModel.searchText) {
+                libraryFilterMenu
+            }
+            // v28 W3: keep a single quick-chip row (level), aligned with Training Tab.
             levelChips
                 .padding(.bottom, Spacing.xs)
 
@@ -57,41 +58,32 @@ struct DrillListView: View {
         .padding(.top, Spacing.sm)
     }
 
-    private var searchBar: some View {
-        HStack(spacing: Spacing.sm) {
-            HStack(spacing: Spacing.sm) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.btTextTertiary)
-                TextField("搜索动作", text: $viewModel.searchText)
-                    .font(.btCallout)
-                    .foregroundStyle(.btText)
-                if !viewModel.searchText.isEmpty {
+    /// Ball type + tutorial/progress filters live in one Menu (v28 W3); badge shows active count.
+    private var libraryFilterActiveCount: Int {
+        var count = 0
+        if viewModel.ballTypeFilter != .all { count += 1 }
+        if viewModel.badgeFilter != .all { count += 1 }
+        return count
+    }
+
+    private var libraryFilterMenu: some View {
+        Menu {
+            Section("球种") {
+                ForEach(BallTypeFilter.displayCases) { filter in
                     Button {
-                        viewModel.searchText = ""
+                        withAnimation(BTMotion.easeFast) {
+                            viewModel.ballTypeFilter = filter
+                        }
                     } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.btTextTertiary)
+                        if viewModel.ballTypeFilter == filter {
+                            Label(filter.rawValue, systemImage: "checkmark")
+                        } else {
+                            Text(filter.rawValue)
+                        }
                     }
+                    .accessibilityIdentifier("ballTypeMenu_\(filter.rawValue)")
                 }
             }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
-            .background(Color.btBGTertiary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-
-            // R2: badge filters live in a Menu (same pattern as TrainingHomeView overflow Menu).
-            badgeFilterMenu
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.sm)
-    }
-
-    private var badgeFilterActiveCount: Int {
-        viewModel.badgeFilter == .all ? 0 : 1
-    }
-
-    private var badgeFilterMenu: some View {
-        Menu {
             Section("精讲与进度") {
                 ForEach(DrillBadgeFilter.allCases) { filter in
                     Button {
@@ -107,9 +99,10 @@ struct DrillListView: View {
                     }
                 }
             }
-            if viewModel.badgeFilter != .all {
-                Button("清除角标筛选", role: .destructive) {
+            if libraryFilterActiveCount > 0 {
+                Button("清除筛选", role: .destructive) {
                     withAnimation(BTMotion.easeFast) {
+                        viewModel.ballTypeFilter = .all
                         viewModel.badgeFilter = .all
                     }
                 }
@@ -118,16 +111,16 @@ struct DrillListView: View {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: BTIcon.filter)
                     .font(.btBody)
-                    .foregroundStyle(badgeFilterActiveCount > 0 ? Color.btPrimary : Color.btTextSecondary)
+                    .foregroundStyle(libraryFilterActiveCount > 0 ? Color.btPrimary : Color.btTextSecondary)
                     .frame(width: 44, height: 44)
                     .background(
                         RoundedRectangle(cornerRadius: BTRadius.sm)
-                            .fill(badgeFilterActiveCount > 0 ? Color.btPrimaryMuted : Color.btBGTertiary)
+                            .fill(libraryFilterActiveCount > 0 ? Color.btPrimaryMuted : Color.btBGTertiary)
                     )
                     .contentShape(Rectangle())
 
-                if badgeFilterActiveCount > 0 {
-                    Text("\(badgeFilterActiveCount)")
+                if libraryFilterActiveCount > 0 {
+                    Text("\(libraryFilterActiveCount)")
                         .font(.btCaption2.weight(.bold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 5)
@@ -139,9 +132,9 @@ struct DrillListView: View {
         }
         .accessibilityIdentifier("badgeFilterMenu")
         .accessibilityLabel(
-            badgeFilterActiveCount > 0
-                ? "角标筛选，已选 \(viewModel.badgeFilter.menuLabel)"
-                : "角标筛选"
+            libraryFilterActiveCount > 0
+                ? "筛选，已选 \(libraryFilterActiveCount) 项"
+                : "筛选球种与精讲"
         )
     }
 
@@ -285,36 +278,8 @@ struct DrillListView: View {
     }
 
     private func sectionHeader(category: DrillCategory) -> some View {
-        HStack(spacing: Spacing.sm) {
+        BTLibrarySectionHeader(title: category.nameZh) {
             BTDrillCategoryIcon(category: category, size: 22, filled: true)
-            Text(category.nameZh)
-                .font(.btTitle2)
-                .foregroundStyle(.btText)
-            Spacer()
-        }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, Spacing.sm)
-        .background(.btBG)
-    }
-
-    // MARK: - Ball Type Chips
-
-    private var ballTypeChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Spacing.sm) {
-                ForEach(BallTypeFilter.displayCases) { filter in
-                    BTFilterChip(
-                        title: filter.rawValue,
-                        isSelected: viewModel.ballTypeFilter == filter,
-                        accessibilityIdentifier: "ballType_\(filter.rawValue)"
-                    ) {
-                        withAnimation(BTMotion.easeInOutFast) {
-                            viewModel.ballTypeFilter = filter
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
         }
     }
 

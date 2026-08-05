@@ -14,9 +14,21 @@ extension XCUIApplication {
 
     func switchTab(_ tab: Tab) {
         // 冷启动可能 >3s 才出现 TabBar：先等待存在再点，规避偶发 "No matches for TabBar"。
-        let button = tabBars.buttons[tab.rawValue]
-        _ = button.waitForExistence(timeout: 20)
-        button.tap()
+        if tabBars.firstMatch.waitForExistence(timeout: 5) {
+            let tabBarButton = tabBars.buttons[tab.rawValue]
+            if tabBarButton.waitForExistence(timeout: 15) {
+                tabBarButton.tap()
+                return
+            }
+        }
+
+        // iOS 26 floating tab bar may expose its item as a Cell-backed button outside TabBar descendants.
+        let floatingTabButton = buttons[tab.rawValue].firstMatch
+        XCTAssertTrue(
+            floatingTabButton.waitForExistence(timeout: 5),
+            "Tab '\(tab.rawValue)' should exist"
+        )
+        floatingTabButton.tap()
     }
 
     // MARK: - Launch Helpers

@@ -36,25 +36,34 @@ final class W7_DrillListFilterUITests: XCTestCase {
         sleep(1)
         snap("w7r3-s2-level-beginner")
 
-        // Combined: 中式台球 × 准度训练 × 入门 × 新版精讲 (via filter Menu)
-        let chinese = app.descendants(matching: .any)["ballType_中式台球"]
-        if chinese.waitForExistence(timeout: 3) { chinese.tap() }
-        sleep(1)
-
+        // Combined: 中式台球 × 准度训练 × 入门 × 新版精讲 (ball type + badge via filter Menu; v28 W3)
         let accuracy = app.descendants(matching: .any)["sidebar_准度训练"]
         if accuracy.waitForExistence(timeout: 3) { accuracy.tap() }
         sleep(1)
 
         let menu = app.descendants(matching: .any)["badgeFilterMenu"]
-        XCTAssertTrue(menu.waitForExistence(timeout: 3), "R2 badge filter menu should exist")
+        XCTAssertTrue(menu.waitForExistence(timeout: 3), "filter menu should exist")
         menu.tap()
         sleep(1)
         snap("w7r3-s5-badge-menu")
 
+        let chinese = app.buttons["中式台球"].firstMatch
+        if chinese.waitForExistence(timeout: 3) {
+            chinese.tap()
+        } else if app.menuItems["中式台球"].waitForExistence(timeout: 2) {
+            app.menuItems["中式台球"].tap()
+        }
+        sleep(1)
+
+        if !menu.waitForExistence(timeout: 1) {
+            // menu auto-dismissed after selection — reopen for badge filter
+        }
+        if menu.waitForExistence(timeout: 2) { menu.tap(); sleep(1) }
+
         let modern = app.buttons["新版精讲"].firstMatch
         if modern.waitForExistence(timeout: 3) {
             modern.tap()
-        } else {
+        } else if app.menuItems["新版精讲"].waitForExistence(timeout: 2) {
             app.menuItems["新版精讲"].tap()
         }
         sleep(1)

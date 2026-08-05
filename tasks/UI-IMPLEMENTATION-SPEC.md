@@ -247,7 +247,7 @@ struct BTLevelBadge: View {
 | 练 | 金/琥珀（Hue≈38°，对齐 btAccent） | 仅明度阶梯 |
 | 打 | 蓝青（Hue≈205°） | 仅明度阶梯 |
 | 解 | 石墨/冷灰（低饱和） | 仅明度阶梯 |
-| 训练计划 6 档 | 复用上述分区色对 + 同一饱和度预算 | `CoverPalette.PlanStyle.forLevel` |
+| 训练计划 6 档 | **独立六色编辑式色板**：入门绿 / 初级蓝 / 进阶青 / 中级黑金 / 高级棕金 / 专家红（DR-047 恢复 v27 W2 前方案） | `CoverPalette.PlanStyle.forLevel` |
 
 | Glyph Token | 值 |
 |-------------|-----|
@@ -256,8 +256,40 @@ struct BTLevelBadge: View {
 | 可辨口径 | sRGB 相对亮度 \|ΔL\| ≥ 0.14（白：`opacity·(1−L)`；深：`darkOpacity·L`） |
 | 练习网格字号 | `btCoverWatermark` = 56pt black rounded |
 | 训练列表默认字号 | `CoverPalette.Glyph.planListAbsoluteSize` = 96 → `btCoverWatermark(size:)` |
+| 训练详情 Hero 字号 | `CoverPalette.Glyph.planHeroAbsoluteSize` = 170；`BTPlanCover(mode: .hero)` |
 | 相对比例（文档） | `sizeRatio` = 0.48（相对封面短边） |
 | 分区阶梯 | **每区独立** `ZoneLadder`（B/S 起终点）；练区 topB 地板 ≥0.62 防泥褐；解区 topB 起点 ≤0.36 |
+
+**训练计划主题水印（DR-048 / DR-049 / DR-050 / DR-053）**：
+- `BTPlanCover(planId:targetLevel:issueNumber:mode:)`：`targetLevel` 只决定六色背景，`planId` 通过 `PlanCoverLabel` 决定主题文字。
+- 10 套官方计划依次映射：入门 / 杆法 / 准度 / 控力 / 分离角 / 加塞 / 走位 / 中级综合 / 加塞多库 / 全能综合；`plan_advanced` 正文名为「加塞与多库专项」。
+- 2/3 字主题保持单行，按基础字号的 60%/48% 缩放；4 字主题按 2×2 固定断行并取 40%。保留 `Spacing.xl` 水平安全区；禁止重新铺满封面或复制完整计划标题。
+- 水印相对几何中心向下偏移基础字号的 6%，用于修正左上期号与粗圆体造成的视觉重心偏上；期号位置不随之移动。
+- 列表封面期号只显示「第 N 期」，不再同时显示两位数编号。
+
+### 2.3d 共享表层语法与练习混合封面（DR-045 / v28）
+
+**文件路径**：
+- `BTContentGridCard.swift` — 上封面下文案外壳（圆角 / 描边 / 标题两行 / 元信息一行）
+- `BTLibrarySearchBar.swift` / `BTLibrarySectionHeader.swift`
+- `PracticeCoverVisual.swift` + `BTPracticeCover.swift` — 静态确定性封面（禁网格内启动 VM/求解器/完整 SceneKit 页）
+- 消费方：`AngleHomeView`、`DrillListView`/`BTDrillGridCard`、`TrainingHomeView`/`PlanListView`
+
+| 约定 | 值 |
+|------|-----|
+| 练习封面策略 | 学=`geometric` 微插图；练/打/解=`tablePreview` 真台预览；分区色仅轻 tint |
+| 真台底图 | `BTTableFigure` + `TableFigureRenderer` 缓存；首页 `onAppear` 预热 `landscape` 4:3 |
+| 动作库首屏 | 仅一行等级 `BTFilterChip`；球种+精讲/进度进筛选 Menu（计数徽章） |
+| 网格卡台面覆层 | 等级 + Pro/收藏；完成/旧新版 → 标题下元信息行（不再叠距离/袋口特征胶囊） |
+| 计划列表壳 | `BTContentGridCard` + `BTPlanCover(mode: .list)`；详情 Hero 用 `.hero` |
+
+> **DR-051（2026-08-04）**：练习首页生产卡片不再使用混合球桌预览，恢复 v27 的渐变底 + 路由语义单字水印；v28 共享卡片壳、搜索栏、栏目头与筛选布局全部保留。`PracticeCoverVisual` / `BTPracticeCover` 暂保留为可复用组件与历史方案，不作为练习首页默认封面。
+
+> **DR-052（2026-08-04）**：在 DR-051 的单字水印基础上，封面色板继续恢复到 pre-v27 逐卡独立多彩版本。生产入口通过 `CoverPalette.PracticeMulticolor` 使用历史 RGB 渐变（绿 / 青 / 橙 / 琥珀 / 玫红 / 蓝 / 紫 / 红等），不再使用“学绿 / 练金 / 打蓝 / 解灰”四分区同色阶；共享卡片结构与其他页面色板不变。
+
+> **DR-053（2026-08-04）**：练习卡水印尽量使用两字语义词，并在每个「学 / 练 / 打 / 解」分组内从 01 重新编号。每组选择高级入口显示 `BTProBadge`；标记为 Pro 的入口必须同时执行实际权限检查，非 Pro 点击弹 `SubscriptionView`，禁止只加视觉角标而仍可直接进入。
+
+> **DR-054（2026-08-05）**：练习卡大字水印按 `CoverPalette.Glyph.gridAbsoluteSize * 0.06` 向下偏移，对齐训练计划卡的视觉重心修正；类型标签（物理 / 走位 / 2D / 3D / 识别 / SIM）固定在彩色封面右下角，Pro 徽标仍在右上角。
 
 | 相框 Token | 值 |
 |------------|-----|
@@ -1048,6 +1080,17 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-08-05 | **动作库网格卡去掉台面特征胶囊**：不再叠「0.2台·中上袋」等距离/袋口标注；台面覆层仅留等级 + Pro/收藏 | 修正 | BTDrillGridCard | 用户视觉反馈 |
+| 2026-08-05 | **练习卡水印与类型标签重排**（DR-054）：水印按字号 6% 下移；类型标签从右上移至封面右下，Pro 徽标保持右上 | 修正/DR | AngleGridCard | 用户视觉反馈 |
+| 2026-08-04 | **计划期号去重 + 练习角标与 Pro 分层**（DR-053）：计划封面仅留「第 N 期」；高级计划改「加塞与多库专项」及「加塞／多库」双行水印；练习卡改两字水印、分组内 01 起编号，并为各组高级入口接 `BTProBadge` + `SubscriptionView` 实际门控 | 修正/DR | BTPlanCover, PlanCoverLabel, AngleHomeView, AngleGridCard, Plans JSON | 用户视觉与 Freemium 反馈 |
+| 2026-08-04 | **练习首页恢复 pre-v27 逐卡多彩色板**（DR-052）：保留单字水印与 v28 共享壳，将四分区同色阶替换为历史逐卡独立 RGB 渐变；色值收口到 `CoverPalette.PracticeMulticolor` | 修正/DR | CoverPalette, AngleHomeView, AngleGridCard | 用户视觉反馈 |
+| 2026-08-04 | **练习首页恢复 v27 单字水印图标**（DR-051）：保留 v28 共享卡片壳/搜索/栏目头，仅把几何微插图与真台预览恢复为渐变底 + 路由语义单字水印；移除首页球桌预热 | 修正/DR | AngleHomeView, AngleGridCard | 用户视觉反馈 |
+| 2026-08-04 | **训练计划主题水印视觉重心下移**（DR-050）：仅将水印向下偏移基础字号 6%；期号、字号、断行和卡片尺寸不变 | 修正/DR | BTPlanCover | 用户视觉反馈 |
+| 2026-08-04 | **训练计划主题水印缩小与四字双行**（DR-049）：2/3 字单行缩为基础字号 60%/48%；4 字固定 2×2 双行并取 40%，保留期号与水平安全区 | 修正/DR | BTPlanCover, PlanCoverLabel, CoverPaletteContrastTests | 用户视觉反馈 |
+| 2026-08-04 | **训练计划封面改课程主题标签**（DR-048）：颜色仍按等级，文字按 planId 映射为入门/杆法/准度/控力/分离角/加塞/走位/中级综合/高级综合/全能综合；`BTPlanCover` 新增 `planId`；2–4 字分档缩放并保留安全区 | API 变更/DR | BTPlanCover, PlanCoverLabel, CoverPalette.PlanStyle, TrainingHome/PlanList/PlanDetail | 用户视觉反馈 |
+| 2026-08-04 | **训练计划封面恢复六色大字杂志卡**（DR-047）：放弃文生图封面与 teal 单色阶；保留 v28 共享卡片壳和 list/hero API，仅恢复入门绿/初级蓝/进阶青/中级黑金/高级棕金/专家红及低透明大字水印 | 修正/DR | CoverPalette.PlanStyle, BTPlanCover, CoverPaletteContrastTests | 用户视觉对比 |
+| 2026-08-04 | **训练首页当日内容重设计**（DR-046）：摘要卡压成严格两行，完成进度改 2pt 底边线；动作行以 `BTBakedDrillTable(.fill)` 90×50pt 专用裁口仅裁 PNG 透明留边、完整保留六袋四库且取消底部暗角；删除图上序号，阶段色降为小色点 | 修正/DR | TrainingHomeView.todayScheduleHeader/todayDrillCard | 用户截图反馈 |
+| 2026-08-04 | **问题集合 v28 三 Tab 表层语法与专业内容封面**（DR-045）：`BTContentGridCard`/`BTLibrarySearchBar`/`BTLibrarySectionHeader`；练习混合封面 `PracticeCoverVisual`+`BTPracticeCover`；计划独立色阶；动作库一行 chip+筛选菜单；旧新版/完成移入元信息行 | 新增/DR | BTContentGridCard, BTPracticeCover, CoverPalette.PlanStyle, AngleHomeView, DrillListView, TrainingHomeView, PlanListView, BTDrillGridCard | DR-045 / v28 |
 | 2026-08-04 | **问题集合 v27 W2 封面色板分区收敛**（DR-044）：`CoverPalette` 合并练习 24 色对 + 训练 `PlanStyle`（学绿/练金/打蓝青/解石墨，区内明度阶梯；明暗同 RGB）；`btCoverWatermark(size:)` + `Glyph.opacity`；`BTThumbnailFrame` 统一网格/行卡相框 | 重构/DR | CoverPalette, BTPlanCover, AngleGridCard, Typography, BTThumbnailFrame, BTDrillCard | DR-044 / v27 W2 |
 | 2026-08-04 | **问题集合 v27 W1 浅色组件收口**（DR-043）：新增 `BTFilterChip`（训练 chip 为基准，三处切换）；`BTButtonStyle.goldFilled` 收编详情页私有金色钮；`BTLevelBadge(onDarkSurface:)` 覆层变体 + 网格卡换用；formationPickerSheet token 化（保留 dark scheme） | 新增/DR | BTFilterChip, BTButton, BTLevelBadge, BTDrillGridCard, TrainingHomeView, DrillListView, DrillDetailView | DR-043 / v27 W1 |
 | 2026-07-30 | **直击失败翻袋备选（DR-041）**：`DirectPotBankFallback` 复用 `BankKickSolvePipeline.solveBank`；仅 `feasible==false` / 直击几何不可行时触发；编排台·自由击球·思路·打三；文案「翻袋备选」+ 多解下一解；§8.9 **i** | DR | DirectPotBankFallback, PositionPlay/Silu/PlanThree VM, FreePlay/Composer View, SPEC §8.9 | 用户：角度过大加翻袋 |

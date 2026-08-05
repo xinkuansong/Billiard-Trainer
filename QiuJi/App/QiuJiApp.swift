@@ -49,6 +49,13 @@ struct QiuJiApp: App {
                     SyncQueueManager.shared.configure(context: modelContainer.mainContext)
                 }
                 .task {
+                    #if DEBUG
+                    // Keep premium-gate UI tests deterministic when StoreKit
+                    // transactions persist across simulator launches.
+                    if ProcessInfo.processInfo.arguments.contains("-forceNonPremium") {
+                        return
+                    }
+                    #endif
                     await subscriptionManager.checkEntitlements()
                 }
                 .task {

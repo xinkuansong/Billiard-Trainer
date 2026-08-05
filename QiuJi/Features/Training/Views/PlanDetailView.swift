@@ -91,11 +91,10 @@ struct PlanDetailView: View {
     private func heroHeader(_ plan: OfficialPlan, topSafeInset: CGFloat) -> some View {
         ZStack(alignment: .bottomLeading) {
             BTPlanCover(
+                planId: plan.id,
                 targetLevel: plan.targetLevel,
                 issueNumber: seriesIssueNumber,
-                glyphSize: 170,
-                corner: 0,
-                showIssueLabel: false
+                mode: .hero
             )
 
             LinearGradient(

@@ -36,7 +36,8 @@ struct TrainingHomeView: View {
                                 .transition(.opacity)
                         }
                     }
-                    .padding(.bottom, 176)
+                    // Clearance for fixed「开始训练」CTA so plan card titles stay readable (v28 W2).
+                    .padding(.bottom, 220)
                     .animation(BTMotion.easeFast, value: viewModel.isLoading)
                 }
             }
@@ -133,17 +134,15 @@ struct TrainingHomeView: View {
         let firstIncompleteId = session.drills.first(where: { !$0.isCompleted })?.id
         let visibleDrills = Array(session.drills.prefix(3))
 
-        return VStack(alignment: .leading, spacing: Spacing.lg) {
+        return VStack(alignment: .leading, spacing: Spacing.md) {
             todayScheduleHeader(session)
                 .padding(.horizontal, Spacing.lg)
 
             VStack(spacing: Spacing.md) {
-                ForEach(Array(visibleDrills.enumerated()), id: \.element.id) { index, drill in
+                ForEach(visibleDrills) { drill in
                     todayDrillCard(
                         drill,
                         session: session,
-                        index: index,
-                        total: session.drills.count,
                         isCurrentDrill: drill.id == firstIncompleteId
                     )
                 }
@@ -158,73 +157,127 @@ struct TrainingHomeView: View {
 
     private func todayScheduleHeader(_ session: TodaySessionInfo) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.sm) {
-                Text("第 \(session.weekNumber) 周")
-                    .font(.btCaption2)
-                    .foregroundStyle(.btTextTertiary)
-                    .monospacedDigit()
-                Circle()
-                    .fill(Color.btAccent)
-                    .frame(width: 3, height: 3)
-                Text("第 \(session.dayNumber) 天")
-                    .font(.btCaption2)
-                    .foregroundStyle(.btTextTertiary)
-                    .monospacedDigit()
-                Spacer()
-                Text("\(session.completedCount) / \(session.totalCount)")
-                    .font(.btCaption2)
-                    .foregroundStyle(.btTextTertiary)
-                    .monospacedDigit()
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                 Text("今日安排")
-                    .font(.btTitle)
+                    .font(.btFootnote14.weight(.semibold))
+                    .foregroundStyle(.btPrimary)
+
+                Text(session.planNameZh.isEmpty ? "今日训练" : session.planNameZh)
+                    .font(.btHeadline)
                     .foregroundStyle(.btText)
-
-                BTGoldRule()
-                    .padding(.bottom, 6)
-
-                Spacer()
-            }
-
-            // F-PL-02: surface existing planNameZh / weekTheme (no new entry)
-            if !session.planNameZh.isEmpty {
-                Text(session.planNameZh)
-                    .font(.btSubheadlineMedium)
-                    .foregroundStyle(.btTextSecondary)
                     .lineLimit(1)
+
+                Spacer(minLength: Spacing.sm)
+
+                Text("\(session.completedCount) / \(session.totalCount)")
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
             }
-            if !session.weekTheme.isEmpty {
-                Text(session.weekTheme)
-                    .font(.btCaption)
+
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                if !session.weekTheme.isEmpty {
+                    Text(session.weekTheme)
+                        .font(.btFootnote)
+                        .foregroundStyle(.btTextSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: Spacing.sm)
+
+                Text(scheduleMetaText(session))
+                    .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
-                    .lineLimit(2)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
             }
         }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.md)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: BTRadius.lg)
+                .stroke(
+                    colorScheme == .dark ? Color.btSeparator : Color.btPrimary.opacity(0.10),
+                    lineWidth: colorScheme == .dark ? 0.5 : 1
+                )
+        }
+        .overlay(alignment: .bottomLeading) {
+            GeometryReader { geo in
+                Capsule()
+                    .fill(Color.btPrimary)
+                    .frame(width: geo.size.width * session.progress, height: 2)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("今日安排，\(session.planNameZh)，第 \(session.weekNumber) 周第 \(session.dayNumber) 天")
+        .accessibilityValue("完成 \(session.completedCount) 项，共 \(session.totalCount) 项")
+    }
+
+    private func scheduleMetaText(_ session: TodaySessionInfo) -> String {
+        var parts = ["第 \(session.weekNumber) 周", "第 \(session.dayNumber) 天"]
+        if session.totalMinutes > 0 {
+            parts.append("\(session.totalMinutes) 分钟")
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func phaseColor(for type: String) -> Color {
+        switch type {
+        case "warmup":
+            return .btSuccess
+        case "focused":
+            return .btPrimary
+        case "combined":
+            return .btAccent
+        default:
+            return .btTextSecondary
+        }
+    }
+
+    private func todayDrillThumbnail(_ drill: TodayDrillItem) -> some View {
+        BTBakedDrillTable(drillId: drill.drillId, contentMode: .fill)
+            .frame(width: 90, height: 50)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            .overlay {
+                RoundedRectangle(cornerRadius: BTRadius.sm)
+                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+            }
+            .opacity(drill.isCompleted ? 0.62 : 1)
     }
 
     private func todayDrillCard(
         _ drill: TodayDrillItem,
         session: TodaySessionInfo,
-        index: Int,
-        total: Int,
         isCurrentDrill: Bool
     ) -> some View {
         HStack(spacing: Spacing.md) {
-            Text(String(format: "%02d", index + 1))
-                .font(.btSubheadlineSemibold)
-                .foregroundStyle(drill.isCompleted ? .btTextTertiary : .btTextSecondary)
-                .monospacedDigit()
-                .frame(width: 28, alignment: .leading)
+            todayDrillThumbnail(drill)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(spacing: Spacing.xs) {
+                    Circle()
+                        .fill(phaseColor(for: drill.phaseType))
+                        .frame(width: 5, height: 5)
+                    Text(drill.phaseZh)
+                        .font(.btCaption2.weight(.medium))
+                        .foregroundStyle(.btTextSecondary)
+                        .lineLimit(1)
+                }
+
                 Text(drill.nameZh)
                     .font(.btHeadline)
                     .foregroundStyle(drill.isCompleted ? .btTextSecondary : .btText)
-                    .lineLimit(1)
+                    .lineLimit(2)
 
-                Text("第 \(index + 1) 项 / \(total) · \(drill.sets) 组×\(drill.ballsPerSet)")
+                Text("\(drill.sets) 组 × \(drill.ballsPerSet) 球")
                     .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
                     .monospacedDigit()
@@ -260,9 +313,13 @@ struct TrainingHomeView: View {
                     .accessibilityLabel("排队中，尚未开始")
             }
         }
-        .padding(Spacing.lg)
+        .padding(Spacing.md)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: BTRadius.lg)
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+        }
         .shadow(color: colorScheme == .dark ? .clear : Color.black.opacity(0.04),
                 radius: 4, x: 0, y: 2)
     }
@@ -363,41 +420,25 @@ struct TrainingHomeView: View {
     }
 
     private func planPosterCard(_ plan: PlanBrowseItem, issueNumber: Int) -> some View {
-        ZStack(alignment: .bottomLeading) {
-            BTPlanCover(targetLevel: plan.targetLevel, issueNumber: issueNumber)
-
-            LinearGradient(
-                colors: [.clear, .black.opacity(0.6)],
-                startPoint: .center,
-                endPoint: .bottom
-            )
-
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(plan.nameZh)
-                    .font(.btHeadline)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                Text("\(planLevelName(plan.targetLevel)) · \(plan.durationWeeks) 周")
-                    .font(.btCaption2)
-                    .foregroundStyle(.white.opacity(0.85))
-                    .monospacedDigit()
-            }
-            .padding(Spacing.md)
-
-            if plan.isPremium {
-                VStack {
-                    HStack {
-                        Spacer()
-                        BTProBadge()
-                    }
-                    Spacer()
+        BTContentGridCard(
+            title: plan.nameZh,
+            subtitle: "\(planLevelName(plan.targetLevel)) · \(plan.durationWeeks) 周",
+            // Shorter than 1:1 so title/meta clear the fixed bottom CTA when the grid peeks.
+            coverAspectRatio: 4.0 / 3.0
+        ) {
+            ZStack(alignment: .topTrailing) {
+                BTPlanCover(
+                    planId: plan.id,
+                    targetLevel: plan.targetLevel,
+                    issueNumber: issueNumber,
+                    mode: .list
+                )
+                if plan.isPremium {
+                    BTProBadge()
+                        .padding(Spacing.sm)
                 }
-                .padding(Spacing.sm)
             }
         }
-        .aspectRatio(0.92, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
     private func customIssueThumbnail(number: Int) -> some View {

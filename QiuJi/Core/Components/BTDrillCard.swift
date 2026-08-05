@@ -105,36 +105,16 @@ struct BTDrillGridCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Color.clear
-                // v24 / E1: match baked thumbnail 2:1 so `.fill` does not crop left/right cushions.
-                .aspectRatio(2.0, contentMode: .fit)
-                .overlay {
-                    tableArea
-                }
-                .clipped()
-
-            // R4: title only — cover annotation already carries distance/pocket/spin;
-            // repeating it as a subtitle added height without information.
-            Text(drill.nameZh)
-                .font(.btHeadline)
-                .foregroundStyle(drill.isPremium ? .btTextTertiary : .btText)
-                .lineLimit(2)
-                .minimumScaleFactor(0.9)
-                .frame(maxWidth: .infinity, minHeight: 40, alignment: .topLeading)
-                .padding(.horizontal, Spacing.md)
-                .padding(.vertical, Spacing.sm)
+        BTContentGridCard(
+            title: drill.nameZh,
+            coverAspectRatio: 2.0,
+            titleMinHeight: 40,
+            titleColor: drill.isPremium ? .btTextTertiary : .btText
+        ) {
+            tableArea
+        } meta: {
+            metaRow
         }
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        .overlay(
-            RoundedRectangle(cornerRadius: BTRadius.md)
-                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-        )
-        .shadow(
-            color: colorScheme == .dark ? .clear : Color.black.opacity(0.06),
-            radius: 4, x: 0, y: 2
-        )
     }
 
     private var tableArea: some View {
@@ -150,32 +130,35 @@ struct BTDrillGridCard: View {
                 .padding(Spacing.sm)
         }
         .overlay(alignment: .topTrailing) {
-            VStack(alignment: .trailing, spacing: Spacing.xs) {
-                cardBadge
-                if isCompleted {
-                    completedCornerBadge
-                }
-            }
-            .padding(Spacing.sm)
-        }
-        .overlay(alignment: .bottomLeading) {
-            // E20: within-group distinctive annotation (distance / spin / shot count + pocket).
-            if let cover = DrillCoverAnnotation.coverLabel(for: drill) {
-                Text(cover)
-                    .font(.btCaption2.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, 2)
-                    .background(.black.opacity(0.45), in: Capsule())
-                    .padding(Spacing.sm)
-                    .accessibilityLabel("动作特征 \(cover)")
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            // E19: tutorial presence + version corner badge.
-            tutorialCornerBadge
+            cardBadge
                 .padding(Spacing.sm)
         }
+    }
+
+    @ViewBuilder
+    private var metaRow: some View {
+        let parts = metaParts
+        if parts.isEmpty {
+            EmptyView()
+        } else {
+            Text(parts.joined(separator: " · "))
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .accessibilityLabel(parts.joined(separator: "，"))
+        }
+    }
+
+    private var metaParts: [String] {
+        var parts: [String] = []
+        if isCompleted { parts.append("已完成") }
+        switch tutorialKind {
+        case .modern: parts.append("新版")
+        case .legacy: parts.append("旧版")
+        case .none: break
+        }
+        return parts
     }
 
     @ViewBuilder
@@ -192,38 +175,6 @@ struct BTDrillGridCard: View {
                     .clipShape(Circle())
             }
         }
-    }
-
-    private var completedCornerBadge: some View {
-        Image(systemName: BTIcon.completeSeal)
-            .font(.btCaption.weight(.semibold))
-            .foregroundStyle(.white)
-            .frame(width: 26, height: 26)
-            .background(Color.btSuccess.opacity(0.9))
-            .clipShape(Circle())
-            .accessibilityLabel("已完成")
-    }
-
-    @ViewBuilder
-    private var tutorialCornerBadge: some View {
-        switch tutorialKind {
-        case .none:
-            EmptyView()
-        case .modern:
-            coverMetaChip(text: "新版", accessibility: "有精讲，新版")
-        case .legacy:
-            coverMetaChip(text: "旧版", accessibility: "有精讲，旧版")
-        }
-    }
-
-    private func coverMetaChip(text: String, accessibility: String) -> some View {
-        Text(text)
-            .font(.btCaption2.weight(.heavy))
-            .foregroundStyle(.white)
-            .padding(.horizontal, Spacing.sm)
-            .padding(.vertical, 2)
-            .background(Color.btPrimary.opacity(0.85), in: Capsule())
-            .accessibilityLabel(accessibility)
     }
 
 }

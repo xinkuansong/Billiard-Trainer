@@ -5,7 +5,7 @@ import UIKit
 ///
 /// - Practice zones (学 / 练 / 打 / 解): one hue family each; within-zone steps use **per-zone**
 ///   brightness + saturation ranges (not a shared formula — warm gold must not enter mud-brown).
-/// - Training plan levels: same saturation budget, same RGB source file.
+/// - Training plan levels: editorial six-color palette restored from the pre-v27 magazine covers.
 /// - Light/Dark share these RGB values — do not invent dark variants.
 enum CoverPalette {
 
@@ -36,6 +36,8 @@ enum CoverPalette {
         static let gridAbsoluteSize: CGFloat = 56
         /// Default absolute size for plan list posters (replaces former inline `system(size: 96)`).
         static let planListAbsoluteSize: CGFloat = 96
+        /// Detail Hero watermark size (v28 W2 list/hero split).
+        static let planHeroAbsoluteSize: CGFloat = 170
         /// L2 mid-level uses gold watermark instead of white/dark adaptive.
         static let goldGlyph = Color(red: 0.84, green: 0.65, blue: 0.20)
         static let goldOpacity: Double = 0.55
@@ -74,6 +76,116 @@ enum CoverPalette {
             if whiteDelta >= minLuminanceDelta { return whiteDelta }
             return CGFloat(darkOpacity) * L
         }
+    }
+
+    // MARK: - Historical multicolor practice covers (pre-v27)
+
+    /// Original per-card palette restored for the practice home after the zone ladders proved too uniform.
+    /// Values are byte-identical to the former `AngleCoverPalette` constants.
+    enum PracticeMulticolor {
+        static let aimingPrinciple = Pair(
+            top: Color(red: 0.16, green: 0.55, blue: 0.34),
+            bottom: Color(red: 0.09, green: 0.34, blue: 0.21)
+        )
+        static let aimingMethods = Pair(
+            top: Color(red: 0.12, green: 0.58, blue: 0.50),
+            bottom: Color(red: 0.05, green: 0.34, blue: 0.30)
+        )
+        static let aimingCorrection = Pair(
+            top: Color(red: 0.72, green: 0.38, blue: 0.22),
+            bottom: Color(red: 0.42, green: 0.20, blue: 0.12)
+        )
+        static let spinAndEnglish = Pair(
+            top: Color(red: 0.78, green: 0.42, blue: 0.16),
+            bottom: Color(red: 0.48, green: 0.24, blue: 0.08)
+        )
+        static let separationAngleAtlas = Pair(
+            top: Color(red: 0.72, green: 0.22, blue: 0.48),
+            bottom: Color(red: 0.42, green: 0.10, blue: 0.30)
+        )
+        static let cushionEnglishAtlas = Pair(
+            top: Color(red: 0.10, green: 0.58, blue: 0.62),
+            bottom: Color(red: 0.04, green: 0.32, blue: 0.48)
+        )
+        static let angleDynamic = Pair(
+            top: Color(red: 0.11, green: 0.46, blue: 0.95),
+            bottom: Color(red: 0.05, green: 0.24, blue: 0.58)
+        )
+        static let ballFeel = Pair(
+            top: Color(red: 0.48, green: 0.36, blue: 0.72),
+            bottom: Color(red: 0.28, green: 0.20, blue: 0.46)
+        )
+        static let contactPointTable = Pair(
+            top: Color(red: 0.42, green: 0.45, blue: 0.50),
+            bottom: Color(red: 0.24, green: 0.26, blue: 0.30)
+        )
+
+        static let geometricQuiz = Pair(
+            top: Color(red: 0.85, green: 0.52, blue: 0.13),
+            bottom: Color(red: 0.55, green: 0.32, blue: 0.05)
+        )
+        static let sceneAiming2D = Pair(
+            top: Color(red: 0.0, green: 0.60, blue: 0.60),
+            bottom: Color(red: 0.0, green: 0.36, blue: 0.40)
+        )
+        static let sceneAiming3D = Pair(
+            top: Color(red: 0.13, green: 0.42, blue: 0.66),
+            bottom: Color(red: 0.05, green: 0.24, blue: 0.42)
+        )
+        static let aimPointTraining = Pair(
+            top: Color(red: 0.72, green: 0.28, blue: 0.30),
+            bottom: Color(red: 0.44, green: 0.14, blue: 0.16)
+        )
+        static let aimPointScene2D = Pair(
+            top: Color(red: 0.0, green: 0.52, blue: 0.48),
+            bottom: Color(red: 0.0, green: 0.30, blue: 0.28)
+        )
+        static let aimPointScene3D = Pair(
+            top: Color(red: 0.30, green: 0.34, blue: 0.72),
+            bottom: Color(red: 0.16, green: 0.18, blue: 0.44)
+        )
+
+        static let shotSimulation = Pair(
+            top: Color(red: 0.13, green: 0.55, blue: 0.36),
+            bottom: Color(red: 0.06, green: 0.33, blue: 0.20)
+        )
+        static let positionPlayComposer = Pair(
+            top: Color(red: 0.72, green: 0.55, blue: 0.13),
+            bottom: Color(red: 0.45, green: 0.33, blue: 0.05)
+        )
+        static let freePlay = Pair(
+            top: Color(red: 0.13, green: 0.42, blue: 0.85),
+            bottom: Color(red: 0.05, green: 0.22, blue: 0.52)
+        )
+        static let ballExtraction = Pair(
+            top: Color(red: 0.16, green: 0.50, blue: 0.62),
+            bottom: Color(red: 0.07, green: 0.28, blue: 0.36)
+        )
+        static let batchDrillStudio = Pair(
+            top: Color(red: 0.20, green: 0.40, blue: 0.70),
+            bottom: Color(red: 0.10, green: 0.22, blue: 0.42)
+        )
+
+        static let positionPlaySolver = Pair(
+            top: Color(red: 0.50, green: 0.20, blue: 0.62),
+            bottom: Color(red: 0.28, green: 0.10, blue: 0.40)
+        )
+        static let planThree = Pair(
+            top: Color(red: 0.16, green: 0.46, blue: 0.62),
+            bottom: Color(red: 0.08, green: 0.26, blue: 0.38)
+        )
+        static let snookerTactics = Pair(
+            top: Color(red: 0.60, green: 0.10, blue: 0.30),
+            bottom: Color(red: 0.34, green: 0.04, blue: 0.16)
+        )
+        static let bankShot = Pair(
+            top: Color(red: 0.62, green: 0.14, blue: 0.14),
+            bottom: Color(red: 0.36, green: 0.06, blue: 0.06)
+        )
+        static let diamondSystem = Pair(
+            top: Color(red: 0.0, green: 0.45, blue: 0.55),
+            bottom: Color(red: 0.0, green: 0.26, blue: 0.34)
+        )
     }
 
     // MARK: - Per-zone ladder (parameterized; no per-card RGB overrides)
@@ -192,39 +304,69 @@ enum CoverPalette {
         ]
     }
 
-    // MARK: - Training plan level covers（same saturation budget）
+    // MARK: - Training plan level covers（editorial six-color palette）
+
+    /// Ordered publishable plan target levels.
+    static let planLevelKeys: [String] = ["L0→L1", "L1", "L1→L2", "L2", "L3", "L3→L4"]
 
     struct PlanStyle: Equatable {
         let top: Color
         let bottom: Color
-        let glyph: String
         let glyphColor: Color
 
         static func forLevel(_ level: String) -> PlanStyle {
             switch level {
             case "L0→L1":
-                let p = CoverPalette.aimingPrinciple
-                return .init(top: p.top, bottom: p.bottom, glyph: "入", glyphColor: p.glyphColor)
+                return .init(
+                    top: Color(red: 0.16, green: 0.55, blue: 0.34),
+                    bottom: Color(red: 0.09, green: 0.34, blue: 0.21),
+                    glyphColor: .white.opacity(0.16)
+                )
             case "L1":
-                let p = CoverPalette.freePlay
-                return .init(top: p.top, bottom: p.bottom, glyph: "初", glyphColor: p.glyphColor)
+                return .init(
+                    top: Color(red: 0.11, green: 0.46, blue: 0.95),
+                    bottom: Color(red: 0.05, green: 0.24, blue: 0.58),
+                    glyphColor: .white.opacity(0.16)
+                )
             case "L1→L2":
-                let p = CoverPalette.shotSimulation
-                return .init(top: p.top, bottom: p.bottom, glyph: "进", glyphColor: p.glyphColor)
+                return .init(
+                    top: Color(red: 0.0, green: 0.60, blue: 0.60),
+                    bottom: Color(red: 0.0, green: 0.36, blue: 0.40),
+                    glyphColor: .white.opacity(0.16)
+                )
             case "L2":
-                let p = CoverPalette.diamondSystem
-                return .init(top: p.top, bottom: p.bottom, glyph: "中",
-                             glyphColor: Glyph.goldGlyph.opacity(Glyph.goldOpacity))
+                return .init(
+                    top: Color(red: 0.18, green: 0.18, blue: 0.20),
+                    bottom: Color(red: 0.07, green: 0.07, blue: 0.08),
+                    glyphColor: Glyph.goldGlyph.opacity(Glyph.goldOpacity)
+                )
             case "L3":
-                let p = CoverPalette.aimPointTraining
-                return .init(top: p.top, bottom: p.bottom, glyph: "高", glyphColor: p.glyphColor)
+                return .init(
+                    top: Color(red: 0.55, green: 0.32, blue: 0.05),
+                    bottom: Color(red: 0.33, green: 0.18, blue: 0.02),
+                    glyphColor: .white.opacity(0.17)
+                )
             case "L3→L4":
-                let p = CoverPalette.aimPointScene3D
-                return .init(top: p.top, bottom: p.bottom, glyph: "专", glyphColor: p.glyphColor)
+                return .init(
+                    top: Color(red: 0.62, green: 0.14, blue: 0.14),
+                    bottom: Color(red: 0.36, green: 0.06, blue: 0.06),
+                    glyphColor: .white.opacity(0.18)
+                )
             default:
-                let p = CoverPalette.aimingPrinciple
-                return .init(top: p.top, bottom: p.bottom, glyph: "球", glyphColor: p.glyphColor)
+                return .init(
+                    top: Color(red: 0.16, green: 0.55, blue: 0.34),
+                    bottom: Color(red: 0.09, green: 0.34, blue: 0.21),
+                    glyphColor: .white.opacity(0.16)
+                )
             }
+        }
+    }
+
+    /// All plan cover pairs — for invariant tests (order / uniqueness).
+    static var allPlanPairs: [Pair] {
+        planLevelKeys.map {
+            let s = PlanStyle.forLevel($0)
+            return Pair(top: s.top, bottom: s.bottom)
         }
     }
 }
