@@ -162,16 +162,9 @@ struct DrillDetailView: View {
     private func tableSection(_ drill: DrillContent) -> some View {
         // 留一点点横向内边距（8pt），露出的是页面浅灰背景而非球台绿边——
         // 绿边已由 DrillSceneView 的相框比例(1.81)+取景(0.77)消除，与此 padding 无关。
-        // 「上手试打」（试打模式方案 §1.6）：Premium 锁定态带皇冠、点击弹订阅（Freemium 钩子）；
-        // 解锁态直进试打页（复用 showTutorial 同 push 模式）。
-        DrillSceneView(
-            drill: drill,
-            tryoutLocked: isLocked,
-            onTryoutTap: {
-                if isLocked { showSubscription = true } else { startTryout() }
-            }
-        )
-        .padding(.horizontal, Spacing.sm)
+        // 「上手试打」仅底栏（DR-057）；锁态底栏为「解锁 Pro」。
+        DrillSceneView(drill: drill)
+            .padding(.horizontal, Spacing.sm)
     }
 
     // MARK: - Tryout entry（D4：球形与视频示范同源）
@@ -292,9 +285,30 @@ struct DrillDetailView: View {
         }()
 
         return VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("训练要点")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
+            // DR-057：精讲为标题行 trailing 文字链，避免卡内再造主色全宽钮与底栏 CTA 抢权。
+            HStack(alignment: .center, spacing: Spacing.sm) {
+                Text("训练要点")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+
+                Spacer(minLength: Spacing.sm)
+
+                if includeTutorialCTA, drill.tutorial != nil {
+                    Button {
+                        showTutorial = true
+                    } label: {
+                        HStack(spacing: 2) {
+                            Text("查看精讲")
+                                .font(.btCallout)
+                            Image(systemName: BTIcon.chevronRight)
+                                .font(.btCaption.weight(.semibold))
+                        }
+                        .foregroundStyle(.btPrimary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("查看精讲")
+                }
+            }
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 ForEach(points, id: \.offset) { index, point in
@@ -312,15 +326,6 @@ struct DrillDetailView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
-            }
-
-            if includeTutorialCTA, drill.tutorial != nil {
-                Button {
-                    showTutorial = true
-                } label: {
-                    Text("查看精讲")
-                }
-                .buttonStyle(BTButtonStyle.primary)
             }
         }
         .padding(includeTutorialCTA ? Spacing.lg : Spacing.md)
@@ -496,6 +501,7 @@ struct DrillDetailView: View {
                     }
                 }
                 .buttonStyle(BTButtonStyle.goldFilled)
+                .accessibilityIdentifier("unlockProButton")
             } else {
                 Button {
                     showAddToTraining = true

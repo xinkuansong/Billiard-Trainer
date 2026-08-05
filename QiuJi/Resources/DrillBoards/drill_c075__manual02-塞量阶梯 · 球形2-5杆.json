@@ -1,191 +1,195 @@
 {
-  "createdAt" : "2026-07-29T19:13:36Z",
-  "id" : "C6216E87-9526-4A09-A07B-B48F5BA93A56",
-  "initial" : {
-    "onTable" : {
-      "cueBall" : {
-        "x" : 0.30000001192092896,
-        "y" : 0.30000001192092896
+  "createdAt": "2026-07-29T19:13:36Z",
+  "id": "C6216E87-9526-4A09-A07B-B48F5BA93A56",
+  "initial": {
+    "onTable": {
+      "_8": {
+        "x": 0.5007345676422119,
+        "y": 0.3418145477771759
+      },
+      "cueBall": {
+        "x": 0.5409214496612549,
+        "y": 0.0987425222992897
       }
     }
   },
-  "name" : "塞量阶梯 · 球形2",
-  "steps" : [
+  "name": "塞量阶梯 · 球形2",
+  "steps": [
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.186243936419487,
-            "y" : 0.24543407559394836
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.186243936419487,
+            "y": 0.24543407559394836
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "_8" : {
-            "x" : 0.5007345676422119,
-            "y" : 0.3418145477771759
+      "before": {
+        "onTable": {
+          "_8": {
+            "x": 0.5007345676422119,
+            "y": 0.3418145477771759
           },
-          "cueBall" : {
-            "x" : 0.5409214496612549,
-            "y" : 0.0987425222992897
+          "cueBall": {
+            "x": 0.5409214496612549,
+            "y": 0.0987425222992897
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "5565265E-009C-46A1-8AA7-A1012D8064DF",
-      "objectPocketed" : true,
-      "potted" : [
+      "cuePocketed": false,
+      "id": "5565265E-009C-46A1-8AA7-A1012D8064DF",
+      "objectPocketed": true,
+      "potted": [
         "_8"
       ],
-      "shot" : {
-        "pocket" : "bottomCenter",
-        "spinX" : -0.0008733205000558148,
-        "spinY" : 0.2520153554280596,
-        "targetKey" : "_8",
-        "velocity" : 1.7000000000000002
+      "shot": {
+        "pocket": "bottomCenter",
+        "spinX": -0.0008733205000558148,
+        "spinY": 0.2520153554280596,
+        "targetKey": "_8",
+        "velocity": 1.7000000000000002
       }
     },
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.012350551784038544,
-            "y" : 0.24486595392227173
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.012350551784038544,
+            "y": 0.24486595392227173
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "_8" : {
-            "x" : 0.5007345676422119,
-            "y" : 0.3418145477771759
+      "before": {
+        "onTable": {
+          "_8": {
+            "x": 0.5007345676422119,
+            "y": 0.3418145477771759
           },
-          "cueBall" : {
-            "x" : 0.5409214496612549,
-            "y" : 0.0987425222992897
+          "cueBall": {
+            "x": 0.5409214496612549,
+            "y": 0.0987425222992897
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "78FF3201-43C5-4129-81DF-E14251718516",
-      "objectPocketed" : true,
-      "potted" : [
+      "cuePocketed": false,
+      "id": "78FF3201-43C5-4129-81DF-E14251718516",
+      "objectPocketed": true,
+      "potted": [
         "_8"
       ],
-      "shot" : {
-        "pocket" : "bottomCenter",
-        "spinX" : -0.24913627664248136,
-        "spinY" : 0.24863723635673524,
-        "targetKey" : "_8",
-        "velocity" : 1.7000000000000002
+      "shot": {
+        "pocket": "bottomCenter",
+        "spinX": -0.24913627664248136,
+        "spinY": 0.24863723635673524,
+        "targetKey": "_8",
+        "velocity": 1.7000000000000002
       }
     },
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.1286260038614273,
-            "y" : 0.37183430790901184
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.1286260038614273,
+            "y": 0.37183430790901184
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "_8" : {
-            "x" : 0.5007345676422119,
-            "y" : 0.3418145477771759
+      "before": {
+        "onTable": {
+          "_8": {
+            "x": 0.5007345676422119,
+            "y": 0.3418145477771759
           },
-          "cueBall" : {
-            "x" : 0.5409214496612549,
-            "y" : 0.0987425222992897
+          "cueBall": {
+            "x": 0.5409214496612549,
+            "y": 0.0987425222992897
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "FAEB2E7F-DBB6-4529-AB4C-979B450A976B",
-      "objectPocketed" : true,
-      "potted" : [
+      "cuePocketed": false,
+      "id": "FAEB2E7F-DBB6-4529-AB4C-979B450A976B",
+      "objectPocketed": true,
+      "potted": [
         "_8"
       ],
-      "shot" : {
-        "pocket" : "bottomCenter",
-        "spinX" : -0.4337966397943684,
-        "spinY" : 0.24863723635673524,
-        "targetKey" : "_8",
-        "velocity" : 1.7000000000000002
+      "shot": {
+        "pocket": "bottomCenter",
+        "spinX": -0.4337966397943684,
+        "spinY": 0.24863723635673524,
+        "targetKey": "_8",
+        "velocity": 1.7000000000000002
       }
     },
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.29656100273132324,
-            "y" : 0.36309367418289185
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.29656100273132324,
+            "y": 0.36309367418289185
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "_8" : {
-            "x" : 0.5007345676422119,
-            "y" : 0.3418145477771759
+      "before": {
+        "onTable": {
+          "_8": {
+            "x": 0.5007345676422119,
+            "y": 0.3418145477771759
           },
-          "cueBall" : {
-            "x" : 0.5409214496612549,
-            "y" : 0.0987425222992897
+          "cueBall": {
+            "x": 0.5409214496612549,
+            "y": 0.0987425222992897
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "6A2279AB-36A4-4164-93C1-99AA9B5B6A4F",
-      "objectPocketed" : true,
-      "potted" : [
+      "cuePocketed": false,
+      "id": "6A2279AB-36A4-4164-93C1-99AA9B5B6A4F",
+      "objectPocketed": true,
+      "potted": [
         "_8"
       ],
-      "shot" : {
-        "pocket" : "bottomCenter",
-        "spinX" : 0.2242610367139182,
-        "spinY" : 0.24776391585667895,
-        "targetKey" : "_8",
-        "velocity" : 1.7000000000000002
+      "shot": {
+        "pocket": "bottomCenter",
+        "spinX": 0.2242610367139182,
+        "spinY": 0.24776391585667895,
+        "targetKey": "_8",
+        "velocity": 1.7000000000000002
       }
     },
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.3519420027732849,
-            "y" : 0.4347054958343506
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.3519420027732849,
+            "y": 0.4347054958343506
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "_8" : {
-            "x" : 0.5007345676422119,
-            "y" : 0.3418145477771759
+      "before": {
+        "onTable": {
+          "_8": {
+            "x": 0.5007345676422119,
+            "y": 0.3418145477771759
           },
-          "cueBall" : {
-            "x" : 0.5409214496612549,
-            "y" : 0.0987425222992897
+          "cueBall": {
+            "x": 0.5409214496612549,
+            "y": 0.0987425222992897
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "A09BC805-3D4F-4138-A452-43FAA7057C3F",
-      "objectPocketed" : true,
-      "potted" : [
+      "cuePocketed": false,
+      "id": "A09BC805-3D4F-4138-A452-43FAA7057C3F",
+      "objectPocketed": true,
+      "potted": [
         "_8"
       ],
-      "shot" : {
-        "pocket" : "bottomCenter",
-        "spinX" : 0.4342960303748637,
-        "spinY" : 0.24776391585667895,
-        "targetKey" : "_8",
-        "velocity" : 1.7000000000000002
+      "shot": {
+        "pocket": "bottomCenter",
+        "spinX": 0.4342960303748637,
+        "spinY": 0.24776391585667895,
+        "targetKey": "_8",
+        "velocity": 1.7000000000000002
       }
     }
   ],
-  "updatedAt" : "2026-07-29T19:15:39Z"
+  "updatedAt": "2026-07-29T19:15:39Z"
 }

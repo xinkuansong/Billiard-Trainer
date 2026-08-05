@@ -91,7 +91,7 @@
 | `btDisplay` | 44pt | Bold | Rounded | 单屏唯一核心指标数字（训练总结成功率等）|
 | `btDisplaySmall` | 30pt | Bold | Rounded | 详情页 Hero 标题、卡片中等数字徽章 |
 | `btLargeTitle` | 32pt | Bold | Rounded | Tab 根页面标题（训练 / 动作库 / 角度 / 记录 / 我的）|
-| `btCoverWatermark` | 56pt（=`CoverPalette.Glyph.gridAbsoluteSize`） | Black | Rounded | 练习首页封面大字水印（v7 C20 / v27 W2 DR-044）|
+| `btCoverWatermark` | 37pt（=`CoverPalette.Glyph.gridAbsoluteSize`，DR-056） | Black | Rounded | 练习首页封面大字水印（单行 ≈ 原 56 的 2/3）|
 | `btCoverWatermark(size:)` | 动态 | Black | Rounded | 训练海报/Hero 可缩放水印（取代内联 `system(size:96)`）|
 | `btHeroSymbol` | 32pt | Regular | Default | Hero SF Symbol（不强制 bold；v7 C21 `BTDailyLimitGate` 皇冠）|
 | `btChapterNumber` | 26pt | Bold | Rounded | 章节序号（「第 N 周」「第 N 期」）|
@@ -127,7 +127,7 @@
 - **核心展示数字** → `btDisplay` / `btDisplaySmall`
 - **章节序号** → `btChapterNumber`
 - **极小徽章/Timeline** → `btCaption2` / `btMicro`
-- **练习首页封面水印** → `btCoverWatermark`；训练海报 → `btCoverWatermark(size:)`（透明度统一 `CoverPalette.Glyph.opacity` = 0.20）
+- **练习首页封面水印** → `btCoverWatermark`；训练海报 → `btCoverWatermark(size:)`（颜色统一 `CoverPalette.Glyph.color(against:)`：默认深墨，暗底金色）
 
 #### 红线（v7 D6 · 2026-07-16）
 
@@ -251,9 +251,11 @@ struct BTLevelBadge: View {
 
 | Glyph Token | 值 |
 |-------------|-----|
-| 白水印透明度 | `CoverPalette.Glyph.opacity` = 0.30（Light/Dark 同） |
-| 深色水印 | `darkColor` + `darkOpacity` 0.34；当白水印 `|ΔL| < minLuminanceDelta(0.14)` 时由 `Glyph.color(against:)` 自动选用 |
-| 可辨口径 | sRGB 相对亮度 \|ΔL\| ≥ 0.14（白：`opacity·(1−L)`；深：`darkOpacity·L`） |
+| 封面大字默认 | 柔和深墨 `darkColor` + `darkOpacity` 0.52（训练计划 + 练习页统一；禁止半透明白水印） |
+| 暗底回退 | 顶色相对亮度 `< charcoalLuminanceCeiling(0.15)` 时用金色 `goldGlyph` + `goldOpacity` 0.62 |
+| 可辨口径 | 所选水印 \|ΔL\| ≥ `minLuminanceDelta` 0.07（柔和深墨；金色暗底仍更高） |
+| 单行字号 | 练习网格 `gridAbsoluteSize` 37（原 56 的 ≈2/3）；计划 2 字 scale 0.40、3 字 0.32；4 字双行仍 0.40 |
+| 调用点 | 一律 `CoverPalette.Glyph.color(against: top)`；`PlanStyle.glyphColor` 为计算属性，不再按档硬编码 |
 | 练习网格字号 | `btCoverWatermark` = 56pt black rounded |
 | 训练列表默认字号 | `CoverPalette.Glyph.planListAbsoluteSize` = 96 → `btCoverWatermark(size:)` |
 | 训练详情 Hero 字号 | `CoverPalette.Glyph.planHeroAbsoluteSize` = 170；`BTPlanCover(mode: .hero)` |
@@ -1080,6 +1082,9 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-08-05 | **详情页去台面试打 + 精讲降权**（DR-057）：`DrillSceneView` 移除右下「上手试打」覆层（入口仅底栏）；「查看精讲」改训练要点标题 trailing 文字链，不再用 primary 全宽钮 | 修正/DR | DrillSceneView, DrillDetailView, DrillTryoutUITests | 用户视觉反馈 |
+| 2026-08-05 | **封面深墨调浅 + 单行字号 2/3**（DR-056）：`darkOpacity` 0.85→0.52；练习网格 56→37；计划单行 2/3 字 scale 0.40/0.32；暗底改亮度门槛回退金色 | 修正/DR | CoverPalette.Glyph, BTPlanCover, CoverPaletteContrastTests | 用户视觉反馈 |
+| 2026-08-05 | **封面大字统一深墨**（DR-055）：训练/练习封面水印一律 `Glyph.color(against:)`；默认深墨，暗底金色回退；废除半透明白水印与按档硬编码 | 修正/DR | CoverPalette.Glyph, PlanStyle, CoverPaletteContrastTests | 用户视觉反馈 |
 | 2026-08-05 | **动作库网格卡去掉台面特征胶囊**：不再叠「0.2台·中上袋」等距离/袋口标注；台面覆层仅留等级 + Pro/收藏 | 修正 | BTDrillGridCard | 用户视觉反馈 |
 | 2026-08-05 | **练习卡水印与类型标签重排**（DR-054）：水印按字号 6% 下移；类型标签从右上移至封面右下，Pro 徽标保持右上 | 修正/DR | AngleGridCard | 用户视觉反馈 |
 | 2026-08-04 | **计划期号去重 + 练习角标与 Pro 分层**（DR-053）：计划封面仅留「第 N 期」；高级计划改「加塞与多库专项」及「加塞／多库」双行水印；练习卡改两字水印、分组内 01 起编号，并为各组高级入口接 `BTProBadge` + `SubscriptionView` 实际门控 | 修正/DR | BTPlanCover, PlanCoverLabel, AngleHomeView, AngleGridCard, Plans JSON | 用户视觉与 Freemium 反馈 |

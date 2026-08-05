@@ -1,121 +1,115 @@
 {
-  "createdAt" : "2026-07-26T13:32:52Z",
-  "id" : "C6292BE3-8319-4E93-8C1D-EAB9C959C1FE",
-  "initial" : {
-    "onTable" : {
-      "cueBall" : {
-        "x" : 0.30000001192092896,
-        "y" : 0.30000001192092896
+  "createdAt": "2026-07-26T13:32:52Z",
+  "id": "C6292BE3-8319-4E93-8C1D-EAB9C959C1FE",
+  "initial": {
+    "onTable": {
+      "cueBall": {
+        "x": 0.1156364157795906,
+        "y": 0.11416739225387573
       }
     }
   },
-  "name" : "三档力度控制 · 球形1",
-  "steps" : [
+  "name": "三档力度控制 · 球形1",
+  "steps": [
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.052712518721818924,
-            "y" : 0.11416739225387573
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.052712518721818924,
+            "y": 0.11416739225387573
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.1156364157795906,
-            "y" : 0.11416739225387573
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.1156364157795906,
+            "y": 0.11416739225387573
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "33E8BF6F-F0CC-49A1-AEB4-F9AA67AFACD1",
-      "objectPocketed" : false,
-      "potted" : [
-
-      ],
-      "shot" : {
-        "freeAim" : {
-          "x" : 1,
-          "y" : 0
+      "cuePocketed": false,
+      "id": "33E8BF6F-F0CC-49A1-AEB4-F9AA67AFACD1",
+      "objectPocketed": false,
+      "potted": [],
+      "shot": {
+        "freeAim": {
+          "x": 1,
+          "y": 0
         },
-        "pocket" : "",
-        "spinX" : 0,
-        "spinY" : 0,
-        "targetKey" : "",
-        "velocity" : 1.2000000000000002
+        "pocket": "",
+        "spinX": 0,
+        "spinY": 0,
+        "targetKey": "",
+        "velocity": 1.2000000000000002
       }
     },
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.9695423245429993,
-            "y" : 0.11416739225387573
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.9695423245429993,
+            "y": 0.11416739225387573
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.1156364157795906,
-            "y" : 0.11416739225387573
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.1156364157795906,
+            "y": 0.11416739225387573
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "940B8E03-2565-4DF9-80E9-3BEA4D9293A5",
-      "objectPocketed" : false,
-      "potted" : [
-
-      ],
-      "shot" : {
-        "freeAim" : {
-          "x" : 1,
-          "y" : 0
+      "cuePocketed": false,
+      "id": "940B8E03-2565-4DF9-80E9-3BEA4D9293A5",
+      "objectPocketed": false,
+      "potted": [],
+      "shot": {
+        "freeAim": {
+          "x": 1,
+          "y": 0
         },
-        "pocket" : "",
-        "spinX" : 0,
-        "spinY" : 0,
-        "targetKey" : "",
-        "velocity" : 2
+        "pocket": "",
+        "spinX": 0,
+        "spinY": 0,
+        "targetKey": "",
+        "velocity": 2
       }
     },
     {
-      "after" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.012285925447940826,
-            "y" : 0.1141674742102623
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.012285925447940826,
+            "y": 0.1141674742102623
           }
         }
       },
-      "before" : {
-        "onTable" : {
-          "cueBall" : {
-            "x" : 0.1156364157795906,
-            "y" : 0.11416739225387573
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.1156364157795906,
+            "y": 0.11416739225387573
           }
         }
       },
-      "cuePocketed" : false,
-      "id" : "9D15C89E-F26C-4EDA-B667-B44D13F537AD",
-      "objectPocketed" : false,
-      "potted" : [
-
-      ],
-      "shot" : {
-        "freeAim" : {
-          "x" : 1,
-          "y" : 0
+      "cuePocketed": false,
+      "id": "9D15C89E-F26C-4EDA-B667-B44D13F537AD",
+      "objectPocketed": false,
+      "potted": [],
+      "shot": {
+        "freeAim": {
+          "x": 1,
+          "y": 0
         },
-        "pocket" : "",
-        "spinX" : 0,
-        "spinY" : 0,
-        "targetKey" : "",
-        "velocity" : 3
+        "pocket": "",
+        "spinX": 0,
+        "spinY": 0,
+        "targetKey": "",
+        "velocity": 3
       }
     }
   ],
-  "updatedAt" : "2026-07-26T13:34:53Z"
+  "updatedAt": "2026-07-26T13:34:53Z"
 }

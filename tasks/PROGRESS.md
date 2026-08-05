@@ -18,6 +18,9 @@
 
 ## 当前状态
 
+- **详情页去台面试打 + 精讲降权 ✅（2026-08-05，DR-057）**：`DrillSceneView` 移除右下「上手试打」覆层（入口仅底栏）；「查看精讲」改训练要点标题 trailing 文字链。验证：`make build` → `BUILD SUCCEEDED`（`build/dr057-detail-cta-build.log`）。**下一步：模拟器目视确认详情页层级。**
+- **封面深墨调浅 + 单行字号 2/3 ✅（2026-08-05，DR-056）**：`darkOpacity` 0.85→0.52；练习网格 56→37；计划单行 scale 0.40/0.32；暗底按亮度门槛回退金色。验证：`CoverPaletteContrastTests` 10/0（`build/cover-glyph-soft-test.log`）。**下一步：模拟器目视确认浓度与字号。**
+- **封面大字统一深墨 ✅（2026-08-05，DR-055）**：训练/练习封面水印统一 `Glyph.color(against:)`；废除半透明白与按档硬编码。
 - **动作库网格卡去掉台面特征胶囊 ✅（2026-08-05）**：`BTDrillGridCard` 不再叠「0.2台·中上袋」等距离/袋口标注；台面仅留等级与 Pro/收藏。验证：`make build` → `BUILD SUCCEEDED`；`V28VisualUnificationUITests/testV28_LightScreenshots` 1/0。
 - **动作库侧栏图标状态色修正 ✅（2026-08-05）**：`BTDrillCategoryIcon` 未选中描边态统一为 `btTextSecondary` 中性灰，选中填充态保留品牌绿 + 金色，表现与练习页侧栏一致；Section Header / 统计页等填充态不变。验证：`make build` → `BUILD SUCCEEDED`；`V28VisualUnificationUITests/testV28_LightScreenshots` 1/0；截图确认「全部」选中有色、其余分类未选中为灰色。
 - **练习卡封面视觉重心调整 ✅（2026-08-05，DR-054）**：两字水印按字号 6% 下移，对齐训练计划卡；`物理 / 走位 / 2D / 3D / 识别 / SIM` 类型标签移到彩色封面右下，Pro 徽标保留右上。验证：`make build` → `BUILD SUCCEEDED`；`V28VisualUnificationUITests/testV28_LightScreenshots` 1/0；练/打/解截图目视确认无重叠。**下一步：用户确认视觉位置。**

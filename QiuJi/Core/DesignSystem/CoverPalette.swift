@@ -20,43 +20,39 @@ enum CoverPalette {
     // MARK: - Glyph token (shared by BTPlanCover + AngleGridCard)
 
     enum Glyph {
-        /// White watermark opacity. Raised 0.20→0.30 so mid-gold / graphite tops clear `minLuminanceDelta`
-        /// after anti-aliased glyph strokes (pure-blend ΔL alone under-predicts on-device readability).
-        static let opacity: Double = 0.30
-        /// Near-ink watermark when white-on-top fails Constraint A (never inline at call sites).
+        /// Near-ink watermark — default for all covers (DR-055/056; replaces ghost white).
         static let darkColor = Color(red: 0.08, green: 0.07, blue: 0.05)
-        static let darkOpacity: Double = 0.34
-        /// Minimum |ΔL| between effective blended glyph and cover-top (sRGB relative luminance).
-        /// Effective white blend: `L_eff = opacity + (1−opacity)·L` ⇒ `|ΔL| = opacity·(1−L)`.
-        /// Effective dark blend: `|ΔL| = darkOpacity·L`.
-        static let minLuminanceDelta: CGFloat = 0.14
-        /// Glyph size ÷ min(cover width, height). Practice grid ≈56pt; plan list ≈96pt at typical sizes.
+        /// Soft ink (DR-056): lighter than 0.85 solid, still clearly darker than old ghost white.
+        static let darkOpacity: Double = 0.52
+        /// Fallback on charcoal / graphite tops where dark ink disappears.
+        static let goldGlyph = Color(red: 0.84, green: 0.65, blue: 0.20)
+        static let goldOpacity: Double = 0.62
+        /// Tops darker than this use gold (charcoal / brown / red / graphite).
+        static let charcoalLuminanceCeiling: CGFloat = 0.15
+        /// Soft-ink floor (DR-056). Gold on charcoal still clears a stronger delta.
+        /// Dark blend ≈ `|ΔL| = darkOpacity · |L_dark − L|`; gold ≈ `goldOpacity · |L_gold − L|`.
+        static let minLuminanceDelta: CGFloat = 0.07
+        /// Glyph size ÷ min(cover width, height). Practice grid ≈37pt; plan list ≈96pt at typical sizes.
         static let sizeRatio: CGFloat = 0.48
-        /// Absolute size for practice grid cards (`Font.btCoverWatermark`).
-        static let gridAbsoluteSize: CGFloat = 56
+        /// Absolute size for practice grid cards (`Font.btCoverWatermark`) — single-line ≈2/3 of prior 56.
+        static let gridAbsoluteSize: CGFloat = 37
         /// Default absolute size for plan list posters (replaces former inline `system(size: 96)`).
         static let planListAbsoluteSize: CGFloat = 96
         /// Detail Hero watermark size (v28 W2 list/hero split).
         static let planHeroAbsoluteSize: CGFloat = 170
-        /// L2 mid-level uses gold watermark instead of white/dark adaptive.
-        static let goldGlyph = Color(red: 0.84, green: 0.65, blue: 0.20)
-        static let goldOpacity: Double = 0.55
 
-        /// Picks white or dark watermark so `|ΔL| ≥ minLuminanceDelta` against `background`.
+        /// Unified cover watermark: soft dark ink on mid/light tops; gold on charcoal-class tops.
+        /// Never uses translucent white.
         static func color(against background: Color) -> Color {
-            let L = relativeLuminance(of: background)
-            let whiteDelta = CGFloat(opacity) * (1 - L)
-            if whiteDelta >= minLuminanceDelta {
-                return Color.white.opacity(opacity)
-            }
-            let darkDelta = CGFloat(darkOpacity) * L
-            if darkDelta >= minLuminanceDelta {
+            if prefersDarkInk(against: background) {
                 return darkColor.opacity(darkOpacity)
             }
-            // Prefer the larger delta (should not hit with current zone ladders).
-            return darkDelta > whiteDelta
-                ? darkColor.opacity(darkOpacity)
-                : Color.white.opacity(opacity)
+            return goldGlyph.opacity(goldOpacity)
+        }
+
+        /// Dark ink on non-charcoal tops (keeps soft ink from flipping to gold when opacity drops).
+        static func prefersDarkInk(against background: Color) -> Bool {
+            relativeLuminance(of: background) >= charcoalLuminanceCeiling
         }
 
         /// sRGB relative luminance (WCAG), components in 0…1.
@@ -71,10 +67,21 @@ enum CoverPalette {
 
         /// `|ΔL|` for the color that `color(against:)` would pick.
         static func luminanceDelta(against background: Color) -> CGFloat {
+            prefersDarkInk(against: background)
+                ? darkLuminanceDelta(against: background)
+                : goldLuminanceDelta(against: background)
+        }
+
+        static func darkLuminanceDelta(against background: Color) -> CGFloat {
             let L = relativeLuminance(of: background)
-            let whiteDelta = CGFloat(opacity) * (1 - L)
-            if whiteDelta >= minLuminanceDelta { return whiteDelta }
-            return CGFloat(darkOpacity) * L
+            let Ld = relativeLuminance(of: darkColor)
+            return CGFloat(darkOpacity) * abs(Ld - L)
+        }
+
+        static func goldLuminanceDelta(against background: Color) -> CGFloat {
+            let L = relativeLuminance(of: background)
+            let Lg = relativeLuminance(of: goldGlyph)
+            return CGFloat(goldOpacity) * abs(Lg - L)
         }
     }
 
@@ -186,6 +193,17 @@ enum CoverPalette {
             top: Color(red: 0.0, green: 0.45, blue: 0.55),
             bottom: Color(red: 0.0, green: 0.26, blue: 0.34)
         )
+
+        /// Production practice-home covers (DR-052). Prefer this over zone-ladder pairs for UI.
+        static var allPairs: [Pair] {
+            [
+                aimingPrinciple, aimingMethods, aimingCorrection, spinAndEnglish,
+                separationAngleAtlas, cushionEnglishAtlas, angleDynamic, ballFeel, contactPointTable,
+                geometricQuiz, sceneAiming2D, sceneAiming3D, aimPointTraining, aimPointScene2D, aimPointScene3D,
+                shotSimulation, positionPlayComposer, freePlay, ballExtraction, batchDrillStudio,
+                positionPlaySolver, planThree, snookerTactics, bankShot, diamondSystem
+            ]
+        }
     }
 
     // MARK: - Per-zone ladder (parameterized; no per-card RGB overrides)
@@ -225,7 +243,7 @@ enum CoverPalette {
             bottomBrightnessStart: 0.34, bottomBrightnessEnd: 0.18
         )
 
-        /// 解 — graphite. Starts already mid-dark so white watermark clears Constraint A;
+        /// 解 — graphite. Starts mid-dark so gold watermark clears Constraint A (DR-055);
         /// depth via further B↓ + slight sat↑ (still low-sat cool gray).
         static let solve = ZoneLadder(
             hue: 220.0 / 360.0,
@@ -312,51 +330,45 @@ enum CoverPalette {
     struct PlanStyle: Equatable {
         let top: Color
         let bottom: Color
-        let glyphColor: Color
+        /// Same watermark rule as practice covers (`Glyph.color(against:)`).
+        var glyphColor: Color { Glyph.color(against: top) }
 
         static func forLevel(_ level: String) -> PlanStyle {
             switch level {
             case "L0→L1":
                 return .init(
                     top: Color(red: 0.16, green: 0.55, blue: 0.34),
-                    bottom: Color(red: 0.09, green: 0.34, blue: 0.21),
-                    glyphColor: .white.opacity(0.16)
+                    bottom: Color(red: 0.09, green: 0.34, blue: 0.21)
                 )
             case "L1":
                 return .init(
                     top: Color(red: 0.11, green: 0.46, blue: 0.95),
-                    bottom: Color(red: 0.05, green: 0.24, blue: 0.58),
-                    glyphColor: .white.opacity(0.16)
+                    bottom: Color(red: 0.05, green: 0.24, blue: 0.58)
                 )
             case "L1→L2":
                 return .init(
                     top: Color(red: 0.0, green: 0.60, blue: 0.60),
-                    bottom: Color(red: 0.0, green: 0.36, blue: 0.40),
-                    glyphColor: .white.opacity(0.16)
+                    bottom: Color(red: 0.0, green: 0.36, blue: 0.40)
                 )
             case "L2":
                 return .init(
                     top: Color(red: 0.18, green: 0.18, blue: 0.20),
-                    bottom: Color(red: 0.07, green: 0.07, blue: 0.08),
-                    glyphColor: Glyph.goldGlyph.opacity(Glyph.goldOpacity)
+                    bottom: Color(red: 0.07, green: 0.07, blue: 0.08)
                 )
             case "L3":
                 return .init(
                     top: Color(red: 0.55, green: 0.32, blue: 0.05),
-                    bottom: Color(red: 0.33, green: 0.18, blue: 0.02),
-                    glyphColor: .white.opacity(0.17)
+                    bottom: Color(red: 0.33, green: 0.18, blue: 0.02)
                 )
             case "L3→L4":
                 return .init(
                     top: Color(red: 0.62, green: 0.14, blue: 0.14),
-                    bottom: Color(red: 0.36, green: 0.06, blue: 0.06),
-                    glyphColor: .white.opacity(0.18)
+                    bottom: Color(red: 0.36, green: 0.06, blue: 0.06)
                 )
             default:
                 return .init(
                     top: Color(red: 0.16, green: 0.55, blue: 0.34),
-                    bottom: Color(red: 0.09, green: 0.34, blue: 0.21),
-                    glyphColor: .white.opacity(0.16)
+                    bottom: Color(red: 0.09, green: 0.34, blue: 0.21)
                 )
             }
         }

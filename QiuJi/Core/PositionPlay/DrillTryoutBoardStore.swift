@@ -12,8 +12,12 @@
 //  - 多球形：`drill_cNNN__<token>-<名称>-<N>杆.json`（token 不含「-」）
 //  - 旧式单序列：`drill_cNNN-<名称>-<N>杆.json`
 //
-//  坐标契约：序列 `initial.onTable` 与 `BoardSnapshot` 同为归一化 2D 系
+//  坐标契约：开局盘面与 `BoardSnapshot` 同为归一化 2D 系
 //  （x∈[0,1] 左→右、y∈[0,0.5] 上→下），恒等直传，零轴向变换。
+//
+//  开局盘面真源：`steps.first?.before ?? initial`（与 `DrillStaticPreview` /
+//  `SequenceVideoExporter` 同源）。批量出片台录制常见 `initial` 仅含母球，
+//  真实摆球在首杆 `before`；试打若直读 `initial` 会丢目标球（多球形尤其明显）。
 //
 
 import Foundation
@@ -66,13 +70,17 @@ enum DrillTryoutBoardStore {
             .compactMap { url in
                 guard let data = try? Data(contentsOf: url),
                       let sequence = try? decoder.decode(PositionPlaySequence.self, from: data),
-                      !sequence.initial.onTable.isEmpty
+                      // 0 杆仅占位/摆球样例：试打走 shotIntent 回退（与出片 runner 跳过同口径）。
+                      !sequence.steps.isEmpty
                 else { return nil }
+                // 开局盘面：首杆 before 优先（录制残留 initial 常只有母球）。
+                let opening = sequence.steps.first?.before ?? sequence.initial
+                guard !opening.onTable.isEmpty else { return nil }
                 return DrillTryoutFormation(
                     token: token(fromFileName: url.lastPathComponent, drillId: drillId),
                     title: sequence.name,
                     fileName: url.lastPathComponent,
-                    initial: sequence.initial,
+                    initial: opening,
                     stepCount: sequence.steps.count,
                     firstShot: sequence.steps.first?.shot,
                     steps: sequence.steps

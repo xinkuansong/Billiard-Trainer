@@ -1,0 +1,199 @@
+{
+  "createdAt": "2026-08-05T05:05:18Z",
+  "id": "2F747BDD-D3B3-494F-9BAB-FA1C261A7982",
+  "initial": {
+    "onTable": {
+      "cueBall": {
+        "x": 0.23756609857082367,
+        "y": 0.4682042896747589
+      }
+    }
+  },
+  "name": "挤偏放大·直球长台 · 球形1",
+  "steps": [
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.23756609857082367,
+            "y": 0.4682042896747589
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "C9DF8CA0-CCFD-4C16-BABD-A3D2CA723B72",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": 0.9996341466903687,
+          "y": 0.027049314230680466
+        },
+        "pocket": "",
+        "spinX": 0,
+        "spinY": 0,
+        "targetKey": "",
+        "velocity": 2
+      }
+    },
+    {
+      "after": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.9971218109130859,
+            "y": 0.5028549432754517
+          }
+        }
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.23756609857082367,
+            "y": 0.4682042896747589
+          }
+        }
+      },
+      "cuePocketed": false,
+      "id": "988E2FE3-191D-4EE2-A9F5-5799F6220F72",
+      "objectPocketed": false,
+      "potted": [],
+      "shot": {
+        "freeAim": {
+          "x": 0.9993284344673157,
+          "y": 0.03664374351501465
+        },
+        "pocket": "",
+        "spinX": -0.1662091248739795,
+        "spinY": -0.00011721578445539858,
+        "targetKey": "",
+        "velocity": 2
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.23756609857082367,
+            "y": 0.4682042896747589
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "7A72030F-F79D-40EB-BE08-83E868121711",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": 0.9990097880363464,
+          "y": 0.0444912426173687
+        },
+        "pocket": "",
+        "spinX": -0.1662091248739795,
+        "spinY": -0.00011721578445539858,
+        "targetKey": "",
+        "velocity": 2
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.23756609857082367,
+            "y": 0.4682042896747589
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "29DD4BE1-DD82-49E9-B09E-81430864304C",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": 0.9986748695373535,
+          "y": 0.0514645054936409
+        },
+        "pocket": "",
+        "spinX": -0.32862020309679224,
+        "spinY": 0.00032250725997376266,
+        "targetKey": "",
+        "velocity": 2
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.23756609857082367,
+            "y": 0.4682042896747589
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "1EE6AFEA-A14C-4098-8C03-8162BB276896",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": 0.9998766779899597,
+          "y": 0.015707354992628098
+        },
+        "pocket": "",
+        "spinX": 0.16537192374936535,
+        "spinY": 0.0016416763932627849,
+        "targetKey": "",
+        "velocity": 2
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.23756609857082367,
+            "y": 0.4682042896747589
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "FDB88F5A-D3D9-410F-A5DF-5D58AA962B8F",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": 0.9999966025352478,
+          "y": 0.0026180220302194357
+        },
+        "pocket": "",
+        "spinX": 0.33037192374936547,
+        "spinY": 0.0016416763932627849,
+        "targetKey": "",
+        "velocity": 2
+      }
+    }
+  ],
+  "updatedAt": "2026-08-05T05:08:36Z"
+}

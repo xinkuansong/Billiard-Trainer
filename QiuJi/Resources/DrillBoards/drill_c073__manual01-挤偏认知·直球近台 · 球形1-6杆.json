@@ -1,0 +1,196 @@
+{
+  "createdAt": "2026-08-05T04:55:11Z",
+  "id": "E42FA21D-C346-46DC-ABCB-9AE855BF1A6C",
+  "initial": {
+    "onTable": {
+      "cueBall": {
+        "x": 0.03337052837014198,
+        "y": 0.3653719425201416
+      }
+    }
+  },
+  "name": "挤偏认知·直球近台 · 球形1",
+  "steps": [
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.03337052837014198,
+            "y": 0.3653719425201416
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "24612506-601D-4B25-BED7-8F033AC196B0",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": -0.06346991658210754,
+          "y": -0.9979837536811829
+        },
+        "pocket": "",
+        "spinX": 0,
+        "spinY": 0,
+        "targetKey": "",
+        "velocity": 1.5
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.03337052837014198,
+            "y": 0.3653719425201416
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "C82B0E9E-279E-4597-AA47-0CF54A098419",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": -0.07913772016763687,
+          "y": -0.9968637824058533
+        },
+        "pocket": "",
+        "spinX": 0.16500000000000006,
+        "spinY": 0,
+        "targetKey": "",
+        "velocity": 1.5
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.03337052837014198,
+            "y": 0.3653719425201416
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "0892F961-01C7-46C2-8FC7-C143C3B9F569",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": -0.07913772016763687,
+          "y": -0.9968637228012085
+        },
+        "pocket": "",
+        "spinX": 0.3291021711054675,
+        "spinY": -0.0005569388288845529,
+        "targetKey": "",
+        "velocity": 1.5
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.03337052837014198,
+            "y": 0.3653719425201416
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "F8EE5565-AB6F-45CA-996E-11C5008A9638",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": -0.07826776057481766,
+          "y": -0.9969323873519897
+        },
+        "pocket": "",
+        "spinX": 0.49996643159861787,
+        "spinY": 0.0007937271720713391,
+        "targetKey": "",
+        "velocity": 1.5
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.03337052837014198,
+            "y": 0.3653719425201416
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "840E6BC8-3170-4763-9109-555573362D4A",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": -0.0556299053132534,
+          "y": -0.9984514713287354
+        },
+        "pocket": "",
+        "spinX": -0.16252829400726854,
+        "spinY": -0.012478877517877348,
+        "targetKey": "",
+        "velocity": 1.5
+      }
+    },
+    {
+      "after": {
+        "onTable": {}
+      },
+      "before": {
+        "onTable": {
+          "cueBall": {
+            "x": 0.03337052837014198,
+            "y": 0.3653719425201416
+          }
+        }
+      },
+      "cuePocketed": true,
+      "id": "ADFD62B0-2CB9-47BE-97B8-0E1E8F00CD14",
+      "objectPocketed": false,
+      "potted": [
+        "cueBall"
+      ],
+      "shot": {
+        "freeAim": {
+          "x": -0.035579830408096313,
+          "y": -0.999366819858551
+        },
+        "pocket": "",
+        "spinX": -0.33213798745222983,
+        "spinY": -0.0011597083845883201,
+        "targetKey": "",
+        "velocity": 1.5
+      }
+    }
+  ],
+  "updatedAt": "2026-08-05T05:00:09Z"
+}

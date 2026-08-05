@@ -51,8 +51,8 @@ final class DrillTryoutUITests: XCTestCase {
         app = XCUIApplication.launchClean()
         openDrillDetail(search: "蛇彩", drillId: "drill_c042")
 
-        // ① 解锁态入口按钮
-        let tryoutButton = app.buttons["drillTryoutButton"]
+        // ① 解锁态入口：底栏「上手试打」（DR-057：台面覆层已移除）
+        let tryoutButton = app.buttons["bottomTryoutButton"]
         XCTAssertTrue(tryoutButton.waitForExistence(timeout: 5), "详情页无「上手试打」按钮")
         snap("t01-detail-entry-unlocked")
 
@@ -143,7 +143,7 @@ final class DrillTryoutUITests: XCTestCase {
     func testTryoutSequenceModeSwitching() {
         app = XCUIApplication.launchClean()
         openDrillDetail(search: "蛇彩", drillId: "drill_c042")
-        app.buttons["drillTryoutButton"].tap()
+        app.buttons["bottomTryoutButton"].tap()
         sleep(2)
         let formation0 = app.buttons["tryoutFormation_0"]
         XCTAssertTrue(formation0.waitForExistence(timeout: 4))
@@ -236,11 +236,13 @@ final class DrillTryoutUITests: XCTestCase {
         app = XCUIApplication.launchClean()
         openDrillDetail(search: "软打", drillId: "drill_c050")
 
-        let tryoutButton = app.buttons["drillTryoutButton"]
-        XCTAssertTrue(tryoutButton.waitForExistence(timeout: 5), "锁定态详情页无试打按钮")
+        // DR-057：锁态底栏为「解锁 Pro」，不再有台面/底栏试打钮。
+        XCTAssertFalse(app.buttons["bottomTryoutButton"].exists, "锁定态不应有上手试打")
+        let unlockButton = app.buttons["unlockProButton"]
+        XCTAssertTrue(unlockButton.waitForExistence(timeout: 5), "锁定态详情页无「解锁 Pro」")
         snap("t10-detail-entry-locked")
 
-        tryoutButton.tap()
+        unlockButton.tap()
         sleep(3)
         // 点击应弹订阅页而非进试打页
         XCTAssertFalse(app.buttons["tryout.rearrange"].exists, "锁定态不应进入试打页")
@@ -259,7 +261,7 @@ final class DrillTryoutUITests: XCTestCase {
         sleep(3)
 
         openDrillDetail(search: "直线", drillId: "drill_c001")
-        app.buttons["drillTryoutButton"].tap()
+        app.buttons["bottomTryoutButton"].tap()
         sleep(5)
 
         // 单球形直进：不出现球形选择 sheet
@@ -283,7 +285,7 @@ final class DrillTryoutUITests: XCTestCase {
         // 二次启动（无覆盖参数）：读持久域 true → 说明卡仍在但无提示行。
         app = XCUIApplication.launchClean()
         openDrillDetail(search: "直线", drillId: "drill_c001")
-        app.buttons["drillTryoutButton"].tap()
+        app.buttons["bottomTryoutButton"].tap()
         sleep(5)
 
         let brief = app.descendants(matching: .any)
@@ -305,7 +307,7 @@ final class DrillTryoutUITests: XCTestCase {
         app = XCUIApplication.launchClean()
 
         openDrillDetail(search: "蛇彩", drillId: "drill_c042")
-        XCTAssertTrue(app.buttons["drillTryoutButton"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["bottomTryoutButton"].waitForExistence(timeout: 5))
         snap("t20-detail-entry-dark-unlocked")
         app.tapBackButton()
         sleep(1)

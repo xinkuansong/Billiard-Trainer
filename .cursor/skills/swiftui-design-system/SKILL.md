@@ -370,8 +370,10 @@ struct BTFilterChip: View {
 CoverPalette.aimingPrinciple  // Pair(top:bottom:)
 // 计划色：独立六色编辑式色板（绿/蓝/青/黑金/棕金/红；DR-047）
 CoverPalette.PlanStyle.forLevel("L1")
-CoverPalette.Glyph.opacity            // 0.30 白水印
-CoverPalette.Glyph.color(against:)    // Constraint A：|ΔL|≥0.14 选白/深
+CoverPalette.Glyph.color(against:)    // DR-056：柔和深墨 0.52；L<0.15 金色；|ΔL|≥0.07
+CoverPalette.Glyph.darkOpacity        // 0.52
+CoverPalette.Glyph.gridAbsoluteSize   // 37（单行 ≈2/3）
+CoverPalette.Glyph.goldOpacity        // 0.62
 Font.btCoverWatermark                 // 56pt
 Font.btCoverWatermark(size: 96)       // 训练列表海报
 BTPlanCover(planId: ..., targetLevel: ..., issueNumber: ..., mode: .list) // 或 .hero
@@ -737,6 +739,12 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-05（DR-056）— 封面深墨调浅 + 单行字号缩小：
+  - `darkOpacity` 0.85→0.52；暗底改 `charcoalLuminanceCeiling` 0.15；`minLuminanceDelta` 0.07
+  - 练习网格水印 56→37；计划单行 2/3 字 scale 0.40/0.32（4 字双行仍 0.40）
+- 2026-08-05（DR-055）— 封面大字统一深墨：
+  - 训练计划与练习页均走 `CoverPalette.Glyph.color(against:)`
+  - 默认深墨；金色仅用于暗底；废除半透明白与 `PlanStyle` 按档硬编码
 - 2026-08-05 — 动作库网格卡去掉台面特征胶囊（距离/袋口），覆层仅留等级与 Pro/收藏。
 - 2026-08-05（DR-054）— 练习卡封面视觉重心调整：
   - 大字水印按字号 6% 下移，对齐训练计划封面

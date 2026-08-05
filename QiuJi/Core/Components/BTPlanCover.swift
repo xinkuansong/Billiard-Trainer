@@ -39,10 +39,11 @@ struct BTPlanCover: View {
     }
 
     private var resolvedLabelSize: CGFloat {
+        // Single-line (1–3 chars) ≈ 2/3 of DR-049 scales; 4-char two-line keeps 0.40 (DR-056).
         let scale: CGFloat
         switch label.count {
-        case ...2: scale = 0.60
-        case 3: scale = 0.48
+        case ...2: scale = 0.40
+        case 3: scale = 0.32
         default: scale = 0.40
         }
         return resolvedBaseGlyphSize * scale

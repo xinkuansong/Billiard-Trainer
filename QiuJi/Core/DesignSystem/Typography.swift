@@ -15,8 +15,8 @@ extension Font {
     static let btDisplay             = Font.system(size: 44, weight: .bold, design: .rounded)
     static let btDisplaySmall        = Font.system(size: 30, weight: .bold, design: .rounded)
     static let btLargeTitle          = Font.system(size: 32, weight: .bold, design: .rounded)
-    /// Practice-home cover glyph watermark (v7 C20 / v27 W2 DR-044).
-    /// Size = `CoverPalette.Glyph.gridAbsoluteSize` (56); weight black; rounded.
+    /// Practice-home cover glyph watermark (v7 C20 / v27 W2 DR-044 / DR-056).
+    /// Size = `CoverPalette.Glyph.gridAbsoluteSize` (37); weight black; rounded.
     static let btCoverWatermark = Font.system(
         size: CoverPalette.Glyph.gridAbsoluteSize,
         weight: .black,

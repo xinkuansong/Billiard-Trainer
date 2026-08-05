@@ -41,48 +41,54 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
 
     // MARK: - Bundle 加载（真实资源）
 
-    /// c042 初级：仅保留 5 杆球形；8/10 → c069、15 → c071。
-    func test_c042_loadsFiveBallFormationAlignedWithSequence() throws {
+    /// c042 初级：双球形（manual01=8 杆 / manual02=5 杆）；开局盘面取自首杆 before。
+    func test_c042_loadsMultiFormationsAlignedWithSequence() throws {
         let formations = DrillTryoutBoardStore.formations(for: "drill_c042")
-        XCTAssertEqual(formations.count, 1, "c042 应仅剩 5 杆初级球形")
+        XCTAssertEqual(formations.count, 2, "c042 应有 manual01 + manual02")
+        XCTAssertEqual(formations.map(\.token), ["manual01", "manual02"])
+        XCTAssertEqual(formations.map(\.title), ["初级蛇彩走位 · 球形1", "初级蛇彩走位 · 球形2"])
+        XCTAssertEqual(formations.map(\.stepCount), [8, 5])
+        // 开局球数 = 首杆 before（含母球）；副标题 objectBallCount 不含母球
+        XCTAssertEqual(formations.map(\.initial.onTable.count), [4, 6])
+        XCTAssertEqual(formations.map(\.objectBallCount), [3, 5])
 
-        let first = try XCTUnwrap(formations.first)
-        XCTAssertEqual(first.title, "初级蛇彩走位 · 球形1")
-        XCTAssertEqual(first.stepCount, 5)
-        // 球形1 = 母球 + _1.._5 共 6 球（与序列 initial 对齐，非 shotIntent 的 4 球局）
-        XCTAssertEqual(first.initial.onTable.count, 6)
-        XCTAssertNotNil(first.initial.onTable[PositionPlayBall.cueKey])
-        XCTAssertNotNil(first.initial.onTable["_5"])
-        // 首杆意图存在且带真实参数（说明卡用）
-        let shot = try XCTUnwrap(first.firstShot)
-        XCTAssertEqual(shot.pocket, "bottomCenter")
-        XCTAssertEqual(shot.velocity, 0.9, accuracy: 0.001)
+        let fiveBall = try XCTUnwrap(formations.first(where: { $0.token == "manual02" }))
+        XCTAssertNotNil(fiveBall.initial.onTable[PositionPlayBall.cueKey])
+        XCTAssertNotNil(fiveBall.initial.onTable["_5"])
+        let shot = try XCTUnwrap(fiveBall.firstShot)
+        XCTAssertEqual(shot.pocket, "topCenter")
+        XCTAssertEqual(shot.velocity, 1.7, accuracy: 0.001)
 
-        XCTAssertEqual(formations.map(\.stepCount), [5])
-
-        // Q19.2①：选球形副标题球数不含白球（6 球含母球 ⇒ objectBallCount = 5）
-        XCTAssertEqual(first.objectBallCount, 5, "球数应排除母球")
-        XCTAssertFalse(
-            first.initial.onTable.keys.contains(PositionPlayBall.cueKey) && first.objectBallCount == first.initial.onTable.count,
-            "objectBallCount 不应把母球计入")
-
-        // Q19.2④：完整逐杆序列已随 formation 传出（序列模式数据通路）
-        XCTAssertEqual(first.steps.count, first.stepCount, "steps 应与 stepCount 一致")
-        XCTAssertTrue(first.hasSequence, "多杆 drill 应具备序列")
-        XCTAssertEqual(first.steps.first?.shot.pocket, shot.pocket, "首杆应与 firstShot 一致")
+        XCTAssertEqual(fiveBall.steps.count, fiveBall.stepCount, "steps 应与 stepCount 一致")
+        XCTAssertTrue(fiveBall.hasSequence, "多杆 drill 应具备序列")
+        XCTAssertEqual(fiveBall.steps.first?.shot.pocket, shot.pocket, "首杆应与 firstShot 一致")
     }
 
-    /// 蛇彩档位拆分：中级 8/10 杆、高级 15 杆。
+    /// 蛇彩多球形：中级 8/10 杆、高级 8/15 杆；objectBallCount 取自首杆 before。
     func test_snakeDrillFamily_formationsSplitByDifficulty() throws {
         let mid = DrillTryoutBoardStore.formations(for: "drill_c069")
+        XCTAssertEqual(mid.map(\.token), ["manual01", "manual02"])
         XCTAssertEqual(mid.map(\.stepCount), [8, 10])
-        XCTAssertEqual(mid.map(\.objectBallCount), [8, 10])
+        XCTAssertEqual(mid.map(\.objectBallCount), [3, 10])
         XCTAssertEqual(mid.map(\.title), ["中级蛇彩 · 球形1", "中级蛇彩 · 球形2"])
 
         let adv = DrillTryoutBoardStore.formations(for: "drill_c071")
-        XCTAssertEqual(adv.map(\.stepCount), [15])
-        XCTAssertEqual(adv.first?.objectBallCount, 15)
-        XCTAssertEqual(adv.first?.title, "高级蛇彩贴库综合 · 球形1")
+        XCTAssertEqual(adv.map(\.token), ["manual01", "manual02"])
+        XCTAssertEqual(adv.map(\.stepCount), [8, 15])
+        XCTAssertEqual(adv.map(\.objectBallCount), [3, 15])
+        XCTAssertEqual(adv.map(\.title), ["高级蛇彩贴库综合 · 球形1", "高级蛇彩贴库综合 · 球形2"])
+    }
+
+    /// 多球形试打（c076）：选择列表应露出全部 manual，且开局含目标球。
+    func test_c076_multiFormationTryoutBoardsHaveObjectBalls() throws {
+        let formations = DrillTryoutBoardStore.formations(for: "drill_c076")
+        XCTAssertEqual(formations.map(\.token), ["manual01", "manual02"])
+        XCTAssertEqual(formations.map(\.stepCount), [14, 14])
+        for f in formations {
+            XCTAssertGreaterThanOrEqual(f.objectBallCount, 1, "\(f.token) 开局应有目标球")
+            XCTAssertEqual(f.initial.onTable.count, f.objectBallCount + 1)
+            XCTAssertTrue(f.hasSequence)
+        }
     }
 
     /// c001 仅保留 manual 序列（旧式无 token 单文件已删）。
@@ -105,21 +111,22 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
         XCTAssertNotNil(board.onTable[DrillBoardBuilder.targetKey])
     }
 
-    /// 全库 smoke：Bundle 内每个序列文件都能 decode 且 initial 非空、坐标在归一化范围内。
+    /// 全库 smoke：Bundle 内每个序列文件都能 decode 且开局盘面非空、坐标在归一化范围内。
     func test_allBundledBoards_decodeAndInRange() throws {
         let urls = Bundle.main.urls(
             forResourcesWithExtension: "json",
             subdirectory: DrillTryoutBoardStore.bundleSubdirectory
         ) ?? []
-        XCTAssertGreaterThanOrEqual(urls.count, 90, "Bundle 应含全部同步序列（当前 91）")
+        XCTAssertGreaterThanOrEqual(urls.count, 80, "Bundle 应含同步后的 drill 序列")
 
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         for url in urls {
             let data = try Data(contentsOf: url)
             let seq = try decoder.decode(PositionPlaySequence.self, from: data)
-            XCTAssertFalse(seq.initial.onTable.isEmpty, "\(url.lastPathComponent) initial 为空")
-            for (key, p) in seq.initial.onTable {
+            let opening = seq.steps.first?.before ?? seq.initial
+            XCTAssertFalse(opening.onTable.isEmpty, "\(url.lastPathComponent) 开局盘面为空")
+            for (key, p) in opening.onTable {
                 XCTAssertTrue((0...1).contains(p.x) && (0...0.5).contains(p.y),
                               "\(url.lastPathComponent) \(key) 坐标越界：(\(p.x), \(p.y))")
             }
@@ -132,17 +139,17 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
         let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c042")
         let drill = try XCTUnwrap(loaded)
         let formation = try XCTUnwrap(
-            DrillTryoutBoardStore.formations(for: "drill_c042").first)
+            DrillTryoutBoardStore.formations(for: "drill_c042")
+                .first(where: { $0.token == "manual02" }))
 
         let lines = DrillTryoutBrief.lines(for: drill, formation: formation)
         let goal = try XCTUnwrap(lines.first(where: { $0.label == "局面目标" }))
-        XCTAssertTrue(goal.text.contains("下中袋"), "袋口应取序列首杆 bottomCenter")
+        XCTAssertTrue(goal.text.contains("上中袋"), "袋口应取序列首杆 topCenter")
         XCTAssertTrue(goal.text.contains("共 5 杆"), "杆数应取序列 stepCount")
 
         let ref = try XCTUnwrap(lines.first(where: { $0.label == "参考打法" }))
-        // velocity 0.9 → 轻推；spinY +0.128 → 高杆
-        XCTAssertTrue(ref.text.contains("轻推"))
-        XCTAssertTrue(ref.text.contains("高杆"))
+        // manual02：spinY ≈ −0.47 → 低杆
+        XCTAssertTrue(ref.text.contains("低杆"), "参考打法应含低杆，实际：\(ref.text)")
     }
 
     /// 无 formation 时说明卡维持原 shotIntent 生成（D2 行为零回归）。

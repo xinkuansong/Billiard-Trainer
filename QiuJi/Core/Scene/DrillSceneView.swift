@@ -308,13 +308,10 @@ final class DrillSceneController: ObservableObject {
     }
 }
 
-/// 详情页 live USDZ 2D 顶视球桌（2:1）+ 回放按钮 + 可选「上手试打」入口（试打模式方案 §1.6）。
+/// 详情页 live USDZ 2D 顶视球桌（2:1）+ 回放按钮。
+/// 「上手试打」入口在详情底栏（DR-057），台面不再叠主色胶囊以免与内容争抢。
 struct DrillSceneView: View {
     let drill: DrillContent
-    /// Premium 锁定态：试打按钮带皇冠（点击由宿主弹订阅页，Freemium 钩子）。
-    var tryoutLocked: Bool = false
-    /// 「上手试打」点击回调。nil = 不显示试打按钮（既有调用零改动）。
-    var onTryoutTap: (() -> Void)? = nil
     @StateObject private var controller = DrillSceneController()
     @State private var didAppear = false
 
@@ -347,7 +344,7 @@ struct DrillSceneView: View {
             } label: {
                 // F-SC-01：回放锁定进行时视觉反馈——保持 play.fill + 降透明 + disabled；
                 // 不换 stop 图标（按钮不可点，stop 会成假 affordance，违 B3 诚实反馈）。
-                // E16：回放为次级幽灵钮，避免与右下「上手试打」主入口争抢注意力。
+                // 次级幽灵钮：主行动留在详情底栏「上手试打」。
                 Image(systemName: "play.fill")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.9))
@@ -361,34 +358,6 @@ struct DrillSceneView: View {
             .padding(Spacing.md)
             .accessibilityLabel(controller.isPlaying ? "回放中" : "回放")
             .accessibilityIdentifier("drillPlayButton")
-        }
-        // 「上手试打」胶囊：与回放按钮同层覆层，对角 bottomTrailing（§1.6 入口）。
-        // E16：主色实底胶囊，视觉权重大于左下回放幽灵钮。
-        .overlay(alignment: .bottomTrailing) {
-            if let onTryoutTap {
-                Button(action: onTryoutTap) {
-                    HStack(spacing: 4) {
-                        if tryoutLocked {
-                            Image(systemName: "crown.fill")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.btAccent)
-                        }
-                        Text("上手试打")
-                            .font(.system(size: 12, weight: .bold, design: .rounded))
-                            .foregroundStyle(.white)
-                    }
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
-                    .background(Color.btPrimary.opacity(tryoutLocked ? 0.72 : 0.92))
-                    .clipShape(Capsule())
-                    .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
-                }
-                // F-DL-03：台面覆层试打钮按压（回放钮已接 BTPressableStyle.capsule）。
-                .buttonStyle(BTPressableStyle.capsule)
-                .padding(Spacing.md)
-                .accessibilityLabel("上手试打")
-                .accessibilityIdentifier("drillTryoutButton")
-            }
         }
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .onAppear {

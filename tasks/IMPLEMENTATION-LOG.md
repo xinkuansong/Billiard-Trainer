@@ -82,6 +82,47 @@
 
 ## DR 记录（设计调整）
 
+## DR-057
+- **任务**：动作详情页信息层级——去台面「上手试打」覆层；「查看精讲」降权
+- **原始规范**：`DrillSceneView` 右下主色胶囊「上手试打」（§1.6 / E16）；训练要点卡内 `BTButtonStyle.primary` 全宽「查看精讲」。
+- **调整后**：
+  1. 删除台面覆层试打入口（`tryoutLocked` / `onTryoutTap` / `drillTryoutButton`）；试打仅底栏 `bottomTryoutButton`；锁态底栏「解锁 Pro」+ `unlockProButton`。
+  2. 「查看精讲」改为训练要点标题行 trailing 文字链（`btCallout` + chevron，`btPrimary` 字色，非实心主钮）。
+- **原因**：台面与底栏同文案主色 CTA 重复；精讲入口视觉权重与底栏主行动同级，挤压要点列表。
+- **影响组件**：`DrillSceneView`、`DrillDetailView`、`DrillTryoutUITests`
+- **日期**：2026-08-05
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-05）
+
+## DR-056
+- **任务**：封面深墨调浅 + 单行大字缩至约 2/3
+- **原始规范**：DR-055 深墨 `darkOpacity` 0.85；练习网格水印 56pt；计划单行 scale 2 字 0.60 / 3 字 0.48。
+- **调整后**：
+  1. `darkOpacity` 0.85→0.52；暗底判定改为相对亮度 `< charcoalLuminanceCeiling(0.15)` 用金色。
+  2. 练习 `gridAbsoluteSize` 56→37；计划单行 2/3 字 scale 0.40/0.32；4 字双行仍 0.40。
+  3. `minLuminanceDelta` 随柔和深墨放宽至 0.07。
+- **原因**：用户反馈深墨过深；单行大字偏大。
+- **影响组件**：`CoverPalette.Glyph`、`BTPlanCover`、`AngleGridCard`（经 `btCoverWatermark`）、`CoverPaletteContrastTests`
+- **日期**：2026-08-05
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog（2026-08-05）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog（2026-08-05）
+- **证据**：`CoverPaletteContrastTests` → 见 `build/cover-glyph-soft-test.log`
+
+## DR-055
+- **任务**：训练 / 练习封面大字水印统一为深墨
+- **原始规范**：练习页用 `Glyph.color(against:)` 在半透明白 / 深墨间自适应；训练计划 `PlanStyle` 按档硬编码白透明（0.16–0.18），仅 L2 用金色。
+- **调整后**：
+  1. 封面大字（训练计划 + 练习卡）一律 `CoverPalette.Glyph.color(against: top)`。
+  2. 默认深墨 `darkColor` + `darkOpacity` 0.85；仅当金色对比优于深墨时回退（`goldOpacity` 0.62；炭黑 / 棕 / 红 / 石墨等暗底）。
+  3. 废除半透明白水印路径；`PlanStyle.glyphColor` 改为计算属性，不再按档硬编码。
+  4. 卡片下方标题/副标题与 PRO 徽标不变。
+- **原因**：半透明白大字发灰发虚，观感不统一；用户要求封面大字用深色，并统一训练/练习规则。
+- **影响组件**：`CoverPalette.Glyph`、`CoverPalette.PlanStyle`、`BTPlanCover`、`AngleGridCard`（经既有 `Glyph.color`）、`CoverPaletteContrastTests`
+- **日期**：2026-08-05
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c/Changelog（2026-08-05）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` §九-c/Changelog（2026-08-05）
+- **证据**：`xcodebuild … -only-testing:QiuJiTests/CoverPaletteContrastTests` → **TEST SUCCEEDED**，Executed 9 tests, 0 failures（`build/cover-glyph-dark-test.log`）。
+
 ## DR-054
 - **任务**：练习首页封面水印与类型标签视觉重心调整
 - **原始规范**：练习卡大字水印按封面几何中心放置；`物理 / 走位 / 2D / 3D / 识别 / SIM` 等类型标签与 Pro 徽标共同堆叠在右上角。
