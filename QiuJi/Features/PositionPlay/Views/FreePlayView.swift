@@ -104,6 +104,8 @@ struct FreePlayView: View {
                 vm.onShotSettled = { facts in handleShotSettled(facts) }
             }
         }
+        // 工具活跃度（契约 §5.3）：只记停留时长，⛔ 不记引擎进袋结果。
+        .toolUsageSession(.freePlay)
     }
 
     // MARK: - Stage（scene + 贴边控件，G3–G11）

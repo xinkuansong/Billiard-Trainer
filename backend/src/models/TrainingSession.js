@@ -27,6 +27,10 @@ const trainingSessionSchema = new mongoose.Schema(
     totalDurationMinutes: { type: Number, default: 0 },
     note: { type: String, default: "" },
     planId: String,
+    // 会话分类（契约 §5.3）："drill" 真实球台成绩 / "cognitive" 屏内认知测验 / "tool" 工具活跃度。
+    // mongoose 默认 strict: true 会丢弃未声明字段，缺这行客户端上传的 kind 会被静默吞掉。
+    // 不用 enum 约束：客户端 schema 里 kind 是 String，未知取值应原样存下而不是整条写入失败。
+    kind: { type: String, default: "drill", index: true },
     drillEntries: [drillEntrySchema],
   },
   { timestamps: true }
