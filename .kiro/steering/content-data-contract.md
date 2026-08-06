@@ -450,9 +450,10 @@ profile 与精讲 **11/11 完全一致**；两者与实际序列 **11/11 全部�
 `docs/06-技术架构.md` 描述的 `AngleTestSession / AngleQuestion` 结构在代码中不存在。
 **处置**：改为如实描述扁平 `AngleTestResult` + 内存投影 `AngleTrainingSession`。
 
-### 8.12 Bundle 同步陈旧
+### ~~8.12 Bundle 同步陈旧~~ ✅ 已消化（2026-08-07 v29 W8）
 
-`drill_c073` 球形 1 上游为 7 杆、Bundle 内为 6 杆。重跑 `make tryout-sync` 即可。
+~~`drill_c073` 球形 1 上游为 7 杆、Bundle 内为 6 杆。重跑 `make tryout-sync` 即可。~~
+W8 全量重出片后 `make tryout-sync` 已把 Bundle 球形 1 更新为上游 7 杆（DrillBoards 90 个序列）。
 
 ### 8.13 角度成绩同步 DTO 缺字段（2026-08-06 v29 审核发现）
 
@@ -465,7 +466,9 @@ profile 与精讲 **11/11 完全一致**；两者与实际序列 **11/11 全部�
 `import-engine-export-to-app.py` 的 `--skip-json` **并非默认开启**（`store_true`；
 帮助文案写「v25 视频 UI 已下线，默认应开」但代码未开）。漏传该开关会重写 drill JSON 的
 `videos[]`，把 v25 W1 已清空的视频引用全部写回。
-**处置**：调用一律显式带 `--skip-json`（已写入 v29 W8 红线）；建议将脚本默认值改为 skip 后删本条。
+**处置** ✅ 已消化（2026-08-07 v29 W8）：脚本改为 `argparse.BooleanOptionalAction` +
+`default=True`，默认 skip；要写回须显式 `--no-skip-json`。实测不带参数时 66 个 drill 全部
+`json=skipped`，带 `--no-skip-json` 则 66 个全部 `json=updated`（风险确实存在）。
 
 ---
 
@@ -494,4 +497,5 @@ profile 与精讲 **11/11 完全一致**；两者与实际序列 **11/11 全部�
 | 1.0 | 2026-08-06 | 初版。真源裁定（球形几何 = 出片台录制序列，用户拍板）；数据流三链路；标识符契约；不变量清单 I1–I9；现存偏差登记 8.1–8.12；待裁定 D1–D8。§5 训练量与计分口径留占位。 |
 | 1.1 | 2026-08-06 | v29 主控审核回写：§8.3 补全写盘测试清单（V21W2/3/4BakeTests 无 gate 且改写 drill JSON）；新增 §8.13（AngleTestDTO 缺 quizType/errorMM）、§8.14（回填脚本 --skip-json 非默认，与 v25 W1 冲突）。 |
 | 1.2 | 2026-08-06 | D9 裁定：`tool` 时长上传后端（用户拍板）；§5.3 合规连带改为义务并转记 HUMAN-REQUIRED H-09/H-12。 |
+| 1.4 | 2026-08-07 | v29 W8 执行回写：§8.12（c073 Bundle 陈旧）与 §8.14（`--skip-json` 非默认）标记已消化；C1/C2 归零，C3 剩 34 处失效引用（全为 `_fN_` legacy 多球形命名，随 v26 精讲迁移消化）。 |
 | 1.3 | 2026-08-06 | D1/D2/D7/D8 全部裁定（用户逐项拍板，均按推荐）：§5.4 按 category 分组、§5.5 机读挂球形级（内容暂不补）、D7 按完成推进、D8 token 规范不做。§9 待裁定清零；§5 全节定稿。 |
