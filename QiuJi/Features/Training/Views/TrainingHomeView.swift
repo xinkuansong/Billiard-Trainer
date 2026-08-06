@@ -283,7 +283,7 @@ struct TrainingHomeView: View {
             } else if isCurrentDrill {
                 // F-TR-06: press feedback aligned with primary chrome (compact label kept)
                 Button {
-                    router.startTraining(mode: .plan(drills: session.drills))
+                    router.startTraining(mode: .plan(drills: session.drills, planId: session.planId))
                 } label: {
                     Text("GO!")
                         .font(.btFootnote14.weight(.bold))
@@ -575,7 +575,7 @@ struct TrainingHomeView: View {
     private var startTrainingCircle: some View {
         Button {
             if let session = viewModel.todaySession {
-                router.startTraining(mode: .plan(drills: session.drills))
+                router.startTraining(mode: .plan(drills: session.drills, planId: session.planId))
             } else {
                 router.startTraining(mode: .free)
             }

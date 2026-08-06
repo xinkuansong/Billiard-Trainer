@@ -61,8 +61,8 @@ enum DrillStaticPreview {
     // MARK: - Source resolution
 
     /// Pick representative formation + first-shot intent.
-    /// Prefer DrillBoards token `A1` / legacy single / lowest `A*`; never pick
-    /// `manual*` / `Snipaste*` when an `A*` or legacy file exists.
+    /// Prefer profile `representative` token / legacy single file / `manual*`;
+    /// never fall to a `Snipaste*` directory-scan first item when a better one exists.
     static func resolveSource(for drill: DrillContent, bundle: Bundle = .main) -> Source? {
         let formations = DrillTryoutBoardStore.formations(for: drill.id, bundle: bundle)
         if let formation = DrillTryoutBoardStore.representative(from: formations) {

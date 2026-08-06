@@ -9,14 +9,35 @@ struct DrillSetData: Identifiable {
     var isCompleted: Bool
     var isWarmup: Bool
     var duration: TimeInterval?
+    /// 本组打的是哪个球形（契约 §4.1）。单球形 drill 为 nil。
+    var formationToken: String?
+    /// 球形显示名，随组次一起快照落库（契约 §6.5）。
+    var formationName: String?
 
-    init(id: Int, madeBalls: Int = 0, targetBalls: Int = 15, isCompleted: Bool = false, isWarmup: Bool = false, duration: TimeInterval? = nil) {
+    init(id: Int, madeBalls: Int = 0, targetBalls: Int = 15, isCompleted: Bool = false, isWarmup: Bool = false, duration: TimeInterval? = nil,
+         formationToken: String? = nil, formationName: String? = nil) {
         self.id = id
         self.madeBalls = madeBalls
         self.targetBalls = targetBalls
         self.isCompleted = isCompleted
         self.isWarmup = isWarmup
         self.duration = duration
+        self.formationToken = formationToken
+        self.formationName = formationName
+    }
+}
+
+/// 录入时可选的球形（来自 `DrillTryoutBoardStore.formations(for:)`）。
+struct DrillFormationOption: Identifiable, Hashable {
+    let token: String
+    let name: String
+
+    var id: String { token }
+
+    /// 列表用短标签：序列名形如「中袋角度精准 · 球形2」，取「·」后一段避免撑爆行宽。
+    var shortLabel: String {
+        guard let tail = name.split(separator: "·").last, name.contains("·") else { return name }
+        return tail.trimmingCharacters(in: .whitespaces)
     }
 }
 
@@ -29,6 +50,8 @@ struct BTSetInputGrid: View {
     var onDeleteSet: ((Int) -> Void)? = nil
     var showSetTimer: Bool = false
     var showSuccessRate: Bool = false
+    /// 多球形 drill 的可选球形；为空表示单球形，不出球形列。
+    var formationOptions: [DrillFormationOption] = []
 
     private var activeIndex: Int? {
         sets.firstIndex(where: { !$0.isCompleted })
@@ -48,6 +71,7 @@ struct BTSetInputGrid: View {
                         rowState: rowState(for: index),
                         showSetTimer: showSetTimer,
                         showSuccessRate: showSuccessRate,
+                        formationOptions: formationOptions,
                         onComplete: { onComplete(index) },
                         onDelete: onDeleteSet != nil ? { onDeleteSet?(index) } : nil
                     )
@@ -75,6 +99,10 @@ struct BTSetInputGrid: View {
                 .frame(maxWidth: .infinity)
             Text("总球")
                 .frame(maxWidth: .infinity)
+            if !formationOptions.isEmpty {
+                Text("球形")
+                    .frame(maxWidth: .infinity)
+            }
             if showSetTimer {
                 Text("时间")
                     .frame(maxWidth: .infinity)
@@ -147,6 +175,7 @@ private struct SetRow: View {
     let rowState: BTSetInputGrid.RowState
     let showSetTimer: Bool
     let showSuccessRate: Bool
+    let formationOptions: [DrillFormationOption]
     let onComplete: () -> Void
     var onDelete: (() -> Void)? = nil
 
@@ -181,6 +210,9 @@ private struct SetRow: View {
             setNumberColumn
             madeBallsColumn
             targetBallsColumn
+            if !formationOptions.isEmpty {
+                formationColumn
+            }
             if showSetTimer {
                 timerColumn
             }
@@ -331,6 +363,39 @@ private struct SetRow: View {
                 .frame(width: 44, height: 44)
                 .accessibilityLabel("更多操作")
         }
+    }
+
+    /// 多球形 drill：逐组选择本组打的球形（契约 §4.1 球形维度）。
+    private var formationColumn: some View {
+        Menu {
+            ForEach(formationOptions) { option in
+                Button {
+                    setData.formationToken = option.token
+                    setData.formationName = option.name
+                } label: {
+                    if setData.formationToken == option.token {
+                        Label(option.name, systemImage: BTIcon.checkmark)
+                    } else {
+                        Text(option.name)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(setData.formationName.map { DrillFormationOption(token: "", name: $0).shortLabel } ?? "选择")
+                    .font(.btCaption)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .foregroundStyle(setData.formationName == nil ? .btTextTertiary : .btPrimary)
+                Image(systemName: BTIcon.chevronDown)
+                    .font(.btMicro)
+                    .foregroundStyle(.btTextTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel("第\(setData.id)组球形：\(setData.formationName ?? "未选择")")
     }
 
     private var timerColumn: some View {

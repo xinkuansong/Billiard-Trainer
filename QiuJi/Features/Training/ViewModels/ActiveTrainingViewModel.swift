@@ -18,6 +18,16 @@ struct ActiveDrill: Identifiable {
     let phaseZh: String
     let animation: DrillAnimation?
     let level: DrillLevel?
+    /// 内容分类，决定录入单位语义（契约 §5.2）。内容缺失时为空串。
+    let category: String
+    let subcategory: String
+    /// 达标说明原文，保存时快照进 `DrillEntry.criteriaText`（契约 §6.5）。
+    let standardCriteria: String
+
+    /// made/target 的单位（契约 §5.2："球" | "局" | "次"）。
+    var unitLabel: String {
+        DrillUnitLabel.label(category: category, subcategory: subcategory)
+    }
 
     init(
         drillId: String,
@@ -29,7 +39,10 @@ struct ActiveDrill: Identifiable {
         phaseType: String = "free",
         phaseZh: String = "自由训练",
         animation: DrillAnimation? = nil,
-        level: DrillLevel? = nil
+        level: DrillLevel? = nil,
+        category: String = "",
+        subcategory: String = "",
+        standardCriteria: String = ""
     ) {
         self.id = UUID()
         self.drillId = drillId
@@ -42,17 +55,53 @@ struct ActiveDrill: Identifiable {
         self.phaseZh = phaseZh
         self.animation = animation
         self.level = level
+        self.category = category
+        self.subcategory = subcategory
+        self.standardCriteria = standardCriteria
+    }
+}
+
+/// 录入单位语义（契约 §5.2，只影响展示文案，不参与任何计算）。
+///
+/// 取值依据是各 drill `standardCriteria` 原文里的量词，不是猜测：
+/// - `ghostGame`（c065）原文「10 局 Ghost Game 中赢 3 局以上」→「局」；
+/// - `runOut` / `nineBallClear` / `comboPosition` / `keyBall`（c037/c039/c064/c067/c068）
+///   原文以「10 组中 N 组…」计，`breakShot` / `clearance` / `safety` / `escape`
+///   （c060/c061/c066/c070）原文以「10 次…中 N 次」计 → 统一为「次」
+///   （契约 §5.2 只允许 球/局/次 三值，「组」归入「次」）；
+/// - 其余（含 `snakeDrill` / `advancedSnake`，原文为「8 球或 10 球蛇彩连续完成 6 颗以上」）
+///   均以球计 →「球」。
+enum DrillUnitLabel {
+    static func label(category: String, subcategory: String) -> String {
+        switch subcategory {
+        case "ghostGame":
+            return "局"
+        case "runOut", "nineBallClear", "comboPosition", "keyBall",
+             "breakShot", "clearance", "safety", "escape":
+            return "次"
+        default:
+            return "球"
+        }
     }
 }
 
 enum TrainingMode: Identifiable {
-    case plan(drills: [TodayDrillItem])
+    /// `planId` = 当前激活计划的 `UserActivePlan.planId`（官方计划 id 或自定义计划 UUID 串）。
+    /// 落 `TrainingSession.planId`，是「按完成推进计划」的判定依据。
+    case plan(drills: [TodayDrillItem], planId: String?)
     case free
 
     var id: String {
         switch self {
         case .plan: return "plan"
         case .free: return "free"
+        }
+    }
+
+    var planId: String? {
+        switch self {
+        case .plan(_, let planId): return planId
+        case .free: return nil
         }
     }
 }
@@ -107,6 +156,8 @@ final class ActiveTrainingViewModel: ObservableObject {
     // Recording state per drill
     @Published var drillSetsData: [[DrillSetData]] = []
     @Published var drillNotes: [String] = []
+    /// 每个 drill 的可选球形（多球形 drill 才非空；单球形不出选择 UI）。
+    @Published var drillFormations: [[DrillFormationOption]] = []
 
     // Rest timer
     @Published var restDuration: Int = 60
@@ -168,7 +219,7 @@ final class ActiveTrainingViewModel: ObservableObject {
         defer { isLoading = false }
 
         switch mode {
-        case .plan(let todayDrills):
+        case .plan(let todayDrills, _):
             let service = DrillContentService.shared
             var items: [ActiveDrill] = []
             for item in todayDrills where !item.isCompleted {
@@ -183,7 +234,10 @@ final class ActiveTrainingViewModel: ObservableObject {
                     phaseType: item.phaseType,
                     phaseZh: item.phaseZh,
                     animation: content?.animation,
-                    level: content.flatMap { DrillLevel(rawValue: $0.level) }
+                    level: content.flatMap { DrillLevel(rawValue: $0.level) },
+                    category: content?.category ?? "",
+                    subcategory: content?.subcategory ?? "",
+                    standardCriteria: content?.standardCriteria ?? ""
                 ))
             }
             drills = items
@@ -270,12 +324,24 @@ final class ActiveTrainingViewModel: ObservableObject {
             sets: content.sets.defaultSets,
             ballsPerSet: content.sets.defaultBallsPerSet,
             animation: content.animation,
-            level: DrillLevel(rawValue: content.level)
+            level: DrillLevel(rawValue: content.level),
+            category: content.category,
+            subcategory: content.subcategory,
+            standardCriteria: content.standardCriteria
         )
         drills.append(drill)
-        let sets = (1...drill.sets).map { DrillSetData(id: $0, targetBalls: drill.ballsPerSet) }
+        let formations = Self.formationOptions(for: drill.drillId)
+        let sets = (1...drill.sets).map {
+            DrillSetData(
+                id: $0,
+                targetBalls: drill.ballsPerSet,
+                formationToken: formations.first?.token,
+                formationName: formations.first?.name
+            )
+        }
         drillSetsData.append(sets)
         drillNotes.append("")
+        drillFormations.append(formations)
     }
 
     /// Remove the first matching free-mode drill by content id (picker toggle deselect).
@@ -289,6 +355,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             drills.remove(at: index)
             if index < drillSetsData.count { drillSetsData.remove(at: index) }
             if index < drillNotes.count { drillNotes.remove(at: index) }
+            if index < drillFormations.count { drillFormations.remove(at: index) }
         }
         if currentDrillIndex >= drills.count {
             currentDrillIndex = max(0, drills.count - 1)
@@ -298,16 +365,28 @@ final class ActiveTrainingViewModel: ObservableObject {
     // MARK: - Recording
 
     private func initializeRecords() {
-        drillSetsData = drills.map { drill in
-            (1...drill.sets).map { setNum in
+        drillFormations = drills.map { Self.formationOptions(for: $0.drillId) }
+        drillSetsData = drills.enumerated().map { drillIdx, drill in
+            let formations = drillIdx < drillFormations.count ? drillFormations[drillIdx] : []
+            return (1...drill.sets).map { setNum in
                 DrillSetData(
                     id: setNum,
                     targetBalls: drill.ballsPerSet,
-                    isWarmup: drill.phaseType == "warmup" && setNum == 1
+                    isWarmup: drill.phaseType == "warmup" && setNum == 1,
+                    formationToken: formations.first?.token,
+                    formationName: formations.first?.name
                 )
             }
         }
         drillNotes = drills.map { _ in "" }
+    }
+
+    /// 多球形 drill 的可选球形；单球形（或无序列）返回空数组 —— 单球形不出选择 UI，
+    /// `DrillSet.formationToken/Name` 保持 nil（契约 §4.1）。
+    static func formationOptions(for drillId: String) -> [DrillFormationOption] {
+        let formations = DrillTryoutBoardStore.formations(for: drillId)
+        guard formations.count > 1 else { return [] }
+        return formations.map { DrillFormationOption(token: $0.token, name: $0.title) }
     }
 
     var currentSetIndex: Int {
@@ -394,7 +473,13 @@ final class ActiveTrainingViewModel: ObservableObject {
         guard drillIndex < drillSetsData.count, drillIndex < drills.count else { return }
         let nextId = (drillSetsData[drillIndex].last?.id ?? 0) + 1
         let target = drills[drillIndex].ballsPerSet
-        drillSetsData[drillIndex].append(DrillSetData(id: nextId, targetBalls: target))
+        let last = drillSetsData[drillIndex].last
+        drillSetsData[drillIndex].append(DrillSetData(
+            id: nextId,
+            targetBalls: target,
+            formationToken: last?.formationToken,
+            formationName: last?.formationName
+        ))
     }
 
     func deleteSet(drillIndex: Int, setIndex: Int) {
@@ -501,6 +586,25 @@ final class ActiveTrainingViewModel: ObservableObject {
         )
     }
 
+    /// 每个 drill 的训练心得绑定（落 `DrillEntry.note`，契约 §8.7）。
+    func noteBinding(for index: Int) -> Binding<String> {
+        Binding(
+            get: { [weak self] in
+                guard let self, index < self.drillNotes.count else { return "" }
+                return self.drillNotes[index]
+            },
+            set: { [weak self] newValue in
+                guard let self, index < self.drillNotes.count else { return }
+                self.drillNotes[index] = newValue
+            }
+        )
+    }
+
+    func formationOptions(at index: Int) -> [DrillFormationOption] {
+        guard index < drillFormations.count else { return [] }
+        return drillFormations[index]
+    }
+
     // MARK: - End Training Flow
 
     func endTraining() {
@@ -563,19 +667,36 @@ final class ActiveTrainingViewModel: ObservableObject {
         saveError = nil
 
         do {
-            let session = TrainingSession()
+            // 训练 Tab 的正式训练一律是真实球台成绩（契约 §5.3）。
+            let session = TrainingSession(kind: "drill")
             session.totalDurationMinutes = elapsedSeconds / 60
             session.note = trainingNote
+            // 自由训练保持 nil；计划训练写入当前激活计划 id（W7 计划推进的判定依据）。
+            session.planId = mode.planId
 
             for (drillIdx, drill) in drills.enumerated() {
-                let entry = DrillEntry(drillId: drill.drillId, drillNameZh: drill.nameZh)
+                let entry = DrillEntry(
+                    drillId: drill.drillId,
+                    drillNameZh: drill.nameZh,
+                    orderIndex: drillIdx,
+                    note: drillIdx < drillNotes.count ? drillNotes[drillIdx] : "",
+                    // 快照写入即冻结：展示层不得再回查当前内容（契约 §6.5 推论 2）。
+                    criteriaText: drill.standardCriteria
+                )
 
                 guard drillIdx < drillSetsData.count else { continue }
                 for setData in drillSetsData[drillIdx] {
                     let drillSet = DrillSet(
                         setNumber: setData.id,
                         targetBalls: setData.targetBalls,
-                        madeBalls: setData.madeBalls
+                        madeBalls: setData.madeBalls,
+                        formationToken: setData.formationToken,
+                        formationName: setData.formationName,
+                        unitLabel: drill.unitLabel,
+                        // 内容侧尚未补机读达标线，0/0 = 未设定（D-v29-1，契约 §5.5）。
+                        passMade: 0,
+                        passTotal: 0,
+                        durationSeconds: setData.duration.map { Int($0.rounded()) }
                     )
                     entry.sets.append(drillSet)
                 }

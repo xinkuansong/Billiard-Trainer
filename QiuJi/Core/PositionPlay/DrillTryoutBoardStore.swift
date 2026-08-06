@@ -88,9 +88,12 @@ enum DrillTryoutBoardStore {
             }
     }
 
-    /// 列表/缩略图门面球形：`preferredToken`（profile.representative）→ `A1` →
-    /// 旧式无 token 单文件 → 最低编号 `A*` → 否则才落到 `manual*` / 其它。
-    /// 禁止在存在 `A*` / legacy 时误选 Snipaste/manual 扫目录首项。
+    /// 列表/缩略图门面球形：`preferredToken`（profile.representative）→
+    /// 旧式无 token 单文件 → `manual*` → 否则才落到扫目录首项。
+    /// 禁止在存在 legacy / `manual*` 时误选 Snipaste 扫目录首项。
+    ///
+    /// 注：`A*` 序列命名已随 8293ef4 全量退役（Bundle `DrillBoards/` 现零个
+    /// `__A[0-9]` 文件），原先的 `A1` 优先与 `A*` 最低编号两条分支已成死码，故移除。
     static func representative(
         from formations: [DrillTryoutFormation],
         preferredToken: String? = nil
@@ -100,16 +103,7 @@ enum DrillTryoutBoardStore {
            let hit = formations.first(where: { $0.token == preferredToken }) {
             return hit
         }
-        if let a1 = formations.first(where: { $0.token == "A1" }) { return a1 }
         if let legacy = formations.first(where: { $0.token.isEmpty }) { return legacy }
-        let aRanked = formations
-            .compactMap { f -> (DrillTryoutFormation, Int)? in
-                guard f.token.count >= 2, f.token.first == "A",
-                      let n = Int(f.token.dropFirst()) else { return nil }
-                return (f, n)
-            }
-            .sorted { $0.1 < $1.1 }
-        if let first = aRanked.first?.0 { return first }
         if let manual = formations.first(where: { $0.token.hasPrefix("manual") }) {
             return manual
         }

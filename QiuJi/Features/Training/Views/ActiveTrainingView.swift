@@ -441,10 +441,12 @@ struct ActiveTrainingView: View {
                     DrillRecordView(
                         drill: drill,
                         setsData: viewModel.setsBinding(for: index),
+                        note: viewModel.noteBinding(for: index),
                         onAddSet: { viewModel.addSet(drillIndex: index) },
                         onCompleteSet: { setIndex in viewModel.completeSet(drillIndex: index, setIndex: setIndex) },
                         onDeleteSet: { setIndex in viewModel.deleteSet(drillIndex: index, setIndex: setIndex) },
-                        restDuration: $viewModel.restDuration
+                        restDuration: $viewModel.restDuration,
+                        formationOptions: viewModel.formationOptions(at: index)
                     )
                     .tag(index)
                 }
@@ -858,14 +860,14 @@ private let previewPlanDrills = [
 
 #Preview("Plan Mode - Light") {
     ActiveTrainingView(
-        viewModel: ActiveTrainingViewModel(mode: .plan(drills: previewPlanDrills))
+        viewModel: ActiveTrainingViewModel(mode: .plan(drills: previewPlanDrills, planId: "plan_beginner_12w"))
     )
     .environmentObject(AppRouter())
 }
 
 #Preview("Plan Mode - Dark") {
     ActiveTrainingView(
-        viewModel: ActiveTrainingViewModel(mode: .plan(drills: previewPlanDrills))
+        viewModel: ActiveTrainingViewModel(mode: .plan(drills: previewPlanDrills, planId: "plan_beginner_12w"))
     )
     .environmentObject(AppRouter())
     .preferredColorScheme(.dark)

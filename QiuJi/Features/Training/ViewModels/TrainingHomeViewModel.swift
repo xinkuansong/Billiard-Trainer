@@ -16,6 +16,8 @@ struct TodayDrillItem: Identifiable {
 }
 
 struct TodaySessionInfo {
+    /// 当前激活计划 id（`UserActivePlan.planId`），随训练一起落 `TrainingSession.planId`。
+    let planId: String
     let planNameZh: String
     let weekNumber: Int
     let dayNumber: Int
@@ -168,6 +170,7 @@ final class TrainingHomeViewModel: ObservableObject {
         let totalMinutes = session.phases.reduce(0) { $0 + $1.durationMinutes }
 
         todaySession = TodaySessionInfo(
+            planId: activePlan.planId,
             planNameZh: plan.nameZh,
             weekNumber: activePlan.currentWeek,
             dayNumber: activePlan.currentDay,
@@ -210,6 +213,7 @@ final class TrainingHomeViewModel: ObservableObject {
         }
 
         todaySession = TodaySessionInfo(
+            planId: activePlan.planId,
             planNameZh: customPlan.name,
             weekNumber: 1,
             dayNumber: 1,

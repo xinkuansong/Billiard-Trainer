@@ -4,24 +4,25 @@ import XCTest
 @MainActor
 final class DrillStaticPreviewTests: XCTestCase {
 
-    func test_representative_prefersA1_overManualAndSnipaste() {
+    /// `A*` 序列命名已随 8293ef4 全量退役（Bundle `DrillBoards/` 零个 `__A[0-9]` 文件），
+    /// 门面球形改由 `manual*` 承担；断言前提随之更新为 manual 语义。
+    func test_representative_prefersManual_overSnipaste() {
         let forms: [DrillTryoutFormation] = [
-            stubFormation(token: "manual01", file: "drill_c053__manual01-x-0杆.json"),
-            stubFormation(token: "A3", file: "drill_c053__A3-x-0杆.json"),
-            stubFormation(token: "A1", file: "drill_c053__A1-x-0杆.json"),
             stubFormation(token: "Snipaste_1", file: "drill_c053__Snipaste_1-x-1杆.json"),
+            stubFormation(token: "manual01", file: "drill_c053__manual01-x-0杆.json"),
+            stubFormation(token: "manual02", file: "drill_c053__manual02-x-0杆.json"),
         ]
         let picked = DrillTryoutBoardStore.representative(from: forms)
-        XCTAssertEqual(picked?.token, "A1")
+        XCTAssertEqual(picked?.token, "manual01")
     }
 
     func test_representative_preferredTokenWins() {
         let forms: [DrillTryoutFormation] = [
-            stubFormation(token: "A1", file: "a1.json"),
-            stubFormation(token: "A4", file: "a4.json"),
+            stubFormation(token: "manual01", file: "manual01.json"),
+            stubFormation(token: "manual02", file: "manual02.json"),
         ]
-        let picked = DrillTryoutBoardStore.representative(from: forms, preferredToken: "A4")
-        XCTAssertEqual(picked?.token, "A4")
+        let picked = DrillTryoutBoardStore.representative(from: forms, preferredToken: "manual02")
+        XCTAssertEqual(picked?.token, "manual02")
     }
 
     func test_representative_legacyEmptyTokenBeforeManual() {
@@ -34,15 +35,16 @@ final class DrillStaticPreviewTests: XCTestCase {
         XCTAssertEqual(picked?.fileName, "drill_c001-半台直线球-1杆.json")
     }
 
-    func test_resolveSource_multiFormationUsesA1Board() async throws {
+    /// 前提更新同上：drill_c053 现有 `manual01` / `manual02` 两条序列，门面取 `manual01`。
+    func test_resolveSource_multiFormationUsesManualBoard() async throws {
         guard let drill = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c053") else {
             throw XCTSkip("drill_c053 not in bundle")
         }
         let source = try XCTUnwrap(DrillStaticPreview.resolveSource(for: drill))
-        XCTAssertEqual(source.token, "A1")
+        XCTAssertEqual(source.token, "manual01")
         XCTAssertFalse(source.board.onTable.isEmpty)
         XCTAssertNotNil(source.board.onTable[PositionPlayBall.cueKey])
-        // A1 board should not force every object ball to "_8" when sequence has real keys.
+        // Board should not force every object ball to "_8" when sequence has real keys.
         let objectKeys = source.board.onTable.keys.filter { !PositionPlayBall.isCue($0) }
         XCTAssertFalse(objectKeys.isEmpty)
     }

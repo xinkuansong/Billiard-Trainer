@@ -3,13 +3,16 @@ import SwiftUI
 struct DrillRecordView: View {
     let drill: ActiveDrill
     @Binding var setsData: [DrillSetData]
+    /// 本 drill 的训练心得，落 `DrillEntry.note`（契约 §8.7）。
+    @Binding var note: String
     var onAddSet: () -> Void
     var onCompleteSet: (Int) -> Void
     var onDeleteSet: ((Int) -> Void)?
     @Binding var restDuration: Int
     var showRestTimerSetting: Bool = true
+    /// 多球形 drill 的可选球形；为空表示单球形，不出选择 UI。
+    var formationOptions: [DrillFormationOption] = []
 
-    @State private var noteText = ""
     /// Default expanded (球台示意).
     @State private var showBallTable = true
     @State private var showSetTimer = true
@@ -50,13 +53,18 @@ struct DrillRecordView: View {
                     trainingToggles
                 }
 
+                if !formationOptions.isEmpty {
+                    formationHint
+                }
+
                 BTSetInputGrid(
                     sets: $setsData,
                     onAddSet: onAddSet,
                     onComplete: handleCompleteSet,
                     onDeleteSet: onDeleteSet,
                     showSetTimer: showSetTimer,
-                    showSuccessRate: showSuccessRate
+                    showSuccessRate: showSuccessRate,
+                    formationOptions: formationOptions
                 )
 
                 if totalTarget > 0 {
@@ -188,9 +196,10 @@ struct DrillRecordView: View {
                 .font(.btCallout)
                 .foregroundStyle(.btTextTertiary)
 
-            TextField("点击输入备注...", text: $noteText)
+            TextField("记录本项心得...", text: $note, axis: .vertical)
                 .font(.btCallout)
                 .foregroundStyle(.btText)
+                .lineLimit(1...4)
         }
         .padding(Spacing.md)
         .background(Color.btBGSecondary)
@@ -199,6 +208,20 @@ struct DrillRecordView: View {
             color: colorScheme == .dark ? .clear : Color.black.opacity(0.04),
             radius: 4, x: 0, y: 1
         )
+    }
+
+    /// 多球形动作：提示逐组在「球形」列选择本组打的球形。
+    private var formationHint: some View {
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: "square.stack.3d.up")
+                .font(.btCaption)
+                .foregroundStyle(.btPrimary)
+            Text("本动作有 \(formationOptions.count) 个球形，请在「球形」列选择本组打的球形")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.sm)
     }
 
     // MARK: - Rest Settings Row
@@ -393,6 +416,7 @@ private struct DrillRecordPreview: View {
         DrillSetData(id: 5, targetBalls: 15),
     ]
     @State private var restDuration = 60
+    @State private var note = ""
 
     var body: some View {
         DrillRecordView(
@@ -419,10 +443,15 @@ private struct DrillRecordPreview: View {
                 )
             ),
             setsData: $sets,
+            note: $note,
             onAddSet: { sets.append(DrillSetData(id: sets.count + 1, targetBalls: 15)) },
             onCompleteSet: { sets[$0].isCompleted.toggle() },
             onDeleteSet: { sets.remove(at: $0) },
-            restDuration: $restDuration
+            restDuration: $restDuration,
+            formationOptions: [
+                DrillFormationOption(token: "manual01", name: "五分点直球 · 球形1"),
+                DrillFormationOption(token: "manual02", name: "五分点直球 · 球形2"),
+            ]
         )
     }
 }
