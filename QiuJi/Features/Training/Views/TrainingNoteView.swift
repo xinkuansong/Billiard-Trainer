@@ -4,6 +4,8 @@ struct TrainingNoteView: View {
     @Binding var note: String
     let onSkip: () -> Void
     let onComplete: () -> Void
+    /// Post-training flow calls this「跳过」; editing an existing note calls it「取消」.
+    var skipTitle: String = "跳过"
     // TODO: [P1-U02] Wire up "隐藏备注" toggle — requires TrainingSessionSummary model change to persist hideNote flag
 
     @Environment(\.colorScheme) private var colorScheme
@@ -99,7 +101,7 @@ struct TrainingNoteView: View {
 
     private var bottomBar: some View {
         HStack {
-            Button("跳过", action: onSkip)
+            Button(skipTitle, action: onSkip)
                 .buttonStyle(BTButtonStyle.text)
 
             Spacer()

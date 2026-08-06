@@ -87,7 +87,8 @@ struct TrainingDetailView: View {
             TrainingNoteView(
                 note: $editingNote,
                 onSkip: { showNoteEditor = false },
-                onComplete: { saveNote() }
+                onComplete: { saveNote() },
+                skipTitle: "取消"
             )
             .navigationTitle("编辑心得")
             .navigationBarTitleDisplayMode(.inline)
