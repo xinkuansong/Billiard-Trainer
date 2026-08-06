@@ -14,11 +14,13 @@ final class AngleTestResult {
     /// 瞄准点训练的有符号毫米误差（条 8.5：偏大为正、偏小为负）。
     /// 角度类测验恒为 0；带默认值的新增属性，SwiftData 轻量迁移自动兼容旧库。
     var errorMM: Double = 0
+    /// 归属的 `kind="cognitive"` 会话 id（契约 §4.1/§5.3）。历史数据为 nil，W5 一次性回填。
+    var sessionId: UUID?
 
     var error: Double { abs(actualAngle - userAngle) }
 
     init(actualAngle: Double, userAngle: Double, pocketType: String,
-         quizType: String = "table2D", errorMM: Double = 0) {
+         quizType: String = "table2D", errorMM: Double = 0, sessionId: UUID? = nil) {
         self.id = UUID()
         self.date = Date()
         self.actualAngle = actualAngle
@@ -26,5 +28,6 @@ final class AngleTestResult {
         self.pocketType = pocketType
         self.quizType = quizType
         self.errorMM = errorMM
+        self.sessionId = sessionId
     }
 }

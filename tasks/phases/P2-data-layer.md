@@ -165,3 +165,51 @@
   - 内容更新依赖自有服务可用性（与训练数据同步同一运维面）；
   - QA-P2「内容静默刷新」验收改为针对自建 API（实现后），非 CloudKit。
 - **不适用**：不引入 CloudKit Private Database 作为用户数据存储（与 ADR-001 一致）。
+
+### ADR-003 — SwiftData 版本化 schema（V1/V2）+ 轻量迁移，落地契约 §4.1 字段扩展
+
+- **状态**：已采纳（2026-08-06，问题集合 v29 W3）
+- **背景**：
+  - `ModelContainerFactory` 原先用裸 `Schema(allModels)` 建容器，**无 `VersionedSchema`、无 `SchemaMigrationPlan`**。
+    历史上新增 `AngleTestResult.quizType` / `errorMM` 靠「带默认值属性 + SwiftData 隐式轻量迁移」侥幸通过，
+    没有版本标识，也没有任何迁移的实证测试——下一次结构性变更没有护栏。
+  - `.kiro/steering/content-data-contract.md` §4.1 定稿了一批字段扩展（会话分类 `kind`、
+    训练心得 / 顺序 / 达标说明快照、球形归属与显示名快照、单位语义、达标线快照、每组用时、
+    角度成绩的会话归属），命中 `00-orchestrator.mdc` ADR 强制触发清单两项：
+    **SwiftData Schema 结构性变更** + **新增 `MigrationPlan`**。
+- **决策**：
+  1. 新增 `QiuJiSchemaV1`（`QiuJi/Data/Models/QiuJiSchemaV1.swift`）——把**字段扩展前**已发布的
+     `TrainingSession` / `DrillEntry` / `DrillSet` / `AngleTestResult` 形态以**嵌套类型冻结为历史快照**
+     （版本 `1.0.0`）；未变更的 5 个模型（`UserActivePlan` / `DrillFavorite` / `SyncPendingItem` /
+     `CustomPlan` / `CustomPlanDrill`）直接复用顶层类型，V1 与 V2 共享同一形状。
+  2. 新增 `QiuJiSchemaV2`（版本 `2.0.0`）= 当前顶层模型集，并新增
+     `QiuJiMigrationPlan`：`stages = [.lightweight(V1 → V2)]`。
+  3. `ModelContainerFactory.makeContainer()` / `makeInMemoryContainer()` 改为
+     `ModelContainer(for: currentSchema, migrationPlan: QiuJiMigrationPlan.self, ...)`；
+     新增 `makeContainer(at:)` 作为测试接缝（迁移测试用它打开旧库）。
+  4. 按契约 §4.1 加字段，**全部可选或带默认值**以走轻量迁移：
+     `TrainingSession.kind = "drill"`；`DrillEntry.orderIndex = 0` / `note = ""` / `criteriaText = ""`；
+     `DrillSet.formationToken?` / `formationName?` / `unitLabel = "球"` / `passMade = 0` / `passTotal = 0` /
+     `durationSeconds?`；`AngleTestResult.sessionId?`。
+- **迁移策略与默认值语义**：
+  - 轻量迁移（无 `willMigrate`/`didMigrate` 自定义阶段）：新增列由 SwiftData 就地加到既有表，
+    旧行取默认值，**不触碰任何既有列与关系**。
+  - 旧数据的默认值语义须与历史事实相符：旧库会话一律是训练 Tab 产生的真实球台成绩 → `kind = "drill"`；
+    旧库组次一律按球计数 → `unitLabel = "球"`；`passMade/passTotal = 0` 表示「未设定达标线」；
+    球形归属与每组用时旧库确实不存在 → 可选为 `nil`（不编造）。
+- **实证（红线「数据零丢失」不得以删库重建绕过）**：
+  `QiuJiTests/SwiftDataMigrationTests.swift` 用 V1 schema 写一个**落盘**旧库（2 session / 2 entry /
+  4 set / 3 angle），再用当前容器打开同一文件，断言：条数与全部字段值不变、
+  session↔entry↔set 关系图完整、新字段取默认值；并用 `SQLite3` 直读 `PRAGMA table_info`
+  证明迁移前该文件**没有** `ZKIND`/`ZDURATIONSECONDS`/`ZSESSIONID` 列、迁移后有且是旧列的超集
+  （即同一物理文件就地加列，而非删库重建）。另有一例证明迁移后写入新字段可持久化。
+- **后果**：
+  - 后续每次结构性变更必须新增 `QiuJiSchemaVn` + 一个 stage，`QiuJiSchemaV1` 作为历史快照**禁止再修改**；
+  - 代价是 App 二进制里长期保留 V1 的模型副本（Apple 官方迁移范式的既有代价，可接受）；
+  - 新字段本批**只落 schema，不接任何写入与 UI**（W4 训练录入 / W5 练习与 tool / W6 统计读取）；
+    `BackendSyncService` 的 DTO 未变更，同步语义保持原状（新字段是否上传由 W4/W5 决定）。
+- **回滚考虑**：
+  - 代码回滚（恢复裸 `Schema`）安全：新增列在旧代码下只是未映射属性，SwiftData 忽略即可，
+    既有数据仍可读；但**已写入新字段的值会不可见**（不会被删除）。
+  - 不提供 V2 → V1 的降级迁移：轻量迁移不可逆方向上没有语义损失需求，且 App 不支持降级安装。
+  - 若日后必须把某个新字段改成非可选/无默认值，则不能再走轻量迁移，须新增自定义阶段并单独 ADR。
