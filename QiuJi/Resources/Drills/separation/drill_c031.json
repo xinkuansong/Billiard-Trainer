@@ -78,6 +78,7 @@
     ]
   },
   "tutorial": {
+    "tutorialKind": "multiShot",
     "sections": [
       {
         "title": "技术原理",

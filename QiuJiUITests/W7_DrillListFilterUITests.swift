@@ -36,7 +36,7 @@ final class W7_DrillListFilterUITests: XCTestCase {
         sleep(1)
         snap("w7r3-s2-level-beginner")
 
-        // Combined: 中式台球 × 准度训练 × 入门 × 新版精讲 (ball type + badge via filter Menu; v28 W3)
+        // Combined: 中式台球 × 准度训练 × 入门 × 应用课 (ball type + badge via filter Menu; v26 W0)
         let accuracy = app.descendants(matching: .any)["sidebar_准度训练"]
         if accuracy.waitForExistence(timeout: 3) { accuracy.tap() }
         sleep(1)
@@ -60,11 +60,11 @@ final class W7_DrillListFilterUITests: XCTestCase {
         }
         if menu.waitForExistence(timeout: 2) { menu.tap(); sleep(1) }
 
-        let modern = app.buttons["新版精讲"].firstMatch
-        if modern.waitForExistence(timeout: 3) {
-            modern.tap()
-        } else if app.menuItems["新版精讲"].waitForExistence(timeout: 2) {
-            app.menuItems["新版精讲"].tap()
+        let multiShot = app.buttons["应用课"].firstMatch
+        if multiShot.waitForExistence(timeout: 3) {
+            multiShot.tap()
+        } else if app.menuItems["应用课"].waitForExistence(timeout: 2) {
+            app.menuItems["应用课"].tap()
         }
         sleep(1)
         snap("w7r3-s3-combined-filters")

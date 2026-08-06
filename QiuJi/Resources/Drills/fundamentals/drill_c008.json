@@ -4,7 +4,9 @@
   "nameEn": "Bridge Hand Practice",
   "category": "fundamentals",
   "subcategory": "bridge",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L0",
   "difficulty": 1,
   "isPremium": false,
@@ -21,33 +23,58 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.63, "y": 0.29},
+      "start": {
+        "x": 0.63,
+        "y": 0.29
+      },
       "path": [
-        {"x": 0.83, "y": 0.41}
+        {
+          "x": 0.83,
+          "y": 0.41
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.85, "y": 0.42},
+      "start": {
+        "x": 0.85,
+        "y": 0.42
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.85, "y": 0.42}
+    "cueDirection": {
+      "x": 0.85,
+      "y": 0.42
+    }
   },
   "shotIntent": {
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.63, "y": 0.29 },
-        "target": { "x": 0.85, "y": 0.42 },
+        "cue": {
+          "x": 0.63,
+          "y": 0.29
+        },
+        "target": {
+          "x": 0.85,
+          "y": 0.42
+        },
         "pocket": "bottomRight",
         "velocity": 3.3,
-        "spin": { "x": 0.0, "y": 0.0 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.0
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "singleShot",
     "sections": [
       {
         "title": "技术原理",

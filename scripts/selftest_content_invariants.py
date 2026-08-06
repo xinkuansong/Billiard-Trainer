@@ -96,7 +96,12 @@ def case_i5_exempt_drift(root: Path) -> None:
 
 
 def case_i7_new_mismatch(root: Path) -> None:
+    # v26 W0 后源 profile 已标 retired；本用例要验证「未退役的不一致」仍 FAIL，
+    # 故显式摘掉 retired 再改 formation id。
     def mutate(data: dict) -> None:
+        data.pop("retired", None)
+        if str(data.get("status", "")).strip().lower() in {"retired", "deprecated"}:
+            data.pop("status", None)
         for form in data["formations"]:
             form["id"] = form["id"].replace("A", "B")
     edit_json(root / "content/drill_profiles/drill_c073.profile.json", mutate)

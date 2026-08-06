@@ -4,7 +4,9 @@
   "nameEn": "Grip Stability Drill",
   "category": "fundamentals",
   "subcategory": "grip",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L0",
   "difficulty": 1,
   "isPremium": false,
@@ -21,33 +23,58 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.12},
+      "start": {
+        "x": 0.5,
+        "y": 0.12
+      },
       "path": [
-        {"x": 0.5, "y": 0.36}
+        {
+          "x": 0.5,
+          "y": 0.36
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.38},
+      "start": {
+        "x": 0.5,
+        "y": 0.38
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.38}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.38
+    }
   },
   "shotIntent": {
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.5, "y": 0.12 },
-        "target": { "x": 0.5, "y": 0.38 },
+        "cue": {
+          "x": 0.5,
+          "y": 0.12
+        },
+        "target": {
+          "x": 0.5,
+          "y": 0.38
+        },
         "pocket": "bottomCenter",
         "velocity": 3.3,
-        "spin": { "x": 0.0, "y": 0.0 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.0
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "singleShot",
     "sections": [
       {
         "title": "技术原理",

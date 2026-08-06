@@ -72,7 +72,40 @@ struct DrillVideo: Codable, Identifiable, Hashable {
     let file: String
 }
 
+/// Tutorial template kind (v26 W0 / tutorial-migration SKILL).
+/// Explicit field on `DrillTutorial` — replaces legacy/modern heuristics for routing.
+enum DrillTutorialKind: String, Codable, Equatable, CaseIterable, Identifiable {
+    /// 单杆技术课（身体动作 / 器材操作 / 0 杆序列 / 缺素材临时版）
+    case singleShot
+    /// 多杆应用课（有实测击打序列，含多球形单杆形态）
+    case multiShot
+    /// 规则流程课（开放式挑战：规则 / 计分 / 胜负）
+    case ruleset
+
+    var id: String { rawValue }
+
+    /// Short meta-row label on drill cards.
+    var cardLabel: String {
+        switch self {
+        case .singleShot: return "单杆"
+        case .multiShot: return "多杆"
+        case .ruleset: return "规则"
+        }
+    }
+
+    /// Filter / accessibility label.
+    var filterLabel: String {
+        switch self {
+        case .singleShot: return "单杆技术课"
+        case .multiShot: return "应用课"
+        case .ruleset: return "规则流程课"
+        }
+    }
+}
+
 struct DrillTutorial: Codable {
+    /// Template kind (singleShot / multiShot / ruleset). Required on bundled drills (v26 W0).
+    let tutorialKind: DrillTutorialKind?
     /// 单球形精讲：所有 section 平铺渲染。与 `formations` 二选一。
     /// 可选——多球形 Drill 改用 `formations`；旧 Drill 始终提供 `sections`。
     let sections: [TutorialSection]?
@@ -80,7 +113,12 @@ struct DrillTutorial: Codable {
     /// UI 用顶部吸顶分段控件切换。存在且非空时优先于 `sections`；旧 Drill 无此字段照常工作。
     let formations: [TutorialFormation]?
 
-    init(sections: [TutorialSection]? = nil, formations: [TutorialFormation]? = nil) {
+    init(
+        tutorialKind: DrillTutorialKind? = nil,
+        sections: [TutorialSection]? = nil,
+        formations: [TutorialFormation]? = nil
+    ) {
+        self.tutorialKind = tutorialKind
         self.sections = sections
         self.formations = formations
     }

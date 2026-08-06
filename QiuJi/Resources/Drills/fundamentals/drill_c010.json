@@ -56,15 +56,25 @@
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.5, "y": 0.15 },
-        "target": { "x": 0.5, "y": 0.35 },
+        "cue": {
+          "x": 0.5,
+          "y": 0.15
+        },
+        "target": {
+          "x": 0.5,
+          "y": 0.35
+        },
         "pocket": "bottomCenter",
         "velocity": 3.3,
-        "spin": { "x": 0.0, "y": 0.0 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.0
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "multiShot",
     "formations": [
       {
         "id": "f1",
@@ -82,7 +92,11 @@
           },
           {
             "title": "第一杆：1号球",
-            "params": { "spinX": 0, "spinY": -0.12807833710632802, "velocity": 2.6 },
+            "params": {
+              "spinX": 0,
+              "spinY": -0.12807833710632802,
+              "velocity": 2.6
+            },
             "content": "",
             "items": [
               {
@@ -141,7 +155,11 @@
           },
           {
             "title": "第一杆：1号球 · 左下袋",
-            "params": { "spinX": -0.004131559261494202, "spinY": -0.11568365932184471, "velocity": 3.3 },
+            "params": {
+              "spinX": -0.004131559261494202,
+              "spinY": -0.11568365932184471,
+              "velocity": 3.3
+            },
             "content": "",
             "items": [
               {
@@ -200,7 +218,11 @@
           },
           {
             "title": "第一杆：1号球 · 左下袋",
-            "params": { "spinX": 0, "spinY": -0.17352548898276637, "velocity": 3.3 },
+            "params": {
+              "spinX": 0,
+              "spinY": -0.17352548898276637,
+              "velocity": 3.3
+            },
             "content": "",
             "items": [
               {
@@ -259,7 +281,11 @@
           },
           {
             "title": "第一杆：1号球 · 左下袋",
-            "params": { "spinX": 0, "spinY": -0.2974722668275995, "velocity": 3.6 },
+            "params": {
+              "spinX": 0,
+              "spinY": -0.2974722668275995,
+              "velocity": 3.6
+            },
             "content": "",
             "items": [
               {

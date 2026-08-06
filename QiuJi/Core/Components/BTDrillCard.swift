@@ -100,7 +100,7 @@ struct BTDrillGridCard: View {
         DrillLevel(rawValue: drill.level) ?? .L0
     }
 
-    private var tutorialKind: DrillTutorialKindHeuristic {
+    private var tutorialKind: DrillTutorialKind? {
         DrillTutorialKindResolver.resolve(for: drill)
     }
 
@@ -153,10 +153,8 @@ struct BTDrillGridCard: View {
     private var metaParts: [String] {
         var parts: [String] = []
         if isCompleted { parts.append("已完成") }
-        switch tutorialKind {
-        case .modern: parts.append("新版")
-        case .legacy: parts.append("旧版")
-        case .none: break
+        if let tutorialKind {
+            parts.append(tutorialKind.cardLabel)
         }
         return parts
     }

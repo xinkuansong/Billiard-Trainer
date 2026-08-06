@@ -60,15 +60,25 @@
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.3, "y": 0.25 },
-        "target": { "x": 0.15, "y": 0.1 },
+        "cue": {
+          "x": 0.3,
+          "y": 0.25
+        },
+        "target": {
+          "x": 0.15,
+          "y": 0.1
+        },
         "pocket": "topLeft",
         "velocity": 3.3,
-        "spin": { "x": 0.0, "y": 0.0 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.0
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "multiShot",
     "sections": [
       {
         "title": "技术原理",

@@ -1,6 +1,6 @@
 # 内容与训练数据 — 真源契约与数据流（Steering）
 
-> **版本**：1.5（契约层定稿 + 不变量 I1–I9 已接门禁 + 现存偏差登记）
+> **版本**：1.6（§1.1 元数据亦以序列为准；不变量 I1–I9 已接门禁 + 现存偏差登记）
 > **最后更新**：2026-08-07
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
 > 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
@@ -58,6 +58,8 @@ sequences in favour of manual recordings`）的既成事实——该提交全库
 2. drill JSON 的 `tutorial.formations` **必须对齐序列文件**（数量、顺序、token）。
    当两者不一致时，**改精讲，不改序列**。
 3. `sets.defaultSets` / `defaultBallsPerSet` 不得与球形结构冲突（见 §5 待裁定）。
+4. drill 元数据（`nameZh` / `description` / `coachingPoints` / `standardCriteria`）与序列实测
+   内容冲突时，**改元数据，不改序列**；`drillId` **永久不变**（v26 W0 / D-v26-1～2）。
 
 ### 1.2 红线（沿用既有拍板，不得绕过）
 
@@ -570,4 +572,5 @@ W8 全量重出片后 `make tryout-sync` 已把 Bundle 球形 1 更新为上游 
 | 1.2 | 2026-08-06 | D9 裁定：`tool` 时长上传后端（用户拍板）；§5.3 合规连带改为义务并转记 HUMAN-REQUIRED H-09/H-12。 |
 | 1.4 | 2026-08-07 | v29 W8 执行回写：§8.12（c073 Bundle 陈旧）与 §8.14（`--skip-json` 非默认）标记已消化；C1/C2 归零，C3 剩 34 处失效引用（全为 `_fN_` legacy 多球形命名，随 v26 精讲迁移消化）。 |
 | 1.5 | 2026-08-07 | v29 W9 执行回写：**§7.1 门禁落地**（`make verify-gate` + git `pre-push` 钩子；阻塞 C1/C2/C3/I5/I7/I8/I9，C4 已知豁免）；I5/I7/I8/I9 四个不变量实现进 `verify_tutorial_sync.py`，基线与豁免真源 `scripts/content_invariant_baselines.json`（棘轮，钉到 token/formation id）；C3 失效引用基线锁 34（只许减）；新增 **§8.15**（6 个 legacy 精讲 token 豁免，含 I5 新发现的 c022；v26 待办清单）；§8.1 补 I7 豁免与解除条件；§8.2 改写为「C4 门禁已知豁免 + 解除条件」。构造性用例 9/9：`make invariant-selftest`。 |
+| 1.6 | 2026-08-07 | v26 W0：§1.1 推论追加第 4 条——drill 元数据与序列冲突时改元数据、不改序列，`drillId` 永久不变；11 个孤儿 profile 标 `retired: true` 后清空 `i7_stale_profile_exempt`（棘轮收紧）。 |
 | 1.3 | 2026-08-06 | D1/D2/D7/D8 全部裁定（用户逐项拍板，均按推荐）：§5.4 按 category 分组、§5.5 机读挂球形级（内容暂不补）、D7 按完成推进、D8 token 规范不做。§9 待裁定清零；§5 全节定稿。 |

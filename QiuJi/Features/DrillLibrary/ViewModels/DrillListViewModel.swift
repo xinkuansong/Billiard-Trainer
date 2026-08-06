@@ -54,12 +54,13 @@ enum DrillLevelFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// Corner-badge filters (E19): tutorial presence / version / completion.
+/// Corner-badge filters (E19 → v26 W0): tutorial presence / template kind / completion.
 enum DrillBadgeFilter: String, CaseIterable, Identifiable {
     case all = "全部角标"
     case hasTutorial = "有精讲"
-    case modernTutorial = "新版精讲"
-    case legacyTutorial = "旧版精讲"
+    case singleShotTutorial = "单杆技术课"
+    case multiShotTutorial = "应用课"
+    case rulesetTutorial = "规则流程课"
     case completed = "已完成"
 
     var id: String { rawValue }
@@ -69,8 +70,9 @@ enum DrillBadgeFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: return "全部角标"
         case .hasTutorial: return "有精讲"
-        case .modernTutorial: return "新版精讲"
-        case .legacyTutorial: return "旧版精讲"
+        case .singleShotTutorial: return DrillTutorialKind.singleShot.filterLabel
+        case .multiShotTutorial: return DrillTutorialKind.multiShot.filterLabel
+        case .rulesetTutorial: return DrillTutorialKind.ruleset.filterLabel
         case .completed: return "已完成"
         }
     }
@@ -87,11 +89,13 @@ enum DrillBadgeFilter: String, CaseIterable, Identifiable {
         case .all:
             return true
         case .hasTutorial:
-            return kind != .none
-        case .modernTutorial:
-            return kind == .modern
-        case .legacyTutorial:
-            return kind == .legacy
+            return kind != nil
+        case .singleShotTutorial:
+            return kind == .singleShot
+        case .multiShotTutorial:
+            return kind == .multiShot
+        case .rulesetTutorial:
+            return kind == .ruleset
         case .completed:
             return completedIds.contains(drill.id)
         }

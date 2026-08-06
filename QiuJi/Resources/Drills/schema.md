@@ -38,8 +38,50 @@
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `tutorialKind` | `String` | ✅ | Template kind: `"singleShot"` / `"multiShot"` / `"ruleset"`（v26 W0；路由见 `tutorial-migration` SKILL 决策树） |
 | `sections` | `[TutorialSection]?` | ◑ | Ordered tutorial sections (single-formation). 与 `formations` 二选一 |
 | `formations` | `[TutorialFormation]?` | ◑ | Multi-formation tutorial (ADR-P12-02). 存在且非空时优先于 `sections` |
+
+### Tutorial templates（三类，标题一字不差）
+
+写作规范真源：`.cursor/skills/tutorial-authoring/SKILL.md`（应用课）与
+`.cursor/skills/tutorial-migration/SKILL.md`（单杆技术课 / 规则流程课）。此处只登记骨架。
+
+#### A. 单杆技术课（`tutorialKind: singleShot`）
+
+| # | title | 容器 |
+|---|---|---|
+| 1 | `技术原理` | `content` 1–2 段 |
+| 2 | `动作要领` | `items` 3–5 条（label = 步骤名；可含 `自检`） |
+| 3 | `常见错误与纠正` | `items` 2–4 条 |
+| 4 | `进阶练习` | `content`（降阶 + 升阶） |
+
+适用：纯身体动作 / 器材操作；0 杆序列（如握杆稳定性）；缺素材临时无图版（须在交付说明标注）。
+
+#### B. 多杆应用课（`tutorialKind: multiShot`）
+
+| # | title | 容器 |
+|---|---|---|
+| 1 | `技术原理` | `content` 1–2 段 |
+| 2 | `开局与击球顺序` | `content` + `image`（须回答「为什么这样排」） |
+| 3..N | `第N杆：…` | `items`（`为什么`/`怎么打`/`自检`）+ `params` |
+| N+1 | `常见错误与纠正` | `items` |
+| N+2 | `进阶练习` | `content` |
+
+适用：有实测击打序列（含多球形、每序列仅 1 杆的形态）。样板：`positioning/drill_c042.json`。
+
+#### C. 规则流程课（`tutorialKind: ruleset`）
+
+| # | title | 容器 |
+|---|---|---|
+| 1 | `技术原理` | `content`（练什么能力、为何这样设计规则） |
+| 2 | `怎么摆` | `content` + 可选 `image` |
+| 3 | `怎么计分` | `items`（须给可记录量） |
+| 4 | `失败判定` | `items` |
+| 5 | `常见错误与纠正` | `items` |
+| 6 | `进阶变体` | `content`（加难 + 降难） |
+
+适用：开放式挑战（`combined` + 胜率/局数/清台类达标标准）。⛔ 不得出现「第 N 杆」节。
 
 ## `TutorialFormation` (ADR-P12-02)
 
@@ -63,8 +105,11 @@
 | `items` | `[TutorialItem]?` | ❌ | Structured "label + text" rows (DR-019). Labels `为什么`/`怎么打`/`自检` get accent colors; others render neutral (e.g. mistake names). |
 | `params` | `TutorialShotParams?` | ❌ | Shot parameters row for per-shot sections: `{ spinX, spinY, velocity }` (tip offset /R + m/s, same semantics as `ShotIntent`). Rendered as true-scale spin icon + readout + power chip, matching the export HUD. |
 
-Standard section titles: `技术原理`, `动作要领`, `常见错误与纠正`, `进阶练习`.
-Multi-shot "applied lesson" template (ADR-P11-14) adds: `开局与击球顺序`, `第N杆：…`.
+Standard section titles:
+- Shared: `技术原理`, `常见错误与纠正`
+- singleShot: `动作要领`, `进阶练习`
+- multiShot (ADR-P11-14): `开局与击球顺序`, `第N杆：…`, `进阶练习`
+- ruleset: `怎么摆`, `怎么计分`, `失败判定`, `进阶变体`
 
 ### Tutorial image naming（D-v25-6）
 

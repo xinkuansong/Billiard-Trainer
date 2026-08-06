@@ -1,5 +1,6 @@
 {
   "drillId": "drill_c020",
+  "retired": true,
   "version": 1,
   "methodology": "docs/research/20260716-drill变量覆盖设计方法论.md",
   "_note": "v21 W4 R4：坐标由 scripts/v21_w4_r4_coords.py 推导；袋口 AngleSceneCalculator (0.5,0.5209)；让点方向引 W1：左塞→向左让。主题=碰库/走位，非让点准度。",

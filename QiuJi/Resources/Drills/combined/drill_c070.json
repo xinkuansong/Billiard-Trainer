@@ -4,7 +4,9 @@
   "nameEn": "Full Table Clearance Challenge",
   "category": "combined",
   "subcategory": "clearance",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 5,
   "isPremium": true,
@@ -21,34 +23,62 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.25, "y": 0.25},
+      "start": {
+        "x": 0.25,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.75, "y": 0.25},
-        {"x": 0.5, "y": 0.35}
+        {
+          "x": 0.75,
+          "y": 0.25
+        },
+        {
+          "x": 0.5,
+          "y": 0.35
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.75, "y": 0.25},
+      "start": {
+        "x": 0.75,
+        "y": 0.25
+      },
       "path": [
-        {"x": 1.0165, "y": 0.5165}
+        {
+          "x": 1.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomRight",
-    "cueDirection": {"x": 0.75, "y": 0.25}
+    "cueDirection": {
+      "x": 0.75,
+      "y": 0.25
+    }
   },
   "shotIntent": {
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.25, "y": 0.25 },
-        "target": { "x": 0.75, "y": 0.25 },
+        "cue": {
+          "x": 0.25,
+          "y": 0.25
+        },
+        "target": {
+          "x": 0.75,
+          "y": 0.25
+        },
         "pocket": "bottomRight",
         "velocity": 4.6,
-        "spin": { "x": 0.0, "y": 0.0 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.0
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "ruleset",
     "sections": [
       {
         "title": "技术原理",

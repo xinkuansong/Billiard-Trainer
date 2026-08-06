@@ -4,7 +4,9 @@
   "nameEn": "Advanced Bridge Stability",
   "category": "fundamentals",
   "subcategory": "bridge",
-  "ballType": ["universal"],
+  "ballType": [
+    "universal"
+  ],
   "level": "L1",
   "difficulty": 2,
   "isPremium": false,
@@ -21,33 +23,58 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.25},
+      "start": {
+        "x": 0.5,
+        "y": 0.25
+      },
       "path": [
-        {"x": 0.5, "y": 0.42}
+        {
+          "x": 0.5,
+          "y": 0.42
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.5, "y": 0.43},
+      "start": {
+        "x": 0.5,
+        "y": 0.43
+      },
       "path": [
-        {"x": 0.5, "y": 0.5268}
+        {
+          "x": 0.5,
+          "y": 0.5268
+        }
       ]
     },
     "pocket": "bottomCenter",
-    "cueDirection": {"x": 0.5, "y": 0.43}
+    "cueDirection": {
+      "x": 0.5,
+      "y": 0.43
+    }
   },
   "shotIntent": {
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.5, "y": 0.25 },
-        "target": { "x": 0.5, "y": 0.43 },
+        "cue": {
+          "x": 0.5,
+          "y": 0.25
+        },
+        "target": {
+          "x": 0.5,
+          "y": 0.43
+        },
         "pocket": "bottomCenter",
         "velocity": 3.3,
-        "spin": { "x": 0.0, "y": 0.0 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.0
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "singleShot",
     "sections": [
       {
         "title": "技术原理",

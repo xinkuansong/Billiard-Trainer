@@ -4,7 +4,9 @@
   "nameEn": "Five-Ball Position Run",
   "category": "combined",
   "subcategory": "runOut",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 4,
   "isPremium": false,
@@ -21,34 +23,62 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.5, "y": 0.3},
+      "start": {
+        "x": 0.5,
+        "y": 0.3
+      },
       "path": [
-        {"x": 0.22, "y": 0.12},
-        {"x": 0.5, "y": 0.2}
+        {
+          "x": 0.22,
+          "y": 0.12
+        },
+        {
+          "x": 0.5,
+          "y": 0.2
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.2, "y": 0.1},
+      "start": {
+        "x": 0.2,
+        "y": 0.1
+      },
       "path": [
-        {"x": -0.0165, "y": -0.0165}
+        {
+          "x": -0.0165,
+          "y": -0.0165
+        }
       ]
     },
     "pocket": "topLeft",
-    "cueDirection": {"x": 0.2, "y": 0.1}
+    "cueDirection": {
+      "x": 0.2,
+      "y": 0.1
+    }
   },
   "shotIntent": {
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.5, "y": 0.3 },
-        "target": { "x": 0.2, "y": 0.1 },
+        "cue": {
+          "x": 0.5,
+          "y": 0.3
+        },
+        "target": {
+          "x": 0.2,
+          "y": 0.1
+        },
         "pocket": "topLeft",
         "velocity": 3.5,
-        "spin": { "x": 0.0, "y": 0.0 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.0
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "ruleset",
     "sections": [
       {
         "title": "技术原理",

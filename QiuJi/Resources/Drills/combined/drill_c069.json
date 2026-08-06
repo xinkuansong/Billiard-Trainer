@@ -4,7 +4,9 @@
   "nameEn": "Intermediate Snake Drill",
   "category": "combined",
   "subcategory": "snakeDrill",
-  "ballType": ["chinese8"],
+  "ballType": [
+    "chinese8"
+  ],
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
@@ -21,34 +23,62 @@
   },
   "animation": {
     "cueBall": {
-      "start": {"x": 0.35, "y": 0.42},
+      "start": {
+        "x": 0.35,
+        "y": 0.42
+      },
       "path": [
-        {"x": 0.18, "y": 0.43},
-        {"x": 0.55, "y": 0.15}
+        {
+          "x": 0.18,
+          "y": 0.43
+        },
+        {
+          "x": 0.55,
+          "y": 0.15
+        }
       ]
     },
     "targetBall": {
-      "start": {"x": 0.15, "y": 0.43},
+      "start": {
+        "x": 0.15,
+        "y": 0.43
+      },
       "path": [
-        {"x": -0.0165, "y": 0.5165}
+        {
+          "x": -0.0165,
+          "y": 0.5165
+        }
       ]
     },
     "pocket": "bottomLeft",
-    "cueDirection": {"x": 0.15, "y": 0.43}
+    "cueDirection": {
+      "x": 0.15,
+      "y": 0.43
+    }
   },
   "shotIntent": {
     "version": 1,
     "shots": [
       {
-        "cue": { "x": 0.35, "y": 0.42 },
-        "target": { "x": 0.15, "y": 0.43 },
+        "cue": {
+          "x": 0.35,
+          "y": 0.42
+        },
+        "target": {
+          "x": 0.15,
+          "y": 0.43
+        },
         "pocket": "bottomLeft",
         "velocity": 3.5,
-        "spin": { "x": 0.0, "y": 0.4 }
+        "spin": {
+          "x": 0.0,
+          "y": 0.4
+        }
       }
     ]
   },
   "tutorial": {
+    "tutorialKind": "multiShot",
     "sections": [
       {
         "title": "技术原理",

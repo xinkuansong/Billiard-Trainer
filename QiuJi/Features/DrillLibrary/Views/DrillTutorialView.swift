@@ -125,7 +125,7 @@ struct DrillTutorialView: View {
                 .font(.btTitle)
                 .foregroundStyle(.btText)
 
-            Text("图文分步精讲")
+            Text(Self.headerSubtitle(for: drill.tutorial?.tutorialKind))
                 .font(.btCallout)
                 .foregroundStyle(.btTextSecondary)
         }
@@ -133,21 +133,18 @@ struct DrillTutorialView: View {
         .padding(.top, Spacing.md)
     }
 
+    private static func headerSubtitle(for kind: DrillTutorialKind?) -> String {
+        switch kind {
+        case .singleShot: return "单杆技术课"
+        case .ruleset: return "规则流程课"
+        case .multiShot, .none: return "图文分步精讲"
+        }
+    }
+
     // MARK: - Section Card
 
-    private static let sectionIcons: [String: String] = [
-        "技术原理": "lightbulb.fill",
-        "动作要领": "scope",
-        "常见错误与纠正": "exclamationmark.triangle.fill",
-        "进阶练习": "arrow.up.right.circle.fill",
-    ]
-
-    private static let sectionColors: [String: Color] = [
-        "技术原理": .blue,
-        "动作要领": .btPrimary,
-        "常见错误与纠正": .orange,
-        "进阶练习": .purple,
-    ]
+    private static var sectionIcons: [String: String] { DrillTutorialSectionChrome.icons }
+    private static var sectionColors: [String: Color] { DrillTutorialSectionChrome.colors }
 
     /// 条目标签配色（ADR-P11-15「应用课」模板：为什么/怎么打/自检；其余标签用中性色）。
     private static let itemLabelColors: [String: Color] = [
@@ -748,7 +745,9 @@ private final class LoopingPlayerUIView: UIView {
                 pocket: "bottomCenter",
                 cueDirection: CanvasPoint(x: 0.5, y: 0.0)
             ),
-            tutorial: DrillTutorial(sections: [
+            tutorial: DrillTutorial(
+                tutorialKind: .multiShot,
+                sections: [
                 TutorialSection(title: "技术原理", content: "示例内容"),
                 TutorialSection(title: "动作要领", content: "示例内容"),
                 TutorialSection(title: "常见错误与纠正", content: "示例内容"),
@@ -756,4 +755,37 @@ private final class LoopingPlayerUIView: UIView {
             ])
         ))
     }
+}
+
+/// Shared section title → icon/color maps for `DrillTutorialView` (v26 W0).
+/// Extracted so unit tests can assert ruleset titles have dedicated chrome
+/// (not the `doc.text.fill` / `.btPrimary` fallback).
+enum DrillTutorialSectionChrome {
+    static let icons: [String: String] = [
+        "技术原理": "lightbulb.fill",
+        "动作要领": "scope",
+        "常见错误与纠正": "exclamationmark.triangle.fill",
+        "进阶练习": "arrow.up.right.circle.fill",
+        // ruleset template (tutorial-migration SKILL §C)
+        "怎么摆": "square.grid.3x3.fill",
+        "怎么计分": "list.number",
+        "失败判定": "xmark.octagon.fill",
+        "进阶变体": "arrow.triangle.branch",
+    ]
+
+    static let colors: [String: Color] = [
+        "技术原理": .blue,
+        "动作要领": .btPrimary,
+        "常见错误与纠正": .orange,
+        "进阶练习": .purple,
+        // ruleset template (tutorial-migration SKILL §C)
+        "怎么摆": .teal,
+        "怎么计分": .indigo,
+        "失败判定": .red,
+        "进阶变体": .mint,
+    ]
+
+    static let rulesetTitles = ["怎么摆", "怎么计分", "失败判定", "进阶变体"]
+
+    static let fallbackIcon = "doc.text.fill"
 }

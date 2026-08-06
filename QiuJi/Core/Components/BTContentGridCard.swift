@@ -149,7 +149,7 @@ private struct BTContentGridCardSamples: View {
                 ) {
                     sampleDrillCover
                 } meta: {
-                    Text("已完成 · 新版")
+                    Text("已完成 · 多杆")
                         .font(.btCaption)
                         .foregroundStyle(.btTextSecondary)
                         .lineLimit(1)

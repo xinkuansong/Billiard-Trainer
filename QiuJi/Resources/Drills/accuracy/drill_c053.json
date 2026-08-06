@@ -181,6 +181,7 @@
     ]
   },
   "tutorial": {
+    "tutorialKind": "multiShot",
     "formations": [
       {
         "id": "A1",

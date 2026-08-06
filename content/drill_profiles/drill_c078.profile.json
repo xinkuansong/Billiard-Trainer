@@ -1,5 +1,6 @@
 {
   "drillId": "drill_c078",
+  "retired": true,
   "version": 1,
   "methodology": "docs/research/20260716-drill变量覆盖设计方法论.md",
   "_note": "v21 W3：坐标由 scripts/v21_w3_angle_spin_coords.py 推导；袋口 AngleSceneCalculator (0.5,0.5209)；顺塞=切向同侧塞、反塞=异侧塞；让点引 W1：左塞→向左让。",

@@ -143,25 +143,36 @@ final class DrillListViewModelTests: XCTestCase {
         XCTAssertTrue(drills.allSatisfy { $0.level == "L0" })
     }
 
-    func test_badgeFilter_modernTutorial() async {
+    func test_badgeFilter_multiShotTutorial() async {
         await viewModel.loadDrills()
-        viewModel.badgeFilter = .modernTutorial
+        viewModel.badgeFilter = .multiShotTutorial
         viewModel.applyFiltersSync()
         let drills = viewModel.drillsByCategory.flatMap(\.drills)
         XCTAssertFalse(drills.isEmpty)
         XCTAssertTrue(drills.allSatisfy {
-            DrillTutorialKindResolver.resolve(for: $0) == .modern
+            DrillTutorialKindResolver.resolve(for: $0) == .multiShot
         })
     }
 
-    func test_badgeFilter_legacyTutorial() async {
+    func test_badgeFilter_singleShotTutorial() async {
         await viewModel.loadDrills()
-        viewModel.badgeFilter = .legacyTutorial
+        viewModel.badgeFilter = .singleShotTutorial
         viewModel.applyFiltersSync()
         let drills = viewModel.drillsByCategory.flatMap(\.drills)
         XCTAssertFalse(drills.isEmpty)
         XCTAssertTrue(drills.allSatisfy {
-            DrillTutorialKindResolver.resolve(for: $0) == .legacy
+            DrillTutorialKindResolver.resolve(for: $0) == .singleShot
+        })
+    }
+
+    func test_badgeFilter_rulesetTutorial() async {
+        await viewModel.loadDrills()
+        viewModel.badgeFilter = .rulesetTutorial
+        viewModel.applyFiltersSync()
+        let drills = viewModel.drillsByCategory.flatMap(\.drills)
+        XCTAssertFalse(drills.isEmpty)
+        XCTAssertTrue(drills.allSatisfy {
+            DrillTutorialKindResolver.resolve(for: $0) == .ruleset
         })
     }
 
@@ -169,7 +180,7 @@ final class DrillListViewModelTests: XCTestCase {
         await viewModel.loadDrills()
         viewModel.ballTypeFilter = .nineBall
         viewModel.levelFilter = .beginner
-        viewModel.badgeFilter = .modernTutorial
+        viewModel.badgeFilter = .multiShotTutorial
         viewModel.searchText = "zzzzz_nonexistent"
         viewModel.applyFiltersSync()
         XCTAssertTrue(viewModel.drillsByCategory.isEmpty)

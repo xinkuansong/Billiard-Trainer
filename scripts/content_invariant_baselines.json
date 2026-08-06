@@ -18,20 +18,8 @@
   },
   "_i5_doc": "I5 已知豁免：精讲 image 仍用 legacy `_fN_` / `_<step>_fN` 球形命名，序列侧实际 token 为 manualNN / Snipaste_*。契约 §8.15。豁免钉到具体 token —— 同一 drill 出现清单之外的新坏 token 仍然 FAIL。解除条件：v26 精讲迁移把 image 改为 `<drillId>_<token>_sNN`，随后从本清单删除该 drill。",
 
-  "i7_stale_profile_exempt": {
-    "drill_c016": ["A1", "A2", "A3", "A4"],
-    "drill_c018": ["A1", "A2", "A3", "A4", "A5", "A6"],
-    "drill_c020": ["A1", "A2", "A3", "A4"],
-    "drill_c021": ["A1", "A2", "A3", "A4"],
-    "drill_c053": ["A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8"],
-    "drill_c073": ["A1", "A2", "A3", "A4"],
-    "drill_c074": ["A1", "A2", "A3", "A4"],
-    "drill_c075": ["A1", "A2", "A3", "A4", "A5", "A6"],
-    "drill_c076": ["A1", "A2", "A3", "A4", "A5", "A6"],
-    "drill_c077": ["A1", "A2", "A3", "A4", "A5", "A6"],
-    "drill_c078": ["A1", "A2", "A3", "A4"]
-  },
-  "_i7_doc": "I7 已知豁免：契约 §8.1 登记的 11 个 profile 孤儿（A 系列设计球形已于 8293ef4 退役，profile 未标记退役）。豁免钉到具体 formation id 集合 —— profile 被改成别的不一致集合仍然 FAIL。解除条件：v26 处置 profile（加 `\"retired\": true` 或删除），随后从本清单删除该 drill。",
+  "i7_stale_profile_exempt": {},
+  "_i7_doc": "I7 已知豁免：已于 v26 W0 清空。11 个孤儿 profile（c016/c018/c020/c021/c053/c073–c078）已标 `retired: true`，由 I7 退役分支放行。棘轮：本清单只许保持为空或更短，不得再新增豁免。",
 
   "i9_no_sequence_exempt": [
     "drill_c008",
