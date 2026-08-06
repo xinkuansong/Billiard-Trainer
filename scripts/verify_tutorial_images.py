@@ -25,10 +25,10 @@ DRILLS_DIR = REPO_ROOT / "QiuJi" / "Resources" / "Drills"
 TUTORIALS_ROOT = REPO_ROOT / "QiuJi" / "Resources" / "DrillTutorials"
 
 
-def collect_image_refs() -> list[tuple[str, str, str]]:
+def collect_image_refs(drills_dir: Path | None = None) -> list[tuple[str, str, str]]:
     """Return list of (drill_id, image_stem, location_hint)."""
     refs: list[tuple[str, str, str]] = []
-    for path in sorted(DRILLS_DIR.rglob("*.json")):
+    for path in sorted((drills_dir or DRILLS_DIR).rglob("*.json")):
         if path.name == "index.json":
             continue
         data = json.loads(path.read_text(encoding="utf-8"))

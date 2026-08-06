@@ -47,7 +47,10 @@ help:
 	@echo "  make position-export-stills  只重渲静帧（修开局图等，保留既有 mp4）"
 	@echo "  make thumbnails   动作库缩略图烘焙（Resources/DrillThumbnails/；烘焙 runner 不随 make test 跑）"
 	@echo "  make tryout-sync  同步 drill 序列到 App Bundle 试打球形（Resources/DrillBoards/）"
-	@echo "  make verify-tutorials  精讲资产全链路同步校验（序列→出片→回填→引用→结构）"
+	@echo "  make verify-tutorials  内容不变量全量校验（C1–C4 + I5/I7/I8/I9；C4 也计入退出码）"
+	@echo "  make verify-gate  门禁模式校验（pre-push 入口；C4 为已知豁免不阻塞）"
+	@echo "  make invariant-selftest  不变量检查自测（构造性用例证明每项真会报错）"
+	@echo "  make install-hooks  安装 git 钩子（pre-push 内容不变量门禁）"
 	@echo "  make tutorial-ledger  生成精讲资产台账（docs/research/精讲资产台账.md）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
 	@echo "  make export       从 Archive 导出 IPA"
@@ -241,6 +244,31 @@ tryout-sync:
 .PHONY: verify-tutorials
 verify-tutorials:
 	@python3 $(PROJECT_ROOT)/scripts/verify_tutorial_sync.py $(ARGS)
+
+# ────────────────────────────────────────────
+# 内容不变量门禁（问题集合 v29 W9；契约 §7）
+# verify-gate           = pre-push 钩子的入口。阻塞 C1/C2/C3/I5/I7/I8/I9；
+#                         C4 为已知豁免（v26 精讲全量迁移后转阻塞，见契约 §8.2）。
+# invariant-selftest    = 构造性用例：每个检查项都在影子内容库上制造一处不一致，
+#                         证明它真会报错（不是永远 PASS 的空壳）。
+# install-hooks         = 把 scripts/hooks/* 装进 .git/hooks（git 不跟踪 .git/hooks，
+#                         每个克隆都要手动装一次）。
+# ────────────────────────────────────────────
+.PHONY: verify-gate
+verify-gate:
+	@python3 $(PROJECT_ROOT)/scripts/verify_tutorial_sync.py --gate $(ARGS)
+
+.PHONY: invariant-selftest
+invariant-selftest:
+	@python3 $(PROJECT_ROOT)/scripts/selftest_content_invariants.py $(ARGS)
+
+.PHONY: install-hooks
+install-hooks:
+	@HOOK_DIR=$$(cd $(PROJECT_ROOT) && cd "$$(git rev-parse --git-path hooks)" && pwd); \
+	 for hook in $(PROJECT_ROOT)/scripts/hooks/*; do \
+	   install -m 755 "$$hook" "$$HOOK_DIR/$$(basename $$hook)"; \
+	   echo "✅ 已安装 $$(basename $$hook) → $$HOOK_DIR"; \
+	 done
 
 .PHONY: tutorial-ledger
 tutorial-ledger:

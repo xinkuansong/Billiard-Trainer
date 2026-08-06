@@ -1,7 +1,7 @@
 # 内容与训练数据 — 真源契约与数据流（Steering）
 
-> **版本**：1.0（契约层定稿 + 现存偏差登记；结构层为占位）
-> **最后更新**：2026-08-06
+> **版本**：1.5（契约层定稿 + 不变量 I1–I9 已接门禁 + 现存偏差登记）
+> **最后更新**：2026-08-07
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
 > 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
 > `docs/06-技术架构.md`）在与本文件冲突时**以本文件为准**，并应改为引用本文件而非重复定义。
@@ -14,6 +14,10 @@
 ## 〇 为什么需要这份文件
 
 同一个概念在本项目中曾出现多个真源并各自演化，已造成可验证的偏差：
+
+> **§〇 的历史陈述已部分被 §7.1 取代**：下面第 2 条「C4 不是阻塞门禁、无人处理」
+> 已于 2026-08-07（v29 W9）改为「C4 登记为门禁已知豁免、解除条件写死在 §8.2」，
+> 其余不变量已由 `pre-push` 钩子阻塞。本节保留为立档动因。
 
 - 「球形」同时存在于 `content/drill_profiles/*.profile.json`、drill JSON 的
   `tutorial.formations`、`content/position_play/sequences/*.json` 三处，
@@ -92,7 +96,9 @@ content/position_play/sequences/drill_cNNN__<token>-<名称>-<N>杆.json   ← �
             ▼
          QiuJi/Resources/DrillThumbnails/<drillId>.png     ← App 列表缩略图
 
-校验：make verify-tutorials（C1 出片新鲜度 / C2 回填一致性 / C3 引用指向 / C4 结构对齐）
+校验：make verify-tutorials（C1 出片新鲜度 / C2 回填一致性 / C3 引用指向 / C4 结构对齐
+      + I5 精讲 token / I7 profile / I8 Bundle 子集 / I9 序列覆盖）
+门禁：make verify-gate（pre-push 钩子入口，见 §7.1）
 质检：python3 scripts/verify_manual_formations.py --gold <drillId>（切角/距离/覆盖矩阵）
 ```
 
@@ -335,18 +341,34 @@ AngleTestResult
 
 | # | 不变量 | 现有检查 | 状态 |
 |---|---|---|---|
-| I1 | 精讲球形数/杆数 == 序列实际值 | `verify_tutorial_sync.py` C4 | ✅ 有，❌ 未接门禁 |
-| I2 | 出片产物不早于源序列 | C1 | ✅ 有，❌ 未接门禁 |
-| I3 | 回填图与产物图字节一致 | C2 | ✅ 有，❌ 未接门禁 |
-| I4 | 精讲 `image` 指向最新图 | C3 | ✅ 有，❌ 未接门禁 |
-| I5 | 精讲 formation token ⊆ 序列 token 集合 | — | ❌ 缺 |
-| I6 | `sets.defaultSets` 与球形数的关系符合口径 | — | ❌ 缺（依赖 §5） |
-| I7 | profile formation 集合 == 序列 token 集合，或 profile 标记为已退役 | — | ❌ 缺 |
-| I8 | `Bundle/DrillBoards` == `content/.../sequences` 的 `drill_c*.json` 子集 | — | ❌ 缺 |
-| I9 | 每个 `index.json` 登记的 drill 至少有 1 个序列，或在豁免名单内 | — | ❌ 缺（豁免见 §8.5） |
+| I1 | 精讲球形数/杆数 == 序列实际值 | `verify_tutorial_sync.py` C4 | ✅ 有，⚠️ **已知豁免**（§8.2） |
+| I2 | 出片产物不早于源序列 | C1 | ✅ 有，✅ **已接门禁** |
+| I3 | 回填图与产物图字节一致 | C2 | ✅ 有，✅ **已接门禁** |
+| I4 | 精讲 `image` 指向最新图 | C3（含失效引用棘轮） | ✅ 有，✅ **已接门禁** |
+| I5 | 精讲 formation token ⊆ 序列 token 集合 | I5（v29 W9 新增） | ✅ 有，✅ 已接门禁（豁免见 §8.15） |
+| I6 | `sets.defaultSets` 与球形数的关系符合口径 | — | ❌ 缺（口径本身未定，见 §5 待补批次） |
+| I7 | profile formation 集合 == 序列 token 集合，或 profile 标记为已退役 | I7（v29 W9 新增） | ✅ 有，✅ 已接门禁（豁免见 §8.1） |
+| I8 | `Bundle/DrillBoards` == `content/.../sequences` 的 `drill_c*.json` 子集 | I8（v29 W9 新增） | ✅ 有，✅ 已接门禁 |
+| I9 | 每个 `index.json` 登记的 drill 至少有 1 个序列，或在豁免名单内 | I9（v29 W9 新增） | ✅ 有，✅ 已接门禁（豁免见 §8.5） |
 
-**门禁要求**：I1–I4 应在 CI 或 pre-push 中阻塞；I5–I9 需新增检查项。
-在接入门禁前，任何"已修复"声明必须附 `make verify-tutorials` 实际输出。
+### 7.1 门禁（2026-08-07 v29 W9 落地）
+
+**入口**：`make verify-gate`（= `verify_tutorial_sync.py --gate`），由 git `pre-push` 钩子调用。
+本仓库无 CI，钩子是唯一自动阻塞点。
+
+```bash
+make -f scripts/Makefile install-hooks   # 每个克隆装一次（git 不跟踪 .git/hooks）
+make -f scripts/Makefile verify-gate     # 本地自查，与钩子同一入口
+make -f scripts/Makefile invariant-selftest  # 构造性用例：证明每个检查项真会报错
+```
+
+- **阻塞项**：C1 / C2 / C3 / I5 / I7 / I8 / I9。
+- **已知豁免（不阻塞）**：C4 —— 23 条精讲结构不一致，解除条件见 §8.2。
+- **绕过**：只有 `git push --no-verify`（git 内置，钩子无法禁）。用了必须在提交说明或 PR 里写明理由。
+- **棘轮**：基线与豁免名单的唯一真源是 `scripts/content_invariant_baselines.json`。
+  清单只许缩短、计数只许下调；**新增豁免必须先在 §8 登记并写明解除条件**再改该文件。
+  豁免钉到具体 token / formation id，故同一 drill 出现清单之外的**新**偏差仍然 FAIL。
+- 任何"已修复"声明仍必须附 `make verify-tutorials` / `make verify-gate` 实际输出。
 
 ---
 
@@ -377,10 +399,24 @@ profile 与精讲 **11/11 完全一致**；两者与实际序列 **11/11 全部�
 
 **处置**：按 §1.1 以序列为准重写精讲；profile 标注为已退役设计档案或删除。
 
-### 8.2 C4 长期 FAIL 且无人处理
+**门禁状态（2026-08-07 v29 W9）**：这 11 个 drill 已登记进 I7 已知豁免
+（`content_invariant_baselines.json` → `i7_stale_profile_exempt`，**豁免钉到具体
+formation id 集合**，profile 被改成别的不一致集合仍然 FAIL）。
+**解除条件**：v26 处置 profile —— 加 `"retired": true`（I7 会识别并放行）或删除文件，
+随后把该 drill 从豁免清单删除。
 
-`make verify-tutorials --only C4` 当前：**通过 2 / 不一致 23 / 待迁移或无序列 52**。
+### 8.2 C4 长期 FAIL —— 已登记为门禁已知豁免
+
+`make verify-tutorials --only C4` 当前（2026-08-07 W8 后复核）：
+**通过 2 / 不一致 23 / 待迁移或无序列 52**。
 不一致清单涵盖 c001、c002、c005、c010–c015、c017、c022–c030、c035、c039、c041、c042。
+
+根因是精讲文本本身（逐杆节数与序列不符），**重出片物理上不可能消化**，须走精讲重写。
+故 v29 W9 把 C4 登记为门禁已知豁免：`make verify-gate` 不因 C4 阻塞，
+但 `make verify-tutorials`（默认模式）仍把它计入退出码，不放宽判定。
+
+**解除条件**：v26 精讲全量迁移把 23 条不一致降为 0 后，从
+`verify_tutorial_sync.py` 的 `GATE_EXEMPT_CHECKS` 移除 `C4`，C4 即转为阻塞项。
 
 ### 8.3 缩略图产物由测试用例生成
 
@@ -470,6 +506,41 @@ W8 全量重出片后 `make tryout-sync` 已把 Bundle 球形 1 更新为上游 
 `default=True`，默认 skip；要写回须显式 `--no-skip-json`。实测不带参数时 66 个 drill 全部
 `json=skipped`，带 `--no-skip-json` 则 66 个全部 `json=updated`（风险确实存在）。
 
+### 8.15 精讲 image 仍用 legacy 球形命名（I5 豁免 + C3 失效引用基线，2026-08-07 v29 W9 登记）
+
+现行产物命名是 `<drillId>_<token>_<step>`（token = `manualNN` / `Snipaste_*`），
+但 6 个 drill 的精讲 `image` 仍用 legacy 的 `fN` 球形编号：
+
+| drill | 精讲声称 token | 序列实际 token | C3 失效引用数 | 写法 |
+|---|---|---|---|---|
+| c005 | f1–f4 | manual01 | 8 | `<drillId>_fN_<step>` |
+| c010 | f1–f4 | manual01 | 8 | `<drillId>_fN_<step>` |
+| c012 | f1–f2 | manual01 | 4 | `<drillId>_<step>_fN` |
+| c014 | f1–f2 | manual01 | 4 | `<drillId>_<step>_fN` |
+| c030 | f1–f5 | manual01 | 10 | `<drillId>_fN_<step>` |
+| c022 | f1 | `Snipaste_2026_06_02_00_19_36` / `..._00_22_05` | 0 | `<drillId>_fN_<step>` |
+
+- 前 5 个即 W8 留下的 **C3 失效引用 34 处**（`8+8+4+4+10`）：这些图从来没被生成过，
+  重出片物理上生不出来，只能靠精讲迁移消化。
+- **c022 是 I5 新发现**：它的 `_f1_` 图在磁盘上存在（早年产物），所以 C3 查不出来，
+  但精讲声称的球形 token 与序列的两个 `Snipaste_*` token 完全对不上。
+
+**门禁状态**：
+- I5 已知豁免 = 上表 6 个 drill，钉到具体 token（`i5_legacy_token_exempt`）。
+  同一 drill 出现清单外的新坏 token 仍然 FAIL。
+- C3 失效引用棘轮 = `c3_dead_refs_baseline: 34`。失效引用属 WARN，但**只许减不许增**：
+  超过 34 即 FAIL 并拦 push；降到 34 以下时脚本会提示下调基线收紧棘轮。
+
+**v26 待办清单（本节即 v26 精讲迁移的输入）**：
+
+1. `drill_c005` / `c010` / `c012` / `c014` / `c030` —— 5 个 legacy 多球形 drill：
+   按序列真源重写精讲，`image` 改为 `<drillId>_<token>_sNN`（单球形则无 token 前缀）。
+   完成后 C3 失效引用 34 → 0，基线随之改 0。
+2. `drill_c022` —— 精讲球形与两条 `Snipaste_*` 序列对齐。
+3. 上述任一 drill 完成后，从 `i5_legacy_token_exempt` 删除对应条目（棘轮只许收紧）。
+4. §8.2 的 23 条 C4 不一致收敛后，把 C4 从门禁豁免转为阻塞。
+5. §8.1 的 11 个 profile 处置（标退役或删除）后，清空 `i7_stale_profile_exempt`。
+
 ---
 
 ## 九 待裁定事项
@@ -498,4 +569,5 @@ W8 全量重出片后 `make tryout-sync` 已把 Bundle 球形 1 更新为上游 
 | 1.1 | 2026-08-06 | v29 主控审核回写：§8.3 补全写盘测试清单（V21W2/3/4BakeTests 无 gate 且改写 drill JSON）；新增 §8.13（AngleTestDTO 缺 quizType/errorMM）、§8.14（回填脚本 --skip-json 非默认，与 v25 W1 冲突）。 |
 | 1.2 | 2026-08-06 | D9 裁定：`tool` 时长上传后端（用户拍板）；§5.3 合规连带改为义务并转记 HUMAN-REQUIRED H-09/H-12。 |
 | 1.4 | 2026-08-07 | v29 W8 执行回写：§8.12（c073 Bundle 陈旧）与 §8.14（`--skip-json` 非默认）标记已消化；C1/C2 归零，C3 剩 34 处失效引用（全为 `_fN_` legacy 多球形命名，随 v26 精讲迁移消化）。 |
+| 1.5 | 2026-08-07 | v29 W9 执行回写：**§7.1 门禁落地**（`make verify-gate` + git `pre-push` 钩子；阻塞 C1/C2/C3/I5/I7/I8/I9，C4 已知豁免）；I5/I7/I8/I9 四个不变量实现进 `verify_tutorial_sync.py`，基线与豁免真源 `scripts/content_invariant_baselines.json`（棘轮，钉到 token/formation id）；C3 失效引用基线锁 34（只许减）；新增 **§8.15**（6 个 legacy 精讲 token 豁免，含 I5 新发现的 c022；v26 待办清单）；§8.1 补 I7 豁免与解除条件；§8.2 改写为「C4 门禁已知豁免 + 解除条件」。构造性用例 9/9：`make invariant-selftest`。 |
 | 1.3 | 2026-08-06 | D1/D2/D7/D8 全部裁定（用户逐项拍板，均按推荐）：§5.4 按 category 分组、§5.5 机读挂球形级（内容暂不补）、D7 按完成推进、D8 token 规范不做。§9 待裁定清零；§5 全节定稿。 |
