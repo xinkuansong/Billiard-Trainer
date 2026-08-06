@@ -47,6 +47,9 @@ struct QiuJiApp: App {
                 .tint(.btPrimary)
                 .onAppear {
                     SyncQueueManager.shared.configure(context: modelContainer.mainContext)
+                    // v29 W5：给 W5 之前落库的角度成绩补建 cognitive 会话归属。
+                    // 幂等（只处理 sessionId == nil），标志丢失也不会重复建会话。
+                    CognitiveSessionBackfill.runOnceIfNeeded(context: modelContainer.mainContext)
                 }
                 .task {
                     #if DEBUG

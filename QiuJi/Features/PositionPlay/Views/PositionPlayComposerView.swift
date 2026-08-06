@@ -175,6 +175,8 @@ struct PositionPlayComposerView: View {
                 }
             }
         }
+        // 工具活跃度（契约 §5.3）：本 View 承载两个产品入口，按变体分记。
+        .toolUsageSession(isTryout ? .drillTryout : .freePosition)
     }
 
     // MARK: - Tryout helpers（试打变体）

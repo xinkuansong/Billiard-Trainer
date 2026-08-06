@@ -96,6 +96,8 @@ struct PlanThreeView: View {
                 applyUITestHooksIfNeeded()
             }
         }
+        // 工具活跃度（契约 §5.3）：只记停留时长，⛔ 不记引擎进袋结果。
+        .toolUsageSession(.planThree)
     }
 
     /// UITest 确定性场景注入（Q15 截图取证）；生产无对应 launch arg ⇒ 不触发。
