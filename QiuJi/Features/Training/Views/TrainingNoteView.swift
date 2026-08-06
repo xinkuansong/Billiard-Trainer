@@ -4,6 +4,8 @@ struct TrainingNoteView: View {
     @Binding var note: String
     let onSkip: () -> Void
     let onComplete: () -> Void
+    /// Post-training flow calls this「跳过」; editing an existing note calls it「取消」.
+    var skipTitle: String = "跳过"
     // TODO: [P1-U02] Wire up "隐藏备注" toggle — requires TrainingSessionSummary model change to persist hideNote flag
 
     @Environment(\.colorScheme) private var colorScheme
@@ -36,21 +38,16 @@ struct TrainingNoteView: View {
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
             }
 
+            // F-TS-05 / v29 W2a: the keyboard toolbar「完成」was removed because it
+            // collided with this bar's「完成」; the bar now sits lower, and the keyboard
+            // is dismissed by dragging the ScrollView down (.scrollDismissesKeyboard).
             bottomBar
                 .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, Spacing.lg)
+                .padding(.top, Spacing.lg)
+                .padding(.bottom, Spacing.xs)
         }
         .background(Color.btBG.ignoresSafeArea())
         .animation(BTMotion.easeFast, value: note.isEmpty)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("完成") {
-                    isEditorFocused = false
-                }
-                .fontWeight(.semibold)
-            }
-        }
         .onAppear { isEditorFocused = true }
     }
 
@@ -104,7 +101,7 @@ struct TrainingNoteView: View {
 
     private var bottomBar: some View {
         HStack {
-            Button("跳过", action: onSkip)
+            Button(skipTitle, action: onSkip)
                 .buttonStyle(BTButtonStyle.text)
 
             Spacer()

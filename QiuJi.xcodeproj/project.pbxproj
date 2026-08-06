@@ -365,6 +365,7 @@
 		BC74C849E5F58F059B64DC07 /* AnglePredictionGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65EA778D633521670FF98A5F /* AnglePredictionGeometry.swift */; };
 		BD4B547A472F5373C74B754E /* TableBallPulse.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC0B6A6B88C49EEE1FE41E82 /* TableBallPulse.swift */; };
 		BEE246E805E8555CC2714C73 /* S5_AimPointSceneV5UITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CEDB883BFB4DCE0F244A495 /* S5_AimPointSceneV5UITests.swift */; };
+		BF25D2AA1A20C1AC0578BC33 /* V29W2aHistoryDetailUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34F04BBCD072C059C3B17B24 /* V29W2aHistoryDetailUITests.swift */; };
 		BF5C55A0302736B16FFE87BB /* ShotTableLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D25C0F7EB6D5F34BC89FCD60 /* ShotTableLayoutTests.swift */; };
 		C015D45904BC50C3115E1DB1 /* BankShotView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101BA1945A3F5757A75BCBAD /* BankShotView.swift */; };
 		C041277F09ACE204CC4C72B3 /* AimingCorrectionMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F04628410F9A4A1929915D7 /* AimingCorrectionMath.swift */; };
@@ -610,6 +611,7 @@
 		332AE192BD6DA8A2E91E924C /* PhoneLoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhoneLoginView.swift; sourceTree = "<group>"; };
 		338056C9855416D6E615A989 /* BTSetInputGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTSetInputGrid.swift; sourceTree = "<group>"; };
 		34CF7A3550B55EC075AF6283 /* PhysicsEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhysicsEvent.swift; sourceTree = "<group>"; };
+		34F04BBCD072C059C3B17B24 /* V29W2aHistoryDetailUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V29W2aHistoryDetailUITests.swift; sourceTree = "<group>"; };
 		36A3D6B65602A4F3F03E8F2F /* PracticeCoverVisual.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PracticeCoverVisual.swift; sourceTree = "<group>"; };
 		378DE6246DDDFD4820DC8B6D /* BTTableFigure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTTableFigure.swift; sourceTree = "<group>"; };
 		3890ECC946EDAEFCB1270B1F /* V22W5ScreenshotUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V22W5ScreenshotUITests.swift; sourceTree = "<group>"; };
@@ -1188,6 +1190,7 @@
 				CF9DD71C8CCBCBC46E22DC1C /* V27W1ScreenshotUITests.swift */,
 				EC7D84836ADA58A15EC40A95 /* V27W2ScreenshotUITests.swift */,
 				B4C4831B07EC2E12611619FB /* V28VisualUnificationUITests.swift */,
+				34F04BBCD072C059C3B17B24 /* V29W2aHistoryDetailUITests.swift */,
 				616C48BE158BF4654E4552DA /* W1_AimPointFilterUITests.swift */,
 				77262BAC3BF54F52F52F165C /* W1_ShareSavePhotosUITests.swift */,
 				EA763A6DA262DFEB216AE89C /* W2_DarkQuizNavChromeUITests.swift */,
@@ -2378,6 +2381,7 @@
 				D4874C736A58C3CAB36A0AD3 /* V27W1ScreenshotUITests.swift in Sources */,
 				40EA90672E30CC797433B798 /* V27W2ScreenshotUITests.swift in Sources */,
 				2E695B004186B6692B96BA36 /* V28VisualUnificationUITests.swift in Sources */,
+				BF25D2AA1A20C1AC0578BC33 /* V29W2aHistoryDetailUITests.swift in Sources */,
 				3B8D245EB2FF0048809D111F /* W1_AimPointFilterUITests.swift in Sources */,
 				47C6A2549AF02A76C1C66900 /* W1_ShareSavePhotosUITests.swift in Sources */,
 				5BAB2460C79ECE0CBC1D1D63 /* W210ScreenshotUITests.swift in Sources */,
