@@ -1221,6 +1221,17 @@
 - **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
 - **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-07-03，DR-020）。
 
+## PD-027
+- **任务**：问题集合 v29 主控审核（2026-08-06）——方案放行前的锚点核验暴露两类可复用的方案级缺陷。
+- **模式描述**：**「方案审核两问：①完成标准含『全量测试零 diff』时，先盘点全部写盘测试；②方案要改/删某断言时，先验证断言前提」**：
+  1. **写盘测试盘点**：v29 W1 原文只 gate 了 `DrillThumbnailBakeRunnerTests` 一处，实际 `V21W2/3/4BakeTests` 同样无 gate、写 PNG 且改写 git 跟踪的 drill JSON——按原范围执行，完成标准「全量测试零 diff」必然失败。盘点方法：`rg -l "\.write\(|FileManager.*create" <TestTarget>/` 列全写盘用例 + 查 scheme/testplan 确认默认执行集，再定 gate 范围。
+  2. **断言前提验证（FL-027 的方案层延伸）**：v29 原文断定 `XCTAssertNil(session.planId)`「固化缺陷、新功能落地后必然失败」并计划删除——实读该测试是裸构造的默认值断言，新功能不改默认构造，断言不会失败；照原方案删它反而构成「删断言求绿」。FL-027 管实现期，本条把同一纪律前移到**方案撰写/审核期**：任何「改/删断言」子任务必须附断言原文与失败机理。
+- **适用场景**：`issue-collection-restructure` 产出的批次方案审核；任何完成标准依赖「测试后工作区干净」的批次；任何含「修正/删除既有断言」的批次。
+- **代码示例**：（方案审核为文档动作，无代码；盘点命令见上）
+- **日期**：2026-08-06
+- **回写目标**：`.cursor/skills/issue-collection-restructure/SKILL.md` § 经验教训。
+- **已应用至**：✅ `.cursor/skills/issue-collection-restructure/SKILL.md` § 经验教训（2026-08-06，PD-027）
+
 ## PD-026
 - **任务**：B4 drill_c053 中袋角度 8 球形落地——精讲/试打 UI 截图核验时暴露两个既有 SwiftUI 渲染缺陷（c012/c042 亦复现，非 B4 内容问题）。
 - **模式描述**：**「跨数据源切换的 Lazy 容器行要复合 id；sheet 内容依赖动作时刻的 state 就用 sheet(item:)」**：
