@@ -59,6 +59,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
     }
 
     func addDrill(_ content: DrillContent) {
+        guard !drillItems.contains(where: { $0.drillId == content.id }) else { return }
         let item = CustomDrillItem(
             drillId: content.id,
             nameZh: content.nameZh,
@@ -75,6 +76,12 @@ final class CustomPlanBuilderViewModel: ObservableObject {
 
     func removeDrill(at index: Int) {
         guard index >= 0, index < drillItems.count else { return }
+        drillItems.remove(at: index)
+    }
+
+    /// Picker toggle deselect — remove first row matching content id.
+    func removeDrill(drillId: String) {
+        guard let index = drillItems.firstIndex(where: { $0.drillId == drillId }) else { return }
         drillItems.remove(at: index)
     }
 

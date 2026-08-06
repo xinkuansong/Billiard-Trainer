@@ -47,11 +47,19 @@ struct CustomPlanBuilderView: View {
             }
         }
         .sheet(isPresented: $viewModel.showDrillPicker) {
-            DrillPickerSheet { content in
-                withAnimation(BTMotion.springPanel) {
-                    viewModel.addDrill(content)
+            DrillPickerSheet(
+                initiallySelectedIds: Set(viewModel.drillItems.map(\.drillId)),
+                onSelect: { content in
+                    withAnimation(BTMotion.springPanel) {
+                        viewModel.addDrill(content)
+                    }
+                },
+                onDeselect: { content in
+                    withAnimation(BTMotion.springPanel) {
+                        viewModel.removeDrill(drillId: content.id)
+                    }
                 }
-            }
+            )
         }
         .sheet(item: $drillSettingsTarget) { target in
             DrillSettingsSheet(
@@ -215,13 +223,7 @@ struct CustomPlanBuilderView: View {
 
     private func drillRow(item: CustomDrillItem, index: Int) -> some View {
         HStack(spacing: Spacing.lg) {
-            BTBakedDrillTable(drillId: item.drillId)
-                .frame(width: 56, height: 56)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-                .overlay(
-                    RoundedRectangle(cornerRadius: BTRadius.xs)
-                        .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-                )
+            BTDrillListThumbnail(drillId: item.drillId)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text(item.nameZh)

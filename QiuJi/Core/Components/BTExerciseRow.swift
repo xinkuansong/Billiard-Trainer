@@ -49,16 +49,14 @@ struct BTExerciseRow: View {
     private var thumbnail: some View {
         Group {
             if let drillId {
-                BTBakedDrillTable(drillId: drillId)
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                BTDrillListThumbnail(drillId: drillId)
             } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: BTRadius.md)
-                        .fill(Color.btPrimaryMuted)
-                    BTTrainingIcon(size: 30, filled: true)
-                }
-                .frame(width: 56, height: 56)
+                RoundedRectangle(cornerRadius: BTRadius.sm)
+                    .fill(Color.btPrimaryMuted)
+                    .frame(width: 90, height: 50)
+                    .overlay {
+                        BTTrainingIcon(size: 28, filled: true)
+                    }
             }
         }
     }

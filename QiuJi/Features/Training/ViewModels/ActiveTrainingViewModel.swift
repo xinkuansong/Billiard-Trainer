@@ -261,6 +261,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     // MARK: - Free Mode: Add / Remove Drills
 
     func addDrill(_ content: DrillContent) {
+        guard !drills.contains(where: { $0.drillId == content.id }) else { return }
         let drill = ActiveDrill(
             drillId: content.id,
             nameZh: content.nameZh,
@@ -275,6 +276,12 @@ final class ActiveTrainingViewModel: ObservableObject {
         let sets = (1...drill.sets).map { DrillSetData(id: $0, targetBalls: drill.ballsPerSet) }
         drillSetsData.append(sets)
         drillNotes.append("")
+    }
+
+    /// Remove the first matching free-mode drill by content id (picker toggle deselect).
+    func removeDrill(drillId: String) {
+        guard let index = drills.firstIndex(where: { $0.drillId == drillId }) else { return }
+        removeDrill(at: IndexSet(integer: index))
     }
 
     func removeDrill(at offsets: IndexSet) {

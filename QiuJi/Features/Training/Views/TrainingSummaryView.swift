@@ -245,13 +245,7 @@ struct TrainingSummaryView: View {
     }
 
     private func drillThumbnail(drillId: String) -> some View {
-        BTBakedDrillTable(drillId: drillId)
-            .frame(width: 48, height: 48)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-            .overlay(
-                RoundedRectangle(cornerRadius: BTRadius.sm)
-                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-            )
+        BTDrillListThumbnail(drillId: drillId)
     }
 
     private func setRow(_ set: DrillSummary.SetResult) -> some View {

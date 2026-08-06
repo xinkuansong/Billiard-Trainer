@@ -68,4 +68,6 @@ final class AuthState: ObservableObject {
 extension Notification.Name {
     static let didRequestDataMigration = Notification.Name("didRequestDataMigration")
     static let didRequestResumeTraining = Notification.Name("didRequestResumeTraining")
+    /// Posted when ActiveTraining fullScreenCover dismisses (MainTabView → TrainingHome reload).
+    static let didDismissActiveTraining = Notification.Name("didDismissActiveTraining")
 }

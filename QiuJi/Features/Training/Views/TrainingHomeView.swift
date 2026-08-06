@@ -18,7 +18,7 @@ struct TrainingHomeView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
                 pageHeader
 
@@ -36,17 +36,17 @@ struct TrainingHomeView: View {
                                 .transition(.opacity)
                         }
                     }
-                    // Clearance for fixed「开始训练」CTA so plan card titles stay readable (v28 W2).
-                    .padding(.bottom, 220)
+                    // Clearance for docked circular CTA (continue float lives in MainTabView).
+                    .padding(.bottom, viewModel.hasActivePlan ? 88 : Spacing.xl)
                     .animation(BTMotion.easeFast, value: viewModel.isLoading)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(.btBG)
 
-            // F-AT-04: show bottom chrome when minimized even without an active plan
-            // (free-record minimize must still surface the full-width「继续训练」bar).
-            if (viewModel.hasActivePlan || router.isTrainingMinimized) && !viewModel.isLoading {
-                fixedStartButton
+            // Start CTA only; minimized resume uses MainTabView `BTFloatingIndicator`.
+            if viewModel.hasActivePlan && !viewModel.isLoading && !router.isTrainingMinimized {
+                startTrainingCircle
             }
         }
         .task {
@@ -58,13 +58,8 @@ struct TrainingHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .didRequestResumeTraining)) { _ in
             router.resumeMinimizedTraining()
         }
-        .fullScreenCover(item: $router.activeTrainingMode) {
-            router.onTrainingDismissed()
+        .onReceive(NotificationCenter.default.publisher(for: .didDismissActiveTraining)) { _ in
             Task { await viewModel.load(context: modelContext) }
-        } content: { _ in
-            if let vm = router.activeTrainingVM {
-                ActiveTrainingView(viewModel: vm)
-            }
         }
     }
 
@@ -242,15 +237,10 @@ struct TrainingHomeView: View {
     }
 
     private func todayDrillThumbnail(_ drill: TodayDrillItem) -> some View {
-        BTBakedDrillTable(drillId: drill.drillId, contentMode: .fill)
-            .frame(width: 90, height: 50)
-            .clipped()
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-            .overlay {
-                RoundedRectangle(cornerRadius: BTRadius.sm)
-                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-            }
-            .opacity(drill.isCompleted ? 0.62 : 1)
+        BTDrillListThumbnail(
+            drillId: drill.drillId,
+            opacity: drill.isCompleted ? 0.62 : 1
+        )
     }
 
     private func todayDrillCard(
@@ -581,65 +571,48 @@ struct TrainingHomeView: View {
 
     // MARK: - Fixed Start Button
 
-    private var fixedStartButton: some View {
-        VStack {
-            Spacer()
-
-            if router.isTrainingMinimized {
-                // F-AT-04: keep full-width form; share copy/color/icon language with float
-                Button {
-                    resumeMinimizedTraining()
-                } label: {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: BTIcon.playCircle)
-                            .font(.btSubheadlineMedium)
-                        Text("继续训练")
-                        if let elapsed = router.minimizedTrainingVM?.elapsedSeconds {
-                            Text(Self.formatElapsed(elapsed))
-                                .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                        }
-                    }
-                }
-                .buttonStyle(BTButtonStyle.primary)
-                .transition(.scale(scale: 0.92, anchor: .bottom).combined(with: .opacity))
+    /// Reference-style circular CTA docked into the bottom tab chrome (trailing).
+    private var startTrainingCircle: some View {
+        Button {
+            if let session = viewModel.todaySession {
+                router.startTraining(mode: .plan(drills: session.drills))
             } else {
-                Button {
-                    if let session = viewModel.todaySession {
-                        router.startTraining(mode: .plan(drills: session.drills))
-                    } else {
-                        router.startTraining(mode: .free)
-                    }
-                } label: {
-                    Text("开始训练")
-                }
-                .buttonStyle(BTButtonStyle.primary)
-                .transition(.opacity)
+                router.startTraining(mode: .free)
             }
+        } label: {
+            Text("训练")
+                .font(.btHeadline)
+                .foregroundStyle(.white)
+                .frame(width: 64, height: 64)
+                .background(
+                    RadialGradient(
+                        colors: [
+                            Color.btPrimary.opacity(0.95),
+                            Color.btPrimary,
+                        ],
+                        center: .center,
+                        startRadius: 4,
+                        endRadius: 36
+                    ),
+                    in: Circle()
+                )
         }
+        .buttonStyle(BTPressableStyle.capsule)
+        .accessibilityLabel("开始训练")
+        .shadow(
+            color: colorScheme == .dark
+                ? Color.btPrimary.opacity(0.35)
+                : Color.btPrimary.opacity(0.4),
+            radius: 12,
+            x: 0,
+            y: 4
+        )
+        .padding(.trailing, Spacing.lg)
+        // Sit beside the floating tab bar (same vertical band as reference).
+        .padding(.bottom, 18)
+        .ignoresSafeArea(.container, edges: .bottom)
+        .transition(.scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity))
         .animation(BTMotion.springPanel, value: router.isTrainingMinimized)
-        .shadow(color: colorScheme == .dark ? .clear : Color.btPrimary.opacity(0.3), radius: 8, x: 0, y: 4)
-        .padding(.horizontal, Spacing.xxl)
-        .padding(.bottom, Spacing.sm)
-        .background(alignment: .bottom) {
-            LinearGradient(
-                colors: [Color.btBG.opacity(0), Color.btBG],
-                startPoint: .top,
-                endPoint: .center
-            )
-            .frame(height: 80)
-            .allowsHitTesting(false)
-        }
-    }
-
-    private func resumeMinimizedTraining() {
-        router.resumeMinimizedTraining()
-    }
-
-    /// Shared elapsed formatting with `BTFloatingIndicator` (F-AT-04).
-    private static func formatElapsed(_ elapsedSeconds: Int) -> String {
-        let minutes = elapsedSeconds / 60
-        let seconds = elapsedSeconds % 60
-        return String(format: "%d:%02d", minutes, seconds)
     }
 }
 

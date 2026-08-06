@@ -10,12 +10,14 @@ struct DrillRecordView: View {
     var showRestTimerSetting: Bool = true
 
     @State private var noteText = ""
-    @State private var showBallTable = false
+    /// Default expanded (球台示意).
+    @State private var showBallTable = true
     @State private var showSetTimer = true
     @State private var showSuccessRate = true
     @State private var showRestPicker = false
     @State private var activeSetStartTime: Date?
     @State private var tutorialDrill: DrillContent?
+    @State private var tableDrillContent: DrillContent?
     @State private var showTutorialUnavailable = false
     @Environment(\.colorScheme) private var colorScheme
 
@@ -61,14 +63,15 @@ struct DrillRecordView: View {
                     liveStatsBanner
                 }
 
-                if drill.animation != nil {
-                    ballTableSection
-                }
+                ballTableSection
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xxxxl)
         }
         .scrollDismissesKeyboard(.interactively)
+        .task(id: drill.drillId) {
+            tableDrillContent = await DrillContentService.shared.loadDrillFromBundle(id: drill.drillId)
+        }
         .onAppear {
             if showSetTimer {
                 activeSetStartTime = Date()
@@ -317,16 +320,20 @@ struct DrillRecordView: View {
             }
             .buttonStyle(BTPressableStyle.row)
 
-            if showBallTable, drill.animation != nil {
+            if showBallTable {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
-                    BTBakedDrillTable(drillId: drill.drillId)
-                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                    // Live detail preview: true-size balls (ballScale 1.0), full table — not baked 1.8× thumbnails.
+                    if let content = tableDrillContent {
+                        DrillSceneView(drill: content)
+                    } else {
+                        BTBakedDrillTable(drillId: drill.drillId, contentMode: .fit)
+                            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                    }
 
                     if !drill.description.isEmpty {
                         Text(drill.description)
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
-                            .lineLimit(2)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))

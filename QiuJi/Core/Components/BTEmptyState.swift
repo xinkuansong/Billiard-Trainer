@@ -18,7 +18,8 @@ struct BTEmptyState: View {
             if let action {
                 Button(action: action) { iconBadge }
                     .buttonStyle(.plain)
-                    .accessibilityHint(actionTitle.map { "点击\($0)" } ?? "")
+                    .accessibilityLabel(actionTitle ?? title)
+                    .accessibilityHint(actionTitle.map { "点击\($0)" } ?? "点击\(title)")
             } else {
                 iconBadge
             }

@@ -119,9 +119,11 @@ struct ActiveTrainingView: View {
                 Text("结束后可以记录本次训练心得。")
             }
             .sheet(isPresented: $viewModel.showDrillPicker) {
-                DrillPickerSheet { content in
-                    viewModel.addDrill(content)
-                }
+                DrillPickerSheet(
+                    initiallySelectedIds: Set(viewModel.drills.map(\.drillId)),
+                    onSelect: { viewModel.addDrill($0) },
+                    onDeselect: { viewModel.removeDrill(drillId: $0.id) }
+                )
             }
             .alert("保存失败", isPresented: Binding(
                 get: { viewModel.saveError != nil },
@@ -520,7 +522,7 @@ struct ActiveTrainingView: View {
                     .font(.btMicro)
                     .foregroundStyle(.btPrimary)
             }
-            .accessibilityLabel("添加训练项目")
+            .accessibilityLabel("添加训练动作")
 
             Spacer()
 
@@ -694,9 +696,8 @@ struct ActiveTrainingView: View {
 
             BTEmptyState(
                 icon: "plus.circle",
-                title: "添加训练项目",
+                title: "添加训练动作",
                 subtitle: "从动作库挑选想练习的动作，开始记录训练",
-                actionTitle: "选择训练项目",
                 action: {
                     viewModel.showDrillPicker = true
                 }
@@ -714,11 +715,21 @@ struct DrillPickerSheet: View {
     @State private var drills: [DrillContent] = []
     @State private var searchText = ""
     @State private var isLoading = true
-    @State private var addedCount = 0
-    /// F-AT-08: row-level confirmation for multi-select add (ids that were tapped).
-    @State private var addedDrillIds: Set<String> = []
+    /// Selected drill ids — toggle add/remove on each tap.
+    @State private var selectedDrillIds: Set<String>
 
     let onSelect: (DrillContent) -> Void
+    let onDeselect: (DrillContent) -> Void
+
+    init(
+        initiallySelectedIds: Set<String> = [],
+        onSelect: @escaping (DrillContent) -> Void,
+        onDeselect: @escaping (DrillContent) -> Void
+    ) {
+        self._selectedDrillIds = State(initialValue: initiallySelectedIds)
+        self.onSelect = onSelect
+        self.onDeselect = onDeselect
+    }
 
     private var filteredDrills: [DrillContent] {
         if searchText.isEmpty { return drills }
@@ -731,15 +742,21 @@ struct DrillPickerSheet: View {
     var body: some View {
         NavigationStack {
             List(filteredDrills) { drill in
-                let wasAdded = addedDrillIds.contains(drill.id)
+                let isSelected = selectedDrillIds.contains(drill.id)
                 Button {
-                    onSelect(drill)
-                    addedCount += 1
                     withAnimation(BTMotion.easeFast) {
-                        addedDrillIds.insert(drill.id)
+                        if isSelected {
+                            selectedDrillIds.remove(drill.id)
+                            onDeselect(drill)
+                        } else {
+                            selectedDrillIds.insert(drill.id)
+                            onSelect(drill)
+                        }
                     }
                 } label: {
-                    HStack {
+                    HStack(spacing: Spacing.md) {
+                        BTDrillListThumbnail(drillId: drill.id)
+
                         VStack(alignment: .leading, spacing: Spacing.xs) {
                             Text(drill.nameZh)
                                 .font(.btHeadline)
@@ -761,25 +778,27 @@ struct DrillPickerSheet: View {
 
                         Spacer()
 
-                        Image(systemName: wasAdded ? BTIcon.checkmarkCircle : BTIcon.plusCircle)
-                            .foregroundStyle(wasAdded ? Color.btSuccess : Color.btPrimary)
+                        Image(systemName: isSelected ? BTIcon.checkmarkCircle : BTIcon.plusCircle)
+                            .foregroundStyle(isSelected ? Color.btSuccess : Color.btPrimary)
                     }
                     .padding(.vertical, Spacing.xs)
                     .padding(.horizontal, Spacing.xs)
-                    .background(wasAdded ? Color.btSuccess.opacity(0.08) : Color.clear)
+                    .background(isSelected ? Color.btSuccess.opacity(0.08) : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
                 }
-                // List rows need .plain for reliable hit-testing; F-AT-08 feedback is the
+                // List rows need .plain for reliable hit-testing; toggle feedback is the
                 // plus→checkmark + row tint (press scale via BTPressableStyle breaks List taps).
                 .buttonStyle(.plain)
+                .accessibilityLabel(isSelected ? "取消选择\(drill.nameZh)" : "添加\(drill.nameZh)")
             }
             .listStyle(.plain)
-            .searchable(text: $searchText, prompt: "搜索训练项目")
-            .navigationTitle("选择训练项目")
+            .searchable(text: $searchText, prompt: "搜索训练动作")
+            .navigationTitle("选择训练动作")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("完成\(addedCount > 0 ? "(\(addedCount))" : "")") {
+                    let count = selectedDrillIds.count
+                    Button("完成\(count > 0 ? "(\(count))" : "")") {
                         dismiss()
                     }
                     .fontWeight(.semibold)

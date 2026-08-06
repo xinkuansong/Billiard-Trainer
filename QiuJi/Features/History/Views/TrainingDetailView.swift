@@ -115,9 +115,7 @@ struct TrainingDetailView: View {
     private func drillCard(_ entry: DrillEntry) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(spacing: Spacing.md) {
-                BTBakedDrillTable(drillId: entry.drillId)
-                    .frame(width: 40, height: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xxs))
+                BTDrillListThumbnail(drillId: entry.drillId)
                 Text(entry.drillNameZh)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)

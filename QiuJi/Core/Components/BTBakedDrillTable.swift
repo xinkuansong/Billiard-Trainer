@@ -49,3 +49,26 @@ struct BTBakedDrillTable: View {
         .aspectRatio(2.0, contentMode: .fit)
     }
 }
+
+/// Training-home list recipe (DR-046): 90×50 + `.fill` crops PNG letterbox only, keeps full table.
+struct BTDrillListThumbnail: View {
+    let drillId: String
+    var opacity: Double = 1
+    var showsStroke: Bool = true
+
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        BTBakedDrillTable(drillId: drillId, contentMode: .fill)
+            .frame(width: 90, height: 50)
+            .clipped()
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+            .overlay {
+                if showsStroke {
+                    RoundedRectangle(cornerRadius: BTRadius.sm)
+                        .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+                }
+            }
+            .opacity(opacity)
+    }
+}

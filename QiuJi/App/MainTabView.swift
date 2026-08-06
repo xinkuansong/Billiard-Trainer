@@ -71,13 +71,13 @@ struct MainTabView: View {
                 .tag(AppTab.profile)
         }
 
-            // F-AT-04: float shares copy/color/icon with home continue bar; springPanel handoff
-            if router.minimizedTrainingVM != nil && router.selectedTab != .training {
+            // F-AT-04: same compact float on every tab (including 训练), springPanel handoff.
+            if router.minimizedTrainingVM != nil {
                 BTFloatingIndicator(
                     elapsedSeconds: router.minimizedTrainingVM?.elapsedSeconds ?? 0,
                     title: "继续训练"
                 ) {
-                    router.switchTab(.training)
+                    router.resumeMinimizedTraining()
                 }
                 .padding(.trailing, Spacing.lg)
                 .padding(.bottom, 60)
@@ -88,6 +88,14 @@ struct MainTabView: View {
                     )
                 )
                 .animation(BTMotion.springPanel, value: router.isTrainingMinimized)
+            }
+        }
+        .fullScreenCover(item: $router.activeTrainingMode) {
+            router.onTrainingDismissed()
+            NotificationCenter.default.post(name: .didDismissActiveTraining, object: nil)
+        } content: { _ in
+            if let vm = router.activeTrainingVM {
+                ActiveTrainingView(viewModel: vm)
             }
         }
     }
