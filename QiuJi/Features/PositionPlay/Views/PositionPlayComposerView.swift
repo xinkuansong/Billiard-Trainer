@@ -196,6 +196,7 @@ struct PositionPlayComposerView: View {
             isEnabled: tryoutBoard != nil && !vm.isPlaying,
             accessibilityId: "tryout.rearrange"
         ) {
+            showSpinPad = false
             if vm.isSequenceMode {
                 vm.restartSequence()
             } else if let tryoutBoard {
@@ -227,23 +228,44 @@ struct PositionPlayComposerView: View {
                     .btChipBandPlacement(proxy)
                     .allowsHitTesting(!vm.isPlaying)
 
-                // Q19.2④ 序列模式：隐藏打点盘/力度条/瞄准条，仅逐杆播放。
+                // Q19.2④ 序列模式：隐藏瞄准轮，仅逐杆播放；
+                // v28 Q2：右侧照常显示打点盘/力度条——展示的是本杆真实参数，只读不可调。
                 if vm.isSequenceMode {
                     rearrangeButton
                         .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
 
-                    // 右下角单「击打」按钮：一次点击走完整条序列。
+                    BTShotInstrumentColumn(
+                        spinX: vm.spinX, spinY: vm.spinY,
+                        onSpinTap: { showSpinPad = true },
+                        velocity: .constant(vm.velocity),
+                        range: ShotTuning.velocityRange,
+                        isReadOnly: true,
+                        // 播放中点开会挡住台面；只在暂停时允许点开细看本杆打点。
+                        spinTapEnabled: vm.isSequencePaused
+                    )
+                    .btStageFrame(proxy.instrumentFrame())
+
+                    // 击打 / 暂停 / 继续（主键三态）+ 上一杆 + 重播（后两者仅暂停后可用）。
                     BTShotActionColumn(
-                        strikeTitle: vm.isSequencePlaying ? BTStrikeTitle.sequenceBusy : BTStrikeTitle.solutionDemo,
-                        strikeEnabled: !vm.isSequencePlaying && !vm.isPlaying,
+                        strikeTitle: sequenceStrikeTitle,
+                        strikeEnabled: sequenceStrikeEnabled,
                         onStrike: {
                             dismissBriefOnInteraction()
-                            vm.playSequence()
+                            showSpinPad = false
+                            vm.toggleSequencePlayback()
                         },
-                        undoEnabled: false,
-                        onUndo: {},
-                        playbackEnabled: false,
-                        onPlayback: {}
+                        undoTitle: "上一杆",
+                        undoEnabled: vm.canReplayPreviousStep,
+                        onUndo: {
+                            showSpinPad = false
+                            vm.replayPreviousSequenceStep()
+                        },
+                        playbackTitle: "重播",
+                        playbackEnabled: vm.canReplayCurrentStep,
+                        onPlayback: {
+                            showSpinPad = false
+                            vm.replayCurrentSequenceStep()
+                        }
                     )
                     .btStageFrame(proxy.actionColumnFrame())
                 } else {
@@ -344,9 +366,11 @@ struct PositionPlayComposerView: View {
 
             // 打点盘浮层贴球桌底缘：半透明材质透出桌面绿色（ADR-P11-09）。
             if showSpinPad {
+                // 序列模式：只读查看本杆打点（演示的是录制真值，不允许改）。
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
                                  tableWidth: proxy.playingRect.width,
                                  bottomPadding: proxy.spinPadBottomPadding,
+                                 isReadOnly: vm.isSequenceMode,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -423,9 +447,8 @@ struct PositionPlayComposerView: View {
             } else if isTryout && vm.hasSequence {
                 // Q19.2④：试打三模式选择（序列/进袋/自由）。
                 tryoutModeSelector
-                if vm.isSequenceMode {
-                    sequenceStepBar
-                } else {
+                // v28 Q4：序列模式不再在此重复当前杆信息——导航栏副标题已经说了同一件事。
+                if !vm.isSequenceMode {
                     aimCapsule
                     if vm.cuePocketed { scratchPill }
                 }
@@ -483,8 +506,24 @@ struct PositionPlayComposerView: View {
         .opacity(vm.isPlaying || vm.isSequencePlaying ? 0.5 : 1)
     }
 
+    /// 序列模式主键三态（v28 Q1）：未播 → 击打；播放中 → 暂停；已暂停 → 继续。
+    private var sequenceStrikeTitle: String {
+        switch vm.sequencePlayState {
+        case .idle: return BTStrikeTitle.solutionDemo
+        case .playing: return BTStrikeTitle.sequencePause
+        case .paused: return BTStrikeTitle.sequenceResume
+        }
+    }
+
+    /// 暂停请求已受理、正等当前杆打完时置灰——避免连点，也是「已收到」的反馈。
+    private var sequenceStrikeEnabled: Bool {
+        guard !vm.isSequencePausePending else { return false }
+        return vm.isSequencePlaying || !vm.isPlaying
+    }
+
     private func selectTryoutMode(_ mode: TryoutMode) {
         guard !vm.isPlaying, !vm.isSequencePlaying, mode != currentTryoutMode else { return }
+        showSpinPad = false
         switch mode {
         case .sequence:
             vm.enterSequenceMode()
@@ -496,50 +535,6 @@ struct PositionPlayComposerView: View {
             vm.exitSequenceMode()
             if let tryoutBoard { vm.loadBoard(tryoutBoard) }
             vm.aimMode = .free
-        }
-    }
-
-    /// 序列模式当前杆信息条：第 n/N 杆 · 打 X 号 → 袋口 · 打点 · 力度。
-    @ViewBuilder
-    private var sequenceStepBar: some View {
-        if let info = vm.currentSequenceInfo {
-            HStack(spacing: 6) {
-                Text("第 \(info.index + 1)/\(info.total) 杆")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.btPrimary)
-                BTHudMetricSeparator()
-                if info.isFree {
-                    Text("自由球")
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.9))
-                } else {
-                    Text("\(info.targetLabel ?? "") 号" + (info.pocketName.map { " → \($0)" } ?? ""))
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .lineLimit(1)
-                }
-                BTHudMetricSeparator()
-                Text("\(info.spinPhrase) · \(info.powerPhrase)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-                    .lineLimit(1)
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, 6)
-            .btHudGlass()
-            .accessibilityIdentifier("tryout.sequenceStepBar")
-        } else if vm.sequenceFinished {
-            HStack(spacing: 6) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.btPrimary)
-                Text("序列演示完成")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.9))
-            }
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, 6)
-            .btHudGlass()
         }
     }
 

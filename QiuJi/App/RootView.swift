@@ -70,6 +70,17 @@ struct RootView: View {
                 .background(Color.btBG)
             )
         }
+        // v28 序列演示控件取证：直达试打页序列模式（动作库列表元素过多，
+        // XCUI 逐卡查询在本机会 query timeout，故沿用既有深链绕过导航）。
+        if let drillId = args.first(where: { $0.hasPrefix("-deeplink.tryout=") })?
+            .replacingOccurrences(of: "-deeplink.tryout=", with: ""),
+           let drill = DrillContentService.shared.loadFallbackDrills()
+            .first(where: { $0.id == drillId }) {
+            let formation = DrillTryoutBoardStore.representative(for: drillId)
+            return AnyView(NavigationStack {
+                PositionPlayComposerView(sourceDrill: drill, tryoutFormation: formation)
+            })
+        }
         return nil
     }
 

@@ -20,6 +20,11 @@ struct BTShotInstrumentColumn: View {
     let range: ClosedRange<Double>
     var step: Double = 0.1
     var isDisabled: Bool = false
+    /// 只读展示（序列演示）：力度条不可拖，但**不灰化**——这里显示的是本杆真实参数，
+    /// 压到 50% 透明会让读数不可读。与 `isDisabled`（不可用态，灰化）语义不同。
+    var isReadOnly: Bool = false
+    /// 打点迷你图是否可点开。只读展示时演示进行中传 false、暂停时传 true。
+    var spinTapEnabled: Bool = true
 
     @State private var lastDetent: Int = .min
     @State private var lastDragY: CGFloat?
@@ -43,7 +48,7 @@ struct BTShotInstrumentColumn: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("打点")
-                .disabled(isDisabled)
+                .disabled(isDisabled || !spinTapEnabled)
             }
 
             // 两行读数（条 13.2）：上 = 力度名，下 = 速度值；fixedSize 防折行。
@@ -110,7 +115,7 @@ struct BTShotInstrumentColumn: View {
                     .position(x: w / 2, y: min(max(levelY, 2), h - 2))
             }
             .contentShape(Rectangle())
-            .gesture(isDisabled ? nil : dragGesture(height: h))
+            .gesture(isDisabled || isReadOnly ? nil : dragGesture(height: h))
         }
     }
 

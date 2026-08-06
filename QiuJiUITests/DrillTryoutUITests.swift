@@ -21,6 +21,14 @@ final class DrillTryoutUITests: XCTestCase {
             .matching(NSPredicate(format: "identifier == %@", id)).firstMatch
     }
 
+    /// 导航栏副标题（序列模式的当前杆信息唯一落点，v28 Q4）。
+    private var navSubtitle: XCUIElement { element(id: "navStatus.subtitle") }
+
+    private func navSubtitleContains(_ text: String, timeout: TimeInterval = 3) -> Bool {
+        guard navSubtitle.waitForExistence(timeout: timeout) else { return false }
+        return (navSubtitle.label).contains(text)
+    }
+
     private func snap(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name
@@ -59,10 +67,10 @@ final class DrillTryoutUITests: XCTestCase {
         tryoutButton.tap()
         sleep(2)
 
-        // ①b 单球形（仅 5 杆）跳过选择 sheet，直接进试打
-        XCTAssertFalse(
-            app.buttons["tryoutFormation_0"].waitForExistence(timeout: 2),
-            "c042 仅 1 个球形时不应弹选择 sheet")
+        // ①b c042 有 2 个球形（球形1 8 杆 / 球形2 5 杆）→ 弹选择 sheet，取球形1
+        let formation0 = app.buttons["tryoutFormation_0"]
+        XCTAssertTrue(formation0.waitForExistence(timeout: 4), "多球形 drill 应弹球形选择 sheet")
+        formation0.tap()
         sleep(5)
 
         // ② 试打页布局：标题 = drill 名、重摆在位、无开球钮
@@ -70,14 +78,14 @@ final class DrillTryoutUITests: XCTestCase {
         XCTAssertTrue(app.buttons["tryout.rearrange"].waitForExistence(timeout: 3), "「重摆球形」应在位")
         XCTAssertFalse(app.buttons["break.entry"].exists, "试打页不应有开球按钮")
 
-        // ③/④ 进场说明卡：三行 + 序列杆数「共 5 杆」（球形1 = 5 杆，取序列首杆真实参数）
+        // ③/④ 进场说明卡：三行 + 序列杆数「共 8 杆」（球形1 = 8 杆，取序列首杆真实参数）
         let brief = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'tryout.briefCard'")).firstMatch
         XCTAssertTrue(brief.waitForExistence(timeout: 4), "进场说明卡未出现")
         XCTAssertTrue(
-            app.staticTexts.matching(NSPredicate(format: "label CONTAINS '共 5 杆'"))
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS '共 8 杆'"))
                 .firstMatch.exists,
-            "说明卡杆数应取序列 stepCount（球形1 = 5 杆）")
+            "说明卡杆数应取序列 stepCount（球形1 = 8 杆）")
         snap("t02-tryout-brief-c042")
 
         // ③ 首次交互（点桌面）说明卡淡出
@@ -102,8 +110,11 @@ final class DrillTryoutUITests: XCTestCase {
         // ⑤ Q19.2④：多杆序列 drill 默认进「序列」模式，点「击打」逐杆演示走完整条序列
         XCTAssertTrue(app.buttons["tryoutMode_序列"].waitForExistence(timeout: 3),
                       "有序列 drill 应出现三模式选择（序列/进袋/自由）")
-        XCTAssertTrue(element(id: "tryout.sequenceStepBar").waitForExistence(timeout: 3),
-                      "默认应处于序列模式（当前杆信息条在位）")
+        // v28 Q4：当前杆信息只在导航栏副标题出现一次（原台面上方信息条已删）。
+        XCTAssertTrue(navSubtitleContains("第 1/"),
+                      "默认应处于序列模式（导航副标题显示当前杆）")
+        XCTAssertFalse(navSubtitleContains("袋"),
+                       "v28 Q3：副标题不应再出现袋口")
         var strike = app.buttons["击打"].firstMatch
         if !strike.waitForExistence(timeout: 3) {
             strike = app.staticTexts["击打"].firstMatch
@@ -112,8 +123,10 @@ final class DrillTryoutUITests: XCTestCase {
         strike.tap()
         sleep(3)
         snap("t05a-sequence-playing")   // 播放中帧
-        sleep(14)
-        snap("t05b-sequence-finished")  // 序列走完帧
+        // 8 杆全程约 2 分钟，这里只验开播；打完当前杆即暂停，避免边播边重摆。
+        app.buttons["暂停"].firstMatch.tap()
+        sleep(30)
+        snap("t05b-sequence-paused")
         // 重摆球形 = 从头重演
         app.buttons["tryout.rearrange"].tap()
         sleep(2)
@@ -150,17 +163,17 @@ final class DrillTryoutUITests: XCTestCase {
         formation0.tap()
         sleep(5)
 
-        // 默认序列模式：当前杆信息条在位、无打点/力度仪表（隐藏）。
+        // 默认序列模式：副标题报当前杆，主键为「击打」。
         XCTAssertTrue(app.buttons["tryoutMode_序列"].waitForExistence(timeout: 5))
-        XCTAssertTrue(element(id: "tryout.sequenceStepBar").waitForExistence(timeout: 3),
-                      "序列模式应显示当前杆信息条")
+        XCTAssertTrue(navSubtitleContains("第 1/"), "序列模式副标题应报当前杆")
+        XCTAssertTrue(app.buttons["击打"].firstMatch.waitForExistence(timeout: 3)
+                      || app.staticTexts["击打"].firstMatch.exists,
+                      "序列模式主键应为「击打」")
         snap("s01-sequence-default")
 
-        // 切进袋模式：信息条消失，出现常规击球动作列。
+        // 切进袋模式：主键变常规「击球」。
         app.buttons["tryoutMode_进袋"].tap()
         sleep(2)
-        XCTAssertFalse(element(id: "tryout.sequenceStepBar").exists,
-                       "进袋模式不应有序列信息条")
         XCTAssertTrue(app.buttons["击球"].firstMatch.waitForExistence(timeout: 3)
                       || app.staticTexts["击球"].firstMatch.exists,
                       "进袋模式应有常规「击球」按钮")
@@ -171,12 +184,94 @@ final class DrillTryoutUITests: XCTestCase {
         sleep(2)
         snap("s03-free-mode")
 
-        // 切回序列模式：信息条回来。
+        // 切回序列模式：主键回到「击打」、副标题回到第 1 杆。
         app.buttons["tryoutMode_序列"].tap()
         sleep(2)
-        XCTAssertTrue(element(id: "tryout.sequenceStepBar").waitForExistence(timeout: 3),
-                      "切回序列模式应恢复信息条")
+        XCTAssertTrue(navSubtitleContains("第 1/"), "切回序列模式应回到第 1 杆")
         snap("s04-back-to-sequence")
+    }
+
+    // MARK: - v28 Q1/Q2/Q5：演示暂停 / 继续 / 上一杆 / 播完复位
+
+    func testSequencePlaybackPauseResumeAndReset() {
+        // 深链直达试打页（动作库列表元素过多，XCUI 逐卡查询在本机会 query timeout）。
+        app = XCUIApplication()
+        app.launchArguments += ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"]
+        app.launchArguments += ["-deeplink.tryout=drill_c042"]
+        app.launch()
+        sleep(6)
+
+        XCTAssertTrue(app.buttons["tryoutMode_序列"].waitForExistence(timeout: 15))
+        XCTAssertTrue(navSubtitleContains("第 1/"), "应默认进序列模式")
+
+        // 未播放时「上一杆」「重播」不可用（只在暂停后生效）。
+        XCTAssertFalse(app.buttons["上一杆"].firstMatch.isEnabled,
+                       "未暂停时「上一杆」应不可用")
+
+        // 开播 → 主键变「暂停」。
+        app.buttons["击打"].firstMatch.tap()
+        let pauseButton = app.buttons["暂停"].firstMatch
+        if !pauseButton.waitForExistence(timeout: 6) {
+            snap("p01-no-pause-button")
+            let labels = app.buttons.allElementsBoundByIndex.map(\.label).joined(separator: " | ")
+            let subtitle = navSubtitle.exists ? navSubtitle.label : "<无副标题>"
+            XCTFail("播放中主键应变「暂停」；当前按钮：[\(labels)]；副标题：\(subtitle)")
+            return
+        }
+        snap("p01-playing")
+
+        // 暂停：打完当前杆后停 → 主键变「继续」，「上一杆」可用。
+        // 注意：球滚动期间 XCUI 取不到快照（query timeout），故一律「先等静止再查询」。
+        app.buttons["暂停"].firstMatch.tap()
+        sleep(25)
+        snap("p02-paused")
+        XCTAssertTrue(app.buttons["继续"].firstMatch.exists,
+                      "暂停请求应在当前杆打完后兑现（主键变「继续」）")
+        XCTAssertTrue(app.buttons["重播"].firstMatch.isEnabled, "暂停后「重播」应可用")
+        let pausedSubtitle = navSubtitle.exists ? navSubtitle.label : ""
+
+        // 暂停态可点开打点盘查看本杆打点（只读：无四向微调键与「回中」）。
+        app.buttons["打点"].firstMatch.tap()
+        sleep(2)
+        snap("p03-paused-spinpad-readonly")
+        XCTAssertFalse(app.buttons["回中"].exists, "只读打点盘不应有「回中」")
+        XCTAssertFalse(app.buttons["高杆增加 1%"].exists, "只读打点盘不应有微调键")
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+        sleep(2)
+
+        // 停在第 1 杆时「上一杆」无对象，应不可用。
+        XCTAssertTrue(pausedSubtitle.contains("第 1/"),
+                      "首次暂停应停在第 1 杆（实际：\(pausedSubtitle)）")
+        XCTAssertFalse(app.buttons["上一杆"].firstMatch.isEnabled,
+                       "停在第 1 杆时「上一杆」应不可用")
+
+        // 再走一杆后暂停 → 「上一杆」有对象，应可用。
+        app.buttons["继续"].firstMatch.tap()
+        app.buttons["暂停"].firstMatch.tap()
+        sleep(30)
+        snap("p04-paused-at-step2")
+        XCTAssertTrue(app.buttons["继续"].firstMatch.exists, "第二次暂停应兑现")
+        XCTAssertTrue(navSubtitleContains("第 2/"),
+                      "第二次暂停应停在第 2 杆（实际：\(navSubtitle.exists ? navSubtitle.label : "")）")
+        XCTAssertTrue(app.buttons["上一杆"].firstMatch.isEnabled,
+                      "停在第 2 杆时「上一杆」应可用")
+
+        // 上一杆：重播第 1 杆，播完仍停在暂停态且副标题回到第 1 杆。
+        app.buttons["上一杆"].firstMatch.tap()
+        sleep(30)
+        snap("p04b-after-replay-previous")
+        XCTAssertTrue(app.buttons["继续"].firstMatch.exists, "「上一杆」重播完应回到暂停态")
+        XCTAssertTrue(navSubtitleContains("第 1/"),
+                      "「上一杆」应回放上一杆（副标题回第 1 杆）")
+
+        // 继续：播到底 → 自动回初始球形（副标题回第 1 杆、主键回「击打」）。
+        app.buttons["继续"].firstMatch.tap()
+        sleep(110)
+        snap("p05-finished-reset")
+        XCTAssertTrue(app.buttons["击打"].firstMatch.exists,
+                      "播完应回到可再次开播的状态")
+        XCTAssertTrue(navSubtitleContains("第 1/", timeout: 5),
+                      "v28 Q5：播完应自动回到初始球形（副标题回第 1 杆）")
     }
 
     // MARK: - Q19.1 侧栏点击分组回组顶（含重复点击当前分组）

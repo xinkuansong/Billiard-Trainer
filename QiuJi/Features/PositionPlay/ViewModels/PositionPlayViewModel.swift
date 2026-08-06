@@ -1516,33 +1516,44 @@ final class PositionPlayViewModel: ObservableObject {
 
     // MARK: - Sequence tryout mode（Q19.2④：动作库试打「序列」模式）
 
-    /// 试打序列模式：按 drill 出片序列 `steps` 逐杆演示（隐藏打点/力度/瞄准控件，
-    /// 点「击打」走完整序列，杆间停顿）。复用既有单杆回放骨架
+    /// 试打序列模式：按 drill 出片序列 `steps` 逐杆演示（隐藏瞄准轮，打点/力度只读展示本杆真值，
+    /// 主键三态走完整序列，杆间停顿）。复用既有单杆回放骨架
     /// （`PositionPlayShotSolver.solve` + `scene.runCueStroke` + `TrajectoryPlayback`），不另造播放器。
 
-    /// 逐杆信息（供 View 渲染当前杆的目标/袋口/打点/力度）。
-    struct SequenceStepInfo {
-        let index: Int          // 0-based
-        let total: Int
-        let isFree: Bool
-        let targetLabel: String?
-        let pocketName: String?
-        let spinPhrase: String
-        let powerPhrase: String
-    }
+    /// 演示播放态（v28 Q1）。暂停只在**杆间边界**生效：当前杆必定播完并落定。
+    enum SequencePlayState { case idle, playing, paused }
 
     /// 序列模式激活标志（进袋/自由/序列三选一里的「序列」）。
     @Published private(set) var isSequenceMode = false
-    /// 当前正在逐杆演示（一次「击打」走完整条序列）。
-    @Published private(set) var isSequencePlaying = false
+    /// 播放态（idle / playing / paused）。
+    @Published private(set) var sequencePlayState: SequencePlayState = .idle
+    /// 当前正在逐杆演示。
+    var isSequencePlaying: Bool { sequencePlayState == .playing }
+    /// 已暂停：画面停在 `completedStepIndex` 那一杆的终局，参数仍是该杆参数。
+    var isSequencePaused: Bool { sequencePlayState == .paused }
     /// 当前呈现/播放的杆序（0-based）。
     @Published private(set) var sequenceStepIndex = 0
-    /// 演示是否已走完整条序列（终帧提示 + 「重摆球形」重来）。
+    /// 演示是否已走完整条序列。
     @Published private(set) var sequenceFinished = false
+    /// 已按下暂停、正等当前杆打完（按钮置灰示意"已收到"）。
+    var isSequencePausePending: Bool { sequencePlayState == .playing && pauseRequested }
+    /// 暂停态下可「上一杆」（重播前一杆后仍停在暂停态）。
+    var canReplayPreviousStep: Bool { isSequencePaused && completedStepIndex > 0 }
+    /// 暂停态下可「重播」刚播完的这一杆。
+    var canReplayCurrentStep: Bool { isSequencePaused && completedStepIndex >= 0 }
 
     private var sequenceSteps: [SequenceStep] = []
     /// 杆间停顿（秒）。
     private static let sequenceInterShotPause: TimeInterval = 0.7
+    /// 整条序列播完后停在终局的观察时长，之后自动回初始球形（v28 Q5）。
+    private static let sequenceFinishHold: TimeInterval = 1.2
+    /// 「打完当前杆后停」请求位。**只在杆间边界消费**——按下暂停就翻 `sequencePlayState`
+    /// 会被 `runSequenceStep` 的存活 guard 判成已停，把飞行中的这一杆掐断在半空。
+    @Published private(set) var pauseRequested = false
+    /// 已播完并落定的杆序；-1 = 本轮尚未播过任何一杆。
+    private var completedStepIndex = -1
+    /// 逐杆解缓存（懒填）：同一杆重播/回退时不再重复求解。
+    private var sequencePredictionCache: [Int: ShotPrediction] = [:]
     /// 批量出片台「播放序列」：播完后恢复的编辑盘面与击打参数（非 nil = 预览中）。
     private var recordedSequencePreviewRestore: RecordedSequencePreviewRestore?
 
@@ -1578,7 +1589,9 @@ final class PositionPlayViewModel: ObservableObject {
         invalidatePendingPredict()
         configureSequence(sequence.steps)
         isSequenceMode = true
-        isSequencePlaying = true
+        sequencePlayState = .playing
+        pauseRequested = false
+        completedStepIndex = -1
         sequenceFinished = false
         sequenceStepIndex = 0
         statusText = "序列预览 · 第 1/\(sequence.steps.count) 杆"
@@ -1588,21 +1601,22 @@ final class PositionPlayViewModel: ObservableObject {
     /// 注入试打序列（View onAppear 调用一次）。
     func configureSequence(_ steps: [SequenceStep]) {
         sequenceSteps = steps
+        sequencePredictionCache = [:]
     }
 
-    /// 当前杆结构化信息（无有效杆返回 nil）。
-    var currentSequenceInfo: SequenceStepInfo? {
-        guard sequenceStepIndex >= 0, sequenceStepIndex < sequenceSteps.count else { return nil }
-        let step = sequenceSteps[sequenceStepIndex]
-        return SequenceStepInfo(
-            index: sequenceStepIndex,
-            total: sequenceSteps.count,
-            isFree: step.shot.isFree,
-            targetLabel: step.shot.isFree ? nil : PositionPlayBall.shortLabel(for: step.shot.targetKey),
-            pocketName: step.shot.isFree ? nil : PocketDisplay.name(id: step.shot.pocket),
-            spinPhrase: DrillTryoutBrief.spinPhrase(x: step.shot.spinX, y: step.shot.spinY),
-            powerPhrase: DrillTryoutBrief.powerPhrase(step.shot.velocity)
-        )
+    /// 取第 i 杆的可行解（命中缓存即返回；未命中同步求解并回填）。
+    /// 只做懒缓存、不做后台预解：求解链路未验证可重入，与主线程求解并发会打崩 App
+    /// （实测：整条序列后台预解 + 播放期间主线程求解 ⇒ Lost connection）。
+    /// 缓存的价值在「继续 / 上一杆 / 重播」不再重复求解已走过的杆。
+    private func prediction(forStep i: Int) -> ShotPrediction? {
+        if let cached = sequencePredictionCache[i] { return cached }
+        guard i >= 0, i < sequenceSteps.count else { return nil }
+        let step = sequenceSteps[i]
+        guard let pred = PositionPlayShotSolver.solve(
+            before: step.before, shot: step.shot, surfaceY: surfaceY
+        ), pred.feasible else { return nil }
+        sequencePredictionCache[i] = pred
+        return pred
     }
 
     /// 进入序列模式：复位到第 0 杆击打前并预览该杆轨迹。
@@ -1610,27 +1624,40 @@ final class PositionPlayViewModel: ObservableObject {
         guard hasSequence, !isPlaying, !isSequencePlaying else { return }
         invalidatePendingPredict()
         isSequenceMode = true
-        isSequencePlaying = false
-        sequenceFinished = false
-        sequenceStepIndex = 0
+        resetSequenceProgress()
         presentSequenceStep(0)
     }
 
-    /// 退出序列模式（切到进袋/自由）：清预览态，交由宿主 `loadBoard(initial)` 恢复正常求解。
+    /// 退出序列模式（切到进袋/自由）：硬停 + 清预览态，交由宿主 `loadBoard(initial)` 恢复正常求解。
     func exitSequenceMode() {
         guard isSequenceMode else { return }
-        isSequencePlaying = false
+        hardStopSequence()
         isSequenceMode = false
-        sequenceFinished = false
         clearTrajectory()
         scene.hideCueStick()
     }
 
-    /// 「重摆球形」在序列模式下 = 从头重演（复位到第 0 杆）。
-    func restartSequence() {
-        guard isSequenceMode, !isPlaying, !isSequencePlaying else { return }
+    /// 硬停：掐掉飞行中的球动作与音频，清空全部播放请求位。
+    /// 切模式 / 退出页面等「不再演示」的路径走这里；「暂停」**不**走这里。
+    private func hardStopSequence() {
+        ShotAudioScheduler.shared.cancel()
+        for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
+        isPlaying = false
+        resetSequenceProgress()
+    }
+
+    private func resetSequenceProgress() {
+        sequencePlayState = .idle
+        pauseRequested = false
+        completedStepIndex = -1
         sequenceFinished = false
         sequenceStepIndex = 0
+    }
+
+    /// 「重摆球形」在序列模式下 = 从头重演（复位到第 0 杆）。暂停态下同样可用。
+    func restartSequence() {
+        guard isSequenceMode, !isPlaying, !isSequencePlaying else { return }
+        resetSequenceProgress()
         presentSequenceStep(0)
     }
 
@@ -1644,8 +1671,7 @@ final class PositionPlayViewModel: ObservableObject {
         refreshOnTableKeys()
         // 恢复该杆参数供假想球/瞄准线绘制（didSet 的 recompute 已被 isSequenceMode 拦截）。
         restoreShotParams(step.shot)
-        if let pred = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY),
-           pred.feasible {
+        if let pred = prediction(forStep: i) {
             solvedShot = SolvedShot(before: step.before, shot: step.shot, prediction: pred)
             apply(pred)
         } else {
@@ -1656,16 +1682,74 @@ final class PositionPlayViewModel: ObservableObject {
         statusText = sequenceStatusText(i)
     }
 
-    /// 一次「击打」从当前呈现杆走完整条序列（逐杆播放、杆间停顿）。
+    /// 主击键统一入口：idle → 开播；playing → 请求打完当前杆后暂停；paused → 继续。
+    func toggleSequencePlayback() {
+        switch sequencePlayState {
+        case .idle: playSequence()
+        case .playing: requestSequencePause()
+        case .paused: resumeSequence()
+        }
+    }
+
+    /// 从当前呈现杆走完整条序列（逐杆播放、杆间停顿）。
     func playSequence() {
-        guard isSequenceMode, hasSequence, !isPlaying, !isSequencePlaying else { return }
-        isSequencePlaying = true
+        guard isSequenceMode, hasSequence, !isPlaying, sequencePlayState == .idle else { return }
+        // 终局停留期（自动复位还没到）内再点「击打」：先回初始球形，否则
+        // `sequenceStepIndex` 还停在最后一杆，会变成「只重播最后一杆」。
+        if sequenceFinished {
+            resetSequenceProgress()
+            presentSequenceStep(0)
+        }
+        pauseRequested = false
         sequenceFinished = false
-        runSequenceStep(sequenceFinished ? 0 : sequenceStepIndex)
+        sequencePlayState = .playing
+        runSequenceStep(sequenceStepIndex)
+    }
+
+    /// 「暂停」：不打断飞行中的这一杆——等它播完落定后停在该杆终局（v28 Q1 语义）。
+    func requestSequencePause() {
+        guard sequencePlayState == .playing else { return }
+        pauseRequested = true
+    }
+
+    /// 「继续」：从暂停处的下一杆接着播到底。
+    func resumeSequence() {
+        guard sequencePlayState == .paused else { return }
+        let next = completedStepIndex + 1
+        guard next < sequenceSteps.count else {
+            sequencePlayState = .playing
+            finishSequencePlayback()
+            return
+        }
+        pauseRequested = false
+        sequencePlayState = .playing
+        runSequenceStep(next)
+    }
+
+    /// 「上一杆」：重播上一杆，播完仍停在暂停态（仅暂停后可用）。
+    func replayPreviousSequenceStep() {
+        guard canReplayPreviousStep else { return }
+        playSingleSequenceStep(completedStepIndex - 1)
+    }
+
+    /// 「重播」：重播刚播完的这一杆，播完仍停在暂停态。
+    func replayCurrentSequenceStep() {
+        guard canReplayCurrentStep else { return }
+        playSingleSequenceStep(completedStepIndex)
+    }
+
+    /// 单杆重播：预置暂停请求位 ⇒ 这一杆播完在杆间边界自动停回暂停态。
+    private func playSingleSequenceStep(_ i: Int) {
+        guard isSequenceMode, !isPlaying, i >= 0, i < sequenceSteps.count else { return }
+        pauseRequested = true
+        sequenceFinished = false
+        sequencePlayState = .playing
+        runSequenceStep(i)
     }
 
     private func runSequenceStep(_ i: Int) {
-        guard isSequencePlaying, i < sequenceSteps.count else {
+        guard sequencePlayState == .playing else { return }
+        guard i >= 0, i < sequenceSteps.count else {
             finishSequencePlayback()
             return
         }
@@ -1677,13 +1761,15 @@ final class PositionPlayViewModel: ObservableObject {
         refreshOnTableKeys()
         restoreShotParams(step.shot)
 
-        guard let pred = PositionPlayShotSolver.solve(before: step.before, shot: step.shot, surfaceY: surfaceY),
-              pred.feasible, let recorder = pred.recorder, pred.duration > 0.05,
+        guard let pred = prediction(forStep: i),
+              let recorder = pred.recorder, pred.duration > 0.05,
               let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = aimDirection(path: pred.cuePath, from: cueNode.position) else {
-            // 本杆不可行：直接落到该杆结果并推进（不阻断整条演示）。
+            // 本杆不可行：落到录制结果并推进（不阻断整条演示），但明说跳过——
+            // 否则用户只看到球凭空瞬移、没有任何解释。
             clearTrajectory()
             scene.hideCueStick()
+            statusText = sequenceStatusText(i) + " · 本杆无可行解，已跳过"
             applySequenceRest(step: step, prediction: nil)
             scheduleNextSequenceStep(after: i)
             return
@@ -1698,14 +1784,13 @@ final class PositionPlayViewModel: ObservableObject {
         lastAimDirection = aim
         scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
         isPlaying = true
-        statusText = sequenceStatusText(i) + " · 瞄准…"
+        statusText = sequenceStatusText(i)
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 400_000_000)
             guard let self, self.isSequencePlaying, self.isPlaying else { return }
-            self.statusText = self.sequenceStatusText(i) + " · 运杆…"
             self.scene.runCueStroke(
                 strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity),
                 clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
@@ -1718,7 +1803,9 @@ final class PositionPlayViewModel: ObservableObject {
     /// 触球瞬间：收杆、按真实轨迹回放球体（复用 `TrajectoryPlayback` 骨架）。
     private func runSequencePlayback(step: SequenceStep, prediction: ShotPrediction,
                                      recorder: TrajectoryRecorder, index i: Int) {
-        statusText = sequenceStatusText(i) + " · 击球中…"
+        // 出杆完成回调是从场景动画里回来的，期间可能已被 `hardStopSequence` 掐断。
+        guard sequencePlayState == .playing else { return }
+        statusText = sequenceStatusText(i)
         clearTrajectory()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
@@ -1786,23 +1873,32 @@ final class PositionPlayViewModel: ObservableObject {
         clearTrajectory()
     }
 
+    /// 杆间边界：本杆已落定。暂停请求只在这里兑现，保证「停在当前杆结束时的球位」。
     private func scheduleNextSequenceStep(after i: Int) {
-        guard isSequencePlaying else { return }
+        guard sequencePlayState == .playing else { return }
+        completedStepIndex = i
+        if pauseRequested {
+            pauseRequested = false
+            sequencePlayState = .paused
+            sequenceStepIndex = i
+            statusText = sequenceStatusText(i)
+            return
+        }
         let next = i + 1
         guard next < sequenceSteps.count else {
             finishSequencePlayback()
             return
         }
-        statusText = sequenceStatusText(next) + " ·（衔接下一杆…）"
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(Self.sequenceInterShotPause * 1_000_000_000))
-            guard self.isSequencePlaying else { return }
+            guard self.sequencePlayState == .playing else { return }
             self.runSequenceStep(next)
         }
     }
 
     private func finishSequencePlayback() {
-        isSequencePlaying = false
+        sequencePlayState = .idle
+        pauseRequested = false
         isPlaying = false
         sequenceFinished = true
         scene.hideCueStick()
@@ -1819,7 +1915,16 @@ final class PositionPlayViewModel: ObservableObject {
             statusText = "序列预览完成 · \(shotCount) 杆"
             return
         }
-        statusText = "序列演示完成 · 点「重摆球形」再看一遍"
+        statusText = "序列演示完成"
+        // v28 Q5：终局停留片刻供观察，随后自动回到初始球形并预览第 1 杆。
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(Self.sequenceFinishHold * 1_000_000_000))
+            // 停留期间用户可能已重摆/切模式/重新开播——任一发生就放弃这次自动复位。
+            guard self.isSequenceMode, self.sequencePlayState == .idle,
+                  self.sequenceFinished, !self.isPlaying else { return }
+            self.resetSequenceProgress()
+            self.presentSequenceStep(0)
+        }
     }
 
     /// 预览收尾：写回播放前的瞄准/力度/打点（中间可能多求一次；由随后 `applyBoard` 以正确盘面收口）。
@@ -1837,7 +1942,8 @@ final class PositionPlayViewModel: ObservableObject {
         }
     }
 
-    /// 序列模式副标题：第 n/N 杆 · 打 X 号 → 袋口 · 打点 · 力度。
+    /// 序列模式副标题：第 n/N 杆 · 打 X 号 · 打点 · 力度。
+    /// v28 Q3：不带袋口——顶部只说「打哪颗球、什么杆法、多大力」，袋口由台面高亮自证。
     private func sequenceStatusText(_ i: Int) -> String {
         guard i >= 0, i < sequenceSteps.count else { return "序列演示完成" }
         let step = sequenceSteps[i]
@@ -1845,9 +1951,7 @@ final class PositionPlayViewModel: ObservableObject {
         if step.shot.isFree {
             parts.append("自由球")
         } else {
-            let target = PositionPlayBall.shortLabel(for: step.shot.targetKey)
-            let pocket = PocketDisplay.name(id: step.shot.pocket)
-            parts.append(pocket == "—" ? "打 \(target) 号" : "打 \(target) 号 → \(pocket)")
+            parts.append("打 \(PositionPlayBall.shortLabel(for: step.shot.targetKey)) 号")
         }
         parts.append(DrillTryoutBrief.spinPhrase(x: step.shot.spinX, y: step.shot.spinY))
         parts.append(DrillTryoutBrief.powerPhrase(step.shot.velocity))

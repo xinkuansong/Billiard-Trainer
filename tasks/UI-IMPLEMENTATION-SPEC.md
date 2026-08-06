@@ -1082,6 +1082,7 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-08-06 | **试打页序列演示可控化**（DR-061）：主键三态 `击打 ⇄ 暂停 ⇄ 继续`（暂停仅在杆边界兑现，停在该杆终局）；原恒灰「上一杆」接线、「回放」改「重播」，二者仅暂停态可用；序列模式恢复显示打点/力度但**只读**（`BTShotInstrumentColumn.isReadOnly` / `spinTapEnabled`，`BTSpinPad*.isReadOnly` 隐藏微调键与「回中」）；删台面上方 `tryout.sequenceStepBar`，当前杆信息只留导航副标题且**不带袋口**；整条播完停留后自动回初始球形 | 修正/DR | PositionPlayViewModel, PositionPlayComposerView, BTShotInstrumentColumn, BTSpinPad, BTShotPageChrome | 用户交互反馈 |
 | 2026-08-06 | **台面演示回放钮加播放中状态 + 杆边界可暂停**（DR-060）：`PlaybackState` 四态 + `togglePlayback()` 单一入口；图标 `play.fill` ⇄ `pause.fill`，按钮不再 disabled；暂停仅在杆边界生效（当前杆完整播完后停在该杆结果，HUD 保留，再点从下一杆继续）。**覆盖 F-SC-01「回放不可打断」** | 修正/DR | DrillSceneView, DrillRecordView | 用户交互反馈 |
 | 2026-08-06 | **详情/训练顶栏改整条序列逐杆演示**（DR-059）：播放从代表性单杆改为走完整条 `steps`（逐杆亮方案→运杆→回放→落静止位→停顿 0.7s）；瞄准位摆杆改 `scene.updateCueStick` 与试打页同源，运杆/跟杆/淡出全交 `CueStroke`；HUD 改「播放前隐藏 → 播放中逐杆换值 → 播完隐藏」并挂 `drillShotHUDBar` | 修正/DR | DrillSceneView, DrillRecordView | 用户视觉反馈 |
 | 2026-08-06 | **详情/训练球桌演示对齐导出视频**（DR-058）：回放改三拍叙事（读球形 1.5s → 亮方案 1.5s → 真运杆出杆跟杆，`runCueStroke`）；打点/力度浮层改球桌下方固定 HUD 条，抽共享组件 `BTShotHUDBar`（导出与 App 单一真源）；删 `DrillShotOverlay`/`DrillPowerBar` 及避让启发式。球桌方向不变（横版） | 修正/DR | BTShotHUDBar（新增）, DrillSceneView, SequenceVideoExporter, DrillRecordView | 用户视觉反馈 |

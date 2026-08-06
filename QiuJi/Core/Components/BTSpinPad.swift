@@ -11,6 +11,8 @@ import SwiftUI
 struct BTSpinPad: View {
     @Binding var spinX: Double
     @Binding var spinY: Double
+    /// 只读展示（序列演示）：仍按真实比例画打点，但不接受拖动改值。
+    var isReadOnly = false
 
     private let miscue = Double(CuePhysics.miscueLimitFraction)
     private let tipRatio = Double(CuePhysics.tipDiameter / BallPhysics.diameter)
@@ -56,7 +58,7 @@ struct BTSpinPad: View {
             }
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 0)
+                isReadOnly ? nil : DragGesture(minimumDistance: 0)
                     .onChanged { value in
                         let nx = Double((cx - value.location.x) / ballR)
                         let ny = Double((cy - value.location.y) / ballR)
@@ -216,6 +218,9 @@ struct BTSpinPadCard: View {
     @Binding var spinY: Double
     /// 击球区内框屏幕宽度（`playingRect.width`）；卡片背景与此等宽。
     var tableWidth: CGFloat
+    /// 只读展示（序列演示暂停时「点开看本杆打点」）：隐藏四向微调键与「回中」，
+    /// 白盘不接受拖动——演示的是录制真值，不允许改。
+    var isReadOnly = false
     var onClose: () -> Void
 
     private var padDiameter: CGFloat {
@@ -225,24 +230,29 @@ struct BTSpinPadCard: View {
     var body: some View {
         let width = SpinPadLayout.resolvedTableWidth(tableWidth)
         VStack(spacing: Spacing.xs) {
-            VStack(spacing: SpinPadLayout.crossGap) {
-                BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
-                    nudge(.up)
-                }
-                HStack(spacing: SpinPadLayout.crossGap) {
-                    Spacer(minLength: 0)
-                    BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
-                        nudge(.left)
+            if isReadOnly {
+                BTSpinPad(spinX: $spinX, spinY: $spinY, isReadOnly: true)
+                    .frame(width: padDiameter, height: padDiameter)
+            } else {
+                VStack(spacing: SpinPadLayout.crossGap) {
+                    BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") {
+                        nudge(.up)
                     }
-                    BTSpinPad(spinX: $spinX, spinY: $spinY)
-                        .frame(width: padDiameter, height: padDiameter)
-                    BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
-                        nudge(.right)
+                    HStack(spacing: SpinPadLayout.crossGap) {
+                        Spacer(minLength: 0)
+                        BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
+                            nudge(.left)
+                        }
+                        BTSpinPad(spinX: $spinX, spinY: $spinY)
+                            .frame(width: padDiameter, height: padDiameter)
+                        BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
+                            nudge(.right)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
-                }
-                BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") {
-                    nudge(.down)
+                    BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") {
+                        nudge(.down)
+                    }
                 }
             }
 
@@ -252,18 +262,20 @@ struct BTSpinPadCard: View {
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(HUDStyle.valueAdjustable)
                     .monospacedDigit()
-                Button {
-                    spinX = 0
-                    spinY = 0
-                } label: {
-                    Text("回中")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, Spacing.md)
-                        .padding(.vertical, 4)
-                        .background(.white.opacity(0.14), in: Capsule())
+                if !isReadOnly {
+                    Button {
+                        spinX = 0
+                        spinY = 0
+                    } label: {
+                        Text("回中")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Spacing.md)
+                            .padding(.vertical, 4)
+                            .background(.white.opacity(0.14), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
         }
         .padding(SpinPadLayout.horizontalPadding)
@@ -300,6 +312,8 @@ struct BTSpinPadOverlay: View {
     var tableWidth: CGFloat
     /// 卡片底边到 stage 底的距离；贴击球区下沿时用 `proxy.spinPadBottomPadding`。
     var bottomPadding: CGFloat = 0
+    /// 只读展示（序列演示）：卡片不可改值，仅供查看本杆打点。
+    var isReadOnly = false
     var onClose: () -> Void
 
     var body: some View {
@@ -317,7 +331,8 @@ struct BTSpinPadOverlay: View {
                 .accessibilityAction { onClose() }
 
             BTSpinPadCard(spinX: $spinX, spinY: $spinY,
-                          tableWidth: tableWidth, onClose: onClose)
+                          tableWidth: tableWidth, isReadOnly: isReadOnly,
+                          onClose: onClose)
                 .padding(.bottom, bottomPadding)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

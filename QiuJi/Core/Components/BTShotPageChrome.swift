@@ -25,12 +25,15 @@ enum BTStrikeTitle {
     static let planThree = "打一"
     /// 击球进行中（自由试打 / 反解打出）。
     static let freePlayBusy = "击球中"
-    /// 序列演示进行中（Composer 序列模式）。
-    static let sequenceBusy = "演示中"
+    /// 序列演示进行中，点击请求「打完当前杆后停」（v28 Q1：演示可暂停，故不再用只读的「演示中」）。
+    static let sequencePause = "暂停"
+    /// 序列演示已暂停，点击从下一杆继续。
+    static let sequenceResume = "继续"
 
     /// 全量合法值（grep / 审查用）。
     static let allLegal: Set<String> = [
-        freePlay, solutionDemo, planThree, freePlayBusy, sequenceBusy
+        freePlay, solutionDemo, planThree, freePlayBusy,
+        sequencePause, sequenceResume
     ]
 }
 
@@ -155,6 +158,8 @@ struct BTShotActionColumn: View {
     var undoTitle: String = "上一杆"
     var undoEnabled: Bool
     var onUndo: () -> Void
+    /// 下钮文案：默认「回放」；序列演示模式传「重播本杆」。
+    var playbackTitle: String = "回放"
     var playbackEnabled: Bool
     var onPlayback: () -> Void
     /// 按钮宽度（贴边右柱用窄款，默认 46；见 `ShotStageMetrics.actionColumnWidth`）。
@@ -166,7 +171,7 @@ struct BTShotActionColumn: View {
                                isDisabled: !strikeEnabled, width: buttonWidth, action: onStrike)
             BTTextActionButton(title: undoTitle, isDisabled: !undoEnabled,
                                width: buttonWidth, action: onUndo)
-            BTTextActionButton(title: "回放", isDisabled: !playbackEnabled,
+            BTTextActionButton(title: playbackTitle, isDisabled: !playbackEnabled,
                                width: buttonWidth, action: onPlayback)
         }
     }
@@ -292,6 +297,7 @@ struct BTSolverNavStatus: View {
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.65))
                             .lineLimit(1)
+                            .accessibilityIdentifier("navStatus.subtitle")
                     }
                 }
             }

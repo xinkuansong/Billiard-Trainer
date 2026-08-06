@@ -82,6 +82,25 @@
 
 ## DR 记录（设计调整）
 
+## DR-061
+- **任务**：试打页序列演示可暂停/继续/上一杆/重播；打点力度只读上屏；顶部信息去重与播完复位（v28 Q1–Q5）
+- **原始规范**：Q19.2④ 落地态——序列模式**隐藏**打点盘/力度条/瞄准轮；主键播放中显示不可点的「演示中」（`BTStrikeTitle.sequenceBusy`）；「上一杆」「回放」恒 `disabled`；台面上方另有 `tryout.sequenceStepBar` 信息条（含袋口）；整条播完停在末杆终局。
+- **调整后**：
+  1. **主键三态**：`PositionPlayViewModel.SequencePlayState`（`idle` / `playing` / `paused`）+ `pauseRequested`，主键 `击打 ⇄ 暂停 ⇄ 继续` 走单一入口 `toggleSequencePlayback()`。暂停请求已受理但当前杆未播完时主键置灰（`isSequencePausePending`），既防连点也是「已收到」反馈。
+  2. **暂停语义 = 杆边界生效**：唯一兑现点在 `scheduleNextSequenceStep`，当前杆必定播完并落到静止位，停在该杆终局盘面与该杆参数。与 DR-060 详情页演示同语义。
+  3. **上一杆 / 重播**：仅暂停态可用（`canReplayPreviousStep` / `canReplayCurrentStep`）。二者复用 `playSingleSequenceStep`——预置 `pauseRequested` ⇒ 这一杆播完在边界自动停回暂停态。原恒灰的「回放」钮改文案「重播」并接线（`BTShotActionColumn.playbackTitle`）。
+  4. **打点/力度只读上屏**：序列模式恢复渲染 `BTShotInstrumentColumn`，读数为本杆真值；新增 `isReadOnly`（力度条不接受拖动但**不灰化**，灰化会让读数不可读）与 `spinTapEnabled`（仅暂停态允许点开打点盘，播放中点开会挡台面）。`BTSpinPad` / `BTSpinPadCard` / `BTSpinPadOverlay` 新增 `isReadOnly`：只读卡隐藏四向微调键与「回中」，白盘不接受拖动——演示的是录制真值，不允许改。
+  5. **信息去重（Q3/Q4）**：删除 `sequenceStepBar` 与随之作废的 `SequenceStepInfo` / `currentSequenceInfo`；当前杆信息只在导航副标题出现一次，且**去掉袋口**（`sequenceStatusText` 只留「第 n/N 杆 · 打 X 号 · 打点 · 力度」，袋口由台面高亮自证）。
+  6. **播完复位（Q5）**：`finishSequencePlayback` 终局停留 `sequenceFinishHold` 后自动回初始球形并预览第 1 杆；停留期内用户重摆/切模式/重开播则放弃该次复位。
+  7. **求解缓存**：`prediction(forStep:)` 懒缓存，让「继续/上一杆/重播」不重复求解。**不做后台预解**——实测整条序列后台预解与主线程求解并发会打崩 App（Lost connection），已在代码注释钉死。
+- **原因**：用户反馈①演示无法暂停/继续/回看上一杆；②演示时看不到本杆打点与力度；③顶部信息过挤且袋口冗余；④台面上方信息条与导航副标题重复；⑤播完停在末杆、无法直接再看。
+- **影响组件**：`PositionPlayViewModel`、`PositionPlayComposerView`、`BTShotInstrumentColumn`、`BTSpinPad` / `BTSpinPadCard` / `BTSpinPadOverlay`、`BTShotPageChrome`（`BTStrikeTitle` / `BTShotActionColumn` / `BTSolverNavStatus`）
+- **验证**：`make build` → `BUILD SUCCEEDED`；`DrillTryoutUITests` 3/0——新增 `testSequencePlaybackPauseResumeAndReset`（开播主键变「暂停」→ 停在第 1 杆终局、主键变「继续」→ 只读打点盘无「回中」与微调键 → 再走一杆后「上一杆」可用、重播完回暂停态且副标题回第 1 杆 → 继续播到底自动回初始球形），截图 `p01-playing` / `p02-paused` / `p03-paused-spinpad-readonly` / `p04b-after-replay-previous` / `p05-finished-reset`；`testTryoutSequenceModeSwitching`、`testTryoutC042Flow` 通过（后者原为**改动前既有失败**，本会话跑 baseline 实测确认，失败因 c042 内容已变为 2 球形 / 球形1 8 杆，本次一并把过期断言更正为真实值）；`DrillTryoutBoardStoreTests` / `SpinPadLayoutTests` / `BTShotHUDBarRenderTests` / `PositionPlayUndoSnapshotTests` 合计 22/0。
+- **注**：`QiuJiTests` 全量包含 `PositionPlaySequenceExportRunnerTests.test_exportAllSequences`（重渲全部出片），会把 `Resources/DrillThumbnails/*.png` 写回仓库并耗时极长，本次未跑全量，改跑上述针对性用例。
+- **日期**：2026-08-06
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-06）
+
 ## DR-060
 - **任务**：详情页/训练页台面演示回放钮加播放中状态 + 杆边界可暂停
 - **原始规范**：F-SC-01（`docs/ui-polish/11-台面演示与场景组件.md`）——回放**不可打断**；播放中按钮 `disabled` + `play.fill` 降透明；明确禁用 stop/pause 图标（按钮不可点，会成假 affordance，违 B3 诚实反馈）。
