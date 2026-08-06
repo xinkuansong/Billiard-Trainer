@@ -11,4 +11,17 @@ enum TrainingSessionKind {
     static let cognitive = "cognitive"
     /// 工具使用活跃度 —— 「打/解」分区与动作库试打。⛔ 只记日期与时长，不记任何成败（契约 §5.3）。
     static let tool = "tool"
+
+    /// 计入训练量与周目标的会话类型（契约 §5.3 表：`tool` 两列均为 ❌）。
+    static let goalCounting: Set<String> = [drill, cognitive]
+
+    /// 该会话是否计入周目标与统计页训练量。⛔ `tool` 恒为 false。
+    static func countsTowardGoal(_ kind: String) -> Bool {
+        goalCounting.contains(kind)
+    }
+
+    /// 该会话是否可以进入准确率聚合。⛔ `tool` 恒为 false（引擎判定的进袋不是真实球技）。
+    static func countsTowardAccuracy(_ kind: String) -> Bool {
+        kind == drill || kind == cognitive
+    }
 }

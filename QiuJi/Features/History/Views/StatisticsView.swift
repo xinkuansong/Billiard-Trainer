@@ -29,10 +29,9 @@ struct StatisticsView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(.horizontal, Spacing.lg)
-            } else if vm.sessions.isEmpty {
-                // Users with no drill-based training sessions may still have
-                // angle-training records; expose those aggregates here so
-                // the Statistics tab isn't blank for angle-only users.
+            } else if !vm.hasTrainingSessions {
+                // 只有 `kind="tool"` 会话（或空库）的用户按「无训练数据」处理——
+                // 工具使用不是训练量（契约 §5.3）。角度成绩仍在下方聚合区展示。
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
                         emptyState
@@ -161,6 +160,8 @@ struct StatisticsView: View {
                         .font(.btSubheadline)
                         .foregroundStyle(.btTextSecondary)
 
+                    kindBreakdownLine
+
                     HStack(spacing: Spacing.md) {
                         ForEach(vm.trainingDaysBreakdown.prefix(3), id: \.category) { item in
                             VStack(alignment: .leading, spacing: 2) {
@@ -182,6 +183,24 @@ struct StatisticsView: View {
             }
         }
         .statisticsCard()
+    }
+
+    /// 按 kind 分开的口径说明（契约 §5.3）：球台成绩与屏内练习分列，
+    /// 工具使用单独一行并明示「不计训练量」——它既不进准确率也不计周目标。
+    private var kindBreakdownLine: some View {
+        let days = vm.daysByKind
+        let mins = vm.minutesByKind
+        return VStack(alignment: .leading, spacing: 2) {
+            Text("球台训练 \(days.drill) 天 · \(mins.drill) 分钟")
+            Text("屏内练习 \(days.cognitive) 天 · \(mins.cognitive) 分钟")
+            if days.tool > 0 {
+                Text("工具使用 \(days.tool) 天 · \(mins.tool) 分钟（不计训练量与成绩）")
+                    .foregroundStyle(.btTextTertiary)
+            }
+        }
+        .font(.btCaption)
+        .foregroundStyle(.btTextSecondary)
+        .padding(.top, 2)
     }
 
     private var overviewSubtitle: String {
@@ -285,79 +304,14 @@ struct StatisticsView: View {
         .frame(height: 120)
     }
 
-    // MARK: - Success Rate Card
+    // MARK: - Success Rate Card（按 category 分组，✅ D-v29-2）
 
     private var successRateCard: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack {
-                Text("分类成功率")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btPrimary)
-                Spacer()
-                changeIndicator(
-                    value: vm.successRateChange.value,
-                    percent: vm.successRateChange.percent,
-                    unit: "%",
-                    compareLabel: vm.periodCompareLabel
-                )
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("平均成功率")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(String(format: "%.1f", vm.overallSuccessRate * 100))
-                        .font(.btStatNumber)
-                        .foregroundStyle(.btText)
-                    Text("%")
-                        .font(.btSubheadlineMedium)
-                        .foregroundStyle(.btTextSecondary)
-                }
-                Text(vm.dateRangeLabel)
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-            }
-
-            successRateChart
-
-            chartLegend(color1: .btPrimary, label1: "成功率", color2: .btText, label2: "均值线")
-        }
-        .statisticsCard()
-    }
-
-    private var successRateChart: some View {
-        Chart {
-            let avg = vm.successRateBarData.map(\.rate).reduce(0, +) / max(Double(vm.successRateBarData.count), 1)
-
-            ForEach(vm.successRateBarData) { bar in
-                BarMark(
-                    x: .value("时间", bar.label),
-                    y: .value("成功率", bar.rate * 100)
-                )
-                .foregroundStyle(Color.btPrimary.opacity(0.6))
-                .cornerRadius(2)
-            }
-
-            RuleMark(y: .value("均值", avg * 100))
-                .foregroundStyle(.btText.opacity(0.6))
-                .lineStyle(StrokeStyle(lineWidth: 1.5))
-        }
-        .chartYAxis {
-            AxisMarks(position: .leading) { _ in
-                AxisValueLabel()
-                    .foregroundStyle(Color.btTextSecondary)
-                AxisGridLine()
-                    .foregroundStyle(Color.btSeparator)
-            }
-        }
-        .chartXAxis {
-            AxisMarks { _ in
-                AxisValueLabel()
-                    .foregroundStyle(Color.btTextSecondary)
-            }
-        }
-        .frame(height: 120)
+        StatisticsCategoryRatesCard(
+            items: vm.categorySuccessRates,
+            dateRangeLabel: vm.dateRangeLabel,
+            hasScores: vm.hasDrillScores
+        )
     }
 
     // MARK: - Category Comparison Grid
@@ -464,6 +418,94 @@ struct StatisticsView: View {
     private func changeText(_ change: Double) -> String {
         if abs(change) < 0.5 { return "持平" }
         return String(format: "%+.0f%%", change)
+    }
+}
+
+// MARK: - Category Success Rates Card（✅ D-v29-2）
+
+/// 按 category 分组的成功率卡。
+///
+/// ⛔ 这里**没有**「平均成功率」这类跨分类单一比率：不同分类的计量单位（球 / 局 / 次）
+/// 加到同一分母无物理意义（契约 §5.4，D-v29-2 已裁定删除）。
+///
+/// 独立成 internal 视图（而非 `StatisticsView` 的私有 body 片段），是为了能在测试里
+/// 用真实数据离屏渲染取证——统计页整体受 Pro 门控（`BTPremiumLock(.fullMask)` 会把
+/// 内容 blur 掉），从 App 截图看不清数字。
+struct StatisticsCategoryRatesCard: View {
+    let items: [CategorySuccessRate]
+    let dateRangeLabel: String
+    let hasScores: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack {
+                Text("分类成功率")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btPrimary)
+                Spacer()
+                Text(dateRangeLabel)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+
+            Text("按分类分别统计：成功率 = 该分类累计成功 ÷ 累计目标。不同分类单位不同（球/局/次），不做合并。")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+
+            if hasScores {
+                VStack(spacing: Spacing.md) {
+                    ForEach(items) { item in
+                        row(item)
+                    }
+                }
+            } else {
+                Text("本区间还没有球台训练成绩")
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextTertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, Spacing.md)
+            }
+        }
+        .statisticsCard()
+    }
+
+    private func row(_ item: CategorySuccessRate) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(spacing: Spacing.sm) {
+                if let category = DrillCategory(rawValue: item.id) {
+                    BTDrillCategoryIcon(category: category, size: 14, filled: true)
+                }
+                Text(item.nameZh)
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(.btText)
+                Spacer()
+                Text(String(format: "%.0f%%", item.rate * 100))
+                    .font(.btSubheadlineSemibold)
+                    .foregroundStyle(.btPrimary)
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.btPrimary.opacity(0.12))
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.btPrimary)
+                        .frame(width: max(2, geo.size.width * CGFloat(min(max(item.rate, 0), 1))))
+                }
+            }
+            .frame(height: 6)
+
+            HStack(spacing: Spacing.md) {
+                Text(item.countSummary)
+                Text("\(item.totalSets) 组")
+                if item.hasMixedUnits {
+                    Text("单位混合")
+                        .foregroundStyle(.btWarning)
+                }
+            }
+            .font(.btCaption)
+            .foregroundStyle(.btTextTertiary)
+        }
     }
 }
 

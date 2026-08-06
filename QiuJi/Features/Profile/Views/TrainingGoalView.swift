@@ -1,6 +1,28 @@
 import SwiftUI
 import SwiftData
 
+/// 周目标 / 月达成率的计数口径（契约 §5.3）。
+///
+/// ⛔ `kind="tool"` 不计：工具使用只记活跃度，把它算成「训练了一天」会虚高目标完成度。
+/// 计入的是 `drill` + `cognitive`。
+enum TrainingGoalMetrics {
+
+    /// 计入目标的会话子集。
+    static func goalCounting(_ sessions: [TrainingSession]) -> [TrainingSession] {
+        sessions.filter { TrainingSessionKind.countsTowardGoal($0.kind) }
+    }
+
+    /// `since` 之后（含）有计入目标的会话的自然日天数。
+    static func daysTrained(_ sessions: [TrainingSession],
+                            since: Date,
+                            calendar: Calendar) -> Int {
+        let days = goalCounting(sessions)
+            .filter { $0.date >= since }
+            .map { calendar.startOfDay(for: $0.date) }
+        return Set(days).count
+    }
+}
+
 struct TrainingGoalView: View {
     @ObservedObject private var prefs = UserPreferences.shared
     @Query private var sessions: [TrainingSession]
@@ -227,10 +249,7 @@ struct TrainingGoalView: View {
     private var daysTrainedThisWeek: Int {
         let now = Date()
         guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: now)?.start else { return 0 }
-        let uniqueDays = Set(sessions.filter { $0.date >= weekStart }.map {
-            calendar.startOfDay(for: $0.date)
-        })
-        return uniqueDays.count
+        return TrainingGoalMetrics.daysTrained(sessions, since: weekStart, calendar: calendar)
     }
 
     private var weeklyProgress: CGFloat {
@@ -246,10 +265,8 @@ struct TrainingGoalView: View {
         let totalGoalDays = weeksElapsed * prefs.weeklyGoalDays
         guard totalGoalDays > 0 else { return "—" }
 
-        let uniqueDays = Set(sessions.filter { $0.date >= monthStart }.map {
-            calendar.startOfDay(for: $0.date)
-        })
-        let rate = Int(min(Double(uniqueDays.count) / Double(totalGoalDays) * 100, 100))
+        let trainedDays = TrainingGoalMetrics.daysTrained(sessions, since: monthStart, calendar: calendar)
+        let rate = Int(min(Double(trainedDays) / Double(totalGoalDays) * 100, 100))
         return "\(rate)%"
     }
 }

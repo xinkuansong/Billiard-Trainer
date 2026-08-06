@@ -14,7 +14,7 @@ struct HistoryCalendarView: View {
     @State private var activeTab: HistoryTab = .history
     @State private var showSubscription = false
     @State private var selectedSessionId: UUID?
-    @State private var selectedAngleSession: AngleTrainingSession?
+    @State private var selectedCognitiveSession: CognitiveSessionItem?
 
     private let weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"]
 
@@ -64,12 +64,12 @@ struct HistoryCalendarView: View {
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
         }
-        .sheet(item: $selectedAngleSession) { session in
+        .sheet(item: $selectedCognitiveSession) { session in
             NavigationStack {
                 AngleSessionDetailView(session: session)
                     .toolbar {
                         ToolbarItem(placement: .topBarTrailing) {
-                            Button("完成") { selectedAngleSession = nil }
+                            Button("完成") { selectedCognitiveSession = nil }
                         }
                     }
             }
@@ -187,7 +187,7 @@ struct HistoryCalendarView: View {
         let hasSession = day.isCurrentMonth && vm.hasSession(on: day.date)
         let selected = day.isCurrentMonth && vm.isSelected(day.date)
         let today = day.isCurrentMonth && vm.isToday(day.date)
-        let markerLabel = hasSession ? vm.markerLabel(for: day.date) : nil
+        let marker = hasSession ? vm.marker(for: day.date) : nil
 
         return Button {
             if day.isCurrentMonth {
@@ -220,14 +220,18 @@ struct HistoryCalendarView: View {
                 }
                 .frame(width: 36, height: 36)
 
-                if let label = markerLabel {
-                    Text(label)
+                if let marker {
+                    // v29 W6：tool 活跃用淡色标记与训练标记区分——工具使用不是训练量、
+                    // 不进任何成绩聚合（契约 §5.3）。
+                    Text(marker.label)
                         .font(.btMicro)
                         .fontWeight(.medium)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(marker.isToolActivity ? Color.btTextSecondary : .white)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
-                        .background(Color.btPrimary)
+                        .background(marker.isToolActivity
+                                    ? Color.btPrimary.opacity(0.18)
+                                    : Color.btPrimary)
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
                 } else {
                     Color.clear.frame(height: 14)
@@ -281,13 +285,17 @@ struct HistoryCalendarView: View {
             }
             .buttonStyle(BTPressableStyle.row)
 
-        case .angle(let angleSession):
+        case .cognitive(let cognitiveSession):
             Button {
-                selectedAngleSession = angleSession
+                selectedCognitiveSession = cognitiveSession
             } label: {
-                angleRow(angleSession)
+                cognitiveRow(cognitiveSession)
             }
             .buttonStyle(BTPressableStyle.row)
+
+        case .tool(let toolSession):
+            // ⛔ 无成绩、无详情可看（契约 §5.3 只记日期与时长），故不可点。
+            toolRow(toolSession)
         }
     }
 
@@ -347,9 +355,13 @@ struct HistoryCalendarView: View {
                     Text(vm.displayName(for: session))
                         .font(.btHeadline)
                         .foregroundStyle(locked ? .btTextTertiary : .btText)
+                        .lineLimit(1)
                 }
 
                 HStack(spacing: Spacing.lg) {
+                    if let category = vm.categoryLabel(for: session) {
+                        Text(category)
+                    }
                     Text("\(session.drillEntries.count) 项目")
                     Text("\(vm.totalSets(for: session)) 组")
                     Text("\(session.totalDurationMinutes) 分钟")
@@ -376,14 +388,15 @@ struct HistoryCalendarView: View {
         .opacity(locked ? 0.7 : 1)
     }
 
-    private func angleRow(_ session: AngleTrainingSession) -> some View {
+    /// 认知练习行。名称取会话 `note` 快照（契约 §6.5），不回查当前文案表。
+    private func cognitiveRow(_ session: CognitiveSessionItem) -> some View {
         HStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
                     Circle()
                         .fill(Color.btAccent)
                         .frame(width: 10, height: 10)
-                    Text(session.quizTypeNameZh)
+                    Text(session.displayNameZh)
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
                 }
@@ -392,7 +405,7 @@ struct HistoryCalendarView: View {
                     Text("\(session.questionCount) 题")
                     Text(String(format: "平均 %.1f°", session.averageError))
                     Text(String(format: "正确率 %.0f%%", session.accurateRate * 100))
-                    Text(angleTimeRange(for: session))
+                    Text(timeRange(from: session.startDate, to: session.endDate))
                 }
                 .font(.btFootnote14)
                 .foregroundStyle(.btTextSecondary)
@@ -410,13 +423,42 @@ struct HistoryCalendarView: View {
         .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.04), radius: 8, x: 0, y: 2)
     }
 
-    private func angleTimeRange(for session: AngleTrainingSession) -> String {
+    /// 工具使用行：淡色、无成绩、无箭头，与训练记录明确区分。
+    private func toolRow(_ session: ToolSessionItem) -> some View {
+        HStack(spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.sm) {
+                    Circle()
+                        .fill(Color.btTextTertiary.opacity(0.5))
+                        .frame(width: 10, height: 10)
+                    Text(session.displayNameZh)
+                        .font(.btSubheadlineMedium)
+                        .foregroundStyle(.btTextSecondary)
+                }
+
+                HStack(spacing: Spacing.lg) {
+                    Text("工具使用")
+                    Text("\(session.durationMinutes) 分钟")
+                    Text(timeRange(from: session.date, to: session.date))
+                }
+                .font(.btFootnote14)
+                .foregroundStyle(.btTextTertiary)
+            }
+
+            Spacer()
+        }
+        .padding(Spacing.lg)
+        .background(Color.btBGSecondary.opacity(0.6))
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+
+    private func timeRange(from start: Date, to end: Date) -> String {
         let fmt = DateFormatter()
         fmt.locale = Locale(identifier: "zh_CN")
         fmt.dateFormat = "HH:mm"
-        let start = fmt.string(from: session.startDate)
-        let end   = fmt.string(from: session.endDate)
-        return start == end ? start : "\(start)-\(end)"
+        let s = fmt.string(from: start)
+        let e = fmt.string(from: end)
+        return s == e ? s : "\(s)-\(e)"
     }
 }
 

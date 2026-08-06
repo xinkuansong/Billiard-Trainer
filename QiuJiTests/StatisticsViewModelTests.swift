@@ -82,7 +82,10 @@ final class StatisticsViewModelTests: XCTestCase {
     // MARK: - trainingDays
 
     func test_trainingDays_counts_unique_days() {
-        let today = Date()
+        // 基准取「今天中午」而不是 `Date()`：用 `Date()` 时 +1h 会在 23:00 后跨到次日，
+        // 断言随运行时钟真假不定（2026-08-06 23:21 在未改动的 main 上同样复现失败，
+        // 见 build/w6-logs/baseline-flake-main.log）。这里修的是断言前提，不是被测行为。
+        let today = Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600)
         vm.sessions = [
             makeSession(date: today),
             makeSession(date: today.addingTimeInterval(3600)),
@@ -220,11 +223,12 @@ final class StatisticsViewModelTests: XCTestCase {
     }
 
     // MARK: - successRateBarData
-
-    func test_successRateBarData_week_has_7_points() {
-        vm.timeRange = .week
-        XCTAssertEqual(vm.successRateBarData.count, 7)
-    }
+    //
+    // ✅ D-v29-2（契约 §5.4）：`successRateBarData` / `overallSuccessRate` /
+    // `successRateChange` 已随「删除全局单一准确率」一并下线，故此处原
+    // `test_successRateBarData_week_has_7_points` 一并移除——被测能力按裁定不再存在，
+    // 不是断言失败后删断言。分组口径的覆盖见
+    // `V29W6HistoryStatisticsKindTests` 与下方 `categorySuccessRates` 各条。
 
     // MARK: - categorySuccessRates
 
