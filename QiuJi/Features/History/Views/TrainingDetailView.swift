@@ -12,13 +12,16 @@ struct TrainingDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var showShareSheet = false
     @State private var showNoteEditor = false
+    @State private var showDataEditor = false
     @State private var editingNote = ""
     @State private var actionError: String?
+    /// 编辑保存后自增，强制重建正文让派生数字（成功率 / 进球 / 组）跟着刷新。
+    @State private var revision = 0
 
     var body: some View {
         Group {
             if let session {
-                contentView(session)
+                contentView(session).id(revision)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -67,6 +70,11 @@ struct TrainingDetailView: View {
         }
         .sheet(isPresented: $showNoteEditor) {
             noteEditorSheet
+        }
+        .sheet(isPresented: $showDataEditor) {
+            if let session {
+                TrainingDataEditorView(session: session, onSave: saveTrainingData)
+            }
         }
         .alert("操作失败", isPresented: Binding(
             get: { actionError != nil },
@@ -242,9 +250,9 @@ struct TrainingDetailView: View {
 
     private func bottomBar(_ session: TrainingSession) -> some View {
         HStack(spacing: Spacing.md) {
-            // W2b: "编辑数据" stays unwired until the W4 field expansion lands,
-            // because the editable surface depends on those new fields.
-            Button {} label: {
+            Button {
+                showDataEditor = true
+            } label: {
                 HStack(spacing: Spacing.sm) {
                     Image(systemName: "pencil")
                     Text("编辑数据")
@@ -327,6 +335,28 @@ struct TrainingDetailView: View {
             showNoteEditor = false
         } catch {
             actionError = "心得保存失败：\(error.localizedDescription)"
+        }
+    }
+
+    /// 「编辑数据」保存：只写这条记录自身的成绩面，快照字段不动（契约 §6.5）。
+    /// 返回 nil 表示成功；失败时回滚并把原因交回编辑器展示，不吞错。
+    private func saveTrainingData(_ draft: TrainingDataDraft) -> String? {
+        guard let session else { return "训练记录已不存在。" }
+        do {
+            try draft.apply(to: session)
+            try modelContext.save()
+            let id = session.id
+            Task { @MainActor in
+                SyncQueueManager.shared.enqueue(
+                    entityType: "TrainingSession", entityId: id, operation: "update"
+                )
+            }
+            revision += 1
+            return nil
+        } catch {
+            modelContext.rollback()
+            loadSession()
+            return "成绩保存失败：\(error.localizedDescription)"
         }
     }
 

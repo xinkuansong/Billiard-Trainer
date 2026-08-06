@@ -367,35 +367,12 @@ private struct SetRow: View {
 
     /// 多球形 drill：逐组选择本组打的球形（契约 §4.1 球形维度）。
     private var formationColumn: some View {
-        Menu {
-            ForEach(formationOptions) { option in
-                Button {
-                    setData.formationToken = option.token
-                    setData.formationName = option.name
-                } label: {
-                    if setData.formationToken == option.token {
-                        Label(option.name, systemImage: BTIcon.checkmark)
-                    } else {
-                        Text(option.name)
-                    }
-                }
-            }
-        } label: {
-            HStack(spacing: 2) {
-                Text(setData.formationName.map { DrillFormationOption(token: "", name: $0).shortLabel } ?? "选择")
-                    .font(.btCaption)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                    .foregroundStyle(setData.formationName == nil ? .btTextTertiary : .btPrimary)
-                Image(systemName: BTIcon.chevronDown)
-                    .font(.btMicro)
-                    .foregroundStyle(.btTextTertiary)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 36)
-            .contentShape(Rectangle())
-        }
-        .accessibilityLabel("第\(setData.id)组球形：\(setData.formationName ?? "未选择")")
+        BTFormationMenu(
+            options: formationOptions,
+            token: $setData.formationToken,
+            name: $setData.formationName,
+            accessibilityText: "第\(setData.id)组球形：\(setData.formationName ?? "未选择")"
+        )
     }
 
     private var timerColumn: some View {
@@ -450,6 +427,49 @@ private struct SetRow: View {
         case .completed: return .btSeparator
         case .pending: return .btSeparator
         }
+    }
+}
+
+// MARK: - Formation Menu
+
+/// 球形选择菜单：训练录入表格与历史「编辑数据」共用同一组件，保证两处的视觉与
+/// 写入语义一致 —— 选中一个球形即同时写 token 与**当时的显示名**（契约 §6.5）。
+struct BTFormationMenu: View {
+    let options: [DrillFormationOption]
+    @Binding var token: String?
+    @Binding var name: String?
+    var accessibilityText: String
+
+    var body: some View {
+        Menu {
+            ForEach(options) { option in
+                Button {
+                    token = option.token
+                    name = option.name
+                } label: {
+                    if token == option.token {
+                        Label(option.name, systemImage: BTIcon.checkmark)
+                    } else {
+                        Text(option.name)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 2) {
+                Text(name.map { DrillFormationOption(token: "", name: $0).shortLabel } ?? "选择")
+                    .font(.btCaption)
+                    .fontWeight(.medium)
+                    .lineLimit(1)
+                    .foregroundStyle(name == nil ? .btTextTertiary : .btPrimary)
+                Image(systemName: BTIcon.chevronDown)
+                    .font(.btMicro)
+                    .foregroundStyle(.btTextTertiary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .contentShape(Rectangle())
+        }
+        .accessibilityLabel(accessibilityText)
     }
 }
 
