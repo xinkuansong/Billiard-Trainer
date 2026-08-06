@@ -82,6 +82,50 @@
 
 ## DR 记录（设计调整）
 
+## DR-060
+- **任务**：详情页/训练页台面演示回放钮加播放中状态 + 杆边界可暂停
+- **原始规范**：F-SC-01（`docs/ui-polish/11-台面演示与场景组件.md`）——回放**不可打断**；播放中按钮 `disabled` + `play.fill` 降透明；明确禁用 stop/pause 图标（按钮不可点，会成假 affordance，违 B3 诚实反馈）。
+- **调整后**：
+  1. `DrillSceneController` 引入 `PlaybackState` 四态：`idle` / `playing` / `pausingAfterShot`（已请求暂停、当前杆仍在播）/ `paused`；`isPlaying` 降为派生属性（`playing || pausingAfterShot`），继续承担拦截已排期异步回调的职责。
+  2. 按钮改单一入口 `togglePlayback()`：空闲开播 → 播放中请求暂停 → 暂停请求期可再点撤销 → 暂停态点继续。图标 `play.fill` ⇄ `pause.fill`，标签「回放 / 暂停 / 本杆结束后暂停 / 继续」。**按钮不再 disabled**。
+  3. **暂停语义 = 杆边界生效**：唯一生效点在 `scheduleNextStep`，即当前杆已完整播完并落到静止位；暂停停在该杆结果盘面，HUD 保留（整条序列尚未播完），`resume()` 从下一杆接上。
+- **原因**：用户反馈①点播放后按钮无变化、应有播放中状态；②需要暂停，且暂停要能完成当前杆。DR-059 把演示从单杆改为整条序列后单次回放可达数十秒，「不可打断」不再合理——pause 此刻是真行动，F-SC-01 禁用 pause 图标的前提（按钮不可点）已不成立。
+- **影响组件**：`DrillSceneView`（`DrillSceneController` + View）、`DrillRecordView`（复用自动同步）
+- **验证**：`make build` → `BUILD SUCCEEDED`；`DrillSceneThreeBeatUITests` 4/0，新增 `testPlayButtonStateAndPauseCompletesCurrentShot`（点播放后标签立刻变「暂停」；点暂停先进「本杆结束后暂停」；当前杆播完落「继续」；静置 6s 断言 HUD 读数不变以证未擅自播下一杆；点继续回「暂停」）；截图 `build/drill-scene-three-beat/p1–p4`；`BTShotHUDBarRenderTests` 2/0。
+- **日期**：2026-08-06
+- **回写目标**：`docs/ui-polish/11-台面演示与场景组件.md` § F-SC-01、`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `docs/ui-polish/11-台面演示与场景组件.md` § F-SC-01「后续变更」标注（2026-08-06）；✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-06）
+
+## DR-059
+- **任务**：详情页/训练页顶栏改「整条序列逐杆演示」+ 球杆逻辑对齐试打页 + HUD 时序改版
+- **原始规范**（DR-058 落地态）：点回放只演示 `DrillStaticPreview.resolveSource` 的**代表性单杆**；亮方案拍的静止球杆由 `DrillStaticPreview.showCueAtRest` 绘制；HUD 条静帧即显示、触球瞬间隐藏。
+- **调整后**：
+  1. **整条序列**：`DrillSceneController` 按 `source.token` 命中同一 formation 取 `steps`，播放改逐杆循环〔摆 `step.before` → 亮方案 → `runCueStroke` → 触球清线 → `TrajectoryPlayback` 回放 → 落 `finalPositions` 静止位 → 杆间停顿 0.7s〕，全部走完才复位静帧。首杆保留 1.5s 亮方案，后续杆 0.45s（与试打页 0.4s 同量级），杆间停顿取试打页 `sequenceInterShotPause` 同值。无 steps（shotIntent/animation 类）退回单杆路径。
+  2. **球杆一致性**：瞄准位摆杆改 `scene.updateCueStick`（与 `PositionPlayViewModel.runSequenceStep` 同一调用），不再用静帧的 `showCueAtRest`——两者杆位/仰角算法不同，混用会在「定格 → 运杆第一帧」跳一下；运杆/出杆/减速跟杆/淡出全部交回 `CueStroke`，删掉 DR-058 自加的 `max(ballEnd, cueEnd)` 复位补偿，改为照抄试打页时序（cueAction 完成 → tail → rest → 停顿 → 下一杆）。
+  3. **HUD 时序**：改为「点播放前不显示 → 播放全程显示并逐杆换成当前杆参数 → 整条序列播完隐藏」。`applyPreviewFrame` 不再置 `showOverlay = true`；`resetBalls` 一并隐藏。HUD 改条件渲染 + `Color.clear` 恒定占位（条高不跳），并挂 `drillShotHUDBar` 标识供 UI 测试断言。
+- **原因**：用户反馈①一个动作序列的所有击球无法完整展示；②球杆运杆/出杆/减速/消失与试打页不一致；③要求 HUD 仅在播放期间可见。
+- **影响组件**：`DrillSceneView`（`DrillSceneController` + View）、`DrillRecordView`（复用自动同步）
+- **验证**：`make build` → `BUILD SUCCEEDED`；`DrillSceneThreeBeatUITests` 3/0——`testSequencePlaysAllShotsAndHUDTiming`（c001 5 杆，截图 `s4/s5` 可见球逐个减少、序列推进）、`testHUDUpdatesPerShot`（c078 16 杆逐杆参数互异，轮询到 ≥2 种力度读数，证伪「只显示首杆」）、`testActiveTrainingBallTableUsesSameHUD`；`BTShotHUDBarRenderTests` 2/0；`DrillTryoutBoardStoreTests` 9/0。
+- **注**：`DrillStaticPreviewTests/test_resolveSource_multiFormationUsesA1Board` 为**改动前既有失败**（本会话已跑 baseline 实测确认），与本次无关。
+- **日期**：2026-08-06
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-06）
+
+## DR-058
+- **任务**：详情页 / 训练页顶栏球桌演示对齐导出教学视频（三拍叙事 + 底部 HUD 条）
+- **原始规范**：`DrillSceneView` 点回放 = 2s 预备停顿（线/杆/HUD 全程保留）→ 一次性清除**含球杆** → 球直接位移；打点盘与力度条以浮层贴母球侧 / 库边，靠避让启发式躲球（`DrillShotOverlay` / `DrillPowerBar`）。
+- **调整后**：
+  1. **三拍叙事**，与 `SequenceVideoExporter.Options.teachingVideo()` 同节奏：读球形 1.5s（素台，不剧透打点/力度）→ 亮方案 1.5s（预告线 + 假想球 + 静止瞄准位杆 + HUD）→ 执行（`AngleTrainingScene.runCueStroke` 真运杆/出杆/跟杆，触球瞬间清线转物理回放）。
+  2. **HUD 形态**：浮层改为球桌下方固定暗条，抽出共享组件 `BTShotHUDBar`（导出与 App 单一真源）；删除 `DrillShotOverlay` / `DrillPowerBar` 及 `preferRightSide` / `spinPosition` 避让启发式与 `normScreen` / `occupiedPoints` 屏幕映射。
+  3. **复位时机**取「球全停」与「球杆收完」较晚者，避免短杆时跟杆中的球杆被硬切回瞄准位。
+  4. 球桌方向不变（详情/训练仍 `applyTopDown2D` 横版）；竖版仅导出档使用。
+- **原因**：用户要求详情页与训练页的击球演示（球杆 / 打点盘 / 力度条显示方式）参照 2D 渲染视频；浮层避让本是遮挡妥协，底部条同时消除 E16/R1 的贴边裁切补丁。
+- **影响组件**：`BTShotHUDBar`（新增）、`DrillSceneView`（`DrillSceneController` + View）、`SequenceVideoExporter`（私有 `ShotHUDView` 移除改引共享组件）、`DrillRecordView`（复用，自动同步）
+- **验证**：`make build` → `BUILD SUCCEEDED`；`BTShotHUDBarRenderTests` 2/0；`DrillSceneThreeBeatUITests` 2/0，截图 `build/drill-scene-three-beat/b0–b5`（三拍逐拍）与 `t2-drill-record-table`（训练页），`build/hud-bar-render/export-k1.5.png`（导出档 HUD 无回归）。
+- **日期**：2026-08-06
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-06）
+
 ## DR-057
 - **任务**：动作详情页信息层级——去台面「上手试打」覆层；「查看精讲」降权
 - **原始规范**：`DrillSceneView` 右下主色胶囊「上手试打」（§1.6 / E16）；训练要点卡内 `BTButtonStyle.primary` 全宽「查看精讲」。

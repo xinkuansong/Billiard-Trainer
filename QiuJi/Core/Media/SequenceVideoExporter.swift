@@ -775,8 +775,10 @@ enum SequenceVideoExporter {
     private static func makeHUDImage(shot: PlannedShot, options: Options) -> CGImage? {
         let strip = CGFloat(options.hudStripHeight)
         guard strip > 0 else { return nil }
-        let renderer = ImageRenderer(content: ShotHUDView(
-            spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity, k: strip / 80
+        let k = strip / 80
+        let renderer = ImageRenderer(content: BTShotHUDBar(
+            spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity,
+            k: k, powerBarWidth: 220 * k, fixedWidth: true
         ))
         renderer.scale = 1
         return renderer.cgImage
@@ -802,55 +804,6 @@ enum SequenceVideoExporter {
                                     width: hud.width, height: hud.height))
         }
         return cg.makeImage() ?? scene
-    }
-
-    /// HUD 条内容：打点（`BTSpinMiniIcon` 同款球面，无卡片底）+ 百分比读数 + 力度条 + 档名/数值。
-    /// 设计基准 80px 条高（1280 宽），`k` 随条高等比缩放。
-    private struct ShotHUDView: View {
-        let spinX: Double
-        let spinY: Double
-        let velocity: Double
-        var k: CGFloat = 1
-
-        var body: some View {
-            HStack(spacing: 28 * k) {
-                HStack(spacing: 12 * k) {
-                    // 真实比例（ADR-P11-13）：教学素材上的打点可照搬到真球，
-                    // 红斑位置/大小与打点盘同一几何，含打滑极限虚线圈。
-                    BTSpinMiniIcon(spinX: spinX, spinY: spinY, diameter: 56 * k, trueScale: true)
-                    // 打点/力度 = 方案量值 → 金（HUD 仪表玻璃语法，导出同款，T-P18-45）。
-                    Text(SpinDisplay.readout(spinX: spinX, spinY: spinY))
-                        .font(.system(size: 20 * k, weight: .bold, design: .rounded))
-                        .foregroundStyle(HUDStyle.valueAdjustable)
-                        .monospacedDigit()
-                }
-                HStack(spacing: 12 * k) {
-                    Capsule()
-                        .fill(.white.opacity(0.16))
-                        .frame(width: 220 * k, height: 8 * k)
-                        .overlay(alignment: .leading) {
-                            // 刻度语法：力度水位 = 金色填充。
-                            Capsule()
-                                .fill(HUDStyle.tickIndicator)
-                                .frame(width: 220 * k * powerFraction)
-                        }
-                    Text("\(PowerDisplay.name(velocity)) \(String(format: "%.1f", velocity)) m/s")
-                        .font(.system(size: 20 * k, weight: .bold, design: .rounded))
-                        .foregroundStyle(HUDStyle.valueAdjustable)
-                        .monospacedDigit()
-                }
-            }
-            .padding(.horizontal, 24 * k)
-            .frame(height: 80 * k)
-            // ImageRenderer 离屏渲染下防止文本被压窄竖排折行：按理想宽度展开。
-            .fixedSize()
-        }
-
-        /// 填充比例与编排台力度滑条同量程（ShotTuning.velocityRange 单一真源）。
-        private var powerFraction: CGFloat {
-            let r = ShotTuning.velocityRange
-            return CGFloat(min(max((velocity - r.lowerBound) / (r.upperBound - r.lowerBound), 0), 1))
-        }
     }
 
     // MARK: - Perspective fit (ADR-P11-15)

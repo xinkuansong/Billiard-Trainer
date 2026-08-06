@@ -13,39 +13,61 @@ final class DrillSceneController: ObservableObject {
     let scene = AngleTrainingScene()
     var cameraMode: AngleTrainingScene.CameraMode = .topDown2D
 
-    /// 击球前叠加在球桌上的「打点 + 力度」指示器数据（击球后隐藏，回放后复现）。
+    /// 本杆「打点 + 力度」HUD 条数据（逐杆更新为当前杆参数）。
     struct ShotOverlayData {
         let spinX: Double      // +左塞 / −右塞
         let spinY: Double      // +高杆 / −低杆
         let velocity: Double   // 杆头速度 m/s
-        /// 母球归一化位置（打点盘贴在它的一侧）。
-        let cue: CGPoint
-        /// 需避让的归一化位置（母球/目标球/袋口/轨迹中点/播放按钮）。
-        let occupied: [CGPoint]
     }
     @Published var overlayData: ShotOverlayData?
     @Published var showOverlay = false
 
     /// 相框/正交取景与 `DrillSceneView` 必须一致，否则世界→屏幕映射会偏。
     static let frameAspect: Double = 1.81
-    /// 顶视正交半高（场景单位），与 `DrillStaticPreview.Options.detail` 同一值。
-    static let orthoScale: Double = DrillStaticPreview.Options.detail.orthoScale
 
     private var didSetup = false
     private var didPlaceBoard = false
     private var drill: DrillContent?
     private var previewSource: DrillStaticPreview.Source?
     private var prediction: ShotPrediction?
+    /// 整条示范序列（与静帧同一 formation）。为空 = 无多杆数据，退回单杆演示。
+    private var steps: [SequenceStep] = []
+    private var stepIndex = 0
     private var homePositions: [String: SCNVector3] = [:]
     private var surfaceY: Float = 0
     private var trajectoryNodes: [SCNNode] = []
-    /// F-SC-01：回放锁定期间 chrome 可见；不改不可打断语义。
-    @Published private(set) var isPlaying = false
 
-    /// 点播放到开始击打之间的预备停顿（秒），让动作不至于太快、先看清计划。
-    private let preStrikePause: TimeInterval = 2.0
+    /// 演示播放状态机。
+    ///
+    /// F-SC-01 原为「回放不可打断」（按钮 disabled、不给 stop 图标以免假 affordance）；
+    /// 序列演示可长达数十秒，现放开为**杆边界可暂停**：暂停请求不打断当前杆，
+    /// 当前杆完整播完后停在该杆结果盘面，再点继续从下一杆接上。
+    /// 因为暂停此刻是真行动，pause 图标不再是假 affordance。
+    enum PlaybackState {
+        case idle
+        /// 正在演示。
+        case playing
+        /// 已请求暂停，等当前杆播完（此期间仍在播，可再点取消）。
+        case pausingAfterShot
+        /// 停在某杆结果盘面，等待继续。
+        case paused
+    }
+    @Published private(set) var playbackState: PlaybackState = .idle
 
-    private var orthoScale: Double { Self.orthoScale }
+    /// 演示进行中（含「等当前杆播完」）：用于拦截已排期的异步回调。
+    var isPlaying: Bool {
+        playbackState == .playing || playbackState == .pausingAfterShot
+    }
+
+    /// 开场三拍（与 `SequenceVideoExporter.Options.teachingVideo()` 同节奏）：
+    /// 「读球形」只摆球 → 「亮方案」预告线 + 假想球 + 瞄准位杆 → 「执行」运杆出杆。
+    private let observeHold: TimeInterval = 1.5
+    private let setupHold: TimeInterval = 1.5
+    /// 序列后续杆的亮方案定格：与试打页 `runSequenceStep` 的 0.4s 同量级，
+    /// 不用首杆的 1.5s，否则多杆序列整体拖沓。
+    private let followUpSetupHold: TimeInterval = 0.45
+    /// 杆间停顿：与 `PositionPlayViewModel.sequenceInterShotPause` 同值。
+    private let interShotPause: TimeInterval = 0.7
 
     func setup(drill: DrillContent) {
         guard !didSetup else { return }
@@ -59,6 +81,11 @@ final class DrillSceneController: ObservableObject {
         guard let source = DrillStaticPreview.resolveSource(for: drill) else { return }
         previewSource = source
         let solveSurfaceY = surfaceY
+
+        // 整条示范序列：必须取 `resolveSource` 选中的同一 formation（按 token 命中），
+        // 否则静帧球形与回放序列会分属不同球形而对不上。
+        steps = DrillTryoutBoardStore.formations(for: drill.id)
+            .first(where: { $0.token == source.token })?.steps ?? []
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let pred = PositionPlayShotSolver.solve(
@@ -99,70 +126,323 @@ final class DrillSceneController: ObservableObject {
             }
         }
 
-        if let cuePos = homePositions[PositionPlayBall.cueKey] {
-            let targetKey = source.shot.targetKey
-            let targetPos = homePositions[targetKey] ?? cuePos
-            let pocketIndex = ShotIntent.pocketIndex(for: source.shot.pocket) ?? -1
-            overlayData = ShotOverlayData(
-                spinX: applied.spinX,
-                spinY: applied.spinY,
-                velocity: applied.velocity,
-                cue: normScreen(cuePos),
-                occupied: occupiedPoints(
-                    cue: cuePos, target: targetPos, pocketIndex: pocketIndex
-                )
-            )
-        }
-        showOverlay = overlayData != nil
+        // 静帧只备好数据不显示：HUD 仅在播放期间可见（点播放前后都隐藏）。
+        overlayData = ShotOverlayData(
+            spinX: applied.spinX, spinY: applied.spinY, velocity: applied.velocity
+        )
     }
 
+    /// 播放按钮单一入口：空闲开播 / 播放中请求暂停 / 暂停中继续 / 撤销暂停请求。
+    func togglePlayback() {
+        switch playbackState {
+        case .idle:
+            play()
+        case .playing:
+            playbackState = .pausingAfterShot
+        case .pausingAfterShot:
+            playbackState = .playing
+        case .paused:
+            resume()
+        }
+    }
+
+    /// 从暂停处继续：接着下一杆演示（当前杆已在暂停时播完）。
+    private func resume() {
+        guard playbackState == .paused, !steps.isEmpty else { return }
+        playbackState = .playing
+        showOverlay = overlayData != nil
+        let next = stepIndex + 1
+        guard next < steps.count else { finishPlayback(); return }
+        runStep(next)
+    }
+
+    /// 播放整条示范序列：开场「读球形」一拍后逐杆演示，杆间停顿衔接，全部走完才收尾。
+    /// HUD 条自点播放起常显（逐杆更新为当前杆参数），整条序列播完才隐藏。
     func play() {
         guard !isPlaying, scene.cueBallNode != nil else { return }
-        isPlaying = true
+        playbackState = .playing
+        stepIndex = 0
         restoreHomePositions(clearActions: true)
 
-        // 2 秒预备停顿：先保留轨迹 + 打点/力度指示器，让用户看清这一杆的计划，再清除并击打。
-        DispatchQueue.main.asyncAfter(deadline: .now() + preStrikePause) { [weak self] in
-            guard let self else { return }
-            self.clearTrajectory()
-            self.scene.ghostBallNode?.isHidden = true
-            self.scene.hideContactDot()
-            self.scene.hideCueStick()
-            self.showOverlay = false
-            self.startStrike()
+        // 第 1 拍·读球形：撤掉预告线 / 假想球 / 球杆，只留球形供观察。
+        hidePlanDecorations()
+        scene.hideCueStick()
+
+        // HUD 随播放开始出现，并预置首杆参数。
+        updateOverlay(shot: steps.first?.shot ?? previewSource?.shot)
+        showOverlay = overlayData != nil
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + observeHold) { [weak self] in
+            guard let self, self.isPlaying else { return }
+            self.runStep(0)
         }
     }
 
-    /// 预备停顿结束后真正开始球的运动（物理回放 / 退回手画折线）。
-    private func startStrike() {
-        guard let source = previewSource else { resetBalls(); return }
+    /// 逐杆演示的一杆：摆该杆击球前盘面 → 亮方案（线 + 假想球 + 瞄准位杆）→ 定格 → 运杆出杆。
+    /// 与试打页 `PositionPlayViewModel.runSequenceStep` 同结构、同 `CueStroke` 运动学。
+    private func runStep(_ i: Int) {
+        guard isPlaying else { return }
+        // 无多杆数据（shotIntent / animation 类）退回单杆演示。
+        guard !steps.isEmpty else { startSingleShot(); return }
+        guard i < steps.count else { finishPlayback(); return }
 
-        if let pred = prediction, let recorder = pred.recorder, pred.duration > 0.05 {
-            let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-            let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
-            let speed: Float = 1.0
-            ShotAudioScheduler.shared.play(prediction: pred)
-            var startedCue = false
-            for (key, node) in scene.allBallNodes where !node.isHidden {
-                let name = PositionPlayShotSolver.predName(boardKey: key, shot: source.shot)
-                guard let action = playback.action(for: node, ballName: name, speed: speed) else {
-                    continue
-                }
-                if PositionPlayBall.isCue(key) {
-                    startedCue = true
-                    action.timingMode = .linear
-                    node.runAction(action) { [weak self] in
-                        Task { @MainActor in self?.resetBalls() }
-                    }
-                } else {
-                    node.runAction(action)
-                }
-            }
-            if !startedCue { resetBalls() }
+        stepIndex = i
+        let step = steps[i]
+        placeStepBoard(step.before)
+        updateOverlay(shot: step.shot)
+
+        guard let pred = PositionPlayShotSolver.solve(
+                  before: step.before, shot: step.shot, surfaceY: surfaceY
+              ), pred.feasible,
+              let recorder = pred.recorder, pred.duration > 0.05,
+              let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
+              let aim = DrillStaticPreview.aimDirection(path: pred.cuePath, from: cueNode.position)
+        else {
+            // 本杆不可行：直接落到该杆结果并推进，不阻断整条演示（同试打页）。
+            clearTrajectory()
+            scene.hideCueStick()
+            applyStepRest(step: step, prediction: nil)
+            scheduleNextStep(after: i)
             return
         }
 
-        playAnimationFallback()
+        drawPlan(prediction: pred, shot: step.shot)
+        let strikePos = CueStroke.strikePosition(
+            cue: cueNode.position, aim: aim, spinX: step.shot.spinX
+        )
+        // 瞄准位摆杆走 `updateCueStick`（与试打页一致），不用静帧的 `showCueAtRest`：
+        // 两者杆位/仰角算法不同，混用会在「定格 → 运杆第一帧」处跳一下。
+        scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
+
+        let hold = (i == 0) ? setupHold : followUpSetupHold
+        let clearancePlayback = TrajectoryPlayback(
+            recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + hold) { [weak self] in
+            guard let self, self.isPlaying else { return }
+            self.scene.runCueStroke(
+                strikePosition: strikePos, aim: aim, velocity: Float(step.shot.velocity),
+                clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+            ) { [weak self] in
+                self?.playStep(step: step, prediction: pred, recorder: recorder, index: i)
+            }
+        }
+    }
+
+    /// 触球瞬间：清预告线，按真实轨迹回放全桌球；球停后落静止位并衔接下一杆。
+    /// 收杆不在此处——跟杆与淡出由 `runCueStroke` 接管（与试打页同）。
+    private func playStep(step: SequenceStep, prediction pred: ShotPrediction,
+                          recorder: TrajectoryRecorder, index i: Int) {
+        guard isPlaying else { return }
+        clearTrajectory()
+        scene.ghostBallNode?.isHidden = true
+        scene.hideContactDot()
+
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        // G15：播到引擎自然静止，球停前无最后一跳/瞬移。
+        let settle = playback.duration
+
+        var cueAction: SCNAction?
+        for (key, node) in scene.allBallNodes where !node.isHidden {
+            let name = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+            // 逐杆演示：进袋球只淡出、保留节点，否则下一杆无法重新挂回父节点。
+            let action = playback.action(for: node, ballName: name, speed: 1.0,
+                                         removeOnPocket: false, maxSimTime: settle)
+            if PositionPlayBall.isCue(key) {
+                cueAction = action
+            } else if let action {
+                node.runAction(action)
+            }
+        }
+
+        let tail: TimeInterval = pred.pocketedBalls.isEmpty
+            ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
+        guard let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] else {
+            applyStepRest(step: step, prediction: pred)
+            scheduleNextStep(after: i)
+            return
+        }
+        cueNode.runAction(cueAction) { [weak self] in
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
+                guard let self, self.isPlaying else { return }
+                self.applyStepRest(step: step, prediction: pred)
+                self.scheduleNextStep(after: i)
+            }
+        }
+        ShotAudioScheduler.shared.play(prediction: pred)
+    }
+
+    /// 一杆收尾：球落静止位（有预测用引擎终位，否则用录制 `after`），清动画与球杆。
+    private func applyStepRest(step: SequenceStep, prediction pred: ShotPrediction?) {
+        ShotAudioScheduler.shared.cancel()
+        guard let pred else {
+            placeStepBoard(step.after)
+            scene.hideCueStick()
+            clearTrajectory()
+            return
+        }
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        let potted = Set(pred.pocketedBalls.map { boardKey(forPredName: $0, shot: step.shot) })
+        for (key, node) in scene.allBallNodes {
+            guard step.before.onTable[key] != nil else { continue }
+            if node.parent == nil { scene.rootNode.addChildNode(node) }
+            node.removeAllActions()
+            node.opacity = 1
+            if potted.contains(key) {
+                node.isHidden = true
+            } else {
+                node.isHidden = false
+                let predName = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+                if let p = pred.finalPositions[predName] {
+                    node.position = SCNVector3(p.x, yLevel, p.z)
+                }
+            }
+        }
+        scene.hideCueStick()
+        clearTrajectory()
+    }
+
+    /// 杆边界：这里是唯一的暂停生效点——当前杆已完整播完并落到静止位。
+    private func scheduleNextStep(after i: Int) {
+        guard isPlaying else { return }
+        let next = i + 1
+        guard next < steps.count else { finishPlayback(); return }
+        if playbackState == .pausingAfterShot {
+            // 停在本杆结果盘面；HUD 保留（整条序列尚未播完）。
+            playbackState = .paused
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + interShotPause) { [weak self] in
+            guard let self, self.isPlaying else { return }
+            self.runStep(next)
+        }
+    }
+
+    /// 整条序列播完：隐藏 HUD，复位回静帧（与缩略图同契约）。
+    private func finishPlayback() {
+        playbackState = .idle
+        showOverlay = false
+        scene.hideCueStick()
+        resetBalls()
+    }
+
+    /// 无序列数据时的单杆演示：沿用静帧的代表性一杆。
+    private func startSingleShot() {
+        guard let source = previewSource,
+              let pred = prediction, pred.feasible,
+              let recorder = pred.recorder, pred.duration > 0.05,
+              let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
+              let aim = DrillStaticPreview.aimDirection(path: pred.cuePath, from: cueNode.position)
+        else {
+            hidePlanDecorations()
+            playAnimationFallback()
+            return
+        }
+
+        drawPlan(prediction: pred, shot: source.shot)
+        let strikePos = CueStroke.strikePosition(
+            cue: cueNode.position, aim: aim, spinX: source.shot.spinX
+        )
+        scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
+
+        let clearancePlayback = TrajectoryPlayback(
+            recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
+        )
+        DispatchQueue.main.asyncAfter(deadline: .now() + setupHold) { [weak self] in
+            guard let self, self.isPlaying else { return }
+            self.scene.runCueStroke(
+                strikePosition: strikePos, aim: aim, velocity: Float(source.shot.velocity),
+                clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
+            ) { [weak self] in
+                self?.launchSingleShot(source: source, prediction: pred, recorder: recorder)
+            }
+        }
+    }
+
+    private func launchSingleShot(source: DrillStaticPreview.Source,
+                                  prediction pred: ShotPrediction,
+                                  recorder: TrajectoryRecorder) {
+        guard isPlaying else { return }
+        hidePlanDecorations()
+
+        let yLevel = surfaceY + AngleSceneCalculator.ballRadius
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        for (key, node) in scene.allBallNodes where !node.isHidden {
+            let name = PositionPlayShotSolver.predName(boardKey: key, shot: source.shot)
+            guard let action = playback.action(
+                for: node, ballName: name, speed: 1.0, removeOnPocket: false
+            ) else { continue }
+            node.runAction(action)
+        }
+        ShotAudioScheduler.shared.play(prediction: pred)
+
+        let ballTail: TimeInterval = pred.pocketedBalls.isEmpty
+            ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
+        DispatchQueue.main.asyncAfter(
+            deadline: .now() + TimeInterval(playback.duration) + ballTail
+        ) { [weak self] in
+            self?.finishPlayback()
+        }
+    }
+
+    /// 亮方案：预告线 + 假想球（与试打页 `drawTrajectory` 同 `.positionPlay` 口径）。
+    private func drawPlan(prediction pred: ShotPrediction, shot: PlannedShot) {
+        clearTrajectory()
+        TrajectoryRenderer.draw(
+            prediction: pred,
+            options: .positionPlay,
+            context: TrajectoryRenderer.Context(
+                prediction: pred,
+                targetKey: shot.targetKey,
+                pocket: shot.isFree ? nil : shot.pocket,
+                surfaceY: surfaceY,
+                showGhost: !shot.isFree
+            ),
+            scene: scene,
+            into: &trajectoryNodes,
+            detailOverride: DrillStaticPreview.Options.detail.trajectoryDetail
+        )
+    }
+
+    /// 摆某杆的盘面：不在该盘面的球一律隐藏，在桌球复原 parent / opacity / 动作后定位。
+    private func placeStepBoard(_ board: BoardSnapshot) {
+        for (key, node) in scene.allBallNodes {
+            node.removeAllActions()
+            if board.onTable[key] == nil {
+                node.isHidden = true
+                continue
+            }
+            if node.parent == nil { scene.rootNode.addChildNode(node) }
+            node.opacity = 1
+            node.isHidden = false
+        }
+        DrillStaticPreview.placeBoard(
+            board, on: scene, ballScale: DrillStaticPreview.Options.detail.ballScale
+        )
+        scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation, apply: true)
+    }
+
+    /// `PositionPlayShotSolver.predName` 的逆映射（引擎球名 → 盘面键）。
+    private func boardKey(forPredName name: String, shot: PlannedShot) -> String {
+        if name == ShotInput.cueBallName { return PositionPlayBall.cueKey }
+        if !shot.isFree, name == ShotInput.targetBallName { return shot.targetKey }
+        return name
+    }
+
+    private func updateOverlay(shot: PlannedShot?) {
+        guard let shot else { return }
+        overlayData = ShotOverlayData(
+            spinX: shot.spinX, spinY: shot.spinY, velocity: shot.velocity
+        )
+    }
+
+    /// 收起预告线 / 假想球 / 接触点。球杆与 HUD 不在此列。
+    private func hidePlanDecorations() {
+        clearTrajectory()
+        scene.ghostBallNode?.isHidden = true
+        scene.hideContactDot()
     }
 
     private func clearTrajectory() {
@@ -195,10 +475,12 @@ final class DrillSceneController: ObservableObject {
         }
     }
 
+    /// 回到静帧（与缩略图同契约）：HUD 仅在播放期间可见，故一并隐藏。
     private func resetBalls() {
         ShotAudioScheduler.shared.cancel()
         restoreHomePositions(clearActions: true)
-        isPlaying = false
+        playbackState = .idle
+        showOverlay = false
         applyPreviewFrame()
     }
 
@@ -218,31 +500,6 @@ final class DrillSceneController: ObservableObject {
                 )
             }
         }
-    }
-
-    // MARK: - Overlay placement geometry
-
-    /// 顶视正交相机下，场景坐标 → SCNView 归一化坐标（x:0左→1右, y:0上→1下）。
-    private func normScreen(_ s: SCNVector3) -> CGPoint {
-        let hx = orthoScale * Self.frameAspect
-        let hz = orthoScale
-        return CGPoint(
-            x: (Double(s.x) + hx) / (2 * hx),
-            y: (Double(s.z) + hz) / (2 * hz)
-        )
-    }
-
-    private func occupiedPoints(cue: SCNVector3, target: SCNVector3, pocketIndex: Int) -> [CGPoint] {
-        let c = normScreen(cue), t = normScreen(target)
-        var pts = [c, t, CGPoint(x: (c.x + t.x) / 2, y: (c.y + t.y) / 2)]
-        let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
-        if pocketIndex >= 0, pocketIndex < pockets.count {
-            let p = normScreen(pockets[pocketIndex])
-            pts.append(p)
-            pts.append(CGPoint(x: (t.x + p.x) / 2, y: (t.y + p.y) / 2))
-        }
-        pts.append(CGPoint(x: 0.10, y: 0.90))
-        return pts
     }
 
     // MARK: - Geometry helpers
@@ -318,47 +575,48 @@ struct DrillSceneView: View {
     /// 取景余量处的兜底背景：与 `btTableFelt` 同源（F-SC-06），避免 letterbox 硬编码绿。
     private static let feltBackground = UIColor(Color.btTableFelt)
 
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            AngleSceneView(
-                scene: controller.scene,
-                cameraMode: .constant(controller.cameraMode),
-                interactionMode: .none,
-                backgroundColor: Self.feltBackground
-            )
-            // 相框比例贴合球台木框实测长宽比（≈1.81），配合正交取景 0.77，
-            // 球桌左右/上下都占满、无背景绿边（旧值 1.94 比球台宽 → 左右露绿）。
-            .aspectRatio(CGFloat(DrillSceneController.frameAspect), contentMode: .fit)
-            // 击球前叠加「打点 + 力度」指示器（智能选最空角落，不挡球/轨迹；击球后随轨迹隐藏）。
-            .overlay {
-                if controller.showOverlay, let data = controller.overlayData {
-                    DrillShotOverlay(data: data)
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
-                }
-            }
-            .animation(BTMotion.easeInOutFast, value: controller.showOverlay)
+    /// HUD 条等比系数（设计基准 80pt 条高）：0.62 ⇒ 条高 ≈50pt、读数 12.4pt，
+    /// 在详情横幅宽度下仍可读；力度条自适应剩余宽度。
+    private static let hudScale: CGFloat = 0.62
 
-            Button {
-                controller.play()
-            } label: {
-                // F-SC-01：回放锁定进行时视觉反馈——保持 play.fill + 降透明 + disabled；
-                // 不换 stop 图标（按钮不可点，stop 会成假 affordance，违 B3 诚实反馈）。
-                // 次级幽灵钮：主行动留在详情底栏「上手试打」。
-                Image(systemName: "play.fill")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .frame(width: 28, height: 28)
-                    .background(.black.opacity(0.28))
-                    .clipShape(Circle())
-                    .opacity(controller.isPlaying ? 0.35 : 1)
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack(alignment: .bottomLeading) {
+                AngleSceneView(
+                    scene: controller.scene,
+                    cameraMode: .constant(controller.cameraMode),
+                    interactionMode: .none,
+                    backgroundColor: Self.feltBackground
+                )
+                // 相框比例贴合球台木框实测长宽比（≈1.81），配合正交取景 0.77，
+                // 球桌左右/上下都占满、无背景绿边（旧值 1.94 比球台宽 → 左右露绿）。
+                .aspectRatio(CGFloat(DrillSceneController.frameAspect), contentMode: .fit)
+
+                Button {
+                    controller.togglePlayback()
+                } label: {
+                    // 次级幽灵钮：主行动留在详情底栏「上手试打」。
+                    // 播放中给真 pause（杆边界可暂停，非假 affordance）；已请求暂停时降透明
+                    // 表示「等本杆播完」，仍可点以撤销。
+                    Image(systemName: playIcon)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.9))
+                        .frame(width: 28, height: 28)
+                        .background(.black.opacity(0.28))
+                        .clipShape(Circle())
+                        .opacity(controller.playbackState == .pausingAfterShot ? 0.45 : 1)
+                }
+                .buttonStyle(BTPressableStyle.capsule)
+                .padding(Spacing.md)
+                .accessibilityLabel(playLabel)
+                .accessibilityIdentifier("drillPlayButton")
             }
-            .disabled(controller.isPlaying)
-            .buttonStyle(BTPressableStyle.capsule)
-            .padding(Spacing.md)
-            .accessibilityLabel(controller.isPlaying ? "回放中" : "回放")
-            .accessibilityIdentifier("drillPlayButton")
+
+            // 球桌下方 HUD 条（与导出教学视频同款、同组件）：读球形拍与击球后置空，
+            // 但保留条高，避免横幅高度在三拍之间跳动。
+            hudBar
         }
+        .background(Color.black)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .onAppear {
             guard !didAppear else { return }
@@ -366,145 +624,40 @@ struct DrillSceneView: View {
             controller.setup(drill: drill)
         }
     }
-}
 
-// MARK: - Shot overlay (打点 + 力度 指示器)
-
-/// 击球前叠加在球桌上的「打点(塞) + 力度」指示器。
-/// - 打点盘：复用「分离角与走位」页 `SpinPadView` 的视觉（白球 + 红色击球点 + 十字）只读版。
-/// - 力度条：垂直、对数刻度（高速度增长放缓，避免条过高）。
-/// 两个指示器在球桌四角中各选「离所有球/袋口/轨迹/播放按钮最远」的角落，互不同角，尽量不遮挡。
-private struct DrillShotOverlay: View {
-    let data: DrillSceneController.ShotOverlayData
-
-    private let spinSize: CGFloat = 24      // 打点盘（更小）
-    private let powerW: CGFloat = 10         // 力度条宽（更细）
-    private let edgeMargin: CGFloat = 16     // 力度条距库边间距（不完全贴住）
-
-    /// 短库（左右库边）在屏幕上的竖直跨度占视图高度的比例：innerWidth /（2·orthoScale）。
-    private var cushionSpanFraction: CGFloat {
-        CGFloat(Double(AngleSceneCalculator.innerWidth) / (2 * DrillSceneController.orthoScale))
+    private var playIcon: String {
+        switch controller.playbackState {
+        case .idle, .paused: return "play.fill"
+        case .playing, .pausingAfterShot: return "pause.fill"
+        }
     }
 
-    // 速度条对数刻度上下限（m/s）：与全 App 力度滑条量程单一真源（ShotTuning.velocityRange）。
-    static let vMin = ShotTuning.velocityRange.lowerBound
-    static let vMax = ShotTuning.velocityRange.upperBound
-    static func powerFraction(_ v: Double) -> Double {
-        let lo = log(vMin), hi = log(vMax)
-        let cv = max(vMin, min(vMax, v))
-        return max(0, min(1, (log(cv) - lo) / (hi - lo)))
+    private var playLabel: String {
+        switch controller.playbackState {
+        case .idle: return "回放"
+        case .playing: return "暂停"
+        case .pausingAfterShot: return "本杆结束后暂停"
+        case .paused: return "继续"
+        }
     }
 
-    var body: some View {
-        GeometryReader { geo in
-            let W = geo.size.width, H = geo.size.height
-            let occ = data.occupied.map { CGPoint(x: $0.x * W, y: $0.y * H) }
-
-            // 力度条：长 = 短库长 × 0.7，上下居中，贴左/右库边（不遮挡优先右）。
-            let barH = cushionSpanFraction * H * 0.7
-            let onRight = preferRightSide(W: W, H: H, barH: barH, occ: occ)
-            let barX = onRight ? (W - edgeMargin - powerW / 2) : (edgeMargin + powerW / 2)
-            let barCenter = CGPoint(x: barX, y: H / 2)
-
-            // 打点盘：贴在母球的最空一侧。
-            let cue = CGPoint(x: data.cue.x * W, y: data.cue.y * H)
-            let spinCenter = spinPosition(near: cue, W: W, H: H,
-                                          obstacles: Array(occ.dropFirst()),
-                                          barCenter: barCenter, barH: barH)
-
-            ZStack {
-                // E16 / R1：条宽仅 10pt 且贴库边；标签须向台内偏，否则会被
-                // DrillSceneView.clipShape 裁掉末尾（如「m/s」的 s）。
-                DrillPowerBar(velocity: data.velocity, inwardBias: onRight ? -1 : 1)
-                    .frame(width: powerW, height: barH)
-                    .position(barCenter)
-                BTSpinMiniIcon(spinX: data.spinX, spinY: data.spinY,
-                               diameter: spinSize, trueScale: true)
-                    .frame(width: spinSize, height: spinSize)
-                    .position(spinCenter)
-                    .shadow(color: .black.opacity(0.4), radius: 3, y: 1)
+    @ViewBuilder
+    private var hudBar: some View {
+        // 条高恒定占位：HUD 显隐不改变横幅总高，避免三拍之间布局跳动。
+        ZStack {
+            Color.clear.frame(height: 80 * Self.hudScale)
+            if controller.showOverlay, let data = controller.overlayData {
+                BTShotHUDBar(
+                    spinX: data.spinX, spinY: data.spinY, velocity: data.velocity,
+                    k: Self.hudScale, powerBarWidth: nil, fixedWidth: false
+                )
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("drillShotHUDBar")
+                .transition(.opacity)
             }
         }
-    }
-
-    /// 力度条选边：不遮挡优先右侧。右侧库边竖条与所有球/轨迹点的最近距离够大→右，否则比较左右取更空者（并列右）。
-    private func preferRightSide(W: CGFloat, H: CGFloat, barH: CGFloat, occ: [CGPoint]) -> Bool {
-        let yTop = H / 2 - barH / 2, yBot = H / 2 + barH / 2
-        let rightX = W - edgeMargin - powerW / 2
-        let leftX = edgeMargin + powerW / 2
-        func clearance(_ x: CGFloat) -> CGFloat {
-            occ.map { p -> CGFloat in
-                let dy = max(0, max(yTop - p.y, p.y - yBot))
-                return hypot(abs(p.x - x), dy)
-            }.min() ?? .greatestFiniteMagnitude
-        }
-        let needed = powerW / 2 + 14   // 球需明显离开竖条才算不遮挡
-        let cr = clearance(rightX), cl = clearance(leftX)
-        if cr >= needed { return true }
-        if cl >= needed { return false }
-        return cr >= cl
-    }
-
-    /// 在母球**左右两侧**选一个在界内、离其他球/轨迹/力度条最远的方向放打点盘（不放上下）。
-    private func spinPosition(near cue: CGPoint, W: CGFloat, H: CGFloat,
-                              obstacles: [CGPoint], barCenter: CGPoint, barH: CGFloat) -> CGPoint {
-        let off = spinSize / 2 + 13
-        let dirs: [CGPoint] = [CGPoint(x: 1, y: 0), CGPoint(x: -1, y: 0)]
-        let half = spinSize / 2 + 3
-        // 力度条采样为障碍点，避免打点盘压住条。
-        var obs = obstacles
-        for f in stride(from: -0.5, through: 0.5, by: 0.25) {
-            obs.append(CGPoint(x: barCenter.x, y: barCenter.y + CGFloat(f) * barH))
-        }
-        var best = CGPoint(x: cue.x + off, y: cue.y)
-        var bestScore = -CGFloat.greatestFiniteMagnitude
-        for d in dirs {
-            let raw = CGPoint(x: cue.x + d.x * off, y: cue.y + d.y * off)
-            let c = CGPoint(x: min(W - half, max(half, raw.x)),
-                            y: min(H - half, max(half, raw.y)))
-            // 出界夹回越多越扣分；离障碍越远越好。
-            let clampPenalty = hypot(c.x - raw.x, c.y - raw.y)
-            let clearance = obs.map { hypot($0.x - c.x, $0.y - c.y) }.min() ?? .greatestFiniteMagnitude
-            let score = clearance - clampPenalty * 2
-            if score > bestScore { bestScore = score; best = c }
-        }
-        return best
+        .frame(maxWidth: .infinity)
+        .animation(BTMotion.easeInOutFast, value: controller.showOverlay)
     }
 }
 
-/// 垂直力度条（对数刻度）：整条轨道铺满给定高度（≈短库 0.7），底→顶 绿→黄→橙 渐变，
-/// 填充高度按 `powerFraction` 映射；速度读数浮在条顶。
-private struct DrillPowerBar: View {
-    let velocity: Double
-    /// −1 = 条在右侧，标签向左（台内）偏；+1 = 条在左侧，标签向右偏。
-    var inwardBias: CGFloat = -1
-    private var fraction: Double { DrillShotOverlay.powerFraction(velocity) }
-
-    var body: some View {
-        GeometryReader { g in
-            let h = g.size.height
-            ZStack(alignment: .bottom) {
-                Capsule().fill(Color.black.opacity(0.30))
-                // F-SC-02：与击打页力度 chrome 同源。
-                LinearGradient(colors: HUDStyle.powerGradient, startPoint: .bottom, endPoint: .top)
-                    .mask(alignment: .bottom) {
-                        Capsule().frame(height: max(4, h * CGFloat(fraction)))
-                    }
-            }
-            .overlay(Capsule().stroke(.white.opacity(0.18), lineWidth: 0.5))
-            .overlay(alignment: .top) {
-                // E16：标明「力度」；单位放 a11y，缩短可视文案以免贴边裁切（R1）。
-                Text(String(format: "力度 %.1f", velocity))
-                    .font(.system(size: 8, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .monospacedDigit()
-                    .fixedSize()
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .background(Color.black.opacity(0.55), in: Capsule())
-                    .offset(x: inwardBias * 22, y: -4)
-                    .accessibilityLabel(String(format: "力度 %.1f 米每秒", velocity))
-            }
-        }
-    }
-}

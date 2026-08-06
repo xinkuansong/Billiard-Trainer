@@ -1082,6 +1082,9 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-08-06 | **台面演示回放钮加播放中状态 + 杆边界可暂停**（DR-060）：`PlaybackState` 四态 + `togglePlayback()` 单一入口；图标 `play.fill` ⇄ `pause.fill`，按钮不再 disabled；暂停仅在杆边界生效（当前杆完整播完后停在该杆结果，HUD 保留，再点从下一杆继续）。**覆盖 F-SC-01「回放不可打断」** | 修正/DR | DrillSceneView, DrillRecordView | 用户交互反馈 |
+| 2026-08-06 | **详情/训练顶栏改整条序列逐杆演示**（DR-059）：播放从代表性单杆改为走完整条 `steps`（逐杆亮方案→运杆→回放→落静止位→停顿 0.7s）；瞄准位摆杆改 `scene.updateCueStick` 与试打页同源，运杆/跟杆/淡出全交 `CueStroke`；HUD 改「播放前隐藏 → 播放中逐杆换值 → 播完隐藏」并挂 `drillShotHUDBar` | 修正/DR | DrillSceneView, DrillRecordView | 用户视觉反馈 |
+| 2026-08-06 | **详情/训练球桌演示对齐导出视频**（DR-058）：回放改三拍叙事（读球形 1.5s → 亮方案 1.5s → 真运杆出杆跟杆，`runCueStroke`）；打点/力度浮层改球桌下方固定 HUD 条，抽共享组件 `BTShotHUDBar`（导出与 App 单一真源）；删 `DrillShotOverlay`/`DrillPowerBar` 及避让启发式。球桌方向不变（横版） | 修正/DR | BTShotHUDBar（新增）, DrillSceneView, SequenceVideoExporter, DrillRecordView | 用户视觉反馈 |
 | 2026-08-05 | **详情页去台面试打 + 精讲降权**（DR-057）：`DrillSceneView` 移除右下「上手试打」覆层（入口仅底栏）；「查看精讲」改训练要点标题 trailing 文字链，不再用 primary 全宽钮 | 修正/DR | DrillSceneView, DrillDetailView, DrillTryoutUITests | 用户视觉反馈 |
 | 2026-08-05 | **封面深墨调浅 + 单行字号 2/3**（DR-056）：`darkOpacity` 0.85→0.52；练习网格 56→37；计划单行 2/3 字 scale 0.40/0.32；暗底改亮度门槛回退金色 | 修正/DR | CoverPalette.Glyph, BTPlanCover, CoverPaletteContrastTests | 用户视觉反馈 |
 | 2026-08-05 | **封面大字统一深墨**（DR-055）：训练/练习封面水印一律 `Glyph.color(against:)`；默认深墨，暗底金色回退；废除半透明白水印与按档硬编码 | 修正/DR | CoverPalette.Glyph, PlanStyle, CoverPaletteContrastTests | 用户视觉反馈 |
