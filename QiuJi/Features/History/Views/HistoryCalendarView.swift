@@ -50,7 +50,11 @@ struct HistoryCalendarView: View {
         .sheet(isPresented: Binding(
             get: { selectedSessionId != nil },
             set: { if !$0 { selectedSessionId = nil } }
-        )) {
+        ), onDismiss: {
+            // Detail sheet can delete the record or edit its note — reload so the
+            // calendar and day list stop showing stale data.
+            Task { await vm.loadSessions(context: modelContext) }
+        }) {
             if let id = selectedSessionId {
                 NavigationStack {
                     TrainingDetailView(sessionId: id)

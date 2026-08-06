@@ -9,6 +9,11 @@ struct TrainingDetailView: View {
     @State private var session: TrainingSession?
     @State private var showOverflowMenu = false
     @State private var categoryMapping: [String: String] = [:]
+    @State private var showDeleteConfirm = false
+    @State private var showShareSheet = false
+    @State private var showNoteEditor = false
+    @State private var editingNote = ""
+    @State private var actionError: String?
 
     var body: some View {
         Group {
@@ -44,6 +49,48 @@ struct TrainingDetailView: View {
             loadSession()
             let drills = await DrillContentService.shared.loadFallbackDrills()
             categoryMapping = Dictionary(uniqueKeysWithValues: drills.map { ($0.id, $0.category) })
+        }
+        .confirmationDialog(
+            "删除这条训练记录？",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("删除", role: .destructive) { deleteSession() }
+            Button("取消", role: .cancel) {}
+        } message: {
+            Text("删除后无法恢复，本次训练的组数与心得会一并移除。")
+        }
+        .sheet(isPresented: $showShareSheet) {
+            if let session {
+                TrainingShareView(session: shareSummary(session))
+            }
+        }
+        .sheet(isPresented: $showNoteEditor) {
+            noteEditorSheet
+        }
+        .alert("操作失败", isPresented: Binding(
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
+        )) {
+            Button("确定", role: .cancel) {}
+        } message: {
+            if let actionError {
+                Text(actionError)
+            }
+        }
+    }
+
+    // MARK: - Note Editor (reuses TrainingNoteView)
+
+    private var noteEditorSheet: some View {
+        NavigationStack {
+            TrainingNoteView(
+                note: $editingNote,
+                onSkip: { showNoteEditor = false },
+                onComplete: { saveNote() }
+            )
+            .navigationTitle("编辑心得")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 
@@ -194,6 +241,8 @@ struct TrainingDetailView: View {
 
     private func bottomBar(_ session: TrainingSession) -> some View {
         HStack(spacing: Spacing.md) {
+            // W2b: "编辑数据" stays unwired until the W4 field expansion lands,
+            // because the editable surface depends on those new fields.
             Button {} label: {
                 HStack(spacing: Spacing.sm) {
                     Image(systemName: "pencil")
@@ -203,21 +252,17 @@ struct TrainingDetailView: View {
             .buttonStyle(BTButtonStyle.primary)
             .frame(maxWidth: .infinity)
 
-            Button {} label: {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "doc.on.doc")
-                    Text("复制到今天")
-                }
-            }
-            .buttonStyle(BTButtonStyle.secondary)
-            .frame(maxWidth: .infinity)
-
             BTOverflowMenu(items: [
-                BTMenuItem(icon: "square.and.arrow.up", iconColor: .btPrimary, label: "生成分享图") {},
-                BTMenuItem(icon: "calendar", iconColor: .btAccent, label: "移动到某天") {},
-                BTMenuItem(icon: "pencil", iconColor: .btPrimary, label: "编辑心得") {},
-                BTMenuItem(icon: "doc.on.doc", iconColor: .btAccent, label: "导入为模版") {},
-                BTMenuItem(icon: "trash", iconColor: .btDestructive, label: "删除", isDestructive: true) {},
+                BTMenuItem(icon: "square.and.arrow.up", iconColor: .btPrimary, label: "生成分享图") {
+                    showShareSheet = true
+                },
+                BTMenuItem(icon: "pencil", iconColor: .btPrimary, label: "编辑心得") {
+                    editingNote = session.note
+                    showNoteEditor = true
+                },
+                BTMenuItem(icon: "trash", iconColor: .btDestructive, label: "删除", isDestructive: true) {
+                    showDeleteConfirm = true
+                },
             ])
             .frame(width: 44, height: 44)
             .background(Color.btBGSecondary)
@@ -244,6 +289,59 @@ struct TrainingDetailView: View {
             predicate: #Predicate { $0.id == target }
         )
         session = try? modelContext.fetch(descriptor).first
+    }
+
+    /// Builds the share-card payload from the persisted record, so the card shows
+    /// what was actually stored rather than re-deriving it from drill ids.
+    private func shareSummary(_ session: TrainingSession) -> TrainingSessionSummary {
+        TrainingSessionSummary(
+            date: session.date,
+            planName: sessionTitle,
+            durationMinutes: session.totalDurationMinutes,
+            completedDrills: session.drillEntries.count,
+            totalSets: totalSets(session),
+            overallSuccessRate: overallRate(session),
+            drills: session.drillEntries.map { entry in
+                .init(
+                    name: entry.drillNameZh,
+                    setsCount: entry.sets.count,
+                    madeBalls: entry.sets.reduce(0) { $0 + $1.madeBalls },
+                    targetBalls: entry.sets.reduce(0) { $0 + $1.targetBalls }
+                )
+            }
+        )
+    }
+
+    private func saveNote() {
+        guard let session else { return }
+        session.note = editingNote
+        do {
+            try modelContext.save()
+            let sessionId = session.id
+            Task { @MainActor in
+                SyncQueueManager.shared.enqueue(
+                    entityType: "TrainingSession", entityId: sessionId, operation: "update"
+                )
+            }
+            showNoteEditor = false
+        } catch {
+            actionError = "心得保存失败：\(error.localizedDescription)"
+        }
+    }
+
+    private func deleteSession() {
+        guard let target = session else { return }
+        // Drop the local reference first: the body must not read a deleted model object.
+        session = nil
+        modelContext.delete(target)
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            modelContext.rollback()
+            session = target
+            actionError = "删除失败：\(error.localizedDescription)"
+        }
     }
 
     private func primaryCategory(for session: TrainingSession) -> DrillCategory {
