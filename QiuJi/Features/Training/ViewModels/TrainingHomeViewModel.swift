@@ -79,6 +79,14 @@ final class TrainingHomeViewModel: ObservableObject {
     @Published var officialPlans: [PlanBrowseItem] = []
     @Published var selectedTab: PlanBrowseTab = .official
     @Published var selectedFilter: PlanLevelFilter = .all
+    /// 手动跳过 / 回退失败时的可见提示（计划结构不可读等），nil 表示无错误。
+    @Published var progressError: String?
+
+    /// 第 1 周第 1 天已无可回退。
+    var canRollbackDay: Bool {
+        guard let session = todaySession else { return false }
+        return session.weekNumber > 1 || session.dayNumber > 1
+    }
 
     var filteredPlans: [PlanBrowseItem] {
         guard selectedFilter != .all else { return officialPlans }
@@ -107,6 +115,30 @@ final class TrainingHomeViewModel: ObservableObject {
         }
 
         await loadPlansForBrowsing()
+    }
+
+    // MARK: - 手动跳过 / 回退（D-v29-3）
+
+    func skipCurrentDay(context: ModelContext) async {
+        progressError = nil
+        do {
+            _ = try PlanProgressService.skipCurrentDay(context: context)
+        } catch {
+            progressError = "计划结构读取失败，无法跳过这一天"
+            return
+        }
+        await load(context: context)
+    }
+
+    func rollbackCurrentDay(context: ModelContext) async {
+        progressError = nil
+        do {
+            _ = try PlanProgressService.rollbackCurrentDay(context: context)
+        } catch {
+            progressError = "计划结构读取失败，无法回退这一天"
+            return
+        }
+        await load(context: context)
     }
 
     private func loadPlansForBrowsing() async {
@@ -212,11 +244,12 @@ final class TrainingHomeViewModel: ObservableObject {
             ))
         }
 
+        // 自定义计划没有周结构：每天同一张动作表，周 / 天只作推进计数（W7）。
         todaySession = TodaySessionInfo(
             planId: activePlan.planId,
             planNameZh: customPlan.name,
-            weekNumber: 1,
-            dayNumber: 1,
+            weekNumber: activePlan.currentWeek,
+            dayNumber: activePlan.currentDay,
             weekTheme: "自定义训练",
             totalMinutes: 0,
             drills: items

@@ -99,6 +99,12 @@ actor PlanContentService {
     }
 
     func loadPlanFromBundle(id: String) -> OfficialPlan? {
+        Self.decodePlanFromBundle(id: id)
+    }
+
+    /// 同步读取（只读 Bundle，不访问 actor 状态）。计划推进要在训练落库的同一步内
+    /// 取到周 / 天结构，故需要一条不经 `await` 的入口。
+    nonisolated static func decodePlanFromBundle(id: String) -> OfficialPlan? {
         guard let url = Bundle.main.url(forResource: id, withExtension: "json", subdirectory: "Plans"),
               let data = try? Data(contentsOf: url) else {
             return nil

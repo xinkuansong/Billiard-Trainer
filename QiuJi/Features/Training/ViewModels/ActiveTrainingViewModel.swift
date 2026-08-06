@@ -714,6 +714,14 @@ final class ActiveTrainingViewModel: ObservableObject {
             )
 
             didSaveSuccessfully = true
+
+            // W7 计划推进：训练已落库，这一步只前移计划游标（判定依据 = 上面写入的
+            // session.planId）。失败不影响本次成绩，但必须可见，不静默吞。
+            do {
+                try PlanProgressService.advanceAfterPlanSession(session, context: context)
+            } catch {
+                saveError = "训练已保存，但计划进度未更新，可在训练首页「今日安排」手动跳过今天"
+            }
         } catch {
             saveError = "训练记录保存失败，请确认设备存储空间充足后重试"
         }
