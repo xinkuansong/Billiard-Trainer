@@ -259,7 +259,13 @@
 
 ### H-21 — drill_c053 中袋角度球 8 球形示范击打录制（B4）
 
-- **状态**：⏳ 待完成（非阻塞——不影响 B5b 及后续重构批次；试打/进袋/自由模式已可用，仅序列示范模式降级）
+- **状态**：⚠️ **已过时，待你决定关闭或重写**（2026-08-06 核实）
+- **过时原因**：本条要求录制的 A1–A8 八条序列已于提交 `8293ef4`
+  （`content: retire legacy initial-only sequences in favour of manual recordings`）
+  全库退役删除；drill_c053 现为出片台人工录制的 `manual01`（10 杆）/ `manual02`（13 杆）两球形。
+  `content/drill_profiles/drill_c053.profile.json` 与精讲 `tutorial.formations` 中的 A1–A8
+  随之成为孤儿，需按 `.kiro/steering/content-data-contract.md` §1.1「以序列为准」重写精讲。
+- **下方原文保留供追溯，其描述的文件状态已不成立。**
 - **背景**：B4 已把 drill_c053 重构为 8 球形变量覆盖版（A1–A8，切角 15°/30°/45°/60° × 左右切，见 `content/drill_profiles/drill_c053.profile.json`）。按红线（2026-06-13 拍板），示范击打序列必须在走位编排台**人工录制**，禁止从 shotIntent 反推或脚本伪造——当前 8 条序列均为 initial-only（`steps: []`）。旧 3 杆录制序列（Snipaste_2026_06_19，3 球连排旧球形）已随重构退役删除。
 - **做什么**：
   1. 打开走位编排台，逐一加载/摆出 A1–A8 球形（坐标见 profile；`content/position_play/sequences/drill_c053__A<N>-*.json` 的 initial 已摆好 cueBall + 8 号球）。

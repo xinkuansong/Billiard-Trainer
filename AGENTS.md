@@ -92,6 +92,8 @@ cd scripts && make help
 - `tech-stack.md` — 技术约束（全员只读）
 - `agent-system.md` — 多智能体交接协议
 - `observability.md` — 日志、崩溃、分析策略
+- `table-geometry.md` — 球桌几何常量（坐标/尺寸唯一真源）
+- `content-data-contract.md` — **内容资产真源、标识符契约、数据流、训练数据口径**（与 schema.md / README.md 冲突时以此为准）
 
 ## 讨论与决策
 
