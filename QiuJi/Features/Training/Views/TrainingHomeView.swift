@@ -10,9 +10,10 @@ struct TrainingHomeView: View {
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
     @Query private var activePlans: [UserActivePlan]
 
+    /// 含周 / 天游标：计划推进（训练完成或手动跳过 / 回退）后「今日安排」随之刷新（W7）。
     private var activePlanSignature: String {
         activePlans
-            .map { "\($0.planId)|\($0.isCustom)" }
+            .map { "\($0.planId)|\($0.isCustom)|\($0.currentWeek)|\($0.currentDay)" }
             .sorted()
             .joined(separator: ";")
     }
@@ -60,6 +61,17 @@ struct TrainingHomeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .didDismissActiveTraining)) { _ in
             Task { await viewModel.load(context: modelContext) }
+        }
+        .alert(
+            "无法调整计划进度",
+            isPresented: Binding(
+                get: { viewModel.progressError != nil },
+                set: { if !$0 { viewModel.progressError = nil } }
+            )
+        ) {
+            Button("好", role: .cancel) {}
+        } message: {
+            Text(viewModel.progressError ?? "")
         }
     }
 
@@ -151,6 +163,37 @@ struct TrainingHomeView: View {
     }
 
     private func todayScheduleHeader(_ session: TodaySessionInfo) -> some View {
+        // 进度菜单是独立可点元素，故放在合并后的信息块之外，
+        // 否则会被 `.accessibilityElement(children: .combine)` 并进卡片整体。
+        HStack(alignment: .top, spacing: Spacing.sm) {
+            scheduleInfoBlock(session)
+            progressMenu
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.md)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: BTRadius.lg)
+                .stroke(
+                    colorScheme == .dark ? Color.btSeparator : Color.btPrimary.opacity(0.10),
+                    lineWidth: colorScheme == .dark ? 0.5 : 1
+                )
+        }
+        .overlay(alignment: .bottomLeading) {
+            GeometryReader { geo in
+                Capsule()
+                    .fill(Color.btPrimary)
+                    .frame(width: geo.size.width * session.progress, height: 2)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private func scheduleInfoBlock(_ session: TodaySessionInfo) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                 Text("今日安排")
@@ -188,31 +231,35 @@ struct TrainingHomeView: View {
                     .minimumScaleFactor(0.9)
             }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
-        .background(Color.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-        .overlay {
-            RoundedRectangle(cornerRadius: BTRadius.lg)
-                .stroke(
-                    colorScheme == .dark ? Color.btSeparator : Color.btPrimary.opacity(0.10),
-                    lineWidth: colorScheme == .dark ? 0.5 : 1
-                )
-        }
-        .overlay(alignment: .bottomLeading) {
-            GeometryReader { geo in
-                Capsule()
-                    .fill(Color.btPrimary)
-                    .frame(width: geo.size.width * session.progress, height: 2)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-            }
-            .padding(.horizontal, Spacing.lg)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("今日安排，\(session.planNameZh)，第 \(session.weekNumber) 周第 \(session.dayNumber) 天")
         .accessibilityValue("完成 \(session.completedCount) 项，共 \(session.totalCount) 项")
+    }
+
+    /// 计划游标的手动控制（D-v29-3：按完成推进，同时允许手动跳过 / 回退某天）。
+    private var progressMenu: some View {
+        Menu {
+            Button {
+                Task { await viewModel.skipCurrentDay(context: modelContext) }
+            } label: {
+                Label("跳过今天", systemImage: "forward.end")
+            }
+
+            Button {
+                Task { await viewModel.rollbackCurrentDay(context: modelContext) }
+            } label: {
+                Label("回退一天", systemImage: "backward.end")
+            }
+            .disabled(!viewModel.canRollbackDay)
+        } label: {
+            Image(systemName: BTIcon.menu)
+                .font(.btFootnote)
+                .foregroundStyle(.btTextSecondary)
+                .frame(width: 32, height: 32)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("调整计划进度")
     }
 
     private func scheduleMetaText(_ session: TodaySessionInfo) -> String {
