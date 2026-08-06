@@ -233,6 +233,22 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 只改序列不跟进＝制造新的漂移。C4 对 legacy（无逐杆节）与无序列 drill 只提示不判失败，
 故它变绿是可达目标，不得因「本来就红」而跳过。
 
+### 已接门禁（2026-08-07 v29 W9）
+
+同一脚本另有四项不变量（契约 §7）：**I5** 精讲球形 token ⊆ 序列 token、
+**I7** profile vs 序列（容忍 `"retired": true`）、**I8** `DrillBoards` 按字节 ⊆ 上游序列、
+**I9** `index.json` 登记的 drill 序列覆盖。
+
+| 命令 | 用途 |
+|---|---|
+| `make verify-tutorials` | 全量校验，C4 也计入退出码 |
+| `make verify-gate` | 门禁入口（git `pre-push` 调用），C4 为已知豁免 |
+| `make install-hooks` | 装 `pre-push` 钩子（每个克隆一次） |
+| `make invariant-selftest` | 构造性用例，证明每个检查项真会报错 |
+
+基线与豁免唯一真源：`scripts/content_invariant_baselines.json`（棘轮，只许收紧；
+改它前先在契约 §8 登记解除条件）。纪律细则见 `40-content-engineer.mdc` § PD-028。
+
 ### 序列 → drill 接入清单（每条都做）
 
 1. `shotIntent` 换为序列真实逐杆（cue/target 取该杆 `before`，spin/velocity/pocket 照抄，其余在桌球进 `obstacles`）；`animation` 用首杆数据（`source: "composer"`）。

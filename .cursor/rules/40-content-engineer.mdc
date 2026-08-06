@@ -7,6 +7,7 @@ alwaysApply: false
 ## Changelog
 
 - 2026-03-27 v0.1：初始版本
+- 2026-08-07 v0.2：§ 经验教训追加 PD-028（棘轮豁免 + 影子库构造性用例；内容不变量门禁纪律）
 
 # Content Engineer — 内容工程师
 
@@ -114,6 +115,23 @@ alwaysApply: false
 
 ## 经验教训（Lessons Learned）
 
-> 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
+> 本节由 FAILURE-LOG / IMPLEMENTATION-LOG 驱动，每条对应一个 FL-NNN / PD-NNN。
+> **执行前必读，违反即视为返工风险。**
 
-_（暂无记录，首次失败后在此追加）_
+### ✅ PD-028 — 给存量债接门禁：棘轮豁免 + 影子库构造性用例
+**场景**：要把内容校验（`make verify-gate` / `verify_tutorial_sync.py`）接成阻塞门禁，
+或新增任何内容不变量检查项，而存量偏差尚未收敛。
+
+**强制检查点**：
+1. **禁止为接门禁放宽已有判定**。存量偏差写进机读豁免清单
+   （`scripts/content_invariant_baselines.json`，唯一真源），**钉到最小粒度**
+   （具体 token / formation id / 计数），不得「整个 drill 免检」。
+2. 每条豁免必须在 `.kiro/steering/content-data-contract.md` §8 有登记与**解除条件**；
+   清单只许缩短、计数只许下调（棘轮）。改清单前先改契约。
+3. **新增检查项必须附一条构造性用例**证明它真会报错，且必须有未改动影子库的**对照组**。
+   用例走 `make invariant-selftest`：`--root` 重基 + 小目录真副本 + 大目录符号链接，
+   **禁止为造用例改真源文件**。
+4. 根因归属其他工作流的检查（如 C4 精讲重写归 v26）只在门禁入口 `--gate` 降级，
+   默认 `make verify-tutorials` 仍计入退出码——降级不得写进判定逻辑。
+5. 产物目录（`DrillBoards/` 等）是派生物：I8 会按字节比对，手改必被拦，一律走
+   `make tryout-sync`。
