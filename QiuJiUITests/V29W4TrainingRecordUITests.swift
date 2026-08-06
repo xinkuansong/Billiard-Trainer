@@ -13,10 +13,11 @@ import XCTest
 /// （UI 测试进程读不到宿主 App 的 SwiftData 容器）。
 final class V29W4TrainingRecordUITests: XCTestCase {
 
-    private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer-v29w4/build/w4-screenshots",
-        isDirectory: true
-    )
+    /// 截图输出目录：由 #filePath 推导仓库根（支持 worktree，原 worktree 绝对路径已随合并失效）。
+    private let outDir = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // <repo root>
+        .appendingPathComponent("build/w4-screenshots", isDirectory: true)
 
     var app: XCUIApplication!
 

@@ -8,9 +8,11 @@ import XCTest
 final class V29W2aHistoryDetailUITests: XCTestCase {
 
     private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer-w2a/build/w2a-screenshots",
-        isDirectory: true
+        fileURLWithPath: #filePath, isDirectory: false
     )
+        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // <repo root>
+        .appendingPathComponent("build/w2a-screenshots", isDirectory: true)
 
     var app: XCUIApplication!
 

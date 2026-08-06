@@ -9,9 +9,11 @@ import XCTest
 final class V29W2bTrainingDataEditUITests: XCTestCase {
 
     private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer-w2b/build/w2b-screenshots",
-        isDirectory: true
+        fileURLWithPath: #filePath, isDirectory: false
     )
+        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // <repo root>
+        .appendingPathComponent("build/w2b-screenshots", isDirectory: true)
 
     /// 多球形 drill：`QiuJi/Resources/DrillBoards/drill_c026__manual0{1,2,3}-*.json`
     private let drillName = "厚球分离角控制"

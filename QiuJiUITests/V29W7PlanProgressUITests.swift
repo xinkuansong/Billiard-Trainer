@@ -11,9 +11,11 @@ import XCTest
 final class V29W7PlanProgressUITests: XCTestCase {
 
     private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer-v29-w7/build/w7-screenshots",
-        isDirectory: true
+        fileURLWithPath: #filePath, isDirectory: false
     )
+        .deletingLastPathComponent()   // QiuJiUITests/
+        .deletingLastPathComponent()   // <repo root>
+        .appendingPathComponent("build/w7-screenshots", isDirectory: true)
 
     var app: XCUIApplication!
 
