@@ -86,6 +86,7 @@ final class V21W2BakeTests: XCTestCase {
     }
 
     func testW2_bakeAllFormations_andPatchRepresentativeAnimation() throws {
+        try BakeRunnerGate.skipUnlessEnabled("testW2_bakeAllFormations_andPatchRepresentativeAnimation")
         try FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
 
         let pocket = bottomCenterNorm()
@@ -169,6 +170,7 @@ final class V21W2BakeTests: XCTestCase {
     /// 仅烘焙 c073/c074/c075 缩略图（不全量 75）。
     @MainActor
     func testW2_bakeThumbnailsForNewDrills() async throws {
+        try BakeRunnerGate.skipUnlessEnabled("testW2_bakeThumbnailsForNewDrills")
         let outDir = root.appendingPathComponent("QiuJi/Resources/DrillThumbnails", isDirectory: true)
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         var lines: [String] = ["=== v21 W2 thumbnail bake ==="]

@@ -34,6 +34,7 @@ final class DrillBakeRunnerTests: XCTestCase {
 
     /// 端到端：从 Bundle 读取试点 Drill 的 `shotIntent` → 烘焙 → 断言可进 + 打印回填 JSON。
     func test_bakePilotDrills_areFeasibleAndPrintBakedAnimation() async throws {
+        try BakeRunnerGate.skipUnlessEnabled("test_bakePilotDrills_areFeasibleAndPrintBakedAnimation")
         var reportRows: [String] = []
         reportRows.append("| Drill | shot | feasible | sim进选定袋 | 切球角° | 母球进袋 |")
         reportRows.append("|-------|------|----------|-------------|---------|----------|")

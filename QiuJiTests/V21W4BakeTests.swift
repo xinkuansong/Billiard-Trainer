@@ -119,6 +119,7 @@ final class V21W4BakeTests: XCTestCase {
     }
 
     func testW4_bakeAllFormations_andPatchRepresentativeAnimation() throws {
+        try BakeRunnerGate.skipUnlessEnabled("testW4_bakeAllFormations_andPatchRepresentativeAnimation")
         try FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: evidenceDir, withIntermediateDirectories: true)
 
@@ -218,6 +219,7 @@ final class V21W4BakeTests: XCTestCase {
 
     @MainActor
     func testW4_bakeThumbnailsForR4Drills() async throws {
+        try BakeRunnerGate.skipUnlessEnabled("testW4_bakeThumbnailsForR4Drills")
         let outDir = root.appendingPathComponent("QiuJi/Resources/DrillThumbnails", isDirectory: true)
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
         var lines: [String] = ["=== v21 W4 thumbnail bake ==="]

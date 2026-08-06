@@ -52,6 +52,7 @@ struct GeometricAngleQuizView: View {
             }
         }
         .animation(BTMotion.easeChrome, value: isInputting)
+        .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .navigationTitle("角度预测")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)

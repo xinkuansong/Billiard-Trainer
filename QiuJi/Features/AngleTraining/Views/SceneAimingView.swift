@@ -88,6 +88,7 @@ struct SceneAimingView: View {
             .animation(BTMotion.easeChrome, value: vm.testFinished)
             .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
         }
+        .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .navigationTitle(is3D ? "3D 角度训练" : "2D 角度训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
