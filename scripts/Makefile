@@ -21,6 +21,14 @@ else
   PROJECT_FLAG := -workspace $(WORKSPACE)
 endif
 
+# 烘焙 / 出片 runner 门（问题集合 v29 W1，真源 QiuJiTests/BakeRunnerGate.swift）：
+# 这些 runner 会长跑全量物理并写 git 跟踪的资源，故默认在常规测试里 XCTSkip。
+# 标志文件是确定性生效的一路：实测 `TEST_RUNNER_XXX=1` 传不进宿主 App 内的单测进程
+# （与本仓 PositionPlaySequenceExportRunnerTests 早年的记录一致），环境变量仅在
+# 从 Xcode 用 scheme 环境变量运行时生效，这里一并传只是留作文档。
+BAKE_GATE_ENV  := TEST_RUNNER_QIUJI_RUN_BAKE_RUNNERS=1
+BAKE_GATE_FLAG := $(BUILD_DIR)/.run-bake-runners
+
 .DEFAULT_GOAL := help
 
 # ────────────────────────────────────────────
@@ -37,6 +45,7 @@ help:
 	@echo "  make test         运行所有 XCTest"
 	@echo "  make position-export  走位序列 JSON → 静帧 + 2D mp4（源 content/position_play/sequences/）"
 	@echo "  make position-export-stills  只重渲静帧（修开局图等，保留既有 mp4）"
+	@echo "  make thumbnails   动作库缩略图烘焙（Resources/DrillThumbnails/；烘焙 runner 不随 make test 跑）"
 	@echo "  make tryout-sync  同步 drill 序列到 App Bundle 试打球形（Resources/DrillBoards/）"
 	@echo "  make verify-tutorials  精讲资产全链路同步校验（序列→出片→回填→引用→结构）"
 	@echo "  make tutorial-ledger  生成精讲资产台账（docs/research/精讲资产台账.md）"
@@ -142,6 +151,7 @@ position-export:
 	  cp -f $(SEQUENCE_CONTENT_DIR)/*.json $(BUILD_DIR)/position_play_sequences/; \
 	  echo "  已同步内容库序列: $$(ls $(SEQUENCE_CONTENT_DIR)/*.json | wc -l | tr -d ' ') 个"; \
 	fi
+	@touch $(BAKE_GATE_FLAG)
 	xcodebuild \
 	  $(PROJECT_FLAG) \
 	  -scheme $(SCHEME) \
@@ -149,7 +159,9 @@ position-export:
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
-	  test
+	  $(BAKE_GATE_ENV) \
+	  test; \
+	  status=$$?; rm -f $(BAKE_GATE_FLAG); test $$status -eq 0
 	@echo "✅ 产物目录: $(BUILD_DIR)/position_play_export"
 
 .PHONY: position-export-stills
@@ -161,6 +173,7 @@ position-export-stills:
 	  cp -f $(SEQUENCE_CONTENT_DIR)/*.json $(BUILD_DIR)/position_play_sequences/; \
 	  echo "  已同步内容库序列: $$(ls $(SEQUENCE_CONTENT_DIR)/*.json | wc -l | tr -d ' ') 个"; \
 	fi
+	@touch $(BAKE_GATE_FLAG)
 	xcodebuild \
 	  $(PROJECT_FLAG) \
 	  -scheme $(SCHEME) \
@@ -168,9 +181,39 @@ position-export-stills:
 	  -derivedDataPath $(DERIVED_DATA) \
 	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
 	  -only-testing:QiuJiTests/PositionPlaySequenceExportRunnerTests \
-	  test
+	  $(BAKE_GATE_ENV) \
+	  test; \
+	  status=$$?; rm -f $(BAKE_GATE_FLAG); test $$status -eq 0
 	@rm -f $(BUILD_DIR)/position_play_export/.stills-only
 	@echo "✅ 静帧已更新: $(BUILD_DIR)/position_play_export"
+
+# ────────────────────────────────────────────
+# 动作库缩略图烘焙（问题集合 v29 W1）
+# 输入：Resources/Drills/**/*.json 的 animation（Bundle 内）
+# 输出：QiuJi/Resources/DrillThumbnails/<drill_id>.png（folder ref，进 App Bundle）
+# 本体 = `-only-testing` 限定 runner；环境变量/标志文件只是 runner 内部的门。
+# 渲染确定性 ⇒ 内容未变时 PNG 字节可能完全相同、git 无 diff，属正常。
+# ────────────────────────────────────────────
+THUMBNAIL_DIR := $(PROJECT_ROOT)/QiuJi/Resources/DrillThumbnails
+
+.PHONY: thumbnails
+thumbnails:
+	@echo "→ 动作库缩略图烘焙 → $(THUMBNAIL_DIR)"
+	@mkdir -p $(BUILD_DIR) $(DERIVED_DATA) "$(THUMBNAIL_DIR)"
+	@touch $(BAKE_GATE_FLAG)
+	xcodebuild \
+	  $(PROJECT_FLAG) \
+	  -scheme $(SCHEME) \
+	  -configuration Debug \
+	  -derivedDataPath $(DERIVED_DATA) \
+	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	  -only-testing:QiuJiTests/DrillThumbnailBakeRunnerTests/test_bakeAllThumbnails \
+	  $(BAKE_GATE_ENV) \
+	  QIUJI_THUMBNAIL_OUTPUT_DIR="$(THUMBNAIL_DIR)" \
+	  TEST_RUNNER_QIUJI_THUMBNAIL_OUTPUT_DIR="$(THUMBNAIL_DIR)" \
+	  test; \
+	  status=$$?; rm -f $(BAKE_GATE_FLAG); test $$status -eq 0
+	@echo "✅ 缩略图已烘焙: $$(ls "$(THUMBNAIL_DIR)"/*.png | wc -l | tr -d ' ') 个 → $(THUMBNAIL_DIR)"
 
 # ────────────────────────────────────────────
 # 试打球形同步（方案 20260709-动作库试打模式 D4）

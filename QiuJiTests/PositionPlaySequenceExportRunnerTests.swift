@@ -35,6 +35,8 @@ final class PositionPlaySequenceExportRunnerTests: XCTestCase {
 
     @MainActor
     func test_exportAllSequences() async throws {
+        // v29 W1：出片 runner 不随常规全量测试跑（收件箱有残留时会全量长跑出片）。
+        try BakeRunnerGate.skipUnlessEnabled("test_exportAllSequences")
         let fm = FileManager.default
         // 续跑开关：环境变量在 `xcodebuild test` 下无法透传进模拟器 App 进程，
         // 故同时支持在输出目录放置 `.resume` 标志文件触发（确定性，不依赖环境变量传播）。

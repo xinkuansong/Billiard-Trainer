@@ -35,6 +35,10 @@ final class AimPointTrainingViewModel: ObservableObject {
     @Published private(set) var sessionResults: [RoundResult] = []
     /// 历史绝对值平均（mm），含既往会话（条 8.5）。
     @Published private(set) var historicalMeanAbsMM: Double?
+    /// 落库失败的可见错误态（nil = 无错误）。禁止静默丢题。
+    @Published private(set) var saveErrorMessage: String?
+    /// 落库失败但已保留的成绩，供重试；用户答案始终留在 `sessionResults`。
+    @Published private(set) var unsavedResults: [AngleTestResult] = []
 
     let limiter: AngleUsageLimiter
     private var repository: AngleTestRepositoryProtocol?
@@ -46,6 +50,11 @@ final class AimPointTrainingViewModel: ObservableObject {
     func configure(context: ModelContext) {
         repository = LocalAngleTestRepository(context: context)
         refreshHistoricalStats()
+    }
+
+    /// 直接注入仓储（测试用失败仓储覆盖保存失败路径）。
+    func configure(repository: AngleTestRepositoryProtocol) {
+        self.repository = repository
     }
 
     // MARK: - Lifecycle
@@ -86,8 +95,30 @@ final class AimPointTrainingViewModel: ObservableObject {
                 quizType: "aimPoint",
                 errorMM: signedError
             )
-            try? await repository?.save(result)
+            await persist(result)
             refreshHistoricalStats()
+        }
+    }
+
+    /// 重试此前失败的落库；失败仍会重新置错误态。
+    func retryFailedSaves() {
+        let pending = unsavedResults
+        guard !pending.isEmpty else { return }
+        unsavedResults = []
+        saveErrorMessage = nil
+        Task {
+            for result in pending { await persist(result) }
+            refreshHistoricalStats()
+        }
+    }
+
+    private func persist(_ result: AngleTestResult) async {
+        guard let repository else { return }
+        do {
+            try await repository.save(result)
+        } catch {
+            unsavedResults.append(result)
+            saveErrorMessage = AngleResultSaveFailure.message(error)
         }
     }
 
@@ -183,6 +214,7 @@ struct AimPointTrainingView: View {
         .scrollBounceBehavior(.basedOnSize)
         .background(Color.black.ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
+        .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .navigationTitle("瞄准点训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)

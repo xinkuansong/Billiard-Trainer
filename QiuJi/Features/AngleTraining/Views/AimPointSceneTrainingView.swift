@@ -37,6 +37,10 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     @Published private(set) var closeupCorner: AimCloseupPlacement.Corner = .topTrailing
     /// 瞄准轮 / 台面拖瞄手势进行中（含松手短延迟）。
     @Published private(set) var isAimGestureActive = false
+    /// 落库失败的可见错误态（nil = 无错误）。禁止静默丢题。
+    @Published private(set) var saveErrorMessage: String?
+    /// 落库失败但已保留的成绩，供重试；用户答案始终留在 `sessionResults`。
+    @Published private(set) var unsavedResults: [AngleTestResult] = []
 
     let scene = AngleTrainingScene()
     let limiter: AngleUsageLimiter
@@ -62,6 +66,11 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
     func configure(context: ModelContext) {
         repository = LocalAngleTestRepository(context: context)
+    }
+
+    /// 直接注入仓储（测试用失败仓储覆盖保存失败路径）。
+    func configure(repository: AngleTestRepositoryProtocol) {
+        self.repository = repository
     }
 
     // MARK: - Setup
@@ -235,7 +244,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
                 quizType: quizTypeLabel,
                 errorMM: errorMM
             )
-            try? await repository?.save(result)
+            await persist(result)
         }
 
         // 条 9.8 / Q7.3：停留 1.5 秒 → 物理击球验证（含运杆动画）→ 下一题。
@@ -243,6 +252,27 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             guard !Task.isCancelled else { return }
             self?.strike()
+        }
+    }
+
+    /// 重试此前失败的落库；失败仍会重新置错误态。
+    func retryFailedSaves() {
+        let pending = unsavedResults
+        guard !pending.isEmpty else { return }
+        unsavedResults = []
+        saveErrorMessage = nil
+        Task {
+            for result in pending { await persist(result) }
+        }
+    }
+
+    private func persist(_ result: AngleTestResult) async {
+        guard let repository else { return }
+        do {
+            try await repository.save(result)
+        } catch {
+            unsavedResults.append(result)
+            saveErrorMessage = AngleResultSaveFailure.message(error)
         }
     }
 
@@ -615,6 +645,7 @@ struct AimPointSceneTrainingView: View {
             .animation(BTMotion.easeChrome, value: vm.limiter.isLimitReached)
             .animation(BTMotion.easeChrome, value: vm.phase)
         }
+        .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
         .navigationTitle(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)

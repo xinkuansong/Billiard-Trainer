@@ -8,10 +8,9 @@
 //  「USDZ 球桌 2D 顶视」缩略图 PNG，写入 build/drill_thumbs/ 并作为附件，供拷入
 //  `QiuJi/Resources/DrillThumbnails/<id>.png`（运行时零成本静态图）。
 //
-//  运行：
-//    xcodebuild test -scheme QiuJi \
-//      -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-//      -only-testing:QiuJiTests/DrillThumbnailBakeRunnerTests
+//  运行：`cd scripts && make thumbnails`
+//  （等价于 -only-testing:QiuJiTests/DrillThumbnailBakeRunnerTests + 开 BakeRunnerGate 门）。
+//  v29 W1：不随常规全量测试跑（写 git 跟踪的资源目录），门见 `BakeRunnerGate`。
 //
 
 import XCTest
@@ -21,11 +20,14 @@ import UIKit
 final class DrillThumbnailBakeRunnerTests: XCTestCase {
 
     /// 直接写入 App 资源目录（运行时随 Bundle 打包，需在 project 中作为 folder ref）。
-    private let outputDir = "/Users/song/projects/13.billiard_trainer/QiuJi/Resources/DrillThumbnails"
+    /// 路径由 `QIUJI_THUMBNAIL_OUTPUT_DIR` 注入，缺省取本仓 `QiuJi/Resources/DrillThumbnails`
+    /// （由 `#filePath` 推导，git worktree 下自动指向各自的树）。
+    private var outputDir: String { BakeRunnerGate.thumbnailOutputDirectory.path }
 
     /// 全量烘焙：遍历 index.allDrillIds，逐条渲染 USDZ 2D 顶视缩略图写入资源目录。
     @MainActor
     func test_bakeAllThumbnails() async throws {
+        try BakeRunnerGate.skipUnlessEnabled("test_bakeAllThumbnails")
         let fm = FileManager.default
         try? fm.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
 
@@ -74,6 +76,7 @@ final class DrillThumbnailBakeRunnerTests: XCTestCase {
     /// `feasible / cut角 / 目标球是否进选定袋`，便于挑出退回手画轨迹的 Drill。不作断言。
     @MainActor
     func test_scanFeasibility() async throws {
+        try BakeRunnerGate.skipUnlessEnabled("test_scanFeasibility")
         guard let index = await DrillContentService.shared.loadDrillIndex() else {
             XCTFail("无法加载 Drills/index.json"); return
         }

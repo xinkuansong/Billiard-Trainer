@@ -14,6 +14,10 @@ final class GeometricAngleViewModel: ObservableObject {
     @Published var showResult: Bool = false
     @Published var showReferenceGrid: Bool = false
     @Published private(set) var sessionResults: [AnswerRecord] = []
+    /// 落库失败的可见错误态（nil = 无错误）。禁止静默丢题。
+    @Published private(set) var saveErrorMessage: String?
+    /// 落库失败但已保留的成绩，供重试；用户答案始终留在 `sessionResults`。
+    @Published private(set) var unsavedResults: [AngleTestResult] = []
 
     struct AnswerRecord {
         let actualAngle: Double
@@ -32,6 +36,11 @@ final class GeometricAngleViewModel: ObservableObject {
 
     func configure(context: ModelContext) {
         repository = LocalAngleTestRepository(context: context)
+    }
+
+    /// 直接注入仓储（测试用失败仓储覆盖保存失败路径）。
+    func configure(repository: AngleTestRepositoryProtocol) {
+        self.repository = repository
     }
 
     // MARK: - Actions
@@ -59,10 +68,31 @@ final class GeometricAngleViewModel: ObservableObject {
                 pocketType: "geometric",
                 quizType: "geometric"
             )
-            try? await repository?.save(result)
+            await persist(result)
         }
 
         showResult = true
+    }
+
+    /// 重试此前失败的落库；失败仍会重新置错误态。
+    func retryFailedSaves() {
+        let pending = unsavedResults
+        guard !pending.isEmpty else { return }
+        unsavedResults = []
+        saveErrorMessage = nil
+        Task {
+            for result in pending { await persist(result) }
+        }
+    }
+
+    private func persist(_ result: AngleTestResult) async {
+        guard let repository else { return }
+        do {
+            try await repository.save(result)
+        } catch {
+            unsavedResults.append(result)
+            saveErrorMessage = AngleResultSaveFailure.message(error)
+        }
     }
 
     func nextQuestion() {
