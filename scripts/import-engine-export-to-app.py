@@ -11,7 +11,7 @@ import-engine-export-to-app.py — 引擎出片产物回填进 App Bundle（本�
   - QiuJi/Resources/Videos/<drillId>/…          （替换旧 take_*.mp4）
   - QiuJi/Resources/DrillTutorials/<drillId>_… （静帧）
   - QiuJi/Resources/Previews/<assetKey>/…      （卡片预览帧，可选）
-  - 各 drill JSON 的 videos[] 重写为引擎片引用
+  - 各 drill JSON 的 videos[] 重写为引擎片引用（默认不做，见 --skip-json）
 
 命名：
   - 单序列 drill：full.mp4 / full_3d.mp4 / full.gif
@@ -202,8 +202,10 @@ def main() -> int:
     ap.add_argument("--include-seq", action="store_true", help="也处理 seq_* 目录（默认跳过）")
     ap.add_argument(
         "--skip-json",
-        action="store_true",
-        help="只回填媒体文件，不改 drill JSON 的 videos[]（v25 视频 UI 已下线，默认应开）",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="只回填媒体文件，不改 drill JSON 的 videos[]。默认开启：v25 W1 已清空 videos[]，"
+        "重写会把视频引用写回、静默回退该拍板。要重新写回须显式 --no-skip-json",
     )
     args = ap.parse_args()
 
