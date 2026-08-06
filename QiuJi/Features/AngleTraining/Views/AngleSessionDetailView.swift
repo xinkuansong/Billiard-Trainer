@@ -8,10 +8,13 @@ import SwiftUI
 ///   • stat grid: totals (题数 / 平均误差 / 最佳 / 正确率)
 ///   • per-question list (actual / user / error)
 ///
-/// Everything is computed from the `AngleTrainingSession` value type — the
+/// Everything is computed from the `CognitiveSessionItem` value type — the
 /// view has no external side-effects and no SwiftData dependencies.
+///
+/// v29 W6：载体从 `AngleTrainingSession` 内存投影换成 `kind="cognitive"` 的真会话，
+/// 标题用会话名快照（契约 §6.5），时长用会话真字段。
 struct AngleSessionDetailView: View {
-    let session: AngleTrainingSession
+    let session: CognitiveSessionItem
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -26,7 +29,7 @@ struct AngleSessionDetailView: View {
             .padding(.bottom, Spacing.xxxxl)
         }
         .background(.btBG)
-        .navigationTitle(session.quizTypeNameZh)
+        .navigationTitle(session.displayNameZh)
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -43,7 +46,7 @@ struct AngleSessionDetailView: View {
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(session.quizTypeNameZh)
+                    Text(session.displayNameZh)
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
                     Text(headerSubtitle)
@@ -203,19 +206,19 @@ struct AngleSessionDetailView: View {
 
 #Preview("Light") {
     NavigationStack {
-        AngleSessionDetailView(session: AngleTrainingSession.preview)
+        AngleSessionDetailView(session: CognitiveSessionItem.preview)
     }
 }
 
 #Preview("Dark") {
     NavigationStack {
-        AngleSessionDetailView(session: AngleTrainingSession.preview)
+        AngleSessionDetailView(session: CognitiveSessionItem.preview)
     }
     .preferredColorScheme(.dark)
 }
 
-private extension AngleTrainingSession {
-    static var preview: AngleTrainingSession {
+private extension CognitiveSessionItem {
+    static var preview: CognitiveSessionItem {
         let now = Date()
         let results: [AngleTestResult] = (0..<8).map { i in
             let r = AngleTestResult(
@@ -227,11 +230,13 @@ private extension AngleTrainingSession {
             r.date = now.addingTimeInterval(-Double(8 - i) * 60)
             return r
         }
-        return AngleTrainingSession(
-            id: "preview",
+        return CognitiveSessionItem(
+            id: UUID(),
+            displayNameZh: "2D 角度训练",
             quizType: "scene2D",
             startDate: results.first?.date ?? now,
             endDate: results.last?.date ?? now,
+            durationMinutes: 8,
             results: results
         )
     }
