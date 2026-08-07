@@ -2,8 +2,8 @@
 # 内容不变量门禁（问题集合 v29 W9；真源 .kiro/steering/content-data-contract.md §7）
 #
 # 阻塞项：C1 出片新鲜度 / C2 回填一致性 / C3 引用指向（含失效引用棘轮）/
-#         I5 精讲 token / I7 profile / I8 Bundle 子集 / I9 序列覆盖
-# 已知豁免：C4 结构对齐（23 条不一致，解除条件见契约 §8.2 —— v26 精讲全量迁移后转阻塞）
+#         C4 结构对齐 / I5 精讲 token / I7 profile / I8 Bundle 子集 / I9 序列覆盖
+# （v26 W13：C4 已转正为阻塞；GATE_EXEMPT_CHECKS 为空）
 #
 # 安装：make -f scripts/Makefile install-hooks
 # 绕过：git push --no-verify（git 内置，无法在钩子里禁掉；用了就必须在 PR/日志里说明理由）
@@ -21,9 +21,10 @@ if ! python3 "$REPO_ROOT/scripts/verify_tutorial_sync.py" --gate; then
 处置顺序：
   1. C1/C2 失败 → 重出片并回填：make position-export → import-engine-export-to-app.py → make tryout-sync
   2. C3 基线被突破 → 修好新增的失效 image 引用（不得直接上调基线）
-  3. I5/I7 失败 → 精讲 / profile 与序列 token 对齐（红线：改精讲，不改序列）
-  4. I8 失败 → make tryout-sync（Bundle 是派生物，禁止手改）
-  5. I9 失败 → 录制序列，或按契约 §8.5 登记豁免后写入 scripts/content_invariant_baselines.json
+  3. C4 失败 → 精讲逐杆节数 / 球形数与序列对齐（红线：改精讲，不改序列）
+  4. I5/I7 失败 → 精讲 / profile 与序列 token 对齐（红线：改精讲，不改序列）
+  5. I8 失败 → make tryout-sync（Bundle 是派生物，禁止手改）
+  6. I9 失败 → 录制序列，或按契约 §8.5 登记豁免后写入 scripts/content_invariant_baselines.json
 
 自查命令：make -f scripts/Makefile verify-gate
 EOF

@@ -19,8 +19,8 @@ verify_tutorial_sync.py — 内容不变量校验（契约 .kiro/steering/conten
 基线与已知豁免真源：scripts/content_invariant_baselines.json（棘轮，只许收紧）。
 
 用法：
-  python3 scripts/verify_tutorial_sync.py                 # 全部检查，C4 计入退出码
-  python3 scripts/verify_tutorial_sync.py --gate          # 门禁模式：C4 降级为已知豁免
+  python3 scripts/verify_tutorial_sync.py                 # 全部检查（含 C4）
+  python3 scripts/verify_tutorial_sync.py --gate          # 门禁模式（pre-push；与默认相同阻塞集，见 GATE_EXEMPT_CHECKS）
   python3 scripts/verify_tutorial_sync.py --only C3 I5
   python3 scripts/verify_tutorial_sync.py --json
   python3 scripts/verify_tutorial_sync.py --root <fixture> --baselines <json>
@@ -45,8 +45,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BASELINES = Path(__file__).resolve().parent / "content_invariant_baselines.json"
 
 CHECK_IDS = ["C1", "C2", "C3", "C4", "I5", "I7", "I8", "I9"]
-# 门禁模式下不计入退出码的检查（已知豁免，解除条件见契约 §7/§8）。
-GATE_EXEMPT_CHECKS = {"C4"}
+# 门禁模式下不计入退出码的检查（已知豁免）。v26 W13：C4 已转正为阻塞，集合为空。
+GATE_EXEMPT_CHECKS: set[str] = set()
 # 计入 FAIL 的结果键；warn / *_idle / exempt 等一律不计。
 FAIL_KEYS = ("fail", "collision", "breach")
 
@@ -593,7 +593,7 @@ def main() -> int:
     parser.add_argument("--only", nargs="+", choices=CHECK_IDS,
                         help="只跑指定检查（默认全跑）")
     parser.add_argument("--gate", action="store_true",
-                        help="门禁模式：C4 降级为已知豁免（不计入退出码），其余照常阻塞")
+                        help="门禁模式（pre-push 入口；GATE_EXEMPT_CHECKS 内检查不计入退出码）")
     parser.add_argument("--json", action="store_true", help="输出机器可读摘要")
     parser.add_argument("--root", type=Path, default=REPO_ROOT,
                         help="内容根目录（默认仓库根；构造性用例可指向 fixture 副本）")
