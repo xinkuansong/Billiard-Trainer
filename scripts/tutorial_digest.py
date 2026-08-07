@@ -213,6 +213,31 @@ def digest(path):
     w(f"- 击打顺序与袋口：{order}")
     w("")
 
+    # ---- 形态判定（DR-062）：开局布局之后、逐杆之前；纯新增行，不改既有字段格式
+    # 判据：各杆目标球距袋距离极差 < 0.5 颗球 且袋口一致 → 独立阶梯；否则走位链。
+    pocket_set = set()
+    dtp_balls = []
+    for step in steps:
+        shot = step["shot"]
+        tkey = shot.get("targetKey", "")
+        pocket = shot.get("pocket", "")
+        if not tkey or not pocket:
+            continue
+        before = {k: (v["x"], v["y"]) for k, v in step["before"]["onTable"].items()}
+        if tkey not in before:
+            continue
+        pk = POCKETS.get(pocket)
+        if not pk:
+            continue
+        pocket_set.add(pocket)
+        dtp_balls.append(in_balls(dist(before[tkey], pk)))
+    if dtp_balls and len(pocket_set) == 1 and (max(dtp_balls) - min(dtp_balls)) < 0.5:
+        dtp_rep = sum(dtp_balls) / len(dtp_balls)
+        w(f"形态判定：独立阶梯（目标球距袋恒定 {dtp_rep:.1f} 颗球，袋口不变）")
+    else:
+        w("形态判定：走位链（目标球距袋逐杆变化）")
+    w("")
+
     # ---- 逐杆
     for i, step in enumerate(steps):
         shot = step["shot"]
