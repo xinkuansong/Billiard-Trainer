@@ -104,16 +104,17 @@ enum DrillCoverAnnotation {
         return pocket.isEmpty ? nil : pocket
     }
 
-    /// Schema pocket ID → short Chinese (ID decode, not a per-drill glossary).
+    /// Schema pocket ID → portrait 屏幕系中文短名（DR-063；与 `PocketDisplay` 同口径）。
+    /// 封面/卡片为竖版旋转顶视：屏幕上=+X，屏幕右=+Z。
     static func pocketShortLabel(_ pocket: String?) -> String? {
         guard let pocket else { return nil }
         switch pocket {
-        case "topLeft": return "左上袋"
-        case "topRight": return "右上袋"
-        case "topCenter": return "上中袋"
-        case "bottomLeft": return "左下袋"
-        case "bottomRight": return "右下袋"
-        case "bottomCenter": return "下中袋"
+        case "topLeft": return "左下角袋"
+        case "topRight": return "左上角袋"
+        case "topCenter": return "左侧中袋"
+        case "bottomLeft": return "右下角袋"
+        case "bottomRight": return "右上角袋"
+        case "bottomCenter": return "右侧中袋"
         default: return nil
         }
     }

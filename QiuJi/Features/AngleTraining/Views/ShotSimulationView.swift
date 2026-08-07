@@ -27,7 +27,7 @@ struct ShotSimulationView: View {
     private static let topRowHeight = ShotStageMetrics.topRowHeight
     private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
 
-    /// 默认教学球形：母球左下、黑 8 靠右上角袋（沿用 v2 的 placeBallsAtDefaults 坐标）。
+    /// 默认教学球形：母球左下、黑 8 靠 pocket index 1（landscape「右上角袋」，沿用 v2 坐标）。
     private static var defaultBoard: BoardSnapshot {
         let y = BTTablePhysics.surfaceY + AngleSceneCalculator.ballRadius
         let cueN = AngleSceneCalculator.sceneToNormalized(position: SCNVector3(-0.35, y, 0.22))

@@ -54,14 +54,14 @@ enum AngleCalculator {
     // MARK: Pocket geometry (normalised table coords: x 0→1, y 0→0.5)
 
     static let pockets: [PocketPosition] = [
-        // Labels are named from the rotated 2D training view:
-        // screen-up = world +X, screen-right = world +Z.
-        PocketPosition(x: 0.0, y: 0.0,  type: .corner, label: "左下"),
-        PocketPosition(x: 1.0, y: 0.0,  type: .corner, label: "左上"),
-        PocketPosition(x: 0.0, y: 0.5,  type: .corner, label: "右下"),
-        PocketPosition(x: 1.0, y: 0.5,  type: .corner, label: "右上"),
-        PocketPosition(x: 0.5, y: 0.0,  type: .side,   label: "左中"),
-        PocketPosition(x: 0.5, y: 0.5,  type: .side,   label: "右中"),
+        // DR-063 portrait 屏幕系（本训练为 topDown2DRotated）：
+        // screen-up = world +X = canvasX 增；screen-right = world +Z = canvasY 增。
+        PocketPosition(x: 0.0, y: 0.0,  type: .corner, label: "左下角袋"),  // topLeft
+        PocketPosition(x: 1.0, y: 0.0,  type: .corner, label: "左上角袋"),  // topRight
+        PocketPosition(x: 0.0, y: 0.5,  type: .corner, label: "右下角袋"),  // bottomLeft
+        PocketPosition(x: 1.0, y: 0.5,  type: .corner, label: "右上角袋"),  // bottomRight
+        PocketPosition(x: 0.5, y: 0.0,  type: .side,   label: "左侧中袋"),  // topCenter
+        PocketPosition(x: 0.5, y: 0.5,  type: .side,   label: "右侧中袋"),  // bottomCenter
     ]
 
     // MARK: Question generation

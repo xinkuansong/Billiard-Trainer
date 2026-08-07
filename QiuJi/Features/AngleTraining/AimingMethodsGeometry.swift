@@ -35,7 +35,8 @@ struct AimingMethodsGeometry {
         let cueDistance: CGFloat   // L = |CG|
     }
 
-    /// 标准教学球形：目标球 (0.45, −0.12) 瞄右上角袋，母球距假想球 L（默认 0.42m）。
+    /// 标准教学球形：目标球 (0.45, −0.12) 瞄索引 1 袋口。
+    /// 「右上」为 landscape 屏幕名（learn 横图，DR-063 对照列）；portrait 用户面见 `PocketDisplay`。
     static func scene(cutAngleDeg: CGFloat,
                       cueDistance: CGFloat = 0.42,
                       target: CGPoint = CGPoint(x: 0.45, y: -0.12),

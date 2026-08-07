@@ -394,15 +394,17 @@ enum PowerDisplay {
 // MARK: - Pocket display helper
 
 enum PocketDisplay {
-    /// schema Pocket index (0..5) → 中文短名。
+    /// schema Pocket index (0..5) → portrait 屏幕系中文名（DR-063）。
+    /// 用于 drill 封面/精讲/击打等 `applyTopDown2DRotated` 面：
+    /// 屏幕上=+X，屏幕右=+Z。
     static func name(index: Int) -> String {
         switch index {
-        case 0: return "左上袋"
-        case 1: return "右上袋"
-        case 2: return "左下袋"
-        case 3: return "右下袋"
-        case 4: return "上中袋"
-        case 5: return "下中袋"
+        case 0: return "左下角袋"   // topLeft
+        case 1: return "左上角袋"   // topRight
+        case 2: return "右下角袋"   // bottomLeft
+        case 3: return "右上角袋"   // bottomRight
+        case 4: return "左侧中袋"   // topCenter
+        case 5: return "右侧中袋"   // bottomCenter
         default: return "—"
         }
     }

@@ -735,7 +735,7 @@ private final class LoopingPlayerUIView: UIView {
             level: "L0",
             difficulty: 1,
             isPremium: false,
-            description: "将目标球从半台距离沿直线打入下中袋，训练基础瞄准稳定性与出杆方向。",
+            description: "将目标球从半台距离沿直线打入右侧中袋，训练基础瞄准稳定性与出杆方向。",
             coachingPoints: ["保持出杆方向与瞄准线严格一致"],
             standardCriteria: "15球进10球",
             sets: .init(defaultSets: 3, defaultBallsPerSet: 15),

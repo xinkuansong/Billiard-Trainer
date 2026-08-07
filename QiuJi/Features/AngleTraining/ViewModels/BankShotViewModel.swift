@@ -117,8 +117,8 @@ final class BankShotViewModel: ObservableObject {
 
     let cushionOptions = [1, 2, 3]
 
-    /// 各袋口名称（顺序同 pocketPositions：左上/右上/左下/右下/上中/下中）。
-    let pocketNames = ["左上", "右上", "左下", "右下", "上中", "下中"]
+    /// 各袋口名称（顺序同 pocketPositions；DR-063 portrait 屏幕系——本页 `topDown2DRotated`）。
+    let pocketNames = ["左下角", "左上角", "右下角", "右上角", "左侧中", "右侧中"]
 
     // MARK: - Obstacles（W4 球库带：拖入 = 真实碰撞体，方案 §4.3）
 

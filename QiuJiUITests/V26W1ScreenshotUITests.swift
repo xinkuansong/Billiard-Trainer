@@ -1,10 +1,10 @@
 import XCTest
 
-/// v26 W1：四条试点精讲页截图 → `build/v26-w1-screenshots/`
+/// v26 W1：四条试点精讲页截图 → `build/v26-w1-screenshots/r3/`（DR-063 三轮）
 final class V26W1ScreenshotUITests: XCTestCase {
 
     private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v26-w1-screenshots"
+        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v26-w1-screenshots/r3"
     )
 
     var app: XCUIApplication!
@@ -125,7 +125,13 @@ final class V26W1ScreenshotUITests: XCTestCase {
             }
         }
 
-        if drillId == "drill_c065" {
+        // 滚到含袋口名的逐杆节（或规则课中部），便于验收 DR-063 屏幕系袋口名
+        if drillId == "drill_c032" || drillId == "drill_c053" {
+            app.swipeUp()
+            sleep(1)
+            app.swipeUp()
+            sleep(1)
+        } else if drillId == "drill_c065" {
             app.swipeUp()
             sleep(1)
         }

@@ -304,7 +304,8 @@ struct AimingPrincipleView: View {
 /// 瞄准线（白实线，带文字标签）/ θ 弧——标在两线**反向延长线**的夹角处（条 1.3）。
 /// 瞄准点（红点）按 G1 定义 = 目标球心到瞄准线的垂足，位于「过目标球心、垂直于
 /// 瞄准线的直线」（白色细虚线）与瞄准线的交点处。
-/// 几何走世界坐标真源：假想球 = 目标球心 − 2R×进球方向，瞄向真实右上角袋。
+/// 几何走世界坐标真源：假想球 = 目标球心 − 2R×进球方向，瞄向索引 1 袋口。
+/// 「右上角袋」为 landscape 屏幕名（本图 `BTTableFigure.orientation == .landscape`，DR-063 对照列）。
 private struct AimingFigure: View {
     /// 名词系统模式：加标「瞄准点 / 接触点」详注（条 1.1 配图）。
     var showsGlossaryLabels = false
@@ -437,7 +438,7 @@ private struct AimingFigure: View {
     private func layout(_ proj: TableFigureProjection) -> Layout {
         let r = CGFloat(AngleSceneCalculator.ballRadius)
 
-        // 世界几何（米）：目标球 → 右上角袋（索引 1）。
+        // 世界几何（米）：目标球 → pocket index 1（landscape 屏幕「右上角袋」，DR-063）。
         let targetW = CGPoint(x: 0.45, y: -0.12)
         let pocketW3 = AngleSceneCalculator.pocketMarkerPositions(surfaceY: 0)[1]
         let pocketW = CGPoint(x: CGFloat(pocketW3.x), y: CGFloat(pocketW3.z))

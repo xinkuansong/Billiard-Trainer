@@ -78,8 +78,9 @@ struct TableFigureProjection {
     /// 释义线宽（对照线/90° 线，§1.2 `lineHint`）。
     var lineHintWidth: CGFloat { min(max(1.2, length(CGFloat(TrajectoryStyle.lineHint) * 2)), 2.4) }
 
-    /// 袋口中心（视觉标记盘位，索引同 `AngleSceneCalculator.pocketMarkerPositions`：
-    /// 0 左上 1 右上 2 左下 3 右下 4 上中 5 下中，按世界系 X/Z 符号）。
+    /// 袋口中心（视觉标记盘位，索引同 `AngleSceneCalculator.pocketMarkerPositions`）。
+    /// 注释简称按 landscape 屏幕系（本组件默认 `.landscape`：右=+X，上=−Z）：
+    /// 0 左上 1 右上 2 左下 3 右下 4 上中 5 下中。portrait 用户可见名见 DR-063 / `PocketDisplay`。
     func pocketCenter(_ index: Int) -> CGPoint {
         let positions = AngleSceneCalculator.pocketMarkerPositions(surfaceY: 0)
         guard index >= 0, index < positions.count else { return point(x: 0, z: 0) }

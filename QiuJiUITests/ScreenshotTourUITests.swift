@@ -1220,7 +1220,8 @@ final class ScreenshotTourUITests: XCTestCase {
 
     private func ensureBankSolution() {
         guard hasNoSolution else { return }
-        for pocket in ["右上", "左下", "右下", "上中", "下中", "左上"] {
+        // DR-063：BankShot 为 topDown2DRotated，袋口 chip 用 portrait 屏幕短名
+        for pocket in ["左上角", "右下角", "右上角", "左侧中", "右侧中", "左下角"] {
             if tapIfExists(pocket, timeout: 2) {
                 sleep(1)
                 if !hasNoSolution { return }

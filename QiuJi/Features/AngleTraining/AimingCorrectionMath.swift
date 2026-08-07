@@ -19,7 +19,7 @@ enum AimingCorrectionMath {
     static let surfaceY: Float = BTTablePhysics.surfaceY
     /// 教学切角目标（度）；球位来自 `AimingMethodsGeometry.scene`。
     static let teachingCutAngleDeg: CGFloat = CGFloat(AngleSceneCalculator.halfBall.cutAngleDegrees)
-    /// 右上角袋 = `AngleSceneCalculator.pocketPositions` 索引 1（与 Y1 教学袋一致）。
+    /// pocket index 1；landscape 屏幕名「右上角袋」（learn 横图，DR-063 对照列）。
     static let teachingPocketIndex: Int = 1
 
     // MARK: - Teaching setup

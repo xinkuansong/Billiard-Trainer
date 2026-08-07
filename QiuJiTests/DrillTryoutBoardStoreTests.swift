@@ -144,7 +144,7 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
 
         let lines = DrillTryoutBrief.lines(for: drill, formation: formation)
         let goal = try XCTUnwrap(lines.first(where: { $0.label == "局面目标" }))
-        XCTAssertTrue(goal.text.contains("上中袋"), "袋口应取序列首杆 topCenter")
+        XCTAssertTrue(goal.text.contains("左侧中袋"), "袋口应取序列首杆 topCenter（DR-063 portrait）")
         XCTAssertTrue(goal.text.contains("共 5 杆"), "杆数应取序列 stepCount")
 
         let ref = try XCTUnwrap(lines.first(where: { $0.label == "参考打法" }))

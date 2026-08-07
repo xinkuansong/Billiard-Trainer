@@ -233,7 +233,7 @@ struct ContactPointTableView: View {
                                    potDir: CGPoint, pocket: CGPoint) {
         let r = Double(AngleSceneCalculator.ballRadius)
         let target = CGPoint(x: 0.75, y: -0.25)
-        // 右上角袋视觉标记位（与其他插图同真源）。
+        // pocket index 1 视觉标记位；landscape 屏幕「右上角袋」（本图横版，DR-063）。
         let pocketW3 = AngleSceneCalculator.pocketMarkerPositions(surfaceY: 0)[1]
         let corner = CGPoint(x: CGFloat(pocketW3.x), y: CGFloat(pocketW3.z))
         let pv = CGPoint(x: corner.x - target.x, y: corner.y - target.y)
