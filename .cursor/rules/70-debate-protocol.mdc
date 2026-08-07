@@ -20,7 +20,7 @@ alwaysApply: false
 
 | 角色 | 子智能体 | 模型 | 职责 |
 |---|---|---|---|
-| 提想法者 | `debate-ideator` | `claude-opus-4-8-thinking-high` | 发散；提想法 + 依据 |
+| 提想法者 | `debate-ideator` | `claude-opus-5-thinking-medium` | 发散；提想法 + 依据 |
 | 评判者 | `debate-critic` | `gpt-5.5-medium`（换厂商） | 怀疑；判断 + 理由 + 杀手测试，可枪毙 |
 | 记录者 | `debate-recorder` | `composer-2.5-fast` | 中立；记账、维护台账 |
 

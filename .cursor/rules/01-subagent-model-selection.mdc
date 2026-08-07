@@ -12,7 +12,7 @@ alwaysApply: true
 | 选项 | 对应 model slug |
 |------|-----------------|
 | cursor-grok-4.5（默认） | `cursor-grok-4.5-high-fast` |
-| Claude Opus 4.8 | `claude-opus-4-8-thinking-medium` |
+| Claude Opus 5.0 | `claude-opus-5-thinking-medium` |
 
 以上是快捷选项，非封闭列表：询问时应以**当前实际可用的模型列表**为准补充其他选项（用户也可通过 Other 自定义）。
 
