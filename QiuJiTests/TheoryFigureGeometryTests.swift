@@ -101,4 +101,54 @@ final class TheoryFigureGeometryTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - v30 W2：T01 滚动偏约 30° / T02 滑动分离 90°
+
+    /// T02 图核心：任意 θ 下滑动出发方向 ⊥ 进球方向，分离角恒 90°。
+    func testStunSeparationIsNinetyAcrossSliderRange() {
+        for theta in thetas {
+            let scene = SpinAndEnglishGeometry.scene(cutAngleDeg: theta)
+            let sep = SpinAndEnglishGeometry.separationDegrees(scene: scene, state: .stun)
+            XCTAssertEqual(sep, 90, accuracy: 1e-6, "θ=\(theta) 滑动分离角应恒为 90°")
+
+            let t = SpinAndEnglishGeometry.tangentDir(scene: scene)
+            let stun = SpinAndEnglishGeometry.departureDir(scene: scene, state: .stun)
+            XCTAssertEqual(t.x, stun.x, accuracy: 1e-9, "θ=\(theta) 滑动出发 = 切线（x）")
+            XCTAssertEqual(t.y, stun.y, accuracy: 1e-9, "θ=\(theta) 滑动出发 = 切线（z）")
+            XCTAssertEqual(t.x * scene.potDir.x + t.y * scene.potDir.y, 0, accuracy: 1e-9,
+                           "θ=\(theta) 切线应 ⊥ 进球方向")
+        }
+    }
+
+    /// T01 图核心：半球 θ=30° 时前旋/滚动教学折线相对瞄准线 ≈30°；
+    /// 且滚动出发方向随 θ 变化（与「切线不随 θ」对照）。
+    func testFollowAngleFromAimAtHalfBallIsAboutThirty() {
+        let half = CGFloat(AngleSceneCalculator.halfBall.cutAngleDegrees)
+        let scene = SpinAndEnglishGeometry.scene(cutAngleDeg: half)
+        let angle = SpinAndEnglishGeometry.followAngleFromAimDegrees(scene: scene)
+        XCTAssertEqual(angle, 30, accuracy: 0.5,
+                       "半球教学折线相对瞄准线应 ≈30°（T01 口诀）")
+
+        // 路径端点应落在与 T03 相同取景窗内（RollThirtyDegreeFigure 同 closeup）。
+        let center = CGPoint(x: 0.40, y: -0.16)
+        let halfHeight: CGFloat = 0.36
+        let halfWidth = halfHeight * 1.3
+        let end = SpinAndEnglishGeometry.pathEnd(scene: scene, state: .follow)
+        XCTAssertLessThanOrEqual(abs(end.x - center.x), halfWidth)
+        XCTAssertLessThanOrEqual(abs(end.y - center.y), halfHeight)
+    }
+
+    /// T04 页表数字必须与代码五档真源一致（防正文手抄漂移）。
+    func testAppSpeedLevelsMatchStrokePhysicsConstants() {
+        let expected: [(Int, Float)] = [
+            (1, 1.6), (2, 2.4), (3, 3.3), (4, 4.4), (5, 5.8),
+        ]
+        let levels = StrokePhysics.SpeedLevel.allCases
+        XCTAssertEqual(levels.count, 5, "App 落地为五档（T04 业余推荐）")
+        for (level, pair) in zip(levels, expected) {
+            XCTAssertEqual(level.rawValue, pair.0)
+            XCTAssertEqual(level.velocity, pair.1, accuracy: 1e-6,
+                           "SpeedLevel.\(level) 杆速应与 BTPhysicsConstants 一致")
+        }
+    }
 }

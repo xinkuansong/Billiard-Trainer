@@ -207,7 +207,16 @@ struct TheoryT03View: View {
                 route: .separationAngleAtlas
             )
 
-            LearnDocText.footnote("相关球理：30° 法则、90° 法则（即将上线）——这两条就是切线配上不同旋转之后的两个特例。")
+            LearnDocTextLink(
+                title: "30° 法则",
+                subtitle: "自然滚动特例：合适厚度里碰后偏约 30°",
+                route: .theoryPage(.t01)
+            )
+            LearnDocTextLink(
+                title: "90° 法则",
+                subtitle: "滑动特例：两球分离角 90°",
+                route: .theoryPage(.t02)
+            )
             LearnDocText.footnote("这一条还没有绑定专门的跟练题目，先用上面的演示页换着杆法看母球怎么走最直接。")
         }
     }
