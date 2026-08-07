@@ -82,6 +82,50 @@
 
 ## DR 记录（设计调整）
 
+## FL-029
+- **任务**：X-v30-1 生产缺陷修复（插队批，`问题集合_v30.md` §七；用户裁定「立刻修 + 完整修」）
+- **现象**：`DrillContentService.loadDrillFromBundle(id:)` 对 **34/77 条 drill 返回 nil**——
+  App 动作库实际只有 43 条，将近一半题目在线上**不存在**。相关单测长期红（56 项），
+  但失败信息只有「这些 drill 加载失败」，无人能从中定位到字段。潜伏时长以月计。
+- **根因（两层，缺一不成灾）**：
+  1. **内容层**：`TutorialSection.content` 缺失 45 处（全为「常见错误与纠正」纯 items 节）、
+     `TutorialFormation.id` 缺失 7 处（c073/c074/c075），而 Swift 模型把两者定义为必填。
+  2. **工程层（红线违反，才是致命的一层）**：L325 `try? JSONDecoder().decode(...)`
+     把 `DecodingError` 吞成 `nil`。⛔ 违反 `00-orchestrator.mdc` 工程底线第 3 条
+     「禁止空 catch / `try?` 吞错误」。内容缺陷天天存在，但因为它被静音，
+     退化成「drill 凭空消失」这种**无法归因**的症状。
+- **解决**（四项，全部加法式，旧内容零改动）：
+  1. `TutorialSection.content` 放宽为 `String?`。**判定依据（实测，不是猜）**：45 处缺 content
+     的节 **100%** 是「常见错误与纠正」且键集恰为 `{title, items}`，items 数 3–4、**无一为 0**；
+     同名节在别的 drill 里有 54 处显式写 `content: ""`——即「本节无正文」早就是既定内容形态，
+     缺陷只是「省略键」而非「写空串」。⛔ 因此不给这 45 处补正文（那是编造内容）。
+     渲染端 `DrillTutorialView` L215 原本就是 `!content.isEmpty` 守卫，改 `if let` 即可。
+  2. 7 个 `TutorialFormation.id` **从序列侧反查**得出，非自拟：每个 formation 自身的
+     `image` 字段已含 token（`drill_c073_manual01_s01`），且逐球形杆数与序列文件
+     完全吻合（7/8、6/9、7/5/5），三重互证唯一解 `manual01/02/03`，符合契约 §3.1「`manualNN` 为既定稳定键」。
+  3. `loadDrillFromBundle` / `loadDrillIndex` 的 `try?` 改 `do/catch` + 新增
+     `DrillContentDiagnostics`（os_log，`.kiro/steering/observability.md` 口径），
+     打印 drill id + `DecodingError` 类型 + codingPath。函数签名不变，调用方零改动。
+  4. **门禁不变量 I10**（契约 §7）：`verify_tutorial_sync.py` 新增 `MODEL_SPEC`——
+     Swift `Codable` 模型的 Python 镜像，递归校验必填字段与类型；直接列入阻塞项，无豁免。
+     Swift 侧同位强化 `test_allIndexedDrills_loadSuccessfully`，失败时打印确切 codingPath。
+- **实证**：`make build` BUILD SUCCEEDED；全量 `QiuJiTests` 失败 **56 → 7**，且 7 条经
+  **stash 前置基线实跑**证明全部在本批之前就已 FAIL（`build/x-v30-1-logs/baseline-prefix-7classes.txt`）；
+  构造性验证：破坏 c001 → gate FAIL 且测试打印 `keyNotFound 'start' at animation.cueBall`
+  → 还原后 gate 绿（`gate-BROKEN.txt` / `gate-RESTORED.txt`）；I10 构造性用例 3/3。
+- **批外发现**：`animation.pocket` 空串 6 处，其中 c045/c049 是解码修好后**新暴露**的存量
+  内容缺陷（此前整条 drill 加载失败，断言根本没跑到）。已登记契约 §8.16，另立批次。
+- **强制检查点（回写规则）**：
+  1. ⛔ **模型放宽/收紧必须同步门禁**：改 `Codable` 模型的必填性，必须同步改
+     `verify_tutorial_sync.py` 的 `MODEL_SPEC`，否则 I10 立刻在全库暴露差异。
+  2. ⛔ **内容与模型不匹配时，先判定「谁错了」再动手**：内容里同一形态出现 45 次
+     且自洽，那是模型的约束过时，**不是内容缺 45 处**。⛔ 禁止为了满足必填约束批量补写正文。
+  3. ⛔ **长期红的测试不是背景噪音**：断言红了却没人能从失败信息定位字段时，
+     第一步是修**可诊断性**（让失败自己说出是哪个字段），不是绕过。
+- **日期**：2026-08-07
+- **回写目标**：`.cursor/rules/00-orchestrator.mdc` § 经验教训（第 3 条工程底线的 `try?` 禁令补可执行检查点）、`.kiro/steering/content-data-contract.md` §7（I10）
+- **已应用至**：✅ `.kiro/steering/content-data-contract.md` v1.8 §7 I10 + §7.1 阻塞项 + §8.16 + 版本记录（2026-08-07）；✅ `QiuJi/Resources/Drills/schema.md` `TutorialSection.content` 行（2026-08-07）；✅ `.cursor/rules/00-orchestrator.mdc` § 经验教训 / ⛔ FL-029（2026-08-07）
+
 ## FL-028
 - **任务**：v30 W1 试点（T03 + T08）人工验收
 - **用户判定**：未通过。原话「和现有的其他学页面风格完全不同，也没有说明图，很不满意」。

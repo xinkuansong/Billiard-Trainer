@@ -39,12 +39,33 @@ final class DrillContentValidationTests: XCTestCase {
                        "Index categories must match DrillCategory enum cases")
     }
 
+    /// 契约 §7 I10 的 Swift 侧同位检查（`verify_tutorial_sync.py --only I10` 拦在 push 前）。
+    /// 失败时直接给出确切的 `DecodingError` 字段与 codingPath——FL-029 的教训是
+    /// 「返回 nil」这种失败信息无法定位到是哪个字段缺失。
     func test_allIndexedDrills_loadSuccessfully() {
         let loadedIds = Set(allDrills.map(\.id))
-        let indexedIds = Set(drillIndex.allDrillIds)
-        let missing = indexedIds.subtracting(loadedIds)
-        XCTAssertTrue(missing.isEmpty,
-                      "These indexed drills failed to load: \(missing.sorted())")
+        let missing = Set(drillIndex.allDrillIds).subtracting(loadedIds).sorted()
+        guard !missing.isEmpty else { return }
+        let reasons = missing.map { "\($0): \(Self.decodeFailureReason(drillId: $0))" }
+        XCTFail("These indexed drills failed to load:\n" + reasons.joined(separator: "\n"))
+    }
+
+    /// 重新解码一次，把 `DrillContentService` 内部记进日志的失败原因取回给断言消息。
+    private static func decodeFailureReason(drillId: String) -> String {
+        for category in DrillCategory.allCases.map(\.rawValue) {
+            // 与 `DrillContentService` 同一个 bundle（宿主 App），否则查不到资源。
+            guard let url = Bundle.main.url(
+                forResource: drillId, withExtension: "json",
+                subdirectory: "Drills/\(category)"
+            ) else { continue }
+            do {
+                _ = try JSONDecoder().decode(DrillContent.self, from: try Data(contentsOf: url))
+                return "decodes fine here — check bundle lookup path"
+            } catch {
+                return DrillContentDiagnostics.describe(error)
+            }
+        }
+        return "JSON not found in any category subdirectory"
     }
 
     func test_loadedDrillCount_matches72() {

@@ -78,6 +78,7 @@
     "tutorialKind": "multiShot",
     "formations": [
       {
+        "id": "manual01",
         "title": "球形1：中杆·纯塞量阶梯",
         "sections": [
           {
@@ -269,6 +270,7 @@
         ]
       },
       {
+        "id": "manual02",
         "title": "球形2：中高杆·塞量阶梯",
         "sections": [
           {
@@ -426,6 +428,7 @@
         ]
       },
       {
+        "id": "manual03",
         "title": "球形3：中低杆·塞量阶梯",
         "sections": [
           {

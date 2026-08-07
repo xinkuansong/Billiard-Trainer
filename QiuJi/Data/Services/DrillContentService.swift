@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - DTOs (Bundle JSON; future: REST API OTA)
 
@@ -136,7 +137,9 @@ struct TutorialFormation: Codable, Identifiable {
 
 struct TutorialSection: Codable, Identifiable {
     let title: String
-    let content: String
+    /// 段落正文。可选——「常见错误与纠正」这类纯 `items` 列表节没有正文，
+    /// 既有内容里同时存在「省略该键」与 `""` 两种写法，二者语义等同（渲染层均不出段落）。
+    let content: String?
     /// 图文精讲配图（静态海报）：`Resources/DrillTutorials/<image>.png`（不含扩展名）。可选——旧 Drill 无此字段照常工作。
     let image: String?
     /// 动态演示片段（可选，mp4，ADR-P12-02）：`Resources/DrillTutorials/<clip>.mp4`（不含扩展名）。
@@ -154,7 +157,7 @@ struct TutorialSection: Codable, Identifiable {
 
     var id: String { title }
 
-    init(title: String, content: String, image: String? = nil, clip: String? = nil,
+    init(title: String, content: String? = nil, image: String? = nil, clip: String? = nil,
          caption: String? = nil, items: [TutorialItem]? = nil, params: TutorialShotParams? = nil) {
         self.title = title
         self.content = content
@@ -284,6 +287,49 @@ enum DrillCategory: String, CaseIterable, Identifiable {
     }
 }
 
+// MARK: - Diagnostics
+
+/// Bundle 内容解码失败的诊断出口（`.kiro/steering/observability.md`：os_log，不含用户标识、不上传）。
+///
+/// 存在理由（FL-029）：`loadDrillFromBundle` 曾用 `try?` 吞掉 `DecodingError`，
+/// 34/77 条 drill 因缺必填字段而静默消失于动作库，长期无人发现。
+enum DrillContentDiagnostics {
+
+    private static let logger = Logger(subsystem: "com.billiardtrainer", category: "DrillContent")
+
+    /// 把 `DecodingError` 压成一行可定位的说明：类型 + codingPath + 原因。
+    /// 非 `DecodingError` 原样返回其描述。测试直接断言这段文本。
+    static func describe(_ error: Error) -> String {
+        func path(_ context: DecodingError.Context) -> String {
+            let joined = context.codingPath.map { key -> String in
+                if let index = key.intValue { return "[\(index)]" }
+                return key.stringValue
+            }.joined(separator: ".")
+            return joined.isEmpty ? "<root>" : joined
+        }
+        switch error {
+        case let DecodingError.keyNotFound(key, context):
+            return "keyNotFound '\(key.stringValue)' at \(path(context)): \(context.debugDescription)"
+        case let DecodingError.typeMismatch(type, context):
+            return "typeMismatch expected \(type) at \(path(context)): \(context.debugDescription)"
+        case let DecodingError.valueNotFound(type, context):
+            return "valueNotFound \(type) at \(path(context)): \(context.debugDescription)"
+        case let DecodingError.dataCorrupted(context):
+            return "dataCorrupted at \(path(context)): \(context.debugDescription)"
+        default:
+            return String(describing: error)
+        }
+    }
+
+    static func logDecodeFailure(resource: String, error: Error) {
+        logger.error("Bundle content decode failed — \(resource, privacy: .public): \(describe(error), privacy: .public)")
+    }
+
+    static func logMissingResource(name: String) {
+        logger.error("Bundle content missing — \(name, privacy: .public)")
+    }
+}
+
 // MARK: - Service
 
 /// Loads bundled Drill JSON. Future: merge with self-hosted `GET /drills` for OTA updates (ADR-002).
@@ -295,37 +341,41 @@ actor DrillContentService {
     // MARK: Bundle
 
     func loadFallbackDrills() -> [DrillContent] {
-        guard let indexURL = Bundle.main.url(forResource: "index", withExtension: "json", subdirectory: "Drills") else {
-            return []
-        }
-        guard let indexData = try? Data(contentsOf: indexURL),
-              let index = try? JSONDecoder().decode(DrillIndex.self, from: indexData) else {
-            return []
-        }
-
+        guard let index = loadDrillIndex() else { return [] }
         return index.allDrillIds.compactMap { drillId in
             loadDrillFromBundle(id: drillId)
         }
     }
 
     func loadDrillIndex() -> DrillIndex? {
-        guard let indexURL = Bundle.main.url(forResource: "index", withExtension: "json", subdirectory: "Drills"),
-              let indexData = try? Data(contentsOf: indexURL) else {
+        guard let indexURL = Bundle.main.url(forResource: "index", withExtension: "json", subdirectory: "Drills") else {
+            DrillContentDiagnostics.logMissingResource(name: "Drills/index.json")
             return nil
         }
-        return try? JSONDecoder().decode(DrillIndex.self, from: indexData)
+        do {
+            return try JSONDecoder().decode(DrillIndex.self, from: try Data(contentsOf: indexURL))
+        } catch {
+            DrillContentDiagnostics.logDecodeFailure(resource: "Drills/index.json", error: error)
+            return nil
+        }
     }
 
     func loadDrillFromBundle(id: String) -> DrillContent? {
-        let categories = DrillCategory.allCases.map(\.rawValue)
-        for category in categories {
-            let subdir = "Drills/\(category)"
-            if let url = Bundle.main.url(forResource: id, withExtension: "json", subdirectory: subdir),
-               let data = try? Data(contentsOf: url),
-               let drill = try? JSONDecoder().decode(DrillContent.self, from: data) {
-                return drill
+        for category in DrillCategory.allCases.map(\.rawValue) {
+            guard let url = Bundle.main.url(
+                forResource: id, withExtension: "json", subdirectory: "Drills/\(category)"
+            ) else { continue }
+            do {
+                return try JSONDecoder().decode(DrillContent.self, from: try Data(contentsOf: url))
+            } catch {
+                // 解码失败不再静默：文件确实在这个 category 下，继续扫其余 category 也只会
+                // 一无所获，故就地报告并返回 nil（签名不变，调用方 compactMap 行为不变）。
+                DrillContentDiagnostics.logDecodeFailure(resource: "Drills/\(category)/\(id).json",
+                                                        error: error)
+                return nil
             }
         }
+        DrillContentDiagnostics.logMissingResource(name: "Drills/*/\(id).json")
         return nil
     }
 

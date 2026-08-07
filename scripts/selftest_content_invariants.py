@@ -131,6 +131,27 @@ def case_i9_unregistered_drill(root: Path) -> None:
     edit_json(index, lambda data: data["categories"][0]["drills"].append("drill_c900"))
 
 
+def case_i10_missing_required_field(root: Path) -> None:
+    # 复刻 FL-029 的原始形态：formation 缺 `id` ⇒ Swift 侧 keyNotFound。
+    def mutate(data: dict) -> None:
+        data["tutorial"]["formations"][0].pop("id")
+    edit_json(drill_path(root, "drill_c073"), mutate)
+
+
+def case_i10_wrong_type(root: Path) -> None:
+    # 类型不符同样会让 JSONDecoder 抛错，不只是缺键。
+    edit_json(drill_path(root, "drill_c001"),
+              lambda data: data.__setitem__("difficulty", "三星"))
+
+
+def case_i10_optional_content_absent(root: Path) -> None:
+    # v30 X-1 放宽后：纯 items 节省略 `content` 必须放行（防止把放宽又改回必填）。
+    def mutate(data: dict) -> None:
+        for section in data["tutorial"]["sections"]:
+            section.pop("content", None)
+    edit_json(drill_path(root, "drill_c001"), mutate)
+
+
 def case_c3_dead_ratchet(root: Path) -> None:
     # 新增 1 处失效引用 ⇒ 失效数 35 > 基线 34，棘轮必须报警。
     retarget_first_image(root, "drill_c011", "drill_c011_不存在的图")
@@ -153,7 +174,13 @@ CASES = {
                               case_i9_unregistered_drill, 1, "✗ drill_c900"),
     "c3_dead_ratchet": ("C3", "新增 1 处失效 image 引用（34 → 35）",
                         case_c3_dead_ratchet, 1, "基线被突破"),
-    "baseline_clean": ("I5 I7 I8 I9", "未做任何改动的影子库（对照组）",
+    "i10_missing_required_field": ("I10", "drill_c073 formation 去掉必填 id（复刻 FL-029）",
+                                   case_i10_missing_required_field, 1, "keyNotFound 'id'"),
+    "i10_wrong_type": ("I10", "drill_c001 difficulty 由 Int 改成字符串",
+                       case_i10_wrong_type, 1, "typeMismatch 期望 int"),
+    "i10_optional_content_absent": ("I10", "drill_c001 各节省略可选 content ⇒ 应放行",
+                                    case_i10_optional_content_absent, 0, "总计 FAIL: 0"),
+    "baseline_clean": ("I5 I7 I8 I9 I10", "未做任何改动的影子库（对照组）",
                        lambda root: None, 0, "总计 FAIL: 0"),
 }
 

@@ -212,8 +212,9 @@ struct DrillTutorialView: View {
                     .foregroundStyle(.btText)
             }
 
-            if !section.content.isEmpty {
-                paragraphs(section.content)
+            // content 可缺省或为空串（纯 items 节，如「常见错误与纠正」）：两者都不出段落块。
+            if let content = section.content, !content.isEmpty {
+                paragraphs(content)
             }
 
             if let params = section.params {

@@ -1,6 +1,6 @@
 # 内容与训练数据 — 真源契约与数据流（Steering）
 
-> **版本**：1.7（v26 W13：C4 转阻塞；§8.1/§8.2/§8.15 债务销账）
+> **版本**：1.8（v30 X-1：新增不变量 I10 模型可解码性并转阻塞；§8.16 登记 pocket 空值）
 > **最后更新**：2026-08-07
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
 > 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
@@ -351,6 +351,14 @@ AngleTestResult
 | I7 | profile formation 集合 == 序列 token 集合，或 profile 标记为已退役 | I7（v29 W9 新增） | ✅ 有，✅ 已接门禁（孤儿 profile 已退役，豁免已清空） |
 | I8 | `Bundle/DrillBoards` == `content/.../sequences` 的 `drill_c*.json` 子集 | I8（v29 W9 新增） | ✅ 有，✅ 已接门禁 |
 | I9 | 每个 `index.json` 登记的 drill 至少有 1 个序列，或在豁免名单内 | I9（v29 W9 新增） | ✅ 有，✅ 已接门禁（豁免见 §8.5） |
+| I10 | 全部 bundled drill JSON（含 `index.json`）能被 App 的 `Codable` 模型解码——必填字段齐全、类型正确 | I10（v30 X-1 新增） | ✅ 有，✅ 已接门禁（无豁免） |
+
+**I10 说明（FL-029）**：`DrillContentService.loadDrillFromBundle` 曾用 `try?` 吞掉
+`DecodingError`，34/77 条 drill 因缺 `TutorialSection.content` / `TutorialFormation.id`
+而**静默不进 App**（动作库只有 43 条），且失败信息仅为「返回 nil」，无法定位字段。
+I10 的必填字段表（`verify_tutorial_sync.py` 的 `MODEL_SPEC`）是 Swift 模型的 Python 镜像，
+**改 Swift 模型必须同步改它**；Swift 侧同位检查为
+`DrillContentValidationTests.test_allIndexedDrills_loadSuccessfully`（失败时打印 codingPath）。
 
 ### 7.1 门禁（2026-08-07 v29 W9 落地）
 
@@ -363,7 +371,7 @@ make -f scripts/Makefile verify-gate     # 本地自查，与钩子同一入口
 make -f scripts/Makefile invariant-selftest  # 构造性用例：证明每个检查项真会报错
 ```
 
-- **阻塞项**：C1 / C2 / C3 / C4 / I5 / I7 / I8 / I9。
+- **阻塞项**：C1 / C2 / C3 / C4 / I5 / I7 / I8 / I9 / I10。
 - **已知豁免（不阻塞）**：无（v26 W13：`GATE_EXEMPT_CHECKS` 已清空；I9 的 10 条无序列豁免仍在基线文件，属 §8.5 永久登记）。
 - **绕过**：只有 `git push --no-verify`（git 内置，钩子无法禁）。用了必须在提交说明或 PR 里写明理由。
 - **棘轮**：基线与豁免名单的唯一真源是 `scripts/content_invariant_baselines.json`。
@@ -484,6 +492,19 @@ W8 全量重出片后 `make tryout-sync` 已把 Bundle 球形 1 更新为上游 
 v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`（W8）/
 `c010`/`c022`（W10）；`i5_legacy_token_exempt` 已空，`c3_dead_refs_baseline` = 0。
 
+### 8.16 6 个 drill 的 `animation.pocket` 为空串（v30 X-1 实测）
+
+`drill_c045` / `c049` / `c054` / `c059` / `c060` / `c061` 的 `animation.pocket` 是 `""`，
+`DrillContentValidationTests.test_allDrills_pocketValueIsValid` 因此 FAIL。
+
+**时间线**：c054/c059/c060/c061 在 X-1 前就已 FAIL（基线实测，见
+`build/x-v30-1-logs/baseline-prefix-7classes.txt`）；c045/c049 是 X-1 修好解码后
+**新暴露**的同类存量缺陷——它们的 JSON 一直是空串，只是此前整条 drill 加载失败、
+断言压根没跑到。**不是 X-1 引入的新问题。**
+
+**处置**：属内容侧取值缺失，需人工判定各自的正确袋口，另立批次。
+`""` 通不过 I10（类型合法，仅取值为空），故 I10 不覆盖此项。
+
 ---
 
 ## 九 待裁定事项
@@ -515,4 +536,5 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 | 1.5 | 2026-08-07 | v29 W9 执行回写：**§7.1 门禁落地**（`make verify-gate` + git `pre-push` 钩子；阻塞 C1/C2/C3/I5/I7/I8/I9，C4 已知豁免）；I5/I7/I8/I9 四个不变量实现进 `verify_tutorial_sync.py`，基线与豁免真源 `scripts/content_invariant_baselines.json`（棘轮，钉到 token/formation id）；C3 失效引用基线锁 34（只许减）；新增 **§8.15**（6 个 legacy 精讲 token 豁免，含 I5 新发现的 c022；v26 待办清单）；§8.1 补 I7 豁免与解除条件；§8.2 改写为「C4 门禁已知豁免 + 解除条件」。构造性用例 9/9：`make invariant-selftest`。 |
 | 1.6 | 2026-08-07 | v26 W0：§1.1 推论追加第 4 条——drill 元数据与序列冲突时改元数据、不改序列，`drillId` 永久不变；11 个孤儿 profile 标 `retired: true` 后清空 `i7_stale_profile_exempt`（棘轮收紧）。 |
 | 1.7 | 2026-08-07 | **v26 W13 收尾**：§8.1/§8.2/§8.15 标记已消化并销账；C4 从 `GATE_EXEMPT_CHECKS` 移除并转为阻塞（§7.1）；I1 状态改为已接门禁；基线复核 `i5`/`i7` 豁免为空、`c3_dead_refs_baseline=0`。 |
+| 1.8 | 2026-08-07 | **v30 X-1（FL-029）**：新增不变量 **I10 模型可解码性**（`verify_tutorial_sync.py` 的 `MODEL_SPEC` 为 Swift `Codable` 模型的 Python 镜像），直接列入 §7.1 阻塞项，无豁免；构造性用例 3 条（缺必填 / 类型不符 / 可选缺省应放行）。`TutorialSection.content` 放宽为可选（45 处纯 items 节），`TutorialFormation.id` 按序列 token 补齐 7 处（c073/c074/c075）。新增 §8.16（6 个 drill `animation.pocket` 为空串，其中 2 个为解码修复后新暴露的存量缺陷）。 |
 | 1.3 | 2026-08-06 | D1/D2/D7/D8 全部裁定（用户逐项拍板，均按推荐）：§5.4 按 category 分组、§5.5 机读挂球形级（内容暂不补）、D7 按完成推进、D8 token 规范不做。§9 待裁定清零；§5 全节定稿。 |

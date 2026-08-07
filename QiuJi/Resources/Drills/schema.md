@@ -98,7 +98,7 @@
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `title` | `String` | ✅ | Section heading, e.g. "技术原理" |
-| `content` | `String` | ✅ | Section body text (Chinese). May be `""` when `items` carry the content. Supports paragraphs (`\n\n`) and inline markdown (`**bold**`). |
+| `content` | `String?` | ❌ | Section body text (Chinese). Omit the key (or use `""`) when `items` carry everything — the renderer emits no paragraph block either way. 纯 items 节（`常见错误与纠正`）**不得**为了凑字段硬塞正文。⚠️ 无正文时 `items` 必须非空，否则是空节。Supports paragraphs (`\n\n`) and inline markdown (`**bold**`). |
 | `image` | `String?` | ❌ | Static poster figure under `Resources/DrillTutorials/<image>.png` (no extension). Tappable → fullscreen viewer (pinch zoom + gallery paging). Naming: see **Tutorial image naming** below. |
 | `clip` | `String?` | ❌ | Motion clip (mp4) under `Resources/DrillTutorials/<clip>.mp4` (no extension), ADR-P12-02. Pairs with `image` as the poster — shows a play badge; tap plays a muted loop fullscreen. **选用规则**：讲位置/几何/落点只配 `image`；讲运动/走位/杆法效果再加 `clip`（gif 先转静音循环 mp4）。 |
 | `caption` | `String?` | ❌ | Figure caption (small gray text under the image) |

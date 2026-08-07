@@ -16,6 +16,9 @@ verify_tutorial_sync.py — 内容不变量校验（契约 .kiro/steering/conten
   I8 Bundle/DrillBoards ⊆ content/.../sequences 的 drill_c*.json（名字 + 字节）
   I9 index.json 登记的 drill 至少有 1 条序列，或在豁免名单内
 
+模型可解码性（v30 X-1 新增）：
+  I10 全部 bundled drill JSON 能被 App 的 Codable 模型解码（必填字段齐全、类型正确）
+
 基线与已知豁免真源：scripts/content_invariant_baselines.json（棘轮，只许收紧）。
 
 用法：
@@ -44,7 +47,7 @@ from verify_tutorial_images import collect_image_refs  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BASELINES = Path(__file__).resolve().parent / "content_invariant_baselines.json"
 
-CHECK_IDS = ["C1", "C2", "C3", "C4", "I5", "I7", "I8", "I9"]
+CHECK_IDS = ["C1", "C2", "C3", "C4", "I5", "I7", "I8", "I9", "I10"]
 # 门禁模式下不计入退出码的检查（已知豁免）。v26 W13：C4 已转正为阻塞，集合为空。
 GATE_EXEMPT_CHECKS: set[str] = set()
 # 计入 FAIL 的结果键；warn / *_idle / exempt 等一律不计。
@@ -505,6 +508,140 @@ def check_sequence_coverage(sequences: dict[str, list[dict]], exempt: list[str],
     return {"ok": ok, "fail": fail, "exempt": exempted, "warn": warn}
 
 
+# ── I10：App 模型可解码性 ────────────────────────────────────────────────
+#
+# 契约 §7 I10。这份 schema 是 `QiuJi/Data/Services/DrillContentService.swift` 的
+# `Codable` 结构（+ `Core/Physics/ShotIntent.swift`）的 Python 镜像：`True` = 非可选
+# （Swift 里 `let x: T`），`False` = 可选（`let x: T?`）。改 Swift 模型必须同步改这里，
+# 否则本检查会立刻在全库 77 条 drill 上暴露差异。
+#
+# 存在理由（FL-029）：`loadDrillFromBundle` 的 `try?` 曾吞掉 `DecodingError`，
+# 34/77 条 drill 因缺 `TutorialSection.content` / `TutorialFormation.id` 而
+# 静默不进 App，测试红了很久也没人能从「返回 nil」里看出是哪个字段。
+
+STR, INT, DBL, BOOL = "string", "int", "double", "bool"
+
+MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
+    "DrillContent": {
+        "id": (True, STR), "nameZh": (True, STR), "nameEn": (True, STR),
+        "category": (True, STR), "subcategory": (True, STR),
+        "ballType": (True, ["string"]), "level": (True, STR),
+        "difficulty": (True, INT), "isPremium": (True, BOOL),
+        "description": (True, STR), "coachingPoints": (True, ["string"]),
+        "standardCriteria": (True, STR),
+        "sets": (True, "DrillSetsConfig"), "animation": (True, "DrillAnimation"),
+        "tutorial": (False, "DrillTutorial"), "videos": (False, ["DrillVideo"]),
+        "shotIntent": (False, "ShotIntent"),
+    },
+    "DrillSetsConfig": {"defaultSets": (True, INT), "defaultBallsPerSet": (True, INT)},
+    "DrillVideo": {"id": (True, STR), "file": (True, STR)},
+    "DrillAnimation": {
+        "cueBall": (True, "BallAnimation"), "targetBall": (True, "BallAnimation"),
+        "pocket": (True, STR), "cueDirection": (True, "CanvasPoint"),
+        "source": (False, STR), "generator": (False, STR),
+    },
+    "BallAnimation": {"start": (True, "CanvasPoint"), "path": (True, ["PathPoint"])},
+    "CanvasPoint": {"x": (True, DBL), "y": (True, DBL)},
+    "PathPoint": {"x": (True, DBL), "y": (True, DBL),
+                  "cp1": (False, "CanvasPoint"), "cp2": (False, "CanvasPoint")},
+    "DrillTutorial": {
+        "tutorialKind": (False, ["singleShot", "multiShot", "ruleset"]),
+        "sections": (False, ["TutorialSection"]),
+        "formations": (False, ["TutorialFormation"]),
+    },
+    "TutorialFormation": {"id": (True, STR), "title": (True, STR),
+                          "sections": (True, ["TutorialSection"])},
+    "TutorialSection": {
+        "title": (True, STR),
+        # v30 X-1：放宽为可选——「常见错误与纠正」这类纯 items 节本就无正文。
+        "content": (False, STR),
+        "image": (False, STR), "clip": (False, STR), "caption": (False, STR),
+        "items": (False, ["TutorialItem"]), "params": (False, "TutorialShotParams"),
+    },
+    "TutorialItem": {"label": (True, STR), "text": (True, STR)},
+    "TutorialShotParams": {"spinX": (True, DBL), "spinY": (True, DBL),
+                           "velocity": (True, DBL)},
+    "ShotIntent": {"version": (True, INT), "shots": (True, ["ShotIntentShot"])},
+    "ShotIntentShot": {
+        "cue": (True, "CanvasPoint"), "target": (True, "CanvasPoint"),
+        "pocket": (True, STR), "velocity": (True, DBL),
+        "spin": (False, "ShotIntentSpin"), "elevation": (False, DBL),
+        "obstacles": (False, ["CanvasPoint"]),
+    },
+    "ShotIntentSpin": {"x": (True, DBL), "y": (True, DBL)},
+    "DrillIndex": {"version": (True, INT), "categories": (True, ["DrillIndexCategory"])},
+    "DrillIndexCategory": {"category": (True, STR), "drills": (True, ["string"])},
+}
+
+
+def type_ok(value: object, spec: object) -> bool:
+    """Codable 的类型约束（JSON 侧）：bool 不算 int/double，int 可喂 Double。"""
+    if spec == STR:
+        return isinstance(value, str)
+    if spec == BOOL:
+        return isinstance(value, bool)
+    if spec == INT:
+        return isinstance(value, int) and not isinstance(value, bool)
+    if spec == DBL:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return True
+
+
+def decode_errors(value: object, spec: object, path: str) -> list[str]:
+    """按 MODEL_SPEC 递归模拟 `JSONDecoder`，返回 Swift 侧会抛的错误描述列表。"""
+    if isinstance(spec, list):
+        if len(spec) == 1 and (spec[0] in MODEL_SPEC or spec[0] == "string"):
+            if not isinstance(value, list):
+                return [f"typeMismatch 期望数组 @ {path}"]
+            errors: list[str] = []
+            for i, item in enumerate(value):
+                errors += decode_errors(item, spec[0], f"{path}[{i}]")
+            return errors
+        # 字面量集合 = Swift enum 的 rawValue 域。
+        return ([] if value in spec
+                else [f"dataCorrupted 非法枚举值 {value!r}（合法：{'/'.join(spec)}） @ {path}"])
+    if spec == "string":
+        return [] if isinstance(value, str) else [f"typeMismatch 期望 String @ {path}"]
+    if spec in MODEL_SPEC:
+        if not isinstance(value, dict):
+            return [f"typeMismatch 期望对象（{spec}） @ {path}"]
+        errors = []
+        for field, (required, field_spec) in MODEL_SPEC[spec].items():
+            if field not in value or value[field] is None:
+                if required:
+                    errors.append(f"keyNotFound '{field}'（{spec} 必填） @ {path}")
+                continue
+            errors += decode_errors(value[field], field_spec, f"{path}.{field}")
+        return errors
+    return [] if type_ok(value, spec) else [f"typeMismatch 期望 {spec} @ {path}"]
+
+
+def check_model_decodable(paths: Paths | None = None) -> dict:
+    """I10：全部 bundled drill（含 index.json）能被 App 的 Codable 模型成功解码。
+
+    等价于「必填字段齐全且类型正确」。`DrillContentService` 曾用 `try?` 吞掉
+    `DecodingError`，使这类内容缺陷表现为「drill 凭空消失」而非报错。
+    """
+    paths = paths or DEFAULT_PATHS
+    ok, fail = 0, []
+    if not paths.drills.is_dir():
+        return {"ok": 0, "fail": [], "warn": [("—", "Drills 目录不存在", "—")]}
+    for path in sorted(paths.drills.rglob("*.json")):
+        rel = path.relative_to(paths.drills).as_posix()
+        model = "DrillIndex" if path.name == "index.json" else "DrillContent"
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            fail.append((rel, "JSON 语法错误", str(exc)))
+            continue
+        errors = decode_errors(data, model, model)
+        if errors:
+            fail.append((rel, f"{len(errors)} 处解码错误", "；".join(errors[:3])))
+        else:
+            ok += 1
+    return {"ok": ok, "fail": fail, "warn": []}
+
+
 def group_by_drill(names) -> list[tuple[str, int]]:
     counts: dict[str, int] = defaultdict(int)
     for name in names:
@@ -565,6 +702,7 @@ def render_report(results: dict) -> None:
         ("I7", "profile vs 序列 token", ("profile", "序列实际")),
         ("I8", "Bundle DrillBoards ⊆ 上游序列", None),
         ("I9", "登记 drill 至少 1 条序列", None),
+        ("I10", "Bundle drill 可被 App 模型解码", None),
     ):
         if check_id not in results:
             continue
@@ -628,6 +766,8 @@ def main() -> int:
     if "I9" in selected:
         results["I9"] = check_sequence_coverage(
             sequences, baselines.get("i9_no_sequence_exempt", []), paths)
+    if "I10" in selected:
+        results["I10"] = check_model_decodable(paths)
 
     blocking = {cid: r for cid, r in results.items()
                 if not (args.gate and cid in GATE_EXEMPT_CHECKS)}

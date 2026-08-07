@@ -78,6 +78,7 @@
     "tutorialKind": "multiShot",
     "formations": [
       {
+        "id": "manual01",
         "title": "球形1：长台母球进角袋·塞量阶梯",
         "sections": [
           {
@@ -252,6 +253,7 @@
         ]
       },
       {
+        "id": "manual02",
         "title": "球形2：远台目标球·塞量×力度",
         "sections": [
           {
