@@ -18,6 +18,7 @@
 
 ## 当前状态
 
+- **问题集合 v26 W12 combined ✅（2026-08-07，`6fdd937`）**：c064/c066–c071（c065 已在 W1）元数据+精讲重写+意图块对齐；c066–c068/c070 规则流程课（骨架对齐 c065）；c064 三球走位链（胜负手第2杆）；c069/c071 双形（f1 首杆八起点独立阶梯混合式 + f2 十/十五球蛇彩走位链，关系三问对齐 c042）。无 digest 红灯；C4 不一致 0；verify-gate 0 FAIL（I5={} C3=0）；make build SUCCEEDED。证据 `build/v26-w12-logs/`。**下一步：W13 收尾门禁。**
 - **问题集合 v26 W11 specialShots ✅（2026-08-07，`b385cac`）**：c054–c061 元数据+精讲重写+意图块对齐；c054/c055 独立阶梯混合式（c054 T-v26-9 覆写 digest 误标走位链）；c056–c058 多形单杆 formations；c059–c061 无图单杆技术课临时版（D-v26-3）。登记 T-v26-12（c057 名实不符：示范非先碰库）。C4 不一致 0；verify-gate 0 FAIL（I5={} C3=0）；make build SUCCEEDED。证据 `build/v26-w11-logs/`。**下一步：W12 combined。**
 - **问题集合 v26 W10 fundamentals ✅（2026-08-07，`0684dd4`）**：c006/c007/c009/c010/c022/c023/c043 元数据+精讲重写+意图块对齐；c006 双 0 杆→单杆技术课、c043 无序列→单杆技术课；独立阶梯混合式×4（c007/c009/c010/c023，含 T-v26-9 覆写 c009/c010 digest 误标）+ c022 双形阶梯；c010/c022 §8.15 消化（I5 清空、C3 8→0）；C4 不一致 3→0（原 c010/c022/c023 豁免清零）。红灯：c007 s04 / c023 s03–s04 scratch；c009 全杆 freeAim 母球进袋；c022 f2 s02 未进袋。verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w10-logs/`。**下一步：W11 specialShots。**
 - **问题集合 v26 W9 forceControl ✅（2026-08-07，`4472449`）**：c044/c045/c047–c051 元数据+精讲重写+意图块对齐；全为独立阶梯混合式（T-v26-9：digest 误标走位链→按重置+单变量覆写；c049 五档力度；c047/c048 为 4 位×3 力目录）。登记 T-v26-10（c047 五杆 scratch；c045/c049 freeAim 无进袋停点阶梯）。C4 本批 7/7 通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w9-logs/`。**下一步：W10 fundamentals。**
