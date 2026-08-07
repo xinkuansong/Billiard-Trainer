@@ -90,6 +90,11 @@ enum CoverPalette {
     /// Original per-card palette restored for the practice home after the zone ladders proved too uniform.
     /// Values are byte-identical to the former `AngleCoverPalette` constants.
     enum PracticeMulticolor {
+        /// 球理索引卡（v30 W0）：靛蓝，与学区既有绿/橙/紫系区分。
+        static let theoryIndex = Pair(
+            top: Color(red: 0.24, green: 0.34, blue: 0.62),
+            bottom: Color(red: 0.12, green: 0.18, blue: 0.38)
+        )
         static let aimingPrinciple = Pair(
             top: Color(red: 0.16, green: 0.55, blue: 0.34),
             bottom: Color(red: 0.09, green: 0.34, blue: 0.21)
@@ -197,6 +202,7 @@ enum CoverPalette {
         /// Production practice-home covers (DR-052). Prefer this over zone-ladder pairs for UI.
         static var allPairs: [Pair] {
             [
+                theoryIndex,
                 aimingPrinciple, aimingMethods, aimingCorrection, spinAndEnglish,
                 separationAngleAtlas, cushionEnglishAtlas, angleDynamic, ballFeel, contactPointTable,
                 geometricQuiz, sceneAiming2D, sceneAiming3D, aimPointTraining, aimPointScene2D, aimPointScene3D,

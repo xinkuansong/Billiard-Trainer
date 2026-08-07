@@ -50,6 +50,8 @@ targets:
           - "Resources/DrillTutorials/**"
           - "Resources/DrillBoards/**"
           - "Resources/Audio/**"
+          # v30 W0：16.billiard_theory contracts 快照（folder ref 打包，见下）。
+          - "Resources/Theory/**"
           # v25 W1 / D-v25-7：Previews 排除出包（BTDrillPreviewPlayer 未接线，
           # 保留代码与磁盘资源，随时可恢复 folder reference）。
           - "Resources/Previews/**"
@@ -88,6 +90,11 @@ targets:
       # 试打球形序列（make tryout-sync 从 content/position_play/sequences/ 同步，
       # 与视频示范同源；方案 20260709-动作库试打模式 D4）。
       - path: QiuJi/Resources/DrillBoards
+        type: folder
+        buildPhase: resources
+      # 理论契约快照（v30 W0，vendored from 16.billiard_theory）。folder ref 保留
+      # Theory/contracts/ 子目录，供 Bundle.main.url(..., subdirectory:) 解析。
+      - path: QiuJi/Resources/Theory
         type: folder
         buildPhase: resources
     resources:

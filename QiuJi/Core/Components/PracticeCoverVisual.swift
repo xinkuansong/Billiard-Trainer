@@ -166,8 +166,9 @@ enum PracticeCoverCatalog {
         case .diamondSystem:
             return .tablePreview(kickPreview(tint: "diamondSystem"))
 
-        case .drillDetail:
-            // Deep-link only — not a publishable grid entry; still exhaustive, no glyph fallback.
+        case .drillDetail, .theoryIndex, .theoryPage:
+            // Deep-link / glyph-cover routes — not publishable entries of this legacy catalog
+            // (v30 W0 球理 cards render through `AngleGridCard`'s glyph cover); still exhaustive.
             return .tablePreview(aimingLane(tint: "aimingPrinciple", objectNumber: 1, zShift: 0))
         }
     }

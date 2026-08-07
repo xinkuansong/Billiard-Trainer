@@ -3,6 +3,11 @@ import SwiftUI
 // MARK: - Angle Navigation
 
 enum AngleRoute: Hashable {
+    /// 球理索引（v30 W0）：学区的球理中心，分组列出 T01–T10 + 流程 + 速查表。
+    case theoryIndex
+    /// 球理详情页（v30 W0）：12 篇共用一个参数化 case，载荷见 `TheoryPageID`；
+    /// 目的地在 `MainTabView.theoryDestination` 的 switch 中逐页注册（W1–W4）。
+    case theoryPage(TheoryPageID)
     case contactPointTable
     case aimingPrinciple
     /// 瞄准方法（v11 Y1）：管道 / 接触点·重合比例 / 平行线。
@@ -75,6 +80,8 @@ private struct AngleEntry: Identifiable {
 
     private static func glyph(for route: AngleRoute) -> String {
         switch route {
+        case .theoryIndex: "球理"
+        case .theoryPage: "球理"
         case .aimingPrinciple: "瞄准"
         case .aimingMethods: "方法"
         case .aimingCorrection: "修正"
@@ -104,6 +111,7 @@ private struct AngleEntry: Identifiable {
     private static func palette(for route: AngleRoute) -> CoverPalette.Pair {
         let multicolor = CoverPalette.PracticeMulticolor.self
         return switch route {
+        case .theoryIndex, .theoryPage: multicolor.theoryIndex
         case .aimingPrinciple: multicolor.aimingPrinciple
         case .aimingMethods: multicolor.aimingMethods
         case .aimingCorrection: multicolor.aimingCorrection
@@ -190,8 +198,9 @@ struct AngleHomeView: View {
         GridItem(.flexible(), spacing: Spacing.md),
     ]
 
-    /// 「学」——球理与瞄准知识（P12 阶段 2 将升级为球理中心索引）。
+    /// 「学」——球理与瞄准知识（v30 W0：球理索引卡置首，作学区的球理中心入口）。
     private let learnEntries: [AngleEntry] = [
+        .init(route: .theoryIndex, title: "球理", subtitle: "碰撞 · 走位 · 决策：分主题看懂原理"),
         .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "切入角 · 假想球 · 厚薄球"),
         .init(route: .aimingMethods, title: "瞄准方法", subtitle: "管道 · 接触点 · 平行线"),
         .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "投掷 · 塞偏 · 弧线：几何之外的偏差"),

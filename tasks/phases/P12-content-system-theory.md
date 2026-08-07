@@ -9,11 +9,11 @@
 | 任务 | 说明 | 状态 |
 |------|------|------|
 | T-P12-01 | 课程地图 `curriculum-map.md`：schema/双轴/理论绑定/72 条真实填充表/缺口读数 | ✅（2026-06-14）|
-| T-P12-02 | 理论挂接 schema：`DrillContent.theoremIds/moduleIds?` + `TutorialSection.theoremRefs?`（可选、向后兼容）；vendor `16/contracts/*.json` 进 `Resources/Theory/` | ⏳ |
-| T-P12-03 | **c042 竖切**：c042 挂 T03/T01/T04 + 精讲三层披露；建 T01/T03 理论详情页（复用 `AngleTrainingScene` 标注图）；详情页可被 drill 深链 | ⏳ |
+| T-P12-02 | 理论挂接 schema：`DrillContent.theoremIds/moduleIds?` + `TutorialSection.theoremRefs?`（可选、向后兼容）；vendor `16/contracts/*.json` 进 `Resources/Theory/` | 🔄 进行中（v30 W0 已完成 **vendor 部分**：`Resources/Theory/contracts/` 三文件 + README + folder ref 打包，`TheoryCatalogTests` 断言 Bundle 可解析；`theoremIds` / `theoremRefs` 字段留 **v30 W5**）|
+| T-P12-03 | **c042 竖切**：c042 挂 T03/T01/T04 + 精讲三层披露；建 T01/T03 理论详情页（复用 `AngleTrainingScene` 标注图）；详情页可被 drill 深链 | 🔄 进行中（v30 W0 已建**路由骨架**：`AngleRoute.theoryIndex` / `.theoryPage(TheoryPageID)` + `MainTabView.theoryDestination` 注册表；T01/T03 详情页正文见 v30 W1/W2，c042 挂接与三层披露见 v30 W5）|
 | T-P12-04 | 闭环记账：建 `THEORY-CONSUMPTION-LOG.md` + 翻 16 中枢卡 v1.0 final（≥1 drill 消费 contracts）| ⏳ |
 | T-P12-05 | 锁定 `curriculum-map.md` §6 待定参数（每格配额 / L4 取舍 / 系统训练模式）后逐格展开 | ⏳（待用户拍板）|
-| T-P12-06 | 理论"球理"中心（角度Tab 学习区升级为结构化索引）+ 参数扫描配图 + 战术布局图 | ⏳（阶段2，战术类 drill 上线时）|
+| T-P12-06 | 理论"球理"中心（角度Tab 学习区升级为结构化索引）+ 参数扫描配图 + 战术布局图 | 🔄 进行中（**提前到 v30**）：W0 已落**索引页骨架**（四分组 + 12 条目全量 + 未上线置灰）+ 学区「球理」入口卡；12 篇正文 = W1–W4；现有 9 张学页归组混编 = W6；⛔ 参数扫描配图与战术布局图**不在 v30 范围**，仍留阶段 2 |
 | T-P12-07 | 系统训练模式 Drill Type 5/6/7（Name-5-Shots / Random-2-Points / 18 类加塞）| ⏳（建议 v1.1）|
 
 ## DoD
@@ -128,3 +128,38 @@
 - **验证**：本批**零代码改动**（决策 + 文档），`DrillContentValidationTests` 无需重跑；schema.md 草案节已落。
 - **替代方案弃选理由汇总**：B（扩 drill JSON 多球形）——语义冲突 + 双真源漂移 + 改动面大，未采纳；M1（变量档案进 drill JSON）——运行时无消费方，扩大解码/校验面，未采纳（保留为未来加法式迁移路径）；M3（仅文档留档）——不满足 B5/B6 机器可读需求，未采纳。
 - **遗留**：B4 按本 ADR 落地中袋角度样板（见方案 v1 批次表）；profile 的 jsonschema 校验脚本可在 B5 建审计工具时顺手补（非本批范围）。
+
+### ADR-P12-04 — 首次 vendor 16 contracts + 理论正文硬编码 SwiftUI（球理索引骨架）
+
+- **日期**：2026-08-07
+- **状态**：✅ 已采纳（`问题集合_v30.md` D-v30-1 用户拍板 + W0 落地）。命中 ADR 触发：**跨模块边界**（13 首次把 16.billiard_theory 的 `contracts/*.json` 快照进本仓并打进 App Bundle）+ **数据策略**（理论正文形态：硬编码 SwiftUI 而非 JSON + 渲染器）。
+- **背景**：ADR-P12-01 已定「理论之家 = 练习 Tab 学区」，但一直卡在「理论内容以什么形态进 App」。v30 首版 W0 曾按「JSON schema + `TheoryContentService` + 渲染器」设计；2026-08-07 用户拍板改为**硬编码 SwiftUI 页**（沿现有 9 张学页的 `LearnDocChrome` 模式）。第一批范围 = 10 条定理 + 5 步流程 + 速查表共 12 篇。
+
+- **决策**：
+  1. **理论正文 = 硬编码 SwiftUI 视图**（每篇一个 `TheoryT??View.swift`），运行时**不做** JSON → 正文渲染，不建 `TheoryContentService`、不定理论内容 schema。
+  2. **仍 vendor contracts**：`theorem-tags.json` / `module-tags.json` / `run-out-flow.json` 逐字节快照进 `QiuJi/Resources/Theory/contracts/`，以 folder reference 打进 Bundle（`project.yml` `sources` 下 `type: folder` + `buildPhase: resources`，沿 `Drills`/`DrillBoards` 先例）。用途收窄为三项：**W5 层 2 一句话弹层数据源**、**`theoremIds`/`theoremRefs` 合法性校验真源**、**索引页副标题取材源**。
+  3. **路由参数化**：`AngleRoute` 只加两个 case——`.theoryIndex` 与 `.theoryPage(TheoryPageID)`（`TheoryPageID` = t01…t10 / flow / quickRef），⛔ 不塞 12 个裸 case。详情页在 `MainTabView.theoryDestination(for:)` 的 switch 里逐页注册（W1–W4）。
+  4. **索引页全量列 12 条，未注册项置灰 + 标「即将上线」+ 不可点**（主控裁定）；未注册 id 若被深链命中，落 `TheoryPagePlaceholderView` 兜底，⛔ 不出现空白页/崩溃。上线状态由 `TheoryCatalog.entries[].isPublished` 与 `theoryDestination` switch **成对维护**。
+  5. **索引页副标题：语义等价的限定改写**（🔄 **2026-08-07 W1 修订，来源 X-v30-2**；原条为「只准截断」）：
+     - **原口径**（W0）：副标题必须是 vendored `statement_one_liner` / `run-out-flow.description` 的**连续子串**，`TheoryCatalogTests` 以「子串包含」断言固化。
+     - **修订原因**：只截断导致 12 条用户可见文案残留英文术语（`OB` / `cut 14°–49°` / `stun` / `squirt + swerve + throw` / `key ball` / `Capelle 9 档 Spectrum` 等），与 `问题集合_v30.md` §一.4 转写纪律「剔除英文引文、禁教材腔」直接冲突（登记为 X-v30-2，主控裁定归 W1）。
+     - **新口径**：来源仍限 vendored contracts 与 16 原文，但**允许语义等价的限定改写**——可换成中文人话（术语按 `UI-IMPLEMENTATION-SPEC.md` §8.8 规范译名），⛔ 不得新增断言、不得改变适用条件、不得改动数值 / 单位 / 关键限定词；每条改写须在 `docs/research/20260807-v30理论转写模板.md` §六 留「原文 → 改写 → 依据」记录。这不构成对红线 2（转写不造理论）的放松——放宽的只是**表述形式**。
+     - **测试替代（不是删断言）**：`TheoryCatalogTests` 的「连续子串」断言被四道仍有约束力的断言替代——`testSubtitleNumbersAndUnitsComeFromContracts`（副标题里每个「数值 + 单位」必须在来源串逐字出现，禁改数 / 换单位 / 造数）、`testSubtitlesKeepSemanticAnchors`（逐条钉死语义锚词，禁把适用条件写丢）、`testSubtitlesUseNoLatinLetters`（英文术语不得回流）、`testRewriteInventoryMatchesDocumentedDecision`（「逐字 / 改写」条目集合必须与文档清单完全一致，逐字条目被偷改或改写条目被回退都会红）。逐字取材的 t05 / t07 仍保留原「连续子串」断言（`testVerbatimSubtitlesRemainVerbatimSubstrings`）。
+     - 详情页正文口径不变：允许口语化转写，禁造新断言。
+     - **成对维护面扩到三处**：`theoryDestination` switch / `TheoryCatalog.isPublished` / 测试侧上线清单（`TheoryCatalogTests.registeredPageIDs` + `V30W0TheoryIndexUITests.publishedPageIDs`），由 `testPublishedEntriesMatchRegisteredDestinations` 守。
+
+- **权衡（选硬编码的已知代价，须记账）**：
+  - ⚠️ **16 修订理论表述 → 必须改 Swift 代码并重新发版**。正文不在 JSON 里，无法 OTA、无法随 contracts 自动更新。升级通道写在 `QiuJi/Resources/Theory/README.md`：重新 vendor → 逐字段 diff → **人工**修订受影响的硬编码页。
+  - ⚠️ 12 篇正文与 contracts 之间是**弱一致**：只有副标题与 id 合法性有测试兜底，正文措辞的漂移靠人工 diff 发现。
+  - ✅ 换来的是：零新增解码/服务层、与现有 9 张学页同一套组件与视觉、富排版（矩阵/步骤卡/标注图/深链）不受 JSON 结构束缚、W1–W4 可并行推进。
+  - ✅ 若未来正文确需数据驱动（如多语言、OTA 修订）：走加法式迁移——先把「一句话陈述 + 误区条目」等结构化部分抽成 JSON，视图改读 service，届时另立 ADR。
+
+- **实现（v30 W0 实际改动）**：新增 `QiuJi/Features/AngleTraining/Theory/TheoryCatalog.swift`（`TheoryPageID` / `TheoryGroup` / `TheoryIndexEntry` / 12 条静态目录）、`TheoryIndexView.swift`（四分组索引页 + `TheoryPagePlaceholderView`）、`QiuJi/Resources/Theory/{README.md,contracts/*.json}`、`QiuJiTests/TheoryCatalogTests.swift`、`QiuJiUITests/V30W0TheoryIndexUITests.swift`；改 `AngleHomeView.swift`（两个 route case + glyph/palette + `learnEntries` 置首「球理」卡）、`MainTabView.swift`（`theoryDestination` 注册表）、`CoverPalette.swift`（`PracticeMulticolor.theoryIndex` 靛蓝对）、`PracticeCoverVisual.swift`（legacy 封面目录 switch 穷尽性，非生产封面）、`project.yml`（Theory folder ref + excludes）。组件规范落 `docs/research/20260807-v30理论页组件规范.md`。
+
+- **验证（真实输出，产物落盘 `build/v30-w0-logs/` 与 `build/v30-w0-screenshots/`）**：clean `xcodebuild ... build` **BUILD SUCCEEDED**（`build-clean.log` L4289；新文件编译于 L882–891；`CpResource … 球迹.app/Theory` L4144）；`TheoryCatalogTests` + `CoverPaletteContrastTests` + `PracticeCoverCatalogTests` **TEST SUCCEEDED**（`tests.log`，22 用例全过，含 Bundle 内 contracts 解析与副标题子串断言）；`V30W0TheoryIndexUITests` Light/Dark 各 **TEST SUCCEEDED**（12 条目全量呈现 + 全部不可点 + 点击不导航）；vendor 三文件与 16 源 `shasum` 三方（16 源 / 13 仓库 / App Bundle）完全一致（`vendor-verify.log`）。
+
+- **登记事实**：16 仓库主线已 v1.0-rc4（2026-05-07），但其 `contracts/*.json` 自 rc3 起未重生成，文件内 `theory_version` = `v1.0-rc3`（`generated_on` 2026-05-05/06）。本快照与 16 磁盘逐字节一致；README 已如实注明，并作为批外事项回传主控（建议请 16 侧在 v1.0 final 前重生成 contracts）。
+
+- **替代方案**：① JSON + 渲染器（v30 首版设计）——正文可 OTA、与 16 强一致，但需新建 schema/service/渲染器，且矩阵/步骤/标注图这类富排版难以 JSON 化，用户拍板未采纳（保留为未来加法式迁移路径）；② 直接引用 16 仓库路径而不 vendor——离线优先与可重复构建被破坏（ADR-002），未采纳；③ 索引页只列已上线项——用户看不到全貌、W1–W4 每批都改索引结构，主控裁定改为全量 + 置灰。
+
+- **遗留**：W1（T03/T08 试点 + 转写模板）→ W2/W3/W4（10 篇正文）→ W5（`theoremIds`/`theoremRefs` + c042 挂接 + 闭环记账）→ W6（9 张学页归组混编 + 全链路复验）。参数扫描配图与战术布局图不在 v30 范围。

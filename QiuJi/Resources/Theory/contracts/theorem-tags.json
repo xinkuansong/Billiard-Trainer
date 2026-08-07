@@ -1,0 +1,830 @@
+{
+  "schema_version": "1.1.0",
+  "theory_version": "v1.0-rc3",
+  "generated_on": "2026-05-06",
+  "theorems": [
+    {
+      "id": "T01",
+      "name_zh": "30° 法则",
+      "name_en": "30° Rule (Natural Roll)",
+      "category": "physics",
+      "status": "candidate",
+      "statement_one_liner": "自然滚动球以 1/4–3/4 球击球（cut 14°–49°）击中 OB 时，母球偏 ~30°；理论极值 33.7° at cut 28.1°",
+      "key_formula": "tan(θ_c) = sin(φ)·cos(φ) / ( sin²(φ) + 2/5 )",
+      "alternative_method": "5/7 切线 + 2/7 瞄准线（Bob Jewett cue stick method）",
+      "key_data": {
+        "max_deflection_deg": 33.7,
+        "max_at_cut_angle_deg": 28.1,
+        "max_at_ball_hit_fraction": 0.53,
+        "valid_cut_range_deg": [
+          14,
+          49
+        ],
+        "valid_ball_hit_range": [
+          0.25,
+          0.75
+        ],
+        "tangent_persist_distance_cm_at_2mps_half_ball": 25,
+        "hanger_half_ball_rules": {
+          "rule_1": "CB 沿库朝角袋走 + 1/2-ball hit hanger → CB 沿对角线朝对侧中袋离开",
+          "rule_2": "CB 沿对角线朝角袋走 + 1/2-ball hit hanger → CB 沿库离开",
+          "source": "Dr. Dave NV J.28 + BD 2021-02 #10"
+        }
+      },
+      "linked_theorems_upstream": [
+        "T03"
+      ],
+      "linked_theorems_downstream": [],
+      "applicable_modules": [
+        "M01",
+        "M02",
+        "M03",
+        "M04",
+        "M06"
+      ],
+      "common_errors": [
+        "把半球击球当 stop shot（混淆 T01/T02）",
+        "忘记切线持续距离（误判'立即偏 30°'）",
+        "5/7 与 2/7 弄反（精确版误用）"
+      ],
+      "primary_sources": [
+        {
+          "id": "Alciatore-2010-PhysicsArticle",
+          "tier": "T1"
+        },
+        {
+          "id": "DrDave-Web-30DegRule",
+          "tier": "T2"
+        },
+        {
+          "id": "DrDave-TP-A4",
+          "tier": "T1"
+        },
+        {
+          "id": "Wallace-Schroeder-1987",
+          "tier": "T1"
+        },
+        {
+          "id": "Jewett-BD-1997-02",
+          "tier": "T2",
+          "note": "Hidden Hangers: half-ball shot is single most important; deflection nearly constant 30°"
+        },
+        {
+          "id": "DrDave-BD-2021-02",
+          "tier": "T2",
+          "note": "Top 10 Pattern Play #10 — Position Off Hangers 1/2-ball 双规则（即 N6）"
+        }
+      ],
+      "doc_path": "theory/theorems/T01-30-degree-rule.md",
+      "validated_candidate": true,
+      "validated_candidate_note": "具备 ≥4 个独立物理推导源（含跨双世纪一致 1835-2021）；仅差形式 validated（外部读者）"
+    },
+    {
+      "id": "T02",
+      "name_zh": "90° 法则",
+      "name_en": "90° Rule (Stun Shot)",
+      "category": "physics",
+      "status": "candidate",
+      "statement_one_liner": "stun 击球时，母球与 OB 分离 90°（实测 ≈ 85°，COR=0.93）；唯一例外是直球 stop shot",
+      "key_formula": "ν_cb · ν_ob = 0 (after stun, vectors perpendicular)",
+      "alternative_method": "切线方向 ⊥ 连心线（与 T03 共享几何）",
+      "key_data": {
+        "ideal_separation_deg": 90,
+        "actual_separation_deg": 85,
+        "coefficient_of_restitution": 0.93,
+        "stun_distance_threshold_diamonds": 1,
+        "stun_distance_threshold_cm": 31.75
+      },
+      "linked_theorems_upstream": [
+        "T03"
+      ],
+      "linked_theorems_downstream": [],
+      "applicable_modules": [
+        "M01",
+        "M02",
+        "M03",
+        "M06"
+      ],
+      "common_errors": [
+        "直球 stop shot 与 stun shot 混淆（直球母球停止；非直球 stun 是 90° 分离）",
+        "远距 + 中杆击球以为还能 stun（母球已转滚动，应改用 T01）",
+        "击球时无旋 vs impact 时无旋的混淆（关键是 impact 时刻无旋）"
+      ],
+      "primary_sources": [
+        {
+          "id": "Alciatore-2010-PhysicsArticle",
+          "tier": "T1"
+        },
+        {
+          "id": "DrDave-Web-90DegRule",
+          "tier": "T2"
+        },
+        {
+          "id": "DrDave-TP-3.1",
+          "tier": "T2"
+        },
+        {
+          "id": "Jewett-BD-1995-02",
+          "tier": "T2",
+          "note": "Pythagoras & Pool Perpendiculars — 独立物理推导（动量+能量守恒 → A²+B²=C² → 必直角）"
+        }
+      ],
+      "doc_path": "theory/theorems/T02-90-degree-rule.md",
+      "validated_candidate": true,
+      "validated_candidate_note": "具备 ≥4 个独立物理推导源（含跨双世纪一致 1835-2021）；仅差形式 validated（外部读者）"
+    },
+    {
+      "id": "T03",
+      "name_zh": "切线法则",
+      "name_en": "Tangent Line Rule",
+      "category": "geometry",
+      "status": "candidate",
+      "statement_one_liner": "击球瞬间母球总沿切线（⊥ 连心线）；后续偏离由旋转决定。T01/T02 是 T03 的两个特例",
+      "key_formula": "tangent_line ⊥ line_of_centers (geometric definition)",
+      "alternative_method": "三种可视化：球杆 method / 三指 method / Peace sign",
+      "key_data": {
+        "applicability": "always-true (geometric)",
+        "principle_17_curve_delay": "even with follow/draw, CB initially travels along tangent line",
+        "reference_lines": [
+          "stun_line",
+          "roll_line",
+          "draw_line"
+        ],
+        "n4_45_degree_rule": "CB 以 45° 入端库 → 必经桌中央（高频走位中转）",
+        "come_into_the_line": "沿下一杆 shot line 进入 = 速度容差大；穿过 shot line = 容差小"
+      },
+      "linked_theorems_upstream": [],
+      "linked_theorems_downstream": [
+        "T01",
+        "T02"
+      ],
+      "applicable_modules": [
+        "M01",
+        "M02",
+        "M03",
+        "M04",
+        "M06"
+      ],
+      "common_errors": [
+        "把切线方向当作母球最终方向（只在 stun 下成立）",
+        "follow shot 短距以为母球'立即向前'（漏掉 Principle 17 的 curve delay）",
+        "把切线方向画反（沿连心线而非 ⊥ 连心线）"
+      ],
+      "primary_sources": [
+        {
+          "id": "Alciatore-2010-PhysicsArticle",
+          "tier": "T1"
+        },
+        {
+          "id": "DrDave-Web-Tangent",
+          "tier": "T2"
+        },
+        {
+          "id": "DrDave-BD-2005-03",
+          "tier": "T2"
+        },
+        {
+          "id": "DrDave-BD-2021-02",
+          "tier": "T2",
+          "note": "Top 10 Pattern Play #4 (Come into the Line) + #8 (45° Rule, 即 N4)"
+        }
+      ],
+      "doc_path": "theory/theorems/T03-tangent-line.md"
+    },
+    {
+      "id": "T04",
+      "name_zh": "母球速度分级",
+      "name_en": "Speed Zones (Capelle Spectrum)",
+      "category": "control",
+      "status": "candidate",
+      "statement_one_liner": "Capelle 9 档 Spectrum / 3 大段（soft 1-3 / medium 4-6 / hard 7-9）；用出杆长度（非用力）调控；排除法定档",
+      "key_formula": null,
+      "alternative_method": "3 大段（soft / medium / hard）入门；9 档进阶",
+      "key_data": {
+        "spectrum_levels": 9,
+        "spectrum_groups": [
+          "soft (1-3)",
+          "medium (4-6)",
+          "hard (7-9)"
+        ],
+        "training_priority_levels": [
+          4,
+          5,
+          6
+        ],
+        "primary_control_variable": "stroke_length",
+        "stop_shot_distance_threshold_diamonds": 1,
+        "stop_shot_distance_threshold_cm": 31.75,
+        "power_shot_psr_steps": 10,
+        "n5_cushions_as_brakes": "想让 CB 停在距库 ≤ 30 cm → 让 CB 撞库后停（容差 ↑ 2x）",
+        "core_drills": [
+          "Drill 1: Stop Shot",
+          "Drill 2: Follow Shot",
+          "Drill 3: Draw Shot"
+        ],
+        "drill_target_success_rate": 0.8
+      },
+      "linked_theorems_upstream": [],
+      "linked_theorems_downstream": [
+        "T01",
+        "T02",
+        "T03"
+      ],
+      "applicable_modules": [
+        "M01",
+        "M02",
+        "M03",
+        "M04",
+        "M06"
+      ],
+      "common_errors": [
+        "用'用力大小'思维而非'出杆长度'",
+        "选 9 档以防不够（误差线性放大，走位反失控）",
+        "中段球用 power shot（破坏精度）"
+      ],
+      "primary_sources": [
+        {
+          "id": "Capelle-PYBP",
+          "tier": "T2"
+        },
+        {
+          "id": "Capelle-AZB-Spectrum-2023",
+          "tier": "T2"
+        },
+        {
+          "id": "Mosconi-1968",
+          "tier": "T2",
+          "note": "via Capelle 引用"
+        },
+        {
+          "id": "DrDave-Web-Speed",
+          "tier": "T2"
+        },
+        {
+          "id": "DrDave-BD-2021-02",
+          "tier": "T2",
+          "note": "Top 10 Pattern Play #5 — Cushions as Brakes（即 N5）"
+        },
+        {
+          "id": "Jewett-BD-2011-08",
+          "tier": "T2",
+          "note": "Second Level — 三个核心 drill (stop/follow/draw) + 渐进练习"
+        }
+      ],
+      "doc_path": "theory/theorems/T04-speed-zones.md"
+    },
+    {
+      "id": "T05",
+      "name_zh": "反向规划",
+      "name_en": "Backwards Planning",
+      "category": "decision",
+      "status": "candidate",
+      "statement_one_liner": "清台决策必须从最后一颗球反向倒推到当前一杆——每次至少规划 3 步（当前 + 下两杆），每杆复盘后重新规划",
+      "key_formula": null,
+      "alternative_method": "Bellman 动态规划（理论基础）",
+      "key_data": {
+        "min_planning_depth_shots": 3,
+        "execution_steps": 5,
+        "deviation_threshold_for_rewrite": "1/3 桌长"
+      },
+      "linked_theorems_upstream": [],
+      "linked_theorems_downstream": [
+        "T06",
+        "T07",
+        "T08"
+      ],
+      "applicable_modules": [
+        "M04",
+        "M06"
+      ],
+      "common_errors": [
+        "正向规划（'我下一杆有 N 种选择'）",
+        "规划深度只到 2 步（key ball 阶段必崩）",
+        "失位不复盘（按原计划继续 → 雪崩）"
+      ],
+      "primary_sources": [
+        {
+          "id": "DrDave-Web-8BallStrategy",
+          "tier": "T2",
+          "note": "策略 #4-5"
+        },
+        {
+          "id": "Byrne-StandardBook",
+          "tier": "T2",
+          "note": "Run-the-Table #2, #12, #13"
+        },
+        {
+          "id": "Capelle-PYBP",
+          "tier": "T2",
+          "note": "21 Principles: Plan for three balls at a time"
+        },
+        {
+          "id": "DrDave-BD-2021-02",
+          "tier": "T2",
+          "note": "Top 10 Pattern Play #3 — 显式称为 \"most important\" pattern play principle"
+        },
+        {
+          "id": "TomRoss-2000",
+          "tier": "T2",
+          "note": "8-Ball Anatomy — name-5-shots 训练法 + 47% 量化基线"
+        }
+      ],
+      "doc_path": "theory/theorems/T05-backwards-planning.md"
+    },
+    {
+      "id": "T06",
+      "name_zh": "关键球原理",
+      "name_en": "Key Ball Doctrine",
+      "category": "decision",
+      "status": "candidate",
+      "statement_one_liner": "清台中真正决定成败的不是最后一颗球，而是为它安排母球的那颗（key ball）；以及为 key ball 安排母球的 key 2。两者必须独立选择",
+      "key_formula": null,
+      "alternative_method": "key ball 四问选择（可达 / 角度 / 保险 / 不破局）",
+      "key_data": {
+        "key_ball_selection_questions": 4,
+        "ideal_angle_range_deg": [
+          15,
+          45
+        ],
+        "forbidden_as_key_ball": [
+          "hangers",
+          "桌中央孤立球",
+          "承转球"
+        ],
+        "hangers_revision_v1_0_rc3": {
+          "old_rule": "hangers 永远不应被选为 key ball / key 2",
+          "new_rule": "业余未掌握 1/2-ball hit 双规则前不作；掌握后可作 key ball（不作 key 2）",
+          "cf2_status": "resolved"
+        }
+      },
+      "linked_theorems_upstream": [
+        "T05"
+      ],
+      "linked_theorems_downstream": [],
+      "applicable_modules": [
+        "M04",
+        "M06"
+      ],
+      "common_errors": [
+        "选 hangers 作 key ball（hangers 走位余量小，违反 T06 禁忌）",
+        "key ball 与 key 2 同时拍板（应独立选择）",
+        "中段失位后不重选 key ball"
+      ],
+      "primary_sources": [
+        {
+          "id": "DrDave-Web-8BallStrategy",
+          "tier": "T2",
+          "note": "策略 #2-3"
+        },
+        {
+          "id": "Pool-Hall-Pros",
+          "tier": "T3"
+        },
+        {
+          "id": "8onthebreak-AZB",
+          "tier": "T3"
+        }
+      ],
+      "doc_path": "theory/theorems/T06-key-ball-doctrine.md"
+    },
+    {
+      "id": "T07",
+      "name_zh": "球团管理",
+      "name_en": "Cluster Management Hierarchy",
+      "category": "decision",
+      "status": "candidate",
+      "statement_one_liner": "球团必须尽早识别、尽早处理；由能自然路过它的球去碰开（insurance ball），用最低必要力度；绝不在低成功率球上去破，绝不留到收官三球",
+      "key_formula": null,
+      "alternative_method": "三段式（识别 → 绑定 → 顺序）+ 4 禁忌",
+      "key_data": {
+        "cluster_priority_order": [
+          "埋住 key ball 的",
+          "挡死己方多颗球的",
+          "挡袋的",
+          "单纯阻挡走位的"
+        ],
+        "force_levels_by_size": {
+          "small_2_balls": "4-5",
+          "medium_3_4_balls": "5-6",
+          "large_5_plus": "6-7",
+          "tight_against_rail": "7"
+        },
+        "forbidden_cluster_breakout": [
+          "用最后一颗散球破",
+          "留到剩 ≤ 3 颗球时",
+          "在低成功率球上破",
+          "朝被堵袋口方向破"
+        ]
+      },
+      "linked_theorems_upstream": [],
+      "linked_theorems_downstream": [],
+      "applicable_modules": [
+        "M03",
+        "M04"
+      ],
+      "common_errors": [
+        "Survey 阶段忽略 cluster",
+        "用最后散球破 cluster（违反 T07 禁忌）",
+        "9 档砸 cluster（母球失控 + 球落死角）"
+      ],
+      "primary_sources": [
+        {
+          "id": "DrDave-Web-8BallStrategy",
+          "tier": "T2",
+          "note": "策略 #8, #10, #11"
+        },
+        {
+          "id": "Byrne-StandardBook",
+          "tier": "T2",
+          "note": "Run-the-Table #1, #3-7, #10"
+        },
+        {
+          "id": "Billy_Bob-AZB",
+          "tier": "T3"
+        },
+        {
+          "id": "DrDave-BD-2021-02",
+          "tier": "T2",
+          "note": "Top 10 Pattern Play #6 (Pocket in Groups) + #7 (Solve Problems Early)"
+        }
+      ],
+      "doc_path": "theory/theorems/T07-cluster-management.md"
+    },
+    {
+      "id": "T08",
+      "name_zh": "风险报酬决策矩阵",
+      "name_en": "Risk-Reward Decision Matrix",
+      "category": "decision",
+      "status": "candidate",
+      "statement_one_liner": "每杆开打前用三问自检：(1) 进球把握 ≥ X？(2) 走位把握 ≥ Y？(3) 失败代价 ≤ Z？任一不达标，启动 T10 安全球阶梯",
+      "key_formula": "EV = P(make) × P(position) × V(continue) - P(miss) × V(opponent)",
+      "alternative_method": "三秒三问 + 硬性下限'不被 hook'",
+      "key_data": {
+        "thresholds": {
+          "novice": {
+            "make": 0.8,
+            "position": 0.7,
+            "max_loss": "不送 1 颗易球"
+          },
+          "intermediate": {
+            "make": 0.65,
+            "position": 0.55,
+            "max_loss": "不送 1 颗易球"
+          },
+          "expert": {
+            "make": 0.5,
+            "position": 0.4,
+            "max_loss": "不送 run-out"
+          },
+          "endgame_M06": {
+            "make": 0.8,
+            "position": 0.75,
+            "max_loss": "任何失误 = 输局"
+          }
+        },
+        "hard_lower_bound": "不被 hook (game over)",
+        "n1_possession_advantage_adjustment_pct": -10,
+        "n1_trigger_condition": "self_balls / opponent_balls < 0.5",
+        "tom_ross_quantification": {
+          "opening_self_ball_pct": 0.47,
+          "last_ball_pct": 0.11,
+          "miss_8_opponent_pct": 0.875,
+          "meaning": "8-ball 错 8 = 87.5% 给对手 ≈ 必输（具体物理依据 supports CreeDo \"Hooked = game over\"）"
+        }
+      },
+      "linked_theorems_upstream": [],
+      "linked_theorems_downstream": [
+        "T10"
+      ],
+      "applicable_modules": [
+        "M01",
+        "M02",
+        "M03",
+        "M04",
+        "M05",
+        "M06"
+      ],
+      "common_errors": [
+        "决胜局只问 (1) 能不能进，跳过 (3) 失败代价",
+        "盲目'完美主义'：为完美走位冒险打丢",
+        "永远只问 (3)：完全防守倾向，阻碍提高"
+      ],
+      "primary_sources": [
+        {
+          "id": "Poolplaya9-AZB",
+          "tier": "T3",
+          "note": "元论断"
+        },
+        {
+          "id": "Byrne-StandardBook",
+          "tier": "T2",
+          "note": "Run-the-Table #5, #9"
+        },
+        {
+          "id": "DrDave-Web-8BallStrategy",
+          "tier": "T2",
+          "note": "策略 #16-18"
+        },
+        {
+          "id": "CreeDo-AZB",
+          "tier": "T3",
+          "note": "Hooked = game over"
+        },
+        {
+          "id": "TomRoss-2000",
+          "tier": "T2",
+          "note": "8-Ball Anatomy — 量化失败代价：错 8 = 87.5% 给对手 ≈ 必输"
+        }
+      ],
+      "doc_path": "theory/theorems/T08-risk-reward-matrix.md"
+    },
+    {
+      "id": "T09",
+      "name_zh": "最少加塞原则",
+      "name_en": "Minimum English Principle",
+      "category": "control",
+      "status": "candidate",
+      "statement_one_liner": "能用中杆 + T01/T02/T03 完成的走位绝不使用加塞——加塞引入 squirt + swerve + throw 三重耦合误差；长距加塞需要 1% 精度估算，超出业余稳定能力",
+      "key_formula": "R·ω_z = -(5b/2R) · V_bx (spin/speed ratio determined by tip offset only)",
+      "alternative_method": "加塞决策三步 + 四问",
+      "key_data": {
+        "error_sources_count": 3,
+        "error_source_names": [
+          "squirt",
+          "swerve",
+          "throw"
+        ],
+        "long_distance_precision_required_pct": 1,
+        "low_squirt_cue_precision_pct": 10,
+        "max_tip_offset_b_over_R": 0.5,
+        "miscue_limit_b_over_R": 0.55,
+        "tip_ball_contact_time_s": 0.001,
+        "english_levels": [
+          {
+            "level": 0,
+            "amount": "无加塞",
+            "preference": "默认"
+          },
+          {
+            "level": 1,
+            "amount": "1/4 tip",
+            "preference": "必要时优选"
+          },
+          {
+            "level": 2,
+            "amount": "1/2 tip",
+            "preference": "Level 1 不够时"
+          },
+          {
+            "level": 3,
+            "amount": "接近 miscue",
+            "preference": "极罕见"
+          }
+        ],
+        "jewett_18_categories": {
+          "dimensions": [
+            "Inside/Outside/Center",
+            "Follow/Draw/Stun",
+            "Running/Reverse"
+          ],
+          "total_categories": 18,
+          "most_used_4": [
+            "IFRun",
+            "ODRun",
+            "CDRun",
+            "OFRev"
+          ],
+          "remaining_14": [
+            "IFRev",
+            "ISRun",
+            "ISRev",
+            "IDRun",
+            "IDRev",
+            "OFRun",
+            "OSRun",
+            "OSRev",
+            "ODRev",
+            "CFRun",
+            "CFRev",
+            "CSRun",
+            "CSRev",
+            "CDRev"
+          ]
+        }
+      },
+      "linked_theorems_upstream": [
+        "T03"
+      ],
+      "linked_theorems_downstream": [],
+      "applicable_modules": [
+        "M01",
+        "M02",
+        "M03",
+        "M06"
+      ],
+      "common_errors": [
+        "业余'加塞玄学'：以为加塞能控制母球",
+        "流派'特殊出杆'：以为某种握杆/wrist 能改变 spin/speed 比",
+        "盲目模仿职业（业余精度不达 1% 阈值）"
+      ],
+      "primary_sources": [
+        {
+          "id": "Shepard-2001-Squirt",
+          "tier": "T1"
+        },
+        {
+          "id": "Alciatore-2010-PhysicsArticle",
+          "tier": "T1",
+          "note": "§V-VI"
+        },
+        {
+          "id": "DrDave-TP-A31",
+          "tier": "T1"
+        },
+        {
+          "id": "Jewett-BD-2011-09-and-10",
+          "tier": "T2",
+          "note": "Inside-Outside + Every Which Way — 18 类 sidespin 完整分类法"
+        },
+        {
+          "id": "DrDave-BD-2021-02",
+          "tier": "T2",
+          "note": "Top 10 Pattern Play #1 — Keep It Simple, avoid sidespin if not needed"
+        }
+      ],
+      "myth_busting_note": "Shepard 物理论证：spin/speed 比由 (b/R) 唯一决定——wrist snap / tip 硬度 / follow-through 长度等流派技术不能改变它。最多影响总速度或一致性",
+      "doc_path": "theory/theorems/T09-minimum-english.md"
+    },
+    {
+      "id": "T10",
+      "name_zh": "安全球三维度模型",
+      "name_en": "Safety Three-Dimension Model",
+      "category": "decision",
+      "status": "candidate",
+      "statement_one_liner": "安全球的质量由 3 个独立维度决定：D（距离最大化）、M（库位优化）、O（障碍球阻挡）；理想 safety 三维全包含；T8 失败时按维度数逐级降级",
+      "key_formula": null,
+      "alternative_method": "5 步选择路径 + 5 问自检 + Neil 10 条执行",
+      "key_data": {
+        "dimensions": {
+          "D_distance": {
+            "thresholds_diamonds": {
+              "weak": 1,
+              "medium": 2,
+              "strong": 4,
+              "perfect": 6
+            },
+            "scoring_points": {
+              "ge_2_diamonds": 1,
+              "ge_4_diamonds": 2,
+              "ge_6_diamonds": 3
+            }
+          },
+          "M_middle_rails": {
+            "cue_ball_against_rail_threshold_balls": 1,
+            "cue_ball_against_rail_threshold_cm": 5.7,
+            "object_ball_distance_to_rail_minimum_inches": 6,
+            "object_ball_distance_to_rail_minimum_cm": 15,
+            "object_ball_middle_section_threshold_diamonds": 1,
+            "scoring_points": {
+              "cb_against_rail": 1,
+              "ob_ge_6_inch": 1,
+              "ob_in_middle": 1
+            }
+          },
+          "O_object_blocker": {
+            "blocker_angle_levels_deg": {
+              "weak_O1": [
+                5,
+                15
+              ],
+              "strong_O2": [
+                15,
+                45
+              ],
+              "perfect_O3": "complete"
+            },
+            "force_kick_rails": {
+              "ideal": 2
+            },
+            "scoring_points": {
+              "any_blocker": 1,
+              "strong_blocker": 2,
+              "force_2_rail_kick": 3
+            }
+          }
+        },
+        "safety_quality_levels": {
+          "low_1_dim": {
+            "score_range": [
+              0,
+              2
+            ]
+          },
+          "medium_2_dim": {
+            "score_range": [
+              3,
+              5
+            ]
+          },
+          "ideal_3_dim_king": {
+            "score_range": [
+              6,
+              9
+            ]
+          }
+        },
+        "execution_principle": "控 CB 或 OB 之一（不要同时控）",
+        "jewett_safe_shade": "想象对手 OB 是光源，blocker 投阴影 → CB 进阴影区 = 安全",
+        "long_shape_principle": "沿 shade 走 = 速度容差大；穿过 shade = 容差小",
+        "peeling_onion_layers": [
+          "Layer 1: 第一眼方案",
+          "Layer 2: long shape",
+          "Layer 3: safe shade 几何",
+          "Layer 4: 对手 kick 难度",
+          "Layer 5: 自己回桌路径"
+        ]
+      },
+      "linked_theorems_upstream": [
+        "T08"
+      ],
+      "linked_theorems_downstream": [],
+      "applicable_modules": [
+        "M05"
+      ],
+      "common_errors": [
+        "以为 safety 就是'藏球'（只想 O 维）",
+        "同时精确控 CB + OB（精度乘性恶化）",
+        "OB 落到库边 6 inch 内（变 'big ball'）"
+      ],
+      "primary_sources": [
+        {
+          "id": "BasicBilliards-Safety",
+          "tier": "T3"
+        },
+        {
+          "id": "DrDave-Web-Safety",
+          "tier": "T2",
+          "note": "Neil 10 条精华"
+        },
+        {
+          "id": "Jewett-BD-1998-10",
+          "tier": "T2",
+          "note": "Peeling the Onion — safe shade 几何 + long shape 原则 + 5 层级思维"
+        }
+      ],
+      "doc_path": "theory/theorems/T10-safety-hierarchy.md"
+    }
+  ],
+  "candidate_rules_resolved": [
+    {
+      "id": "N1",
+      "name": "Possession Advantage",
+      "merged_into": [
+        "M05",
+        "T08"
+      ]
+    },
+    {
+      "id": "N2",
+      "name": "Always Leave an Angle",
+      "merged_into": [
+        "T03",
+        "M04",
+        "M06"
+      ]
+    },
+    {
+      "id": "N3",
+      "name": "Cluster First Doctrine",
+      "merged_into": [
+        "T07",
+        "M03"
+      ]
+    },
+    {
+      "id": "N4",
+      "name": "45° Rule (master table center)",
+      "merged_into": [
+        "T03"
+      ],
+      "source": "Dr. Dave BD 2021-02 #8"
+    },
+    {
+      "id": "N5",
+      "name": "Use Cushions as Brakes",
+      "merged_into": [
+        "T04"
+      ],
+      "source": "Dr. Dave BD 2021-02 #5"
+    },
+    {
+      "id": "N6",
+      "name": "Position Off Hangers (1/2-ball 双规则)",
+      "merged_into": [
+        "T01"
+      ],
+      "source": "Jewett BD 1997-02 + Dr. Dave BD 2021-02 #10",
+      "triggers_revision": "CF2"
+    }
+  ]
+}

@@ -1,0 +1,413 @@
+{
+  "schema_version": "1.1.0",
+  "theory_version": "v1.0-rc3",
+  "generated_on": "2026-05-05",
+  "flow_id": "5-step-clearing",
+  "name_zh": "清台 5 步决策流程",
+  "name_en": "5-Step Clearing Decision Flow",
+  "description": "从用户上台到下一杆完成的完整决策状态机。状态间的转移由 branch_logic 决定。",
+  "doc_path": "theory/execution-guide.md",
+  "total_steps": 5,
+  "time_budget_seconds": {
+    "novice": 80,
+    "intermediate": 43,
+    "expert": 28
+  },
+  "states": [
+    {
+      "id": "step_1_survey",
+      "step_number": 1,
+      "name_zh": "Survey 全桌扫描",
+      "name_en": "Survey",
+      "purpose": "把整张桌的'信息地图'装入大脑——不做任何决策",
+      "duration_target_s": {
+        "novice": 15,
+        "intermediate": 10,
+        "expert": 5
+      },
+      "tasks": [
+        {
+          "id": "1.1",
+          "name": "走动观察（绕桌至少半圈）"
+        },
+        {
+          "id": "1.2.1",
+          "name": "数球数（self vs opponent）"
+        },
+        {
+          "id": "1.2.2",
+          "name": "标所有 cluster（位置 + 大小 + 是否埋住关键球）"
+        },
+        {
+          "id": "1.2.3",
+          "name": "标死球 / 难球（贴库 / 死角 / 必须 kick）"
+        },
+        {
+          "id": "1.2.4",
+          "name": "标 hangers（位置 + 是哪一袋）"
+        }
+      ],
+      "outputs": [
+        "球数对比（self vs opponent）",
+        "Cluster 清单（含优先级估算）",
+        "难球 / 死球清单",
+        "Hangers 位置"
+      ],
+      "calls_modules": [
+        "M03"
+      ],
+      "next_state": "step_2_plan"
+    },
+    {
+      "id": "step_2_plan",
+      "step_number": 2,
+      "name_zh": "Plan 反向规划",
+      "name_en": "Plan",
+      "purpose": "给出'完整的反向队列 + 当前一杆候选'",
+      "duration_target_s": {
+        "novice": 30,
+        "intermediate": 15,
+        "expert": 10
+      },
+      "tasks": [
+        {
+          "id": "2.1",
+          "name": "选模块（M04 或 M06）"
+        },
+        {
+          "id": "2.2",
+          "name": "执行选定模块的全流程"
+        }
+      ],
+      "branch_logic": {
+        "type": "switch",
+        "switch_on": "balls_count_remaining",
+        "branches": [
+          {
+            "condition": "balls_count >= 4",
+            "next_module": "M04"
+          },
+          {
+            "condition": "balls_count <= 3",
+            "next_module": "M06"
+          }
+        ],
+        "default_next_module": "M04"
+      },
+      "outputs": [
+        "反向队列（最后一颗 ← key ball ← key 2 ← (cluster 处理) ← 当前一杆）",
+        "当前一杆候选（要打的那颗球）",
+        "理想落位区（当前一杆进位后母球应停在哪）"
+      ],
+      "edge_cases": [
+        {
+          "case": "完全规划不出来",
+          "action": "直接跳 step_3_check 用更严阈值评估 → 大概率到 M05"
+        },
+        {
+          "case": "球数很多（开局后第一杆，10+ 球）",
+          "action": "退化为'识别关键障碍 + 选最优起点 + 留 angles'"
+        }
+      ],
+      "next_state": "step_3_check"
+    },
+    {
+      "id": "step_3_check",
+      "step_number": 3,
+      "name_zh": "Check 风险评估",
+      "name_en": "Check",
+      "purpose": "T08 三问的快速校验——决定执行还是切换防守",
+      "duration_target_s": {
+        "novice": 10,
+        "intermediate": 5,
+        "expert": 3
+      },
+      "tasks": [
+        {
+          "id": "3.1",
+          "name": "T08 三问（进得了？走得到位？失败代价？）"
+        },
+        {
+          "id": "3.2",
+          "name": "特别问：会被 hook 吗？（硬性下限）"
+        }
+      ],
+      "calls_theorems": [
+        "T08"
+      ],
+      "thresholds_by_scenario": {
+        "default_midgame": {
+          "make": 0.65,
+          "position": 0.55,
+          "max_loss": "不送 1 颗易球"
+        },
+        "endgame_M06": {
+          "make": 0.8,
+          "position": 0.75,
+          "max_loss": "任何失误 = 输局"
+        },
+        "n1_triggered": {
+          "make_adjustment": -0.1,
+          "position_adjustment": -0.1
+        },
+        "deciding_game": {
+          "thresholds": "不可下调"
+        }
+      },
+      "branch_logic": {
+        "type": "if-else",
+        "branches": [
+          {
+            "condition": "all_three_questions_pass AND not_hooked",
+            "next_state": "step_4_execute"
+          },
+          {
+            "condition": "any_question_fail OR hooked",
+            "next_module": "M05"
+          }
+        ]
+      },
+      "outputs": [
+        "决策：通过（→ step_4）/ 失败（→ M05）",
+        "M05 触发时的具体失败原因（哪问失败 / 是否被 hook）"
+      ],
+      "next_state_default": "step_4_execute"
+    },
+    {
+      "id": "step_4_execute",
+      "step_number": 4,
+      "name_zh": "Execute 执行",
+      "name_en": "Execute",
+      "purpose": "按'角度 → 速度 → 旋转'的固定顺序完成击球",
+      "duration_target_s": {
+        "novice": 20,
+        "intermediate": 10,
+        "expert": 8
+      },
+      "tasks": [
+        {
+          "id": "4.1",
+          "name": "选模块（M01 / M02 / M03 / T10）"
+        },
+        {
+          "id": "4.2",
+          "name": "执行模块的决策步骤（含 PSR）"
+        }
+      ],
+      "branch_logic": {
+        "type": "switch",
+        "switch_on": "shot_type",
+        "branches": [
+          {
+            "condition": "single_ball_no_obstacle",
+            "next_module": "M01"
+          },
+          {
+            "condition": "obstacle_in_path",
+            "next_module": "M02"
+          },
+          {
+            "condition": "cluster_breakout_target",
+            "next_module": "M03"
+          },
+          {
+            "condition": "from_step_3_M05_chose_safety",
+            "next_theorem": "T10"
+          }
+        ]
+      },
+      "execution_order_lock": [
+        {
+          "order": 1,
+          "name": "aim",
+          "tools": [
+            "T03 切线",
+            "5/7+2/7 法则"
+          ]
+        },
+        {
+          "order": 2,
+          "name": "speed",
+          "tools": [
+            "T04 排除法",
+            "出杆长度"
+          ]
+        },
+        {
+          "order": 3,
+          "name": "spin",
+          "tools": [
+            "T09 默认中杆"
+          ]
+        }
+      ],
+      "pre_shot_routine": [
+        {
+          "step": "AWUS",
+          "name": "Air Warm-Up Strokes（站位前空挥 2-3 次）"
+        },
+        {
+          "step": "Stance + Bridge",
+          "name": "站位 + bridge length 按速度档调整"
+        },
+        {
+          "step": "WUS",
+          "name": "Warm-Up Strokes（cue 上预热挥 2-4 次）"
+        },
+        {
+          "step": "Final Stroke",
+          "name": "平滑加速进接触"
+        },
+        {
+          "step": "Follow-through",
+          "name": "完整跟进"
+        },
+        {
+          "step": "Pose",
+          "name": "定 1 秒（强化神经肌肉记忆）"
+        }
+      ],
+      "psr_application": {
+        "endgame_M06": "严格按 PSR",
+        "safety_T10": "严格按 PSR",
+        "power_shot_7_to_9": "严格按 PSR",
+        "midgame_simple": "可压缩到 PSR 的 50%"
+      },
+      "outputs": [
+        "击球完成的实际结果",
+        "母球实际落位（用于 step_5 复盘）"
+      ],
+      "next_state": "step_5_reflect"
+    },
+    {
+      "id": "step_5_reflect",
+      "step_number": 5,
+      "name_zh": "Reflect 复盘",
+      "name_en": "Reflect",
+      "purpose": "实测落位 vs 计划落位的偏差评估，决定下一杆策略",
+      "duration_target_s": {
+        "novice": 5,
+        "intermediate": 3,
+        "expert": 2
+      },
+      "tasks": [
+        {
+          "id": "5.1",
+          "name": "评估偏差量"
+        },
+        {
+          "id": "5.2",
+          "name": "检查桌面变化（破 cluster 或 follow/draw 后）"
+        },
+        {
+          "id": "5.3",
+          "name": "心理复盘（技术问题 vs 决策问题）"
+        }
+      ],
+      "calls_theorems": [
+        "T05"
+      ],
+      "branch_logic": {
+        "type": "switch",
+        "switch_on": "deviation_amount",
+        "branches": [
+          {
+            "condition": "deviation <= 1_ball_radius",
+            "next_state_for_next_shot": "step_1_survey",
+            "policy": "按原 M04/M06 计划继续"
+          },
+          {
+            "condition": "1_ball_radius < deviation < 1/3_table_length",
+            "next_state_for_next_shot": "step_1_survey",
+            "policy": "微调（保留 key ball/key 2，调下一杆瞄准/速度）"
+          },
+          {
+            "condition": "deviation >= 1/3_table_length",
+            "next_state_for_next_shot": "step_1_survey",
+            "policy": "重做（整局重启）"
+          },
+          {
+            "condition": "table_changed_significantly (e.g., new cluster created)",
+            "next_state_for_next_shot": "step_1_survey",
+            "policy": "强制重做 Survey"
+          }
+        ]
+      },
+      "outputs": [
+        "下一杆策略（继续 / 微调 / 重做）",
+        "学习记录（用于训练复盘）"
+      ],
+      "next_state": "next_shot_or_opponent_turn"
+    }
+  ],
+  "entry_points": [
+    {
+      "id": "self_turn_start",
+      "name": "每次轮到自己上台（开始 break 后的第一次）",
+      "starts_at": "step_1_survey"
+    },
+    {
+      "id": "ball_in_hand",
+      "name": "对手 foul → 自己 ball-in-hand",
+      "starts_at": "step_1_survey",
+      "note": "必须完整走 5 步，不要凭感觉直接打"
+    },
+    {
+      "id": "after_safety",
+      "name": "safety 后自己回桌",
+      "starts_at": "step_1_survey",
+      "note": "完整走 5 步"
+    }
+  ],
+  "exit_points": [
+    {
+      "id": "next_shot",
+      "name": "进入下一杆",
+      "from": "step_5_reflect",
+      "next": "step_1_survey"
+    },
+    {
+      "id": "self_foul",
+      "name": "自己 foul",
+      "next": "opponent_turn"
+    },
+    {
+      "id": "game_over_clear",
+      "name": "清台完成",
+      "next": "game_end"
+    },
+    {
+      "id": "game_over_lost",
+      "name": "对手清完",
+      "next": "game_end"
+    }
+  ],
+  "violation_modes": [
+    {
+      "id": "skip_survey",
+      "violation": "跳过 Step 1 直接打",
+      "consequence": "漏看 cluster / hangers → M03 / M06 阶段崩"
+    },
+    {
+      "id": "skip_plan",
+      "violation": "跳过 Step 2 凭感觉",
+      "consequence": "没反向规划 → key ball 阶段必崩"
+    },
+    {
+      "id": "skip_check",
+      "violation": "跳过 Step 3 默认进攻",
+      "consequence": "送对手 run-out（M05 缺失）"
+    },
+    {
+      "id": "skip_psr",
+      "violation": "跳过 Step 4 PSR",
+      "consequence": "高速球 / 收官时崩盘"
+    },
+    {
+      "id": "skip_reflect",
+      "violation": "跳过 Step 5 复盘",
+      "consequence": "失位后按原计划继续 → 雪崩"
+    }
+  ],
+  "violation_amplification": "每跳一步，失败率近似翻倍。完整 5 步是'最低必要纪律'"
+}

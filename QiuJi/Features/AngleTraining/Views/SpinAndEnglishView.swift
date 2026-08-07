@@ -253,9 +253,15 @@ struct SpinAndEnglishView: View {
 
 // MARK: - Separation paths figure
 
-private struct SeparationPathsFigure: View {
+/// 碰后三路径插图（滑动沿切线 / 前旋前弯 / 后旋后弯）。
+///
+/// v30 W1 返工 r1：由 `private` 放开为 internal，供球理页「切线法则」复用
+///（⛔ 不另造 Theory 专用三路径图）。`emphasizeAll = true` 时三条同时实描并各带标签，
+/// 用于没有状态选择器的静态讲解场景；默认 false，本页行为不变。
+struct SeparationPathsFigure: View {
     let selected: SpinAndEnglishGeometry.SpinState
     let cutAngleDeg: CGFloat
+    var emphasizeAll: Bool = false
 
     var body: some View {
         let scene = SpinAndEnglishGeometry.scene(cutAngleDeg: cutAngleDeg)
@@ -280,7 +286,7 @@ private struct SeparationPathsFigure: View {
                 ForEach(SpinAndEnglishGeometry.SpinState.allCases) { state in
                     let endW = SpinAndEnglishGeometry.pathEnd(scene: scene, state: state)
                     let end = proj.point(x: endW.x, z: endW.y)
-                    let active = state == selected
+                    let active = emphasizeAll || state == selected
                     let color = pathColor(state)
                     Path { p in p.move(to: ghost); p.addLine(to: end) }
                         .stroke(color.opacity(active ? 1 : 0.28),

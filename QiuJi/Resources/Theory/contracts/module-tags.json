@@ -1,0 +1,509 @@
+{
+  "schema_version": "1.1.0",
+  "theory_version": "v1.0-rc3",
+  "generated_on": "2026-05-06",
+  "modules": [
+    {
+      "id": "M01",
+      "name_zh": "单球进位",
+      "name_en": "Single-Ball Position Play",
+      "layer": "single-shot-execution",
+      "status": "candidate",
+      "description": "当前一杆已确定要打哪颗 OB；已识别下一颗目标球的进位区；T08 三问已通过。本模块只负责'如何执行单杆走位'——选哪颗球已经在 M04 决定了",
+      "trigger_conditions": [
+        "当前一杆已确定（不在 M03/M05 决策路径上）",
+        "已识别下一颗目标球的进位区",
+        "T08 三问通过"
+      ],
+      "calls_theorems": [
+        "T01",
+        "T02",
+        "T03",
+        "T04",
+        "T08",
+        "T09"
+      ],
+      "calls_modules": [],
+      "called_by_modules": [
+        "M04",
+        "M06"
+      ],
+      "decision_steps": [
+        {
+          "step": "A",
+          "name": "画切线（T03）"
+        },
+        {
+          "step": "B",
+          "name": "判断母球状态（T01/T02 选择）"
+        },
+        {
+          "step": "C",
+          "name": "预测母球落点（peace sign 速记 / 5/7+2/7 精确版）"
+        },
+        {
+          "step": "D",
+          "name": "选档（T04 排除法）"
+        },
+        {
+          "step": "E",
+          "name": "加塞决策（T09，默认中杆）"
+        },
+        {
+          "step": "F",
+          "name": "执行 + 复盘（顺序：角度→速度→旋转）"
+        }
+      ],
+      "decision_steps_count": 6,
+      "outputs": [
+        "母球击球点（中 / 中下 / 中上 / 偏 / 含加塞量）",
+        "出杆速度档（1–9）",
+        "瞄准线（含必要的 squirt 修正）",
+        "预测母球终点（区域 + 偏差容许范围）"
+      ],
+      "common_errors": [
+        "跳过 Step A 画切线（业余 90% 错误来源）",
+        "力度思维（'用大力 vs 用小力'，应翻译为出杆长度）",
+        "乱用加塞（T09 警告）",
+        "倒序击球决策（先力度后瞄准）",
+        "失位后不复盘"
+      ],
+      "doc_path": "theory/modules/M01-single-ball-position.md",
+      "p5_augmentation": "Dr. Dave BD 2021-02 #1/#4/#5/#9; Jewett 2011-08 三个核心 drill"
+    },
+    {
+      "id": "M02",
+      "name_zh": "障碍处理",
+      "name_en": "Obstacle Handling",
+      "layer": "single-shot-execution",
+      "status": "candidate",
+      "description": "母球路径有阻挡（入射 / 出射 / 双重）。M01 Step C 一旦发现路径阻挡，立即切换到 M02",
+      "trigger_conditions": [
+        "入射障碍（CB ↔ OB 直线被挡）",
+        "出射障碍（M01 预测的母球路径被挡）",
+        "双重障碍（入射 + 出射都被挡）"
+      ],
+      "calls_theorems": [
+        "T03",
+        "T01",
+        "T02",
+        "T09",
+        "T04",
+        "T08"
+      ],
+      "calls_modules": [],
+      "called_by_modules": [
+        "M01"
+      ],
+      "decision_steps": [
+        {
+          "step": "A",
+          "name": "障碍分类（入射 / 出射 / 双重）"
+        },
+        {
+          "step": "B",
+          "name": "入射障碍：选 kick / curve / jump"
+        },
+        {
+          "step": "C",
+          "name": "单库 kick 简化几何（入射 = 反射近似）"
+        },
+        {
+          "step": "D",
+          "name": "出射障碍：调整击球方式（改 cut / 改 stun / 加 follow / 加 draw / 加塞）"
+        },
+        {
+          "step": "E",
+          "name": "必加塞场景的 squirt + swerve + throw 修正"
+        },
+        {
+          "step": "F",
+          "name": "T08 风险评估（成功率 < 60% 跳 M05）"
+        }
+      ],
+      "decision_steps_count": 6,
+      "obstacle_solution_priority": [
+        {
+          "rank": 1,
+          "method": "直击（如果其实没障碍）"
+        },
+        {
+          "rank": 2,
+          "method": "单库 kick（成功率最高，技术成熟）"
+        },
+        {
+          "rank": 3,
+          "method": "Curve / swerve（短距有效，需 sidespin）"
+        },
+        {
+          "rank": 4,
+          "method": "多库 kick（成功率显著下降）"
+        },
+        {
+          "rank": 5,
+          "method": "Jump（高级技术，业余慎用，规则限制）"
+        }
+      ],
+      "outputs": [
+        "击球方式（直击 / 库 kick 几库 / curve / massé / jump）",
+        "击球点（含加塞量）",
+        "出杆速度档（kick 5-7 / curve 3-5 / jump 7-9）",
+        "预测成功概率（用于 T08 复核）",
+        "Plan B（失败时的退路）"
+      ],
+      "common_errors": [
+        "没识别切线段障碍（业余以为母球碰撞后立即偏 30°）",
+        "盲目用加塞解障碍",
+        "kick shot 用入射=反射零修正",
+        "多库 kick 高估成功率",
+        "跳过 Step F T08 校验"
+      ],
+      "doc_path": "theory/modules/M02-obstacle-handling.md",
+      "p5_augmentation": "Jewett 2009-09 System Sid 一库 diamond system（feel 优先 + system 备选）"
+    },
+    {
+      "id": "M03",
+      "name_zh": "球团破解",
+      "name_en": "Cluster Breakout",
+      "layer": "global-planning + single-shot-execution",
+      "status": "candidate",
+      "description": "桌上 ≥ 1 个 cluster 影响己方球。每次 Survey 都要识别全部 cluster",
+      "trigger_conditions": [
+        "至少一颗己方球或 key ball/key 2 在 cluster 内 / 被挡",
+        "或 cluster 挡住将来需要的母球路径",
+        "或 cluster 挡住关键袋口"
+      ],
+      "calls_theorems": [
+        "T07",
+        "T01",
+        "T02",
+        "T04",
+        "T08"
+      ],
+      "calls_modules": [],
+      "called_by_modules": [
+        "M04"
+      ],
+      "decision_steps": [
+        {
+          "step": "A",
+          "name": "Cluster 优先级排序（埋 key ball > 挡多球 > 挡袋 > 阻走位）"
+        },
+        {
+          "step": "B",
+          "name": "寻找承转球（insurance ball，四问校验）"
+        },
+        {
+          "step": "C",
+          "name": "母球进入方向选择（按 cluster 形态）"
+        },
+        {
+          "step": "D",
+          "name": "速度档位选择（4-7 档为主，禁 9 档）"
+        },
+        {
+          "step": "E",
+          "name": "无承转球处理（推迟 / 专用一杆 / 改 safety）"
+        },
+        {
+          "step": "F",
+          "name": "T08 校验 + 执行"
+        },
+        {
+          "step": "G",
+          "name": "复盘（cluster 是否散？是否产生新 cluster？）"
+        }
+      ],
+      "decision_steps_count": 7,
+      "cluster_priority": [
+        "埋住 key ball / key 2 的 cluster",
+        "挡死己方多颗球的 cluster",
+        "挡住关键袋口的 cluster",
+        "单纯阻挡走位的 cluster"
+      ],
+      "force_levels_by_cluster_size": {
+        "small_2_balls": [
+          4,
+          5
+        ],
+        "medium_3_4_balls": [
+          5,
+          6
+        ],
+        "large_5_plus": [
+          6,
+          7
+        ],
+        "tight_against_rail": [
+          7
+        ]
+      },
+      "outputs": [
+        "选定的承转球（或推迟决策）",
+        "母球进入 cluster 的方向（角度 + 撞击点）",
+        "力度档（4-7 为主）",
+        "击球点（通常中杆 / 微 follow，避免 sidespin）",
+        "T08 通过结果（含 Plan B：safety 退路）"
+      ],
+      "common_errors": [
+        "Survey 阶段忽略 cluster",
+        "用最后散球破 cluster",
+        "9 档砸 cluster",
+        "从被堵袋口方向破",
+        "跳过 T08 第 3 问失败代价",
+        "破完不重做 M04"
+      ],
+      "doc_path": "theory/modules/M03-cluster-breakout.md",
+      "p5_augmentation": "Dr. Dave BD 2021-02 #6 (Pocket in Groups) + #7 (Solve Problems Early)"
+    },
+    {
+      "id": "M04",
+      "name_zh": "反向规划",
+      "name_en": "Backwards Planning",
+      "layer": "global-planning",
+      "status": "candidate",
+      "description": "桌面剩余 4–7 颗己方球（含最后一颗 game-winning ball）。决策流程 Step 2 每次轮到自己上台都启动。M04 是清台理论的'调度中枢'",
+      "trigger_conditions": [
+        "桌上球数 ≥ 4",
+        "决策流程 Step 2 (Plan) 触发"
+      ],
+      "calls_theorems": [
+        "T05",
+        "T06",
+        "T07",
+        "T08"
+      ],
+      "calls_modules": [
+        "M03",
+        "M01",
+        "M05"
+      ],
+      "called_by_modules": [],
+      "decision_steps": [
+        {
+          "step": "A",
+          "name": "找'最后一颗'球（游戏决定）"
+        },
+        {
+          "step": "B",
+          "name": "选定最后一颗的理想母球落位区"
+        },
+        {
+          "step": "C",
+          "name": "选 key ball（T06 四问）"
+        },
+        {
+          "step": "D",
+          "name": "选 key 2（T06 四问，把'最后一颗'替换为 key ball）"
+        },
+        {
+          "step": "E",
+          "name": "Cluster 优先性插入（必须排在 key ball 之前）"
+        },
+        {
+          "step": "F",
+          "name": "反向倒推到当前一杆（≥3 步深度）"
+        },
+        {
+          "step": "G",
+          "name": "失败时退路（改换 key ball 候选 / 跳 M05）"
+        },
+        {
+          "step": "H",
+          "name": "当前一杆 T08 校验 + 移交 M01/M02/M03"
+        },
+        {
+          "step": "I",
+          "name": "复盘（失位 ≥ 1/3 桌长 → 整局重做）"
+        }
+      ],
+      "decision_steps_count": 9,
+      "min_planning_depth_shots": 3,
+      "outputs": [
+        "完整反向规划队列（最后一颗 → key ball → key 2 → cluster 处理 → 当前一杆）",
+        "当前一杆要打哪颗球（移交 M01/M02/M03）",
+        "备用方案（若当前一杆失位时的退路，包括 M05 触发条件）"
+      ],
+      "common_errors": [
+        "正向规划",
+        "规划深度 < 3 步",
+        "不分 key ball 和 key 2",
+        "跳过 cluster 处理排序",
+        "失位不复盘"
+      ],
+      "doc_path": "theory/modules/M04-backwards-planning.md",
+      "p5_augmentation": "Dr. Dave BD 2021-02 #3 (most important) + Tom Ross 2000 量化基线 + name-5-shots 训练法"
+    },
+    {
+      "id": "M05",
+      "name_zh": "进攻 / 防守抉择",
+      "name_en": "Offense-Defense Choice",
+      "layer": "global-planning",
+      "status": "candidate",
+      "description": "T08 三问任一不达标 / M02 障碍处理成功率 < 60% / M03 球团破解无承转球 + 强行破代价过大 / M04 反向规划完全走不通时启动",
+      "trigger_conditions": [
+        "T08 三问任一不达标",
+        "M02 给出的成功率 < 60%",
+        "M03 无承转球 + 强行破代价过大",
+        "M04 反向规划完全走不通"
+      ],
+      "calls_theorems": [
+        "T08",
+        "T10"
+      ],
+      "calls_modules": [
+        "M03"
+      ],
+      "called_by_modules": [
+        "M01",
+        "M02",
+        "M03",
+        "M04"
+      ],
+      "decision_steps": [
+        {
+          "step": "A",
+          "name": "重做 T08 三问（M05 阈值更严：70/60/不送 run-out）"
+        },
+        {
+          "step": "B",
+          "name": "球数对比 N1（self/opponent < 0.5 → 阈值下调 10%）"
+        },
+        {
+          "step": "C",
+          "name": "进攻 vs 防守的最终决策"
+        },
+        {
+          "step": "D",
+          "name": "选 safety（移交 T10 + 5 步选择路径）"
+        },
+        {
+          "step": "E",
+          "name": "Two-way shot 评估（仅 9/10 球）"
+        },
+        {
+          "step": "F",
+          "name": "最后手段（无 safety 资源时）"
+        },
+        {
+          "step": "G",
+          "name": "移交 + 复盘"
+        }
+      ],
+      "decision_steps_count": 7,
+      "thresholds_strict": {
+        "make": 0.7,
+        "position": 0.6,
+        "max_loss": "不送 run-out + 不被 hook"
+      },
+      "n1_adjustment": {
+        "trigger_condition": "self_balls / opponent_balls < 0.5",
+        "adjustment_pct": -10,
+        "rationale": "球少 = 失去 cluster 资源 + 被对手卡死；即使低概率攻击也优于防守"
+      },
+      "outputs": [
+        "决策：进攻 / 防守 / 两面 / intentional foul",
+        "进攻 → 当前一杆要打哪颗（回 M01）",
+        "防守 → safety 维度（D / D+O / D+M+O）+ 控 CB 还是 OB + 落位",
+        "两面 → 进攻方案 + 隐含 safety 退路",
+        "备用 Plan B"
+      ],
+      "common_errors": [
+        "永远进攻（决胜局只问 (1)）",
+        "永远防守（永远只问 (3)，阻碍提高）",
+        "错用 N1 调整",
+        "8 球用 two-way（8 球打丢不会自动 safety）",
+        "决定 safety 后用 M01 阈值执行（应按更高精度）"
+      ],
+      "doc_path": "theory/modules/M05-offense-defense-choice.md",
+      "p5_augmentation": "Jewett 1998-10 Peeling the Onion 5 层级思维（Step D 已扩展）"
+    },
+    {
+      "id": "M06",
+      "name_zh": "收官三球",
+      "name_en": "Final Three Balls",
+      "layer": "endgame-special",
+      "status": "candidate",
+      "description": "桌上剩余 ≤ 3 颗己方球（含最后一颗 game-winning ball）。M06 不是 M04 的简化版——它是收官的专用流程，因为最后 3 球的规则与中段不同（规划深度 = 全部、key ball/key 2 已被强制确定、失误代价巨大、业余失败率最高）",
+      "trigger_conditions": [
+        "桌上球数 ≤ 3",
+        "或 9 球的剩 ≤ 3 个号码"
+      ],
+      "calls_theorems": [
+        "T05",
+        "T06",
+        "T01",
+        "T02",
+        "T08"
+      ],
+      "calls_modules": [
+        "M01",
+        "M05"
+      ],
+      "called_by_modules": [
+        "M04"
+      ],
+      "decision_steps": [
+        {
+          "step": "A",
+          "name": "锁定 3 球的反向队列"
+        },
+        {
+          "step": "B",
+          "name": "三球安排区识别（每颗的理想母球落位区）"
+        },
+        {
+          "step": "C",
+          "name": "母球轨道绘制（连接三球安排区）"
+        },
+        {
+          "step": "D",
+          "name": "Stop Shot 优先（避免高速跨桌、加塞、复杂多库走位）"
+        },
+        {
+          "step": "E",
+          "name": "T08 严格三问（决胜阈值 80/75/任何失误输）"
+        },
+        {
+          "step": "F",
+          "name": "当前一杆执行（移交 M01）"
+        },
+        {
+          "step": "G",
+          "name": "复盘 + 微调"
+        }
+      ],
+      "decision_steps_count": 7,
+      "thresholds_endgame": {
+        "make": 0.8,
+        "position": 0.75,
+        "max_loss": "任何失误 = 输局",
+        "hard_lower_bound": "不被 hook + 不被 push 到对手清台位置"
+      },
+      "preferred_techniques": [
+        "Stop shot（T02 90° 法则）",
+        "中杆 + 1 钻石内距离",
+        "少量 draw 实现远距 stop shot",
+        "Capelle Spectrum 4-6 档",
+        "禁止：高速跨桌 / 加塞 / 复杂多库走位"
+      ],
+      "outputs": [
+        "三球完整反向队列（已锁定）",
+        "三球落位区与母球轨道",
+        "当前一杆方案（移交 M01）",
+        "T08 阈值检查结果",
+        "备用 Plan B（每杆失位时的 safety 选项）"
+      ],
+      "common_errors": [
+        "'差点完成'陷阱（2 球阶段松懈）",
+        "决胜压力下跳过 T08",
+        "乱用加塞（收官阶段灾难）",
+        "力度过大（7+ 档跨桌走位）",
+        "不复盘（第 1 杆失位仍按原计划继续）",
+        "忽略中式八球的'指定袋'约束"
+      ],
+      "doc_path": "theory/modules/M06-final-three-balls.md",
+      "p5_augmentation": "Tom Ross 87.5% 量化 + Dr. Dave BD 2021-02 #1/#5 + Jewett stop shot drill"
+    }
+  ]
+}

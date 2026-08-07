@@ -82,6 +82,47 @@
 
 ## DR 记录（设计调整）
 
+## FL-028
+- **任务**：v30 W1 试点（T03 + T08）人工验收
+- **用户判定**：未通过。原话「和现有的其他学页面风格完全不同，也没有说明图，很不满意」。
+- **翻车事实**（主控只读取证核实，均带行号）：
+  1. **零配图**：现有 6 张文档学页每页 3–8 张说明图（主范式 `BTTableFigure`：真台 USDZ 底图 + `Path` 叠线 + 球 / 点 / 标签）；试点两页配图数 = **0**。T03 视图注释还把「不新造静图、改深链」写成了策略，DR-064 与转写模板 v1.0 也把「深链代图 / 战术类无图」写成了合规口径 —— **深链不能代替页内说明图**，用户要的是页内看得到图。
+  2. **风格自立体系**：页头用了 `.btHeadline` 题眼（现有学页首卡是 `.btTitle` 卡标题）；误区用 `.btWarning` 集中卡（现有是 inline `.btAccent` 三角 + 10% accent 底）；序号圆底用 `btPrimaryMuted`（现有 `.btPrimary` 实底白字）；表格用 `Grid`（现有 `HStack` 行）；多了 `.padding(.top, Spacing.md)`；页尾缺「相关页面」`.btTitle` 标题结构；无页级控件。
+- **根因**：①W0 组件规范把配图写成「分级可选」（§一.3），试点时又按「成本最低」优先选了深链，等于**用规范漏洞给零配图背书**；②风格对齐只做到「用了 `LearnDoc*` 正文件」这一层，没有拿现有学页逐维度对表就自行新增视觉口径。
+- **强制检查点（已回写规范）**：
+  1. 每篇理论页**至少一张页内说明图**，放对应正文节的 `LearnDocSectionCard` 内；⛔ 深链只作「看更多」。
+  2. 物理几何类必走 `BTTableFigure` 栈 + **几何真源函数**（⛔ 手填坐标常量凑图）+ 不变量单测 + 汇报给「图元 ↔ 真源函数」映射；战术类受红线 5 约束只能画**非球形抽象图示**，需要真实球形的图**登记文字描述交人工录制**。
+  3. 新页提交前逐项对照一张现有学页截图（页壳 padding / 节卡 / 误区 / 序号 / 表格 / 页尾六项），差异要么消除要么在规范里立案。
+- **返工产物**：`build/v30-w1-rework-logs/`、`build/v30-w1-rework-screenshots/`（含现有学页「瞄准原理」对比截图）。
+- **日期**：2026-08-07
+- **回写目标**：`docs/research/20260807-v30理论页组件规范.md`（新增 §四 配图硬性章节 + §三 风格收敛铁律）、`docs/research/20260807-v30理论转写模板.md`（§3.1 配图决策树）
+- **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.2 §三/§四/§五/§六/§二 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.1 §一/§3.1/§3.2/§四 + Changelog（2026-08-07）；✅ 本文件 DR-064 补「返工 r1 修订」段（2026-08-07）
+
+## DR-064
+- **任务**：v30 W1 试点定调（球理详情页 T03 切线法则 + T08 风险报酬决策矩阵 + 转写模板）
+- ⚠️ **返工 r1 修订（2026-08-07，见 FL-028）**：本条第 1 项的组件清单与配图口径已被返工覆盖 ——
+  1. `TheoryPageHeader` API 改 `(pageID:headline:detail:caption:)`，结论主句 = `LearnDocSectionCard` 卡标题（`.btTitle`），⛔ 不再自立 `.btHeadline` 题眼层；
+  2. `TheoryMistakeCard` 改现有学页旁注范式（`.btAccent` 三角 + 10% accent 底 + 脚注级说明）；`TheoryNumberedList` 序号圆底改 `.btPrimary` 实底白字 18pt；`TheoryMatrixTable` 由 `Grid` 改 `HStack` 行范式（同 `ContactPointTableView`）；
+  3. **配图从「可选 / 可深链代替」升级为硬性**：T03 落 `TangentPerpendicularFigure`（新，`BTTableFigure` 栈）+ 复用 `SeparationPathsFigure`（该件由 `private` 放开为 internal 并加 `emphasizeAll` 参数，加法式改动）；T08 落两张非球形抽象图示（`ThreeQuestionFlowFigure` / `RiskRewardZoneFigure`）；新增几何不变量用例 `QiuJiTests/TheoryFigureGeometryTests.swift`；
+  4. 页尾结构对齐现有学页「相关页面」`.btTitle` + `PracticeCTA`(≤2) + `LearnDocTextLink`；去掉 `.padding(.top, Spacing.md)`；T03 加 `LearnControlStrip.Theta`（θ 只挪母球、切线不动，正是本页论点）。
+- **原始规范**（`docs/research/20260807-v30理论页组件规范.md` v1.0，W0 定稿）：
+  1. 组件家族真源只有 `LearnDocChrome.swift`，「⛔ 不为单页新建视觉件；确需新组件 → 先加进 `LearnDocChrome.swift`」；页头三件套、误区卡、步骤 / 矩阵表只给了**样式口径**，无落地组件。
+  2. 上线状态成对维护 = **两处**（`theoryDestination` switch + `TheoryCatalog.isPublished`）。
+  3. 索引页副标题「只准截断」，`TheoryCatalogTests` 以连续子串断言固化（同 ADR-P12-04 第 5 条）。
+  4. 公式一律「视觉降级但**不删**」。
+  5. 页尾「相关训练」无合适训练页时「直接省略该区块」。
+- **调整后**（W1 落地口径，已回写规范 v1.1 与 ADR-P12-04 第 5 条）：
+  1. **新增理论页专用共用件文件** `QiuJi/Features/AngleTraining/Theory/TheoryPageChrome.swift`：`TheoryPageHeader`（编号 chip 对读屏隐藏 + 一句话结论卡 + 可选边界预告）、`TheoryMistakeCard`、`TheoryNumberedList`、`TheoryMatrixTable`（原生 `Grid`）、`View.theoryPageChrome(title:)`。分工：**通用学页件仍进 `LearnDocChrome.swift`，理论页专用件进 `TheoryPageChrome.swift`**；单页内一律不复制。
+  2. 成对维护面扩到**三处**（增测试侧上线清单 `TheoryCatalogTests.registeredPageIDs` + `V30W0TheoryIndexUITests.publishedPageIDs`），由 `testPublishedEntriesMatchRegisteredDestinations` 守；`V30W0TheoryIndexUITests` 的「12 条全部不可点」改为**已上线可点 / 未上线不可点**的分治断言（用例保留，不删）。
+  3. 副标题纪律按 **X-v30-2** 放宽为「语义等价的限定改写 + 逐条取舍记录」，连续子串断言被四道断言**替代**（数值单位守恒 / 语义锚词 / 无拉丁字母 / 逐字与改写条目集合固定），逐字条目仍走原子串断言。
+  4. 公式口径收窄：**可操作口径公式必留**（几何 / 换算，如 `d = 2R·sinθ`）；**纯解释性公式剔除**（读者不会代入计算，实例 = T08 期望值式 `EV = P(make)×P(position)×V(continue) − P(miss)×V(opponent)`），剔除须在取舍表记理由。
+  5. 页尾「相关训练」改为**优先挂一个真能点的相关演示 / 解题页 + 一句现状说明**（T03 → 「分离角与走位」，T08 → 「防守」），实在无处可去才整块省略；「敬请期待」「图待补」仍禁。
+- **原因**：①页头 / 误区 / 矩阵三件套是 12 篇共用形态，只给样式口径必然导致 12 份复制粘贴漂移，而它们又是理论页专用、不适合塞进通用 `LearnDocChrome`；②W0 的两处成对维护无测试护栏，试点时实测「只改 switch 不改 `isPublished`」不会红，纪律形同注释；③X-v30-2 主控裁定（英文术语上屏与 §一.4 转写纪律冲突）；④「不删公式」的一刀切在 T08 遇到反例——期望值式对球手无操作价值，硬留反而稀释三问这个真正可执行的结论；⑤「无合适训练页就省略」在试点时发现过于消极：两篇都存在真正相关的演示 / 解题页，省略等于浪费既有内容。
+- **影响范围**：`Theory/TheoryPageChrome.swift`（新增）、`Theory/TheoryT03View.swift` / `TheoryT08View.swift`（新增）、`Theory/TheoryCatalog.swift`（副标题 12 条改写 + t03/t08 `isPublished`）、`App/MainTabView.swift`（`theoryDestination` 注册两页）、`QiuJiTests/TheoryCatalogTests.swift`、`QiuJiUITests/V30W0TheoryIndexUITests.swift` + 新增 `V30W1TheoryPageUITests.swift`；文档 `20260807-v30理论页组件规范.md` v1.1、新增 `20260807-v30理论转写模板.md` v1.0、`tasks/phases/P12-content-system-theory.md` ADR-P12-04 第 5 条；后续 W2–W4 十篇全部按此执行。
+- **日期**：2026-08-07
+- **回写目标**：`docs/research/20260807-v30理论页组件规范.md`、`docs/research/20260807-v30理论转写模板.md`、`tasks/phases/P12-content-system-theory.md`（ADR-P12-04 第 5 条）
+- **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.1 §一/§二/§三/§四/§五 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.0（2026-08-07）；✅ `tasks/phases/P12-content-system-theory.md` ADR-P12-04 第 5 条（2026-08-07）
+
 ## DR-063
 - **任务**：v26 W1 试点二审人工验收（c032/c053/c008/c065，DR-062 返工稿）
 - **原始规范**：

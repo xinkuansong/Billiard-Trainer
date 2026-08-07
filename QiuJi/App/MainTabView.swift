@@ -117,6 +117,10 @@ struct MainTabView: View {
     @ViewBuilder
     private func angleDestination(for route: AngleRoute) -> some View {
         switch route {
+        case .theoryIndex:
+            TheoryIndexView()
+        case .theoryPage(let pageID):
+            theoryDestination(for: pageID)
         case .contactPointTable:
             ContactPointTableView()
         case .aimingPrinciple:
@@ -175,6 +179,25 @@ struct MainTabView: View {
             #endif
         case .drillDetail(let drillId):
             DrillDetailView(drillId: drillId)
+        }
+    }
+
+    /// 球理详情页注册表（v30 W0 骨架）。
+    ///
+    /// W1–W4 每完成一篇：把对应 case 换成该篇的硬编码视图，并把
+    /// `TheoryCatalog` 里同一 id 的 `isPublished` 改 `true`（两处成对维护）。
+    /// 未注册的 id 落 `TheoryPagePlaceholderView`——索引页不给它可点入口，
+    /// 这里只是深链兜底，保证不出现空白页/崩溃。
+    @ViewBuilder
+    private func theoryDestination(for pageID: TheoryPageID) -> some View {
+        switch pageID {
+        // v30 W1 试点已上线两篇（物理定理模板 + 原生组件模板）。
+        case .t03:
+            TheoryT03View()
+        case .t08:
+            TheoryT08View()
+        case .t01, .t02, .t04, .t05, .t06, .t07, .t09, .t10, .flow, .quickRef:
+            TheoryPagePlaceholderView(pageID: pageID)
         }
     }
 
