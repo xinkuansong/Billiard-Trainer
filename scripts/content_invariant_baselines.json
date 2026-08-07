@@ -4,20 +4,10 @@
     "本文件是棘轮（ratchet）：清单只许缩短、计数只许下调，任何增长都会让门禁 FAIL。",
     "新增豁免必须先在契约 §8 登记并写明解除条件，再改本文件。"
   ],
-  "c3_dead_refs_baseline": 8,
-  "_c3_doc": "C3 失效引用（WARN）基线，棘轮只许下调。v26 W8 消化 c030 后 18→8（其余为 c010/c022 等）。",
-  "i5_legacy_token_exempt": {
-    "drill_c010": [
-      "f1",
-      "f2",
-      "f3",
-      "f4"
-    ],
-    "drill_c022": [
-      "f1"
-    ]
-  },
-  "_i5_doc": "I5 已知豁免：精讲 image 仍用 legacy `_fN_` / `_<step>_fN` 球形命名，序列侧实际 token 为 manualNN / Snipaste_*。契约 §8.15。豁免钉到具体 token —— 同一 drill 出现清单之外的新坏 token 仍然 FAIL。解除条件：v26 精讲迁移把 image 改为 `<drillId>_<token>_sNN`，随后从本清单删除该 drill。",
+  "c3_dead_refs_baseline": 0,
+  "_c3_doc": "C3 失效引用（WARN）基线，棘轮只许下调。v26 W10 消化 c010/c022 后 8→0。",
+  "i5_legacy_token_exempt": {},
+  "_i5_doc": "I5 已知豁免：已于 v26 W10 清空（c010/c022 精讲 image 改为现行 token）。棘轮：本清单只许保持为空或更短，不得再新增豁免。",
   "i7_stale_profile_exempt": {},
   "_i7_doc": "I7 已知豁免：已于 v26 W0 清空。11 个孤儿 profile（c016/c018/c020/c021/c053/c073–c078）已标 `retired: true`，由 I7 退役分支放行。棘轮：本清单只许保持为空或更短，不得再新增豁免。",
   "i9_no_sequence_exempt": [
