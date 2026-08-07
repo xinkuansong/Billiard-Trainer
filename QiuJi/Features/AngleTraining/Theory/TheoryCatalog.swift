@@ -89,7 +89,7 @@ enum TheoryCatalog {
             // 改写自 T01.statement_one_liner 前段：OB→目标球、cut→切角、球击球→球厚度。
             subtitle: "自然滚动的母球以 1/4–3/4 球厚度（切角 14°–49°）撞目标球，碰后偏约 30°",
             group: .collision,
-            isPublished: false
+            isPublished: true
         ),
         .init(
             id: .t02,
@@ -97,7 +97,7 @@ enum TheoryCatalog {
             // 改写自 T02.statement_one_liner 前段：stun→滑动（SPEC §8.8 规范译名）、OB→目标球。
             subtitle: "母球以滑动状态撞目标球时，两球分离角 90°",
             group: .collision,
-            isPublished: false
+            isPublished: true
         ),
         .init(
             id: .t03,
@@ -114,7 +114,7 @@ enum TheoryCatalog {
             // 改写自 T04.statement_one_liner 前两段：剔除来源人名、soft/medium/hard→轻/中/重。
             subtitle: "力度分 9 档，并成轻（1–3）中（4–6）重（7–9）三段；靠出杆长度而不是用力大小来调",
             group: .spin,
-            isPublished: false
+            isPublished: true
         ),
         .init(
             id: .t09,
@@ -122,7 +122,7 @@ enum TheoryCatalog {
             // 改写自 T09.statement_one_liner 中段：squirt/swerve/throw→挤偏/弧线/投掷（SPEC §8.8）。
             subtitle: "加塞会同时引入挤偏、弧线、投掷三重耦合误差",
             group: .spin,
-            isPublished: false
+            isPublished: true
         ),
         // MARK: 战术与决策
         .init(

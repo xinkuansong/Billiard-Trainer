@@ -191,12 +191,20 @@ struct MainTabView: View {
     @ViewBuilder
     private func theoryDestination(for pageID: TheoryPageID) -> some View {
         switch pageID {
-        // v30 W1 试点已上线两篇（物理定理模板 + 原生组件模板）。
+        // v30 W1 试点两篇 + W2 物理定理批四篇。
+        case .t01:
+            TheoryT01View()
+        case .t02:
+            TheoryT02View()
         case .t03:
             TheoryT03View()
+        case .t04:
+            TheoryT04View()
         case .t08:
             TheoryT08View()
-        case .t01, .t02, .t04, .t05, .t06, .t07, .t09, .t10, .flow, .quickRef:
+        case .t09:
+            TheoryT09View()
+        case .t05, .t06, .t07, .t10, .flow, .quickRef:
             TheoryPagePlaceholderView(pageID: pageID)
         }
     }
