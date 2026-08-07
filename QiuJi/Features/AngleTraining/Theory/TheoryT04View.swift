@@ -73,7 +73,7 @@ struct TheoryT04View: View {
                     )
                 }
             )
-            LearnDocText.footnote("速度数字来自代码 `StrokePhysics.SpeedLevel`（注释已标明源自本条速度分级），与演示页滑条同一真源——不是另写一套。")
+            LearnDocText.footnote("这五档杆速，和下面「分离角与走位」演示页的力度滑条是同一套数字。")
         }
     }
 
@@ -188,7 +188,7 @@ struct TheoryT04View: View {
                 route: .separationAngleAtlas
             )
 
-            LearnDocText.footnote("参数扫描叠加图本轮不做；把五档在演示页里打熟，比看一张静图更有用。")
+            LearnDocText.footnote("把五档在演示页里打熟，比只看静图更有用。")
         }
     }
 }

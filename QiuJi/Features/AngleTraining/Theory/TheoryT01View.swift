@@ -87,7 +87,7 @@ struct TheoryT01View: View {
                     .init("3/4 球", ["约 14.5°", "约 27°"]),
                 ]
             )
-            LearnDocText.footnote("数值照 contracts / 原文表：极值 33.7° 出现在切角 28.1°（球厚度约 0.53）。超出 14°–49° 就别硬记 30°，改查表或换「90° 法则」。")
+            LearnDocText.footnote("极值 33.7° 出现在切角 28.1°（球厚度约 0.53）。超出 14°–49° 就别硬记 30°，改查表或换「90° 法则」。")
 
             LearnDocFormulaNest(title: "更准一点的记法（可选）") {
                 LearnDocText.footnote("自然滚动的最终方向，可以想成「5/7 沿切线 + 2/7 沿原瞄准线」——对任意切角都成立；30° 只是中间那段的速记。")

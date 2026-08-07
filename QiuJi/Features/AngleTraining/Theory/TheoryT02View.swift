@@ -82,7 +82,7 @@ struct TheoryT02View: View {
                     .init("远距", ["击点更靠下，并配合力度，让后旋刚好衰减到 0 时撞上"]),
                 ]
             )
-            LearnDocText.footnote("contracts 里把「约 1 钻石（约 31.75 cm）」当作停球/滑动距离的实用门槛：超过这个距离，中杆很难再保持滑动到碰撞瞬间。")
+            LearnDocText.footnote("约 1 钻石（约 31.75 cm）是停球 / 滑动距离的实用门槛：超过这个距离，中杆很难再保持滑动到碰撞瞬间。")
         }
     }
 
