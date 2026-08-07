@@ -18,6 +18,7 @@
 
 ## 当前状态
 
+- **问题集合 v26 W10 fundamentals ✅（2026-08-07，`0684dd4`）**：c006/c007/c009/c010/c022/c023/c043 元数据+精讲重写+意图块对齐；c006 双 0 杆→单杆技术课、c043 无序列→单杆技术课；独立阶梯混合式×4（c007/c009/c010/c023，含 T-v26-9 覆写 c009/c010 digest 误标）+ c022 双形阶梯；c010/c022 §8.15 消化（I5 清空、C3 8→0）；C4 不一致 3→0（原 c010/c022/c023 豁免清零）。红灯：c007 s04 / c023 s03–s04 scratch；c009 全杆 freeAim 母球进袋；c022 f2 s02 未进袋。verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w10-logs/`。**下一步：W11 specialShots。**
 - **问题集合 v26 W9 forceControl ✅（2026-08-07，`4472449`）**：c044/c045/c047–c051 元数据+精讲重写+意图块对齐；全为独立阶梯混合式（T-v26-9：digest 误标走位链→按重置+单变量覆写；c049 五档力度；c047/c048 为 4 位×3 力目录）。登记 T-v26-10（c047 五杆 scratch；c045/c049 freeAim 无进袋停点阶梯）。C4 本批 7/7 通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w9-logs/`。**下一步：W10 fundamentals。**
 - **问题集合 v26 W8 separation ✅（2026-08-07，`fa69488`）**：c024–c030 元数据+精讲重写+意图块对齐；全为独立阶梯混合式（c024 双形 1+6、c025 双形 6+7、c026 三形 5/7/5、c027–c029 单形、c030 收敛单序列 5 杆）；c030 §8.15 消化（I5 删豁免、C3 18→8）。无 digest 红灯。C4 本批 7/7 通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w8-logs/`。**下一步：W9 forceControl。**
 - **问题集合 v26 W7 positioning·B ✅（2026-08-07，`e6fb7bd`）**：c038/c039/c040/c041/c042 元数据+精讲重写+意图块对齐；c042 C4 对齐 formations 8/5（f1 少动风格修袋口/去阶梯「胜负手」+ f2 五球链新建）；形态=独立阶梯/目录×3（c038/c040/c041）+走位链×1（c039 胜负手第7杆）+双形（c042）。无 digest 红灯。C4 本批通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w7-logs/`。**下一步：W8 separation。**
