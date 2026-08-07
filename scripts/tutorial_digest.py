@@ -8,10 +8,17 @@ tutorial_digest.py — 走位序列 JSON → 精讲写作事实清单（determin
 用法：
     python3 scripts/tutorial_digest.py content/position_play/sequences/<seq>.json [更多.json...]
 
-坐标契约（真源：QiuJi/Resources/Drills/schema.md + .kiro/steering/table-geometry.md）：
-    归一化 2D 顶视：x ∈ [0,1] 左→右，y ∈ [0,0.5] 上→下；长轴水平，2:1。
+坐标契约（DR-063；代码真源 AngleSceneCalculator.sceneToNormalized）：
+    归一化 2D：canvasX ∈ [0,1]（= 世界 X），canvasY ∈ [0,0.5]（= 世界 Z，同向）。
+    canvasX = (sceneX + 1.270)/2.540；canvasY = (sceneZ + 0.635)/2.540。
     x/y 同尺度（均为台面长 2.540m 的比例），欧氏距离 × 2.540 = 米。
-    球直径（canvas）= 0.0225；中线（长轴中心线）y = 0.25。
+    球直径（canvas）= 0.0225；短轴中线 canvasY = 0.25。
+
+    用户可见方位词统一到 **portrait 屏幕系**（与精讲配图 / 击打页同向，
+    CameraRig.applyTopDown2DRotated）：
+        屏幕上 = 世界 +X = canvasX 增
+        屏幕右 = 世界 +Z = canvasY 增
+    region / octant / 袋口中文名均按此屏幕系输出。
 
 输出不包含轨迹细节（吃库次数、路径形状）——digest 只有 before/after 快照事实。
 涉及「几库走位 / 是否吃库」的表述必须对照出片产物（sNN.mp4 / sNN_still.png）核实。
@@ -26,7 +33,18 @@ import sys
 TABLE_LEN_M = 2.540          # 台面长（米），归一化 1.0 对应值
 BALL_DIAM = 0.0225           # 球直径（canvas 单位），= ballRadius × 2
 MISCUE_LIMIT = 0.5           # CuePhysics.miscueLimitFraction（打点读数分母）
-MIDLINE_Y = 0.25             # 长轴中心线
+MIDLINE_Y = 0.25             # 短轴中线（canvasY；portrait 屏幕左右分界）
+
+# 打点读数单位契约（DR-063 T1）：
+#   ShotIntent.Spin / ShotInput.spinX·spinY = 接触点偏移 / R（无量纲）。
+#   spin=1.0 ⇒ 1.0·R = 28.575 mm；满塞钳制 MISCUE_LIMIT=0.5 ⇒ 0.5·R = 14.2875 mm。
+#   SpinDisplay 百分比读数 = spin / MISCUE_LIMIT × 100（满塞=100%）。
+#   定性塞量用「皮头」：任务口径皮头宽≈12 mm（代码 CuePhysics.tipDiameter=11 mm，
+#   定性词阈值按 12 mm 换算，避免与台球房口吻偏差）。
+BALL_R_MM = 28.575
+TIP_WIDTH_MM = 12.0                      # 定性词用；非代码 tipDiameter
+HALF_TIP_SPIN = (TIP_WIDTH_MM / 2) / BALL_R_MM   # 6mm / R ≈ 0.2100
+ONE_TIP_SPIN = TIP_WIDTH_MM / BALL_R_MM          # 12mm / R ≈ 0.4199
 
 POCKETS = {
     "topLeft":      (-0.0165, -0.0165),
@@ -37,10 +55,11 @@ POCKETS = {
     "bottomCenter": (0.5, 0.5268),
 }
 
-POCKET_NAMES = {  # 与 App PocketDisplay 同口径
-    "topLeft": "左上袋", "topRight": "右上袋",
-    "bottomLeft": "左下袋", "bottomRight": "右下袋",
-    "topCenter": "上中袋", "bottomCenter": "下中袋",
+# portrait 屏幕系袋口名（DR-063；与 PocketDisplay / DrillCoverAnnotation 同口径）
+POCKET_NAMES = {
+    "topLeft": "左下角袋", "topRight": "左上角袋",
+    "bottomLeft": "右下角袋", "bottomRight": "右上角袋",
+    "topCenter": "左侧中袋", "bottomCenter": "右侧中袋",
 }
 
 # ---------------------------------------------------------------- helpers
@@ -70,32 +89,41 @@ def fmt_balls(d):
 
 
 def region(p):
-    """粗区域：横向三分 × 纵向上/下半，附近库标记。"""
-    x, y = p
-    col = "左" if x < 1 / 3 else ("中" if x < 2 / 3 else "右")
-    row = "上半" if y < MIDLINE_Y - 0.01 else ("下半" if y > MIDLINE_Y + 0.01 else "中线上")
-    parts = [f"{col}路{row}"]
+    """粗区域（portrait 屏幕系，DR-063）。
+
+    契约：屏幕上=+canvasX，屏幕右=+canvasY。
+    - 纵向（长轴=canvasX）分下/中/上三路；横向（短轴=canvasY）分左/右半。
+    - 库名：顶库=+X 短库（canvasX 大）、底库=−X 短库、左库=−Z 长库、右库=+Z 长库。
+    """
+    x, y = p  # canvasX, canvasY
+    # 屏幕纵向：canvasX 大 = 上路（屏幕上方）
+    lane = "下路" if x < 1 / 3 else ("中路" if x < 2 / 3 else "上路")
+    half = "左半" if y < MIDLINE_Y - 0.01 else ("右半" if y > MIDLINE_Y + 0.01 else "中线")
+    parts = [f"{lane}{half}"]
     cushions = []
-    if x < 0.07:
-        cushions.append("近左库")
     if x > 0.93:
-        cushions.append("近右库")
+        cushions.append("近顶库")
+    if x < 0.07:
+        cushions.append("近底库")
     if y < 0.035:
-        cushions.append("近上库")
+        cushions.append("近左库")
     if y > 0.465:
-        cushions.append("近下库")
+        cushions.append("近右库")
     if cushions:
         parts.append("、".join(cushions))
     return "，".join(parts)
 
 
 def octant(from_p, to_p):
-    """to_p 相对 from_p 的八方位（顶视：y 小 = 上）。"""
-    dx = to_p[0] - from_p[0]
-    dy = to_p[1] - from_p[1]
-    if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+    """to_p 相对 from_p 的八方位（portrait 屏幕系，DR-063）。
+
+    屏幕右 = +canvasY，屏幕上 = +canvasX；atan2(上分量, 右分量)。
+    """
+    right = to_p[1] - from_p[1]   # +canvasY
+    up = to_p[0] - from_p[0]      # +canvasX
+    if abs(right) < 1e-9 and abs(up) < 1e-9:
         return "原地"
-    ang = math.degrees(math.atan2(-dy, dx))  # 屏幕上方为正
+    ang = math.degrees(math.atan2(up, right))
     ang = (ang + 360) % 360
     names = ["右", "右上", "上", "左上", "左", "左下", "下", "右下"]
     return names[int((ang + 22.5) // 45) % 8]
@@ -141,23 +169,78 @@ def spin_readout(sx, sy):
 
 
 def power_name(v):
-    """与 App PowerDisplay.name 同口径。"""
+    """力度定性词；阈值与 App PowerDisplay.name 同源，词面用台球房口径（DR-063）。"""
     if v < 1.2:
         return "轻推"
     if v < 2.2:
-        return "轻"
+        return "小力"
     if v < 3.6:
-        return "中"
+        return "中力"
     if v < 4.8:
-        return "中大"
+        return "中大力"
     return "大力"
 
 
-def spin_class(h_pct, v_pct):
-    """杆法分类（供理论参考映射）。阈值 15% 以下按接近中心处理。"""
-    vert = "高杆" if v_pct >= 15 else ("低杆" if v_pct <= -15 else "中心")
-    side = "左塞" if h_pct >= 15 else ("右塞" if h_pct <= -15 else "")
-    return vert, side
+def power_phrase(v):
+    """如「小力（1.6 m/s）」。"""
+    return f"{power_name(v)}（{v:.1f} m/s）"
+
+
+def vertical_cue(sy):
+    """竖向杆法定性词（阈值按 T1 皮头换算，单位=spin=偏移/R）。
+
+    |sy| 分档（中点切分）：
+      < half/2 (0.105)           → 中杆
+      < (half+one)/2 (0.315)     → 中高杆 / 中低杆
+      < (one+miscue)/2 (0.460)   → 高杆 / 低杆
+      ≥ 0.460                    → 纯高杆 / 纯低杆
+    """
+    mag = abs(sy)
+    if mag < HALF_TIP_SPIN / 2:
+        return "中杆"
+    if mag < (HALF_TIP_SPIN + ONE_TIP_SPIN) / 2:
+        return "中高杆" if sy > 0 else "中低杆"
+    if mag < (ONE_TIP_SPIN + MISCUE_LIMIT) / 2:
+        return "高杆" if sy > 0 else "低杆"
+    return "纯高杆" if sy > 0 else "纯低杆"
+
+
+def side_english(sx):
+    """横向塞：无塞 / 半颗皮头的左|右塞 / 一颗皮头的左|右塞（取最近档）。"""
+    levels = (0.0, HALF_TIP_SPIN, ONE_TIP_SPIN)
+    mag = abs(sx)
+    nearest = min(levels, key=lambda lv: abs(mag - lv))
+    if nearest == 0.0:
+        return "无塞"
+    side = "左塞" if sx > 0 else "右塞"
+    amount = "半颗皮头的" if nearest == HALF_TIP_SPIN else "一颗皮头的"
+    return f"{amount}{side}"
+
+
+def cue_phrase(sx, sy):
+    """组合杆法：如「中高杆加一颗皮头的右塞」；中杆且无塞 →「中杆」。"""
+    vert = vertical_cue(sy)
+    side = side_english(sx)
+    if side == "无塞":
+        return vert
+    if vert == "中杆":
+        return side  # 「半颗皮头的左塞」
+    return f"{vert}加{side}"
+
+
+def spin_class(sx, sy):
+    """杆法分类（供理论参考映射）。用定性竖/横向，不再用 15% 硬切。"""
+    vert = vertical_cue(sy)
+    side = side_english(sx)
+    # theory_hints 仍认「高杆/低杆/中心」粗桶
+    if "高" in vert:
+        vert_bucket = "高杆"
+    elif "低" in vert:
+        vert_bucket = "低杆"
+    else:
+        vert_bucket = "中心"
+    side_bucket = "" if side == "无塞" else ("左塞" if sx > 0 else "右塞")
+    return vert_bucket, side_bucket
 
 
 def theory_hints(vert, side, cut, n_steps, step_idx):
@@ -252,14 +335,17 @@ def digest(path):
 
         cue_b = before.get("cueBall")
         cue_a = after.get("cueBall")
-        readout, h_pct, v_pct = spin_readout(shot.get("spinX", 0), shot.get("spinY", 0))
+        sx = shot.get("spinX", 0)
+        sy = shot.get("spinY", 0)
+        readout, h_pct, v_pct = spin_readout(sx, sy)
         vel = shot.get("velocity", 0)
-        vert, side = spin_class(h_pct, v_pct)
+        vert, side = spin_class(sx, sy)
+        cue_zh = cue_phrase(sx, sy)
 
-        w(f"- params（照抄进 JSON）：spinX={shot.get('spinX', 0)}, "
-          f"spinY={shot.get('spinY', 0)}, velocity={vel}")
-        w(f"- 打点读数：{readout}（杆法分类：{vert}{'+' + side if side else ''}）；"
-          f"力度：{power_name(vel)} · {vel:.1f} m/s")
+        w(f"- params（照抄进 JSON）：spinX={sx}, "
+          f"spinY={sy}, velocity={vel}")
+        w(f"- 打点读数：{readout}（h={h_pct}% v={v_pct}%）；"
+          f"杆法：{cue_zh}；力度：{power_phrase(vel)}")
 
         if cue_b and tkey in before and not free:
             tgt = before[tkey]
@@ -287,7 +373,8 @@ def digest(path):
                   f"（自目标球原位起算，近似值）")
             if cue_b:
                 crossed = (cue_b[1] - MIDLINE_Y) * (cue_a[1] - MIDLINE_Y) < 0
-                w(f"- 是否穿越中线（y=0.25）：{'是' if crossed else '否'}")
+                w(f"- 是否穿越纵向中线（canvasY=0.25，portrait 左右分界）："
+                  f"{'是' if crossed else '否'}")
         elif step.get("cuePocketed"):
             w("- 母球落点：进袋离场（scratch）")
 

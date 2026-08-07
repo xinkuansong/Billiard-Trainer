@@ -23,10 +23,13 @@
 - **交叉核对**：若文档与代码数值不一致（已知 D-A4/D-B2 双真源，如角袋 X = ±1.312 文档 vs ±1.300 代码、检测半径 42mm 文档 vs 落袋半径 70mm 代码），先停下指出，不在矛盾上继续脑补。
 
 本项目速查（来自 table-geometry.md，以代码为准时须注明）：
-- SceneKit：水平面 = **X–Z**，**Y 朝上**；+X=右端，+Z=顶视图上方；台面中心 (0, 0.80, 0)。
-- 归一化：原点 = 台面左上角 = SceneKit (−1.270, +0.635)；X 右增 [0,1]，Y 下增 [0,0.5]。
-- `canvasX = (sceneKitX + 1.270)/2.540`，`canvasY = (0.635 − sceneKitZ)/2.540`。
-- 注意：归一化 Y 与 SceneKit Z **反向**（Y 增 = Z 减）——符号最易错处。
+- SceneKit：水平面 = **X–Z**，**Y 朝上**；+X=右端；台面中心 (0, 0.80, 0)。
+- 归一化（代码真源 `AngleSceneCalculator.sceneToNormalized`，DR-063 实锤）：原点 = SceneKit (−1.270, **−0.635**)；X 右增 [0,1]，Y 增 [0,0.5]。
+- `canvasX = (sceneKitX + 1.270)/2.540`，`canvasY = (sceneKitZ + 0.635)/2.540`——**canvasY 增 = Z 增（同向）**。旧文档/旧版本技能写的 `(0.635 − Z)/2.540` 是**错的**（DR-063 纠错），发现残留即改。
+- 屏幕系两套（用户可见方位词必须按渲染面选对）：
+  - landscape（`applyTopDown2D`）：屏幕右 = +X，屏幕上 = −Z（= canvasY 小）。
+  - portrait（`applyTopDown2DRotated`，全部 drill 用户面）：屏幕上 = +X（= canvasX 大），屏幕右 = +Z（= canvasY 大）。
+  - ⇒ portrait 屏幕系袋口名：topLeft=左下角袋、topRight=左上角袋、bottomLeft=右下角袋、bottomRight=右上角袋、topCenter=左侧中袋、bottomCenter=右侧中袋。
 
 ### 2. 禁止脑算清单（命中任一 → 必须落到数值草稿或图）
 - 角度的 `atan2` 参数顺序与象限（SceneKit 水平角恒为 `atan2(z, x)`，勿写成 `atan2(x, z)`）

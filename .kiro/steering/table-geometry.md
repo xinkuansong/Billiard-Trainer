@@ -1,9 +1,10 @@
 # 台球桌物理几何参数（Steering）
 
-> **权威来源**：`PhysicsConstants.swift` → `TablePhysics` + `TableGeometry.swift`
-> **版本**：1.0 | **最后更新**：2026-03-24
+> **权威来源**：`BTPhysicsConstants.swift`（`BallPhysics` / `TablePhysics`）+ `AngleSceneCalculator`（袋口孔心）+ `TableGeometry.swift`
+> **版本**：1.1 | **最后更新**：2026-08-07（DR-063：canvasY 公式纠错 + portrait 袋口屏幕名）
 >
 > 本文件是所有涉及球桌几何的**唯一事实来源**。Canvas 渲染、Drill JSON 坐标、碰撞检测均以此为基准。
+> 归一化变换以代码 `AngleSceneCalculator.sceneToNormalized` / `normalizedToScene` 为准；若本文与代码冲突，先停再改文档。
 
 ---
 
@@ -61,39 +62,43 @@
 ## Canvas 归一化坐标系（2D 顶视图）
 
 > 用于 SwiftUI Canvas 渲染和 Drill JSON 内容坐标。
+> **代码真源**：`AngleSceneCalculator.sceneToNormalized` / `normalizedToScene`（DR-063 纠错）。
 
 **定义**：
 - 以 innerLength（2.540 m）为基准，坐标单位 = 台面长度百分比
-- 原点在台面**左上角**（SceneKit 的 (−1.270, +0.635) 点）
-- X：从左到右，0.0 = 左边库，1.0 = 右边库
-- Y：从上到下，0.0 = 上边库，0.5 = 下边库（高宽比 1:2）
+- 原点 = SceneKit **(−1.270, −0.635)**（−X / −Z 角；旧文写 (+0.635) 为错）
+- canvasX：随世界 X 增，0.0 = −X 短库，1.0 = +X 短库
+- canvasY：随世界 Z 增（**同向**），0.0 = −Z 长库，0.5 = +Z 长库（高宽比 1:2）
 
 **转换公式（SceneKit → Canvas）**：
 
 ```
 canvasX = (sceneKitX + 1.270) / 2.540
-canvasY = (0.635 − sceneKitZ) / 2.540
+canvasY = (sceneKitZ + 0.635) / 2.540
 ```
 
 **转换公式（Canvas → SceneKit）**：
 
 ```
 sceneKitX = canvasX × 2.540 − 1.270
-sceneKitZ = 0.635 − canvasY × 2.540
+sceneKitZ = canvasY × 2.540 − 0.635
 ```
 
-**归一化袋口坐标**（用于 Canvas 渲染）：
+> ⛔ 旧版曾写 `canvasY = (0.635 − sceneKitZ) / 2.540`（符号相反）——已废止。
 
-| 袋口 | canvasX | canvasY | 类型 |
-|------|---------|---------|------|
-| 左上角袋 | -0.0165 | -0.0165 | corner |
-| 右上角袋 | +1.0165 | -0.0165 | corner |
-| 左下角袋 | -0.0165 | +0.5165 | corner |
-| 右下角袋 | +1.0165 | +0.5165 | corner |
-| 上中袋   | 0.5     | -0.0268 | side |
-| 下中袋   | 0.5     | +0.5268 | side |
+**归一化袋口坐标**（用于 Canvas 渲染；名称列为 schema ID + portrait 屏幕名，见下节）：
+
+| schema ID | portrait 屏幕名（DR-063） | canvasX | canvasY | 类型 |
+|-----------|---------------------------|---------|---------|------|
+| `topLeft` | 左下角袋 | -0.0165 | -0.0165 | corner |
+| `topRight` | 左上角袋 | +1.0165 | -0.0165 | corner |
+| `bottomLeft` | 右下角袋 | -0.0165 | +0.5165 | corner |
+| `bottomRight` | 右上角袋 | +1.0165 | +0.5165 | corner |
+| `topCenter` | 左侧中袋 | 0.5 | -0.0268 | side |
+| `bottomCenter` | 右侧中袋 | 0.5 | +0.5268 | side |
 
 > 袋口中心略超出 Canvas 边界（负值 / 超过 1.0 / 超过 0.5），在 Canvas 内绘制时使用截断或超出绘制。
+> 与上表 SceneKit 袋口表：`topLeft`↔`pocket_0`(−X,−Z)、`topRight`↔索引1(+X,−Z)、`bottomLeft`↔索引2(−X,+Z)、`bottomRight`↔索引3(+X,+Z)、`topCenter`↔索引4(Z−)、`bottomCenter`↔索引5(Z+)——坐标对齐 `AngleSceneCalculator.pocketPositions`；表头中文「左上/上中」是历史 landscape 简称，用户可见名以本节 portrait 列为准。
 
 **归一化关键尺寸**（相对于 Canvas 宽度 1.0）：
 
@@ -164,15 +169,46 @@ sceneKitZ = 0.635 − canvasY × 2.540
 
 ---
 
+## 袋口 ID → 用户屏幕名（portrait，DR-063）
+
+全部 drill 用户面（精讲页 / 封面 / 击打页）为 `CameraRig.applyTopDown2DRotated`：
+
+| 屏幕轴 | 世界轴 | canvas |
+|--------|--------|--------|
+| 上 | +X | canvasX 增 |
+| 右 | +Z | canvasY 增 |
+
+| schema ID | portrait 用户可见名 | landscape 对照（`applyTopDown2D`：右=+X，上=−Z） |
+|-----------|---------------------|--------------------------------------------------|
+| `topLeft` | 左下角袋 | 左上角袋（屏幕左上） |
+| `topRight` | 左上角袋 | 右上角袋 |
+| `bottomLeft` | 右下角袋 | 左下角袋 |
+| `bottomRight` | 右上角袋 | 右下角袋 |
+| `topCenter` | 左侧中袋 | 上中袋（屏幕上方中点） |
+| `bottomCenter` | 右侧中袋 | 下中袋 |
+
+> learn 页横版插图仍用 landscape 对照列；禁止一刀切改名。写精讲/封面文案只用 portrait 列。
+
+---
+
 ## 俯视示意图（Canvas 归一化坐标）
 
 ```
-Y=0 (上侧)
+canvasY=0 (−Z 长库；landscape 屏幕上 / portrait 屏幕左)
   (-0.017,-0.017) ┌──────┬─────────────────────┬──────┐ (1.017,-0.017)
-                  │      ║ (0.5,-0.027)          ║      │
+   topLeft        │      ║ (0.5,-0.027) topCenter║      │ topRight
                   │ 台 ← ╬  ←  playfield  →   ╬ → 台 │
                   │      ║   X:[0,1] Y:[0,0.5]  ║      │
   (-0.017,0.517) └──────┴─────────────────────┴──────┘ (1.017,0.517)
-                        (0.5, 0.527)
-Y=0.5 (下侧)
+   bottomLeft           (0.5, 0.527) bottomCenter      bottomRight
+canvasY=0.5 (+Z 长库；landscape 屏幕下 / portrait 屏幕右)
 ```
+
+---
+
+## 版本记录
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| 1.0 | 2026-03-24 | 初版 |
+| 1.1 | 2026-08-07 | DR-063：按代码修正 canvasY 公式与原点 (−1.270,−0.635)；归一化袋口表改 schema ID + portrait 名；新增袋口屏幕名映射与 landscape 对照 |

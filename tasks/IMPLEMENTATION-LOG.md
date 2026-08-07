@@ -82,6 +82,21 @@
 
 ## DR 记录（设计调整）
 
+## DR-063
+- **任务**：v26 W1 试点二审人工验收（c032/c053/c008/c065，DR-062 返工稿）
+- **原始规范**：
+  1. DR-062 第④条定「力度纯数值口径」（「力度 2.1」），打点同为数值读数。
+  2. 袋口中文名沿用 schema ID 直译（topLeft=左上袋…上中袋/下中袋），方位词（digest `region`/`octant`、袋口名）全部落在**横放 canvas 系**；SKILL §0a 用「参照物绕行 + 禁止写作者自行旋转」缓解竖图错位（v25 E9 遗留）。
+- **调整后**（用户 2026-08-07 二审反馈裁定）：
+  1. **力度/杆法定性词汇为主**：正文以定性词 + 组合表达（小力/轻力/中力/中大力/大力；中杆/中高杆/中低杆/高杆/低杆/纯高杆/纯低杆；半颗皮头/一颗皮头的左塞/右塞；如「中高杆加一颗皮头的右塞"），数值退居括号补充（首次出现或关键档）。分档阈值与 App `PowerDisplay.name` / `SpeedLevel` 同源，塞量皮头换算须先钉死 digest 读数单位契约再定阈值。整体行文更自然（教练口吻），**部分收回 DR-062 第④条**。
+  2. **用户可见方位词全部改屏幕系（portrait）**：经代码链（`AngleSceneCalculator.pocketCenters` + `ShotIntent.pocketIndex` + `CameraRig.applyTopDown2DRotated` 相机基向量推导）与截图（c053 打 `bottomCenter`，屏幕显示右侧中袋）双重验证，portrait 屏幕上=世界 +X、屏幕右=世界 +Z，故 schema ID → 屏幕名为：`topLeft`=左下角袋、`topRight`=左上角袋、`bottomLeft`=右下角袋、`bottomRight`=右上角袋、`topCenter`=左侧中袋、`bottomCenter`=右侧中袋。旧中文名的「上/下」实为屏幕「左/右」，用户指认正确。修复点在**生成端与解码端**：digest（`POCKET_NAMES`/`region`/`octant`）与 App portrait 面袋口解码（`DrillCoverAnnotation.pocketShortLabel` 等）统一输出屏幕系词；写作者继续照抄事实清单，废除 §0a「参照物绕行」条款。landscape 插图面（learn 页横图）参照系本就自洽，须逐点核对后保留或注明，禁止一刀切。
+  3. **文档真源纠错**：`table-geometry.md` 与 `geometry-spatial-reasoning/SKILL.md` 速查中 `canvasY = (0.635 − sceneKitZ)/2.540` 与代码真源 `AngleSceneCalculator.sceneToNormalized`（`ny = (z + 0.635)/2.540`，canvasY 增 = Z 增）**符号相反**，按代码为准修正文档（含归一化袋口表与「原点=SceneKit (−1.270, **−0.635**)」）。
+- **原因**：①DR-062 把「语域去堆叠」矫枉成「纯数值」，丢了台球教学的自然语言；②方位词参照系错位的根因是**事实清单生成端**声明在横放 canvas 系，而全部 drill 用户面（精讲/封面/击打页）为 portrait 旋转顶视，v25 E9 的「参照物绕行」掩盖而非消除错位，袋口名这种无参照物可绕的词必然暴露。
+- **影响范围**：`scripts/tutorial_digest.py`（袋口名/region/octant/新增定性力度杆法输出）；App 袋口 ID 解码点全仓清查（portrait 面改名）；`.kiro/steering/table-geometry.md` 与 `geometry-spatial-reasoning/SKILL.md` 公式修正；`tutorial-authoring/SKILL.md`（语域/方位/自查清单）；提示词模板 v3；c032/c053/c008/c065 三轮返工；W2–W12 全部批次。
+- **日期**：2026-08-07
+- **回写目标**：`.cursor/skills/tutorial-authoring/SKILL.md`、`.cursor/skills/geometry-spatial-reasoning/SKILL.md`、`.kiro/steering/table-geometry.md`
+- **已应用至**：✅ `tutorial-authoring/SKILL.md` §0a 方位词 / §语域 / §模板袋口名 / §自查清单 12b·13（2026-08-07）；✅ `geometry-spatial-reasoning/SKILL.md` §速查（canvasY 公式修正 + 双屏幕系 + portrait 袋口名，2026-08-07）；✅ `.kiro/steering/table-geometry.md` v1.1（canvasY 公式/原点/portrait 映射表，2026-08-07）；✅ `docs/research/20260807-v26批量执行提示词模板.md` v3（2026-08-07）
+
 ## DR-062
 - **任务**：v26 W1 试点人工验收（c032/c053/c008/c065）
 - **原始规范**：`tutorial-authoring/SKILL.md` 应用课模板对所有多杆序列统一要求逐杆全文三条目 + 全组指认一个「胜负手」；对语域（面向谁写）无显式约束。
