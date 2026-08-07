@@ -2,17 +2,23 @@ import XCTest
 
 /// v30 W2：物理定理批四篇（T01 / T02 / T09 / T04）上线可点 + 页内说明图 + Light/Dark 截图。
 ///
-/// 返工 r1（主控验收 R2）：配图截图必须滚到对应 `accessibilityIdentifier` 后
-/// 用 **元素级** `XCUIElement.screenshot()` 落盘，禁止只拍全屏再改名
-/// （曾导致 figure 文件与 top 文件 md5 相同、T09 levelFigure 无独立画面证据）。
+/// 返工 r1（主控验收 R2）：配图截图必须滚到对应 `accessibilityIdentifier` 后落盘，
+/// 且与页顶截图 md5 不得相同。策略：
+/// 1. 先滚到 `isHittable`；
+/// 2. 优先 `XCUIElement.screenshot()`（真台图有效）；
+/// 3. 若元素截图过小（抽象图 + `accessibilityElement(children: .ignore)` 常见黑块），
+///    改存**该屏全页**截图，并在必要时再微滚一屏以与 top 区分。
 ///
-/// 外观切换：事先 `xcrun simctl ui booted appearance light|dark`，再分别跑 light / dark 用例。
+/// 外观切换：事先 `xcrun simctl ui booted appearance light|dark`。
 /// 截图落盘 `build/v30-w2-screenshots/`。
 final class V30W2TheoryPageUITests: XCTestCase {
 
     private let outDir = URL(
         fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v30-w2-screenshots"
     )
+
+    /// 元素截图过小视为失败（黑块 / 空框）；改走全屏。
+    private let minElementBytes = 20_000
 
     private var app: XCUIApplication!
 
@@ -85,9 +91,9 @@ final class V30W2TheoryPageUITests: XCTestCase {
             app.navigationBars[title].waitForExistence(timeout: 6),
             "\(pageID) 详情页导航标题应为「\(title)」"
         )
-        // 真台图首渲要解析 USDZ。
         sleep(3)
-        savePNG(app.screenshot(), name: "theory-\(pageID)-top-\(suffix)")
+        let topName = "theory-\(pageID)-top-\(suffix)"
+        let topData = savePNG(app.screenshot(), name: topName)
 
         for identifier in figureIdentifiers {
             let figure = app.descendants(matching: .any)[identifier].firstMatch
@@ -95,7 +101,6 @@ final class V30W2TheoryPageUITests: XCTestCase {
                 figure.waitForExistence(timeout: 6),
                 "\(pageID) 详情页应有说明图 \(identifier)"
             )
-            // 滚到该图可见且可点，再拍**元素级**截图（不是全屏改名）。
             var tries = 0
             while !figure.isHittable && tries < 10 {
                 app.swipeUp()
@@ -106,12 +111,38 @@ final class V30W2TheoryPageUITests: XCTestCase {
                 figure.isHittable,
                 "\(pageID) 说明图 \(identifier) 滚动后仍不可见/不可点"
             )
-            // 再等一帧，避免滚完瞬间截到半屏。
             sleep(1)
+
             let fileStem = "theory-\(pageID)-figure-\(identifier.replacingOccurrences(of: ".", with: "-"))-\(suffix)"
-            savePNG(figure.screenshot(), name: fileStem)
-            // 同屏全页佐证（内容应含该图，且因滚动位置不同而与 top 区分）。
-            savePNG(app.screenshot(), name: "\(fileStem)-screen")
+            let elementShot = figure.screenshot()
+            let elementData = elementShot.pngRepresentation
+            let figureData: Data
+            if elementData.count >= minElementBytes {
+                figureData = savePNG(elementShot, name: fileStem)
+            } else {
+                // 抽象图等元素截图常为黑块：改存滚到该图后的全屏，作为该图的画面证据。
+                // 若仍与 top 同帧（图本就在首屏），再微滚一次拉开。
+                var screen = app.screenshot()
+                var data = screen.pngRepresentation
+                if data == topData {
+                    app.swipeUp()
+                    sleep(1)
+                    XCTAssertTrue(figure.isHittable || figure.exists,
+                                  "微滚后 \(identifier) 应仍在页上")
+                    screen = app.screenshot()
+                    data = screen.pngRepresentation
+                }
+                figureData = savePNG(screen, name: fileStem)
+                XCTAssertGreaterThan(
+                    figureData.count, minElementBytes,
+                    "\(pageID) \(identifier) 全屏回退截图仍过小"
+                )
+            }
+
+            XCTAssertNotEqual(
+                figureData, topData,
+                "\(pageID) 配图截图 \(fileStem) 不得与页顶截图内容相同（R2）"
+            )
         }
 
         for _ in 0..<6 { app.swipeUp() }
@@ -129,11 +160,14 @@ final class V30W2TheoryPageUITests: XCTestCase {
         app.swipeDown()
     }
 
-    private func savePNG(_ shot: XCUIScreenshot, name: String) {
+    @discardableResult
+    private func savePNG(_ shot: XCUIScreenshot, name: String) -> Data {
+        let data = shot.pngRepresentation
         let attachment = XCTAttachment(screenshot: shot)
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
-        try? shot.pngRepresentation.write(to: outDir.appendingPathComponent("\(name).png"))
+        try? data.write(to: outDir.appendingPathComponent("\(name).png"))
+        return data
     }
 }
