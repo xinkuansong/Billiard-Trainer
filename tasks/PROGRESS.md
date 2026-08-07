@@ -18,6 +18,7 @@
 
 ## 当前状态
 
+- **问题集合 v26 W8 separation ✅（2026-08-07，`fa69488`）**：c024–c030 元数据+精讲重写+意图块对齐；全为独立阶梯混合式（c024 双形 1+6、c025 双形 6+7、c026 三形 5/7/5、c027–c029 单形、c030 收敛单序列 5 杆）；c030 §8.15 消化（I5 删豁免、C3 18→8）。无 digest 红灯。C4 本批 7/7 通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w8-logs/`。**下一步：W9 forceControl。**
 - **问题集合 v26 W7 positioning·B ✅（2026-08-07，`e6fb7bd`）**：c038/c039/c040/c041/c042 元数据+精讲重写+意图块对齐；c042 C4 对齐 formations 8/5（f1 少动风格修袋口/去阶梯「胜负手」+ f2 五球链新建）；形态=独立阶梯/目录×3（c038/c040/c041）+走位链×1（c039 胜负手第7杆）+双形（c042）。无 digest 红灯。C4 本批通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w7-logs/`。**下一步：W8 separation。**
 - **问题集合 v26 W6 positioning·A ✅（2026-08-07，`fb02208`）**：c005/c034/c035/c036/c037 元数据+精讲重写+意图块对齐；形态=走位链×3（胜负手 3/7/8 杆）+独立阶梯×2；c005 §8.15 消化（I5 删豁免、C3 26→18）。C4 本批通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w6-logs/`、`build/v26-w6-screenshots/`。**下一步：W7 positioning·B。**
 - **问题集合 v26 W2 accuracy·新版修复 ✅（2026-08-07）**：c001/c002/c011/c012/c013 元数据+精讲重写+意图块对齐（T-v26-4）；c012 §8.15 消化（I5 删豁免、C3 基线 34→30）；登记 T-v26-5（c012 全杆 cuePocketed/freeAim）。C4 本批通过；verify-gate 0 FAIL；make build SUCCEEDED。证据 `build/v26-w2-logs/`、`build/v26-w2-screenshots/`。**下一步：W3 accuracy·legacy。**
