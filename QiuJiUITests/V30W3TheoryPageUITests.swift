@@ -2,9 +2,8 @@ import XCTest
 
 /// v30 W3：战术定理批四篇（T05 / T06 / T07 / T10）上线可点 + 页内说明图 + Light/Dark 截图。
 ///
-/// 配图截图策略沿用 W2 r1：滚到 `accessibilityIdentifier` 后取证；
-/// 元素截图过小则改存该屏全页，并确保与页顶 md5 不同。
-/// 外观切换：事先 `xcrun simctl ui booted appearance light|dark`。
+/// 配图取证：滚到 `accessibilityIdentifier` 后再微滚，存**全屏**（抽象图元素截图易裁切）；
+/// 与页顶 md5 不得相同。外观切换：事先 `xcrun simctl ui booted appearance light|dark`。
 /// 截图落盘 `build/v30-w3-screenshots/`。
 final class V30W3TheoryPageUITests: XCTestCase {
 
