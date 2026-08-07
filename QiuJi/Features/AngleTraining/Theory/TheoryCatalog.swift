@@ -131,7 +131,7 @@ enum TheoryCatalog {
             // 逐字取 T05.statement_one_liner 前段（破折号前）——原文已是中文人话，不改写。
             subtitle: "清台决策必须从最后一颗球反向倒推到当前一杆",
             group: .tactics,
-            isPublished: false
+            isPublished: true
         ),
         .init(
             id: .t06,
@@ -139,7 +139,7 @@ enum TheoryCatalog {
             // 改写自 T06.statement_one_liner 前段：key ball→关键球（与页名同字）。
             subtitle: "决定成败的不是最后一颗球，而是为它安排好母球的那一颗（关键球）",
             group: .tactics,
-            isPublished: false
+            isPublished: true
         ),
         .init(
             id: .t07,
@@ -147,7 +147,7 @@ enum TheoryCatalog {
             // 逐字取 T07.statement_one_liner 前段（分号前）——原文已是中文人话，不改写。
             subtitle: "球团必须尽早识别、尽早处理",
             group: .tactics,
-            isPublished: false
+            isPublished: true
         ),
         .init(
             id: .t08,
@@ -164,7 +164,7 @@ enum TheoryCatalog {
             // 改写自 T10.statement_one_liner 前段：D/M/O 字母标签换成三个维度的中文说法。
             subtitle: "安全球的质量由 3 个独立维度决定：拉开距离、占住库位、用障碍球挡住",
             group: .tactics,
-            isPublished: false
+            isPublished: true
         ),
         // MARK: 流程与速查
         .init(

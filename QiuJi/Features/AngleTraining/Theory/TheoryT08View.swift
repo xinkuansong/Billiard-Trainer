@@ -153,7 +153,16 @@ struct TheoryT08View: View {
                 route: .snookerTactics
             )
 
-            LearnDocText.footnote("相关球理：安全球三维度模型、关键球原理（即将上线）——前者讲三问没过之后怎么挑安全球，后者讲哪一颗球值得为它冒风险。")
+            LearnDocTextLink(
+                title: "安全球三维度模型",
+                subtitle: "三问没过之后，按距离 / 库位 / 障碍逐级挑安全球",
+                route: .theoryPage(.t10)
+            )
+            LearnDocTextLink(
+                title: "关键球原理",
+                subtitle: "哪一颗球值得为它冒风险",
+                route: .theoryPage(.t06)
+            )
             LearnDocText.footnote("这一条还没有绑定专门的跟练题目，先拿自己最近打丢的球回过来走一遍三问，最见效。")
         }
     }

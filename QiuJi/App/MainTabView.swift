@@ -200,11 +200,19 @@ struct MainTabView: View {
             TheoryT03View()
         case .t04:
             TheoryT04View()
+        case .t05:
+            TheoryT05View()
+        case .t06:
+            TheoryT06View()
+        case .t07:
+            TheoryT07View()
         case .t08:
             TheoryT08View()
         case .t09:
             TheoryT09View()
-        case .t05, .t06, .t07, .t10, .flow, .quickRef:
+        case .t10:
+            TheoryT10View()
+        case .flow, .quickRef:
             TheoryPagePlaceholderView(pageID: pageID)
         }
     }

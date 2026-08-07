@@ -20,7 +20,9 @@ final class V30W0TheoryIndexUITests: XCTestCase {
     /// ⚠️ W1–W4 每上线一页，把该 id 从「未上线」搬到这里（与 `TheoryCatalog.isPublished`
     /// 及 `theoryDestination` 的 switch 三处成对维护）。**不要删除本用例的分治断言**。
     /// v30 W1 试点两篇 + W2 物理批四篇 = 6 条已上线；其余 6 条未上线置灰。
-    private let publishedPageIDs = ["t01", "t02", "t03", "t04", "t08", "t09"]
+    private let publishedPageIDs = [
+        "t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10",
+    ]
 
     /// 未上线 → 应是置灰行、无可点入口（防死链）。
     private var upcomingPageIDs: [String] {
