@@ -62,48 +62,18 @@ final class V30W1TheoryPageUITests: XCTestCase {
     // MARK: - Steps
 
     private func openIndex() {
-        app.switchTab(.angle)
-
-        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
-        XCTAssertTrue(learn.waitForExistence(timeout: 10), "练习 Tab「学」侧栏应出现")
-        learn.tap()
-
-        let card = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == %@", "球理"))
-            .firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 6), "「学」分组应有球理入口卡")
-        card.tap()
-
-        XCTAssertTrue(
-            app.navigationBars["球理"].waitForExistence(timeout: 6),
-            "入口卡应 push 到球理索引页"
-        )
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
     }
 
-    /// 从索引页进一篇详情页，滚到底取证，再返回索引页。
+    /// 从理区网格进一篇详情页，取证后返回理区（v32.2：不再经索引页）。
     private func capturePage(pageID: String, title: String, suffix: String,
                              figureIdentifiers: [String]) {
-        let row = app.descendants(matching: .any)["theoryEntry_\(pageID)"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 6), "\(pageID) 应是索引页上的可点条目")
-        // 条目可能在首屏之外（战术与决策组偏下），先滚到可点再点。
-        var scrolls = 0
-        while !row.isHittable && scrolls < 6 {
-            app.swipeUp()
-            scrolls += 1
-        }
-        XCTAssertTrue(row.isHittable, "\(pageID) 条目滚动后仍不可点")
-        row.tap()
-
-        // 页名 = 索引页条目标题（组件规范 §一「页名 = 入口名逐字一致」）。
         XCTAssertTrue(
-            app.navigationBars[title].waitForExistence(timeout: 6),
-            "\(pageID) 详情页导航标题应为「\(title)」"
+            TheoryIndexNavigation.openPage(in: app, cardTitle: title, navigationTitle: title)
         )
-        // 真台图首渲要解析 USDZ，多给一点时间。
         sleep(3)
         savePNG("theory-\(pageID)-top-\(suffix)")
 
-        // 每篇至少一张页内说明图（v30 组件规范 §配图硬性要求）。
         for identifier in figureIdentifiers {
             let figure = app.descendants(matching: .any)[identifier].firstMatch
             var tries = 0
@@ -124,12 +94,10 @@ final class V30W1TheoryPageUITests: XCTestCase {
         sleep(1)
         savePNG("theory-\(pageID)-mid2-\(suffix)")
 
-        // 滚到底（加了页内图后页面更长，固定两下到不了尾）。
         for _ in 0..<6 { app.swipeUp() }
         sleep(1)
         savePNG("theory-\(pageID)-bottom-\(suffix)")
 
-        // 误区卡与页尾互链区应在页面上（不是空壳页）。
         XCTAssertTrue(
             app.staticTexts["常见误区"].exists,
             "\(pageID) 详情页应有常见误区卡"
@@ -141,10 +109,15 @@ final class V30W1TheoryPageUITests: XCTestCase {
 
         app.navigationBars[title].buttons.firstMatch.tap()
         XCTAssertTrue(
-            app.navigationBars["球理"].waitForExistence(timeout: 6),
-            "返回后应回到球理索引页"
+            TheoryIndexNavigation.openTheorySection(in: app),
+            "返回后应能再次打开理区"
         )
-        app.swipeDown()
+        XCTAssertTrue(
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == %@", title))
+                .firstMatch.waitForExistence(timeout: 6),
+            "返回理区后应仍能看到「\(title)」卡"
+        )
     }
 
     private func savePNG(_ name: String) {

@@ -51,39 +51,13 @@ final class V30W3TheoryPageUITests: XCTestCase {
     // MARK: - Steps
 
     private func openIndex() {
-        app.switchTab(.angle)
-
-        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
-        XCTAssertTrue(learn.waitForExistence(timeout: 10), "练习 Tab「学」侧栏应出现")
-        learn.tap()
-
-        let card = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == %@", "球理"))
-            .firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 6), "「学」分组应有球理入口卡")
-        card.tap()
-
-        XCTAssertTrue(
-            app.navigationBars["球理"].waitForExistence(timeout: 6),
-            "入口卡应 push 到球理索引页"
-        )
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
     }
 
     private func capturePage(pageID: String, title: String, suffix: String,
                              figureIdentifiers: [String]) {
-        let row = app.descendants(matching: .any)["theoryEntry_\(pageID)"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 6), "\(pageID) 应是索引页上的可点条目")
-        var scrolls = 0
-        while !row.isHittable && scrolls < 6 {
-            app.swipeUp()
-            scrolls += 1
-        }
-        XCTAssertTrue(row.isHittable, "\(pageID) 条目滚动后仍不可点")
-        row.tap()
-
         XCTAssertTrue(
-            app.navigationBars[title].waitForExistence(timeout: 6),
-            "\(pageID) 详情页导航标题应为「\(title)」"
+            TheoryIndexNavigation.openPage(in: app, cardTitle: title, navigationTitle: title)
         )
         sleep(3)
         let topName = "theory-\(pageID)-top-\(suffix)"
@@ -115,11 +89,13 @@ final class V30W3TheoryPageUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["相关页面"].exists, "\(pageID) 页尾应有「相关页面」")
 
         app.navigationBars[title].buttons.firstMatch.tap()
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
         XCTAssertTrue(
-            app.navigationBars["球理"].waitForExistence(timeout: 6),
-            "返回后应回到球理索引页"
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == %@", title))
+                .firstMatch.waitForExistence(timeout: 6),
+            "返回理区后应仍能看到「\(title)」卡"
         )
-        app.swipeDown()
     }
 
     @discardableResult

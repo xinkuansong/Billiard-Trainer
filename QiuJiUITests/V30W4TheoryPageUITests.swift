@@ -60,24 +60,24 @@ final class V30W4TheoryPageUITests: XCTestCase {
 
     func testV30W4_AllTwelveIndexEntriesOpen() {
         openIndex()
-        saveTheoryPNG(app.screenshot(), name: "theory-index-entries-top", outDir: outDir)
+        saveTheoryPNG(app.screenshot(), name: "theory-home-entries-top", outDir: outDir)
 
         for page in pageTitles {
-            let row = app.descendants(matching: .any)["theoryEntry_\(page.id)"].firstMatch
-            XCTAssertTrue(row.waitForExistence(timeout: 6), "\(page.id) 应是索引页上的可点条目")
-            scrollToHittable(row)
-            row.tap()
             XCTAssertTrue(
-                app.navigationBars[page.title].waitForExistence(timeout: 8),
-                "\(page.id) 应进入「\(page.title)」详情页"
+                TheoryIndexNavigation.openPage(
+                    in: app,
+                    cardTitle: page.title,
+                    navigationTitle: page.title
+                ),
+                "\(page.id) 应从理区卡进入「\(page.title)」"
             )
             app.navigationBars[page.title].buttons.firstMatch.tap()
             XCTAssertTrue(
-                app.navigationBars["球理"].waitForExistence(timeout: 6),
-                "从 \(page.id) 返回后应回到球理索引页"
+                TheoryIndexNavigation.openTheorySection(in: app),
+                "从 \(page.id) 返回后应回到理区"
             )
         }
-        saveTheoryPNG(app.screenshot(), name: "theory-index-entries-after-all", outDir: outDir)
+        saveTheoryPNG(app.screenshot(), name: "theory-home-entries-after-all", outDir: outDir)
     }
 
     // MARK: - 速查表逐条深链可达（完成标准 f）
@@ -116,32 +116,13 @@ final class V30W4TheoryPageUITests: XCTestCase {
     // MARK: - Steps
 
     private func openIndex() {
-        app.switchTab(.angle)
-
-        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
-        XCTAssertTrue(learn.waitForExistence(timeout: 10), "练习 Tab「学」侧栏应出现")
-        learn.tap()
-
-        let card = app.descendants(matching: .any)
-            .matching(NSPredicate(format: "identifier == %@", "球理"))
-            .firstMatch
-        XCTAssertTrue(card.waitForExistence(timeout: 6), "「学」分组应有球理入口卡")
-        card.tap()
-
-        XCTAssertTrue(
-            app.navigationBars["球理"].waitForExistence(timeout: 6),
-            "入口卡应 push 到球理索引页"
-        )
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
     }
 
     private func openPage(id: String, title: String) {
-        let row = app.descendants(matching: .any)["theoryEntry_\(id)"].firstMatch
-        XCTAssertTrue(row.waitForExistence(timeout: 6), "\(id) 应是索引页上的可点条目")
-        scrollToHittable(row)
-        row.tap()
         XCTAssertTrue(
-            app.navigationBars[title].waitForExistence(timeout: 8),
-            "\(id) 详情页导航标题应为「\(title)」"
+            TheoryIndexNavigation.openPage(in: app, cardTitle: title, navigationTitle: title),
+            "\(id) 应从理区卡进入「\(title)」"
         )
     }
 
@@ -183,10 +164,12 @@ final class V30W4TheoryPageUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["相关页面"].exists, "\(pageID) 页尾应有「相关页面」")
 
         app.navigationBars[title].buttons.firstMatch.tap()
+        XCTAssertTrue(TheoryIndexNavigation.openTheorySection(in: app))
         XCTAssertTrue(
-            app.navigationBars["球理"].waitForExistence(timeout: 6),
-            "返回后应回到球理索引页"
+            app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier == %@", title))
+                .firstMatch.waitForExistence(timeout: 6),
+            "返回理区后应仍能看到「\(title)」卡"
         )
-        app.swipeDown()
     }
 }

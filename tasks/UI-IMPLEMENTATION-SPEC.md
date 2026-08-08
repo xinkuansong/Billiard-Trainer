@@ -1022,10 +1022,11 @@ struct BTShareCard: View {
 
 铁律：① 顶定义问题、底执行动作（判据：改它是否重新定义问题）；② 状态只出现一次（Z1 副标题 vs Z4 pill 不重复）；③ 新控件先归区再选组件。
 
-### 9.3 逐页契约（问题集合批 v2 后现行形态，学/练/打/解四分类）
+### 9.3 逐页契约（问题集合批 v2 后现行形态，学/理/练/打/解五分类 · v32）
 
 | 页 | 分类 | 核心职责 | 关键契约（已落地） |
 |---|---|---|---|
+| 球理各篇 | 理 | 16 体系：T01–T10 + 流程 + 速查各一张卡 | **v32.2**：理区 12 卡直达 `.theoryPage`（数据源 `TheoryCatalog`）；无「球理」总卡；`TheoryIndexView` 仅深链保留；学区无定理卡 |
 | 瞄准原理 | 学 | 切角/假想球/厚度+公式 | 插图全真台化（`BTTableFigure`）；页末 CTA→角度预测 |
 | 瞄准方法 | 学 | 管道/接触点/平行线三法 | v11 Y1；θ 滑杆 + 交互插图；交叉引用瞄准原理/对照表 |
 | 瞄准修正 | 学 | 投掷/高低杆厚度/挤偏+弧线/求解补偿 | v12 Z3；六节结构 ①Δ实况 ②投掷 ③高低杆三联 ④加塞俯视 ⑤两档求解对比+定性速查 ⑥实战启示→思路训练；共享控件三轴（力度 `ShotTuning.velocityRange` + 高低杆三档 spinY=±0.4/0 + 左右塞，合成幅值钳 `miscueLimitFraction`）；20ms 去抖+单飞+末班车；插图一律 `BTTableFigure`+`BTFigureBall`/`BTGhostCircle`/`BTContactDot`/`BTFigureTag`/`FigureLine`（② closeup 特写、③ 单图三线选中高亮参照 SeparationPathsFigure）；速查表符号来源 `build/z1-evidence/quickref-symbols.txt` + `z2-evidence/z2-quickref-symbols.txt` + `z3-evidence/z3-quickref-symbols.txt`；AX `aimingCorrection.*`；巡游 a16 |
@@ -1082,6 +1083,8 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 | 日期 | 条目 | 类型 | 影响范围 | 来源任务 |
 |------|------|------|---------|---------|
+| 2026-08-08 | **理区 12 卡直达**（DR-065 修订 / v32.2）：推翻单卡进索引；`theoryEntries` 由 `TheoryCatalog` 派生；分篇 glyph；UITest 点卡标题 | IA/DR | AngleHomeView, TheoryIndexNavigation, V30W0–W4/P5 UITests, 问题集合_v32 | 用户要求每页单独卡片 |
+| 2026-08-08 | **练习 Tab 五分类：理区独立**（DR-065 / v32）：侧栏 **学→理→练→打→解**；理=仅 16 体系；学区去掉球理卡；caption/icon 见 DR-065 | IA/DR | AngleHomeView, CoverPalette 注释, P5/V28/V30W0–W4 UITests, ADR-P12-01/P18-01 修订, 问题集合_v32 | 用户 IA 拍板 |
 | 2026-08-07 | **球理详情页返工 r1：配图硬性化 + 风格收敛**（FL-028）：用户人工验收未通过（「风格完全不同，也没有说明图」）。①**每篇理论页至少一张页内说明图**成硬性：物理几何类走 `BTTableFigure` + `FigureLine` + `BTFigureBall`/`BTGhostCircle`/`BTContactDot`/`BTFigureTag` 且几何取真源函数（T03 新增 `TangentPerpendicularFigure` 画切线 ⊥ 连心线，复用放开为 internal 的 `SeparationPathsFigure(emphasizeAll:)` 画三条参考线）；战术类受红线 5 限制只能画非球形抽象图示（T08 新增 `ThreeQuestionFlowFigure` / `RiskRewardZoneFigure`），需真实球形的图改登记人工录制。⛔ 深链不得代图。②视觉件收敛到现有学页范式：`TheoryPageHeader` 改 `(headline:detail:caption:)`（主句 = 卡标题 `.btTitle`）、误区改 `.btAccent` 三角 + 10% accent 底 + 脚注级说明、序号圆底改 `.btPrimary` 实底白字 18pt、`TheoryMatrixTable` 由 `Grid` 改 `HStack` 行、页壳去掉 `.top` padding、页尾统一 `Text("相关页面").font(.btTitle)` + `PracticeCTA`(≤2) + 文字链。③T03 加 `LearnControlStrip.Theta`。④新增几何不变量用例 `TheoryFigureGeometryTests` | 修正/FL | TheoryPageChrome, TheoryT03View, TheoryT08View, SpinAndEnglishView(SeparationPathsFigure 放开+参数), TheoryFigureGeometryTests, V30W1TheoryPageUITests, v30 组件规范 v1.2 / 转写模板 v1.1 | 问题集合 v30 W1 返工 r1 |
 | 2026-08-07 | **球理详情页共用组件与转写口径**（DR-064）：新增理论页专用视觉件 `Theory/TheoryPageChrome.swift`——`TheoryPageHeader`（编号 chip 对读屏隐藏 + 一句话结论卡）/ `TheoryMistakeCard` / `TheoryNumberedList` / `TheoryMatrixTable`（原生 `Grid`）/ `theoryPageChrome(title:)`；分工 = 通用学页件仍进 `LearnDocChrome.swift`。上线状态成对维护面由两处扩到**三处**（+ 测试侧上线清单），索引页 UI 断言改「已上线可点 / 未上线不可点」分治。索引页副标题按 X-v30-2 放宽为「语义等价的限定改写 + 取舍记录」，12 条英文术语全部中文化（`OB`→目标球、`cut`→切角、`stun`→滑动、`squirt/swerve/throw`→挤偏/弧线/投掷、`key ball`→关键球等，均按 §8.8 词表）。首两篇上线：切线法则、风险报酬决策矩阵 | 新增/DR | TheoryPageChrome, TheoryT03View, TheoryT08View, TheoryCatalog, MainTabView, TheoryCatalogTests, V30W0/W1 UI 测试, §8.8 词表口径 | 问题集合 v30 W1 |
 | 2026-08-06 | **试打页序列演示可控化**（DR-061）：主键三态 `击打 ⇄ 暂停 ⇄ 继续`（暂停仅在杆边界兑现，停在该杆终局）；原恒灰「上一杆」接线、「回放」改「重播」，二者仅暂停态可用；序列模式恢复显示打点/力度但**只读**（`BTShotInstrumentColumn.isReadOnly` / `spinTapEnabled`，`BTSpinPad*.isReadOnly` 隐藏微调键与「回中」）；删台面上方 `tryout.sequenceStepBar`，当前杆信息只留导航副标题且**不带袋口**；整条播完停留后自动回初始球形 | 修正/DR | PositionPlayViewModel, PositionPlayComposerView, BTShotInstrumentColumn, BTSpinPad, BTShotPageChrome | 用户交互反馈 |

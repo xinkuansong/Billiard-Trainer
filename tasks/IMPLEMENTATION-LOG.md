@@ -142,6 +142,22 @@
 - **回写目标**：`docs/research/20260807-v30理论页组件规范.md`（新增 §四 配图硬性章节 + §三 风格收敛铁律）、`docs/research/20260807-v30理论转写模板.md`（§3.1 配图决策树）
 - **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.2 §三/§四/§五/§六/§二 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.1 §一/§3.1/§3.2/§四 + Changelog（2026-08-07）；✅ 本文件 DR-064 补「返工 r1 修订」段（2026-08-07）
 
+## DR-065
+- **任务**：问题集合 v32 — 练习 Tab 五分类「理」区独立（16 体系）
+- **原始规范**：ADR-P18-01 四分段（学/练/打/解）；ADR-P12-01 / v30 选址「理论之家 = 学区、不加与学并列的新类别」；球理入口在 `learnEntries` 首卡。
+- **调整后**：
+  1. `PracticeSection` 增 `theory = "理"`，声明序 **学 → 理 → 练 → 打 → 解**。
+  2. 理区 `theoryEntries` 由 `TheoryCatalog.entries`（已上线）映射为 **12 张** `.theoryPage` 卡；**无**「球理」索引总卡；`learnEntries` 无球理。
+  3. caption：学「交互弄懂瞄准、旋转与走位」；理「定理、流程与速查：分主题看懂原理」。icon：理用 `scroll` / `scroll.fill`。
+  4. 分篇两字 glyph（三十/九十/切线…）；UITest 用 `TheoryIndexNavigation.openPage(cardTitle:)`。
+  5. `TheoryIndexView` 路由保留，仅深链可达。
+- ⚠️ **修订（v32.2，2026-08-08）**：首版曾拍「单卡进索引」；用户改为每页单独卡片后按上条落地。
+- **原因**：12 篇理论已撑起独立心智；与交互学页抢「学」会糊化；用户拍板理与学平级且学区不留卡，并要求理区网格即目录。
+- **影响范围**：`AngleHomeView`、`CoverPalette` 注释、P5/V28/ScreenshotTour/V30W0–W4 UITests、ADR-P12-01/P18-01、`问题集合_v30/v32`、SPEC §9.3。
+- **日期**：2026-08-08
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog；`tasks/phases/P12-content-system-theory.md`；`tasks/phases/P18-release-convergence.md`
+- **已应用至**：✅ SPEC §9.3 + Changelog（2026-08-08）；✅ P12/P18 ADR 修订注记（2026-08-08）；✅ `问题集合_v32.md` v32.2；✅ `swiftui-design-system/SKILL.md` §九封面 + Changelog（2026-08-08）
+
 ## DR-064
 - **任务**：v30 W1 试点定调（球理详情页 T03 切线法则 + T08 风险报酬决策矩阵 + 转写模板）
 - ⚠️ **返工 r1 修订（2026-08-07，见 FL-028）**：本条第 1 项的组件清单与配图口径已被返工覆盖 ——

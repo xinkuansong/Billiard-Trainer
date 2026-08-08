@@ -1,6 +1,6 @@
 import XCTest
 
-/// 练习 Tab（原「角度」）首页与核心子页冒烟（学 / 练 / 打 / 解 分类侧栏 + 分组网格）。
+/// 练习 Tab（原「角度」）首页与核心子页冒烟（学 / 理 / 练 / 打 / 解 分类侧栏 + 分组网格）。
 final class P5_AngleTrainingUITests: XCTestCase {
 
     var app: XCUIApplication!
@@ -30,17 +30,23 @@ final class P5_AngleTrainingUITests: XCTestCase {
                       "Practice page header '练习' should be visible")
     }
 
-    func testFourSegmentTabs() {
-        for name in ["学", "练", "打", "解"] {
+    func testFiveSegmentTabs() {
+        for name in ["学", "理", "练", "打", "解"] {
             XCTAssertTrue(app.buttons["angleHomeTab_\(name)"].waitForExistence(timeout: 3),
                           "Segment tab '\(name)' should exist")
         }
     }
 
     func testSegmentCards() {
-        // 学（默认分段）
+        // 学（默认「全部」可见；显式切学后应有学卡、无球理）
+        XCTAssertTrue(switchHomeTab("学"), "Should switch to 学 segment")
         XCTAssertTrue(app.buttons["瞄准原理"].waitForExistence(timeout: 3), "瞄准原理 card should exist in 学")
         XCTAssertTrue(app.buttons["瞄准点对照表"].waitForExistence(timeout: 3), "瞄准点对照表 card should exist in 学")
+        XCTAssertFalse(app.descendants(matching: .any)["球理"].exists, "学区不应再有球理入口卡（v32）")
+        // 理（v32.2：每篇一卡，无「球理」总卡）
+        XCTAssertTrue(switchHomeTab("理"), "Should switch to 理 segment")
+        XCTAssertTrue(app.buttons["切线法则"].waitForExistence(timeout: 3), "切线法则 card should exist in 理")
+        XCTAssertFalse(app.descendants(matching: .any)["球理"].exists, "理区不应再有球理索引总卡")
         // 练
         XCTAssertTrue(switchHomeTab("练"), "Should switch to 练 segment")
         XCTAssertTrue(app.buttons["角度预测"].waitForExistence(timeout: 3), "角度预测 card should exist in 练")

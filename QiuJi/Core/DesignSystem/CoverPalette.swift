@@ -90,7 +90,7 @@ enum CoverPalette {
     /// Original per-card palette restored for the practice home after the zone ladders proved too uniform.
     /// Values are byte-identical to the former `AngleCoverPalette` constants.
     enum PracticeMulticolor {
-        /// 球理索引卡（v30 W0）：靛蓝，与学区既有绿/橙/紫系区分。
+        /// 球理索引卡（v30 W0 / v32 理区）：靛蓝，与学区既有绿/橙/紫系区分。
         static let theoryIndex = Pair(
             top: Color(red: 0.24, green: 0.34, blue: 0.62),
             bottom: Color(red: 0.12, green: 0.18, blue: 0.38)

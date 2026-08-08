@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Angle Navigation
 
 enum AngleRoute: Hashable {
-    /// 球理索引（v30 W0）：学区的球理中心，分组列出 T01–T10 + 流程 + 速查表。
+    /// 球理索引（v30 W0 / v32 理区）：分组列出 T01–T10 + 流程 + 速查表。
     case theoryIndex
     /// 球理详情页（v30 W0）：12 篇共用一个参数化 case，载荷见 `TheoryPageID`；
     /// 目的地在 `MainTabView.theoryDestination` 的 switch 中逐页注册（W1–W4）。
@@ -81,7 +81,7 @@ private struct AngleEntry: Identifiable {
     private static func glyph(for route: AngleRoute) -> String {
         switch route {
         case .theoryIndex: "球理"
-        case .theoryPage: "球理"
+        case .theoryPage(let pageID): glyph(for: pageID)
         case .aimingPrinciple: "瞄准"
         case .aimingMethods: "方法"
         case .aimingCorrection: "修正"
@@ -108,10 +108,29 @@ private struct AngleEntry: Identifiable {
         }
     }
 
+    /// 理区封面两字水印（v32.2：每篇一卡，勿 12 张同写「球理」）。
+    private static func glyph(for pageID: TheoryPageID) -> String {
+        switch pageID {
+        case .t01: "三十"
+        case .t02: "九十"
+        case .t03: "切线"
+        case .t04: "速度"
+        case .t05: "倒推"
+        case .t06: "关键"
+        case .t07: "球团"
+        case .t08: "风险"
+        case .t09: "少塞"
+        case .t10: "安全"
+        case .flow: "五步"
+        case .quickRef: "速查"
+        }
+    }
+
     private static func palette(for route: AngleRoute) -> CoverPalette.Pair {
         let multicolor = CoverPalette.PracticeMulticolor.self
         return switch route {
-        case .theoryIndex, .theoryPage: multicolor.theoryIndex
+        case .theoryIndex: multicolor.theoryIndex
+        case .theoryPage(let pageID): palette(for: pageID)
         case .aimingPrinciple: multicolor.aimingPrinciple
         case .aimingMethods: multicolor.aimingMethods
         case .aimingCorrection: multicolor.aimingCorrection
@@ -140,12 +159,25 @@ private struct AngleEntry: Identifiable {
         case .drillDetail: multicolor.aimingPrinciple
         }
     }
+
+    /// 理区按 `TheoryGroup` 微差色（同靛蓝家族，避免 12 卡完全同色）。
+    private static func palette(for pageID: TheoryPageID) -> CoverPalette.Pair {
+        let multicolor = CoverPalette.PracticeMulticolor.self
+        switch TheoryCatalog.entry(for: pageID)?.group {
+        case .collision: return multicolor.theoryIndex
+        case .spin: return multicolor.aimingMethods
+        case .tactics: return multicolor.aimingCorrection
+        case .flow: return multicolor.cushionEnglishAtlas
+        case .none: return multicolor.theoryIndex
+        }
+    }
 }
 
-// MARK: - Section Model（学 / 练 / 打 / 解，ADR-P18-01 四分类）
+// MARK: - Section Model（学 / 理 / 练 / 打 / 解，ADR-P18-01 + v32 五分类）
 
 private enum PracticeSection: String, CaseIterable, Identifiable {
     case learn = "学"
+    case theory = "理"
     case train = "练"
     case play = "打"
     case solve = "解"
@@ -155,6 +187,7 @@ private enum PracticeSection: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .learn: "book"
+        case .theory: "scroll"
         case .train: "target"
         case .play:  "hand.tap"
         case .solve: "lightbulb"
@@ -164,6 +197,7 @@ private enum PracticeSection: String, CaseIterable, Identifiable {
     var filledIcon: String {
         switch self {
         case .learn: "book.fill"
+        case .theory: "scroll.fill"
         case .train: "target"
         case .play:  "hand.tap.fill"
         case .solve: "lightbulb.fill"
@@ -172,7 +206,8 @@ private enum PracticeSection: String, CaseIterable, Identifiable {
 
     var caption: String {
         switch self {
-        case .learn: "理解瞄准与走位背后的球理"
+        case .learn: "交互弄懂瞄准、旋转与走位"
+        case .theory: "定理、流程与速查：分主题看懂原理"
         case .train: "每天几分钟，校准角度直觉"
         case .play:  "真实物理沙盘，摆球就能打"
         case .solve: "让引擎当教练，反解这杆怎么打"
@@ -182,8 +217,8 @@ private enum PracticeSection: String, CaseIterable, Identifiable {
 
 // MARK: - Home View
 
-/// 练习 Tab 首页（ADR-P11-08 / ADR-P18-01 / ADR-P18-03 / v28）：与「动作库」同一套布局语言——
-/// 大标题 + 左侧图标分类侧栏（全部/学/练/打/解）+ 右侧双列分组网格（钉住分组头），
+/// 练习 Tab 首页（ADR-P11-08 / ADR-P18-01 / ADR-P18-03 / v28 / v32）：与「动作库」同一套布局语言——
+/// 大标题 + 左侧图标分类侧栏（全部/学/理/练/打/解）+ 右侧双列分组网格（钉住分组头），
 /// 卡片外壳保留 v28 `BTContentGridCard`，封面恢复 pre-v27 多彩渐变大字水印。
 struct AngleHomeView: View {
     /// nil = 全部（默认，与动作库侧栏一致）。
@@ -198,9 +233,8 @@ struct AngleHomeView: View {
         GridItem(.flexible(), spacing: Spacing.md),
     ]
 
-    /// 「学」——球理与瞄准知识（v30 W0：球理索引卡置首，作学区的球理中心入口）。
+    /// 「学」——交互/文档学页（v32：球理入口已迁至「理」区）。
     private let learnEntries: [AngleEntry] = [
-        .init(route: .theoryIndex, title: "球理", subtitle: "碰撞 · 走位 · 决策：分主题看懂原理"),
         .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "切入角 · 假想球 · 厚薄球"),
         .init(route: .aimingMethods, title: "瞄准方法", subtitle: "管道 · 接触点 · 平行线"),
         .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "投掷 · 塞偏 · 弧线：几何之外的偏差"),
@@ -211,6 +245,19 @@ struct AngleHomeView: View {
         .init(route: .ballFeel, title: "浅谈球感", subtitle: "从理性分析到直觉判断"),
         .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "常用角度的瞄准点速查"),
     ]
+
+    /// 「理」——16 理论体系（v32.2：每篇一卡直达详情；索引页仅深链可达，首页不再放「球理」总卡）。
+    private var theoryEntries: [AngleEntry] {
+        TheoryCatalog.entries
+            .filter(\.isPublished)
+            .map { entry in
+                AngleEntry(
+                    route: .theoryPage(entry.id),
+                    title: entry.title,
+                    subtitle: entry.subtitle
+                )
+            }
+    }
 
     /// 「练」——测验类：练角度直觉。
     private let trainEntries: [AngleEntry] = [
@@ -257,6 +304,7 @@ struct AngleHomeView: View {
     private func entries(for section: PracticeSection) -> [AngleEntry] {
         switch section {
         case .learn: learnEntries
+        case .theory: theoryEntries
         case .train: trainEntries
         case .play: playEntries
         case .solve: solveEntries

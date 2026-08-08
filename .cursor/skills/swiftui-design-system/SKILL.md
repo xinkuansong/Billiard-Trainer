@@ -407,6 +407,7 @@ BTPracticeCover(visual: PracticeCoverCatalog.visual(for: route), chip: "2D")
 - **DR-052**：练习首页单字水印改用 pre-v27 逐卡独立多彩渐变，通过 `CoverPalette.PracticeMulticolor` 消费历史色值；禁止退回学/练/打/解四分区同色阶或在 View 内硬编码 RGB。
 - **DR-053**：练习首页水印尽量用两字语义词；每个分组从 01 独立编号；高级入口的 `BTProBadge` 必须与真实订阅门控成对出现，非 Pro 点击统一弹 `SubscriptionView`。
 - **DR-054**：练习首页大字水印按 `CoverPalette.Glyph.gridAbsoluteSize * 0.06` 下移；类型标签固定在彩色封面右下角，Pro 徽标继续位于右上角。
+- **DR-065（v32 / v32.2）**：练习侧栏 **学 / 理 / 练 / 打 / 解**。理区 = `TheoryCatalog` 已上线篇各一张卡直达详情（无「球理」总卡）；学区不得放定理卡。UITest：`TheoryIndexNavigation.openPage(cardTitle:)`。
 
 ---
 
@@ -739,6 +740,7 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-08（DR-065 / v32）— 练习侧栏五分类：学→理→练→打→解；理区仅「球理」索引卡；学区无球理；`TheoryIndexNavigation`。
 - 2026-08-05（DR-056）— 封面深墨调浅 + 单行字号缩小：
   - `darkOpacity` 0.85→0.52；暗底改 `charcoalLuminanceCeiling` 0.15；`minLuminanceDelta` 0.07
   - 练习网格水印 56→37；计划单行 2/3 字 scale 0.40/0.32（4 字双行仍 0.40）

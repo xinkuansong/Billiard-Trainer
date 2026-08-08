@@ -97,7 +97,7 @@ final class ScreenshotTourUITests: XCTestCase {
         }
     }
 
-    /// 角度首页分段 Tab（学 / 练 / 打 / 解，ADR-P18-01 四分段 IA）。
+    /// 角度首页分段 Tab（学 / 理 / 练 / 打 / 解，ADR-P18-01 + v32 五分类）。
     /// 用 accessibilityIdentifier 精确定位，避免与底部 Tab 重名误点。
     @discardableResult
     private func switchAngleHomeTab(_ name: String) -> Bool {
@@ -1415,6 +1415,7 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(2)
         snap("08-angle-home-all")
         switchAngleHomeTab("学"); snap("08a-angle-home-learn")
+        switchAngleHomeTab("理"); snap("08a2-angle-home-theory")
         switchAngleHomeTab("练"); snap("08b-angle-home-train")
         switchAngleHomeTab("打"); snap("08c-angle-home-play")
         switchAngleHomeTab("解"); snap("08d-angle-home-solve")
@@ -1426,6 +1427,8 @@ final class ScreenshotTourUITests: XCTestCase {
             ("学", "角度与瞄准", "10-angle-dynamic"),
             ("学", "浅谈球感", "11-ball-feel"),
             ("学", "瞄准点对照表", "12-contact-point-table"),
+            // 理（v32.2：单篇直达）
+            ("理", "切线法则", "12b-theory-t03"),
             // 练
             ("练", "角度预测", "13-geometric-quiz"),
             ("练", "2D 角度训练", "14-scene-aiming-2d"),

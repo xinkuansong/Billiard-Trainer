@@ -117,7 +117,7 @@ final class V28VisualUnificationUITests: XCTestCase {
             sleep(1)
         }
 
-        // 3) Practice — four zones
+        // 3) Practice — five zones (学/理/练/打/解, v32)
         app.switchTab(.angle)
         sleep(3)
         let practiceSidebar = app.descendants(matching: .any)["angleHomeTab_全部"]
@@ -127,7 +127,7 @@ final class V28VisualUnificationUITests: XCTestCase {
         )
         savePNG("practice-all-\(suffix)")
 
-        for zone in ["学", "练", "打", "解"] {
+        for zone in ["学", "理", "练", "打", "解"] {
             let tab = app.descendants(matching: .any)["angleHomeTab_\(zone)"]
             if tab.waitForExistence(timeout: 3) {
                 tab.tap()
