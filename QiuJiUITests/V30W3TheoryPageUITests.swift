@@ -2,8 +2,11 @@ import XCTest
 
 /// v30 W3：战术定理批四篇（T05 / T06 / T07 / T10）上线可点 + 页内说明图 + Light/Dark 截图。
 ///
-/// 配图取证：滚到 `accessibilityIdentifier` 后再微滚，存**全屏**（抽象图元素截图易裁切）；
-/// 与页顶 md5 不得相同。外观切换：事先 `xcrun simctl ui booted appearance light|dark`。
+/// 配图取证（**v30 W4 按 X-v30-9 重写**）：走 `captureTheoryFigure` ——
+/// 先把图完整滚进可视区并断言 `frame` 落在可视区内，再**直接截该元素**落盘
+/// （另存 `-context` 全屏）。原「滚到 isHittable + 只断言字节 ≠ 页顶」的口径已作废：
+/// 它对「滚过头」无效，是 W3 四张 figure 拍成正文的根因。
+/// 外观切换：事先 `xcrun simctl ui booted appearance light|dark`。
 /// 截图落盘 `build/v30-w3-screenshots/`。
 final class V30W3TheoryPageUITests: XCTestCase {
 
@@ -87,41 +90,17 @@ final class V30W3TheoryPageUITests: XCTestCase {
         let topData = savePNG(app.screenshot(), name: topName)
 
         for identifier in figureIdentifiers {
-            let figure = app.descendants(matching: .any)[identifier].firstMatch
-            XCTAssertTrue(
-                figure.waitForExistence(timeout: 6),
-                "\(pageID) 详情页应有说明图 \(identifier)"
-            )
-            var tries = 0
-            while !figure.isHittable && tries < 10 {
-                app.swipeUp()
-                tries += 1
-                sleep(1)
-            }
-            XCTAssertTrue(
-                figure.isHittable,
-                "\(pageID) 说明图 \(identifier) 滚动后仍不可见/不可点"
-            )
-            // 刚滚到 isHittable 时图常贴在屏底，再微滚一次把整图抬进视口中央。
-            app.swipeUp()
-            sleep(1)
-            XCTAssertTrue(figure.isHittable || figure.exists,
-                          "微滚后 \(identifier) 应仍在页上")
-
-            // 抽象图示元素级 screenshot 易裁切；本批一律存滚到该图后的全屏证据。
+            // X-v30-9 修复：改为「滚到图完整可见 → 断言 frame 落在可视区内 → 截该元素」。
+            // 原口径（滚到 isHittable + 只断言字节 ≠ 页顶）对「滚过头」无效，
+            // 导致 W3 四张 figure 实际拍到的是图下方的正文。
             let fileStem = "theory-\(pageID)-figure-\(identifier.replacingOccurrences(of: ".", with: "-"))-\(suffix)"
-            var screen = app.screenshot()
-            var figureData = screen.pngRepresentation
-            if figureData == topData {
-                app.swipeUp()
-                sleep(1)
-                XCTAssertTrue(figure.isHittable || figure.exists,
-                              "再微滚后 \(identifier) 应仍在页上")
-                screen = app.screenshot()
-                figureData = screen.pngRepresentation
-            }
-            figureData = savePNG(screen, name: fileStem)
-
+            let figureData = captureTheoryFigure(
+                identifier,
+                app: app,
+                navigationTitle: title,
+                fileStem: fileStem,
+                outDir: outDir
+            )
             XCTAssertNotEqual(
                 figureData, topData,
                 "\(pageID) 配图截图 \(fileStem) 不得与页顶截图内容相同"

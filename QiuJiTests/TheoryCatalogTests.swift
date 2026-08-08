@@ -32,13 +32,13 @@ final class TheoryCatalogTests: XCTestCase {
     /// 无法在测试里比对来源串，故不参与取材类断言（取舍记录仍在转写模板 §六）。
     private static let subtitleSourceUnavailableIDs: Set<TheoryPageID> = [.quickRef]
 
-    /// 已在 `MainTabView.theoryDestination` 注册详情页的条目（v30 W1 试点两篇）。
+    /// 已在 `MainTabView.theoryDestination` 注册详情页的条目（v30 W4 起 12 篇全部注册）。
     ///
     /// `theoryDestination` 是 `MainTabView` 的 private 方法，测试无法直接读那个 switch；
     /// 这里用文档化清单守住**成对维护**纪律：新上线一页时，必须同时改
     /// switch、`isPublished` 与本清单，漏一处就红。
     private static let registeredPageIDs: Set<TheoryPageID> = [
-        .t01, .t02, .t03, .t04, .t05, .t06, .t07, .t08, .t09, .t10,
+        .t01, .t02, .t03, .t04, .t05, .t06, .t07, .t08, .t09, .t10, .flow, .quickRef,
     ]
 
     /// 每条副标题必须保住的语义锚词（适用条件 / 关键限定词 / 规范中文术语）。

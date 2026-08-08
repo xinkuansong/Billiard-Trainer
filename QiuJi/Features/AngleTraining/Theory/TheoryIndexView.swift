@@ -4,7 +4,8 @@ import SwiftUI
 ///
 /// - 视觉沿现有学页规范（`LearnDocChrome` 家族 + `.btBG` 页底 + inline 标题）。
 /// - **全量列 12 条**（主控裁定）：未在 `MainTabView.theoryDestination` 注册的条目
-///   置灰 + 标「即将上线」+ 不可点，避免死链。
+///   置灰 + 标「即将上线」+ 不可点，避免死链。v30 W4 起 12 条**全部上线**，
+///   置灰分支目前无条目命中，但保留给后续新增页（如固定解模块批）。
 /// - 正文内容不在本页：每条详情页由 W1–W4 逐页新建并注册。
 struct TheoryIndexView: View {
     var body: some View {
@@ -31,7 +32,10 @@ struct TheoryIndexView: View {
     private var introSection: some View {
         LearnDocSectionCard(title: "怎么用这一栏") {
             LearnDocText.body("这里按主题排好了打球时真正会用到的球理：先看碰撞与瞄准，母球碰到目标球以后往哪走；再看杆法与力度如何改写走位；最后是选球与安全球的决策。每篇都给一句话结论、直觉解释、适用边界和常见误区。")
-            LearnDocText.footnote("标「即将上线」的条目正在制作中，暂时点不开。")
+            // 12 条全部上线后不再提「即将上线」（否则是无所指的空洞说明）。
+            if TheoryCatalog.entries.contains(where: { !$0.isPublished }) {
+                LearnDocText.footnote("标「即将上线」的条目正在制作中，暂时点不开。")
+            }
         }
     }
 
@@ -107,29 +111,8 @@ struct TheoryIndexView: View {
     }
 }
 
-// MARK: - Unregistered destination fallback
-
-/// 未注册页的兜底目的地（防御性，正常路径不可达——索引页不给未上线条目可点入口）。
-///
-/// 存在理由：`theoryDestination` 的 switch 必须穷尽 `TheoryPageID`；深链（W5 chip）
-/// 若指向尚未上线的 id，宁可落到这一页也不要空白/崩溃。
-struct TheoryPagePlaceholderView: View {
-    let pageID: TheoryPageID
-
-    var body: some View {
-        BTEmptyState(
-            icon: "hourglass",
-            title: "这一页还在制作中",
-            subtitle: TheoryCatalog.entry(for: pageID).map { "「\($0.title)」尚未上线，先看看已经上线的其他球理。" }
-                ?? "该内容尚未上线。"
-        )
-        .frame(maxHeight: .infinity)
-        .background(.btBG)
-        .navigationTitle("即将上线")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-    }
-}
+// v30 W4：12 篇全部上线后，兜底页 `TheoryPagePlaceholderView` 已无任何引用，随本批删除。
+// 未上线条目的置灰行（`upcomingRow`）保留——新增 id 时仍走「置灰不可点」而非死链。
 
 #Preview("Light") {
     NavigationStack {
