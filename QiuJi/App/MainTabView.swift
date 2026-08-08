@@ -182,16 +182,17 @@ struct MainTabView: View {
         }
     }
 
-    /// 球理详情页注册表（v30 W0 骨架）。
+    /// 球理详情页注册表（v30 W0 骨架，W4 起 12 篇全部注册）。
     ///
-    /// W1–W4 每完成一篇：把对应 case 换成该篇的硬编码视图，并把
-    /// `TheoryCatalog` 里同一 id 的 `isPublished` 改 `true`（两处成对维护）。
-    /// 未注册的 id 落 `TheoryPagePlaceholderView`——索引页不给它可点入口，
-    /// 这里只是深链兜底，保证不出现空白页/崩溃。
+    /// 每篇的上线状态**三处成对维护**：这里的 case、`TheoryCatalog` 同 id 的
+    /// `isPublished`、以及测试侧上线清单（`TheoryCatalogTests.registeredPageIDs` +
+    /// `V30W0TheoryIndexUITests.publishedPageIDs`）。
+    /// 12 篇已全部有页，原先兜底未注册 id 的 `TheoryPagePlaceholderView` 已随之删除
+    /// （v30 W4；再有新 id 时 switch 的穷尽性会强制补页，不会静默落兜底）。
     @ViewBuilder
     private func theoryDestination(for pageID: TheoryPageID) -> some View {
         switch pageID {
-        // v30 W1 试点两篇 + W2 物理定理批四篇。
+        // v30 W1 试点两篇 + W2 物理定理批四篇 + W3 战术定理批四篇 + W4 流程速查两篇。
         case .t01:
             TheoryT01View()
         case .t02:
@@ -212,8 +213,10 @@ struct MainTabView: View {
             TheoryT09View()
         case .t10:
             TheoryT10View()
-        case .flow, .quickRef:
-            TheoryPagePlaceholderView(pageID: pageID)
+        case .flow:
+            TheoryFlowView()
+        case .quickRef:
+            TheoryQuickRefView()
         }
     }
 

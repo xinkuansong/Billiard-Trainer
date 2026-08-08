@@ -17,11 +17,13 @@ final class V30W0TheoryIndexUITests: XCTestCase {
 
     /// 已上线（详情页已在 `MainTabView.theoryDestination` 注册）→ 应是可点链接。
     ///
-    /// ⚠️ W1–W4 每上线一页，把该 id 从「未上线」搬到这里（与 `TheoryCatalog.isPublished`
+    /// ⚠️ 每上线一页，把该 id 从「未上线」搬到这里（与 `TheoryCatalog.isPublished`
     /// 及 `theoryDestination` 的 switch 三处成对维护）。**不要删除本用例的分治断言**。
-    /// v30 W1 试点两篇 + W2 物理批四篇 = 6 条已上线；其余 6 条未上线置灰。
+    /// v30 W4 起 **12 条全部上线**，置灰集合为空——此时下面的置灰循环会退化成空转，
+    /// 故另加一条**显式断言置灰集合为空**（`testV30W4_NoUpcomingEntriesRemain`），
+    /// 避免「永远为真的空用例」冒充覆盖。
     private let publishedPageIDs = [
-        "t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10",
+        "t01", "t02", "t03", "t04", "t05", "t06", "t07", "t08", "t09", "t10", "flow", "quickRef",
     ]
 
     /// 未上线 → 应是置灰行、无可点入口（防死链）。
@@ -101,17 +103,49 @@ final class V30W0TheoryIndexUITests: XCTestCase {
         sleep(1)
         savePNG("theory-index-bottom-\(suffix)")
 
-        // 点未上线条目：不应离开索引页（无死链）。
-        let firstUpcoming = app.descendants(matching: .any)["theoryEntryUpcoming_t01"]
-        if firstUpcoming.exists && firstUpcoming.isHittable {
-            firstUpcoming.tap()
-            sleep(1)
+        if let firstUpcoming = upcomingPageIDs.first {
+            // 仍有未上线条目时：点它不应离开索引页（无死链）。
+            let row = app.descendants(matching: .any)["theoryEntryUpcoming_\(firstUpcoming)"]
+            if row.exists && row.isHittable {
+                row.tap()
+                sleep(1)
+            }
+            XCTAssertTrue(
+                app.navigationBars["球理"].exists,
+                "点击「即将上线」条目不应发生导航"
+            )
+            savePNG("theory-index-upcoming-tap-noop-\(suffix)")
         }
-        XCTAssertTrue(
-            app.navigationBars["球理"].exists,
-            "点击「即将上线」条目不应发生导航"
+    }
+
+    /// v30 W4：12 条全部上线后，上面的置灰循环会退化为空转。
+    /// 这里**显式**断言置灰集合为空——既守住「不该再有置灰行」，
+    /// 也让日后新增未上线页时必须回来更新清单（而不是悄悄空转过去）。
+    func testV30W4_NoUpcomingEntriesRemain() {
+        XCTAssertEqual(
+            upcomingPageIDs, [],
+            "v30 W4 起 12 篇应全部上线；若新增了未上线页，请更新 publishedPageIDs 并恢复置灰用例覆盖"
         )
-        savePNG("theory-index-upcoming-tap-noop-\(suffix)")
+
+        app.switchTab(.angle)
+        let learn = app.descendants(matching: .any)["angleHomeTab_学"]
+        XCTAssertTrue(learn.waitForExistence(timeout: 10), "练习 Tab「学」侧栏应出现")
+        learn.tap()
+        let card = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == %@", "球理"))
+            .firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 6), "「学」分组应有球理入口卡")
+        card.tap()
+        XCTAssertTrue(app.navigationBars["球理"].waitForExistence(timeout: 6), "应进入球理索引页")
+
+        // 屏幕上也不应再出现任何一条置灰行。
+        for pageID in allPageIDs {
+            XCTAssertFalse(
+                app.descendants(matching: .any)["theoryEntryUpcoming_\(pageID)"].exists,
+                "\(pageID) 不应再显示「即将上线」置灰行"
+            )
+        }
+        savePNG("theory-index-no-upcoming")
     }
 
     private func savePNG(_ name: String) {

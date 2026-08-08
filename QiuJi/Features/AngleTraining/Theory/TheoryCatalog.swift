@@ -173,7 +173,7 @@ enum TheoryCatalog {
             // 改写自 run-out-flow.json.description 首句：剔除「状态机」工程腔。
             subtitle: "从上台到这一杆打完，中间该按什么顺序想",
             group: .flow,
-            isPublished: false
+            isPublished: true
         ),
         .init(
             id: .quickRef,
@@ -181,7 +181,7 @@ enum TheoryCatalog {
             // 逐字取 16 quick-reference.md 首段子串——原文已是中文人话，不改写。
             subtitle: "业余玩家上场前 5 分钟通读",
             group: .flow,
-            isPublished: false
+            isPublished: true
         ),
     ]
 
