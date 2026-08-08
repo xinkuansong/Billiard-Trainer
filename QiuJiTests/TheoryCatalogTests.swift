@@ -38,7 +38,7 @@ final class TheoryCatalogTests: XCTestCase {
     /// 这里用文档化清单守住**成对维护**纪律：新上线一页时，必须同时改
     /// switch、`isPublished` 与本清单，漏一处就红。
     private static let registeredPageIDs: Set<TheoryPageID> = [
-        .t01, .t02, .t03, .t04, .t08, .t09,
+        .t01, .t02, .t03, .t04, .t05, .t06, .t07, .t08, .t09, .t10,
     ]
 
     /// 每条副标题必须保住的语义锚词（适用条件 / 关键限定词 / 规范中文术语）。
