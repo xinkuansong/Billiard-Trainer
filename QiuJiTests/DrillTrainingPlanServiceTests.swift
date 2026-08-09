@@ -36,8 +36,8 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
         XCTAssertEqual(fetched?.drills.count, 1)
         XCTAssertEqual(fetched?.drills.first?.drillId, "drill_c042")
         XCTAssertEqual(fetched?.drills.first?.drillNameZh, "初级蛇彩走位")
-        XCTAssertEqual(fetched?.drills.first?.sets, 5)
-        XCTAssertEqual(fetched?.drills.first?.ballsPerSet, 3)
+        // schema V3：计划只存强度系数，`defaultSets` 直接落为轮数；每组球数改由内容派生。
+        XCTAssertEqual(fetched?.drills.first?.roundsPerFormation, 5)
     }
 
     func test_addDrill_toActiveCustomPlan_appearsInToday() throws {
@@ -63,7 +63,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
     func test_addDrill_duplicate_doesNotInsertTwice() throws {
         let plan = CustomPlan(name: "清单", sessionsPerWeek: 3)
         plan.drills = [
-            CustomPlanDrill(drillId: "drill_c042", drillNameZh: "蛇彩", sets: 5, ballsPerSet: 3, order: 0)
+            CustomPlanDrill(drillId: "drill_c042", drillNameZh: "蛇彩", roundsPerFormation: 5, order: 0)
         ]
         context.insert(plan)
         try context.save()

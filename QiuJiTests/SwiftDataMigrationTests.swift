@@ -235,6 +235,111 @@ final class SwiftDataMigrationTests: XCTestCase {
         XCTAssertEqual(set.durationSeconds, 95)
     }
 
+    // MARK: - V2 → V3（自定义计划改存强度系数，v31 W0 / ADR-v31-01）
+
+    /// 用 V2 schema 写一个含自定义计划的真实旧库。三条目分别覆盖单球形 / 双球形 / 三球形，
+    /// 用于验证 `rounds = max(1, sets / 球形数)` 的三种取整分支。
+    private func seedV2Store() throws {
+        let v2Schema = Schema(versionedSchema: QiuJiSchemaV2.self)
+        let config = ModelConfiguration(schema: v2Schema, url: storeURL)
+        let container = try ModelContainer(for: v2Schema, configurations: config)
+        let context = ModelContext(container)
+
+        let session = TrainingSession(ballType: "chinese8")
+        session.note = "V2 旧库训练"
+        context.insert(session)
+
+        let plan = QiuJiSchemaV2.CustomPlan(name: "V2 自定义计划", sessionsPerWeek: 4)
+        context.insert(plan)
+        let legacyDrills = [
+            // drill_c001：单球形（无 tutorial.formations）→ 6 / 1 = 6
+            QiuJiSchemaV2.CustomPlanDrill(
+                drillId: "drill_c001", drillNameZh: "半台直线球",
+                sets: 6, ballsPerSet: 5, order: 0
+            ),
+            // drill_c013：2 球形 → 6 / 2 = 3
+            QiuJiSchemaV2.CustomPlanDrill(
+                drillId: "drill_c013", drillNameZh: "分离角控制",
+                sets: 6, ballsPerSet: 9, order: 1
+            ),
+            // drill_c026：3 球形，2 / 3 = 0 → 下限钳到 1
+            QiuJiSchemaV2.CustomPlanDrill(
+                drillId: "drill_c026", drillNameZh: "多球走位",
+                sets: 2, ballsPerSet: 10, order: 2
+            )
+        ]
+        for drill in legacyDrills { context.insert(drill) }
+        plan.drills = legacyDrills
+
+        try context.save()
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<QiuJiSchemaV2.CustomPlan>()), 1)
+        XCTAssertEqual(try context.fetchCount(FetchDescriptor<QiuJiSchemaV2.CustomPlanDrill>()), 3)
+    }
+
+    func test_migration_V2_to_V3_convertsSetsToRounds_andPreservesData() throws {
+        try seedV2Store()
+
+        let planColumnsBefore = columnNames(ofTable: "ZCUSTOMPLANDRILL")
+        XCTAssertTrue(planColumnsBefore.contains("ZSETS"), "V2 store 应有 sets 列：\(planColumnsBefore)")
+        XCTAssertTrue(planColumnsBefore.contains("ZBALLSPERSET"))
+        XCTAssertFalse(planColumnsBefore.contains("ZROUNDSPERFORMATION"), "V2 store 不应已有 V3 列")
+
+        // 用当前版本容器打开同一个 store 文件 → 触发 V2 → V3 自定义迁移
+        let container = try ModelContainerFactory.makeContainer(at: storeURL)
+        let context = ModelContext(container)
+
+        // 1) 旧数据零丢失
+        let plans = try context.fetch(FetchDescriptor<CustomPlan>())
+        XCTAssertEqual(plans.count, 1)
+        let plan = try XCTUnwrap(plans.first)
+        XCTAssertEqual(plan.name, "V2 自定义计划")
+        XCTAssertEqual(plan.sessionsPerWeek, 4)
+        XCTAssertEqual(plan.drills.count, 3, "迁移不得丢失计划条目")
+
+        let sessions = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.note, "V2 旧库训练")
+
+        // 2) 身份字段与顺序原样保留
+        let drills = plan.drills.sorted { $0.order < $1.order }
+        XCTAssertEqual(drills.map(\.drillId), ["drill_c001", "drill_c013", "drill_c026"])
+        XCTAssertEqual(drills.map(\.drillNameZh), ["半台直线球", "分离角控制", "多球走位"])
+        XCTAssertEqual(drills.map(\.order), [0, 1, 2])
+
+        // 3) 折算规则 rounds = max(1, sets / 球形数)
+        XCTAssertEqual(drills[0].roundsPerFormation, 6, "单球形：6 / 1")
+        XCTAssertEqual(drills[1].roundsPerFormation, 3, "双球形：6 / 2")
+        XCTAssertEqual(drills[2].roundsPerFormation, 1, "三球形：2 / 3 向下取 0，下限钳到 1")
+
+        // 4) 同一物理文件就地改列（非删库重建）
+        let planColumnsAfter = columnNames(ofTable: "ZCUSTOMPLANDRILL")
+        XCTAssertTrue(planColumnsAfter.contains("ZROUNDSPERFORMATION"))
+        for retained in ["ZDRILLID", "ZDRILLNAMEZH", "ZORDER"] {
+            XCTAssertTrue(planColumnsAfter.contains(retained), "缺列 \(retained)")
+        }
+    }
+
+    /// 迁移后写入并重开，证明 V3 形态可持久化。
+    func test_migration_V2_to_V3_thenWrite_persists() throws {
+        try seedV2Store()
+
+        do {
+            let container = try ModelContainerFactory.makeContainer(at: storeURL)
+            let context = ModelContext(container)
+            let plan = try XCTUnwrap(try context.fetch(FetchDescriptor<CustomPlan>()).first)
+            let drill = try XCTUnwrap(plan.drills.first { $0.drillId == "drill_c013" })
+            drill.roundsPerFormation = 5
+            try context.save()
+        }
+
+        let reopened = try ModelContainerFactory.makeContainer(at: storeURL)
+        let context = ModelContext(reopened)
+        let plan = try XCTUnwrap(try context.fetch(FetchDescriptor<CustomPlan>()).first)
+        XCTAssertEqual(plan.drills.count, 3)
+        let drill = try XCTUnwrap(plan.drills.first { $0.drillId == "drill_c013" })
+        XCTAssertEqual(drill.roundsPerFormation, 5)
+    }
+
     /// 新增字段的默认值契约（裸构造），与迁移默认值保持一致。
     func test_newFields_defaultValues_onFreshObjects() throws {
         XCTAssertEqual(TrainingSession().kind, "drill")

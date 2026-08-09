@@ -10,7 +10,15 @@ final class V22W5PlanEnglishTests: XCTestCase {
         "drill_c076", "drill_c077", "drill_c078",
     ]
 
-    func testPlanEnglishDecodesAndMatchesShelfSpec() async {
+    /// dose → 轮数（统一轮数，或按球形逐条求和）。v31 W3a：计划不再存裸组数。
+    static func rounds(of dose: PlanDrillDose) -> Int {
+        if let listed = dose.formations, !listed.isEmpty {
+            return listed.reduce(0) { $0 + $1.rounds }
+        }
+        return dose.roundsPerFormation ?? 0
+    }
+
+    func testPlanEnglishDecodesAndMatchesShelfSpec() async throws {
         let plan = await PlanContentService.shared.loadPlanFromBundle(id: "plan_english")
         XCTAssertNotNil(plan, "plan_english 应可解码为 OfficialPlan")
         guard let plan else { return }
@@ -87,18 +95,25 @@ final class V22W5PlanEnglishTests: XCTestCase {
             )
         }
 
-        // focused 组数 ≥70% 落在加塞主轴（本计划目标 100%）；且无 c018
+        // focused 轮数 ≥70% 落在加塞主轴（本计划目标 100%）；且无 c018
+        // v31 W3a 起计划只存 dose（契约 §6.6），组数口径改为 dose 轮数。
         var englishSets = 0
         var totalFocusedSets = 0
         var focusedIdsAll = Set<String>()
+        // v31 W5：`PlanDrillRef.sets/ballsPerSet` 已删除（契约 §6.6），原逐条
+        // `XCTAssertNil(drill.sets/…)` 不再可编译；且解码器忽略未知键 ⇒ JSON 残留旧字段
+        // 在 Swift 侧不可观察。改为在原始 JSON 层扫描键名，覆盖全计划（不止 focused 段）。
+        try assertPlanJSONHasNoLegacyVolumeKeys("plan_english")
         for week in plan.weeks {
             for session in week.sessions {
                 for phase in session.phases where phase.type == "focused" {
                     for drill in phase.drills {
-                        totalFocusedSets += drill.sets
+                        let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
+                        let rounds = Self.rounds(of: dose)
+                        totalFocusedSets += rounds
                         focusedIdsAll.insert(drill.drillId)
                         if englishIds.contains(drill.drillId) {
-                            englishSets += drill.sets
+                            englishSets += rounds
                         }
                     }
                 }

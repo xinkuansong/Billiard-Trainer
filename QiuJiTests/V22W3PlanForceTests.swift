@@ -9,7 +9,15 @@ final class V22W3PlanForceTests: XCTestCase {
         "drill_c048", "drill_c049", "drill_c050", "drill_c051",
     ]
 
-    func testPlanForceDecodesAndMatchesShelfSpec() async {
+    /// dose → 轮数（统一轮数，或按球形逐条求和）。v31 W3a：计划不再存裸组数。
+    static func rounds(of dose: PlanDrillDose) -> Int {
+        if let listed = dose.formations, !listed.isEmpty {
+            return listed.reduce(0) { $0 + $1.rounds }
+        }
+        return dose.roundsPerFormation ?? 0
+    }
+
+    func testPlanForceDecodesAndMatchesShelfSpec() async throws {
         let plan = await PlanContentService.shared.loadPlanFromBundle(id: "plan_force")
         XCTAssertNotNil(plan, "plan_force 应可解码为 OfficialPlan")
         guard let plan else { return }
@@ -74,16 +82,23 @@ final class V22W3PlanForceTests: XCTestCase {
             )
         }
 
-        // focused 组数 ≥70% 落在 forceControl（本计划目标 100%）
+        // focused 轮数 ≥70% 落在 forceControl（本计划目标 100%）
+        // v31 W3a 起计划只存 dose（契约 §6.6），组数口径改为 dose 轮数。
         var forceSets = 0
         var totalFocusedSets = 0
+        // v31 W5：`PlanDrillRef.sets/ballsPerSet` 已删除（契约 §6.6），原逐条
+        // `XCTAssertNil(drill.sets/…)` 不再可编译；且解码器忽略未知键 ⇒ JSON 残留旧字段
+        // 在 Swift 侧不可观察。改为在原始 JSON 层扫描键名，覆盖全计划（不止 focused 段）。
+        try assertPlanJSONHasNoLegacyVolumeKeys("plan_force")
         for week in plan.weeks {
             for session in week.sessions {
                 for phase in session.phases where phase.type == "focused" {
                     for drill in phase.drills {
-                        totalFocusedSets += drill.sets
+                        let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
+                        let rounds = Self.rounds(of: dose)
+                        totalFocusedSets += rounds
                         if forceControlIds.contains(drill.drillId) {
-                            forceSets += drill.sets
+                            forceSets += rounds
                         }
                     }
                 }

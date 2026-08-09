@@ -197,6 +197,50 @@ final class DrillListViewModelTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(total, 0)
     }
 
+    // MARK: - v31 W2: 副分类（契约 §3.3）
+
+    /// 按分类筛选命中「主 ∪ 副」；分组仍只按主分类（统计口径不变）。
+    func test_categoryFilter_matchesSecondaryCategory_butGroupsByPrimary() async {
+        await viewModel.loadDrills()
+        let all = viewModel.drillsByCategory.flatMap(\.drills)
+        let crossListed = all.filter {
+            $0.category != DrillCategory.positioning.rawValue
+                && ($0.secondaryCategories?.contains(DrillCategory.positioning.rawValue) ?? false)
+        }
+        XCTAssertFalse(crossListed.isEmpty, "库内应存在副分类为 positioning 的跨类 drill")
+
+        viewModel.categoryFilter = .positioning
+        viewModel.applyFiltersSync()
+
+        let hitIds = Set(viewModel.drillsByCategory.flatMap(\.drills).map(\.id))
+        for drill in crossListed {
+            XCTAssertTrue(hitIds.contains(drill.id),
+                          "\(drill.id) 副分类 positioning，筛选应命中")
+        }
+
+        // 分组归属仍是主分类
+        for (category, drills) in viewModel.drillsByCategory {
+            XCTAssertTrue(drills.allSatisfy { $0.category == category.rawValue },
+                          "\(category.rawValue) 分节里出现了非本主分类的 drill")
+        }
+        let sections = Set(viewModel.drillsByCategory.map(\.category.rawValue))
+        XCTAssertGreaterThan(sections.count, 1,
+                             "副分类命中后应出现多个主分类分节，实际：\(sections)")
+    }
+
+    func test_categoryFilter_excludesUnrelatedCategories() async {
+        await viewModel.loadDrills()
+        viewModel.categoryFilter = .positioning
+        viewModel.applyFiltersSync()
+
+        let drills = viewModel.drillsByCategory.flatMap(\.drills)
+        XCTAssertFalse(drills.isEmpty)
+        XCTAssertTrue(drills.allSatisfy {
+            $0.category == DrillCategory.positioning.rawValue
+                || ($0.secondaryCategories?.contains(DrillCategory.positioning.rawValue) ?? false)
+        })
+    }
+
     // MARK: - Category Ordering
 
     func test_categoryOrder_followsDrillCategoryAllCases() async {

@@ -4,12 +4,22 @@ import XCTest
 /// v22 W4：分离角专项 plan_separation 解码 + 周次结构自检。
 final class V22W4PlanSeparationTests: XCTestCase {
 
+    /// separation 分类全量（v33 起 8 → 10 条，新增 c083 吃库分离角 / c084 不吃库分离角）。
     private let separationIds: Set<String> = [
         "drill_c024", "drill_c025", "drill_c026", "drill_c027",
         "drill_c028", "drill_c029", "drill_c030", "drill_c031",
+        "drill_c083", "drill_c084",
     ]
 
-    func testPlanSeparationDecodesAndMatchesShelfSpec() async {
+    /// dose → 轮数（统一轮数，或按球形逐条求和）。v31 W3a：计划不再存裸组数。
+    static func rounds(of dose: PlanDrillDose) -> Int {
+        if let listed = dose.formations, !listed.isEmpty {
+            return listed.reduce(0) { $0 + $1.rounds }
+        }
+        return dose.roundsPerFormation ?? 0
+    }
+
+    func testPlanSeparationDecodesAndMatchesShelfSpec() async throws {
         let plan = await PlanContentService.shared.loadPlanFromBundle(id: "plan_separation")
         XCTAssertNotNil(plan, "plan_separation 应可解码为 OfficialPlan")
         guard let plan else { return }
@@ -78,16 +88,23 @@ final class V22W4PlanSeparationTests: XCTestCase {
             )
         }
 
-        // focused 组数 ≥70% 落在 separation（本计划目标 100%）
+        // focused 轮数 ≥70% 落在 separation（本计划目标 100%）
+        // v31 W3a 起计划只存 dose（契约 §6.6），组数口径改为 dose 轮数。
         var sepSets = 0
         var totalFocusedSets = 0
+        // v31 W5：`PlanDrillRef.sets/ballsPerSet` 已删除（契约 §6.6），原逐条
+        // `XCTAssertNil(drill.sets/…)` 不再可编译；且解码器忽略未知键 ⇒ JSON 残留旧字段
+        // 在 Swift 侧不可观察。改为在原始 JSON 层扫描键名，覆盖全计划（不止 focused 段）。
+        try assertPlanJSONHasNoLegacyVolumeKeys("plan_separation")
         for week in plan.weeks {
             for session in week.sessions {
                 for phase in session.phases where phase.type == "focused" {
                     for drill in phase.drills {
-                        totalFocusedSets += drill.sets
+                        let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
+                        let rounds = Self.rounds(of: dose)
+                        totalFocusedSets += rounds
                         if separationIds.contains(drill.drillId) {
-                            sepSets += drill.sets
+                            sepSets += rounds
                         }
                     }
                 }

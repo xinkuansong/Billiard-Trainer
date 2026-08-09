@@ -82,34 +82,56 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         XCTAssertEqual(vm.drillItems[1].nameZh, "First")
     }
 
-    // MARK: - Update sets / balls
+    // MARK: - Update rounds（v31 W2：只调轮数，球数内容派生）
 
-    func test_updateSets_clamped() {
+    func test_updateRounds_clamped() {
         let vm = CustomPlanBuilderViewModel()
         let item = makeItem()
         vm.drillItems = [item]
-        vm.updateSets(for: item.id, sets: 25)
-        XCTAssertEqual(vm.drillItems[0].sets, 20) // max 20
+        vm.updateRounds(for: item.id, rounds: 25)
+        XCTAssertEqual(vm.drillItems[0].rounds, 20) // max 20
+        XCTAssertEqual(vm.drillItems[0].id, item.id, "改轮数不应换掉行标识")
 
-        vm.updateSets(for: item.id, sets: 0)
-        XCTAssertEqual(vm.drillItems[0].sets, 1) // min 1
+        vm.updateRounds(for: item.id, rounds: 0)
+        XCTAssertEqual(vm.drillItems[0].rounds, 1) // min 1
     }
 
-    func test_updateBallsPerSet_clamped() {
+    /// 每轮球数由 drill 内容派生（v31 R4：计划不再存裸球数），且逐球形展开。
+    func test_rounds_deriveBallsFromContent_perFormation() throws {
+        let content = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c053"))
+        let perFormation = try XCTUnwrap(content.sets.perFormation)
+
         let vm = CustomPlanBuilderViewModel()
-        let item = makeItem()
-        vm.drillItems = [item]
-        vm.updateBallsPerSet(for: item.id, balls: 60)
-        XCTAssertEqual(vm.drillItems[0].ballsPerSet, 50) // max 50
+        vm.addDrill(content)
+        let item = try XCTUnwrap(vm.drillItems.first)
 
-        vm.updateBallsPerSet(for: item.id, balls: 0)
-        XCTAssertEqual(vm.drillItems[0].ballsPerSet, 1) // min 1
+        vm.updateRounds(for: item.id, rounds: 2)
+        let updated = vm.drillItems[0]
+        XCTAssertEqual(updated.rounds, 2)
+        XCTAssertEqual(updated.setCount, perFormation.count * 2)
+        XCTAssertEqual(updated.plannedSets.map(\.targetBalls),
+                       perFormation.flatMap { Array(repeating: $0.ballsPerRound, count: 2) })
+        XCTAssertEqual(updated.totalBalls,
+                       perFormation.reduce(0) { $0 + $1.ballsPerRound * 2 })
+        XCTAssertEqual(vm.totalSetsCount, updated.setCount)
+        XCTAssertEqual(vm.totalBallsCount, updated.totalBalls)
     }
 
-    func test_updateSets_unknown_id_no_crash() {
+    func test_updateRounds_unknown_id_no_crash() {
         let vm = CustomPlanBuilderViewModel()
         vm.drillItems = [makeItem()]
-        vm.updateSets(for: UUID(), sets: 5) // should not crash
+        vm.updateRounds(for: UUID(), rounds: 5) // should not crash
+    }
+
+    /// 保存落库的是轮数（`CustomPlanDrill.roundsPerFormation`，schema V3）。
+    func test_save_persistsRoundsPerFormation() throws {
+        let vm = CustomPlanBuilderViewModel()
+        vm.name = "轮数计划"
+        vm.drillItems = [makeItem(rounds: 4)]
+
+        XCTAssertNotNil(vm.save(context: context))
+        let plan = try XCTUnwrap(try context.fetch(FetchDescriptor<CustomPlan>()).first)
+        XCTAssertEqual(plan.drills.first?.roundsPerFormation, 4)
     }
 
     // MARK: - Save
@@ -221,7 +243,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     func test_edit_existing_plan() {
         let plan = CustomPlan(name: "Original", sessionsPerWeek: 2)
         plan.drills = [
-            CustomPlanDrill(drillId: "d1", drillNameZh: "动作1", sets: 3, ballsPerSet: 10, order: 0)
+            CustomPlanDrill(drillId: "d1", drillNameZh: "动作1", roundsPerFormation: 3, order: 0)
         ]
         context.insert(plan)
         try? context.save()
@@ -239,7 +261,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     func test_save_existing_plan_updates() {
         let plan = CustomPlan(name: "Original", sessionsPerWeek: 2)
         plan.drills = [
-            CustomPlanDrill(drillId: "d1", drillNameZh: "动作1", sets: 3, ballsPerSet: 10, order: 0)
+            CustomPlanDrill(drillId: "d1", drillNameZh: "动作1", roundsPerFormation: 3, order: 0)
         ]
         context.insert(plan)
         try? context.save()
@@ -260,13 +282,13 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeItem(name: String = "测试动作") -> CustomDrillItem {
-        CustomDrillItem(
+    private func makeItem(name: String = "测试动作", rounds: Int = 3) -> CustomDrillItem {
+        // content 为 nil ⇒ 走汇总兜底路径（`TrainingDoseResolver` 分支 3）。
+        CustomPlanBuilderViewModel.makeItem(
             drillId: "drill_test_\(UUID().uuidString.prefix(8))",
             nameZh: name,
-            category: "fundamentals",
-            sets: 3,
-            ballsPerSet: 10
+            content: nil,
+            rounds: rounds
         )
     }
 }

@@ -385,6 +385,99 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertFalse(options.contains { $0.token.isEmpty })
     }
 
+    // MARK: - v31 W2: 多球形组展开
+
+    /// 自由训练加入多球形 drill：组序列按「球形 1 轮 1 → … → 球形 N 轮 M」展开，
+    /// 且逐组预填对应球形（替代旧行为「全部预填第一个球形」）。
+    func test_addDrill_multiFormation_expandsWithPerSetFormationToken() throws {
+        let content = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c013"))
+        let perFormation = try XCTUnwrap(content.sets.perFormation)
+        try XCTSkipIf(perFormation.count < 2, "drill_c013 非多球形")
+
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.addDrill(content)
+
+        let sets = vm.drillSetsData[0]
+        let expectedTokens = perFormation.flatMap {
+            Array(repeating: $0.token, count: $0.defaultRounds)
+        }
+        XCTAssertEqual(sets.map(\.formationToken), expectedTokens)
+        XCTAssertEqual(sets.map(\.targetBalls),
+                       perFormation.flatMap {
+                           Array(repeating: $0.ballsPerRound, count: $0.defaultRounds)
+                       })
+        XCTAssertEqual(sets.map(\.id), Array(1...sets.count))
+        XCTAssertFalse(sets.contains { $0.formationName == nil })
+
+        print("[W2-EVIDENCE] free-mode c013 sets: "
+              + sets.map { "#\($0.id) \($0.formationToken ?? "nil")/\($0.targetBalls)" }
+                  .joined(separator: " | "))
+    }
+
+    /// 逐球形球数异构时，每组 target 跟着自己的球形走。
+    func test_addDrill_heterogeneousFormations_perSetTargets() throws {
+        let content = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c053"))
+        let perFormation = try XCTUnwrap(content.sets.perFormation)
+        try XCTSkipIf(Set(perFormation.map(\.ballsPerRound)).count < 2, "drill_c053 非异构")
+
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.addDrill(content)
+
+        XCTAssertEqual(vm.drillSetsData[0].map(\.targetBalls),
+                       perFormation.flatMap {
+                           Array(repeating: $0.ballsPerRound, count: $0.defaultRounds)
+                       })
+    }
+
+    /// 计划训练：`TodayDrillItem.plannedSets` 原样落到录入行（含逐组球形与球数）。
+    func test_loadDrills_planMode_usesPlannedSets() async {
+        let planned = [
+            PlannedTrainingSet(formationToken: "manual01", formationName: "球形1",
+                               targetBalls: 8, mode: .sequence),
+            PlannedTrainingSet(formationToken: "manual02", formationName: "球形2",
+                               targetBalls: 9, mode: .repetition),
+            PlannedTrainingSet(formationToken: "manual02", formationName: "球形2",
+                               targetBalls: 9, mode: .repetition),
+        ]
+        let item = TodayDrillItem(
+            id: "focused_drill_c013", drillId: "drill_c013", nameZh: "底袋小角度入袋",
+            phaseType: "focused", phaseZh: "专项训练", phaseIcon: "target",
+            plannedSets: planned, volumeText: "2 球形 · 3 轮 · 共 26 球", isCompleted: false
+        )
+        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "plan_test"))
+        await vm.loadDrills()
+
+        XCTAssertEqual(vm.drills.count, 1)
+        XCTAssertEqual(vm.drills[0].plannedSets, planned)
+        XCTAssertEqual(vm.drillSetsData[0].map(\.targetBalls), [8, 9, 9])
+        XCTAssertEqual(vm.drillSetsData[0].map(\.formationToken),
+                       ["manual01", "manual02", "manual02"])
+    }
+
+    /// 手动「加一组」沿用上一组的球形与球数（异构下不得回落到首组球数）。
+    func test_addSet_inheritsLastSetTargetAndFormation() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.drills = [ActiveDrill(
+            drillId: "drill_c013", nameZh: "多球形",
+            plannedSets: [
+                PlannedTrainingSet(formationToken: "manual01", formationName: "球形1",
+                                   targetBalls: 8, mode: .repetition),
+                PlannedTrainingSet(formationToken: "manual02", formationName: "球形2",
+                                   targetBalls: 13, mode: .repetition),
+            ]
+        )]
+        vm.drillSetsData = [[
+            DrillSetData(id: 1, targetBalls: 8, formationToken: "manual01", formationName: "球形1"),
+            DrillSetData(id: 2, targetBalls: 13, formationToken: "manual02", formationName: "球形2"),
+        ]]
+        vm.addSet(drillIndex: 0)
+
+        let added = vm.drillSetsData[0][2]
+        XCTAssertEqual(added.id, 3)
+        XCTAssertEqual(added.targetBalls, 13)
+        XCTAssertEqual(added.formationToken, "manual02")
+    }
+
     // MARK: - Cleanup
 
     func test_cleanup_stops_timer() {
