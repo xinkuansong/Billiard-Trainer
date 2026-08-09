@@ -26,6 +26,11 @@ final class SubscriptionManager: ObservableObject {
     private var transactionListener: Task<Void, Error>?
 
     private init() {
+        #if DEBUG
+        if Self.isEntitlementForcedPremium {
+            isPremium = true
+        }
+        #endif
         transactionListener = listenForTransactions()
     }
 
@@ -95,9 +100,31 @@ final class SubscriptionManager: ObservableObject {
         await loadProducts()
     }
 
+    // MARK: - Test-only Entitlement Override（X-v31-3）
+
+    #if DEBUG
+    /// 强制订阅态：付费内容（付费官方计划等）在模拟器上无法走 StoreKit 购买，
+    /// 靠这个 launch argument 把 `isPremium` 注入，使**所有**依赖它的门禁看到同一状态。
+    static let forcePremiumArgument = "-forcePremium"
+    /// 既有开关：强制未订阅态。同时传入时它优先，保持既有 premium-gate 用例确定性。
+    static let forceNonPremiumArgument = "-forceNonPremium"
+
+    static var isEntitlementForcedPremium: Bool {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard !arguments.contains(forceNonPremiumArgument) else { return false }
+        return arguments.contains(forcePremiumArgument)
+    }
+    #endif
+
     // MARK: - Check Entitlements
 
     func checkEntitlements() async {
+        #if DEBUG
+        if Self.isEntitlementForcedPremium {
+            isPremium = true
+            return
+        }
+        #endif
         let ids = await service.currentEntitlementProductIDs()
         purchasedProductIDs = ids
         isPremium = !ids.isEmpty

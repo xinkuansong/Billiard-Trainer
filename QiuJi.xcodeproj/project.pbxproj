@@ -210,6 +210,7 @@
 		62199BF18C3EB50A61F66376 /* X1_CameraAndAngleArcTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4543BAD027F9038E78361756 /* X1_CameraAndAngleArcTests.swift */; };
 		644A19CD323C5D331CD8F9F4 /* PlanContentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA55D643ED28C29C12C10211 /* PlanContentService.swift */; };
 		6544F969B04EBDC4CFA3B21A /* DrillTutorialKindResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00229B2B82DAE0D377360DA1 /* DrillTutorialKindResolverTests.swift */; };
+		658983F7F29BDEBAEA63CFF1 /* XV313PremiumPlanWalkthroughUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2800B7EB53F0C0CCD16A91D /* XV313PremiumPlanWalkthroughUITests.swift */; };
 		659406DE65FD5510FE1727AC /* BTShotHUDBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A675A36D1BD125DFA62B4CE /* BTShotHUDBar.swift */; };
 		65F6164D9B5EE94E46A99065 /* BTSegmentedTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB26F713796FEF42D79F7927 /* BTSegmentedTab.swift */; };
 		6681222358EC7E6EC98AC8DF /* TaiQiuZhuo.usdz in Resources */ = {isa = PBXBuildFile; fileRef = EA3C188374F32CF49A03E2F5 /* TaiQiuZhuo.usdz */; };
@@ -988,6 +989,7 @@
 		D1359BC3370F303C3D6D68D9 /* AngleHistorySection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHistorySection.swift; sourceTree = "<group>"; };
 		D1A5BDBDF4CB907D4998BC53 /* BallExtractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BallExtractionView.swift; sourceTree = "<group>"; };
 		D25C0F7EB6D5F34BC89FCD60 /* ShotTableLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotTableLayoutTests.swift; sourceTree = "<group>"; };
+		D2800B7EB53F0C0CCD16A91D /* XV313PremiumPlanWalkthroughUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XV313PremiumPlanWalkthroughUITests.swift; sourceTree = "<group>"; };
 		D30E6D46137FEB4AF9EFBD0C /* TrajectoryRendererTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrajectoryRendererTests.swift; sourceTree = "<group>"; };
 		D456250927F96F9106B17C22 /* AngleHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleHomeView.swift; sourceTree = "<group>"; };
 		D4BCCC3F55789FC4FBDFF80A /* LocalDrillFavoriteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDrillFavoriteRepository.swift; sourceTree = "<group>"; };
@@ -1322,6 +1324,7 @@
 				5E85924D86CF09618C0B8AF0 /* X3_BreakFlowUITests.swift */,
 				FE30B7C919F52BAC9EE9BF72 /* X5_BankKickSpinUITests.swift */,
 				A0B6E3C1106573306D07BD5B /* X6_AdjustDraftUITests.swift */,
+				D2800B7EB53F0C0CCD16A91D /* XV313PremiumPlanWalkthroughUITests.swift */,
 			);
 			path = QiuJiUITests;
 			sourceTree = "<group>";
@@ -2596,6 +2599,7 @@
 				0D9BA1523676839984EFC11B /* X5_BankKickSpinUITests.swift in Sources */,
 				7DC18677CBF0CD2963410BC9 /* X6_AdjustDraftUITests.swift in Sources */,
 				AF973F41ACF3F0B3CC3C9484 /* XCUIApplication+Extensions.swift in Sources */,
+				658983F7F29BDEBAEA63CFF1 /* XV313PremiumPlanWalkthroughUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
