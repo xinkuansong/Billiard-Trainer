@@ -43,7 +43,7 @@ final class DrillListViewModelTests: XCTestCase {
     func test_loadDrills_totalDrillCount() async {
         await viewModel.loadDrills()
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
-        XCTAssertEqual(total, 77, "Total drills across all categories should match index.json (77)")
+        XCTAssertEqual(total, 83, "Total drills across all categories should match index.json (83)")
     }
 
     // MARK: - Search Filtering
@@ -56,7 +56,7 @@ final class DrillListViewModelTests: XCTestCase {
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
         XCTAssertGreaterThan(total, 0, "Searching '直线' should find at least one drill")
-        XCTAssertLessThan(total, 77, "Search should narrow down from 77")
+        XCTAssertLessThan(total, 83, "Search should narrow down from 83")
     }
 
     func test_searchFilter_noResults() async {
@@ -80,7 +80,7 @@ final class DrillListViewModelTests: XCTestCase {
         viewModel.applyFiltersSync()
         let restored = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
 
-        XCTAssertEqual(restored, 77)
+        XCTAssertEqual(restored, 83)
         XCTAssertGreaterThan(restored, narrowed)
     }
 
@@ -109,7 +109,7 @@ final class DrillListViewModelTests: XCTestCase {
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
         XCTAssertGreaterThan(total, 0, "Chinese8 filter should find drills")
-        XCTAssertLessThanOrEqual(total, 77)
+        XCTAssertLessThanOrEqual(total, 83)
     }
 
     func test_ballTypeFilter_nineBall() async {
@@ -129,7 +129,7 @@ final class DrillListViewModelTests: XCTestCase {
         viewModel.applyFiltersSync()
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
-        XCTAssertEqual(total, 77)
+        XCTAssertEqual(total, 83)
     }
 
     // MARK: - Level / Badge Filtering (W7 E18–E19)
