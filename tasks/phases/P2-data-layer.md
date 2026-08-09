@@ -213,3 +213,85 @@
     既有数据仍可读；但**已写入新字段的值会不可见**（不会被删除）。
   - 不提供 V2 → V1 的降级迁移：轻量迁移不可逆方向上没有语义损失需求，且 App 不支持降级安装。
   - 若日后必须把某个新字段改成非可选/无默认值，则不能再走轻量迁移，须新增自定义阶段并单独 ADR。
+
+### ADR-004（ADR-v31-01）— SwiftData V3：自定义计划改存强度系数，V2→V3 自定义迁移折算轮数
+
+- **状态**：已采纳（2026-08-09，问题集合 v31 W0）
+- **场景**：
+  - 契约 §6.6（裁定 D14）定：drill JSON 是训练剂量唯一真源，计划（官方 + 自定义）
+    **不再存裸 `sets`/`ballsPerSet`**，只存强度系数，实际球数在激活训练时由内容解析、
+    落 `DrillSet` 时快照冻结。
+  - 持久化侧 `CustomPlanDrill` 存着 `sets` / `ballsPerSet` 两个裸球数字段，与该裁定直接冲突。
+  - 命中 `00-orchestrator.mdc` ADR 强制触发清单两项：**SwiftData Schema 结构性变更** +
+    **`MigrationPlan` 变更**。
+- **选项**：
+  - A：保留旧字段，新增 `roundsPerFormation` 并存 —— 两套真源并行，正是 D14 要消灭的形态；
+  - B：轻量迁移直接删旧字段、新字段取默认值 1 —— 用户已建计划的强度信息全部丢失；
+  - C：新增 V3 + **自定义迁移阶段**，用旧值折算出轮数后写入新字段。
+- **决策**：选 **C**。
+  1. 新增 `QiuJiSchemaV3`（版本 `3.0.0`，`QiuJi/Data/Models/QiuJiSchemaV3.swift`）= 当前顶层模型集；
+     `ModelContainerFactory.currentSchema` 指向 V3。
+  2. `CustomPlanDrill`：`sets` / `ballsPerSet` → `roundsPerFormation: Int = 1`（默认值同时是迁移存储默认值）。
+  3. `CustomPlan` / `CustomPlanDrill` 的**旧形状下沉为 `QiuJiSchemaV2` 的嵌套历史快照**
+     （V1 与 V2 同形，故 `QiuJiSchemaV1.models` 一并改引 `QiuJiSchemaV2.CustomPlan(Drill)`）。
+     沿用 ADR-003 的历史快照范式：V1/V2 嵌套类型冻结、禁止再修改。
+  4. `QiuJiMigrationPlan.stages` = `[.lightweight(V1→V2), .custom(V2→V3, willMigrate:didMigrate:)]`。
+- **原因（为什么不能是轻量迁移）**：`roundsPerFormation` 的值要由旧 `sets` 与该 drill 的**球形数**
+  算出，而旧列在 V3 形态里已不存在——轻量迁移没有读旧值的时机。故 `willMigrate` 先按行 id
+  记下折算结果（`CustomPlanDoseMigration.pendingRounds`），`didMigrate` 再写回新列。
+- **折算规则**：`rounds = max(1, sets / 球形数)`，无球形声明按 1 球形算（即 `rounds = sets`）。
+  球形数取 `DrillContentService.formationCount(forDrillId:)`：优先 `sets.perFormation.count`
+  （v31 内容批 W1x 落地后为权威），回落 `tutorial.formations.count`，再回落 1。
+  下限 1 轮：短序列多球形（如 2 组 3 球形）折算为 0 时钳到 1，宁可多练不可归零。
+- **实证（红线「数据零丢失」不得以删库重建绕过）**：
+  `QiuJiTests/SwiftDataMigrationTests.swift` 新增两例，沿用 ADR-003 的 v29 W3 验证法——
+  用 V2 schema 写落盘旧库（1 计划 / 3 条目，分别覆盖单球形 6/1、双球形 6/2、三球形 2/3 三种取整分支），
+  用当前容器打开同一文件，断言：计划与条目条数、名称、`drillId`、`drillNameZh`、`order` 全部不变，
+  三条 `roundsPerFormation` 分别为 6 / 3 / 1；并用 `PRAGMA table_info` 证明迁移前
+  `ZCUSTOMPLANDRILL` 有 `ZSETS`/`ZBALLSPERSET` 无 `ZROUNDSPERFORMATION`、迁移后有新列且
+  身份列俱在（同一物理文件就地改列）。另一例证明迁移后写入可持久化。
+- **后果**：
+  - `DrillTrainingPlanService` / `CustomPlanBuilderViewModel` / `TrainingHomeViewModel` 的
+    每组球数改为从内容侧 `defaultBallsPerSet` 回落取值——这是 **W0 的过渡实现**，
+    W2 会改为按 `perFormation` 逐球形派生；
+  - 迁移期间会读 Bundle drill JSON（`formationCount`），迁移不再是纯数据库操作；
+    内容缺失时回落 1 球形，等价于 `rounds = sets`，不会失败；
+  - `CustomPlanDoseMigration.pendingRounds` 是 `nonisolated(unsafe)` 静态字典，
+    仅在一次迁移的 will/did 之间存活并在 `didMigrate` 清空。
+- **回滚考虑**：不提供 V3 → V2 降级（App 不支持降级安装）。代码回滚会使 `roundsPerFormation`
+  列变成未映射属性，旧代码读不到强度信息且 `sets`/`ballsPerSet` 已不存在，等价于用户自定义
+  计划的量值全部回落默认——故一旦发版，回滚需配套写反向迁移。
+- **日期**：2026-08-09
+
+### ADR-005（ADR-v31-02）— 新增 `TrainingDoseResolver`：剂量解析收敛为 Data 层单一通路
+
+- **状态**：已采纳（2026-08-09，问题集合 v31 W2）
+- **场景**：契约 §6.6 定「计划只存强度系数，实际球数在激活训练时由内容解析」。该解析
+  同时被 4 个消费方需要：`TrainingHomeViewModel`（今日课表）、`ActiveTrainingViewModel`
+  （录入展开与落库）、`CustomPlanBuilderViewModel`（自定义计划录入预览）、动作库/计划详情
+  的展示文案。命中 ADR 强制触发清单的**跨模块边界**一项：新增一条 Data → Features 的
+  公共通路（含新值类型 `PlannedTrainingSet` / `ResolvedDose`）。
+- **选项**：
+  - A：各 ViewModel 各自解析 —— 四份口径必然漂移（v29 的「全部预填第一个球形」就是这么来的）；
+  - B：塞进 `DrillContentService` —— 该服务职责是内容加载与解码，混入计划语义会让内容侧
+    单测被计划格式牵连；
+  - C：新增独立无状态解析器 `QiuJi/Data/Services/TrainingDoseResolver.swift`。
+- **决策**：选 **C**。`TrainingDoseResolver.resolve(content:dose:legacySets:legacyBallsPerSet:formationOptions:)`
+  是唯一入口，输出 `ResolvedDose`（球形组列表）与派生 `plannedSets`（展开后的组序列）。
+  1. **展开顺序**固定为球形 1 轮 1 → … → 球形 N 轮 M，顺序以内容 `perFormation` 声明序为准
+     （球形即难度阶梯，契约 §6.6 推论 2）；
+  2. **逐组 `targetBalls`** = 该球形 `ballsPerRound`，异构球形逐组不同；
+  3. **单球形不带 token**（`formationToken`/`formationName` 保持 nil，契约 §4.1），
+     `formationOptions(forDrillId:)` 仍只在 >1 球形时返回非空；
+  4. **三条路径**：旧格式计划条目（`sets`/`ballsPerSet` 非 nil）→ 同构兼容路径，不做球形展开；
+     有 `perFormation` → 逐球形展开；无 `perFormation`（8 条无序列 drill）→ 汇总兜底
+     `defaultSets`/`defaultBallsPerSet`。
+- **后果**：
+  - `TodayDrillItem` / `ActiveDrill` / `CustomDrillItem` 均改为携带 `[PlannedTrainingSet]`，
+    原先单一的 `sets`/`ballsPerSet` 退化为派生只读属性 —— 这是表达异构多球形的必要条件；
+  - 展示文案统一由 `ResolvedDose.volumeText(unitLabel:)` / `compactVolumeText` 产出，
+    同构「N 轮 × N 球/杆」、异构「N 球形 · N 轮 · 共 N 球」；
+  - `PlanDrillRef.legacyVolume` 不再是多球形展开路径，仅供 W3 重写前的旧格式官方计划兜底；
+  - W3 重写官方计划、W5 删 `PlanDrillRef.sets/ballsPerSet` 后，本 ADR 第 4 条的
+    「旧格式路径」应随之删除。
+- **日期**：2026-08-09
