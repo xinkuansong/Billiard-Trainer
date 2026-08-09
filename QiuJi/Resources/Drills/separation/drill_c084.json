@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "沿参考球列逐档击打，能提前指出母球会走向哪一颗，且命中过半",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

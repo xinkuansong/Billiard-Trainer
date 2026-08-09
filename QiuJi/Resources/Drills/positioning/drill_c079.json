@@ -19,7 +19,15 @@
   "standardCriteria": "十组中至少五组按顺序把四颗球全部打进，且每次走位都真的吃到一库",
   "sets": {
     "defaultSets": 10,
-    "defaultBallsPerSet": 4
+    "defaultBallsPerSet": 4,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "sequence",
+        "ballsPerRound": 4,
+        "defaultRounds": 10
+      }
+    ]
   },
   "animation": {
     "cueBall": {

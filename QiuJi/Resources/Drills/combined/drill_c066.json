@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "连续 10 次开球，至少 6 次进 ≥1 颗目标球，且母球未进袋",
   "sets": {
-    "defaultSets": 10,
-    "defaultBallsPerSet": 1
+    "defaultSets": 1,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 1
+      }
+    ]
   },
   "animation": {
     "cueBall": {

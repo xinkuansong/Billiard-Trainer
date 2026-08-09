@@ -3,6 +3,9 @@
   "nameZh": "控力走位圈",
   "nameEn": "Force Control Target Zone",
   "category": "forceControl",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "subcategory": "targetZone",
   "ballType": [
     "chinese8"
@@ -18,8 +21,16 @@
   ],
   "standardCriteria": "10球中5球进袋且母球停在目标区域30厘米内",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "Snipaste_2026_06_19_16_49_09",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

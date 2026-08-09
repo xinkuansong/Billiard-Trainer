@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "五档均将 1 号打进右侧中袋且母球留台；至少能稳定打出「轻推近停」与「纯低杆远退」两档落点差异",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

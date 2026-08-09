@@ -34,6 +34,9 @@
     "chinese8"
   ],
   "category": "cueAction",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "coachingPoints": [
     "杆法锁死：低杆加半颗皮头塞——本课练回拉加塞，不练高杆跟进",
     "同一切角左右塞对打，盯回位弧线的左右差；力度后半段提到中力，勿沿用前四档小力习惯",
@@ -48,8 +51,16 @@
   "nameEn": "Draw with Side Spin Return",
   "nameZh": "低杆加塞回位",
   "sets": {
-    "defaultBallsPerSet": 10,
-    "defaultSets": 4
+    "defaultSets": 4,
+    "defaultBallsPerSet": 12,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 12,
+        "defaultRounds": 4
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

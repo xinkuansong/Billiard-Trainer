@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "按示范完成 7 档切角（约 41°→77°）各进右下角袋至少一次；同档连续 3 次不丢即该档过关",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 15
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

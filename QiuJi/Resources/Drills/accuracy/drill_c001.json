@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "按示范顺序 1→8→2→3→4 全部打进左下角袋；整组可重复，稳定完成即过关",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 5
+    "defaultSets": 10,
+    "defaultBallsPerSet": 5,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "sequence",
+        "ballsPerRound": 5,
+        "defaultRounds": 10
+      }
+    ]
   },
   "animation": {
     "cueBall": {

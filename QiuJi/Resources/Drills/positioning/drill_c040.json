@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "十档均将 1 号打进右侧中袋且母球留台；能说清高杆左塞与低杆左塞（及右塞档）停位差在哪一侧",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

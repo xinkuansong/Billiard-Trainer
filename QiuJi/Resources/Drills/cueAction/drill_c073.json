@@ -48,8 +48,22 @@
   "nameEn": "Squirt Awareness · Near Straight",
   "nameZh": "挤偏认知·直球近台",
   "sets": {
+    "defaultSets": 4,
     "defaultBallsPerSet": 10,
-    "defaultSets": 4
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      },
+      {
+        "token": "manual02",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

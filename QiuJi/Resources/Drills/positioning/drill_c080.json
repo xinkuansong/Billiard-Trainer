@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "每条线路各打一组，母球落到目标半台的次数过半；能说出两条线路的落点差别在哪",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 15
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

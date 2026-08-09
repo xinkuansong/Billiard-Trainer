@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "按示范 5 档近台近直线各进左下角袋至少一次；母球留台；同档连续 3 次不丢即该档过关",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 5
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

@@ -284,6 +284,9 @@
     "chinese8"
   ],
   "category": "accuracy",
+  "secondaryCategories": [
+    "cueAction"
+  ],
   "coachingPoints": [
     "五档只改切角：塞侧锁右塞半颗皮头，专注让点随切角变薄",
     "右塞挤左→瞄准向右让；越薄让点越要稳，不要靠甩杆",
@@ -298,8 +301,16 @@
   "nameEn": "Wide-Angle Spin Potting",
   "nameZh": "中大角度带塞进袋",
   "sets": {
+    "defaultSets": 5,
     "defaultBallsPerSet": 10,
-    "defaultSets": 6
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

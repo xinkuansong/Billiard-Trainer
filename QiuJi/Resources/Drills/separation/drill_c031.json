@@ -3,6 +3,9 @@
   "nameZh": "分离角综合挑战",
   "nameEn": "Separation Angle Master Challenge",
   "category": "separation",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "subcategory": "advanced",
   "ballType": [
     "chinese8"
@@ -18,8 +21,16 @@
   ],
   "standardCriteria": "10球中4球进袋且母球停在20厘米目标区内",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 4,
+    "defaultBallsPerSet": 13,
+    "perFormation": [
+      {
+        "token": "Snipaste_2026_06_19_13_52_32",
+        "mode": "repetition",
+        "ballsPerRound": 13,
+        "defaultRounds": 4
+      }
+    ]
   },
   "animation": {
     "cueBall": {

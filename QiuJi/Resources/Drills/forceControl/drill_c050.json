@@ -3,6 +3,9 @@
   "nameZh": "软打控位",
   "nameEn": "Soft Touch Position Control",
   "category": "forceControl",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "subcategory": "softPosition",
   "ballType": [
     "chinese8"
@@ -18,8 +21,16 @@
   ],
   "standardCriteria": "五档软打各进袋至少一次，且母球停在示范所示的近距控位带内；同档连续 3 次不丢即过关",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

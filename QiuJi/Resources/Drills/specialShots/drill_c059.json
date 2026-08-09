@@ -18,7 +18,7 @@
   ],
   "standardCriteria": "10 次中至少 3 次母球跳过障碍并碰到目标球（不要求进袋）",
   "sets": {
-    "defaultSets": 3,
+    "defaultSets": 4,
     "defaultBallsPerSet": 10
   },
   "animation": {

@@ -18,8 +18,22 @@
   ],
   "standardCriteria": "球形1 完成 4 档力度、球形2 完成 4 档距离：每档目标球进左下角袋且母球留台；同档连续 3 次合格即该档过关",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 4,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      },
+      {
+        "token": "manual02",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      }
+    ]
   },
   "animation": {
     "cueBall": {

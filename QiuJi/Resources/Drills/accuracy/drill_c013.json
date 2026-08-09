@@ -18,8 +18,22 @@
   ],
   "standardCriteria": "球形1：8 档各进左下角袋至少一次；球形2：9 档各进至少一次；同档连续 3 次不丢即该档过关",
   "sets": {
-    "defaultSets": 2,
-    "defaultBallsPerSet": 9
+    "defaultSets": 4,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      },
+      {
+        "token": "manual02",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      }
+    ]
   },
   "animation": {
     "cueBall": {

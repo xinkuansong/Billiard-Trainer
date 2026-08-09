@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "按示范完成 7 档距离：每档 8 号进左下角袋，且母球停在 8 号原位附近约 1 颗球内；同档连续 3 次合格即该档过关",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

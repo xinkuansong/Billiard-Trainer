@@ -19,7 +19,15 @@
   "standardCriteria": "十组中至少五组把四颗球全部打进同一个袋，中途不出现无角度可打的死位",
   "sets": {
     "defaultSets": 10,
-    "defaultBallsPerSet": 4
+    "defaultBallsPerSet": 4,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "sequence",
+        "ballsPerRound": 4,
+        "defaultRounds": 10
+      }
+    ]
   },
   "animation": {
     "cueBall": {

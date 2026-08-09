@@ -18,7 +18,7 @@
   ],
   "standardCriteria": "连续 10 组自摆五球挑战，至少 3 组五球全部连续进袋（中途无重摆）",
   "sets": {
-    "defaultSets": 5,
+    "defaultSets": 10,
     "defaultBallsPerSet": 5
   },
   "animation": {

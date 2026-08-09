@@ -19,7 +19,15 @@
   "standardCriteria": "八档各多次：8 号进左下角袋；瞄准线不因改杆法而扭曲；高杆/低杆档以母球留台为合格",
   "sets": {
     "defaultSets": 3,
-    "defaultBallsPerSet": 15
+    "defaultBallsPerSet": 15,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 3
+      }
+    ]
   },
   "animation": {
     "cueBall": {

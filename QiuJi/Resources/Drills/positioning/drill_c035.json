@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "按示范完成八杆：前六杆 1 号进左下角袋，第七、八杆进左侧中袋；第七杆后母球停位能让第八杆以中小角度进攻左侧中袋",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "按示范完成四杆：前三杆 1 号进左下角袋、第四杆进右侧中袋；第三杆后母球停在 1 号左方约 3 颗球、切角接近直线",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

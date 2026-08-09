@@ -10,7 +10,8 @@
 | `id` | `String` | ✅ | Unique ID, e.g. `drill_c001` |
 | `nameZh` | `String` | ✅ | Chinese display name |
 | `nameEn` | `String` | ✅ | English display name |
-| `category` | `String` | ✅ | One of 8 categories (see table below) |
+| `category` | `String` | ✅ | 主分类，One of 8 categories (see table below)。目录归属 / `index.json` 归属 / **统计归属** 一律看它 |
+| `secondaryCategories` | `[String]?` | ❌ | 副分类标签（v31 R1，契约 §3.3）。**每条 drill ≤1 个**，取值为 8 类之一且 ≠ `category`。仅影响动作库筛选命中；⛔ 不参与统计、不改文件目录、不在 `index.json` 产生第二条登记 |
 | `subcategory` | `String` | ✅ | Subcategory within the category |
 | `ballType` | `[String]` | ✅ | `"chinese8"`, `"nineBall"`, or `"universal"` |
 | `level` | `String` | ✅ | `"L0"` – `"L4"` |
@@ -27,10 +28,33 @@
 
 ## `DrillSetsConfig`
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `defaultSets` | `Int` | Recommended set count |
-| `defaultBallsPerSet` | `Int` | Balls per set |
+训练剂量的语义单位是**球形**，不是 drill（v31 R3，契约 §5.6）。
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `defaultSets` | `Int` | ✅ | 汇总兜底 = `Σ perFormation[].defaultRounds`。**派生值**，与 `perFormation` 冲突时以后者为准 |
+| `defaultBallsPerSet` | `Int` | ✅ | 汇总兜底 = 主球形的 `ballsPerRound`。多球形异构时不足以还原真实剂量，仅供未展开球形的场景显示 |
+| `perFormation` | `[FormationDose]?` | ◑ | 逐球形剂量。**有序列的 drill 必须写**（不变量 I6a）；无序列 drill 豁免（契约 §5.6.4） |
+
+### `FormationDose`
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `token` | `String` | ✅ | 球形 token，与序列文件名 token / `tutorial.formations[].id` 同一取值（契约 §3.1）。⛔ 不是新标识符 |
+| `mode` | `String` | ✅ | `"sequence"`（1 轮 = 按序打完序列全部杆）或 `"repetition"`（序列仅示范，1 轮 = 重复 N 次） |
+| `ballsPerRound` | `Int` | ✅ | 每轮球数。`sequence` 型 **锁死 = 序列实测杆数**（不变量 I6b，⛔ 禁止手抄或估算）；`repetition` 型人工定，10–15；**阶梯型球形（档数 > 15）上界放宽到档数**（契约 §5.6.2 / D15）|
+| `defaultRounds` | `Int` | ✅ | 推荐轮数。总量 `Σ(ballsPerRound × defaultRounds)` 落 40–60 球，轮数向下取，下限 1 轮 |
+
+```json
+"sets": {
+  "defaultSets": 6,
+  "defaultBallsPerSet": 8,
+  "perFormation": [
+    { "token": "manual01", "mode": "sequence", "ballsPerRound": 8, "defaultRounds": 4 },
+    { "token": "manual02", "mode": "sequence", "ballsPerRound": 9, "defaultRounds": 2 }
+  ]
+}
+```
 
 ## `DrillTutorial`
 

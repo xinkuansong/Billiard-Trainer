@@ -3,6 +3,9 @@
   "nameZh": "中级蛇彩",
   "nameEn": "Intermediate Snake Drill",
   "category": "combined",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "subcategory": "snakeDrill",
   "ballType": [
     "chinese8"
@@ -19,7 +22,21 @@
   "standardCriteria": "球形1：同一三球中线布局下完成 8 种母球起点的 1 号进左侧中袋，母球落点与示范一致；球形2：按序完成十杆连续进袋，第九杆后母球停在可打 10 号右下角袋的位置",
   "sets": {
     "defaultSets": 5,
-    "defaultBallsPerSet": 8
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      },
+      {
+        "token": "manual02",
+        "mode": "sequence",
+        "ballsPerRound": 10,
+        "defaultRounds": 3
+      }
+    ]
   },
   "animation": {
     "cueBall": {

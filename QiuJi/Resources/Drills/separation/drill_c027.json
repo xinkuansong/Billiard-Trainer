@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "4 档杆法各进右侧中袋至少一次，且能区分中杆与纯高杆的母球落点差异",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

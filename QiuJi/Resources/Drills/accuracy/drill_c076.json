@@ -136,6 +136,9 @@
     "chinese8"
   ],
   "category": "accuracy",
+  "secondaryCategories": [
+    "cueAction"
+  ],
   "coachingPoints": [
     "真变量是顺塞/反塞（塞相对切向同侧/异侧），不是死记绝对左右",
     "左塞挤右→瞄准向左让；右塞对称",
@@ -150,8 +153,22 @@
   "nameEn": "Small-Angle Spin Potting",
   "nameZh": "小角度带塞进袋",
   "sets": {
-    "defaultBallsPerSet": 10,
-    "defaultSets": 6
+    "defaultSets": 4,
+    "defaultBallsPerSet": 14,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 14,
+        "defaultRounds": 2
+      },
+      {
+        "token": "manual02",
+        "mode": "repetition",
+        "ballsPerRound": 14,
+        "defaultRounds": 2
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

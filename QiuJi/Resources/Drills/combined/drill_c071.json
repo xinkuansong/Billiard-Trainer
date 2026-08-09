@@ -3,6 +3,9 @@
   "nameZh": "高级蛇彩贴库综合",
   "nameEn": "Advanced Snake with Rail Shots",
   "category": "combined",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "subcategory": "advancedSnake",
   "ballType": [
     "chinese8"
@@ -18,8 +21,22 @@
   ],
   "standardCriteria": "球形1：近底库三球布局下完成 8 种母球起点的 1 号进左下角袋，母球落点与示范一致；球形2：按序完成十五杆连续进袋，第十四杆后母球停在可打 15 号左上角袋的位置",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 15
+    "defaultSets": 4,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      },
+      {
+        "token": "manual02",
+        "mode": "sequence",
+        "ballsPerRound": 15,
+        "defaultRounds": 2
+      }
+    ]
   },
   "animation": {
     "cueBall": {

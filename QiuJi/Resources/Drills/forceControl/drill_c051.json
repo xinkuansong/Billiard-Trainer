@@ -3,6 +3,9 @@
   "nameZh": "全力度走位综合",
   "nameEn": "Full Force Range Position",
   "category": "forceControl",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "subcategory": "fullRange",
   "ballType": [
     "chinese8"
@@ -18,8 +21,16 @@
   ],
   "standardCriteria": "四档各进左下角袋至少一次，且母球停点随档位落在不同区域；同档连续 2 次落在目标带内即过关",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

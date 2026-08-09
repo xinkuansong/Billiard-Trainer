@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "三档均将 1 号打进右侧中袋且母球留台；能清楚区分中杆、中高杆、纯低杆三档停位差异",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 5,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "animation": {
     "cueBall": {

@@ -19,7 +19,15 @@
   "standardCriteria": "按示范 7 个距离档各将母球打进右下角袋至少一次；同档连续 3 次不丢即该档过关",
   "sets": {
     "defaultSets": 3,
-    "defaultBallsPerSet": 15
+    "defaultBallsPerSet": 15,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 3
+      }
+    ]
   },
   "animation": {
     "cueBall": {

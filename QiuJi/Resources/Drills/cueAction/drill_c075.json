@@ -48,8 +48,28 @@
   "nameEn": "Side-Spin Levels",
   "nameZh": "塞量阶梯",
   "sets": {
+    "defaultSets": 4,
     "defaultBallsPerSet": 10,
-    "defaultSets": 6
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      },
+      {
+        "token": "manual02",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 1
+      },
+      {
+        "token": "manual03",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 1
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

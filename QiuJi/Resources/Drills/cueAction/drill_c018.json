@@ -34,6 +34,9 @@
     "chinese8"
   ],
   "category": "cueAction",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "coachingPoints": [
     "先打中杆基准，再左右塞对打——看清半颗皮头塞单独能把母球拧到哪一侧",
     "中高杆段看跟进+塞的合成；中低杆段看回拉+塞的合成，不要把两段力度习惯混用",
@@ -48,8 +51,16 @@
   "nameEn": "Side-Spin One-Cushion",
   "nameZh": "加塞一库变线",
   "sets": {
+    "defaultSets": 5,
     "defaultBallsPerSet": 10,
-    "defaultSets": 6
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 5
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

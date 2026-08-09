@@ -18,8 +18,28 @@
   ],
   "standardCriteria": "10 次中至少 4 次 1 号进左下角袋，且未先碰库",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 4,
+    "defaultBallsPerSet": 10,
+    "perFormation": [
+      {
+        "token": "Snipaste_2026_06_19_17_32_46",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 2
+      },
+      {
+        "token": "Snipaste_2026_06_19_17_35_51",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 1
+      },
+      {
+        "token": "Snipaste_2026_06_19_17_37_37",
+        "mode": "repetition",
+        "ballsPerRound": 10,
+        "defaultRounds": 1
+      }
+    ]
   },
   "animation": {
     "cueBall": {

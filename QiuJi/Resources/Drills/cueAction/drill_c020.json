@@ -34,6 +34,9 @@
     "chinese8"
   ],
   "category": "cueAction",
+  "secondaryCategories": [
+    "positioning"
+  ],
   "coachingPoints": [
     "杆法锁死：中高杆加半颗皮头塞——本课不练高低杆切换，只练高杆加塞在不同切角下的表现",
     "同一切角先左塞再右塞（或按示范顺序），盯母球停区左右差，不要混成「随便加塞进袋」",
@@ -48,8 +51,16 @@
   "nameEn": "Follow with Side Spin Position",
   "nameZh": "高杆加塞走位",
   "sets": {
-    "defaultBallsPerSet": 10,
-    "defaultSets": 4
+    "defaultSets": 3,
+    "defaultBallsPerSet": 16,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 16,
+        "defaultRounds": 3
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

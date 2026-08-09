@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "十二档均将 1 号打进示范袋口且母球留台；能区分同摆位下高杆与低杆（或加塞）的停位差异",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 10
+    "defaultSets": 4,
+    "defaultBallsPerSet": 12,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 12,
+        "defaultRounds": 4
+      }
+    ]
   },
   "animation": {
     "cueBall": {

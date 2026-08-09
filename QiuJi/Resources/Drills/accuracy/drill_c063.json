@@ -18,8 +18,16 @@
   ],
   "standardCriteria": "按示范将 1、2 号依次打进右下角袋；整组连续完成至少 1 次",
   "sets": {
-    "defaultSets": 3,
-    "defaultBallsPerSet": 15
+    "defaultSets": 25,
+    "defaultBallsPerSet": 2,
+    "perFormation": [
+      {
+        "token": "Snipaste_2026_06_19_17_58_23",
+        "mode": "sequence",
+        "ballsPerRound": 2,
+        "defaultRounds": 25
+      }
+    ]
   },
   "animation": {
     "cueBall": {

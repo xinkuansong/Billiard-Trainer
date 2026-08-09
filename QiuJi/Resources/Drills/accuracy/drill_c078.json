@@ -136,6 +136,9 @@
     "chinese8"
   ],
   "category": "accuracy",
+  "secondaryCategories": [
+    "cueAction"
+  ],
   "coachingPoints": [
     "远台放大挤偏与力度误差——先让点，再出杆",
     "同一切角对比高杆与低杆：走位不同，进袋让点习惯也要跟着调",
@@ -150,8 +153,16 @@
   "nameEn": "Long-Table Spin Accuracy",
   "nameZh": "远台带塞准度",
   "sets": {
-    "defaultBallsPerSet": 10,
-    "defaultSets": 4
+    "defaultSets": 3,
+    "defaultBallsPerSet": 16,
+    "perFormation": [
+      {
+        "token": "manual01",
+        "mode": "repetition",
+        "ballsPerRound": 16,
+        "defaultRounds": 3
+      }
+    ]
   },
   "shotIntent": {
     "version": 1,

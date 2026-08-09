@@ -19,7 +19,21 @@
   "standardCriteria": "球形 A：15 次中至少 8 次 1 号进右下角袋；球形 B：两档力度各多次，以进袋为准（第二档示范未进袋，勿照抄结果）",
   "sets": {
     "defaultSets": 3,
-    "defaultBallsPerSet": 15
+    "defaultBallsPerSet": 15,
+    "perFormation": [
+      {
+        "token": "Snipaste_2026_06_02_00_19_36",
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 2
+      },
+      {
+        "token": "Snipaste_2026_06_02_00_22_05",
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 1
+      }
+    ]
   },
   "animation": {
     "cueBall": {
