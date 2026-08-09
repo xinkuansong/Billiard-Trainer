@@ -20,5 +20,9 @@
     "drill_c068",
     "drill_c070"
   ],
-  "_i9_doc": "I9 永久豁免：契约 §8.5 的 8 个 drill 本质上录不出序列（盘面随机/无特定盘面/引擎不支持腾空/成功判据非进袋）。需要独立于出片管线的第二通道，不是待办缺口。"
+  "_i9_doc": "I9 永久豁免：契约 §8.5 的 8 个 drill 本质上录不出序列（盘面随机/无特定盘面/引擎不支持腾空/成功判据非进袋）。需要独立于出片管线的第二通道，不是待办缺口。",
+  "i6a_token_mismatch_exempt": {},
+  "_i6a_doc": "I6a 已知豁免（drillId → 允许的 perFormation token 列表）：v31 W4 落地时为空——全库 75 条有序列 drill 的 perFormation token 集合都与序列一致。结构性豁免（无序列 drill 不写 perFormation，契约 §5.6.4）由规则判定，不入本清单。棘轮：只许保持为空或更短。",
+  "i6b_shots_exempt": {},
+  "_i6b_doc": "I6b 已知豁免（drillId → 允许偏离实测杆数的 token 列表）：v31 W4 落地时为空——全库 sequence 型球形的 ballsPerRound 都等于序列实测杆数。repetition 型按契约 §5.6.2 由规则结构性豁免（序列仅作示范），不入本清单；其数量在门禁输出里以「规则豁免 N」显示，便于观察漂移。棘轮：只许保持为空或更短。"
 }

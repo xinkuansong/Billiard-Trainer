@@ -47,8 +47,8 @@ help:
 	@echo "  make position-export-stills  只重渲静帧（修开局图等，保留既有 mp4）"
 	@echo "  make thumbnails   动作库缩略图烘焙（Resources/DrillThumbnails/；烘焙 runner 不随 make test 跑）"
 	@echo "  make tryout-sync  同步 drill 序列到 App Bundle 试打球形（Resources/DrillBoards/）"
-	@echo "  make verify-tutorials  内容不变量全量校验（C1–C4 + I5/I7/I8/I9/I10；C4 也计入退出码）"
-	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I10 模型可解码性，v30 X-1 新增）"
+	@echo "  make verify-tutorials  内容不变量全量校验（C1–C4 + I5/I6a/I6b/I7/I8/I9/I10/I11）"
+	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I6a/I6b 剂量口径与 I11 计划校验，v31 W4 新增）"
 	@echo "  make invariant-selftest  不变量检查自测（构造性用例证明每项真会报错）"
 	@echo "  make verify-doc-size  进度文档体积门禁（PROGRESS.md / hub 状态卡滚动归档纪律）"
 	@echo "  make install-hooks  安装 git 钩子（pre-push 内容不变量门禁）"
@@ -248,8 +248,9 @@ verify-tutorials:
 
 # ────────────────────────────────────────────
 # 内容不变量门禁（问题集合 v29 W9；契约 §7）
-# verify-gate           = pre-push 钩子的入口。阻塞 C1/C2/C3/C4/I5/I7/I8/I9/I10
-#                         （v26 W13：C4 已从 GATE_EXEMPT_CHECKS 移除并转正）。
+# verify-gate           = pre-push 钩子的入口。阻塞 C1/C2/C3/C4/I5/I6a/I6b/I7/I8/I9/I10/I11
+#                         （v26 W13：C4 已从 GATE_EXEMPT_CHECKS 移除并转正；
+#                          v31 W4：I6a/I6b 剂量口径与 I11 官方计划校验接入，均为阻塞项）。
 # invariant-selftest    = 构造性用例：每个检查项都在影子内容库上制造一处不一致，
 #                         证明它真会报错（不是永远 PASS 的空壳）。
 # install-hooks         = 把 scripts/hooks/* 装进 .git/hooks（git 不跟踪 .git/hooks，

@@ -19,6 +19,12 @@ verify_tutorial_sync.py — 内容不变量校验（契约 .kiro/steering/conten
 模型可解码性（v30 X-1 新增）：
   I10 全部 bundled drill JSON 能被 App 的 Codable 模型解码（必填字段齐全、类型正确）
 
+剂量与计划绑定（v31 W4 新增，契约 §5.6 / §6.6）：
+  I6a 有序列 drill 的 `sets.perFormation` token 集合 == 该 drill 的序列 token 集合
+  I6b `mode == sequence` 的球形 `ballsPerRound` == 该球形序列的实测杆数（len(steps)）
+  I11 官方计划可解析：drillId ∈ index.json、dose 结构可解析、按球形引用的 token
+      ∈ 该 drill 的 perFormation token 集合 ∩ 序列 token 集合
+
 基线与已知豁免真源：scripts/content_invariant_baselines.json（棘轮，只许收紧）。
 
 用法：
@@ -47,7 +53,7 @@ from verify_tutorial_images import collect_image_refs  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_BASELINES = Path(__file__).resolve().parent / "content_invariant_baselines.json"
 
-CHECK_IDS = ["C1", "C2", "C3", "C4", "I5", "I7", "I8", "I9", "I10"]
+CHECK_IDS = ["C1", "C2", "C3", "C4", "I5", "I6a", "I6b", "I7", "I8", "I9", "I10", "I11"]
 # 门禁模式下不计入退出码的检查（已知豁免）。v26 W13：C4 已转正为阻塞，集合为空。
 GATE_EXEMPT_CHECKS: set[str] = set()
 # 计入 FAIL 的结果键；warn / *_idle / exempt 等一律不计。
@@ -61,6 +67,7 @@ class Paths:
         self.root = root
         self.drills = root / "QiuJi" / "Resources" / "Drills"
         self.tutorials = root / "QiuJi" / "Resources" / "DrillTutorials"
+        self.plans = root / "QiuJi" / "Resources" / "Plans"
         self.sequences = root / "content" / "position_play" / "sequences"
         self.export = root / "build" / "position_play_export"
         self.boards = root / "QiuJi" / "Resources" / "DrillBoards"
@@ -508,6 +515,249 @@ def check_sequence_coverage(sequences: dict[str, list[dict]], exempt: list[str],
     return {"ok": ok, "fail": fail, "exempt": exempted, "warn": warn}
 
 
+# ── I6a / I6b / I11：剂量口径与计划绑定（v31 W4；契约 §5.6 / §6.6）─────────
+#
+# 结构性豁免（**规则判定，不入基线**，契约 §5.6.2 / §5.6.4）：
+#   · 无任何序列的 drill —— 人工定量，可不写 `perFormation`，I6a/I6b 均不适用；
+#   · `mode == repetition` 的球形 —— 序列仅作示范，每轮球数人工定，I6b 不适用。
+# 棘轮豁免（钉到 drillId/token，入 `content_invariant_baselines.json`）：
+#   · `i6a_token_mismatch_exempt` / `i6b_shots_exempt` —— 目前均为空。
+#     新增豁免必须先在契约 §8 登记解除条件；清单只许缩短。
+#
+# 总量护栏（§5.6.3，40–60 球）是**警告级**：综合类（按局/按次）与基础功天然越界，
+# 逐条理由已在 v31 W1a/W1b 留档，故不计入退出码。
+
+VALID_DOSE_MODES = {"sequence", "repetition"}
+VOLUME_GUARD = (40, 60)
+# repetition 型每轮球数带（§5.6.2）。上界对「阶梯型」放宽到档数，见 relaxed_upper()。
+REPETITION_BAND = (10, 15)
+
+
+def load_drill_contents(paths: Paths | None = None) -> dict[str, dict]:
+    """{drillId: drill JSON}（不含 index.json）。"""
+    paths = paths or DEFAULT_PATHS
+    result: dict[str, dict] = {}
+    if not paths.drills.is_dir():
+        return result
+    for path in sorted(paths.drills.rglob("*.json")):
+        if path.name == "index.json":
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            continue  # I10 负责报语法错误，这里不重复
+        if isinstance(data, dict):
+            result[data.get("id") or path.stem] = data
+    return result
+
+
+def measured_shots(path: Path) -> int:
+    """序列实测杆数 = `steps` 长度（口径同 §1.2 红线 3：走脚本取值，不看文案）。"""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return -1
+    steps = data.get("steps")
+    return len(steps) if isinstance(steps, list) else -1
+
+
+def per_formation(drill: dict) -> list[dict]:
+    sets = drill.get("sets")
+    if not isinstance(sets, dict):
+        return []
+    items = sets.get("perFormation")
+    return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
+
+def relaxed_upper(shots: int | None) -> int:
+    """repetition 型 `ballsPerRound` 的上界（§5.6.2，v31 W4 放宽）。
+
+    默认 15；该球形序列本身是一趟阶梯且档数 > 15 时放宽到档数——
+    「一轮 = 走完一趟阶梯」，与 `sequence` 型「一轮打完整条序列」同一语义。
+    """
+    return max(REPETITION_BAND[1], shots or 0)
+
+
+def check_dose_tokens(sequences: dict[str, list[dict]], drills: dict[str, dict],
+                      exempt: dict[str, list[str]]) -> dict:
+    """I6a：有序列 drill 的 `perFormation` token 集合 == 序列 token 集合。
+
+    顺带把总量护栏（§5.6.3）作为 WARN 输出（综合类天然越界，不阻塞）。
+    """
+    ok, fail, exempted, warn = 0, [], [], []
+    for drill_id, drill in sorted(drills.items()):
+        seq_items = sequences.get(drill_id) or []
+        per = per_formation(drill)
+
+        # 总量护栏（警告级）。有 perFormation 按逐球形算，否则用汇总兜底。
+        sets = drill.get("sets") if isinstance(drill.get("sets"), dict) else {}
+        if per:
+            total = sum(int(item.get("ballsPerRound") or 0) * int(item.get("defaultRounds") or 0)
+                        for item in per)
+        else:
+            total = int(sets.get("defaultSets") or 0) * int(sets.get("defaultBallsPerSet") or 0)
+        if not VOLUME_GUARD[0] <= total <= VOLUME_GUARD[1]:
+            warn.append((drill_id, f"总量 {total} 球超出护栏 {VOLUME_GUARD[0]}–{VOLUME_GUARD[1]}",
+                         "警告级不阻塞（§5.6.3：综合类/基础功允许越界，理由须留档）"))
+
+        if not seq_items:
+            # 结构性豁免：无序列 drill 人工定量（§5.6.4）。写了 perFormation 反而是错的。
+            if per:
+                fail.append((drill_id, "无序列却写了 perFormation",
+                             "无序列 drill 只写两个汇总值（§5.6.4）"))
+            continue
+
+        seq_tokens = {item["token"] for item in seq_items}
+        dose_tokens = {str(item.get("token")) for item in per}
+        if dose_tokens == seq_tokens:
+            if drill_id in exempt:
+                warn.append((drill_id, "豁免已可解除（token 已与序列一致）",
+                             "请从 i6a_token_mismatch_exempt 删除"))
+            else:
+                ok += 1
+            continue
+        detail = (drill_id,
+                  "/".join(sorted(dose_tokens)) or "—",
+                  "/".join(sorted(seq_tokens)) or "—")
+        registered = set(exempt.get(drill_id) or [])
+        (exempted if registered and registered == dose_tokens else fail).append(detail)
+    return {"ok": ok, "fail": fail, "exempt": exempted, "warn": warn}
+
+
+def check_dose_shots(sequences: dict[str, list[dict]], drills: dict[str, dict],
+                     exempt: dict[str, list[str]]) -> dict:
+    """I6b：`sequence` 型球形的 `ballsPerRound` == 该球形序列实测杆数。
+
+    `repetition` 型按 §5.6.2 结构性豁免（计入 rule_exempt 计数，便于观察漂移），
+    但其取值带 10–（15 或档数）仍作 WARN 输出。
+    """
+    ok, fail, exempted, warn = 0, [], [], []
+    rule_exempt = 0
+    for drill_id, drill in sorted(drills.items()):
+        shots_by_token = {item["token"]: measured_shots(item["path"])
+                          for item in (sequences.get(drill_id) or [])}
+        registered = set(exempt.get(drill_id) or [])
+        for item in per_formation(drill):
+            token = str(item.get("token"))
+            where = f"{drill_id}/{token}"
+            mode = item.get("mode")
+            balls = item.get("ballsPerRound")
+            if mode not in VALID_DOSE_MODES:
+                fail.append((where, f"非法 mode {mode!r}",
+                             f"合法取值：{'/'.join(sorted(VALID_DOSE_MODES))}（§5.6.2）"))
+                continue
+            shots = shots_by_token.get(token)
+            if mode == "repetition":
+                rule_exempt += 1
+                upper = relaxed_upper(shots)
+                if not isinstance(balls, int) or not REPETITION_BAND[0] <= balls <= upper:
+                    warn.append((where, f"repetition 型 ballsPerRound={balls} 超出 "
+                                        f"{REPETITION_BAND[0]}–{upper}",
+                                 "警告级不阻塞（§5.6.2；阶梯型上界 = 档数）"))
+                continue
+            # sequence 型：锁死实测杆数。
+            if shots is None:
+                fail.append((where, "sequence 型但 token 无对应序列文件",
+                             "改 token 或改 mode（§5.6.2）"))
+                continue
+            if balls == shots:
+                if token in registered:
+                    warn.append((where, "豁免已可解除（ballsPerRound 已等于实测杆数）",
+                                 "请从 i6b_shots_exempt 删除"))
+                else:
+                    ok += 1
+                continue
+            detail = (where, f"ballsPerRound={balls}", f"实测杆数 {shots}")
+            (exempted if token in registered else fail).append(detail)
+    return {"ok": ok, "fail": fail, "exempt": exempted, "warn": warn,
+            "rule_exempt": rule_exempt}
+
+
+def _dose_errors(drill_id: str, dose: object, per_tokens: list[str],
+                 seq_tokens: set[str]) -> list[tuple[str, str]]:
+    """I11 单条目的 dose 结构与外键判定，返回 (问题, 处置) 列表。"""
+    if not isinstance(dose, dict):
+        return [("dose 不是对象", "计划条目必须写 dose（契约 §6.6）")]
+    uniform = dose.get("roundsPerFormation")
+    listed = dose.get("formations")
+    if (uniform is None) == (listed is None):
+        return [("roundsPerFormation / formations 未恰好二选一",
+                 "两者必须且只能有一个（§6.6）")]
+    errors: list[tuple[str, str]] = []
+    if uniform is not None:
+        if not isinstance(uniform, int) or isinstance(uniform, bool) or uniform < 1:
+            errors.append((f"roundsPerFormation={uniform!r} 非法", "必须是 ≥1 的整数"))
+        return errors
+    if not isinstance(listed, list) or not listed:
+        return [("formations 为空或非数组", "至少列 1 个球形，或改用 roundsPerFormation")]
+    for entry in listed:
+        if not isinstance(entry, dict):
+            errors.append((f"formations 元素 {entry!r} 非对象", "需 {token, rounds}"))
+            continue
+        token, rounds = entry.get("token"), entry.get("rounds")
+        if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
+            errors.append((f"token `{token}` 的 rounds={rounds!r} 非法", "必须是 ≥1 的整数"))
+        if token not in per_tokens:
+            errors.append((f"token `{token}` 不在该 drill 的 perFormation "
+                           f"{sorted(per_tokens)} 中",
+                           "token 是计划外键（§6 规则 2）：先改计划再改内容"))
+        elif token not in seq_tokens:
+            errors.append((f"token `{token}` 不在该 drill 的序列 token "
+                           f"{sorted(seq_tokens)} 中", "序列是球形真源（§1.1）"))
+    return errors
+
+
+def check_plan_refs(sequences: dict[str, list[dict]], drills: dict[str, dict],
+                    paths: Paths | None = None) -> dict:
+    """I11：官方计划每条目 drillId 存在、dose 可解析、按球形引用的 token 是有效外键。"""
+    paths = paths or DEFAULT_PATHS
+    if not paths.plans.is_dir():
+        return {"ok": 0, "fail": [], "exempt": [], "warn": [("—", "Plans 目录不存在", "—")]}
+    index_path = paths.drills / "index.json"
+    if not index_path.is_file():
+        return {"ok": 0, "fail": [], "exempt": [],
+                "warn": [("—", "index.json 不存在，无法校验 drillId", "—")]}
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    index_ids = {drill_id
+                 for category in index.get("categories", [])
+                 for drill_id in category.get("drills", [])}
+
+    ok, fail, warn = 0, [], []
+    for path in sorted(paths.plans.glob("plan_*.json")):
+        plan_id = path.stem
+        try:
+            plan = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            fail.append((plan_id, "JSON 语法错误", str(exc)))
+            continue
+        for week in plan.get("weeks") or []:
+            for session in week.get("sessions") or []:
+                where_s = f"{plan_id} W{week.get('weekNumber')}D{session.get('dayNumber')}"
+                for phase in session.get("phases") or []:
+                    for ref in phase.get("drills") or []:
+                        drill_id = ref.get("drillId")
+                        where = f"{where_s} {phase.get('type')} {drill_id}"
+                        if drill_id not in index_ids:
+                            fail.append((where, f"drillId `{drill_id}` 不在 index.json",
+                                         "计划引用的 drill 必须已登记"))
+                            continue
+                        if "sets" in ref or "ballsPerSet" in ref:
+                            # v31 W5 起 `PlanDrillRef` 已无这两个字段，解码会静默忽略
+                            # ⇒ 残留即「写了却不生效」的哑数据，按契约 §6.6 转阻塞。
+                            fail.append((where, "仍残留旧格式 sets/ballsPerSet",
+                                         "契约 §6.6：计划不得存裸球数（字段已于 W5 删除，写了也不会生效）"))
+                            continue
+                        drill = drills.get(drill_id) or {}
+                        per_tokens = [str(item.get("token")) for item in per_formation(drill)]
+                        seq_tokens = {item["token"] for item in (sequences.get(drill_id) or [])}
+                        errors = _dose_errors(drill_id, ref.get("dose"), per_tokens, seq_tokens)
+                        if errors:
+                            fail += [(where, what, how) for what, how in errors]
+                        else:
+                            ok += 1
+    return {"ok": ok, "fail": fail, "exempt": [], "warn": warn}
+
+
 # ── I10：App 模型可解码性 ────────────────────────────────────────────────
 #
 # 契约 §7 I10。这份 schema 是 `QiuJi/Data/Services/DrillContentService.swift` 的
@@ -524,7 +774,10 @@ STR, INT, DBL, BOOL = "string", "int", "double", "bool"
 MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
     "DrillContent": {
         "id": (True, STR), "nameZh": (True, STR), "nameEn": (True, STR),
-        "category": (True, STR), "subcategory": (True, STR),
+        "category": (True, STR),
+        # v31 W0：副分类标签，可选数组（每条 ≤1 个，内容侧约束见契约 §3.3）。
+        "secondaryCategories": (False, ["string"]),
+        "subcategory": (True, STR),
         "ballType": (True, ["string"]), "level": (True, STR),
         "difficulty": (True, INT), "isPremium": (True, BOOL),
         "description": (True, STR), "coachingPoints": (True, ["string"]),
@@ -533,7 +786,11 @@ MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
         "tutorial": (False, "DrillTutorial"), "videos": (False, ["DrillVideo"]),
         "shotIntent": (False, "ShotIntent"),
     },
-    "DrillSetsConfig": {"defaultSets": (True, INT), "defaultBallsPerSet": (True, INT)},
+    # v31 W0：`perFormation` 逐球形剂量，可选（无序列 drill 省略，契约 §5.6.4）。
+    "DrillSetsConfig": {"defaultSets": (True, INT), "defaultBallsPerSet": (True, INT),
+                        "perFormation": (False, ["FormationDose"])},
+    "FormationDose": {"token": (True, STR), "mode": (True, ["sequence", "repetition"]),
+                      "ballsPerRound": (True, INT), "defaultRounds": (True, INT)},
     "DrillVideo": {"id": (True, STR), "file": (True, STR)},
     "DrillAnimation": {
         "cueBall": (True, "BallAnimation"), "targetBall": (True, "BallAnimation"),
@@ -571,6 +828,29 @@ MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
     "ShotIntentSpin": {"x": (True, DBL), "y": (True, DBL)},
     "DrillIndex": {"version": (True, INT), "categories": (True, ["DrillIndexCategory"])},
     "DrillIndexCategory": {"category": (True, STR), "drills": (True, ["string"])},
+    # 计划侧模型（`PlanContentService.swift`）。解码失败时 `loadAllPlans` 的 compactMap
+    # 会让整份计划从列表里消失，与 FL-029 的「静默不进 App」同一形态，故一并镜像。
+    "OfficialPlan": {
+        "id": (True, STR), "nameZh": (True, STR), "nameEn": (True, STR),
+        "targetLevel": (True, STR), "durationWeeks": (True, INT),
+        "sessionsPerWeek": (True, INT), "minutesPerSession": (True, INT),
+        "isPremium": (True, BOOL), "description": (True, STR),
+        "weeks": (True, ["PlanWeek"]),
+    },
+    "PlanWeek": {"weekNumber": (True, INT), "theme": (True, STR),
+                 "sessions": (True, ["PlanSession"])},
+    "PlanSession": {"dayNumber": (True, INT), "phases": (True, ["SessionPhase"])},
+    "SessionPhase": {"type": (True, STR), "durationMinutes": (True, INT),
+                     "drills": (True, ["PlanDrillRef"])},
+    # v31 W5 已删旧格式 `sets`/`ballsPerSet`，故 spec 里也不再有（与 Swift 结构一一对应）。
+    # `dose` 在 Swift 侧仍是可选，语义上的「必须有 dose」由 I11 阻塞，不在这里判。
+    "PlanDrillRef": {"drillId": (True, STR), "dose": (False, "PlanDrillDose")},
+    "PlanDrillDose": {"roundsPerFormation": (False, INT),
+                      "formations": (False, ["PlanFormationRounds"])},
+    "PlanFormationRounds": {"token": (True, STR), "rounds": (True, INT)},
+    "PlanIndex": {"version": (True, INT), "plans": (True, ["PlanIndexEntry"])},
+    "PlanIndexEntry": {"id": (True, STR), "nameZh": (True, STR),
+                       "targetLevel": (True, STR), "isPremium": (True, BOOL)},
 }
 
 
@@ -617,18 +897,24 @@ def decode_errors(value: object, spec: object, path: str) -> list[str]:
 
 
 def check_model_decodable(paths: Paths | None = None) -> dict:
-    """I10：全部 bundled drill（含 index.json）能被 App 的 Codable 模型成功解码。
+    """I10：全部 bundled drill / plan（含各自 index.json）能被 App 的 Codable 模型解码。
 
     等价于「必填字段齐全且类型正确」。`DrillContentService` 曾用 `try?` 吞掉
-    `DecodingError`，使这类内容缺陷表现为「drill 凭空消失」而非报错。
+    `DecodingError`，使这类内容缺陷表现为「drill 凭空消失」而非报错；
+    计划侧同形态（`loadAllPlans` 的 compactMap 会让解码失败的计划整份消失）。
     """
     paths = paths or DEFAULT_PATHS
     ok, fail = 0, []
     if not paths.drills.is_dir():
         return {"ok": 0, "fail": [], "warn": [("—", "Drills 目录不存在", "—")]}
-    for path in sorted(paths.drills.rglob("*.json")):
-        rel = path.relative_to(paths.drills).as_posix()
-        model = "DrillIndex" if path.name == "index.json" else "DrillContent"
+    targets = [(path, paths.drills, "DrillIndex", "DrillContent")
+               for path in sorted(paths.drills.rglob("*.json"))]
+    if paths.plans.is_dir():
+        targets += [(path, paths.plans.parent, "PlanIndex", "OfficialPlan")
+                    for path in sorted(paths.plans.glob("*.json"))]
+    for path, base, index_model, item_model in targets:
+        rel = path.relative_to(base).as_posix()
+        model = index_model if path.name == "index.json" else item_model
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as exc:
@@ -699,21 +985,27 @@ def render_report(results: dict) -> None:
 
     for check_id, title, columns in (
         ("I5", "精讲球形 token ⊆ 序列 token", ("精讲声称", "序列实际")),
+        ("I6a", "剂量 perFormation token == 序列 token", ("perFormation", "序列实际")),
+        ("I6b", "sequence 型每轮球数 == 实测杆数", None),
         ("I7", "profile vs 序列 token", ("profile", "序列实际")),
         ("I8", "Bundle DrillBoards ⊆ 上游序列", None),
         ("I9", "登记 drill 至少 1 条序列", None),
-        ("I10", "Bundle drill 可被 App 模型解码", None),
+        ("I10", "Bundle drill / plan 可被 App 模型解码", None),
+        ("I11", "官方计划 drillId / dose / token 可解析", None),
     ):
         if check_id not in results:
             continue
         r = results[check_id]
         exempt = r.get("exempt", [])
+        rule_exempt = r.get("rule_exempt")
+        tail = f"  规则豁免 {rule_exempt}（repetition 型，§5.6.2）" if rule_exempt else ""
         print(f"\n[{check_id}] {title}  通过 {r['ok']}  违规 {len(r['fail'])}  "
-              f"已知豁免 {len(exempt)}  提示 {len(r['warn'])}")
+              f"已知豁免 {len(exempt)}  提示 {len(r['warn'])}{tail}")
 
-        def line(mark: str, row: tuple[str, str, str], tail: str = "") -> None:
+        def line(mark: str, row: tuple[str, str, str], tail: str = "",
+                 paired: bool = True) -> None:
             left, mid, right = row
-            body = (f"{columns[0]} {mid} vs {columns[1]} {right}" if columns
+            body = (f"{columns[0]} {mid} vs {columns[1]} {right}" if columns and paired
                     else f"{mid} —— {right}")
             print(f"  {mark} {left}  {body}{tail}")
 
@@ -722,7 +1014,8 @@ def render_report(results: dict) -> None:
         for row in exempt:
             line("⊘", row, "（已知豁免）")
         for row in r["warn"]:
-            line("·", row)
+            # WARN 行的第 2/3 列是「现象 —— 处置」，不是可对照的两侧取值。
+            line("·", row, paired=False)
 
 
 def main() -> int:
@@ -768,6 +1061,16 @@ def main() -> int:
             sequences, baselines.get("i9_no_sequence_exempt", []), paths)
     if "I10" in selected:
         results["I10"] = check_model_decodable(paths)
+    if {"I6a", "I6b", "I11"} & selected:
+        drills = load_drill_contents(paths)
+        if "I6a" in selected:
+            results["I6a"] = check_dose_tokens(
+                sequences, drills, baselines.get("i6a_token_mismatch_exempt", {}))
+        if "I6b" in selected:
+            results["I6b"] = check_dose_shots(
+                sequences, drills, baselines.get("i6b_shots_exempt", {}))
+        if "I11" in selected:
+            results["I11"] = check_plan_refs(sequences, drills, paths)
 
     blocking = {cid: r for cid, r in results.items()
                 if not (args.gate and cid in GATE_EXEMPT_CHECKS)}

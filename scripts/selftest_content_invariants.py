@@ -30,6 +30,7 @@ FIXTURE_ROOT = REPO_ROOT / "build" / "w9-fixtures"
 # 影子库里必须是真副本的目录（用例要改它们）与只能符号链接的目录（4.7G / 8.5G）。
 COPY_DIRS = [
     Path("QiuJi/Resources/Drills"),
+    Path("QiuJi/Resources/Plans"),
     Path("QiuJi/Resources/DrillBoards"),
     Path("content/position_play/sequences"),
     Path("content/drill_profiles"),
@@ -152,6 +153,111 @@ def case_i10_optional_content_absent(root: Path) -> None:
     edit_json(drill_path(root, "drill_c001"), mutate)
 
 
+def first_formation(data: dict, mode: str | None = None) -> dict:
+    for item in data["sets"]["perFormation"]:
+        if mode is None or item["mode"] == mode:
+            return item
+    raise SystemExit(f"该 drill 无 mode={mode} 的球形")
+
+
+def plan_path(root: Path, plan_id: str) -> Path:
+    return root / f"QiuJi/Resources/Plans/{plan_id}.json"
+
+
+def first_ref(plan: dict, drill_id: str) -> dict:
+    for week in plan["weeks"]:
+        for session in week["sessions"]:
+            for phase in session["phases"]:
+                for ref in phase["drills"]:
+                    if ref["drillId"] == drill_id:
+                        return ref
+    raise SystemExit(f"计划内找不到 {drill_id} 的条目")
+
+
+def case_i6a_token_drift(root: Path) -> None:
+    # 球形 token 是计划外键（契约 §6.6）：剂量块改到一个序列里不存在的 token 必须 FAIL。
+    edit_json(drill_path(root, "drill_c013"),
+              lambda data: first_formation(data).__setitem__("token", "manual99"))
+
+
+def case_i6a_no_sequence_has_dose(root: Path) -> None:
+    # 无序列 drill 按 §5.6.4 只写两个汇总值；硬塞 perFormation ⇒ token 无真源可校。
+    def mutate(data: dict) -> None:
+        data["sets"]["perFormation"] = [
+            {"token": "manual01", "mode": "repetition", "ballsPerRound": 10, "defaultRounds": 4}
+        ]
+    edit_json(drill_path(root, "drill_c008"), mutate)
+
+
+def case_i6b_shots_mismatch(root: Path) -> None:
+    # sequence 型每轮球数锁死实测杆数（§5.6.2）；改成别的值必须 FAIL。
+    edit_json(drill_path(root, "drill_c001"),
+              lambda data: first_formation(data, "sequence").__setitem__("ballsPerRound", 10))
+
+
+def case_i6b_mode_flip_not_a_dodge(root: Path) -> None:
+    # 非法 mode 不得被当成「不是 sequence 就放过」而静默通过。
+    edit_json(drill_path(root, "drill_c001"),
+              lambda data: first_formation(data, "sequence").__setitem__("mode", "freestyle"))
+
+
+def case_i6b_repetition_tolerated(root: Path) -> None:
+    # repetition 型按 §5.6.2 结构性豁免几何校验：改球数只报 WARN，不得 FAIL。
+    edit_json(drill_path(root, "drill_c010"),
+              lambda data: first_formation(data, "repetition").__setitem__("ballsPerRound", 99))
+
+
+def case_i11_unknown_drill(root: Path) -> None:
+    path = plan_path(root, "plan_accuracy")
+
+    def mutate(plan: dict) -> None:
+        plan["weeks"][0]["sessions"][0]["phases"][0]["drills"][0]["drillId"] = "drill_c900"
+    edit_json(path, mutate)
+
+
+def case_i11_bad_formation_token(root: Path) -> None:
+    # 删/改球形 token 会打断按球形引用的计划条目（契约 §6 规则 2 的删除连带）。
+    path = plan_path(root, "plan_advanced")
+    edit_json(path, lambda plan: first_ref(plan, "drill_c075")["dose"]["formations"][0]
+              .__setitem__("token", "manual99"))
+
+
+def case_i11_dose_both_forms(root: Path) -> None:
+    # `roundsPerFormation` 与 `formations` 必须恰好二选一。
+    path = plan_path(root, "plan_advanced")
+    edit_json(path, lambda plan: first_ref(plan, "drill_c075")["dose"]
+              .__setitem__("roundsPerFormation", 3))
+
+
+def case_i11_legacy_volume_keys(root: Path) -> None:
+    # v31 W5 删掉 `PlanDrillRef.sets/ballsPerSet` 后，JSON 里再写这两个键
+    # 只会被 `JSONDecoder` 静默忽略（哑数据）⇒ 契约 §6.6 要求 I11 阻塞。
+    path = plan_path(root, "plan_accuracy")
+
+    def mutate(plan: dict) -> None:
+        ref = plan["weeks"][0]["sessions"][0]["phases"][0]["drills"][0]
+        ref["sets"] = 3
+        ref["ballsPerSet"] = 10
+    edit_json(path, mutate)
+
+
+def case_i10_plan_wrong_type(root: Path) -> None:
+    # 计划侧模型也在 I10 覆盖内：解码失败会让整份计划从列表里消失。
+    edit_json(plan_path(root, "plan_beginner"),
+              lambda plan: plan.__setitem__("minutesPerSession", "60 分钟"))
+
+
+def case_i10_per_formation_wrong_type(root: Path) -> None:
+    # v31 W4 之前 `perFormation` 不在 MODEL_SPEC 里，检查器忽略未知键 ⇒ 这是盲区。
+    edit_json(drill_path(root, "drill_c001"),
+              lambda data: first_formation(data).__setitem__("ballsPerRound", "五"))
+
+
+def case_i10_secondary_categories_wrong_type(root: Path) -> None:
+    edit_json(drill_path(root, "drill_c020"),
+              lambda data: data.__setitem__("secondaryCategories", "positioning"))
+
+
 def case_c3_dead_ratchet(root: Path) -> None:
     # 新增 1 处失效引用 ⇒ 失效数 35 > 基线 34，棘轮必须报警。
     retarget_first_image(root, "drill_c011", "drill_c011_不存在的图")
@@ -180,7 +286,33 @@ CASES = {
                        case_i10_wrong_type, 1, "typeMismatch 期望 int"),
     "i10_optional_content_absent": ("I10", "drill_c001 各节省略可选 content ⇒ 应放行",
                                     case_i10_optional_content_absent, 0, "总计 FAIL: 0"),
-    "baseline_clean": ("I5 I7 I8 I9 I10", "未做任何改动的影子库（对照组）",
+    "i10_per_formation_wrong_type": ("I10", "drill_c001 perFormation.ballsPerRound 改成字符串",
+                                     case_i10_per_formation_wrong_type, 1,
+                                     "typeMismatch 期望 int"),
+    "i10_secondary_categories_wrong_type": ("I10", "drill_c020 secondaryCategories 由数组改成字符串",
+                                            case_i10_secondary_categories_wrong_type, 1,
+                                            "typeMismatch 期望数组"),
+    "i10_plan_wrong_type": ("I10", "plan_beginner minutesPerSession 由 Int 改成字符串",
+                            case_i10_plan_wrong_type, 1, "typeMismatch 期望 int"),
+    "i6a_token_drift": ("I6a", "drill_c013 剂量 token 改成序列里没有的 manual99",
+                        case_i6a_token_drift, 1, "✗ drill_c013"),
+    "i6a_no_sequence_has_dose": ("I6a", "无序列的 drill_c008 硬塞 perFormation",
+                                 case_i6a_no_sequence_has_dose, 1, "无序列却写了 perFormation"),
+    "i6b_shots_mismatch": ("I6b", "drill_c001 sequence 型 ballsPerRound 5 → 10（实测 5 杆）",
+                           case_i6b_shots_mismatch, 1, "✗ drill_c001/manual01"),
+    "i6b_mode_flip_not_a_dodge": ("I6b", "drill_c001 mode 改成非法值 freestyle",
+                                  case_i6b_mode_flip_not_a_dodge, 1, "非法 mode"),
+    "i6b_repetition_tolerated": ("I6b", "drill_c010 repetition 型 ballsPerRound 改 99 ⇒ 应放行",
+                                 case_i6b_repetition_tolerated, 0, "总计 FAIL: 0"),
+    "i11_unknown_drill": ("I11", "plan_accuracy 首条目 drillId 改成未登记的 drill_c900",
+                          case_i11_unknown_drill, 1, "不在 index.json"),
+    "i11_bad_formation_token": ("I11", "plan_advanced 的 c075 按球形引用改指 manual99",
+                                case_i11_bad_formation_token, 1, "manual99"),
+    "i11_dose_both_forms": ("I11", "plan_advanced 的 c075 同时写 roundsPerFormation 与 formations",
+                            case_i11_dose_both_forms, 1, "未恰好二选一"),
+    "i11_legacy_volume_keys": ("I11", "plan_accuracy 首条目补写已删除的旧格式 sets/ballsPerSet",
+                               case_i11_legacy_volume_keys, 1, "仍残留旧格式 sets/ballsPerSet"),
+    "baseline_clean": ("I5 I6a I6b I7 I8 I9 I10 I11", "未做任何改动的影子库（对照组）",
                        lambda root: None, 0, "总计 FAIL: 0"),
 }
 
