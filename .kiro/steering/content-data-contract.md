@@ -1,7 +1,7 @@
 # 内容与训练数据 — 真源契约与数据流（Steering）
 
-> **版本**：1.8（v30 X-1：新增不变量 I10 模型可解码性并转阻塞；§8.16 登记 pocket 空值）
-> **最后更新**：2026-08-07
+> **版本**：2.1（v31 W4：I6a/I6b/I11 接门禁、I10 扩到剂量与计划模型、阶梯型上界裁定 D15）
+> **最后更新**：2026-08-09
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
 > 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
 > `docs/06-技术架构.md`）在与本文件冲突时**以本文件为准**，并应改为引用本文件而非重复定义。
@@ -191,6 +191,25 @@ token 由文件名解析（`DrillTryoutBoardStore.token(fromFileName:drillId:)`�
 
 归属判定为前缀 + 分隔符匹配（`drill_c04` 不得误匹配 `drill_c042`）。
 
+### 3.3 分类：主分类单值 + 副分类标签（2026-08-09 用户裁定 D10）
+
+drill 的分类是**一主多标**结构，但两层职责严格分开：
+
+| 层 | 字段 | 取值 | 职责 |
+|---|---|---|---|
+| 主分类 | `category`（单值，必填） | 8 类之一 | 文件目录归属、`index.json` 归属、**统计归属**、详情页主徽章 |
+| 副分类 | `secondaryCategories`（可选数组，**每条 drill ≤1 个**） | 8 类之一，且 ≠ `category` | **仅**动作库浏览与筛选命中 |
+
+**硬约束**：
+
+1. ⛔ **统计只记主分类**。`StatisticsViewModel` 的 category 分组（§5.4）**不得**读副分类——
+   一条记录同时计入两类会使分母重复，与 §5.4 「不同单位不得同分母」的裁定冲突。
+   推论：本条口径落地时统计层**零改动**。
+2. 动作库分组（按类分节）仍按主分类；筛选命中主 ∪ 副。
+3. 副分类**不改变文件目录**。drill JSON 仍存放在 `Resources/Drills/<category>/`，
+   `index.json` 仍只在主分类下登记一次；副分类不产生第二条索引项。
+4. 跨类条目总量控制在 **15 条左右**（用户口径）。清单需用户确认后定稿。
+
 ---
 
 ## 四 用户训练数据结构（现状 + 已知缺陷）
@@ -202,7 +221,7 @@ TrainingSession（id / date / ballType / totalDurationMinutes / note / planId）
 
 AngleTestResult（date / actualAngle / userAngle / pocketType / quizType / errorMM）  ← 无会话归属
 UserActivePlan（planId / isCustom / startDate / currentWeek / currentDay）
-CustomPlan → CustomPlanDrill（drillId / sets / ballsPerSet / order）
+CustomPlan → CustomPlanDrill（drillId / roundsPerFormation / order）   ← v31 W0 schema V3，见 §6.6
 DrillFavorite / SyncPendingItem
 ```
 
@@ -306,6 +325,71 @@ AngleTestResult
 **内容侧 72 条 drill 暂不补机读达标线**：录入时 `passMade/passTotal = 0` 表示「未设定」，
 内容补齐另立批次；补齐前展示层不得把 0 渲染成「达标线 0」。
 
+### 5.6 训练剂量口径（2026-08-09 用户裁定 D11–D13）
+
+> 立此节前，`sets.defaultSets/defaultBallsPerSet` 与球形结构的关系是 §1.1 推论 3 留的空白
+> （「不得冲突」但没定义什么叫冲突）。本节把它补成可机检的口径，**I6 就此定稿**（见 §7）。
+
+#### 5.6.1 剂量下沉到球形级（D11）
+
+**训练剂量的语义单位是「球形」，不是「drill」。** drill JSON 的 `sets` 块结构：
+
+```
+sets: {
+  defaultSets:        Int      // 汇总兜底 = Σ perFormation[].defaultRounds
+  defaultBallsPerSet: Int      // 汇总兜底 = 主球形的 ballsPerRound
+  perFormation: [              // 可选；有序列的 drill 必须写（I6a）
+    { token, mode, ballsPerRound, defaultRounds }
+  ]
+}
+```
+
+- `token` 与序列文件名 token（§3.1）同一取值，**不是新标识符**；
+- 两个汇总兜底字段**保留不删**：未展开球形的场景（列表卡、详情规格行、旧调用方）仍读它们。
+  它们是**派生值**，与 `perFormation` 冲突时以 `perFormation` 为准。
+
+#### 5.6.2 两种训练模式（D12）
+
+| `mode` | 一轮 = 什么 | `ballsPerRound` 取值 | 几何校验 |
+|---|---|---|---|
+| `sequence` | 按序打完该球形序列的全部杆 | **锁死 = 序列实测杆数** | I6b 强制 |
+| `repetition` | 重复该球形同一击球 N 次（序列仅作示范） | 人工定，10–15（阶梯型见下） | 豁免 |
+
+判定依据（v31 R7，人工逐条）：走位链形态 → `sequence`；独立阶梯 / 变式目录 / 多形单杆 → `repetition`。
+
+⛔ **`sequence` 型的 `ballsPerRound` 必须取序列实测杆数，禁止手抄或估算**
+（取值走脚本，口径同 §1.2 红线 3）。写 4 杆序列却标 10 球，正是本节要消灭的偏差。
+
+**阶梯型 `repetition` 的上界放宽（2026-08-09 用户裁定 D15，v31 W4）**
+
+`repetition` 型的 10–15 带对**阶梯型球形**放宽：**上界 = max(15, 该球形序列的档数)**，
+其中「档数 = 序列实测杆数（`len(steps)`）」，与 I6b 取值口径同一条脚本路径。
+
+- **适用条件**：该球形的序列本身是一趟逐档变化的阶梯（每一杆 = 一档难度/距离/角度变式，
+  而非走位链），且**档数 > 15**。档数 ≤ 15 的球形一律仍按 10–15 判定，无放宽。
+- **理由**：一轮 10–15 球走不完一趟 16 档的阶梯，取带内上界（15）会让最后一档永远练不到。
+  取「一轮 = 走完一趟阶梯」与 `sequence` 型「一轮 = 打完整条序列」是同一语义，更自洽。
+- **落地范围（脚本全库扫描，`scripts/v31_w4_ladder_analysis.py`）**：全库仅
+  `drill_c020/manual01`（16 档）与 `drill_c078/manual01`（16 档）触发，二者
+  `ballsPerRound` 由 15 改为 16，总量 45→48 仍在护栏内。`drill_c076` 双球形各 14 档、
+  现值即 14，本就带内，**不改**。
+- 门禁形态：该带在 `verify_tutorial_sync.py` 的 I6b 中是 **WARN**（不阻塞），
+  与总量护栏同级——取值合理性属内容判断，阻塞的只有 I6b 的几何锁死。
+
+#### 5.6.3 总量护栏（D13）
+
+单条 drill 单次训练总量 = `Σ (ballsPerRound × defaultRounds)`，目标区间 **40–60 球**。
+
+- 轮数由护栏**向下取整**：`defaultRounds = max(1, 60 / ballsPerRound)` 后按 40–60 复核；
+  多球形 × 长序列时宁可少一轮，**下限 1 轮**（一轮就超 60 球的长序列按 1 轮，属允许越界）。
+- 基准量（v31 R2）：专项类 4~5 × 10，基础功维持 3 × 15；综合类（按局/次计量）单独评估。
+- 综合类与基础功允许越界，但须逐条附理由留档。护栏在门禁里是**警告级，不阻塞**。
+
+#### 5.6.4 无序列 drill 的豁免
+
+§8.5 登记的无序列 drill（及 0 杆序列）**人工定量**：`perFormation` 可省略，只写两个汇总值；
+豁免 I6a/I6b，钉到 drillId 走棘轮基线。豁免不等于随意——量值仍需逐条附理由。
+
 ---
 
 ## 六 内容变更规则
@@ -314,6 +398,9 @@ AngleTestResult
    `verify_manual_formations.py` 复核覆盖矩阵。
 2. **球形增删属破坏性变更**：会使已有用户记录的球形归属失效。
    在 §5 口径裁定（含历史记录解引用策略）落地前，**避免对已发布 drill 做球形重划分**。
+   **v31 W0 起范围扩大**：token 已成为**计划外键**（§6.6），删球形还会打断按球形引用的计划条目。
+   删除或重命名任何球形 token 前，必须先扫 `Resources/Plans/plan_*.json` 的
+   `dose.formations[].token` 引用（门禁 I11 计划校验，见 §7），有引用则先改计划再删球形。
 3. **drill 内容重构沿用原 `drillId`**，不新建 id（既有惯例，见 c053 profile `_note`）。
 4. **产物目录禁止手改**：`DrillBoards/`、`DrillTutorials/`、`Previews/`、`Videos/`、
    `DrillThumbnails/` 一律由脚本生成；手改会在下次同步/回填时被覆盖。
@@ -336,6 +423,36 @@ AngleTestResult
 3. 快照带来的存储冗余是可接受成本（已知取舍）。
 4. 本裁定须在**首批真实用户数据产生前**落地；之后再改需写数据迁移。
 
+### 6.6 动作库与计划的绑定模型（2026-08-09 用户裁定 D14）
+
+**drill JSON 是训练剂量的唯一真源。计划（官方 + 自定义）不得再存裸球数。**
+
+> **v31 W5 已切净**：`PlanDrillRef` 不再有 `sets`/`ballsPerSet` 字段，`TrainingDoseResolver`
+> 不再有旧格式兼容路径。JSON 里再写这两个键既不生效、也会被门禁 I11 直接 FAIL。
+> ⚠️ 注意区分：drill 侧的 `sets.defaultSets` / `sets.defaultBallsPerSet` 是 §5.6 规定的
+> **汇总兜底保留字段**，不在删除范围内。
+
+| 层 | 存什么 | 不存什么 |
+|---|---|---|
+| drill JSON `sets.perFormation` | 每球形 mode / 每轮球数 / 推荐轮数 | — |
+| 官方计划 `PlanDrillRef.dose` | `roundsPerFormation: Int`，或 `formations: [{token, rounds}]` | ⛔ `sets` / `ballsPerSet` |
+| 自定义计划 `CustomPlanDrill` | `roundsPerFormation: Int` | ⛔ `sets` / `ballsPerSet` |
+| 训练记录 `DrillSet` | 展开后的 `targetBalls` + 球形快照 | — |
+
+**为什么这不违反 §6.5 快照裁定**：计划 → 训练是**激活时解析的活引用**，
+解析结果在落 `DrillSet` 时才快照冻结。§6.5 约束的是「已落库的历史记录不得回查当前内容」，
+计划本身不是历史记录。
+
+**推论**：
+
+1. 计划里改不动实际球数——要改量就改轮数，或去改 drill 内容。这正是本裁定的目的：
+   消灭「c020 单球形 16 杆却写 4×10」这类计划与内容各说各话的偏差。
+2. 按球形引用（`dose.formations`）使**球形成为难度阶梯**：计划可以第 1 周只练 `manual01`，
+   第 3 周加 `manual02`。代价是 token 升级为计划外键（§6 规则 2 的删除连带）。
+3. 未在 `dose.formations` 中列出的球形，本次训练**不展开**。
+4. 持久化影响：`CustomPlanDrill` 的字段变更走 SwiftData V2→V3 迁移（ADR-v31-01，
+   折算 `rounds = max(1, sets / 球形数)`，无球形声明按 1 球形算）。
+
 ---
 
 ## 七 不变量清单（应接为门禁）
@@ -347,17 +464,28 @@ AngleTestResult
 | I3 | 回填图与产物图字节一致 | C2 | ✅ 有，✅ **已接门禁** |
 | I4 | 精讲 `image` 指向最新图 | C3（含失效引用棘轮） | ✅ 有，✅ **已接门禁** |
 | I5 | 精讲 formation token ⊆ 序列 token 集合 | I5（v29 W9 新增） | ✅ 有，✅ 已接门禁（legacy 豁免已于 v26 清空） |
-| I6 | `sets.defaultSets` 与球形数的关系符合口径 | — | ❌ 缺（口径本身未定，见 §5 待补批次） |
+| I6a | 有序列 drill 的 `sets.perFormation` token 集合 == 该 drill 的序列 token 集合（无序列 drill 不得写 `perFormation`） | I6a（v31 W4 新增） | ✅ 有，✅ **已接门禁**（棘轮豁免 `i6a_token_mismatch_exempt` 为空） |
+| I6b | `mode == sequence` 的球形 `ballsPerRound` == 该球形序列实测杆数（`len(steps)`）；`mode` 取值 ∈ {sequence, repetition} | I6b（v31 W4 新增） | ✅ 有，✅ **已接门禁**。`repetition` 型与无序列 drill 按 §5.6.2/§5.6.4 **规则性豁免**（不入基线，门禁输出以「规则豁免 N」显示）；棘轮豁免 `i6b_shots_exempt` 为空 |
 | I7 | profile formation 集合 == 序列 token 集合，或 profile 标记为已退役 | I7（v29 W9 新增） | ✅ 有，✅ 已接门禁（孤儿 profile 已退役，豁免已清空） |
 | I8 | `Bundle/DrillBoards` == `content/.../sequences` 的 `drill_c*.json` 子集 | I8（v29 W9 新增） | ✅ 有，✅ 已接门禁 |
 | I9 | 每个 `index.json` 登记的 drill 至少有 1 个序列，或在豁免名单内 | I9（v29 W9 新增） | ✅ 有，✅ 已接门禁（豁免见 §8.5） |
-| I10 | 全部 bundled drill JSON（含 `index.json`）能被 App 的 `Codable` 模型解码——必填字段齐全、类型正确 | I10（v30 X-1 新增） | ✅ 有，✅ 已接门禁（无豁免） |
+| I10 | 全部 bundled drill / plan JSON（含各自 `index.json`）能被 App 的 `Codable` 模型解码——必填字段齐全、类型正确 | I10（v30 X-1 新增；v31 W4 扩到 `sets.perFormation` / `secondaryCategories` 与计划侧模型） | ✅ 有，✅ 已接门禁（无豁免） |
+| I11 | 官方计划可解析：每条目 `drillId` 存在于 `index.json`、`dose` 结构可解析（`roundsPerFormation` 与 `formations` 恰好二选一、轮数 ≥1）、按球形引用的 token 存在于该 drill 的 `perFormation` token 集合 ∩ 序列 token 集合 | I11（v31 W4 新增） | ✅ 有，✅ **已接门禁**（无豁免；残留旧格式 `sets`/`ballsPerSet` 自 **v31 W5 起为 FAIL**——`PlanDrillRef` 已删这两个字段，再写只会被解码器静默忽略成哑数据） |
+
+> **编号说明**：`问题集合_v31.md` W4 把计划校验称作「I10」，但 I10 已被 v30 X-1 的
+> 模型可解码性占用。本契约按既有编号顺延为 **I11**；W4 实施时以本表为准。
 
 **I10 说明（FL-029）**：`DrillContentService.loadDrillFromBundle` 曾用 `try?` 吞掉
 `DecodingError`，34/77 条 drill 因缺 `TutorialSection.content` / `TutorialFormation.id`
 而**静默不进 App**（动作库只有 43 条），且失败信息仅为「返回 nil」，无法定位字段。
 I10 的必填字段表（`verify_tutorial_sync.py` 的 `MODEL_SPEC`）是 Swift 模型的 Python 镜像，
-**改 Swift 模型必须同步改它**；Swift 侧同位检查为
+**改 Swift 模型必须同步改它**——检查器忽略未知键，spec 里没有的字段就是盲区。
+v31 W4 补齐了 W0 新增的 `DrillContent.secondaryCategories`、`DrillSetsConfig.perFormation`
+（含 `FormationDose` 四个字段与 `mode` 的枚举域），并把**计划侧模型**
+（`OfficialPlan` → `PlanWeek` → `PlanSession` → `SessionPhase` → `PlanDrillRef` → `PlanDrillDose`
+与 `PlanIndex`）一并纳入——计划解码失败会经 `loadAllPlans` 的 `compactMap`
+让整份计划从列表里消失，与 FL-029 的「静默不进 App」是同一形态。
+Swift 侧同位检查为
 `DrillContentValidationTests.test_allIndexedDrills_loadSuccessfully`（失败时打印 codingPath）。
 
 ### 7.1 门禁（2026-08-07 v29 W9 落地）
@@ -371,7 +499,8 @@ make -f scripts/Makefile verify-gate     # 本地自查，与钩子同一入口
 make -f scripts/Makefile invariant-selftest  # 构造性用例：证明每个检查项真会报错
 ```
 
-- **阻塞项**：C1 / C2 / C3 / C4 / I5 / I7 / I8 / I9 / I10。
+- **阻塞项**：C1 / C2 / C3 / C4 / I5 / **I6a** / **I6b** / I7 / I8 / I9 / I10 / **I11**
+  （v31 W4：I6a/I6b/I11 接入，构造性用例 23/23）。
 - **已知豁免（不阻塞）**：无（v26 W13：`GATE_EXEMPT_CHECKS` 已清空；I9 的 8 条无序列豁免仍在基线文件，属 §8.5 永久登记）。
 - **绕过**：只有 `git push --no-verify`（git 内置，钩子无法禁）。用了必须在提交说明或 PR 里写明理由。
 - **棘轮**：基线与豁免名单的唯一真源是 `scripts/content_invariant_baselines.json`。
@@ -524,6 +653,12 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 | ~~D6~~ | ~~内容变更时历史记录解引用~~ | ✅ **已裁定 2026-08-06：存快照**，见 §6.5 |
 | ~~D7~~ | ~~计划推进规则~~ | ✅ **已裁定 2026-08-06：按完成推进，不按自然日；允许手动跳过/回退**（§8.8 解锁，实现落 v29 W7） |
 | ~~D8~~ | ~~球形 token 规范是否重做~~ | ✅ **已裁定 2026-08-06：不做**（成本见 §3.1；`manualNN` 维持既定稳定键） |
+| ~~D10~~ | ~~多分类如何承载~~ | ✅ **已裁定 2026-08-07：主分类单值 + 副分类标签（每条 ≤1），统计只记主分类**，见 §3.3（v31 R1） |
+| ~~D11~~ | ~~剂量挂 drill 级还是球形级~~ | ✅ **已裁定 2026-08-07：下沉到球形级**，`sets.perFormation`；两个汇总值降级为派生兜底，见 §5.6.1（v31 R3） |
+| ~~D12~~ | ~~一轮的语义~~ | ✅ **已裁定 2026-08-07：sequence / repetition 二分**；sequence 型每轮球数锁死 = 序列实测杆数，见 §5.6.2（v31 R3/R7） |
+| ~~D13~~ | ~~单动作训练量基准~~ | ✅ **已裁定 2026-08-07：中等上调 + 总量护栏 40–60 球、轮数向下取、下限 1 轮**，见 §5.6.3（v31 R2） |
+| ~~D15~~ | ~~`repetition` 型 10–15 带与超长阶梯（16 档）冲突~~ | ✅ **已裁定 2026-08-09：阶梯型上界放宽到档数**（`max(15, 档数)`，「一轮 = 走完一趟阶梯」），见 §5.6.2（v31 W4）；落地仅 c020/c078 两处 |
+| ~~D14~~ | ~~动作库与计划如何绑定~~ | ✅ **已裁定 2026-08-07：计划只存强度系数，激活时由内容解析、落库快照**；token 升级为计划外键，见 §6.6（v31 R4/R6） |
 
 ---
 
@@ -540,4 +675,7 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 | 1.7 | 2026-08-07 | **v26 W13 收尾**：§8.1/§8.2/§8.15 标记已消化并销账；C4 从 `GATE_EXEMPT_CHECKS` 移除并转为阻塞（§7.1）；I1 状态改为已接门禁；基线复核 `i5`/`i7` 豁免为空、`c3_dead_refs_baseline=0`。 |
 | 1.8 | 2026-08-07 | **v30 X-1（FL-029）**：新增不变量 **I10 模型可解码性**（`verify_tutorial_sync.py` 的 `MODEL_SPEC` 为 Swift `Codable` 模型的 Python 镜像），直接列入 §7.1 阻塞项，无豁免；构造性用例 3 条（缺必填 / 类型不符 / 可选缺省应放行）。`TutorialSection.content` 放宽为可选（45 处纯 items 节），`TutorialFormation.id` 按序列 token 补齐 7 处（c073/c074/c075）。新增 §8.16（6 个 drill `animation.pocket` 为空串，其中 2 个为解码修复后新暴露的存量缺陷）。 |
 | 1.9 | 2026-08-09 | **v33 W0**：§8.5 I9 豁免 10→8；移除已录序列的 `c060`（8 杆合并）与 `c066`（0 杆空序列，见 v33 遗留 L1）。 |
+| 2.0 | 2026-08-09 | **v31 W0 横切基建**。新增 §3.3 多分类口径（主分类单值 + 副分类 ≤1、统计只记主分类、不改目录）、§5.6 剂量口径（球形级 `perFormation`、sequence/repetition 二分、sequence 型每轮球数锁死 = 序列实测杆数、总量护栏 40–60 球轮数向下取、无序列 drill 人工定量豁免）、§6.6 动作库-计划绑定模型（计划只存强度系数、激活时解析、落 `DrillSet` 快照）。§6 规则 2 破坏性变更范围扩大（token 成为计划外键，删球形前须扫计划引用）。§7：**I6 口径定稿**并拆为 I6a/I6b（实现落 W4）、新增 **I11 官方计划可解析**（待实现；说明 v31 文档称其为「I10」的编号冲突）。§9 记录裁定 **D10–D14**。代码侧同批落地：`DrillContent.secondaryCategories`、`DrillSetsConfig.perFormation`、`PlanDrillRef.dose`、SwiftData **V3**（`CustomPlanDrill.roundsPerFormation`，ADR-v31-01）。⚠️ 版本号说明：`问题集合_v31.md` 写「升 v1.8」，但 1.8 已被 v30 X-1 占用、最新为 1.9，故本次进位 2.0。 |
+| 2.1 | 2026-08-09 | **v31 W4 门禁与校验**。§7 表：**I6 拆为 I6a/I6b 并双双接门禁**（`i6a_token_mismatch_exempt` / `i6b_shots_exempt` 两条棘轮豁免均为空；`repetition` 型与无序列 drill 走**规则性**豁免，不入基线，门禁输出显示「规则豁免 N」），**I11 官方计划校验接门禁**（drillId 存在 / dose 恰好二选一且轮数 ≥1 / 球形 token ∈ perFormation ∩ 序列 token；残留旧格式为 WARN）；**I10 补齐 W0 新字段并扩到计划侧模型**（`secondaryCategories`、`sets.perFormation`+`FormationDose`、`OfficialPlan` 全链 + `PlanIndex`），FL-029 第 3 条销账。§7.1 阻塞项 9→12 项，构造性用例 11→23 条。§5.6.2 新增**阶梯型 `repetition` 上界放宽（D15）**：上界 = `max(15, 档数)`，全库仅 c020/c078 触发（`ballsPerRound` 15→16，总量 45→48 仍在护栏内）；总量护栏与 repetition 取值带在门禁里均为 WARN。§9 记 D15。 |
+| 2.2 | 2026-08-09 | **v31 W5 收尾**。§6.6 的「计划不得存裸球数」在代码侧切净：`PlanDrillRef` 删 `sets`/`ballsPerSet` 两个可选字段与 init 参数，`TrainingDoseResolver.resolve` 删 `legacySets`/`legacyBallsPerSet` 旧格式兼容路径（解析只剩「`perFormation` 逐球形展开」与「汇总兜底」两条）。连带销账：§7 表 I11 的「残留旧格式为 WARN」**转 FAIL**（字段已不存在，再写只是被解码器忽略的哑数据），`MODEL_SPEC.PlanDrillRef` 同步删除这两个键以保持 Swift 镜像（FL-029 第 3 条）；构造性用例 23→24（新增 `i11_legacy_volume_keys`）。测试侧：`PlanDrillRef.sets/ballsPerSet` 的 `XCTAssertNil` 断言无法再编译，改为**原始 JSON 键扫描**（`assertPlanJSONHasNoLegacyVolumeKeys`），覆盖面由「focused 段的可映射字段」扩大到「全计划全部条目的 JSON 键」，⛔ 未删除任何断言语义。 |
 | 1.3 | 2026-08-06 | D1/D2/D7/D8 全部裁定（用户逐项拍板，均按推荐）：§5.4 按 category 分组、§5.5 机读挂球形级（内容暂不补）、D7 按完成推进、D8 token 规范不做。§9 待裁定清零；§5 全节定稿。 |
