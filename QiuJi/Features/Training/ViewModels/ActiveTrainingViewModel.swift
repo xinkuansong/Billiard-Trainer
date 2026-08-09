@@ -12,8 +12,8 @@ struct ActiveDrill: Identifiable {
     let nameZh: String
     let description: String
     let coachingPoints: [String]
-    let sets: Int
-    let ballsPerSet: Int
+    /// 展开后的组序列（球形 1 轮 1 → … → 球形 N 轮 M，v31 R6）。异构多球形时逐组球数不同。
+    let plannedSets: [PlannedTrainingSet]
     let phaseType: String
     let phaseZh: String
     let animation: DrillAnimation?
@@ -29,6 +29,41 @@ struct ActiveDrill: Identifiable {
         DrillUnitLabel.label(category: category, subcategory: subcategory)
     }
 
+    /// 组数 = 展开后的组序列长度。
+    var sets: Int { plannedSets.count }
+    /// 首组球数。异构多球形下**不代表全部组**，仅供「加一组」等回落场景。
+    var ballsPerSet: Int { plannedSets.first?.targetBalls ?? 0 }
+
+    init(
+        drillId: String,
+        nameZh: String,
+        description: String = "",
+        coachingPoints: [String] = [],
+        plannedSets: [PlannedTrainingSet],
+        phaseType: String = "free",
+        phaseZh: String = "自由训练",
+        animation: DrillAnimation? = nil,
+        level: DrillLevel? = nil,
+        category: String = "",
+        subcategory: String = "",
+        standardCriteria: String = ""
+    ) {
+        self.id = UUID()
+        self.drillId = drillId
+        self.nameZh = nameZh
+        self.description = description
+        self.coachingPoints = coachingPoints
+        self.plannedSets = plannedSets
+        self.phaseType = phaseType
+        self.phaseZh = phaseZh
+        self.animation = animation
+        self.level = level
+        self.category = category
+        self.subcategory = subcategory
+        self.standardCriteria = standardCriteria
+    }
+
+    /// 同构组序列的便捷构造（无球形维度）：预览与不涉及球形的场景用。
     init(
         drillId: String,
         nameZh: String,
@@ -44,20 +79,20 @@ struct ActiveDrill: Identifiable {
         subcategory: String = "",
         standardCriteria: String = ""
     ) {
-        self.id = UUID()
-        self.drillId = drillId
-        self.nameZh = nameZh
-        self.description = description
-        self.coachingPoints = coachingPoints
-        self.sets = sets
-        self.ballsPerSet = ballsPerSet
-        self.phaseType = phaseType
-        self.phaseZh = phaseZh
-        self.animation = animation
-        self.level = level
-        self.category = category
-        self.subcategory = subcategory
-        self.standardCriteria = standardCriteria
+        self.init(
+            drillId: drillId,
+            nameZh: nameZh,
+            description: description,
+            coachingPoints: coachingPoints,
+            plannedSets: PlannedTrainingSet.uniform(rounds: sets, targetBalls: ballsPerSet),
+            phaseType: phaseType,
+            phaseZh: phaseZh,
+            animation: animation,
+            level: level,
+            category: category,
+            subcategory: subcategory,
+            standardCriteria: standardCriteria
+        )
     }
 }
 
@@ -229,8 +264,7 @@ final class ActiveTrainingViewModel: ObservableObject {
                     nameZh: item.nameZh,
                     description: content?.description ?? "",
                     coachingPoints: content?.coachingPoints ?? [],
-                    sets: item.sets,
-                    ballsPerSet: item.ballsPerSet,
+                    plannedSets: item.plannedSets,
                     phaseType: item.phaseType,
                     phaseZh: item.phaseZh,
                     animation: content?.animation,
@@ -316,13 +350,15 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func addDrill(_ content: DrillContent) {
         guard !drills.contains(where: { $0.drillId == content.id }) else { return }
+        let formations = Self.formationOptions(for: content.id)
+        // 自由训练无计划 dose ⇒ 用内容推荐轮数逐球形展开（契约 §5.6 / §6.6）。
+        let resolved = TrainingDoseResolver.resolve(content: content, formationOptions: formations)
         let drill = ActiveDrill(
             drillId: content.id,
             nameZh: content.nameZh,
             description: content.description,
             coachingPoints: content.coachingPoints,
-            sets: content.sets.defaultSets,
-            ballsPerSet: content.sets.defaultBallsPerSet,
+            plannedSets: resolved.plannedSets,
             animation: content.animation,
             level: DrillLevel(rawValue: content.level),
             category: content.category,
@@ -330,16 +366,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             standardCriteria: content.standardCriteria
         )
         drills.append(drill)
-        let formations = Self.formationOptions(for: drill.drillId)
-        let sets = (1...drill.sets).map {
-            DrillSetData(
-                id: $0,
-                targetBalls: drill.ballsPerSet,
-                formationToken: formations.first?.token,
-                formationName: formations.first?.name
-            )
-        }
-        drillSetsData.append(sets)
+        drillSetsData.append(Self.makeSetData(for: drill))
         drillNotes.append("")
         drillFormations.append(formations)
     }
@@ -366,27 +393,27 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     private func initializeRecords() {
         drillFormations = drills.map { Self.formationOptions(for: $0.drillId) }
-        drillSetsData = drills.enumerated().map { drillIdx, drill in
-            let formations = drillIdx < drillFormations.count ? drillFormations[drillIdx] : []
-            return (1...drill.sets).map { setNum in
-                DrillSetData(
-                    id: setNum,
-                    targetBalls: drill.ballsPerSet,
-                    isWarmup: drill.phaseType == "warmup" && setNum == 1,
-                    formationToken: formations.first?.token,
-                    formationName: formations.first?.name
-                )
-            }
-        }
+        drillSetsData = drills.map { Self.makeSetData(for: $0) }
         drillNotes = drills.map { _ in "" }
+    }
+
+    /// 组序列 → 录入行：逐组带上该组所属球形与目标球数（v31 R6，替代「全部预填第一个球形」）。
+    private static func makeSetData(for drill: ActiveDrill) -> [DrillSetData] {
+        drill.plannedSets.enumerated().map { index, planned in
+            DrillSetData(
+                id: index + 1,
+                targetBalls: planned.targetBalls,
+                isWarmup: drill.phaseType == "warmup" && index == 0,
+                formationToken: planned.formationToken,
+                formationName: planned.formationName
+            )
+        }
     }
 
     /// 多球形 drill 的可选球形；单球形（或无序列）返回空数组 —— 单球形不出选择 UI，
     /// `DrillSet.formationToken/Name` 保持 nil（契约 §4.1）。
     static func formationOptions(for drillId: String) -> [DrillFormationOption] {
-        let formations = DrillTryoutBoardStore.formations(for: drillId)
-        guard formations.count > 1 else { return [] }
-        return formations.map { DrillFormationOption(token: $0.token, name: $0.title) }
+        TrainingDoseResolver.formationOptions(forDrillId: drillId)
     }
 
     var currentSetIndex: Int {
@@ -472,8 +499,9 @@ final class ActiveTrainingViewModel: ObservableObject {
     func addSet(drillIndex: Int) {
         guard drillIndex < drillSetsData.count, drillIndex < drills.count else { return }
         let nextId = (drillSetsData[drillIndex].last?.id ?? 0) + 1
-        let target = drills[drillIndex].ballsPerSet
         let last = drillSetsData[drillIndex].last
+        // 手动加组沿用上一组的球形与球数（异构多球形下不能回落到首组球数）。
+        let target = last?.targetBalls ?? drills[drillIndex].ballsPerSet
         drillSetsData[drillIndex].append(DrillSetData(
             id: nextId,
             targetBalls: target,

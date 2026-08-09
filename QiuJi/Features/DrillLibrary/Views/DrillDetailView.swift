@@ -276,6 +276,17 @@ struct DrillDetailView: View {
                 .padding(.vertical, Spacing.xs)
                 .background(.btBGTertiary)
                 .clipShape(Capsule())
+
+            // 副分类次徽章（v31 R1）：只影响浏览/筛选，统计不记，故视觉次于主分类。
+            ForEach(drill.secondaryCategories ?? [], id: \.self) { secondary in
+                Text(DrillCategory(rawValue: secondary)?.nameZh ?? secondary)
+                    .font(.btCaption2)
+                    .foregroundStyle(.btTextTertiary)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.vertical, Spacing.xs)
+                    .overlay(Capsule().stroke(Color.btSeparator, lineWidth: 1))
+                    .accessibilityLabel("副分类 \(DrillCategory(rawValue: secondary)?.nameZh ?? secondary)")
+            }
         }
     }
 
@@ -382,7 +393,10 @@ struct DrillDetailView: View {
 
                 Spacer(minLength: Spacing.md)
 
-                Text("\(drill.sets.defaultSets) 组 × \(drill.sets.defaultBallsPerSet) 球")
+                Text(TrainingDoseResolver.resolve(content: drill).volumeText(
+                    unitLabel: DrillUnitLabel.label(category: drill.category,
+                                                    subcategory: drill.subcategory)
+                ))
                     .font(.btBodyMedium)
                     .foregroundStyle(.btText)
                     .monospacedDigit()

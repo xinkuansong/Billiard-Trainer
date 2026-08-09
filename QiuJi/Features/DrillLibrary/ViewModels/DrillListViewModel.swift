@@ -161,7 +161,11 @@ final class DrillListViewModel: ObservableObject {
         filtered = filtered.filter { ballTypeFilter.matches($0) }
 
         if let categoryFilter {
-            filtered = filtered.filter { $0.category == categoryFilter.rawValue }
+            // 筛选命中主 ∪ 副（契约 §3.3 硬约束 2）；下面的分组仍只按主分类。
+            filtered = filtered.filter { drill in
+                drill.category == categoryFilter.rawValue
+                    || (drill.secondaryCategories?.contains(categoryFilter.rawValue) ?? false)
+            }
         }
 
         if levelFilter != .all {

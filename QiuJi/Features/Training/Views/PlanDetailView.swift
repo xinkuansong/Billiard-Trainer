@@ -427,7 +427,10 @@ struct PlanDetailView: View {
 
             Spacer(minLength: Spacing.sm)
 
-            Text("\(ref.sets)×\(ref.ballsPerSet)")
+            Text(TrainingDoseResolver.resolve(
+                content: drillContents[ref.drillId],
+                dose: ref.dose
+            ).compactVolumeText)
                 .font(.btFootnote)
                 .foregroundStyle(.btTextSecondary)
                 .monospacedDigit()

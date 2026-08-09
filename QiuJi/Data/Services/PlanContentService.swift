@@ -58,8 +58,33 @@ struct SessionPhase: Codable, Identifiable {
 struct PlanDrillRef: Codable, Identifiable {
     var id: String { drillId }
     let drillId: String
-    let sets: Int
-    let ballsPerSet: Int
+    /// 计划只存强度系数，实际球数在激活训练时由 drill `sets.perFormation` 解析（v31 R4，契约 §6.6）。
+    let dose: PlanDrillDose?
+
+    init(drillId: String, dose: PlanDrillDose? = nil) {
+        self.drillId = drillId
+        self.dose = dose
+    }
+}
+
+/// 计划条目的剂量引用（v31 R4）。二选一：统一轮数，或按球形逐条给轮数（球形即难度阶梯）。
+struct PlanDrillDose: Codable, Equatable {
+    /// 每个球形都练这么多轮。与 `formations` 二选一。
+    let roundsPerFormation: Int?
+    /// 按球形 token 逐条给轮数；未列出的球形本次不练。与 `roundsPerFormation` 二选一。
+    let formations: [FormationRounds]?
+
+    struct FormationRounds: Codable, Equatable, Identifiable {
+        let token: String
+        let rounds: Int
+
+        var id: String { token }
+    }
+
+    init(roundsPerFormation: Int? = nil, formations: [FormationRounds]? = nil) {
+        self.roundsPerFormation = roundsPerFormation
+        self.formations = formations
+    }
 }
 
 // MARK: - Plan Index
@@ -84,11 +109,16 @@ actor PlanContentService {
     private init() {}
 
     func loadPlanIndex() -> PlanIndex? {
-        guard let url = Bundle.main.url(forResource: "index", withExtension: "json", subdirectory: "Plans"),
-              let data = try? Data(contentsOf: url) else {
+        guard let url = Bundle.main.url(forResource: "index", withExtension: "json", subdirectory: "Plans") else {
+            DrillContentDiagnostics.logMissingResource(name: "Plans/index.json")
             return nil
         }
-        return try? JSONDecoder().decode(PlanIndex.self, from: data)
+        do {
+            return try JSONDecoder().decode(PlanIndex.self, from: try Data(contentsOf: url))
+        } catch {
+            DrillContentDiagnostics.logDecodeFailure(resource: "Plans/index.json", error: error)
+            return nil
+        }
     }
 
     func loadAllPlans() -> [OfficialPlan] {
@@ -105,11 +135,16 @@ actor PlanContentService {
     /// 同步读取（只读 Bundle，不访问 actor 状态）。计划推进要在训练落库的同一步内
     /// 取到周 / 天结构，故需要一条不经 `await` 的入口。
     nonisolated static func decodePlanFromBundle(id: String) -> OfficialPlan? {
-        guard let url = Bundle.main.url(forResource: id, withExtension: "json", subdirectory: "Plans"),
-              let data = try? Data(contentsOf: url) else {
+        guard let url = Bundle.main.url(forResource: id, withExtension: "json", subdirectory: "Plans") else {
+            DrillContentDiagnostics.logMissingResource(name: "Plans/\(id).json")
             return nil
         }
-        return try? JSONDecoder().decode(OfficialPlan.self, from: data)
+        do {
+            return try JSONDecoder().decode(OfficialPlan.self, from: try Data(contentsOf: url))
+        } catch {
+            DrillContentDiagnostics.logDecodeFailure(resource: "Plans/\(id).json", error: error)
+            return nil
+        }
     }
 
     func loadFreePlans() -> [OfficialPlan] {

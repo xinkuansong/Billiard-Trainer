@@ -3,10 +3,10 @@ import SwiftData
 
 enum ModelContainerFactory {
 
-    /// 当前（V2）模型集。历史形态见 `QiuJiSchemaV1`。
-    static let allModels: [any PersistentModel.Type] = QiuJiSchemaV2.models
+    /// 当前（V3）模型集。历史形态见 `QiuJiSchemaV1` / `QiuJiSchemaV2`。
+    static let allModels: [any PersistentModel.Type] = QiuJiSchemaV3.models
 
-    static let currentSchema = Schema(versionedSchema: QiuJiSchemaV2.self)
+    static let currentSchema = Schema(versionedSchema: QiuJiSchemaV3.self)
 
     static func makeContainer() -> ModelContainer {
         let config = ModelConfiguration(schema: currentSchema, isStoredInMemoryOnly: false)

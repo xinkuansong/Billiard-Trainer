@@ -465,6 +465,11 @@ struct BTFormationMenu: View {
                     .font(.btMicro)
                     .foregroundStyle(.btTextTertiary)
             }
+            // 球形列是行内唯一的可变宽文本列，却和纯数字列平分弹性空间，分到的宽度只比
+            // 标签固有宽度多 1–2 pt。SF Pro 的比例数字里「2」比「1」宽，于是同为三字的
+            // 「球形1」（固有 31.3 pt）放得下、「球形2」放不下被截成「…」——同宽文本部分行
+            // 截断的成因在此，与行状态无关。固定为固有宽度，让弹性数字列让出这几 pt。
+            .fixedSize(horizontal: true, vertical: false)
             .frame(maxWidth: .infinity)
             .frame(height: 36)
             .contentShape(Rectangle())

@@ -314,7 +314,7 @@ struct TrainingHomeView: View {
                     .foregroundStyle(drill.isCompleted ? .btTextSecondary : .btText)
                     .lineLimit(2)
 
-                Text("\(drill.sets) 组 × \(drill.ballsPerSet) 球")
+                Text(drill.volumeText)
                     .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
                     .monospacedDigit()

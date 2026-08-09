@@ -772,7 +772,10 @@ struct DrillPickerSheet: View {
                                 Text("·")
                                     .foregroundStyle(.btTextTertiary)
 
-                                Text("\(drill.sets.defaultSets)组 × \(drill.sets.defaultBallsPerSet)球")
+                                Text(TrainingDoseResolver.resolve(content: drill).volumeText(
+                                    unitLabel: DrillUnitLabel.label(category: drill.category,
+                                                                    subcategory: drill.subcategory)
+                                ))
                                     .font(.btCaption)
                                     .foregroundStyle(.btTextTertiary)
                             }
@@ -830,8 +833,8 @@ private let previewPlanDrills = [
         phaseType: "warmup",
         phaseZh: "热身",
         phaseIcon: "flame",
-        sets: 3,
-        ballsPerSet: 10,
+        plannedSets: PlannedTrainingSet.uniform(rounds: 3, targetBalls: 10),
+        volumeText: "3 轮 × 10 球",
         isCompleted: false
     ),
     TodayDrillItem(
@@ -841,8 +844,8 @@ private let previewPlanDrills = [
         phaseType: "focused",
         phaseZh: "专项训练",
         phaseIcon: "target",
-        sets: 3,
-        ballsPerSet: 10,
+        plannedSets: PlannedTrainingSet.uniform(rounds: 3, targetBalls: 10),
+        volumeText: "3 轮 × 10 球",
         isCompleted: false
     ),
     TodayDrillItem(
@@ -852,8 +855,8 @@ private let previewPlanDrills = [
         phaseType: "focused",
         phaseZh: "专项训练",
         phaseIcon: "target",
-        sets: 5,
-        ballsPerSet: 15,
+        plannedSets: PlannedTrainingSet.uniform(rounds: 5, targetBalls: 15),
+        volumeText: "5 轮 × 15 球",
         isCompleted: false
     ),
 ]

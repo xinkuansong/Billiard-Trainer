@@ -7,8 +7,11 @@ private struct DrillSettingsTarget: Identifiable {
     let id: UUID
     let index: Int
     let name: String
-    let sets: Int
-    let ballsPerSet: Int
+    /// 每球形轮数（唯一可调项，v31 R4）。
+    let rounds: Int
+    /// 内容派生的只读展开：球形数与各球形每轮球数。
+    let groups: [ResolvedDose.Group]
+    let unitLabel: String
 }
 
 // MARK: - Custom Plan Builder View
@@ -64,11 +67,12 @@ struct CustomPlanBuilderView: View {
         .sheet(item: $drillSettingsTarget) { target in
             DrillSettingsSheet(
                 drillName: target.name,
-                initialSets: target.sets,
-                initialBallsPerSet: target.ballsPerSet,
-                onSave: { newSets, newBalls in
+                initialRounds: target.rounds,
+                groups: target.groups,
+                unitLabel: target.unitLabel,
+                onSave: { newRounds in
                     withAnimation(BTMotion.springPanel) {
-                        viewModel.updateDrillSettings(at: target.index, sets: newSets, ballsPerSet: newBalls)
+                        viewModel.updateRounds(at: target.index, rounds: newRounds)
                     }
                 },
                 onDelete: {
@@ -231,7 +235,7 @@ struct CustomPlanBuilderView: View {
                     .foregroundStyle(.btText)
                     .lineLimit(1)
 
-                Text("\(item.sets) 组 · \(item.sets * item.ballsPerSet) 球")
+                Text(item.volumeText)
                     .font(.btFootnote)
                     .foregroundStyle(.btTextSecondary)
             }
@@ -243,8 +247,9 @@ struct CustomPlanBuilderView: View {
                     id: item.id,
                     index: index,
                     name: item.nameZh,
-                    sets: item.sets,
-                    ballsPerSet: item.ballsPerSet
+                    rounds: item.rounds,
+                    groups: item.groups,
+                    unitLabel: item.unitLabel
                 )
             } label: {
                 Image(systemName: BTIcon.menuCircle)
@@ -333,58 +338,70 @@ struct CustomPlanBuilderView: View {
 
 private struct DrillSettingsSheet: View {
     let drillName: String
-    @State var sets: Int
-    @State var ballsPerSet: Int
-    let onSave: (Int, Int) -> Void
+    @State var rounds: Int
+    /// 逐球形每轮球数（内容真源派生，用户不可改，v31 R4）。
+    let groups: [ResolvedDose.Group]
+    let unitLabel: String
+    let onSave: (Int) -> Void
     let onDelete: () -> Void
     @Environment(\.dismiss) private var dismiss
 
-    init(drillName: String, initialSets: Int, initialBallsPerSet: Int,
-         onSave: @escaping (Int, Int) -> Void, onDelete: @escaping () -> Void) {
+    init(drillName: String, initialRounds: Int, groups: [ResolvedDose.Group], unitLabel: String,
+         onSave: @escaping (Int) -> Void, onDelete: @escaping () -> Void) {
         self.drillName = drillName
-        self._sets = State(initialValue: initialSets)
-        self._ballsPerSet = State(initialValue: initialBallsPerSet)
+        self._rounds = State(initialValue: initialRounds)
+        self.groups = groups
+        self.unitLabel = unitLabel
         self.onSave = onSave
         self.onDelete = onDelete
     }
+
+    /// 每球形每轮球数（球形顺序同内容 `perFormation`）。
+    private var ballsPerRound: [Int] { groups.map(\.ballsPerRound) }
+
+    private var totalBalls: Int { rounds * ballsPerRound.reduce(0, +) }
 
     var body: some View {
         NavigationStack {
             List {
                 Section("训练设置") {
-                    Stepper(value: $sets, in: 1...20) {
+                    Stepper(value: $rounds, in: 1...20) {
                         HStack {
-                            Text("组数")
+                            Text("每球形轮数")
                                 .font(.btBody)
                                 .foregroundStyle(.btText)
                             Spacer()
-                            Text("\(sets)")
-                                .font(.btBodyMedium)
-                                .foregroundStyle(.btPrimary)
-                        }
-                    }
-
-                    Stepper(value: $ballsPerSet, in: 1...50) {
-                        HStack {
-                            Text("每组球数")
-                                .font(.btBody)
-                                .foregroundStyle(.btText)
-                            Spacer()
-                            Text("\(ballsPerSet)")
+                            Text("\(rounds)")
                                 .font(.btBodyMedium)
                                 .foregroundStyle(.btPrimary)
                         }
                     }
 
                     HStack {
-                        Text("总球数")
+                        Text(groups.count > 1 ? "每轮球数（逐球形）" : "每轮球数")
                             .font(.btBody)
                             .foregroundStyle(.btText)
                         Spacer()
-                        Text("\(sets * ballsPerSet)")
+                        Text(ballsPerRound.map(String.init).joined(separator: " / "))
                             .font(.btBodyMedium)
                             .foregroundStyle(.btTextSecondary)
                     }
+
+                    HStack {
+                        Text("总\(unitLabel)数")
+                            .font(.btBody)
+                            .foregroundStyle(.btText)
+                        Spacer()
+                        Text("\(totalBalls)")
+                            .font(.btBodyMedium)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                }
+
+                Section {
+                    Text("每轮球数由动作内容决定，不可在计划里改（改量请调轮数）。")
+                        .font(.btFootnote)
+                        .foregroundStyle(.btTextTertiary)
                 }
 
                 Section {
@@ -401,7 +418,7 @@ private struct DrillSettingsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") {
-                        onSave(sets, ballsPerSet)
+                        onSave(rounds)
                         dismiss()
                     }
                     .fontWeight(.semibold)

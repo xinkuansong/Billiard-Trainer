@@ -8,6 +8,10 @@ struct DrillContent: Codable, Identifiable {
     let nameZh: String
     let nameEn: String
     let category: String
+    /// 副分类标签（v31 R1）。主分类 `category` 仍是单值真源——目录归属、统计归属、
+    /// 详情主徽章一律只看它；副分类只影响动作库浏览与筛选，**不参与任何统计**。
+    /// 可选——旧 JSON 无此字段照常解码；每条 drill 至多 1 个（内容侧约束，见契约 §3.3）。
+    let secondaryCategories: [String]?
     let subcategory: String
     let ballType: [String]
     let level: String
@@ -29,6 +33,7 @@ struct DrillContent: Codable, Identifiable {
         nameZh: String,
         nameEn: String,
         category: String,
+        secondaryCategories: [String]? = nil,
         subcategory: String,
         ballType: [String],
         level: String,
@@ -47,6 +52,7 @@ struct DrillContent: Codable, Identifiable {
         self.nameZh = nameZh
         self.nameEn = nameEn
         self.category = category
+        self.secondaryCategories = secondaryCategories
         self.subcategory = subcategory
         self.ballType = ballType
         self.level = level
@@ -63,8 +69,40 @@ struct DrillContent: Codable, Identifiable {
     }
 
     struct DrillSetsConfig: Codable {
+        /// 汇总兜底：全部球形轮数之和。`perFormation` 就位后由内容侧保持 `Σ defaultRounds`。
         let defaultSets: Int
+        /// 汇总兜底：主球形每轮球数。多球形异构时不足以还原真实剂量，仅供未展开场景显示。
         let defaultBallsPerSet: Int
+        /// 逐球形剂量（v31 R3）。可选——旧 JSON 无此字段照常解码，消费方回落到上面两个汇总值。
+        let perFormation: [FormationDose]?
+
+        init(defaultSets: Int, defaultBallsPerSet: Int, perFormation: [FormationDose]? = nil) {
+            self.defaultSets = defaultSets
+            self.defaultBallsPerSet = defaultBallsPerSet
+            self.perFormation = perFormation
+        }
+    }
+
+    /// 一个球形的训练剂量（v31 R3：剂量下沉到球形级）。
+    struct FormationDose: Codable, Identifiable, Equatable {
+        /// 球形 token，与序列文件名 token / `tutorial.formations[].id` 同一取值（契约 §3.1）。
+        let token: String
+        /// 训练模式，决定 `ballsPerRound` 的语义与是否受几何校验约束。
+        let mode: DoseMode
+        /// 每轮球数。`sequence` 型**锁死 = 序列实测杆数**（不变量 I6b）；`repetition` 型人工定。
+        let ballsPerRound: Int
+        /// 推荐轮数（总量护栏 40–60 球，轮数向下取，最少 1）。
+        let defaultRounds: Int
+
+        var id: String { token }
+    }
+
+    /// 球形训练模式（v31 R3 定稿口径）。
+    enum DoseMode: String, Codable, Equatable, CaseIterable {
+        /// 走位链：1 轮 = 按序打完序列全部杆数，每轮球数锁死为杆数。
+        case sequence
+        /// 独立阶梯 / 目录型：序列仅作示范，1 轮 = 重复该球形 `ballsPerRound` 次。
+        case repetition
     }
 }
 
@@ -361,6 +399,12 @@ actor DrillContentService {
     }
 
     func loadDrillFromBundle(id: String) -> DrillContent? {
+        Self.decodeDrillFromBundle(id: id)
+    }
+
+    /// 同步读取（只读 Bundle，不访问 actor 状态）。SwiftData 迁移与构建器回填需要一条
+    /// 不经 `await` 的入口（同 `PlanContentService.decodePlanFromBundle`）。
+    nonisolated static func decodeDrillFromBundle(id: String) -> DrillContent? {
         for category in DrillCategory.allCases.map(\.rawValue) {
             guard let url = Bundle.main.url(
                 forResource: id, withExtension: "json", subdirectory: "Drills/\(category)"
@@ -377,6 +421,21 @@ actor DrillContentService {
         }
         DrillContentDiagnostics.logMissingResource(name: "Drills/*/\(id).json")
         return nil
+    }
+
+    /// 该 drill 的球形数。优先取剂量声明（v31 内容批落地后为权威），回落到多球形精讲段数；
+    /// 两者都没有则按单球形算 1（契约 §5.6：无球形声明按 1 球形处理）。
+    /// ⚠️ 这不是球形几何真源——几何真源是序列文件（契约 §1.1），Bundle 内以
+    /// `DrillBoards/` 承载；此处只用于剂量折算这类不涉及几何的场景。
+    nonisolated static func formationCount(forDrillId id: String) -> Int {
+        guard let drill = decodeDrillFromBundle(id: id) else { return 1 }
+        if let perFormation = drill.sets.perFormation, !perFormation.isEmpty {
+            return perFormation.count
+        }
+        if let formations = drill.tutorial?.formations, !formations.isEmpty {
+            return formations.count
+        }
+        return 1
     }
 
     // v25 W1：引擎渲染视频下线后无调用方；`DrillVideo` / `videos` 字段仍保留

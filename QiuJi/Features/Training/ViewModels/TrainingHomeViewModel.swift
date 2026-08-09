@@ -10,9 +10,14 @@ struct TodayDrillItem: Identifiable {
     let phaseType: String
     let phaseZh: String
     let phaseIcon: String
-    let sets: Int
-    let ballsPerSet: Int
+    /// 展开后的组序列：球形 1 轮 1 → … → 球形 N 轮 M，逐组带球形与目标球数（v31 R6）。
+    let plannedSets: [PlannedTrainingSet]
+    /// 展示文案（同构「N 轮 × N 球/杆」，异构多球形出汇总），口径见 `ResolvedDose`。
+    let volumeText: String
     let isCompleted: Bool
+
+    var setCount: Int { plannedSets.count }
+    var totalBalls: Int { plannedSets.reduce(0) { $0 + $1.targetBalls } }
 }
 
 struct TodaySessionInfo {
@@ -185,6 +190,12 @@ final class TrainingHomeViewModel: ObservableObject {
         for phase in session.phases {
             for ref in phase.drills {
                 let content = await drillService.loadDrillFromBundle(id: ref.drillId)
+                // 计划 dose × drill perFormation → 组序列（契约 §6.6）。
+                let resolved = TrainingDoseResolver.resolve(
+                    content: content,
+                    dose: ref.dose,
+                    formationOptions: TrainingDoseResolver.formationOptions(forDrillId: ref.drillId)
+                )
                 items.append(TodayDrillItem(
                     id: "\(phase.type)_\(ref.drillId)",
                     drillId: ref.drillId,
@@ -192,8 +203,8 @@ final class TrainingHomeViewModel: ObservableObject {
                     phaseType: phase.type,
                     phaseZh: phase.typeZh,
                     phaseIcon: phase.icon,
-                    sets: ref.sets,
-                    ballsPerSet: ref.ballsPerSet,
+                    plannedSets: resolved.plannedSets,
+                    volumeText: resolved.volumeText(unitLabel: Self.unitLabel(for: content)),
                     isCompleted: completedIds.contains(ref.drillId)
                 ))
             }
@@ -231,6 +242,13 @@ final class TrainingHomeViewModel: ObservableObject {
 
         var items: [TodayDrillItem] = []
         for drill in sortedDrills {
+            // 自定义计划只存每球形轮数（schema V3）；球数同样由内容派生。
+            let content = DrillContentService.decodeDrillFromBundle(id: drill.drillId)
+            let resolved = TrainingDoseResolver.resolve(
+                content: content,
+                dose: PlanDrillDose(roundsPerFormation: drill.roundsPerFormation),
+                formationOptions: TrainingDoseResolver.formationOptions(forDrillId: drill.drillId)
+            )
             items.append(TodayDrillItem(
                 id: "custom_\(drill.drillId)",
                 drillId: drill.drillId,
@@ -238,8 +256,8 @@ final class TrainingHomeViewModel: ObservableObject {
                 phaseType: "focused",
                 phaseZh: "专项训练",
                 phaseIcon: "target",
-                sets: drill.sets,
-                ballsPerSet: drill.ballsPerSet,
+                plannedSets: resolved.plannedSets,
+                volumeText: resolved.volumeText(unitLabel: Self.unitLabel(for: content)),
                 isCompleted: completedIds.contains(drill.drillId)
             ))
         }
@@ -254,6 +272,12 @@ final class TrainingHomeViewModel: ObservableObject {
             totalMinutes: 0,
             drills: items
         )
+    }
+
+    /// 录入单位（契约 §5.2）。内容缺失时按「球」。
+    private static func unitLabel(for content: DrillContent?) -> String {
+        DrillUnitLabel.label(category: content?.category ?? "",
+                             subcategory: content?.subcategory ?? "")
     }
 
     private func fetchTodayCompletedDrillIds(context: ModelContext) -> Set<String> {

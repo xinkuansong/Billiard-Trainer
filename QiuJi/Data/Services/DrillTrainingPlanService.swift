@@ -60,8 +60,7 @@ enum DrillTrainingPlanService {
         let entry = CustomPlanDrill(
             drillId: drill.id,
             drillNameZh: drill.nameZh,
-            sets: max(1, drill.sets.defaultSets),
-            ballsPerSet: max(1, drill.sets.defaultBallsPerSet),
+            roundsPerFormation: max(1, drill.sets.defaultSets),
             order: nextOrder
         )
         plan.drills.append(entry)
@@ -89,8 +88,7 @@ enum DrillTrainingPlanService {
         let entry = CustomPlanDrill(
             drillId: drill.id,
             drillNameZh: drill.nameZh,
-            sets: max(1, drill.sets.defaultSets),
-            ballsPerSet: max(1, drill.sets.defaultBallsPerSet),
+            roundsPerFormation: max(1, drill.sets.defaultSets),
             order: 0
         )
         plan.drills = [entry]

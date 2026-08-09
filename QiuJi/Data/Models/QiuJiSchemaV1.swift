@@ -5,8 +5,8 @@ import SwiftData
 ///
 /// 这里的嵌套类型是**历史快照，禁止再修改**：它们只用于声明 V1 的实体形状，
 /// 使 `QiuJiMigrationPlan` 能从真实旧库轻量迁移到 V2，并让迁移测试可以构造真正的旧库。
-/// 未变更的模型（UserActivePlan / DrillFavorite / SyncPendingItem / CustomPlan(Drill)）
-/// 直接复用顶层类型，V1 与 V2 共享同一形状。
+/// 未变更的模型（UserActivePlan / DrillFavorite / SyncPendingItem）直接复用顶层类型；
+/// `CustomPlan(Drill)` V1 与 V2 同形，复用 `QiuJiSchemaV2` 的历史快照（V3 才变形，见 ADR-v31-01）。
 enum QiuJiSchemaV1: VersionedSchema {
 
     static var versionIdentifier = Schema.Version(1, 0, 0)
@@ -20,8 +20,8 @@ enum QiuJiSchemaV1: VersionedSchema {
             QiuJi.UserActivePlan.self,
             QiuJi.DrillFavorite.self,
             QiuJi.SyncPendingItem.self,
-            QiuJi.CustomPlan.self,
-            QiuJi.CustomPlanDrill.self
+            QiuJiSchemaV2.CustomPlan.self,
+            QiuJiSchemaV2.CustomPlanDrill.self
         ]
     }
 

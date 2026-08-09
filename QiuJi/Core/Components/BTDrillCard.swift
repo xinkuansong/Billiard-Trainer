@@ -48,7 +48,7 @@ struct BTDrillCard: View {
                     Text("·")
                         .foregroundStyle(.btTextTertiary)
 
-                    Text("推荐 \(drill.sets.defaultSets) 组")
+                    Text("推荐 \(TrainingDoseResolver.resolve(content: drill).totalRounds) 轮")
                         .font(.btFootnote)
                         .foregroundStyle(.btTextSecondary)
                 }

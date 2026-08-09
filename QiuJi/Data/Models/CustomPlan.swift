@@ -23,16 +23,17 @@ final class CustomPlanDrill {
     var id: UUID
     var drillId: String
     var drillNameZh: String
-    var sets: Int
-    var ballsPerSet: Int
+    /// 强度系数：每个球形练多少轮（v31 R4，schema V3）。
+    /// 实际球数不再存在计划里，训练激活时由 drill 内容的 `sets.perFormation` 解析。
+    /// 默认值 1 同时是 V2→V3 迁移的存储默认值。
+    var roundsPerFormation: Int = 1
     var order: Int
 
-    init(drillId: String, drillNameZh: String, sets: Int, ballsPerSet: Int, order: Int) {
+    init(drillId: String, drillNameZh: String, roundsPerFormation: Int, order: Int) {
         self.id = UUID()
         self.drillId = drillId
         self.drillNameZh = drillNameZh
-        self.sets = sets
-        self.ballsPerSet = ballsPerSet
+        self.roundsPerFormation = roundsPerFormation
         self.order = order
     }
 }
