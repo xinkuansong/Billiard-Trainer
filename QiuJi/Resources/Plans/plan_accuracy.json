@@ -16,27 +16,27 @@
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c011", "sets": 5, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c001", "dose": {"roundsPerFormation": 7}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 1}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c011", "sets": 4, "ballsPerSet": 15}, {"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c022", "dose": {"roundsPerFormation": 1}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c001", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c011", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c001", "sets": 3, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c012", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c023", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 4}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         }
@@ -49,27 +49,27 @@
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c013", "sets": 5, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c002", "dose": {"roundsPerFormation": 4}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c013", "sets": 4, "ballsPerSet": 15}, {"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c002", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c013", "sets": 3, "ballsPerSet": 15}, {"drillId": "drill_c002", "sets": 3, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c012", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c023", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}, {"drillId": "drill_c002", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         }
@@ -82,27 +82,27 @@
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c032", "sets": 5, "ballsPerSet": 12}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c032", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c032", "sets": 6, "ballsPerSet": 12}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c032", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c002", "dose": {"roundsPerFormation": 4}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c032", "sets": 5, "ballsPerSet": 12}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c012", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c022", "dose": {"roundsPerFormation": 1}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c032", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         }
@@ -115,27 +115,27 @@
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c012", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c053", "sets": 5, "ballsPerSet": 12}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c032", "sets": 2, "ballsPerSet": 12}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c053", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 4}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c032", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c053", "sets": 4, "ballsPerSet": 12}, {"drillId": "drill_c012", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c053", "dose": {"roundsPerFormation": 2}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c032", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 1}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c053", "sets": 3, "ballsPerSet": 12}, {"drillId": "drill_c012", "sets": 3, "ballsPerSet": 15}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c032", "sets": 2, "ballsPerSet": 12}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c023", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c053", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 4}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         }
@@ -148,27 +148,27 @@
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c032", "sets": 2, "ballsPerSet": 12}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c033", "sets": 5, "ballsPerSet": 10}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c012", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c033", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c052", "dose": {"roundsPerFormation": 4}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c032", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c033", "sets": 3, "ballsPerSet": 10}, {"drillId": "drill_c052", "sets": 3, "ballsPerSet": 10}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c053", "sets": 2, "ballsPerSet": 12}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c033", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c052", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c062", "dose": {"roundsPerFormation": 6}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "sets": 2, "ballsPerSet": 15}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c033", "sets": 2, "ballsPerSet": 10}, {"drillId": "drill_c052", "sets": 2, "ballsPerSet": 10}, {"drillId": "drill_c062", "sets": 2, "ballsPerSet": 10}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "sets": 2, "ballsPerSet": 15}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c033", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c062", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c052", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c053", "dose": {"roundsPerFormation": 1}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         }
@@ -181,27 +181,27 @@
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c032", "sets": 2, "ballsPerSet": 10}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c063", "sets": 4, "ballsPerSet": 8}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c033", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c063", "dose": {"roundsPerFormation": 25}}, {"drillId": "drill_c052", "dose": {"roundsPerFormation": 5}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c033", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c052", "sets": 2, "ballsPerSet": 8}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c063", "sets": 3, "ballsPerSet": 8}, {"drillId": "drill_c072", "sets": 2, "ballsPerSet": 8}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c062", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c063", "dose": {"roundsPerFormation": 20}}, {"drillId": "drill_c072", "dose": {"roundsPerFormation": 20}}, {"drillId": "drill_c033", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c032", "dose": {"roundsPerFormation": 3}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c011", "sets": 2, "ballsPerSet": 12}]},
-            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c063", "sets": 2, "ballsPerSet": 8}, {"drillId": "drill_c072", "sets": 3, "ballsPerSet": 8}]},
-            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c053", "sets": 2, "ballsPerSet": 10}]},
+            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c022", "dose": {"roundsPerFormation": 1}}]},
+            {"type": "focused", "durationMinutes": 45, "drills": [{"drillId": "drill_c072", "dose": {"roundsPerFormation": 25}}, {"drillId": "drill_c063", "dose": {"roundsPerFormation": 15}}, {"drillId": "drill_c052", "dose": {"roundsPerFormation": 3}}]},
+            {"type": "combined", "durationMinutes": 15, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 1}}]},
             {"type": "review", "durationMinutes": 5, "drills": []}
           ]
         }
