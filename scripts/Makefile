@@ -50,6 +50,7 @@ help:
 	@echo "  make verify-tutorials  内容不变量全量校验（C1–C4 + I5/I7/I8/I9/I10；C4 也计入退出码）"
 	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I10 模型可解码性，v30 X-1 新增）"
 	@echo "  make invariant-selftest  不变量检查自测（构造性用例证明每项真会报错）"
+	@echo "  make verify-doc-size  进度文档体积门禁（PROGRESS.md / hub 状态卡滚动归档纪律）"
 	@echo "  make install-hooks  安装 git 钩子（pre-push 内容不变量门禁）"
 	@echo "  make tutorial-ledger  生成精讲资产台账（docs/research/精讲资产台账.md）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
@@ -261,6 +262,15 @@ verify-gate:
 .PHONY: invariant-selftest
 invariant-selftest:
 	@python3 $(PROJECT_ROOT)/scripts/selftest_content_invariants.py $(ARGS)
+
+# ────────────────────────────────────────────
+# 进度文档体积门禁（2026-08-09 上下文瘦身）
+# PROGRESS.md「当前状态」/ hub 状态卡「最近完成」超 12 条或文件超 100 KB 即 FAIL；
+# 处置 = 把最旧条目移入对应归档文件，⛔ 禁止上调脚本阈值放行。
+# ────────────────────────────────────────────
+.PHONY: verify-doc-size
+verify-doc-size:
+	@python3 $(PROJECT_ROOT)/scripts/verify_doc_size.py
 
 .PHONY: install-hooks
 install-hooks:

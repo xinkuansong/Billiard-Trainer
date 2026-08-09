@@ -80,10 +80,28 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         play.tap()
         // 用户反馈「点了没变化」：点击后必须立刻切到播放中（可暂停）。
         XCTAssertEqual(play.label, "暂停", "点播放后按钮应立刻变为播放中状态")
+        let hud = app.otherElements["drillShotHUDBar"]
+        let tableViewport = app.descendants(matching: .any)
+            .matching(identifier: "drillSceneTableViewport").firstMatch
+        XCTAssertTrue(hud.waitForExistence(timeout: 3), "播放后应显示 HUD")
+        XCTAssertTrue(tableViewport.exists, "未找到球桌视口")
+        XCTAssertGreaterThanOrEqual(
+            hud.frame.minY,
+            tableViewport.frame.maxY - 1,
+            "HUD 应位于球桌下方，不得覆盖台面"
+        )
         savePNG("p1-playing-state")
 
-        // 等进入首杆运杆后再请求暂停，确保暂停时确有「当前杆」在播。
-        sleep(4)
+        // 播放控制约 2s 后自动隐藏；第一次轻点球桌只负责重新唤出。
+        sleep(3)
+        XCTAssertFalse(play.exists, "播放中暂停键不应长期覆盖球桌")
+        savePNG("p1a-controls-hidden")
+        tableViewport.tap()
+        XCTAssertTrue(play.waitForExistence(timeout: 2), "轻点球桌后应重新显示暂停键")
+        XCTAssertEqual(play.label, "暂停")
+        savePNG("p1b-controls-revealed")
+
+        // 此时开播已超过 4s，首杆正在执行；直接请求杆边界暂停。
         play.tap()
         XCTAssertEqual(
             play.label, "本杆结束后暂停",
@@ -141,6 +159,14 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
             seen.count, 2,
             "HUD 应逐杆更新为当前杆参数，实际全程只出现：\(seen)"
         )
+    }
+
+    func testDetailInformationHierarchyLight() {
+        verifyDetailInformationHierarchy(appearance: .light, label: "Light", slug: "light")
+    }
+
+    func testDetailInformationHierarchyDark() {
+        verifyDetailInformationHierarchy(appearance: .dark, label: "Dark", slug: "dark")
     }
 
     /// 训练进行中的「球台示意」复用同一 `DrillSceneView`。
@@ -208,6 +234,40 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 5), "未找到 drill_c078 卡片")
         card.tap()
         sleep(3)
+    }
+
+    /// 详情页共享布局应保留正文标题、无空闲 HUD 条，并把达标目标、建议量、
+    /// 训练维度收进同一「训练要求」卡。
+    private func verifyDetailInformationHierarchy(
+        appearance: XCUIDevice.Appearance,
+        label: String,
+        slug: String
+    ) {
+        let originalAppearance = XCUIDevice.shared.appearance
+        defer { XCUIDevice.shared.appearance = originalAppearance }
+
+        app.terminate()
+        XCUIDevice.shared.appearance = appearance
+        app = XCUIApplication.launchClean()
+        openDrillC001()
+
+        XCTAssertTrue(app.staticTexts["半台直线球"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["L0 入门"].exists, "难度徽章应与正文标题同组显示")
+        XCTAssertFalse(
+            app.otherElements["drillShotHUDBar"].exists,
+            "空闲详情页不应为 HUD 保留黑色占位条"
+        )
+        savePNG("layout-\(slug)-top")
+
+        app.swipeUp()
+        XCTAssertTrue(
+            app.staticTexts["训练要求"].waitForExistence(timeout: 5),
+            "\(label) 模式下未显示合并后的训练要求卡"
+        )
+        XCTAssertTrue(app.staticTexts["达标目标"].exists)
+        XCTAssertTrue(app.staticTexts["建议训练量"].exists)
+        XCTAssertTrue(app.staticTexts["训练维度"].exists)
+        savePNG("layout-\(slug)-requirements")
     }
 
     private func openDrillC001() {

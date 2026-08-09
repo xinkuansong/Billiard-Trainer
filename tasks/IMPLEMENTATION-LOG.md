@@ -142,6 +142,32 @@
 - **回写目标**：`docs/research/20260807-v30理论页组件规范.md`（新增 §四 配图硬性章节 + §三 风格收敛铁律）、`docs/research/20260807-v30理论转写模板.md`（§3.1 配图决策树）
 - **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.2 §三/§四/§五/§六/§二 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.1 §一/§3.1/§3.2/§四 + Changelog（2026-08-07）；✅ 本文件 DR-064 补「返工 r1 修订」段（2026-08-07）
 
+## DR-067
+- **任务**：动作库筛选菜单去掉无区分度的「有精讲」
+- **原始规范**：`DrillBadgeFilter` 含 `hasTutorial = "有精讲"`（E19 / v26 W0），与模板种（单杆技术课 / 应用课 / 规则流程课）及「已完成」并列。
+- **调整后**：移除 `hasTutorial` case 及匹配分支；菜单「精讲与进度」仅保留：全部角标 / 单杆技术课 / 应用课 / 规则流程课 / 已完成。
+- **原因**：全库 83 条 drill 均有精讲，`有精讲` 命中 83/83，筛了等于没筛。球种与三类精讲种仍有内容命中，不删。
+- **影响组件**：`DrillListViewModel.DrillBadgeFilter`（`DrillListView` 经 `allCases` 自动收敛）
+- **日期**：2026-08-09
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-09）
+
+## DR-066
+- **任务**：动作库 Drill 详情页信息层级与 Light/Dark 统一
+- **原始规范**：球桌下方为 `BTShotHUDBar` 永久预留约 50pt 黑色空条；正文标题、简介、标签与三张同权卡按统一 20pt 间距平铺；「达标标准」把长目标与短建议量强制二等分；训练维度用五个胶囊网格呈现。
+- **调整后**：
+  1. 保留导航标题 + 正文标题；正文标题、15pt 次级简介、标签收成一个 8/12pt 关系明确的信息组。难度徽章移到正文标题 trailing，球种/分类仍在下一行；标题组底部用 `btSeparator` 弱分隔，不再新增卡框或无语义标题图标。
+  2. HUD 仅在回放期间动态插入球桌下方，空闲态不占高度、播放态不遮台面；播放钮空闲/暂停态常显，播放约 2 秒后自动隐藏，轻点球桌只唤出控制，再点才请求杆边界暂停。
+  3. 「达标标准」与「训练维度」合并为「训练要求」卡：达标目标全宽纵排，建议量单行右对齐，维度按重点/中等/辅助分组为只读文字，避免伪按钮；三个同级子标题统一为 `Label` + SF Symbol。
+  4. 两张内容卡 Light 用 `btBGSecondary`，Dark 同 token 并补 0.5pt `btSeparator` 描边；底栏与正文统一 16pt 水平边线。
+  5. 详情球桌废除固定 `frameAspect=1.81 + orthoScale=0.77` 的裁切取景：画框改用 USDZ 外框实测兜底比例，`CameraRig.fitLandscapeTable` 按运行时外框与容器宽高双轴计算正交半高，并保留 1.2% 抗锯齿安全余量；首帧 fallback 同样使用完整外框尺度。
+- **原因**：原页面同时存在固定黑色空洞、16–20pt 扁平字号层级、左右栏信息量失衡与三张同形卡堆叠，导致阅读路径不清；维度胶囊又产生可点击误解。共享 `DrillDetailView` 改一次即可覆盖全部 Drill。
+- **影响组件**：`DrillDetailView`、`DrillSceneView`、`BTShotHUDBar` 注释、`DrillSceneThreeBeatUITests`
+- **验证**：`make build` → `BUILD SUCCEEDED`；`ShotTableLayoutTests` 9/0（含新增横向完整取景 2 条）+ `BTShotHUDBarRenderTests` 2/0；Light 与 Dark 详情布局 UI 测各 1/0；播放控制/HUD UI 测 1/0，覆盖 2 秒自动隐藏→轻点球桌唤出→杆边界暂停，并断言 `hud.minY ≥ table.maxY - 1`；改前/后截图与 xcresult 见 `build/drill-detail-{before,controls-framing,controls-final}*`。
+- **日期**：2026-08-09
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-09）
+
 ## DR-065
 - **任务**：问题集合 v32 — 练习 Tab 五分类「理」区独立（16 体系）
 - **原始规范**：ADR-P18-01 四分段（学/练/打/解）；ADR-P12-01 / v30 选址「理论之家 = 学区、不加与学并列的新类别」；球理入口在 `learnEntries` 首卡。

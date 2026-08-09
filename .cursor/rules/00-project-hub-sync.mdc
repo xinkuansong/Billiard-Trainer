@@ -10,15 +10,16 @@ alwaysApply: true
 ## 必读（每次会话开始）
 
 1. 读取 `/Users/song/projects/project-hub/STATUS.md`（全局状态）。
-2. 读取 `/Users/song/projects/project-hub/projects/13.billiard_trainer.md`（本项目状态卡）。
+2. 读取 `/Users/song/projects/project-hub/projects/13.billiard_trainer.md`（本项目状态卡）。历史条目在 `projects/archive/13.billiard_trainer-历史.md`，**仅按需检索，不默认通读**。
 3. 若涉及跨项目（14 / 15 / 16 / 18），同时读取相关项目的状态卡。
 4. 本项目内部任务系统继续读取：`tasks/PROGRESS.md`、`tasks/HUMAN-REQUIRED.md`、`tasks/FAILURE-LOG.md`。
+5. **轻量任务分流**：纯问答、单文件小修、错别字类任务可跳过第 1–3 步；任务结束时若产生了值得记录的变更，仍按「必写」回写状态卡。
 
 ## 必写（完成任务后或用户交代未来事项时）
 
 更新 `/Users/song/projects/project-hub/projects/13.billiard_trainer.md` 的以下区段：
 
-- **最近完成**：今天做了什么 + 改了哪些关键文件，前缀日期 `YYYY-MM-DD`，保留近 10 条。
+- **最近完成**：今天做了什么 + 改了哪些关键文件，前缀日期 `YYYY-MM-DD`，**保留近 10 条（强制滚动归档）**：超出的最旧条目移入 `projects/archive/13.billiard_trainer-历史.md`（插到归档文件说明块后的顶部，时间倒序）。「当前重点」同理：批次收官（✅）且无遗留动作的条目移入归档文件「当前重点已收官批次」节。单条条目控制在 3–5 行摘要以内，证据/细节留在本项目 `tasks/` 内。
 - **下一步 / 正在做**：当前线程会继续做什么。
 - **阻塞 / 需要人工确认**：在等什么。
 - **跨项目依赖**：本项目产物是否影响 14 / 15 / 16 / 18，或反之；跨项目事项同时在对方状态卡也加一条。

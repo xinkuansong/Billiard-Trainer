@@ -125,6 +125,40 @@ final class ShotTableLayoutTests: XCTestCase {
         // G8：球库宽 = 球桌宽。
         XCTAssertEqual(proxy.libraryWidth, proxy.tableRect.width, accuracy: 0.01)
     }
+
+    // MARK: - Drill 详情横向顶视完整取景
+
+    func test_landscapeAutoFitKeepsCompleteOuterFrameVisible() throws {
+        let width: CGFloat = 390
+        let size = CGSize(
+            width: width,
+            height: width / CameraRig.defaultTableOuterAspect
+        )
+        let scale = try XCTUnwrap(
+            CameraRig.landscapeOrthographicScale(
+                viewSize: size,
+                halfLength: CameraRig.defaultTableOuterHalfLength,
+                halfWidth: CameraRig.defaultTableOuterHalfWidth
+            )
+        )
+
+        let visibleHalfWidth = scale * Double(size.width / size.height)
+        let requiredHalfWidth =
+            CameraRig.defaultTableOuterHalfLength * CameraRig.rotatedFitMargin
+        let requiredHalfHeight =
+            CameraRig.defaultTableOuterHalfWidth * CameraRig.rotatedFitMargin
+
+        XCTAssertGreaterThanOrEqual(visibleHalfWidth, requiredHalfWidth)
+        XCTAssertGreaterThanOrEqual(scale, requiredHalfHeight)
+    }
+
+    func test_drillDetailFrameAspectMatchesMeasuredOuterFrameFallback() {
+        XCTAssertEqual(
+            DrillSceneController.frameAspect,
+            CameraRig.defaultTableOuterHalfLength / CameraRig.defaultTableOuterHalfWidth,
+            accuracy: 1e-12
+        )
+    }
 }
 
 /// 规则引擎「合法目标球」查询单测（问题集合 v3 P10.2）。

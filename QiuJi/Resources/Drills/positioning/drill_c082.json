@@ -1,6 +1,6 @@
 {
   "id": "drill_c082",
-  "nameZh": "横向色彩围 8",
+  "nameZh": "横向蛇彩围 8",
   "nameEn": "Horizontal Snake Around the Eight",
   "category": "positioning",
   "subcategory": "snakeDrill",
@@ -10,16 +10,16 @@
   "level": "L3",
   "difficulty": 4,
   "isPremium": false,
-  "description": "彩球横排成一列，按顺序逐颗清掉，最后打 8 号。8 号始终在台上，走线时既要给下一颗留角度，又不能被 8 号挡住——比纵向蛇彩更吃横向走线。",
+  "description": "六颗彩球横排成一列，8 号单独在另一端。打法是一颗彩球、一颗 8 号交替：打掉彩球后立刻回头打 8 号，8 号进袋后摆回原点，再接下一颗——六个来回十二杆为一组。母球被迫在两个区域之间往返，比纵向蛇彩更吃横向走线。",
   "coachingPoints": [
-    "开打前先看一遍整排：哪颗最难、8 号会在哪一步变成障碍",
+    "开打前先看一遍整排：哪颗最难、哪个来回的路最长",
     "横排球位彼此很近，走位要留出「能看见下一颗」的空间，不只是留角度",
-    "断在哪一颗要记下来——连续几组断在同一处，说明是那一步的线路选错了"
+    "断在哪一杆要记下来——连续几组断在同一处，说明是那一步的线路选错了"
   ],
-  "standardCriteria": "五组中至少一组按顺序清完全部彩球并打进 8 号；每组记录断在第几颗",
+  "standardCriteria": "五组中至少一组完成六个来回（六颗彩球与六次 8 号交替进袋，每次 8 号进袋后复位）；每组记录断在第几杆",
   "sets": {
     "defaultSets": 5,
-    "defaultBallsPerSet": 7
+    "defaultBallsPerSet": 12
   },
   "animation": {
     "cueBall": {

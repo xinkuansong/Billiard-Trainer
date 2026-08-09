@@ -109,11 +109,16 @@ final class CameraRig {
 
     // MARK: - Rotated top-down auto fit（统一取景，ADR-P11-08）
 
-    /// 球桌外框半长（世界 X，rotated 顶视屏幕竖轴）。由 `AngleTrainingScene`
-    /// 装桌后实测回填；默认值为 USDZ 球桌实测兜底（1.4055）。
-    var tableOuterHalfLength: Double = 1.4055
-    /// 球桌外框半宽（世界 Z，rotated 顶视屏幕横轴）。同上实测回填。
-    var tableOuterHalfWidth: Double = 0.7995
+    /// USDZ 球桌外框实测兜底值；装桌后会由 `AngleTrainingScene` 的实测结果覆盖实例值。
+    static let defaultTableOuterHalfLength: Double = 1.4055
+    static let defaultTableOuterHalfWidth: Double = 0.7995
+    static let defaultTableOuterAspect =
+        defaultTableOuterHalfLength / defaultTableOuterHalfWidth
+
+    /// 球桌外框半长（世界 X，rotated 顶视屏幕竖轴）。
+    var tableOuterHalfLength: Double = CameraRig.defaultTableOuterHalfLength
+    /// 球桌外框半宽（世界 Z，rotated 顶视屏幕横轴）。
+    var tableOuterHalfWidth: Double = CameraRig.defaultTableOuterHalfWidth
     /// 取景安全余量（比例）：避免抗锯齿/阴影边缘贴边裁切。
     static let rotatedFitMargin: Double = 1.012
 
@@ -133,6 +138,29 @@ final class CameraRig {
         let fitHorizontal = tableOuterHalfWidth * Self.rotatedFitMargin
             * Double(viewSize.height / viewSize.width)
         topDownOrthographicScale = max(fitVertical, fitHorizontal, Self.rotatedUnifiedScale)
+    }
+
+    /// 横向顶视按真实外框与视口比例自适应：屏幕竖轴对应世界 Z，横轴对应世界 X。
+    /// 返回正交半高，双轴均保留 `rotatedFitMargin` 安全余量，避免固定 scale 裁掉木框。
+    static func landscapeOrthographicScale(
+        viewSize: CGSize,
+        halfLength: Double,
+        halfWidth: Double
+    ) -> Double? {
+        guard viewSize.width > 1, viewSize.height > 1 else { return nil }
+        let fitVertical = halfWidth * rotatedFitMargin
+        let fitHorizontal = halfLength * rotatedFitMargin
+            * Double(viewSize.height / viewSize.width)
+        return max(fitVertical, fitHorizontal)
+    }
+
+    func fitLandscapeTable(viewSize: CGSize) {
+        guard let scale = Self.landscapeOrthographicScale(
+            viewSize: viewSize,
+            halfLength: tableOuterHalfLength,
+            halfWidth: tableOuterHalfWidth
+        ) else { return }
+        topDownOrthographicScale = scale
     }
 
     // MARK: - Init

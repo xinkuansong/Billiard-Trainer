@@ -4,7 +4,7 @@ import SwiftUI
 /// 力度水位条 + 档名/数值（ADR-P11-13）。
 ///
 /// **单一真源**：离线出片（`SequenceVideoExporter` 底部 HUD 条）与 App 内 live 预览
-/// （`DrillSceneView` 球桌下方）共用本组件，杜绝两处样式漂移。
+/// （`DrillSceneView` 回放期间动态插入球桌下方）共用本组件，杜绝两处样式漂移。
 ///
 /// 设计基准 80pt 条高，`k` 为等比系数：
 /// - 导出：`k = hudStripHeight / 80`，`powerBarWidth = 220 * k`，`fixedWidth = true`

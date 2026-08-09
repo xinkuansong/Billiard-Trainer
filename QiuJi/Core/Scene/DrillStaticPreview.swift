@@ -41,7 +41,8 @@ enum DrillStaticPreview {
         /// - List PNG (`thumbnail`): 1.8 for card readability (v24 D-v24-2).
         /// - Detail live (`detail`): 1.0 true size — detail top bar does **not** consume list PNGs.
         var ballScale: Float
-        /// Orthographic half-height (scene units). Thumbnail default 0.86; detail 0.77.
+        /// Orthographic half-height (scene units). Detail uses a complete-frame fallback;
+        /// `DrillSceneView` then refines it from the live viewport via `fitLandscapeTable`.
         var orthoScale: Double
         var showCue: Bool
         var showGhost: Bool
@@ -53,7 +54,9 @@ enum DrillStaticPreview {
             trajectoryDetail: .full
         )
         static let detail = Options(
-            ballScale: 1.0, orthoScale: 0.77, showCue: true, showGhost: true,
+            ballScale: 1.0,
+            orthoScale: CameraRig.defaultTableOuterHalfWidth * CameraRig.rotatedFitMargin,
+            showCue: true, showGhost: true,
             trajectoryDetail: .full
         )
     }

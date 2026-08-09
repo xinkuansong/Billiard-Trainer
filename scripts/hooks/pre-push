@@ -31,3 +31,19 @@ EOF
   exit 1
 fi
 echo "✅ [pre-push] 内容不变量门禁通过"
+
+echo "→ [pre-push] 进度文档体积门禁 ..."
+if ! python3 "$REPO_ROOT/scripts/verify_doc_size.py"; then
+  cat <<'EOF'
+
+⛔ push 被拦截：进度文档超出滚动归档纪律（上方 ✗ 为违规项）。
+
+处置：把 PROGRESS.md「当前状态」/ hub 状态卡「最近完成」中最旧的条目
+移入对应归档文件（tasks/archive/ / project-hub projects/archive/），
+保持滚动区 ≤ 10 条。⛔ 禁止上调 verify_doc_size.py 阈值放行。
+
+自查命令：make -f scripts/Makefile verify-doc-size
+EOF
+  exit 1
+fi
+echo "✅ [pre-push] 进度文档体积门禁通过"

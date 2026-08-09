@@ -23,7 +23,7 @@ final class DrillSceneController: ObservableObject {
     @Published var showOverlay = false
 
     /// 相框/正交取景与 `DrillSceneView` 必须一致，否则世界→屏幕映射会偏。
-    static let frameAspect: Double = 1.81
+    static let frameAspect = CameraRig.defaultTableOuterAspect
 
     private var didSetup = false
     private var didPlaceBoard = false
@@ -43,7 +43,7 @@ final class DrillSceneController: ObservableObject {
     /// 序列演示可长达数十秒，现放开为**杆边界可暂停**：暂停请求不打断当前杆，
     /// 当前杆完整播完后停在该杆结果盘面，再点继续从下一杆接上。
     /// 因为暂停此刻是真行动，pause 图标不再是假 affordance。
-    enum PlaybackState {
+    enum PlaybackState: Equatable {
         case idle
         /// 正在演示。
         case playing
@@ -565,12 +565,14 @@ final class DrillSceneController: ObservableObject {
     }
 }
 
-/// 详情页 live USDZ 2D 顶视球桌（2:1）+ 回放按钮。
+/// 详情页 live USDZ 2D 顶视球桌（2:1）+ 回放按钮 + 播放期 HUD。
 /// 「上手试打」入口在详情底栏（DR-057），台面不再叠主色胶囊以免与内容争抢。
 struct DrillSceneView: View {
     let drill: DrillContent
     @StateObject private var controller = DrillSceneController()
     @State private var didAppear = false
+    @State private var playbackControlsVisible = true
+    @State private var controlHideTask: Task<Void, Never>?
 
     /// 取景余量处的兜底背景：与 `btTableFelt` 同源（F-SC-06），避免 letterbox 硬编码绿。
     private static let feltBackground = UIColor(Color.btTableFelt)
@@ -586,42 +588,105 @@ struct DrillSceneView: View {
                     scene: controller.scene,
                     cameraMode: .constant(controller.cameraMode),
                     interactionMode: .none,
+                    autoFitsLandscapeTable: true,
                     backgroundColor: Self.feltBackground
                 )
-                // 相框比例贴合球台木框实测长宽比（≈1.81），配合正交取景 0.77，
-                // 球桌左右/上下都占满、无背景绿边（旧值 1.94 比球台宽 → 左右露绿）。
+                // 相框比例取 USDZ 外框实测兜底；相机再按运行时实测外框与容器双轴自适应，
+                // 保证六袋四库完整可见且保留抗锯齿安全余量。
                 .aspectRatio(CGFloat(DrillSceneController.frameAspect), contentMode: .fit)
 
-                Button {
-                    controller.togglePlayback()
-                } label: {
-                    // 次级幽灵钮：主行动留在详情底栏「上手试打」。
-                    // 播放中给真 pause（杆边界可暂停，非假 affordance）；已请求暂停时降透明
-                    // 表示「等本杆播完」，仍可点以撤销。
-                    Image(systemName: playIcon)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.9))
-                        .frame(width: 28, height: 28)
-                        .background(.black.opacity(0.28))
-                        .clipShape(Circle())
-                        .opacity(controller.playbackState == .pausingAfterShot ? 0.45 : 1)
+                // 球桌控制面：播放中控件隐藏后，轻点这里只唤出控件，不直接暂停。
+                // 独立 AX 元素也供 UI 测试量取台面 frame；不能把 identifier 挂在 ZStack 上，
+                // 否则 SwiftUI 会合并子树并吞掉播放按钮的辅助功能语义。
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        revealPlaybackControls()
+                    }
+                    .accessibilityElement()
+                    .accessibilityLabel("球桌回放")
+                    .accessibilityHint(
+                        playbackControlsVisible ? "回放控制已显示" : "轻点显示回放控制"
+                    )
+                    .accessibilityIdentifier("drillSceneTableViewport")
+
+                if playbackControlsVisible {
+                    Button {
+                        controller.togglePlayback()
+                        updateControlVisibility(for: controller.playbackState)
+                    } label: {
+                        // 次级幽灵钮：主行动留在详情底栏「上手试打」。
+                        // 播放中给真 pause（杆边界可暂停，非假 affordance）；已请求暂停时降透明
+                        // 表示「等本杆播完」，仍可点以撤销。
+                        Image(systemName: playIcon)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(width: 28, height: 28)
+                            .background(Color.btTablePocket.opacity(0.55))
+                            .clipShape(Circle())
+                            .opacity(controller.playbackState == .pausingAfterShot ? 0.45 : 1)
+                    }
+                    .buttonStyle(BTPressableStyle.capsule)
+                    .padding(.leading, Spacing.md)
+                    .padding(.bottom, Spacing.md)
+                    .accessibilityLabel(playLabel)
+                    .accessibilityIdentifier("drillPlayButton")
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .zIndex(1)
                 }
-                .buttonStyle(BTPressableStyle.capsule)
-                .padding(Spacing.md)
-                .accessibilityLabel(playLabel)
-                .accessibilityIdentifier("drillPlayButton")
             }
 
-            // 球桌下方 HUD 条（与导出教学视频同款、同组件）：读球形拍与击球后置空，
-            // 但保留条高，避免横幅高度在三拍之间跳动。
-            hudBar
+            // 播放时动态插入球桌下方，不遮挡台面；空闲态不永久占位。
+            if controller.showOverlay, controller.overlayData != nil {
+                hudBar
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
-        .background(Color.black)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .animation(BTMotion.easeInOutFast, value: controller.showOverlay)
+        .animation(BTMotion.easeInOutFast, value: playbackControlsVisible)
+        .onChange(of: controller.playbackState) { _, state in
+            updateControlVisibility(for: state)
+        }
         .onAppear {
             guard !didAppear else { return }
             didAppear = true
             controller.setup(drill: drill)
+        }
+        .onDisappear {
+            controlHideTask?.cancel()
+        }
+    }
+
+    private func revealPlaybackControls() {
+        playbackControlsVisible = true
+        if controller.playbackState == .playing {
+            scheduleControlAutoHide()
+        }
+    }
+
+    private func updateControlVisibility(for state: DrillSceneController.PlaybackState) {
+        controlHideTask?.cancel()
+        switch state {
+        case .playing:
+            playbackControlsVisible = true
+            scheduleControlAutoHide()
+        case .idle, .pausingAfterShot, .paused:
+            playbackControlsVisible = true
+        }
+    }
+
+    private func scheduleControlAutoHide() {
+        controlHideTask?.cancel()
+        guard controller.playbackState == .playing else { return }
+        controlHideTask = Task { @MainActor in
+            do {
+                try await Task.sleep(nanoseconds: 2_000_000_000)
+            } catch {
+                return
+            }
+            guard controller.playbackState == .playing else { return }
+            playbackControlsVisible = false
         }
     }
 
@@ -643,21 +708,16 @@ struct DrillSceneView: View {
 
     @ViewBuilder
     private var hudBar: some View {
-        // 条高恒定占位：HUD 显隐不改变横幅总高，避免三拍之间布局跳动。
-        ZStack {
-            Color.clear.frame(height: 80 * Self.hudScale)
-            if controller.showOverlay, let data = controller.overlayData {
-                BTShotHUDBar(
-                    spinX: data.spinX, spinY: data.spinY, velocity: data.velocity,
-                    k: Self.hudScale, powerBarWidth: nil, fixedWidth: false
-                )
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("drillShotHUDBar")
-                .transition(.opacity)
-            }
+        if let data = controller.overlayData {
+            BTShotHUDBar(
+                spinX: data.spinX, spinY: data.spinY, velocity: data.velocity,
+                k: Self.hudScale, powerBarWidth: nil, fixedWidth: false
+            )
+            .frame(maxWidth: .infinity)
+            .background(Color.btTablePocket.opacity(0.86))
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("drillShotHUDBar")
         }
-        .frame(maxWidth: .infinity)
-        .animation(BTMotion.easeInOutFast, value: controller.showOverlay)
     }
 }
 

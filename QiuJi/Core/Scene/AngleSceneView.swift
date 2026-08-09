@@ -33,6 +33,8 @@ struct AngleSceneView: UIViewRepresentable {
     /// rotated 顶视下按视口自适应取景（统一各 2D 球桌页的球桌占比/居中，ADR-P11-08）。
     /// 仅 `tapsOnly`/`none` 的固定 2D 页开启；带捏合缩放的 `cameraControl` 页保持手动 scale。
     var autoFitsRotatedTable = false
+    /// landscape 顶视按真实球桌外框与视口比例自适应，避免固定正交 scale 裁掉木框。
+    var autoFitsLandscapeTable = false
     /// SCNView 背景色。默认黑（3D 角度页用）；2D 顶视球桌（详情页）传台呢绿，
     /// 让相机取景与相框比例不完全吻合时残留的极小边缘融入而非露出黑边。
     var backgroundColor: UIColor = .black
@@ -130,6 +132,7 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.interactionMode = interactionMode
         context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
         context.coordinator.autoFitsRotatedTable = autoFitsRotatedTable
+        context.coordinator.autoFitsLandscapeTable = autoFitsLandscapeTable
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.draggableBallNodes = draggableBallNodes
         context.coordinator.onDragBegan = onDragBegan
@@ -163,6 +166,7 @@ struct AngleSceneView: UIViewRepresentable {
         var interactionMode: InteractionMode
         var locksCueBallScreenAnchor = false
         var autoFitsRotatedTable = false
+        var autoFitsLandscapeTable = false
         var onPocketTapped: ((Int) -> Void)?
         weak var scnView: SCNView?
         private var displayLink: CADisplayLink?
@@ -280,6 +284,9 @@ struct AngleSceneView: UIViewRepresentable {
 
             switch cameraMode {
             case .topDown2D:
+                if autoFitsLandscapeTable, let scnView {
+                    scene.cameraRig?.fitLandscapeTable(viewSize: scnView.bounds.size)
+                }
                 scene.cameraRig?.applyTopDown2D()
             case .topDown2DRotated:
                 if autoFitsRotatedTable, let scnView {

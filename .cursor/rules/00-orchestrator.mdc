@@ -21,7 +21,9 @@ alwaysApply: true
 
 ## 会话启动检查（每次对话必执行）
 
-1. **读取** `tasks/HUMAN-REQUIRED.md`，找出所有状态为 `⏳` 的 `[BLOCKING]` 项。
+> **上下文成本纪律**：启动检查以「摘要优先、按需详读」为原则——用 grep 定位而非全文通读；历史信息一律在归档文件（`tasks/archive/`、hub `projects/archive/`），仅当任务确需历史时才读归档。**轻量任务分流**：纯问答/单文件小修/错别字类任务，可跳过第 3、5 步与 hub 状态卡通读（仍须执行第 1–2 步阻塞检查），任务结束时照常回写进度。
+
+1. **检索** `tasks/HUMAN-REQUIRED.md` 中状态为 `⏳` 的 `[BLOCKING]` 项（可用 grep 定位 `[BLOCKING]` 行及其状态，不必通读全文）。
 2. **若存在阻塞项**，立即输出以下格式，**不执行代码任务**：
 
 ```
@@ -34,7 +36,7 @@ alwaysApply: true
 - 完成后：将 tasks/HUMAN-REQUIRED.md 中 H-xx 状态改为 ✅，然后重新开始对话。
 ```
 
-3. **无阻塞项时**，读取 `tasks/PROGRESS.md`，找出当前 Phase 与下一个未完成任务。
+3. **无阻塞项时**，读取 `tasks/PROGRESS.md` 的**头部至「当前状态」区末尾**（该区按纪律 ≤10 条），找出当前 Phase 与下一个未完成任务；历史条目在 `tasks/archive/PROGRESS-当前状态-归档.md`，仅按需检索。
 4. **声明激活角色**（`当前角色：[角色名]`），再开始执行。
 5. **读取** `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（若文件存在），记录自上次会话以来的组件 API 变更或设计调整。
 
@@ -93,7 +95,7 @@ alwaysApply: true
 
 ## 任务完成后
 
-- 更新 `tasks/PROGRESS.md`：任务状态（⏳/🔄/⚠️/✅）、「下一步」、阻塞项；Phase 全部 ✅ 后按 `PROGRESS.md`「已完成 Phase 归档」操作。
+- 更新 `tasks/PROGRESS.md`：任务状态（⏳/🔄/⚠️/✅）、「下一步」、阻塞项；Phase 全部 ✅ 后按 `PROGRESS.md`「已完成 Phase 归档」操作。**追加「当前状态」条目时执行滚动归档**：该区超过 10 条即把最旧条目移入 `tasks/archive/PROGRESS-当前状态-归档.md`（插到归档文件说明块后的顶部，保持时间倒序）。该纪律有机器门禁：`make -f scripts/Makefile verify-doc-size`（pre-push 会自动跑，>12 条或文件 >100 KB 拦 push，⛔ 禁止上调阈值放行）。
 - 命中 **ADR 强制触发清单** 时：在对应 Phase 文件末尾写 ADR。
 - **返工 / QA 打回 / 规则明显违反**：在 `tasks/IMPLEMENTATION-LOG.md` 追加 `FL-NNN`，`PROGRESS.md` 任务行使用 `⚠️ 返工（见 FL-NNN）` 直至修复。
 - **设计解读调整 / 组件 API 变更**：在 `tasks/IMPLEMENTATION-LOG.md` 追加 `DR-NNN`，同步更新 `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。

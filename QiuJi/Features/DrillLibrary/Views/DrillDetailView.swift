@@ -30,6 +30,7 @@ struct DrillDetailView: View {
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
     @Query private var activePlans: [UserActivePlan]
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
     private var isFavorited: Bool {
@@ -51,22 +52,36 @@ struct DrillDetailView: View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 if let drill {
-                    VStack(alignment: .leading, spacing: Spacing.xl) {
+                    VStack(alignment: .leading, spacing: Spacing.xxl) {
                         tableSection(drill)
 
-                        Text(drill.nameZh)
-                            .font(.btTitle)
-                            .foregroundStyle(.btText)
-                            .padding(.horizontal, Spacing.lg)
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            // 正文标题与导航标题职责不同：前者建立内容层级，后者负责页面定位。
+                            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                                Text(drill.nameZh)
+                                    .font(.btTitle)
+                                    .foregroundStyle(.btText)
 
-                        // F-DD-01：露出 Bundle 已有 description（转化页信息权重）。
-                        Text(drill.description)
-                            .font(.btCallout)
-                            .foregroundStyle(.btTextSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, Spacing.lg)
+                                Spacer(minLength: Spacing.sm)
 
-                        tagsRow(drill)
+                                // 难度是标题的核心识别信息；球种与分类仍留在下一行，避免长标题受挤压。
+                                BTLevelBadge(level: DrillLevel(rawValue: drill.level) ?? .L0)
+                            }
+
+                            // F-DD-01：露出 Bundle 已有 description（转化页信息权重）。
+                            Text(drill.description)
+                                .font(.btSubheadline)
+                                .foregroundStyle(.btTextSecondary)
+                                .lineSpacing(3)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                            tagsRow(drill)
+                                .padding(.top, Spacing.xs)
+
+                            Divider()
+                                .padding(.top, Spacing.xs)
+                        }
+                        .padding(.horizontal, Spacing.lg)
 
                         if isLocked {
                             // F-DD-04/09：锁态紧凑预览、不露假「查看精讲」；不改 isPremium 门槛。
@@ -77,8 +92,7 @@ struct DrillDetailView: View {
                             }
                         } else {
                             coachingSection(drill, includeTutorialCTA: true)
-                            criteriaSection(drill)
-                            dimensionsSection(drill)
+                            trainingRequirementsSection(drill)
                         }
                     }
                     .padding(.bottom, 100)
@@ -262,10 +276,7 @@ struct DrillDetailView: View {
                 .padding(.vertical, Spacing.xs)
                 .background(.btBGTertiary)
                 .clipShape(Capsule())
-
-            BTLevelBadge(level: DrillLevel(rawValue: drill.level) ?? .L0)
         }
-        .padding(.horizontal, Spacing.lg)
     }
 
     // MARK: - Coaching Points
@@ -331,77 +342,72 @@ struct DrillDetailView: View {
         .padding(includeTutorialCTA ? Spacing.lg : Spacing.md)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .overlay {
+            RoundedRectangle(cornerRadius: BTRadius.md)
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+        }
         .padding(.horizontal, Spacing.lg)
     }
 
-    // MARK: - Standard Criteria（E17：达标标准与默认组次对照合并）
+    // MARK: - Training Requirements
 
-    private func criteriaSection(_ drill: DrillContent) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("达标标准")
+    /// 达标目标、建议训练量与定性维度同属「怎么练」，合并后避免三个同权白卡连续堆叠。
+    /// 长目标使用全宽纵向排版，不再与短数值强行二等分。
+    private func trainingRequirementsSection(_ drill: DrillContent) -> some View {
+        let groups = dimensionGroups(for: drill)
+
+        return VStack(alignment: .leading, spacing: Spacing.lg) {
+            Text("训练要求")
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
 
-            HStack(alignment: .top, spacing: Spacing.md) {
-                criteriaColumn(
-                    title: "目标",
-                    icon: BTIcon.target,
-                    value: drill.standardCriteria
-                )
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Label("达标目标", systemImage: BTIcon.target)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
 
-                Rectangle()
-                    .fill(Color.btSeparator)
-                    .frame(width: 1)
-                    .padding(.vertical, Spacing.xs)
-
-                criteriaColumn(
-                    title: "建议量",
-                    icon: "square.stack.3d.up",
-                    value: "\(drill.sets.defaultSets) 组 × \(drill.sets.defaultBallsPerSet) 球"
-                )
-                .frame(maxWidth: 140, alignment: .leading)
+                Text(drill.standardCriteria)
+                    .font(.btCallout)
+                    .foregroundStyle(.btText)
+                    .lineSpacing(3)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-        }
-        .padding(Spacing.lg)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-        .padding(.horizontal, Spacing.lg)
-        .accessibilityIdentifier("criteriaSection")
-    }
 
-    private func criteriaColumn(title: String, icon: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Label(title, systemImage: icon)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-                .labelStyle(.titleAndIcon)
+            Divider()
 
-            Text(value)
-                .font(.btBodyMedium)
-                .foregroundStyle(.btText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
+            HStack(spacing: Spacing.md) {
+                Label("建议训练量", systemImage: "square.stack.3d.up")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
 
-    // MARK: - Training Dimensions（E14 / D-v25-13：定性 chip，保留五维）
+                Spacer(minLength: Spacing.md)
 
-    private func dimensionsSection(_ drill: DrillContent) -> some View {
-        let dims = trainingDimensions(for: drill)
-        return VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("训练维度")
-                .font(.btHeadline)
-                .foregroundStyle(.btText)
+                Text("\(drill.sets.defaultSets) 组 × \(drill.sets.defaultBallsPerSet) 球")
+                    .font(.btBodyMedium)
+                    .foregroundStyle(.btText)
+                    .monospacedDigit()
+                    .fixedSize()
+            }
 
-            // D-v25-13：五维全景 chip；去进度条与免责文案。
-            LazyVGrid(
-                columns: [GridItem(.adaptive(minimum: 108), spacing: Spacing.sm)],
-                alignment: .leading,
-                spacing: Spacing.sm
-            ) {
-                ForEach(dims, id: \.name) { dim in
-                    dimensionChip(name: dim.name, weight: Self.dimensionWeightLabel(dim.value))
+            Divider()
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Label("训练维度", systemImage: "slider.horizontal.3")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+
+                ForEach(groups, id: \.label) { group in
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                        Text(group.label)
+                            .font(.btFootnote)
+                            .foregroundStyle(group.isEmphasized ? Color.btPrimary : Color.btTextSecondary)
+                            .frame(width: 34, alignment: .leading)
+
+                        Text(group.names.joined(separator: "、"))
+                            .font(.btFootnote14)
+                            .foregroundStyle(group.isEmphasized ? Color.btText : Color.btTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
         }
@@ -409,20 +415,30 @@ struct DrillDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .overlay {
+            RoundedRectangle(cornerRadius: BTRadius.md)
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+        }
         .padding(.horizontal, Spacing.lg)
-        .accessibilityIdentifier("dimensionsSection")
+        .accessibilityIdentifier("trainingRequirementsSection")
     }
 
-    private func dimensionChip(name: String, weight: String) -> some View {
-        let emphasis = weight == "重点"
-        return Text("\(name) · \(weight)")
-            .font(.btCaption)
-            .foregroundStyle(emphasis ? Color.btPrimary : Color.btTextSecondary)
-            .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.xs + 2)
-            .background(emphasis ? Color.btPrimaryMuted : Color.btBGTertiary)
-            .clipShape(Capsule())
-            .accessibilityLabel("\(name)，\(weight)")
+    private struct DimensionGroup {
+        let label: String
+        let names: [String]
+        let isEmphasized: Bool
+    }
+
+    private func dimensionGroups(for drill: DrillContent) -> [DimensionGroup] {
+        let dims = trainingDimensions(for: drill)
+        let order = ["重点", "中等", "辅助"]
+        return order.compactMap { label in
+            let names = dims
+                .filter { Self.dimensionWeightLabel($0.value) == label }
+                .map(\.name)
+            guard !names.isEmpty else { return nil }
+            return DimensionGroup(label: label, names: names, isEmphasized: label == "重点")
+        }
     }
 
     /// F-DD-02：启发式权重 → 定性档，不用伪装百分数。
@@ -526,7 +542,7 @@ struct DrillDetailView: View {
                 .accessibilityIdentifier("bottomTryoutButton")
             }
         }
-        .padding(.horizontal, Spacing.xxl)
+        .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
         .background(Color.btBG.opacity(0.8))
         .background(.ultraThinMaterial)
