@@ -274,9 +274,9 @@ private struct TangentPerpendicularFigure: View {
             )
 
             ZStack {
-                // 瞄准线（母球 → 假想球）：弱化的白实线，只作定位参考。
+                // 瞄准线（母球 → 假想球）：白实线，主线宽保证在台呢底图上可读。
                 Path { p in p.move(to: cue); p.addLine(to: ghost) }
-                    .stroke(FigureLine.aim.opacity(0.35), lineWidth: proj.lineHintWidth)
+                    .stroke(FigureLine.aim.opacity(0.75), lineWidth: proj.lineMainWidth)
 
                 // 连心线（过两球心，含两端延长）：白虚线释义层。
                 Path { p in p.move(to: centerBack); p.addLine(to: centerFront) }

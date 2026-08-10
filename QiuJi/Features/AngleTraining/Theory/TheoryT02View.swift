@@ -215,8 +215,9 @@ private struct StunNinetyFigure: View {
             )
 
             ZStack {
+                // 瞄准线（母球 → 假想球）：白实线，主线宽保证在台呢底图上可读。
                 Path { p in p.move(to: cue); p.addLine(to: ghost) }
-                    .stroke(FigureLine.aim.opacity(0.35), lineWidth: proj.lineHintWidth)
+                    .stroke(FigureLine.aim.opacity(0.75), lineWidth: proj.lineMainWidth)
 
                 Path { p in p.move(to: target); p.addLine(to: potFar) }
                     .stroke(FigureLine.pot(number: 1),
@@ -242,6 +243,8 @@ private struct StunNinetyFigure: View {
                 BTContactDot(diameter: max(4, d * 0.22)).position(q)
 
                 BTFigureTag(text: "90°", color: FigureLine.separation).position(markTag)
+                BTFigureTag(text: "瞄准线")
+                    .position(Self.alongLabel(from: cue, to: ghost, t: 0.5, offset: -13))
                 BTFigureTag(text: "切线", color: FigureLine.separation)
                     .position(Self.alongLabel(from: ghost, to: pathFar, t: 0.72, offset: 14))
                 BTFigureTag(text: "进球线", color: FigureLine.pot(number: 1))

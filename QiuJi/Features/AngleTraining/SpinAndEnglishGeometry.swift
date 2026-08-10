@@ -12,6 +12,9 @@ import Foundation
 /// 切角滑杆只驱动球形（C/G/T/Q），**不**把示意角重算成精确物理分离角。
 /// 非半球档 UI 须标注「示意角 · 教学折线」。
 ///
+/// 例外：`rollingDeflectionDegrees` / `rollingFollowDir` 是 T01 页专用的**连续解**
+/// （相对瞄准线，按 contract `key_formula` 求），不属于上述教学折线，勿混用。
+///
 /// 坐标契约：SceneKit 台面米坐标，水平面 X–Z（`CGPoint.x`=X，`.y`=Z），
 /// +X 右，屏上 = −Z；单位米。路径为教学折线，非 `simulateFree` 轨迹。
 enum SpinAndEnglishGeometry {
@@ -91,6 +94,40 @@ enum SpinAndEnglishGeometry {
     static func objectBallEnd(scene: AimingMethodsGeometry.Scene) -> CGPoint {
         CGPoint(x: scene.target.x + scene.potDir.x * 0.35,
                 y: scene.target.y + scene.potDir.y * 0.35)
+    }
+
+    // MARK: - 自然滚动偏折（T01 真源公式，非教学折线）
+
+    /// 自然滚动母球碰后相对**原瞄准线**的偏折角 δ（度），随切角连续变化。
+    ///
+    /// 真源：`Theory/contracts/theorem-tags.json` T01 `key_formula`
+    /// `tan δ = sinφ·cosφ / (sin²φ + 2/5)`（φ = 切角）；等价于同条目 `alternative_method`
+    /// 「5/7 沿切线 + 2/7 沿原瞄准线」的向量合成（`rollingFollowDir` 单测对拍）。
+    /// δ(0°) = δ(90°) = 0，极值 33.7° 在 φ ≈ 28.1°，14°–49° 区间落在 27°–33.7°——
+    /// 即口诀取整的「约 30°」。φ 取绝对值并钳到 [0°, 90°]。
+    static func rollingDeflectionDegrees(cutAngleDeg: CGFloat) -> CGFloat {
+        let phi = min(90, max(0, abs(cutAngleDeg))) * .pi / 180
+        let s = sin(phi), c = cos(phi)
+        return atan2(s * c, s * s + 0.4) * 180 / .pi
+    }
+
+    /// 自然滚动碰后方向（单位向量）：瞄准方向朝切线一侧旋 δ(θ)。
+    ///
+    /// 与 `departureDir(.follow)` 的分工：后者是「旋转与加塞」页的**教学折线**
+    /// （相对 n 固定 60°，仅半球与本函数重合）；T01 的命题是「相对原瞄准线偏约 30°」，
+    /// 必须以瞄准线为基准并随 θ 求解，故单列此入口。
+    static func rollingFollowDir(scene: AimingMethodsGeometry.Scene) -> CGPoint {
+        AimingMethodsGeometry.rotate(
+            scene.aimDir,
+            byDegrees: side(scene: scene) * rollingDeflectionDegrees(cutAngleDeg: scene.cutAngleDeg)
+        )
+    }
+
+    /// 自然滚动示意路径终点（自假想球心 G 沿 `rollingFollowDir`）。
+    static func rollingFollowEnd(scene: AimingMethodsGeometry.Scene,
+                                 length: CGFloat = 0.28) -> CGPoint {
+        let d = rollingFollowDir(scene: scene)
+        return CGPoint(x: scene.ghost.x + d.x * length, y: scene.ghost.y + d.y * length)
     }
 
     // MARK: - Invariants (for evidence / tests)
