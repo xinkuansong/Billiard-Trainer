@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// 自定义计划的一条动作。用户只调**轮数**（强度系数），每轮球数由 drill 内容派生（契约 §6.6）。
+/// 自定义计划的一条动作。用户只调**遍数倍数**（强度系数），球数由 drill 内容派生（契约 §6.6 / v34 R9）。
 struct CustomDrillItem: Identifiable {
     let id: UUID
     let drillId: String
@@ -9,15 +9,15 @@ struct CustomDrillItem: Identifiable {
     let category: String
     /// 录入单位（契约 §5.2），派生自内容。
     let unitLabel: String
-    /// 每球形轮数 —— 落 `CustomPlanDrill.roundsPerFormation`（schema V3）。
+    /// 遍数倍数 —— 落 `CustomPlanDrill.roundsPerFormation`（v34 R9：整套完整剂量 × N）。
     var rounds: Int
-    /// 按当前轮数展开后的逐球形剂量块（只读派生值，来自 drill 内容）。
+    /// 按当前遍数展开后的逐球形剂量块（只读派生值，来自 drill 内容）。
     var groups: [ResolvedDose.Group]
     /// 展示文案，口径同今日安排（`ResolvedDose.volumeText`）。
     var volumeText: String
 
     var resolved: ResolvedDose { ResolvedDose(groups: groups) }
-    /// 组数（多球形时 = 轮数 × 球形数）。
+    /// 组数（展开后的 plannedSets 条数）。
     var setCount: Int { resolved.totalRounds }
     var totalBalls: Int { resolved.totalBalls }
     var plannedSets: [PlannedTrainingSet] { resolved.plannedSets }
@@ -83,7 +83,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         drillItems = plan.drills
             .sorted { $0.order < $1.order }
             .map { drill in
-                // 每组球数不再存库（schema V3）：按 drill `perFormation` × 轮数派生（契约 §6.6）。
+                // 球数不再存库（schema V3）：按 drill 完整剂量 × 遍数派生（契约 §6.6 / v34 R9）。
                 Self.makeItem(
                     drillId: drill.drillId,
                     nameZh: drill.drillNameZh,
@@ -95,17 +95,16 @@ final class CustomPlanBuilderViewModel: ObservableObject {
 
     func addDrill(_ content: DrillContent) {
         guard !drillItems.contains(where: { $0.drillId == content.id }) else { return }
-        // 默认轮数取内容推荐值：多球形取主球形推荐轮数（各球形推荐轮数相同即原值）。
-        let recommended = content.sets.perFormation?.first?.defaultRounds ?? content.sets.defaultSets
+        // 默认遍数 = 1（完整剂量，位置全覆盖）。
         drillItems.append(Self.makeItem(
             drillId: content.id,
             nameZh: content.nameZh,
             content: content,
-            rounds: recommended
+            rounds: 1
         ))
     }
 
-    /// 轮数 → 组序列的唯一派生入口（内容缺失时回落到汇总兜底，见 `TrainingDoseResolver`）。
+    /// 遍数倍数 → 组序列的唯一派生入口（内容缺失时回落到汇总兜底，见 `TrainingDoseResolver`）。
     static func makeItem(
         id: UUID = UUID(),
         drillId: String,
@@ -153,7 +152,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         drillItems.move(fromOffsets: source, toOffset: destination)
     }
 
-    /// 只调轮数（v31 R4：计划不再存裸球数，球数改内容真源派生）。
+    /// 只调遍数倍数（v34 R9：计划存倍数，球数改内容真源 × 倍数派生）。
     func updateRounds(for itemId: UUID, rounds: Int) {
         guard let idx = drillItems.firstIndex(where: { $0.id == itemId }) else { return }
         updateRounds(at: idx, rounds: rounds)

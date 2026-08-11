@@ -7,9 +7,9 @@ private struct DrillSettingsTarget: Identifiable {
     let id: UUID
     let index: Int
     let name: String
-    /// 每球形轮数（唯一可调项，v31 R4）。
+    /// 遍数倍数（唯一可调项，v34 R9：完整剂量 × N）。
     let rounds: Int
-    /// 内容派生的只读展开：球形数与各球形每轮球数。
+    /// 内容派生的只读展开（已按当前遍数解析）。
     let groups: [ResolvedDose.Group]
     let unitLabel: String
 }
@@ -339,7 +339,9 @@ struct CustomPlanBuilderView: View {
 private struct DrillSettingsSheet: View {
     let drillName: String
     @State var rounds: Int
-    /// 逐球形每轮球数（内容真源派生，用户不可改，v31 R4）。
+    /// ×1 完整剂量总球数（由打开时的 groups / initialRounds 反推）。
+    private let ballsPerPass: Int
+    /// 逐球形每轮球数（内容真源派生，用户不可改）。
     let groups: [ResolvedDose.Group]
     let unitLabel: String
     let onSave: (Int) -> Void
@@ -354,12 +356,16 @@ private struct DrillSettingsSheet: View {
         self.unitLabel = unitLabel
         self.onSave = onSave
         self.onDelete = onDelete
+        let currentTotal = groups.reduce(0) { $0 + $1.rounds * $1.ballsPerRound }
+        let divisor = max(1, initialRounds)
+        self.ballsPerPass = currentTotal / divisor
     }
 
     /// 每球形每轮球数（球形顺序同内容 `perFormation`）。
     private var ballsPerRound: [Int] { groups.map(\.ballsPerRound) }
 
-    private var totalBalls: Int { rounds * ballsPerRound.reduce(0, +) }
+    /// 总球数 = 完整剂量 × 遍数。
+    private var totalBalls: Int { ballsPerPass * rounds }
 
     var body: some View {
         NavigationStack {
@@ -367,11 +373,11 @@ private struct DrillSettingsSheet: View {
                 Section("训练设置") {
                     Stepper(value: $rounds, in: 1...20) {
                         HStack {
-                            Text("每球形轮数")
+                            Text("遍数")
                                 .font(.btBody)
                                 .foregroundStyle(.btText)
                             Spacer()
-                            Text("\(rounds)")
+                            Text("×\(rounds)")
                                 .font(.btBodyMedium)
                                 .foregroundStyle(.btPrimary)
                         }
@@ -399,7 +405,7 @@ private struct DrillSettingsSheet: View {
                 }
 
                 Section {
-                    Text("每轮球数由动作内容决定，不可在计划里改（改量请调轮数）。")
+                    Text("完整剂量由动作内容决定；此处只调遍数（总球数 = 完整剂量 × 遍数）。")
                         .font(.btFootnote)
                         .foregroundStyle(.btTextTertiary)
                 }

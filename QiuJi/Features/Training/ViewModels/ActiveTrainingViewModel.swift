@@ -229,6 +229,70 @@ final class ActiveTrainingViewModel: ObservableObject {
         return "\(completedSets)/\(totalSetsCount) 组 \(currentDrillIndex + 1)/\(drills.count) 项目"
     }
 
+    /// 当前动作三级进度（v34 R12）：重复型「球形 x/y · 位置 m/n · 第 k 颗」；
+    /// 走位链只报「第几轮」；单球形不显示「球形 x/y」。
+    var currentSetProgressText: String {
+        guard currentDrillIndex < drills.count,
+              currentDrillIndex < drillSetsData.count else { return "" }
+        let sets = drillSetsData[currentDrillIndex]
+        guard !sets.isEmpty else { return "" }
+        let activeIdx = sets.firstIndex(where: { !$0.isCompleted }) ?? (sets.count - 1)
+        let active = sets[activeIdx]
+        let mode = modeForSet(drillIndex: currentDrillIndex, setIndex: activeIdx)
+
+        let formationKeys = orderedFormationKeys(in: sets)
+        let multiFormation = formationKeys.count > 1
+
+        if mode == .sequence {
+            let key = formationKey(active)
+            let peers = sets.indices.filter { formationKey(sets[$0]) == key }
+            let round = (peers.firstIndex(of: activeIdx) ?? 0) + 1
+            if multiFormation, let fi = formationKeys.firstIndex(of: key) {
+                return "球形 \(fi + 1)/\(formationKeys.count) · 第 \(round) 轮"
+            }
+            return "第 \(round) 轮"
+        }
+
+        var parts: [String] = []
+        let key = formationKey(active)
+        if multiFormation, let fi = formationKeys.firstIndex(of: key) {
+            parts.append("球形 \(fi + 1)/\(formationKeys.count)")
+        }
+        let peers = sets.indices.filter { formationKey(sets[$0]) == key }
+        let position = (peers.firstIndex(of: activeIdx) ?? 0) + 1
+        parts.append("位置 \(position)/\(peers.count)")
+        let ballNumber = min(max(active.madeBalls + 1, 1), max(active.targetBalls, 1))
+        parts.append("第 \(ballNumber) 颗")
+        return parts.joined(separator: " · ")
+    }
+
+    private func modeForSet(drillIndex: Int, setIndex: Int) -> DrillContent.DoseMode? {
+        let planned = drills[drillIndex].plannedSets
+        if setIndex < planned.count {
+            return planned[setIndex].mode
+        }
+        // 手动加组：沿用同 token 最近一组，再回落末组。
+        let sets = drillSetsData[drillIndex]
+        let token = sets[setIndex].formationToken
+        if let match = planned.last(where: { $0.formationToken == token }) {
+            return match.mode
+        }
+        return planned.last?.mode
+    }
+
+    private func formationKey(_ set: DrillSetData) -> String {
+        set.formationToken ?? "_single"
+    }
+
+    private func orderedFormationKeys(in sets: [DrillSetData]) -> [String] {
+        var seen: [String] = []
+        for set in sets {
+            let key = formationKey(set)
+            if !seen.contains(key) { seen.append(key) }
+        }
+        return seen
+    }
+
     var progress: Double {
         guard !drills.isEmpty else { return 0 }
         let allSets = drillSetsData.flatMap { $0 }
@@ -277,7 +341,13 @@ final class ActiveTrainingViewModel: ObservableObject {
             drills = items
 
         case .free:
-            drills = []
+            // 自由模式允许进入前已预置动作（UITest deeplink / 外部注入）。
+            // ⛔ 不得清空，否则与 View `.task` 竞态会抹掉预置项。
+            break
+        }
+        // 计划模式总是重建；自由模式仅在尚未建立录入行时初始化（避免抹掉 addDrill 已写入的行）。
+        if case .free = mode, !drills.isEmpty, drillSetsData.count == drills.count {
+            return
         }
         initializeRecords()
     }
@@ -498,15 +568,17 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func addSet(drillIndex: Int) {
         guard drillIndex < drillSetsData.count, drillIndex < drills.count else { return }
-        let nextId = (drillSetsData[drillIndex].last?.id ?? 0) + 1
-        let last = drillSetsData[drillIndex].last
-        // 手动加组沿用上一组的球形与球数（异构多球形下不能回落到首组球数）。
-        let target = last?.targetBalls ?? drills[drillIndex].ballsPerSet
+        let sets = drillSetsData[drillIndex]
+        // R12：复制「当前位置」（首个未完成组）；全部完成后回落末组。
+        // 重复型 = 再打同位置一局（同 token / 同球数）；走位链 = 再打一遍整链。
+        let source = sets.first(where: { !$0.isCompleted }) ?? sets.last
+        let nextId = (sets.last?.id ?? 0) + 1
+        let target = source?.targetBalls ?? drills[drillIndex].ballsPerSet
         drillSetsData[drillIndex].append(DrillSetData(
             id: nextId,
             targetBalls: target,
-            formationToken: last?.formationToken,
-            formationName: last?.formationName
+            formationToken: source?.formationToken,
+            formationName: source?.formationName
         ))
     }
 

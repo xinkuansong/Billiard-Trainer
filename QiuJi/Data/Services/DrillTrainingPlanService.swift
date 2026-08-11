@@ -60,7 +60,8 @@ enum DrillTrainingPlanService {
         let entry = CustomPlanDrill(
             drillId: drill.id,
             drillNameZh: drill.nameZh,
-            roundsPerFormation: max(1, drill.sets.defaultSets),
+            // v34 R9：倍数语义，默认 1 = 完整剂量（位置全覆盖）。
+            roundsPerFormation: 1,
             order: nextOrder
         )
         plan.drills.append(entry)
@@ -88,7 +89,8 @@ enum DrillTrainingPlanService {
         let entry = CustomPlanDrill(
             drillId: drill.id,
             drillNameZh: drill.nameZh,
-            roundsPerFormation: max(1, drill.sets.defaultSets),
+            // v34 R9：倍数语义，默认 1 = 完整剂量（位置全覆盖）。
+            roundsPerFormation: 1,
             order: 0
         )
         plan.drills = [entry]

@@ -89,10 +89,15 @@ struct DrillContent: Codable, Identifiable {
         let token: String
         /// 训练模式，决定 `ballsPerRound` 的语义与是否受几何校验约束。
         let mode: DoseMode
-        /// 每轮球数。`sequence` 型**锁死 = 序列实测杆数**（不变量 I6b）；`repetition` 型人工定。
+        /// 每轮球数。`sequence` 型**锁死 = 序列实测杆数**（不变量 I6b）；
+        /// `repetition` 型 = 每位置颗数，形状约束 8–15、默认 15（契约 §5.6.2，v34 R13）。
         let ballsPerRound: Int
-        /// 推荐轮数（总量护栏 40–60 球，轮数向下取，最少 1）。
+        /// 轮数。`repetition` 型 = 位置数（= 序列实测杆数，位置全覆盖）；
+        /// `sequence` 型 = 整链重复遍数（v34 R1/R2）。
         let defaultRounds: Int
+        /// 有意例外剂量的说明（v34 R3）。非默认形状（bpr ≠ 15 或轮数 ≠ 杆数）须写明理由，
+        /// 门禁 I6b 凭此豁免形状约束。
+        let doseNote: String?
 
         var id: String { token }
     }

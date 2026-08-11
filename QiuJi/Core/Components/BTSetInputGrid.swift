@@ -52,9 +52,55 @@ struct BTSetInputGrid: View {
     var showSuccessRate: Bool = false
     /// 多球形 drill 的可选球形；为空表示单球形，不出球形列。
     var formationOptions: [DrillFormationOption] = []
+    /// v34 R12：多球形时按球形插入分节头。
+    var sectionByFormation: Bool = false
 
     private var activeIndex: Int? {
         sets.firstIndex(where: { !$0.isCompleted })
+    }
+
+    /// 连续同 token 分组；仅当存在 ≥2 种球形时才出分节头。
+    private var formationSections: [(title: String?, indices: [Int])] {
+        guard !sets.isEmpty else { return [] }
+        let keys = sets.map { $0.formationToken ?? "" }
+        let distinct = Set(keys.filter { !$0.isEmpty })
+        let shouldSection = sectionByFormation && distinct.count > 1
+
+        var sections: [(String?, [Int])] = []
+        var currentKey: String?
+        var currentIndices: [Int] = []
+        var sectionOrdinal = 0
+
+        for (index, set) in sets.enumerated() {
+            let key = set.formationToken ?? ""
+            if currentKey == nil {
+                currentKey = key
+                currentIndices = [index]
+                sectionOrdinal = 1
+            } else if key == currentKey {
+                currentIndices.append(index)
+            } else {
+                sections.append((shouldSection ? sectionTitle(token: currentKey!, name: sets[currentIndices[0]].formationName, ordinal: sectionOrdinal) : nil, currentIndices))
+                sectionOrdinal += 1
+                currentKey = key
+                currentIndices = [index]
+            }
+        }
+        if !currentIndices.isEmpty {
+            let title: String? = shouldSection
+                ? sectionTitle(token: currentKey ?? "", name: sets[currentIndices[0]].formationName, ordinal: sectionOrdinal)
+                : nil
+            sections.append((title, currentIndices))
+        }
+        return sections
+    }
+
+    private func sectionTitle(token: String, name: String?, ordinal: Int) -> String {
+        if let name, !name.isEmpty { return name }
+        if let option = formationOptions.first(where: { $0.token == token }) {
+            return option.shortLabel
+        }
+        return "球形\(ordinal)"
     }
 
     var body: some View {
@@ -65,20 +111,27 @@ struct BTSetInputGrid: View {
             if sets.isEmpty {
                 emptyState
             } else {
-                ForEach(Array(sets.enumerated()), id: \.element.id) { index, setData in
-                    SetRow(
-                        setData: $sets[index],
-                        rowState: rowState(for: index),
-                        showSetTimer: showSetTimer,
-                        showSuccessRate: showSuccessRate,
-                        formationOptions: formationOptions,
-                        onComplete: { onComplete(index) },
-                        onDelete: onDeleteSet != nil ? { onDeleteSet?(index) } : nil
-                    )
-                    if index < sets.count - 1 {
-                        Divider()
-                            .foregroundStyle(.btSeparator)
-                            .padding(.leading, Spacing.lg)
+                ForEach(Array(formationSections.enumerated()), id: \.offset) { _, section in
+                    VStack(spacing: 0) {
+                        if let title = section.title {
+                            formationSectionHeader(title)
+                        }
+                        ForEach(section.indices, id: \.self) { index in
+                            SetRow(
+                                setData: $sets[index],
+                                rowState: rowState(for: index),
+                                showSetTimer: showSetTimer,
+                                showSuccessRate: showSuccessRate,
+                                formationOptions: formationOptions,
+                                onComplete: { onComplete(index) },
+                                onDelete: onDeleteSet != nil ? { onDeleteSet?(index) } : nil
+                            )
+                            if index < sets.count - 1 {
+                                Divider()
+                                    .foregroundStyle(.btSeparator)
+                                    .padding(.leading, section.title == nil ? Spacing.lg : 0)
+                            }
+                        }
                     }
                 }
             }
@@ -87,6 +140,27 @@ struct BTSetInputGrid: View {
         }
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .accessibilityIdentifier("setInputGrid")
+    }
+
+    private func formationSectionHeader(_ title: String) -> some View {
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: "square.stack.3d.up")
+                .font(.btCaption2)
+                .foregroundStyle(.btPrimary)
+            Text(title)
+                .font(.btCaption)
+                .fontWeight(.semibold)
+                .foregroundStyle(.btText)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.btPrimaryMuted)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("formationSectionHeader")
+        .accessibilityLabel("分节 \(title)")
     }
 
     // MARK: - Header

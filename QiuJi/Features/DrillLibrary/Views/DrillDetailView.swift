@@ -386,22 +386,7 @@ struct DrillDetailView: View {
 
             Divider()
 
-            HStack(spacing: Spacing.md) {
-                Label("建议训练量", systemImage: "square.stack.3d.up")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-
-                Spacer(minLength: Spacing.md)
-
-                Text(TrainingDoseResolver.resolve(content: drill).volumeText(
-                    unitLabel: DrillUnitLabel.label(category: drill.category,
-                                                    subcategory: drill.subcategory)
-                ))
-                    .font(.btBodyMedium)
-                    .foregroundStyle(.btText)
-                    .monospacedDigit()
-                    .fixedSize()
-            }
+            suggestedDoseSection(drill)
 
             Divider()
 
@@ -435,6 +420,57 @@ struct DrillDetailView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .accessibilityIdentifier("trainingRequirementsSection")
+    }
+
+    /// 建议训练量：逐球形一行（v34 R10）；多球形末行合计。
+    @ViewBuilder
+    private func suggestedDoseSection(_ drill: DrillContent) -> some View {
+        let unitLabel = DrillUnitLabel.label(category: drill.category,
+                                             subcategory: drill.subcategory)
+        let options = TrainingDoseResolver.formationOptions(forDrillId: drill.id)
+        let resolved = TrainingDoseResolver.resolve(content: drill, formationOptions: options)
+        let lines = resolved.suggestedDoseLines(unitLabel: unitLabel)
+        let totalText = resolved.suggestedDoseTotalText(unitLabel: unitLabel)
+
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Label("建议训练量", systemImage: "square.stack.3d.up")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+
+            ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                        if let title = line.title {
+                            Text(title)
+                                .font(.btFootnote)
+                                .foregroundStyle(.btTextSecondary)
+                                .frame(minWidth: 44, alignment: .leading)
+                        }
+                        Text(line.text)
+                            .font(.btBodyMedium)
+                            .foregroundStyle(.btText)
+                            .monospacedDigit()
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let note = line.note, !note.isEmpty {
+                        Text(note)
+                            .font(.btFootnote)
+                            .foregroundStyle(.btTextTertiary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            if let totalText {
+                Text(totalText)
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+                    .padding(.top, 2)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityIdentifier("suggestedDoseSection")
     }
 
     private struct DimensionGroup {

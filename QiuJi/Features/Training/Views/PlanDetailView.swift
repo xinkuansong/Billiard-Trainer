@@ -21,6 +21,8 @@ struct PlanDetailView: View {
     @State private var coachingQuotes: [Int: String] = [:]
     @State private var planCoachingPoint: String? = nil
     @State private var activeCurrentWeek: Int? = nil
+    /// 展开逐球形明细的计划条目键（week-day-phase-drill）。
+    @State private var expandedDrillKeys: Set<String> = []
 
     var body: some View {
         // F-PL-10: capture real top safe-area inset before the hero ignores it,
@@ -324,9 +326,7 @@ struct PlanDetailView: View {
     }
 
     private func chapterHeader(_ week: PlanWeek) -> some View {
-        let totalMinutes = week.sessions.reduce(0) { acc, session in
-            acc + session.phases.reduce(0) { $0 + $1.durationMinutes }
-        }
+        let totalMinutes = week.sessions.reduce(0) { $0 + sessionEstimatedMinutes($1) }
         let isExpanded = expandedWeeks.contains(week.weekNumber)
 
         return HStack(alignment: .top, spacing: Spacing.lg) {
@@ -376,7 +376,7 @@ struct PlanDetailView: View {
     // MARK: - Day Section
 
     private func daySection(_ session: PlanSession, weekNumber: Int) -> some View {
-        let totalMin = session.phases.reduce(0) { $0 + $1.durationMinutes }
+        let totalMin = sessionEstimatedMinutes(session)
         let activePhases = session.phases.filter { !$0.drills.isEmpty }
 
         return VStack(alignment: .leading, spacing: Spacing.md) {
@@ -395,12 +395,29 @@ struct PlanDetailView: View {
             }
 
             BTPhaseTimeline(
-                phases: activePhases.map(BTPhaseEntry.from)
+                phases: activePhases.map { phase in
+                    var entry = BTPhaseEntry.from(phase)
+                    // R7/R11：阶段分钟由球数 ÷ 2.5 反算；无动作阶段保留原文案分钟。
+                    if !phase.drills.isEmpty {
+                        entry = BTPhaseEntry(
+                            id: entry.id,
+                            typeKey: entry.typeKey,
+                            typeZh: entry.typeZh,
+                            durationMinutes: phaseEstimatedMinutes(phase),
+                            icon: entry.icon
+                        )
+                    }
+                    return entry
+                }
             ) { index, _ in
                 let phase = activePhases[index]
                 VStack(spacing: Spacing.xs) {
                     ForEach(Array(phase.drills.enumerated()), id: \.element.id) { drillIndex, ref in
-                        drillTrackRow(index: drillIndex, ref: ref)
+                        drillTrackRow(
+                            index: drillIndex,
+                            ref: ref,
+                            expandKey: "\(weekNumber)-\(session.dayNumber)-\(phase.type)-\(ref.id)"
+                        )
                     }
                 }
             }
@@ -410,32 +427,113 @@ struct PlanDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
     }
 
-    private func drillTrackRow(index: Int, ref: PlanDrillRef) -> some View {
-        HStack(spacing: Spacing.md) {
-            drillThumbnail(ref)
+    private func drillTrackRow(index: Int, ref: PlanDrillRef, expandKey: String) -> some View {
+        let options = TrainingDoseResolver.formationOptions(forDrillId: ref.drillId)
+        let resolved = TrainingDoseResolver.resolve(
+            content: drillContents[ref.drillId],
+            dose: ref.dose,
+            formationOptions: options
+        )
+        let name = drillNames[ref.drillId] ?? ref.drillId
+        let summary = "\(name) · \(resolved.planEntrySummaryText())"
+        let lines = resolved.suggestedDoseLines()
+        let totalText = resolved.suggestedDoseTotalText()
+        let isExpanded = expandedDrillKeys.contains(expandKey)
 
-            Text(String(format: "%02d", index + 1))
-                .font(.btFootnote)
-                .foregroundStyle(.btTextTertiary)
-                .monospacedDigit()
-                .frame(width: 20, alignment: .leading)
+        return VStack(alignment: .leading, spacing: Spacing.xs) {
+            Button {
+                withAnimation(BTMotion.springPanel) {
+                    if isExpanded {
+                        expandedDrillKeys.remove(expandKey)
+                    } else {
+                        expandedDrillKeys.insert(expandKey)
+                    }
+                }
+            } label: {
+                HStack(alignment: .top, spacing: Spacing.md) {
+                    drillThumbnail(ref)
 
-            Text(drillNames[ref.drillId] ?? ref.drillId)
-                .font(.btCallout)
-                .foregroundStyle(.btText)
-                .lineLimit(1)
+                    Text(String(format: "%02d", index + 1))
+                        .font(.btFootnote)
+                        .foregroundStyle(.btTextTertiary)
+                        .monospacedDigit()
+                        .frame(width: 20, alignment: .leading)
+                        .padding(.top, 2)
 
-            Spacer(minLength: Spacing.sm)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(summary)
+                            .font(.btCallout)
+                            .foregroundStyle(.btText)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .monospacedDigit()
+                    }
 
-            Text(TrainingDoseResolver.resolve(
-                content: drillContents[ref.drillId],
-                dose: ref.dose
-            ).compactVolumeText)
-                .font(.btFootnote)
-                .foregroundStyle(.btTextSecondary)
-                .monospacedDigit()
+                    Spacer(minLength: Spacing.sm)
+
+                    Image(systemName: BTIcon.chevronDown)
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextTertiary)
+                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                        .padding(.top, 4)
+                }
+            }
+            .buttonStyle(BTPressableStyle.row)
+            .accessibilityIdentifier("planDrillRow-\(ref.drillId)")
+            .accessibilityLabel(summary)
+
+            if isExpanded {
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
+                        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                            if let title = line.title {
+                                Text(title)
+                                    .font(.btFootnote)
+                                    .foregroundStyle(.btTextSecondary)
+                                    .frame(minWidth: 44, alignment: .leading)
+                            }
+                            Text(line.text)
+                                .font(.btFootnote)
+                                .foregroundStyle(.btTextSecondary)
+                                .monospacedDigit()
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        if let note = line.note, !note.isEmpty {
+                            Text(note)
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextTertiary)
+                        }
+                    }
+                    if let totalText {
+                        Text(totalText)
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextTertiary)
+                            .monospacedDigit()
+                    }
+                }
+                .padding(.leading, 40 + 20 + Spacing.md)
+                .padding(.bottom, Spacing.xs)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+                .accessibilityIdentifier("planDrillDoseDetail-\(ref.drillId)")
+            }
         }
         .padding(.vertical, 2)
+    }
+
+    /// 单阶段分钟：有动作按球数 ÷ 2.5；空阶段用 JSON 时长。
+    private func phaseEstimatedMinutes(_ phase: SessionPhase) -> Int {
+        if phase.drills.isEmpty { return phase.durationMinutes }
+        let balls = phase.drills.reduce(0) { acc, ref in
+            acc + TrainingDoseResolver.resolve(
+                content: drillContents[ref.drillId],
+                dose: ref.dose
+            ).totalBalls
+        }
+        return ResolvedDose.estimatedMinutes(forBalls: balls)
+    }
+
+    private func sessionEstimatedMinutes(_ session: PlanSession) -> Int {
+        session.phases.reduce(0) { $0 + phaseEstimatedMinutes($1) }
     }
 
     @ViewBuilder
@@ -526,6 +624,28 @@ struct PlanDetailView: View {
         drillContents = loadedDrills
         coachingQuotes = quotesByWeek
         planCoachingPoint = quotesByWeek[1] ?? quotesByWeek.sorted { $0.key < $1.key }.first?.value
+
+        // UITest：展开第 1 周 + 指定动作的逐球形明细（launch arg 仅取证用）。
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-uitest.expandPlanWeek1") {
+            expandedWeeks.insert(1)
+        }
+        if let expandId = args.first(where: { $0.hasPrefix("-uitest.expandPlanDrill=") })?
+            .replacingOccurrences(of: "-uitest.expandPlanDrill=", with: ""),
+           !expandId.isEmpty {
+            expandedWeeks.insert(1)
+            for week in plan.weeks where week.weekNumber == 1 {
+                for session in week.sessions {
+                    for phase in session.phases {
+                        for ref in phase.drills where ref.drillId == expandId {
+                            expandedDrillKeys.insert(
+                                "\(week.weekNumber)-\(session.dayNumber)-\(phase.type)-\(ref.id)"
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func computeSeriesIssue(for plan: OfficialPlan) async {

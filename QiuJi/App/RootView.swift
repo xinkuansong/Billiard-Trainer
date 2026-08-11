@@ -81,6 +81,29 @@ struct RootView: View {
                 PositionPlayComposerView(sourceDrill: drill, tryoutFormation: formation)
             })
         }
+        // v34 W4：直达动作详情（建议训练量逐球形取证）。
+        if let drillId = args.first(where: { $0.hasPrefix("-deeplink.drillDetail=") })?
+            .replacingOccurrences(of: "-deeplink.drillDetail=", with: ""),
+           !drillId.isEmpty {
+            return AnyView(NavigationStack {
+                DrillDetailView(drillId: drillId)
+            })
+        }
+        // v34 W5：直达计划详情（逐球形剂量明细取证）。
+        if let planId = args.first(where: { $0.hasPrefix("-deeplink.planDetail=") })?
+            .replacingOccurrences(of: "-deeplink.planDetail=", with: ""),
+           !planId.isEmpty {
+            return AnyView(NavigationStack {
+                PlanDetailView(planId: planId)
+                    .environmentObject(SubscriptionManager.shared)
+            })
+        }
+        // v34 W5：直达自由训练并预置一条动作（进度指示 / 分节 / 添加一组取证）。
+        if let drillId = args.first(where: { $0.hasPrefix("-deeplink.activeTraining=") })?
+            .replacingOccurrences(of: "-deeplink.activeTraining=", with: ""),
+           !drillId.isEmpty {
+            return AnyView(V34W5ActiveTrainingHost(drillId: drillId))
+        }
         return nil
     }
 
@@ -93,6 +116,44 @@ struct RootView: View {
             BTToastBanner(message: BTToastMessage(text, tone: tone))
         }
         .preferredColorScheme(.dark)
+    }
+}
+
+/// UITest-only host：按计划模式装载单条动作（v34 W5）。
+/// 走 `loadDrills` 的 `.plan` 路径，避免自由模式预置与 `.task` 竞态。
+private struct V34W5ActiveTrainingHost: View {
+    @StateObject private var viewModel: ActiveTrainingViewModel
+    @StateObject private var router = AppRouter()
+
+    init(drillId: String) {
+        let content = DrillContentService.decodeDrillFromBundle(id: drillId)
+        let options = TrainingDoseResolver.formationOptions(forDrillId: drillId)
+        let resolved = TrainingDoseResolver.resolve(content: content, formationOptions: options)
+        let unit = DrillUnitLabel.label(
+            category: content?.category ?? "",
+            subcategory: content?.subcategory ?? ""
+        )
+        let item = TodayDrillItem(
+            id: "uitest_\(drillId)",
+            drillId: drillId,
+            nameZh: content?.nameZh ?? drillId,
+            phaseType: "focused",
+            phaseZh: "专项训练",
+            phaseIcon: "target",
+            plannedSets: resolved.plannedSets,
+            volumeText: resolved.volumeText(unitLabel: unit),
+            isCompleted: false
+        )
+        _viewModel = StateObject(
+            wrappedValue: ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "uitest_w5"))
+        )
+    }
+
+    var body: some View {
+        ActiveTrainingView(viewModel: viewModel)
+            .environmentObject(router)
+            .environmentObject(SubscriptionManager.shared)
+            .accessibilityIdentifier("v34w5ActiveTrainingHost")
     }
 }
 

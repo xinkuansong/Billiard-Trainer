@@ -399,11 +399,20 @@ struct ActiveTrainingView: View {
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, Spacing.md)
 
-            HStack {
+            HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(viewModel.isPlanMode ? "按计划训练" : "自由记录")
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
+                    // R12：三级进度优先；会话级组进度作次行。
+                    if !viewModel.currentSetProgressText.isEmpty {
+                        Text(viewModel.currentSetProgressText)
+                            .font(.btSubheadlineMedium)
+                            .foregroundStyle(.btPrimary)
+                            .monospacedDigit()
+                            .accessibilityIdentifier("activeTrainingSetProgress")
+                            .accessibilityLabel(viewModel.currentSetProgressText)
+                    }
                     if !viewModel.progressText.isEmpty {
                         Text(viewModel.progressText)
                             .font(.btCaption)

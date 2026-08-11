@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - Resolved Types
 
@@ -23,6 +24,16 @@ struct PlannedTrainingSet: Equatable {
     }
 }
 
+/// 动作页「建议训练量」逐行文案（v34 R10）。
+struct SuggestedDoseLine: Equatable {
+    /// 多球形时的行首标签（如「球形1」）；单球形 / 汇总兜底为 nil。
+    let title: String?
+    /// 主文案，如「5 个位置 × 每位置 15 颗 = 75 球」。
+    let text: String
+    /// 可选例外说明（内容侧 `doseNote`）。
+    let note: String?
+}
+
 /// 一条 drill 在一次训练中的完整剂量解析结果（v31 R3/R4/R6）。
 struct ResolvedDose: Equatable {
 
@@ -33,6 +44,24 @@ struct ResolvedDose: Equatable {
         let mode: DrillContent.DoseMode?
         let ballsPerRound: Int
         let rounds: Int
+        /// 内容侧例外说明；展示用，不影响球数。
+        let doseNote: String?
+
+        init(
+            formationToken: String?,
+            formationName: String?,
+            mode: DrillContent.DoseMode?,
+            ballsPerRound: Int,
+            rounds: Int,
+            doseNote: String? = nil
+        ) {
+            self.formationToken = formationToken
+            self.formationName = formationName
+            self.mode = mode
+            self.ballsPerRound = ballsPerRound
+            self.rounds = rounds
+            self.doseNote = doseNote
+        }
     }
 
     let groups: [Group]
@@ -63,26 +92,78 @@ struct ResolvedDose: Equatable {
         }
     }
 
-    /// 一轮的单位：`sequence` 型一轮就是按序打完整条序列，故以「杆」计；
-    /// 其余跟 `unitLabel` 口径（契约 §5.2：球 / 局 / 次）。
-    private func unit(for group: Group, unitLabel: String) -> String {
-        group.mode == .sequence ? "杆" : unitLabel
-    }
-
-    /// 完整展示文案。同构：「4 轮 × 10 球」；异构多球形：「2 球形 · 4 轮 · 共 23 球」。
+    /// 完整展示文案（v34 R10/R11 口径）。
+    /// 单球形：与 `suggestedDoseLines` 同行；多球形：「N 球形 · 共 M 球」。
     func volumeText(unitLabel: String) -> String {
         guard let first = groups.first else { return "" }
-        if isUniform {
-            return "\(totalRounds) 轮 × \(first.ballsPerRound) \(unit(for: first, unitLabel: unitLabel))"
+        if groups.count == 1 {
+            return Self.suggestedLineText(for: first, unitLabel: unitLabel)
         }
-        return "\(groups.count) 球形 · \(totalRounds) 轮 · 共 \(totalBalls) \(unitLabel)"
+        return "\(groups.count) 球形 · 共 \(totalBalls) \(unitLabel)"
     }
 
-    /// 窄行用紧凑文案（计划详情逐条目）：同构「4×10」；异构「4轮·23」。
+    /// 窄行紧凑文案：单球形「75球」/「8杆×8」；多球形「2球形·150球」。
     var compactVolumeText: String {
         guard let first = groups.first else { return "" }
-        if isUniform { return "\(totalRounds)×\(first.ballsPerRound)" }
-        return "\(totalRounds)轮·\(totalBalls)"
+        if groups.count > 1 {
+            return "\(groups.count)球形·\(totalBalls)球"
+        }
+        switch first.mode {
+        case .sequence:
+            return "\(first.ballsPerRound)杆×\(first.rounds)"
+        case .repetition:
+            return "\(first.rounds)×\(first.ballsPerRound)"
+        case .none:
+            return "\(totalRounds)×\(first.ballsPerRound)"
+        }
+    }
+
+    /// 计划条目摘要：「N 球形 · 总球数」（动作名由调用方拼接）。
+    func planEntrySummaryText(unitLabel: String = "球") -> String {
+        guard !groups.isEmpty else { return "" }
+        return "\(groups.count) 球形 · \(totalBalls) \(unitLabel)"
+    }
+
+    /// 球数 → 分钟（R7 固定 2.5 球/分钟）。
+    static func estimatedMinutes(forBalls balls: Int) -> Int {
+        guard balls > 0 else { return 0 }
+        return Int((Double(balls) / 2.5).rounded())
+    }
+
+    /// 动作页「建议训练量」逐球形文案（v34 R10）。无序列汇总兜底仍返回单行。
+    func suggestedDoseLines(unitLabel: String = "球") -> [SuggestedDoseLine] {
+        guard !groups.isEmpty else { return [] }
+        let multi = groups.count > 1
+        return groups.enumerated().map { index, group in
+            let title: String? = multi
+                ? (group.formationName ?? "球形\(index + 1)")
+                : nil
+            return SuggestedDoseLine(
+                title: title,
+                text: Self.suggestedLineText(for: group, unitLabel: unitLabel),
+                note: group.doseNote
+            )
+        }
+    }
+
+    /// 多球形时末行合计；单行场景返回 nil（避免与唯一行重复）。
+    func suggestedDoseTotalText(unitLabel: String = "球") -> String? {
+        guard groups.count > 1 else { return nil }
+        return "合计 \(totalBalls) \(unitLabel)"
+    }
+
+    private static func suggestedLineText(for group: Group, unitLabel: String) -> String {
+        let balls = group.ballsPerRound
+        let rounds = group.rounds
+        let total = balls * rounds
+        switch group.mode {
+        case .sequence:
+            return "整链 \(balls) 杆 × \(rounds) 遍 = \(total) 球"
+        case .repetition:
+            return "\(rounds) 个位置 × 每位置 \(balls) 颗 = \(total) 球"
+        case .none:
+            return "\(rounds) 轮 × \(balls) \(unitLabel)"
+        }
     }
 }
 
@@ -92,7 +173,13 @@ struct ResolvedDose: Equatable {
 ///
 /// drill JSON 是训练剂量唯一真源，计划只存强度系数；实际球数在**激活训练时**解析，
 /// 落 `DrillSet` 时才快照冻结（§6.6「为什么这不违反 §6.5」）。
+///
+/// v34 R9（B 方案）：`roundsPerFormation` = **遍数倍数**（默认 1），展开 =
+/// 每球形 `defaultRounds × 倍数`，位置永远全覆盖。`formations[].rounds` 不得低于
+/// 内容 `defaultRounds`（低于时运行时钳到下限并打 debug log）。
 enum TrainingDoseResolver {
+
+    private static let logger = Logger(subsystem: "com.billiardtrainer", category: "TrainingDose")
 
     /// 多球形 drill 的可选球形；单球形（或无序列）返回空数组 —— 单球形不出选择 UI，
     /// `DrillSet.formationToken/Name` 保持 nil（契约 §4.1）。
@@ -105,7 +192,7 @@ enum TrainingDoseResolver {
 
     /// - Parameters:
     ///   - content: drill 内容（剂量真源）。缺失时只能走汇总兜底。
-    ///   - dose: 计划条目的强度系数。自由训练传 nil ⇒ 用内容推荐轮数。
+    ///   - dose: 计划条目的强度系数。自由训练传 nil ⇒ 用内容推荐轮数（×1）。
     ///   - formationOptions: 球形显示名来源；只影响 `formationName`，不影响球数。
     static func resolve(
         content: DrillContent?,
@@ -128,21 +215,28 @@ enum TrainingDoseResolver {
                         formationName: carriesToken ? names[formation.token] : nil,
                         mode: formation.mode,
                         ballsPerRound: max(1, formation.ballsPerRound),
-                        rounds: max(1, rounds)
+                        rounds: max(1, rounds),
+                        doseNote: formation.doseNote
                     )
                 })
             }
         }
 
         // 2) 汇总兜底：无序列 drill（契约 §5.6.4，8 条）或内容缺失。
+        //    `roundsPerFormation` = 倍数；nil dose ⇒ ×1 = 完整 `defaultSets`。
+        let multiplier = max(1, dose?.roundsPerFormation ?? 1)
+        let baseRounds = config?.defaultSets ?? 1
         return uniformDose(
-            rounds: dose?.roundsPerFormation ?? config?.defaultSets ?? 1,
+            rounds: baseRounds * multiplier,
             ballsPerRound: config?.defaultBallsPerSet ?? 1,
             formationOptions: formationOptions
         )
     }
 
-    /// 计划 dose 决定每个球形练几轮：按球形逐条 > 统一轮数 > 内容推荐轮数。
+    /// 计划 dose 决定每个球形练几轮：
+    /// - `formations`：按 token 选球形；轮数不得低于内容 `defaultRounds`（v34 R9）。
+    /// - `roundsPerFormation`：**遍数倍数**，每球形 = `defaultRounds × 倍数`（位置全覆盖）。
+    /// - 无 dose：内容推荐完整剂量。
     /// 顺序一律以内容 `perFormation` 的顺序为准（球形即难度阶梯，契约 §6.6 推论 2）。
     private static func selectFormations(
         _ perFormation: [DrillContent.FormationDose],
@@ -153,11 +247,20 @@ enum TrainingDoseResolver {
             for entry in listed { roundsByToken[entry.token] = entry.rounds }
             // 未列出的球形本次不展开（契约 §6.6 推论 3）。
             return perFormation.compactMap { formation in
-                roundsByToken[formation.token].map { (formation, $0) }
+                guard let requested = roundsByToken[formation.token] else { return nil }
+                let floor = max(1, formation.defaultRounds)
+                let clamped = max(floor, requested)
+                if clamped != requested {
+                    logger.debug(
+                        "formations rounds clamped token=\(formation.token, privacy: .public) requested=\(requested) floor=\(floor)"
+                    )
+                }
+                return (formation, clamped)
             }
         }
-        if let uniformRounds = dose?.roundsPerFormation {
-            return perFormation.map { ($0, uniformRounds) }
+        if let multiplier = dose?.roundsPerFormation {
+            let m = max(1, multiplier)
+            return perFormation.map { ($0, max(1, $0.defaultRounds) * m) }
         }
         return perFormation.map { ($0, $0.defaultRounds) }
     }
@@ -173,7 +276,8 @@ enum TrainingDoseResolver {
                 formationName: formationOptions.first?.name,
                 mode: nil,
                 ballsPerRound: max(1, ballsPerRound),
-                rounds: max(1, rounds)
+                rounds: max(1, rounds),
+                doseNote: nil
             )
         ])
     }

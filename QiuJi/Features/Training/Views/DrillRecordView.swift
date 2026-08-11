@@ -64,7 +64,8 @@ struct DrillRecordView: View {
                     onDeleteSet: onDeleteSet,
                     showSetTimer: showSetTimer,
                     showSuccessRate: showSuccessRate,
-                    formationOptions: formationOptions
+                    formationOptions: formationOptions,
+                    sectionByFormation: true
                 )
 
                 if totalTarget > 0 {
@@ -216,7 +217,7 @@ struct DrillRecordView: View {
             Image(systemName: "square.stack.3d.up")
                 .font(.btCaption)
                 .foregroundStyle(.btPrimary)
-            Text("本动作有 \(formationOptions.count) 个球形，请在「球形」列选择本组打的球形")
+            Text("本动作有 \(formationOptions.count) 个球形，已按球形分节；也可在「球形」列调整")
                 .font(.btCaption)
                 .foregroundStyle(.btTextSecondary)
             Spacer()
