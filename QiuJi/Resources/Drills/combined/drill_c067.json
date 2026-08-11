@@ -18,7 +18,7 @@
   ],
   "standardCriteria": "连续 10 局 9 球挑战，至少 3 局完成 1–9 号全清（无犯规）",
   "sets": {
-    "defaultSets": 10,
+    "defaultSets": 8,
     "defaultBallsPerSet": 9
   },
   "animation": {

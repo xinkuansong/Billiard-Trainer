@@ -10,22 +10,22 @@
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
-  "description": "1→2→3→4 号依次打进右侧中袋的四球走位链。中袋口窄，示范以中杆小力为主、收尾用高杆中力；真正难的是连续为下一杆留出可打切角，而不是单杆直线。",
+  "description": "1–4 号逐位打进右侧中袋，每杆母球摆回原位、独立击打。中袋口窄，示范以中杆小力为主、末位用高杆中力；难点在远台直线的瞄准与力度稳定。",
   "coachingPoints": [
-    "按 1→2→3→4 顺序规划，第3杆是关键球，停位决定收尾难度",
+    "逐位独立击打、母球摆回原位：专注远台直线瞄准与中袋窗口",
     "中袋容错小：偏了降力重瞄，不要加力硬塞",
-    "前两杆小力控停位，收尾再按示范用高杆"
+    "前几个位置小力控稳，末位按示范用高杆"
   ],
-  "standardCriteria": "按示范顺序将 1–4 号依次打进右侧中袋；整组连续完成至少 1 次",
+  "standardCriteria": "4 个位置逐位练习，将对应目标球稳定打进右侧中袋即过关",
   "sets": {
-    "defaultSets": 12,
-    "defaultBallsPerSet": 4,
+    "defaultSets": 4,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_17_57_13",
-        "mode": "sequence",
-        "ballsPerRound": 4,
-        "defaultRounds": 12
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 4
       }
     ]
   },

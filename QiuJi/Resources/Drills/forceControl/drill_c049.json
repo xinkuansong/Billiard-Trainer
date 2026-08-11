@@ -19,12 +19,12 @@
   "standardCriteria": "五档各多次推送：停点随力度单调变化、相邻档可区分；不以进袋为条件（本组无进袋任务）",
   "sets": {
     "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
+        "ballsPerRound": 15,
         "defaultRounds": 5
       }
     ]

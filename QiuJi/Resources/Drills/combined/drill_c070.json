@@ -18,7 +18,7 @@
   ],
   "standardCriteria": "连续 10 次全台挑战，至少 2 次合法清台（含黑八进袋且无犯规）",
   "sets": {
-    "defaultSets": 10,
+    "defaultSets": 8,
     "defaultBallsPerSet": 8
   },
   "animation": {

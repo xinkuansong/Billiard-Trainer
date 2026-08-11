@@ -18,14 +18,14 @@
   ],
   "standardCriteria": "三档各完成若干次：小力近停、小力过台、中力再过台/回弹，停点带与示范同侧趋势一致",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 5
+        "ballsPerRound": 15,
+        "defaultRounds": 3
       }
     ]
   },

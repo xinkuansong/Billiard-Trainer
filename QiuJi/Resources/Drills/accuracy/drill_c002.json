@@ -18,14 +18,15 @@
   ],
   "standardCriteria": "按示范完成 9 档切角各进左下角袋至少一次；同档连续 3 次不丢即该档过关",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 9,
+    "defaultBallsPerSet": 8,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 5
+        "ballsPerRound": 8,
+        "defaultRounds": 9,
+        "doseNote": "用户裁定例外（v34 R3）：斜角入底角袋按每位置 8 颗训练，非默认 15"
       }
     ]
   },

@@ -18,14 +18,14 @@
   ],
   "standardCriteria": "沿参考球列逐颗尝试，能连续三颗按事先指定的目标碰到即达标",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 8,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 5
+        "ballsPerRound": 15,
+        "defaultRounds": 8
       }
     ]
   },

@@ -18,7 +18,7 @@
   ],
   "standardCriteria": "每组 15 杆：开放式与封闭式各半；手架不塌、杆身不刮指，且进袋合计至少 10 杆",
   "sets": {
-    "defaultSets": 3,
+    "defaultSets": 8,
     "defaultBallsPerSet": 15
   },
   "animation": {

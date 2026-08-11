@@ -18,14 +18,14 @@
   ],
   "standardCriteria": "按序完成八杆进袋；第七杆后母球停在 8 号右方约七颗球、切角接近直线，使第八杆可中杆进攻左上角袋",
   "sets": {
-    "defaultSets": 7,
+    "defaultSets": 8,
     "defaultBallsPerSet": 8,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "sequence",
         "ballsPerRound": 8,
-        "defaultRounds": 7
+        "defaultRounds": 8
       }
     ]
   },

@@ -18,14 +18,14 @@
   ],
   "standardCriteria": "四组球位各完成小力/中力两到三档：1 号进右下角袋且母球留台；直线档以母球不进袋为硬条件",
   "sets": {
-    "defaultSets": 4,
-    "defaultBallsPerSet": 12,
+    "defaultSets": 12,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 12,
-        "defaultRounds": 4
+        "ballsPerRound": 15,
+        "defaultRounds": 12
       }
     ]
   },

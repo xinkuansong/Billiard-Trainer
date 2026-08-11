@@ -21,14 +21,14 @@
   ],
   "standardCriteria": "五组中至少一组完成六个来回（六颗彩球与六次 8 号交替进袋，每次 8 号进袋后复位）；每组记录断在第几杆",
   "sets": {
-    "defaultSets": 5,
+    "defaultSets": 8,
     "defaultBallsPerSet": 12,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "sequence",
         "ballsPerRound": 12,
-        "defaultRounds": 5
+        "defaultRounds": 8
       }
     ]
   },

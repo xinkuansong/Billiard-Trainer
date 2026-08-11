@@ -19,20 +19,20 @@
   ],
   "standardCriteria": "球形1：10 档切角各进右侧中袋至少一次；球形2：13 档各进至少一次且母球留台",
   "sets": {
-    "defaultSets": 4,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 23,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 2
+        "ballsPerRound": 15,
+        "defaultRounds": 10
       },
       {
         "token": "manual02",
         "mode": "repetition",
-        "ballsPerRound": 13,
-        "defaultRounds": 2
+        "ballsPerRound": 15,
+        "defaultRounds": 13
       }
     ]
   },

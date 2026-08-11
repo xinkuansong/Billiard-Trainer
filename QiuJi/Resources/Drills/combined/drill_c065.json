@@ -18,8 +18,8 @@
   ],
   "standardCriteria": "连续 10 局 Ghost Game，赢至少 3 局；并记录每局清台球数（用于算平均）",
   "sets": {
-    "defaultSets": 10,
-    "defaultBallsPerSet": 8
+    "defaultSets": 8,
+    "defaultBallsPerSet": 15
   },
   "animation": {
     "cueBall": {

@@ -47,14 +47,14 @@
   "nameEn": "Stun Shot at Angle",
   "nameZh": "斯登角度停球",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 6,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 5
+        "ballsPerRound": 15,
+        "defaultRounds": 6
       }
     ]
   },

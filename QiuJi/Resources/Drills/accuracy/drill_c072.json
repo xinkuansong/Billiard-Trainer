@@ -10,22 +10,22 @@
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
-  "description": "两杆全台近直线：先打 1 号进右下角袋，再打 2 号进左下角袋。示范用中低杆、中大力（3.8 m/s）；直线无切角可借，出杆直度与缩杆停位决定能否接到第二杆。",
+  "description": "两个位置的全台近直线：位置1打 1 号进右下角袋，位置2打 2 号进左下角袋，每杆母球摆回原位、独立击打。示范用中低杆、中大力（3.8 m/s）；直线无切角可借，全凭出杆直度。",
   "coachingPoints": [
-    "两杆都按近直线打，先求瞄准线直，再加中低杆",
-    "第1杆是关键球：缩杆量要够，才能接到对面 2 号",
-    "力度用中大力送到袋，但不要为了「更直」加塞"
+    "两个位置都按近直线打，先求瞄准线直，再加中低杆",
+    "力度用中大力送到袋，但不要为了「更直」加塞",
+    "每个位置独立击打、母球摆回原位：全台直线考的是出杆直度，不是走位衔接"
   ],
-  "standardCriteria": "按示范将 1 号打进右下角袋、2 号打进左下角袋；整组连续完成至少 1 次",
+  "standardCriteria": "两个位置分别将目标球稳定打进对应袋口即过关",
   "sets": {
-    "defaultSets": 25,
-    "defaultBallsPerSet": 2,
+    "defaultSets": 2,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_18_02_47",
-        "mode": "sequence",
-        "ballsPerRound": 2,
-        "defaultRounds": 25
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 2
       }
     ]
   },

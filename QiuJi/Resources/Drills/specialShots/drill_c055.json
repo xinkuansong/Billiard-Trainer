@@ -19,12 +19,12 @@
   "standardCriteria": "10 次翻袋中至少 3 次 8 号进左侧中袋，且母球留台",
   "sets": {
     "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
+        "ballsPerRound": 15,
         "defaultRounds": 5
       }
     ]

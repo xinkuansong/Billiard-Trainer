@@ -13,22 +13,22 @@
   "level": "L1",
   "difficulty": 3,
   "isPremium": false,
-  "description": "在台面上放置一个目标区域标记（用粉笔或硬币），进袋后要求母球停在目标区域30厘米范围内。训练力度精准控制。",
+  "description": "按示范序列连打 5 杆的控力走位链：同一颗目标球交替打进两个角袋，每杆进袋后靠力度控制让母球停到下一杆的出杆位置；一轮 = 完整打完 5 杆链。训练力度精准控制。",
   "coachingPoints": [
-    "先击球进袋，再观察母球与目标区域的距离——逐渐缩小偏差",
-    "同一球位反复练习，每次微调力度，找到精确的力度感觉",
-    "记住每次击球的发力感觉——好的控力来自身体记忆而非计算"
+    "整链 5 杆连续完成：每杆进袋后母球的停位就是下一杆的出杆位置",
+    "每杆微调力度，找到精确的力度感觉——好的控力来自身体记忆而非计算",
+    "断链后从第 1 杆重新开始，不要跳杆续打"
   ],
-  "standardCriteria": "10球中5球进袋且母球停在目标区域30厘米内",
+  "standardCriteria": "整链 5 杆按序完成，母球每杆停在可继续下一杆的位置；多数轮次能走完整链即过关",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 8,
+    "defaultBallsPerSet": 5,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_16_49_09",
-        "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 5
+        "mode": "sequence",
+        "ballsPerRound": 5,
+        "defaultRounds": 8
       }
     ]
   },

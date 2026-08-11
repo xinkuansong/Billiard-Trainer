@@ -10,22 +10,22 @@
   "level": "L0",
   "difficulty": 1,
   "isPremium": false,
-  "description": "下路左半一列目标球（1→8→2→3→4）依次打进左下角袋。前三杆中杆小力（1.5 m/s）练半台量级直线瞄准；后两杆改中低杆同力度，用回旋控制母球别贴死库，完成连续清台。",
+  "description": "下路左半一列目标球（1、8、2、3、4）逐位打进左下角袋，每杆母球摆回原位、独立击打。前三个位置中杆小力（1.5 m/s）练半台量级直线瞄准；后两个位置改中低杆同力度，用回旋控制母球别贴死库。",
   "coachingPoints": [
     "出杆方向与母球—目标球—左下角袋三点一线严格重合，不要在击球瞬间修正",
-    "前三杆中杆小力送透；第四、五杆改中低杆，防止母球跟得太死",
-    "按 1→8→2→3→4 顺序清台：每一杆落点要给下一颗球留下可打的直线角度"
+    "前三个位置中杆小力送透；第四、五个位置改中低杆，防止母球跟得太死",
+    "每个位置独立击打、母球摆回原位：专注单杆直线质量，不做走位衔接"
   ],
-  "standardCriteria": "按示范顺序 1→8→2→3→4 全部打进左下角袋；整组可重复，稳定完成即过关",
+  "standardCriteria": "5 个位置逐位练习，每个位置的目标球稳定打进左下角袋即过关",
   "sets": {
-    "defaultSets": 10,
-    "defaultBallsPerSet": 5,
+    "defaultSets": 5,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
-        "mode": "sequence",
-        "ballsPerRound": 5,
-        "defaultRounds": 10
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 5
       }
     ]
   },

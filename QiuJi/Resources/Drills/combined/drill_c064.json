@@ -18,14 +18,14 @@
   ],
   "standardCriteria": "10 组中 5 组按示范顺序三球连续进袋，且第二杆后母球停在可打 3 号左侧中袋的近直线位",
   "sets": {
-    "defaultSets": 15,
+    "defaultSets": 8,
     "defaultBallsPerSet": 3,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_17_59_39",
         "mode": "sequence",
         "ballsPerRound": 3,
-        "defaultRounds": 15
+        "defaultRounds": 8
       }
     ]
   },

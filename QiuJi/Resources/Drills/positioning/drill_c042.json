@@ -21,20 +21,20 @@
   ],
   "standardCriteria": "球形1：同一三球中线布局下完成 8 种母球起点的 1 号进左侧中袋，母球落点与示范一致；球形2：按序完成五杆连续进袋，第四杆后母球停在可打 5 号左下角袋的位置",
   "sets": {
-    "defaultSets": 7,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 16,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 2
+        "ballsPerRound": 15,
+        "defaultRounds": 8
       },
       {
         "token": "manual02",
         "mode": "sequence",
         "ballsPerRound": 5,
-        "defaultRounds": 5
+        "defaultRounds": 8
       }
     ]
   },

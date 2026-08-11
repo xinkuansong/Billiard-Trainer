@@ -10,22 +10,22 @@
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
-  "description": "球位与袋口固定，用不同线路把母球分别送到上半台或下半台的指定落点。从高杆定点校位起手建立基准，再逐条线路各打一组，练同一球形下的多线路选择。",
+  "description": "按示范序列连打 4 杆：两颗目标球交替进袋，母球在上半台与下半台的落点之间往返；一轮 = 完整打完 4 杆链，练同一球形下的多线路衔接。",
   "coachingPoints": [
-    "一次只换一条线路，球位与袋口不动，才能看清线路之间的差别",
-    "先用高杆定点校位打出基准落点，后面每条线路都和它比远近",
+    "一轮连打 4 杆：两条线路在链内交替，打完整链再复盘两条线路的落点差别",
+    "先用高杆定点校位打出基准落点，后面每杆都和它比远近",
     "落点先按上半台／下半台两个大区区分，稳定后再收窄到具体区域"
   ],
-  "standardCriteria": "每条线路各打一组，母球落到目标半台的次数过半；能说出两条线路的落点差别在哪",
+  "standardCriteria": "整链 4 杆按序完成，母球落到目标半台的次数过半；能说出两条线路的落点差别在哪",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 8,
+    "defaultBallsPerSet": 4,
     "perFormation": [
       {
         "token": "manual01",
-        "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 5
+        "mode": "sequence",
+        "ballsPerRound": 4,
+        "defaultRounds": 8
       }
     ]
   },

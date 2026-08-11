@@ -21,14 +21,14 @@
   ],
   "standardCriteria": "10球中4球进袋且母球停在20厘米目标区内",
   "sets": {
-    "defaultSets": 4,
-    "defaultBallsPerSet": 13,
+    "defaultSets": 13,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_13_52_32",
         "mode": "repetition",
-        "ballsPerRound": 13,
-        "defaultRounds": 4
+        "ballsPerRound": 15,
+        "defaultRounds": 13
       }
     ]
   },

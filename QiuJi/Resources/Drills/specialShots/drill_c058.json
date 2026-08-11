@@ -18,20 +18,20 @@
   ],
   "standardCriteria": "10 次中至少 5 次贴库 1 号进右下角袋",
   "sets": {
-    "defaultSets": 4,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 2,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_17_50_08",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 2
+        "ballsPerRound": 15,
+        "defaultRounds": 1
       },
       {
         "token": "Snipaste_2026_06_19_17_50_48",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 2
+        "ballsPerRound": 15,
+        "defaultRounds": 1
       }
     ]
   },

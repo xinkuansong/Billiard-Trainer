@@ -10,22 +10,22 @@
   "level": "L3",
   "difficulty": 4,
   "isPremium": true,
-  "description": "两杆走位链：1 号、2 号依次打进右下角袋。示范切角约 43°→58°（中大角度递进），第1杆小力中杆，第2杆中力中杆；第1杆停位直接决定收尾难度。",
+  "description": "两个位置的极薄切球：1 号、2 号分别打进右下角袋，每杆母球摆回原位、独立击打。切角约 43°→58°（中大角度递进），位置1小力中杆，位置2中力中杆。",
   "coachingPoints": [
-    "只有两杆：第1杆先为第2杆留大角度，不要只想进袋",
-    "第2杆更薄，按中力送到袋，避免空切",
-    "出杆保持直线，用瞄准点调整厚薄，不要甩杆"
+    "两个位置独立击打、母球摆回原位：位置2更薄，按中力送到袋，避免空切",
+    "出杆保持直线，用瞄准点调整厚薄，不要甩杆",
+    "极薄球先确认进袋线再出杆，不追求母球走位"
   ],
-  "standardCriteria": "按示范将 1、2 号依次打进右下角袋；整组连续完成至少 1 次",
+  "standardCriteria": "两个位置分别将 1、2 号稳定打进右下角袋即过关",
   "sets": {
-    "defaultSets": 25,
-    "defaultBallsPerSet": 2,
+    "defaultSets": 2,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_17_58_23",
-        "mode": "sequence",
-        "ballsPerRound": 2,
-        "defaultRounds": 25
+        "mode": "repetition",
+        "ballsPerRound": 15,
+        "defaultRounds": 2
       }
     ]
   },

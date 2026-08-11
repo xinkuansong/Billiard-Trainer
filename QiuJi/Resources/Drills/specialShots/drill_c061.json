@@ -18,8 +18,8 @@
   ],
   "standardCriteria": "10 次解球中至少 7 次碰到合法目标球（不犯规）",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10
+    "defaultSets": 6,
+    "defaultBallsPerSet": 15
   },
   "animation": {
     "cueBall": {

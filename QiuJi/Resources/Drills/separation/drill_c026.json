@@ -18,26 +18,26 @@
   ],
   "standardCriteria": "球形1：5 档近直线各进右侧中袋至少一次；球形2：7 档力度各进至少一次；球形3：5 档杆法各进至少一次；母球均留台、无明显双落",
   "sets": {
-    "defaultSets": 4,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 17,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 2
+        "ballsPerRound": 15,
+        "defaultRounds": 5
       },
       {
         "token": "manual02",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 1
+        "ballsPerRound": 15,
+        "defaultRounds": 7
       },
       {
         "token": "manual03",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 1
+        "ballsPerRound": 15,
+        "defaultRounds": 5
       }
     ]
   },

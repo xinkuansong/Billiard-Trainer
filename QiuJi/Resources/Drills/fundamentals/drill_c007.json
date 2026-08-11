@@ -18,14 +18,14 @@
   ],
   "standardCriteria": "四档各多次：8 号进左下角袋；站位无晃、无因加低杆而拧身；纯低杆档以母球留台为合格（示范该档母球进袋，勿照抄）",
   "sets": {
-    "defaultSets": 3,
+    "defaultSets": 4,
     "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 3
+        "defaultRounds": 4
       }
     ]
   },

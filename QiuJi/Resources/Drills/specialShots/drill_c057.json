@@ -18,25 +18,25 @@
   ],
   "standardCriteria": "10 次中至少 6 次碰到 1 号，其中至少 2 次进左下角袋",
   "sets": {
-    "defaultSets": 4,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 3,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "Snipaste_2026_06_19_17_43_31",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 2
+        "ballsPerRound": 15,
+        "defaultRounds": 1
       },
       {
         "token": "Snipaste_2026_06_19_17_45_48",
         "mode": "repetition",
-        "ballsPerRound": 10,
+        "ballsPerRound": 15,
         "defaultRounds": 1
       },
       {
         "token": "Snipaste_2026_06_19_17_48_56",
         "mode": "repetition",
-        "ballsPerRound": 10,
+        "ballsPerRound": 15,
         "defaultRounds": 1
       }
     ]

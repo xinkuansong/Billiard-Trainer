@@ -18,20 +18,20 @@
   ],
   "standardCriteria": "每组 15 杆简单直线球：至少进 10 杆，且每杆后握点无明显前移/后移、手腕无习惯性翻转",
   "sets": {
-    "defaultSets": 4,
+    "defaultSets": 8,
     "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 2
+        "defaultRounds": 4
       },
       {
         "token": "manual02",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 2
+        "defaultRounds": 4
       }
     ]
   },

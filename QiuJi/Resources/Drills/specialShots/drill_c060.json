@@ -18,14 +18,14 @@
   ],
   "standardCriteria": "10 次安全球中至少 5 次让对手没有直接舒服的进攻线",
   "sets": {
-    "defaultSets": 5,
-    "defaultBallsPerSet": 10,
+    "defaultSets": 8,
+    "defaultBallsPerSet": 15,
     "perFormation": [
       {
         "token": "manual01",
         "mode": "repetition",
-        "ballsPerRound": 10,
-        "defaultRounds": 5
+        "ballsPerRound": 15,
+        "defaultRounds": 8
       }
     ]
   },
