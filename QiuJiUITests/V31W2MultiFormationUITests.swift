@@ -50,11 +50,14 @@ final class V31W2MultiFormationUITests: XCTestCase {
         snap("05-record-c013-formation-groups")
 
         // 多球形 drill 的录入行必须逐组带球形（不是只有第一组有）。
-        let formationMenus = app.buttons.matching(NSPredicate(format: "label CONTAINS '组球形'"))
-        XCTAssertGreaterThanOrEqual(formationMenus.count, 2,
-                                    "多球形 drill 的每一组都应出现球形选择入口")
-        for index in 0..<formationMenus.count {
-            let label = formationMenus.element(boundBy: index).label
+        // v34 后续：预设组球形锁定为静态列，球形并入行辅助功能标签「…, 球形：球形N」；
+        // 手动加组才有「第N组球形：」菜单。两者都含「球形：」。
+        let formationCells = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS '球形：'"))
+        XCTAssertGreaterThanOrEqual(formationCells.count, 2,
+                                    "多球形 drill 的每一组都应带球形")
+        for index in 0..<formationCells.count {
+            let label = formationCells.element(boundBy: index).label
             XCTAssertFalse(label.contains("未选择"), "第 \(index + 1) 组未预填球形：\(label)")
         }
         dumpHierarchy("05-record-c013")

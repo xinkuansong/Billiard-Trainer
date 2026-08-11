@@ -22,6 +22,10 @@ final class DrillSceneController: ObservableObject {
     @Published var overlayData: ShotOverlayData?
     @Published var showOverlay = false
 
+    /// 该 drill 的全部球形（≥2 时视图出切换控件）与当前展示的球形 token。
+    @Published private(set) var availableFormations: [DrillTryoutFormation] = []
+    @Published private(set) var currentToken: String?
+
     /// 相框/正交取景与 `DrillSceneView` 必须一致，否则世界→屏幕映射会偏。
     static let frameAspect = CameraRig.defaultTableOuterAspect
 
@@ -80,19 +84,58 @@ final class DrillSceneController: ObservableObject {
         // 物理求解放后台；回主线程画与缩略图同契约的静帧。
         guard let source = DrillStaticPreview.resolveSource(for: drill) else { return }
         previewSource = source
-        let solveSurfaceY = surfaceY
+        currentToken = source.token
 
         // 整条示范序列：必须取 `resolveSource` 选中的同一 formation（按 token 命中），
         // 否则静帧球形与回放序列会分属不同球形而对不上。
-        steps = DrillTryoutBoardStore.formations(for: drill.id)
-            .first(where: { $0.token == source.token })?.steps ?? []
+        availableFormations = DrillTryoutBoardStore.formations(for: drill.id)
+        steps = availableFormations.first(where: { $0.token == source.token })?.steps ?? []
 
+        solvePreviewShot(for: source)
+    }
+
+    /// 切换展示球形（v34 后续）：停掉进行中的演示，重摆新球形并重画静帧。
+    /// 训练页与动作详情页的「球台示意」共用此入口。
+    func switchFormation(token: String) {
+        guard token != currentToken,
+              let formation = availableFormations.first(where: { $0.token == token }),
+              let shot = formation.firstShot
+        else { return }
+
+        // 停演示：置 idle 让已排期的异步回调全部失效，清动画与装饰。
+        ShotAudioScheduler.shared.cancel()
+        playbackState = .idle
+        showOverlay = false
+        for (_, node) in scene.allBallNodes { node.removeAllActions() }
+        scene.hideCueStick()
+        clearTrajectory()
+
+        let board = formation.steps.first?.before ?? formation.initial
+        let source = DrillStaticPreview.Source(
+            board: board, shot: shot, token: formation.token, kind: .boardSequence
+        )
+        previewSource = source
+        currentToken = formation.token
+        steps = formation.steps
+        stepIndex = 0
+        prediction = nil
+        homePositions = [:]
+        didPlaceBoard = false
+
+        // 先按新盘面摆球（无线），解算完成后再补画完整静帧。
+        applyPreviewFrame()
+        solvePreviewShot(for: source)
+    }
+
+    /// 后台解算静帧首杆；完成时若球形已被切走则丢弃结果（防在途结果串台）。
+    private func solvePreviewShot(for source: DrillStaticPreview.Source) {
+        let solveSurfaceY = surfaceY
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let pred = PositionPlayShotSolver.solve(
                 before: source.board, shot: source.shot, surfaceY: solveSurfaceY
             )
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self, self.previewSource?.token == source.token else { return }
                 self.prediction = pred
                 self.applyPreviewFrame()
             }
@@ -634,6 +677,14 @@ struct DrillSceneView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))
                     .zIndex(1)
                 }
+
+                // 多球形切换（v34 后续）：右下角短标签胶囊，训练页/详情页共用。
+                if playbackControlsVisible, controller.availableFormations.count > 1 {
+                    formationSwitcher
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                        .zIndex(1)
+                }
             }
 
             // 播放时动态插入球桌下方，不遮挡台面；空闲态不永久占位。
@@ -704,6 +755,34 @@ struct DrillSceneView: View {
         case .pausingAfterShot: return "本杆结束后暂停"
         case .paused: return "继续"
         }
+    }
+
+    /// 球形切换胶囊组：选中项主色底、其余深底白字，样式与播放钮同一深色蒙层语言。
+    private var formationSwitcher: some View {
+        HStack(spacing: Spacing.xs) {
+            ForEach(controller.availableFormations) { formation in
+                let selected = formation.token == controller.currentToken
+                Button {
+                    controller.switchFormation(token: formation.token)
+                } label: {
+                    // 序号制展示名（「球形N」），不透出内容生产期的任意原始名。
+                    Text(formation.displayName)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(selected ? Color.white : Color.white.opacity(0.85))
+                        .padding(.horizontal, Spacing.sm)
+                        .frame(height: 24)
+                        .background(
+                            selected ? Color.btPrimary.opacity(0.9) : Color.btTablePocket.opacity(0.55)
+                        )
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(BTPressableStyle.capsule)
+                .accessibilityLabel(selected ? "当前球形：\(formation.displayName)" : "切换到\(formation.displayName)")
+                .accessibilityIdentifier("formationSwitchChip_\(formation.token)")
+            }
+        }
+        .padding(.trailing, Spacing.md)
+        .padding(.bottom, Spacing.md)
     }
 
     @ViewBuilder

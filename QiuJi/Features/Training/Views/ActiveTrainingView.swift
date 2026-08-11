@@ -455,7 +455,11 @@ struct ActiveTrainingView: View {
                         onCompleteSet: { setIndex in viewModel.completeSet(drillIndex: index, setIndex: setIndex) },
                         onDeleteSet: { setIndex in viewModel.deleteSet(drillIndex: index, setIndex: setIndex) },
                         restDuration: $viewModel.restDuration,
-                        formationOptions: viewModel.formationOptions(at: index)
+                        formationOptions: viewModel.formationOptions(at: index),
+                        addSetChoices: viewModel.addSetChoices(at: index),
+                        onAddSetChoice: { choice, shotIndex in
+                            viewModel.addSet(drillIndex: index, choice: choice, shotIndex: shotIndex)
+                        }
                     )
                     .tag(index)
                 }

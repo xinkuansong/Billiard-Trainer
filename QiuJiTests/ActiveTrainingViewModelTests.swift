@@ -505,6 +505,82 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertEqual(added.formationToken, "manual02")
     }
 
+    /// 结构化加组（v34 后续）：指定球形与杆号，新组插到同球形分节末尾而非整表末尾。
+    func test_addSet_withChoice_insertsIntoFormationSection() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.drills = [ActiveDrill(
+            drillId: "drill_c013", nameZh: "多球形",
+            plannedSets: [
+                PlannedTrainingSet(formationToken: "manual01", formationName: "球形1",
+                                   targetBalls: 8, mode: .repetition),
+                PlannedTrainingSet(formationToken: "manual02", formationName: "球形2",
+                                   targetBalls: 13, mode: .repetition),
+            ]
+        )]
+        vm.drillSetsData = [[
+            DrillSetData(id: 1, targetBalls: 8, formationToken: "manual01", formationName: "球形1",
+                         mode: .repetition, shotIndex: 1, isFormationLocked: true),
+            DrillSetData(id: 2, targetBalls: 13, formationToken: "manual02", formationName: "球形2",
+                         mode: .repetition, shotIndex: 1, isFormationLocked: true),
+        ]]
+        let choice = DrillAddSetChoice(
+            token: "manual01", name: "球形1", mode: .repetition, shotCount: 5, targetBalls: 8
+        )
+        vm.addSet(drillIndex: 0, choice: choice, shotIndex: 3)
+
+        let sets = vm.drillSetsData[0]
+        XCTAssertEqual(sets.count, 3)
+        // 插在球形1分节末尾（index 1），不是整表末尾。
+        let added = sets[1]
+        XCTAssertEqual(added.formationToken, "manual01")
+        XCTAssertEqual(added.shotIndex, 3)
+        XCTAssertEqual(added.targetBalls, 8)
+        XCTAssertEqual(added.id, 3, "id 取 max+1，避免与既有组撞号")
+        XCTAssertFalse(added.isFormationLocked, "手动加组球形可改选")
+        // 原球形2组顺延到末尾。
+        XCTAssertEqual(sets[2].formationToken, "manual02")
+    }
+
+    /// 加组选项：按计划组序列聚合出每球形一项，带模式与序列杆数。
+    func test_addSetChoices_aggregatesPerFormation() async throws {
+        let content = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c026"))
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.addDrill(content)
+
+        let choices = vm.addSetChoices(at: 0)
+        XCTAssertEqual(choices.count, 3, "c026 三球形应各出一项：\(choices.map(\.id))")
+        XCTAssertTrue(choices.allSatisfy { $0.mode == .repetition })
+        // 序列杆数来自 DrillBoards 序列文件（manual01=5 / manual02=7 / manual03=5 杆）。
+        XCTAssertEqual(choices.map(\.shotCount), [5, 7, 5])
+        print("[v34后续-EVIDENCE] c026 addSetChoices: "
+              + choices.map { "\($0.id) mode=\($0.mode.map(String.init(describing:)) ?? "nil") shots=\($0.shotCount) balls=\($0.targetBalls)" }
+                  .joined(separator: " | "))
+    }
+
+    /// 计划组序列 → 录入行：重复型逐组带真实杆位 shotIndex，且球形锁定。
+    func test_makeSetData_assignsShotIndexAndLocksFormation() async {
+        let planned = [
+            PlannedTrainingSet(formationToken: "manual01", formationName: "球形1",
+                               targetBalls: 8, mode: .repetition),
+            PlannedTrainingSet(formationToken: "manual01", formationName: "球形1",
+                               targetBalls: 8, mode: .repetition),
+            PlannedTrainingSet(formationToken: "manual02", formationName: "球形2",
+                               targetBalls: 9, mode: .sequence),
+        ]
+        let item = TodayDrillItem(
+            id: "focused_drill_c013", drillId: "drill_c013", nameZh: "底袋小角度入袋",
+            phaseType: "focused", phaseZh: "专项训练", phaseIcon: "target",
+            plannedSets: planned, volumeText: "", isCompleted: false
+        )
+        let vm = ActiveTrainingViewModel(mode: .plan(drills: [item], planId: "plan_test"))
+        await vm.loadDrills()
+
+        let sets = vm.drillSetsData[0]
+        XCTAssertEqual(sets.map(\.shotIndex), [1, 2, nil],
+                       "重复型逐组杆位递增；走位链无杆位")
+        XCTAssertTrue(sets.allSatisfy(\.isFormationLocked), "计划自带组球形应锁定")
+    }
+
     /// c026 计划路径：plannedSets 必须带 token，供训练页分节。
     func test_c026_planMode_plannedSetsCarryFormationTokens() async throws {
         let content = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c026"))
@@ -527,7 +603,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertEqual(setTokens, tokens)
     }
 
-    /// R12：重复型多球形进度「球形 x/y · 位置 m/n · 第 k 颗」。
+    /// R12（杆位口径）：重复型多球形进度「球形 x/y · 第 m/n 杆 · 第 k 颗」。
     func test_currentSetProgressText_repetitionMultiFormation() {
         let vm = ActiveTrainingViewModel(mode: .free)
         vm.drills = [ActiveDrill(
@@ -549,10 +625,10 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             DrillSetData(id: 3, targetBalls: 15, formationToken: "t2", formationName: "球形2"),
         ]]
         vm.currentDrillIndex = 0
-        XCTAssertEqual(vm.currentSetProgressText, "球形 1/2 · 位置 2/2 · 第 4 颗")
+        XCTAssertEqual(vm.currentSetProgressText, "球形 1/2 · 第 2/2 杆 · 第 4 颗")
     }
 
-    /// R12：走位链只报轮次。
+    /// R12（杆位口径）：走位链报「第 r 遍 · 第 k/n 杆」。
     func test_currentSetProgressText_sequenceReportsRoundOnly() {
         let vm = ActiveTrainingViewModel(mode: .free)
         vm.drills = [ActiveDrill(
@@ -568,7 +644,8 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             DrillSetData(id: 1, madeBalls: 8, targetBalls: 8, isCompleted: true),
             DrillSetData(id: 2, madeBalls: 2, targetBalls: 8),
         ]]
-        XCTAssertEqual(vm.currentSetProgressText, "第 2 轮")
+        // 第 2 遍进行中，已进 2 杆 ⇒ 当前是链内第 3/8 杆
+        XCTAssertEqual(vm.currentSetProgressText, "第 2 遍 · 第 3/8 杆")
     }
 
     /// R12：单球形不显示「球形 x/y」。
@@ -589,7 +666,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         ]]
         let text = vm.currentSetProgressText
         XCTAssertFalse(text.contains("球形"))
-        XCTAssertEqual(text, "位置 1/2 · 第 1 颗")
+        XCTAssertEqual(text, "第 1/2 杆 · 第 1 颗")
     }
 
     // MARK: - Cleanup

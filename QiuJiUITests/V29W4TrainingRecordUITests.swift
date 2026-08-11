@@ -170,25 +170,30 @@ final class V29W4TrainingRecordUITests: XCTestCase {
         if tapLabel("切换到单项视图", timeout: 6) { sleep(3) }
         snap("25-drill-record-with-formation-column")
 
-        // 「球形」列应存在，且默认已落到第一个球形。
-        let formationMenu = app.buttons
-            .matching(NSPredicate(format: "label CONTAINS '组球形'")).firstMatch
-        guard formationMenu.waitForExistence(timeout: 8) else {
-            snap("26-no-formation-menu")
-            dumpHierarchy("26-no-formation-menu")
-            XCTFail("多球形 drill 的录入行应出现「球形」选择入口")
+        // v34 后续：预填组球形是内容既定事实 → 锁定静态列（并入行辅助功能标签
+        // 「…, 球形：球形N」）；改打其他球形改走「添加一组」的结构化菜单。
+        let lockedRows = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS '球形：'"))
+        guard lockedRows.firstMatch.waitForExistence(timeout: 8) else {
+            snap("26-no-formation-column")
+            dumpHierarchy("26-no-formation-column")
+            XCTFail("多球形 drill 的录入行应带球形信息")
             return
         }
         XCTAssertFalse(
-            formationMenu.label.contains("未选择"),
-            "多球形 drill 应默认落到第一个球形，实际：\(formationMenu.label)"
+            lockedRows.firstMatch.label.contains("未选择"),
+            "多球形 drill 应默认落到第一个球形，实际：\(lockedRows.firstMatch.label)"
         )
 
-        formationMenu.tap()
+        guard tapLabel("添加一组", timeout: 6) else {
+            snap("27-no-add-set")
+            XCTFail("录入表格应有「添加一组」")
+            return
+        }
         sleep(2)
-        snap("27-formation-menu-open")
+        snap("27-add-set-menu-open")
 
-        // 选第二个球形（证明选择确实改写本组归属，而不是恒等于默认值）。
+        // 选第二个球形（序号制展示名「球形2」）加一组，证明球形选择仍可用且改写归属。
         let secondFormation = app.buttons
             .matching(NSPredicate(format: "label CONTAINS '球形2'")).firstMatch
         if secondFormation.waitForExistence(timeout: 5) {
@@ -196,10 +201,16 @@ final class V29W4TrainingRecordUITests: XCTestCase {
         } else {
             snap("28-no-second-formation")
             dumpHierarchy("28-no-second-formation")
-            XCTFail("球形菜单应列出 drill_c053 的第二个球形")
+            XCTFail("添加一组菜单应列出 drill_c053 的第二个球形")
             return
         }
         sleep(2)
+        // 重复型球形会再弹「杆N」子菜单（选打第几杆）；走位链无此层。
+        let shot1 = app.buttons["杆1"].firstMatch
+        if shot1.waitForExistence(timeout: 3) {
+            shot1.tap()
+            sleep(2)
+        }
         snap("29-formation-selected")
 
         recordOneSetWithNote(note: "自由训练：球形2 薄球吃厚", tag: "30-free")
@@ -212,6 +223,12 @@ final class V29W4TrainingRecordUITests: XCTestCase {
     private func recordOneSetWithNote(note: String, tag: String) {
         if tapLabel("切换到单项视图", timeout: 4) { sleep(2) }
 
+        // 长组表（如 c053 23 组）中先前的交互可能停在表底，心得框在页首；
+        // AX 自动滚动对超长滚动区会报 kAXErrorCannotComplete，手动滚回顶部。
+        for _ in 0..<4 where !app.textFields["记录本项心得..."].firstMatch.isHittable {
+            app.windows.firstMatch.swipeDown()
+            usleep(500_000)
+        }
         let noteField = app.textFields["记录本项心得..."].firstMatch
         if noteField.waitForExistence(timeout: 8) {
             noteField.tap()

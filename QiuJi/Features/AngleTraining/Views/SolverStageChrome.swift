@@ -271,10 +271,12 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 // 求解无解 = 纯力度柱（力度 = 反解输入）；自由 = 完整仪表柱。
                 BTShotInstrumentColumn(
                     spinX: vm.spinX, spinY: vm.spinY,
-                    onSpinTap: canOpenSpinPad ? { showSpinPad = true } : nil,
+                    onSpinTap: showsSpinSlot ? { showSpinPad = true } : nil,
                     velocity: powerBinding,
                     range: Double(CushionReflectionSettings.minPower)
-                        ... Double(CushionReflectionSettings.maxPower)
+                        ... Double(CushionReflectionSettings.maxPower),
+                    // 击球/演示中打点位与力度条一起禁用灰化，不从仪表柱上消失。
+                    spinTapEnabled: !vm.isPlaying
                 )
                 .btStageFrame(proxy.instrumentFrame())
                 .accessibilityElement(children: .contain)
@@ -318,9 +320,10 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         .environment(\.colorScheme, .dark)
     }
 
-    /// 求解有解或自由模式可开打点盘。
-    private var canOpenSpinPad: Bool {
-        !vm.isPlaying && (vm.mode == .free || (vm.mode == .solve && vm.hasSolution))
+    /// 打点位是否**存在**（结构性条件）：自由模式或求解有解；求解无解 = 纯力度柱。
+    /// 击球/演示中的不可用态走 `spinTapEnabled`（禁用灰化），不得让打点盘从仪表柱上消失。
+    private var showsSpinSlot: Bool {
+        vm.mode == .free || (vm.mode == .solve && vm.hasSolution)
     }
 
     /// 求解有解：力度写入草稿层；否则写 `reflectionPower`（触发全量反解 / 自由持久化）。

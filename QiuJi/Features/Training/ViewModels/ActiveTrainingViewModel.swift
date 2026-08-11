@@ -229,8 +229,10 @@ final class ActiveTrainingViewModel: ObservableObject {
         return "\(completedSets)/\(totalSetsCount) 组 \(currentDrillIndex + 1)/\(drills.count) 项目"
     }
 
-    /// 当前动作三级进度（v34 R12）：重复型「球形 x/y · 位置 m/n · 第 k 颗」；
-    /// 走位链只报「第几轮」；单球形不显示「球形 x/y」。
+    /// 当前动作三级进度（v34 R12，杆位口径）：
+    /// 重复型「球形 x/y · 第 m/n 杆 · 第 k 颗」（一杆 = 一个位置，重复打 k 颗）；
+    /// 走位链「球形 x/y · 第 r 遍 · 第 k/n 杆」（整链第 r 遍，链内第 k 杆）；
+    /// 单球形不显示「球形 x/y」。
     var currentSetProgressText: String {
         guard currentDrillIndex < drills.count,
               currentDrillIndex < drillSetsData.count else { return "" }
@@ -243,36 +245,34 @@ final class ActiveTrainingViewModel: ObservableObject {
         let formationKeys = orderedFormationKeys(in: sets)
         let multiFormation = formationKeys.count > 1
 
-        if mode == .sequence {
-            let key = formationKey(active)
-            let peers = sets.indices.filter { formationKey(sets[$0]) == key }
-            let round = (peers.firstIndex(of: activeIdx) ?? 0) + 1
-            if multiFormation, let fi = formationKeys.firstIndex(of: key) {
-                return "球形 \(fi + 1)/\(formationKeys.count) · 第 \(round) 轮"
-            }
-            return "第 \(round) 轮"
-        }
-
         var parts: [String] = []
         let key = formationKey(active)
         if multiFormation, let fi = formationKeys.firstIndex(of: key) {
             parts.append("球形 \(fi + 1)/\(formationKeys.count)")
         }
         let peers = sets.indices.filter { formationKey(sets[$0]) == key }
-        let position = (peers.firstIndex(of: activeIdx) ?? 0) + 1
-        parts.append("位置 \(position)/\(peers.count)")
+        let ordinal = (peers.firstIndex(of: activeIdx) ?? 0) + 1
+
+        if mode == .sequence {
+            parts.append("第 \(ordinal) 遍")
+            let shotNumber = min(max(active.madeBalls + 1, 1), max(active.targetBalls, 1))
+            parts.append("第 \(shotNumber)/\(max(active.targetBalls, 1)) 杆")
+            return parts.joined(separator: " · ")
+        }
+
+        parts.append("第 \(ordinal)/\(peers.count) 杆")
         let ballNumber = min(max(active.madeBalls + 1, 1), max(active.targetBalls, 1))
         parts.append("第 \(ballNumber) 颗")
         return parts.joined(separator: " · ")
     }
 
     private func modeForSet(drillIndex: Int, setIndex: Int) -> DrillContent.DoseMode? {
-        let planned = drills[drillIndex].plannedSets
-        if setIndex < planned.count {
-            return planned[setIndex].mode
-        }
-        // 手动加组：沿用同 token 最近一组，再回落末组。
+        // 录入行自带 mode（makeSetData / addSet 均写入）；手动加组插入分节内后
+        // 行序 ≠ plannedSets 序，禁止再按下标映射回 plannedSets。
         let sets = drillSetsData[drillIndex]
+        if let mode = sets[setIndex].mode { return mode }
+        // 兜底：同 token 最近一条计划组，再回落末组。
+        let planned = drills[drillIndex].plannedSets
         let token = sets[setIndex].formationToken
         if let match = planned.last(where: { $0.formationToken == token }) {
             return match.mode
@@ -468,16 +468,43 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     /// 组序列 → 录入行：逐组带上该组所属球形与目标球数（v31 R6，替代「全部预填第一个球形」）。
+    /// v34 后续：重复型组补真实杆位 `shotIndex`（遍数倍数 >1 时杆位按序列长度循环）；
+    /// 计划自带的多球形组锁定球形列（球形是计划既定事实，不可改选）。
     private static func makeSetData(for drill: ActiveDrill) -> [DrillSetData] {
-        drill.plannedSets.enumerated().map { index, planned in
-            DrillSetData(
+        let stepCounts = sequenceStepCounts(for: drill.drillId)
+        var ordinalByToken: [String: Int] = [:]
+        return drill.plannedSets.enumerated().map { index, planned in
+            let key = planned.formationToken ?? ""
+            let ordinal = (ordinalByToken[key] ?? 0) + 1
+            ordinalByToken[key] = ordinal
+            var shotIndex: Int?
+            if planned.mode == .repetition {
+                if let count = stepCounts[key], count > 0 {
+                    shotIndex = (ordinal - 1) % count + 1
+                } else {
+                    shotIndex = ordinal
+                }
+            }
+            return DrillSetData(
                 id: index + 1,
                 targetBalls: planned.targetBalls,
                 isWarmup: drill.phaseType == "warmup" && index == 0,
                 formationToken: planned.formationToken,
-                formationName: planned.formationName
+                formationName: planned.formationName,
+                mode: planned.mode,
+                shotIndex: shotIndex,
+                isFormationLocked: planned.formationToken != nil
             )
         }
+    }
+
+    /// token → 序列杆数（重复型 = 可选位置数）。单球形旧式文件 token 为空串。
+    private static func sequenceStepCounts(for drillId: String) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        for formation in DrillTryoutBoardStore.formations(for: drillId) {
+            counts[formation.token] = formation.stepCount
+        }
+        return counts
     }
 
     /// 多球形 drill 的可选球形；单球形（或无序列）返回空数组 —— 单球形不出选择 UI，
@@ -572,14 +599,66 @@ final class ActiveTrainingViewModel: ObservableObject {
         // R12：复制「当前位置」（首个未完成组）；全部完成后回落末组。
         // 重复型 = 再打同位置一局（同 token / 同球数）；走位链 = 再打一遍整链。
         let source = sets.first(where: { !$0.isCompleted }) ?? sets.last
-        let nextId = (sets.last?.id ?? 0) + 1
+        let nextId = (sets.map(\.id).max() ?? 0) + 1
         let target = source?.targetBalls ?? drills[drillIndex].ballsPerSet
         drillSetsData[drillIndex].append(DrillSetData(
             id: nextId,
             targetBalls: target,
             formationToken: source?.formationToken,
-            formationName: source?.formationName
+            formationName: source?.formationName,
+            mode: source?.mode,
+            shotIndex: source?.shotIndex
         ))
+    }
+
+    /// 结构化加组（v34 后续）：用户指定球形（多球形）与杆号（重复型）。
+    /// 新组插到同球形分节末尾（保持分节完整），而不是整表末尾。
+    func addSet(drillIndex: Int, choice: DrillAddSetChoice, shotIndex: Int?) {
+        guard drillIndex < drillSetsData.count, drillIndex < drills.count else { return }
+        let sets = drillSetsData[drillIndex]
+        let nextId = (sets.map(\.id).max() ?? 0) + 1
+        let newSet = DrillSetData(
+            id: nextId,
+            targetBalls: choice.targetBalls,
+            formationToken: choice.token,
+            formationName: choice.name,
+            mode: choice.mode,
+            shotIndex: choice.mode == .repetition ? shotIndex : nil
+        )
+        if let lastIndex = sets.lastIndex(where: { $0.formationToken == choice.token }) {
+            drillSetsData[drillIndex].insert(newSet, at: lastIndex + 1)
+        } else {
+            drillSetsData[drillIndex].append(newSet)
+        }
+    }
+
+    /// 「添加一组」可选目标：按计划组序列聚合出每球形一项（保序），
+    /// 附模式、序列杆数与默认目标球数。无球形/模式信息（自由记录旧格式）返回空。
+    func addSetChoices(at index: Int) -> [DrillAddSetChoice] {
+        guard index < drills.count else { return [] }
+        let drill = drills[index]
+        let planned = drill.plannedSets
+        guard planned.contains(where: { $0.mode != nil }) else { return [] }
+        let stepCounts = Self.sequenceStepCounts(for: drill.drillId)
+        let options = formationOptions(at: index)
+        var choices: [DrillAddSetChoice] = []
+        var seen: Set<String> = []
+        for set in planned {
+            let key = set.formationToken ?? ""
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            let plannedCount = planned.filter { ($0.formationToken ?? "") == key }.count
+            choices.append(DrillAddSetChoice(
+                token: set.formationToken,
+                name: set.formationName,
+                mode: set.mode,
+                shotCount: stepCounts[key] ?? plannedCount,
+                targetBalls: set.targetBalls,
+                // 菜单展示名走序号制映射（「球形N」），与录入表格同一口径。
+                displayName: options.first(where: { $0.token == set.formationToken })?.displayName
+            ))
+        }
+        return choices
     }
 
     func deleteSet(drillIndex: Int, setIndex: Int) {

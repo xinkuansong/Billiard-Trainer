@@ -12,6 +12,9 @@ struct DrillRecordView: View {
     var showRestTimerSetting: Bool = true
     /// 多球形 drill 的可选球形；为空表示单球形，不出选择 UI。
     var formationOptions: [DrillFormationOption] = []
+    /// 「添加一组」结构化选项（球形 × 杆）；非空时加号出选择菜单。
+    var addSetChoices: [DrillAddSetChoice] = []
+    var onAddSetChoice: ((DrillAddSetChoice, Int?) -> Void)? = nil
 
     /// Default expanded (球台示意).
     @State private var showBallTable = true
@@ -65,7 +68,9 @@ struct DrillRecordView: View {
                     showSetTimer: showSetTimer,
                     showSuccessRate: showSuccessRate,
                     formationOptions: formationOptions,
-                    sectionByFormation: true
+                    sectionByFormation: true,
+                    addSetChoices: addSetChoices,
+                    onAddSetChoice: onAddSetChoice
                 )
 
                 if totalTarget > 0 {

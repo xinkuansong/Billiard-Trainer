@@ -183,12 +183,11 @@ final class XV313PremiumPlanWalkthroughUITests: XCTestCase {
             .allElementsBoundByIndex.isEmpty
     }
 
-    /// `ResolvedDose.volumeText`（v34 R10/R11 口径）。
+    /// `ResolvedDose.volumeText`（v34 R10/R11 紧凑口径：「m × n」或「N 球形 · 共 M 球」）。
     private func doseVolumeTexts() -> [String] {
         let predicate = NSPredicate(
-            format: "label MATCHES %@ OR label MATCHES %@ OR label MATCHES %@",
-            ".*[0-9]+ 个位置 × 每位置 [0-9]+ 颗 = [0-9]+ 球.*",
-            ".*整链 [0-9]+ 杆 × [0-9]+ 遍 = [0-9]+ 球.*",
+            format: "label MATCHES %@ OR label MATCHES %@",
+            ".*[0-9]+ × [0-9]+.*",
             ".*[0-9]+ 球形 · 共 [0-9]+ .*"
         )
         return app.staticTexts.matching(predicate).allElementsBoundByIndex.map(\.label)

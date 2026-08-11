@@ -212,7 +212,8 @@ struct DrillDetailView: View {
                                     .frame(width: 28, height: 28)
                                     .background(Circle().fill(Color.btPrimary.opacity(0.14)))
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(formation.title)
+                                    // 序号制展示名，与录入/示意图切换器同一口径。
+                                    Text(formation.displayName)
                                         .font(.btBody)
                                         .foregroundStyle(.btText)
                                     Text("\(formation.stepCount) 杆 · \(formation.objectBallCount) 球")
@@ -422,15 +423,14 @@ struct DrillDetailView: View {
         .accessibilityIdentifier("trainingRequirementsSection")
     }
 
-    /// 建议训练量：逐球形一行（v34 R10）；多球形末行合计。
+    /// 建议训练量：逐球形一行（v34 R10 紧凑口径：球形名 + 模式标签 + m × n），
+    /// 末行合计以杆计（各行不再含总量，此处是总量唯一出处）。
     @ViewBuilder
     private func suggestedDoseSection(_ drill: DrillContent) -> some View {
-        let unitLabel = DrillUnitLabel.label(category: drill.category,
-                                             subcategory: drill.subcategory)
         let options = TrainingDoseResolver.formationOptions(forDrillId: drill.id)
         let resolved = TrainingDoseResolver.resolve(content: drill, formationOptions: options)
-        let lines = resolved.suggestedDoseLines(unitLabel: unitLabel)
-        let totalText = resolved.suggestedDoseTotalText(unitLabel: unitLabel)
+        let lines = resolved.suggestedDoseLines()
+        let totalText = resolved.suggestedDoseTotalText()
 
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Label("建议训练量", systemImage: "square.stack.3d.up")
@@ -445,6 +445,11 @@ struct DrillDetailView: View {
                                 .font(.btFootnote)
                                 .foregroundStyle(.btTextSecondary)
                                 .frame(minWidth: 44, alignment: .leading)
+                        }
+                        if let modeLabel = line.modeLabel {
+                            Text(modeLabel)
+                                .font(.btFootnote)
+                                .foregroundStyle(.btTextTertiary)
                         }
                         Text(line.text)
                             .font(.btBodyMedium)

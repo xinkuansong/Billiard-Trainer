@@ -275,7 +275,8 @@ final class TrainingHomeViewModelTests: XCTestCase {
                        content.sets.defaultSets * multiplier * content.sets.defaultBallsPerSet)
     }
 
-    /// v34 R11：`volumeText` 与 suggestedDose 同口径；多球形摘要不含「轮」。
+    /// v34 R11（紧凑口径）：`volumeText` 与 suggestedDose 同口径；
+    /// 多球形摘要不含「轮」；计划条目摘要不再含球数；分钟向上取 5 的倍数。
     func test_volumeText_matchesSuggestedDoseCaliber() throws {
         let rep = try bundledDrill("drill_c001")
         let repResolved = TrainingDoseResolver.resolve(content: rep)
@@ -292,26 +293,36 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let text = multiResolved.volumeText(unitLabel: "球")
         XCTAssertTrue(text.contains("球形") && text.contains("共") && text.contains("\(multiResolved.totalBalls)"))
         XCTAssertFalse(text.contains("轮"), "多球形摘要不应再写轮：\(text)")
+        // 条目摘要：多球形只报球形数，不再上球数
         XCTAssertEqual(multiResolved.planEntrySummaryText(),
-                       "\(multiResolved.groups.count) 球形 · \(multiResolved.totalBalls) 球")
+                       "\(multiResolved.groups.count) 球形")
+        // 单球形条目摘要 = 内联紧凑量
+        XCTAssertEqual(repResolved.planEntrySummaryText(),
+                       repResolved.suggestedDoseLines()[0].text)
+        // 分钟：2.5 球/分钟，向上取 5 的倍数
         XCTAssertEqual(ResolvedDose.estimatedMinutes(forBalls: 75), 30)
+        XCTAssertEqual(ResolvedDose.estimatedMinutes(forBalls: 135), 55)  // 54 → 55
+        XCTAssertEqual(ResolvedDose.estimatedMinutes(forBalls: 1), 5)
+        XCTAssertEqual(ResolvedDose.estimatedMinutes(forBalls: 0), 0)
     }
 
-    /// 动作页逐球形文案：重复型 / 走位链 / 多球形合计。
+    /// 逐球形文案（紧凑口径）：重复型「m × n」+ 逐位重复标签；
+    /// 走位链「链杆数 × 遍数」+ 整链走位标签；合计以杆计。
     func test_suggestedDoseLines_repetitionSequenceAndMulti() throws {
         let rep = try bundledDrill("drill_c001")
-        let repLines = TrainingDoseResolver.resolve(content: rep).suggestedDoseLines()
+        let repResolved = TrainingDoseResolver.resolve(content: rep)
+        let repLines = repResolved.suggestedDoseLines()
         XCTAssertEqual(repLines.count, 1)
         let f1 = try XCTUnwrap(rep.sets.perFormation?.first)
-        XCTAssertEqual(repLines[0].text,
-                       "\(f1.defaultRounds) 个位置 × 每位置 \(f1.ballsPerRound) 颗 = \(f1.defaultRounds * f1.ballsPerRound) 球")
+        XCTAssertEqual(repLines[0].text, "\(f1.defaultRounds) × \(f1.ballsPerRound)")
+        XCTAssertEqual(repLines[0].modeLabel, "逐位重复")
         XCTAssertNil(repLines[0].title)
 
         let seq = try bundledDrill("drill_c039")
         let seqLines = TrainingDoseResolver.resolve(content: seq).suggestedDoseLines()
         let s1 = try XCTUnwrap(seq.sets.perFormation?.first)
-        XCTAssertEqual(seqLines[0].text,
-                       "整链 \(s1.ballsPerRound) 杆 × \(s1.defaultRounds) 遍 = \(s1.ballsPerRound * s1.defaultRounds) 球")
+        XCTAssertEqual(seqLines[0].text, "\(s1.ballsPerRound) × \(s1.defaultRounds)")
+        XCTAssertEqual(seqLines[0].modeLabel, "整链走位")
 
         let multi = try bundledDrill("drill_c026")
         let options = TrainingDoseResolver.formationOptions(forDrillId: multi.id)
@@ -319,8 +330,11 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let multiLines = multiResolved.suggestedDoseLines()
         XCTAssertEqual(multiLines.count, multi.sets.perFormation?.count)
         XCTAssertTrue(multiLines.allSatisfy { $0.title != nil })
-        let total = try XCTUnwrap(multiResolved.suggestedDoseTotalText())
-        XCTAssertTrue(total.contains("\(multiResolved.totalBalls)"))
+        // 合计以杆计，单球形也返回（紧凑行不含总量，合计是唯一总量出处）
+        XCTAssertEqual(multiResolved.suggestedDoseTotalText(),
+                       "合计：\(multiResolved.totalBalls) 杆")
+        XCTAssertEqual(repResolved.suggestedDoseTotalText(),
+                       "合计：\(repResolved.totalBalls) 杆")
     }
 
     /// v31 W5：`PlanDrillRef.sets/ballsPerSet` 与 `resolve(legacySets:legacyBallsPerSet:)` 已删除

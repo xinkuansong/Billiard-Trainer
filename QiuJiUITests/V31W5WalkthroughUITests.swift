@@ -76,11 +76,14 @@ final class V31W5WalkthroughUITests: XCTestCase {
         snap("05-record-c042-formation-groups")
         dumpHierarchy("05-record-c042")
 
-        let formationMenus = app.buttons.matching(NSPredicate(format: "label CONTAINS '组球形'"))
-        XCTAssertGreaterThanOrEqual(formationMenus.count, 2,
+        // v34 后续：预设组的球形锁定为静态列（不可改选），球形并入行辅助功能标签
+        // 「…, 球形：球形N」；手动加组才有「第N组球形：」菜单。两者都含「球形：」。
+        let formationCells = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label CONTAINS '球形：'"))
+        XCTAssertGreaterThanOrEqual(formationCells.count, 2,
                                     "多球形 drill 每一组都应带球形")
-        for index in 0..<formationMenus.count {
-            XCTAssertFalse(formationMenus.element(boundBy: index).label.contains("未选择"),
+        for index in 0..<formationCells.count {
+            XCTAssertFalse(formationCells.element(boundBy: index).label.contains("未选择"),
                            "第 \(index + 1) 组未预填球形")
         }
 

@@ -24,11 +24,14 @@ struct PlannedTrainingSet: Equatable {
     }
 }
 
-/// 动作页「建议训练量」逐行文案（v34 R10）。
+/// 动作页「建议训练量」逐行文案（v34 R10，紧凑口径见 v34 后续展示层收敛）。
 struct SuggestedDoseLine: Equatable {
     /// 多球形时的行首标签（如「球形1」）；单球形 / 汇总兜底为 nil。
     let title: String?
-    /// 主文案，如「5 个位置 × 每位置 15 颗 = 75 球」。
+    /// 模式标签：「逐位重复」/「整链走位」；无序列汇总兜底为 nil。
+    let modeLabel: String?
+    /// 紧凑主文案：重复型「8 × 15」（位置 × 每位置颗数）、
+    /// 走位链「10 × 8」（整链杆数 × 遍数），模式区分交给 `modeLabel`。
     let text: String
     /// 可选例外说明（内容侧 `doseNote`）。
     let note: String?
@@ -92,12 +95,12 @@ struct ResolvedDose: Equatable {
         }
     }
 
-    /// 完整展示文案（v34 R10/R11 口径）。
-    /// 单球形：与 `suggestedDoseLines` 同行；多球形：「N 球形 · 共 M 球」。
+    /// 完整展示文案（v34 R10/R11 紧凑口径）。
+    /// 单球形：与 `suggestedDoseLines` 同行（m × n）；多球形：「N 球形 · 共 M 球」。
     func volumeText(unitLabel: String) -> String {
         guard let first = groups.first else { return "" }
         if groups.count == 1 {
-            return Self.suggestedLineText(for: first, unitLabel: unitLabel)
+            return Self.suggestedLineText(for: first)
         }
         return "\(groups.count) 球形 · 共 \(totalBalls) \(unitLabel)"
     }
@@ -118,51 +121,62 @@ struct ResolvedDose: Equatable {
         }
     }
 
-    /// 计划条目摘要：「N 球形 · 总球数」（动作名由调用方拼接）。
-    func planEntrySummaryText(unitLabel: String = "球") -> String {
-        guard !groups.isEmpty else { return "" }
-        return "\(groups.count) 球形 · \(totalBalls) \(unitLabel)"
+    /// 计划条目摘要（动作名由调用方拼接）：单球形直接内联「m × n」，
+    /// 多球形只报「N 球形」——球数不再上条目行（v34 后续展示层收敛）。
+    func planEntrySummaryText() -> String {
+        guard let first = groups.first else { return "" }
+        if groups.count == 1 {
+            return Self.suggestedLineText(for: first)
+        }
+        return "\(groups.count) 球形"
     }
 
-    /// 球数 → 分钟（R7 固定 2.5 球/分钟）。
+    /// 球数 → 分钟（R7 固定 2.5 球/分钟），向上取 5 的整数倍。
     static func estimatedMinutes(forBalls balls: Int) -> Int {
         guard balls > 0 else { return 0 }
-        return Int((Double(balls) / 2.5).rounded())
+        let raw = Double(balls) / 2.5
+        return Int((raw / 5).rounded(.up)) * 5
     }
 
-    /// 动作页「建议训练量」逐球形文案（v34 R10）。无序列汇总兜底仍返回单行。
-    func suggestedDoseLines(unitLabel: String = "球") -> [SuggestedDoseLine] {
+    /// 「建议训练量」逐球形文案（v34 R10）。无序列汇总兜底仍返回单行。
+    func suggestedDoseLines() -> [SuggestedDoseLine] {
         guard !groups.isEmpty else { return [] }
         let multi = groups.count > 1
         return groups.enumerated().map { index, group in
-            let title: String? = multi
-                ? (group.formationName ?? "球形\(index + 1)")
-                : nil
+            // 展示名统一序号制映射（groups 保持内容声明顺序 = 序列文件稳定顺序），
+            // 不透出内容生产期的任意原始名（如「… · 球形4」）。
+            let title: String? = multi ? "球形\(index + 1)" : nil
             return SuggestedDoseLine(
                 title: title,
-                text: Self.suggestedLineText(for: group, unitLabel: unitLabel),
+                modeLabel: Self.modeLabel(for: group.mode),
+                text: Self.suggestedLineText(for: group),
                 note: group.doseNote
             )
         }
     }
 
-    /// 多球形时末行合计；单行场景返回 nil（避免与唯一行重复）。
-    func suggestedDoseTotalText(unitLabel: String = "球") -> String? {
-        guard groups.count > 1 else { return nil }
-        return "合计 \(totalBalls) \(unitLabel)"
+    /// 末行合计：紧凑行不再含总量，合计一律以「杆」（击打次数）计。
+    /// 计划页不出合计，仅动作页调用。
+    func suggestedDoseTotalText() -> String? {
+        guard !groups.isEmpty else { return nil }
+        return "合计：\(totalBalls) 杆"
     }
 
-    private static func suggestedLineText(for group: Group, unitLabel: String) -> String {
-        let balls = group.ballsPerRound
-        let rounds = group.rounds
-        let total = balls * rounds
+    private static func modeLabel(for mode: DrillContent.DoseMode?) -> String? {
+        switch mode {
+        case .repetition: return "逐位重复"
+        case .sequence: return "整链走位"
+        case .none: return nil
+        }
+    }
+
+    /// 紧凑量文案：重复型「位置数 × 每位置颗数」、走位链「整链杆数 × 遍数」。
+    private static func suggestedLineText(for group: Group) -> String {
         switch group.mode {
         case .sequence:
-            return "整链 \(balls) 杆 × \(rounds) 遍 = \(total) 球"
-        case .repetition:
-            return "\(rounds) 个位置 × 每位置 \(balls) 颗 = \(total) 球"
-        case .none:
-            return "\(rounds) 轮 × \(balls) \(unitLabel)"
+            return "\(group.ballsPerRound) × \(group.rounds)"
+        default:
+            return "\(group.rounds) × \(group.ballsPerRound)"
         }
     }
 }
@@ -187,7 +201,9 @@ enum TrainingDoseResolver {
                                  bundle: Bundle = .main) -> [DrillFormationOption] {
         let formations = DrillTryoutBoardStore.formations(for: drillId, bundle: bundle)
         guard formations.count > 1 else { return [] }
-        return formations.map { DrillFormationOption(token: $0.token, name: $0.title) }
+        return formations.map {
+            DrillFormationOption(token: $0.token, name: $0.title, displayName: $0.displayName)
+        }
     }
 
     /// - Parameters:

@@ -437,11 +437,13 @@ struct PlanDetailView: View {
         let name = drillNames[ref.drillId] ?? ref.drillId
         let summary = "\(name) · \(resolved.planEntrySummaryText())"
         let lines = resolved.suggestedDoseLines()
-        let totalText = resolved.suggestedDoseTotalText()
-        let isExpanded = expandedDrillKeys.contains(expandKey)
+        // 单球形已内联到条目行（m × n），仅多球形才有逐球形明细可展开。
+        let hasDetail = resolved.groups.count > 1
+        let isExpanded = hasDetail && expandedDrillKeys.contains(expandKey)
 
         return VStack(alignment: .leading, spacing: Spacing.xs) {
             Button {
+                guard hasDetail else { return }
                 withAnimation(BTMotion.springPanel) {
                     if isExpanded {
                         expandedDrillKeys.remove(expandKey)
@@ -467,15 +469,25 @@ struct PlanDetailView: View {
                             .multilineTextAlignment(.leading)
                             .fixedSize(horizontal: false, vertical: true)
                             .monospacedDigit()
+                        // 单球形的例外说明直接随行展示（无展开层）。
+                        if !hasDetail, let note = lines.first?.note, !note.isEmpty {
+                            Text(note)
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextTertiary)
+                                .multilineTextAlignment(.leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
 
                     Spacer(minLength: Spacing.sm)
 
-                    Image(systemName: BTIcon.chevronDown)
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
-                        .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        .padding(.top, 4)
+                    if hasDetail {
+                        Image(systemName: BTIcon.chevronDown)
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextTertiary)
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                            .padding(.top, 4)
+                    }
                 }
             }
             .buttonStyle(BTPressableStyle.row)
@@ -487,10 +499,16 @@ struct PlanDetailView: View {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
                         HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
                             if let title = line.title {
-                                Text(title)
+                                // 条目行已有动作名，明细行只留「·」后的球形短标签，避免整行重复。
+                                Text(DrillFormationOption(token: "", name: title).shortLabel)
                                     .font(.btFootnote)
                                     .foregroundStyle(.btTextSecondary)
                                     .frame(minWidth: 44, alignment: .leading)
+                            }
+                            if let modeLabel = line.modeLabel {
+                                Text(modeLabel)
+                                    .font(.btCaption)
+                                    .foregroundStyle(.btTextTertiary)
                             }
                             Text(line.text)
                                 .font(.btFootnote)
@@ -503,12 +521,6 @@ struct PlanDetailView: View {
                                 .font(.btCaption)
                                 .foregroundStyle(.btTextTertiary)
                         }
-                    }
-                    if let totalText {
-                        Text(totalText)
-                            .font(.btCaption)
-                            .foregroundStyle(.btTextTertiary)
-                            .monospacedDigit()
                     }
                 }
                 .padding(.leading, 40 + 20 + Spacing.md)
@@ -625,23 +637,15 @@ struct PlanDetailView: View {
         coachingQuotes = quotesByWeek
         planCoachingPoint = quotesByWeek[1] ?? quotesByWeek.sorted { $0.key < $1.key }.first?.value
 
-        // UITest：展开第 1 周 + 指定动作的逐球形明细（launch arg 仅取证用）。
-        let args = ProcessInfo.processInfo.arguments
-        if args.contains("-uitest.expandPlanWeek1") {
-            expandedWeeks.insert(1)
-        }
-        if let expandId = args.first(where: { $0.hasPrefix("-uitest.expandPlanDrill=") })?
-            .replacingOccurrences(of: "-uitest.expandPlanDrill=", with: ""),
-           !expandId.isEmpty {
-            expandedWeeks.insert(1)
-            for week in plan.weeks where week.weekNumber == 1 {
-                for session in week.sessions {
-                    for phase in session.phases {
-                        for ref in phase.drills where ref.drillId == expandId {
-                            expandedDrillKeys.insert(
-                                "\(week.weekNumber)-\(session.dayNumber)-\(phase.type)-\(ref.id)"
-                            )
-                        }
+        // 默认全展开：周章节与多球形明细一次性可见，收起交给用户手动操作。
+        for week in plan.weeks {
+            expandedWeeks.insert(week.weekNumber)
+            for session in week.sessions {
+                for phase in session.phases {
+                    for ref in phase.drills {
+                        expandedDrillKeys.insert(
+                            "\(week.weekNumber)-\(session.dayNumber)-\(phase.type)-\(ref.id)"
+                        )
                     }
                 }
             }

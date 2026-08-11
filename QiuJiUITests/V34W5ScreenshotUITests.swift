@@ -44,7 +44,7 @@ final class V34W5ScreenshotUITests: XCTestCase {
         XCTAssertTrue(progress.waitForExistence(timeout: 12), "应显示三级进度指示\n\(app.debugDescription)")
         let label = progress.label
         XCTAssertTrue(
-            label.contains("球形") && label.contains("位置") && label.contains("颗"),
+            label.contains("球形") && label.contains("杆") && label.contains("颗"),
             "多球形进度文案不符：\(label)"
         )
 
@@ -65,7 +65,7 @@ final class V34W5ScreenshotUITests: XCTestCase {
         XCTAssertTrue(sectionFound, "多球形应按球形分节\n\(app.debugDescription)")
     }
 
-    /// ③ 走位链只报「第几轮」
+    /// ③ 走位链报「第 r 遍 · 第 k/n 杆」
     func testW5_activeTraining_sequenceRoundOnly() {
         let app = launchTraining(drillId: "drill_c039", forcePremium: true)
         assertHost(app)
@@ -74,15 +74,15 @@ final class V34W5ScreenshotUITests: XCTestCase {
         XCTAssertTrue(progress.waitForExistence(timeout: 12), "应显示走位链进度\n\(app.debugDescription)")
         let label = progress.label
         XCTAssertTrue(
-            label.contains("轮") && !label.contains("颗"),
-            "走位链应只报轮：\(label)"
+            label.contains("遍") && label.contains("杆") && !label.contains("颗"),
+            "走位链应报遍+链内杆位：\(label)"
         )
         XCTAssertFalse(label.contains("位置"), "走位链不应报位置：\(label)")
 
         savePNG(app, "03-training-sequence-round")
     }
 
-    /// ④「添加一组」复制当前位置（前后对照）
+    /// ④「添加一组」出杆号选择（v34 后续：c001 单球形重复型 → 平铺「杆1…杆5」菜单）
     func testW5_activeTraining_addSetCopiesCurrent() {
         let app = launchTraining(drillId: "drill_c001", forcePremium: false)
         assertHost(app)
@@ -95,7 +95,29 @@ final class V34W5ScreenshotUITests: XCTestCase {
         add.tap()
         usleep(500_000)
 
-        savePNG(app, "04b-training-add-set-after")
+        // 重复型加组先选打第几杆。
+        let shotItem = app.buttons["杆2"].firstMatch
+        XCTAssertTrue(shotItem.waitForExistence(timeout: 6), "加组菜单应有杆号选项\n\(app.debugDescription)")
+        savePNG(app, "04b-training-add-set-menu")
+        shotItem.tap()
+        usleep(500_000)
+
+        savePNG(app, "04c-training-add-set-after")
+    }
+
+    /// ⑥ 球台示意球形切换（v34 后续）：详情页多球形出切换胶囊，点击后选中态迁移。
+    func testW5_drillDetail_formationSwitcher() {
+        let app = XCUIApplication.launchClean(extraArgs: ["-deeplink.drillDetail=drill_c026"])
+        sleep(3)
+
+        let chip2 = app.buttons["formationSwitchChip_manual02"].firstMatch
+        XCTAssertTrue(chip2.waitForExistence(timeout: 12), "详情页应有球形切换胶囊\n\(app.debugDescription)")
+        savePNG(app, "05a-detail-formation-1")
+
+        chip2.tap()
+        sleep(2)
+        XCTAssertTrue(chip2.label.contains("当前球形"), "点击后应选中球形2：\(chip2.label)")
+        savePNG(app, "05b-detail-formation-2")
     }
 
     /// ⑤（W6 走查）开始计划后主页「今日安排」→ `build/v34-w6-logs/`

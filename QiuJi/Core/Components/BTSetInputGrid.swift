@@ -13,9 +13,18 @@ struct DrillSetData: Identifiable {
     var formationToken: String?
     /// 球形显示名，随组次一起快照落库（契约 §6.5）。
     var formationName: String?
+    /// 本组训练模式：重复型一组 = 重复某一杆（行标签「杆N」）；
+    /// 走位链一组 = 整链一遍（行标签「遍N」）。nil 时回落纯组号。
+    var mode: DrillContent.DoseMode?
+    /// 重复型：本组重复的是序列第几杆（1-based）。展示层信息，不落库；
+    /// nil 时行标签回落分节内序号。走位链 / 无模式恒为 nil。
+    var shotIndex: Int?
+    /// 计划自带组的球形是既定事实，不可改选（v34 后续）；手动新增组保持可选。
+    var isFormationLocked: Bool
 
     init(id: Int, madeBalls: Int = 0, targetBalls: Int = 15, isCompleted: Bool = false, isWarmup: Bool = false, duration: TimeInterval? = nil,
-         formationToken: String? = nil, formationName: String? = nil) {
+         formationToken: String? = nil, formationName: String? = nil, mode: DrillContent.DoseMode? = nil,
+         shotIndex: Int? = nil, isFormationLocked: Bool = false) {
         self.id = id
         self.madeBalls = madeBalls
         self.targetBalls = targetBalls
@@ -24,6 +33,35 @@ struct DrillSetData: Identifiable {
         self.duration = duration
         self.formationToken = formationToken
         self.formationName = formationName
+        self.mode = mode
+        self.shotIndex = shotIndex
+        self.isFormationLocked = isFormationLocked
+    }
+}
+
+/// 「添加一组」的可选目标（v34 后续）：多球形 drill 先选球形，重复型再选第几杆；
+/// 走位链一组 = 整链一遍，无杆数维度。
+struct DrillAddSetChoice: Identifiable {
+    /// 球形 token；单球形 drill 为 nil（契约 §4.1，落库同口径）。
+    let token: String?
+    /// 球形显示名（快照落库用）；单球形为 nil。
+    let name: String?
+    let mode: DrillContent.DoseMode?
+    /// 序列杆数：重复型 = 可选位置数；走位链仅作展示参考。
+    let shotCount: Int
+    /// 该球形一组的默认目标球数。
+    let targetBalls: Int
+    /// 序号制展示名（「球形N」，来自 `DrillTryoutFormation.displayName` 映射）；
+    /// nil 回落原始名短标签。
+    var displayName: String? = nil
+
+    var id: String { token ?? "_single" }
+
+    /// 菜单短标签（「球形1」式）。
+    var menuLabel: String {
+        if let displayName { return displayName }
+        guard let name else { return "本球形" }
+        return DrillFormationOption(token: token ?? "", name: name).shortLabel
     }
 }
 
@@ -31,6 +69,9 @@ struct DrillSetData: Identifiable {
 struct DrillFormationOption: Identifiable, Hashable {
     let token: String
     let name: String
+    /// 序号制展示名（「球形N」，来自 `DrillTryoutFormation.displayName` 映射）；
+    /// nil 回落原始名短标签。
+    var displayName: String? = nil
 
     var id: String { token }
 
@@ -39,6 +80,21 @@ struct DrillFormationOption: Identifiable, Hashable {
         guard let tail = name.split(separator: "·").last, name.contains("·") else { return name }
         return tail.trimmingCharacters(in: .whitespaces)
     }
+
+    /// 用户可见标签：优先序号制映射名。
+    var displayLabel: String { displayName ?? shortLabel }
+}
+
+/// 展示层球形名映射：优先按 token 命中 `options` 的序号制映射名；
+/// 命不中（旧快照 / 选项缺失）回落落库原始名的短标签。
+func formationDisplayLabel(
+    token: String?, name: String?, options: [DrillFormationOption]
+) -> String? {
+    if let token, let hit = options.first(where: { $0.token == token }) {
+        return hit.displayLabel
+    }
+    guard let name else { return nil }
+    return DrillFormationOption(token: "", name: name).shortLabel
 }
 
 // MARK: - BTSetInputGrid
@@ -54,6 +110,11 @@ struct BTSetInputGrid: View {
     var formationOptions: [DrillFormationOption] = []
     /// v34 R12：多球形时按球形插入分节头。
     var sectionByFormation: Bool = false
+    /// 「添加一组」的结构化选项（球形 × 杆）；非空时加号出菜单，
+    /// 选择结果走 `onAddSetChoice`。为空回落 `onAddSet` 直接追加。
+    var addSetChoices: [DrillAddSetChoice] = []
+    /// (choice, shotIndex)：重复型带选中的杆号；走位链 / 无模式为 nil。
+    var onAddSetChoice: ((DrillAddSetChoice, Int?) -> Void)? = nil
 
     private var activeIndex: Int? {
         sets.firstIndex(where: { !$0.isCompleted })
@@ -95,11 +156,23 @@ struct BTSetInputGrid: View {
         return sections
     }
 
-    private func sectionTitle(token: String, name: String?, ordinal: Int) -> String {
-        if let name, !name.isEmpty { return name }
-        if let option = formationOptions.first(where: { $0.token == token }) {
-            return option.shortLabel
+    /// 模式感知行标签：重复型「杆N」优先取组自带 `shotIndex`（真实杆位，手动加组
+    /// 可指定），缺失回落分节内序号；走位链「遍N」= 整链第 N 遍；无模式回落纯组号。
+    private func rowLabel(for set: DrillSetData, ordinal: Int) -> String? {
+        switch set.mode {
+        case .repetition: return "杆\(set.shotIndex ?? ordinal)"
+        case .sequence: return "遍\(ordinal)"
+        case .none: return nil
         }
+    }
+
+    private func sectionTitle(token: String, name: String?, ordinal: Int) -> String {
+        // 序号制映射名优先（token 命中选项）；旧快照回落落库原始名。
+        if let mapped = formationDisplayLabel(token: token.isEmpty ? nil : token,
+                                              name: name, options: formationOptions) {
+            return mapped
+        }
+        if let name, !name.isEmpty { return name }
         return "球形\(ordinal)"
     }
 
@@ -116,10 +189,11 @@ struct BTSetInputGrid: View {
                         if let title = section.title {
                             formationSectionHeader(title)
                         }
-                        ForEach(section.indices, id: \.self) { index in
+                        ForEach(Array(section.indices.enumerated()), id: \.element) { ordinal, index in
                             SetRow(
                                 setData: $sets[index],
                                 rowState: rowState(for: index),
+                                rowLabel: rowLabel(for: sets[index], ordinal: ordinal + 1),
                                 showSetTimer: showSetTimer,
                                 showSuccessRate: showSuccessRate,
                                 formationOptions: formationOptions,
@@ -174,8 +248,9 @@ struct BTSetInputGrid: View {
             Text("总球")
                 .frame(maxWidth: .infinity)
             if !formationOptions.isEmpty {
+                // 与列内容（左对齐的球形名）同一起点。
                 Text("球形")
-                    .frame(maxWidth: .infinity)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             if showSetTimer {
                 Text("时间")
@@ -214,19 +289,85 @@ struct BTSetInputGrid: View {
 
     // MARK: - Add Button
 
+    /// 是否需要出选择菜单：任一选项存在杆数选择（重复型多杆）或有多个球形可选。
+    private var needsAddMenu: Bool {
+        guard onAddSetChoice != nil, !addSetChoices.isEmpty else { return false }
+        if addSetChoices.count > 1 { return true }
+        let only = addSetChoices[0]
+        return only.mode == .repetition && only.shotCount > 1
+    }
+
+    @ViewBuilder
     private var addButton: some View {
-        Button(action: onAddSet) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: "plus")
-                Text("添加一组")
+        if needsAddMenu {
+            Menu {
+                if addSetChoices.count == 1, let only = addSetChoices.first {
+                    // 单球形重复型：杆号直接平铺，不多包一层球形子菜单。
+                    ForEach(1...max(1, only.shotCount), id: \.self) { shot in
+                        Button("杆\(shot)") {
+                            onAddSetChoice?(only, shot)
+                        }
+                    }
+                } else {
+                    ForEach(addSetChoices) { choice in
+                        addMenuEntry(for: choice)
+                    }
+                }
+            } label: {
+                addButtonLabel
             }
-            .font(.btCallout)
-            .foregroundStyle(.btPrimary)
-            .frame(maxWidth: .infinity)
-            .frame(height: 44)
+            .accessibilityLabel("添加一组")
+        } else {
+            Button {
+                // 单一无杆数维度的选项（如单球形走位链）直接落该选项，保留球形快照。
+                if let choice = addSetChoices.first, let onAddSetChoice {
+                    onAddSetChoice(choice, choice.mode == .repetition ? 1 : nil)
+                } else {
+                    onAddSet()
+                }
+            } label: {
+                addButtonLabel
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("添加一组")
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("添加一组")
+    }
+
+    private var addButtonLabel: some View {
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: "plus")
+            Text("添加一组")
+        }
+        .font(.btCallout)
+        .foregroundStyle(.btPrimary)
+        .frame(maxWidth: .infinity)
+        .frame(height: 44)
+        .contentShape(Rectangle())
+    }
+
+    /// 单个球形的菜单项：重复型出「杆1…杆N」子菜单（选打哪一杆）；
+    /// 走位链一组 = 整链一遍，直接一项。
+    @ViewBuilder
+    private func addMenuEntry(for choice: DrillAddSetChoice) -> some View {
+        if choice.mode == .repetition, choice.shotCount > 1 {
+            Menu(choice.menuLabel) {
+                ForEach(1...choice.shotCount, id: \.self) { shot in
+                    Button("杆\(shot)") {
+                        onAddSetChoice?(choice, shot)
+                    }
+                }
+            }
+        } else {
+            Button {
+                onAddSetChoice?(choice, choice.mode == .repetition ? 1 : nil)
+            } label: {
+                if choice.mode == .sequence {
+                    Text("\(choice.menuLabel) · 整链一遍")
+                } else {
+                    Text(choice.menuLabel)
+                }
+            }
+        }
     }
 
     // MARK: - Row State
@@ -247,6 +388,8 @@ struct BTSetInputGrid: View {
 private struct SetRow: View {
     @Binding var setData: DrillSetData
     let rowState: BTSetInputGrid.RowState
+    /// 模式感知标签（「杆N」/「遍N」）；nil 回落纯组号。
+    var rowLabel: String? = nil
     let showSetTimer: Bool
     let showSuccessRate: Bool
     let formationOptions: [DrillFormationOption]
@@ -310,7 +453,20 @@ private struct SetRow: View {
         .animation(BTMotion.easeFast, value: setData.isCompleted)
         .animation(BTMotion.easeFast, value: rowState)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("第\(setData.id)组, \(setData.madeBalls)/\(setData.targetBalls)球")
+        .accessibilityLabel(rowAccessibilityLabel)
+    }
+
+    /// 锁定球形的组：球形列是静态文本，会被本覆盖标签吞掉，故并入行标签
+    /// （可选球形的组仍由 `BTFormationMenu` 自带「第N组球形：…」按钮元素）。
+    private var rowAccessibilityLabel: String {
+        var label = "\(rowLabel ?? "第\(setData.id)组"), \(setData.madeBalls)/\(setData.targetBalls)球"
+        if setData.isFormationLocked,
+           let mapped = formationDisplayLabel(token: setData.formationToken,
+                                              name: setData.formationName,
+                                              options: formationOptions) {
+            label += ", 球形：\(mapped)"
+        }
+        return label
     }
 
     private var setNumberColumn: some View {
@@ -323,6 +479,13 @@ private struct SetRow: View {
                     .frame(width: 24, height: 24)
                     .background(Color.btWarning)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.xxs))
+            } else if let rowLabel {
+                Text(rowLabel)
+                    .font(.btFootnote)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             } else {
                 Text("\(setData.id)")
                     .font(.btSubheadlineMedium)
@@ -440,13 +603,35 @@ private struct SetRow: View {
     }
 
     /// 多球形 drill：逐组选择本组打的球形（契约 §4.1 球形维度）。
+    /// 计划自带组的球形是计划既定事实 → 静态文本；仅手动新增组可改选。
+    /// 锁定/可选两态的球形名统一走序号制映射（token → 「球形N」）。
+    private var formationDisplayText: String? {
+        formationDisplayLabel(token: setData.formationToken,
+                              name: setData.formationName,
+                              options: formationOptions)
+    }
+
+    @ViewBuilder
     private var formationColumn: some View {
-        BTFormationMenu(
-            options: formationOptions,
-            token: $setData.formationToken,
-            name: $setData.formationName,
-            accessibilityText: "第\(setData.id)组球形：\(setData.formationName ?? "未选择")"
-        )
+        if setData.isFormationLocked {
+            // 与可选态的菜单标签同为左对齐，两态文字起点一致。
+            Text(formationDisplayText ?? "-")
+                .font(.btCaption)
+                .fontWeight(.medium)
+                .lineLimit(1)
+                .foregroundStyle(.btTextSecondary)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: 36)
+                .accessibilityLabel("第\(setData.id)组球形：\(formationDisplayText ?? "未选择")（预设）")
+        } else {
+            BTFormationMenu(
+                options: formationOptions,
+                token: $setData.formationToken,
+                name: $setData.formationName,
+                accessibilityText: "第\(setData.id)组球形：\(formationDisplayText ?? "未选择")"
+            )
+        }
     }
 
     private var timerColumn: some View {
@@ -514,6 +699,11 @@ struct BTFormationMenu: View {
     @Binding var name: String?
     var accessibilityText: String
 
+    /// 用户可见标签统一走序号制映射（token 优先，旧快照名回落短标签）。
+    private var selectedLabel: String? {
+        formationDisplayLabel(token: token, name: name, options: options)
+    }
+
     var body: some View {
         Menu {
             ForEach(options) { option in
@@ -522,29 +712,33 @@ struct BTFormationMenu: View {
                     name = option.name
                 } label: {
                     if token == option.token {
-                        Label(option.name, systemImage: BTIcon.checkmark)
+                        Label(option.displayLabel, systemImage: BTIcon.checkmark)
                     } else {
-                        Text(option.name)
+                        Text(option.displayLabel)
                     }
                 }
             }
         } label: {
             HStack(spacing: 2) {
-                Text(name.map { DrillFormationOption(token: "", name: $0).shortLabel } ?? "选择")
+                Text(selectedLabel ?? "选择")
                     .font(.btCaption)
                     .fontWeight(.medium)
                     .lineLimit(1)
-                    .foregroundStyle(name == nil ? .btTextTertiary : .btPrimary)
-                Image(systemName: BTIcon.chevronDown)
-                    .font(.btMicro)
-                    .foregroundStyle(.btTextTertiary)
+                    .foregroundStyle(selectedLabel == nil ? .btTextTertiary : .btPrimary)
+                // 已选定的组不再出下拉角标（仍可点开改选）；未选态保留引导角标。
+                if selectedLabel == nil {
+                    Image(systemName: BTIcon.chevronDown)
+                        .font(.btMicro)
+                        .foregroundStyle(.btTextTertiary)
+                }
             }
             // 球形列是行内唯一的可变宽文本列，却和纯数字列平分弹性空间，分到的宽度只比
             // 标签固有宽度多 1–2 pt。SF Pro 的比例数字里「2」比「1」宽，于是同为三字的
             // 「球形1」（固有 31.3 pt）放得下、「球形2」放不下被截成「…」——同宽文本部分行
             // 截断的成因在此，与行状态无关。固定为固有宽度，让弹性数字列让出这几 pt。
+            // 左对齐与锁定态静态文本起点一致（v34 后续）。
             .fixedSize(horizontal: true, vertical: false)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: 36)
             .contentShape(Rectangle())
         }

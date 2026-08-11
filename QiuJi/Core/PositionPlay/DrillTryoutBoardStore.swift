@@ -38,6 +38,11 @@ struct DrillTryoutFormation: Identifiable {
     let firstShot: PlannedShot?
     /// 完整逐杆序列（Q19.2④ 序列模式逐杆播放；空 = 无多杆数据，序列模式降级）。
     let steps: [SequenceStep]
+    /// 用户可见展示名（「球形N」序号制）：内容生产期的序列名/token 命名任意
+    /// （如「… · 球形4」实为该 drill 第 2 个球形），展示层统一按
+    /// `formations(for:)` 的稳定顺序映射为「球形1、球形2…」。落库快照仍存
+    /// `title` 原始名（契约 §6.5），映射只发生在展示。
+    var displayName: String = ""
 
     var id: String { fileName }
 
@@ -64,10 +69,10 @@ enum DrillTryoutBoardStore {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
-        return urls
+        let loaded = urls
             .filter { belongs($0.lastPathComponent, to: drillId) }
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
-            .compactMap { url in
+            .compactMap { url -> DrillTryoutFormation? in
                 guard let data = try? Data(contentsOf: url),
                       let sequence = try? decoder.decode(PositionPlaySequence.self, from: data),
                       // 0 杆仅占位/摆球样例：试打走 shotIntent 回退（与出片 runner 跳过同口径）。
@@ -86,6 +91,12 @@ enum DrillTryoutBoardStore {
                     steps: sequence.steps
                 )
             }
+        // 展示名 = 稳定顺序序号（本函数是球形顺序唯一真源，映射只在此处赋一次）。
+        return loaded.enumerated().map { index, formation in
+            var formation = formation
+            formation.displayName = "球形\(index + 1)"
+            return formation
+        }
     }
 
     /// 列表/缩略图门面球形：`preferredToken`（profile.representative）→

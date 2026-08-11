@@ -47,7 +47,9 @@ struct TrainingDataDraft: Equatable {
     static func formationOptions(for drillId: String) -> [DrillFormationOption] {
         let formations = DrillTryoutBoardStore.formations(for: drillId)
         guard formations.count > 1 else { return [] }
-        return formations.map { DrillFormationOption(token: $0.token, name: $0.title) }
+        return formations.map {
+            DrillFormationOption(token: $0.token, name: $0.title, displayName: $0.displayName)
+        }
     }
 
     init(
@@ -313,7 +315,7 @@ struct TrainingDataEditorView: View {
                         options: options,
                         token: set.formationToken,
                         name: set.formationName,
-                        accessibilityText: "第\(number)组球形：\(set.wrappedValue.formationName ?? "未选择")"
+                        accessibilityText: "第\(number)组球形：\(formationDisplayLabel(token: set.wrappedValue.formationToken, name: set.wrappedValue.formationName, options: options) ?? "未选择")"
                     )
                 }
             }

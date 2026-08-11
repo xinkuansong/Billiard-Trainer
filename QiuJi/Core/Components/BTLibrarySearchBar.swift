@@ -4,6 +4,9 @@ import SwiftUI
 ///
 /// Layout: tertiary fill, `BTRadius.sm`, optional trailing accessory (e.g. filter Menu).
 struct BTLibrarySearchBar<Trailing: View>: View {
+    /// 字段固定高（= 筛选按钮边长）：无论有无 trailing，各页搜索框高度一致。
+    static var fieldHeight: CGFloat { 44 }
+
     let placeholder: String
     @Binding var text: String
     @ViewBuilder var trailing: () -> Trailing
@@ -28,7 +31,7 @@ struct BTLibrarySearchBar<Trailing: View>: View {
                 }
             }
             .padding(.horizontal, Spacing.md)
-            .padding(.vertical, Spacing.sm)
+            .frame(height: Self.fieldHeight)
             .background(Color.btBGTertiary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
 

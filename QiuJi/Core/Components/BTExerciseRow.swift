@@ -29,7 +29,7 @@ struct BTExerciseRow: View {
                 rightInfo
             }
             .padding(Spacing.md)
-            .frame(height: 80)
+            .frame(minHeight: 80)
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             .overlay(
@@ -80,14 +80,17 @@ struct BTExerciseRow: View {
         }
     }
 
+    /// v34 后续：一杆 = 一组后组数可达 20+，单行点阵会撑出屏幕。
+    /// 按可用宽度自动换行、最多两行；超出两行容量的点不再绘制（组数以左侧「N组」文本为准）。
     private var progressDots: some View {
-        HStack(spacing: 3) {
+        DotRowsLayout(spacing: 3, maxRows: 2) {
             ForEach(0..<totalSets, id: \.self) { index in
                 Circle()
                     .fill(index < completedSets ? Color.btPrimary : Color.btBGQuaternary)
                     .frame(width: 6, height: 6)
             }
         }
+        .clipped()
     }
 
     // MARK: - Right
@@ -116,6 +119,60 @@ struct BTExerciseRow: View {
     }
 }
 
+// MARK: - Dot Rows Layout
+
+/// 定宽小点的换行布局：按提议宽度算每行容量，逐行排布，最多 `maxRows` 行。
+/// 超出容量的子视图放到边界外（配合容器 `.clipped()` 不可见）——点阵只是进度示意，
+/// 精确组数由旁边的文本承担，截断不丢信息。
+private struct DotRowsLayout: Layout {
+    var spacing: CGFloat = 3
+    var maxRows: Int = 2
+
+    private func metrics(subviews: Subviews, width: CGFloat) -> (dot: CGSize, perRow: Int) {
+        let dot = subviews.first?.sizeThatFits(.unspecified) ?? CGSize(width: 6, height: 6)
+        // 理想尺寸探测会给无限宽（Int(∞) 会崩），此时全部点排一行。
+        guard width.isFinite else { return (dot, max(1, subviews.count)) }
+        let step = dot.width + spacing
+        let perRow = max(1, Int(((width + spacing) / step).rounded(.down)))
+        return (dot, perRow)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard !subviews.isEmpty else { return .zero }
+        let maxWidth = proposal.width ?? .infinity
+        let (dot, perRow) = metrics(subviews: subviews, width: maxWidth)
+        let rows = min(maxRows, (subviews.count + perRow - 1) / perRow)
+        let widestCount = min(subviews.count, perRow)
+        let width = CGFloat(widestCount) * dot.width + CGFloat(max(0, widestCount - 1)) * spacing
+        let height = CGFloat(rows) * dot.height + CGFloat(max(0, rows - 1)) * spacing
+        return CGSize(width: maxWidth.isFinite ? min(width, maxWidth) : width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard !subviews.isEmpty else { return }
+        let (dot, perRow) = metrics(subviews: subviews, width: bounds.width)
+        for (index, subview) in subviews.enumerated() {
+            let row = index / perRow
+            let column = index % perRow
+            guard row < maxRows else {
+                // 超出两行容量：放到裁剪边界外隐藏。
+                subview.place(
+                    at: CGPoint(x: bounds.minX - 1000, y: bounds.minY - 1000),
+                    proposal: ProposedViewSize(dot)
+                )
+                continue
+            }
+            subview.place(
+                at: CGPoint(
+                    x: bounds.minX + CGFloat(column) * (dot.width + spacing),
+                    y: bounds.minY + CGFloat(row) * (dot.height + spacing)
+                ),
+                proposal: ProposedViewSize(dot)
+            )
+        }
+    }
+}
+
 // MARK: - Preview
 
 #Preview("BTExerciseRow Light") {
@@ -134,6 +191,13 @@ struct BTExerciseRow: View {
             completedSets: 0,
             madeBalls: 0,
             targetBalls: 90
+        )
+        BTExerciseRow(
+            drillName: "小角度带塞进袋（多组）",
+            totalSets: 28,
+            completedSets: 5,
+            madeBalls: 40,
+            targetBalls: 420
         )
     }
     .padding(Spacing.lg)
