@@ -1,430 +1,598 @@
 {
   "id": "plan_intermediate",
-  "nameZh": "中级综合突破",
-  "nameEn": "Intermediate Comprehensive",
-  "targetLevel": "L2",
-  "durationWeeks": 10,
-  "sessionsPerWeek": 4,
-  "minutesPerSession": 90,
+  "nameZh": "准度Ⅱ·远台带塞",
+  "nameEn": "Accuracy II · Long Table with Side",
+  "targetLevel": "L2→L3",
+  "durationWeeks": 4,
+  "sessionsPerWeek": 3,
+  "minutesPerSession": 154,
   "isPremium": true,
-  "description": "准度、杆法、走位、分离角、力度与综合球形全面提升。10 周系统训练，每周 4 练、每次约 90 分钟，适合已有基础的进阶玩家。系统练加塞请选「加塞专项」。",
+  "description": "远台直线/斜线与带塞准度进阶，并承接高剂量切角阶梯（底袋小角度、中袋角度精准）。把准度从近中台延伸到加塞修正与长台。",
   "weeks": [
     {
       "weekNumber": 1,
-      "theme": "准度、定杆与加塞入门",
+      "theme": "远台直线",
       "sessions": [
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 12}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 7}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "focused",
+              "durationMinutes": 168,
+              "drills": [
+                {
+                  "drillId": "drill_c076",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 14
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 14
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c014", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c013", "dose": {"roundsPerFormation": 4}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "focused",
+              "durationMinutes": 168,
+              "drills": [
+                {
+                  "drillId": "drill_c076",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 14
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 14
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c073", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c076", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c075", "dose": {"formations": [{"token": "manual01", "rounds": 3}, {"token": "manual02", "rounds": 2}]}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 7}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "focused",
+              "durationMinutes": 168,
+              "drills": [
+                {
+                  "drillId": "drill_c076",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 14
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 14
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         }
       ]
     },
     {
       "weekNumber": 2,
-      "theme": "角度球攻防",
+      "theme": "切角高剂量阶梯",
       "sessions": [
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c013", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 12,
+              "drills": [
+                {
+                  "drillId": "drill_c072",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_18_02_47",
+                        "rounds": 2
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 138,
+              "drills": [
+                {
+                  "drillId": "drill_c053",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 10
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 13
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c032", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c013", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 12,
+              "drills": [
+                {
+                  "drillId": "drill_c072",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_18_02_47",
+                        "rounds": 2
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 138,
+              "drills": [
+                {
+                  "drillId": "drill_c053",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 10
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 13
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c053", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c002", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c052", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c032", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 12,
+              "drills": [
+                {
+                  "drillId": "drill_c072",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_18_02_47",
+                        "rounds": 2
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 138,
+              "drills": [
+                {
+                  "drillId": "drill_c053",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 10
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 13
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         }
       ]
     },
     {
       "weekNumber": 3,
-      "theme": "走位专项强化",
+      "theme": "小角度带塞",
       "sessions": [
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c005", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c034", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 24,
+              "drills": [
+                {
+                  "drillId": "drill_c062",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_17_57_13",
+                        "rounds": 4
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 30,
+              "drills": [
+                {
+                  "drillId": "drill_c077",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "combined",
+              "durationMinutes": 102,
+              "drills": [
+                {
+                  "drillId": "drill_c013",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 9
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c035", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c005", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 24,
+              "drills": [
+                {
+                  "drillId": "drill_c062",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_17_57_13",
+                        "rounds": 4
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 30,
+              "drills": [
+                {
+                  "drillId": "drill_c077",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "combined",
+              "durationMinutes": 102,
+              "drills": [
+                {
+                  "drillId": "drill_c013",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 9
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c036", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c037", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c080", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c005", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c035", "dose": {"roundsPerFormation": 4}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 24,
+              "drills": [
+                {
+                  "drillId": "drill_c062",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_17_57_13",
+                        "rounds": 4
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 30,
+              "drills": [
+                {
+                  "drillId": "drill_c077",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "combined",
+              "durationMinutes": 102,
+              "drills": [
+                {
+                  "drillId": "drill_c013",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 9
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         }
       ]
     },
     {
       "weekNumber": 4,
-      "theme": "杆法组合训练",
+      "theme": "远台带塞综合",
       "sessions": [
         {
           "dayNumber": 1,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c003", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c004", "dose": {"roundsPerFormation": 4}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 48,
+              "drills": [
+                {
+                  "drillId": "drill_c033",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 96,
+              "drills": [
+                {
+                  "drillId": "drill_c078",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 16
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 2,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c015", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c017", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 48,
+              "drills": [
+                {
+                  "drillId": "drill_c033",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 96,
+              "drills": [
+                {
+                  "drillId": "drill_c078",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 16
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         },
         {
           "dayNumber": 3,
           "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c016", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c018", "dose": {"roundsPerFormation": 7}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c003", "dose": {"roundsPerFormation": 2}}, {"drillId": "drill_c004", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c016", "dose": {"roundsPerFormation": 4}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        }
-      ]
-    },
-    {
-      "weekNumber": 5,
-      "theme": "准度提升 — 远台与中袋",
-      "sessions": [
-        {
-          "dayNumber": 1,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c033", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c052", "dose": {"roundsPerFormation": 7}}, {"drillId": "drill_c053", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c062", "dose": {"roundsPerFormation": 10}}, {"drillId": "drill_c033", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c012", "dose": {"roundsPerFormation": 4}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c053", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c033", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        }
-      ]
-    },
-    {
-      "weekNumber": 6,
-      "theme": "走位连打",
-      "sessions": [
-        {
-          "dayNumber": 1,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c039", "dose": {"roundsPerFormation": 9}}, {"drillId": "drill_c079", "dose": {"roundsPerFormation": 12}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c081", "dose": {"roundsPerFormation": 12}}, {"drillId": "drill_c038", "dose": {"roundsPerFormation": 7}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c002", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c041", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c005", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c039", "dose": {"roundsPerFormation": 8}}, {"drillId": "drill_c081", "dose": {"roundsPerFormation": 8}}, {"drillId": "drill_c079", "dose": {"roundsPerFormation": 8}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        }
-      ]
-    },
-    {
-      "weekNumber": 7,
-      "theme": "综合球形 — 多球连打",
-      "sessions": [
-        {
-          "dayNumber": 1,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c064", "dose": {"roundsPerFormation": 15}}, {"drillId": "drill_c068", "dose": {"roundsPerFormation": 10}}, {"drillId": "drill_c042", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c069", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c064", "dose": {"roundsPerFormation": 15}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c068", "dose": {"roundsPerFormation": 10}}, {"drillId": "drill_c082", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c079", "dose": {"roundsPerFormation": 8}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c042", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c064", "dose": {"roundsPerFormation": 15}}, {"drillId": "drill_c068", "dose": {"roundsPerFormation": 8}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        }
-      ]
-    },
-    {
-      "weekNumber": 8,
-      "theme": "实战模拟 — 连打与攻防",
-      "sessions": [
-        {
-          "dayNumber": 1,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c060", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c058", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c054", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c055", "dose": {"roundsPerFormation": 7}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c064", "dose": {"roundsPerFormation": 15}}, {"drillId": "drill_c060", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c055", "dose": {"roundsPerFormation": 4}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c058", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c068", "dose": {"roundsPerFormation": 10}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        }
-      ]
-    },
-    {
-      "weekNumber": 9,
-      "theme": "薄弱环节补强 — 分离角与力度",
-      "sessions": [
-        {
-          "dayNumber": 1,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c024", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c084", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c025", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c044", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c045", "dose": {"roundsPerFormation": 6}}, {"drillId": "drill_c049", "dose": {"roundsPerFormation": 7}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c046", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c084", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c024", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        }
-      ]
-    },
-    {
-      "weekNumber": 10,
-      "theme": "综合检验 — 全面测试",
-      "sessions": [
-        {
-          "dayNumber": 1,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c010", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c064", "dose": {"roundsPerFormation": 15}}, {"drillId": "drill_c069", "dose": {"roundsPerFormation": 3}}, {"drillId": "drill_c068", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c013", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c009", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c069", "dose": {"roundsPerFormation": 4}}, {"drillId": "drill_c064", "dose": {"roundsPerFormation": 15}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c011", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c001", "dose": {"roundsPerFormation": 6}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c068", "dose": {"roundsPerFormation": 12}}, {"drillId": "drill_c064", "dose": {"roundsPerFormation": 15}}, {"drillId": "drill_c069", "dose": {"roundsPerFormation": 2}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c012", "dose": {"roundsPerFormation": 3}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
-          ]
-        },
-        {
-          "dayNumber": 4,
-          "phases": [
-            {"type": "warmup", "durationMinutes": 10, "drills": [{"drillId": "drill_c006", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "focused", "durationMinutes": 50, "drills": [{"drillId": "drill_c069", "dose": {"roundsPerFormation": 5}}, {"drillId": "drill_c068", "dose": {"roundsPerFormation": 9}}]},
-            {"type": "combined", "durationMinutes": 25, "drills": [{"drillId": "drill_c066", "dose": {"roundsPerFormation": 1}}]},
-            {"type": "review", "durationMinutes": 5, "drills": []}
+            {
+              "type": "warmup",
+              "durationMinutes": 48,
+              "drills": [
+                {
+                  "drillId": "drill_c033",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 96,
+              "drills": [
+                {
+                  "drillId": "drill_c078",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 16
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
           ]
         }
       ]

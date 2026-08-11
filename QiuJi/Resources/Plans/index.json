@@ -1,15 +1,65 @@
 {
   "version": 6,
   "plans": [
-    {"id": "plan_beginner", "nameZh": "新手入门计划", "targetLevel": "L0→L1", "isPremium": false},
-    {"id": "plan_cueball", "nameZh": "基础杆法专项", "targetLevel": "L1", "isPremium": false},
-    {"id": "plan_accuracy", "nameZh": "准度专项", "targetLevel": "L1→L2", "isPremium": false},
-    {"id": "plan_force", "nameZh": "力度控制专项", "targetLevel": "L1→L2", "isPremium": true},
-    {"id": "plan_separation", "nameZh": "分离角专项", "targetLevel": "L2", "isPremium": true},
-    {"id": "plan_english", "nameZh": "加塞专项", "targetLevel": "L2", "isPremium": true},
-    {"id": "plan_positioning", "nameZh": "走位突破计划", "targetLevel": "L1→L2", "isPremium": true},
-    {"id": "plan_intermediate", "nameZh": "中级综合突破", "targetLevel": "L2", "isPremium": true},
-    {"id": "plan_advanced", "nameZh": "加塞与多库专项", "targetLevel": "L3", "isPremium": true},
-    {"id": "plan_fullskill", "nameZh": "全能综合训练", "targetLevel": "L3→L4", "isPremium": true}
+    {
+      "id": "plan_beginner",
+      "nameZh": "基本功计划",
+      "targetLevel": "L0→L1",
+      "isPremium": false
+    },
+    {
+      "id": "plan_cueball",
+      "nameZh": "杆法Ⅰ·基础",
+      "targetLevel": "L1",
+      "isPremium": false
+    },
+    {
+      "id": "plan_accuracy",
+      "nameZh": "准度Ⅰ·近中台",
+      "targetLevel": "L0→L2",
+      "isPremium": false
+    },
+    {
+      "id": "plan_force",
+      "nameZh": "力度计划",
+      "targetLevel": "L1→L2",
+      "isPremium": true
+    },
+    {
+      "id": "plan_separation",
+      "nameZh": "分离角计划",
+      "targetLevel": "L2",
+      "isPremium": true
+    },
+    {
+      "id": "plan_english",
+      "nameZh": "杆法Ⅱ·加塞挤偏",
+      "targetLevel": "L2→L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_positioning",
+      "nameZh": "走位计划",
+      "targetLevel": "L1→L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_intermediate",
+      "nameZh": "准度Ⅱ·远台带塞",
+      "targetLevel": "L2→L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_advanced",
+      "nameZh": "特殊球计划",
+      "targetLevel": "L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_fullskill",
+      "nameZh": "全能精选",
+      "targetLevel": "L2→L4",
+      "isPremium": true
+    }
   ]
 }
