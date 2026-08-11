@@ -82,7 +82,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         XCTAssertEqual(vm.drillItems[1].nameZh, "First")
     }
 
-    // MARK: - Update rounds（v31 W2：只调轮数，球数内容派生）
+    // MARK: - Update 遍数（v34 R9：倍数语义，球数 = 完整剂量 × 遍数）
 
     func test_updateRounds_clamped() {
         let vm = CustomPlanBuilderViewModel()
@@ -90,13 +90,13 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         vm.drillItems = [item]
         vm.updateRounds(for: item.id, rounds: 25)
         XCTAssertEqual(vm.drillItems[0].rounds, 20) // max 20
-        XCTAssertEqual(vm.drillItems[0].id, item.id, "改轮数不应换掉行标识")
+        XCTAssertEqual(vm.drillItems[0].id, item.id, "改遍数不应换掉行标识")
 
         vm.updateRounds(for: item.id, rounds: 0)
         XCTAssertEqual(vm.drillItems[0].rounds, 1) // min 1
     }
 
-    /// 每轮球数由 drill 内容派生（v31 R4：计划不再存裸球数），且逐球形展开。
+    /// 遍数倍数由计划存储；球数 = Σ (ballsPerRound × defaultRounds × 倍数)。
     func test_rounds_deriveBallsFromContent_perFormation() throws {
         let content = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c053"))
         let perFormation = try XCTUnwrap(content.sets.perFormation)
@@ -104,15 +104,22 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         let vm = CustomPlanBuilderViewModel()
         vm.addDrill(content)
         let item = try XCTUnwrap(vm.drillItems.first)
+        // 默认遍数 = 1（完整剂量）
+        XCTAssertEqual(item.rounds, 1)
+        XCTAssertEqual(item.setCount, perFormation.reduce(0) { $0 + $1.defaultRounds })
 
-        vm.updateRounds(for: item.id, rounds: 2)
+        let multiplier = 2
+        vm.updateRounds(for: item.id, rounds: multiplier)
         let updated = vm.drillItems[0]
-        XCTAssertEqual(updated.rounds, 2)
-        XCTAssertEqual(updated.setCount, perFormation.count * 2)
+        XCTAssertEqual(updated.rounds, multiplier)
+        XCTAssertEqual(updated.setCount,
+                       perFormation.reduce(0) { $0 + $1.defaultRounds * multiplier })
         XCTAssertEqual(updated.plannedSets.map(\.targetBalls),
-                       perFormation.flatMap { Array(repeating: $0.ballsPerRound, count: 2) })
+                       perFormation.flatMap {
+                           Array(repeating: $0.ballsPerRound, count: $0.defaultRounds * multiplier)
+                       })
         XCTAssertEqual(updated.totalBalls,
-                       perFormation.reduce(0) { $0 + $1.ballsPerRound * 2 })
+                       perFormation.reduce(0) { $0 + $1.ballsPerRound * $1.defaultRounds * multiplier })
         XCTAssertEqual(vm.totalSetsCount, updated.setCount)
         XCTAssertEqual(vm.totalBallsCount, updated.totalBalls)
     }
@@ -123,10 +130,10 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         vm.updateRounds(for: UUID(), rounds: 5) // should not crash
     }
 
-    /// 保存落库的是轮数（`CustomPlanDrill.roundsPerFormation`，schema V3）。
+    /// 保存落库的是遍数倍数（`CustomPlanDrill.roundsPerFormation`，v34 R9）。
     func test_save_persistsRoundsPerFormation() throws {
         let vm = CustomPlanBuilderViewModel()
-        vm.name = "轮数计划"
+        vm.name = "遍数计划"
         vm.drillItems = [makeItem(rounds: 4)]
 
         XCTAssertNotNil(vm.save(context: context))

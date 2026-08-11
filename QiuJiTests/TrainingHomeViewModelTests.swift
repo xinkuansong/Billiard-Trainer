@@ -55,25 +55,27 @@ final class TrainingHomeViewModelTests: XCTestCase {
         XCTAssertGreaterThan(perFormation.count, 1, "drill_c013 应为多球形")
 
         let context = makeContext()
-        let rounds = 2
+        // v34 R9：roundsPerFormation = 遍数倍数；×2 ⇒ 每球形 defaultRounds×2、位置全覆盖。
+        let multiplier = 2
         try activateCustomPlan(context: context, drillId: content.id,
-                               nameZh: content.nameZh, rounds: rounds)
+                               nameZh: content.nameZh, rounds: multiplier)
 
         let vm = TrainingHomeViewModel()
         await vm.load(context: context)
 
         let item = try XCTUnwrap(vm.todaySession?.drills.first)
-        XCTAssertEqual(item.plannedSets.count, perFormation.count * rounds)
+        let expectedSetCount = perFormation.reduce(0) { $0 + $1.defaultRounds * multiplier }
+        XCTAssertEqual(item.plannedSets.count, expectedSetCount)
 
-        // 球形 1 轮 1 → 球形 1 轮 2 → 球形 2 轮 1 → 球形 2 轮 2
+        // 球形 1 的全部位置 → 球形 2 的全部位置（各 × 倍数）
         let expectedTokens = perFormation.flatMap { formation in
-            Array(repeating: formation.token, count: rounds)
+            Array(repeating: formation.token, count: formation.defaultRounds * multiplier)
         }
         XCTAssertEqual(item.plannedSets.map(\.formationToken), expectedTokens)
 
         // 每组球数 = 该球形 ballsPerRound
         let expectedTargets = perFormation.flatMap { formation in
-            Array(repeating: formation.ballsPerRound, count: rounds)
+            Array(repeating: formation.ballsPerRound, count: formation.defaultRounds * multiplier)
         }
         XCTAssertEqual(item.plannedSets.map(\.targetBalls), expectedTargets)
 
@@ -87,33 +89,37 @@ final class TrainingHomeViewModelTests: XCTestCase {
             XCTAssertEqual(planned.formationName, optionNames[token])
         }
 
-        print("[W2-EVIDENCE] c013 expanded: "
+        print("[W4-EVIDENCE] c013 expanded ×\(multiplier): "
               + item.plannedSets.map { "\($0.formationToken ?? "nil")/\($0.targetBalls)" }
                   .joined(separator: " → "))
     }
 
-    /// 逐球形球数异构：c053 两个球形 10 / 13，展开后逐组球数必须跟着球形走。
+    /// 逐球形球数异构：c069（sequence 10 + repetition 15）展开后逐组球数必须跟着球形走（倍数语义）。
+    /// ⚠️ W2 后 c053 两球形均为 bpr=15，不再异构；改锚到仍异构的 c069。
     func test_customPlan_heterogeneousBallsPerFormation() async throws {
-        let content = try bundledDrill("drill_c053")
+        let content = try bundledDrill("drill_c069")
         let perFormation = try XCTUnwrap(content.sets.perFormation)
         XCTAssertGreaterThan(Set(perFormation.map(\.ballsPerRound)).count, 1,
-                             "drill_c053 应为逐球形球数异构")
+                             "drill_c069 应为逐球形球数异构")
 
         let context = makeContext()
+        let multiplier = 2
         try activateCustomPlan(context: context, drillId: content.id,
-                               nameZh: content.nameZh, rounds: 2)
+                               nameZh: content.nameZh, rounds: multiplier)
 
         let vm = TrainingHomeViewModel()
         await vm.load(context: context)
 
         let item = try XCTUnwrap(vm.todaySession?.drills.first)
-        let expected = perFormation.flatMap { Array(repeating: $0.ballsPerRound, count: 2) }
+        let expected = perFormation.flatMap {
+            Array(repeating: $0.ballsPerRound, count: $0.defaultRounds * multiplier)
+        }
         XCTAssertEqual(item.plannedSets.map(\.targetBalls), expected)
         XCTAssertEqual(item.totalBalls, expected.reduce(0, +))
         // 异构不得再渲染成「N 轮 × N 球」
         XCTAssertTrue(item.volumeText.contains("球形"), "异构文案实际为：\(item.volumeText)")
 
-        print("[W2-EVIDENCE] c053 volumeText=\(item.volumeText) targets=\(expected)")
+        print("[W4-EVIDENCE] c069 volumeText=\(item.volumeText) targets=\(expected)")
     }
 
     // MARK: - sequence / repetition 口径（R3）
@@ -165,12 +171,14 @@ final class TrainingHomeViewModelTests: XCTestCase {
         XCTAssertEqual(resolved.groups[0].ballsPerRound, content.sets.defaultBallsPerSet)
         XCTAssertNil(resolved.groups[0].formationToken)
 
-        // 计划给了轮数时按计划轮数，球数仍取汇总兜底。
+        // v34 R9：无序列 drill 的 roundsPerFormation = 倍数，作用于 defaultSets。
+        let multiplier = 5
         let planned = TrainingDoseResolver.resolve(
-            content: content, dose: PlanDrillDose(roundsPerFormation: 5)
+            content: content, dose: PlanDrillDose(roundsPerFormation: multiplier)
         )
-        XCTAssertEqual(planned.totalRounds, 5)
-        XCTAssertEqual(planned.totalBalls, 5 * content.sets.defaultBallsPerSet)
+        XCTAssertEqual(planned.totalRounds, content.sets.defaultSets * multiplier)
+        XCTAssertEqual(planned.totalBalls,
+                       content.sets.defaultSets * multiplier * content.sets.defaultBallsPerSet)
     }
 
     // MARK: - dose 语义
@@ -191,19 +199,128 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let content = try bundledDrill("drill_c013")
         let perFormation = try XCTUnwrap(content.sets.perFormation)
         let second = perFormation[1]
+        // 高于 defaultRounds 的显式轮数保留（选球形 + 加量）；低于则另测钳制。
+        let requested = second.defaultRounds + 2
 
         let resolved = TrainingDoseResolver.resolve(
             content: content,
             dose: PlanDrillDose(formations: [
-                PlanDrillDose.FormationRounds(token: second.token, rounds: 3)
+                PlanDrillDose.FormationRounds(token: second.token, rounds: requested)
             ]),
             formationOptions: TrainingDoseResolver.formationOptions(forDrillId: content.id)
         )
         XCTAssertEqual(resolved.groups.count, 1)
         XCTAssertEqual(resolved.groups[0].formationToken, second.token)
-        XCTAssertEqual(resolved.totalRounds, 3)
+        XCTAssertEqual(resolved.totalRounds, requested)
         XCTAssertEqual(resolved.plannedSets.map(\.targetBalls),
-                       Array(repeating: second.ballsPerRound, count: 3))
+                       Array(repeating: second.ballsPerRound, count: requested))
+    }
+
+    // MARK: - v34 R9 倍数语义 / formations 下限
+
+    /// `roundsPerFormation=2` ⇒ 每球形 defaultRounds×2，位置全覆盖（不砍位置）。
+    func test_roundsPerFormation_isMultiplier_fullCoverage() throws {
+        let content = try bundledDrill("drill_c013")
+        let perFormation = try XCTUnwrap(content.sets.perFormation)
+        let multiplier = 2
+
+        let resolved = TrainingDoseResolver.resolve(
+            content: content,
+            dose: PlanDrillDose(roundsPerFormation: multiplier),
+            formationOptions: TrainingDoseResolver.formationOptions(forDrillId: content.id)
+        )
+
+        XCTAssertEqual(resolved.groups.map(\.rounds),
+                       perFormation.map { $0.defaultRounds * multiplier })
+        XCTAssertEqual(resolved.groups.map(\.ballsPerRound),
+                       perFormation.map(\.ballsPerRound))
+        XCTAssertEqual(resolved.totalRounds,
+                       perFormation.reduce(0) { $0 + $1.defaultRounds * multiplier })
+        // 位置全覆盖：展开条数 = Σ (defaultRounds × 倍数)，不得被砍成「每球形仅 2 轮」。
+        XCTAssertGreaterThan(resolved.totalRounds, perFormation.count * multiplier)
+    }
+
+    /// formations 轮数低于内容 defaultRounds 时钳到下限（不得静默砍位置）。
+    func test_formations_roundsBelowFloor_clampedToDefaultRounds() throws {
+        let content = try bundledDrill("drill_c013")
+        let perFormation = try XCTUnwrap(content.sets.perFormation)
+        let second = perFormation[1]
+        XCTAssertGreaterThan(second.defaultRounds, 1, "需有可低于的 defaultRounds")
+
+        let resolved = TrainingDoseResolver.resolve(
+            content: content,
+            dose: PlanDrillDose(formations: [
+                PlanDrillDose.FormationRounds(token: second.token, rounds: 1)
+            ]),
+            formationOptions: TrainingDoseResolver.formationOptions(forDrillId: content.id)
+        )
+
+        XCTAssertEqual(resolved.groups.count, 1)
+        XCTAssertEqual(resolved.groups[0].rounds, second.defaultRounds)
+        XCTAssertEqual(resolved.plannedSets.count, second.defaultRounds)
+    }
+
+    /// 无序列 drill：倍数作用于 `defaultSets`。
+    func test_noSequenceDrill_multiplierAppliesToDefaultSets() throws {
+        let content = try bundledDrill("drill_c008")
+        XCTAssertNil(content.sets.perFormation)
+        let multiplier = 2
+
+        let resolved = TrainingDoseResolver.resolve(
+            content: content,
+            dose: PlanDrillDose(roundsPerFormation: multiplier)
+        )
+        XCTAssertEqual(resolved.totalRounds, content.sets.defaultSets * multiplier)
+        XCTAssertEqual(resolved.totalBalls,
+                       content.sets.defaultSets * multiplier * content.sets.defaultBallsPerSet)
+    }
+
+    /// v34 R11：`volumeText` 与 suggestedDose 同口径；多球形摘要不含「轮」。
+    func test_volumeText_matchesSuggestedDoseCaliber() throws {
+        let rep = try bundledDrill("drill_c001")
+        let repResolved = TrainingDoseResolver.resolve(content: rep)
+        XCTAssertEqual(repResolved.volumeText(unitLabel: "球"),
+                       repResolved.suggestedDoseLines()[0].text)
+
+        let seq = try bundledDrill("drill_c039")
+        let seqResolved = TrainingDoseResolver.resolve(content: seq)
+        XCTAssertEqual(seqResolved.volumeText(unitLabel: "球"),
+                       seqResolved.suggestedDoseLines()[0].text)
+
+        let multi = try bundledDrill("drill_c026")
+        let multiResolved = TrainingDoseResolver.resolve(content: multi)
+        let text = multiResolved.volumeText(unitLabel: "球")
+        XCTAssertTrue(text.contains("球形") && text.contains("共") && text.contains("\(multiResolved.totalBalls)"))
+        XCTAssertFalse(text.contains("轮"), "多球形摘要不应再写轮：\(text)")
+        XCTAssertEqual(multiResolved.planEntrySummaryText(),
+                       "\(multiResolved.groups.count) 球形 · \(multiResolved.totalBalls) 球")
+        XCTAssertEqual(ResolvedDose.estimatedMinutes(forBalls: 75), 30)
+    }
+
+    /// 动作页逐球形文案：重复型 / 走位链 / 多球形合计。
+    func test_suggestedDoseLines_repetitionSequenceAndMulti() throws {
+        let rep = try bundledDrill("drill_c001")
+        let repLines = TrainingDoseResolver.resolve(content: rep).suggestedDoseLines()
+        XCTAssertEqual(repLines.count, 1)
+        let f1 = try XCTUnwrap(rep.sets.perFormation?.first)
+        XCTAssertEqual(repLines[0].text,
+                       "\(f1.defaultRounds) 个位置 × 每位置 \(f1.ballsPerRound) 颗 = \(f1.defaultRounds * f1.ballsPerRound) 球")
+        XCTAssertNil(repLines[0].title)
+
+        let seq = try bundledDrill("drill_c039")
+        let seqLines = TrainingDoseResolver.resolve(content: seq).suggestedDoseLines()
+        let s1 = try XCTUnwrap(seq.sets.perFormation?.first)
+        XCTAssertEqual(seqLines[0].text,
+                       "整链 \(s1.ballsPerRound) 杆 × \(s1.defaultRounds) 遍 = \(s1.ballsPerRound * s1.defaultRounds) 球")
+
+        let multi = try bundledDrill("drill_c026")
+        let options = TrainingDoseResolver.formationOptions(forDrillId: multi.id)
+        let multiResolved = TrainingDoseResolver.resolve(content: multi, formationOptions: options)
+        let multiLines = multiResolved.suggestedDoseLines()
+        XCTAssertEqual(multiLines.count, multi.sets.perFormation?.count)
+        XCTAssertTrue(multiLines.allSatisfy { $0.title != nil })
+        let total = try XCTUnwrap(multiResolved.suggestedDoseTotalText())
+        XCTAssertTrue(total.contains("\(multiResolved.totalBalls)"))
     }
 
     /// v31 W5：`PlanDrillRef.sets/ballsPerSet` 与 `resolve(legacySets:legacyBallsPerSet:)` 已删除
@@ -235,8 +352,7 @@ final class TrainingHomeViewModelTests: XCTestCase {
         print("[W2-EVIDENCE] official plan \(plan.id) 首条：\(session.drills[0].volumeText)")
     }
 
-    /// v31 W3a：6 份专项计划已全量迁移到 dose 格式，且每条目都能解析出非空组序列。
-    /// 期望值不写死球数——只核「dose 存在 / 旧字段清零 / 解析结果与内容真源一致」。
+    /// 6 份专项计划：dose 格式切净 + 每条目可解析（v34 W3 重排后条目量级约百级，不再用 v31 的 400+ 下限）。
     func test_rewrittenSpecialistPlans_areDoseOnlyAndResolvable() async throws {
         let rewritten = [
             "plan_accuracy", "plan_cueball", "plan_english",
@@ -279,12 +395,12 @@ final class TrainingHomeViewModelTests: XCTestCase {
                 }
             }
         }
-        XCTAssertGreaterThan(entries, 400, "6 份计划条目数量级异常：\(entries)")
+        // v34 W3：专项计划合计约 165 条（旧 v31 千级下限已过时）。
+        XCTAssertGreaterThan(entries, 100, "6 份计划条目数量级异常：\(entries)")
         print("[W3a-EVIDENCE] 6 份专项计划 dose 条目核对数=\(entries)")
     }
 
-    /// v31 W3b：4 份综合计划（beginner / intermediate / advanced / fullskill）同样全量 dose 化。
-    /// 与上面的专项计划用例同一口径——⛔ 不写死球数，只核格式切净与解析结果自洽。
+    /// 4 份综合计划：dose 可解析；阶段时长相对计划级 `minutesPerSession` 允许 ±20%（v34 R7「大概」）。
     func test_rewrittenCompositePlans_areDoseOnlyAndResolvable() async throws {
         let rewritten = [
             "plan_beginner", "plan_intermediate", "plan_advanced", "plan_fullskill",
@@ -299,9 +415,11 @@ final class TrainingHomeViewModelTests: XCTestCase {
                 XCTAssertEqual(week.sessions.count, plan.sessionsPerWeek,
                                "\(planId) W\(week.weekNumber) 天数与 sessionsPerWeek 不符")
                 for session in week.sessions {
-                    XCTAssertEqual(session.phases.reduce(0) { $0 + $1.durationMinutes },
-                                   plan.minutesPerSession,
-                                   "\(planId) W\(week.weekNumber) D\(session.dayNumber) 阶段时长合计不符")
+                    // v34 W3 后各节阶段时长可与计划级 minutesPerSession 不同（R7「大概」）；
+                    // 本用例只核 dose 可解析，不在此重做课时护栏。
+                    let phaseSum = session.phases.reduce(0) { $0 + $1.durationMinutes }
+                    XCTAssertGreaterThan(phaseSum, 0,
+                                         "\(planId) W\(week.weekNumber) D\(session.dayNumber) 阶段时长合计为 0")
                     for phase in session.phases {
                         for ref in phase.drills {
                             let dose = try XCTUnwrap(ref.dose, "\(planId) \(ref.drillId) 缺 dose")
@@ -331,7 +449,8 @@ final class TrainingHomeViewModelTests: XCTestCase {
                 }
             }
         }
-        XCTAssertGreaterThan(entries, 600, "4 份综合计划条目数量级异常：\(entries)")
+        // v34 W3：综合计划合计约 127 条（旧 v31 600+ 下限已过时）。
+        XCTAssertGreaterThan(entries, 100, "4 份综合计划条目数量级异常：\(entries)")
         print("[W3b-EVIDENCE] 4 份综合计划 dose 条目核对数=\(entries)")
     }
 

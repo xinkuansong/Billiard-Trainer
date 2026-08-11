@@ -36,8 +36,8 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
         XCTAssertEqual(fetched?.drills.count, 1)
         XCTAssertEqual(fetched?.drills.first?.drillId, "drill_c042")
         XCTAssertEqual(fetched?.drills.first?.drillNameZh, "初级蛇彩走位")
-        // schema V3：计划只存强度系数，`defaultSets` 直接落为轮数；每组球数改由内容派生。
-        XCTAssertEqual(fetched?.drills.first?.roundsPerFormation, 5)
+        // v34 R9：默认倍数 1 = 完整剂量；球数由内容 × 倍数派生。
+        XCTAssertEqual(fetched?.drills.first?.roundsPerFormation, 1)
     }
 
     func test_addDrill_toActiveCustomPlan_appearsInToday() throws {

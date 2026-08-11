@@ -1,7 +1,9 @@
 import XCTest
 @testable import QiuJi
 
-/// v22 W3：力度控制专项 plan_force 解码 + 周次结构自检。
+/// v22 W3 立档：力度计划解码 + 结构自检。
+/// v34 W3 重排后更新（问题集合_v34.md R6/D-v34-2）：不再钉死逐周主题/主轴与固定课时，
+/// 改保护结构不变量 + forceControl 全量归属 + dose 契约 + index 一致性。
 final class V22W3PlanForceTests: XCTestCase {
 
     private let forceControlIds: Set<String> = [
@@ -9,119 +11,58 @@ final class V22W3PlanForceTests: XCTestCase {
         "drill_c048", "drill_c049", "drill_c050", "drill_c051",
     ]
 
-    /// dose → 轮数（统一轮数，或按球形逐条求和）。v31 W3a：计划不再存裸组数。
-    static func rounds(of dose: PlanDrillDose) -> Int {
-        if let listed = dose.formations, !listed.isEmpty {
-            return listed.reduce(0) { $0 + $1.rounds }
-        }
-        return dose.roundsPerFormation ?? 0
-    }
-
     func testPlanForceDecodesAndMatchesShelfSpec() async throws {
         let plan = await PlanContentService.shared.loadPlanFromBundle(id: "plan_force")
         XCTAssertNotNil(plan, "plan_force 应可解码为 OfficialPlan")
         guard let plan else { return }
 
         XCTAssertEqual(plan.id, "plan_force")
-        XCTAssertEqual(plan.nameZh, "力度控制专项")
-        XCTAssertEqual(plan.nameEn, "Force Control Specialist")
-        XCTAssertEqual(plan.targetLevel, "L1→L2")
-        XCTAssertEqual(plan.durationWeeks, 4)
-        XCTAssertEqual(plan.sessionsPerWeek, 3)
-        XCTAssertEqual(plan.minutesPerSession, 70)
+        XCTAssertEqual(plan.nameZh, "力度计划")
         XCTAssertEqual(plan.isPremium, true)
-        XCTAssertTrue(
-            plan.description.contains("力度") || plan.description.contains("控力"),
-            "description 应标明力度/控力专项"
-        )
+        XCTAssertEqual(plan.sessionsPerWeek, 3, "v34 R6：每周 3 次课")
+        XCTAssertTrue((2...5).contains(plan.durationWeeks), "v34 R6：周数 2–5，实际 \(plan.durationWeeks)")
+        XCTAssertTrue(plan.description.contains("力度") || plan.description.contains("控力"),
+                      "description 应标明力度/控力专项")
 
         XCTAssertEqual(plan.weeks.count, plan.durationWeeks)
         for week in plan.weeks {
-            XCTAssertEqual(
-                week.sessions.count, plan.sessionsPerWeek,
-                "week \(week.weekNumber) sessions.count 应等于 sessionsPerWeek"
-            )
+            XCTAssertEqual(week.sessions.count, plan.sessionsPerWeek,
+                           "week \(week.weekNumber) sessions.count 应等于 sessionsPerWeek")
             for session in week.sessions {
-                let minutes = session.phases.reduce(0) { $0 + $1.durationMinutes }
-                XCTAssertEqual(minutes, 70, "week \(week.weekNumber) day \(session.dayNumber) 时长应约 70′")
-                let types = session.phases.map(\.type)
-                XCTAssertEqual(types, ["warmup", "focused", "combined", "review"])
+                for phase in session.phases {
+                    XCTAssertGreaterThan(phase.durationMinutes, 0,
+                                         "week \(week.weekNumber) day \(session.dayNumber) 相位时长须为正")
+                }
             }
         }
 
-        let themes: [Int: String] = [
-            1: "轻推与三档",
-            2: "控力落点",
-            3: "强力杆法",
-            4: "阶梯与全力度",
-        ]
-        for (n, theme) in themes {
-            let week = plan.weeks.first { $0.weekNumber == n }
-            XCTAssertEqual(week?.theme, theme, "week \(n) theme")
-        }
-
-        // focused 主轴：每周至少含 primary + secondary（§2.2）
-        let requiredFocused: [Int: Set<String>] = [
-            1: ["drill_c044", "drill_c045"],
-            2: ["drill_c046", "drill_c050"],
-            3: ["drill_c047", "drill_c048"],
-            4: ["drill_c049", "drill_c051"],
-        ]
-        for (n, required) in requiredFocused {
-            let week = plan.weeks.first { $0.weekNumber == n }
-            let focusedIds = Set(
-                (week?.sessions ?? []).flatMap { session in
-                    session.phases
-                        .filter { $0.type == "focused" }
-                        .flatMap { $0.drills.map(\.drillId) }
-                }
-            )
-            XCTAssertTrue(
-                required.isSubset(of: focusedIds),
-                "week \(n) focused 须含 \(required)：\(focusedIds)"
-            )
-        }
-
-        // focused 轮数 ≥70% 落在 forceControl（本计划目标 100%）
-        // v31 W3a 起计划只存 dose（契约 §6.6），组数口径改为 dose 轮数。
-        var forceSets = 0
-        var totalFocusedSets = 0
-        // v31 W5：`PlanDrillRef.sets/ballsPerSet` 已删除（契约 §6.6），原逐条
-        // `XCTAssertNil(drill.sets/…)` 不再可编译；且解码器忽略未知键 ⇒ JSON 残留旧字段
-        // 在 Swift 侧不可观察。改为在原始 JSON 层扫描键名，覆盖全计划（不止 focused 段）。
+        // v31 W5：旧裸组数字段不得回流（在原始 JSON 层扫描键名）。
         try assertPlanJSONHasNoLegacyVolumeKeys("plan_force")
+
+        // 计划内容应恰为 forceControl 全量 8 条（v34 归属），且每条目 dose 恰好二选一。
+        var allIds = Set<String>()
         for week in plan.weeks {
             for session in week.sessions {
-                for phase in session.phases where phase.type == "focused" {
+                for phase in session.phases {
                     for drill in phase.drills {
+                        allIds.insert(drill.drillId)
                         let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
-                        let rounds = Self.rounds(of: dose)
-                        totalFocusedSets += rounds
-                        if forceControlIds.contains(drill.drillId) {
-                            forceSets += rounds
-                        }
+                        let hasUniform = dose.roundsPerFormation != nil
+                        let hasListed = !(dose.formations ?? []).isEmpty
+                        XCTAssertTrue(hasUniform != hasListed,
+                                      "\(drill.drillId) dose 须恰好二选一（契约 §6.6）")
                     }
                 }
             }
         }
-        XCTAssertGreaterThan(totalFocusedSets, 0)
-        let ratio = Double(forceSets) / Double(totalFocusedSets)
-        XCTAssertGreaterThanOrEqual(ratio, 0.70, "focused forceControl 组数比 \(forceSets)/\(totalFocusedSets)=\(ratio)")
-        XCTAssertEqual(forceSets, totalFocusedSets, "本专项 focused 应 100% forceControl")
+        XCTAssertEqual(allIds, forceControlIds, "计划内容应恰为 forceControl 全量")
 
         // 全部 drillId ∈ Drills index
         let drillIndex = await DrillContentService.shared.loadDrillIndex()
         XCTAssertNotNil(drillIndex)
         let knownIds = Set(drillIndex?.allDrillIds ?? [])
-        let allPlanIds = Set(
-            plan.weeks.flatMap { week in
-                week.sessions.flatMap { session in
-                    session.phases.flatMap { $0.drills.map(\.drillId) }
-                }
-            }
-        )
-        let missing = allPlanIds.subtracting(knownIds)
-        XCTAssertTrue(missing.isEmpty, "引用了不存在的 drillId: \(missing)")
+        XCTAssertTrue(allIds.subtracting(knownIds).isEmpty,
+                      "引用了不存在的 drillId: \(allIds.subtracting(knownIds))")
     }
 
     func testPlansIndexContainsForce() async {
@@ -129,13 +70,15 @@ final class V22W3PlanForceTests: XCTestCase {
         XCTAssertNotNil(index)
         let entry = index?.plans.first { $0.id == "plan_force" }
         XCTAssertNotNil(entry, "index 须登记 plan_force")
-        XCTAssertEqual(entry?.nameZh, "力度控制专项")
-        XCTAssertEqual(entry?.targetLevel, "L1→L2")
         XCTAssertEqual(entry?.isPremium, true)
-        // W3 升至 4；后续批次继续递增，故断言 ≥4 而非钉死
+
+        // index 登记须与计划文件一致（防止只改一边）。
+        let plan = await PlanContentService.shared.loadPlanFromBundle(id: "plan_force")
+        XCTAssertEqual(entry?.nameZh, plan?.nameZh, "index 与计划文件 nameZh 须一致")
+        XCTAssertEqual(entry?.targetLevel, plan?.targetLevel, "index 与计划文件 targetLevel 须一致")
         XCTAssertGreaterThanOrEqual(index?.version ?? 0, 4, "W3 起 version ≥4")
 
-        // 勿改坏 plan_accuracy
+        // 勿改坏免费档（D-v34-2：beginner/accuracy/cueball 免费）
         let accuracy = index?.plans.first { $0.id == "plan_accuracy" }
         XCTAssertNotNil(accuracy)
         XCTAssertEqual(accuracy?.isPremium, false)
