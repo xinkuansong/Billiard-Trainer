@@ -295,3 +295,43 @@
   - W3 重写官方计划、W5 删 `PlanDrillRef.sets/ballsPerSet` 后，本 ADR 第 4 条的
     「旧格式路径」应随之删除。
 - **日期**：2026-08-09
+
+### ADR-006（ADR-v34-01）— 剂量口径全库重定（15 颗/位置）与 `roundsPerFormation` 倍数语义（B 方案，不做 Schema V4）
+
+- **状态**：已采纳（2026-08-11，问题集合 v34 W0；用户逐项拍板 R1–R13）
+- **场景**：
+  - v31 的剂量口径（总量护栏 40–60 球/drill，D13）与用户实际训练强度不符。用户以
+    `tasks/训练量填写表.md`（2026-08-11 03:03 定稿，逐球形手填）重定全库：重复型
+    **每位置 15 颗 × 轮数 = 杆数（轮 = 位置）**，走位链 **每轮球数 = 杆数 × N 轮**，
+    总量 4150 → 9493 球（×2.3）。
+  - 「位置全覆盖」新口径下，`roundsPerFormation` 的旧语义（每球形轮数，覆盖
+    `defaultRounds`）会**砍位置**，与新口径冲突。
+  - 命中 ADR 强制触发清单：**数据同步策略变更**（剂量真源口径与门禁契约重定）+
+    **跨模块边界**（`TrainingDoseResolver` 输出语义变更影响全部 4 个消费方，W4 落地）。
+- **选项**（`roundsPerFormation` 归宿）：
+  - A：Schema V4 迁移，字段改名/重造，语义显式化 —— 又一轮自定义迁移，成本高，
+    且 V3 刚上线（ADR-004）；
+  - B：**字段保留、默认 1，语义重定义为「整个动作重复几遍（倍数）」** —— 位置永远
+    全覆盖，无迁移（既有 V3 数据值多为 1，`max(1, defaultSets)` 写入方同批改掉）；
+  - C：删字段，计划一律完整剂量 —— 丢掉「一课重复 2 遍」的表达能力。
+- **决策**：选 **B**（用户 2026-08-11「B 吧」，契约 D17）。
+  1. 展开 = 内容侧完整剂量 × 倍数；`dose.formations` 按 token 选球形能力保留，但逐球形
+     `rounds` 不得低于该球形 `defaultRounds`（低于 = 砍位置 = I11 FAIL）；
+  2. 官方计划 JSON **一律不写** `roundsPerFormation`（完整剂量即默认 1 倍，重复靠
+     计划内多次编排该动作，v34 R6）；
+  3. 门禁同批落地（FL-029 第 3 条：改口径必须同步门禁）：D13 护栏与 D15 阶梯放宽从
+     `verify_tutorial_sync.py` 删除，替换为阻塞级**形状约束**（重复型 `bpr ∈ [8,15]`
+     默认 15、`defaultRounds == 杆数`，例外凭 `doseNote` 豁免，D18）；I11 加
+     `formations[].rounds` 下限校验；`MODEL_SPEC.FormationDose` 与 Swift 侧同步加
+     `doseNote: String?`。
+- **后果**：
+  - `TrainingDoseResolver`（`:139`/`:159` uniform override）、`DrillTrainingPlanService`
+    （`max(1, defaultSets)` → 1）、`CustomPlanBuilderViewModel`（stepper 轮数 → 遍数）
+    的改造落 **W4**；本 ADR 先锁语义与门禁；
+  - **过渡窗口**：形状约束转阻塞后、W2 剂量写回前，存量剂量（v31 口径）触发 I6b FAIL
+    属预期，W2 后复核归零；窗口内不 push（pre-push 钩子不触发）；
+  - 单次训练时长显著上升（中位 75 球/球形），由 R6/R7 的计划重排（2.5 球/分钟反算
+    `minutesPerSession`、课时档 75–150 min）消化，落 W3。
+- **回滚考虑**：数值回滚 = 按填写表旧口径重写内容 JSON（git 可回退）；语义回滚只需
+  恢复 resolver 的 uniform override 分支，无 schema 迁移连带。
+- **日期**：2026-08-11
