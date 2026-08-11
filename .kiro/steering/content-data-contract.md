@@ -1,6 +1,6 @@
 # 内容与训练数据 — 真源契约与数据流（Steering）
 
-> **版本**：2.1（v31 W4：I6a/I6b/I11 接门禁、I10 扩到剂量与计划模型、阶梯型上界裁定 D15）
+> **版本**：2.3（v34 W0：剂量全库重定 15 颗/位置 D16、`roundsPerFormation` 倍数语义 D17、总量护栏作废改形状约束 D18）
 > **最后更新**：2026-08-09
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
 > 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
@@ -350,40 +350,42 @@ sets: {
 
 #### 5.6.2 两种训练模式（D12）
 
-| `mode` | 一轮 = 什么 | `ballsPerRound` 取值 | 几何校验 |
-|---|---|---|---|
-| `sequence` | 按序打完该球形序列的全部杆 | **锁死 = 序列实测杆数** | I6b 强制 |
-| `repetition` | 重复该球形同一击球 N 次（序列仅作示范） | 人工定，10–15（阶梯型见下） | 豁免 |
+| `mode` | 一轮 = 什么 | `ballsPerRound` 取值 | `defaultRounds` 取值 | 门禁 |
+|---|---|---|---|---|
+| `sequence` | 按序打完该球形序列的全部杆（整链一遍） | **锁死 = 序列实测杆数** | 整链重复遍数（人工定，表中多为 8） | I6b 几何锁死，阻塞 |
+| `repetition` | **一个位置**：重复该位置同一击球 `ballsPerRound` 次 | **∈ [8,15]，默认 15**；非 15 须 `doseNote` | **= 序列实测杆数（轮 = 位置，位置全覆盖）**；例外须 `doseNote` | I6b 形状约束，阻塞（v34 R13/D18） |
 
-判定依据（v31 R7，人工逐条）：走位链形态 → `sequence`；独立阶梯 / 变式目录 / 多形单杆 → `repetition`。
+判定依据（v31 R7，人工逐条；v34 填写表逐行人工复核）：走位链形态 → `sequence`；
+独立阶梯 / 变式目录 / 多形单杆 → `repetition`。
 
 ⛔ **`sequence` 型的 `ballsPerRound` 必须取序列实测杆数，禁止手抄或估算**
 （取值走脚本，口径同 §1.2 红线 3）。写 4 杆序列却标 10 球，正是本节要消灭的偏差。
 
-**阶梯型 `repetition` 的上界放宽（2026-08-09 用户裁定 D15，v31 W4）**
+**剂量数值真源（2026-08-11 用户裁定 D16，v34）**：`tasks/训练量填写表.md`
+（2026-08-11 03:03 定稿版，用户逐球形手填，已入库封存）。重复型 = 每位置 15 颗 ×
+轮数 = 杆数；走位链 = 每轮球数 = 杆数 × N 轮（N 以表为准）。表定稿后不再改，
+数值变更走 `问题集合_v34.md` 版本记录。
 
-`repetition` 型的 10–15 带对**阶梯型球形**放宽：**上界 = max(15, 该球形序列的档数)**，
-其中「档数 = 序列实测杆数（`len(steps)`）」，与 I6b 取值口径同一条脚本路径。
+**`doseNote` 例外机制（2026-08-11 用户裁定，v34 R3）**：有意偏离默认形状的球形，
+必须在 `perFormation` 该条目写可选字段 `doseNote: String` 说明理由；门禁 I6b 凭
+note 豁免「非 15」与「轮数 ≠ 杆数」两项（带外 `ballsPerRound ∉ [8,15]` 不可豁免）。
+已知例外：`drill_c002`（8×9，每位置 8 颗）、`drill_c022` 球形 1（15×5，1 杆序列打 75 颗）。
 
-- **适用条件**：该球形的序列本身是一趟逐档变化的阶梯（每一杆 = 一档难度/距离/角度变式，
-  而非走位链），且**档数 > 15**。档数 ≤ 15 的球形一律仍按 10–15 判定，无放宽。
-- **理由**：一轮 10–15 球走不完一趟 16 档的阶梯，取带内上界（15）会让最后一档永远练不到。
-  取「一轮 = 走完一趟阶梯」与 `sequence` 型「一轮 = 打完整条序列」是同一语义，更自洽。
-- **落地范围（脚本全库扫描，`scripts/v31_w4_ladder_analysis.py`）**：全库仅
-  `drill_c020/manual01`（16 档）与 `drill_c078/manual01`（16 档）触发，二者
-  `ballsPerRound` 由 15 改为 16，总量 45→48 仍在护栏内。`drill_c076` 双球形各 14 档、
-  现值即 14，本就带内，**不改**。
-- 门禁形态：该带在 `verify_tutorial_sync.py` 的 I6b 中是 **WARN**（不阻塞），
-  与总量护栏同级——取值合理性属内容判断，阻塞的只有 I6b 的几何锁死。
+**~~阶梯型 `repetition` 的上界放宽（D15）~~ —— 已被 D16 取代（2026-08-11，v34）**：
+阶梯的每一档就是一个位置，按「轮 = 位置」口径 `c020`/`c078` 由 16×3 改为 15×16，
+不再需要上界放宽；`relaxed_upper()` 已从门禁脚本删除。
 
-#### 5.6.3 总量护栏（D13）
+#### 5.6.3 ~~总量护栏（D13）~~ —— 已作废（2026-08-11 用户裁定 D18，v34）
 
-单条 drill 单次训练总量 = `Σ (ballsPerRound × defaultRounds)`，目标区间 **40–60 球**。
+~~单条 drill 单次训练总量 = `Σ (ballsPerRound × defaultRounds)`，目标区间 40–60 球。~~
 
-- 轮数由护栏**向下取整**：`defaultRounds = max(1, 60 / ballsPerRound)` 后按 40–60 复核；
-  多球形 × 长序列时宁可少一轮，**下限 1 轮**（一轮就超 60 球的长序列按 1 轮，属允许越界）。
-- 基准量（v31 R2）：专项类 4~5 × 10，基础功维持 3 × 15；综合类（按局/次计量）单独评估。
-- 综合类与基础功允许越界，但须逐条附理由留档。护栏在门禁里是**警告级，不阻塞**。
+D13 作废，替换为**形状约束**（v34 R13，阻塞级，实现于 I6b）：
+
+- 重复型：`ballsPerRound ∈ [8,15]`（默认 15，非 15 须 `doseNote`）且
+  `defaultRounds == 序列实测杆数`（例外须 `doseNote`；无序列/空序列 drill 豁免，§5.6.4）；
+- 走位链：维持 I6b 几何锁死（`ballsPerRound == 杆数`），轮数人工定；
+- **不再有 drill 级总量区间**：总量由填写表真源逐球形决定（全库 9493 球，
+  中位 75/球形），门禁不看总量、只看形状。
 
 #### 5.6.4 无序列 drill 的豁免
 
@@ -434,10 +436,19 @@ sets: {
 
 | 层 | 存什么 | 不存什么 |
 |---|---|---|
-| drill JSON `sets.perFormation` | 每球形 mode / 每轮球数 / 推荐轮数 | — |
-| 官方计划 `PlanDrillRef.dose` | `roundsPerFormation: Int`，或 `formations: [{token, rounds}]` | ⛔ `sets` / `ballsPerSet` |
-| 自定义计划 `CustomPlanDrill` | `roundsPerFormation: Int` | ⛔ `sets` / `ballsPerSet` |
+| drill JSON `sets.perFormation` | 每球形 mode / 每轮球数 / 轮数（+ 可选 `doseNote`） | — |
+| 官方计划 `PlanDrillRef.dose` | `formations: [{token, rounds}]`（选球形）；结构上仍允许 `roundsPerFormation`，但**官方计划一律不写**（v34 R9，完整剂量即默认 1 倍） | ⛔ `sets` / `ballsPerSet` |
+| 自定义计划 `CustomPlanDrill` | `roundsPerFormation: Int`（倍数，默认 1） | ⛔ `sets` / `ballsPerSet` |
 | 训练记录 `DrillSet` | 展开后的 `targetBalls` + 球形快照 | — |
+
+**`roundsPerFormation` 语义重定义（2026-08-11 用户裁定 D17，v34 R9，B 方案）**：
+
+- 字段**保留**（不做 Schema V4 迁移），默认 1；
+- 语义由「每球形轮数（覆盖 `defaultRounds`，会砍位置）」改为「**整个动作重复几遍（倍数）**」：
+  展开 = 内容侧完整剂量 × 倍数，**位置永远全覆盖**，任何取值都不会砍掉某个位置；
+- `dose.formations` 按 token 选球形的能力保留，但逐球形 `rounds` **不得低于**该球形
+  内容侧 `defaultRounds`（低于 = 砍位置 = I11 FAIL，阻塞级）；
+- 消费方（`TrainingDoseResolver` 等）改造落 v34 W4。
 
 **为什么这不违反 §6.5 快照裁定**：计划 → 训练是**激活时解析的活引用**，
 解析结果在落 `DrillSet` 时才快照冻结。§6.5 约束的是「已落库的历史记录不得回查当前内容」，
@@ -465,12 +476,12 @@ sets: {
 | I4 | 精讲 `image` 指向最新图 | C3（含失效引用棘轮） | ✅ 有，✅ **已接门禁** |
 | I5 | 精讲 formation token ⊆ 序列 token 集合 | I5（v29 W9 新增） | ✅ 有，✅ 已接门禁（legacy 豁免已于 v26 清空） |
 | I6a | 有序列 drill 的 `sets.perFormation` token 集合 == 该 drill 的序列 token 集合（无序列 drill 不得写 `perFormation`） | I6a（v31 W4 新增） | ✅ 有，✅ **已接门禁**（棘轮豁免 `i6a_token_mismatch_exempt` 为空） |
-| I6b | `mode == sequence` 的球形 `ballsPerRound` == 该球形序列实测杆数（`len(steps)`）；`mode` 取值 ∈ {sequence, repetition} | I6b（v31 W4 新增） | ✅ 有，✅ **已接门禁**。`repetition` 型与无序列 drill 按 §5.6.2/§5.6.4 **规则性豁免**（不入基线，门禁输出以「规则豁免 N」显示）；棘轮豁免 `i6b_shots_exempt` 为空 |
+| I6b | `mode == sequence` 的球形 `ballsPerRound` == 该球形序列实测杆数（`len(steps)`）；`mode` 取值 ∈ {sequence, repetition}；**`repetition` 型形状约束（v34 R13/D18，阻塞）**：`ballsPerRound ∈ [8,15]` 且（非 15 或 `defaultRounds ≠ 杆数` 时须 `doseNote`） | I6b（v31 W4 新增；v34 W0 加形状约束） | ✅ 有，✅ **已接门禁**。空序列球形与无序列 drill 按 §5.6.2/§5.6.4 **规则性豁免**（不入基线）；`repetition` 型豁免的只有几何锁死（门禁输出「规则豁免 N」），形状约束照常阻塞；棘轮豁免 `i6b_shots_exempt` 为空 |
 | I7 | profile formation 集合 == 序列 token 集合，或 profile 标记为已退役 | I7（v29 W9 新增） | ✅ 有，✅ 已接门禁（孤儿 profile 已退役，豁免已清空） |
 | I8 | `Bundle/DrillBoards` == `content/.../sequences` 的 `drill_c*.json` 子集 | I8（v29 W9 新增） | ✅ 有，✅ 已接门禁 |
 | I9 | 每个 `index.json` 登记的 drill 至少有 1 个序列，或在豁免名单内 | I9（v29 W9 新增） | ✅ 有，✅ 已接门禁（豁免见 §8.5） |
 | I10 | 全部 bundled drill / plan JSON（含各自 `index.json`）能被 App 的 `Codable` 模型解码——必填字段齐全、类型正确 | I10（v30 X-1 新增；v31 W4 扩到 `sets.perFormation` / `secondaryCategories` 与计划侧模型） | ✅ 有，✅ 已接门禁（无豁免） |
-| I11 | 官方计划可解析：每条目 `drillId` 存在于 `index.json`、`dose` 结构可解析（`roundsPerFormation` 与 `formations` 恰好二选一、轮数 ≥1）、按球形引用的 token 存在于该 drill 的 `perFormation` token 集合 ∩ 序列 token 集合 | I11（v31 W4 新增） | ✅ 有，✅ **已接门禁**（无豁免；残留旧格式 `sets`/`ballsPerSet` 自 **v31 W5 起为 FAIL**——`PlanDrillRef` 已删这两个字段，再写只会被解码器静默忽略成哑数据） |
+| I11 | 官方计划可解析：每条目 `drillId` 存在于 `index.json`、`dose` 结构可解析（`roundsPerFormation` 与 `formations` 恰好二选一、轮数 ≥1）、按球形引用的 token 存在于该 drill 的 `perFormation` token 集合 ∩ 序列 token 集合；**`formations[].rounds ≥ 该球形内容 `defaultRounds`（v34 R9/D17，位置全覆盖下限）** | I11（v31 W4 新增；v34 W0 加下限校验） | ✅ 有，✅ **已接门禁**（无豁免；残留旧格式 `sets`/`ballsPerSet` 自 **v31 W5 起为 FAIL**——`PlanDrillRef` 已删这两个字段，再写只会被解码器静默忽略成哑数据） |
 
 > **编号说明**：`问题集合_v31.md` W4 把计划校验称作「I10」，但 I10 已被 v30 X-1 的
 > 模型可解码性占用。本契约按既有编号顺延为 **I11**；W4 实施时以本表为准。
@@ -659,6 +670,9 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 | ~~D13~~ | ~~单动作训练量基准~~ | ✅ **已裁定 2026-08-07：中等上调 + 总量护栏 40–60 球、轮数向下取、下限 1 轮**，见 §5.6.3（v31 R2） |
 | ~~D15~~ | ~~`repetition` 型 10–15 带与超长阶梯（16 档）冲突~~ | ✅ **已裁定 2026-08-09：阶梯型上界放宽到档数**（`max(15, 档数)`，「一轮 = 走完一趟阶梯」），见 §5.6.2（v31 W4）；落地仅 c020/c078 两处 |
 | ~~D14~~ | ~~动作库与计划如何绑定~~ | ✅ **已裁定 2026-08-07：计划只存强度系数，激活时由内容解析、落库快照**；token 升级为计划外键，见 §6.6（v31 R4/R6） |
+| ~~D16~~ | ~~剂量数值口径（旧 40–60 球护栏与实际训练强度不符）~~ | ✅ **已裁定 2026-08-11：全库重定——重复型每位置 15 颗 × 轮数 = 杆数；走位链每轮 = 杆数 × N 轮**；数值真源 = `tasks/训练量填写表.md`（03:03 定稿版），见 §5.6.2（v34 R1/R2；例外 c002/c022 走 `doseNote`，R3） |
+| ~~D17~~ | ~~`roundsPerFormation` 在「位置全覆盖」口径下的语义~~ | ✅ **已裁定 2026-08-11：B 方案——字段保留、默认 1，语义改为「整个动作重复几遍（倍数）」，位置永远全覆盖**；官方计划一律不写；`formations[].rounds` 不得低于内容 `defaultRounds`（I11 下限），见 §6.6（v34 R9） |
+| ~~D18~~ | ~~总量护栏 D13 与逐球形真源剂量冲突~~ | ✅ **已裁定 2026-08-11：D13 作废，改形状约束**（重复型 bpr ∈ [8,15] 默认 15 + 轮数 = 杆数，阻塞级入 I6b；D15 阶梯放宽同批被取代），见 §5.6.3（v34 R13） |
 
 ---
 
@@ -679,3 +693,4 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 | 2.1 | 2026-08-09 | **v31 W4 门禁与校验**。§7 表：**I6 拆为 I6a/I6b 并双双接门禁**（`i6a_token_mismatch_exempt` / `i6b_shots_exempt` 两条棘轮豁免均为空；`repetition` 型与无序列 drill 走**规则性**豁免，不入基线，门禁输出显示「规则豁免 N」），**I11 官方计划校验接门禁**（drillId 存在 / dose 恰好二选一且轮数 ≥1 / 球形 token ∈ perFormation ∩ 序列 token；残留旧格式为 WARN）；**I10 补齐 W0 新字段并扩到计划侧模型**（`secondaryCategories`、`sets.perFormation`+`FormationDose`、`OfficialPlan` 全链 + `PlanIndex`），FL-029 第 3 条销账。§7.1 阻塞项 9→12 项，构造性用例 11→23 条。§5.6.2 新增**阶梯型 `repetition` 上界放宽（D15）**：上界 = `max(15, 档数)`，全库仅 c020/c078 触发（`ballsPerRound` 15→16，总量 45→48 仍在护栏内）；总量护栏与 repetition 取值带在门禁里均为 WARN。§9 记 D15。 |
 | 2.2 | 2026-08-09 | **v31 W5 收尾**。§6.6 的「计划不得存裸球数」在代码侧切净：`PlanDrillRef` 删 `sets`/`ballsPerSet` 两个可选字段与 init 参数，`TrainingDoseResolver.resolve` 删 `legacySets`/`legacyBallsPerSet` 旧格式兼容路径（解析只剩「`perFormation` 逐球形展开」与「汇总兜底」两条）。连带销账：§7 表 I11 的「残留旧格式为 WARN」**转 FAIL**（字段已不存在，再写只是被解码器忽略的哑数据），`MODEL_SPEC.PlanDrillRef` 同步删除这两个键以保持 Swift 镜像（FL-029 第 3 条）；构造性用例 23→24（新增 `i11_legacy_volume_keys`）。测试侧：`PlanDrillRef.sets/ballsPerSet` 的 `XCTAssertNil` 断言无法再编译，改为**原始 JSON 键扫描**（`assertPlanJSONHasNoLegacyVolumeKeys`），覆盖面由「focused 段的可映射字段」扩大到「全计划全部条目的 JSON 键」，⛔ 未删除任何断言语义。 |
 | 1.3 | 2026-08-06 | D1/D2/D7/D8 全部裁定（用户逐项拍板，均按推荐）：§5.4 按 category 分组、§5.5 机读挂球形级（内容暂不补）、D7 按完成推进、D8 token 规范不做。§9 待裁定清零；§5 全节定稿。 |
+| 2.3 | 2026-08-11 | **v34 W0 契约与门禁**。§5.6.2 剂量口径重定（D16）：数值真源 = `tasks/训练量填写表.md`（03:03 定稿版，83 drill / 105 球形 / 9493 球）；重复型「一轮 = 一个位置」每位置 15 颗、轮数 = 杆数（位置全覆盖）；走位链每轮 = 杆数 × N 轮；新增 `doseNote` 例外机制（R3，例外 c002/c022；`MODEL_SPEC.FormationDose` 与 Swift `FormationDose` 同步加可选字段，FL-029 第 3 条）；**D15 阶梯放宽被取代**（c020/c078 → 15×16，`relaxed_upper()` 删除）。§5.6.3 **D13 总量护栏作废（D18）**，替换为阻塞级形状约束（bpr ∈ [8,15] 默认 15 + 轮数 = 杆数，入 I6b；I6a 的总量 WARN 一并删除）。§6.6 **`roundsPerFormation` 语义重定义（D17，R9 B 方案）**：倍数、默认 1、位置全覆盖、官方计划一律不写；`formations[].rounds` 下限 = 内容 `defaultRounds`（I11 阻塞）。§7 表 I6b/I11 行更新。§9 记 D16–D18。构造性用例 24→28（i6b 形状约束 ×4 + i11 下限 ×1，删 `i6b_repetition_tolerated`——其「bpr=99 应放行」语义已被 R13 反转）。⚠️ 过渡窗口：形状约束转阻塞后，存量剂量（v31 口径）在 W2 写回前会触发 I6b FAIL，属预期；W2 后复核归零。 |

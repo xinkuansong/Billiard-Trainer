@@ -515,22 +515,26 @@ def check_sequence_coverage(sequences: dict[str, list[dict]], exempt: list[str],
     return {"ok": ok, "fail": fail, "exempt": exempted, "warn": warn}
 
 
-# ── I6a / I6b / I11：剂量口径与计划绑定（v31 W4；契约 §5.6 / §6.6）─────────
+# ── I6a / I6b / I11：剂量口径与计划绑定（v31 W4 落地；v34 W0 改形状约束）────
 #
 # 结构性豁免（**规则判定，不入基线**，契约 §5.6.2 / §5.6.4）：
 #   · 无任何序列的 drill —— 人工定量，可不写 `perFormation`，I6a/I6b 均不适用；
-#   · `mode == repetition` 的球形 —— 序列仅作示范，每轮球数人工定，I6b 不适用。
+#   · 空序列（0 杆）球形 —— 人工定量，形状约束不适用；
+#   · `mode == repetition` 的球形 —— 序列仅作示范，几何锁死（bpr==杆数）不适用，
+#     但受 **形状约束**（阻塞级，v34 R13）：`ballsPerRound ∈ [8,15]`（默认 15，
+#     非 15 须 `doseNote`）且 `defaultRounds == 序列实测杆数`（轮 = 位置，全覆盖；
+#     例外须 `doseNote`）。
 # 棘轮豁免（钉到 drillId/token，入 `content_invariant_baselines.json`）：
 #   · `i6a_token_mismatch_exempt` / `i6b_shots_exempt` —— 目前均为空。
 #     新增豁免必须先在契约 §8 登记解除条件；清单只许缩短。
 #
-# 总量护栏（§5.6.3，40–60 球）是**警告级**：综合类（按局/按次）与基础功天然越界，
-# 逐条理由已在 v31 W1a/W1b 留档，故不计入退出码。
+# 总量护栏（旧 §5.6.3 D13，40–60 球）已于 v34 W0 **作废**（契约 D18）：
+# 剂量数值真源 = tasks/训练量填写表.md，总量不再设 drill 级护栏。
+# D15 阶梯放宽（上界 = 档数）同批被取代：阶梯每档即一个位置，一律 15 颗。
 
 VALID_DOSE_MODES = {"sequence", "repetition"}
-VOLUME_GUARD = (40, 60)
-# repetition 型每轮球数带（§5.6.2）。上界对「阶梯型」放宽到档数，见 relaxed_upper()。
-REPETITION_BAND = (10, 15)
+# repetition 型每轮球数形状约束带（§5.6.2，v34 R13）：每位置 8–15 颗，默认 15。
+REPETITION_BAND = (8, 15)
 
 
 def load_drill_contents(paths: Paths | None = None) -> dict[str, dict]:
@@ -569,36 +573,13 @@ def per_formation(drill: dict) -> list[dict]:
     return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
 
 
-def relaxed_upper(shots: int | None) -> int:
-    """repetition 型 `ballsPerRound` 的上界（§5.6.2，v31 W4 放宽）。
-
-    默认 15；该球形序列本身是一趟阶梯且档数 > 15 时放宽到档数——
-    「一轮 = 走完一趟阶梯」，与 `sequence` 型「一轮打完整条序列」同一语义。
-    """
-    return max(REPETITION_BAND[1], shots or 0)
-
-
 def check_dose_tokens(sequences: dict[str, list[dict]], drills: dict[str, dict],
                       exempt: dict[str, list[str]]) -> dict:
-    """I6a：有序列 drill 的 `perFormation` token 集合 == 序列 token 集合。
-
-    顺带把总量护栏（§5.6.3）作为 WARN 输出（综合类天然越界，不阻塞）。
-    """
+    """I6a：有序列 drill 的 `perFormation` token 集合 == 序列 token 集合。"""
     ok, fail, exempted, warn = 0, [], [], []
     for drill_id, drill in sorted(drills.items()):
         seq_items = sequences.get(drill_id) or []
         per = per_formation(drill)
-
-        # 总量护栏（警告级）。有 perFormation 按逐球形算，否则用汇总兜底。
-        sets = drill.get("sets") if isinstance(drill.get("sets"), dict) else {}
-        if per:
-            total = sum(int(item.get("ballsPerRound") or 0) * int(item.get("defaultRounds") or 0)
-                        for item in per)
-        else:
-            total = int(sets.get("defaultSets") or 0) * int(sets.get("defaultBallsPerSet") or 0)
-        if not VOLUME_GUARD[0] <= total <= VOLUME_GUARD[1]:
-            warn.append((drill_id, f"总量 {total} 球超出护栏 {VOLUME_GUARD[0]}–{VOLUME_GUARD[1]}",
-                         "警告级不阻塞（§5.6.3：综合类/基础功允许越界，理由须留档）"))
 
         if not seq_items:
             # 结构性豁免：无序列 drill 人工定量（§5.6.4）。写了 perFormation 反而是错的。
@@ -628,8 +609,10 @@ def check_dose_shots(sequences: dict[str, list[dict]], drills: dict[str, dict],
                      exempt: dict[str, list[str]]) -> dict:
     """I6b：`sequence` 型球形的 `ballsPerRound` == 该球形序列实测杆数。
 
-    `repetition` 型按 §5.6.2 结构性豁免（计入 rule_exempt 计数，便于观察漂移），
-    但其取值带 10–（15 或档数）仍作 WARN 输出。
+    `repetition` 型按 §5.6.2 豁免几何锁死（计入 rule_exempt 计数），但受**阻塞级
+    形状约束**（v34 R13）：`ballsPerRound ∈ [8,15]`（默认 15，非 15 须 `doseNote`）
+    且 `defaultRounds == 序列实测杆数`（轮 = 位置，例外须 `doseNote`）。
+    空序列（0 杆）球形人工定量，形状约束不适用（§5.6.4）。
     """
     ok, fail, exempted, warn = 0, [], [], []
     rule_exempt = 0
@@ -649,11 +632,26 @@ def check_dose_shots(sequences: dict[str, list[dict]], drills: dict[str, dict],
             shots = shots_by_token.get(token)
             if mode == "repetition":
                 rule_exempt += 1
-                upper = relaxed_upper(shots)
-                if not isinstance(balls, int) or not REPETITION_BAND[0] <= balls <= upper:
-                    warn.append((where, f"repetition 型 ballsPerRound={balls} 超出 "
-                                        f"{REPETITION_BAND[0]}–{upper}",
-                                 "警告级不阻塞（§5.6.2；阶梯型上界 = 档数）"))
+                if not shots:
+                    continue  # 空序列（0 杆）人工定量，形状约束不适用（§5.6.4）
+                note = item.get("doseNote")
+                rounds = item.get("defaultRounds")
+                if not isinstance(balls, int) or not (
+                        REPETITION_BAND[0] <= balls <= REPETITION_BAND[1]):
+                    fail.append((where, f"repetition 型 ballsPerRound={balls} 超出形状"
+                                        f"约束 {REPETITION_BAND[0]}–{REPETITION_BAND[1]}",
+                                 "每位置 8–15 颗，默认 15（§5.6.2，v34 R13）"))
+                    continue
+                if balls != REPETITION_BAND[1] and not note:
+                    fail.append((where, f"repetition 型 ballsPerRound={balls} ≠ 15 且无 doseNote",
+                                 "非 15 须在该球形写 doseNote 说明理由（§5.6.2）"))
+                    continue
+                if rounds != shots and not note:
+                    fail.append((where, f"repetition 型 defaultRounds={rounds} ≠ 实测杆数 {shots}",
+                                 "轮 = 位置，位置全覆盖：defaultRounds 必须 = 序列杆数；"
+                                 "例外须写 doseNote（§5.6.2）"))
+                    continue
+                ok += 1
                 continue
             # sequence 型：锁死实测杆数。
             if shots is None:
@@ -673,9 +671,14 @@ def check_dose_shots(sequences: dict[str, list[dict]], drills: dict[str, dict],
             "rule_exempt": rule_exempt}
 
 
-def _dose_errors(drill_id: str, dose: object, per_tokens: list[str],
+def _dose_errors(drill_id: str, dose: object, per_rounds: dict[str, object],
                  seq_tokens: set[str]) -> list[tuple[str, str]]:
-    """I11 单条目的 dose 结构与外键判定，返回 (问题, 处置) 列表。"""
+    """I11 单条目的 dose 结构与外键判定，返回 (问题, 处置) 列表。
+
+    `per_rounds` = {perFormation token: defaultRounds}。v34 R9（B 方案）后
+    `roundsPerFormation` 是**倍数**（整个动作重复几遍，位置全覆盖）；
+    `formations[].rounds` 仍是逐球形轮数，但**不得低于**该球形 `defaultRounds`。
+    """
     if not isinstance(dose, dict):
         return [("dose 不是对象", "计划条目必须写 dose（契约 §6.6）")]
     uniform = dose.get("roundsPerFormation")
@@ -686,7 +689,7 @@ def _dose_errors(drill_id: str, dose: object, per_tokens: list[str],
     errors: list[tuple[str, str]] = []
     if uniform is not None:
         if not isinstance(uniform, int) or isinstance(uniform, bool) or uniform < 1:
-            errors.append((f"roundsPerFormation={uniform!r} 非法", "必须是 ≥1 的整数"))
+            errors.append((f"roundsPerFormation={uniform!r} 非法", "必须是 ≥1 的整数（倍数语义，§6.6）"))
         return errors
     if not isinstance(listed, list) or not listed:
         return [("formations 为空或非数组", "至少列 1 个球形，或改用 roundsPerFormation")]
@@ -697,13 +700,20 @@ def _dose_errors(drill_id: str, dose: object, per_tokens: list[str],
         token, rounds = entry.get("token"), entry.get("rounds")
         if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
             errors.append((f"token `{token}` 的 rounds={rounds!r} 非法", "必须是 ≥1 的整数"))
-        if token not in per_tokens:
+        if token not in per_rounds:
             errors.append((f"token `{token}` 不在该 drill 的 perFormation "
-                           f"{sorted(per_tokens)} 中",
+                           f"{sorted(per_rounds)} 中",
                            "token 是计划外键（§6 规则 2）：先改计划再改内容"))
-        elif token not in seq_tokens:
+            continue
+        if token not in seq_tokens:
             errors.append((f"token `{token}` 不在该 drill 的序列 token "
                            f"{sorted(seq_tokens)} 中", "序列是球形真源（§1.1）"))
+        floor = per_rounds.get(token)
+        if (isinstance(rounds, int) and not isinstance(rounds, bool)
+                and isinstance(floor, int) and not isinstance(floor, bool)
+                and rounds < floor):
+            errors.append((f"token `{token}` 的 rounds={rounds} 低于内容 defaultRounds={floor}",
+                           "逐球形轮数不得低于该球形 defaultRounds——位置永远全覆盖（§6.6，v34 R9）"))
     return errors
 
 
@@ -748,9 +758,10 @@ def check_plan_refs(sequences: dict[str, list[dict]], drills: dict[str, dict],
                                          "契约 §6.6：计划不得存裸球数（字段已于 W5 删除，写了也不会生效）"))
                             continue
                         drill = drills.get(drill_id) or {}
-                        per_tokens = [str(item.get("token")) for item in per_formation(drill)]
+                        per_rounds = {str(item.get("token")): item.get("defaultRounds")
+                                      for item in per_formation(drill)}
                         seq_tokens = {item["token"] for item in (sequences.get(drill_id) or [])}
-                        errors = _dose_errors(drill_id, ref.get("dose"), per_tokens, seq_tokens)
+                        errors = _dose_errors(drill_id, ref.get("dose"), per_rounds, seq_tokens)
                         if errors:
                             fail += [(where, what, how) for what, how in errors]
                         else:
@@ -789,8 +800,10 @@ MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
     # v31 W0：`perFormation` 逐球形剂量，可选（无序列 drill 省略，契约 §5.6.4）。
     "DrillSetsConfig": {"defaultSets": (True, INT), "defaultBallsPerSet": (True, INT),
                         "perFormation": (False, ["FormationDose"])},
+    # v34 W0：`doseNote` 可选——有意例外剂量的说明（R3；门禁 I6b 凭 note 豁免形状约束）。
     "FormationDose": {"token": (True, STR), "mode": (True, ["sequence", "repetition"]),
-                      "ballsPerRound": (True, INT), "defaultRounds": (True, INT)},
+                      "ballsPerRound": (True, INT), "defaultRounds": (True, INT),
+                      "doseNote": (False, STR)},
     "DrillVideo": {"id": (True, STR), "file": (True, STR)},
     "DrillAnimation": {
         "cueBall": (True, "BallAnimation"), "targetBall": (True, "BallAnimation"),
@@ -986,7 +999,7 @@ def render_report(results: dict) -> None:
     for check_id, title, columns in (
         ("I5", "精讲球形 token ⊆ 序列 token", ("精讲声称", "序列实际")),
         ("I6a", "剂量 perFormation token == 序列 token", ("perFormation", "序列实际")),
-        ("I6b", "sequence 型每轮球数 == 实测杆数", None),
+        ("I6b", "sequence 型每轮球数 == 实测杆数；repetition 型形状约束", None),
         ("I7", "profile vs 序列 token", ("profile", "序列实际")),
         ("I8", "Bundle DrillBoards ⊆ 上游序列", None),
         ("I9", "登记 drill 至少 1 条序列", None),

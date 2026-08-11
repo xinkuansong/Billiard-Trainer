@@ -128,15 +128,27 @@ run: build
 test:
 	@echo "→ 运行 XCTest..."
 	@mkdir -p $(DERIVED_DATA)
-	xcodebuild \
-	  $(PROJECT_FLAG) \
-	  -scheme $(SCHEME) \
-	  -configuration Debug \
-	  -derivedDataPath $(DERIVED_DATA) \
-	  -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
-	  -enableCodeCoverage YES \
-	  test \
-	  | xcpretty --report junit --output $(BUILD_DIR)/test-results.xml || true
+	if command -v xcpretty >/dev/null 2>&1; then \
+	  xcodebuild \
+	    $(PROJECT_FLAG) \
+	    -scheme $(SCHEME) \
+	    -configuration Debug \
+	    -derivedDataPath $(DERIVED_DATA) \
+	    -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	    -enableCodeCoverage YES \
+	    test \
+	    | xcpretty --report junit --output $(BUILD_DIR)/test-results.xml || true; \
+	else \
+	  echo "⚠️ 未安装 xcpretty，直出 xcodebuild 原始日志（管道无读端会让 xcodebuild 挂死，v34 W0 实测）"; \
+	  xcodebuild \
+	    $(PROJECT_FLAG) \
+	    -scheme $(SCHEME) \
+	    -configuration Debug \
+	    -derivedDataPath $(DERIVED_DATA) \
+	    -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	    -enableCodeCoverage YES \
+	    test || true; \
+	fi
 	@echo "✅ 测试完成，报告: $(BUILD_DIR)/test-results.xml"
 
 # ────────────────────────────────────────────

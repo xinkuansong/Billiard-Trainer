@@ -191,20 +191,48 @@ def case_i6a_no_sequence_has_dose(root: Path) -> None:
 
 def case_i6b_shots_mismatch(root: Path) -> None:
     # sequence 型每轮球数锁死实测杆数（§5.6.2）；改成别的值必须 FAIL。
-    edit_json(drill_path(root, "drill_c001"),
+    # v34 W1 后 c001 已翻转为 repetition，改用仍为 sequence 型的 c039（实测 8 杆）。
+    edit_json(drill_path(root, "drill_c039"),
               lambda data: first_formation(data, "sequence").__setitem__("ballsPerRound", 10))
 
 
 def case_i6b_mode_flip_not_a_dodge(root: Path) -> None:
     # 非法 mode 不得被当成「不是 sequence 就放过」而静默通过。
-    edit_json(drill_path(root, "drill_c001"),
+    edit_json(drill_path(root, "drill_c039"),
               lambda data: first_formation(data, "sequence").__setitem__("mode", "freestyle"))
 
 
-def case_i6b_repetition_tolerated(root: Path) -> None:
-    # repetition 型按 §5.6.2 结构性豁免几何校验：改球数只报 WARN，不得 FAIL。
+def _shape_mutate(balls: int, rounds: int, note: str | None):
+    """把 drill_c010（repetition 型，序列实测 7 杆）的球形改成指定形状。"""
+    def mutate(data: dict) -> None:
+        item = first_formation(data, "repetition")
+        item["ballsPerRound"] = balls
+        item["defaultRounds"] = rounds
+        item.pop("doseNote", None)
+        if note is not None:
+            item["doseNote"] = note
+    return mutate
+
+
+def case_i6b_repetition_band_violation(root: Path) -> None:
+    # v34 R13 形状约束：bpr ∉ [8,15] 必须 FAIL（旧规则只 WARN，语义已反转）。
+    edit_json(drill_path(root, "drill_c010"), _shape_mutate(7, 7, None))
+
+
+def case_i6b_repetition_non15_no_note(root: Path) -> None:
+    # 带内但非 15 且无 doseNote ⇒ FAIL（R3：例外必须留 note）。
+    edit_json(drill_path(root, "drill_c010"), _shape_mutate(12, 7, None))
+
+
+def case_i6b_repetition_rounds_drift(root: Path) -> None:
+    # 轮 = 位置：defaultRounds ≠ 实测杆数且无 doseNote ⇒ FAIL。
+    edit_json(drill_path(root, "drill_c010"), _shape_mutate(15, 4, None))
+
+
+def case_i6b_repetition_note_exempted(root: Path) -> None:
+    # 同样的非 15 剂量，但写了 doseNote ⇒ 该球形必须放行（门禁凭 note 豁免）。
     edit_json(drill_path(root, "drill_c010"),
-              lambda data: first_formation(data, "repetition").__setitem__("ballsPerRound", 99))
+              _shape_mutate(12, 7, "构造性用例：验证 doseNote 豁免"))
 
 
 def case_i11_unknown_drill(root: Path) -> None:
@@ -227,6 +255,13 @@ def case_i11_dose_both_forms(root: Path) -> None:
     path = plan_path(root, "plan_advanced")
     edit_json(path, lambda plan: first_ref(plan, "drill_c075")["dose"]
               .__setitem__("roundsPerFormation", 3))
+
+
+def case_i11_rounds_below_default(root: Path) -> None:
+    # v34 R9：formations 逐球形轮数不得低于该球形内容 defaultRounds（位置全覆盖）。
+    path = plan_path(root, "plan_advanced")
+    edit_json(path, lambda plan: first_ref(plan, "drill_c075")["dose"]["formations"][0]
+              .__setitem__("rounds", 1))
 
 
 def case_i11_legacy_volume_keys(root: Path) -> None:
@@ -298,12 +333,22 @@ CASES = {
                         case_i6a_token_drift, 1, "✗ drill_c013"),
     "i6a_no_sequence_has_dose": ("I6a", "无序列的 drill_c008 硬塞 perFormation",
                                  case_i6a_no_sequence_has_dose, 1, "无序列却写了 perFormation"),
-    "i6b_shots_mismatch": ("I6b", "drill_c001 sequence 型 ballsPerRound 5 → 10（实测 5 杆）",
-                           case_i6b_shots_mismatch, 1, "✗ drill_c001/manual01"),
-    "i6b_mode_flip_not_a_dodge": ("I6b", "drill_c001 mode 改成非法值 freestyle",
+    "i6b_shots_mismatch": ("I6b", "drill_c039 sequence 型 ballsPerRound 8 → 10（实测 8 杆）",
+                           case_i6b_shots_mismatch, 1, "✗ drill_c039/manual01"),
+    "i6b_mode_flip_not_a_dodge": ("I6b", "drill_c039 mode 改成非法值 freestyle",
                                   case_i6b_mode_flip_not_a_dodge, 1, "非法 mode"),
-    "i6b_repetition_tolerated": ("I6b", "drill_c010 repetition 型 ballsPerRound 改 99 ⇒ 应放行",
-                                 case_i6b_repetition_tolerated, 0, "总计 FAIL: 0"),
+    "i6b_repetition_band_violation": ("I6b", "drill_c010 repetition 型 bpr 改 7（带外，v34 R13）",
+                                      case_i6b_repetition_band_violation, 1,
+                                      "ballsPerRound=7 超出形状约束 8–15"),
+    "i6b_repetition_non15_no_note": ("I6b", "drill_c010 repetition 型 bpr 改 12 且无 doseNote",
+                                     case_i6b_repetition_non15_no_note, 1,
+                                     "ballsPerRound=12 ≠ 15 且无 doseNote"),
+    "i6b_repetition_rounds_drift": ("I6b", "drill_c010 repetition 型 defaultRounds 改 4（实测 7 杆）",
+                                    case_i6b_repetition_rounds_drift, 1,
+                                    "defaultRounds=4 ≠ 实测杆数 7"),
+    "i6b_repetition_note_exempted": ("I6b", "同 bpr=12 但写 doseNote ⇒ 该球形应放行",
+                                     case_i6b_repetition_note_exempted, None,
+                                     "!✗ drill_c010/manual01"),
     "i11_unknown_drill": ("I11", "plan_accuracy 首条目 drillId 改成未登记的 drill_c900",
                           case_i11_unknown_drill, 1, "不在 index.json"),
     "i11_bad_formation_token": ("I11", "plan_advanced 的 c075 按球形引用改指 manual99",
@@ -312,6 +357,8 @@ CASES = {
                             case_i11_dose_both_forms, 1, "未恰好二选一"),
     "i11_legacy_volume_keys": ("I11", "plan_accuracy 首条目补写已删除的旧格式 sets/ballsPerSet",
                                case_i11_legacy_volume_keys, 1, "仍残留旧格式 sets/ballsPerSet"),
+    "i11_rounds_below_default": ("I11", "plan_advanced 的 c075 逐球形轮数改 1（低于内容 defaultRounds）",
+                                 case_i11_rounds_below_default, 1, "低于内容 defaultRounds"),
     "baseline_clean": ("I5 I6a I6b I7 I8 I9 I10 I11", "未做任何改动的影子库（对照组）",
                        lambda root: None, 0, "总计 FAIL: 0"),
 }
@@ -325,13 +372,21 @@ def run_case(name: str, keep: bool) -> bool:
            "--baselines", str(BASELINES), "--only", *check.split()]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     output = proc.stdout + proc.stderr
-    passed = proc.returncode == want_code and want_text in output
+    # want_code 为 None = 不校验退出码（用于「该目标不得再报错」的负向用例，
+    # 全库其他 drill 的状态不影响判定）；want_text 以 "!" 开头 = 断言片段**不出现**。
+    code_ok = want_code is None or proc.returncode == want_code
+    text_ok = (want_text[1:] not in output) if want_text.startswith("!") \
+        else (want_text in output)
+    passed = code_ok and text_ok
 
     print("=" * 72)
     print(f"用例 {name}  [{check}]  {desc}")
     print(f"命令：{' '.join(cmd)}")
     print(output.rstrip())
-    print(f"期望：退出码 {want_code} 且输出含 {want_text!r}；实测退出码 {proc.returncode}")
+    code_desc = "退出码不限" if want_code is None else f"退出码 {want_code}"
+    text_desc = (f"输出不含 {want_text[1:]!r}" if want_text.startswith("!")
+                 else f"输出含 {want_text!r}")
+    print(f"期望：{code_desc} 且 {text_desc}；实测退出码 {proc.returncode}")
     print(f"结果：{'PASS —— 检查确实报错/放行如预期' if passed else 'FAIL —— 检查行为不符预期'}")
     if not keep:
         shutil.rmtree(root, ignore_errors=True)
