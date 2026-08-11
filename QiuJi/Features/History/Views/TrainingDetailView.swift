@@ -311,13 +311,19 @@ struct TrainingDetailView: View {
             totalSets: totalSets(session),
             overallSuccessRate: overallRate(session),
             drills: session.drillEntries.map { entry in
-                .init(
+                let orderedSets = entry.sets.sorted { $0.setNumber < $1.setNumber }
+                return .init(
                     name: entry.drillNameZh,
                     setsCount: entry.sets.count,
                     madeBalls: entry.sets.reduce(0) { $0 + $1.madeBalls },
-                    targetBalls: entry.sets.reduce(0) { $0 + $1.targetBalls }
+                    targetBalls: entry.sets.reduce(0) { $0 + $1.targetBalls },
+                    drillId: entry.drillId,
+                    sets: orderedSets.map {
+                        .init(id: $0.setNumber, madeBalls: $0.madeBalls, targetBalls: $0.targetBalls)
+                    }
                 )
-            }
+            },
+            note: session.note
         )
     }
 

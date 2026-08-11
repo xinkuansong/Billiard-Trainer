@@ -193,6 +193,23 @@
 - **回写目标**：`docs/research/20260807-v30理论页组件规范.md`（新增 §四 配图硬性章节 + §三 风格收敛铁律）、`docs/research/20260807-v30理论转写模板.md`（§3.1 配图决策树）
 - **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.2 §三/§四/§五/§六/§二 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.1 §一/§3.1/§3.2/§四 + Changelog（2026-08-07）；✅ 本文件 DR-064 补「返工 r1 修订」段（2026-08-07）
 
+## DR-069
+- **任务**：训练分享图改长图（用户反馈「太简陋了，期望和训练详情差不多并带统计数据，字体和布局要美观，可以是长图」）
+- **原始规范**：`BTShareCard` 固定 361×480pt 单屏卡；内容仅「品牌头 + 计划名 + drill 聚合行 + 三格统计 + 页脚」，根部 `Spacer(minLength: 0)` 顶开版面。
+- **调整后**：
+  1. **尺寸契约由「定宽定高」改「定宽 + 高度随内容」**。`ShareCardImageRenderer.cardHeight` 常量删除，改 `cardWidth = 375` + `maxCardHeight = 3000`（仅供测试断上界，**不做裁切钳制**——真超了说明折叠规则错了，裁切等于静默丢内容）。删掉卡内 `Spacer(minLength: 0)`：480pt 死高原本就是它导致 width-only 渲染失控时的止血手段（见 `ShareCardImageRendererRootCauseDiagTests`），根因修掉后死高失去存在理由。
+  2. **六段式长图**：品牌头（日期 + 时段）→ Hero（标题 + 四大数字：分钟/组数/进球/成功率）→ 成绩概览（多项时逐项成功率对比条 + 最佳一组 + 组间波动）→ 训练明细（每项一卡：烘焙缩略图 + 聚合分 + 逐组网格，6 格一行，底色深浅表达该组成功率）→ 训练心得 → 品牌页脚。
+  3. **分享图独立字阶** `ShareType`（写死 pt），**不复用** `.bt*` 字体 token：导出图必须在任何系统动态字体档位下排版一致。
+  4. **高度封顶靠折叠规则而非魔数**：`maxDrillCards = 8`、`setGridBudget = 36` / `foldedSetsPerDrill = 12`、`noteLineLimit = 8`，超出显示「还有 N 项 / +N 组」。首版取 12 张卡时极端用例实测 3175pt > 3000 上界，**收紧折叠而不是抬高阈值**。
+  5. **「未登记」与「0%」分离**（本次真正的正确性修复）：`hasScoredBalls == false`（全部 target = 0）时成功率显示「—」而非 0%——未定义 ≠ 0；`SetResult.rate` 返回 `Double?`；整项 `hasRecordedSetData == false`（逐组全 0/0）时不画逐组网格，避免一屏无信息量的「0/0」。
+- **原因**：单屏死高既压扁长内容又给短内容留大片空白；聚合口径的 `TrainingSessionSummary` 使卡片无逐组/心得/缩略图可展示。
+- **影响组件**：`BTShareCard`（含 `TrainingSessionSummary` 扩字段 `note` / `DrillResult.drillId` / `DrillResult.sets`）、`ShareCardImageRenderer`、`TrainingShareView` 预览区、`TrainingDetailView.shareSummary`、`ActiveTrainingView.buildShareSession`。
+- **已知限制**：`ActiveTrainingView` 侧计划名仍是「训练记录 / 自由训练」占位——`TrainingMode.plan` 不携带计划展示名，取真名需新增计划查询，本次未做（范围纪律），历史详情页入口已是真实标题。
+- **验证**：`make build` BUILD SUCCEEDED；`ShareCardImageRendererTests`(7) + `TrainingSessionSummaryStatsTests`(5) + `ShareCardImageRendererRootCauseDiagTests`(2) = 14/14 通过。像素高断言换成「宽度精确 = cardWidth × scale + 高度随 drill 数/心得单调增长 + 极端用例仍 < maxCardHeight」。
+- **日期**：2026-08-11
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-08-11，DR-069）
+
 ## DR-068
 - **任务**：练习页三小修——搜索框高度统一 / 练习页主题筛选 / 解球器击球中打点盘消失
 - **原始规范**：① `BTLibrarySearchBar` 输入框高度随内容（~36pt），动作库因右侧 44pt 筛选按钮把整行撑高，练习页无 trailing 显得矮一截；② 练习页搜索框无筛选 accessory；③ `SolverStageChrome.canOpenSpinPad` 含 `!vm.isPlaying`，击球中 `onSpinTap` 传 nil ⇒ `BTShotInstrumentColumn` 整个不渲染打点迷你图（打点盘从仪表柱上消失，力度条却只是灰化）。

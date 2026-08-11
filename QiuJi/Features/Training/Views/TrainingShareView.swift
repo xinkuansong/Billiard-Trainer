@@ -59,16 +59,14 @@ struct TrainingShareView: View {
 
     private var cardPreview: some View {
         ScrollView {
-            // W1: preview uses the same bounded size as off-screen export
-            // (`ShareCardImageRenderer.cardWidth` × `cardHeight`).
+            // W1: preview uses the same width contract as off-screen export
+            // (`ShareCardImageRenderer.cardWidth`); height follows content in both paths.
             shareCard
-                .frame(
-                    width: ShareCardImageRenderer.cardWidth,
-                    height: ShareCardImageRenderer.cardHeight
-                )
+                .frame(width: ShareCardImageRenderer.cardWidth)
+                .fixedSize(horizontal: false, vertical: true)
                 .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.18), radius: 12, x: 0, y: 4)
                 .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, Spacing.xxl)
+                .padding(.vertical, Spacing.lg)
         }
         .frame(maxWidth: .infinity)
     }
@@ -76,7 +74,8 @@ struct TrainingShareView: View {
     // MARK: - Customization Panel
 
     private var customizationPanel: some View {
-        VStack(spacing: Spacing.xxl) {
+        // 长图预览需要尽量多的竖向空间，面板保持紧凑。
+        VStack(spacing: Spacing.lg) {
             fontSelector
             themeSelector
             optionToggles
@@ -84,7 +83,7 @@ struct TrainingShareView: View {
             shareActions
         }
         .padding(.horizontal, Spacing.xxl)
-        .padding(.top, Spacing.xxl)
+        .padding(.top, Spacing.lg)
         .padding(.bottom, Spacing.xl)
         .background(
             Color.btBGSecondary

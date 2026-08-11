@@ -187,8 +187,18 @@ struct ActiveTrainingView: View {
             totalSets: viewModel.totalSets,
             overallSuccessRate: viewModel.overallSuccessRate,
             drills: viewModel.drillSummaries.map {
-                .init(name: $0.nameZh, setsCount: $0.sets.count, madeBalls: $0.totalBallsMade, targetBalls: $0.totalBallsPossible)
-            }
+                .init(
+                    name: $0.nameZh,
+                    setsCount: $0.sets.count,
+                    madeBalls: $0.totalBallsMade,
+                    targetBalls: $0.totalBallsPossible,
+                    drillId: $0.drillId,
+                    sets: $0.sets.map { set in
+                        .init(id: set.id, madeBalls: set.madeBalls, targetBalls: set.targetBalls)
+                    }
+                )
+            },
+            note: viewModel.trainingNote
         )
     }
 

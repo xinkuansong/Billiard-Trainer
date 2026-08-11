@@ -3,7 +3,13 @@ import SwiftUI
 @testable import QiuJi
 
 /// W1 / B1 root-cause probe (问题集合_v9): compare ImageRenderer with width-only
-/// vs width+height bounds before fixing production save path.
+/// vs width+height bounds.
+///
+/// Historical context: the width-only path used to run away (or stall) because
+/// `BTShareCard` had a greedy `Spacer(minLength: 0)` at its root. That Spacer is
+/// gone in the long-image revision, so width-only is now the **production** path
+/// and `test_diag_unboundedHeight_widthOnly_behavior` has been turned from a
+/// "document the damage" probe into a guard that the Spacer never comes back.
 ///
 /// Evidence is written to build/w1-evidence/root-cause-diag.json when possible.
 @MainActor
@@ -65,8 +71,9 @@ final class ShareCardImageRendererRootCauseDiagTests: XCTestCase {
         )
     }
 
-    /// Historical save path: width only, no height — documents runaway height or hang.
-    /// If this hangs the MainActor, the outer `timeout` on xcodebuild is the hang evidence.
+    /// Width-only render (current production path): must stay bounded and fast.
+    /// A regression here means a greedy `Spacer` / `maxHeight: .infinity` was
+    /// reintroduced into `BTShareCard`.
     func test_diag_unboundedHeight_widthOnly_behavior() throws {
         let started = CFAbsoluteTimeGetCurrent()
         let renderer = ImageRenderer(
@@ -76,43 +83,26 @@ final class ShareCardImageRendererRootCauseDiagTests: XCTestCase {
         let image = renderer.uiImage
         let elapsedMs = (CFAbsoluteTimeGetCurrent() - started) * 1000
 
-        guard let image else {
-            writeEvidence(
-                caseName: "unbounded_width_only",
-                completed: true,
-                elapsedMs: elapsedMs,
-                pixelWidth: nil,
-                pixelHeight: nil,
-                note: "uiImage == nil (failed rather than hang)"
-            )
-            // Still useful contrast: production must not rely on this path.
-            return
-        }
+        let unwrapped = try XCTUnwrap(image, "width-only ImageRenderer must produce an image")
 
-        let pixelW = Int(image.size.width * image.scale)
-        let pixelH = Int(image.size.height * image.scale)
+        let pixelW = Int(unwrapped.size.width * unwrapped.scale)
+        let pixelH = Int(unwrapped.size.height * unwrapped.scale)
         writeEvidence(
             caseName: "unbounded_width_only",
             completed: true,
             elapsedMs: elapsedMs,
             pixelWidth: pixelW,
             pixelHeight: pixelH,
-            note: "Legacy saveCardToPhotos frame(width:361) only; BTShareCard contains Spacer"
+            note: "Production path frame(width:) only; BTShareCard must contain no greedy Spacer"
         )
 
-        // Soft diagnostic assertions — pass either way, but record magnitude.
-        // Unbounded Spacer often yields height >> preview 480pt, or extreme pixel buffers.
-        let boundedPixelH = Int(previewHeight * scale)
-        if pixelH > boundedPixelH * 4 {
-            // Confirms runaway bitmap size hypothesis.
-            XCTAssertGreaterThan(pixelH, boundedPixelH * 4)
-        } else if elapsedMs > 2_000 {
-            // Confirms main-thread stall hypothesis even if height stayed modest.
-            XCTAssertGreaterThan(elapsedMs, 2_000)
-        } else {
-            // Unexpected: completed quickly with modest size — still document.
-            XCTAssertNotNil(image)
-        }
+        XCTAssertEqual(pixelW, Int(cardWidth * scale))
+        XCTAssertLessThan(
+            pixelH,
+            Int(ShareCardImageRenderer.maxCardHeight * scale),
+            "width-only render must stay bounded — a greedy Spacer would blow this up"
+        )
+        XCTAssertLessThan(elapsedMs, 5_000, "width-only render must not stall the main actor")
     }
 
     private func writeEvidence(
