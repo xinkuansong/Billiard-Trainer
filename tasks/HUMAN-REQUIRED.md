@@ -380,13 +380,20 @@
 
 ## H-24 — 部署 v36 新后端 + 清空 MongoDB 用户数据集合（问题集合 v36 W4b）
 
-- **状态**：⏳ 待完成（非阻塞研发；但 **v36 W3 的端到端验收在此之前无法完成**）
+- **状态**：🔄 部署 + 清库 + 服务端往返自检**已完成**（2026-08-12，AI 经 root 免密 SSH 执行）；仅剩**客户端侧**端到端（W3 完成标准 4：删 App 重装后数据回来）待人工在真机/模拟器补跑
 - **背景**：问题集合 v36 的 W1–W3 已把上行 9 个成绩字段、按 clientId 硬删端点、下行恢复链路全部落地（代码在工作区，聚焦测试全绿），但 `106.54.3.210:3000` 上跑的仍是 v29 W5 时代的旧后端——**没有** W2 的 `DELETE /training-sessions/by-client/:clientId`，**没有** W1 的 9 个 schema 字段。用户已授权：App 未上线，现有 Mongo 用户数据可全部清空（v36 真源前提，D-v36-2 语境）。
 - **做什么**：
   1. 把 `backend/` 当前代码部署到 106.54.3.210（含 `src/models/TrainingSession.js` 的 9 个新字段、`src/routes/trainingSession.js` 的 by-client 删除路由），重启 node 服务。
   2. 清空 `qiuji` 库的用户数据集合（`trainingsessions`、`angletests`；`users` 是否一并清由你定——清了要重新登录）。
   3. 部署后自检：`GET /training-sessions`（带 JWT）通、`DELETE /training-sessions/by-client/<任意 uuid>` 返 200。
 - **在哪里**：SSH 到 106.54.3.210（Ubuntu 22.04，MongoDB 7.0 同机、仅监听 127.0.0.1）
-- **预计时长**：20–40 分钟
-- **完成后**：把本条改 ✅，并**补做 v36 W3 完成标准 4**——模拟器/真机走「登录 → 造数据 → 删 App 重装 → 数据回来」，截图落 `build/w3-screenshots/`，然后把 `问题集合_v36.md` 的 W3 记录由 🔄 改 ✅。
-- **影响任务**：问题集合 v36 W4b 收官；W3 端到端验收；后端 `deleteOne` 与下行真实 HTTP 往返至今**未经任何实测**（目前全部证据为单测 + 静态核验）。
+- **已完成记录**（2026-08-12，本机 `root@106.54.3.210` 免密可登，`~/.ssh/id_ed25519`；之前记为「需人工」是判断失误）：
+  1. **部署**：备份旧码 `/root/qiuji-backend-backup-20260812-094734.tar.gz`（不含 node_modules），`rsync -a --delete backend/src/` + `server.js`/`package*.json` → `/opt/qiuji-backend/`，`pm2 restart qiuji-api` 成功（`MongoDB connected` / `Server listening on :3000`）。服务器上原为 2026-03-29 旧码、非 git 仓库。
+  2. **清库**：`trainingsessions` 删 3 条、`angletests` 删 0 条；`drills`(72) 为内容资产保留；`users`(1) **保留**——清了要重新登录，且与 v36 验证无关（如需清空另行说明）。
+  3. **服务端真实 HTTP 往返自检（首次实测，非静态核验）**：
+     - W1 九字段全存活：POST 带 `orderIndex/note/criteriaText` + `formationToken/formationName/unitLabel/passMade/passTotal/durationSeconds` → 201 → GET 回读逐字段比对 **全部 MATCH**（strict 未吞任何字段）。
+     - W2 删除端点：`DELETE /training-sessions/by-client/<uuid>` → 200 `deletedCount:1`；**重复删** → 200 `deletedCount:0`（幂等成立）；无 token → 401（路由存在，非 404）。
+     - W3 锚点语义：`?after=` 取未来时间返 0 条、取过去时间返 1 条。
+     - 附带实证：回包 `updatedAt` 形如 `2026-08-12T01:50:12.125Z` **带毫秒**，确认 W3 修的 `JSONDecoder .iso8601` 不认毫秒是真实缺陷而非假想。
+- **剩余（人工）**：补做 **v36 W3 完成标准 4** 的客户端侧——真机/模拟器走「登录 → 造数据 → 删 App 重装 → 数据回来」，截图落 `build/w3-screenshots/`，然后把 `问题集合_v36.md` 的 W3 记录由 🔄 改 ✅、本条改 ✅。**需人工的原因**：该路径依赖真实第三方登录（Apple/微信）取得 JWT，AI 无法在模拟器上完成账号授权；上述自检用的是服务端直签 token，绕过了客户端登录链路。
+- **影响任务**：问题集合 v36 W4b 服务端部分已收口；W3 端到端（客户端侧）仍未验收。
