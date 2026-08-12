@@ -1,0 +1,4268 @@
+{
+  "_note": "publish_tutorial_figures.py 产物清单；src_md5 = 母版 PNG 的 md5，供增量与门禁新鲜度判据",
+  "quality": 70,
+  "count": 710,
+  "total_bytes": 117971189,
+  "figures": {
+    "drill_c001_initial.heic": {
+      "src": "drill_c001_initial.png",
+      "src_md5": "f21a6f117458966c826c1eb4000865cc",
+      "quality": 70,
+      "bytes": 151203
+    },
+    "drill_c001_s01.heic": {
+      "src": "drill_c001_s01.png",
+      "src_md5": "e10d6db910706f53b6584e2f2851cd7d",
+      "quality": 70,
+      "bytes": 162748
+    },
+    "drill_c001_s02.heic": {
+      "src": "drill_c001_s02.png",
+      "src_md5": "fa592c169063430b429c5780fc2cf7a2",
+      "quality": 70,
+      "bytes": 163100
+    },
+    "drill_c001_s03.heic": {
+      "src": "drill_c001_s03.png",
+      "src_md5": "12e0c75099348b56bcddd6c32027266e",
+      "quality": 70,
+      "bytes": 164688
+    },
+    "drill_c001_s04.heic": {
+      "src": "drill_c001_s04.png",
+      "src_md5": "6d1d8a785d561ad7ab0c8783fc1f7b68",
+      "quality": 70,
+      "bytes": 163427
+    },
+    "drill_c001_s05.heic": {
+      "src": "drill_c001_s05.png",
+      "src_md5": "6313ea9e031af95be047a015fd63bc08",
+      "quality": 70,
+      "bytes": 165910
+    },
+    "drill_c002_initial.heic": {
+      "src": "drill_c002_initial.png",
+      "src_md5": "dc7a5021e9323e242119d9e99aea42da",
+      "quality": 70,
+      "bytes": 153376
+    },
+    "drill_c002_s01.heic": {
+      "src": "drill_c002_s01.png",
+      "src_md5": "f9633c9e4134be33ac806da8ec2a1cb3",
+      "quality": 70,
+      "bytes": 179971
+    },
+    "drill_c002_s02.heic": {
+      "src": "drill_c002_s02.png",
+      "src_md5": "8345d5c166ea2a2a7f6809f92558a6f6",
+      "quality": 70,
+      "bytes": 178056
+    },
+    "drill_c002_s03.heic": {
+      "src": "drill_c002_s03.png",
+      "src_md5": "25804b5891adfb0c9d8db7a21d9076be",
+      "quality": 70,
+      "bytes": 174634
+    },
+    "drill_c002_s04.heic": {
+      "src": "drill_c002_s04.png",
+      "src_md5": "18a3dfd8662883077f11dda80b028607",
+      "quality": 70,
+      "bytes": 170215
+    },
+    "drill_c002_s05.heic": {
+      "src": "drill_c002_s05.png",
+      "src_md5": "452bd7f9b89f8455bf3052338948656d",
+      "quality": 70,
+      "bytes": 165719
+    },
+    "drill_c002_s06.heic": {
+      "src": "drill_c002_s06.png",
+      "src_md5": "b984d69525ed0b5de9ed65b40461febd",
+      "quality": 70,
+      "bytes": 164300
+    },
+    "drill_c002_s07.heic": {
+      "src": "drill_c002_s07.png",
+      "src_md5": "dff4ef981028a443027c39090cffa9f4",
+      "quality": 70,
+      "bytes": 164594
+    },
+    "drill_c002_s08.heic": {
+      "src": "drill_c002_s08.png",
+      "src_md5": "b6dce8cd286958c3d35416f64f900742",
+      "quality": 70,
+      "bytes": 164415
+    },
+    "drill_c002_s09.heic": {
+      "src": "drill_c002_s09.png",
+      "src_md5": "811cd88f94d396f95682bd5b444ba14d",
+      "quality": 70,
+      "bytes": 165727
+    },
+    "drill_c003_manual01_initial.heic": {
+      "src": "drill_c003_manual01_initial.png",
+      "src_md5": "b7ca80ed6fc1f4f0edc7810a1e8644ba",
+      "quality": 70,
+      "bytes": 150571
+    },
+    "drill_c003_manual01_s01.heic": {
+      "src": "drill_c003_manual01_s01.png",
+      "src_md5": "ac7a774eb75fe40e467e4a48e2a149a8",
+      "quality": 70,
+      "bytes": 163826
+    },
+    "drill_c003_manual01_s02.heic": {
+      "src": "drill_c003_manual01_s02.png",
+      "src_md5": "9e43a711eece18518787656cb3bb823b",
+      "quality": 70,
+      "bytes": 164498
+    },
+    "drill_c003_manual01_s03.heic": {
+      "src": "drill_c003_manual01_s03.png",
+      "src_md5": "bc38aa388e69d1ea6aa27851e94f072a",
+      "quality": 70,
+      "bytes": 165018
+    },
+    "drill_c003_manual01_s04.heic": {
+      "src": "drill_c003_manual01_s04.png",
+      "src_md5": "cf4683509c6f1b32327cf355ca4bf9ab",
+      "quality": 70,
+      "bytes": 165294
+    },
+    "drill_c003_manual02_initial.heic": {
+      "src": "drill_c003_manual02_initial.png",
+      "src_md5": "997dccb81d62160e67a19dd661c583bc",
+      "quality": 70,
+      "bytes": 148286
+    },
+    "drill_c003_manual02_s01.heic": {
+      "src": "drill_c003_manual02_s01.png",
+      "src_md5": "e001397d49a70282a17f0b314aa85f5f",
+      "quality": 70,
+      "bytes": 160500
+    },
+    "drill_c003_manual02_s02.heic": {
+      "src": "drill_c003_manual02_s02.png",
+      "src_md5": "646bdffe61037ff52a385a7d96ce0719",
+      "quality": 70,
+      "bytes": 163047
+    },
+    "drill_c003_manual02_s03.heic": {
+      "src": "drill_c003_manual02_s03.png",
+      "src_md5": "96a60f47d74765ea461fed8fc24d5dbe",
+      "quality": 70,
+      "bytes": 162574
+    },
+    "drill_c003_manual02_s04.heic": {
+      "src": "drill_c003_manual02_s04.png",
+      "src_md5": "403a361cd4ecdaa972fe97cec27fe578",
+      "quality": 70,
+      "bytes": 162654
+    },
+    "drill_c003_manual02_s05.heic": {
+      "src": "drill_c003_manual02_s05.png",
+      "src_md5": "687fde0e8274425133838deaa41755c7",
+      "quality": 70,
+      "bytes": 162641
+    },
+    "drill_c004_manual01_initial.heic": {
+      "src": "drill_c004_manual01_initial.png",
+      "src_md5": "558bdbbfecbbdba0a727b27357e6eb5b",
+      "quality": 70,
+      "bytes": 148694
+    },
+    "drill_c004_manual01_s01.heic": {
+      "src": "drill_c004_manual01_s01.png",
+      "src_md5": "83235da9c05107a7ca4fa4beb51325b0",
+      "quality": 70,
+      "bytes": 159238
+    },
+    "drill_c004_manual01_s02.heic": {
+      "src": "drill_c004_manual01_s02.png",
+      "src_md5": "580e7684d3104e89a351f83220d2e4d3",
+      "quality": 70,
+      "bytes": 160620
+    },
+    "drill_c004_manual01_s03.heic": {
+      "src": "drill_c004_manual01_s03.png",
+      "src_md5": "6ec58b4b14a37be96b00877b561072b0",
+      "quality": 70,
+      "bytes": 164692
+    },
+    "drill_c004_manual01_s04.heic": {
+      "src": "drill_c004_manual01_s04.png",
+      "src_md5": "d0d66d2f156badd6e2f7835a898be275",
+      "quality": 70,
+      "bytes": 169978
+    },
+    "drill_c004_manual02_initial.heic": {
+      "src": "drill_c004_manual02_initial.png",
+      "src_md5": "35f3fafc2d3cbfd4698a904aa6a7eb7c",
+      "quality": 70,
+      "bytes": 148277
+    },
+    "drill_c004_manual02_s01.heic": {
+      "src": "drill_c004_manual02_s01.png",
+      "src_md5": "6d7297956e726bae209239bbc32722d1",
+      "quality": 70,
+      "bytes": 165129
+    },
+    "drill_c004_manual02_s02.heic": {
+      "src": "drill_c004_manual02_s02.png",
+      "src_md5": "2ee20d32649842046e1bae830547b48f",
+      "quality": 70,
+      "bytes": 165358
+    },
+    "drill_c004_manual02_s03.heic": {
+      "src": "drill_c004_manual02_s03.png",
+      "src_md5": "e976334ffd3cfd0ed99655565817453f",
+      "quality": 70,
+      "bytes": 166990
+    },
+    "drill_c004_manual02_s04.heic": {
+      "src": "drill_c004_manual02_s04.png",
+      "src_md5": "59123aff57f35c49e2287c7091fb3c7b",
+      "quality": 70,
+      "bytes": 168464
+    },
+    "drill_c005_initial.heic": {
+      "src": "drill_c005_initial.png",
+      "src_md5": "44de25b30e0f3d547fb0543183a48093",
+      "quality": 70,
+      "bytes": 149215
+    },
+    "drill_c005_s01.heic": {
+      "src": "drill_c005_s01.png",
+      "src_md5": "344f9d4e681a22721e37b8738bc5b69a",
+      "quality": 70,
+      "bytes": 164349
+    },
+    "drill_c005_s02.heic": {
+      "src": "drill_c005_s02.png",
+      "src_md5": "445a30c74cf06aa6f3d47f1a4ed83a28",
+      "quality": 70,
+      "bytes": 165496
+    },
+    "drill_c005_s03.heic": {
+      "src": "drill_c005_s03.png",
+      "src_md5": "003db930a22abaa4821184e454186fed",
+      "quality": 70,
+      "bytes": 169369
+    },
+    "drill_c005_s04.heic": {
+      "src": "drill_c005_s04.png",
+      "src_md5": "a4d950479740dfc27da786cba75e2ab2",
+      "quality": 70,
+      "bytes": 168176
+    },
+    "drill_c007_initial.heic": {
+      "src": "drill_c007_initial.png",
+      "src_md5": "5bab00a4d635dd8bb460592b21de8783",
+      "quality": 70,
+      "bytes": 148644
+    },
+    "drill_c007_s01.heic": {
+      "src": "drill_c007_s01.png",
+      "src_md5": "9ec6dee2ad62e978810b3100d55fe1f5",
+      "quality": 70,
+      "bytes": 161218
+    },
+    "drill_c007_s02.heic": {
+      "src": "drill_c007_s02.png",
+      "src_md5": "7b92aae46d4f1de4f4fcff59e8272d57",
+      "quality": 70,
+      "bytes": 160770
+    },
+    "drill_c007_s03.heic": {
+      "src": "drill_c007_s03.png",
+      "src_md5": "46cd2017a96cbb9b1ff68ab708fcae49",
+      "quality": 70,
+      "bytes": 164675
+    },
+    "drill_c007_s04.heic": {
+      "src": "drill_c007_s04.png",
+      "src_md5": "9d81cd912b4802b811517994a093b7fd",
+      "quality": 70,
+      "bytes": 162926
+    },
+    "drill_c009_initial.heic": {
+      "src": "drill_c009_initial.png",
+      "src_md5": "0534192099692209cba6eb75e0a5dc61",
+      "quality": 70,
+      "bytes": 151473
+    },
+    "drill_c009_s01.heic": {
+      "src": "drill_c009_s01.png",
+      "src_md5": "2239f3b65c0ac6b372a0498ac33280d1",
+      "quality": 70,
+      "bytes": 171145
+    },
+    "drill_c009_s02.heic": {
+      "src": "drill_c009_s02.png",
+      "src_md5": "f0cb3470bbbcd6e35df5646488ba1f4c",
+      "quality": 70,
+      "bytes": 170780
+    },
+    "drill_c009_s03.heic": {
+      "src": "drill_c009_s03.png",
+      "src_md5": "2f0236b8203f48c8319f73fbd6a7d45a",
+      "quality": 70,
+      "bytes": 169717
+    },
+    "drill_c009_s04.heic": {
+      "src": "drill_c009_s04.png",
+      "src_md5": "aadaa9caebfb1f10037320c906cd7c2f",
+      "quality": 70,
+      "bytes": 167808
+    },
+    "drill_c009_s05.heic": {
+      "src": "drill_c009_s05.png",
+      "src_md5": "1fc575478026042efccf950a9bb05343",
+      "quality": 70,
+      "bytes": 165865
+    },
+    "drill_c009_s06.heic": {
+      "src": "drill_c009_s06.png",
+      "src_md5": "b5aa67a348d33e3f96302f6aff152d81",
+      "quality": 70,
+      "bytes": 164728
+    },
+    "drill_c009_s07.heic": {
+      "src": "drill_c009_s07.png",
+      "src_md5": "bc6f6162518c13359edb9a1d09f2c058",
+      "quality": 70,
+      "bytes": 162231
+    },
+    "drill_c010_initial.heic": {
+      "src": "drill_c010_initial.png",
+      "src_md5": "ff157dfff29f1d2fb01dc55262d1fb58",
+      "quality": 70,
+      "bytes": 152464
+    },
+    "drill_c010_s01.heic": {
+      "src": "drill_c010_s01.png",
+      "src_md5": "5f0cd81726baadfa5246ac8de8660a2f",
+      "quality": 70,
+      "bytes": 163784
+    },
+    "drill_c010_s02.heic": {
+      "src": "drill_c010_s02.png",
+      "src_md5": "3ec38484f533a4a6ceeb48097990b67e",
+      "quality": 70,
+      "bytes": 164058
+    },
+    "drill_c010_s03.heic": {
+      "src": "drill_c010_s03.png",
+      "src_md5": "e28659cd4514ea23ba5dbce4f309aa82",
+      "quality": 70,
+      "bytes": 163267
+    },
+    "drill_c010_s04.heic": {
+      "src": "drill_c010_s04.png",
+      "src_md5": "a9c953bfed008f19d7234c02cad53bb2",
+      "quality": 70,
+      "bytes": 165292
+    },
+    "drill_c010_s05.heic": {
+      "src": "drill_c010_s05.png",
+      "src_md5": "2b5fa7fa049d4c8dfbb892a15cedb77b",
+      "quality": 70,
+      "bytes": 166523
+    },
+    "drill_c010_s06.heic": {
+      "src": "drill_c010_s06.png",
+      "src_md5": "8438ed304691e503f973c3563b2bf16d",
+      "quality": 70,
+      "bytes": 166927
+    },
+    "drill_c010_s07.heic": {
+      "src": "drill_c010_s07.png",
+      "src_md5": "402d84036cb442830bbbdbe24a29cc69",
+      "quality": 70,
+      "bytes": 168306
+    },
+    "drill_c011_initial.heic": {
+      "src": "drill_c011_initial.png",
+      "src_md5": "ce30ee1c5f43a296ecd30fe9f1225800",
+      "quality": 70,
+      "bytes": 150917
+    },
+    "drill_c011_s01.heic": {
+      "src": "drill_c011_s01.png",
+      "src_md5": "ab14680c74536f695648300986edfa98",
+      "quality": 70,
+      "bytes": 160338
+    },
+    "drill_c011_s02.heic": {
+      "src": "drill_c011_s02.png",
+      "src_md5": "12eb7ebc3dff84a01196a9081aabb3d2",
+      "quality": 70,
+      "bytes": 160669
+    },
+    "drill_c011_s03.heic": {
+      "src": "drill_c011_s03.png",
+      "src_md5": "9f2e2756446e615824bff41e3007f719",
+      "quality": 70,
+      "bytes": 160966
+    },
+    "drill_c011_s04.heic": {
+      "src": "drill_c011_s04.png",
+      "src_md5": "11c006bad418714bdf84808863e29be4",
+      "quality": 70,
+      "bytes": 160609
+    },
+    "drill_c011_s05.heic": {
+      "src": "drill_c011_s05.png",
+      "src_md5": "4a87ce9bf1b1af1a272e8b95e431fba1",
+      "quality": 70,
+      "bytes": 159856
+    },
+    "drill_c012_initial.heic": {
+      "src": "drill_c012_initial.png",
+      "src_md5": "9f2132edf21c45aa379b7b665b423304",
+      "quality": 70,
+      "bytes": 152503
+    },
+    "drill_c012_s01.heic": {
+      "src": "drill_c012_s01.png",
+      "src_md5": "2535bb1b1f79b9c919d357c84f71d822",
+      "quality": 70,
+      "bytes": 162451
+    },
+    "drill_c012_s02.heic": {
+      "src": "drill_c012_s02.png",
+      "src_md5": "ef7e41d402c2cd5ddc4ecb97b4e94805",
+      "quality": 70,
+      "bytes": 164914
+    },
+    "drill_c012_s03.heic": {
+      "src": "drill_c012_s03.png",
+      "src_md5": "caee825cf26c9ae44031f29f7dc6012c",
+      "quality": 70,
+      "bytes": 163932
+    },
+    "drill_c012_s04.heic": {
+      "src": "drill_c012_s04.png",
+      "src_md5": "3215d6927ec731b740ccead7c7cd0de1",
+      "quality": 70,
+      "bytes": 161375
+    },
+    "drill_c012_s05.heic": {
+      "src": "drill_c012_s05.png",
+      "src_md5": "2739b5075c0f36d3123038af802b030e",
+      "quality": 70,
+      "bytes": 160315
+    },
+    "drill_c012_s06.heic": {
+      "src": "drill_c012_s06.png",
+      "src_md5": "6197fe073230d464f6f1ac4071a26a75",
+      "quality": 70,
+      "bytes": 160987
+    },
+    "drill_c012_s07.heic": {
+      "src": "drill_c012_s07.png",
+      "src_md5": "b61456c3afd693b0e56dfed03c7cd20c",
+      "quality": 70,
+      "bytes": 162250
+    },
+    "drill_c012_s08.heic": {
+      "src": "drill_c012_s08.png",
+      "src_md5": "604a5f204a48299f4f70a083f23d0ba5",
+      "quality": 70,
+      "bytes": 159995
+    },
+    "drill_c013_manual01_initial.heic": {
+      "src": "drill_c013_manual01_initial.png",
+      "src_md5": "3dae6421675a0b8957ef4d8792518f90",
+      "quality": 70,
+      "bytes": 152651
+    },
+    "drill_c013_manual01_s01.heic": {
+      "src": "drill_c013_manual01_s01.png",
+      "src_md5": "cb1f970d56399863fb496ce52c268984",
+      "quality": 70,
+      "bytes": 177419
+    },
+    "drill_c013_manual01_s02.heic": {
+      "src": "drill_c013_manual01_s02.png",
+      "src_md5": "fabc81557f305f83f25f341495d9ddb6",
+      "quality": 70,
+      "bytes": 170148
+    },
+    "drill_c013_manual01_s03.heic": {
+      "src": "drill_c013_manual01_s03.png",
+      "src_md5": "9dc39581c3925cf66d16b7910354c5c5",
+      "quality": 70,
+      "bytes": 165697
+    },
+    "drill_c013_manual01_s04.heic": {
+      "src": "drill_c013_manual01_s04.png",
+      "src_md5": "ecd7d66de8cebabff997b6d837c3d022",
+      "quality": 70,
+      "bytes": 163637
+    },
+    "drill_c013_manual01_s05.heic": {
+      "src": "drill_c013_manual01_s05.png",
+      "src_md5": "4d9ed70ad5c9b9a8bd2bc5510e602c04",
+      "quality": 70,
+      "bytes": 164059
+    },
+    "drill_c013_manual01_s06.heic": {
+      "src": "drill_c013_manual01_s06.png",
+      "src_md5": "65a0754dabed7527aa618ed6faaa4478",
+      "quality": 70,
+      "bytes": 164944
+    },
+    "drill_c013_manual01_s07.heic": {
+      "src": "drill_c013_manual01_s07.png",
+      "src_md5": "68a560f6e71898e40924772928b0536a",
+      "quality": 70,
+      "bytes": 167162
+    },
+    "drill_c013_manual01_s08.heic": {
+      "src": "drill_c013_manual01_s08.png",
+      "src_md5": "f42aaf3776a9c84288fe1dadca437174",
+      "quality": 70,
+      "bytes": 167946
+    },
+    "drill_c013_manual02_initial.heic": {
+      "src": "drill_c013_manual02_initial.png",
+      "src_md5": "b1008d53bd22e5984a54ba3542e558d4",
+      "quality": 70,
+      "bytes": 153833
+    },
+    "drill_c013_manual02_s01.heic": {
+      "src": "drill_c013_manual02_s01.png",
+      "src_md5": "258554cc90a1db6e1fdb5249650743fe",
+      "quality": 70,
+      "bytes": 171351
+    },
+    "drill_c013_manual02_s02.heic": {
+      "src": "drill_c013_manual02_s02.png",
+      "src_md5": "b85f3ff97ff9d7fffd06d851848a8924",
+      "quality": 70,
+      "bytes": 169202
+    },
+    "drill_c013_manual02_s03.heic": {
+      "src": "drill_c013_manual02_s03.png",
+      "src_md5": "a6517bf4717db7b52fab96d0fe80fc49",
+      "quality": 70,
+      "bytes": 168836
+    },
+    "drill_c013_manual02_s04.heic": {
+      "src": "drill_c013_manual02_s04.png",
+      "src_md5": "25ac1ff59b4c6053328b348a28acf8c8",
+      "quality": 70,
+      "bytes": 168909
+    },
+    "drill_c013_manual02_s05.heic": {
+      "src": "drill_c013_manual02_s05.png",
+      "src_md5": "cfb9e73189e9a87d4ca7372418230d72",
+      "quality": 70,
+      "bytes": 169655
+    },
+    "drill_c013_manual02_s06.heic": {
+      "src": "drill_c013_manual02_s06.png",
+      "src_md5": "3f0caf037c77991f26ef436601279ace",
+      "quality": 70,
+      "bytes": 169967
+    },
+    "drill_c013_manual02_s07.heic": {
+      "src": "drill_c013_manual02_s07.png",
+      "src_md5": "fae204719cd4dd13c5ac18e2a502cc92",
+      "quality": 70,
+      "bytes": 169225
+    },
+    "drill_c013_manual02_s08.heic": {
+      "src": "drill_c013_manual02_s08.png",
+      "src_md5": "996ea68455ed909714a42d89f9724b86",
+      "quality": 70,
+      "bytes": 171464
+    },
+    "drill_c013_manual02_s09.heic": {
+      "src": "drill_c013_manual02_s09.png",
+      "src_md5": "691a5f5aaf0345a6605e8474884fdd1d",
+      "quality": 70,
+      "bytes": 171508
+    },
+    "drill_c014_initial.heic": {
+      "src": "drill_c014_initial.png",
+      "src_md5": "0018aa7316150c13c1b0776afce65232",
+      "quality": 70,
+      "bytes": 152184
+    },
+    "drill_c014_s01.heic": {
+      "src": "drill_c014_s01.png",
+      "src_md5": "98d8cfa00aba2c29c69f0ec55bca9fcc",
+      "quality": 70,
+      "bytes": 165054
+    },
+    "drill_c014_s02.heic": {
+      "src": "drill_c014_s02.png",
+      "src_md5": "54b6f1bc478661305b3f24f0b3f96f82",
+      "quality": 70,
+      "bytes": 164758
+    },
+    "drill_c014_s03.heic": {
+      "src": "drill_c014_s03.png",
+      "src_md5": "47c1ec8b22d0434004c8f40326869fac",
+      "quality": 70,
+      "bytes": 165844
+    },
+    "drill_c014_s04.heic": {
+      "src": "drill_c014_s04.png",
+      "src_md5": "6ecf248dace3902e4b6e1d0fbf1b5dda",
+      "quality": 70,
+      "bytes": 166998
+    },
+    "drill_c014_s05.heic": {
+      "src": "drill_c014_s05.png",
+      "src_md5": "f0946417c32ac645e44f7a44f14b7a3d",
+      "quality": 70,
+      "bytes": 167545
+    },
+    "drill_c014_s06.heic": {
+      "src": "drill_c014_s06.png",
+      "src_md5": "acf6aa123b6bd48b8d57502af8d2b757",
+      "quality": 70,
+      "bytes": 167769
+    },
+    "drill_c014_s07.heic": {
+      "src": "drill_c014_s07.png",
+      "src_md5": "ce22ac26db4938a946109aff374641fe",
+      "quality": 70,
+      "bytes": 168561
+    },
+    "drill_c015_initial.heic": {
+      "src": "drill_c015_initial.png",
+      "src_md5": "13af99ea3a1e12e8195ff6f283eaf835",
+      "quality": 70,
+      "bytes": 153212
+    },
+    "drill_c015_s01.heic": {
+      "src": "drill_c015_s01.png",
+      "src_md5": "a93f2ae6c43c684ba5cdb38c6edb4382",
+      "quality": 70,
+      "bytes": 166351
+    },
+    "drill_c015_s02.heic": {
+      "src": "drill_c015_s02.png",
+      "src_md5": "6c3cb85637ba80a111985d5a532a8660",
+      "quality": 70,
+      "bytes": 166639
+    },
+    "drill_c015_s03.heic": {
+      "src": "drill_c015_s03.png",
+      "src_md5": "e770600591c0b8bd46301571f5c3c502",
+      "quality": 70,
+      "bytes": 164359
+    },
+    "drill_c015_s04.heic": {
+      "src": "drill_c015_s04.png",
+      "src_md5": "d1a1c4c1b9ec1010682ae67a427a2772",
+      "quality": 70,
+      "bytes": 166912
+    },
+    "drill_c015_s05.heic": {
+      "src": "drill_c015_s05.png",
+      "src_md5": "3cf710217a0f957e66565c356119f626",
+      "quality": 70,
+      "bytes": 168275
+    },
+    "drill_c015_s06.heic": {
+      "src": "drill_c015_s06.png",
+      "src_md5": "afaad67dff06fa2ae2679904fcadcc5d",
+      "quality": 70,
+      "bytes": 168963
+    },
+    "drill_c015_s07.heic": {
+      "src": "drill_c015_s07.png",
+      "src_md5": "c035e43a536ead2116ed0d8a997f021e",
+      "quality": 70,
+      "bytes": 168970
+    },
+    "drill_c015_s08.heic": {
+      "src": "drill_c015_s08.png",
+      "src_md5": "f2b15b2d2a0604e28adb0bb9c5dc3223",
+      "quality": 70,
+      "bytes": 169845
+    },
+    "drill_c016_initial.heic": {
+      "src": "drill_c016_initial.png",
+      "src_md5": "c5b4dfc3ecd63e3463bce169eb2120ec",
+      "quality": 70,
+      "bytes": 148367
+    },
+    "drill_c016_s01.heic": {
+      "src": "drill_c016_s01.png",
+      "src_md5": "2f968827e4dad948ef42436e45d9e3ed",
+      "quality": 70,
+      "bytes": 160329
+    },
+    "drill_c016_s02.heic": {
+      "src": "drill_c016_s02.png",
+      "src_md5": "354dfe78d4f29d6875bd0b326fedad3d",
+      "quality": 70,
+      "bytes": 160146
+    },
+    "drill_c016_s03.heic": {
+      "src": "drill_c016_s03.png",
+      "src_md5": "07df8126f52d8b40729fc1030f6a2e46",
+      "quality": 70,
+      "bytes": 160487
+    },
+    "drill_c016_s04.heic": {
+      "src": "drill_c016_s04.png",
+      "src_md5": "e2425461861d21b4a307603eda5ba6db",
+      "quality": 70,
+      "bytes": 160318
+    },
+    "drill_c016_s05.heic": {
+      "src": "drill_c016_s05.png",
+      "src_md5": "91b1553e97f1e7213eb55085241a716d",
+      "quality": 70,
+      "bytes": 160175
+    },
+    "drill_c016_s06.heic": {
+      "src": "drill_c016_s06.png",
+      "src_md5": "c0cf8292ed97437a1f3b9255743d110d",
+      "quality": 70,
+      "bytes": 160153
+    },
+    "drill_c017_initial.heic": {
+      "src": "drill_c017_initial.png",
+      "src_md5": "38e66ed54eab03f05e3a7ba6d4379697",
+      "quality": 70,
+      "bytes": 151374
+    },
+    "drill_c017_s01.heic": {
+      "src": "drill_c017_s01.png",
+      "src_md5": "ae37913f38e37d706ab7a8bf211fa9bc",
+      "quality": 70,
+      "bytes": 169173
+    },
+    "drill_c017_s02.heic": {
+      "src": "drill_c017_s02.png",
+      "src_md5": "031544ad1237b2430663b80f7cb1d772",
+      "quality": 70,
+      "bytes": 170407
+    },
+    "drill_c017_s03.heic": {
+      "src": "drill_c017_s03.png",
+      "src_md5": "601f253b3ce144b72ca4c758b503c38f",
+      "quality": 70,
+      "bytes": 170999
+    },
+    "drill_c017_s04.heic": {
+      "src": "drill_c017_s04.png",
+      "src_md5": "88277a616dd36f9179780406bf0f0d22",
+      "quality": 70,
+      "bytes": 172681
+    },
+    "drill_c017_s05.heic": {
+      "src": "drill_c017_s05.png",
+      "src_md5": "425b7638de57ca2d43a411303cad42af",
+      "quality": 70,
+      "bytes": 173019
+    },
+    "drill_c018_initial.heic": {
+      "src": "drill_c018_initial.png",
+      "src_md5": "a6f8d806f0fa00c5ce89d3a201a3214e",
+      "quality": 70,
+      "bytes": 148438
+    },
+    "drill_c018_s01.heic": {
+      "src": "drill_c018_s01.png",
+      "src_md5": "1b018a16dc9c16b46e102e44e301c83d",
+      "quality": 70,
+      "bytes": 162970
+    },
+    "drill_c018_s02.heic": {
+      "src": "drill_c018_s02.png",
+      "src_md5": "f40366f46f5c5d85146b1f42ae284483",
+      "quality": 70,
+      "bytes": 161806
+    },
+    "drill_c018_s03.heic": {
+      "src": "drill_c018_s03.png",
+      "src_md5": "aea6a20fb1147a8ee70177a3c83c3a16",
+      "quality": 70,
+      "bytes": 164445
+    },
+    "drill_c018_s04.heic": {
+      "src": "drill_c018_s04.png",
+      "src_md5": "f7ce73a26e7fc92c0046aac5a78759e8",
+      "quality": 70,
+      "bytes": 165622
+    },
+    "drill_c018_s05.heic": {
+      "src": "drill_c018_s05.png",
+      "src_md5": "f279d6e5fb8b9aec9d20983ff109a695",
+      "quality": 70,
+      "bytes": 166182
+    },
+    "drill_c018_s06.heic": {
+      "src": "drill_c018_s06.png",
+      "src_md5": "70fcc4e6f59b0946c063a533738a2515",
+      "quality": 70,
+      "bytes": 171109
+    },
+    "drill_c018_s07.heic": {
+      "src": "drill_c018_s07.png",
+      "src_md5": "f1ecc8ee2c910fa83b11fda0d789c3c7",
+      "quality": 70,
+      "bytes": 163199
+    },
+    "drill_c018_s08.heic": {
+      "src": "drill_c018_s08.png",
+      "src_md5": "6e5f96925506fa4cea6073d0d7956400",
+      "quality": 70,
+      "bytes": 165383
+    },
+    "drill_c018_s09.heic": {
+      "src": "drill_c018_s09.png",
+      "src_md5": "c02ab06739e8bddf45ce588f13f81d61",
+      "quality": 70,
+      "bytes": 164400
+    },
+    "drill_c020_initial.heic": {
+      "src": "drill_c020_initial.png",
+      "src_md5": "0ea49ec4bf560453a56f909f9210cd1b",
+      "quality": 70,
+      "bytes": 153306
+    },
+    "drill_c020_s01.heic": {
+      "src": "drill_c020_s01.png",
+      "src_md5": "8d037b8f58876c0574b5711c9e245c99",
+      "quality": 70,
+      "bytes": 170688
+    },
+    "drill_c020_s02.heic": {
+      "src": "drill_c020_s02.png",
+      "src_md5": "22c677319a15383772a02dab503ee916",
+      "quality": 70,
+      "bytes": 174108
+    },
+    "drill_c020_s03.heic": {
+      "src": "drill_c020_s03.png",
+      "src_md5": "6791faaa6a7a8730c35968df33146556",
+      "quality": 70,
+      "bytes": 169045
+    },
+    "drill_c020_s04.heic": {
+      "src": "drill_c020_s04.png",
+      "src_md5": "485c027c5dbe83a49de330bf7f7ddc46",
+      "quality": 70,
+      "bytes": 170052
+    },
+    "drill_c020_s05.heic": {
+      "src": "drill_c020_s05.png",
+      "src_md5": "d81b776da28938135486b1dcb529bdff",
+      "quality": 70,
+      "bytes": 168874
+    },
+    "drill_c020_s06.heic": {
+      "src": "drill_c020_s06.png",
+      "src_md5": "21988853cf9851aae2dfbacc2a01ecc0",
+      "quality": 70,
+      "bytes": 168064
+    },
+    "drill_c020_s07.heic": {
+      "src": "drill_c020_s07.png",
+      "src_md5": "642bbb20c8262250a09565088ce6c64d",
+      "quality": 70,
+      "bytes": 168208
+    },
+    "drill_c020_s08.heic": {
+      "src": "drill_c020_s08.png",
+      "src_md5": "e7ea597139798a19eee713f406db8766",
+      "quality": 70,
+      "bytes": 169095
+    },
+    "drill_c020_s09.heic": {
+      "src": "drill_c020_s09.png",
+      "src_md5": "857d451c405701cddfa1210ce22cb4a6",
+      "quality": 70,
+      "bytes": 165771
+    },
+    "drill_c020_s10.heic": {
+      "src": "drill_c020_s10.png",
+      "src_md5": "59243793f3154ce97c33dc8f5204e270",
+      "quality": 70,
+      "bytes": 167134
+    },
+    "drill_c020_s11.heic": {
+      "src": "drill_c020_s11.png",
+      "src_md5": "415e7a21b073e18d371fa13d4d49ea2b",
+      "quality": 70,
+      "bytes": 167585
+    },
+    "drill_c020_s12.heic": {
+      "src": "drill_c020_s12.png",
+      "src_md5": "1378c4c72d65b8fe1d569044895fa6fe",
+      "quality": 70,
+      "bytes": 169233
+    },
+    "drill_c020_s13.heic": {
+      "src": "drill_c020_s13.png",
+      "src_md5": "e85171b3c39461ce7115063dc42182ac",
+      "quality": 70,
+      "bytes": 169782
+    },
+    "drill_c020_s14.heic": {
+      "src": "drill_c020_s14.png",
+      "src_md5": "22b03f7c8e6c1cb6573da17ad88ac898",
+      "quality": 70,
+      "bytes": 170022
+    },
+    "drill_c020_s15.heic": {
+      "src": "drill_c020_s15.png",
+      "src_md5": "c6c9d84fffe73a146eb85c639dc2ab19",
+      "quality": 70,
+      "bytes": 171739
+    },
+    "drill_c020_s16.heic": {
+      "src": "drill_c020_s16.png",
+      "src_md5": "ea906dbc192cac6b078db94a105f3190",
+      "quality": 70,
+      "bytes": 170833
+    },
+    "drill_c021_initial.heic": {
+      "src": "drill_c021_initial.png",
+      "src_md5": "547a2f4e8bfc81dd54dcece177636b50",
+      "quality": 70,
+      "bytes": 151615
+    },
+    "drill_c021_s01.heic": {
+      "src": "drill_c021_s01.png",
+      "src_md5": "dfa452012dfbc66a5a97e3c40a970de0",
+      "quality": 70,
+      "bytes": 171794
+    },
+    "drill_c021_s02.heic": {
+      "src": "drill_c021_s02.png",
+      "src_md5": "0be07fc79d2b29cdecc8b6cdbee0b5d8",
+      "quality": 70,
+      "bytes": 170668
+    },
+    "drill_c021_s03.heic": {
+      "src": "drill_c021_s03.png",
+      "src_md5": "9715cfc3aca4258bf4845dd179c6df41",
+      "quality": 70,
+      "bytes": 169061
+    },
+    "drill_c021_s04.heic": {
+      "src": "drill_c021_s04.png",
+      "src_md5": "29afb07d2e7088f5c0b7b775609ebbc3",
+      "quality": 70,
+      "bytes": 168707
+    },
+    "drill_c021_s05.heic": {
+      "src": "drill_c021_s05.png",
+      "src_md5": "f142604beea419381318504b29d844d7",
+      "quality": 70,
+      "bytes": 170625
+    },
+    "drill_c021_s06.heic": {
+      "src": "drill_c021_s06.png",
+      "src_md5": "3bed17c2472dd774b5116eea418da2a3",
+      "quality": 70,
+      "bytes": 170024
+    },
+    "drill_c021_s07.heic": {
+      "src": "drill_c021_s07.png",
+      "src_md5": "80a37f2c13a9f49a01b7b37f710dd096",
+      "quality": 70,
+      "bytes": 167639
+    },
+    "drill_c021_s08.heic": {
+      "src": "drill_c021_s08.png",
+      "src_md5": "bbf919370f16a8a44f09dcae21ea3f4b",
+      "quality": 70,
+      "bytes": 165647
+    },
+    "drill_c021_s09.heic": {
+      "src": "drill_c021_s09.png",
+      "src_md5": "dd4d375c5d527422dd2f1f7e1f1c92e3",
+      "quality": 70,
+      "bytes": 166794
+    },
+    "drill_c021_s10.heic": {
+      "src": "drill_c021_s10.png",
+      "src_md5": "1d8f678cca2a2195df039a85a9ca4dd9",
+      "quality": 70,
+      "bytes": 166795
+    },
+    "drill_c021_s11.heic": {
+      "src": "drill_c021_s11.png",
+      "src_md5": "b02a17b4b3ad7e53348dd4574f0966ad",
+      "quality": 70,
+      "bytes": 165897
+    },
+    "drill_c021_s12.heic": {
+      "src": "drill_c021_s12.png",
+      "src_md5": "5ebf03669920666de0dadfccef3ef76d",
+      "quality": 70,
+      "bytes": 166145
+    },
+    "drill_c022_Snipaste_2026_06_02_00_19_36_initial.heic": {
+      "src": "drill_c022_Snipaste_2026_06_02_00_19_36_initial.png",
+      "src_md5": "b65b9c5e87f209e58adefcee924da6cf",
+      "quality": 70,
+      "bytes": 148481
+    },
+    "drill_c022_Snipaste_2026_06_02_00_19_36_s01.heic": {
+      "src": "drill_c022_Snipaste_2026_06_02_00_19_36_s01.png",
+      "src_md5": "bc6546be81119ea6a6da86ba9f77519a",
+      "quality": 70,
+      "bytes": 163937
+    },
+    "drill_c022_Snipaste_2026_06_02_00_22_05_initial.heic": {
+      "src": "drill_c022_Snipaste_2026_06_02_00_22_05_initial.png",
+      "src_md5": "4faec16623c04d66c74720cd6ead6e6a",
+      "quality": 70,
+      "bytes": 148405
+    },
+    "drill_c022_Snipaste_2026_06_02_00_22_05_s01.heic": {
+      "src": "drill_c022_Snipaste_2026_06_02_00_22_05_s01.png",
+      "src_md5": "c46911cc96cf952437a2d57a47ad7376",
+      "quality": 70,
+      "bytes": 165819
+    },
+    "drill_c022_Snipaste_2026_06_02_00_22_05_s02.heic": {
+      "src": "drill_c022_Snipaste_2026_06_02_00_22_05_s02.png",
+      "src_md5": "c5ba70258e9f81b05b083db280197562",
+      "quality": 70,
+      "bytes": 167270
+    },
+    "drill_c023_manual01_initial.heic": {
+      "src": "drill_c023_manual01_initial.png",
+      "src_md5": "bb8ff3d43f30d1538fa6212053c10c15",
+      "quality": 70,
+      "bytes": 148636
+    },
+    "drill_c023_manual01_s01.heic": {
+      "src": "drill_c023_manual01_s01.png",
+      "src_md5": "5534e5dd3cb4b672e196c455e613ced6",
+      "quality": 70,
+      "bytes": 166234
+    },
+    "drill_c023_manual01_s02.heic": {
+      "src": "drill_c023_manual01_s02.png",
+      "src_md5": "fbe228bcb49e9689bcdcf175256afbd7",
+      "quality": 70,
+      "bytes": 165586
+    },
+    "drill_c023_manual01_s03.heic": {
+      "src": "drill_c023_manual01_s03.png",
+      "src_md5": "b02982493c356daa8f1b663d5f56d6a0",
+      "quality": 70,
+      "bytes": 170101
+    },
+    "drill_c023_manual01_s04.heic": {
+      "src": "drill_c023_manual01_s04.png",
+      "src_md5": "6090531760e6c1019b0d6ab3616a64a6",
+      "quality": 70,
+      "bytes": 168374
+    },
+    "drill_c023_manual01_s05.heic": {
+      "src": "drill_c023_manual01_s05.png",
+      "src_md5": "ac9a19b19d886964fc4f3682800498b4",
+      "quality": 70,
+      "bytes": 166037
+    },
+    "drill_c023_manual01_s06.heic": {
+      "src": "drill_c023_manual01_s06.png",
+      "src_md5": "68c6f181edbb15bdb5ecf732202c1cda",
+      "quality": 70,
+      "bytes": 166480
+    },
+    "drill_c023_manual01_s07.heic": {
+      "src": "drill_c023_manual01_s07.png",
+      "src_md5": "0eea116a1759724968a64b1755d0d330",
+      "quality": 70,
+      "bytes": 166062
+    },
+    "drill_c023_manual01_s08.heic": {
+      "src": "drill_c023_manual01_s08.png",
+      "src_md5": "d3032241d0207ff9f6c0316e3b6ec269",
+      "quality": 70,
+      "bytes": 166820
+    },
+    "drill_c024_manual01_initial.heic": {
+      "src": "drill_c024_manual01_initial.png",
+      "src_md5": "e1810b83137720743b9b34b12ecf9165",
+      "quality": 70,
+      "bytes": 151753
+    },
+    "drill_c024_manual01_s01.heic": {
+      "src": "drill_c024_manual01_s01.png",
+      "src_md5": "bf5543424cbb98691141b17e358d8a25",
+      "quality": 70,
+      "bytes": 166008
+    },
+    "drill_c024_manual01_s02.heic": {
+      "src": "drill_c024_manual01_s02.png",
+      "src_md5": "91e1abdb4fba1293adfb26da57254fc9",
+      "quality": 70,
+      "bytes": 169064
+    },
+    "drill_c024_manual01_s03.heic": {
+      "src": "drill_c024_manual01_s03.png",
+      "src_md5": "661341ca3a7297a067cb83f9cc8af7da",
+      "quality": 70,
+      "bytes": 170277
+    },
+    "drill_c024_manual01_s04.heic": {
+      "src": "drill_c024_manual01_s04.png",
+      "src_md5": "d30337f20f66c8b259b192b71d1c757d",
+      "quality": 70,
+      "bytes": 171994
+    },
+    "drill_c024_manual01_s05.heic": {
+      "src": "drill_c024_manual01_s05.png",
+      "src_md5": "a1467946e316d57818e095bbc26be7e0",
+      "quality": 70,
+      "bytes": 172607
+    },
+    "drill_c024_manual01_s06.heic": {
+      "src": "drill_c024_manual01_s06.png",
+      "src_md5": "23934e49f6b743024a80b618791b83ad",
+      "quality": 70,
+      "bytes": 173759
+    },
+    "drill_c025_manual01_initial.heic": {
+      "src": "drill_c025_manual01_initial.png",
+      "src_md5": "8d82dccc210fd264805a4b5e5608aced",
+      "quality": 70,
+      "bytes": 151172
+    },
+    "drill_c025_manual01_s01.heic": {
+      "src": "drill_c025_manual01_s01.png",
+      "src_md5": "ba914fcad76310a2ffd698e4a0af5101",
+      "quality": 70,
+      "bytes": 176541
+    },
+    "drill_c025_manual01_s02.heic": {
+      "src": "drill_c025_manual01_s02.png",
+      "src_md5": "c12a354b5dcf0325914686718a072de1",
+      "quality": 70,
+      "bytes": 178126
+    },
+    "drill_c025_manual01_s03.heic": {
+      "src": "drill_c025_manual01_s03.png",
+      "src_md5": "b36288ae58ba00c7b9faefab3c0d214d",
+      "quality": 70,
+      "bytes": 177048
+    },
+    "drill_c025_manual01_s04.heic": {
+      "src": "drill_c025_manual01_s04.png",
+      "src_md5": "9688ea34aec539b8bdf2a7da4875396b",
+      "quality": 70,
+      "bytes": 177667
+    },
+    "drill_c025_manual01_s05.heic": {
+      "src": "drill_c025_manual01_s05.png",
+      "src_md5": "c8b14c1415e85ddeb9a0a15613ff3a7b",
+      "quality": 70,
+      "bytes": 176845
+    },
+    "drill_c025_manual01_s06.heic": {
+      "src": "drill_c025_manual01_s06.png",
+      "src_md5": "7353254c6f04557772236c8cd7de82bd",
+      "quality": 70,
+      "bytes": 174499
+    },
+    "drill_c025_manual02_initial.heic": {
+      "src": "drill_c025_manual02_initial.png",
+      "src_md5": "d8c6c1a67941a16a2d2e3bf97af510a8",
+      "quality": 70,
+      "bytes": 152665
+    },
+    "drill_c025_manual02_s01.heic": {
+      "src": "drill_c025_manual02_s01.png",
+      "src_md5": "0ee47faeb8983ab2549385bfd5184148",
+      "quality": 70,
+      "bytes": 177945
+    },
+    "drill_c025_manual02_s02.heic": {
+      "src": "drill_c025_manual02_s02.png",
+      "src_md5": "2b0a0d3549866a59ddd29277c4414870",
+      "quality": 70,
+      "bytes": 177373
+    },
+    "drill_c025_manual02_s03.heic": {
+      "src": "drill_c025_manual02_s03.png",
+      "src_md5": "688a2de5dd1b7292ee4edaac6433620c",
+      "quality": 70,
+      "bytes": 176407
+    },
+    "drill_c025_manual02_s04.heic": {
+      "src": "drill_c025_manual02_s04.png",
+      "src_md5": "6e0f05496b604796b40db8ec92e44b7d",
+      "quality": 70,
+      "bytes": 177461
+    },
+    "drill_c025_manual02_s05.heic": {
+      "src": "drill_c025_manual02_s05.png",
+      "src_md5": "0e2bebf7fb0161d58d96dc08ba2f1c80",
+      "quality": 70,
+      "bytes": 177331
+    },
+    "drill_c025_manual02_s06.heic": {
+      "src": "drill_c025_manual02_s06.png",
+      "src_md5": "6f8663791abb8783dbd80a3e9fe5db1e",
+      "quality": 70,
+      "bytes": 176345
+    },
+    "drill_c025_manual02_s07.heic": {
+      "src": "drill_c025_manual02_s07.png",
+      "src_md5": "f5ca95925e86fee0b9058b2faba6ea2e",
+      "quality": 70,
+      "bytes": 173826
+    },
+    "drill_c026_manual01_initial.heic": {
+      "src": "drill_c026_manual01_initial.png",
+      "src_md5": "313b88d2588223ee27503809f99197ae",
+      "quality": 70,
+      "bytes": 151033
+    },
+    "drill_c026_manual01_s01.heic": {
+      "src": "drill_c026_manual01_s01.png",
+      "src_md5": "72d536fa1135224f8cb48228ccbd7115",
+      "quality": 70,
+      "bytes": 168942
+    },
+    "drill_c026_manual01_s02.heic": {
+      "src": "drill_c026_manual01_s02.png",
+      "src_md5": "fa449051adb2fcbccfa74c9f0b628b96",
+      "quality": 70,
+      "bytes": 164090
+    },
+    "drill_c026_manual01_s03.heic": {
+      "src": "drill_c026_manual01_s03.png",
+      "src_md5": "288a1ec1bac1afb2c6d2a55160528d9c",
+      "quality": 70,
+      "bytes": 160965
+    },
+    "drill_c026_manual01_s04.heic": {
+      "src": "drill_c026_manual01_s04.png",
+      "src_md5": "78ee034295f531de929ee82bebeea7dd",
+      "quality": 70,
+      "bytes": 165064
+    },
+    "drill_c026_manual01_s05.heic": {
+      "src": "drill_c026_manual01_s05.png",
+      "src_md5": "01daf734540266a42e5a0bbd64013a40",
+      "quality": 70,
+      "bytes": 168067
+    },
+    "drill_c026_manual02_initial.heic": {
+      "src": "drill_c026_manual02_initial.png",
+      "src_md5": "47a80cb609af7a4395a1f07ac47a69dc",
+      "quality": 70,
+      "bytes": 148499
+    },
+    "drill_c026_manual02_s01.heic": {
+      "src": "drill_c026_manual02_s01.png",
+      "src_md5": "2930b6525d669c168a87c5633b381637",
+      "quality": 70,
+      "bytes": 166012
+    },
+    "drill_c026_manual02_s02.heic": {
+      "src": "drill_c026_manual02_s02.png",
+      "src_md5": "78734f996f2de1a3bea434957deee730",
+      "quality": 70,
+      "bytes": 165981
+    },
+    "drill_c026_manual02_s03.heic": {
+      "src": "drill_c026_manual02_s03.png",
+      "src_md5": "de63bc8848cbaa296b2c717279a89f0f",
+      "quality": 70,
+      "bytes": 169345
+    },
+    "drill_c026_manual02_s04.heic": {
+      "src": "drill_c026_manual02_s04.png",
+      "src_md5": "93fda278f7cec4c69910aa56da434b49",
+      "quality": 70,
+      "bytes": 172450
+    },
+    "drill_c026_manual02_s05.heic": {
+      "src": "drill_c026_manual02_s05.png",
+      "src_md5": "f2db2e9909956c079f5f04cd49aac891",
+      "quality": 70,
+      "bytes": 173436
+    },
+    "drill_c026_manual02_s06.heic": {
+      "src": "drill_c026_manual02_s06.png",
+      "src_md5": "7f0bd56dc42b2efed513f8b53bb150ab",
+      "quality": 70,
+      "bytes": 174058
+    },
+    "drill_c026_manual02_s07.heic": {
+      "src": "drill_c026_manual02_s07.png",
+      "src_md5": "d43856adaab8f792379c03f151ad1eff",
+      "quality": 70,
+      "bytes": 181952
+    },
+    "drill_c026_manual03_initial.heic": {
+      "src": "drill_c026_manual03_initial.png",
+      "src_md5": "445379b9ce0dc50f8753719785d456ae",
+      "quality": 70,
+      "bytes": 148794
+    },
+    "drill_c026_manual03_s01.heic": {
+      "src": "drill_c026_manual03_s01.png",
+      "src_md5": "23349d5bd9c382c6337059d665ff96d6",
+      "quality": 70,
+      "bytes": 175181
+    },
+    "drill_c026_manual03_s02.heic": {
+      "src": "drill_c026_manual03_s02.png",
+      "src_md5": "90c7b4175a515f5e82ab5e96418d40ff",
+      "quality": 70,
+      "bytes": 177287
+    },
+    "drill_c026_manual03_s03.heic": {
+      "src": "drill_c026_manual03_s03.png",
+      "src_md5": "8aeac1a8245d484a8fec605ad5da0ee8",
+      "quality": 70,
+      "bytes": 173204
+    },
+    "drill_c026_manual03_s04.heic": {
+      "src": "drill_c026_manual03_s04.png",
+      "src_md5": "cc798cf81e9d37ff918dce2707ee535e",
+      "quality": 70,
+      "bytes": 170041
+    },
+    "drill_c026_manual03_s05.heic": {
+      "src": "drill_c026_manual03_s05.png",
+      "src_md5": "576a3d0cc192b62cea45ba853da233c8",
+      "quality": 70,
+      "bytes": 170215
+    },
+    "drill_c027_initial.heic": {
+      "src": "drill_c027_initial.png",
+      "src_md5": "1f79c51623e6b28f39094196aad3c1f5",
+      "quality": 70,
+      "bytes": 148642
+    },
+    "drill_c027_s01.heic": {
+      "src": "drill_c027_s01.png",
+      "src_md5": "b8a8fe928505574d33735a172445fe2c",
+      "quality": 70,
+      "bytes": 166345
+    },
+    "drill_c027_s02.heic": {
+      "src": "drill_c027_s02.png",
+      "src_md5": "75b4dd894b7f431e13160f6019119db1",
+      "quality": 70,
+      "bytes": 168402
+    },
+    "drill_c027_s03.heic": {
+      "src": "drill_c027_s03.png",
+      "src_md5": "9056b7aad2b28af9215bcee08a0056cb",
+      "quality": 70,
+      "bytes": 168675
+    },
+    "drill_c027_s04.heic": {
+      "src": "drill_c027_s04.png",
+      "src_md5": "42323b958cd48bb46a93beee38cf2c8c",
+      "quality": 70,
+      "bytes": 168093
+    },
+    "drill_c028_initial.heic": {
+      "src": "drill_c028_initial.png",
+      "src_md5": "148cec85962680b47e440d0f5671448d",
+      "quality": 70,
+      "bytes": 148665
+    },
+    "drill_c028_s01.heic": {
+      "src": "drill_c028_s01.png",
+      "src_md5": "920bc4cd3384aff6a0786d6de3bb130a",
+      "quality": 70,
+      "bytes": 169449
+    },
+    "drill_c028_s02.heic": {
+      "src": "drill_c028_s02.png",
+      "src_md5": "e7446ab16cc083e1fb3c5deec1bffa7b",
+      "quality": 70,
+      "bytes": 167166
+    },
+    "drill_c028_s03.heic": {
+      "src": "drill_c028_s03.png",
+      "src_md5": "2c9dcd9022edf87c84b339cb913aeed4",
+      "quality": 70,
+      "bytes": 167367
+    },
+    "drill_c028_s04.heic": {
+      "src": "drill_c028_s04.png",
+      "src_md5": "c14717d758bea58b3e021033af96b884",
+      "quality": 70,
+      "bytes": 166332
+    },
+    "drill_c029_initial.heic": {
+      "src": "drill_c029_initial.png",
+      "src_md5": "563001aec11c976950a75aa3f9d05705",
+      "quality": 70,
+      "bytes": 151490
+    },
+    "drill_c029_s01.heic": {
+      "src": "drill_c029_s01.png",
+      "src_md5": "94c189af24996b2c9fe9fd3e7609389c",
+      "quality": 70,
+      "bytes": 167834
+    },
+    "drill_c029_s02.heic": {
+      "src": "drill_c029_s02.png",
+      "src_md5": "bd7ba6dd9e3bc00ec7e2b38365790b7c",
+      "quality": 70,
+      "bytes": 165662
+    },
+    "drill_c029_s03.heic": {
+      "src": "drill_c029_s03.png",
+      "src_md5": "0b07f0613c306b8a9158d0d9392ef27d",
+      "quality": 70,
+      "bytes": 161924
+    },
+    "drill_c029_s04.heic": {
+      "src": "drill_c029_s04.png",
+      "src_md5": "eeb4531caea969187f55726dbdb7b99d",
+      "quality": 70,
+      "bytes": 161222
+    },
+    "drill_c029_s05.heic": {
+      "src": "drill_c029_s05.png",
+      "src_md5": "429f63d90c224ea5e983e30b04ebd970",
+      "quality": 70,
+      "bytes": 164323
+    },
+    "drill_c029_s06.heic": {
+      "src": "drill_c029_s06.png",
+      "src_md5": "7f66a19a93cc176e3b25c80c0148146b",
+      "quality": 70,
+      "bytes": 164491
+    },
+    "drill_c030_initial.heic": {
+      "src": "drill_c030_initial.png",
+      "src_md5": "ae736f842075818f316412fe2ff354c9",
+      "quality": 70,
+      "bytes": 148858
+    },
+    "drill_c030_s01.heic": {
+      "src": "drill_c030_s01.png",
+      "src_md5": "db3cac10ed42d5e48401b7656bced897",
+      "quality": 70,
+      "bytes": 164858
+    },
+    "drill_c030_s02.heic": {
+      "src": "drill_c030_s02.png",
+      "src_md5": "853973335ff70fe95f5c88fd31644a29",
+      "quality": 70,
+      "bytes": 164956
+    },
+    "drill_c030_s03.heic": {
+      "src": "drill_c030_s03.png",
+      "src_md5": "2cc11035d08813d9fc48f884f7ff22ce",
+      "quality": 70,
+      "bytes": 168922
+    },
+    "drill_c030_s04.heic": {
+      "src": "drill_c030_s04.png",
+      "src_md5": "f8769207e0c11fdcc8482c2e6f3e3d44",
+      "quality": 70,
+      "bytes": 169340
+    },
+    "drill_c030_s05.heic": {
+      "src": "drill_c030_s05.png",
+      "src_md5": "a5e70ffd45ef6d3ab8077ffc54e6ffca",
+      "quality": 70,
+      "bytes": 173569
+    },
+    "drill_c031_initial.heic": {
+      "src": "drill_c031_initial.png",
+      "src_md5": "676343862553bb8f042a3fa33f8351d1",
+      "quality": 70,
+      "bytes": 156295
+    },
+    "drill_c031_s01.heic": {
+      "src": "drill_c031_s01.png",
+      "src_md5": "06316b2586433b5b5bb9d01933b48c83",
+      "quality": 70,
+      "bytes": 175033
+    },
+    "drill_c031_s02.heic": {
+      "src": "drill_c031_s02.png",
+      "src_md5": "00d0d0c547e009dc718d0a2a12235419",
+      "quality": 70,
+      "bytes": 172086
+    },
+    "drill_c031_s03.heic": {
+      "src": "drill_c031_s03.png",
+      "src_md5": "76927d2855c5e0d2f681b8750299f6d2",
+      "quality": 70,
+      "bytes": 171460
+    },
+    "drill_c031_s04.heic": {
+      "src": "drill_c031_s04.png",
+      "src_md5": "967478ffbaf2d735a9cff6fc76259eaf",
+      "quality": 70,
+      "bytes": 169996
+    },
+    "drill_c031_s05.heic": {
+      "src": "drill_c031_s05.png",
+      "src_md5": "4f80828c98a87d3e8bbe70343db99205",
+      "quality": 70,
+      "bytes": 169760
+    },
+    "drill_c031_s06.heic": {
+      "src": "drill_c031_s06.png",
+      "src_md5": "9abbe611a25a43c6ef6afb836428ab27",
+      "quality": 70,
+      "bytes": 167783
+    },
+    "drill_c031_s07.heic": {
+      "src": "drill_c031_s07.png",
+      "src_md5": "6a4491931017a9f9f10e85b3d4e93a86",
+      "quality": 70,
+      "bytes": 169301
+    },
+    "drill_c031_s08.heic": {
+      "src": "drill_c031_s08.png",
+      "src_md5": "e0e3afd64f5d739c23f9e0129f67d5c0",
+      "quality": 70,
+      "bytes": 169751
+    },
+    "drill_c031_s09.heic": {
+      "src": "drill_c031_s09.png",
+      "src_md5": "47a3a10380622d3ff2d9fc882c8f2a95",
+      "quality": 70,
+      "bytes": 169473
+    },
+    "drill_c031_s10.heic": {
+      "src": "drill_c031_s10.png",
+      "src_md5": "6ae0038b71c042315b2952a09497426b",
+      "quality": 70,
+      "bytes": 168743
+    },
+    "drill_c031_s11.heic": {
+      "src": "drill_c031_s11.png",
+      "src_md5": "79ef08531a7cd84b23c91c6d5b76ae0c",
+      "quality": 70,
+      "bytes": 167607
+    },
+    "drill_c031_s12.heic": {
+      "src": "drill_c031_s12.png",
+      "src_md5": "49bfe35cc1290912f2ea9ab1379d2346",
+      "quality": 70,
+      "bytes": 166347
+    },
+    "drill_c031_s13.heic": {
+      "src": "drill_c031_s13.png",
+      "src_md5": "b1ccba5e573e2147829faf1a614aeb41",
+      "quality": 70,
+      "bytes": 165710
+    },
+    "drill_c032_initial.heic": {
+      "src": "drill_c032_initial.png",
+      "src_md5": "f0591b282f58a014e967894739800929",
+      "quality": 70,
+      "bytes": 152015
+    },
+    "drill_c032_s01.heic": {
+      "src": "drill_c032_s01.png",
+      "src_md5": "0ef05cab83ea3d51db90c56dfa7da5e2",
+      "quality": 70,
+      "bytes": 177617
+    },
+    "drill_c032_s02.heic": {
+      "src": "drill_c032_s02.png",
+      "src_md5": "4c4370dbaf9456dab0b9d7a0571c3bd9",
+      "quality": 70,
+      "bytes": 178068
+    },
+    "drill_c032_s03.heic": {
+      "src": "drill_c032_s03.png",
+      "src_md5": "49004e6a166419cc19b07ab6694c3c37",
+      "quality": 70,
+      "bytes": 175450
+    },
+    "drill_c032_s04.heic": {
+      "src": "drill_c032_s04.png",
+      "src_md5": "b2287eabaea23accfe178b7586fbc4aa",
+      "quality": 70,
+      "bytes": 177309
+    },
+    "drill_c032_s05.heic": {
+      "src": "drill_c032_s05.png",
+      "src_md5": "9f28c3ec3e76176a003312c4445ee95f",
+      "quality": 70,
+      "bytes": 179214
+    },
+    "drill_c032_s06.heic": {
+      "src": "drill_c032_s06.png",
+      "src_md5": "265a299338efa1a9b93e89447f1444f0",
+      "quality": 70,
+      "bytes": 180235
+    },
+    "drill_c032_s07.heic": {
+      "src": "drill_c032_s07.png",
+      "src_md5": "50558f123db0e620630da30b3a767c62",
+      "quality": 70,
+      "bytes": 180282
+    },
+    "drill_c033_initial.heic": {
+      "src": "drill_c033_initial.png",
+      "src_md5": "11d538a4fb64711734b76afff2a216ef",
+      "quality": 70,
+      "bytes": 152289
+    },
+    "drill_c033_s01.heic": {
+      "src": "drill_c033_s01.png",
+      "src_md5": "015ce7dc7e1fd0827016e75cf4980b02",
+      "quality": 70,
+      "bytes": 178360
+    },
+    "drill_c033_s02.heic": {
+      "src": "drill_c033_s02.png",
+      "src_md5": "e736440c35b1f8bf83c04f19bd842e15",
+      "quality": 70,
+      "bytes": 180708
+    },
+    "drill_c033_s03.heic": {
+      "src": "drill_c033_s03.png",
+      "src_md5": "76cdeb8f3ab0d5d0d34de17380cde124",
+      "quality": 70,
+      "bytes": 181430
+    },
+    "drill_c033_s04.heic": {
+      "src": "drill_c033_s04.png",
+      "src_md5": "3035d627f37b9ece0b986b72a846fe83",
+      "quality": 70,
+      "bytes": 181056
+    },
+    "drill_c033_s05.heic": {
+      "src": "drill_c033_s05.png",
+      "src_md5": "b4735b368028c2c0bbe73f835f2d0d4a",
+      "quality": 70,
+      "bytes": 181166
+    },
+    "drill_c033_s06.heic": {
+      "src": "drill_c033_s06.png",
+      "src_md5": "b4390fb0fd41d32fb269b0026d69dd19",
+      "quality": 70,
+      "bytes": 181141
+    },
+    "drill_c033_s07.heic": {
+      "src": "drill_c033_s07.png",
+      "src_md5": "5c4c7dfdbfdd968daec1429424d45601",
+      "quality": 70,
+      "bytes": 178803
+    },
+    "drill_c033_s08.heic": {
+      "src": "drill_c033_s08.png",
+      "src_md5": "5602d841d19e01a9b676574b4cd16670",
+      "quality": 70,
+      "bytes": 178708
+    },
+    "drill_c034_initial.heic": {
+      "src": "drill_c034_initial.png",
+      "src_md5": "c28ecec430172d06e76f8e837e2a3d10",
+      "quality": 70,
+      "bytes": 149347
+    },
+    "drill_c034_s01.heic": {
+      "src": "drill_c034_s01.png",
+      "src_md5": "149a3237fc99498f65ff443426b4c874",
+      "quality": 70,
+      "bytes": 164626
+    },
+    "drill_c034_s02.heic": {
+      "src": "drill_c034_s02.png",
+      "src_md5": "5a3bfcd2e43712df31af1867d8c53732",
+      "quality": 70,
+      "bytes": 162866
+    },
+    "drill_c034_s03.heic": {
+      "src": "drill_c034_s03.png",
+      "src_md5": "0b5af6a1293ee4256cff9c1e92ed9d2e",
+      "quality": 70,
+      "bytes": 166113
+    },
+    "drill_c034_s04.heic": {
+      "src": "drill_c034_s04.png",
+      "src_md5": "18feb0a6d39aec46f17ff07deccf016c",
+      "quality": 70,
+      "bytes": 165859
+    },
+    "drill_c034_s05.heic": {
+      "src": "drill_c034_s05.png",
+      "src_md5": "d8356f766bf39bf98da768391ba5ef41",
+      "quality": 70,
+      "bytes": 164034
+    },
+    "drill_c035_initial.heic": {
+      "src": "drill_c035_initial.png",
+      "src_md5": "7f034cd44d58894c468bff02bed9576e",
+      "quality": 70,
+      "bytes": 148936
+    },
+    "drill_c035_s01.heic": {
+      "src": "drill_c035_s01.png",
+      "src_md5": "b90f6ad41f320086aba2682a5a8f642f",
+      "quality": 70,
+      "bytes": 169151
+    },
+    "drill_c035_s02.heic": {
+      "src": "drill_c035_s02.png",
+      "src_md5": "c676256a542aece627fef2cc1ef0be21",
+      "quality": 70,
+      "bytes": 169125
+    },
+    "drill_c035_s03.heic": {
+      "src": "drill_c035_s03.png",
+      "src_md5": "a5734c8d506df688f8d3d37b9642b79b",
+      "quality": 70,
+      "bytes": 169041
+    },
+    "drill_c035_s04.heic": {
+      "src": "drill_c035_s04.png",
+      "src_md5": "7373af7228311b280a1517b5e5998089",
+      "quality": 70,
+      "bytes": 169737
+    },
+    "drill_c035_s05.heic": {
+      "src": "drill_c035_s05.png",
+      "src_md5": "af4797ae5967e24e57d91b7ba6cc5ebb",
+      "quality": 70,
+      "bytes": 171498
+    },
+    "drill_c035_s06.heic": {
+      "src": "drill_c035_s06.png",
+      "src_md5": "c9c3d2a89b345614beff0d9ea3d635ca",
+      "quality": 70,
+      "bytes": 168694
+    },
+    "drill_c035_s07.heic": {
+      "src": "drill_c035_s07.png",
+      "src_md5": "23fb4eea97f7ea1ac401c67cd3c19abc",
+      "quality": 70,
+      "bytes": 166691
+    },
+    "drill_c035_s08.heic": {
+      "src": "drill_c035_s08.png",
+      "src_md5": "8a0e960e4e99a38dcd91fe7eb944b24d",
+      "quality": 70,
+      "bytes": 163983
+    },
+    "drill_c036_initial.heic": {
+      "src": "drill_c036_initial.png",
+      "src_md5": "a3a9a8d12cc09986ed3d3066764a7353",
+      "quality": 70,
+      "bytes": 148933
+    },
+    "drill_c036_s01.heic": {
+      "src": "drill_c036_s01.png",
+      "src_md5": "d0fdeed7df28cef4f5d464eb85a475fa",
+      "quality": 70,
+      "bytes": 169822
+    },
+    "drill_c036_s02.heic": {
+      "src": "drill_c036_s02.png",
+      "src_md5": "c87c7af98aa9dc0f10c4d1d6ae22c1b1",
+      "quality": 70,
+      "bytes": 170062
+    },
+    "drill_c036_s03.heic": {
+      "src": "drill_c036_s03.png",
+      "src_md5": "66611c2fcb4cd1c5f689f73cddeb7dd4",
+      "quality": 70,
+      "bytes": 168989
+    },
+    "drill_c036_s04.heic": {
+      "src": "drill_c036_s04.png",
+      "src_md5": "f1b7ef559d8ac06839be63beae5db682",
+      "quality": 70,
+      "bytes": 164338
+    },
+    "drill_c036_s05.heic": {
+      "src": "drill_c036_s05.png",
+      "src_md5": "ce2790b5918d86421b55ac87c575aee0",
+      "quality": 70,
+      "bytes": 166782
+    },
+    "drill_c036_s06.heic": {
+      "src": "drill_c036_s06.png",
+      "src_md5": "508cbba5151babe1232cdefac03f37f7",
+      "quality": 70,
+      "bytes": 171436
+    },
+    "drill_c036_s07.heic": {
+      "src": "drill_c036_s07.png",
+      "src_md5": "7c2dff154d8af89451125dfa1b2c28ea",
+      "quality": 70,
+      "bytes": 166601
+    },
+    "drill_c036_s08.heic": {
+      "src": "drill_c036_s08.png",
+      "src_md5": "7f87375deee02bc7c0651570a2cefa02",
+      "quality": 70,
+      "bytes": 167563
+    },
+    "drill_c036_s09.heic": {
+      "src": "drill_c036_s09.png",
+      "src_md5": "8bcdefdf1360afe3cb3d399bb006a743",
+      "quality": 70,
+      "bytes": 169202
+    },
+    "drill_c037_initial.heic": {
+      "src": "drill_c037_initial.png",
+      "src_md5": "597abd9c0c53a080e247034d7a0ccc7b",
+      "quality": 70,
+      "bytes": 149211
+    },
+    "drill_c037_s01.heic": {
+      "src": "drill_c037_s01.png",
+      "src_md5": "e0b5486d2419ea315b1746dcacc313da",
+      "quality": 70,
+      "bytes": 165821
+    },
+    "drill_c037_s02.heic": {
+      "src": "drill_c037_s02.png",
+      "src_md5": "a050421708c910ec6db6df3e9efa57bf",
+      "quality": 70,
+      "bytes": 165342
+    },
+    "drill_c037_s03.heic": {
+      "src": "drill_c037_s03.png",
+      "src_md5": "30378ddf8590779b656b3e01bd612cff",
+      "quality": 70,
+      "bytes": 169535
+    },
+    "drill_c038_initial.heic": {
+      "src": "drill_c038_initial.png",
+      "src_md5": "07ffd47f68bfd09708828080d383c7c7",
+      "quality": 70,
+      "bytes": 149212
+    },
+    "drill_c038_s01.heic": {
+      "src": "drill_c038_s01.png",
+      "src_md5": "0b9d8357831d1da03ee9a25e3cbdd48b",
+      "quality": 70,
+      "bytes": 171367
+    },
+    "drill_c038_s02.heic": {
+      "src": "drill_c038_s02.png",
+      "src_md5": "bbf8022113c2bddbcd4145f583ae9abb",
+      "quality": 70,
+      "bytes": 171973
+    },
+    "drill_c038_s03.heic": {
+      "src": "drill_c038_s03.png",
+      "src_md5": "7b292ecf33516935de2c9e41390c09f3",
+      "quality": 70,
+      "bytes": 166401
+    },
+    "drill_c038_s04.heic": {
+      "src": "drill_c038_s04.png",
+      "src_md5": "7c1ea792ea450b22de26cdf87d4db492",
+      "quality": 70,
+      "bytes": 168922
+    },
+    "drill_c038_s05.heic": {
+      "src": "drill_c038_s05.png",
+      "src_md5": "0ce76c78719869d5f05cbb9ec5db3249",
+      "quality": 70,
+      "bytes": 168885
+    },
+    "drill_c038_s06.heic": {
+      "src": "drill_c038_s06.png",
+      "src_md5": "8df4dd788b0c31bcdfc671528a8cee36",
+      "quality": 70,
+      "bytes": 172202
+    },
+    "drill_c038_s07.heic": {
+      "src": "drill_c038_s07.png",
+      "src_md5": "bcc6e73bc5895f7ba8a6b4d230628348",
+      "quality": 70,
+      "bytes": 176048
+    },
+    "drill_c038_s08.heic": {
+      "src": "drill_c038_s08.png",
+      "src_md5": "309c4a863b2ad06c30a1864c3e21411f",
+      "quality": 70,
+      "bytes": 169656
+    },
+    "drill_c038_s09.heic": {
+      "src": "drill_c038_s09.png",
+      "src_md5": "9d09956f7d5f2a731045e316a2fc418a",
+      "quality": 70,
+      "bytes": 174841
+    },
+    "drill_c038_s10.heic": {
+      "src": "drill_c038_s10.png",
+      "src_md5": "710d3b7d90a955cbe3403c5ae34b75e8",
+      "quality": 70,
+      "bytes": 176335
+    },
+    "drill_c038_s11.heic": {
+      "src": "drill_c038_s11.png",
+      "src_md5": "e837f98ebddf96dc5c7ea7b58f267d62",
+      "quality": 70,
+      "bytes": 170891
+    },
+    "drill_c038_s12.heic": {
+      "src": "drill_c038_s12.png",
+      "src_md5": "3900864425fca816256044f26d4cf8c2",
+      "quality": 70,
+      "bytes": 175983
+    },
+    "drill_c039_initial.heic": {
+      "src": "drill_c039_initial.png",
+      "src_md5": "1e53f0c5758c393875d9541145ebc2ba",
+      "quality": 70,
+      "bytes": 153053
+    },
+    "drill_c039_s01.heic": {
+      "src": "drill_c039_s01.png",
+      "src_md5": "6b7df2df2d7759e815829a2b9d17dca4",
+      "quality": 70,
+      "bytes": 166031
+    },
+    "drill_c039_s02.heic": {
+      "src": "drill_c039_s02.png",
+      "src_md5": "f8acf0a2fa6ce551d548ffd6eed3df64",
+      "quality": 70,
+      "bytes": 163378
+    },
+    "drill_c039_s03.heic": {
+      "src": "drill_c039_s03.png",
+      "src_md5": "95478c83159518d478420775221104a3",
+      "quality": 70,
+      "bytes": 166740
+    },
+    "drill_c039_s04.heic": {
+      "src": "drill_c039_s04.png",
+      "src_md5": "601ecd745eb0b536cd6071a68291adae",
+      "quality": 70,
+      "bytes": 162922
+    },
+    "drill_c039_s05.heic": {
+      "src": "drill_c039_s05.png",
+      "src_md5": "f063f64daa72c20e3f96c44b4dfb2852",
+      "quality": 70,
+      "bytes": 166503
+    },
+    "drill_c039_s06.heic": {
+      "src": "drill_c039_s06.png",
+      "src_md5": "398f855aafd660208a9f0412864b9f1b",
+      "quality": 70,
+      "bytes": 162839
+    },
+    "drill_c039_s07.heic": {
+      "src": "drill_c039_s07.png",
+      "src_md5": "a8b325f7f826965b71f68561d0771cd0",
+      "quality": 70,
+      "bytes": 160765
+    },
+    "drill_c039_s08.heic": {
+      "src": "drill_c039_s08.png",
+      "src_md5": "ef766efa7a9e6ce568664717dc106526",
+      "quality": 70,
+      "bytes": 161274
+    },
+    "drill_c040_initial.heic": {
+      "src": "drill_c040_initial.png",
+      "src_md5": "5faf374da890fafa03dc5d169ff4170c",
+      "quality": 70,
+      "bytes": 149289
+    },
+    "drill_c040_s01.heic": {
+      "src": "drill_c040_s01.png",
+      "src_md5": "a2625a03b7c23a1a1e82746f84d9e1bd",
+      "quality": 70,
+      "bytes": 173733
+    },
+    "drill_c040_s02.heic": {
+      "src": "drill_c040_s02.png",
+      "src_md5": "521e0711bd4a2e85244eff0d6e563408",
+      "quality": 70,
+      "bytes": 173712
+    },
+    "drill_c040_s03.heic": {
+      "src": "drill_c040_s03.png",
+      "src_md5": "a7f8db84caeacf67b1c312ad1cd37c41",
+      "quality": 70,
+      "bytes": 181375
+    },
+    "drill_c040_s04.heic": {
+      "src": "drill_c040_s04.png",
+      "src_md5": "9db6135719cb79d5071a334c944c735d",
+      "quality": 70,
+      "bytes": 180774
+    },
+    "drill_c040_s05.heic": {
+      "src": "drill_c040_s05.png",
+      "src_md5": "131009187bed6610fdad88d5df8915cd",
+      "quality": 70,
+      "bytes": 174996
+    },
+    "drill_c040_s06.heic": {
+      "src": "drill_c040_s06.png",
+      "src_md5": "694390bd8e263cac375098349d44e264",
+      "quality": 70,
+      "bytes": 178468
+    },
+    "drill_c040_s07.heic": {
+      "src": "drill_c040_s07.png",
+      "src_md5": "69239ba008a3fe3a008c57619b178cf1",
+      "quality": 70,
+      "bytes": 179636
+    },
+    "drill_c040_s08.heic": {
+      "src": "drill_c040_s08.png",
+      "src_md5": "1fc5a5047c6e932f54bcaa67713b8bca",
+      "quality": 70,
+      "bytes": 176533
+    },
+    "drill_c040_s09.heic": {
+      "src": "drill_c040_s09.png",
+      "src_md5": "4f91a16eaefa6e3dc92079df3af9c6e7",
+      "quality": 70,
+      "bytes": 178465
+    },
+    "drill_c040_s10.heic": {
+      "src": "drill_c040_s10.png",
+      "src_md5": "e0ab6939eefab31196cc009627609f3e",
+      "quality": 70,
+      "bytes": 178984
+    },
+    "drill_c041_initial.heic": {
+      "src": "drill_c041_initial.png",
+      "src_md5": "031fbb0c7a45bf0feac450969de0ff53",
+      "quality": 70,
+      "bytes": 148694
+    },
+    "drill_c041_s01.heic": {
+      "src": "drill_c041_s01.png",
+      "src_md5": "e7554dabf2df4018de1f8d1ebc21f72c",
+      "quality": 70,
+      "bytes": 175349
+    },
+    "drill_c041_s02.heic": {
+      "src": "drill_c041_s02.png",
+      "src_md5": "5840ce3a47d14cc2abc6fab53ccf6236",
+      "quality": 70,
+      "bytes": 173592
+    },
+    "drill_c041_s03.heic": {
+      "src": "drill_c041_s03.png",
+      "src_md5": "0b49197068399e4514de9faf3f31166c",
+      "quality": 70,
+      "bytes": 173882
+    },
+    "drill_c041_s04.heic": {
+      "src": "drill_c041_s04.png",
+      "src_md5": "a3511003d94ced55b753e23a4ee94d5b",
+      "quality": 70,
+      "bytes": 169747
+    },
+    "drill_c041_s05.heic": {
+      "src": "drill_c041_s05.png",
+      "src_md5": "d40d96d43199c10371ebd9ea85ff2cdb",
+      "quality": 70,
+      "bytes": 174908
+    },
+    "drill_c041_s06.heic": {
+      "src": "drill_c041_s06.png",
+      "src_md5": "7d6810ba3c134dde39bb101432b374cf",
+      "quality": 70,
+      "bytes": 173844
+    },
+    "drill_c041_s07.heic": {
+      "src": "drill_c041_s07.png",
+      "src_md5": "e4da12d8fe18ec1995e21276e7c54152",
+      "quality": 70,
+      "bytes": 169766
+    },
+    "drill_c041_s08.heic": {
+      "src": "drill_c041_s08.png",
+      "src_md5": "420aa535c1802f05444d6e5c430089b3",
+      "quality": 70,
+      "bytes": 170949
+    },
+    "drill_c041_s09.heic": {
+      "src": "drill_c041_s09.png",
+      "src_md5": "7477a5bec643484be7be002e0e9deed3",
+      "quality": 70,
+      "bytes": 171122
+    },
+    "drill_c041_s10.heic": {
+      "src": "drill_c041_s10.png",
+      "src_md5": "f5cf9ab082fbd3871b32644dff75dd37",
+      "quality": 70,
+      "bytes": 172028
+    },
+    "drill_c041_s11.heic": {
+      "src": "drill_c041_s11.png",
+      "src_md5": "0b4621268f3880033af0faf30cbfaa0d",
+      "quality": 70,
+      "bytes": 172581
+    },
+    "drill_c041_s12.heic": {
+      "src": "drill_c041_s12.png",
+      "src_md5": "8c1fe8a80f9241381f6dbb8a97d50edb",
+      "quality": 70,
+      "bytes": 170468
+    },
+    "drill_c042_manual01_initial.heic": {
+      "src": "drill_c042_manual01_initial.png",
+      "src_md5": "53806c233d9855d856fd3aabcf117684",
+      "quality": 70,
+      "bytes": 150579
+    },
+    "drill_c042_manual01_s01.heic": {
+      "src": "drill_c042_manual01_s01.png",
+      "src_md5": "30c5bac8c6fc09a3a1dd0fc1b3eb3044",
+      "quality": 70,
+      "bytes": 166781
+    },
+    "drill_c042_manual01_s02.heic": {
+      "src": "drill_c042_manual01_s02.png",
+      "src_md5": "18301b6b216b7335c8ed40216c743dd8",
+      "quality": 70,
+      "bytes": 165136
+    },
+    "drill_c042_manual01_s03.heic": {
+      "src": "drill_c042_manual01_s03.png",
+      "src_md5": "a028b05fedf4aec1cdfffb68a751015f",
+      "quality": 70,
+      "bytes": 167378
+    },
+    "drill_c042_manual01_s04.heic": {
+      "src": "drill_c042_manual01_s04.png",
+      "src_md5": "7e9f61fd1a56f3805be4b37d812c8cbe",
+      "quality": 70,
+      "bytes": 168229
+    },
+    "drill_c042_manual01_s05.heic": {
+      "src": "drill_c042_manual01_s05.png",
+      "src_md5": "e38fa1630b25edf7ce013a517bac3992",
+      "quality": 70,
+      "bytes": 168119
+    },
+    "drill_c042_manual01_s06.heic": {
+      "src": "drill_c042_manual01_s06.png",
+      "src_md5": "ef3bf0fe694e153769bb36b931643594",
+      "quality": 70,
+      "bytes": 165802
+    },
+    "drill_c042_manual01_s07.heic": {
+      "src": "drill_c042_manual01_s07.png",
+      "src_md5": "158884f7d14d9913fd9a9c822956e14d",
+      "quality": 70,
+      "bytes": 174649
+    },
+    "drill_c042_manual01_s08.heic": {
+      "src": "drill_c042_manual01_s08.png",
+      "src_md5": "63f9b95f97732d7e4a2e26d5cad4f58e",
+      "quality": 70,
+      "bytes": 173171
+    },
+    "drill_c042_manual02_initial.heic": {
+      "src": "drill_c042_manual02_initial.png",
+      "src_md5": "fd0c2b572e0e8b79076b3f9c694a496c",
+      "quality": 70,
+      "bytes": 151857
+    },
+    "drill_c042_manual02_s01.heic": {
+      "src": "drill_c042_manual02_s01.png",
+      "src_md5": "7b9a5d5a23c6d522690d2842f5ac583a",
+      "quality": 70,
+      "bytes": 167721
+    },
+    "drill_c042_manual02_s02.heic": {
+      "src": "drill_c042_manual02_s02.png",
+      "src_md5": "f54f89c0414ee520a0a4b18df0f178b9",
+      "quality": 70,
+      "bytes": 163499
+    },
+    "drill_c042_manual02_s03.heic": {
+      "src": "drill_c042_manual02_s03.png",
+      "src_md5": "d3fc9aef472801abfedebf94459cfa5c",
+      "quality": 70,
+      "bytes": 163974
+    },
+    "drill_c042_manual02_s04.heic": {
+      "src": "drill_c042_manual02_s04.png",
+      "src_md5": "bae0f908fa40445270391f5672af9de7",
+      "quality": 70,
+      "bytes": 166843
+    },
+    "drill_c042_manual02_s05.heic": {
+      "src": "drill_c042_manual02_s05.png",
+      "src_md5": "e4db80696893fd84a4c8f8224bc987b1",
+      "quality": 70,
+      "bytes": 164186
+    },
+    "drill_c044_initial.heic": {
+      "src": "drill_c044_initial.png",
+      "src_md5": "580421caea2b265b6410dfa834848861",
+      "quality": 70,
+      "bytes": 148802
+    },
+    "drill_c044_s01.heic": {
+      "src": "drill_c044_s01.png",
+      "src_md5": "ed41d771d23297cf9e3f8ac9a2ec0b0c",
+      "quality": 70,
+      "bytes": 158972
+    },
+    "drill_c044_s02.heic": {
+      "src": "drill_c044_s02.png",
+      "src_md5": "ab14f18493b63f0983f0baada847abac",
+      "quality": 70,
+      "bytes": 164971
+    },
+    "drill_c044_s03.heic": {
+      "src": "drill_c044_s03.png",
+      "src_md5": "e6b503d9d35c749c5c10716e3096411e",
+      "quality": 70,
+      "bytes": 168346
+    },
+    "drill_c044_s04.heic": {
+      "src": "drill_c044_s04.png",
+      "src_md5": "82b2c08b620aea9d4cda00eaeeb3a558",
+      "quality": 70,
+      "bytes": 170854
+    },
+    "drill_c044_s05.heic": {
+      "src": "drill_c044_s05.png",
+      "src_md5": "6ba0b71a2297e2ab2ea91a83bad579d5",
+      "quality": 70,
+      "bytes": 161920
+    },
+    "drill_c044_s06.heic": {
+      "src": "drill_c044_s06.png",
+      "src_md5": "195ecb57c2b8c9a083679a915aca629e",
+      "quality": 70,
+      "bytes": 165821
+    },
+    "drill_c045_initial.heic": {
+      "src": "drill_c045_initial.png",
+      "src_md5": "20623f8b80abe84878cdf85860376885",
+      "quality": 70,
+      "bytes": 147866
+    },
+    "drill_c045_s01.heic": {
+      "src": "drill_c045_s01.png",
+      "src_md5": "1af811149d2f1bc20769d3dc4a8e5ced",
+      "quality": 70,
+      "bytes": 156544
+    },
+    "drill_c045_s02.heic": {
+      "src": "drill_c045_s02.png",
+      "src_md5": "92553fc9619d6de0777c0047bcd0b309",
+      "quality": 70,
+      "bytes": 156163
+    },
+    "drill_c045_s03.heic": {
+      "src": "drill_c045_s03.png",
+      "src_md5": "24be8fc51f5cdbe018cb2923b24244c6",
+      "quality": 70,
+      "bytes": 155646
+    },
+    "drill_c046_initial.heic": {
+      "src": "drill_c046_initial.png",
+      "src_md5": "95b9b0b81adcf3af7b3d85280e9855c0",
+      "quality": 70,
+      "bytes": 148845
+    },
+    "drill_c046_s01.heic": {
+      "src": "drill_c046_s01.png",
+      "src_md5": "31c77ca4c84bb0d23e38dfaa180b52bc",
+      "quality": 70,
+      "bytes": 164218
+    },
+    "drill_c046_s02.heic": {
+      "src": "drill_c046_s02.png",
+      "src_md5": "0194666fdf4efa3348142b3a35139e2b",
+      "quality": 70,
+      "bytes": 166071
+    },
+    "drill_c046_s03.heic": {
+      "src": "drill_c046_s03.png",
+      "src_md5": "c6ca8ef5392ad9da2848ae40132cb251",
+      "quality": 70,
+      "bytes": 164586
+    },
+    "drill_c046_s04.heic": {
+      "src": "drill_c046_s04.png",
+      "src_md5": "ebe254590ed96fdcbc0d6de0fa3ae3a5",
+      "quality": 70,
+      "bytes": 166436
+    },
+    "drill_c046_s05.heic": {
+      "src": "drill_c046_s05.png",
+      "src_md5": "5ea0cb4f5ef781a3a2e6bb775367aa48",
+      "quality": 70,
+      "bytes": 164249
+    },
+    "drill_c047_initial.heic": {
+      "src": "drill_c047_initial.png",
+      "src_md5": "709b8377b82e8925ec714c6194f926d0",
+      "quality": 70,
+      "bytes": 148746
+    },
+    "drill_c047_s01.heic": {
+      "src": "drill_c047_s01.png",
+      "src_md5": "b8cf926607ddf03aa248303605b6b916",
+      "quality": 70,
+      "bytes": 163884
+    },
+    "drill_c047_s02.heic": {
+      "src": "drill_c047_s02.png",
+      "src_md5": "66bd9fd2a2cc18df2578df76df76b2f3",
+      "quality": 70,
+      "bytes": 163649
+    },
+    "drill_c047_s03.heic": {
+      "src": "drill_c047_s03.png",
+      "src_md5": "36c7c0fb29db75dee0b29c585cdb5917",
+      "quality": 70,
+      "bytes": 164082
+    },
+    "drill_c047_s04.heic": {
+      "src": "drill_c047_s04.png",
+      "src_md5": "07354fa9e61d7092555637034a5240a6",
+      "quality": 70,
+      "bytes": 165667
+    },
+    "drill_c047_s05.heic": {
+      "src": "drill_c047_s05.png",
+      "src_md5": "ea6dcd1286b6be436f0e86b8930ea6c7",
+      "quality": 70,
+      "bytes": 172693
+    },
+    "drill_c047_s06.heic": {
+      "src": "drill_c047_s06.png",
+      "src_md5": "47f540d0c48952269d595e5b46ce2706",
+      "quality": 70,
+      "bytes": 173874
+    },
+    "drill_c047_s07.heic": {
+      "src": "drill_c047_s07.png",
+      "src_md5": "8e4d203cc129bc98fd217272165ee74f",
+      "quality": 70,
+      "bytes": 168241
+    },
+    "drill_c047_s08.heic": {
+      "src": "drill_c047_s08.png",
+      "src_md5": "33f23e783b6496d24a209f0030fe1317",
+      "quality": 70,
+      "bytes": 167063
+    },
+    "drill_c047_s09.heic": {
+      "src": "drill_c047_s09.png",
+      "src_md5": "4b433120ef1148867aac4a696c3e6bf8",
+      "quality": 70,
+      "bytes": 168523
+    },
+    "drill_c047_s10.heic": {
+      "src": "drill_c047_s10.png",
+      "src_md5": "151c15bbb4a0bad676a4adc50898b264",
+      "quality": 70,
+      "bytes": 172486
+    },
+    "drill_c047_s11.heic": {
+      "src": "drill_c047_s11.png",
+      "src_md5": "78f6b5366707e926a4312f29a54426bf",
+      "quality": 70,
+      "bytes": 176150
+    },
+    "drill_c047_s12.heic": {
+      "src": "drill_c047_s12.png",
+      "src_md5": "e4794ac5644a410c74c1bee07c8e5a5c",
+      "quality": 70,
+      "bytes": 181730
+    },
+    "drill_c048_initial.heic": {
+      "src": "drill_c048_initial.png",
+      "src_md5": "7c417109dc099650230819f313083d22",
+      "quality": 70,
+      "bytes": 148615
+    },
+    "drill_c048_s01.heic": {
+      "src": "drill_c048_s01.png",
+      "src_md5": "d6cab1e296a9a59da6e1b62a02de324c",
+      "quality": 70,
+      "bytes": 164783
+    },
+    "drill_c048_s02.heic": {
+      "src": "drill_c048_s02.png",
+      "src_md5": "69060cae83a0d49f85d88eaccbdfd11f",
+      "quality": 70,
+      "bytes": 169065
+    },
+    "drill_c048_s03.heic": {
+      "src": "drill_c048_s03.png",
+      "src_md5": "c535e92aeeef47c45c27704fdd5c4611",
+      "quality": 70,
+      "bytes": 173797
+    },
+    "drill_c048_s04.heic": {
+      "src": "drill_c048_s04.png",
+      "src_md5": "9e609cd3b6973026347771cee67601ac",
+      "quality": 70,
+      "bytes": 167526
+    },
+    "drill_c048_s05.heic": {
+      "src": "drill_c048_s05.png",
+      "src_md5": "3856574c67373fd8743dfd3afc0a4397",
+      "quality": 70,
+      "bytes": 173750
+    },
+    "drill_c048_s06.heic": {
+      "src": "drill_c048_s06.png",
+      "src_md5": "e9aeea5f616ae88b1cbe3786d8c28698",
+      "quality": 70,
+      "bytes": 177111
+    },
+    "drill_c048_s07.heic": {
+      "src": "drill_c048_s07.png",
+      "src_md5": "d72cf2b9637a086c36669a8cde094cb1",
+      "quality": 70,
+      "bytes": 167044
+    },
+    "drill_c048_s08.heic": {
+      "src": "drill_c048_s08.png",
+      "src_md5": "15c7b37ff3c0de73fa1188699e2a6148",
+      "quality": 70,
+      "bytes": 173411
+    },
+    "drill_c048_s09.heic": {
+      "src": "drill_c048_s09.png",
+      "src_md5": "f405f337e2397f27d7470c56c25c17ed",
+      "quality": 70,
+      "bytes": 179258
+    },
+    "drill_c048_s10.heic": {
+      "src": "drill_c048_s10.png",
+      "src_md5": "d67aee7453f09fc5ef5c30b79a82c35e",
+      "quality": 70,
+      "bytes": 168710
+    },
+    "drill_c048_s11.heic": {
+      "src": "drill_c048_s11.png",
+      "src_md5": "bef20450bf6449a75ffbbbadc6c21676",
+      "quality": 70,
+      "bytes": 175866
+    },
+    "drill_c048_s12.heic": {
+      "src": "drill_c048_s12.png",
+      "src_md5": "764c5c7893d8cf75d06c392165b17041",
+      "quality": 70,
+      "bytes": 184101
+    },
+    "drill_c049_initial.heic": {
+      "src": "drill_c049_initial.png",
+      "src_md5": "b04e34c7b0196ffa3ba5dc0869d7dc8c",
+      "quality": 70,
+      "bytes": 148282
+    },
+    "drill_c049_s01.heic": {
+      "src": "drill_c049_s01.png",
+      "src_md5": "0eb595bf71a3c500949020e2a47ce96e",
+      "quality": 70,
+      "bytes": 158537
+    },
+    "drill_c049_s02.heic": {
+      "src": "drill_c049_s02.png",
+      "src_md5": "0f60876402aab2bd3394d3aa32aea00a",
+      "quality": 70,
+      "bytes": 158432
+    },
+    "drill_c049_s03.heic": {
+      "src": "drill_c049_s03.png",
+      "src_md5": "4e6c71bcf7eb31b30362d1931cdcea90",
+      "quality": 70,
+      "bytes": 158225
+    },
+    "drill_c049_s04.heic": {
+      "src": "drill_c049_s04.png",
+      "src_md5": "29f24ceff344ff1e17a298534ca4829d",
+      "quality": 70,
+      "bytes": 157855
+    },
+    "drill_c049_s05.heic": {
+      "src": "drill_c049_s05.png",
+      "src_md5": "1e3330ddc6dac23739b8c02aad2c5c3b",
+      "quality": 70,
+      "bytes": 158401
+    },
+    "drill_c050_initial.heic": {
+      "src": "drill_c050_initial.png",
+      "src_md5": "48f899985ee362c9bffdb037c5272334",
+      "quality": 70,
+      "bytes": 148991
+    },
+    "drill_c050_s01.heic": {
+      "src": "drill_c050_s01.png",
+      "src_md5": "a4131e9af89648eeeb2d8dfb68fde98c",
+      "quality": 70,
+      "bytes": 162906
+    },
+    "drill_c050_s02.heic": {
+      "src": "drill_c050_s02.png",
+      "src_md5": "7938c83244e8c391555752a657416cd0",
+      "quality": 70,
+      "bytes": 167513
+    },
+    "drill_c050_s03.heic": {
+      "src": "drill_c050_s03.png",
+      "src_md5": "8043996db4798766ca742d44f25b452f",
+      "quality": 70,
+      "bytes": 170583
+    },
+    "drill_c050_s04.heic": {
+      "src": "drill_c050_s04.png",
+      "src_md5": "bb3153aeb79bf81806b740fb624aaa9e",
+      "quality": 70,
+      "bytes": 167526
+    },
+    "drill_c050_s05.heic": {
+      "src": "drill_c050_s05.png",
+      "src_md5": "465d4f2d96257a0c4fa80266d499de54",
+      "quality": 70,
+      "bytes": 168713
+    },
+    "drill_c051_initial.heic": {
+      "src": "drill_c051_initial.png",
+      "src_md5": "6674e1ab00c0c12ea35490361401e042",
+      "quality": 70,
+      "bytes": 148949
+    },
+    "drill_c051_s01.heic": {
+      "src": "drill_c051_s01.png",
+      "src_md5": "d7d899980e27ca81b8e31590667d533d",
+      "quality": 70,
+      "bytes": 164139
+    },
+    "drill_c051_s02.heic": {
+      "src": "drill_c051_s02.png",
+      "src_md5": "1964b032aa92a42be1698a79c531311f",
+      "quality": 70,
+      "bytes": 170916
+    },
+    "drill_c051_s03.heic": {
+      "src": "drill_c051_s03.png",
+      "src_md5": "36ef69515d3aef2964245e33b5e4e507",
+      "quality": 70,
+      "bytes": 175862
+    },
+    "drill_c051_s04.heic": {
+      "src": "drill_c051_s04.png",
+      "src_md5": "ff39de24ad72776d8b289088085bd86d",
+      "quality": 70,
+      "bytes": 180117
+    },
+    "drill_c052_initial.heic": {
+      "src": "drill_c052_initial.png",
+      "src_md5": "fac2265d92de1243f1b04743a23d95db",
+      "quality": 70,
+      "bytes": 152399
+    },
+    "drill_c052_s01.heic": {
+      "src": "drill_c052_s01.png",
+      "src_md5": "d9d2fa946678e1f3b453e9a76e266cb2",
+      "quality": 70,
+      "bytes": 178812
+    },
+    "drill_c052_s02.heic": {
+      "src": "drill_c052_s02.png",
+      "src_md5": "7733ec7d187de39c2d57558c432688d2",
+      "quality": 70,
+      "bytes": 177998
+    },
+    "drill_c052_s03.heic": {
+      "src": "drill_c052_s03.png",
+      "src_md5": "e1d8adae2e954d0491fea36b8ba73684",
+      "quality": 70,
+      "bytes": 177726
+    },
+    "drill_c052_s04.heic": {
+      "src": "drill_c052_s04.png",
+      "src_md5": "81d01bc2cf64184cb862225482549f53",
+      "quality": 70,
+      "bytes": 175050
+    },
+    "drill_c052_s05.heic": {
+      "src": "drill_c052_s05.png",
+      "src_md5": "101056759f08f7e921777e5ce5abab00",
+      "quality": 70,
+      "bytes": 182995
+    },
+    "drill_c052_s06.heic": {
+      "src": "drill_c052_s06.png",
+      "src_md5": "3f46f0b1078d4e29e0256c9880a01497",
+      "quality": 70,
+      "bytes": 184521
+    },
+    "drill_c052_s07.heic": {
+      "src": "drill_c052_s07.png",
+      "src_md5": "510044522d14bd7ea2d15f4ce9ca57ce",
+      "quality": 70,
+      "bytes": 200109
+    },
+    "drill_c053_manual01_initial.heic": {
+      "src": "drill_c053_manual01_initial.png",
+      "src_md5": "3407d362d23a87af5fca9340ab3e7e0d",
+      "quality": 70,
+      "bytes": 154085
+    },
+    "drill_c053_manual01_s01.heic": {
+      "src": "drill_c053_manual01_s01.png",
+      "src_md5": "f852286fd37259064f19f5a6310979e2",
+      "quality": 70,
+      "bytes": 171311
+    },
+    "drill_c053_manual01_s02.heic": {
+      "src": "drill_c053_manual01_s02.png",
+      "src_md5": "12f5e9a268c6b3e062e7b36f712b1034",
+      "quality": 70,
+      "bytes": 169033
+    },
+    "drill_c053_manual01_s03.heic": {
+      "src": "drill_c053_manual01_s03.png",
+      "src_md5": "a3bc149d5ab9a5f284d6056f58520294",
+      "quality": 70,
+      "bytes": 169244
+    },
+    "drill_c053_manual01_s04.heic": {
+      "src": "drill_c053_manual01_s04.png",
+      "src_md5": "28ac75457a74234795141ba9c328df86",
+      "quality": 70,
+      "bytes": 168552
+    },
+    "drill_c053_manual01_s05.heic": {
+      "src": "drill_c053_manual01_s05.png",
+      "src_md5": "90a5fc150257bf33ed1cd7ceef088c93",
+      "quality": 70,
+      "bytes": 167541
+    },
+    "drill_c053_manual01_s06.heic": {
+      "src": "drill_c053_manual01_s06.png",
+      "src_md5": "98664429d6986ff332ecf422ca2e3960",
+      "quality": 70,
+      "bytes": 168439
+    },
+    "drill_c053_manual01_s07.heic": {
+      "src": "drill_c053_manual01_s07.png",
+      "src_md5": "d9a4dfe39a84adf216fb06647a4fb006",
+      "quality": 70,
+      "bytes": 168187
+    },
+    "drill_c053_manual01_s08.heic": {
+      "src": "drill_c053_manual01_s08.png",
+      "src_md5": "ad71a826bfc9e26f8bdd3d23cffd21b4",
+      "quality": 70,
+      "bytes": 170885
+    },
+    "drill_c053_manual01_s09.heic": {
+      "src": "drill_c053_manual01_s09.png",
+      "src_md5": "364fcf91ccd93aec21fdf89318e789fa",
+      "quality": 70,
+      "bytes": 171381
+    },
+    "drill_c053_manual01_s10.heic": {
+      "src": "drill_c053_manual01_s10.png",
+      "src_md5": "257fefc8301321cd6cf73927c4c4faf6",
+      "quality": 70,
+      "bytes": 170297
+    },
+    "drill_c053_manual02_initial.heic": {
+      "src": "drill_c053_manual02_initial.png",
+      "src_md5": "5f520a4a0e972cba61b0b2f13a2af4cd",
+      "quality": 70,
+      "bytes": 155184
+    },
+    "drill_c053_manual02_s01.heic": {
+      "src": "drill_c053_manual02_s01.png",
+      "src_md5": "b5b89a02f571519411f7913b3a87452b",
+      "quality": 70,
+      "bytes": 175459
+    },
+    "drill_c053_manual02_s02.heic": {
+      "src": "drill_c053_manual02_s02.png",
+      "src_md5": "543b6a1afbb41659be5b7d77687e04f8",
+      "quality": 70,
+      "bytes": 173408
+    },
+    "drill_c053_manual02_s03.heic": {
+      "src": "drill_c053_manual02_s03.png",
+      "src_md5": "cfac9fa99ee59d418d1a9ca70ee39df9",
+      "quality": 70,
+      "bytes": 172903
+    },
+    "drill_c053_manual02_s04.heic": {
+      "src": "drill_c053_manual02_s04.png",
+      "src_md5": "e2ffc03fa120ee7d9435ade7c33eca0d",
+      "quality": 70,
+      "bytes": 169875
+    },
+    "drill_c053_manual02_s05.heic": {
+      "src": "drill_c053_manual02_s05.png",
+      "src_md5": "f467e9558f0e72bd06e5846cff4c31b7",
+      "quality": 70,
+      "bytes": 171155
+    },
+    "drill_c053_manual02_s06.heic": {
+      "src": "drill_c053_manual02_s06.png",
+      "src_md5": "571fad8ede9019c44033d68fb6cf422d",
+      "quality": 70,
+      "bytes": 171256
+    },
+    "drill_c053_manual02_s07.heic": {
+      "src": "drill_c053_manual02_s07.png",
+      "src_md5": "cc2c3d3894681f44e9700325cd0bb0ff",
+      "quality": 70,
+      "bytes": 173784
+    },
+    "drill_c053_manual02_s08.heic": {
+      "src": "drill_c053_manual02_s08.png",
+      "src_md5": "efb63cb8d93941ea0f722dcfd6e41bbe",
+      "quality": 70,
+      "bytes": 174102
+    },
+    "drill_c053_manual02_s09.heic": {
+      "src": "drill_c053_manual02_s09.png",
+      "src_md5": "ebc499ddf470357b453637be138522bb",
+      "quality": 70,
+      "bytes": 174948
+    },
+    "drill_c053_manual02_s10.heic": {
+      "src": "drill_c053_manual02_s10.png",
+      "src_md5": "d4e35ddc80d3eea010826075fbd3b4c1",
+      "quality": 70,
+      "bytes": 176198
+    },
+    "drill_c053_manual02_s11.heic": {
+      "src": "drill_c053_manual02_s11.png",
+      "src_md5": "8ad9770ffd280a1125fc8dc4994e6f4f",
+      "quality": 70,
+      "bytes": 172402
+    },
+    "drill_c053_manual02_s12.heic": {
+      "src": "drill_c053_manual02_s12.png",
+      "src_md5": "c04f34cc86cf051566cb88844df28805",
+      "quality": 70,
+      "bytes": 175093
+    },
+    "drill_c053_manual02_s13.heic": {
+      "src": "drill_c053_manual02_s13.png",
+      "src_md5": "0411671b2401a79f7861b11830a0be18",
+      "quality": 70,
+      "bytes": 176535
+    },
+    "drill_c054_initial.heic": {
+      "src": "drill_c054_initial.png",
+      "src_md5": "0d2ede1fe4a76b4c5d2e082f54ba0715",
+      "quality": 70,
+      "bytes": 151311
+    },
+    "drill_c054_s01.heic": {
+      "src": "drill_c054_s01.png",
+      "src_md5": "23b0bf960b04d1aa64d63d04eeea6f75",
+      "quality": 70,
+      "bytes": 169522
+    },
+    "drill_c054_s02.heic": {
+      "src": "drill_c054_s02.png",
+      "src_md5": "4b6113cd12ba0d643348869671358644",
+      "quality": 70,
+      "bytes": 169975
+    },
+    "drill_c054_s03.heic": {
+      "src": "drill_c054_s03.png",
+      "src_md5": "822b357e8362fd9194db2420bfe751a5",
+      "quality": 70,
+      "bytes": 167080
+    },
+    "drill_c054_s04.heic": {
+      "src": "drill_c054_s04.png",
+      "src_md5": "8eb9d240e863e0948f8770637e6fb124",
+      "quality": 70,
+      "bytes": 166922
+    },
+    "drill_c054_s05.heic": {
+      "src": "drill_c054_s05.png",
+      "src_md5": "f4968e98f01c398d337d0cf1475a901e",
+      "quality": 70,
+      "bytes": 170034
+    },
+    "drill_c055_initial.heic": {
+      "src": "drill_c055_initial.png",
+      "src_md5": "a37435dd9f8bb38604fdec56cc700c1f",
+      "quality": 70,
+      "bytes": 150813
+    },
+    "drill_c055_s01.heic": {
+      "src": "drill_c055_s01.png",
+      "src_md5": "649408448e8ec42d4ec1ab7f72d00bdf",
+      "quality": 70,
+      "bytes": 157196
+    },
+    "drill_c055_s02.heic": {
+      "src": "drill_c055_s02.png",
+      "src_md5": "b74ed25187058e12a9c56fdce0248805",
+      "quality": 70,
+      "bytes": 156872
+    },
+    "drill_c055_s03.heic": {
+      "src": "drill_c055_s03.png",
+      "src_md5": "9d3607ff821387606e182441d4618301",
+      "quality": 70,
+      "bytes": 156148
+    },
+    "drill_c055_s04.heic": {
+      "src": "drill_c055_s04.png",
+      "src_md5": "35f704869029e59a0993a509e2387118",
+      "quality": 70,
+      "bytes": 155405
+    },
+    "drill_c055_s05.heic": {
+      "src": "drill_c055_s05.png",
+      "src_md5": "1da98245033f6a2ebb4c66490bdb5ac8",
+      "quality": 70,
+      "bytes": 154652
+    },
+    "drill_c056_Snipaste_2026_06_19_17_32_46_initial.heic": {
+      "src": "drill_c056_Snipaste_2026_06_19_17_32_46_initial.png",
+      "src_md5": "9e9b14f3cdef6b2a0fd72be3e12d8491",
+      "quality": 70,
+      "bytes": 149332
+    },
+    "drill_c056_Snipaste_2026_06_19_17_32_46_s01.heic": {
+      "src": "drill_c056_Snipaste_2026_06_19_17_32_46_s01.png",
+      "src_md5": "af9507ab5904c0235a36aa512da1e60e",
+      "quality": 70,
+      "bytes": 164581
+    },
+    "drill_c056_Snipaste_2026_06_19_17_35_51_initial.heic": {
+      "src": "drill_c056_Snipaste_2026_06_19_17_35_51_initial.png",
+      "src_md5": "1404698607fc3ed5913d472d418d8e37",
+      "quality": 70,
+      "bytes": 149002
+    },
+    "drill_c056_Snipaste_2026_06_19_17_35_51_s01.heic": {
+      "src": "drill_c056_Snipaste_2026_06_19_17_35_51_s01.png",
+      "src_md5": "0d8340fea151eb10580beee72f872984",
+      "quality": 70,
+      "bytes": 163928
+    },
+    "drill_c056_Snipaste_2026_06_19_17_37_37_initial.heic": {
+      "src": "drill_c056_Snipaste_2026_06_19_17_37_37_initial.png",
+      "src_md5": "6fc5f9e59ef1b652d676cc786db18ebf",
+      "quality": 70,
+      "bytes": 149145
+    },
+    "drill_c056_Snipaste_2026_06_19_17_37_37_s01.heic": {
+      "src": "drill_c056_Snipaste_2026_06_19_17_37_37_s01.png",
+      "src_md5": "983a6b538ab17b4a362fc74341017cab",
+      "quality": 70,
+      "bytes": 165867
+    },
+    "drill_c057_Snipaste_2026_06_19_17_43_31_initial.heic": {
+      "src": "drill_c057_Snipaste_2026_06_19_17_43_31_initial.png",
+      "src_md5": "005c845191356ff3f094befd9c7e9010",
+      "quality": 70,
+      "bytes": 149282
+    },
+    "drill_c057_Snipaste_2026_06_19_17_43_31_s01.heic": {
+      "src": "drill_c057_Snipaste_2026_06_19_17_43_31_s01.png",
+      "src_md5": "5ac047aaf64f38c3d5f7291ff55129e1",
+      "quality": 70,
+      "bytes": 180712
+    },
+    "drill_c057_Snipaste_2026_06_19_17_45_48_initial.heic": {
+      "src": "drill_c057_Snipaste_2026_06_19_17_45_48_initial.png",
+      "src_md5": "5943ff072711e9ed1df86e09d29d3cbe",
+      "quality": 70,
+      "bytes": 149226
+    },
+    "drill_c057_Snipaste_2026_06_19_17_45_48_s01.heic": {
+      "src": "drill_c057_Snipaste_2026_06_19_17_45_48_s01.png",
+      "src_md5": "cc6be9e044ce782f0b19be1ca2d52e8d",
+      "quality": 70,
+      "bytes": 166872
+    },
+    "drill_c057_Snipaste_2026_06_19_17_48_56_initial.heic": {
+      "src": "drill_c057_Snipaste_2026_06_19_17_48_56_initial.png",
+      "src_md5": "96fe07c1ff5e65dbec007ee7d5a4082b",
+      "quality": 70,
+      "bytes": 149098
+    },
+    "drill_c057_Snipaste_2026_06_19_17_48_56_s01.heic": {
+      "src": "drill_c057_Snipaste_2026_06_19_17_48_56_s01.png",
+      "src_md5": "be0ca3dd0dce1e63f6004d11963d62f3",
+      "quality": 70,
+      "bytes": 165500
+    },
+    "drill_c058_Snipaste_2026_06_19_17_50_08_initial.heic": {
+      "src": "drill_c058_Snipaste_2026_06_19_17_50_08_initial.png",
+      "src_md5": "8b19dfd139a9cb37fb000db45e5efd89",
+      "quality": 70,
+      "bytes": 148640
+    },
+    "drill_c058_Snipaste_2026_06_19_17_50_08_s01.heic": {
+      "src": "drill_c058_Snipaste_2026_06_19_17_50_08_s01.png",
+      "src_md5": "04ed9fe2361a610c6145136a144eb3cf",
+      "quality": 70,
+      "bytes": 177611
+    },
+    "drill_c058_Snipaste_2026_06_19_17_50_48_initial.heic": {
+      "src": "drill_c058_Snipaste_2026_06_19_17_50_48_initial.png",
+      "src_md5": "c576542d2a27f2ed40ea75307a9876df",
+      "quality": 70,
+      "bytes": 148428
+    },
+    "drill_c058_Snipaste_2026_06_19_17_50_48_s01.heic": {
+      "src": "drill_c058_Snipaste_2026_06_19_17_50_48_s01.png",
+      "src_md5": "70ad8b002323c3c162ac0ca8354905bf",
+      "quality": 70,
+      "bytes": 165727
+    },
+    "drill_c060_initial.heic": {
+      "src": "drill_c060_initial.png",
+      "src_md5": "8de35633d1e7222573b60ca063eae02e",
+      "quality": 70,
+      "bytes": 149642
+    },
+    "drill_c060_s01.heic": {
+      "src": "drill_c060_s01.png",
+      "src_md5": "9c7e101725d237ffcadf037e497b0797",
+      "quality": 70,
+      "bytes": 176243
+    },
+    "drill_c060_s02.heic": {
+      "src": "drill_c060_s02.png",
+      "src_md5": "9c8330ea3871f6deb77dc0a0982908eb",
+      "quality": 70,
+      "bytes": 177507
+    },
+    "drill_c060_s03.heic": {
+      "src": "drill_c060_s03.png",
+      "src_md5": "a7ef5934799034251552836312c0e9f4",
+      "quality": 70,
+      "bytes": 172272
+    },
+    "drill_c060_s04.heic": {
+      "src": "drill_c060_s04.png",
+      "src_md5": "068f04276a7a70b45b7f9b3baab709b7",
+      "quality": 70,
+      "bytes": 163821
+    },
+    "drill_c060_s05.heic": {
+      "src": "drill_c060_s05.png",
+      "src_md5": "03d55db28f7a80d14c95f9b9bc0132d1",
+      "quality": 70,
+      "bytes": 168460
+    },
+    "drill_c060_s06.heic": {
+      "src": "drill_c060_s06.png",
+      "src_md5": "36246845350f0c4d95a81ade9f943689",
+      "quality": 70,
+      "bytes": 165941
+    },
+    "drill_c060_s07.heic": {
+      "src": "drill_c060_s07.png",
+      "src_md5": "1a2298dc73697cea58a0b04a70479723",
+      "quality": 70,
+      "bytes": 165621
+    },
+    "drill_c060_s08.heic": {
+      "src": "drill_c060_s08.png",
+      "src_md5": "dd22c4d4139febec8e888270b8025d0d",
+      "quality": 70,
+      "bytes": 170493
+    },
+    "drill_c062_initial.heic": {
+      "src": "drill_c062_initial.png",
+      "src_md5": "7fd9e6b3f2686856a29ae2ae6df92881",
+      "quality": 70,
+      "bytes": 150890
+    },
+    "drill_c062_s01.heic": {
+      "src": "drill_c062_s01.png",
+      "src_md5": "41979b7ddea2622531ef6835883edd22",
+      "quality": 70,
+      "bytes": 173070
+    },
+    "drill_c062_s02.heic": {
+      "src": "drill_c062_s02.png",
+      "src_md5": "ce842e1214171644e21ef66c81d76a1b",
+      "quality": 70,
+      "bytes": 166967
+    },
+    "drill_c062_s03.heic": {
+      "src": "drill_c062_s03.png",
+      "src_md5": "f6d55b90be80b35f8646b9e1da1cea0c",
+      "quality": 70,
+      "bytes": 166954
+    },
+    "drill_c062_s04.heic": {
+      "src": "drill_c062_s04.png",
+      "src_md5": "e07332919642e0dbece46a964c6f7387",
+      "quality": 70,
+      "bytes": 174256
+    },
+    "drill_c063_initial.heic": {
+      "src": "drill_c063_initial.png",
+      "src_md5": "f274ee0163b9381615ae0008e3768e86",
+      "quality": 70,
+      "bytes": 148973
+    },
+    "drill_c063_s01.heic": {
+      "src": "drill_c063_s01.png",
+      "src_md5": "18253bd302b5665cc950d79de1444659",
+      "quality": 70,
+      "bytes": 173189
+    },
+    "drill_c063_s02.heic": {
+      "src": "drill_c063_s02.png",
+      "src_md5": "c582e2021542996666679aa20c99f1c3",
+      "quality": 70,
+      "bytes": 181975
+    },
+    "drill_c064_initial.heic": {
+      "src": "drill_c064_initial.png",
+      "src_md5": "300df5e55abff6e40a075bc59535cb77",
+      "quality": 70,
+      "bytes": 149818
+    },
+    "drill_c064_s01.heic": {
+      "src": "drill_c064_s01.png",
+      "src_md5": "8369a77099b4382199692f6fd0fdcd29",
+      "quality": 70,
+      "bytes": 166969
+    },
+    "drill_c064_s02.heic": {
+      "src": "drill_c064_s02.png",
+      "src_md5": "579fe4526da67389ed5c0ec498b45f84",
+      "quality": 70,
+      "bytes": 164559
+    },
+    "drill_c064_s03.heic": {
+      "src": "drill_c064_s03.png",
+      "src_md5": "0aa09554e2381db4f0605d6f852fa9c9",
+      "quality": 70,
+      "bytes": 160771
+    },
+    "drill_c069_manual01_initial.heic": {
+      "src": "drill_c069_manual01_initial.png",
+      "src_md5": "9dcf3fa4ced434060f365479e2a7f379",
+      "quality": 70,
+      "bytes": 150004
+    },
+    "drill_c069_manual01_s01.heic": {
+      "src": "drill_c069_manual01_s01.png",
+      "src_md5": "818f84d8cd5dc7494a9e4b163fdbc313",
+      "quality": 70,
+      "bytes": 169174
+    },
+    "drill_c069_manual01_s02.heic": {
+      "src": "drill_c069_manual01_s02.png",
+      "src_md5": "0462437f6ce1ae85f3991b49d3c50b89",
+      "quality": 70,
+      "bytes": 166151
+    },
+    "drill_c069_manual01_s03.heic": {
+      "src": "drill_c069_manual01_s03.png",
+      "src_md5": "120854a20e7952b4867dc50feb6b6159",
+      "quality": 70,
+      "bytes": 168239
+    },
+    "drill_c069_manual01_s04.heic": {
+      "src": "drill_c069_manual01_s04.png",
+      "src_md5": "064af5543a31daf961f7a144d757d31e",
+      "quality": 70,
+      "bytes": 166350
+    },
+    "drill_c069_manual01_s05.heic": {
+      "src": "drill_c069_manual01_s05.png",
+      "src_md5": "e9d2650be3d399ba155de2498b5ff5dd",
+      "quality": 70,
+      "bytes": 167490
+    },
+    "drill_c069_manual01_s06.heic": {
+      "src": "drill_c069_manual01_s06.png",
+      "src_md5": "372fce8ca8f63d9060af3f3e6a655e9a",
+      "quality": 70,
+      "bytes": 164215
+    },
+    "drill_c069_manual01_s07.heic": {
+      "src": "drill_c069_manual01_s07.png",
+      "src_md5": "9c305c0509ac7ff6d47e285f0c389bc7",
+      "quality": 70,
+      "bytes": 168597
+    },
+    "drill_c069_manual01_s08.heic": {
+      "src": "drill_c069_manual01_s08.png",
+      "src_md5": "14b12c0c5b1903816c5fea4890b495ac",
+      "quality": 70,
+      "bytes": 178327
+    },
+    "drill_c069_manual02_initial.heic": {
+      "src": "drill_c069_manual02_initial.png",
+      "src_md5": "88c01fde255d79a8d09f8b3c62fa7326",
+      "quality": 70,
+      "bytes": 155689
+    },
+    "drill_c069_manual02_s01.heic": {
+      "src": "drill_c069_manual02_s01.png",
+      "src_md5": "bb8b5217d0b16e5f9dc58ec4944bd4fc",
+      "quality": 70,
+      "bytes": 172760
+    },
+    "drill_c069_manual02_s02.heic": {
+      "src": "drill_c069_manual02_s02.png",
+      "src_md5": "4cf51c753d0981fdac18c25117e872a1",
+      "quality": 70,
+      "bytes": 167473
+    },
+    "drill_c069_manual02_s03.heic": {
+      "src": "drill_c069_manual02_s03.png",
+      "src_md5": "84bde40d7917ed7b03ab7ad674579895",
+      "quality": 70,
+      "bytes": 168894
+    },
+    "drill_c069_manual02_s04.heic": {
+      "src": "drill_c069_manual02_s04.png",
+      "src_md5": "266ae3d963618b31f5ae55b1cc55baa8",
+      "quality": 70,
+      "bytes": 167481
+    },
+    "drill_c069_manual02_s05.heic": {
+      "src": "drill_c069_manual02_s05.png",
+      "src_md5": "160f273039872ca479755b8adab3e95e",
+      "quality": 70,
+      "bytes": 166171
+    },
+    "drill_c069_manual02_s06.heic": {
+      "src": "drill_c069_manual02_s06.png",
+      "src_md5": "7ba5e14bf67c1e5138746ec75fe2dbb3",
+      "quality": 70,
+      "bytes": 166451
+    },
+    "drill_c069_manual02_s07.heic": {
+      "src": "drill_c069_manual02_s07.png",
+      "src_md5": "f3c92cf45ed1a2f4835e7389984d7cb7",
+      "quality": 70,
+      "bytes": 165702
+    },
+    "drill_c069_manual02_s08.heic": {
+      "src": "drill_c069_manual02_s08.png",
+      "src_md5": "965ae27293a396155bf3221bc4d45344",
+      "quality": 70,
+      "bytes": 163366
+    },
+    "drill_c069_manual02_s09.heic": {
+      "src": "drill_c069_manual02_s09.png",
+      "src_md5": "4b734a34d9237f19690639df36246e2a",
+      "quality": 70,
+      "bytes": 164707
+    },
+    "drill_c069_manual02_s10.heic": {
+      "src": "drill_c069_manual02_s10.png",
+      "src_md5": "29fc55ddf6c4769f9c222f518fb9568c",
+      "quality": 70,
+      "bytes": 160909
+    },
+    "drill_c071_manual01_initial.heic": {
+      "src": "drill_c071_manual01_initial.png",
+      "src_md5": "e755a940a76400f1534243d0363923ab",
+      "quality": 70,
+      "bytes": 149747
+    },
+    "drill_c071_manual01_s01.heic": {
+      "src": "drill_c071_manual01_s01.png",
+      "src_md5": "534b3616668fb53d9d9277f1d30a6078",
+      "quality": 70,
+      "bytes": 162329
+    },
+    "drill_c071_manual01_s02.heic": {
+      "src": "drill_c071_manual01_s02.png",
+      "src_md5": "7347aa4c785ba28806b30c4b342f5810",
+      "quality": 70,
+      "bytes": 164513
+    },
+    "drill_c071_manual01_s03.heic": {
+      "src": "drill_c071_manual01_s03.png",
+      "src_md5": "2915e71ca322a8e5c8cd6f555ae3cf56",
+      "quality": 70,
+      "bytes": 166433
+    },
+    "drill_c071_manual01_s04.heic": {
+      "src": "drill_c071_manual01_s04.png",
+      "src_md5": "bbdc09464c698a3d6f69742fde4f424a",
+      "quality": 70,
+      "bytes": 163458
+    },
+    "drill_c071_manual01_s05.heic": {
+      "src": "drill_c071_manual01_s05.png",
+      "src_md5": "2e8265e6241d088b33089adef12f5e11",
+      "quality": 70,
+      "bytes": 165711
+    },
+    "drill_c071_manual01_s06.heic": {
+      "src": "drill_c071_manual01_s06.png",
+      "src_md5": "2779db33113d01e3ac8c45ebed1c4deb",
+      "quality": 70,
+      "bytes": 165335
+    },
+    "drill_c071_manual01_s07.heic": {
+      "src": "drill_c071_manual01_s07.png",
+      "src_md5": "79a686fcb4584bf83236d491718f5a79",
+      "quality": 70,
+      "bytes": 167143
+    },
+    "drill_c071_manual01_s08.heic": {
+      "src": "drill_c071_manual01_s08.png",
+      "src_md5": "1ef702f56ee054cbad4d7d2d71730c38",
+      "quality": 70,
+      "bytes": 167359
+    },
+    "drill_c071_manual02_initial.heic": {
+      "src": "drill_c071_manual02_initial.png",
+      "src_md5": "3fd5420e04232bdda88cfc8c8d6d2492",
+      "quality": 70,
+      "bytes": 159021
+    },
+    "drill_c071_manual02_s01.heic": {
+      "src": "drill_c071_manual02_s01.png",
+      "src_md5": "600d688a9a8f73fcca8dd519aa44ba6f",
+      "quality": 70,
+      "bytes": 174245
+    },
+    "drill_c071_manual02_s02.heic": {
+      "src": "drill_c071_manual02_s02.png",
+      "src_md5": "3571cf0a8efac63fca4140b7047ff5c2",
+      "quality": 70,
+      "bytes": 173751
+    },
+    "drill_c071_manual02_s03.heic": {
+      "src": "drill_c071_manual02_s03.png",
+      "src_md5": "0a791e8d92ed630fc76a204498f312b3",
+      "quality": 70,
+      "bytes": 172072
+    },
+    "drill_c071_manual02_s04.heic": {
+      "src": "drill_c071_manual02_s04.png",
+      "src_md5": "2b976026c4f556c03fc70d5035f64277",
+      "quality": 70,
+      "bytes": 173758
+    },
+    "drill_c071_manual02_s05.heic": {
+      "src": "drill_c071_manual02_s05.png",
+      "src_md5": "b4d6196b20020c970dac53a1719d8731",
+      "quality": 70,
+      "bytes": 170947
+    },
+    "drill_c071_manual02_s06.heic": {
+      "src": "drill_c071_manual02_s06.png",
+      "src_md5": "ded51116254f7aa4d458f80aae60ebc8",
+      "quality": 70,
+      "bytes": 168168
+    },
+    "drill_c071_manual02_s07.heic": {
+      "src": "drill_c071_manual02_s07.png",
+      "src_md5": "965a69568a063c7d5de88b038cd09704",
+      "quality": 70,
+      "bytes": 168911
+    },
+    "drill_c071_manual02_s08.heic": {
+      "src": "drill_c071_manual02_s08.png",
+      "src_md5": "ea09301b27dbf1fe2db1310ee4e88979",
+      "quality": 70,
+      "bytes": 166597
+    },
+    "drill_c071_manual02_s09.heic": {
+      "src": "drill_c071_manual02_s09.png",
+      "src_md5": "5f76ebdae07e5abad1adbf3c20f4c5ea",
+      "quality": 70,
+      "bytes": 166142
+    },
+    "drill_c071_manual02_s10.heic": {
+      "src": "drill_c071_manual02_s10.png",
+      "src_md5": "60c74e2f28470075127c9946fafa6654",
+      "quality": 70,
+      "bytes": 167037
+    },
+    "drill_c071_manual02_s11.heic": {
+      "src": "drill_c071_manual02_s11.png",
+      "src_md5": "ac24078ae76cd5e130769bbb648855ca",
+      "quality": 70,
+      "bytes": 168479
+    },
+    "drill_c071_manual02_s12.heic": {
+      "src": "drill_c071_manual02_s12.png",
+      "src_md5": "fb6802af8fb7e35e4705546c2e88cac0",
+      "quality": 70,
+      "bytes": 163851
+    },
+    "drill_c071_manual02_s13.heic": {
+      "src": "drill_c071_manual02_s13.png",
+      "src_md5": "9737e071bd01e46af47b60ffd6adb980",
+      "quality": 70,
+      "bytes": 165720
+    },
+    "drill_c071_manual02_s14.heic": {
+      "src": "drill_c071_manual02_s14.png",
+      "src_md5": "b975a34a35ab00293e2df102c9d5a85e",
+      "quality": 70,
+      "bytes": 161041
+    },
+    "drill_c071_manual02_s15.heic": {
+      "src": "drill_c071_manual02_s15.png",
+      "src_md5": "e0bc1f84e6a9981bd634b5634834f586",
+      "quality": 70,
+      "bytes": 159579
+    },
+    "drill_c072_initial.heic": {
+      "src": "drill_c072_initial.png",
+      "src_md5": "e6f76eeb1ebb1147c104c22307b95a7b",
+      "quality": 70,
+      "bytes": 148848
+    },
+    "drill_c072_s01.heic": {
+      "src": "drill_c072_s01.png",
+      "src_md5": "465cf819a5522223435090efd478a126",
+      "quality": 70,
+      "bytes": 170897
+    },
+    "drill_c072_s02.heic": {
+      "src": "drill_c072_s02.png",
+      "src_md5": "a547fa54d2c3f0c55b420b5f2c2379e0",
+      "quality": 70,
+      "bytes": 171987
+    },
+    "drill_c073_manual01_initial.heic": {
+      "src": "drill_c073_manual01_initial.png",
+      "src_md5": "2d8a4f84605b9377ea179baa3da6fc16",
+      "quality": 70,
+      "bytes": 148524
+    },
+    "drill_c073_manual01_s01.heic": {
+      "src": "drill_c073_manual01_s01.png",
+      "src_md5": "9fd7da99948b0fcf321a61089aec3cf8",
+      "quality": 70,
+      "bytes": 157886
+    },
+    "drill_c073_manual01_s02.heic": {
+      "src": "drill_c073_manual01_s02.png",
+      "src_md5": "cc4fd1045e069a1f6b112a1b6dbb8841",
+      "quality": 70,
+      "bytes": 158136
+    },
+    "drill_c073_manual01_s03.heic": {
+      "src": "drill_c073_manual01_s03.png",
+      "src_md5": "db7c426a05a1403cbbf699895decc0f2",
+      "quality": 70,
+      "bytes": 158171
+    },
+    "drill_c073_manual01_s04.heic": {
+      "src": "drill_c073_manual01_s04.png",
+      "src_md5": "5c7ace296aff0d25b26adf938b057742",
+      "quality": 70,
+      "bytes": 157877
+    },
+    "drill_c073_manual01_s05.heic": {
+      "src": "drill_c073_manual01_s05.png",
+      "src_md5": "971dbd176552d1830d8d60efed9151f0",
+      "quality": 70,
+      "bytes": 158147
+    },
+    "drill_c073_manual01_s06.heic": {
+      "src": "drill_c073_manual01_s06.png",
+      "src_md5": "d6a4e21b312d5938b4f1068a0477ab5b",
+      "quality": 70,
+      "bytes": 157943
+    },
+    "drill_c073_manual01_s07.heic": {
+      "src": "drill_c073_manual01_s07.png",
+      "src_md5": "366d0473b0f06c9f301ee67235eeb572",
+      "quality": 70,
+      "bytes": 157549
+    },
+    "drill_c073_manual02_initial.heic": {
+      "src": "drill_c073_manual02_initial.png",
+      "src_md5": "5a1ae3e4774973f2827e61a8f6a34bbf",
+      "quality": 70,
+      "bytes": 148457
+    },
+    "drill_c073_manual02_s01.heic": {
+      "src": "drill_c073_manual02_s01.png",
+      "src_md5": "f2ba49758c4dcae8f6eea45ce8bdd120",
+      "quality": 70,
+      "bytes": 159744
+    },
+    "drill_c073_manual02_s02.heic": {
+      "src": "drill_c073_manual02_s02.png",
+      "src_md5": "6fbbcf37c52c2e2124cd655a3f5142a8",
+      "quality": 70,
+      "bytes": 159647
+    },
+    "drill_c073_manual02_s03.heic": {
+      "src": "drill_c073_manual02_s03.png",
+      "src_md5": "205d3699c3b613bed323bfda4818cd59",
+      "quality": 70,
+      "bytes": 159983
+    },
+    "drill_c073_manual02_s04.heic": {
+      "src": "drill_c073_manual02_s04.png",
+      "src_md5": "50273f3d05542c8b40d74c09ca170a7b",
+      "quality": 70,
+      "bytes": 159395
+    },
+    "drill_c073_manual02_s05.heic": {
+      "src": "drill_c073_manual02_s05.png",
+      "src_md5": "aea2058bc2f7ae67b97ca8dfb2179bb0",
+      "quality": 70,
+      "bytes": 160119
+    },
+    "drill_c073_manual02_s06.heic": {
+      "src": "drill_c073_manual02_s06.png",
+      "src_md5": "0f12130d4658b54f2e9ea5e6bd1ad73a",
+      "quality": 70,
+      "bytes": 159606
+    },
+    "drill_c073_manual02_s07.heic": {
+      "src": "drill_c073_manual02_s07.png",
+      "src_md5": "d9447818a62689a55e7e47daffb52618",
+      "quality": 70,
+      "bytes": 160006
+    },
+    "drill_c073_manual02_s08.heic": {
+      "src": "drill_c073_manual02_s08.png",
+      "src_md5": "d9cd02b4ff99fa5d166c6d89a69f7824",
+      "quality": 70,
+      "bytes": 159367
+    },
+    "drill_c074_manual01_initial.heic": {
+      "src": "drill_c074_manual01_initial.png",
+      "src_md5": "0fb9515a1b8f1cc363420aeb0c3900bf",
+      "quality": 70,
+      "bytes": 147891
+    },
+    "drill_c074_manual01_s01.heic": {
+      "src": "drill_c074_manual01_s01.png",
+      "src_md5": "66cea62074e392d7928447e93cf81c94",
+      "quality": 70,
+      "bytes": 159270
+    },
+    "drill_c074_manual01_s02.heic": {
+      "src": "drill_c074_manual01_s02.png",
+      "src_md5": "3e5e43e107c05c18d11ac8cd6b600d75",
+      "quality": 70,
+      "bytes": 159357
+    },
+    "drill_c074_manual01_s03.heic": {
+      "src": "drill_c074_manual01_s03.png",
+      "src_md5": "9351aeaa831848113f040e0a66fa3523",
+      "quality": 70,
+      "bytes": 159466
+    },
+    "drill_c074_manual01_s04.heic": {
+      "src": "drill_c074_manual01_s04.png",
+      "src_md5": "461cd2fd38d9632fd03e3b92ea186ffe",
+      "quality": 70,
+      "bytes": 159670
+    },
+    "drill_c074_manual01_s05.heic": {
+      "src": "drill_c074_manual01_s05.png",
+      "src_md5": "cdd95326983da96259207087db3eb854",
+      "quality": 70,
+      "bytes": 159724
+    },
+    "drill_c074_manual01_s06.heic": {
+      "src": "drill_c074_manual01_s06.png",
+      "src_md5": "1c6a9ca8a3108680369bcdad32f775a1",
+      "quality": 70,
+      "bytes": 159657
+    },
+    "drill_c074_manual02_initial.heic": {
+      "src": "drill_c074_manual02_initial.png",
+      "src_md5": "9402db873c728d11f4d0bd2ad4f8eafc",
+      "quality": 70,
+      "bytes": 148544
+    },
+    "drill_c074_manual02_s01.heic": {
+      "src": "drill_c074_manual02_s01.png",
+      "src_md5": "5fdc563662517504c75db927ef442704",
+      "quality": 70,
+      "bytes": 164120
+    },
+    "drill_c074_manual02_s02.heic": {
+      "src": "drill_c074_manual02_s02.png",
+      "src_md5": "2f7ce4070dbd3c499ef09b6353b798ac",
+      "quality": 70,
+      "bytes": 166402
+    },
+    "drill_c074_manual02_s03.heic": {
+      "src": "drill_c074_manual02_s03.png",
+      "src_md5": "f60ab757d48b6a48447b35854bb4c56e",
+      "quality": 70,
+      "bytes": 166090
+    },
+    "drill_c074_manual02_s04.heic": {
+      "src": "drill_c074_manual02_s04.png",
+      "src_md5": "43aa1edfeaef73b47208c987ea569803",
+      "quality": 70,
+      "bytes": 166524
+    },
+    "drill_c074_manual02_s05.heic": {
+      "src": "drill_c074_manual02_s05.png",
+      "src_md5": "ce57373299b7651fed7be869fa494c87",
+      "quality": 70,
+      "bytes": 166294
+    },
+    "drill_c074_manual02_s06.heic": {
+      "src": "drill_c074_manual02_s06.png",
+      "src_md5": "f59325cb6ccd014fa737c2f3151a147f",
+      "quality": 70,
+      "bytes": 166131
+    },
+    "drill_c074_manual02_s07.heic": {
+      "src": "drill_c074_manual02_s07.png",
+      "src_md5": "8251292974d347146a83f44881aca438",
+      "quality": 70,
+      "bytes": 166645
+    },
+    "drill_c074_manual02_s08.heic": {
+      "src": "drill_c074_manual02_s08.png",
+      "src_md5": "23ffad92ef78c8fa62916ef4813fa877",
+      "quality": 70,
+      "bytes": 166492
+    },
+    "drill_c074_manual02_s09.heic": {
+      "src": "drill_c074_manual02_s09.png",
+      "src_md5": "0eb0865fad9a7131f44d17da8c7e1b8a",
+      "quality": 70,
+      "bytes": 165914
+    },
+    "drill_c075_manual01_initial.heic": {
+      "src": "drill_c075_manual01_initial.png",
+      "src_md5": "64f91977f2ff850194ecca69678b9795",
+      "quality": 70,
+      "bytes": 148588
+    },
+    "drill_c075_manual01_s01.heic": {
+      "src": "drill_c075_manual01_s01.png",
+      "src_md5": "29f4a71226a1060665b92f035ade1c3c",
+      "quality": 70,
+      "bytes": 169328
+    },
+    "drill_c075_manual01_s02.heic": {
+      "src": "drill_c075_manual01_s02.png",
+      "src_md5": "38092f8a29e71e1ae83b5cb41658e070",
+      "quality": 70,
+      "bytes": 167428
+    },
+    "drill_c075_manual01_s03.heic": {
+      "src": "drill_c075_manual01_s03.png",
+      "src_md5": "a3c75f937c43f1a533917bad0117797a",
+      "quality": 70,
+      "bytes": 165938
+    },
+    "drill_c075_manual01_s04.heic": {
+      "src": "drill_c075_manual01_s04.png",
+      "src_md5": "ee55a672a881d4315c463c14395d45ff",
+      "quality": 70,
+      "bytes": 166087
+    },
+    "drill_c075_manual01_s05.heic": {
+      "src": "drill_c075_manual01_s05.png",
+      "src_md5": "f3018a2a838a777fce53456accd7db9a",
+      "quality": 70,
+      "bytes": 170344
+    },
+    "drill_c075_manual01_s06.heic": {
+      "src": "drill_c075_manual01_s06.png",
+      "src_md5": "71eaa84fb588cf5fc64281b66429ef48",
+      "quality": 70,
+      "bytes": 166145
+    },
+    "drill_c075_manual01_s07.heic": {
+      "src": "drill_c075_manual01_s07.png",
+      "src_md5": "07e5dc4f2135636cd8a648e8078dbb77",
+      "quality": 70,
+      "bytes": 166149
+    },
+    "drill_c075_manual02_initial.heic": {
+      "src": "drill_c075_manual02_initial.png",
+      "src_md5": "4d919f6b47444752d663c197b12249e7",
+      "quality": 70,
+      "bytes": 148585
+    },
+    "drill_c075_manual02_s01.heic": {
+      "src": "drill_c075_manual02_s01.png",
+      "src_md5": "6451f892901aa04fba3aaee39353a7a3",
+      "quality": 70,
+      "bytes": 166344
+    },
+    "drill_c075_manual02_s02.heic": {
+      "src": "drill_c075_manual02_s02.png",
+      "src_md5": "1ddb7ef895b4c21a0505760d3d77b9d5",
+      "quality": 70,
+      "bytes": 169663
+    },
+    "drill_c075_manual02_s03.heic": {
+      "src": "drill_c075_manual02_s03.png",
+      "src_md5": "4892fa36da952d69331578baf3d39a57",
+      "quality": 70,
+      "bytes": 167458
+    },
+    "drill_c075_manual02_s04.heic": {
+      "src": "drill_c075_manual02_s04.png",
+      "src_md5": "86f23fc0149917a6a840bfd2d5ee856f",
+      "quality": 70,
+      "bytes": 165812
+    },
+    "drill_c075_manual02_s05.heic": {
+      "src": "drill_c075_manual02_s05.png",
+      "src_md5": "7950588e74d065e8d44ef474cb2226aa",
+      "quality": 70,
+      "bytes": 164730
+    },
+    "drill_c075_manual03_initial.heic": {
+      "src": "drill_c075_manual03_initial.png",
+      "src_md5": "573eb65c54fabe99a54e082cd21a3f4b",
+      "quality": 70,
+      "bytes": 148796
+    },
+    "drill_c075_manual03_s01.heic": {
+      "src": "drill_c075_manual03_s01.png",
+      "src_md5": "1545283e5bb8b915afabf26aae17140d",
+      "quality": 70,
+      "bytes": 165839
+    },
+    "drill_c075_manual03_s02.heic": {
+      "src": "drill_c075_manual03_s02.png",
+      "src_md5": "b3c6bba678859a6c0e62b8a35f9b1c9c",
+      "quality": 70,
+      "bytes": 165555
+    },
+    "drill_c075_manual03_s03.heic": {
+      "src": "drill_c075_manual03_s03.png",
+      "src_md5": "ee948dd94c3ca2b739968c9b18437e79",
+      "quality": 70,
+      "bytes": 165132
+    },
+    "drill_c075_manual03_s04.heic": {
+      "src": "drill_c075_manual03_s04.png",
+      "src_md5": "ae8c6d1ab8319def2b750c17dd266ef5",
+      "quality": 70,
+      "bytes": 168281
+    },
+    "drill_c075_manual03_s05.heic": {
+      "src": "drill_c075_manual03_s05.png",
+      "src_md5": "e111ab9d968b08e34bd4fb454c3c4289",
+      "quality": 70,
+      "bytes": 165788
+    },
+    "drill_c076_manual01_initial.heic": {
+      "src": "drill_c076_manual01_initial.png",
+      "src_md5": "cbd6f3107ec4672696c23321679cdeee",
+      "quality": 70,
+      "bytes": 152397
+    },
+    "drill_c076_manual01_s01.heic": {
+      "src": "drill_c076_manual01_s01.png",
+      "src_md5": "48ffdaaec9f26fcea780ebe8491d090e",
+      "quality": 70,
+      "bytes": 174421
+    },
+    "drill_c076_manual01_s02.heic": {
+      "src": "drill_c076_manual01_s02.png",
+      "src_md5": "ff3eda760d449433b2cb81c7c39d7c3b",
+      "quality": 70,
+      "bytes": 171331
+    },
+    "drill_c076_manual01_s03.heic": {
+      "src": "drill_c076_manual01_s03.png",
+      "src_md5": "90c2982c546c93537cccb01ec3654948",
+      "quality": 70,
+      "bytes": 171704
+    },
+    "drill_c076_manual01_s04.heic": {
+      "src": "drill_c076_manual01_s04.png",
+      "src_md5": "45a93f58a751e700186fcb39634a39e1",
+      "quality": 70,
+      "bytes": 169607
+    },
+    "drill_c076_manual01_s05.heic": {
+      "src": "drill_c076_manual01_s05.png",
+      "src_md5": "ced4e983e680fba3ce433b34f2777993",
+      "quality": 70,
+      "bytes": 168539
+    },
+    "drill_c076_manual01_s06.heic": {
+      "src": "drill_c076_manual01_s06.png",
+      "src_md5": "9c3740fffa3dfceff80bef9f820c618b",
+      "quality": 70,
+      "bytes": 166708
+    },
+    "drill_c076_manual01_s07.heic": {
+      "src": "drill_c076_manual01_s07.png",
+      "src_md5": "c952a5c4bc34ebe4f53c8b7dbccb924b",
+      "quality": 70,
+      "bytes": 165293
+    },
+    "drill_c076_manual01_s08.heic": {
+      "src": "drill_c076_manual01_s08.png",
+      "src_md5": "39915a48d54b440ec0520bbb17cab59f",
+      "quality": 70,
+      "bytes": 164010
+    },
+    "drill_c076_manual01_s09.heic": {
+      "src": "drill_c076_manual01_s09.png",
+      "src_md5": "3df4dbe0d14b66fda38b020fd7187062",
+      "quality": 70,
+      "bytes": 162349
+    },
+    "drill_c076_manual01_s10.heic": {
+      "src": "drill_c076_manual01_s10.png",
+      "src_md5": "b5a8c1cad8ebc624181cedd20d54cc5d",
+      "quality": 70,
+      "bytes": 162184
+    },
+    "drill_c076_manual01_s11.heic": {
+      "src": "drill_c076_manual01_s11.png",
+      "src_md5": "a6c2332f83341f7e004d40d5e9c4c665",
+      "quality": 70,
+      "bytes": 162918
+    },
+    "drill_c076_manual01_s12.heic": {
+      "src": "drill_c076_manual01_s12.png",
+      "src_md5": "ea9aa4983ddc4fe484811eb62697443a",
+      "quality": 70,
+      "bytes": 165063
+    },
+    "drill_c076_manual01_s13.heic": {
+      "src": "drill_c076_manual01_s13.png",
+      "src_md5": "0c2909f0080fe92f0f76763620e22737",
+      "quality": 70,
+      "bytes": 166991
+    },
+    "drill_c076_manual01_s14.heic": {
+      "src": "drill_c076_manual01_s14.png",
+      "src_md5": "be1722cb958193acc312ea4180780c0c",
+      "quality": 70,
+      "bytes": 168858
+    },
+    "drill_c076_manual02_initial.heic": {
+      "src": "drill_c076_manual02_initial.png",
+      "src_md5": "c23a84b1b6a0d1bd1d3a8e7f4823fbb4",
+      "quality": 70,
+      "bytes": 152251
+    },
+    "drill_c076_manual02_s01.heic": {
+      "src": "drill_c076_manual02_s01.png",
+      "src_md5": "5eaa4103d5579ad5b8939e228c5402cc",
+      "quality": 70,
+      "bytes": 166254
+    },
+    "drill_c076_manual02_s02.heic": {
+      "src": "drill_c076_manual02_s02.png",
+      "src_md5": "32383154342b1c65c7848155ce30324e",
+      "quality": 70,
+      "bytes": 167254
+    },
+    "drill_c076_manual02_s03.heic": {
+      "src": "drill_c076_manual02_s03.png",
+      "src_md5": "e13fbf34468a81a8e27d5cc9f1f94d03",
+      "quality": 70,
+      "bytes": 164815
+    },
+    "drill_c076_manual02_s04.heic": {
+      "src": "drill_c076_manual02_s04.png",
+      "src_md5": "77ba7d6f3e9295ae225b596ce64373a4",
+      "quality": 70,
+      "bytes": 166279
+    },
+    "drill_c076_manual02_s05.heic": {
+      "src": "drill_c076_manual02_s05.png",
+      "src_md5": "48ce36cf0016e2cb986d043f90c38c71",
+      "quality": 70,
+      "bytes": 164070
+    },
+    "drill_c076_manual02_s06.heic": {
+      "src": "drill_c076_manual02_s06.png",
+      "src_md5": "0b8a1edc19a0ec6e991e70ad0d78e72a",
+      "quality": 70,
+      "bytes": 164105
+    },
+    "drill_c076_manual02_s07.heic": {
+      "src": "drill_c076_manual02_s07.png",
+      "src_md5": "211c41a7697506b7cad15992b629c238",
+      "quality": 70,
+      "bytes": 163998
+    },
+    "drill_c076_manual02_s08.heic": {
+      "src": "drill_c076_manual02_s08.png",
+      "src_md5": "efa90de22523daab906105bd60c124e3",
+      "quality": 70,
+      "bytes": 165363
+    },
+    "drill_c076_manual02_s09.heic": {
+      "src": "drill_c076_manual02_s09.png",
+      "src_md5": "b253bb7552ac5addcc65d2c561f6b848",
+      "quality": 70,
+      "bytes": 165888
+    },
+    "drill_c076_manual02_s10.heic": {
+      "src": "drill_c076_manual02_s10.png",
+      "src_md5": "d71fbe24529aed8766d2bd62f949ed5b",
+      "quality": 70,
+      "bytes": 172552
+    },
+    "drill_c076_manual02_s11.heic": {
+      "src": "drill_c076_manual02_s11.png",
+      "src_md5": "6cbde989190a7af35147f1d0aed89c58",
+      "quality": 70,
+      "bytes": 172943
+    },
+    "drill_c076_manual02_s12.heic": {
+      "src": "drill_c076_manual02_s12.png",
+      "src_md5": "2da94712bbc354752f8cf433fbd095aa",
+      "quality": 70,
+      "bytes": 177611
+    },
+    "drill_c076_manual02_s13.heic": {
+      "src": "drill_c076_manual02_s13.png",
+      "src_md5": "e2ed69d7a7991e7d2b9a8255bfffa108",
+      "quality": 70,
+      "bytes": 175601
+    },
+    "drill_c076_manual02_s14.heic": {
+      "src": "drill_c076_manual02_s14.png",
+      "src_md5": "c1a076862eea8acc9bf553dafd38cc43",
+      "quality": 70,
+      "bytes": 182228
+    },
+    "drill_c077_initial.heic": {
+      "src": "drill_c077_initial.png",
+      "src_md5": "c19b3e8310d717c73226259dcaf16d22",
+      "quality": 70,
+      "bytes": 150954
+    },
+    "drill_c077_s01.heic": {
+      "src": "drill_c077_s01.png",
+      "src_md5": "ce4d88ff1ff6a3a5d44d9bbef82f3e5e",
+      "quality": 70,
+      "bytes": 175316
+    },
+    "drill_c077_s02.heic": {
+      "src": "drill_c077_s02.png",
+      "src_md5": "20cd969aa1f8be9e02eb748d4e49fa89",
+      "quality": 70,
+      "bytes": 175682
+    },
+    "drill_c077_s03.heic": {
+      "src": "drill_c077_s03.png",
+      "src_md5": "a307df415248ffef6d90f7d92d839648",
+      "quality": 70,
+      "bytes": 175854
+    },
+    "drill_c077_s04.heic": {
+      "src": "drill_c077_s04.png",
+      "src_md5": "4aa5d81512296cdc96ee0a5449735cad",
+      "quality": 70,
+      "bytes": 179432
+    },
+    "drill_c077_s05.heic": {
+      "src": "drill_c077_s05.png",
+      "src_md5": "d9d81d12df51c1db1d569ff17683d0d3",
+      "quality": 70,
+      "bytes": 184023
+    },
+    "drill_c078_initial.heic": {
+      "src": "drill_c078_initial.png",
+      "src_md5": "777e2925a7c574b0f8344aad2611ada8",
+      "quality": 70,
+      "bytes": 152409
+    },
+    "drill_c078_s01.heic": {
+      "src": "drill_c078_s01.png",
+      "src_md5": "a81a68d51492f135d6d165f7955236ab",
+      "quality": 70,
+      "bytes": 181451
+    },
+    "drill_c078_s02.heic": {
+      "src": "drill_c078_s02.png",
+      "src_md5": "64c5fb8f1b904fdacd125aee89d9fef0",
+      "quality": 70,
+      "bytes": 177729
+    },
+    "drill_c078_s03.heic": {
+      "src": "drill_c078_s03.png",
+      "src_md5": "748603513a441646ccff65ae9642f294",
+      "quality": 70,
+      "bytes": 179524
+    },
+    "drill_c078_s04.heic": {
+      "src": "drill_c078_s04.png",
+      "src_md5": "c04ca21ddd5f94075bc8f5e63933c2bf",
+      "quality": 70,
+      "bytes": 175208
+    },
+    "drill_c078_s05.heic": {
+      "src": "drill_c078_s05.png",
+      "src_md5": "6a35a04d5d35c65e81897866f1288393",
+      "quality": 70,
+      "bytes": 178381
+    },
+    "drill_c078_s06.heic": {
+      "src": "drill_c078_s06.png",
+      "src_md5": "48521e07ad8318fd0bcae1cb0e59b291",
+      "quality": 70,
+      "bytes": 174539
+    },
+    "drill_c078_s07.heic": {
+      "src": "drill_c078_s07.png",
+      "src_md5": "148b6204ca5e15fa45b046ada85fb022",
+      "quality": 70,
+      "bytes": 177441
+    },
+    "drill_c078_s08.heic": {
+      "src": "drill_c078_s08.png",
+      "src_md5": "8517549737ca09383bf38ff4a912c6c8",
+      "quality": 70,
+      "bytes": 171319
+    },
+    "drill_c078_s09.heic": {
+      "src": "drill_c078_s09.png",
+      "src_md5": "3d0fe6fe85640dcdb7e8decdf6941dbf",
+      "quality": 70,
+      "bytes": 179365
+    },
+    "drill_c078_s10.heic": {
+      "src": "drill_c078_s10.png",
+      "src_md5": "78f0de024d0b10a6dfb4ffe39e238b6c",
+      "quality": 70,
+      "bytes": 171767
+    },
+    "drill_c078_s11.heic": {
+      "src": "drill_c078_s11.png",
+      "src_md5": "906628d1ba63be455b4cda0c41113b34",
+      "quality": 70,
+      "bytes": 182258
+    },
+    "drill_c078_s12.heic": {
+      "src": "drill_c078_s12.png",
+      "src_md5": "32a140609437a5a19538e0a6d33e9a91",
+      "quality": 70,
+      "bytes": 173002
+    },
+    "drill_c078_s13.heic": {
+      "src": "drill_c078_s13.png",
+      "src_md5": "90eade142900461a603ca8242c404e69",
+      "quality": 70,
+      "bytes": 182259
+    },
+    "drill_c078_s14.heic": {
+      "src": "drill_c078_s14.png",
+      "src_md5": "e89051c0cafde5ef779a9b3ce3793dcc",
+      "quality": 70,
+      "bytes": 173626
+    },
+    "drill_c078_s15.heic": {
+      "src": "drill_c078_s15.png",
+      "src_md5": "709899aec2067cf63f9e23122875d4dc",
+      "quality": 70,
+      "bytes": 176375
+    },
+    "drill_c078_s16.heic": {
+      "src": "drill_c078_s16.png",
+      "src_md5": "0d673f6a6699b185e3ae480e199bc7db",
+      "quality": 70,
+      "bytes": 173454
+    },
+    "drill_c079_initial.heic": {
+      "src": "drill_c079_initial.png",
+      "src_md5": "339cc80fff09ad526ac780de54fc8975",
+      "quality": 70,
+      "bytes": 151029
+    },
+    "drill_c079_s01.heic": {
+      "src": "drill_c079_s01.png",
+      "src_md5": "6bc286cb42e5877314cefea6b31f7ca7",
+      "quality": 70,
+      "bytes": 170360
+    },
+    "drill_c079_s02.heic": {
+      "src": "drill_c079_s02.png",
+      "src_md5": "04f3dbac27578a0e7d542391ba12fc72",
+      "quality": 70,
+      "bytes": 168750
+    },
+    "drill_c079_s03.heic": {
+      "src": "drill_c079_s03.png",
+      "src_md5": "be5c878560b8becf6798aba92b305642",
+      "quality": 70,
+      "bytes": 169303
+    },
+    "drill_c079_s04.heic": {
+      "src": "drill_c079_s04.png",
+      "src_md5": "b643ab114af3152cb94be6210b9b93bf",
+      "quality": 70,
+      "bytes": 162587
+    },
+    "drill_c080_initial.heic": {
+      "src": "drill_c080_initial.png",
+      "src_md5": "3bebfff2a89f678efd07cf968b18d5b1",
+      "quality": 70,
+      "bytes": 149558
+    },
+    "drill_c080_s01.heic": {
+      "src": "drill_c080_s01.png",
+      "src_md5": "ed7bb38643bc1df17becad0b4ce5b144",
+      "quality": 70,
+      "bytes": 169182
+    },
+    "drill_c080_s02.heic": {
+      "src": "drill_c080_s02.png",
+      "src_md5": "1e77d20d792067ca3241de58b13ffd5e",
+      "quality": 70,
+      "bytes": 168201
+    },
+    "drill_c080_s03.heic": {
+      "src": "drill_c080_s03.png",
+      "src_md5": "14c7fbf6a72be49ec604b1c7c914f639",
+      "quality": 70,
+      "bytes": 176213
+    },
+    "drill_c080_s04.heic": {
+      "src": "drill_c080_s04.png",
+      "src_md5": "b16c7d8c662ef6b696d6e05200a3dc4a",
+      "quality": 70,
+      "bytes": 168015
+    },
+    "drill_c081_initial.heic": {
+      "src": "drill_c081_initial.png",
+      "src_md5": "8fc6bcb5777d65c3abcc22026d4ef826",
+      "quality": 70,
+      "bytes": 150944
+    },
+    "drill_c081_s01.heic": {
+      "src": "drill_c081_s01.png",
+      "src_md5": "0c4a5c8fc8cfc02443b8d201d22322b8",
+      "quality": 70,
+      "bytes": 169590
+    },
+    "drill_c081_s02.heic": {
+      "src": "drill_c081_s02.png",
+      "src_md5": "3aa705fbe9fb7f5e2fd983231c93389c",
+      "quality": 70,
+      "bytes": 169680
+    },
+    "drill_c081_s03.heic": {
+      "src": "drill_c081_s03.png",
+      "src_md5": "7dc2e219b96a320785e84fa43aadf02e",
+      "quality": 70,
+      "bytes": 171000
+    },
+    "drill_c081_s04.heic": {
+      "src": "drill_c081_s04.png",
+      "src_md5": "f85f37fc7405dad8ba3be9d9cebc7db0",
+      "quality": 70,
+      "bytes": 163693
+    },
+    "drill_c082_initial.heic": {
+      "src": "drill_c082_initial.png",
+      "src_md5": "e6cd90643a9362512cbc522aeb50866d",
+      "quality": 70,
+      "bytes": 152525
+    },
+    "drill_c082_s01.heic": {
+      "src": "drill_c082_s01.png",
+      "src_md5": "162ed109613b13dcebd604af199acc6f",
+      "quality": 70,
+      "bytes": 171952
+    },
+    "drill_c082_s02.heic": {
+      "src": "drill_c082_s02.png",
+      "src_md5": "f7d3ee58f303c93b500334a2e2b82886",
+      "quality": 70,
+      "bytes": 174388
+    },
+    "drill_c082_s03.heic": {
+      "src": "drill_c082_s03.png",
+      "src_md5": "99b110233d90c04205d8e986bfd2aede",
+      "quality": 70,
+      "bytes": 170724
+    },
+    "drill_c082_s04.heic": {
+      "src": "drill_c082_s04.png",
+      "src_md5": "42c6f27bf31bd39927b40c78ddd105ea",
+      "quality": 70,
+      "bytes": 176162
+    },
+    "drill_c082_s05.heic": {
+      "src": "drill_c082_s05.png",
+      "src_md5": "741837a61523569ae08c191674e49c3e",
+      "quality": 70,
+      "bytes": 167915
+    },
+    "drill_c082_s06.heic": {
+      "src": "drill_c082_s06.png",
+      "src_md5": "4ef8e4d62f419574f0465ea231079a64",
+      "quality": 70,
+      "bytes": 175449
+    },
+    "drill_c082_s07.heic": {
+      "src": "drill_c082_s07.png",
+      "src_md5": "b5429fb779645d93b9ae68c2bd982f52",
+      "quality": 70,
+      "bytes": 170364
+    },
+    "drill_c082_s08.heic": {
+      "src": "drill_c082_s08.png",
+      "src_md5": "67ac7020ab2687abe5ace38ab248972f",
+      "quality": 70,
+      "bytes": 176047
+    },
+    "drill_c082_s09.heic": {
+      "src": "drill_c082_s09.png",
+      "src_md5": "62306232b5889d1d760efcdb5fbf59d9",
+      "quality": 70,
+      "bytes": 169424
+    },
+    "drill_c082_s10.heic": {
+      "src": "drill_c082_s10.png",
+      "src_md5": "3c930028d4490c68d66d23a751ad127e",
+      "quality": 70,
+      "bytes": 171480
+    },
+    "drill_c082_s11.heic": {
+      "src": "drill_c082_s11.png",
+      "src_md5": "496d9e7d24bffb605852349d3c8eed6f",
+      "quality": 70,
+      "bytes": 171925
+    },
+    "drill_c082_s12.heic": {
+      "src": "drill_c082_s12.png",
+      "src_md5": "96fd7f8eea7d85adb3dcbbd817493309",
+      "quality": 70,
+      "bytes": 164333
+    },
+    "drill_c083_initial.heic": {
+      "src": "drill_c083_initial.png",
+      "src_md5": "3b53589647f78fcee04b484ec51ee56f",
+      "quality": 70,
+      "bytes": 153070
+    },
+    "drill_c083_s01.heic": {
+      "src": "drill_c083_s01.png",
+      "src_md5": "8643d0e9cbad0e8f4d33110b9e2608a2",
+      "quality": 70,
+      "bytes": 168286
+    },
+    "drill_c083_s02.heic": {
+      "src": "drill_c083_s02.png",
+      "src_md5": "1b700c326d75050ba9328955228b7a98",
+      "quality": 70,
+      "bytes": 167061
+    },
+    "drill_c083_s03.heic": {
+      "src": "drill_c083_s03.png",
+      "src_md5": "e9051c98d189c5c931059523b5ed1b9e",
+      "quality": 70,
+      "bytes": 164515
+    },
+    "drill_c083_s04.heic": {
+      "src": "drill_c083_s04.png",
+      "src_md5": "533e4494f42ae4bae8daceb136c92820",
+      "quality": 70,
+      "bytes": 164504
+    },
+    "drill_c083_s05.heic": {
+      "src": "drill_c083_s05.png",
+      "src_md5": "3e612fbb14e092fb1a346e987ffc0c30",
+      "quality": 70,
+      "bytes": 165233
+    },
+    "drill_c083_s06.heic": {
+      "src": "drill_c083_s06.png",
+      "src_md5": "41d0abf686675cf070e50acb8f665f67",
+      "quality": 70,
+      "bytes": 166727
+    },
+    "drill_c083_s07.heic": {
+      "src": "drill_c083_s07.png",
+      "src_md5": "8fd0c3ac62d5ae00275e8488568209ec",
+      "quality": 70,
+      "bytes": 167761
+    },
+    "drill_c083_s08.heic": {
+      "src": "drill_c083_s08.png",
+      "src_md5": "4b24c66540733692afa6c86cdc20a54d",
+      "quality": 70,
+      "bytes": 167428
+    },
+    "drill_c084_initial.heic": {
+      "src": "drill_c084_initial.png",
+      "src_md5": "ece59a4bf5ec6de16b731a9c71019b96",
+      "quality": 70,
+      "bytes": 153519
+    },
+    "drill_c084_s01.heic": {
+      "src": "drill_c084_s01.png",
+      "src_md5": "034561e602ec450a75d5ea0df6ebd8ee",
+      "quality": 70,
+      "bytes": 166102
+    },
+    "drill_c084_s02.heic": {
+      "src": "drill_c084_s02.png",
+      "src_md5": "74af7c320b8ee005da04790e5a35fb5a",
+      "quality": 70,
+      "bytes": 165554
+    },
+    "drill_c084_s03.heic": {
+      "src": "drill_c084_s03.png",
+      "src_md5": "8119fb2f26da4f3eff67f7af011f8f06",
+      "quality": 70,
+      "bytes": 165338
+    },
+    "drill_c084_s04.heic": {
+      "src": "drill_c084_s04.png",
+      "src_md5": "3eedb059e75bd8a581f4ebd82364e861",
+      "quality": 70,
+      "bytes": 165280
+    },
+    "drill_c084_s05.heic": {
+      "src": "drill_c084_s05.png",
+      "src_md5": "92ee1cadd170d761af5e1a5d89c8327a",
+      "quality": 70,
+      "bytes": 163608
+    },
+    "drill_c084_s06.heic": {
+      "src": "drill_c084_s06.png",
+      "src_md5": "d9b6a30642fb5c035776d3ddd0e12b85",
+      "quality": 70,
+      "bytes": 164213
+    },
+    "drill_c084_s07.heic": {
+      "src": "drill_c084_s07.png",
+      "src_md5": "ae3b821c45d48c7bdec57faf1715dbc2",
+      "quality": 70,
+      "bytes": 162925
+    },
+    "drill_c084_s08.heic": {
+      "src": "drill_c084_s08.png",
+      "src_md5": "df5e43b589f76527209a44aba33d0031",
+      "quality": 70,
+      "bytes": 162702
+    }
+  }
+}

@@ -1,6 +1,19 @@
 import Foundation
 import SwiftData
 
+/// `SyncPendingItem.operation` 的取值。存字符串是既有落库格式，这里只是收敛字面量。
+enum SyncOperation {
+    static let create = "create"
+    static let update = "update"
+    static let delete = "delete"
+}
+
+/// `SyncPendingItem.entityType` 的取值。
+enum SyncEntityType {
+    static let trainingSession = "TrainingSession"
+    static let angleTestResult = "AngleTestResult"
+}
+
 @Model
 final class SyncPendingItem {
     var id: UUID

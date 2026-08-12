@@ -178,14 +178,25 @@ struct TutorialFormation: Codable, Identifiable {
     let sections: [TutorialSection]
 }
 
+/// 精讲配图在 Bundle 内的落位约定（v25 W4 / D-v25-2）。
+///
+/// 打包的是**发布目录** `Resources/TutorialFigures`（仅被精讲引用者，HEIC，约 112 MB）；
+/// PNG 母版留在 `Resources/DrillTutorials`，含孤儿帧共约 4.9 GB，不进包（D-v25-10）。
+/// 产物由 `make tutorial-figures` 生成，发布集与新鲜度由 `make verify-gate` 看守。
+enum TutorialAssets {
+    static let bundleSubdirectory = "TutorialFigures"
+    /// 发布产物为 HEIC；png / jpg 保留回退位，供手工补图与历史资产。
+    static let imageExtensions = ["heic", "png", "jpg"]
+}
+
 struct TutorialSection: Codable, Identifiable {
     let title: String
     /// 段落正文。可选——「常见错误与纠正」这类纯 `items` 列表节没有正文，
     /// 既有内容里同时存在「省略该键」与 `""` 两种写法，二者语义等同（渲染层均不出段落）。
     let content: String?
-    /// 图文精讲配图（静态海报）：`Resources/DrillTutorials/<image>.png`（不含扩展名）。可选——旧 Drill 无此字段照常工作。
+    /// 图文精讲配图（静态海报）：`Resources/TutorialFigures/<image>.heic`（不含扩展名）。可选——旧 Drill 无此字段照常工作。
     let image: String?
-    /// 动态演示片段（可选，mp4，ADR-P12-02）：`Resources/DrillTutorials/<clip>.mp4`（不含扩展名）。
+    /// 动态演示片段（可选，mp4，ADR-P12-02）：`Resources/TutorialFigures/<clip>.mp4`（不含扩展名）。
     /// 与 `image`（静态海报）配合——有 clip 时海报上显示播放角标，点击进全屏循环播放。
     /// 内容选用规则：讲位置/几何/落点用静态 `image`；讲运动/走位/杆法效果再加 `clip`。
     let clip: String?
@@ -447,9 +458,10 @@ actor DrillContentService {
     // （D-v25-1 预留真人示范）。恢复真人示范时再恢复 Bundle 解析即可。
     // nonisolated func videoURL(drillId: String, file: String) -> URL? { ... }
 
-    /// Resolves a tutorial motion clip (mp4) bundled at `Resources/DrillTutorials/<name>.mp4`.
+    /// Resolves a tutorial motion clip (mp4) bundled at `Resources/TutorialFigures/<name>.mp4`.
     /// Pass the `clip` name without extension (same convention as tutorial `image`). ADR-P12-02.
     nonisolated func tutorialClipURL(named name: String) -> URL? {
-        Bundle.main.url(forResource: name, withExtension: "mp4", subdirectory: "DrillTutorials")
+        Bundle.main.url(forResource: name, withExtension: "mp4",
+                        subdirectory: TutorialAssets.bundleSubdirectory)
     }
 }

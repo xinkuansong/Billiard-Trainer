@@ -47,8 +47,9 @@ help:
 	@echo "  make position-export-stills  只重渲静帧（修开局图等，保留既有 mp4）"
 	@echo "  make thumbnails   动作库缩略图烘焙（Resources/DrillThumbnails/；烘焙 runner 不随 make test 跑）"
 	@echo "  make tryout-sync  同步 drill 序列到 App Bundle 试打球形（Resources/DrillBoards/）"
+	@echo "  make tutorial-figures  精讲配图发布（PNG 母版 → HEIC 打包目录 Resources/TutorialFigures/）"
 	@echo "  make verify-tutorials  内容不变量全量校验（C1–C4 + I5/I6a/I6b/I7/I8/I9/I10/I11）"
-	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I6a/I6b 剂量口径与 I11 计划校验，v31 W4 新增）"
+	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I6a/I6b 剂量口径、I11 计划校验、配图发布新鲜度与 DTO↔后端 schema 双端对齐）"
 	@echo "  make invariant-selftest  不变量检查自测（构造性用例证明每项真会报错）"
 	@echo "  make verify-doc-size  进度文档体积门禁（PROGRESS.md / hub 状态卡滚动归档纪律）"
 	@echo "  make install-hooks  安装 git 钩子（pre-push 内容不变量门禁）"
@@ -250,6 +251,17 @@ tryout-sync:
 	@echo "✅ 已同步 $$(ls "$(DRILL_BOARDS_DIR)" | wc -l | tr -d ' ') 个球形序列"
 
 # ────────────────────────────────────────────
+# 精讲配图发布（v25 W4 / D-v25-2 / D-v25-10）
+# PNG 母版 Resources/DrillTutorials（4.9 GB，含孤儿帧，不进包不进 git）
+#   → 发布 Resources/TutorialFigures（仅被引用者，HEIC q70，约 112 MB，进包进 git）
+# folder reference 整目录打包，母版与发布图必须分家，否则孤儿帧必然进包。
+# 母版变更或新增精讲引用后须重跑；`make verify-gate` 会校验发布集与新鲜度。
+# ────────────────────────────────────────────
+.PHONY: tutorial-figures
+tutorial-figures:
+	@python3 $(PROJECT_ROOT)/scripts/publish_tutorial_figures.py $(ARGS)
+
+# ────────────────────────────────────────────
 # 精讲资产同步校验
 # 序列 JSON 更新后跑一次，确认出片产物、回填图、精讲引用与结构都跟上了。
 # 逐段说明与退出码见 scripts/verify_tutorial_sync.py 文件头。
@@ -262,7 +274,9 @@ verify-tutorials:
 # 内容不变量门禁（问题集合 v29 W9；契约 §7）
 # verify-gate           = pre-push 钩子的入口。阻塞 C1/C2/C3/C4/I5/I6a/I6b/I7/I8/I9/I10/I11
 #                         （v26 W13：C4 已从 GATE_EXEMPT_CHECKS 移除并转正；
-#                          v31 W4：I6a/I6b 剂量口径与 I11 官方计划校验接入，均为阻塞项）。
+#                          v31 W4：I6a/I6b 剂量口径与 I11 官方计划校验接入，均为阻塞项）
+#                         + 用户数据同步双端对齐 D0/D1（v36 W4，Swift DTO ↔ Mongoose schema，
+#                           见 scripts/verify_sync_schema_alignment.py 文件头；D2/D3 为 WARN）。
 # invariant-selftest    = 构造性用例：每个检查项都在影子内容库上制造一处不一致，
 #                         证明它真会报错（不是永远 PASS 的空壳）。
 # install-hooks         = 把 scripts/hooks/* 装进 .git/hooks（git 不跟踪 .git/hooks，
@@ -271,10 +285,17 @@ verify-tutorials:
 .PHONY: verify-gate
 verify-gate:
 	@python3 $(PROJECT_ROOT)/scripts/verify_tutorial_sync.py --gate $(ARGS)
+	@python3 $(PROJECT_ROOT)/scripts/publish_tutorial_figures.py --check
+	@python3 $(PROJECT_ROOT)/scripts/verify_sync_schema_alignment.py --gate
 
+# 双端对齐检查的构造性用例走它自己的 --selftest（v36 W4）：它的影子副本是
+# Swift 源 + backend/src/models + node_modules 符号链接，与 selftest_content_invariants.py
+# 的「内容库目录副本 + --baselines/--only」fixture 模型不同构，硬塞进那个 harness
+# 要改它的 fixture 与 CLI 形状；这里在同一个入口下并列调用即可。
 .PHONY: invariant-selftest
 invariant-selftest:
 	@python3 $(PROJECT_ROOT)/scripts/selftest_content_invariants.py $(ARGS)
+	@python3 $(PROJECT_ROOT)/scripts/verify_sync_schema_alignment.py --selftest
 
 # ────────────────────────────────────────────
 # 进度文档体积门禁（2026-08-09 上下文瘦身）

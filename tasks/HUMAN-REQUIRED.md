@@ -375,3 +375,18 @@
 - **影响任务**：T-P8-10（App Store 提交审核时需填备案号）、T-P18-30
 - **完成标志**：拿到备案号，填入本条并改 ✅
 - **预计时长**：操作 ~1 小时 + 等待审核 1–4 周
+
+---
+
+## H-24 — 部署 v36 新后端 + 清空 MongoDB 用户数据集合（问题集合 v36 W4b）
+
+- **状态**：⏳ 待完成（非阻塞研发；但 **v36 W3 的端到端验收在此之前无法完成**）
+- **背景**：问题集合 v36 的 W1–W3 已把上行 9 个成绩字段、按 clientId 硬删端点、下行恢复链路全部落地（代码在工作区，聚焦测试全绿），但 `106.54.3.210:3000` 上跑的仍是 v29 W5 时代的旧后端——**没有** W2 的 `DELETE /training-sessions/by-client/:clientId`，**没有** W1 的 9 个 schema 字段。用户已授权：App 未上线，现有 Mongo 用户数据可全部清空（v36 真源前提，D-v36-2 语境）。
+- **做什么**：
+  1. 把 `backend/` 当前代码部署到 106.54.3.210（含 `src/models/TrainingSession.js` 的 9 个新字段、`src/routes/trainingSession.js` 的 by-client 删除路由），重启 node 服务。
+  2. 清空 `qiuji` 库的用户数据集合（`trainingsessions`、`angletests`；`users` 是否一并清由你定——清了要重新登录）。
+  3. 部署后自检：`GET /training-sessions`（带 JWT）通、`DELETE /training-sessions/by-client/<任意 uuid>` 返 200。
+- **在哪里**：SSH 到 106.54.3.210（Ubuntu 22.04，MongoDB 7.0 同机、仅监听 127.0.0.1）
+- **预计时长**：20–40 分钟
+- **完成后**：把本条改 ✅，并**补做 v36 W3 完成标准 4**——模拟器/真机走「登录 → 造数据 → 删 App 重装 → 数据回来」，截图落 `build/w3-screenshots/`，然后把 `问题集合_v36.md` 的 W3 记录由 🔄 改 ✅。
+- **影响任务**：问题集合 v36 W4b 收官；W3 端到端验收；后端 `deleteOne` 与下行真实 HTTP 往返至今**未经任何实测**（目前全部证据为单测 + 静态核验）。

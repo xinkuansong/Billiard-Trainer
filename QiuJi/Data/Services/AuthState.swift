@@ -42,6 +42,10 @@ final class AuthState: ObservableObject {
         if wasLocalOnly {
             pendingMigration = true
         }
+        // 登录成功是「换机/重装后把数据拉回来」的唯一时机（v36 W3）。
+        // 用通知而不是让 LoginView 直接调恢复服务：登录入口不止一个（Apple / 未来
+        // 手机号、微信），挂在这里才不会漏。
+        NotificationCenter.default.post(name: .didCompleteLogin, object: nil)
     }
 
     func loginAnonymously() {
@@ -67,6 +71,8 @@ final class AuthState: ObservableObject {
 
 extension Notification.Name {
     static let didRequestDataMigration = Notification.Name("didRequestDataMigration")
+    /// 登录成功（非匿名）。监听方：`QiuJiApp` 的全量下行恢复。
+    static let didCompleteLogin = Notification.Name("didCompleteLogin")
     static let didRequestResumeTraining = Notification.Name("didRequestResumeTraining")
     /// Posted when ActiveTraining fullScreenCover dismisses (MainTabView → TrainingHome reload).
     static let didDismissActiveTraining = Notification.Name("didDismissActiveTraining")

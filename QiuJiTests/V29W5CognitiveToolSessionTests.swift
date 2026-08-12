@@ -372,4 +372,77 @@ final class V29W5CognitiveToolSessionTests: XCTestCase {
         XCTAssertEqual(dto.errorMM, 0)
         XCTAssertNil(dto.sessionId)
     }
+
+    // MARK: - 同步 DTO 成绩字段对齐（v36 W1 / 契约 §4.1）
+
+    /// 编码路径必须原样带上 9 个成绩字段。丢 `unitLabel` 会让恢复的数据语义错误
+    /// （「局/次」被当「球」），故这里刻意用非默认值断言。
+    func test_trainingSessionDTO_carriesDrillSetAndEntryScoreFields() throws {
+        let session = TrainingSession()
+        let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球",
+                               orderIndex: 3, note: "手感偏薄", criteriaText: "10 中 8 达标")
+        entry.sets = [
+            DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 7,
+                     formationToken: "f2", formationName: "中袋球形",
+                     unitLabel: "局", passMade: 8, passTotal: 10, durationSeconds: 245)
+        ]
+        session.drillEntries = [entry]
+
+        let json = try jsonEncoder.encode(TrainingSessionDTO(from: session))
+        let dict = try XCTUnwrap(try JSONSerialization.jsonObject(with: json) as? [String: Any])
+        let entries = try XCTUnwrap(dict["drillEntries"] as? [[String: Any]])
+        let entryDict = try XCTUnwrap(entries.first)
+        let setDict = try XCTUnwrap((entryDict["sets"] as? [[String: Any]])?.first)
+        print("[W1-DTO] entry keys=\(entryDict.keys.sorted()) set keys=\(setDict.keys.sorted())")
+
+        for key in ["orderIndex", "note", "criteriaText"] {
+            XCTAssertTrue(entryDict.keys.contains(key), "DrillEntryDTO 缺字段 \(key)")
+        }
+        for key in ["formationToken", "formationName", "unitLabel",
+                    "passMade", "passTotal", "durationSeconds"] {
+            XCTAssertTrue(setDict.keys.contains(key), "DrillSetDTO 缺字段 \(key)")
+        }
+
+        XCTAssertEqual(entryDict["orderIndex"] as? Int, 3)
+        XCTAssertEqual(entryDict["note"] as? String, "手感偏薄")
+        XCTAssertEqual(entryDict["criteriaText"] as? String, "10 中 8 达标")
+        XCTAssertEqual(setDict["formationToken"] as? String, "f2")
+        XCTAssertEqual(setDict["formationName"] as? String, "中袋球形")
+        XCTAssertEqual(setDict["unitLabel"] as? String, "局", "unitLabel 丢失会让恢复数据语义错误")
+        XCTAssertEqual(setDict["passMade"] as? Int, 8)
+        XCTAssertEqual(setDict["passTotal"] as? Int, 10)
+        XCTAssertEqual(setDict["durationSeconds"] as? Int, 245)
+    }
+
+    /// 旧后端 mongoose `strict: true` 会丢弃未登记字段，回包里 9 个新字段全缺。
+    /// 解码必须成功并回落默认值，否则 `syncSession` 会误判上传失败 → 队列项无限重试。
+    func test_trainingSessionDTO_decodesWhenServerOmitsScoreFields() throws {
+        let payload = """
+        {"clientId":"abc","date":"2026-08-06T12:00:00Z","ballType":"chinese8",
+         "totalDurationMinutes":5,"note":"","kind":"drill",
+         "drillEntries":[{"drillId":"drill_c001","drillNameZh":"直线球",
+           "sets":[{"setNumber":1,"targetBalls":10,"madeBalls":7}]}]}
+        """
+        let dto = try jsonDecoder.decode(TrainingSessionDTO.self, from: Data(payload.utf8))
+        let entry = try XCTUnwrap(dto.drillEntries.first)
+        let set = try XCTUnwrap(entry.sets.first)
+        print("[W1-DTO] 缺成绩字段回包解码成功 orderIndex=\(entry.orderIndex) " +
+              "note=\"\(entry.note)\" criteriaText=\"\(entry.criteriaText)\" " +
+              "unitLabel=\(set.unitLabel) passMade=\(set.passMade) passTotal=\(set.passTotal) " +
+              "formationToken=\(set.formationToken ?? "nil") " +
+              "durationSeconds=\(set.durationSeconds.map(String.init) ?? "nil")")
+
+        XCTAssertEqual(entry.orderIndex, 0)
+        XCTAssertEqual(entry.note, "")
+        XCTAssertEqual(entry.criteriaText, "")
+        XCTAssertNil(set.formationToken)
+        XCTAssertNil(set.formationName)
+        XCTAssertEqual(set.unitLabel, "球")
+        XCTAssertEqual(set.passMade, 0)
+        XCTAssertEqual(set.passTotal, 0)
+        XCTAssertNil(set.durationSeconds)
+        // 原有字段不受影响
+        XCTAssertEqual(set.madeBalls, 7)
+        XCTAssertEqual(entry.drillNameZh, "直线球")
+    }
 }

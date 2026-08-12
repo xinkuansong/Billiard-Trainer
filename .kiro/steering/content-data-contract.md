@@ -36,6 +36,7 @@
 |---|---|---|---|
 | 球形几何（摆球 + 逐杆意图） | `content/position_play/sequences/*.json` | `QiuJi/Resources/DrillBoards/`、出片产物、缩略图 | 走位编排台**人工录制** |
 | 出片产物（视频/静帧/预览帧/封面） | `build/position_play_export/` | `Resources/{Videos,DrillTutorials,Previews}` | `make position-export` → `import-engine-export-to-app.py` |
+| 精讲配图**发布图**（进包的那一份） | `Resources/DrillTutorials/*.png`（母版） | `Resources/TutorialFigures/*.heic` + `content/tutorial-figures-manifest.json` | `make tutorial-figures`（`publish_tutorial_figures.py`，回填后自动跑）|
 | 列表缩略图 | 序列文件（经渲染） | `Resources/DrillThumbnails/*.png` | `DrillThumbnailRenderer` 离线烘焙 |
 | Drill 元信息与精讲文本 | `QiuJi/Resources/Drills/*/*.json` | — | 人工撰写 |
 | 训练计划 | `QiuJi/Resources/Plans/*.json` | — | 人工撰写 |
@@ -232,9 +233,20 @@ DrillFavorite / SyncPendingItem
 - 无机读达标线：`standardCriteria` 是自然语言，App 不解析。
 - `currentWeek` / `currentDay` 只读不写，计划无法推进。
 
-### 4.1 目标 schema（2026-08-06 定稿，待实现）
+### 4.1 目标 schema（2026-08-06 定稿；本地模型已落地，传输层/后端 2026-08-12 补齐）
 
 一次性迁移，覆盖 §5.1/§5.3 裁定、§6.5 快照裁定与 §8.7 丢弃字段。**实现时须写 ADR + `MigrationPlan`。**
+
+**落地状态**：
+
+| 层 | 状态 | 依据 |
+|----|------|------|
+| SwiftData 本地模型 | ✅ 已实现 | `DrillSet.swift` / `DrillEntry.swift` / `TrainingSession.swift` / `AngleTestResult.swift` |
+| 上行传输层 `TrainingSessionDTO` | ✅ 已实现（2026-08-12 v36 W1） | `BackendSyncService.swift`：`DrillSetDTO` 6 字段 + `DrillEntryDTO` 3 字段，编码直传、解码 `decodeIfPresent`+默认值 |
+| 后端 Mongoose schema | ✅ 已登记（2026-08-12 v36 W1） | `backend/src/models/TrainingSession.js`：9 字段全部登记、给 default、不加 required（`strict: true` 不登记即静默丢弃） |
+| 下行恢复（DTO → 实体重建） | ⏳ 待实现 | v36 W3 |
+
+决策依据见 `tasks/phases/P2-data-layer.md` ADR-007（ADR-v36-01）。
 
 ```
 TrainingSession
@@ -405,7 +417,13 @@ D13 作废，替换为**形状约束**（v34 R13，阻塞级，实现于 I6b）�
    `dose.formations[].token` 引用（门禁 I11 计划校验，见 §7），有引用则先改计划再删球形。
 3. **drill 内容重构沿用原 `drillId`**，不新建 id（既有惯例，见 c053 profile `_note`）。
 4. **产物目录禁止手改**：`DrillBoards/`、`DrillTutorials/`、`Previews/`、`Videos/`、
-   `DrillThumbnails/` 一律由脚本生成；手改会在下次同步/回填时被覆盖。
+   `DrillThumbnails/`、`TutorialFigures/` 一律由脚本生成；手改会在下次同步/回填时被覆盖。
+5. **配图母版与发布图分家（v25 D-v25-14）**：`DrillTutorials/` 是 PNG 母版（含孤儿帧，
+   约 4.9 GB，不进包不进 git）；**进包的是** `TutorialFigures/`（仅被精讲引用者，HEIC q70，
+   约 112 MB，进 git）。folder reference 整目录打包、无法挑文件，两者必须分目录，否则
+   633 张孤儿帧必然进包（包体曾因此达 5.43 GB，超 App Store 未压缩上限）。
+   ⛔ 新增/替换精讲引用后必须跑 `make tutorial-figures`，否则 App 里是旧图或缺图；
+   `make verify-gate` 会以「未发布 / 过期 / 多余产物」拦截。
 
 ### 6.5 历史记录解引用 = 存快照（2026-08-06 用户裁定，原 D6）
 
@@ -617,7 +635,13 @@ W8 全量重出片后 `make tryout-sync` 已把 Bundle 球形 1 更新为上游 
 
 `AngleTestDTO`（`BackendSyncService.swift` L46–59）未包含 `quizType` / `errorMM`，
 与 `AngleTestResult` 模型已有字段脱节——后端侧的角度成绩无法按题型区分、无误差值。
-**处置**：随 v29 W5（cognitive 归并）一并补齐，或明确留档不同步；改 DTO 须同步后端 schema。
+**处置** ✅ 已消化（`AngleTestDTO` 于 v29 W5 补齐 `quizType`/`errorMM`/`sessionId`，后端
+`AngleTest.js` 同步登记，双端已对齐）。
+**「改 DTO 须同步后端 schema」的闭环**（2026-08-12 v36 W1）：同类脱节在 `TrainingSessionDTO`
+上又发生了一次——SwiftData V2 起新增的 9 个成绩字段（§4.1）从未进 DTO 与 `TrainingSession.js`，
+`unitLabel` 丢失会让恢复数据语义错误。W1 已双端补齐并加编解码回归测试（见 §4.1 落地状态表、
+ADR-007）。**根因是没有机器护栏**：DTO `CodingKeys` ↔ mongoose `paths` 无任何比对，两次都靠
+人肉走查发现。对齐门禁脚本进 `make verify-gate` 为 v36 W4 待办，未完成前本条不算彻底关闭。
 
 ### 8.14 出片回填脚本默认行为与 v25 决策冲突（2026-08-06 v29 审核发现）
 

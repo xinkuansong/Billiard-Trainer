@@ -41,7 +41,11 @@ final class LocalTrainingSessionRepository: TrainingSessionRepositoryProtocol {
     }
 
     func delete(_ session: TrainingSession) async throws {
+        // id 必须在 delete 之前取：删除后再读已删除的模型对象会崩。
+        let sessionId = session.id
         context.delete(session)
         try context.save()
+        SyncQueueManager.shared.enqueue(entityType: SyncEntityType.trainingSession,
+                                        entityId: sessionId, operation: SyncOperation.delete)
     }
 }

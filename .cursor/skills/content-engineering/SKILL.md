@@ -282,7 +282,8 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 | 纯概念 / 纯文字（技术原理、进阶练习） | 不配图 | — |
 
 - App 行为：海报上有 `clip` 时显示**播放角标**，点击进**全屏看图组件**（图集左右翻页 + 捏合/双击缩放 + 下滑关闭；`clip` 静音循环播放）。
-- **gif → mp4**：产出的 gif 一律转**静音循环 mp4**（H.264/HEVC，体积小、硬件解码），落 `Resources/DrillTutorials/<clip>.mp4`；`clip` 字段填不含扩展名的文件名（与 `image` 同约定）。
+- **gif → mp4**：产出的 gif 一律转**静音循环 mp4**（H.264/HEVC，体积小、硬件解码），落 `Resources/DrillTutorials/<clip>.mp4`；`clip` 字段填不含扩展名的文件名（与 `image` 同约定）。落位后跑 `make tutorial-figures` 才会搬进打包目录（见下）。
+- **母版 ≠ 进包（v25 D-v25-14）**：上表落位的 `Resources/DrillTutorials/` 是**母版目录**，不进包不进 git。进包的是 `Resources/TutorialFigures/`（仅被精讲 `image`/`clip` 引用者，PNG 压成 HEIC q70），由 `make tutorial-figures` 生成。⛔ 写完精讲改了 `image` 引用就必须重跑，否则 App 里缺图；`make verify-gate` 会拦。
 - 详情页的「视频示范」仍承担全程演示；精讲的 `clip` 只放**针对性短片段**，别重复全程。
 
 ## Freemium 分配目标

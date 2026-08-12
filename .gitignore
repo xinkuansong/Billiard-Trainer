@@ -49,9 +49,12 @@ QiuJi/Resources/Videos/
 # deleted (v25 red line 6). Resources/Videos/ now holds only real-person takes.
 archive/
 
-# Tutorial figures: 2.14 GiB of lossless PNG. Enter git only after HEIC
-# compression (v25 D-v25-2, batch W4) — W4 lifts this by narrowing the pattern.
-# Orphan frames never enter regardless of format (D-v25-10).
+# Tutorial figure MASTERS: 4.9 GB of lossless PNG (1343 frames incl. orphans).
+# Masters stay on disk only — never in git, never in the bundle (D-v25-10).
+# What ships and what enters git is QiuJi/Resources/TutorialFigures/ (710 HEIC,
+# 112 MB), published from these masters by `make tutorial-figures` (v25 W4,
+# D-v25-2 / D-v25-14). Two directories because a folder reference packages the
+# whole directory — masters and shipped figures cannot share one.
 QiuJi/Resources/DrillTutorials/*.png
 
 # Engine preview frames: 520 MB, excluded from the app bundle (v25 D-v25-7).

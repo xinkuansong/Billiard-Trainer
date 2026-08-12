@@ -368,11 +368,19 @@ struct TrainingDetailView: View {
 
     private func deleteSession() {
         guard let target = session else { return }
+        // id 必须在 delete 之前取：删除后再读已删除的模型对象会崩。
+        let sessionId = target.id
         // Drop the local reference first: the body must not read a deleted model object.
         session = nil
         modelContext.delete(target)
         do {
             try modelContext.save()
+            Task { @MainActor in
+                SyncQueueManager.shared.enqueue(
+                    entityType: SyncEntityType.trainingSession,
+                    entityId: sessionId, operation: SyncOperation.delete
+                )
+            }
             dismiss()
         } catch {
             modelContext.rollback()

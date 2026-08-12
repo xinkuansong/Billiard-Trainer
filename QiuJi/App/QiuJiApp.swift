@@ -47,6 +47,7 @@ struct QiuJiApp: App {
                 .tint(.btPrimary)
                 .onAppear {
                     SyncQueueManager.shared.configure(context: modelContainer.mainContext)
+                    SyncRestoreService.shared.configure(context: modelContainer.mainContext)
                     // v29 W5：给 W5 之前落库的角度成绩补建 cognitive 会话归属。
                     // 幂等（只处理 sessionId == nil），标志丢失也不会重复建会话。
                     CognitiveSessionBackfill.runOnceIfNeeded(context: modelContainer.mainContext)
@@ -80,15 +81,30 @@ struct QiuJiApp: App {
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         Task {
-                            await SyncQueueManager.shared.processQueue(authState: authState)
+                            await syncPushThenPull(mode: .incremental)
                         }
                     }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .didCompleteLogin)) { _ in
+                    Task { await syncPushThenPull(mode: .full) }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .didRequestDataMigration)) { _ in
                     Task { await migrateAnonymousData() }
                 }
         }
         .modelContainer(modelContainer)
+    }
+
+    /// 同步一律「先推后拉」（v36 W3）。
+    /// 顺序不是偏好问题：队列里可能挂着本地删除项，先拉会把刚删掉的记录拉回来；
+    /// 先推则服务端副本已被删除，拉取自然拉不到。上传项同理——先推可以让服务端在
+    /// 本轮就拿到本地最新版本，避免拉回来的旧副本与本地并存造成困惑。
+    /// （推失败时 `SyncRestoreService` 还有第二道防线：跳过队列中仍有 delete 项的 clientId。）
+    @MainActor
+    private func syncPushThenPull(mode: SyncRestoreService.Mode) async {
+        await SyncQueueManager.shared.processQueue(authState: authState)
+        guard authState.isLoggedIn, let userId = authState.currentUser?.id else { return }
+        await SyncRestoreService.shared.restore(userId: userId, mode: mode)
     }
 
     @MainActor

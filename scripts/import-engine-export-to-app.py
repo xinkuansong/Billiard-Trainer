@@ -9,9 +9,13 @@ import-engine-export-to-app.py — 引擎出片产物回填进 App Bundle（本�
 
 目标：
   - QiuJi/Resources/Videos/<drillId>/…          （替换旧 take_*.mp4）
-  - QiuJi/Resources/DrillTutorials/<drillId>_… （静帧）
+  - QiuJi/Resources/DrillTutorials/<drillId>_… （静帧 PNG **母版**，不进包）
   - QiuJi/Resources/Previews/<assetKey>/…      （卡片预览帧，可选）
   - 各 drill JSON 的 videos[] 重写为引擎片引用（默认不做，见 --skip-json）
+
+回填完自动跑一次 `publish_tutorial_figures.py`（v25 W4）：被精讲引用的母版压成 HEIC
+落 QiuJi/Resources/TutorialFigures/，那里才是进包的目录。⛔ 光回填不发布 = 新图在
+App 里看不到；`--skip-publish` 只在明确不想动发布产物时用。
 
 命名：
   - 单序列 drill：full.mp4 / full_3d.mp4 / full.gif
@@ -34,6 +38,7 @@ import argparse
 import json
 import re
 import shutil
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -201,6 +206,12 @@ def main() -> int:
     ap.add_argument("--prune", action="store_true", help="删除目标目录中未回填的旧 take_*/旧文件")
     ap.add_argument("--include-seq", action="store_true", help="也处理 seq_* 目录（默认跳过）")
     ap.add_argument(
+        "--skip-publish",
+        action="store_true",
+        help="回填后不自动发布 HEIC 打包图。⚠️ 跳过后包内配图仍是上一次发布的旧版，"
+        "`make verify-gate` 会以「过期」拦下",
+    )
+    ap.add_argument(
         "--skip-json",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -272,7 +283,15 @@ def main() -> int:
                 print(f"  pruned {n} files")
 
     print(f"\nDONE drills={len(by_drill)} json_updated={updated}")
-    return 0
+
+    if args.dry_run or args.skip_publish:
+        print("（跳过 HEIC 发布；打包目录仍是上一次的产物）")
+        return 0
+    print("\n→ 发布打包配图 …")
+    publish = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve().parent / "publish_tutorial_figures.py")]
+    )
+    return publish.returncode
 
 
 if __name__ == "__main__":

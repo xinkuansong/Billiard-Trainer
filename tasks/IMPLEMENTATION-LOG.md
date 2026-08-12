@@ -193,6 +193,29 @@
 - **回写目标**：`docs/research/20260807-v30理论页组件规范.md`（新增 §四 配图硬性章节 + §三 风格收敛铁律）、`docs/research/20260807-v30理论转写模板.md`（§3.1 配图决策树）
 - **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.2 §三/§四/§五/§六/§二 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.1 §一/§3.1/§3.2/§四 + Changelog（2026-08-07）；✅ 本文件 DR-064 补「返工 r1 修订」段（2026-08-07）
 
+## DR-070
+- **任务**：精讲配图压缩与打包瘦身（v25 W4 执行，触发于用户问「当前 app 为什么会 5.43G」）
+- **原始规范**：`Resources/DrillTutorials` 以 folder reference 整目录打包，1343 张无损 PNG 共 4.90 GB 全部进包；`DrillTutorialImageStore` 硬编码 `withExtension: "png"`。
+- **根因（实测，非猜测）**：
+  1. **格式错配**。配图是 3D 渲染图而非照片：alpha 通道恒为 255（纯浪费），球布区相邻像素 83% 不同、平均差 4.3/255——是渲染噪点，它让 PNG 的行内预测失效（1440×2720×4 = 14.9 MB 原始数据只压到 3.76 MB）。有损编码恰好抹掉这层不可见噪点。
+  2. **打包集错配**。1343 张里仅 **710 张（2.60 GB）**被精讲 `image` 引用，**633 张（2.30 GB）是孤儿**（`_still` 旧命名遗留 387 张、`_final`/`_initial` 等）。D-v25-10 早已裁定孤儿不进包，但 folder reference **整目录打包、无法挑文件**，母版与发布图同处一室时该裁定物理上无法执行。
+- **调整后**：
+  1. **母版与发布图分目录（D-v25-14）**：`Resources/DrillTutorials`＝PNG 母版（回填目标，不进包不进 git）；新增 `Resources/TutorialFigures`＝发布目录（仅被引用者，HEIC q70，进包进 git）。Bundle 子目录名随之变更，`DrillTutorialImageStore` 与 `DrillContentService.tutorialClipURL` 统一读 `TutorialAssets`（`bundleSubdirectory` + `imageExtensions` 顺序回退 heic→png→jpg）。
+  2. 新增 `scripts/publish_tutorial_figures.py`（`make tutorial-figures`）：按 JSON 引用筛选 → sips 转 HEIC → 写 `content/tutorial-figures-manifest.json`（记源 md5，供增量与门禁）→ 清理不再被引用的旧产物。`import-engine-export-to-app.py` 回填后自动串接（`--skip-publish` 可关）。
+  3. **质量档取 q70（v25 W4 拍板值），保持原始 1440×2720 不降分辨率**。定档依据是实测而非默认值：q45/60/75 体积 64/115/198 KB，HEIC 回转 PNG 与母版逐像素 PSNR 41.7/42.7/43.4 dB，底部小字带 41.8–42.9 dB。q45→q75 体积翻三倍而 PSNR 仅 +1.7 dB——码率增量几乎全花在复现那层不可见噪点上，故无需追高档位。
+- **门禁（本条的关键，避免换格式把既有约束换没）**：
+  - 转 HEIC 后源与产物**不可能字节相等**，`verify_tutorial_sync.py` C2 的 md5 字节比对若直接指向发布目录会 710 项全部降级成 warn（`BYTEWISE_SUFFIXES = {".png"}`）。母版目录保持 PNG 不动使 **C2 原样有效**（实测仍为「通过 925 / 不符 0」），发布链路另设 `--check`（发布集 / 新鲜度 / 孤儿入包三查）接进 `make verify-gate`。
+  - 构造性实证（不是空壳门禁）：混入一个 `__stray.heic` → FAIL 1「多余产物(孤儿入包)」；篡改清单 `src_md5` 模拟「母版已变未重发布」→ FAIL 1「过期」；`make verify-gate` 退出码非 0。还原后 FAIL 0。
+  - `TutorialFiguresBundleTests`（4 条）在**构建产物**上复验：710 张全部经 `DrillTutorialImageStore` 解出 `UIImage`、包内无 PNG 母版、HEIC 数 == 引用去重数、样本解码宽度 1440。
+- **验证**：`make xcodegen` + `make build` **BUILD SUCCEEDED**；`-only-testing:QiuJiTests/TutorialFiguresBundleTests` **Executed 4 tests, with 0 failures**、`** TEST SUCCEEDED **`；`make verify-tutorials` 改动前后均 FAIL 0（C2 925 / C3 710 未退化）。**包体实测 5.1 GiB → 285 MB**（`TutorialFigures` 114 MB + `TaiQiuZhuo.usdz` 94 MB + dylib 53 MB），发布目录 112.5 MB ≤ W4 DoD 的 150 MB。
+- **已知限制 / 遗留**：
+  1. 710 张 HEIC（112 MB）按 D-v25-2 应入 git，本次**未执行 `git add`**（未获提交授权），当前仍是未跟踪状态。
+  2. `TaiQiuZhuo.usdz` 94 MB 现已是包内第二大项、占 33%，尚未评估（P18 T-P18-28 可一并看）。
+  3. 633 张孤儿母版按 D-v25-10 保留磁盘未删；`build/position_play_export`（8.9 GB）与 `archive/`（11 GB）同为本地产物，不影响包体。
+- **日期**：2026-08-12
+- **回写目标**：`.kiro/steering/content-data-contract.md` §一 真源表 + §6.4 产物纪律；`.cursor/skills/content-engineering/SKILL.md` 落位节；`.cursor/skills/tutorial-authoring/SKILL.md` 输入表；`问题集合_v25.md` W4 / D-v25-14；`.gitignore` 注释。
+- **已应用至**：✅ `.kiro/steering/content-data-contract.md` §一 + §6.4 第 4/5 条（2026-08-12）；✅ `.cursor/skills/content-engineering/SKILL.md`（2026-08-12）；✅ `.cursor/skills/tutorial-authoring/SKILL.md`（2026-08-12）；✅ `问题集合_v25.md` W4 完成标准 + D-v25-14（2026-08-12）；✅ `.gitignore`（2026-08-12）
+
 ## DR-069
 - **任务**：训练分享图改长图（用户反馈「太简陋了，期望和训练详情差不多并带统计数据，字体和布局要美观，可以是长图」）
 - **原始规范**：`BTShareCard` 固定 361×480pt 单屏卡；内容仅「品牌头 + 计划名 + drill 聚合行 + 三格统计 + 页脚」，根部 `Spacer(minLength: 0)` 顶开版面。

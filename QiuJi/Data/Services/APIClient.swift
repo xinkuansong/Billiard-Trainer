@@ -24,6 +24,42 @@ struct Endpoint {
 struct EmptyResponse: Decodable {}
 struct APIErrorBody: Decodable { let message: String }
 
+/// 日期编解码口径（v36 W3）。
+///
+/// 上行用 `.iso8601`（无小数秒），Mongoose 能解析。**下行不能也用 `.iso8601`**：
+/// 后端 `res.json()` 序列化 Date 走 `toJSON()`，产出带毫秒的
+/// `2026-08-12T03:00:00.000Z`，而 `JSONDecoder.DateDecodingStrategy.iso8601`
+/// 只认无小数秒形式 —— 用它会让**每一个**含日期的响应整条解码失败。
+/// 故解码侧同时接受两种写法；解析不了时抛带 `codingPath` 的 `dataCorrupted`
+/// 而不是静默给个默认时间（FL-029）。
+enum APIDateCoding {
+    private static let withFractionalSeconds: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+
+    private static let withoutFractionalSeconds: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime]
+        return f
+    }()
+
+    static let decodingStrategy: JSONDecoder.DateDecodingStrategy = .custom { decoder in
+        let container = try decoder.singleValueContainer()
+        let raw = try container.decode(String.self)
+        if let date = withFractionalSeconds.date(from: raw) ?? withoutFractionalSeconds.date(from: raw) {
+            return date
+        }
+        throw DecodingError.dataCorrupted(
+            DecodingError.Context(
+                codingPath: decoder.codingPath,
+                debugDescription: "无法按 ISO8601（含/不含小数秒）解析日期：\"\(raw)\""
+            )
+        )
+    }
+}
+
 final class APIClient: Sendable {
     static let shared = APIClient()
 
@@ -41,7 +77,7 @@ final class APIClient: Sendable {
         self.encoder = enc
 
         let dec = JSONDecoder()
-        dec.dateDecodingStrategy = .iso8601
+        dec.dateDecodingStrategy = APIDateCoding.decodingStrategy
         self.decoder = dec
     }
 
@@ -106,7 +142,10 @@ final class APIClient: Sendable {
         }
         guard (200..<300).contains(http.statusCode) else {
             let errBody = try? decoder.decode(APIErrorBody.self, from: data)
-            throw AppError.serverError(errBody?.message ?? "服务器错误 (\(http.statusCode))")
+            throw AppError.serverError(
+                statusCode: http.statusCode,
+                message: errBody?.message ?? "服务器错误 (\(http.statusCode))"
+            )
         }
         if T.self == EmptyResponse.self {
             return EmptyResponse() as! T

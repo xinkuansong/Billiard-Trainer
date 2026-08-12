@@ -31,7 +31,8 @@ description: 把走位序列 JSON（PositionPlaySequence）转写成 drill 图�
 |------|--------|----------|
 | `content/position_play/sequences/*.json` | **走位序列 JSON（真相源，编排台录制）**。文件名以 drill id 开头，如 `drill_c042__…-初级蛇彩走位 · 球形1-5杆.json` | **唯一输入**。喂给 digest 脚本 |
 | `QiuJi/Resources/Drills/<category>/drill_xxx.json` | **drill 内容 JSON（App Bundle）** | **唯一写回目标**（只改其中 `tutorial` 字段） |
-| `QiuJi/Resources/DrillTutorials/*.png` | 精讲配图（出片产物落位后） | 只确认存在 + 引用文件名，不生成 |
+| `QiuJi/Resources/DrillTutorials/*.png` | 精讲配图**母版**（出片产物落位后） | 只确认存在 + 引用文件名，不生成 |
+| `QiuJi/Resources/TutorialFigures/*.heic` | 精讲配图**发布图**（进包的那一份） | 不手改；改完 `image` 引用跑 `make tutorial-figures`（v25 D-v25-14） |
 | `QiuJi/Resources/Videos/<drillId>/*.mp4` | 详情页示范视频 | 不归你管，缺了列待办 |
 | `build/position_play_export/seq_<id8>/` | 出片管线原始产物（未落位） | 只在缺图时告知用户来源；核对轨迹表述时看这里的 `sNN_still.png`/`sNN.mp4` |
 | `build/position_play_sequences/` | 出片收件箱（临时） | ⛔ 不读不写 |

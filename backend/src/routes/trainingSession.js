@@ -60,6 +60,26 @@ router.post("/batch", async (req, res, next) => {
   }
 });
 
+// DELETE /training-sessions/by-client/:clientId
+// 客户端只持有本地 SwiftData UUID（clientId），拿不到 Mongo `_id`，故提供按 clientId
+// 的硬删端点（v36 D-v36-2）。注册在 `DELETE /:id` 之前：express 按注册顺序匹配，
+// 先注册即可保证不被抢匹配（`/:id` 只匹配单段路径，双段本不冲突，这里是双保险）。
+//
+// 不存在时同样返回 200：DELETE 语义本就幂等，且「重复删除」「记录从未上传成功过就被删」
+// 都是常态；返 404 会被客户端判为 4xx 永久失败 —— 出队结果与成功相同，却白白打一条
+// 错误日志。实际删了几条用 deletedCount 表达，调用方需要时可自行区分。
+router.delete("/by-client/:clientId", async (req, res, next) => {
+  try {
+    const result = await TrainingSession.deleteOne({
+      userId: req.userId,
+      clientId: req.params.clientId,
+    });
+    res.json({ message: "Deleted", deletedCount: result.deletedCount });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // PUT /training-sessions/:id
 router.put("/:id", async (req, res, next) => {
   try {

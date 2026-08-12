@@ -6,6 +6,9 @@
 #         I7 profile / I8 Bundle 子集 / I9 序列覆盖 / I10 模型可解码性 / I11 官方计划校验
 # （v26 W13：C4 已转正为阻塞；GATE_EXEMPT_CHECKS 为空。v31 W4：I6a/I6b/I11 接入）
 #
+# 另含：进度文档体积门禁；用户数据同步双端对齐门禁（v36 W4：Swift DTO ↔ Mongoose schema，
+#       D0/D1 阻塞，真源 scripts/verify_sync_schema_alignment.py 文件头）。
+#
 # 安装：make -f scripts/Makefile install-hooks
 # 绕过：git push --no-verify（git 内置，无法在钩子里禁掉；用了就必须在 PR/日志里说明理由）
 
@@ -51,3 +54,22 @@ EOF
   exit 1
 fi
 echo "✅ [pre-push] 进度文档体积门禁通过"
+
+echo "→ [pre-push] 用户数据同步双端对齐门禁 ..."
+if ! python3 "$REPO_ROOT/scripts/verify_sync_schema_alignment.py" --gate; then
+  cat <<'EOF'
+
+⛔ push 被拦截：Swift DTO 与后端 Mongoose schema 不对齐（上方 ✗ 为违规项）。
+
+处置：
+  1. D1 失败（Swift 有、后端未登记）→ 把字段补进 backend/src/models/ 对应 schema
+     （给 default、不加 required，与契约 §4.1 惯例一致）。mongoose strict:true
+     不登记即静默丢数据，⛔ 不得靠删 DTO 字段或加白名单凑绿。
+  2. D0 失败（解析不了）→ 缺 mongoose 依赖就 cd backend && npm install；
+     DTO 改名/挪文件则同步更新脚本里的 PAIRS。
+
+自查命令：make -f scripts/Makefile verify-gate
+EOF
+  exit 1
+fi
+echo "✅ [pre-push] 双端对齐门禁通过"

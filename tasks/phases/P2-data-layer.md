@@ -335,3 +335,84 @@
 - **回滚考虑**：数值回滚 = 按填写表旧口径重写内容 JSON（git 可回退）；语义回滚只需
   恢复 resolver 的 uniform override 分支，无 schema 迁移连带。
 - **日期**：2026-08-11
+
+### ADR-007（ADR-v36-01）— 上行同步补齐 9 个成绩字段：传输层与后端 schema 对齐，双端一律容忍缺字段
+
+- **状态**：已采纳（2026-08-12，问题集合 v36 W1）
+- **场景**：命中 ADR 强制触发清单的**数据同步策略变更**。客户端 SwiftData V2 起已落地
+  契约 §4.1 的 9 个成绩字段（`DrillSet.formationToken/formationName/unitLabel/passMade/
+  passTotal/durationSeconds`、`DrillEntry.orderIndex/note/criteriaText`），但
+  `TrainingSessionDTO` 与后端 `drillSetSchema`/`drillEntrySchema` 从未跟上 ⇒ 服务器副本
+  有损。其中 `unitLabel` 缺失最危险：恢复时「局/次」会被当成「球」，是**语义错误**而非
+  单纯字段丢失。本轮只动传输层与后端，**不做 SwiftData Schema V4**（本地模型字段已齐）。
+- **选项**：
+  - A：DTO 新字段声明为必填（`decode`）、后端 schema 加 `required` —— 语义最严，但旧后端
+    回包缺字段会让解码抛错 → `syncSession` 误判上传失败 → 队列项永不出队、无限重试
+    （`BackendSyncService.swift` 既有注释已记录该陷阱，v29 W5 因此确立惯例）；
+  - B：**DTO 新字段 `decodeIfPresent` + 默认值，后端登记但给 default、不加 required**；
+  - C：只补后端 schema、DTO 待 W3 下行时再补 —— 上行仍有损，Q1 未收口。
+- **决策**：选 **B**。
+  1. `DrillSetDTO` / `DrillEntryDTO` 各自补显式 `init(from decoder:)`（写 `init` 会抑制
+     memberwise init，故同时补显式成员初始化器供编码路径用），新字段全部
+     `decodeIfPresent` + 与本地模型一致的默认值（`unitLabel` 默认 `"球"`，
+     `passMade/passTotal/orderIndex` 默认 0，`note/criteriaText` 默认 `""`，
+     `formationToken/formationName/durationSeconds` 为可选 nil）；
+  2. 后端 `drillSetSchema`/`drillEntrySchema` 逐字段登记 —— mongoose 默认 `strict: true`
+     会**静默丢弃**未声明字段，不登记等于白传；一律给 default、**不加 required**，与客户端
+     的容忍策略对称，旧客户端写入不会被整条拒绝；
+  3. 编码路径直接透传，无转换、无兜底改写（服务器副本 = 本地真值）。
+- **后果**：
+  - 服务器 `TrainingSession` 文档从此含全部成绩字段，为 W3 下行恢复提供无损数据源；
+  - 双端「都容忍缺字段」意味着**字段脱节不会报错、只会静默丢数据**——本次正是这样潜伏的。
+    机器护栏（DTO CodingKeys ↔ mongoose paths 比对）是 W4/Q5 的必做项，不是可选项；
+  - 存量服务器文档旧字段仍缺，取默认值即可（用户已授权本轮部署时清空 MongoDB，W4 执行）；
+  - 回归护栏落在 `QiuJiTests/V29W5CognitiveToolSessionTests`：编码侧断言 9 个 key 且
+    `unitLabel="局"` 等非默认值原样出现；解码侧模拟旧后端缺全部新字段的回包，断言解码成功
+    并取默认值（防「解码失败 → 队列卡死」）。
+- **回滚考虑**：纯加字段、无迁移。客户端回滚后新字段被后端保留但无人读；后端回滚后
+  `strict: true` 重新丢弃这些字段，客户端解码因 `decodeIfPresent` 不受影响。
+- **日期**：2026-08-12
+
+### ADR-008（ADR-v36-02）— 下行恢复：insert-if-absent 合并 + 服务端 `updatedAt` 锚点 + 先推后拉
+
+- **状态**：已采纳（2026-08-12，问题集合 v36 W3 / D-v36-1）
+- **场景**：命中 ADR 强制触发清单的**数据同步策略变更**。`fetchSessionsAfter` 定义后全仓库
+  零调用方，服务器只是纯写入端备份，换机/重装没有任何代码把数据拉回 SwiftData。本轮补齐
+  DTO→实体重建、合并策略、触发时机，**不做 SwiftData Schema V4**（红线）。
+- **决策 1：冲突策略 = insert-if-absent，本地永不被远端覆盖。**
+  - 备选：按 `updatedAt` 比较取新者 —— **不可行**：本地模型没有修改时间字段，加就要动 Schema
+    （红线）；拿不到可信比较依据还覆盖，等于可能用服务端旧副本盖掉刚编辑过的本地记录，
+    那是真丢用户数据。
+  - 反方向的代价只是「服务端更新的版本晚一点才体现」，而本地任何一次编辑都会入队上传、
+    服务端最终被本地覆盖，方向自洽。当前是单设备模型（多设备合并与 D-v36-2 的墓碑同属
+    未来需求）。
+- **决策 2：增量锚点 = 服务端 `updatedAt` 最大值，存 UserDefaults，按 userId 分键。**
+  - 用服务端时钟而非客户端时钟：后端 GET 过滤条件就是 `updatedAt > after`，客户端时钟若快于
+    服务端，用本地 `Date()` 当锚点会**静默漏掉**那段时间差内落库的记录。
+  - `updatedAt` 不进业务 DTO（W1 已定稿字段集），改用外层信封 `SyncedRecord<Payload>` 承载。
+  - 存 UserDefaults 而非新增 SwiftData 实体：锚点是单键值的客户端同步元数据，丢了只会多拉
+    一次（合并幂等），为它动 Schema 不划算且撞红线。按 userId 分键，否则换号登录时新账号的
+    历史会被判为「早于锚点」而永远拉不到。
+  - 锚点只前进不后退；整批无 `updatedAt`（旧后端）或落盘失败时**不推进**——宁可下次重拉。
+- **决策 3：同步顺序固定「先推（`processQueue`）后拉（`restore`）」。**
+  - 队列里可能挂着未发出的 delete 项，先拉会把刚删掉的记录拉回来（「删除后无法恢复」的承诺
+    被打破）。先推则服务端副本已被删除，拉取自然拉不到。
+  - 推失败（离线/5xx）时 delete 项保留，故第二道防线：`SyncRestoreService` 合并前收集队列中
+    所有 delete 项的 clientId 并跳过。读队列失败时**整轮放弃恢复**，不盲插。
+- **决策 4（顺带修复）：下行日期解码改用容忍小数秒的自定义策略。**
+  后端 `res.json()` 输出的是 Mongoose `toJSON()` 的 `...T03:00:00.000Z`，而
+  `JSONDecoder.DateDecodingStrategy.iso8601` **只认无小数秒形式** —— 沿用它会让每一个含日期的
+  响应整条解码失败（下行恢复根本跑不通，且 POST 响应解码也会被误判成上传失败）。
+  新增 `APIDateCoding.decodingStrategy` 同时接受两种写法，解析不了时抛带 `codingPath` 的
+  `dataCorrupted`，不静默给默认时间（FL-029）。编码侧不变（`.iso8601`，Mongoose 能解析）。
+- **触发时机**：登录成功（新增 `.didCompleteLogin` 通知，挂在 `AuthState.login`，覆盖所有登录
+  入口）→ 全量拉取；`scenePhase == .active` → 增量拉取。两者都先 `processQueue`。
+- **后果**：
+  - 服务端记录只能「新增」到本地，永不覆盖/删除本地实体；服务端删除不会下行传播（硬删无墓碑，
+    D-v36-2 已认定为未来需求）。
+  - `DrillEntry`/`DrillSet` 的本地 id 在恢复时新生成——服务端子文档 `_id: false`，本无 id 可还原，
+    且它们不参与跨端标识。
+  - 未做端到端实跑（本机无 mongod / 后端未按 W4 重新部署），链路正确性目前只有单测背书。
+- **回滚考虑**：新增文件 `SyncRestoreService.swift` + 两个触发点；移除触发点即回到「纯上行」，
+  无数据结构变更。
+- **日期**：2026-08-12
