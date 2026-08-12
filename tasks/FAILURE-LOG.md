@@ -307,3 +307,47 @@
 - **日期**：2026-07-28
 - **规则改进建议**：①「避让 / 对角 / 不遮挡」类布局规则必须以**不变量测试**覆盖（遍历所有 previous 状态 × 焦点区间），例式用例不足；滞回一律写成「中线模糊带内保持」，禁止写成半平面。②要求「和某处看起来一样」的颜色/尺寸，取值必须**测量真实渲染**（离屏渲染采样）并用像素比对测试锁住，禁止凭 UI token 或手调值交付。③写新测试前先检查是否与被测函数自身的不变量冲突——已有绿测试可能正在守护一个 bug。④放大镜类浮层的「离开焦点」须断言**圆心距 ≥ 半径 + 被遮物半径 + 间隙**（或等价边隙），禁止只断言象限/角落不同——象限对了仍可能边贴边。
 - **已应用至**：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训 / FL-028（2026-07-28；v0.8 补圆心距断言）
+
+## FL-029b
+> 编号说明：`FL-029` 已被 `00-orchestrator.mdc` 占用（`try?` 吞解码错误），本条另编 `029b` 以免撞号。
+
+- **任务**：问题集合 v36 W4b — 把仓库 `backend/` 部署到 `106.54.3.210`（AI 直接经 root SSH 执行）。
+- **现象**：部署后约 12 分钟用户报「现在用苹果 id 登陆不了」。部署前可登录。
+- **严重程度**：**P0（线上回归，由本次操作直接造成）**——登录是同步链路总入口，挂了则 v36 全部功能不可用。
+- **根因**：✅ 已定位。`rsync -av --delete src/` 用**仓库版本**覆盖了服务器版本，而两者在 `auth.js` 上早已分叉：
+  - 服务器实际运行：`audience: "com.xinkuan.qiuji"`（**正确**，等于真实 Bundle ID；系某次直接改服务器文件所致，未回写仓库）。
+  - 仓库 `backend/src/routes/auth.js`：`audience: "com.qiuji.app"`（**错误**，从 2026-03-29 建库起从未改过；`git log -S` 证实零次修改）。
+  - ⇒ 部署即把线上正确值替换成仓库错误值，`appleSignIn.verifyIdToken` 抛 `jwt audience invalid. expected: com.qiuji.app`。
+  - **证据链**：部署前的备份 `/root/qiuji-backend-backup-20260812-094734.tar.gz` 内 `auth.js:17` 为 `com.xinkuan.qiuji`；4 月 error.log 里那条 `audience invalid` 是仓库值曾短暂上线过的残留。
+- **本可拦住却没拦住的三点**：
+  1. 部署前**只 diff 了「服务器有没有新功能」（by-client 路由、9 字段），没有反向 diff「服务器有没有仓库缺失的修改」**。`--delete` 是单向覆盖，反向差异必须先看。
+  2. 服务器上 `/opt/qiuji-backend` **不是 git 仓库**，手改无版本记录、无告警，分叉可以无限期潜伏。
+  3. 部署后自检覆盖了 W1/W2/W3 三条链路，**唯独没测登录**——因为自检用的是服务端直签 token，恰好绕过了 `login-apple`。「用直签 token 绕过认证」既是当时的便利，也正是漏检的原因。
+- **解决**：✅ 已修复（2026-08-12）。`audience` 改为 `config.appleBundleId`（`APPLE_BUNDLE_ID` env 可覆盖，默认 `com.xinkuan.qiuji`），仓库即真源；`.env.example` 登记该键并注明必须等于 `PRODUCT_BUNDLE_IDENTIFIER`。已部署并实测生效值 = `com.xinkuan.qiuji`，`pm2` online。
+- **日期**：2026-08-12
+- **规则改进建议**：
+  ① **`rsync --delete` 类单向部署前，必须先做反向 diff**（`rsync -n --delete` 或先把远端拉下来 `diff -r`），确认服务器上没有仓库缺失的修改；发现分叉先回流进仓库再部署，⛔ 禁止「我方较新」的默认假设。
+  ② **非 git 管理的部署目录视为高危**：分叉不可见。后续应把 `/opt/qiuji-backend` 纳入 git 或改为从仓库 checkout 部署。
+  ③ **部署自检必须覆盖认证入口**，且⛔ 不得用绕过认证的手段（直签 token）代替——被绕过的那一段恰恰是最容易漏检的。
+  ④ **配置中的外部标识符（Bundle ID / audience / redirect URI 等）禁止写死臆想值**，一律走 env + 注明其真源字段位置；本例中 `com.qiuji.app` 是凭空臆想的产物，真实值从建库第一天起就是 `com.xinkuan.qiuji`。
+- **已应用至**：⏳ 待回写（建议目标：`.cursor/rules/30-data-engineer.mdc` 或新增 `60-devops-release.mdc` § 经验教训）
+
+## FL-030
+- **任务**：排查 FL-029b（Apple 登录不可用）时**顺带发现**的既有缺陷，与本次部署无关。
+- **现象**：`QiuJi.entitlements` 声明了 `com.apple.developer.applesignin`，但该文件**从未被接到 target 上**——`CODE_SIGN_ENTITLEMENTS` 在 `project.yml` 与 `project.pbxproj` 中均不存在。无此 entitlement 时 `ASAuthorizationController` 直接失败，客户端走 `didCompleteWithError` 抛「Apple 登录失败，请重试」。
+- **严重程度**：P0（Apple 登录为唯一登录方式），**潜伏近 4 个月未被发现**。
+- **根因**：✅ 已定位，**与 FL-029b 同构**——手改生成物、未回写真源：
+  - `b52dc6f`（2026-04-10「fix: resolve 3 issues from TP-P2 manual testing」）**直接在 pbxproj 里**加了 `CODE_SIGN_ENTITLEMENTS`（Debug/Release 两处），未同步 `project.yml`。
+  - `fca79ff`（2026-04-17「feat: add P9 aiming training expansion」）某次 `xcodegen generate` 重新生成 pbxproj，**把这两行冲掉**。
+  - `git log -S'entitlements' -- project.yml` **零结果**，证实真源里从来就没有过。
+  - pbxproj 是 XcodeGen 的**生成物**，手改必被覆盖——这与「手改服务器部署目录必被 rsync 覆盖」是同一个错误的两种形态。
+- **旁证（时间线自洽）**：后端 `users` 集合里唯一一条真 Apple 用户创建于 2026-04-09、末次更新 2026-04-12，**恰好落在 entitlement 存在的窗口内**（4/10 提交 ~ 4/17 冲掉）；此后再无新用户。
+- **解决**：✅ 已修复（2026-08-12）。`CODE_SIGN_ENTITLEMENTS: QiuJi/QiuJi.entitlements` 写入 `project.yml` 的 QiuJi target settings（附注释说明为何必须写在真源），`make xcodegen` 重生成。**证据**：pbxproj 内该键出现 2 次（Debug + Release）；`make build` **BUILD SUCCEEDED**；构建产物 `球迹.app-Simulated.xcent` 实测含 `"com.apple.developer.applesignin" => ["Default"]`（此前该键不存在）。
+  - ⚠️ 排查中一次自身误判：首次 `find build -name "球迹.app"` 命中的是 `build/Build/`（**2026-04-05 的陈旧遗留目录**），其 xcent 无 applesignin，一度误判为修复无效。真产物在 `build/DerivedData/Build/Products/`（Makefile `DERIVED_DATA` 指向此处）。教训：验证构建产物前先核对时间戳与 Makefile 的输出路径，⛔ 别拿 `find` 的第一个命中当结论。
+- **顺带修正**：本次重生成还把 `QiuJiTests/TutorialFiguresBundleTests.swift` 补进了 pbxproj——该文件已被 git 跟踪，但上次提交的 pbxproj 是**未重跑 xcodegen 的过时生成物**，测试实际未进 target。
+- **日期**：2026-08-12
+- **规则改进建议**：
+  ① ⛔ **禁止手改 `project.pbxproj`**（含在 Xcode UI 里加 capability / 拖文件）。任何 target 配置一律改 `project.yml` 后 `make xcodegen`；已手改的必须当轮回写真源。
+  ② **提交 pbxproj 前先跑一次 `make xcodegen`**，确保提交的是最新生成物而非过时副本（本次即抓到一处）。
+  ③ **entitlement / capability 类配置需有构建产物级断言**：仅检查 `.entitlements` 文件存在是无效的（本例文件一直在，只是没接上），须验 `*.xcent` 实际内容。建议接入 `make verify-gate`。
+- **已应用至**：⏳ 待回写（建议目标：`.cursor/rules/10-ios-architect.mdc` 或 `60-devops-release.mdc` § 经验教训）

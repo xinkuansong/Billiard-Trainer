@@ -2,6 +2,7 @@ const express = require("express");
 const appleSignIn = require("apple-signin-auth");
 const User = require("../models/User");
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require("../utils/jwt");
+const config = require("../config");
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ router.post("/login-apple", async (req, res, next) => {
     }
 
     const payload = await appleSignIn.verifyIdToken(identityToken, {
-      audience: "com.qiuji.app",
+      audience: config.appleBundleId,
       ignoreExpiration: false,
     });
 

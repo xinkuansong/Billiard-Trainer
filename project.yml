@@ -103,6 +103,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji
+        # Sign in with Apple 的 entitlement 入口。⛔ 必须写在这里（project.yml 是
+        # pbxproj 的生成真源）：2026-04-10 曾直接改 pbxproj 加上，2026-04-17 一次
+        # xcodegen 重新生成即把它冲掉，此后 ASAuthorization 无 entitlement 直接失败。
+        CODE_SIGN_ENTITLEMENTS: QiuJi/QiuJi.entitlements
         PRODUCT_NAME: 球迹
         # 产物名为「球迹」，但 Swift 模块名固定为 QiuJi，
         # 否则 @testable import QiuJi 无法解析（CJK 产物名会被 sanitize）。
