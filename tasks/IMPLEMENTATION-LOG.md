@@ -82,6 +82,21 @@
 
 ## DR 记录（设计调整）
 
+## FL-031
+- **任务**：精讲配图 HEIC 化（DR-070）落地后包体回涨——用户报「安装又变成 5G 多了」
+- **现象**：DR-070 交付时实测 285 MB，次日构建产物回到 **5.2 GB**。查 `project.yml` 第 79 行 `- path: QiuJi/Resources/DrillTutorials` folder reference **原样复活**，`make xcodegen` 据此把 4.9 GB PNG 母版（含 633 张孤儿帧）重新写进 `project.pbxproj` 打包。
+- **根因**：DR-070 的改动经提交 `5d79ac8` 入库，逐文件核对发现 **只有 `project.yml` 那一处丢了**（`git diff project.yml` 为空且 `HEAD:project.yml` 即旧内容），Swift / 脚本 / Makefile / `.gitignore` / 测试 / 710 张 HEIC / manifest 全部在库。该文件同期被并行的 v36 线程改动，丢失发生在提交前的合并环节。
+- **为什么没被拦住（本条的真正教训）**：当时的门禁只校验**发布目录的磁盘内容**（发布集 / 新鲜度 / 孤儿产物），而真正决定「谁进包」的是 `project.yml` 的 folder reference 与它生成的 `project.pbxproj`——**这两处当时无人看守**。回退发生后 `make verify-gate` 依旧 FAIL 0、`verify-tutorials` 依旧 FAIL 0，全绿地放行了一个 5.2 GB 的包。⛔ 唯一能发现它的是 `TutorialFiguresBundleTests`（要跑构建产物），但没人在改 `project.yml` 时想到去跑它。
+- **修复**：① 恢复 `project.yml`（发布目录 folder ref + `sources.excludes` 登记），并在母版目录原位置写死禁止性注释（含 FL-031 编号与后果量级），让下次误恢复的人在动手处就看见；② `publish_tutorial_figures.py --check` 新增 `check_packaging_config()`——直接校验 `project.yml` 声明了 `TutorialFigures` 且**未**声明 `DrillTutorials`，同时校验 `project.pbxproj` 有前者的资源引用、无后者（后半段顺带覆盖「改了 yml 忘跑 xcodegen」这一独立故障）。
+- **实证**（构造性，两条分支都真报错）：
+  - 在**事故现场原状**（yml 已修、pbxproj 未重生成）跑 `--check` → `打包配置 2`：「pbxproj 无 TutorialFigures 资源引用」+「pbxproj 仍在打包 DrillTutorials 母版」，退出码 1。
+  - `make xcodegen` 后 → FAIL 0。再把 yml 的发布目录换回母版目录模拟原始回退 → `打包配置 2`：「yml 未声明 TutorialFigures」+「yml 声明了 DrillTutorials」，退出码 1；还原后 FAIL 0。
+  - 修复后 `make build` **SUCCEEDED**，包体 **5.2 GB → 285 MB**（产物内已无 `DrillTutorials` 目录）；`TutorialFiguresBundleTests` **4/4 TEST SUCCEEDED**。
+- **规则改进建议**：产物/内容层面的门禁不等于配置层面的门禁。凡「某资源是否进包 / 是否上线」由一份**生成式配置**决定时，必须把该配置本身纳入门禁，且要连同「配置真源」与「生成产物」两头一起校验——只查其一会漏掉「改了真源没重新生成」。
+- **日期**：2026-08-13
+- **回写目标**：`.cursor/rules/00-orchestrator.mdc` § 经验教训（通用教训，待路由到 DevOps/Release 角色规则）；`project.yml` 原位禁止性注释；`scripts/publish_tutorial_figures.py`。
+- **已应用至**：✅ `.cursor/rules/00-orchestrator.mdc` § 经验教训 / FL-031（2026-08-13）；✅ `project.yml` 母版目录原位注释（2026-08-13）；✅ `scripts/publish_tutorial_figures.py` `check_packaging_config()`（2026-08-13）
+
 ## FL-030
 - **任务**：v30 W2 T01「30° 法则」页配图返工（用户实机反馈：「瞄准线没有，而且调整角度，30 度角那条线也不动，其他类似的也有问题」）
 - **现象**（用户截图 + 主控读码复核，均可定位）：

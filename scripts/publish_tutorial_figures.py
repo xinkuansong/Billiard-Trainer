@@ -28,6 +28,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -153,6 +154,46 @@ def build_plan() -> tuple[dict[str, Path], dict[str, Path], list[str]]:
     return images, clips, missing
 
 
+def check_packaging_config() -> list[str]:
+    """校验「谁进包」的两处配置，返回违规说明列表（FL-031）。
+
+    发布目录内容正确 ≠ 包体正确：真正决定进包的是 `project.yml` 的 folder reference
+    与它生成的 `project.pbxproj`。FL-031 的事故就是发布图一切正常、`project.yml` 那处
+    改动在一次提交中丢失 ⇒ 母版目录重新挂上 folder reference，包体从 285 MB 回涨到
+    5.2 GB，而当时全部门禁照样 FAIL 0。故这里必须直接检查配置本身。
+    """
+    problems: list[str] = []
+
+    spec = REPO_ROOT / "project.yml"
+    if not spec.is_file():
+        return [f"找不到 {spec}"]
+    declared: set[str] = set()
+    for line in spec.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue  # 注释掉的声明不生效（Videos / Previews 就是这么停用的）
+        m = re.match(r"-\s*path:\s*QiuJi/Resources/(\S+)\s*$", stripped)
+        if m:
+            declared.add(m.group(1))
+    if PUBLISH_DIR.name not in declared:
+        problems.append(f"project.yml 未声明 {PUBLISH_DIR.name} folder reference ⇒ 精讲配图不进包，App 内全是缺图占位")
+    if MASTERS_DIR.name in declared:
+        problems.append(
+            f"project.yml 声明了 {MASTERS_DIR.name} folder reference ⇒ 4.9 GB PNG 母版（含孤儿帧）"
+            f"会整目录进包，违反 D-v25-10 且突破 App Store 4 GB 未压缩上限"
+        )
+
+    pbxproj = REPO_ROOT / "QiuJi.xcodeproj" / "project.pbxproj"
+    if pbxproj.is_file():
+        text = pbxproj.read_text(encoding="utf-8")
+        if f"{PUBLISH_DIR.name} in Resources" not in text:
+            problems.append(f"project.pbxproj 无 {PUBLISH_DIR.name} 资源引用 —— 改完 project.yml 后忘了跑 `make xcodegen`？")
+        if f"{MASTERS_DIR.name} in Resources" in text:
+            problems.append(f"project.pbxproj 仍在打包 {MASTERS_DIR.name} 母版 —— 改完 project.yml 后忘了跑 `make xcodegen`？")
+
+    return problems
+
+
 def existing_products() -> set[str]:
     if not PUBLISH_DIR.is_dir():
         return set()
@@ -179,11 +220,15 @@ def run_check(images: dict[str, Path], clips: dict[str, Path], missing: list[str
         if entry.get("src_md5") != md5(master):
             stale.append(name)
 
+    packaging = check_packaging_config()
+
     total = sum((PUBLISH_DIR / n).stat().st_size for n in on_disk & set(expected))
     print(f"[发布图] 应发布 {len(expected)}  已发布 {len(on_disk & set(expected))}  "
           f"合计 {total / 1048576:.1f} MB")
     print(f"  缺母版 {len(missing)}  未发布 {len(absent)}  过期 {len(stale)}  "
-          f"未登记清单 {len(unrecorded)}  多余产物 {len(extra)}")
+          f"未登记清单 {len(unrecorded)}  多余产物 {len(extra)}  打包配置 {len(packaging)}")
+    for item in packaging:
+        print(f"    · 打包配置: {item}")
     for label, items in (("缺母版", missing), ("未发布", absent), ("过期(母版已变)", stale),
                          ("未登记清单", unrecorded), ("多余产物(孤儿入包)", extra)):
         for item in items[:20]:
@@ -191,7 +236,8 @@ def run_check(images: dict[str, Path], clips: dict[str, Path], missing: list[str
         if len(items) > 20:
             print(f"    · {label}: …… 另有 {len(items) - 20} 项")
 
-    fails = len(missing) + len(absent) + len(stale) + len(unrecorded) + len(extra)
+    fails = (len(missing) + len(absent) + len(stale) + len(unrecorded)
+             + len(extra) + len(packaging))
     print(f"总计 FAIL: {fails}" + ("" if fails else " —— 发布链路同步"))
     return 1 if fails else 0
 

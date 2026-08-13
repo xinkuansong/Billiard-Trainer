@@ -48,6 +48,7 @@ targets:
           - "Resources/Videos/**"
           - "Resources/DrillThumbnails/**"
           - "Resources/DrillTutorials/**"
+          - "Resources/TutorialFigures/**"
           - "Resources/DrillBoards/**"
           - "Resources/Audio/**"
           # v30 W0：16.billiard_theory contracts 快照（folder ref 打包，见下）。
@@ -76,7 +77,13 @@ targets:
       - path: QiuJi/Resources/DrillThumbnails
         type: folder
         buildPhase: resources
-      - path: QiuJi/Resources/DrillTutorials
+      # ⛔ 精讲配图母版（Resources/DrillTutorials，1343 张 PNG / 4.9 GB，含 633 张孤儿帧）
+      # **不得**在此声明 folder reference。folder reference 是整目录打包、无法挑文件，
+      # 一旦挂上，D-v25-10「孤儿帧不进包」即失效，包体从 285 MB 回涨到 5.2 GB
+      # （FL-031 实录：本行曾被误恢复，Apple 4 GB 未压缩上限直接被突破）。
+      # 打包的是下面的 Resources/TutorialFigures（仅被精讲引用者，HEIC，112 MB），
+      # 产物由 `make tutorial-figures` 生成。改这段前先读 v25 D-v25-14。
+      - path: QiuJi/Resources/TutorialFigures
         type: folder
         buildPhase: resources
       # ⚠️ v25 W1 / D-v25-7：逐帧预览（Resources/Previews，约 520 MB）排除出包。
