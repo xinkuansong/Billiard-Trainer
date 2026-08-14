@@ -94,6 +94,8 @@ struct DrillDetailView: View {
                             coachingSection(drill, includeTutorialCTA: true)
                             trainingRequirementsSection(drill)
                         }
+
+                        loadRadarSection(drill)
                     }
                     .padding(.bottom, 100)
                 } else {
@@ -363,12 +365,10 @@ struct DrillDetailView: View {
 
     // MARK: - Training Requirements
 
-    /// 达标目标、建议训练量与定性维度同属「怎么练」，合并后避免三个同权白卡连续堆叠。
+    /// 达标目标与建议训练量同属「怎么练」。六轴负荷不在此卡（见页底雷达，DR-071）。
     /// 长目标使用全宽纵向排版，不再与短数值强行二等分。
     private func trainingRequirementsSection(_ drill: DrillContent) -> some View {
-        let groups = dimensionGroups(for: drill)
-
-        return VStack(alignment: .leading, spacing: Spacing.lg) {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
             Text("训练要求")
                 .font(.btHeadline)
                 .foregroundStyle(.btText)
@@ -388,28 +388,6 @@ struct DrillDetailView: View {
             Divider()
 
             suggestedDoseSection(drill)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                Label("训练维度", systemImage: "slider.horizontal.3")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-
-                ForEach(groups, id: \.label) { group in
-                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                        Text(group.label)
-                            .font(.btFootnote)
-                            .foregroundStyle(group.isEmphasized ? Color.btPrimary : Color.btTextSecondary)
-                            .frame(width: 34, alignment: .leading)
-
-                        Text(group.names.joined(separator: "、"))
-                            .font(.btFootnote14)
-                            .foregroundStyle(group.isEmphasized ? Color.btText : Color.btTextSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
         }
         .padding(Spacing.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -478,85 +456,30 @@ struct DrillDetailView: View {
         .accessibilityIdentifier("suggestedDoseSection")
     }
 
-    private struct DimensionGroup {
-        let label: String
-        let names: [String]
-        let isEmphasized: Bool
-    }
+    /// 页底六轴雷达。数据 = drill 代表分；展示分 = 存储分 + 1（1–5）。无 load 时仍画网格、不崩。
+    private func loadRadarSection(_ drill: DrillContent) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(LoadRadarCopy.sectionTitle)
+                    .font(.btHeadline)
+                    .foregroundStyle(.btText)
+                Text(LoadRadarCopy.sectionSubtitle)
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+            }
 
-    private func dimensionGroups(for drill: DrillContent) -> [DimensionGroup] {
-        let dims = trainingDimensions(for: drill)
-        let order = ["重点", "中等", "辅助"]
-        return order.compactMap { label in
-            let names = dims
-                .filter { Self.dimensionWeightLabel($0.value) == label }
-                .map(\.name)
-            guard !names.isEmpty else { return nil }
-            return DimensionGroup(label: label, names: names, isEmphasized: label == "重点")
+            BTLoadRadarChart(load: drill.load)
         }
-    }
-
-    /// F-DD-02：启发式权重 → 定性档，不用伪装百分数。
-    private static func dimensionWeightLabel(_ value: CGFloat) -> String {
-        switch value {
-        case 0.65...: return "重点"
-        case 0.4..<0.65: return "中等"
-        default: return "辅助"
+        .padding(Spacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .overlay {
+            RoundedRectangle(cornerRadius: BTRadius.md)
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
         }
-    }
-
-    private struct DimensionData {
-        let name: String
-        let value: CGFloat
-    }
-
-    private func trainingDimensions(for drill: DrillContent) -> [DimensionData] {
-        let cat = drill.category
-        let diff = CGFloat(drill.difficulty) / 5.0
-
-        var accuracy: CGFloat = 0.3
-        var forceCtrl: CGFloat = 0.3
-        var positioning: CGFloat = 0.2
-        var cueSkill: CGFloat = 0.2
-        var mental: CGFloat = 0.1
-
-        switch cat {
-        case "accuracy":
-            accuracy = 0.7 + diff * 0.2
-            forceCtrl = 0.3 + diff * 0.1
-        case "fundamentals":
-            accuracy = 0.5; forceCtrl = 0.3; cueSkill = 0.2
-        case "cueAction":
-            cueSkill = 0.7 + diff * 0.2
-            forceCtrl = 0.5 + diff * 0.1
-        case "separation":
-            positioning = 0.6 + diff * 0.2
-            cueSkill = 0.5
-        case "positioning":
-            positioning = 0.7 + diff * 0.2
-            accuracy = 0.4
-        case "forceControl":
-            forceCtrl = 0.7 + diff * 0.2
-            cueSkill = 0.4
-        case "specialShots":
-            cueSkill = 0.6 + diff * 0.2
-            mental = 0.4 + diff * 0.1
-        case "combined":
-            accuracy = 0.5 + diff * 0.15
-            forceCtrl = 0.5 + diff * 0.1
-            positioning = 0.5 + diff * 0.1
-            cueSkill = 0.4 + diff * 0.1
-            mental = 0.3 + diff * 0.15
-        default: break
-        }
-
-        return [
-            DimensionData(name: "准度", value: min(accuracy, 1.0)),
-            DimensionData(name: "力量控制", value: min(forceCtrl, 1.0)),
-            DimensionData(name: "走位判断", value: min(positioning, 1.0)),
-            DimensionData(name: "杆法技巧", value: min(cueSkill, 1.0)),
-            DimensionData(name: "心理素质", value: min(mental, 1.0)),
-        ]
+        .padding(.horizontal, Spacing.lg)
+        .accessibilityIdentifier("loadRadarSection")
     }
 
     // MARK: - Bottom Bar（E15：恢复「加入训练」且接线落库）

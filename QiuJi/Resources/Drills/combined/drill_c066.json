@@ -25,7 +25,15 @@
         "token": "manual01",
         "mode": "repetition",
         "ballsPerRound": 1,
-        "defaultRounds": 15
+        "defaultRounds": 15,
+        "load": {
+          "aim": 1,
+          "cue": 0,
+          "spin": 0,
+          "position": 1,
+          "constraint": 0,
+          "speed": 3
+        }
       }
     ]
   },
@@ -151,5 +159,13 @@
         "content": "降难：允许开球线后任意点位，先把「打中+留台」打到 8/10，再固定偏侧点位。\n\n加难：要求开球进球且母球停在开球线与中点之间；或衔接到「全台清台挑战」，把开球质量计入整局评价。"
       }
     ]
+  },
+  "load": {
+    "aim": 1,
+    "cue": 0,
+    "spin": 0,
+    "position": 1,
+    "constraint": 0,
+    "speed": 3
   }
 }

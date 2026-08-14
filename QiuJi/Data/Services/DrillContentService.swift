@@ -3,6 +3,66 @@ import OSLog
 
 // MARK: - DTOs (Bundle JSON; future: REST API OTA)
 
+/// 六轴执行负荷（契约 §5.7）。值域 0–4 整数，不合成总分。
+/// 挂球形级（`FormationDose.load`）；drill 顶层 `load` 是代表球形的派生拷贝（§5.7.5）。
+/// 全部可选——旧 JSON 无此字段照常解码（W2 雷达兜底不崩）；齐全性由门禁 I12 阻塞。
+struct LoadAxes: Codable, Equatable {
+    let aim: Int
+    let cue: Int
+    let spin: Int
+    let position: Int
+    let constraint: Int
+    let speed: Int
+}
+
+extension LoadAxes {
+    /// JSON / 门禁 / 排课比较用存储分，值域 0–4。
+    static let storedMin = 0
+    static let storedMax = 4
+    /// 雷达展示分 = 存储分 + 1（D-v37-6）。禁止把展示分写回 JSON。
+    static let displayOffset = 1
+    static let displayMax = storedMax + displayOffset
+
+    enum Axis: Int, CaseIterable {
+        case aim, cue, spin, position, constraint, speed
+
+        var title: String {
+            switch self {
+            case .aim: return "进球"
+            case .cue: return "杆法"
+            case .spin: return "加塞"
+            case .position: return "走位"
+            case .constraint: return "约束"
+            case .speed: return "力度"
+            }
+        }
+
+        func storedValue(in load: LoadAxes) -> Int {
+            switch self {
+            case .aim: return load.aim
+            case .cue: return load.cue
+            case .spin: return load.spin
+            case .position: return load.position
+            case .constraint: return load.constraint
+            case .speed: return load.speed
+            }
+        }
+    }
+
+    func displayScore(for axis: Axis) -> Int {
+        axis.storedValue(in: self) + Self.displayOffset
+    }
+
+    /// 雷达半径比例：展示分 / 5，故存储 0 仍占最内环（1/5），存储 4 到外沿。
+    func radarFraction(for axis: Axis) -> Double {
+        Double(displayScore(for: axis)) / Double(Self.displayMax)
+    }
+
+    var radarFractions: [Double] {
+        Axis.allCases.map { radarFraction(for: $0) }
+    }
+}
+
 struct DrillContent: Codable, Identifiable {
     let id: String
     let nameZh: String
@@ -27,6 +87,9 @@ struct DrillContent: Codable, Identifiable {
     /// 击球意图（P10 内容管线，ADR-P10-01）。可选——旧 Drill 无此字段照常工作。
     /// 由离线烘焙器 `ShotBaker` 喂给物理引擎，结果回填到 `animation`。
     let shotIntent: ShotIntent?
+    /// 六轴代表分（契约 §5.7.5）。可选——旧 JSON 无此字段照常解码；
+    /// 有 `perFormation` 时必须等于代表球形 `load`（门禁 I12）。
+    let load: LoadAxes?
 
     init(
         id: String,
@@ -46,7 +109,8 @@ struct DrillContent: Codable, Identifiable {
         animation: DrillAnimation,
         tutorial: DrillTutorial? = nil,
         videos: [DrillVideo]? = nil,
-        shotIntent: ShotIntent? = nil
+        shotIntent: ShotIntent? = nil,
+        load: LoadAxes? = nil
     ) {
         self.id = id
         self.nameZh = nameZh
@@ -66,6 +130,7 @@ struct DrillContent: Codable, Identifiable {
         self.tutorial = tutorial
         self.videos = videos
         self.shotIntent = shotIntent
+        self.load = load
     }
 
     struct DrillSetsConfig: Codable {
@@ -75,11 +140,20 @@ struct DrillContent: Codable, Identifiable {
         let defaultBallsPerSet: Int
         /// 逐球形剂量（v31 R3）。可选——旧 JSON 无此字段照常解码，消费方回落到上面两个汇总值。
         let perFormation: [FormationDose]?
+        /// 代表球形 token（契约 §5.7.5）。可选；缺省 = `perFormation[0]`。
+        /// 仅在需要偏离数组第一项时写入。必须 ∈ `perFormation` token 集（门禁 I12）。
+        let representativeToken: String?
 
-        init(defaultSets: Int, defaultBallsPerSet: Int, perFormation: [FormationDose]? = nil) {
+        init(
+            defaultSets: Int,
+            defaultBallsPerSet: Int,
+            perFormation: [FormationDose]? = nil,
+            representativeToken: String? = nil
+        ) {
             self.defaultSets = defaultSets
             self.defaultBallsPerSet = defaultBallsPerSet
             self.perFormation = perFormation
+            self.representativeToken = representativeToken
         }
     }
 
@@ -98,8 +172,27 @@ struct DrillContent: Codable, Identifiable {
         /// 有意例外剂量的说明（v34 R3）。非默认形状（bpr ≠ 15 或轮数 ≠ 杆数）须写明理由，
         /// 门禁 I6b 凭此豁免形状约束。
         let doseNote: String?
+        /// 六轴执行负荷（契约 §5.7）。可选——旧 JSON 无此字段照常解码；
+        /// 有 `perFormation` 时每个球形必须齐全且值域 0–4（门禁 I12）。
+        let load: LoadAxes?
 
         var id: String { token }
+
+        init(
+            token: String,
+            mode: DoseMode,
+            ballsPerRound: Int,
+            defaultRounds: Int,
+            doseNote: String? = nil,
+            load: LoadAxes? = nil
+        ) {
+            self.token = token
+            self.mode = mode
+            self.ballsPerRound = ballsPerRound
+            self.defaultRounds = defaultRounds
+            self.doseNote = doseNote
+            self.load = load
+        }
     }
 
     /// 球形训练模式（v31 R3 定稿口径）。

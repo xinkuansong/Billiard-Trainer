@@ -416,3 +416,39 @@
 - **回滚考虑**：新增文件 `SyncRestoreService.swift` + 两个触发点；移除触发点即回到「纯上行」，
   无数据结构变更。
 - **日期**：2026-08-12
+
+### ADR-009（ADR-v37-01）— 复习课次允许 `formations[].rounds < defaultRounds`（D-v37-2=B，部分回退 v34 R9）
+
+- **状态**：已采纳（2026-08-13，问题集合 v37 W0；用户拍板 D-v37-2=B）。本 ADR **只锁语义**；
+  Swift / `MODEL_SPEC` / `_dose_errors` / `TrainingDoseResolver` 的代码改动落 **v37 W4**。
+- **场景**：
+  - v34 R9 / ADR-006 定死「位置永远全覆盖」：`formations[].rounds` 不得低于内容
+    `defaultRounds`（门禁 `_dose_errors` 下限 FAIL + Resolver 运行时钳到下限）。
+  - v37 R5 要求同一动作首次作为主课出现后，在后续课次（一周内的次，可跨周）以递减
+    训练量复现。在 R9 口径下，「减量」不能靠调低轮数表达——调低即砍位置 = I11 FAIL。
+  - 命中 ADR 强制触发清单：**技术方案部分回退**（动 v34 R9 的下限绝对化）+
+    **跨模块边界**（I11 门禁与 `TrainingDoseResolver` 消费方，W4 落地）。
+- **选项**：
+  - A：球形子集复现（只列部分 token，现行即合法）——零契约破坏，但「同一球形少打几轮」
+    无法表达，衰减只能靠少选位置，与「完整动作减量复习」不是同一件事；
+  - B：**放宽 §6.6**：显式标记为衰减复现/复习的计划条目允许 `rounds < defaultRounds`；
+    该 drill 在本计划中的首次引入课次仍须完整剂量。
+- **决策**：选 **B**（用户 2026-08-13 拍板 D-v37-2=B）。
+  1. 标记字段定名为 **`PlanDrillDose.decay: Bool`**（可选，缺省 / `false` = 非衰减）。
+     挂在剂量对象上，不挂 `PlanDrillRef`，不复用 `SessionPhase.type == "review"`
+     （相位「复盘记录」与衰减复现禁止撞名）；
+  2. `decay: true` 时 I11 下限与 Resolver 钳制对该条目放宽；`decay` 缺省或 `false`
+     时 v34 R9 下限原样生效；
+  3. 同一 `drillId` 在一份官方计划中第一次出现的课次不得标 `decay: true`，且必须
+     `rounds ≥ defaultRounds`（首次引入不得借例外砍位置）；
+  4. 官方计划仍一律不写 `roundsPerFormation`；本例外只放宽 `formations[].rounds` 下限，
+     不改倍数语义。
+- **后果**：
+  - 契约 §6.6 / §7 I11 行已于 **v37 W0** 落盘（契约 2.4）；
+  - `_dose_errors` 下限判定、`TrainingDoseResolver` 钳制、`PlanDrillDose` 加字段 +
+    `MODEL_SPEC` 同步（FL-029）落 **W4**，与计划 JSON 重写同批生效；
+  - W5 I13 再查「同 drill 复现课次剂量单调不增、且减量条目必须带 `decay: true`」；
+  - ⛔ 放宽面仅限显式标记条目，禁止把下限改成全局可选。
+- **回滚考虑**：语义回滚 = 删 §6.6 例外并把 I11 恢复为无条件下限（契约降回 2.3 该句）；
+  代码回滚（W4 之后）= 去掉 `decay` 键并恢复钳制。无 SwiftData Schema 变更，无迁移连带。
+- **日期**：2026-08-13

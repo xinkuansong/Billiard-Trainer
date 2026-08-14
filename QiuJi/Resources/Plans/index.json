@@ -1,16 +1,10 @@
 {
-  "version": 6,
+  "version": 7,
   "plans": [
     {
       "id": "plan_beginner",
-      "nameZh": "基本功计划",
+      "nameZh": "基本功",
       "targetLevel": "L0→L1",
-      "isPremium": false
-    },
-    {
-      "id": "plan_cueball",
-      "nameZh": "杆法Ⅰ·基础",
-      "targetLevel": "L1",
       "isPremium": false
     },
     {
@@ -20,14 +14,20 @@
       "isPremium": false
     },
     {
+      "id": "plan_cueball",
+      "nameZh": "杆法Ⅰ·高低杆",
+      "targetLevel": "L1",
+      "isPremium": false
+    },
+    {
       "id": "plan_force",
-      "nameZh": "力度计划",
+      "nameZh": "力度",
       "targetLevel": "L1→L2",
       "isPremium": true
     },
     {
       "id": "plan_separation",
-      "nameZh": "分离角计划",
+      "nameZh": "分离角",
       "targetLevel": "L2",
       "isPremium": true
     },
@@ -39,8 +39,14 @@
     },
     {
       "id": "plan_positioning",
-      "nameZh": "走位计划",
+      "nameZh": "走位Ⅰ·短距到一库",
       "targetLevel": "L1→L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_positioning2",
+      "nameZh": "走位Ⅱ·多库与蛇彩",
+      "targetLevel": "L2→L4",
       "isPremium": true
     },
     {
@@ -51,7 +57,7 @@
     },
     {
       "id": "plan_advanced",
-      "nameZh": "特殊球计划",
+      "nameZh": "特殊球",
       "targetLevel": "L3",
       "isPremium": true
     },

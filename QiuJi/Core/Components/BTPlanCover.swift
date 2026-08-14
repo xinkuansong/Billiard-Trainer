@@ -107,9 +107,10 @@ enum PlanCoverLabel {
         case "plan_force": return "控力"
         case "plan_separation": return "分离角"
         case "plan_english": return "加塞"
-        case "plan_positioning": return "走位"
-        case "plan_intermediate": return "中级综合"
-        case "plan_advanced": return "加塞多库"
+        case "plan_positioning": return "走位Ⅰ"
+        case "plan_positioning2": return "走位Ⅱ"
+        case "plan_intermediate": return "准度Ⅱ"
+        case "plan_advanced": return "特殊球"
         case "plan_fullskill": return "全能综合"
         default: return "训练"
         }

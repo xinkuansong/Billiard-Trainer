@@ -571,9 +571,13 @@ struct PlanDetailView: View {
     private func seriesName(for targetLevel: String) -> String {
         switch targetLevel {
         case "L0→L1":  return "入门系列"
+        case "L0→L2":  return "准度入门"
         case "L1":     return "初级系列"
         case "L1→L2":  return "进阶系列"
+        case "L1→L3":  return "走位进阶"
         case "L2":     return "中级系列"
+        case "L2→L3":  return "中级进阶"
+        case "L2→L4":  return "综合系列"
         case "L3":     return "高级系列"
         case "L3→L4":  return "专业系列"
         default:       return "训练系列"

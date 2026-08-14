@@ -48,8 +48,8 @@ help:
 	@echo "  make thumbnails   动作库缩略图烘焙（Resources/DrillThumbnails/；烘焙 runner 不随 make test 跑）"
 	@echo "  make tryout-sync  同步 drill 序列到 App Bundle 试打球形（Resources/DrillBoards/）"
 	@echo "  make tutorial-figures  精讲配图发布（PNG 母版 → HEIC 打包目录 Resources/TutorialFigures/）"
-	@echo "  make verify-tutorials  内容不变量全量校验（C1–C4 + I5/I6a/I6b/I7/I8/I9/I10/I11）"
-	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I6a/I6b 剂量口径、I11 计划校验、配图发布新鲜度与 DTO↔后端 schema 双端对齐）"
+	@echo "  make verify-tutorials  内容不变量全量校验（C1–C4 + I5/I6a/I6b/I7/I8/I9/I10/I11/I12/I13）"
+	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I6a/I6b 剂量口径、I11 计划校验、I12 六轴 load、I13 排课规则、配图发布新鲜度与 DTO↔后端 schema 双端对齐）"
 	@echo "  make invariant-selftest  不变量检查自测（构造性用例证明每项真会报错）"
 	@echo "  make verify-doc-size  进度文档体积门禁（PROGRESS.md / hub 状态卡滚动归档纪律）"
 	@echo "  make install-hooks  安装 git 钩子（pre-push 内容不变量门禁）"
@@ -272,9 +272,11 @@ verify-tutorials:
 
 # ────────────────────────────────────────────
 # 内容不变量门禁（问题集合 v29 W9；契约 §7）
-# verify-gate           = pre-push 钩子的入口。阻塞 C1/C2/C3/C4/I5/I6a/I6b/I7/I8/I9/I10/I11
+# verify-gate           = pre-push 钩子的入口。阻塞 C1/C2/C3/C4/I5/I6a/I6b/I7/I8/I9/I10/I11/I12/I13
 #                         （v26 W13：C4 已从 GATE_EXEMPT_CHECKS 移除并转正；
-#                          v31 W4：I6a/I6b 剂量口径与 I11 官方计划校验接入，均为阻塞项）
+#                          v31 W4：I6a/I6b 剂量口径与 I11 官方计划校验接入，均为阻塞项；
+#                          v37 W1：I12 六轴 load 齐全/值域/代表分接入，均为阻塞项；
+#                          v37 W5：I13 排课规则接入，均为阻塞项）
 #                         + 用户数据同步双端对齐 D0/D1（v36 W4，Swift DTO ↔ Mongoose schema，
 #                           见 scripts/verify_sync_schema_alignment.py 文件头；D2/D3 为 WARN）。
 # invariant-selftest    = 构造性用例：每个检查项都在影子内容库上制造一处不一致，

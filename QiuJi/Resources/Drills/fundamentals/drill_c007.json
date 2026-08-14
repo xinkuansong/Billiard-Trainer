@@ -25,7 +25,15 @@
         "token": "manual01",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 4
+        "defaultRounds": 4,
+        "load": {
+          "aim": 1,
+          "cue": 2,
+          "spin": 0,
+          "position": 0,
+          "constraint": 0,
+          "speed": 0
+        }
       }
     ]
   },
@@ -209,5 +217,13 @@
         "content": "降阶：只打第1–2杆，站位完全稳定再上低杆。升阶：同一站位要求下把距离拉远，或接「直线出杆检验」看站位与出杆是否一起跑偏。"
       }
     ]
+  },
+  "load": {
+    "aim": 1,
+    "cue": 2,
+    "spin": 0,
+    "position": 0,
+    "constraint": 0,
+    "speed": 0
   }
 }

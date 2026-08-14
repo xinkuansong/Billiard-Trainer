@@ -174,6 +174,19 @@ def first_ref(plan: dict, drill_id: str) -> dict:
     raise SystemExit(f"计划内找不到 {drill_id} 的条目")
 
 
+def all_refs(plan: dict, drill_id: str) -> list[dict]:
+    found = []
+    for week in plan["weeks"]:
+        for session in week["sessions"]:
+            for phase in session["phases"]:
+                for ref in phase["drills"]:
+                    if ref["drillId"] == drill_id:
+                        found.append(ref)
+    if not found:
+        raise SystemExit(f"计划内找不到 {drill_id} 的条目")
+    return found
+
+
 def case_i6a_token_drift(root: Path) -> None:
     # 球形 token 是计划外键（契约 §6.6）：剂量块改到一个序列里不存在的 token 必须 FAIL。
     edit_json(drill_path(root, "drill_c013"),
@@ -245,23 +258,34 @@ def case_i11_unknown_drill(root: Path) -> None:
 
 def case_i11_bad_formation_token(root: Path) -> None:
     # 删/改球形 token 会打断按球形引用的计划条目（契约 §6 规则 2 的删除连带）。
-    path = plan_path(root, "plan_advanced")
+    path = plan_path(root, "plan_english")
     edit_json(path, lambda plan: first_ref(plan, "drill_c075")["dose"]["formations"][0]
               .__setitem__("token", "manual99"))
 
 
 def case_i11_dose_both_forms(root: Path) -> None:
     # `roundsPerFormation` 与 `formations` 必须恰好二选一。
-    path = plan_path(root, "plan_advanced")
+    path = plan_path(root, "plan_english")
     edit_json(path, lambda plan: first_ref(plan, "drill_c075")["dose"]
               .__setitem__("roundsPerFormation", 3))
 
 
 def case_i11_rounds_below_default(root: Path) -> None:
-    # v34 R9：formations 逐球形轮数不得低于该球形内容 defaultRounds（位置全覆盖）。
-    path = plan_path(root, "plan_advanced")
+    # v34 R9：无 decay 时 formations 逐球形轮数不得低于该球形内容 defaultRounds。
+    path = plan_path(root, "plan_english")
     edit_json(path, lambda plan: first_ref(plan, "drill_c075")["dose"]["formations"][0]
               .__setitem__("rounds", 1))
+
+
+def case_i11_decay_rounds_below_default(root: Path) -> None:
+    # v37 D-v37-2=B：标 decay:true 后 rounds 低于下限不得再报「低于内容 defaultRounds」。
+    path = plan_path(root, "plan_english")
+
+    def mutate(plan: dict) -> None:
+        dose = first_ref(plan, "drill_c075")["dose"]
+        dose["decay"] = True
+        dose["formations"][0]["rounds"] = 1
+    edit_json(path, mutate)
 
 
 def case_i11_legacy_volume_keys(root: Path) -> None:
@@ -296,6 +320,64 @@ def case_i10_secondary_categories_wrong_type(root: Path) -> None:
 def case_c3_dead_ratchet(root: Path) -> None:
     # 新增 1 处失效引用 ⇒ 失效数 35 > 基线 34，棘轮必须报警。
     retarget_first_image(root, "drill_c011", "drill_c011_不存在的图")
+
+
+def case_i12_missing_load(root: Path) -> None:
+    # 有 perFormation 时每个球形必须有 load；删掉后 I12 必须 FAIL（I10 仍过，因 load 可选）。
+    def mutate(data: dict) -> None:
+        first_formation(data).pop("load", None)
+    edit_json(drill_path(root, "drill_c001"), mutate)
+
+
+def case_i12_out_of_range(root: Path) -> None:
+    # 值域 0–4；aim=5 必须 FAIL。顶层与球形同步改，避免被「代表分不一致」抢先挡住。
+    def mutate(data: dict) -> None:
+        first_formation(data)["load"]["aim"] = 5
+        data["load"]["aim"] = 5
+    edit_json(drill_path(root, "drill_c001"), mutate)
+
+
+def case_i12_rep_mismatch(root: Path) -> None:
+    # 顶层 load 必须等于代表球形实分；改成与所有球形都不同的六元组必须 FAIL。
+    def mutate(data: dict) -> None:
+        data["load"] = {
+            "aim": 4, "cue": 4, "spin": 4,
+            "position": 4, "constraint": 4, "speed": 4,
+        }
+    edit_json(drill_path(root, "drill_c001"), mutate)
+
+
+def case_i13_week_order_drop(root: Path) -> None:
+    # 把准度Ⅰ第 1 周与第 3 周的 weekNumber 对调：后周 focused 新引入 scalar 从 3 掉到 1。
+    def mutate(plan: dict) -> None:
+        plan["weeks"][0]["weekNumber"], plan["weeks"][2]["weekNumber"] = (
+            plan["weeks"][2]["weekNumber"], plan["weeks"][0]["weekNumber"])
+    edit_json(plan_path(root, "plan_accuracy"), mutate)
+
+
+def case_i13_warmup_over_focused(root: Path) -> None:
+    # W1D2 主课 c011 scalar=1；把热身换成同计划 c032（scalar=3，无 reviewFrom）。
+    def mutate(plan: dict) -> None:
+        source = json.loads(json.dumps(first_ref(plan, "drill_c032")))
+        source.get("dose", {}).pop("reviewFrom", None)
+        source.get("dose", {}).pop("decay", None)
+        session = plan["weeks"][0]["sessions"][1]
+        warmup = next(phase for phase in session["phases"] if phase["type"] == "warmup")
+        warmup["drills"] = [source]
+    edit_json(plan_path(root, "plan_accuracy"), mutate)
+
+
+def case_i13_decay_not_mono(root: Path) -> None:
+    # c001 第二次出现（已 decay）轮数 4 → 6，高于首次 5；I11 下限仍过。
+    def mutate(plan: dict) -> None:
+        all_refs(plan, "drill_c001")[2]["dose"]["formations"][0]["rounds"] = 6
+    edit_json(plan_path(root, "plan_accuracy"), mutate)
+
+
+def case_i13_review_from_unknown(root: Path) -> None:
+    def mutate(plan: dict) -> None:
+        first_ref(plan, "drill_c001")["dose"]["reviewFrom"] = "plan_does_not_exist"
+    edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
 CASES = {
@@ -351,15 +433,32 @@ CASES = {
                                      "!✗ drill_c010/manual01"),
     "i11_unknown_drill": ("I11", "plan_accuracy 首条目 drillId 改成未登记的 drill_c900",
                           case_i11_unknown_drill, 1, "不在 index.json"),
-    "i11_bad_formation_token": ("I11", "plan_advanced 的 c075 按球形引用改指 manual99",
+    "i11_bad_formation_token": ("I11", "plan_english 的 c075 按球形引用改指 manual99",
                                 case_i11_bad_formation_token, 1, "manual99"),
-    "i11_dose_both_forms": ("I11", "plan_advanced 的 c075 同时写 roundsPerFormation 与 formations",
+    "i11_dose_both_forms": ("I11", "plan_english 的 c075 同时写 roundsPerFormation 与 formations",
                             case_i11_dose_both_forms, 1, "未恰好二选一"),
     "i11_legacy_volume_keys": ("I11", "plan_accuracy 首条目补写已删除的旧格式 sets/ballsPerSet",
                                case_i11_legacy_volume_keys, 1, "仍残留旧格式 sets/ballsPerSet"),
-    "i11_rounds_below_default": ("I11", "plan_advanced 的 c075 逐球形轮数改 1（低于内容 defaultRounds）",
+    "i11_rounds_below_default": ("I11", "plan_english 的 c075 逐球形轮数改 1（低于内容 defaultRounds）",
                                  case_i11_rounds_below_default, 1, "低于内容 defaultRounds"),
-    "baseline_clean": ("I5 I6a I6b I7 I8 I9 I10 I11", "未做任何改动的影子库（对照组）",
+    "i11_decay_rounds_below_default": ("I11", "plan_english 的 c075 标 decay 且 rounds=1 ⇒ 不得再报低于下限",
+                                       case_i11_decay_rounds_below_default, None,
+                                       "!低于内容 defaultRounds"),
+    "i12_missing_load": ("I12", "drill_c001 某 formation 去掉 load",
+                         case_i12_missing_load, 1, "缺 load"),
+    "i12_out_of_range": ("I12", "drill_c001 load.aim 改成 5（越界）",
+                         case_i12_out_of_range, 1, "值域非法"),
+    "i12_rep_mismatch": ("I12", "drill_c001 顶层 load 改成与所有球形都不同的六元组",
+                         case_i12_rep_mismatch, 1, "drill 级 load ≠ 代表球形 load"),
+    "i13_week_order_drop": ("I13", "plan_accuracy 对调 W1/W3 weekNumber ⇒ 后周新引入 scalar 下降",
+                            case_i13_week_order_drop, 1, "后周新引入 scalar"),
+    "i13_warmup_over_focused": ("I13", "plan_accuracy W1D2 热身换成 c032（scalar 3 > 主课 1）",
+                                case_i13_warmup_over_focused, 1, "热身 scalar"),
+    "i13_decay_not_mono": ("I13", "plan_accuracy 的 c001 第三次出现轮数 4→6（高于首次）",
+                           case_i13_decay_not_mono, 1, "复现剂量"),
+    "i13_review_from_unknown": ("I13", "plan_accuracy 首条目 reviewFrom 改成未登记计划 id",
+                                case_i13_review_from_unknown, 1, "不是货架计划 id"),
+    "baseline_clean": ("I5 I6a I6b I7 I8 I9 I10 I11 I12 I13", "未做任何改动的影子库（对照组）",
                        lambda root: None, 0, "总计 FAIL: 0"),
 }
 

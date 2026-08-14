@@ -25,13 +25,29 @@
         "token": "Snipaste_2026_06_19_17_50_08",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 1
+        "defaultRounds": 1,
+        "load": {
+          "aim": 1,
+          "cue": 0,
+          "spin": 0,
+          "position": 0,
+          "constraint": 2,
+          "speed": 1
+        }
       },
       {
         "token": "Snipaste_2026_06_19_17_50_48",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 1
+        "defaultRounds": 1,
+        "load": {
+          "aim": 1,
+          "cue": 0,
+          "spin": 0,
+          "position": 0,
+          "constraint": 2,
+          "speed": 1
+        }
       }
     ]
   },
@@ -214,5 +230,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 1,
+    "cue": 0,
+    "spin": 0,
+    "position": 0,
+    "constraint": 2,
+    "speed": 1
+  }
 }

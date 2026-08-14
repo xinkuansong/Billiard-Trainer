@@ -24,12 +24,20 @@ struct PlanListView: View {
     @Query private var activePlans: [UserActivePlan]
 
     private var groupedPlans: [(level: String, plans: [OfficialPlan])] {
-        let levelOrder = ["L0→L1", "L1", "L1→L2", "L2", "L3", "L3→L4"]
+        let levelOrder = [
+            "L0→L1", "L0→L2", "L1", "L1→L2", "L1→L3",
+            "L2", "L2→L3", "L2→L4", "L3", "L3→L4",
+        ]
         let grouped = Dictionary(grouping: plans) { $0.targetLevel }
-        return levelOrder.compactMap { level in
+        var result = levelOrder.compactMap { level -> (level: String, plans: [OfficialPlan])? in
             guard let items = grouped[level], !items.isEmpty else { return nil }
             return (level: level, plans: items)
         }
+        let seen = Set(result.map(\.level))
+        for level in grouped.keys.sorted() where !seen.contains(level) {
+            result.append((level: level, plans: grouped[level] ?? []))
+        }
+        return result
     }
 
     var body: some View {
@@ -360,9 +368,13 @@ struct PlanListView: View {
     private func titleForLevel(_ level: String) -> String {
         switch level {
         case "L0→L1":  return "入门计划"
+        case "L0→L2":  return "准度入门"
         case "L1":     return "初级计划"
         case "L1→L2":  return "进阶计划"
+        case "L1→L3":  return "走位进阶"
         case "L2":     return "中级计划"
+        case "L2→L3":  return "中级进阶"
+        case "L2→L4":  return "综合计划"
         case "L3":     return "高级计划"
         case "L3→L4":  return "专业计划"
         default:       return level

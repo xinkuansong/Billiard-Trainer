@@ -3,8 +3,10 @@
 #
 # 阻塞项：C1 出片新鲜度 / C2 回填一致性 / C3 引用指向（含失效引用棘轮）/
 #         C4 结构对齐 / I5 精讲 token / I6a 剂量 token / I6b sequence 型每轮球数 /
-#         I7 profile / I8 Bundle 子集 / I9 序列覆盖 / I10 模型可解码性 / I11 官方计划校验
-# （v26 W13：C4 已转正为阻塞；GATE_EXEMPT_CHECKS 为空。v31 W4：I6a/I6b/I11 接入）
+#         I7 profile / I8 Bundle 子集 / I9 序列覆盖 / I10 模型可解码性 / I11 官方计划校验 /
+#         I12 六轴 load / I13 排课规则
+# （v26 W13：C4 已转正为阻塞；GATE_EXEMPT_CHECKS 为空。v31 W4：I6a/I6b/I11 接入；
+#  v37 W1：I12 接入；v37 W5：I13 接入）
 #
 # 另含：进度文档体积门禁；用户数据同步双端对齐门禁（v36 W4：Swift DTO ↔ Mongoose schema，
 #       D0/D1 阻塞，真源 scripts/verify_sync_schema_alignment.py 文件头）。
@@ -32,6 +34,8 @@ if ! python3 "$REPO_ROOT/scripts/verify_tutorial_sync.py" --gate; then
   7. I6a/I6b 失败 → drill JSON 的 sets.perFormation 与序列对齐（红线：改剂量，不改序列）
   8. I10 失败 → 按 codingPath 补齐必填字段 / 修类型；改过 Swift 模型则同步 MODEL_SPEC
   9. I11 失败 → 官方计划的 drillId / dose / 球形 token 对齐内容（token 是计划外键，契约 §6.6）
+  10. I12 失败 → 补齐/修正 drill JSON 的六轴 load（值域 0–4，代表分 = 球形实分）
+  11. I13 失败 → 按契约 §7 修计划排课（周序不降 / 热身≤主课 / 衰减单调 / reviewFrom 外键）
 
 自查命令：make -f scripts/Makefile verify-gate
 EOF

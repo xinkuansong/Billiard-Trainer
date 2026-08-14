@@ -28,7 +28,15 @@
         "token": "Snipaste_2026_06_19_13_52_32",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 13
+        "defaultRounds": 13,
+        "load": {
+          "aim": 2,
+          "cue": 2,
+          "spin": 0,
+          "position": 2,
+          "constraint": 0,
+          "speed": 0
+        }
       }
     ]
   },
@@ -450,5 +458,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 2,
+    "cue": 2,
+    "spin": 0,
+    "position": 2,
+    "constraint": 0,
+    "speed": 0
+  }
 }

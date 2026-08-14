@@ -160,7 +160,15 @@
         "token": "manual01",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 16
+        "defaultRounds": 16,
+        "load": {
+          "aim": 4,
+          "cue": 3,
+          "spin": 3,
+          "position": 0,
+          "constraint": 0,
+          "speed": 2
+        }
       }
     ]
   },
@@ -535,5 +543,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 4,
+    "cue": 3,
+    "spin": 3,
+    "position": 0,
+    "constraint": 0,
+    "speed": 2
+  }
 }

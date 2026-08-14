@@ -92,7 +92,8 @@ final class V22W5PlanEnglishTests: XCTestCase {
             XCTAssertEqual(e?.isPremium, false, "\(freeId) 应为免费档")
         }
         for paidId in ["plan_intermediate", "plan_english", "plan_positioning",
-                       "plan_separation", "plan_force", "plan_advanced", "plan_fullskill"] {
+                       "plan_positioning2", "plan_separation", "plan_force",
+                       "plan_advanced", "plan_fullskill"] {
             let e = index?.plans.first { $0.id == paidId }
             XCTAssertNotNil(e, "index 须登记 \(paidId)")
             XCTAssertEqual(e?.isPremium, true, "\(paidId) 应为付费档")

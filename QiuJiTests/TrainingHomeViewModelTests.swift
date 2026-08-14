@@ -260,6 +260,29 @@ final class TrainingHomeViewModelTests: XCTestCase {
         XCTAssertEqual(resolved.plannedSets.count, second.defaultRounds)
     }
 
+    /// `decay == true` 时不再钳到 defaultRounds（v37 D-v37-2=B 复习减量）。
+    func test_formations_decayTrue_doesNotClampBelowDefaultRounds() throws {
+        let content = try bundledDrill("drill_c013")
+        let perFormation = try XCTUnwrap(content.sets.perFormation)
+        let second = perFormation[1]
+        XCTAssertGreaterThan(second.defaultRounds, 1, "需有可低于的 defaultRounds")
+
+        let resolved = TrainingDoseResolver.resolve(
+            content: content,
+            dose: PlanDrillDose(
+                formations: [
+                    PlanDrillDose.FormationRounds(token: second.token, rounds: 1)
+                ],
+                decay: true
+            ),
+            formationOptions: TrainingDoseResolver.formationOptions(forDrillId: content.id)
+        )
+
+        XCTAssertEqual(resolved.groups.count, 1)
+        XCTAssertEqual(resolved.groups[0].rounds, 1)
+        XCTAssertEqual(resolved.plannedSets.count, 1)
+    }
+
     /// 无序列 drill：倍数作用于 `defaultSets`。
     func test_noSequenceDrill_multiplierAppliesToDefaultSets() throws {
         let content = try bundledDrill("drill_c008")
@@ -371,6 +394,7 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let rewritten = [
             "plan_accuracy", "plan_cueball", "plan_english",
             "plan_force", "plan_separation", "plan_positioning",
+            "plan_positioning2",
         ]
         var entries = 0
         for planId in rewritten {
@@ -410,8 +434,8 @@ final class TrainingHomeViewModelTests: XCTestCase {
             }
         }
         // v34 W3：专项计划合计约 165 条（旧 v31 千级下限已过时）。
-        XCTAssertGreaterThan(entries, 100, "6 份计划条目数量级异常：\(entries)")
-        print("[W3a-EVIDENCE] 6 份专项计划 dose 条目核对数=\(entries)")
+        XCTAssertGreaterThan(entries, 100, "7 份计划条目数量级异常：\(entries)")
+        print("[W3a-EVIDENCE] 7 份专项计划 dose 条目核对数=\(entries)")
     }
 
     /// 4 份综合计划：dose 可解析；阶段时长相对计划级 `minutesPerSession` 允许 ±20%（v34 R7「大概」）。
@@ -463,8 +487,8 @@ final class TrainingHomeViewModelTests: XCTestCase {
                 }
             }
         }
-        // v34 W3：综合计划合计约 127 条（旧 v31 600+ 下限已过时）。
-        XCTAssertGreaterThan(entries, 100, "4 份综合计划条目数量级异常：\(entries)")
+        // v37 W4：11 份货架把内容拆到专项后，综合四份合计约 97 条（v34 W3 约 127、>100 下限已过时）。
+        XCTAssertGreaterThanOrEqual(entries, 80, "4 份综合计划条目数量级异常：\(entries)")
         print("[W3b-EVIDENCE] 4 份综合计划 dose 条目核对数=\(entries)")
     }
 

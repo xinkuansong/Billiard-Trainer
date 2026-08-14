@@ -5,7 +5,7 @@ import XCTest
 /// v31 W5 只能用免费计划（plan_accuracy / plan_beginner）走查，因为 `isPremium: true`
 /// 的计划在未订阅态下 `PlanDetailView` 走 `isPremiumLocked` 分支、无法激活。本套用
 /// DEBUG-only 的 `-forcePremium`（`SubscriptionManager.forcePremiumArgument`）注入订阅态，
-/// 补齐 `plan_positioning`（走位突破计划）与 `plan_fullskill`（全能综合训练）的运行时走查。
+/// 补齐 `plan_positioning`（走位Ⅰ·短距到一库）与 `plan_fullskill`（全能精选）的运行时走查。
 ///
 /// 方法名带序号以固定执行顺序：
 /// 1. `test01` 反向用例（不传开关 ⇒ 仍锁定）；判据取周列表的渐进锁，它只看
@@ -15,8 +15,8 @@ import XCTest
 /// 截图 / 层级 dump 落 `build/x-v31-3-screenshots/`。
 final class XV313PremiumPlanWalkthroughUITests: XCTestCase {
 
-    private static let positioningPlanName = "走位突破计划"
-    private static let fullSkillPlanName = "全能综合训练"
+    private static let positioningPlanName = "走位Ⅰ·短距到一库"
+    private static let fullSkillPlanName = "全能精选"
 
     private let outDir = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()   // QiuJiUITests/

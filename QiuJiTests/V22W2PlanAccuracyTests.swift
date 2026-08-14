@@ -6,10 +6,10 @@ import XCTest
 /// 不再钉死逐周主题/主轴，改保护结构不变量 + v34 归属集合 + index 一致性。
 final class V22W2PlanAccuracyTests: XCTestCase {
 
-    /// v34 归属：近中台准度 7 条（c013/c053 因单课剂量超免费 75′ 档归准度Ⅱ）。
+    /// v37 W4 归属：近中台准度 6 条（c013 因完整剂量约 102′ 使本计划改走 90′ 档）。
     private let assignedIds: Set<String> = [
         "drill_c001", "drill_c002", "drill_c011", "drill_c012",
-        "drill_c032", "drill_c052", "drill_c063",
+        "drill_c013", "drill_c032",
     ]
 
     func testPlanAccuracyDecodesAndMatchesShelfSpec() async throws {
@@ -41,7 +41,7 @@ final class V22W2PlanAccuracyTests: XCTestCase {
                 }
             }
         )
-        XCTAssertEqual(allIds, assignedIds, "计划内容应恰为 v34 归属集合")
+        XCTAssertEqual(allIds, assignedIds, "计划内容应恰为 v37 准度Ⅰ归属集合")
 
         // 全部 drillId ∈ Drills index
         let drillIndex = await DrillContentService.shared.loadDrillIndex()

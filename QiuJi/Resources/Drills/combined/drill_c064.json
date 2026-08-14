@@ -25,7 +25,15 @@
         "token": "Snipaste_2026_06_19_17_59_39",
         "mode": "sequence",
         "ballsPerRound": 3,
-        "defaultRounds": 8
+        "defaultRounds": 8,
+        "load": {
+          "aim": 2,
+          "cue": 2,
+          "spin": 0,
+          "position": 3,
+          "constraint": 0,
+          "speed": 1
+        }
       }
     ]
   },
@@ -192,5 +200,13 @@
         "content": "降阶：先只打 1→2 两杆右侧中袋，第二杆停位稳定后再接 3 号。\n\n升阶：衔接到「五球连打走位」加长链条；或规定全程只许中杆，看第二杆还能不能留住收尾位。"
       }
     ]
+  },
+  "load": {
+    "aim": 2,
+    "cue": 2,
+    "spin": 0,
+    "position": 3,
+    "constraint": 0,
+    "speed": 1
   }
 }

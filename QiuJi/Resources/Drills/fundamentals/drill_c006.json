@@ -25,13 +25,29 @@
         "token": "manual01",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 4
+        "defaultRounds": 4,
+        "load": {
+          "aim": 0,
+          "cue": 0,
+          "spin": 0,
+          "position": 0,
+          "constraint": 0,
+          "speed": 0
+        }
       },
       {
         "token": "manual02",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 4
+        "defaultRounds": 4,
+        "load": {
+          "aim": 0,
+          "cue": 0,
+          "spin": 0,
+          "position": 0,
+          "constraint": 0,
+          "speed": 0
+        }
       }
     ]
   },
@@ -143,5 +159,13 @@
         "content": "握杆稳定后，用「直线出杆检验」看握杆与出杆是否一起跑偏；再上「远台直线出杆检验」拉长距离放大偏差。若同时练定杆，注意别为了「加力停球」下意识攥死后手。"
       }
     ]
+  },
+  "load": {
+    "aim": 0,
+    "cue": 0,
+    "spin": 0,
+    "position": 0,
+    "constraint": 0,
+    "speed": 0
   }
 }

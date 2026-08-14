@@ -346,17 +346,17 @@ enum CoverPalette {
                     top: Color(red: 0.16, green: 0.55, blue: 0.34),
                     bottom: Color(red: 0.09, green: 0.34, blue: 0.21)
                 )
-            case "L1":
+            case "L1", "L0→L2":
                 return .init(
                     top: Color(red: 0.11, green: 0.46, blue: 0.95),
                     bottom: Color(red: 0.05, green: 0.24, blue: 0.58)
                 )
-            case "L1→L2":
+            case "L1→L2", "L1→L3":
                 return .init(
                     top: Color(red: 0.0, green: 0.60, blue: 0.60),
                     bottom: Color(red: 0.0, green: 0.36, blue: 0.40)
                 )
-            case "L2":
+            case "L2", "L2→L3":
                 return .init(
                     top: Color(red: 0.18, green: 0.18, blue: 0.20),
                     bottom: Color(red: 0.07, green: 0.07, blue: 0.08)
@@ -366,7 +366,7 @@ enum CoverPalette {
                     top: Color(red: 0.55, green: 0.32, blue: 0.05),
                     bottom: Color(red: 0.33, green: 0.18, blue: 0.02)
                 )
-            case "L3→L4":
+            case "L3→L4", "L2→L4":
                 return .init(
                     top: Color(red: 0.62, green: 0.14, blue: 0.14),
                     bottom: Color(red: 0.36, green: 0.06, blue: 0.06)

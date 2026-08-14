@@ -25,19 +25,43 @@
         "token": "Snipaste_2026_06_19_17_43_31",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 1
+        "defaultRounds": 1,
+        "load": {
+          "aim": 2,
+          "cue": 2,
+          "spin": 0,
+          "position": 0,
+          "constraint": 2,
+          "speed": 2
+        }
       },
       {
         "token": "Snipaste_2026_06_19_17_45_48",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 1
+        "defaultRounds": 1,
+        "load": {
+          "aim": 1,
+          "cue": 2,
+          "spin": 0,
+          "position": 0,
+          "constraint": 2,
+          "speed": 1
+        }
       },
       {
         "token": "Snipaste_2026_06_19_17_48_56",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 1
+        "defaultRounds": 1,
+        "load": {
+          "aim": 1,
+          "cue": 2,
+          "spin": 0,
+          "position": 0,
+          "constraint": 2,
+          "speed": 1
+        }
       }
     ]
   },
@@ -279,5 +303,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 2,
+    "cue": 2,
+    "spin": 0,
+    "position": 0,
+    "constraint": 2,
+    "speed": 2
+  }
 }

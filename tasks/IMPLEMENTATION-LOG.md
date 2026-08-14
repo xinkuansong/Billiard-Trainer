@@ -208,6 +208,36 @@
 - **回写目标**：`docs/research/20260807-v30理论页组件规范.md`（新增 §四 配图硬性章节 + §三 风格收敛铁律）、`docs/research/20260807-v30理论转写模板.md`（§3.1 配图决策树）
 - **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.2 §三/§四/§五/§六/§二 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.1 §一/§3.1/§3.2/§四 + Changelog（2026-08-07）；✅ 本文件 DR-064 补「返工 r1 修订」段（2026-08-07）
 
+---
+
+## DR-072
+- **任务**：v37 W4 计划货架 11 份上屏（新 `targetLevel` 与封面标签）
+- **原始规范**：`PlanListView.groupedPlans` 只枚举旧 6 档；`PlanCoverLabel` 映射 10 套（走位/中级/高级为「走位」「综合」等）
+- **调整后**：
+  1. `groupedPlans` 覆盖 `L0→L2` / `L1→L3` / `L2→L3` / `L2→L4`，未知档追加到末尾，禁止静默丢卡。
+  2. `CoverPalette.PlanStyle.forLevel` 新档别名到现有 6 色，不扩 `planLevelKeys`（对比度测试仍 6 色）。
+  3. `PlanCoverLabel`：走位Ⅰ / 走位Ⅱ / 准度Ⅱ / 特殊球 / 全能综合；杆法/准度封面仍为「杆法」「准度」（不加 Ⅰ）。
+- **原因**：11 份目录引入跨档 `targetLevel`，旧枚举会把准度Ⅰ/走位Ⅰ/杆法Ⅱ/准度Ⅱ/走位Ⅱ/全能从列表页丢掉。
+- **日期**：2026-08-14
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` PlanCoverLabel / Changelog
+- **已应用至**：✅ SPEC Changelog；✅ `swiftui-design-system/SKILL.md`（2026-08-14）
+
+---
+
+## DR-071
+- **任务**：v37 W2 动作页六轴雷达（用户拍板删除假五维「训练维度」+ 页底雷达；D-v37-6 展示分 +1）
+- **原始规范**：详情「训练要求」卡含启发式五维（分类 + difficulty/5 → 准度/力量/走位/杆法/心理），与真实六轴负荷无关。
+- **调整后**：
+  1. 删除 `trainingDimensions` / `dimensionGroups` / `DimensionData` 及「训练维度」文案。
+  2. 新增 `BTLoadRadarChart`：自绘六边形；轴序顶起顺时针为进球/杆法/加塞/走位/约束/力度。
+  3. **展示映射**：存储 0–4 → 展示 1–5（半径 = 展示/5）。JSON / I12 不变。
+  4. 无 `load` 时网格仍在、不填充、不崩。
+  5. **上屏文案**（2026-08-14 用户点验）：标题「难度画像」+ 副题「这项动作难在哪」；契约层仍称执行负荷。
+  6. **视觉**（同日）：台呢径向底、主色径向填充 + 外发光、峰值轴（展示≥4）金色顶点；轴名小字 + 分数大字。
+- **日期**：2026-08-13
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`.kiro/steering/content-data-contract.md` §5.7.6；`.cursor/skills/swiftui-design-system/SKILL.md`
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-08-13 / 2026-08-14）；✅ `.kiro/steering/content-data-contract.md` §5.7.6（2026-08-14，契约 2.7）；✅ `.cursor/skills/swiftui-design-system/SKILL.md` Changelog（2026-08-13 / 2026-08-14）
+
 ## DR-070
 - **任务**：精讲配图压缩与打包瘦身（v25 W4 执行，触发于用户问「当前 app 为什么会 5.43G」）
 - **原始规范**：`Resources/DrillTutorials` 以 folder reference 整目录打包，1343 张无损 PNG 共 4.90 GB 全部进包；`DrillTutorialImageStore` 硬编码 `withExtension: "png"`。

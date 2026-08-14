@@ -134,5 +134,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 0,
+    "cue": 0,
+    "spin": 0,
+    "position": 1,
+    "constraint": 3,
+    "speed": 1
+  }
 }

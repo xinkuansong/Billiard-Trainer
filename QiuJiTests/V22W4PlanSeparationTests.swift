@@ -19,7 +19,7 @@ final class V22W4PlanSeparationTests: XCTestCase {
         guard let plan else { return }
 
         XCTAssertEqual(plan.id, "plan_separation")
-        XCTAssertEqual(plan.nameZh, "分离角计划")
+        XCTAssertEqual(plan.nameZh, "分离角")
         XCTAssertEqual(plan.isPremium, true)
         XCTAssertEqual(plan.sessionsPerWeek, 3, "v34 R6：每周 3 次课")
         XCTAssertTrue((2...5).contains(plan.durationWeeks), "v34 R6：周数 2–5，实际 \(plan.durationWeeks)")

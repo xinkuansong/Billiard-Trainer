@@ -236,8 +236,8 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         sleep(3)
     }
 
-    /// 详情页共享布局应保留正文标题、无空闲 HUD 条，并把达标目标、建议量、
-    /// 训练维度收进同一「训练要求」卡。
+    /// 详情页共享布局应保留正文标题、无空闲 HUD 条；达标目标与建议量在「训练要求」卡，
+    /// 假五维「训练维度」已删除，页底为六轴难度画像雷达。
     private func verifyDetailInformationHierarchy(
         appearance: XCUIDevice.Appearance,
         label: String,
@@ -266,7 +266,13 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         )
         XCTAssertTrue(app.staticTexts["达标目标"].exists)
         XCTAssertTrue(app.staticTexts["建议训练量"].exists)
-        XCTAssertTrue(app.staticTexts["训练维度"].exists)
+        XCTAssertFalse(app.staticTexts["训练维度"].exists, "假五维「训练维度」必须删除")
+        app.swipeUp()
+        XCTAssertTrue(
+            app.staticTexts["难度画像"].waitForExistence(timeout: 8),
+            "\(label) 模式下未显示六轴雷达"
+        )
+        XCTAssertFalse(app.staticTexts["执行负荷"].exists)
         savePNG("layout-\(slug)-requirements")
     }
 

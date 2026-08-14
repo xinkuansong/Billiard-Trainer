@@ -189,8 +189,9 @@ struct ResolvedDose: Equatable {
 /// 落 `DrillSet` 时才快照冻结（§6.6「为什么这不违反 §6.5」）。
 ///
 /// v34 R9（B 方案）：`roundsPerFormation` = **遍数倍数**（默认 1），展开 =
-/// 每球形 `defaultRounds × 倍数`，位置永远全覆盖。`formations[].rounds` 不得低于
+/// 每球形 `defaultRounds × 倍数`，位置永远全覆盖。`formations[].rounds` 默认不得低于
 /// 内容 `defaultRounds`（低于时运行时钳到下限并打 debug log）。
+/// v37 D-v37-2=B：`dose.decay == true` 的复习条目不钳下限，只保证 `rounds ≥ 1`。
 enum TrainingDoseResolver {
 
     private static let logger = Logger(subsystem: "com.billiardtrainer", category: "TrainingDose")
@@ -250,7 +251,8 @@ enum TrainingDoseResolver {
     }
 
     /// 计划 dose 决定每个球形练几轮：
-    /// - `formations`：按 token 选球形；轮数不得低于内容 `defaultRounds`（v34 R9）。
+    /// - `formations`：按 token 选球形；非衰减时轮数不得低于内容 `defaultRounds`（v34 R9）。
+    ///   `decay == true` 时不钳下限，只保证 ≥1（v37 D-v37-2=B）。
     /// - `roundsPerFormation`：**遍数倍数**，每球形 = `defaultRounds × 倍数`（位置全覆盖）。
     /// - 无 dose：内容推荐完整剂量。
     /// 顺序一律以内容 `perFormation` 的顺序为准（球形即难度阶梯，契约 §6.6 推论 2）。
@@ -261,14 +263,15 @@ enum TrainingDoseResolver {
         if let listed = dose?.formations, !listed.isEmpty {
             var roundsByToken: [String: Int] = [:]
             for entry in listed { roundsByToken[entry.token] = entry.rounds }
+            let allowDecay = dose?.decay == true
             // 未列出的球形本次不展开（契约 §6.6 推论 3）。
             return perFormation.compactMap { formation in
                 guard let requested = roundsByToken[formation.token] else { return nil }
                 let floor = max(1, formation.defaultRounds)
-                let clamped = max(floor, requested)
+                let clamped = allowDecay ? max(1, requested) : max(floor, requested)
                 if clamped != requested {
                     logger.debug(
-                        "formations rounds clamped token=\(formation.token, privacy: .public) requested=\(requested) floor=\(floor)"
+                        "formations rounds clamped token=\(formation.token, privacy: .public) requested=\(requested) floor=\(floor) decay=\(allowDecay)"
                     )
                 }
                 return (formation, clamped)

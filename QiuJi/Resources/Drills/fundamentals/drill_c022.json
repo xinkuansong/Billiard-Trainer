@@ -26,13 +26,29 @@
         "mode": "repetition",
         "ballsPerRound": 15,
         "defaultRounds": 5,
-        "doseNote": "用户裁定例外（v34 R3）：1 杆球形按 15×5 打 75 颗，轮数不等于杆数"
+        "doseNote": "用户裁定例外（v34 R3）：1 杆球形按 15×5 打 75 颗，轮数不等于杆数",
+        "load": {
+          "aim": 3,
+          "cue": 1,
+          "spin": 0,
+          "position": 0,
+          "constraint": 1,
+          "speed": 1
+        }
       },
       {
         "token": "Snipaste_2026_06_02_00_22_05",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 2
+        "defaultRounds": 2,
+        "load": {
+          "aim": 3,
+          "cue": 0,
+          "spin": 0,
+          "position": 0,
+          "constraint": 1,
+          "speed": 2
+        }
       }
     ]
   },
@@ -236,5 +252,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 3,
+    "cue": 1,
+    "spin": 0,
+    "position": 0,
+    "constraint": 1,
+    "speed": 1
+  }
 }

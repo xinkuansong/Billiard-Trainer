@@ -25,13 +25,29 @@
         "token": "manual01",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 6
+        "defaultRounds": 6,
+        "load": {
+          "aim": 4,
+          "cue": 0,
+          "spin": 0,
+          "position": 1,
+          "constraint": 0,
+          "speed": 1
+        }
       },
       {
         "token": "manual02",
         "mode": "repetition",
         "ballsPerRound": 15,
-        "defaultRounds": 7
+        "defaultRounds": 7,
+        "load": {
+          "aim": 3,
+          "cue": 0,
+          "spin": 0,
+          "position": 1,
+          "constraint": 0,
+          "speed": 1
+        }
       }
     ]
   },
@@ -439,5 +455,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 4,
+    "cue": 0,
+    "spin": 0,
+    "position": 1,
+    "constraint": 0,
+    "speed": 1
+  }
 }

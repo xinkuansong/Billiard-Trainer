@@ -740,6 +740,9 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-14（DR-072 / v37 W4）— 计划货架 11 份：`PlanCoverLabel` 走位Ⅰ/Ⅱ、准度Ⅱ、特殊球、全能综合；`groupedPlans` 必须覆盖全部 `targetLevel`（未知档追加，禁止只枚举 6 档导致丢卡）；新档颜色别名到现有 6 色，不扩 `planLevelKeys`。
+- 2026-08-14（DR-071 续）— `BTLoadRadarChart` 上屏标题「难度画像」；台呢底 + 发光填充 + 峰值金色顶点。
+- 2026-08-13（DR-071 / D-v37-6）— 新增 `BTLoadRadarChart`：详情页最下方六轴雷达；存储 0–4，展示 1–5（+1）；删假五维「训练维度」。
 - 2026-08-08（DR-065 / v32）— 练习侧栏五分类：学→理→练→打→解；理区仅「球理」索引卡；学区无球理；`TheoryIndexNavigation`。
 - 2026-08-05（DR-056）— 封面深墨调浅 + 单行字号缩小：
   - `darkOpacity` 0.85→0.52；暗底改 `charcoalLuminanceCeiling` 0.15；`minLuminanceDelta` 0.07
@@ -768,7 +771,7 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
   - 4 字主题固定按 2×2 双行显示，字号取 40%，保留原期号与安全区
 - 2026-08-04（DR-048）— 训练计划封面改课程主题标签：
   - `BTPlanCover` 新增必填 `planId`，颜色与文字职责拆分
-  - `PlanCoverLabel` 映射 10 套计划为入门/杆法/准度/控力/分离角/加塞/走位/三档综合
+  - `PlanCoverLabel` 映射 11 套计划为入门/杆法/准度/控力/分离角/加塞/走位Ⅰ/走位Ⅱ/准度Ⅱ/特殊球/全能综合
   - 2–4 字分档缩放并保留水平安全区，禁止铺满或复制完整标题
 - 2026-08-04（DR-047）— 训练计划封面恢复 v27 W2 前六色大字杂志卡：
   - 保留 v28 `BTContentGridCard` 与 `BTPlanCover.Mode` list/hero API

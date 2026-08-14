@@ -28,7 +28,15 @@
         "token": "manual01",
         "mode": "sequence",
         "ballsPerRound": 12,
-        "defaultRounds": 8
+        "defaultRounds": 8,
+        "load": {
+          "aim": 2,
+          "cue": 2,
+          "spin": 2,
+          "position": 4,
+          "constraint": 0,
+          "speed": 2
+        }
       }
     ]
   },
@@ -405,5 +413,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 2,
+    "cue": 2,
+    "spin": 2,
+    "position": 4,
+    "constraint": 0,
+    "speed": 2
+  }
 }

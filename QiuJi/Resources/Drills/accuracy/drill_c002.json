@@ -26,7 +26,15 @@
         "mode": "repetition",
         "ballsPerRound": 8,
         "defaultRounds": 9,
-        "doseNote": "用户裁定例外（v34 R3）：斜角入底角袋按每位置 8 颗训练，非默认 15"
+        "doseNote": "用户裁定例外（v34 R3）：斜角入底角袋按每位置 8 颗训练，非默认 15",
+        "load": {
+          "aim": 3,
+          "cue": 1,
+          "spin": 0,
+          "position": 0,
+          "constraint": 0,
+          "speed": 0
+        }
       }
     ]
   },
@@ -314,5 +322,13 @@
       }
     ]
   },
-  "videos": []
+  "videos": [],
+  "load": {
+    "aim": 3,
+    "cue": 1,
+    "spin": 0,
+    "position": 0,
+    "constraint": 0,
+    "speed": 0
+  }
 }
