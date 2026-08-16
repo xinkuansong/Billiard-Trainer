@@ -57,6 +57,24 @@ final class V22W3PlanForceTests: XCTestCase {
         }
         XCTAssertEqual(allIds, forceControlIds, "计划内容应恰为 forceControl 全量")
 
+        var firstFocused: [String] = []
+        for week in plan.weeks {
+            for session in week.sessions {
+                for phase in session.phases where phase.type == "focused" {
+                    for drill in phase.drills where !firstFocused.contains(drill.drillId) {
+                        firstFocused.append(drill.drillId)
+                    }
+                }
+            }
+        }
+        // 失败机理（PD-027 / v38 W0）：旧序把 c046 插进强弱杆周，且五档标尺晚于轻推。
+        XCTAssertEqual(
+            firstFocused,
+            ["drill_c045", "drill_c049", "drill_c044", "drill_c047",
+             "drill_c048", "drill_c050", "drill_c046", "drill_c051"],
+            "力度 focused 首次引入须等于 W0 表：\(firstFocused)"
+        )
+
         // 全部 drillId ∈ Drills index
         let drillIndex = await DrillContentService.shared.loadDrillIndex()
         XCTAssertNotNil(drillIndex)

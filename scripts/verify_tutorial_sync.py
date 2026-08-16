@@ -27,7 +27,8 @@ verify_tutorial_sync.py — 内容不变量校验（契约 .kiro/steering/conten
   I12 六轴 load 齐全、值域 0–4；有 perFormation 时每球形必有 load，drill 级 load
       = 代表球形实分；无 perFormation 时只允许 drill 级 load（契约 §5.7 / §7）
   I13 排课规则：周序不降（focused 首次引入 scalar 不降）、热身≤主课（scalar；
-      reviewFrom 咬合热身豁免）、衰减剂量单调不增且减量须标 decay、reviewFrom 外键有效
+      reviewFrom 咬合热身豁免）、衰减剂量单调不增且减量须标 decay、reviewFrom 外键有效、
+      focused 首次引入序对照 W0 主课表（只比序，不比建议周）
 
 基线与已知豁免真源：scripts/content_invariant_baselines.json（棘轮，只许收紧）。
 
@@ -675,14 +676,13 @@ def check_dose_shots(sequences: dict[str, list[dict]], drills: dict[str, dict],
             "rule_exempt": rule_exempt}
 
 
-def _dose_errors(drill_id: str, dose: object, per_rounds: dict[str, object],
+def _dose_errors(drill_id: str, dose: object, per_meta: dict[str, object],
                  seq_tokens: set[str]) -> list[tuple[str, str]]:
     """I11 单条目的 dose 结构与外键判定，返回 (问题, 处置) 列表。
 
-    `per_rounds` = {perFormation token: defaultRounds}。v34 R9（B 方案）后
-    `roundsPerFormation` 是**倍数**（整个动作重复几遍，位置全覆盖）；
-    `formations[].rounds` 默认不得低于该球形 `defaultRounds`。
-    v37 D-v37-2=B：`decay is True` 时允许 rounds < defaultRounds（只要求 ≥1）。
+    `per_meta` = {token: {defaultRounds, ballsPerRound, mode}}。
+    v38 R7：`repetition` 不得靠降 rounds 砍位置（decay 也不行），减量写 ballsPerRound；
+    `sequence` 在 decay 时才允许 rounds < defaultRounds，禁止改 ballsPerRound。
     """
     if not isinstance(dose, dict):
         return [("dose 不是对象", "计划条目必须写 dose（契约 §6.6）")]
@@ -710,24 +710,55 @@ def _dose_errors(drill_id: str, dose: object, per_rounds: dict[str, object],
             errors.append((f"formations 元素 {entry!r} 非对象", "需 {token, rounds}"))
             continue
         token, rounds = entry.get("token"), entry.get("rounds")
+        plan_bpr = entry.get("ballsPerRound")
         if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
             errors.append((f"token `{token}` 的 rounds={rounds!r} 非法", "必须是 ≥1 的整数"))
-        if token not in per_rounds:
+        if plan_bpr is not None and (
+            not isinstance(plan_bpr, int) or isinstance(plan_bpr, bool) or plan_bpr < 1
+        ):
+            errors.append((f"token `{token}` 的 ballsPerRound={plan_bpr!r} 非法",
+                           "必须是 ≥1 的整数（v38 R7 计划侧重复维）"))
+        if token not in per_meta:
             errors.append((f"token `{token}` 不在该 drill 的 perFormation "
-                           f"{sorted(per_rounds)} 中",
+                           f"{sorted(per_meta)} 中",
                            "token 是计划外键（§6 规则 2）：先改计划再改内容"))
             continue
         if token not in seq_tokens:
             errors.append((f"token `{token}` 不在该 drill 的序列 token "
                            f"{sorted(seq_tokens)} 中", "序列是球形真源（§1.1）"))
-        floor = per_rounds.get(token)
-        if (not allow_decay
-                and isinstance(rounds, int) and not isinstance(rounds, bool)
+        meta = per_meta[token]
+        floor = meta.get("defaultRounds")
+        content_bpr = meta.get("ballsPerRound")
+        mode = meta.get("mode")
+        if (isinstance(rounds, int) and not isinstance(rounds, bool)
                 and isinstance(floor, int) and not isinstance(floor, bool)
                 and rounds < floor):
-            errors.append((f"token `{token}` 的 rounds={rounds} 低于内容 defaultRounds={floor}",
-                           "逐球形轮数不得低于该球形 defaultRounds——位置永远全覆盖（§6.6，v34 R9）；"
-                           "复习减量须标 decay: true（v37 D-v37-2=B）"))
+            if mode == "repetition":
+                errors.append((
+                    f"token `{token}` 的 rounds={rounds} 低于内容 defaultRounds={floor}（砍位置）",
+                    "repetition 衰减不得砍杆，应保 rounds=defaultRounds、降 ballsPerRound（§6.6 / v38 R7）"
+                ))
+            elif not allow_decay:
+                errors.append((f"token `{token}` 的 rounds={rounds} 低于内容 defaultRounds={floor}",
+                               "逐球形轮数不得低于该球形 defaultRounds——位置永远全覆盖（§6.6，v34 R9）；"
+                               "sequence 复习减量须标 decay: true（v37 D-v37-2=B / v38 R7）"))
+        if plan_bpr is not None and isinstance(plan_bpr, int) and not isinstance(plan_bpr, bool):
+            if mode == "sequence" and isinstance(content_bpr, int) and plan_bpr != content_bpr:
+                errors.append((
+                    f"token `{token}` 的 ballsPerRound={plan_bpr} 改了 sequence 链长（内容 {content_bpr}）",
+                    "sequence 杆数锁死为内容 ballsPerRound，衰减只降 rounds（§6.6 / v38 R7）"
+                ))
+            if mode == "repetition" and isinstance(content_bpr, int):
+                if plan_bpr > content_bpr:
+                    errors.append((
+                        f"token `{token}` 的 ballsPerRound={plan_bpr} 高于内容 {content_bpr}",
+                        "计划侧只能降每位置颗数，不能加量（§6.6 / v38 R7）"
+                    ))
+                if plan_bpr < content_bpr and not allow_decay:
+                    errors.append((
+                        f"token `{token}` 的 ballsPerRound={plan_bpr} 低于内容 {content_bpr} 但未标 decay",
+                        "降每位置颗数必须 decay: true（§6.6 / v38 R7）"
+                    ))
     return errors
 
 
@@ -772,10 +803,16 @@ def check_plan_refs(sequences: dict[str, list[dict]], drills: dict[str, dict],
                                          "契约 §6.6：计划不得存裸球数（字段已于 W5 删除，写了也不会生效）"))
                             continue
                         drill = drills.get(drill_id) or {}
-                        per_rounds = {str(item.get("token")): item.get("defaultRounds")
-                                      for item in per_formation(drill)}
+                        per_meta = {
+                            str(item.get("token")): {
+                                "defaultRounds": item.get("defaultRounds"),
+                                "ballsPerRound": item.get("ballsPerRound"),
+                                "mode": item.get("mode"),
+                            }
+                            for item in per_formation(drill)
+                        }
                         seq_tokens = {item["token"] for item in (sequences.get(drill_id) or [])}
-                        errors = _dose_errors(drill_id, ref.get("dose"), per_rounds, seq_tokens)
+                        errors = _dose_errors(drill_id, ref.get("dose"), per_meta, seq_tokens)
                         if errors:
                             fail += [(where, what, how) for what, how in errors]
                         else:
@@ -891,7 +928,7 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
 
 # ── I13：排课规则（v37 W5，契约 §7 / R4–R6）────────────────────────────────
 #
-# 操作定义（对照现网 11 份计划实测后钉死，写入契约 2.9）：
+# 操作定义（对照现网计划实测后钉死，写入契约 2.9 / 2.11）：
 # 1. 周序不降：只看每份计划内 focused 首次引入；度量 = 六轴存储分的 scalar max。
 #    后一周新引入 max 不得低于前一周（无新引入的周跳过）。warmup / reviewFrom
 #    咬合不计入「新引入」（否则上一档末段热身会把后档第 1 周顶高，假红）。
@@ -900,8 +937,55 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
 #    逐轴比较会在现网打出 61 课假红，不用。
 # 3. 衰减：同 drill 按课次顺序剂量（展开球数）单调不增；低于完整剂量必须 decay。
 # 4. reviewFrom 必须是货架计划 id，且来源计划实际包含该 drill。
+# 5. 引入序（v38 W7）：每份计划 focused 首次引入的短 id 序 = W0 §3 该计划主课表序。
+#    只比序，不比「建议周」（I13 周包络允许把低 scalar 课的首次引入提前）。
 
 _PHASE_ORDER = {"warmup": 0, "focused": 1, "review": 2}
+_W0_ROSTER_REL = Path("docs") / "research" / "20260814-v38-先决与主课名单.md"
+
+
+def _short_drill_id(drill_id: object) -> str:
+    text = str(drill_id or "")
+    return text.removeprefix("drill_") if text.startswith("drill_") else text
+
+
+def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[str, str, str]]]:
+    """W0 §3 去向表：{plan_id: [c011, ...]} 按表序。找不到表或解析不足 83 条则失败。"""
+    errors: list[tuple[str, str, str]] = []
+    roster_path = None
+    for candidate in (paths.root / _W0_ROSTER_REL, REPO_ROOT / _W0_ROSTER_REL):
+        if candidate.is_file():
+            roster_path = candidate
+            break
+    if roster_path is None:
+        return {}, [("W0表", "找不到先决与主课名单", str(_W0_ROSTER_REL))]
+
+    orders: dict[str, list[str]] = {}
+    in_section = False
+    for line in roster_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## 3."):
+            in_section = True
+            continue
+        if in_section and line.startswith("## ") and not line.startswith("## 3."):
+            break
+        if not in_section or not line.startswith("|"):
+            continue
+        parts = [part.strip() for part in line.strip().strip("|").split("|")]
+        if len(parts) < 4:
+            continue
+        drill_id, dest, plan_id = parts[0], parts[2], parts[3]
+        if dest != "主课" or not drill_id.startswith("c") or not plan_id.startswith("plan_"):
+            continue
+        orders.setdefault(plan_id, []).append(drill_id)
+
+    total = sum(len(ids) for ids in orders.values())
+    if total != 83:
+        errors.append((
+            "W0表",
+            f"解析到 {total} 条主课，期望 83",
+            f"{roster_path} §3 去向表",
+        ))
+    return orders, errors
 
 
 def _scalar_max(drill: dict) -> int:
@@ -931,7 +1015,12 @@ def _dose_balls(drill: dict, dose: object) -> int | None:
             if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
                 return None
             item = per.get(str(token)) or {}
-            balls = item.get("ballsPerRound")
+            content_balls = item.get("ballsPerRound")
+            plan_balls = entry.get("ballsPerRound")
+            if isinstance(plan_balls, int) and not isinstance(plan_balls, bool) and plan_balls >= 1:
+                balls = plan_balls
+            else:
+                balls = content_balls
             if not isinstance(balls, int) or isinstance(balls, bool):
                 return None
             total += rounds * balls
@@ -991,7 +1080,7 @@ def _iter_plan_refs(plan: dict):
 
 
 def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -> dict:
-    """I13：官方计划排课规则（周序 / 热身 / 衰减 / 咬合外键）。"""
+    """I13：官方计划排课规则（周序 / 热身 / 衰减 / 咬合外键 / 引入序）。"""
     paths = paths or DEFAULT_PATHS
     if not paths.plans.is_dir():
         return {"ok": 0, "fail": [], "exempt": [], "warn": [("—", "Plans 目录不存在", "—")]}
@@ -1005,10 +1094,12 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
         return {"ok": 0, "fail": [("Plans/index.json", "JSON 语法错误", str(exc))],
                 "exempt": [], "warn": []}
     index_ids = {item.get("id") for item in (index.get("plans") or []) if item.get("id")}
+    roster, roster_errors = _load_w0_main_order(paths)
 
     plans: list[dict] = []
     membership: dict[str, set[str]] = {}
     ok, fail, warn = 0, [], []
+    fail.extend(roster_errors)
     for path in sorted(paths.plans.glob("plan_*.json")):
         try:
             plan = json.loads(path.read_text(encoding="utf-8"))
@@ -1120,6 +1211,20 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
                 else:
                     ok += 1
 
+        first_focused_ids = [_short_drill_id(drill_id) for drill_id in first_focused_week]
+        expected = roster.get(plan_id)
+        if expected is None:
+            fail.append((plan_id, "W0 §3 没有该计划的主课名单",
+                         "引入序对照 W0 表：货架计划必须出现在去向表"))
+        elif first_focused_ids != expected:
+            fail.append((
+                plan_id,
+                f"引入序 {first_focused_ids} ≠ W0 表 {expected}",
+                "I13 内容层：focused 首次引入序对照 W0 §3（只比序，不比建议周）",
+            ))
+        else:
+            ok += 1
+
     return {"ok": ok, "fail": fail, "exempt": [], "warn": warn}
 
 
@@ -1227,7 +1332,8 @@ MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
                       "formations": (False, ["PlanFormationRounds"]),
                       "decay": (False, BOOL),
                       "reviewFrom": (False, STR)},
-    "PlanFormationRounds": {"token": (True, STR), "rounds": (True, INT)},
+    "PlanFormationRounds": {"token": (True, STR), "rounds": (True, INT),
+                            "ballsPerRound": (False, INT)},
     "PlanIndex": {"version": (True, INT), "plans": (True, ["PlanIndexEntry"])},
     "PlanIndexEntry": {"id": (True, STR), "nameZh": (True, STR),
                        "targetLevel": (True, STR), "isPremium": (True, BOOL)},
@@ -1373,7 +1479,7 @@ def render_report(results: dict) -> None:
         ("I10", "Bundle drill / plan 可被 App 模型解码", None),
         ("I11", "官方计划 drillId / dose / token 可解析", None),
         ("I12", "六轴 load 齐全 / 值域 0–4 / 代表分 = 球形实分", None),
-        ("I13", "排课：周序不降 / 热身≤主课 / 衰减单调 / 咬合外键", None),
+        ("I13", "排课：周序不降 / 热身≤主课 / 衰减单调 / 咬合外键 / 引入序", None),
     ):
         if check_id not in results:
             continue

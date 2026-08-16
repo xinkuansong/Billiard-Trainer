@@ -110,6 +110,7 @@ enum PlanCoverLabel {
         case "plan_positioning": return "走位Ⅰ"
         case "plan_positioning2": return "走位Ⅱ"
         case "plan_intermediate": return "准度Ⅱ"
+        case "plan_accuracy3": return "准度Ⅲ"
         case "plan_advanced": return "特殊球"
         case "plan_fullskill": return "全能综合"
         default: return "训练"

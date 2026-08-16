@@ -1,10 +1,11 @@
 import XCTest
 
-/// v37 W4：计划货架 11 份上屏 + Freemium 锁。截图落 `build/v37-w4-screenshots/`。
+/// v38 W7：计划货架 12 份上屏 + Freemium 锁 + 准度Ⅰ/走位Ⅱ第一堂主课。
+/// 截图落 `build/v38-w7-screenshots/`。
 final class V37W4PlanShelfUITests: XCTestCase {
 
     private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v37-w4-screenshots"
+        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v38-w7-screenshots"
     )
 
     var app: XCUIApplication!
@@ -14,7 +15,7 @@ final class V37W4PlanShelfUITests: XCTestCase {
         try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
     }
 
-    func testShelfShowsElevenPlansAndFreeUnlocks() {
+    func testShelfShowsTwelvePlansAndFirstLessons() {
         app = XCUIApplication.launchClean(extraArgs: ["-forceNonPremium"])
         app.switchTab(.training)
         XCTAssertTrue(app.buttons["官方计划"].waitForExistence(timeout: 8)
@@ -24,15 +25,20 @@ final class V37W4PlanShelfUITests: XCTestCase {
         XCTAssertTrue(scrollToLabel("基本功"), "货架应出现免费「基本功」")
         XCTAssertTrue(scrollToLabel("准度Ⅰ·近中台"), "货架应出现免费「准度Ⅰ·近中台」")
         XCTAssertTrue(scrollToLabel("杆法Ⅰ·高低杆"), "货架应出现免费「杆法Ⅰ·高低杆」")
-        XCTAssertTrue(scrollToLabel("走位Ⅱ·多库与蛇彩"), "货架应出现新增「走位Ⅱ·多库与蛇彩」")
-        savePNG("02-shelf-positioning2")
+        XCTAssertTrue(scrollToLabel("准度Ⅲ·带塞"), "货架应出现 Pro「准度Ⅲ·带塞」（D-v38-2=A）")
+        XCTAssertTrue(scrollToLabel("走位Ⅱ·多库与蛇彩"), "货架应出现「走位Ⅱ·多库与蛇彩」")
+        savePNG("02-shelf-accuracy3")
 
         XCTAssertTrue(openPlan(named: "准度Ⅰ·近中台"))
         XCTAssertTrue(
             app.buttons["开始此计划"].waitForExistence(timeout: 8),
             "未订阅时免费准度Ⅰ应可激活"
         )
-        savePNG("03-free-accuracy")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["planDrillRow-drill_c011"].waitForExistence(timeout: 8),
+            "准度Ⅰ第一堂主课须为近台 c011，不得再是半台先于近台"
+        )
+        savePNG("03-accuracy-first-lesson")
         goBack()
 
         XCTAssertTrue(openPlan(named: "走位Ⅱ·多库与蛇彩"))
@@ -41,7 +47,11 @@ final class V37W4PlanShelfUITests: XCTestCase {
             "未订阅时走位Ⅱ应锁定"
         )
         XCTAssertFalse(app.buttons["开始此计划"].exists)
-        savePNG("04-locked-positioning2")
+        XCTAssertTrue(
+            app.descendants(matching: .any)["planDrillRow-drill_c080"].waitForExistence(timeout: 8),
+            "走位Ⅱ第一堂主课须为半台 c080，不得再是蛇彩先于半台"
+        )
+        savePNG("04-positioning2-first-lesson")
     }
 
     private func scrollToLabel(_ text: String) -> Bool {

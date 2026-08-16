@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "plans": [
     {
       "id": "plan_beginner",
@@ -51,7 +51,13 @@
     },
     {
       "id": "plan_intermediate",
-      "nameZh": "准度Ⅱ·远台带塞",
+      "nameZh": "准度Ⅱ·远台切角",
+      "targetLevel": "L2→L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_accuracy3",
+      "nameZh": "准度Ⅲ·带塞",
       "targetLevel": "L2→L3",
       "isPremium": true
     },

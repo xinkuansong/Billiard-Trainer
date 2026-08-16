@@ -260,11 +260,12 @@ final class TrainingHomeViewModelTests: XCTestCase {
         XCTAssertEqual(resolved.plannedSets.count, second.defaultRounds)
     }
 
-    /// `decay == true` 时不再钳到 defaultRounds（v37 D-v37-2=B 复习减量）。
-    func test_formations_decayTrue_doesNotClampBelowDefaultRounds() throws {
+    /// v38 R7：`repetition` + decay 仍不得砍位置，rounds 钳回 defaultRounds。
+    func test_formations_repetitionDecay_doesNotCutPositions() throws {
         let content = try bundledDrill("drill_c013")
         let perFormation = try XCTUnwrap(content.sets.perFormation)
         let second = perFormation[1]
+        XCTAssertEqual(second.mode, .repetition)
         XCTAssertGreaterThan(second.defaultRounds, 1, "需有可低于的 defaultRounds")
 
         let resolved = TrainingDoseResolver.resolve(
@@ -279,8 +280,58 @@ final class TrainingHomeViewModelTests: XCTestCase {
         )
 
         XCTAssertEqual(resolved.groups.count, 1)
-        XCTAssertEqual(resolved.groups[0].rounds, 1)
-        XCTAssertEqual(resolved.plannedSets.count, 1)
+        XCTAssertEqual(resolved.groups[0].rounds, second.defaultRounds)
+        XCTAssertEqual(resolved.groups[0].ballsPerRound, second.ballsPerRound)
+        XCTAssertEqual(resolved.plannedSets.count, second.defaultRounds)
+    }
+
+    /// v38 R7：`repetition` + decay + 计划侧 ballsPerRound 只降每位置颗数。
+    func test_formations_repetitionDecay_reducesBallsPerRound() throws {
+        let content = try bundledDrill("drill_c013")
+        let perFormation = try XCTUnwrap(content.sets.perFormation)
+        let second = perFormation[1]
+        XCTAssertEqual(second.mode, .repetition)
+        let reduced = max(1, second.ballsPerRound - 5)
+
+        let resolved = TrainingDoseResolver.resolve(
+            content: content,
+            dose: PlanDrillDose(
+                formations: [
+                    PlanDrillDose.FormationRounds(
+                        token: second.token,
+                        rounds: second.defaultRounds,
+                        ballsPerRound: reduced
+                    )
+                ],
+                decay: true
+            ),
+            formationOptions: TrainingDoseResolver.formationOptions(forDrillId: content.id)
+        )
+
+        XCTAssertEqual(resolved.groups[0].rounds, second.defaultRounds)
+        XCTAssertEqual(resolved.groups[0].ballsPerRound, reduced)
+    }
+
+    /// v38 R7：`sequence` + decay 仍可降整链遍数。
+    func test_formations_sequenceDecay_allowsRoundsBelowDefault() throws {
+        let content = try bundledDrill("drill_c046")
+        let formation = try XCTUnwrap(content.sets.perFormation?.first)
+        XCTAssertEqual(formation.mode, .sequence)
+        XCTAssertGreaterThan(formation.defaultRounds, 1)
+
+        let resolved = TrainingDoseResolver.resolve(
+            content: content,
+            dose: PlanDrillDose(
+                formations: [
+                    PlanDrillDose.FormationRounds(token: formation.token, rounds: 2)
+                ],
+                decay: true
+            ),
+            formationOptions: TrainingDoseResolver.formationOptions(forDrillId: content.id)
+        )
+
+        XCTAssertEqual(resolved.groups[0].rounds, 2)
+        XCTAssertEqual(resolved.groups[0].ballsPerRound, formation.ballsPerRound)
     }
 
     /// 无序列 drill：倍数作用于 `defaultSets`。

@@ -136,17 +136,17 @@ final class CoverPaletteContrastTests: XCTestCase {
         let ids = [
             "plan_beginner", "plan_cueball", "plan_accuracy", "plan_force",
             "plan_separation", "plan_english", "plan_positioning",
-            "plan_positioning2", "plan_intermediate", "plan_advanced", "plan_fullskill",
+            "plan_positioning2", "plan_intermediate", "plan_accuracy3", "plan_advanced", "plan_fullskill",
         ]
         XCTAssertEqual(
             ids.map(PlanCoverLabel.text(for:)),
             ["入门", "杆法", "准度", "控力", "分离角", "加塞", "走位Ⅰ",
-             "走位Ⅱ", "准度Ⅱ", "特殊球", "全能综合"]
+             "走位Ⅱ", "准度Ⅱ", "准度Ⅲ", "特殊球", "全能综合"]
         )
         XCTAssertEqual(
             ids.map(PlanCoverLabel.displayText(for:)),
             ["入门", "杆法", "准度", "控力", "分离角", "加塞", "走位Ⅰ",
-             "走位Ⅱ", "准度Ⅱ", "特殊球", "全能\n综合"]
+             "走位Ⅱ", "准度Ⅱ", "准度Ⅲ", "特殊球", "全能\n综合"]
         )
     }
 

@@ -1081,6 +1081,8 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-08-14 | **货架 12 份对齐**（v38 W7）：`V37W4PlanShelfUITests` 钉准度Ⅲ上屏 + 准度Ⅰ第一堂 c011 + 走位Ⅱ第一堂 c080；封面标签 W1 已有「准度Ⅲ」 | 修正 | V37W4PlanShelfUITests | 问题集合 v38 W7 |
+| 2026-08-14 | **计划封面加「准度Ⅲ」标签**（v38 W1）：`PlanCoverLabel` 为 `plan_accuracy3` 返回「准度Ⅲ」；货架 UI 仍钉 11 份，12 份对齐留 W7 | 修正 | BTPlanCover, CoverPaletteContrastTests | 问题集合 v38 W1 |
 | 2026-08-14 | **计划货架 11 份档位与封面标签**（DR-072 / v37 W4）：`PlanListView.groupedPlans` 补齐 `L0→L2` / `L1→L3` / `L2→L3` / `L2→L4`，未知档追加而非丢卡；`CoverPalette.PlanStyle.forLevel` 新档别名到现有 6 色（不扩 `planLevelKeys`）；`PlanCoverLabel` 走位Ⅰ/Ⅱ、准度Ⅱ、特殊球、全能综合 | 修正/DR | PlanListView, CoverPalette, BTPlanCover, PlanDetailView | 问题集合 v37 W4 |
 | 2026-08-14 | **动作页六轴雷达视觉与文案**（DR-071 续）：上屏标题「执行负荷」→ **「难度画像」**（副题「这项动作难在哪」）；契约/JSON 仍称执行负荷。雷达改为台呢径向底 + 主色填充发光 + 峰值轴金色顶点；轴标签改为名称+大号分数。Pro 锁态同样展示 | 修正/DR | BTLoadRadarChart, DrillDetailView, V37W2LoadRadarUITests | 问题集合 v37 W2 用户点验 |
 | 2026-08-11 | **训练分享图改长图**（DR-069）：`BTShareCard` 由 361×480pt 死高单屏卡改**定宽 375pt + 高度随内容**的六段长图（品牌头 → Hero 四大数字 → 成绩概览含逐项对比条/最佳一组/组间波动 → 训练明细含缩略图与逐组网格 → 训练心得 → 页脚）；卡内根部 `Spacer` 删除（死高本就是它的止血手段），`ShareCardImageRenderer.cardHeight` → `maxCardHeight`（仅断上界不裁切），高度封顶靠折叠规则 `maxDrillCards=8` / `setGridBudget=36` / `noteLineLimit=8`；分享图改用独立字阶 `ShareType`（写死 pt，不随系统动态字体）；`TrainingSessionSummary` 扩 `note` / `drillId` / `sets`；**「未登记」与「0%」分离**——全部 target=0 时成功率显示「—」，逐组全 0/0 时不画网格 | 重构/DR | BTShareCard, ShareCardImageRenderer, TrainingShareView, TrainingDetailView, ActiveTrainingView, ShareCardImageRendererTests | 用户反馈 |

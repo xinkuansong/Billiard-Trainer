@@ -278,13 +278,45 @@ def case_i11_rounds_below_default(root: Path) -> None:
 
 
 def case_i11_decay_rounds_below_default(root: Path) -> None:
-    # v37 D-v37-2=B：标 decay:true 后 rounds 低于下限不得再报「低于内容 defaultRounds」。
+    # v38 R7：sequence + decay 仍允许降遍数（c046 defaultRounds=8）。
+    path = plan_path(root, "plan_force")
+
+    def mutate(plan: dict) -> None:
+        dose = first_ref(plan, "drill_c046")["dose"]
+        dose["decay"] = True
+        dose["formations"][0]["rounds"] = 2
+    edit_json(path, mutate)
+
+
+def case_i11_repetition_decay_cut_positions(root: Path) -> None:
+    # v38 R7：repetition + decay 仍砍 rounds = 砍位置，必须 FAIL。
     path = plan_path(root, "plan_english")
 
     def mutate(plan: dict) -> None:
         dose = first_ref(plan, "drill_c075")["dose"]
         dose["decay"] = True
         dose["formations"][0]["rounds"] = 1
+    edit_json(path, mutate)
+
+
+def case_i11_sequence_override_balls(root: Path) -> None:
+    # v38 R7：sequence 改 ballsPerRound = 改链长，必须 FAIL。
+    path = plan_path(root, "plan_force")
+
+    def mutate(plan: dict) -> None:
+        first_ref(plan, "drill_c046")["dose"]["formations"][0]["ballsPerRound"] = 99
+    edit_json(path, mutate)
+
+
+def case_i11_repetition_decay_balls_ok(root: Path) -> None:
+    # v38 R7：repetition + decay + 保位置 + 降颗数，必须过。
+    path = plan_path(root, "plan_english")
+
+    def mutate(plan: dict) -> None:
+        dose = first_ref(plan, "drill_c075")["dose"]
+        dose["decay"] = True
+        dose["formations"][0]["rounds"] = 7
+        dose["formations"][0]["ballsPerRound"] = 10
     edit_json(path, mutate)
 
 
@@ -368,15 +400,29 @@ def case_i13_warmup_over_focused(root: Path) -> None:
 
 
 def case_i13_decay_not_mono(root: Path) -> None:
-    # c001 第二次出现（已 decay）轮数 4 → 6，高于首次 5；I11 下限仍过。
+    # W1 迁成 repetition 衰减保 rounds=5、降 ballsPerRound=12（60 球）。
+    # 第三次去掉降颗并加一轮 → 6×15=90 > 上次 75，I13 须报「复现剂量」。
     def mutate(plan: dict) -> None:
-        all_refs(plan, "drill_c001")[2]["dose"]["formations"][0]["rounds"] = 6
+        entry = all_refs(plan, "drill_c001")[2]["dose"]["formations"][0]
+        entry["rounds"] = 6
+        entry.pop("ballsPerRound", None)
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
 def case_i13_review_from_unknown(root: Path) -> None:
     def mutate(plan: dict) -> None:
         first_ref(plan, "drill_c001")["dose"]["reviewFrom"] = "plan_does_not_exist"
+    edit_json(plan_path(root, "plan_accuracy"), mutate)
+
+
+def case_i13_intro_order_vs_w0(root: Path) -> None:
+    # 对调准度Ⅰ W1D1 / W1D2 的 focused：引入序变成 c001→c011，对照 W0 的 c011→c001 须红。
+    def mutate(plan: dict) -> None:
+        day1 = next(phase for phase in plan["weeks"][0]["sessions"][0]["phases"]
+                    if phase["type"] == "focused")
+        day2 = next(phase for phase in plan["weeks"][0]["sessions"][1]["phases"]
+                    if phase["type"] == "focused")
+        day1["drills"], day2["drills"] = day2["drills"], day1["drills"]
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
@@ -441,9 +487,16 @@ CASES = {
                                case_i11_legacy_volume_keys, 1, "仍残留旧格式 sets/ballsPerSet"),
     "i11_rounds_below_default": ("I11", "plan_english 的 c075 逐球形轮数改 1（低于内容 defaultRounds）",
                                  case_i11_rounds_below_default, 1, "低于内容 defaultRounds"),
-    "i11_decay_rounds_below_default": ("I11", "plan_english 的 c075 标 decay 且 rounds=1 ⇒ 不得再报低于下限",
+    "i11_decay_rounds_below_default": ("I11", "plan_force 的 c046（sequence）标 decay 且 rounds=2 ⇒ 不得再报低于下限",
                                        case_i11_decay_rounds_below_default, None,
                                        "!低于内容 defaultRounds"),
+    "i11_repetition_decay_cut_positions": ("I11", "plan_english 的 c075（repetition）decay 仍砍 rounds=1",
+                                          case_i11_repetition_decay_cut_positions, 1, "砍位置"),
+    "i11_sequence_override_balls": ("I11", "plan_force 的 c046（sequence）改 ballsPerRound=99",
+                                    case_i11_sequence_override_balls, 1, "改了 sequence 链长"),
+    "i11_repetition_decay_balls_ok": ("I11", "plan_english 的 c075 decay + rounds=7 + ballsPerRound=10 ⇒ 合法降遍数",
+                                     case_i11_repetition_decay_balls_ok, None,
+                                     "!砍位置"),
     "i12_missing_load": ("I12", "drill_c001 某 formation 去掉 load",
                          case_i12_missing_load, 1, "缺 load"),
     "i12_out_of_range": ("I12", "drill_c001 load.aim 改成 5（越界）",
@@ -454,10 +507,12 @@ CASES = {
                             case_i13_week_order_drop, 1, "后周新引入 scalar"),
     "i13_warmup_over_focused": ("I13", "plan_accuracy W1D2 热身换成 c032（scalar 3 > 主课 1）",
                                 case_i13_warmup_over_focused, 1, "热身 scalar"),
-    "i13_decay_not_mono": ("I13", "plan_accuracy 的 c001 第三次出现轮数 4→6（高于首次）",
+    "i13_decay_not_mono": ("I13", "plan_accuracy 的 c001 第三次出现去掉降颗并 rounds=6（90>75）",
                            case_i13_decay_not_mono, 1, "复现剂量"),
     "i13_review_from_unknown": ("I13", "plan_accuracy 首条目 reviewFrom 改成未登记计划 id",
                                 case_i13_review_from_unknown, 1, "不是货架计划 id"),
+    "i13_intro_order_vs_w0": ("I13", "plan_accuracy 对调 W1D1/W1D2 focused ⇒ 引入序 ≠ W0 表",
+                              case_i13_intro_order_vs_w0, 1, "引入序"),
     "baseline_clean": ("I5 I6a I6b I7 I8 I9 I10 I11 I12 I13", "未做任何改动的影子库（对照组）",
                        lambda root: None, 0, "总计 FAIL: 0"),
 }

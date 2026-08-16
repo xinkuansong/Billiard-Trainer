@@ -73,8 +73,10 @@ struct PlanDrillDose: Codable, Equatable {
     let roundsPerFormation: Int?
     /// 按球形 token 逐条给轮数；未列出的球形本次不练。与 `roundsPerFormation` 二选一。
     let formations: [FormationRounds]?
-    /// 复习课次减量标记（v37 D-v37-2=B）。`true` 时允许 `formations[].rounds` 低于内容 `defaultRounds`。
-    /// 缺省 / `false` = 非衰减（仍钳到下限）。同一计划内该 drill 第一次出现禁止为 `true`。
+    /// 复习课次减量标记（v37 D-v37-2=B / v38 R7）。
+    /// `sequence`：`true` 时允许 `formations[].rounds` 低于内容 `defaultRounds`（降遍数）。
+    /// `repetition`：不得靠降 `rounds` 砍位置；减量写可选 `ballsPerRound`（降每位置颗数）。
+    /// 缺省 / `false` = 非衰减。同一计划内该 drill 第一次出现禁止为 `true`。
     let decay: Bool?
     /// 跨计划咬合的复习来源计划 id（R6）。仅咬合条目填写，例如 `"plan_accuracy"`。
     let reviewFrom: String?
@@ -82,8 +84,17 @@ struct PlanDrillDose: Codable, Equatable {
     struct FormationRounds: Codable, Equatable, Identifiable {
         let token: String
         let rounds: Int
+        /// 计划侧覆盖每轮球数（v38 D-v38-4=A）。仅 `repetition` + `decay` 用于压每位置颗数；
+        /// `sequence` 禁止写出与内容不等的值（杆数 = 链长，I6b 锁死）。
+        let ballsPerRound: Int?
 
         var id: String { token }
+
+        init(token: String, rounds: Int, ballsPerRound: Int? = nil) {
+            self.token = token
+            self.rounds = rounds
+            self.ballsPerRound = ballsPerRound
+        }
     }
 
     init(

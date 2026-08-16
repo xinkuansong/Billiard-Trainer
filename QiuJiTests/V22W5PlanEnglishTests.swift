@@ -4,7 +4,7 @@ import XCTest
 /// v22 W5 立档：加塞计划解码 + 结构自检。
 /// v34 W3 重排后更新（问题集合_v34.md R6/D-v34-2）：plan_english = 杆法Ⅱ·加塞挤偏，
 /// 主轴 = c073–c075（加塞认知/挤偏）+ c018/c020/c021（加塞杆法）；带塞准度 c076–c078
-/// 已移交 plan_intermediate（准度Ⅱ·远台带塞）。不再钉死逐周主题与固定课时。
+/// 已移交 plan_accuracy3（准度Ⅲ·带塞，D-v38-2=A）。不再钉死逐周主题与固定课时。
 final class V22W5PlanEnglishTests: XCTestCase {
 
     /// v34 归属主轴：本计划承担 ×3 覆盖义务的 6 条。
@@ -41,7 +41,7 @@ final class V22W5PlanEnglishTests: XCTestCase {
         // v31 W5：旧裸组数字段不得回流（在原始 JSON 层扫描键名）。
         try assertPlanJSONHasNoLegacyVolumeKeys("plan_english")
 
-        // 主轴 6 条须全部在计划内；带塞准度 c076–c078 不得回流（已归 plan_intermediate）。
+        // 主轴 6 条须全部在计划内；带塞准度 c076–c078 不得回流（已归 plan_accuracy3）。
         var allIds = Set<String>()
         for week in plan.weeks {
             for session in week.sessions {
@@ -57,11 +57,28 @@ final class V22W5PlanEnglishTests: XCTestCase {
                 }
             }
         }
+        var firstFocused: [String] = []
+        for week in plan.weeks {
+            for session in week.sessions {
+                for phase in session.phases where phase.type == "focused" {
+                    for drill in phase.drills where !firstFocused.contains(drill.drillId) {
+                        firstFocused.append(drill.drillId)
+                    }
+                }
+            }
+        }
+        // 失败机理（PD-027 / v38 W0）：旧序把走位加塞整周提前、长台/塞量在后。
+        XCTAssertEqual(
+            firstFocused,
+            ["drill_c073", "drill_c074", "drill_c075", "drill_c018", "drill_c020", "drill_c021"],
+            "杆法Ⅱ focused 首次引入须等于 W0 表：\(firstFocused)"
+        )
+
         XCTAssertTrue(englishCoreIds.isSubset(of: allIds),
                       "加塞主轴 6 条须全部在 plan_english：\(allIds)")
         for banned in ["drill_c076", "drill_c077", "drill_c078"] {
             XCTAssertFalse(allIds.contains(banned),
-                           "\(banned)（带塞准度）已归 plan_intermediate，不得回流")
+                           "\(banned)（带塞准度）已归 plan_accuracy3，不得回流")
         }
 
         // 全部 drillId ∈ Drills index
@@ -91,7 +108,7 @@ final class V22W5PlanEnglishTests: XCTestCase {
             XCTAssertNotNil(e, "index 须登记 \(freeId)")
             XCTAssertEqual(e?.isPremium, false, "\(freeId) 应为免费档")
         }
-        for paidId in ["plan_intermediate", "plan_english", "plan_positioning",
+        for paidId in ["plan_intermediate", "plan_accuracy3", "plan_english", "plan_positioning",
                        "plan_positioning2", "plan_separation", "plan_force",
                        "plan_advanced", "plan_fullskill"] {
             let e = index?.plans.first { $0.id == paidId }

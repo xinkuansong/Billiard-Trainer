@@ -6,11 +6,25 @@ import XCTest
 /// 改保护结构不变量 + separation 全量归属 + dose 契约 + index 一致性。
 final class V22W4PlanSeparationTests: XCTestCase {
 
-    /// separation 分类全量（v33 起 8 → 10 条，新增 c083 吃库分离角 / c084 不吃库分离角）。
+    /// v38 W4 主课 10 条（separation 分类全量）。
     private let separationIds: Set<String> = [
         "drill_c024", "drill_c025", "drill_c026", "drill_c027",
         "drill_c028", "drill_c029", "drill_c030", "drill_c031",
         "drill_c083", "drill_c084",
+    ]
+    /// 引用集合 = 主课 ∪ 开档咬合热身 c032（W0 可选咬合准度Ⅰ）。
+    /// 失败机理（PD-027）：旧断言「恰为 separation 10 条」会把咬合热身当请出/迁入；
+    /// 主课集合未变，只是 allIds 含跨计划复现。
+    private let assignedIds: Set<String> = [
+        "drill_c024", "drill_c025", "drill_c026", "drill_c027",
+        "drill_c028", "drill_c029", "drill_c030", "drill_c031",
+        "drill_c083", "drill_c084", "drill_c032",
+    ]
+    /// W0 引入序：90° → 厚 → 薄 → 不吃库 → 高杆 → 低杆 → 定杆 → 走位 → 综合 → 吃库。
+    private let firstFocusedOrder: [String] = [
+        "drill_c024", "drill_c026", "drill_c025", "drill_c084",
+        "drill_c027", "drill_c028", "drill_c029", "drill_c030",
+        "drill_c031", "drill_c083",
     ]
 
     func testPlanSeparationDecodesAndMatchesShelfSpec() async throws {
@@ -56,7 +70,22 @@ final class V22W4PlanSeparationTests: XCTestCase {
                 }
             }
         }
-        XCTAssertEqual(allIds, separationIds, "计划内容应恰为 separation 全量")
+        XCTAssertEqual(allIds, assignedIds, "计划内容应恰为 v38 分离角引用集合（10 主课 + c032 咬合）")
+        XCTAssertTrue(separationIds.isSubset(of: allIds), "separation 10 条主课须全部在计划内")
+
+        var firstFocused: [String] = []
+        for week in plan.weeks {
+            for session in week.sessions {
+                for phase in session.phases where phase.type == "focused" {
+                    for drill in phase.drills where !firstFocused.contains(drill.drillId) {
+                        firstFocused.append(drill.drillId)
+                    }
+                }
+            }
+        }
+        // 失败机理（PD-027 / v38 W0）：旧序厚球/高低杆先于 90°、吃库先于不吃库。
+        XCTAssertEqual(firstFocused, firstFocusedOrder,
+                       "focused 首次引入序须等于 W0 分离角表：\(firstFocused)")
 
         // 全部 drillId ∈ Drills index
         let drillIndex = await DrillContentService.shared.loadDrillIndex()

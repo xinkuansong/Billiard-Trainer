@@ -191,7 +191,8 @@ struct ResolvedDose: Equatable {
 /// v34 R9（B 方案）：`roundsPerFormation` = **遍数倍数**（默认 1），展开 =
 /// 每球形 `defaultRounds × 倍数`，位置永远全覆盖。`formations[].rounds` 默认不得低于
 /// 内容 `defaultRounds`（低于时运行时钳到下限并打 debug log）。
-/// v37 D-v37-2=B：`dose.decay == true` 的复习条目不钳下限，只保证 `rounds ≥ 1`。
+/// v38 R7：`repetition` 衰减压 `ballsPerRound`、`rounds` 仍 ≥ `defaultRounds`；
+/// `sequence` 衰减才允许 `rounds < defaultRounds`。
 enum TrainingDoseResolver {
 
     private static let logger = Logger(subsystem: "com.billiardtrainer", category: "TrainingDose")
@@ -226,12 +227,12 @@ enum TrainingDoseResolver {
                 let carriesToken = selected.count > 1 || formationOptions.count > 1
                 var names: [String: String] = [:]
                 for option in formationOptions { names[option.token] = option.name }
-                return ResolvedDose(groups: selected.map { formation, rounds in
+                return ResolvedDose(groups: selected.map { formation, rounds, balls in
                     ResolvedDose.Group(
                         formationToken: carriesToken ? formation.token : nil,
                         formationName: carriesToken ? names[formation.token] : nil,
                         mode: formation.mode,
-                        ballsPerRound: max(1, formation.ballsPerRound),
+                        ballsPerRound: max(1, balls),
                         rounds: max(1, rounds),
                         doseNote: formation.doseNote
                     )
@@ -250,38 +251,56 @@ enum TrainingDoseResolver {
         )
     }
 
-    /// 计划 dose 决定每个球形练几轮：
-    /// - `formations`：按 token 选球形；非衰减时轮数不得低于内容 `defaultRounds`（v34 R9）。
-    ///   `decay == true` 时不钳下限，只保证 ≥1（v37 D-v37-2=B）。
+    /// 计划 dose 决定每个球形练几轮、每轮几球（v38 R7）：
+    /// - `repetition`：`rounds` 不得低于 `defaultRounds`（位置全覆盖，decay 也不砍杆）。
+    ///   `decay == true` 时用可选 `formations[].ballsPerRound` 压每位置颗数。
+    /// - `sequence`：`decay == true` 时允许 `rounds < defaultRounds`（降整链遍数）；
+    ///   每轮球数锁内容 `ballsPerRound`（链长）。
     /// - `roundsPerFormation`：**遍数倍数**，每球形 = `defaultRounds × 倍数`（位置全覆盖）。
     /// - 无 dose：内容推荐完整剂量。
     /// 顺序一律以内容 `perFormation` 的顺序为准（球形即难度阶梯，契约 §6.6 推论 2）。
     private static func selectFormations(
         _ perFormation: [DrillContent.FormationDose],
         dose: PlanDrillDose?
-    ) -> [(DrillContent.FormationDose, Int)] {
+    ) -> [(DrillContent.FormationDose, Int, Int)] {
         if let listed = dose?.formations, !listed.isEmpty {
-            var roundsByToken: [String: Int] = [:]
-            for entry in listed { roundsByToken[entry.token] = entry.rounds }
+            var entryByToken: [String: PlanDrillDose.FormationRounds] = [:]
+            for entry in listed { entryByToken[entry.token] = entry }
             let allowDecay = dose?.decay == true
-            // 未列出的球形本次不展开（契约 §6.6 推论 3）。
             return perFormation.compactMap { formation in
-                guard let requested = roundsByToken[formation.token] else { return nil }
+                guard let entry = entryByToken[formation.token] else { return nil }
                 let floor = max(1, formation.defaultRounds)
-                let clamped = allowDecay ? max(1, requested) : max(floor, requested)
-                if clamped != requested {
-                    logger.debug(
-                        "formations rounds clamped token=\(formation.token, privacy: .public) requested=\(requested) floor=\(floor) decay=\(allowDecay)"
-                    )
+                let contentBalls = max(1, formation.ballsPerRound)
+                let requested = entry.rounds
+                switch formation.mode {
+                case .repetition:
+                    let rounds = max(floor, requested)
+                    if rounds != requested {
+                        logger.debug(
+                            "repetition rounds clamped token=\(formation.token, privacy: .public) requested=\(requested) floor=\(floor)"
+                        )
+                    }
+                    var balls = contentBalls
+                    if allowDecay, let override = entry.ballsPerRound {
+                        balls = min(contentBalls, max(1, override))
+                    }
+                    return (formation, rounds, balls)
+                case .sequence:
+                    let rounds = allowDecay ? max(1, requested) : max(floor, requested)
+                    if rounds != requested {
+                        logger.debug(
+                            "sequence rounds clamped token=\(formation.token, privacy: .public) requested=\(requested) floor=\(floor) decay=\(allowDecay)"
+                        )
+                    }
+                    return (formation, rounds, contentBalls)
                 }
-                return (formation, clamped)
             }
         }
         if let multiplier = dose?.roundsPerFormation {
             let m = max(1, multiplier)
-            return perFormation.map { ($0, max(1, $0.defaultRounds) * m) }
+            return perFormation.map { ($0, max(1, $0.defaultRounds) * m, max(1, $0.ballsPerRound)) }
         }
-        return perFormation.map { ($0, $0.defaultRounds) }
+        return perFormation.map { ($0, $0.defaultRounds, max(1, $0.ballsPerRound)) }
     }
 
     private static func uniformDose(
