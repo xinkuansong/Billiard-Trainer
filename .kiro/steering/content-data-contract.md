@@ -1,7 +1,7 @@
 # 内容与训练数据 — 真源契约与数据流（Steering）
 
-> **版本**：2.10（v38 W1：衰减可调维按 mode 分叉）
-> **最后更新**：2026-08-14
+> **版本**：2.12（v39 W2：I13 ① 改为建议周下界）
+> **最后更新**：2026-08-18
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
 > 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
 > `docs/06-技术架构.md`）在与本文件冲突时**以本文件为准**，并应改为引用本文件而非重复定义。
@@ -501,7 +501,7 @@ D13 作废，替换为**形状约束**（v34 R13，阻塞级，实现于 I6b）�
 - **禁止**把六轴从不同球形拼成一条合成雷达（例如进球取球形 A、加塞取球形 B）。
 - **drill 雷达** = **代表球形的实分**（见 §5.7.5）为数据源；**上屏展示分 = 存储分 + 1**（1–5，D-v37-6），半径比例 = 展示分 / 5。存储分、门禁、排课比较仍用 0–4。禁止把展示分写回 JSON。
 - **组课约束** = 该课实际引用的各球形在**每一轴上独立取 max**（六次 max，仍不合成总分）。
-  用于排课门禁（周序不降、热身 ≤ 主课）的包络，不是展示用雷达。
+  用于排课门禁（热身 ≤ 主课，I13 ②）的包络，不是展示用雷达。六轴 scalar 不再卡周。
 
 **走位链取分**（`mode == sequence`）：
 
@@ -719,7 +719,7 @@ v34 R9「位置永远全覆盖 / `formations[].rounds ≥ defaultRounds`」对**
 | I10 | 全部 bundled drill / plan JSON（含各自 `index.json`）能被 App 的 `Codable` 模型解码——必填字段齐全、类型正确 | I10（v30 X-1 新增；v31 W4 扩到 `sets.perFormation` / `secondaryCategories` 与计划侧模型） | ✅ 有，✅ 已接门禁（无豁免） |
 | I11 | 官方计划可解析：每条目 `drillId` 存在于 `index.json`、`dose` 结构可解析（`roundsPerFormation` 与 `formations` 恰好二选一、轮数 ≥1）、按球形引用的 token 存在于该 drill 的 `perFormation` token 集合 ∩ 序列 token 集合。**可调维按 mode（v38 R7）**：`repetition` 的 `rounds` 不得低于内容 `defaultRounds`（decay 也不砍位置）；`sequence` 仅在 `decay == true` 时允许 rounds < defaultRounds；`repetition` 可用可选 `ballsPerRound` 降每位置颗数（须 decay 且 ≤ 内容）；`sequence` 禁止改 `ballsPerRound` | I11（v31 W4；v34 下限；v37 decay 例外；**v38 W1 按 mode 分叉**） | ✅ 有，✅ **已接门禁**。构造性：`i11_repetition_decay_cut_positions` / `i11_sequence_override_balls` exit 1；`i11_repetition_decay_balls_ok` 与 sequence 降遍数放行 |
 | I12 | 六轴 `load` 齐全、六键值域 0–4 整数；有 `perFormation` 时每球形必有 `load`，drill 级 `load` = 代表球形实分（`sets.representativeToken` 或缺省 `perFormation[0]`）；`representativeToken` 若出现必须 ∈ `perFormation` token 集；无 `perFormation` 时只允许 drill 级 `load`；组课 max 可由被引用球形派生 | I12（v37 W1） | ✅ 有，✅ **已接门禁**（无豁免；构造性违反：缺字段 / 值域越界 / 代表分 ≠ 球形实分 各实证 exit 1） |
-| I13 | 官方计划排课规则（v37 R4–R6 + v38 W7 内容层）：①周序不降——每份计划内 **focused 首次引入** 的六轴 scalar max（`max(aim,cue,spin,position,constraint,speed)`）后周不得低于前周（无新引入的周跳过；warmup / `reviewFrom` 咬合不计入新引入）；②热身≤主课——同 session **非咬合**热身 scalar max ≤ focused scalar max（带 `reviewFrom` 的热身豁免，因 R6 上一档末段可难于下一档开课）；③衰减——同 drill 按课次展开球数单调不增（展开计入计划侧 `ballsPerRound` 覆盖），低于完整剂量必须 `decay: true`，计划内首次不得 `decay`；④`reviewFrom` ∈ `Plans/index.json` 且来源计划实际包含该 drill。⑤**引入序（v38 W7）**：focused 首次引入短 id 序 = `docs/research/20260814-v38-先决与主课名单.md` §3 该计划主课表序。**只比序，不比「建议周」**（周包络允许把低 scalar 课的首次引入提前到能托住周 max 的那一周）。 | I13（v37 W5；v38 W7 落地引入序） | ✅ 有，✅ **已接门禁**（五条）。构造性：对调准度Ⅰ前两堂 focused ⇒ exit 1 |
+| I13 | 官方计划排课规则（v37 R4–R6 + v38 W7 内容层 + **v39 W2**）：①**建议周下界**——每份计划内 **focused 首次引入** 不得早于 `docs/research/20260818-v39-语义课表.md` §5 该 `(plan, id)` 的建议周（warmup / `reviewFrom` 咬合不计入新引入；缺表或不足 83 条 ⇒ FAIL）。**六轴 scalar 不再卡周**（只作 ② 热身包络）。②热身≤主课——同 session **非咬合**热身 scalar max ≤ focused scalar max（带 `reviewFrom` 的热身豁免，因 R6 上一档末段可难于下一档开课）；③衰减——同 drill 按课次展开球数单调不增（展开计入计划侧 `ballsPerRound` 覆盖），低于完整剂量必须 `decay: true`，计划内首次不得 `decay`；④`reviewFrom` ∈ `Plans/index.json` 且来源计划实际包含该 drill。⑤**引入序（v38 W7）**：focused 首次引入短 id 序 = `docs/research/20260814-v38-先决与主课名单.md` §3 该计划主课表序。**只比序，不比「建议周」**。 | I13（v37 W5；v38 W7 落地引入序；**v39 W2 改 ①**） | ✅ 有，✅ **已接门禁**（五条）。构造性：`i13_week_order_drop` 把 c032 首次提前到早于建议周 ⇒ exit 1；对调准度Ⅰ前两堂 focused ⇒ exit 1 |
 
 > **编号说明**：`问题集合_v31.md` W4 把计划校验称作「I10」，但 I10 已被 v30 X-1 的
 > 模型可解码性占用。本契约按既有编号顺延为 **I11**；W4 实施时以本表为准。
@@ -942,6 +942,7 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 | 2.3 | 2026-08-11 | **v34 W0 契约与门禁**。§5.6.2 剂量口径重定（D16）：数值真源 = `tasks/训练量填写表.md`（03:03 定稿版，83 drill / 105 球形 / 9493 球）；重复型「一轮 = 一个位置」每位置 15 颗、轮数 = 杆数（位置全覆盖）；走位链每轮 = 杆数 × N 轮；新增 `doseNote` 例外机制（R3，例外 c002/c022；`MODEL_SPEC.FormationDose` 与 Swift `FormationDose` 同步加可选字段，FL-029 第 3 条）；**D15 阶梯放宽被取代**（c020/c078 → 15×16，`relaxed_upper()` 删除）。§5.6.3 **D13 总量护栏作废（D18）**，替换为阻塞级形状约束（bpr ∈ [8,15] 默认 15 + 轮数 = 杆数，入 I6b；I6a 的总量 WARN 一并删除）。§6.6 **`roundsPerFormation` 语义重定义（D17，R9 B 方案）**：倍数、默认 1、位置全覆盖、官方计划一律不写；`formations[].rounds` 下限 = 内容 `defaultRounds`（I11 阻塞）。§7 表 I6b/I11 行更新。§9 记 D16–D18。构造性用例 24→28（i6b 形状约束 ×4 + i11 下限 ×1，删 `i6b_repetition_tolerated`——其「bpr=99 应放行」语义已被 R13 反转）。⚠️ 过渡窗口：形状约束转阻塞后，存量剂量（v31 口径）在 W2 写回前会触发 I6b FAIL，属预期；W2 后复核归零。 |
 | 2.4 | 2026-08-13 | **v37 W0 执行负荷与复习减量（D-v37-1 / D-v37-2）**。新增 **§5.7**：六轴（进球/杆法/加塞/走位/约束/力度）0–4 整数、不合成总分；锚点表与邻轴边界备忘；球形级打分口径（105 球形逐一打分，drill 雷达 = 代表球形实分，组课约束 = 各轴 max）；走位链取分与复位型走位轴规则；`load` schema（挂 `FormationDose` 内，无 `perFormation` 则只写 drill 级 `load`）；代表分规则写死为 `sets.representativeToken`，缺省 `perFormation[0]`。§6.6 增「复习课次减量」例外：标记字段 **`PlanDrillDose.decay: Bool`**，首次引入仍须完整剂量。§7 表 I11 行补例外一句（实现落 W4）；新增 I12 行（待 W1 接门禁）。§9 记 D-v37-1/2。本批不改生产 JSON / Swift / `MODEL_SPEC`（FL-029）。 |
 | 2.9 | 2026-08-14 | **v37 W5**：新增 **I13 排课门禁**并接入 `verify-gate` / pre-push。操作定义：周序只看 focused 首次引入 + scalar max；热身用 scalar（逐轴会假红 61 课）且 `reviewFrom` 咬合热身豁免；衰减查展开球数单调不增；`reviewFrom` 外键有效。构造性四例实证 exit 1。 |
+| 2.12 | 2026-08-18 | **v39 W2**：I13 第 ① 条从「六轴 scalar 周序不降」改为「focused 首次引入不得早于语义课表 §5 建议周」。scalar 只给 ② 热身包络。构造性 `i13_week_order_drop` 按新口径改写。现网课表在填课（W3–W6）前会因早于建议周红，属预期。 |
 | 2.11 | 2026-08-14 | **v38 W7**：I13 落地内容层第 ⑤ 条——focused 首次引入序对照 W0 §3 主课表（只比序，不比建议周）。构造性 `i13_intro_order_vs_w0`。货架 12 份。 |
 | 2.10 | 2026-08-14 | **v38 W1**：§6.6 衰减可调维按 mode 分叉（repetition 降 `ballsPerRound`、sequence 降 `rounds`）。`PlanFormationRounds.ballsPerRound` 可选。I11 / Resolver / I13 展开球数同步。I13 内容层草案（引入序对照 W0 表）记入本表，落地 W7。 |
 | 2.8 | 2026-08-14 | **v37 W4**：§6.6 复习减量例外落地。`PlanDrillDose.decay` / `reviewFrom` 写入 Swift + `MODEL_SPEC`；I11 `_dose_errors` 仅 `decay==true` 允许 rounds < defaultRounds；Resolver 同步；构造性 `i11_decay_rounds_below_default`。§7 I11 行状态改为已接门禁。 |

@@ -380,10 +380,19 @@ def case_i12_rep_mismatch(root: Path) -> None:
 
 
 def case_i13_week_order_drop(root: Path) -> None:
-    # 把准度Ⅰ第 1 周与第 3 周的 weekNumber 对调：后周 focused 新引入 scalar 从 3 掉到 1。
+    # 失败机理：旧用例对调 W1/W3 weekNumber，锁的是已废的「后周新引入 scalar 不降」。
+    # 新口径 ① 是「首次引入不得早于语义课表建议周」。c032 建议周 3；把它的
+    # focused 首次抄到 W2 D3（引入序仍是 c011→c001→c012→c013→c032→c002），
+    # 实际周 2 < 3，须报「建议周」。
     def mutate(plan: dict) -> None:
-        plan["weeks"][0]["weekNumber"], plan["weeks"][2]["weekNumber"] = (
-            plan["weeks"][2]["weekNumber"], plan["weeks"][0]["weekNumber"])
+        source = json.loads(json.dumps(first_ref(plan, "drill_c032")))
+        source.get("dose", {}).pop("reviewFrom", None)
+        source.get("dose", {}).pop("decay", None)
+        week2 = next(week for week in plan["weeks"] if week.get("weekNumber") == 2)
+        day3 = next(session for session in week2["sessions"]
+                    if session.get("dayNumber") == 3)
+        focused = next(phase for phase in day3["phases"] if phase["type"] == "focused")
+        focused["drills"].append(source)
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
@@ -503,8 +512,8 @@ CASES = {
                          case_i12_out_of_range, 1, "值域非法"),
     "i12_rep_mismatch": ("I12", "drill_c001 顶层 load 改成与所有球形都不同的六元组",
                          case_i12_rep_mismatch, 1, "drill 级 load ≠ 代表球形 load"),
-    "i13_week_order_drop": ("I13", "plan_accuracy 对调 W1/W3 weekNumber ⇒ 后周新引入 scalar 下降",
-                            case_i13_week_order_drop, 1, "后周新引入 scalar"),
+    "i13_week_order_drop": ("I13", "plan_accuracy 把 c032 首次引入提前到 W2（建议周 3）",
+                            case_i13_week_order_drop, 1, "建议周"),
     "i13_warmup_over_focused": ("I13", "plan_accuracy W1D2 热身换成 c032（scalar 3 > 主课 1）",
                                 case_i13_warmup_over_focused, 1, "热身 scalar"),
     "i13_decay_not_mono": ("I13", "plan_accuracy 的 c001 第三次出现去掉降颗并 rounds=6（90>75）",

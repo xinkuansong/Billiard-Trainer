@@ -44,8 +44,8 @@
   "id": "drill_c016",
   "isPremium": false,
   "level": "L1",
-  "nameEn": "Stun Shot at Angle",
-  "nameZh": "斯登角度停球",
+  "nameEn": "Stun Stop",
+  "nameZh": "斯登停球",
   "sets": {
     "defaultSets": 6,
     "defaultBallsPerSet": 15,

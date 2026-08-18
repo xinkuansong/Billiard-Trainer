@@ -7,14 +7,41 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 90,
   "isPremium": false,
-  "description": "先近距停点与定杆，再近中距跟进/缩杆，最后远台跟进/缩杆。本计划不加塞、不练挤偏。",
+  "description": "先定杆再打点停点，再近中距跟进/缩杆，最后远台跟进/缩杆。本计划不加塞、不练挤偏。",
   "weeks": [
     {
       "weekNumber": 1,
-      "theme": "停球与定杆",
+      "theme": "定杆与停点",
       "sessions": [
         {
           "dayNumber": 1,
+          "phases": [
+            {
+              "type": "focused",
+              "durationMinutes": 85,
+              "drills": [
+                {
+                  "drillId": "drill_c014",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 7
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
+          ]
+        },
+        {
+          "dayNumber": 2,
           "phases": [
             {
               "type": "focused",
@@ -41,55 +68,11 @@
           ]
         },
         {
-          "dayNumber": 2,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 22,
-              "drills": [
-                {
-                  "drillId": "drill_c016",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 6
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 63,
-              "drills": [
-                {
-                  "drillId": "drill_c014",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 7
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
           "dayNumber": 3,
           "phases": [
             {
-              "type": "warmup",
-              "durationMinutes": 22,
+              "type": "focused",
+              "durationMinutes": 85,
               "drills": [
                 {
                   "drillId": "drill_c016",
@@ -98,25 +81,6 @@
                       {
                         "token": "manual01",
                         "rounds": 6,
-                        "ballsPerRound": 12
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 63,
-              "drills": [
-                {
-                  "drillId": "drill_c014",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 7,
                         "ballsPerRound": 12
                       }
                     ],

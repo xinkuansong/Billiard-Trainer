@@ -26,7 +26,7 @@ verify_tutorial_sync.py — 内容不变量校验（契约 .kiro/steering/conten
       ∈ 该 drill 的 perFormation token 集合 ∩ 序列 token 集合
   I12 六轴 load 齐全、值域 0–4；有 perFormation 时每球形必有 load，drill 级 load
       = 代表球形实分；无 perFormation 时只允许 drill 级 load（契约 §5.7 / §7）
-  I13 排课规则：周序不降（focused 首次引入 scalar 不降）、热身≤主课（scalar；
+  I13 排课规则：focused 首次引入不得早于语义课表建议周、热身≤主课（scalar；
       reviewFrom 咬合热身豁免）、衰减剂量单调不增且减量须标 decay、reviewFrom 外键有效、
       focused 首次引入序对照 W0 主课表（只比序，不比建议周）
 
@@ -928,20 +928,22 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
 
 # ── I13：排课规则（v37 W5，契约 §7 / R4–R6）────────────────────────────────
 #
-# 操作定义（对照现网计划实测后钉死，写入契约 2.9 / 2.11）：
-# 1. 周序不降：只看每份计划内 focused 首次引入；度量 = 六轴存储分的 scalar max。
-#    后一周新引入 max 不得低于前一周（无新引入的周跳过）。warmup / reviewFrom
-#    咬合不计入「新引入」（否则上一档末段热身会把后档第 1 周顶高，假红）。
+# 操作定义（对照现网计划实测后钉死，写入契约 2.9 / 2.11 / 2.12）：
+# 1. 建议周下界（v39 W2）：每份计划内 focused 首次引入的短 id，其首次周不得
+#    早于 `docs/research/20260818-v39-语义课表.md` §5 该 (plan, id) 的建议周。
+#    六轴 scalar 不再卡周（只给 ② 热身≤主课用）。warmup / reviewFrom 咬合
+#    不计入「首次引入」。缺表或不足 83 条 ⇒ FAIL。
 # 2. 热身≤主课：同 session 非咬合热身的 scalar max ≤ focused scalar max。
 #    带 reviewFrom 的热身豁免（R6 上一档末段 → 下一档热身，允许高于开档主课）。
 #    逐轴比较会在现网打出 61 课假红，不用。
 # 3. 衰减：同 drill 按课次顺序剂量（展开球数）单调不增；低于完整剂量必须 decay。
 # 4. reviewFrom 必须是货架计划 id，且来源计划实际包含该 drill。
 # 5. 引入序（v38 W7）：每份计划 focused 首次引入的短 id 序 = W0 §3 该计划主课表序。
-#    只比序，不比「建议周」（I13 周包络允许把低 scalar 课的首次引入提前）。
+#    只比序，不比「建议周」。
 
 _PHASE_ORDER = {"warmup": 0, "focused": 1, "review": 2}
 _W0_ROSTER_REL = Path("docs") / "research" / "20260814-v38-先决与主课名单.md"
+_V39_CURRICULUM_REL = Path("docs") / "research" / "20260818-v39-语义课表.md"
 
 
 def _short_drill_id(drill_id: object) -> str:
@@ -986,6 +988,63 @@ def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[
             f"{roster_path} §3 去向表",
         ))
     return orders, errors
+
+
+def _load_v39_suggested_weeks(
+    paths: Paths,
+) -> tuple[dict[tuple[str, str], int], list[tuple[str, str, str]]]:
+    """语义课表 §5：{(plan_id, short_id): 建议周}。缺表或不足 83 条则失败。"""
+    errors: list[tuple[str, str, str]] = []
+    curriculum_path = None
+    for candidate in (paths.root / _V39_CURRICULUM_REL, REPO_ROOT / _V39_CURRICULUM_REL):
+        if candidate.is_file():
+            curriculum_path = candidate
+            break
+    if curriculum_path is None:
+        return {}, [("语义课表", "找不到 v39 语义课表", str(_V39_CURRICULUM_REL))]
+
+    weeks: dict[tuple[str, str], int] = {}
+    in_section = False
+    for line in curriculum_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("## 5."):
+            in_section = True
+            continue
+        if in_section and line.startswith("## ") and not line.startswith("## 5."):
+            break
+        if not in_section or not line.startswith("|"):
+            continue
+        parts = [part.strip() for part in line.strip().strip("|").split("|")]
+        if len(parts) < 3:
+            continue
+        drill_id, plan_id, week_text = parts[0], parts[1], parts[2]
+        if not drill_id.startswith("c") or not plan_id.startswith("plan_"):
+            continue
+        try:
+            week = int(week_text)
+        except ValueError:
+            errors.append((
+                "语义课表",
+                f"{drill_id} 建议周无法解析为整数：{week_text!r}",
+                f"{curriculum_path} §5",
+            ))
+            continue
+        key = (plan_id, drill_id)
+        if key in weeks:
+            errors.append((
+                "语义课表",
+                f"重复行 {plan_id}/{drill_id}",
+                f"{curriculum_path} §5",
+            ))
+            continue
+        weeks[key] = week
+
+    if len(weeks) != 83:
+        errors.append((
+            "语义课表",
+            f"解析到 {len(weeks)} 条建议周，期望 83",
+            f"{curriculum_path} §5 建议周总表",
+        ))
+    return weeks, errors
 
 
 def _scalar_max(drill: dict) -> int:
@@ -1080,7 +1139,7 @@ def _iter_plan_refs(plan: dict):
 
 
 def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -> dict:
-    """I13：官方计划排课规则（周序 / 热身 / 衰减 / 咬合外键 / 引入序）。"""
+    """I13：官方计划排课规则（建议周下界 / 热身 / 衰减 / 咬合外键 / 引入序）。"""
     paths = paths or DEFAULT_PATHS
     if not paths.plans.is_dir():
         return {"ok": 0, "fail": [], "exempt": [], "warn": [("—", "Plans 目录不存在", "—")]}
@@ -1095,11 +1154,13 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
                 "exempt": [], "warn": []}
     index_ids = {item.get("id") for item in (index.get("plans") or []) if item.get("id")}
     roster, roster_errors = _load_w0_main_order(paths)
+    suggested, suggested_errors = _load_v39_suggested_weeks(paths)
 
     plans: list[dict] = []
     membership: dict[str, set[str]] = {}
     ok, fail, warn = 0, [], []
     fail.extend(roster_errors)
+    fail.extend(suggested_errors)
     for path in sorted(paths.plans.glob("plan_*.json")):
         try:
             plan = json.loads(path.read_text(encoding="utf-8"))
@@ -1120,8 +1181,6 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
     for plan in plans:
         plan_id = plan.get("id") or "?"
         first_focused_week: dict[str, object] = {}
-        week_new_max: dict[object, int] = {}
-        week_new_ids: dict[object, list[str]] = {}
         session_refs: dict[tuple, dict[str, list]] = defaultdict(
             lambda: {"warmup": [], "focused": []})
         by_drill: dict[str, list] = defaultdict(list)
@@ -1135,18 +1194,32 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
                 session_refs[(week_number, day_number)][phase_type].append(ref)
             if phase_type == "focused" and drill_id not in first_focused_week:
                 first_focused_week[drill_id] = week_number
-                scalar = _scalar_max(drills.get(drill_id) or {})
-                week_new_max[week_number] = max(week_new_max.get(week_number, 0), scalar)
-                week_new_ids.setdefault(week_number, []).append(drill_id)
 
-        weeks_with_new = sorted(week_new_max, key=lambda number: number or 0)
-        for earlier, later in zip(weeks_with_new, weeks_with_new[1:]):
-            if week_new_max[later] < week_new_max[earlier]:
+        for drill_id, week_number in first_focused_week.items():
+            short = _short_drill_id(drill_id)
+            key = (plan_id, short)
+            if key not in suggested:
                 fail.append((
-                    f"{plan_id} W{earlier}→W{later}",
-                    f"后周新引入 scalar {week_new_max[later]} < 前周 {week_new_max[earlier]}",
-                    f"周序不降：focused 首次引入按六轴 max 比较"
-                    f"（W{earlier} {week_new_ids[earlier]} → W{later} {week_new_ids[later]}）",
+                    f"{plan_id} {drill_id}",
+                    f"语义课表 §5 没有 {plan_id}/{short} 的建议周",
+                    "I13 ①：focused 首次引入必须能对照建议周总表",
+                ))
+                continue
+            suggested_week = suggested[key]
+            try:
+                actual_week = int(week_number)
+            except (TypeError, ValueError):
+                fail.append((
+                    f"{plan_id} {drill_id}",
+                    f"首次引入周无法解析：{week_number!r}",
+                    "I13 ①：weekNumber 必须是整数",
+                ))
+                continue
+            if actual_week < suggested_week:
+                fail.append((
+                    f"{plan_id} W{actual_week} {drill_id}",
+                    f"首次引入第 {actual_week} 周早于建议周 {suggested_week}",
+                    f"I13 ①：focused 首次引入不得早于语义课表建议周（{short}）",
                 ))
             else:
                 ok += 1
@@ -1479,7 +1552,7 @@ def render_report(results: dict) -> None:
         ("I10", "Bundle drill / plan 可被 App 模型解码", None),
         ("I11", "官方计划 drillId / dose / token 可解析", None),
         ("I12", "六轴 load 齐全 / 值域 0–4 / 代表分 = 球形实分", None),
-        ("I13", "排课：周序不降 / 热身≤主课 / 衰减单调 / 咬合外键 / 引入序", None),
+        ("I13", "排课：建议周下界 / 热身≤主课 / 衰减单调 / 咬合外键 / 引入序", None),
     ):
         if check_id not in results:
             continue

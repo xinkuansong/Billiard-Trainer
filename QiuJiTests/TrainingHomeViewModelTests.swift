@@ -390,7 +390,9 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let f1 = try XCTUnwrap(rep.sets.perFormation?.first)
         XCTAssertEqual(repLines[0].text, "\(f1.defaultRounds) × \(f1.ballsPerRound)")
         XCTAssertEqual(repLines[0].modeLabel, "逐位重复")
-        XCTAssertNil(repLines[0].title)
+        // 失败机理（v39 R5）：单球形计划行第二行必须是「球形1 + 模式 + m × n」，
+        // 不再把 title 留空以免只剩光秃 m × n。禁止删本断言求绿。
+        XCTAssertEqual(repLines[0].title, "球形1")
 
         let seq = try bundledDrill("drill_c039")
         let seqLines = TrainingDoseResolver.resolve(content: seq).suggestedDoseLines()
@@ -409,6 +411,34 @@ final class TrainingHomeViewModelTests: XCTestCase {
                        "合计：\(multiResolved.totalBalls) 杆")
         XCTAssertEqual(repResolved.suggestedDoseTotalText(),
                        "合计：\(repResolved.totalBalls) 杆")
+    }
+
+    /// v39 W1：c002/c022 的 `doseNote` 留给 I6b，计划行读屏/摘要不得上屏「用户裁定」。
+    func test_planEntryAccessibility_omitsDoseNote() throws {
+        for id in ["drill_c002", "drill_c022"] {
+            let content = try bundledDrill(id)
+            let notes = (content.sets.perFormation ?? []).compactMap(\.doseNote).filter { !$0.isEmpty }
+            XCTAssertFalse(notes.isEmpty, "\(id) 应有非空 doseNote（I6b）")
+            XCTAssertTrue(notes.contains { $0.contains("用户裁定") }, "\(id) doseNote 应变含「用户裁定」")
+
+            let resolved = TrainingDoseResolver.resolve(content: content)
+            let label = resolved.planEntryAccessibilityLabel(drillName: content.nameZh)
+            XCTAssertFalse(label.contains("用户裁定"), "计划行 accessibility 不得含内部备注：\(label)")
+            XCTAssertFalse(resolved.planEntrySummaryText().contains("用户裁定"))
+            XCTAssertTrue(label.contains(content.nameZh))
+            XCTAssertTrue(label.contains(resolved.planEntrySummaryText()))
+            if resolved.groups.count == 1 {
+                XCTAssertTrue(label.contains("球形1"), "单球形读屏应含统一行标题：\(label)")
+                XCTAssertTrue(
+                    label.contains("逐位重复") || label.contains("整链走位"),
+                    "单球形读屏应含模式标签：\(label)"
+                )
+            }
+            XCTAssertTrue(
+                resolved.suggestedDoseLines().contains { ($0.note ?? "").contains("用户裁定") },
+                "\(id) SuggestedDoseLine.note 应仍持有 doseNote"
+            )
+        }
     }
 
     /// v31 W5：`PlanDrillRef.sets/ballsPerSet` 与 `resolve(legacySets:legacyBallsPerSet:)` 已删除

@@ -448,27 +448,8 @@
           "dayNumber": 1,
           "phases": [
             {
-              "type": "warmup",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c040",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 10,
-                        "ballsPerRound": 12
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
               "type": "focused",
-              "durationMinutes": 115,
+              "durationMinutes": 145,
               "drills": [
                 {
                   "drillId": "drill_c042",
@@ -480,17 +461,6 @@
                       },
                       {
                         "token": "manual02",
-                        "rounds": 8
-                      }
-                    ]
-                  }
-                },
-                {
-                  "drillId": "drill_c082",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
                         "rounds": 8
                       }
                     ]
@@ -541,10 +511,9 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 6
+                        "rounds": 8
                       }
-                    ],
-                    "decay": true
+                    ]
                   }
                 }
               ]

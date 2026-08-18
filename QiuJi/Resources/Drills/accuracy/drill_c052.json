@@ -1,14 +1,14 @@
 {
   "id": "drill_c052",
-  "nameZh": "三分点角度入袋",
-  "nameEn": "Three-Point Angle Pocketing",
+  "nameZh": "极薄角度入袋",
+  "nameEn": "Extreme Thin Cut",
   "category": "accuracy",
-  "subcategory": "threePoint",
+  "subcategory": "thinCut",
   "ballType": [
     "chinese8"
   ],
-  "level": "L2",
-  "difficulty": 3,
+  "level": "L3",
+  "difficulty": 4,
   "isPremium": false,
   "description": "8 号靠近底库一侧，母球沿中路标记列逐档落位，全程中杆，把 8 号打进右下角袋。切角从约 41° 递进到约 77°；力度从前几档小力（1.5 m/s）抬到末档中大力（3.7 m/s）。专练中大角度到极薄的厚薄与送袋。",
   "coachingPoints": [

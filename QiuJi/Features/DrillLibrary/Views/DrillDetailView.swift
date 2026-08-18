@@ -416,31 +416,23 @@ struct DrillDetailView: View {
                 .foregroundStyle(.btTextSecondary)
 
             ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                        if let title = line.title {
-                            Text(title)
-                                .font(.btFootnote)
-                                .foregroundStyle(.btTextSecondary)
-                                .frame(minWidth: 44, alignment: .leading)
-                        }
-                        if let modeLabel = line.modeLabel {
-                            Text(modeLabel)
-                                .font(.btFootnote)
-                                .foregroundStyle(.btTextTertiary)
-                        }
-                        Text(line.text)
-                            .font(.btBodyMedium)
-                            .foregroundStyle(.btText)
-                            .monospacedDigit()
-                            .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                    if let title = line.title {
+                        Text(title)
+                            .font(.btFootnote)
+                            .foregroundStyle(.btTextSecondary)
+                            .frame(minWidth: 44, alignment: .leading)
                     }
-                    if let note = line.note, !note.isEmpty {
-                        Text(note)
+                    if let modeLabel = line.modeLabel {
+                        Text(modeLabel)
                             .font(.btFootnote)
                             .foregroundStyle(.btTextTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    Text(line.text)
+                        .font(.btBodyMedium)
+                        .foregroundStyle(.btText)
+                        .monospacedDigit()
+                        .lineLimit(1)
                 }
             }
 

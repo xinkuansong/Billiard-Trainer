@@ -1,7 +1,7 @@
 {
   "id": "drill_c014",
-  "nameZh": "中杆定杆基础",
-  "nameEn": "Stun Shot Basics",
+  "nameZh": "定杆距离阶梯",
+  "nameEn": "Stop Shot Distance Ladder",
   "category": "cueAction",
   "subcategory": "stun",
   "ballType": [

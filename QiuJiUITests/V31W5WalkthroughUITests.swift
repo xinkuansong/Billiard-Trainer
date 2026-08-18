@@ -45,15 +45,16 @@ final class V31W5WalkthroughUITests: XCTestCase {
         snap("02-library-positioning-filter-secondary-hit")
         dumpHierarchy("02-library-positioning-filter")
 
-        // c046「控力走位圈」主分类 forceControl、副分类 positioning ⇒ 命中筛选、
+        // c046「控力走位链」主分类 forceControl、副分类 positioning ⇒ 命中筛选、
         // 但仍分在「控力训练」分节下（统计只记主分类）。
+        // 失败机理（v39 W6）：课名「圈」无原文，改为「链」。
         XCTAssertTrue(app.staticTexts["控力训练"].waitForExistence(timeout: 6),
                       "按走位训练筛选后应出现副分类命中的「控力训练」分节")
 
         // c018/c020/c021（杆法）、c030/c031（分离角）、c046（控力）都是靠副分类命中的跨类条目。
         // 按网格顺序（走位 → 控力）依次打开，避免返回后还要反向滚动。
         try openDrillDetail(drillId: "drill_c042", named: "初级蛇彩走位", tag: "03")
-        try openDrillDetail(drillId: "drill_c046", named: "控力走位圈", tag: "04")
+        try openDrillDetail(drillId: "drill_c046", named: "控力走位链", tag: "04")
     }
 
     // MARK: - 3. 多球形训练展开（异构球数）

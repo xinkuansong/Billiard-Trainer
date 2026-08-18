@@ -7,7 +7,7 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 120,
   "isPremium": true,
-  "description": "加塞与挤偏专项：近台认知、长台放大、塞量阶梯，再同切角换塞变线与高低杆加塞。带塞准度见准度Ⅲ，不进本计划。热身咬合杆法Ⅰ远台缩杆。",
+  "description": "加塞与挤偏专项：近台认知、长台放大、塞量阶梯，再同切角换塞变线与高低杆加塞。带塞准度见准度Ⅲ，不进本计划。热身咬合杆法Ⅰ定杆。",
   "weeks": [
     {
       "weekNumber": 1,
@@ -21,12 +21,12 @@
               "durationMinutes": 25,
               "drills": [
                 {
-                  "drillId": "drill_c017",
+                  "drillId": "drill_c014",
                   "dose": {
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 5
+                        "rounds": 7
                       }
                     ],
                     "reviewFrom": "plan_cueball"
@@ -70,12 +70,12 @@
               "durationMinutes": 30,
               "drills": [
                 {
-                  "drillId": "drill_c017",
+                  "drillId": "drill_c014",
                   "dose": {
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 5,
+                        "rounds": 7,
                         "ballsPerRound": 12
                       }
                     ],
@@ -432,9 +432,11 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 9
+                        "rounds": 9,
+                        "ballsPerRound": 12
                       }
-                    ]
+                    ],
+                    "decay": true
                   }
                 }
               ]
@@ -444,25 +446,16 @@
               "durationMinutes": 85,
               "drills": [
                 {
-                  "drillId": "drill_c020",
+                  "drillId": "drill_c018",
                   "dose": {
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 16
+                        "rounds": 9,
+                        "ballsPerRound": 12
                       }
-                    ]
-                  }
-                },
-                {
-                  "drillId": "drill_c021",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 12
-                      }
-                    ]
+                    ],
+                    "decay": true
                   }
                 }
               ]
@@ -478,7 +471,7 @@
     },
     {
       "weekNumber": 4,
-      "theme": "加塞变线与高低杆加塞（复现）",
+      "theme": "高低杆加塞",
       "sessions": [
         {
           "dayNumber": 1,
@@ -512,11 +505,9 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 16,
-                        "ballsPerRound": 12
+                        "rounds": 16
                       }
-                    ],
-                    "decay": true
+                    ]
                   }
                 }
               ]
@@ -560,11 +551,9 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 12,
-                        "ballsPerRound": 12
+                        "rounds": 12
                       }
-                    ],
-                    "decay": true
+                    ]
                   }
                 }
               ]

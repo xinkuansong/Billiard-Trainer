@@ -7,7 +7,7 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 120,
   "isPremium": true,
-  "description": "在无塞远台与极薄之后专练带塞进袋：小角度左右塞对打，再中大角度右塞与远台高低杆带塞。热身咬合准度Ⅱ极薄。",
+  "description": "在无塞远台与极薄之后专练带塞进袋：小角度左右塞对打，再中大角度右塞与远台高低杆带塞。热身咬合准度Ⅰ小角度。",
   "weeks": [
     {
       "weekNumber": 1,
@@ -21,15 +21,19 @@
               "durationMinutes": 20,
               "drills": [
                 {
-                  "drillId": "drill_c063",
+                  "drillId": "drill_c013",
                   "dose": {
                     "formations": [
                       {
-                        "token": "Snipaste_2026_06_19_17_58_23",
-                        "rounds": 2
+                        "token": "manual01",
+                        "rounds": 8
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 9
                       }
                     ],
-                    "reviewFrom": "plan_intermediate"
+                    "reviewFrom": "plan_accuracy"
                   }
                 }
               ]
@@ -70,17 +74,22 @@
               "durationMinutes": 15,
               "drills": [
                 {
-                  "drillId": "drill_c063",
+                  "drillId": "drill_c013",
                   "dose": {
                     "formations": [
                       {
-                        "token": "Snipaste_2026_06_19_17_58_23",
-                        "rounds": 2,
-                        "ballsPerRound": 10
+                        "token": "manual01",
+                        "rounds": 8,
+                        "ballsPerRound": 12
+                      },
+                      {
+                        "token": "manual02",
+                        "rounds": 9,
+                        "ballsPerRound": 12
                       }
                     ],
                     "decay": true,
-                    "reviewFrom": "plan_intermediate"
+                    "reviewFrom": "plan_accuracy"
                   }
                 }
               ]

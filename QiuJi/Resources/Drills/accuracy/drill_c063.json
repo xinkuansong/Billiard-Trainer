@@ -1,14 +1,14 @@
 {
   "id": "drill_c063",
-  "nameZh": "极薄角度切球",
-  "nameEn": "Extreme Thin Cut Shot",
+  "nameZh": "中大角度切球",
+  "nameEn": "Mid-Large Cut",
   "category": "accuracy",
-  "subcategory": "thinCut",
+  "subcategory": "midCut",
   "ballType": [
     "chinese8"
   ],
-  "level": "L3",
-  "difficulty": 4,
+  "level": "L2",
+  "difficulty": 3,
   "isPremium": true,
   "description": "两个位置的极薄切球：1 号、2 号分别打进右下角袋，每杆母球摆回原位、独立击打。切角约 43°→58°（中大角度递进），位置1小力中杆，位置2中力中杆。",
   "coachingPoints": [

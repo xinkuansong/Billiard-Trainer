@@ -145,7 +145,7 @@
     },
     {
       "weekNumber": 2,
-      "theme": "直线出杆、定杆与五分点（I13：五分点同周首次引入）",
+      "theme": "直线出杆与定杆",
       "sessions": [
         {
           "dayNumber": 1,
@@ -247,16 +247,63 @@
               "durationMinutes": 20,
               "drills": [
                 {
-                  "drillId": "drill_c007",
+                  "drillId": "drill_c009",
                   "dose": {
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 4,
-                        "ballsPerRound": 10
+                        "rounds": 7,
+                        "ballsPerRound": 12
                       }
                     ],
                     "decay": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 50,
+              "drills": [
+                {
+                  "drillId": "drill_c010",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 7,
+                        "ballsPerRound": 12
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "weekNumber": 3,
+      "theme": "五分点瞄准线",
+      "sessions": [
+        {
+          "dayNumber": 1,
+          "phases": [
+            {
+              "type": "warmup",
+              "durationMinutes": 20,
+              "drills": [
+                {
+                  "drillId": "drill_c008",
+                  "dose": {
+                    "roundsPerFormation": 1
                   }
                 }
               ]
@@ -284,15 +331,9 @@
               "drills": []
             }
           ]
-        }
-      ]
-    },
-    {
-      "weekNumber": 3,
-      "theme": "五分点瞄准线（复现）",
-      "sessions": [
+        },
         {
-          "dayNumber": 1,
+          "dayNumber": 2,
           "phases": [
             {
               "type": "warmup",
@@ -333,7 +374,7 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "dayNumber": 3,
           "phases": [
             {
               "type": "warmup",
@@ -345,59 +386,6 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 4,
-                        "ballsPerRound": 10
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 50,
-              "drills": [
-                {
-                  "drillId": "drill_c023",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 8,
-                        "ballsPerRound": 10
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 20,
-              "drills": [
-                {
-                  "drillId": "drill_c006",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 4,
-                        "ballsPerRound": 10
-                      },
-                      {
-                        "token": "manual02",
                         "rounds": 4,
                         "ballsPerRound": 10
                       }

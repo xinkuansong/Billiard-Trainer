@@ -26,7 +26,7 @@ struct PlannedTrainingSet: Equatable {
 
 /// 动作页「建议训练量」逐行文案（v34 R10，紧凑口径见 v34 后续展示层收敛）。
 struct SuggestedDoseLine: Equatable {
-    /// 多球形时的行首标签（如「球形1」）；单球形 / 汇总兜底为 nil。
+    /// 行首标签「球形k」。单球形亦为「球形1」（v39 R5 统一行格式）；汇总兜底无组时整表为空。
     let title: String?
     /// 模式标签：「逐位重复」/「整链走位」；无序列汇总兜底为 nil。
     let modeLabel: String?
@@ -131,6 +131,17 @@ struct ResolvedDose: Equatable {
         return "\(groups.count) 球形"
     }
 
+    /// 计划行读屏（v39 R5）：单球形「动作名，球形1 模式 m × n」；
+    /// 多球形「动作名，N 球形」——明细由展开行自行朗读。不含 `doseNote`。
+    func planEntryAccessibilityLabel(drillName: String) -> String {
+        if groups.count <= 1, let line = suggestedDoseLines().first {
+            return "\(drillName)，\(Self.displayText(for: line))"
+        }
+        let summary = planEntrySummaryText()
+        if summary.isEmpty { return drillName }
+        return "\(drillName)，\(summary)"
+    }
+
     /// 球数 → 分钟（R7 固定 2.5 球/分钟），向上取 5 的整数倍。
     static func estimatedMinutes(forBalls balls: Int) -> Int {
         guard balls > 0 else { return 0 }
@@ -138,16 +149,15 @@ struct ResolvedDose: Equatable {
         return Int((raw / 5).rounded(.up)) * 5
     }
 
-    /// 「建议训练量」逐球形文案（v34 R10）。无序列汇总兜底仍返回单行。
+    /// 「建议训练量」逐球形文案（v34 R10 / v39 R5）。无序列汇总兜底仍返回单行。
     func suggestedDoseLines() -> [SuggestedDoseLine] {
         guard !groups.isEmpty else { return [] }
-        let multi = groups.count > 1
         return groups.enumerated().map { index, group in
             // 展示名统一序号制映射（groups 保持内容声明顺序 = 序列文件稳定顺序），
             // 不透出内容生产期的任意原始名（如「… · 球形4」）。
-            let title: String? = multi ? "球形\(index + 1)" : nil
+            // 单球形也标「球形1」，计划行第二行与多球形明细同一套格式。
             return SuggestedDoseLine(
-                title: title,
+                title: "球形\(index + 1)",
                 modeLabel: Self.modeLabel(for: group.mode),
                 text: Self.suggestedLineText(for: group),
                 note: group.doseNote
@@ -160,6 +170,11 @@ struct ResolvedDose: Equatable {
     func suggestedDoseTotalText() -> String? {
         guard !groups.isEmpty else { return nil }
         return "合计：\(totalBalls) 杆"
+    }
+
+    /// 统一行：「球形k 逐位重复/整链走位 m × n」。供读屏与计划行拼装。
+    static func displayText(for line: SuggestedDoseLine) -> String {
+        [line.title, line.modeLabel, line.text].compactMap { $0 }.joined(separator: " ")
     }
 
     private static func modeLabel(for mode: DrillContent.DoseMode?) -> String? {

@@ -1081,6 +1081,9 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-08-18 | **计划行动作名单行**（v39 收官后点验）：`drillTrackRow` 课名 `.lineLimit(1)` + 略缩字，去掉 `fixedSize(vertical:)`；「N 球形」改脚注字重、不再抢宽度。禁止课名折成「底袋小角度入 / 袋」 | 修正 | PlanDetailView | 用户实机反馈 |
+| 2026-08-18 | **计划行剂量统一格式**（v39 W1b / R5）：单球形第二行渲染 `suggestedDoseLines` 首行（`球形1` + 模式 + `m × n`），不再用光秃 `planEntrySummaryText()`；多球形「N 球形」与动作名同一 HStack trailing；`suggestedDoseLines` 单球形 `title = "球形1"`；读屏跟上；`doseNote` 仍不上屏 | 修正 | PlanDetailView, TrainingDoseResolver, DrillDetailView（连带） | 问题集合 v39 W1b |
+| 2026-08-18 | **计划行拆名/量 + doseNote 不上屏**（v39 W1）：`drillTrackRow` 动作名与剂量各一个 `Text`（剂量 `.lineLimit(1)`）；计划页/动作页不渲染 `SuggestedDoseLine.note`；读屏「动作名，剂量」 | 修正 | PlanDetailView, DrillDetailView, TrainingDoseResolver | 问题集合 v39 W1 |
 | 2026-08-14 | **货架 12 份对齐**（v38 W7）：`V37W4PlanShelfUITests` 钉准度Ⅲ上屏 + 准度Ⅰ第一堂 c011 + 走位Ⅱ第一堂 c080；封面标签 W1 已有「准度Ⅲ」 | 修正 | V37W4PlanShelfUITests | 问题集合 v38 W7 |
 | 2026-08-14 | **计划封面加「准度Ⅲ」标签**（v38 W1）：`PlanCoverLabel` 为 `plan_accuracy3` 返回「准度Ⅲ」；货架 UI 仍钉 11 份，12 份对齐留 W7 | 修正 | BTPlanCover, CoverPaletteContrastTests | 问题集合 v38 W1 |
 | 2026-08-14 | **计划货架 11 份档位与封面标签**（DR-072 / v37 W4）：`PlanListView.groupedPlans` 补齐 `L0→L2` / `L1→L3` / `L2→L3` / `L2→L4`，未知档追加而非丢卡；`CoverPalette.PlanStyle.forLevel` 新档别名到现有 6 色（不扩 `planLevelKeys`）；`PlanCoverLabel` 走位Ⅰ/Ⅱ、准度Ⅱ、特殊球、全能综合 | 修正/DR | PlanListView, CoverPalette, BTPlanCover, PlanDetailView | 问题集合 v37 W4 |

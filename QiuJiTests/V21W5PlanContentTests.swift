@@ -22,11 +22,12 @@ final class V21W5PlanContentTests: XCTestCase {
                 }
             }
         }
-        // 失败机理（PD-027 / v38 W0）：旧序热身已是跟进、远台跟进先于近中距。
+        // 失败机理（PD-027 / v39 W6）：旧序先斯登（c016）再定杆（c014）。
+        // 正文写「不是切角」，先决改为先定杆（约 10→32 颗球停在原位附近）再打点灵敏度（间距约 10 颗球只改打点）。
         XCTAssertEqual(
             firstFocused,
-            ["drill_c016", "drill_c014", "drill_c003", "drill_c004", "drill_c015", "drill_c017"],
-            "杆法Ⅰ focused 首次引入须等于 W0 表：\(firstFocused)"
+            ["drill_c014", "drill_c016", "drill_c003", "drill_c004", "drill_c015", "drill_c017"],
+            "杆法Ⅰ focused 首次引入须等于语义课表 §1.3：\(firstFocused)"
         )
     }
 
@@ -252,32 +253,26 @@ final class V21W5PlanContentTests: XCTestCase {
                         }
                         if ["drill_c082", "drill_c054", "drill_c078"].contains(drill.drillId) {
                             biteCount[drill.drillId, default: 0] += 1
-                            XCTAssertEqual(phase.type, "warmup", "\(drill.drillId) 只许咬合热身")
-                            let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
-                            XCTAssertEqual(dose.reviewFrom, [
-                                "drill_c082": "plan_positioning2",
-                                "drill_c054": "plan_advanced",
-                                "drill_c078": "plan_accuracy3",
-                            ][drill.drillId], "\(drill.drillId) reviewFrom 须指向来源计划")
                         }
                     }
                 }
             }
         }
-        // 失败机理（PD-027 / v38 W0）：旧序十球/十五球蛇彩先于五球。
+        // 失败机理（PD-027 / v39 W6）：旧序十球/十五球蛇彩先于五球；旧咬合要求
+        // c078/c054/c082 各热身 1 次。远台带塞 / 翻袋 / 横向蛇彩不属开球+三球开档，W5 已删。
         XCTAssertEqual(
             firstFocused,
             ["drill_c066", "drill_c064", "drill_c068", "drill_c069",
              "drill_c071", "drill_c067", "drill_c065", "drill_c070"],
-            "全能 focused 首次引入须等于 W0 表：\(firstFocused)"
+            "全能 focused 首次引入须等于语义课表 §1.12：\(firstFocused)"
         )
         XCTAssertEqual(plan.minutesPerSession, 120, "全能课时档 120′")
         XCTAssertEqual(plan.isPremium, true, "全能须保持 Pro")
         for bite in ["drill_c082", "drill_c054", "drill_c078"] {
-            XCTAssertEqual(biteCount[bite], 1, "\(bite) 各至多 1 次，且本批应收一次：\(biteCount)")
+            XCTAssertEqual(biteCount[bite, default: 0], 0, "\(bite) 不得再作全能开档咬合：\(biteCount)")
         }
         let stolen = allIds.filter { id in
-            !firstFocused.contains(id) && !["drill_c082", "drill_c054", "drill_c078"].contains(id)
+            !firstFocused.contains(id)
         }
         XCTAssertTrue(stolen.isEmpty, "全能不得另抢其它线程主课：\(stolen)")
     }

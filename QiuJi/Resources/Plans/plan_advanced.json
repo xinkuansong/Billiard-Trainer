@@ -321,7 +321,7 @@
     },
     {
       "weekNumber": 3,
-      "theme": "贴库、跳球与后续主课首次引入",
+      "theme": "贴库与跳球",
       "sessions": [
         {
           "dayNumber": 1,
@@ -391,13 +391,18 @@
               "durationMinutes": 25,
               "drills": [
                 {
-                  "drillId": "drill_c055",
+                  "drillId": "drill_c058",
                   "dose": {
                     "formations": [
                       {
-                        "token": "manual01",
-                        "rounds": 5,
-                        "ballsPerRound": 10
+                        "token": "Snipaste_2026_06_19_17_50_08",
+                        "rounds": 1,
+                        "ballsPerRound": 12
+                      },
+                      {
+                        "token": "Snipaste_2026_06_19_17_50_48",
+                        "rounds": 1,
+                        "ballsPerRound": 12
                       }
                     ],
                     "decay": true
@@ -411,23 +416,6 @@
               "drills": [
                 {
                   "drillId": "drill_c059",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                },
-                {
-                  "drillId": "drill_c060",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 8
-                      }
-                    ]
-                  }
-                },
-                {
-                  "drillId": "drill_c061",
                   "dose": {
                     "roundsPerFormation": 1
                   }
@@ -473,20 +461,7 @@
               "durationMinutes": 60,
               "drills": [
                 {
-                  "drillId": "drill_c060",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 8,
-                        "ballsPerRound": 12
-                      }
-                    ],
-                    "decay": true
-                  }
-                },
-                {
-                  "drillId": "drill_c061",
+                  "drillId": "drill_c059",
                   "dose": {
                     "roundsPerFormation": 1
                   }
@@ -504,7 +479,7 @@
     },
     {
       "weekNumber": 4,
-      "theme": "安全与解球（复现）",
+      "theme": "安全与解球",
       "sessions": [
         {
           "dayNumber": 1,
@@ -543,11 +518,9 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 8,
-                        "ballsPerRound": 10
+                        "rounds": 8
                       }
-                    ],
-                    "decay": true
+                    ]
                   }
                 }
               ]

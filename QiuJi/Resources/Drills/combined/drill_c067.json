@@ -1,13 +1,13 @@
 {
   "id": "drill_c067",
-  "nameZh": "9球标准清台",
-  "nameEn": "Nine-Ball Standard Clear-Out",
+  "nameZh": "九球顺序清台",
+  "nameEn": "Nine-Ball Sequential Clear",
   "category": "combined",
   "subcategory": "nineBallClear",
   "ballType": [
     "nineBall"
   ],
-  "level": "L2",
+  "level": "L3",
   "difficulty": 4,
   "isPremium": true,
   "description": "按 9 球规则从 1 号打到 9 号顺序清台：每一杆结束后母球必须落到下一号的可进攻位，不允许跳号。以整局清台成败与「卡在第几号」记分，专门练顺序约束下的走位与风险决策。",

@@ -435,15 +435,14 @@ struct PlanDetailView: View {
             formationOptions: options
         )
         let name = drillNames[ref.drillId] ?? ref.drillId
-        let summary = "\(name) · \(resolved.planEntrySummaryText())"
         let lines = resolved.suggestedDoseLines()
-        // 单球形已内联到条目行（m × n），仅多球形才有逐球形明细可展开。
-        let hasDetail = resolved.groups.count > 1
-        let isExpanded = hasDetail && expandedDrillKeys.contains(expandKey)
+        // 仅多球形可展开；单球形第二行直接渲染统一剂量行，无 chevron。
+        let isMulti = resolved.groups.count > 1
+        let isExpanded = isMulti && expandedDrillKeys.contains(expandKey)
 
         return VStack(alignment: .leading, spacing: Spacing.xs) {
             Button {
-                guard hasDetail else { return }
+                guard isMulti else { return }
                 withAnimation(BTMotion.springPanel) {
                     if isExpanded {
                         expandedDrillKeys.remove(expandKey)
@@ -463,25 +462,30 @@ struct PlanDetailView: View {
                         .padding(.top, 2)
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(summary)
-                            .font(.btCallout)
-                            .foregroundStyle(.btText)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .monospacedDigit()
-                        // 单球形的例外说明直接随行展示（无展开层）。
-                        if !hasDetail, let note = lines.first?.note, !note.isEmpty {
-                            Text(note)
-                                .font(.btCaption)
-                                .foregroundStyle(.btTextTertiary)
-                                .multilineTextAlignment(.leading)
-                                .fixedSize(horizontal: false, vertical: true)
+                        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                            Text(name)
+                                .font(.btCallout)
+                                .foregroundStyle(.btText)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .layoutPriority(1)
+                            if isMulti {
+                                Spacer(minLength: Spacing.sm)
+                                // 「N 球形」与动作名同一行（名左、数量右），禁止独占第二行。
+                                Text(resolved.planEntrySummaryText())
+                                    .font(.btFootnote)
+                                    .foregroundStyle(.btTextSecondary)
+                                    .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: false)
+                            }
+                        }
+                        if !isMulti, let line = lines.first {
+                            suggestedDoseLineRow(line)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Spacer(minLength: Spacing.sm)
-
-                    if hasDetail {
+                    if isMulti {
                         Image(systemName: BTIcon.chevronDown)
                             .font(.btCaption)
                             .foregroundStyle(.btTextTertiary)
@@ -492,35 +496,12 @@ struct PlanDetailView: View {
             }
             .buttonStyle(BTPressableStyle.row)
             .accessibilityIdentifier("planDrillRow-\(ref.drillId)")
-            .accessibilityLabel(summary)
+            .accessibilityLabel(resolved.planEntryAccessibilityLabel(drillName: name))
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { _, line in
-                        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                            if let title = line.title {
-                                // 条目行已有动作名，明细行只留「·」后的球形短标签，避免整行重复。
-                                Text(DrillFormationOption(token: "", name: title).shortLabel)
-                                    .font(.btFootnote)
-                                    .foregroundStyle(.btTextSecondary)
-                                    .frame(minWidth: 44, alignment: .leading)
-                            }
-                            if let modeLabel = line.modeLabel {
-                                Text(modeLabel)
-                                    .font(.btCaption)
-                                    .foregroundStyle(.btTextTertiary)
-                            }
-                            Text(line.text)
-                                .font(.btFootnote)
-                                .foregroundStyle(.btTextSecondary)
-                                .monospacedDigit()
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        if let note = line.note, !note.isEmpty {
-                            Text(note)
-                                .font(.btCaption)
-                                .foregroundStyle(.btTextTertiary)
-                        }
+                        suggestedDoseLineRow(line)
                     }
                 }
                 .padding(.leading, 40 + 20 + Spacing.md)
@@ -530,6 +511,29 @@ struct PlanDetailView: View {
             }
         }
         .padding(.vertical, 2)
+    }
+
+    /// R5 统一剂量行：`球形k` + 模式 + `m × n`。不渲染 `line.note`。
+    @ViewBuilder
+    private func suggestedDoseLineRow(_ line: SuggestedDoseLine) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+            if let title = line.title {
+                Text(title)
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+                    .frame(minWidth: 44, alignment: .leading)
+            }
+            if let modeLabel = line.modeLabel {
+                Text(modeLabel)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+            Text(line.text)
+                .font(.btFootnote)
+                .foregroundStyle(.btTextSecondary)
+                .monospacedDigit()
+                .lineLimit(1)
+        }
     }
 
     /// 单阶段分钟：有动作按球数 ÷ 2.5；空阶段用 JSON 时长。
