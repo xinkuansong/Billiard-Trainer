@@ -3,6 +3,7 @@ import SwiftData
 
 struct DrillListView: View {
     @StateObject private var viewModel = DrillListViewModel()
+    @EnvironmentObject private var router: AppRouter
     @Query private var favorites: [DrillFavorite]
     @Query private var sessions: [TrainingSession]
     @Environment(\.modelContext) private var modelContext
@@ -157,6 +158,7 @@ struct DrillListView: View {
                     category: nil,
                     isSelected: viewModel.categoryFilter == nil
                 ) {
+                    viewModel.restoreDrillID = nil
                     viewModel.categoryFilter = nil
                     scrollToken &+= 1
                 }
@@ -167,6 +169,7 @@ struct DrillListView: View {
                         category: category,
                         isSelected: viewModel.categoryFilter == category
                     ) {
+                        viewModel.restoreDrillID = nil
                         viewModel.categoryFilter = category
                         scrollToken &+= 1
                     }
@@ -240,7 +243,10 @@ struct DrillListView: View {
                         Section {
                             LazyVGrid(columns: gridColumns, spacing: Spacing.md) {
                                 ForEach(group.drills) { drill in
-                                    NavigationLink(value: drill.id) {
+                                    Button {
+                                        viewModel.restoreDrillID = drill.id
+                                        router.drillLibraryPath.append(drill.id)
+                                    } label: {
                                         BTDrillGridCard(
                                             drill: drill,
                                             isFavorited: isFavorited(drill.id),
@@ -249,6 +255,7 @@ struct DrillListView: View {
                                         )
                                     }
                                     .buttonStyle(.plain)
+                                    .id(drill.id)
                                     .accessibilityIdentifier("drillCard_\(drill.id)")
                                 }
                             }
@@ -270,6 +277,12 @@ struct DrillListView: View {
                     withAnimation(BTMotion.easeChrome) {
                         proxy.scrollTo(Self.gridTopAnchor, anchor: .top)
                     }
+                }
+            }
+            .onChange(of: router.drillLibraryPath.count) { oldCount, newCount in
+                guard newCount < oldCount, let id = viewModel.restoreDrillID else { return }
+                withAnimation(BTMotion.easeChrome) {
+                    proxy.scrollTo(id, anchor: .center)
                 }
             }
             .transition(.opacity)
@@ -294,9 +307,12 @@ struct DrillListView: View {
                         isSelected: viewModel.levelFilter == filter,
                         accessibilityIdentifier: "levelFilter_\(filter.rawValue)"
                     ) {
+                        guard viewModel.levelFilter != filter else { return }
                         withAnimation(BTMotion.easeFast) {
                             viewModel.levelFilter = filter
                         }
+                        viewModel.restoreDrillID = nil
+                        scrollToken &+= 1
                     }
                 }
             }
@@ -367,6 +383,7 @@ struct DrillListView: View {
         DrillListView()
             .navigationTitle("动作库")
     }
+    .environmentObject(AppRouter())
     .modelContainer(for: [DrillFavorite.self, TrainingSession.self], inMemory: true)
 }
 
@@ -375,6 +392,7 @@ struct DrillListView: View {
         DrillListView()
             .navigationTitle("动作库")
     }
+    .environmentObject(AppRouter())
     .modelContainer(for: [DrillFavorite.self, TrainingSession.self], inMemory: true)
     .preferredColorScheme(.dark)
 }

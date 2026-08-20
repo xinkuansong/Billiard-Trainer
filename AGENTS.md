@@ -34,6 +34,7 @@
 | 规则文件 | 角色 | 典型触发 |
 |----------|------|----------|
 | `00-orchestrator.mdc` | 主控调度 + 人工检查 | 每次会话入口 |
+| `02-voice-billiard-terms.mdc` | 语音近音 → 标准台球术语 | 疑似语音输入、错字像「加赛/走味/定刚」 |
 | `10-ios-architect.mdc` | 架构 / 模块 / ADR | 新模块、重构、技术选型 |
 | `20-swiftui-developer.mdc` | SwiftUI / Canvas / 设计系统 | `*View.swift`、界面 |
 | `30-data-engineer.mdc` | SwiftData / 自建 REST API | Model、同步、鉴权 |
@@ -54,6 +55,8 @@
 - `tutorial-authoring` — 走位序列 JSON → 图文精讲：digest 脚本、应用课模板、理论教练话转写、自查清单
 - `tutorial-migration` — legacy 四段纯文本精讲 → 新版结构化精讲：路由判定、旧文本资产化、去伪几何断言、单杆技术课/规则流程课骨架
 - `geometry-spatial-reasoning` — 几何/坐标/角度/相对位置：坐标契约、禁止脑算清单、数值草稿验证、不变量护栏
+- `voice-billiard-terms` — 疑似语音输入时把近音/错字还原成标准台球与球迹术语（详表 `glossary.md`）
+- `formation-training-intent` — 口述球形训练意图 → 表内两句成段（摆法 + 这一形主要练）；只写研究表，不回写 JSON
 - `plan-delegated-execution` — 多会话方案全程委派执行（串行）：每批派给执行子智能体（模型按 01-subagent-model-selection 确认，默认 cursor-grok-4.6-high-fast），主控独立验收 + 返工循环直至达标
 - `plan-parallel-delegated-execution` — 串行版的并行扩展：批次分波（横切串行/页面域并行 ≤3）、worktree 隔离执行、主控串行合并逐批验证、模型按批次风险路由
 

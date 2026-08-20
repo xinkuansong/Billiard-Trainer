@@ -36,6 +36,11 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     let displaySpinX: Double = 0
     let displaySpinY: Double = 0
 
+    /// 左缘 8 档开关；默认全开，至少留 1 档。只挡画线，不挡并行计算。
+    @Published private(set) var enabledTracks: Set<Int> = AtlasSpinTrackSelection.allEnabled
+    private var lastPostCushionPaths: [[SCNVector3]] = []
+    private var lastPreCushionPaths: [[SCNVector3]] = []
+
     private let solveScheduler = SolveDebounceScheduler(
         idleInterval: SolveDebounceScheduler.defaultFastInterval,
         fastInterval: SolveDebounceScheduler.defaultFastInterval
@@ -306,6 +311,14 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         scheduleRecompute(interactive: false)
     }
 
+    /// 点左缘迷你盘：开/关对应色轨迹。最后一档不可关。
+    func toggleTrack(_ index: Int) {
+        let next = AtlasSpinTrackSelection.toggle(enabledTracks, index: index)
+        guard next != enabledTracks else { return }
+        enabledTracks = next
+        redrawEnabledTrajectories()
+    }
+
     // MARK: - Recompute (debounce + single-flight + last bus)
 
     func scheduleRecompute(interactive: Bool) {
@@ -325,6 +338,8 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         guard let intent = currentIntent() else {
             isComputing = false
             statusText = "请摆好母球与目标球"
+            lastPostCushionPaths = []
+            lastPreCushionPaths = []
             clearTrajectories()
             return
         }
@@ -448,20 +463,26 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     /// 碰前用 `lineHint`、库后用 `lineMain`，层次区分但仍是真实轨迹。
     private func drawTrajectories(postCushion paths: [[SCNVector3]],
                                   preCushion: [[SCNVector3]]) {
+        lastPostCushionPaths = paths
+        lastPreCushionPaths = preCushion
+        redrawEnabledTrajectories()
+    }
+
+    private func redrawEnabledTrajectories() {
         clearTrajectories()
-        let n = max(paths.count, preCushion.count)
-        for i in 0..<n {
+        let n = max(lastPostCushionPaths.count, lastPreCushionPaths.count)
+        for i in 0..<n where enabledTracks.contains(i) {
             let color = CushionEnglishAtlasGeometry.trackColor(at: i)
-            if i < preCushion.count, preCushion[i].count >= 2 {
+            if i < lastPreCushionPaths.count, lastPreCushionPaths[i].count >= 2 {
                 scene.addDashedPolyline(
-                    preCushion[i],
+                    lastPreCushionPaths[i],
                     color: color.withAlphaComponent(0.55),
                     radius: TrajectoryStyle.lineHint,
                     into: &trajectoryNodes)
             }
-            if i < paths.count, paths[i].count >= 2 {
+            if i < lastPostCushionPaths.count, lastPostCushionPaths[i].count >= 2 {
                 scene.addDashedPolyline(
-                    paths[i],
+                    lastPostCushionPaths[i],
                     color: color,
                     radius: TrajectoryStyle.lineMain,
                     into: &trajectoryNodes)

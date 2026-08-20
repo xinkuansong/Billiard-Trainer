@@ -1,5 +1,6 @@
 import XCTest
 import SwiftData
+import Combine
 @testable import QiuJi
 
 /// v31 W2：计划 dose × drill `perFormation` → 组序列（契约 §6.6）。
@@ -584,6 +585,35 @@ final class TrainingHomeViewModelTests: XCTestCase {
                                                    subdirectory: "Drills"))
         let index = try JSONDecoder().decode(DrillIndex.self, from: try Data(contentsOf: url))
         return index.allDrillIds
+    }
+
+    // MARK: - 二次加载不出骨架（训练货架滚动记忆）
+
+    func test_reloadDoesNotFlipIsLoadingWhenPlansAlreadyPresent() async {
+        let context = makeContext()
+        let vm = TrainingHomeViewModel()
+        await vm.load(context: context)
+        XCTAssertFalse(vm.isLoading)
+        XCTAssertFalse(vm.officialPlans.isEmpty, "Bundle 官方计划应已装入")
+
+        var sawLoadingTrue = false
+        let sub = vm.$isLoading.sink { if $0 { sawLoadingTrue = true } }
+        await vm.load(context: context)
+        XCTAssertFalse(sawLoadingTrue, "二次 load 不得再把 isLoading 打成 true（会拆掉货架、滚回顶）")
+        XCTAssertFalse(vm.isLoading)
+        XCTAssertFalse(vm.officialPlans.isEmpty)
+        _ = sub
+    }
+
+    func test_requestBrowseScrollIncrementsTickAndSetsTarget() {
+        let vm = TrainingHomeViewModel()
+        XCTAssertEqual(vm.browseScrollTick, 0)
+        vm.requestBrowseScroll(to: "plan_positioning2")
+        XCTAssertEqual(vm.browseScrollTarget, "plan_positioning2")
+        XCTAssertEqual(vm.browseScrollTick, 1)
+        vm.requestBrowseScroll(to: TrainingHomeViewModel.scrollTopID)
+        XCTAssertEqual(vm.browseScrollTarget, TrainingHomeViewModel.scrollTopID)
+        XCTAssertEqual(vm.browseScrollTick, 2)
     }
 }
 

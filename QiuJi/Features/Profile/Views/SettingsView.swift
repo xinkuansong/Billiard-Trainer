@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @ObservedObject private var prefs = UserPreferences.shared
     @EnvironmentObject private var authState: AuthState
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
     @State private var showDeleteErrorAlert = false
@@ -19,6 +20,9 @@ struct SettingsView: View {
                     appearanceSection
                     soundSection
                     trainingAidSection
+                    #if DEBUG && targetEnvironment(simulator)
+                    simulatorDebugSection
+                    #endif
                     dataSection
                     if authState.isLoggedIn {
                         accountSection
@@ -150,6 +154,41 @@ struct SettingsView: View {
         }
     }
 
+    #if DEBUG && targetEnvironment(simulator)
+    private var simulatorDebugSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("开发者（模拟器）")
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btTextSecondary)
+                .padding(.leading, Spacing.xs)
+
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Toggle(isOn: debugPremiumBinding) {
+                    Text("解锁 Pro")
+                        .font(.btBody)
+                        .foregroundStyle(.btText)
+                }
+                .tint(.btAccent)
+                .accessibilityIdentifier("simulatorUnlockProToggle")
+                Text("make run / 点图标不会注入商店。打开后本机保持 Pro，UI 测试启动会重置。")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        }
+    }
+
+    private var debugPremiumBinding: Binding<Bool> {
+        Binding(
+            get: { subscriptionManager.isDebugPremiumPersisted },
+            set: { subscriptionManager.setDebugPremiumUnlocked($0) }
+        )
+    }
+    #endif
+
     // MARK: - Data Management
 
     private var dataSection: some View {
@@ -278,6 +317,7 @@ struct SettingsView: View {
     NavigationStack {
         SettingsView()
             .environmentObject(AuthState())
+            .environmentObject(SubscriptionManager.shared)
     }
 }
 
@@ -285,6 +325,7 @@ struct SettingsView: View {
     NavigationStack {
         SettingsView()
             .environmentObject(AuthState())
+            .environmentObject(SubscriptionManager.shared)
     }
     .preferredColorScheme(.dark)
 }
@@ -295,5 +336,6 @@ struct SettingsView: View {
     return NavigationStack {
         SettingsView()
             .environmentObject(state)
+            .environmentObject(SubscriptionManager.shared)
     }
 }

@@ -30,6 +30,10 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     let displaySpinX: Double = 0
     let displaySpinY: Double = 0
 
+    /// 左缘 8 档开关；默认全开，至少留 1 档。只挡画线，不挡并行计算。
+    @Published private(set) var enabledTracks: Set<Int> = AtlasSpinTrackSelection.allEnabled
+    private var lastPaths: [[SCNVector3]] = []
+
     private let solveScheduler = SolveDebounceScheduler(
         idleInterval: SolveDebounceScheduler.defaultFastInterval,
         fastInterval: SolveDebounceScheduler.defaultFastInterval
@@ -296,6 +300,14 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         scheduleRecompute(interactive: false)
     }
 
+    /// 点左缘迷你盘：开/关对应色轨迹。最后一档不可关。
+    func toggleTrack(_ index: Int) {
+        let next = AtlasSpinTrackSelection.toggle(enabledTracks, index: index)
+        guard next != enabledTracks else { return }
+        enabledTracks = next
+        redrawEnabledTrajectories()
+    }
+
     // MARK: - Recompute (debounce + single-flight + last bus)
 
     func scheduleRecompute(interactive: Bool) {
@@ -315,6 +327,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         guard let intent = currentIntent() else {
             isComputing = false
             statusText = "请摆好母球与目标球"
+            lastPaths = []
             clearTrajectories()
             return
         }
@@ -429,10 +442,16 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         scene.clearResultNodes(nodes: &trajectoryNodes)
     }
 
-    /// 仅画 8 色碰后轨迹；端点文字标注已退役（v15 A1），改由左缘色盘图例表达。
+    /// 仅画已勾选档的碰后轨迹；端点文字标注已退役（v15 A1），改由左缘色盘图例表达。
     private func drawTrajectories(_ paths: [[SCNVector3]]) {
+        lastPaths = paths
+        redrawEnabledTrajectories()
+    }
+
+    private func redrawEnabledTrajectories() {
         clearTrajectories()
-        for (i, path) in paths.enumerated() where path.count >= 2 {
+        for (i, path) in lastPaths.enumerated()
+            where path.count >= 2 && enabledTracks.contains(i) {
             scene.addDashedPolyline(
                 path,
                 color: SeparationAngleAtlasGeometry.trackColor(at: i),

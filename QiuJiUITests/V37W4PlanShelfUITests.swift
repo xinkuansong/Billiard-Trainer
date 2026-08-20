@@ -54,6 +54,80 @@ final class V37W4PlanShelfUITests: XCTestCase {
         savePNG("04-positioning2-first-lesson")
     }
 
+    /// 训练首页货架：打开靠后的计划再返回，应仍停在该卡附近，不必从顶再滑。
+    func testHomeShelfScrollRestoredAfterClosingPlan() {
+        app = XCUIApplication.launchClean()
+        app.switchTab(.training)
+        XCTAssertTrue(app.buttons["官方计划"].waitForExistence(timeout: 8)
+                      || app.staticTexts["官方计划"].waitForExistence(timeout: 2))
+
+        let card = app.buttons["planPoster-plan_positioning2"]
+        XCTAssertTrue(scrollUntilOnScreen(card), "应能滑到走位Ⅱ卡片")
+        savePNG("05-home-before-open")
+        tapEvenIfOccluded(card)
+        XCTAssertTrue(app.staticTexts["训练安排"].waitForExistence(timeout: 10), "应进入计划详情")
+        goBack()
+        XCTAssertTrue(
+            app.buttons["官方计划"].waitForExistence(timeout: 8)
+                || app.staticTexts["官方计划"].waitForExistence(timeout: 2),
+            "应回到训练首页"
+        )
+        let backCard = app.buttons["planPoster-plan_positioning2"]
+        XCTAssertTrue(
+            backCard.waitForExistence(timeout: 3) && isOnScreen(backCard),
+            "返回后走位Ⅱ仍应在视口内，无需从顶部再滑"
+        )
+        savePNG("06-home-after-back")
+    }
+
+    /// 「训练计划」列表：打开靠后的计划再返回，应仍停在该卡附近。
+    func testPlanListScrollRestoredAfterClosingPlan() {
+        app = XCUIApplication.launchClean()
+        app.switchTab(.training)
+        XCTAssertTrue(openPlanList(), "应能打开训练计划列表")
+
+        let card = app.buttons["planListPoster-plan_positioning2"]
+        XCTAssertTrue(scrollUntilOnScreen(card), "列表应能滑到走位Ⅱ卡片")
+        savePNG("07-list-before-open")
+        tapEvenIfOccluded(card)
+        XCTAssertTrue(app.staticTexts["训练安排"].waitForExistence(timeout: 10), "应进入计划详情")
+        goBack()
+        XCTAssertTrue(app.navigationBars["训练计划"].waitForExistence(timeout: 8)
+                      || app.staticTexts["训练计划"].waitForExistence(timeout: 2))
+        let backCard = app.buttons["planListPoster-plan_positioning2"]
+        XCTAssertTrue(
+            backCard.waitForExistence(timeout: 3) && isOnScreen(backCard),
+            "返回列表后走位Ⅱ仍应在视口内"
+        )
+        savePNG("08-list-after-back")
+    }
+
+    private func isOnScreen(_ element: XCUIElement) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        let screen = app.frame
+        return frame.width > 0
+            && frame.maxY > 80
+            && frame.minY < screen.height - 40
+    }
+
+    private func scrollUntilOnScreen(_ element: XCUIElement, maxSwipes: Int = 16) -> Bool {
+        for _ in 0..<maxSwipes {
+            if isOnScreen(element) { return true }
+            app.windows.firstMatch.swipeUp()
+        }
+        return isOnScreen(element)
+    }
+
+    /// 首页底栏圆形 CTA 可能挡住货架底卡，坐标点仍能进详情。
+    private func tapEvenIfOccluded(_ element: XCUIElement) {
+        if element.isHittable {
+            element.tap()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        }
+    }
+
     private func scrollToLabel(_ text: String) -> Bool {
         let pred = NSPredicate(format: "label CONTAINS %@", text)
         let el = app.descendants(matching: .any).matching(pred).firstMatch
@@ -73,6 +147,22 @@ final class V37W4PlanShelfUITests: XCTestCase {
         guard card.exists else { return false }
         card.tap()
         return app.staticTexts["训练安排"].waitForExistence(timeout: 10)
+    }
+
+    private func openPlanList() -> Bool {
+        let menu = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS 'ellipsis' OR label CONTAINS 'More'")
+        ).firstMatch
+        if menu.waitForExistence(timeout: 3) {
+            menu.tap()
+            let planList = app.buttons["训练计划"]
+            if planList.waitForExistence(timeout: 2) {
+                planList.tap()
+                return app.navigationBars["训练计划"].waitForExistence(timeout: 8)
+                    || app.staticTexts["训练计划"].waitForExistence(timeout: 2)
+            }
+        }
+        return false
     }
 
     private func goBack() {

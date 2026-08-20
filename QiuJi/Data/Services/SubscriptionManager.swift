@@ -27,6 +27,8 @@ final class SubscriptionManager: ObservableObject {
 
     private init() {
         #if DEBUG
+        Self.applyDebugPremiumLaunchOverrides()
+        isDebugPremiumPersisted = UserDefaults.standard.bool(forKey: Self.debugPremiumUnlockedKey)
         if Self.isEntitlementForcedPremium {
             isPremium = true
         }
@@ -62,7 +64,11 @@ final class SubscriptionManager: ObservableObject {
                 #else
                 print("[StoreKit] Running on Device — ensure launched from Xcode")
                 #endif
+                #if DEBUG && targetEnvironment(simulator)
+                errorMessage = "模拟器未注入商店配置，无法购买。请点下方「模拟器解锁 Pro」。"
+                #else
                 errorMessage = "未找到订阅方案。请在 Xcode Edit Scheme → Run → Options 中选择 Products.storekit"
+                #endif
             } else {
                 print("[StoreKit] ✅ Loaded \(loaded.count) products: \(loaded.map { "\($0.id) (\($0.displayPrice))" })")
                 errorMessage = nil
@@ -100,19 +106,63 @@ final class SubscriptionManager: ObservableObject {
         await loadProducts()
     }
 
-    // MARK: - Test-only Entitlement Override（X-v31-3）
+    // MARK: - Test-only Entitlement Override（X-v31-3 / 模拟器持久解锁）
 
     #if DEBUG
-    /// 强制订阅态：付费内容（付费官方计划等）在模拟器上无法走 StoreKit 购买，
-    /// 靠这个 launch argument 把 `isPremium` 注入，使**所有**依赖它的门禁看到同一状态。
+    /// 强制订阅态：`simctl launch` / 点图标不会注入 `Products.storekit`，
+    /// 模拟器买不成 Pro。`-forcePremium` 与 UserDefaults 持久开关把 `isPremium`
+    /// 注入，使**所有**依赖它的门禁看到同一状态。
     static let forcePremiumArgument = "-forcePremium"
     /// 既有开关：强制未订阅态。同时传入时它优先，保持既有 premium-gate 用例确定性。
     static let forceNonPremiumArgument = "-forceNonPremium"
+    /// UI 测试启动时清掉本机持久解锁，避免手动解锁污染用例。
+    static let resetDebugPremiumArgument = "-resetDebugPremium"
+    static let debugPremiumUnlockedKey = "debug.premiumUnlocked"
+
+    @Published private(set) var isDebugPremiumPersisted: Bool = false
 
     static var isEntitlementForcedPremium: Bool {
-        let arguments = ProcessInfo.processInfo.arguments
+        isEntitlementForcedPremium(
+            arguments: ProcessInfo.processInfo.arguments,
+            defaults: .standard
+        )
+    }
+
+    nonisolated static func isEntitlementForcedPremium(
+        arguments: [String],
+        defaults: UserDefaults
+    ) -> Bool {
         guard !arguments.contains(forceNonPremiumArgument) else { return false }
-        return arguments.contains(forcePremiumArgument)
+        if arguments.contains(forcePremiumArgument) { return true }
+        return defaults.bool(forKey: debugPremiumUnlockedKey)
+    }
+
+    /// `-resetDebugPremium` 先清持久位；随后若带 `-forcePremium`（且无 `-forceNonPremium`）再写入。
+    nonisolated static func applyDebugPremiumLaunchOverrides(
+        arguments: [String] = ProcessInfo.processInfo.arguments,
+        defaults: UserDefaults = .standard
+    ) {
+        if arguments.contains(resetDebugPremiumArgument) {
+            defaults.set(false, forKey: debugPremiumUnlockedKey)
+        }
+        if arguments.contains(forcePremiumArgument),
+           !arguments.contains(forceNonPremiumArgument) {
+            defaults.set(true, forKey: debugPremiumUnlockedKey)
+        }
+    }
+
+    func setDebugPremiumUnlocked(_ unlocked: Bool) {
+        UserDefaults.standard.set(unlocked, forKey: Self.debugPremiumUnlockedKey)
+        isDebugPremiumPersisted = unlocked
+        if ProcessInfo.processInfo.arguments.contains(Self.forceNonPremiumArgument) {
+            isPremium = false
+            return
+        }
+        if unlocked {
+            isPremium = true
+            return
+        }
+        Task { await checkEntitlements() }
     }
     #endif
 

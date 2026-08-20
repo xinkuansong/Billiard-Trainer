@@ -82,6 +82,15 @@
 
 ## DR 记录（设计调整）
 
+## FL-032
+- **任务**：问题集合 v40 W2–W7
+- **现象**：用户否决 W2–W7 交付——主控把规范拆成填空步骤派给子智能体，W2 还用应用脚本灌盘；门禁绿了，精讲仍不是「按规范语义写出来的」。
+- **根因**：把「遵守规范」做成了「主控代写改法」。规范原文已经禁止按模块填空；digest 之外的回写脚本、以及派发词里的锚点档/五问排版说明书，都会让写作者不再读规范、不再对每一形做判断。
+- **解决**：W2–W7 全量返工。派发只给范围 +「先通读规范再逐课逐形直接改 JSON」。⛔ 禁止任何生成/回写 tutorial 正文的脚本（digest 仅供几何事实）。W1 四条过目样板不动。
+- **日期**：2026-08-18
+- **回写目标**：`.cursor/agents/tutorial-writer.md`；`.cursor/skills/tutorial-authoring/SKILL.md`；`00-orchestrator.mdc` § 经验教训
+- **已应用至**：✅ `.cursor/agents/tutorial-writer.md` / `.cursor/skills/tutorial-authoring/SKILL.md` v1.8 / `00-orchestrator.mdc` § 经验教训（2026-08-18）
+
 ## FL-031
 - **任务**：精讲配图 HEIC 化（DR-070）落地后包体回涨——用户报「安装又变成 5G 多了」
 - **现象**：DR-070 交付时实测 285 MB，次日构建产物回到 **5.2 GB**。查 `project.yml` 第 79 行 `- path: QiuJi/Resources/DrillTutorials` folder reference **原样复活**，`make xcodegen` 据此把 4.9 GB PNG 母版（含 633 张孤儿帧）重新写进 `project.pbxproj` 打包。
@@ -207,6 +216,22 @@
 - **日期**：2026-08-07
 - **回写目标**：`docs/research/20260807-v30理论页组件规范.md`（新增 §四 配图硬性章节 + §三 风格收敛铁律）、`docs/research/20260807-v30理论转写模板.md`（§3.1 配图决策树）
 - **已应用至**：✅ `docs/research/20260807-v30理论页组件规范.md` v1.2 §三/§四/§五/§六/§二 + Changelog（2026-08-07）；✅ `docs/research/20260807-v30理论转写模板.md` v1.1 §一/§3.1/§3.2/§四 + Changelog（2026-08-07）；✅ 本文件 DR-064 补「返工 r1 修订」段（2026-08-07）
+
+---
+
+## DR-073
+- **任务**：分离角图谱 / 加塞吃库图谱左缘 8 盘点选开关轨迹
+- **原始规范**：左缘 8 只读迷你打点盘（`allowsHitTesting(false)`），台面恒画 8 色轨迹
+- **调整后**：
+  1. 左缘盘可点选开/关对应色轨迹；未选盘降透明，对应线消失。
+  2. 默认 8 档全开；关掉最后一档为 no-op（至少留 1 档）。
+  3. 开关只挡画线，不重跑并行 `simulateFree`；缓存最近一次 paths 后即时重画。
+  4. 共享规则 `AtlasSpinTrackSelection`（两页同源）。
+- **原因**：8 线叠在一起看不清；用户要自己勾选只看一档或几档。
+- **影响组件**：`SeparationAngleAtlasView` / `CushionEnglishAtlasView` 左缘盘
+- **日期**：2026-08-20
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog
+- **已应用至**：✅ SPEC §9.3 / Changelog（2026-08-20）
 
 ---
 
@@ -1524,6 +1549,18 @@
 - **日期**：2026-07-03
 - **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
 - **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog（2026-07-03，DR-020）。
+
+## PD-030
+- **任务**：模拟器 iPhone 17 Pro 解锁 Pro
+- **模式描述**：**「`simctl launch` 不注入 StoreKit，Debug 解锁必须走启动参数 + 持久位」**：
+  1. Scheme 的 `Products.storekit` 只在 Xcode Run / `xcodebuild test` 时注入。`make run` → `simctl install` + `simctl launch` 会去问真商店，商品为空，付费墙 CTA 灰掉。
+  2. 日常启动默认带 `-forcePremium`，并写入 UserDefaults；点桌面图标仍是 Pro。免费档用 `-resetDebugPremium`（`make run PREMIUM=0`）。
+  3. UI 测试 `launchClean` 必须先 `-resetDebugPremium`，避免手动解锁污染免费档用例；`-forceNonPremium` 仍优先于 `-forcePremium`。
+- **适用场景**：任何 IAP / Freemium 门禁在模拟器上用 `make run` / 点图标验证。
+- **代码示例**：`scripts/Makefile` `run` 目标；`SubscriptionManager.applyDebugPremiumLaunchOverrides`；`XCUIApplication.launchClean`。
+- **日期**：2026-08-19
+- **回写目标**：`.cursor/rules/60-devops-release.mdc` § 经验教训
+- **已应用至**：✅ `.cursor/rules/60-devops-release.mdc` § Changelog v0.4 + § 经验教训 / PD-030（2026-08-19）
 
 ## PD-029
 - **任务**：问题集合 v33 W3 / W5（2026-08-09）——`tutorial_digest.py` 的派生字段与真源不符，连续两批写作者都必须绕开它（v33 §七 遗留 L7）。

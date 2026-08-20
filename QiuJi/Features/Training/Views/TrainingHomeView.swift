@@ -23,23 +23,41 @@ struct TrainingHomeView: View {
             VStack(spacing: 0) {
                 pageHeader
 
-                ScrollView {
-                    VStack(spacing: Spacing.xl) {
-                        if viewModel.isLoading {
-                            BTDrillListSkeleton()
-                                .transition(.opacity)
-                                .frame(maxWidth: .infinity, minHeight: 300)
-                        } else if viewModel.hasActivePlan {
-                            activePlanContent
-                                .transition(.opacity)
-                        } else {
-                            emptyStateContent
-                                .transition(.opacity)
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: Spacing.xl) {
+                            Color.clear
+                                .frame(height: 0)
+                                .id(TrainingHomeViewModel.scrollTopID)
+                                .accessibilityHidden(true)
+
+                            if viewModel.isLoading {
+                                BTDrillListSkeleton()
+                                    .transition(.opacity)
+                                    .frame(maxWidth: .infinity, minHeight: 300)
+                            } else if viewModel.hasActivePlan {
+                                activePlanContent
+                                    .transition(.opacity)
+                            } else {
+                                emptyStateContent
+                                    .transition(.opacity)
+                            }
                         }
+                        // Clearance for docked circular CTA (continue float lives in MainTabView).
+                        .padding(.bottom, viewModel.hasActivePlan ? 88 : Spacing.xl)
+                        .animation(BTMotion.easeFast, value: viewModel.isLoading)
                     }
-                    // Clearance for docked circular CTA (continue float lives in MainTabView).
-                    .padding(.bottom, viewModel.hasActivePlan ? 88 : Spacing.xl)
-                    .animation(BTMotion.easeFast, value: viewModel.isLoading)
+                    .onChange(of: viewModel.browseScrollTick) { _, _ in
+                        let id = viewModel.browseScrollTarget
+                        let anchor: UnitPoint =
+                            (id == TrainingHomeViewModel.scrollTopID
+                             || id == TrainingHomeViewModel.scrollBrowsingID) ? .top : .center
+                        proxy.scrollTo(id, anchor: anchor)
+                    }
+                    .onChange(of: router.trainingPath.count) { oldCount, newCount in
+                        guard newCount < oldCount, let restore = viewModel.restorePlanID else { return }
+                        viewModel.requestBrowseScroll(to: restore)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -53,7 +71,11 @@ struct TrainingHomeView: View {
         .task {
             await viewModel.load(context: modelContext)
         }
-        .onChange(of: activePlanSignature) { _, _ in
+        .onChange(of: activePlanSignature) { oldValue, _ in
+            if !oldValue.isEmpty {
+                viewModel.restorePlanID = nil
+                viewModel.requestBrowseScroll(to: TrainingHomeViewModel.scrollTopID)
+            }
             Task { await viewModel.load(context: modelContext) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .didRequestResumeTraining)) { _ in
@@ -87,6 +109,7 @@ struct TrainingHomeView: View {
 
             HStack(spacing: Spacing.md) {
                 Button {
+                    viewModel.restorePlanID = nil
                     router.trainingPath.append(TrainingRoute.planList)
                 } label: {
                     Image(systemName: BTIcon.personGroup)
@@ -98,11 +121,13 @@ struct TrainingHomeView: View {
 
                 Menu {
                     Button {
+                        viewModel.restorePlanID = nil
                         router.trainingPath.append(TrainingRoute.planList)
                     } label: {
                         Label("训练计划", systemImage: "list.bullet.rectangle.portrait")
                     }
                     Button {
+                        viewModel.restorePlanID = nil
                         router.trainingPath.append(TrainingRoute.customPlanBuilder)
                     } label: {
                         Label("新建自定义计划", systemImage: "plus")
@@ -408,6 +433,11 @@ struct TrainingHomeView: View {
             }
             .animation(BTMotion.easeFast, value: viewModel.selectedTab)
         }
+        .id(TrainingHomeViewModel.scrollBrowsingID)
+        .onChange(of: viewModel.selectedTab) { _, _ in
+            viewModel.restorePlanID = nil
+            viewModel.requestBrowseScroll(to: TrainingHomeViewModel.scrollBrowsingID)
+        }
     }
 
     // MARK: - Filter Chips
@@ -420,9 +450,12 @@ struct TrainingHomeView: View {
                         title: filter.rawValue,
                         isSelected: viewModel.selectedFilter == filter
                     ) {
+                        guard viewModel.selectedFilter != filter else { return }
                         withAnimation(BTMotion.easeFast) {
                             viewModel.selectedFilter = filter
                         }
+                        viewModel.restorePlanID = nil
+                        viewModel.requestBrowseScroll(to: TrainingHomeViewModel.scrollBrowsingID)
                     }
                 }
             }
@@ -445,10 +478,15 @@ struct TrainingHomeView: View {
                 spacing: Spacing.md
             ) {
                 ForEach(Array(viewModel.filteredPlans.enumerated()), id: \.element.id) { index, plan in
-                    NavigationLink(value: TrainingRoute.planDetail(planId: plan.id)) {
+                    Button {
+                        viewModel.restorePlanID = plan.id
+                        router.trainingPath.append(TrainingRoute.planDetail(planId: plan.id))
+                    } label: {
                         planPosterCard(plan, issueNumber: index + 1)
                     }
                     .buttonStyle(.plain)
+                    .id(plan.id)
+                    .accessibilityIdentifier("planPoster-\(plan.id)")
                 }
             }
             .padding(.horizontal, Spacing.lg)
@@ -522,15 +560,21 @@ struct TrainingHomeView: View {
                     actionTitle: "创建计划",
                     actionStyle: .secondary,
                     action: {
+                        viewModel.restorePlanID = nil
                         router.trainingPath.append(TrainingRoute.customPlanBuilder)
                     }
                 )
             } else {
                 ForEach(Array(customPlans.enumerated()), id: \.element.id) { index, plan in
-                    NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
+                    Button {
+                        viewModel.restorePlanID = plan.id.uuidString
+                        router.trainingPath.append(TrainingRoute.customPlanEdit(planId: plan.id))
+                    } label: {
                         customPlanCard(plan, issueNumber: index + 1)
                     }
                     .buttonStyle(.plain)
+                    .id(plan.id.uuidString)
+                    .accessibilityIdentifier("customPlan-\(plan.id.uuidString)")
                 }
             }
         }

@@ -4,7 +4,7 @@ import SceneKit
 /// 「加塞吃库图谱」（v20 W2 / v20.5）：学分段交互页——同一杆 8 种左右塞碰前+吃库后实况对比。
 ///
 /// 布局：`ShotStageProxy` 定高锁桌（G10）+ 右缘纯力度柱（G5，`onSpinTap=nil`）
-/// + 左缘 8 只读迷你打点盘（横向左右塞点）+ 底栏 `BTBallPaletteBar`（点+拖）。
+/// + 左缘 8 可点选迷你打点盘（横向左右塞点，开关对应色轨迹）+ 底栏 `BTBallPaletteBar`（点+拖）。
 /// 克隆自 Y3/v15「分离角图谱」壳；**不**改 `SeparationAngleAtlas*`。
 struct CushionEnglishAtlasView: View {
     @StateObject private var vm = CushionEnglishAtlasViewModel()
@@ -94,7 +94,7 @@ struct CushionEnglishAtlasView: View {
                 metricItem(label: "力度",
                            value: String(format: "%.1f", vm.velocity))
                 BTHudMetricSeparator()
-                Text("8 档左右塞 · 碰前+吃库后")
+                Text("已选 \(vm.enabledTracks.count)/8 · 左右塞碰前+吃库后")
                     .font(HUDStyle.labelFontCompact)
                     .foregroundStyle(HUDStyle.labelColor)
             }
@@ -144,10 +144,12 @@ struct CushionEnglishAtlasView: View {
             .clipped()
 
             if proxy.isValid {
-                // 左缘 8 只读迷你打点盘（左塞→右塞自上而下，横向打点）
-                CushionEnglishAtlasSpinLegend()
+                // 左缘 8 迷你打点盘（左塞→右塞自上而下；点选开关对应色轨迹）
+                CushionEnglishAtlasSpinLegend(
+                    enabledTracks: vm.enabledTracks,
+                    onToggle: { vm.toggleTrack($0) }
+                )
                     .btStageFrame(proxy.aimWheelFrame())
-                    .allowsHitTesting(false)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("cushionEnglishAtlas.spinLegend")
                     .zIndex(2)
@@ -217,7 +219,7 @@ struct CushionEnglishAtlasView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.75)
                 .multilineTextAlignment(.center)
-            Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 左缘 8 档左右塞色序")
+            Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 点左侧白球开关轨迹")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.45))
                 .lineLimit(1)
@@ -276,11 +278,14 @@ struct CushionEnglishAtlasView: View {
     }
 }
 
-// MARK: - Left-edge read-only 8 mini spin pads (horizontal english)
+// MARK: - Left-edge 8 mini spin pads (horizontal english)
 
-/// 左缘竖列 8 个迷你只读打点盘：每档一点、与 `trackColors`/spinX 档一一对应。
-/// 纯左塞（index 0）在上 → 纯右塞（index 7）在下；打点为**横向**左右塞（非高低杆竖点）。
+/// 左缘竖列 8 个迷你打点盘：每档一点、与 `trackColors`/spinX 档一一对应。
+/// 纯左塞（index 0）在上 → 纯右塞（index 7）在下；点选开关对应色轨迹。
 private struct CushionEnglishAtlasSpinLegend: View {
+    let enabledTracks: Set<Int>
+    let onToggle: (Int) -> Void
+
     private let levels = CushionEnglishAtlasGeometry.spinXLevels()
     private let pull = Double(CuePhysics.tipContactPullFactor)
     private let miscue = Double(CuePhysics.miscueLimitFraction)
@@ -297,7 +302,7 @@ private struct CushionEnglishAtlasSpinLegend: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
-        .accessibilityLabel("8 档左右塞色序图例，左塞在上右塞在下，打点横向")
+        .accessibilityLabel("8 档左右塞色序，点选开关轨迹，左塞在上右塞在下，至少留一档")
     }
 
     private func miniPad(index: Int, size: CGFloat) -> some View {
@@ -307,24 +312,32 @@ private struct CushionEnglishAtlasSpinLegend: View {
         let placementLimit = miscue / pull
         // spinX 正 = 左塞 → 屏上向左（负 x）。
         let dx = -CGFloat(placeX) * ballR
-        return ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
-                                     center: .init(x: 0.38, y: 0.34),
-                                     startRadius: 1, endRadius: ballR * 2))
-                .overlay(Circle().stroke(.white.opacity(0.45), lineWidth: 0.8))
-            Circle()
-                .stroke(.black.opacity(0.28), style: StrokeStyle(lineWidth: 0.7, dash: [2, 2]))
-                .frame(width: ballR * 2 * CGFloat(placementLimit),
-                       height: ballR * 2 * CGFloat(placementLimit))
-            Circle()
-                .fill(Color(uiColor: CushionEnglishAtlasGeometry.trackColor(at: index)))
-                .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 0.8))
-                .frame(width: max(size * 0.22, 4), height: max(size * 0.22, 4))
-                .offset(x: dx)
+        let enabled = enabledTracks.contains(index)
+        return Button {
+            onToggle(index)
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
+                                         center: .init(x: 0.38, y: 0.34),
+                                         startRadius: 1, endRadius: ballR * 2))
+                    .overlay(Circle().stroke(.white.opacity(enabled ? 0.45 : 0.22), lineWidth: 0.8))
+                Circle()
+                    .stroke(.black.opacity(0.28), style: StrokeStyle(lineWidth: 0.7, dash: [2, 2]))
+                    .frame(width: ballR * 2 * CGFloat(placementLimit),
+                           height: ballR * 2 * CGFloat(placementLimit))
+                Circle()
+                    .fill(Color(uiColor: CushionEnglishAtlasGeometry.trackColor(at: index)))
+                    .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 0.8))
+                    .frame(width: max(size * 0.22, 4), height: max(size * 0.22, 4))
+                    .offset(x: dx)
+            }
+            .frame(width: size, height: size)
+            .opacity(enabled ? 1 : 0.35)
         }
-        .frame(width: size, height: size)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("cushionEnglishAtlas.spinLegend.\(index)")
-        .allowsHitTesting(false)
+        .accessibilityAddTraits(enabled ? .isSelected : [])
+        .accessibilityValue(enabled ? "已选" : "未选")
     }
 }

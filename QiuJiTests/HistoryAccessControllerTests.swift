@@ -99,3 +99,81 @@ final class HistoryAccessControllerTests: XCTestCase {
         return session
     }
 }
+
+#if DEBUG
+final class SubscriptionManagerDebugOverrideTests: XCTestCase {
+
+    private let suiteName = "SubscriptionManagerDebugOverrideTests"
+    private var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suiteName)
+        defaults = nil
+        super.tearDown()
+    }
+
+    func test_defaultsUnlock_isHonored() {
+        defaults.set(true, forKey: SubscriptionManager.debugPremiumUnlockedKey)
+        XCTAssertTrue(
+            SubscriptionManager.isEntitlementForcedPremium(arguments: [], defaults: defaults)
+        )
+    }
+
+    func test_forceNonPremium_winsOverDefaultsAndForcePremium() {
+        defaults.set(true, forKey: SubscriptionManager.debugPremiumUnlockedKey)
+        XCTAssertFalse(
+            SubscriptionManager.isEntitlementForcedPremium(
+                arguments: [
+                    SubscriptionManager.forcePremiumArgument,
+                    SubscriptionManager.forceNonPremiumArgument
+                ],
+                defaults: defaults
+            )
+        )
+    }
+
+    func test_applyOverrides_resetClearsPersist() {
+        defaults.set(true, forKey: SubscriptionManager.debugPremiumUnlockedKey)
+        SubscriptionManager.applyDebugPremiumLaunchOverrides(
+            arguments: [SubscriptionManager.resetDebugPremiumArgument],
+            defaults: defaults
+        )
+        XCTAssertFalse(defaults.bool(forKey: SubscriptionManager.debugPremiumUnlockedKey))
+        XCTAssertFalse(
+            SubscriptionManager.isEntitlementForcedPremium(arguments: [], defaults: defaults)
+        )
+    }
+
+    func test_applyOverrides_resetThenForcePremium_persists() {
+        SubscriptionManager.applyDebugPremiumLaunchOverrides(
+            arguments: [
+                SubscriptionManager.resetDebugPremiumArgument,
+                SubscriptionManager.forcePremiumArgument
+            ],
+            defaults: defaults
+        )
+        XCTAssertTrue(defaults.bool(forKey: SubscriptionManager.debugPremiumUnlockedKey))
+        XCTAssertTrue(
+            SubscriptionManager.isEntitlementForcedPremium(arguments: [], defaults: defaults)
+        )
+    }
+
+    func test_applyOverrides_bothForceArgs_doesNotPersist() {
+        SubscriptionManager.applyDebugPremiumLaunchOverrides(
+            arguments: [
+                SubscriptionManager.resetDebugPremiumArgument,
+                SubscriptionManager.forcePremiumArgument,
+                SubscriptionManager.forceNonPremiumArgument
+            ],
+            defaults: defaults
+        )
+        XCTAssertFalse(defaults.bool(forKey: SubscriptionManager.debugPremiumUnlockedKey))
+    }
+}
+#endif

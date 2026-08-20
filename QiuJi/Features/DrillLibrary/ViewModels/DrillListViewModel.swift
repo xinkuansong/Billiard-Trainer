@@ -111,6 +111,9 @@ final class DrillListViewModel: ObservableObject {
     @Published var completedDrillIds: Set<String> = []
     @Published var isLoading = true
 
+    /// 从详情返回时要滚回的动作 id；侧栏换分组时清掉（Q19.1 回顶优先）。
+    var restoreDrillID: String?
+
     private var allDrills: [DrillContent] = []
     private var cancellables = Set<AnyCancellable>()
 
@@ -126,6 +129,8 @@ final class DrillListViewModel: ObservableObject {
     }
 
     func loadDrills() async {
+        // 二次 .task 禁止出骨架：骨架与网格互斥会拆掉 ScrollView，返回后滚回顶部。
+        if !allDrills.isEmpty { return }
         isLoading = true
         let service = DrillContentService.shared
         let drills = await service.loadFallbackDrills()

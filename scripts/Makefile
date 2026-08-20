@@ -41,7 +41,7 @@ help:
 	@echo "────────────────────────────────────"
 	@echo "  make xcodegen     重新生成 Xcode 工程（folder refs 原生生成，无需补丁）"
 	@echo "  make build        Debug 构建（仅验证编译，不安装/启动）"
-	@echo "  make run          Debug 构建 + 安装 + 在模拟器启动（一条龙）"
+	@echo "  make run          Debug 构建 + 安装 + 在模拟器启动（默认解锁 Pro；PREMIUM=0 看免费档）"
 	@echo "  make test         运行所有 XCTest"
 	@echo "  make position-export  走位序列 JSON → 静帧 + 2D mp4（源 content/position_play/sequences/）"
 	@echo "  make position-export-stills  只重渲静帧（修开局图等，保留既有 mp4）"
@@ -52,6 +52,7 @@ help:
 	@echo "  make verify-gate  门禁模式校验（pre-push 入口；含 I6a/I6b 剂量口径、I11 计划校验、I12 六轴 load、I13 排课规则、配图发布新鲜度与 DTO↔后端 schema 双端对齐）"
 	@echo "  make invariant-selftest  不变量检查自测（构造性用例证明每项真会报错）"
 	@echo "  make verify-doc-size  进度文档体积门禁（PROGRESS.md / hub 状态卡滚动归档纪律）"
+	@echo "  make check-tutorial-boilerplate  精讲套话软检查（D-v40-4=B；不进 verify-gate）"
 	@echo "  make install-hooks  安装 git 钩子（pre-push 内容不变量门禁）"
 	@echo "  make tutorial-ledger  生成精讲资产台账（docs/research/精讲资产台账.md）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
@@ -64,6 +65,7 @@ help:
 	@echo "────────────────────────────────────"
 	@echo "  变量覆盖示例："
 	@echo "  make build SIM_DEVICE='iPhone 17 Pro Max'"
+	@echo "  make run PREMIUM=0"
 	@echo "  make archive SCHEME=BilliardTrainer"
 	@echo ""
 
@@ -105,10 +107,16 @@ build:
 # ────────────────────────────────────────────
 # Debug 构建 + 安装 + 启动到模拟器（一条龙）
 # 现象「build succeeded 但模拟器没反应」＝ make build 只编译不安装/启动；用 make run。
+#
+# simctl launch 不会注入 Scheme 里的 Products.storekit，模拟器买不成 Pro。
+# PREMIUM=1（默认）传 -forcePremium，并持久化到 UserDefaults；点桌面图标仍是 Pro。
+# 要看免费档：make run PREMIUM=0（传 -resetDebugPremium，清掉持久解锁）。
+# ⛔ 不要删掉这两个启动参数去「只装不注入」——付费墙会空、CTA 会灰。
 # ────────────────────────────────────────────
 APP_NAME  ?= 球迹
 BUNDLE_ID ?= com.xinkuan.qiuji
 APP_PATH  := $(DERIVED_DATA)/Build/Products/Debug-iphonesimulator/$(APP_NAME).app
+PREMIUM   ?= 1
 
 .PHONY: run
 run: build
@@ -118,8 +126,13 @@ run: build
 	@xcrun simctl bootstatus "$(SIM_DEVICE)" -b >/dev/null 2>&1 || true
 	@echo "→ 安装 $(APP_PATH)"
 	@xcrun simctl install "$(SIM_DEVICE)" "$(APP_PATH)"
-	@echo "→ 启动 $(BUNDLE_ID)"
-	@xcrun simctl launch "$(SIM_DEVICE)" "$(BUNDLE_ID)"
+	@if [ "$(PREMIUM)" = "1" ]; then \
+	  echo "→ 启动 $(BUNDLE_ID)（-forcePremium）"; \
+	  xcrun simctl launch "$(SIM_DEVICE)" "$(BUNDLE_ID)" -forcePremium; \
+	else \
+	  echo "→ 启动 $(BUNDLE_ID)（免费档，-resetDebugPremium）"; \
+	  xcrun simctl launch "$(SIM_DEVICE)" "$(BUNDLE_ID)" -resetDebugPremium; \
+	fi
 	@echo "✅ 已在模拟器启动 $(APP_NAME)"
 
 # ────────────────────────────────────────────
@@ -304,6 +317,11 @@ invariant-selftest:
 # PROGRESS.md「当前状态」/ hub 状态卡「最近完成」超 12 条或文件超 100 KB 即 FAIL；
 # 处置 = 把最旧条目移入对应归档文件，⛔ 禁止上调脚本阈值放行。
 # ────────────────────────────────────────────
+# v40 W8：套话软检查。D-v40-4=B，⛔ 不接入 verify-gate。
+.PHONY: check-tutorial-boilerplate
+check-tutorial-boilerplate:
+	@python3 $(PROJECT_ROOT)/scripts/check_tutorial_boilerplate.py $(ARGS)
+
 .PHONY: verify-doc-size
 verify-doc-size:
 	@python3 $(PROJECT_ROOT)/scripts/verify_doc_size.py

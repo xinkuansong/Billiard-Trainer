@@ -39,6 +39,10 @@ final class AppRouter: ObservableObject {
     @Published var historyPath = NavigationPath()
     @Published var profilePath = NavigationPath()
 
+    /// 「训练计划」列表上次点开的计划 id（官方 planId 或自定义 UUID 串）。
+    /// 不发 published：只在 pop 时读，避免无关刷新。
+    var planListRestoreID: String?
+
     @Published var activeTrainingMode: TrainingMode?
     @Published var minimizedTrainingVM: ActiveTrainingViewModel?
     var activeTrainingVM: ActiveTrainingViewModel?

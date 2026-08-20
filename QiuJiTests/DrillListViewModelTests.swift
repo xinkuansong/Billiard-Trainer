@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 @testable import QiuJi
 
 @MainActor
@@ -32,6 +33,19 @@ final class DrillListViewModelTests: XCTestCase {
 
         XCTAssertFalse(viewModel.isLoading)
         XCTAssertFalse(viewModel.drillsByCategory.isEmpty)
+    }
+
+    func test_reloadDoesNotFlipIsLoadingWhenDrillsAlreadyPresent() async {
+        await viewModel.loadDrills()
+        XCTAssertFalse(viewModel.isLoading)
+        XCTAssertFalse(viewModel.drillsByCategory.isEmpty)
+
+        var sawLoadingTrue = false
+        let sub = viewModel.$isLoading.sink { if $0 { sawLoadingTrue = true } }
+        await viewModel.loadDrills()
+        XCTAssertFalse(sawLoadingTrue, "二次 loadDrills 不得再出骨架（会拆掉网格、滚回顶）")
+        XCTAssertFalse(viewModel.isLoading)
+        _ = sub
     }
 
     func test_loadDrills_has8Categories() async {

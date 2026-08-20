@@ -87,6 +87,22 @@ final class TrainingHomeViewModel: ObservableObject {
     /// 手动跳过 / 回退失败时的可见提示（计划结构不可读等），nil 表示无错误。
     @Published var progressError: String?
 
+    /// 货架滚动锚点：顶 / 浏览区 / 官方计划 id / 自定义计划 UUID 串。
+    static let scrollTopID = "trainingHomeTop"
+    static let scrollBrowsingID = "planBrowsing"
+
+    /// 从计划详情返回时要滚回的计划 id；激活计划后清掉，改为回顶。
+    var restorePlanID: String?
+
+    /// 一次性滚动请求：递增 tick，首页 `ScrollViewReader` 滚到 `browseScrollTarget`。
+    @Published var browseScrollTarget: String = TrainingHomeViewModel.scrollTopID
+    @Published var browseScrollTick: UInt = 0
+
+    func requestBrowseScroll(to id: String) {
+        browseScrollTarget = id
+        browseScrollTick &+= 1
+    }
+
     /// 第 1 周第 1 天已无可回退。
     var canRollbackDay: Bool {
         guard let session = todaySession else { return false }
@@ -99,7 +115,9 @@ final class TrainingHomeViewModel: ObservableObject {
     }
 
     func load(context: ModelContext) async {
-        isLoading = true
+        // 二次刷新禁止出骨架：骨架与货架互斥会拆掉 ScrollView 内容，返回后滚回顶部。
+        let shouldShowSkeleton = officialPlans.isEmpty && todaySession == nil
+        if shouldShowSkeleton { isLoading = true }
         // View animates via `.animation(BTMotion.easeFast, value: isLoading)` (F-ST-03).
         defer { isLoading = false }
 

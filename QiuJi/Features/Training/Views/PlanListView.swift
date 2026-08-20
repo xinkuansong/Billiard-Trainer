@@ -16,6 +16,7 @@ struct PlanListView: View {
     @State private var plans: [OfficialPlan] = []
     @State private var isLoading = true
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
+    @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var modelContext
     @State private var planToDelete: CustomPlan?
     @State private var showDeleteConfirm = false
@@ -41,49 +42,67 @@ struct PlanListView: View {
     }
 
     var body: some View {
-        ScrollView {
-            if isLoading {
-                BTDrillListSkeleton()
-                    .transition(.opacity)
-                    .frame(maxWidth: .infinity, minHeight: 300)
-            } else {
-                LazyVStack(spacing: Spacing.xxxl) {
-                    if plans.isEmpty && customPlans.isEmpty {
-                        // System content not ready — keep「暂无」tone (F-ST-06).
-                        BTEmptyState(
-                            icon: "calendar",
-                            title: "暂无训练计划",
-                            subtitle: "计划内容正在准备中"
-                        )
-                    }
-
-                    ForEach(groupedPlans, id: \.level) { group in
-                        VStack(alignment: .leading, spacing: Spacing.lg) {
-                            levelSectionHeader(level: group.level, count: group.plans.count)
-                                .padding(.horizontal, Spacing.lg)
-
-                            LazyVGrid(
-                                columns: [
-                                    GridItem(.flexible(), spacing: Spacing.md),
-                                    GridItem(.flexible(), spacing: Spacing.md)
-                                ],
-                                spacing: Spacing.md
-                            ) {
-                                ForEach(Array(group.plans.enumerated()), id: \.element.id) { index, plan in
-                                    NavigationLink(value: TrainingRoute.planDetail(planId: plan.id)) {
-                                        PlanCard(plan: plan, issueNumber: index + 1)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .padding(.horizontal, Spacing.lg)
+        ScrollViewReader { proxy in
+            ScrollView {
+                if isLoading {
+                    BTDrillListSkeleton()
+                        .transition(.opacity)
+                        .frame(maxWidth: .infinity, minHeight: 300)
+                } else {
+                    LazyVStack(spacing: Spacing.xxxl) {
+                        if plans.isEmpty && customPlans.isEmpty {
+                            // System content not ready — keep「暂无」tone (F-ST-06).
+                            BTEmptyState(
+                                icon: "calendar",
+                                title: "暂无训练计划",
+                                subtitle: "计划内容正在准备中"
+                            )
                         }
-                    }
 
-                    customPlansSection
+                        ForEach(groupedPlans, id: \.level) { group in
+                            VStack(alignment: .leading, spacing: Spacing.lg) {
+                                levelSectionHeader(level: group.level, count: group.plans.count)
+                                    .padding(.horizontal, Spacing.lg)
+                                    .id("planListSection-\(group.level)")
+
+                                LazyVGrid(
+                                    columns: [
+                                        GridItem(.flexible(), spacing: Spacing.md),
+                                        GridItem(.flexible(), spacing: Spacing.md)
+                                    ],
+                                    spacing: Spacing.md
+                                ) {
+                                    ForEach(Array(group.plans.enumerated()), id: \.element.id) { index, plan in
+                                        Button {
+                                            router.planListRestoreID = plan.id
+                                            router.trainingPath.append(
+                                                TrainingRoute.planDetail(planId: plan.id)
+                                            )
+                                        } label: {
+                                            PlanCard(plan: plan, issueNumber: index + 1)
+                                        }
+                                        .buttonStyle(.plain)
+                                        .id(plan.id)
+                                        .accessibilityIdentifier("planListPoster-\(plan.id)")
+                                    }
+                                }
+                                .padding(.horizontal, Spacing.lg)
+                            }
+                        }
+
+                        customPlansSection
+                    }
+                    .padding(.vertical, Spacing.lg)
+                    .transition(.opacity)
                 }
-                .padding(.vertical, Spacing.lg)
-                .transition(.opacity)
+            }
+            .task {
+                await loadPlans()
+                restorePlanListScroll(proxy)
+            }
+            .onChange(of: router.trainingPath.count) { oldCount, newCount in
+                guard newCount < oldCount else { return }
+                restorePlanListScroll(proxy)
             }
         }
         .animation(BTMotion.easeFast, value: isLoading)
@@ -96,9 +115,6 @@ struct PlanListView: View {
                     Text("新建")
                 }
             }
-        }
-        .task {
-            await loadPlans()
         }
         // F-OV-02: destructive clear/delete → confirmationDialog (cancel first).
         .confirmationDialog(
@@ -272,6 +288,10 @@ struct PlanListView: View {
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
         .buttonStyle(.plain)
+        .id(plan.id.uuidString)
+        .simultaneousGesture(TapGesture().onEnded {
+            router.planListRestoreID = plan.id.uuidString
+        })
     }
 
     private func customThumbnail(issueNumber: Int) -> some View {
@@ -327,11 +347,17 @@ struct PlanListView: View {
     }
 
     private func loadPlans() async {
+        if !plans.isEmpty { return }
         isLoading = true
         plans = await PlanContentService.shared.loadAllPlans()
         withAnimation(BTMotion.easeFast) {
             isLoading = false
         }
+    }
+
+    private func restorePlanListScroll(_ proxy: ScrollViewProxy) {
+        guard let id = router.planListRestoreID else { return }
+        proxy.scrollTo(id, anchor: .center)
     }
 
     // MARK: - Section Header
@@ -421,11 +447,13 @@ private struct PlanCard: View {
     NavigationStack {
         PlanListView()
     }
+    .environmentObject(AppRouter())
 }
 
 #Preview("Dark") {
     NavigationStack {
         PlanListView()
     }
+    .environmentObject(AppRouter())
     .preferredColorScheme(.dark)
 }

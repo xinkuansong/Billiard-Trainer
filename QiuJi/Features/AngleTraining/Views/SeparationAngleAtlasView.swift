@@ -4,7 +4,7 @@ import SceneKit
 /// 「分离角图谱」（v11 Y3 / v15 W1）：学分段交互页——同一杆 8 种高低杆碰后轨迹对比。
 ///
 /// 布局：`ShotStageProxy` 定高锁桌（G10）+ 右缘纯力度柱（G5，`onSpinTap=nil`）
-/// + 左缘 8 只读迷你打点盘（`aimWheelFrame`）+ 底栏 `BTBallPaletteBar`（点+拖）。
+/// + 左缘 8 可点选迷你打点盘（`aimWheelFrame`，开关对应色轨迹）+ 底栏 `BTBallPaletteBar`（点+拖）。
 struct SeparationAngleAtlasView: View {
     @StateObject private var vm = SeparationAngleAtlasViewModel()
     @State private var hasAppeared = false
@@ -93,7 +93,7 @@ struct SeparationAngleAtlasView: View {
                 metricItem(label: "力度",
                            value: String(format: "%.1f", vm.velocity))
                 BTHudMetricSeparator()
-                Text("8 档高低杆 · 碰后→第一库")
+                Text("已选 \(vm.enabledTracks.count)/8 · 高低杆碰后→第一库")
                     .font(HUDStyle.labelFontCompact)
                     .foregroundStyle(HUDStyle.labelColor)
             }
@@ -143,10 +143,12 @@ struct SeparationAngleAtlasView: View {
             .clipped()
 
             if proxy.isValid {
-                // A2：左缘 8 只读迷你打点盘（高→低自上而下，与 spinYLevels / trackColors 同序）
-                SeparationAngleAtlasSpinLegend()
+                // A2：左缘 8 迷你打点盘（高→低自上而下；点选开关对应色轨迹）
+                SeparationAngleAtlasSpinLegend(
+                    enabledTracks: vm.enabledTracks,
+                    onToggle: { vm.toggleTrack($0) }
+                )
                     .btStageFrame(proxy.aimWheelFrame())
-                    .allowsHitTesting(false)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("separationAngleAtlas.spinLegend")
                     .zIndex(2)
@@ -212,7 +214,7 @@ struct SeparationAngleAtlasView: View {
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return VStack(spacing: 2) {
-            Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 左缘 8 档色序")
+            Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 点左侧白球开关轨迹")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.45))
                 .lineLimit(1)
@@ -272,11 +274,14 @@ struct SeparationAngleAtlasView: View {
     }
 }
 
-// MARK: - Left-edge read-only 8 mini spin pads (A2 / D-v15-2)
+// MARK: - Left-edge 8 mini spin pads (A2 / D-v15-2)
 
-/// 左缘竖列 8 个迷你只读打点盘：每档一点、与 `trackColors`/spinY 档一一对应。
-/// 高杆（index 0）在上 → 低杆（index 7）在下，与 `spinYLevels()` 同序。
+/// 左缘竖列 8 个迷你打点盘：每档一点、与 `trackColors`/spinY 档一一对应。
+/// 高杆（index 0）在上 → 低杆（index 7）在下；点选开关对应色轨迹。
 private struct SeparationAngleAtlasSpinLegend: View {
+    let enabledTracks: Set<Int>
+    let onToggle: (Int) -> Void
+
     private let levels = SeparationAngleAtlasGeometry.spinYLevels()
     private let pull = Double(CuePhysics.tipContactPullFactor)
     private let miscue = Double(CuePhysics.miscueLimitFraction)
@@ -293,7 +298,7 @@ private struct SeparationAngleAtlasSpinLegend: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
-        .accessibilityLabel("8 档高低杆色序图例，高杆在上低杆在下")
+        .accessibilityLabel("8 档高低杆色序，点选开关轨迹，高杆在上低杆在下，至少留一档")
     }
 
     private func miniPad(index: Int, size: CGFloat) -> some View {
@@ -302,24 +307,32 @@ private struct SeparationAngleAtlasSpinLegend: View {
         let ballR = size / 2 - 1
         let placementLimit = miscue / pull
         let dy = -CGFloat(placeY) * ballR
-        return ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
-                                     center: .init(x: 0.38, y: 0.34),
-                                     startRadius: 1, endRadius: ballR * 2))
-                .overlay(Circle().stroke(.white.opacity(0.45), lineWidth: 0.8))
-            Circle()
-                .stroke(.black.opacity(0.28), style: StrokeStyle(lineWidth: 0.7, dash: [2, 2]))
-                .frame(width: ballR * 2 * CGFloat(placementLimit),
-                       height: ballR * 2 * CGFloat(placementLimit))
-            Circle()
-                .fill(Color(uiColor: SeparationAngleAtlasGeometry.trackColor(at: index)))
-                .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 0.8))
-                .frame(width: max(size * 0.22, 4), height: max(size * 0.22, 4))
-                .offset(y: dy)
+        let enabled = enabledTracks.contains(index)
+        return Button {
+            onToggle(index)
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(RadialGradient(colors: [.white, Color(white: 0.86)],
+                                         center: .init(x: 0.38, y: 0.34),
+                                         startRadius: 1, endRadius: ballR * 2))
+                    .overlay(Circle().stroke(.white.opacity(enabled ? 0.45 : 0.22), lineWidth: 0.8))
+                Circle()
+                    .stroke(.black.opacity(0.28), style: StrokeStyle(lineWidth: 0.7, dash: [2, 2]))
+                    .frame(width: ballR * 2 * CGFloat(placementLimit),
+                           height: ballR * 2 * CGFloat(placementLimit))
+                Circle()
+                    .fill(Color(uiColor: SeparationAngleAtlasGeometry.trackColor(at: index)))
+                    .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 0.8))
+                    .frame(width: max(size * 0.22, 4), height: max(size * 0.22, 4))
+                    .offset(y: dy)
+            }
+            .frame(width: size, height: size)
+            .opacity(enabled ? 1 : 0.35)
         }
-        .frame(width: size, height: size)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("separationAngleAtlas.spinLegend.\(index)")
-        .allowsHitTesting(false)
+        .accessibilityAddTraits(enabled ? .isSelected : [])
+        .accessibilityValue(enabled ? "已选" : "未选")
     }
 }

@@ -170,4 +170,55 @@ final class P3_DrillLibraryUITests: XCTestCase {
                               app.buttons["关闭"].waitForExistence(timeout: 3)
         XCTAssertTrue(notesOrCoaching, "Notes card or coaching section should be visible after scroll")
     }
+
+    /// 动作库：打开靠后的卡片再返回，应仍停在该卡附近（与训练货架记位同一口径）。
+    func testLibraryScrollRestoredAfterClosingDrill() {
+        let sidebar = app.buttons["sidebar_杆法训练"]
+        XCTAssertTrue(sidebar.waitForExistence(timeout: 8), "侧栏应有杆法训练")
+        sidebar.tap()
+        // 侧栏筛选去抖 300ms + Q19.1 补滚 0.36s，等网格切到杆法再滑。
+        sleep(1)
+
+        let card = app.buttons["drillCard_drill_c073"]
+        XCTAssertTrue(scrollUntilOnScreen(card), "应能滑到杆法卡片 c073")
+        tapEvenIfOccluded(card)
+        // 详情页 SceneKit 会拖垮整树 AX 查询，只等导航返回键。
+        let back = app.navigationBars.buttons.firstMatch
+        XCTAssertTrue(back.waitForExistence(timeout: 8), "应进入动作详情")
+        back.tap()
+        XCTAssertTrue(
+            app.buttons["sidebar_杆法训练"].waitForExistence(timeout: 8),
+            "应回到动作库"
+        )
+        let backCard = app.buttons["drillCard_drill_c073"]
+        XCTAssertTrue(
+            backCard.waitForExistence(timeout: 3) && isOnScreen(backCard),
+            "返回后 c073 仍应在视口内，无需从顶部再滑"
+        )
+    }
+
+    private func isOnScreen(_ element: XCUIElement) -> Bool {
+        guard element.exists else { return false }
+        let frame = element.frame
+        let screen = app.frame
+        return frame.width > 0
+            && frame.maxY > 80
+            && frame.minY < screen.height - 40
+    }
+
+    private func scrollUntilOnScreen(_ element: XCUIElement, maxSwipes: Int = 16) -> Bool {
+        for _ in 0..<maxSwipes {
+            if isOnScreen(element) { return true }
+            app.windows.firstMatch.swipeUp()
+        }
+        return isOnScreen(element)
+    }
+
+    private func tapEvenIfOccluded(_ element: XCUIElement) {
+        if element.isHittable {
+            element.tap()
+        } else {
+            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3)).tap()
+        }
+    }
 }

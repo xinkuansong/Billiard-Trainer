@@ -152,6 +152,9 @@ struct SubscriptionView: View {
         VStack(spacing: Spacing.lg) {
             pricingGrid
             subscribeButton
+            #if DEBUG && targetEnvironment(simulator)
+            simulatorUnlockSection
+            #endif
             legalSection
         }
     }
@@ -337,6 +340,39 @@ struct SubscriptionView: View {
         let label = product.id == StoreKitService.yearlyID ? "年订阅" : "月订阅"
         return "立即订阅 — \(label) \(product.displayPrice)"
     }
+
+    #if DEBUG && targetEnvironment(simulator)
+    @ViewBuilder
+    private var simulatorUnlockSection: some View {
+        if subscriptionManager.isDebugPremiumPersisted {
+            Button {
+                subscriptionManager.setDebugPremiumUnlocked(false)
+            } label: {
+                Text("关闭模拟器 Pro")
+                    .font(.btCaption)
+                    .foregroundStyle(.white.opacity(0.55))
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("simulatorLockProButton")
+        } else if !subscriptionManager.isPremium {
+            Button {
+                subscriptionManager.setDebugPremiumUnlocked(true)
+                dismiss()
+            } label: {
+                Text("模拟器解锁 Pro")
+                    .font(.btCallout)
+                    .fontWeight(.bold)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(goldColor)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            }
+            .buttonStyle(BTPressableStyle.capsule)
+            .accessibilityIdentifier("simulatorUnlockProButton")
+        }
+    }
+    #endif
 
     // MARK: - Legal
 

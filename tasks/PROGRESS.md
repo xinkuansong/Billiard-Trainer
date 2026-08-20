@@ -20,16 +20,16 @@
 
 > **滚动归档纪律（强制）**：本区只保留**最近 10 条以内**（或最近 3 天）条目；更早条目移入 [`tasks/archive/PROGRESS-当前状态-归档.md`](archive/PROGRESS-当前状态-归档.md)（新条目插到归档文件说明块之后的顶部，保持时间倒序）。每次追加新条目时顺手检查：超过 10 条即归档最旧的。历史检索一律去归档文件，勿在本区堆积。
 
-- **计划行动作名单行（2026-08-18，SwiftUI Developer）**：`drillTrackRow` 课名 `.lineLimit(1)` + 略缩字；「N 球形」改脚注、不再挤折课名。build SUCCEEDED；截图亲验 `build/v39-name-oneline-logs/c013-name-single-line.png`（「底袋小角度入袋」一行）。未 commit。
-- **问题集合 v39 W7 ✅ / 全案收官（2026-08-18，v39.11，Orchestrator）**：verify-gate FAIL 0（I13 464/0）；build SUCCEEDED；聚焦 17/17 + 货架 UI 1/1；I13 构造性 2/2。截图三张亲验（`build/v39-w7-logs/`）。W0–W7 全 ✅，返工 0。未 commit。
-- **问题集合 v39 W6 ✅（2026-08-18，v39.10，Orchestrator）**：其余 9 份 + 标签 + c007/c023 锁中杆。杆法Ⅰ c014→c016；c023/c020/c021/c082 首次已摊。I13 FAIL 0；V21W5+V22W5 13/13；build SUCCEEDED。热身 4 处因 I13 ② 换课/无热身。未 commit。
-- **问题集合 v39 W5 ✅（2026-08-18，v39.9，Orchestrator）**：全能摊周。W1 只开球+三球；五球/蛇彩回建议周；删 c078/c054/c082。该计划 I13 FAIL 0；build SUCCEEDED。小偏差：W3 D1 无热身（课表 c068↓，I13 ②）。V21W5 咬合断言已由 W6 改。未 commit。
-- **问题集合 v39 W4 ✅（2026-08-18，v39.8，Orchestrator）**：特殊球摊周。c059 W3 首次+复现；c060/c061 首次回 W4。该计划 I13 FAIL 0；`testPlanAdvancedFirstFocusedOrder` 绿；build SUCCEEDED。小偏差：W3 D1 热身 `c056↓`（课表 `c055↓`，I13 ②）。未 commit。
-- **问题集合 v39 W3 ✅（2026-08-18，v39.7，Orchestrator）**：分离角摊周。后 7 条首次引入回 W2–W4。该计划 I13 FAIL 0；V22W4 2/2；build SUCCEEDED。小偏差：W2 D1 热身 `c026↓`（课表 `c025↓`，I13 ②）。未 commit。
-- **问题集合 v39 W1b ✅（2026-08-18，v39.6，Orchestrator）**：R5 落地。单球形第二行 `球形1 逐位重复 m × n`；多球形「N 球形」与动作名同行。证据：`make build` SUCCEEDED；聚焦单测 3/3；UI 截图 2/2（`build/v39-w1b-logs/`，主控亲验 c016 / c003）。未改 Plans。未 commit。
-- **问题集合 v39 W2 ✅（2026-08-18，v39.4，Orchestrator）**：I13 ① 改为对照语义课表 §5 建议周；scalar 不再卡周。契约 **2.12**。现网 I13 违规 15（§4.2 全中、无误杀）。构造性 `i13_week_order_drop` / `i13_intro_order_vs_w0` / ②③④ 各 1/1。未改 Plans。未 commit。下一动作 **W1b ∥ W3 ∥ W4 ∥ W5**。
-- **问题集合 v40 立档（2026-08-18，v40.0，Orchestrator）**：精讲「球形完整 × 动作库递进少讲」。真源 `问题集合_v40.md`。R1–R4 已确认；D-v40-1/3/4 待拍板（推荐 A/A/B）；全批模型 `cursor-grok-4.6-high-fast`。W0 所有权表+技能 → W1 试点 c013/c032/c053/c063 定调 → 分类改写 → W8 回归。与 v39 文件墙：本轮不碰 Plans/I13。未开工。
-- **问题集合 v39 W0 ✅ / W1 ✅（2026-08-18，v39.3，Orchestrator + SwiftUI Developer）**：W0 语义课表已锁。W1 展示层：计划行动作名与剂量拆成两个 `Text`；计划页/动作页不渲染 `doseNote`；Resolver/JSON/I6b 字段保留。证据：`make build` SUCCEEDED；W1 当时 `verify-gate` FAIL 0；聚焦单测 3/3；UI 截图 2/2（`build/v39-w1-logs/`，主控亲验）。未 commit。W2 已接续。
+- **图谱左缘白球开关轨迹（2026-08-20，SwiftUI Developer，DR-073）**：分离角 / 加塞吃库图谱左缘 8 盘可点选；默认全开，至少留 1 档；关档只藏线不重算。聚焦单测 15/0（`AtlasSpinTrackSelection` 6 + 分离角 4 + 加塞 5）。未做模拟器点验。未 commit。
+- **球形训练意图改写技能（2026-08-20，Orchestrator）**：`formation-training-intent`。口述先还原术语，再写成两句（摆法 + 这一形主要练）。只写研究表。未改 drill JSON。
+- **动作库返回记位（2026-08-19，SwiftUI Developer）**：二次 load 不出骨架；返回停在刚才那张卡；侧栏换组仍回顶（Q19.1）。单测 2/2；UI 记位 1/1 + Q19.1 回归 1/1。未 commit。
+- **语音术语技能 + 规则（2026-08-19，Orchestrator）**：`02-voice-billiard-terms.mdc`（alwaysApply）+ 技能 `voice-billiard-terms`（含 `glossary.md`）。疑似语音时先还原再换标准词。未改业务代码。
+- **模拟器解锁 Pro（2026-08-19，SwiftUI Developer / DevOps）**：根因=`simctl launch` 不注入 `Products.storekit`。`make run` 默认 `-forcePremium` 并持久化；付费墙/设置可开关；`launchClean` 带 `-resetDebugPremium`。build SUCCEEDED；单测 18/0（含 5 条覆盖）；已进「分离角图谱」无付费墙。未 commit。
+- **动作库球形训练意图表（2026-08-19，Orchestrator）**：按现网 83 课抽出 105 行（一行一形），末列空着等人填。落 `docs/research/20260819-动作库球形训练意图.md`。未改 drill JSON。
+- **问题集合 v40 W2–W7 ⚠️ 返工交回（2026-08-18，v40.13，FL-032，Orchestrator）**：六批 tutorial-writer 已按规范逐课逐形手改，未用回写脚本。W1 保留。主控未通读 79 条；W8 未重跑。未 commit。
+- **训练货架返回记位（2026-08-18，SwiftUI Developer）**：二次 load 不出骨架；首页/计划列表记上次点开的计划，返回停在该卡；激活则回顶。单测 2/2；UI 3/3（含原货架回归）。未 commit。
+- **问题集合 v40 W1 ✅（2026-08-18，v40.11，Orchestrator）**：四条试点过目通过。规范 v2。gate FAIL 0 / build SUCCEEDED。
+- **问题集合 v40 W0 ✅（2026-08-18，v40.4，Orchestrator）**：返工 2。83 条所有权表 + 17 张机制卡 + 三份技能。定杆引入 c010。样张过目通过。未改 drill JSON。
 ## R0 Design System Upgrade — ✅ 已完成
 
 > **前置**：UI 设计全部完成。P4 暂停于 T-P4-04。详见 `tasks/phases/R0-design-system.md`。
