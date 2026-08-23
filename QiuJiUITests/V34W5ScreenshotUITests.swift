@@ -170,7 +170,7 @@ final class V34W5ScreenshotUITests: XCTestCase {
         savePNG(app, "02-plan-cueball-c003-multi", to: w1bDir)
     }
 
-    /// v39 W7：R5 单球形回归截图 → `build/v39-w7-logs/`（杆法Ⅰ c016 斯登停球）。
+    /// v39 W7：R5 单球形回归截图 → `build/v39-w7-logs/`（杆法Ⅰ c016 斯登母球控制）。
     func testW7_r5_c016_singleFormation() {
         let w7Dir = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v39-w7-logs")
         try? FileManager.default.createDirectory(at: w7Dir, withIntermediateDirectories: true)
@@ -247,7 +247,7 @@ final class V34W5ScreenshotUITests: XCTestCase {
         savePNG(app, "w7-plan-separation-w1", to: w7Dir)
     }
 
-    /// 计划行动作名单行：准度Ⅰ「底袋小角度入袋」不得折成两行。
+    /// 计划行动作名单行：准度Ⅰ「底袋小角度」不得折成两行。
     func testPlanAccuracy_c013_nameSingleLine() {
         let out = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v39-name-oneline-logs")
         try? FileManager.default.createDirectory(at: out, withIntermediateDirectories: true)
@@ -255,7 +255,7 @@ final class V34W5ScreenshotUITests: XCTestCase {
         let row = scrollToIdentifier(app, "planDrillRow-drill_c013")
         XCTAssertTrue(row.exists, "准度Ⅰ计划页应出现 c013 行")
         XCTAssertTrue(
-            app.staticTexts["底袋小角度入袋"].firstMatch.exists,
+            app.staticTexts["底袋小角度"].firstMatch.exists,
             "动作名应作为完整单行文案上屏，不得拆成「底袋小角度入」+「袋」"
         )
         savePNG(app, "c013-name-single-line", to: out)

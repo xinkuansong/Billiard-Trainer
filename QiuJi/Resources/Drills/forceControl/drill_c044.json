@@ -1,6 +1,6 @@
 {
   "id": "drill_c044",
-  "nameZh": "轻推定位",
+  "nameZh": "轻推控力",
   "nameEn": "Soft Touch Positioning",
   "category": "forceControl",
   "subcategory": "softTouch",
@@ -229,7 +229,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "六档都能刚好进袋后，去「软打控位」看软力下母球停在哪。"
+        "content": "六档都能刚好进袋后，去「软打控力」看软力下母球停在哪。"
       }
     ]
   },

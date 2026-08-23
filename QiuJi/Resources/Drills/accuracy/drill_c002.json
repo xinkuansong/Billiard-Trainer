@@ -1,6 +1,6 @@
 {
   "id": "drill_c002",
-  "nameZh": "斜角入底角袋",
+  "nameZh": "斜角入底袋",
   "nameEn": "Diagonal Corner Pocket",
   "category": "accuracy",
   "subcategory": "angle",
@@ -26,7 +26,7 @@
         "mode": "repetition",
         "ballsPerRound": 8,
         "defaultRounds": 9,
-        "doseNote": "用户裁定例外（v34 R3）：斜角入底角袋按每位置 8 颗训练，非默认 15",
+        "doseNote": "用户裁定例外（v34 R3）：斜角入底袋按每位置 8 颗训练，非默认 15",
         "load": {
           "aim": 3,
           "cue": 1,
@@ -284,7 +284,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "开档打不进就先打到近直线再往薄走。稳了换「极薄角度入袋」。"
+        "content": "开档打不进就先打到近直线再往薄走。稳了换「极薄角度球」。"
       }
     ]
   },

@@ -273,7 +273,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             ActiveDrill(drillId: "drill_c065", nameZh: "Ghost Game 对抗", sets: 2, ballsPerSet: 10,
                         category: "combined", subcategory: "ghostGame",
                         standardCriteria: "10局Ghost Game中赢3局以上"),
-            ActiveDrill(drillId: "drill_c053", nameZh: "中袋角度精准", sets: 1, ballsPerSet: 10,
+            ActiveDrill(drillId: "drill_c053", nameZh: "中袋角度球", sets: 1, ballsPerSet: 10,
                         category: "accuracy", subcategory: "sidePocket",
                         standardCriteria: "每个球形10球进6球"),
         ]
@@ -442,7 +442,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
                                targetBalls: 9, mode: .repetition),
         ]
         let item = TodayDrillItem(
-            id: "focused_drill_c013", drillId: "drill_c013", nameZh: "底袋小角度入袋",
+            id: "focused_drill_c013", drillId: "drill_c013", nameZh: "底袋小角度",
             phaseType: "focused", phaseZh: "专项训练", phaseIcon: "target",
             plannedSets: planned, volumeText: "2 球形 · 3 轮 · 共 26 球", isCompleted: false
         )
@@ -568,7 +568,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
                                targetBalls: 9, mode: .sequence),
         ]
         let item = TodayDrillItem(
-            id: "focused_drill_c013", drillId: "drill_c013", nameZh: "底袋小角度入袋",
+            id: "focused_drill_c013", drillId: "drill_c013", nameZh: "底袋小角度",
             phaseType: "focused", phaseZh: "专项训练", phaseIcon: "target",
             plannedSets: planned, volumeText: "", isCompleted: false
         )

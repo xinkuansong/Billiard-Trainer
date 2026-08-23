@@ -151,7 +151,7 @@
   "isPremium": true,
   "level": "L2",
   "nameEn": "Small-Angle Spin Potting",
-  "nameZh": "小角度带塞进袋",
+  "nameZh": "小角度带塞",
   "sets": {
     "defaultSets": 28,
     "defaultBallsPerSet": 15,
@@ -680,7 +680,7 @@
           },
           {
             "title": "进阶练习",
-            "content": "打不穿就退回球形 1。十四档过后换「中大角度带塞进袋」。"
+            "content": "打不穿就退回球形 1。十四档过后换「中大角度带塞」。"
           }
         ]
       }

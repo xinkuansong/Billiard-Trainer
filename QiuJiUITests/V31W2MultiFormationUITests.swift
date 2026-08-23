@@ -40,8 +40,8 @@ final class V31W2MultiFormationUITests: XCTestCase {
         }
         sleep(3)
 
-        try addDrill(named: "底袋小角度入袋", tag: "02")
-        try addDrill(named: "初级蛇彩走位", tag: "03")
+        try addDrill(named: "底袋小角度", tag: "02")
+        try addDrill(named: "初级蛇彩", tag: "03")
 
         sleep(2)
         snap("04-free-training-overview")

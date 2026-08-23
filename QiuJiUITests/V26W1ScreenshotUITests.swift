@@ -20,7 +20,7 @@ final class V26W1ScreenshotUITests: XCTestCase {
             categorySidebar: "sidebar_准度训练",
             categoryFallback: "准度",
             search: "中台角度",
-            nameContains: "中台角度球入袋",
+            nameContains: "中台角度球",
             drillId: "drill_c032",
             file: "01-c032-tutorial"
         )
@@ -31,7 +31,7 @@ final class V26W1ScreenshotUITests: XCTestCase {
             categorySidebar: "sidebar_准度训练",
             categoryFallback: "准度",
             search: "中袋角度",
-            nameContains: "中袋角度精准",
+            nameContains: "中袋角度球",
             drillId: "drill_c053",
             file: "02-c053-tutorial",
             formationContains: "球形2"
@@ -43,7 +43,7 @@ final class V26W1ScreenshotUITests: XCTestCase {
             categorySidebar: "sidebar_基础功",
             categoryFallback: "基础功",
             search: "手架",
-            nameContains: "手架练习",
+            nameContains: "手架",
             drillId: "drill_c008",
             file: "03-c008-tutorial"
         )

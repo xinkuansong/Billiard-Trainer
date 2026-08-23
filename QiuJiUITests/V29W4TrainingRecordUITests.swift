@@ -5,7 +5,7 @@ import XCTest
 /// 两段流程：
 /// 1. **计划训练** —— 激活一个官方计划 → GO! → 录一组 → 写心得 → 保存
 ///    （证 `TrainingSession.planId` 不再是死字段）；
-/// 2. **自由训练 + 多球形 drill** —— 加入 `中袋角度精准`（drill_c053，Bundle 内两条序列）
+/// 2. **自由训练 + 多球形 drill** —— 加入 `中袋角度球`（drill_c053，Bundle 内两条序列）
 ///    → 在「球形」列选择本组球形 → 写心得 → 保存
 ///    （证 `DrillSet.formationToken/formationName` 与 `DrillEntry.note` 有值）。
 ///
@@ -115,16 +115,16 @@ final class V29W4TrainingRecordUITests: XCTestCase {
         let search = app.searchFields.firstMatch
         if search.waitForExistence(timeout: 6) {
             search.tap()
-            search.typeText("中袋角度精准")
+            search.typeText("中袋角度球")
             sleep(2)
         }
         snap("22-drill-picker-search")
 
-        let addC053 = app.buttons["添加中袋角度精准"].firstMatch
+        let addC053 = app.buttons["添加中袋角度球"].firstMatch
         guard addC053.waitForExistence(timeout: 8) else {
             snap("23-no-c053-row")
             dumpHierarchy("23-no-c053-row")
-            XCTFail("动作选择器应能搜到多球形动作「中袋角度精准」")
+            XCTFail("动作选择器应能搜到多球形动作「中袋角度球」")
             return
         }
         addC053.tap()

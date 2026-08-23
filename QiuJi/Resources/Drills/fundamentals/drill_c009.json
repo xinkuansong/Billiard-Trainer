@@ -1,6 +1,6 @@
 {
   "id": "drill_c009",
-  "nameZh": "直线出杆检验",
+  "nameZh": "直线出杆",
   "nameEn": "Straight Stroke Check",
   "category": "fundamentals",
   "subcategory": "stroke",
@@ -241,7 +241,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "七档能走直后，去「远台直线出杆检验」，看更长距离侧偏会不会被放大。"
+        "content": "七档能走直后，去「远台直线出杆」，看更长距离侧偏会不会被放大。"
       }
     ]
   },

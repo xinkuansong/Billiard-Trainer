@@ -185,8 +185,8 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         if tapLabel("添加训练动作", timeout: 4) {
             sleep(2)
             // 选择 sheet 的行不带 drillCard_ 前缀，按动作名命中。
-            // 失败机理（v39 W6）：c010/c014 同名「中杆定杆基础」已拆开，c010 改为「定杆停点（基本功）」。
-            let row = app.staticTexts["定杆停点（基本功）"]
+            // 失败机理（v39 W6）：c010/c014 同名「中杆定杆基础」已拆开，c010 改为「定杆停点」。
+            let row = app.staticTexts["定杆停点"]
             if row.waitForExistence(timeout: 6) {
                 row.tap()
                 sleep(1)
@@ -200,7 +200,7 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         savePNG("t1-active-training-overview")
 
         // 总览列表 → 点动作行进入 `DrillRecordView`（球台示意在其底部）。
-        let row = app.staticTexts["定杆停点（基本功）"]
+        let row = app.staticTexts["定杆停点"]
         if row.waitForExistence(timeout: 5) {
             row.tap()
             sleep(4)

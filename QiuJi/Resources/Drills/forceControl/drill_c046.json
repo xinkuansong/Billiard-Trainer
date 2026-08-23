@@ -1,6 +1,6 @@
 {
   "id": "drill_c046",
-  "nameZh": "控力走位链",
+  "nameZh": "控力走位",
   "nameEn": "Force Control Position Chain",
   "category": "forceControl",
   "secondaryCategories": [
@@ -13,7 +13,7 @@
   "level": "L2",
   "difficulty": 3,
   "isPremium": false,
-  "description": "按示范序列连打 5 杆的控力走位链：同一颗目标球交替打进两个角袋，每杆进袋后靠力度控制让母球停到下一杆的出杆位置；一轮 = 完整打完 5 杆链。训练力度精准控制。",
+  "description": "按示范序列连打 5 杆的控力走位：同一颗目标球交替打进两个角袋，每杆进袋后靠力度控制让母球停到下一杆的出杆位置；一轮 = 完整打完 5 杆链。训练力度精准控制。",
   "coachingPoints": [
     "整链 5 杆连续完成：每杆进袋后母球的停位就是下一杆的出杆位置",
     "每杆微调力度，找到精确的力度感觉——好的控力来自身体记忆而非计算",

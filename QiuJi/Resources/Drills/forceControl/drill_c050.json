@@ -1,6 +1,6 @@
 {
   "id": "drill_c050",
-  "nameZh": "软打控位",
+  "nameZh": "软打控力",
   "nameEn": "Soft Touch Position Control",
   "category": "forceControl",
   "secondaryCategories": [
@@ -225,7 +225,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "五档软停能住后，去「控力走位链」把软力接到下一杆出杆位。"
+        "content": "五档软停能住后，去「控力走位」把软力接到下一杆出杆位。"
       }
     ]
   },

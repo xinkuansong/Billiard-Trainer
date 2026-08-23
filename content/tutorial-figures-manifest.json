@@ -2,7 +2,7 @@
   "_note": "publish_tutorial_figures.py 产物清单；src_md5 = 母版 PNG 的 md5，供增量与门禁新鲜度判据",
   "quality": 70,
   "count": 710,
-  "total_bytes": 117971189,
+  "total_bytes": 118025590,
   "figures": {
     "drill_c001_initial.heic": {
       "src": "drill_c001_initial.png",
@@ -2802,39 +2802,39 @@
     },
     "drill_c055_initial.heic": {
       "src": "drill_c055_initial.png",
-      "src_md5": "a37435dd9f8bb38604fdec56cc700c1f",
+      "src_md5": "26deb5597e018361c1ab4e7dc1ea76ef",
       "quality": 70,
-      "bytes": 150813
+      "bytes": 150857
     },
     "drill_c055_s01.heic": {
       "src": "drill_c055_s01.png",
-      "src_md5": "649408448e8ec42d4ec1ab7f72d00bdf",
+      "src_md5": "4da9af193240e59df39064b359f6abde",
       "quality": 70,
-      "bytes": 157196
+      "bytes": 167152
     },
     "drill_c055_s02.heic": {
       "src": "drill_c055_s02.png",
-      "src_md5": "b74ed25187058e12a9c56fdce0248805",
+      "src_md5": "42a1afea3a649853d9aee62dba99714e",
       "quality": 70,
-      "bytes": 156872
+      "bytes": 166579
     },
     "drill_c055_s03.heic": {
       "src": "drill_c055_s03.png",
-      "src_md5": "9d3607ff821387606e182441d4618301",
+      "src_md5": "fbbade68534f9e8d564f7a87ee079f76",
       "quality": 70,
-      "bytes": 156148
+      "bytes": 170572
     },
     "drill_c055_s04.heic": {
       "src": "drill_c055_s04.png",
-      "src_md5": "35f704869029e59a0993a509e2387118",
+      "src_md5": "f01876fefcf71342313556928ad5fa61",
       "quality": 70,
-      "bytes": 155405
+      "bytes": 168107
     },
     "drill_c055_s05.heic": {
       "src": "drill_c055_s05.png",
-      "src_md5": "1da98245033f6a2ebb4c66490bdb5ac8",
+      "src_md5": "82b368e77342d164ada93bd728566be0",
       "quality": 70,
-      "bytes": 154652
+      "bytes": 173827
     },
     "drill_c056_Snipaste_2026_06_19_17_32_46_initial.heic": {
       "src": "drill_c056_Snipaste_2026_06_19_17_32_46_initial.png",
@@ -2910,15 +2910,15 @@
     },
     "drill_c058_Snipaste_2026_06_19_17_50_08_initial.heic": {
       "src": "drill_c058_Snipaste_2026_06_19_17_50_08_initial.png",
-      "src_md5": "8b19dfd139a9cb37fb000db45e5efd89",
+      "src_md5": "5d0da22cdd574c32d68c0fc7efd6153d",
       "quality": 70,
-      "bytes": 148640
+      "bytes": 148550
     },
     "drill_c058_Snipaste_2026_06_19_17_50_08_s01.heic": {
       "src": "drill_c058_Snipaste_2026_06_19_17_50_08_s01.png",
-      "src_md5": "04ed9fe2361a610c6145136a144eb3cf",
+      "src_md5": "e0807bfc2311e66515fa593ee2c0c5d0",
       "quality": 70,
-      "bytes": 177611
+      "bytes": 166094
     },
     "drill_c058_Snipaste_2026_06_19_17_50_48_initial.heic": {
       "src": "drill_c058_Snipaste_2026_06_19_17_50_48_initial.png",

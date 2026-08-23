@@ -60,7 +60,7 @@ final class W26ScreenshotUITests: XCTestCase {
         snap("03b-drill-picker")
 
         // Prefer named drill; fall back to first cell center tap
-        let named = app.staticTexts["握杆稳定性练习"]
+        let named = app.staticTexts["握杆稳定性"]
         if named.waitForExistence(timeout: 5) {
             named.tap()
         } else {

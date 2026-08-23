@@ -1,6 +1,6 @@
 {
   "id": "drill_c008",
-  "nameZh": "手架练习",
+  "nameZh": "手架",
   "nameEn": "Bridge Hand Practice",
   "category": "fundamentals",
   "subcategory": "bridge",
@@ -130,7 +130,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "两种手架都稳后，去「高级手架稳定性」对照高架。切换手架时脚不要跟着动。"
+        "content": "两种手架都稳后，去「高级手架」对照高架。切换手架时脚不要跟着动。"
       }
     ]
   },

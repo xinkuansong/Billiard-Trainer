@@ -299,7 +299,7 @@
   "isPremium": true,
   "level": "L3",
   "nameEn": "Wide-Angle Spin Potting",
-  "nameZh": "中大角度带塞进袋",
+  "nameZh": "中大角度带塞",
   "sets": {
     "defaultSets": 5,
     "defaultBallsPerSet": 15,

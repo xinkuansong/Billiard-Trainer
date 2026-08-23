@@ -74,7 +74,7 @@ final class DrillTryoutUITests: XCTestCase {
         sleep(5)
 
         // ② 试打页布局：标题 = drill 名、重摆在位、无开球钮
-        XCTAssertTrue(app.staticTexts["初级蛇彩走位"].waitForExistence(timeout: 5), "标题应为 drill 名")
+        XCTAssertTrue(app.staticTexts["初级蛇彩"].waitForExistence(timeout: 5), "标题应为 drill 名")
         XCTAssertTrue(app.buttons["tryout.rearrange"].waitForExistence(timeout: 3), "「重摆球形」应在位")
         XCTAssertFalse(app.buttons["break.entry"].exists, "试打页不应有开球按钮")
 

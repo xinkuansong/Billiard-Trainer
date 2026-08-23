@@ -1,6 +1,6 @@
 {
   "id": "drill_c033",
-  "nameZh": "远台斜线入角袋",
+  "nameZh": "远台底袋角度球",
   "nameEn": "Long Diagonal to Corner Pocket",
   "category": "accuracy",
   "subcategory": "longAngle",
@@ -252,7 +252,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "打不穿就退回「中台角度球入袋」。稳了换「远台直线球极限」。"
+        "content": "打不穿就退回「中台角度球」。稳了换「远台直线球」。"
       }
     ]
   },

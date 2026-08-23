@@ -20,16 +20,16 @@
 
 > **滚动归档纪律（强制）**：本区只保留**最近 10 条以内**（或最近 3 天）条目；更早条目移入 [`tasks/archive/PROGRESS-当前状态-归档.md`](archive/PROGRESS-当前状态-归档.md)（新条目插到归档文件说明块之后的顶部，保持时间倒序）。每次追加新条目时顺手检查：超过 10 条即归档最旧的。历史检索一律去归档文件，勿在本区堆积。
 
+- **动作库课名回写 nameZh（2026-08-23，Content Engineer）**：意图表「课名」同步现网 37 条 `nameZh` + 精讲互引；UI 测试按新课名改。序列 / DrillBoards / 球形标题未改。意图仍不回写。`verify-gate` FAIL 0。未模拟器点验。未 commit。
+- **c058 贴库球处理球形1跟录同步（2026-08-23，Content Engineer）**：重录为高杆轻推（spinY=0.32 / 0.9 m/s）。DrillBoards + drill JSON 精讲实参/课级描述对齐；球形2未动。静帧+HEIC + 缩略图。gate FAIL 0。未重出 mp4，未模拟器点验。未 commit。
+- **c055 翻袋入中袋跟录同步（2026-08-23，Content Engineer）**：用户自由模式重录后，`tryout-sync` + drill JSON（`shotIntent`/`animation` 去直击袋口；精讲实参与塞/右侧长库对齐）+ 静帧重出并发布 HEIC + 缩略图重烘。`verify-tutorial-sync --gate` FAIL 0。未重出 `full.mp4`（`videos[]` 仍空）。未模拟器点验。未 commit。
+- **无库路程比与力度控制研究笔记（2026-08-22，Orchestrator）**：切角/旋转 → ρ=L母/L目 推导 + tan² / e=0.95 / 杆法族详表 + 职业控力（出杆长度、Speed Picture）。落 `docs/research/20260822-无库路程比与力度控制.md`。未改代码、未对拍引擎。
+- **中国商标注册入行文档（2026-08-20，Orchestrator）**：主文 + 两份短清单（起名规范、高风险如何降低，均含中英文）。未做「球迹」个案检索。未改代码。
 - **图谱左缘白球开关轨迹（2026-08-20，SwiftUI Developer，DR-073）**：分离角 / 加塞吃库图谱左缘 8 盘可点选；默认全开，至少留 1 档；关档只藏线不重算。聚焦单测 15/0（`AtlasSpinTrackSelection` 6 + 分离角 4 + 加塞 5）。未做模拟器点验。未 commit。
-- **球形训练意图改写技能（2026-08-20，Orchestrator）**：`formation-training-intent`。口述先还原术语，再写成两句（摆法 + 这一形主要练）。只写研究表。未改 drill JSON。
+- **球形训练意图改写技能（2026-08-20，Orchestrator）**：`formation-training-intent`。口述先还原术语，再写成两句（摆法 + 这一球形主要练）。只写研究表。未改 drill JSON。
 - **动作库返回记位（2026-08-19，SwiftUI Developer）**：二次 load 不出骨架；返回停在刚才那张卡；侧栏换组仍回顶（Q19.1）。单测 2/2；UI 记位 1/1 + Q19.1 回归 1/1。未 commit。
 - **语音术语技能 + 规则（2026-08-19，Orchestrator）**：`02-voice-billiard-terms.mdc`（alwaysApply）+ 技能 `voice-billiard-terms`（含 `glossary.md`）。疑似语音时先还原再换标准词。未改业务代码。
 - **模拟器解锁 Pro（2026-08-19，SwiftUI Developer / DevOps）**：根因=`simctl launch` 不注入 `Products.storekit`。`make run` 默认 `-forcePremium` 并持久化；付费墙/设置可开关；`launchClean` 带 `-resetDebugPremium`。build SUCCEEDED；单测 18/0（含 5 条覆盖）；已进「分离角图谱」无付费墙。未 commit。
-- **动作库球形训练意图表（2026-08-19，Orchestrator）**：按现网 83 课抽出 105 行（一行一形），末列空着等人填。落 `docs/research/20260819-动作库球形训练意图.md`。未改 drill JSON。
-- **问题集合 v40 W2–W7 ⚠️ 返工交回（2026-08-18，v40.13，FL-032，Orchestrator）**：六批 tutorial-writer 已按规范逐课逐形手改，未用回写脚本。W1 保留。主控未通读 79 条；W8 未重跑。未 commit。
-- **训练货架返回记位（2026-08-18，SwiftUI Developer）**：二次 load 不出骨架；首页/计划列表记上次点开的计划，返回停在该卡；激活则回顶。单测 2/2；UI 3/3（含原货架回归）。未 commit。
-- **问题集合 v40 W1 ✅（2026-08-18，v40.11，Orchestrator）**：四条试点过目通过。规范 v2。gate FAIL 0 / build SUCCEEDED。
-- **问题集合 v40 W0 ✅（2026-08-18，v40.4，Orchestrator）**：返工 2。83 条所有权表 + 17 张机制卡 + 三份技能。定杆引入 c010。样张过目通过。未改 drill JSON。
 ## R0 Design System Upgrade — ✅ 已完成
 
 > **前置**：UI 设计全部完成。P4 暂停于 T-P4-04。详见 `tasks/phases/R0-design-system.md`。

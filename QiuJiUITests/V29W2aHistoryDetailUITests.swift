@@ -48,8 +48,8 @@ final class V29W2aHistoryDetailUITests: XCTestCase {
         if tapLabel("添加训练动作", timeout: 6) {
             sleep(3)
             snap("01-drill-picker")
-            // First row of the fallback drill list (stable order): 握杆稳定性练习.
-            let firstDrill = app.buttons["添加握杆稳定性练习"].firstMatch
+            // First row of the fallback drill list (stable order): 握杆稳定性.
+            let firstDrill = app.buttons["添加握杆稳定性"].firstMatch
             let firstCell = app.cells.firstMatch
             if firstDrill.waitForExistence(timeout: 10) {
                 firstDrill.tap()

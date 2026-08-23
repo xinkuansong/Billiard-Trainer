@@ -1,6 +1,6 @@
 {
   "id": "drill_c023",
-  "nameZh": "五分点瞄准线练习",
+  "nameZh": "五分点",
   "nameEn": "Five-Point Aim Line Drill",
   "category": "fundamentals",
   "subcategory": "aim",
@@ -252,7 +252,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "八档线不散后，去「远台直线出杆检验」看更长距离加力会不会把线带偏。"
+        "content": "八档线不散后，去「远台直线出杆」看更长距离加力会不会把线带偏。"
       }
     ]
   },

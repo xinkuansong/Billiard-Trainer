@@ -1,6 +1,6 @@
 {
   "id": "drill_c081",
-  "nameZh": "四球同袋叫位",
+  "nameZh": "四球同袋走位",
   "nameEn": "Four Balls One Pocket",
   "category": "positioning",
   "subcategory": "comboPosition",
@@ -75,7 +75,7 @@
     "sections": [
       {
         "title": "技术原理",
-        "content": "「一库走位定点」已经会倒推。这组袋口钉死，角度是你把母球叫回去走出来的。下一颗越来越远，能一库就不要走两库。盯叫位接到没有，不是选袋。"
+        "content": "「一库走位」已经会倒推。这组袋口钉死，角度是你把母球叫回去走出来的。下一颗越来越远，能一库就不要走两库。盯叫位接到没有，不是选袋。"
       },
       {
         "title": "开局与击球顺序",

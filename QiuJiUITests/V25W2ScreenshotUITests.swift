@@ -28,7 +28,7 @@ final class V25W2ScreenshotUITests: XCTestCase {
     }
 
     func testW2_c023_tutorialImages() {
-        captureTutorial(search: "五分点", drillId: "drill_c023", label: "五分点瞄准线练习")
+        captureTutorial(search: "五分点", drillId: "drill_c023", label: "五分点")
     }
 
     func testW2_c024_tutorialImages() {
