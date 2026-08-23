@@ -20,6 +20,7 @@
 
 > **滚动归档纪律（强制）**：本区只保留**最近 10 条以内**（或最近 3 天）条目；更早条目移入 [`tasks/archive/PROGRESS-当前状态-归档.md`](archive/PROGRESS-当前状态-归档.md)（新条目插到归档文件说明块之后的顶部，保持时间倒序）。每次追加新条目时顺手检查：超过 10 条即归档最旧的。历史检索一律去归档文件，勿在本区堆积。
 
+- **问题集合 v42 W1 委派中（2026-08-24，Orchestrator）**：准度 13 课四字段整课重写。模型 `cursor-grok-4.6-high-fast`。用户要求连续执行到 W8，不中途停问。
 - **问题集合 v42.1 补达标（2026-08-24，Orchestrator）**：用户「训练要求也要一起改」。四字段 = 描述 / 要点 / `standardCriteria` / 精讲。建议训练量不动。c023 达标锁中杆改由 W6 改掉。未改 JSON。
 - **问题集合 v42 立档（2026-08-24，Orchestrator）**：真源改 `问题集合_v42.md`。72 课四字段整课重写（精讲含逐杆）；看 PNG 母版；质量锚 c023；v40 W1 四条解冻。W0 ✅，下一任务 W1 准度 13 课。v41.9 冻结移交。未改 JSON。未 commit。
 - **问题集合 v41 D-v41-8 意图术语上屏（2026-08-24，Content Engineer）**：用户选跟意图。c023 描述/要点写入定杆、高杆双下、低杆双下、前后斯登；顺带 c039 / 蛇彩三课 / c074。精讲与达标未动。未跑 gate。未 commit。
@@ -29,7 +30,6 @@
 - **问题集合 v41 波 2 收官（2026-08-24，Orchestrator）**：W7 `670fbb0` + W8 `e343cc5` 已合并；主树 `make build` SUCCEEDED。冲突未硬圆：c024/c031/c084、c034/c005/c039/c042。
 - **问题集合 v41 W4 试点三字段（2026-08-24，Content Engineer）**：c010 三字段 + c013 描述/要点。gate FAIL 0 / build SUCCEEDED。过目通过。未 commit。
 - **问题集合 v41 W1–W3 意图表统一完善（2026-08-24，Orchestrator）**：两列（原文不动 / 完善另列）。空行跳过；抄句已拆；讲义压成展开指针。6 条冲突上报未硬圆。过目通过。未 commit。
-- **问题集合 v41 拍板清零 + W0 完成（2026-08-24，Orchestrator）**：六项拍板落 v41.2；技能 `formation-training-intent` v2.0 + `tutorial-authoring` v1.9。模型：W0–W3 主控 / W4–W11 grok-4.6。未改 JSON。
 ## R0 Design System Upgrade — ✅ 已完成
 
 > **前置**：UI 设计全部完成。P4 暂停于 T-P4-04。详见 `tasks/phases/R0-design-system.md`。
@@ -261,7 +261,7 @@ R0 ✅ → P4 ✅ → P5 ✅ → P6 ✅ → P7 ✅ → R-UI ✅ → R1 ✅ → P
 
 ## 下一步
 
-- **【问题集合 v42 — 立档完成，待开 W1（2026-08-24，v42.1）】**：真源 `问题集合_v42.md`。下一任务 **W1 准度 13 课**（四字段含达标 + 看 PNG）。模型立档默认：W1 opus 5.0 / W2–W7 grok 4.6 / W8 主控；首次派发可改口。
+- **【问题集合 v42 — 立档完成，待开 W1（2026-08-24，v42.2）】**：真源 `问题集合_v42.md`。下一任务 **W1 准度 13 课**（四字段含达标 + 看 PNG）。W1–W8 一律 `cursor-grok-4.6-high-fast`（用户已确认）。
 - **【问题集合 v38 — 立档，待拍板（2026-08-14，v38.0）】**：v37 R4 内容层收口。真源 `问题集合_v38.md`。下一步：裁定 D-v38-1/2/3 后开 W0。v37 已提交 `7d229fa`。
 - **【P18 发布收敛 — 当前主线】（2026-07-03 立卡）**：按 `tasks/phases/P18-release-convergence.md` 七批执行，**B1 ✅（2026-07-03）**，当前批 **B2**（T-P18-05 组件下沉 → T-P18-10 ShotControlBar，预估 2–3 会话）。人工并行项：**H-19 App 备案今天启动**、H-18 音效素材、H-09 隐私政策、TP-P7、ADR-P10-09 手感验收。
 - **【P12 内容体系与理论挂接 — 规划已立，待执行】（2026-06-14，ADR-P12-01）**：单一真源 [`curriculum-map.md`](curriculum-map.md) + phase 卡 `tasks/phases/P12-content-system-theory.md`。**待用户拍板**：地图 §6 三参数（每格配额 / L4 是否进 v1.0 / 系统训练模式定位）。**第一刀（建议新会话）**：c042 竖切——扩 `DrillContent.theoremIds/moduleIds?` + `TutorialSection.theoremRefs?`（可选向后兼容）、vendor `16/contracts/*.json` 进 `Resources/Theory/`、c042 精讲三层披露 + 建 T01/T03 理论详情页（复用 `AngleTrainingScene` 标注图）+ 学习区"球理"入口卡、建 `THEORY-CONSUMPTION-LOG.md` 翻 16 中枢卡 v1.0 final（达成 16↔13 闭环）。
