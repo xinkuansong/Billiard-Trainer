@@ -11,11 +11,12 @@ import simd
 ///
 /// 产物（ADR-P11-11 渲染矩阵）：
 /// - 视频/GIF：`exportVideo` / `exportGIF`（整段或经 `subSequence` 单杆切片）；
-/// - 教学静帧：`renderStills`（开局 / 每杆击球前带预告线 / 终局）；
+/// - 教学静帧：`renderStills`（开局 / 每杆击球前：预告线 + 瞄准位球杆 + HUD / 终局）；
 /// - 卡片素材：`renderCover`（封面）+ `renderPreviewFrames`（卡片动画帧序列），卡片风格球放大。
 ///
 /// 轨迹线契约：**击球前静帧显示预告线（白=母球路线、橙=进球线），出杆瞬间清除**，
-/// 运动帧始终无线（与编排台 App 内行为一致）。
+/// 运动帧始终无线（与编排台 App 内行为一致）。有预告线时同步摆静止瞄准位球杆
+/// （与视频「亮方案」拍、DR-028 C1 同口径；开局/终局无线不摆杆）。
 ///
 /// 击球参数 HUD（ADR-P11-13）：teaching 档画面底部追加暗色 HUD 条，显示本杆打点
 /// （`BTSpinMiniIcon` 同款球面 + 百分比读数）与力度条（`PowerDisplay` 档名 + m/s），
@@ -236,10 +237,12 @@ enum SequenceVideoExporter {
 
     // MARK: - Public: stills
 
-    /// 教学静帧：`initial` 开局、`s0n_still` 每杆击球前（带预告线）、`final` 终局。
+    /// 教学静帧：`initial` 开局、`s0n_still` 每杆击球前（预告线 + 瞄准位球杆 + HUD）、`final` 终局。
     ///
     /// 开局图取「第一杆击球前」盘面（`steps[0].before`），不盲信 `sequence.initial`。
     /// 批量录制序列里 `initial` 常只剩母球，而真实开局在首杆 `before`（2026-08-03 实测 61 条）。
+    /// 逐杆静帧与视频「亮方案」拍同口径：有预告线且 `showCueStroke`、杆可解时 `showCueAtRest`；
+    /// 开局/终局无线，不摆杆。拍完藏杆，避免终局图吃到上一杆残留。
     static func renderStills(
         sequence: PositionPlaySequence,
         options: Options = .teaching()
@@ -257,7 +260,17 @@ enum SequenceVideoExporter {
 
         for (i, step) in sequence.steps.enumerated() {
             ctx.placeBoard(step.before)
-            let lines = options.showTrajectories ? ctx.drawAimLines(for: step) : []
+            ctx.scene.hideCueStick()
+            let pred = options.showTrajectories
+                ? PositionPlayShotSolver.solve(
+                    before: step.before, shot: step.shot, surfaceY: ctx.surfaceY)
+                : nil
+            let lines = options.showTrajectories
+                ? ctx.drawAimLines(for: step, prediction: pred)
+                : []
+            if options.showCueStroke, let pred, pred.feasible {
+                _ = ctx.showCueAtRest(step: step, prediction: pred)
+            }
             let hud = options.showShotHUD ? makeHUDImage(shot: step.shot, options: options) : nil
             if let img = ctx.snapshot() {
                 let framed = options.showShotHUD ? composeWithHUD(scene: img, hud: hud, options: options) : img
@@ -265,10 +278,12 @@ enum SequenceVideoExporter {
             }
             lines.forEach { $0.removeFromParentNode() }
             ctx.hideAimDecorations()
+            ctx.scene.hideCueStick()
         }
 
         if let last = sequence.steps.last {
             ctx.placeBoard(last.after)
+            ctx.scene.hideCueStick()
             if let img = ctx.snapshot() { out.append(("final", img)) }
         }
         return out

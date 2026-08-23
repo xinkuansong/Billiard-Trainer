@@ -183,7 +183,7 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 |---|-------|------|------|
 | 1 | `技术原理` | content（理论锚点，1–2 段） | 无 |
 | 2 | `开局与击球顺序` | content（布局 + 顺序规划逻辑——顺序和袋口是一起规划的） | `<id>_initial` + caption |
-| 3..N | `第N杆：X号球 · 袋口` | **items + params**，content 留 `""` | `<id>_sNN`（带 HUD 静帧）+ caption |
+| 3..N | `第N杆：X号球 · 袋口` | **items + params**，content 留 `""` | `<id>_sNN`（预告线 + 瞄准位球杆 + HUD）+ caption |
 | N+1 | `常见错误与纠正` | **items**（label=错误名，2–4 条） | 可选 |
 | N+2 | `进阶练习` | content（降阶 + 升阶各至少一个方向） | 无 |
 
@@ -205,7 +205,7 @@ Y ∈ [0.0099, 0.4901]   （库边高 = 0.050/2.540 × 0.5）
 | 产物（`build/position_play_export/<exportDir>/`） | 落位 | 命名 |
 |---|---|---|
 | `initial.png` | `Resources/DrillTutorials/` | `<drillId>_initial.png` |
-| `sNN_still.png`（带 HUD） | `Resources/DrillTutorials/` | `<drillId>_sNN.png`（⛔ 不得落成 `_sNN_still`） |
+| `sNN_still.png`（预告线 + 瞄准位球杆 + HUD） | `Resources/DrillTutorials/` | `<drillId>_sNN.png`（⛔ 不得落成 `_sNN_still`） |
 | `final.png` | `Resources/DrillTutorials/` | `<drillId>_final.png` |
 | `full.mp4`（2D 顶视 1080×2040@60 带 HUD） | `Resources/Videos/<drillId>/` | `full.mp4`，JSON `videos: [{id:"full", file:"full.mp4"}]`（引擎片已于 v25 下线，字段预留真人示范） |
 | `full_3d.mp4`（3D 斜视角手机档 1080×2040@60 带 HUD，ADR-P11-15） | 本地预览 / 后续 OTA | `full_3d.mp4`，JSON `videos:` 追加 `{id:"full3d", file:"full_3d.mp4"}` |
@@ -349,6 +349,7 @@ SOP-A 仍要做，但**不够当引入课**（v40 R5）：概念第一次出现�
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v1.4 | 2026-08-24 | DR-074：`sNN_still` 与视频亮方案拍对齐，有预告线则摆瞄准位球杆。 |
 | v1.3 | 2026-08-18 | 红线指向精讲内容规范 v2（中间档可留空 / 正文不报度数 / 自检不抄静帧）。来源：问题集合 v40.9。 |
 | v1.2 | 2026-08-18 | 红线补 D-v40-8 语域类型规则 + D-v40-9 距离公分/米。来源：问题集合 v40.5。 |
 | v1.1 | 2026-08-18 | 应用课模板：删除过时「单技术点保持四段结构」句，改为与现网统一骨架 + 所有权表分档。红线与多形节对齐 v40 跨 drill（引入课五问 / 后续课新层 / 合成课禁改回阶梯腔）。SOP-A 补「不够当引入课」。来源：问题集合 v40.3 W0。 |

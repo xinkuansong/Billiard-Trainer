@@ -42,8 +42,8 @@ final class V26W1ScreenshotUITests: XCTestCase {
         captureTutorial(
             categorySidebar: "sidebar_基础功",
             categoryFallback: "基础功",
-            search: "手架",
-            nameContains: "手架",
+            search: "八种手架",
+            nameContains: "八种手架",
             drillId: "drill_c008",
             file: "03-c008-tutorial"
         )
@@ -57,6 +57,30 @@ final class V26W1ScreenshotUITests: XCTestCase {
             nameContains: "Ghost Game",
             drillId: "drill_c065",
             file: "04-c065-tutorial-ruleset"
+        )
+    }
+
+    /// v41 W11：详情页（准度）
+    func testW11_c013_accuracyDetail() {
+        captureDetail(
+            categorySidebar: "sidebar_准度训练",
+            categoryFallback: "准度",
+            search: "底袋小角度",
+            nameContains: "底袋小角度",
+            drillId: "drill_c013",
+            file: "w11-c013-accuracy-detail"
+        )
+    }
+
+    /// v41 W11：详情页（走位）
+    func testW11_c005_positioningDetail() {
+        captureDetail(
+            categorySidebar: "sidebar_走位训练",
+            categoryFallback: "走位",
+            search: "一库走位",
+            nameContains: "一库走位",
+            drillId: "drill_c005",
+            file: "w11-c005-positioning-detail"
         )
     }
 
@@ -137,6 +161,57 @@ final class V26W1ScreenshotUITests: XCTestCase {
         }
 
         savePNG(file)
+    }
+
+    private func captureDetail(
+        categorySidebar: String,
+        categoryFallback: String,
+        search: String,
+        nameContains: String,
+        drillId: String,
+        file: String
+    ) {
+        let w11Dir = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/w11-logs")
+        try? FileManager.default.createDirectory(at: w11Dir, withIntermediateDirectories: true)
+
+        app.switchTab(.drillLibrary)
+        sleep(2)
+
+        let sidebar = app.descendants(matching: .any)[categorySidebar]
+        if sidebar.waitForExistence(timeout: 5) {
+            sidebar.tap()
+        } else {
+            let fallback = app.buttons.matching(
+                NSPredicate(format: "label CONTAINS %@", categoryFallback)
+            ).firstMatch
+            XCTAssertTrue(fallback.waitForExistence(timeout: 5), "应能切到 \(categoryFallback)")
+            fallback.tap()
+        }
+        sleep(1)
+
+        let searchField = app.textFields["搜索动作"]
+        XCTAssertTrue(searchField.waitForExistence(timeout: 5), "搜索框应存在")
+        searchField.tap()
+        searchField.typeText(search)
+        sleep(2)
+
+        let card = app.descendants(matching: .any)
+            .matching(NSPredicate(
+                format: "identifier == %@ OR label CONTAINS %@",
+                "drillCard_\(drillId)",
+                nameContains
+            ))
+            .firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 8), "应找到 \(drillId)")
+        card.tap()
+        sleep(2)
+
+        let shot = app.screenshot()
+        let att = XCTAttachment(screenshot: shot)
+        att.name = file
+        att.lifetime = .keepAlways
+        add(att)
+        try? shot.pngRepresentation.write(to: w11Dir.appendingPathComponent("\(file).png"))
     }
 
     private func savePNG(_ name: String) {

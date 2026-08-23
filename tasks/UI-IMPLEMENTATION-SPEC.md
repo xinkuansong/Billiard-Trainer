@@ -971,8 +971,8 @@ struct BTShareCard: View {
 
 > 产品默认契约：**有稳定瞄准方向且台面正在画瞄准线 ⇒ 同步摆杆**（`AngleTrainingScene.updateCueStick`）；无线 / 无方向 ⇒ `hideCueStick`。根因是「画线」与「摆杆」须绑定为同一生命周期事件，禁止用 delay/吞错压症状。
 
-- **同现调用点**：Bank/Diamond `drawSolution`（解上屏）；`BreakFlowRunner.drawAimLine`（开球 `.racked`）；`PositionPlayViewModel` 自由模式 G14 预览（`drawFreeAimPreviewLine`，D-v19-3）；AimPointScene `redrawLines` 在 aiming/showingResult 且有用户白线时（D-v19-1）。Silu / PlanThree / Snooker / 停稳有解 / 自由 `refreshFreeAim` / 导出器 `showCueAtRest` 已对齐，本条防回流。
-- **明确例外（继续无杆）**：SceneAiming / AimingQuiz 辅助与结果可视化（防泄题，D-v19-2）；`.blocked` 仍藏杆（DR-027）；缩略图/图文渲染/分离角图谱等无瞄准任务页；无瞄准线的浏览态**禁止**硬插杆。
+- **同现调用点**：Bank/Diamond `drawSolution`（解上屏）；`BreakFlowRunner.drawAimLine`（开球 `.racked`）；`PositionPlayViewModel` 自由模式 G14 预览（`drawFreeAimPreviewLine`，D-v19-3）；AimPointScene `redrawLines` 在 aiming/showingResult 且有用户白线时（D-v19-1）。Silu / PlanThree / Snooker / 停稳有解 / 自由 `refreshFreeAim` / 导出器视频 `showCueAtRest` 与**精讲静帧 `renderStills`**（DR-074）已对齐，本条防回流。
+- **明确例外（继续无杆）**：SceneAiming / AimingQuiz 辅助与结果可视化（防泄题，D-v19-2）；`.blocked` 仍藏杆（DR-027）；分离角/加塞吃库图谱等无瞄准任务页；无瞄准线的浏览态（含精讲开局/终局图）**禁止**硬插杆。缩略图（DR-039）与精讲逐杆静帧（DR-074）有预告线则同现杆，不再列为例外。
 - **瞄准 → 运杆 / 回放衔接（C7）**：
   1. 瞄准态与出杆必须使用**同一** `aim` + `CueStroke.strikePosition(cue:aim:spinX:)`（禁止瞄准带加塞、出杆喂球心）。
   2. **禁止**在即将 `runCueStroke` 前无故 `hideCueStick`（会造成藏→show 闪帧）。`runCueStroke` 自 `drive(0)+show` 起手，已是瞄准贴球姿态。
@@ -1081,6 +1081,7 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-08-24 | **精讲逐杆静帧补瞄准位球杆**（DR-074）：`renderStills` 与视频亮方案拍对齐，有预告线则 `showCueAtRest`；开局/终局仍无杆；C6 不再把图文静帧当藏杆例外 | 修正/DR | SequenceVideoExporter, SequenceStillCueTests | 用户点验：精讲图有线无杆 |
 | 2026-08-20 | **图谱左缘白球可点选开关轨迹**（DR-073）：分离角图谱 / 加塞吃库图谱左缘 8 盘从只读改为点选；默认 8 档全开，至少留 1 档；关档只藏对应色线，不重跑 `simulateFree` | 修正/DR | SeparationAngleAtlasView/ViewModel, CushionEnglishAtlasView/ViewModel, AtlasSpinTrackSelection | 用户点验反馈 |
 | 2026-08-19 | **动作库返回记位**：二次 `loadDrills` 不出骨架；记上次点开的 drill id，返回滚回该卡；侧栏换分组仍回顶（Q19.1）；切等级 chip 回网格顶 | 修正 | DrillListView, DrillListViewModel | 用户实机反馈 |
 | 2026-08-19 | **模拟器解锁 Pro**（PD-030）：`make run` 默认 `-forcePremium` 并持久化；付费墙 / 设置增加 Debug「模拟器解锁 Pro」；`launchClean` 带 `-resetDebugPremium`。不改生产购买 | 修正/PD | SubscriptionManager, SubscriptionView, SettingsView, Makefile, XCUIApplication+Extensions | 模拟器买不成 Pro |

@@ -219,6 +219,21 @@
 
 ---
 
+## DR-074
+- **任务**：精讲逐杆静帧补瞄准位球杆
+- **原始规范**：v19 C6 把「缩略图/图文渲染」列为例外藏杆；`renderStills` 只画预告线 + HUD。缩略图已由 DR-039 补杆，精讲静帧未跟上。
+- **调整后**：
+  1. `SequenceVideoExporter.renderStills` 逐杆帧与视频「亮方案」拍同口径：有预告线且 `showCueStroke`、杆可解时 `showCueAtRest`。
+  2. 开局/终局无线，不摆杆；拍完藏杆，终局图不得残留上一杆杆位。
+  3. C6 例外收窄：图谱等无瞄准任务页继续无杆；精讲逐杆静帧不再例外。
+- **原因**：用户点验全部精讲图有轨迹线、无球杆。根因是静帧出口漏调 `showCueAtRest`，不是内容漏画。
+- **影响组件**：`SequenceVideoExporter.renderStills`；现网图须 `make position-export-stills` + 回填发布后才变。
+- **日期**：2026-08-24
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §8.9 h + Changelog；`tutorial-authoring` / `content-engineering` SKILL
+- **已应用至**：✅ SPEC §8.9 h / Changelog；`tutorial-authoring` v1.10；`content-engineering` v1.4（2026-08-24）
+
+---
+
 ## DR-073
 - **任务**：分离角图谱 / 加塞吃库图谱左缘 8 盘点选开关轨迹
 - **原始规范**：左缘 8 只读迷你打点盘（`allowsHitTesting(false)`），台面恒画 8 色轨迹
