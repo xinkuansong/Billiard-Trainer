@@ -16,7 +16,7 @@
     "只改开局规划：先花时间说出顺序与关键球，再动手",
     "同时记胜负与平均清台球数——胜率低时球数仍可能在涨，那才是真实进度"
   ],
-  "standardCriteria": "连续 10 局 Ghost Game，赢至少 3 局；并记录每局清台球数（用于算平均）",
+  "standardCriteria": "连续 10 局 Ghost Game，赢至少 3 局；同时扮演双方，开局先说出顺序与关键球再动手，并记录每局清台球数（用于算平均）",
   "sets": {
     "defaultSets": 8,
     "defaultBallsPerSet": 15
