@@ -6,7 +6,8 @@ import SwiftUI
 ///
 /// 坐标契约（与 `CushionEnglishAtlasGeometry` / `.kiro/steering/table-geometry.md` 对齐）：
 /// - SceneKit 水平 **X–Z**，**Y 朝上**；单位米；+X 右端，+Z 顶视图上方
-/// - `spinX` 正 = **左塞**；本页 `spinY` 锁 **0**（中杆）
+/// - `spinX` 正 = **左塞**；`spinY` 由右缘打点盘选定（默认 0 = 中杆）
+/// - 8 档 `spinX` = 该 `spinY` 处打滑圆水平弦上均匀采样
 /// - 每档：`aimDir = aimDirCompensatingSquirt(geometric:spinX:)` 后 `simulateFree`；
 ///   碰前/库后均按该档实况上色（8 线）；库后切片 = `pathAfterFirstCueCushion`
 ///
@@ -22,6 +23,10 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
     @Published var velocity: Double = ShotTuning.defaultVelocity
+    /// 选定高低杆（接触点/R）；默认中杆。左右塞由该高度下的打滑弦重算。
+    @Published var spinY: Double = 0
+    /// 打点盘竖轴锁定：加塞量不由用户点选，始终为 0。
+    let displaySpinX: Double = 0
     @Published private(set) var cutAngleDegrees: Double = 0
     @Published private(set) var isDragging = false
     @Published private(set) var isComputing = false
@@ -32,9 +37,8 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     /// 当前目标球键（换号后进球线 / 切角 / 轨迹瞄准随之切换）。
     @Published private(set) var selectedTargetKey: String?
 
-    /// 右侧仪表柱只读展示中心（spinX/Y=0）；左缘 8 盘图例为真源色序。
-    let displaySpinX: Double = 0
-    let displaySpinY: Double = 0
+    /// 右侧迷你图示当前高低杆（无左右塞）。
+    var displaySpinY: Double { spinY }
 
     /// 左缘 8 档开关；默认全开，至少留 1 档。只挡画线，不挡并行计算。
     @Published private(set) var enabledTracks: Set<Int> = AtlasSpinTrackSelection.allEnabled
@@ -311,6 +315,10 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         scheduleRecompute(interactive: false)
     }
 
+    func onCueHeightChanged() {
+        scheduleRecompute(interactive: true)
+    }
+
     /// 点左缘迷你盘：开/关对应色轨迹。最后一档不可关。
     func toggleTrack(_ index: Int) {
         let next = AtlasSpinTrackSelection.toggle(enabledTracks, index: index)
@@ -347,9 +355,10 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         let cue = intent.cue
         let geometricAim = intent.aim
         let v = Float(velocity)
+        let spinY = Float(self.spinY)
         let y = scene.surfaceY
         let balls = intent.balls
-        let spins = CushionEnglishAtlasGeometry.spinXLevels()
+        let spins = CushionEnglishAtlasGeometry.spinXLevels(spinY: spinY)
         predictInFlight = true
         isComputing = true
 
@@ -364,7 +373,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
                     geometric: geometricAim, spinX: spinX)
                 let pred = ShotPredictor.simulateFree(
                     cueBall: cue, aimDir: aim, velocity: v,
-                    spinX: spinX, spinY: 0,
+                    spinX: spinX, spinY: spinY,
                     surfaceY: y, balls: balls
                 )
                 paths[i] = CushionEnglishAtlasGeometry.pathAfterFirstCueCushion(pred)

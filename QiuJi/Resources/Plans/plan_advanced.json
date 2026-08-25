@@ -7,7 +7,7 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 90,
   "isPremium": true,
-  "description": "先翻角袋与 K 球不吃库，再 K 球吃库与翻中袋，然后贴库与跳球，最后安全与解球。禁止中袋热身伺候角袋衰减主课。",
+  "description": "先翻角袋与 K 球不吃库，再 K 球吃库、K 球综合挑战与翻中袋，然后贴库与跳球，最后安全与解球。禁止中袋热身伺候角袋衰减主课。",
   "weeks": [
     {
       "weekNumber": 1,
@@ -137,7 +137,7 @@
     },
     {
       "weekNumber": 2,
-      "theme": "K 球吃库与翻中袋",
+      "theme": "K 球吃库、综合挑战与翻中袋",
       "sessions": [
         {
           "dayNumber": 1,
@@ -240,12 +240,12 @@
               "durationMinutes": 60,
               "drills": [
                 {
-                  "drillId": "drill_c055",
+                  "drillId": "drill_c085",
                   "dose": {
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 5
+                        "rounds": 14
                       }
                     ]
                   }
@@ -301,11 +301,9 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 5,
-                        "ballsPerRound": 12
+                        "rounds": 5
                       }
-                    ],
-                    "decay": true
+                    ]
                   }
                 }
               ]

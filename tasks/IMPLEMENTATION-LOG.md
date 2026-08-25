@@ -219,6 +219,49 @@
 
 ---
 
+## DR-077
+- **任务**：动作库已练过卡片去灰标题，改封面角标
+- **原始规范**：DR-045 / v28——完成态写入标题下元信息行（灰色「已完成」）；台面覆层只留等级 + Pro/收藏
+- **调整后**：已练过改封面右下 `BTPracticedBadge`（✓ 已练）。角标强制 Dark 下的 `btPrimary`（`#25A25A`）——台面 ≈ Light primary，浅色绿会隐进呢面。网格卡课名一律 `.btText`，Pro 只留右上 `BTProBadge`，不再把课名洗成三级灰。元信息行只留精讲种。筛选「已完成」不动。
+- **原因**：灰色「已完成」看起来像把标题洗灰；Pro 课名三级灰是同一错觉的另一条通路。角标要在深绿台面上认得出，必须用比呢面亮一档的品牌绿。
+- **影响组件**：`BTDrillGridCard`、`BTPracticedBadge`
+- **日期**：2026-08-25
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`.cursor/skills/swiftui-design-system/SKILL.md`；`20-swiftui-developer.mdc` Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog + §2.3d；`.cursor/skills/swiftui-design-system/SKILL.md`；`20-swiftui-developer.mdc` Changelog（2026-08-25）
+
+---
+
+## DR-076
+- **任务**：精讲多球形切换时阅读位置串台
+- **原始规范**：一条共用 `ScrollView` + sticky 分段；行 `.id` 只保证正文刷新（B4），偏移跟着上一个球形走
+- **调整后**：
+  1. 每个访问过的球形自带 `ScrollView`，未访问的不建（从头）。
+  2. 分段提到滚动外并常驻；Picker 与 `visitedFormations` 同步写入，避免 `onChange` 晚一拍闪空页。
+  3. 缓存只活在本次 `@State`：退出再进全部从头。禁止对共用 ScrollView 写 `.id(selectedFormation)`（那会每次回顶）。
+- **原因**：共用 `contentOffset` 是根因；用户要的是「按球形记阅读位置，会话级，退出清」。
+- **影响组件**：`DrillTutorialView`
+- **日期**：2026-08-24
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`20-swiftui-developer.mdc` Changelog + 经验教训
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`20-swiftui-developer.mdc` Changelog + 经验教训（2026-08-24）
+
+---
+
+## DR-075
+- **任务**：加塞吃库图谱增加高低杆打点盘，按该打点重算允许加塞量的八条轨迹
+- **原始规范**：本页 `spinY` 锁 0（中杆）；右缘纯力度柱 `onSpinTap=nil`；8 档 `spinX` ∈ [±miscueLimit]
+- **调整后**：
+  1. 右缘迷你打点图可点开 `BTSpinPadOverlay`；新增 `locksSideSpin`：拖动锁竖轴、隐藏左右微调，只选高低杆。
+  2. `allowedSpinXLimit(spinY) = √(L² − spinY²)`；`spinXLevels(spinY:)` 在该弦上均匀 8 档（端点在打滑圆上）。满高/满低弦长为 0，八档塌成中心。
+  3. `simulateFree` 喂选定 `spinY` + 各档 `spinX`；左缘 8 盘红点画在该弦上（高杆偏上、弦更短）。
+  4. 顶栏增「打点 / 可加塞%」；学卡副标题改为「高低杆 · 左右塞 · 吃库后出射」。
+- **原因**：中杆只是打滑圆一条直径。高低杆占掉半径预算后，能加的左右塞是圆上剩下的水平弦——这是误杆极限的第一性原理，不是另设档位表。
+- **影响组件**：`BTSpinPad` / `BTSpinPadCard` / `BTSpinPadOverlay`（`locksSideSpin`，默认 false）；`CushionEnglishAtlasGeometry` / `View` / `ViewModel`；`AngleHomeView`
+- **日期**：2026-08-24
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 + Changelog；`20-swiftui-developer.mdc` Changelog（`locksSideSpin` API）
+- **已应用至**：✅ SPEC §9.3 / Changelog；`20-swiftui-developer.mdc` Changelog（2026-08-24）
+
+---
+
 ## DR-074
 - **任务**：精讲逐杆静帧补瞄准位球杆
 - **原始规范**：v19 C6 把「缩略图/图文渲染」列为例外藏杆；`renderStills` 只画预告线 + HUD。缩略图已由 DR-039 补杆，精讲静帧未跟上。

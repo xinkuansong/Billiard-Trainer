@@ -20,16 +20,16 @@
 
 > **滚动归档纪律（强制）**：本区只保留**最近 10 条以内**（或最近 3 天）条目；更早条目移入 [`tasks/archive/PROGRESS-当前状态-归档.md`](archive/PROGRESS-当前状态-归档.md)（新条目插到归档文件说明块之后的顶部，保持时间倒序）。每次追加新条目时顺手检查：超过 10 条即归档最旧的。历史检索一律去归档文件，勿在本区堆积。
 
-- **问题集合 v42 W1 委派中（2026-08-24，Orchestrator）**：准度 13 课四字段整课重写。模型 `cursor-grok-4.6-high-fast`。用户要求连续执行到 W8，不中途停问。
+- **动作库已练过改角标（2026-08-25，SwiftUI Developer，DR-077）**：Pro 课名不再三级灰；已练角标 Dark `btPrimary`（取样 rgb 39,161,91）。三卡标题 dark=1422 / avg lum=13。`testRenderGridCards_practicedBadge_notGrayTitle` 1/0。未开模拟器点列表。未 commit。
+- **c085 精讲补全 + 缩略图（2026-08-25，Tutorial Writer）**：14 杆均有为什么/怎么打/自检。动作库缩略图 `drill_c085.png` 已烘焙（84/84，board 16 球）。`verify-gate` 上次 FAIL 0，本轮未重跑。未模拟器点验。未 commit。
+- **公司执照 + 竞品观察入档（2026-08-25，Orchestrator）**：营业执照已拿到；抖音「栖野」记观察档（不升格直接竞品）。下一步：TOAS 检索「球迹」9/41/42 → 公司名义报标；对公户；H-19 改企业主体。未改代码。
+- **精讲多球形阅读位置隔离（2026-08-24，SwiftUI Developer，DR-076）**：各访问过的球形自带 ScrollView；未打开过从头；退出再进全清；分段常驻。聚焦单测 `TutorialFormationScrollIsolationTests` 2/0。未模拟器点验切页滚动。未 commit。
+- **加塞吃库图谱可选高低杆（2026-08-24，SwiftUI Developer，DR-075）**：右缘打点盘只选 `spinY`；8 档左右塞按打滑圆水平弦 `√(L²−spinY²)` 重算。聚焦单测 14/0（含新增勾股/弦端点/满高塌缩）。未模拟器点验。未 commit。
+- **问题集合 v42 全案收官（2026-08-24，Orchestrator）**：W0–W8 ✅。HEAD `beaf170`。W8：gate FAIL 0 / build SUCCEEDED；c023 达标无锁中杆；11 堂跳过课相对 `5e65589` 无改。未开模拟器。未 commit 进度文件。
 - **问题集合 v42.1 补达标（2026-08-24，Orchestrator）**：用户「训练要求也要一起改」。四字段 = 描述 / 要点 / `standardCriteria` / 精讲。建议训练量不动。c023 达标锁中杆改由 W6 改掉。未改 JSON。
 - **问题集合 v42 立档（2026-08-24，Orchestrator）**：真源改 `问题集合_v42.md`。72 课四字段整课重写（精讲含逐杆）；看 PNG 母版；质量锚 c023；v40 W1 四条解冻。W0 ✅，下一任务 W1 准度 13 课。v41.9 冻结移交。未改 JSON。未 commit。
 - **问题集合 v41 D-v41-8 意图术语上屏（2026-08-24，Content Engineer）**：用户选跟意图。c023 描述/要点写入定杆、高杆双下、低杆双下、前后斯登；顺带 c039 / 蛇彩三课 / c074。精讲与达标未动。未跑 gate。未 commit。
 - **问题集合 v41 W12 描述要点去剂量（2026-08-24，Content Engineer）**：D-v41-7。未跳过 72 课 `description` / `coachingPoints` 去掉档数、切角度数、杆速、颗球距；`tutorial` 与跳过课未动。`verify-gate` FAIL 0（I10 解码 97）。未跑 `make build`。未 commit。
-- **精讲静帧补瞄准位球杆（2026-08-24，DR-074）**：`renderStills` 与视频亮方案拍对齐。出片 99/102（3 条 0 杆跳过）；回填 73 drill；发布图 718 FAIL 0。单测 `SequenceStillCueTests` 1/0。抽检 c001/c010 母版有杆。未模拟器打开精讲页。未 commit。
-- **问题集合 v41 W11 收官（2026-08-24，Orchestrator）**：gate FAIL 0；build SUCCEEDED；boilerplate PASS 0。抽检 c010/c013/c056/c042/c076/c077 与引入/后续课通过。截图 c013+c005 亲验。v40 升 v40.14。W0–W11 全 ✅。未 commit。
-- **问题集合 v41 波 2 收官（2026-08-24，Orchestrator）**：W7 `670fbb0` + W8 `e343cc5` 已合并；主树 `make build` SUCCEEDED。冲突未硬圆：c024/c031/c084、c034/c005/c039/c042。
-- **问题集合 v41 W4 试点三字段（2026-08-24，Content Engineer）**：c010 三字段 + c013 描述/要点。gate FAIL 0 / build SUCCEEDED。过目通过。未 commit。
-- **问题集合 v41 W1–W3 意图表统一完善（2026-08-24，Orchestrator）**：两列（原文不动 / 完善另列）。空行跳过；抄句已拆；讲义压成展开指针。6 条冲突上报未硬圆。过目通过。未 commit。
 ## R0 Design System Upgrade — ✅ 已完成
 
 > **前置**：UI 设计全部完成。P4 暂停于 T-P4-04。详见 `tasks/phases/R0-design-system.md`。

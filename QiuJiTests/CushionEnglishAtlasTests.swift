@@ -21,6 +21,54 @@ final class CushionEnglishAtlasTests: XCTestCase {
                        "页内 8 色板与档位数一致")
     }
 
+    /// 打滑圆勾股：L=0.5，spinY=0.3 → 弦半长 0.4；满高/满低 → 0。
+    func testAllowedSpinXLimit_isMiscueChord() {
+        let L = CuePhysics.miscueLimitFraction
+        XCTAssertEqual(CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: 0),
+                       L, accuracy: 1e-6, "中杆弦 = 满塞")
+        XCTAssertEqual(CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: 0.3),
+                       0.4, accuracy: 1e-6, "√(0.5²−0.3²)=0.4")
+        XCTAssertEqual(CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: -0.3),
+                       0.4, accuracy: 1e-6, "高低对称")
+        XCTAssertEqual(CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: 0.4),
+                       0.3, accuracy: 1e-6, "√(0.5²−0.4²)=0.3")
+        XCTAssertEqual(CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: L),
+                       0, accuracy: 1e-6, "满高无加塞余地")
+        XCTAssertEqual(CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: -L),
+                       0, accuracy: 1e-6, "满低无加塞余地")
+        XCTAssertEqual(CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: L + 0.2),
+                       0, accuracy: 1e-6, "越界钳到圆上")
+    }
+
+    func testSpinXLevels_atHeightUsesChordAndStaysInsideMiscueCircle() {
+        let spinY: Float = 0.3
+        let levels = CushionEnglishAtlasGeometry.spinXLevels(spinY: spinY)
+        XCTAssertEqual(levels.count, 8)
+        XCTAssertEqual(levels.first!, 0.4, accuracy: 1e-6)
+        XCTAssertEqual(levels.last!, -0.4, accuracy: 1e-6)
+        let step = levels[0] - levels[1]
+        for i in 1..<levels.count {
+            XCTAssertEqual(levels[i - 1] - levels[i], step, accuracy: 1e-6)
+        }
+        let L = CuePhysics.miscueLimitFraction
+        for sx in levels {
+            let r = hypot(sx, spinY)
+            XCTAssertLessThanOrEqual(r, L + 1e-5,
+                                     "spinX=\(sx) spinY=\(spinY) 应在打滑圆内，r=\(r)")
+        }
+        XCTAssertEqual(hypot(levels.first!, spinY), L, accuracy: 1e-5,
+                       "弦端点应落在打滑圆上")
+    }
+
+    func testSpinXLevels_atMiscueLimitCollapsesToZero() {
+        let levels = CushionEnglishAtlasGeometry.spinXLevels(
+            spinY: CuePhysics.miscueLimitFraction)
+        XCTAssertEqual(levels.count, 8)
+        for sx in levels {
+            XCTAssertEqual(sx, 0, accuracy: 1e-6)
+        }
+    }
+
     // MARK: - Squirt compensation (E3)
 
     /// 补偿后 actualDirection(aim', spinX) 与 geometric 夹角 P95 < 0.05°。

@@ -18,7 +18,7 @@ enum AngleRoute: Hashable {
     case spinAndEnglish
     /// 分离角图谱（v11 Y3）：8 档高低杆碰后→第一库轨迹对比。
     case separationAngleAtlas
-    /// 加塞吃库图谱（v20 W2）：中杆 × 8 档左右塞 × 吃库后出射扇形。
+    /// 加塞吃库图谱（v20 W2 / DR-075）：选定高低杆 × 该高度允许加塞弦 × 8 档吃库后出射。
     case cushionEnglishAtlas
     case angleDynamic
     case geometricQuiz
@@ -260,7 +260,7 @@ struct AngleHomeView: View {
         .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "滑动 · 前旋后旋 · 分离角", topics: [.english, .position]),
         .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "切角变化如何影响打点", topics: [.accuracy]),
         .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "高低杆 · 碰后轨迹 · 力度", isPremium: true, topics: [.position]),
-        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "中杆 · 左右塞 · 吃库后出射", isPremium: true, topics: [.english, .cushion]),
+        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "高低杆 · 左右塞 · 吃库后出射", isPremium: true, topics: [.english, .cushion]),
         .init(route: .ballFeel, title: "浅谈球感", subtitle: "从理性分析到直觉判断", topics: [.accuracy]),
         .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "常用角度的瞄准点速查", topics: [.accuracy]),
     ]

@@ -109,7 +109,7 @@ struct BTDrillGridCard: View {
             title: drill.nameZh,
             coverAspectRatio: 2.0,
             titleMinHeight: 40,
-            titleColor: drill.isPremium ? .btTextTertiary : .btText
+            titleColor: .btText
         ) {
             tableArea
         } meta: {
@@ -133,6 +133,12 @@ struct BTDrillGridCard: View {
             cardBadge
                 .padding(Spacing.sm)
         }
+        .overlay(alignment: .bottomTrailing) {
+            if isCompleted {
+                BTPracticedBadge()
+                    .padding(Spacing.sm)
+            }
+        }
     }
 
     @ViewBuilder
@@ -152,7 +158,6 @@ struct BTDrillGridCard: View {
 
     private var metaParts: [String] {
         var parts: [String] = []
-        if isCompleted { parts.append("已完成") }
         if let tutorialKind {
             parts.append(tutorialKind.cardLabel)
         }
@@ -175,6 +180,28 @@ struct BTDrillGridCard: View {
         }
     }
 
+}
+
+/// Cover-corner badge: this drill has been practiced at least once (DR-077).
+/// Felt is ~btPrimary Light (`#1B6B3A`); Light primary would vanish on the table.
+/// Force Dark so `btPrimary` resolves to `#25A25A`.
+struct BTPracticedBadge: View {
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: BTIcon.checkmark)
+                .font(.btMicro.weight(.bold))
+            Text("已练")
+                .font(.btCaption2.weight(.heavy))
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.xs)
+        .background(Color.btPrimary)
+        .clipShape(Capsule())
+        .environment(\.colorScheme, .dark)
+        .accessibilityLabel("已练过")
+        .accessibilityIdentifier("drillCardPracticedBadge")
+    }
 }
 
 // MARK: - BTDrillThumbnail (shared mini table or fallback icon)

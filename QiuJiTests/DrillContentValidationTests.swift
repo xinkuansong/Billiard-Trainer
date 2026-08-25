@@ -1,7 +1,7 @@
 import XCTest
 @testable import QiuJi
 
-/// Validates all 83 Drill JSONs loaded from Bundle for Schema compliance,
+/// Validates all 84 Drill JSONs loaded from Bundle for Schema compliance,
 /// coordinate bounds, isPremium/level consistency, and animation integrity.
 final class DrillContentValidationTests: XCTestCase {
 
@@ -22,8 +22,8 @@ final class DrillContentValidationTests: XCTestCase {
         XCTAssertEqual(drillIndex.categories.count, 8, "Index must have exactly 8 categories")
     }
 
-    func test_index_totalDrillCount_is83() {
-        XCTAssertEqual(drillIndex.allDrillIds.count, 83, "Index should reference 83 drill IDs")
+    func test_index_totalDrillCount_is84() {
+        XCTAssertEqual(drillIndex.allDrillIds.count, 84, "Index should reference 84 drill IDs")
     }
 
     func test_index_allIdsUnique() {
@@ -68,8 +68,8 @@ final class DrillContentValidationTests: XCTestCase {
         return "JSON not found in any category subdirectory"
     }
 
-    func test_loadedDrillCount_matches83() {
-        XCTAssertEqual(allDrills.count, 83, "Should load exactly 83 drills from bundle")
+    func test_loadedDrillCount_matches84() {
+        XCTAssertEqual(allDrills.count, 84, "Should load exactly 84 drills from bundle")
     }
 
     // MARK: - Schema Field Validation (every drill)

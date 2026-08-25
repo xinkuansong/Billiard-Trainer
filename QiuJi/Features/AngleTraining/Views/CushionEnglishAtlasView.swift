@@ -3,12 +3,14 @@ import SceneKit
 
 /// 「加塞吃库图谱」（v20 W2 / v20.5）：学分段交互页——同一杆 8 种左右塞碰前+吃库后实况对比。
 ///
-/// 布局：`ShotStageProxy` 定高锁桌（G10）+ 右缘纯力度柱（G5，`onSpinTap=nil`）
-/// + 左缘 8 可点选迷你打点盘（横向左右塞点，开关对应色轨迹）+ 底栏 `BTBallPaletteBar`（点+拖）。
+/// 布局：`ShotStageProxy` 定高锁桌（G10）+ 右缘力度柱（点开高低杆打点盘）
+/// + 左缘 8 可点选迷你打点盘（该高低杆下允许加塞弦上的左右塞点，开关对应色轨迹）
+/// + 底栏 `BTBallPaletteBar`（点+拖）。
 /// 克隆自 Y3/v15「分离角图谱」壳；**不**改 `SeparationAngleAtlas*`。
 struct CushionEnglishAtlasView: View {
     @StateObject private var vm = CushionEnglishAtlasViewModel()
     @State private var hasAppeared = false
+    @State private var showSpinPad = false
 
     @State private var projector = TableProjector()
     @State private var draggingKey: String?
@@ -76,6 +78,10 @@ struct CushionEnglishAtlasView: View {
         .onChange(of: vm.velocity) { _, _ in
             vm.onVelocityChanged()
         }
+        .onChange(of: vm.spinY) { _, _ in
+            vm.onCueHeightChanged()
+        }
+        .animation(BTMotion.springPanel, value: showSpinPad)
         .background(
             Color.clear
                 .accessibilityIdentifier("cushionEnglishAtlas.root")
@@ -93,6 +99,13 @@ struct CushionEnglishAtlasView: View {
                 BTHudMetricSeparator()
                 metricItem(label: "力度",
                            value: String(format: "%.1f", vm.velocity))
+                BTHudMetricSeparator()
+                BTHudMetricSeparator()
+                metricItem(label: "打点",
+                           value: SpinDisplay.readout(spinX: 0, spinY: vm.spinY))
+                BTHudMetricSeparator()
+                metricItem(label: "可加塞",
+                           value: allowedEnglishReadout)
                 BTHudMetricSeparator()
                 Text("已选 \(vm.enabledTracks.count)/8 · 左右塞碰前+吃库后")
                     .font(HUDStyle.labelFontCompact)
@@ -112,6 +125,14 @@ struct CushionEnglishAtlasView: View {
     private func metricItem(label: String, value: String) -> some View {
         BTReadout(label: label, value: value)
             .fixedSize(horizontal: true, vertical: false)
+    }
+
+    /// 该高低杆下打滑弦半长占满塞的百分比（中杆 = 100%）。
+    private var allowedEnglishReadout: String {
+        let limit = CuePhysics.miscueLimitFraction
+        let allowed = CushionEnglishAtlasGeometry.allowedSpinXLimit(spinY: Float(vm.spinY))
+        let pct = Int((Double(allowed / limit) * 100).rounded())
+        return "\(pct)%"
     }
 
     // MARK: - Stage
@@ -146,6 +167,7 @@ struct CushionEnglishAtlasView: View {
             if proxy.isValid {
                 // 左缘 8 迷你打点盘（左塞→右塞自上而下；点选开关对应色轨迹）
                 CushionEnglishAtlasSpinLegend(
+                    spinY: vm.spinY,
                     enabledTracks: vm.enabledTracks,
                     onToggle: { vm.toggleTrack($0) }
                 )
@@ -157,7 +179,7 @@ struct CushionEnglishAtlasView: View {
                 BTShotInstrumentColumn(
                     spinX: vm.displaySpinX,
                     spinY: vm.displaySpinY,
-                    onSpinTap: nil,
+                    onSpinTap: { showSpinPad = true },
                     velocity: $vm.velocity,
                     range: ShotTuning.velocityRange
                 )
@@ -179,10 +201,40 @@ struct CushionEnglishAtlasView: View {
                 }
                 .zIndex(2)
                 .btStageFrame(proxy.instrumentFrame())
+
+                if showSpinPad {
+                    BTSpinPadOverlay(
+                        spinX: lockedSpinX,
+                        spinY: $vm.spinY,
+                        tableWidth: proxy.playingRect.width,
+                        bottomPadding: proxy.spinPadBottomPadding,
+                        locksSideSpin: true,
+                        onClose: { showSpinPad = false }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .zIndex(20)
+                    .accessibilityIdentifier("cushionEnglishAtlas.spinPad")
+                }
             }
 
             // UI 测钩子：SceneKit 叠层下合成拖力度柱不可靠；显式 bump 验证「高力度轨迹变化」。
             if ProcessInfo.processInfo.arguments.contains("-w2.uiHooks") {
+                Button {
+                    vm.spinY = 0.3
+                    vm.onCueHeightChanged()
+                } label: {
+                    Text("高杆")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Color.btPrimary.opacity(0.85), in: Capsule())
+                }
+                .accessibilityIdentifier("w2.bumpCueHeight")
+                .position(x: 52, y: 12)
+                .zIndex(5)
+
                 Button {
                     vm.velocity = 5.5
                     vm.onVelocityChanged()
@@ -219,7 +271,7 @@ struct CushionEnglishAtlasView: View {
                 .lineLimit(2)
                 .minimumScaleFactor(0.75)
                 .multilineTextAlignment(.center)
-            Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 点左侧白球开关轨迹")
+            Text("点右侧打点选高低杆 · 点左侧白球开关轨迹 · 点/拖球库上桌")
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(.white.opacity(0.45))
                 .lineLimit(1)
@@ -270,6 +322,11 @@ struct CushionEnglishAtlasView: View {
         vm.removeFromTable(key)
     }
 
+    /// 本页打点盘只选高低杆，左右塞由弦长重算；绑定恒 0。
+    private var lockedSpinX: Binding<Double> {
+        Binding(get: { 0 }, set: { _ in })
+    }
+
     private func frameReader(id: String) -> some View {
         GeometryReader { geo in
             Color.clear.preference(key: BTShotPageFramePreference.self,
@@ -281,12 +338,16 @@ struct CushionEnglishAtlasView: View {
 // MARK: - Left-edge 8 mini spin pads (horizontal english)
 
 /// 左缘竖列 8 个迷你打点盘：每档一点、与 `trackColors`/spinX 档一一对应。
+/// 点落在当前高低杆的打滑弦上（高杆点偏上、弦更短）。
 /// 纯左塞（index 0）在上 → 纯右塞（index 7）在下；点选开关对应色轨迹。
 private struct CushionEnglishAtlasSpinLegend: View {
+    let spinY: Double
     let enabledTracks: Set<Int>
     let onToggle: (Int) -> Void
 
-    private let levels = CushionEnglishAtlasGeometry.spinXLevels()
+    private var levels: [Float] {
+        CushionEnglishAtlasGeometry.spinXLevels(spinY: Float(spinY))
+    }
     private let pull = Double(CuePhysics.tipContactPullFactor)
     private let miscue = Double(CuePhysics.miscueLimitFraction)
 
@@ -308,10 +369,12 @@ private struct CushionEnglishAtlasSpinLegend: View {
     private func miniPad(index: Int, size: CGFloat) -> some View {
         let sx = Double(levels[index])
         let placeX = sx / pull
+        let placeY = spinY / pull
         let ballR = size / 2 - 1
         let placementLimit = miscue / pull
-        // spinX 正 = 左塞 → 屏上向左（负 x）。
+        // spinX 正 = 左塞 → 屏上向左（负 x）；spinY 正 = 高杆 → 屏上向上（负 y）。
         let dx = -CGFloat(placeX) * ballR
+        let dy = -CGFloat(placeY) * ballR
         let enabled = enabledTracks.contains(index)
         return Button {
             onToggle(index)
@@ -330,7 +393,7 @@ private struct CushionEnglishAtlasSpinLegend: View {
                     .fill(Color(uiColor: CushionEnglishAtlasGeometry.trackColor(at: index)))
                     .overlay(Circle().stroke(.white.opacity(0.85), lineWidth: 0.8))
                     .frame(width: max(size * 0.22, 4), height: max(size * 0.22, 4))
-                    .offset(x: dx)
+                    .offset(x: dx, y: dy)
             }
             .frame(width: size, height: size)
             .opacity(enabled ? 1 : 0.35)

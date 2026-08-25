@@ -282,7 +282,7 @@ struct BTLevelBadge: View {
 | 练习封面策略 | 学=`geometric` 微插图；练/打/解=`tablePreview` 真台预览；分区色仅轻 tint |
 | 真台底图 | `BTTableFigure` + `TableFigureRenderer` 缓存；首页 `onAppear` 预热 `landscape` 4:3 |
 | 动作库首屏 | 仅一行等级 `BTFilterChip`；球种+精讲/进度进筛选 Menu（计数徽章） |
-| 网格卡台面覆层 | 等级 + Pro/收藏；完成/旧新版 → 标题下元信息行（不再叠距离/袋口特征胶囊） |
+| 网格卡台面覆层 | 等级（左上）+ Pro/收藏（右上）；已练过 → 封面右下「已练」角标（DR-077）；精讲种仍在标题下元信息行 |
 | 计划列表壳 | `BTContentGridCard` + `BTPlanCover(mode: .list)`；详情 Hero 用 `.hero` |
 
 > **DR-051（2026-08-04）**：练习首页生产卡片不再使用混合球桌预览，恢复 v27 的渐变底 + 路由语义单字水印；v28 共享卡片壳、搜索栏、栏目头与筛选布局全部保留。`PracticeCoverVisual` / `BTPracticeCover` 暂保留为可复用组件与历史方案，不作为练习首页默认封面。
@@ -1032,7 +1032,7 @@ struct BTShareCard: View {
 | 瞄准修正 | 学 | 投掷/高低杆厚度/挤偏+弧线/求解补偿 | v12 Z3；六节结构 ①Δ实况 ②投掷 ③高低杆三联 ④加塞俯视 ⑤两档求解对比+定性速查 ⑥实战启示→思路训练；共享控件三轴（力度 `ShotTuning.velocityRange` + 高低杆三档 spinY=±0.4/0 + 左右塞，合成幅值钳 `miscueLimitFraction`）；20ms 去抖+单飞+末班车；插图一律 `BTTableFigure`+`BTFigureBall`/`BTGhostCircle`/`BTContactDot`/`BTFigureTag`/`FigureLine`（② closeup 特写、③ 单图三线选中高亮参照 SeparationPathsFigure）；速查表符号来源 `build/z1-evidence/quickref-symbols.txt` + `z2-evidence/z2-quickref-symbols.txt` + `z3-evidence/z3-quickref-symbols.txt`；AX `aimingCorrection.*`；巡游 a16 |
 | 旋转与加塞 | 学 | 旋转四态→分离角 + 加塞本体 | v12 Z4（自 v11 Y2 重做）+ v21 W5：共享切角 θ 滑杆（5°–75°，默认半球）驱动三路径球形；示意分离角为教学折线 90°/60°/120°；打点→旋转 + 最小加塞/打滑极限 + 吃库定性示意；吃库节 `LearnDocTextLink`→`.cushionEnglishAtlas`；真 `PracticeCTA`→`.aimingCorrection` + `PracticeCTA`→`.drillDetail("drill_c073")`（≤2；分离角图谱降为文字链）；AX `spinAndEnglish.*` / `spinAndEnglish.squirtDrillCTA`；巡游 a14 |
 | 分离角图谱 | 学 | 8 档高低杆碰后轨迹对比 | v15 W1（自 v11 Y3）+ DR-073：SceneKit 真台+可拖多球；`ShotStageProxy` G10；**左缘 8 可点选迷你打点盘**（`aimWheelFrame`，高→低与 `trackColors`/spinY 同序；默认全开，至少留 1 档；关档只藏对应色轨迹，不重算）；右缘纯力度柱（`onSpinTap=nil`，底部弹出 8 点盘退役）；台面**无**「纯高杆/纯低杆」文字；底栏 `BTBallPaletteBar`（点击+拖放上桌、拖回库撤下；换目标/障碍进 `simulateFree`；母球不可撤；默认母+8）；**页内 8 色轨迹豁免线语言 v2**（DR-025）；切片=碰后→第一库，**碰后未吃库降级为碰撞点→停球点**；去抖+单飞+并行 `simulateFree` |
-| 加塞吃库图谱 | 学 | 中杆 × 8 档左右塞 × 吃库后出射 | v20 W2 + v20.5 + DR-073：SceneKit 真台+可拖多球；`ShotStageProxy` G10；**左缘 8 可点选迷你打点盘**（横向左右塞点，左→右与 `spinXLevels`/`trackColors` 同序；默认全开，至少留 1 档；关档只藏对应色轨迹，不重算）；右缘纯力度柱（`onSpinTap=nil`）；底栏 `BTBallPaletteBar`（点+拖，语义对齐图谱 v15）；**页内 8 色轨迹豁免线语言 v2**（DR-029，左右塞轴）；每档 `aimDirCompensatingSquirt` + `simulateFree(spinY:0)`；**碰前/库后均按已选档实况**（碰前 `lineHint`+α0.55、库后 `lineMain`+`pathAfterFirstCueCushion`）；脚注诚实口径禁止「本图证明顺开逆闭」；学卡紧挨分离角图谱之后；巡游 a17 |
+| 加塞吃库图谱 | 学 | 选定高低杆 × 该高度允许加塞弦 × 8 档吃库后出射 | v20 W2 + v20.5 + DR-073 + **DR-075**：SceneKit 真台+可拖多球；`ShotStageProxy` G10；**右缘力度柱可点开高低杆打点盘**（`BTSpinPadOverlay.locksSideSpin`，竖轴锁定，默认中杆）；8 档 `spinX` = 该 `spinY` 处打滑圆水平弦均匀采样（端点在圆上）；**左缘 8 可点选迷你打点盘**（点落在该弦上，左→右与 `spinXLevels(spinY:)`/`trackColors` 同序；默认全开，至少留 1 档；关档只藏对应色轨迹，不重算）；底栏 `BTBallPaletteBar`（点+拖，语义对齐图谱 v15）；**页内 8 色轨迹豁免线语言 v2**（DR-029，左右塞轴）；每档 `aimDirCompensatingSquirt` + `simulateFree(spinX:spinY:)`；**碰前/库后均按已选档实况**（碰前 `lineHint`+α0.55、库后 `lineMain`+`pathAfterFirstCueCushion`）；脚注诚实口径禁止「本图证明顺开逆闭」；学卡紧挨分离角图谱之后；巡游 a17 |
 | 角度与打点 | 学 | 拖两球实时看指标联动 | **L2 唯一持有页**；首拖提示（一次性）；90° 短虚线常驻 |
 | 浅谈球感 | 学 | 方法论+四档厚度锚点 | 锚点卡真台渲染；页末 CTA→2D 瞄准训练 |
 | 瞄准点对照表（原进球点对照表） | 学 | 速查工具 | 俯视真台交互图：瞄准点（红点）+接触点（绿点）+横移金标尺同见；新增估角误差交互演示（母球-目标球连线估角，远距误差变小） |
@@ -1081,6 +1081,8 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-08-25 | **动作库已练过改封面角标**（DR-077）：去掉标题下灰色「已完成」；封面右下亮绿 `BTPracticedBadge`（✓ 已练，Dark `btPrimary`）。网格课名一律主色，Pro 不再洗灰。筛选「已完成」不动 | 修正/DR | BTDrillGridCard, BTPracticedBadge | 用户：已练过不要灰标题 |
+| 2026-08-24 | **加塞吃库图谱可选高低杆**（DR-075）：右缘打点盘 `locksSideSpin` 只选 `spinY`；8 档左右塞按打滑圆水平弦 `√(L²−spinY²)` 重算；左缘 8 盘点落在该弦上；顶栏读「打点 / 可加塞%」 | 新增/DR | BTSpinPad, CushionEnglishAtlasView/ViewModel/Geometry, AngleHomeView | 用户：中高低杆打点盘驱动八条加塞轨迹 |
 | 2026-08-24 | **精讲逐杆静帧补瞄准位球杆**（DR-074）：`renderStills` 与视频亮方案拍对齐，有预告线则 `showCueAtRest`；开局/终局仍无杆；C6 不再把图文静帧当藏杆例外 | 修正/DR | SequenceVideoExporter, SequenceStillCueTests | 用户点验：精讲图有线无杆 |
 | 2026-08-20 | **图谱左缘白球可点选开关轨迹**（DR-073）：分离角图谱 / 加塞吃库图谱左缘 8 盘从只读改为点选；默认 8 档全开，至少留 1 档；关档只藏对应色线，不重跑 `simulateFree` | 修正/DR | SeparationAngleAtlasView/ViewModel, CushionEnglishAtlasView/ViewModel, AtlasSpinTrackSelection | 用户点验反馈 |
 | 2026-08-19 | **动作库返回记位**：二次 `loadDrills` 不出骨架；记上次点开的 drill id，返回滚回该卡；侧栏换分组仍回顶（Q19.1）；切等级 chip 回网格顶 | 修正 | DrillListView, DrillListViewModel | 用户实机反馈 |

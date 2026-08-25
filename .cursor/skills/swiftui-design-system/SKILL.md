@@ -324,6 +324,14 @@ enum BTButtonStyle: ButtonStyle {
 付费时右侧显示锁图标，整行文字使用 btTextTertiary
 ```
 
+网格卡（`BTDrillGridCard`）台面覆层：左上等级、右上 Pro/收藏、**已练过右下 `BTPracticedBadge`（DR-077）**。课名一律 `.btText`（Pro 只靠右上角标，禁止再洗成三级灰）。禁止用灰色「已完成」元信息行表示练过。
+
+```swift
+struct BTPracticedBadge: View {}
+// ✓ 已练；白字 + Dark btPrimary（#25A25A）Capsule。台面≈Light primary，浅色绿会隐进呢面。
+// 语义 = 任意 TrainingSession / DrillEntry 出现过，不是「已精通」
+```
+
 ---
 
 ## 九、等级标签（BTLevelBadge — 五级配色）
@@ -740,6 +748,7 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-25（DR-077）— 动作库已练过用封面右下亮绿 `BTPracticedBadge`（✓ 已练，Dark `btPrimary`）；网格课名一律主色，Pro 不再洗灰。禁止灰色「已完成」元信息行。
 - 2026-08-14（DR-072 / v37 W4）— 计划货架 11 份：`PlanCoverLabel` 走位Ⅰ/Ⅱ、准度Ⅱ、特殊球、全能综合；`groupedPlans` 必须覆盖全部 `targetLevel`（未知档追加，禁止只枚举 6 档导致丢卡）；新档颜色别名到现有 6 色，不扩 `planLevelKeys`。
 - 2026-08-14（DR-071 续）— `BTLoadRadarChart` 上屏标题「难度画像」；台呢底 + 发光填充 + 峰值金色顶点。
 - 2026-08-13（DR-071 / D-v37-6）— 新增 `BTLoadRadarChart`：详情页最下方六轴雷达；存储 0–4，展示 1–5（+1）；删假五维「训练维度」。

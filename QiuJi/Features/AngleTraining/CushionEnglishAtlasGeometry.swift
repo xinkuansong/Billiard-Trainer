@@ -8,8 +8,11 @@ import UIKit
 /// `geometry-spatial-reasoning` 钉死）：
 /// - SceneKit 世界系；水平面 **X–Z**，**Y 朝上**；单位米
 /// - +X = 右端，+Z = 顶视图上方；台面中心 (0, 0.80, 0)
-/// - `spinX` 正 = **左塞**，负 = 右塞；本页 `spinY` 锁 **0**（中杆）
-/// - 上下界 = `CuePhysics.miscueLimitFraction`（打滑极限）
+/// - `spinX` 正 = **左塞**，负 = 右塞；`spinY` 正 = **高杆**，负 = **低杆**
+///   （接触点偏移/R，与 `BTSpinPad` 同一契约）
+/// - 打滑圆：√(spinX² + spinY²) ≤ `CuePhysics.miscueLimitFraction`（0.5R）
+/// - 选定高低杆后，左右塞上下界 = 该 `spinY` 处打滑圆的水平弦半长
+///   `allowedSpinXLimit = √(L² − spinY²)`；8 档在 [+limit, −limit] 均匀采样
 /// - 挤偏补偿（E3 / §七）：`α = CueBallStrike.squirtAngle(a: spinX)`，
 ///   `aim' = geometricAim.rotatedY(+α)`，使
 ///   `CueBallStrike.actualDirection(aim', spinX) ≈ geometricAim`
@@ -25,15 +28,31 @@ enum CushionEnglishAtlasGeometry {
     /// 无二库时库后切片的固定弧长上限（米）。
     static let postCushionArcLimit: Float = 0.40
 
-    /// spinX 在 [+miscueLimit, −miscueLimit] 均匀 8 档（端点含打滑极限）。
+    /// 给定高低杆，打滑圆上剩余的左右塞幅值（弦半长）。
+    /// `|spinY| ≥ L` 时为 0（满高/满低无加塞余地）。
+    static func allowedSpinXLimit(
+        spinY: Float,
+        miscueLimit: Float = CuePhysics.miscueLimitFraction
+    ) -> Float {
+        let y = min(abs(spinY), miscueLimit)
+        let inner = miscueLimit * miscueLimit - y * y
+        return inner > 0 ? sqrt(inner) : 0
+    }
+
+    /// spinX 在该 `spinY` 的允许弦上均匀 8 档（端点含弦端，即打滑圆上）。
+    /// `spinY == 0` 时退化为 [+miscueLimit, −miscueLimit]（历史中杆默认）。
     /// 顺序：左塞（正）→ 右塞（负），与左缘迷你盘「左→右」语义一致。
     static func spinXLevels(
+        spinY: Float = 0,
         miscueLimit: Float = CuePhysics.miscueLimitFraction,
         count: Int = sampleCount
     ) -> [Float] {
         precondition(count >= 2)
-        let hi = miscueLimit
-        let lo = -miscueLimit
+        let hi = allowedSpinXLimit(spinY: spinY, miscueLimit: miscueLimit)
+        if hi < 1e-6 {
+            return Array(repeating: 0, count: count)
+        }
+        let lo = -hi
         let step = (hi - lo) / Float(count - 1)
         return (0..<count).map { hi - Float($0) * step }
     }

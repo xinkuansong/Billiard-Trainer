@@ -932,7 +932,7 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
 # 1. 建议周下界（v39 W2）：每份计划内 focused 首次引入的短 id，其首次周不得
 #    早于 `docs/research/20260818-v39-语义课表.md` §5 该 (plan, id) 的建议周。
 #    六轴 scalar 不再卡周（只给 ② 热身≤主课用）。warmup / reviewFrom 咬合
-#    不计入「首次引入」。缺表或不足 83 条 ⇒ FAIL。
+#    不计入「首次引入」。缺表或不足 84 条 ⇒ FAIL。
 # 2. 热身≤主课：同 session 非咬合热身的 scalar max ≤ focused scalar max。
 #    带 reviewFrom 的热身豁免（R6 上一档末段 → 下一档热身，允许高于开档主课）。
 #    逐轴比较会在现网打出 61 课假红，不用。
@@ -952,7 +952,7 @@ def _short_drill_id(drill_id: object) -> str:
 
 
 def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[str, str, str]]]:
-    """W0 §3 去向表：{plan_id: [c011, ...]} 按表序。找不到表或解析不足 83 条则失败。"""
+    """W0 §3 去向表：{plan_id: [c011, ...]} 按表序。找不到表或解析不足 84 条则失败。"""
     errors: list[tuple[str, str, str]] = []
     roster_path = None
     for candidate in (paths.root / _W0_ROSTER_REL, REPO_ROOT / _W0_ROSTER_REL):
@@ -981,10 +981,10 @@ def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[
         orders.setdefault(plan_id, []).append(drill_id)
 
     total = sum(len(ids) for ids in orders.values())
-    if total != 83:
+    if total != 84:
         errors.append((
             "W0表",
-            f"解析到 {total} 条主课，期望 83",
+            f"解析到 {total} 条主课，期望 84",
             f"{roster_path} §3 去向表",
         ))
     return orders, errors
@@ -993,7 +993,7 @@ def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[
 def _load_v39_suggested_weeks(
     paths: Paths,
 ) -> tuple[dict[tuple[str, str], int], list[tuple[str, str, str]]]:
-    """语义课表 §5：{(plan_id, short_id): 建议周}。缺表或不足 83 条则失败。"""
+    """语义课表 §5：{(plan_id, short_id): 建议周}。缺表或不足 84 条则失败。"""
     errors: list[tuple[str, str, str]] = []
     curriculum_path = None
     for candidate in (paths.root / _V39_CURRICULUM_REL, REPO_ROOT / _V39_CURRICULUM_REL):
@@ -1038,10 +1038,10 @@ def _load_v39_suggested_weeks(
             continue
         weeks[key] = week
 
-    if len(weeks) != 83:
+    if len(weeks) != 84:
         errors.append((
             "语义课表",
-            f"解析到 {len(weeks)} 条建议周，期望 83",
+            f"解析到 {len(weeks)} 条建议周，期望 84",
             f"{curriculum_path} §5 建议周总表",
         ))
     return weeks, errors

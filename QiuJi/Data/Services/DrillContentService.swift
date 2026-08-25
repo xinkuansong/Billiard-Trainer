@@ -247,7 +247,8 @@ struct DrillTutorial: Codable {
     /// 可选——多球形 Drill 改用 `formations`；旧 Drill 始终提供 `sections`。
     let sections: [TutorialSection]?
     /// 多球形精讲（可选，ADR-P12-02）：每个球形一段相互隔离的精讲，
-    /// UI 用顶部吸顶分段控件切换。存在且非空时优先于 `sections`；旧 Drill 无此字段照常工作。
+    /// UI 用顶部常驻分段控件切换（DR-076：各球形自带 ScrollView，不共用偏移）。
+    /// 存在且非空时优先于 `sections`；旧 Drill 无此字段照常工作。
     let formations: [TutorialFormation]?
 
     init(

@@ -13,6 +13,8 @@ struct BTSpinPad: View {
     @Binding var spinY: Double
     /// 只读展示（序列演示）：仍按真实比例画打点，但不接受拖动改值。
     var isReadOnly = false
+    /// 只选高低杆（加塞图谱）：拖动锁在竖轴，`spinX` 恒为 0。
+    var locksSideSpin = false
 
     private let miscue = Double(CuePhysics.miscueLimitFraction)
     private let tipRatio = Double(CuePhysics.tipDiameter / BallPhysics.diameter)
@@ -62,10 +64,15 @@ struct BTSpinPad: View {
                     .onChanged { value in
                         let nx = Double((cx - value.location.x) / ballR)
                         let ny = Double((cy - value.location.y) / ballR)
-                        let mag = (nx * nx + ny * ny).squareRoot()
-                        let s = mag > placementLimit ? placementLimit / mag : 1
-                        spinX = nx * s * pull
-                        spinY = ny * s * pull
+                        if locksSideSpin {
+                            spinX = 0
+                            spinY = max(-placementLimit, min(placementLimit, ny)) * pull
+                        } else {
+                            let mag = (nx * nx + ny * ny).squareRoot()
+                            let s = mag > placementLimit ? placementLimit / mag : 1
+                            spinX = nx * s * pull
+                            spinY = ny * s * pull
+                        }
                     }
             )
         }
@@ -221,6 +228,8 @@ struct BTSpinPadCard: View {
     /// 只读展示（序列演示暂停时「点开看本杆打点」）：隐藏四向微调键与「回中」，
     /// 白盘不接受拖动——演示的是录制真值，不允许改。
     var isReadOnly = false
+    /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
+    var locksSideSpin = false
     var onClose: () -> Void
 
     private var padDiameter: CGFloat {
@@ -240,13 +249,17 @@ struct BTSpinPadCard: View {
                     }
                     HStack(spacing: SpinPadLayout.crossGap) {
                         Spacer(minLength: 0)
-                        BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
-                            nudge(.left)
+                        if !locksSideSpin {
+                            BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") {
+                                nudge(.left)
+                            }
                         }
-                        BTSpinPad(spinX: $spinX, spinY: $spinY)
+                        BTSpinPad(spinX: $spinX, spinY: $spinY, locksSideSpin: locksSideSpin)
                             .frame(width: padDiameter, height: padDiameter)
-                        BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
-                            nudge(.right)
+                        if !locksSideSpin {
+                            BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") {
+                                nudge(.right)
+                            }
                         }
                         Spacer(minLength: 0)
                     }
@@ -295,8 +308,9 @@ struct BTSpinPadCard: View {
 
     /// 沿某方向微调一步并写回绑定；返回是否真的移动（false = 撞到打滑极限）。
     private func nudge(_ dir: SpinNudgeDirection) -> Bool {
-        let r = SpinPadMath.nudge(spinX: spinX, spinY: spinY, dir)
-        spinX = r.x
+        if locksSideSpin, dir == .left || dir == .right { return false }
+        let r = SpinPadMath.nudge(spinX: locksSideSpin ? 0 : spinX, spinY: spinY, dir)
+        spinX = locksSideSpin ? 0 : r.x
         spinY = r.y
         return r.moved
     }
@@ -314,6 +328,8 @@ struct BTSpinPadOverlay: View {
     var bottomPadding: CGFloat = 0
     /// 只读展示（序列演示）：卡片不可改值，仅供查看本杆打点。
     var isReadOnly = false
+    /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
+    var locksSideSpin = false
     var onClose: () -> Void
 
     var body: some View {
@@ -332,6 +348,7 @@ struct BTSpinPadOverlay: View {
 
             BTSpinPadCard(spinX: $spinX, spinY: $spinY,
                           tableWidth: tableWidth, isReadOnly: isReadOnly,
+                          locksSideSpin: locksSideSpin,
                           onClose: onClose)
                 .padding(.bottom, bottomPadding)
         }

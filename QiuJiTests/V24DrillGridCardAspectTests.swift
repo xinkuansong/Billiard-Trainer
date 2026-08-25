@@ -69,4 +69,54 @@ final class V24DrillGridCardAspectTests: XCTestCase {
         let coverData = try XCTUnwrap(coverImg.pngData())
         try coverData.write(to: URL(fileURLWithPath: "\(outDir)/02-cover-slot-c001.png"))
     }
+
+    /// DR-077：已练过用亮绿角标；免费 / Pro 课名都走主色。
+    func testRenderGridCards_practicedBadge_notGrayTitle() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c001")
+        let drill = try XCTUnwrap(loaded, "Bundle must contain drill_c001")
+        let premium = DrillContent(
+            id: drill.id, nameZh: drill.nameZh, nameEn: drill.nameEn,
+            category: drill.category, secondaryCategories: drill.secondaryCategories,
+            subcategory: drill.subcategory, ballType: drill.ballType,
+            level: drill.level, difficulty: drill.difficulty, isPremium: true,
+            description: drill.description, coachingPoints: drill.coachingPoints,
+            standardCriteria: drill.standardCriteria, sets: drill.sets,
+            animation: drill.animation, tutorial: drill.tutorial, videos: drill.videos,
+            shotIntent: drill.shotIntent, load: drill.load
+        )
+
+        let columnWidth: CGFloat = 174.5
+        let pair = HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("未练")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                BTDrillGridCard(drill: drill, isFavorited: false, isCompleted: false)
+                    .frame(width: columnWidth)
+            }
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("已练")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                BTDrillGridCard(drill: drill, isFavorited: true, isCompleted: true)
+                    .frame(width: columnWidth)
+            }
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Pro 已练")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                BTDrillGridCard(drill: premium, isFavorited: false, isCompleted: true)
+                    .frame(width: columnWidth)
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.btBG)
+
+        let renderer = ImageRenderer(content: pair.frame(width: 580, height: 240))
+        renderer.scale = 2
+        let img = try XCTUnwrap(renderer.uiImage, "ImageRenderer nil for practiced badge cards")
+        let data = try XCTUnwrap(img.pngData())
+        try data.write(to: URL(fileURLWithPath: "\(outDir)/03-practiced-badge.png"))
+        XCTAssertGreaterThan(data.count, 20_000)
+    }
 }

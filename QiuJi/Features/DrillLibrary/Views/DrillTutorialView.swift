@@ -27,6 +27,10 @@ struct DrillTutorialView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @State private var selectedFormation = 0
+    /// 本次打开精讲后访问过的球形。各球形自带 ScrollView，访问过的保留滚动；
+    /// 未进过的不建（从头）。退出页面 @State 销毁，再进全部从头。
+    /// 禁止对共用 ScrollView 写 `.id(selectedFormation)`：那会每次切换都回顶。
+    @State private var visitedFormations: Set<Int> = [0]
     @State private var viewer: TutorialMediaViewer.Presentation?
 
     /// 把单球形 `sections` 与多球形 `formations` 统一成同一渲染模型。
@@ -54,32 +58,12 @@ struct DrillTutorialView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.bottom, Spacing.xl)
-
-                if formations.count > 1 {
-                    LazyVStack(alignment: .leading, spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
-                        Section {
-                            // F-DL-05：球形切换短 opacity 过渡。
-                            // 行 id 必须绑定 selectedFormation（见 sectionList）：LazyVStack 对
-                            // 已实例化行只按 ForEach id 复用，容器级 .id 在 iOS 26 上不触发行重建
-                            // （切换球形正文不刷新，B4 发现的存量缺陷）。
-                            sectionList
-                                .transition(.opacity)
-                        } header: {
-                            formationPicker
-                        }
-                    }
-                    .animation(BTMotion.easeFast, value: selectedFormation)
-                } else {
-                    LazyVStack(alignment: .leading, spacing: Spacing.xl) {
-                        sectionList
-                    }
-                }
+        Group {
+            if formations.count > 1 {
+                multiFormationBody
+            } else {
+                formationScroll(for: 0)
             }
-            .padding(.bottom, Spacing.xxl)
         }
         .background(.btBG)
         .navigationBarTitleDisplayMode(.inline)
@@ -95,24 +79,70 @@ struct DrillTutorialView: View {
         }
     }
 
-    @ViewBuilder
-    private var sectionList: some View {
-        // id 复合 selectedFormation：保证切换球形时 LazyVStack 行重建（而非按 offset 复用旧行）。
-        ForEach(Array(currentSections.enumerated()), id: \.offset) { index, section in
-            sectionCard(section, index: index)
-                .id("\(selectedFormation)-\(index)")
+    /// 分段在滚动外，半页也能切球形；每个访问过的球形一条 ScrollView，互不串偏移。
+    private var multiFormationBody: some View {
+        VStack(spacing: 0) {
+            formationPicker
+            ZStack {
+                ForEach(visitedFormations.sorted(), id: \.self) { index in
+                    formationScroll(for: index)
+                        .opacity(selectedFormation == index ? 1 : 0)
+                        .allowsHitTesting(selectedFormation == index)
+                        .accessibilityHidden(selectedFormation != index)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(BTMotion.easeFast, value: selectedFormation)
         }
     }
 
-    // MARK: - Formation Picker (multi-formation only, sticky)
+    /// 与 Picker 同步写入，避免 `onChange` 晚一拍：新球形尚未进 `visited` 时会闪空页。
+    private var formationSelection: Binding<Int> {
+        Binding(
+            get: { selectedFormation },
+            set: { newValue in
+                visitedFormations.insert(newValue)
+                selectedFormation = newValue
+            }
+        )
+    }
+
+    private func formationScroll(for index: Int) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                header
+                    .padding(.bottom, Spacing.xl)
+                LazyVStack(alignment: .leading, spacing: Spacing.xl) {
+                    sectionList(for: index)
+                }
+            }
+            .padding(.bottom, Spacing.xxl)
+        }
+    }
+
+    @ViewBuilder
+    private func sectionList(for formationIndex: Int) -> some View {
+        let sections = formations.indices.contains(formationIndex)
+            ? formations[formationIndex].sections
+            : []
+        // 行 id 绑定球形：LazyVStack 按 ForEach id 复用，切球形时必须重建行
+        // （切换正文不刷新，B4 发现的存量缺陷）。
+        ForEach(Array(sections.enumerated()), id: \.offset) { index, section in
+            sectionCard(section, index: index)
+                .id("\(formationIndex)-\(index)")
+        }
+    }
+
+    // MARK: - Formation Picker (multi-formation only, always visible)
 
     private var formationPicker: some View {
-        Picker("球形", selection: $selectedFormation) {
+        Picker("球形", selection: formationSelection) {
             ForEach(Array(formations.enumerated()), id: \.offset) { i, formation in
                 Text(formation.title ?? "球形 \(i + 1)").tag(i)
             }
         }
         .pickerStyle(.segmented)
+        .accessibilityIdentifier("tutorialFormationPicker")
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.sm)
         .frame(maxWidth: .infinity)
@@ -280,6 +310,7 @@ struct DrillTutorialView: View {
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .padding(.horizontal, Spacing.lg)
+        .accessibilityIdentifier("tutorialSection_\(section.title)")
     }
 
     // MARK: - Section building blocks
