@@ -7,59 +7,15 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 120,
   "isPremium": true,
-  "description": "开球、三球先于五球，再十球/十五球蛇彩，然后九球、Ghost 与全台清台。开档热身只用本计划已引入的开球与三球。",
+  "description": "三球先于五球，再十球/十五球蛇彩，然后 Ghost 与全台清台。开档热身只用本计划已引入的三球。",
   "weeks": [
     {
       "weekNumber": 1,
       "theme": "开球与三球",
       "sessions": [
         {
-          "dayNumber": 1,
-          "phases": [
-            {
-              "type": "focused",
-              "durationMinutes": 115,
-              "drills": [
-                {
-                  "drillId": "drill_c066",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 15
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
           "dayNumber": 2,
           "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 15,
-              "drills": [
-                {
-                  "drillId": "drill_c066",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 15
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
             {
               "type": "focused",
               "durationMinutes": 100,
@@ -87,23 +43,6 @@
         {
           "dayNumber": 3,
           "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 15,
-              "drills": [
-                {
-                  "drillId": "drill_c066",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 15
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
             {
               "type": "focused",
               "durationMinutes": 100,
@@ -218,23 +157,6 @@
         {
           "dayNumber": 3,
           "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 5,
-              "drills": [
-                {
-                  "drillId": "drill_c066",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 15
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
             {
               "type": "focused",
               "durationMinutes": 20,
@@ -408,65 +330,8 @@
       "theme": "九球与 Ghost",
       "sessions": [
         {
-          "dayNumber": 1,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 35,
-              "drills": [
-                {
-                  "drillId": "drill_c071",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 8,
-                        "ballsPerRound": 6
-                      },
-                      {
-                        "token": "manual02",
-                        "rounds": 2
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c067",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
           "dayNumber": 2,
           "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c067",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                }
-              ]
-            },
             {
               "type": "focused",
               "durationMinutes": 50,
@@ -489,18 +354,6 @@
         {
           "dayNumber": 3,
           "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c067",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                }
-              ]
-            },
             {
               "type": "focused",
               "durationMinutes": 50,
@@ -564,18 +417,6 @@
           "dayNumber": 2,
           "phases": [
             {
-              "type": "warmup",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c067",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                }
-              ]
-            },
-            {
               "type": "focused",
               "durationMinutes": 30,
               "drills": [
@@ -597,23 +438,6 @@
         {
           "dayNumber": 3,
           "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 10,
-              "drills": [
-                {
-                  "drillId": "drill_c066",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 15
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
             {
               "type": "focused",
               "durationMinutes": 30,

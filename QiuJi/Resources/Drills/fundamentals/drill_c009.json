@@ -1,7 +1,7 @@
 {
   "id": "drill_c009",
-  "nameZh": "直线出杆",
-  "nameEn": "Straight Stroke Check",
+  "nameZh": "底袋直线出杆",
+  "nameEn": "Bottom-Pocket Straight Stroke",
   "category": "fundamentals",
   "subcategory": "stroke",
   "ballType": [
@@ -241,7 +241,7 @@
       },
       {
         "title": "进阶练习",
-        "content": "七档能走直后，去「远台直线出杆」，看更长距离侧偏会不会被放大。"
+        "content": "七档能走直后，去「直线推白球」，看来回还在不在一条线上。"
       }
     ]
   },

@@ -7,7 +7,7 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 120,
   "isPremium": true,
-  "description": "无塞远台与切角：中袋角度加深 → 远台斜线 → 远台直线极限与远台中袋 → 极薄与三分点。带塞准度见准度Ⅲ。热身咬合准度Ⅰ末段中台切角。",
+  "description": "无塞远台与切角：中袋角度加深 → 远台斜线 → 远台直线极限 → 极薄与三分点。带塞准度见准度Ⅲ。热身咬合准度Ⅰ末段中台切角。",
   "weeks": [
     {
       "weekNumber": 1,
@@ -384,98 +384,6 @@
               "drills": []
             }
           ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c072",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "Snipaste_2026_06_19_18_02_47",
-                        "rounds": 2
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 85,
-              "drills": [
-                {
-                  "drillId": "drill_c062",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "Snipaste_2026_06_19_17_57_13",
-                        "rounds": 4
-                      }
-                    ]
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c072",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "Snipaste_2026_06_19_18_02_47",
-                        "rounds": 2,
-                        "ballsPerRound": 10
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 85,
-              "drills": [
-                {
-                  "drillId": "drill_c062",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "Snipaste_2026_06_19_17_57_13",
-                        "rounds": 4,
-                        "ballsPerRound": 10
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
         }
       ]
     },
@@ -486,25 +394,6 @@
         {
           "dayNumber": 1,
           "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 30,
-              "drills": [
-                {
-                  "drillId": "drill_c062",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "Snipaste_2026_06_19_17_57_13",
-                        "rounds": 4,
-                        "ballsPerRound": 8
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
             {
               "type": "focused",
               "durationMinutes": 85,

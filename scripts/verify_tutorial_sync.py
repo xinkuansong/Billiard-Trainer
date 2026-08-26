@@ -932,7 +932,7 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
 # 1. 建议周下界（v39 W2）：每份计划内 focused 首次引入的短 id，其首次周不得
 #    早于 `docs/research/20260818-v39-语义课表.md` §5 该 (plan, id) 的建议周。
 #    六轴 scalar 不再卡周（只给 ② 热身≤主课用）。warmup / reviewFrom 咬合
-#    不计入「首次引入」。缺表或不足 84 条 ⇒ FAIL。
+#    不计入「首次引入」。缺表或条数 ≠ 现网 index.json 登记数 ⇒ FAIL。
 # 2. 热身≤主课：同 session 非咬合热身的 scalar max ≤ focused scalar max。
 #    带 reviewFrom 的热身豁免（R6 上一档末段 → 下一档热身，允许高于开档主课）。
 #    逐轴比较会在现网打出 61 课假红，不用。
@@ -951,8 +951,17 @@ def _short_drill_id(drill_id: object) -> str:
     return text.removeprefix("drill_") if text.startswith("drill_") else text
 
 
+def _catalog_drill_count(paths: Paths) -> int:
+    """现网动作库登记数（`Drills/index.json`），I13 主课表必须与此对齐。"""
+    index_path = paths.drills / "index.json"
+    if not index_path.is_file():
+        return 0
+    index = json.loads(index_path.read_text(encoding="utf-8"))
+    return sum(len(cat.get("drills") or []) for cat in index.get("categories") or [])
+
+
 def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[str, str, str]]]:
-    """W0 §3 去向表：{plan_id: [c011, ...]} 按表序。找不到表或解析不足 84 条则失败。"""
+    """W0 §3 去向表：{plan_id: [c011, ...]} 按表序。找不到表则失败；条数在 I13 与目录对齐。"""
     errors: list[tuple[str, str, str]] = []
     roster_path = None
     for candidate in (paths.root / _W0_ROSTER_REL, REPO_ROOT / _W0_ROSTER_REL):
@@ -980,20 +989,13 @@ def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[
             continue
         orders.setdefault(plan_id, []).append(drill_id)
 
-    total = sum(len(ids) for ids in orders.values())
-    if total != 84:
-        errors.append((
-            "W0表",
-            f"解析到 {total} 条主课，期望 84",
-            f"{roster_path} §3 去向表",
-        ))
     return orders, errors
 
 
 def _load_v39_suggested_weeks(
     paths: Paths,
 ) -> tuple[dict[tuple[str, str], int], list[tuple[str, str, str]]]:
-    """语义课表 §5：{(plan_id, short_id): 建议周}。缺表或不足 84 条则失败。"""
+    """语义课表 §5：{(plan_id, short_id): 建议周}。缺表则失败；条数在 I13 与目录对齐。"""
     errors: list[tuple[str, str, str]] = []
     curriculum_path = None
     for candidate in (paths.root / _V39_CURRICULUM_REL, REPO_ROOT / _V39_CURRICULUM_REL):
@@ -1038,12 +1040,6 @@ def _load_v39_suggested_weeks(
             continue
         weeks[key] = week
 
-    if len(weeks) != 84:
-        errors.append((
-            "语义课表",
-            f"解析到 {len(weeks)} 条建议周，期望 84",
-            f"{curriculum_path} §5 建议周总表",
-        ))
     return weeks, errors
 
 
@@ -1155,6 +1151,20 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
     index_ids = {item.get("id") for item in (index.get("plans") or []) if item.get("id")}
     roster, roster_errors = _load_w0_main_order(paths)
     suggested, suggested_errors = _load_v39_suggested_weeks(paths)
+    catalog = _catalog_drill_count(paths)
+    roster_total = sum(len(ids) for ids in roster.values())
+    if catalog and roster_total != catalog:
+        roster_errors.append((
+            "W0表",
+            f"解析到 {roster_total} 条主课，现网目录 {catalog}",
+            f"{_W0_ROSTER_REL} §3 去向表须与 Drills/index.json 一一对应",
+        ))
+    if catalog and len(suggested) != catalog:
+        suggested_errors.append((
+            "语义课表",
+            f"解析到 {len(suggested)} 条建议周，现网目录 {catalog}",
+            f"{_V39_CURRICULUM_REL} §5 须与 Drills/index.json 一一对应",
+        ))
 
     plans: list[dict] = []
     membership: dict[str, set[str]] = {}

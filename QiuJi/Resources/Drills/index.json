@@ -4,29 +4,23 @@
     {
       "category": "fundamentals",
       "drills": [
-        "drill_c006",
-        "drill_c007",
-        "drill_c008",
+        "drill_c012",
         "drill_c009",
-        "drill_c010",
         "drill_c022",
-        "drill_c023",
-        "drill_c043"
+        "drill_c001",
+        "drill_c010",
+        "drill_c023"
       ]
     },
     {
       "category": "accuracy",
       "drills": [
-        "drill_c001",
-        "drill_c002",
         "drill_c011",
-        "drill_c012",
         "drill_c013",
         "drill_c032",
         "drill_c033",
         "drill_c052",
         "drill_c053",
-        "drill_c062",
         "drill_c063",
         "drill_c072",
         "drill_c076",
@@ -106,9 +100,7 @@
         "drill_c056",
         "drill_c057",
         "drill_c058",
-        "drill_c059",
         "drill_c060",
-        "drill_c061",
         "drill_c085"
       ]
     },
@@ -117,8 +109,6 @@
       "drills": [
         "drill_c064",
         "drill_c065",
-        "drill_c066",
-        "drill_c067",
         "drill_c068",
         "drill_c069",
         "drill_c070",

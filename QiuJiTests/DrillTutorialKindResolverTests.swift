@@ -11,10 +11,36 @@ final class DrillTutorialKindResolverTests: XCTestCase {
         XCTAssertEqual(kind, .multiShot)
     }
 
-    func test_singleShotDrill_readsExplicitField() async throws {
-        let drill = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c006")
-        let kind = DrillTutorialKindResolver.resolve(for: try XCTUnwrap(drill))
-        XCTAssertEqual(kind, .singleShot)
+    func test_singleShotDrill_readsExplicitField() throws {
+        let drill = DrillContent(
+            id: "fixture_single",
+            nameZh: "单杆技术课夹具",
+            nameEn: "Single Shot Fixture",
+            category: "fundamentals",
+            subcategory: "grip",
+            ballType: ["universal"],
+            level: "L0",
+            difficulty: 1,
+            isPremium: false,
+            description: "fixture",
+            coachingPoints: ["fixture"],
+            standardCriteria: "fixture",
+            sets: DrillContent.DrillSetsConfig(defaultSets: 1, defaultBallsPerSet: 1),
+            animation: DrillAnimation(
+                cueBall: BallAnimation(
+                    start: CanvasPoint(x: 0.5, y: 0.12),
+                    path: [PathPoint(x: 0.5, y: 0.36)]
+                ),
+                targetBall: BallAnimation(
+                    start: CanvasPoint(x: 0.5, y: 0.38),
+                    path: [PathPoint(x: 0.5, y: 0.5268)]
+                ),
+                pocket: "bottomCenter",
+                cueDirection: CanvasPoint(x: 0.5, y: 0.0)
+            ),
+            tutorial: DrillTutorial(tutorialKind: .singleShot, sections: [], formations: nil)
+        )
+        XCTAssertEqual(DrillTutorialKindResolver.resolve(for: drill), .singleShot)
     }
 
     func test_rulesetDrill_readsExplicitField() async throws {
@@ -39,12 +65,12 @@ final class DrillTutorialKindResolverTests: XCTestCase {
             case .none: missing += 1
             }
         }
-        // v26 W0 inventory: 6 singleShot / 66 multiShot / 5 ruleset / 0 missing.
+        // 2026-08-26 暂时下架 10 课后：0 singleShot / 71 multiShot / 3 ruleset。
         XCTAssertEqual(singleShot + multiShot + ruleset + missing, drills.count)
         XCTAssertEqual(missing, 0, "All bundled drills must ship tutorial.tutorialKind")
-        XCTAssertEqual(singleShot, 6)
-        XCTAssertEqual(multiShot, 66)
-        XCTAssertEqual(ruleset, 5)
+        XCTAssertEqual(singleShot, 0)
+        XCTAssertEqual(multiShot, 71)
+        XCTAssertEqual(ruleset, 3)
     }
 
     func test_levelFilter_matchesTrainingTabMapping() {

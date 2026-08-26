@@ -57,7 +57,7 @@ final class DrillListViewModelTests: XCTestCase {
     func test_loadDrills_totalDrillCount() async {
         await viewModel.loadDrills()
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
-        XCTAssertEqual(total, 84, "Total drills across all categories should match index.json (84)")
+        XCTAssertEqual(total, 74, "Total drills across all categories should match index.json (74)")
     }
 
     // MARK: - Search Filtering
@@ -70,7 +70,7 @@ final class DrillListViewModelTests: XCTestCase {
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
         XCTAssertGreaterThan(total, 0, "Searching '直线' should find at least one drill")
-        XCTAssertLessThan(total, 84, "Search should narrow down from 84")
+        XCTAssertLessThan(total, 74, "Search should narrow down from 74")
     }
 
     func test_searchFilter_noResults() async {
@@ -94,7 +94,7 @@ final class DrillListViewModelTests: XCTestCase {
         viewModel.applyFiltersSync()
         let restored = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
 
-        XCTAssertEqual(restored, 84)
+        XCTAssertEqual(restored, 74)
         XCTAssertGreaterThan(restored, narrowed)
     }
 
@@ -123,7 +123,7 @@ final class DrillListViewModelTests: XCTestCase {
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
         XCTAssertGreaterThan(total, 0, "Chinese8 filter should find drills")
-        XCTAssertLessThanOrEqual(total, 84)
+        XCTAssertLessThanOrEqual(total, 74)
     }
 
     func test_ballTypeFilter_nineBall() async {
@@ -143,7 +143,7 @@ final class DrillListViewModelTests: XCTestCase {
         viewModel.applyFiltersSync()
 
         let total = viewModel.drillsByCategory.reduce(0) { $0 + $1.drills.count }
-        XCTAssertEqual(total, 84)
+        XCTAssertEqual(total, 74)
     }
 
     // MARK: - Level / Badge Filtering (W7 E18–E19)
@@ -173,7 +173,8 @@ final class DrillListViewModelTests: XCTestCase {
         viewModel.badgeFilter = .singleShotTutorial
         viewModel.applyFiltersSync()
         let drills = viewModel.drillsByCategory.flatMap(\.drills)
-        XCTAssertFalse(drills.isEmpty)
+        // 2026-08-26 暂时下架全部 singleShot 课后，该角标筛为空是现网事实。
+        XCTAssertTrue(drills.isEmpty)
         XCTAssertTrue(drills.allSatisfy {
             DrillTutorialKindResolver.resolve(for: $0) == .singleShot
         })

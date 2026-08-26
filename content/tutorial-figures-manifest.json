@@ -1,8 +1,8 @@
 {
   "_note": "publish_tutorial_figures.py 产物清单；src_md5 = 母版 PNG 的 md5，供增量与门禁新鲜度判据",
   "quality": 70,
-  "count": 733,
-  "total_bytes": 123067491,
+  "count": 704,
+  "total_bytes": 118722587,
   "figures": {
     "drill_c001_initial.heic": {
       "src": "drill_c001_initial.png",
@@ -39,66 +39,6 @@
       "src_md5": "b7e23e4a33b5dbc4b957412d4d7854eb",
       "quality": 70,
       "bytes": 169930
-    },
-    "drill_c002_initial.heic": {
-      "src": "drill_c002_initial.png",
-      "src_md5": "484aeeebc527044d6ff6f38796587b94",
-      "quality": 70,
-      "bytes": 153343
-    },
-    "drill_c002_s01.heic": {
-      "src": "drill_c002_s01.png",
-      "src_md5": "416b3a296fd33e126e13b66235ab3225",
-      "quality": 70,
-      "bytes": 182422
-    },
-    "drill_c002_s02.heic": {
-      "src": "drill_c002_s02.png",
-      "src_md5": "de477fe4fabcf4f82a93413c4805f2c1",
-      "quality": 70,
-      "bytes": 180408
-    },
-    "drill_c002_s03.heic": {
-      "src": "drill_c002_s03.png",
-      "src_md5": "4266bc4c954d3e8ed8bdb6b4041d661f",
-      "quality": 70,
-      "bytes": 175778
-    },
-    "drill_c002_s04.heic": {
-      "src": "drill_c002_s04.png",
-      "src_md5": "8405c77d3111582cecd400548187c2fa",
-      "quality": 70,
-      "bytes": 171790
-    },
-    "drill_c002_s05.heic": {
-      "src": "drill_c002_s05.png",
-      "src_md5": "b66bf9f03d029c68d64b2dd6f5bb8d13",
-      "quality": 70,
-      "bytes": 167945
-    },
-    "drill_c002_s06.heic": {
-      "src": "drill_c002_s06.png",
-      "src_md5": "13af41b6aa8e9fdc4afbdd178f363a09",
-      "quality": 70,
-      "bytes": 167577
-    },
-    "drill_c002_s07.heic": {
-      "src": "drill_c002_s07.png",
-      "src_md5": "0588048fe2abc782ee50548c601c0ca2",
-      "quality": 70,
-      "bytes": 168185
-    },
-    "drill_c002_s08.heic": {
-      "src": "drill_c002_s08.png",
-      "src_md5": "dce1fbe2bcfc6a310c36ba86e84f76f8",
-      "quality": 70,
-      "bytes": 166908
-    },
-    "drill_c002_s09.heic": {
-      "src": "drill_c002_s09.png",
-      "src_md5": "d9c4a3b064ccda80a74c9a5199987440",
-      "quality": 70,
-      "bytes": 169323
     },
     "drill_c003_manual01_initial.heic": {
       "src": "drill_c003_manual01_initial.png",
@@ -255,84 +195,6 @@
       "src_md5": "df7cfeb6b8b523f5a4b9421932c03948",
       "quality": 70,
       "bytes": 169292
-    },
-    "drill_c007_initial.heic": {
-      "src": "drill_c007_initial.png",
-      "src_md5": "177375c925e53d0e3e54d08641aa45ef",
-      "quality": 70,
-      "bytes": 148783
-    },
-    "drill_c007_s01.heic": {
-      "src": "drill_c007_s01.png",
-      "src_md5": "1b9a957cf5fba8be265d85282115b877",
-      "quality": 70,
-      "bytes": 163146
-    },
-    "drill_c007_s02.heic": {
-      "src": "drill_c007_s02.png",
-      "src_md5": "c2b0f8d1602bcd029bcbecb7b9fd7810",
-      "quality": 70,
-      "bytes": 162917
-    },
-    "drill_c007_s03.heic": {
-      "src": "drill_c007_s03.png",
-      "src_md5": "90107006d24766cc278ff43887c6cd9e",
-      "quality": 70,
-      "bytes": 166691
-    },
-    "drill_c007_s04.heic": {
-      "src": "drill_c007_s04.png",
-      "src_md5": "d76d144a2593025cec596a07d3dc99e4",
-      "quality": 70,
-      "bytes": 165051
-    },
-    "drill_c008_s01.heic": {
-      "src": "drill_c008_s01.png",
-      "src_md5": "65b5da9eb6dba3da5679f816d28b5cc2",
-      "quality": 70,
-      "bytes": 133336
-    },
-    "drill_c008_s02.heic": {
-      "src": "drill_c008_s02.png",
-      "src_md5": "27c575e91f3ee37e30b3d42cb15cd807",
-      "quality": 70,
-      "bytes": 83823
-    },
-    "drill_c008_s03.heic": {
-      "src": "drill_c008_s03.png",
-      "src_md5": "6d3949103d3b32237ff6d308769deb0e",
-      "quality": 70,
-      "bytes": 92482
-    },
-    "drill_c008_s04.heic": {
-      "src": "drill_c008_s04.png",
-      "src_md5": "7c120de26ac862e4f74c32d7cd4ec0ef",
-      "quality": 70,
-      "bytes": 102949
-    },
-    "drill_c008_s05.heic": {
-      "src": "drill_c008_s05.png",
-      "src_md5": "21f3e6cf2efb7654bce3f42796c8b717",
-      "quality": 70,
-      "bytes": 100691
-    },
-    "drill_c008_s06.heic": {
-      "src": "drill_c008_s06.png",
-      "src_md5": "a2e724fcbc43ab19c5e878d77b606e3b",
-      "quality": 70,
-      "bytes": 100980
-    },
-    "drill_c008_s07.heic": {
-      "src": "drill_c008_s07.png",
-      "src_md5": "e26d2731ad90987923bf4f3ff6cf6f33",
-      "quality": 70,
-      "bytes": 100932
-    },
-    "drill_c008_s08.heic": {
-      "src": "drill_c008_s08.png",
-      "src_md5": "2664b8e2857320760ec55b347241270f",
-      "quality": 70,
-      "bytes": 95000
     },
     "drill_c009_initial.heic": {
       "src": "drill_c009_initial.png",
@@ -1056,33 +918,27 @@
     },
     "drill_c022_Snipaste_2026_06_02_00_19_36_initial.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_19_36_initial.png",
-      "src_md5": "7254a6131aa9063aa07e1bcee76d305a",
+      "src_md5": "cc7ba98ea3cc961c40ec186244854ac3",
       "quality": 70,
-      "bytes": 148431
+      "bytes": 148008
     },
     "drill_c022_Snipaste_2026_06_02_00_19_36_s01.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_19_36_s01.png",
-      "src_md5": "0af5191af88f11d6024999865df2ab21",
+      "src_md5": "4c55eacc6a12daa794d77cf816a4c1b6",
       "quality": 70,
-      "bytes": 165118
+      "bytes": 156893
     },
     "drill_c022_Snipaste_2026_06_02_00_22_05_initial.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_22_05_initial.png",
-      "src_md5": "13fb533264ae5ed78bb6513413f448ec",
+      "src_md5": "8fbea0be75a6d9a183a0d1c5709fffdc",
       "quality": 70,
-      "bytes": 148373
+      "bytes": 147970
     },
     "drill_c022_Snipaste_2026_06_02_00_22_05_s01.heic": {
       "src": "drill_c022_Snipaste_2026_06_02_00_22_05_s01.png",
-      "src_md5": "64e137a8049a5c80e3a549114dcaa8ff",
+      "src_md5": "25f4d4f2d6d09e5bf8e34f2a76211bd2",
       "quality": 70,
-      "bytes": 167110
-    },
-    "drill_c022_Snipaste_2026_06_02_00_22_05_s02.heic": {
-      "src": "drill_c022_Snipaste_2026_06_02_00_22_05_s02.png",
-      "src_md5": "fd376416c365a6dffc6a6a5c47c51477",
-      "quality": 70,
-      "bytes": 168990
+      "bytes": 159917
     },
     "drill_c023_manual01_initial.heic": {
       "src": "drill_c023_manual01_initial.png",
@@ -3033,36 +2889,6 @@
       "src_md5": "f0a1a636378f1d6393635360e6c10447",
       "quality": 70,
       "bytes": 174800
-    },
-    "drill_c062_initial.heic": {
-      "src": "drill_c062_initial.png",
-      "src_md5": "ebcaf506f0e797996f3355095fc0a95e",
-      "quality": 70,
-      "bytes": 150952
-    },
-    "drill_c062_s01.heic": {
-      "src": "drill_c062_s01.png",
-      "src_md5": "cb163d28db7a6f11b31f581aa3b9d04c",
-      "quality": 70,
-      "bytes": 175547
-    },
-    "drill_c062_s02.heic": {
-      "src": "drill_c062_s02.png",
-      "src_md5": "37cec84373ab1c3ca0d89765066410b8",
-      "quality": 70,
-      "bytes": 169182
-    },
-    "drill_c062_s03.heic": {
-      "src": "drill_c062_s03.png",
-      "src_md5": "f48362dd8dbe1307844965e6e9432b83",
-      "quality": 70,
-      "bytes": 168623
-    },
-    "drill_c062_s04.heic": {
-      "src": "drill_c062_s04.png",
-      "src_md5": "aa42a91cd8d64a18b34d6c463d446b53",
-      "quality": 70,
-      "bytes": 174906
     },
     "drill_c063_initial.heic": {
       "src": "drill_c063_initial.png",

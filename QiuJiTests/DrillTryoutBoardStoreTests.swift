@@ -102,9 +102,9 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
 
     /// 无序列 drill 返回空 → 调用侧回退 shotIntent 路径（DrillBoardBuilder）。
     func test_drillWithoutSequences_fallsBackToShotIntent() async throws {
-        XCTAssertTrue(DrillTryoutBoardStore.formations(for: "drill_c006").isEmpty)
+        XCTAssertTrue(DrillTryoutBoardStore.formations(for: "drill_c065").isEmpty)
 
-        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c006")
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c065")
         let drill = try XCTUnwrap(loaded)
         let board = try XCTUnwrap(DrillBoardBuilder.board(for: drill))
         XCTAssertNotNil(board.onTable[PositionPlayBall.cueKey])

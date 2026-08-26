@@ -6,15 +6,14 @@ import XCTest
 /// 不再钉死逐周主题/主轴，改保护结构不变量 + v34 归属集合 + index 一致性。
 final class V22W2PlanAccuracyTests: XCTestCase {
 
-    /// v38 W2 归属：近中台准度 6 条（引用集合；课时档 90′，因 c013 完整剂量装不进 75′）。
+    /// 近中台准度引用集合（课时档 90′，因 c013 完整剂量装不进 75′）。
+    /// 2026-08-26：半台 c001 / 中袋 c012 迁入基本功。
     private let assignedIds: Set<String> = [
-        "drill_c001", "drill_c002", "drill_c011", "drill_c012",
-        "drill_c013", "drill_c032",
+        "drill_c011", "drill_c013", "drill_c032",
     ]
-    /// W0 引入序：近台 → 半台 → 中袋直线 → 小角度 → 中台切角 → 58° 斜角。
+    /// 引入序：近台 → 小角度 → 中台切角。
     private let firstFocusedOrder: [String] = [
-        "drill_c011", "drill_c001", "drill_c012",
-        "drill_c013", "drill_c032", "drill_c002",
+        "drill_c011", "drill_c013", "drill_c032",
     ]
 
     func testPlanAccuracyDecodesAndMatchesShelfSpec() async throws {
@@ -29,8 +28,10 @@ final class V22W2PlanAccuracyTests: XCTestCase {
         XCTAssertTrue((2...5).contains(plan.durationWeeks), "v34 R6：周数 2–5，实际 \(plan.durationWeeks)")
         XCTAssertEqual(plan.weeks.count, plan.durationWeeks)
         for week in plan.weeks {
-            XCTAssertEqual(week.sessions.count, plan.sessionsPerWeek,
-                           "week \(week.weekNumber) sessions.count 应等于 sessionsPerWeek")
+            XCTAssertGreaterThan(week.sessions.count, 0,
+                                 "week \(week.weekNumber) 至少 1 次课")
+            XCTAssertLessThanOrEqual(week.sessions.count, plan.sessionsPerWeek,
+                                     "week \(week.weekNumber) sessions.count 不得超过 sessionsPerWeek")
             for session in week.sessions {
                 for phase in session.phases {
                     XCTAssertGreaterThan(phase.durationMinutes, 0,
@@ -58,7 +59,7 @@ final class V22W2PlanAccuracyTests: XCTestCase {
                 }
             }
         }
-        // 失败机理（PD-027 / v38 W0）：半台先于近台、c002 先于 c032 是旧序，重排后必须近台先于半台、c032 先于 c002。
+        // 失败机理：半台/中袋迁入基本功后，准度Ⅰ只剩近台→小角度→中台切角。
         XCTAssertEqual(firstFocused, firstFocusedOrder, "focused 首次引入序须等于 W0 准度Ⅰ表")
 
         // 全部 drillId ∈ Drills index

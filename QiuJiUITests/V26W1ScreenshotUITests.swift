@@ -38,14 +38,14 @@ final class V26W1ScreenshotUITests: XCTestCase {
         )
     }
 
-    func testW1_c008_tutorial() {
+    func testW1_c009_tutorial() {
         captureTutorial(
             categorySidebar: "sidebar_基础功",
             categoryFallback: "基础功",
-            search: "八种手架",
-            nameContains: "八种手架",
-            drillId: "drill_c008",
-            file: "03-c008-tutorial"
+            search: "直线出杆",
+            nameContains: "直线出杆",
+            drillId: "drill_c009",
+            file: "03-c009-tutorial"
         )
     }
 

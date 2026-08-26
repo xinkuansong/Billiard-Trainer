@@ -1,0 +1,51 @@
+{
+  "createdAt" : "2026-06-21T18:36:38Z",
+  "id" : "F14E3152-03A6-4068-985B-A793FBD1A7AB",
+  "initial" : {
+    "onTable" : {
+      "cueBall" : {
+        "x" : 0.9091545343399048,
+        "y" : 0.25642046332359314
+      }
+    }
+  },
+  "name" : "直线推白球 · 球形B",
+  "steps" : [
+    {
+      "after" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.7508891224861145,
+            "y" : 0.2539896070957184
+          }
+        }
+      },
+      "before" : {
+        "onTable" : {
+          "cueBall" : {
+            "x" : 0.9091545343399048,
+            "y" : 0.25642046332359314
+          }
+        }
+      },
+      "cuePocketed" : false,
+      "id" : "0A685F00-CA56-42ED-857B-AADFC0D2E335",
+      "objectPocketed" : false,
+      "potted" : [
+
+      ],
+      "shot" : {
+        "freeAim" : {
+          "x" : -0.9999994039535522,
+          "y" : -0.0010974443284794688
+        },
+        "pocket" : "",
+        "spinX" : 0,
+        "spinY" : 0,
+        "targetKey" : "",
+        "velocity" : 1.4
+      }
+    }
+  ],
+  "updatedAt" : "2026-08-26T02:29:09Z"
+}

@@ -7,7 +7,7 @@
   "sessionsPerWeek": 3,
   "minutesPerSession": 90,
   "isPremium": true,
-  "description": "先翻角袋与 K 球不吃库，再 K 球吃库、K 球综合挑战与翻中袋，然后贴库与跳球，最后安全与解球。禁止中袋热身伺候角袋衰减主课。",
+  "description": "先翻角袋与 K 球不吃库，再 K 球吃库、K 球综合挑战与翻中袋，然后贴库，最后安全球。禁止中袋热身伺候角袋衰减主课。",
   "weeks": [
     {
       "weekNumber": 1,
@@ -380,98 +380,6 @@
               "drills": []
             }
           ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 25,
-              "drills": [
-                {
-                  "drillId": "drill_c058",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "Snipaste_2026_06_19_17_50_08",
-                        "rounds": 1,
-                        "ballsPerRound": 12
-                      },
-                      {
-                        "token": "Snipaste_2026_06_19_17_50_48",
-                        "rounds": 1,
-                        "ballsPerRound": 12
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 60,
-              "drills": [
-                {
-                  "drillId": "drill_c059",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 25,
-              "drills": [
-                {
-                  "drillId": "drill_c058",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "Snipaste_2026_06_19_17_50_08",
-                        "rounds": 1,
-                        "ballsPerRound": 12
-                      },
-                      {
-                        "token": "Snipaste_2026_06_19_17_50_48",
-                        "rounds": 1,
-                        "ballsPerRound": 12
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 60,
-              "drills": [
-                {
-                  "drillId": "drill_c059",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
         }
       ]
     },
@@ -519,88 +427,6 @@
                         "rounds": 8
                       }
                     ]
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
-          "dayNumber": 2,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 25,
-              "drills": [
-                {
-                  "drillId": "drill_c060",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 8,
-                        "ballsPerRound": 10
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 60,
-              "drills": [
-                {
-                  "drillId": "drill_c061",
-                  "dose": {
-                    "roundsPerFormation": 1
-                  }
-                }
-              ]
-            },
-            {
-              "type": "review",
-              "durationMinutes": 5,
-              "drills": []
-            }
-          ]
-        },
-        {
-          "dayNumber": 3,
-          "phases": [
-            {
-              "type": "warmup",
-              "durationMinutes": 25,
-              "drills": [
-                {
-                  "drillId": "drill_c060",
-                  "dose": {
-                    "formations": [
-                      {
-                        "token": "manual01",
-                        "rounds": 8,
-                        "ballsPerRound": 8
-                      }
-                    ],
-                    "decay": true
-                  }
-                }
-              ]
-            },
-            {
-              "type": "focused",
-              "durationMinutes": 60,
-              "drills": [
-                {
-                  "drillId": "drill_c061",
-                  "dose": {
-                    "roundsPerFormation": 1
                   }
                 }
               ]

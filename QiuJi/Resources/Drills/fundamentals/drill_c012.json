@@ -1,8 +1,8 @@
 {
   "id": "drill_c012",
-  "nameZh": "中袋直线",
-  "nameEn": "Straight Shot to Side Pocket",
-  "category": "accuracy",
+  "nameZh": "中袋直线出杆",
+  "nameEn": "Side-Pocket Straight Stroke",
+  "category": "fundamentals",
   "subcategory": "straight",
   "ballType": [
     "chinese8"

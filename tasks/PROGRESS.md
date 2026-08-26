@@ -20,16 +20,16 @@
 
 > **滚动归档纪律（强制）**：本区只保留**最近 10 条以内**（或最近 3 天）条目；更早条目移入 [`tasks/archive/PROGRESS-当前状态-归档.md`](archive/PROGRESS-当前状态-归档.md)（新条目插到归档文件说明块之后的顶部，保持时间倒序）。每次追加新条目时顺手检查：超过 10 条即归档最旧的。历史检索一律去归档文件，勿在本区堆积。
 
+- **中袋/半台迁入基础功并改序（2026-08-26，Content Engineer）**：c012、c001 主分类改 `fundamentals`，货架序 c012→c009→c022→c001→c010→c023。基本功 3 周 focused 同序；准度Ⅰ留下 c011→c013→c032。I13 真源表同步。`verify-gate` FAIL 0；`invariant-selftest` 40/40；聚焦单测 6/0。未开模拟器。未 commit。
+- **c022 改为直线推白球并重渲（2026-08-26，Content Engineer）**：课名 c009 底袋直线出杆 / c012 中袋直线出杆 / c022 直线推白球。c022 四字段+精讲按推白球回程共线重写；两形各 1 杆出片+HEIC+缩略图（74/74，board 1 球）。`plan_beginner` W3 主题改为直线推白球。`verify-gate` FAIL 0。未开模拟器点验。未 commit。
+- **10 课暂时下架（2026-08-26，Content Engineer）**：c006/c007/c008/c043/c002/c062/c059/c061/c066/c067 移出 Bundle，备份 `content/retired-drills/`。c055 留下。动作库 84→74；五份计划抽掉引用并压缩空周。I13 条数跟 `index.json`。`verify-gate` FAIL 0；聚焦单测 67/0。未开模拟器。未 commit。
+- **候选名检索与风险判断成文（2026-08-26，Orchestrator）**：`docs/research/20260826-球迹候选名检索与风险判断.md`。提出名字后的类/群、选择查询必跑类型、H/M/L 与报告模板；回链 20260810 / 20260820。未做 TOAS 个案检索。未改代码。
 - **动作库已练过改角标（2026-08-25，SwiftUI Developer，DR-077）**：Pro 课名不再三级灰；已练角标 Dark `btPrimary`（取样 rgb 39,161,91）。三卡标题 dark=1422 / avg lum=13。`testRenderGridCards_practicedBadge_notGrayTitle` 1/0。未开模拟器点列表。未 commit。
 - **c085 精讲补全 + 缩略图（2026-08-25，Tutorial Writer）**：14 杆均有为什么/怎么打/自检。动作库缩略图 `drill_c085.png` 已烘焙（84/84，board 16 球）。`verify-gate` 上次 FAIL 0，本轮未重跑。未模拟器点验。未 commit。
 - **公司执照 + 竞品观察入档（2026-08-25，Orchestrator）**：营业执照已拿到；抖音「栖野」记观察档（不升格直接竞品）。下一步：TOAS 检索「球迹」9/41/42 → 公司名义报标；对公户；H-19 改企业主体。未改代码。
 - **精讲多球形阅读位置隔离（2026-08-24，SwiftUI Developer，DR-076）**：各访问过的球形自带 ScrollView；未打开过从头；退出再进全清；分段常驻。聚焦单测 `TutorialFormationScrollIsolationTests` 2/0。未模拟器点验切页滚动。未 commit。
 - **加塞吃库图谱可选高低杆（2026-08-24，SwiftUI Developer，DR-075）**：右缘打点盘只选 `spinY`；8 档左右塞按打滑圆水平弦 `√(L²−spinY²)` 重算。聚焦单测 14/0（含新增勾股/弦端点/满高塌缩）。未模拟器点验。未 commit。
 - **问题集合 v42 全案收官（2026-08-24，Orchestrator）**：W0–W8 ✅。HEAD `beaf170`。W8：gate FAIL 0 / build SUCCEEDED；c023 达标无锁中杆；11 堂跳过课相对 `5e65589` 无改。未开模拟器。未 commit 进度文件。
-- **问题集合 v42.1 补达标（2026-08-24，Orchestrator）**：用户「训练要求也要一起改」。四字段 = 描述 / 要点 / `standardCriteria` / 精讲。建议训练量不动。c023 达标锁中杆改由 W6 改掉。未改 JSON。
-- **问题集合 v42 立档（2026-08-24，Orchestrator）**：真源改 `问题集合_v42.md`。72 课四字段整课重写（精讲含逐杆）；看 PNG 母版；质量锚 c023；v40 W1 四条解冻。W0 ✅，下一任务 W1 准度 13 课。v41.9 冻结移交。未改 JSON。未 commit。
-- **问题集合 v41 D-v41-8 意图术语上屏（2026-08-24，Content Engineer）**：用户选跟意图。c023 描述/要点写入定杆、高杆双下、低杆双下、前后斯登；顺带 c039 / 蛇彩三课 / c074。精讲与达标未动。未跑 gate。未 commit。
-- **问题集合 v41 W12 描述要点去剂量（2026-08-24，Content Engineer）**：D-v41-7。未跳过 72 课 `description` / `coachingPoints` 去掉档数、切角度数、杆速、颗球距；`tutorial` 与跳过课未动。`verify-gate` FAIL 0（I10 解码 97）。未跑 `make build`。未 commit。
 ## R0 Design System Upgrade — ✅ 已完成
 
 > **前置**：UI 设计全部完成。P4 暂停于 T-P4-04。详见 `tasks/phases/R0-design-system.md`。

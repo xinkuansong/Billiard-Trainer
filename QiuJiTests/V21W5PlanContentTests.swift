@@ -88,7 +88,7 @@ final class V21W5PlanContentTests: XCTestCase {
         // 失败机理（PD-027 / v38 W0）：带塞已请出；序为中袋角度 → 远台斜线 → 远台直线/中袋 → 极薄 → 三分点。
         XCTAssertEqual(
             firstFocused,
-            ["drill_c053", "drill_c033", "drill_c072", "drill_c062", "drill_c063", "drill_c052"],
+            ["drill_c053", "drill_c033", "drill_c072", "drill_c063", "drill_c052"],
             "准度Ⅱ focused 首次引入须等于 W0 表：\(firstFocused)"
         )
     }
@@ -201,11 +201,10 @@ final class V21W5PlanContentTests: XCTestCase {
                 }
             }
         }
-        // 失败机理（PD-027 / v38 W0）：旧序五分点进 W2、定杆在后；高级手架插进远台周主题错位。
+        // 失败机理：中袋/半台迁入后，基本功引入序须为出杆→推白→半台→定杆→五分点。
         XCTAssertEqual(
             firstFocused,
-            ["drill_c006", "drill_c007", "drill_c008", "drill_c009",
-             "drill_c010", "drill_c023", "drill_c022", "drill_c043"],
+            ["drill_c012", "drill_c009", "drill_c022", "drill_c001", "drill_c010", "drill_c023"],
             "基本功 focused 首次引入须等于 W0 表：\(firstFocused)"
         )
         XCTAssertEqual(plan.isPremium, false, "基本功须保持免费")
@@ -229,8 +228,8 @@ final class V21W5PlanContentTests: XCTestCase {
         // 失败机理（PD-027 / v38 W0）：旧序 K 球先于翻角袋；中袋热身伺候角袋衰减。
         XCTAssertEqual(
             firstFocused,
-            ["drill_c054", "drill_c056", "drill_c057", "drill_c055",
-             "drill_c058", "drill_c059", "drill_c060", "drill_c061"],
+            ["drill_c054", "drill_c056", "drill_c057", "drill_c085",
+             "drill_c055", "drill_c058", "drill_c060"],
             "特殊球 focused 首次引入须等于 W0 表：\(firstFocused)"
         )
     }
@@ -262,8 +261,8 @@ final class V21W5PlanContentTests: XCTestCase {
         // c078/c054/c082 各热身 1 次。远台带塞 / 翻袋 / 横向蛇彩不属开球+三球开档，W5 已删。
         XCTAssertEqual(
             firstFocused,
-            ["drill_c066", "drill_c064", "drill_c068", "drill_c069",
-             "drill_c071", "drill_c067", "drill_c065", "drill_c070"],
+            ["drill_c064", "drill_c068", "drill_c069",
+             "drill_c071", "drill_c065", "drill_c070"],
             "全能 focused 首次引入须等于语义课表 §1.12：\(firstFocused)"
         )
         XCTAssertEqual(plan.minutesPerSession, 120, "全能课时档 120′")

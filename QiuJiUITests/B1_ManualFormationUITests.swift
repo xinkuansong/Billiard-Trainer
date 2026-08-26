@@ -13,7 +13,7 @@ final class B1_ManualFormationUITests: XCTestCase {
         URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/content/position_play/sequences")
     }
 
-    private let noSourceDrillId = "drill_c006"
+    private let noSourceDrillId = "drill_c065"
     private let screenshotDrillId = "drill_c005"
 
     override func setUpWithError() throws {

@@ -11,16 +11,11 @@
   "i7_stale_profile_exempt": {},
   "_i7_doc": "I7 已知豁免：已于 v26 W0 清空。11 个孤儿 profile（c016/c018/c020/c021/c053/c073–c078）已标 `retired: true`，由 I7 退役分支放行。棘轮：本清单只许保持为空或更短，不得再新增豁免。",
   "i9_no_sequence_exempt": [
-    "drill_c008",
-    "drill_c043",
-    "drill_c059",
-    "drill_c061",
     "drill_c065",
-    "drill_c067",
     "drill_c068",
     "drill_c070"
   ],
-  "_i9_doc": "I9 永久豁免：契约 §8.5 的 8 个 drill 本质上录不出序列（盘面随机/无特定盘面/引擎不支持腾空/成功判据非进袋）。需要独立于出片管线的第二通道，不是待办缺口。",
+  "_i9_doc": "I9 永久豁免：契约 §8.5。2026-08-26 暂时下架 c008/c043/c059/c061/c067 后从本清单拿掉（棘轮缩短）。现网无序列登记课：c065/c068/c070。",
   "i6a_token_mismatch_exempt": {},
   "_i6a_doc": "I6a 已知豁免（drillId → 允许的 perFormation token 列表）：v31 W4 落地时为空——全库 75 条有序列 drill 的 perFormation token 集合都与序列一致。结构性豁免（无序列 drill 不写 perFormation，契约 §5.6.4）由规则判定，不入本清单。棘轮：只许保持为空或更短。",
   "i6b_shots_exempt": {},

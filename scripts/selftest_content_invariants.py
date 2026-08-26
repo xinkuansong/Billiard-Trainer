@@ -199,7 +199,7 @@ def case_i6a_no_sequence_has_dose(root: Path) -> None:
         data["sets"]["perFormation"] = [
             {"token": "manual01", "mode": "repetition", "ballsPerRound": 10, "defaultRounds": 4}
         ]
-    edit_json(drill_path(root, "drill_c008"), mutate)
+    edit_json(drill_path(root, "drill_c065"), mutate)
 
 
 def case_i6b_shots_mismatch(root: Path) -> None:
@@ -382,7 +382,7 @@ def case_i12_rep_mismatch(root: Path) -> None:
 def case_i13_week_order_drop(root: Path) -> None:
     # 失败机理：旧用例对调 W1/W3 weekNumber，锁的是已废的「后周新引入 scalar 不降」。
     # 新口径 ① 是「首次引入不得早于语义课表建议周」。c032 建议周 3；把它的
-    # focused 首次抄到 W2 D3（引入序仍是 c011→c001→c012→c013→c032→c002），
+    # focused 首次抄到 W2 D3（引入序仍是 c011→c013→c032），
     # 实际周 2 < 3，须报「建议周」。
     def mutate(plan: dict) -> None:
         source = json.loads(json.dumps(first_ref(plan, "drill_c032")))
@@ -409,10 +409,10 @@ def case_i13_warmup_over_focused(root: Path) -> None:
 
 
 def case_i13_decay_not_mono(root: Path) -> None:
-    # W1 迁成 repetition 衰减保 rounds=5、降 ballsPerRound=12（60 球）。
-    # 第三次去掉降颗并加一轮 → 6×15=90 > 上次 75，I13 须报「复现剂量」。
+    # W1 近台 c011：首次 5×15=75，第二次降颗 5×12=60。
+    # 第三次去掉降颗并加一轮 → 6×15=90 > 上次 60，I13 须报「复现剂量」。
     def mutate(plan: dict) -> None:
-        entry = all_refs(plan, "drill_c001")[2]["dose"]["formations"][0]
+        entry = all_refs(plan, "drill_c011")[2]["dose"]["formations"][0]
         entry["rounds"] = 6
         entry.pop("ballsPerRound", None)
     edit_json(plan_path(root, "plan_accuracy"), mutate)
@@ -420,18 +420,18 @@ def case_i13_decay_not_mono(root: Path) -> None:
 
 def case_i13_review_from_unknown(root: Path) -> None:
     def mutate(plan: dict) -> None:
-        first_ref(plan, "drill_c001")["dose"]["reviewFrom"] = "plan_does_not_exist"
+        first_ref(plan, "drill_c011")["dose"]["reviewFrom"] = "plan_does_not_exist"
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
 def case_i13_intro_order_vs_w0(root: Path) -> None:
-    # 对调准度Ⅰ W1D1 / W1D2 的 focused：引入序变成 c001→c011，对照 W0 的 c011→c001 须红。
+    # 对调准度Ⅰ W1D1 / W2D1 的 focused：引入序变成 c013→c011，对照 W0 的 c011→c013 须红。
     def mutate(plan: dict) -> None:
         day1 = next(phase for phase in plan["weeks"][0]["sessions"][0]["phases"]
                     if phase["type"] == "focused")
-        day2 = next(phase for phase in plan["weeks"][0]["sessions"][1]["phases"]
-                    if phase["type"] == "focused")
-        day1["drills"], day2["drills"] = day2["drills"], day1["drills"]
+        week2_day1 = next(phase for phase in plan["weeks"][1]["sessions"][0]["phases"]
+                          if phase["type"] == "focused")
+        day1["drills"], week2_day1["drills"] = week2_day1["drills"], day1["drills"]
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
@@ -468,7 +468,7 @@ CASES = {
                             case_i10_plan_wrong_type, 1, "typeMismatch 期望 int"),
     "i6a_token_drift": ("I6a", "drill_c013 剂量 token 改成序列里没有的 manual99",
                         case_i6a_token_drift, 1, "✗ drill_c013"),
-    "i6a_no_sequence_has_dose": ("I6a", "无序列的 drill_c008 硬塞 perFormation",
+    "i6a_no_sequence_has_dose": ("I6a", "无序列的 drill_c065 硬塞 perFormation",
                                  case_i6a_no_sequence_has_dose, 1, "无序列却写了 perFormation"),
     "i6b_shots_mismatch": ("I6b", "drill_c039 sequence 型 ballsPerRound 8 → 10（实测 8 杆）",
                            case_i6b_shots_mismatch, 1, "✗ drill_c039/manual01"),
@@ -516,11 +516,11 @@ CASES = {
                             case_i13_week_order_drop, 1, "建议周"),
     "i13_warmup_over_focused": ("I13", "plan_accuracy W1D2 热身换成 c032（scalar 3 > 主课 1）",
                                 case_i13_warmup_over_focused, 1, "热身 scalar"),
-    "i13_decay_not_mono": ("I13", "plan_accuracy 的 c001 第三次出现去掉降颗并 rounds=6（90>75）",
+    "i13_decay_not_mono": ("I13", "plan_accuracy 的 c011 第三次出现去掉降颗并 rounds=6（90>60）",
                            case_i13_decay_not_mono, 1, "复现剂量"),
     "i13_review_from_unknown": ("I13", "plan_accuracy 首条目 reviewFrom 改成未登记计划 id",
                                 case_i13_review_from_unknown, 1, "不是货架计划 id"),
-    "i13_intro_order_vs_w0": ("I13", "plan_accuracy 对调 W1D1/W1D2 focused ⇒ 引入序 ≠ W0 表",
+    "i13_intro_order_vs_w0": ("I13", "plan_accuracy 对调 W1D1/W2D1 focused ⇒ 引入序 ≠ W0 表",
                               case_i13_intro_order_vs_w0, 1, "引入序"),
     "baseline_clean": ("I5 I6a I6b I7 I8 I9 I10 I11 I12 I13", "未做任何改动的影子库（对照组）",
                        lambda root: None, 0, "总计 FAIL: 0"),
