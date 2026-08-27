@@ -18,7 +18,7 @@
           "phases": [
             {
               "type": "focused",
-              "durationMinutes": 50,
+              "durationMinutes": 90,
               "drills": [
                 {
                   "drillId": "drill_c012",
@@ -27,6 +27,17 @@
                       {
                         "token": "manual01",
                         "rounds": 8
+                      }
+                    ]
+                  }
+                },
+                {
+                  "drillId": "drill_c009",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 7
                       }
                     ]
                   }
@@ -44,6 +55,25 @@
           "dayNumber": 2,
           "phases": [
             {
+              "type": "warmup",
+              "durationMinutes": 20,
+              "drills": [
+                {
+                  "drillId": "drill_c012",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8,
+                        "ballsPerRound": 12
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
+            {
               "type": "focused",
               "durationMinutes": 50,
               "drills": [
@@ -53,9 +83,11 @@
                     "formations": [
                       {
                         "token": "manual01",
-                        "rounds": 7
+                        "rounds": 7,
+                        "ballsPerRound": 12
                       }
-                    ]
+                    ],
+                    "decay": true
                   }
                 }
               ]
@@ -176,8 +208,26 @@
           "phases": [
             {
               "type": "focused",
-              "durationMinutes": 50,
+              "durationMinutes": 70,
               "drills": [
+                {
+                  "drillId": "drill_c022",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_02_00_19_36",
+                        "rounds": 5,
+                        "ballsPerRound": 12
+                      },
+                      {
+                        "token": "Snipaste_2026_06_02_00_22_05",
+                        "rounds": 2,
+                        "ballsPerRound": 12
+                      }
+                    ],
+                    "decay": true
+                  }
+                },
                 {
                   "drillId": "drill_c001",
                   "dose": {
@@ -203,8 +253,26 @@
           "phases": [
             {
               "type": "focused",
-              "durationMinutes": 50,
+              "durationMinutes": 70,
               "drills": [
+                {
+                  "drillId": "drill_c022",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_02_00_19_36",
+                        "rounds": 5,
+                        "ballsPerRound": 10
+                      },
+                      {
+                        "token": "Snipaste_2026_06_02_00_22_05",
+                        "rounds": 2,
+                        "ballsPerRound": 10
+                      }
+                    ],
+                    "decay": true
+                  }
+                },
                 {
                   "drillId": "drill_c001",
                   "dose": {
@@ -282,6 +350,25 @@
         {
           "dayNumber": 2,
           "phases": [
+            {
+              "type": "warmup",
+              "durationMinutes": 20,
+              "drills": [
+                {
+                  "drillId": "drill_c001",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 5,
+                        "ballsPerRound": 10
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
             {
               "type": "focused",
               "durationMinutes": 50,

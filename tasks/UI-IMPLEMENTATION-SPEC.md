@@ -1081,6 +1081,9 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-08-26 | **最小化浮标跟休息倒计时**：`MainTabView` 用 `ObservedObject` 订 VM；休息中标题「组间休息」+ 剩余秒，结束后回「继续训练」+ 训练秒 | 修正 | MainTabView, ActiveTrainingViewModel | 用户：最小化后时间不动 |
+| 2026-08-26 | **组间休息卡补最小化**（P0-05）：覆层盖住底栏，卡顶补标题栏 +「最小化」胶囊，动作与会话最小化相同（休息计时继续）。未加设计稿「震动」胶囊 | 修正 | ActiveTrainingView | 用户：休息卡没有最小化 |
+| 2026-08-26 | **动作库短标签 + 货架教学序**（DR-078）：类别展示改为基础/准度/杆法/走位/控力；`PlanListView` 取消按 `targetLevel` 分节，官方计划按 `Plans/index.json` 序单节排列 | 修正/DR | DrillCategory, PlanListView, Plans/index.json | 用户：短标签 + 计划顺序 |
 | 2026-08-25 | **动作库已练过改封面角标**（DR-077）：去掉标题下灰色「已完成」；封面右下亮绿 `BTPracticedBadge`（✓ 已练，Dark `btPrimary`）。网格课名一律主色，Pro 不再洗灰。筛选「已完成」不动 | 修正/DR | BTDrillGridCard, BTPracticedBadge | 用户：已练过不要灰标题 |
 | 2026-08-24 | **加塞吃库图谱可选高低杆**（DR-075）：右缘打点盘 `locksSideSpin` 只选 `spinY`；8 档左右塞按打滑圆水平弦 `√(L²−spinY²)` 重算；左缘 8 盘点落在该弦上；顶栏读「打点 / 可加塞%」 | 新增/DR | BTSpinPad, CushionEnglishAtlasView/ViewModel/Geometry, AngleHomeView | 用户：中高低杆打点盘驱动八条加塞轨迹 |
 | 2026-08-24 | **精讲逐杆静帧补瞄准位球杆**（DR-074）：`renderStills` 与视频亮方案拍对齐，有预告线则 `showCueAtRest`；开局/终局仍无杆；C6 不再把图文静帧当藏杆例外 | 修正/DR | SequenceVideoExporter, SequenceStillCueTests | 用户点验：精讲图有线无杆 |

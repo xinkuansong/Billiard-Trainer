@@ -33,11 +33,11 @@ final class P3_DrillLibraryUITests: XCTestCase {
                        app.staticTexts["全部"].firstMatch.waitForExistence(timeout: 3)
         XCTAssertTrue(allFound, "Sidebar '全部' should exist")
 
-        // 侧栏标识来自 DrillCategory.nameZh（如「准度训练」「杆法训练」）。
-        let sidebarCat = app.descendants(matching: .any)["sidebar_准度训练"]
+        // 侧栏标识来自 DrillCategory.nameZh（如「准度」「杆法」）。
+        let sidebarCat = app.descendants(matching: .any)["sidebar_准度"]
         let categoryFound = sidebarCat.waitForExistence(timeout: 5) ||
-                            app.descendants(matching: .any)["sidebar_杆法训练"].waitForExistence(timeout: 3) ||
-                            app.descendants(matching: .any)["sidebar_走位训练"].waitForExistence(timeout: 3)
+                            app.descendants(matching: .any)["sidebar_杆法"].waitForExistence(timeout: 3) ||
+                            app.descendants(matching: .any)["sidebar_走位"].waitForExistence(timeout: 3)
         XCTAssertTrue(categoryFound, "At least one sidebar category should exist")
     }
 
@@ -173,8 +173,8 @@ final class P3_DrillLibraryUITests: XCTestCase {
 
     /// 动作库：打开靠后的卡片再返回，应仍停在该卡附近（与训练货架记位同一口径）。
     func testLibraryScrollRestoredAfterClosingDrill() {
-        let sidebar = app.buttons["sidebar_杆法训练"]
-        XCTAssertTrue(sidebar.waitForExistence(timeout: 8), "侧栏应有杆法训练")
+        let sidebar = app.buttons["sidebar_杆法"]
+        XCTAssertTrue(sidebar.waitForExistence(timeout: 8), "侧栏应有杆法")
         sidebar.tap()
         // 侧栏筛选去抖 300ms + Q19.1 补滚 0.36s，等网格切到杆法再滑。
         sleep(1)
@@ -187,7 +187,7 @@ final class P3_DrillLibraryUITests: XCTestCase {
         XCTAssertTrue(back.waitForExistence(timeout: 8), "应进入动作详情")
         back.tap()
         XCTAssertTrue(
-            app.buttons["sidebar_杆法训练"].waitForExistence(timeout: 8),
+            app.buttons["sidebar_杆法"].waitForExistence(timeout: 8),
             "应回到动作库"
         )
         let backCard = app.buttons["drillCard_drill_c073"]

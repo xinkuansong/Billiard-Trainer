@@ -33,11 +33,11 @@ final class V31W5WalkthroughUITests: XCTestCase {
         sleep(4)
         snap("01-library-grouped-by-primary-category")
 
-        let positioning = app.descendants(matching: .any)["sidebar_走位训练"]
+        let positioning = app.descendants(matching: .any)["sidebar_走位"]
         guard positioning.waitForExistence(timeout: 8) else {
             snap("02x-no-sidebar")
             dumpHierarchy("02x-no-sidebar")
-            XCTFail("动作库应有「走位训练」分类入口")
+            XCTFail("动作库应有「走位」分类入口")
             return
         }
         positioning.tap()
@@ -46,10 +46,10 @@ final class V31W5WalkthroughUITests: XCTestCase {
         dumpHierarchy("02-library-positioning-filter")
 
         // c046「控力走位」主分类 forceControl、副分类 positioning ⇒ 命中筛选、
-        // 但仍分在「控力训练」分节下（统计只记主分类）。
+        // 但仍分在「控力」分节下（统计只记主分类）。
         // 失败机理（v39 W6）：课名「圈」无原文，改为「链」。
-        XCTAssertTrue(app.staticTexts["控力训练"].waitForExistence(timeout: 6),
-                      "按走位训练筛选后应出现副分类命中的「控力训练」分节")
+        XCTAssertTrue(app.staticTexts["控力"].waitForExistence(timeout: 6),
+                      "按走位筛选后应出现副分类命中的「控力」分节")
 
         // c018/c020/c021（杆法）、c030/c031（分离角）、c046（控力）都是靠副分类命中的跨类条目。
         // 按网格顺序（走位 → 控力）依次打开，避免返回后还要反向滚动。
@@ -107,8 +107,8 @@ final class V31W5WalkthroughUITests: XCTestCase {
         app.switchTab(.training)
         sleep(3)
 
-        // 入口在训练首页右上角「More」菜单里（`TrainingHomeView` 的 Menu）。
-        var entered = tapLabel("新建自定义计划", timeout: 4)
+        // 入口在训练首页右上角「More」菜单 / 空态 CTA / 非空区行（现网都是「新建模版」）。
+        var entered = tapLabel("新建模版", timeout: 4)
         if !entered {
             let more = app.buttons["More"].firstMatch
             if more.waitForExistence(timeout: 6) {
@@ -116,12 +116,12 @@ final class V31W5WalkthroughUITests: XCTestCase {
                 sleep(2)
                 snap("08x-more-menu")
             }
-            entered = tapLabel("新建自定义计划", timeout: 6)
+            entered = tapLabel("新建模版", timeout: 6)
         }
         guard entered else {
             snap("08x-no-builder-entry")
             dumpHierarchy("08x-no-builder-entry")
-            XCTFail("训练首页应有「新建自定义计划」入口")
+            XCTFail("训练首页应有「新建模版」入口")
             return
         }
         sleep(3)

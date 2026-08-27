@@ -273,7 +273,44 @@ final class V21W5PlanContentTests: XCTestCase {
         let stolen = allIds.filter { id in
             !firstFocused.contains(id)
         }
-        XCTAssertTrue(stolen.isEmpty, "全能不得另抢其它线程主课：\(stolen)")
+        let stolenBesidesRitual = stolen.filter { $0 != "drill_c023" }
+        XCTAssertTrue(stolenBesidesRitual.isEmpty, "全能除 ritual c023 外不得另抢其它线程主课：\(stolen)")
+        var c023Phases: Set<String> = []
+        for week in plan.weeks {
+            for session in week.sessions {
+                for phase in session.phases {
+                    for drill in phase.drills where drill.drillId == "drill_c023" {
+                        c023Phases.insert(phase.type)
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(c023Phases, ["ritual"], "全能 c023 只允许出现在 ritual：\(c023Phases)")
+    }
+
+    func testRitualPhaseDoesNotCountTowardSessionMinutes() {
+        let ritual = SessionPhase(
+            type: "ritual",
+            durationMinutes: 15,
+            countsTowardMinutes: false,
+            drills: []
+        )
+        let implicitRitual = SessionPhase(
+            type: "ritual",
+            durationMinutes: 15,
+            countsTowardMinutes: nil,
+            drills: []
+        )
+        let focused = SessionPhase(
+            type: "focused",
+            durationMinutes: 50,
+            countsTowardMinutes: nil,
+            drills: []
+        )
+        XCTAssertFalse(ritual.countsTowardSessionMinutes)
+        XCTAssertFalse(implicitRitual.countsTowardSessionMinutes)
+        XCTAssertTrue(focused.countsTowardSessionMinutes)
+        XCTAssertEqual(ritual.typeZh, "开场")
     }
 
     func testAllOfficialPlansStillDecode() async {
@@ -283,6 +320,45 @@ final class V21W5PlanContentTests: XCTestCase {
             XCTAssertFalse(plan.weeks.isEmpty, "\(plan.id) weeks 非空")
             XCTAssertEqual(plan.weeks.count, plan.durationWeeks,
                            "\(plan.id) weeks.count 应等于 durationWeeks")
+        }
+    }
+
+    func testOfficialPlanShelfOrderFollowsIndex() async {
+        let expected = [
+            "plan_beginner", "plan_accuracy", "plan_intermediate", "plan_force",
+            "plan_cueball", "plan_english", "plan_accuracy3", "plan_separation",
+            "plan_positioning", "plan_positioning2", "plan_advanced", "plan_fullskill",
+        ]
+        let index = await PlanContentService.shared.loadPlanIndex()
+        XCTAssertEqual(index?.plans.map(\.id), expected, "货架序 = Plans/index.json")
+        let plans = await PlanContentService.shared.loadAllPlans()
+        XCTAssertEqual(plans.map(\.id), expected, "loadAllPlans 须保 index 序")
+    }
+
+    func testNonBeginnerPlansHaveExactlyOneRitualPerSession() async {
+        let plans = await PlanContentService.shared.loadAllPlans()
+        for plan in plans {
+            for week in plan.weeks {
+                for session in week.sessions {
+                    let rituals = session.phases.filter { $0.type == "ritual" }
+                    if plan.id == "plan_beginner" {
+                        XCTAssertTrue(rituals.isEmpty, "基本功不得有 ritual")
+                        continue
+                    }
+                    XCTAssertEqual(rituals.count, 1,
+                                   "\(plan.id) W\(week.weekNumber)D\(session.dayNumber) 须恰好 1 条 ritual")
+                    let ids = rituals[0].drills.map(\.drillId)
+                    XCTAssertEqual(ids, ["drill_c023"])
+                    let dose = rituals[0].drills[0].dose
+                    XCTAssertEqual(dose?.ritual, true)
+                    XCTAssertEqual(dose?.reviewFrom, "plan_beginner")
+                    XCTAssertEqual(dose?.decay, true)
+                    let rounds = dose?.formations?.first?.rounds
+                    XCTAssertTrue(rounds == 4 || rounds == 6, "\(plan.id) ritual rounds=\(String(describing: rounds))")
+                    XCTAssertEqual(dose?.formations?.first?.ballsPerRound, 5)
+                    XCTAssertFalse(rituals[0].countsTowardSessionMinutes)
+                }
+            }
         }
     }
 }

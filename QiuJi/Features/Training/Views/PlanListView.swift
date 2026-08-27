@@ -22,24 +22,8 @@ struct PlanListView: View {
     @State private var showDeleteConfirm = false
     @State private var planToActivate: CustomPlan?
     @State private var showActivateConfirm = false
+    @State private var toast: BTToastMessage?
     @Query private var activePlans: [UserActivePlan]
-
-    private var groupedPlans: [(level: String, plans: [OfficialPlan])] {
-        let levelOrder = [
-            "L0→L1", "L0→L2", "L1", "L1→L2", "L1→L3",
-            "L2", "L2→L3", "L2→L4", "L3", "L3→L4",
-        ]
-        let grouped = Dictionary(grouping: plans) { $0.targetLevel }
-        var result = levelOrder.compactMap { level -> (level: String, plans: [OfficialPlan])? in
-            guard let items = grouped[level], !items.isEmpty else { return nil }
-            return (level: level, plans: items)
-        }
-        let seen = Set(result.map(\.level))
-        for level in grouped.keys.sorted() where !seen.contains(level) {
-            result.append((level: level, plans: grouped[level] ?? []))
-        }
-        return result
-    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -59,36 +43,7 @@ struct PlanListView: View {
                             )
                         }
 
-                        ForEach(groupedPlans, id: \.level) { group in
-                            VStack(alignment: .leading, spacing: Spacing.lg) {
-                                levelSectionHeader(level: group.level, count: group.plans.count)
-                                    .padding(.horizontal, Spacing.lg)
-                                    .id("planListSection-\(group.level)")
-
-                                LazyVGrid(
-                                    columns: [
-                                        GridItem(.flexible(), spacing: Spacing.md),
-                                        GridItem(.flexible(), spacing: Spacing.md)
-                                    ],
-                                    spacing: Spacing.md
-                                ) {
-                                    ForEach(Array(group.plans.enumerated()), id: \.element.id) { index, plan in
-                                        Button {
-                                            router.planListRestoreID = plan.id
-                                            router.trainingPath.append(
-                                                TrainingRoute.planDetail(planId: plan.id)
-                                            )
-                                        } label: {
-                                            PlanCard(plan: plan, issueNumber: index + 1)
-                                        }
-                                        .buttonStyle(.plain)
-                                        .id(plan.id)
-                                        .accessibilityIdentifier("planListPoster-\(plan.id)")
-                                    }
-                                }
-                                .padding(.horizontal, Spacing.lg)
-                            }
-                        }
+                        officialPlansSection
 
                         customPlansSection
                     }
@@ -116,20 +71,25 @@ struct PlanListView: View {
                 }
             }
         }
+        .btToast($toast)
         // F-OV-02: destructive clear/delete → confirmationDialog (cancel first).
         .confirmationDialog(
-            "删除计划",
+            "删除模版",
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {
-            Button("取消", role: .cancel) {}
+            Button("取消", role: .cancel) { planToDelete = nil }
             Button("删除", role: .destructive) { deleteCustomPlan() }
         } message: {
             Text("确定要删除「\(planToDelete?.name ?? "")」吗？此操作不可撤销。")
         }
-        .alert("激活训练计划", isPresented: $showActivateConfirm) {
+        .confirmationDialog(
+            "用于今日训练",
+            isPresented: $showActivateConfirm,
+            titleVisibility: .visible
+        ) {
             Button("取消", role: .cancel) { planToActivate = nil }
-            Button("确定激活") {
+            Button("确定") {
                 if let plan = planToActivate {
                     activateCustomPlan(plan)
                 }
@@ -137,17 +97,83 @@ struct PlanListView: View {
             }
         } message: {
             if hasActivePlan {
-                Text("当前已有激活的训练计划，激活新计划将替换旧计划。确定要继续吗？")
+                Text("将替换当前的今日安排。确定用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
             } else {
-                Text("确定要开始「\(planToActivate?.name ?? "")」训练计划吗？激活后将从第 1 周第 1 天开始。")
+                Text("用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
             }
         }
     }
 
     private var hasActivePlan: Bool { !activePlans.isEmpty }
 
-    private var activeCustomPlanId: String? {
-        activePlans.first(where: \.isCustom)?.planId
+    // MARK: - Official Plans Section
+
+    /// 货架顺序 = `Plans/index.json`（`loadAllPlans` 保序）。不再按 `targetLevel` 分节。
+    private var officialPlansSection: some View {
+        Group {
+            if !plans.isEmpty {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    officialSectionHeader
+                        .padding(.horizontal, Spacing.lg)
+
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: Spacing.md),
+                            GridItem(.flexible(), spacing: Spacing.md)
+                        ],
+                        spacing: Spacing.md
+                    ) {
+                        ForEach(Array(plans.enumerated()), id: \.element.id) { index, plan in
+                            Button {
+                                router.planListRestoreID = plan.id
+                                router.trainingPath.append(
+                                    TrainingRoute.planDetail(planId: plan.id)
+                                )
+                            } label: {
+                                PlanCard(plan: plan, issueNumber: index + 1)
+                            }
+                            .buttonStyle(.plain)
+                            .id(plan.id)
+                            .accessibilityIdentifier("planListPoster-\(plan.id)")
+                        }
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                }
+            }
+        }
+    }
+
+    private var officialSectionHeader: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: "calendar")
+                    .font(.btCaption2)
+                    .foregroundStyle(.btAccent)
+                Text("官方")
+                    .font(.btCaption2)
+                    .foregroundStyle(.btTextTertiary)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
+                Text("官方计划")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+
+                BTGoldRule()
+                    .padding(.bottom, 6)
+
+                Spacer()
+
+                Text("\(plans.count)")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+                    .padding(.horizontal, Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(.btBGTertiary)
+                    .clipShape(Capsule())
+            }
+        }
     }
 
     // MARK: - Custom Plans Section
@@ -176,13 +202,13 @@ struct PlanListView: View {
                 Image(systemName: BTIcon.hammer)
                     .font(.btCaption2)
                     .foregroundStyle(.btAccent)
-                Text("用户创建")
+                Text("自建清单")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
             }
 
             HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
-                Text("我的计划")
+                Text("我的模版")
                     .font(.btTitle)
                     .foregroundStyle(.btText)
 
@@ -204,57 +230,31 @@ struct PlanListView: View {
     }
 
     private func customPlanCard(_ plan: CustomPlan, issueNumber: Int) -> some View {
-        let isActive = activeCustomPlanId == plan.id.uuidString
+        let isActive = isUsedToday(plan)
 
-        return NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
+        return HStack(spacing: Spacing.md) {
             HStack(spacing: Spacing.md) {
                 customThumbnail(issueNumber: issueNumber)
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    HStack(alignment: .top, spacing: Spacing.sm) {
-                        Text(plan.name)
-                            .font(.btTitleMedium)
-                            .foregroundStyle(.btText)
-                            .lineLimit(2)
-                            .multilineTextAlignment(.leading)
+                    Text(plan.name)
+                        .font(.btTitleMedium)
+                        .foregroundStyle(.btText)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
-                        Spacer(minLength: Spacing.xs)
-
-                        Menu {
-                            NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
-                                Label("编辑", systemImage: "pencil")
-                            }
-                            Button {
-                                planToActivate = plan
-                                showActivateConfirm = true
-                            } label: {
-                                Label("激活此计划", systemImage: "play.circle")
-                            }
-                            Button(role: .destructive) {
-                                planToDelete = plan
-                                showDeleteConfirm = true
-                            } label: {
-                                Label("删除", systemImage: "trash")
-                            }
-                        } label: {
-                            Image(systemName: BTIcon.menuCircle)
-                                .font(.btCallout)
-                                .foregroundStyle(.btTextTertiary)
-                                .frame(width: 32, height: 32)
-                                .contentShape(Rectangle())
-                        }
-                    }
-
-                    Text("\(plan.sessionsPerWeek) 次/周 · \(plan.drills.count) 项训练")
+                    Text(customPlanSubtitle(plan))
                         .font(.btFootnote)
                         .foregroundStyle(.btTextSecondary)
                         .monospacedDigit()
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
                     HStack(spacing: Spacing.sm) {
                         HStack(spacing: 2) {
                             Image(systemName: "hammer")
                                 .font(.btMicro)
-                            Text("自定义")
+                            Text("模版")
                                 .font(.btCaption2)
                         }
                         .foregroundStyle(.btAccent)
@@ -267,7 +267,7 @@ struct PlanListView: View {
                             HStack(spacing: 2) {
                                 Image(systemName: BTIcon.checkmarkCircle)
                                     .font(.btMicro)
-                                Text("已激活")
+                                Text("今日使用中")
                                     .font(.btCaption2)
                             }
                             .foregroundStyle(.btSuccess)
@@ -279,19 +279,42 @@ struct PlanListView: View {
                     }
                 }
 
+                Spacer(minLength: 0)
+
                 Image(systemName: BTIcon.chevronRight)
                     .font(.btFootnote14)
                     .foregroundStyle(.btTextTertiary)
             }
-            .padding(Spacing.md)
-            .background(.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            .contentShape(Rectangle())
+            .onTapGesture { requestUseForToday(plan) }
+
+            Menu {
+                NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
+                    Label("编辑", systemImage: "pencil")
+                }
+                Button {
+                    requestUseForToday(plan)
+                } label: {
+                    Label("用于今日训练", systemImage: "play.circle")
+                }
+                Button(role: .destructive) {
+                    requestDelete(plan)
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: BTIcon.menuCircle)
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextTertiary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
+            }
         }
-        .buttonStyle(.plain)
+        .padding(Spacing.md)
+        .background(.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .onLongPressGesture { requestDelete(plan) }
         .id(plan.id.uuidString)
-        .simultaneousGesture(TapGesture().onEnded {
-            router.planListRestoreID = plan.id.uuidString
-        })
     }
 
     private func customThumbnail(issueNumber: Int) -> some View {
@@ -321,29 +344,64 @@ struct PlanListView: View {
 
     // MARK: - Actions
 
-    private func activateCustomPlan(_ plan: CustomPlan) {
-        let descriptor = FetchDescriptor<UserActivePlan>()
-        if let existing = try? modelContext.fetch(descriptor) {
-            for old in existing { modelContext.delete(old) }
+    private func isUsedToday(_ plan: CustomPlan) -> Bool {
+        activePlans.contains { $0.isCustom && $0.planId == plan.id.uuidString }
+    }
+
+    private func customPlanSubtitle(_ plan: CustomPlan) -> String {
+        let names = plan.drills
+            .sorted { $0.order < $1.order }
+            .map { $0.drillNameZh.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if names.isEmpty {
+            return "\(plan.drills.count) 项训练"
         }
-        let active = UserActivePlan(planId: plan.id.uuidString, isCustom: true)
-        modelContext.insert(active)
-        try? modelContext.save()
+        return "\(plan.drills.count) 项 \(names.joined(separator: "、"))"
+    }
+
+    private func requestUseForToday(_ plan: CustomPlan) {
+        if isUsedToday(plan) {
+            BTToast.present("已是今日训练", tone: .info) { toast = $0 }
+            return
+        }
+        planToActivate = plan
+        showActivateConfirm = true
+    }
+
+    private func requestDelete(_ plan: CustomPlan) {
+        planToDelete = plan
+        showDeleteConfirm = true
+    }
+
+    private func activateCustomPlan(_ plan: CustomPlan) {
+        do {
+            try DrillTrainingPlanService.activate(plan: plan, context: modelContext)
+            try modelContext.save()
+            router.trainingPath = NavigationPath()
+        } catch {
+            print("[PlanListView] activate failed: \(error)")
+            BTToast.present("无法设为今日训练，请稍后重试", tone: .error) { toast = $0 }
+        }
     }
 
     private func deleteCustomPlan() {
         guard let plan = planToDelete else { return }
         let planIdStr = plan.id.uuidString
-        modelContext.delete(plan)
-
-        let descriptor = FetchDescriptor<UserActivePlan>(
-            predicate: #Predicate { $0.planId == planIdStr }
-        )
-        if let active = try? modelContext.fetch(descriptor).first {
-            modelContext.delete(active)
+        do {
+            let descriptor = FetchDescriptor<UserActivePlan>(
+                predicate: #Predicate { $0.planId == planIdStr }
+            )
+            let actives = try modelContext.fetch(descriptor)
+            modelContext.delete(plan)
+            for active in actives {
+                modelContext.delete(active)
+            }
+            try modelContext.save()
+            planToDelete = nil
+        } catch {
+            print("[PlanListView] delete failed: \(error)")
+            BTToast.present("删除失败，请稍后重试", tone: .error) { toast = $0 }
         }
-        try? modelContext.save()
-        planToDelete = nil
     }
 
     private func loadPlans() async {
@@ -360,52 +418,6 @@ struct PlanListView: View {
         proxy.scrollTo(id, anchor: .center)
     }
 
-    // MARK: - Section Header
-
-    private func levelSectionHeader(level: String, count: Int) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(level.replacingOccurrences(of: "→", with: " → "))
-                .font(.btCaption2)
-                .foregroundStyle(.btTextTertiary)
-                .monospacedDigit()
-
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
-                Text(titleForLevel(level))
-                    .font(.btTitle)
-                    .foregroundStyle(.btText)
-
-                BTGoldRule()
-                    .padding(.bottom, 6)
-
-                Spacer()
-
-                Text("\(count)")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
-                    .monospacedDigit()
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, 2)
-                    .background(.btBGTertiary)
-                    .clipShape(Capsule())
-            }
-        }
-    }
-
-    private func titleForLevel(_ level: String) -> String {
-        switch level {
-        case "L0→L1":  return "入门计划"
-        case "L0→L2":  return "准度入门"
-        case "L1":     return "初级计划"
-        case "L1→L2":  return "进阶计划"
-        case "L1→L3":  return "走位进阶"
-        case "L2":     return "中级计划"
-        case "L2→L3":  return "中级进阶"
-        case "L2→L4":  return "综合计划"
-        case "L3":     return "高级计划"
-        case "L3→L4":  return "专业计划"
-        default:       return level
-        }
-    }
 }
 
 // MARK: - Plan Card

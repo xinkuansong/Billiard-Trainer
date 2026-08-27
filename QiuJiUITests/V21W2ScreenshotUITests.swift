@@ -20,7 +20,7 @@ final class V21W2ScreenshotUITests: XCTestCase {
         sleep(2)
 
         // 侧栏 → 杆法训练
-        let sidebar = app.descendants(matching: .any)["sidebar_杆法训练"]
+        let sidebar = app.descendants(matching: .any)["sidebar_杆法"]
         if sidebar.waitForExistence(timeout: 5) {
             sidebar.tap()
         } else {

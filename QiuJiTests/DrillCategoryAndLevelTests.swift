@@ -24,6 +24,22 @@ final class DrillCategoryAndLevelTests: XCTestCase {
         }
     }
 
+    func test_drillCategory_nameZh_shortLibraryLabels() {
+        let expected: [DrillCategory: String] = [
+            .fundamentals: "基础",
+            .accuracy: "准度",
+            .cueAction: "杆法",
+            .separation: "分离角",
+            .positioning: "走位",
+            .forceControl: "控力",
+            .specialShots: "特殊球路",
+            .combined: "综合球形",
+        ]
+        for (cat, name) in expected {
+            XCTAssertEqual(cat.nameZh, name)
+        }
+    }
+
     func test_drillCategory_icon_nonEmpty() {
         for cat in DrillCategory.allCases {
             XCTAssertFalse(cat.icon.isEmpty, "\(cat.rawValue) icon should not be empty")

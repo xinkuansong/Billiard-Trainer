@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "plans": [
     {
       "id": "plan_beginner",
@@ -14,10 +14,10 @@
       "isPremium": false
     },
     {
-      "id": "plan_cueball",
-      "nameZh": "杆法Ⅰ·高低杆",
-      "targetLevel": "L1",
-      "isPremium": false
+      "id": "plan_intermediate",
+      "nameZh": "准度Ⅱ·远台切角",
+      "targetLevel": "L2→L3",
+      "isPremium": true
     },
     {
       "id": "plan_force",
@@ -26,15 +26,27 @@
       "isPremium": true
     },
     {
-      "id": "plan_separation",
-      "nameZh": "分离角",
-      "targetLevel": "L2",
-      "isPremium": true
+      "id": "plan_cueball",
+      "nameZh": "杆法Ⅰ·高低杆",
+      "targetLevel": "L1",
+      "isPremium": false
     },
     {
       "id": "plan_english",
       "nameZh": "杆法Ⅱ·加塞挤偏",
       "targetLevel": "L2→L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_accuracy3",
+      "nameZh": "准度Ⅲ·带塞",
+      "targetLevel": "L2→L3",
+      "isPremium": true
+    },
+    {
+      "id": "plan_separation",
+      "nameZh": "分离角",
+      "targetLevel": "L2",
       "isPremium": true
     },
     {
@@ -47,18 +59,6 @@
       "id": "plan_positioning2",
       "nameZh": "走位Ⅱ·多库与蛇彩",
       "targetLevel": "L2→L4",
-      "isPremium": true
-    },
-    {
-      "id": "plan_intermediate",
-      "nameZh": "准度Ⅱ·远台切角",
-      "targetLevel": "L2→L3",
-      "isPremium": true
-    },
-    {
-      "id": "plan_accuracy3",
-      "nameZh": "准度Ⅲ·带塞",
-      "targetLevel": "L2→L3",
       "isPremium": true
     },
     {

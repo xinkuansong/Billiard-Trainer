@@ -82,6 +82,20 @@
 
 ## DR 记录（设计调整）
 
+## DR-078
+- **任务**：动作库类别短名 + 官方计划货架改教学序
+- **原始规范**：`DrillCategory.nameZh` 为「基础功 / 准度训练 / 杆法训练 / 走位训练 / 控力训练」；`PlanListView.groupedPlans` 按 `targetLevel` 分节（DR-072）
+- **调整后**：
+  1. 动作库展示名改为「基础 / 准度 / 杆法 / 走位 / 控力」。enum rawValue 与 JSON `category` 不动。分离角 / 特殊球路 / 综合球形未改。
+  2. 货架顺序以 `Plans/index.json` 为真源：基本功 → 准度Ⅰ → 准度Ⅱ → 力度 → 杆法Ⅰ → 杆法Ⅱ → 准度Ⅲ → 分离角 → 走位Ⅰ → 走位Ⅱ → 特殊球 → 全能精选。`PlanListView` 取消档位分节，单节「官方计划」按 index 序排；训练首页本就走 `loadAllPlans` 保序。
+- **原因**：用户要短标签，以及一条跨档位的教学路径。按档位分组无法排出「准度Ⅱ在力度前、杆法在准度Ⅲ前」。
+- **影响组件**：`DrillCategory.nameZh`、`PlanListView`、`Plans/index.json`
+- **日期**：2026-08-26
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`.cursor/skills/swiftui-design-system/SKILL.md`；`20-swiftui-developer.mdc` Changelog；`.cursor/skills/content-engineering/SKILL.md`
+- **已应用至**：✅ 上述文件（2026-08-26）
+
+---
+
 ## FL-032
 - **任务**：问题集合 v40 W2–W7
 - **现象**：用户否决 W2–W7 交付——主控把规范拆成填空步骤派给子智能体，W2 还用应用脚本灌盘；门禁绿了，精讲仍不是「按规范语义写出来的」。

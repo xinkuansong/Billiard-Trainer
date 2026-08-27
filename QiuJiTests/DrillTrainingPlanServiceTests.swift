@@ -93,6 +93,7 @@ final class DrillTrainingPlanServiceTests: XCTestCase {
 
         let plans = try context.fetch(FetchDescriptor<CustomPlan>())
         XCTAssertEqual(plans.count, 1)
+        XCTAssertEqual(plans.first?.sessionsPerWeek, 1)
         XCTAssertEqual(plans.first?.drills.first?.drillId, "drill_c010")
 
         let actives = try context.fetch(FetchDescriptor<UserActivePlan>())

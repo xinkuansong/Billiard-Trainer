@@ -29,6 +29,8 @@ struct TodaySessionInfo {
     let weekTheme: String
     let totalMinutes: Int
     let drills: [TodayDrillItem]
+    /// `UserActivePlan.isCustom`：模版今日藏周/天与进度菜单（D-v43-9）。
+    let isFromTemplate: Bool
 
     var completedCount: Int { drills.filter(\.isCompleted).count }
     var totalCount: Int { drills.count }
@@ -50,8 +52,8 @@ struct PlanBrowseItem: Identifiable {
 
 enum PlanBrowseTab: String, CaseIterable {
     case official = "官方计划"
-    /// F-PL-09: align wording with PlanListView「我的计划」(was「自定义模版」)
-    case custom = "我的计划"
+    /// F-PL-09 当年统一成「我的计划」；本轮 D-v43-7 改回界面用字「我的模版」。
+    case custom = "我的模版"
 }
 
 enum PlanLevelFilter: String, CaseIterable {
@@ -228,7 +230,9 @@ final class TrainingHomeViewModel: ObservableObject {
             }
         }
 
-        let totalMinutes = session.phases.reduce(0) { $0 + $1.durationMinutes }
+        let totalMinutes = session.phases.reduce(0) { acc, phase in
+            acc + (phase.countsTowardSessionMinutes ? phase.durationMinutes : 0)
+        }
 
         todaySession = TodaySessionInfo(
             planId: activePlan.planId,
@@ -237,7 +241,8 @@ final class TrainingHomeViewModel: ObservableObject {
             dayNumber: activePlan.currentDay,
             weekTheme: week.theme,
             totalMinutes: totalMinutes,
-            drills: items
+            drills: items,
+            isFromTemplate: false
         )
     }
 
@@ -281,14 +286,16 @@ final class TrainingHomeViewModel: ObservableObject {
         }
 
         // 自定义计划没有周结构：每天同一张动作表，周 / 天只作推进计数（W7）。
+        // D-v43-9：UI 不展示周/天；主题用「今日清单」，标题仍是 customPlan.name。
         todaySession = TodaySessionInfo(
             planId: activePlan.planId,
             planNameZh: customPlan.name,
             weekNumber: activePlan.currentWeek,
             dayNumber: activePlan.currentDay,
-            weekTheme: "自定义训练",
+            weekTheme: "今日清单",
             totalMinutes: 0,
-            drills: items
+            drills: items,
+            isFromTemplate: true
         )
     }
 

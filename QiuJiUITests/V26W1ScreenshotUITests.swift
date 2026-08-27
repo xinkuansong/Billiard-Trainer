@@ -17,7 +17,7 @@ final class V26W1ScreenshotUITests: XCTestCase {
 
     func testW1_c032_tutorial() {
         captureTutorial(
-            categorySidebar: "sidebar_准度训练",
+            categorySidebar: "sidebar_准度",
             categoryFallback: "准度",
             search: "中台角度",
             nameContains: "中台角度球",
@@ -28,7 +28,7 @@ final class V26W1ScreenshotUITests: XCTestCase {
 
     func testW1_c053_tutorial() {
         captureTutorial(
-            categorySidebar: "sidebar_准度训练",
+            categorySidebar: "sidebar_准度",
             categoryFallback: "准度",
             search: "中袋角度",
             nameContains: "中袋角度球",
@@ -40,8 +40,8 @@ final class V26W1ScreenshotUITests: XCTestCase {
 
     func testW1_c009_tutorial() {
         captureTutorial(
-            categorySidebar: "sidebar_基础功",
-            categoryFallback: "基础功",
+            categorySidebar: "sidebar_基础",
+            categoryFallback: "基础",
             search: "直线出杆",
             nameContains: "直线出杆",
             drillId: "drill_c009",
@@ -63,7 +63,7 @@ final class V26W1ScreenshotUITests: XCTestCase {
     /// v41 W11：详情页（准度）
     func testW11_c013_accuracyDetail() {
         captureDetail(
-            categorySidebar: "sidebar_准度训练",
+            categorySidebar: "sidebar_准度",
             categoryFallback: "准度",
             search: "底袋小角度",
             nameContains: "底袋小角度",
@@ -75,7 +75,7 @@ final class V26W1ScreenshotUITests: XCTestCase {
     /// v41 W11：详情页（走位）
     func testW11_c005_positioningDetail() {
         captureDetail(
-            categorySidebar: "sidebar_走位训练",
+            categorySidebar: "sidebar_走位",
             categoryFallback: "走位",
             search: "一库走位",
             nameContains: "一库走位",

@@ -5,7 +5,7 @@ import XCTest
 ///    录入界面应按「球形 1 轮 1 → … → 球形 N 轮 M」展开，逐组预填对应球形；
 ///    保存后由测试外的 sqlite3 直查模拟器 store 验证 `DrillSet` 的
 ///    `formationToken` / `targetBalls`（UI 测试进程读不到宿主 App 的容器）。
-/// 2. 动作库按「走位训练」筛选时，副分类为走位的跨类 drill 也应命中（契约 §3.3）。
+/// 2. 动作库按「走位」筛选时，副分类为走位的跨类 drill 也应命中（契约 §3.3）。
 ///
 /// 截图落 `build/v31-w2-screenshots/`。
 final class V31W2MultiFormationUITests: XCTestCase {
@@ -78,11 +78,11 @@ final class V31W2MultiFormationUITests: XCTestCase {
         sleep(4)
         snap("10-library-default")
 
-        let positioning = app.descendants(matching: .any)["sidebar_走位训练"]
+        let positioning = app.descendants(matching: .any)["sidebar_走位"]
         guard positioning.waitForExistence(timeout: 8) else {
             snap("10x-no-sidebar")
             dumpHierarchy("10x-no-sidebar")
-            XCTFail("动作库应有「走位训练」分类入口")
+            XCTFail("动作库应有「走位」分类入口")
             return
         }
         positioning.tap()
@@ -91,10 +91,10 @@ final class V31W2MultiFormationUITests: XCTestCase {
 
         // 副分类命中：c018「侧旋走位控制」等主分类为杆法/控力/分离角的条目也应出现，
         // 且仍分在自己的主分类分节下。
-        XCTAssertTrue(app.staticTexts["杆法训练"].waitForExistence(timeout: 5)
-                      || app.staticTexts["控力训练"].waitForExistence(timeout: 2)
+        XCTAssertTrue(app.staticTexts["杆法"].waitForExistence(timeout: 5)
+                      || app.staticTexts["控力"].waitForExistence(timeout: 2)
                       || app.staticTexts["分离角"].waitForExistence(timeout: 2),
-                      "按走位训练筛选后，应出现副分类命中的其他主分类分节")
+                      "按走位筛选后，应出现副分类命中的其他主分类分节")
         dumpHierarchy("11-library-positioning-filter")
     }
 

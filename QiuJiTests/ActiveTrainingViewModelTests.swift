@@ -39,6 +39,23 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertEqual(vm.formattedTime, "00:01:05")
     }
 
+    func test_floatingIndicator_usesElapsedWhenNotResting() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.elapsedSeconds = 125
+        vm.restSecondsRemaining = 40
+        XCTAssertEqual(vm.floatingIndicatorSeconds, 125)
+        XCTAssertEqual(vm.floatingIndicatorTitle, "继续训练")
+    }
+
+    func test_floatingIndicator_usesRestRemainingWhenResting() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.elapsedSeconds = 125
+        vm.isRestTimerActive = true
+        vm.restSecondsRemaining = 40
+        XCTAssertEqual(vm.floatingIndicatorSeconds, 40)
+        XCTAssertEqual(vm.floatingIndicatorTitle, "组间休息")
+    }
+
     // MARK: - Progress
 
     func test_progress_empty_drills() {

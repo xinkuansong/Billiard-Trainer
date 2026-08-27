@@ -30,8 +30,9 @@ final class V22W2PlanAccuracyTests: XCTestCase {
         for week in plan.weeks {
             XCTAssertGreaterThan(week.sessions.count, 0,
                                  "week \(week.weekNumber) 至少 1 次课")
-            XCTAssertLessThanOrEqual(week.sessions.count, plan.sessionsPerWeek,
-                                     "week \(week.weekNumber) sessions.count 不得超过 sessionsPerWeek")
+            // v44 I13 ⑥：每周必须满员，禁止用 ≤ 放行缺天。
+            XCTAssertEqual(week.sessions.count, plan.sessionsPerWeek,
+                           "week \(week.weekNumber) sessions.count 须等于 sessionsPerWeek")
             for session in week.sessions {
                 for phase in session.phases {
                     XCTAssertGreaterThan(phase.durationMinutes, 0,
@@ -47,7 +48,10 @@ final class V22W2PlanAccuracyTests: XCTestCase {
                 }
             }
         )
-        XCTAssertEqual(allIds, assignedIds, "计划内容应恰为 v38 准度Ⅰ引用集合")
+        // v44 W7：非基本功每天一条 ritual c023，不算准度Ⅰ主课集合。
+        XCTAssertEqual(allIds.subtracting(["drill_c023"]), assignedIds,
+                       "计划内容应恰为 v38 准度Ⅰ引用集合（另加 ritual c023）")
+        XCTAssertTrue(allIds.contains("drill_c023"))
 
         var firstFocused: [String] = []
         for week in plan.weeks {

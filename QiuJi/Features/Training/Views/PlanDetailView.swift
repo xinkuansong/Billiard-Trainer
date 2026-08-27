@@ -549,7 +549,9 @@ struct PlanDetailView: View {
     }
 
     private func sessionEstimatedMinutes(_ session: PlanSession) -> Int {
-        session.phases.reduce(0) { $0 + phaseEstimatedMinutes($1) }
+        session.phases.reduce(0) { acc, phase in
+            acc + (phase.countsTowardSessionMinutes ? phaseEstimatedMinutes(phase) : 0)
+        }
     }
 
     @ViewBuilder

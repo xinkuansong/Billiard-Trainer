@@ -997,7 +997,7 @@ final class ScreenshotTourUITests: XCTestCase {
         // 1) 杆法类带 spin drill：详情打点/力度指示器 + 回放中帧。
         app.switchTab(.drillLibrary)
         sleep(3)
-        let sidebar = app.buttons["sidebar_杆法训练"]
+        let sidebar = app.buttons["sidebar_杆法"]
         if sidebar.waitForExistence(timeout: 4) { sidebar.tap() }
         sleep(1)
         let spinDrills: [(String, String)] = [
@@ -1348,8 +1348,8 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(2)
         snap("01-training-home")
 
-        // 自定义模版分段
-        if tapIfExists("自定义模版", timeout: 2) || tapIfExists("自定义", timeout: 1) {
+        // 「我的模版」分段（现网用字；旧「自定义模版」不再上屏）
+        if tapIfExists("我的模版", timeout: 2) || tapIfExists("自定义模版", timeout: 1) || tapIfExists("自定义", timeout: 1) {
             sleep(1)
             snap("02-training-custom-tab")
             _ = tapIfExists("官方计划", timeout: 2)

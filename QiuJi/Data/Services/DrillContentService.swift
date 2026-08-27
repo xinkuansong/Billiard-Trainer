@@ -410,12 +410,12 @@ enum DrillCategory: String, CaseIterable, Identifiable {
 
     var nameZh: String {
         switch self {
-        case .fundamentals:  return "基础功"
-        case .accuracy:      return "准度训练"
-        case .cueAction:     return "杆法训练"
+        case .fundamentals:  return "基础"
+        case .accuracy:      return "准度"
+        case .cueAction:     return "杆法"
         case .separation:    return "分离角"
-        case .positioning:   return "走位训练"
-        case .forceControl:  return "控力训练"
+        case .positioning:   return "走位"
+        case .forceControl:  return "控力"
         case .specialShots:  return "特殊球路"
         case .combined:      return "综合球形"
         }

@@ -70,7 +70,10 @@ final class V22W4PlanSeparationTests: XCTestCase {
                 }
             }
         }
-        XCTAssertEqual(allIds, assignedIds, "计划内容应恰为 v38 分离角引用集合（10 主课 + c032 咬合）")
+        // v44 W7：另加 ritual c023，不算分离角主课集合。
+        XCTAssertEqual(allIds.subtracting(["drill_c023"]), assignedIds,
+                       "计划内容应恰为 v38 分离角引用集合（10 主课 + c032 咬合；另加 ritual c023）")
+        XCTAssertTrue(allIds.contains("drill_c023"))
         XCTAssertTrue(separationIds.isSubset(of: allIds), "separation 10 条主课须全部在计划内")
 
         var firstFocused: [String] = []

@@ -28,7 +28,8 @@ verify_tutorial_sync.py — 内容不变量校验（契约 .kiro/steering/conten
       = 代表球形实分；无 perFormation 时只允许 drill 级 load（契约 §5.7 / §7）
   I13 排课规则：focused 首次引入不得早于语义课表建议周、热身≤主课（scalar；
       reviewFrom 咬合热身豁免）、衰减剂量单调不增且减量须标 decay、reviewFrom 外键有效、
-      focused 首次引入序对照 W0 主课表（只比序，不比建议周）
+      focused 首次引入序对照 W0 主课表（只比序，不比建议周）；⑥每周满员且
+      dayNumber=1..N；⑦日合计（排除 countsTowardMinutes==false）≥75；⑧主题/简介禁幽灵词
 
 基线与已知豁免真源：scripts/content_invariant_baselines.json（棘轮，只许收紧）。
 
@@ -676,6 +677,19 @@ def check_dose_shots(sequences: dict[str, list[dict]], drills: dict[str, dict],
             "rule_exempt": rule_exempt}
 
 
+_RITUAL_DRILL_ID = "drill_c023"
+_RITUAL_REVIEW_FROM = "plan_beginner"
+_RITUAL_ROUNDS = {4, 6}
+
+
+def _is_ritual_whitelist(drill_id: str, dose: dict) -> bool:
+    return (
+        dose.get("ritual") is True
+        and drill_id == _RITUAL_DRILL_ID
+        and dose.get("reviewFrom") == _RITUAL_REVIEW_FROM
+    )
+
+
 def _dose_errors(drill_id: str, dose: object, per_meta: dict[str, object],
                  seq_tokens: set[str]) -> list[tuple[str, str]]:
     """I11 单条目的 dose 结构与外键判定，返回 (问题, 处置) 列表。
@@ -683,6 +697,7 @@ def _dose_errors(drill_id: str, dose: object, per_meta: dict[str, object],
     `per_meta` = {token: {defaultRounds, ballsPerRound, mode}}。
     v38 R7：`repetition` 不得靠降 rounds 砍位置（decay 也不行），减量写 ballsPerRound；
     `sequence` 在 decay 时才允许 rounds < defaultRounds，禁止改 ballsPerRound。
+    v44：仅 `ritual`+c023+reviewFrom=plan_beginner+rounds∈{4,6} 可砍组。
     """
     if not isinstance(dose, dict):
         return [("dose 不是对象", "计划条目必须写 dose（契约 §6.6）")]
@@ -698,7 +713,18 @@ def _dose_errors(drill_id: str, dose: object, per_meta: dict[str, object],
     review_from = dose.get("reviewFrom")
     if review_from is not None and not isinstance(review_from, str):
         errors.append((f"reviewFrom={review_from!r} 非法", "必须是计划 id 字符串"))
+    ritual = dose.get("ritual")
+    if ritual is not None and not isinstance(ritual, bool):
+        errors.append((f"ritual={ritual!r} 非法", "必须是 bool"))
+    if ritual is True:
+        if drill_id != _RITUAL_DRILL_ID:
+            errors.append((f"ritual 挂了 {drill_id}",
+                           "I11 白名单：ritual 只能挂 drill_c023"))
+        if review_from != _RITUAL_REVIEW_FROM:
+            errors.append(("ritual 无 reviewFrom=plan_beginner",
+                           "I11 白名单：ritual 必须 reviewFrom plan_beginner"))
     allow_decay = decay is True
+    ritual_ok = _is_ritual_whitelist(drill_id, dose)
     if uniform is not None:
         if not isinstance(uniform, int) or isinstance(uniform, bool) or uniform < 1:
             errors.append((f"roundsPerFormation={uniform!r} 非法", "必须是 ≥1 的整数（倍数语义，§6.6）"))
@@ -730,14 +756,23 @@ def _dose_errors(drill_id: str, dose: object, per_meta: dict[str, object],
         floor = meta.get("defaultRounds")
         content_bpr = meta.get("ballsPerRound")
         mode = meta.get("mode")
+        if ritual_ok and (not isinstance(rounds, int) or isinstance(rounds, bool)
+                          or rounds not in _RITUAL_ROUNDS):
+            errors.append((
+                f"token `{token}` 的 rounds={rounds} 不是 4 或 6",
+                "I11 白名单：ritual 组数只允许 4 或 6",
+            ))
         if (isinstance(rounds, int) and not isinstance(rounds, bool)
                 and isinstance(floor, int) and not isinstance(floor, bool)
                 and rounds < floor):
             if mode == "repetition":
-                errors.append((
-                    f"token `{token}` 的 rounds={rounds} 低于内容 defaultRounds={floor}（砍位置）",
-                    "repetition 衰减不得砍杆，应保 rounds=defaultRounds、降 ballsPerRound（§6.6 / v38 R7）"
-                ))
+                if ritual_ok and rounds in _RITUAL_ROUNDS:
+                    pass
+                else:
+                    errors.append((
+                        f"token `{token}` 的 rounds={rounds} 低于内容 defaultRounds={floor}（砍位置）",
+                        "repetition 衰减不得砍杆，应保 rounds=defaultRounds、降 ballsPerRound（§6.6 / v38 R7）"
+                    ))
             elif not allow_decay:
                 errors.append((f"token `{token}` 的 rounds={rounds} 低于内容 defaultRounds={floor}",
                                "逐球形轮数不得低于该球形 defaultRounds——位置永远全覆盖（§6.6，v34 R9）；"
@@ -926,7 +961,7 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
     return {"ok": ok, "fail": fail, "exempt": [], "warn": warn}
 
 
-# ── I13：排课规则（v37 W5，契约 §7 / R4–R6）────────────────────────────────
+# ── I13：排课规则（v37 W5，契约 §7 / R4–R6；v44 加 ⑥⑦⑧）────────────────
 #
 # 操作定义（对照现网计划实测后钉死，写入契约 2.9 / 2.11 / 2.12）：
 # 1. 建议周下界（v39 W2）：每份计划内 focused 首次引入的短 id，其首次周不得
@@ -940,6 +975,12 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
 # 4. reviewFrom 必须是货架计划 id，且来源计划实际包含该 drill。
 # 5. 引入序（v38 W7）：每份计划 focused 首次引入的短 id 序 = W0 §3 该计划主课表序。
 #    只比序，不比「建议周」。
+# 6. 周满（v44）：每个 week 的 sessions.count == plan.sessionsPerWeek，且
+#    {dayNumber} == {1..sessionsPerWeek}。
+# 7. 日合计（v44）：同 session 计入时长的 phase.durationMinutes 之和 ≥ 75。
+#    countsTowardMinutes == false（或缺省 type==ritual）不计入。
+# 8. 主题禁幽灵（v44）：week.theme 与计划根 description 不得含子串
+#    开球/九球/跳球/解球/远台中袋/握杆/站位/手架（大小写不敏感）。
 
 _PHASE_ORDER = {"warmup": 0, "focused": 1, "review": 2}
 _W0_ROSTER_REL = Path("docs") / "research" / "20260814-v38-先决与主课名单.md"
@@ -1134,8 +1175,24 @@ def _iter_plan_refs(plan: dict):
                     yield week_number, day_number, phase_type, ref, where
 
 
+_GHOST_THEME_WORDS = (
+    "开球", "九球", "跳球", "解球", "远台中袋", "握杆", "站位", "手架",
+)
+_MIN_SESSION_MINUTES = 75
+
+
+def _phase_counts_toward_minutes(phase: dict) -> bool:
+    """I13 ⑦：显式 false 不计入。缺省跟 Swift：type != ritual。"""
+    flag = phase.get("countsTowardMinutes")
+    if flag is False:
+        return False
+    if flag is True:
+        return True
+    return phase.get("type") != "ritual"
+
+
 def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -> dict:
-    """I13：官方计划排课规则（建议周下界 / 热身 / 衰减 / 咬合外键 / 引入序）。"""
+    """I13：官方计划排课规则（建议周下界 / 热身 / 衰减 / 咬合外键 / 引入序 / 周满 / 日合计 / 主题）。"""
     paths = paths or DEFAULT_PATHS
     if not paths.plans.is_dir():
         return {"ok": 0, "fail": [], "exempt": [], "warn": [("—", "Plans 目录不存在", "—")]}
@@ -1190,6 +1247,84 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
 
     for plan in plans:
         plan_id = plan.get("id") or "?"
+        sessions_per_week = plan.get("sessionsPerWeek")
+        try:
+            sessions_per_week_n = int(sessions_per_week)
+        except (TypeError, ValueError):
+            fail.append((plan_id, f"sessionsPerWeek={sessions_per_week!r} 无法解析",
+                         "I13 ⑥：须为正整数"))
+            sessions_per_week_n = None
+        else:
+            if sessions_per_week_n < 1:
+                fail.append((plan_id, f"sessionsPerWeek={sessions_per_week_n} 非法",
+                             "I13 ⑥：须为正整数"))
+                sessions_per_week_n = None
+
+        description_text = str(plan.get("description") or "")
+        ghost_in_desc = next(
+            (word for word in _GHOST_THEME_WORDS
+             if word.casefold() in description_text.casefold()),
+            None,
+        )
+        if ghost_in_desc:
+            fail.append((plan_id, f"简介含幽灵词「{ghost_in_desc}」",
+                         "I13 ⑧：theme 与 description 不得含已下架课名"))
+        else:
+            ok += 1
+
+        for week in plan.get("weeks") or []:
+            week_number = week.get("weekNumber")
+            theme_text = str(week.get("theme") or "")
+            ghost_in_theme = next(
+                (word for word in _GHOST_THEME_WORDS
+                 if word.casefold() in theme_text.casefold()),
+                None,
+            )
+            if ghost_in_theme:
+                fail.append((
+                    f"{plan_id} W{week_number}",
+                    f"主题含幽灵词「{ghost_in_theme}」",
+                    "I13 ⑧：theme 与 description 不得含已下架课名",
+                ))
+            else:
+                ok += 1
+
+            sessions = week.get("sessions") or []
+            day_numbers = {
+                day for day in (session.get("dayNumber") for session in sessions)
+                if isinstance(day, int) and not isinstance(day, bool)
+            }
+            expected_days = set(range(1, sessions_per_week_n + 1)) if sessions_per_week_n else set()
+            if (sessions_per_week_n is None
+                    or len(sessions) != sessions_per_week_n
+                    or day_numbers != expected_days):
+                fail.append((
+                    f"{plan_id} W{week_number}",
+                    f"sessions={len(sessions)} dayNumber={sorted(day_numbers)} "
+                    f"不是 1..{sessions_per_week_n}",
+                    "I13 ⑥：每周 sessions.count == sessionsPerWeek 且 dayNumber 为 1..N",
+                ))
+            else:
+                ok += 1
+
+            for session in sessions:
+                day_number = session.get("dayNumber")
+                total = 0
+                for phase in session.get("phases") or []:
+                    if not isinstance(phase, dict) or not _phase_counts_toward_minutes(phase):
+                        continue
+                    minutes = phase.get("durationMinutes")
+                    if isinstance(minutes, int) and not isinstance(minutes, bool):
+                        total += minutes
+                if total < _MIN_SESSION_MINUTES:
+                    fail.append((
+                        f"{plan_id} W{week_number}D{day_number}",
+                        f"日合计 {total}′ < {_MIN_SESSION_MINUTES}′",
+                        "I13 ⑦：计入时长的 phase 之和须 ≥75",
+                    ))
+                else:
+                    ok += 1
+
         first_focused_week: dict[str, object] = {}
         session_refs: dict[tuple, dict[str, list]] = defaultdict(
             lambda: {"warmup": [], "focused": []})
@@ -1267,7 +1402,8 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
                 decay = dose.get("decay") is True
                 if balls is None:
                     continue
-                if nth == 0 and decay:
+                ritual_ok = _is_ritual_whitelist(drill_id, dose)
+                if nth == 0 and decay and not ritual_ok:
                     fail.append((where, "计划内首次出现标了 decay",
                                  "§6.6：首次引入不得 decay，须完整剂量"))
                 elif previous is not None and balls > previous:
@@ -1407,6 +1543,7 @@ MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
                  "sessions": (True, ["PlanSession"])},
     "PlanSession": {"dayNumber": (True, INT), "phases": (True, ["SessionPhase"])},
     "SessionPhase": {"type": (True, STR), "durationMinutes": (True, INT),
+                     "countsTowardMinutes": (False, BOOL),
                      "drills": (True, ["PlanDrillRef"])},
     # v31 W5 已删旧格式 `sets`/`ballsPerSet`，故 spec 里也不再有（与 Swift 结构一一对应）。
     # `dose` 在 Swift 侧仍是可选，语义上的「必须有 dose」由 I11 阻塞，不在这里判。
@@ -1414,7 +1551,8 @@ MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
     "PlanDrillDose": {"roundsPerFormation": (False, INT),
                       "formations": (False, ["PlanFormationRounds"]),
                       "decay": (False, BOOL),
-                      "reviewFrom": (False, STR)},
+                      "reviewFrom": (False, STR),
+                      "ritual": (False, BOOL)},
     "PlanFormationRounds": {"token": (True, STR), "rounds": (True, INT),
                             "ballsPerRound": (False, INT)},
     "PlanIndex": {"version": (True, INT), "plans": (True, ["PlanIndexEntry"])},
@@ -1562,7 +1700,7 @@ def render_report(results: dict) -> None:
         ("I10", "Bundle drill / plan 可被 App 模型解码", None),
         ("I11", "官方计划 drillId / dose / token 可解析", None),
         ("I12", "六轴 load 齐全 / 值域 0–4 / 代表分 = 球形实分", None),
-        ("I13", "排课：建议周下界 / 热身≤主课 / 衰减单调 / 咬合外键 / 引入序", None),
+        ("I13", "排课：建议周下界 / 热身≤主课 / 衰减单调 / 咬合外键 / 引入序 / 周满 / 日合计 / 主题", None),
     ):
         if check_id not in results:
             continue

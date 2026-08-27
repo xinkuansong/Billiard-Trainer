@@ -46,10 +46,12 @@ struct CustomDrillItem: Identifiable {
 @MainActor
 final class CustomPlanBuilderViewModel: ObservableObject {
     @Published var name: String = ""
-    @Published var sessionsPerWeek: Int = 3
     @Published var drillItems: [CustomDrillItem] = []
     @Published var showDrillPicker = false
     @Published var saveError: String?
+
+    /// D-v43-3：周次不再暴露给 UI；落库冻写 1，仅供内部进位。
+    private static let frozenSessionsPerWeek = 1
 
     let editingPlanId: UUID?
 
@@ -79,7 +81,6 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         guard let plan = try? context.fetch(descriptor).first else { return }
 
         name = plan.name
-        sessionsPerWeek = plan.sessionsPerWeek
         drillItems = plan.drills
             .sorted { $0.order < $1.order }
             .map { drill in
@@ -175,7 +176,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         saveError = nil
         let trimmedName = name.trimmingCharacters(in: .whitespaces)
         guard !trimmedName.isEmpty, !drillItems.isEmpty else {
-            saveError = "请填写计划名称并至少添加一个训练项目"
+            saveError = "请填写模版名称并至少添加一个训练项目"
             return nil
         }
 
@@ -186,7 +187,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
                 )
                 if let existing = try context.fetch(descriptor).first {
                     existing.name = trimmedName
-                    existing.sessionsPerWeek = sessionsPerWeek
+                    existing.sessionsPerWeek = Self.frozenSessionsPerWeek
                     for drill in existing.drills {
                         context.delete(drill)
                     }
@@ -196,7 +197,7 @@ final class CustomPlanBuilderViewModel: ObservableObject {
                 }
             }
 
-            let plan = CustomPlan(name: trimmedName, sessionsPerWeek: sessionsPerWeek)
+            let plan = CustomPlan(name: trimmedName, sessionsPerWeek: Self.frozenSessionsPerWeek)
             plan.drills = buildDrillModels()
             context.insert(plan)
             try context.save()
@@ -207,14 +208,23 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         }
     }
 
-    func activate(planId: UUID, context: ModelContext) {
-        let descriptor = FetchDescriptor<UserActivePlan>()
-        if let existing = try? context.fetch(descriptor) {
-            for old in existing { context.delete(old) }
+    func activate(planId: UUID, context: ModelContext) throws {
+        saveError = nil
+        do {
+            let descriptor = FetchDescriptor<CustomPlan>(
+                predicate: #Predicate { $0.id == planId }
+            )
+            guard let plan = try context.fetch(descriptor).first else {
+                throw DrillTrainingPlanService.ServiceError.planNotFound
+            }
+            try DrillTrainingPlanService.activate(plan: plan, context: context)
+            try context.save()
+        } catch {
+            if saveError == nil {
+                saveError = "保存失败，请确认设备存储空间充足后重试"
+            }
+            throw error
         }
-        let active = UserActivePlan(planId: planId.uuidString, isCustom: true)
-        context.insert(active)
-        try? context.save()
     }
 
     private func buildDrillModels() -> [CustomPlanDrill] {

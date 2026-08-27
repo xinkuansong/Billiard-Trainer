@@ -435,6 +435,73 @@ def case_i13_intro_order_vs_w0(root: Path) -> None:
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
+def case_i13_week_missing_day(root: Path) -> None:
+    # 失败机理（v44 I13 ⑥）：抽掉力度 W1 D3，周次不再满员。
+    def mutate(plan: dict) -> None:
+        week1 = next(week for week in plan["weeks"] if week.get("weekNumber") == 1)
+        week1["sessions"] = [
+            session for session in week1["sessions"] if session.get("dayNumber") != 3
+        ]
+    edit_json(plan_path(root, "plan_force"), mutate)
+
+
+def case_i13_session_under_75(root: Path) -> None:
+    # 失败机理（v44 I13 ⑦）：杆法Ⅰ W1D1 原 85+5=90，把 focused 改成 65 → 日合计 70。
+    def mutate(plan: dict) -> None:
+        session = plan["weeks"][0]["sessions"][0]
+        focused = next(phase for phase in session["phases"] if phase["type"] == "focused")
+        focused["durationMinutes"] = 65
+    edit_json(plan_path(root, "plan_cueball"), mutate)
+
+
+def case_i13_ghost_theme(root: Path) -> None:
+    # 失败机理（v44 I13 ⑧）：准度Ⅰ某周主题写入已下架课名「跳球」。
+    def mutate(plan: dict) -> None:
+        plan["weeks"][0]["theme"] = "近台与跳球"
+    edit_json(plan_path(root, "plan_accuracy"), mutate)
+
+
+def _ritual_phase(drill_id: str, rounds: int, review_from: str | None) -> dict:
+    dose = {
+        "decay": True,
+        "ritual": True,
+        "formations": [{"token": "manual01", "rounds": rounds, "ballsPerRound": 5}],
+    }
+    if review_from is not None:
+        dose["reviewFrom"] = review_from
+    return {
+        "type": "ritual",
+        "durationMinutes": 15,
+        "countsTowardMinutes": False,
+        "drills": [{"drillId": drill_id, "dose": dose}],
+    }
+
+
+def _insert_ritual(plan: dict, drill_id: str, rounds: int, review_from: str | None) -> None:
+    session = plan["weeks"][0]["sessions"][0]
+    session["phases"].insert(0, _ritual_phase(drill_id, rounds, review_from))
+
+
+def case_i11_ritual_ok(root: Path) -> None:
+    edit_json(plan_path(root, "plan_force"),
+              lambda plan: _insert_ritual(plan, "drill_c023", 6, "plan_beginner"))
+
+
+def case_i11_ritual_wrong_drill(root: Path) -> None:
+    edit_json(plan_path(root, "plan_force"),
+              lambda plan: _insert_ritual(plan, "drill_c011", 4, "plan_beginner"))
+
+
+def case_i11_ritual_no_review_from(root: Path) -> None:
+    edit_json(plan_path(root, "plan_force"),
+              lambda plan: _insert_ritual(plan, "drill_c023", 6, None))
+
+
+def case_i11_ritual_rounds_3(root: Path) -> None:
+    edit_json(plan_path(root, "plan_force"),
+              lambda plan: _insert_ritual(plan, "drill_c023", 3, "plan_beginner"))
+
+
 CASES = {
     "i5_new_bad_token": ("I5", "drill_c001 精讲 image 改指不存在的 token manual99",
                          case_i5_new_bad_token, 1, "✗ drill_c001"),
@@ -522,6 +589,20 @@ CASES = {
                                 case_i13_review_from_unknown, 1, "不是货架计划 id"),
     "i13_intro_order_vs_w0": ("I13", "plan_accuracy 对调 W1D1/W2D1 focused ⇒ 引入序 ≠ W0 表",
                               case_i13_intro_order_vs_w0, 1, "引入序"),
+    "i13_week_missing_day": ("I13", "plan_force 某周删 D3 ⇒ I13 ⑥ 周不满员",
+                             case_i13_week_missing_day, 1, "I13 ⑥"),
+    "i13_session_under_75": ("I13", "plan_cueball 某日合计改成 70 ⇒ I13 ⑦",
+                             case_i13_session_under_75, 1, "日合计"),
+    "i13_ghost_theme": ("I13", "plan_accuracy 某 theme 含「跳球」⇒ I13 ⑧",
+                        case_i13_ghost_theme, 1, "跳球"),
+    "i11_ritual_ok": ("I11", "合法 ritual c023 4/6 组 + reviewFrom 应放行",
+                      case_i11_ritual_ok, 0, "总计 FAIL: 0"),
+    "i11_ritual_wrong_drill": ("I11", "ritual 挂 c011 仍砍组 ⇒ FAIL",
+                               case_i11_ritual_wrong_drill, 1, "砍位置"),
+    "i11_ritual_no_review_from": ("I11", "ritual 无 reviewFrom ⇒ FAIL",
+                                  case_i11_ritual_no_review_from, 1, "reviewFrom"),
+    "i11_ritual_rounds_3": ("I11", "ritual rounds=3 ⇒ FAIL",
+                            case_i11_ritual_rounds_3, 1, "不是 4 或 6"),
     "baseline_clean": ("I5 I6a I6b I7 I8 I9 I10 I11 I12 I13", "未做任何改动的影子库（对照组）",
                        lambda root: None, 0, "总计 FAIL: 0"),
 }

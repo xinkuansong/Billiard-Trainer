@@ -17,6 +17,28 @@
           "dayNumber": 1,
           "phases": [
             {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "type": "warmup",
               "durationMinutes": 30,
               "drills": [
@@ -65,6 +87,28 @@
         {
           "dayNumber": 2,
           "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
             {
               "type": "warmup",
               "durationMinutes": 25,
@@ -119,6 +163,28 @@
         {
           "dayNumber": 3,
           "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
             {
               "type": "warmup",
               "durationMinutes": 25,
@@ -180,6 +246,28 @@
           "dayNumber": 1,
           "phases": [
             {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "type": "warmup",
               "durationMinutes": 35,
               "drills": [
@@ -230,6 +318,28 @@
         {
           "dayNumber": 2,
           "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
             {
               "type": "warmup",
               "durationMinutes": 30,
@@ -284,6 +394,28 @@
           "dayNumber": 3,
           "phases": [
             {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
               "type": "warmup",
               "durationMinutes": 30,
               "drills": [
@@ -337,11 +469,33 @@
     },
     {
       "weekNumber": 3,
-      "theme": "远台直线极限与远台中袋",
+      "theme": "远台直线极限",
       "sessions": [
         {
           "dayNumber": 1,
           "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
             {
               "type": "warmup",
               "durationMinutes": 30,
@@ -384,6 +538,146 @@
               "drills": []
             }
           ]
+        },
+        {
+          "dayNumber": 2,
+          "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "warmup",
+              "durationMinutes": 30,
+              "drills": [
+                {
+                  "drillId": "drill_c033",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 8,
+                        "ballsPerRound": 8
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 85,
+              "drills": [
+                {
+                  "drillId": "drill_c072",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_18_02_47",
+                        "rounds": 2,
+                        "ballsPerRound": 12
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
+          ]
+        },
+        {
+          "dayNumber": 3,
+          "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "warmup",
+              "durationMinutes": 30,
+              "drills": [
+                {
+                  "drillId": "drill_c072",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_18_02_47",
+                        "rounds": 2,
+                        "ballsPerRound": 12
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "focused",
+              "durationMinutes": 85,
+              "drills": [
+                {
+                  "drillId": "drill_c072",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_18_02_47",
+                        "rounds": 2,
+                        "ballsPerRound": 10
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
+            {
+              "type": "review",
+              "durationMinutes": 5,
+              "drills": []
+            }
+          ]
         }
       ]
     },
@@ -395,8 +689,49 @@
           "dayNumber": 1,
           "phases": [
             {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "type": "warmup",
+              "durationMinutes": 25,
+              "drills": [
+                {
+                  "drillId": "drill_c072",
+                  "dose": {
+                    "formations": [
+                      {
+                        "token": "Snipaste_2026_06_19_18_02_47",
+                        "rounds": 2,
+                        "ballsPerRound": 8
+                      }
+                    ],
+                    "decay": true
+                  }
+                }
+              ]
+            },
+            {
               "type": "focused",
-              "durationMinutes": 85,
+              "durationMinutes": 90,
               "drills": [
                 {
                   "drillId": "drill_c063",
@@ -421,6 +756,28 @@
         {
           "dayNumber": 2,
           "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
             {
               "type": "warmup",
               "durationMinutes": 30,
@@ -465,6 +822,28 @@
         {
           "dayNumber": 3,
           "phases": [
+            {
+              "type": "ritual",
+              "durationMinutes": 15,
+              "countsTowardMinutes": false,
+              "drills": [
+                {
+                  "drillId": "drill_c023",
+                  "dose": {
+                    "decay": true,
+                    "reviewFrom": "plan_beginner",
+                    "ritual": true,
+                    "formations": [
+                      {
+                        "token": "manual01",
+                        "rounds": 4,
+                        "ballsPerRound": 5
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
             {
               "type": "warmup",
               "durationMinutes": 30,

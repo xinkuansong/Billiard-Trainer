@@ -55,7 +55,10 @@ final class V22W3PlanForceTests: XCTestCase {
                 }
             }
         }
-        XCTAssertEqual(allIds, forceControlIds, "计划内容应恰为 forceControl 全量")
+        // v44 W7：另加 ritual c023，不算力度主课集合。
+        XCTAssertEqual(allIds.subtracting(["drill_c023"]), forceControlIds,
+                       "计划内容应恰为 forceControl 全量（另加 ritual c023）")
+        XCTAssertTrue(allIds.contains("drill_c023"))
 
         var firstFocused: [String] = []
         for week in plan.weeks {

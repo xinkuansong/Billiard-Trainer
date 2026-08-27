@@ -6,6 +6,7 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-08-26 v1.2：DR-078——`PlanListView` 官方计划不再按 `targetLevel` 分节，顺序跟 `Plans/index.json`。
 - 2026-08-25 v1.1：DR-077——动作库已练过用亮绿封面角标（`BTPracticedBadge`，Dark `btPrimary`）；网格课名一律主色，Pro 禁止再洗灰。
 - 2026-08-24 v1.0：DR-076——多页签阅读位：访问过的页各自留 ScrollView，未访问的不建；禁止对共用 ScrollView 写 `.id(selection)` 当「重置」。
 - 2026-08-24 v0.9：DR-075——`BTSpinPad` / `BTSpinPadCard` / `BTSpinPadOverlay` 新增 `locksSideSpin`（默认 false）。为 true 时拖动锁竖轴、`spinX` 恒 0、隐藏左右微调；加塞吃库图谱用来只选高低杆。

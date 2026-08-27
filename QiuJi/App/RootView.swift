@@ -61,9 +61,9 @@ struct RootView: View {
             return AnyView(
                 BTEmptyState(
                     icon: "list.bullet.clipboard",
-                    title: "还没有自定义计划",
+                    title: "还没有模版",
                     subtitle: "创建你自己的训练方案",
-                    actionTitle: "创建计划",
+                    actionTitle: "新建模版",
                     actionStyle: .secondary,
                     action: {}
                 )

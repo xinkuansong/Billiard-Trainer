@@ -30,9 +30,15 @@ struct PlanSession: Codable, Identifiable {
 
 struct SessionPhase: Codable, Identifiable {
     var id: String { type }
-    let type: String          // warmup | focused | combined | review
+    let type: String          // warmup | focused | combined | review | ritual
     let durationMinutes: Int
+    /// 缺省 = `type != ritual`。`false` 时首页/详情日合计与 I13 ⑦ 不计此时长。
+    let countsTowardMinutes: Bool?
     let drills: [PlanDrillRef]
+
+    var countsTowardSessionMinutes: Bool {
+        countsTowardMinutes ?? (type != "ritual")
+    }
 
     var typeZh: String {
         switch type {
@@ -40,6 +46,7 @@ struct SessionPhase: Codable, Identifiable {
         case "focused":  return "专项训练"
         case "combined": return "综合/实战"
         case "review":   return "复盘记录"
+        case "ritual":   return "开场"
         default:         return type
         }
     }
@@ -50,6 +57,7 @@ struct SessionPhase: Codable, Identifiable {
         case "focused":  return "target"
         case "combined": return "square.grid.3x3"
         case "review":   return "pencil.and.list.clipboard"
+        case "ritual":   return "circle.grid.3x3"
         default:         return "circle"
         }
     }
@@ -80,6 +88,8 @@ struct PlanDrillDose: Codable, Equatable {
     let decay: Bool?
     /// 跨计划咬合的复习来源计划 id（R6）。仅咬合条目填写，例如 `"plan_accuracy"`。
     let reviewFrom: String?
+    /// 五分点开场白名单（v44）。仅 `drill_c023` + `reviewFrom: plan_beginner` + rounds ∈ {4,6}。
+    let ritual: Bool?
 
     struct FormationRounds: Codable, Equatable, Identifiable {
         let token: String
@@ -101,12 +111,14 @@ struct PlanDrillDose: Codable, Equatable {
         roundsPerFormation: Int? = nil,
         formations: [FormationRounds]? = nil,
         decay: Bool? = nil,
-        reviewFrom: String? = nil
+        reviewFrom: String? = nil,
+        ritual: Bool? = nil
     ) {
         self.roundsPerFormation = roundsPerFormation
         self.formations = formations
         self.decay = decay
         self.reviewFrom = reviewFrom
+        self.ritual = ritual
     }
 }
 

@@ -106,7 +106,7 @@ struct BTDrillCategoryIcon: View {
                    style: StrokeStyle(lineWidth: width, lineCap: .round, lineJoin: .round, dash: dash))
     }
 
-    // MARK: - 1. Fundamentals (基础功) — 母球 + 瞄准十字
+    // MARK: - 1. Fundamentals (基础) — 母球 + 瞄准十字
     private func drawFundamentals(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
         let c = CGPoint(x: 0.5 * s, y: 0.5 * s)
@@ -126,7 +126,7 @@ struct BTDrillCategoryIcon: View {
         dot(ctx, center: c, radius: r * 0.22, color: env.accentColor)
     }
 
-    // MARK: - 2. Accuracy (准度训练) — 同心靶环 + 命中点
+    // MARK: - 2. Accuracy (准度) — 同心靶环 + 命中点
     private func drawAccuracy(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
         let c = CGPoint(x: 0.5 * s, y: 0.5 * s)
@@ -136,7 +136,7 @@ struct BTDrillCategoryIcon: View {
         dot(ctx, center: c, radius: 0.085 * s, color: env.accentColor)
     }
 
-    // MARK: - 3. CueAction (杆法训练) — 母球 + 高/中/低三击点
+    // MARK: - 3. CueAction (杆法) — 母球 + 高/中/低三击点
     private func drawCueAction(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
         let c = CGPoint(x: 0.5 * s, y: 0.5 * s)
@@ -170,7 +170,7 @@ struct BTDrillCategoryIcon: View {
         drawBall(ctx, env, center: obj, radius: r, color: env.primaryColor)
     }
 
-    // MARK: - 5. Positioning (走位训练) — 母球 + 折线走位 + 目标环
+    // MARK: - 5. Positioning (走位) — 母球 + 折线走位 + 目标环
     private func drawPositioning(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
         let r = env.ballR * 0.8
@@ -187,7 +187,7 @@ struct BTDrillCategoryIcon: View {
         ring(ctx, center: target, radius: r * 0.85, color: env.accentColor, width: env.strokeThin)
     }
 
-    // MARK: - 6. ForceControl (控力训练) — 力度仪表弧 + 指针
+    // MARK: - 6. ForceControl (控力) — 力度仪表弧 + 指针
     private func drawForceControl(ctx: GraphicsContext, env: DrawEnv) {
         let s = env.scale
         let c = CGPoint(x: 0.5 * s, y: 0.64 * s)

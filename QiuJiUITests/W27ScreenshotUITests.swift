@@ -89,10 +89,10 @@ final class W27ScreenshotUITests: XCTestCase {
             goBack()
         }
 
-        // 自定义计划构建器（空态 F-PL-14）：自定义模版 segment → 创建计划
-        if tapLabel("自定义模版", timeout: 4) {
+        // 自定义模版构建器（空态 F-PL-14）：「我的模版」segment → 空态 CTA「新建模版」
+        if tapLabel("我的模版", timeout: 4) {
             sleep(1)
-            if tapLabel("创建计划", timeout: 4) {
+            if tapLabel("新建模版", timeout: 4) {
                 sleep(2)
                 snap("after-builder-empty")
                 goBack()

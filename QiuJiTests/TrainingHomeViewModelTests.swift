@@ -64,7 +64,11 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let vm = TrainingHomeViewModel()
         await vm.load(context: context)
 
-        let item = try XCTUnwrap(vm.todaySession?.drills.first)
+        let session = try XCTUnwrap(vm.todaySession)
+        XCTAssertTrue(session.isFromTemplate)
+        XCTAssertEqual(session.weekTheme, "今日清单")
+        XCTAssertEqual(session.planNameZh, "W2 测试计划")
+        let item = try XCTUnwrap(session.drills.first)
         let expectedSetCount = perFormation.reduce(0) { $0 + $1.defaultRounds * multiplier }
         XCTAssertEqual(item.plannedSets.count, expectedSetCount)
 
@@ -121,6 +125,35 @@ final class TrainingHomeViewModelTests: XCTestCase {
         XCTAssertTrue(item.volumeText.contains("球形"), "异构文案实际为：\(item.volumeText)")
 
         print("[W4-EVIDENCE] c069 volumeText=\(item.volumeText) targets=\(expected)")
+    }
+
+    // MARK: - W3-3 加入训练新建确认（D-v43-6）
+
+    func test_addToTraining_toggleOn_withActivePlan_needsConfirm() {
+        XCTAssertTrue(
+            AddToTrainingSheetPolicy.needsReplaceConfirm(
+                activateAsToday: true,
+                hasAnyActivePlan: true
+            )
+        )
+    }
+
+    func test_addToTraining_toggleOff_withActivePlan_skipsConfirm() {
+        XCTAssertFalse(
+            AddToTrainingSheetPolicy.needsReplaceConfirm(
+                activateAsToday: false,
+                hasAnyActivePlan: true
+            )
+        )
+    }
+
+    func test_addToTraining_toggleOn_withoutActivePlan_skipsConfirm() {
+        XCTAssertFalse(
+            AddToTrainingSheetPolicy.needsReplaceConfirm(
+                activateAsToday: true,
+                hasAnyActivePlan: false
+            )
+        )
     }
 
     // MARK: - sequence / repetition 口径（R3）
@@ -462,6 +495,10 @@ final class TrainingHomeViewModelTests: XCTestCase {
         await vm.load(context: context)
 
         let session = try XCTUnwrap(vm.todaySession)
+        XCTAssertFalse(session.isFromTemplate)
+        XCTAssertFalse(session.weekTheme.isEmpty)
+        XCTAssertGreaterThanOrEqual(session.weekNumber, 1)
+        XCTAssertGreaterThanOrEqual(session.dayNumber, 1)
         XCTAssertFalse(session.drills.isEmpty)
         for item in session.drills {
             XCTAssertFalse(item.plannedSets.isEmpty, "\(item.drillId) 未解析出任何组")

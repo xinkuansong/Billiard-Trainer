@@ -72,11 +72,9 @@ struct MainTabView: View {
         }
 
             // F-AT-04: same compact float on every tab (including 训练), springPanel handoff.
-            if router.minimizedTrainingVM != nil {
-                BTFloatingIndicator(
-                    elapsedSeconds: router.minimizedTrainingVM?.elapsedSeconds ?? 0,
-                    title: "继续训练"
-                ) {
+            // Observe the VM (not just the router slot) so rest/session seconds keep ticking.
+            if let vm = router.minimizedTrainingVM {
+                MinimizedTrainingChrome(viewModel: vm) {
                     router.resumeMinimizedTraining()
                 }
                 .padding(.trailing, Spacing.lg)
@@ -225,6 +223,21 @@ struct MainTabView: View {
         switch route {
         case .detail(let sessionId):
             TrainingDetailView(sessionId: sessionId)
+        }
+    }
+}
+
+/// Subscribes to the live training VM so minimized chrome tracks rest + session clocks.
+private struct MinimizedTrainingChrome: View {
+    @ObservedObject var viewModel: ActiveTrainingViewModel
+    let onTap: () -> Void
+
+    var body: some View {
+        BTFloatingIndicator(
+            elapsedSeconds: viewModel.floatingIndicatorSeconds,
+            title: viewModel.floatingIndicatorTitle
+        ) {
+            onTap()
         }
     }
 }

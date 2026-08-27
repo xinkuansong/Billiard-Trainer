@@ -222,6 +222,15 @@ final class ActiveTrainingViewModel: ObservableObject {
         return String(format: "%02d:%02d:%02d", h, m, s)
     }
 
+    /// Minimized pill clock: rest remaining while the rest timer is up, else session elapsed.
+    var floatingIndicatorSeconds: Int {
+        isRestTimerActive ? restSecondsRemaining : elapsedSeconds
+    }
+
+    var floatingIndicatorTitle: String {
+        isRestTimerActive ? "组间休息" : "继续训练"
+    }
+
     var progressText: String {
         guard !drills.isEmpty else { return "" }
         let completedSets = drillSetsData.flatMap { $0 }.filter { $0.isCompleted }.count

@@ -9,6 +9,11 @@ struct TrainingHomeView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
     @Query private var activePlans: [UserActivePlan]
+    @State private var toast: BTToastMessage?
+    @State private var planToDelete: CustomPlan?
+    @State private var showDeleteConfirm = false
+    @State private var planToActivate: CustomPlan?
+    @State private var showActivateConfirm = false
 
     /// 含周 / 天游标：计划推进（训练完成或手动跳过 / 回退）后「今日安排」随之刷新（W7）。
     private var activePlanSignature: String {
@@ -84,6 +89,7 @@ struct TrainingHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .didDismissActiveTraining)) { _ in
             Task { await viewModel.load(context: modelContext) }
         }
+        .btToast($toast)
         .alert(
             "无法调整计划进度",
             isPresented: Binding(
@@ -95,7 +101,38 @@ struct TrainingHomeView: View {
         } message: {
             Text(viewModel.progressError ?? "")
         }
+        .confirmationDialog(
+            "删除模版",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("取消", role: .cancel) { planToDelete = nil }
+            Button("删除", role: .destructive) { deleteCustomPlan() }
+        } message: {
+            Text("确定要删除「\(planToDelete?.name ?? "")」吗？此操作不可撤销。")
+        }
+        .confirmationDialog(
+            "用于今日训练",
+            isPresented: $showActivateConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("取消", role: .cancel) { planToActivate = nil }
+            Button("确定") {
+                if let plan = planToActivate {
+                    activateCustomPlan(plan)
+                }
+                planToActivate = nil
+            }
+        } message: {
+            if hasActivePlan {
+                Text("将替换当前的今日安排。确定用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
+            } else {
+                Text("用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
+            }
+        }
     }
+
+    private var hasActivePlan: Bool { !activePlans.isEmpty }
 
     // MARK: - Page Header
 
@@ -130,7 +167,7 @@ struct TrainingHomeView: View {
                         viewModel.restorePlanID = nil
                         router.trainingPath.append(TrainingRoute.customPlanBuilder)
                     } label: {
-                        Label("新建自定义计划", systemImage: "plus")
+                        Label("新建模版", systemImage: "plus")
                     }
                 } label: {
                     Image(systemName: BTIcon.menu)
@@ -192,7 +229,9 @@ struct TrainingHomeView: View {
         // 否则会被 `.accessibilityElement(children: .combine)` 并进卡片整体。
         HStack(alignment: .top, spacing: Spacing.sm) {
             scheduleInfoBlock(session)
-            progressMenu
+            if !session.isFromTemplate {
+                progressMenu
+            }
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.vertical, Spacing.md)
@@ -238,27 +277,32 @@ struct TrainingHomeView: View {
                     .monospacedDigit()
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                if !session.weekTheme.isEmpty {
-                    Text(session.weekTheme)
-                        .font(.btFootnote)
-                        .foregroundStyle(.btTextSecondary)
-                        .lineLimit(1)
+            let meta = scheduleMetaText(session)
+            if !session.weekTheme.isEmpty || !meta.isEmpty {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                    if !session.weekTheme.isEmpty {
+                        Text(session.weekTheme)
+                            .font(.btFootnote)
+                            .foregroundStyle(.btTextSecondary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: Spacing.sm)
+
+                    if !meta.isEmpty {
+                        Text(meta)
+                            .font(.btCaption2)
+                            .foregroundStyle(.btTextTertiary)
+                            .monospacedDigit()
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.9)
+                    }
                 }
-
-                Spacer(minLength: Spacing.sm)
-
-                Text(scheduleMetaText(session))
-                    .font(.btCaption2)
-                    .foregroundStyle(.btTextTertiary)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.9)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("今日安排，\(session.planNameZh)，第 \(session.weekNumber) 周第 \(session.dayNumber) 天")
+        .accessibilityLabel(scheduleAccessibilityLabel(session))
         .accessibilityValue("完成 \(session.completedCount) 项，共 \(session.totalCount) 项")
     }
 
@@ -288,11 +332,22 @@ struct TrainingHomeView: View {
     }
 
     private func scheduleMetaText(_ session: TodaySessionInfo) -> String {
-        var parts = ["第 \(session.weekNumber) 周", "第 \(session.dayNumber) 天"]
+        var parts: [String] = []
+        if !session.isFromTemplate {
+            parts.append("第 \(session.weekNumber) 周")
+            parts.append("第 \(session.dayNumber) 天")
+        }
         if session.totalMinutes > 0 {
             parts.append("\(session.totalMinutes) 分钟")
         }
         return parts.joined(separator: " · ")
+    }
+
+    private func scheduleAccessibilityLabel(_ session: TodaySessionInfo) -> String {
+        if session.isFromTemplate {
+            return "今日安排，\(session.planNameZh)"
+        }
+        return "今日安排，\(session.planNameZh)，第 \(session.weekNumber) 周第 \(session.dayNumber) 天"
     }
 
     private func phaseColor(for type: String) -> Color {
@@ -555,9 +610,9 @@ struct TrainingHomeView: View {
             if customPlans.isEmpty {
                 BTEmptyState(
                     icon: "list.bullet.clipboard",
-                    title: "还没有自定义计划",
+                    title: "还没有模版",
                     subtitle: "创建你自己的训练方案",
-                    actionTitle: "创建计划",
+                    actionTitle: "新建模版",
                     actionStyle: .secondary,
                     action: {
                         viewModel.restorePlanID = nil
@@ -566,16 +621,11 @@ struct TrainingHomeView: View {
                 )
             } else {
                 ForEach(Array(customPlans.enumerated()), id: \.element.id) { index, plan in
-                    Button {
-                        viewModel.restorePlanID = plan.id.uuidString
-                        router.trainingPath.append(TrainingRoute.customPlanEdit(planId: plan.id))
-                    } label: {
-                        customPlanCard(plan, issueNumber: index + 1)
-                    }
-                    .buttonStyle(.plain)
-                    .id(plan.id.uuidString)
-                    .accessibilityIdentifier("customPlan-\(plan.id.uuidString)")
+                    customPlanCard(plan, issueNumber: index + 1)
+                        .id(plan.id.uuidString)
+                        .accessibilityIdentifier("customPlan-\(plan.id.uuidString)")
                 }
+                createTemplateRow
             }
         }
         .padding(.horizontal, Spacing.lg)
@@ -583,46 +633,172 @@ struct TrainingHomeView: View {
     }
 
     private func customPlanCard(_ plan: CustomPlan, issueNumber: Int) -> some View {
-        HStack(spacing: Spacing.md) {
-            customIssueThumbnail(number: issueNumber)
+        let isActive = isUsedToday(plan)
 
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                HStack {
+        return HStack(spacing: Spacing.md) {
+            HStack(spacing: Spacing.md) {
+                customIssueThumbnail(number: issueNumber)
+
+                VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(plan.name)
                         .font(.btTitleMedium)
                         .foregroundStyle(.btText)
                         .lineLimit(1)
 
-                    Spacer()
+                    Text(customPlanSubtitle(plan))
+                        .font(.btFootnote)
+                        .foregroundStyle(.btTextSecondary)
+                        .monospacedDigit()
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
 
-                    Image(systemName: BTIcon.chevronRight)
-                        .font(.btFootnote14)
-                        .foregroundStyle(.btTextTertiary)
+                    HStack(spacing: Spacing.sm) {
+                        HStack(spacing: Spacing.xs) {
+                            Image(systemName: BTIcon.sliders)
+                                .font(.btMicro)
+                            Text("模版")
+                                .font(.btCaption2)
+                        }
+                        .foregroundStyle(.btAccent)
+                        .padding(.horizontal, Spacing.sm)
+                        .padding(.vertical, Spacing.xs)
+                        .background(Color.btAccent.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+
+                        if isActive {
+                            HStack(spacing: 2) {
+                                Image(systemName: BTIcon.checkmarkCircle)
+                                    .font(.btMicro)
+                                Text("今日使用中")
+                                    .font(.btCaption2)
+                            }
+                            .foregroundStyle(.btSuccess)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, 2)
+                            .background(Color.btSuccess.opacity(0.12))
+                            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+                        }
+                    }
+                    .padding(.top, Spacing.xs)
                 }
 
-                Text("\(plan.sessionsPerWeek) 次/周 · \(plan.drills.count) 项训练")
-                    .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
-                    .monospacedDigit()
+                Spacer(minLength: 0)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { requestUseForToday(plan) }
 
-                HStack(spacing: Spacing.xs) {
-                    Image(systemName: BTIcon.sliders)
-                        .font(.btMicro)
-                    Text("自定义")
-                        .font(.btCaption2)
+            Menu {
+                Button {
+                    viewModel.restorePlanID = plan.id.uuidString
+                    router.trainingPath.append(TrainingRoute.customPlanEdit(planId: plan.id))
+                } label: {
+                    Label("编辑", systemImage: "pencil")
                 }
-                .foregroundStyle(.btAccent)
-                .padding(.horizontal, Spacing.sm)
-                .padding(.vertical, Spacing.xs)
-                .background(Color.btAccent.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-                .padding(.top, Spacing.xs)
+                Button {
+                    requestUseForToday(plan)
+                } label: {
+                    Label("用于今日训练", systemImage: "play.circle")
+                }
+                Button(role: .destructive) {
+                    requestDelete(plan)
+                } label: {
+                    Label("删除", systemImage: "trash")
+                }
+            } label: {
+                Image(systemName: BTIcon.menuCircle)
+                    .font(.btCallout)
+                    .foregroundStyle(.btTextTertiary)
+                    .frame(width: 32, height: 32)
+                    .contentShape(Rectangle())
             }
         }
         // F-TR-13: match PlanListView — both modes btBGSecondary + BTRadius.md
         .padding(Spacing.md)
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        .onLongPressGesture { requestDelete(plan) }
+    }
+
+    private var createTemplateRow: some View {
+        Button {
+            viewModel.restorePlanID = nil
+            router.trainingPath.append(TrainingRoute.customPlanBuilder)
+        } label: {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: BTIcon.plusCircleFilled)
+                    .font(.btTitle2)
+                    .fontWeight(.regular)
+                    .foregroundStyle(.btPrimary)
+                Text("新建模版")
+                    .font(.btBody)
+                    .foregroundStyle(.btPrimary)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(Spacing.lg)
+            .background(.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        }
+        .buttonStyle(BTPressableStyle.row)
+    }
+
+    private func isUsedToday(_ plan: CustomPlan) -> Bool {
+        activePlans.contains { $0.isCustom && $0.planId == plan.id.uuidString }
+    }
+
+    private func customPlanSubtitle(_ plan: CustomPlan) -> String {
+        let names = plan.drills
+            .sorted { $0.order < $1.order }
+            .map { $0.drillNameZh.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        if names.isEmpty {
+            return "\(plan.drills.count) 项训练"
+        }
+        return "\(plan.drills.count) 项 \(names.joined(separator: "、"))"
+    }
+
+    private func requestUseForToday(_ plan: CustomPlan) {
+        if isUsedToday(plan) {
+            BTToast.present("已是今日训练", tone: .info) { toast = $0 }
+            return
+        }
+        planToActivate = plan
+        showActivateConfirm = true
+    }
+
+    private func requestDelete(_ plan: CustomPlan) {
+        planToDelete = plan
+        showDeleteConfirm = true
+    }
+
+    private func activateCustomPlan(_ plan: CustomPlan) {
+        do {
+            try DrillTrainingPlanService.activate(plan: plan, context: modelContext)
+            try modelContext.save()
+            router.trainingPath = NavigationPath()
+        } catch {
+            print("[TrainingHomeView] activate failed: \(error)")
+            BTToast.present("无法设为今日训练，请稍后重试", tone: .error) { toast = $0 }
+        }
+    }
+
+    private func deleteCustomPlan() {
+        guard let plan = planToDelete else { return }
+        let planIdStr = plan.id.uuidString
+        do {
+            let descriptor = FetchDescriptor<UserActivePlan>(
+                predicate: #Predicate { $0.planId == planIdStr }
+            )
+            let actives = try modelContext.fetch(descriptor)
+            modelContext.delete(plan)
+            for active in actives {
+                modelContext.delete(active)
+            }
+            try modelContext.save()
+            planToDelete = nil
+        } catch {
+            print("[TrainingHomeView] delete failed: \(error)")
+            BTToast.present("删除失败，请稍后重试", tone: .error) { toast = $0 }
+        }
     }
 
     // MARK: - Empty State

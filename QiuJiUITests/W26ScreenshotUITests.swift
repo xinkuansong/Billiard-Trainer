@@ -44,7 +44,7 @@ final class W26ScreenshotUITests: XCTestCase {
         sleep(2)
         snap("01-training-home")
 
-        if tapIfExists("我的计划", timeout: 3) {
+        if tapIfExists("我的模版", timeout: 3) {
             sleep(1)
             snap("02-training-my-plans")
         }

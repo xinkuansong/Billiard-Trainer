@@ -497,14 +497,7 @@ struct ActiveTrainingView: View {
         HStack(spacing: 0) {
             // F-AT-12 / F-AT-04: BTIcon.minus + spring handoff into minimized chrome
             toolbarItem(icon: BTIcon.minus, label: "最小化") {
-                withAnimation(BTMotion.springPanel) {
-                    isMinimizing = true
-                    router.minimizeTraining(viewModel)
-                }
-                // Let the shrink-toward-pill read before the cover slides away (chrome ≤300ms).
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                    dismiss()
-                }
+                minimizeActiveTraining()
             }
             .accessibilityLabel("最小化训练")
 
@@ -617,6 +610,11 @@ struct ActiveTrainingView: View {
                 Spacer()
 
                 VStack(spacing: 0) {
+                    restOverlayTitleBar
+
+                    Color.btSeparator
+                        .frame(height: 0.5)
+
                     Spacer().frame(height: Spacing.xxl)
 
                     ZStack {
@@ -695,6 +693,49 @@ struct ActiveTrainingView: View {
 
                 Spacer()
             }
+        }
+    }
+
+    /// P0-05 rest card chrome: title + minimize pill. Overlay covers the
+    /// session toolbar, so minimize must live on the card itself.
+    private var restOverlayTitleBar: some View {
+        HStack(spacing: Spacing.sm) {
+            Text("组间休息")
+                .font(.btHeadline)
+                .foregroundStyle(.btText)
+
+            Spacer(minLength: Spacing.sm)
+
+            Button(action: minimizeActiveTraining) {
+                HStack(spacing: Spacing.xs) {
+                    Image(systemName: BTIcon.chevronDown)
+                        .font(.btCaption.weight(.semibold))
+                    Text("最小化")
+                        .font(.btCaption)
+                }
+                .foregroundStyle(.btTextSecondary)
+                .padding(.horizontal, Spacing.sm)
+                .frame(height: 28)
+                .background(Color.btBGTertiary)
+                .clipShape(Capsule())
+            }
+            .buttonStyle(BTPressableStyle.capsule)
+            .accessibilityLabel("最小化训练")
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.lg)
+        .padding(.bottom, Spacing.md)
+    }
+
+    /// F-AT-04: same handoff as the session toolbar minimize control.
+    private func minimizeActiveTraining() {
+        withAnimation(BTMotion.springPanel) {
+            isMinimizing = true
+            router.minimizeTraining(viewModel)
+        }
+        // Let the shrink-toward-pill read before the cover slides away (chrome ≤300ms).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+            dismiss()
         }
     }
 

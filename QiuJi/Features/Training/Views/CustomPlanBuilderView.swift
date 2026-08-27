@@ -18,6 +18,7 @@ private struct DrillSettingsTarget: Identifiable {
 
 struct CustomPlanBuilderView: View {
     @StateObject private var viewModel: CustomPlanBuilderViewModel
+    @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
@@ -32,7 +33,6 @@ struct CustomPlanBuilderView: View {
         ScrollView {
             VStack(spacing: Spacing.xxl) {
                 planInfoCard
-                weeklyConfigCard
                 drillListSection
                 addDrillButton
             }
@@ -41,7 +41,7 @@ struct CustomPlanBuilderView: View {
             .padding(.bottom, Spacing.xxxxl)
         }
         .background(.btBG)
-        .navigationTitle(viewModel.isEditing ? "编辑计划" : "新建计划")
+        .navigationTitle(viewModel.isEditing ? "编辑模版" : "新建模版")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
@@ -92,13 +92,13 @@ struct CustomPlanBuilderView: View {
                 Text(error)
             }
         }
-        .alert("保存并激活", isPresented: $showActivateConfirm) {
+        .alert("用于今日训练", isPresented: $showActivateConfirm) {
             Button("取消", role: .cancel) {}
-            Button("保存并激活") {
+            Button("确定") {
                 saveAndActivate()
             }
         } message: {
-            Text("保存计划并将其设为当前激活计划？这将替换当前已激活的计划。")
+            Text("将替换当前的今日安排。确定用「\(viewModel.name.trimmingCharacters(in: .whitespaces))」作为今天的训练吗？")
         }
         .task {
             viewModel.loadExistingPlan(context: modelContext)
@@ -119,7 +119,7 @@ struct CustomPlanBuilderView: View {
             }
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                TextField("我的训练计划", text: $viewModel.name)
+                TextField("我的模版", text: $viewModel.name)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
 
@@ -129,63 +129,6 @@ struct CustomPlanBuilderView: View {
             }
         }
         .padding(Spacing.lg)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-    }
-
-    // MARK: - Weekly Config Card
-
-    private var weeklyConfigCard: some View {
-        HStack {
-            Text("每周训练天数")
-                .font(.btBodyMedium)
-                .foregroundStyle(.btText)
-
-            Spacer()
-
-            HStack(spacing: Spacing.lg) {
-                Button {
-                    withAnimation(BTMotion.easeFast) {
-                        viewModel.sessionsPerWeek = max(1, viewModel.sessionsPerWeek - 1)
-                    }
-                } label: {
-                    Image(systemName: BTIcon.minus)
-                        .font(.btFootnote14)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.btPrimary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(BTPressableStyle.capsule)
-                .disabled(viewModel.sessionsPerWeek <= 1)
-
-                Text("\(viewModel.sessionsPerWeek)")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btPrimary)
-                    .frame(minWidth: 16)
-                    .contentTransition(.numericText())
-
-                Button {
-                    withAnimation(BTMotion.easeFast) {
-                        viewModel.sessionsPerWeek = min(7, viewModel.sessionsPerWeek + 1)
-                    }
-                } label: {
-                    Image(systemName: BTIcon.plus)
-                        .font(.btFootnote14)
-                        .fontWeight(.medium)
-                        .foregroundStyle(.btPrimary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(BTPressableStyle.capsule)
-                .disabled(viewModel.sessionsPerWeek >= 7)
-            }
-            .padding(Spacing.xs)
-            .background(.btBGTertiary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
         .background(.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
@@ -315,7 +258,7 @@ struct CustomPlanBuilderView: View {
             Button {
                 showActivateConfirm = true
             } label: {
-                Label("保存并激活", systemImage: "play.circle")
+                Label("保存并用于今日", systemImage: "play.circle")
             }
         } label: {
             Text("保存")
@@ -327,9 +270,15 @@ struct CustomPlanBuilderView: View {
     // MARK: - Actions
 
     private func saveAndActivate() {
-        if let planId = viewModel.save(context: modelContext) {
-            viewModel.activate(planId: planId, context: modelContext)
+        guard let planId = viewModel.save(context: modelContext) else { return }
+        do {
+            try viewModel.activate(planId: planId, context: modelContext)
+            router.trainingPath = NavigationPath()
             dismiss()
+        } catch {
+            if viewModel.saveError == nil {
+                viewModel.saveError = "保存失败，请确认设备存储空间充足后重试"
+            }
         }
     }
 }
@@ -444,6 +393,7 @@ private struct DrillSettingsSheet: View {
         CustomPlanBuilderView()
     }
     .modelContainer(ModelContainerFactory.makeInMemoryContainer())
+    .environmentObject(AppRouter())
 }
 
 #Preview("Dark") {
@@ -451,5 +401,6 @@ private struct DrillSettingsSheet: View {
         CustomPlanBuilderView()
     }
     .modelContainer(ModelContainerFactory.makeInMemoryContainer())
+    .environmentObject(AppRouter())
     .preferredColorScheme(.dark)
 }

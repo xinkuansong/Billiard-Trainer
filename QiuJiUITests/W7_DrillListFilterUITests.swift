@@ -36,8 +36,8 @@ final class W7_DrillListFilterUITests: XCTestCase {
         sleep(1)
         snap("w7r3-s2-level-beginner")
 
-        // Combined: 中式台球 × 准度训练 × 入门 × 应用课 (ball type + badge via filter Menu; v26 W0)
-        let accuracy = app.descendants(matching: .any)["sidebar_准度训练"]
+        // Combined: 中式台球 × 准度 × 入门 × 应用课 (ball type + badge via filter Menu; v26 W0)
+        let accuracy = app.descendants(matching: .any)["sidebar_准度"]
         if accuracy.waitForExistence(timeout: 3) { accuracy.tap() }
         sleep(1)
 

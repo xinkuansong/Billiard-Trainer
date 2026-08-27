@@ -318,7 +318,7 @@ final class StatisticsViewModelTests: XCTestCase {
         let rates = vm.categorySuccessRates
         let fundamentals = rates.first { $0.id == "fundamentals" }
         XCTAssertNotNil(fundamentals)
-        XCTAssertEqual(fundamentals!.nameZh, "基础功")
+        XCTAssertEqual(fundamentals!.nameZh, "基础")
     }
 
     // MARK: - StatisticsTimeRange enum

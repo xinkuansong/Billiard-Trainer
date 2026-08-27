@@ -25,7 +25,6 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
     func test_initial_state() {
         let vm = CustomPlanBuilderViewModel()
         XCTAssertTrue(vm.name.isEmpty)
-        XCTAssertEqual(vm.sessionsPerWeek, 3)
         XCTAssertTrue(vm.drillItems.isEmpty)
         XCTAssertFalse(vm.showDrillPicker)
         XCTAssertNil(vm.saveError)
@@ -147,7 +146,6 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         let vm = CustomPlanBuilderViewModel()
         vm.name = "My Plan"
         vm.drillItems = [makeItem(name: "Drill A"), makeItem(name: "Drill B")]
-        vm.sessionsPerWeek = 4
 
         let savedId = vm.save(context: context)
         XCTAssertNotNil(savedId)
@@ -156,7 +154,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         let plans = try? context.fetch(FetchDescriptor<CustomPlan>())
         XCTAssertEqual(plans?.count, 1)
         XCTAssertEqual(plans?.first?.name, "My Plan")
-        XCTAssertEqual(plans?.first?.sessionsPerWeek, 4)
+        XCTAssertEqual(plans?.first?.sessionsPerWeek, 1)
         XCTAssertEqual(plans?.first?.drills.count, 2)
     }
 
@@ -207,7 +205,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
 
     // MARK: - Activate
 
-    func test_activate_creates_userActivePlan() {
+    func test_activate_creates_userActivePlan() throws {
         let vm = CustomPlanBuilderViewModel()
         vm.name = "Plan"
         vm.drillItems = [makeItem()]
@@ -217,19 +215,19 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
             return
         }
 
-        vm.activate(planId: planId, context: context)
+        try vm.activate(planId: planId, context: context)
 
-        let activePlans = try? context.fetch(FetchDescriptor<UserActivePlan>())
-        XCTAssertEqual(activePlans?.count, 1)
-        XCTAssertEqual(activePlans?.first?.planId, planId.uuidString)
-        XCTAssertTrue(activePlans?.first?.isCustom ?? false)
+        let activePlans = try context.fetch(FetchDescriptor<UserActivePlan>())
+        XCTAssertEqual(activePlans.count, 1)
+        XCTAssertEqual(activePlans.first?.planId, planId.uuidString)
+        XCTAssertTrue(activePlans.first?.isCustom ?? false)
     }
 
-    func test_activate_replaces_existing() {
+    func test_activate_replaces_existing() throws {
         let vm = CustomPlanBuilderViewModel()
         let existing = UserActivePlan(planId: "plan_beginner")
         context.insert(existing)
-        try? context.save()
+        try context.save()
 
         vm.name = "New"
         vm.drillItems = [makeItem()]
@@ -238,11 +236,12 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
             return
         }
 
-        vm.activate(planId: planId, context: context)
+        try vm.activate(planId: planId, context: context)
 
-        let activePlans = try? context.fetch(FetchDescriptor<UserActivePlan>())
-        XCTAssertEqual(activePlans?.count, 1)
-        XCTAssertTrue(activePlans?.first?.isCustom ?? false)
+        let activePlans = try context.fetch(FetchDescriptor<UserActivePlan>())
+        XCTAssertEqual(activePlans.count, 1)
+        XCTAssertTrue(activePlans.first?.isCustom ?? false)
+        XCTAssertEqual(activePlans.first?.planId, planId.uuidString)
     }
 
     // MARK: - Edit existing plan
@@ -260,9 +259,9 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
 
         vm.loadExistingPlan(context: context)
         XCTAssertEqual(vm.name, "Original")
-        XCTAssertEqual(vm.sessionsPerWeek, 2)
         XCTAssertEqual(vm.drillItems.count, 1)
         XCTAssertEqual(vm.drillItems.first?.drillId, "d1")
+        XCTAssertEqual(vm.drillItems.first?.nameZh, "动作1")
     }
 
     func test_save_existing_plan_updates() {
@@ -276,7 +275,6 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         let vm = CustomPlanBuilderViewModel(editingPlanId: plan.id)
         vm.loadExistingPlan(context: context)
         vm.name = "Updated"
-        vm.sessionsPerWeek = 5
 
         let savedId = vm.save(context: context)
         XCTAssertEqual(savedId, plan.id)
@@ -284,7 +282,7 @@ final class CustomPlanBuilderViewModelTests: XCTestCase {
         let plans = try? context.fetch(FetchDescriptor<CustomPlan>())
         XCTAssertEqual(plans?.count, 1)
         XCTAssertEqual(plans?.first?.name, "Updated")
-        XCTAssertEqual(plans?.first?.sessionsPerWeek, 5)
+        XCTAssertEqual(plans?.first?.sessionsPerWeek, 1)
     }
 
     // MARK: - Helpers

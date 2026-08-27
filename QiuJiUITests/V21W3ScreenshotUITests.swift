@@ -19,7 +19,7 @@ final class V21W3ScreenshotUITests: XCTestCase {
         app.switchTab(.drillLibrary)
         sleep(2)
 
-        let sidebar = app.descendants(matching: .any)["sidebar_准度训练"]
+        let sidebar = app.descendants(matching: .any)["sidebar_准度"]
         if sidebar.waitForExistence(timeout: 5) {
             sidebar.tap()
         } else {

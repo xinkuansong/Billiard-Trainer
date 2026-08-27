@@ -312,7 +312,7 @@ final class DrillTryoutUITests: XCTestCase {
                        "重复点击当前分组应回到组顶（首卡回到原纵向位置）")
 
         // 切换到具体分组亦回顶。
-        let accuracy = app.buttons["sidebar_准度训练"]
+        let accuracy = app.buttons["sidebar_准度"]
         if accuracy.waitForExistence(timeout: 3) {
             app.swipeUp(); app.swipeUp()
             sleep(1)

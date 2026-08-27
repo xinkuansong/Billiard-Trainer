@@ -358,12 +358,12 @@ trajectories and **backfills** them into `animation` (`source: "baked"`). Render
 
 | `category` | nameZh | Typical drills |
 |------------|--------|---------------|
-| `fundamentals` | 基础功 | Stance, grip, aim line |
-| `accuracy` | 准度训练 | Straight, 5-point, angle pocketing |
-| `cueAction` | 杆法训练 | Follow, draw, stun, side spin |
+| `fundamentals` | 基础 | Stance, grip, aim line |
+| `accuracy` | 准度 | Straight, 5-point, angle pocketing |
+| `cueAction` | 杆法 | Follow, draw, stun, side spin |
 | `separation` | 分离角 | Separation angle control |
-| `positioning` | 走位训练 | 1-cushion, multi-cushion position |
-| `forceControl` | 控力训练 | Power follow, soft touch |
+| `positioning` | 走位 | 1-cushion, multi-cushion position |
+| `forceControl` | 控力 | Power follow, soft touch |
 | `specialShots` | 特殊球路 | Safety, jump, rail shots |
 | `combined` | 综合球形 | Run-outs, Ghost Game, clearance |
 

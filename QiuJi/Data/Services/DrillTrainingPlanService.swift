@@ -85,7 +85,7 @@ enum DrillTrainingPlanService {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ServiceError.emptyName }
 
-        let plan = CustomPlan(name: trimmed, sessionsPerWeek: 3)
+        let plan = CustomPlan(name: trimmed, sessionsPerWeek: 1)
         let entry = CustomPlanDrill(
             drillId: drill.id,
             drillNameZh: drill.nameZh,
