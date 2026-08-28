@@ -6,7 +6,7 @@ struct TrainingShareView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
-    @State private var selectedTheme: ShareCardTheme = .defaultGreen
+    @State private var selectedTheme: ShareCardTheme = .paper
     @State private var selectedFont: ShareCardFont = .system
     @State private var hideSuccessRate = false
     @State private var toast: BTToastMessage?
@@ -76,8 +76,8 @@ struct TrainingShareView: View {
     private var customizationPanel: some View {
         // 长图预览需要尽量多的竖向空间，面板保持紧凑。
         VStack(spacing: Spacing.lg) {
-            fontSelector
             themeSelector
+            fontSelector
             optionToggles
             Divider()
             shareActions
@@ -129,11 +129,11 @@ struct TrainingShareView: View {
 
     private var themeSelector: some View {
         HStack(alignment: .top) {
-            Text("颜色")
+            Text("背景")
                 .font(.btSubheadline)
                 .foregroundStyle(.btTextSecondary)
             Spacer()
-            HStack(spacing: Spacing.lg) {
+            HStack(spacing: Spacing.md) {
                 ForEach(ShareCardTheme.allCases) { theme in
                     themeCircle(theme)
                 }
@@ -148,19 +148,24 @@ struct TrainingShareView: View {
             }
         } label: {
             VStack(spacing: Spacing.sm) {
-                Circle()
-                    .fill(theme.previewColor)
-                    .frame(width: 40, height: 40)
-                    .overlay(
-                        Circle()
-                            .stroke(selectedTheme == theme ? Color.btPrimary : Color.clear, lineWidth: 2)
-                            .padding(-3)
-                    )
-                    // Charcoal/black accents need a hairline so swatches stay visible on dark panels.
-                    .overlay(
-                        Circle()
-                            .stroke(Color.btSeparator.opacity(0.5), lineWidth: 1)
-                    )
+                ZStack {
+                    Circle()
+                        .fill(theme.previewColor)
+                    Circle()
+                        .fill(theme.accentColor)
+                        .frame(width: 12, height: 12)
+                }
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Circle()
+                        .stroke(selectedTheme == theme ? Color.btPrimary : Color.clear, lineWidth: 2)
+                        .padding(-3)
+                )
+                // Hairline so light paper and near-black swatches stay visible on both schemes.
+                .overlay(
+                    Circle()
+                        .stroke(Color.btSeparator.opacity(0.5), lineWidth: 1)
+                )
                 Text(theme.rawValue)
                     .font(.btCaption2)
                     .fontWeight(.regular)

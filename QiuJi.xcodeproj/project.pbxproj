@@ -404,6 +404,7 @@
 		B87CFB257107564792B397DD /* AimPointGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 693DAF5A00DA1CBF54A04423 /* AimPointGeometryTests.swift */; };
 		B8A92B83771774F23249CEA8 /* P3_DrillLibraryUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8C03C11C99852EA510D3B37 /* P3_DrillLibraryUITests.swift */; };
 		B94A486DDC09E75FCE9605A1 /* AppError.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2B1D78243285A63E6914927 /* AppError.swift */; };
+		B9584DF6A4427F05248F1675 /* AppRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20AE24882C78E512473C4AE8 /* AppRouterTests.swift */; };
 		BA4C26E500A0DD81C233E12F /* X1_PracticePolishUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F4CD65BEE1FEBBCEE10EA29 /* X1_PracticePolishUITests.swift */; };
 		BB7052027F4FABD12514CBA0 /* SeparationAngleAtlasGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11BB9E7DE4240685E4D20FD0 /* SeparationAngleAtlasGeometry.swift */; };
 		BC74C849E5F58F059B64DC07 /* AnglePredictionGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65EA778D633521670FF98A5F /* AnglePredictionGeometry.swift */; };
@@ -633,6 +634,7 @@
 		1F4EFD40960AB0057C8C60CC /* DrillCategoryAndLevelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillCategoryAndLevelTests.swift; sourceTree = "<group>"; };
 		1FC317FDEB66A28B321AA430 /* DrillShotReconstructionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillShotReconstructionTests.swift; sourceTree = "<group>"; };
 		1FCA7D71FF7EEC26C8A86C66 /* AngleTestRepositoryProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleTestRepositoryProtocol.swift; sourceTree = "<group>"; };
+		20AE24882C78E512473C4AE8 /* AppRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouterTests.swift; sourceTree = "<group>"; };
 		20B52561EBE93905BE10DD4F /* SpinAndEnglishGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpinAndEnglishGeometryTests.swift; sourceTree = "<group>"; };
 		20C7F30CEF486AA369D7E5C6 /* LearnControlStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LearnControlStrip.swift; sourceTree = "<group>"; };
 		21147C5FB5CB8F85940493A4 /* BTEraserButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTEraserButton.swift; sourceTree = "<group>"; };
@@ -1421,6 +1423,7 @@
 				2E84924307A95FA882977533 /* AngleQuizTypeFilterTests.swift */,
 				2B83557D3C775859F6DFBA78 /* AngleResultSaveFailureTests.swift */,
 				7A8BC2C5C758B9C9098D9E35 /* AngleTrainingTests.swift */,
+				20AE24882C78E512473C4AE8 /* AppRouterTests.swift */,
 				1CF537E24E7EA4FAB963A2DA /* AtlasSpinTrackSelectionTests.swift */,
 				E46E3655667187B40D64F9B1 /* BakeRunnerGate.swift */,
 				4097DD85F4EA3EE40552C9E1 /* BallFaceRenderDiagTests.swift */,
@@ -2676,6 +2679,7 @@
 				55BCE9880FB3EC48C6630C11 /* AngleQuizTypeFilterTests.swift in Sources */,
 				38404285E1B97246D64F4B29 /* AngleResultSaveFailureTests.swift in Sources */,
 				38DD94E622D8FC48F702096E /* AngleTrainingTests.swift in Sources */,
+				B9584DF6A4427F05248F1675 /* AppRouterTests.swift in Sources */,
 				E078555F6EEB8C36E88ADA4F /* AtlasSpinTrackSelectionTests.swift in Sources */,
 				549224ED273CA8A5E26B6E39 /* BTShotHUDBarRenderTests.swift in Sources */,
 				AF5DFFA1ACBF941731BD57CF /* BakeRunnerGate.swift in Sources */,

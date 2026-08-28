@@ -57,6 +57,7 @@ final class AppRouter: ObservableObject {
 
     func resumeMinimizedTraining() {
         guard let vm = minimizedTrainingVM else { return }
+        vm.expandRestOverlay()
         minimizedTrainingVM = nil
         activeTrainingVM = vm
         activeTrainingMode = vm.mode

@@ -41,6 +41,7 @@ struct ActiveTrainingView: View {
                             return viewModel.didSaveSuccessfully
                         },
                         onGenerateShareImage: {
+                            // Summary persists first (DR-079); this only presents the card.
                             showShareView = true
                         },
                         onViewHistory: {
@@ -52,12 +53,17 @@ struct ActiveTrainingView: View {
                     )
                 }
 
-                if viewModel.isRestTimerActive {
+                if viewModel.shouldShowRestOverlay {
                     // F-CL-04: keep W2-6 rest overlay chrome (dual rings, end state,
                     // numericText, card shell). Shared `BTRestTimer` lacks those;
                     // swapping would regress W2-6 — document instead of hard-replace.
                     restCountdownOverlay
                         .transition(.opacity)
+                }
+
+                if viewModel.showsMinimizedRestChip {
+                    minimizedRestChip
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
             // F-AT-04: shrink toward the bottom-trailing floating pill when minimizing.
@@ -65,6 +71,7 @@ struct ActiveTrainingView: View {
             .opacity(isMinimizing ? 0.5 : 1)
             .animation(BTMotion.springPanel, value: viewModel.trainingPhase)
             .animation(BTMotion.springPanel, value: viewModel.isRestTimerActive)
+            .animation(BTMotion.springPanel, value: viewModel.isRestOverlayMinimized)
             .navigationTitle(phaseTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(
@@ -356,13 +363,23 @@ struct ActiveTrainingView: View {
                     .accessibilityLabel(viewModel.isTimerRunning ? "暂停计时" : "继续计时")
 
                     if viewModel.isRestTimerActive {
-                        Button { viewModel.skipRestTimer() } label: {
+                        Button {
+                            if viewModel.isRestOverlayMinimized {
+                                viewModel.expandRestOverlay()
+                            } else {
+                                viewModel.skipRestTimer()
+                            }
+                        } label: {
                             Text("\(viewModel.restSecondsRemaining)s")
                                 .font(.system(size: 15, weight: .bold, design: .monospaced))
                                 .foregroundStyle(.btAccent)
                                 .frame(width: 44, height: 44)
                         }
-                        .accessibilityLabel("跳过休息 \(viewModel.restSecondsRemaining)秒")
+                        .accessibilityLabel(
+                            viewModel.isRestOverlayMinimized
+                                ? "展开组间休息 \(viewModel.restSecondsRemaining)秒"
+                                : "跳过休息 \(viewModel.restSecondsRemaining)秒"
+                        )
                     } else {
                         Button { viewModel.startRestTimer() } label: {
                             Image(systemName: BTIcon.timer)
@@ -706,28 +723,63 @@ struct ActiveTrainingView: View {
 
             Spacer(minLength: Spacing.sm)
 
-            Button(action: minimizeActiveTraining) {
+            Button {
+                viewModel.minimizeRestOverlay()
+            } label: {
                 HStack(spacing: Spacing.xs) {
                     Image(systemName: BTIcon.chevronDown)
                         .font(.btCaption.weight(.semibold))
                     Text("最小化")
-                        .font(.btCaption)
+                        .font(.btCaption.weight(.semibold))
                 }
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.btPrimary)
                 .padding(.horizontal, Spacing.sm)
                 .frame(height: 28)
-                .background(Color.btBGTertiary)
+                .background(Color.btPrimaryMuted)
                 .clipShape(Capsule())
             }
             .buttonStyle(BTPressableStyle.capsule)
-            .accessibilityLabel("最小化训练")
+            .accessibilityLabel("最小化组间休息")
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.lg)
         .padding(.bottom, Spacing.md)
     }
 
-    /// F-AT-04: same handoff as the session toolbar minimize control.
+    /// Collapsed rest chrome — session page only, not the cross-tab pill.
+    private var minimizedRestChip: some View {
+        VStack {
+            Spacer()
+            HStack {
+                Spacer()
+                Button {
+                    viewModel.expandRestOverlay()
+                } label: {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: BTIcon.timer)
+                            .font(.btCaption.weight(.semibold))
+                        Text(restTimeFormatted)
+                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, Spacing.md)
+                    .frame(height: 40)
+                    .background(Color.btAccent)
+                    .clipShape(Capsule())
+                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
+                }
+                .buttonStyle(BTPressableStyle.capsule)
+                .accessibilityLabel("展开组间休息 \(restTimeFormatted)")
+                .padding(.trailing, Spacing.lg)
+                .padding(.bottom, 72)
+            }
+        }
+        .allowsHitTesting(true)
+    }
+
+    /// F-AT-04: session chrome handoff into the floating pill (other tabs).
     private func minimizeActiveTraining() {
         withAnimation(BTMotion.springPanel) {
             isMinimizing = true

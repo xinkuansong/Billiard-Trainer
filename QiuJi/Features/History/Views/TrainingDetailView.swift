@@ -124,8 +124,8 @@ struct TrainingDetailView: View {
                         }
                     }
 
-                    if !session.note.isEmpty {
-                        noteSection(session.note)
+                    if let sessionNote = TrainingItemNote.visible(session.note) {
+                        noteSection(sessionNote)
                     }
                 }
                 .padding(.horizontal, Spacing.lg)
@@ -194,6 +194,11 @@ struct TrainingDetailView: View {
             }
             .padding(.leading, 52)
 
+            if let itemNote = TrainingItemNote.visible(entry.note) {
+                itemNoteRow(itemNote)
+                    .padding(.leading, 52)
+            }
+
             Rectangle()
                 .fill(Color.btSeparator)
                 .frame(height: 0.5)
@@ -225,6 +230,21 @@ struct TrainingDetailView: View {
                 .font(.btTitle2)
                 .foregroundStyle(.btPrimary)
         }
+    }
+
+    private func itemNoteRow(_ note: String) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("本项心得")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+            Text(note)
+                .font(.btSubheadline)
+                .foregroundStyle(.btText)
+                .lineSpacing(4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("本项心得，\(note)")
     }
 
     // MARK: - Note Section

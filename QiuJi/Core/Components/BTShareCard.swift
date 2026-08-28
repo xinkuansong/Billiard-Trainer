@@ -83,6 +83,9 @@ struct TrainingSessionSummary {
 }
 
 enum ShareCardTheme: String, CaseIterable, Identifiable {
+    /// Warm paper. Default — previous four presets were all dark, so the
+    /// share page looked like it had no background choice (DR-079).
+    case paper = "浅色"
     /// F-TS-09: named by base tone (charcoal), matching nightBlue / deepPurple convention.
     case defaultGreen = "炭灰"
     case blackWhite = "黑白"
@@ -91,8 +94,11 @@ enum ShareCardTheme: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var isLight: Bool { self == .paper }
+
     var backgroundColor: Color {
         switch self {
+        case .paper: return Color(red: 0xF7 / 255.0, green: 0xF6 / 255.0, blue: 0xF2 / 255.0)
         case .defaultGreen: return Color(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0)
         case .nightBlue: return Color(red: 0x0D / 255.0, green: 0x1B / 255.0, blue: 0x2A / 255.0)
         case .blackWhite: return Color(red: 0x1A / 255.0, green: 0x1A / 255.0, blue: 0x1A / 255.0)
@@ -102,17 +108,32 @@ enum ShareCardTheme: String, CaseIterable, Identifiable {
 
     var accentColor: Color {
         switch self {
-        case .defaultGreen: return .btPrimary
+        case .paper, .defaultGreen: return .btPrimary
         case .nightBlue: return Color(red: 0x4A / 255.0, green: 0x9E / 255.0, blue: 0xFF / 255.0)
         case .blackWhite: return .white
         case .deepPurple: return Color(red: 0xBB / 255.0, green: 0x86 / 255.0, blue: 0xFC / 255.0)
         }
     }
 
-    /// F-TS-03: selector swatch uses accent so themes are distinguishable at a glance.
-    var previewColor: Color {
-        accentColor
+    /// Ink on paper / white on dark. All card copy must go through these,
+    /// not hardcoded `.white`, or a light theme becomes unreadable.
+    var primaryText: Color {
+        isLight ? Color(red: 0x1C / 255.0, green: 0x1C / 255.0, blue: 0x1E / 255.0) : .white
     }
+
+    var secondaryText: Color { primaryText.opacity(isLight ? 0.62 : 0.55) }
+    var tertiaryText: Color { primaryText.opacity(isLight ? 0.48 : 0.50) }
+    var mutedText: Color { primaryText.opacity(isLight ? 0.40 : 0.45) }
+    var surfaceFill: Color { (isLight ? Color.black : Color.white).opacity(isLight ? 0.045 : 0.05) }
+    var trackFill: Color { (isLight ? Color.black : Color.white).opacity(isLight ? 0.08 : 0.08) }
+    var hairline: Color { (isLight ? Color.black : Color.white).opacity(isLight ? 0.10 : 0.10) }
+    var footerFill: Color { Color.black.opacity(isLight ? 0.05 : 0.20) }
+    var qrPlate: Color { isLight ? .white : .white.opacity(0.9) }
+    var qrGlyph: Color { .black.opacity(isLight ? 0.55 : 0.40) }
+    var lowRate: Color { isLight ? Color(red: 0.42, green: 0.42, blue: 0.44) : .white.opacity(0.60) }
+
+    /// Swatch fill is the actual card background so light vs dark is obvious.
+    var previewColor: Color { backgroundColor }
 }
 
 enum ShareCardFont: String, CaseIterable {
@@ -202,10 +223,10 @@ struct BTShareCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("QiuJi 球迹")
                     .font(.system(size: ShareType.brandTitle, weight: .semibold, design: fontDesign))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Text(headerMeta)
                     .font(.system(size: ShareType.brandMeta, weight: .regular, design: fontDesign))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(theme.secondaryText)
             }
         }
     }
@@ -223,12 +244,12 @@ struct BTShareCard: View {
             VStack(alignment: .leading, spacing: Spacing.xs + 2) {
                 Text(session.planName)
                     .font(.system(size: ShareType.hero, weight: .bold, design: fontDesign))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                     .lineLimit(2)
 
                 Text(heroSubtitle)
                     .font(.system(size: ShareType.heroSub, weight: .regular, design: fontDesign))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(theme.secondaryText)
             }
 
             metricsRow
@@ -259,7 +280,7 @@ struct BTShareCard: View {
                 Metric(
                     value: session.hasScoredBalls ? Self.percentLabel(session.overallSuccessRate) : "—",
                     label: "成功率",
-                    color: session.hasScoredBalls ? rateColor(session.overallSuccessRate) : .white.opacity(0.5)
+                    color: session.hasScoredBalls ? rateColor(session.overallSuccessRate) : theme.tertiaryText
                 )
             )
         }
@@ -271,24 +292,24 @@ struct BTShareCard: View {
             ForEach(Array(metrics.enumerated()), id: \.element.id) { index, metric in
                 if index > 0 {
                     Rectangle()
-                        .fill(.white.opacity(0.10))
+                        .fill(theme.hairline)
                         .frame(width: 1, height: 28)
                 }
                 VStack(spacing: 3) {
                     Text(metric.value)
                         .font(.system(size: ShareType.metricValue, weight: .bold, design: fontDesign))
-                        .foregroundStyle(metric.color ?? .white)
+                        .foregroundStyle(metric.color ?? theme.primaryText)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                     Text(metric.label)
                         .font(.system(size: ShareType.metricLabel, weight: .regular, design: fontDesign))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(theme.tertiaryText)
                 }
                 .frame(maxWidth: .infinity)
             }
         }
         .padding(.vertical, Spacing.lg)
-        .background(.white.opacity(0.05))
+        .background(theme.surfaceFill)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
@@ -328,14 +349,14 @@ struct BTShareCard: View {
         HStack(spacing: Spacing.sm) {
             Text(drill.name)
                 .font(.system(size: ShareType.barLabel, weight: .regular, design: fontDesign))
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(theme.secondaryText)
                 .lineLimit(1)
                 .frame(width: 96, alignment: .leading)
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(.white.opacity(0.08))
+                        .fill(theme.trackFill)
                     Capsule()
                         .fill(rateColor(drill.successRate))
                         .frame(width: max(2, geo.size.width * drill.successRate.clampedUnit))
@@ -345,7 +366,7 @@ struct BTShareCard: View {
 
             Text(drill.targetBalls > 0 ? Self.percentLabel(drill.successRate) : "—")
                 .font(.system(size: ShareType.barLabel, weight: .semibold, design: fontDesign))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(theme.primaryText.opacity(0.85))
                 .frame(width: 40, alignment: .trailing)
         }
     }
@@ -371,15 +392,15 @@ struct BTShareCard: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(chip.value)
                 .font(.system(size: ShareType.chipValue, weight: .bold, design: fontDesign))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme.primaryText)
             Text(chip.label)
                 .font(.system(size: ShareType.chipLabel, weight: .regular, design: fontDesign))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(theme.tertiaryText)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm + 2)
-        .background(.white.opacity(0.05))
+        .background(theme.surfaceFill)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
     }
 
@@ -412,7 +433,7 @@ struct BTShareCard: View {
             if hiddenDrillCount > 0 {
                 Text("还有 \(hiddenDrillCount) 项未展示")
                     .font(.system(size: ShareType.chipLabel, weight: .regular, design: fontDesign))
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(theme.mutedText)
             }
         }
     }
@@ -430,11 +451,11 @@ struct BTShareCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(drill.name)
                         .font(.system(size: ShareType.drillName, weight: .semibold, design: fontDesign))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                         .lineLimit(1)
                     Text("\(drill.setsCount) 组")
                         .font(.system(size: ShareType.chipLabel, weight: .regular, design: fontDesign))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(theme.tertiaryText)
                 }
 
                 Spacer(minLength: Spacing.sm)
@@ -442,12 +463,12 @@ struct BTShareCard: View {
                 VStack(alignment: .trailing, spacing: 2) {
                     Text("\(drill.madeBalls)/\(drill.targetBalls)")
                         .font(.system(size: ShareType.drillScore, weight: .semibold, design: fontDesign))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(theme.primaryText)
                     if !hideSuccessRate {
                         Text(drill.targetBalls > 0 ? Self.percentLabel(drill.successRate) : "—")
                             .font(.system(size: ShareType.drillScore, weight: .bold, design: fontDesign))
                             .foregroundStyle(
-                                drill.targetBalls > 0 ? rateColor(drill.successRate) : .white.opacity(0.5)
+                                drill.targetBalls > 0 ? rateColor(drill.successRate) : theme.tertiaryText
                             )
                     }
                 }
@@ -458,7 +479,7 @@ struct BTShareCard: View {
             }
         }
         .padding(Spacing.md + 2)
-        .background(.white.opacity(0.05))
+        .background(theme.surfaceFill)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
@@ -488,7 +509,7 @@ struct BTShareCard: View {
             if hidden > 0 {
                 Text("+\(hidden) 组")
                     .font(.system(size: ShareType.setCell, weight: .regular, design: fontDesign))
-                    .foregroundStyle(.white.opacity(0.45))
+                    .foregroundStyle(theme.mutedText)
             }
         }
     }
@@ -496,7 +517,7 @@ struct BTShareCard: View {
     private func setCell(_ item: TrainingSessionSummary.DrillResult.SetResult) -> some View {
         Text("\(item.madeBalls)/\(item.targetBalls)")
             .font(.system(size: ShareType.setCell, weight: .semibold, design: fontDesign))
-            .foregroundStyle(.white.opacity(item.rate == nil ? 0.45 : 0.95))
+            .foregroundStyle(theme.primaryText.opacity(item.rate == nil ? 0.45 : 0.95))
             .lineLimit(1)
             .minimumScaleFactor(0.7)
             .frame(maxWidth: .infinity)
@@ -508,7 +529,7 @@ struct BTShareCard: View {
     /// 底色深浅表达该组成功率；没有可判定 target 的组保持中性灰，不伪装成 0%。
     /// 「隐藏成功率」时底色一并中性化——深浅本身就是一种成功率读数。
     private func setCellFill(_ item: TrainingSessionSummary.DrillResult.SetResult) -> Color {
-        guard !hideSuccessRate, let rate = item.rate else { return .white.opacity(0.06) }
+        guard !hideSuccessRate, let rate = item.rate else { return theme.trackFill }
         return theme.accentColor.opacity(0.18 + 0.55 * rate.clampedUnit)
     }
 
@@ -524,7 +545,7 @@ struct BTShareCard: View {
                     .frame(width: 3)
                 Text(session.note)
                     .font(.system(size: ShareType.body, weight: .regular, design: fontDesign))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(theme.primaryText.opacity(0.85))
                     .lineSpacing(5)
                     .lineLimit(Self.noteLineLimit)
                     .fixedSize(horizontal: false, vertical: true)
@@ -532,7 +553,7 @@ struct BTShareCard: View {
             .fixedSize(horizontal: false, vertical: true)
             .padding(Spacing.md + 2)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white.opacity(0.05))
+            .background(theme.surfaceFill)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
     }
@@ -544,23 +565,27 @@ struct BTShareCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("QiuJi 球迹")
                     .font(.system(size: ShareType.footerTitle, weight: .bold, design: fontDesign))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.primaryText)
                 Text("台球训练记录 App")
                     .font(.system(size: ShareType.footerMeta, weight: .regular, design: fontDesign))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(theme.tertiaryText)
             }
             Spacer(minLength: Spacing.md)
             RoundedRectangle(cornerRadius: 6)
-                .fill(.white.opacity(0.9))
+                .fill(theme.qrPlate)
                 .frame(width: 44, height: 44)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(theme.hairline, lineWidth: 1)
+                )
                 .overlay(
                     Image(systemName: "qrcode")
                         .font(.system(size: 22, weight: .regular))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .foregroundStyle(theme.qrGlyph)
                 )
         }
         .padding(Spacing.lg)
-        .background(.black.opacity(0.2))
+        .background(theme.footerFill)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
@@ -573,7 +598,7 @@ struct BTShareCard: View {
                 .frame(width: 3, height: 12)
             Text(text)
                 .font(.system(size: ShareType.sectionTitle, weight: .semibold, design: fontDesign))
-                .foregroundStyle(.white.opacity(0.65))
+                .foregroundStyle(theme.secondaryText)
         }
     }
 
@@ -583,7 +608,7 @@ struct BTShareCard: View {
         } else if rate >= 0.7 {
             return theme.accentColor
         } else {
-            return .white.opacity(0.60)
+            return theme.lowRate
         }
     }
 

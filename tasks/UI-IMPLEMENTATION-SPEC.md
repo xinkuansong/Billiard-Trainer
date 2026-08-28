@@ -547,10 +547,10 @@ struct BTFloatingIndicator: View {
 
 | 属性 | 规范 |
 |------|------|
-| 容器 | 深色主题卡片，圆角 BTRadius.lg |
+| 容器 | 定宽长图，圆角 BTRadius.lg；默认浅色纸底，可选深底 |
 | 内容 | 日期 + 训练数据 + Drill 列表 |
 | 底部 | App Logo + 品牌文案 + 二维码 |
-| 配色 | 支持多种预设主题 |
+| 配色 | 预设主题含浅色纸底 + 四档深底；文色走 `ShareCardTheme.primaryText` 等，禁止卡内写死白字 |
 | 成功率色阶 | ≥90% 亮绿 / 70-89% 品牌绿 / <70% 弱化白 |
 
 **SwiftUI API**：
@@ -560,7 +560,7 @@ struct BTShareCard: View {
     let session: TrainingSessionSummary
     let theme: ShareCardTheme
     enum ShareCardTheme: CaseIterable {
-        case defaultGreen, blackWhite, nightBlue
+        case paper, defaultGreen, blackWhite, nightBlue, deepPurple
     }
 }
 ```
@@ -742,7 +742,7 @@ struct BTShareCard: View {
 |------|------|
 | OnboardingView | 品牌首屏保持浅色 |
 | SubscriptionView | 自身深色 `#111111` |
-| TrainingShareView | 分享卡自身深色 |
+| TrainingShareView | 页面跟系统；分享卡默认浅色，可选炭灰等深底（DR-079） |
 
 ### 6.5 SwiftUI 实施模式
 
@@ -810,7 +810,7 @@ struct BTShareCard: View {
 |---|------|---------|---------|
 | ① 场景页 = 黑底暗语言 | 页面**不改系统 colorScheme**，用 `.background(Color.black.ignoresSafeArea())` + 白字 + 半透明白卡（`.white.opacity(0.06~0.12)`）；毛玻璃控件局部 `.environment(\.colorScheme, .dark)` 保证材质暗解析 | 黑底是设计常量，Light/Dark 下观感一致，无需双值 Token | 分离角与走位、分离角图谱（学）、加塞吃库图谱（学）、走位编排台（含自由击球）、思路训练器、打一走二想三、做斯诺克、球形生成器、2D/3D 瞄准训练、角度与打点、几何角度预测、翻袋解球、反射解球、拍照建球形、批量出片台（SIM） |
 | ② 常规页 = 随系统 | Token 双值（§一/§六），不强制 colorScheme | 全部 Tab 常规页面 | 训练 / 动作库 / 练习首页 / 历史 / 我的 及其子页 |
-| ③ 特例页 = 强制 | 显式 `preferredColorScheme` | `SubscriptionView` 强 dark（自身 #111111）；`OnboardingView` 强 light（品牌首屏）；`TrainingShareView` 分享卡自身深色 | 仅此三页，新增特例须记 Changelog |
+| ③ 特例页 = 强制 | 显式 `preferredColorScheme` | `SubscriptionView` 强 dark（自身 #111111）；`OnboardingView` 强 light（品牌首屏）。`TrainingShareView` 页面跟系统，卡背景由 `ShareCardTheme` 选（默认浅色，DR-079） | 仅此两页强制 scheme，新增特例须记 Changelog |
 
 **场景页控件语言**（与 ① 配套）：主操作 = 品牌绿实底胶囊（白字 semibold rounded）；次级 = 半透明白胶囊（`.white.opacity(0.12)`）；分段 = `BTChipRow`；FAB = `BTSceneFAB`；底部控制条 = `ShotControlBar`。禁止在场景页使用常规页组件样式（如 `BTButtonStyle.primary` 大圆角矩形按钮）。
 
@@ -1081,6 +1081,13 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-08-27 | **分享同时保存 + 浅色背景**（DR-079）：总结页「生成分享图」先落库再出卡（`saveTraining` 幂等）；`ShareCardTheme.paper` 默认浅色，选择器改标「背景」 | 修正/DR | BTShareCard, TrainingShareView, TrainingSummaryView, ActiveTrainingViewModel | 用户：生成分享图应同时保存；分享页没有浅色背景 |
+| 2026-08-27 | **休息最小化计时改回金色**：收起后右下计时胶囊改回 `btAccent`，与绿色主按钮区分 | 修正 | ActiveTrainingView | 用户：最小化后计时用之前颜色更有区分度 |
+| 2026-08-27 | **休息卡最小化按钮提亮**：卡顶「最小化」由 `btTextSecondary` + `btBGTertiary` 改为 `btPrimary` + `btPrimaryMuted`，避免像禁用 | 修正 | ActiveTrainingView | 用户：最小化按钮太暗像不能点 |
+| 2026-08-27 | **休息最小化胶囊改主色**：收起后右下计时胶囊由 `btAccent` 改为 `btPrimary`，避免偏暗像不可点 | 修正 | ActiveTrainingView | 用户：最小化按钮太暗 |
+| 2026-08-27 | **休息最小化小图标只在记分页**：收起后右下角金色计时胶囊，点开展开；跨 Tab 浮标改回「继续训练」+ 训练秒，不再显示组间休息 | 修正 | ActiveTrainingView, ActiveTrainingViewModel | 用户：记分页没小图标、训练 Tab 却有 |
+| 2026-08-27 | **休息卡最小化与会话脱钩**（FL-033）：休息卡只收覆层，人留在记分页；底栏才整场离页；回来时覆层展开。撤回训练 Tab 挂会话 | 修正/FL | ActiveTrainingView, ActiveTrainingViewModel, AppRouter, MainTabView | 用户澄清：休息最小化 ≠ 切 Tab |
+| 2026-08-27 | **最小化后训练 Tab 留在记分页**：最小化会话挂在训练 Tab 上，不再揭开首页；浮标只在其他 Tab。二次最小化不再「记住」回训练首页 | 修正 | MainTabView, AppRouter, ActiveTrainingView | 用户：最小化有记忆回 Tab |
 | 2026-08-26 | **最小化浮标跟休息倒计时**：`MainTabView` 用 `ObservedObject` 订 VM；休息中标题「组间休息」+ 剩余秒，结束后回「继续训练」+ 训练秒 | 修正 | MainTabView, ActiveTrainingViewModel | 用户：最小化后时间不动 |
 | 2026-08-26 | **组间休息卡补最小化**（P0-05）：覆层盖住底栏，卡顶补标题栏 +「最小化」胶囊，动作与会话最小化相同（休息计时继续）。未加设计稿「震动」胶囊 | 修正 | ActiveTrainingView | 用户：休息卡没有最小化 |
 | 2026-08-26 | **动作库短标签 + 货架教学序**（DR-078）：类别展示改为基础/准度/杆法/走位/控力；`PlanListView` 取消按 `targetLevel` 分节，官方计划按 `Plans/index.json` 序单节排列 | 修正/DR | DrillCategory, PlanListView, Plans/index.json | 用户：短标签 + 计划顺序 |

@@ -71,8 +71,7 @@ struct MainTabView: View {
                 .tag(AppTab.profile)
         }
 
-            // F-AT-04: same compact float on every tab (including 训练), springPanel handoff.
-            // Observe the VM (not just the router slot) so rest/session seconds keep ticking.
+            // F-AT-04: same compact float on every tab, springPanel handoff.
             if let vm = router.minimizedTrainingVM {
                 MinimizedTrainingChrome(viewModel: vm) {
                     router.resumeMinimizedTraining()

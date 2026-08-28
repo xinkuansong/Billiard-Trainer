@@ -119,6 +119,23 @@ final class ShareCardImageRendererTests: XCTestCase {
         XCTAssertEqual(ShareCardImageRenderer.maxCardHeight, 3_000)
     }
 
+    func test_paperTheme_isLightAndRenders() throws {
+        XCTAssertTrue(ShareCardTheme.paper.isLight)
+        XCTAssertFalse(ShareCardTheme.defaultGreen.isLight)
+        XCTAssertEqual(ShareCardTheme.allCases.first, .paper, "浅色 must be the default / first swatch")
+
+        let image = try XCTUnwrap(
+            ShareCardImageRenderer.render(
+                session: sampleSession,
+                theme: .paper,
+                fontChoice: .system,
+                hideSuccessRate: false,
+                scale: 2
+            )
+        )
+        XCTAssertEqual(Int(image.size.width * image.scale), Int(ShareCardImageRenderer.cardWidth * 2))
+    }
+
     /// Points, not pixels — comparisons are scale-independent.
     private func renderHeight(_ session: TrainingSessionSummary) -> CGFloat? {
         ShareCardImageRenderer.render(

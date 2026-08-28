@@ -47,13 +47,37 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertEqual(vm.floatingIndicatorTitle, "继续训练")
     }
 
-    func test_floatingIndicator_usesRestRemainingWhenResting() {
+    func test_floatingIndicator_staysOnSessionTimeWhenResting() {
         let vm = ActiveTrainingViewModel(mode: .free)
         vm.elapsedSeconds = 125
         vm.isRestTimerActive = true
         vm.restSecondsRemaining = 40
-        XCTAssertEqual(vm.floatingIndicatorSeconds, 40)
-        XCTAssertEqual(vm.floatingIndicatorTitle, "组间休息")
+        XCTAssertEqual(vm.floatingIndicatorSeconds, 125)
+        XCTAssertEqual(vm.floatingIndicatorTitle, "继续训练")
+    }
+
+    func test_restOverlay_minimizeStaysActiveAndHidesCard() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.isRestTimerActive = true
+        vm.restSecondsRemaining = 40
+        XCTAssertTrue(vm.shouldShowRestOverlay)
+        XCTAssertFalse(vm.showsMinimizedRestChip)
+
+        vm.minimizeRestOverlay()
+        XCTAssertTrue(vm.isRestTimerActive)
+        XCTAssertTrue(vm.isRestOverlayMinimized)
+        XCTAssertFalse(vm.shouldShowRestOverlay)
+        XCTAssertTrue(vm.showsMinimizedRestChip)
+
+        vm.expandRestOverlay()
+        XCTAssertTrue(vm.shouldShowRestOverlay)
+        XCTAssertFalse(vm.showsMinimizedRestChip)
+    }
+
+    func test_restOverlay_minimizeDoesNothingWhenRestInactive() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.minimizeRestOverlay()
+        XCTAssertFalse(vm.isRestOverlayMinimized)
     }
 
     // MARK: - Progress
@@ -229,6 +253,22 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(summaries[0].successRate, summaries[1].successRate)
     }
 
+    func test_drillSummaries_carriesItemNotes() {
+        let vm = makeVMWithDrills(count: 2, sets: 1, ballsPerSet: 10)
+        vm.drillSetsData[0][0].madeBalls = 3
+        vm.drillSetsData[1][0].madeBalls = 8
+        vm.drillNotes = ["低杆容易扎杆", "薄球吃厚"]
+        let byId = Dictionary(uniqueKeysWithValues: vm.drillSummaries.map { ($0.drillId, $0.note) })
+        XCTAssertEqual(byId["drill_test_0"], "低杆容易扎杆")
+        XCTAssertEqual(byId["drill_test_1"], "薄球吃厚")
+    }
+
+    func test_visibleItemNote_hidesBlankAndTrims() {
+        XCTAssertNil(TrainingItemNote.visible(""))
+        XCTAssertNil(TrainingItemNote.visible("   \n"))
+        XCTAssertEqual(TrainingItemNote.visible("  手感回来了  "), "手感回来了")
+    }
+
     // MARK: - Save training (SwiftData)
 
     func test_saveTraining_success() {
@@ -259,6 +299,20 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertEqual(entry?.sets.count, 2)
         let sortedSets = entry?.sets.sorted { $0.setNumber < $1.setNumber }
         XCTAssertEqual(sortedSets?.first?.madeBalls, 7)
+    }
+
+    func test_saveTraining_secondCall_doesNotInsertAnotherSession() {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = container.mainContext
+        SyncQueueManager.shared.configure(context: context)
+
+        let vm = makeVMWithDrills(count: 1, sets: 1, ballsPerSet: 10)
+        vm.saveTraining(context: context)
+        vm.saveTraining(context: context)
+
+        XCTAssertTrue(vm.didSaveSuccessfully)
+        let sessions = try? context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(sessions?.count, 1, "share-then-save must not write a second session")
     }
 
     func test_saveTraining_empty_drills() {

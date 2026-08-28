@@ -748,6 +748,7 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-27（DR-079）— `ShareCardTheme.paper`（浅色）为默认；卡内文色走 `primaryText` 等，禁止写死 `.white`。分享页选择器标「背景」。总结页「生成分享图」同时落库，`saveTraining` 幂等。
 - 2026-08-26（DR-078）— 动作库类别短名：基础 / 准度 / 杆法 / 走位 / 控力。`PlanListView` 取消 `groupedPlans` 按档分节，官方计划按 `Plans/index.json` 序单节排列。
 - 2026-08-25（DR-077）— 动作库已练过用封面右下亮绿 `BTPracticedBadge`（✓ 已练，Dark `btPrimary`）；网格课名一律主色，Pro 不再洗灰。禁止灰色「已完成」元信息行。
 - 2026-08-14（DR-072 / v37 W4）— 计划货架 11 份：`PlanCoverLabel` 走位Ⅰ/Ⅱ、准度Ⅱ、特殊球、全能综合；`groupedPlans` 必须覆盖全部 `targetLevel`（未知档追加，禁止只枚举 6 档导致丢卡）；新档颜色别名到现有 6 色，不扩 `planLevelKeys`。

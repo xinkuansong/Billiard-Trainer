@@ -17,6 +17,7 @@ struct TrainingSummaryView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isSaving = false
+    @State private var hasSaved = false
     @State private var showSavedToast = false
     @State private var animatedRate: Double = 0
     @State private var statsRevealed = false
@@ -36,7 +37,7 @@ struct TrainingSummaryView: View {
                     VStack(spacing: Spacing.xxl) {
                         statsGrid
                         drillBreakdownSection
-                        if !trainingNote.isEmpty {
+                        if TrainingItemNote.visible(trainingNote) != nil {
                             noteSection
                         }
                     }
@@ -196,7 +197,8 @@ struct TrainingSummaryView: View {
     }
 
     private func drillCard(_ drill: DrillSummary) -> some View {
-        VStack(spacing: 0) {
+        let itemNote = TrainingItemNote.visible(drill.note)
+        return VStack(spacing: 0) {
             // Header row
             HStack(spacing: Spacing.md) {
                 drillThumbnail(drillId: drill.drillId)
@@ -233,7 +235,13 @@ struct TrainingSummaryView: View {
                 }
             }
             .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.lg)
+            .padding(.bottom, itemNote == nil ? Spacing.lg : Spacing.sm)
+
+            if let itemNote {
+                itemNoteRow(itemNote)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.lg)
+            }
         }
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
@@ -246,6 +254,22 @@ struct TrainingSummaryView: View {
 
     private func drillThumbnail(drillId: String) -> some View {
         BTDrillListThumbnail(drillId: drillId)
+    }
+
+    private func itemNoteRow(_ note: String) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            Text("本项心得")
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+            Text(note)
+                .font(.btFootnote14)
+                .fontWeight(.medium)
+                .foregroundStyle(.btText)
+                .lineSpacing(4)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("本项心得，\(note)")
     }
 
     private func setRow(_ set: DrillSummary.SetResult) -> some View {
@@ -265,11 +289,12 @@ struct TrainingSummaryView: View {
     }
 
     private var shareButton: some View {
-        Button(action: onGenerateShareImage) {
+        Button(action: handleShare) {
             Image(systemName: "square.and.arrow.up")
                 .font(.btBody)
                 .foregroundStyle(.btPrimary)
         }
+        .disabled(isSaving)
     }
 
     private func drillRateColor(_ rate: Double) -> Color {
@@ -290,7 +315,7 @@ struct TrainingSummaryView: View {
                     .foregroundStyle(.btText)
             }
 
-            Text(trainingNote)
+            Text(TrainingItemNote.visible(trainingNote) ?? trainingNote)
                 .font(.btFootnote14).fontWeight(.medium)
                 .foregroundStyle(.btTextSecondary)
                 .lineSpacing(4)
@@ -310,12 +335,12 @@ struct TrainingSummaryView: View {
     private var bottomActionBar: some View {
         VStack(spacing: Spacing.md) {
             Button(action: handleSave) {
-                Text(isSaving ? "保存中…" : "保存训练")
+                Text(saveButtonTitle)
             }
             .buttonStyle(BTButtonStyle.primary)
             .disabled(isSaving || showSavedToast)
 
-            Button(action: onGenerateShareImage) {
+            Button(action: handleShare) {
                 Label("生成分享图", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(BTButtonStyle.secondary)
@@ -339,24 +364,43 @@ struct TrainingSummaryView: View {
         )
     }
 
-    // MARK: - Save (F-TS-02)
+    // MARK: - Save (F-TS-02) + Share (DR-079)
+
+    private var saveButtonTitle: String {
+        if isSaving { return "保存中…" }
+        if hasSaved { return "完成" }
+        return "保存训练"
+    }
+
+    /// Persist once. Share and save share this path so generating a card
+    /// also writes the session; a later tap does not insert a duplicate.
+    @discardableResult
+    private func persistIfNeeded() -> Bool {
+        if hasSaved { return true }
+        isSaving = true
+        let succeeded = onSave()
+        isSaving = false
+        if succeeded { hasSaved = true }
+        return succeeded
+    }
 
     private func handleSave() {
         guard !isSaving, !showSavedToast else { return }
-        isSaving = true
-        let succeeded = onSave()
-        if succeeded {
-            withAnimation(BTMotion.springPanel) {
-                showSavedToast = true
-                isSaving = false
-            }
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 700_000_000)
-                dismiss()
-            }
-        } else {
-            isSaving = false
+        guard persistIfNeeded() else { return }
+        withAnimation(BTMotion.springPanel) {
+            showSavedToast = true
         }
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 700_000_000)
+            dismiss()
+        }
+    }
+
+    /// Generate share image and persist the session in the same gesture.
+    private func handleShare() {
+        guard !isSaving else { return }
+        guard persistIfNeeded() else { return }
+        onGenerateShareImage()
     }
 }
 
@@ -371,7 +415,8 @@ private let previewSummaries: [DrillSummary] = [
             .init(id: 2, madeBalls: 7, targetBalls: 10),
             .init(id: 3, madeBalls: 8, targetBalls: 10),
             .init(id: 4, madeBalls: 8, targetBalls: 10),
-        ]
+        ],
+        note: "低杆容易扎杆，下一组改中杆"
     ),
     DrillSummary(
         id: UUID(), drillId: "drill_c002", nameZh: "斯诺克直线进袋", level: .L0,

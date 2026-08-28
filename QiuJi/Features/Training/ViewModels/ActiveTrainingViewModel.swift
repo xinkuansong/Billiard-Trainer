@@ -155,6 +155,8 @@ struct DrillSummary: Identifiable {
     let totalBallsMade: Int
     let totalBallsPossible: Int
     let sets: [SetResult]
+    /// 本项心得（`DrillEntry.note`）。空或纯空白不上屏。
+    let note: String
 
     struct SetResult: Identifiable {
         let id: Int
@@ -165,6 +167,34 @@ struct DrillSummary: Identifiable {
     var successRate: Double {
         guard totalBallsPossible > 0 else { return 0 }
         return Double(totalBallsMade) / Double(totalBallsPossible)
+    }
+
+    init(
+        id: UUID,
+        drillId: String,
+        nameZh: String,
+        level: DrillLevel?,
+        totalBallsMade: Int,
+        totalBallsPossible: Int,
+        sets: [SetResult],
+        note: String = ""
+    ) {
+        self.id = id
+        self.drillId = drillId
+        self.nameZh = nameZh
+        self.level = level
+        self.totalBallsMade = totalBallsMade
+        self.totalBallsPossible = totalBallsPossible
+        self.sets = sets
+        self.note = note
+    }
+}
+
+/// 本项 / 整场心得的上屏判定：纯空白不上屏，展示用去首尾空白后的正文。
+enum TrainingItemNote {
+    static func visible(_ raw: String) -> String? {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 
@@ -198,6 +228,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var restDuration: Int = 60
     @Published var restSecondsRemaining: Int = 0
     @Published var isRestTimerActive: Bool = false
+    @Published var isRestOverlayMinimized: Bool = false
     @Published var restTotalSeconds: Int = 0
 
     private var timerTask: Task<Void, Never>?
@@ -222,13 +253,17 @@ final class ActiveTrainingViewModel: ObservableObject {
         return String(format: "%02d:%02d:%02d", h, m, s)
     }
 
-    /// Minimized pill clock: rest remaining while the rest timer is up, else session elapsed.
-    var floatingIndicatorSeconds: Int {
-        isRestTimerActive ? restSecondsRemaining : elapsedSeconds
+    /// Cross-tab pill is session chrome only; rest lives on the session page.
+    var floatingIndicatorSeconds: Int { elapsedSeconds }
+
+    var floatingIndicatorTitle: String { "继续训练" }
+
+    var shouldShowRestOverlay: Bool {
+        isRestTimerActive && !isRestOverlayMinimized
     }
 
-    var floatingIndicatorTitle: String {
-        isRestTimerActive ? "组间休息" : "继续训练"
+    var showsMinimizedRestChip: Bool {
+        isRestTimerActive && isRestOverlayMinimized
     }
 
     var progressText: String {
@@ -683,6 +718,7 @@ final class ActiveTrainingViewModel: ObservableObject {
         restTotalSeconds = restDuration
         restSecondsRemaining = restDuration
         isRestTimerActive = true
+        isRestOverlayMinimized = false
         restEndDate = Date().addingTimeInterval(Double(restDuration))
 
         let drillName = currentDrill?.nameZh ?? "训练"
@@ -722,6 +758,7 @@ final class ActiveTrainingViewModel: ObservableObject {
             try? await Task.sleep(for: .milliseconds(250))
             withAnimation(BTMotion.easeChrome) {
                 isRestTimerActive = false
+                isRestOverlayMinimized = false
             }
             if let next = pendingDrillAdvance {
                 pendingDrillAdvance = nil
@@ -734,11 +771,21 @@ final class ActiveTrainingViewModel: ObservableObject {
         restTimer?.cancel()
         restTimer = nil
         isRestTimerActive = false
+        isRestOverlayMinimized = false
         restSecondsRemaining = 0
         restTotalSeconds = 0
         restEndDate = nil
         liveActivityManager.endActivity()
         liveActivityManager.deactivateBackgroundAudio()
+    }
+
+    func minimizeRestOverlay() {
+        guard isRestTimerActive else { return }
+        isRestOverlayMinimized = true
+    }
+
+    func expandRestOverlay() {
+        isRestOverlayMinimized = false
     }
 
     func skipRestTimer() {
@@ -845,13 +892,18 @@ final class ActiveTrainingViewModel: ObservableObject {
                 level: drill.level,
                 totalBallsMade: made,
                 totalBallsPossible: possible,
-                sets: sets.map { DrillSummary.SetResult(id: $0.id, madeBalls: $0.madeBalls, targetBalls: $0.targetBalls) }
+                sets: sets.map { DrillSummary.SetResult(id: $0.id, madeBalls: $0.madeBalls, targetBalls: $0.targetBalls) },
+                note: i < drillNotes.count ? drillNotes[i] : ""
             ))
         }
         return summaries.sorted { $0.successRate > $1.successRate }
     }
 
     func saveTraining(context: ModelContext) {
+        // Sharing also persists. A second tap must not insert another session
+        // or advance the plan cursor twice (DR-079).
+        if didSaveSuccessfully { return }
+
         saveError = nil
 
         do {

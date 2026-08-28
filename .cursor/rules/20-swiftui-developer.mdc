@@ -6,6 +6,8 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-08-27 v1.4：DR-079——分享卡默认浅色背景（`ShareCardTheme.paper`）；卡内禁止写死白字。总结页「生成分享图」同时落库，`saveTraining` 幂等。
+- 2026-08-27 v1.3：FL-033——组间休息卡最小化 ≠ 会话最小化；休息卡只收覆层，不切 Tab。
 - 2026-08-26 v1.2：DR-078——`PlanListView` 官方计划不再按 `targetLevel` 分节，顺序跟 `Plans/index.json`。
 - 2026-08-25 v1.1：DR-077——动作库已练过用亮绿封面角标（`BTPracticedBadge`，Dark `btPrimary`）；网格课名一律主色，Pro 禁止再洗灰。
 - 2026-08-24 v1.0：DR-076——多页签阅读位：访问过的页各自留 ScrollView，未访问的不建；禁止对共用 ScrollView 写 `.id(selection)` 当「重置」。
@@ -130,6 +132,13 @@ case profile     // 我的
 ## 经验教训（Lessons Learned）
 
 > 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
+
+### ⛔ FL-033 — 组间休息最小化 ≠ 会话最小化；训练页面 ≠ 训练 Tab
+**场景**：记分页上的组间休息卡要「最小化」；或用户说最小化后应留在训练页面。
+**强制检查点**：
+1. **训练页面** = 点「开始训练」后的记分页（`ActiveTrainingView`，含组间休息）。**训练 Tab** = 官方计划货架。禁止把两者当成同一页。
+2. 休息卡「最小化」只收起休息覆层（`isRestOverlayMinimized`），⛔ 不得调用会话级 `minimizeTraining` / 切 Tab / 出跨页浮标。
+3. 整场离页只走底栏「最小化训练」。从浮标回到记分页时，若仍在休息，覆层必须展开。
 
 ### ⛔ DR-076 — 多页签滚动禁止共用一条 ScrollView 的 offset
 **场景**：分段 / Tab 切换后，B 页读到 A 页的滚动位置；或需要「未打开过从头、退出再进全清」

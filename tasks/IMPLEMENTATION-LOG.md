@@ -82,6 +82,18 @@
 
 ## DR 记录（设计调整）
 
+## DR-079
+- **任务**：训练结束「生成分享图」同时落库 + 分享卡浅色背景
+- **原始规范**：总结页「保存训练」与「生成分享图」分立；`ShareCardTheme` 四档（炭灰/黑白/暗夜蓝/深紫）全是深底，默认炭灰；卡内文色写死 `.white`；选择器标签「颜色」、色圈只画 accent。
+- **调整后**：
+  1. 点「生成分享图」（含顶栏图标）先 `persistIfNeeded()` 再出分享页；已保存则幂等。`saveTraining` 见 `didSaveSuccessfully` 直接返回，禁止二次 insert / 二次推进计划。保存钮在已落后改「完成」。
+  2. `ShareCardTheme` 增 `paper`（浅色），排第一且为默认。文色走 `primaryText` 等，禁止卡内再写死白字。选择器改标「背景」，色圈 = 底色 + 强调色芯。
+- **原因**：用户要分享时一并保存；四个主题全深底，看起来像没有背景选项。
+- **影响组件**：`ShareCardTheme`、`BTShareCard`、`TrainingShareView`、`TrainingSummaryView`、`ActiveTrainingViewModel.saveTraining`
+- **日期**：2026-08-27
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog / §2.14 / §6.4；`.cursor/skills/swiftui-design-system/SKILL.md`；`20-swiftui-developer.mdc` Changelog
+- **已应用至**：✅ `tasks/UI-IMPLEMENTATION-SPEC.md` §2.14 / §6.4 / Changelog；`.cursor/skills/swiftui-design-system/SKILL.md` Changelog；`.cursor/rules/20-swiftui-developer.mdc` Changelog v1.4（2026-08-27）
+
 ## DR-078
 - **任务**：动作库类别短名 + 官方计划货架改教学序
 - **原始规范**：`DrillCategory.nameZh` 为「基础功 / 准度训练 / 杆法训练 / 走位训练 / 控力训练」；`PlanListView.groupedPlans` 按 `targetLevel` 分节（DR-072）
@@ -95,6 +107,15 @@
 - **已应用至**：✅ 上述文件（2026-08-26）
 
 ---
+
+## FL-033
+- **任务**：组间休息卡最小化
+- **现象**：休息卡「最小化」把整场训练收到浮标，并和训练 Tab（计划货架）绑在一起；二次最小化掉回计划页。
+- **根因**：把「训练页面」（记分页 `ActiveTrainingView`）当成「训练 Tab」；休息卡最小化接到会话级 `minimizeActiveTraining()`。
+- **解决**：休息卡只切 `isRestOverlayMinimized`，人留在记分页。底栏仍负责整场离页。从浮标回来时 `expandRestOverlay()`。撤回训练 Tab 挂会话。
+- **日期**：2026-08-27
+- **回写目标**：`.cursor/rules/20-swiftui-developer.mdc`
+- **已应用至**：✅ `.cursor/rules/20-swiftui-developer.mdc` § 经验教训 / FL-033（2026-08-27）
 
 ## FL-032
 - **任务**：问题集合 v40 W2–W7
