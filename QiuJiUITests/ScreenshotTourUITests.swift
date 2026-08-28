@@ -62,14 +62,16 @@ final class ScreenshotTourUITests: XCTestCase {
 
     @discardableResult
     private func tapIfExists(_ label: String, timeout: TimeInterval = 4) -> Bool {
-        let staticText = app.staticTexts[label]
-        if staticText.waitForExistence(timeout: timeout) {
-            staticText.tap()
+        // Prefer the card button; title text is often duplicated inside the card
+        // and `staticTexts[label].tap()` then fatals on multiple matches.
+        let button = app.buttons[label].firstMatch
+        if button.waitForExistence(timeout: timeout) {
+            button.tap()
             return true
         }
-        let button = app.buttons[label]
-        if button.waitForExistence(timeout: 1) {
-            button.tap()
+        let staticText = app.staticTexts[label].firstMatch
+        if staticText.waitForExistence(timeout: 1) {
+            staticText.tap()
             return true
         }
         return false
@@ -127,6 +129,92 @@ final class ScreenshotTourUITests: XCTestCase {
 
         // 破坏性 / sheet 流程放最后
         tourModalFlows()
+    }
+
+    /// 给 UI 设计师的整页快照：Pro 解锁后走完整巡游，再补巡游漏掉的常规页。
+    /// 落盘目录：`UI_POLISH_SHOT_DIR` 或 `/tmp/qiuji-uitest/shot_dir`。
+    func testDesignerPageDump() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        snap("00-launch")
+
+        tourTraining()
+        tourCustomPlanBuilder()
+        tourDrillLibrary()
+        tourDrillTutorial()
+        tourAngle()
+        tourRemainingLearnPages()
+        tourAllTheoryPages()
+        tourHistory()
+        tourProfile()
+        tourFavoritesAndSubscriptionStatus()
+        tourLogin()
+        tourModalFlows()
+        tourOnboarding()
+    }
+
+    /// 接 remainder：球理页会藏底栏，先软重启再拍记录 / 我的 / 登录 / 引导。
+    func testDesignerPageDumpChrome() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        tourHistory()
+        tourProfile()
+        tourFavoritesAndSubscriptionStatus()
+        tourLogin()
+        tourModalFlows()
+        tourOnboarding()
+    }
+
+    /// 补拍自由记录会话 + 引导（避开 Paywall 不可点）。
+    func testDesignerPageDumpTail() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        app.switchTab(.training)
+        sleep(2)
+        if tapIfExists("自由记录", timeout: 3) {
+            sleep(2)
+            snap("62-free-record-session")
+        }
+        tourOnboarding()
+    }
+
+    /// 接 `testDesignerPageDump`：从「解」区「防守」起补拍未完成页。
+    func testDesignerPageDumpRemainder() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+
+        let remainingSolve: [(String, String)] = [
+            ("防守", "26-snooker-tactics"),
+            ("翻袋解球器", "27-bank-shot"),
+            ("反射解球器", "28-diamond-system"),
+        ]
+        for (label, name) in remainingSolve {
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+            sleep(2)
+            app.switchTab(.angle)
+            sleep(1)
+            switchAngleHomeTab("解")
+            if tapIfExists(label, timeout: 4) {
+                sleep(3)
+                startAimingTrainingFromSheet()
+                if label == "翻袋解球器" { ensureBankSolution() }
+                snap(name)
+            }
+        }
+
+        tourRemainingLearnPages()
+        tourAllTheoryPages()
+        tourHistory()
+        tourProfile()
+        tourFavoritesAndSubscriptionStatus()
+        tourLogin()
+        tourModalFlows()
+        tourOnboarding()
     }
 
     /// 分段补拍：每页软重启。外观靠事先 `simctl ui appearance` + `/tmp/qiuji-uitest/appearance`。
@@ -1524,6 +1612,154 @@ final class ScreenshotTourUITests: XCTestCase {
                 sleep(1)
             }
         }
+    }
+
+    // MARK: 设计师整页补拍（巡游未覆盖的常规页）
+
+    private func tourCustomPlanBuilder() {
+        app.switchTab(.training)
+        sleep(1)
+        let menu = app.buttons.matching(
+            NSPredicate(format: "label CONTAINS 'ellipsis' OR label CONTAINS 'More'")
+        ).firstMatch
+        if menu.waitForExistence(timeout: 3) {
+            menu.tap()
+            sleep(1)
+            if tapIfExists("新建模版", timeout: 2) {
+                sleep(2)
+                snap("04b-custom-plan-builder")
+                popBack()
+                sleep(1)
+                return
+            }
+            app.tap()
+        }
+        if tapIfExists("新建模版", timeout: 2) {
+            sleep(2)
+            snap("04b-custom-plan-builder")
+            popBack()
+            sleep(1)
+        }
+    }
+
+    private func tourDrillTutorial() {
+        app.switchTab(.drillLibrary)
+        sleep(2)
+        let drillCard = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'drillCard_'")).firstMatch
+        if drillCard.waitForExistence(timeout: 4) {
+            drillCard.tap()
+            sleep(2)
+            if tapIfExists("查看精讲", timeout: 3) {
+                sleep(2)
+                snap("07b-drill-tutorial")
+                popBack()
+                sleep(1)
+            }
+            popBack()
+            sleep(1)
+        }
+    }
+
+    private func tourRemainingLearnPages() {
+        let pages: [(String, String)] = [
+            ("瞄准方法", "09b-aiming-methods"),
+            ("瞄准修正", "09c-aiming-correction"),
+            ("旋转与加塞", "09d-spin-and-english"),
+            ("分离角图谱", "09e-separation-angle-atlas"),
+            ("加塞吃库图谱", "09f-cushion-english-atlas"),
+        ]
+        for (label, name) in pages {
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+            sleep(2)
+            app.switchTab(.angle)
+            sleep(1)
+            switchAngleHomeTab("学")
+            var opened = tapIfExists(label, timeout: 4)
+            if !opened {
+                app.swipeUp()
+                usleep(400_000)
+                opened = tapIfExists(label, timeout: 3)
+            }
+            if opened {
+                sleep(3)
+                snap(name)
+            }
+        }
+    }
+
+    private func tourAllTheoryPages() {
+        let pages: [(String, String)] = [
+            ("30° 法则", "12c-theory-t01"),
+            ("90° 法则", "12d-theory-t02"),
+            ("切线法则", "12e-theory-t03"),
+            ("母球速度分级", "12f-theory-t04"),
+            ("最少加塞原则", "12g-theory-t09"),
+            ("反向规划", "12h-theory-t05"),
+            ("关键球原理", "12i-theory-t06"),
+            ("球团管理", "12j-theory-t07"),
+            ("风险报酬决策矩阵", "12k-theory-t08"),
+            ("安全球三维度模型", "12l-theory-t10"),
+            ("清台 5 步决策流程", "12m-theory-flow"),
+            ("清台速查手册", "12n-theory-quickref"),
+        ]
+        for (title, name) in pages {
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+            sleep(2)
+            if TheoryIndexNavigation.openPage(in: app, cardTitle: title) {
+                sleep(2)
+                snap(name)
+            }
+        }
+    }
+
+    private func tourFavoritesAndSubscriptionStatus() {
+        app.switchTab(.profile)
+        sleep(2)
+        if tapIfExists("我的收藏", timeout: 3) {
+            sleep(2)
+            snap("56-profile-favorites")
+            popBack()
+            sleep(1)
+        }
+        if tapIfExists("订阅管理", timeout: 3) {
+            sleep(2)
+            snap("57-subscription-status")
+            popBack()
+            sleep(1)
+        }
+    }
+
+    private func tourLogin() {
+        app.switchTab(.profile)
+        sleep(1)
+        if tapIfExists("点击登录", timeout: 3) {
+            sleep(2)
+            snap("70-login")
+            if tapIfExists("手机号登录", timeout: 2) || tapIfExists("手机号", timeout: 2) {
+                sleep(2)
+                snap("71-phone-login")
+                app.swipeDown()
+                sleep(1)
+            }
+            app.swipeDown()
+            sleep(1)
+        }
+    }
+
+    private func tourOnboarding() {
+        app.terminate()
+        let fresh = XCUIApplication()
+        fresh.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
+        fresh.launchArguments += ["-AppleLocale", "zh_CN"]
+        fresh.launchArguments += ["-hasCompletedOnboarding", "NO"]
+        fresh.launchArguments += ["-resetDebugPremium"]
+        fresh.launch()
+        app = fresh
+        sleep(3)
+        snap("72-onboarding")
     }
 
     // MARK: 弹窗 / 会话态流程（放最后）
