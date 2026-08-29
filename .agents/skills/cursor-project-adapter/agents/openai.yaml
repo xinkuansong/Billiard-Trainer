@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cursor 项目适配器"
+  short_description: "为球迹项目按任务加载并适配 Cursor 规则、角色和技能"
+  default_prompt: "使用 $cursor-project-adapter 读取项目 Cursor 配置，并按当前任务选择适用规则、角色与技能。"

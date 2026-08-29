@@ -146,11 +146,21 @@ final class ScreenshotTourUITests: XCTestCase {
         tourAngle()
         tourRemainingLearnPages()
         tourAllTheoryPages()
+
+        // 球理 push 会藏底栏，必须软重启再拍记录 / 我的。
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
         tourHistory()
         tourProfile()
         tourFavoritesAndSubscriptionStatus()
         tourLogin()
-        tourModalFlows()
+        app.switchTab(.training)
+        sleep(2)
+        if tapIfExists("自由记录", timeout: 3) {
+            sleep(2)
+            snap("62-free-record-session")
+        }
         tourOnboarding()
     }
 
@@ -163,7 +173,12 @@ final class ScreenshotTourUITests: XCTestCase {
         tourProfile()
         tourFavoritesAndSubscriptionStatus()
         tourLogin()
-        tourModalFlows()
+        app.switchTab(.training)
+        sleep(2)
+        if tapIfExists("自由记录", timeout: 3) {
+            sleep(2)
+            snap("62-free-record-session")
+        }
         tourOnboarding()
     }
 

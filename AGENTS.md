@@ -4,6 +4,10 @@
 
 > 本项目同时纳入跨项目 **Project Hub**（`/Users/song/projects/project-hub`）。本项目状态卡：`/Users/song/projects/project-hub/projects/13.billiard_trainer.md`。任何与 14 / 15 / 16 / 18 联动的事项（设计、教程、定理、图标）须按 `.cursor/rules/00-project-hub-sync.mdc` 同步。
 
+## Codex 适配入口（每次会话必读）
+
+在 Codex 中处理本仓库的任何请求时，先完整读取并遵循 [`.agents/skills/cursor-project-adapter/SKILL.md`](.agents/skills/cursor-project-adapter/SKILL.md)。该技能负责把现有 `.cursor/rules/`、`.cursor/agents/`、`.cursor/skills/` 与 `.kiro/steering/` 按当前任务路由到 Codex；专项文件仍为真源，禁止仅凭本页摘要替代读取。
+
 ## 快速开始
 
 1. **先读** [`tasks/PROGRESS.md`](tasks/PROGRESS.md)、[`tasks/HUMAN-REQUIRED.md`](tasks/HUMAN-REQUIRED.md) 与（若存在返工）[`tasks/FAILURE-LOG.md`](tasks/FAILURE-LOG.md)。
