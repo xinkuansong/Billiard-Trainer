@@ -19,6 +19,17 @@ import UIKit
 
 final class DrillThumbnailBakeRunnerTests: XCTestCase {
 
+    func test_staleBakeGateFlag_isRejected() {
+        let now = Date(timeIntervalSince1970: 10_000)
+        XCTAssertTrue(
+            BakeRunnerGate.isFresh(modifiedAt: now.addingTimeInterval(-BakeRunnerGate.flagMaximumAge), now: now)
+        )
+        XCTAssertFalse(
+            BakeRunnerGate.isFresh(modifiedAt: now.addingTimeInterval(-BakeRunnerGate.flagMaximumAge - 1), now: now)
+        )
+        XCTAssertFalse(BakeRunnerGate.isFresh(modifiedAt: now.addingTimeInterval(1), now: now))
+    }
+
     /// 直接写入 App 资源目录（运行时随 Bundle 打包，需在 project 中作为 folder ref）。
     /// 路径由 `QIUJI_THUMBNAIL_OUTPUT_DIR` 注入，缺省取本仓 `QiuJi/Resources/DrillThumbnails`
     /// （由 `#filePath` 推导，git worktree 下自动指向各自的树）。

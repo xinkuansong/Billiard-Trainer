@@ -302,6 +302,7 @@ verify-gate:
 	@python3 $(PROJECT_ROOT)/scripts/verify_tutorial_sync.py --gate $(ARGS)
 	@python3 $(PROJECT_ROOT)/scripts/publish_tutorial_figures.py --check
 	@python3 $(PROJECT_ROOT)/scripts/verify_sync_schema_alignment.py --gate
+	@python3 $(PROJECT_ROOT)/scripts/verify_v47_ui_baseline.py
 
 # 双端对齐检查的构造性用例走它自己的 --selftest（v36 W4）：它的影子副本是
 # Swift 源 + backend/src/models + node_modules 符号链接，与 selftest_content_invariants.py

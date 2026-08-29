@@ -10,6 +10,7 @@ import XCTest
 final class ScreenshotTourUITests: XCTestCase {
 
     var app: XCUIApplication!
+    private var v47ForcedShotDirURL: URL?
 
     override func setUpWithError() throws {
         continueAfterFailure = true
@@ -18,9 +19,11 @@ final class ScreenshotTourUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// 截图目录：优先 `UI_POLISH_SHOT_DIR`；否则按外观写入
-    /// `docs/ui-polish/screenshots-latest/{light|dark}/`。
+    /// 截图目录：优先 `UI_POLISH_SHOT_DIR` / `/tmp/qiuji-uitest/shot_dir`；
+    /// 否则按外观写入 `build/v47-screenshots/{light|dark}/`。
+    /// v47 起禁止测试默认覆盖 `docs/ui-polish/screenshots-latest/` 设计基线。
     private var shotDirURL: URL? {
+        if let v47ForcedShotDirURL { return v47ForcedShotDirURL }
         if let env = ProcessInfo.processInfo.environment["UI_POLISH_SHOT_DIR"], !env.isEmpty {
             return URL(fileURLWithPath: env, isDirectory: true)
         }
@@ -41,7 +44,7 @@ final class ScreenshotTourUITests: XCTestCase {
             @unknown default: mode = "unknown"
             }
         }
-        let base = "/Users/song/projects/13.billiard_trainer/docs/ui-polish/screenshots-latest"
+        let base = "/Users/song/projects/13.billiard_trainer/build/v47-screenshots"
         return URL(fileURLWithPath: "\(base)/\(mode)", isDirectory: true)
     }
 
@@ -52,11 +55,71 @@ final class ScreenshotTourUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // 同步写命名 PNG，便于直接落入 docs/ui-polish（不依赖 xcresult 二次导出）。
+        // 同步写命名 PNG（不依赖 xcresult 二次导出）。写盘失败必须让测试变红，
+        // 禁止用 try? 把缺图伪装成巡游成功。
         if let dir = shotDirURL {
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let file = dir.appendingPathComponent("\(name).png")
-            try? screenshot.pngRepresentation.write(to: file)
+            do {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let file = dir.appendingPathComponent("\(name).png")
+                try screenshot.pngRepresentation.write(to: file, options: .atomic)
+            } catch {
+                XCTFail("截图写盘失败 \(name): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// 用 W0 冻结的 66 张基线文件名做完整性门禁。巡游里的防御式点击仍可继续
+    /// 收集后续页面，但任何静默跳页最终都会因缺图而失败。
+    private func assertV47BaselineScreenshotCompleteness() {
+        guard let outputDir = shotDirURL else {
+            XCTFail("v47 截图输出目录不可用")
+            return
+        }
+
+        let manifestPath = ProcessInfo.processInfo.environment["V47_EXPECTED_SHOT_MANIFEST"]
+            ?? "/Users/song/projects/13.billiard_trainer/docs/design/v47/baseline-screenshots.sha256"
+        do {
+            let manifest = try String(contentsOfFile: manifestPath, encoding: .utf8)
+            let expected = Set(manifest.split(separator: "\n").compactMap { line -> String? in
+                guard !line.hasPrefix("#"), let path = line.split(separator: " ").last else { return nil }
+                return URL(fileURLWithPath: String(path)).lastPathComponent
+            })
+            XCTAssertEqual(expected.count, 66, "v47 基线 manifest 必须正好登记 66 张 PNG")
+
+            let produced = Set(try FileManager.default.contentsOfDirectory(
+                at: outputDir,
+                includingPropertiesForKeys: nil
+            ).filter { $0.pathExtension.lowercased() == "png" }.map(\.lastPathComponent))
+            let missing = expected.subtracting(produced).sorted()
+            XCTAssertTrue(missing.isEmpty, "v47 巡游缺图：\(missing.joined(separator: ", "))")
+        } catch {
+            XCTFail("v47 截图完整性门禁无法读取 manifest/输出目录：\(error.localizedDescription)")
+        }
+    }
+
+    /// 完整巡游必须从空输出目录开始，避免上轮残留 PNG 掩盖本轮静默跳页。
+    /// 只允许清理 v47 build 目录或系统临时目录，绝不递归删除 docs/Resources。
+    @discardableResult
+    private func resetV47ShotDirectory() -> Bool {
+        guard let dir = shotDirURL else {
+            XCTFail("v47 截图输出目录不可用")
+            return false
+        }
+        let standardized = dir.standardizedFileURL.path
+        let allowed = standardized.contains("/build/v47-") || standardized.hasPrefix("/tmp/")
+        guard allowed else {
+            XCTFail("拒绝清理非 v47 临时输出目录：\(standardized)")
+            return false
+        }
+        do {
+            if FileManager.default.fileExists(atPath: standardized) {
+                try FileManager.default.removeItem(at: dir)
+            }
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return true
+        } catch {
+            XCTFail("无法重置 v47 截图目录：\(error.localizedDescription)")
+            return false
         }
     }
 
@@ -134,6 +197,13 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 给 UI 设计师的整页快照：Pro 解锁后走完整巡游，再补巡游漏掉的常规页。
     /// 落盘目录：`UI_POLISH_SHOT_DIR` 或 `/tmp/qiuji-uitest/shot_dir`。
     func testDesignerPageDump() {
+        // 完整 v47 巡游会先清空输出，因此不采纳机器上遗留的旧截图目录配置；
+        // 强制写本批 build 目录，避免覆盖 tmp/designer-screenshots 基线。
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-screenshots/light",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
         sleep(3)
@@ -162,6 +232,57 @@ final class ScreenshotTourUITests: XCTestCase {
             snap("62-free-record-session")
         }
         tourOnboarding()
+        assertV47BaselineScreenshotCompleteness()
+    }
+
+    /// D-v47-1：五个 Tab 根页永久保持无大标题。子页正常导航标题不在本断言范围。
+    func testV47TabRootsHaveNoNavigationTitle() {
+        let tabs: [XCUIApplication.Tab] = [.training, .drillLibrary, .angle, .history, .profile]
+        for tab in tabs {
+            app.switchTab(tab)
+            XCTAssertFalse(
+                app.navigationBars[tab.rawValue].waitForExistence(timeout: 1),
+                "\(tab.rawValue) Tab 根页不得恢复 navigation title"
+            )
+        }
+    }
+
+    /// W0/W15a 同形性能对拍：训练与记录根页各静置 10 秒、连续滚动 15 秒。
+    /// 指标绑定被测 App 进程，避免只量到 UI runner；模拟器数据只比较同机趋势。
+    func testV47TrainingAndHistoryPerformanceBaseline() {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 1
+
+        measure(
+            metrics: [
+                XCTClockMetric(),
+                XCTCPUMetric(application: app),
+                XCTMemoryMetric(application: app),
+                XCTOSSignpostMetric.scrollingAndDecelerationMetric,
+            ],
+            options: options
+        ) {
+            exerciseV47PerformancePage(tab: .training)
+            exerciseV47PerformancePage(tab: .history)
+        }
+    }
+
+    private func exerciseV47PerformancePage(tab: XCUIApplication.Tab) {
+        app.switchTab(tab)
+        Thread.sleep(forTimeInterval: 10)
+
+        let scrollSurface = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollSurface.waitForExistence(timeout: 5), "\(tab.rawValue) 根页缺少可滚动表层")
+        let deadline = Date().addingTimeInterval(15)
+        var upward = true
+        while Date() < deadline {
+            if upward {
+                scrollSurface.swipeUp(velocity: .fast)
+            } else {
+                scrollSurface.swipeDown(velocity: .fast)
+            }
+            upward.toggle()
+        }
     }
 
     /// 接 remainder：球理页会藏底栏，先软重启再拍记录 / 我的 / 登录 / 引导。
