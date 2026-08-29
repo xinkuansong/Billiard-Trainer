@@ -374,6 +374,7 @@
 		AA9F2BD6C591084D62E48E58 /* BTDailyLimitGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF65AB831748C562A45E5BA /* BTDailyLimitGate.swift */; };
 		AAFD8267F5482DD9F6270635 /* AngleTrainingScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7F99914247FC8EC366728E /* AngleTrainingScene.swift */; };
 		AB46F90F520745201264D400 /* ShareCardImageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E2E203E9CB35400E4FA6CF /* ShareCardImageRenderer.swift */; };
+		AB6986B5016405513380ACEB /* AtmosphereCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D196310C8C4F4D1C9D071E5 /* AtmosphereCatalogTests.swift */; };
 		ABED6E45D18DD7F7E773C4C5 /* BTAimCloseupHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B5C12FDFDD7D31E738FA2BD /* BTAimCloseupHUD.swift */; };
 		AC0206040B03DAE7E81D12EC /* DrillStaticPreviewTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8ED16BC827B215C9F43864B /* DrillStaticPreviewTests.swift */; };
 		AD657BFBA2267171A303D747 /* W7_DailyLimitUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2237EC815E6A55EF5B10C9E4 /* W7_DailyLimitUITests.swift */; };
@@ -449,6 +450,7 @@
 		CD8EF8BBCF00E9605F9EA105 /* BTPracticeCover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F84B53E28BB05E98EC146B0 /* BTPracticeCover.swift */; };
 		CF3BE1D3614B1BBB1028C31F /* Theory in Resources */ = {isa = PBXBuildFile; fileRef = 9E3A45224A0DDBF2C3E09EAF /* Theory */; };
 		CF4C87A413D79DC03EF9412B /* VideoWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3BC01C29171DFEA76096476 /* VideoWriter.swift */; };
+		D0AA73997DBD98331B8D289A /* AtmosphereCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D82751E66AF89B81F5857809 /* AtmosphereCatalog.swift */; };
 		D0C3F8AFDCC016B86109225A /* ToolUsageTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0957D9F2E8669E473C6BA3A3 /* ToolUsageTracker.swift */; };
 		D0CE600D8E3A0876B82B839B /* V29W6HistoryKindUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45684609C5AE408DBBB6BFCD /* V29W6HistoryKindUITests.swift */; };
 		D17DA98818447C88146657EF /* LocalAngleTestRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BC5CA80F1803CC726124E4 /* LocalAngleTestRepositoryTests.swift */; };
@@ -495,6 +497,7 @@
 		E705B15B3C56F26D9F755804 /* BTRestTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EB15CCC477302C4E795574A /* BTRestTimer.swift */; };
 		E75C7FB16E02AC7FD3C614A5 /* SeparationAngleAtlasTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72DEC48A7130EFF11F544227 /* SeparationAngleAtlasTests.swift */; };
 		E91BD54DC7318C6ABD784EEF /* AngleSceneCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D2202651D153D4C86CBEA04 /* AngleSceneCalculator.swift */; };
+		E9597DD3FA99B551F2C6D80F /* BTAtmosphereLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF22FA7F2D0042C08BD82A03 /* BTAtmosphereLayer.swift */; };
 		E9F69D0744D358F85DEB77D0 /* AimPointGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24D22325FF66A2EFE5A29E0D /* AimPointGeometry.swift */; };
 		EA6E99A8DB1F96B1AA9CC5A0 /* P8_ProfileSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A25E0123B4CB4D1037B4072 /* P8_ProfileSettingsUITests.swift */; };
 		EB378DED88DECEECF95A2DBF /* PerformanceProfiler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 413A9750E796A75614DC285D /* PerformanceProfiler.swift */; };
@@ -672,6 +675,7 @@
 		2C0796C8A5D0A91183E61E71 /* LocalTrainingSessionRepositoryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTrainingSessionRepositoryTests.swift; sourceTree = "<group>"; };
 		2C54FC912F009ECAA5915124 /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		2C65D15132CC239C251D9A20 /* TheoryIndexView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoryIndexView.swift; sourceTree = "<group>"; };
+		2D196310C8C4F4D1C9D071E5 /* AtmosphereCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphereCatalogTests.swift; sourceTree = "<group>"; };
 		2D2BDA0DB04E3856F668EF9C /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthService.swift; sourceTree = "<group>"; };
 		2D68DACEA70E8197D4D14837 /* BTLibrarySearchBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTLibrarySearchBar.swift; sourceTree = "<group>"; };
 		2D77F940798543BAA1BD85FB /* BTFilterChip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTFilterChip.swift; sourceTree = "<group>"; };
@@ -986,6 +990,7 @@
 		BD4F894F20B136B7F026584D /* DrillListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrillListViewModel.swift; sourceTree = "<group>"; };
 		BF0A4198EFFC019A6857F78E /* QiuJiSchemaV3.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QiuJiSchemaV3.swift; sourceTree = "<group>"; };
 		BF0DF32C3FF8E4E0A6639F0E /* TrainingShareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingShareView.swift; sourceTree = "<group>"; };
+		BF22FA7F2D0042C08BD82A03 /* BTAtmosphereLayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTAtmosphereLayer.swift; sourceTree = "<group>"; };
 		BF2A01F3BE4FF6E38D632D04 /* XCUIApplication+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "XCUIApplication+Extensions.swift"; sourceTree = "<group>"; };
 		BFBFBD81E99EF850E37E8E1F /* ScoringOnlyConsistencyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScoringOnlyConsistencyTests.swift; sourceTree = "<group>"; };
 		C1312AF3CB14112BD57FEB9D /* AnalyticAimModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticAimModel.swift; sourceTree = "<group>"; };
@@ -1026,6 +1031,7 @@
 		D4BCCC3F55789FC4FBDFF80A /* LocalDrillFavoriteRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDrillFavoriteRepository.swift; sourceTree = "<group>"; };
 		D50198A5EB79439712905996 /* HistoryCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryCalendarView.swift; sourceTree = "<group>"; };
 		D636AC1F686C41C4DD33703B /* W4_BallPaletteUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = W4_BallPaletteUITests.swift; sourceTree = "<group>"; };
+		D82751E66AF89B81F5857809 /* AtmosphereCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AtmosphereCatalog.swift; sourceTree = "<group>"; };
 		D85F125ED8E43A152D3AC2D1 /* TheoryIndexNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheoryIndexNavigation.swift; sourceTree = "<group>"; };
 		D93AEC49CD556B38317E443C /* AimingCorrectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AimingCorrectionView.swift; sourceTree = "<group>"; };
 		D9B1B3A29A1121EB766C6CA0 /* QiuJiLiveActivityExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = QiuJiLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1425,6 +1431,7 @@
 				7A8BC2C5C758B9C9098D9E35 /* AngleTrainingTests.swift */,
 				20AE24882C78E512473C4AE8 /* AppRouterTests.swift */,
 				1CF537E24E7EA4FAB963A2DA /* AtlasSpinTrackSelectionTests.swift */,
+				2D196310C8C4F4D1C9D071E5 /* AtmosphereCatalogTests.swift */,
 				E46E3655667187B40D64F9B1 /* BakeRunnerGate.swift */,
 				4097DD85F4EA3EE40552C9E1 /* BallFaceRenderDiagTests.swift */,
 				A98B302DBBA5FD130A6334C5 /* BallFogDiagTests.swift */,
@@ -1541,6 +1548,7 @@
 		660964E14E390B3B25CFFFE4 /* DesignSystem */ = {
 			isa = PBXGroup;
 			children = (
+				D82751E66AF89B81F5857809 /* AtmosphereCatalog.swift */,
 				FF12FD2E88EE49ED33F8779A /* BTBrandLogo.swift */,
 				F1131CEFFE51D5B8480CBB81 /* BTDrillCategoryIcon.swift */,
 				31B5F0C872617B9168B021DA /* BTLogoMark.swift */,
@@ -1840,6 +1848,7 @@
 				0B5C12FDFDD7D31E738FA2BD /* BTAimCloseupHUD.swift */,
 				E69DFEFE7D18BCAA9C12CF8F /* BTAimTableView.swift */,
 				4E1AE3C460E4DF08F47978E6 /* BTAimWheel.swift */,
+				BF22FA7F2D0042C08BD82A03 /* BTAtmosphereLayer.swift */,
 				F18CD15EF90AEB8F4C07F177 /* BTBakedDrillTable.swift */,
 				CD2EF54AC2F5B12846EFE6FB /* BTBallPaletteBar.swift */,
 				F267826CBDEB22DBBC035ECA /* BTButton.swift */,
@@ -2303,11 +2312,13 @@
 				B94A486DDC09E75FCE9605A1 /* AppError.swift in Sources */,
 				2947954C032BD8539CC719CD /* AppRouter.swift in Sources */,
 				06685B631C7F99CB30F04243 /* AtlasSpinTrackSelection.swift in Sources */,
+				D0AA73997DBD98331B8D289A /* AtmosphereCatalog.swift in Sources */,
 				1CF9CED0E73E8491D03D5748 /* AuthService.swift in Sources */,
 				2744B51A4149BC0E5CE19E92 /* AuthState.swift in Sources */,
 				ABED6E45D18DD7F7E773C4C5 /* BTAimCloseupHUD.swift in Sources */,
 				C1FCF332BB96D87B65B60C34 /* BTAimTableView.swift in Sources */,
 				E464F20516231B0DBBC475D4 /* BTAimWheel.swift in Sources */,
+				E9597DD3FA99B551F2C6D80F /* BTAtmosphereLayer.swift in Sources */,
 				90EF4130B50B27EABAC1A96A /* BTBakedDrillTable.swift in Sources */,
 				84DD2455DEC0B9133ACFE588 /* BTBallPaletteBar.swift in Sources */,
 				197792AB9C4CA0D0599CD911 /* BTBrandLogo.swift in Sources */,
@@ -2681,6 +2692,7 @@
 				38DD94E622D8FC48F702096E /* AngleTrainingTests.swift in Sources */,
 				B9584DF6A4427F05248F1675 /* AppRouterTests.swift in Sources */,
 				E078555F6EEB8C36E88ADA4F /* AtlasSpinTrackSelectionTests.swift in Sources */,
+				AB6986B5016405513380ACEB /* AtmosphereCatalogTests.swift in Sources */,
 				549224ED273CA8A5E26B6E39 /* BTShotHUDBarRenderTests.swift in Sources */,
 				AF5DFFA1ACBF941731BD57CF /* BakeRunnerGate.swift in Sources */,
 				53574EDAD23F5EB17AA3CE4E /* BallFaceRenderDiagTests.swift in Sources */,

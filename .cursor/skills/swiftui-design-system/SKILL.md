@@ -385,6 +385,8 @@ CoverPalette.Glyph.goldOpacity        // 0.62
 Font.btCoverWatermark                 // 56pt
 Font.btCoverWatermark(size: 96)       // 训练列表海报
 BTPlanCover(planId: ..., targetLevel: ..., issueNumber: ..., mode: .list) // 或 .hero
+// v46 DR-080：卡面走 AtmosphereCatalog.image / CoverArtKey，showsColorWash=false
+// Tab 矮顶带仍 AtmosphereKey.felt* + 色罩；自定义模版 hash templatePool（12）
 
 view.btThumbnailFrame(
     cornerRadius: BTRadius.sm,
@@ -396,7 +398,7 @@ view.btThumbnailFrame(
 
 - `typealias AngleCoverPalette = CoverPalette`（旧调用方无需改名）
 - 分区阶梯用每区 `ZoneLadder`（练区防泥褐 B 地板；解区起点压暗）
-- 训练计划颜色按 `targetLevel`，主题水印按 `planId` 经 `PlanCoverLabel` 映射；2/3 字单行按 60%/48% 缩放，4 字按 2×2 双行与 40% 缩放，并保留 `Spacing.xl` 安全区；水印相对几何中心下移基础字号 6%；列表期号只显示「第 N 期」，禁止再叠两位数编号
+- 训练计划颜色按 `targetLevel` 只供缺图回退；**禁止**再叠主题水印（DR-081）。列表保留「第 N 期」。`PlanCoverLabel` 不上屏。练习卡禁止两字水印 / chip，保留左上 01 + Pro
 - 禁止为封面色板发明 Dark 专用变体；禁止按卡硬写 RGB 绕过阶梯
 
 ## 九-d、共享表层语法与练习混合封面（DR-045 / v28）
@@ -748,6 +750,8 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-30（DR-081）— 计划/练习/模版封面去主题水印与 chip；编号保留（第 N 期 / 01 / 模版序号）。卡下标题保留。
+- 2026-08-29（DR-080 / v46）— 官方/练习/模版封面去彩色罩：`CoverArtKey` 60 + `showsColorWash=false` + 中性暗幕 0.12。`AtmosphereKey` 仍 6 个 `felt*` 只给 Tab。`CustomPlanAtmosphere` hash `templatePool` 12。
 - 2026-08-27（DR-079）— `ShareCardTheme.paper`（浅色）为默认；卡内文色走 `primaryText` 等，禁止写死 `.white`。分享页选择器标「背景」。总结页「生成分享图」同时落库，`saveTraining` 幂等。
 - 2026-08-26（DR-078）— 动作库类别短名：基础 / 准度 / 杆法 / 走位 / 控力。`PlanListView` 取消 `groupedPlans` 按档分节，官方计划按 `Plans/index.json` 序单节排列。
 - 2026-08-25（DR-077）— 动作库已练过用封面右下亮绿 `BTPracticedBadge`（✓ 已练，Dark `btPrimary`）；网格课名一律主色，Pro 不再洗灰。禁止灰色「已完成」元信息行。

@@ -234,7 +234,7 @@ struct PlanListView: View {
 
         return HStack(spacing: Spacing.md) {
             HStack(spacing: Spacing.md) {
-                customThumbnail(issueNumber: issueNumber)
+                customThumbnail(planId: plan.id, issueNumber: issueNumber)
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(plan.name)
@@ -317,29 +317,8 @@ struct PlanListView: View {
         .id(plan.id.uuidString)
     }
 
-    private func customThumbnail(issueNumber: Int) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: BTRadius.sm)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.btAccent.opacity(0.18), Color.btAccent.opacity(0.04)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            VStack(spacing: 2) {
-                Text(String(format: "%02d", issueNumber))
-                    .font(.btDisplaySmall)
-                    .foregroundStyle(Color.btAccent)
-                    .monospacedDigit()
-                Image(systemName: BTIcon.hammer)
-                    .font(.btCaption2)
-                    .foregroundStyle(Color.btAccent.opacity(0.7))
-            }
-        }
-        .frame(width: 72, height: 72)
-        .accessibilityHidden(true)
+    private func customThumbnail(planId: UUID, issueNumber: Int) -> some View {
+        CustomPlanThumbnail(planId: planId, issueNumber: issueNumber)
     }
 
     // MARK: - Actions
@@ -418,6 +397,65 @@ struct PlanListView: View {
         proxy.scrollTo(id, anchor: .center)
     }
 
+}
+
+// MARK: - Custom plan motif (shared with TrainingHomeView)
+
+/// Hash `CustomPlan.id` onto the 12-template `CoverArtKey` pool (v46 D-v46-16).
+enum CustomPlanAtmosphere {
+    static func art(for planId: UUID) -> CoverArtKey {
+        let pool = AtmosphereCatalog.templatePool
+        return pool[stableIndex(for: planId) % pool.count]
+    }
+
+    static func fallbackPair() -> CoverPalette.Pair {
+        CoverPalette.Pair(
+            top: Color(white: 0.18),
+            bottom: Color(white: 0.08)
+        )
+    }
+
+    static func stableIndex(for planId: UUID) -> Int {
+        let u = planId.uuid
+        let bytes: [UInt8] = [
+            u.0, u.1, u.2, u.3, u.4, u.5, u.6, u.7,
+            u.8, u.9, u.10, u.11, u.12, u.13, u.14, u.15
+        ]
+        var hash = 0
+        for byte in bytes {
+            hash = hash &* 31 &+ Int(byte)
+        }
+        return hash & Int.max
+    }
+}
+
+struct CustomPlanThumbnail: View {
+    let planId: UUID
+    let issueNumber: Int
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            BTAtmosphereLayer(
+                image: .art(CustomPlanAtmosphere.art(for: planId)),
+                pair: CustomPlanAtmosphere.fallbackPair(),
+                crop: .list,
+                showsColorWash: false,
+                showsNeutralScrim: true
+            )
+
+            Text(String(format: "%02d", issueNumber))
+                .font(.btCaption2.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(.white.opacity(0.92))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(.black.opacity(0.38), in: Capsule())
+                .padding(Spacing.xs)
+        }
+        .frame(width: 72, height: 72)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .accessibilityHidden(true)
+    }
 }
 
 // MARK: - Plan Card

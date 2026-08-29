@@ -14,7 +14,18 @@ final class P4_TrainingLogUITests: XCTestCase {
     // MARK: - Training Home
 
     func testTrainingHomeTitle() {
-        XCTAssertTrue(app.staticTexts["训练"].waitForExistence(timeout: 3), "Training tab title should be visible")
+        let hasPageContent =
+            app.staticTexts["今日安排"].waitForExistence(timeout: 5) ||
+            app.staticTexts["官方计划"].waitForExistence(timeout: 3) ||
+            app.staticTexts["选择一个计划开始训练"].waitForExistence(timeout: 3)
+        XCTAssertTrue(
+            hasPageContent,
+            "Training home should show 今日安排, 官方计划, or the empty-state prompt"
+        )
+        XCTAssertTrue(
+            app.tabBars.buttons["训练"].waitForExistence(timeout: 3),
+            "Tab bar Training button must remain"
+        )
     }
 
     func testEmptyStateOrActivePlan() {

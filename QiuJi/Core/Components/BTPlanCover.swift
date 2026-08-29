@@ -1,15 +1,13 @@
 import SwiftUI
 
-/// 训练计划「杂志封面」色卡 —— 方向 A：纯排版，无图片。
+/// 训练计划封面——一卡一图，无彩色罩、无主题水印（v46 DR-080 / DR-081）。
 ///
-/// 用一种饱和色调 + 课程主题水印 + 编号小字代替真实封面图。
-/// 等动作库素材（15.tutorial_video）到位后，可把渐变层整体替换为图片，结构不变。
-///
-/// 色值 / 水印规范：`CoverPalette`（与练习页分区封面同一真源，v27 W2 / DR-044）。
+/// Bundle 静物 PNG（`AtmosphereCatalog.image(forPlanId:)`）+ 中性暗幕。
+/// 缺图时回退为现网纯渐变。卡面禁止再叠系列色罩或「入门 / 准度 / 控力」类大字。
 ///
 /// 复用场景（v28 W2：列表态 / Hero 态参数分离）：
-/// - `.list`：网格/计划列表封面；期号可见；标题由 `BTContentGridCard` 放在封面下。
-/// - `.hero`：详情页全宽 Hero；隐藏期号；大字水印；标题仍由调用方叠在左下。
+/// - `.list`：网格/计划列表封面；标题由 `BTContentGridCard` 放在封面下。
+/// - `.hero`：详情页全宽 Hero；标题仍由调用方叠在左下。
 struct BTPlanCover: View {
     enum Mode: Equatable {
         case list
@@ -18,71 +16,31 @@ struct BTPlanCover: View {
 
     let planId: String
     let targetLevel: String
-    let issueNumber: Int
+    var issueNumber: Int = 0
     var mode: Mode = .list
-    /// Absolute glyph size override; `nil` resolves from `mode`.
-    var glyphSize: CGFloat? = nil
     var corner: CGFloat? = nil
-    /// Explicit override; `nil` resolves from `mode` (list=true, hero=false).
-    var showIssueLabel: Bool? = nil
 
     private var style: CoverPalette.PlanStyle { CoverPalette.PlanStyle.forLevel(targetLevel) }
-    private var label: String { PlanCoverLabel.text(for: planId) }
-    private var displayLabel: String { PlanCoverLabel.displayText(for: planId) }
-
-    private var resolvedBaseGlyphSize: CGFloat {
-        if let glyphSize { return glyphSize }
-        switch mode {
-        case .list: return CoverPalette.Glyph.planListAbsoluteSize
-        case .hero: return CoverPalette.Glyph.planHeroAbsoluteSize
-        }
-    }
-
-    private var resolvedLabelSize: CGFloat {
-        // Single-line (1–3 chars) ≈ 2/3 of DR-049 scales; 4-char two-line keeps 0.40 (DR-056).
-        let scale: CGFloat
-        switch label.count {
-        case ...2: scale = 0.40
-        case 3: scale = 0.32
-        default: scale = 0.40
-        }
-        return resolvedBaseGlyphSize * scale
-    }
-
-    private var resolvedLabelVerticalOffset: CGFloat {
-        resolvedBaseGlyphSize * 0.06
-    }
 
     private var resolvedCorner: CGFloat {
         corner ?? (mode == .hero ? 0 : BTRadius.md)
     }
 
-    private var resolvedShowIssueLabel: Bool {
-        showIssueLabel ?? (mode == .list)
-    }
-
     var body: some View {
         ZStack {
-            LinearGradient(
-                colors: [style.top, style.bottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+            BTAtmosphereLayer(
+                image: AtmosphereCatalog.image(forPlanId: planId),
+                pair: CoverPalette.Pair(top: style.top, bottom: style.bottom),
+                crop: mode == .hero ? .hero : .list,
+                showsColorWash: false,
+                showsNeutralScrim: true
             )
 
-            Text(displayLabel)
-                .font(.btCoverWatermark(size: resolvedLabelSize))
-                .foregroundStyle(style.glyphColor)
-                .minimumScaleFactor(0.85)
-                .multilineTextAlignment(.center)
-                .lineLimit(label.count == 4 ? 2 : 1)
-                .padding(.horizontal, Spacing.xl)
-                .offset(y: resolvedLabelVerticalOffset)
-
-            if resolvedShowIssueLabel {
+            if mode == .list {
                 VStack {
                     HStack(alignment: .top) {
                         Text("第 \(issueNumber) 期")
-                            .font(.system(size: resolvedBaseGlyphSize * 0.095, weight: .semibold))
+                            .font(.system(size: CoverPalette.Glyph.planListAbsoluteSize * 0.095, weight: .semibold))
                             .monospacedDigit()
                             .foregroundStyle(.white.opacity(0.92))
 

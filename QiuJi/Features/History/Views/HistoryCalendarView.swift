@@ -20,15 +20,6 @@ struct HistoryCalendarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("记录")
-                    .font(.btLargeTitle)
-                    .foregroundStyle(.btText)
-                Spacer()
-            }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.sm)
-
             BTSegmentedTab(tabs: HistoryTab.allCases, selected: $activeTab) { $0.rawValue }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)

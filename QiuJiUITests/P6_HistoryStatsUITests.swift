@@ -14,7 +14,25 @@ final class P6_HistoryStatsUITests: XCTestCase {
     // MARK: - History Calendar
 
     func testHistoryTabTitle() {
-        XCTAssertTrue(app.staticTexts["记录"].waitForExistence(timeout: 3), "History tab title should be visible")
+        XCTAssertTrue(
+            app.tabBars.buttons["记录"].waitForExistence(timeout: 3),
+            "History tab bar item should remain"
+        )
+        let historyText = app.staticTexts["历史"].firstMatch
+        let statsText = app.staticTexts["统计"].firstMatch
+        let calendarText = app.staticTexts["日历"].firstMatch
+        let historyBtn = app.buttons["历史"].firstMatch
+        let statsBtn = app.buttons["统计"].firstMatch
+        let calendarBtn = app.buttons["日历"].firstMatch
+        XCTAssertTrue(
+            historyText.waitForExistence(timeout: 3)
+                || statsText.waitForExistence(timeout: 2)
+                || calendarText.waitForExistence(timeout: 2)
+                || historyBtn.waitForExistence(timeout: 2)
+                || statsBtn.waitForExistence(timeout: 2)
+                || calendarBtn.waitForExistence(timeout: 2),
+            "History page should show 历史/日历 or 统计 segment"
+        )
     }
 
     func testSegmentedTabVisible() {

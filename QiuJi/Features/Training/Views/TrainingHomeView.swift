@@ -136,52 +136,53 @@ struct TrainingHomeView: View {
 
     // MARK: - Page Header
 
+    /// Tab 顶带已按用户要求撤回；页内「训练」大标题仍不恢复。好友/菜单留在右上。
     private var pageHeader: some View {
         HStack {
-            Text("训练")
-                .font(.btLargeTitle)
-                .foregroundStyle(.btText)
-
             Spacer()
-
-            HStack(spacing: Spacing.md) {
-                Button {
-                    viewModel.restorePlanID = nil
-                    router.trainingPath.append(TrainingRoute.planList)
-                } label: {
-                    Image(systemName: BTIcon.personGroup)
-                        .font(.btBody)
-                        .foregroundStyle(.btTextSecondary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-
-                Menu {
-                    Button {
-                        viewModel.restorePlanID = nil
-                        router.trainingPath.append(TrainingRoute.planList)
-                    } label: {
-                        Label("训练计划", systemImage: "list.bullet.rectangle.portrait")
-                    }
-                    Button {
-                        viewModel.restorePlanID = nil
-                        router.trainingPath.append(TrainingRoute.customPlanBuilder)
-                    } label: {
-                        Label("新建模版", systemImage: "plus")
-                    }
-                } label: {
-                    Image(systemName: BTIcon.menu)
-                        .font(.btBody)
-                        .foregroundStyle(.btTextSecondary)
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-            }
+            headerActions
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
         .padding(.bottom, Spacing.sm)
         .background(.btBG)
+    }
+
+    private var headerActions: some View {
+        HStack(spacing: Spacing.md) {
+            Button {
+                viewModel.restorePlanID = nil
+                router.trainingPath.append(TrainingRoute.planList)
+            } label: {
+                Image(systemName: BTIcon.personGroup)
+                    .font(.btBody)
+                    .foregroundStyle(.btTextSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("好友")
+
+            Menu {
+                Button {
+                    viewModel.restorePlanID = nil
+                    router.trainingPath.append(TrainingRoute.planList)
+                } label: {
+                    Label("训练计划", systemImage: "list.bullet.rectangle.portrait")
+                }
+                Button {
+                    viewModel.restorePlanID = nil
+                    router.trainingPath.append(TrainingRoute.customPlanBuilder)
+                } label: {
+                    Label("新建模版", systemImage: "plus")
+                }
+            } label: {
+                Image(systemName: BTIcon.menu)
+                    .font(.btBody)
+                    .foregroundStyle(.btTextSecondary)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+        }
     }
 
     // MARK: - Active Plan Content
@@ -324,7 +325,7 @@ struct TrainingHomeView: View {
         } label: {
             Image(systemName: BTIcon.menu)
                 .font(.btFootnote)
-                .foregroundStyle(.btTextSecondary)
+                .foregroundStyle(.white.opacity(0.88))
                 .frame(width: 32, height: 32)
                 .contentShape(Rectangle())
         }
@@ -571,31 +572,8 @@ struct TrainingHomeView: View {
         }
     }
 
-    private func customIssueThumbnail(number: Int) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: BTRadius.sm)
-                .fill(
-                    LinearGradient(
-                        colors: [Color.btAccent.opacity(0.18), Color.btAccent.opacity(0.04)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-
-            VStack(spacing: Spacing.xs) {
-                Text(String(format: "%02d", number))
-                    .font(.btDisplaySmall)
-                    .foregroundStyle(Color.btAccent)
-                    .monospacedDigit()
-                Image(systemName: BTIcon.hammer)
-                    .font(.btCaption2)
-                    .foregroundStyle(Color.btAccent.opacity(0.7))
-            }
-        }
-        // F-TR-14: align with PlanListView custom thumbnail (72)
-        .frame(width: 72, height: 72)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-        .accessibilityHidden(true)
+    private func customIssueThumbnail(planId: UUID, issueNumber: Int) -> some View {
+        CustomPlanThumbnail(planId: planId, issueNumber: issueNumber)
     }
 
     private func planLevelName(_ level: String) -> String {
@@ -637,7 +615,7 @@ struct TrainingHomeView: View {
 
         return HStack(spacing: Spacing.md) {
             HStack(spacing: Spacing.md) {
-                customIssueThumbnail(number: issueNumber)
+                customIssueThumbnail(planId: plan.id, issueNumber: issueNumber)
 
                 VStack(alignment: .leading, spacing: Spacing.xs) {
                     Text(plan.name)

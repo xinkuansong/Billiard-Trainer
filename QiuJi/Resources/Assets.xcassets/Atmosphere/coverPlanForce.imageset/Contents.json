@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "coverPlanForce.png",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

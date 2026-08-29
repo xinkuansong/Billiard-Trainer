@@ -25,9 +25,14 @@ final class P5_AngleTrainingUITests: XCTestCase {
     // MARK: - Angle Home
 
     func testAngleHomeTitle() {
-        let pageTitle = app.staticTexts["练习"]
-        XCTAssertTrue(pageTitle.waitForExistence(timeout: 5),
-                      "Practice page header '练习' should be visible")
+        // D-v45-8 / FL-027：页内大标题已去掉；`staticTexts["练习"]` 会假绿命中底栏。
+        XCTAssertTrue(app.tabBars.buttons["练习"].waitForExistence(timeout: 5),
+                      "Tab bar '练习' should remain")
+        XCTAssertTrue(app.buttons["angleHomeTab_全部"].waitForExistence(timeout: 5),
+                      "Practice sidebar '全部' should be visible")
+        XCTAssertTrue(app.buttons["瞄准原理"].waitForExistence(timeout: 5),
+                      "瞄准原理 card should be visible on the practice home")
+        saveW2Shot("practice-home-all-Light")
     }
 
     func testFiveSegmentTabs() {
@@ -43,6 +48,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["瞄准原理"].waitForExistence(timeout: 3), "瞄准原理 card should exist in 学")
         XCTAssertTrue(app.buttons["瞄准点对照表"].waitForExistence(timeout: 3), "瞄准点对照表 card should exist in 学")
         XCTAssertFalse(app.descendants(matching: .any)["球理"].exists, "学区不应再有球理入口卡（v32）")
+        saveW2Shot("practice-home-learn-Light")
         // 理（v32.2：每篇一卡，无「球理」总卡）
         XCTAssertTrue(switchHomeTab("理"), "Should switch to 理 segment")
         XCTAssertTrue(app.buttons["切线法则"].waitForExistence(timeout: 3), "切线法则 card should exist in 理")
@@ -50,6 +56,7 @@ final class P5_AngleTrainingUITests: XCTestCase {
         // 练
         XCTAssertTrue(switchHomeTab("练"), "Should switch to 练 segment")
         XCTAssertTrue(app.buttons["角度预测"].waitForExistence(timeout: 3), "角度预测 card should exist in 练")
+        saveW2Shot("practice-home-train-Light")
         // 打
         XCTAssertTrue(switchHomeTab("打"), "Should switch to 打 segment")
         XCTAssertTrue(app.buttons["自由击球"].waitForExistence(timeout: 3), "自由击球 card should exist in 打")
@@ -67,6 +74,14 @@ final class P5_AngleTrainingUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    /// v45 W2 Light 验收截图（不改断言，只落盘）。
+    private func saveW2Shot(_ name: String) {
+        let dir = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/w2-screenshots")
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let data = XCUIScreen.main.screenshot().pngRepresentation
+        try? data.write(to: dir.appendingPathComponent("\(name).png"))
     }
 
     func testSearchFiltersEntries() {
@@ -101,7 +116,8 @@ final class P5_AngleTrainingUITests: XCTestCase {
         snap("search-empty")
         XCTAssertTrue(app.staticTexts["没有找到相关练习"].waitForExistence(timeout: 3),
                       "Empty state should appear for no-match search")
-        let browseAll = app.buttons["浏览全部练习"]
+        // BTEmptyState 图标钮与操作钮同 label；点 firstMatch，空态/恢复卡断言不删。
+        let browseAll = app.buttons["浏览全部练习"].firstMatch
         XCTAssertTrue(browseAll.waitForExistence(timeout: 3), "Empty state action should exist")
         browseAll.tap()
         usleep(600_000)

@@ -3,6 +3,8 @@ import SwiftUI
 @testable import QiuJi
 
 /// Constraint A（水印可辨）与分区阶梯不变量；DR-055 后封面大字默认深墨、暗底金色回退。
+/// v46 W0：官方/练习/模版卡已关彩色罩，本文件只守 **色板 token** 与仍走色罩的 Tab 顶带，
+/// 不再把 `PlanStyle` / `PracticeMulticolor.top` 当成卡面罩色来要求对照。
 final class CoverPaletteContrastTests: XCTestCase {
 
     func testAllPracticeCoversMeetWatermarkLuminanceDelta() {

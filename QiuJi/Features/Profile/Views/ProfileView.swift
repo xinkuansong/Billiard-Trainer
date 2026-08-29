@@ -14,15 +14,6 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack(path: $router.profilePath) {
             VStack(spacing: 0) {
-                HStack {
-                    Text("我的")
-                        .font(.btLargeTitle)
-                        .foregroundStyle(.btText)
-                    Spacer()
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.sm)
-
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
                         if authState.isLoggedIn {

@@ -24,7 +24,6 @@ struct DrillListView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            pageHeader
             BTLibrarySearchBar(placeholder: "搜索动作", text: $viewModel.searchText) {
                 libraryFilterMenu
             }
@@ -44,19 +43,6 @@ struct DrillListView: View {
         .onChange(of: completedDrillIds) { _, newValue in
             viewModel.updateCompletedDrillIds(newValue)
         }
-    }
-
-    // MARK: - Page Header
-
-    private var pageHeader: some View {
-        HStack {
-            Text("动作库")
-                .font(.btLargeTitle)
-                .foregroundStyle(.btText)
-            Spacer()
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.sm)
     }
 
     /// Ball type + tutorial/progress filters live in one Menu (v28 W3); badge shows active count.

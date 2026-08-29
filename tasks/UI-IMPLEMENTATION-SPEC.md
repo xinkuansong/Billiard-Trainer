@@ -262,12 +262,10 @@ struct BTLevelBadge: View {
 | 相对比例（文档） | `sizeRatio` = 0.48（相对封面短边） |
 | 分区阶梯 | **每区独立** `ZoneLadder`（B/S 起终点）；练区 topB 地板 ≥0.62 防泥褐；解区 topB 起点 ≤0.36 |
 
-**训练计划主题水印（DR-048 / DR-049 / DR-050 / DR-053）**：
-- `BTPlanCover(planId:targetLevel:issueNumber:mode:)`：`targetLevel` 只决定六色背景，`planId` 通过 `PlanCoverLabel` 决定主题文字。
-- 10 套官方计划依次映射：入门 / 杆法 / 准度 / 控力 / 分离角 / 加塞 / 走位 / 中级综合 / 加塞多库 / 全能综合；`plan_advanced` 正文名为「加塞与多库专项」。
-- 2/3 字主题保持单行，按基础字号的 60%/48% 缩放；4 字主题按 2×2 固定断行并取 40%。保留 `Spacing.xl` 水平安全区；禁止重新铺满封面或复制完整计划标题。
-- 水印相对几何中心向下偏移基础字号的 6%，用于修正左上期号与粗圆体造成的视觉重心偏上；期号位置不随之移动。
-- 列表封面期号只显示「第 N 期」，不再同时显示两位数编号。
+**训练计划封面（DR-081：去叠字）**：
+- `BTPlanCover(planId:targetLevel:issueNumber:mode:)`：`planId` 经 `AtmosphereCatalog.image(forPlanId:)` 取独立静物图（`CoverArtKey`），缺图回退渐变；`targetLevel` 只供回退渐变色，**禁止**再当卡面彩色罩（DR-080 / v46）。
+- **禁止**再叠主题水印（入门 / 准度 / 控力等）。列表态保留「第 N 期」。识别靠卡下 `BTContentGridCard` 标题。`PlanCoverLabel` 仅作数据映射，不上屏。
+- 练习网格：静物 + 左上分组 01 编号 + Pro 徽标；禁止两字水印 / 类型 chip。
 
 ### 2.3d 共享表层语法与练习混合封面（DR-045 / v28）
 
@@ -1085,6 +1083,9 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 | 2026-08-27 | **休息最小化计时改回金色**：收起后右下计时胶囊改回 `btAccent`，与绿色主按钮区分 | 修正 | ActiveTrainingView | 用户：最小化后计时用之前颜色更有区分度 |
 | 2026-08-27 | **休息卡最小化按钮提亮**：卡顶「最小化」由 `btTextSecondary` + `btBGTertiary` 改为 `btPrimary` + `btPrimaryMuted`，避免像禁用 | 修正 | ActiveTrainingView | 用户：最小化按钮太暗像不能点 |
 | 2026-08-27 | **休息最小化胶囊改主色**：收起后右下计时胶囊由 `btAccent` 改为 `btPrimary`，避免偏暗像不可点 | 修正 | ActiveTrainingView | 用户：最小化按钮太暗 |
+| 2026-08-30 | **撤回 Tab 矮顶带 + 学/理 hero**：五 Tab 根页不再铺气氛矮带；今日安排改回灰卡；瞄准原理等文档页回到导航标题下直接正文。计划卡 / 练习网格卡真图与去大标题保留 | 修正 | TrainingHomeView, AngleHomeView, DrillListView, HistoryCalendarView, ProfileView, TheoryPageChrome, 学/理白名单页 | 用户：用 git 复原顶部的框 |
+| 2026-08-30 | **封面去叠字**（DR-081）：去掉主题水印与 chip；编号保留（第 N 期 / 01 / 模版序号）；卡下标题保留 | 修正/DR | BTPlanCover, AngleGridCard, CustomPlanThumbnail | 用户视觉反馈 |
+| 2026-08-29 | **一卡一真实静物、去彩色罩**（DR-080 / v46 W0）：`CoverArtKey` 60；官方/练习/模版关 `showsColorWash`，中性暗幕 0.12；Tab 矮顶带仍 6 张 `felt*` 可留罩；`CustomPlanAtmosphere` hash 12 张模版池 | 修正/DR | AtmosphereCatalog, BTAtmosphereLayer, BTPlanCover, AngleGridCard | 问题集合 v46 W0 |
 | 2026-08-27 | **休息最小化小图标只在记分页**：收起后右下角金色计时胶囊，点开展开；跨 Tab 浮标改回「继续训练」+ 训练秒，不再显示组间休息 | 修正 | ActiveTrainingView, ActiveTrainingViewModel | 用户：记分页没小图标、训练 Tab 却有 |
 | 2026-08-27 | **休息卡最小化与会话脱钩**（FL-033）：休息卡只收覆层，人留在记分页；底栏才整场离页；回来时覆层展开。撤回训练 Tab 挂会话 | 修正/FL | ActiveTrainingView, ActiveTrainingViewModel, AppRouter, MainTabView | 用户澄清：休息最小化 ≠ 切 Tab |
 | 2026-08-27 | **最小化后训练 Tab 留在记分页**：最小化会话挂在训练 Tab 上，不再揭开首页；浮标只在其他 Tab。二次最小化不再「记住」回训练首页 | 修正 | MainTabView, AppRouter, ActiveTrainingView | 用户：最小化有记忆回 Tab |

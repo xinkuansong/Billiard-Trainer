@@ -82,6 +82,31 @@
 
 ## DR 记录（设计调整）
 
+## DR-081
+- **任务**：训练计划 / 练习封面去掉叠字
+- **原始规范**：卡面静物图上再叠主题水印（入门 / 准度 / 控力 / 练习两字）+ 计划「第 N 期」+ 练习 01 编号与类型 chip。
+- **调整后**：封面去掉主题水印（入门 / 准度 / 控力）与练习 chip。编号保留：计划列表「第 N 期」、练习卡左上 01、模版缩略图序号。卡下标题仍由 `BTContentGridCard` 承担识别。`PlanCoverLabel` 映射保留作数据，不上屏。
+- **原因**：用户要看完整生成图，不要封面上的「入门 / 准度 / 控力」类字。
+- **影响组件**：`BTPlanCover`、`AngleGridCard`、`CustomPlanThumbnail`
+- **日期**：2026-08-30
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c / Changelog；`.cursor/skills/swiftui-design-system/SKILL.md`；`20-swiftui-developer.mdc` Changelog
+- **已应用至**：✅ 同日回写上述三处
+
+## DR-080
+- **任务**：问题集合 v46 W0 — 一卡一真实静物、去彩色罩
+- **原始规范**：v45 六母题 `AtmosphereKey` + `CoverPalette` 色罩（`opacity 0.58`）铺官方/练习/模版封面；水印对照罩色 `top`。
+- **调整后**：
+  1. `AtmosphereKey` 仍 6 个 `felt*`，只给 Tab 矮顶带（可留色罩）。
+  2. 新增 `CoverArtKey`（60）+ `AtmosphereImage`；官方/练习/模版走 `coverArt` / `image`，缺图回退渐变。
+  3. `BTAtmosphereLayer`：`showsColorWash`（Tab 默认 true）、`showsNeutralScrim`（卡片 0.12 黑）。卡/hero/模版关色罩。
+  4. `CustomPlanAtmosphere.art(for:)` hash 到 `templatePool` 12 张，禁止再读 `AtmosphereKey.allCases`。
+  5. `CoverPaletteContrastTests` 只守色板 token / Tab 罩路径，不再要求卡面水印对照彩色罩 `top`。
+- **原因**：用户要看完整照片，不要绿/蓝/棕膜。
+- **影响组件**：`AtmosphereCatalog`、`CoverArtKey`、`BTAtmosphereLayer`、`BTPlanCover`、`AngleGridCard`、`CustomPlanAtmosphere`
+- **日期**：2026-08-29
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §2.3c / Changelog；`.cursor/skills/swiftui-design-system/SKILL.md`；`20-swiftui-developer.mdc` Changelog
+- **已应用至**：✅ 同日回写上述三处
+
 ## DR-079
 - **任务**：训练结束「生成分享图」同时落库 + 分享卡浅色背景
 - **原始规范**：总结页「保存训练」与「生成分享图」分立；`ShareCardTheme` 四档（炭灰/黑白/暗夜蓝/深紫）全是深底，默认炭灰；卡内文色写死 `.white`；选择器标签「颜色」、色圈只画 accent。

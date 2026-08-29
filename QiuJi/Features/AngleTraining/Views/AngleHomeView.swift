@@ -69,10 +69,7 @@ private struct AngleEntry: Identifiable {
     let route: AngleRoute
     let title: String
     let subtitle: String
-    /// Pre-v27 cover identity restored after the zone palette proved too uniform.
-    let glyph: String
     let palette: CoverPalette.Pair
-    var chip: String? = nil
     var isPremium: Bool = false
     /// 主题标签（可多个）；空 = 综合内容，仅在未选主题时出现。
     var topics: Set<PracticeTopic> = []
@@ -81,112 +78,15 @@ private struct AngleEntry: Identifiable {
         route: AngleRoute,
         title: String,
         subtitle: String,
-        chip: String? = nil,
         isPremium: Bool = false,
         topics: Set<PracticeTopic> = []
     ) {
         self.route = route
         self.title = title
         self.subtitle = subtitle
-        self.glyph = Self.glyph(for: route)
-        self.palette = Self.palette(for: route)
-        self.chip = chip
+        self.palette = AtmosphereCatalog.cover(for: route).pair
         self.isPremium = isPremium
         self.topics = topics
-    }
-
-    private static func glyph(for route: AngleRoute) -> String {
-        switch route {
-        case .theoryIndex: "球理"
-        case .theoryPage(let pageID): glyph(for: pageID)
-        case .aimingPrinciple: "瞄准"
-        case .aimingMethods: "方法"
-        case .aimingCorrection: "修正"
-        case .spinAndEnglish: "旋转"
-        case .separationAngleAtlas: "分离"
-        case .cushionEnglishAtlas: "吃库"
-        case .angleDynamic: "打点"
-        case .geometricQuiz: "估角"
-        case .sceneAiming2D, .sceneAiming3D: "角度"
-        case .aimPointTraining, .aimPointScene2D, .aimPointScene3D: "瞄点"
-        case .ballFeel: "球感"
-        case .contactPointTable: "对照"
-        case .shotSimulation: "分离"
-        case .positionPlayComposer: "走位"
-        case .freePlay: "击球"
-        case .ballExtraction: "拍照"
-        case .batchDrillStudio: "批量"
-        case .positionPlaySolver: "思路"
-        case .planThree: "三杆"
-        case .snookerTactics: "防守"
-        case .bankShot: "翻袋"
-        case .diamondSystem: "反射"
-        case .drillDetail: "跟练"
-        }
-    }
-
-    /// 理区封面两字水印（v32.2：每篇一卡，勿 12 张同写「球理」）。
-    private static func glyph(for pageID: TheoryPageID) -> String {
-        switch pageID {
-        case .t01: "三十"
-        case .t02: "九十"
-        case .t03: "切线"
-        case .t04: "速度"
-        case .t05: "倒推"
-        case .t06: "关键"
-        case .t07: "球团"
-        case .t08: "风险"
-        case .t09: "少塞"
-        case .t10: "安全"
-        case .flow: "五步"
-        case .quickRef: "速查"
-        }
-    }
-
-    private static func palette(for route: AngleRoute) -> CoverPalette.Pair {
-        let multicolor = CoverPalette.PracticeMulticolor.self
-        return switch route {
-        case .theoryIndex: multicolor.theoryIndex
-        case .theoryPage(let pageID): palette(for: pageID)
-        case .aimingPrinciple: multicolor.aimingPrinciple
-        case .aimingMethods: multicolor.aimingMethods
-        case .aimingCorrection: multicolor.aimingCorrection
-        case .spinAndEnglish: multicolor.spinAndEnglish
-        case .separationAngleAtlas: multicolor.separationAngleAtlas
-        case .cushionEnglishAtlas: multicolor.cushionEnglishAtlas
-        case .angleDynamic: multicolor.angleDynamic
-        case .geometricQuiz: multicolor.geometricQuiz
-        case .sceneAiming2D: multicolor.sceneAiming2D
-        case .sceneAiming3D: multicolor.sceneAiming3D
-        case .aimPointTraining: multicolor.aimPointTraining
-        case .aimPointScene2D: multicolor.aimPointScene2D
-        case .aimPointScene3D: multicolor.aimPointScene3D
-        case .ballFeel: multicolor.ballFeel
-        case .contactPointTable: multicolor.contactPointTable
-        case .shotSimulation: multicolor.shotSimulation
-        case .positionPlayComposer: multicolor.positionPlayComposer
-        case .freePlay: multicolor.freePlay
-        case .ballExtraction: multicolor.ballExtraction
-        case .batchDrillStudio: multicolor.batchDrillStudio
-        case .positionPlaySolver: multicolor.positionPlaySolver
-        case .planThree: multicolor.planThree
-        case .snookerTactics: multicolor.snookerTactics
-        case .bankShot: multicolor.bankShot
-        case .diamondSystem: multicolor.diamondSystem
-        case .drillDetail: multicolor.aimingPrinciple
-        }
-    }
-
-    /// 理区按 `TheoryGroup` 微差色（同靛蓝家族，避免 12 卡完全同色）。
-    private static func palette(for pageID: TheoryPageID) -> CoverPalette.Pair {
-        let multicolor = CoverPalette.PracticeMulticolor.self
-        switch TheoryCatalog.entry(for: pageID)?.group {
-        case .collision: return multicolor.theoryIndex
-        case .spin: return multicolor.aimingMethods
-        case .tactics: return multicolor.aimingCorrection
-        case .flow: return multicolor.cushionEnglishAtlas
-        case .none: return multicolor.theoryIndex
-        }
     }
 }
 
@@ -234,9 +134,9 @@ private enum PracticeSection: String, CaseIterable, Identifiable {
 
 // MARK: - Home View
 
-/// 练习 Tab 首页（ADR-P11-08 / ADR-P18-01 / ADR-P18-03 / v28 / v32）：与「动作库」同一套布局语言——
-/// 大标题 + 左侧图标分类侧栏（全部/学/理/练/打/解）+ 右侧双列分组网格（钉住分组头），
-/// 卡片外壳保留 v28 `BTContentGridCard`，封面恢复 pre-v27 多彩渐变大字水印。
+/// 练习 Tab 首页（ADR-P11-08 / ADR-P18-01 / ADR-P18-03 / v28 / v32 / v45）：与「动作库」同一套布局语言——
+/// 母题矮带 + 左侧图标分类侧栏（全部/学/理/练/打/解）+ 右侧双列分组网格（钉住分组头），
+/// 卡片外壳保留 v28 `BTContentGridCard`，封面为 Bundle 静物 + 现网分类色罩。
 struct AngleHomeView: View {
     /// nil = 全部（默认，与动作库侧栏一致）。
     @State private var selectedSection: PracticeSection? = nil
@@ -295,11 +195,11 @@ struct AngleHomeView: View {
     /// 「练」——测验类：练角度直觉。
     private let trainEntries: [AngleEntry] = [
         .init(route: .geometricQuiz, title: "角度预测", subtitle: "看球形，估切角，练直觉", topics: [.accuracy]),
-        .init(route: .sceneAiming2D, title: "2D 角度训练", subtitle: "俯视真台，练几何角度判断", chip: "2D", topics: [.accuracy]),
-        .init(route: .sceneAiming3D, title: "3D 角度训练", subtitle: "站位视角，练临场球感", chip: "3D", isPremium: true, topics: [.accuracy]),
+        .init(route: .sceneAiming2D, title: "2D 角度训练", subtitle: "俯视真台，练几何角度判断", topics: [.accuracy]),
+        .init(route: .sceneAiming3D, title: "3D 角度训练", subtitle: "站位视角，练临场球感", isPremium: true, topics: [.accuracy]),
         .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "给角度拖假想球，毫米级误差", topics: [.accuracy]),
-        .init(route: .aimPointScene2D, title: "2D 瞄准点训练", subtitle: "微调瞄准线选打点，击球验证", chip: "2D", topics: [.accuracy]),
-        .init(route: .aimPointScene3D, title: "3D 瞄准点训练", subtitle: "站位视角微调打点，击球验证", chip: "3D", isPremium: true, topics: [.accuracy]),
+        .init(route: .aimPointScene2D, title: "2D 瞄准点训练", subtitle: "微调瞄准线选打点，击球验证", topics: [.accuracy]),
+        .init(route: .aimPointScene3D, title: "3D 瞄准点训练", subtitle: "站位视角微调打点，击球验证", isPremium: true, topics: [.accuracy]),
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。
@@ -310,8 +210,7 @@ struct AngleHomeView: View {
         entries.append(.init(
             route: .batchDrillStudio,
             title: "批量出片台",
-            subtitle: "drill 截图 → 序列 → 素材",
-            chip: "SIM"
+            subtitle: "drill 截图 → 序列 → 素材"
         ))
         #endif
         return entries
@@ -319,19 +218,19 @@ struct AngleHomeView: View {
 
     /// P11.1：入口顺序 = 分离角与走位、自由走位、自由击球、拍照建球形（、批量出片台）。
     private let basePlayEntries: [AngleEntry] = [
-        .init(route: .shotSimulation, title: "分离角与走位", subtitle: "教学演示：看懂碰撞后母球走向", chip: "物理", topics: [.position, .english]),
-        .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆编排击打，推演整套走位", chip: "物理", isPremium: true, topics: [.position, .english]),
-        .init(route: .freePlay, title: "自由击球", subtitle: "开球散局起手，完整对局体验", chip: "物理"),
-        .init(route: .ballExtraction, title: "拍照建球形", subtitle: "拍下真实球局，导入沙盘复盘", chip: "识别", isPremium: true),
+        .init(route: .shotSimulation, title: "分离角与走位", subtitle: "教学演示：看懂碰撞后母球走向", topics: [.position, .english]),
+        .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆编排击打，推演整套走位", isPremium: true, topics: [.position, .english]),
+        .init(route: .freePlay, title: "自由击球", subtitle: "开球散局起手，完整对局体验"),
+        .init(route: .ballExtraction, title: "拍照建球形", subtitle: "拍下真实球局，导入沙盘复盘", isPremium: true),
     ]
 
     /// 「解」——教练类：给定局面，让引擎反解怎么打。
     private let solveEntries: [AngleEntry] = [
-        .init(route: .positionPlaySolver, title: "思路训练", subtitle: "单杆走位反解：定落点，解塞与力度", chip: "物理", topics: [.position, .english]),
-        .init(route: .planThree, title: "打一走二想三", subtitle: "三杆连续走位规划，练全局思路", chip: "走位", isPremium: true, topics: [.position]),
-        .init(route: .snookerTactics, title: "防守", subtitle: "反解安全球：让对方球组看不到或只剩难球", chip: "物理", isPremium: true, topics: [.safety]),
-        .init(route: .bankShot, title: "翻袋解球器", subtitle: "目标球翻库进袋：求 1–3 库路线", chip: "2D", topics: [.cushion, .accuracy]),
-        .init(route: .diamondSystem, title: "反射解球器", subtitle: "母球吃库绕障碍碰球的路线", chip: "2D", topics: [.cushion]),
+        .init(route: .positionPlaySolver, title: "思路训练", subtitle: "单杆走位反解：定落点，解塞与力度", topics: [.position, .english]),
+        .init(route: .planThree, title: "打一走二想三", subtitle: "三杆连续走位规划，练全局思路", isPremium: true, topics: [.position]),
+        .init(route: .snookerTactics, title: "防守", subtitle: "反解安全球：让对方球组看不到或只剩难球", isPremium: true, topics: [.safety]),
+        .init(route: .bankShot, title: "翻袋解球器", subtitle: "目标球翻库进袋：求 1–3 库路线", topics: [.cushion, .accuracy]),
+        .init(route: .diamondSystem, title: "反射解球器", subtitle: "母球吃库绕障碍碰球的路线", topics: [.cushion]),
     ]
 
     private func entries(for section: PracticeSection) -> [AngleEntry] {
@@ -368,7 +267,6 @@ struct AngleHomeView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            pageHeader
             BTLibrarySearchBar(placeholder: "搜索练习", text: $searchText) {
                 topicFilterMenu
             }
@@ -438,17 +336,6 @@ struct AngleHomeView: View {
         .accessibilityLabel(
             selectedTopic.map { "筛选主题，已选 \($0.rawValue)" } ?? "筛选主题"
         )
-    }
-
-    private var pageHeader: some View {
-        HStack {
-            Text("练习")
-                .font(.btLargeTitle)
-                .foregroundStyle(.btText)
-            Spacer()
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.sm)
     }
 
     // MARK: - Main Content (Sidebar + Grid)
@@ -592,7 +479,7 @@ struct AngleHomeView: View {
     }
 }
 
-// MARK: - Grid Card（v28 shared shell + pre-v27 multicolor glyph cover）
+// MARK: - Grid Card（v28 shared shell + v45 atmosphere + existing palette wash）
 
 private struct AngleGridCard: View {
     let entry: AngleEntry
@@ -609,22 +496,15 @@ private struct AngleGridCard: View {
     }
 
     private var coverArea: some View {
-        let palette = entry.palette
+        let cover = AtmosphereCatalog.cover(for: entry.route)
 
-        return ZStack {
-            LinearGradient(
-                colors: [palette.top, palette.bottom],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Text(entry.glyph)
-                .font(.btCoverWatermark)
-                .foregroundStyle(CoverPalette.Glyph.color(against: palette.top))
-                .minimumScaleFactor(0.5)
-                .lineLimit(1)
-                .offset(y: CoverPalette.Glyph.gridAbsoluteSize * 0.06)
-        }
+        return BTAtmosphereLayer(
+            image: cover.image,
+            pair: entry.palette,
+            crop: .list,
+            showsColorWash: false,
+            showsNeutralScrim: true
+        )
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: BTRadius.md,
@@ -636,17 +516,6 @@ private struct AngleGridCard: View {
         .overlay(alignment: .topTrailing) {
             if entry.isPremium {
                 BTProBadge()
-                    .padding(Spacing.sm)
-            }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if let chip = entry.chip {
-                Text(chip)
-                    .font(.btMicro.weight(.heavy))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, 2)
-                    .background(.white.opacity(0.22), in: Capsule())
                     .padding(Spacing.sm)
             }
         }

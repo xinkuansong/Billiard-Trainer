@@ -32,7 +32,7 @@ final class P2_DataLayerUITests: XCTestCase {
     func testS04_DrillLibraryShowsDrills() {
         app.switchTab(.drillLibrary)
         sleep(1)
-        XCTAssertTrue(app.staticTexts["动作库"].waitForExistence(timeout: 3), "Drill library title should be visible")
+        assertDrillLibraryContentVisible()
     }
 
     func testS05_ProfileMenuGroupsComplete() {
@@ -81,7 +81,18 @@ final class P2_DataLayerUITests: XCTestCase {
     func testB03_TrainingPlansLoad() {
         app.switchTab(.training)
         sleep(1)
-        XCTAssertTrue(app.staticTexts["训练"].waitForExistence(timeout: 3), "Training tab title should be visible")
+        XCTAssertTrue(
+            app.tabBars.buttons["训练"].waitForExistence(timeout: 3),
+            "Training tab bar item should remain"
+        )
+        let hasPageContent =
+            app.staticTexts["今日安排"].waitForExistence(timeout: 5) ||
+            app.staticTexts["官方计划"].waitForExistence(timeout: 3) ||
+            app.staticTexts["选择一个计划开始训练"].waitForExistence(timeout: 3)
+        XCTAssertTrue(
+            hasPageContent,
+            "Training home should show 今日安排, 官方计划, or the empty-state prompt"
+        )
     }
 
     // MARK: - Favorites (Anonymous)
@@ -112,7 +123,7 @@ final class P2_DataLayerUITests: XCTestCase {
         sleep(2)
 
         app.switchTab(.drillLibrary)
-        XCTAssertTrue(app.staticTexts["动作库"].waitForExistence(timeout: 5), "Drill library should load after relaunch")
+        assertDrillLibraryContentVisible(timeout: 5)
     }
 
     // MARK: - Profile Navigation
@@ -157,5 +168,24 @@ final class P2_DataLayerUITests: XCTestCase {
         about.tap()
         sleep(1)
         XCTAssertTrue(app.navigationBars["关于与反馈"].waitForExistence(timeout: 3), "AboutView should open")
+    }
+
+    /// Page title is gone (v45 W3); do not treat the tab-bar label as in-page copy.
+    private func assertDrillLibraryContentVisible(timeout: TimeInterval = 5) {
+        XCTAssertTrue(
+            app.tabBars.buttons["动作库"].waitForExistence(timeout: 3),
+            "Drill library tab bar item should remain"
+        )
+        let card = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'drillCard_'"))
+            .firstMatch
+        let searchField = app.textFields["搜索动作"]
+        let searchPlaceholder = app.staticTexts["搜索动作"]
+        XCTAssertTrue(
+            card.waitForExistence(timeout: timeout)
+                || searchField.waitForExistence(timeout: 3)
+                || searchPlaceholder.waitForExistence(timeout: 2),
+            "Drill library should show a drill card or the search field"
+        )
     }
 }
