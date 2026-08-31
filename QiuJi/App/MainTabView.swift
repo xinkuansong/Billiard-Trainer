@@ -36,7 +36,7 @@ struct MainTabView: View {
                     }
             }
                 .tabItem {
-                    Label(AppTab.drillLibrary.title, systemImage: AppTab.drillLibrary.icon)
+                    systemTabLabel(for: .drillLibrary)
                 }
                 .tag(AppTab.drillLibrary)
 
@@ -66,7 +66,7 @@ struct MainTabView: View {
 
             ProfileView()
                 .tabItem {
-                    Label(AppTab.profile.title, systemImage: AppTab.profile.icon)
+                    systemTabLabel(for: .profile)
                 }
                 .tag(AppTab.profile)
         }
@@ -95,6 +95,51 @@ struct MainTabView: View {
                 ActiveTrainingView(viewModel: vm)
             }
         }
+    }
+
+    @ViewBuilder
+    private func systemTabLabel(for tab: AppTab) -> some View {
+        let symbolName = router.selectedTab == tab ? tab.selectedIcon : tab.icon
+        let renderedIcon = tab == .profile
+            ? Self.renderProfileTabBarIcon(filled: router.selectedTab == tab)
+            : Self.renderTabBarSymbol(named: symbolName)
+
+        if let icon = renderedIcon {
+            Label {
+                Text(tab.title)
+            } icon: {
+                Image(uiImage: icon)
+            }
+        } else {
+            Label(tab.title, systemImage: symbolName)
+        }
+    }
+
+    /// TabView 会为 SF Symbol 自动建议 fill variant。先渲染成模板位图，才能严格保留
+    /// 动作库 / 我的的空心未选中态，并由系统 tint 为选中态填充品牌绿。
+    @MainActor
+    private static func renderTabBarSymbol(named systemName: String, size: CGFloat = 25) -> UIImage? {
+        let view = Image(systemName: systemName)
+            .symbolVariant(.none)
+            .font(.system(size: size, weight: .regular))
+            .foregroundStyle(.white)
+            .frame(width: size, height: size)
+
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = UIScreen.main.scale
+        guard let uiImage = renderer.uiImage else { return nil }
+        return uiImage.withRenderingMode(.alwaysTemplate)
+    }
+
+    @MainActor
+    private static func renderProfileTabBarIcon(filled: Bool, size: CGFloat = 25) -> UIImage? {
+        let view = BTProfileTabIcon(size: size, filled: filled)
+            .frame(width: size, height: size)
+
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = UIScreen.main.scale
+        guard let uiImage = renderer.uiImage else { return nil }
+        return uiImage.withRenderingMode(.alwaysTemplate)
     }
 
     @ViewBuilder
@@ -223,6 +268,53 @@ struct MainTabView: View {
         case .detail(let sessionId):
             TrainingDetailView(sessionId: sessionId)
         }
+    }
+}
+
+/// 个人 Tab 使用真正的描边 / 填充双态，避免系统 `person` 在未选中时仍显示实心剪影。
+private struct BTProfileTabIcon: View {
+    let size: CGFloat
+    let filled: Bool
+
+    var body: some View {
+        Canvas { context, canvasSize in
+            let side = min(canvasSize.width, canvasSize.height)
+            let origin = CGPoint(
+                x: (canvasSize.width - side) * 0.5,
+                y: (canvasSize.height - side) * 0.5
+            )
+            let color = Color.white
+            let lineWidth = side * 0.075
+
+            let headRect = CGRect(
+                x: origin.x + side * 0.35,
+                y: origin.y + side * 0.10,
+                width: side * 0.30,
+                height: side * 0.30
+            )
+            let head = Path(ellipseIn: headRect)
+
+            var shoulders = Path()
+            shoulders.move(to: CGPoint(x: origin.x + side * 0.13, y: origin.y + side * 0.90))
+            shoulders.addCurve(
+                to: CGPoint(x: origin.x + side * 0.87, y: origin.y + side * 0.90),
+                control1: CGPoint(x: origin.x + side * 0.17, y: origin.y + side * 0.38),
+                control2: CGPoint(x: origin.x + side * 0.83, y: origin.y + side * 0.38)
+            )
+
+            if filled {
+                context.fill(head, with: .color(color))
+                shoulders.addLine(to: CGPoint(x: origin.x + side * 0.13, y: origin.y + side * 0.90))
+                shoulders.closeSubpath()
+                context.fill(shoulders, with: .color(color))
+            } else {
+                let stroke = StrokeStyle(lineWidth: lineWidth, lineCap: .round, lineJoin: .round)
+                context.stroke(head, with: .color(color), style: stroke)
+                context.stroke(shoulders, with: .color(color), style: stroke)
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
 }
 

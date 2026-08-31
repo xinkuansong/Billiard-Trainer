@@ -132,7 +132,7 @@ struct BallFeelView: View {
         LearnDocSectionCard(title: "训练建议") {
             VStack(alignment: .leading, spacing: Spacing.lg) {
                 trainingStep(number: 1, title: "理解原理",
-                            description: "学习切入角、偏移量和假想球法的基本概念。")
+                            description: "学习切球角、偏移量和假想球法的基本概念。")
                 trainingStep(number: 2, title: "几何练习",
                             description: "通过纯几何角度预测训练，建立角度数感。")
                 trainingStep(number: 3, title: "2D 球台",

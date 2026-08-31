@@ -1,7 +1,8 @@
 # 球迹术语与语音近音表
 
 技能 `voice-billiard-terms` 的详表。听不准先在本文件搜，禁止自造。
-物理定义以 `45-aiming-principles.mdc`、`.kiro/steering/table-geometry.md` 为准；本表只管「标准叫什么」。
+物理定义以 `.cursor/rules/45-aiming-principles.mdc`、`docs/research/20260804-瞄准理论总纲.md`、
+`.kiro/steering/table-geometry.md` 与对应代码为准；本表只管「标准叫什么」，不得把不同物理效应合并成一个词。
 
 写法：`标准术语` — 含义。其后是口语/英文，再是常见错听。
 
@@ -115,7 +116,10 @@
 | 右塞 | 打点偏右 | right english | 右赛 |
 | 塞量 | 侧旋多少 | amount of side | 赛量、腮量 |
 | 高塞 / 低塞 | 上下 + 左右的合成打点 | running / reverse 等 | 高赛、低赛 |
-| 挤偏 | 侧旋让目标球路线偏一点 | throw | 挤片、挤骗 |
+| 挤偏 | 加塞使母球出发方向偏向塞的反侧 | squirt | 挤片、挤骗、塞偏 |
+| 弧线 | 母球在行进中受旋转与台呢作用而逐渐弯曲 | swerve | 弧现、弧县 |
+| 投掷 | 球球碰撞时接触摩擦使目标球偏离理想进球线 | throw | 投置、头掷 |
+| 让点 | 为抵消挤偏等偏差而主动调整瞄准点 | aim allowance / compensation | 让店、量点 |
 | 侧旋 | 左右旋转本身 | sidespin | 侧悬、侧玄 |
 | 顺塞 | 与走位/吃库同向的塞 | running english | 顺赛 |
 | 逆塞 | 与走位/吃库反向的塞 | reverse english | 逆赛、力赛 |

@@ -53,6 +53,7 @@ help:
 	@echo "  make invariant-selftest  不变量检查自测（构造性用例证明每项真会报错）"
 	@echo "  make verify-doc-size  进度文档体积门禁（PROGRESS.md / hub 状态卡滚动归档纪律）"
 	@echo "  make check-tutorial-boilerplate  精讲套话软检查（D-v40-4=B；不进 verify-gate）"
+	@echo "  make verify-copy  学员文案标准术语检查（Swift 字符串 + Drill 核心字段）"
 	@echo "  make install-hooks  安装 git 钩子（pre-push 内容不变量门禁）"
 	@echo "  make tutorial-ledger  生成精讲资产台账（docs/research/精讲资产台账.md）"
 	@echo "  make archive      Release Archive（生成 .xcarchive）"
@@ -302,6 +303,7 @@ verify-gate:
 	@python3 $(PROJECT_ROOT)/scripts/verify_tutorial_sync.py --gate $(ARGS)
 	@python3 $(PROJECT_ROOT)/scripts/publish_tutorial_figures.py --check
 	@python3 $(PROJECT_ROOT)/scripts/verify_sync_schema_alignment.py --gate
+	@python3 $(PROJECT_ROOT)/scripts/verify_billiard_copy_terms.py
 	@python3 $(PROJECT_ROOT)/scripts/verify_v47_ui_baseline.py
 
 # 双端对齐检查的构造性用例走它自己的 --selftest（v36 W4）：它的影子副本是
@@ -312,6 +314,7 @@ verify-gate:
 invariant-selftest:
 	@python3 $(PROJECT_ROOT)/scripts/selftest_content_invariants.py $(ARGS)
 	@python3 $(PROJECT_ROOT)/scripts/verify_sync_schema_alignment.py --selftest
+	@python3 $(PROJECT_ROOT)/scripts/verify_billiard_copy_terms.py --selftest
 
 # ────────────────────────────────────────────
 # 进度文档体积门禁（2026-08-09 上下文瘦身）
@@ -322,6 +325,10 @@ invariant-selftest:
 .PHONY: check-tutorial-boilerplate
 check-tutorial-boilerplate:
 	@python3 $(PROJECT_ROOT)/scripts/check_tutorial_boilerplate.py $(ARGS)
+
+.PHONY: verify-copy
+verify-copy:
+	@python3 $(PROJECT_ROOT)/scripts/verify_billiard_copy_terms.py
 
 .PHONY: verify-doc-size
 verify-doc-size:

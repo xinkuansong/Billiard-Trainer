@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="900" viewBox="0 0 1200 900">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; }
+      .label { font-size: 18px; font-weight: 600; }
+      .caption { font-size: 14px; }
+      .metric { font-size: 58px; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .title { font-size: 28px; font-weight: 700; }
+    </style>
+    <linearGradient id="lightFade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6F8993" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#6F8993" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="darkFade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#78949E" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#78949E" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="900" fill="#DDE4E6"/>
+  <text x="60" y="62" class="title" fill="#11191C">球迹 v47 · 跨页面视觉校验码</text>
+  <text x="60" y="92" class="caption" fill="#58686E">同一关系，分别验证 Light / Dark；不是生产 Token 替代品</text>
+
+  <g transform="translate(60 130)">
+    <rect width="520" height="700" rx="24" fill="#F3F6F7"/>
+    <text x="28" y="42" class="label" fill="#11191C">LIGHT</text>
+
+    <g transform="translate(28 72)">
+      <rect width="464" height="142" rx="16" fill="#FFFFFF"/>
+      <text x="24" y="34" class="caption" fill="#58686E">本周训练</text>
+      <text x="24" y="98" class="metric" fill="#11191C">2</text>
+      <text x="88" y="98" class="label" fill="#58686E">天</text>
+      <line x1="250" y1="25" x2="250" y2="117" stroke="#C7D2D6"/>
+      <text x="274" y="52" class="caption" fill="#58686E">较上周</text>
+      <text x="274" y="88" class="label" fill="#145C3A">+1 天</text>
+    </g>
+
+    <g transform="translate(28 242)">
+      <text x="0" y="26" class="label" fill="#11191C">今日重点</text>
+      <line x1="0" y1="44" x2="464" y2="44" stroke="#C7D2D6"/>
+      <text x="0" y="80" class="label" fill="#11191C">准度 · 中袋直线球</text>
+      <text x="0" y="108" class="caption" fill="#58686E">3 组 × 15 球 · 预计 18 分钟</text>
+      <rect x="0" y="132" width="464" height="52" rx="10" fill="#145C3A"/>
+      <text x="232" y="165" class="label" fill="#FFFFFF" text-anchor="middle">开始训练</text>
+    </g>
+
+    <g transform="translate(28 470)">
+      <text x="0" y="24" class="caption" fill="#58686E">ENGINEERING SIGNATURE</text>
+      <line x1="20" y1="110" x2="280" y2="66" stroke="url(#lightFade)" stroke-width="2"/>
+      <line x1="280" y1="66" x2="440" y2="126" stroke="url(#lightFade)" stroke-width="2"/>
+      <circle cx="20" cy="110" r="18" fill="none" stroke="#6F8993" stroke-opacity="0.08" stroke-width="2"/>
+      <circle cx="280" cy="66" r="18" fill="none" stroke="#6F8993" stroke-opacity="0.10" stroke-width="2" stroke-dasharray="5 5"/>
+      <circle cx="440" cy="126" r="18" fill="none" stroke="#6F8993" stroke-opacity="0.06" stroke-width="2"/>
+      <path d="M280 66 A70 70 0 0 1 341 100" fill="none" stroke="#6F8993" stroke-opacity="0.08" stroke-width="2"/>
+      <text x="0" y="174" class="caption" fill="#58686E">subtle 2%–4% · 不接收触摸 · 不进入 VoiceOver</text>
+    </g>
+  </g>
+
+  <g transform="translate(620 130)">
+    <rect width="520" height="700" rx="24" fill="#071012"/>
+    <text x="28" y="42" class="label" fill="#F2F6F7">DARK</text>
+
+    <g transform="translate(28 72)">
+      <rect width="464" height="142" rx="16" fill="#111B1E"/>
+      <text x="24" y="34" class="caption" fill="#A8B7BC">本周训练</text>
+      <text x="24" y="98" class="metric" fill="#F2F6F7">2</text>
+      <text x="88" y="98" class="label" fill="#A8B7BC">天</text>
+      <line x1="250" y1="25" x2="250" y2="117" stroke="#34474D"/>
+      <text x="274" y="52" class="caption" fill="#A8B7BC">较上周</text>
+      <text x="274" y="88" class="label" fill="#2FAD6B">+1 天</text>
+    </g>
+
+    <g transform="translate(28 242)">
+      <text x="0" y="26" class="label" fill="#F2F6F7">今日重点</text>
+      <line x1="0" y1="44" x2="464" y2="44" stroke="#34474D"/>
+      <text x="0" y="80" class="label" fill="#F2F6F7">准度 · 中袋直线球</text>
+      <text x="0" y="108" class="caption" fill="#A8B7BC">3 组 × 15 球 · 预计 18 分钟</text>
+      <rect x="0" y="132" width="464" height="52" rx="10" fill="#2FAD6B"/>
+      <text x="232" y="165" class="label" fill="#071012" text-anchor="middle">开始训练</text>
+    </g>
+
+    <g transform="translate(28 470)">
+      <text x="0" y="24" class="caption" fill="#A8B7BC">ENGINEERING SIGNATURE</text>
+      <line x1="20" y1="110" x2="280" y2="66" stroke="url(#darkFade)" stroke-width="2"/>
+      <line x1="280" y1="66" x2="440" y2="126" stroke="url(#darkFade)" stroke-width="2"/>
+      <circle cx="20" cy="110" r="18" fill="none" stroke="#78949E" stroke-opacity="0.10" stroke-width="2"/>
+      <circle cx="280" cy="66" r="18" fill="none" stroke="#78949E" stroke-opacity="0.14" stroke-width="2" stroke-dasharray="5 5"/>
+      <circle cx="440" cy="126" r="18" fill="none" stroke="#78949E" stroke-opacity="0.08" stroke-width="2"/>
+      <path d="M280 66 A70 70 0 0 1 341 100" fill="none" stroke="#78949E" stroke-opacity="0.12" stroke-width="2"/>
+      <text x="0" y="174" class="caption" fill="#A8B7BC">同语义关系，不复制 Light 的绝对亮度</text>
+    </g>
+  </g>
+</svg>

@@ -357,7 +357,7 @@ struct AimingCorrectionView: View {
 
             LearnDocTextLink(
                 title: "回看瞄准原理",
-                subtitle: "切入角 · 假想球 · d = 2R·sinθ",
+                subtitle: "切球角 · 假想球 · d = 2R·sinθ",
                 route: .aimingPrinciple
             )
 

@@ -508,6 +508,56 @@ final class TrainingHomeViewModelTests: XCTestCase {
         print("[W2-EVIDENCE] official plan \(plan.id) 首条：\(session.drills[0].volumeText)")
     }
 
+    func test_freeTrainingToday_isMergedAsSupplementalDrill() async throws {
+        let planned = try bundledDrill("drill_c013")
+        let free = try bundledDrill("drill_c069")
+        let context = makeContext()
+        try activateCustomPlan(
+            context: context,
+            drillId: planned.id,
+            nameZh: planned.nameZh,
+            rounds: 1
+        )
+
+        let freeSession = TrainingSession(kind: TrainingSessionKind.drill)
+        let freeEntry = DrillEntry(drillId: free.id, drillNameZh: free.nameZh)
+        freeEntry.sets.append(
+            DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 7, unitLabel: "球")
+        )
+        freeSession.drillEntries.append(freeEntry)
+        context.insert(freeSession)
+        try context.save()
+
+        let vm = TrainingHomeViewModel()
+        await vm.load(context: context)
+
+        XCTAssertEqual(vm.todaySession?.drills.map(\.drillId), [planned.id])
+        let supplemental = try XCTUnwrap(vm.todaySupplementalDrills.first)
+        XCTAssertEqual(supplemental.drillId, free.id)
+        XCTAssertEqual(supplemental.nameZh, free.nameZh)
+        XCTAssertEqual(supplemental.phaseZh, "自由训练")
+        XCTAssertEqual(supplemental.volumeText, "1 × 10")
+        XCTAssertTrue(supplemental.isCompleted)
+    }
+
+    func test_freeTrainingToday_loadsWithoutActivePlan() async throws {
+        let free = try bundledDrill("drill_c069")
+        let context = makeContext()
+        let freeSession = TrainingSession(kind: TrainingSessionKind.drill)
+        freeSession.drillEntries.append(
+            DrillEntry(drillId: free.id, drillNameZh: free.nameZh)
+        )
+        context.insert(freeSession)
+        try context.save()
+
+        let vm = TrainingHomeViewModel()
+        await vm.load(context: context)
+
+        XCTAssertFalse(vm.hasActivePlan)
+        XCTAssertNil(vm.todaySession)
+        XCTAssertEqual(vm.todaySupplementalDrills.map(\.drillId), [free.id])
+    }
+
     /// 6 份专项计划：dose 格式切净 + 每条目可解析（v34 W3 重排后条目量级约百级，不再用 v31 的 400+ 下限）。
     func test_rewrittenSpecialistPlans_areDoseOnlyAndResolvable() async throws {
         let rewritten = [

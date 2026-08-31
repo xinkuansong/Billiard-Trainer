@@ -750,6 +750,7 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## Changelog
 
+- 2026-08-31（DR-082）— 训练首页按时间尺度拆分统计：本周卡只放周目标、连续天数与周一至周日真实轨迹；今日完成数和预计用时只在未完成时放到「今日安排」标题右侧，完成后切庆祝标志；周数字与轨迹必须共用周一起点。
 - 2026-08-30（DR-081）— 计划/练习/模版封面去主题水印与 chip；编号保留（第 N 期 / 01 / 模版序号）。卡下标题保留。
 - 2026-08-29（DR-080 / v46）— 官方/练习/模版封面去彩色罩：`CoverArtKey` 60 + `showsColorWash=false` + 中性暗幕 0.12。`AtmosphereKey` 仍 6 个 `felt*` 只给 Tab。`CustomPlanAtmosphere` hash `templatePool` 12。
 - 2026-08-27（DR-079）— `ShareCardTheme.paper`（浅色）为默认；卡内文色走 `primaryText` 等，禁止写死 `.white`。分享页选择器标「背景」。总结页「生成分享图」同时落库，`saveTraining` 幂等。

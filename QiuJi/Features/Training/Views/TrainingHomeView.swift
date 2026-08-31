@@ -3,17 +3,30 @@ import SwiftData
 
 struct TrainingHomeView: View {
     @StateObject private var viewModel = TrainingHomeViewModel()
+    @ObservedObject private var preferences = UserPreferences.shared
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.calendar) private var calendar
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
     @Query private var activePlans: [UserActivePlan]
+    @Query(sort: \TrainingSession.date, order: .reverse) private var trainingSessions: [TrainingSession]
     @State private var toast: BTToastMessage?
     @State private var planToDelete: CustomPlan?
     @State private var showDeleteConfirm = false
     @State private var planToActivate: CustomPlan?
     @State private var showActivateConfirm = false
+
+    private enum HeaderLogoMetrics {
+        static let size: CGFloat = 50
+        /// `BrandLogoMark.svg` 的有色路径底边约在 viewBox 高度的 73.6%。
+        /// 裁掉下方透明画布后，文字底边才能与 Logo 的真实视觉底边对齐。
+        static let visibleHeight = size * (1_507.0 / 2_048.0)
+    }
+
+    private static let maximumVisibleTodayRows = 3
+    private static let todayRowHeight: CGFloat = 82
 
     /// 含周 / 天游标：计划推进（训练完成或手动跳过 / 回退）后「今日安排」随之刷新（W7）。
     private var activePlanSignature: String {
@@ -25,12 +38,20 @@ struct TrainingHomeView: View {
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
+            Color.btBG
+                .ignoresSafeArea()
+
+            TrainingHomeBlueprintBackground(
+                color: Color.btPrimary.opacity(colorScheme == .dark ? 0.13 : 0.08)
+            )
+            .ignoresSafeArea()
+
             VStack(spacing: 0) {
                 pageHeader
 
                 ScrollViewReader { proxy in
                     ScrollView {
-                        VStack(spacing: Spacing.xl) {
+                        VStack(spacing: Spacing.sm) {
                             Color.clear
                                 .frame(height: 0)
                                 .id(TrainingHomeViewModel.scrollTopID)
@@ -48,7 +69,7 @@ struct TrainingHomeView: View {
                                     .transition(.opacity)
                             }
                         }
-                        // Clearance for docked circular CTA (continue float lives in MainTabView).
+                        // Clearance for the native floating Tab Bar.
                         .padding(.bottom, viewModel.hasActivePlan ? 88 : Spacing.xl)
                         .animation(BTMotion.easeFast, value: viewModel.isLoading)
                     }
@@ -66,9 +87,8 @@ struct TrainingHomeView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(.btBG)
 
-            // Start CTA only; minimized resume uses MainTabView `BTFloatingIndicator`.
+            // The training home keeps one primary entry point; drill rows are informational.
             if viewModel.hasActivePlan && !viewModel.isLoading && !router.isTrainingMinimized {
                 startTrainingCircle
             }
@@ -136,16 +156,39 @@ struct TrainingHomeView: View {
 
     // MARK: - Page Header
 
-    /// Tab 顶带已按用户要求撤回；页内「训练」大标题仍不恢复。好友/菜单留在右上。
+    /// Reference layout: a compact coaching line fills the formerly empty top-left area.
     private var pageHeader: some View {
-        HStack {
-            Spacer()
+        HStack(alignment: .top, spacing: Spacing.md) {
+            HStack(alignment: .bottom, spacing: Spacing.sm) {
+                BTBrandLogo(size: HeaderLogoMetrics.size, style: .markOnly)
+                    .frame(
+                        width: HeaderLogoMetrics.size,
+                        height: HeaderLogoMetrics.size
+                    )
+                    .alignmentGuide(.bottom) { _ in
+                        HeaderLogoMetrics.visibleHeight
+                    }
+                    .accessibilityHidden(true)
+
+                Text("每一次专注，都是在拉近理想的距离。")
+                    .font(.btSubheadlineMedium)
+                    .foregroundStyle(.btPrimary)
+                    .lineLimit(1)
+                    .allowsTightening(true)
+                    .minimumScaleFactor(0.70)
+                    .layoutPriority(1)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                viewModel.hasActivePlan ? "今日训练进行中" : "今日训练待安排"
+            )
+
+            Spacer(minLength: Spacing.xs)
             headerActions
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.sm)
-        .padding(.bottom, Spacing.sm)
-        .background(.btBG)
+        .padding(.top, Spacing.xs)
+        .padding(.bottom, Spacing.xs)
     }
 
     private var headerActions: some View {
@@ -175,6 +218,23 @@ struct TrainingHomeView: View {
                 } label: {
                     Label("新建模版", systemImage: "plus")
                 }
+
+                if let session = viewModel.todaySession, !session.isFromTemplate {
+                    Divider()
+
+                    Button {
+                        Task { await viewModel.skipCurrentDay(context: modelContext) }
+                    } label: {
+                        Label("跳过今天", systemImage: "forward.end")
+                    }
+
+                    Button {
+                        Task { await viewModel.rollbackCurrentDay(context: modelContext) }
+                    } label: {
+                        Label("回退一天", systemImage: "backward.end")
+                    }
+                    .disabled(!viewModel.canRollbackDay)
+                }
             } label: {
                 Image(systemName: BTIcon.menu)
                     .font(.btBody)
@@ -190,165 +250,341 @@ struct TrainingHomeView: View {
     private var activePlanContent: some View {
         VStack(spacing: Spacing.xl) {
             if let session = viewModel.todaySession {
-                todayScheduleSection(session)
+                weeklyTrainingSection
+                todayTrainingSection(session)
             }
 
             planBrowsingSection
         }
-        .padding(.vertical, Spacing.md)
+        .padding(.bottom, Spacing.md)
     }
 
-    // MARK: - Today Schedule Section
+    // MARK: - Weekly / Today Training
 
-    private func todayScheduleSection(_ session: TodaySessionInfo) -> some View {
-        let firstIncompleteId = session.drills.first(where: { !$0.isCompleted })?.id
-        let visibleDrills = Array(session.drills.prefix(3))
+    private func displayTodayDrills(for session: TodaySessionInfo?) -> [TodayDrillItem] {
+        (session?.drills ?? []) + viewModel.todaySupplementalDrills
+    }
 
-        return VStack(alignment: .leading, spacing: Spacing.md) {
-            todayScheduleHeader(session)
+    private var weeklyTrainingSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("本周训练")
+                .font(.btTitle)
+                .foregroundStyle(.btText)
                 .padding(.horizontal, Spacing.lg)
 
-            VStack(spacing: Spacing.md) {
-                ForEach(visibleDrills) { drill in
-                    todayDrillCard(
-                        drill,
-                        session: session,
-                        isCurrentDrill: drill.id == firstIncompleteId
+            weeklyProgressCard
+                .padding(.horizontal, Spacing.lg)
+        }
+        .padding(.top, Spacing.sm)
+    }
+
+    private func todayTrainingSection(_ session: TodaySessionInfo?) -> some View {
+        let visibleDrills = displayTodayDrills(for: session)
+        let completedCount = visibleDrills.filter(\.isCompleted).count
+        let isAllCompleted = !visibleDrills.isEmpty && completedCount == visibleDrills.count
+
+        return VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .center, spacing: Spacing.md) {
+                Text("今日安排")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+
+                Spacer()
+
+                if isAllCompleted {
+                    Label("全部完成！", systemImage: BTIcon.completeSeal)
+                        .font(.btSubheadlineSemibold)
+                        .foregroundStyle(.btPrimary)
+                } else {
+                    todayScheduleMetrics(
+                        completedCount: completedCount,
+                        totalCount: visibleDrills.count,
+                        expectedMinutes: expectedMinutesValue(for: session)
                     )
                 }
+            }
+            .padding(.horizontal, Spacing.lg)
 
-                if session.isAllCompleted {
-                    allCompletedBanner
+            Group {
+                if visibleDrills.count > Self.maximumVisibleTodayRows {
+                    ScrollView(.vertical, showsIndicators: true) {
+                        LazyVStack(spacing: 0) {
+                            todayDrillRows(visibleDrills)
+                        }
+                    }
+                    .frame(height: Self.todayRowHeight * CGFloat(Self.maximumVisibleTodayRows))
+                    .scrollIndicators(.visible)
+                } else {
+                    VStack(spacing: 0) {
+                        todayDrillRows(visibleDrills)
+                    }
                 }
             }
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            .overlay {
+                RoundedRectangle(cornerRadius: BTRadius.lg)
+                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+            }
+            .shadow(
+                color: colorScheme == .dark ? .clear : Color.btText.opacity(0.05),
+                radius: 12,
+                x: 0,
+                y: 5
+            )
             .padding(.horizontal, Spacing.lg)
         }
     }
 
-    private func todayScheduleHeader(_ session: TodaySessionInfo) -> some View {
-        // 进度菜单是独立可点元素，故放在合并后的信息块之外，
-        // 否则会被 `.accessibilityElement(children: .combine)` 并进卡片整体。
-        HStack(alignment: .top, spacing: Spacing.sm) {
-            scheduleInfoBlock(session)
-            if !session.isFromTemplate {
-                progressMenu
+    @ViewBuilder
+    private func todayDrillRows(_ drills: [TodayDrillItem]) -> some View {
+        ForEach(Array(drills.enumerated()), id: \.element.id) { index, drill in
+            NavigationLink {
+                DrillDetailView(drillId: drill.drillId)
+            } label: {
+                todayDrillRow(drill, number: index + 1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                drill.isCompleted
+                    ? "\(drill.nameZh)，已完成，查看动作详情"
+                    : "\(drill.nameZh)，查看动作详情"
+            )
+
+            if index < drills.count - 1 {
+                Divider()
+                    .padding(.leading, 138)
             }
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
+    }
+
+    private func startTodayTraining(_ session: TodaySessionInfo) {
+        if router.isTrainingMinimized {
+            router.resumeMinimizedTraining()
+        } else {
+            router.startTraining(mode: .plan(drills: session.drills, planId: session.planId))
+        }
+    }
+
+    private var weeklyProgressCard: some View {
+        VStack(spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                    Text("本周")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+
+                    Text("\(daysTrainedThisWeek) / \(preferences.weeklyGoalDays) 天")
+                        .font(.btSubheadlineSemibold)
+                        .foregroundStyle(.btText)
+                        .monospacedDigit()
+                }
+
+                Spacer()
+
+                Rectangle()
+                    .fill(Color.btSeparator)
+                    .frame(width: 1, height: 18)
+                    .accessibilityHidden(true)
+
+                Spacer()
+
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                    Text("连续")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+
+                    Text("\(currentTrainingStreak) 天")
+                        .font(.btSubheadlineSemibold)
+                        .foregroundStyle(.btText)
+                        .monospacedDigit()
+
+                    if currentTrainingStreak > 0 {
+                        Image(systemName: "flame.fill")
+                            .font(.btCaption2)
+                            .foregroundStyle(.btWarning)
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+
+            HStack(spacing: Spacing.xs) {
+                ForEach(Array(currentWeekDays.enumerated()), id: \.element) { index, date in
+                    weeklyDayCell(
+                        label: Self.weekdayLabels[index],
+                        date: date
+                    )
+                }
+            }
+        }
+        .padding(Spacing.md)
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .overlay {
             RoundedRectangle(cornerRadius: BTRadius.lg)
-                .stroke(
-                    colorScheme == .dark ? Color.btSeparator : Color.btPrimary.opacity(0.10),
-                    lineWidth: colorScheme == .dark ? 0.5 : 1
-                )
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
         }
-        .overlay(alignment: .bottomLeading) {
-            GeometryReader { geo in
-                Capsule()
-                    .fill(Color.btPrimary)
-                    .frame(width: geo.size.width * session.progress, height: 2)
-                    .frame(maxHeight: .infinity, alignment: .bottom)
-            }
-            .padding(.horizontal, Spacing.lg)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        .shadow(
+            color: colorScheme == .dark ? .clear : Color.btText.opacity(0.05),
+            radius: 12,
+            x: 0,
+            y: 5
+        )
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(
+            "本周训练 \(daysTrainedThisWeek) / \(preferences.weeklyGoalDays) 天，"
+            + "连续训练 \(currentTrainingStreak) 天"
+        )
+    }
+
+    private static let weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"]
+
+    private var currentWeekDays: [Date] {
+        let today = calendar.startOfDay(for: .now)
+        let weekday = calendar.component(.weekday, from: today)
+        let daysSinceMonday = (weekday + 5) % 7
+        guard let monday = calendar.date(byAdding: .day, value: -daysSinceMonday, to: today) else {
+            return []
+        }
+        return (0..<7).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: monday)
         }
     }
 
-    private func scheduleInfoBlock(_ session: TodaySessionInfo) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                Text("今日安排")
-                    .font(.btFootnote14.weight(.semibold))
-                    .foregroundStyle(.btPrimary)
+    private func weeklyDayCell(label: String, date: Date) -> some View {
+        let isTrained = goalTrainingDays.contains(date)
+        let isToday = calendar.isDateInToday(date)
 
-                Text(session.planNameZh.isEmpty ? "今日训练" : session.planNameZh)
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                    .lineLimit(1)
+        return VStack(spacing: Spacing.xs) {
+            Text(label)
+                .font(.btCaption2)
+                .foregroundStyle(isToday ? .btText : .btTextSecondary)
 
-                Spacer(minLength: Spacing.sm)
+            ZStack {
+                Circle()
+                    .fill(isTrained ? Color.btPrimary : Color.clear)
 
-                Text("\(session.completedCount) / \(session.totalCount)")
-                    .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
-                    .monospacedDigit()
-            }
+                Circle()
+                    .stroke(
+                        isTrained ? Color.btPrimary : Color.btSeparator,
+                        lineWidth: 1.5
+                    )
 
-            let meta = scheduleMetaText(session)
-            if !session.weekTheme.isEmpty || !meta.isEmpty {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                    if !session.weekTheme.isEmpty {
-                        Text(session.weekTheme)
-                            .font(.btFootnote)
-                            .foregroundStyle(.btTextSecondary)
-                            .lineLimit(1)
-                    }
-
-                    Spacer(minLength: Spacing.sm)
-
-                    if !meta.isEmpty {
-                        Text(meta)
-                            .font(.btCaption2)
-                            .foregroundStyle(.btTextTertiary)
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.9)
-                    }
+                if isTrained {
+                    Image(systemName: "checkmark")
+                        .font(.btCaption2.weight(.bold))
+                        .foregroundStyle(.white)
                 }
             }
+            .frame(width: 22, height: 22)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: BTRadius.sm)
+                .fill(isToday ? Color.btBGTertiary : Color.clear)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("周\(label)，\(isTrained ? "已训练" : "未训练")\(isToday ? "，今天" : "")")
+    }
+
+    private func todayScheduleMetrics(
+        completedCount: Int,
+        totalCount: Int,
+        expectedMinutes: String
+    ) -> some View {
+        HStack(spacing: Spacing.sm) {
+            todayScheduleMetric(
+                symbol: "scope",
+                title: "今日训练",
+                value: "\(completedCount) / \(totalCount)"
+            )
+
+            Rectangle()
+                .fill(Color.btSeparator)
+                .frame(width: 1, height: 18)
+                .accessibilityHidden(true)
+
+            todayScheduleMetric(
+                symbol: "clock",
+                title: "用时",
+                value: expectedMinutes,
+                unit: expectedMinutes == "—" ? nil : "分钟"
+            )
+        }
+    }
+
+    private func todayScheduleMetric(
+        symbol: String,
+        title: String,
+        value: String,
+        unit: String? = nil
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+            Label(title, systemImage: symbol)
+                .font(.btCaption2)
+                .foregroundStyle(.btTextSecondary)
+                .lineLimit(1)
+
+            Text(value)
+                .font(.btSubheadlineSemibold)
+                .foregroundStyle(.btPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            if let unit {
+                Text(unit)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(1)
+            }
+        }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(scheduleAccessibilityLabel(session))
-        .accessibilityValue("完成 \(session.completedCount) 项，共 \(session.totalCount) 项")
+        .accessibilityLabel("\(title)，\(value)\(unit ?? "")")
     }
 
-    /// 计划游标的手动控制（D-v29-3：按完成推进，同时允许手动跳过 / 回退某天）。
-    private var progressMenu: some View {
-        Menu {
-            Button {
-                Task { await viewModel.skipCurrentDay(context: modelContext) }
-            } label: {
-                Label("跳过今天", systemImage: "forward.end")
+    private var goalTrainingDays: Set<Date> {
+        Set(
+            TrainingGoalMetrics.goalCounting(trainingSessions)
+                .map { calendar.startOfDay(for: $0.date) }
+        )
+    }
+
+    private var daysTrainedThisWeek: Int {
+        guard let weekStart = currentWeekDays.first else {
+            return 0
+        }
+        return TrainingGoalMetrics.daysTrained(
+            trainingSessions,
+            since: weekStart,
+            calendar: calendar
+        )
+    }
+
+    private func expectedMinutesValue(for session: TodaySessionInfo?) -> String {
+        guard let minutes = session?.totalMinutes, minutes > 0 else { return "—" }
+        return "\(minutes)"
+    }
+
+    private var currentTrainingStreak: Int {
+        guard !goalTrainingDays.isEmpty else { return 0 }
+
+        var cursor = calendar.startOfDay(for: .now)
+        if !goalTrainingDays.contains(cursor),
+           let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor) {
+            cursor = yesterday
+        }
+
+        var streak = 0
+        while goalTrainingDays.contains(cursor) {
+            streak += 1
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: cursor) else {
+                break
             }
-
-            Button {
-                Task { await viewModel.rollbackCurrentDay(context: modelContext) }
-            } label: {
-                Label("回退一天", systemImage: "backward.end")
-            }
-            .disabled(!viewModel.canRollbackDay)
-        } label: {
-            Image(systemName: BTIcon.menu)
-                .font(.btFootnote)
-                .foregroundStyle(.white.opacity(0.88))
-                .frame(width: 32, height: 32)
-                .contentShape(Rectangle())
+            cursor = previousDay
         }
-        .accessibilityLabel("调整计划进度")
-    }
-
-    private func scheduleMetaText(_ session: TodaySessionInfo) -> String {
-        var parts: [String] = []
-        if !session.isFromTemplate {
-            parts.append("第 \(session.weekNumber) 周")
-            parts.append("第 \(session.dayNumber) 天")
-        }
-        if session.totalMinutes > 0 {
-            parts.append("\(session.totalMinutes) 分钟")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    private func scheduleAccessibilityLabel(_ session: TodaySessionInfo) -> String {
-        if session.isFromTemplate {
-            return "今日安排，\(session.planNameZh)"
-        }
-        return "今日安排，\(session.planNameZh)，第 \(session.weekNumber) 周第 \(session.dayNumber) 天"
+        return streak
     }
 
     private func phaseColor(for type: String) -> Color {
@@ -367,16 +603,23 @@ struct TrainingHomeView: View {
     private func todayDrillThumbnail(_ drill: TodayDrillItem) -> some View {
         BTDrillListThumbnail(
             drillId: drill.drillId,
-            opacity: drill.isCompleted ? 0.62 : 1
+            opacity: 1
         )
     }
 
-    private func todayDrillCard(
+    private func todayDrillRow(
         _ drill: TodayDrillItem,
-        session: TodaySessionInfo,
-        isCurrentDrill: Bool
+        number: Int
     ) -> some View {
-        HStack(spacing: Spacing.md) {
+        HStack(spacing: Spacing.sm) {
+            Text(String(format: "%02d", number))
+                .font(.btSubheadlineSemibold)
+                .foregroundStyle(.btPrimary)
+                .monospacedDigit()
+                .frame(width: 38, height: 48)
+                .background(Color.btPrimary.opacity(0.09))
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+
             todayDrillThumbnail(drill)
 
             VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -392,7 +635,7 @@ struct TrainingHomeView: View {
 
                 Text(drill.nameZh)
                     .font(.btHeadline)
-                    .foregroundStyle(drill.isCompleted ? .btTextSecondary : .btText)
+                    .foregroundStyle(.btText)
                     .lineLimit(2)
 
                 Text(drill.volumeText)
@@ -402,66 +645,26 @@ struct TrainingHomeView: View {
                     .lineLimit(1)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
             if drill.isCompleted {
-                Image(systemName: BTIcon.checkmarkCircle)
-                    .font(.btTitle)
-                    .foregroundStyle(.btSuccess)
-            } else if isCurrentDrill {
-                // F-TR-06: press feedback aligned with primary chrome (compact label kept)
-                Button {
-                    router.startTraining(mode: .plan(drills: session.drills, planId: session.planId))
-                } label: {
-                    Text("GO!")
-                        .font(.btFootnote14.weight(.bold))
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, Spacing.xl)
-                        .padding(.vertical, Spacing.sm)
-                        .background(Color.btPrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
-                }
-                .buttonStyle(BTPressableStyle.capsule)
-            } else {
-                // F-TR-05: non-affordance queue label (was BTIcon.menu — looked tappable)
-                Text("排队")
-                    .font(.btCaption2)
-                    .foregroundStyle(.btTextTertiary)
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("排队中，尚未开始")
-            }
-        }
-        .padding(Spacing.md)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-        .overlay {
-            RoundedRectangle(cornerRadius: BTRadius.lg)
-                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-        }
-        .shadow(color: colorScheme == .dark ? .clear : Color.black.opacity(0.04),
-                radius: 4, x: 0, y: 2)
-    }
-
-    private var allCompletedBanner: some View {
-        HStack(spacing: Spacing.md) {
-            Image(systemName: BTIcon.completeSeal)
-                .font(.btStatNumber)
-                .foregroundStyle(.btSuccess)
-
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text("今日训练已完成")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
-                Text("做得不错！明天继续加油")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextSecondary)
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.btTitle2)
+                    .foregroundStyle(.btPrimary)
+                    .accessibilityHidden(true)
             }
 
-            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.btFootnote)
+                .foregroundStyle(.btTextTertiary)
+                .frame(width: 24)
+                .accessibilityHidden(true)
+
         }
-        .padding(Spacing.lg)
-        .background(Color.btSuccess.opacity(0.1))
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.md)
+        .frame(minHeight: Self.todayRowHeight)
+        .contentShape(Rectangle())
     }
 
     // MARK: - Plan Browsing Section
@@ -477,23 +680,15 @@ struct TrainingHomeView: View {
 
             Divider().foregroundStyle(.btSeparator)
 
-            // F-PL-05: short opacity ≤200ms on segmented content swap
             Group {
                 if viewModel.selectedTab == .official {
                     officialPlanBrowsing
-                        .transition(.opacity)
                 } else {
                     customPlanBrowsing
-                        .transition(.opacity)
                 }
             }
-            .animation(BTMotion.easeFast, value: viewModel.selectedTab)
         }
         .id(TrainingHomeViewModel.scrollBrowsingID)
-        .onChange(of: viewModel.selectedTab) { _, _ in
-            viewModel.restorePlanID = nil
-            viewModel.requestBrowseScroll(to: TrainingHomeViewModel.scrollBrowsingID)
-        }
     }
 
     // MARK: - Filter Chips
@@ -650,10 +845,10 @@ struct TrainingHomeView: View {
                                 Text("今日使用中")
                                     .font(.btCaption2)
                             }
-                            .foregroundStyle(.btSuccess)
+                            .foregroundStyle(.btPrimary)
                             .padding(.horizontal, Spacing.sm)
                             .padding(.vertical, 2)
-                            .background(Color.btSuccess.opacity(0.12))
+                            .background(Color.btPrimary.opacity(0.12))
                             .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
                         }
                     }
@@ -783,6 +978,11 @@ struct TrainingHomeView: View {
 
     private var emptyStateContent: some View {
         VStack(spacing: Spacing.xl) {
+            if !viewModel.todaySupplementalDrills.isEmpty {
+                weeklyTrainingSection
+                todayTrainingSection(nil)
+            }
+
             quickStartBanner
 
             planBrowsingSection
@@ -816,11 +1016,11 @@ struct TrainingHomeView: View {
 
     // MARK: - Fixed Start Button
 
-    /// Reference-style circular CTA docked into the bottom tab chrome (trailing).
+    /// The single primary action for today's whole session. Individual rows stay informational.
     private var startTrainingCircle: some View {
         Button {
             if let session = viewModel.todaySession {
-                router.startTraining(mode: .plan(drills: session.drills, planId: session.planId))
+                startTodayTraining(session)
             } else {
                 router.startTraining(mode: .free)
             }
@@ -831,10 +1031,7 @@ struct TrainingHomeView: View {
                 .frame(width: 64, height: 64)
                 .background(
                     RadialGradient(
-                        colors: [
-                            Color.btPrimary.opacity(0.95),
-                            Color.btPrimary,
-                        ],
+                        colors: [Color.btPrimary.opacity(0.95), Color.btPrimary],
                         center: .center,
                         startRadius: 4,
                         endRadius: 36
@@ -844,21 +1041,14 @@ struct TrainingHomeView: View {
         }
         .buttonStyle(BTPressableStyle.capsule)
         .accessibilityLabel("开始训练")
-        .shadow(
-            color: colorScheme == .dark
-                ? Color.btPrimary.opacity(0.35)
-                : Color.btPrimary.opacity(0.4),
-            radius: 12,
-            x: 0,
-            y: 4
-        )
+        .shadow(color: Color.btPrimary.opacity(0.24), radius: 14, x: 0, y: 6)
         .padding(.trailing, Spacing.lg)
-        // Sit beside the floating tab bar (same vertical band as reference).
         .padding(.bottom, 18)
         .ignoresSafeArea(.container, edges: .bottom)
-        .transition(.scale(scale: 0.92, anchor: .bottomTrailing).combined(with: .opacity))
+        .transition(.scale.combined(with: .opacity))
         .animation(BTMotion.springPanel, value: router.isTrainingMinimized)
     }
+
 }
 
 // MARK: - Previews
@@ -866,7 +1056,6 @@ struct TrainingHomeView: View {
 #Preview("With Plan") {
     NavigationStack {
         TrainingHomeView()
-            .navigationTitle("训练")
     }
     .modelContainer(ModelContainerFactory.makeInMemoryContainer())
     .environmentObject(AppRouter())
@@ -876,10 +1065,101 @@ struct TrainingHomeView: View {
 #Preview("No Plan - Dark") {
     NavigationStack {
         TrainingHomeView()
-            .navigationTitle("训练")
     }
     .modelContainer(ModelContainerFactory.makeInMemoryContainer())
     .environmentObject(AppRouter())
     .environmentObject(SubscriptionManager.shared)
     .preferredColorScheme(.dark)
+}
+
+/// Page-local decoration in this view's 2D point coordinate space (top-left origin).
+/// It is ornamental only and intentionally makes no table, angle, or pocket claim.
+private struct TrainingHomeBlueprintBackground: View {
+    let color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            drawReticle(
+                in: &context,
+                center: CGPoint(x: size.width - 28, y: 92),
+                radius: 22
+            )
+
+            drawReticle(
+                in: &context,
+                center: CGPoint(x: 24, y: size.height * 0.48),
+                radius: 15
+            )
+
+            var route = Path()
+            route.move(to: CGPoint(x: size.width * 0.58, y: 270))
+            route.addLine(to: CGPoint(x: size.width * 0.82, y: 220))
+            route.addLine(to: CGPoint(x: size.width + 18, y: 304))
+            context.stroke(route, with: .color(color), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+            context.stroke(
+                Path(ellipseIn: CGRect(
+                    x: size.width * 0.82 - 6,
+                    y: 214,
+                    width: 12,
+                    height: 12
+                )),
+                with: .color(color),
+                lineWidth: 1
+            )
+
+            var ruler = Path()
+            let rulerY = size.height * 0.73
+            ruler.move(to: CGPoint(x: 0, y: rulerY))
+            ruler.addLine(to: CGPoint(x: min(size.width * 0.34, 144), y: rulerY))
+            for index in 0...10 {
+                let x = CGFloat(index) * 12
+                let tick = index.isMultiple(of: 5) ? 9.0 : 5.0
+                ruler.move(to: CGPoint(x: x, y: rulerY))
+                ruler.addLine(to: CGPoint(x: x, y: rulerY + tick))
+            }
+            context.stroke(ruler, with: .color(color), lineWidth: 1)
+
+            var arc = Path()
+            arc.addArc(
+                center: CGPoint(x: size.width - 18, y: size.height * 0.86),
+                radius: 44,
+                startAngle: .degrees(120),
+                endAngle: .degrees(270),
+                clockwise: false
+            )
+            context.stroke(arc, with: .color(color), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+
+    private func drawReticle(
+        in context: inout GraphicsContext,
+        center: CGPoint,
+        radius: CGFloat
+    ) {
+        context.stroke(
+            Path(ellipseIn: CGRect(
+                x: center.x - radius,
+                y: center.y - radius,
+                width: radius * 2,
+                height: radius * 2
+            )),
+            with: .color(color),
+            lineWidth: 1
+        )
+
+        var crosshair = Path()
+        crosshair.move(to: CGPoint(x: center.x - radius - 8, y: center.y))
+        crosshair.addLine(to: CGPoint(x: center.x + radius + 8, y: center.y))
+        crosshair.move(to: CGPoint(x: center.x, y: center.y - radius - 8))
+        crosshair.addLine(to: CGPoint(x: center.x, y: center.y + radius + 8))
+        context.stroke(crosshair, with: .color(color), lineWidth: 1)
+
+        context.fill(
+            Path(ellipseIn: CGRect(x: center.x - 2, y: center.y - 2, width: 4, height: 4)),
+            with: .color(color)
+        )
+    }
 }

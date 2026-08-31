@@ -14,16 +14,16 @@ struct OnboardingView: View {
             VStack(spacing: 0) {
                 TabView(selection: $currentPage) {
                     featurePage(
-                        icon: { AnyView(Image(systemName: "square.grid.2x2.fill").font(.btLargeTitle).foregroundStyle(.btPrimary)) },
-                        title: "动作库与训练记录",
-                        subtitle: "海量练习动作，科学训练方案\n轻松记录每一次进步"
+                        mode: .route,
+                        title: "看懂球路，再开始练",
+                        subtitle: "瞄准点、碰撞点与行进路径\n让每一杆先有清晰目标"
                     )
                     .tag(0)
 
                     featurePage(
-                        icon: { AnyView(Image(systemName: "angle").font(.btLargeTitle).foregroundStyle(.btPrimary)) },
-                        title: "角度训练",
-                        subtitle: "模拟球台场景，精准角度判断\n系统化提升你的比赛直觉"
+                        mode: .review,
+                        title: "记录每杆，复盘趋势",
+                        subtitle: "训练记录沉淀为进度与薄弱项\n下一次练习更有方向"
                     )
                     .tag(1)
 
@@ -38,7 +38,6 @@ struct OnboardingView: View {
                     .padding(.bottom, Spacing.xxxl)
             }
         }
-        .preferredColorScheme(.light)
         .sheet(isPresented: $showLogin) {
             LoginView()
         }
@@ -47,20 +46,17 @@ struct OnboardingView: View {
     // MARK: - Feature Page (Page 1 & 2)
 
     private func featurePage(
-        icon: () -> AnyView,
+        mode: ProfileBrandTrainingHero.Mode,
         title: String,
         subtitle: String
     ) -> some View {
         VStack(spacing: 0) {
-            Spacer()
+            Spacer(minLength: Spacing.xl)
 
-            ZStack {
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.12))
-                    .frame(width: 120, height: 120)
-                icon()
-            }
-            .padding(.bottom, Spacing.xxxl)
+            ProfileBrandTrainingHero(mode: mode)
+                .frame(height: 220)
+                .padding(.horizontal, Spacing.xxl)
+                .padding(.bottom, Spacing.xxxl)
 
             Text(title)
                 .font(.btTitle2)
@@ -73,7 +69,7 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .lineSpacing(4)
 
-            Spacer()
+            Spacer(minLength: Spacing.xl)
         }
     }
 
@@ -83,15 +79,17 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            appLogo
-                .padding(.bottom, Spacing.xxl)
+            ProfileBrandTrainingHero(mode: .identity)
+                .frame(height: 176)
+                .padding(.horizontal, Spacing.xxl)
+                .padding(.bottom, Spacing.xl)
 
             Text("球迹")
                 .font(.btLargeTitle)
                 .foregroundStyle(.btText)
                 .padding(.bottom, Spacing.xs)
 
-            Text("你的台球训练伙伴")
+            Text("球路计算 · 训练记录 · 数据复盘")
                 .font(.btBody)
                 .foregroundStyle(.btTextSecondary)
 
@@ -100,8 +98,8 @@ struct OnboardingView: View {
             VStack(spacing: Spacing.xxxl) {
                 OnboardingFeatureRow(
                     leading: { AnyView(Image(systemName: "square.grid.2x2.fill").font(.btTitle).foregroundStyle(.btPrimary)) },
-                    title: "动作库与训练记录",
-                    subtitle: "海量练习动作，轻松记录训练"
+                    title: "球路计算与动作训练",
+                    subtitle: "从瞄准路径到专项动作，目标更清楚"
                 )
                 OnboardingFeatureRow(
                     leading: { AnyView(Image(systemName: "angle").font(.btTitle).foregroundStyle(.btPrimary)) },
@@ -167,11 +165,6 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: - App Logo
-
-    private var appLogo: some View {
-        BTBrandLogo(size: 160, style: .onTile)
-    }
 }
 
 // MARK: - Feature Row

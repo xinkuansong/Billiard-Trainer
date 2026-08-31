@@ -154,14 +154,14 @@ struct AngleHomeView: View {
 
     /// 「学」——交互/文档学页（v32：球理入口已迁至「理」区）。
     private let learnEntries: [AngleEntry] = [
-        .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "切入角 · 假想球 · 厚薄球", topics: [.accuracy]),
-        .init(route: .aimingMethods, title: "瞄准方法", subtitle: "管道 · 接触点 · 平行线", topics: [.accuracy]),
-        .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "投掷 · 塞偏 · 弧线：几何之外的偏差", topics: [.accuracy, .english]),
-        .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "滑动 · 前旋后旋 · 分离角", topics: [.english, .position]),
-        .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "切角变化如何影响打点", topics: [.accuracy]),
-        .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "高低杆 · 碰后轨迹 · 力度", isPremium: true, topics: [.position]),
-        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "高低杆 · 左右塞 · 吃库后出射", isPremium: true, topics: [.english, .cushion]),
-        .init(route: .ballFeel, title: "浅谈球感", subtitle: "从理性分析到直觉判断", topics: [.accuracy]),
+        .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "看懂切球角与厚薄", topics: [.accuracy]),
+        .init(route: .aimingMethods, title: "瞄准方法", subtitle: "用三种方法找到瞄准点", topics: [.accuracy]),
+        .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "补偿投掷、挤偏与弧线", topics: [.accuracy, .english]),
+        .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "用旋转控制碰后路线", topics: [.english, .position]),
+        .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "看切角，找准瞄准点", topics: [.accuracy]),
+        .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "比较高低杆的碰后路线", isPremium: true, topics: [.position]),
+        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "看塞侧如何改变出库线", isPremium: true, topics: [.english, .cushion]),
+        .init(route: .ballFeel, title: "浅谈球感", subtitle: "把几何判断练成直觉", topics: [.accuracy]),
         .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "常用角度的瞄准点速查", topics: [.accuracy]),
     ]
 
