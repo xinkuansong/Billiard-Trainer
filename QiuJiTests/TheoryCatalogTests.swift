@@ -95,6 +95,32 @@ final class TheoryCatalogTests: XCTestCase {
         for entry in TheoryCatalog.entries {
             XCTAssertFalse(entry.title.isEmpty, "\(entry.id.rawValue) 标题为空")
             XCTAssertFalse(entry.subtitle.isEmpty, "\(entry.id.rawValue) 副标题为空")
+            XCTAssertFalse(entry.cardSubtitle.isEmpty, "\(entry.id.rawValue) 卡片副标题为空")
+        }
+    }
+
+    func testCardSubtitlesAreShortDistinctAndDoNotReplaceFullClaims() {
+        let expected: [TheoryPageID: String] = [
+            .t01: "自然滚动约偏30°",
+            .t02: "滑动碰球分离90°",
+            .t03: "先走切线再看旋转",
+            .t04: "用出杆长度调力度",
+            .t05: "从最后一颗倒推",
+            .t06: "先找收尾关键球",
+            .t07: "尽早识别处理球团",
+            .t08: "打前问把握与代价",
+            .t09: "少加塞少受偏差",
+            .t10: "看距离库位和障碍",
+            .flow: "按五步想完这一杆",
+            .quickRef: "上场前5分钟速查",
+        ]
+        XCTAssertEqual(expected.count, TheoryCatalog.entries.count)
+        XCTAssertEqual(Set(TheoryCatalog.entries.map(\.cardSubtitle)).count, TheoryCatalog.entries.count)
+        for entry in TheoryCatalog.entries {
+            XCTAssertEqual(entry.cardSubtitle, expected[entry.id])
+            XCTAssertLessThanOrEqual(entry.cardSubtitle.count, 10, "\(entry.id.rawValue) 卡片副标题超过小屏预算")
+            XCTAssertFalse(entry.cardSubtitle.contains("\n"))
+            XCTAssertNotEqual(entry.cardSubtitle, entry.subtitle, "卡片提示不应复制完整理论断言")
         }
     }
 

@@ -5,12 +5,24 @@ struct RootView: View {
 
     var body: some View {
         if let deepLink = Self.uiTestDeepLink {
-            deepLink.preferredColorScheme(.dark)
+            deepLink.preferredColorScheme(Self.uiTestDeepLinkColorScheme)
         } else if authState.hasCompletedOnboarding {
             MainTabView()
+                .preferredColorScheme(Self.uiTestMainColorScheme)
         } else {
             OnboardingView()
         }
+    }
+
+    /// v49 卡片取证专用：仅显式 Light 参数覆盖主 Tab；生产继续跟随系统外观。
+    private static var uiTestMainColorScheme: ColorScheme? {
+        ProcessInfo.processInfo.arguments.contains("-v49.forceLight") ? .light : nil
+    }
+
+    /// UI 取证深链历史上默认强制 Dark；v49 文案验收需要同一路径的真实 Light 截图。
+    /// 仅测试启动参数可覆盖，生产启动与既有深链测试行为均保持不变。
+    private static var uiTestDeepLinkColorScheme: ColorScheme {
+        ProcessInfo.processInfo.arguments.contains("-v49.forceLight") ? .light : .dark
     }
 
     /// UITest 深链（仅 launch arg 存在时生效；生产永不触发）：直接进反解页取证，
