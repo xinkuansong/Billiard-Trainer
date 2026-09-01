@@ -51,6 +51,7 @@
 
 ## 技能（`.cursor/skills/`）
 
+- `billiard-copy-editing` — 动作库 / 练习卡片 / 详情 / 精讲的统一文案入口；按字段合并用户训练意图、逐杆图片、序列事实、术语、理论、几何与 UI 约束
 - `ios-architecture` — MVVM、模块边界、SPM
 - `swiftui-design-system` — Design Token、组件、Dark Mode
 - `swiftdata-cloudkit` — SwiftData 与 Drill 内容（Bundle + 自建 API OTA，ADR-002）

@@ -115,8 +115,8 @@ struct StatisticsView: View {
 
     private var statsContent: some View {
         ScrollView {
-            VStack(spacing: Spacing.lg) {
-                timeRangePicker
+            VStack(spacing: Spacing.xl) {
+                timeRangeContext
                 overviewCard
                 durationCard
                 successRateCard
@@ -137,70 +137,120 @@ struct StatisticsView: View {
         ) { $0.rawValue }
     }
 
+    private var timeRangeContext: some View {
+        VStack(spacing: Spacing.sm) {
+            timeRangePicker
+
+            HStack {
+                Text("统计区间")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                Spacer()
+                Text(vm.dateRangeLabel)
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+                    .monospacedDigit()
+            }
+        }
+    }
+
     // MARK: - Overview Card
 
     private var overviewCard: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("训练概况")
-                .font(.btHeadline)
-                .foregroundStyle(.btPrimary)
+        ZStack(alignment: .topTrailing) {
+            StatisticsEngineeringMark(color: .btPrimary)
+                .frame(width: 156, height: 96)
+                .opacity(colorScheme == .dark ? 0.06 : 0.04)
 
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(vm.trainingDays)")
-                            .font(.btDisplay)
-                            .foregroundStyle(.btText)
-                        Text("天")
-                            .font(.btTitle)
-                            .foregroundStyle(.btTextSecondary)
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                Text("训练概况")
+                    .font(.btHeadline)
+                    .foregroundStyle(.btPrimary)
+
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .bottom, spacing: Spacing.xl) {
+                        trainingDaysMetric
+                        Spacer(minLength: Spacing.md)
+                        overviewMetric(value: "\(vm.totalDurationMinutes)", label: "分钟 · 总时长")
+                        overviewMetric(value: "\(vm.totalSets)", label: "训练组数")
                     }
 
-                    Text(overviewSubtitle)
-                        .font(.btSubheadline)
-                        .foregroundStyle(.btTextSecondary)
-
-                    kindBreakdownLine
-
-                    HStack(spacing: Spacing.md) {
-                        ForEach(vm.trainingDaysBreakdown.prefix(3), id: \.category) { item in
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(item.category)
-                                    .font(.btCaption)
-                                    .foregroundStyle(.btTextTertiary)
-                                Text("\(item.days)天")
-                                    .font(.btSubheadlineMedium)
-                                    .foregroundStyle(.btPrimary)
-                            }
+                    VStack(alignment: .leading, spacing: Spacing.lg) {
+                        trainingDaysMetric
+                        HStack(spacing: Spacing.xxl) {
+                            overviewMetric(value: "\(vm.totalDurationMinutes)", label: "分钟 · 总时长")
+                            overviewMetric(value: "\(vm.totalSets)", label: "训练组数")
                         }
                     }
-                    .padding(.top, Spacing.sm)
                 }
 
-                Spacer()
+                Divider()
+                    .overlay(Color.btSeparator)
 
-                miniBarChart
+                kindBreakdownStrip
             }
         }
-        .statisticsCard()
+        .statisticsCard(emphasized: true)
+    }
+
+    private var trainingDaysMetric: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                Text("\(vm.trainingDays)")
+                    .font(.btDisplay)
+                    .foregroundStyle(.btText)
+                Text("天")
+                    .font(.btTitle)
+                    .foregroundStyle(.btTextSecondary)
+            }
+            .monospacedDigit()
+
+            Text(overviewSubtitle)
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+        }
+    }
+
+    private func overviewMetric(value: String, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.btStatNumber)
+                .foregroundStyle(.btText)
+                .monospacedDigit()
+            Text(label)
+                .font(.btCaption2)
+                .foregroundStyle(.btTextTertiary)
+        }
     }
 
     /// 按 kind 分开的口径说明（契约 §5.3）：球台成绩与屏内练习分列，
     /// 工具使用单独一行并明示「不计训练量」——它既不进准确率也不计周目标。
-    private var kindBreakdownLine: some View {
+    private var kindBreakdownStrip: some View {
         let days = vm.daysByKind
         let mins = vm.minutesByKind
-        return VStack(alignment: .leading, spacing: 2) {
-            Text("球台训练 \(days.drill) 天 · \(mins.drill) 分钟")
-            Text("屏内练习 \(days.cognitive) 天 · \(mins.cognitive) 分钟")
+        return VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.xxl) {
+                kindMetric(label: "球台训练", days: days.drill, minutes: mins.drill)
+                kindMetric(label: "屏内练习", days: days.cognitive, minutes: mins.cognitive)
+            }
             if days.tool > 0 {
                 Text("工具使用 \(days.tool) 天 · \(mins.tool) 分钟（不计训练量与成绩）")
+                    .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
             }
         }
-        .font(.btCaption)
-        .foregroundStyle(.btTextSecondary)
-        .padding(.top, 2)
+    }
+
+    private func kindMetric(label: String, days: Int, minutes: Int) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(label)
+                .font(.btCaption2)
+                .foregroundStyle(.btTextTertiary)
+            Text("\(days) 天 · \(minutes) 分钟")
+                .font(.btFootnote14.weight(.semibold))
+                .foregroundStyle(.btTextSecondary)
+                .monospacedDigit()
+        }
     }
 
     private var overviewSubtitle: String {
@@ -209,24 +259,6 @@ struct StatisticsView: View {
         case .month: return "本月训练天数"
         case .year:  return "本年训练天数"
         }
-    }
-
-    private var miniBarChart: some View {
-        HStack(alignment: .bottom, spacing: 3) {
-            ForEach(vm.durationBarData.suffix(6)) { bar in
-                let maxH: CGFloat = 64
-                let h = bar.hours > 0 ? max(4, CGFloat(bar.hours / maxBarHours) * maxH) : 2
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.btPrimary.opacity(bar.date > Calendar.current.startOfDay(for: Date()) ? 0.3 : 0.6))
-                    .frame(width: 6, height: min(h, maxH))
-            }
-        }
-        .frame(height: 64, alignment: .bottom)
-        .padding(.top, Spacing.xxl)
-    }
-
-    private var maxBarHours: Double {
-        vm.durationBarData.map(\.hours).max() ?? 1
     }
 
     // MARK: - Duration Card
@@ -513,32 +545,70 @@ struct StatisticsCategoryRatesCard: View {
 
 private struct StatisticsCardModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
+    let emphasized: Bool
 
     func body(content: Content) -> some View {
         content
             .padding(Spacing.xl)
-            .background(Color.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-            .overlay(
-                HStack {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.btPrimary)
-                        .frame(width: 3)
-                    Spacer()
-                }
-                .padding(.vertical, Spacing.sm)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            .background(
+                emphasized
+                    ? Color.btPrimary.opacity(colorScheme == .dark ? 0.10 : 0.045)
+                    : Color.btBGSecondary
             )
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+            .overlay {
+                RoundedRectangle(cornerRadius: BTRadius.lg)
+                    .stroke(
+                        colorScheme == .dark ? Color.btSeparator : Color.btPrimary.opacity(0.08),
+                        lineWidth: colorScheme == .dark ? 0.5 : 1
+                    )
+            }
             .shadow(
-                color: colorScheme == .dark ? .clear : Color.btPrimary.opacity(0.04),
-                radius: 12, x: 0, y: 4
+                color: colorScheme == .dark ? .clear : Color.black.opacity(0.025),
+                radius: 8, x: 0, y: 3
             )
     }
 }
 
 extension View {
-    fileprivate func statisticsCard() -> some View {
-        modifier(StatisticsCardModifier())
+    fileprivate func statisticsCard(emphasized: Bool = false) -> some View {
+        modifier(StatisticsCardModifier(emphasized: emphasized))
+    }
+}
+
+/// Page-local v47 data-page signature in screen-local normalized coordinates.
+/// It suggests cue-ball → contact → target construction without claiming table geometry.
+private struct StatisticsEngineeringMark: View {
+    let color: Color
+
+    var body: some View {
+        Canvas { context, size in
+            let cue = CGPoint(x: size.width * 0.08, y: size.height * 0.78)
+            let contact = CGPoint(x: size.width * 0.50, y: size.height * 0.52)
+            let target = CGPoint(x: size.width * 0.92, y: size.height * 0.20)
+
+            var route = Path()
+            route.move(to: cue)
+            route.addLine(to: contact)
+            route.addLine(to: target)
+            context.stroke(route, with: .color(color), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+
+            context.fill(
+                Path(ellipseIn: CGRect(x: cue.x - 5, y: cue.y - 5, width: 10, height: 10)),
+                with: .color(color)
+            )
+            context.stroke(
+                Path(ellipseIn: CGRect(x: contact.x - 6, y: contact.y - 6, width: 12, height: 12)),
+                with: .color(color),
+                lineWidth: 1
+            )
+            context.fill(
+                Path(ellipseIn: CGRect(x: target.x - 3, y: target.y - 3, width: 6, height: 6)),
+                with: .color(color)
+            )
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 

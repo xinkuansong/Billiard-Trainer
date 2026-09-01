@@ -10,6 +10,7 @@ import XCTest
 final class ScreenshotTourUITests: XCTestCase {
 
     var app: XCUIApplication!
+    private var v47ForcedShotDirURL: URL?
 
     override func setUpWithError() throws {
         continueAfterFailure = true
@@ -18,9 +19,11 @@ final class ScreenshotTourUITests: XCTestCase {
 
     // MARK: - Helpers
 
-    /// 截图目录：优先 `UI_POLISH_SHOT_DIR`；否则按外观写入
-    /// `docs/ui-polish/screenshots-latest/{light|dark}/`。
+    /// 截图目录：优先 `UI_POLISH_SHOT_DIR` / `/tmp/qiuji-uitest/shot_dir`；
+    /// 否则按外观写入 `build/v47-screenshots/{light|dark}/`。
+    /// v47 起禁止测试默认覆盖 `docs/ui-polish/screenshots-latest/` 设计基线。
     private var shotDirURL: URL? {
+        if let v47ForcedShotDirURL { return v47ForcedShotDirURL }
         if let env = ProcessInfo.processInfo.environment["UI_POLISH_SHOT_DIR"], !env.isEmpty {
             return URL(fileURLWithPath: env, isDirectory: true)
         }
@@ -38,10 +41,11 @@ final class ScreenshotTourUITests: XCTestCase {
             switch XCUIDevice.shared.appearance {
             case .light: mode = "light"
             case .dark:  mode = "dark"
+            case .unspecified: mode = "unknown"
             @unknown default: mode = "unknown"
             }
         }
-        let base = "/Users/song/projects/13.billiard_trainer/docs/ui-polish/screenshots-latest"
+        let base = "/Users/song/projects/13.billiard_trainer/build/v47-screenshots"
         return URL(fileURLWithPath: "\(base)/\(mode)", isDirectory: true)
     }
 
@@ -52,11 +56,71 @@ final class ScreenshotTourUITests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        // 同步写命名 PNG，便于直接落入 docs/ui-polish（不依赖 xcresult 二次导出）。
+        // 同步写命名 PNG（不依赖 xcresult 二次导出）。写盘失败必须让测试变红，
+        // 禁止用 try? 把缺图伪装成巡游成功。
         if let dir = shotDirURL {
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let file = dir.appendingPathComponent("\(name).png")
-            try? screenshot.pngRepresentation.write(to: file)
+            do {
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let file = dir.appendingPathComponent("\(name).png")
+                try screenshot.pngRepresentation.write(to: file, options: .atomic)
+            } catch {
+                XCTFail("截图写盘失败 \(name): \(error.localizedDescription)")
+            }
+        }
+    }
+
+    /// 用 W0 冻结的 66 张基线文件名做完整性门禁。巡游里的防御式点击仍可继续
+    /// 收集后续页面，但任何静默跳页最终都会因缺图而失败。
+    private func assertV47BaselineScreenshotCompleteness() {
+        guard let outputDir = shotDirURL else {
+            XCTFail("v47 截图输出目录不可用")
+            return
+        }
+
+        let manifestPath = ProcessInfo.processInfo.environment["V47_EXPECTED_SHOT_MANIFEST"]
+            ?? "/Users/song/projects/13.billiard_trainer/docs/design/v47/baseline-screenshots.sha256"
+        do {
+            let manifest = try String(contentsOfFile: manifestPath, encoding: .utf8)
+            let expected = Set(manifest.split(separator: "\n").compactMap { line -> String? in
+                guard !line.hasPrefix("#"), let path = line.split(separator: " ").last else { return nil }
+                return URL(fileURLWithPath: String(path)).lastPathComponent
+            })
+            XCTAssertEqual(expected.count, 66, "v47 基线 manifest 必须正好登记 66 张 PNG")
+
+            let produced = Set(try FileManager.default.contentsOfDirectory(
+                at: outputDir,
+                includingPropertiesForKeys: nil
+            ).filter { $0.pathExtension.lowercased() == "png" }.map(\.lastPathComponent))
+            let missing = expected.subtracting(produced).sorted()
+            XCTAssertTrue(missing.isEmpty, "v47 巡游缺图：\(missing.joined(separator: ", "))")
+        } catch {
+            XCTFail("v47 截图完整性门禁无法读取 manifest/输出目录：\(error.localizedDescription)")
+        }
+    }
+
+    /// 完整巡游必须从空输出目录开始，避免上轮残留 PNG 掩盖本轮静默跳页。
+    /// 只允许清理 v47 build 目录或系统临时目录，绝不递归删除 docs/Resources。
+    @discardableResult
+    private func resetV47ShotDirectory() -> Bool {
+        guard let dir = shotDirURL else {
+            XCTFail("v47 截图输出目录不可用")
+            return false
+        }
+        let standardized = dir.standardizedFileURL.path
+        let allowed = standardized.contains("/build/v47-") || standardized.hasPrefix("/tmp/")
+        guard allowed else {
+            XCTFail("拒绝清理非 v47 临时输出目录：\(standardized)")
+            return false
+        }
+        do {
+            if FileManager.default.fileExists(atPath: standardized) {
+                try FileManager.default.removeItem(at: dir)
+            }
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return true
+        } catch {
+            XCTFail("无法重置 v47 截图目录：\(error.localizedDescription)")
+            return false
         }
     }
 
@@ -134,6 +198,13 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 给 UI 设计师的整页快照：Pro 解锁后走完整巡游，再补巡游漏掉的常规页。
     /// 落盘目录：`UI_POLISH_SHOT_DIR` 或 `/tmp/qiuji-uitest/shot_dir`。
     func testDesignerPageDump() {
+        // 完整 v47 巡游会先清空输出，因此不采纳机器上遗留的旧截图目录配置；
+        // 强制写本批 build 目录，避免覆盖 tmp/designer-screenshots 基线。
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-screenshots/light",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
         sleep(3)
@@ -162,6 +233,426 @@ final class ScreenshotTourUITests: XCTestCase {
             snap("62-free-record-session")
         }
         tourOnboarding()
+        assertV47BaselineScreenshotCompleteness()
+    }
+
+    /// D-v47-1：五个 Tab 根页永久保持无大标题。子页正常导航标题不在本断言范围。
+    func testV47TabRootsHaveNoNavigationTitle() {
+        let tabs: [XCUIApplication.Tab] = [.training, .drillLibrary, .angle, .history, .profile]
+        for tab in tabs {
+            app.switchTab(tab)
+            XCTAssertFalse(
+                app.navigationBars[tab.rawValue].waitForExistence(timeout: 1),
+                "\(tab.rawValue) Tab 根页不得恢复 navigation title"
+            )
+        }
+    }
+
+    /// W3 根页样板 R：固定首屏/底部证据，并守住“无大标题 + 唯一主 CTA + 可滚到底”。
+    func testV47TrainingHomeSample() {
+        let mode: String
+        switch XCUIDevice.shared.appearance {
+        case .light: mode = "light"
+        case .dark: mode = "dark"
+        case .unspecified: mode = "unknown"
+        @unknown default: mode = "unknown"
+        }
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/training-home/\(mode)",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app.switchTab(.training)
+
+        XCTAssertFalse(
+            app.navigationBars[XCUIApplication.Tab.training.rawValue].waitForExistence(timeout: 1),
+            "训练根页不得恢复 navigation title"
+        )
+        XCTAssertTrue(
+            app.staticTexts["今日训练进行中"].waitForExistence(timeout: 5),
+            "首屏应明确当前训练状态"
+        )
+        XCTAssertEqual(
+            app.buttons.matching(NSPredicate(format: "label == '开始训练'")).count,
+            1,
+            "训练根页只能有一个主 CTA"
+        )
+        snap("01-training-home-top")
+
+        let scrollSurface = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollSurface.waitForExistence(timeout: 3), "训练根页应可滚动")
+        for _ in 0..<5 { scrollSurface.swipeUp(velocity: .fast) }
+        snap("02-training-home-bottom")
+
+        XCTAssertTrue(
+            app.tabBars.buttons[XCUIApplication.Tab.training.rawValue].exists
+                || app.buttons[XCUIApplication.Tab.training.rawValue].exists,
+            "滚动到底后 Tab Bar 仍应可达"
+        )
+    }
+
+    /// W3 AX 证据：调用前须用 `simctl ui <device> content_size accessibility-large` 设置系统字号。
+    /// 本测试只固定截图与关键可达性；是否实际缩放必须结合系统设置回读和截图目视裁定。
+    func testV47TrainingHomeSampleAccessibilitySize() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/training-home/ax-large",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app.switchTab(.training)
+
+        XCTAssertTrue(app.staticTexts["今日训练进行中"].waitForExistence(timeout: 5))
+        XCTAssertEqual(
+            app.buttons.matching(NSPredicate(format: "label == '开始训练'")).count,
+            1
+        )
+        snap("01-training-home-ax-large")
+    }
+
+    /// W3 15–30 秒交互证据：滚动、切换计划来源，再回到首要状态。
+    func testV47TrainingHomeInteractionEvidence() {
+        app.switchTab(.training)
+        XCTAssertTrue(app.staticTexts["今日训练进行中"].waitForExistence(timeout: 5))
+
+        let scrollSurface = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollSurface.waitForExistence(timeout: 3))
+        scrollSurface.swipeUp(velocity: .slow)
+        scrollSurface.swipeDown(velocity: .slow)
+
+        if app.buttons["我的模版"].waitForExistence(timeout: 3) {
+            app.buttons["我的模版"].tap()
+            XCTAssertTrue(app.buttons["官方计划"].waitForExistence(timeout: 3))
+            app.buttons["官方计划"].tap()
+        }
+
+        XCTAssertEqual(
+            app.buttons.matching(NSPredicate(format: "label == '开始训练'")).count,
+            1
+        )
+    }
+
+    /// W3 紧凑尺寸证据：在 375pt 宽设备上验证状态、唯一 CTA 与底部安全区。
+    func testV47TrainingHomeCompactSample() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/training-home/compact",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app.switchTab(.training)
+
+        let activeState = app.staticTexts["今日训练进行中"]
+        let emptyState = app.staticTexts["今日训练待安排"]
+        let hasRecognizableState = activeState.waitForExistence(timeout: 3)
+            || emptyState.waitForExistence(timeout: 3)
+        XCTAssertTrue(hasRecognizableState, "紧凑尺寸首屏应明确当前训练状态")
+        XCTAssertEqual(
+            app.buttons.matching(
+                NSPredicate(format: "label == '开始训练' OR label == '自由记录'")
+            ).count,
+            1
+        )
+        snap("01-training-home-compact-top")
+
+        let scrollSurface = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollSurface.waitForExistence(timeout: 3))
+        for _ in 0..<5 { scrollSurface.swipeUp(velocity: .fast) }
+        snap("02-training-home-compact-bottom")
+    }
+
+    /// W8 数据样板 D：固定统计首屏/底部，并验证周期上下文与核心指标可达。
+    func testV47StatisticsSample() {
+        let mode: String
+        switch XCUIDevice.shared.appearance {
+        case .light: mode = "light"
+        case .dark: mode = "dark"
+        case .unspecified: mode = "unknown"
+        @unknown default: mode = "unknown"
+        }
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/statistics/\(mode)",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        openV47Statistics()
+
+        XCTAssertTrue(app.staticTexts["统计区间"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["训练概况"].exists)
+        XCTAssertTrue(app.staticTexts["分钟 · 总时长"].exists)
+        XCTAssertTrue(app.staticTexts["训练组数"].exists)
+        snap("01-statistics-top")
+
+        let scrollSurface = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollSurface.waitForExistence(timeout: 3))
+        for _ in 0..<5 { scrollSurface.swipeUp(velocity: .fast) }
+        snap("02-statistics-bottom")
+    }
+
+    /// W8 AX 证据：调用前须设置并回读系统 accessibility-large 字号。
+    func testV47StatisticsSampleAccessibilitySize() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/statistics/ax-large",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        openV47Statistics()
+        XCTAssertTrue(app.staticTexts["训练概况"].waitForExistence(timeout: 5))
+        snap("01-statistics-ax-large")
+    }
+
+    /// W8 Free 证据：统计内容保持在原导航位置，以明确的 Pro 门槛承接，不改变入口。
+    func testV47StatisticsFreeGateSample() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/statistics/free",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean()
+        openV47Statistics()
+        XCTAssertTrue(app.staticTexts["统计功能为 Pro 专属"].waitForExistence(timeout: 5))
+        snap("01-statistics-free-gate")
+    }
+
+    /// W8 紧凑尺寸证据：允许独立模拟器处于有数据或空态，但状态必须完整可辨。
+    func testV47StatisticsCompactSample() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/statistics/compact",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        openV47Statistics()
+
+        let overview = app.staticTexts["训练概况"]
+        let empty = app.staticTexts["还没有训练数据"]
+        XCTAssertTrue(
+            overview.waitForExistence(timeout: 3) || empty.waitForExistence(timeout: 3),
+            "紧凑尺寸统计页应明确呈现数据概况或空态"
+        )
+        snap("01-statistics-compact")
+    }
+
+    /// W8 15–30 秒交互证据：切换周/月/年并滚动查看趋势和分类。
+    func testV47StatisticsInteractionEvidence() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        openV47Statistics()
+
+        for range in ["月", "年", "周"] {
+            let button = app.buttons[range]
+            XCTAssertTrue(button.waitForExistence(timeout: 3), "统计周期 \(range) 应可达")
+            button.tap()
+            usleep(500_000)
+        }
+
+        let scrollSurface = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollSurface.waitForExistence(timeout: 3))
+        scrollSurface.swipeUp(velocity: .slow)
+        scrollSurface.swipeDown(velocity: .slow)
+        XCTAssertTrue(app.staticTexts["训练概况"].exists)
+    }
+
+    private func openV47Statistics() {
+        app.switchTab(.history)
+        let statsTab = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "label == '统计'")).firstMatch
+        XCTAssertTrue(statsTab.waitForExistence(timeout: 5), "记录根页应提供统计分段")
+        statsTab.tap()
+    }
+
+    /// W10a 品牌样板 B：三屏引导与登录必须共享同一球路/复盘语言，同时保持原入口。
+    func testV47BrandSample() {
+        let mode: String
+        switch XCUIDevice.shared.appearance {
+        case .light: mode = "light"
+        case .dark: mode = "dark"
+        case .unspecified: mode = "unknown"
+        @unknown default: mode = "unknown"
+        }
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/brand/\(mode)",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        launchV47Onboarding()
+        XCTAssertTrue(app.staticTexts["看懂球路，再开始练"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["继续"].exists)
+        XCTAssertTrue(app.buttons["跳过"].exists)
+        snap("01-onboarding-route")
+
+        app.buttons["继续"].tap()
+        XCTAssertTrue(app.staticTexts["记录每杆，复盘趋势"].waitForExistence(timeout: 3))
+        snap("02-onboarding-review")
+
+        app.buttons["继续"].tap()
+        XCTAssertTrue(app.buttons["开始使用"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["登录已有账号"].exists)
+        snap("03-onboarding-summary")
+
+        app.buttons["登录已有账号"].tap()
+        XCTAssertTrue(app.staticTexts["看懂球路，练出结果"].waitForExistence(timeout: 3))
+        for label in ["通过 Apple 登录", "微信登录", "手机号登录", "暂不登录，匿名使用"] {
+            XCTAssertTrue(app.buttons[label].exists, "登录入口 \(label) 应保持")
+        }
+        XCTAssertTrue(app.staticTexts["用户协议"].exists)
+        XCTAssertTrue(app.staticTexts["隐私政策"].exists)
+        snap("04-login")
+    }
+
+    /// W10a AX 证据：调用前须设置并回读系统 accessibility-large 字号。
+    func testV47BrandSampleAccessibilitySize() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/brand/ax-large",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        launchV47Onboarding()
+        XCTAssertTrue(app.staticTexts["看懂球路，再开始练"].waitForExistence(timeout: 5))
+        snap("01-onboarding-ax-large")
+
+        openV47LoginFromOnboarding()
+        XCTAssertTrue(app.staticTexts["看懂球路，练出结果"].waitForExistence(timeout: 3))
+        snap("02-login-ax-large")
+    }
+
+    /// W10a 375pt 紧凑尺寸：引导、登录入口与底部协议均必须完整可达。
+    func testV47BrandCompactSample() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/brand/compact",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        launchV47Onboarding()
+        XCTAssertTrue(app.staticTexts["看懂球路，再开始练"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["继续"].isHittable)
+        XCTAssertTrue(app.buttons["跳过"].isHittable)
+        snap("01-onboarding-compact")
+
+        openV47LoginFromOnboarding()
+        XCTAssertTrue(app.buttons["手机号登录"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["暂不登录，匿名使用"].exists)
+        snap("02-login-compact")
+    }
+
+    /// W10a 键盘态：品牌构图不能阻断手机号登录 Sheet、输入焦点和键盘。
+    func testV47BrandPhoneKeyboardSample() {
+        v47ForcedShotDirURL = URL(
+            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-samples/brand/keyboard",
+            isDirectory: true
+        )
+        guard resetV47ShotDirectory() else { return }
+
+        launchV47Onboarding()
+        openV47LoginFromOnboarding()
+        app.buttons["手机号登录"].tap()
+
+        let phoneField = app.textFields["请输入手机号"]
+        XCTAssertTrue(phoneField.waitForExistence(timeout: 3))
+        phoneField.tap()
+        phoneField.typeText("13800138000")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["发送验证码"].exists)
+        snap("01-phone-login-keyboard")
+    }
+
+    /// W10a 15–30 秒交互证据：完整经过引导、登录与手机号输入，不改变跳过/登录路径。
+    func testV47BrandInteractionEvidence() {
+        launchV47Onboarding()
+        XCTAssertTrue(app.staticTexts["看懂球路，再开始练"].waitForExistence(timeout: 5))
+        app.buttons["继续"].tap()
+        XCTAssertTrue(app.staticTexts["记录每杆，复盘趋势"].waitForExistence(timeout: 3))
+        app.buttons["继续"].tap()
+        XCTAssertTrue(app.buttons["登录已有账号"].waitForExistence(timeout: 3))
+        app.buttons["登录已有账号"].tap()
+        XCTAssertTrue(app.buttons["手机号登录"].waitForExistence(timeout: 3))
+        app.buttons["手机号登录"].tap()
+
+        let phoneField = app.textFields["请输入手机号"]
+        XCTAssertTrue(phoneField.waitForExistence(timeout: 3))
+        phoneField.tap()
+        phoneField.typeText("13800138000")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 3))
+    }
+
+    private func launchV47Onboarding() {
+        app.terminate()
+        let fresh = XCUIApplication()
+        fresh.launchArguments += ["-AppleLanguages", "(zh-Hans)"]
+        fresh.launchArguments += ["-AppleLocale", "zh_CN"]
+        fresh.launchArguments += ["-hasCompletedOnboarding", "NO"]
+        fresh.launchArguments += ["-resetDebugPremium"]
+        fresh.launch()
+        app = fresh
+    }
+
+    private func openV47LoginFromOnboarding() {
+        for _ in 0..<2 {
+            let next = app.buttons["继续"]
+            XCTAssertTrue(next.waitForExistence(timeout: 3))
+            next.tap()
+        }
+        let login = app.buttons["登录已有账号"]
+        XCTAssertTrue(login.waitForExistence(timeout: 3))
+        login.tap()
+    }
+
+    /// W0/W15a 同形性能对拍：训练与记录根页各静置 10 秒、连续滚动 15 秒。
+    /// 指标绑定被测 App 进程，避免只量到 UI runner；模拟器数据只比较同机趋势。
+    func testV47TrainingAndHistoryPerformanceBaseline() {
+        let options = XCTMeasureOptions()
+        options.iterationCount = 1
+
+        measure(
+            metrics: [
+                XCTClockMetric(),
+                XCTCPUMetric(application: app),
+                XCTMemoryMetric(application: app),
+                XCTOSSignpostMetric.scrollingAndDecelerationMetric,
+            ],
+            options: options
+        ) {
+            exerciseV47PerformancePage(tab: .training)
+            exerciseV47PerformancePage(tab: .history)
+        }
+    }
+
+    private func exerciseV47PerformancePage(tab: XCUIApplication.Tab) {
+        app.switchTab(tab)
+        Thread.sleep(forTimeInterval: 10)
+
+        let scrollSurface = app.scrollViews.firstMatch
+        XCTAssertTrue(scrollSurface.waitForExistence(timeout: 5), "\(tab.rawValue) 根页缺少可滚动表层")
+        let deadline = Date().addingTimeInterval(15)
+        var upward = true
+        while Date() < deadline {
+            if upward {
+                scrollSurface.swipeUp(velocity: .fast)
+            } else {
+                scrollSurface.swipeDown(velocity: .fast)
+            }
+            upward.toggle()
+        }
     }
 
     /// 接 remainder：球理页会藏底栏，先软重启再拍记录 / 我的 / 登录 / 引导。

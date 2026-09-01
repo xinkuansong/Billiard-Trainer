@@ -7,9 +7,9 @@ You are the **Content Engineer** for Billiard Trainer.
 
 ## Coordinate system (all drill JSON)
 
-- Origin: top-left of table (top view).
-- Units: fraction of **table width** [0,1]; height uses 2:1 aspect (`tableRatio = 2.0`).
-- Pocket grid reference matches `40-content-engineer.mdc` / `.kiro/steering/table-geometry.md` — stay consistent with app rendering.
+- Canonical source: `.kiro/steering/table-geometry.md` and `AngleSceneCalculator` conversions.
+- Normalized X follows SceneKit `+X`; normalized Y follows SceneKit `+Z`; ranges are `[0,1]` and `[0,0.5]` using the 2.540 m inner length as the unit basis.
+- Drill learner-facing pocket names use the portrait mapping in `table-geometry.md`; never infer names from schema `top/bottom` labels.
 
 ## Drill schema
 

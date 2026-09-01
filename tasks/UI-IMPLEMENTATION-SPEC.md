@@ -1079,6 +1079,7 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-08-31 | **训练首页周/日信息分层**（DR-082）：本周训练改为周目标+连续天数+周一至周日真实轨迹；今日完成数与预计用时移到「今日安排」右侧，仅未完成时显示，完成后切庆祝标志；两处周数据统一周一起点 | 修正/DR | TrainingHomeView | 用户：本周内容独立，今日信息放回今日安排 |
 | 2026-08-27 | **分享同时保存 + 浅色背景**（DR-079）：总结页「生成分享图」先落库再出卡（`saveTraining` 幂等）；`ShareCardTheme.paper` 默认浅色，选择器改标「背景」 | 修正/DR | BTShareCard, TrainingShareView, TrainingSummaryView, ActiveTrainingViewModel | 用户：生成分享图应同时保存；分享页没有浅色背景 |
 | 2026-08-27 | **休息最小化计时改回金色**：收起后右下计时胶囊改回 `btAccent`，与绿色主按钮区分 | 修正 | ActiveTrainingView | 用户：最小化后计时用之前颜色更有区分度 |
 | 2026-08-27 | **休息卡最小化按钮提亮**：卡顶「最小化」由 `btTextSecondary` + `btBGTertiary` 改为 `btPrimary` + `btPrimaryMuted`，避免像禁用 | 修正 | ActiveTrainingView | 用户：最小化按钮太暗像不能点 |

@@ -27,6 +27,14 @@ enum AppTab: Int, CaseIterable {
         }
     }
 
+    var selectedIcon: String {
+        switch self {
+        case .drillLibrary: return "list.bullet.rectangle.fill"
+        case .profile:      return "person.circle.fill"
+        default:            return icon
+        }
+    }
+
 }
 
 

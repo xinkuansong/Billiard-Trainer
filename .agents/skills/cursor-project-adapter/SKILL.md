@@ -33,7 +33,9 @@ Cursor 专属能力不得假装在 Codex 中存在。`.mdc` 的 `alwaysApply` �
 | SwiftUI、Canvas、组件、视觉实现 | `.cursor/rules/20-swiftui-developer.mdc` | `.cursor/agents/swiftui-developer.md` | `.cursor/skills/swiftui-design-system/SKILL.md` |
 | SwiftData、同步、鉴权、后端 | `.cursor/rules/30-data-engineer.mdc` | `.cursor/agents/data-engineer.md` | 在 `swiftdata-cloudkit` 与 `rest-api-backend` 中选择适用者 |
 | Drill/Plan JSON、动画路径、内容生产 | `.cursor/rules/40-content-engineer.mdc` | `.cursor/agents/content-engineer.md` | `.cursor/skills/content-engineering/SKILL.md` |
-| 精讲创作或迁移 | `.cursor/rules/40-content-engineer.mdc` | `.cursor/agents/tutorial-writer.md` | 在 `tutorial-authoring` 与 `tutorial-migration` 中选择适用者 |
+| 动作库/练习卡片/详情/精讲的学员文案 | 当前字段对应规则 | Content Engineer；精讲再叠 Tutorial Writer | `.cursor/skills/billiard-copy-editing/SKILL.md`，再由其按字段加载专项技能 |
+| 精讲创作或迁移 | `.cursor/rules/40-content-engineer.mdc` | `.cursor/agents/tutorial-writer.md` | `billiard-copy-editing` + 在 `tutorial-authoring` 与 `tutorial-migration` 中选择适用者 |
+| 球形训练意图录入或完善 | `.cursor/rules/40-content-engineer.mdc` | `.cursor/agents/content-engineer.md` | `billiard-copy-editing` + `.cursor/skills/formation-training-intent/SKILL.md` |
 | 几何、坐标、角度、相对位置 | 当前角色规则 | 当前任务角色 | `.cursor/skills/geometry-spatial-reasoning/SKILL.md`，并核对 `.kiro/steering/table-geometry.md` |
 | QA、DoD、边界验收 | `.cursor/rules/50-qa-reviewer.mdc` | `.cursor/agents/qa-reviewer.md` | 读取任务卡与验收真源 |
 | 自动化测试或测试计划 | `.cursor/rules/55-test-engineer.mdc` | `.cursor/agents/test-engineer.md` | 读取对应测试真源 |

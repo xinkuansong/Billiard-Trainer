@@ -29,6 +29,10 @@ enum BakeRunnerGate {
     /// 标志文件（相对仓库根）。
     static let flagFileRelativePath = "build/.run-bake-runners"
 
+    /// 中断的 make 任务可能遗留 flag。无限期信任一个空文件会让日后的普通全量测试
+    /// 重新烘焙并改写 git 跟踪资源；只接受当前制作会话内的新鲜 gate。
+    static let flagMaximumAge: TimeInterval = 30 * 60
+
     /// 仓库根（由本文件路径推导，天然支持 git worktree）。
     static var repositoryRoot: URL {
         URL(fileURLWithPath: #filePath)
@@ -39,7 +43,14 @@ enum BakeRunnerGate {
     static var isEnabled: Bool {
         if ProcessInfo.processInfo.environment[environmentKey] == "1" { return true }
         let flag = repositoryRoot.appendingPathComponent(flagFileRelativePath)
-        return FileManager.default.fileExists(atPath: flag.path)
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: flag.path),
+              let modifiedAt = attributes[.modificationDate] as? Date else { return false }
+        return isFresh(modifiedAt: modifiedAt)
+    }
+
+    static func isFresh(modifiedAt: Date, now: Date = Date()) -> Bool {
+        let age = now.timeIntervalSince(modifiedAt)
+        return age >= 0 && age <= flagMaximumAge
     }
 
     /// 未开门时跳过当前测试。

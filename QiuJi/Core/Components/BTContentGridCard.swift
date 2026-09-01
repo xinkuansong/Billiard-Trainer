@@ -157,7 +157,7 @@ private struct BTContentGridCardSamples: View {
 
                 BTContentGridCard(
                     title: "瞄准原理",
-                    subtitle: "切入角 · 假想球 · 厚薄球",
+                    subtitle: "切球角 · 假想球 · 厚薄球",
                     coverAspectRatio: 4.0 / 3.0
                 ) {
                     BTPracticeCover(

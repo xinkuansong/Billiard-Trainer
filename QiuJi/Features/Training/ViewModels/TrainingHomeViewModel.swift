@@ -82,6 +82,9 @@ enum PlanLevelFilter: String, CaseIterable {
 final class TrainingHomeViewModel: ObservableObject {
     @Published var isLoading = true
     @Published var todaySession: TodaySessionInfo?
+    /// 当天已保存、但不属于当前激活计划的真实球台训练。
+    /// 自由选择动作也必须回显在首页「今日训练」，同时由 TrainingGoalMetrics 计入本周训练。
+    @Published var todaySupplementalDrills: [TodayDrillItem] = []
     @Published var hasActivePlan = false
     @Published var officialPlans: [PlanBrowseItem] = []
     @Published var selectedTab: PlanBrowseTab = .official
@@ -127,11 +130,19 @@ final class TrainingHomeViewModel: ObservableObject {
         guard let activePlan = try? context.fetch(descriptor).first else {
             hasActivePlan = false
             todaySession = nil
+            todaySupplementalDrills = fetchTodaySupplementalDrills(
+                context: context,
+                excludingPlanId: nil
+            )
             await loadPlansForBrowsing()
             return
         }
 
         hasActivePlan = true
+        todaySupplementalDrills = fetchTodaySupplementalDrills(
+            context: context,
+            excludingPlanId: activePlan.planId
+        )
 
         if activePlan.isCustom {
             await loadCustomPlan(activePlan: activePlan, context: context)
@@ -203,7 +214,10 @@ final class TrainingHomeViewModel: ObservableObject {
         }
         let session = week.sessions[dayIndex]
 
-        let completedIds = fetchTodayCompletedDrillIds(context: context)
+        let completedIds = fetchTodayCompletedDrillIds(
+            context: context,
+            planId: activePlan.planId
+        )
         let drillService = DrillContentService.shared
 
         var items: [TodayDrillItem] = []
@@ -260,7 +274,10 @@ final class TrainingHomeViewModel: ObservableObject {
             return
         }
 
-        let completedIds = fetchTodayCompletedDrillIds(context: context)
+        let completedIds = fetchTodayCompletedDrillIds(
+            context: context,
+            planId: activePlan.planId
+        )
         let sortedDrills = customPlan.drills.sorted { $0.order < $1.order }
 
         var items: [TodayDrillItem] = []
@@ -305,7 +322,10 @@ final class TrainingHomeViewModel: ObservableObject {
                              subcategory: content?.subcategory ?? "")
     }
 
-    private func fetchTodayCompletedDrillIds(context: ModelContext) -> Set<String> {
+    private func fetchTodayCompletedDrillIds(
+        context: ModelContext,
+        planId: String
+    ) -> Set<String> {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
@@ -314,6 +334,79 @@ final class TrainingHomeViewModel: ObservableObject {
         let descriptor = FetchDescriptor<TrainingSession>(predicate: predicate)
 
         guard let sessions = try? context.fetch(descriptor) else { return [] }
-        return Set(sessions.flatMap(\.drillEntries).map(\.drillId))
+        return Set(
+            sessions
+                .filter { $0.planId == planId }
+                .flatMap(\.drillEntries)
+                .map(\.drillId)
+        )
+    }
+
+    /// 读取今天所有不属于当前计划的真实动作记录。
+    ///
+    /// 计划会话继续由 `todaySession.drills` 负责展示，避免同一条落库记录重复出现；
+    /// 自由训练或今天更换计划前的训练则按真实 `DrillEntry` 逐行追加。
+    private func fetchTodaySupplementalDrills(
+        context: ModelContext,
+        excludingPlanId: String?
+    ) -> [TodayDrillItem] {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: Date())
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+
+        let predicate = #Predicate<TrainingSession> { $0.date >= start && $0.date < end }
+        let descriptor = FetchDescriptor<TrainingSession>(
+            predicate: predicate,
+            sortBy: [SortDescriptor(\.date)]
+        )
+
+        guard let fetched = try? context.fetch(descriptor) else { return [] }
+        let sessions = fetched.filter { session in
+            guard session.kind == TrainingSessionKind.drill else { return false }
+            guard let excludingPlanId else { return true }
+            return session.planId != excludingPlanId
+        }
+
+        return sessions.flatMap { session in
+            session.drillEntries
+                .sorted { lhs, rhs in
+                    if lhs.orderIndex == rhs.orderIndex {
+                        return lhs.id.uuidString < rhs.id.uuidString
+                    }
+                    return lhs.orderIndex < rhs.orderIndex
+                }
+                .map { entry in
+                    let storedSets = entry.sets.sorted { $0.setNumber < $1.setNumber }
+                    let plannedSets = storedSets.map { set in
+                        PlannedTrainingSet(
+                            formationToken: set.formationToken,
+                            formationName: set.formationName,
+                            targetBalls: set.targetBalls,
+                            mode: nil
+                        )
+                    }
+                    return TodayDrillItem(
+                        id: "record_\(entry.id.uuidString)",
+                        drillId: entry.drillId,
+                        nameZh: entry.drillNameZh,
+                        phaseType: "free",
+                        phaseZh: "自由训练",
+                        phaseIcon: "plus.circle",
+                        plannedSets: plannedSets,
+                        volumeText: Self.recordedVolumeText(for: storedSets),
+                        isCompleted: true
+                    )
+                }
+        }
+    }
+
+    private static func recordedVolumeText(for sets: [DrillSet]) -> String {
+        guard let first = sets.first else { return "已完成" }
+        let unit = first.unitLabel
+        if sets.allSatisfy({ $0.targetBalls == first.targetBalls }) {
+            return "\(sets.count) × \(first.targetBalls)"
+        }
+        let total = sets.reduce(0) { $0 + $1.targetBalls }
+        return "\(sets.count) 组 · 共 \(total) \(unit)"
     }
 }

@@ -154,15 +154,15 @@ struct AngleHomeView: View {
 
     /// 「学」——交互/文档学页（v32：球理入口已迁至「理」区）。
     private let learnEntries: [AngleEntry] = [
-        .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "切入角 · 假想球 · 厚薄球", topics: [.accuracy]),
-        .init(route: .aimingMethods, title: "瞄准方法", subtitle: "管道 · 接触点 · 平行线", topics: [.accuracy]),
-        .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "投掷 · 塞偏 · 弧线：几何之外的偏差", topics: [.accuracy, .english]),
-        .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "滑动 · 前旋后旋 · 分离角", topics: [.english, .position]),
-        .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "切角变化如何影响打点", topics: [.accuracy]),
-        .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "高低杆 · 碰后轨迹 · 力度", isPremium: true, topics: [.position]),
-        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "高低杆 · 左右塞 · 吃库后出射", isPremium: true, topics: [.english, .cushion]),
-        .init(route: .ballFeel, title: "浅谈球感", subtitle: "从理性分析到直觉判断", topics: [.accuracy]),
-        .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "常用角度的瞄准点速查", topics: [.accuracy]),
+        .init(route: .aimingPrinciple, title: "瞄准原理", subtitle: "从切球角找瞄准点", topics: [.accuracy]),
+        .init(route: .aimingMethods, title: "瞄准方法", subtitle: "三种方法找瞄准点", topics: [.accuracy]),
+        .init(route: .aimingCorrection, title: "瞄准修正", subtitle: "补偿投掷与加塞", topics: [.accuracy, .english]),
+        .init(route: .spinAndEnglish, title: "旋转与加塞", subtitle: "预判旋转后路线", topics: [.english, .position]),
+        .init(route: .angleDynamic, title: "角度与瞄准", subtitle: "拖球看瞄准点变化", topics: [.accuracy]),
+        .init(route: .separationAngleAtlas, title: "分离角图谱", subtitle: "看高低杆碰后方向", isPremium: true, topics: [.position]),
+        .init(route: .cushionEnglishAtlas, title: "加塞吃库图谱", subtitle: "换塞侧看出库方向", isPremium: true, topics: [.english, .cushion]),
+        .init(route: .ballFeel, title: "浅谈球感", subtitle: "用误差练出直觉", topics: [.accuracy]),
+        .init(route: .contactPointTable, title: "瞄准点对照表", subtitle: "按切球角查瞄准点", topics: [.accuracy]),
     ]
 
     /// 「理」——16 理论体系（v32.2：每篇一卡直达详情；索引页仅深链可达，首页不再放「球理」总卡）。
@@ -173,7 +173,7 @@ struct AngleHomeView: View {
                 AngleEntry(
                     route: .theoryPage(entry.id),
                     title: entry.title,
-                    subtitle: entry.subtitle,
+                    subtitle: entry.cardSubtitle,
                     topics: Self.theoryTopics(for: entry.id)
                 )
             }
@@ -194,12 +194,12 @@ struct AngleHomeView: View {
 
     /// 「练」——测验类：练角度直觉。
     private let trainEntries: [AngleEntry] = [
-        .init(route: .geometricQuiz, title: "角度预测", subtitle: "看球形，估切角，练直觉", topics: [.accuracy]),
-        .init(route: .sceneAiming2D, title: "2D 角度训练", subtitle: "俯视真台，练几何角度判断", topics: [.accuracy]),
-        .init(route: .sceneAiming3D, title: "3D 角度训练", subtitle: "站位视角，练临场球感", isPremium: true, topics: [.accuracy]),
-        .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "给角度拖假想球，毫米级误差", topics: [.accuracy]),
-        .init(route: .aimPointScene2D, title: "2D 瞄准点训练", subtitle: "微调瞄准线选打点，击球验证", topics: [.accuracy]),
-        .init(route: .aimPointScene3D, title: "3D 瞄准点训练", subtitle: "站位视角微调打点，击球验证", isPremium: true, topics: [.accuracy]),
+        .init(route: .geometricQuiz, title: "角度预测", subtitle: "估切角看误差", topics: [.accuracy]),
+        .init(route: .sceneAiming2D, title: "2D 角度训练", subtitle: "俯视瞄准看误差", topics: [.accuracy]),
+        .init(route: .sceneAiming3D, title: "3D 角度训练", subtitle: "站位瞄准看误差", isPremium: true, topics: [.accuracy]),
+        .init(route: .aimPointTraining, title: "瞄准点训练", subtitle: "拖假想球看毫米差", topics: [.accuracy]),
+        .init(route: .aimPointScene2D, title: "2D 瞄准点训练", subtitle: "俯视调线击球验证", topics: [.accuracy]),
+        .init(route: .aimPointScene3D, title: "3D 瞄准点训练", subtitle: "站位调线击球验证", isPremium: true, topics: [.accuracy]),
     ]
 
     /// 「打」——沙盘类：摆球、击打、看真实物理结果。
@@ -218,19 +218,19 @@ struct AngleHomeView: View {
 
     /// P11.1：入口顺序 = 分离角与走位、自由走位、自由击球、拍照建球形（、批量出片台）。
     private let basePlayEntries: [AngleEntry] = [
-        .init(route: .shotSimulation, title: "分离角与走位", subtitle: "教学演示：看懂碰撞后母球走向", topics: [.position, .english]),
-        .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆编排击打，推演整套走位", isPremium: true, topics: [.position, .english]),
-        .init(route: .freePlay, title: "自由击球", subtitle: "开球散局起手，完整对局体验"),
-        .init(route: .ballExtraction, title: "拍照建球形", subtitle: "拍下真实球局，导入沙盘复盘", isPremium: true),
+        .init(route: .shotSimulation, title: "分离角与走位", subtitle: "调打点力度看走位", topics: [.position, .english]),
+        .init(route: .positionPlayComposer, title: "自由走位", subtitle: "逐杆摆打推演走位", isPremium: true, topics: [.position, .english]),
+        .init(route: .freePlay, title: "自由击球", subtitle: "从开球打一整局"),
+        .init(route: .ballExtraction, title: "拍照建球形", subtitle: "拍球局导入沙盘", isPremium: true),
     ]
 
     /// 「解」——教练类：给定局面，让引擎反解怎么打。
     private let solveEntries: [AngleEntry] = [
-        .init(route: .positionPlaySolver, title: "思路训练", subtitle: "单杆走位反解：定落点，解塞与力度", topics: [.position, .english]),
-        .init(route: .planThree, title: "打一走二想三", subtitle: "三杆连续走位规划，练全局思路", isPremium: true, topics: [.position]),
-        .init(route: .snookerTactics, title: "防守", subtitle: "反解安全球：让对方球组看不到或只剩难球", isPremium: true, topics: [.safety]),
-        .init(route: .bankShot, title: "翻袋解球器", subtitle: "目标球翻库进袋：求 1–3 库路线", topics: [.cushion, .accuracy]),
-        .init(route: .diamondSystem, title: "反射解球器", subtitle: "母球吃库绕障碍碰球的路线", topics: [.cushion]),
+        .init(route: .positionPlaySolver, title: "思路训练", subtitle: "定落点看塞与力度", topics: [.position, .english]),
+        .init(route: .planThree, title: "打一走二想三", subtitle: "定三颗倒推第一杆", isPremium: true, topics: [.position]),
+        .init(route: .snookerTactics, title: "防守", subtitle: "选目标球求防守线", isPremium: true, topics: [.safety]),
+        .init(route: .bankShot, title: "翻袋解球器", subtitle: "选袋求一至三库线", topics: [.cushion, .accuracy]),
+        .init(route: .diamondSystem, title: "反射解球器", subtitle: "摆球求一至三库线", topics: [.cushion]),
     ]
 
     private func entries(for section: PracticeSection) -> [AngleEntry] {
