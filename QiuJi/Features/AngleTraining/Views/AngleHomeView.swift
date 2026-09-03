@@ -409,6 +409,10 @@ struct AngleHomeView: View {
             }
         }
         .buttonStyle(BTPressableStyle.row)
+        // iOS 17 在 Accessibility 最大字号下会把 Button 的 AX frame 收缩到
+        // 图标 + 文本联合区；外层也锁定 60pt，保证语义命中区不小于 44pt。
+        .frame(minHeight: 60)
+        .contentShape(Rectangle())
         // 沿用 P18 B1 的分段定位标识，UI 测试（P5 / ScreenshotTour）无需改选择器。
         .accessibilityIdentifier("angleHomeTab_\(label)")
     }

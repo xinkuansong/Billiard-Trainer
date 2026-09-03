@@ -3,18 +3,21 @@
   "nameZh": "杆法Ⅱ·加塞挤偏",
   "nameEn": "Cue Action II · English & Squirt",
   "targetLevel": "L2→L3",
-  "durationWeeks": 4,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 120,
+  "estimatedMinutesPerLesson": 120,
   "isPremium": true,
   "description": "加塞与挤偏专项：近台认知、长台放大、塞量阶梯，再同切角换塞变线与高低杆加塞。带塞准度见准度Ⅲ，不进本计划。热身咬合杆法Ⅰ定杆。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "近台挤偏",
-      "sessions": [
+      "id": "plan_english.stage01",
+      "order": 1,
+      "title": "近台挤偏",
+      "goal": "掌握近台挤偏",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_english.stage01.lesson01",
+          "order": 1,
+          "title": "挤偏认知·直球近台入门",
+          "summary": "围绕挤偏认知·直球近台入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -85,7 +88,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_english.stage01.lesson02",
+          "order": 2,
+          "title": "挤偏认知·直球近台巩固",
+          "summary": "围绕挤偏认知·直球近台巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -161,7 +167,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_english.stage01.lesson03",
+          "order": 3,
+          "title": "挤偏认知·直球近台检验",
+          "summary": "围绕挤偏认知·直球近台检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -219,11 +228,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "长台挤偏",
-      "sessions": [
+      "id": "plan_english.stage02",
+      "order": 2,
+      "title": "长台挤偏",
+      "goal": "掌握长台挤偏",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_english.stage02.lesson01",
+          "order": 1,
+          "title": "挤偏放大·直球长台入门",
+          "summary": "围绕挤偏放大·直球长台入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -300,7 +314,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_english.stage02.lesson02",
+          "order": 2,
+          "title": "挤偏放大·直球长台巩固",
+          "summary": "围绕挤偏放大·直球长台巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -380,7 +397,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_english.stage02.lesson03",
+          "order": 3,
+          "title": "挤偏放大·直球长台检验",
+          "summary": "围绕挤偏放大·直球长台检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -438,11 +458,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "塞量阶梯与加塞变线",
-      "sessions": [
+      "id": "plan_english.stage03",
+      "order": 3,
+      "title": "塞量阶梯与加塞变线",
+      "goal": "掌握塞量阶梯与加塞变线",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_english.stage03.lesson01",
+          "order": 1,
+          "title": "塞量阶梯",
+          "summary": "围绕塞量阶梯完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -523,7 +548,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_english.stage03.lesson02",
+          "order": 2,
+          "title": "加塞一库变线入门",
+          "summary": "围绕加塞一库变线入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -596,7 +624,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_english.stage03.lesson03",
+          "order": 3,
+          "title": "加塞一库变线检验",
+          "summary": "围绕加塞一库变线检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -668,11 +699,16 @@
       ]
     },
     {
-      "weekNumber": 4,
-      "theme": "高低杆加塞",
-      "sessions": [
+      "id": "plan_english.stage04",
+      "order": 4,
+      "title": "高低杆加塞",
+      "goal": "掌握高低杆加塞",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_english.stage04.lesson01",
+          "order": 1,
+          "title": "高杆加塞走位",
+          "summary": "围绕高杆加塞走位完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -740,7 +776,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_english.stage04.lesson02",
+          "order": 2,
+          "title": "低杆加塞走位入门",
+          "summary": "围绕低杆加塞走位入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -808,7 +847,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_english.stage04.lesson03",
+          "order": 3,
+          "title": "低杆加塞走位检验",
+          "summary": "围绕低杆加塞走位检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

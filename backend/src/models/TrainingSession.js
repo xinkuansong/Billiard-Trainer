@@ -48,6 +48,18 @@ const trainingSessionSchema = new mongoose.Schema(
     totalDurationMinutes: { type: Number, default: 0 },
     note: { type: String, default: "" },
     planId: String,
+    scheduleItemId: { type: String, default: null },
+    sourceKind: { type: String, default: null },
+    sourceId: { type: String, default: null },
+    sourceParentId: { type: String, default: null },
+    sourceTitleSnapshot: { type: String, default: null },
+    sourceSubtitleSnapshot: { type: String, default: null },
+    sourcePayloadVersion: { type: Number, default: null },
+    // Swift Codable encodes Data as base64 in JSON. Keep the exact frozen payload opaque.
+    sourcePayloadSnapshot: { type: String, default: null },
+    progressRole: { type: String, default: null },
+    progressEffect: { type: String, default: null },
+    lessonId: { type: String, default: null },
     // 会话分类（契约 §5.3）："drill" 真实球台成绩 / "cognitive" 屏内认知测验 / "tool" 工具活跃度。
     // mongoose 默认 strict: true 会丢弃未声明字段，缺这行客户端上传的 kind 会被静默吞掉。
     // 不用 enum 约束：客户端 schema 里 kind 是 String，未知取值应原样存下而不是整条写入失败。

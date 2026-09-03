@@ -41,9 +41,12 @@ final class SyncQueueManager: ObservableObject {
 
     // MARK: - Enqueue
 
-    func enqueue(entityType: String, entityId: UUID, operation: String) {
+    func enqueue(entityType: String, entityId: UUID, operation: String,
+                 ownerKey: String? = nil) {
         guard let context else { return }
-        let item = SyncPendingItem(entityType: entityType, entityId: entityId, operation: operation)
+        let resolvedOwner = ownerKey ?? CurrentOwnerContext.shared.ownerKey
+        let item = SyncPendingItem(entityType: entityType, entityId: entityId,
+                                   operation: operation, ownerKey: resolvedOwner)
         context.insert(item)
         do {
             try context.save()
@@ -66,10 +69,12 @@ final class SyncQueueManager: ObservableObject {
     }
 
     func processQueue(authState: AuthState) async {
-        guard authState.isLoggedIn else { return }
+        guard authState.isLoggedIn, let userID = authState.currentUser?.id else { return }
         guard let context else { return }
+        let ownerKey = OwnerKey.account(userID)
 
         let descriptor = FetchDescriptor<SyncPendingItem>(
+            predicate: #Predicate { $0.ownerKey == ownerKey },
             sortBy: [SortDescriptor(\.createdAt)]
         )
         let pending: [SyncPendingItem]
@@ -83,7 +88,7 @@ final class SyncQueueManager: ObservableObject {
         guard !pending.isEmpty else { return }
 
         for item in pending {
-            let outcome = await process(item, context: context)
+            let outcome = await process(item, ownerKey: ownerKey, context: context)
             switch outcome {
             case .succeeded:
                 context.delete(item)
@@ -106,26 +111,30 @@ final class SyncQueueManager: ObservableObject {
         }
     }
 
-    private func process(_ item: SyncPendingItem, context: ModelContext) async -> ItemOutcome {
+    private func process(_ item: SyncPendingItem, ownerKey: String,
+                         context: ModelContext) async -> ItemOutcome {
         switch (item.entityType, item.operation) {
         case (SyncEntityType.trainingSession, SyncOperation.delete):
             return await deleteTrainingSession(clientId: item.entityId)
         case (SyncEntityType.trainingSession, _):
-            return await uploadTrainingSession(clientId: item.entityId, context: context)
+            return await uploadTrainingSession(clientId: item.entityId, ownerKey: ownerKey,
+                                               context: context)
         case (SyncEntityType.angleTestResult, SyncOperation.delete):
             // 客户端目前没有单条角度成绩的删除入口（v36 W2 走查确认），后端也没有对应端点。
             // 真出现这种项只能是脏数据：留着会每次激活重试，故直接丢弃并留痕。
             return .permanentFailure("AngleTestResult 删除同步未实现")
         case (SyncEntityType.angleTestResult, _):
-            return await uploadAngleTest(clientId: item.entityId, context: context)
+            return await uploadAngleTest(clientId: item.entityId, ownerKey: ownerKey,
+                                         context: context)
         default:
             return .permanentFailure("未知 entityType，无处理路径")
         }
     }
 
-    private func uploadTrainingSession(clientId: UUID, context: ModelContext) async -> ItemOutcome {
+    private func uploadTrainingSession(clientId: UUID, ownerKey: String,
+                                       context: ModelContext) async -> ItemOutcome {
         var descriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate { $0.id == clientId }
+            predicate: #Predicate { $0.id == clientId && $0.ownerKey == ownerKey }
         )
         descriptor.fetchLimit = 1
         // 实体已不在本地 ⇒ 它在入队之后被删除了。此时 create/update 项无内容可传，
@@ -141,9 +150,10 @@ final class SyncQueueManager: ObservableObject {
         }
     }
 
-    private func uploadAngleTest(clientId: UUID, context: ModelContext) async -> ItemOutcome {
+    private func uploadAngleTest(clientId: UUID, ownerKey: String,
+                                 context: ModelContext) async -> ItemOutcome {
         var descriptor = FetchDescriptor<AngleTestResult>(
-            predicate: #Predicate { $0.id == clientId }
+            predicate: #Predicate { $0.id == clientId && $0.ownerKey == ownerKey }
         )
         descriptor.fetchLimit = 1
         // 同 `uploadTrainingSession`：本地已删除 ⇒ 无内容可传，出队。
@@ -186,9 +196,12 @@ final class SyncQueueManager: ObservableObject {
 
     // MARK: - Queue Count (for UI badges)
 
-    func pendingCount() -> Int {
+    func pendingCount(ownerKey: String? = nil) -> Int {
         guard let context else { return 0 }
-        let descriptor = FetchDescriptor<SyncPendingItem>()
+        let resolvedOwner = ownerKey ?? CurrentOwnerContext.shared.ownerKey
+        let descriptor = FetchDescriptor<SyncPendingItem>(
+            predicate: #Predicate { $0.ownerKey == resolvedOwner }
+        )
         return (try? context.fetchCount(descriptor)) ?? 0
     }
 }

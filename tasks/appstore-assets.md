@@ -120,7 +120,7 @@ make screenshot SCREEN=1  # 截取并保存到 build/screenshots/screenshot_1.pn
 
 | 项目 | URL |
 |------|-----|
-| 隐私政策 | `https://yourdomain.com/privacy`（H-09 创建的页面） |
+| 隐私政策 | H-09 公开部署并通过 HTTPS 实测后的最终 `/privacy` URL；不得填写占位域名 |
 | 支持网址 | `https://yourdomain.com/support`（或邮件地址页）|
 
 ---

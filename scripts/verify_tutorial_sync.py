@@ -26,10 +26,10 @@ verify_tutorial_sync.py — 内容不变量校验（契约 .kiro/steering/conten
       ∈ 该 drill 的 perFormation token 集合 ∩ 序列 token 集合
   I12 六轴 load 齐全、值域 0–4；有 perFormation 时每球形必有 load，drill 级 load
       = 代表球形实分；无 perFormation 时只允许 drill 级 load（契约 §5.7 / §7）
-  I13 排课规则：focused 首次引入不得早于语义课表建议周、热身≤主课（scalar；
+  I13 课程规则：focused 首次引入不得早于语义课表最早阶段、热身≤主课（scalar；
       reviewFrom 咬合热身豁免）、衰减剂量单调不增且减量须标 decay、reviewFrom 外键有效、
-      focused 首次引入序对照 W0 主课表（只比序，不比建议周）；⑥每周满员且
-      dayNumber=1..N；⑦日合计（排除 countsTowardMinutes==false）≥75；⑧主题/简介禁幽灵词
+      focused 首次引入序对照 W0 主课表（只比序，不比阶段）；⑥阶段/课程 order 连续且非空；
+      ⑦课程合计（排除 countsTowardMinutes==false）≥75；⑧阶段主题/简介禁幽灵词
 
 基线与已知豁免真源：scripts/content_invariant_baselines.json（棘轮，只许收紧）。
 
@@ -820,38 +820,33 @@ def check_plan_refs(sequences: dict[str, list[dict]], drills: dict[str, dict],
         except json.JSONDecodeError as exc:
             fail.append((plan_id, "JSON 语法错误", str(exc)))
             continue
-        for week in plan.get("weeks") or []:
-            for session in week.get("sessions") or []:
-                where_s = f"{plan_id} W{week.get('weekNumber')}D{session.get('dayNumber')}"
-                for phase in session.get("phases") or []:
-                    for ref in phase.get("drills") or []:
-                        drill_id = ref.get("drillId")
-                        where = f"{where_s} {phase.get('type')} {drill_id}"
-                        if drill_id not in index_ids:
-                            fail.append((where, f"drillId `{drill_id}` 不在 index.json",
-                                         "计划引用的 drill 必须已登记"))
-                            continue
-                        if "sets" in ref or "ballsPerSet" in ref:
-                            # v31 W5 起 `PlanDrillRef` 已无这两个字段，解码会静默忽略
-                            # ⇒ 残留即「写了却不生效」的哑数据，按契约 §6.6 转阻塞。
-                            fail.append((where, "仍残留旧格式 sets/ballsPerSet",
-                                         "契约 §6.6：计划不得存裸球数（字段已于 W5 删除，写了也不会生效）"))
-                            continue
-                        drill = drills.get(drill_id) or {}
-                        per_meta = {
-                            str(item.get("token")): {
-                                "defaultRounds": item.get("defaultRounds"),
-                                "ballsPerRound": item.get("ballsPerRound"),
-                                "mode": item.get("mode"),
-                            }
-                            for item in per_formation(drill)
-                        }
-                        seq_tokens = {item["token"] for item in (sequences.get(drill_id) or [])}
-                        errors = _dose_errors(drill_id, ref.get("dose"), per_meta, seq_tokens)
-                        if errors:
-                            fail += [(where, what, how) for what, how in errors]
-                        else:
-                            ok += 1
+        for _, _, _, ref, where in _iter_plan_refs(plan):
+            drill_id = ref.get("drillId")
+            if drill_id not in index_ids:
+                fail.append((where, f"drillId `{drill_id}` 不在 index.json",
+                             "计划引用的 drill 必须已登记"))
+                continue
+            if "sets" in ref or "ballsPerSet" in ref:
+                # v31 W5 起 `PlanDrillRef` 已无这两个字段，解码会静默忽略
+                # ⇒ 残留即「写了却不生效」的哑数据，按契约 §6.6 转阻塞。
+                fail.append((where, "仍残留旧格式 sets/ballsPerSet",
+                             "契约 §6.6：计划不得存裸球数（字段已于 W5 删除，写了也不会生效）"))
+                continue
+            drill = drills.get(drill_id) or {}
+            per_meta = {
+                str(item.get("token")): {
+                    "defaultRounds": item.get("defaultRounds"),
+                    "ballsPerRound": item.get("ballsPerRound"),
+                    "mode": item.get("mode"),
+                }
+                for item in per_formation(drill)
+            }
+            seq_tokens = {item["token"] for item in (sequences.get(drill_id) or [])}
+            errors = _dose_errors(drill_id, ref.get("dose"), per_meta, seq_tokens)
+            if errors:
+                fail += [(where, what, how) for what, how in errors]
+            else:
+                ok += 1
     return {"ok": ok, "fail": fail, "exempt": [], "warn": warn}
 
 
@@ -961,25 +956,25 @@ def check_load_axes(drills: dict[str, dict], paths: Paths | None = None) -> dict
     return {"ok": ok, "fail": fail, "exempt": [], "warn": warn}
 
 
-# ── I13：排课规则（v37 W5，契约 §7 / R4–R6；v44 加 ⑥⑦⑧）────────────────
+# ── I13：课程规则（v37 W5；v54 W1 把日历周重解释为课程阶段）────────────────────
 #
 # 操作定义（对照现网计划实测后钉死，写入契约 2.9 / 2.11 / 2.12）：
-# 1. 建议周下界（v39 W2）：每份计划内 focused 首次引入的短 id，其首次周不得
-#    早于 `docs/research/20260818-v39-语义课表.md` §5 该 (plan, id) 的建议周。
-#    六轴 scalar 不再卡周（只给 ② 热身≤主课用）。warmup / reviewFrom 咬合
+# 1. 最早阶段下界（v54 W1）：每份计划内 focused 首次引入的短 id，其首次阶段不得
+#    早于 `docs/research/20260818-v39-语义课表.md` §5 的过渡数值；W3 同步文档标题。
+#    六轴 scalar 不再卡阶段（只给 ② 热身≤主课用）。warmup / reviewFrom 咬合
 #    不计入「首次引入」。缺表或条数 ≠ 现网 index.json 登记数 ⇒ FAIL。
-# 2. 热身≤主课：同 session 非咬合热身的 scalar max ≤ focused scalar max。
+# 2. 热身≤主课：同 lesson 非咬合热身的 scalar max ≤ focused scalar max。
 #    带 reviewFrom 的热身豁免（R6 上一档末段 → 下一档热身，允许高于开档主课）。
 #    逐轴比较会在现网打出 61 课假红，不用。
 # 3. 衰减：同 drill 按课次顺序剂量（展开球数）单调不增；低于完整剂量必须 decay。
 # 4. reviewFrom 必须是货架计划 id，且来源计划实际包含该 drill。
 # 5. 引入序（v38 W7）：每份计划 focused 首次引入的短 id 序 = W0 §3 该计划主课表序。
-#    只比序，不比「建议周」。
-# 6. 周满（v44）：每个 week 的 sessions.count == plan.sessionsPerWeek，且
-#    {dayNumber} == {1..sessionsPerWeek}。
-# 7. 日合计（v44）：同 session 计入时长的 phase.durationMinutes 之和 ≥ 75。
+#    只比序，不比最早阶段。
+# 6. 阶段覆盖（v54 W1）：stage 非空、order 连续唯一；每阶段至少一课且 lesson order 连续唯一。
+#    阶段课数无需相等，不再读取 sessionsPerWeek。
+# 7. 课程合计：同 lesson 计入时长的 phase.durationMinutes 之和 ≥ 75。
 #    countsTowardMinutes == false（或缺省 type==ritual）不计入。
-# 8. 主题禁幽灵（v44）：week.theme 与计划根 description 不得含子串
+# 8. 主题禁幽灵（v44）：stage.title 与计划根 description 不得含子串
 #    开球/九球/跳球/解球/远台中袋/握杆/站位/手架（大小写不敏感）。
 
 _PHASE_ORDER = {"warmup": 0, "focused": 1, "review": 2}
@@ -1033,10 +1028,10 @@ def _load_w0_main_order(paths: Paths) -> tuple[dict[str, list[str]], list[tuple[
     return orders, errors
 
 
-def _load_v39_suggested_weeks(
+def _load_v54_earliest_stages(
     paths: Paths,
 ) -> tuple[dict[tuple[str, str], int], list[tuple[str, str, str]]]:
-    """语义课表 §5：{(plan_id, short_id): 建议周}。缺表则失败；条数在 I13 与目录对齐。"""
+    """语义课表 §5：{(plan_id, short_id): 最早阶段}；条数在 I13 与目录对齐。"""
     errors: list[tuple[str, str, str]] = []
     curriculum_path = None
     for candidate in (paths.root / _V39_CURRICULUM_REL, REPO_ROOT / _V39_CURRICULUM_REL):
@@ -1046,7 +1041,7 @@ def _load_v39_suggested_weeks(
     if curriculum_path is None:
         return {}, [("语义课表", "找不到 v39 语义课表", str(_V39_CURRICULUM_REL))]
 
-    weeks: dict[tuple[str, str], int] = {}
+    stages: dict[tuple[str, str], int] = {}
     in_section = False
     for line in curriculum_path.read_text(encoding="utf-8").splitlines():
         if line.startswith("## 5."):
@@ -1059,29 +1054,29 @@ def _load_v39_suggested_weeks(
         parts = [part.strip() for part in line.strip().strip("|").split("|")]
         if len(parts) < 3:
             continue
-        drill_id, plan_id, week_text = parts[0], parts[1], parts[2]
+        drill_id, plan_id, stage_text = parts[0], parts[1], parts[2]
         if not drill_id.startswith("c") or not plan_id.startswith("plan_"):
             continue
         try:
-            week = int(week_text)
+            stage = int(stage_text)
         except ValueError:
             errors.append((
                 "语义课表",
-                f"{drill_id} 建议周无法解析为整数：{week_text!r}",
+                f"{drill_id} 最早阶段无法解析为整数：{stage_text!r}",
                 f"{curriculum_path} §5",
             ))
             continue
         key = (plan_id, drill_id)
-        if key in weeks:
+        if key in stages:
             errors.append((
                 "语义课表",
                 f"重复行 {plan_id}/{drill_id}",
                 f"{curriculum_path} §5",
             ))
             continue
-        weeks[key] = week
+        stages[key] = stage
 
-    return weeks, errors
+    return stages, errors
 
 
 def _scalar_max(drill: dict) -> int:
@@ -1152,18 +1147,45 @@ def _full_balls(drill: dict) -> int:
     return 0
 
 
-def _iter_plan_refs(plan: dict):
-    """按周序 / 日序 / 相位序产出 (week, day, phase_type, ref, where)。"""
-    plan_id = plan.get("id") or "?"
-    weeks = sorted(plan.get("weeks") or [],
-                   key=lambda week: week.get("weekNumber") or 0)
-    for week in weeks:
+def _plan_stages(plan: dict) -> list[dict]:
+    """Return the v54 stage/lesson shape, adapting legacy week/session plans read-only."""
+    stages = plan.get("stages")
+    if isinstance(stages, list):
+        return stages
+    result = []
+    for week in plan.get("weeks") or []:
         week_number = week.get("weekNumber")
-        sessions = sorted(week.get("sessions") or [],
-                          key=lambda session: session.get("dayNumber") or 0)
-        for session in sessions:
-            day_number = session.get("dayNumber")
-            phases = sorted(session.get("phases") or [],
+        result.append({
+            "id": f"{plan.get('id')}.stage{week_number:02d}"
+            if isinstance(week_number, int) else "",
+            "order": week_number,
+            "title": week.get("theme"),
+            "lessons": [
+                {
+                    "id": f"{plan.get('id')}.stage{week_number:02d}.lesson{session.get('dayNumber'):02d}"
+                    if isinstance(week_number, int) and isinstance(session.get("dayNumber"), int)
+                    else "",
+                    "order": session.get("dayNumber"),
+                    "title": f"第 {session.get('dayNumber')} 课",
+                    "phases": session.get("phases"),
+                }
+                for session in week.get("sessions") or []
+            ],
+        })
+    return result
+
+
+def _iter_plan_refs(plan: dict):
+    """按阶段 / 课程 / 相位序产出 (stage, lesson, phase_type, ref, where)。"""
+    plan_id = plan.get("id") or "?"
+    stages = sorted(_plan_stages(plan), key=lambda stage: stage.get("order") or 0)
+    for stage in stages:
+        stage_order = stage.get("order")
+        lessons = sorted(stage.get("lessons") or [],
+                         key=lambda lesson: lesson.get("order") or 0)
+        for lesson in lessons:
+            lesson_order = lesson.get("order")
+            phases = sorted(lesson.get("phases") or [],
                             key=lambda phase: _PHASE_ORDER.get(phase.get("type"), 99))
             for phase in phases:
                 phase_type = phase.get("type")
@@ -1171,8 +1193,8 @@ def _iter_plan_refs(plan: dict):
                     if not isinstance(ref, dict):
                         continue
                     drill_id = ref.get("drillId")
-                    where = f"{plan_id} W{week_number}D{day_number} {phase_type} {drill_id}"
-                    yield week_number, day_number, phase_type, ref, where
+                    where = f"{plan_id} S{stage_order}L{lesson_order} {phase_type} {drill_id}"
+                    yield stage_order, lesson_order, phase_type, ref, where
 
 
 _GHOST_THEME_WORDS = (
@@ -1192,7 +1214,7 @@ def _phase_counts_toward_minutes(phase: dict) -> bool:
 
 
 def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -> dict:
-    """I13：官方计划排课规则（建议周下界 / 热身 / 衰减 / 咬合外键 / 引入序 / 周满 / 日合计 / 主题）。"""
+    """I13：官方课程规则（最早阶段 / 热身 / 衰减 / 咬合 / 引入序 / 阶段覆盖 / 课时 / 主题）。"""
     paths = paths or DEFAULT_PATHS
     if not paths.plans.is_dir():
         return {"ok": 0, "fail": [], "exempt": [], "warn": [("—", "Plans 目录不存在", "—")]}
@@ -1207,7 +1229,7 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
                 "exempt": [], "warn": []}
     index_ids = {item.get("id") for item in (index.get("plans") or []) if item.get("id")}
     roster, roster_errors = _load_w0_main_order(paths)
-    suggested, suggested_errors = _load_v39_suggested_weeks(paths)
+    earliest_stages, earliest_stage_errors = _load_v54_earliest_stages(paths)
     catalog = _catalog_drill_count(paths)
     roster_total = sum(len(ids) for ids in roster.values())
     if catalog and roster_total != catalog:
@@ -1216,18 +1238,18 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
             f"解析到 {roster_total} 条主课，现网目录 {catalog}",
             f"{_W0_ROSTER_REL} §3 去向表须与 Drills/index.json 一一对应",
         ))
-    if catalog and len(suggested) != catalog:
-        suggested_errors.append((
+    if catalog and len(earliest_stages) != catalog:
+        earliest_stage_errors.append((
             "语义课表",
-            f"解析到 {len(suggested)} 条建议周，现网目录 {catalog}",
-            f"{_V39_CURRICULUM_REL} §5 须与 Drills/index.json 一一对应",
+            f"解析到 {len(earliest_stages)} 条最早阶段，现网目录 {catalog}",
+            f"{_V39_CURRICULUM_REL} §5 的过渡表须与 Drills/index.json 一一对应",
         ))
 
     plans: list[dict] = []
     membership: dict[str, set[str]] = {}
     ok, fail, warn = 0, [], []
     fail.extend(roster_errors)
-    fail.extend(suggested_errors)
+    fail.extend(earliest_stage_errors)
     for path in sorted(paths.plans.glob("plan_*.json")):
         try:
             plan = json.loads(path.read_text(encoding="utf-8"))
@@ -1247,19 +1269,6 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
 
     for plan in plans:
         plan_id = plan.get("id") or "?"
-        sessions_per_week = plan.get("sessionsPerWeek")
-        try:
-            sessions_per_week_n = int(sessions_per_week)
-        except (TypeError, ValueError):
-            fail.append((plan_id, f"sessionsPerWeek={sessions_per_week!r} 无法解析",
-                         "I13 ⑥：须为正整数"))
-            sessions_per_week_n = None
-        else:
-            if sessions_per_week_n < 1:
-                fail.append((plan_id, f"sessionsPerWeek={sessions_per_week_n} 非法",
-                             "I13 ⑥：须为正整数"))
-                sessions_per_week_n = None
-
         description_text = str(plan.get("description") or "")
         ghost_in_desc = next(
             (word for word in _GHOST_THEME_WORDS
@@ -1268,13 +1277,28 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
         )
         if ghost_in_desc:
             fail.append((plan_id, f"简介含幽灵词「{ghost_in_desc}」",
-                         "I13 ⑧：theme 与 description 不得含已下架课名"))
+                         "I13 ⑧：stage title 与 description 不得含已下架课名"))
         else:
             ok += 1
 
-        for week in plan.get("weeks") or []:
-            week_number = week.get("weekNumber")
-            theme_text = str(week.get("theme") or "")
+        stages = _plan_stages(plan)
+        stage_orders = {
+            stage.get("order") for stage in stages
+            if isinstance(stage.get("order"), int) and not isinstance(stage.get("order"), bool)
+        }
+        expected_stage_orders = set(range(1, len(stages) + 1))
+        if not stages or stage_orders != expected_stage_orders:
+            fail.append((
+                plan_id,
+                f"stage order={sorted(stage_orders)} 不是 1..{len(stages)}",
+                "I13 ⑥：阶段非空且 order 连续唯一",
+            ))
+        else:
+            ok += 1
+
+        for stage in stages:
+            stage_order = stage.get("order")
+            theme_text = str(stage.get("title") or "")
             ghost_in_theme = next(
                 (word for word in _GHOST_THEME_WORDS
                  if word.casefold() in theme_text.casefold()),
@@ -1282,35 +1306,33 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
             )
             if ghost_in_theme:
                 fail.append((
-                    f"{plan_id} W{week_number}",
+                    f"{plan_id} S{stage_order}",
                     f"主题含幽灵词「{ghost_in_theme}」",
-                    "I13 ⑧：theme 与 description 不得含已下架课名",
+                    "I13 ⑧：stage title 与 description 不得含已下架课名",
                 ))
             else:
                 ok += 1
 
-            sessions = week.get("sessions") or []
-            day_numbers = {
-                day for day in (session.get("dayNumber") for session in sessions)
-                if isinstance(day, int) and not isinstance(day, bool)
+            lessons = stage.get("lessons") or []
+            lesson_orders = {
+                order for order in (lesson.get("order") for lesson in lessons)
+                if isinstance(order, int) and not isinstance(order, bool)
             }
-            expected_days = set(range(1, sessions_per_week_n + 1)) if sessions_per_week_n else set()
-            if (sessions_per_week_n is None
-                    or len(sessions) != sessions_per_week_n
-                    or day_numbers != expected_days):
+            expected_lesson_orders = set(range(1, len(lessons) + 1))
+            if not lessons or lesson_orders != expected_lesson_orders:
                 fail.append((
-                    f"{plan_id} W{week_number}",
-                    f"sessions={len(sessions)} dayNumber={sorted(day_numbers)} "
-                    f"不是 1..{sessions_per_week_n}",
-                    "I13 ⑥：每周 sessions.count == sessionsPerWeek 且 dayNumber 为 1..N",
+                    f"{plan_id} S{stage_order}",
+                    f"lessons={len(lessons)} order={sorted(lesson_orders)} "
+                    f"不是 1..{len(lessons)}",
+                    "I13 ⑥：每阶段至少一课且 lesson order 连续唯一",
                 ))
             else:
                 ok += 1
 
-            for session in sessions:
-                day_number = session.get("dayNumber")
+            for lesson in lessons:
+                lesson_order = lesson.get("order")
                 total = 0
-                for phase in session.get("phases") or []:
+                for phase in lesson.get("phases") or []:
                     if not isinstance(phase, dict) or not _phase_counts_toward_minutes(phase):
                         continue
                     minutes = phase.get("durationMinutes")
@@ -1318,59 +1340,59 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
                         total += minutes
                 if total < _MIN_SESSION_MINUTES:
                     fail.append((
-                        f"{plan_id} W{week_number}D{day_number}",
-                        f"日合计 {total}′ < {_MIN_SESSION_MINUTES}′",
-                        "I13 ⑦：计入时长的 phase 之和须 ≥75",
+                        f"{plan_id} S{stage_order}L{lesson_order}",
+                        f"课程合计 {total}′ < {_MIN_SESSION_MINUTES}′",
+                        "I13 ⑦：每课计入时长的 phase 之和须 ≥75",
                     ))
                 else:
                     ok += 1
 
-        first_focused_week: dict[str, object] = {}
-        session_refs: dict[tuple, dict[str, list]] = defaultdict(
+        first_focused_stage: dict[str, object] = {}
+        lesson_refs: dict[tuple, dict[str, list]] = defaultdict(
             lambda: {"warmup": [], "focused": []})
         by_drill: dict[str, list] = defaultdict(list)
 
-        for week_number, day_number, phase_type, ref, where in _iter_plan_refs(plan):
+        for stage_order, lesson_order, phase_type, ref, where in _iter_plan_refs(plan):
             drill_id = ref.get("drillId")
             if not drill_id:
                 continue
             by_drill[drill_id].append((where, ref))
             if phase_type in ("warmup", "focused"):
-                session_refs[(week_number, day_number)][phase_type].append(ref)
-            if phase_type == "focused" and drill_id not in first_focused_week:
-                first_focused_week[drill_id] = week_number
+                lesson_refs[(stage_order, lesson_order)][phase_type].append(ref)
+            if phase_type == "focused" and drill_id not in first_focused_stage:
+                first_focused_stage[drill_id] = stage_order
 
-        for drill_id, week_number in first_focused_week.items():
+        for drill_id, stage_order in first_focused_stage.items():
             short = _short_drill_id(drill_id)
             key = (plan_id, short)
-            if key not in suggested:
+            if key not in earliest_stages:
                 fail.append((
                     f"{plan_id} {drill_id}",
-                    f"语义课表 §5 没有 {plan_id}/{short} 的建议周",
-                    "I13 ①：focused 首次引入必须能对照建议周总表",
+                    f"语义课表 §5 没有 {plan_id}/{short} 的最早阶段",
+                    "I13 ①：focused 首次引入必须能对照最早阶段表",
                 ))
                 continue
-            suggested_week = suggested[key]
+            minimum_stage = earliest_stages[key]
             try:
-                actual_week = int(week_number)
+                actual_stage = int(stage_order)
             except (TypeError, ValueError):
                 fail.append((
                     f"{plan_id} {drill_id}",
-                    f"首次引入周无法解析：{week_number!r}",
-                    "I13 ①：weekNumber 必须是整数",
+                    f"首次引入阶段无法解析：{stage_order!r}",
+                    "I13 ①：stage order 必须是整数",
                 ))
                 continue
-            if actual_week < suggested_week:
+            if actual_stage < minimum_stage:
                 fail.append((
-                    f"{plan_id} W{actual_week} {drill_id}",
-                    f"首次引入第 {actual_week} 周早于建议周 {suggested_week}",
-                    f"I13 ①：focused 首次引入不得早于语义课表建议周（{short}）",
+                    f"{plan_id} S{actual_stage} {drill_id}",
+                    f"首次引入阶段 {actual_stage} 早于最早阶段 {minimum_stage}",
+                    f"I13 ①：focused 首次引入不得早于最早阶段（{short}）",
                 ))
             else:
                 ok += 1
 
-        for (week_number, day_number), phases in session_refs.items():
-            where = f"{plan_id} W{week_number}D{day_number}"
+        for (stage_order, lesson_order), phases in lesson_refs.items():
+            where = f"{plan_id} S{stage_order}L{lesson_order}"
             warmup_refs = [
                 ref for ref in phases["warmup"]
                 if not (isinstance(ref.get("dose"), dict) and ref["dose"].get("reviewFrom"))
@@ -1430,7 +1452,7 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
                 else:
                     ok += 1
 
-        first_focused_ids = [_short_drill_id(drill_id) for drill_id in first_focused_week]
+        first_focused_ids = [_short_drill_id(drill_id) for drill_id in first_focused_stage]
         expected = roster.get(plan_id)
         if expected is None:
             fail.append((plan_id, "W0 §3 没有该计划的主课名单",
@@ -1439,7 +1461,7 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
             fail.append((
                 plan_id,
                 f"引入序 {first_focused_ids} ≠ W0 表 {expected}",
-                "I13 内容层：focused 首次引入序对照 W0 §3（只比序，不比建议周）",
+                "I13 内容层：focused 首次引入序对照 W0 §3（只比序，不比最早阶段）",
             ))
         else:
             ok += 1
@@ -1459,6 +1481,11 @@ def check_plan_curriculum(drills: dict[str, dict], paths: Paths | None = None) -
 # 静默不进 App，测试红了很久也没人能从「返回 nil」里看出是哪个字段。
 
 STR, INT, DBL, BOOL = "string", "int", "double", "bool"
+
+# v54 W1 temporary compatibility ledger. Only these pre-v54 bundled plans may
+# still use weeks/sessions while W2-W3 migrate them. Any new legacy-shaped plan
+# fails I10, so dual-read compatibility cannot become a write path.
+_V54_LEGACY_PLAN_IDS: set[str] = set()
 
 MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
     "DrillContent": {
@@ -1534,11 +1561,18 @@ MODEL_SPEC: dict[str, dict[str, tuple[bool, object]]] = {
     # 会让整份计划从列表里消失，与 FL-029 的「静默不进 App」同一形态，故一并镜像。
     "OfficialPlan": {
         "id": (True, STR), "nameZh": (True, STR), "nameEn": (True, STR),
-        "targetLevel": (True, STR), "durationWeeks": (True, INT),
-        "sessionsPerWeek": (True, INT), "minutesPerSession": (True, INT),
+        "targetLevel": (True, STR),
+        "estimatedMinutesPerLesson": (False, INT), "minutesPerSession": (False, INT),
         "isPremium": (True, BOOL), "description": (True, STR),
-        "weeks": (True, ["PlanWeek"]),
+        "stages": (False, ["PlanStage"]),
+        # W1 compatibility only. New or edited content must use stages/lessons.
+        "durationWeeks": (False, INT), "sessionsPerWeek": (False, INT),
+        "weeks": (False, ["PlanWeek"]),
     },
+    "PlanStage": {"id": (True, STR), "order": (True, INT), "title": (True, STR),
+                  "goal": (False, STR), "lessons": (True, ["PlanLesson"])},
+    "PlanLesson": {"id": (True, STR), "order": (True, INT), "title": (True, STR),
+                   "summary": (False, STR), "phases": (True, ["SessionPhase"])},
     "PlanWeek": {"weekNumber": (True, INT), "theme": (True, STR),
                  "sessions": (True, ["PlanSession"])},
     "PlanSession": {"dayNumber": (True, INT), "phases": (True, ["SessionPhase"])},
@@ -1603,6 +1637,81 @@ def decode_errors(value: object, spec: object, path: str) -> list[str]:
     return [] if type_ok(value, spec) else [f"typeMismatch 期望 {spec} @ {path}"]
 
 
+def official_plan_shape_errors(value: object, path: str) -> list[str]:
+    """Mirror OfficialPlan's new-or-legacy decoding and v54 structural validation."""
+    if not isinstance(value, dict):
+        return []
+    errors: list[str] = []
+    has_stages = value.get("stages") is not None
+    has_weeks = value.get("weeks") is not None
+    if has_stages == has_weeks:
+        errors.append(f"dataCorrupted OfficialPlan 须且只能包含 stages 或 legacy weeks @ {path}")
+        return errors
+    if value.get("estimatedMinutesPerLesson") is None and value.get("minutesPerSession") is None:
+        errors.append(f"keyNotFound estimatedMinutesPerLesson/minutesPerSession @ {path}")
+    if not has_stages:
+        for field in ("durationWeeks", "sessionsPerWeek", "minutesPerSession"):
+            if value.get(field) is None:
+                errors.append(f"keyNotFound '{field}'（legacy OfficialPlan 必填） @ {path}")
+        plan_id = value.get("id")
+        if plan_id not in _V54_LEGACY_PLAN_IDS:
+            errors.append(
+                f"dataCorrupted legacy weeks 仅兼容 v54 迁移清单内的存量计划，"
+                f"新增或修改计划必须使用 stages/lessons @ {path}"
+            )
+        return errors
+
+    stages = value.get("stages")
+    if not isinstance(stages, list) or not stages:
+        errors.append(f"dataCorrupted stages 不能为空 @ {path}")
+        return errors
+    stage_ids = [stage.get("id") for stage in stages if isinstance(stage, dict)]
+    stage_orders = [stage.get("order") for stage in stages if isinstance(stage, dict)]
+    if any(not isinstance(item, str) or not item.strip() for item in stage_ids):
+        errors.append(f"dataCorrupted PlanStage id 须非空 @ {path}.stages")
+    if len(stage_ids) != len(set(stage_ids)):
+        errors.append(f"dataCorrupted PlanStage id 须唯一 @ {path}.stages")
+    if (any(not isinstance(item, int) or isinstance(item, bool) or item < 1
+            for item in stage_orders)
+            or len(stage_orders) != len(set(stage_orders))):
+        errors.append(f"dataCorrupted PlanStage order 须为正整数且唯一 @ {path}.stages")
+
+    lesson_ids: list[object] = []
+    for index, stage in enumerate(stages):
+        if not isinstance(stage, dict):
+            continue
+        if not isinstance(stage.get("title"), str) or not stage["title"].strip():
+            errors.append(f"dataCorrupted PlanStage title 须非空 @ {path}.stages[{index}]")
+        lessons = stage.get("lessons")
+        if not isinstance(lessons, list) or not lessons:
+            errors.append(f"dataCorrupted lessons 不能为空 @ {path}.stages[{index}]")
+            continue
+        lesson_orders = [lesson.get("order") for lesson in lessons if isinstance(lesson, dict)]
+        if (any(not isinstance(item, int) or isinstance(item, bool) or item < 1
+                for item in lesson_orders)
+                or len(lesson_orders) != len(set(lesson_orders))):
+            errors.append(
+                f"dataCorrupted PlanLesson order 须在阶段内为正整数且唯一 @ {path}.stages[{index}]"
+            )
+        for lesson_index, lesson in enumerate(lessons):
+            if not isinstance(lesson, dict):
+                continue
+            lesson_ids.append(lesson.get("id"))
+            if not isinstance(lesson.get("title"), str) or not lesson["title"].strip():
+                errors.append(
+                    f"dataCorrupted PlanLesson title 须非空 @ {path}.stages[{index}].lessons[{lesson_index}]"
+                )
+            if not isinstance(lesson.get("phases"), list) or not lesson["phases"]:
+                errors.append(
+                    f"dataCorrupted PlanLesson phases 不能为空 @ {path}.stages[{index}].lessons[{lesson_index}]"
+                )
+    if any(not isinstance(item, str) or not item.strip() for item in lesson_ids):
+        errors.append(f"dataCorrupted PlanLesson id 须非空 @ {path}.stages")
+    if len(lesson_ids) != len(set(lesson_ids)):
+        errors.append(f"dataCorrupted PlanLesson id 须全计划唯一 @ {path}.stages")
+    return errors
+
+
 def check_model_decodable(paths: Paths | None = None) -> dict:
     """I10：全部 bundled drill / plan（含各自 index.json）能被 App 的 Codable 模型解码。
 
@@ -1628,6 +1737,8 @@ def check_model_decodable(paths: Paths | None = None) -> dict:
             fail.append((rel, "JSON 语法错误", str(exc)))
             continue
         errors = decode_errors(data, model, model)
+        if model == "OfficialPlan":
+            errors += official_plan_shape_errors(data, model)
         if errors:
             fail.append((rel, f"{len(errors)} 处解码错误", "；".join(errors[:3])))
         else:
@@ -1700,7 +1811,7 @@ def render_report(results: dict) -> None:
         ("I10", "Bundle drill / plan 可被 App 模型解码", None),
         ("I11", "官方计划 drillId / dose / token 可解析", None),
         ("I12", "六轴 load 齐全 / 值域 0–4 / 代表分 = 球形实分", None),
-        ("I13", "排课：建议周下界 / 热身≤主课 / 衰减单调 / 咬合外键 / 引入序 / 周满 / 日合计 / 主题", None),
+        ("I13", "课程：最早阶段 / 热身≤主课 / 衰减单调 / 咬合外键 / 引入序 / 阶段覆盖 / 课时 / 主题", None),
     ):
         if check_id not in results:
             continue

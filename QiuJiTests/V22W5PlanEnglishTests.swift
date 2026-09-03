@@ -4,7 +4,8 @@ import XCTest
 /// v22 W5 立档：加塞计划解码 + 结构自检。
 /// v34 W3 重排后更新（问题集合_v34.md R6/D-v34-2）：plan_english = 杆法Ⅱ·加塞挤偏，
 /// 主轴 = c073–c075（加塞认知/挤偏）+ c018/c020/c021（加塞杆法）；带塞准度 c076–c078
-/// 已移交 plan_accuracy3（准度Ⅲ·带塞，D-v38-2=A）。不再钉死逐周主题与固定课时。
+/// 已移交 plan_accuracy3（准度Ⅲ·带塞，D-v38-2=A）。v54 起按阶段/课次校验，
+/// 不再把课程结构解释为周历，也不再钉死每周训练次数。
 final class V22W5PlanEnglishTests: XCTestCase {
 
     /// v34 归属主轴：本计划承担 ×3 覆盖义务的 6 条。
@@ -21,19 +22,17 @@ final class V22W5PlanEnglishTests: XCTestCase {
         XCTAssertEqual(plan.id, "plan_english")
         XCTAssertEqual(plan.nameZh, "杆法Ⅱ·加塞挤偏")
         XCTAssertEqual(plan.isPremium, true)
-        XCTAssertEqual(plan.sessionsPerWeek, 3, "v34 R6：每周 3 次课")
-        XCTAssertTrue((2...5).contains(plan.durationWeeks), "v34 R6：周数 2–5，实际 \(plan.durationWeeks)")
+        XCTAssertEqual(plan.stages.count, 4, "v54：杆法Ⅱ包含 4 个课程阶段")
+        XCTAssertEqual(plan.lessonCount, 12, "v54：杆法Ⅱ包含 12 个稳定课次")
         XCTAssertTrue(plan.description.contains("加塞") || plan.description.contains("挤偏"),
                       "description 应标明加塞/挤偏专项")
 
-        XCTAssertEqual(plan.weeks.count, plan.durationWeeks)
-        for week in plan.weeks {
-            XCTAssertEqual(week.sessions.count, plan.sessionsPerWeek,
-                           "week \(week.weekNumber) sessions.count 应等于 sessionsPerWeek")
-            for session in week.sessions {
-                for phase in session.phases {
+        for stage in plan.stages {
+            XCTAssertFalse(stage.lessons.isEmpty, "stage \(stage.id) 至少包含一个课次")
+            for lesson in stage.lessons {
+                for phase in lesson.phases {
                     XCTAssertGreaterThan(phase.durationMinutes, 0,
-                                         "week \(week.weekNumber) day \(session.dayNumber) 相位时长须为正")
+                                         "stage \(stage.id) lesson \(lesson.id) 相位时长须为正")
                 }
             }
         }
@@ -43,27 +42,23 @@ final class V22W5PlanEnglishTests: XCTestCase {
 
         // 主轴 6 条须全部在计划内；带塞准度 c076–c078 不得回流（已归 plan_accuracy3）。
         var allIds = Set<String>()
-        for week in plan.weeks {
-            for session in week.sessions {
-                for phase in session.phases {
-                    for drill in phase.drills {
-                        allIds.insert(drill.drillId)
-                        let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
-                        let hasUniform = dose.roundsPerFormation != nil
-                        let hasListed = !(dose.formations ?? []).isEmpty
-                        XCTAssertTrue(hasUniform != hasListed,
-                                      "\(drill.drillId) dose 须恰好二选一（契约 §6.6）")
-                    }
+        for lesson in plan.lessons {
+            for phase in lesson.phases {
+                for drill in phase.drills {
+                    allIds.insert(drill.drillId)
+                    let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
+                    let hasUniform = dose.roundsPerFormation != nil
+                    let hasListed = !(dose.formations ?? []).isEmpty
+                    XCTAssertTrue(hasUniform != hasListed,
+                                  "\(drill.drillId) dose 须恰好二选一（契约 §6.6）")
                 }
             }
         }
         var firstFocused: [String] = []
-        for week in plan.weeks {
-            for session in week.sessions {
-                for phase in session.phases where phase.type == "focused" {
-                    for drill in phase.drills where !firstFocused.contains(drill.drillId) {
-                        firstFocused.append(drill.drillId)
-                    }
+        for lesson in plan.lessons {
+            for phase in lesson.phases where phase.type == "focused" {
+                for drill in phase.drills where !firstFocused.contains(drill.drillId) {
+                    firstFocused.append(drill.drillId)
                 }
             }
         }

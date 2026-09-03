@@ -325,7 +325,7 @@ struct SiluTrainerView: View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTBallPaletteBar(
             coordinateSpace: "silu",
-            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            ballDiameter: proxy.paletteBallDiameter,
             isPlaying: vm.isPlaying,
             libraryWidth: libraryWidth,
             isOnTable: { vm.onTableKeys.contains($0) },

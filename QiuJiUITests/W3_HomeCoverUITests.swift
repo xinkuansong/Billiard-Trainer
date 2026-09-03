@@ -59,6 +59,11 @@ final class W3_HomeCoverUITests: XCTestCase {
             train.tap(); usleep(600_000)
             snap(app, "w3-c20-03-home-train-\(suffix)")
         }
+        let solve = app.buttons["angleHomeTab_解"]
+        if solve.waitForExistence(timeout: 3) {
+            solve.tap(); usleep(600_000)
+            snap(app, "w3-c20-04-home-solve-\(suffix)")
+        }
     }
 
     func testW3HomeCoverLightScreenshots() throws {

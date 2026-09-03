@@ -4,12 +4,6 @@ import StoreKit
 struct AboutView: View {
     @Environment(\.requestReview) private var requestReview
 
-    private var appVersion: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
-        return "v\(version) (\(build))"
-    }
-
     var body: some View {
         ZStack {
             Color.btBG.ignoresSafeArea()
@@ -46,7 +40,7 @@ struct AboutView: View {
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
 
-                Text(appVersion)
+                Text(AppMetadata.versionDisplay)
                     .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
                     .padding(.top, 2)
@@ -104,35 +98,44 @@ struct AboutView: View {
                 .foregroundStyle(.btTextSecondary)
                 .padding(.leading, Spacing.xs)
 
-            VStack(spacing: 0) {
-                Button {
-                    openURL("https://qiuji.app/terms")
-                } label: {
-                    aboutRow(
-                        icon: "doc.text.fill",
-                        iconBG: Color.btTextSecondary.opacity(0.12),
-                        iconColor: .btTextSecondary,
-                        title: "用户协议"
-                    )
-                }
-                .buttonStyle(.plain)
+            if let termsURL = AppConfig.termsURL,
+               let privacyURL = AppConfig.privacyURL {
+                VStack(spacing: 0) {
+                    Link(destination: termsURL) {
+                        aboutRow(
+                            icon: "doc.text.fill",
+                            iconBG: Color.btPrimary.opacity(0.12),
+                            iconColor: .btPrimary,
+                            title: "用户协议"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("about.terms")
 
-                Divider().padding(.leading, 56)
+                    Divider().padding(.leading, 56)
 
-                Button {
-                    openURL("https://qiuji.app/privacy")
-                } label: {
-                    aboutRow(
-                        icon: "checkmark.shield.fill",
-                        iconBG: Color.btPrimary.opacity(0.12),
-                        iconColor: .btPrimary,
-                        title: "隐私政策"
-                    )
+                    Link(destination: privacyURL) {
+                        aboutRow(
+                            icon: "hand.raised.fill",
+                            iconBG: Color.btPrimary.opacity(0.12),
+                            iconColor: .btPrimary,
+                            title: "隐私政策"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("about.privacy")
                 }
-                .buttonStyle(.plain)
+                .background(Color.btBGSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            } else {
+                Text("用户协议与隐私政策尚未发布。发布前不会用空操作或测试网址冒充正式入口。")
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(Spacing.lg)
+                    .background(Color.btBGSecondary)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
             }
-            .background(Color.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
     }
 
@@ -184,7 +187,7 @@ struct AboutView: View {
 
     private func sendFeedback() {
         let device = UIDevice.current
-        let subject = "球迹 \(appVersion) 意见反馈"
+        let subject = "球迹 \(AppMetadata.versionDisplay) 意见反馈"
         let body = "\n\n---\n设备: \(device.model)\n系统: \(device.systemName) \(device.systemVersion)"
         let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -193,11 +196,6 @@ struct AboutView: View {
         }
     }
 
-    private func openURL(_ urlString: String) {
-        if let url = URL(string: urlString) {
-            UIApplication.shared.open(url)
-        }
-    }
 }
 
 #Preview("About") {

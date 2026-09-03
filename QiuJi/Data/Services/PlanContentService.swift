@@ -7,25 +7,187 @@ struct OfficialPlan: Codable, Identifiable {
     let nameZh: String
     let nameEn: String
     let targetLevel: String
-    let durationWeeks: Int
-    let sessionsPerWeek: Int
     let minutesPerSession: Int
     let isPremium: Bool
     let description: String
-    let weeks: [PlanWeek]
+    let stages: [PlanStage]
+
+    var lessonCount: Int { stages.reduce(0) { $0 + $1.lessons.count } }
+    var lessons: [PlanLesson] {
+        stages.sorted { $0.order < $1.order }
+            .flatMap { $0.lessons.sorted { $0.order < $1.order } }
+    }
+
+    // Transitional read API. W2/W3 migrate bundled content and downstream callers to stages/lessons.
+    @available(*, deprecated, message: "Use stages.count")
+    var durationWeeks: Int { stages.count }
+
+    @available(*, deprecated, message: "A plan is a curriculum, not a weekly calendar")
+    var sessionsPerWeek: Int { stages.map(\.lessons.count).max() ?? 0 }
+
+    @available(*, deprecated, message: "Use stages")
+    var weeks: [PlanWeek] { stages.map(PlanWeek.init(stage:)) }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, nameZh, nameEn, targetLevel, minutesPerSession, estimatedMinutesPerLesson
+        case isPremium, description, stages
+        case durationWeeks, sessionsPerWeek, weeks
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let planID = try container.decode(String.self, forKey: .id)
+        id = planID
+        nameZh = try container.decode(String.self, forKey: .nameZh)
+        nameEn = try container.decode(String.self, forKey: .nameEn)
+        targetLevel = try container.decode(String.self, forKey: .targetLevel)
+        if let estimate = try container.decodeIfPresent(Int.self, forKey: .estimatedMinutesPerLesson) {
+            minutesPerSession = estimate
+        } else {
+            minutesPerSession = try container.decode(Int.self, forKey: .minutesPerSession)
+        }
+        isPremium = try container.decode(Bool.self, forKey: .isPremium)
+        description = try container.decode(String.self, forKey: .description)
+
+        let decodedStages = try container.decodeIfPresent([PlanStage].self, forKey: .stages)
+        let legacyWeeks = try container.decodeIfPresent([PlanWeek].self, forKey: .weeks)
+        guard decodedStages == nil || legacyWeeks == nil else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .stages,
+                in: container,
+                debugDescription: "OfficialPlan cannot contain both stages and legacy weeks"
+            )
+        }
+        if let decodedStages {
+            stages = decodedStages
+        } else if let legacyWeeks {
+            stages = legacyWeeks.map { PlanStage(legacyWeek: $0, planId: planID) }
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.stages,
+                DecodingError.Context(
+                    codingPath: container.codingPath,
+                    debugDescription: "OfficialPlan requires stages or legacy weeks"
+                )
+            )
+        }
+        try Self.validate(stages: stages, container: container)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(nameZh, forKey: .nameZh)
+        try container.encode(nameEn, forKey: .nameEn)
+        try container.encode(targetLevel, forKey: .targetLevel)
+        try container.encode(minutesPerSession, forKey: .estimatedMinutesPerLesson)
+        try container.encode(isPremium, forKey: .isPremium)
+        try container.encode(description, forKey: .description)
+        try container.encode(stages, forKey: .stages)
+    }
+
+    private static func validate(
+        stages: [PlanStage],
+        container: KeyedDecodingContainer<CodingKeys>
+    ) throws {
+        func fail(_ message: String) throws -> Never {
+            throw DecodingError.dataCorruptedError(
+                forKey: .stages,
+                in: container,
+                debugDescription: message
+            )
+        }
+        guard !stages.isEmpty else { try fail("OfficialPlan stages cannot be empty") }
+        guard Set(stages.map(\.id)).count == stages.count,
+              stages.allSatisfy({ !$0.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
+            try fail("PlanStage ids must be non-empty and unique")
+        }
+        guard Set(stages.map(\.order)).count == stages.count,
+              stages.allSatisfy({ $0.order > 0 }) else {
+            try fail("PlanStage order values must be positive and unique")
+        }
+
+        var lessonIDs = Set<String>()
+        for stage in stages {
+            guard !stage.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                try fail("PlanStage title cannot be empty")
+            }
+            guard !stage.lessons.isEmpty else { try fail("PlanStage lessons cannot be empty") }
+            guard Set(stage.lessons.map(\.order)).count == stage.lessons.count,
+                  stage.lessons.allSatisfy({ $0.order > 0 }) else {
+                try fail("PlanLesson order values must be positive and unique within a stage")
+            }
+            for lesson in stage.lessons {
+                guard !lesson.id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                      lessonIDs.insert(lesson.id).inserted else {
+                    try fail("PlanLesson ids must be non-empty and unique across the plan")
+                }
+                guard !lesson.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    try fail("PlanLesson title cannot be empty")
+                }
+                guard !lesson.phases.isEmpty else { try fail("PlanLesson phases cannot be empty") }
+            }
+        }
+    }
 }
 
+struct PlanStage: Codable, Identifiable {
+    let id: String
+    let order: Int
+    let title: String
+    let goal: String?
+    let lessons: [PlanLesson]
+
+    fileprivate init(legacyWeek: PlanWeek, planId: String) {
+        id = "\(planId).stage\(String(format: "%02d", legacyWeek.weekNumber))"
+        order = legacyWeek.weekNumber
+        title = legacyWeek.theme
+        goal = nil
+        lessons = legacyWeek.sessions.map {
+            PlanLesson(legacySession: $0, planId: planId, stageOrder: legacyWeek.weekNumber)
+        }
+    }
+}
+
+struct PlanLesson: Codable, Identifiable {
+    let id: String
+    let order: Int
+    let title: String
+    let summary: String?
+    let phases: [SessionPhase]
+
+    fileprivate init(legacySession: PlanSession, planId: String, stageOrder: Int) {
+        id = "\(planId).stage\(String(format: "%02d", stageOrder)).lesson\(String(format: "%02d", legacySession.dayNumber))"
+        order = legacySession.dayNumber
+        title = "第 \(legacySession.dayNumber) 课"
+        summary = nil
+        phases = legacySession.phases
+    }
+}
+
+// Legacy bundle DTOs. Production consumers migrate away in W2/W3.
 struct PlanWeek: Codable, Identifiable {
     var id: Int { weekNumber }
     let weekNumber: Int
     let theme: String
     let sessions: [PlanSession]
+
+    fileprivate init(stage: PlanStage) {
+        weekNumber = stage.order
+        theme = stage.title
+        sessions = stage.lessons.map(PlanSession.init(lesson:))
+    }
 }
 
 struct PlanSession: Codable, Identifiable {
     var id: Int { dayNumber }
     let dayNumber: Int
     let phases: [SessionPhase]
+
+    fileprivate init(lesson: PlanLesson) {
+        dayNumber = lesson.order
+        phases = lesson.phases
+    }
 }
 
 struct SessionPhase: Codable, Identifiable {

@@ -1,7 +1,7 @@
 # P8 — Polish & Release（打磨与发布）
 
 > **目标**：App Store 提交就绪状态：Privacy Manifest、性能优化、完整引导流程、全部人工资产准备、TestFlight 测试、提交审核。
-> **人工前置**：H-09 ✅（隐私政策页面）、H-10 ✅（截图）、H-12（审核问卷）
+> **人工前置**：H-09 ⏳（正式用户协议/隐私政策页面）、H-10（截图）、H-12（审核问卷）
 > **前置 Phase**：P7 通过 QA
 
 ---
@@ -82,11 +82,12 @@
 
 ### DoD
 
-- [x] 「我的」Tab：用户头像/昵称（匿名时显示「游客」）、订阅状态 ✅ 已有（R-UI-04 实现）
-- [x] 设置项：主打球种（中式台球/9球/两者）、每周训练目标天数 ✅ 2026-04-06 — SettingsView + UserPreferences（UserDefaults 持久化）
-- [x] 「订阅管理」入口（已订阅时展示到期日）✅ 已有
+- [x] 「我的」Tab：头像/昵称按 owner 隔离；登录资料以服务端响应为真源，游客资料仅本机 ✅ v53
+- [x] 设置项：个人资料/每周目标进入 OwnerProfileStore；设备偏好留在 UserPreferences；移除时长目标 ✅ v53
+- [x] 外观在 Root 生效，提醒使用 UNUserNotificationCenter 真实排期 ✅ v53（到点通知待 H-26 真机验收）
+- [x] Pro 权益按验证 transaction 展示终身或真实到期日 ✅ v53
 - [x] 「账号注销」入口（有二次确认）✅ 2026-04-06 — 二次确认 Alert + BackendSyncService.deleteAccount() + 失败重试
-- [x] 「隐私政策」链接（跳转 H-09 创建的页面）✅ 2026-04-06 — UIApplication.shared.open(URL)
+- [ ] 「用户协议/隐私政策」正式链接 — H-09 未完成；v53 已删除测试网址/空操作，正式 URL 发布后接线
 - [x] 无组件 API 变更，无需追加 DR/PD
 
 ---
@@ -138,7 +139,7 @@
 ## T-P8-09 App Store 资产准备
 
 - **负责角色**：DevOps/Release
-- **人工前置**：H-09 ✅（隐私政策 URL）、H-10 ✅（截图已拍摄）
+- **人工前置**：H-09 ⏳（正式用户协议/隐私政策 URL 尚未发布）、H-10 ✅（截图已拍摄）
 - **产出物**：App Store Connect 版本信息填写完成
 
 ### DoD

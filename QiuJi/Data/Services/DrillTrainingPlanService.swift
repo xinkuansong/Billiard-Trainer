@@ -3,6 +3,7 @@ import SwiftData
 
 /// Adds a drill into a `CustomPlan` (the only mutable path that can appear in「今日训练」).
 /// Official bundle plans are immutable JSON — they are never mutated here.
+@MainActor
 enum DrillTrainingPlanService {
 
     enum AddResult: Equatable {
@@ -21,7 +22,9 @@ enum DrillTrainingPlanService {
     // MARK: - Queries
 
     static func fetchCustomPlans(context: ModelContext) throws -> [CustomPlan] {
+        let ownerKey = CurrentOwnerContext.shared.ownerKey
         let descriptor = FetchDescriptor<CustomPlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey },
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
         return try context.fetch(descriptor)
@@ -29,11 +32,14 @@ enum DrillTrainingPlanService {
 
     /// Active custom plan driving「今日训练」, if any.
     static func activeCustomPlan(context: ModelContext) throws -> CustomPlan? {
-        let activeDescriptor = FetchDescriptor<UserActivePlan>()
+        let ownerKey = CurrentOwnerContext.shared.ownerKey
+        let activeDescriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
         guard let active = try context.fetch(activeDescriptor).first, active.isCustom,
               let uuid = UUID(uuidString: active.planId) else { return nil }
         let planDescriptor = FetchDescriptor<CustomPlan>(
-            predicate: #Predicate { $0.id == uuid }
+            predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == uuid }
         )
         return try context.fetch(planDescriptor).first
     }
@@ -85,7 +91,8 @@ enum DrillTrainingPlanService {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw ServiceError.emptyName }
 
-        let plan = CustomPlan(name: trimmed, sessionsPerWeek: 1)
+        let ownerKey = CurrentOwnerContext.shared.ownerKey
+        let plan = CustomPlan(name: trimmed, sessionsPerWeek: 1, ownerKey: ownerKey)
         let entry = CustomPlanDrill(
             drillId: drill.id,
             drillNameZh: drill.nameZh,
@@ -114,11 +121,15 @@ enum DrillTrainingPlanService {
 
     /// Replace `UserActivePlan` so this custom plan becomes「今日训练」.
     static func activate(plan: CustomPlan, context: ModelContext) throws {
-        let descriptor = FetchDescriptor<UserActivePlan>()
+        let ownerKey = plan.ownerKey
+        let descriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
         for old in (try? context.fetch(descriptor)) ?? [] {
             context.delete(old)
         }
-        context.insert(UserActivePlan(planId: plan.id.uuidString, isCustom: true))
+        context.insert(UserActivePlan(planId: plan.id.uuidString, isCustom: true,
+                                      ownerKey: ownerKey))
     }
 
     // MARK: - Private

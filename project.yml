@@ -7,6 +7,9 @@
 name: QiuJi
 options:
   bundleIdPrefix: com.xinkuan
+  # 产品界面与内容均以简体中文为基准。声明英文会让系统生成的导航返回文案
+  # 在中文 App 中显示为 “Back”，且所有依赖主 bundle 本地化的系统控件都会跟错。
+  developmentLanguage: zh-Hans
   deploymentTarget:
     iOS: "17.0"
   xcodeVersion: "16.0"
@@ -127,9 +130,11 @@ targets:
       properties:
         CFBundleName: 球迹
         CFBundleDisplayName: 球迹
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # 隐私权限文案（唯一生效真源；见上方 INFOPLIST_KEY_* 警告）
         NSPhotoLibraryAddUsageDescription: 将训练分享卡保存到相册
-        NSPhotoLibraryUsageDescription: 选择训练视频或图片
+        NSPhotoLibraryUsageDescription: 选择头像、训练视频或图片
         NSCameraUsageDescription: 拍摄训练视频
         NSSupportsLiveActivities: true
         UIBackgroundModes:
@@ -147,6 +152,8 @@ targets:
             CFBundleURLSchemes:
               - "wx$(WECHAT_APP_ID)"
         API_BASE_URL: "$(API_BASE_URL)"
+        LEGAL_TERMS_URL: "$(LEGAL_TERMS_URL)"
+        LEGAL_PRIVACY_URL: "$(LEGAL_PRIVACY_URL)"
         WECHAT_APP_ID: "$(WECHAT_APP_ID)"
         WECHAT_UNIVERSAL_LINK: "$(WECHAT_UNIVERSAL_LINK)"
         UILaunchScreen:

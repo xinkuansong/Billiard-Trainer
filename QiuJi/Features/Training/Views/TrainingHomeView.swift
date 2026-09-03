@@ -2,8 +2,10 @@ import SwiftUI
 import SwiftData
 
 struct TrainingHomeView: View {
+    let ownerKey: String
     @StateObject private var viewModel = TrainingHomeViewModel()
-    @ObservedObject private var preferences = UserPreferences.shared
+    @StateObject private var profile: OwnerProfileStore
+    @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
@@ -11,12 +13,52 @@ struct TrainingHomeView: View {
     @Environment(\.calendar) private var calendar
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
     @Query private var activePlans: [UserActivePlan]
+    @Query private var schedules: [TodayTrainingSchedule]
     @Query(sort: \TrainingSession.date, order: .reverse) private var trainingSessions: [TrainingSession]
     @State private var toast: BTToastMessage?
     @State private var planToDelete: CustomPlan?
     @State private var showDeleteConfirm = false
-    @State private var planToActivate: CustomPlan?
-    @State private var showActivateConfirm = false
+    @State private var dailyClearanceState: DailyClearanceHomeState = .notStarted
+    @State private var dailyClearanceGame = UserPreferences.shared.dailyClearanceGame
+    @State private var didInstallDailyClearanceHomeFixture = false
+    @State private var didInstallV54ScheduleFixture = false
+
+    init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.ownerKey = ownerKey
+        _profile = StateObject(wrappedValue: OwnerProfileStore(ownerKey: ownerKey))
+        _customPlans = Query(
+            filter: #Predicate { $0.ownerKey == ownerKey },
+            sort: \CustomPlan.createdAt,
+            order: .reverse
+        )
+        _activePlans = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+        _schedules = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+        _trainingSessions = Query(
+            filter: #Predicate { $0.ownerKey == ownerKey },
+            sort: \TrainingSession.date,
+            order: .reverse
+        )
+    }
+
+    private enum DailyClearanceHomeState {
+        case notStarted, inProgress, completed
+
+        var title: String {
+            switch self {
+            case .notStarted: return "每日清台"
+            case .inProgress: return "继续清台"
+            case .completed: return "今日已清"
+            }
+        }
+
+        var accessibilityState: String {
+            switch self {
+            case .notStarted: return "未开始"
+            case .inProgress: return "进行中"
+            case .completed: return "已完成"
+            }
+        }
+    }
 
     private enum HeaderLogoMetrics {
         static let size: CGFloat = 50
@@ -61,7 +103,7 @@ struct TrainingHomeView: View {
                                 BTDrillListSkeleton()
                                     .transition(.opacity)
                                     .frame(maxWidth: .infinity, minHeight: 300)
-                            } else if viewModel.hasActivePlan {
+                            } else if viewModel.hasActivePlan || !orderedScheduleItems.isEmpty {
                                 activePlanContent
                                     .transition(.opacity)
                             } else {
@@ -81,6 +123,7 @@ struct TrainingHomeView: View {
                         proxy.scrollTo(id, anchor: anchor)
                     }
                     .onChange(of: router.trainingPath.count) { oldCount, newCount in
+                        if newCount < oldCount { refreshDailyClearanceState() }
                         guard newCount < oldCount, let restore = viewModel.restorePlanID else { return }
                         viewModel.requestBrowseScroll(to: restore)
                     }
@@ -89,25 +132,34 @@ struct TrainingHomeView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             // The training home keeps one primary entry point; drill rows are informational.
-            if viewModel.hasActivePlan && !viewModel.isLoading && !router.isTrainingMinimized {
+            if canStartPrimaryTraining && !viewModel.isLoading && !router.isTrainingMinimized {
                 startTrainingCircle
             }
         }
         .task {
-            await viewModel.load(context: modelContext)
+            profile.load(from: authState.currentUser)
+            installV54ScheduleFixtureIfNeeded()
+            _ = try? TodayTrainingScheduleService(context: modelContext)
+                .today(ownerKey: ownerKey, createIfNeeded: false)
+            await viewModel.load(context: modelContext, ownerKey: ownerKey)
+            await installDailyClearanceHomeFixtureIfNeeded()
+            refreshDailyClearanceState()
+        }
+        .onChange(of: authState.currentUser) { _, user in
+            profile.load(from: user)
         }
         .onChange(of: activePlanSignature) { oldValue, _ in
             if !oldValue.isEmpty {
                 viewModel.restorePlanID = nil
                 viewModel.requestBrowseScroll(to: TrainingHomeViewModel.scrollTopID)
             }
-            Task { await viewModel.load(context: modelContext) }
+            Task { await viewModel.load(context: modelContext, ownerKey: ownerKey) }
         }
         .onReceive(NotificationCenter.default.publisher(for: .didRequestResumeTraining)) { _ in
             router.resumeMinimizedTraining()
         }
         .onReceive(NotificationCenter.default.publisher(for: .didDismissActiveTraining)) { _ in
-            Task { await viewModel.load(context: modelContext) }
+            Task { await viewModel.load(context: modelContext, ownerKey: ownerKey) }
         }
         .btToast($toast)
         .alert(
@@ -131,28 +183,93 @@ struct TrainingHomeView: View {
         } message: {
             Text("确定要删除「\(planToDelete?.name ?? "")」吗？此操作不可撤销。")
         }
-        .confirmationDialog(
-            "用于今日训练",
-            isPresented: $showActivateConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("取消", role: .cancel) { planToActivate = nil }
-            Button("确定") {
-                if let plan = planToActivate {
-                    activateCustomPlan(plan)
-                }
-                planToActivate = nil
-            }
-        } message: {
-            if hasActivePlan {
-                Text("将替换当前的今日安排。确定用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
-            } else {
-                Text("用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
-            }
-        }
     }
 
     private var hasActivePlan: Bool { !activePlans.isEmpty }
+
+    private var currentSchedule: TodayTrainingSchedule? {
+        let key = TodayTrainingScheduleService.localDayKey(for: .now, timeZone: .current)
+        return schedules.first { $0.localDayKey == key && $0.archivedAt == nil }
+    }
+
+    private var orderedScheduleItems: [TodayScheduleItem] {
+        (currentSchedule?.items ?? []).sorted { $0.orderIndex < $1.orderIndex }
+    }
+
+    private var nextScheduleItem: TodayScheduleItem? {
+        orderedScheduleItems.first {
+            $0.state == TodayScheduleItemState.inProgress || $0.state == TodayScheduleItemState.pending
+        }
+    }
+
+    /// An active official plan is a suggestion source, not an implicit queue item.
+    /// Keep one primary CTA visible so the user can accept the current lesson with one tap.
+    private var canStartPrimaryTraining: Bool {
+        nextScheduleItem != nil || (orderedScheduleItems.isEmpty && activeOfficialPlan != nil)
+    }
+
+    private var activeOfficialPlan: UserActivePlan? {
+        activePlans.first { $0.status == "active" && !$0.isCustom && $0.currentLessonId != nil }
+    }
+
+    /// Launch-argument-only fixture used by the v54 UI matrix. Production launches never enter it.
+    private func installV54ScheduleFixtureIfNeeded() {
+        guard !didInstallV54ScheduleFixture else { return }
+        didInstallV54ScheduleFixture = true
+        let args = ProcessInfo.processInfo.arguments
+        guard let state = args.first(where: { $0.hasPrefix("-v54.todayState=") })?
+            .replacingOccurrences(of: "-v54.todayState=", with: "") else { return }
+        guard state != "empty",
+              let plan = PlanContentService.decodePlanFromBundle(id: "plan_beginner"),
+              let lesson = plan.lessons.first else { return }
+
+        let active = UserActivePlan(planId: plan.id, ownerKey: ownerKey)
+        active.currentLessonId = lesson.id
+        modelContext.insert(active)
+        guard state != "suggestion" else {
+            try? modelContext.save()
+            return
+        }
+
+        let fixtureDate = state == "yesterday"
+            ? Calendar.current.date(byAdding: .day, value: -1, to: .now) ?? .now
+            : .now
+        let service = TodayTrainingScheduleService(
+            context: modelContext, now: { fixtureDate }, timeZone: .current
+        )
+        guard let official = try? service.addOfficialLessons(
+            plan: plan, lessonIDs: [lesson.id], activePlan: active
+        ).first else { return }
+
+        let template = CustomPlan(name: "赛前热身", sessionsPerWeek: 1, ownerKey: ownerKey)
+        template.drills.append(CustomPlanDrill(
+            drillId: "drill_c001", drillNameZh: "直线球", roundsPerFormation: 1, order: 0
+        ))
+        modelContext.insert(template)
+        let templateResult = try? service.addTemplate(template)
+        let drillResult = try? service.addLibraryDrill(
+            id: "drill_c053", title: "中袋角度球", ownerKey: ownerKey
+        )
+
+        let items: [TodayScheduleItem] = [official, templateResult, drillResult].compactMap { result in
+            switch result {
+            case .added(let item), .alreadyPresent(let item): return item
+            case nil: return nil
+            }
+        }
+        if state == "partial", items.count >= 2 {
+            items[0].state = TodayScheduleItemState.completed
+            items[0].completedAt = fixtureDate
+            items[1].state = TodayScheduleItemState.inProgress
+            items[1].startedAt = fixtureDate
+        } else if state == "completed" {
+            for item in items {
+                item.state = TodayScheduleItemState.completed
+                item.completedAt = fixtureDate
+            }
+        }
+        try? modelContext.save()
+    }
 
     // MARK: - Page Header
 
@@ -242,6 +359,7 @@ struct TrainingHomeView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .accessibilityIdentifier("trainingHome.moreMenu")
         }
     }
 
@@ -249,9 +367,12 @@ struct TrainingHomeView: View {
 
     private var activePlanContent: some View {
         VStack(spacing: Spacing.xl) {
-            if let session = viewModel.todaySession {
-                weeklyTrainingSection
-                todayTrainingSection(session)
+            weeklyTrainingSection
+            if !orderedScheduleItems.isEmpty {
+                scheduledBlocksSection
+            } else {
+                if latestArchivedUnfinished != nil { unfinishedCarryBanner }
+                if let session = viewModel.todaySession { todayTrainingSection(session) }
             }
 
             planBrowsingSection
@@ -261,21 +382,196 @@ struct TrainingHomeView: View {
 
     // MARK: - Weekly / Today Training
 
+    private var scheduledBlocksSection: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("今日安排").font(.btTitle).foregroundStyle(.btText)
+                Spacer()
+                Text("\(orderedScheduleItems.filter { $0.state == TodayScheduleItemState.completed }.count) / \(orderedScheduleItems.count)")
+                    .font(.btSubheadlineSemibold).foregroundStyle(.btPrimary).monospacedDigit()
+            }
+            .padding(Spacing.md)
+
+            if let archived = latestArchivedUnfinished {
+                Button {
+                    carryForward(archived)
+                } label: {
+                    HStack {
+                        Text("昨日有 \(archived.items.filter { $0.state == TodayScheduleItemState.pending || $0.state == TodayScheduleItemState.inProgress }.count) 项未完成")
+                        Spacer()
+                        Text("加入今天").fontWeight(.semibold)
+                    }
+                    .font(.btCaption)
+                    .foregroundStyle(.btPrimary)
+                    .padding(.horizontal, Spacing.md)
+                    .padding(.bottom, Spacing.sm)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("trainingHome.carryYesterday")
+            }
+
+            Divider().padding(.horizontal, Spacing.md)
+
+            ForEach(Array(orderedScheduleItems.enumerated()), id: \.element.id) { index, item in
+                scheduleItemRow(item, index: index)
+                if index < orderedScheduleItems.count - 1 {
+                    Divider().padding(.leading, 58)
+                }
+            }
+        }
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .overlay { RoundedRectangle(cornerRadius: BTRadius.lg).stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0) }
+        .padding(.horizontal, Spacing.lg)
+        .accessibilityIdentifier("trainingHome.todaySchedule")
+    }
+
+    private var unfinishedCarryBanner: some View {
+        Group {
+            if let archived = latestArchivedUnfinished {
+                Button { carryForward(archived) } label: {
+                    HStack {
+                        Text("昨日有未完成训练")
+                        Spacer()
+                        Text("加入今天").fontWeight(.semibold)
+                        Image(systemName: "chevron.right")
+                    }
+                    .font(.btSubheadline)
+                    .foregroundStyle(.btPrimary)
+                    .padding(Spacing.md)
+                    .background(.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.md))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("trainingHome.carryYesterday")
+                .padding(.horizontal, Spacing.lg)
+            }
+        }
+    }
+
+    private func scheduleItemRow(_ item: TodayScheduleItem, index: Int) -> some View {
+        HStack(spacing: Spacing.md) {
+            Image(systemName: scheduleIcon(item))
+                .font(.btHeadline)
+                .foregroundStyle(item.state == TodayScheduleItemState.completed ? Color.btSuccess : Color.btPrimary)
+                .frame(width: 30)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.sourceTitleSnapshot).font(.btHeadline).foregroundStyle(.btText).lineLimit(1)
+                Text(scheduleSubtitle(item)).font(.btCaption).foregroundStyle(.btTextSecondary).lineLimit(2)
+            }
+            Spacer()
+            if item.state == TodayScheduleItemState.completed {
+                Image(systemName: "checkmark.circle.fill").foregroundStyle(.btSuccess)
+            } else if item.state == TodayScheduleItemState.inProgress {
+                Text("继续").font(.btCaption.weight(.semibold)).foregroundStyle(.btPrimary)
+            } else {
+                Menu {
+                    Button("上移", systemImage: "arrow.up") { moveScheduleItem(item, offset: -1) }
+                        .disabled(index == 0)
+                    Button("下移", systemImage: "arrow.down") { moveScheduleItem(item, offset: 1) }
+                        .disabled(index == orderedScheduleItems.count - 1)
+                    Button("删除", systemImage: "trash", role: .destructive) { removeScheduleItem(item) }
+                } label: {
+                    Image(systemName: "ellipsis.circle").foregroundStyle(.btTextTertiary).frame(width: 44, height: 44)
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, Spacing.sm)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if item.state == TodayScheduleItemState.pending || item.state == TodayScheduleItemState.inProgress {
+                startScheduledItem(item)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.sourceTitleSnapshot)，\(scheduleStateTitle(item))，\(scheduleSubtitle(item))")
+    }
+
+    private func scheduleIcon(_ item: TodayScheduleItem) -> String {
+        switch item.sourceKind {
+        case TodayScheduleSourceKind.officialLesson: return "book.closed"
+        case TodayScheduleSourceKind.template: return "list.bullet.clipboard"
+        default: return "circle.grid.cross"
+        }
+    }
+
+    private func scheduleSubtitle(_ item: TodayScheduleItem) -> String {
+        let state = scheduleStateTitle(item)
+        if let subtitle = item.sourceSubtitleSnapshot, !subtitle.isEmpty { return "\(subtitle) · \(state)" }
+        return state
+    }
+
+    private func scheduleStateTitle(_ item: TodayScheduleItem) -> String {
+        switch item.state {
+        case TodayScheduleItemState.inProgress: return "进行中"
+        case TodayScheduleItemState.completed: return "已完成"
+        case TodayScheduleItemState.abandoned: return "已放弃"
+        default: return "待训练"
+        }
+    }
+
+    private var latestArchivedUnfinished: TodayTrainingSchedule? {
+        schedules.filter { schedule in
+            schedule.archivedAt != nil && schedule.items.contains {
+                $0.state == TodayScheduleItemState.pending || $0.state == TodayScheduleItemState.inProgress
+            }
+        }.max { $0.localDayKey < $1.localDayKey }
+    }
+
+    private func startScheduledItem(_ item: TodayScheduleItem) {
+        do {
+            if item.state == TodayScheduleItemState.pending {
+                try TodayTrainingScheduleService(context: modelContext).markStarted(item)
+            }
+            router.startTraining(mode: .scheduled(try ScheduledTrainingBlock(item: item)))
+        } catch {
+            toast = BTToastMessage("无法开始这项训练，请重新编排", tone: .error)
+        }
+    }
+
+    private func moveScheduleItem(_ item: TodayScheduleItem, offset: Int) {
+        guard let schedule = currentSchedule else { return }
+        var unfinished = orderedScheduleItems.filter {
+            $0.state == TodayScheduleItemState.pending || $0.state == TodayScheduleItemState.inProgress
+        }
+        guard let index = unfinished.firstIndex(where: { $0.id == item.id }) else { return }
+        let target = index + offset
+        guard unfinished.indices.contains(target) else { return }
+        unfinished.swapAt(index, target)
+        do {
+            try TodayTrainingScheduleService(context: modelContext)
+                .reorderUnfinished(unfinished.map(\.id), in: schedule)
+        } catch {
+            toast = BTToastMessage("调整顺序失败", tone: .error)
+        }
+    }
+
+    private func removeScheduleItem(_ item: TodayScheduleItem) {
+        do { try TodayTrainingScheduleService(context: modelContext).removePending(item) }
+        catch { toast = BTToastMessage("进行中的训练不能删除", tone: .warning) }
+    }
+
+    private func carryForward(_ archived: TodayTrainingSchedule) {
+        let active = activePlans.first { $0.status == "active" && !$0.isCustom }
+        let official = active.flatMap { PlanContentService.decodePlanFromBundle(id: $0.planId) }
+        do {
+            _ = try TodayTrainingScheduleService(context: modelContext).carryForwardLatestUnfinished(
+                ownerKey: ownerKey, activePlan: active, officialPlan: official
+            )
+            toast = BTToastMessage("已加入今天")
+        } catch {
+            toast = BTToastMessage("加入失败，请稍后重试", tone: .error)
+        }
+    }
+
     private func displayTodayDrills(for session: TodaySessionInfo?) -> [TodayDrillItem] {
         (session?.drills ?? []) + viewModel.todaySupplementalDrills
     }
 
     private var weeklyTrainingSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("本周训练")
-                .font(.btTitle)
-                .foregroundStyle(.btText)
-                .padding(.horizontal, Spacing.lg)
-
-            weeklyProgressCard
-                .padding(.horizontal, Spacing.lg)
-        }
-        .padding(.top, Spacing.sm)
+        weeklyProgressCard
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.sm)
     }
 
     private func todayTrainingSection(_ session: TodaySessionInfo?) -> some View {
@@ -283,13 +579,14 @@ struct TrainingHomeView: View {
         let completedCount = visibleDrills.filter(\.isCompleted).count
         let isAllCompleted = !visibleDrills.isEmpty && completedCount == visibleDrills.count
 
-        return VStack(alignment: .leading, spacing: Spacing.md) {
+        return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: Spacing.md) {
                 Text("今日安排")
                     .font(.btTitle)
                     .foregroundStyle(.btText)
+                    .layoutPriority(1)
 
-                Spacer()
+                Spacer(minLength: Spacing.xs)
 
                 if isAllCompleted {
                     Label("全部完成！", systemImage: BTIcon.completeSeal)
@@ -301,9 +598,15 @@ struct TrainingHomeView: View {
                         totalCount: visibleDrills.count,
                         expectedMinutes: expectedMinutesValue(for: session)
                     )
+                    .fixedSize(horizontal: true, vertical: false)
                 }
             }
-            .padding(.horizontal, Spacing.lg)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.md)
+
+            Divider()
+                .foregroundStyle(.btSeparator)
+                .padding(.horizontal, Spacing.md)
 
             Group {
                 if visibleDrills.count > Self.maximumVisibleTodayRows {
@@ -320,27 +623,27 @@ struct TrainingHomeView: View {
                     }
                 }
             }
-            .background(Color.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
-            .overlay {
-                RoundedRectangle(cornerRadius: BTRadius.lg)
-                    .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
-            }
-            .shadow(
-                color: colorScheme == .dark ? .clear : Color.btText.opacity(0.05),
-                radius: 12,
-                x: 0,
-                y: 5
-            )
-            .padding(.horizontal, Spacing.lg)
         }
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
+        .overlay {
+            RoundedRectangle(cornerRadius: BTRadius.lg)
+                .stroke(Color.btSeparator, lineWidth: colorScheme == .dark ? 0.5 : 0)
+        }
+        .shadow(
+            color: colorScheme == .dark ? .clear : Color.btText.opacity(0.05),
+            radius: 12,
+            x: 0,
+            y: 5
+        )
+        .padding(.horizontal, Spacing.lg)
     }
 
     @ViewBuilder
     private func todayDrillRows(_ drills: [TodayDrillItem]) -> some View {
         ForEach(Array(drills.enumerated()), id: \.element.id) { index, drill in
             NavigationLink {
-                DrillDetailView(drillId: drill.drillId)
+                DrillDetailView(drillId: drill.drillId, ownerKey: ownerKey)
             } label: {
                 todayDrillRow(drill, number: index + 1)
             }
@@ -358,66 +661,132 @@ struct TrainingHomeView: View {
         }
     }
 
-    private func startTodayTraining(_ session: TodaySessionInfo) {
-        if router.isTrainingMinimized {
-            router.resumeMinimizedTraining()
-        } else {
-            router.startTraining(mode: .plan(drills: session.drills, planId: session.planId))
+    private func arrangeAndStartCurrentLesson() {
+        guard let active = activeOfficialPlan,
+              let lessonID = active.currentLessonId,
+              let plan = PlanContentService.decodePlanFromBundle(id: active.planId) else {
+            toast = BTToastMessage("当前课程暂时无法加载", tone: .error)
+            return
+        }
+        do {
+            let result = try TodayTrainingScheduleService(context: modelContext)
+                .addOfficialLessons(plan: plan, lessonIDs: [lessonID], activePlan: active)
+                .first
+            let item: TodayScheduleItem?
+            switch result {
+            case .added(let value), .alreadyPresent(let value): item = value
+            case nil: item = nil
+            }
+            guard let item else { throw TodayTrainingScheduleService.Error.lessonNotFound }
+            startScheduledItem(item)
+        } catch {
+            toast = BTToastMessage("无法开始当前课程，请重新编排", tone: .error)
         }
     }
 
     private var weeklyProgressCard: some View {
-        VStack(spacing: Spacing.md) {
+        VStack(spacing: 0) {
             HStack(spacing: Spacing.sm) {
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-                    Text("本周")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
+                Text("本周训练")
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                    .layoutPriority(1)
 
-                    Text("\(daysTrainedThisWeek) / \(preferences.weeklyGoalDays) 天")
-                        .font(.btSubheadlineSemibold)
-                        .foregroundStyle(.btText)
-                        .monospacedDigit()
+                Spacer(minLength: Spacing.xs)
+
+                Button {
+                    router.trainingPath.append(TrainingRoute.dailyClearance)
+                } label: {
+                    HStack(spacing: 6) {
+                        BreakRackGlyph(color: .btPrimary, size: 14)
+                            .accessibilityHidden(true)
+                        Text(dailyClearanceState.title)
+                            .font(.btSubheadlineSemibold)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.8)
+                        Image(systemName: "chevron.right")
+                            .font(.btCaption2.weight(.bold))
+                            .accessibilityHidden(true)
+                    }
+                    .foregroundStyle(.btPrimary)
+                    .padding(.horizontal, Spacing.sm)
+                    .frame(minHeight: 44)
+                    .background(
+                        Color.btPrimary.opacity(colorScheme == .dark ? 0.14 : 0.08),
+                        in: Capsule()
+                    )
+                    .overlay { Capsule().stroke(Color.btPrimary.opacity(0.22), lineWidth: 1) }
+                    .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("trainingHome.dailyClearance")
+                .accessibilityLabel("每日清台，\(dailyClearanceState.accessibilityState)，\(dailyClearanceGame.displayName)")
+                .accessibilityHint("打开单人清台挑战")
+            }
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.sm)
+
+            Divider()
+                .foregroundStyle(.btSeparator)
+                .padding(.horizontal, Spacing.md)
+
+            VStack(spacing: Spacing.md) {
+                HStack(spacing: Spacing.sm) {
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                        Text("本周")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+
+                        Text("\(daysTrainedThisWeek) / \(profile.weeklyGoalDays) 天")
+                            .font(.btSubheadlineSemibold)
+                            .foregroundStyle(.btText)
+                            .monospacedDigit()
+                    }
+
+                    Spacer()
+
+                    Rectangle()
+                        .fill(Color.btSeparator)
+                        .frame(width: 1, height: 18)
+                        .accessibilityHidden(true)
+
+                    Spacer()
+
+                    HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
+                        Text("连续")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+
+                        Text("\(currentTrainingStreak) 天")
+                            .font(.btSubheadlineSemibold)
+                            .foregroundStyle(.btText)
+                            .monospacedDigit()
+
+                        if currentTrainingStreak > 0 {
+                            Image(systemName: "flame.fill")
+                                .font(.btCaption2)
+                                .foregroundStyle(.btWarning)
+                                .accessibilityHidden(true)
+                        }
+                    }
                 }
 
-                Spacer()
-
-                Rectangle()
-                    .fill(Color.btSeparator)
-                    .frame(width: 1, height: 18)
-                    .accessibilityHidden(true)
-
-                Spacer()
-
-                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-                    Text("连续")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
-
-                    Text("\(currentTrainingStreak) 天")
-                        .font(.btSubheadlineSemibold)
-                        .foregroundStyle(.btText)
-                        .monospacedDigit()
-
-                    if currentTrainingStreak > 0 {
-                        Image(systemName: "flame.fill")
-                            .font(.btCaption2)
-                            .foregroundStyle(.btWarning)
-                            .accessibilityHidden(true)
+                HStack(spacing: Spacing.xs) {
+                    ForEach(Array(currentWeekDays.enumerated()), id: \.element) { index, date in
+                        weeklyDayCell(
+                            label: Self.weekdayLabels[index],
+                            date: date
+                        )
                     }
                 }
             }
-
-            HStack(spacing: Spacing.xs) {
-                ForEach(Array(currentWeekDays.enumerated()), id: \.element) { index, date in
-                    weeklyDayCell(
-                        label: Self.weekdayLabels[index],
-                        date: date
-                    )
-                }
-            }
+            .padding(Spacing.md)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(
+                "本周训练 \(daysTrainedThisWeek) / \(profile.weeklyGoalDays) 天，"
+                + "连续训练 \(currentTrainingStreak) 天"
+            )
         }
-        .padding(Spacing.md)
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
         .overlay {
@@ -429,11 +798,6 @@ struct TrainingHomeView: View {
             radius: 12,
             x: 0,
             y: 5
-        )
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            "本周训练 \(daysTrainedThisWeek) / \(preferences.weeklyGoalDays) 天，"
-            + "连续训练 \(currentTrainingStreak) 天"
         )
     }
 
@@ -493,7 +857,7 @@ struct TrainingHomeView: View {
         totalCount: Int,
         expectedMinutes: String
     ) -> some View {
-        HStack(spacing: Spacing.sm) {
+        HStack(spacing: Spacing.xs) {
             todayScheduleMetric(
                 symbol: "scope",
                 title: "今日训练",
@@ -521,10 +885,13 @@ struct TrainingHomeView: View {
         unit: String? = nil
     ) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: Spacing.xs) {
-            Label(title, systemImage: symbol)
-                .font(.btCaption2)
-                .foregroundStyle(.btTextSecondary)
-                .lineLimit(1)
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: symbol)
+                Text(title)
+            }
+            .font(.btCaption2)
+            .foregroundStyle(.btTextSecondary)
+            .fixedSize(horizontal: true, vertical: false)
 
             Text(value)
                 .font(.btSubheadlineSemibold)
@@ -549,6 +916,74 @@ struct TrainingHomeView: View {
             TrainingGoalMetrics.goalCounting(trainingSessions)
                 .map { calendar.startOfDay(for: $0.date) }
         )
+    }
+
+    private func refreshDailyClearanceState() {
+        let store = DailyClearanceStore()
+        if let completion = store.loadTodayCompletion() {
+            dailyClearanceState = .completed
+            dailyClearanceGame = completion.game
+        } else if let draft = store.loadTodayDraft() {
+            dailyClearanceState = .inProgress
+            dailyClearanceGame = draft.game
+        } else {
+            dailyClearanceState = .notStarted
+            dailyClearanceGame = UserPreferences.shared.dailyClearanceGame
+        }
+    }
+
+    /// v52 首页状态与重启持久化取证 seam。仅显式 UI 测试参数可触发，生产无入口。
+    private func installDailyClearanceHomeFixtureIfNeeded() async {
+        #if DEBUG
+        guard !didInstallDailyClearanceHomeFixture else { return }
+        didInstallDailyClearanceHomeFixture = true
+        let args = ProcessInfo.processInfo.arguments
+        let store = DailyClearanceStore()
+        if args.contains("-dailyClearance.resetHomeState") {
+            store.clearDraft()
+            store.clearCompletion()
+        }
+
+        if args.contains("-dailyClearance.seedActivePlan"), activePlans.isEmpty {
+            let plan = CustomPlan(name: "清台矩阵训练", sessionsPerWeek: 5,
+                                  ownerKey: ownerKey)
+            plan.drills.append(CustomPlanDrill(
+                drillId: "drill_c001",
+                drillNameZh: "五分点",
+                roundsPerFormation: 1,
+                order: 0
+            ))
+            modelContext.insert(plan)
+            modelContext.insert(UserActivePlan(planId: plan.id.uuidString, isCustom: true,
+                                               ownerKey: ownerKey))
+            try? modelContext.save()
+            await viewModel.load(context: modelContext, ownerKey: ownerKey)
+        }
+
+        guard let fixture = args.first(where: { $0.hasPrefix("-dailyClearance.seedHomeState=") })?
+            .replacingOccurrences(of: "-dailyClearance.seedHomeState=", with: "") else { return }
+
+        store.clearDraft()
+        store.clearCompletion()
+        var draft = store.makeDraft(game: .chineseEightBall, seed: 52)
+        draft.phase = .playing
+        draft.board = BoardSnapshot(onTable: [
+            PositionPlayBall.cueKey: CanvasPoint(x: 0.72, y: 0.50),
+            "_1": CanvasPoint(x: 0.30, y: 0.42),
+            "_8": CanvasPoint(x: 0.43, y: 0.56),
+        ])
+
+        switch fixture {
+        case "progress":
+            draft.shotCount = 2
+            store.saveDraft(draft)
+        case "completed":
+            draft.shotCount = 7
+            _ = store.complete(draft)
+        default:
+            break
+        }
+        #endif
     }
 
     private var daysTrainedThisWeek: Int {
@@ -748,7 +1183,7 @@ struct TrainingHomeView: View {
     private func planPosterCard(_ plan: PlanBrowseItem, issueNumber: Int) -> some View {
         BTContentGridCard(
             title: plan.nameZh,
-            subtitle: "\(planLevelName(plan.targetLevel)) · \(plan.durationWeeks) 周",
+            subtitle: "\(plan.durationWeeks) 阶段 · \(plan.lessonCount) 课",
             // Shorter than 1:1 so title/meta clear the fixed bottom CTA when the grid peeks.
             coverAspectRatio: 4.0 / 3.0
         ) {
@@ -842,7 +1277,7 @@ struct TrainingHomeView: View {
                             HStack(spacing: 2) {
                                 Image(systemName: BTIcon.checkmarkCircle)
                                     .font(.btMicro)
-                                Text("今日使用中")
+                                Text("已在今日安排")
                                     .font(.btCaption2)
                             }
                             .foregroundStyle(.btPrimary)
@@ -870,7 +1305,7 @@ struct TrainingHomeView: View {
                 Button {
                     requestUseForToday(plan)
                 } label: {
-                    Label("用于今日训练", systemImage: "play.circle")
+                    Label(isActive ? "已在今日安排" : "加入今日安排", systemImage: "plus.circle")
                 }
                 Button(role: .destructive) {
                     requestDelete(plan)
@@ -915,7 +1350,11 @@ struct TrainingHomeView: View {
     }
 
     private func isUsedToday(_ plan: CustomPlan) -> Bool {
-        activePlans.contains { $0.isCustom && $0.planId == plan.id.uuidString }
+        orderedScheduleItems.contains {
+            $0.sourceKind == TodayScheduleSourceKind.template &&
+            $0.sourceId == plan.id.uuidString &&
+            ($0.state == TodayScheduleItemState.pending || $0.state == TodayScheduleItemState.inProgress)
+        }
     }
 
     private func customPlanSubtitle(_ plan: CustomPlan) -> String {
@@ -931,11 +1370,10 @@ struct TrainingHomeView: View {
 
     private func requestUseForToday(_ plan: CustomPlan) {
         if isUsedToday(plan) {
-            BTToast.present("已是今日训练", tone: .info) { toast = $0 }
+            BTToast.present("已在今日安排", tone: .info) { toast = $0 }
             return
         }
-        planToActivate = plan
-        showActivateConfirm = true
+        addTemplateToToday(plan)
     }
 
     private func requestDelete(_ plan: CustomPlan) {
@@ -943,14 +1381,13 @@ struct TrainingHomeView: View {
         showDeleteConfirm = true
     }
 
-    private func activateCustomPlan(_ plan: CustomPlan) {
+    private func addTemplateToToday(_ plan: CustomPlan) {
         do {
-            try DrillTrainingPlanService.activate(plan: plan, context: modelContext)
-            try modelContext.save()
-            router.trainingPath = NavigationPath()
+            _ = try TodayTrainingScheduleService(context: modelContext).addTemplate(plan)
+            toast = BTToastMessage("已加入今日安排")
         } catch {
-            print("[TrainingHomeView] activate failed: \(error)")
-            BTToast.present("无法设为今日训练，请稍后重试", tone: .error) { toast = $0 }
+            print("[TrainingHomeView] add template failed: \(error)")
+            BTToast.present("无法加入今日安排，请稍后重试", tone: .error) { toast = $0 }
         }
     }
 
@@ -959,7 +1396,7 @@ struct TrainingHomeView: View {
         let planIdStr = plan.id.uuidString
         do {
             let descriptor = FetchDescriptor<UserActivePlan>(
-                predicate: #Predicate { $0.planId == planIdStr }
+                predicate: #Predicate { $0.ownerKey == ownerKey && $0.planId == planIdStr }
             )
             let actives = try modelContext.fetch(descriptor)
             modelContext.delete(plan)
@@ -978,8 +1415,9 @@ struct TrainingHomeView: View {
 
     private var emptyStateContent: some View {
         VStack(spacing: Spacing.xl) {
+            weeklyTrainingSection
+            if latestArchivedUnfinished != nil { unfinishedCarryBanner }
             if !viewModel.todaySupplementalDrills.isEmpty {
-                weeklyTrainingSection
                 todayTrainingSection(nil)
             }
 
@@ -1008,7 +1446,11 @@ struct TrainingHomeView: View {
                 Text("自由记录")
                     .font(.btCallout.weight(.medium))
                     .foregroundStyle(.btPrimary)
+                    .frame(minHeight: 44)
+                    .padding(.horizontal, Spacing.lg)
+                    .contentShape(Rectangle())
             }
+            .accessibilityIdentifier("trainingHome.freeRecord")
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xl)
@@ -1019,13 +1461,11 @@ struct TrainingHomeView: View {
     /// The single primary action for today's whole session. Individual rows stay informational.
     private var startTrainingCircle: some View {
         Button {
-            if let session = viewModel.todaySession {
-                startTodayTraining(session)
-            } else {
-                router.startTraining(mode: .free)
-            }
+            if router.isTrainingMinimized { router.resumeMinimizedTraining() }
+            else if let item = nextScheduleItem { startScheduledItem(item) }
+            else { arrangeAndStartCurrentLesson() }
         } label: {
-            Text("训练")
+            Text(nextScheduleItem?.state == TodayScheduleItemState.inProgress ? "继续" : "训练")
                 .font(.btHeadline)
                 .foregroundStyle(.white)
                 .frame(width: 64, height: 64)
@@ -1040,7 +1480,10 @@ struct TrainingHomeView: View {
                 )
         }
         .buttonStyle(BTPressableStyle.capsule)
-        .accessibilityLabel("开始训练")
+        .accessibilityIdentifier("trainingHome.startTraining")
+        .accessibilityLabel(
+            nextScheduleItem?.state == TodayScheduleItemState.inProgress ? "继续" : "开始训练"
+        )
         .shadow(color: Color.btPrimary.opacity(0.24), radius: 14, x: 0, y: 6)
         .padding(.trailing, Spacing.lg)
         .padding(.bottom, 18)

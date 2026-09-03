@@ -17,9 +17,9 @@ enum QiuJiSchemaV1: VersionedSchema {
             DrillEntry.self,
             DrillSet.self,
             AngleTestResult.self,
-            QiuJi.UserActivePlan.self,
-            QiuJi.DrillFavorite.self,
-            QiuJi.SyncPendingItem.self,
+            QiuJiSchemaV3.UserActivePlan.self,
+            QiuJiSchemaV3.DrillFavorite.self,
+            QiuJiSchemaV3.SyncPendingItem.self,
             QiuJiSchemaV2.CustomPlan.self,
             QiuJiSchemaV2.CustomPlanDrill.self
         ]

@@ -48,6 +48,7 @@ struct PlanBrowseItem: Identifiable {
     let isPremium: Bool
     let durationWeeks: Int
     let sessionsPerWeek: Int
+    let lessonCount: Int
 }
 
 enum PlanBrowseTab: String, CaseIterable {
@@ -120,19 +121,26 @@ final class TrainingHomeViewModel: ObservableObject {
     }
 
     func load(context: ModelContext) async {
+        await load(context: context, ownerKey: CurrentOwnerContext.shared.ownerKey)
+    }
+
+    func load(context: ModelContext, ownerKey: String) async {
         // 二次刷新禁止出骨架：骨架与货架互斥会拆掉 ScrollView 内容，返回后滚回顶部。
         let shouldShowSkeleton = officialPlans.isEmpty && todaySession == nil
         if shouldShowSkeleton { isLoading = true }
         // View animates via `.animation(BTMotion.easeFast, value: isLoading)` (F-ST-03).
         defer { isLoading = false }
 
-        let descriptor = FetchDescriptor<UserActivePlan>()
+        let descriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
         guard let activePlan = try? context.fetch(descriptor).first else {
             hasActivePlan = false
             todaySession = nil
             todaySupplementalDrills = fetchTodaySupplementalDrills(
                 context: context,
-                excludingPlanId: nil
+                excludingPlanId: nil,
+                ownerKey: ownerKey
             )
             await loadPlansForBrowsing()
             return
@@ -141,13 +149,14 @@ final class TrainingHomeViewModel: ObservableObject {
         hasActivePlan = true
         todaySupplementalDrills = fetchTodaySupplementalDrills(
             context: context,
-            excludingPlanId: activePlan.planId
+            excludingPlanId: activePlan.planId,
+            ownerKey: ownerKey
         )
 
         if activePlan.isCustom {
-            await loadCustomPlan(activePlan: activePlan, context: context)
+            await loadCustomPlan(activePlan: activePlan, context: context, ownerKey: ownerKey)
         } else {
-            await loadOfficialPlan(activePlan: activePlan, context: context)
+            await loadOfficialPlan(activePlan: activePlan, context: context, ownerKey: ownerKey)
         }
 
         await loadPlansForBrowsing()
@@ -187,12 +196,14 @@ final class TrainingHomeViewModel: ObservableObject {
                 targetLevel: plan.targetLevel,
                 isPremium: plan.isPremium,
                 durationWeeks: plan.durationWeeks,
-                sessionsPerWeek: plan.sessionsPerWeek
+                sessionsPerWeek: plan.sessionsPerWeek,
+                lessonCount: plan.lessonCount
             )
         }
     }
 
-    private func loadOfficialPlan(activePlan: UserActivePlan, context: ModelContext) async {
+    private func loadOfficialPlan(activePlan: UserActivePlan, context: ModelContext,
+                                  ownerKey: String) async {
         let planService = PlanContentService.shared
         guard let plan = await planService.loadPlanFromBundle(id: activePlan.planId) else {
             todaySession = nil
@@ -216,7 +227,8 @@ final class TrainingHomeViewModel: ObservableObject {
 
         let completedIds = fetchTodayCompletedDrillIds(
             context: context,
-            planId: activePlan.planId
+            planId: activePlan.planId,
+            ownerKey: ownerKey
         )
         let drillService = DrillContentService.shared
 
@@ -260,14 +272,15 @@ final class TrainingHomeViewModel: ObservableObject {
         )
     }
 
-    private func loadCustomPlan(activePlan: UserActivePlan, context: ModelContext) async {
+    private func loadCustomPlan(activePlan: UserActivePlan, context: ModelContext,
+                                ownerKey: String) async {
         guard let planUUID = UUID(uuidString: activePlan.planId) else {
             todaySession = nil
             return
         }
 
         let descriptor = FetchDescriptor<CustomPlan>(
-            predicate: #Predicate { $0.id == planUUID }
+            predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == planUUID }
         )
         guard let customPlan = try? context.fetch(descriptor).first else {
             todaySession = nil
@@ -276,7 +289,8 @@ final class TrainingHomeViewModel: ObservableObject {
 
         let completedIds = fetchTodayCompletedDrillIds(
             context: context,
-            planId: activePlan.planId
+            planId: activePlan.planId,
+            ownerKey: ownerKey
         )
         let sortedDrills = customPlan.drills.sorted { $0.order < $1.order }
 
@@ -324,13 +338,16 @@ final class TrainingHomeViewModel: ObservableObject {
 
     private func fetchTodayCompletedDrillIds(
         context: ModelContext,
-        planId: String
+        planId: String,
+        ownerKey: String
     ) -> Set<String> {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
 
-        let predicate = #Predicate<TrainingSession> { $0.date >= start && $0.date < end }
+        let predicate = #Predicate<TrainingSession> {
+            $0.ownerKey == ownerKey && $0.date >= start && $0.date < end
+        }
         let descriptor = FetchDescriptor<TrainingSession>(predicate: predicate)
 
         guard let sessions = try? context.fetch(descriptor) else { return [] }
@@ -348,13 +365,16 @@ final class TrainingHomeViewModel: ObservableObject {
     /// 自由训练或今天更换计划前的训练则按真实 `DrillEntry` 逐行追加。
     private func fetchTodaySupplementalDrills(
         context: ModelContext,
-        excludingPlanId: String?
+        excludingPlanId: String?,
+        ownerKey: String
     ) -> [TodayDrillItem] {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
 
-        let predicate = #Predicate<TrainingSession> { $0.date >= start && $0.date < end }
+        let predicate = #Predicate<TrainingSession> {
+            $0.ownerKey == ownerKey && $0.date >= start && $0.date < end
+        }
         let descriptor = FetchDescriptor<TrainingSession>(
             predicate: predicate,
             sortBy: [SortDescriptor(\.date)]

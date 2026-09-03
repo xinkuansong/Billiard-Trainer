@@ -106,19 +106,117 @@ enum PlanProgressError: Error {
     case scheduleUnavailable
 }
 
+enum PlanProgressEffect: Equatable {
+    case none
+    case advanced(Int)
+    case completed
+}
+
 /// `UserActivePlan.currentWeek/currentDay` 的唯一写入方。
 ///
 /// ⛔ 判定依据只有一条：保存下来的 `TrainingSession.planId`（W4 落地）与当前激活计划
 /// 的 `planId` 相等。绝不用「当天有训练记录」之类启发式——自由训练 `planId` 为 nil，
 /// 会被误算成计划完成。
+@MainActor
 enum PlanProgressService {
+
+    // MARK: v54 lesson cursor
+
+    /// Applies only a completed item's frozen `advanceEligible` effect. This mutates the current
+    /// context but deliberately does not save, so W6 can commit session + item + cursor atomically.
+    @discardableResult
+    static func settleCompletedScheduleItem(
+        _ item: TodayScheduleItem,
+        context: ModelContext,
+        now: Date = Date()
+    ) throws -> PlanProgressEffect {
+        guard item.state == TodayScheduleItemState.completed,
+              item.progressRole == TodayScheduleProgressRole.advanceEligible,
+              let planID = item.planId,
+              item.lessonId != nil,
+              let activePlan = fetchOfficialMainline(ownerKey: item.schedule?.ownerKey, context: context),
+              activePlan.planId == planID,
+              activePlan.status == "active",
+              let currentLessonID = activePlan.currentLessonId,
+              let plan = PlanContentService.decodePlanFromBundle(id: planID) else {
+            return .none
+        }
+
+        let lessons = plan.lessons
+        let ordinalByID = Dictionary(uniqueKeysWithValues: lessons.enumerated().map { ($0.element.id, $0.offset) })
+        guard let currentOrdinal = ordinalByID[currentLessonID] else {
+            throw PlanProgressError.scheduleUnavailable
+        }
+        let inputs = (item.schedule?.items ?? []).compactMap { scheduled -> ProgressSettlementInput? in
+            guard scheduled.planId == planID,
+                  let lessonID = scheduled.lessonId,
+                  let ordinal = ordinalByID[lessonID] else { return nil }
+            return ProgressSettlementInput(
+                ordinal: ordinal,
+                role: scheduled.progressRole,
+                isCompleted: scheduled.state == TodayScheduleItemState.completed
+            )
+        }
+        let result = OfficialPlanProgressRules.settle(
+            planID: planID,
+            activePlanID: activePlan.planId,
+            currentOrdinal: currentOrdinal,
+            lessonCount: lessons.count,
+            items: inputs
+        )
+        guard result.advancedCount > 0 else { return .none }
+
+        activePlan.updatedAt = now
+        if result.isCompleted {
+            activePlan.currentLessonId = nil
+            activePlan.status = "completed"
+            activePlan.completedAt = now
+            return .completed
+        }
+        guard let nextOrdinal = result.currentOrdinal else {
+            throw PlanProgressError.scheduleUnavailable
+        }
+        let next = lessons[nextOrdinal]
+        activePlan.currentLessonId = next.id
+        activePlan.status = "active"
+        activePlan.completedAt = nil
+        if let stage = plan.stages.first(where: { stage in
+            stage.lessons.contains(where: { $0.id == next.id })
+        }) {
+            // Compatibility shadow only; new business logic reads currentLessonId.
+            activePlan.currentWeek = stage.order
+            activePlan.currentDay = next.order
+        }
+        return .advanced(result.advancedCount)
+    }
+
+    static func estimatedRemainingWeeks(
+        for activePlan: UserActivePlan,
+        plan: OfficialPlan,
+        weeklyGoalDays: Int
+    ) -> Int {
+        let ordinalByID = Dictionary(uniqueKeysWithValues: plan.lessons.enumerated().map {
+            ($0.element.id, $0.offset)
+        })
+        let currentOrdinal = activePlan.status == "completed"
+            ? nil
+            : activePlan.currentLessonId.flatMap { ordinalByID[$0] }
+        return PlanDurationEstimate.remainingWeeks(
+            lessonCount: plan.lessonCount,
+            currentOrdinal: currentOrdinal,
+            weeklyGoalDays: weeklyGoalDays
+        )
+    }
 
     // MARK: 结构解析
 
     static func schedule(for activePlan: UserActivePlan, context: ModelContext) -> PlanSchedule? {
         if activePlan.isCustom {
             guard let uuid = UUID(uuidString: activePlan.planId) else { return nil }
-            let descriptor = FetchDescriptor<CustomPlan>(predicate: #Predicate { $0.id == uuid })
+            let ownerKey = activePlan.ownerKey
+            let descriptor = FetchDescriptor<CustomPlan>(
+                predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == uuid }
+            )
             guard let plan = try? context.fetch(descriptor).first else { return nil }
             return .custom(sessionsPerWeek: plan.sessionsPerWeek)
         }
@@ -140,7 +238,7 @@ enum PlanProgressService {
         context: ModelContext
     ) throws -> PlanAdvanceOutcome? {
         guard let sessionPlanId = session.planId, !sessionPlanId.isEmpty else { return nil }
-        guard let activePlan = fetchActivePlan(context: context),
+        guard let activePlan = fetchActivePlan(ownerKey: session.ownerKey, context: context),
               activePlan.planId == sessionPlanId else { return nil }
         guard let schedule = schedule(for: activePlan, context: context) else {
             throw PlanProgressError.scheduleUnavailable
@@ -158,7 +256,8 @@ enum PlanProgressService {
     /// 跳过当前这一天（不做训练直接前移游标）。
     @discardableResult
     static func skipCurrentDay(context: ModelContext) throws -> PlanAdvanceOutcome? {
-        guard let activePlan = fetchActivePlan(context: context) else { return nil }
+        guard let activePlan = fetchActivePlan(ownerKey: CurrentOwnerContext.shared.ownerKey,
+                                               context: context) else { return nil }
         guard let schedule = schedule(for: activePlan, context: context) else {
             throw PlanProgressError.scheduleUnavailable
         }
@@ -172,7 +271,8 @@ enum PlanProgressService {
     /// 回退一天。已在第 1 周第 1 天时不动，返回 nil。
     @discardableResult
     static func rollbackCurrentDay(context: ModelContext) throws -> PlanPosition? {
-        guard let activePlan = fetchActivePlan(context: context) else { return nil }
+        guard let activePlan = fetchActivePlan(ownerKey: CurrentOwnerContext.shared.ownerKey,
+                                               context: context) else { return nil }
         guard let schedule = schedule(for: activePlan, context: context) else {
             throw PlanProgressError.scheduleUnavailable
         }
@@ -186,8 +286,25 @@ enum PlanProgressService {
 
     // MARK: - Internals
 
-    private static func fetchActivePlan(context: ModelContext) -> UserActivePlan? {
-        try? context.fetch(FetchDescriptor<UserActivePlan>()).first
+    private static func fetchActivePlan(ownerKey: String,
+                                        context: ModelContext) -> UserActivePlan? {
+        let descriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
+        return try? context.fetch(descriptor).first
+    }
+
+    private static func fetchOfficialMainline(
+        ownerKey: String?,
+        context: ModelContext
+    ) -> UserActivePlan? {
+        guard let ownerKey else { return nil }
+        let descriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate {
+                $0.ownerKey == ownerKey && !$0.isCustom && $0.status == "active"
+            }
+        )
+        return try? context.fetch(descriptor).first
     }
 
     private static func position(of activePlan: UserActivePlan) -> PlanPosition {

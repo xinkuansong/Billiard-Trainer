@@ -10,13 +10,26 @@ struct BTChipRow: View {
     var tint: Color = .btPrimary
     /// false 时不包 ScrollView（紧凑内联场合，如与其他控件同行）。
     var scrollable: Bool = true
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
-        if scrollable {
-            ScrollView(.horizontal, showsIndicators: false) { chips }
+        if scrollable || dynamicTypeSize.isAccessibilitySize {
+            scrollableChips
         } else {
-            chips
+            ViewThatFits(in: .horizontal) {
+                chips
+                    .fixedSize(horizontal: true, vertical: false)
+                scrollableChips
+            }
         }
+    }
+
+    private var scrollableChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            chips
+                .fixedSize(horizontal: true, vertical: false)
+        }
+        .accessibilityIdentifier("shotStage.chipRow")
     }
 
     private var chips: some View {
@@ -29,6 +42,7 @@ struct BTChipRow: View {
                         .foregroundStyle(selection == i ? .white : HUDStyle.chipTextUnselected)
                         .padding(.horizontal, Spacing.md)
                         .padding(.vertical, 6)
+                        .frame(minHeight: 44)
                     if selection == i {
                         label.background(Capsule().fill(tint))
                     } else {
@@ -36,6 +50,7 @@ struct BTChipRow: View {
                     }
                 }
                 .buttonStyle(BTPressableStyle.capsule)
+                .accessibilityIdentifier("shotStage.chip.\(i)")
             }
         }
     }

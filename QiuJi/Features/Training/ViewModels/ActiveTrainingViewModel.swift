@@ -124,11 +124,13 @@ enum TrainingMode: Identifiable {
     /// `planId` = 当前激活计划的 `UserActivePlan.planId`（官方计划 id 或自定义计划 UUID 串）。
     /// 落 `TrainingSession.planId`，是「按完成推进计划」的判定依据。
     case plan(drills: [TodayDrillItem], planId: String?)
+    case scheduled(ScheduledTrainingBlock)
     case free
 
     var id: String {
         switch self {
         case .plan: return "plan"
+        case .scheduled(let block): return "scheduled:\(block.scheduleItemID.uuidString)"
         case .free: return "free"
         }
     }
@@ -136,8 +138,94 @@ enum TrainingMode: Identifiable {
     var planId: String? {
         switch self {
         case .plan(_, let planId): return planId
+        case .scheduled(let block): return block.planID
         case .free: return nil
         }
+    }
+}
+
+/// Immutable launch value for one persisted item in today's queue.
+struct ScheduledTrainingBlock {
+    enum DecodeError: Error { case invalidPayload }
+
+    let scheduleItemID: UUID
+    let sourceKind: String
+    let sourceID: String
+    let sourceParentID: String?
+    let sourceTitle: String
+    let sourceSubtitle: String?
+    let payloadVersion: Int
+    let payloadSnapshot: Data
+    let progressRole: String
+    let planID: String?
+    let lessonID: String?
+    let drills: [ScheduledDrillSnapshot]
+
+    init(item: TodayScheduleItem) throws {
+        scheduleItemID = item.id
+        sourceKind = item.sourceKind
+        sourceID = item.sourceId
+        sourceParentID = item.sourceParentId
+        sourceTitle = item.sourceTitleSnapshot
+        sourceSubtitle = item.sourceSubtitleSnapshot
+        payloadVersion = item.payloadVersion
+        payloadSnapshot = item.payloadSnapshot
+        progressRole = item.progressRole
+        planID = item.planId
+        lessonID = item.lessonId
+
+        let decoder = JSONDecoder()
+        switch item.sourceKind {
+        case TodayScheduleSourceKind.officialLesson:
+            let payload = try decoder.decode(ScheduledLessonPayload.self, from: item.payloadSnapshot)
+            drills = payload.drills ?? Self.resolve(lesson: payload.lesson)
+        case TodayScheduleSourceKind.template:
+            let payload = try decoder.decode(ScheduledTemplatePayload.self, from: item.payloadSnapshot)
+            drills = payload.resolvedDrills ?? payload.drills.map {
+                Self.resolve(
+                    drillID: $0.drillID, name: $0.drillName,
+                    dose: PlanDrillDose(roundsPerFormation: $0.roundsPerFormation),
+                    phaseType: "focused", phaseTitle: "专项训练"
+                )
+            }
+        case TodayScheduleSourceKind.libraryDrill:
+            let payload = try decoder.decode(ScheduledLibraryDrillPayload.self, from: item.payloadSnapshot)
+            drills = [payload.resolvedDrill ?? Self.resolve(
+                drillID: payload.drillID, name: payload.title,
+                dose: PlanDrillDose(roundsPerFormation: payload.roundsPerFormation),
+                phaseType: "focused", phaseTitle: "动作库"
+            )]
+        default:
+            throw DecodeError.invalidPayload
+        }
+    }
+
+    private static func resolve(lesson: PlanLesson) -> [ScheduledDrillSnapshot] {
+        lesson.phases.flatMap { phase in
+            phase.drills.map {
+                resolve(drillID: $0.drillId, name: $0.drillId, dose: $0.dose,
+                        phaseType: phase.type, phaseTitle: phase.typeZh)
+            }
+        }
+    }
+
+    private static func resolve(
+        drillID: String, name: String, dose: PlanDrillDose?,
+        phaseType: String, phaseTitle: String
+    ) -> ScheduledDrillSnapshot {
+        let content = DrillContentService.decodeDrillFromBundle(id: drillID)
+        let resolved = TrainingDoseResolver.resolve(
+            content: content, dose: dose,
+            formationOptions: TrainingDoseResolver.formationOptions(forDrillId: drillID)
+        )
+        return ScheduledDrillSnapshot(
+            drillID: drillID, name: content?.nameZh ?? name,
+            description: content?.description ?? "", coachingPoints: content?.coachingPoints ?? [],
+            sets: resolved.plannedSets.map(ScheduledSetSnapshot.init),
+            phaseType: phaseType, phaseTitle: phaseTitle, animation: content?.animation,
+            level: content?.level, category: content?.category ?? "",
+            subcategory: content?.subcategory ?? "", standardCriteria: content?.standardCriteria ?? ""
+        )
     }
 }
 
@@ -235,6 +323,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     private var restTimer: DispatchSourceTimer?
     private var pendingDrillAdvance: Int?
     private let liveActivityManager = RestTimerLiveActivityManager.shared
+    private let saveAction: (ModelContext) throws -> Void
 
     private var hasLoaded = false
     private var timerStartDate: Date?
@@ -345,12 +434,24 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     var isPlanMode: Bool {
-        if case .plan = mode { return true }
-        return false
+        switch mode {
+        case .plan, .scheduled: return true
+        case .free: return false
+        }
     }
 
-    init(mode: TrainingMode) {
+    init(mode: TrainingMode, saveAction: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         self.mode = mode
+        self.saveAction = saveAction
+        #if DEBUG
+        if let raw = ProcessInfo.processInfo.arguments
+            .first(where: { $0.hasPrefix("-v51.elapsedSeconds=") })?
+            .replacingOccurrences(of: "-v51.elapsedSeconds=", with: ""),
+           let seeded = Int(raw) {
+            elapsedSeconds = max(0, seeded)
+            accumulatedBeforePause = max(0, seeded)
+        }
+        #endif
     }
 
     // MARK: - Data Loading
@@ -383,6 +484,24 @@ final class ActiveTrainingViewModel: ObservableObject {
                 ))
             }
             drills = items
+
+        case .scheduled(let block):
+            drills = block.drills.map { snapshot in
+                ActiveDrill(
+                    drillId: snapshot.drillID,
+                    nameZh: snapshot.name,
+                    description: snapshot.description,
+                    coachingPoints: snapshot.coachingPoints,
+                    plannedSets: snapshot.sets.map(\.plannedSet),
+                    phaseType: snapshot.phaseType,
+                    phaseZh: snapshot.phaseTitle,
+                    animation: snapshot.animation,
+                    level: snapshot.level.flatMap(DrillLevel.init(rawValue:)),
+                    category: snapshot.category,
+                    subcategory: snapshot.subcategory,
+                    standardCriteria: snapshot.standardCriteria
+                )
+            }
 
         case .free:
             // 自由模式允许进入前已预置动作（UITest deeplink / 外部注入）。
@@ -908,11 +1027,45 @@ final class ActiveTrainingViewModel: ObservableObject {
 
         do {
             // 训练 Tab 的正式训练一律是真实球台成绩（契约 §5.3）。
-            let session = TrainingSession(kind: "drill")
+            let scheduledItem: TodayScheduleItem?
+            if case .scheduled(let block) = mode {
+                let id = block.scheduleItemID
+                var descriptor = FetchDescriptor<TodayScheduleItem>(
+                    predicate: #Predicate { $0.id == id }
+                )
+                descriptor.fetchLimit = 1
+                guard let found = try context.fetch(descriptor).first,
+                      found.state == TodayScheduleItemState.pending ||
+                        found.state == TodayScheduleItemState.inProgress else {
+                    saveError = "今日安排已变更，请返回后重新进入"
+                    return
+                }
+                scheduledItem = found
+            } else {
+                scheduledItem = nil
+            }
+            let ownerKey = scheduledItem?.schedule?.ownerKey ?? CurrentOwnerContext.shared.ownerKey
+            let session = TrainingSession(kind: "drill", ownerKey: ownerKey)
             session.totalDurationMinutes = elapsedSeconds / 60
             session.note = trainingNote
             // 自由训练保持 nil；计划训练写入当前激活计划 id（W7 计划推进的判定依据）。
             session.planId = mode.planId
+            if case .scheduled(let block) = mode {
+                session.scheduleItemId = block.scheduleItemID
+                session.sourceKind = block.sourceKind
+                session.sourceId = block.sourceID
+                session.sourceParentId = block.sourceParentID
+                session.sourceTitleSnapshot = block.sourceTitle
+                session.sourceSubtitleSnapshot = block.sourceSubtitle
+                session.sourcePayloadVersion = block.payloadVersion
+                session.sourcePayloadSnapshot = block.payloadSnapshot
+                session.progressRole = block.progressRole
+                session.lessonId = block.lessonID
+            }
+            // iOS 17 SwiftData 对「先把未托管对象拼成整棵关系树、再只插入根」
+            // 存在稳定的挂起/进程 trap。先逐个纳入同一 context，再设置 inverse，
+            // 同时让 iOS 17/26 都走明确、可持久化的关系路径。
+            context.insert(session)
 
             for (drillIdx, drill) in drills.enumerated() {
                 let entry = DrillEntry(
@@ -923,6 +1076,8 @@ final class ActiveTrainingViewModel: ObservableObject {
                     // 快照写入即冻结：展示层不得再回查当前内容（契约 §6.5 推论 2）。
                     criteriaText: drill.standardCriteria
                 )
+                context.insert(entry)
+                entry.session = session
 
                 guard drillIdx < drillSetsData.count else { continue }
                 for setData in drillSetsData[drillIdx] {
@@ -938,31 +1093,37 @@ final class ActiveTrainingViewModel: ObservableObject {
                         passTotal: 0,
                         durationSeconds: setData.duration.map { Int($0.rounded()) }
                     )
-                    entry.sets.append(drillSet)
+                    context.insert(drillSet)
+                    drillSet.entry = entry
                 }
-
-                session.drillEntries.append(entry)
             }
 
-            context.insert(session)
-            try context.save()
+            if let scheduledItem {
+                let completedAt = Date()
+                scheduledItem.state = TodayScheduleItemState.completed
+                scheduledItem.completedAt = completedAt
+                scheduledItem.trainingSessionId = session.id
+                scheduledItem.schedule?.updatedAt = completedAt
+                let effect = try PlanProgressService.settleCompletedScheduleItem(
+                    scheduledItem, context: context, now: completedAt
+                )
+                session.setProgress(role: scheduledItem.progressRole, effect: effect.storageValue)
+            }
 
-            SyncQueueManager.shared.enqueue(
-                entityType: "TrainingSession",
+            // Insert before the only save: session, schedule completion, cursor, and retry queue
+            // either all become durable or all roll back.
+            context.insert(SyncPendingItem(
+                entityType: SyncEntityType.trainingSession,
                 entityId: session.id,
-                operation: "create"
-            )
+                operation: SyncOperation.create,
+                ownerKey: ownerKey
+            ))
+
+            try saveAction(context)
 
             didSaveSuccessfully = true
-
-            // W7 计划推进：训练已落库，这一步只前移计划游标（判定依据 = 上面写入的
-            // session.planId）。失败不影响本次成绩，但必须可见，不静默吞。
-            do {
-                try PlanProgressService.advanceAfterPlanSession(session, context: context)
-            } catch {
-                saveError = "训练已保存，但计划进度未更新，可在训练首页「今日安排」手动跳过今天"
-            }
         } catch {
+            context.rollback()
             saveError = "训练记录保存失败，请确认设备存储空间充足后重试"
         }
     }
@@ -971,5 +1132,15 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func cleanup() {
         pauseTimer()
+    }
+}
+
+private extension PlanProgressEffect {
+    var storageValue: String {
+        switch self {
+        case .none: return "none"
+        case .advanced(let count): return "advanced:\(count)"
+        case .completed: return "completed"
+        }
     }
 }

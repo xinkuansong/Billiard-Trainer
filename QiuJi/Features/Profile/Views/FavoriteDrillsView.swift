@@ -2,12 +2,18 @@ import SwiftUI
 import SwiftData
 
 struct FavoriteDrillsView: View {
+    let ownerKey: String
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var router: AppRouter
     @State private var drills: [DrillContent] = []
     @State private var isLoading = true
+
+    init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.ownerKey = ownerKey
+        _favorites = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+    }
 
     var body: some View {
         Group {

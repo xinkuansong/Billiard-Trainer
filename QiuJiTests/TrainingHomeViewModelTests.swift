@@ -127,35 +127,6 @@ final class TrainingHomeViewModelTests: XCTestCase {
         print("[W4-EVIDENCE] c069 volumeText=\(item.volumeText) targets=\(expected)")
     }
 
-    // MARK: - W3-3 加入训练新建确认（D-v43-6）
-
-    func test_addToTraining_toggleOn_withActivePlan_needsConfirm() {
-        XCTAssertTrue(
-            AddToTrainingSheetPolicy.needsReplaceConfirm(
-                activateAsToday: true,
-                hasAnyActivePlan: true
-            )
-        )
-    }
-
-    func test_addToTraining_toggleOff_withActivePlan_skipsConfirm() {
-        XCTAssertFalse(
-            AddToTrainingSheetPolicy.needsReplaceConfirm(
-                activateAsToday: false,
-                hasAnyActivePlan: true
-            )
-        )
-    }
-
-    func test_addToTraining_toggleOn_withoutActivePlan_skipsConfirm() {
-        XCTAssertFalse(
-            AddToTrainingSheetPolicy.needsReplaceConfirm(
-                activateAsToday: true,
-                hasAnyActivePlan: false
-            )
-        )
-    }
-
     // MARK: - sequence / repetition 口径（R3）
 
     /// sequence 型球形：每组目标球数必须等于该球形序列的**实测杆数**（契约 §5.6.2 / I6b）。
@@ -570,9 +541,8 @@ final class TrainingHomeViewModelTests: XCTestCase {
             let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planId),
                                      "\(planId) 未能解码")
             try assertPlanJSONHasNoLegacyVolumeKeys(planId)
-            for week in plan.weeks {
-                for session in week.sessions {
-                    for phase in session.phases {
+            for lesson in plan.lessons {
+                for phase in lesson.phases {
                         for ref in phase.drills {
                             let dose = try XCTUnwrap(ref.dose, "\(planId) \(ref.drillId) 缺 dose")
                             XCTAssertTrue(
@@ -598,7 +568,6 @@ final class TrainingHomeViewModelTests: XCTestCase {
                             }
                             entries += 1
                         }
-                    }
                 }
             }
         }
@@ -617,19 +586,17 @@ final class TrainingHomeViewModelTests: XCTestCase {
             let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planId),
                                      "\(planId) 未能解码")
             try assertPlanJSONHasNoLegacyVolumeKeys(planId)
-            XCTAssertEqual(plan.weeks.count, plan.durationWeeks, "\(planId) 周数与 durationWeeks 不符")
-            for week in plan.weeks {
-                XCTAssertGreaterThan(week.sessions.count, 0,
-                                     "\(planId) W\(week.weekNumber) 至少 1 次课")
-                XCTAssertLessThanOrEqual(week.sessions.count, plan.sessionsPerWeek,
-                                         "\(planId) W\(week.weekNumber) 天数不得超过 sessionsPerWeek")
-                for session in week.sessions {
+            XCTAssertFalse(plan.stages.isEmpty, "\(planId) stages 为空")
+            for stage in plan.stages {
+                XCTAssertFalse(stage.lessons.isEmpty,
+                               "\(planId) 阶段 \(stage.id) 至少包含一个课次")
+                for lesson in stage.lessons {
                     // v34 W3 后各节阶段时长可与计划级 minutesPerSession 不同（R7「大概」）；
                     // 本用例只核 dose 可解析，不在此重做课时护栏。
-                    let phaseSum = session.phases.reduce(0) { $0 + $1.durationMinutes }
+                    let phaseSum = lesson.phases.reduce(0) { $0 + $1.durationMinutes }
                     XCTAssertGreaterThan(phaseSum, 0,
-                                         "\(planId) W\(week.weekNumber) D\(session.dayNumber) 阶段时长合计为 0")
-                    for phase in session.phases {
+                                         "\(planId) \(lesson.id) 阶段时长合计为 0")
+                    for phase in lesson.phases {
                         for ref in phase.drills {
                             let dose = try XCTUnwrap(ref.dose, "\(planId) \(ref.drillId) 缺 dose")
                             XCTAssertTrue(
@@ -725,12 +692,12 @@ func assertPlanJSONHasNoLegacyVolumeKeys(
         JSONSerialization.jsonObject(with: try Data(contentsOf: url)) as? [String: Any],
         "\(planId).json 顶层不是对象", file: file, line: line
     )
-    let weeks = root["weeks"] as? [[String: Any]] ?? []
-    XCTAssertFalse(weeks.isEmpty, "\(planId) weeks 为空", file: file, line: line)
+    let stages = root["stages"] as? [[String: Any]] ?? []
+    XCTAssertFalse(stages.isEmpty, "\(planId) stages 为空", file: file, line: line)
     var checked = 0
-    for week in weeks {
-        for session in week["sessions"] as? [[String: Any]] ?? [] {
-            for phase in session["phases"] as? [[String: Any]] ?? [] {
+    for stage in stages {
+        for lesson in stage["lessons"] as? [[String: Any]] ?? [] {
+            for phase in lesson["phases"] as? [[String: Any]] ?? [] {
                 for drill in phase["drills"] as? [[String: Any]] ?? [] {
                     let drillId = drill["drillId"] as? String ?? "?"
                     XCTAssertNil(drill["sets"],

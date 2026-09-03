@@ -4,6 +4,10 @@ struct SettingsView: View {
     @ObservedObject private var prefs = UserPreferences.shared
     @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
+    @EnvironmentObject private var ownerContext: CurrentOwnerContext
+    @EnvironmentObject private var dataCoordinator: AccountDataCoordinator
+    @EnvironmentObject private var avatarStore: AvatarStore
+    @Environment(\.colorScheme) private var colorScheme
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
     @State private var showDeleteErrorAlert = false
@@ -20,6 +24,7 @@ struct SettingsView: View {
                     appearanceSection
                     soundSection
                     trainingAidSection
+                    dailyClearanceSection
                     #if DEBUG && targetEnvironment(simulator)
                     simulatorDebugSection
                     #endif
@@ -32,6 +37,8 @@ struct SettingsView: View {
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.xxxl)
             }
+            .accessibilityIdentifier("settings.content")
+            .accessibilityValue(colorScheme == .dark ? "dark" : "light")
         }
         .navigationTitle("偏好设置")
         .navigationBarTitleDisplayMode(.inline)
@@ -128,6 +135,44 @@ struct SettingsView: View {
     }
 
     // MARK: - Training Aids
+
+    private var dailyClearanceSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("每日清台")
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btTextSecondary)
+                .padding(.leading, Spacing.xs)
+
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack(spacing: Spacing.md) {
+                    Label("默认玩法", systemImage: "circle.grid.3x3.fill")
+                        .font(.btBody)
+                        .foregroundStyle(.btText)
+
+                    Spacer(minLength: Spacing.sm)
+
+                    Picker("默认玩法", selection: $prefs.dailyClearanceGame) {
+                        ForEach(DailyClearanceGame.allCases) { game in
+                            Text(game.displayName).tag(game)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                    .tint(.btPrimary)
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("settings.dailyClearanceGame")
+                }
+
+                Text("只影响下一个新局；正在进行的清台会保留原玩法。")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .background(Color.btBGSecondary)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        }
+    }
 
     private var trainingAidSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
@@ -276,8 +321,7 @@ struct SettingsView: View {
     // MARK: - Actions
 
     private func calculateCacheSize() -> String {
-        let urlCacheSize = URLCache.shared.currentDiskUsage
-        let totalBytes = urlCacheSize
+        let totalBytes = Int64(URLCache.shared.currentDiskUsage) + avatarStore.diskUsage
         if totalBytes < 1024 * 1024 {
             return String(format: "%.0f KB", Double(totalBytes) / 1024.0)
         }
@@ -286,21 +330,42 @@ struct SettingsView: View {
 
     private func clearCache() {
         URLCache.shared.removeAllCachedResponses()
+        _ = avatarStore.clearDiskCache()
         cacheSize = calculateCacheSize()
+        Task {
+            await avatarStore.load(user: authState.currentUser, ownerKey: ownerContext.ownerKey)
+        }
     }
 
     private func deleteAccount() {
         guard !isDeletingAccount else { return }
+        guard let userId = authState.currentUser?.id, authState.isLoggedIn else { return }
         isDeletingAccount = true
         deleteErrorMessage = nil
         showDeleteErrorAlert = false
         Task {
             do {
                 try await BackendSyncService.shared.deleteAccount()
+                let accountOwner = OwnerKey.account(userId)
+                dataCoordinator.markAccountDeletionForLocalCleanup(userId: userId)
+                var localDataPreserved = true
+                do {
+                    try dataCoordinator.preserveDeletedAccountDataAsGuest(userId: userId)
+                } catch {
+                    localDataPreserved = false
+                }
+                SyncRestoreService.shared.clearAnchors(userId: userId)
+                OwnerProfileStore.removeLocalProfile(ownerKey: accountOwner)
+                let clearedAvatarCache = avatarStore.removeCachedAccountData(userId: userId)
                 isDeletingAccount = false
-                authState.logout()
+                authState.finishAccountDeletion()
+                if !localDataPreserved {
+                    authState.errorMessage = "账号已注销；本机训练数据将在下次启动时自动恢复为游客数据。"
+                } else if !clearedAvatarCache {
+                    authState.errorMessage = "账号已注销，但部分本机头像缓存清理失败，请重新打开 App 后清除缓存。"
+                }
             } catch {
-                deleteErrorMessage = "网络问题，请稍后重试。"
+                deleteErrorMessage = "注销失败，请检查网络后重试。"
                 isDeletingAccount = false
                 showDeleteErrorAlert = true
             }
@@ -318,6 +383,9 @@ struct SettingsView: View {
         SettingsView()
             .environmentObject(AuthState())
             .environmentObject(SubscriptionManager.shared)
+            .environmentObject(CurrentOwnerContext.shared)
+            .environmentObject(AccountDataCoordinator())
+            .environmentObject(AvatarStore.shared)
     }
 }
 
@@ -326,6 +394,9 @@ struct SettingsView: View {
         SettingsView()
             .environmentObject(AuthState())
             .environmentObject(SubscriptionManager.shared)
+            .environmentObject(CurrentOwnerContext.shared)
+            .environmentObject(AccountDataCoordinator())
+            .environmentObject(AvatarStore.shared)
     }
     .preferredColorScheme(.dark)
 }
@@ -337,5 +408,8 @@ struct SettingsView: View {
         SettingsView()
             .environmentObject(state)
             .environmentObject(SubscriptionManager.shared)
+            .environmentObject(CurrentOwnerContext.shared)
+            .environmentObject(AccountDataCoordinator())
+            .environmentObject(AvatarStore.shared)
     }
 }

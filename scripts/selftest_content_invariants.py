@@ -164,9 +164,91 @@ def plan_path(root: Path, plan_id: str) -> Path:
     return root / f"QiuJi/Resources/Plans/{plan_id}.json"
 
 
+def plan_stages(plan: dict) -> list[dict]:
+    return plan.get("stages") or plan.get("weeks") or []
+
+
+def stage_lessons(stage: dict) -> list[dict]:
+    return stage.get("lessons") if "lessons" in stage else stage.get("sessions", [])
+
+
+def stage_order(stage: dict) -> int | None:
+    return stage.get("order", stage.get("weekNumber"))
+
+
+def lesson_order(lesson: dict) -> int | None:
+    return lesson.get("order", lesson.get("dayNumber"))
+
+
+def find_stage(plan: dict, order: int) -> dict:
+    return next(stage for stage in plan_stages(plan) if stage_order(stage) == order)
+
+
+def find_lesson(stage: dict, order: int) -> dict:
+    return next(lesson for lesson in stage_lessons(stage) if lesson_order(lesson) == order)
+
+
+def convert_plan_to_v54_shape(plan: dict) -> None:
+    if "stages" in plan:
+        return
+    plan["estimatedMinutesPerLesson"] = plan.pop("minutesPerSession")
+    plan.pop("durationWeeks", None)
+    plan.pop("sessionsPerWeek", None)
+    weeks = plan.pop("weeks")
+    plan["stages"] = [
+        {
+            "id": f"{plan['id']}.stage{week['weekNumber']:02d}",
+            "order": week["weekNumber"],
+            "title": week["theme"],
+            "goal": week["theme"],
+            "lessons": [
+                {
+                    "id": (
+                        f"{plan['id']}.stage{week['weekNumber']:02d}."
+                        f"lesson{session['dayNumber']:02d}"
+                    ),
+                    "order": session["dayNumber"],
+                    "title": f"课程 {session['dayNumber']}",
+                    "summary": "构造性用例",
+                    "phases": session["phases"],
+                }
+                for session in week["sessions"]
+            ],
+        }
+        for week in weeks
+    ]
+
+
+def legacy_copy(plan: dict, plan_id: str) -> dict:
+    """Build a legacy-shaped payload after the production bundle is fully migrated."""
+    stages = plan["stages"]
+    return {
+        "id": plan_id,
+        "nameZh": plan["nameZh"],
+        "nameEn": plan["nameEn"],
+        "targetLevel": plan["targetLevel"],
+        "durationWeeks": len(stages),
+        "sessionsPerWeek": max(len(stage["lessons"]) for stage in stages),
+        "minutesPerSession": plan["estimatedMinutesPerLesson"],
+        "isPremium": plan["isPremium"],
+        "description": plan["description"],
+        "weeks": [
+            {
+                "weekNumber": stage["order"],
+                "theme": stage["title"],
+                "sessions": [
+                    {"dayNumber": lesson["order"], "phases": lesson["phases"]}
+                    for lesson in stage["lessons"]
+                ],
+            }
+            for stage in stages
+        ],
+    }
+
+
 def first_ref(plan: dict, drill_id: str) -> dict:
-    for week in plan["weeks"]:
-        for session in week["sessions"]:
+    for stage in plan_stages(plan):
+        for session in stage_lessons(stage):
             for phase in session["phases"]:
                 for ref in phase["drills"]:
                     if ref["drillId"] == drill_id:
@@ -176,8 +258,8 @@ def first_ref(plan: dict, drill_id: str) -> dict:
 
 def all_refs(plan: dict, drill_id: str) -> list[dict]:
     found = []
-    for week in plan["weeks"]:
-        for session in week["sessions"]:
+    for stage in plan_stages(plan):
+        for session in stage_lessons(stage):
             for phase in session["phases"]:
                 for ref in phase["drills"]:
                     if ref["drillId"] == drill_id:
@@ -252,7 +334,7 @@ def case_i11_unknown_drill(root: Path) -> None:
     path = plan_path(root, "plan_accuracy")
 
     def mutate(plan: dict) -> None:
-        plan["weeks"][0]["sessions"][0]["phases"][0]["drills"][0]["drillId"] = "drill_c900"
+        stage_lessons(plan_stages(plan)[0])[0]["phases"][0]["drills"][0]["drillId"] = "drill_c900"
     edit_json(path, mutate)
 
 
@@ -326,7 +408,7 @@ def case_i11_legacy_volume_keys(root: Path) -> None:
     path = plan_path(root, "plan_accuracy")
 
     def mutate(plan: dict) -> None:
-        ref = plan["weeks"][0]["sessions"][0]["phases"][0]["drills"][0]
+        ref = stage_lessons(plan_stages(plan)[0])[0]["phases"][0]["drills"][0]
         ref["sets"] = 3
         ref["ballsPerSet"] = 10
     edit_json(path, mutate)
@@ -336,6 +418,38 @@ def case_i10_plan_wrong_type(root: Path) -> None:
     # 计划侧模型也在 I10 覆盖内：解码失败会让整份计划从列表里消失。
     edit_json(plan_path(root, "plan_beginner"),
               lambda plan: plan.__setitem__("minutesPerSession", "60 分钟"))
+
+
+def case_i10_plan_v54_shape_ok(root: Path) -> None:
+    edit_json(plan_path(root, "plan_beginner"), convert_plan_to_v54_shape)
+
+
+def case_i10_new_legacy_plan_rejected(root: Path) -> None:
+    source = plan_path(root, "plan_beginner")
+    target = plan_path(root, "plan_new_legacy")
+    data = legacy_copy(json.loads(source.read_text(encoding="utf-8")), "plan_new_legacy")
+    target.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def case_i10_plan_v54_missing_stage_id(root: Path) -> None:
+    def mutate(plan: dict) -> None:
+        convert_plan_to_v54_shape(plan)
+        plan["stages"][0].pop("id")
+    edit_json(plan_path(root, "plan_beginner"), mutate)
+
+
+def case_i10_plan_v54_duplicate_lesson_order(root: Path) -> None:
+    def mutate(plan: dict) -> None:
+        convert_plan_to_v54_shape(plan)
+        plan["stages"][0]["lessons"][1]["order"] = 1
+    edit_json(plan_path(root, "plan_beginner"), mutate)
+
+
+def case_i10_plan_v54_empty_stage(root: Path) -> None:
+    def mutate(plan: dict) -> None:
+        convert_plan_to_v54_shape(plan)
+        plan["stages"][0]["lessons"] = []
+    edit_json(plan_path(root, "plan_beginner"), mutate)
 
 
 def case_i10_per_formation_wrong_type(root: Path) -> None:
@@ -388,9 +502,8 @@ def case_i13_week_order_drop(root: Path) -> None:
         source = json.loads(json.dumps(first_ref(plan, "drill_c032")))
         source.get("dose", {}).pop("reviewFrom", None)
         source.get("dose", {}).pop("decay", None)
-        week2 = next(week for week in plan["weeks"] if week.get("weekNumber") == 2)
-        day3 = next(session for session in week2["sessions"]
-                    if session.get("dayNumber") == 3)
+        week2 = find_stage(plan, 2)
+        day3 = find_lesson(week2, 3)
         focused = next(phase for phase in day3["phases"] if phase["type"] == "focused")
         focused["drills"].append(source)
     edit_json(plan_path(root, "plan_accuracy"), mutate)
@@ -402,7 +515,7 @@ def case_i13_warmup_over_focused(root: Path) -> None:
         source = json.loads(json.dumps(first_ref(plan, "drill_c032")))
         source.get("dose", {}).pop("reviewFrom", None)
         source.get("dose", {}).pop("decay", None)
-        session = plan["weeks"][0]["sessions"][1]
+        session = stage_lessons(plan_stages(plan)[0])[1]
         warmup = next(phase for phase in session["phases"] if phase["type"] == "warmup")
         warmup["drills"] = [source]
     edit_json(plan_path(root, "plan_accuracy"), mutate)
@@ -427,28 +540,26 @@ def case_i13_review_from_unknown(root: Path) -> None:
 def case_i13_intro_order_vs_w0(root: Path) -> None:
     # 对调准度Ⅰ W1D1 / W2D1 的 focused：引入序变成 c013→c011，对照 W0 的 c011→c013 须红。
     def mutate(plan: dict) -> None:
-        day1 = next(phase for phase in plan["weeks"][0]["sessions"][0]["phases"]
+        day1 = next(phase for phase in stage_lessons(plan_stages(plan)[0])[0]["phases"]
                     if phase["type"] == "focused")
-        week2_day1 = next(phase for phase in plan["weeks"][1]["sessions"][0]["phases"]
+        week2_day1 = next(phase for phase in stage_lessons(plan_stages(plan)[1])[0]["phases"]
                           if phase["type"] == "focused")
         day1["drills"], week2_day1["drills"] = week2_day1["drills"], day1["drills"]
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
-def case_i13_week_missing_day(root: Path) -> None:
-    # 失败机理（v44 I13 ⑥）：抽掉力度 W1 D3，周次不再满员。
+def case_i13_stage_empty(root: Path) -> None:
+    # 失败机理（v54 I13 ⑥）：阶段不允许为空；阶段课数不再要求每阶段相等。
     def mutate(plan: dict) -> None:
-        week1 = next(week for week in plan["weeks"] if week.get("weekNumber") == 1)
-        week1["sessions"] = [
-            session for session in week1["sessions"] if session.get("dayNumber") != 3
-        ]
+        week1 = find_stage(plan, 1)
+        week1["lessons" if "lessons" in week1 else "sessions"] = []
     edit_json(plan_path(root, "plan_force"), mutate)
 
 
 def case_i13_session_under_75(root: Path) -> None:
-    # 失败机理（v44 I13 ⑦）：杆法Ⅰ W1D1 原 85+5=90，把 focused 改成 65 → 日合计 70。
+    # 失败机理（v54 I13 ⑦）：杆法Ⅰ首阶段首课原 85+5=90，把 focused 改成 65 → 课程合计 70。
     def mutate(plan: dict) -> None:
-        session = plan["weeks"][0]["sessions"][0]
+        session = stage_lessons(plan_stages(plan)[0])[0]
         focused = next(phase for phase in session["phases"] if phase["type"] == "focused")
         focused["durationMinutes"] = 65
     edit_json(plan_path(root, "plan_cueball"), mutate)
@@ -457,7 +568,8 @@ def case_i13_session_under_75(root: Path) -> None:
 def case_i13_ghost_theme(root: Path) -> None:
     # 失败机理（v44 I13 ⑧）：准度Ⅰ某周主题写入已下架课名「跳球」。
     def mutate(plan: dict) -> None:
-        plan["weeks"][0]["theme"] = "近台与跳球"
+        stage = plan_stages(plan)[0]
+        stage["title" if "title" in stage else "theme"] = "近台与跳球"
     edit_json(plan_path(root, "plan_accuracy"), mutate)
 
 
@@ -478,7 +590,7 @@ def _ritual_phase(drill_id: str, rounds: int, review_from: str | None) -> dict:
 
 
 def _insert_ritual(plan: dict, drill_id: str, rounds: int, review_from: str | None) -> None:
-    session = plan["weeks"][0]["sessions"][0]
+    session = stage_lessons(plan_stages(plan)[0])[0]
     session["phases"].insert(0, _ritual_phase(drill_id, rounds, review_from))
 
 
@@ -533,6 +645,20 @@ CASES = {
                                             "typeMismatch 期望数组"),
     "i10_plan_wrong_type": ("I10", "plan_beginner minutesPerSession 由 Int 改成字符串",
                             case_i10_plan_wrong_type, 1, "typeMismatch 期望 int"),
+    "i10_plan_v54_shape_ok": ("I10", "plan_beginner 转成合法 stage/lesson 新结构",
+                              case_i10_plan_v54_shape_ok, 0, "总计 FAIL: 0"),
+    "i10_new_legacy_plan_rejected": ("I10", "新增 legacy weeks 计划须被兼容清单挡住",
+                                      case_i10_new_legacy_plan_rejected, 1,
+                                      "legacy weeks 仅兼容"),
+    "i10_plan_v54_missing_stage_id": ("I10", "新结构首阶段缺 stable id",
+                                      case_i10_plan_v54_missing_stage_id, 1,
+                                      "keyNotFound 'id'"),
+    "i10_plan_v54_duplicate_lesson_order": ("I10", "新结构阶段内课程 order 重复",
+                                            case_i10_plan_v54_duplicate_lesson_order, 1,
+                                            "PlanLesson order"),
+    "i10_plan_v54_empty_stage": ("I10", "新结构首阶段课程为空",
+                                 case_i10_plan_v54_empty_stage, 1,
+                                 "lessons 不能为空"),
     "i6a_token_drift": ("I6a", "drill_c013 剂量 token 改成序列里没有的 manual99",
                         case_i6a_token_drift, 1, "✗ drill_c013"),
     "i6a_no_sequence_has_dose": ("I6a", "无序列的 drill_c065 硬塞 perFormation",
@@ -579,8 +705,8 @@ CASES = {
                          case_i12_out_of_range, 1, "值域非法"),
     "i12_rep_mismatch": ("I12", "drill_c001 顶层 load 改成与所有球形都不同的六元组",
                          case_i12_rep_mismatch, 1, "drill 级 load ≠ 代表球形 load"),
-    "i13_week_order_drop": ("I13", "plan_accuracy 把 c032 首次引入提前到 W2（建议周 3）",
-                            case_i13_week_order_drop, 1, "建议周"),
+    "i13_week_order_drop": ("I13", "plan_accuracy 把 c032 首次引入提前到阶段 2（最早阶段 3）",
+                            case_i13_week_order_drop, 1, "最早阶段"),
     "i13_warmup_over_focused": ("I13", "plan_accuracy W1D2 热身换成 c032（scalar 3 > 主课 1）",
                                 case_i13_warmup_over_focused, 1, "热身 scalar"),
     "i13_decay_not_mono": ("I13", "plan_accuracy 的 c011 第三次出现去掉降颗并 rounds=6（90>60）",
@@ -589,10 +715,10 @@ CASES = {
                                 case_i13_review_from_unknown, 1, "不是货架计划 id"),
     "i13_intro_order_vs_w0": ("I13", "plan_accuracy 对调 W1D1/W2D1 focused ⇒ 引入序 ≠ W0 表",
                               case_i13_intro_order_vs_w0, 1, "引入序"),
-    "i13_week_missing_day": ("I13", "plan_force 某周删 D3 ⇒ I13 ⑥ 周不满员",
-                             case_i13_week_missing_day, 1, "I13 ⑥"),
-    "i13_session_under_75": ("I13", "plan_cueball 某日合计改成 70 ⇒ I13 ⑦",
-                             case_i13_session_under_75, 1, "日合计"),
+    "i13_stage_empty": ("I13", "plan_force 某阶段清空课程 ⇒ I13 ⑥ 阶段为空",
+                        case_i13_stage_empty, 1, "I13 ⑥"),
+    "i13_session_under_75": ("I13", "plan_cueball 某课程合计改成 70 ⇒ I13 ⑦",
+                             case_i13_session_under_75, 1, "课程合计"),
     "i13_ghost_theme": ("I13", "plan_accuracy 某 theme 含「跳球」⇒ I13 ⑧",
                         case_i13_ghost_theme, 1, "跳球"),
     "i11_ritual_ok": ("I11", "合法 ritual c023 4/6 组 + reviewFrom 应放行",

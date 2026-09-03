@@ -15,6 +15,7 @@ enum BTBallPaletteMetrics {
     static let ghostDiameter: CGFloat = 42
     static let columns = 8
     static let rowSpacing: CGFloat = 3
+    static let minimumHitSize: CGFloat = 44
     static let dragMinimumDistance: CGFloat = 10
     static let faceStroke = Color.white.opacity(0.18)
     static let faceStrokeWidth: CGFloat = 0.5
@@ -23,7 +24,9 @@ enum BTBallPaletteMetrics {
     static let ghostIdleLineWidth: CGFloat = 1
     static let ghostIdleStroke = Color.white.opacity(0.4)
 
-    static func slotHeight(for diameter: CGFloat) -> CGFloat { diameter + 2 }
+    static func slotHeight(for diameter: CGFloat) -> CGFloat {
+        max(minimumHitSize, diameter + 2)
+    }
 }
 
 // MARK: - Drag ghost (shared overlay)
@@ -78,7 +81,7 @@ struct BTBallPaletteToken: View {
             .overlay(Circle().stroke(BTBallPaletteMetrics.faceStroke,
                                      lineWidth: BTBallPaletteMetrics.faceStrokeWidth))
             .frame(width: slot, height: slot)
-            .contentShape(Circle())
+            .contentShape(Rectangle())
             .opacity(isDragging ? BTBallPaletteMetrics.dimmedOpacity
                      : (isOnTable ? BTBallPaletteMetrics.dimmedOpacity : 1))
             .accessibilityElement()
@@ -150,7 +153,7 @@ struct BTBallPaletteBar: View {
             paletteRow(row1)
             paletteRow(row2)
         }
-        .frame(maxWidth: .infinity)
+        .frame(width: libraryWidth)
     }
 
     private func paletteRow(_ rowKeys: [String]) -> some View {
@@ -218,7 +221,7 @@ struct BTDecorativeBallPalette: View {
             decorativeRow(row1)
             decorativeRow(row2)
         }
-        .frame(maxWidth: .infinity)
+        .frame(width: libraryWidth)
         .allowsHitTesting(false)
     }
 
@@ -264,7 +267,7 @@ struct BTReferenceBallPalette: View {
             referenceRow(row1)
             referenceRow(row2)
         }
-        .frame(maxWidth: .infinity)
+        .frame(width: libraryWidth)
     }
 
     private func referenceRow(_ rowKeys: [String]) -> some View {
@@ -278,8 +281,11 @@ struct BTReferenceBallPalette: View {
                             .overlay(Circle().stroke(BTBallPaletteMetrics.faceStroke,
                                                      lineWidth: BTBallPaletteMetrics.faceStrokeWidth))
                             .frame(width: slotHeight, height: slotHeight)
-                            .contentShape(Circle())
+                            .contentShape(Rectangle())
                             .opacity(onTable ? onTableOpacity : availableOpacity)
+                            .accessibilityElement()
+                            .accessibilityLabel(key)
+                            .accessibilityIdentifier("paletteBall_\(key)")
                             .onTapGesture { onTap(key, onTable) }
                     } else {
                         Color.clear

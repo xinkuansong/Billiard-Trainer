@@ -70,6 +70,26 @@ final class LocalTrainingSessionRepositoryTests: XCTestCase {
         XCTAssertTrue(all.isEmpty)
     }
 
+    func test_delete_removesPersistedEntriesAndSets() async throws {
+        let session = try await repo.create(ballType: "chinese8")
+        let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "半台直线球")
+        entry.session = session
+        session.drillEntries.append(entry)
+        context.insert(entry)
+        let set = DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 5)
+        set.entry = entry
+        entry.sets.append(set)
+        context.insert(set)
+        try context.save()
+
+        try await repo.delete(session)
+
+        let persistedContext = ModelContext(container)
+        XCTAssertEqual(try persistedContext.fetchCount(FetchDescriptor<TrainingSession>()), 0)
+        XCTAssertEqual(try persistedContext.fetchCount(FetchDescriptor<DrillEntry>()), 0)
+        XCTAssertEqual(try persistedContext.fetchCount(FetchDescriptor<DrillSet>()), 0)
+    }
+
     func test_update_changes_persist() async throws {
         let session = try await repo.create(ballType: "chinese8")
         XCTAssertEqual(session.note, "")

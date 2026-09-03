@@ -3,7 +3,7 @@ import SwiftUI
 @testable import QiuJi
 
 /// v30 X-1（FL-029）渲染证据：`TutorialSection.content` 放宽为可选后，
-/// 纯 `items` 节（全库 45 处「常见错误与纠正」）在精讲页必须正常显示——
+/// 纯 `items` 节在精讲页必须正常显示——
 /// 不留空段落、不留空白块、不崩。
 ///
 /// 用真实 Bundle drill 渲染真实 `DrillTutorialView`，明暗各出一张 PNG 到
@@ -25,21 +25,13 @@ final class V30X1TutorialEmptyContentRenderTests: XCTestCase {
         }
     }
 
-    /// 前置事实断言：这些 drill 确实含「标题 + items、无正文」的节。
-    /// 若内容侧哪天补了正文，本断言会失败，提醒截图证据已失去针对性。
-    func test_targetDrills_containContentlessItemsSections() throws {
-        for id in Self.drillIds {
-            let drill = try XCTUnwrap(drills[id])
-            let sections = Self.allSections(of: drill)
-            let contentless = sections.filter { $0.content == nil }
-            XCTAssertFalse(contentless.isEmpty, "\(id) 应含至少一个 content 缺省的节")
-            for section in contentless {
-                XCTAssertEqual(section.title, "常见错误与纠正",
-                               "\(id) content 缺省的节应只有「常见错误与纠正」")
-                XCTAssertFalse(section.items?.isEmpty ?? true,
-                               "\(id) 「\(section.title)」无正文时必须有 items，否则是空节")
-            }
-        }
+    /// 前置契约断言：模型仍能表达「标题 + items、无正文」。生产文案可以在
+    /// `nil` 与 `""` 之间正常演进，渲染回归不应绑定某几条内容的当前写法。
+    func test_contentlessItemsSection_fixturePreservesOptionalContentContract() {
+        let contentless = Self.contentlessFixture
+        XCTAssertNil(contentless.content)
+        XCTAssertEqual(contentless.title, "常见错误与纠正")
+        XCTAssertFalse(contentless.items?.isEmpty ?? true)
     }
 
     @MainActor
@@ -51,8 +43,8 @@ final class V30X1TutorialEmptyContentRenderTests: XCTestCase {
 
         for id in Self.drillIds {
             let drill = try XCTUnwrap(drills[id])
-            // 「聚焦版」：把该 drill 真实的纯 items 节排到首位，后接一个有正文的普通节做对照，
-            // 使被检查的那一节落在可视区内。节对象逐字段原样取自 Bundle，未新增任何文案。
+            // 「聚焦版」：把 nil-content fixture 排到首位，后接该 drill 的真实正文做对照，
+            // 使可选正文分支始终落在可视区内，不依赖生产内容是否写成空字符串。
             let focused = try Self.focusedOnContentlessSection(drill)
 
             for scheme in [ColorScheme.light, .dark] {
@@ -66,21 +58,19 @@ final class V30X1TutorialEmptyContentRenderTests: XCTestCase {
                     let data = try XCTUnwrap(image.pngData())
                     let name = "\(id)-\(variant)-\(suffix).png"
                     try data.write(to: outDir.appendingPathComponent(name))
-                    // 空白/占位图会被压成很小的 PNG；真实排版远大于此。
-                    XCTAssertGreaterThan(data.count, 150_000, "\(name) 疑似空白图（\(data.count) 字节）")
+                    let pixels = try XCTUnwrap(image.cgImage, "\(name) 无 CGImage")
+                    XCTAssertEqual(pixels.width, Int(image.size.width * image.scale))
+                    XCTAssertEqual(pixels.height, Int(image.size.height * image.scale))
+                    XCTAssertGreaterThan(Self.distinctSampleColors(in: image), 20,
+                                         "\(name) 疑似空白或纯色图")
                 }
             }
         }
     }
 
-    /// 取该 drill 真实的纯 items 节 + 一个有正文的普通节，组成单球形精讲。
+    /// 取 nil-content fixture + 一个真实有正文的普通节，组成单球形精讲。
     private static func focusedOnContentlessSection(_ drill: DrillContent) throws -> DrillContent {
         let sections = allSections(of: drill)
-        // 只要 `content == nil`（键整个省略）的节——那正是本批放宽的形态，
-        // 全库 45 处全是「常见错误与纠正」。`content: ""` 的节旧版本就已存在，不作证据。
-        let contentless = try XCTUnwrap(
-            sections.first { $0.content == nil && !($0.items?.isEmpty ?? true) },
-            "\(drill.id) 无 content 缺省的纯 items 节")
         let withProse = sections.first { !($0.content?.isEmpty ?? true) }
         return DrillContent(
             id: drill.id, nameZh: drill.nameZh, nameEn: drill.nameEn,
@@ -90,8 +80,41 @@ final class V30X1TutorialEmptyContentRenderTests: XCTestCase {
             coachingPoints: drill.coachingPoints, standardCriteria: drill.standardCriteria,
             sets: drill.sets, animation: drill.animation,
             tutorial: DrillTutorial(tutorialKind: drill.tutorial?.tutorialKind,
-                                    sections: [contentless] + (withProse.map { [$0] } ?? []))
+                                    sections: [contentlessFixture] + (withProse.map { [$0] } ?? []))
         )
+    }
+
+    private static var contentlessFixture: TutorialSection {
+        TutorialSection(
+            title: "常见错误与纠正",
+            items: [TutorialItem(label: "出杆偏线", text: "让杆头沿瞄准线送出。")]
+        )
+    }
+
+    /// 统一缩到 64×64 RGBA 后取颜色数，避免用 PNG 压缩字节数判断空白；后者会随
+    /// Runtime 的字体/图层编码变化。纯底图只有少量颜色，真实文本卡片会远高于阈值。
+    @MainActor
+    private static func distinctSampleColors(in image: UIImage) -> Int {
+        let size = CGSize(width: 64, height: 64)
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let sampled = UIGraphicsImageRenderer(size: size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: size))
+        }
+        guard let cgImage = sampled.cgImage,
+              let data = cgImage.dataProvider?.data,
+              let bytes = CFDataGetBytePtr(data) else { return 0 }
+        let byteCount = CFDataGetLength(data)
+        guard byteCount >= 4 else { return 0 }
+        var colors: Set<UInt32> = []
+        for index in stride(from: 0, to: byteCount - 3, by: 4) {
+            let value = UInt32(bytes[index]) << 24
+                | UInt32(bytes[index + 1]) << 16
+                | UInt32(bytes[index + 2]) << 8
+                | UInt32(bytes[index + 3])
+            colors.insert(value)
+        }
+        return colors.count
     }
 
     /// 把 SwiftUI 视图放进真实 UIWindow 里排完版再截图。

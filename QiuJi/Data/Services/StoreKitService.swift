@@ -1,5 +1,11 @@
 import StoreKit
 
+struct StoreEntitlementSnapshot: Equatable, Sendable {
+    let productID: String
+    let expirationDate: Date?
+    let revocationDate: Date?
+}
+
 enum StoreError: LocalizedError {
     case failedVerification
     case purchasePending
@@ -58,15 +64,23 @@ actor StoreKitService {
     // MARK: - Entitlements
 
     func currentEntitlementProductIDs() async -> Set<String> {
-        var ids: Set<String> = []
+        Set(await currentEntitlements().map(\.productID))
+    }
+
+    func currentEntitlements() async -> [StoreEntitlementSnapshot] {
+        var snapshots: [StoreEntitlementSnapshot] = []
         for await result in Transaction.currentEntitlements {
             if case .verified(let tx) = result {
                 if tx.revocationDate == nil {
-                    ids.insert(tx.productID)
+                    snapshots.append(StoreEntitlementSnapshot(
+                        productID: tx.productID,
+                        expirationDate: tx.expirationDate,
+                        revocationDate: tx.revocationDate
+                    ))
                 }
             }
         }
-        return ids
+        return snapshots
     }
 
     // MARK: - Verification

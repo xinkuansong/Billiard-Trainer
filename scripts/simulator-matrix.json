@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "project": "QiuJi.xcodeproj",
+  "scheme": "QiuJi",
+  "deployment_floor": "17.0",
+  "artifact_root": "build/v51/matrix",
+  "manifest": "docs/design/v47/baseline-screenshots.sha256",
+  "expected_tour_screenshots": 66,
+  "content_sizes": {
+    "standard": "large",
+    "ax5": "accessibility-extra-extra-extra-large",
+    "high-contrast": "large"
+  },
+  "duplicate_allowlist": [
+    ["00-launch.png", "01-training-home.png"],
+    ["50-profile-top.png", "51-profile-scrolled.png"],
+    ["onboarding-completed.png", "onboarding-relaunch-persisted.png"]
+  ],
+  "devices": [
+    {"id": "A1", "tier": "A", "runtime": "17.0", "name": "iPhone SE (3rd generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-floor"},
+    {"id": "A2", "tier": "A", "runtime": "17.0", "name": "iPhone 15 Pro", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro", "role": "standard-phone-floor"},
+    {"id": "A3", "tier": "A", "runtime": "26.2", "name": "iPhone 17 Pro", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro", "role": "standard-phone-latest"},
+    {"id": "A4", "tier": "A", "runtime": "26.2", "name": "iPhone 17 Pro Max", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-17-Pro-Max", "role": "large-phone-latest"},
+    {"id": "A5", "tier": "A", "runtime": "17.0", "name": "iPad mini (6th generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-6th-generation", "role": "compact-pad-floor"},
+    {"id": "A6", "tier": "A", "runtime": "17.0", "name": "iPad (10th generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-10th-generation", "role": "standard-pad-floor"},
+    {"id": "A7", "tier": "A", "runtime": "26.2", "name": "iPad Pro 11-inch (M5)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-11-inch-M5-12GB", "role": "pro-pad-latest"},
+    {"id": "A8", "tier": "A", "runtime": "26.2", "name": "iPad Pro 13-inch (M5)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-13-inch-M5-12GB", "role": "large-pad-latest"},
+    {"id": "B1", "tier": "B", "runtime": "17.0", "name": "iPhone 15 Pro Max", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-15-Pro-Max", "role": "large-phone-floor"},
+    {"id": "B2", "tier": "B", "runtime": "26.2", "name": "QiuJi-v49-iPhone-SE-iOS26", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-latest"},
+    {"id": "B3", "tier": "B", "runtime": "26.2", "name": "iPhone Air", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-Air", "role": "thin-phone-latest"},
+    {"id": "B4", "tier": "B", "runtime": "26.2", "name": "iPhone 16e", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-16e", "role": "notch-phone-latest"},
+    {"id": "B5", "tier": "B", "runtime": "17.0", "name": "iPad Pro (12.9-inch) (6th generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-12-9-inch-6th-generation-8GB", "role": "large-pad-floor"},
+    {"id": "B6", "tier": "B", "runtime": "26.2", "name": "iPad mini (A17 Pro)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-A17-Pro", "role": "compact-pad-latest"}
+  ],
+  "suites": {
+    "tour": ["QiuJiUITests/ScreenshotTourUITests/testDesignerPageDump"],
+    "contract": ["QiuJiUITests/DeviceMatrixUITests"],
+    "v51-responsive": ["QiuJiUITests/V51ResponsiveLayoutUITests"],
+    "v51-responsive-unit": ["QiuJiTests/V51ResponsiveLayoutTests"],
+    "v51-active-training": ["QiuJiUITests/V51ResponsiveLayoutUITests/testActiveTrainingTimerIsSingleLineAndClearsActions"],
+    "v51-minimized-training": [
+      "QiuJiUITests/V51ResponsiveLayoutUITests/testMinimizedTrainingClearsAllFiveTabs",
+      "QiuJiUITests/V51ResponsiveLayoutUITests/testMinimizedTrainingShortTimeClearsAllFiveTabs"
+    ],
+    "v51-rest-training": ["QiuJiUITests/V51ResponsiveLayoutUITests/testRestOverlayAndSessionLocalMinimizeRemainReachable"],
+    "v51-shot-stage": ["QiuJiUITests/V51ResponsiveLayoutUITests/testCompactShotStageRailsAndPaletteDoNotOverlap"],
+    "v51-components": ["QiuJiUITests/V51ResponsiveLayoutUITests/testResponsiveComponentProbeKeepsPaletteStatusAndChipsReachable"],
+    "root-smoke": [
+      "QiuJiUITests/DeviceMatrixUITests/testRootSafeAreaScrollAndPrimaryCTA",
+      "QiuJiUITests/DeviceMatrixUITests/testRepresentativeTableStageAndCTA"
+    ],
+    "keyboard": ["QiuJiUITests/DeviceMatrixUITests/testPhoneLoginKeyboardAndAdaptiveSheet"],
+    "ipad-angle-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadAngleRouteNavigationRegression"],
+    "ipad-theory-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadTheoryT07NavigationRegression"],
+    "large-ipad-route-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50LargeIPadMissingRouteRegression"],
+    "ipad-login-regression": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadLoginNavigationRegression"],
+    "ipad-window-boundary": ["QiuJiUITests/ScreenshotTourUITests/testV50IPadPortraitOnlyBoundary"],
+    "photo-permission-deny": ["QiuJiUITests/V50SystemStateUITests/testPhotoPermissionRealPromptDenied"],
+    "photo-permission-allow": ["QiuJiUITests/V50SystemStateUITests/testPhotoPermissionRealPromptAllowed"],
+    "state-onboarding": ["QiuJiUITests/V50StateMatrixUITests/testFirstLaunchCompletionAndRelaunchPersistence"],
+    "state-identity": ["QiuJiUITests/V50StateMatrixUITests/testGuestFreeAndForcedProBoundaries"],
+    "state-ax-roots": ["QiuJiUITests/V50StateMatrixUITests/testFiveRootsAndLongContentAtCurrentContentSize"],
+    "state-keyboards": [
+      "QiuJiUITests/DeviceMatrixUITests/testPhoneLoginKeyboardAndAdaptiveSheet",
+      "QiuJiUITests/V50StateMatrixUITests/testProfileAndPlanKeyboardReachability"
+    ],
+    "state-offline-recovery": [
+      "QiuJiTests/V36W2DeleteSyncTests/test_networkError_keepsItemForRetry",
+      "QiuJiTests/AngleResultSaveFailureTests/test_retryFailedSaves_clearsErrorWhenRepositoryRecovers"
+    ],
+    "localization-unit": ["QiuJiTests/PhotoPermissionInfoPlistTests"],
+    "w7-focused-regression": [
+      "QiuJiTests/DrillBoardBuilderTests",
+      "QiuJiTests/DrillContentValidationTests",
+      "QiuJiTests/DrillTryoutBoardStoreTests",
+      "QiuJiTests/V30X1TutorialEmptyContentRenderTests",
+      "QiuJiTests/SwiftDataMigrationTests",
+      "QiuJiTests/SwiftDataModelTests",
+      "QiuJiTests/LocalTrainingSessionRepositoryTests"
+    ],
+    "w7-swiftdata-model": ["QiuJiTests/SwiftDataModelTests"],
+    "w7-local-repository": ["QiuJiTests/LocalTrainingSessionRepositoryTests"],
+    "w7-bank-adjustment": ["QiuJiTests/BankKickAdjustmentDraftLayerTests"],
+    "w7-active-training": ["QiuJiTests/ActiveTrainingViewModelTests"],
+    "w7-history-data": [
+      "QiuJiTests/V29W5CognitiveToolSessionTests",
+      "QiuJiTests/V29W6HistoryStatisticsKindTests"
+    ],
+    "w7-restore-sync": ["QiuJiTests/V36W3RestoreSyncTests"],
+    "safe-unit-1": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [0, 38]},
+    "safe-unit-2": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [38, 76]},
+    "safe-unit-3": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [76, 114]},
+    "safe-unit-4": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [114, 152]},
+    "safe-unit": {"selector_file": "scripts/simulator-regression-tests.txt"}
+  }
+}

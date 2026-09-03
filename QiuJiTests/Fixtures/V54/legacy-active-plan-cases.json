@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "stableLessonIdFormat": "<planId>.stage<weekNumber:02>.lesson<dayNumber:02>",
+  "cases": [
+    {
+      "id": "official_only",
+      "ownerKey": "guest:w0-official",
+      "legacyRows": [
+        {"rowId": "A1", "planId": "plan_beginner", "isCustom": false, "startDate": "2026-08-01T08:00:00Z", "currentWeek": 2, "currentDay": 1}
+      ],
+      "customPlans": [],
+      "existingMigrationKeys": [],
+      "expectedActivePlanId": "plan_beginner",
+      "expectedCurrentLessonId": "plan_beginner.stage02.lesson01",
+      "expectedPausedPlanIds": [],
+      "expectedTodayItems": [],
+      "expectedTrainingSessionDelta": 0
+    },
+    {
+      "id": "custom_only",
+      "ownerKey": "guest:w0-custom",
+      "legacyRows": [
+        {"rowId": "B1", "planId": "00000000-0000-0000-0000-000000000101", "isCustom": true, "startDate": "2026-08-02T08:00:00Z", "currentWeek": 1, "currentDay": 1}
+      ],
+      "customPlans": [
+        {"id": "00000000-0000-0000-0000-000000000101", "name": "中袋专项", "drillIds": ["drill_c012", "drill_c013"]}
+      ],
+      "existingMigrationKeys": [],
+      "expectedActivePlanId": null,
+      "expectedCurrentLessonId": null,
+      "expectedPausedPlanIds": [],
+      "expectedTodayItems": [
+        {"sourceKind": "template", "sourceId": "00000000-0000-0000-0000-000000000101", "migrationKey": "v54:B1"}
+      ],
+      "expectedTrainingSessionDelta": 0
+    },
+    {
+      "id": "official_and_custom",
+      "ownerKey": "guest:w0-mixed",
+      "legacyRows": [
+        {"rowId": "C1", "planId": "plan_cueball", "isCustom": false, "startDate": "2026-08-03T08:00:00Z", "currentWeek": 1, "currentDay": 3},
+        {"rowId": "C2", "planId": "00000000-0000-0000-0000-000000000102", "isCustom": true, "startDate": "2026-08-03T09:00:00Z", "currentWeek": 1, "currentDay": 1}
+      ],
+      "customPlans": [
+        {"id": "00000000-0000-0000-0000-000000000102", "name": "低杆复练", "drillIds": ["drill_c017"]}
+      ],
+      "existingMigrationKeys": [],
+      "expectedActivePlanId": "plan_cueball",
+      "expectedCurrentLessonId": "plan_cueball.stage01.lesson03",
+      "expectedPausedPlanIds": [],
+      "expectedTodayItems": [
+        {"sourceKind": "template", "sourceId": "00000000-0000-0000-0000-000000000102", "migrationKey": "v54:C2"}
+      ],
+      "expectedTrainingSessionDelta": 0
+    },
+    {
+      "id": "duplicate_official_latest_wins",
+      "ownerKey": "guest:w0-duplicate",
+      "legacyRows": [
+        {"rowId": "D1", "planId": "plan_beginner", "isCustom": false, "startDate": "2026-08-01T08:00:00Z", "currentWeek": 3, "currentDay": 1},
+        {"rowId": "D2", "planId": "plan_english", "isCustom": false, "startDate": "2026-08-04T08:00:00Z", "currentWeek": 2, "currentDay": 2}
+      ],
+      "customPlans": [],
+      "existingMigrationKeys": [],
+      "expectedActivePlanId": "plan_english",
+      "expectedCurrentLessonId": "plan_english.stage02.lesson02",
+      "expectedPausedPlanIds": ["plan_beginner"],
+      "expectedTodayItems": [],
+      "expectedTrainingSessionDelta": 0
+    },
+    {
+      "id": "partial_migration_reopen_is_idempotent",
+      "ownerKey": "guest:w0-reopen",
+      "legacyRows": [
+        {"rowId": "E1", "planId": "00000000-0000-0000-0000-000000000103", "isCustom": true, "startDate": "2026-08-05T08:00:00Z", "currentWeek": 1, "currentDay": 1}
+      ],
+      "customPlans": [
+        {"id": "00000000-0000-0000-0000-000000000103", "name": "定杆复练", "drillIds": ["drill_c010"]}
+      ],
+      "existingMigrationKeys": ["v54:E1"],
+      "expectedActivePlanId": null,
+      "expectedCurrentLessonId": null,
+      "expectedPausedPlanIds": [],
+      "expectedTodayItems": [],
+      "expectedTrainingSessionDelta": 0
+    }
+  ]
+}

@@ -102,6 +102,19 @@ final class V37W4PlanShelfUITests: XCTestCase {
         savePNG("08-list-after-back")
     }
 
+    func testCoverPilotTargetCards() {
+        app = XCUIApplication.launchClean(extraArgs: ["-forceNonPremium"])
+        app.switchTab(.training)
+        XCTAssertTrue(app.buttons["官方计划"].waitForExistence(timeout: 8)
+                      || app.staticTexts["官方计划"].waitForExistence(timeout: 2))
+
+        for planID in ["plan_accuracy3", "plan_positioning", "plan_fullskill"] {
+            let card = app.buttons["planPoster-\(planID)"]
+            XCTAssertTrue(scrollUntilOnScreen(card), "目标计划卡应可见：\(planID)")
+            savePNG("pilot-\(planID)")
+        }
+    }
+
     private func isOnScreen(_ element: XCUIElement) -> Bool {
         guard element.exists else { return false }
         let frame = element.frame

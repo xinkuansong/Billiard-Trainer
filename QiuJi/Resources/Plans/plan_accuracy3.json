@@ -3,18 +3,21 @@
   "nameZh": "准度Ⅲ·带塞",
   "nameEn": "Accuracy III · English",
   "targetLevel": "L2→L3",
-  "durationWeeks": 2,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 120,
+  "estimatedMinutesPerLesson": 120,
   "isPremium": true,
   "description": "在无塞远台与极薄之后专练带塞进袋：小角度左右塞对打，再中大角度右塞与远台高低杆带塞。热身咬合准度Ⅰ小角度。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "小角度带塞",
-      "sessions": [
+      "id": "plan_accuracy3.stage01",
+      "order": 1,
+      "title": "小角度带塞",
+      "goal": "掌握小角度带塞",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_accuracy3.stage01.lesson01",
+          "order": 1,
+          "title": "小角度带塞入门",
+          "summary": "围绕小角度带塞入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -89,7 +92,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_accuracy3.stage01.lesson02",
+          "order": 2,
+          "title": "小角度带塞巩固",
+          "summary": "围绕小角度带塞巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -170,7 +176,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_accuracy3.stage01.lesson03",
+          "order": 3,
+          "title": "小角度带塞检验",
+          "summary": "围绕小角度带塞检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -228,11 +237,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "中大角度与远台带塞",
-      "sessions": [
+      "id": "plan_accuracy3.stage02",
+      "order": 2,
+      "title": "中大角度与远台带塞",
+      "goal": "掌握中大角度与远台带塞",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_accuracy3.stage02.lesson01",
+          "order": 1,
+          "title": "中大角度带塞",
+          "summary": "围绕中大角度带塞完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -305,7 +319,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_accuracy3.stage02.lesson02",
+          "order": 2,
+          "title": "远台带塞准度入门",
+          "summary": "围绕远台带塞准度入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -371,7 +388,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_accuracy3.stage02.lesson03",
+          "order": 3,
+          "title": "远台带塞准度检验",
+          "summary": "围绕远台带塞准度检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

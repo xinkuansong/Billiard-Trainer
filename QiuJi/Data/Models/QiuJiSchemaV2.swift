@@ -14,13 +14,13 @@ enum QiuJiSchemaV2: VersionedSchema {
 
     static var models: [any PersistentModel.Type] {
         [
-            TrainingSession.self,
-            DrillEntry.self,
-            DrillSet.self,
-            AngleTestResult.self,
-            UserActivePlan.self,
-            DrillFavorite.self,
-            SyncPendingItem.self,
+            QiuJiSchemaV3.TrainingSession.self,
+            QiuJiSchemaV3.DrillEntry.self,
+            QiuJiSchemaV3.DrillSet.self,
+            QiuJiSchemaV3.AngleTestResult.self,
+            QiuJiSchemaV3.UserActivePlan.self,
+            QiuJiSchemaV3.DrillFavorite.self,
+            QiuJiSchemaV3.SyncPendingItem.self,
             QiuJiSchemaV2.CustomPlan.self,
             QiuJiSchemaV2.CustomPlanDrill.self
         ]

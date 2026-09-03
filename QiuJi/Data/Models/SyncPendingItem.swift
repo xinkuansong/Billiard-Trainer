@@ -16,13 +16,17 @@ enum SyncEntityType {
 
 @Model
 final class SyncPendingItem {
+    var ownerKey: String = OwnerKey.unassigned
     var id: UUID
     var entityType: String
     var entityId: UUID
     var operation: String
     var createdAt: Date
 
-    init(entityType: String, entityId: UUID, operation: String) {
+    init(entityType: String, entityId: UUID, operation: String,
+         ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        precondition(!ownerKey.isEmpty && ownerKey != OwnerKey.unassigned)
+        self.ownerKey = ownerKey
         self.id = UUID()
         self.entityType = entityType
         self.entityId = entityId

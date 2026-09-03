@@ -1,5 +1,7 @@
 import XCTest
 import SwiftData
+import SwiftUI
+import UIKit
 @testable import QiuJi
 
 @MainActor
@@ -369,6 +371,88 @@ final class StatisticsViewModelTests: XCTestCase {
         XCTAssertEqual(monthCount, 2)
     }
 
+    // MARK: - Profile Monthly Overview
+
+    func test_monthlyOverview_usesCalendarMonthAndTrainingKinds() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+
+        func date(_ day: Int, month: Int = 9) -> Date {
+            cal.date(from: DateComponents(year: 2026, month: month, day: day, hour: 12))!
+        }
+        func session(_ kind: String, day: Int, month: Int = 9, minutes: Int) -> TrainingSession {
+            let value = TrainingSession(kind: kind)
+            value.date = date(day, month: month)
+            value.totalDurationMinutes = minutes
+            return value
+        }
+
+        let sessions = [
+            session(TrainingSessionKind.drill, day: 31, month: 8, minutes: 300),
+            session(TrainingSessionKind.drill, day: 1, minutes: 30),
+            session(TrainingSessionKind.cognitive, day: 2, minutes: 15),
+            session(TrainingSessionKind.tool, day: 3, minutes: 99),
+            session(TrainingSessionKind.drill, day: 4, minutes: 45),
+            session(TrainingSessionKind.drill, day: 4, minutes: 5),
+            session(TrainingSessionKind.drill, day: 5, minutes: 10),
+            session(TrainingSessionKind.cognitive, day: 6, minutes: 20),
+            session(TrainingSessionKind.drill, day: 1, month: 10, minutes: 400),
+        ]
+
+        let overview = TrainingGoalMetrics.monthlyOverview(
+            sessions,
+            at: date(20),
+            calendar: cal
+        )
+
+        XCTAssertEqual(overview.trainingDays, 5, "同一天多条记录只能算一个训练日")
+        XCTAssertEqual(overview.durationMinutes, 125, "只累计本自然月 drill + cognitive")
+        XCTAssertEqual(overview.formattedDuration, "2h5m")
+        XCTAssertEqual(overview.longestStreak, 3, "9 月 4–6 日为最长连续打卡")
+    }
+
+    func test_monthlyOverview_longestStreakDoesNotCrossMonthBoundary() throws {
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+
+        func date(month: Int, day: Int) -> Date {
+            cal.date(from: DateComponents(year: 2026, month: month, day: day, hour: 12))!
+        }
+        let sessions = [
+            makeSession(date: date(month: 8, day: 30)),
+            makeSession(date: date(month: 8, day: 31)),
+            makeSession(date: date(month: 9, day: 1)),
+            makeSession(date: date(month: 9, day: 2)),
+        ]
+
+        let overview = TrainingGoalMetrics.monthlyOverview(
+            sessions,
+            at: date(month: 9, day: 20),
+            calendar: cal
+        )
+
+        XCTAssertEqual(overview.trainingDays, 2)
+        XCTAssertEqual(overview.longestStreak, 2, "自然月边界外的连续日期不能并入本月最长连续")
+    }
+
+    func test_renderProfileMonthlyOverviewCard_afterEvidence() throws {
+        let card = ProfileMonthlyOverviewCard(
+            trainingDays: "5",
+            duration: "2h5m",
+            longestStreak: "3"
+        )
+        .frame(width: 358)
+        .padding(16)
+        .background(Color.btBG)
+
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 3
+        try writeEvidence(
+            try XCTUnwrap(renderer.uiImage),
+            name: "04-profile-monthly-overview-after"
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeSession(date: Date, durationMinutes: Int = 30) -> TrainingSession {
@@ -376,5 +460,16 @@ final class StatisticsViewModelTests: XCTestCase {
         session.date = date
         session.totalDurationMinutes = durationMinutes
         return session
+    }
+
+    private func writeEvidence(_ image: UIImage, name: String) throws {
+        let directory = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("build/w6-screenshots", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appendingPathComponent("\(name).png")
+        try XCTUnwrap(image.pngData()).write(to: url)
+        print("[ProfileMonthlyOverview-evidence] \(url.path)")
     }
 }

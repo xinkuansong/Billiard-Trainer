@@ -3,18 +3,21 @@
   "nameZh": "准度Ⅰ·近中台",
   "nameEn": "Accuracy I · Near/Mid Table",
   "targetLevel": "L0→L2",
-  "durationWeeks": 3,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 90,
+  "estimatedMinutesPerLesson": 90,
   "isPremium": false,
   "description": "近台直线，再到小角度，最后中台切角。半台与中袋直线出杆见基本功。远台与带塞见准度Ⅱ/Ⅲ。课时档 90′。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "近台直线",
-      "sessions": [
+      "id": "plan_accuracy.stage01",
+      "order": 1,
+      "title": "近台直线",
+      "goal": "掌握近台直线",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_accuracy.stage01.lesson01",
+          "order": 1,
+          "title": "近台小角度进球入门",
+          "summary": "围绕近台小角度进球入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -63,7 +66,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_accuracy.stage01.lesson02",
+          "order": 2,
+          "title": "近台小角度进球巩固",
+          "summary": "围绕近台小角度进球巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -133,7 +139,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_accuracy.stage01.lesson03",
+          "order": 3,
+          "title": "近台小角度进球检验",
+          "summary": "围绕近台小角度进球检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -205,11 +214,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "底袋小角度",
-      "sessions": [
+      "id": "plan_accuracy.stage02",
+      "order": 2,
+      "title": "底袋小角度",
+      "goal": "掌握底袋小角度",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_accuracy.stage02.lesson01",
+          "order": 1,
+          "title": "底袋小角度入门",
+          "summary": "围绕底袋小角度入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -281,7 +295,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_accuracy.stage02.lesson02",
+          "order": 2,
+          "title": "底袋小角度巩固",
+          "summary": "围绕底袋小角度巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -356,7 +373,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_accuracy.stage02.lesson03",
+          "order": 3,
+          "title": "底袋小角度检验",
+          "summary": "围绕底袋小角度检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -433,11 +453,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "中台切角",
-      "sessions": [
+      "id": "plan_accuracy.stage03",
+      "order": 3,
+      "title": "中台切角",
+      "goal": "掌握中台切角",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_accuracy.stage03.lesson01",
+          "order": 1,
+          "title": "中台角度球入门",
+          "summary": "围绕中台角度球入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -510,7 +535,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_accuracy.stage03.lesson02",
+          "order": 2,
+          "title": "中台角度球巩固",
+          "summary": "围绕中台角度球巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -585,7 +613,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_accuracy.stage03.lesson03",
+          "order": 3,
+          "title": "中台角度球检验",
+          "summary": "围绕中台角度球检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

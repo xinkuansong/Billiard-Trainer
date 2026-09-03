@@ -52,6 +52,9 @@ final class V36W3RestoreSyncTests: XCTestCase {
         context = container.mainContext
         suiteName = "V36W3RestoreSyncTests-\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suiteName)
+        // v53 起本地实体按 owner 隔离。本组用例验证的是账号 u-w3 的恢复语义，
+        // 因此夹具必须在创建本地实体/删除队列之前就进入该账号域。
+        CurrentOwnerContext.shared.useAccount(userID: userId)
         SyncQueueManager.shared.configure(context: context)
         SyncRestoreService.shared.configure(context: context)
         SyncRestoreService.shared.defaults = defaults
@@ -62,6 +65,7 @@ final class V36W3RestoreSyncTests: XCTestCase {
         SyncRestoreService.shared.backend = LiveSyncRestoreBackend()
         SyncRestoreService.shared.defaults = .standard
         SyncQueueManager.shared.backend = LiveSyncBackend()
+        CurrentOwnerContext.shared.useGuest()
         UserDefaults.standard.removeSuite(named: suiteName)
         defaults = nil
         suiteName = nil
@@ -74,12 +78,31 @@ final class V36W3RestoreSyncTests: XCTestCase {
 
     /// 一条字段全非默认值的本地训练：9 个 v36 W1 新字段都要有可辨识的取值，
     /// 否则「往返无损」可能只是默认值恰好相等。
-    private func makeLocalSession(note: String = "本地训练心得") -> TrainingSession {
-        let session = TrainingSession(ballType: "snooker", kind: "drill")
+    private func makeLocalSession(
+        note: String = "本地训练心得",
+        totalDurationMinutes: Int = 47,
+        id: UUID? = nil
+    ) -> TrainingSession {
+        let session = TrainingSession(
+            ballType: "snooker",
+            kind: "drill",
+            ownerKey: OwnerKey.account(userId)
+        )
+        if let id { session.id = id }
         session.date = Date(timeIntervalSince1970: 1_770_000_000)
-        session.totalDurationMinutes = 47
+        session.totalDurationMinutes = totalDurationMinutes
         session.note = note
         session.planId = "plan_beginner_12w"
+        session.scheduleItemId = UUID(uuidString: "11111111-2222-3333-4444-555555555555")
+        session.sourceKind = TodayScheduleSourceKind.officialLesson
+        session.sourceId = "plan_beginner.stage01.lesson01"
+        session.sourceParentId = "plan_beginner"
+        session.sourceTitleSnapshot = "第 1 课"
+        session.sourceSubtitleSnapshot = "基本功 · 第 1 课"
+        session.sourcePayloadVersion = 1
+        session.sourcePayloadSnapshot = Data("frozen-v54".utf8)
+        session.setProgress(role: TodayScheduleProgressRole.advanceEligible, effect: "advanced:1")
+        session.lessonId = "plan_beginner.stage01.lesson01"
 
         let entry = DrillEntry(
             drillId: "drill_c065",
@@ -88,16 +111,41 @@ final class V36W3RestoreSyncTests: XCTestCase {
             note: "第三局手感回来了",
             criteriaText: "10局Ghost Game中赢3局以上"
         )
-        entry.sets = [
-            DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 4,
-                     formationToken: "gg_break_a", formationName: "开球球形 A",
-                     unitLabel: "局", passMade: 3, passTotal: 10, durationSeconds: 612),
-            DrillSet(setNumber: 2, targetBalls: 8, madeBalls: 6,
-                     formationToken: nil, formationName: nil,
-                     unitLabel: "次", passMade: 5, passTotal: 8, durationSeconds: nil),
-        ]
-        session.drillEntries = [entry]
+        let firstSet = DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 4,
+                                formationToken: "gg_break_a", formationName: "开球球形 A",
+                                unitLabel: "局", passMade: 3, passTotal: 10,
+                                durationSeconds: 612)
+        let secondSet = DrillSet(setNumber: 2, targetBalls: 8, madeBalls: 6,
+                                 formationToken: nil, formationName: nil,
+                                 unitLabel: "次", passMade: 5, passTotal: 8,
+                                 durationSeconds: nil)
+        context.insert(session)
+        context.insert(entry)
+        context.insert(firstSet)
+        context.insert(secondSet)
+        entry.session = session
+        firstSet.entry = entry
+        secondSet.entry = entry
         return session
+    }
+
+    /// Build the server fixture through the real entity → DTO path, then remove
+    /// the source graph so the destination remains a clean-device store.
+    private func makeSourceDTO(
+        note: String = "本地训练心得",
+        totalDurationMinutes: Int = 47
+    ) throws -> TrainingSessionDTO {
+        let source = makeLocalSession(note: note, totalDurationMinutes: totalDurationMinutes)
+        let dto = TrainingSessionDTO(from: source)
+        for entry in source.drillEntries {
+            for drillSet in entry.sets {
+                context.delete(drillSet)
+            }
+            context.delete(entry)
+        }
+        context.delete(source)
+        try context.save()
+        return dto
     }
 
     /// 真实走一遍上行编码：DTO → JSON（`JSONEncoder` 与 `APIClient` 同款 `.iso8601`），
@@ -158,8 +206,7 @@ final class V36W3RestoreSyncTests: XCTestCase {
     // MARK: - 完成标准 ①：clientId 幂等
 
     func test_restore_sameBatchTwice_doesNotDuplicateEntities() async throws {
-        let source = makeLocalSession()
-        let dto = TrainingSessionDTO(from: source)
+        let dto = try makeSourceDTO()
         let records = try serverRecords([dto], updatedAt: [Date(timeIntervalSince1970: 1_770_000_100)])
         SyncRestoreService.shared.backend = MockRestoreBackend(sessions: records)
 
@@ -179,7 +226,7 @@ final class V36W3RestoreSyncTests: XCTestCase {
     }
 
     func test_restore_duplicateClientIdWithinOneBatch_insertsOnce() async throws {
-        let dto = TrainingSessionDTO(from: makeLocalSession())
+        let dto = try makeSourceDTO()
         let records = try serverRecords(
             [dto, dto],
             updatedAt: [Date(timeIntervalSince1970: 1_770_000_100),
@@ -195,13 +242,12 @@ final class V36W3RestoreSyncTests: XCTestCase {
     // MARK: - 完成标准 ②：往返语义无损
 
     func test_roundTrip_encodeDecodeRebuild_preservesAllFields() async throws {
-        let source = makeLocalSession()
-        let sourceId = source.id
-        let dto = TrainingSessionDTO(from: source)
+        let dto = try makeSourceDTO()
+        let sourceId = try XCTUnwrap(UUID(uuidString: dto.clientId))
         let records = try serverRecords([dto], updatedAt: [Date(timeIntervalSince1970: 1_770_000_100)])
         SyncRestoreService.shared.backend = MockRestoreBackend(sessions: records)
 
-        // 恢复到一个「干净设备」：本地一条都没有（source 从未 insert 进 context）。
+        // 恢复到一个「干净设备」：source 已在实体→DTO 后从目的 context 显式清理。
         await SyncRestoreService.shared.restore(userId: userId, mode: .full)
 
         let restored = try XCTUnwrap(try localSessions().first, "恢复后本地应有 1 条训练")
@@ -210,12 +256,24 @@ final class V36W3RestoreSyncTests: XCTestCase {
 
         XCTAssertEqual(restored.id, sourceId, "clientId 即本地 id，必须原样还原")
         XCTAssertEqual(restored.date.timeIntervalSince1970,
-                       source.date.timeIntervalSince1970, accuracy: 1.0)
+                       dto.date.timeIntervalSince1970, accuracy: 1.0)
         XCTAssertEqual(restored.ballType, "snooker")
         XCTAssertEqual(restored.totalDurationMinutes, 47)
         XCTAssertEqual(restored.note, "本地训练心得")
         XCTAssertEqual(restored.planId, "plan_beginner_12w")
         XCTAssertEqual(restored.kind, "drill")
+        XCTAssertEqual(restored.scheduleItemId,
+                       UUID(uuidString: "11111111-2222-3333-4444-555555555555"))
+        XCTAssertEqual(restored.sourceKind, TodayScheduleSourceKind.officialLesson)
+        XCTAssertEqual(restored.sourceId, "plan_beginner.stage01.lesson01")
+        XCTAssertEqual(restored.sourceParentId, "plan_beginner")
+        XCTAssertEqual(restored.sourceTitleSnapshot, "第 1 课")
+        XCTAssertEqual(restored.sourceSubtitleSnapshot, "基本功 · 第 1 课")
+        XCTAssertEqual(restored.sourcePayloadVersion, 1)
+        XCTAssertEqual(restored.sourcePayloadSnapshot, Data("frozen-v54".utf8))
+        XCTAssertEqual(restored.frozenProgressRole, TodayScheduleProgressRole.advanceEligible)
+        XCTAssertEqual(restored.appliedProgressEffect, "advanced:1")
+        XCTAssertEqual(restored.lessonId, "plan_beginner.stage01.lesson01")
 
         let entry = try XCTUnwrap(restored.drillEntries.first)
         XCTAssertEqual(entry.drillId, "drill_c065")
@@ -297,16 +355,15 @@ final class V36W3RestoreSyncTests: XCTestCase {
     // MARK: - 冲突策略：本地不被远端覆盖
 
     func test_existingLocalSession_isNotOverwrittenByRemote() async throws {
-        let local = makeLocalSession(note: "本地最新心得")
-        context.insert(local)
+        let staleDTO = try makeSourceDTO(note: "服务端旧版本", totalDurationMinutes: 1)
+        _ = makeLocalSession(
+            note: "本地最新心得",
+            id: try XCTUnwrap(UUID(uuidString: staleDTO.clientId))
+        )
         try context.save()
 
         // 服务端副本是同一 clientId 的旧版本。
-        let stale = makeLocalSession(note: "服务端旧版本")
-        stale.id = local.id
-        stale.totalDurationMinutes = 1
-        stale.drillEntries = []
-        let records = try serverRecords([TrainingSessionDTO(from: stale)],
+        let records = try serverRecords([staleDTO],
                                         updatedAt: [Date(timeIntervalSince1970: 1_780_000_000)])
         SyncRestoreService.shared.backend = MockRestoreBackend(sessions: records)
 
@@ -327,8 +384,7 @@ final class V36W3RestoreSyncTests: XCTestCase {
         let older = Date(timeIntervalSince1970: 1_770_000_100)
         let newer = Date(timeIntervalSince1970: 1_770_009_999)
         let records = try serverRecords(
-            [TrainingSessionDTO(from: makeLocalSession()),
-             TrainingSessionDTO(from: makeLocalSession())],
+            [try makeSourceDTO(), try makeSourceDTO()],
             updatedAt: [older, newer]
         )
         let mock = MockRestoreBackend(sessions: records)
@@ -348,7 +404,7 @@ final class V36W3RestoreSyncTests: XCTestCase {
     }
 
     func test_anchorIsPerUser() async throws {
-        let records = try serverRecords([TrainingSessionDTO(from: makeLocalSession())],
+        let records = try serverRecords([try makeSourceDTO()],
                                         updatedAt: [Date(timeIntervalSince1970: 1_770_000_100)])
         SyncRestoreService.shared.backend = MockRestoreBackend(sessions: records)
         await SyncRestoreService.shared.restore(userId: userId, mode: .full)

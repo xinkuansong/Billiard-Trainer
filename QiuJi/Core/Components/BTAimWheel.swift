@@ -104,6 +104,9 @@ struct BTAimWheel: View {
                     }
             )
         }
+        .accessibilityElement()
+        .accessibilityLabel("瞄准微调")
+        .accessibilityIdentifier("shotStage.aimWheel")
     }
 }
 

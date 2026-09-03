@@ -2,4 +2,8 @@
 // Release 构建使用 Secrets.xcconfig 中的真实值
 // 确保 Secrets.xcconfig 已加入 .gitignore
 
+// Secrets.xcconfig 应在 H-09 上线并实测通过后覆盖这两个空值。
+LEGAL_TERMS_URL =
+LEGAL_PRIVACY_URL =
+
 #include "Secrets.xcconfig"

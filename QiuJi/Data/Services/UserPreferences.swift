@@ -76,27 +76,14 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 final class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
 
-    // Existing
-    @Published var preferredSport: PreferredSport {
-        didSet { UserDefaults.standard.set(preferredSport.rawValue, forKey: "preferredSport") }
-    }
-
-    @Published var weeklyGoalDays: Int {
-        didSet { UserDefaults.standard.set(weeklyGoalDays, forKey: "weeklyGoalDays") }
-    }
-
-    // New: Personal info
-    @Published var skillLevel: SkillLevel {
-        didSet { UserDefaults.standard.set(skillLevel.rawValue, forKey: "skillLevel") }
-    }
-
-    @Published var yearsPlaying: YearsPlaying {
-        didSet { UserDefaults.standard.set(yearsPlaying.rawValue, forKey: "yearsPlaying") }
-    }
-
-    // New: Training goal
-    @Published var targetSessionMinutes: Int {
-        didSet { UserDefaults.standard.set(targetSessionMinutes, forKey: "targetSessionMinutes") }
+    /// 每日清台新局的默认玩法。已有用户首次升级时由主打球种推导，之后独立持久化。
+    @Published var dailyClearanceGame: DailyClearanceGame {
+        didSet {
+            UserDefaults.standard.set(
+                dailyClearanceGame.rawValue,
+                forKey: DailyClearanceStoreKey.preferredGame
+            )
+        }
     }
 
     @Published var reminderEnabled: Bool {
@@ -139,18 +126,20 @@ final class UserPreferences: ObservableObject {
 
     private init() {
         let sportRaw = UserDefaults.standard.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
-        self.preferredSport = PreferredSport(rawValue: sportRaw) ?? .chinese8
+        let initialSport = PreferredSport(rawValue: sportRaw) ?? .chinese8
 
-        let days = UserDefaults.standard.integer(forKey: "weeklyGoalDays")
-        self.weeklyGoalDays = days > 0 ? days : 3
+        if let gameRaw = UserDefaults.standard.string(forKey: DailyClearanceStoreKey.preferredGame),
+           let game = DailyClearanceGame(rawValue: gameRaw) {
+            self.dailyClearanceGame = game
+        } else {
+            self.dailyClearanceGame = DailyClearanceGame.initialDefault(for: initialSport)
+        }
 
-        let levelRaw = UserDefaults.standard.string(forKey: "skillLevel") ?? SkillLevel.beginner.rawValue
-        self.skillLevel = SkillLevel(rawValue: levelRaw) ?? .beginner
+        OwnerProfileStore.migrateLegacyGuestProfile(in: .standard)
 
-        let yearsRaw = UserDefaults.standard.string(forKey: "yearsPlaying") ?? YearsPlaying.lessThan1.rawValue
-        self.yearsPlaying = YearsPlaying(rawValue: yearsRaw) ?? .lessThan1
-
-        self.targetSessionMinutes = UserDefaults.standard.integer(forKey: "targetSessionMinutes")
+        // v53 删除“每次训练时长目标”。旧值没有运行时消费者，升级时主动清掉，
+        // 但 TrainingSession.totalDurationMinutes 的真实训练数据完全不受影响。
+        UserDefaults.standard.removeObject(forKey: "targetSessionMinutes")
 
         self.reminderEnabled = UserDefaults.standard.bool(forKey: "reminderEnabled")
 
@@ -185,16 +174,9 @@ final class UserPreferences: ObservableObject {
             (UserDefaults.standard.object(forKey: PracticeStorageKey.showAimCloseup) as? Bool) ?? true
     }
 
-    // MARK: - Summaries
-
-    var sportSummary: String { preferredSport.displayName }
-    var goalSummary: String { "每周 \(weeklyGoalDays) 天" }
-
-    var personalInfoSummary: String {
-        "\(preferredSport.displayName) · \(skillLevel.displayName)"
+    func persistReminder(enabled: Bool, time: Date? = nil) {
+        if let time { reminderTime = time }
+        reminderEnabled = enabled
     }
 
-    var sessionDurationSummary: String {
-        targetSessionMinutes > 0 ? "\(targetSessionMinutes) 分钟" : "不限"
-    }
 }

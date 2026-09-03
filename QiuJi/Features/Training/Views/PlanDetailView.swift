@@ -1,8 +1,56 @@
 import SwiftUI
 import SwiftData
 
+enum PlanDetailPrimaryAction: Equatable {
+    case start, switchPlan, arrangeToday, review
+
+    static func resolve(recordStatus: String?, isCurrentPlanActive: Bool, hasAnotherActivePlan: Bool) -> Self {
+        if recordStatus == "completed" { return .review }
+        if isCurrentPlanActive { return .arrangeToday }
+        if hasAnotherActivePlan { return .switchPlan }
+        return .start
+    }
+
+    var title: String {
+        switch self {
+        case .start: return "开始此计划"
+        case .switchPlan: return "切换到此计划"
+        case .arrangeToday: return "编排今天"
+        case .review: return "选择课程复练"
+        }
+    }
+}
+
+enum PlanLessonDisplayState: Equatable {
+    case current, completed, previewed, notStarted
+
+    static func resolve(
+        lessonID: String,
+        lessonOrdinal: Int,
+        currentLessonID: String?,
+        currentOrdinal: Int?,
+        planRecordStatus: String?,
+        completedLessonIDs: Set<String>
+    ) -> Self {
+        if currentLessonID == lessonID && planRecordStatus == "active" { return .current }
+        if completedLessonIDs.contains(lessonID) {
+            if let currentOrdinal, lessonOrdinal >= currentOrdinal { return .previewed }
+            return .completed
+        }
+        return .notStarted
+    }
+}
+
 struct PlanDetailView: View {
     let planId: String
+    let ownerKey: String
+    @StateObject private var profile: OwnerProfileStore
+
+    init(planId: String, ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.planId = planId
+        self.ownerKey = ownerKey
+        _profile = StateObject(wrappedValue: OwnerProfileStore(ownerKey: ownerKey))
+    }
 
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
@@ -21,6 +69,13 @@ struct PlanDetailView: View {
     @State private var coachingQuotes: [Int: String] = [:]
     @State private var planCoachingPoint: String? = nil
     @State private var activeCurrentWeek: Int? = nil
+    @State private var activeLessonID: String?
+    @State private var planRecordStatus: String?
+    @State private var completedLessonIDs: Set<String> = []
+    @State private var selectedLessonIDs: Set<String> = []
+    @State private var showArrangeSheet = false
+    @State private var toast: BTToastMessage?
+    @State private var didInstallV54Fixture = false
     /// 展开逐球形明细的计划条目键（week-day-phase-drill）。
     @State private var expandedDrillKeys: Set<String> = []
 
@@ -76,6 +131,10 @@ struct PlanDetailView: View {
             SubscriptionView()
                 .environmentObject(subscriptionManager)
         }
+        .sheet(isPresented: $showArrangeSheet) {
+            if let plan { arrangementSheet(plan) }
+        }
+        .btToast($toast)
         .alert("激活训练计划", isPresented: $showActivateConfirm) {
             Button("取消", role: .cancel) {}
             Button("确定激活") { activatePlan() }
@@ -83,7 +142,7 @@ struct PlanDetailView: View {
             if hasActivePlan {
                 Text("当前已有激活的训练计划，激活新计划将替换旧计划。确定要继续吗？")
             } else {
-                Text("确定要开始「\(plan?.nameZh ?? "")」训练计划吗？激活后将从第 1 周第 1 天开始。")
+                Text("确定要开始「\(plan?.nameZh ?? "")」吗？激活后会从第一课开始建议，不会清空今日已有安排。")
             }
         }
     }
@@ -120,6 +179,11 @@ struct PlanDetailView: View {
                     .font(.btFootnote)
                     .foregroundStyle(.white.opacity(0.9))
                     .monospacedDigit()
+
+                Text(durationEstimate(plan))
+                    .font(.btCaption)
+                    .foregroundStyle(.white.opacity(0.82))
+                    .monospacedDigit()
             }
             .padding(Spacing.lg)
             .padding(.bottom, Spacing.sm)
@@ -144,11 +208,21 @@ struct PlanDetailView: View {
 
     private func heroSubtitle(_ plan: OfficialPlan) -> String {
         [
-            "\(plan.durationWeeks) 周",
-            "\(plan.sessionsPerWeek) 次/周",
-            "\(plan.minutesPerSession) 分钟/次",
-            planLevelName(plan.targetLevel)
+            "\(plan.stages.count) 个阶段",
+            "\(plan.lessonCount) 节课",
+            "每课约 \(plan.minutesPerSession) 分钟"
         ].joined(separator: " · ")
+    }
+
+    private func durationEstimate(_ plan: OfficialPlan) -> String {
+        let ordinal = activeLessonID.flatMap { id in plan.lessons.firstIndex { $0.id == id } }
+        let weeks = PlanDurationEstimate.remainingWeeks(
+            lessonCount: plan.lessonCount,
+            currentOrdinal: planRecordStatus == "completed" ? nil : (ordinal ?? 0),
+            weeklyGoalDays: profile.weeklyGoalDays
+        )
+        if planRecordStatus == "completed" { return "主线已完成，可随时复练" }
+        return "按每周 \(profile.weeklyGoalDays) 练，预计约 \(weeks) 周完成"
     }
 
     private var proTag: some View {
@@ -195,26 +269,14 @@ struct PlanDetailView: View {
             Spacer()
 
             Group {
-                if isCurrentPlanActive {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: BTIcon.checkmarkCircle)
-                            .foregroundStyle(.btSuccess)
-                        Text("当前已激活此计划")
-                            .font(.btSubheadlineMedium)
-                            .foregroundStyle(.btSuccess)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(Spacing.lg)
-                    .background(Color.btSuccess.opacity(0.12))
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                } else if !plan.isPremium || subscriptionManager.isPremium {
+                if !plan.isPremium || subscriptionManager.isPremium {
                     Button {
-                        showActivateConfirm = true
+                        handlePrimaryCTA(plan)
                     } label: {
-                        Label("开始此计划", systemImage: "play.fill")
+                        Label(primaryCTATitle, systemImage: primaryCTAIcon)
                     }
                     .buttonStyle(BTButtonStyle.primary)
+                    .accessibilityIdentifier("planDetail.primaryCTA")
                     .transition(.opacity)
                 } else {
                     Button {
@@ -242,27 +304,43 @@ struct PlanDetailView: View {
         }
     }
 
-    // MARK: - Weeks List
+    private var primaryCTATitle: String {
+        primaryAction.title
+    }
+
+    private var primaryAction: PlanDetailPrimaryAction {
+        .resolve(
+            recordStatus: planRecordStatus,
+            isCurrentPlanActive: isCurrentPlanActive,
+            hasAnotherActivePlan: hasActivePlan && !isCurrentPlanActive
+        )
+    }
+
+    private var primaryCTAIcon: String {
+        (isCurrentPlanActive || planRecordStatus == "completed") ? "checklist" : "play.fill"
+    }
+
+    private func handlePrimaryCTA(_ plan: OfficialPlan) {
+        if primaryAction == .arrangeToday || primaryAction == .review {
+            prepareSelection(plan)
+            showArrangeSheet = true
+        } else {
+            showActivateConfirm = true
+        }
+    }
+
+    // MARK: - Stage / lesson curriculum
 
     private func weeksList(_ plan: OfficialPlan) -> some View {
         let isPremiumLocked = plan.isPremium && !subscriptionManager.isPremium
         let freePreviewCount = 1
 
         return VStack(alignment: .leading, spacing: Spacing.lg) {
-            planSectionHeader(zh: "训练安排", trailing: "共 \(plan.weeks.count) 周")
-
-            BTPlanWeekTimeline(
-                items: BTPlanWeekTimeline.build(
-                    total: plan.weeks.count,
-                    currentWeek: isCurrentPlanActive ? activeCurrentWeek : nil,
-                    premiumUnlockedFromWeek: isPremiumLocked ? freePreviewCount : nil
-                )
-            )
-            .padding(.bottom, Spacing.xs)
+            planSectionHeader(zh: "课程安排", trailing: "共 \(plan.stages.count) 阶段 · \(plan.lessonCount) 课")
 
             if isPremiumLocked {
-                ForEach(Array(plan.weeks.prefix(freePreviewCount).enumerated()), id: \.element.weekNumber) { index, week in
-                    weekSection(week, plan: plan, isLast: index == freePreviewCount - 1 && plan.weeks.count == freePreviewCount)
+                ForEach(Array(plan.stages.prefix(freePreviewCount).enumerated()), id: \.element.id) { index, stage in
+                    stageSection(stage, isLast: index == freePreviewCount - 1 && plan.stages.count == freePreviewCount)
                 }
 
                 BTPremiumLock(mode: .progressive(visibleItems: freePreviewCount)) {
@@ -271,8 +349,8 @@ struct PlanDetailView: View {
                     EmptyView()
                 }
             } else {
-                ForEach(Array(plan.weeks.enumerated()), id: \.element.weekNumber) { index, week in
-                    weekSection(week, plan: plan, isLast: index == plan.weeks.count - 1)
+                ForEach(Array(plan.stages.enumerated()), id: \.element.id) { index, stage in
+                    stageSection(stage, isLast: index == plan.stages.count - 1)
                 }
             }
         }
@@ -295,25 +373,25 @@ struct PlanDetailView: View {
         }
     }
 
-    private func weekSection(_ week: PlanWeek, plan: OfficialPlan, isLast: Bool) -> some View {
+    private func stageSection(_ stage: PlanStage, isLast: Bool) -> some View {
         VStack(spacing: 0) {
             Button {
                 withAnimation(BTMotion.springPanel) {
-                    if expandedWeeks.contains(week.weekNumber) {
-                        expandedWeeks.remove(week.weekNumber)
+                    if expandedWeeks.contains(stage.order) {
+                        expandedWeeks.remove(stage.order)
                     } else {
-                        expandedWeeks.insert(week.weekNumber)
+                        expandedWeeks.insert(stage.order)
                     }
                 }
             } label: {
-                chapterHeader(week)
+                chapterHeader(stage)
             }
             .buttonStyle(BTPressableStyle.row)
 
-            if expandedWeeks.contains(week.weekNumber) {
+            if expandedWeeks.contains(stage.order) {
                 VStack(spacing: Spacing.md) {
-                    ForEach(week.sessions) { session in
-                        daySection(session, weekNumber: week.weekNumber)
+                    ForEach(stage.lessons.sorted { $0.order < $1.order }) { lesson in
+                        lessonSection(lesson, stage: stage)
                     }
                 }
                 .padding(.horizontal, Spacing.md)
@@ -325,20 +403,20 @@ struct PlanDetailView: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
     }
 
-    private func chapterHeader(_ week: PlanWeek) -> some View {
-        let totalMinutes = week.sessions.reduce(0) { $0 + sessionEstimatedMinutes($1) }
-        let isExpanded = expandedWeeks.contains(week.weekNumber)
+    private func chapterHeader(_ stage: PlanStage) -> some View {
+        let totalMinutes = stage.lessons.reduce(0) { $0 + lessonEstimatedMinutes($1) }
+        let isExpanded = expandedWeeks.contains(stage.order)
 
         return HStack(alignment: .top, spacing: Spacing.lg) {
             HStack(alignment: .lastTextBaseline, spacing: 3) {
                 Text("第")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
-                Text("\(week.weekNumber)")
+                Text("\(stage.order)")
                     .font(.btChapterNumber)
                     .foregroundStyle(.btText)
                     .monospacedDigit()
-                Text("周")
+                Text("阶段")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
             }
@@ -347,7 +425,7 @@ struct PlanDetailView: View {
 
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(alignment: .top, spacing: Spacing.sm) {
-                    Text(week.theme)
+                    Text(stage.title)
                         .font(.btTitle2)
                         .foregroundStyle(.btText)
                         .lineLimit(2)
@@ -362,7 +440,7 @@ struct PlanDetailView: View {
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
 
-                Text("\(week.sessions.count) 天 · \(totalMinutes) 分钟")
+                Text("\(stage.lessons.count) 节课 · 约 \(totalMinutes) 分钟")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
                     .monospacedDigit()
@@ -370,28 +448,38 @@ struct PlanDetailView: View {
         }
         .padding(Spacing.lg)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("第 \(week.weekNumber) 周，\(week.theme)，\(week.sessions.count) 天 \(totalMinutes) 分钟")
+        .accessibilityLabel("第 \(stage.order) 阶段，\(stage.title)，\(stage.lessons.count) 节课，约 \(totalMinutes) 分钟")
     }
 
-    // MARK: - Day Section
+    // MARK: - Lesson Section
 
-    private func daySection(_ session: PlanSession, weekNumber: Int) -> some View {
-        let totalMin = sessionEstimatedMinutes(session)
-        let activePhases = session.phases.filter { !$0.drills.isEmpty }
+    private func lessonSection(_ lesson: PlanLesson, stage: PlanStage) -> some View {
+        let totalMin = lessonEstimatedMinutes(lesson)
+        let activePhases = lesson.phases.filter { !$0.drills.isEmpty }
+        let status = lessonStatus(lesson)
 
         return VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(alignment: .firstTextBaseline) {
-                Text("第 \(session.dayNumber) 天")
-                    .font(.btTitleMedium)
-                    .foregroundStyle(.btText)
-                    .monospacedDigit()
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(lesson.title)
+                        .font(.btTitleMedium)
+                        .foregroundStyle(.btText)
+                    if let summary = lesson.summary, !summary.isEmpty {
+                        Text(summary).font(.btCaption).foregroundStyle(.btTextSecondary)
+                    }
+                }
 
                 Spacer()
 
-                Text("\(totalMin) 分钟")
-                    .font(.btCaption)
-                    .foregroundStyle(.btTextTertiary)
-                    .monospacedDigit()
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(status.title)
+                        .font(.btCaption.weight(.semibold))
+                        .foregroundStyle(status.color)
+                    Text("约 \(totalMin) 分钟")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextTertiary)
+                        .monospacedDigit()
+                }
             }
 
             BTPhaseTimeline(
@@ -416,7 +504,7 @@ struct PlanDetailView: View {
                         drillTrackRow(
                             index: drillIndex,
                             ref: ref,
-                            expandKey: "\(weekNumber)-\(session.dayNumber)-\(phase.type)-\(ref.id)"
+                            expandKey: "\(stage.id)-\(lesson.id)-\(phase.type)-\(ref.id)"
                         )
                     }
                 }
@@ -425,6 +513,38 @@ struct PlanDetailView: View {
         .padding(Spacing.lg)
         .background(.btBGTertiary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(lesson.title)，\(status.title)，约 \(totalMin) 分钟")
+    }
+
+    private func lessonEstimatedMinutes(_ lesson: PlanLesson) -> Int {
+        lesson.phases.reduce(0) { acc, phase in
+            acc + (phase.countsTowardSessionMinutes ? phaseEstimatedMinutes(phase) : 0)
+        }
+    }
+
+    private struct LessonVisualStatus {
+        let title: String
+        let color: Color
+    }
+
+    private func lessonStatus(_ lesson: PlanLesson) -> LessonVisualStatus {
+        guard let plan else { return .init(title: "未开始", color: .btTextTertiary) }
+        let ordinal = plan.lessons.firstIndex { $0.id == lesson.id } ?? 0
+        let current = activeLessonID.flatMap { id in plan.lessons.firstIndex { $0.id == id } }
+        switch PlanLessonDisplayState.resolve(
+            lessonID: lesson.id,
+            lessonOrdinal: ordinal,
+            currentLessonID: activeLessonID,
+            currentOrdinal: current,
+            planRecordStatus: planRecordStatus,
+            completedLessonIDs: completedLessonIDs
+        ) {
+        case .current: return .init(title: "当前", color: .btPrimary)
+        case .completed: return .init(title: "已完成", color: .btSuccess)
+        case .previewed: return .init(title: "提前练过", color: .btAccent)
+        case .notStarted: return .init(title: "未开始", color: .btTextTertiary)
+        }
     }
 
     private func drillTrackRow(index: Int, ref: PlanDrillRef, expandKey: String) -> some View {
@@ -572,6 +692,144 @@ struct PlanDetailView: View {
         }
     }
 
+    // MARK: - Arrange today
+
+    private func arrangementSheet(_ plan: OfficialPlan) -> some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                List {
+                    ForEach(plan.stages.sorted { $0.order < $1.order }) { stage in
+                        Section("阶段 \(stage.order) · \(stage.title)") {
+                            ForEach(stage.lessons.sorted { $0.order < $1.order }) { lesson in
+                                Button {
+                                    if selectedLessonIDs.contains(lesson.id) {
+                                        selectedLessonIDs.remove(lesson.id)
+                                    } else {
+                                        selectedLessonIDs.insert(lesson.id)
+                                    }
+                                } label: {
+                                    HStack(spacing: Spacing.md) {
+                                        Image(systemName: selectedLessonIDs.contains(lesson.id)
+                                              ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(selectedLessonIDs.contains(lesson.id)
+                                                             ? Color.btPrimary : Color.btTextTertiary)
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text(lesson.title).foregroundStyle(.btText)
+                                            Text(lessonStatus(lesson).title)
+                                                .font(.btCaption)
+                                                .foregroundStyle(lessonStatus(lesson).color)
+                                        }
+                                        Spacer()
+                                        Text("约 \(lessonEstimatedMinutes(lesson)) 分钟")
+                                            .font(.btCaption)
+                                            .foregroundStyle(.btTextSecondary)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .accessibilityLabel(
+                                    "\(lesson.title)，\(lessonStatus(lesson).title)，"
+                                    + "\(selectedLessonIDs.contains(lesson.id) ? "已选择" : "未选择")"
+                                )
+                            }
+                        }
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Text(selectionSummary(plan))
+                        .font(.btSubheadline)
+                        .foregroundStyle(.btTextSecondary)
+                        .accessibilityIdentifier("planDetail.arrangementSummary")
+                    Button("加入今日安排") { addSelectionToToday(plan) }
+                        .buttonStyle(BTButtonStyle.primary)
+                        .disabled(selectedLessonIDs.isEmpty)
+                        .accessibilityIdentifier("planDetail.addToToday")
+                }
+                .padding(Spacing.lg)
+                .background(.btBGSecondary)
+            }
+            .navigationTitle("编排今天")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { showArrangeSheet = false }
+                }
+            }
+            .onAppear {
+                if selectedLessonIDs.isEmpty,
+                   isCurrentPlanActive,
+                   let defaultID = defaultArrangementLessonID(in: plan) {
+                    selectedLessonIDs = [defaultID]
+                }
+            }
+        }
+    }
+
+    private func prepareSelection(_ plan: OfficialPlan) {
+        if planRecordStatus == "completed" {
+            selectedLessonIDs = []
+        } else if isCurrentPlanActive, let defaultID = defaultArrangementLessonID(in: plan) {
+            selectedLessonIDs = [defaultID]
+        } else {
+            selectedLessonIDs = []
+        }
+    }
+
+    /// An active record is expected to have a cursor. The fallback keeps the
+    /// composer deterministic while an old/migrated record repairs a missing
+    /// cursor, choosing the first unfinished lesson instead of an arbitrary row.
+    private func defaultArrangementLessonID(in plan: OfficialPlan) -> String? {
+        if let activeLessonID, plan.lessons.contains(where: { $0.id == activeLessonID }) {
+            return activeLessonID
+        }
+        return plan.lessons.first(where: { !completedLessonIDs.contains($0.id) })?.id
+            ?? plan.lessons.first?.id
+    }
+
+    private func selectionSummary(_ plan: OfficialPlan) -> String {
+        let ordinalByID = Dictionary(uniqueKeysWithValues: plan.lessons.enumerated().map {
+            ($0.element.id, $0.offset)
+        })
+        let selected = Set(selectedLessonIDs.compactMap { ordinalByID[$0] })
+        let current = activeLessonID.flatMap { ordinalByID[$0] }
+        let roles = OfficialLessonRoleRules.classify(
+            currentOrdinal: current, selectedOrdinals: selected, lessonCount: plan.lessonCount
+        )
+        let review = roles.values.filter { $0 == TodayScheduleProgressRole.review }.count
+        let advance = roles.values.filter { $0 == TodayScheduleProgressRole.advanceEligible }.count
+        let preview = roles.values.filter { $0 == TodayScheduleProgressRole.preview }.count
+        var parts = ["将加入 \(selected.count) 项"]
+        if review > 0 { parts.append("复练 \(review) 课") }
+        if advance > 0 { parts.append("完成后最多推进 \(advance) 课") }
+        if preview > 0 { parts.append("\(preview) 课为提前练习，不会跳过中间课程") }
+        return parts.joined(separator: "，")
+    }
+
+    private func addSelectionToToday(_ plan: OfficialPlan) {
+        let descriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
+        guard let record = (try? modelContext.fetch(descriptor))?.first(where: {
+            $0.planId == plan.id
+        }) else {
+            toast = BTToastMessage("请先开始此计划", tone: .warning)
+            return
+        }
+        do {
+            let results = try TodayTrainingScheduleService(context: modelContext)
+                .addOfficialLessons(plan: plan, lessonIDs: selectedLessonIDs, activePlan: record)
+            let added = results.filter {
+                if case .added = $0 { return true }
+                return false
+            }.count
+            showArrangeSheet = false
+            toast = BTToastMessage(added == 0 ? "所选课程已在今日安排" : "已加入今日安排")
+        } catch {
+            toast = BTToastMessage("加入失败，请稍后重试", tone: .error)
+        }
+    }
+
     // MARK: - Helpers
 
     private func seriesName(for targetLevel: String) -> String {
@@ -597,14 +855,28 @@ struct PlanDetailView: View {
         defer { isLoading = false }
 
         plan = await PlanContentService.shared.loadPlanFromBundle(id: planId)
+        profile.load(from: nil)
+        if let plan { installV54FixtureIfNeeded(plan) }
 
-        let descriptor = FetchDescriptor<UserActivePlan>()
-        if let active = try? modelContext.fetch(descriptor).first {
+        let descriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
+        let records = (try? modelContext.fetch(descriptor)) ?? []
+        if let active = records.first(where: { $0.status == "active" }) {
             hasActivePlan = true
-            isCurrentPlanActive = (active.planId == planId)
-            if isCurrentPlanActive {
-                activeCurrentWeek = active.currentWeek
-            }
+            isCurrentPlanActive = active.planId == planId
+        } else {
+            hasActivePlan = false
+            isCurrentPlanActive = false
+        }
+        if let own = records.first(where: { $0.planId == planId }) {
+            activeCurrentWeek = own.currentWeek
+            activeLessonID = own.currentLessonId
+            planRecordStatus = own.status
+        } else {
+            activeCurrentWeek = nil
+            activeLessonID = nil
+            planRecordStatus = nil
         }
 
         guard let plan else { return }
@@ -612,9 +884,9 @@ struct PlanDetailView: View {
         await computeSeriesIssue(for: plan)
 
         let drillService = DrillContentService.shared
-        let allDrillIds = Set(plan.weeks.flatMap { week in
-            week.sessions.flatMap { session in
-                session.phases.flatMap { phase in
+        let allDrillIds = Set(plan.stages.flatMap { stage in
+            stage.lessons.flatMap { lesson in
+                lesson.phases.flatMap { phase in
                     phase.drills.map(\.drillId)
                 }
             }
@@ -630,15 +902,15 @@ struct PlanDetailView: View {
             }
         }
 
-        for week in plan.weeks {
-            let firstDrillId = week.sessions
+        for stage in plan.stages {
+            let firstDrillId = stage.lessons
                 .flatMap { $0.phases }
                 .flatMap { $0.drills }
                 .first?.drillId
             if let drillId = firstDrillId,
                let drill = loadedDrills[drillId],
                let firstPoint = drill.coachingPoints.first(where: { !$0.isEmpty }) {
-                quotesByWeek[week.weekNumber] = firstPoint
+                quotesByWeek[stage.order] = firstPoint
             }
         }
 
@@ -648,13 +920,20 @@ struct PlanDetailView: View {
         planCoachingPoint = quotesByWeek[1] ?? quotesByWeek.sorted { $0.key < $1.key }.first?.value
 
         // 默认全展开：周章节与多球形明细一次性可见，收起交给用户手动操作。
-        for week in plan.weeks {
-            expandedWeeks.insert(week.weekNumber)
-            for session in week.sessions {
-                for phase in session.phases {
+        let sessionDescriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
+        completedLessonIDs = Set(((try? modelContext.fetch(sessionDescriptor)) ?? []).compactMap {
+            $0.planId == planId ? $0.lessonId : nil
+        })
+
+        for stage in plan.stages {
+            expandedWeeks.insert(stage.order)
+            for lesson in stage.lessons {
+                for phase in lesson.phases {
                     for ref in phase.drills {
                         expandedDrillKeys.insert(
-                            "\(week.weekNumber)-\(session.dayNumber)-\(phase.type)-\(ref.id)"
+                            "\(stage.id)-\(lesson.id)-\(phase.type)-\(ref.id)"
                         )
                     }
                 }
@@ -677,22 +956,77 @@ struct PlanDetailView: View {
         }
     }
 
+    /// Launch-argument-only plan-state fixture for the v54 screenshot/accessibility matrix.
+    private func installV54FixtureIfNeeded(_ plan: OfficialPlan) {
+        guard !didInstallV54Fixture else { return }
+        didInstallV54Fixture = true
+        let args = ProcessInfo.processInfo.arguments
+        guard let state = args.first(where: { $0.hasPrefix("-v54.planState=") })?
+            .replacingOccurrences(of: "-v54.planState=", with: ""),
+              state != "start" else { return }
+
+        if state == "other" {
+            let other = UserActivePlan(planId: "plan_accuracy", ownerKey: ownerKey)
+            other.currentLessonId = PlanContentService.decodePlanFromBundle(id: other.planId)?.lessons.first?.id
+            modelContext.insert(other)
+            let own = UserActivePlan(planId: plan.id, ownerKey: ownerKey)
+            own.status = "paused"
+            own.currentLessonId = plan.lessons.first?.id
+            modelContext.insert(own)
+        } else {
+            let own = UserActivePlan(planId: plan.id, ownerKey: ownerKey)
+            if state == "completed" {
+                own.status = "completed"
+                own.currentLessonId = nil
+                own.completedAt = .now
+            } else {
+                own.currentLessonId = plan.lessons.dropFirst(2).first?.id ?? plan.lessons.first?.id
+            }
+            modelContext.insert(own)
+
+            let completed = state == "completed"
+                ? Array(plan.lessons)
+                : [plan.lessons.first, plan.lessons.dropFirst(3).first].compactMap { $0 }
+            for lesson in completed {
+                let session = TrainingSession(ownerKey: ownerKey)
+                session.planId = plan.id
+                session.lessonId = lesson.id
+                modelContext.insert(session)
+            }
+        }
+        try? modelContext.save()
+    }
+
     // MARK: - Activate Plan
 
     private func activatePlan() {
-        let descriptor = FetchDescriptor<UserActivePlan>()
-        if let existing = try? modelContext.fetch(descriptor) {
-            for old in existing {
-                modelContext.delete(old)
-            }
+        let descriptor = FetchDescriptor<UserActivePlan>(
+            predicate: #Predicate { $0.ownerKey == ownerKey }
+        )
+        let existing = (try? modelContext.fetch(descriptor)) ?? []
+        for old in existing where old.status == "active" && old.planId != planId {
+            old.status = "paused"
+            old.updatedAt = Date()
         }
-        let newPlan = UserActivePlan(planId: planId)
-        modelContext.insert(newPlan)
+        let target: UserActivePlan
+        if let saved = existing.first(where: { $0.planId == planId }) {
+            target = saved
+        } else {
+            target = UserActivePlan(planId: planId, ownerKey: ownerKey)
+            target.currentLessonId = plan?.lessons.first?.id
+            modelContext.insert(target)
+        }
+        target.status = "active"
+        target.completedAt = nil
+        if target.currentLessonId == nil { target.currentLessonId = plan?.lessons.first?.id }
+        target.updatedAt = Date()
         try? modelContext.save()
 
         withAnimation(BTMotion.springPanel) {
             isCurrentPlanActive = true
             hasActivePlan = true
+            activeLessonID = target.currentLessonId
+            planRecordStatus = target.status
         }
     }
 }

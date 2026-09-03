@@ -589,12 +589,13 @@ struct BatchBallExtractionView: View {
 
     private func markCell(_ key: String) -> some View {
         let marked = vm.marks.contains { $0.key == key }
-        let d = BTBallPaletteMetrics.regularDiameter
+        let d = BTBallPaletteMetrics.compactDiameter
         return PoolBallFace(key: key, diameter: d)
             .opacity(marked ? 0.28 : 1)
             .overlay(Circle().stroke(vm.activePaletteKey == key ? Color.btPrimary : .clear, lineWidth: 2.5))
-            .frame(width: d, height: d)
-            .contentShape(Circle())
+            .frame(width: BTBallPaletteMetrics.minimumHitSize,
+                   height: BTBallPaletteMetrics.minimumHitSize)
+            .contentShape(Rectangle())
             .onTapGesture { vm.activePaletteKey = key }
     }
 
@@ -672,7 +673,7 @@ struct BatchBallExtractionView: View {
         let onTable = vm.onTableKeys.contains(key)
         return BTBallPaletteToken(
             key: key,
-            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            ballDiameter: BTBallPaletteMetrics.compactDiameter,
             isOnTable: onTable,
             isDragging: draggingKey == key,
             allowsDrag: !onTable,
@@ -760,9 +761,12 @@ struct BatchBallExtractionView: View {
     private func paletteTwoRows<Cell: View>(_ keys: [String], @ViewBuilder cell: @escaping (String) -> Cell) -> some View {
         let row1 = Array(keys.prefix(Self.paletteColumns))
         let row2 = Array(keys.dropFirst(Self.paletteColumns))
-        return VStack(spacing: BTBallPaletteMetrics.rowSpacing) {
-            paletteRow(row1, cell: cell)
-            paletteRow(row2, cell: cell)
+        return ScrollView(.horizontal, showsIndicators: false) {
+            VStack(spacing: BTBallPaletteMetrics.rowSpacing) {
+                paletteRow(row1, cell: cell)
+                paletteRow(row2, cell: cell)
+            }
+            .frame(width: CGFloat(Self.paletteColumns) * BTBallPaletteMetrics.minimumHitSize)
         }
     }
 
@@ -771,13 +775,12 @@ struct BatchBallExtractionView: View {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
                     if i < keys.count { cell(keys[i]) } else {
-                        Color.clear.frame(
-                            width: BTBallPaletteMetrics.regularDiameter,
-                            height: BTBallPaletteMetrics.regularDiameter
-                        )
+                        Color.clear.frame(width: BTBallPaletteMetrics.minimumHitSize,
+                                          height: BTBallPaletteMetrics.minimumHitSize)
                     }
                 }
-                .frame(maxWidth: .infinity)
+                .frame(width: BTBallPaletteMetrics.minimumHitSize,
+                       height: BTBallPaletteMetrics.minimumHitSize)
             }
         }
     }

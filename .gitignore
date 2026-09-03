@@ -4,6 +4,8 @@
 *.xcodeproj/project.xcworkspace/xcuserdata/
 DerivedData/
 build/
+# Simulator-matrix project containers generated from scripts/project-v50.yml.
+QiuJiV50*.xcodeproj/
 *.ipa
 *.dSYM.zip
 *.dSYM
@@ -40,6 +42,7 @@ fastlane/test_output
 # Backend
 backend/node_modules/
 backend/.env
+backend/data/
 
 # Large drill videos (handled via Git LFS / OTA later, not in git history)
 QiuJi/Resources/Videos/

@@ -351,3 +351,80 @@
   ② **提交 pbxproj 前先跑一次 `make xcodegen`**，确保提交的是最新生成物而非过时副本（本次即抓到一处）。
   ③ **entitlement / capability 类配置需有构建产物级断言**：仅检查 `.entitlements` 文件存在是无效的（本例文件一直在，只是没接上），须验 `*.xcent` 实际内容。建议接入 `make verify-gate`。
 - **已应用至**：⏳ 待回写（建议目标：`.cursor/rules/10-ios-architect.mdc` 或 `60-devops-release.mdc` § 经验教训）
+
+## FL-031
+- **任务**：问题集合 v50 W1 多设备矩阵，A5（iPad mini 第 6 代 / iOS 17.0）进入 2D 角度训练。
+- **现象**：A3（iPhone 17 Pro / iOS 26.2）长期正常，但 A5 每次进入球桌后 App 均以 `EXC_BAD_ACCESS` 退出；崩溃栈落在 SceneKit renderer 的 `C3DMeshElementGetType`，早期另一次落在运行中修改 `SCNMaterial` 的 `_setupMaterialProperty`。
+- **严重程度**：P1（最低 Runtime 的核心训练场景稳定必崩）。
+- **根因**：✅ 已定位。`TaiQiuZhuo.usdz` 的 `Plane_001` 含 4 个**恰好 256 顶点**的面（face indices 111157 / 124732 / 138307 / 151882）。iOS 17 SceneKit 把 256 边面解释为无效 edge count，日志出现 `Invalid polygon edge count (0)` 与 null `renderableElement`，随后渲染线程解引用崩溃；iOS 26 容忍了同一资产，因此单一最新设备测试未暴露。运行中切换袋口高亮材质和 SCNView 提前接入半成品 scene 又放大了竞态风险。
+- **解决**：✅ 已修复（2026-09-02）。新增 `scripts/repair_usdz_polygon_limit.py`，用 Apple USD 工具链把所有 ≥256 顶点面拆为 `<256` 的合法面，同时同步 remap face-varying normals、UV 与 GeomSubset face indices，重打包并替换 `QiuJi/Resources/TaiQiuZhuo.usdz`；修复后 `Plane_001` 为 167,955 面、max face=255、0 个超限面，`usdchecker` 通过。袋口材质改为 renderer 接管前一次性配置，交互仅切 `node.isHidden`；`SceneAimingView` 在 scene 完成装载后才创建 `SCNView`。
+- **验证**：`PocketMarkerHighlightTests` 2/0（含最低 Runtime 的 `SCNRenderer` 真正渲染一帧）；A5 Light `DeviceMatrixUITests` 3/0、3 张截图图像门禁通过；A3 Light 同套回归 3/0；A5 相同源码指纹 `--resume` 1.7 秒复用已验证结果。证据位于 `build/v50/matrix/ios-17.0/A5-iPad-mini-6th-generation/light/standard/contract/` 与 `build/v50/matrix/ios-26.2/A3-iPhone-17-Pro/light/standard/contract/`。
+- **日期**：2026-09-02
+- **规则改进建议**：① USDZ 门禁必须遍历所有 Mesh 并拒绝 max face vertices ≥256；② `usdchecker` 不能替代最低 Runtime 的真实 `SCNRenderer` 单帧渲染；③ SceneKit live scene 上避免高频改材质对象，优先预建材质后切节点状态；④ 最新 Runtime 通过不得外推最低 Runtime。
+- **已应用至**：`.cursor/rules/20-swiftui-developer.mdc` § FL-023（2026-09-02）。
+
+## FL-032
+- **任务**：问题集合 v50 W7，最低 Runtime 完整安全单测与 SwiftData V2→V3 迁移复验。
+- **现象**：iOS 17 上旧版自定义计划迁移后，部分多球形动作的原总组数被直接当成新版“每球形轮数”，训练剂量被放大；依赖当前 Bundle 推导旧数据含义时还会因测试/迁移进程拿不到历史内容而回退为 1。
+- **严重程度**：P1（升级后用户自定义训练剂量会被静默改写，属于持久数据语义损坏）。
+- **根因**：✅ 已定位。V2→V3 自定义 migration callback 同时依赖当前 `DrillContentService` Bundle 内容并在迁移阶段直接写目标对象；历史数据解释随 App 内容版本漂移，且 iOS 17 的自定义迁移阶段写入不稳定。
+- **解决**：✅ 已修复（2026-09-02）。`roundsPerFormation` 使用 `@Attribute(originalName: "sets")` 走轻量字段迁移；V2→V3 改为 lightweight；打开持久 store 前通过 SQLite schema 判断是否仍是旧列，打开成功后再在正常 `ModelContext` 中按不可变 v31 球形数快照归一化。快照覆盖 19 个多球形动作并保留已下架 c006，迁移不再读取 Bundle。
+- **验证**：新增“formation count snapshot 不依赖当前 Bundle”守卫；A1/iOS 17 与 A3/iOS 26.2 的 migration 聚焦回归通过，随后两套 Runtime 的 152 类安全单测分片全部零退出。首轮失败保存在 `build/v50/diagnostics/w7-safe-unit-initial/`，最终证据在 `build/v50/matrix/.../safe-unit-{1,2,3,4}/`。
+- **日期**：2026-09-02
+- **规则改进建议**：版本迁移解释旧数据时禁止读取会随版本变化的 Bundle 内容；优先使用字段原名轻量迁移、不可变历史快照与 store 结构探测，并把归一化放在正常打开后的 ModelContext 中执行。
+- **已应用至**：`.cursor/skills/simulator-matrix-qa/SKILL.md`（2026-09-02）。
+
+## FL-033
+- **任务**：问题集合 v50 W7，iOS 17 安全单测对训练保存、历史 DTO 与下行恢复链路扩面。
+- **现象**：iOS 26 既有测试长期通过；iOS 17 在保存训练、读取未托管历史关系以及恢复含 DrillEntry/DrillSet 的远端记录时稳定卡住，约 20 秒后测试宿主以 `signal trap` 重启。分片与聚焦测试仍可复现，排除单纯长套件噪声。
+- **严重程度**：P1（最低支持系统上训练保存/恢复可能挂起或崩溃，核心记录链路不可依赖）。
+- **根因**：✅ 已定位。生产保存与恢复代码、以及部分测试夹具，均先把未托管的 `TrainingSession → DrillEntry → DrillSet` 拼成关系树，再只插入根对象；iOS 26 容忍该隐式级联，iOS 17 的 SwiftData 在部分关系遍历/持久化路径会 trap。测试中同时保留多个内存容器还会产生 model configuration 不兼容。
+- **解决**：✅ 已修复（2026-09-02）。`ActiveTrainingViewModel.saveTraining` 与 `SyncRestoreService` 先把每个节点插入同一 `ModelContext`，再设置 inverse 关系；DTO/History/Restore 测试夹具采用同一路径，远端源数据在同一 context 完成实体→DTO 后显式清理，不再并存第二个容器。删除仓储继续显式按 DrillSet→DrillEntry→TrainingSession 删除，规避 iOS 17 cascade 残留。
+- **验证**：A1/iOS 17 `w7-active-training`、`w7-history-data`（35/35）、`w7-restore-sync`（11/11）、SwiftData model 与 local repository 聚焦测试均通过；最终 A1/A3 的 152 类安全分片全绿。原始 trap 与 xcresult 保存在 `build/v50/diagnostics/w7-safe-unit-final/`。
+- **日期**：2026-09-02
+- **规则改进建议**：最低 Runtime 必须单独验证 SwiftData 关系写入、迁移与删除；不要以最新 Runtime 对未托管关系图的宽容行为外推最低线，测试夹具也必须遵守生产对象生命周期。
+- **已应用至**：`.cursor/skills/simulator-matrix-qa/SKILL.md`（2026-09-02）。
+
+## FL-034
+- **任务**：问题集合 v50 W7/W8，A1–A8 同名 66 页截图的跨设备视觉比较。
+- **现象**：A1/A3 的 `00-launch`、训练首页与统计页继承了模拟器以前留下的激活计划和训练记录，A2 却是空数据；三台都能生成 66 张 PNG，XCTest、manifest、尺寸和解码门禁仍全部通过。同一 `standard` 分组实际混入不同产品状态，数量门禁形成假绿。
+- **严重程度**：P1（测试可靠性；会让跨尺寸视觉结论失去共同基线，但不是生产 App 在真实用户数据下的功能缺陷）。
+- **根因**：✅ 已定位。`testDesignerPageDump` 只固定 Pro/语言并清空截图目录，仍使用各模拟器的磁盘 SwiftData；巡游内部为 SceneKit/球理稳定性做的多次软重启也只保留 `-forcePremium`，没有固定数据 fixture。截图完整性门禁只能检查文件名和图像健康，无法判断同名页面是否处于同一数据状态。
+- **解决**：✅ 已修复（2026-09-02）。设计巡游启用 `usesDeterministicInMemoryStore`，经统一 `launchPremium()` 在首启及所有软重启持续传入 `-v50.inMemoryStore`；其他持久化测试和生产启动仍使用磁盘容器。联系表审查新增“跨设备同名页状态语义横向比较”，并回写 `simulator-matrix-qa` 技能。
+- **验证**：最终源码指纹 `58881e93ff31c40c63cbbee26ae2e9e64c9d5efe76a940b2660a14e5beb97a8f` 下，A1–A8 × Light/Dark 16/16 个巡游均为 66/66，合计 1,056/1,056；`00-launch` 均为“未激活计划”基线、历史页均为空数据，代表球桌的轨迹/网格偏好一致。16/16 张最终联系表逐页横向审查未再出现状态漂移。
+- **日期**：2026-09-02
+- **规则改进建议**：跨设备视觉回归必须同时固定数据库与可见偏好；所有软重启继承同一 fixture。manifest/哈希/解码只证明“图片存在且可读”，联系表还必须比较同名页面的数据状态语义。
+- **已应用至**：✅ `.cursor/skills/simulator-matrix-qa/SKILL.md`（2026-09-02）。
+
+## FL-035
+- **任务**：问题集合 v53 W7，账号资料跨端契约完成审计。
+- **现象**：iOS 昵称校验允许 1–40 字符而服务端只接受 1–20；iOS 球龄写入 `oneToThree/threeToFive/fivePlus`，服务端却只接受 `oneTo3/threeTo5/moreThan5`。前者让 21–40 字符昵称产生客户端可提交、服务端必拒绝，后者让三个常用球龄选项更新失败，并使已写入旧值在恢复时回落默认值。
+- **严重程度**：P0（用户资料无法可靠写入和恢复，直接违反本轮“真实资料而非假成功”目标）。
+- **根因**：✅ 已定位。客户端和服务端分别维护字符串枚举与长度范围，初始定向测试只各测本端合法/非法，没有用同一组 canonical fixture 做双端闭环。
+- **解决**：✅ 已修复（2026-09-03）。昵称统一为 1–20 字符；球龄统一使用 iOS/DTO 既有 canonical 值，服务端 serializer 继续兼容三个早期旧别名，避免已有数据恢复失真。
+- **验证**：backend 8/8、v53 iOS 定向单测 37/37、P8 Profile/Settings UI 17/17；新增 20/21 字符边界、canonical 写入、旧别名归一化与登录资料恢复用例。
+- **日期**：2026-09-03
+- **规则改进建议**：共享 DTO 的字符串枚举和长度边界必须以一组 canonical fixture 同时驱动两端测试；单端“合法值通过”不能替代跨端契约验证。
+- **已应用至**：`问题集合_v53.md` P53-22/P53-23、W0/W7 与 v53.3 执行证据。
+
+## FL-036
+- **任务**：问题集合 v53 W7，头像与账号注销隐私一致性复审。
+- **现象**：`DELETE /user/account` 删除用户、训练记录和角度测试后直接返回“账号及所有数据已删除”，但 `AVATAR_STORAGE_DIR` 中的头像文件仍保留。
+- **严重程度**：P0（可关联账号的用户图片在注销后成为孤儿文件，产品文案与实际删除范围不一致）。
+- **根因**：✅ 已定位。头像是在 v53 新增的文件存储面，而既有注销路由只枚举 Mongo 模型；删除清单没有随新增数据面同步扩展，也没有针对文件存储失败设计可重试顺序。
+- **解决**：✅ 已修复（2026-09-03）。新增 `accountDeletion` 服务：先读取用户头像 revision 并删除对应文件，成功后再并行删除训练、角度和用户记录；头像存储失败时保留账号/revision，使后续重试仍能定位文件。
+- **验证**：backend 13/13；新增正常删除顺序与头像存储失败时数据库零删除两项测试。
+- **日期**：2026-09-03
+- **规则改进建议**：新增任何账号关联存储面时，必须同步更新注销数据面清单、隐私政策和删除失败重试测试；接口成功文案不得超出实际删除集合。
+- **已应用至**：`问题集合_v53.md` P53-25、W0/W7 与 v53.5 执行证据。
+
+## FL-037
+- **任务**：问题集合 v53 W7，客户端注销与跨账号异步状态完成审计。
+- **现象**：云端注销成功后，iOS 仍保留账号昵称/偏好和多个头像 revision 缓存；若随后 account→guest 本地迁移失败，界面会继续停在已被服务端删除的登录态。与此同时，账号 A 的迟到资料/头像响应及头像请求 `defer` 可在已切换到 B 后改写 B 的显示或 loading phase；“清除所有缓存”也没有覆盖头像 JPEG。
+- **严重程度**：P0（账号删除真实性、数据可恢复性与 A/B 隔离）；缓存按钮漏清本身为 P2。
+- **根因**：✅ 已定位。删号流程把服务端删除、本地 owner 迁移、账号展示缓存清理绑在一个不可补偿的 `do/catch` 中；资料/头像异步写回只校验请求发起身份，头像 store 又以全局 phase 和非版本化回滚收尾；自建文件缓存未登记到 Settings 缓存边界。
+- **解决**：✅ 已修复（2026-09-03）。删号后清账号级 UserDefaults 与全部头像 revision；服务端成功后先落持久补偿标记，本地迁移失败也清会话，并在下次 `AccountDataCoordinator.configure` 幂等重试 account→guest，同时用删除专用策略丢弃旧 account 同步队列；认证资料写回核对当前 user id；头像 load/upload/delete 使用 operation generation，旧请求不能覆盖新图、错误或 phase；Settings 缓存体积与清理均纳入头像目录。
+- **验证**：v53 iOS 专项 43/43；其中新增删号资料缓存、全 revision 头像缓存、启动补偿迁移及旧队列丢弃、A 迟到头像响应不覆盖 B 且不提前结束 B loading 等回归。P8 Profile/Settings UI 17/17；标准 Debug build、PrivacyInfo/Info.plist lint 与 v47 route/write-surface 129 门禁通过。
+- **日期**：2026-09-03
+- **规则改进建议**：账号删除应按“不可逆远端提交 + 可恢复本地补偿”设计 saga；任何共享异步 UI store 都必须以当前 owner 和 operation generation 双重校验写回，新增缓存目录时同步更新清理入口与写盘台账。
+- **已应用至**：`问题集合_v53.md` P53-26–P53-29、W3/W4/W7 与 v53.6 执行证据；`docs/design/v47/write-surface-audit.md`。

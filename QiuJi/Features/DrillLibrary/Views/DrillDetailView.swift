@@ -3,6 +3,7 @@ import SwiftData
 
 struct DrillDetailView: View {
     let drillId: String
+    let ownerKey: String
 
     @State private var drill: DrillContent?
     @State private var showSubscription = false
@@ -33,6 +34,18 @@ struct DrillDetailView: View {
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
 
+    init(drillId: String, ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.drillId = drillId
+        self.ownerKey = ownerKey
+        _favorites = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+        _customPlans = Query(
+            filter: #Predicate { $0.ownerKey == ownerKey },
+            sort: \CustomPlan.createdAt,
+            order: .reverse
+        )
+        _activePlans = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+    }
+
     private var isFavorited: Bool {
         favorites.contains { $0.drillId == drillId }
     }
@@ -40,23 +53,6 @@ struct DrillDetailView: View {
     private var isLocked: Bool {
         guard let drill else { return false }
         return drill.isPremium && !subscriptionManager.isPremium
-    }
-
-    private var activeCustomPlan: CustomPlan? {
-        guard let active = activePlans.first(where: \.isCustom),
-              let uuid = UUID(uuidString: active.planId) else { return nil }
-        return customPlans.first { $0.id == uuid }
-    }
-
-    /// §3.4：今日 = 模版 / 官方 / 无激活。
-    private var addToTrainingTodaySource: AddToTrainingTodaySource {
-        if let custom = activeCustomPlan {
-            return .template(custom.id)
-        }
-        if activePlans.contains(where: { !$0.isCustom }) {
-            return .official
-        }
-        return .none
     }
 
     var body: some View {
@@ -168,13 +164,12 @@ struct DrillDetailView: View {
                 AddDrillToTrainingSheet(
                     drill: drill,
                     customPlans: customPlans,
-                    todaySource: addToTrainingTodaySource,
-                    hasAnyActivePlan: !activePlans.isEmpty,
+                    onAddToToday: { addDrillToToday(drill) },
                     onAddToPlan: { plan in
                         addDrill(drill, to: plan)
                     },
-                    onCreatePlan: { name, activate in
-                        createPlan(name: name, drill: drill, activateAsToday: activate)
+                    onCreatePlan: { name in
+                        createPlan(name: name, drill: drill, activateAsToday: false)
                     }
                 )
             }
@@ -542,6 +537,21 @@ struct DrillDetailView: View {
         }
     }
 
+    private func addDrillToToday(_ drill: DrillContent) {
+        do {
+            let result = try TodayTrainingScheduleService(context: modelContext).addLibraryDrill(
+                id: drill.id, title: drill.nameZh, ownerKey: ownerKey
+            )
+            showAddToTraining = false
+            switch result {
+            case .added: toast = BTToastMessage("已加入今日安排")
+            case .alreadyPresent: toast = BTToastMessage("已在今日安排", tone: .info)
+            }
+        } catch {
+            toast = BTToastMessage("加入失败，请稍后重试", tone: .error)
+        }
+    }
+
     private func createPlan(name: String, drill: DrillContent, activateAsToday: Bool) {
         do {
             let (_, result) = try DrillTrainingPlanService.createPlan(
@@ -587,7 +597,7 @@ struct DrillDetailView: View {
             if let existing = favorites.first(where: { $0.drillId == drillId }) {
                 modelContext.delete(existing)
             } else {
-                modelContext.insert(DrillFavorite(drillId: drillId))
+                modelContext.insert(DrillFavorite(drillId: drillId, ownerKey: ownerKey))
             }
         }
     }
@@ -595,38 +605,15 @@ struct DrillDetailView: View {
 
 // MARK: - Add to training sheet
 
-/// §3.4 加入训练 sheet 的「当前今日」三态。
-enum AddToTrainingTodaySource: Equatable {
-    case template(UUID)
-    case official
-    case none
-}
-
-/// D-v43-6：新建并勾选「设为今日训练」时，已有激活必须确认再替换。
-enum AddToTrainingSheetPolicy {
-    static func needsReplaceConfirm(activateAsToday: Bool, hasAnyActivePlan: Bool) -> Bool {
-        activateAsToday && hasAnyActivePlan
-    }
-}
-
 private struct AddDrillToTrainingSheet: View {
     let drill: DrillContent
     let customPlans: [CustomPlan]
-    let todaySource: AddToTrainingTodaySource
-    let hasAnyActivePlan: Bool
+    let onAddToToday: () -> Void
     let onAddToPlan: (CustomPlan) -> Void
-    let onCreatePlan: (_ name: String, _ activateAsToday: Bool) -> Void
+    let onCreatePlan: (_ name: String) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var newPlanName: String = ""
-    @State private var activateNewAsToday = true
-    @State private var showReplaceConfirm = false
-    @State private var pendingCreateName: String?
-
-    private var activeCustomPlanId: UUID? {
-        if case .template(let id) = todaySource { return id }
-        return nil
-    }
 
     var body: some View {
         NavigationStack {
@@ -644,9 +631,7 @@ private struct AddDrillToTrainingSheet: View {
                                     subtitle: DrillTrainingPlanService.planContainsDrill(plan, drillId: drill.id)
                                         ? "已包含 · \(plan.drills.count) 项"
                                         : "\(plan.drills.count) 项",
-                                    systemImage: plan.id == activeCustomPlanId
-                                        ? "checkmark.circle.fill"
-                                        : "list.bullet.clipboard",
+                                    systemImage: "list.bullet.clipboard",
                                     emphasized: false
                                 )
                             }
@@ -658,7 +643,6 @@ private struct AddDrillToTrainingSheet: View {
                 Section("新建模版") {
                     TextField("模版名称", text: $newPlanName)
                         .accessibilityIdentifier("newPlanNameField")
-                    Toggle("设为今日训练", isOn: $activateNewAsToday)
                     Button {
                         requestCreatePlan()
                     } label: {
@@ -674,21 +658,6 @@ private struct AddDrillToTrainingSheet: View {
                     Button("取消") { dismiss() }
                 }
             }
-            .confirmationDialog(
-                "用于今日训练",
-                isPresented: $showReplaceConfirm,
-                titleVisibility: .visible
-            ) {
-                Button("取消", role: .cancel) { pendingCreateName = nil }
-                Button("确定") {
-                    if let name = pendingCreateName {
-                        onCreatePlan(name, true)
-                    }
-                    pendingCreateName = nil
-                }
-            } message: {
-                Text("将替换当前的今日安排。确定用「\(pendingCreateName ?? "")」作为今天的训练吗？")
-            }
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
@@ -701,56 +670,24 @@ private struct AddDrillToTrainingSheet: View {
 
     @ViewBuilder
     private var todaySection: some View {
-        switch todaySource {
-        case .template(let id):
-            if let today = customPlans.first(where: { $0.id == id }) {
-                Section {
-                    Button {
-                        onAddToPlan(today)
-                    } label: {
-                        planRow(
-                            title: "今日训练 · \(today.name)",
-                            subtitle: DrillTrainingPlanService.planContainsDrill(today, drillId: drill.id)
-                                ? "已包含该动作"
-                                : "加入后会出现在训练 Tab 今日清单",
-                            systemImage: "sun.max.fill",
-                            emphasized: true
-                        )
-                    }
-                    .accessibilityIdentifier("addToTodayTrainingRow")
-                } header: {
-                    Text("今日训练")
-                }
+        Section("今日安排") {
+            Button(action: onAddToToday) {
+                planRow(
+                    title: "加入今日安排",
+                    subtitle: "作为独立训练项，不影响当前官方计划",
+                    systemImage: "sun.max.fill",
+                    emphasized: true
+                )
             }
-        case .official:
-            Section {
-                Text("当前今日来自官方计划，不能往课表里加动作。可加入已有模版，或新建模版并设为今日（将替换官方计划）。")
-                    .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
-            }
-        case .none:
-            Section {
-                Text("当前没有今日训练。可新建模版并设为今日，或先加入已有模版。")
-                    .font(.btFootnote)
-                    .foregroundStyle(.btTextSecondary)
-            }
+            .accessibilityIdentifier("addToTodayTrainingRow")
         }
     }
 
-    /// Toggle 开且已有激活 → 确认后再 createPlan；Toggle 关或不存在激活 → 直接创建。
     private func requestCreatePlan() {
         let name = newPlanName.trimmingCharacters(in: .whitespacesAndNewlines)
         let fallback = "从动作库 · \(drill.nameZh)"
         let resolved = name.isEmpty ? fallback : name
-        if AddToTrainingSheetPolicy.needsReplaceConfirm(
-            activateAsToday: activateNewAsToday,
-            hasAnyActivePlan: hasAnyActivePlan
-        ) {
-            pendingCreateName = resolved
-            showReplaceConfirm = true
-        } else {
-            onCreatePlan(resolved, activateNewAsToday)
-        }
+        onCreatePlan(resolved)
     }
 
     private func planRow(

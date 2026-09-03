@@ -746,7 +746,7 @@ struct AimPointSceneTrainingView: View {
     private func decorativePalette(_ proxy: ShotStageProxy) -> some View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTDecorativeBallPalette(
-            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            ballDiameter: proxy.paletteBallDiameter,
             libraryWidth: libraryWidth,
             opacityForKey: { key in
                 PositionPlayBall.number(for: key) == vm.targetBallNumber ? 1 : 0.25

@@ -3,18 +3,21 @@
   "nameZh": "力度",
   "nameEn": "Force Control",
   "targetLevel": "L1→L2",
-  "durationWeeks": 3,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 90,
+  "estimatedMinutesPerLesson": 90,
   "isPremium": true,
   "description": "先三档/五档标尺与轻推，再强弱杆与软打，最后控力走位链与全力度。c046 不进强弱杆周。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "力度标尺",
-      "sessions": [
+      "id": "plan_force.stage01",
+      "order": 1,
+      "title": "力度标尺",
+      "goal": "掌握力度标尺",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_force.stage01.lesson01",
+          "order": 1,
+          "title": "三档力度控制",
+          "summary": "围绕三档力度控制完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -63,7 +66,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_force.stage01.lesson02",
+          "order": 2,
+          "title": "五档力度阶梯",
+          "summary": "围绕五档力度阶梯完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -131,7 +137,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_force.stage01.lesson03",
+          "order": 3,
+          "title": "轻推控力",
+          "summary": "围绕轻推控力完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -201,11 +210,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "强弱杆与软打",
-      "sessions": [
+      "id": "plan_force.stage02",
+      "order": 2,
+      "title": "强弱杆与软打",
+      "goal": "掌握强弱杆与软打",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_force.stage02.lesson01",
+          "order": 1,
+          "title": "强力高杆",
+          "summary": "围绕强力高杆完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -273,7 +287,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_force.stage02.lesson02",
+          "order": 2,
+          "title": "强力低杆",
+          "summary": "围绕强力低杆完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -341,7 +358,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_force.stage02.lesson03",
+          "order": 3,
+          "title": "软打控力",
+          "summary": "围绕软打控力完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -411,11 +431,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "控力链与全力度",
-      "sessions": [
+      "id": "plan_force.stage03",
+      "order": 3,
+      "title": "控力链与全力度",
+      "goal": "掌握控力链与全力度",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_force.stage03.lesson01",
+          "order": 1,
+          "title": "控力走位",
+          "summary": "围绕控力走位完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -483,7 +508,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_force.stage03.lesson02",
+          "order": 2,
+          "title": "全力度走位综合入门",
+          "summary": "围绕全力度走位综合入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -551,7 +579,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_force.stage03.lesson03",
+          "order": 3,
+          "title": "全力度走位综合检验",
+          "summary": "围绕全力度走位综合检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

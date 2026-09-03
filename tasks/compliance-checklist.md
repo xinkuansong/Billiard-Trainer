@@ -20,14 +20,17 @@
 | 数据类型 | 是否收集 | 用途 | 是否关联用户 |
 |---------|---------|------|------------|
 | 用户 ID（后端用户 ID） | ✅ | App 功能（账号同步） | ✅ |
-| 手机号（登录用） | ✅ | App 功能（身份验证） | ✅（哈希存储）|
+| 姓名/昵称、邮箱（Apple 可选返回 + 用户编辑） | ✅ | 账号认证与资料展示 | ✅ |
+| 头像照片（用户主动选择） | ✅ | App 功能（个人头像） | ✅ |
 | 训练记录（自生成数据） | ✅ | App 功能（数据同步） | ✅ |
+| 产品交互（练习工具日期与停留时长） | ✅ | App 功能、产品分析 | ✅ |
+| 手机号 | ❌（登录尚未开放） | — | — |
 | 设备 ID | ❌ | — | — |
 | 精确位置 | ❌ | — | — |
 | 健康与健身数据 | ❌ | — | — |
 
-- [x] `PrivacyInfo.xcprivacy` 中 `NSPrivacyCollectedDataTypes` 仅包含实际收集的类型（手机号、用户生成内容、用户 ID）✅ 2026-04-05
-- [x] 每个类型标注正确的用途（`NSPrivacyCollectedDataTypePurposes`）：`NSPrivacyCollectedDataTypePurposeAppFunctionality` ✅ 2026-04-05
+- [x] `PrivacyInfo.xcprivacy` 与 v53 实际链路一致：用户 ID、姓名、邮箱、头像照片、训练内容和产品交互；未开放手机号不再误报 ✅ 2026-09-03
+- [x] 每个类型标注正确用途：App Functionality；产品交互另含 Analytics；全部不跟踪 ✅ 2026-09-03
 
 ### 1.3 Required Reason API 声明
 

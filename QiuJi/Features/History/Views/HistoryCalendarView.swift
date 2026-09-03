@@ -6,6 +6,7 @@ enum HistoryRoute: Hashable {
 }
 
 struct HistoryCalendarView: View {
+    let ownerKey: String
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @Environment(\.modelContext) private var modelContext
@@ -17,6 +18,10 @@ struct HistoryCalendarView: View {
     @State private var selectedCognitiveSession: CognitiveSessionItem?
 
     private let weekdayLabels = ["一", "二", "三", "四", "五", "六", "日"]
+
+    init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.ownerKey = ownerKey
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -48,7 +53,7 @@ struct HistoryCalendarView: View {
         }) {
             if let id = selectedSessionId {
                 NavigationStack {
-                    TrainingDetailView(sessionId: id)
+                    TrainingDetailView(sessionId: id, ownerKey: ownerKey)
                 }
             }
         }

@@ -156,8 +156,13 @@ final class DrillTryoutBoardStoreTests: XCTestCase {
     func test_briefLines_withoutFormation_unchanged() async throws {
         let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c042")
         let drill = try XCTUnwrap(loaded)
+        let shot = try XCTUnwrap(drill.shotIntent?.shots.first)
         let lines = DrillTryoutBrief.lines(for: drill)
         let goal = try XCTUnwrap(lines.first(where: { $0.label == "局面目标" }))
-        XCTAssertTrue(goal.text.contains("共 3 杆"), "shotIntent 路径应为 3 杆")
+        XCTAssertEqual(goal.text, "把目标球打进\(PocketDisplay.name(id: shot.pocket))",
+                       "单杆且无 formation 时应直接使用根级 shotIntent 袋口")
+        let reference = try XCTUnwrap(lines.first(where: { $0.label == "参考打法" }))
+        XCTAssertEqual(reference.text, DrillTryoutBrief.referenceText(for: shot),
+                       "无 formation 时参考打法应来自根级 shotIntent")
     }
 }

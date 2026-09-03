@@ -3,18 +3,21 @@
   "nameZh": "分离角",
   "nameEn": "Separation Angle",
   "targetLevel": "L2",
-  "durationWeeks": 4,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 120,
+  "estimatedMinutesPerLesson": 120,
   "isPremium": true,
   "description": "分离角专项：先 90° 与厚薄感知，再不吃库基准与高低杆调制，然后定杆精确与走位应用，最后综合并对照吃库。热身咬合准度Ⅰ中台切角。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "90°、厚与薄",
-      "sessions": [
+      "id": "plan_separation.stage01",
+      "order": 1,
+      "title": "90°、厚与薄",
+      "goal": "掌握90°、厚与薄",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_separation.stage01.lesson01",
+          "order": 1,
+          "title": "分离角90度规则与厚球分离角控制",
+          "summary": "围绕分离角90度规则与厚球分离角控制完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -100,7 +103,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_separation.stage01.lesson02",
+          "order": 2,
+          "title": "薄球分离角感知入门",
+          "summary": "围绕薄球分离角感知入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -172,7 +178,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_separation.stage01.lesson03",
+          "order": 3,
+          "title": "薄球分离角感知检验",
+          "summary": "围绕薄球分离角感知检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -259,11 +268,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "不吃库与高低杆调制",
-      "sessions": [
+      "id": "plan_separation.stage02",
+      "order": 2,
+      "title": "不吃库与高低杆调制",
+      "goal": "掌握不吃库与高低杆调制",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_separation.stage02.lesson01",
+          "order": 1,
+          "title": "不吃库分离角",
+          "summary": "围绕不吃库分离角完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -341,7 +355,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_separation.stage02.lesson02",
+          "order": 2,
+          "title": "高杆缩小分离角",
+          "summary": "围绕高杆缩小分离角完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -409,7 +426,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_separation.stage02.lesson03",
+          "order": 3,
+          "title": "低杆扩大分离角",
+          "summary": "围绕低杆扩大分离角完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -479,11 +499,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "定杆精确与走位应用",
-      "sessions": [
+      "id": "plan_separation.stage03",
+      "order": 3,
+      "title": "定杆精确与走位应用",
+      "goal": "掌握定杆精确与走位应用",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_separation.stage03.lesson01",
+          "order": 1,
+          "title": "定杆分离角精确控制",
+          "summary": "围绕定杆分离角精确控制完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -551,7 +576,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_separation.stage03.lesson02",
+          "order": 2,
+          "title": "分离角走位应用入门",
+          "summary": "围绕分离角走位应用入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -619,7 +647,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_separation.stage03.lesson03",
+          "order": 3,
+          "title": "分离角走位应用检验",
+          "summary": "围绕分离角走位应用检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -691,11 +722,16 @@
       ]
     },
     {
-      "weekNumber": 4,
-      "theme": "综合与吃库对照",
-      "sessions": [
+      "id": "plan_separation.stage04",
+      "order": 4,
+      "title": "综合与吃库对照",
+      "goal": "掌握综合与吃库对照",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_separation.stage04.lesson01",
+          "order": 1,
+          "title": "分离角综合挑战",
+          "summary": "围绕分离角综合挑战完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -763,7 +799,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_separation.stage04.lesson02",
+          "order": 2,
+          "title": "吃库分离角入门",
+          "summary": "围绕吃库分离角入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -831,7 +870,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_separation.stage04.lesson03",
+          "order": 3,
+          "title": "吃库分离角检验",
+          "summary": "围绕吃库分离角检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

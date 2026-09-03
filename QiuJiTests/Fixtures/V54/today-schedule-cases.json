@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "ordinalConvention": "zeroBased",
+  "cases": [
+    {
+      "id": "review_and_current",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 4,
+      "selectedOrdinals": [1, 4],
+      "completionOrder": [1, 4],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"1": "review", "4": "advanceEligible"},
+      "expectedCurrentOrdinal": 5,
+      "expectedCompleted": false
+    },
+    {
+      "id": "current_and_next",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 4,
+      "selectedOrdinals": [4, 5],
+      "completionOrder": [4, 5],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"4": "advanceEligible", "5": "advanceEligible"},
+      "expectedCurrentOrdinal": 6,
+      "expectedCompleted": false
+    },
+    {
+      "id": "current_and_gapped_future",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 4,
+      "selectedOrdinals": [4, 6],
+      "completionOrder": [4, 6],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"4": "advanceEligible", "6": "preview"},
+      "expectedCurrentOrdinal": 5,
+      "expectedCompleted": false
+    },
+    {
+      "id": "future_only",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 4,
+      "selectedOrdinals": [6],
+      "completionOrder": [6],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"6": "preview"},
+      "expectedCurrentOrdinal": 4,
+      "expectedCompleted": false
+    },
+    {
+      "id": "eligible_completed_in_reverse",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 4,
+      "selectedOrdinals": [4, 5],
+      "completionOrder": [5, 4],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"4": "advanceEligible", "5": "advanceEligible"},
+      "expectedCurrentOrdinal": 6,
+      "expectedCompleted": false
+    },
+    {
+      "id": "active_plan_switched_before_completion",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 4,
+      "selectedOrdinals": [4],
+      "completionOrder": [4],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_cueball",
+      "expectedRoles": {"4": "advanceEligible"},
+      "expectedCurrentOrdinal": 4,
+      "expectedCompleted": false
+    },
+    {
+      "id": "duplicate_completion_callback",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 4,
+      "selectedOrdinals": [4],
+      "completionOrder": [4],
+      "repeatCompletionCallbacks": 20,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"4": "advanceEligible"},
+      "expectedCurrentOrdinal": 5,
+      "expectedCompleted": false
+    },
+    {
+      "id": "final_lesson_completes_plan",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": 8,
+      "selectedOrdinals": [8],
+      "completionOrder": [8],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"8": "advanceEligible"},
+      "expectedCurrentOrdinal": null,
+      "expectedCompleted": true
+    },
+    {
+      "id": "completed_plan_review",
+      "planId": "plan_beginner",
+      "lessonCount": 9,
+      "currentOrdinal": null,
+      "selectedOrdinals": [2],
+      "completionOrder": [2],
+      "repeatCompletionCallbacks": 1,
+      "activePlanAtCompletion": "plan_beginner",
+      "expectedRoles": {"2": "review"},
+      "expectedCurrentOrdinal": null,
+      "expectedCompleted": true
+    }
+  ]
+}

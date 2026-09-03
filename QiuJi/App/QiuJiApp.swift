@@ -4,11 +4,18 @@ import SwiftData
 @main
 struct QiuJiApp: App {
     @StateObject private var authState = AuthState()
+    @StateObject private var ownerContext = CurrentOwnerContext.shared
+    @StateObject private var dataCoordinator = AccountDataCoordinator()
     @StateObject private var appRouter = AppRouter()
     @StateObject private var subscriptionManager = SubscriptionManager.shared
+    @StateObject private var avatarStore = AvatarStore.shared
     @Environment(\.scenePhase) private var scenePhase
 
-    let modelContainer = ModelContainerFactory.makeContainer()
+    /// v50 状态矩阵可显式要求一次性内存库，避免上一轮模拟器里的训练记录
+    /// 把“空数据 / 免费门控”用例污染成另一种状态。生产启动没有该参数，仍使用磁盘库。
+    let modelContainer = ProcessInfo.processInfo.arguments.contains("-v50.inMemoryStore")
+        ? ModelContainerFactory.makeInMemoryContainer()
+        : ModelContainerFactory.makeContainer()
 
     init() {
         let brandGreen = UIColor(Color.btPrimary)
@@ -42,8 +49,11 @@ struct QiuJiApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(authState)
+                .environmentObject(ownerContext)
+                .environmentObject(dataCoordinator)
                 .environmentObject(appRouter)
                 .environmentObject(subscriptionManager)
+                .environmentObject(avatarStore)
                 .tint(.btPrimary)
                 .onAppear {
                     SyncQueueManager.shared.configure(context: modelContainer.mainContext)
@@ -51,6 +61,12 @@ struct QiuJiApp: App {
                     // v29 W5：给 W5 之前落库的角度成绩补建 cognitive 会话归属。
                     // 幂等（只处理 sessionId == nil），标志丢失也不会重复建会话。
                     CognitiveSessionBackfill.runOnceIfNeeded(context: modelContainer.mainContext)
+                }
+                .task {
+                    // 与 bootstrap 串行配置，避免冷启动 profile 恢复通知先于 coordinator
+                    // 拿到 ModelContext，导致首次同步/迁移确认被静默丢弃。
+                    dataCoordinator.configure(context: modelContainer.mainContext)
+                    await authState.bootstrap()
                 }
                 .task {
                     #if DEBUG
@@ -81,45 +97,37 @@ struct QiuJiApp: App {
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         Task {
-                            await syncPushThenPull(mode: .incremental)
+                            await dataCoordinator.syncActiveAccount(mode: .incremental,
+                                                                    authState: authState)
                         }
                     }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .didCompleteLogin)) { _ in
-                    Task { await syncPushThenPull(mode: .full) }
+                .onReceive(NotificationCenter.default.publisher(for: .didCompleteLogin)) { note in
+                    guard let userId = note.object as? String else { return }
+                    Task {
+                        await dataCoordinator.handleCompletedLogin(userId: userId,
+                                                                   authState: authState)
+                    }
                 }
-                .onReceive(NotificationCenter.default.publisher(for: .didRequestDataMigration)) { _ in
-                    Task { await migrateAnonymousData() }
+                .onReceive(NotificationCenter.default.publisher(for: .authSessionInvalidated)) { _ in
+                    authState.invalidateSession()
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .didRequestDataMigration)) { note in
+                    guard let userId = note.object as? String else { return }
+                    Task {
+                        await dataCoordinator.confirmGuestMigration(userId: userId,
+                                                                    authState: authState)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .didDeclineDataMigration)) { note in
+                    guard let userId = note.object as? String else { return }
+                    Task {
+                        await dataCoordinator.declineGuestMigration(userId: userId,
+                                                                    authState: authState)
+                    }
                 }
         }
         .modelContainer(modelContainer)
     }
 
-    /// 同步一律「先推后拉」（v36 W3）。
-    /// 顺序不是偏好问题：队列里可能挂着本地删除项，先拉会把刚删掉的记录拉回来；
-    /// 先推则服务端副本已被删除，拉取自然拉不到。上传项同理——先推可以让服务端在
-    /// 本轮就拿到本地最新版本，避免拉回来的旧副本与本地并存造成困惑。
-    /// （推失败时 `SyncRestoreService` 还有第二道防线：跳过队列中仍有 delete 项的 clientId。）
-    @MainActor
-    private func syncPushThenPull(mode: SyncRestoreService.Mode) async {
-        await SyncQueueManager.shared.processQueue(authState: authState)
-        guard authState.isLoggedIn, let userId = authState.currentUser?.id else { return }
-        await SyncRestoreService.shared.restore(userId: userId, mode: mode)
-    }
-
-    @MainActor
-    private func migrateAnonymousData() async {
-        let context = modelContainer.mainContext
-        let descriptor = FetchDescriptor<TrainingSession>(
-            sortBy: [SortDescriptor(\.date)]
-        )
-        guard let sessions = try? context.fetch(descriptor), !sessions.isEmpty else { return }
-        do {
-            let result = try await BackendSyncService.shared.migrateLocalSessions(sessions)
-            print("[Migration] Uploaded \(result.upserted) sessions")
-        } catch {
-            print("[Migration] Failed: \(error.localizedDescription)")
-            authState.errorMessage = "数据同步失败，稍后会自动重试"
-        }
-    }
 }

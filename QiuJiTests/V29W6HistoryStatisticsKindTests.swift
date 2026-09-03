@@ -464,7 +464,12 @@ final class V29W6HistoryStatisticsKindTests: XCTestCase {
         let session = TrainingSession(kind: TrainingSessionKind.drill)
         let a = DrillEntry(drillId: "x", drillNameZh: "半台直线球", orderIndex: 0)
         let b = DrillEntry(drillId: "y", drillNameZh: "小角度进球", orderIndex: 1)
-        session.drillEntries = [b, a]   // 乱序插入，应按 orderIndex 取首项
+        context.insert(session)
+        context.insert(b)
+        context.insert(a)
+        // 乱序关联，应仍按 orderIndex 取首项。
+        b.session = session
+        a.session = session
 
         let vm = HistoryViewModel()
         XCTAssertEqual(vm.displayName(for: session), "半台直线球 等 2 项")
@@ -613,4 +618,5 @@ final class V29W6HistoryStatisticsKindTests: XCTestCase {
         XCTAssertFalse(TrainingSessionKind.countsTowardGoal(TrainingSessionKind.tool))
         XCTAssertFalse(TrainingSessionKind.countsTowardAccuracy(TrainingSessionKind.tool))
     }
+
 }

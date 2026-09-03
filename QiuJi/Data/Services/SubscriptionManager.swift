@@ -11,6 +11,7 @@ final class SubscriptionManager: ObservableObject {
     @Published private(set) var isPremium: Bool = false
     @Published private(set) var products: [Product] = []
     @Published private(set) var purchasedProductIDs: Set<String> = []
+    @Published private(set) var entitlementSnapshots: [StoreEntitlementSnapshot] = []
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
 
@@ -19,6 +20,32 @@ final class SubscriptionManager: ObservableObject {
     var monthlyProduct: Product?  { products.first { $0.id == StoreKitService.monthlyID } }
     var yearlyProduct: Product?   { products.first { $0.id == StoreKitService.yearlyID } }
     var lifetimeProduct: Product? { products.first { $0.id == StoreKitService.lifetimeID } }
+
+    var entitlementStatusLabel: String {
+        Self.entitlementStatusLabel(
+            productIDs: purchasedProductIDs,
+            snapshots: entitlementSnapshots,
+            isPremium: isPremium
+        )
+    }
+
+    static func entitlementStatusLabel(productIDs: Set<String>,
+                                       snapshots: [StoreEntitlementSnapshot],
+                                       isPremium: Bool) -> String {
+        if productIDs.contains(StoreKitService.lifetimeID) { return "永久有效" }
+        let subscriptionIDs: Set<String> = [StoreKitService.monthlyID, StoreKitService.yearlyID]
+        if let expiration = snapshots
+            .filter({ subscriptionIDs.contains($0.productID) && $0.revocationDate == nil })
+            .compactMap(\.expirationDate)
+            .max() {
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "zh_CN")
+            formatter.dateFormat = "yyyy年M月d日"
+            return "有效至 \(formatter.string(from: expiration))"
+        }
+        if !productIDs.isDisjoint(with: subscriptionIDs) { return "订阅有效，状态待刷新" }
+        return isPremium ? "Pro 已解锁，状态待刷新" : "未订阅"
+    }
 
     // MARK: - Private
 
@@ -175,9 +202,10 @@ final class SubscriptionManager: ObservableObject {
             return
         }
         #endif
-        let ids = await service.currentEntitlementProductIDs()
-        purchasedProductIDs = ids
-        isPremium = !ids.isEmpty
+        let snapshots = await service.currentEntitlements()
+        entitlementSnapshots = snapshots
+        purchasedProductIDs = Set(snapshots.map(\.productID))
+        isPremium = !snapshots.isEmpty
     }
 
     // MARK: - Purchase

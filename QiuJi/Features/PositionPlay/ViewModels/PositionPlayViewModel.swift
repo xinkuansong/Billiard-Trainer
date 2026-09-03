@@ -1971,14 +1971,17 @@ final class PositionPlayViewModel: ObservableObject {
     /// 进入开球模式：保存当前桌面 → 挂起求解与可视化 → 摆架。
     /// `manualDeliver`（K6 / D-v8-3a）：停稳后不自动落座，由「取消/重开/完成」
     /// 三态决定何时交付击打阶段。默认 true（自由击球 + Composer 统一手动交付）。
-    func startBreakFlow(game: RackGame, manualDeliver: Bool = true) {
+    func startBreakFlow(game: RackGame,
+                        manualDeliver: Bool = true,
+                        seed: UInt64? = nil,
+                        onOutcome: ((BreakOutcome) -> Void)? = nil) {
         guard !isPlaying, !isRecording, breakRunner == nil else { return }
         invalidatePendingPredict()
         clearTrajectory()
         scene.clearResultNodes(nodes: &selectionNodes)
         scene.hideCueStick()
         boardBeforeBreak = currentSnapshot()
-        let runner = BreakFlowRunner(scene: scene, game: game)
+        let runner = BreakFlowRunner(scene: scene, game: game, seed: seed)
         runner.autoDeliverOnSettle = !manualDeliver
         // 嵌套 ObservableObject 的变化上抛，驱动宿主视图刷新。
         breakChangeForwarder = runner.objectWillChange
@@ -1989,6 +1992,7 @@ final class PositionPlayViewModel: ObservableObject {
             self.loadBoard(board)
             self.statusText = "开球散局已落座 · 可直接编排击打"
         }
+        runner.onOutcomeSettled = onOutcome
         breakRunner = runner
         runner.rackUp()
     }

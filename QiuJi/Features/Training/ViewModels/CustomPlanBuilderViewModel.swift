@@ -75,8 +75,9 @@ final class CustomPlanBuilderViewModel: ObservableObject {
 
     func loadExistingPlan(context: ModelContext) {
         guard let planId = editingPlanId else { return }
+        let ownerKey = CurrentOwnerContext.shared.ownerKey
         let descriptor = FetchDescriptor<CustomPlan>(
-            predicate: #Predicate { $0.id == planId }
+            predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == planId }
         )
         guard let plan = try? context.fetch(descriptor).first else { return }
 
@@ -181,9 +182,10 @@ final class CustomPlanBuilderViewModel: ObservableObject {
         }
 
         do {
+            let ownerKey = CurrentOwnerContext.shared.ownerKey
             if let existingId = editingPlanId {
                 let descriptor = FetchDescriptor<CustomPlan>(
-                    predicate: #Predicate { $0.id == existingId }
+                    predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == existingId }
                 )
                 if let existing = try context.fetch(descriptor).first {
                     existing.name = trimmedName
@@ -197,7 +199,9 @@ final class CustomPlanBuilderViewModel: ObservableObject {
                 }
             }
 
-            let plan = CustomPlan(name: trimmedName, sessionsPerWeek: Self.frozenSessionsPerWeek)
+            let plan = CustomPlan(name: trimmedName,
+                                  sessionsPerWeek: Self.frozenSessionsPerWeek,
+                                  ownerKey: ownerKey)
             plan.drills = buildDrillModels()
             context.insert(plan)
             try context.save()
@@ -211,8 +215,9 @@ final class CustomPlanBuilderViewModel: ObservableObject {
     func activate(planId: UUID, context: ModelContext) throws {
         saveError = nil
         do {
+            let ownerKey = CurrentOwnerContext.shared.ownerKey
             let descriptor = FetchDescriptor<CustomPlan>(
-                predicate: #Predicate { $0.id == planId }
+                predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == planId }
             )
             guard let plan = try context.fetch(descriptor).first else {
                 throw DrillTrainingPlanService.ServiceError.planNotFound

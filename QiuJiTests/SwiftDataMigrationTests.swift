@@ -105,6 +105,14 @@ final class SwiftDataMigrationTests: XCTestCase {
 
     // MARK: - 迁移断言
 
+    func test_v2ToV3FormationCountSnapshot_doesNotDependOnCurrentBundle() {
+        XCTAssertEqual(CustomPlanDoseMigration.legacyFormationCount(forDrillId: "drill_c013"), 2)
+        XCTAssertEqual(CustomPlanDoseMigration.legacyFormationCount(forDrillId: "drill_c026"), 3)
+        XCTAssertEqual(CustomPlanDoseMigration.legacyFormationCount(forDrillId: "drill_c006"), 2,
+                       "已下架动作仍必须按 v31 发布时球形数迁移")
+        XCTAssertEqual(CustomPlanDoseMigration.legacyFormationCount(forDrillId: "drill_unknown"), 1)
+    }
+
     func test_migration_V1_to_V2_preservesAllData_andDefaultsNewFields() throws {
         try seedV1Store()
         XCTAssertTrue(FileManager.default.fileExists(atPath: storeURL.path),
@@ -245,7 +253,7 @@ final class SwiftDataMigrationTests: XCTestCase {
         let container = try ModelContainer(for: v2Schema, configurations: config)
         let context = ModelContext(container)
 
-        let session = TrainingSession(ballType: "chinese8")
+        let session = QiuJiSchemaV3.TrainingSession(ballType: "chinese8")
         session.note = "V2 旧库训练"
         context.insert(session)
 
@@ -359,5 +367,8 @@ final class SwiftDataMigrationTests: XCTestCase {
 
         let angle = AngleTestResult(actualAngle: 30, userAngle: 28, pocketType: "corner")
         XCTAssertNil(angle.sessionId)
+        XCTAssertFalse(TrainingSession().ownerKey.isEmpty)
+        XCTAssertFalse(AngleTestResult(actualAngle: 30, userAngle: 28,
+                                       pocketType: "corner").ownerKey.isEmpty)
     }
 }

@@ -1,11 +1,44 @@
 import SwiftUI
 import SwiftData
 
+struct TrainingSourceBreadcrumbModel: Equatable {
+    let text: String
+    let isNavigable: Bool
+
+    static func make(
+        sourceKind: String?,
+        title: String?,
+        subtitle: String?,
+        sourceExists: Bool
+    ) -> Self? {
+        guard let sourceKind, let title, !title.isEmpty else { return nil }
+        let prefix: String
+        switch sourceKind {
+        case TodayScheduleSourceKind.officialLesson: prefix = "官方计划"
+        case TodayScheduleSourceKind.template: prefix = "我的模版"
+        case TodayScheduleSourceKind.libraryDrill: prefix = "动作库"
+        default: prefix = "训练来源"
+        }
+        let middle = subtitle.flatMap { $0.isEmpty ? nil : $0 }
+        return .init(
+            text: ([prefix] + [middle, title].compactMap { $0 }).joined(separator: " › "),
+            isNavigable: sourceExists
+        )
+    }
+}
+
 struct TrainingDetailView: View {
     let sessionId: UUID
+    let ownerKey: String
+
+    init(sessionId: UUID, ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.sessionId = sessionId
+        self.ownerKey = ownerKey
+    }
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var router: AppRouter
     @State private var session: TrainingSession?
     @State private var showOverflowMenu = false
     @State private var categoryMapping: [String: String] = [:]
@@ -113,6 +146,8 @@ struct TrainingDetailView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
+                    sourceBreadcrumb(session)
+
                     statsRow(session)
 
                     VStack(spacing: Spacing.md) {
@@ -163,6 +198,99 @@ struct TrainingDetailView: View {
             Text(label)
                 .font(.btCaption)
                 .foregroundStyle(.btTextSecondary)
+        }
+    }
+
+    // MARK: - Frozen training source
+
+    @ViewBuilder
+    private func sourceBreadcrumb(_ session: TrainingSession) -> some View {
+        let exists = sourceStillExists(session)
+        if let model = TrainingSourceBreadcrumbModel.make(
+            sourceKind: session.sourceKind,
+            title: session.sourceTitleSnapshot,
+            subtitle: session.sourceSubtitleSnapshot,
+            sourceExists: exists
+        ) {
+            Button {
+                navigateToSource(session)
+            } label: {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: sourceIcon(session.sourceKind))
+                        .foregroundStyle(.btPrimary)
+                    Text(model.text)
+                        .font(.btSubheadline)
+                        .foregroundStyle(.btTextSecondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                    Spacer(minLength: Spacing.sm)
+                    if model.isNavigable {
+                        Image(systemName: "chevron.right")
+                            .font(.btCaption.weight(.semibold))
+                            .foregroundStyle(.btTextTertiary)
+                    }
+                }
+                .padding(Spacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.md))
+            }
+            .buttonStyle(.plain)
+            .disabled(!model.isNavigable)
+            .accessibilityIdentifier("trainingDetail.sourceBreadcrumb")
+            .accessibilityLabel(model.isNavigable ? "\(model.text)，可查看来源" : "\(model.text)，来源已删除")
+        }
+    }
+
+    private func sourceIcon(_ kind: String?) -> String {
+        switch kind {
+        case TodayScheduleSourceKind.officialLesson: return "book.closed"
+        case TodayScheduleSourceKind.template: return "list.bullet.clipboard"
+        case TodayScheduleSourceKind.libraryDrill: return "circle.grid.cross"
+        default: return "link"
+        }
+    }
+
+    private func sourceStillExists(_ session: TrainingSession) -> Bool {
+        switch session.sourceKind {
+        case TodayScheduleSourceKind.officialLesson:
+            guard let planID = session.sourceParentId,
+                  let lessonID = session.lessonId ?? session.sourceId,
+                  let plan = PlanContentService.decodePlanFromBundle(id: planID) else { return false }
+            return plan.lessons.contains { $0.id == lessonID }
+        case TodayScheduleSourceKind.template:
+            guard let rawID = session.sourceId, let id = UUID(uuidString: rawID) else { return false }
+            let descriptor = FetchDescriptor<CustomPlan>(predicate: #Predicate {
+                $0.ownerKey == ownerKey && $0.id == id
+            })
+            return ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
+        case TodayScheduleSourceKind.libraryDrill:
+            guard let id = session.sourceId else { return false }
+            return DrillContentService.decodeDrillFromBundle(id: id) != nil
+        default:
+            return false
+        }
+    }
+
+    private func navigateToSource(_ session: TrainingSession) {
+        guard sourceStillExists(session) else { return }
+        switch session.sourceKind {
+        case TodayScheduleSourceKind.officialLesson:
+            guard let planID = session.sourceParentId else { return }
+            router.selectedTab = .training
+            router.trainingPath = NavigationPath()
+            router.trainingPath.append(TrainingRoute.planDetail(planId: planID))
+        case TodayScheduleSourceKind.template:
+            guard let rawID = session.sourceId, let id = UUID(uuidString: rawID) else { return }
+            router.selectedTab = .training
+            router.trainingPath = NavigationPath()
+            router.trainingPath.append(TrainingRoute.customPlanEdit(planId: id))
+        case TodayScheduleSourceKind.libraryDrill:
+            guard let id = session.sourceId else { return }
+            router.selectedTab = .drillLibrary
+            router.drillLibraryPath = NavigationPath()
+            router.drillLibraryPath.append(id)
+        default:
+            return
         }
     }
 
@@ -315,7 +443,7 @@ struct TrainingDetailView: View {
     private func loadSession() {
         let target = sessionId
         let descriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate { $0.id == target }
+            predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == target }
         )
         session = try? modelContext.fetch(descriptor).first
     }
@@ -463,4 +591,5 @@ struct TrainingDetailView: View {
         TrainingDetailView(sessionId: UUID())
     }
     .modelContainer(for: TrainingSession.self, inMemory: true)
+    .environmentObject(AppRouter())
 }

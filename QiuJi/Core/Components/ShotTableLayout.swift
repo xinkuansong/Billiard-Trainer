@@ -77,7 +77,7 @@ enum ShotStageMetrics {
     static let instrumentWidth: CGFloat = 38
     /// 仪表柱顶部固定区（打点迷你图 + 两行读数）高度——不计入力度条本体，
     /// 使力度条本体与刻度轮**等长、底部对齐**（G5）。
-    static let instrumentTopReserve: CGFloat = 72
+    static let instrumentTopReserve: CGFloat = 84
     /// 开球按钮尺寸（G9）。
     static let breakButtonSize = CGSize(width: 48, height: 46)
     /// 右下动作列（击球/上一杆/回放）尺寸（18.2）——窄款 46 以容进右侧黑边（G6/G11）。
@@ -88,6 +88,12 @@ enum ShotStageMetrics {
     /// 竖条最大 / 最小长度（G7：1.2×220=264；小屏自适应下限）。
     static let maxBarLength: CGFloat = 264
     static let minBarLength: CGFloat = 150
+    /// 紧凑手机上的视觉行程上限。交互仍按 0...1 归一化映射，不改变力度或角度语义。
+    static let compactMaxBarLength: CGFloat = 180
+    static let compactWidthThreshold: CGFloat = 390
+    static let compactTableHeightRatio: CGFloat = 0.45
+    static let paletteHorizontalInset: CGFloat = 8
+    static let paletteMaxWidth: CGFloat = 440
 
     // MARK: G10 chrome band heights（C11 / v7 W2）
 
@@ -98,11 +104,44 @@ enum ShotStageMetrics {
     /// K5/X2: Silu / Snooker join Composer at 94; PlanThree = role (~48) + 36-band.
     enum BottomBarHeight: CGFloat {
         /// Legacy compact-30 palette-only band. No current consumers after K5/X2.
-        case paletteOnly = 78
+        case paletteOnly = 95
         /// Composer / FreePlay / ShotSim / Bank / Diamond / Silu / Snooker / SceneAiming 2D / etc.
         case composer = 94
         /// PlanThree — role row (~48) + regular-36 palette (was 116 @ compact 30).
-        case planThree = 132
+        case planThree = 140
+    }
+
+    static func usesCompactChrome(sceneSize: CGSize) -> Bool {
+        sceneSize.width <= compactWidthThreshold
+    }
+
+    /// 先服从真实空间，再应用视觉档位；绝不允许 minLength 反向制造越界。
+    static func resolvedBarLength(
+        available: CGFloat,
+        tableHeight: CGFloat,
+        sceneSize: CGSize
+    ) -> CGFloat {
+        let nonNegativeAvailable = max(0, available)
+        let visualCap: CGFloat
+        if usesCompactChrome(sceneSize: sceneSize) {
+            visualCap = min(compactMaxBarLength, max(0, tableHeight) * compactTableHeightRatio)
+        } else {
+            visualCap = maxBarLength
+        }
+        let hardCap = min(nonNegativeAvailable, visualCap)
+        // 真实可用空间是不可突破的硬约束；不足 150pt 时宁可缩短视觉行程，也不能越界。
+        return hardCap
+    }
+
+    static func paletteDiameter(sceneSize: CGSize) -> CGFloat {
+        usesCompactChrome(sceneSize: sceneSize)
+            ? BTBallPaletteMetrics.compactDiameter
+            : BTBallPaletteMetrics.regularDiameter
+    }
+
+    static func paletteWidth(sceneSize: CGSize) -> CGFloat {
+        let available = max(0, sceneSize.width - paletteHorizontalInset * 2)
+        return min(available, paletteMaxWidth)
     }
 }
 
@@ -142,8 +181,11 @@ struct ShotStageProxy {
     /// 竖条本体长度（G7 1.5×，受可用竖向空间钳制，防小屏超出球桌上沿 G6）。
     var barLength: CGFloat {
         let avail = controlBottomY - tableRect.minY - ShotStageMetrics.instrumentTopReserve
-        return max(ShotStageMetrics.minBarLength,
-                   min(ShotStageMetrics.maxBarLength, avail))
+        return ShotStageMetrics.resolvedBarLength(
+            available: avail,
+            tableHeight: tableRect.height,
+            sceneSize: sceneSize
+        )
     }
 
     /// 左侧刻度轮 frame：右缘贴球桌左侧（G4），底部对齐 `controlBottomY`（G5）。
@@ -179,8 +221,12 @@ struct ShotStageProxy {
     /// **下沿贴球桌上沿**、靠屏幕最右（带区 = scene 顶部到球桌上沿）。
     var chipBandHeight: CGFloat { max(tableRect.minY, 0) }
 
-    /// 球库排球总宽 = 球桌宽（G8）。
-    var libraryWidth: CGFloat { tableRect.width }
+    /// 球库按页面安全可用宽度排布，并在 iPad 上限制最大宽度；不再绑定窄球桌宽度。
+    var libraryWidth: CGFloat { ShotStageMetrics.paletteWidth(sceneSize: sceneSize) }
+
+    var paletteBallDiameter: CGFloat {
+        ShotStageMetrics.paletteDiameter(sceneSize: sceneSize)
+    }
 
     /// 打点盘贴击球区下沿：卡片底边 → stage 底边的距离（= `sceneHeight − playingRect.maxY`）。
     var spinPadBottomPadding: CGFloat {

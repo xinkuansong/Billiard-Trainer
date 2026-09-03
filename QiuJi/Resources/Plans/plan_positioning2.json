@@ -3,18 +3,21 @@
   "nameZh": "走位Ⅱ·多库与蛇彩",
   "nameEn": "Position II · Multi-Rail & Snake",
   "targetLevel": "L2→L4",
-  "durationWeeks": 4,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 150,
+  "estimatedMinutesPerLesson": 150,
   "isPremium": true,
   "description": "半台往返与两库先于对角、直线组合与三库，最后才上初级蛇彩与横向围 8。热身咬合走位Ⅰ末段。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "半台往返与两库",
-      "sessions": [
+      "id": "plan_positioning2.stage01",
+      "order": 1,
+      "title": "半台往返与两库",
+      "goal": "掌握半台往返与两库",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_positioning2.stage01.lesson01",
+          "order": 1,
+          "title": "上下半台走位",
+          "summary": "围绕上下半台走位完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -81,7 +84,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_positioning2.stage01.lesson02",
+          "order": 2,
+          "title": "两库走位入门",
+          "summary": "围绕两库走位入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -148,7 +154,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_positioning2.stage01.lesson03",
+          "order": 3,
+          "title": "两库走位检验",
+          "summary": "围绕两库走位检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -219,11 +228,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "对角与直线组合",
-      "sessions": [
+      "id": "plan_positioning2.stage02",
+      "order": 2,
+      "title": "对角与直线组合",
+      "goal": "掌握对角与直线组合",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_positioning2.stage02.lesson01",
+          "order": 1,
+          "title": "对角走位",
+          "summary": "围绕对角走位完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -291,7 +305,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_positioning2.stage02.lesson02",
+          "order": 2,
+          "title": "直线球组合走位入门",
+          "summary": "围绕直线球组合走位入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -359,7 +376,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_positioning2.stage02.lesson03",
+          "order": 3,
+          "title": "直线球组合走位检验",
+          "summary": "围绕直线球组合走位检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -430,11 +450,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "三库走位",
-      "sessions": [
+      "id": "plan_positioning2.stage03",
+      "order": 3,
+      "title": "三库走位",
+      "goal": "掌握三库走位",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_positioning2.stage03.lesson01",
+          "order": 1,
+          "title": "三库走位入门",
+          "summary": "围绕三库走位入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -501,7 +526,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_positioning2.stage03.lesson02",
+          "order": 2,
+          "title": "三库走位巩固",
+          "summary": "围绕三库走位巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -568,7 +596,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_positioning2.stage03.lesson03",
+          "order": 3,
+          "title": "三库走位检验",
+          "summary": "围绕三库走位检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -639,11 +670,16 @@
       ]
     },
     {
-      "weekNumber": 4,
-      "theme": "初级蛇彩与横向围 8",
-      "sessions": [
+      "id": "plan_positioning2.stage04",
+      "order": 4,
+      "title": "初级蛇彩与横向围 8",
+      "goal": "掌握初级蛇彩与横向围 8",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_positioning2.stage04.lesson01",
+          "order": 1,
+          "title": "初级蛇彩",
+          "summary": "围绕初级蛇彩完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -696,7 +732,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_positioning2.stage04.lesson02",
+          "order": 2,
+          "title": "横向蛇彩围 8入门",
+          "summary": "围绕横向蛇彩围 8入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -768,7 +807,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_positioning2.stage04.lesson03",
+          "order": 3,
+          "title": "横向蛇彩围 8检验",
+          "summary": "围绕横向蛇彩围 8检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

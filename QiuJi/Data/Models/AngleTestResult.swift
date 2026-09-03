@@ -3,6 +3,7 @@ import SwiftData
 
 @Model
 final class AngleTestResult {
+    var ownerKey: String = OwnerKey.unassigned
     var id: UUID
     var date: Date
     var actualAngle: Double
@@ -20,7 +21,10 @@ final class AngleTestResult {
     var error: Double { abs(actualAngle - userAngle) }
 
     init(actualAngle: Double, userAngle: Double, pocketType: String,
-         quizType: String = "table2D", errorMM: Double = 0, sessionId: UUID? = nil) {
+         quizType: String = "table2D", errorMM: Double = 0, sessionId: UUID? = nil,
+         ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        precondition(!ownerKey.isEmpty && ownerKey != OwnerKey.unassigned)
+        self.ownerKey = ownerKey
         self.id = UUID()
         self.date = Date()
         self.actualAngle = actualAngle

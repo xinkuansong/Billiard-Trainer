@@ -8,12 +8,27 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
     var app: XCUIApplication!
 
     override func setUpWithError() throws {
-        continueAfterFailure = true
-        app = XCUIApplication.launchClean()
+        continueAfterFailure = false
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.freePlay"])
+        try FileManager.default.createDirectory(at: outDir, withIntermediateDirectories: true)
+    }
+
+    private var outDir: URL {
+        let environment = ProcessInfo.processInfo.environment
+        let path = environment["V52_SHOT_DIR"]
+            ?? environment["TEST_RUNNER_V52_SHOT_DIR"]
+            ?? "/Users/song/projects/13.billiard_trainer/build/v52-screenshots/after-standard"
+        return URL(fileURLWithPath: path, isDirectory: true)
     }
 
     private func snap(_ name: String) {
         let shot = XCUIScreen.main.screenshot()
+        let url = outDir.appendingPathComponent("\(name).png")
+        do {
+            try shot.pngRepresentation.write(to: url)
+        } catch {
+            XCTFail("截图写入失败：\(url.path)，\(error)")
+        }
         let att = XCTAttachment(screenshot: shot)
         att.name = name
         att.lifetime = .keepAlways
@@ -28,13 +43,7 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
     }
 
     private func openFreePlay() -> Bool {
-        app.switchTab(.angle)
-        sleep(1)
-        guard switchAngleHomeTab("打") else { return false }
-        let card = app.buttons["自由击球"]
-        guard card.waitForExistence(timeout: 4) else { return false }
-        card.tap()
-        return app.otherElements["freeplay.stage"].waitForExistence(timeout: 5)
+        return app.navigationBars["自由击球"].waitForExistence(timeout: 8)
     }
 
     func testFreePlayLayoutAndTableSizeLock() throws {
@@ -43,7 +52,8 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
             return
         }
         sleep(3)
-        let stage = app.otherElements["freeplay.stage"]
+        let stage = app.descendants(matching: .any)["freeplay.stage"]
+        XCTAssertTrue(stage.waitForExistence(timeout: 5), "自由击球 stage 应可访问")
         let framePocket = stage.frame
         snap("s1-01-freeplay-pocket")
 

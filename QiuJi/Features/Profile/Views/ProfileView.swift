@@ -1,12 +1,27 @@
 import SwiftUI
+import SwiftData
 
 struct ProfileView: View {
+    let ownerKey: String
     @EnvironmentObject private var authState: AuthState
     @EnvironmentObject private var router: AppRouter
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
-    @ObservedObject private var prefs = UserPreferences.shared
+    @EnvironmentObject private var avatarStore: AvatarStore
+    @Environment(\.calendar) private var calendar
+    @Query(sort: \TrainingSession.date, order: .reverse) private var trainingSessions: [TrainingSession]
+    @StateObject private var profile: OwnerProfileStore
     @State private var showLoginSheet = false
     @State private var showSubscription = false
+
+    init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.ownerKey = ownerKey
+        _profile = StateObject(wrappedValue: OwnerProfileStore(ownerKey: ownerKey))
+        _trainingSessions = Query(
+            filter: #Predicate { $0.ownerKey == ownerKey },
+            sort: \TrainingSession.date,
+            order: .reverse
+        )
+    }
 
     private let proCardDarkBG = Color(red: 0.11, green: 0.11, blue: 0.12)
     private let proCardSubtitle = Color.white.opacity(0.7)
@@ -18,7 +33,7 @@ struct ProfileView: View {
                     VStack(spacing: Spacing.lg) {
                         if authState.isLoggedIn {
                             loggedInHeader
-                            monthlyOverview
+                            monthlyOverviewCard
                         } else {
                             guestHeader
                             guestWarning
@@ -34,7 +49,7 @@ struct ProfileView: View {
                             guestBottomActions
                         }
 
-                        Text("版本 1.0.0")
+                        Text(AppMetadata.versionDisplay)
                             .font(.btCaption)
                             .foregroundStyle(.btTextTertiary)
                             .padding(.top, Spacing.sm)
@@ -50,11 +65,11 @@ struct ProfileView: View {
             .navigationDestination(for: String.self) { destination in
                 switch destination {
                 case "favorites":
-                    FavoriteDrillsView()
+                    FavoriteDrillsView(ownerKey: ownerKey)
                 case "personalInfo":
-                    PersonalInfoView()
+                    PersonalInfoView(ownerKey: ownerKey, profile: profile)
                 case "trainingGoal":
-                    TrainingGoalView()
+                    TrainingGoalView(ownerKey: ownerKey, profile: profile)
                 case "subscriptionStatus":
                     SubscriptionStatusView()
                 case "settings":
@@ -62,16 +77,11 @@ struct ProfileView: View {
                 case "about":
                     AboutView()
                 default:
-                    DrillDetailView(drillId: destination)
+                    DrillDetailView(drillId: destination, ownerKey: ownerKey)
                 }
             }
         }
-        .sheet(isPresented: $showLoginSheet, onDismiss: {
-            if authState.pendingMigration {
-                authState.pendingMigration = false
-                authState.showMigrationPrompt = true
-            }
-        }) {
+        .sheet(isPresented: $showLoginSheet) {
             LoginView()
         }
         .sheet(isPresented: $showSubscription) {
@@ -91,6 +101,10 @@ struct ProfileView: View {
         } message: {
             Text(authState.errorMessage ?? "数据同步失败，稍后会自动重试")
         }
+        .task(id: authState.currentUser) {
+            profile.load(from: authState.currentUser)
+            await avatarStore.load(user: authState.currentUser, ownerKey: ownerKey)
+        }
     }
 
     // MARK: - Logged In Header
@@ -98,17 +112,10 @@ struct ProfileView: View {
     private var loggedInHeader: some View {
         NavigationLink(value: "personalInfo") {
             HStack(spacing: Spacing.md) {
-                ZStack {
-                    Circle()
-                        .fill(Color.btPrimary.opacity(0.15))
-                        .frame(width: 56, height: 56)
-                    Image(systemName: BTIcon.person)
-                        .font(.btTitle)
-                        .foregroundStyle(.btPrimary)
-                }
+                ProfileAvatarView(size: 56)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(authState.displayNameOrDefault)
+                    Text(profile.displayName)
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
                     HStack(spacing: Spacing.xs) {
@@ -132,7 +139,7 @@ struct ProfileView: View {
                             .font(.btCaption2)
                             .fontWeight(.semibold)
                             .foregroundStyle(.btAccent)
-                        Text("自动续费中")
+                        Text(subscriptionManager.entitlementStatusLabel)
                             .font(.btMicro)
                             .foregroundStyle(.btTextSecondary)
                     }
@@ -147,44 +154,23 @@ struct ProfileView: View {
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile.accountHeader")
+        .accessibilityLabel("个人信息，\(profile.displayName)")
     }
 
     // MARK: - Monthly Overview
 
-    private var monthlyOverview: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: BTIcon.calendar)
-                    .font(.btFootnote14)
-                    .foregroundStyle(.btTextSecondary)
-                Text("本月概览")
-                    .font(.btFootnote.weight(.semibold))
-                    .foregroundStyle(.btTextSecondary)
-            }
-
-            HStack(spacing: 0) {
-                statColumn(value: "—", label: "练习天数", valueColor: .btPrimary)
-                Divider().frame(height: 32).overlay(Color.btSeparator)
-                statColumn(value: "—", label: "训练时长", valueColor: .btPrimary)
-                Divider().frame(height: 32).overlay(Color.btSeparator)
-                statColumn(value: "—", label: "连续打卡", valueColor: .btAccent)
-            }
-        }
-        .padding(Spacing.lg)
-        .background(Color.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-    }
-
-    private func statColumn(value: String, label: String, valueColor: Color = .btText) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.btTitle)
-                .foregroundStyle(valueColor)
-            Text(label)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-        }
-        .frame(maxWidth: .infinity)
+    private var monthlyOverviewCard: some View {
+        let overview = TrainingGoalMetrics.monthlyOverview(
+            trainingSessions,
+            at: .now,
+            calendar: calendar
+        )
+        return ProfileMonthlyOverviewCard(
+            trainingDays: "\(overview.trainingDays)",
+            duration: overview.formattedDuration,
+            longestStreak: "\(overview.longestStreak)"
+        )
     }
 
     // MARK: - Guest Header
@@ -192,20 +178,13 @@ struct ProfileView: View {
     private var guestHeader: some View {
         Button { showLoginSheet = true } label: {
             HStack(spacing: Spacing.md) {
-                ZStack {
-                    Circle()
-                        .fill(Color.btBGTertiary)
-                        .frame(width: 56, height: 56)
-                    Image(systemName: BTIcon.person)
-                        .font(.btTitle)
-                        .foregroundStyle(.btTextTertiary)
-                }
+                ProfileAvatarView(size: 56)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("点击登录")
+                    Text(profile.displayName == "球迹用户" ? "点击登录" : profile.displayName)
                         .font(.btHeadline)
                         .foregroundStyle(.btPrimary)
-                    Text("游客模式")
+                    Text("游客模式 · 点击登录")
                         .font(.btCaption)
                         .foregroundStyle(.btTextSecondary)
                 }
@@ -221,6 +200,8 @@ struct ProfileView: View {
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
         .buttonStyle(.plain)
+        .accessibilityIdentifier("profile.login")
+        .accessibilityLabel("\(profile.displayName)，游客模式，点击登录")
     }
 
     private var guestWarning: some View {
@@ -300,7 +281,7 @@ struct ProfileView: View {
                 ProfileMenuRow(
                     icon: BTIcon.person,
                     title: "个人信息",
-                    detail: prefs.personalInfoSummary
+                    detail: profile.personalInfoSummary
                 )
             }
             .buttonStyle(.plain)
@@ -311,7 +292,7 @@ struct ProfileView: View {
                 ProfileMenuRow(
                     icon: BTIcon.target,
                     title: "训练目标",
-                    detail: prefs.goalSummary
+                    detail: profile.goalSummary
                 )
             }
             .buttonStyle(.plain)
@@ -331,8 +312,9 @@ struct ProfileView: View {
                 ProfileMenuRow(
                     icon: BTIcon.crown,
                     tint: .accent,
-                    title: "订阅管理",
-                    detail: "Pro 会员",
+                    title: subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID)
+                        ? "Pro 权益" : "订阅管理",
+                    detail: subscriptionManager.entitlementStatusLabel,
                     detailColor: .btTextSecondary
                 )
             }
@@ -366,20 +348,6 @@ struct ProfileView: View {
 
             Divider().padding(.leading, 56)
 
-            Button {
-                if let url = URL(string: "https://qiuji.app/privacy") {
-                    UIApplication.shared.open(url)
-                }
-            } label: {
-                ProfileMenuRow(
-                    icon: BTIcon.successShield,
-                    title: "隐私政策"
-                )
-            }
-            .buttonStyle(.plain)
-
-            Divider().padding(.leading, 56)
-
             NavigationLink(value: "about") {
                 ProfileMenuRow(
                     icon: BTIcon.info,
@@ -396,7 +364,7 @@ struct ProfileView: View {
 
     private var logoutButton: some View {
         Button {
-            authState.logout()
+            Task { await authState.logout() }
         } label: {
             Text("退出登录")
                 .font(.btHeadline)
@@ -416,9 +384,74 @@ struct ProfileView: View {
             }
             .buttonStyle(BTButtonStyle.primary)
 
-            Button("跳过，以游客身份继续") {}
-                .buttonStyle(BTButtonStyle.text)
+            Text("当前已是游客模式，训练记录仅保存在本机")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
         }
+    }
+}
+
+struct ProfileMonthlyOverviewCard: View {
+    let trainingDays: String
+    let duration: String
+    let longestStreak: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(spacing: Spacing.xs) {
+                Image(systemName: BTIcon.calendar)
+                    .font(.btFootnote14)
+                    .foregroundStyle(.btTextSecondary)
+                Text("本月概览")
+                    .font(.btFootnote.weight(.semibold))
+                    .foregroundStyle(.btTextSecondary)
+            }
+
+            HStack(spacing: 0) {
+                statColumn(
+                    value: trainingDays,
+                    label: "练习天数",
+                    identifier: "profile.monthlyOverview.trainingDays",
+                    valueColor: .btPrimary
+                )
+                Divider().frame(height: 32).overlay(Color.btSeparator)
+                statColumn(
+                    value: duration,
+                    label: "训练时长",
+                    identifier: "profile.monthlyOverview.duration",
+                    valueColor: .btPrimary
+                )
+                Divider().frame(height: 32).overlay(Color.btSeparator)
+                statColumn(
+                    value: longestStreak,
+                    label: "最长连续",
+                    identifier: "profile.monthlyOverview.longestStreak",
+                    valueColor: .btAccent
+                )
+            }
+        }
+        .padding(Spacing.lg)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+
+    private func statColumn(value: String,
+                            label: String,
+                            identifier: String,
+                            valueColor: Color = .btText) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.btTitle)
+                .foregroundStyle(valueColor)
+                .monospacedDigit()
+            Text(label)
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier(identifier)
+        .accessibilityLabel("\(label)，\(value)")
     }
 }
 
@@ -465,6 +498,8 @@ private struct ProfileMenuRow: View {
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
         .environmentObject(SubscriptionManager.shared)
+        .environmentObject(AvatarStore.shared)
+        .modelContainer(ModelContainerFactory.makeInMemoryContainer())
 }
 
 #Preview("Logged In") {
@@ -474,6 +509,8 @@ private struct ProfileMenuRow: View {
         .environmentObject(state)
         .environmentObject(AppRouter())
         .environmentObject(SubscriptionManager.shared)
+        .environmentObject(AvatarStore.shared)
+        .modelContainer(ModelContainerFactory.makeInMemoryContainer())
 }
 
 #Preview("Guest Dark") {
@@ -481,6 +518,8 @@ private struct ProfileMenuRow: View {
         .environmentObject(AuthState())
         .environmentObject(AppRouter())
         .environmentObject(SubscriptionManager.shared)
+        .environmentObject(AvatarStore.shared)
+        .modelContainer(ModelContainerFactory.makeInMemoryContainer())
         .preferredColorScheme(.dark)
 }
 
@@ -491,5 +530,7 @@ private struct ProfileMenuRow: View {
         .environmentObject(state)
         .environmentObject(AppRouter())
         .environmentObject(SubscriptionManager.shared)
+        .environmentObject(AvatarStore.shared)
+        .modelContainer(ModelContainerFactory.makeInMemoryContainer())
         .preferredColorScheme(.dark)
 }

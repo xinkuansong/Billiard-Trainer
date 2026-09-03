@@ -3,18 +3,21 @@
   "nameZh": "特殊球",
   "nameEn": "Special Shots",
   "targetLevel": "L3",
-  "durationWeeks": 4,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 90,
+  "estimatedMinutesPerLesson": 90,
   "isPremium": true,
   "description": "先翻角袋与 K 球不吃库，再 K 球吃库、K 球综合挑战与翻中袋，然后贴库，最后安全球。禁止中袋热身伺候角袋衰减主课。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "翻角袋与 K 球不吃库",
-      "sessions": [
+      "id": "plan_advanced.stage01",
+      "order": 1,
+      "title": "翻角袋与 K 球不吃库",
+      "goal": "掌握翻角袋与 K 球不吃库",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_advanced.stage01.lesson01",
+          "order": 1,
+          "title": "翻袋入底袋入门",
+          "summary": "围绕翻袋入底袋入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -63,7 +66,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_advanced.stage01.lesson02",
+          "order": 2,
+          "title": "K球不吃库",
+          "summary": "围绕K球不吃库完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -120,7 +126,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_advanced.stage01.lesson03",
+          "order": 3,
+          "title": "翻袋入底袋检验",
+          "summary": "围绕翻袋入底袋检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -202,11 +211,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "K 球吃库、综合挑战与翻中袋",
-      "sessions": [
+      "id": "plan_advanced.stage02",
+      "order": 2,
+      "title": "K 球吃库、综合挑战与翻中袋",
+      "goal": "掌握K 球吃库、综合挑战与翻中袋",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_advanced.stage02.lesson01",
+          "order": 1,
+          "title": "K球吃库",
+          "summary": "围绕K球吃库完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -292,7 +306,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_advanced.stage02.lesson02",
+          "order": 2,
+          "title": "K球综合挑战",
+          "summary": "围绕K球综合挑战完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -370,7 +387,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_advanced.stage02.lesson03",
+          "order": 3,
+          "title": "翻袋入中袋",
+          "summary": "围绕翻袋入中袋完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -450,11 +470,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "贴库",
-      "sessions": [
+      "id": "plan_advanced.stage03",
+      "order": 3,
+      "title": "贴库",
+      "goal": "掌握贴库",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_advanced.stage03.lesson01",
+          "order": 1,
+          "title": "贴库球处理",
+          "summary": "围绕贴库球处理完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -536,7 +561,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_advanced.stage03.lesson02",
+          "order": 2,
+          "title": "贴库球处理与K球不吃库",
+          "summary": "围绕贴库球处理与K球不吃库完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -615,7 +643,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_advanced.stage03.lesson03",
+          "order": 3,
+          "title": "贴库球处理与K球吃库",
+          "summary": "围绕贴库球处理与K球吃库完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -696,11 +727,16 @@
       ]
     },
     {
-      "weekNumber": 4,
-      "theme": "安全球",
-      "sessions": [
+      "id": "plan_advanced.stage04",
+      "order": 4,
+      "title": "安全球",
+      "goal": "掌握安全球",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_advanced.stage04.lesson01",
+          "order": 1,
+          "title": "防守入门",
+          "summary": "围绕防守入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -773,7 +809,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_advanced.stage04.lesson02",
+          "order": 2,
+          "title": "防守巩固",
+          "summary": "围绕防守巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -843,7 +882,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_advanced.stage04.lesson03",
+          "order": 3,
+          "title": "防守检验",
+          "summary": "围绕防守检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

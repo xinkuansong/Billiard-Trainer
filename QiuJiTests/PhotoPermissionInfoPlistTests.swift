@@ -30,4 +30,20 @@ final class PhotoPermissionInfoPlistTests: XCTestCase {
         XCTAssertNotNil(value, "NSCameraUsageDescription 缺失")
         XCTAssertFalse(value?.isEmpty ?? true)
     }
+
+    /// v50 多设备巡游发现系统导航按钮显示英文 “Back”。App 的产品语言是
+    /// 简体中文，开发语言必须跟随产品语言，系统生成控件才能选中中文资源。
+    func test_developmentRegion_isSimplifiedChinese() {
+        let value = hostBundle.object(forInfoDictionaryKey: "CFBundleDevelopmentRegion") as? String
+        XCTAssertEqual(value, "zh-Hans")
+    }
+
+    /// v50 W5：当前产品只承诺竖屏。若未来开放横屏，应先补齐独立的横屏/窗口
+    /// 视觉矩阵，再有意识地修改本契约，不能因 iPad 接入而静默扩大支持面。
+    func test_supportedOrientations_arePortraitOnly() {
+        let values = hostBundle.object(
+            forInfoDictionaryKey: "UISupportedInterfaceOrientations"
+        ) as? [String]
+        XCTAssertEqual(values, ["UIInterfaceOrientationPortrait"])
+    }
 }

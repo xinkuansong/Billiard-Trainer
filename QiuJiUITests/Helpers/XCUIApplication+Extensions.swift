@@ -13,22 +13,38 @@ extension XCUIApplication {
     }
 
     func switchTab(_ tab: Tab) {
-        // 冷启动可能 >3s 才出现 TabBar：先等待存在再点，规避偶发 "No matches for TabBar"。
-        if tabBars.firstMatch.waitForExistence(timeout: 5) {
-            let tabBarButton = tabBars.buttons[tab.rawValue]
-            if tabBarButton.waitForExistence(timeout: 15) {
-                tabBarButton.tap()
-                return
+        // iOS 26 may expose a floating/top tab item as PopUpButton instead of Button.
+        // Long screenshot tours can also receive one transiently empty AX snapshot after
+        // a soft restart, so activate and retry a bounded number of times before failing.
+        for attempt in 0..<3 {
+            if attempt > 0 {
+                activate()
+                sleep(1)
+            }
+
+            // Query by semantic identity before asking for a TabBar container. iPadOS 26
+            // often exposes the top floating tabs as scope PopUpButtons with no TabBar
+            // ancestor, and waiting for that absent container on every soft restart can
+            // push the 66-page tour into the XCTest host timeout.
+            let candidates = descendants(matching: .any).matching(
+                NSPredicate(
+                    format: "identifier == %@ OR label == %@",
+                    tab.rawValue,
+                    tab.rawValue
+                )
+            )
+            if candidates.firstMatch.waitForExistence(timeout: attempt == 0 ? 5 : 2) {
+                for index in 0..<min(candidates.count, 8) {
+                    let candidate = candidates.element(boundBy: index)
+                    if candidate.exists, candidate.isHittable {
+                        candidate.tap()
+                        return
+                    }
+                }
             }
         }
 
-        // iOS 26 floating tab bar may expose its item as a Cell-backed button outside TabBar descendants.
-        let floatingTabButton = buttons[tab.rawValue].firstMatch
-        XCTAssertTrue(
-            floatingTabButton.waitForExistence(timeout: 5),
-            "Tab '\(tab.rawValue)' should exist"
-        )
-        floatingTabButton.tap()
+        XCTFail("Tab '\(tab.rawValue)' should exist and be hittable after bounded recovery")
     }
 
     // MARK: - Launch Helpers
@@ -50,12 +66,10 @@ extension XCUIApplication {
             if app.state == .runningForeground { break }
             app.launch()
         }
-        // 兜底：若仍停在 Onboarding，点「跳过」。
-        let skip = app.buttons["跳过"]
-        if skip.waitForExistence(timeout: 2) {
-            skip.tap()
-            sleep(1)
-        }
+        // `-hasCompletedOnboarding YES` 已把普通测试固定在主界面。不要在启动期
+        // 额外查询“跳过”按钮：iPad AX 服务繁忙时，名义 2 秒的不存在查询可能
+        // 膨胀到数分钟并让整条长巡游在第一张截图前超时。Onboarding 专项测试
+        // 使用独立 XCUIApplication 和显式 NO 参数，不经过此 helper。
         return app
     }
 

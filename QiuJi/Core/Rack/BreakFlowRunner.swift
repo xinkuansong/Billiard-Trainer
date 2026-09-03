@@ -3,6 +3,17 @@ import SceneKit
 import SwiftUI
 import Combine
 
+/// 开球停稳后的增量结果。旧宿主可继续只消费 `BoardSnapshot`；每日清台用这些事实决定是否重开。
+struct BreakOutcome {
+    let board: BoardSnapshot
+    let game: RackGame
+    let seed: UInt64
+    let pocketedKeys: [String]
+    let cueScratched: Bool
+    let terminalBallPocketed: Bool
+    let settled: Bool
+}
+
 /// 内置开球流程（T-P18-47，设计稿 §3.3-⑨/§5-6）：球形生成器页下线后，其「摆架 →
 /// 开球区拖母球 → 真实物理开球 → 散局就地落座」闭环下沉为可嵌入任意场景页的共享 runner。
 ///
@@ -67,6 +78,8 @@ final class BreakFlowRunner: ObservableObject {
 
     /// 停稳交付：散开球形（刮杆已补回开球区）。宿主负责 loadBoard + 销毁 runner。
     var onSettled: ((BoardSnapshot) -> Void)?
+    /// 带开球事实的增量回调；不替代 `onSettled`，两者可独立使用。
+    var onOutcomeSettled: ((BreakOutcome) -> Void)?
 
     /// 停稳后是否立即交付宿主。全 App 开球统一手动交付（K6 / D-v8-3a）：
     /// 停稳进 `.settled`，用户可「重开」换局或点「完成」手动送入击打阶段。
@@ -74,6 +87,7 @@ final class BreakFlowRunner: ObservableObject {
     var autoDeliverOnSettle = false
     /// `.settled` 阶段暂存的散局（等待「完成」交付）。
     private var settledBoard: BoardSnapshot?
+    private var settledOutcome: BreakOutcome?
 
     var isBusy: Bool { phase == .computing || phase == .breaking }
 
@@ -104,6 +118,7 @@ final class BreakFlowRunner: ObservableObject {
     func rackUp() {
         cancelPlayback()
         settledBoard = nil
+        settledOutcome = nil
         rack = RackLayout.make(game, seed: seed, surfaceY: surfaceY)
         scene.hideAllBalls()
         for b in rack.balls { scene.showBall(key: b.key, scenePosition: b.position) }
@@ -329,12 +344,23 @@ final class BreakFlowRunner: ObservableObject {
             let c = AngleSceneCalculator.sceneToNormalized(position: rack.cue)
             board.onTable[PositionPlayBall.cueKey] = CanvasPoint(x: Double(c.x), y: Double(c.y))
         }
+        let terminalKey = game == .chineseEightBall ? "_8" : "_9"
+        let outcome = BreakOutcome(
+            board: board,
+            game: game,
+            seed: seed,
+            pocketedKeys: result.pocketed,
+            cueScratched: result.cueScratched,
+            terminalBallPocketed: result.pocketed.contains(terminalKey),
+            settled: result.settled
+        )
         if autoDeliverOnSettle {
             statusText = settledHint(result)
-            onSettled?(board)
+            deliver(outcome)
         } else {
             // 条 15.8/15.9：停稳不自动进击打阶段——「重开」换局 / 「完成」手动交付。
             settledBoard = board
+            settledOutcome = outcome
             phase = .settled
             statusText = settledHint(result) + " · 点「完成」进入击打，或「重开」换局"
         }
@@ -350,21 +376,41 @@ final class BreakFlowRunner: ObservableObject {
 
     /// 「完成」（条 15.9）：把停稳散局交付宿主，进入击打阶段。
     func confirmSettled() {
-        guard phase == .settled, let board = settledBoard else { return }
+        guard phase == .settled, let outcome = settledOutcome else { return }
         settledBoard = nil
-        onSettled?(board)
+        settledOutcome = nil
+        deliver(outcome)
     }
 
     /// 测试缝：跳过物理回放，直接走停稳交付分支（与 `finishBreak` 交付语义一致）。
-    func applySettledBoardForTesting(_ board: BoardSnapshot) {
+    func applySettledBoardForTesting(_ board: BoardSnapshot,
+                                     pocketedKeys: [String] = [],
+                                     cueScratched: Bool = false,
+                                     settled: Bool = true) {
+        let terminalKey = game == .chineseEightBall ? "_8" : "_9"
+        let outcome = BreakOutcome(
+            board: board,
+            game: game,
+            seed: seed,
+            pocketedKeys: pocketedKeys,
+            cueScratched: cueScratched,
+            terminalBallPocketed: pocketedKeys.contains(terminalKey),
+            settled: settled
+        )
         if autoDeliverOnSettle {
             statusText = "已停稳"
-            onSettled?(board)
+            deliver(outcome)
         } else {
             settledBoard = board
+            settledOutcome = outcome
             phase = .settled
             statusText = "已停稳 · 点「完成」进入击打，或「重开」换局"
         }
+    }
+
+    private func deliver(_ outcome: BreakOutcome) {
+        onSettled?(outcome.board)
+        onOutcomeSettled?(outcome)
     }
 
     /// 取消开球模式：停动画、清瞄准线。桌面恢复由宿主负责（回填进场前球形）。

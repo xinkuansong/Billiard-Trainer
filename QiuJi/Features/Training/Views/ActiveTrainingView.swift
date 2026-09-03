@@ -181,7 +181,7 @@ struct ActiveTrainingView: View {
 
     private func buildShareSession() -> TrainingSessionSummary {
         let planName: String
-        if case .plan = viewModel.mode {
+        if viewModel.isPlanMode {
             planName = "训练记录"
         } else {
             planName = "自由训练"
@@ -331,97 +331,9 @@ struct ActiveTrainingView: View {
 
     private var frostedTopBar: some View {
         VStack(spacing: 0) {
-            HStack {
-                if viewModel.isTimerSkipped {
-                    HStack(spacing: Spacing.sm) {
-                        Image(systemName: BTIcon.clockPause)
-                            .foregroundStyle(.btTextTertiary)
-                        Text("已跳过计时")
-                            .font(.btSubheadline)
-                            .foregroundStyle(.btTextTertiary)
-                        Button("恢复") { viewModel.unskipTimer() }
-                            .font(.btCaption)
-                            .foregroundStyle(.btPrimary)
-                    }
-                } else {
-                    Text(viewModel.formattedTime)
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.btPrimary)
-                        .contentTransition(.numericText())
-                        .animation(.default, value: viewModel.elapsedSeconds)
-                }
-
-                Spacer()
-
-                HStack(spacing: Spacing.md) {
-                    Button { viewModel.toggleTimer() } label: {
-                        Image(systemName: viewModel.isTimerRunning ? "pause.circle" : "play.circle")
-                            .font(.btTitle2)
-                            .foregroundStyle(.btTextSecondary)
-                    }
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel(viewModel.isTimerRunning ? "暂停计时" : "继续计时")
-
-                    if viewModel.isRestTimerActive {
-                        Button {
-                            if viewModel.isRestOverlayMinimized {
-                                viewModel.expandRestOverlay()
-                            } else {
-                                viewModel.skipRestTimer()
-                            }
-                        } label: {
-                            Text("\(viewModel.restSecondsRemaining)s")
-                                .font(.system(size: 15, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.btAccent)
-                                .frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel(
-                            viewModel.isRestOverlayMinimized
-                                ? "展开组间休息 \(viewModel.restSecondsRemaining)秒"
-                                : "跳过休息 \(viewModel.restSecondsRemaining)秒"
-                        )
-                    } else {
-                        Button { viewModel.startRestTimer() } label: {
-                            Image(systemName: BTIcon.timer)
-                                .font(.btHeadline)
-                                .foregroundStyle(.btTextSecondary)
-                        }
-                        .frame(width: 44, height: 44)
-                        .accessibilityLabel("休息设置")
-                    }
-
-                    Menu {
-                        Button { viewModel.showEndConfirm = true } label: {
-                            Label("结束训练", systemImage: BTIcon.stopCircle)
-                        }
-                        if !viewModel.isTimerSkipped {
-                            Button { viewModel.skipTimer() } label: {
-                                Label("跳过计时", systemImage: BTIcon.forward)
-                            }
-                        } else {
-                            Button { viewModel.unskipTimer() } label: {
-                                Label("恢复计时", systemImage: "clock")
-                            }
-                        }
-                    } label: {
-                        Image(systemName: BTIcon.menu)
-                            .font(.btHeadline)
-                            .foregroundStyle(.btTextSecondary)
-                    }
-                    .buttonStyle(BTPressableStyle.row)
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("更多选项")
-
-                    // F-AT-05: brand green = primary action, not "end"; use stop + secondary tint
-                    Button { viewModel.showEndConfirm = true } label: {
-                        Image(systemName: BTIcon.stopCircle)
-                            .font(.btTitle)
-                            .foregroundStyle(.btTextSecondary)
-                    }
-                    .buttonStyle(BTPressableStyle.row)
-                    .frame(width: 44, height: 44)
-                    .accessibilityLabel("结束训练")
-                }
+            ViewThatFits(in: .horizontal) {
+                trainingTopBarRow(showsStandaloneEnd: true)
+                trainingTopBarRow(showsStandaloneEnd: false)
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.vertical, Spacing.md)
@@ -461,9 +373,131 @@ struct ActiveTrainingView: View {
                 }
             }
             .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.sm)
+            .padding(.bottom, Spacing.md)
         }
         .background(.ultraThinMaterial)
+    }
+
+    private func trainingTopBarRow(showsStandaloneEnd: Bool) -> some View {
+        HStack(spacing: Spacing.sm) {
+            trainingTimerLabel
+
+            Spacer(minLength: Spacing.sm)
+
+            HStack(spacing: Spacing.sm) {
+                    Button { viewModel.toggleTimer() } label: {
+                        Image(systemName: viewModel.isTimerRunning ? "pause.circle" : "play.circle")
+                            .font(.btTitle2)
+                            .foregroundStyle(.btTextSecondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel(viewModel.isTimerRunning ? "暂停计时" : "继续计时")
+                    .accessibilityIdentifier("activeTraining.timerToggle")
+
+                    if viewModel.isRestTimerActive {
+                        Button {
+                            if viewModel.isRestOverlayMinimized {
+                                viewModel.expandRestOverlay()
+                            } else {
+                                viewModel.skipRestTimer()
+                            }
+                        } label: {
+                            Text("\(viewModel.restSecondsRemaining)s")
+                                .font(.system(size: 15, weight: .bold, design: .monospaced))
+                                .foregroundStyle(.btAccent)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel(
+                            viewModel.isRestOverlayMinimized
+                                ? "展开组间休息 \(viewModel.restSecondsRemaining)秒"
+                                : "跳过休息 \(viewModel.restSecondsRemaining)秒"
+                        )
+                        .accessibilityIdentifier("activeTraining.rest")
+                    } else {
+                        Button { viewModel.startRestTimer() } label: {
+                            Image(systemName: BTIcon.timer)
+                                .font(.btHeadline)
+                                .foregroundStyle(.btTextSecondary)
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("休息设置")
+                        .accessibilityIdentifier("activeTraining.rest")
+                    }
+
+                    Menu {
+                        Button { viewModel.showEndConfirm = true } label: {
+                            Label("结束训练", systemImage: BTIcon.stopCircle)
+                        }
+                        if !viewModel.isTimerSkipped {
+                            Button { viewModel.skipTimer() } label: {
+                                Label("跳过计时", systemImage: BTIcon.forward)
+                            }
+                        } else {
+                            Button { viewModel.unskipTimer() } label: {
+                                Label("恢复计时", systemImage: "clock")
+                            }
+                        }
+                    } label: {
+                        Image(systemName: BTIcon.menu)
+                            .font(.btHeadline)
+                            .foregroundStyle(.btTextSecondary)
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(BTPressableStyle.row)
+                    .accessibilityLabel("更多选项")
+                    .accessibilityIdentifier("activeTraining.more")
+
+                    if showsStandaloneEnd {
+                        // 紧凑宽度下由“更多”中的同一动作承载，省出的 52pt 留给完整计时。
+                        Button { viewModel.showEndConfirm = true } label: {
+                            Image(systemName: BTIcon.stopCircle)
+                                .font(.btTitle)
+                                .foregroundStyle(.btTextSecondary)
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(BTPressableStyle.row)
+                        .accessibilityLabel("结束训练")
+                        .accessibilityIdentifier("activeTraining.end")
+                    }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var trainingTimerLabel: some View {
+        if viewModel.isTimerSkipped {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: BTIcon.clockPause)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(.btTextTertiary)
+                    .frame(width: 44, height: 44)
+                    .accessibilityHidden(true)
+                Text("已跳过计时")
+                    .font(.btSubheadline)
+                    .foregroundStyle(.btTextTertiary)
+                    .lineLimit(1)
+                    .accessibilityIdentifier("activeTraining.timer")
+                Button("恢复") { viewModel.unskipTimer() }
+                    .font(.btCaption)
+                    .foregroundStyle(.btPrimary)
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        } else {
+            Text(viewModel.formattedTime)
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .foregroundStyle(.btPrimary)
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.78)
+                .allowsTightening(true)
+                .layoutPriority(1)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.numericText())
+                .animation(.default, value: viewModel.elapsedSeconds)
+                .accessibilityIdentifier("activeTraining.timer")
+                .accessibilityLabel("训练时间 \(viewModel.formattedTime)")
+        }
     }
 
     // MARK: - Drill Record Content
@@ -739,6 +773,8 @@ struct ActiveTrainingView: View {
                 .clipShape(Capsule())
             }
             .buttonStyle(BTPressableStyle.capsule)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
             .accessibilityLabel("最小化组间休息")
         }
         .padding(.horizontal, Spacing.lg)
@@ -771,6 +807,8 @@ struct ActiveTrainingView: View {
                     .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
                 }
                 .buttonStyle(BTPressableStyle.capsule)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
                 .accessibilityLabel("展开组间休息 \(restTimeFormatted)")
                 .padding(.trailing, Spacing.lg)
                 .padding(.bottom, 72)

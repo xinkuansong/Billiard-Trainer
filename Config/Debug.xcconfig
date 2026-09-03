@@ -6,6 +6,10 @@
 // xcconfig 中 // 会被当作注释，用 $() 空变量打断双斜杠
 API_BASE_URL = http:/$()/106.54.3.210:3000
 
+// H-09 正式发布并通过 HTTPS 实测后填写；空值会让 App 保持“尚未发布”。
+LEGAL_TERMS_URL =
+LEGAL_PRIVACY_URL =
+
 // WeChat（H-05 完成后填入）
 WECHAT_APP_ID = YOUR_WECHAT_APP_ID_HERE
 WECHAT_UNIVERSAL_LINK = https:/$()/yourdomain.com/wechat/

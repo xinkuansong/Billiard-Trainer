@@ -197,9 +197,10 @@ struct AngleDynamicView: View {
         // G8：固定列宽求和 = 球桌宽，居中，两侧留白。
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
+        let ballDiameter = proxy.paletteBallDiameter
         return VStack(spacing: 3) {
-            paletteRow(row1, columnWidth: columnWidth)
-            paletteRow(row2, columnWidth: columnWidth)
+            paletteRow(row1, columnWidth: columnWidth, ballDiameter: ballDiameter)
+            paletteRow(row2, columnWidth: columnWidth, ballDiameter: ballDiameter)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(HUDStyle.panelBackground)
@@ -207,23 +208,23 @@ struct AngleDynamicView: View {
         .environment(\.colorScheme, .dark)
     }
 
-    private func paletteRow(_ keys: [String], columnWidth: CGFloat) -> some View {
+    private func paletteRow(_ keys: [String], columnWidth: CGFloat, ballDiameter: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(0..<Self.paletteColumns, id: \.self) { i in
                 Group {
                     if i < keys.count {
-                        ballToken(keys[i])
+                        ballToken(keys[i], diameter: ballDiameter)
                     } else {
                         Color.clear
                     }
                 }
-                .frame(width: columnWidth, height: 38)
+                .frame(width: columnWidth, height: BTBallPaletteMetrics.minimumHitSize)
             }
         }
     }
 
     /// 球库槽位：在库点击上桌；在桌点击（非母球）撤下回库；当前目标球高亮圈。
-    private func ballToken(_ key: String) -> some View {
+    private func ballToken(_ key: String, diameter: CGFloat) -> some View {
         let onTable = vm.onTableKeys.contains(key)
         let isTarget = vm.selectedTargetKey == key
         return Button {
@@ -233,14 +234,14 @@ struct AngleDynamicView: View {
                 vm.placeFromPalette(key)
             }
         } label: {
-            PoolBallFace(key: key, diameter: BTBallPaletteMetrics.regularDiameter)
+            PoolBallFace(key: key, diameter: diameter)
                 .overlay(
                     Circle().stroke(isTarget ? Color.btPrimary : .white.opacity(0.18),
                                     lineWidth: isTarget ? 2 : 0.5)
                 )
-                .frame(width: BTBallPaletteMetrics.slotHeight(for: BTBallPaletteMetrics.regularDiameter),
-                       height: BTBallPaletteMetrics.slotHeight(for: BTBallPaletteMetrics.regularDiameter))
-                .contentShape(Circle())
+                .frame(width: BTBallPaletteMetrics.minimumHitSize,
+                       height: BTBallPaletteMetrics.minimumHitSize)
+                .contentShape(Rectangle())
                 .opacity(onTable ? 0.3 : 1)
         }
         // F-AK-04：球库按下反馈；不改 placeFromPalette / removeFromTable。

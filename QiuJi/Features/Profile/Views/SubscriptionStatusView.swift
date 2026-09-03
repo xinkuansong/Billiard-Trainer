@@ -22,7 +22,7 @@ struct SubscriptionStatusView: View {
                 .padding(.bottom, Spacing.xxxl)
             }
         }
-        .navigationTitle("订阅管理")
+        .navigationTitle(subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID) ? "Pro 权益" : "订阅管理")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .alert("恢复购买", isPresented: $showRestoreAlert) {
@@ -70,24 +70,26 @@ struct SubscriptionStatusView: View {
 
     private var actionsSection: some View {
         VStack(spacing: Spacing.sm) {
-            Button {
-                if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
-                    UIApplication.shared.open(url)
+            if !subscriptionManager.purchasedProductIDs.contains(StoreKitService.lifetimeID) {
+                Button {
+                    if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "creditcard")
+                            .font(.btSubheadline)
+                        Text("管理订阅")
+                            .font(.btCallout.weight(.medium))
+                    }
+                    .foregroundStyle(.btPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.md)
+                    .background(Color.btPrimary.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "creditcard")
-                        .font(.btSubheadline)
-                    Text("管理订阅")
-                        .font(.btCallout.weight(.medium))
-                }
-                .foregroundStyle(.btPrimary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, Spacing.md)
-                .background(Color.btPrimary.opacity(0.1))
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             Button {
                 Task { await handleRestore() }
@@ -120,7 +122,7 @@ struct SubscriptionStatusView: View {
                 .padding(.leading, Spacing.xs)
 
             VStack(spacing: 0) {
-                featureRow(title: "完整动作库", subtitle: "全部 72 个训练动作")
+                featureRow(title: "完整动作库", subtitle: "当前全部训练动作")
                 Divider().padding(.leading, 56)
                 featureRow(title: "统计与趋势图表", subtitle: "可视化训练进度")
                 Divider().padding(.leading, 56)
@@ -177,7 +179,7 @@ struct SubscriptionStatusView: View {
     private var expiryLabel: String {
         let ids = subscriptionManager.purchasedProductIDs
         if ids.contains(StoreKitService.lifetimeID) { return "永久有效" }
-        return "自动续费中"
+        return subscriptionManager.entitlementStatusLabel
     }
 
     // MARK: - Actions

@@ -2,11 +2,18 @@ import SwiftUI
 import SwiftData
 
 struct DrillListView: View {
+    let ownerKey: String
     @StateObject private var viewModel = DrillListViewModel()
     @EnvironmentObject private var router: AppRouter
     @Query private var favorites: [DrillFavorite]
     @Query private var sessions: [TrainingSession]
     @Environment(\.modelContext) private var modelContext
+
+    init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.ownerKey = ownerKey
+        _favorites = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+        _sessions = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+    }
 
     /// Q19.1：侧栏点击回组顶（无记忆）——每次点击分组（含重复点击当前分组）自增，
     /// 触发右侧内容列表滚动到顶部锚点。
@@ -359,7 +366,7 @@ struct DrillListView: View {
         if let existing = favorites.first(where: { $0.drillId == drillId }) {
             modelContext.delete(existing)
         } else {
-            modelContext.insert(DrillFavorite(drillId: drillId))
+            modelContext.insert(DrillFavorite(drillId: drillId, ownerKey: ownerKey))
         }
     }
 }

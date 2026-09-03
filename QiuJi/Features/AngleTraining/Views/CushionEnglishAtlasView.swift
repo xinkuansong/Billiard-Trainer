@@ -278,7 +278,7 @@ struct CushionEnglishAtlasView: View {
                 .minimumScaleFactor(0.8)
             BTBallPaletteBar(
                 coordinateSpace: Self.coordinateSpace,
-                ballDiameter: BTBallPaletteMetrics.regularDiameter,
+                ballDiameter: proxy.paletteBallDiameter,
                 libraryWidth: libraryWidth,
                 isOnTable: { vm.onTableKeys.contains($0) },
                 sceneFrame: sceneFrame,

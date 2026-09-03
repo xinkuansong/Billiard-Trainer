@@ -25,9 +25,11 @@ final class CognitiveSessionRecorder {
     private static let lookbackLimit = 50
 
     private let context: ModelContext
+    private let ownerContext: CurrentOwnerContext
 
-    init(context: ModelContext) {
+    init(context: ModelContext, ownerContext: CurrentOwnerContext? = nil) {
         self.context = context
+        self.ownerContext = ownerContext ?? .shared
     }
 
     struct Resolution {
@@ -51,15 +53,17 @@ final class CognitiveSessionRecorder {
         }
         let session = Self.makeSession(quizType: result.quizType,
                                       start: result.date,
-                                      end: result.date)
+                                      end: result.date,
+                                      ownerKey: ownerContext.ownerKey)
         context.insert(session)
         return Resolution(session: session, isNew: true, durationChanged: false)
     }
 
     /// 构造一条 cognitive 会话。⛔ 不带 `DrillEntry`、不带任何成绩字段——
     /// 成绩本体在 `AngleTestResult`，会话只承载归属与时长。
-    static func makeSession(quizType: String, start: Date, end: Date) -> TrainingSession {
-        let session = TrainingSession(kind: TrainingSessionKind.cognitive)
+    static func makeSession(quizType: String, start: Date, end: Date,
+                            ownerKey: String = DeviceGuestIdentity.ownerKey()) -> TrainingSession {
+        let session = TrainingSession(kind: TrainingSessionKind.cognitive, ownerKey: ownerKey)
         session.date = start
         session.note = AngleQuizType(rawValue: quizType).displayNameZh
         session.totalDurationMinutes = durationMinutes(from: start, to: end)
@@ -75,8 +79,11 @@ final class CognitiveSessionRecorder {
 
     /// 同 quizType 最近一条已归属会话的题目，若与 `date` 间隔在窗口内则复用其会话。
     private func activeSession(quizType: String, at date: Date) throws -> TrainingSession? {
+        let ownerKey = ownerContext.ownerKey
         var descriptor = FetchDescriptor<AngleTestResult>(
-            predicate: #Predicate { $0.quizType == quizType && $0.date <= date },
+            predicate: #Predicate {
+                $0.ownerKey == ownerKey && $0.quizType == quizType && $0.date <= date
+            },
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
         descriptor.fetchLimit = Self.lookbackLimit
@@ -87,7 +94,7 @@ final class CognitiveSessionRecorder {
               date.timeIntervalSince(anchor.date) <= Self.gap else { return nil }
 
         var sessionDescriptor = FetchDescriptor<TrainingSession>(
-            predicate: #Predicate { $0.id == sessionId }
+            predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == sessionId }
         )
         sessionDescriptor.fetchLimit = 1
         guard let session = try context.fetch(sessionDescriptor).first,

@@ -135,6 +135,13 @@ case profile     // 我的
 
 > 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
 
+### ⛔ v50 紧凑屏键盘避让 — 长表单必须由可滚动容器承接焦点位移
+**场景**：带固定 `NavigationBar` 的登录/编辑长表单，需在 iPhone SE 等紧凑屏上弹出键盘。
+**强制检查点**：
+1. 长表单不得使用一条不可滚动的满屏 `VStack` 承受键盘避让；iOS 26 在紧凑高度下可将整个栈上移，使页内标题进入固定导航栏。使用 `ScrollView` + 视口 `minHeight` 保留无键盘排版，键盘态由滚动容器保证焦点和关键操作可达。
+2. 回归不只断言键盘存在；必须断言发送/保存等关键操作与窗口相交，且可见的页内标题不与 `NavigationBar.frame` 相交。
+3. 设备矩阵每个单元必须显式重置 `content_size`；不得依赖上一轮模拟器留下的标准/辅助字号状态。
+
 ### ⛔ FL-033 — 组间休息最小化 ≠ 会话最小化；训练页面 ≠ 训练 Tab
 **场景**：记分页上的组间休息卡要「最小化」；或用户说最小化后应留在训练页面。
 **强制检查点**：
@@ -162,9 +169,10 @@ case profile     // 我的
 ### ⛔ FL-023 — SceneKit 丢弃含巨型 n-gon 的 USDZ 子集；几何存在性禁用包围盒判断
 **场景**：USDZ 模型部分部件在 SceneKit 下不渲染（其他查看器正常）；或需要修改/修复 USDZ 资产
 **强制检查点**：
-1. SceneKit USDZ 导入会**静默丢弃**含 ≥256 顶点面的整个 GeomSubset（实测 255 可/256 丢）。Blender 合并网格 / limited dissolve 后导出必须先三角化或校验 max n-gon。
+1. SceneKit USDZ 导入会**静默丢弃**含 ≥256 顶点面的整个 GeomSubset（实测 255 可/256 丢）；在 iOS 17 的渲染线程中还可能留下 null render element，最终于 `C3DMeshElementGetType` 崩溃。Blender 合并网格 / limited dissolve 后导出必须先三角化或校验 **所有 Mesh 的 max n-gon < 256**，不能只检查目标子集。
 2. 判断「几何是否存在/可渲染」禁止用包围盒或顶点数（孤立顶点撑出假象）；必须数被面片索引引用的顶点，或把目标材质替换成高亮色渲染直接验证。
 3. 修复/嫁接 USDZ 用 USD 工具链（`Sdf.CopySpec` + `UsdUtils.CreateNewUsdzPackage`）；禁经 SceneKit `write(to:)` 往返——线性色空间纯色会被二次伽马编码漂移（实测 0.801→0.957）。
+4. `usdchecker` 通过只证明 USD 结构合法，不证明 SceneKit 可渲染。修改 USDZ 后必须在**最低支持 Runtime** 用 `SCNRenderer` 真正渲染至少一帧，并以 UI 流程再进入一次实际场景；两项都通过才可交付。
 
 ### ⛔ FL-002 — Tab 图标选型须与产品主题对齐
 **场景**：为 Tab Bar 选择 SF Symbol 图标时

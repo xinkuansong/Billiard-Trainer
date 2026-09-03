@@ -113,7 +113,7 @@ struct SubscriptionView: View {
 
     private var featuresList: some View {
         VStack(spacing: Spacing.md) {
-            featureRow(number: 1, title: "完整动作库", subtitle: "解锁全部 72 个训练动作")
+            featureRow(number: 1, title: "完整动作库", subtitle: "解锁当前全部训练动作")
             featureRow(number: 2, title: "统计与趋势图表", subtitle: "可视化你的训练进度")
             featureRow(number: 3, title: "自定义训练计划", subtitle: "打造你的专属训练方案")
             featureRow(number: 4, title: "无限角度测试", subtitle: "不限次数提升角度感知")
@@ -393,13 +393,19 @@ struct SubscriptionView: View {
                 }
                 .disabled(subscriptionManager.isLoading)
 
-                Link("服务条款", destination: URL(string: "https://example.com/terms")!)
-                    .font(.btMicro)
-                    .foregroundStyle(.white.opacity(0.35))
-
-                Link("隐私政策", destination: URL(string: "https://example.com/privacy")!)
-                    .font(.btMicro)
-                    .foregroundStyle(.white.opacity(0.35))
+                if let termsURL = AppConfig.termsURL,
+                   let privacyURL = AppConfig.privacyURL {
+                    Link("用户协议", destination: termsURL)
+                        .font(.btMicro)
+                        .foregroundStyle(.white.opacity(0.55))
+                    Link("隐私政策", destination: privacyURL)
+                        .font(.btMicro)
+                        .foregroundStyle(.white.opacity(0.55))
+                } else {
+                    Text("法律文件链接待发布")
+                        .font(.btMicro)
+                        .foregroundStyle(.white.opacity(0.35))
+                }
             }
         }
     }

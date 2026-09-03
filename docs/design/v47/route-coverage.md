@@ -1,6 +1,6 @@
 # v47 生产路由与页面覆盖
 
-机器可读真源为 `route-coverage.csv`。当前登记 69 个页面：每行必须具备 View、页面族、批次、状态、截图、测试、可达范围和源码锚点；`verify_v47_ui_baseline.py` 会验证必需页面、源码声明与路由表层签名。
+机器可读真源为 `route-coverage.csv`。当前登记 70 个页面：每行必须具备 View、页面族、批次、状态、截图、测试、可达范围和源码锚点；`verify_v47_ui_baseline.py` 会验证必需页面、源码声明与路由表层签名。
 
 ## 可达性入口
 
@@ -30,3 +30,11 @@
 4. 重跑 `make -f scripts/Makefile verify-gate`。
 
 文件名差集只作线索；私有子 View 不按独立页面凑数。CSV 中标为 `planned:*` 或 `new-v47-*` 的证据必须在对应批次落地，W15a 不得保留计划占位符。
+
+## v54 路由与状态补充
+
+- `TrainingHomeView`：登记无安排、只有官方建议、混合来源、部分完成、全完成和昨日未完 6 态。
+- `PlanDetailView`：登记开始、切换、编排、完成后复练 4 种主 CTA，以及阶段/课程选择 sheet。
+- `DrillDetailView` 和 `CustomPlanBuilderView`：登记“加入今日安排”路径，不再经由模版激活/替换官方主线。
+- `TrainingDetailView`：登记来源存在可跳转与源已删除只读两态。
+- 自动截图真源为 `build/ui-reviews/v54/`：iPhone / iPad × Light / Dark，共 52 张；动态字体、VoiceOver 和真实长按拖动仍由 H-27 人工验收。

@@ -45,9 +45,12 @@ struct BTShotInstrumentColumn: View {
             if let onSpinTap {
                 Button(action: onSpinTap) {
                     BTSpinMiniIcon(spinX: spinX, spinY: spinY, diameter: 30)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("打点")
+                .accessibilityIdentifier("shotStage.spinEntry")
                 .disabled(isDisabled || !spinTapEnabled)
             }
 
@@ -66,6 +69,9 @@ struct BTShotInstrumentColumn: View {
             powerBar
         }
         .opacity(isDisabled ? 0.5 : 1)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("打点与力度")
+        .accessibilityIdentifier("shotStage.instrument")
     }
 
     // MARK: - Power bar

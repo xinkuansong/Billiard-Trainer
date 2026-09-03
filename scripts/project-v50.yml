@@ -1,0 +1,10 @@
+# v50 模拟器矩阵专用的同级临时工程定义。
+#
+# Xcode GUI 长期开着 QiuJi.xcodeproj 时，macOS 的 NSFileCoordinator 偶发让
+# xcodebuild 永久阻塞在读取工程容器。这里复用完整真源 project.yml，只覆盖
+# 工程容器名称；调用方通过 V50_PROJECT_NAME 为每个并行 worker 生成不同容器，
+# 源文件相对路径、targets 和 scheme 均保持一致。
+include:
+  - project.yml
+
+name: ${V50_PROJECT_NAME}

@@ -1,3 +1,5 @@
+const path = require("path");
+
 module.exports = {
   mongodbUri: process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/qiuji",
   jwtSecret: process.env.JWT_SECRET || "dev-secret-change-me",
@@ -9,5 +11,13 @@ module.exports = {
   appleBundleId: process.env.APPLE_BUNDLE_ID || "com.xinkuan.qiuji",
   accessTokenExpiry: "1h",
   refreshTokenExpiry: "30d",
+  avatarStorageDir: process.env.AVATAR_STORAGE_DIR || path.join(process.cwd(), "data", "avatars"),
+  legalDocumentsPublished: process.env.LEGAL_DOCUMENTS_PUBLISHED === "true",
+  legalOperatorName: process.env.LEGAL_OPERATOR_NAME || "",
+  legalContactEmail: process.env.LEGAL_CONTACT_EMAIL || "feedback@qiuji.app",
+  legalEffectiveDate: process.env.LEGAL_EFFECTIVE_DATE || "",
+  legalInfrastructureProvider: process.env.LEGAL_INFRASTRUCTURE_PROVIDER || "",
+  legalDataRegion: process.env.LEGAL_DATA_REGION || "",
+  legalBackupRetentionDays: process.env.LEGAL_BACKUP_RETENTION_DAYS || "",
   port: parseInt(process.env.PORT, 10) || 3000,
 };

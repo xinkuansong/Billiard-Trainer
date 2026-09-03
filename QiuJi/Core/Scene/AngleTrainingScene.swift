@@ -1313,7 +1313,12 @@ final class AngleTrainingScene: SCNScene {
         plane.cornerSegmentCount = 48          // 圆周分段数，足够平滑
 
         let material = SCNMaterial()
-        material.diffuse.contents = UIColor.clear     // viable / infeasible 默认不可见
+        // 高亮材质只在节点尚未交给 renderer 时配置一次。iOS 17 的 SceneKit
+        // 会在 render thread 读取 SCNMaterial；运行中改 diffuse / emission
+        // 曾在 iPad mini 上触发 C3DSceneLock EXC_BAD_ACCESS。未选中态改由
+        // node.isHidden 控制，避免与渲染线程并发修改材质属性。
+        material.diffuse.contents = UIColor(red: 1.0, green: 0.40, blue: 0.42, alpha: 0.55)
+        material.emission.contents = UIColor(red: 0.55, green: 0.12, blue: 0.14, alpha: 1)
         material.lightingModel = .constant
         material.isDoubleSided = true
         material.writesToDepthBuffer = false
@@ -1328,6 +1333,7 @@ final class AngleTrainingScene: SCNScene {
         // SCNPlane 默认躺在 XY 平面（垂直于 +Z），绕 X 轴 -π/2 后落到 XZ 平面上、面朝 +Y。
         node.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
         node.renderingOrder = 1000
+        node.isHidden = true
         rootNode.addChildNode(node)
         return node
     }
@@ -1341,18 +1347,13 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func setPocketHighlight(_ node: SCNNode, style: PocketHighlight) {
-        guard let material = node.geometry?.materials.first else { return }
         switch style {
         case .selected:
-            // 淡红色高亮：降低不透明度，让袋内纹理仍可透出，避免一片实心红。
-            // emission 叠加少量红色，使圆盘在暗色台呢上依然清晰可见。
-            material.diffuse.contents = UIColor(red: 1.0, green: 0.40, blue: 0.42, alpha: 0.55)
-            material.emission.contents = UIColor(red: 0.55, green: 0.12, blue: 0.14, alpha: 1)
+            node.isHidden = false
         case .viable, .infeasible:
             // 未选中的袋口（无论可行/不可行）一律不绘制叠加层，
             // 让球桌原本的袋口外观保持自然，避免在桌面上残留红/暗色阴影。
-            material.diffuse.contents = UIColor.clear
-            material.emission.contents = UIColor.clear
+            node.isHidden = true
         }
     }
 

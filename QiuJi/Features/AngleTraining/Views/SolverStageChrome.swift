@@ -446,7 +446,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTBallPaletteBar(
             coordinateSpace: coordinateSpaceName,
-            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            ballDiameter: proxy.paletteBallDiameter,
             isPlaying: vm.isPlaying,
             libraryWidth: libraryWidth,
             isOnTable: { key in

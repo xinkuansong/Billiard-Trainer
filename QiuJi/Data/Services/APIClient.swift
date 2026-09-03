@@ -24,6 +24,18 @@ struct Endpoint {
 struct EmptyResponse: Decodable {}
 struct APIErrorBody: Decodable { let message: String }
 
+protocol APITokenStore: Sendable {
+    func load(_ key: KeychainService.Key) -> String?
+    @discardableResult func save(_ value: String, for key: KeychainService.Key) -> Bool
+}
+
+struct KeychainAPITokenStore: APITokenStore {
+    func load(_ key: KeychainService.Key) -> String? { KeychainService.load(key: key) }
+    func save(_ value: String, for key: KeychainService.Key) -> Bool {
+        KeychainService.save(key: key, value: value)
+    }
+}
+
 /// 日期编解码口径（v36 W3）。
 ///
 /// 上行用 `.iso8601`（无小数秒），Mongoose 能解析。**下行不能也用 `.iso8601`**：
@@ -67,10 +79,14 @@ final class APIClient: Sendable {
     private let session: URLSession
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    private let tokenStore: any APITokenStore
 
-    private init() {
-        self.baseURL = AppConfig.apiBaseURL
-        self.session = .shared
+    init(baseURL: URL = AppConfig.apiBaseURL,
+         session: URLSession = .shared,
+         tokenStore: any APITokenStore = KeychainAPITokenStore()) {
+        self.baseURL = baseURL
+        self.session = session
+        self.tokenStore = tokenStore
 
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
@@ -84,33 +100,46 @@ final class APIClient: Sendable {
     // MARK: - Public
 
     func request<T: Decodable>(_ endpoint: Endpoint) async throws -> T {
-        var req = try buildRequest(endpoint)
-        if let token = KeychainService.load(key: .accessToken) {
-            req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let data = try await requestData(endpoint)
+        if T.self == EmptyResponse.self {
+            return EmptyResponse() as! T
         }
+        return try decoder.decode(T.self, from: data)
+    }
 
-        let (data, response) = try await perform(req)
+    /// Raw response/upload path used by authenticated binary resources such as avatars.
+    /// JSON endpoints continue to use `request(_:)`, so Views never construct URLRequests.
+    func requestData(
+        _ endpoint: Endpoint,
+        rawBody: Data? = nil,
+        contentType: String? = nil
+    ) async throws -> Data {
+        var request = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
+        authorize(&request)
+        let (data, response) = try await perform(request)
 
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
-            let refreshed = try await refreshToken()
-            if refreshed {
-                var retry = try buildRequest(endpoint)
-                if let newToken = KeychainService.load(key: .accessToken) {
-                    retry.setValue("Bearer \(newToken)", forHTTPHeaderField: "Authorization")
+            guard try await refreshToken() else {
+                await MainActor.run {
+                    NotificationCenter.default.post(name: .authSessionInvalidated, object: nil)
                 }
-                let (retryData, retryResp) = try await perform(retry)
-                return try handleResponse(retryData, retryResp)
-            } else {
                 throw AppError.authRequired
             }
+            var retry = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
+            authorize(&retry)
+            let (retryData, retryResponse) = try await perform(retry)
+            return try validatedData(retryData, retryResponse)
         }
-
-        return try handleResponse(data, response)
+        return try validatedData(data, response)
     }
 
     // MARK: - Internals
 
-    private func buildRequest(_ endpoint: Endpoint) throws -> URLRequest {
+    private func buildRequest(
+        _ endpoint: Endpoint,
+        rawBody: Data? = nil,
+        contentType: String? = nil
+    ) throws -> URLRequest {
         var components = URLComponents(url: baseURL.appendingPathComponent(endpoint.path), resolvingAgainstBaseURL: false)!
         if !endpoint.queryItems.isEmpty {
             components.queryItems = endpoint.queryItems
@@ -120,12 +149,20 @@ final class APIClient: Sendable {
         }
         var req = URLRequest(url: url)
         req.httpMethod = endpoint.method.rawValue
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(contentType ?? "application/json", forHTTPHeaderField: "Content-Type")
         req.timeoutInterval = 30
-        if let body = endpoint.body {
+        if let rawBody {
+            req.httpBody = rawBody
+        } else if let body = endpoint.body {
             req.httpBody = try encoder.encode(AnyEncodable(body))
         }
         return req
+    }
+
+    private func authorize(_ request: inout URLRequest) {
+        if let token = tokenStore.load(.accessToken) {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
     }
 
     private func perform(_ request: URLRequest) async throws -> (Data, URLResponse) {
@@ -136,7 +173,7 @@ final class APIClient: Sendable {
         }
     }
 
-    private func handleResponse<T: Decodable>(_ data: Data, _ response: URLResponse) throws -> T {
+    private func validatedData(_ data: Data, _ response: URLResponse) throws -> Data {
         guard let http = response as? HTTPURLResponse else {
             throw AppError.networkError("无效的服务器响应")
         }
@@ -147,14 +184,11 @@ final class APIClient: Sendable {
                 message: errBody?.message ?? "服务器错误 (\(http.statusCode))"
             )
         }
-        if T.self == EmptyResponse.self {
-            return EmptyResponse() as! T
-        }
-        return try decoder.decode(T.self, from: data)
+        return data
     }
 
     private func refreshToken() async throws -> Bool {
-        guard let refresh = KeychainService.load(key: .refreshToken) else { return false }
+        guard let refresh = tokenStore.load(.refreshToken) else { return false }
 
         struct Req: Encodable { let refreshToken: String }
         struct Res: Decodable { let accessToken: String; let refreshToken: String }
@@ -163,13 +197,16 @@ final class APIClient: Sendable {
         let req = try buildRequest(endpoint)
         let (data, response) = try await perform(req)
 
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            KeychainService.clearAll()
+        guard let http = response as? HTTPURLResponse else {
+            throw AppError.networkError("无效的服务器响应")
+        }
+        if http.statusCode == 401 || http.statusCode == 403 {
             return false
         }
+        _ = try validatedData(data, response)
         let res = try decoder.decode(Res.self, from: data)
-        KeychainService.save(key: .accessToken, value: res.accessToken)
-        KeychainService.save(key: .refreshToken, value: res.refreshToken)
+        tokenStore.save(res.accessToken, for: .accessToken)
+        tokenStore.save(res.refreshToken, for: .refreshToken)
         return true
     }
 }

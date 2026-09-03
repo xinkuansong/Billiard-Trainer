@@ -921,7 +921,7 @@ struct BatchAuthoringView: View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTBallPaletteBar(
             coordinateSpace: "batchAuthor",
-            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            ballDiameter: proxy.paletteBallDiameter,
             isPlaying: composer.isPlaying,
             libraryWidth: libraryWidth,
             isOnTable: { composer.onTableKeys.contains($0) },

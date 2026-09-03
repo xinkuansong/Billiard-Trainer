@@ -19,7 +19,35 @@ struct PhoneLoginView: View {
             ZStack {
                 Color.btBG.ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: 0) {
+                GeometryReader { proxy in
+                    ScrollView {
+                        formContent
+                            .frame(maxWidth: .infinity)
+                            .frame(minHeight: proxy.size.height, alignment: .top)
+                    }
+                    .scrollDismissesKeyboard(.interactively)
+                }
+            }
+            .navigationTitle("手机号登录")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .foregroundStyle(.btPrimary)
+                    }
+                }
+            }
+        }
+    }
+
+    /// 键盘出现时让 ScrollView 负责把焦点字段滚进可视区，避免 iOS 26
+    /// 将整个不可滚动 VStack 上移到导航栏下面。minHeight 保留无键盘时的
+    /// 满屏排版；小屏或大字号下内容自然变为可滚动长页。
+    private var formContent: some View {
+        VStack(alignment: .leading, spacing: 0) {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         Text("输入手机号")
                             .font(.btLargeTitle)
@@ -150,20 +178,6 @@ struct PhoneLoginView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.bottom, Spacing.xxxl)
-                }
-            }
-            .navigationTitle("手机号登录")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .foregroundStyle(.btPrimary)
-                    }
-                }
-            }
         }
     }
 

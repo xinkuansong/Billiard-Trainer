@@ -21,13 +21,23 @@ final class DrillBoardBuilderTests: XCTestCase {
         XCTAssertEqual(board.onTable["_8"]?.y, shot.target.y)
     }
 
-    // MARK: - c042：3 杆 + obstacles（只摆首杆局面，obstacles 依序编号跳过 _8）
+    // MARK: - 多杆 + obstacles（只摆首杆局面，obstacles 依序编号跳过 _8）
 
-    func test_c042_multiShot_withObstacles_usesFirstShotOnly() async throws {
-        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c042")
-        let drill = try XCTUnwrap(loaded)
+    func test_multiShot_withObstacles_usesFirstShotOnly() throws {
+        let openingObstacles = [CanvasPoint(x: 0.2, y: 0.2), CanvasPoint(x: 0.8, y: 0.3)]
+        let firstShot = ShotIntent.Shot(
+            cue: CanvasPoint(x: 0.3, y: 0.3), target: CanvasPoint(x: 0.6, y: 0.2),
+            pocket: "bottomCenter", velocity: 2.4,
+            spin: nil, elevation: nil, obstacles: openingObstacles
+        )
+        let second = ShotIntent.Shot(
+            cue: CanvasPoint(x: 0.4, y: 0.3), target: CanvasPoint(x: 0.7, y: 0.2),
+            pocket: "bottomRight", velocity: 2.0,
+            spin: nil, elevation: nil, obstacles: nil
+        )
+        let drill = makeDrill(shots: [firstShot, second])
         let shots = try XCTUnwrap(drill.shotIntent?.shots)
-        XCTAssertEqual(shots.count, 3, "c042 应为 3 杆序列（方案锚点）")
+        XCTAssertEqual(shots.count, 2)
         let first = shots[0]
         let obstacles = try XCTUnwrap(first.obstacles)
         XCTAssertEqual(obstacles.count, 2)
@@ -47,10 +57,10 @@ final class DrillBoardBuilderTests: XCTestCase {
 
     func test_obstacleNumbering_skipsTargetKey8() {
         let obstacles = (0..<9).map { CanvasPoint(x: 0.1 + 0.08 * Double($0), y: 0.25) }
-        let drill = makeDrill(shot: ShotIntent.Shot(
+        let drill = makeDrill(shots: [ShotIntent.Shot(
             cue: CanvasPoint(x: 0.3, y: 0.3), target: CanvasPoint(x: 0.6, y: 0.2),
             pocket: "bottomCenter", velocity: 2.4,
-            spin: nil, elevation: nil, obstacles: obstacles))
+            spin: nil, elevation: nil, obstacles: obstacles)])
         let board = DrillBoardBuilder.board(for: drill)!
         // 9 颗障碍 → _1.._7、跳过 _8、_9、_10。
         let expected = Set(["cueBall", "_8"] + (1...7).map { "_\($0)" } + ["_9", "_10"])
@@ -62,7 +72,7 @@ final class DrillBoardBuilderTests: XCTestCase {
     // MARK: - animation 兜底（合成无 shotIntent drill，Bundle 现已 72/72 全有 shotIntent）
 
     func test_animationFallback_twoBallBoard() {
-        let drill = makeDrill(shot: nil)
+        let drill = makeDrill(shots: nil)
         let board = DrillBoardBuilder.board(for: drill)!
         XCTAssertEqual(Set(board.onTable.keys), ["cueBall", "_8"])
         XCTAssertEqual(board.onTable["cueBall"]?.x, 0.20)
@@ -96,7 +106,7 @@ final class DrillBoardBuilderTests: XCTestCase {
 
     // MARK: - Helpers
 
-    private func makeDrill(shot: ShotIntent.Shot?) -> DrillContent {
+    private func makeDrill(shots: [ShotIntent.Shot]?) -> DrillContent {
         DrillContent(
             id: "drill_test", nameZh: "测试", nameEn: "Test",
             category: "accuracy", subcategory: "test", ballType: ["chinese8"],
@@ -108,7 +118,7 @@ final class DrillBoardBuilderTests: XCTestCase {
                 targetBall: BallAnimation(start: CanvasPoint(x: 0.70, y: 0.15), path: []),
                 pocket: "bottomCenter",
                 cueDirection: CanvasPoint(x: 1, y: 0)),
-            shotIntent: shot.map { ShotIntent(version: 1, shots: [$0]) }
+            shotIntent: shots.map { ShotIntent(version: 1, shots: $0) }
         )
     }
 }

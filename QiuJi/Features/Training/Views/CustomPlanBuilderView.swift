@@ -22,7 +22,6 @@ struct CustomPlanBuilderView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
-    @State private var showActivateConfirm = false
     @State private var drillSettingsTarget: DrillSettingsTarget?
 
     init(editingPlanId: UUID? = nil) {
@@ -92,14 +91,6 @@ struct CustomPlanBuilderView: View {
                 Text(error)
             }
         }
-        .alert("用于今日训练", isPresented: $showActivateConfirm) {
-            Button("取消", role: .cancel) {}
-            Button("确定") {
-                saveAndActivate()
-            }
-        } message: {
-            Text("将替换当前的今日安排。确定用「\(viewModel.name.trimmingCharacters(in: .whitespaces))」作为今天的训练吗？")
-        }
         .task {
             viewModel.loadExistingPlan(context: modelContext)
         }
@@ -122,6 +113,7 @@ struct CustomPlanBuilderView: View {
                 TextField("我的模版", text: $viewModel.name)
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
+                    .accessibilityIdentifier("customPlanNameField")
 
                 Text("\(viewModel.totalSetsCount) 组  \(viewModel.drillItems.count) 动作")
                     .font(.btFootnote)
@@ -256,9 +248,9 @@ struct CustomPlanBuilderView: View {
             }
 
             Button {
-                showActivateConfirm = true
+                saveAndAddToToday()
             } label: {
-                Label("保存并用于今日", systemImage: "play.circle")
+                Label("保存并加入今日安排", systemImage: "plus.circle")
             }
         } label: {
             Text("保存")
@@ -269,10 +261,12 @@ struct CustomPlanBuilderView: View {
 
     // MARK: - Actions
 
-    private func saveAndActivate() {
+    private func saveAndAddToToday() {
         guard let planId = viewModel.save(context: modelContext) else { return }
         do {
-            try viewModel.activate(planId: planId, context: modelContext)
+            let descriptor = FetchDescriptor<CustomPlan>(predicate: #Predicate { $0.id == planId })
+            guard let plan = try modelContext.fetch(descriptor).first else { return }
+            _ = try TodayTrainingScheduleService(context: modelContext).addTemplate(plan)
             router.trainingPath = NavigationPath()
             dismiss()
         } catch {

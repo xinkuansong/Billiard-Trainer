@@ -3,18 +3,21 @@
   "nameZh": "杆法Ⅰ·高低杆",
   "nameEn": "Cue Action I · Follow & Draw",
   "targetLevel": "L1",
-  "durationWeeks": 3,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 90,
+  "estimatedMinutesPerLesson": 90,
   "isPremium": false,
   "description": "先定杆再打点停点，再近中距跟进/缩杆，最后远台跟进/缩杆。本计划不加塞、不练挤偏。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "定杆与停点",
-      "sessions": [
+      "id": "plan_cueball.stage01",
+      "order": 1,
+      "title": "定杆与停点",
+      "goal": "掌握定杆与停点",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_cueball.stage01.lesson01",
+          "order": 1,
+          "title": "定杆距离阶梯",
+          "summary": "围绕定杆距离阶梯完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -63,7 +66,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_cueball.stage01.lesson02",
+          "order": 2,
+          "title": "斯登母球控制入门",
+          "summary": "围绕斯登母球控制入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -112,7 +118,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_cueball.stage01.lesson03",
+          "order": 3,
+          "title": "斯登母球控制检验",
+          "summary": "围绕斯登母球控制检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -165,11 +174,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "近中距跟进与缩杆",
-      "sessions": [
+      "id": "plan_cueball.stage02",
+      "order": 2,
+      "title": "近中距跟进与缩杆",
+      "goal": "掌握近中距跟进与缩杆",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_cueball.stage02.lesson01",
+          "order": 1,
+          "title": "高杆跟进",
+          "summary": "围绕高杆跟进完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -241,7 +255,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_cueball.stage02.lesson02",
+          "order": 2,
+          "title": "低杆缩回入门",
+          "summary": "围绕低杆缩回入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -315,7 +332,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_cueball.stage02.lesson03",
+          "order": 3,
+          "title": "低杆缩回检验",
+          "summary": "围绕低杆缩回检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -397,11 +417,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "远台跟进与缩杆",
-      "sessions": [
+      "id": "plan_cueball.stage03",
+      "order": 3,
+      "title": "远台跟进与缩杆",
+      "goal": "掌握远台跟进与缩杆",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_cueball.stage03.lesson01",
+          "order": 1,
+          "title": "高杆远台跟进",
+          "summary": "围绕高杆远台跟进完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -474,7 +499,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_cueball.stage03.lesson02",
+          "order": 2,
+          "title": "低杆远台缩回入门",
+          "summary": "围绕低杆远台缩回入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -542,7 +570,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_cueball.stage03.lesson03",
+          "order": 3,
+          "title": "低杆远台缩回检验",
+          "summary": "围绕低杆远台缩回检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

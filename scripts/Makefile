@@ -5,9 +5,13 @@
 
 SCHEME       ?= QiuJi
 SIM_DEVICE   ?= iPhone 17 Pro
+TEST_DESTINATION ?= platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest
+ONLY_TESTING ?=
 PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
 DERIVED_DATA := $(BUILD_DIR)/DerivedData
+TEST_LOG     := $(BUILD_DIR)/test-results.log
+TEST_SELECTOR := $(if $(strip $(ONLY_TESTING)),-only-testing:$(strip $(ONLY_TESTING)),)
 ARCHIVE_PATH := $(BUILD_DIR)/QiuJi.xcarchive
 EXPORT_PATH  := $(BUILD_DIR)/export
 SCREENSHOTS  := $(BUILD_DIR)/screenshots
@@ -143,28 +147,32 @@ run: build
 test:
 	@echo "→ 运行 XCTest..."
 	@mkdir -p $(DERIVED_DATA)
-	if command -v xcpretty >/dev/null 2>&1; then \
+	@status=0; pretty_status=0; \
 	  xcodebuild \
 	    $(PROJECT_FLAG) \
 	    -scheme $(SCHEME) \
 	    -configuration Debug \
 	    -derivedDataPath $(DERIVED_DATA) \
-	    -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
+	    -destination '$(TEST_DESTINATION)' \
 	    -enableCodeCoverage YES \
-	    test \
-	    | xcpretty --report junit --output $(BUILD_DIR)/test-results.xml || true; \
-	else \
-	  echo "⚠️ 未安装 xcpretty，直出 xcodebuild 原始日志（管道无读端会让 xcodebuild 挂死，v34 W0 实测）"; \
-	  xcodebuild \
-	    $(PROJECT_FLAG) \
-	    -scheme $(SCHEME) \
-	    -configuration Debug \
-	    -derivedDataPath $(DERIVED_DATA) \
-	    -destination 'platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest' \
-	    -enableCodeCoverage YES \
-	    test || true; \
-	fi
-	@echo "✅ 测试完成，报告: $(BUILD_DIR)/test-results.xml"
+	    $(TEST_SELECTOR) \
+	    test >$(TEST_LOG) 2>&1 || status=$$?; \
+	  if command -v xcpretty >/dev/null 2>&1; then \
+	    xcpretty --report junit --output $(BUILD_DIR)/test-results.xml <$(TEST_LOG) || pretty_status=$$?; \
+	  else \
+	    echo "⚠️ 未安装 xcpretty，直出 xcodebuild 原始日志"; \
+	    sed -n '1,$$p' $(TEST_LOG); \
+	  fi; \
+	  if [ $$status -ne 0 ]; then \
+	    printf '❌ XCTest 失败 (xcodebuild exit=%s)，原始日志: %s\n' "$$status" "$(TEST_LOG)"; \
+	    tail -n 200 $(TEST_LOG); \
+	    exit $$status; \
+	  fi; \
+	  if [ $$pretty_status -ne 0 ]; then \
+	    printf '❌ xcpretty 报告生成失败 (exit=%s)，原始日志: %s\n' "$$pretty_status" "$(TEST_LOG)"; \
+	    exit $$pretty_status; \
+	  fi
+	@echo "✅ 测试完成，原始日志: $(TEST_LOG)；若安装 xcpretty，JUnit: $(BUILD_DIR)/test-results.xml"
 
 # ────────────────────────────────────────────
 # 走位序列离线复现（#11，ADR-P11-04 / ADR-P11-10）

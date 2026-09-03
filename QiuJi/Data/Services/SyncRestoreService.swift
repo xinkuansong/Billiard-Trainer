@@ -74,8 +74,8 @@ final class SyncRestoreService: ObservableObject {
     var backend: SyncRestoreBackend = LiveSyncRestoreBackend()
 
     /// 增量锚点存储。UserDefaults 而非新增 SwiftData 记录：锚点是纯客户端同步元数据、
-    /// 单键值、丢了只会多拉一次（合并幂等），为它加实体就要动 Schema，
-    /// 而本轮红线是不做 Schema V4。测试注入独立 suite 以免污染。
+    /// 单键值、丢了只会多拉一次（合并幂等），无需为同步游标再增加 SwiftData 实体。
+    /// 测试注入独立 suite 以免污染。
     var defaults: UserDefaults = .standard
 
     enum Mode {
@@ -113,6 +113,11 @@ final class SyncRestoreService: ObservableObject {
         defaults.set(date.timeIntervalSince1970, forKey: anchorKey(kind.rawValue, userId: userId))
     }
 
+    func clearAnchors(userId: String) {
+        defaults.removeObject(forKey: anchorKey(AnchorKind.sessions.rawValue, userId: userId))
+        defaults.removeObject(forKey: anchorKey(AnchorKind.angleTests.rawValue, userId: userId))
+    }
+
     enum AnchorKind: String {
         case sessions
         case angleTests
@@ -121,20 +126,29 @@ final class SyncRestoreService: ObservableObject {
     // MARK: - 入口
 
     @discardableResult
-    func restore(userId: String, mode: Mode) async -> RestoreSummary {
+    func restore(userId: String, mode: Mode,
+                 expectedOwnerContext: CurrentOwnerContext? = nil) async -> RestoreSummary {
         var summary = RestoreSummary()
         guard let context else {
             print("[SyncRestore] 未 configure(context:)，跳过恢复 userId=\(userId)")
             return summary
         }
 
-        await restoreSessions(userId: userId, mode: mode, context: context, summary: &summary)
-        await restoreAngleTests(userId: userId, mode: mode, context: context, summary: &summary)
+        let ownerKey = OwnerKey.account(userId)
+        if let expectedOwnerContext, expectedOwnerContext.ownerKey != ownerKey { return summary }
+        await restoreSessions(userId: userId, ownerKey: ownerKey, mode: mode,
+                              context: context, expectedOwnerContext: expectedOwnerContext,
+                              summary: &summary)
+        await restoreAngleTests(userId: userId, ownerKey: ownerKey, mode: mode,
+                                context: context, expectedOwnerContext: expectedOwnerContext,
+                                summary: &summary)
         return summary
     }
 
-    private func restoreSessions(userId: String, mode: Mode,
-                                 context: ModelContext, summary: inout RestoreSummary) async {
+    private func restoreSessions(userId: String, ownerKey: String, mode: Mode,
+                                 context: ModelContext,
+                                 expectedOwnerContext: CurrentOwnerContext?,
+                                 summary: inout RestoreSummary) async {
         let after = (mode == .full) ? nil : anchor(.sessions, userId: userId)
         let records: [SyncedRecord<TrainingSessionDTO>]
         do {
@@ -145,9 +159,10 @@ final class SyncRestoreService: ObservableObject {
                   "error=\(describe(error))")
             return
         }
+        if let expectedOwnerContext, expectedOwnerContext.ownerKey != ownerKey { return }
         guard !records.isEmpty else { return }
 
-        guard let skipIds = pendingDeleteSessionIds(context: context) else { return }
+        guard let skipIds = pendingDeleteSessionIds(ownerKey: ownerKey, context: context) else { return }
         var insertedThisBatch = Set<UUID>()
 
         for record in records {
@@ -162,12 +177,12 @@ final class SyncRestoreService: ObservableObject {
                 summary.skippedSessions += 1
                 continue
             }
-            if insertedThisBatch.contains(uuid) || sessionExists(uuid, context: context) {
+            if insertedThisBatch.contains(uuid) || sessionExists(uuid, ownerKey: ownerKey, context: context) {
                 // 幂等：同一 clientId 重复拉取不重复建；本地已有则本地版本优先（见类型注释）。
                 summary.skippedSessions += 1
                 continue
             }
-            context.insert(makeSession(from: dto, id: uuid))
+            insertSession(from: dto, id: uuid, ownerKey: ownerKey, context: context)
             insertedThisBatch.insert(uuid)
             summary.insertedSessions += 1
         }
@@ -176,8 +191,10 @@ final class SyncRestoreService: ObservableObject {
         advanceAnchor(from: records.map(\.updatedAt), kind: .sessions, userId: userId)
     }
 
-    private func restoreAngleTests(userId: String, mode: Mode,
-                                   context: ModelContext, summary: inout RestoreSummary) async {
+    private func restoreAngleTests(userId: String, ownerKey: String, mode: Mode,
+                                   context: ModelContext,
+                                   expectedOwnerContext: CurrentOwnerContext?,
+                                   summary: inout RestoreSummary) async {
         let after = (mode == .full) ? nil : anchor(.angleTests, userId: userId)
         let records: [SyncedRecord<AngleTestDTO>]
         do {
@@ -187,6 +204,7 @@ final class SyncRestoreService: ObservableObject {
                   "error=\(describe(error))")
             return
         }
+        if let expectedOwnerContext, expectedOwnerContext.ownerKey != ownerKey { return }
         guard !records.isEmpty else { return }
 
         var insertedThisBatch = Set<UUID>()
@@ -197,11 +215,12 @@ final class SyncRestoreService: ObservableObject {
                 summary.skippedAngleTests += 1
                 continue
             }
-            if insertedThisBatch.contains(uuid) || angleTestExists(uuid, context: context) {
+            if insertedThisBatch.contains(uuid) || angleTestExists(uuid, ownerKey: ownerKey,
+                                                                   context: context) {
                 summary.skippedAngleTests += 1
                 continue
             }
-            context.insert(makeAngleTest(from: dto, id: uuid))
+            context.insert(makeAngleTest(from: dto, id: uuid, ownerKey: ownerKey))
             insertedThisBatch.insert(uuid)
             summary.insertedAngleTests += 1
         }
@@ -215,11 +234,14 @@ final class SyncRestoreService: ObservableObject {
     /// 返回队列中所有待发出的 delete 项 clientId；读队列失败返回 `nil`，
     /// 调用方据此**整轮放弃恢复**——判断不了「哪些是已删待推」还照插，就是让
     /// 已删记录复活（用户看到的是「删了又回来」）。少恢复一轮下次激活会重来。
-    private func pendingDeleteSessionIds(context: ModelContext) -> Set<UUID>? {
+    private func pendingDeleteSessionIds(ownerKey: String,
+                                         context: ModelContext) -> Set<UUID>? {
         let deleteOp = SyncOperation.delete
         let entityType = SyncEntityType.trainingSession
         let descriptor = FetchDescriptor<SyncPendingItem>(
-            predicate: #Predicate { $0.operation == deleteOp && $0.entityType == entityType }
+            predicate: #Predicate {
+                $0.operation == deleteOp && $0.entityType == entityType && $0.ownerKey == ownerKey
+            }
         )
         do {
             return Set(try context.fetch(descriptor).map(\.entityId))
@@ -230,8 +252,10 @@ final class SyncRestoreService: ObservableObject {
         }
     }
 
-    private func sessionExists(_ id: UUID, context: ModelContext) -> Bool {
-        var descriptor = FetchDescriptor<TrainingSession>(predicate: #Predicate { $0.id == id })
+    private func sessionExists(_ id: UUID, ownerKey: String, context: ModelContext) -> Bool {
+        var descriptor = FetchDescriptor<TrainingSession>(
+            predicate: #Predicate { $0.id == id && $0.ownerKey == ownerKey }
+        )
         descriptor.fetchLimit = 1
         do {
             return try !context.fetch(descriptor).isEmpty
@@ -243,8 +267,10 @@ final class SyncRestoreService: ObservableObject {
         }
     }
 
-    private func angleTestExists(_ id: UUID, context: ModelContext) -> Bool {
-        var descriptor = FetchDescriptor<AngleTestResult>(predicate: #Predicate { $0.id == id })
+    private func angleTestExists(_ id: UUID, ownerKey: String, context: ModelContext) -> Bool {
+        var descriptor = FetchDescriptor<AngleTestResult>(
+            predicate: #Predicate { $0.id == id && $0.ownerKey == ownerKey }
+        )
         descriptor.fetchLimit = 1
         do {
             return try !context.fetch(descriptor).isEmpty
@@ -259,14 +285,38 @@ final class SyncRestoreService: ObservableObject {
     /// 「局/次」被当「球」是语义错误（契约 §5.2）。
     /// `DrillEntry`/`DrillSet` 的本地 id 是新生成的——服务端子文档 `_id: false`，
     /// 本就没有可还原的 id，且它们只被父对象引用，不参与任何跨端标识。
-    private func makeSession(from dto: TrainingSessionDTO, id: UUID) -> TrainingSession {
-        let session = TrainingSession(ballType: dto.ballType, kind: dto.kind)
+    private func insertSession(
+        from dto: TrainingSessionDTO,
+        id: UUID,
+        ownerKey: String,
+        context: ModelContext
+    ) {
+        let session = TrainingSession(ballType: dto.ballType, kind: dto.kind, ownerKey: ownerKey)
         session.id = id
         session.date = dto.date
         session.totalDurationMinutes = dto.totalDurationMinutes
         session.note = dto.note
         session.planId = dto.planId
-        session.drillEntries = dto.drillEntries.map { entryDTO in
+        session.scheduleItemId = dto.scheduleItemId.flatMap(UUID.init(uuidString:))
+        session.sourceKind = dto.sourceKind
+        session.sourceId = dto.sourceId
+        session.sourceParentId = dto.sourceParentId
+        session.sourceTitleSnapshot = dto.sourceTitleSnapshot
+        session.sourceSubtitleSnapshot = dto.sourceSubtitleSnapshot
+        session.sourcePayloadVersion = dto.sourcePayloadVersion
+        session.sourcePayloadSnapshot = dto.sourcePayloadSnapshot
+        if dto.progressRole != nil || dto.progressEffect != nil {
+            session.setProgress(
+                role: dto.progressRole ?? TodayScheduleProgressRole.neutral,
+                effect: dto.progressEffect
+            )
+        }
+        session.lessonId = dto.lessonId
+        // iOS 17 can trap while persisting a relationship tree assembled from
+        // unmanaged @Model instances. Register every node first, then connect
+        // the inverse relationships explicitly.
+        context.insert(session)
+        for entryDTO in dto.drillEntries {
             let entry = DrillEntry(
                 drillId: entryDTO.drillId,
                 drillNameZh: entryDTO.drillNameZh,
@@ -274,8 +324,10 @@ final class SyncRestoreService: ObservableObject {
                 note: entryDTO.note,
                 criteriaText: entryDTO.criteriaText
             )
-            entry.sets = entryDTO.sets.map { setDTO in
-                DrillSet(
+            context.insert(entry)
+            entry.session = session
+            for setDTO in entryDTO.sets {
+                let drillSet = DrillSet(
                     setNumber: setDTO.setNumber,
                     targetBalls: setDTO.targetBalls,
                     madeBalls: setDTO.madeBalls,
@@ -286,20 +338,22 @@ final class SyncRestoreService: ObservableObject {
                     passTotal: setDTO.passTotal,
                     durationSeconds: setDTO.durationSeconds
                 )
+                context.insert(drillSet)
+                drillSet.entry = entry
             }
-            return entry
         }
-        return session
     }
 
-    private func makeAngleTest(from dto: AngleTestDTO, id: UUID) -> AngleTestResult {
+    private func makeAngleTest(from dto: AngleTestDTO, id: UUID,
+                               ownerKey: String) -> AngleTestResult {
         let result = AngleTestResult(
             actualAngle: dto.actualAngle,
             userAngle: dto.userAngle,
             pocketType: dto.pocketType,
             quizType: dto.quizType,
             errorMM: dto.errorMM,
-            sessionId: dto.sessionId.flatMap(UUID.init(uuidString:))
+            sessionId: dto.sessionId.flatMap(UUID.init(uuidString:)),
+            ownerKey: ownerKey
         )
         result.id = id
         result.date = dto.date

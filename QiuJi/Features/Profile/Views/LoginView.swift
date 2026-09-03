@@ -4,16 +4,9 @@ struct LoginView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var authState: AuthState
-    @State private var selectedFlow: LoginFlow?
     @State private var isAppleSignInLoading = false
     @State private var errorMessage: String?
 
-    private static let wechatGreen = Color(red: 0.027, green: 0.757, blue: 0.376)
-
-    enum LoginFlow: Identifiable {
-        case phone
-        var id: Self { self }
-    }
 
     var body: some View {
         ZStack {
@@ -58,32 +51,32 @@ struct LoginView: View {
                 .foregroundStyle(.btTextSecondary)
                 .padding(.bottom, Spacing.xxl)
 
-                VStack(spacing: 2) {
-                    Text("登录即表示您同意")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
-                    HStack(spacing: 4) {
-                        Text("用户协议")
-                            .font(.btCaption)
-                            .foregroundStyle(.btPrimary)
-                            .underline()
-                        Text("和")
-                            .font(.btCaption)
-                            .foregroundStyle(.btTextTertiary)
-                        Text("隐私政策")
-                            .font(.btCaption)
-                            .foregroundStyle(.btPrimary)
-                            .underline()
-                    }
-                }
-                .padding(.bottom, Spacing.xxxl)
+                legalFooter
+                    .padding(.bottom, Spacing.xxxl)
             }
         }
-        .sheet(item: $selectedFlow) { flow in
-            switch flow {
-            case .phone:
-                PhoneLoginView()
+    }
+
+    @ViewBuilder
+    private var legalFooter: some View {
+        if let termsURL = AppConfig.termsURL,
+           let privacyURL = AppConfig.privacyURL {
+            VStack(spacing: Spacing.xs) {
+                Text("登录即表示您已阅读并同意")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextTertiary)
+                HStack(spacing: Spacing.lg) {
+                    Link("用户协议", destination: termsURL)
+                    Link("隐私政策", destination: privacyURL)
+                }
+                .font(.btCaption)
+                .foregroundStyle(.btPrimary)
             }
+        } else {
+            Text("用户协议与隐私政策发布后将在此提供可访问链接")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
+                .multilineTextAlignment(.center)
         }
     }
 
@@ -114,38 +107,9 @@ struct LoginView: View {
             .buttonStyle(BTPressableStyle.capsule)
             .disabled(isAppleSignInLoading)
 
-            Button {
-                // T-P1-08 WeChat login (pending H-05)
-            } label: {
-                HStack(spacing: Spacing.sm) {
-                    Image(systemName: "message.fill")
-                    Text("微信登录")
-                }
-                .font(.btHeadline)
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 52)
-                .background(Self.wechatGreen)
-                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-            }
-            .buttonStyle(BTPressableStyle.capsule)
-
-            Button {
-                selectedFlow = .phone
-            } label: {
-                Text("手机号登录")
-                    .font(.btHeadline)
-                    .foregroundStyle(colorScheme == .dark ? .btPrimary : .btText)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(colorScheme == .dark ? Color.btBGTertiary : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: BTRadius.md)
-                            .stroke(colorScheme == .dark ? Color.btPrimary : Color.btSeparator, lineWidth: 1)
-                    )
-            }
-            .buttonStyle(BTPressableStyle.capsule)
+            Text("微信与手机号登录暂未开放")
+                .font(.btCaption)
+                .foregroundStyle(.btTextTertiary)
         }
         .padding(.horizontal, Spacing.xxl)
     }

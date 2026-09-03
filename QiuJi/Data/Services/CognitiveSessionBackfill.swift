@@ -32,15 +32,18 @@ enum CognitiveSessionBackfill {
     /// 执行回填。可反复调用（幂等）。
     @discardableResult
     static func run(context: ModelContext) throws -> Report {
-        // 直接全表取回后在内存里筛 nil：`#Predicate` 对可选 UUID 的 nil 比较在
-        // SwiftData 上行为不稳，且本操作一次性、数据量为用户历史答题量级。
+        // 迁移维护任务有意扫描全部 owner：每条孤儿成绩会在其自己的 owner 域补会话。
+        // `#Predicate` 对可选 UUID 的 nil 比较在 SwiftData 上行为不稳，故在内存筛 nil。
         let all = try context.fetch(FetchDescriptor<AngleTestResult>())
         let orphans = all.filter { $0.sessionId == nil }
         guard !orphans.isEmpty else {
             return Report(orphanResults: 0, createdSessions: 0, assignedResults: 0)
         }
 
-        let inferred = HistoryViewModel.inferAngleSessions(orphans)
+        // 不同 owner 即使题型和时间相邻也绝不能推断成同一 cognitive 会话。
+        let inferred = Dictionary(grouping: orphans, by: \.ownerKey)
+            .values
+            .flatMap { HistoryViewModel.inferAngleSessions(Array($0)) }
 
         var createdSessions = 0
         var assignedResults = 0
@@ -48,7 +51,8 @@ enum CognitiveSessionBackfill {
             let session = CognitiveSessionRecorder.makeSession(
                 quizType: group.quizType,
                 start: group.startDate,
-                end: group.endDate
+                end: group.endDate,
+                ownerKey: group.results.first?.ownerKey ?? DeviceGuestIdentity.ownerKey()
             )
             context.insert(session)
             createdSessions += 1

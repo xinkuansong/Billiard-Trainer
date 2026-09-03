@@ -2,8 +2,8 @@ import XCTest
 @testable import QiuJi
 
 /// v22 W4 立档：分离角计划解码 + 结构自检。
-/// v34 W3 重排后更新（问题集合_v34.md R6/D-v34-2）：不再钉死逐周主题/主轴与固定课时，
-/// 改保护结构不变量 + separation 全量归属 + dose 契约 + index 一致性。
+/// v34 W3 重排后更新（问题集合_v34.md R6/D-v34-2）：不再钉死逐周主题/主轴与固定课时。
+/// v54 起按阶段/课次保护结构不变量 + separation 全量归属 + dose 契约 + index 一致性。
 final class V22W4PlanSeparationTests: XCTestCase {
 
     /// v38 W4 主课 10 条（separation 分类全量）。
@@ -35,18 +35,16 @@ final class V22W4PlanSeparationTests: XCTestCase {
         XCTAssertEqual(plan.id, "plan_separation")
         XCTAssertEqual(plan.nameZh, "分离角")
         XCTAssertEqual(plan.isPremium, true)
-        XCTAssertEqual(plan.sessionsPerWeek, 3, "v34 R6：每周 3 次课")
-        XCTAssertTrue((2...5).contains(plan.durationWeeks), "v34 R6：周数 2–5，实际 \(plan.durationWeeks)")
+        XCTAssertEqual(plan.stages.count, 4, "v54：分离角计划包含 4 个课程阶段")
+        XCTAssertEqual(plan.lessonCount, 12, "v54：分离角计划包含 12 个稳定课次")
         XCTAssertTrue(plan.description.contains("分离角"), "description 应标明分离角专项")
 
-        XCTAssertEqual(plan.weeks.count, plan.durationWeeks)
-        for week in plan.weeks {
-            XCTAssertEqual(week.sessions.count, plan.sessionsPerWeek,
-                           "week \(week.weekNumber) sessions.count 应等于 sessionsPerWeek")
-            for session in week.sessions {
-                for phase in session.phases {
+        for stage in plan.stages {
+            XCTAssertFalse(stage.lessons.isEmpty, "stage \(stage.id) 至少包含一个课次")
+            for lesson in stage.lessons {
+                for phase in lesson.phases {
                     XCTAssertGreaterThan(phase.durationMinutes, 0,
-                                         "week \(week.weekNumber) day \(session.dayNumber) 相位时长须为正")
+                                         "stage \(stage.id) lesson \(lesson.id) 相位时长须为正")
                 }
             }
         }
@@ -56,17 +54,15 @@ final class V22W4PlanSeparationTests: XCTestCase {
 
         // 计划内容应恰为 separation 全量 10 条（v34 归属），且每条目 dose 恰好二选一。
         var allIds = Set<String>()
-        for week in plan.weeks {
-            for session in week.sessions {
-                for phase in session.phases {
-                    for drill in phase.drills {
-                        allIds.insert(drill.drillId)
-                        let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
-                        let hasUniform = dose.roundsPerFormation != nil
-                        let hasListed = !(dose.formations ?? []).isEmpty
-                        XCTAssertTrue(hasUniform != hasListed,
-                                      "\(drill.drillId) dose 须恰好二选一（契约 §6.6）")
-                    }
+        for lesson in plan.lessons {
+            for phase in lesson.phases {
+                for drill in phase.drills {
+                    allIds.insert(drill.drillId)
+                    let dose = try XCTUnwrap(drill.dose, "\(drill.drillId) 缺 dose")
+                    let hasUniform = dose.roundsPerFormation != nil
+                    let hasListed = !(dose.formations ?? []).isEmpty
+                    XCTAssertTrue(hasUniform != hasListed,
+                                  "\(drill.drillId) dose 须恰好二选一（契约 §6.6）")
                 }
             }
         }
@@ -77,12 +73,10 @@ final class V22W4PlanSeparationTests: XCTestCase {
         XCTAssertTrue(separationIds.isSubset(of: allIds), "separation 10 条主课须全部在计划内")
 
         var firstFocused: [String] = []
-        for week in plan.weeks {
-            for session in week.sessions {
-                for phase in session.phases where phase.type == "focused" {
-                    for drill in phase.drills where !firstFocused.contains(drill.drillId) {
-                        firstFocused.append(drill.drillId)
-                    }
+        for lesson in plan.lessons {
+            for phase in lesson.phases where phase.type == "focused" {
+                for drill in phase.drills where !firstFocused.contains(drill.drillId) {
+                    firstFocused.append(drill.drillId)
                 }
             }
         }

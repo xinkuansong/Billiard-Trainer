@@ -3,18 +3,21 @@
   "nameZh": "基本功",
   "nameEn": "Fundamentals",
   "targetLevel": "L0→L1",
-  "durationWeeks": 3,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 75,
+  "estimatedMinutesPerLesson": 75,
   "isPremium": false,
   "description": "中袋与底袋直线出杆，再到推白球与半台直线，最后定杆停点与五分点。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "中袋与底袋直线出杆",
-      "sessions": [
+      "id": "plan_beginner.stage01",
+      "order": 1,
+      "title": "中袋与底袋直线出杆",
+      "goal": "掌握中袋与底袋直线出杆",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_beginner.stage01.lesson01",
+          "order": 1,
+          "title": "中袋直线出杆与底袋直线出杆",
+          "summary": "围绕中袋直线出杆与底袋直线出杆完成本课训练。",
           "phases": [
             {
               "type": "focused",
@@ -52,7 +55,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_beginner.stage01.lesson02",
+          "order": 2,
+          "title": "底袋直线出杆入门",
+          "summary": "围绕底袋直线出杆入门完成本课训练。",
           "phases": [
             {
               "type": "warmup",
@@ -100,7 +106,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_beginner.stage01.lesson03",
+          "order": 3,
+          "title": "底袋直线出杆检验",
+          "summary": "围绕底袋直线出杆检验完成本课训练。",
           "phases": [
             {
               "type": "warmup",
@@ -150,11 +159,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "直线推白球与半台直线",
-      "sessions": [
+      "id": "plan_beginner.stage02",
+      "order": 2,
+      "title": "直线推白球与半台直线",
+      "goal": "掌握直线推白球与半台直线",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_beginner.stage02.lesson01",
+          "order": 1,
+          "title": "直线推白球",
+          "summary": "围绕直线推白球完成本课训练。",
           "phases": [
             {
               "type": "warmup",
@@ -204,7 +218,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_beginner.stage02.lesson02",
+          "order": 2,
+          "title": "直线推白球与半台直线球入门",
+          "summary": "围绕直线推白球与半台直线球入门完成本课训练。",
           "phases": [
             {
               "type": "focused",
@@ -249,7 +266,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_beginner.stage02.lesson03",
+          "order": 3,
+          "title": "直线推白球与半台直线球检验",
+          "summary": "围绕直线推白球与半台直线球检验完成本课训练。",
           "phases": [
             {
               "type": "focused",
@@ -298,11 +318,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "定杆停点与五分点",
-      "sessions": [
+      "id": "plan_beginner.stage03",
+      "order": 3,
+      "title": "定杆停点与五分点",
+      "goal": "掌握定杆停点与五分点",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_beginner.stage03.lesson01",
+          "order": 1,
+          "title": "定杆停点",
+          "summary": "围绕定杆停点完成本课训练。",
           "phases": [
             {
               "type": "warmup",
@@ -348,7 +373,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_beginner.stage03.lesson02",
+          "order": 2,
+          "title": "五分点入门",
+          "summary": "围绕五分点入门完成本课训练。",
           "phases": [
             {
               "type": "warmup",
@@ -394,7 +422,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_beginner.stage03.lesson03",
+          "order": 3,
+          "title": "五分点检验",
+          "summary": "围绕五分点检验完成本课训练。",
           "phases": [
             {
               "type": "warmup",

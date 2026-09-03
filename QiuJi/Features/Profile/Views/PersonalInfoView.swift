@@ -1,10 +1,17 @@
 import SwiftUI
+import PhotosUI
 
 struct PersonalInfoView: View {
+    let ownerKey: String
+    @ObservedObject var profile: OwnerProfileStore
     @EnvironmentObject private var authState: AuthState
-    @ObservedObject private var prefs = UserPreferences.shared
+    @EnvironmentObject private var avatarStore: AvatarStore
     @State private var editingName = false
     @State private var nameText = ""
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var cropSource: UIImage?
+    @State private var showCropper = false
+    @State private var localError: String?
     @FocusState private var nameFieldFocused: Bool
 
     var body: some View {
@@ -29,7 +36,33 @@ struct PersonalInfoView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .onAppear {
-            nameText = authState.displayNameOrDefault
+            profile.load(from: authState.currentUser)
+            nameText = profile.displayName
+        }
+        .onChange(of: selectedPhoto) { _, item in
+            guard let item else { return }
+            Task<Void, Never> { await preparePhoto(item) }
+        }
+        .sheet(isPresented: $showCropper) {
+            if let cropSource {
+                AvatarCropView(image: cropSource) { cropped in
+                    showCropper = false
+                    Task {
+                        _ = await avatarStore.save(cropped, user: authState.currentUser,
+                                                   ownerKey: ownerKey, authState: authState)
+                    }
+                }
+            }
+        }
+        .alert("个人资料未保存", isPresented: Binding(
+            get: { localError != nil || profile.errorMessage != nil || avatarStore.errorMessage != nil },
+            set: { if !$0 { localError = nil; profile.errorMessage = nil; avatarStore.errorMessage = nil } }
+        )) {
+            Button("知道了", role: .cancel) {
+                localError = nil; profile.errorMessage = nil; avatarStore.errorMessage = nil
+            }
+        } message: {
+            Text(localError ?? profile.errorMessage ?? avatarStore.errorMessage ?? "请稍后重试")
         }
     }
 
@@ -37,13 +70,31 @@ struct PersonalInfoView: View {
 
     private var avatarSection: some View {
         VStack(spacing: Spacing.lg) {
-            ZStack {
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.15))
-                    .frame(width: 80, height: 80)
-                Image(systemName: "person.fill")
-                    .font(.system(size: 36))
-                    .foregroundStyle(.btPrimary)
+            PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                ZStack(alignment: .bottomTrailing) {
+                    ProfileAvatarView(size: 80)
+                    Image(systemName: "camera.fill")
+                        .font(.btCaption)
+                        .foregroundStyle(.white)
+                        .padding(7)
+                        .background(Color.btPrimary)
+                        .clipShape(Circle())
+                }
+            }
+            .buttonStyle(.plain)
+            .disabled(avatarStore.phase != .idle)
+            .accessibilityIdentifier("personalInfo.avatarPicker")
+
+            if avatarStore.image != nil {
+                Button("移除头像", role: .destructive) {
+                    Task {
+                        _ = await avatarStore.delete(user: authState.currentUser,
+                                                     ownerKey: ownerKey, authState: authState)
+                    }
+                }
+                .font(.btCaption)
+                .disabled(avatarStore.phase != .idle)
+                .accessibilityIdentifier("personalInfo.avatarDelete")
             }
 
             if editingName {
@@ -58,10 +109,12 @@ struct PersonalInfoView: View {
                         .background(Color.btBGTertiary)
                         .clipShape(Capsule())
                         .onSubmit { saveName() }
+                        .accessibilityIdentifier("personalInfo.displayNameField")
 
                     Button("完成") { saveName() }
                         .font(.btCallout.weight(.medium))
                         .foregroundStyle(.btPrimary)
+                        .accessibilityIdentifier("personalInfo.displayNameSave")
                 }
                 .padding(.horizontal, Spacing.xl)
             } else {
@@ -70,7 +123,7 @@ struct PersonalInfoView: View {
                     nameFieldFocused = true
                 } label: {
                     HStack(spacing: Spacing.xs) {
-                        Text(authState.displayNameOrDefault)
+                        Text(profile.displayName)
                             .font(.btHeadline)
                             .foregroundStyle(.btText)
                         Image(systemName: "pencil")
@@ -79,6 +132,7 @@ struct PersonalInfoView: View {
                     }
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("personalInfo.displayNameButton")
             }
 
             if let user = authState.currentUser, authState.isLoggedIn {
@@ -109,7 +163,7 @@ struct PersonalInfoView: View {
                         .foregroundStyle(.btTextTertiary)
                     BTTogglePillGroup(
                         options: PreferredSport.allCases,
-                        selected: $prefs.preferredSport
+                        selected: preferredSportBinding
                     ) { $0.displayName }
                 }
 
@@ -121,12 +175,12 @@ struct PersonalInfoView: View {
                         .foregroundStyle(.btTextTertiary)
                     BTTogglePillGroup(
                         options: SkillLevel.allCases,
-                        selected: $prefs.skillLevel
+                        selected: skillLevelBinding
                     ) { $0.displayName }
                 }
             }
             .padding(Spacing.lg)
-            .background(Color.btBGSecondary)
+            .background(Color("btBGSecondary"))
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
     }
@@ -143,8 +197,8 @@ struct PersonalInfoView: View {
             VStack(spacing: 0) {
                 ForEach(YearsPlaying.allCases) { years in
                     Button {
-                        withAnimation(BTMotion.easeInOutFast) {
-                            prefs.yearsPlaying = years
+                        Task<Void, Never> {
+                            await profile.setYearsPlaying(years, authState: authState)
                         }
                     } label: {
                         HStack {
@@ -154,7 +208,7 @@ struct PersonalInfoView: View {
 
                             Spacer()
 
-                            if prefs.yearsPlaying == years {
+                            if profile.yearsPlaying == years {
                                 Image(systemName: "checkmark")
                                     .font(.btSubheadlineMedium)
                                     .foregroundStyle(.btPrimary)
@@ -171,7 +225,7 @@ struct PersonalInfoView: View {
                     }
                 }
             }
-            .background(Color.btBGSecondary)
+            .background(Color("btBGSecondary"))
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
     }
@@ -250,18 +304,51 @@ struct PersonalInfoView: View {
 
     private func saveName() {
         let trimmed = nameText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmed.isEmpty {
-            authState.currentUser?.displayName = trimmed
+        Task {
+            if await profile.saveDisplayName(trimmed, authState: authState) {
+                nameText = profile.displayName
+                editingName = false
+                nameFieldFocused = false
+            }
         }
-        editingName = false
-        nameFieldFocused = false
+    }
+
+    private var preferredSportBinding: Binding<PreferredSport> {
+        Binding(get: { profile.preferredSport },
+                set: { value in
+                    Task<Void, Never> { await profile.setPreferredSport(value, authState: authState) }
+                })
+    }
+
+    private var skillLevelBinding: Binding<SkillLevel> {
+        Binding(get: { profile.skillLevel },
+                set: { value in
+                    Task<Void, Never> { await profile.setSkillLevel(value, authState: authState) }
+                })
+    }
+
+    private func preparePhoto(_ item: PhotosPickerItem) async {
+        defer { selectedPhoto = nil }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self),
+                  let image = UIImage(data: data) else {
+                localError = "无法读取这张图片，请换一张重试"
+                return
+            }
+            cropSource = image
+            showCropper = true
+        } catch {
+            localError = "相册读取失败，请检查照片权限后重试"
+        }
     }
 }
 
 #Preview("Personal Info - Guest") {
     NavigationStack {
-        PersonalInfoView()
+        PersonalInfoView(ownerKey: DeviceGuestIdentity.ownerKey(),
+                         profile: OwnerProfileStore(ownerKey: DeviceGuestIdentity.ownerKey()))
             .environmentObject(AuthState())
+            .environmentObject(AvatarStore.shared)
     }
 }
 
@@ -269,8 +356,10 @@ struct PersonalInfoView: View {
     let state = AuthState()
     state.login(user: AppUser(id: "abc12345678", provider: .apple, displayName: "台球小王子"))
     return NavigationStack {
-        PersonalInfoView()
+        PersonalInfoView(ownerKey: OwnerKey.account("abc12345678"),
+                         profile: OwnerProfileStore(ownerKey: OwnerKey.account("abc12345678")))
             .environmentObject(state)
+            .environmentObject(AvatarStore.shared)
     }
 }
 
@@ -278,8 +367,10 @@ struct PersonalInfoView: View {
     let state = AuthState()
     state.login(user: AppUser(id: "abc12345678", provider: .apple, displayName: "台球小王子"))
     return NavigationStack {
-        PersonalInfoView()
+        PersonalInfoView(ownerKey: OwnerKey.account("abc12345678"),
+                         profile: OwnerProfileStore(ownerKey: OwnerKey.account("abc12345678")))
             .environmentObject(state)
+            .environmentObject(AvatarStore.shared)
     }
     .preferredColorScheme(.dark)
 }

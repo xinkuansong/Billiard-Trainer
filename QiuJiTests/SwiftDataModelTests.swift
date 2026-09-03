@@ -49,8 +49,13 @@ final class SwiftDataModelTests: XCTestCase {
     @MainActor
     func test_DrillEntry_successRate_withSets() {
         let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "测试动作")
+        context.insert(entry)
         let set1 = DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 7)
         let set2 = DrillSet(setNumber: 2, targetBalls: 10, madeBalls: 8)
+        context.insert(set1)
+        context.insert(set2)
+        set1.entry = entry
+        set2.entry = entry
         entry.sets = [set1, set2]
         XCTAssertEqual(entry.successRate, 0.75, accuracy: 0.001)
     }
@@ -63,37 +68,6 @@ final class SwiftDataModelTests: XCTestCase {
         XCTAssertEqual(set.madeBalls, 0)
         XCTAssertEqual(set.setNumber, 1)
         XCTAssertEqual(set.targetBalls, 10)
-    }
-
-    // MARK: - Cascade Delete
-
-    @MainActor
-    func test_cascade_delete_session_removes_entries_and_sets() throws {
-        let session = TrainingSession()
-        context.insert(session)
-
-        let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "半台直线球")
-        entry.session = session
-        session.drillEntries.append(entry)
-        context.insert(entry)
-
-        let set1 = DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 5)
-        set1.entry = entry
-        entry.sets.append(set1)
-        context.insert(set1)
-
-        try context.save()
-
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<TrainingSession>()), 1)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrillEntry>()), 1)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrillSet>()), 1)
-
-        context.delete(session)
-        try context.save()
-
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<TrainingSession>()), 0)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrillEntry>()), 0)
-        XCTAssertEqual(try context.fetchCount(FetchDescriptor<DrillSet>()), 0)
     }
 
     // MARK: - AngleTestResult

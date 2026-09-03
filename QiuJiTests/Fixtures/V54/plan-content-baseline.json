@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "lessonIdFormat": "<planId>.stage<weekNumber:02>.lesson<dayNumber:02>",
+  "planCount": 12,
+  "lessonCount": 129,
+  "plans": {
+    "plan_accuracy": {"stageCount": 3, "lessonCount": 9},
+    "plan_accuracy3": {"stageCount": 2, "lessonCount": 6},
+    "plan_advanced": {"stageCount": 4, "lessonCount": 12},
+    "plan_beginner": {"stageCount": 3, "lessonCount": 9},
+    "plan_cueball": {"stageCount": 3, "lessonCount": 9},
+    "plan_english": {"stageCount": 4, "lessonCount": 12},
+    "plan_force": {"stageCount": 3, "lessonCount": 9},
+    "plan_fullskill": {"stageCount": 5, "lessonCount": 15},
+    "plan_intermediate": {"stageCount": 4, "lessonCount": 12},
+    "plan_positioning": {"stageCount": 4, "lessonCount": 12},
+    "plan_positioning2": {"stageCount": 4, "lessonCount": 12},
+    "plan_separation": {"stageCount": 4, "lessonCount": 12}
+  }
+}

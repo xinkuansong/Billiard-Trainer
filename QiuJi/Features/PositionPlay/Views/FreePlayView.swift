@@ -1,6 +1,11 @@
 import SwiftUI
 import SceneKit
 
+enum FreePlayEntryMode {
+    case standard
+    case dailyClearance
+}
+
 /// 自由击球（条 15 / ADR-P18-01 拆页）：球库 + 开球 + 对局的独立页面。
 ///
 /// 与「自由走位」（编排台）的分工：自由走位 = 纯摆球/编排推演（无开球）；
@@ -10,10 +15,19 @@ import SceneKit
 /// 布局（问题集合 v3 §S1 基准页）：控件相对**屏幕内实际球桌矩形**贴边定位
 /// （`ShotStageProxy`，G3–G11），顶栏/底栏高度固定 ⇒ 球桌尺寸严格锁定不抖动（G10）。
 struct FreePlayView: View {
+    let entryMode: FreePlayEntryMode
+
     @StateObject private var vm = PositionPlayViewModel()
+    @StateObject private var dailyController = DailyClearanceController()
+    @ObservedObject private var preferences = UserPreferences.shared
+    @Environment(\.scenePhase) private var scenePhase
     @State private var hasAppeared = false
     @State private var showSpinPad = false
     @State private var showBreakPicker = false
+    @State private var showDailyGamePicker = false
+    @State private var showDailyRerackConfirm = false
+    @State private var showDailyGameChangeConfirm = false
+    @State private var pendingDailyGame: DailyClearanceGame?
 
     @State private var projector = TableProjector()
 
@@ -31,6 +45,13 @@ struct FreePlayView: View {
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight = ShotStageMetrics.topRowHeight
     private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
+
+    init(entryMode: FreePlayEntryMode = .standard) {
+        self.entryMode = entryMode
+    }
+
+    private var isDailyClearance: Bool { entryMode == .dailyClearance }
+    private var pageTitle: String { isDailyClearance ? "每日清台" : "自由击球" }
 
     var body: some View {
         GeometryReader { geo in
@@ -55,7 +76,7 @@ struct FreePlayView: View {
             .btToast($toast)
         }
         .animation(BTMotion.springPanel, value: showSpinPad)
-        .navigationTitle("自由击球")
+        .navigationTitle(pageTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -64,14 +85,14 @@ struct FreePlayView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(
-                    title: "自由击球",
+                    title: pageTitle,
                     isBusy: vm.isComputing,
-                    statusText: vm.breakRunner?.statusText
-                        ?? (vm.isComputing ? "求解中…"
-                            : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
+                    statusText: navigationStatusText
                 )
             }
-            ToolbarItem(placement: .topBarTrailing) { moreMenu }
+            ToolbarItem(placement: .topBarTrailing) {
+                moreMenu.accessibilityIdentifier("freeplay.moreMenu")
+            }
         }
         .confirmationDialog("清空桌面上所有球？",
                             isPresented: $showClearTableConfirm, titleVisibility: .visible) {
@@ -79,6 +100,29 @@ struct FreePlayView: View {
             Button("清空桌面", role: .destructive) {
                 endGame()
                 vm.clearTable()
+            }
+        }
+        .confirmationDialog(
+            "重新开球会放弃当前进度",
+            isPresented: $showDailyRerackConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("取消", role: .cancel) {}
+            Button("放弃并重新开球", role: .destructive) {
+                dailyController.confirmRerack()
+            }
+        } message: {
+            Text("本局杆数、犯规和用时将重新计算，今天已完成的记录不会被清除。")
+        }
+        .confirmationDialog(
+            "切换玩法会放弃当前进度",
+            isPresented: $showDailyGameChangeConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("取消", role: .cancel) { pendingDailyGame = nil }
+            Button("放弃并切换", role: .destructive) {
+                if let game = pendingDailyGame { dailyController.changeGame(game) }
+                pendingDailyGame = nil
             }
         }
         .sheet(isPresented: $showBreakPicker) {
@@ -90,9 +134,14 @@ struct FreePlayView: View {
             .presentationDetents([.height(360)])
             .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showDailyGamePicker) {
+            dailyGamePicker
+                .presentationDetents([.height(420)])
+                .presentationDragIndicator(.visible)
+        }
         .onChange(of: vm.isBreakMode) { _, inBreak in
             // 开球「完成」交付击打阶段 → 按玩法启动规则对局（取消开球时 pendingGame 已清）。
-            if !inBreak, let game = pendingGame {
+            if !isDailyClearance, !inBreak, let game = pendingGame {
                 pendingGame = nil
                 startGame(game)
             }
@@ -102,10 +151,21 @@ struct FreePlayView: View {
                 hasAppeared = true
                 vm.setupScene()
                 vm.onShotSettled = { facts in handleShotSettled(facts) }
+                if isDailyClearance {
+                    dailyController.start(host: vm, defaultGame: preferences.dailyClearanceGame)
+                }
             }
         }
+        .onDisappear {
+            if isDailyClearance { dailyController.stop() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard isDailyClearance else { return }
+            if phase == .active { dailyController.resumeActivity() }
+            else { dailyController.flushActivity() }
+        }
         // 工具活跃度（契约 §5.3）：只记停留时长，⛔ 不记引擎进袋结果。
-        .toolUsageSession(.freePlay)
+        .toolUsageSession(isDailyClearance ? .dailyClearance : .freePlay)
     }
 
     // MARK: - Stage（scene + 贴边控件，G3–G11）
@@ -149,7 +209,10 @@ struct FreePlayView: View {
                         )
                         .accessibilityIdentifier("freeplay.nextBankAlternative")
                     }
-                    BTBreakSideButton(isEnabled: !vm.isPlaying) { showBreakPicker = true }
+                    BTBreakSideButton(isEnabled: !vm.isPlaying) {
+                        if isDailyClearance { requestDailyRerack() }
+                        else { showBreakPicker = true }
+                    }
                 }
                 .btStageFrame(
                     proxy.bottomLeadingFrame(
@@ -222,6 +285,14 @@ struct FreePlayView: View {
     }
 
     private func handleShotSettled(_ facts: ShotFacts) {
+        if isDailyClearance {
+            guard let ruling = dailyController.handleShotSettled(facts) else { return }
+            flash(ruling.message, tone: ruling.failed ? .warning : .success)
+            if ruling.ballInHand, !ruling.failed {
+                flash("自由球：可任意拖放母球")
+            }
+            return
+        }
         guard let rules else { return }
         let ruling = rules.judge(facts)
         refreshRulesHUD(message: ruling.message)
@@ -286,10 +357,21 @@ struct FreePlayView: View {
     /// P10.2：按当前玩法规则拦截不合法目标球选择，并给出提示。
     private func handleTargetTap(_ node: SCNNode) {
         guard !vm.isBreakMode else { return }
-        if let rules, vm.aimMode == .pocket, let key = vm.scene.ballKey(for: node),
+        if vm.aimMode == .pocket, let key = vm.scene.ballKey(for: node),
            !PositionPlayBall.isCue(key) {
             let tableTargets = Set(vm.onTableKeys.filter { $0 != PositionPlayBall.cueKey })
-            let legal = rules.legalTargetKeys(tableKeys: tableTargets)
+            let legal: Set<String>
+            if isDailyClearance {
+                legal = dailyController.legalTargetKeys(tableKeys: tableTargets)
+            } else if let rules {
+                legal = rules.legalTargetKeys(tableKeys: tableTargets)
+            } else {
+                legal = []
+            }
+            guard !legal.isEmpty else {
+                vm.selectTarget(node: node)
+                return
+            }
             if !legal.contains(key) {
                 flash("按当前规则不能打 \(PositionPlayBall.shortLabel(for: key)) 号球", tone: .warning)
                 return
@@ -303,16 +385,21 @@ struct FreePlayView: View {
     private var topInfoRow: some View {
         HStack(spacing: Spacing.sm) {
             if vm.isBreakMode {
-                breakModePill
+                isDailyClearance ? AnyView(dailyBreakModePill) : AnyView(breakModePill)
             } else {
                 BTAimModeToggleButton(isFree: vm.aimMode == .free,
                                       isDisabled: vm.isPlaying) {
                     vm.toggleAimMode()
                 }
 
-                aimCapsule
-
-                if rules != nil { gamePill }
+                if isDailyClearance {
+                    TimelineView(.periodic(from: .now, by: 1)) { _ in
+                        dailyStatusPill
+                    }
+                } else {
+                    aimCapsule
+                    if rules != nil { gamePill }
+                }
 
                 if vm.cuePocketed { scratchPill }
             }
@@ -382,6 +469,52 @@ struct FreePlayView: View {
         .btHudGlass()
     }
 
+    private var dailyBreakModePill: some View {
+        HStack(spacing: 6) {
+            BreakRackGlyph(color: .btPrimary, size: 13)
+            Text(dailyController.game?.displayName ?? preferences.dailyClearanceGame.displayName)
+            BTHudMetricSeparator()
+            if dailyController.isAutomaticallyBreaking {
+                ProgressView().controlSize(.mini).tint(.btPrimary)
+                Text("正在开球")
+            } else {
+                Text("待手动开球")
+            }
+        }
+        .font(.system(size: 13, weight: .semibold, design: .rounded))
+        .foregroundStyle(.white.opacity(0.92))
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 6)
+        .btHudGlass()
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("dailyClearance.breakStatus")
+    }
+
+    private var dailyStatusPill: some View {
+        HStack(spacing: 4) {
+            Text(dailyController.game?.displayName ?? "清台")
+                .foregroundStyle(.btPrimary)
+            BTHudMetricSeparator()
+            Text("余 \(dailyController.remainingBallCount)")
+            BTHudMetricSeparator()
+            Text("\(dailyController.shotCount) 杆")
+            BTHudMetricSeparator()
+            Text("\(dailyController.foulCount) 犯")
+            BTHudMetricSeparator()
+            Text(formatDuration(dailyController.elapsedSeconds))
+        }
+        .font(.system(size: 11, weight: .semibold, design: .rounded))
+        .foregroundStyle(.white.opacity(0.92))
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, 7)
+        .btHudGlass()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("每日清台，\(dailyController.game?.displayName ?? "清台")，剩余 \(dailyController.remainingBallCount) 球，\(dailyController.shotCount) 杆，\(dailyController.foulCount) 次犯规，用时 \(formatDuration(dailyController.elapsedSeconds))")
+        .accessibilityIdentifier("dailyClearance.hud")
+    }
+
     /// 规则对局 HUD（条 15.10）：记分牌 + 当前击球方。
     private var gamePill: some View {
         HStack(spacing: 4) {
@@ -422,10 +555,18 @@ struct FreePlayView: View {
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
         Group {
             if let runner = vm.breakRunner {
-                BreakControlBar(runner: runner, onCancel: {
-                    pendingGame = nil
-                    vm.cancelBreakFlow()
-                })
+                if isDailyClearance, dailyController.isAutomaticallyBreaking {
+                    dailyAutomaticBreakBar
+                } else {
+                    BreakControlBar(runner: runner, onCancel: {
+                        pendingGame = nil
+                        vm.cancelBreakFlow()
+                    })
+                }
+            } else if isDailyClearance, dailyController.isCompleted {
+                dailyCompletionBar
+            } else if isDailyClearance, dailyController.phase == .failed {
+                dailyFailureBar
             } else {
                 paletteBar(proxy)
             }
@@ -434,6 +575,51 @@ struct FreePlayView: View {
         .background(HUDStyle.panelBackground)
         .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }
         .environment(\.colorScheme, .dark)
+    }
+
+    private var dailyAutomaticBreakBar: some View {
+        HStack(spacing: Spacing.sm) {
+            ProgressView().tint(.btPrimary)
+            Text("正在自动开球，停稳后直接开始")
+                .font(.btCallout)
+                .foregroundStyle(.white.opacity(0.88))
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("dailyClearance.autoBreaking")
+    }
+
+    private var dailyCompletionBar: some View {
+        HStack(spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("今日已清台")
+                    .font(.btHeadline)
+                    .foregroundStyle(.white)
+                Text("\(dailyController.shotCount) 杆 · \(dailyController.foulCount) 犯 · \(formatDuration(dailyController.elapsedSeconds))")
+                    .font(.btCaption)
+                    .foregroundStyle(.white.opacity(0.65))
+            }
+            Spacer()
+            Button("再来一局") { dailyController.replay() }
+                .buttonStyle(.borderedProminent)
+                .tint(.btPrimary)
+                .accessibilityIdentifier("dailyClearance.replay")
+        }
+        .padding(.horizontal, Spacing.lg)
+    }
+
+    private var dailyFailureBar: some View {
+        HStack(spacing: Spacing.md) {
+            Text(dailyController.statusText)
+                .font(.btCallout)
+                .foregroundStyle(.white.opacity(0.82))
+                .lineLimit(2)
+            Spacer()
+            Button("重新开球") { requestDailyRerack() }
+                .buttonStyle(.borderedProminent)
+                .tint(.btPrimary)
+                .accessibilityIdentifier("dailyClearance.rerack")
+        }
+        .padding(.horizontal, Spacing.lg)
     }
 
     private var strikeEnabled: Bool {
@@ -445,7 +631,7 @@ struct FreePlayView: View {
     private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTReferenceBallPalette(
-            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            ballDiameter: proxy.paletteBallDiameter,
             libraryWidth: libraryWidth,
             isOnTable: { vm.onTableKeys.contains($0) },
             onTap: { key, onTable in
@@ -461,17 +647,93 @@ struct FreePlayView: View {
         // 页特有：对局中「结束对局」与「清空桌面」同 Section（G25 自由击打模板）。
         BTSolverMoreMenu(scene: vm.scene, showsAimCloseupToggle: true, pageExtras: {
             Section {
-                if rules != nil {
-                    Button("结束对局", systemImage: "flag.checkered") {
-                        endGame()
-                        flash("对局已结束")
+                if isDailyClearance {
+                    Button("重新开球", systemImage: "arrow.counterclockwise") {
+                        requestDailyRerack()
                     }
-                }
-                Button("清空桌面", systemImage: "trash") {
-                    showClearTableConfirm = true
+                    .disabled(dailyController.phase == .autoBreaking || dailyController.isCompleted)
+                    .accessibilityIdentifier("dailyClearance.rerackMenu")
+
+                    Button("临时换玩法", systemImage: "square.stack.3d.up") {
+                        showDailyGamePicker = true
+                    }
+                    .accessibilityIdentifier("dailyClearance.changeGame")
+                } else {
+                    if rules != nil {
+                        Button("结束对局", systemImage: "flag.checkered") {
+                            endGame()
+                            flash("对局已结束")
+                        }
+                    }
+                    Button("清空桌面", systemImage: "trash") {
+                        showClearTableConfirm = true
+                    }
                 }
             }
         })
+    }
+
+    private var dailyGamePicker: some View {
+        NavigationStack {
+            List(DailyClearanceGame.allCases) { game in
+                Button {
+                    showDailyGamePicker = false
+                    selectDailyGame(game)
+                } label: {
+                    HStack {
+                        Text(game.displayName)
+                        Spacer()
+                        if game == dailyController.game {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(.btPrimary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .foregroundStyle(.primary)
+                .accessibilityIdentifier("dailyClearance.game.\(game.rawValue)")
+            }
+            .navigationTitle("本局玩法")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { showDailyGamePicker = false }
+                }
+            }
+        }
+    }
+
+    private var navigationStatusText: String {
+        if isDailyClearance { return dailyController.statusText }
+        return vm.breakRunner?.statusText
+            ?? (vm.isComputing ? "求解中…"
+                : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
+    }
+
+    private func requestDailyRerack() {
+        switch dailyController.requestRerack() {
+        case .started:
+            flash("已重新摆架")
+        case .confirmationRequired:
+            showDailyRerackConfirm = true
+        case .unavailable:
+            flash("正在开球，请稍候", tone: .warning)
+        }
+    }
+
+    private func selectDailyGame(_ game: DailyClearanceGame) {
+        guard game != dailyController.game else { return }
+        if dailyController.shotCount > 0, !dailyController.isCompleted {
+            pendingDailyGame = game
+            showDailyGameChangeConfirm = true
+        } else {
+            dailyController.changeGame(game)
+        }
+    }
+
+    private func formatDuration(_ seconds: TimeInterval) -> String {
+        let total = max(0, Int(seconds.rounded(.down)))
+        return String(format: "%02d:%02d", total / 60, total % 60)
     }
 
     private func flash(_ message: String, tone: BTToastTone = .success) {

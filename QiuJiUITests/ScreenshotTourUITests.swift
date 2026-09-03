@@ -11,20 +11,50 @@ final class ScreenshotTourUITests: XCTestCase {
 
     var app: XCUIApplication!
     private var v47ForcedShotDirURL: URL?
+    private var usesDeterministicInMemoryStore = false
+
+    private var projectRootURL: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
 
     override func setUpWithError() throws {
         continueAfterFailure = true
         app = XCUIApplication.launchClean()
     }
 
+    /// 设计巡游跨设备比较必须从同一 SwiftData 空基线启动，不能继承各模拟器
+    /// 之前遗留的训练计划、历史或收藏。其他历史测试默认仍使用持久化容器。
+    private func launchPremium() -> XCUIApplication {
+        var arguments = ["-forcePremium"]
+        if usesDeterministicInMemoryStore {
+            arguments.append("-v50.inMemoryStore")
+        }
+        return XCUIApplication.launchClean(extraArgs: arguments)
+    }
+
     // MARK: - Helpers
 
-    /// 截图目录：优先 `UI_POLISH_SHOT_DIR` / `/tmp/qiuji-uitest/shot_dir`；
-    /// 否则按外观写入 `build/v47-screenshots/{light|dark}/`。
+    /// 截图目录：v50 矩阵优先读取 `V50_SHOT_DIR` / `/tmp/qiuji-v50/shot_dir`；
+    /// 旧的单页样板仍兼容 `UI_POLISH_SHOT_DIR` / `/tmp/qiuji-uitest/shot_dir`。
     /// v47 起禁止测试默认覆盖 `docs/ui-polish/screenshots-latest/` 设计基线。
     private var shotDirURL: URL? {
         if let v47ForcedShotDirURL { return v47ForcedShotDirURL }
+        if let env = ProcessInfo.processInfo.environment["V50_SHOT_DIR"], !env.isEmpty {
+            return URL(fileURLWithPath: env, isDirectory: true)
+        }
+        if let env = ProcessInfo.processInfo.environment["TEST_RUNNER_V50_SHOT_DIR"], !env.isEmpty {
+            return URL(fileURLWithPath: env, isDirectory: true)
+        }
+        if let fileDir = (try? String(contentsOfFile: "/tmp/qiuji-v50/shot_dir", encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !fileDir.isEmpty {
+            return URL(fileURLWithPath: fileDir, isDirectory: true)
+        }
         if let env = ProcessInfo.processInfo.environment["UI_POLISH_SHOT_DIR"], !env.isEmpty {
+            return URL(fileURLWithPath: env, isDirectory: true)
+        }
+        if let env = ProcessInfo.processInfo.environment["TEST_RUNNER_UI_POLISH_SHOT_DIR"], !env.isEmpty {
             return URL(fileURLWithPath: env, isDirectory: true)
         }
         // File override avoids polluting docs/ui-polish when env isn't inherited by the runner.
@@ -45,8 +75,9 @@ final class ScreenshotTourUITests: XCTestCase {
             @unknown default: mode = "unknown"
             }
         }
-        let base = "/Users/song/projects/13.billiard_trainer/build/v47-screenshots"
-        return URL(fileURLWithPath: "\(base)/\(mode)", isDirectory: true)
+        return projectRootURL
+            .appendingPathComponent("build/v50/manual", isDirectory: true)
+            .appendingPathComponent(mode, isDirectory: true)
     }
 
     private func snap(_ name: String) {
@@ -77,8 +108,11 @@ final class ScreenshotTourUITests: XCTestCase {
             return
         }
 
-        let manifestPath = ProcessInfo.processInfo.environment["V47_EXPECTED_SHOT_MANIFEST"]
-            ?? "/Users/song/projects/13.billiard_trainer/docs/design/v47/baseline-screenshots.sha256"
+        let manifestPath = ProcessInfo.processInfo.environment["V50_EXPECTED_SHOT_MANIFEST"]
+            ?? ProcessInfo.processInfo.environment["TEST_RUNNER_V50_EXPECTED_SHOT_MANIFEST"]
+            ?? projectRootURL.appendingPathComponent(
+                "docs/design/v47/baseline-screenshots.sha256"
+            ).path
         do {
             let manifest = try String(contentsOfFile: manifestPath, encoding: .utf8)
             let expected = Set(manifest.split(separator: "\n").compactMap { line -> String? in
@@ -99,7 +133,7 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     /// 完整巡游必须从空输出目录开始，避免上轮残留 PNG 掩盖本轮静默跳页。
-    /// 只允许清理 v47 build 目录或系统临时目录，绝不递归删除 docs/Resources。
+    /// 只允许清理 v47/v50/v51 build 目录或专用系统临时目录，绝不递归删除 docs/Resources。
     @discardableResult
     private func resetV47ShotDirectory() -> Bool {
         guard let dir = shotDirURL else {
@@ -107,9 +141,18 @@ final class ScreenshotTourUITests: XCTestCase {
             return false
         }
         let standardized = dir.standardizedFileURL.path
-        let allowed = standardized.contains("/build/v47-") || standardized.hasPrefix("/tmp/")
+        let buildRoot = projectRootURL.appendingPathComponent("build", isDirectory: true)
+            .standardizedFileURL.path + "/"
+        let allowedBuildLeaf = standardized.hasPrefix(buildRoot)
+            && (standardized.contains("/v47-")
+                || standardized.contains("/v50/")
+                || standardized.contains("/v51/"))
+        let allowedTemporaryLeaf = standardized.hasPrefix("/tmp/qiuji-v50/")
+            || standardized.hasPrefix("/private/tmp/qiuji-v50/")
+            || standardized.hasPrefix("/tmp/qiuji-uitest/")
+        let allowed = allowedBuildLeaf || allowedTemporaryLeaf
         guard allowed else {
-            XCTFail("拒绝清理非 v47 临时输出目录：\(standardized)")
+            XCTFail("拒绝清理非 v47/v50/v51 专用输出目录：\(standardized)")
             return false
         }
         do {
@@ -137,6 +180,138 @@ final class ScreenshotTourUITests: XCTestCase {
         if staticText.waitForExistence(timeout: 1) {
             staticText.tap()
             return true
+        }
+        return false
+    }
+
+    /// AngleHome 在 iPad 上会因网格高度/上一次分段状态让目标卡不在首个可见区；
+    /// 长巡游还可能在 soft restart 后短暂拿到空 AX 快照。第一轮滚动仍找不到时，
+    /// 用一次干净重启重建 AX 树并恢复指定分段。调用点仍须显式报错，最终再由
+    /// 66 张 manifest 双重兜底。
+    @discardableResult
+    private func tapAngleCard(
+        _ label: String,
+        tab: String,
+        maxScrolls: Int = 4
+    ) -> Bool {
+        for attempt in 0..<2 {
+            if attempt > 0 {
+                app.terminate()
+                app = launchPremium()
+                sleep(2)
+                app.switchTab(.angle)
+                sleep(1)
+                guard switchAngleHomeTab(tab) else { return false }
+            }
+
+            if tapIfExists(label, timeout: 4) { return true }
+            for _ in 0..<maxScrolls {
+                let scroll = app.scrollViews.firstMatch
+                if scroll.exists {
+                    scroll.swipeUp(velocity: .fast)
+                } else {
+                    app.swipeUp(velocity: .fast)
+                }
+                usleep(450_000)
+                if tapIfExists(label, timeout: 2) { return true }
+            }
+        }
+        return false
+    }
+
+    /// 打开训练首页的更多菜单。生产代码提供稳定 identifier；中文/英文系统标签
+    /// 仅保留为旧构建兜底，避免 developmentLanguage 变化造成静默漏页。
+    @discardableResult
+    private func openTrainingHomeMenu(timeout: TimeInterval = 4) -> Bool {
+        let identified = app.buttons["trainingHome.moreMenu"]
+        if identified.waitForExistence(timeout: timeout) {
+            identified.tap()
+            return true
+        }
+        let localizedFallback = app.buttons.matching(NSPredicate(
+            format: "label CONTAINS 'ellipsis' OR label == 'More' OR label == '更多'"
+        )).firstMatch
+        if localizedFallback.waitForExistence(timeout: 1) {
+            localizedFallback.tap()
+            return true
+        }
+        return false
+    }
+
+    /// SwiftUI 在部分 iPadOS 26 构建中不会把 identifier 透传给复合 Button；
+    /// 明确的产品级 accessibilityLabel 是稳定且可读的第二定位通道。
+    private func resolvedButton(
+        identifier: String,
+        label: String,
+        timeout: TimeInterval = 5
+    ) -> XCUIElement? {
+        let identified = app.buttons[identifier]
+        if identified.waitForExistence(timeout: timeout) { return identified }
+        let labelled = app.buttons[label]
+        if labelled.waitForExistence(timeout: 2) { return labelled }
+        return nil
+    }
+
+    /// iPadOS 26 长时间 UI 测试后，切入“我的”可能短暂返回空 AX 快照。
+    /// 有界重新激活/选 Tab，并兼容 SwiftUI 复合按钮的合并标签。
+    @discardableResult
+    private func openProfileLogin() -> Bool {
+        for attempt in 0..<3 {
+            if attempt > 0 {
+                app.activate()
+                app.switchTab(.profile)
+                sleep(1)
+            }
+            let candidates = [
+                app.buttons["profile.login"],
+                app.buttons.matching(NSPredicate(format: "label BEGINSWITH '点击登录'")).firstMatch,
+                app.buttons["登录 / 注册"],
+            ]
+            for candidate in candidates where candidate.waitForExistence(timeout: 2) {
+                candidate.tap()
+                return true
+            }
+        }
+        return false
+    }
+
+    /// 从“我的”根页打开一个推入式子页。长巡游运行到 Profile 时，SwiftUI 的
+    /// AX 树偶尔会短暂缺行；每轮先回到列表顶部，再做有限次滚动查找，并以目标
+    /// navigation title 确认确实进入了页面，禁止把根页误截成子页。
+    @discardableResult
+    private func openProfileDestination(
+        _ title: String,
+        maxScrolls: Int = 6
+    ) -> Bool {
+        let destination = app.navigationBars[title]
+        for attempt in 0..<2 {
+            if destination.waitForExistence(timeout: attempt == 0 ? 1 : 2) {
+                return true
+            }
+            if attempt > 0 {
+                app.activate()
+                if destination.waitForExistence(timeout: 2) { return true }
+            }
+
+            app.switchTab(.profile)
+            sleep(1)
+            app.scrollUp(times: 5)
+            sleep(1)
+
+            for scrollIndex in 0...maxScrolls {
+                if tapIfExists(title, timeout: scrollIndex == 0 ? 3 : 1),
+                   destination.waitForExistence(timeout: 4) {
+                    return true
+                }
+                guard scrollIndex < maxScrolls else { break }
+                let scroll = app.scrollViews.firstMatch
+                if scroll.exists {
+                    scroll.swipeUp(velocity: .fast)
+                } else {
+                    app.swipeUp(velocity: .fast)
+                }
+                usleep(400_000)
+            }
         }
         return false
     }
@@ -198,15 +373,12 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 给 UI 设计师的整页快照：Pro 解锁后走完整巡游，再补巡游漏掉的常规页。
     /// 落盘目录：`UI_POLISH_SHOT_DIR` 或 `/tmp/qiuji-uitest/shot_dir`。
     func testDesignerPageDump() {
-        // 完整 v47 巡游会先清空输出，因此不采纳机器上遗留的旧截图目录配置；
-        // 强制写本批 build 目录，避免覆盖 tmp/designer-screenshots 基线。
-        v47ForcedShotDirURL = URL(
-            fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/v47-screenshots/light",
-            isDirectory: true
-        )
+        // v50 必须由矩阵运行器注入按 runtime/device/appearance/state/suite 隔离的目录；
+        // `shotDirURL` 的默认值只服务人工单跑，绝不再硬编码覆盖 Light 或其他设备证据。
         guard resetV47ShotDirectory() else { return }
+        usesDeterministicInMemoryStore = true
         app.terminate()
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app = launchPremium()
         sleep(3)
         snap("00-launch")
 
@@ -220,18 +392,12 @@ final class ScreenshotTourUITests: XCTestCase {
 
         // 球理 push 会藏底栏，必须软重启再拍记录 / 我的。
         app.terminate()
-        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app = launchPremium()
         sleep(3)
         tourHistory()
         tourProfile()
         tourFavoritesAndSubscriptionStatus()
         tourLogin()
-        app.switchTab(.training)
-        sleep(2)
-        if tapIfExists("自由记录", timeout: 3) {
-            sleep(2)
-            snap("62-free-record-session")
-        }
         tourOnboarding()
         assertV47BaselineScreenshotCompleteness()
     }
@@ -761,6 +927,138 @@ final class ScreenshotTourUITests: XCTestCase {
         tourHistory()
         tourProfile()
         tourModalFlows()
+    }
+
+    /// v50 W4：iPad 完整巡游曾因目标卡不在首屏而静默漏图。
+    /// 用三个真实漏页锁定学/练/打三个分段的滚动导航。
+    func testV50IPadAngleRouteNavigationRegression() {
+        guard resetV47ShotDirectory() else { return }
+        let pages: [(String, String, String)] = [
+            ("学", "旋转与加塞", "09d-spin-and-english"),
+            ("练", "3D 瞄准点训练", "18-aimpoint-scene-3d"),
+            ("打", "分离角与走位", "19-shot-simulation"),
+        ]
+        for (tab, label, name) in pages {
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+            sleep(2)
+            app.switchTab(.angle)
+            XCTAssertTrue(switchAngleHomeTab(tab), "无法切换到 \(tab) 分段")
+            XCTAssertTrue(tapAngleCard(label, tab: tab), "iPad 滚动/AX 恢复后仍无法打开 \(label)")
+            XCTAssertTrue(
+                app.navigationBars[label].waitForExistence(timeout: 5),
+                "点击后未进入 \(label)"
+            )
+            startAimingTrainingFromSheet()
+            snap(name)
+        }
+    }
+
+    /// v50 W4：双 iPad 并发长巡游曾在 T07 前同时遇到一次 AX 空快照。
+    /// 聚焦锁定“切到理分段 → 找到球团管理 → push”整条公共导航链。
+    func testV50IPadTheoryT07NavigationRegression() {
+        guard resetV47ShotDirectory() else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(2)
+        XCTAssertTrue(
+            TheoryIndexNavigation.openPage(in: app, cardTitle: "球团管理"),
+            "iPad 应能打开 T07 球团管理"
+        )
+        let navigationBar = app.navigationBars["球团管理"]
+        XCTAssertTrue(
+            navigationBar.buttons["返回"].waitForExistence(timeout: 3),
+            "中文 App 的系统返回按钮应显示“返回”"
+        )
+        XCTAssertFalse(
+            navigationBar.buttons["Back"].exists,
+            "工程开发语言不得回退为英文"
+        )
+        snap("12j-theory-t07")
+    }
+
+    /// v50 W5：大屏 iPad 长巡游曾同时漏掉两个训练菜单页面，并在 AX 空快照时
+    /// 漏掉“解 / 思路训练”。逐页干净启动，锁定稳定菜单标识和 AX 恢复链。
+    func testV50LargeIPadMissingRouteRegression() {
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(2)
+        app.switchTab(.training)
+        XCTAssertTrue(openTrainingHomeMenu(), "训练首页应能通过稳定标识打开更多菜单")
+        XCTAssertTrue(tapIfExists("训练计划", timeout: 3), "更多菜单应包含训练计划")
+        XCTAssertTrue(app.navigationBars["训练计划"].waitForExistence(timeout: 5), "应进入训练计划列表")
+        snap("03-plan-list")
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(2)
+        app.switchTab(.training)
+        XCTAssertTrue(openTrainingHomeMenu(), "训练首页应能再次打开更多菜单")
+        XCTAssertTrue(tapIfExists("新建模版", timeout: 3), "更多菜单应包含新建模版")
+        XCTAssertTrue(app.navigationBars["新建模版"].waitForExistence(timeout: 5), "应进入新建模版")
+        snap("04b-custom-plan-builder")
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(2)
+        app.switchTab(.angle)
+        // 第一次 AX 快照可能为空；tapAngleCard 会在必要时重启并恢复“解”分段。
+        _ = switchAngleHomeTab("解")
+        XCTAssertTrue(tapAngleCard("思路训练", tab: "解"), "AX 恢复后应能打开思路训练")
+        XCTAssertTrue(app.navigationBars["思路训练"].waitForExistence(timeout: 5), "应进入思路训练")
+        snap("24-silu-trainer")
+    }
+
+    /// v50 W5：大屏 iPad 上点击登录内部文字不会可靠触发外层 Button。
+    /// 通过稳定 identifier 验证个人页 → 登录 Sheet → 手机号登录整条链。
+    func testV50IPadLoginNavigationRegression() {
+        guard resetV47ShotDirectory() else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(2)
+        app.switchTab(.profile)
+
+        guard openProfileLogin() else {
+            XCTFail("个人页应提供稳定的登录入口")
+            return
+        }
+        guard let phone = resolvedButton(identifier: "login.phone", label: "手机号登录") else {
+            XCTFail("登录 Sheet 应显示手机号登录")
+            return
+        }
+        snap("70-login")
+
+        phone.tap()
+        XCTAssertTrue(
+            app.navigationBars["手机号登录"].waitForExistence(timeout: 5),
+            "应进入手机号登录页"
+        )
+        snap("71-phone-login")
+    }
+
+    /// v50 W5：产品当前只支持竖屏。向 iPad 模拟器发出横屏请求后，App 内容区域
+    /// 必须继续保持竖向几何；这是一条负向能力边界，不代表已支持横屏布局。
+    func testV50IPadPortraitOnlyBoundary() {
+        guard resetV47ShotDirectory() else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(2)
+        app.switchTab(.training)
+        let initialFrame = app.frame
+        XCTAssertGreaterThan(initialFrame.height, initialFrame.width, "iPad 初始内容区域应为竖屏")
+
+        XCUIDevice.shared.orientation = .landscapeLeft
+        sleep(3)
+        let afterRequestFrame = app.frame
+        XCTAssertGreaterThan(
+            afterRequestFrame.height,
+            afterRequestFrame.width,
+            "仅竖屏 App 不应接受横屏请求并变成横向内容区域"
+        )
+        snap("00-portrait-only-after-landscape-request")
+        XCUIDevice.shared.orientation = .portrait
     }
 
     /// 轻量巡游：学练四页（瞄准原理 / 浅谈球感 / 进球点对照表 / 几何角度训练=角度预测），
@@ -1948,12 +2246,12 @@ final class ScreenshotTourUITests: XCTestCase {
             snap("02-training-custom-tab")
             _ = tapIfExists("官方计划", timeout: 2)
             sleep(1)
+        } else {
+            XCTFail("完整巡游无法打开训练 / 我的模版")
         }
 
         // 顶部菜单进入训练计划列表
-        let menu = app.buttons.matching(NSPredicate(format: "label CONTAINS 'ellipsis' OR label CONTAINS 'More'")).firstMatch
-        if menu.waitForExistence(timeout: 3) {
-            menu.tap()
+        if openTrainingHomeMenu() {
             sleep(1)
             if app.buttons["训练计划"].waitForExistence(timeout: 2) {
                 app.buttons["训练计划"].tap()
@@ -1961,8 +2259,11 @@ final class ScreenshotTourUITests: XCTestCase {
                 snap("03-plan-list")
                 popBack()
             } else {
+                XCTFail("训练首页更多菜单缺少训练计划")
                 app.tap() // 关闭菜单
             }
+        } else {
+            XCTFail("训练首页无法打开更多菜单")
         }
 
         // 直接从首页计划卡片进入计划详情
@@ -1973,6 +2274,8 @@ final class ScreenshotTourUITests: XCTestCase {
             sleep(2)
             snap("04-plan-detail")
             popBack()
+        } else {
+            XCTFail("完整巡游无法打开训练计划详情")
         }
         app.switchTab(.training)
         sleep(1)
@@ -1987,11 +2290,20 @@ final class ScreenshotTourUITests: XCTestCase {
 
         let drillCard = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'drillCard_'")).firstMatch
+        var openedDetail = false
         if drillCard.waitForExistence(timeout: 4) {
             drillCard.tap()
+            openedDetail = true
         } else {
             let cell = app.cells.firstMatch
-            if cell.waitForExistence(timeout: 4) { cell.tap() }
+            if cell.waitForExistence(timeout: 4) {
+                cell.tap()
+                openedDetail = true
+            }
+        }
+        guard openedDetail else {
+            XCTFail("完整巡游无法打开动作详情")
+            return
         }
         sleep(3)
         snap("06-drill-detail-top")
@@ -2021,8 +2333,8 @@ final class ScreenshotTourUITests: XCTestCase {
             ("学", "角度与瞄准", "10-angle-dynamic"),
             ("学", "浅谈球感", "11-ball-feel"),
             ("学", "瞄准点对照表", "12-contact-point-table"),
-            // 理（v32.2：单篇直达）
-            ("理", "切线法则", "12b-theory-t03"),
+            // 理论页由 tourAllTheoryPages 统一以 manifest 的 12c–12n 命名捕获，
+            // 这里不重复拍 T03，避免同一模板占用两个巡游文件名。
             // 练
             ("练", "角度预测", "13-geometric-quiz"),
             ("练", "2D 角度训练", "14-scene-aiming-2d"),
@@ -2043,18 +2355,21 @@ final class ScreenshotTourUITests: XCTestCase {
             ("解", "翻袋解球器", "27-bank-shot"),
             ("解", "反射解球器", "28-diamond-system"),
         ]
-        for (idx, (tab, label, name)) in subPages.enumerated() {
-            // SceneKit 页连开易把模拟器进程打崩：每个场景入口前软重启。
-            if idx >= 4 { // 学的知识页较轻；从练/打/解起每页重启
-                app.terminate()
-                app = XCUIApplication.launchClean()
-                sleep(2)
-            }
-            app.switchTab(.angle)
-            sleep(1)
-            switchAngleHomeTab(tab)
-            if tapIfExists(label, timeout: 3) {
+        for (tab, label, name) in subPages {
+            // Keep one foreground App session while navigating the angle family. On
+            // iOS 26, repeatedly terminate/launching the App eventually disconnects
+            // the AX server (kAXErrorServerNotFound). `tapAngleCard` still performs one
+            // bounded soft-restart if the real hierarchy becomes unavailable.
+            // Returning from a pushed angle page already leaves us on AngleHome.
+            // Prefer its local segment control so one transiently empty bottom-tab AX
+            // snapshot does not record a failure before tapAngleCard's bounded recovery.
+            _ = switchAngleHomeTab(tab)
+            if tapAngleCard(label, tab: tab) {
                 sleep(3)
+                XCTAssertFalse(
+                    app.staticTexts["解锁球迹 Pro"].exists,
+                    "Pro 巡游进入 \(label) 时不得把 Paywall 当作目标页"
+                )
                 // 瞄准训练入口先弹设置 sheet（T-P18-48）：关掉再截训练态。
                 startAimingTrainingFromSheet()
                 // 翻袋默认袋口可能无解，尽力找一个有解袋口再截（失败也截当前态）。
@@ -2064,6 +2379,8 @@ final class ScreenshotTourUITests: XCTestCase {
                 snap(name)
                 popBack()
                 sleep(1)
+            } else {
+                XCTFail("完整巡游无法打开 \(tab) / \(label)")
             }
         }
     }
@@ -2077,11 +2394,20 @@ final class ScreenshotTourUITests: XCTestCase {
 
         let statsAny = app.descendants(matching: .any)
             .matching(NSPredicate(format: "label == '统计'")).firstMatch
-        if statsAny.waitForExistence(timeout: 3) {
-            statsAny.tap()
-            sleep(2)
-            snap("41-history-statistics")
+        for attempt in 0..<2 {
+            if statsAny.waitForExistence(timeout: 5), statsAny.isHittable {
+                statsAny.tap()
+                sleep(2)
+                snap("41-history-statistics")
+                return
+            }
+            if attempt == 0 {
+                app.activate()
+                app.switchTab(.history)
+                sleep(1)
+            }
         }
+        XCTFail("完整巡游无法在有界恢复后打开记录 / 统计")
     }
 
     // MARK: 我的 Tab（含推入式子页）
@@ -2103,20 +2429,14 @@ final class ScreenshotTourUITests: XCTestCase {
             ("关于与反馈", "55-profile-about"),
         ]
         for (label, name) in subPages {
-            app.switchTab(.profile)
+            guard openProfileDestination(label) else {
+                XCTFail("完整巡游无法在有界恢复后打开我的 / \(label)")
+                continue
+            }
             sleep(1)
-            if !tapIfExists(label, timeout: 2) {
-                app.scrollDown(times: 2)
-                sleep(1)
-                _ = tapIfExists(label, timeout: 2)
-            }
-            sleep(2)
-            // 仅当进入了导航页（出现返回键）才截图，避免误截
-            if app.navigationBars.buttons.element(boundBy: 0).waitForExistence(timeout: 2) {
-                snap(name)
-                popBack()
-                sleep(1)
-            }
+            snap(name)
+            popBack()
+            sleep(1)
         }
     }
 
@@ -2125,11 +2445,7 @@ final class ScreenshotTourUITests: XCTestCase {
     private func tourCustomPlanBuilder() {
         app.switchTab(.training)
         sleep(1)
-        let menu = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS 'ellipsis' OR label CONTAINS 'More'")
-        ).firstMatch
-        if menu.waitForExistence(timeout: 3) {
-            menu.tap()
+        if openTrainingHomeMenu() {
             sleep(1)
             if tapIfExists("新建模版", timeout: 2) {
                 sleep(2)
@@ -2138,13 +2454,10 @@ final class ScreenshotTourUITests: XCTestCase {
                 sleep(1)
                 return
             }
+            XCTFail("训练首页更多菜单缺少新建模版")
             app.tap()
-        }
-        if tapIfExists("新建模版", timeout: 2) {
-            sleep(2)
-            snap("04b-custom-plan-builder")
-            popBack()
-            sleep(1)
+        } else {
+            XCTFail("训练首页无法打开更多菜单以进入新建模版")
         }
     }
 
@@ -2153,18 +2466,23 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(2)
         let drillCard = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'drillCard_'")).firstMatch
-        if drillCard.waitForExistence(timeout: 4) {
-            drillCard.tap()
-            sleep(2)
-            if tapIfExists("查看精讲", timeout: 3) {
-                sleep(2)
-                snap("07b-drill-tutorial")
-                popBack()
-                sleep(1)
-            }
-            popBack()
-            sleep(1)
+        guard drillCard.waitForExistence(timeout: 4) else {
+            XCTFail("完整巡游无法为精讲打开动作详情")
+            return
         }
+        drillCard.tap()
+        sleep(2)
+        guard tapIfExists("查看精讲", timeout: 3) else {
+            XCTFail("完整巡游动作详情缺少查看精讲入口")
+            popBack()
+            return
+        }
+        sleep(2)
+        snap("07b-drill-tutorial")
+        popBack()
+        sleep(1)
+        popBack()
+        sleep(1)
     }
 
     private func tourRemainingLearnPages() {
@@ -2176,21 +2494,15 @@ final class ScreenshotTourUITests: XCTestCase {
             ("加塞吃库图谱", "09f-cushion-english-atlas"),
         ]
         for (label, name) in pages {
-            app.terminate()
-            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
-            sleep(2)
-            app.switchTab(.angle)
-            sleep(1)
-            switchAngleHomeTab("学")
-            var opened = tapIfExists(label, timeout: 4)
-            if !opened {
-                app.swipeUp()
-                usleep(400_000)
-                opened = tapIfExists(label, timeout: 3)
-            }
+            _ = switchAngleHomeTab("学")
+            let opened = tapAngleCard(label, tab: "学")
             if opened {
                 sleep(3)
                 snap(name)
+                popBack()
+                sleep(1)
+            } else {
+                XCTFail("完整巡游无法打开学 / \(label)")
             }
         }
     }
@@ -2211,28 +2523,29 @@ final class ScreenshotTourUITests: XCTestCase {
             ("清台速查手册", "12n-theory-quickref"),
         ]
         for (title, name) in pages {
-            app.terminate()
-            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
-            sleep(2)
-            if TheoryIndexNavigation.openPage(in: app, cardTitle: title) {
-                sleep(2)
-                snap(name)
+            guard TheoryIndexNavigation.openPage(in: app, cardTitle: title) else {
+                XCTFail("完整巡游无法打开球理 / \(title)")
+                continue
             }
+            sleep(2)
+            snap(name)
+            popBack()
+            sleep(1)
         }
     }
 
     private func tourFavoritesAndSubscriptionStatus() {
-        app.switchTab(.profile)
-        sleep(2)
-        if tapIfExists("我的收藏", timeout: 3) {
-            sleep(2)
-            snap("56-profile-favorites")
-            popBack()
+        let pages = [
+            ("我的收藏", "56-profile-favorites"),
+            ("订阅管理", "57-subscription-status"),
+        ]
+        for (label, name) in pages {
+            guard openProfileDestination(label) else {
+                XCTFail("完整巡游无法在有界恢复后打开我的 / \(label)")
+                continue
+            }
             sleep(1)
-        }
-        if tapIfExists("订阅管理", timeout: 3) {
-            sleep(2)
-            snap("57-subscription-status")
+            snap(name)
             popBack()
             sleep(1)
         }
@@ -2241,18 +2554,29 @@ final class ScreenshotTourUITests: XCTestCase {
     private func tourLogin() {
         app.switchTab(.profile)
         sleep(1)
-        if tapIfExists("点击登录", timeout: 3) {
-            sleep(2)
-            snap("70-login")
-            if tapIfExists("手机号登录", timeout: 2) || tapIfExists("手机号", timeout: 2) {
-                sleep(2)
-                snap("71-phone-login")
-                app.swipeDown()
-                sleep(1)
-            }
-            app.swipeDown()
-            sleep(1)
+        guard openProfileLogin() else {
+            XCTFail("个人页无法找到稳定的登录入口")
+            return
         }
+        snap("70-login")
+
+        if let phone = resolvedButton(identifier: "login.phone", label: "手机号登录") {
+            phone.tap()
+        } else {
+            // Phone sign-in is currently unavailable from the production sheet. Keep
+            // its retained form in the 66-page responsive matrix through a UI-test-only
+            // deep link instead of re-exposing an unavailable login method to users.
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: [
+                "-forcePremium",
+                "-v51.phoneLoginPreview",
+            ])
+        }
+        guard app.navigationBars["手机号登录"].waitForExistence(timeout: 5) else {
+            XCTFail("手机号登录页未能通过生产入口或测试专用深链打开")
+            return
+        }
+        snap("71-phone-login")
     }
 
     private func tourOnboarding() {

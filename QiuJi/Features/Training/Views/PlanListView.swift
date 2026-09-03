@@ -4,6 +4,7 @@ import SwiftData
 // MARK: - Training Navigation
 
 enum TrainingRoute: Hashable {
+    case dailyClearance
     case planList
     case planDetail(planId: String)
     case customPlanBuilder
@@ -13,6 +14,7 @@ enum TrainingRoute: Hashable {
 // MARK: - Plan List View
 
 struct PlanListView: View {
+    let ownerKey: String
     @State private var plans: [OfficialPlan] = []
     @State private var isLoading = true
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
@@ -20,10 +22,20 @@ struct PlanListView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var planToDelete: CustomPlan?
     @State private var showDeleteConfirm = false
-    @State private var planToActivate: CustomPlan?
-    @State private var showActivateConfirm = false
     @State private var toast: BTToastMessage?
     @Query private var activePlans: [UserActivePlan]
+    @Query private var schedules: [TodayTrainingSchedule]
+
+    init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
+        self.ownerKey = ownerKey
+        _customPlans = Query(
+            filter: #Predicate { $0.ownerKey == ownerKey },
+            sort: \CustomPlan.createdAt,
+            order: .reverse
+        )
+        _activePlans = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+        _schedules = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -82,25 +94,6 @@ struct PlanListView: View {
             Button("删除", role: .destructive) { deleteCustomPlan() }
         } message: {
             Text("确定要删除「\(planToDelete?.name ?? "")」吗？此操作不可撤销。")
-        }
-        .confirmationDialog(
-            "用于今日训练",
-            isPresented: $showActivateConfirm,
-            titleVisibility: .visible
-        ) {
-            Button("取消", role: .cancel) { planToActivate = nil }
-            Button("确定") {
-                if let plan = planToActivate {
-                    activateCustomPlan(plan)
-                }
-                planToActivate = nil
-            }
-        } message: {
-            if hasActivePlan {
-                Text("将替换当前的今日安排。确定用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
-            } else {
-                Text("用「\(planToActivate?.name ?? "")」作为今天的训练吗？")
-            }
         }
     }
 
@@ -267,7 +260,7 @@ struct PlanListView: View {
                             HStack(spacing: 2) {
                                 Image(systemName: BTIcon.checkmarkCircle)
                                     .font(.btMicro)
-                                Text("今日使用中")
+                                Text("已在今日安排")
                                     .font(.btCaption2)
                             }
                             .foregroundStyle(.btSuccess)
@@ -295,7 +288,7 @@ struct PlanListView: View {
                 Button {
                     requestUseForToday(plan)
                 } label: {
-                    Label("用于今日训练", systemImage: "play.circle")
+                    Label(isActive ? "已在今日安排" : "加入今日安排", systemImage: "plus.circle")
                 }
                 Button(role: .destructive) {
                     requestDelete(plan)
@@ -324,7 +317,12 @@ struct PlanListView: View {
     // MARK: - Actions
 
     private func isUsedToday(_ plan: CustomPlan) -> Bool {
-        activePlans.contains { $0.isCustom && $0.planId == plan.id.uuidString }
+        let key = TodayTrainingScheduleService.localDayKey(for: .now, timeZone: .current)
+        return schedules.first(where: { $0.localDayKey == key && $0.archivedAt == nil })?.items.contains {
+            $0.sourceKind == TodayScheduleSourceKind.template &&
+            $0.sourceId == plan.id.uuidString &&
+            ($0.state == TodayScheduleItemState.pending || $0.state == TodayScheduleItemState.inProgress)
+        } ?? false
     }
 
     private func customPlanSubtitle(_ plan: CustomPlan) -> String {
@@ -343,8 +341,7 @@ struct PlanListView: View {
             BTToast.present("已是今日训练", tone: .info) { toast = $0 }
             return
         }
-        planToActivate = plan
-        showActivateConfirm = true
+        addTemplateToToday(plan)
     }
 
     private func requestDelete(_ plan: CustomPlan) {
@@ -352,14 +349,13 @@ struct PlanListView: View {
         showDeleteConfirm = true
     }
 
-    private func activateCustomPlan(_ plan: CustomPlan) {
+    private func addTemplateToToday(_ plan: CustomPlan) {
         do {
-            try DrillTrainingPlanService.activate(plan: plan, context: modelContext)
-            try modelContext.save()
-            router.trainingPath = NavigationPath()
+            _ = try TodayTrainingScheduleService(context: modelContext).addTemplate(plan)
+            toast = BTToastMessage("已加入今日安排")
         } catch {
-            print("[PlanListView] activate failed: \(error)")
-            BTToast.present("无法设为今日训练，请稍后重试", tone: .error) { toast = $0 }
+            print("[PlanListView] add template failed: \(error)")
+            BTToast.present("无法加入今日安排，请稍后重试", tone: .error) { toast = $0 }
         }
     }
 
@@ -368,7 +364,7 @@ struct PlanListView: View {
         let planIdStr = plan.id.uuidString
         do {
             let descriptor = FetchDescriptor<UserActivePlan>(
-                predicate: #Predicate { $0.planId == planIdStr }
+                predicate: #Predicate { $0.ownerKey == ownerKey && $0.planId == planIdStr }
             )
             let actives = try modelContext.fetch(descriptor)
             modelContext.delete(plan)
@@ -472,7 +468,7 @@ private struct PlanCard: View {
     var body: some View {
         BTContentGridCard(
             title: plan.nameZh,
-            subtitle: "\(levelName) · \(plan.durationWeeks) 周",
+            subtitle: "\(plan.stages.count) 阶段 · \(plan.lessonCount) 课",
             coverAspectRatio: 4.0 / 3.0
         ) {
             ZStack(alignment: .topTrailing) {

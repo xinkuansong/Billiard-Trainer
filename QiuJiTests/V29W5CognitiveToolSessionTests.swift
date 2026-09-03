@@ -251,6 +251,25 @@ final class V29W5CognitiveToolSessionTests: XCTestCase {
         XCTAssertTrue(tools.isEmpty)
     }
 
+    func test_dailyClearanceUsesToolKindAndNeverCountsTowardGoalOrAccuracy() throws {
+        let start = Date()
+        let session = try XCTUnwrap(
+            ToolUsageTracker.record(
+                entry: .dailyClearance,
+                start: start,
+                end: start.addingTimeInterval(65),
+                context: context
+            )
+        )
+
+        XCTAssertEqual(session.kind, TrainingSessionKind.tool)
+        XCTAssertEqual(session.note, "每日清台")
+        XCTAssertEqual(session.totalDurationMinutes, 1)
+        XCTAssertTrue(session.drillEntries.isEmpty)
+        XCTAssertFalse(TrainingSessionKind.countsTowardGoal(session.kind))
+        XCTAssertFalse(TrainingSessionKind.countsTowardAccuracy(session.kind))
+    }
+
     func test_toolSession_atThresholdIsRecordedAsOneMinute() throws {
         let start = Date()
         let session = try XCTUnwrap(
@@ -275,11 +294,12 @@ final class V29W5CognitiveToolSessionTests: XCTestCase {
         )
     }
 
-    func test_allFourToolEntriesHaveDistinctLabels() {
+    func test_allFiveToolEntriesHaveDistinctLabels() {
         let labels = ToolUsageEntry.allCases.map(\.displayNameZh)
-        print("[W5-标准4] 四个工具入口=\(labels)")
-        XCTAssertEqual(ToolUsageEntry.allCases.count, 4)
-        XCTAssertEqual(Set(labels).count, 4)
+        print("[W5-标准5] 五个工具入口=\(labels)")
+        XCTAssertEqual(ToolUsageEntry.allCases.count, 5)
+        XCTAssertEqual(Set(labels).count, 5)
+        XCTAssertTrue(labels.contains("每日清台"))
     }
 
     func test_cognitiveSessionSave_alsoEnqueuesSession() async throws {
@@ -381,12 +401,17 @@ final class V29W5CognitiveToolSessionTests: XCTestCase {
         let session = TrainingSession()
         let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球",
                                orderIndex: 3, note: "手感偏薄", criteriaText: "10 中 8 达标")
-        entry.sets = [
-            DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 7,
-                     formationToken: "f2", formationName: "中袋球形",
-                     unitLabel: "局", passMade: 8, passTotal: 10, durationSeconds: 245)
-        ]
-        session.drillEntries = [entry]
+        let drillSet = DrillSet(setNumber: 1, targetBalls: 10, madeBalls: 7,
+                                formationToken: "f2", formationName: "中袋球形",
+                                unitLabel: "局", passMade: 8, passTotal: 10,
+                                durationSeconds: 245)
+        // iOS 17 SwiftData cannot safely traverse a relationship graph composed
+        // entirely of unmanaged @Model instances. Mirror the production path.
+        context.insert(session)
+        context.insert(entry)
+        context.insert(drillSet)
+        entry.session = session
+        drillSet.entry = entry
 
         let json = try jsonEncoder.encode(TrainingSessionDTO(from: session))
         let dict = try XCTUnwrap(try JSONSerialization.jsonObject(with: json) as? [String: Any])

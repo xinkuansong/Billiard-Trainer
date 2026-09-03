@@ -297,7 +297,10 @@ struct BTSolverNavStatus: View {
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.65))
                             .lineLimit(1)
+                            .minimumScaleFactor(0.75)
+                            .allowsTightening(true)
                             .accessibilityIdentifier("navStatus.subtitle")
+                            .accessibilityLabel(statusText)
                     }
                 }
             }

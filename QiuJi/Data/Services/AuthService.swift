@@ -23,12 +23,6 @@ final class AuthService: NSObject, ObservableObject {
         }
     }
 
-    // MARK: - Logout
-
-    func logout() {
-        Task { await BackendSyncService.shared.logout() }
-        KeychainService.clearAll()
-    }
 }
 
 // MARK: - ASAuthorizationControllerDelegate
@@ -58,35 +52,31 @@ extension AuthService: ASAuthorizationControllerDelegate {
         }
 
         Task { @MainActor in
-            KeychainService.save(key: .appleUserID, value: userID)
-            if let token = identityTokenString {
-                KeychainService.save(key: .appleIdentityToken, value: token)
+            guard let token = identityTokenString else {
+                self.appleSignInContinuation?.resume(
+                    throwing: AppError.authFailed("Apple 登录未返回有效身份令牌")
+                )
+                self.appleSignInContinuation = nil
+                return
             }
 
-            var finalUser = AppUser(
-                id: userID,
-                provider: .apple,
-                displayName: displayName.isEmpty ? nil : displayName,
-                phoneNumber: nil
-            )
-
-            if let token = identityTokenString {
-                do {
-                    let authRes = try await BackendSyncService.shared.loginWithApple(identityToken: token)
-                    finalUser = AppUser(
-                        id: authRes.user.id,
-                        provider: .apple,
-                        displayName: authRes.user.displayName ?? finalUser.displayName,
-                        phoneNumber: nil
-                    )
-                } catch {
-                    // Backend unavailable — proceed with local-only auth
-                    print("[AuthService] Backend login failed, using local auth: \(error.localizedDescription)")
+            do {
+                let authRes = try await BackendSyncService.shared.loginWithApple(
+                    identityToken: token,
+                    displayName: displayName.isEmpty ? nil : displayName
+                )
+                let finalUser = AppUser(dto: authRes.user)
+                guard finalUser.provider != .anonymous else {
+                    throw AppError.authFailed("服务器未返回有效账号")
                 }
+                KeychainService.save(key: .appleUserID, value: userID)
+                KeychainService.save(key: .appleIdentityToken, value: token)
+                self.appleSignInContinuation?.resume(returning: finalUser)
+                self.appleSignInContinuation = nil
+            } catch {
+                self.appleSignInContinuation?.resume(throwing: error)
+                self.appleSignInContinuation = nil
             }
-
-            self.appleSignInContinuation?.resume(returning: finalUser)
-            self.appleSignInContinuation = nil
         }
     }
 

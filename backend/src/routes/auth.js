@@ -3,13 +3,14 @@ const appleSignIn = require("apple-signin-auth");
 const User = require("../models/User");
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require("../utils/jwt");
 const config = require("../config");
+const { normalizeDisplayName, serializeUser } = require("../services/userProfile");
 
 const router = express.Router();
 
 // POST /auth/login-apple
 router.post("/login-apple", async (req, res, next) => {
   try {
-    const { identityToken } = req.body;
+    const { identityToken, displayName } = req.body;
     if (!identityToken) {
       return res.status(400).json({ message: "identityToken is required" });
     }
@@ -27,7 +28,10 @@ router.post("/login-apple", async (req, res, next) => {
         appleUserId,
         email: payload.email || undefined,
         provider: "apple",
+        displayName: displayName == null ? undefined : normalizeDisplayName(displayName),
       });
+    } else if (!user.displayName && displayName != null) {
+      user.displayName = normalizeDisplayName(displayName);
     }
 
     const accessToken = signAccessToken(user._id.toString());
@@ -39,12 +43,7 @@ router.post("/login-apple", async (req, res, next) => {
     res.json({
       accessToken,
       refreshToken,
-      user: {
-        id: user._id,
-        displayName: user.displayName,
-        email: user.email,
-        provider: user.provider,
-      },
+      user: serializeUser(user),
     });
   } catch (err) {
     if (err.message?.includes("Token")) {

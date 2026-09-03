@@ -39,6 +39,7 @@ Cursor 专属能力不得假装在 Codex 中存在。`.mdc` 的 `alwaysApply` �
 | 几何、坐标、角度、相对位置 | 当前角色规则 | 当前任务角色 | `.cursor/skills/geometry-spatial-reasoning/SKILL.md`，并核对 `.kiro/steering/table-geometry.md` |
 | QA、DoD、边界验收 | `.cursor/rules/50-qa-reviewer.mdc` | `.cursor/agents/qa-reviewer.md` | 读取任务卡与验收真源 |
 | 自动化测试或测试计划 | `.cursor/rules/55-test-engineer.mdc` | `.cursor/agents/test-engineer.md` | 读取对应测试真源 |
+| iPhone/iPad 多设备模拟器测试、截图回归并修复 | `.cursor/rules/55-test-engineer.mdc` + 对应实现/审查规则 | Test Engineer；按缺陷切 SwiftUI Developer / QA / UI Reviewer | `.cursor/skills/simulator-matrix-qa/SKILL.md` |
 | 人工测试执行 | `.cursor/rules/56-manual-test-runner.mdc` | `.cursor/agents/manual-test-runner.md` | 读取对应 `tasks/test-plans/TP-Pn.md` |
 | UI 截图审查 | `.cursor/rules/57-ui-reviewer.mdc` | `.cursor/agents/ui-reviewer.md` | 读取 UI 规格与审查模板 |
 | 构建、证书、TestFlight | `.cursor/rules/60-devops-release.mdc` | `.cursor/agents/devops-release.md` | 读取构建脚本与发布文档 |

@@ -10,6 +10,17 @@ struct TrainingSessionDTO: Codable {
     let totalDurationMinutes: Int
     let note: String
     let planId: String?
+    let scheduleItemId: String?
+    let sourceKind: String?
+    let sourceId: String?
+    let sourceParentId: String?
+    let sourceTitleSnapshot: String?
+    let sourceSubtitleSnapshot: String?
+    let sourcePayloadVersion: Int?
+    let sourcePayloadSnapshot: Data?
+    let progressRole: String?
+    let progressEffect: String?
+    let lessonId: String?
     /// 会话分类（契约 §5.3）。`tool` 会话上传即靠此字段被后端区分（D-v29-4）。
     let kind: String
     let drillEntries: [DrillEntryDTO]
@@ -103,6 +114,17 @@ struct TrainingSessionDTO: Codable {
         self.totalDurationMinutes = session.totalDurationMinutes
         self.note = session.note
         self.planId = session.planId
+        self.scheduleItemId = session.scheduleItemId?.uuidString
+        self.sourceKind = session.sourceKind
+        self.sourceId = session.sourceId
+        self.sourceParentId = session.sourceParentId
+        self.sourceTitleSnapshot = session.sourceTitleSnapshot
+        self.sourceSubtitleSnapshot = session.sourceSubtitleSnapshot
+        self.sourcePayloadVersion = session.sourcePayloadVersion
+        self.sourcePayloadSnapshot = session.sourcePayloadSnapshot
+        self.progressRole = session.frozenProgressRole
+        self.progressEffect = session.appliedProgressEffect
+        self.lessonId = session.lessonId
         self.kind = session.kind
         self.drillEntries = session.drillEntries.map { entry in
             DrillEntryDTO(
@@ -140,6 +162,17 @@ struct TrainingSessionDTO: Codable {
         totalDurationMinutes = try c.decodeIfPresent(Int.self, forKey: .totalDurationMinutes) ?? 0
         note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
         planId = try c.decodeIfPresent(String.self, forKey: .planId)
+        scheduleItemId = try c.decodeIfPresent(String.self, forKey: .scheduleItemId)
+        sourceKind = try c.decodeIfPresent(String.self, forKey: .sourceKind)
+        sourceId = try c.decodeIfPresent(String.self, forKey: .sourceId)
+        sourceParentId = try c.decodeIfPresent(String.self, forKey: .sourceParentId)
+        sourceTitleSnapshot = try c.decodeIfPresent(String.self, forKey: .sourceTitleSnapshot)
+        sourceSubtitleSnapshot = try c.decodeIfPresent(String.self, forKey: .sourceSubtitleSnapshot)
+        sourcePayloadVersion = try c.decodeIfPresent(Int.self, forKey: .sourcePayloadVersion)
+        sourcePayloadSnapshot = try c.decodeIfPresent(Data.self, forKey: .sourcePayloadSnapshot)
+        progressRole = try c.decodeIfPresent(String.self, forKey: .progressRole)
+        progressEffect = try c.decodeIfPresent(String.self, forKey: .progressEffect)
+        lessonId = try c.decodeIfPresent(String.self, forKey: .lessonId)
         kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? TrainingSessionKind.drill
         drillEntries = try c.decodeIfPresent([DrillEntryDTO].self, forKey: .drillEntries) ?? []
     }
@@ -189,6 +222,46 @@ struct UserDTO: Codable {
     let displayName: String?
     let email: String?
     let provider: String
+    let avatarRevision: Int?
+    let preferredSport: String?
+    let skillLevel: String?
+    let yearsPlaying: String?
+    let weeklyGoalDays: Int?
+}
+
+struct UserProfileUpdate: Encodable {
+    let displayName: String?
+    let preferredSport: String?
+    let skillLevel: String?
+    let yearsPlaying: String?
+    let weeklyGoalDays: Int?
+
+    init(
+        displayName: String? = nil,
+        preferredSport: String? = nil,
+        skillLevel: String? = nil,
+        yearsPlaying: String? = nil,
+        weeklyGoalDays: Int? = nil
+    ) {
+        self.displayName = displayName
+        self.preferredSport = preferredSport
+        self.skillLevel = skillLevel
+        self.yearsPlaying = yearsPlaying
+        self.weeklyGoalDays = weeklyGoalDays
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case displayName, preferredSport, skillLevel, yearsPlaying, weeklyGoalDays
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(displayName, forKey: .displayName)
+        try container.encodeIfPresent(preferredSport, forKey: .preferredSport)
+        try container.encodeIfPresent(skillLevel, forKey: .skillLevel)
+        try container.encodeIfPresent(yearsPlaying, forKey: .yearsPlaying)
+        try container.encodeIfPresent(weeklyGoalDays, forKey: .weeklyGoalDays)
+    }
 }
 
 struct AuthResponse: Codable {
@@ -210,10 +283,21 @@ actor BackendSyncService {
 
     // MARK: - Auth
 
-    func loginWithApple(identityToken: String) async throws -> AuthResponse {
-        struct Req: Encodable { let identityToken: String }
+    func loginWithApple(identityToken: String, displayName: String? = nil) async throws -> AuthResponse {
+        struct Req: Encodable {
+            let identityToken: String
+            let displayName: String?
+
+            private enum CodingKeys: String, CodingKey { case identityToken, displayName }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encode(identityToken, forKey: .identityToken)
+                try container.encodeIfPresent(displayName, forKey: .displayName)
+            }
+        }
         let res: AuthResponse = try await api.request(
-            Endpoint(.post, "/auth/login-apple", body: Req(identityToken: identityToken))
+            Endpoint(.post, "/auth/login-apple", body: Req(identityToken: identityToken, displayName: displayName))
         )
         KeychainService.save(key: .accessToken, value: res.accessToken)
         KeychainService.save(key: .refreshToken, value: res.refreshToken)
@@ -222,7 +306,6 @@ actor BackendSyncService {
 
     func logout() async {
         let _: EmptyResponse? = try? await api.request(Endpoint(.delete, "/auth/logout"))
-        KeychainService.clearAll()
     }
 
     // MARK: - Training Sessions
@@ -279,8 +362,34 @@ actor BackendSyncService {
 
     // MARK: - User
 
+    func fetchProfile() async throws -> UserDTO {
+        try await api.request(Endpoint(.get, "/user/profile"))
+    }
+
+    func updateProfile(_ update: UserProfileUpdate) async throws -> UserDTO {
+        try await api.request(Endpoint(.put, "/user/profile", body: update))
+    }
+
+    func uploadAvatar(_ jpegData: Data) async throws -> UserDTO {
+        let data = try await api.requestData(
+            Endpoint(.put, "/user/avatar"),
+            rawBody: jpegData,
+            contentType: "image/jpeg"
+        )
+        return try JSONDecoder().decode(UserDTO.self, from: data)
+    }
+
+    func fetchAvatar(revision: Int) async throws -> Data {
+        try await api.requestData(
+            Endpoint(.get, "/user/avatar", query: [URLQueryItem(name: "v", value: String(revision))])
+        )
+    }
+
+    func deleteAvatar() async throws -> UserDTO {
+        try await api.request(Endpoint(.delete, "/user/avatar"))
+    }
+
     func deleteAccount() async throws {
         let _: EmptyResponse = try await api.request(Endpoint(.delete, "/user/account"))
-        KeychainService.clearAll()
     }
 }

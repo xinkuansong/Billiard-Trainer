@@ -5,10 +5,14 @@ import SwiftData
 final class LocalAngleTestRepository: AngleTestRepositoryProtocol {
     private let context: ModelContext
     private let sessionRecorder: CognitiveSessionRecorder
+    private let ownerContext: CurrentOwnerContext
 
-    init(context: ModelContext) {
+    init(context: ModelContext, ownerContext: CurrentOwnerContext? = nil) {
         self.context = context
-        self.sessionRecorder = CognitiveSessionRecorder(context: context)
+        let resolvedOwnerContext = ownerContext ?? .shared
+        self.ownerContext = resolvedOwnerContext
+        self.sessionRecorder = CognitiveSessionRecorder(context: context,
+                                                        ownerContext: resolvedOwnerContext)
     }
 
     /// 落库同时把成绩归入 `kind="cognitive"` 会话（契约 §5.3）。
@@ -16,6 +20,8 @@ final class LocalAngleTestRepository: AngleTestRepositoryProtocol {
     /// 的唯一收敛处，故归属逻辑放在此处而非逐个 VM。
     /// 已带 `sessionId` 的成绩（保存失败后重试）保持原归属不变。
     func save(_ result: AngleTestResult) async throws {
+        let ownerKey = ownerContext.ownerKey
+        result.ownerKey = ownerKey
         // 会话新建、或复用会话时时长跨过一分钟边界，都要（重新）入队——
         // 否则服务端只会拿到第一题时刻的时长，永远停在 1 分钟。
         // POST /training-sessions 按 clientId upsert，重复入队是幂等的。
@@ -31,21 +37,26 @@ final class LocalAngleTestRepository: AngleTestRepositoryProtocol {
 
         if let sessionIdToUpload {
             SyncQueueManager.shared.enqueue(entityType: "TrainingSession",
-                                            entityId: sessionIdToUpload, operation: "create")
+                                            entityId: sessionIdToUpload, operation: "create",
+                                            ownerKey: ownerKey)
         }
-        SyncQueueManager.shared.enqueue(entityType: "AngleTestResult", entityId: result.id, operation: "create")
+        SyncQueueManager.shared.enqueue(entityType: "AngleTestResult", entityId: result.id,
+                                        operation: "create", ownerKey: ownerKey)
     }
 
     func fetchAll() async throws -> [AngleTestResult] {
+        let ownerKey = ownerContext.ownerKey
         let descriptor = FetchDescriptor<AngleTestResult>(
+            predicate: #Predicate { $0.ownerKey == ownerKey },
             sortBy: [SortDescriptor(\.date, order: .reverse)]
         )
         return try context.fetch(descriptor)
     }
 
     func fetchInRange(from: Date, to: Date) async throws -> [AngleTestResult] {
+        let ownerKey = ownerContext.ownerKey
         let predicate = #Predicate<AngleTestResult> { result in
-            result.date >= from && result.date <= to
+            result.ownerKey == ownerKey && result.date >= from && result.date <= to
         }
         let descriptor = FetchDescriptor<AngleTestResult>(
             predicate: predicate,

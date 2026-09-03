@@ -8,6 +8,8 @@ enum ToolUsageEntry: String, CaseIterable {
     case freePosition
     /// 自由击球（`FreePlayView`）。
     case freePlay
+    /// 训练首页「每日清台」（仍是 tool，只记活跃时长）。
+    case dailyClearance
     /// 打一走二想三。
     case planThree
     /// 动作库试打（编排台的试打变体）。
@@ -17,6 +19,7 @@ enum ToolUsageEntry: String, CaseIterable {
         switch self {
         case .freePosition: return "自由走位"
         case .freePlay:     return "自由击球"
+        case .dailyClearance: return "每日清台"
         case .planThree:    return "打一走二想三"
         case .drillTryout:  return "动作库试打"
         }
@@ -54,7 +57,8 @@ enum ToolUsageTracker {
         let seconds = end.timeIntervalSince(start)
         guard seconds >= minimumDurationSeconds else { return nil }
 
-        let session = TrainingSession(kind: TrainingSessionKind.tool)
+        let ownerKey = CurrentOwnerContext.shared.ownerKey
+        let session = TrainingSession(kind: TrainingSessionKind.tool, ownerKey: ownerKey)
         session.date = start
         session.note = entry.displayNameZh
         session.totalDurationMinutes = max(1, Int((seconds / 60).rounded()))
@@ -70,7 +74,8 @@ enum ToolUsageTracker {
 
         // D-v29-4（2026-08-06 裁定）：tool 时长上传。
         SyncQueueManager.shared.enqueue(entityType: "TrainingSession",
-                                        entityId: session.id, operation: "create")
+                                        entityId: session.id, operation: "create",
+                                        ownerKey: ownerKey)
         return session
     }
 }

@@ -11,6 +11,7 @@ struct SceneAimingView: View {
     @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @StateObject private var vm: AimingQuizViewModel
     @State private var showSubscription = false
+    @State private var isScenePrepared = false
 
     /// Camera mode is fixed per route (2D top-down or 3D perspective).
     private let cameraMode: AngleTrainingScene.CameraMode
@@ -120,7 +121,10 @@ struct SceneAimingView: View {
             // 用户点「开始训练」后才 startTest。
             // 渲染统一（条 11.2）：弃 enhanced 管线（IBL+studio 光把台呢抬得发灰白），
             // 与其他球桌页同走 plain 管线，观感一致。
-            vm.setupScene(initialCameraMode: cameraMode, enhanced: false, autoStart: false)
+            if !isScenePrepared {
+                vm.setupScene(initialCameraMode: cameraMode, enhanced: false, autoStart: false)
+                isScenePrepared = true
+            }
             vm.showSettings = true
         }
         // Sheet dismissed by swipe before ever starting → start with the
@@ -186,7 +190,7 @@ struct SceneAimingView: View {
     private func decorativePalette(_ proxy: ShotStageProxy) -> some View {
         let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
         return BTDecorativeBallPalette(
-            ballDiameter: BTBallPaletteMetrics.regularDiameter,
+            ballDiameter: proxy.paletteBallDiameter,
             libraryWidth: libraryWidth,
             opacityForKey: { key in
                 PositionPlayBall.number(for: key) == vm.targetBallNumber ? 1 : 0.25
@@ -200,22 +204,30 @@ struct SceneAimingView: View {
 
     // MARK: - Scene (fullscreen)
 
+    @ViewBuilder
     private var sceneFullscreen: some View {
-        AngleSceneView(
-            scene: vm.scene,
-            cameraMode: .constant(cameraMode),
-            interactionMode: interactionMode,
-            // Anchor-lock only matters in 3D — in 2D the camera is already
-            // fixed top-down. The lock guard inside AngleSceneView already
-            // bypasses it for non-perspective modes, so this is just an
-            // extra defence.
-            locksCueBallScreenAnchor: is3D,
-            // P6.1：2D 走统一自适应取景（球桌大小与其他击打页一致，
-            // ShotStageProxy 的球桌矩形据此解析；3D 透视不受影响）。
-            autoFitsRotatedTable: !is3D,
-            onPocketTapped: { _ in /* fixed by question */ }
-        )
-        .clipped()
+        if isScenePrepared {
+            AngleSceneView(
+                scene: vm.scene,
+                cameraMode: .constant(cameraMode),
+                interactionMode: interactionMode,
+                // Anchor-lock only matters in 3D — in 2D the camera is already
+                // fixed top-down. The lock guard inside AngleSceneView already
+                // bypasses it for non-perspective modes, so this is just an
+                // extra defence.
+                locksCueBallScreenAnchor: is3D,
+                // P6.1：2D 走统一自适应取景（球桌大小与其他击打页一致，
+                // ShotStageProxy 的球桌矩形据此解析；3D 透视不受影响）。
+                autoFitsRotatedTable: !is3D,
+                onPocketTapped: { _ in /* fixed by question */ }
+            )
+            .clipped()
+        } else {
+            // setupScene 会装载 USDZ 并建立大量 mesh/material。先在 renderer
+            // 尚未连接时完成构建，再创建 SCNView；否则 iOS 17 iPad 上渲染线程
+            // 可能与 C3D scene flush 并发访问半成品 mesh 而 EXC_BAD_ACCESS。
+            Color.black
+        }
     }
 
     /// 3D + observing: full pan/pinch so the user can swipe yaw and zoom

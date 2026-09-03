@@ -214,9 +214,9 @@
   - 不提供 V2 → V1 的降级迁移：轻量迁移不可逆方向上没有语义损失需求，且 App 不支持降级安装。
   - 若日后必须把某个新字段改成非可选/无默认值，则不能再走轻量迁移，须新增自定义阶段并单独 ADR。
 
-### ADR-004（ADR-v31-01）— SwiftData V3：自定义计划改存强度系数，V2→V3 自定义迁移折算轮数
+### ADR-004（ADR-v31-01）— SwiftData V3：自定义计划改存强度系数，V2→V3 轻量改列后归一化
 
-- **状态**：已采纳（2026-08-09，问题集合 v31 W0）
+- **状态**：已采纳（2026-08-09，问题集合 v31 W0）；2026-09-02 经 v50 最低 Runtime 回归修订迁移实现（FL-032）
 - **场景**：
   - 契约 §6.6（裁定 D14）定：drill JSON 是训练剂量唯一真源，计划（官方 + 自定义）
     **不再存裸 `sets`/`ballsPerSet`**，只存强度系数，实际球数在激活训练时由内容解析、
@@ -227,7 +227,7 @@
 - **选项**：
   - A：保留旧字段，新增 `roundsPerFormation` 并存 —— 两套真源并行，正是 D14 要消灭的形态；
   - B：轻量迁移直接删旧字段、新字段取默认值 1 —— 用户已建计划的强度信息全部丢失；
-  - C：新增 V3 + **自定义迁移阶段**，用旧值折算出轮数后写入新字段。
+  - C：新增 V3，以旧 `sets` 原名轻量迁移到新字段，再在正常容器打开后折算轮数。
 - **决策**：选 **C**。
   1. 新增 `QiuJiSchemaV3`（版本 `3.0.0`，`QiuJi/Data/Models/QiuJiSchemaV3.swift`）= 当前顶层模型集；
      `ModelContainerFactory.currentSchema` 指向 V3。
@@ -235,13 +235,16 @@
   3. `CustomPlan` / `CustomPlanDrill` 的**旧形状下沉为 `QiuJiSchemaV2` 的嵌套历史快照**
      （V1 与 V2 同形，故 `QiuJiSchemaV1.models` 一并改引 `QiuJiSchemaV2.CustomPlan(Drill)`）。
      沿用 ADR-003 的历史快照范式：V1/V2 嵌套类型冻结、禁止再修改。
-  4. `QiuJiMigrationPlan.stages` = `[.lightweight(V1→V2), .custom(V2→V3, willMigrate:didMigrate:)]`。
-- **原因（为什么不能是轻量迁移）**：`roundsPerFormation` 的值要由旧 `sets` 与该 drill 的**球形数**
-  算出，而旧列在 V3 形态里已不存在——轻量迁移没有读旧值的时机。故 `willMigrate` 先按行 id
-  记下折算结果（`CustomPlanDoseMigration.pendingRounds`），`didMigrate` 再写回新列。
+  4. `roundsPerFormation` 声明 `@Attribute(originalName: "sets")`；`QiuJiMigrationPlan.stages` =
+     `[.lightweight(V1→V2), .lightweight(V2→V3)]`。打开持久 store 前读取 SQLite 列结构：只有
+     `ZSETS`、尚无 `ZROUNDSPERFORMATION` 时记录本次需要归一化；容器正常打开后在普通
+     `ModelContext` 中完成折算并保存。
+- **原因**：只靠轻量迁移能可靠保留旧 `sets` 值，但不能完成依赖历史球形数的折算；原版
+  will/did custom callback 在 iOS 17 对目标对象写回不可靠，且迁移进程读取当前 Bundle 会让
+  历史数据含义随内容版本漂移。故把“改列保值”和“值归一化”拆成两个可验证阶段。
 - **折算规则**：`rounds = max(1, sets / 球形数)`，无球形声明按 1 球形算（即 `rounds = sets`）。
-  球形数取 `DrillContentService.formationCount(forDrillId:)`：优先 `sets.perFormation.count`
-  （v31 内容批 W1x 落地后为权威），回落 `tutorial.formations.count`，再回落 1。
+  球形数取 v31 发布时冻结的 19 条多球形动作快照（含后来下架的 c006），其余/未知动作按 1；
+  禁止读取当前 `DrillContentService` / Bundle 来解释旧数据。
   下限 1 轮：短序列多球形（如 2 组 3 球形）折算为 0 时钳到 1，宁可多练不可归零。
 - **实证（红线「数据零丢失」不得以删库重建绕过）**：
   `QiuJiTests/SwiftDataMigrationTests.swift` 新增两例，沿用 ADR-003 的 v29 W3 验证法——
@@ -254,14 +257,13 @@
   - `DrillTrainingPlanService` / `CustomPlanBuilderViewModel` / `TrainingHomeViewModel` 的
     每组球数改为从内容侧 `defaultBallsPerSet` 回落取值——这是 **W0 的过渡实现**，
     W2 会改为按 `perFormation` 逐球形派生；
-  - 迁移期间会读 Bundle drill JSON（`formationCount`），迁移不再是纯数据库操作；
-    内容缺失时回落 1 球形，等价于 `rounds = sets`，不会失败；
-  - `CustomPlanDoseMigration.pendingRounds` 是 `nonisolated(unsafe)` 静态字典，
-    仅在一次迁移的 will/did 之间存活并在 `didMigrate` 清空。
+  - 迁移不读 Bundle，不持有跨 will/did 的全局暂存字典；历史解释对后续动作上下架与球形调整稳定；
+  - 物理列探测只决定是否执行一次归一化；迁移后的 store 已是新列，后续启动不会重复除球形数；
+  - iOS 17 与 iOS 26.2 均须运行同一落盘迁移测试，不能用最新 Runtime 结果外推最低部署线。
 - **回滚考虑**：不提供 V3 → V2 降级（App 不支持降级安装）。代码回滚会使 `roundsPerFormation`
   列变成未映射属性，旧代码读不到强度信息且 `sets`/`ballsPerSet` 已不存在，等价于用户自定义
   计划的量值全部回落默认——故一旦发版，回滚需配套写反向迁移。
-- **日期**：2026-08-09
+- **日期**：2026-08-09；修订 2026-09-02
 
 ### ADR-005（ADR-v31-02）— 新增 `TrainingDoseResolver`：剂量解析收敛为 Data 层单一通路
 
@@ -452,3 +454,35 @@
 - **回滚考虑**：语义回滚 = 删 §6.6 例外并把 I11 恢复为无条件下限（契约降回 2.3 该句）；
   代码回滚（W4 之后）= 去掉 `decay` 键并恢复钳制。无 SwiftData Schema 变更，无迁移连带。
 - **日期**：2026-08-13
+
+### ADR-010（ADR-v53-01）— SwiftData V4 以稳定 ownerKey 隔离 guest / account 数据
+
+- **状态**：已采纳（2026-09-03，问题集合 v53 W2）
+- **场景**：六类顶层用户数据此前没有归属字段，切换账号只改变 JWT，不改变本地查询边界；
+  同一设备上的 guest、账号 A、账号 B 会共享训练、收藏、计划、成绩和同步队列，最坏情况下
+  可能用 B 的凭证上传 A 的待同步项。这是数据隔离缺口，不能靠页面刷新或最近登录账号猜测修复。
+- **选项**：
+  - A：退出时清空本地库 —— 实现简单，但会违背游客数据保留和账号注销后本机保留承诺；
+  - B：只给同步队列加 userId —— 能阻止错传，仍无法隔离页面、统计、收藏和计划；
+  - C：为所有顶层用户数据增加统一、非空的 `ownerKey`，并让查询、写入、迁移、同步共同消费。
+- **决策**：选 **C**。
+  1. owner 格式固定为 `guest:<deviceGuestUUID>` 或 `account:<serverUserId>`；设备 guest UUID
+     持久化后跨启动稳定，账号 owner 只接受服务端标准 UserDTO 的稳定 id；
+  2. V3→V4 轻量迁移先以 sentinel 承接旧记录，再由容器工厂在开放给业务前统一归到当前设备
+     guest；禁止根据 Keychain 中最近账号推断旧数据归属；
+  3. `TrainingSession`、`AngleTestResult`、`DrillFavorite`、`UserActivePlan`、`CustomPlan`、
+     `SyncPendingItem` 六类顶层模型必须带非空 owner；关系子实体继承父对象边界，不重复存 owner；
+  4. 同步队列只处理当前 `account:<id>`，guest 和其他账号项原地保留；下行恢复的查重、待删保护
+     与插入均使用 `(ownerKey, clientId)`，允许 A/B 具有相同 clientId；
+  5. guest→account 与账号注销后的 account→guest 使用同一事务式 transfer；保存失败恢复全部 owner，
+     收藏/队列碰撞按稳定规则合并，重复执行必须幂等；普通退出只切回 guest，不转移账号数据。
+- **后果**：
+  - 所有用户数据消费者必须带 owner predicate；动态换号通过 owner context 触发视图重建/重新拉取，
+    不能继续显示前一个 owner 的缓存；
+  - 登录迁移必须先征得用户同意再 transfer/upload；拒绝时 guest 数据留在 guest，账号只拉自己的数据；
+  - 账号删除成功后本机数据降级到 guest 并清旧账号同步锚点，避免遗留队列用未来账号凭证发送；
+  - 新增用户数据模型时必须明确是否为 owner 顶层，否则 V4 完整性审计失败。
+- **回滚考虑**：V4 schema、迁移计划、六模型字段和所有 owner predicate 是一个原子回滚单位；
+  已经打开过 V4 的磁盘库不可只回滚运行时代码。需要降级时必须提供显式 V4→替代 schema 数据导出，
+  禁止直接改回 V3 让用户承担打不开库或数据串号风险。
+- **日期**：2026-09-03

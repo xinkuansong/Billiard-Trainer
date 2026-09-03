@@ -1,7 +1,7 @@
 import XCTest
 @testable import QiuJi
 
-/// Validates all 84 Drill JSONs loaded from Bundle for Schema compliance,
+/// Validates all active Drill JSONs loaded from Bundle for Schema compliance,
 /// coordinate bounds, isPremium/level consistency, and animation integrity.
 final class DrillContentValidationTests: XCTestCase {
 
@@ -22,8 +22,8 @@ final class DrillContentValidationTests: XCTestCase {
         XCTAssertEqual(drillIndex.categories.count, 8, "Index must have exactly 8 categories")
     }
 
-    func test_index_totalDrillCount_is84() {
-        XCTAssertEqual(drillIndex.allDrillIds.count, 84, "Index should reference 84 drill IDs")
+    func test_index_totalDrillCount_is74() {
+        XCTAssertEqual(drillIndex.allDrillIds.count, 74, "Index should reference the 74 active drill IDs")
     }
 
     func test_index_allIdsUnique() {
@@ -68,8 +68,8 @@ final class DrillContentValidationTests: XCTestCase {
         return "JSON not found in any category subdirectory"
     }
 
-    func test_loadedDrillCount_matches84() {
-        XCTAssertEqual(allDrills.count, 84, "Should load exactly 84 drills from bundle")
+    func test_loadedDrillCount_matches74() {
+        XCTAssertEqual(allDrills.count, 74, "Should load exactly the 74 active drills from bundle")
     }
 
     // MARK: - Schema Field Validation (every drill)
@@ -162,8 +162,15 @@ final class DrillContentValidationTests: XCTestCase {
             "topCenter", "bottomCenter"
         ]
         for drill in allDrills {
-            XCTAssertTrue(validPockets.contains(drill.animation.pocket),
-                          "\(drill.id): pocket '\(drill.animation.pocket)' is invalid")
+            if drill.animation.pocket.isEmpty {
+                XCTAssertFalse(
+                    DrillTryoutBoardStore.formations(for: drill.id).isEmpty,
+                    "\(drill.id): an empty root pocket is only valid when a formation sequence owns the real target"
+                )
+            } else {
+                XCTAssertTrue(validPockets.contains(drill.animation.pocket),
+                              "\(drill.id): pocket '\(drill.animation.pocket)' is invalid")
+            }
         }
     }
 

@@ -1,7 +1,7 @@
 # 内容与训练数据 — 真源契约与数据流（Steering）
 
-> **版本**：2.16（2026-08-26：v44 ritual 开场 + I11 五分点白名单）
-> **最后更新**：2026-08-26
+> **版本**：2.17（2026-09-03：v52 每日清台本地工具记录边界）
+> **最后更新**：2026-09-03
 > **地位**：本文件是「内容资产真源归属、标识符命名、数据流向、用户训练数据口径」的**唯一契约来源**。
 > 其余文档（`QiuJi/Resources/Drills/schema.md`、`content/position_play/README.md`、
 > `docs/06-技术架构.md`）在与本文件冲突时**以本文件为准**，并应改为引用本文件而非重复定义。
@@ -919,10 +919,29 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 
 ---
 
+## 9.1 每日清台数据边界（v52）
+
+- 每日清台产生的使用会话仍写为 `TrainingSessionKind.tool`，显示名称为「每日清台」；`goalCounting == false`、`countsTowardAccuracy == false`，不得点亮周训练圆点、增加今日安排完成数或进入准确率分母。
+- `DailyClearanceDraft` 与 `DailyClearanceCompletion` 是本机 `UserDefaults` 中的轻量状态，不属于训练内容、Drill、历史训练样本或后端 DTO；首版本不跨设备同步。
+- 草稿冻结玩法、seed、盘面、规则、杆数、犯规数与有效用时。偏好设置只在创建下一个无草稿新局时读取，不得改写进行中的草稿。
+- 系统自动开球与用户重新开球都属于题面生成，不是用户训练杆，因而不进入杆数、犯规或准确率统计。
+
+## 9.2 官方主线与今日编排数据边界（v54）
+
+1. `OfficialPlan` 的新内容真源是有稳定 ID 和顺序的 `stages[].lessons[]`；内置 12 个计划共 43 stage / 129 lesson。旧 `weeks[].sessions[]` 只允许兼容解码或历史迁移读取，新增 Bundle 内容不得再写旧结构。
+2. `weeklyGoalDays` 是 owner 的自然周训练日目标，也是动态预计参数，不是内容排期。预计周数为 `ceil(剩余主线课程 / max(weeklyGoalDays, 1))`，同日完成多课可以提前，但统计仍只增加一个训练日。
+3. `TodayTrainingSchedule` 以 owner + 创建地本地日历键持久化；item 的 `sourceKind / sourceId / sourceParentId / title snapshots / payloadVersion / payloadSnapshot / progressRole` 在入队时冻结。源内容后续编辑、删除或 OTA 更新不得改写队列和历史事实。
+4. 官方课程角色只由保存编排时的主线游标与完整有序课程序列决定：历史课 `review`；从当前课开始的连续前缀 `advanceEligible`；跨缺口未来课 `preview`；模版/动作 `neutral`。拖动顺序不得重分类。
+5. 只有 completed item 的 `advanceEligible` 连续前缀可推进 `UserActivePlan.currentLessonId`；加入、开始、退出、复练、预习、模版、动作和 `kind="tool"` 都不得推进。结算必须对 `scheduleItemId + lessonId` 幂等。
+6. 一次 `TrainingSession(kind="drill")` 对应一个 schedule item，并复制冻结来源与实际 progress effect；可同步 provenance 字段均为 optional，旧客户端和旧后端缺字段仍须可读。
+7. 昨日 pending 不自动顺延；用户显式复制到今天时使用原 payload，并按今天的当前主线游标重新分类。旧 schedule 保持归档事实。
+
 ## 十 版本记录
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| 2.18 | 2026-09-03 | **v54 官方主线与今日编排**：新增 §9.2，确立 stage/lesson 真源、动态预计、今日 schedule/item 快照、review/advanceEligible/preview/neutral 冻结分类、显式连续推进、单块 session provenance 和跨日复制边界；I10/I11/I13 已改为课程语义。 |
+| 2.17 | 2026-09-03 | **v52 每日清台**：新增 §9.1，锁定本地草稿/completion、`kind=tool`、不计周目标/准确率、当前不同步，以及默认玩法不覆盖进行中草稿的边界。 |
 | 1.0 | 2026-08-06 | 初版。真源裁定（球形几何 = 出片台录制序列，用户拍板）；数据流三链路；标识符契约；不变量清单 I1–I9；现存偏差登记 8.1–8.12；待裁定 D1–D8。§5 训练量与计分口径留占位。 |
 | 1.1 | 2026-08-06 | v29 主控审核回写：§8.3 补全写盘测试清单（V21W2/3/4BakeTests 无 gate 且改写 drill JSON）；新增 §8.13（AngleTestDTO 缺 quizType/errorMM）、§8.14（回填脚本 --skip-json 非默认，与 v25 W1 冲突）。 |
 | 1.2 | 2026-08-06 | D9 裁定：`tool` 时长上传后端（用户拍板）；§5.3 合规连带改为义务并转记 HUMAN-REQUIRED H-09/H-12。 |

@@ -3,18 +3,21 @@
   "nameZh": "全能精选",
   "nameEn": "All-Around Select",
   "targetLevel": "L2→L4",
-  "durationWeeks": 5,
-  "sessionsPerWeek": 3,
-  "minutesPerSession": 120,
+  "estimatedMinutesPerLesson": 120,
   "isPremium": true,
   "description": "三球先于五球，再十球/十五球蛇彩，然后 Ghost 与全台清台。热身只用本计划已引入的三球。",
-  "weeks": [
+  "stages": [
     {
-      "weekNumber": 1,
-      "theme": "三球连打",
-      "sessions": [
+      "id": "plan_fullskill.stage01",
+      "order": 1,
+      "title": "三球连打",
+      "goal": "掌握三球连打",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_fullskill.stage01.lesson01",
+          "order": 1,
+          "title": "三球连打入门",
+          "summary": "围绕三球连打入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -63,7 +66,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_fullskill.stage01.lesson02",
+          "order": 2,
+          "title": "三球连打巩固",
+          "summary": "围绕三球连打巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -113,7 +119,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_fullskill.stage01.lesson03",
+          "order": 3,
+          "title": "三球连打检验",
+          "summary": "围绕三球连打检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -165,11 +174,16 @@
       ]
     },
     {
-      "weekNumber": 2,
-      "theme": "五球连打",
-      "sessions": [
+      "id": "plan_fullskill.stage02",
+      "order": 2,
+      "title": "五球连打",
+      "goal": "掌握五球连打",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_fullskill.stage02.lesson01",
+          "order": 1,
+          "title": "三球连打与五球连打走位入门",
+          "summary": "围绕三球连打与五球连打走位入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -225,7 +239,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_fullskill.stage02.lesson02",
+          "order": 2,
+          "title": "三球连打与五球连打走位巩固",
+          "summary": "围绕三球连打与五球连打走位巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -281,7 +298,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_fullskill.stage02.lesson03",
+          "order": 3,
+          "title": "三球连打与五球连打走位检验",
+          "summary": "围绕三球连打与五球连打走位检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -339,11 +359,16 @@
       ]
     },
     {
-      "weekNumber": 3,
-      "theme": "中级与高级蛇彩",
-      "sessions": [
+      "id": "plan_fullskill.stage03",
+      "order": 3,
+      "title": "中级与高级蛇彩",
+      "goal": "掌握中级与高级蛇彩",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_fullskill.stage03.lesson01",
+          "order": 1,
+          "title": "中级蛇彩",
+          "summary": "围绕中级蛇彩完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -396,7 +421,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_fullskill.stage03.lesson02",
+          "order": 2,
+          "title": "高级蛇彩入门",
+          "summary": "围绕高级蛇彩入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -472,7 +500,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_fullskill.stage03.lesson03",
+          "order": 3,
+          "title": "高级蛇彩检验",
+          "summary": "围绕高级蛇彩检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -552,11 +583,16 @@
       ]
     },
     {
-      "weekNumber": 4,
-      "theme": "Ghost 单人",
-      "sessions": [
+      "id": "plan_fullskill.stage04",
+      "order": 4,
+      "title": "Ghost 单人",
+      "goal": "掌握Ghost 单人",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_fullskill.stage04.lesson01",
+          "order": 1,
+          "title": "Ghost Game 单人练习入门",
+          "summary": "围绕Ghost Game 单人练习入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -623,7 +659,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_fullskill.stage04.lesson02",
+          "order": 2,
+          "title": "Ghost Game 单人练习巩固",
+          "summary": "围绕Ghost Game 单人练习巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -690,7 +729,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_fullskill.stage04.lesson03",
+          "order": 3,
+          "title": "Ghost Game 单人练习检验",
+          "summary": "围绕Ghost Game 单人练习检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -759,11 +801,16 @@
       ]
     },
     {
-      "weekNumber": 5,
-      "theme": "全台清台",
-      "sessions": [
+      "id": "plan_fullskill.stage05",
+      "order": 5,
+      "title": "全台清台",
+      "goal": "掌握全台清台",
+      "lessons": [
         {
-          "dayNumber": 1,
+          "id": "plan_fullskill.stage05.lesson01",
+          "order": 1,
+          "title": "中八全台清台挑战入门",
+          "summary": "围绕中八全台清台挑战入门完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -819,7 +866,10 @@
           ]
         },
         {
-          "dayNumber": 2,
+          "id": "plan_fullskill.stage05.lesson02",
+          "order": 2,
+          "title": "中八全台清台挑战巩固",
+          "summary": "围绕中八全台清台挑战巩固完成本课训练。",
           "phases": [
             {
               "type": "ritual",
@@ -875,7 +925,10 @@
           ]
         },
         {
-          "dayNumber": 3,
+          "id": "plan_fullskill.stage05.lesson03",
+          "order": 3,
+          "title": "中八全台清台挑战检验",
+          "summary": "围绕中八全台清台挑战检验完成本课训练。",
           "phases": [
             {
               "type": "ritual",

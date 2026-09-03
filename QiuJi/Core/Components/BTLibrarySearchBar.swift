@@ -19,6 +19,7 @@ struct BTLibrarySearchBar<Trailing: View>: View {
                 TextField(placeholder, text: $text)
                     .font(.btCallout)
                     .foregroundStyle(.btText)
+                    .frame(maxWidth: .infinity, minHeight: Self.fieldHeight)
                     .accessibilityIdentifier("librarySearchField")
                 if !text.isEmpty {
                     Button {
