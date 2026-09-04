@@ -43,12 +43,7 @@ struct AngleDynamicView: View {
                 }
             }
         }
-        .navigationTitle("角度与瞄准")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome("角度与瞄准")
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(title: "角度与瞄准")

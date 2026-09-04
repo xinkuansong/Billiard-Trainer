@@ -111,7 +111,7 @@ struct BTOverflowMenuPopup: View {
             BTOverflowMenu(items: [
                 BTMenuItem(icon: "square.and.arrow.up", iconColor: .btPrimary, label: "生成分享图") {},
                 BTMenuItem(icon: "calendar", iconColor: .btPrimary, label: "移动到某天") {},
-                BTMenuItem(icon: "pencil", iconColor: .btAccent, label: "编辑心得") {},
+                BTMenuItem(icon: "pencil", iconColor: .btPrimary, label: "编辑心得") {},
                 BTMenuItem(icon: "doc.on.doc", iconColor: .btPrimary, label: "导入为模板") {},
                 BTMenuItem(icon: "trash", iconColor: .btDestructive, label: "删除", isDestructive: true) {},
             ])
@@ -137,7 +137,7 @@ struct BTOverflowMenuPopup: View {
                     BTOverflowMenuPopup(items: [
                         BTMenuItem(icon: "square.and.arrow.up", iconColor: .btPrimary, label: "生成分享图") {},
                         BTMenuItem(icon: "calendar", iconColor: .btPrimary, label: "移动到某天") {},
-                        BTMenuItem(icon: "pencil", iconColor: .btAccent, label: "编辑心得") {},
+                        BTMenuItem(icon: "pencil", iconColor: .btPrimary, label: "编辑心得") {},
                         BTMenuItem(icon: "doc.on.doc", iconColor: .btPrimary, label: "导入为模板") {},
                         BTMenuItem(icon: "trash", iconColor: .btDestructive, label: "删除", isDestructive: true) {},
                     ], isPresented: binding)

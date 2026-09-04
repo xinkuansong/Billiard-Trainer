@@ -646,12 +646,7 @@ struct AimPointSceneTrainingView: View {
             .animation(BTMotion.easeChrome, value: vm.phase)
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
-        .navigationTitle(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(title: is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")

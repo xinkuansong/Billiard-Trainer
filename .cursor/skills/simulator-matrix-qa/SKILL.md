@@ -22,6 +22,8 @@ description: >-
 - 三路长巡游除独立 UDID/DerivedData 外还要使用独立的临时 `.xcodeproj` 容器；多个 `xcodebuild` 同时协调同一工程包会触发 `NSFileCoordinator`/Xcode 工程锁假失败。临时工程由同一 `project.yml` 生成，收尾移出工作区，不作为新的工程真源。
 - 每个矩阵单元的日志、xcresult、截图和摘要按 `runtime/device/appearance/state/suite` 隔离，禁止不同运行互相覆盖。
 - 并发时截图路径必须用 `V50_SHOT_DIR` / `TEST_RUNNER_V50_SHOT_DIR` 直接注入每个 XCTest Runner；禁止多进程共享 `/tmp/.../shot_dir` 单文件，否则会串目录。
+- 多个 runner 共用证据根时，总摘要必须以文件锁串行合并，并从当前有效 `unit-summary.json` 重建；开始同一叶子的新运行前，把旧叶子可恢复地移入 `failures/`，不得递归覆盖首次失败。
+- 机器资源出现 AX 空树、App 被清退或 `maxUserProcs` 时，先把同时 Booted 的设备降到 2 台、每设备单 worker；资源恢复后在原设备/原外观复跑，不把系统资源故障归为产品缺陷。
 
 ## 可信执行
 
@@ -32,6 +34,7 @@ description: >-
    - 入口不在首屏时使用有界滚动查找；耗尽重试必须 `XCTFail`，禁止 `if exists { snap }` 后静默略过。
    - 多次软重启后的 AX 查询允许“激活 App → 重切 Tab”的少量有界重试；耗尽后仍失败，不能无限重试或补拍拼接。
    - 图像哈希重复默认失败；只有经路由/状态语义确认的等价画面可进入成对 allowlist。首次启动完成前后等持久化用例即使允许同图，也必须另有状态持久化断言，不能用 allowlist 代替功能验证。
+   - `simctl ui appearance` 回读只证明系统设置，不证明 App 最终渲染：若 App 有持久化外观偏好，矩阵入口必须显式跟随系统且在所有软重启继续传递。最终对代表页做 Light/Dark 像素亮度或颜色分布交叉验证，禁止只信目录名。
 4. 失败后先保留命令、退出码、xcresult、截图和相关系统日志。只有证据表明是环境瞬断时才有限重试；不得用加 sleep、删断言、`XCTSkip` 或忽略退出码换绿。
 5. 并发冷启动下若 AX 查询耗时数十秒、用例退回 SpringBoard 或出现灰色 `UITests-Runner` 残留图标，先按测试基础设施故障取证：保留原失败、单 UDID 聚焦复现、重启该模拟器。同一实例单跑仍立即退回主屏时，保留旧实例并换一个同型号/同 Runtime 干净实例；不得因 Runner 故障修改产品代码。干净实例的聚焦用例 + 完整契约均通过，才可将原失败判为基础设施假阴性。
 6. 高分辨率 iPad PNG 的原图门禁应保留 manifest、字节数、SHA-256、IHDR 尺寸与系统解码；近纯色采样先用 ImageIO 批量生成小缩略图，再在缩略图上逐像素检查。禁止用纯 Python 对每张原图逐字节解 PNG 滤镜，也禁止为提速删除坏图/纯色检测。
@@ -41,6 +44,7 @@ description: >-
 9. 所有 `simctl ui` 可调状态都要立即读回并写证据。当前工具不能可靠设置/读回 Bold Text、Reduce Motion、Reduce Transparency，也不能稳定驱动 Split View/Stage Manager；这些应列边界，不得用 App 启动参数冒充系统状态。
 10. 键盘可达性不要只看 SwiftUI `TextField` 的 AX frame：不同 Runtime 可能把字段暴露为容器或零尺寸节点。应同时证明字段可输入、键盘出现、提交按钮与窗口相交且可点击，并把导航栏/页内标题几何用于遮挡断言。
 11. 超长单测宿主出现 `signal trap` 时，先读取 xcresult 判定断言与进程故障。若独立用例能复现，继续修生产/测试缺陷；若是宿主生命周期资源累积，可把同一 selector 清单切成无重叠分片，但必须机械验证并集、顺序和总数完全等于原清单，每片都要零退出。
+12. 每个单元记录覆盖 App、测试、工程配置、运行器及 selector 文件的源码指纹；长矩阵期间一旦指纹变化，旧绿单元全部视为陈旧并重跑。selector 清单是测试范围本身，不能漏出指纹集合。
 
 ## 缺陷修复循环
 

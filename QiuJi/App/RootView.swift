@@ -22,8 +22,14 @@ struct RootView: View {
 
     /// 测试显式覆盖 > 用户设备偏好 > 系统外观。
     private var mainColorScheme: ColorScheme? {
-        Self.resolvedColorScheme(testOverride: Self.uiTestMainColorScheme,
-                                 mode: preferences.appearanceMode)
+        // v51 矩阵必须忽略模拟器磁盘里可能残留的用户外观偏好，直接跟随
+        // `simctl ui appearance`。返回 nil 才能让同一设备的 Light/Dark
+        // 目录代表真实系统外观，而不是被上一次设置页选择污染。
+        if ProcessInfo.processInfo.arguments.contains("-v51.followSystemAppearance") {
+            return nil
+        }
+        return Self.resolvedColorScheme(testOverride: Self.uiTestMainColorScheme,
+                                        mode: preferences.appearanceMode)
     }
 
     static func resolvedColorScheme(testOverride: ColorScheme?, mode: AppearanceMode) -> ColorScheme? {
@@ -87,6 +93,13 @@ struct RootView: View {
         }
         if args.contains("-v51.componentProbe") {
             return AnyView(V51ResponsiveComponentProbe())
+        }
+        if args.contains("-v51.sceneAiming2D") {
+            return AnyView(
+                NavigationStack {
+                    SceneAimingView(initialCameraMode: .topDown2DRotated)
+                }
+            )
         }
         if args.contains(where: { $0.hasPrefix("-v54.todayState=") }) {
             return AnyView(

@@ -39,7 +39,7 @@ enum HUDStyle {
 
     // MARK: value 语义色（金=可调/方案量值，白=测量结果，红=失误）
     static let valueMeasured = Color.white
-    static let valueAdjustable = Color.btAccent
+    static let valueAdjustable = Color.btPhysicsAdjustable
     static let valueAlert = Color.btDestructive
 
     // MARK: 状态语法（chip / 按钮）
@@ -55,7 +55,7 @@ enum HUDStyle {
     static let tickMajor = Color.white.opacity(0.40)
     static let tickMid = Color.white.opacity(0.25)
     static let tickMinor = Color.white.opacity(0.15)
-    static let tickIndicator = Color.btAccent
+    static let tickIndicator = Color.btPhysicsAdjustable
 
     /// 三级刻度取色（瞄准轮/力度柱同族「尺子」共用）。
     static func tickColor(major: Bool, mid: Bool) -> Color {

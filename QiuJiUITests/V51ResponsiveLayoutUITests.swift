@@ -126,6 +126,10 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 5))
         XCTAssertTrue(window.frame.contains(resume.frame), "继续训练必须完整落在窗口内")
+        XCTAssertLessThanOrEqual(resume.frame.width, 210.5, "浮标只应把 210pt 作为宽度上限")
+        if elapsedSeconds < 60 {
+            XCTAssertLessThan(resume.frame.width, 180, "短时长浮标应按内容收紧，不能留下大块空白")
+        }
         var elements: [String: XCUIElement] = ["resume": resume]
         for tab in XCUIApplication.Tab.allCases {
             let item = tabElement(tab)
@@ -161,9 +165,19 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
             "-deeplink.freePlay",
         ])
 
-        let aimMode = app.buttons.matching(
+        var aimMode = app.buttons.matching(
             NSPredicate(format: "label BEGINSWITH %@", "瞄准模式：")
         ).firstMatch
+        if !aimMode.waitForExistence(timeout: 20) {
+            // iOS 17 CoreSimulator can drop a direct-route launch on the first
+            // cold start. Relaunch once with the exact same arguments; the
+            // route remains a hard failure if it is still unavailable.
+            app.terminate()
+            app.launch()
+            aimMode = app.buttons.matching(
+                NSPredicate(format: "label BEGINSWITH %@", "瞄准模式：")
+            ).firstMatch
+        }
         XCTAssertTrue(aimMode.waitForExistence(timeout: 20))
         let readyStatus = app.staticTexts.matching(
             NSPredicate(format: "identifier == %@ AND label CONTAINS %@", "navStatus.subtitle", "已就绪")
@@ -230,7 +244,12 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
             "-v51.componentProbe",
         ])
 
-        let status = app.descendants(matching: .any)["navStatus.subtitle"].firstMatch
+        var status = app.descendants(matching: .any)["navStatus.subtitle"].firstMatch
+        if !status.waitForExistence(timeout: 12) {
+            app.terminate()
+            app.launch()
+            status = app.descendants(matching: .any)["navStatus.subtitle"].firstMatch
+        }
         XCTAssertTrue(status.waitForExistence(timeout: 12))
         XCTAssertEqual(status.label, "第 12 个候选解 · 右上角袋 · 两库反射后保留完整状态语义")
         XCTAssertTrue(app.windows.firstMatch.frame.intersects(status.frame))

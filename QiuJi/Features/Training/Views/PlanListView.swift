@@ -141,7 +141,7 @@ struct PlanListView: View {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: "calendar")
                     .font(.btCaption2)
-                    .foregroundStyle(.btAccent)
+                    .foregroundStyle(.btBrandSignature)
                 Text("官方")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
@@ -194,7 +194,7 @@ struct PlanListView: View {
             HStack(spacing: Spacing.xs) {
                 Image(systemName: BTIcon.hammer)
                     .font(.btCaption2)
-                    .foregroundStyle(.btAccent)
+                    .foregroundStyle(.btBrandSignature)
                 Text("自建清单")
                     .font(.btCaption2)
                     .foregroundStyle(.btTextTertiary)
@@ -250,10 +250,10 @@ struct PlanListView: View {
                             Text("模版")
                                 .font(.btCaption2)
                         }
-                        .foregroundStyle(.btAccent)
+                        .foregroundStyle(.btPrimary)
                         .padding(.horizontal, Spacing.sm)
                         .padding(.vertical, 2)
-                        .background(Color.btAccent.opacity(0.12))
+                        .background(Color.btPrimaryMuted)
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
 
                         if isActive {

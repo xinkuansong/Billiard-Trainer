@@ -228,11 +228,12 @@ struct PlanDetailView: View {
     private var proTag: some View {
         Text("PRO")
             .font(.system(size: 10, weight: .heavy))
-            .foregroundStyle(.black)
+            .foregroundStyle(.btPremiumOnDark)
             .padding(.horizontal, Spacing.sm)
             .padding(.vertical, 2)
-            .background(Color.btAccent)
+            .background(Color.black.opacity(0.88))
             .clipShape(Capsule())
+            .overlay(Capsule().stroke(Color.btPremiumBorder.opacity(0.72), lineWidth: 1))
     }
 
     private func planLevelName(_ level: String) -> String {
@@ -246,7 +247,7 @@ struct PlanDetailView: View {
         HStack(alignment: .top, spacing: Spacing.sm) {
             Image(systemName: BTIcon.lightbulb)
                 .font(.btFootnote)
-                .foregroundStyle(.btAccent)
+                .foregroundStyle(.btPrimary)
 
             Text(text)
                 .font(.btSubheadline)
@@ -255,7 +256,7 @@ struct PlanDetailView: View {
         }
         .padding(Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.btAccent.opacity(0.10))
+        .background(Color.btPrimaryMuted)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("训练要点：\(text)")
@@ -542,7 +543,7 @@ struct PlanDetailView: View {
         ) {
         case .current: return .init(title: "当前", color: .btPrimary)
         case .completed: return .init(title: "已完成", color: .btSuccess)
-        case .previewed: return .init(title: "提前练过", color: .btAccent)
+        case .previewed: return .init(title: "提前练过", color: .btPrimary)
         case .notStarted: return .init(title: "未开始", color: .btTextTertiary)
         }
     }
@@ -1039,7 +1040,7 @@ struct BTGoldRule: View {
 
     var body: some View {
         Rectangle()
-            .fill(Color.btAccent.opacity(0.6))
+            .fill(Color.btBrandSignature.opacity(0.6))
             .frame(width: width, height: height)
             .accessibilityHidden(true)
     }
@@ -1064,7 +1065,7 @@ struct BTArcSeparator: View {
 
             ctx.stroke(
                 arc,
-                with: .color(.btAccent.opacity(opacity)),
+                with: .color(.btBrandSignature.opacity(opacity)),
                 style: StrokeStyle(lineWidth: 1.5, lineCap: .round)
             )
 
@@ -1075,7 +1076,7 @@ struct BTArcSeparator: View {
                 width: dotRadius * 2,
                 height: dotRadius * 2
             )
-            ctx.fill(Path(ellipseIn: dotRect), with: .color(.btAccent.opacity(opacity)))
+            ctx.fill(Path(ellipseIn: dotRect), with: .color(.btBrandSignature.opacity(opacity)))
         }
         .frame(width: width, height: height)
         .frame(maxWidth: .infinity)

@@ -54,12 +54,7 @@ struct BallExtractionView: View {
         .animation(BTMotion.springPanel, value: vm.step)
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "extract")
-        .navigationTitle("拍照建球形")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome("拍照建球形")
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(

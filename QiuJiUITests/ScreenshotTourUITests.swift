@@ -19,6 +19,22 @@ final class ScreenshotTourUITests: XCTestCase {
             .deletingLastPathComponent()
     }
 
+    private var v56MatrixShotDirURL: URL {
+        let screenSize = XCUIScreen.main.screenshot().image.size
+        let device = "\(Int(screenSize.width))x\(Int(screenSize.height))"
+        let mode: String
+        switch XCUIDevice.shared.appearance {
+        case .light: mode = "light"
+        case .dark: mode = "dark"
+        case .unspecified: mode = "unknown"
+        @unknown default: mode = "unknown"
+        }
+        return projectRootURL
+            .appendingPathComponent("build/v56/w7/full", isDirectory: true)
+            .appendingPathComponent(device, isDirectory: true)
+            .appendingPathComponent(mode, isDirectory: true)
+    }
+
     override func setUpWithError() throws {
         continueAfterFailure = true
         app = XCUIApplication.launchClean()
@@ -27,7 +43,7 @@ final class ScreenshotTourUITests: XCTestCase {
     /// 设计巡游跨设备比较必须从同一 SwiftData 空基线启动，不能继承各模拟器
     /// 之前遗留的训练计划、历史或收藏。其他历史测试默认仍使用持久化容器。
     private func launchPremium() -> XCUIApplication {
-        var arguments = ["-forcePremium"]
+        var arguments = ["-forcePremium", "-v51.followSystemAppearance"]
         if usesDeterministicInMemoryStore {
             arguments.append("-v50.inMemoryStore")
         }
@@ -81,6 +97,8 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     private func snap(_ name: String) {
+        guard assertCriticalPageIdentity(before: name) else { return }
+
         let screenshot = XCUIScreen.main.screenshot()
         let attachment = XCTAttachment(screenshot: screenshot)
         attachment.name = name
@@ -97,6 +115,153 @@ final class ScreenshotTourUITests: XCTestCase {
             } catch {
                 XCTFail("截图写盘失败 \(name): \(error.localizedDescription)")
             }
+        }
+    }
+
+    /// v56 W1：文件名完整不代表页面正确。关键页面必须先证明 AX 身份，
+    /// 失败时不写 PNG，让 manifest 门禁同时暴露缺图，禁止把上一页冒充目标页。
+    @discardableResult
+    private func assertCriticalPageIdentity(before screenshotName: String) -> Bool {
+        let navigationTitles: [String: String] = [
+            "03-plan-list": "训练计划",
+            "13-geometric-quiz": "角度预测",
+            "14-scene-aiming-2d": "2D 角度训练",
+            "15-scene-aiming-3d": "3D 角度训练",
+            "16-aimpoint-training": "瞄准点训练",
+            "17-aimpoint-scene-2d": "2D 瞄准点训练",
+            "18-aimpoint-scene-3d": "3D 瞄准点训练",
+            "19-shot-simulation": "分离角与走位",
+            "20-position-play-composer": "自由走位",
+            "21-free-play": "自由击球",
+            "22-ball-extraction": "拍照建球形",
+            "23-batch-drill-studio": "批量出片台",
+            "24-silu-trainer": "思路训练",
+            "25-plan-three": "打一走二想三",
+            "26-snooker-tactics": "防守",
+            "27-bank-shot": "翻袋解球器",
+            "28-diamond-system": "反射解球器",
+            "52-profile-personal-info": "个人信息",
+            "53-profile-training-goal": "训练目标",
+            "54-profile-settings": "偏好设置",
+            "55-profile-about": "关于与反馈",
+            "56-profile-favorites": "我的收藏",
+            "71-phone-login": "手机号登录",
+        ]
+        let theoryTitles: [String: String] = [
+            "12c-theory-t01": "30° 法则",
+            "12d-theory-t02": "90° 法则",
+            "12e-theory-t03": "切线法则",
+            "12f-theory-t04": "母球速度分级",
+            "12g-theory-t09": "最少加塞原则",
+            "12h-theory-t05": "反向规划",
+            "12i-theory-t06": "关键球原理",
+            "12j-theory-t07": "球团管理",
+            "12k-theory-t08": "风险报酬决策矩阵",
+            "12l-theory-t10": "安全球三维度模型",
+            "12m-theory-flow": "清台 5 步决策流程",
+            "12n-theory-quickref": "清台速查手册",
+        ]
+
+        let isVisible: Bool
+        switch screenshotName {
+        case "00-launch", "01-training-home":
+            // `00` 是启动过程证据；App 稳定后它与训练首页可能同帧，不计独立页面。
+            isVisible = app.buttons["trainingHome.moreMenu"].waitForExistence(timeout: 5)
+        case "04-plan-detail":
+            isVisible = app.descendants(matching: .any)["planDetail.primaryCTA"]
+                .waitForExistence(timeout: 5)
+        case "05-drill-library":
+            // 动作库是 Tab 根页，按 D-v47-1 不显示 navigation title；
+            // 用内容卡 identifier 证明已进入真实根页。
+            // iPadOS 26 的浮动 Tab 会把 cell 与内部 view 都映射成同名 Button。
+            // `firstMatch` 避免唯一性查询因嵌套重复元素失败。
+            let tab = app.buttons.matching(identifier: "动作库").firstMatch
+            let card = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH 'drillCard_'"
+            )).firstMatch
+            isVisible = tab.waitForExistence(timeout: 3) && tab.isSelected
+                && card.waitForExistence(timeout: 2)
+        case "06-drill-detail-top":
+            // 小屏首张卡片内含收藏按钮；只记录 tap 动作不足以证明已 push。
+            // 以详情页固定底栏 CTA 作为页面身份，避免把动作库误收为详情证据。
+            isVisible = app.buttons["bottomTryoutButton"].waitForExistence(timeout: 5)
+        case "08-angle-home-all":
+            isVisible = app.buttons["angleHomeTab_全部"].waitForExistence(timeout: 5)
+        case "08a-angle-home-learn":
+            let tab = app.buttons["angleHomeTab_学"]
+            isVisible = tab.waitForExistence(timeout: 3) && tab.isSelected
+        case "08a2-angle-home-theory":
+            let tab = app.buttons["angleHomeTab_理"]
+            isVisible = tab.waitForExistence(timeout: 3) && tab.isSelected
+        case "08b-angle-home-train":
+            let tab = app.buttons["angleHomeTab_练"]
+            isVisible = tab.waitForExistence(timeout: 3) && tab.isSelected
+        case "08c-angle-home-play":
+            let tab = app.buttons["angleHomeTab_打"]
+            isVisible = tab.waitForExistence(timeout: 3) && tab.isSelected
+        case "08d-angle-home-solve":
+            let tab = app.buttons["angleHomeTab_解"]
+            isVisible = tab.waitForExistence(timeout: 3) && tab.isSelected
+        case "50-profile-top":
+            let tab = app.buttons.matching(identifier: "我的").firstMatch
+            let accountHeader = app.descendants(matching: .any)["profile.accountHeader"]
+            let loginHeader = app.descendants(matching: .any)["profile.login"]
+            let profileRow = app.staticTexts["个人信息"]
+            isVisible = tab.waitForExistence(timeout: 3) && tab.isSelected
+                && (accountHeader.waitForExistence(timeout: 1)
+                    || loginHeader.waitForExistence(timeout: 1)
+                    || profileRow.waitForExistence(timeout: 1))
+        case "40-history-calendar":
+            // 记录同样是隐藏导航栏的 Tab 根页；选中态就是稳定页面身份。
+            let tab = app.buttons.matching(identifier: "记录").firstMatch
+            isVisible = tab.waitForExistence(timeout: 5) && tab.isSelected
+        case "57-subscription-status":
+            isVisible = app.navigationBars["订阅管理"].waitForExistence(timeout: 3)
+                || app.navigationBars["Pro 权益"].waitForExistence(timeout: 2)
+        case "70-login":
+            isVisible = waitForLoginScreen(timeout: 5)
+        case "72-onboarding":
+            isVisible = app.staticTexts["看懂球路，再开始练"].waitForExistence(timeout: 5)
+        default:
+            if let title = navigationTitles[screenshotName] ?? theoryTitles[screenshotName] {
+                isVisible = app.navigationBars[title].waitForExistence(timeout: 5)
+            } else {
+                return true
+            }
+        }
+
+        if !isVisible {
+            XCTFail("截图 \(screenshotName) 页面身份断言失败；拒绝把当前画面写成目标页")
+        }
+        return isVisible
+    }
+
+    private func waitForLoginScreen(timeout: TimeInterval) -> Bool {
+        app.staticTexts["看懂球路，练出结果"].waitForExistence(timeout: timeout)
+            && app.buttons["通过 Apple 登录"].waitForExistence(timeout: 2)
+    }
+
+    private func assertCurrentLoginContract() {
+        XCTAssertTrue(waitForLoginScreen(timeout: 5), "登录页身份锚点应可见")
+        XCTAssertTrue(app.buttons["通过 Apple 登录"].exists, "当前生产登录应保留 Apple")
+        XCTAssertTrue(app.buttons["暂不登录，匿名使用"].exists, "当前生产登录应保留匿名使用")
+        XCTAssertTrue(
+            app.staticTexts["微信与手机号登录暂未开放"].exists,
+            "未开放方式应以静态说明诚实呈现"
+        )
+        XCTAssertFalse(app.buttons["微信登录"].exists, "不得把未开放的微信登录断言为生产按钮")
+        XCTAssertFalse(app.buttons["手机号登录"].exists, "手机号表单只保留测试专用深链")
+
+        let terms = app.links["用户协议"]
+        let privacy = app.links["隐私政策"]
+        if terms.exists || privacy.exists {
+            XCTAssertTrue(terms.exists, "配置法律 URL 时应同时提供用户协议 Link")
+            XCTAssertTrue(privacy.exists, "配置法律 URL 时应同时提供隐私政策 Link")
+        } else {
+            XCTAssertTrue(
+                app.staticTexts["用户协议与隐私政策发布后将在此提供可访问链接"].exists,
+                "未配置法律 URL 时必须展示合并 fallback，不能静默缺失"
+            )
         }
     }
 
@@ -120,6 +285,16 @@ final class ScreenshotTourUITests: XCTestCase {
                 return URL(fileURLWithPath: String(path)).lastPathComponent
             })
             XCTAssertEqual(expected.count, 66, "v47 基线 manifest 必须正好登记 66 张 PNG")
+            let nonProductionEvidence = Set(["00-launch.png", "71-phone-login.png"])
+            XCTAssertTrue(
+                nonProductionEvidence.isSubset(of: expected),
+                "manifest 必须显式包含启动过程帧与测试专用手机号页"
+            )
+            XCTAssertEqual(
+                expected.subtracting(nonProductionEvidence).count,
+                64,
+                "66 个文件应准确拆分为 64 个生产独立状态 + 1 个启动过程帧 + 1 个测试专用页"
+            )
 
             let produced = Set(try FileManager.default.contentsOfDirectory(
                 at: outputDir,
@@ -133,7 +308,7 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     /// 完整巡游必须从空输出目录开始，避免上轮残留 PNG 掩盖本轮静默跳页。
-    /// 只允许清理 v47/v50/v51 build 目录或专用系统临时目录，绝不递归删除 docs/Resources。
+    /// 只允许清理版本化 build 截图目录或专用系统临时目录，绝不递归删除 docs/Resources。
     @discardableResult
     private func resetV47ShotDirectory() -> Bool {
         guard let dir = shotDirURL else {
@@ -146,13 +321,14 @@ final class ScreenshotTourUITests: XCTestCase {
         let allowedBuildLeaf = standardized.hasPrefix(buildRoot)
             && (standardized.contains("/v47-")
                 || standardized.contains("/v50/")
-                || standardized.contains("/v51/"))
+                || standardized.contains("/v51/")
+                || standardized.contains("/v56/"))
         let allowedTemporaryLeaf = standardized.hasPrefix("/tmp/qiuji-v50/")
             || standardized.hasPrefix("/private/tmp/qiuji-v50/")
             || standardized.hasPrefix("/tmp/qiuji-uitest/")
         let allowed = allowedBuildLeaf || allowedTemporaryLeaf
         guard allowed else {
-            XCTFail("拒绝清理非 v47/v50/v51 专用输出目录：\(standardized)")
+            XCTFail("拒绝清理非版本化专用输出目录：\(standardized)")
             return false
         }
         do {
@@ -163,6 +339,24 @@ final class ScreenshotTourUITests: XCTestCase {
             return true
         } catch {
             XCTFail("无法重置 v47 截图目录：\(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// v56 W7 的 66 页巡游按页面族拆成短 Runner，但所有分段必须落到同一设备/外观目录。
+    /// Foundation 是唯一允许清目录的分段；其余分段只能追加，最后由 manifest 独立收账。
+    @discardableResult
+    private func useV56MatrixShotDirectory(reset: Bool) -> Bool {
+        v47ForcedShotDirURL = v56MatrixShotDirURL
+        if reset { return resetV47ShotDirectory() }
+        do {
+            try FileManager.default.createDirectory(
+                at: v56MatrixShotDirURL,
+                withIntermediateDirectories: true
+            )
+            return true
+        } catch {
+            XCTFail("无法准备 v56 矩阵目录：\(error.localizedDescription)")
             return false
         }
     }
@@ -269,7 +463,9 @@ final class ScreenshotTourUITests: XCTestCase {
             ]
             for candidate in candidates where candidate.waitForExistence(timeout: 2) {
                 candidate.tap()
-                return true
+                if waitForLoginScreen(timeout: 5) {
+                    return true
+                }
             }
         }
         return false
@@ -400,6 +596,84 @@ final class ScreenshotTourUITests: XCTestCase {
         tourLogin()
         tourOnboarding()
         assertV47BaselineScreenshotCompleteness()
+    }
+
+    /// v56 W1：允许把长巡游拆成多个隔离 Runner 补齐同一目录后，单独核对总账。
+    /// 该用例不启动 App、不清目录，只验证本轮 66 文件与 64+1+1 口径。
+    func testV56W7GManifestCompleteness() {
+        guard useV56MatrixShotDirectory(reset: false) else { return }
+        assertV47BaselineScreenshotCompleteness()
+    }
+
+    /// v56 W7：分段 1/6。只在这里清理本设备/外观目录，建立 00–08d 基础页面证据。
+    func testV56W7AFoundation() {
+        guard useV56MatrixShotDirectory(reset: true) else { return }
+        usesDeterministicInMemoryStore = true
+        app.terminate()
+        app = launchPremium()
+        sleep(3)
+        snap("00-launch")
+        tourTraining()
+        tourCustomPlanBuilder()
+        tourDrillLibrary()
+        tourDrillTutorial()
+        tourAngleLandingPages()
+    }
+
+    /// v56 W7：分段 2/6。学习入口与理论入口各自保持真实页面身份。
+    func testV56W7BLearn() {
+        guard useV56MatrixShotDirectory(reset: false) else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium",
+            "-v51.followSystemAppearance",
+        ])
+        sleep(3)
+        tourAnglePages(v56LearnCorePages)
+        tourRemainingLearnPages()
+    }
+
+    /// v56 W7：分段 3/6。练习工具页单独巡游，控制 Runner 生命周期。
+    func testV56W7CPractice() {
+        guard useV56MatrixShotDirectory(reset: false) else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        tourAnglePages(v56PracticePages)
+    }
+
+    /// v56 W7：分段 4/6。打 / 解的固定暗场工具页。
+    func testV56W7DPlayAndSolve() {
+        guard useV56MatrixShotDirectory(reset: false) else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        tourAnglePages(v56PlayAndSolvePages)
+    }
+
+    /// v56 W7：分段 5/6。12 个球理页面。
+    func testV56W7ETheory() {
+        guard useV56MatrixShotDirectory(reset: false) else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+        tourAllTheoryPages()
+    }
+
+    /// v56 W7：分段 6/6。记录、个人、订阅、登录、测试专用手机号页与引导。
+    func testV56W7FChromeAndStates() {
+        guard useV56MatrixShotDirectory(reset: false) else { return }
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        tourHistory()
+        tourProfile()
+        tourFavoritesAndSubscriptionStatus()
+        tourModalFlows()
+        tourLogin()
+        tourOnboarding()
     }
 
     /// D-v47-1：五个 Tab 根页永久保持无大标题。子页正常导航标题不在本断言范围。
@@ -676,11 +950,7 @@ final class ScreenshotTourUITests: XCTestCase {
 
         app.buttons["登录已有账号"].tap()
         XCTAssertTrue(app.staticTexts["看懂球路，练出结果"].waitForExistence(timeout: 3))
-        for label in ["通过 Apple 登录", "微信登录", "手机号登录", "暂不登录，匿名使用"] {
-            XCTAssertTrue(app.buttons[label].exists, "登录入口 \(label) 应保持")
-        }
-        XCTAssertTrue(app.staticTexts["用户协议"].exists)
-        XCTAssertTrue(app.staticTexts["隐私政策"].exists)
+        assertCurrentLoginContract()
         snap("04-login")
     }
 
@@ -716,9 +986,54 @@ final class ScreenshotTourUITests: XCTestCase {
         snap("01-onboarding-compact")
 
         openV47LoginFromOnboarding()
-        XCTAssertTrue(app.buttons["手机号登录"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["通过 Apple 登录"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.buttons["暂不登录，匿名使用"].exists)
+        XCTAssertTrue(app.staticTexts["微信与手机号登录暂未开放"].exists)
+        XCTAssertFalse(app.buttons["手机号登录"].exists)
         snap("02-login-compact")
+    }
+
+    /// v56 W2–W4 聚焦证据：同一设备/外观下记录弱绿筛选、侧栏、Guest 层级与 Pro 材质。
+    func testV56ColorSemanticsFocused() {
+        let mode: String
+        switch XCUIDevice.shared.appearance {
+        case .light: mode = "light"
+        case .dark: mode = "dark"
+        case .unspecified: mode = "unknown"
+        @unknown default: mode = "unknown"
+        }
+        v47ForcedShotDirURL = projectRootURL
+            .appendingPathComponent("build/v56/w7/focused/\(mode)", isDirectory: true)
+        guard resetV47ShotDirectory() else { return }
+
+        app.terminate()
+        app = XCUIApplication.launchClean()
+        app.switchTab(.profile)
+        XCTAssertTrue(app.buttons["profile.login"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["登录 / 注册"].exists, "Guest 只能保留一个主登录行动")
+        snap("01-profile-guest")
+
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app.switchTab(.drillLibrary)
+        XCTAssertTrue(app.buttons["levelFilter_全部"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["levelFilter_全部"].isSelected)
+        snap("02-drill-filter-selected")
+
+        app.switchTab(.angle)
+        XCTAssertTrue(app.buttons["angleHomeTab_全部"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["angleHomeTab_全部"].isSelected)
+        snap("03-angle-sidebar-selected")
+
+        app.switchTab(.profile)
+        XCTAssertTrue(app.buttons["profile.login"].waitForExistence(timeout: 5))
+        XCTAssertTrue(tapIfExists("订阅管理", timeout: 4))
+        XCTAssertTrue(
+            app.navigationBars["订阅管理"].waitForExistence(timeout: 5)
+                && app.staticTexts["Pro 会员"].waitForExistence(timeout: 2),
+            "强制 Pro 状态应进入订阅管理并展示会员材质"
+        )
+        snap("04-subscription-premium")
     }
 
     /// W10a 键盘态：品牌构图不能阻断手机号登录 Sheet、输入焦点和键盘。
@@ -829,14 +1144,25 @@ final class ScreenshotTourUITests: XCTestCase {
         tourHistory()
         tourProfile()
         tourFavoritesAndSubscriptionStatus()
-        tourLogin()
         app.switchTab(.training)
         sleep(2)
         if tapIfExists("自由记录", timeout: 3) {
             sleep(2)
             snap("62-free-record-session")
         }
+        tourLogin()
         tourOnboarding()
+    }
+
+    /// v56 W1：长巡游拆分后的“学 + 理”补拍段，控制单个 Runner 生命周期。
+    func testV56LearningAndTheoryRemainder() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(3)
+        app.switchTab(.angle)
+        sleep(2)
+        tourRemainingLearnPages()
+        tourAllTheoryPages()
     }
 
     /// 补拍自由记录会话 + 引导（避开 Paywall 不可点）。
@@ -908,7 +1234,7 @@ final class ScreenshotTourUITests: XCTestCase {
         ]
         for (tab, label, name) in pages {
             app.terminate()
-            app = XCUIApplication.launchClean()
+            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
             sleep(2)
             app.switchTab(.angle)
             sleep(1)
@@ -922,7 +1248,7 @@ final class ScreenshotTourUITests: XCTestCase {
         }
 
         app.terminate()
-        app = XCUIApplication.launchClean()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
         sleep(2)
         tourHistory()
         tourProfile()
@@ -1011,8 +1337,8 @@ final class ScreenshotTourUITests: XCTestCase {
         snap("24-silu-trainer")
     }
 
-    /// v50 W5：大屏 iPad 上点击登录内部文字不会可靠触发外层 Button。
-    /// 通过稳定 identifier 验证个人页 → 登录 Sheet → 手机号登录整条链。
+    /// v56 W1：大屏 iPad 上点击登录内部文字不会可靠触发外层 Button。
+    /// 验证个人页 → Apple-only 登录 Sheet；手机号表单仅通过测试专用深链保留。
     func testV50IPadLoginNavigationRegression() {
         guard resetV47ShotDirectory() else { return }
         app.terminate()
@@ -1024,16 +1350,18 @@ final class ScreenshotTourUITests: XCTestCase {
             XCTFail("个人页应提供稳定的登录入口")
             return
         }
-        guard let phone = resolvedButton(identifier: "login.phone", label: "手机号登录") else {
-            XCTFail("登录 Sheet 应显示手机号登录")
-            return
-        }
+        assertCurrentLoginContract()
         snap("70-login")
 
-        phone.tap()
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium",
+            "-v51.followSystemAppearance",
+            "-v51.phoneLoginPreview",
+        ])
         XCTAssertTrue(
             app.navigationBars["手机号登录"].waitForExistence(timeout: 5),
-            "应进入手机号登录页"
+            "测试专用深链应保留手机号登录页"
         )
         snap("71-phone-login")
     }
@@ -2290,22 +2618,31 @@ final class ScreenshotTourUITests: XCTestCase {
 
         let drillCard = app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier BEGINSWITH 'drillCard_'")).firstMatch
-        var openedDetail = false
+        var attemptedDetail = false
         if drillCard.waitForExistence(timeout: 4) {
             drillCard.tap()
-            openedDetail = true
+            attemptedDetail = true
         } else {
             let cell = app.cells.firstMatch
             if cell.waitForExistence(timeout: 4) {
                 cell.tap()
-                openedDetail = true
+                attemptedDetail = true
             }
         }
-        guard openedDetail else {
+        guard attemptedDetail else {
             XCTFail("完整巡游无法打开动作详情")
             return
         }
-        sleep(3)
+
+        let detailCTA = app.buttons["bottomTryoutButton"]
+        if !detailCTA.waitForExistence(timeout: 3), drillCard.exists {
+            // 避开卡片右上角的收藏按钮，在内容区重试一次。
+            drillCard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72)).tap()
+        }
+        guard detailCTA.waitForExistence(timeout: 5) else {
+            XCTFail("完整巡游点击动作卡后未进入动作详情")
+            return
+        }
         snap("06-drill-detail-top")
         app.scrollDown(times: 2)
         sleep(1)
@@ -2316,7 +2653,42 @@ final class ScreenshotTourUITests: XCTestCase {
 
     // MARK: 角度 Tab（学/练/打/解 全入口卡各截一帧默认态）
 
-    private func tourAngle() {
+    private var v56LearnCorePages: [(String, String, String)] {
+        [
+            ("学", "瞄准原理", "09-aiming-principle"),
+            ("学", "角度与瞄准", "10-angle-dynamic"),
+            ("学", "浅谈球感", "11-ball-feel"),
+            ("学", "瞄准点对照表", "12-contact-point-table"),
+        ]
+    }
+
+    private var v56PracticePages: [(String, String, String)] {
+        [
+            ("练", "角度预测", "13-geometric-quiz"),
+            ("练", "2D 角度训练", "14-scene-aiming-2d"),
+            ("练", "3D 角度训练", "15-scene-aiming-3d"),
+            ("练", "瞄准点训练", "16-aimpoint-training"),
+            ("练", "2D 瞄准点训练", "17-aimpoint-scene-2d"),
+            ("练", "3D 瞄准点训练", "18-aimpoint-scene-3d"),
+        ]
+    }
+
+    private var v56PlayAndSolvePages: [(String, String, String)] {
+        [
+            ("打", "分离角与走位", "19-shot-simulation"),
+            ("打", "自由走位", "20-position-play-composer"),
+            ("打", "自由击球", "21-free-play"),
+            ("打", "拍照建球形", "22-ball-extraction"),
+            ("打", "批量出片台", "23-batch-drill-studio"),
+            ("解", "思路训练", "24-silu-trainer"),
+            ("解", "打一走二想三", "25-plan-three"),
+            ("解", "防守", "26-snooker-tactics"),
+            ("解", "翻袋解球器", "27-bank-shot"),
+            ("解", "反射解球器", "28-diamond-system"),
+        ]
+    }
+
+    private func tourAngleLandingPages() {
         app.switchTab(.angle)
         sleep(2)
         snap("08-angle-home-all")
@@ -2325,44 +2697,12 @@ final class ScreenshotTourUITests: XCTestCase {
         switchAngleHomeTab("练"); snap("08b-angle-home-train")
         switchAngleHomeTab("打"); snap("08c-angle-home-play")
         switchAngleHomeTab("解"); snap("08d-angle-home-solve")
+    }
 
-        // 全入口卡默认态（场景页只截进场帧，不做击打/求解交互）。
-        let subPages: [(String, String, String)] = [
-            // 学
-            ("学", "瞄准原理", "09-aiming-principle"),
-            ("学", "角度与瞄准", "10-angle-dynamic"),
-            ("学", "浅谈球感", "11-ball-feel"),
-            ("学", "瞄准点对照表", "12-contact-point-table"),
-            // 理论页由 tourAllTheoryPages 统一以 manifest 的 12c–12n 命名捕获，
-            // 这里不重复拍 T03，避免同一模板占用两个巡游文件名。
-            // 练
-            ("练", "角度预测", "13-geometric-quiz"),
-            ("练", "2D 角度训练", "14-scene-aiming-2d"),
-            ("练", "3D 角度训练", "15-scene-aiming-3d"),
-            ("练", "瞄准点训练", "16-aimpoint-training"),
-            ("练", "2D 瞄准点训练", "17-aimpoint-scene-2d"),
-            ("练", "3D 瞄准点训练", "18-aimpoint-scene-3d"),
-            // 打
-            ("打", "分离角与走位", "19-shot-simulation"),
-            ("打", "自由走位", "20-position-play-composer"),
-            ("打", "自由击球", "21-free-play"),
-            ("打", "拍照建球形", "22-ball-extraction"),
-            ("打", "批量出片台", "23-batch-drill-studio"),
-            // 解
-            ("解", "思路训练", "24-silu-trainer"),
-            ("解", "打一走二想三", "25-plan-three"),
-            ("解", "防守", "26-snooker-tactics"),
-            ("解", "翻袋解球器", "27-bank-shot"),
-            ("解", "反射解球器", "28-diamond-system"),
-        ]
-        for (tab, label, name) in subPages {
-            // Keep one foreground App session while navigating the angle family. On
-            // iOS 26, repeatedly terminate/launching the App eventually disconnects
-            // the AX server (kAXErrorServerNotFound). `tapAngleCard` still performs one
-            // bounded soft-restart if the real hierarchy becomes unavailable.
-            // Returning from a pushed angle page already leaves us on AngleHome.
-            // Prefer its local segment control so one transiently empty bottom-tab AX
-            // snapshot does not record a failure before tapAngleCard's bounded recovery.
+    private func tourAnglePages(_ pages: [(String, String, String)]) {
+        app.switchTab(.angle)
+        sleep(2)
+        for (tab, label, name) in pages {
             _ = switchAngleHomeTab(tab)
             if tapAngleCard(label, tab: tab) {
                 sleep(3)
@@ -2370,12 +2710,12 @@ final class ScreenshotTourUITests: XCTestCase {
                     app.staticTexts["解锁球迹 Pro"].exists,
                     "Pro 巡游进入 \(label) 时不得把 Paywall 当作目标页"
                 )
-                // 瞄准训练入口先弹设置 sheet（T-P18-48）：关掉再截训练态。
-                startAimingTrainingFromSheet()
-                // 翻袋默认袋口可能无解，尽力找一个有解袋口再截（失败也截当前态）。
-                if label == "翻袋解球器" {
-                    ensureBankSolution()
+                // 只有瞄准训练会先展示设置 sheet。页面已稳定后先做无等待探测，
+                // 避免其余二十余个工具页各自空等 4 秒。
+                if app.buttons["开始训练"].exists {
+                    startAimingTrainingFromSheet()
                 }
+                if label == "翻袋解球器" { ensureBankSolution() }
                 snap(name)
                 popBack()
                 sleep(1)
@@ -2383,6 +2723,11 @@ final class ScreenshotTourUITests: XCTestCase {
                 XCTFail("完整巡游无法打开 \(tab) / \(label)")
             }
         }
+    }
+
+    private func tourAngle() {
+        tourAngleLandingPages()
+        tourAnglePages(v56LearnCorePages + v56PracticePages + v56PlayAndSolvePages)
     }
 
     // MARK: 记录 Tab
@@ -2471,8 +2816,26 @@ final class ScreenshotTourUITests: XCTestCase {
             return
         }
         drillCard.tap()
-        sleep(2)
-        guard tapIfExists("查看精讲", timeout: 3) else {
+        let detailCTA = app.buttons["bottomTryoutButton"]
+        if !detailCTA.waitForExistence(timeout: 3), drillCard.exists {
+            drillCard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.72)).tap()
+        }
+        guard detailCTA.waitForExistence(timeout: 5) else {
+            XCTFail("完整巡游无法为精讲进入动作详情")
+            return
+        }
+        var openedTutorial = tapIfExists("查看精讲", timeout: 2)
+        for _ in 0..<4 where !openedTutorial {
+            let scroll = app.scrollViews.firstMatch
+            if scroll.exists {
+                scroll.swipeUp(velocity: .fast)
+            } else {
+                app.swipeUp(velocity: .fast)
+            }
+            usleep(400_000)
+            openedTutorial = tapIfExists("查看精讲", timeout: 1)
+        }
+        guard openedTutorial else {
             XCTFail("完整巡游动作详情缺少查看精讲入口")
             popBack()
             return
@@ -2552,28 +2915,32 @@ final class ScreenshotTourUITests: XCTestCase {
     }
 
     private func tourLogin() {
+        // 会话态页面会隐藏 Tab bar；登录证据必须从独立根会话进入，不能依赖前页 AX 树。
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium",
+            "-v51.followSystemAppearance",
+        ])
+        sleep(2)
         app.switchTab(.profile)
         sleep(1)
         guard openProfileLogin() else {
             XCTFail("个人页无法找到稳定的登录入口")
             return
         }
+        assertCurrentLoginContract()
         snap("70-login")
 
-        if let phone = resolvedButton(identifier: "login.phone", label: "手机号登录") {
-            phone.tap()
-        } else {
-            // Phone sign-in is currently unavailable from the production sheet. Keep
-            // its retained form in the 66-page responsive matrix through a UI-test-only
-            // deep link instead of re-exposing an unavailable login method to users.
-            app.terminate()
-            app = XCUIApplication.launchClean(extraArgs: [
-                "-forcePremium",
-                "-v51.phoneLoginPreview",
-            ])
-        }
+        // Phone sign-in is unavailable from the production sheet. Keep its retained
+        // form in the 66-file responsive matrix through a UI-test-only deep link.
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium",
+            "-v51.followSystemAppearance",
+            "-v51.phoneLoginPreview",
+        ])
         guard app.navigationBars["手机号登录"].waitForExistence(timeout: 5) else {
-            XCTFail("手机号登录页未能通过生产入口或测试专用深链打开")
+            XCTFail("手机号登录页未能通过测试专用深链打开")
             return
         }
         snap("71-phone-login")
@@ -2586,6 +2953,7 @@ final class ScreenshotTourUITests: XCTestCase {
         fresh.launchArguments += ["-AppleLocale", "zh_CN"]
         fresh.launchArguments += ["-hasCompletedOnboarding", "NO"]
         fresh.launchArguments += ["-resetDebugPremium"]
+        fresh.launchArguments += ["-v51.followSystemAppearance"]
         fresh.launch()
         app = fresh
         sleep(3)
@@ -2595,6 +2963,10 @@ final class ScreenshotTourUITests: XCTestCase {
     // MARK: 弹窗 / 会话态流程（放最后）
 
     private func tourModalFlows() {
+        let matrixDirectory = v47ForcedShotDirURL
+        let supplementalDirectory = v56MatrixShotDirURL
+            .appendingPathComponent("_supplemental", isDirectory: true)
+
         // 订阅 Paywall
         app.switchTab(.profile)
         sleep(1)
@@ -2602,20 +2974,29 @@ final class ScreenshotTourUITests: XCTestCase {
         sleep(1)
         if tapIfExists("解锁球迹 Pro", timeout: 2) || tapIfExists("升级 Pro", timeout: 2) || tapIfExists("订阅管理", timeout: 2) {
             sleep(3)
+            v47ForcedShotDirURL = supplementalDirectory
             snap("60-subscription-paywall")
             // 等待产品加载超时（8s）后捕获错误/重试兜底态（U-04）
             sleep(8)
             snap("61-subscription-paywall-timeout")
+            v47ForcedShotDirURL = matrixDirectory
             app.swipeDown()
             sleep(1)
         }
 
         // 自由记录 → 进入训练会话（含 drill picker sheet）
+        // Paywall 的系统 sheet 在部分 Runtime 下下拉后会短暂保留不可交互的 AX 树；
+        // 从干净根会话继续，避免把系统转场时序误判成产品页缺失。
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        sleep(2)
         app.switchTab(.training)
         sleep(2)
         if tapIfExists("自由记录", timeout: 3) {
             sleep(2)
+            v47ForcedShotDirURL = supplementalDirectory
             snap("62-free-record-session")
+            v47ForcedShotDirURL = matrixDirectory
         }
     }
 }

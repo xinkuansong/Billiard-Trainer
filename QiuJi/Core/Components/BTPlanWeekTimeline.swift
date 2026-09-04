@@ -4,7 +4,7 @@ import SwiftUI
 ///
 /// 四态：
 /// - `.completed`  已完成 = 实心 `btSuccess`
-/// - `.current`    进行中 = 描边 `btAccent` + 0.6Hz pulse
+/// - `.current`    进行中 = 描边 `btPrimary` + 0.6Hz pulse
 /// - `.upcoming`   未来   = 描边 `btSeparator`
 /// - `.locked`     付费锁 = 描边 + `lock.fill` 图标
 ///
@@ -123,7 +123,7 @@ struct BTPlanWeekTimeline: View {
     private func borderColor(_ s: WeekState) -> Color {
         switch s {
         case .completed: return .btSuccess
-        case .current:   return .btAccent
+        case .current:   return .btPrimary
         case .upcoming:  return .btSeparator
         case .locked:    return .btSeparator
         }

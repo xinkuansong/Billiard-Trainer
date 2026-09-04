@@ -62,7 +62,7 @@ struct BTDrillCard: View {
                     Button(action: onFavoriteTap) {
                         Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)
                             .font(.btCallout)
-                            .foregroundStyle(isFavorited ? .btAccent : .btTextTertiary)
+                            .foregroundStyle(isFavorited ? .btPrimary : .btTextTertiary)
                     }
                 }
 
@@ -172,7 +172,7 @@ struct BTDrillGridCard: View {
             Button(action: onFavoriteTap) {
                 Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)
                     .font(.btFootnote14.weight(.medium))
-                    .foregroundStyle(isFavorited ? .btAccent : .white.opacity(0.9))
+                    .foregroundStyle(isFavorited ? .btPrimary : .white.opacity(0.9))
                     .frame(width: 30, height: 30)
                     .background(.black.opacity(0.35))
                     .clipShape(Circle())

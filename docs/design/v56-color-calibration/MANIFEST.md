@@ -1,6 +1,6 @@
 # v56 色彩目标态校准图 Manifest
 
-> 生成日期：2026-09-03
+> 生成日期：2026-09-03；材质母版补充于 2026-09-04
 >
 > 生成方式：Codex 内置 `image_gen`，以当前真实 App 截图为 edit target
 >
@@ -30,6 +30,8 @@
 | `18-profile-pro-material-brushed-champagne.png` | `03` | 原星形/皇冠 + 细拉丝香槟金 | `4c6eb1d3084b39b838a3032dbe1da16ddae9202d9b9b2b4ec7ef2f6277872f5b` |
 | `19-profile-pro-material-satin-ivory.png` | `03` | 原星形/皇冠 + 柔光象牙金 | `758246cb4727d30866c6db40afb38941fce457067c7ba9118172ef6fb8702717` |
 | `20-profile-dark-pro-material-brushed-champagne.png` | A1 Dark `50-profile-top.png` + `18` 材质参考 | Dark 原星形/皇冠 + 细拉丝香槟金 | `a0a6473fed276a50e27325db1f1b1f08dda08a615b7134d7f71756512c934ea2` |
+| `21-premium-material-master-light.png` | 无，独立生成 | Light SF Symbol mask 内部拉丝香槟金材质母版 | `248861cba0c2f179cdada1fc5a4f4d2ac72b7683483a17eba3733e9921c04058` |
+| `22-premium-material-master-dark.png` | 无，独立生成 | Dark SF Symbol mask 内部浅香槟金材质母版 | `aae2b6b196a6633fe393e77eccb6bb70443a55a0f1857af231fdd1dd7b33f69b` |
 
 ## 共用 Prompt 合约
 
@@ -102,6 +104,13 @@ Avoid: new UI, colored wash, decorative gradients, glow, glassmorphism, watermar
 - 以真实 Dark Profile 为 edit target，并以 `18` 为材质参考；保持星形/皇冠轮廓、warning 橙和品牌绿不变。
 - Dark 前两次生成分别把星形误做成镂空金币与切面宝石，均已淘汰；`20` 是收紧后的可比较稿。
 - `20` 仍比 Light 更容易产生立体描边，证明生产实现必须用确定性 mask 锁轮廓，不能让生成器决定最终边缘。
+
+### 21 / 22 — 独立可裁切材质母版
+
+- 用户确认保留原图标后，使用 Codex 内置 `image_gen` 独立生成 Light / Dark 两张边到边方形材质场，不再从页面 mockup 裁材质。
+- `21` 以低饱和 `#C6A15B` 附近的细拉丝香槟金为中心；`22` 以 `#E7D3A0` 附近的浅香槟金为中心，适配 `#1C1C1E` 暗表面。
+- 两张都明确禁止文字、Logo、星形、皇冠、金币、珠宝、切面、厚浮雕、边框与中央对象；它们不决定图标轮廓。
+- 当前原图保留为设计母版。W3 已按此派生 `btPremiumTexture.imageset`，并由 `BTPremiumMaterialSymbol` 在 24 / 32 / 48pt 使用确定性 SF Symbol mask；小于 24pt、增强对比度或降低透明度时回退纯色。固定炭黑表面使用 `btPremiumOnDark`，不让 Light 页面误取深金。
 
 ## 使用限制
 

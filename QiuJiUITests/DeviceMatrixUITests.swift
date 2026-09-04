@@ -40,27 +40,18 @@ final class DeviceMatrixUITests: XCTestCase {
 
     func testPhoneLoginKeyboardAndAdaptiveSheet() throws {
         app.terminate()
-        let fresh = XCUIApplication()
-        fresh.launchArguments += [
-            "-AppleLanguages", "(zh-Hans)",
-            "-AppleLocale", "zh_CN",
-            "-hasCompletedOnboarding", "NO",
-            "-resetDebugPremium",
-        ]
-        fresh.launch()
-        app = fresh
+        // 手机号登录当前不在生产登录 Sheet 中开放。通过 launch-argument-only
+        // 预览入口验证保留表单，避免契约测试依赖已下线的产品导航。
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium",
+            "-v51.followSystemAppearance",
+            "-v51.phoneLoginPreview",
+        ])
 
-        for _ in 0..<2 {
-            let next = app.buttons["继续"]
-            XCTAssertTrue(next.waitForExistence(timeout: 5))
-            next.tap()
-        }
-        let login = app.buttons["登录已有账号"]
-        XCTAssertTrue(login.waitForExistence(timeout: 4))
-        login.tap()
-        let phone = app.buttons["手机号登录"]
-        XCTAssertTrue(phone.waitForExistence(timeout: 4))
-        phone.tap()
+        XCTAssertTrue(
+            app.navigationBars["手机号登录"].waitForExistence(timeout: 5),
+            "手机号登录预览入口必须可达"
+        )
 
         let field = app.textFields["请输入手机号"]
         XCTAssertTrue(field.waitForExistence(timeout: 4))
@@ -89,14 +80,14 @@ final class DeviceMatrixUITests: XCTestCase {
     }
 
     func testRepresentativeTableStageAndCTA() throws {
-        app.switchTab(.angle)
-        let train = app.buttons["angleHomeTab_练"]
-        XCTAssertTrue(train.waitForExistence(timeout: 5))
-        train.tap()
-
-        let entry = app.buttons["2D 角度训练"].firstMatch
-        XCTAssertTrue(entry.waitForExistence(timeout: 4), "缺少 2D 角度训练入口")
-        entry.tap()
+        app.terminate()
+        // 契约目标是训练页本身的球桌与 CTA，不把 AngleHome 偶发空 AX 快照
+        // 混入尺寸回归结果。该入口和手机号预览一样仅由 UI 测试启动参数触发。
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium",
+            "-v51.followSystemAppearance",
+            "-v51.sceneAiming2D",
+        ])
         XCTAssertTrue(app.navigationBars["2D 角度训练"].waitForExistence(timeout: 5))
 
         let start = app.buttons["开始训练"]

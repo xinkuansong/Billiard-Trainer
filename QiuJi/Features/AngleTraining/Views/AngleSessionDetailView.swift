@@ -78,7 +78,7 @@ struct AngleSessionDetailView: View {
                   spacing: Spacing.lg) {
             statCard(icon: "number", iconColor: .btPrimary,
                      label: "总题数", value: "\(session.questionCount)")
-            statCard(icon: "arrow.left.arrow.right", iconColor: .btAccent,
+            statCard(icon: "arrow.left.arrow.right", iconColor: .btDataSecondary,
                      label: "平均误差", value: String(format: "%.1f°", session.averageError))
             statCard(icon: "trophy.fill", iconColor: .btPrimary,
                      label: "最佳成绩", value: String(format: "%.1f°", session.bestError))

@@ -22,6 +22,7 @@ struct TrainingHomeView: View {
     @State private var dailyClearanceGame = UserPreferences.shared.dailyClearanceGame
     @State private var didInstallDailyClearanceHomeFixture = false
     @State private var didInstallV54ScheduleFixture = false
+    @State private var expandedScheduleItemID: UUID?
 
     init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
         self.ownerKey = ownerKey
@@ -241,6 +242,11 @@ struct TrainingHomeView: View {
             plan: plan, lessonIDs: [lesson.id], activePlan: active
         ).first else { return }
 
+        if state == "single" {
+            try? modelContext.save()
+            return
+        }
+
         let template = CustomPlan(name: "赛前热身", sessionsPerWeek: 1, ownerKey: ownerKey)
         template.drills.append(CustomPlanDrill(
             drillId: "drill_c001", drillNameZh: "直线球", roundsPerFormation: 1, order: 0
@@ -385,7 +391,7 @@ struct TrainingHomeView: View {
     private var scheduledBlocksSection: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("今日安排").font(.btTitle).foregroundStyle(.btText)
+                Text("今日安排").font(.btTitle2).foregroundStyle(.btText)
                 Spacer()
                 Text("\(orderedScheduleItems.filter { $0.state == TodayScheduleItemState.completed }.count) / \(orderedScheduleItems.count)")
                     .font(.btSubheadlineSemibold).foregroundStyle(.btPrimary).monospacedDigit()
@@ -449,42 +455,164 @@ struct TrainingHomeView: View {
     }
 
     private func scheduleItemRow(_ item: TodayScheduleItem, index: Int) -> some View {
+        let isSingleItem = orderedScheduleItems.count == 1
+        let isExpanded = isSingleItem || expandedScheduleItemID == item.id
+
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                if isSingleItem {
+                    scheduleItemHeader(item, isExpanded: true, showsDisclosure: false)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(item.sourceTitleSnapshot)，\(scheduleStateTitle(item))，\(scheduleSubtitle(item))，详细内容已显示")
+                        .accessibilityIdentifier("trainingHome.scheduleItem.\(item.sourceId)")
+                } else {
+                    Button {
+                        withAnimation(BTMotion.easeInOutFast) {
+                            expandedScheduleItemID = isExpanded ? nil : item.id
+                        }
+                    } label: {
+                        scheduleItemHeader(item, isExpanded: isExpanded, showsDisclosure: true)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(item.sourceTitleSnapshot)，\(scheduleStateTitle(item))，\(scheduleSubtitle(item))")
+                    .accessibilityValue(isExpanded ? "已展开" : "已折叠")
+                    .accessibilityHint(isExpanded ? "轻点折叠课程内容" : "轻点展开课程内容")
+                    .accessibilityIdentifier("trainingHome.scheduleItem.\(item.sourceId)")
+                }
+
+                if item.state == TodayScheduleItemState.pending {
+                    scheduleItemMenu(item, index: index)
+                }
+            }
+
+            if isExpanded {
+                scheduleItemDetails(item)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func scheduleItemHeader(
+        _ item: TodayScheduleItem,
+        isExpanded: Bool,
+        showsDisclosure: Bool
+    ) -> some View {
         HStack(spacing: Spacing.md) {
             Image(systemName: scheduleIcon(item))
                 .font(.btHeadline)
                 .foregroundStyle(item.state == TodayScheduleItemState.completed ? Color.btSuccess : Color.btPrimary)
                 .frame(width: 30)
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.sourceTitleSnapshot).font(.btHeadline).foregroundStyle(.btText).lineLimit(1)
-                Text(scheduleSubtitle(item)).font(.btCaption).foregroundStyle(.btTextSecondary).lineLimit(2)
+                Text(item.sourceTitleSnapshot)
+                    .font(.btCallout.weight(.medium))
+                    .foregroundStyle(.btText)
+                    .lineLimit(1)
+                Text(scheduleSubtitle(item))
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(2)
             }
             Spacer()
             if item.state == TodayScheduleItemState.completed {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.btSuccess)
             } else if item.state == TodayScheduleItemState.inProgress {
-                Text("继续").font(.btCaption.weight(.semibold)).foregroundStyle(.btPrimary)
-            } else {
-                Menu {
-                    Button("上移", systemImage: "arrow.up") { moveScheduleItem(item, offset: -1) }
-                        .disabled(index == 0)
-                    Button("下移", systemImage: "arrow.down") { moveScheduleItem(item, offset: 1) }
-                        .disabled(index == orderedScheduleItems.count - 1)
-                    Button("删除", systemImage: "trash", role: .destructive) { removeScheduleItem(item) }
-                } label: {
-                    Image(systemName: "ellipsis.circle").foregroundStyle(.btTextTertiary).frame(width: 44, height: 44)
-                }
+                Text("进行中").font(.btFootnote.weight(.semibold)).foregroundStyle(.btPrimary)
+            }
+            if showsDisclosure {
+                Image(systemName: "chevron.down")
+                    .font(.btCaption2.weight(.semibold))
+                    .foregroundStyle(.btTextTertiary)
+                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    .accessibilityHidden(true)
             }
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
         .contentShape(Rectangle())
-        .onTapGesture {
+    }
+
+    private func scheduleItemMenu(_ item: TodayScheduleItem, index: Int) -> some View {
+        Menu {
+            Button("上移", systemImage: "arrow.up") { moveScheduleItem(item, offset: -1) }
+                .disabled(index == 0)
+            Button("下移", systemImage: "arrow.down") { moveScheduleItem(item, offset: 1) }
+                .disabled(index == orderedScheduleItems.count - 1)
+            Button("删除", systemImage: "trash", role: .destructive) { removeScheduleItem(item) }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+                .foregroundStyle(.btTextTertiary)
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("管理\(item.sourceTitleSnapshot)")
+    }
+
+    @ViewBuilder
+    private func scheduleItemDetails(_ item: TodayScheduleItem) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Divider()
+
+            if let drills = scheduledDrills(for: item), !drills.isEmpty {
+                VStack(spacing: Spacing.sm) {
+                    ForEach(Array(drills.enumerated()), id: \.offset) { _, drill in
+                        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                            Text(drill.phaseTitle)
+                                .font(.btCaption)
+                                .foregroundStyle(.btPrimary)
+                                .lineLimit(1)
+                                .frame(width: 62, alignment: .leading)
+                            Text(drill.name)
+                                .font(.btSubheadlineMedium)
+                                .foregroundStyle(.btText)
+                                .lineLimit(2)
+                            Spacer(minLength: Spacing.xs)
+                            Text(scheduleDose(for: drill))
+                                .font(.btFootnote)
+                                .foregroundStyle(.btTextSecondary)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
+                    }
+                }
+            } else {
+                Text("训练内容暂时无法读取")
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+            }
+
             if item.state == TodayScheduleItemState.pending || item.state == TodayScheduleItemState.inProgress {
-                startScheduledItem(item)
+                HStack {
+                    Spacer()
+                    let actionTitle = item.state == TodayScheduleItemState.inProgress
+                        ? "继续这节课" : "开始这节课"
+                    Button(actionTitle) {
+                        startScheduledItem(item)
+                    }
+                    .buttonStyle(BTButtonStyle.text)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(actionTitle)
+                    .accessibilityIdentifier("trainingHome.scheduleItem.\(item.sourceId).start")
+                }
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(item.sourceTitleSnapshot)，\(scheduleStateTitle(item))，\(scheduleSubtitle(item))")
+        .padding(.leading, 58)
+        .padding(.trailing, Spacing.md)
+        .padding(.bottom, Spacing.sm)
+    }
+
+    private func scheduledDrills(for item: TodayScheduleItem) -> [ScheduledDrillSnapshot]? {
+        do {
+            return try ScheduledTrainingBlock(item: item).drills
+        } catch {
+            return nil
+        }
+    }
+
+    private func scheduleDose(for drill: ScheduledDrillSnapshot) -> String {
+        guard !drill.sets.isEmpty else { return "已编排" }
+        let unit = DrillUnitLabel.label(category: drill.category, subcategory: drill.subcategory)
+        let total = drill.sets.reduce(0) { $0 + max($1.targetBalls, 0) }
+        if drill.sets.count == 1 { return "\(total)\(unit)" }
+        return "\(drill.sets.count)组 · \(total)\(unit)"
     }
 
     private func scheduleIcon(_ item: TodayScheduleItem) -> String {
@@ -582,7 +710,7 @@ struct TrainingHomeView: View {
         return VStack(spacing: 0) {
             HStack(alignment: .center, spacing: Spacing.md) {
                 Text("今日安排")
-                    .font(.btTitle)
+                    .font(.btTitle2)
                     .foregroundStyle(.btText)
                     .layoutPriority(1)
 
@@ -688,7 +816,7 @@ struct TrainingHomeView: View {
         VStack(spacing: 0) {
             HStack(spacing: Spacing.sm) {
                 Text("本周训练")
-                    .font(.btTitle)
+                    .font(.btTitle2)
                     .foregroundStyle(.btText)
                     .layoutPriority(1)
 
@@ -1029,7 +1157,7 @@ struct TrainingHomeView: View {
         case "focused":
             return .btPrimary
         case "combined":
-            return .btAccent
+            return .btDataSecondary
         default:
             return .btTextSecondary
         }
@@ -1267,10 +1395,10 @@ struct TrainingHomeView: View {
                             Text("模版")
                                 .font(.btCaption2)
                         }
-                        .foregroundStyle(.btAccent)
+                        .foregroundStyle(.btPrimary)
                         .padding(.horizontal, Spacing.sm)
                         .padding(.vertical, Spacing.xs)
-                        .background(Color.btAccent.opacity(0.12))
+                        .background(Color.btPrimaryMuted)
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
 
                         if isActive {

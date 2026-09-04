@@ -61,7 +61,7 @@ final class V54ScheduleUITests: XCTestCase {
     }
 
     func testTodayScheduleSixStates() throws {
-        for state in ["empty", "suggestion", "mixed", "partial", "completed", "yesterday"] {
+        for state in ["empty", "suggestion", "single", "mixed", "partial", "completed", "yesterday"] {
             launch(["-v54.todayState=\(state)"])
             let window = app.windows.firstMatch
             XCTAssertTrue(window.waitForExistence(timeout: 15))
@@ -71,10 +71,14 @@ final class V54ScheduleUITests: XCTestCase {
             case "suggestion":
                 XCTAssertTrue(app.buttons["trainingHome.startTraining"].waitForExistence(timeout: 12))
                 XCTAssertFalse(app.descendants(matching: .any)["trainingHome.todaySchedule"].exists)
+            case "single":
+                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForExistence(timeout: 12),
+                              "单课时详细内容应直接显示明确开始按钮")
             case "mixed":
                 try assertScheduleHasAccessibleSource("官方计划")
                 try assertScheduleHasAccessibleSource("赛前热身")
                 try assertScheduleHasAccessibleSource("中袋角度球")
+                try assertMultiItemDisclosureDoesNotStartTraining()
             case "partial":
                 XCTAssertTrue(app.descendants(matching: .any).matching(
                     NSPredicate(format: "label CONTAINS '已完成'")
@@ -118,6 +122,21 @@ final class V54ScheduleUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(
             NSPredicate(format: "label CONTAINS %@", text)
         ).firstMatch.exists, "队列应可访问地表达 \(text)")
+    }
+
+    private func assertMultiItemDisclosureDoesNotStartTraining() throws {
+        let start = app.buttons["开始这节课"].firstMatch
+        XCTAssertFalse(start.exists, "多课时应默认折叠")
+
+        let firstItem = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH 'trainingHome.scheduleItem.'")
+        ).firstMatch
+        XCTAssertTrue(firstItem.waitForExistence(timeout: 8))
+        firstItem.tap()
+        XCTAssertTrue(start.waitForExistence(timeout: 5), "轻点课时应展开详细内容")
+        XCTAssertFalse(app.descendants(matching: .any)["activeTraining.timer"].exists, "展开课时不应直接开始训练")
+        firstItem.tap()
+        XCTAssertTrue(start.waitForNonExistence(timeout: 5), "再次轻点应折叠详细内容")
     }
 
     private func launch(_ args: [String]) {

@@ -154,7 +154,7 @@ struct ContactPointTableView: View {
                         p.move(to: target)
                         p.addLine(to: aimPoint)
                     }
-                    .stroke(Color.btAccent, lineWidth: 2.0)
+                    .stroke(Color.btTeachingGuide, lineWidth: 2.0)
                 }
 
                 BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)
@@ -281,7 +281,7 @@ struct ContactPointTableView: View {
                     .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
                 // 中心连线估角线：母球 → 目标球心（金虚线）。
                 Path { p in p.move(to: cue); p.addLine(to: target) }
-                    .stroke(Color.btAccent,
+                    .stroke(Color.btTeachingGuide,
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [5, 4]))
 
                 BTGhostCircle(diameter: d).position(ghost)
@@ -290,7 +290,7 @@ struct ContactPointTableView: View {
 
                 BTFigureTag(text: "真实瞄准线")
                     .position(x: (cue.x + ghost.x) / 2, y: (cue.y + ghost.y) / 2 - 14)
-                BTFigureTag(text: "中心连线", color: .btAccent)
+                BTFigureTag(text: "中心连线", color: .btTeachingGuide)
                     .position(x: (cue.x + target.x) / 2, y: (cue.y + target.y) / 2 + 14)
                 BTFigureTag(text: "进球线", color: FigureLine.pot(number: 1))
                     .position(x: (target.x + pocket.x) / 2 + 10,
@@ -461,7 +461,7 @@ struct ContactPointTableView: View {
                 let dotR: CGFloat = 4
                 context.fill(Path(ellipseIn: CGRect(x: x - dotR, y: y - dotR,
                                                     width: dotR * 2, height: dotR * 2)),
-                            with: .color(.btAccent))
+                            with: .color(.btTeachingGuide))
 
                 let labelY = y - 12
                 context.draw(

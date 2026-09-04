@@ -428,3 +428,14 @@
 - **日期**：2026-09-03
 - **规则改进建议**：账号删除应按“不可逆远端提交 + 可恢复本地补偿”设计 saga；任何共享异步 UI store 都必须以当前 owner 和 operation generation 双重校验写回，新增缓存目录时同步更新清理入口与写盘台账。
 - **已应用至**：`问题集合_v53.md` P53-26–P53-29、W3/W4/W7 与 v53.6 执行证据；`docs/design/v47/write-surface-audit.md`。
+
+## FL-038
+- **任务**：问题集合 v51 W5，最终 Light/Dark 全页矩阵与长时间并发证据收口。
+- **现象**：首轮目录名和 `simctl` 回读均为 Light，但代表截图实际仍是 Dark；长矩阵期间其他在途工作修改源码后，已有绿单元仍留在当前叶子；两个 runner 并发更新全局摘要时还可能互相覆盖。设备同时 Boot 过多时另出现 AX 空树、tap 未投递或 App 被系统清退。
+- **严重程度**：P1（测试可靠性；会让错误外观或陈旧源码证据被当成最终绿，但不是生产布局本身的新缺陷）。
+- **根因**：App 的持久化 `appearanceMode` 优先于系统外观，测试只设置/回读 `simctl` 而未控制 App 偏好；源码指纹未包含 suite 的 selector 文件，旧叶子默认被删除重建；全局 `summary.json` 为无锁读改写。资源侧则把多个高分辨率 Simulator 与 XCUITest Runner 同时留在 Booted 状态。
+- **解决**：✅ 已修复（2026-09-04）。全巡游首启与软重启统一传 `-v51.followSystemAppearance`，由 `RootView` 返回 `nil` 直接跟随系统；最终八台首页做 Light/Dark 灰度交叉验证。矩阵指纹纳入 selector 文件；同叶子旧证据移动至 `build/v51/matrix/failures/`；总摘要加 `flock` 并从有效叶子重建。最终执行保持最多两台 Booted、每设备单 worker；原失败保留后同设备同外观复跑。
+- **验证**：最终指纹 `b504b985de5f44161d85872c75866f793637f406a68803be807d4d7c71b24406` 下，A 级 16/16、1,056/1,056；B 级 12/12、36/36；聚焦 Light/Dark 16/16、AX5 4/4。八台 `01-training-home` 的 Light 灰度均值 178.68–238.07，Dark 为 16.76–43.43；双 Runtime 安全单测 2,270 项失败 0。
+- **日期**：2026-09-04
+- **规则改进建议**：系统状态必须同时验证“设置回读”和“最终渲染”；矩阵 resume 只复用完全相同的源码+测试范围指纹；并发摘要用锁，历史失败用归档；资源异常先降低 Booted 数量再判断产品。
+- **已应用至**：✅ `.cursor/skills/simulator-matrix-qa/SKILL.md`、`scripts/run_simulator_matrix.py`、`QiuJiUITests/ScreenshotTourUITests.swift`、`QiuJi/App/RootView.swift`（2026-09-04）。

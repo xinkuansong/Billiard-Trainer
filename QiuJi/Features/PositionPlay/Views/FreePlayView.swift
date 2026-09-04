@@ -76,12 +76,7 @@ struct FreePlayView: View {
             .btToast($toast)
         }
         .animation(BTMotion.springPanel, value: showSpinPad)
-        .navigationTitle(pageTitle)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome(pageTitle)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(

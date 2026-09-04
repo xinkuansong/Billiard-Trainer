@@ -107,7 +107,7 @@ struct BTPhaseTimeline<Content: View>: View {
         switch typeKey {
         case "warmup":   return .btSuccess
         case "focused":  return .btPrimary
-        case "combined": return .btAccent
+        case "combined": return .btDataSecondary
         case "review":   return .btTextTertiary
         default:         return .btTextSecondary
         }

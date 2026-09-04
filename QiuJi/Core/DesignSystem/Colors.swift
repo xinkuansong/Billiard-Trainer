@@ -6,6 +6,14 @@ extension Color {
     static let btPrimary        = Color("btPrimary")
     static let btPrimaryMuted   = Color("btPrimaryMuted")
     static let btAccent         = Color("btAccent")
+    static let btPremiumForeground = Color("btPremiumForeground")
+    static let btPremiumOnDark = Color("btPremiumOnDark")
+    static let btPremiumSurface = Color("btPremiumSurface")
+    static let btPremiumBorder = Color("btPremiumBorder")
+    static let btTeachingGuide = Color("btTeachingGuide")
+    static let btPhysicsAdjustable = Color("btPhysicsAdjustable")
+    static let btBrandSignature = Color("btBrandSignature")
+    static let btDataSecondary = Color("btDataSecondary")
     static let btSuccess        = Color("btSuccess")
     static let btWarning        = Color("btWarning")
     static let btDestructive    = Color("btDestructive")
@@ -47,6 +55,14 @@ extension ShapeStyle where Self == Color {
     static var btPrimary:       Color { Color("btPrimary") }
     static var btPrimaryMuted:  Color { Color("btPrimaryMuted") }
     static var btAccent:        Color { Color("btAccent") }
+    static var btPremiumForeground: Color { Color("btPremiumForeground") }
+    static var btPremiumOnDark: Color { Color("btPremiumOnDark") }
+    static var btPremiumSurface: Color { Color("btPremiumSurface") }
+    static var btPremiumBorder: Color { Color("btPremiumBorder") }
+    static var btTeachingGuide: Color { Color("btTeachingGuide") }
+    static var btPhysicsAdjustable: Color { Color("btPhysicsAdjustable") }
+    static var btBrandSignature: Color { Color("btBrandSignature") }
+    static var btDataSecondary: Color { Color("btDataSecondary") }
     static var btSuccess:       Color { Color("btSuccess") }
     static var btWarning:       Color { Color("btWarning") }
     static var btDestructive:   Color { Color("btDestructive") }
@@ -135,6 +151,14 @@ private struct TokenSwatchSection: View {
                 ("btPrimary", .btPrimary),
                 ("btPrimaryMuted", .btPrimaryMuted),
                 ("btAccent", .btAccent),
+                ("btPremiumForeground", .btPremiumForeground),
+                ("btPremiumOnDark", .btPremiumOnDark),
+                ("btPremiumSurface", .btPremiumSurface),
+                ("btPremiumBorder", .btPremiumBorder),
+                ("btTeachingGuide", .btTeachingGuide),
+                ("btPhysicsAdjustable", .btPhysicsAdjustable),
+                ("btBrandSignature", .btBrandSignature),
+                ("btDataSecondary", .btDataSecondary),
                 ("btSuccess", .btSuccess),
                 ("btWarning", .btWarning),
                 ("btDestructive", .btDestructive),
@@ -173,6 +197,14 @@ private struct TokenSwatchSection: View {
                 ("btPrimary", .btPrimary),
                 ("btPrimaryMuted", .btPrimaryMuted),
                 ("btAccent", .btAccent),
+                ("btPremiumForeground", .btPremiumForeground),
+                ("btPremiumOnDark", .btPremiumOnDark),
+                ("btPremiumSurface", .btPremiumSurface),
+                ("btPremiumBorder", .btPremiumBorder),
+                ("btTeachingGuide", .btTeachingGuide),
+                ("btPhysicsAdjustable", .btPhysicsAdjustable),
+                ("btBrandSignature", .btBrandSignature),
+                ("btDataSecondary", .btDataSecondary),
                 ("btSuccess", .btSuccess),
                 ("btWarning", .btWarning),
                 ("btDestructive", .btDestructive),

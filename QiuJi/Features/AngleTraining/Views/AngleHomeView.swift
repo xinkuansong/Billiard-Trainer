@@ -415,6 +415,7 @@ struct AngleHomeView: View {
         .contentShape(Rectangle())
         // 沿用 P18 B1 的分段定位标识，UI 测试（P5 / ScreenshotTour）无需改选择器。
         .accessibilityIdentifier("angleHomeTab_\(label)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     // MARK: - Entry Grid

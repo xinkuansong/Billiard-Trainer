@@ -404,7 +404,7 @@ struct ActiveTrainingView: View {
                         } label: {
                             Text("\(viewModel.restSecondsRemaining)s")
                                 .font(.system(size: 15, weight: .bold, design: .monospaced))
-                                .foregroundStyle(.btAccent)
+                                .foregroundStyle(.btWarning)
                                 .frame(width: 44, height: 44)
                         }
                         .accessibilityLabel(
@@ -690,7 +690,7 @@ struct ActiveTrainingView: View {
                         Circle()
                             .trim(from: 0, to: restProgress)
                             .stroke(
-                                Color.btAccent,
+                                Color.btWarning,
                                 style: StrokeStyle(lineWidth: 10, lineCap: .round)
                             )
                             .frame(width: 150, height: 150)
@@ -802,7 +802,7 @@ struct ActiveTrainingView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, Spacing.md)
                     .frame(height: 40)
-                    .background(Color.btAccent)
+                    .background(Color.btWarning)
                     .clipShape(Capsule())
                     .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
                 }

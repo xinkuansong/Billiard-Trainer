@@ -38,7 +38,7 @@ struct BTRestTimer: View {
 
             Circle()
                 .trim(from: 0, to: progress * 0.8)
-                .stroke(Color.btAccent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                .stroke(Color.btPrimary, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .padding(14)
 

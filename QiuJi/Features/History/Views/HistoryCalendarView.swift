@@ -344,7 +344,7 @@ struct HistoryCalendarView: View {
         HStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
-                    // F-HI-05：锁定行 btTextTertiary 弱化、常规行 btPrimary；角度行沿用 btAccent 区分。
+                    // F-HI-05 / v56：锁定行弱化、常规行品牌绿、角度行使用数据域蓝区分。
                     Circle()
                         .fill(locked ? Color.btTextTertiary : Color.btPrimary)
                         .frame(width: 10, height: 10)
@@ -390,7 +390,7 @@ struct HistoryCalendarView: View {
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack(spacing: Spacing.sm) {
                     Circle()
-                        .fill(Color.btAccent)
+                        .fill(Color.btDataSecondary)
                         .frame(width: 10, height: 10)
                     Text(session.displayNameZh)
                         .font(.btHeadline)

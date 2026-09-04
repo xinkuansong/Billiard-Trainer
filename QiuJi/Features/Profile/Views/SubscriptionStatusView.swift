@@ -5,7 +5,7 @@ struct SubscriptionStatusView: View {
     @State private var showRestoreAlert = false
     @State private var restoreMessage = ""
 
-    private let goldColor = Color.btAccent
+    private let goldColor = Color.btPremiumForeground
 
     var body: some View {
         ZStack {
@@ -40,9 +40,7 @@ struct SubscriptionStatusView: View {
                 Circle()
                     .fill(goldColor.opacity(0.15))
                     .frame(width: 64, height: 64)
-                Image(systemName: "crown.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(goldColor)
+                BTPremiumMaterialSymbol(systemName: BTIcon.crown, size: 28)
             }
 
             VStack(spacing: Spacing.xs) {

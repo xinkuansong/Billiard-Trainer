@@ -67,12 +67,7 @@ struct PlanThreeView: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
-        .navigationTitle("打一走二想三")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome("打一走二想三")
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(

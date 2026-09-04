@@ -17,8 +17,7 @@ struct BTPremiumLock<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     @Environment(\.colorScheme) private var colorScheme
-
-    private var goldColor: Color { .btAccent }
+    private var goldColor: Color { .btPremiumForeground }
 
     var body: some View {
         switch mode {
@@ -84,9 +83,7 @@ struct BTPremiumLock<Content: View>: View {
     private var fullMaskLockIcon: some View {
         ZStack {
             Circle()
-                .fill(colorScheme == .dark
-                      ? goldColor.opacity(0.20)
-                      : Color(red: 0xFF / 255.0, green: 0xDD / 255.0, blue: 0xAF / 255.0))
+                .fill(Color.btPremiumSurface)
                 .frame(width: 72, height: 72)
 
             Image(systemName: "lock.fill")
@@ -114,9 +111,7 @@ struct BTPremiumLock<Content: View>: View {
     private var lockIcon: some View {
         ZStack {
             Circle()
-                .fill(colorScheme == .dark
-                      ? goldColor.opacity(0.20)
-                      : Color(red: 0xFF / 255.0, green: 0xDD / 255.0, blue: 0xAF / 255.0))
+                .fill(Color.btPremiumSurface)
                 .frame(width: 56, height: 56)
 
             Image(systemName: "lock.fill")
@@ -130,13 +125,12 @@ struct BTPremiumLock<Content: View>: View {
     private var goldFilledCTA: some View {
         Button(action: onSubscribeTap) {
             HStack(spacing: Spacing.sm) {
-                Image(systemName: "crown.fill")
+                Image(systemName: BTIcon.crown)
                     .font(.btSubheadline)
-                    .foregroundStyle(.white)
                 Text(BTDailyLimitGate.unlockCTATitle)
                     .font(.btHeadline)
-                    .foregroundStyle(.white)
             }
+            .foregroundStyle(colorScheme == .dark ? Color.black.opacity(0.86) : .white)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(goldColor)

@@ -58,6 +58,25 @@
 | `btPathCue` | 母球路径 | `#FFFFFF` α60% | 同左 | `Color("btPathCue")` |
 | `btPathTarget` | 目标球路径 | `#F5A623` α70% | 同左 | `Color("btPathTarget")` |
 
+#### 1.1a v56 色彩角色与 Premium 材质契约（DR-083）
+
+> 本节自 2026-09-04 起覆盖 DR-043 中“筛选 Chip 的 Light 黑 / Dark 白反相选中态”和“单一 `btAccent` 承担全部 Pro 金”的旧规则。W3 落库前，上表仍描述当前资产事实；实施后须同步为真实 token 值。
+
+| 角色 | 唯一职责 | 实施约束 |
+|---|---|---|
+| `btPrimary` | 品牌、主 CTA、当前导航/筛选 | 色相保持 Light `#1A6B3C` / Dark `#25A25A`；不用于 warning、success、Pro 或大面积装饰 |
+| `btPrimaryMuted` | 高频筛选与品牌弱表面 | 选中筛选用弱绿表面 + `btPrimary` 字/边框，不再按外观反相 |
+| `btPremiumForeground` | 随页面外观变化的可读 Pro 文字、小图标回退 | Light `#8C6B2F`，Dark `#E7D3A0`；只用于背景随全局外观变化的表面 |
+| `btPremiumOnDark` | 固定炭黑/黑色 Pro 表面的可读前景 | 固定 `#E7D3A0`；对 `#1C1C1E` 约 `11.52:1`，避免 Light 页面内误取深金（DR-084） |
+| `btPremiumSurface` | Pro badge / 卡片局部弱表面 | 只服务商业化；不得用于 warning、收藏、图表或教学 |
+| `btPremiumBorder` | Pro 描边与少量高光 | 克制香槟金；同一局部最多一个金色焦点 |
+| `btWarning` / `btSuccess` / `btDestructive` | 注意 / 成功 / 破坏 | 不再借用 `btAccent` |
+| 物理专用 token | 球路、教学标注、HUD 可调量值 | 保留白/绿/金橙/红信息通道；不被 Premium 全局替换 |
+
+选中态分三级：跨内容导航 = 绿字/图标 + 2–3pt 指示线；高频筛选 = 弱绿表面 + 绿字/边框；主操作或关键二元切换 = 实绿 + 白字。暗场 HUD chip、Apple 登录黑白品牌按钮、固定暗场背景、彩球/球号、轨迹与接触点是明确例外。
+
+Premium 图形继续使用现有 `star.fill` / `crown.fill` SF Symbol mask。≥24pt 可在 mask 内使用 `premium-material-master` 细拉丝材质；<24pt、增强对比度或材质不可用时回退 `btPremiumForeground` 纯色。`PRO`、会员状态和 CTA 文案始终为纯色并提供文字第二编码。生成材质不得改变符号轮廓，也不得应用到 `BTBrandLogo` / `BTLogoMark`、About 普通星标、物理黄橙或一般成就。
+
 ### 1.2 间距 Token
 
 | Token | 值 (pt) | 典型用途 |
@@ -299,7 +318,7 @@ struct BTLevelBadge: View {
 
 ⚠️ 封面色板 **不发明 Dark 专用变体**（与 v7 C20 契约一致）。
 
-### 2.4b BTFilterChip — 筛选胶囊（DR-043）
+### 2.4b BTFilterChip — 筛选胶囊（DR-043；选中配色由 DR-083 覆盖）
 
 **文件路径**：`QiuJi/Core/Components/BTFilterChip.swift`
 
@@ -307,8 +326,8 @@ struct BTLevelBadge: View {
 |------|------|
 | 字号 | `btFootnote14.weight(.medium)` |
 | 内边距 | 水平 `Spacing.xl`，垂直 `Spacing.sm`；`minHeight` 44 |
-| 选中 Light | `btChipActiveFillLight`（`#1C1C1E`）+ `btBGSecondary` 字 |
-| 选中 Dark | `btChipActiveFillDark`（`#F2F2F7`）+ 黑字 |
+| 选中 Light | `btPrimaryMuted` 弱绿表面 + `btPrimary` 字/边框 |
+| 选中 Dark | `btPrimaryMuted` 弱绿表面 + `btPrimary` 字/边框；不得使用白底黑字反相 |
 | 未选 | 底 `btBGSecondary`/`btBGTertiary` + `btSeparator` 1pt 描边 |
 
 **SwiftUI API**：
@@ -344,14 +363,14 @@ struct BTFilterChip: View {
 | 渐进式锁 | 显示前 2-3 条 → 隐藏剩余 → 金色锁图标 + 金色描边「点这里解锁」 | Drill 详情 |
 | 全遮罩 | Light：白色渐变磨砂 + 卡片剪影；Dark：黑色渐变 `rgba(0,0,0,0)→rgba(0,0,0,0.95)` | 统计图表 |
 
-**Pro 金色 CTA 体系**：
+**Pro 金色 CTA 体系（DR-083；下表为目标语义，W3 需以真实资产复核）**：
 
 | 元素 | Light | Dark |
 |------|-------|------|
-| PRO 徽章 | `rgba(212,148,26,0.12)` 底 + `#D4941A` 字 | `rgba(240,173,48,0.15)` 底 + `#F0AD30` 字 |
-| 锁图标容器 | `#FFDDAF` 浅琥珀圆 + `#D4941A` 锁 | `rgba(240,173,48,0.20)` 圆 + `#F0AD30` 锁 |
-| 金色填充 CTA | `#D4941A` + 白字 | `#F0AD30` + 白字 |
-| 金色描边 CTA | `#D4941A` 边框 | `#F0AD30` 边框 |
+| PRO 徽章 | `btPremiumSurface` + `btPremiumForeground` | `btPremiumSurface` + `btPremiumForeground` |
+| 锁/皇冠图标 | ≥24pt 可用 Light 拉丝材质 mask；小尺寸纯色回退 | ≥24pt 可用 Dark 拉丝材质 mask；小尺寸纯色回退 |
+| 填充 CTA | 深金底 + 白字，或香槟金底 + 炭黑字；必须过对比度门禁 | 浅香槟金底 + 炭黑字优先；必须过对比度门禁 |
+| 描边 CTA | `btPremiumBorder` + `btPremiumForeground` | `btPremiumBorder` + `btPremiumForeground` |
 
 ### 2.7 BTSegmentedTab（新建）
 
@@ -731,7 +750,7 @@ struct BTShareCard: View {
 
 ### 6.3 筛选 Chip
 
-- 选中：`#F2F2F7` 填充 + `#000000` 文字
+- 选中：`btPrimaryMuted` 弱绿表面 + `btPrimary` 文字/边框（DR-083；与 Light 同语义）
 - 未选：`#2C2C2E` 填充 + `rgba(235,235,240,0.6)` 文字 + `#3A3A3C` 描边
 
 ### 6.4 排除 Dark Mode 的页面
@@ -1079,6 +1098,9 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-09-04 | **v51 紧凑手机响应式布局收口**：训练顶栏以 `ViewThatFits` 提供完整/紧凑形态，计时始终单行且关键命中区 ≥44pt；跨 Tab 浮标按真实 Tab Bar/safe-area frame 定位；共享击球舞台 compact 轨道取 `min(available, 180pt, tableHeight×45%)`、regular 上限 264pt，两轨等长同底；球库视觉球 compact/regular 为 30/36pt、命中槽 ≥44pt、宽度封顶 440pt；状态件保留完整 AX 语义，Chip 在容不下或 AX 字号时切横滚。禁止按设备型号分支，保持训练状态机、力度/瞄准数值和球桌世界几何不变 | 修正/响应式 | ActiveTrainingView, MainTabView, BTFloatingIndicator, ShotStageProxy, BTBallPaletteBar, BTShotPageChrome, BTChipRow | 问题集合 v51 W1–W5 |
+| 2026-09-04 | **v56 全 App 色彩语义与 Premium 材质契约**（DR-083）：品牌绿 Light `#1A6B3C` / Dark `#25A25A` 不改色相；导航/筛选/主操作按三级强度统一；覆盖 DR-043 的筛选黑白反相规则；Pro 拆 `btPremiumForeground/Surface/Border`，保留 `star.fill` / `crown.fill`，≥24pt 可用生成拉丝材质 mask，小尺寸/增强对比度纯色回退；warning/success/physics 与 Premium 解耦；Apple、暗场 HUD、彩球/轨迹和 `BTBrandLogo` 为例外 | 新增/DR | Colors, BTFilterChip, BTTogglePillGroup, BTPremiumLock, BTProBadge, BTButton, Profile/Subscription | 问题集合 v56 W0 |
+| 2026-09-04 | **v56 实施收口 + 固定暗面 Premium 对比**（DR-084）：W1–W7 自动化范围完成；新增固定浅香槟 `btPremiumOnDark` 供 Light 页面内炭黑 Pro 卡/badge 使用，对 `#1C1C1E` 从深金约 `3.45:1` 提升到约 `11.52:1`；6/6 Light/Dark 矩阵、396/396 主图、高对比 Dark 与 AX XXXL Light 通过，OLED / Reduce Transparency 保留 H-28 | 修正/DR | Premium tokens, Profile, PlanDetail, BTProBadge, ScreenshotTour | 问题集合 v56 W1–W7 |
 | 2026-08-31 | **训练首页周/日信息分层**（DR-082）：本周训练改为周目标+连续天数+周一至周日真实轨迹；今日完成数与预计用时移到「今日安排」右侧，仅未完成时显示，完成后切庆祝标志；两处周数据统一周一起点 | 修正/DR | TrainingHomeView | 用户：本周内容独立，今日信息放回今日安排 |
 | 2026-08-27 | **分享同时保存 + 浅色背景**（DR-079）：总结页「生成分享图」先落库再出卡（`saveTraining` 幂等）；`ShareCardTheme.paper` 默认浅色，选择器改标「背景」 | 修正/DR | BTShareCard, TrainingShareView, TrainingSummaryView, ActiveTrainingViewModel | 用户：生成分享图应同时保存；分享页没有浅色背景 |
 | 2026-08-27 | **休息最小化计时改回金色**：收起后右下计时胶囊改回 `btAccent`，与绿色主按钮区分 | 修正 | ActiveTrainingView | 用户：最小化后计时用之前颜色更有区分度 |

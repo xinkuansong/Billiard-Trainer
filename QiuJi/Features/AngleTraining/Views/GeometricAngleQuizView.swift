@@ -53,12 +53,7 @@ struct GeometricAngleQuizView: View {
         }
         .animation(BTMotion.easeChrome, value: isInputting)
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
-        .navigationTitle("角度预测")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome("角度预测")
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(title: "角度预测")

@@ -4,12 +4,11 @@ import SceneKit
 // MARK: - Metrics (G21 / D7)
 
 /// Shared ball-palette metrics. Diameters are the only two tiers (D7):
-/// regular 36 is the App-wide interactive / decorative / reference default
-/// (Composer / ShotSim / Silu / PlanThree / Snooker / Bank / Diamond / Extraction /
-/// Batch shells / FreePlay reference / decorative quiz chrome).
-/// compact 30 remains as a numeric tier constant (no current consumers after K5/X2).
+/// regular 36 is the App-wide interactive / decorative / reference default;
+/// compact 30 is selected by `ShotStageMetrics.paletteDiameter` when the available
+/// scene width is at most 390pt. The slot remains at least 44pt in both tiers.
 enum BTBallPaletteMetrics {
-    /// Legacy D7 compact tier (30). Kept for API stability; no call sites after K5/X2.
+    /// Compact visual tier; hit testing remains decoupled through `minimumHitSize`.
     static let compactDiameter: CGFloat = 30
     static let regularDiameter: CGFloat = 36
     static let ghostDiameter: CGFloat = 42

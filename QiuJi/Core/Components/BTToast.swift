@@ -12,7 +12,7 @@ enum BTToastTone: Equatable {
         switch self {
         case .success: return .btSuccess
         case .info: return .btPrimary
-        case .warning: return .btAccent
+        case .warning: return .btWarning
         case .error: return .btDestructive
         }
     }

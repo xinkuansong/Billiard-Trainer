@@ -1,5 +1,28 @@
 import SwiftUI
 
+/// Shared bridge from Light content pages into the fixed dark billiards workspace.
+/// The stage stays black; only its navigation contract is centralized so every
+/// tool keeps the same inline title, dark chrome and hidden content Tab bar.
+private struct BTDarkToolChromeModifier: ViewModifier {
+    let title: String
+
+    func body(content: Content) -> some View {
+        content
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .tabBar)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Color.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+    }
+}
+
+extension View {
+    func btDarkToolChrome(_ title: String) -> some View {
+        modifier(BTDarkToolChromeModifier(title: title))
+    }
+}
+
 // MARK: - 页面布局规范 v2（问题集合条 18，优先级最高）
 //
 // 击打页共享布局件（各击打页复用，保证布局/风格全局一致）：

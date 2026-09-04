@@ -211,7 +211,7 @@ struct BTLoadRadarChart: View {
                 height: dotRadius * 2
             )
             let dot = Path(ellipseIn: rect)
-            context.fill(dot, with: .color(isPeak ? Color.btAccent : Color.btPrimary))
+            context.fill(dot, with: .color(isPeak ? Color.btBrandSignature : Color.btPrimary))
             context.stroke(dot, with: .color(.btBGSecondary), lineWidth: 1.5)
         }
     }

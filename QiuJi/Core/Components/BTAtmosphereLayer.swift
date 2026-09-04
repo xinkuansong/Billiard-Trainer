@@ -15,6 +15,7 @@ struct BTAtmosphereLayer: View {
     var showsBottomScrim: Bool = false
     var showsColorWash: Bool = true
     var showsNeutralScrim: Bool = false
+    @Environment(\.colorScheme) private var colorScheme
 
     init(
         imageName: String,
@@ -88,7 +89,7 @@ struct BTAtmosphereLayer: View {
                     colorWash
                 }
                 if showsNeutralScrim {
-                    Color.black.opacity(0.12)
+                    Color.black.opacity(neutralScrimOpacity)
                 }
             } else {
                 fallbackGradient
@@ -123,6 +124,15 @@ struct BTAtmosphereLayer: View {
         .opacity(0.58)
     }
 
+    /// v56 W6: the installed photography deliberately keeps several studio-white
+    /// and charcoal families. A single 12% veil made the bright assets flare and
+    /// crushed the darkest ones, so normalization is limited to neutral exposure
+    /// buckets. No hue wash and no source image replacement is performed.
+    private var neutralScrimOpacity: Double {
+        let base = BTAtmosphereToneProfile.scrimOpacity(for: imageName)
+        return min(base + (colorScheme == .dark ? 0.02 : 0), 0.30)
+    }
+
     private func photoLayer(_ image: UIImage) -> some View {
         GeometryReader { geo in
             Image(uiImage: image)
@@ -142,5 +152,45 @@ struct BTAtmosphereLayer: View {
         case .list: return .center
         case .hero: return .top
         }
+    }
+}
+
+enum BTAtmosphereToneProfile {
+    private static let highKey: Set<String> = [
+        "coverPlanBeginner",
+        "coverPracticeQuickRef",
+        "coverTemplate01",
+        "coverTemplate06",
+    ]
+
+    private static let bright: Set<String> = [
+        "coverPracticeBallExtraction",
+        "coverPracticeComposer",
+        "coverPracticeFreePlay",
+        "coverPracticeShotSim",
+        "coverPracticeSolver",
+        "coverPracticeSpinAndEnglish",
+        "coverPracticeT06",
+    ]
+
+    private static let dark: Set<String> = [
+        "coverPlanCueball",
+        "coverPlanFullskill",
+        "coverPlanSeparation",
+        "coverPracticeAngleDynamic",
+        "coverPracticeGeometricQuiz",
+        "coverPracticePlanThree",
+        "coverTemplate03",
+        "coverTemplate04",
+        "coverTemplate07",
+        "coverTemplate09",
+        "coverTemplate11",
+    ]
+
+    static func scrimOpacity(for imageName: String) -> Double {
+        if highKey.contains(imageName) { return 0.24 }
+        if bright.contains(imageName) { return 0.16 }
+        if dark.contains(imageName) { return 0.08 }
+        return 0.12
     }
 }

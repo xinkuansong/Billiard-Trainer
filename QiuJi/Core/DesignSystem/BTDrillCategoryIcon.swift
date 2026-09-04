@@ -5,7 +5,7 @@ import SwiftUI
 /// ### 统一设计系统（阶段 B 重做，UR-20260601-IconSystem）
 /// 1. **双线宽**：所有描边只用 `env.stroke`（主）与 `env.strokeThin`（次），统一 round cap/join，杜绝散落的 0.7/0.85 系数。
 /// 2. **标准球半径**：出现"母球"的图标统一用 `env.ballR`，视觉权重一致。
-/// 3. **单一强调**：选中态每个图标恰好一个金色（`btAccent`）元素，其余为品牌绿（`btPrimary`）；绿在金之前绘制，金永远在最上层、保证小尺寸可读。
+/// 3. **单一强调**：选中态每个图标恰好一个签名金（`btBrandSignature`）元素，其余为品牌绿（`btPrimary`）；绿在金之前绘制，金永远在最上层、保证小尺寸可读。
 /// 4. **双态**：`filled=false` 为中性灰描边（侧栏未选中）；`filled=true` 使用品牌色主体填充（选中 / Section Header）。
 ///
 /// 接入：侧栏分类（22pt）、Section Header（22pt）、统计页（20pt）。
@@ -21,7 +21,7 @@ struct BTDrillCategoryIcon: View {
             ctx.translateBy(x: (canvasSize.width - s) * 0.5, y: (canvasSize.height - s) * 0.5)
 
             let stateColor: Color = filled ? .btPrimary : .btTextSecondary
-            let accentColor: Color = filled ? .btAccent : .btTextSecondary
+            let accentColor: Color = filled ? .btBrandSignature : .btTextSecondary
             let env = DrawEnv(
                 scale: s,
                 stroke: Tokens.stroke * s,

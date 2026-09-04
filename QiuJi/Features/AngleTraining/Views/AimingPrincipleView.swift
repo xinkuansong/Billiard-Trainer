@@ -56,11 +56,11 @@ struct AimingPrincipleView: View {
             HStack(alignment: .top, spacing: Spacing.sm) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 13))
-                    .foregroundStyle(.btAccent)
+                    .foregroundStyle(.btTeachingGuide)
                 LearnDocText.footnote("常见误区：从目标球看向袋口方向（沿进球线）时，你在目标球上看到的那个点，其实是击球过程中正确的「母球与目标球的接触点」（绿点），而不是瞄准点（红点）。直接瞄着这个点打，母球会打厚偏离——瞄准点永远在接触点靠外一侧。")
             }
             .padding(Spacing.md)
-            .background(Color.btAccent.opacity(0.10))
+            .background(Color.btTeachingGuide.opacity(0.10))
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         }
     }
@@ -527,7 +527,7 @@ private struct DerivationFigure: View {
 
                 // 垂线 T→F（金 = 量值 d）。
                 Path { p in p.move(to: t); p.addLine(to: f) }
-                    .stroke(Color.btAccent, lineWidth: 1.8)
+                    .stroke(Color.btTeachingGuide, lineWidth: 1.8)
                 // 直角小方块。
                 Path { p in
                     let s: CGFloat = 7
@@ -567,7 +567,7 @@ private struct DerivationFigure: View {
                 Text("d = 2R·sin(θ)")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.btAccent)
+                    .foregroundStyle(Color.btTeachingGuide)
                     .position(x: f.x + 14, y: (t.y + f.y) / 2)
             }
         }
@@ -593,12 +593,12 @@ private struct FormulaFigure: View {
                     p.move(to: CGPoint(x: ghost.x, y: dimY))
                     p.addLine(to: CGPoint(x: target.x, y: dimY))
                 }
-                .stroke(Color.btAccent, lineWidth: 1.6)
+                .stroke(Color.btTeachingGuide, lineWidth: 1.6)
 
                 Text("d / R = 1.0")
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .monospacedDigit()
-                    .foregroundStyle(Color.btAccent)
+                    .foregroundStyle(Color.btTeachingGuide)
                     .position(x: (ghost.x + target.x) / 2, y: dimY - 11)
 
                 BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)

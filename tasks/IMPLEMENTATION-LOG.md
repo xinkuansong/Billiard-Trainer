@@ -78,9 +78,38 @@
 - **回写目标**：`30-data-engineer.mdc`
 - **已应用至**：✅ `.cursor/rules/30-data-engineer.mdc` § 经验教训 / ⛔ FL-001（2026-03-29）
 
+## FL-038
+- **任务**：问题集合 v51 W5 模拟器矩阵可信性收口。
+- **现象**：Light 目录可能被 App 持久外观偏好渲染成 Dark；源码/selector 漂移后的旧绿叶子和并发摘要可能污染最终统计；多 Booted 设备引发 AX/tap 假阴性。
+- **根因**：系统设置、App 最终渲染和证据指纹没有形成同一闭环；旧叶子采用覆盖策略且摘要无锁；模拟器资源没有按主机承载能力限流。
+- **解决**：巡游用 `-v51.followSystemAppearance` 穿透所有软重启并做像素亮度核验；指纹纳入 selector 文件；旧叶子归档、摘要加锁并从有效单元重建；最终按最多两台 Booted、单 worker 运行。最终指纹下 A/B/C/AX 与双 Runtime 安全回归全绿。
+- **日期**：2026-09-04
+- **回写目标**：`.cursor/skills/simulator-matrix-qa/SKILL.md`
+- **已应用至**：✅ 技能、矩阵执行器、巡游入口、RootView 测试外观边界与 v51 最终报告（2026-09-04）。
+
 ---
 
 ## DR 记录（设计调整）
+
+## DR-083
+- **任务**：问题集合 v56 W0 — 全 App 色彩语义与 Premium 生成材质契约。
+- **原始规范**：DR-043 将筛选 Chip 锁定为 Light 黑底白字 / Dark 白底黑字，并以单一 `btAccent` 同时承担 Pro、warning、收藏、图表、教学、HUD 与品牌装饰；Pro 入口使用纯橙黄金色。
+- **调整后**：品牌绿 Light `#1A6B3C` / Dark `#25A25A` 不改色相；导航、筛选、主操作按三级强度表达。筛选跨外观统一为 `btPrimaryMuted` 弱绿表面 + `btPrimary` 字/边框，明确覆盖 DR-043 的反相规则。Pro 拆为 `btPremiumForeground` / `btPremiumSurface` / `btPremiumBorder`，保留 `star.fill` / `crown.fill` SF Symbol mask；≥24pt 可用细拉丝香槟金材质，小尺寸、增强对比度或材质不可用时回退纯色。Pro 文字始终纯色；warning、success、chart、physics 不再借 Premium。Apple 登录、固定暗场 HUD、彩球/轨迹与 `BTBrandLogo` 保持例外。
+- **原因**：全量 Light/Dark 截图显示，基础品牌绿并非问题；杂乱来自同一状态多套选中色，以及 `btAccent` 一色多义。用户同时确认“保留原样式，只换更有质感的生成金色”，因此生成结果只能提供材质，不得决定图标轮廓。
+- **影响组件**：`Colors`、`BTFilterChip`、`BTTogglePillGroup`、`BTButton.goldFilled`、`BTPremiumLock`、`BTProBadge`、`BTIconBadge`、Profile / Subscription 入口；教学与暗场只做语义归类。
+- **日期**：2026-09-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §1.1a / §2.4b / §2.6 / §6.3 / Changelog；`docs/research/20260904-v56-color-semantic-ledger.md`。
+- **已应用至**：✅ 上述规范与台账；✅ 生产 token、共享筛选/切换、Premium mask、Profile/Subscription、warning/teaching/physics/data 语义及暗场 Chrome（2026-09-04）。
+
+## DR-084
+- **任务**：问题集合 v56 W4/W7 — Light 页面内固定炭黑 Pro 表面的前景对比修正。
+- **原始规范**：`btPremiumForeground` 按全局 Light/Dark 动态切换；Light 值 `#8C6B2F` 对白底可读，但同一 Light 页面内的固定 `#1C1C1E` Pro 卡与 badge 也会取得该深金，实测对比仅约 `3.45:1`。
+- **调整后**：保留 `btPremiumForeground` 供随页面外观变化的普通表面；新增固定浅香槟 `btPremiumOnDark = #E7D3A0`，只用于始终为炭黑/黑色的 Pro 卡、badge 与其 CTA 前景，对 `#1C1C1E` 约 `11.52:1`。不改变品牌绿、不扩大金色面积。
+- **原因**：组件自身表面可能与页面全局 color scheme 不同；语义动态色不能仅按页面外观推断局部背景。
+- **影响组件**：`BTProBadge`、`ProfileView` Pro 卡/CTA、`PlanDetailView` Pro tag。
+- **日期**：2026-09-04
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §1.1a / Changelog；`tasks/ui-reviews/UR-20260904-v56-color-implementation.md`。
+- **已应用至**：✅ Asset Catalog、组件消费点、Light/Dark/高对比截图与本报告（2026-09-04）。
 
 ## DR-082
 - **任务**：训练首页本周训练与今日安排信息分层

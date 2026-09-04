@@ -160,7 +160,7 @@ struct TrainingGoalView: View {
                 VStack(spacing: 2) {
                     Text(monthlyRateText)
                         .font(.btHeadline)
-                        .foregroundStyle(.btAccent)
+                        .foregroundStyle(.btSuccess)
                     Text("本月达成率")
                         .font(.btCaption)
                         .foregroundStyle(.btTextSecondary)

@@ -154,7 +154,7 @@ extension Image {
 ///
 /// ### 颜色纪律（来自 UR-20260601-IconSystem）
 /// - `.primary`（默认）：品牌绿单色 + 淡绿圆底 —— 绝大多数列表入口、FeatureCard。
-/// - `.accent`：金色 —— **仅用于商业化/强调**（订阅、Pro、成就），全屏最多一处。
+/// - `.accent`：Premium 香槟金 —— **仅用于商业化/成就**，全屏最多一处。
 /// - `.neutral`：中性灰 —— 次要、停用、占位类入口。
 ///
 /// 视觉范式对齐 `AngleHomeView.FeatureCard`（已验证为全 App 最干净的图标处理）。
@@ -167,7 +167,7 @@ struct BTIconBadge: View {
         var foreground: Color {
             switch self {
             case .primary: return .btPrimary
-            case .accent:  return .btAccent
+            case .accent:  return .btPremiumForeground
             case .neutral: return .btTextSecondary
             }
         }
@@ -176,7 +176,7 @@ struct BTIconBadge: View {
             let opacity = scheme == .dark ? 0.18 : 0.12
             switch self {
             case .primary: return Color.btPrimary.opacity(opacity)
-            case .accent:  return Color.btAccent.opacity(opacity)
+            case .accent:  return .btPremiumSurface
             case .neutral: return Color.btTextSecondary.opacity(scheme == .dark ? 0.22 : 0.12)
             }
         }

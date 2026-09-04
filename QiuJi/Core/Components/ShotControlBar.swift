@@ -60,7 +60,7 @@ struct ShotTryFreePlayButton: View {
             .foregroundStyle(.white)
             .padding(.horizontal, 10)
             .frame(height: 28)
-            .background(isEnabled ? Color.btAccent : .white.opacity(0.12), in: Capsule())
+            .background(isEnabled ? Color.btPhysicsAdjustable : .white.opacity(0.12), in: Capsule())
         }
         .buttonStyle(BTPressableStyle.capsule)
         .accessibilityLabel("试打")

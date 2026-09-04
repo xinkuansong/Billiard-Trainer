@@ -54,12 +54,7 @@ struct BatchBallExtractionView: View {
         }
         .btToast(Binding(get: { vm.toast }, set: { vm.toast = $0 }))
         .coordinateSpace(name: "batchExtract")
-        .navigationTitle(drill.map { "建球形 · \($0.drillId)" } ?? "建球形")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome(drill.map { "建球形 · \($0.drillId)" } ?? "建球形")
         .navigationDestination(isPresented: $goAuthor) {
             BatchAuthoringView(context: context)
         }
@@ -165,7 +160,7 @@ struct BatchBallExtractionView: View {
                         Button { editLegacyArchive() } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "archivebox.fill")
-                                    .foregroundStyle(Color.btAccent)
+                                    .foregroundStyle(Color.btPhysicsAdjustable)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("已有旧版存档（未绑定截图，图片不打勾）")
                                         .font(.system(size: 13, weight: .semibold))

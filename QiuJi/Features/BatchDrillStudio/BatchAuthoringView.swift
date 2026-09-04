@@ -319,12 +319,7 @@ struct BatchAuthoringView: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
-        .navigationTitle(drill.map { "编排求解 · \($0.drillId)" } ?? "编排求解")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome(drill.map { "编排求解 · \($0.drillId)" } ?? "编排求解")
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(
@@ -454,7 +449,7 @@ struct BatchAuthoringView: View {
                             .font(.system(size: 12, weight: .bold, design: .rounded))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12).frame(height: 28)
-                            .background(solver.hasConstraint ? Color.btAccent : Color.btAccent.opacity(0.3),
+                            .background(solver.hasConstraint ? Color.btPhysicsAdjustable : Color.btPhysicsAdjustable.opacity(0.3),
                                         in: Capsule())
                     }
                     .buttonStyle(BTPressableStyle.capsule)
@@ -750,7 +745,7 @@ struct BatchAuthoringView: View {
             .disabled(sequenceBusy)
 
             Button { requestSave(mode: .nextDrill) } label: {
-                actionPill(title: "保存·下个drill", system: "arrow.right.circle", tint: Color.btAccent)
+                actionPill(title: "保存·下个drill", system: "arrow.right.circle", tint: Color.btPrimary)
             }
             .buttonStyle(BTPressableStyle.capsule)
             .disabled(sequenceBusy)

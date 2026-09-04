@@ -33,7 +33,7 @@ struct BTFloatingIndicator: View {
             .foregroundStyle(.white)
             .padding(.horizontal, Spacing.lg)
             .frame(height: 44)
-            .frame(maxWidth: 210)
+            .fixedSize(horizontal: true, vertical: false)
             .background(Color.btPrimary)
             .clipShape(Capsule())
             .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.15), radius: 8, x: 0, y: 2)

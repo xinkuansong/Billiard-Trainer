@@ -77,8 +77,8 @@ struct AboutView: View {
                 Button { requestReview() } label: {
                     aboutRow(
                         icon: "star.fill",
-                        iconBG: Color.btAccent.opacity(0.12),
-                        iconColor: .btAccent,
+                        iconBG: Color.btPrimaryMuted,
+                        iconColor: .btPrimary,
                         title: "给个好评"
                     )
                 }

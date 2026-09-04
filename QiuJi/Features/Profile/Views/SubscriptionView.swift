@@ -12,7 +12,7 @@ struct SubscriptionView: View {
     // Paywall uses a near-black background distinct from btBG to create a premium feel
     private static let bgPaywall = Color(red: 0x11 / 255.0, green: 0x11 / 255.0, blue: 0x11 / 255.0)
     private let bgColor = Self.bgPaywall
-    private let goldColor = Color.btAccent
+    private let goldColor = Color.btPremiumForeground
 
     var body: some View {
         ZStack {
@@ -362,7 +362,7 @@ struct SubscriptionView: View {
                 Text("模拟器解锁 Pro")
                     .font(.btCallout)
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.black.opacity(0.86))
                     .frame(maxWidth: .infinity)
                     .frame(height: 44)
                     .background(goldColor)

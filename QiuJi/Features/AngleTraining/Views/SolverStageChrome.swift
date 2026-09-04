@@ -171,12 +171,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
-        .navigationTitle(title)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome(title)
         .toolbar {
             // 条 17.1/17.2/17.7：principal 品牌绿标题 + 副标题承载解描述 / 无解说明（同三解页）。
             ToolbarItem(placement: .principal) {

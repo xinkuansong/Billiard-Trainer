@@ -5,31 +5,20 @@ struct BTTogglePillGroup<T: Hashable>: View {
     @Binding var selected: T
     let label: (T) -> String
 
-    @Environment(\.colorScheme) private var colorScheme
-
     private func fillColor(isActive: Bool) -> Color {
-        if isActive {
-            return colorScheme == .dark
-                ? Color(red: 0.95, green: 0.95, blue: 0.97)
-                : Color.btPrimary
-        }
-        return colorScheme == .dark ? Color.btBGTertiary : Color.btBGSecondary
+        isActive ? .btPrimary : .btBGSecondary
     }
 
     private func textColor(isActive: Bool) -> Color {
-        if isActive {
-            return colorScheme == .dark ? .black : .white
-        }
-        return colorScheme == .dark ? Color.btTextSecondary : .btText
+        isActive ? .white : .btTextSecondary
     }
 
     private func textFont(isActive: Bool) -> Font {
-        isActive && colorScheme == .dark ? .btSubheadlineSemibold : .btSubheadlineMedium
+        isActive ? .btSubheadlineSemibold : .btSubheadlineMedium
     }
 
     private func borderColor(isActive: Bool) -> Color {
-        if isActive { return .clear }
-        return colorScheme == .dark ? Color.btBGQuaternary : Color.btSeparator
+        isActive ? .clear : .btSeparator
     }
 
     var body: some View {
@@ -113,6 +102,16 @@ private enum LevelFilter: String, CaseIterable {
     .padding(Spacing.xxl)
     .background(Color.btBG)
     .preferredColorScheme(.dark)
+}
+
+#Preview("BTTogglePillGroup Disabled") {
+    StatefulPillPreview(TimerMode.countdown) { binding in
+        BTTogglePillGroup(options: TimerMode.allCases, selected: binding) { $0.rawValue }
+            .disabled(true)
+            .opacity(0.55)
+    }
+    .padding(Spacing.xxl)
+    .background(Color.btBG)
 }
 
 private struct StatefulPillPreview<Value, Content: View>: View {

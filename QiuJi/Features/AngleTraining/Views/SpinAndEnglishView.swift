@@ -317,7 +317,7 @@ struct SeparationPathsFigure: View {
     private func pathColor(_ state: SpinAndEnglishGeometry.SpinState) -> Color {
         switch state {
         case .stun:   return FigureLine.separation
-        case .follow: return Color.btAccent
+        case .follow: return Color.btPhysicsAdjustable
         case .draw:   return Color.btWarning
         }
     }
@@ -344,7 +344,7 @@ private struct TipContactFigure: View {
             let r = side / 2
             let limitR = r * limitFraction
             let marks: [TipMark] = [
-                .init(id: "high", dx: 0, dy: -limitR * 0.72, label: "高杆 → 前旋", color: .btAccent),
+                .init(id: "high", dx: 0, dy: -limitR * 0.72, label: "高杆 → 前旋", color: .btPhysicsAdjustable),
                 .init(id: "low", dx: 0, dy: limitR * 0.72, label: "低杆 → 后旋", color: .btWarning),
                 .init(id: "left", dx: -limitR * 0.72, dy: 0, label: "左塞 → 侧旋", color: .btPrimary),
                 .init(id: "right", dx: limitR * 0.72, dy: 0, label: "右塞 → 侧旋", color: .btPrimary),
@@ -518,7 +518,7 @@ private struct CushionEnglishFigure: View {
                     .stroke(FigureLine.separation,
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [5, 3]))
                 Path { p in p.move(to: hit); p.addLine(to: aRun) }
-                    .stroke(Color.btAccent, lineWidth: proj.lineMainWidth)
+                    .stroke(Color.btTeachingGuide, lineWidth: proj.lineMainWidth)
                 Path { p in p.move(to: hit); p.addLine(to: aRev) }
                     .stroke(Color.btWarning, lineWidth: proj.lineMainWidth)
 
@@ -529,7 +529,7 @@ private struct CushionEnglishFigure: View {
                     .position(spinAlongLabel(from: c, to: hit, t: 0.45, offset: -14))
                 BTFigureTag(text: "无塞", color: FigureLine.separation)
                     .position(spinAlongLabel(from: hit, to: a0, t: 0.7, offset: 14))
-                BTFigureTag(text: "顺塞更开", color: .btAccent)
+                BTFigureTag(text: "顺塞更开", color: .btTeachingGuide)
                     .position(spinAlongLabel(from: hit, to: aRun, t: 0.75, offset: -14))
                 BTFigureTag(text: "逆塞更闭", color: .btWarning)
                     .position(spinAlongLabel(from: hit, to: aRev, t: 0.7, offset: 14))

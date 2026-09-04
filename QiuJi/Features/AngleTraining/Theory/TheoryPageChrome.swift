@@ -60,7 +60,7 @@ struct TheoryPageHeader: View {
 /// 取材 `theorem-tags.json.<T>.common_errors`（速记短语 → 展开成人话）；
 /// ⛔ 不得新增 contracts / 16 原文里没有的误区。
 ///
-/// 视觉口径（返工 r1）：逐条对齐现有学页误区旁注范式 —— `.btAccent` 三角 +
+/// 视觉口径（v56）：逐条对齐现有学页误区旁注范式 —— `.btWarning` 三角 +
 /// 10% accent 底 + `BTRadius.sm`（真源 `AimingPrincipleView` §名词系统旁注）。
 struct TheoryMistakeCard: View {
     struct Mistake: Identifiable {
@@ -80,7 +80,7 @@ struct TheoryMistakeCard: View {
                     HStack(alignment: .top, spacing: Spacing.sm) {
                         Image(systemName: "exclamationmark.triangle.fill")
                             .font(.system(size: 13))
-                            .foregroundStyle(.btAccent)
+                            .foregroundStyle(.btWarning)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(mistake.wrong)
                                 .font(.btSubheadlineMedium)
@@ -91,7 +91,7 @@ struct TheoryMistakeCard: View {
                         }
                     }
                     .padding(Spacing.md)
-                    .background(Color.btAccent.opacity(0.10))
+                    .background(Color.btWarning.opacity(0.10))
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
                 }
             }

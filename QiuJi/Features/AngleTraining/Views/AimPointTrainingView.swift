@@ -215,12 +215,7 @@ struct AimPointTrainingView: View {
         .background(Color.black.ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
-        .navigationTitle("瞄准点训练")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar(.hidden, for: .tabBar)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(Color.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
+        .btDarkToolChrome("瞄准点训练")
         .toolbar {
             ToolbarItem(placement: .principal) {
                 BTSolverNavStatus(title: "瞄准点训练")

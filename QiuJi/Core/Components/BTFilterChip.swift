@@ -1,14 +1,13 @@
 import SwiftUI
 
 /// Shared filter chip for Training / Drill Library lists.
-/// Baseline: Training Tab `filterChips` (SPEC §6.3 / §7 — `btChipActiveFill*`).
+/// v56: selection is expressed as a low-intensity brand surface plus green
+/// text/border in both appearances. Color is reinforced by `.isSelected`.
 struct BTFilterChip: View {
     let title: String
     let isSelected: Bool
     var accessibilityIdentifier: String? = nil
     let action: () -> Void
-
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Button(action: action) {
@@ -20,31 +19,26 @@ struct BTFilterChip: View {
                 .background(backgroundColor)
                 .clipShape(Capsule())
                 .overlay(
-                    Capsule().stroke(borderColor, lineWidth: isSelected ? 0 : 1)
+                    Capsule().stroke(borderColor, lineWidth: 1)
                 )
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier ?? "filterChip_\(title)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
     private var textColor: Color {
-        if isSelected {
-            return colorScheme == .dark ? .black : Color.btBGSecondary
-        }
-        return colorScheme == .dark ? .btTextSecondary : .btText
+        isSelected ? .btPrimary : .btTextSecondary
     }
 
     private var backgroundColor: Color {
-        if isSelected {
-            return colorScheme == .dark ? .btChipActiveFillDark : .btChipActiveFillLight
-        }
-        return colorScheme == .dark ? Color.btBGTertiary : Color.btBGSecondary
+        isSelected ? .btPrimaryMuted : .btBGSecondary
     }
 
     private var borderColor: Color {
-        isSelected ? .clear : .btSeparator
+        isSelected ? Color.btPrimary.opacity(0.55) : .btSeparator
     }
 }
 

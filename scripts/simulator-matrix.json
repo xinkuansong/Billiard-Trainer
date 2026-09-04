@@ -30,12 +30,14 @@
     {"id": "B3", "tier": "B", "runtime": "26.2", "name": "iPhone Air", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-Air", "role": "thin-phone-latest"},
     {"id": "B4", "tier": "B", "runtime": "26.2", "name": "iPhone 16e", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-16e", "role": "notch-phone-latest"},
     {"id": "B5", "tier": "B", "runtime": "17.0", "name": "iPad Pro (12.9-inch) (6th generation)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-Pro-12-9-inch-6th-generation-8GB", "role": "large-pad-floor"},
-    {"id": "B6", "tier": "B", "runtime": "26.2", "name": "iPad mini (A17 Pro)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-A17-Pro", "role": "compact-pad-latest"}
+    {"id": "B6", "tier": "B", "runtime": "26.2", "name": "iPad mini (A17 Pro)", "type": "com.apple.CoreSimulator.SimDeviceType.iPad-mini-A17-Pro", "role": "compact-pad-latest"},
+    {"id": "C2R", "tier": "B", "runtime": "26.2", "name": "QiuJi-v51-iPhone-SE-iOS26-AX", "type": "com.apple.CoreSimulator.SimDeviceType.iPhone-SE-3rd-generation", "role": "compact-phone-latest-ax-recovery"}
   ],
   "suites": {
     "tour": ["QiuJiUITests/ScreenshotTourUITests/testDesignerPageDump"],
     "contract": ["QiuJiUITests/DeviceMatrixUITests"],
     "v51-responsive": ["QiuJiUITests/V51ResponsiveLayoutUITests"],
+    "v51-responsive-ax-isolated": {"selector_file": "scripts/v51-responsive-ui-tests.txt", "isolate_selectors": true},
     "v51-responsive-unit": ["QiuJiTests/V51ResponsiveLayoutTests"],
     "v51-active-training": ["QiuJiUITests/V51ResponsiveLayoutUITests/testActiveTrainingTimerIsSingleLineAndClearsActions"],
     "v51-minimized-training": [
@@ -90,6 +92,7 @@
     "safe-unit-1": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [0, 38]},
     "safe-unit-2": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [38, 76]},
     "safe-unit-3": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [76, 114]},
+    "safe-unit-3-ios26": {"selector_file": "scripts/simulator-regression-tests-ios26-safe3.txt", "isolate_selectors": true},
     "safe-unit-4": {"selector_file": "scripts/simulator-regression-tests.txt", "selector_slice": [114, 152]},
     "safe-unit": {"selector_file": "scripts/simulator-regression-tests.txt"}
   }

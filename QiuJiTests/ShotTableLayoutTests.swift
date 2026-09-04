@@ -122,8 +122,15 @@ final class ShotTableLayoutTests: XCTestCase {
         XCTAssertEqual(proxy.actionColumnFrame().maxY, proxy.tableRect.maxY, accuracy: 0.01)
         // 不超出球桌上沿（G6）。
         XCTAssertGreaterThanOrEqual(proxy.instrumentFrame().minY, proxy.tableRect.minY - 0.01)
-        // G8：球库宽 = 球桌宽。
-        XCTAssertEqual(proxy.libraryWidth, proxy.tableRect.width, accuracy: 0.01)
+        // v51：球库按真实 stage 可用宽度排布，不再绑定窄球桌宽度；
+        // 这样小屏可使用 30pt 球，iPad 也不会无限拉伸。
+        XCTAssertEqual(
+            proxy.libraryWidth,
+            ShotStageMetrics.paletteWidth(sceneSize: proxy.sceneSize),
+            accuracy: 0.01
+        )
+        XCTAssertLessThanOrEqual(proxy.libraryWidth, proxy.sceneSize.width)
+        XCTAssertGreaterThan(proxy.libraryWidth, proxy.tableRect.width)
     }
 
     // MARK: - Drill 详情横向顶视完整取景

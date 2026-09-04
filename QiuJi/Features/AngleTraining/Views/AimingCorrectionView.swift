@@ -668,7 +668,7 @@ private struct ThicknessTripleFigure: View {
         switch tier {
         case .low: return .btWarning
         case .mid: return FigureLine.separation
-        case .high: return .btAccent
+        case .high: return .btPhysicsAdjustable
         }
     }
 

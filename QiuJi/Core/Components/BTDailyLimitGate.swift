@@ -1,5 +1,45 @@
 import SwiftUI
 
+/// Existing SF Symbols remain the geometry source; the generated image is only
+/// sampled inside the mask. Small or high-contrast presentations deliberately
+/// fall back to the flat semantic foreground for a crisp silhouette.
+struct BTPremiumMaterialSymbol: View {
+    let systemName: String
+    var size: CGFloat
+    var weight: Font.Weight = .regular
+
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    private var usesTexture: Bool {
+        size >= 24 && colorSchemeContrast != .increased && !reduceTransparency
+    }
+
+    var body: some View {
+        Group {
+            if usesTexture {
+                Image("btPremiumTexture")
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size * 1.3, height: size * 1.3)
+                    .mask(symbolMask)
+            } else {
+                symbolMask
+                    .foregroundStyle(.btPremiumForeground)
+            }
+        }
+        .frame(width: size * 1.3, height: size * 1.3)
+        .accessibilityHidden(true)
+    }
+
+    private var symbolMask: some View {
+        Image(systemName: systemName)
+            .symbolRenderingMode(.monochrome)
+            .font(.system(size: size, weight: weight))
+            .frame(width: size * 1.3, height: size * 1.3)
+    }
+}
+
 /// Shared Freemium daily-limit card for Angle Training pages (W2-9 / F-ST-04).
 /// Does **not** change usage limits — only visual + CTA copy.
 struct BTDailyLimitGate: View {
@@ -22,9 +62,7 @@ struct BTDailyLimitGate: View {
 
     private var cardBody: some View {
         VStack(spacing: Spacing.md) {
-            Image(systemName: "crown.fill")
-                .font(.btHeroSymbol)
-                .foregroundStyle(.btAccent)
+            BTPremiumMaterialSymbol(systemName: BTIcon.crown, size: 32)
 
             Text("今日免费次数已用完")
                 .font(.btHeadline)
@@ -79,11 +117,12 @@ struct BTProBadge: View {
             Text("PRO")
                 .font(.btCaption2.weight(.heavy))
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(.btPremiumOnDark)
         .padding(.horizontal, Spacing.sm)
         .padding(.vertical, Spacing.xs)
-        .background(Color.btAccent)
+        .background(Color.black.opacity(0.88))
         .clipShape(Capsule())
+        .overlay(Capsule().stroke(Color.btPremiumBorder.opacity(0.72), lineWidth: 1))
         .accessibilityLabel("Pro 内容")
     }
 }

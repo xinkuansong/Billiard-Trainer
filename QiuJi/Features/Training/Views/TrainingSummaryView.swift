@@ -103,7 +103,7 @@ struct TrainingSummaryView: View {
             }
             HStack(spacing: Spacing.md) {
                 statCard(label: "总组数", value: "\(totalSets)", unit: "组", icon: "square.grid.3x3.fill", iconColor: .btPrimary)
-                statCard(label: "总进球", value: "\(totalBallsMade)", unit: "球", icon: "circle.inset.filled", iconColor: .btAccent)
+                statCard(label: "总进球", value: "\(totalBallsMade)", unit: "球", icon: "circle.inset.filled", iconColor: .btDataSecondary)
             }
             successRateCard
         }

@@ -138,15 +138,19 @@ struct ProfileView: View {
                         Text("Pro 会员")
                             .font(.btCaption2)
                             .fontWeight(.semibold)
-                            .foregroundStyle(.btAccent)
+                            .foregroundStyle(.btPremiumForeground)
                         Text(subscriptionManager.entitlementStatusLabel)
                             .font(.btMicro)
                             .foregroundStyle(.btTextSecondary)
                     }
                     .padding(.horizontal, Spacing.sm)
                     .padding(.vertical, Spacing.xs)
-                    .background(Color.btAccent.opacity(0.15))
+                    .background(Color.btPremiumSurface)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: BTRadius.xs)
+                            .stroke(Color.btPremiumBorder.opacity(0.65), lineWidth: 1)
+                    )
                 }
             }
             .padding(Spacing.lg)
@@ -183,20 +187,20 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(profile.displayName == "球迹用户" ? "点击登录" : profile.displayName)
                         .font(.btHeadline)
-                        .foregroundStyle(.btPrimary)
+                        .foregroundStyle(.white)
                     Text("游客模式 · 点击登录")
                         .font(.btCaption)
-                        .foregroundStyle(.btTextSecondary)
+                        .foregroundStyle(.white.opacity(0.78))
                 }
 
                 Spacer()
 
                 Image(systemName: BTIcon.chevronRight)
                     .font(.btFootnote)
-                    .foregroundStyle(.btTextTertiary)
+                    .foregroundStyle(.white.opacity(0.72))
             }
             .padding(Spacing.lg)
-            .background(Color.btBGSecondary)
+            .background(Color.btPrimary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
         .buttonStyle(.plain)
@@ -208,7 +212,7 @@ struct ProfileView: View {
         HStack(alignment: .top, spacing: Spacing.md) {
             Image(systemName: BTIcon.warningTriangle)
                 .font(.btHeadline)
-                .foregroundStyle(.btAccent)
+                .foregroundStyle(.btWarning)
 
             Text("游客模式下训练数据不会同步到云端，请尽快登录以保存您的练球记录。")
                 .font(.btFootnote)
@@ -216,11 +220,11 @@ struct ProfileView: View {
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(Spacing.lg)
-        .background(Color.btAccent.opacity(0.15))
+        .background(Color.btWarning.opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .overlay(
             RoundedRectangle(cornerRadius: BTRadius.md)
-                .stroke(Color.btAccent.opacity(0.3), lineWidth: 1)
+                .stroke(Color.btWarning.opacity(0.32), lineWidth: 1)
         )
     }
 
@@ -237,10 +241,10 @@ struct ProfileView: View {
                     HStack(spacing: Spacing.xs) {
                         Text("了解更多")
                             .font(.btFootnote).fontWeight(.medium)
-                            .foregroundStyle(.btAccent)
+                            .foregroundStyle(.btPremiumOnDark)
                         Image(systemName: BTIcon.chevronRight)
                             .font(.btMicro).fontWeight(.semibold)
-                            .foregroundStyle(.btAccent)
+                            .foregroundStyle(.btPremiumOnDark)
                     }
                     .padding(.top, 2)
                 }
@@ -249,11 +253,9 @@ struct ProfileView: View {
 
                 ZStack {
                     Circle()
-                        .fill(Color.btAccent.opacity(0.2))
+                        .fill(Color.btPremiumSurface.opacity(0.22))
                         .frame(width: 56, height: 56)
-                    Image(systemName: BTIcon.star)
-                        .font(.btStatNumber)
-                        .foregroundStyle(.btAccent)
+                    BTPremiumMaterialSymbol(systemName: BTIcon.star, size: 32)
                 }
             }
             .padding(Spacing.xl)
@@ -326,7 +328,7 @@ struct ProfileView: View {
                     tint: .accent,
                     title: "订阅管理",
                     detail: "升级 Pro",
-                    detailColor: .btAccent
+                    detailColor: .btPremiumForeground
                 )
             }
             .buttonStyle(.plain)
@@ -378,16 +380,11 @@ struct ProfileView: View {
     // MARK: - Guest Bottom Actions
 
     private var guestBottomActions: some View {
-        VStack(spacing: Spacing.md) {
-            Button("登录 / 注册") {
-                showLoginSheet = true
-            }
-            .buttonStyle(BTButtonStyle.primary)
-
-            Text("当前已是游客模式，训练记录仅保存在本机")
-                .font(.btCaption)
-                .foregroundStyle(.btTextTertiary)
-        }
+        Text("当前已是游客模式，训练记录仅保存在本机")
+            .font(.btCaption)
+            .foregroundStyle(.btTextTertiary)
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("游客模式，训练记录仅保存在本机")
     }
 }
 
@@ -426,7 +423,7 @@ struct ProfileMonthlyOverviewCard: View {
                     value: longestStreak,
                     label: "最长连续",
                     identifier: "profile.monthlyOverview.longestStreak",
-                    valueColor: .btAccent
+                    valueColor: .btSuccess
                 )
             }
         }

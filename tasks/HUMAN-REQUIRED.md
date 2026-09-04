@@ -147,6 +147,17 @@
 
 ---
 
+### H-28 — v56 OLED Dark 与降低透明度真实系统态复验
+
+- **状态**：⏳ 待完成（不阻塞继续开发；阻塞 v56 人工全量验收声明）
+- **已有自动证据**：iPhone SE / 标准 iPhone / iPad mini × Light/Dark 6/6，396/396 主截图与六张联系表通过；标准 iPhone 的聚焦色彩、品牌登录 Light/Dark、高对比 Dark、AX XXXL Light 均通过。`BTPremiumMaterialSymbol` 已实现 `<24pt`、增强对比度、降低透明度时的纯色回退。
+- **为什么仍需人工**：当前 `simctl ui` 不提供 Reduce Transparency 开关；尝试的候选偏好键虽可回读为 1，但通过 LLDB 调用 `UIAccessibilityIsReduceTransparencyEnabled()` 实测仍为 `NO`，已清理，不能把无效设置写成通过。模拟器也不能替代 OLED 真机低亮度黑位。
+- **做什么**：在至少一台 OLED iPhone 上开启 Dark，将亮度降至约 10–20%，依次检查个人页 Pro 卡、订阅管理皇冠、动作库选中筛选、暗场工具和三类摄影封面；再到“设置 → 辅助功能 → 显示与文字大小 → 降低透明度”开启该项，复查星形/皇冠为清晰纯色、文字/CTA/第二编码仍可读。
+- **证据**：每个状态各留一组未压缩截图或短录屏，记录设备型号、iOS 版本、亮度区间与 Reduce Transparency 开关；落 `build/manual/v56/`（不提交隐私素材）。
+- **完成标志**：黑位无糊成一片、次级文字可读、封面暗部不堵、Premium 纯色回退成立；结果回填 `问题集合_v56.md` W7 与 `tasks/ui-reviews/UR-20260904-v56-color-implementation.md`。
+
+---
+
 ### H-10 — App Store 截图拍摄
 
 - **状态**：⏳ 待完成（P8 前）

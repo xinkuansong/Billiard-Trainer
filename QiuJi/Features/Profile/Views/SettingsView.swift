@@ -213,7 +213,7 @@ struct SettingsView: View {
                         .font(.btBody)
                         .foregroundStyle(.btText)
                 }
-                .tint(.btAccent)
+                .tint(.btPrimary)
                 .accessibilityIdentifier("simulatorUnlockProToggle")
                 Text("make run / 点图标不会注入商店。打开后本机保持 Pro，UI 测试启动会重置。")
                     .font(.btCaption)

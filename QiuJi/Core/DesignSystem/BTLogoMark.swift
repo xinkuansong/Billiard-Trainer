@@ -172,7 +172,7 @@ struct BTLogoMark: View {
 
         ctx.stroke(
             path,
-            with: .color(.btAccent),
+            with: .color(.btBrandSignature),
             style: StrokeStyle(lineWidth: strokeWidth, lineCap: .round)
         )
     }
@@ -184,7 +184,7 @@ struct BTLogoMark: View {
             width: radius * 2,
             height: radius * 2
         )
-        ctx.fill(Path(ellipseIn: rect), with: .color(.btAccent))
+        ctx.fill(Path(ellipseIn: rect), with: .color(.btBrandSignature))
     }
 
     // MARK: - Geometry Tokens

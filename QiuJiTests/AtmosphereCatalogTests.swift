@@ -159,6 +159,19 @@ final class AtmosphereCatalogTests: XCTestCase {
         }
     }
 
+    func testV56NeutralScrimBucketsPreservePhotographyWithoutHueWash() {
+        XCTAssertEqual(BTAtmosphereToneProfile.scrimOpacity(for: "coverPlanBeginner"), 0.24)
+        XCTAssertEqual(BTAtmosphereToneProfile.scrimOpacity(for: "coverPracticeShotSim"), 0.16)
+        XCTAssertEqual(BTAtmosphereToneProfile.scrimOpacity(for: "coverPlanCueball"), 0.08)
+        XCTAssertEqual(BTAtmosphereToneProfile.scrimOpacity(for: "coverPlanAccuracy"), 0.12)
+
+        for key in CoverArtKey.allCases {
+            let opacity = BTAtmosphereToneProfile.scrimOpacity(for: key.rawValue)
+            XCTAssertGreaterThanOrEqual(opacity, 0.08, key.rawValue)
+            XCTAssertLessThanOrEqual(opacity, 0.24, key.rawValue)
+        }
+    }
+
     private func colorKey(_ color: Color) -> String {
         var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
         UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)

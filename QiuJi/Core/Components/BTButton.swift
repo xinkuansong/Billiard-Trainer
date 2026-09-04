@@ -10,7 +10,7 @@ enum BTButtonStyle {
     case darkPill
     case iconCircle
     case segmentedPill(isSelected: Bool)
-    /// Pro unlock CTA — btAccent fill, white label, 48pt capsule (DR-043).
+    /// Pro unlock CTA — readable premium foreground with appearance-aware label.
     case goldFilled
 }
 
@@ -175,16 +175,19 @@ private struct SegmentedPillButtonBody: View {
 // MARK: - Gold Filled (Pro unlock)
 
 private struct GoldFilledButtonBody: View {
+    @Environment(\.colorScheme) private var colorScheme
     let configuration: ButtonStyleConfiguration
 
     var body: some View {
         configuration.label
             .font(.btFootnote14)
             .fontWeight(.bold)
-            .foregroundStyle(.white)
+            .foregroundStyle(colorScheme == .dark ? Color.black.opacity(0.86) : .white)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .background(configuration.isPressed ? Color.btAccent.opacity(0.8) : Color.btAccent)
+            .background(configuration.isPressed
+                ? Color.btPremiumForeground.opacity(0.82)
+                : Color.btPremiumForeground)
             .clipShape(Capsule())
             .scaleEffect(configuration.isPressed ? 0.98 : 1)
             .animation(BTMotion.easePress, value: configuration.isPressed)

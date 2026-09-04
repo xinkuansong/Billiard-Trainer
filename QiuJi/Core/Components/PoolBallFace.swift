@@ -181,7 +181,7 @@ enum TrajectoryStyle {
     }
 
     /// 球迹线（引擎解路径/翻库路线）= 品牌金。
-    static let traceColor = UIColor(Color.btAccent)
+    static let traceColor = UIColor(Color.btTeachingGuide)
 
     /// 对照线（理想/自动解参考）= 白虚线。
     static let hintColor = UIColor.white.withAlphaComponent(0.72)

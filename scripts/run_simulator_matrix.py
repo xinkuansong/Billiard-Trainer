@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import fcntl
 import hashlib
 import html
 import json
@@ -57,6 +58,13 @@ def source_fingerprint(config_path: Path) -> str:
     candidates = {config_path.resolve()}
     for relative in FINGERPRINT_STANDALONE:
         candidates.add((REPO / relative).resolve())
+    try:
+        fingerprint_config = json.loads(config_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        fingerprint_config = {}
+    for raw_suite in fingerprint_config.get("suites", {}).values():
+        if isinstance(raw_suite, dict) and isinstance(raw_suite.get("selector_file"), str):
+            candidates.add((REPO / raw_suite["selector_file"]).resolve())
     for relative in FINGERPRINT_ROOTS:
         root = REPO / relative
         candidates.update(path.resolve() for path in root.rglob("*") if path.is_file())
@@ -410,13 +418,18 @@ def unit_directory(root: Path, device: ResolvedDevice, appearance: str, state: s
     return root / f"ios-{device.runtime_version}" / f"{device.matrix_id}-{slug(device.name)}" / appearance / state / suite
 
 
-def safe_reset(path: Path, root: Path) -> None:
+def archive_existing_unit(path: Path, root: Path) -> Path | None:
     resolved = path.resolve()
     if root not in resolved.parents:
-        raise RuntimeError(f"refusing to reset path outside artifact root: {resolved}")
-    if resolved.exists():
-        shutil.rmtree(resolved)
-    resolved.mkdir(parents=True)
+        raise RuntimeError(f"refusing to archive path outside artifact root: {resolved}")
+    if not resolved.exists():
+        return None
+    relative = resolved.relative_to(root)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    destination = root / "failures" / f"{'-'.join(relative.parts)}-{stamp}"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(resolved), str(destination))
+    return destination
 
 
 def set_simulator_state(
@@ -470,7 +483,8 @@ def run_unit(
         ):
             summary["resume_action"] = "skipped_verified_pass"
             return summary
-    safe_reset(leaf, root)
+    superseded_artifact = archive_existing_unit(leaf, root)
+    leaf.mkdir(parents=True)
     screenshots = leaf / "screenshots"
     screenshots.mkdir()
 
@@ -482,6 +496,7 @@ def run_unit(
         "suite": suite,
         "source_fingerprint": fingerprint,
         "artifact_directory": str(leaf),
+        "superseded_artifact": str(superseded_artifact) if superseded_artifact else None,
         "status": "failed",
     }
     try:
@@ -494,9 +509,8 @@ def run_unit(
         summary["simulator_setup"] = set_simulator_state(
             device, appearance, resolved_content_size, state, leaf
         )
-        result_bundle = leaf / "result.xcresult"
         derived_data = root / "DerivedData" / device.matrix_id
-        command = [
+        base_command = [
             "xcodebuild",
             "-project", str(REPO / config["project"]),
             "-scheme", config["scheme"],
@@ -504,11 +518,13 @@ def run_unit(
             "-derivedDataPath", str(derived_data),
             "-destination", f"platform=iOS Simulator,id={device.udid}",
             "-parallel-testing-enabled", "NO",
-            "-resultBundlePath", str(result_bundle),
         ]
-        for selector in selectors_for_suite(config, suite):
-            command.extend(["-only-testing:" + selector])
-        command.append("test")
+        selectors = selectors_for_suite(config, suite)
+        raw_suite = config["suites"][suite]
+        isolate_selectors = (
+            isinstance(raw_suite, dict)
+            and raw_suite.get("isolate_selectors", False)
+        )
         # Inject per-unit paths directly into the XCTest runner. A shared
         # /tmp/shot_dir control file makes different simulators overwrite one
         # another when the matrix runs concurrently.
@@ -524,12 +540,45 @@ def run_unit(
             "V50_SHOT_DIR": str(screenshots),
             "V50_EXPECTED_SHOT_MANIFEST": manifest,
         }
-        completed = run(command, log=leaf / "xcodebuild.json", env=test_env)
-        summary["xcodebuild_exit_code"] = completed.returncode
-        summary["command"] = command
+        if isolate_selectors:
+            command_results: list[dict[str, Any]] = []
+            exit_code = 0
+            for index, selector in enumerate(selectors, start=1):
+                result_bundle = leaf / f"result-{index:03d}.xcresult"
+                command = base_command + [
+                    "-resultBundlePath", str(result_bundle),
+                    "-only-testing:" + selector,
+                    "test",
+                ]
+                completed = run(
+                    command,
+                    log=leaf / f"xcodebuild-{index:03d}.json",
+                    env=test_env,
+                )
+                command_results.append({
+                    "selector": selector,
+                    "exit_code": completed.returncode,
+                    "result_bundle": str(result_bundle),
+                })
+                if completed.returncode != 0:
+                    exit_code = completed.returncode
+                    break
+            summary["xcodebuild_exit_code"] = exit_code
+            summary["selector_isolation"] = True
+            summary["selector_count"] = len(selectors)
+            summary["selector_results"] = command_results
+        else:
+            result_bundle = leaf / "result.xcresult"
+            command = base_command + ["-resultBundlePath", str(result_bundle)]
+            for selector in selectors:
+                command.extend(["-only-testing:" + selector])
+            command.append("test")
+            completed = run(command, log=leaf / "xcodebuild.json", env=test_env)
+            summary["xcodebuild_exit_code"] = completed.returncode
+            summary["command"] = command
         image_audit = audit_images(config, screenshots, suite)
         summary["image_audit"] = image_audit
-        if completed.returncode == 0 and image_audit["status"] == "passed":
+        if summary["xcodebuild_exit_code"] == 0 and image_audit["status"] == "passed":
             summary["status"] = "passed"
         else:
             summary["failure"] = "xcodebuild or image audit failed"
@@ -552,15 +601,18 @@ def unit_key(item: dict[str, Any]) -> tuple[str, str, str, str, str]:
     )
 
 
-def write_overall_summary(root: Path, summaries: list[dict[str, Any]]) -> None:
+def _write_overall_summary_unlocked(root: Path, summaries: list[dict[str, Any]]) -> None:
     summary_path = root / "summary.json"
     merged: dict[tuple[str, str, str, str, str], dict[str, Any]] = {}
-    if summary_path.exists():
+    for unit_path in root.rglob("unit-summary.json"):
+        relative_parts = unit_path.relative_to(root).parts
+        if "failures" in relative_parts:
+            continue
         try:
-            previous = json.loads(summary_path.read_text(encoding="utf-8"))
-            merged.update((unit_key(item), item) for item in previous.get("units", []))
+            item = json.loads(unit_path.read_text(encoding="utf-8"))
+            merged[unit_key(item)] = item
         except (json.JSONDecodeError, KeyError, TypeError):
-            pass
+            continue
     merged.update((unit_key(item), item) for item in summaries)
     all_summaries = [merged[key] for key in sorted(merged)]
     payload = {
@@ -586,6 +638,22 @@ def write_overall_summary(root: Path, summaries: list[dict[str, Any]]) -> None:
             f"{item['status']} |"
         )
     (root / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_overall_summary(root: Path, summaries: list[dict[str, Any]]) -> None:
+    """Merge unit summaries without losing records across runner processes.
+
+    Long screenshot tours use separate temporary Xcode project containers, but
+    intentionally share one artifact root.  Serializing the small summary merge
+    keeps those independent runners from replacing each other's latest update.
+    """
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / ".summary.lock").open("a", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            _write_overall_summary_unlocked(root, summaries)
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
 def selected(values: str, available: list[str]) -> list[str]:

@@ -267,10 +267,10 @@ private struct PipeMethodSection: View {
                 Text("局部试瞄")
                     .font(.btCaption2)
                     .fontWeight(.semibold)
-                    .foregroundStyle(.btAccent)
+                    .foregroundStyle(.btTeachingGuide)
                     .padding(.horizontal, Spacing.sm)
                     .padding(.vertical, 2)
-                    .background(Color.btAccent.opacity(0.14), in: Capsule())
+                    .background(Color.btTeachingGuide.opacity(0.14), in: Capsule())
                 Text("仅本管道节 · 不改页顶 θ")
                     .font(.btCaption)
                     .foregroundStyle(.btTextTertiary)
@@ -281,10 +281,10 @@ private struct PipeMethodSection: View {
                 value: "\(Int(effectiveTrialDeg))°",
                 labelEmphasis: .secondary,
                 valueSize: 15,
-                valueColor: result.verdict == .tangent ? .btSuccess : .btAccent
+                valueColor: result.verdict == .tangent ? .btSuccess : .btTeachingGuide
             )
             Slider(value: $trialAngleDeg, in: 5...75, step: 1)
-                .tint(.btAccent)
+                .tint(.btTeachingGuide)
                 .accessibilityIdentifier("aimingMethods.pipe.trialSlider")
             Text("拖试瞄角：太厚＝两管相交，太薄＝相离，φ≈θ 时吸附为相切。改页顶 θ 时 φ 跟随到新 θ，默认保持相切。")
                 .learnDocFootnoteStyle()
@@ -295,7 +295,7 @@ private struct PipeMethodSection: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .overlay(
             RoundedRectangle(cornerRadius: BTRadius.md)
-                .stroke(Color.btAccent.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
+                .stroke(Color.btTeachingGuide.opacity(0.35), style: StrokeStyle(lineWidth: 1, dash: [5, 3]))
         )
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("aimingMethods.pipe.trialControls")
@@ -634,7 +634,7 @@ private struct ParallelContactFigure: View {
             ZStack {
                 // Pc→Pt 连线（金 = 作图参考量）。
                 Path { p in p.move(to: goldA); p.addLine(to: goldB) }
-                    .stroke(Color.btAccent, lineWidth: 1.8)
+                    .stroke(Color.btTeachingGuide, lineWidth: 1.8)
 
                 // 过母球心的平行线 = 瞄准线（白实线）。
                 Path { p in p.move(to: aimA); p.addLine(to: aimB) }
@@ -658,7 +658,7 @@ private struct ParallelContactFigure: View {
                     .position(x: pt.x + d * 0.45, y: pt.y + d * 0.55)
                 BTFigureTag(text: "Pc", color: FigureLine.contact)
                     .position(x: pc.x - d * 0.45, y: pc.y - d * 0.5)
-                BTFigureTag(text: "接触点连线 Pc→Pt", color: Color.btAccent)
+                BTFigureTag(text: "接触点连线 Pc→Pt", color: Color.btTeachingGuide)
                     .position(alongLabel(from: goldA, to: goldB, t: 0.55, offset: -18))
                 BTFigureTag(text: "瞄准线（平行）")
                     .position(alongLabel(from: aimA, to: aimB, t: 0.30, offset: 20))
@@ -706,10 +706,10 @@ private struct MosconiVariantFigure: View {
                     .stroke(FigureLine.pot(number: 1),
                             style: StrokeStyle(lineWidth: proj.lineMainWidth, dash: [6, 4]))
                 Path { p in p.move(to: parA); p.addLine(to: parB) }
-                    .stroke(Color.btAccent.opacity(0.9),
+                    .stroke(Color.btTeachingGuide.opacity(0.9),
                             style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [4, 3]))
                 Path { p in p.move(to: cue); p.addLine(to: foot) }
-                    .stroke(Color.btAccent, lineWidth: 1.6)
+                    .stroke(Color.btTeachingGuide, lineWidth: 1.6)
                 Path { p in p.move(to: cue); p.addLine(to: ghost) }
                     .stroke(FigureLine.aim, lineWidth: proj.lineMainWidth)
 
@@ -719,11 +719,11 @@ private struct MosconiVariantFigure: View {
 
                 BTFigureTag(text: "进球线", color: FigureLine.pot(number: 1))
                     .position(alongLabel(from: target, to: pocket, t: 0.32, offset: -14))
-                BTFigureTag(text: "过心平行线", color: Color.btAccent)
+                BTFigureTag(text: "过心平行线", color: Color.btTeachingGuide)
                     .position(alongLabel(from: parA, to: parB, t: 0.88, offset: 15))
                 Text("δ")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.btAccent)
+                    .foregroundStyle(Color.btTeachingGuide)
                     .position(x: (cue.x + foot.x) / 2 - 10, y: (cue.y + foot.y) / 2 - 8)
             }
         }

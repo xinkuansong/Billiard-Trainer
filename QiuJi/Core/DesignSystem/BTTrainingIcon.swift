@@ -24,7 +24,7 @@ struct BTTrainingIcon: View {
             let s = min(canvasSize.width, canvasSize.height)
             ctx.translateBy(x: (canvasSize.width - s) * 0.5, y: (canvasSize.height - s) * 0.5)
 
-            let cueColor: Color = asTemplate ? .white : .btAccent
+            let cueColor: Color = asTemplate ? .white : .btBrandSignature
             let ballColor: Color = asTemplate ? .white : .btPrimary
 
             // 上方三颗球：三角堆（1 顶 + 2 底），球间留缝

@@ -136,7 +136,7 @@ struct DrillDetailView: View {
                     toggleFavorite()
                 } label: {
                     Image(systemName: isFavorited ? "heart.fill" : "heart")
-                        .foregroundStyle(isFavorited ? .btAccent : .btTextSecondary)
+                        .foregroundStyle(isFavorited ? .btPrimary : .btTextSecondary)
                         .contentTransition(.symbolEffect(.replace))
                         .symbolEffect(.bounce, value: isFavorited)
                 }
