@@ -16,7 +16,7 @@
         {
           "id": "plan_accuracy.stage01.lesson01",
           "order": 1,
-          "title": "近台小角度进球入门",
+          "title": "近台小角度入门",
           "summary": "围绕近台小角度进球入门完成本课训练。",
           "phases": [
             {
@@ -68,7 +68,7 @@
         {
           "id": "plan_accuracy.stage01.lesson02",
           "order": 2,
-          "title": "近台小角度进球巩固",
+          "title": "近台小角度巩固",
           "summary": "围绕近台小角度进球巩固完成本课训练。",
           "phases": [
             {
@@ -141,7 +141,7 @@
         {
           "id": "plan_accuracy.stage01.lesson03",
           "order": 3,
-          "title": "近台小角度进球检验",
+          "title": "近台小角度检验",
           "summary": "围绕近台小角度进球检验完成本课训练。",
           "phases": [
             {

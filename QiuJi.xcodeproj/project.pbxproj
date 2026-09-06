@@ -101,6 +101,7 @@
 		272890620F7F0A261F34F6FB /* DrillStaticPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD5785A21174FEA7516020B /* DrillStaticPreview.swift */; };
 		273522CB729E557E8A8B43DC /* BallFeelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DACA7CFB55E780B9D69EC1F /* BallFeelView.swift */; };
 		2744B51A4149BC0E5CE19E92 /* AuthState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AEC734555F72CAB0256B3C9 /* AuthState.swift */; };
+		279D39356E59CAE1DA4DFCD6 /* Products.storekit in Resources */ = {isa = PBXBuildFile; fileRef = A6250E924B6DF39444691990 /* Products.storekit */; };
 		27A2314F1749E531B182324D /* BankFrozenRailDiagTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0375195BC2A5FE25543528B5 /* BankFrozenRailDiagTests.swift */; };
 		27AD29B603ED35C7C36CC943 /* ActiveTrainingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81AB5354BAEB34B9D2DBE975 /* ActiveTrainingView.swift */; };
 		2947954C032BD8539CC719CD /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E124BFE3C2EB71A2D4D5D86 /* AppRouter.swift */; };
@@ -2372,6 +2373,7 @@
 			buildConfigurationList = FD69395AD59308AC85BAB005 /* Build configuration list for PBXNativeTarget "QiuJiUITests" */;
 			buildPhases = (
 				849BED0210AF6845FF739595 /* Sources */,
+				ED914A7DCA489A82ABB7AC32 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -2527,6 +2529,14 @@
 				6681222358EC7E6EC98AC8DF /* TaiQiuZhuo.usdz in Resources */,
 				CF3BE1D3614B1BBB1028C31F /* Theory in Resources */,
 				EC9DDDBCFEC86F2F4FAF0395 /* TutorialFigures in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ED914A7DCA489A82ABB7AC32 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				279D39356E59CAE1DA4DFCD6 /* Products.storekit in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

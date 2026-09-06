@@ -1,5 +1,29 @@
 import SwiftUI
 
+struct BTPlanActivationBadge: View {
+    let status: String?
+
+    private var title: String? {
+        switch status {
+        case "active": return "进行中"
+        case "paused": return "已激活"
+        case "completed": return "已完成"
+        default: return nil
+        }
+    }
+
+    var body: some View {
+        if let title {
+            Text(title)
+                .font(.btCaption2)
+                .foregroundStyle(.btPrimary)
+                .padding(.horizontal, Spacing.sm)
+                .padding(.vertical, Spacing.xs)
+                .background(.btBGSecondary, in: Capsule())
+        }
+    }
+}
+
 /// 训练计划封面——一卡一图，无彩色罩、无主题水印（v46 DR-080 / DR-081）。
 ///
 /// Bundle 静物 PNG（`AtmosphereCatalog.image(forPlanId:)`）+ 中性暗幕。
@@ -103,4 +127,26 @@ enum PlanCoverLabel {
     }
     .padding()
     .background(.btBG)
+}
+
+#Preview("Activation states · Light") {
+    HStack {
+        BTPlanActivationBadge(status: "active")
+        BTPlanActivationBadge(status: "paused")
+        BTPlanActivationBadge(status: "completed")
+    }
+    .padding()
+    .background(Color.btBG)
+    .preferredColorScheme(.light)
+}
+
+#Preview("Activation states · Dark") {
+    HStack {
+        BTPlanActivationBadge(status: "active")
+        BTPlanActivationBadge(status: "paused")
+        BTPlanActivationBadge(status: "completed")
+    }
+    .padding()
+    .background(Color.btBG)
+    .preferredColorScheme(.dark)
 }

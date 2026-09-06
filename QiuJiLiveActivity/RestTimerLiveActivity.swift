@@ -10,37 +10,33 @@ struct RestTimerLiveActivity: Widget {
             lockScreenView(context: context)
         } dynamicIsland: { context in
             DynamicIsland {
+                // Let WidgetKit place the single text row around the camera cutout.
                 DynamicIslandExpandedRegion(.leading) {
-                    Label("组间休息", systemImage: "timer")
-                        .font(.caption2)
+                    Text("组间休息")
+                        .font(.caption)
                         .foregroundStyle(.secondary)
+                        .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
-                    Text(context.state.endDate, style: .timer)
-                        .font(.system(size: 20, weight: .bold))
-                        .monospacedDigit()
-                        .multilineTextAlignment(.trailing)
-                        .contentTransition(.numericText())
-                        .environment(\.locale, Locale(identifier: "en_US"))
+                    countdown(context.state)
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProgressView(
-                        timerInterval: timerInterval(context.state),
-                        countsDown: true
-                    )
-                    .tint(Self.brandGreen)
-                    .padding(.top, 4)
+                        ProgressView(timerInterval: timerInterval(context.state), countsDown: true) {
+                            EmptyView()
+                        } currentValueLabel: {
+                            EmptyView()
+                        }
+                        .tint(Self.brandGreen)
                 }
             } compactLeading: {
                 Image(systemName: "timer")
                     .foregroundStyle(Self.brandGreen)
                     .font(.caption2)
             } compactTrailing: {
-                Text(context.state.endDate, style: .timer)
+                countdown(context.state)
                     .font(.caption2.weight(.bold))
                     .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .environment(\.locale, Locale(identifier: "en_US"))
             } minimal: {
                 Image(systemName: "timer")
                     .foregroundStyle(Self.brandGreen)
@@ -48,48 +44,38 @@ struct RestTimerLiveActivity: Widget {
         }
     }
 
-    // MARK: - Lock Screen View
-
-    @ViewBuilder
     private func lockScreenView(context: ActivityViewContext<RestTimerAttributes>) -> some View {
         HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .stroke(Color.secondary.opacity(0.2), lineWidth: 6)
-                    .frame(width: 56, height: 56)
-
-                Circle()
-                    .trim(from: 0, to: progress(context.state))
-                    .stroke(
-                        Self.brandGreen,
-                        style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                    )
-                    .frame(width: 56, height: 56)
-                    .rotationEffect(.degrees(-90))
-
+            // The system owns the time-driven fraction while our process is suspended.
+            ProgressView(timerInterval: timerInterval(context.state), countsDown: true) {
+                EmptyView()
+            } currentValueLabel: {
                 Image(systemName: "timer")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Self.brandGreen)
             }
+            .progressViewStyle(.circular)
+            .tint(Self.brandGreen)
+            .frame(width: 56, height: 56)
+            .accessibilityLabel("休息剩余进度")
 
             VStack(alignment: .leading, spacing: 4) {
                 Text("组间休息")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-
-                Text(timerInterval: timerInterval(context.state), countsDown: true)
+                countdown(context.state)
                     .font(.system(size: 28, weight: .bold, design: .monospaced))
                     .contentTransition(.numericText())
             }
+            .layoutPriority(1)
 
-            Spacer()
+            Spacer(minLength: 8)
 
             VStack(alignment: .trailing, spacing: 4) {
                 Text(context.attributes.drillName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
+                    .lineLimit(2)
                 Text("球迹")
                     .font(.caption2)
                     .fontWeight(.semibold)
@@ -100,16 +86,22 @@ struct RestTimerLiveActivity: Widget {
         .activityBackgroundTint(Color(.systemBackground))
     }
 
-    // MARK: - Helpers
-
-    private func progress(_ state: RestTimerAttributes.ContentState) -> CGFloat {
-        guard state.totalSeconds > 0 else { return 0 }
-        let remaining = max(0, state.endDate.timeIntervalSinceNow)
-        return CGFloat(remaining) / CGFloat(state.totalSeconds)
+    private func timerInterval(_ state: RestTimerAttributes.ContentState) -> ClosedRange<Date> {
+        let start = state.endDate.addingTimeInterval(-Double(max(0, state.totalSeconds)))
+        return start...state.endDate
     }
 
-    private func timerInterval(_ state: RestTimerAttributes.ContentState) -> ClosedRange<Date> {
-        let start = state.endDate.addingTimeInterval(-Double(state.totalSeconds))
-        return start...state.endDate
+    /// Date-relative Text expands to its proposal. Measure ordinary monospaced text
+    /// first so it cannot consume the drill-name column or widen the compact island.
+    private func countdown(_ state: RestTimerAttributes.ContentState) -> some View {
+        Text("\(max(0, state.totalSeconds) / 60):00")
+            .monospacedDigit()
+            .fixedSize()
+            .hidden()
+            .overlay {
+                Text(timerInterval: timerInterval(state), countsDown: true, showsHours: false)
+                    .monospacedDigit()
+                    .multilineTextAlignment(.center)
+            }
     }
 }

@@ -120,6 +120,83 @@ enum PlanProgressEffect: Equatable {
 @MainActor
 enum PlanProgressService {
 
+    /// Stable selection also handles old stores containing more than one active row.
+    static func currentOfficialPlan(in records: [UserActivePlan]) -> UserActivePlan? {
+        records.filter { !$0.isCustom && $0.status == "active" }
+            .sorted(by: recordIsNewer).first
+    }
+
+    static func displayState(for planID: String, in records: [UserActivePlan]) -> String? {
+        if currentOfficialPlan(in: records)?.planId == planID { return "active" }
+        guard let saved = records.filter({ !$0.isCustom && $0.planId == planID })
+            .sorted(by: recordIsNewer).first else { return nil }
+        return saved.status == "active" ? "paused" : saved.status
+    }
+
+    private static func recordIsNewer(_ lhs: UserActivePlan, _ rhs: UserActivePlan) -> Bool {
+        if lhs.startDate != rhs.startDate { return lhs.startDate > rhs.startDate }
+        return lhs.id.uuidString > rhs.id.uuidString
+    }
+
+    static func officialRecords(ownerKey: String, context: ModelContext) throws -> [UserActivePlan] {
+        try context.fetch(FetchDescriptor<UserActivePlan>(predicate: #Predicate {
+            $0.ownerKey == ownerKey && !$0.isCustom
+        }))
+    }
+
+    /// Repair historical multi-active rows using the same ordering as the v54 migration.
+    static func normalizeOfficialMainline(ownerKey: String, context: ModelContext) throws -> [UserActivePlan] {
+        let records = try officialRecords(ownerKey: ownerKey, context: context)
+        guard let selected = currentOfficialPlan(in: records) else { return records }
+        let others = records.filter { $0.status == "active" && $0.id != selected.id }
+        guard !others.isEmpty else { return records }
+        for row in others { row.status = "paused" }
+        do {
+            try context.save()
+        } catch {
+            for row in others { row.status = "active" }
+            throw error
+        }
+        return records
+    }
+
+    /// Commit a switch without discarding either curriculum's cursor or unrelated pending edits.
+    @discardableResult
+    static func activateOfficialPlan(
+        _ plan: OfficialPlan,
+        ownerKey: String,
+        context: ModelContext,
+        now: Date = Date(),
+        save: (() throws -> Void)? = nil
+    ) throws -> UserActivePlan {
+        let records = try officialRecords(ownerKey: ownerKey, context: context)
+        let saved = records.filter { $0.planId == plan.id }.sorted(by: recordIsNewer).first
+        let target = saved ?? UserActivePlan(planId: plan.id, ownerKey: ownerKey)
+        let before = records.map { ($0, $0.status, $0.currentLessonId, $0.completedAt, $0.updatedAt) }
+        if saved == nil { context.insert(target) }
+        for row in records where row.status == "active" && row.id != target.id {
+            row.status = "paused"
+            row.updatedAt = now
+        }
+        target.status = "active"
+        target.completedAt = nil
+        if target.currentLessonId == nil { target.currentLessonId = plan.lessons.first?.id }
+        target.updatedAt = now
+        do {
+            if let save { try save() } else { try context.save() }
+            return target
+        } catch {
+            for (row, status, lesson, completed, updated) in before {
+                row.status = status
+                row.currentLessonId = lesson
+                row.completedAt = completed
+                row.updatedAt = updated
+            }
+            if saved == nil { context.delete(target) }
+            throw error
+        }
+    }
+
     // MARK: v54 lesson cursor
 
     /// Applies only a completed item's frozen `advanceEligible` effect. This mutates the current
@@ -134,7 +211,7 @@ enum PlanProgressService {
               item.progressRole == TodayScheduleProgressRole.advanceEligible,
               let planID = item.planId,
               item.lessonId != nil,
-              let activePlan = fetchOfficialMainline(ownerKey: item.schedule?.ownerKey, context: context),
+              let activePlan = try fetchOfficialMainline(ownerKey: item.schedule?.ownerKey, context: context),
               activePlan.planId == planID,
               activePlan.status == "active",
               let currentLessonID = activePlan.currentLessonId,
@@ -238,7 +315,7 @@ enum PlanProgressService {
         context: ModelContext
     ) throws -> PlanAdvanceOutcome? {
         guard let sessionPlanId = session.planId, !sessionPlanId.isEmpty else { return nil }
-        guard let activePlan = fetchActivePlan(ownerKey: session.ownerKey, context: context),
+        guard let activePlan = try fetchActivePlan(ownerKey: session.ownerKey, context: context),
               activePlan.planId == sessionPlanId else { return nil }
         guard let schedule = schedule(for: activePlan, context: context) else {
             throw PlanProgressError.scheduleUnavailable
@@ -256,7 +333,7 @@ enum PlanProgressService {
     /// 跳过当前这一天（不做训练直接前移游标）。
     @discardableResult
     static func skipCurrentDay(context: ModelContext) throws -> PlanAdvanceOutcome? {
-        guard let activePlan = fetchActivePlan(ownerKey: CurrentOwnerContext.shared.ownerKey,
+        guard let activePlan = try fetchActivePlan(ownerKey: CurrentOwnerContext.shared.ownerKey,
                                                context: context) else { return nil }
         guard let schedule = schedule(for: activePlan, context: context) else {
             throw PlanProgressError.scheduleUnavailable
@@ -271,7 +348,7 @@ enum PlanProgressService {
     /// 回退一天。已在第 1 周第 1 天时不动，返回 nil。
     @discardableResult
     static func rollbackCurrentDay(context: ModelContext) throws -> PlanPosition? {
-        guard let activePlan = fetchActivePlan(ownerKey: CurrentOwnerContext.shared.ownerKey,
+        guard let activePlan = try fetchActivePlan(ownerKey: CurrentOwnerContext.shared.ownerKey,
                                                context: context) else { return nil }
         guard let schedule = schedule(for: activePlan, context: context) else {
             throw PlanProgressError.scheduleUnavailable
@@ -287,24 +364,21 @@ enum PlanProgressService {
     // MARK: - Internals
 
     private static func fetchActivePlan(ownerKey: String,
-                                        context: ModelContext) -> UserActivePlan? {
+                                        context: ModelContext) throws -> UserActivePlan? {
         let descriptor = FetchDescriptor<UserActivePlan>(
-            predicate: #Predicate { $0.ownerKey == ownerKey }
+            predicate: #Predicate { $0.ownerKey == ownerKey && $0.status == "active" }
         )
-        return try? context.fetch(descriptor).first
+        let records = try context.fetch(descriptor)
+        // The legacy API remains available for unmigrated custom-plan history.
+        return currentOfficialPlan(in: records) ?? records.sorted(by: recordIsNewer).first
     }
 
     private static func fetchOfficialMainline(
         ownerKey: String?,
         context: ModelContext
-    ) -> UserActivePlan? {
+    ) throws -> UserActivePlan? {
         guard let ownerKey else { return nil }
-        let descriptor = FetchDescriptor<UserActivePlan>(
-            predicate: #Predicate {
-                $0.ownerKey == ownerKey && !$0.isCustom && $0.status == "active"
-            }
-        )
-        return try? context.fetch(descriptor).first
+        return currentOfficialPlan(in: try officialRecords(ownerKey: ownerKey, context: context))
     }
 
     private static func position(of activePlan: UserActivePlan) -> PlanPosition {

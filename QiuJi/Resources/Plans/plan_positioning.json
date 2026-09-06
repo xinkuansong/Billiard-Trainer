@@ -16,7 +16,7 @@
         {
           "id": "plan_positioning.stage01.lesson01",
           "order": 1,
-          "title": "不吃库短距离走位",
+          "title": "不吃库短距走位",
           "summary": "围绕不吃库短距离走位完成本课训练。",
           "phases": [
             {
@@ -585,7 +585,7 @@
         {
           "id": "plan_positioning.stage03.lesson03",
           "order": 3,
-          "title": "高杆一库走位与低杆一库走位",
+          "title": "高低杆一库走位",
           "summary": "围绕高杆一库走位与低杆一库走位完成本课训练。",
           "phases": [
             {
@@ -821,7 +821,7 @@
         {
           "id": "plan_positioning.stage04.lesson03",
           "order": 3,
-          "title": "四球走位与四球同袋走位",
+          "title": "四球与同袋走位",
           "summary": "围绕四球走位与四球同袋走位完成本课训练。",
           "phases": [
             {

@@ -1,0 +1,346 @@
+# B2 安全单测选择器与覆盖边界（候选，未执行）
+
+2026-09-05。唯一审计输入：`build/quality-diagnosis/snapshot-002` 中的测试与实现；不沿用 snapshot-001。范围 SC04–14/23/24，账号认证/迁移/资料/购买留 B4。本子任务只读取文件并生成本文件，未启动任何测试或修改任何测试。
+
+## 使用约束
+
+下面清单是具体方法级 `-only-testing:` 参数值；不能用整个 QiuJiTests target 代替。主控复核后将实际选择器与哈希、命令、运行号落 EXECUTIONS。候选数不是承诺全部有效、不是通过数。所有选中方法未见直接生成/回写正式内容或固定共享截图路径；会写入内存数据库、专属模拟器测试容器/UUID临时目录和独立UserDefaults套件，必须在专用模拟器串行执行（`-parallel-testing-enabled NO`），不与 B1 同时占用宿主。部分共享单例仍可能造成顺序污染，应分组运行/重启宿主后复核异常，不删断言。
+
+## SC → 具体选择器组 → 证据缺口
+
+| SC | 本批候选组/重点方法 | 可以证明的层次；尚不能证明 |
+|---|---|---|
+| 04 主线 | V54ScheduleDomain `test_v57_switchRestoresCursorAndIsolatesOwners`、`test_v57_failedSwitchRestoresSavedAndInMemoryState`、`test_v57_normalizationPersistsSingleActiveWithoutLosingCursors` | 合成guest owner下服务规则；不算真实账号隔离；仍缺UI切换角标与进度回显。 |
+| 05 自由训练 | ActiveTraining `test_saveTraining_success`、secondCall、empty_drills、persistsW4Fields、freeMode_leavesPlanIdNil；V54Transaction前两项 | 保存字段、幂等、注入失败事务；scheduled失败不能直接证明free失败分支。B1正常UI保留独立证据。 |
+| 06 今日编排 | V54ScheduleDomain `test_service_freezesRoles_deduplicatesUnfinished_andAllowsRepeatAfterCompletion`、reorder、crossDay | 冻结与排序/重复入队/跨日服务；仍需真实拖动/删除/继续UI。 |
+| 07 课程推进 | V54ScheduleDomain classification、progressRules、persistentSettlement、oldQueuedLesson | 连续/逆序/重放/切换规则；独立游标预期仍需主控核算，不能只复制实现输出。 |
+| 08 模版 | CustomPlanBuilder 全方法；V54ScheduleDomain磁盘删源 | 输入校验、编辑顺序、剂量与冻结。旧activate两测见下文冲突；长名UI、删除取消和真实加入未覆盖。 |
+| 09 磁盘 | V54ScheduleDomain `test_v57_projectionReopensDiskStoreAfterTemplateDeletion` | 确有UUID磁盘库重开；V54Transaction名为Restart的方法只是内存重建，不能替代。缺实际进程重启、完整成绩/来源对照，以B1及后续UI补。 |
+| 10 计时 | ActiveTraining浮标、restOverlay、pauseTimer、toggleTimer、cleanup | 属性投影与启停；无后台真实时序、加时、ActivityKit/锁屏证据，不得宣称长休息冻结已排除。 |
+| 11 首页/计次 | V54ScheduleDomain全部test_v57_projection*、endedLessonCountsOnlySavedActions | 首页分母、重复身份与保存事实；未找到本快照中专门1000条practiceCount单测，不证明v57 W4全域计次，需新增独立DATA4诊断。 |
+| 12 历史 | HistoryViewModel、LocalTrainingSessionRepository、V29W2bTrainingDataEdit、V29W6HistoryStatisticsKind | 日历选择、编辑校验/快照、删除关联数据；UI弹层关闭/刷新、删除取消、权限仍需UI。 |
+| 13 统计 | StatisticsViewModel除render；V29W6HistoryStatisticsKind除render | 三kind、分类分母、自然月/rolling与独立手算fixture。旧4箱/12箱断言须按当前生效v55阶段解释；不等于新统计方案已实现。 |
+| 14 目标偏好 | V29W6HistoryStatisticsKind `test_weeklyGoal_excludesToolSessions`；StatisticsViewModel自然月及训练日 | drill+cognitive/tool排除与去重；修改目标、owner/设备偏好隔离未由此证明（账号部分B4），需正常设置入口补验。 |
+| 23 每日清台 | DailyClearanceRules/Store/Controller | 五玩法规则、草稿重开、跨日、损坏恢复、完成去重、计时；Controller采用Fake Host，未真物理击打/渲染；跨页面统计还需独立核对。 |
+| 24 离线恢复 | V54Transaction失败回滚/重试、DailyClearance本地恢复 | 仅本地失败/恢复子集；未模拟整机断网。本批不运行含AuthState.login的上传重试，归B4受控传输测试；离线浏览/记录UI仍需独立执行。 |
+
+## 写盘与共享状态审计
+
+| 文件/位置（均相对snapshot-002） | 发现 | 选择决定 |
+|---|---|---|
+| `QiuJiTests/V54ScheduleDomainTests.swift:251`–`:297` | temporaryDirectory/v57-projection-UUID/test.store，defer只删该新目录；其他方法makeInMemoryContainer | 保留；这是隔离磁盘证据，不是生成资产。 |
+| `QiuJiTests/DailyClearanceStoreTests.swift:11`–`:26`、Controller `:56`–`:79` | UUID suite，setUp/tearDown仅删除该suite；注入clock与FakeHost | 保留；不得把suite清理推广到标准UserDefaults。 |
+| `QiuJiTests/StatisticsViewModelTests.swift:438`、`:466`–`:472` | render方法从#filePath写源根/build/w6-screenshots，固定文件名 | **排除 render 方法**，不能整class选择。 |
+| `QiuJiTests/V29W6HistoryStatisticsKindTests.swift:550`、`:584`–`:590` | 同上写固定build/w6-screenshots | **排除 render 方法**。 |
+| `QiuJiTests/V54TrainingTransactionTests.swift:148`–`:178` | 虽RetryBackend为Mock，但使用默认AuthState并login，涉及共享owner/defaults；tearDown还把backend还原LiveSyncBackend | **本B2不选uploadFailure...**，B4单独审计执行。其他方法只配置内存queue，不调用processQueue。 |
+| LocalRepository、V29W2b、V29W6、ActiveTraining保存方法 | makeInMemoryContainer，但SyncQueueManager.shared.configure改变进程级上下文 | 专用宿主串行；禁止共享并行测试，运行前后隔离账号凭证。内存保存不证明磁盘。 |
+| ActiveTraining启停方法 | start/toggle/pause/cleanup有计时副作用；所选启停方法自行停止 | 保留为独立小组；若发生挂起查时钟/单例污染，不能改超时换绿。 |
+| Bake/Export/Seed/Render制作类（未列入） | 已有制作/固定目录输出风险 | 不选整个target；不启动DrillThumbnailBakeRunner、PositionPlaySequenceExportRunner、V21W2/3/4Bake、V29W6StoreSeedRunner及任何通配生成类。 |
+
+## 旧断言与证据解读风险（保留失败，不喂绿）
+
+- `CustomPlanBuilderViewModelTests.test_activate_creates_userActivePlan`（:208）与 `test_activate_replaces_existing`（:226）仍断言模版成为custom UserActivePlan并替换官方计划；这与v54“模版只加入今日安排”当前产品预期冲突。两方法无制作写盘风险，因此保留为**旧契约诊断选择器**，单列结果，失败不直接算新产品回归，通过也不证明新契约正确。正常加入模版应由V54服务/UI验证。
+- Statistics旧月4箱/年12箱断言只是当前旧聚合形态；v55有待落实的新完整分箱方案，必须另建总和守恒/起止连续预期，不能为了现有用例绿去定产品期望。
+- 纯方法名称不是覆盖证明。主控分析xcresult前还需核对关键输入/断言；每个SC仍保留表中缺口，不用下方方法数代替场景验收。
+
+## 可复制方法级选择器
+
+每行前加 `-only-testing:` 供xcodebuild；此处只是文本，未执行。共 171 项（含2项旧契约诊断）。建议先事务/主线→存储编辑/统计→清台→计时，发生共享状态异常时拆进程复核。
+
+### V54ScheduleDomainTests (21)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/V54ScheduleDomainTests.swift`。
+
+```text
+QiuJiTests/V54ScheduleDomainTests/test_v57_switchRestoresCursorAndIsolatesOwners
+QiuJiTests/V54ScheduleDomainTests/test_v57_failedSwitchRestoresSavedAndInMemoryState
+QiuJiTests/V54ScheduleDomainTests/test_v57_oldQueuedLessonCannotAdvanceNewMainline
+QiuJiTests/V54ScheduleDomainTests/test_v57_failedFirstActivationDoesNotLeaveAnActiveDraft
+QiuJiTests/V54ScheduleDomainTests/test_v57_selectionIgnoresPausedCompletedAndCustomAndIsStable
+QiuJiTests/V54ScheduleDomainTests/test_v57_normalizationPersistsSingleActiveWithoutLosingCursors
+QiuJiTests/V54ScheduleDomainTests/test_v57_homeUsesLessonIdentityWhenLegacyCursorDisagrees
+QiuJiTests/V54ScheduleDomainTests/test_v57_projectionKeepsOfficialAndTemplateInBothInsertionOrders
+QiuJiTests/V54ScheduleDomainTests/test_v57_projectionSuggestionDoesNotCountOrReturnAfterCompletion
+QiuJiTests/V54ScheduleDomainTests/test_v57_projectionSavedHistoryUsesEntryIdentityOwnerAndLocalDay
+QiuJiTests/V54ScheduleDomainTests/test_v57_projectionCorruptionCannotLookLikeAnEmptyCompletedLesson
+QiuJiTests/V54ScheduleDomainTests/test_v57_projectionReopensDiskStoreAfterTemplateDeletion
+QiuJiTests/V54ScheduleDomainTests/test_v57_projectionAbandonAndDeleteRemovePendingDenominator
+QiuJiTests/V54ScheduleDomainTests/test_v57_endedLessonCountsOnlySavedActions
+QiuJiTests/V54ScheduleDomainTests/test_classification_matchesAllFrozenSelectionCases
+QiuJiTests/V54ScheduleDomainTests/test_progressRules_reverseCompletion_switchAndTwentyReplays
+QiuJiTests/V54ScheduleDomainTests/test_service_freezesRoles_deduplicatesUnfinished_andAllowsRepeatAfterCompletion
+QiuJiTests/V54ScheduleDomainTests/test_persistentSettlement_handlesReverseOrder_finalCompletion_andReplay
+QiuJiTests/V54ScheduleDomainTests/test_reorderDoesNotChangeFrozenRole_andStartedItemCannotBeDeleted
+QiuJiTests/V54ScheduleDomainTests/test_crossDayArchivesWithoutAutoCarry_thenCopiesFreshItems
+QiuJiTests/V54ScheduleDomainTests/test_timezoneBoundary_andEstimateAreDeterministic
+```
+
+行号索引：23, 49, 66, 81, 90, 103, 119, 141, 189, 213, 237, 251, 300, 320, 346, 366, 395, 427, 466, 484, 508。
+
+### V54TrainingTransactionTests (5)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/V54TrainingTransactionTests.swift`。
+
+```text
+QiuJiTests/V54TrainingTransactionTests/test_scheduledCompletion_commitsSessionItemCursorAndQueueTogether
+QiuJiTests/V54TrainingTransactionTests/test_injectedSaveFailure_rollsBackEverything_andSameBlockCanRetry
+QiuJiTests/V54TrainingTransactionTests/test_inProgressItem_rebuildsFrozenBlockAfterRestart
+QiuJiTests/V54TrainingTransactionTests/test_payloadSnapshot_survivesSourceDeletionAndIsUsedForLaunch
+QiuJiTests/V54TrainingTransactionTests/test_oldDTOWithoutProvenance_decodesWithNilDefaults
+```
+
+行号索引：39, 61, 94, 107, 132。
+
+### ActiveTrainingViewModelTests (20)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/ActiveTrainingViewModelTests.swift`。
+
+```text
+QiuJiTests/ActiveTrainingViewModelTests/test_freeMode_initial_state
+QiuJiTests/ActiveTrainingViewModelTests/test_floatingIndicator_usesElapsedWhenNotResting
+QiuJiTests/ActiveTrainingViewModelTests/test_floatingIndicator_staysOnSessionTimeWhenResting
+QiuJiTests/ActiveTrainingViewModelTests/test_restOverlay_minimizeStaysActiveAndHidesCard
+QiuJiTests/ActiveTrainingViewModelTests/test_restOverlay_minimizeDoesNothingWhenRestInactive
+QiuJiTests/ActiveTrainingViewModelTests/test_pauseTimer_stops
+QiuJiTests/ActiveTrainingViewModelTests/test_toggleTimer
+QiuJiTests/ActiveTrainingViewModelTests/test_incrementBalls
+QiuJiTests/ActiveTrainingViewModelTests/test_incrementBalls_caps_at_ballsPerSet
+QiuJiTests/ActiveTrainingViewModelTests/test_decrementBalls_at_zero
+QiuJiTests/ActiveTrainingViewModelTests/test_decrementBalls
+QiuJiTests/ActiveTrainingViewModelTests/test_endTraining_transitions_to_note
+QiuJiTests/ActiveTrainingViewModelTests/test_skipNote_clears_note_goes_to_summary
+QiuJiTests/ActiveTrainingViewModelTests/test_submitNote_goes_to_summary
+QiuJiTests/ActiveTrainingViewModelTests/test_saveTraining_success
+QiuJiTests/ActiveTrainingViewModelTests/test_saveTraining_secondCall_doesNotInsertAnotherSession
+QiuJiTests/ActiveTrainingViewModelTests/test_saveTraining_empty_drills
+QiuJiTests/ActiveTrainingViewModelTests/test_saveTraining_persistsW4Fields_withNonDefaultValues
+QiuJiTests/ActiveTrainingViewModelTests/test_saveTraining_freeMode_leavesPlanIdNil
+QiuJiTests/ActiveTrainingViewModelTests/test_cleanup_stops_timer
+```
+
+行号索引：10, 42, 50, 59, 77, 114, 122, 152, 158, 166, 172, 206, 212, 220, 274, 304, 318, 335, 416, 745。
+
+### CustomPlanBuilderViewModelTests (20)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/CustomPlanBuilderViewModelTests.swift`。
+
+```text
+QiuJiTests/CustomPlanBuilderViewModelTests/test_initial_state
+QiuJiTests/CustomPlanBuilderViewModelTests/test_canSave_empty_name
+QiuJiTests/CustomPlanBuilderViewModelTests/test_canSave_whitespace_name
+QiuJiTests/CustomPlanBuilderViewModelTests/test_canSave_empty_drills
+QiuJiTests/CustomPlanBuilderViewModelTests/test_canSave_valid
+QiuJiTests/CustomPlanBuilderViewModelTests/test_removeDrills
+QiuJiTests/CustomPlanBuilderViewModelTests/test_moveDrills
+QiuJiTests/CustomPlanBuilderViewModelTests/test_updateRounds_clamped
+QiuJiTests/CustomPlanBuilderViewModelTests/test_rounds_deriveBallsFromContent_perFormation
+QiuJiTests/CustomPlanBuilderViewModelTests/test_updateRounds_unknown_id_no_crash
+QiuJiTests/CustomPlanBuilderViewModelTests/test_save_persistsRoundsPerFormation
+QiuJiTests/CustomPlanBuilderViewModelTests/test_save_creates_customPlan
+QiuJiTests/CustomPlanBuilderViewModelTests/test_save_trims_name
+QiuJiTests/CustomPlanBuilderViewModelTests/test_save_empty_name_fails
+QiuJiTests/CustomPlanBuilderViewModelTests/test_save_no_drills_fails
+QiuJiTests/CustomPlanBuilderViewModelTests/test_save_preserves_drill_order
+QiuJiTests/CustomPlanBuilderViewModelTests/test_activate_creates_userActivePlan
+QiuJiTests/CustomPlanBuilderViewModelTests/test_activate_replaces_existing
+QiuJiTests/CustomPlanBuilderViewModelTests/test_edit_existing_plan
+QiuJiTests/CustomPlanBuilderViewModelTests/test_save_existing_plan_updates
+```
+
+行号索引：25, 38, 45, 52, 58, 67, 74, 86, 99, 126, 133, 145, 161, 173, 183, 193, 208, 226, 249, 267。
+
+### LocalTrainingSessionRepositoryTests (8)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/LocalTrainingSessionRepositoryTests.swift`。
+
+```text
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_create_and_fetchAll
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_fetchAll_empty
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_fetchByDate_inRange
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_fetchByDate_outOfRange
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_delete
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_delete_removesPersistedEntriesAndSets
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_update_changes_persist
+QiuJiTests/LocalTrainingSessionRepositoryTests/test_create_multiple_sessions
+```
+
+行号索引：27, 36, 41, 53, 63, 73, 93, 107。
+
+### V29W2bTrainingDataEditTests (10)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/V29W2bTrainingDataEditTests.swift`。
+
+```text
+QiuJiTests/V29W2bTrainingDataEditTests/test_draft_mirrorsPersistedSets
+QiuJiTests/V29W2bTrainingDataEditTests/test_draft_emptyDurationForRecordsWithoutTiming
+QiuJiTests/V29W2bTrainingDataEditTests/test_apply_persistsScoreEdits_andKeepsSnapshotFields
+QiuJiTests/V29W2bTrainingDataEditTests/test_apply_derivedSuccessRateFollowsEdit
+QiuJiTests/V29W2bTrainingDataEditTests/test_apply_enqueuesNothingItself_callerOwnsSync
+QiuJiTests/V29W2bTrainingDataEditTests/test_validation_rejectsMadeGreaterThanTarget
+QiuJiTests/V29W2bTrainingDataEditTests/test_validation_rejectsNonPositiveOrNonNumericTarget
+QiuJiTests/V29W2bTrainingDataEditTests/test_validation_rejectsNonNumericMadeAndDuration
+QiuJiTests/V29W2bTrainingDataEditTests/test_validation_emptyMadeMeansZero
+QiuJiTests/V29W2bTrainingDataEditTests/test_formationOptions_emptyForSingleFormationDrill
+```
+
+行号索引：73, 88, 101, 143, 156, 168, 183, 194, 208, 221。
+
+### HistoryViewModelTests (19)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/HistoryViewModelTests.swift`。
+
+```text
+QiuJiTests/HistoryViewModelTests/test_initial_state
+QiuJiTests/HistoryViewModelTests/test_datesWithSessions_empty
+QiuJiTests/HistoryViewModelTests/test_datesWithSessions_unique_days
+QiuJiTests/HistoryViewModelTests/test_selectedDateSessions_filters_by_selected_date
+QiuJiTests/HistoryViewModelTests/test_selectedDateSessions_sorted_descending
+QiuJiTests/HistoryViewModelTests/test_hasAnySessions_empty
+QiuJiTests/HistoryViewModelTests/test_hasAnySessions_with_data
+QiuJiTests/HistoryViewModelTests/test_monthTitle_format
+QiuJiTests/HistoryViewModelTests/test_weeksInMonth_always_6_rows_42_cells
+QiuJiTests/HistoryViewModelTests/test_weeksInMonth_february_28_days
+QiuJiTests/HistoryViewModelTests/test_hasSession_returns_true_for_matching_date
+QiuJiTests/HistoryViewModelTests/test_hasSession_returns_false_for_no_match
+QiuJiTests/HistoryViewModelTests/test_isToday_correct
+QiuJiTests/HistoryViewModelTests/test_isSelected_matches_selectedDate
+QiuJiTests/HistoryViewModelTests/test_previousMonth
+QiuJiTests/HistoryViewModelTests/test_nextMonth
+QiuJiTests/HistoryViewModelTests/test_previousMonth_then_nextMonth_returns_to_same
+QiuJiTests/HistoryViewModelTests/test_loadSessions_populates_sessions
+QiuJiTests/HistoryViewModelTests/test_loadSessions_empty_database
+```
+
+行号索引：22, 30, 34, 50, 67, 85, 89, 96, 109, 131, 148, 154, 163, 169, 181, 189, 197, 209, 225。
+
+### StatisticsViewModelTests (28)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/StatisticsViewModelTests.swift`。
+
+```text
+QiuJiTests/StatisticsViewModelTests/test_initial_state
+QiuJiTests/StatisticsViewModelTests/test_filteredSessions_week_includes_recent
+QiuJiTests/StatisticsViewModelTests/test_filteredSessions_month_includes_last_30_days
+QiuJiTests/StatisticsViewModelTests/test_filteredSessions_year_includes_recent_months
+QiuJiTests/StatisticsViewModelTests/test_trainingDays_counts_unique_days
+QiuJiTests/StatisticsViewModelTests/test_trainingDays_multiple_days
+QiuJiTests/StatisticsViewModelTests/test_trainingDays_empty
+QiuJiTests/StatisticsViewModelTests/test_totalDurationMinutes_sums_all
+QiuJiTests/StatisticsViewModelTests/test_totalDurationMinutes_excludes_out_of_range
+QiuJiTests/StatisticsViewModelTests/test_formattedDuration_minutes_only
+QiuJiTests/StatisticsViewModelTests/test_formattedDuration_hours_and_minutes
+QiuJiTests/StatisticsViewModelTests/test_formattedDuration_zero
+QiuJiTests/StatisticsViewModelTests/test_totalSets_counts_all_drill_sets
+QiuJiTests/StatisticsViewModelTests/test_durationBarData_week_has_7_points
+QiuJiTests/StatisticsViewModelTests/test_durationBarData_month_has_4_points
+QiuJiTests/StatisticsViewModelTests/test_durationBarData_year_has_12_points
+QiuJiTests/StatisticsViewModelTests/test_durationBarData_week_sums_today_duration
+QiuJiTests/StatisticsViewModelTests/test_durationBarData_week_empty_sessions
+QiuJiTests/StatisticsViewModelTests/test_categorySuccessRates_empty_sessions
+QiuJiTests/StatisticsViewModelTests/test_categorySuccessRates_computes_correctly
+QiuJiTests/StatisticsViewModelTests/test_categorySuccessRates_sorted_by_rate_descending
+QiuJiTests/StatisticsViewModelTests/test_categorySuccessRates_uses_nameZh
+QiuJiTests/StatisticsViewModelTests/test_timeRange_allCases
+QiuJiTests/StatisticsViewModelTests/test_durationBarData_properties
+QiuJiTests/StatisticsViewModelTests/test_categorySuccessRate_properties
+QiuJiTests/StatisticsViewModelTests/test_changing_timeRange_affects_filteredSessions
+QiuJiTests/StatisticsViewModelTests/test_monthlyOverview_usesCalendarMonthAndTrainingKinds
+QiuJiTests/StatisticsViewModelTests/test_monthlyOverview_longestStreakDoesNotCrossMonthBoundary
+```
+
+行号索引：24, 32, 50, 68, 86, 100, 114, 120, 130, 146, 154, 162, 169, 195, 200, 205, 210, 220, 237, 242, 273, 301, 328, 337, 344, 354, 376, 414。
+
+### V29W6HistoryStatisticsKindTests (12)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/V29W6HistoryStatisticsKindTests.swift`。
+
+```text
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_categoryRates_matchHandComputation_withAllThreeKinds
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_categoryRate_isSumRatio_notAverageOfSetRatios
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_addingToolSession_leavesEveryAggregateUnchanged
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_toolSessionWithStrayEntries_stillExcludedFromRates
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_historyCognitiveGrouping_matchesLegacyProjectionSemantics
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_historyCognitiveGrouping_followsSessionId_notTimeGap
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_historyCognitive_unassignedResultsAreCountedNotSilentlyDropped
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_historyDisplay_survivesDrillAndFormationDeletion
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_displayName_multipleEntries_usesSnapshotNames
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_calendarMarker_toolOnlyDay_isToolActivity
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_cognitiveOnlyDay_marker_isTrainingNotTool
+QiuJiTests/V29W6HistoryStatisticsKindTests/test_weeklyGoal_excludesToolSessions
+```
+
+行号索引：152, 219, 234, 277, 301, 355, 388, 413, 463, 480, 524, 596。
+
+### DailyClearanceStoreTests (5)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/DailyClearanceStoreTests.swift`。
+
+```text
+QiuJiTests/DailyClearanceStoreTests/test_draftRoundTripPreservesBoardAndRuleState
+QiuJiTests/DailyClearanceStoreTests/test_yesterdayDraftIsDiscardedOnNewDay
+QiuJiTests/DailyClearanceStoreTests/test_completionClearsDraftAndAllowsReplayWithoutDuplicateCompletion
+QiuJiTests/DailyClearanceStoreTests/test_oldCompletionDoesNotMarkTodayComplete
+QiuJiTests/DailyClearanceStoreTests/test_corruptedDraftIsReportedAndOnlyCorruptedKeyIsCleared
+```
+
+行号索引：38, 64, 75, 93, 107。
+
+### DailyClearanceControllerTests (12)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/DailyClearanceControllerTests.swift`。
+
+```text
+QiuJiTests/DailyClearanceControllerTests/test_firstEntryStartsAutomaticBreakWithoutCountingShot
+QiuJiTests/DailyClearanceControllerTests/test_terminalOnSystemBreakRetriesThreeTimesThenStopsAtManualRack
+QiuJiTests/DailyClearanceControllerTests/test_resumePlayingDraftRestoresBoardAndSeedWithoutNewBreak
+QiuJiTests/DailyClearanceControllerTests/test_resumeDeliveredBoardBeforeFirstShotRemainsShootableWithoutNewBreak
+QiuJiTests/DailyClearanceControllerTests/test_resumeFailedDraftRestoresBoardAndWaitsForExplicitRerack
+QiuJiTests/DailyClearanceControllerTests/test_resumeManualRackDoesNotAutomaticallyStrike
+QiuJiTests/DailyClearanceControllerTests/test_completedDayWaitsForExplicitReplayAndKeepsCompletion
+QiuJiTests/DailyClearanceControllerTests/test_rerackNeedsConfirmationAfterFirstUserShotAndResetsAfterConfirm
+QiuJiTests/DailyClearanceControllerTests/test_timerFlushIsIdempotentAndDoesNotCountBackgroundTime
+QiuJiTests/DailyClearanceControllerTests/test_allFiveGamesStartAutomaticBreakAndBecomeShootable
+QiuJiTests/DailyClearanceControllerTests/test_resumeAutomaticBreakRestartsSameSeed
+QiuJiTests/DailyClearanceControllerTests/test_settingChangeDoesNotReplaceGameInExistingDraft
+```
+
+行号索引：90, 101, 119, 135, 151, 167, 180, 196, 215, 231, 250, 264。
+
+### DailyClearanceRulesTests (11)
+
+源：`build/quality-diagnosis/snapshot-002/QiuJiTests/DailyClearanceRulesTests.swift`。
+
+```text
+QiuJiTests/DailyClearanceRulesTests/test_gameMapsAllFiveRackLayouts
+QiuJiTests/DailyClearanceRulesTests/test_initialDefaultFollowsLegacySportOnlyAtMigration
+QiuJiTests/DailyClearanceRulesTests/test_chineseEight_openTablePotAssignsGroup
+QiuJiTests/DailyClearanceRulesTests/test_chineseEight_wrongFirstContactIsFoulWithoutRotation
+QiuJiTests/DailyClearanceRulesTests/test_chineseEight_groupClearedLegalEightCompletes
+QiuJiTests/DailyClearanceRulesTests/test_chineseEight_earlyEightFails
+QiuJiTests/DailyClearanceRulesTests/test_chineseEight_foulEightFails
+QiuJiTests/DailyClearanceRulesTests/test_nineBallLowestContactAndLegalComboNineCompletes
+QiuJiTests/DailyClearanceRulesTests/test_nineBallWrongFirstContactIsContinuingFoul
+QiuJiTests/DailyClearanceRulesTests/test_nineBallScratchIsContinuingFoul
+QiuJiTests/DailyClearanceRulesTests/test_nineBallFoulTerminalPocketFails
+```
+
+行号索引：21, 29, 35, 43, 55, 65, 75, 91, 103, 111, 123。
+
+## 选择器审计指纹
+
+方法清单SHA-256（每行完整selector，LF结尾）：`db12cdcd0860c9e95ba244e95087a80840c423023e500c670673fe0dea26dd37`。以下为本次读取的snapshot-002测试文件哈希，执行前不匹配则重新审计。
+
+```text
+e46fdce08462de7a7ad85441ef0863818b32565a99f2d906a4d03aa463833c48  QiuJiTests/V54ScheduleDomainTests.swift
+5465ca63442c4365d3689094b14b2b4dcd43aee338bb68381b3a1a3ef6112996  QiuJiTests/V54TrainingTransactionTests.swift
+66ae0988fbe7ca736176fb936cc46de8fcc0b3d8a27cacaf50c422e362d9448b  QiuJiTests/ActiveTrainingViewModelTests.swift
+352bd0331ce6243944f36f23329bd779e8249b56f2c589e4021ee5b0dc68f2bb  QiuJiTests/CustomPlanBuilderViewModelTests.swift
+e2c7306747fac890f5f2a79c4227ee191729d450735d33c0626d86b2106dc3d6  QiuJiTests/LocalTrainingSessionRepositoryTests.swift
+ff17193c57e9e25e693a75107bf6ad903775488468e6e22b9e3fd5801787c0d7  QiuJiTests/V29W2bTrainingDataEditTests.swift
+2282015f4b61418e9cc3935181c5b45e2028ae30f5af81c974482d30a2240455  QiuJiTests/HistoryViewModelTests.swift
+3729df1064a99a1414b6ed3a83dfdef3018c8073c2f0b2699c5a3d3e384f74c6  QiuJiTests/StatisticsViewModelTests.swift
+195a4694372a6855135a14a723ab5fb0ce32edca0d8592890539f81f77571fc2  QiuJiTests/V29W6HistoryStatisticsKindTests.swift
+5d9df4e9dc7019d0cf97ada646cb2d2ac1283d03314d25e9862c40f83e3cf702  QiuJiTests/DailyClearanceStoreTests.swift
+5385b50e9d67e04d469fdae9dbc9627d004cb601ae0d00175a699016596bb875  QiuJiTests/DailyClearanceControllerTests.swift
+ba43521cdc07e40e9035b1ebfaa773b801a3565b0e6550fd58c70d55ec82a58d  QiuJiTests/DailyClearanceRulesTests.swift
+```

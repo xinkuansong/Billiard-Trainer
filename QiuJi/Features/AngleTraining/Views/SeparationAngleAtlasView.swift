@@ -207,7 +207,7 @@ struct SeparationAngleAtlasView: View {
     // MARK: - Bottom (BTBallPaletteBar：点击 + 拖放)
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return VStack(spacing: 2) {
             Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 点左侧白球开关轨迹")
                 .font(.system(size: 11, weight: .medium, design: .rounded))

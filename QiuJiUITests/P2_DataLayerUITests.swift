@@ -1,4 +1,5 @@
 import XCTest
+import StoreKitTest
 
 final class P2_DataLayerUITests: XCTestCase {
 
@@ -6,7 +7,7 @@ final class P2_DataLayerUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app = XCUIApplication.launchClean()
+        app = XCUIApplication.launchClean(extraArgs: ["-v51.followSystemAppearance"])
     }
 
     // MARK: - S: App Launch & Schema
@@ -27,6 +28,147 @@ final class P2_DataLayerUITests: XCTestCase {
         app.switchTab(.profile)
         sleep(1)
         XCTAssertTrue(app.staticTexts["点击登录"].waitForExistence(timeout: 3), "Guest header should show '点击登录'")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "v57-profile-guest"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["profile.login"].tap()
+        XCTAssertTrue(app.staticTexts["登录后同步训练记录与复盘数据"].waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(NSPredicate(format: "label == %@", "登录后同步训练记录与复盘数据")).count, 1)
+    }
+
+    func testV57AuthenticatedProfileMembershipLayout() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-v53.authenticatedProfileFixture", "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance"
+        ])
+        app.switchTab(.profile)
+        let header = app.descendants(matching: .any)["profile.accountHeader"].firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 6))
+        XCTAssertTrue(header.label.contains("服务端球友"))
+        let membership = app.descendants(matching: .any)["profile.membershipSummary"].firstMatch
+        XCTAssertTrue(membership.exists)
+        XCTAssertTrue(membership.label.contains("Pro 会员"))
+        XCTAssertTrue(membership.label.contains("Pro 已解锁，状态待刷新"))
+        XCTAssertFalse(app.staticTexts["永久有效"].exists, "测试解锁不能伪装永久权益")
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "v57-profile-membership"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        header.tap()
+        XCTAssertTrue(app.navigationBars["个人信息"].waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testV57StoreKitMembershipStates() async throws {
+        app.terminate()
+        let catalog = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "Products", withExtension: "storekit"))
+        let session = try SKTestSession(contentsOf: catalog)
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
+        defer { session.clearTransactions() }
+
+        func captureState(_ name: String, expectedStatus: String?) {
+            app = XCUIApplication.launchClean(extraArgs: [
+                "-v53.authenticatedProfileFixture", "-v50.inMemoryStore", "-v51.followSystemAppearance"
+            ])
+            app.switchTab(.profile)
+            let header = app.descendants(matching: .any)["profile.accountHeader"].firstMatch
+            XCTAssertTrue(header.waitForExistence(timeout: 6))
+            XCTAssertTrue(header.label.contains("服务端球友"))
+            let window = app.windows.firstMatch.frame
+            XCTAssertGreaterThanOrEqual(header.frame.minX, window.minX)
+            XCTAssertLessThanOrEqual(header.frame.maxX, window.maxX)
+            let membership = app.descendants(matching: .any)["profile.membershipSummary"].firstMatch
+            if let expectedStatus {
+                XCTAssertTrue(membership.waitForExistence(timeout: 6))
+                XCTAssertTrue(membership.label.contains(expectedStatus), membership.label)
+                XCTAssertTrue(header.frame.contains(membership.frame), "会员状态必须位于账号卡内")
+                if expectedStatus != "永久有效" {
+                    XCTAssertFalse(membership.label.contains("永久有效"))
+                }
+            } else {
+                XCTAssertFalse(membership.exists)
+                XCTAssertTrue(app.staticTexts["升级 Pro"].exists)
+            }
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "v57-profile-\(name)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            app.terminate()
+        }
+
+        captureState("free", expectedStatus: nil)
+        let monthlyID = "com.xinkuan.qiuji.premium.monthly"
+        _ = try await session.buyProduct(identifier: monthlyID)
+        captureState("monthly", expectedStatus: "有效至")
+        try session.expireSubscription(productIdentifier: monthlyID)
+        captureState("expired", expectedStatus: nil)
+        session.clearTransactions()
+        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.yearly")
+        captureState("yearly", expectedStatus: "有效至")
+        session.clearTransactions()
+        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime")
+        captureState("lifetime", expectedStatus: "永久有效")
+    }
+
+    @MainActor
+    func testV57LongProfileNameAndRestore() async throws {
+        app.terminate()
+        let catalog = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "Products", withExtension: "storekit"))
+        let session = try SKTestSession(contentsOf: catalog)
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
+        defer { session.clearTransactions() }
+        _ = try await session.buyProduct(identifier: "com.xinkuan.qiuji.premium.lifetime")
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-v53.authenticatedProfileFixture", "-v57.longProfileName",
+            "-v50.inMemoryStore", "-v51.followSystemAppearance"
+        ])
+        app.switchTab(.profile)
+        let header = app.descendants(matching: .any)["profile.accountHeader"].firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 6))
+        let fullName = String(repeating: "认真练球", count: 5)
+        XCTAssertTrue(header.label.contains(fullName))
+        let name = app.staticTexts[fullName].firstMatch
+        XCTAssertTrue(name.exists)
+        XCTAssertTrue(header.frame.contains(name.frame))
+        if app.windows.firstMatch.frame.width < 400 {
+            XCTAssertGreaterThan(name.frame.height, 30, "20字昵称应换行，不能压缩成一行")
+        }
+        func capture(_ name: String) {
+            let item = XCTAttachment(screenshot: app.screenshot())
+            item.name = name
+            item.lifetime = .keepAlways
+            add(item)
+        }
+        capture("v57-profile-long-name")
+        let status = app.staticTexts["Pro 权益"].firstMatch
+        for _ in 0..<4 where !status.isHittable { app.swipeUp() }
+        XCTAssertTrue(status.isHittable)
+        status.tap()
+        let restore = app.buttons["恢复购买"].firstMatch
+        XCTAssertTrue(restore.waitForExistence(timeout: 6))
+        restore.tap()
+        let alert = app.alerts["恢复购买"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.staticTexts["已恢复购买，Pro 功能已解锁"].exists)
+        capture("v57-profile-restore-success")
+        alert.buttons["确定"].tap()
+
+        try await session.setSimulatedError(.generic(.networkError(URLError(.notConnectedToInternet))), forAPI: .appStoreSync)
+        restore.tap()
+        XCTAssertTrue(alert.waitForExistence(timeout: 10))
+        XCTAssertTrue(alert.staticTexts["恢复购买失败，请稍后重试"].exists)
+        capture("v57-profile-restore-failure")
+        alert.buttons["确定"].tap()
+        app.navigationBars.buttons.firstMatch.tap()
+        let membership = app.descendants(matching: .any)["profile.membershipSummary"].firstMatch
+        XCTAssertTrue(membership.waitForExistence(timeout: 6))
+        XCTAssertTrue(membership.label.contains("永久有效"), "恢复失败不能撤销已有有效权益")
+        capture("v57-profile-after-restore-failure")
     }
 
     func testS04_DrillLibraryShowsDrills() {

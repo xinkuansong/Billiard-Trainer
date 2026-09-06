@@ -111,51 +111,57 @@ struct ProfileView: View {
 
     private var loggedInHeader: some View {
         NavigationLink(value: "personalInfo") {
-            HStack(spacing: Spacing.md) {
-                ProfileAvatarView(size: 56)
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack(spacing: Spacing.md) {
+                    ProfileAvatarView(size: 56)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.displayName)
-                        .font(.btHeadline)
-                        .foregroundStyle(.btText)
-                    HStack(spacing: Spacing.xs) {
-                        Text("修改信息")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(profile.displayName)
+                            .font(.btHeadline)
+                            .foregroundStyle(.btText)
+                            .fixedSize(horizontal: false, vertical: true)
+                        HStack(spacing: Spacing.xs) {
+                            Text("修改信息")
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextSecondary)
+                            Image(systemName: BTIcon.chevronRight)
+                                .font(.btMicro)
+                                .foregroundStyle(.btTextTertiary)
+                        }
+                        Text("ID: \(String(authState.currentUser?.id.prefix(7) ?? "—"))")
                             .font(.btCaption)
-                            .foregroundStyle(.btTextSecondary)
-                        Image(systemName: BTIcon.chevronRight)
-                            .font(.btMicro)
                             .foregroundStyle(.btTextTertiary)
                     }
-                    Text("ID: \(String(authState.currentUser?.id.prefix(7) ?? "—"))")
-                        .font(.btCaption)
-                        .foregroundStyle(.btTextTertiary)
+                    Spacer(minLength: Spacing.sm)
                 }
 
-                Spacer()
-
                 if subscriptionManager.isPremium {
-                    VStack(spacing: 2) {
-                        Text("Pro 会员")
-                            .font(.btCaption2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(.btPremiumForeground)
-                        Text(subscriptionManager.entitlementStatusLabel)
-                            .font(.btMicro)
-                            .foregroundStyle(.btTextSecondary)
+                    HStack(alignment: .top, spacing: Spacing.sm) {
+                        BTPremiumMaterialSymbol(systemName: BTIcon.star, size: 18)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            Text("Pro 会员")
+                                .font(.btCaption)
+                                .fontWeight(.semibold)
+                                .foregroundStyle(.btPremiumForeground)
+                            Text(subscriptionManager.entitlementStatusLabel)
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, Spacing.sm)
-                    .padding(.vertical, Spacing.xs)
-                    .background(Color.btPremiumSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: BTRadius.xs)
-                            .stroke(Color.btPremiumBorder.opacity(0.65), lineWidth: 1)
-                    )
+                    .padding(Spacing.sm)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.btPremiumSurface, in: RoundedRectangle(cornerRadius: BTRadius.sm))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("profile.membershipSummary")
                 }
             }
             .padding(Spacing.lg)
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("profile.accountHeader")
@@ -187,20 +193,20 @@ struct ProfileView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(profile.displayName == "球迹用户" ? "点击登录" : profile.displayName)
                         .font(.btHeadline)
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.btText)
                     Text("游客模式 · 点击登录")
                         .font(.btCaption)
-                        .foregroundStyle(.white.opacity(0.78))
+                        .foregroundStyle(.btTextSecondary)
                 }
 
                 Spacer()
 
                 Image(systemName: BTIcon.chevronRight)
                     .font(.btFootnote)
-                    .foregroundStyle(.white.opacity(0.72))
+                    .foregroundStyle(.btTextTertiary)
             }
             .padding(Spacing.lg)
-            .background(Color.btPrimary)
+            .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         }
         .buttonStyle(.plain)

@@ -155,6 +155,8 @@ struct MainTabView: View {
             PlanListView(ownerKey: ownerKey)
         case .planDetail(let planId):
             PlanDetailView(planId: planId, ownerKey: ownerKey)
+        case .drillDetail(let drillId):
+            DrillDetailView(drillId: drillId, ownerKey: ownerKey)
         case .customPlanBuilder:
             CustomPlanBuilderView()
         case .customPlanEdit(let planId):

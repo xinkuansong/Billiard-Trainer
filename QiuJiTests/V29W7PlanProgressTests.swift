@@ -214,7 +214,10 @@ final class V29W7PlanProgressTests: XCTestCase {
     // MARK: - 训练首页「今日安排」随游标变化（完成标准 3 的读取侧）
 
     func test_trainingHome_todaySchedule_followsCursor() async throws {
-        _ = activateOfficialPlan(week: 2, day: 2)
+        let active = activateOfficialPlan(week: 2, day: 2)
+        let curriculum = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: officialPlanId))
+        let lesson = try XCTUnwrap(curriculum.stages.first { $0.order == 2 }?.lessons.first { $0.order == 2 })
+        active.currentLessonId = lesson.id
         let viewModel = TrainingHomeViewModel()
 
         await viewModel.load(context: context)
@@ -222,7 +225,19 @@ final class V29W7PlanProgressTests: XCTestCase {
         XCTAssertEqual(viewModel.todaySession?.dayNumber, 2)
         XCTAssertTrue(viewModel.canRollbackDay)
 
-        await viewModel.skipCurrentDay(context: context)
+        // v54/v57: only completed, advance-eligible scheduled lessons move the stable cursor.
+        let result = try TodayTrainingScheduleService(context: context).addOfficialLessons(
+            plan: curriculum, lessonIDs: [lesson.id], activePlan: active
+        )
+        let first = try XCTUnwrap(result.first)
+        let item: TodayScheduleItem
+        switch first {
+        case .added(let added), .alreadyPresent(let added): item = added
+        }
+        item.state = TodayScheduleItemState.completed
+        _ = try PlanProgressService.settleCompletedScheduleItem(item, context: context)
+        try context.save()
+        await viewModel.load(context: context)
         XCTAssertNil(viewModel.progressError)
         XCTAssertEqual(viewModel.todaySession?.weekNumber, 2)
         XCTAssertEqual(viewModel.todaySession?.dayNumber, 3)
@@ -238,7 +253,8 @@ final class V29W7PlanProgressTests: XCTestCase {
     }
 
     func test_trainingHome_atFirstDay_cannotRollback() async throws {
-        _ = activateOfficialPlan(week: 1, day: 1)
+        let active = activateOfficialPlan(week: 1, day: 1)
+        active.currentLessonId = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: officialPlanId)?.lessons.first?.id)
         let viewModel = TrainingHomeViewModel()
 
         await viewModel.load(context: context)

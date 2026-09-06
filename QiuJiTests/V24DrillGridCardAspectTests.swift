@@ -91,21 +91,21 @@ final class V24DrillGridCardAspectTests: XCTestCase {
                 Text("未练")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
-                BTDrillGridCard(drill: drill, isFavorited: false, isCompleted: false)
+                BTDrillGridCard(drill: drill, isFavorited: false, practiceCount: 0)
                     .frame(width: columnWidth)
             }
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("已练")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
-                BTDrillGridCard(drill: drill, isFavorited: true, isCompleted: true)
+                BTDrillGridCard(drill: drill, isFavorited: true, practiceCount: 1)
                     .frame(width: columnWidth)
             }
             VStack(alignment: .leading, spacing: Spacing.xs) {
                 Text("Pro 已练")
                     .font(.btCaption)
                     .foregroundStyle(.btTextSecondary)
-                BTDrillGridCard(drill: premium, isFavorited: false, isCompleted: true)
+                BTDrillGridCard(drill: premium, isFavorited: false, practiceCount: 1)
                     .frame(width: columnWidth)
             }
         }

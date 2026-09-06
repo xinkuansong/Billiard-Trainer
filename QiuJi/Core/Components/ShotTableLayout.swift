@@ -93,7 +93,8 @@ enum ShotStageMetrics {
     static let compactWidthThreshold: CGFloat = 390
     static let compactTableHeightRatio: CGFloat = 0.45
     static let paletteHorizontalInset: CGFloat = 8
-    static let paletteMaxWidth: CGFloat = 440
+    /// Eight non-overlapping 44pt slots; never stretch the gaps to fill a tablet.
+    static let paletteMaxWidth = CGFloat(BTBallPaletteMetrics.columns) * BTBallPaletteMetrics.minimumHitSize
 
     // MARK: G10 chrome band heights（C11 / v7 W2）
 

@@ -913,7 +913,7 @@ struct BatchAuthoringView: View {
     // MARK: - Palette
 
     private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return BTBallPaletteBar(
             coordinateSpace: "batchAuthor",
             ballDiameter: proxy.paletteBallDiameter,

@@ -439,3 +439,112 @@
 - **日期**：2026-09-04
 - **规则改进建议**：系统状态必须同时验证“设置回读”和“最终渲染”；矩阵 resume 只复用完全相同的源码+测试范围指纹；并发摘要用锁，历史失败用归档；资源异常先降低 Booted 数量再判断产品。
 - **已应用至**：✅ `.cursor/skills/simulator-matrix-qa/SKILL.md`、`scripts/run_simulator_matrix.py`、`QiuJiUITests/ScreenshotTourUITests.swift`、`QiuJi/App/RootView.swift`（2026-09-04）。
+
+## FL-040
+- **任务**：问题集合 v57 W2 — 标准手机矩阵证据隔离。
+- **现象**：标准手机浅色 6 项中 1 项失败；动作选择页已出现且按钮存在，点击前面板被关闭，随后找不到动作按钮。
+- **根因/边界**：同一时段主控用 Computer Use 尝试切换到空闲 iPad；Simulator 前台却被 Xcode 切换到手机，随后还发送了 Escape 和窗口快捷键。录像证明面板消失，AX 树仍为正常空训练页。共享焦点干扰是强嫌疑，尚未做事件级因果复现，不能称为已确定的产品缺陷。
+- **解决**：停止所有 Simulator UI 手动操作，关闭补验 iPad；相同源码下原失败测试隔离复跑通过（1 项、0 失败、56.813 秒、exit 0，`output/v57/W2/phone-free-isolated.log`）。完整标准手机单元及其后矩阵继续复验，未加 sleep/重试或改生产逻辑。
+- **证据**：`output/v57/W2/matrix/ios26-phone-light` 保留命令、原失败、AX 树与 `failure-strip.jpg`；复验输出单列，不覆盖原运行。
+- **日期**：2026-09-05
+- **回写目标**：`.cursor/rules/55-test-engineer.mdc` §经验教训 / Changelog。
+- **已应用至**：✅ `.cursor/rules/55-test-engineer.mdc` v0.5 与 UI 规格 Changelog。
+
+## FL-039
+- **任务**：问题集合 v57 W2 — iPad 自由训练动作选择。
+- **现象**：iPad 的动作选择行点击中间留白时不切换选择，完成按钮一直无数量；标准手机同一流程通过。
+- **严重程度**：P2
+- **根因**：`DrillPickerSheet` 使用 `.plain` Button，标签 HStack 的透明 Spacer 未声明矩形命中区。iPad 行为 580pt 宽，中心 x=516pt 落在标题结束 x=453.5pt 右侧的留白；默认命中不覆盖该处。初次测试的宽泛“添加”前缀还可能匹配弹窗外操作，改为明确动作名后仍复现，因而没有把产品缺陷归咎于测试。
+- **解决**：在标签完整行上增加 `.contentShape(Rectangle())`，保留行中心点击与选择数量断言。失败 iPad 上“添加→保存→再次开始”和“最小化→恢复原选择”两项均通过，日志 `output/v57/W2/ipad-picker-fix.log`；相邻尺寸与完整矩阵正在复验。
+- **证据**：`output/v57/W2/matrix/ios26-ipad-light-r2` 的 AX 树/录像；`output/v57/W2/ipad-picker-before.png`；修复后 8 张流程图在 `output/v57/W2/ipad-picker-fix/attachments`。
+- **日期**：2026-09-05
+- **回写目标**：`.cursor/rules/20-swiftui-developer.mdc` §经验教训 / Changelog。
+- **已应用至**：✅ `.cursor/rules/20-swiftui-developer.mdc` v1.7、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-09-05）。
+
+## FL-041 — 位置测试混入 XCTest 自动揭露滚动
+- **任务**：v57 W2 低位筛选补验。
+- **现象**：SE 初始官方标题 Y=507pt，切到空模版后 Y=444.5pt，原 ≤2pt 断言失败。
+- **根因证据**：点击前截图 83D4DEB1-E10C-42A9-8513-52369E65A343.png 显示“我的模版”被悬浮自由训练按钮遮挡；test.log 9.15s 明确 `Scroll element to visible`，随后才点击。入门/全部均保持原 Y。此失败不能证明内容切换自身漂移。
+- **修正**：测试准备阶段先让官方、入门、模版三个完整控件位于悬浮按钮上方，再记录低位锚点。原 ≤2pt 断言及少/多/空/返回步骤均保留。生产源码未改；三尺寸补验正在重新运行。
+- **证据**：`output/v57/W2/matrix/ios26-se-light-supplement` 原失败完整保留；复跑独立目录 r2。
+- **日期**：2026-09-05
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` v0.6 位置测试起点检查与 UI 规格 Changelog。
+
+## FL-042 — 测试根页不一定存在 NavigationBar
+- **任务**：v57 W3 首轮导航测试。
+- **根因/证据**：深链 PlanDetail 是 NavigationStack 根页，无导航标题/返回项；reveal helper 无条件取 navigationBars.firstMatch.frame，两个测试在点击前即快照查询失败。`output/v57/W3/matrix/phone-light-first/test.log` 保留原失败，未对产品导航作推断。
+- **修正**：先判断 bar.exists，存在时用其下缘，否则用 window.minY；仍检查目标 isHittable/底部 CTA 边界，原返回 Y 与折叠断言不变。复跑待验证。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` v0.7 与 UI 规格 Changelog（2026-09-05）。
+
+- **FL-042 同批补充**：完整五方法首轮 4/5 通过，锁态启动检查错误地只查普通 CTA，未进入动作详情；实际 Pro 计划为“解锁此计划”。测试改为等待日序内容，并按真实 CTA 分支测量底部边界。原四条通过结果和锁态失败保留于 phone-light-full，完整复跑另存 phone-light-full-r2。原权限与返回断言未删减。
+
+## FL-043 — XCTest 环境变量前缀导致深色取证误标
+- **任务**：v57 W3 导航矩阵。
+- **根因**：新测试只读 TEST_RUNNER_V54_APPEARANCE；Xcode 注入测试进程时使用去前缀 V54_APPEARANCE，因此 dark 运行仍传 -v54.forceLight。旧 W2 helper 已兼容两名，新 helper 未复用这一约定。
+- **证据**：phone-dark 5/5 行为测试通过，但 14 张实际截图均为浅色；左侧空白边缘灰度均值 243。图片视觉核对发现后，停止后续调度，让当前 AX5 子测试正常结束，再终止暂停的驱动（exit 143），未打断 XCTest 或改产品。
+- **修正**：读取 V54_APPEARANCE 并兼容 TEST_RUNNER 前缀；图像门禁增加实际背景灰度的外观检查。旧错误深色目录在新增检查下 14/14 明确失败，保留原绿色图像门禁为 image-gate-before-appearance-check.json，证明新检查会抓出原失误。
+- **状态**：七单元同源码矩阵重跑待验收，不将旧 phone-dark 计为深色通过。
+- **已应用至**：.cursor/rules/55-test-engineer.mdc v0.8、UI 规格 Changelog、review_navigation.py（2026-09-05）。
+
+## FL-039 补充 — W3 阶段标题宽屏留白命中（2026-09-05）
+
+W3 ipad-light 五项回归中四项通过，阶段折叠在首次行中心点击后仍为已展开。原日志、点击事件、截图保留于 output/v57/W3/matrix/ipad-light。chapterHeader 含 Spacer，标签未声明完整 contentShape，iPad 行中心为透明留白；与 FL-039 同类。已在 Button 标签完整 chapterHeader 上声明 Rectangle 命中区，保持原中心点击和折叠断言不变。待 iPad 原失败及相邻尺寸复验。已应用至既有 .cursor/rules/20-swiftui-developer.mdc § FL-039 规则；本次是该规则补充实例。
+
+## FL-044 — SwiftUI 测试宿主的容器生命周期
+- **任务**：v57 W4，保存条目刷新 UI。
+- **证据**：se-light-first 原日志/诊断保留；StandardOutputAndStandardError-com.xinkuan.qiuji.txt 明确 SwiftData BackingData fatal：model instance was destroyed by calling ModelContext.reset。菜单和加入今日安排2项通过，首次保存entry时退出。
+- **根因**：DEBUG宿主以普通let创建ModelContainer，视图重新构造可换容器，而@State session保留旧容器模型，旧context释放后对象不可用。不是计数算法异常。
+- **修正**：容器改为@State绑定宿主身份，与session同生命周期；保留真实SwiftData保存删除、原0→1→2→1→0断言。复跑待验证。
+- **已应用至**：.cursor/rules/55-test-engineer.mdc v0.9 与UI规格Changelog（2026-09-05）。
+
+## FL-045 — 元数据增高压缩网格卡标题
+- **任务**：v57 W4，类型与次数同行。
+- **证据**：31单测通过，但render-contact.jpg小屏有次数卡的同一动作标题被压成一行省略，0次卡仍为两行；不能仅据单测绿交付。
+- **根因假设**：新增胶囊提高meta固有高度，网格对卡片的纵向提议压缩标题；titleMinHeight只保留框高，没有要求完整卡片采用固有纵向尺寸。
+- **修正**：仅BTDrillGridCard声明fixedSize(horizontal:false,vertical:true)，保持实际列宽、两行标题约束及其他卡片不变；待同一12图渲染和真实界面复验确认假设。
+- **已应用至**：.cursor/rules/20-swiftui-developer.mdc v1.9 与UI规格Changelog（2026-09-05）。
+
+## FL-046 — 旧球库测试未声明付费页面的会员前置
+- v57 W5改前取证复用W4_BallPaletteUITests，拍照建球形现为Pro入口，旧测试未forcePremium。AX树明确位于“解锁球迹 Pro”，随后找不到paletteBall__1，不能解释为球库故障。
+- 修正：仅提球测试增加既有-forcePremium与隔离内存store参数；产品权限未改。原日志/AX/截图保留output/v57/W5/extraction-before-failure-*，复跑独立r2。
+- 已应用至：.cursor/rules/55-test-engineer.mdc §FL-046；UI规格Changelog（2026-09-05）。
+
+## FL-047 — 为收紧球库放大球体并增高底栏，造成主次比例失衡
+- **用户反馈**：球库占比过大，球桌占比明显不对（2026-09-05）。
+- **原因**：将“球更集中”实施为40pt视觉球/44pt槽，并在提球窄屏增加横排操作行；只验证间隙、命中和可见性，未守住球桌主要面积和球库辅助占比。
+- **处置**：撤回6个视觉/布局测试文件到W4最终指纹，保留被否决补丁/截图/测试事实于output/v57/W5/rejected-density；旧通过不得用于R07验收。恢复后重新分析；当前未称修复完成。
+- **已应用至**：.cursor/rules/20-swiftui-developer.mdc §FL-047、UI规格Changelog；用户修正已进入问题集合_v57.md R07。
+
+## FL-048 — 虚拟账号界面测试触发真实云同步并被401退出
+
+- **任务**：v57 W6，内存空库的Pro账号卡测试。
+- **证据**：output/v57/W6/profile-r2-process.log，进程41221在21:34:19–20收到401；附件AX显示游客。AuthState虚拟身份完成登录后，AccountDataCoordinator在无游客数据时发起同步，APIClient认证失效通知清除该身份。
+- **修正**：APIClient仅DEBUG且显式-v53.authenticatedProfileFixture时抛离线错误；虚拟身份不访问真实服务，正常401/刷新逻辑保留。R3原失败UI通过，截图已目视；真实认证仍由独立测试验收。
+- **已应用至**：.cursor/rules/55-test-engineer.mdc §FL-048、UI-IMPLEMENTATION-SPEC Changelog。
+
+## FL-049 — Live Activity 时间文本挤压锁屏其他文字
+- **任务**：v57 W7；用户真机指出锁屏进度已变化但其他文字消失。
+- **根因**：日期区间 Text 的布局提议与水平 fixedSize 不兼容；仅取消水平 fixedSize 恢复标题/数字后，动态文本仍会占用右侧空间。
+- **修复**：普通等宽时间模板决定宽度，动态 Text 置于 overlay；紧凑岛不再固定40pt。新增标题/品牌可见性断言。
+- **验证**：system-display-test-r4-raw.log exit0，四张系统截图已目视，锁屏2:49→2:07且动作名/品牌完整，紧凑岛收窄、展开单行。仅此iOS26.2模拟器；真机新版本仍待复测。
+- **已应用至**：.cursor/rules/20-swiftui-developer.mdc § FL-049（v2.1）。
+
+## FL-050 — 离屏 SceneKit 投影诊断缺少视口与姿态同步校验
+- **任务**：v57 W5 诊断工具；未修改生产相机。
+- **原因**：零frame创建的SCNView离屏投影使用1×1视口；变更相机/anchor后未flush时投影缓存仍为旧姿态。仅检查测试exit0会产生错误noFit统计。
+- **修正**：非零frame初始化、显式layout、每次姿态及anchor后flush，前后光轴中心断言；r8 1例/36组完成，前轮统计全部撤销。
+- **证据**：output/v57/W5/CAMERA-DIAGNOSTIC-REPORT.md；r6中断不算完成。
+- **已应用至**：geometry-spatial-reasoning/SKILL.md FL-050。
+
+## FL-051 — 自动取景替换姿态曲线，漏验纵向升降
+- **任务**：v57 W5，用户指出默认视角更低、纵向滑动只剩缩放。
+- **根因**：framedAimingPose 固定 pitch、radius/height 同比缩放；求解器采用0.30m高度下限，低于既有0.45m瞄准配置。原测试只验横向环绕，未验纵向姿态变化。
+- **修正**：用户再次打回额外叠加角度方案，撤销。恢复原22°–45°俯仰曲线与40°–50°FOV；自动取景只在原45°观察端求距离/居中，空间行程按取景结果缩放，最低观察高度沿用1.5m配置。首次/换题落观察端，手动仍沿原曲线升降。
+- **证据**：vertical-before-raw.log，新增纵向测试1例1失败，pitch在滑动后仍为-40°；第一次改后3/4单测通过，持续渲染测试未等动画落定失败，且方案已被用户否决；最终 original-curve-tests-raw.log：4单测+1 UI通过（TEST SUCCEEDED）；包含215几何场景、18姿态、原曲线五档对拍、升降往返和生产renderUpdate持续帧保留手动状态。3张场景原图与6张真实训练页图已目视；仅iPhone SE/iOS26模拟器，真机手感待复验。
+- **已应用至**：.cursor/skills/geometry-spatial-reasoning/SKILL.md §FL-051；UI规格Changelog。
+
+## 2026-09-06 用户最终裁定：撤销自动取景
+- 用户明确要求自动取景也恢复，效果不接受。已撤回DR-092相机方案及FL-051两轮后续方案。
+- CameraRig、AngleSceneView恢复HEAD原文；SceneAiming恢复原enterAiming、锚定及键盘结构，保留球库宽度/辅助答题按钮修改。
+- 新求解器和专用诊断测试移出编译目录并归档到output/v57/W5/withdrawn-camera；重新生成工程。此前自动取景测试是已撤销方案的历史证据，不代表最终交付。
+- 回退验证完成：原相机3项单测通过；最终重新编译并运行3题真实训练页UI通过，6截图已核对。CameraRig/AngleSceneView与修改前HEAD逐字一致，证据camera-rollback-source.json、camera-rollback-tests-raw.log、camera-rollback-final-ui-raw.log。恢复旧视角与键盘覆盖行为，不再保证三目标自动入镜。 不再继续设计新取景方案。

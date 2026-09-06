@@ -273,7 +273,7 @@ struct ShotSimulationView: View {
     // MARK: - Palette bar（条 17.2/17.4：球库开放，摆球上限 2 由 VM 校验；G8 总宽=球桌宽）
 
     private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return BTBallPaletteBar(
             coordinateSpace: "simulation",
             ballDiameter: proxy.paletteBallDiameter,

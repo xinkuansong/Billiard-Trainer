@@ -29,3 +29,11 @@
 1. 重跑机器差集，确认写盘文件数与本清单一致。
 2. 对所有默认执行的 runner 检查 gate，实际测试前后用 `git status --short` 确认未改 `QiuJi/Resources`、`content/`、`docs/ui-polish/`。
 3. 所有 v47 截图只出现在 `build/v47-*` 或 `tmp/`；Stitch 选中截图只进入 `docs/design/v47/stitch/selected/`，且不冒充 App 截图。
+
+## v57 持久恢复测试追加审计（2026-09-05）
+
+`V54ScheduleDomainTests.test_v57_projectionReopensDiskStoreAfterTemplateDeletion` 仅写 `FileManager.default.temporaryDirectory/v57-projection-<UUID>/test.store` 及同目录 SQLite 伴随文件。独立目录通过 defer 删除，删除失败 XCTFail；不接用户真实 store，不写 Bundle 或内容真源。该写盘用于关闭容器后重新打开、证明已删模版的冻结课块恢复，W1 已运行通过。
+
+## v57 W4 计次与渲染测试审计（2026-09-05）
+
+DrillListViewModelTests.swift 新增 V57PracticeCountTests，仅在 temporaryDirectory/v57-count-UUID/test.store 创建隔离磁盘库，关闭重开用于恢复验证；defer清理目录，失败XCTFail。渲染测试用XCTAttachment，不写Bundle或内容资产。DEBUG V57PracticeCountFixtureHost 仅显式-v57.practiceCountFixture可达，持有State内存容器并真实保存/删除条目，不接用户磁盘库。既有V24渲染输出仍位于build/v24-w1-evidence，未扩大真源写入。

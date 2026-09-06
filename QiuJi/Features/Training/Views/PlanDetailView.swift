@@ -76,6 +76,7 @@ struct PlanDetailView: View {
     @State private var showArrangeSheet = false
     @State private var toast: BTToastMessage?
     @State private var didInstallV54Fixture = false
+    @State private var didInitializeExpansion = false
     /// 展开逐球形明细的计划条目键（week-day-phase-drill）。
     @State private var expandedDrillKeys: Set<String> = []
 
@@ -386,8 +387,11 @@ struct PlanDetailView: View {
                 }
             } label: {
                 chapterHeader(stage)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(BTPressableStyle.row)
+            .accessibilityIdentifier("planStage-\(stage.id)")
+            .accessibilityValue(expandedWeeks.contains(stage.order) ? "已展开" : "已收起")
 
             if expandedWeeks.contains(stage.order) {
                 VStack(spacing: Spacing.md) {
@@ -460,19 +464,13 @@ struct PlanDetailView: View {
         let status = lessonStatus(lesson)
 
         return VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(lesson.title)
-                        .font(.btTitleMedium)
-                        .foregroundStyle(.btText)
-                    if let summary = lesson.summary, !summary.isEmpty {
-                        Text(summary).font(.btCaption).foregroundStyle(.btTextSecondary)
-                    }
-                }
-
-                Spacer()
-
-                VStack(alignment: .trailing, spacing: 2) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                    Text("第 \(lesson.order) 天")
+                        .font(.btCaption.weight(.semibold))
+                        .foregroundStyle(.btPrimary)
+                        .accessibilityIdentifier("planLessonDay-\(lesson.id)")
+                    Spacer(minLength: Spacing.sm)
                     Text(status.title)
                         .font(.btCaption.weight(.semibold))
                         .foregroundStyle(status.color)
@@ -481,6 +479,11 @@ struct PlanDetailView: View {
                         .foregroundStyle(.btTextTertiary)
                         .monospacedDigit()
                 }
+                Text(lesson.title)
+                    .font(.btTitleMedium)
+                    .foregroundStyle(.btText)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("planLessonTitle-\(lesson.id)")
             }
 
             BTPhaseTimeline(
@@ -515,7 +518,7 @@ struct PlanDetailView: View {
         .background(.btBGTertiary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("\(lesson.title)，\(status.title)，约 \(totalMin) 分钟")
+        .accessibilityLabel("第 \(lesson.order) 天，\(lesson.title)，\(status.title)，约 \(totalMin) 分钟")
     }
 
     private func lessonEstimatedMinutes(_ lesson: PlanLesson) -> Int {
@@ -555,69 +558,81 @@ struct PlanDetailView: View {
             dose: ref.dose,
             formationOptions: options
         )
-        let name = drillNames[ref.drillId] ?? ref.drillId
+        let name = drillNames[ref.drillId] ?? "动作暂不可用"
         let lines = resolved.suggestedDoseLines()
         // 仅多球形可展开；单球形第二行直接渲染统一剂量行，无 chevron。
         let isMulti = resolved.groups.count > 1
         let isExpanded = isMulti && expandedDrillKeys.contains(expandKey)
 
         return VStack(alignment: .leading, spacing: Spacing.xs) {
-            Button {
-                guard isMulti else { return }
-                withAnimation(BTMotion.springPanel) {
-                    if isExpanded {
-                        expandedDrillKeys.remove(expandKey)
-                    } else {
-                        expandedDrillKeys.insert(expandKey)
-                    }
-                }
-            } label: {
-                HStack(alignment: .top, spacing: Spacing.md) {
-                    drillThumbnail(ref)
+            HStack(alignment: .top, spacing: Spacing.xs) {
+                NavigationLink(value: TrainingRoute.drillDetail(drillId: ref.drillId)) {
+                    HStack(alignment: .top, spacing: Spacing.md) {
+                        drillThumbnail(ref)
 
-                    Text(String(format: "%02d", index + 1))
-                        .font(.btFootnote)
-                        .foregroundStyle(.btTextTertiary)
-                        .monospacedDigit()
-                        .frame(width: 20, alignment: .leading)
-                        .padding(.top, 2)
+                        Text(String(format: "%02d", index + 1))
+                            .font(.btFootnote)
+                            .foregroundStyle(.btTextTertiary)
+                            .monospacedDigit()
+                            .frame(width: 20, alignment: .leading)
+                            .padding(.top, 2)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
-                            Text(name)
-                                .font(.btCallout)
-                                .foregroundStyle(.btText)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.85)
-                                .layoutPriority(1)
-                            if isMulti {
-                                Spacer(minLength: Spacing.sm)
-                                // 「N 球形」与动作名同一行（名左、数量右），禁止独占第二行。
-                                Text(resolved.planEntrySummaryText())
-                                    .font(.btFootnote)
-                                    .foregroundStyle(.btTextSecondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(alignment: .firstTextBaseline, spacing: Spacing.sm) {
+                                Text(name)
+                                    .font(.btCallout)
+                                    .foregroundStyle(.btText)
                                     .lineLimit(1)
-                                    .fixedSize(horizontal: true, vertical: false)
+                                    .minimumScaleFactor(0.85)
+                                    .layoutPriority(1)
+                                if isMulti {
+                                    Spacer(minLength: Spacing.sm)
+                                    // 「N 球形」与动作名同一行（名左、数量右），禁止独占第二行。
+                                    Text(resolved.planEntrySummaryText())
+                                        .font(.btFootnote)
+                                        .foregroundStyle(.btTextSecondary)
+                                        .lineLimit(1)
+                                        .fixedSize(horizontal: true, vertical: false)
+                                }
+                            }
+                            if !isMulti, let line = lines.first {
+                                suggestedDoseLineRow(line)
                             }
                         }
-                        if !isMulti, let line = lines.first {
-                            suggestedDoseLineRow(line)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if isMulti {
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(BTPressableStyle.row)
+                .accessibilityIdentifier("planDrillRow-\(ref.drillId)")
+                .accessibilityLabel(resolved.planEntryAccessibilityLabel(drillName: name))
+                .accessibilityHint("查看动作详情")
+
+                if isMulti {
+                    Button {
+                        withAnimation(BTMotion.springPanel) {
+                            if isExpanded {
+                                expandedDrillKeys.remove(expandKey)
+                            } else {
+                                expandedDrillKeys.insert(expandKey)
+                            }
+                        }
+                    } label: {
                         Image(systemName: BTIcon.chevronDown)
                             .font(.btCaption)
                             .foregroundStyle(.btTextTertiary)
                             .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                            .padding(.top, 4)
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(BTPressableStyle.row)
+                    .accessibilityIdentifier("planDrillDoseToggle-\(expandKey)")
+                    .accessibilityLabel("\(isExpanded ? "收起" : "展开")\(name)球形剂量")
+                    .accessibilityValue(isExpanded ? "已展开" : "已收起")
                 }
             }
-            .buttonStyle(BTPressableStyle.row)
-            .accessibilityIdentifier("planDrillRow-\(ref.drillId)")
-            .accessibilityLabel(resolved.planEntryAccessibilityLabel(drillName: name))
 
             if isExpanded {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
@@ -852,18 +867,35 @@ struct PlanDetailView: View {
     // MARK: - Data Loading
 
     private func loadPlan() async {
-        isLoading = true
+        // Keep the existing ScrollView alive when returning from drill details.
+        isLoading = plan == nil
         defer { isLoading = false }
 
         plan = await PlanContentService.shared.loadPlanFromBundle(id: planId)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-v57.missingPlanDrill"), let loaded = plan {
+            do {
+                plan = try unavailableDrillFixture(loaded)
+            } catch {
+                toast = BTToastMessage("无法准备失效动作测试：\(error.localizedDescription)", tone: .error)
+                return
+            }
+        }
+        #endif
         profile.load(from: nil)
         if let plan { installV54FixtureIfNeeded(plan) }
 
         let descriptor = FetchDescriptor<UserActivePlan>(
             predicate: #Predicate { $0.ownerKey == ownerKey }
         )
-        let records = (try? modelContext.fetch(descriptor)) ?? []
-        if let active = records.first(where: { $0.status == "active" }) {
+        let records: [UserActivePlan]
+        do {
+            records = try modelContext.fetch(descriptor)
+        } catch {
+            toast = BTToastMessage("读取计划进度失败，请重试", tone: .error)
+            return
+        }
+        if let active = PlanProgressService.currentOfficialPlan(in: records) {
             hasActivePlan = true
             isCurrentPlanActive = active.planId == planId
         } else {
@@ -924,10 +956,17 @@ struct PlanDetailView: View {
         let sessionDescriptor = FetchDescriptor<TrainingSession>(
             predicate: #Predicate { $0.ownerKey == ownerKey }
         )
-        completedLessonIDs = Set(((try? modelContext.fetch(sessionDescriptor)) ?? []).compactMap {
-            $0.planId == planId ? $0.lessonId : nil
-        })
+        do {
+            completedLessonIDs = Set(try modelContext.fetch(sessionDescriptor).compactMap {
+                $0.planId == planId ? $0.lessonId : nil
+            })
+        } catch {
+            toast = BTToastMessage("读取已完成课程失败，请重试", tone: .error)
+            return
+        }
 
+        guard !didInitializeExpansion else { return }
+        didInitializeExpansion = true
         for stage in plan.stages {
             expandedWeeks.insert(stage.order)
             for lesson in stage.lessons {
@@ -958,6 +997,25 @@ struct PlanDetailView: View {
     }
 
     /// Launch-argument-only plan-state fixture for the v54 screenshot/accessibility matrix.
+    #if DEBUG
+    /// An in-memory missing reference; never modifies bundled plan/drill assets.
+    private func unavailableDrillFixture(_ source: OfficialPlan) throws -> OfficialPlan {
+        func replaceReference(_ value: Any) -> Any {
+            if var object = value as? [String: Any] {
+                if object["drillId"] as? String == "drill_c012" {
+                    object["drillId"] = "v57-missing-drill"
+                }
+                return object.mapValues(replaceReference)
+            }
+            if let array = value as? [Any] { return array.map(replaceReference) }
+            return value
+        }
+        let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(source))
+        let data = try JSONSerialization.data(withJSONObject: replaceReference(object))
+        return try JSONDecoder().decode(OfficialPlan.self, from: data)
+    }
+    #endif
+
     private func installV54FixtureIfNeeded(_ plan: OfficialPlan) {
         guard !didInstallV54Fixture else { return }
         didInstallV54Fixture = true
@@ -1001,27 +1059,16 @@ struct PlanDetailView: View {
     // MARK: - Activate Plan
 
     private func activatePlan() {
-        let descriptor = FetchDescriptor<UserActivePlan>(
-            predicate: #Predicate { $0.ownerKey == ownerKey }
-        )
-        let existing = (try? modelContext.fetch(descriptor)) ?? []
-        for old in existing where old.status == "active" && old.planId != planId {
-            old.status = "paused"
-            old.updatedAt = Date()
-        }
+        guard let plan else { return }
         let target: UserActivePlan
-        if let saved = existing.first(where: { $0.planId == planId }) {
-            target = saved
-        } else {
-            target = UserActivePlan(planId: planId, ownerKey: ownerKey)
-            target.currentLessonId = plan?.lessons.first?.id
-            modelContext.insert(target)
+        do {
+            target = try PlanProgressService.activateOfficialPlan(
+                plan, ownerKey: ownerKey, context: modelContext
+            )
+        } catch {
+            toast = BTToastMessage("切换失败，已保留原计划，请稍后重试", tone: .error)
+            return
         }
-        target.status = "active"
-        target.completedAt = nil
-        if target.currentLessonId == nil { target.currentLessonId = plan?.lessons.first?.id }
-        target.updatedAt = Date()
-        try? modelContext.save()
 
         withAnimation(BTMotion.springPanel) {
             isCurrentPlanActive = true

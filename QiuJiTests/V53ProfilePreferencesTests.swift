@@ -2,6 +2,7 @@ import XCTest
 import UIKit
 import StoreKit
 import StoreKitTest
+import Combine
 @testable import QiuJi
 
 @MainActor
@@ -279,6 +280,32 @@ final class V53ProfilePreferencesTests: XCTestCase {
             ),
             "永久有效"
         )
+    }
+
+    func testRestoreLoadingTransitionsPreserveExistingEntitlementLabel() async throws {
+        let session = try SKTestSession(configurationFileNamed: "Products")
+        session.resetToDefaultState()
+        session.disableDialogs = true
+        session.clearTransactions()
+        defer { session.clearTransactions() }
+        _ = try await session.buyProduct(identifier: StoreKitService.lifetimeID)
+        _ = try await waitForEntitlement(StoreKitService.lifetimeID, present: true)
+        let manager = SubscriptionManager.shared
+        await manager.checkEntitlements()
+        XCTAssertFalse(manager.isLoading)
+        XCTAssertEqual(manager.entitlementStatusLabel, "永久有效")
+        var loadingStates: [Bool] = []
+        var statusLabels: [String] = []
+        let observation = manager.$isLoading.dropFirst().sink { value in
+            loadingStates.append(value)
+            statusLabels.append(manager.entitlementStatusLabel)
+        }
+        defer { observation.cancel() }
+        let restored = await manager.restorePurchases()
+        XCTAssertTrue(restored)
+        XCTAssertEqual(loadingStates, [true, false])
+        XCTAssertEqual(statusLabels, ["永久有效", "永久有效"])
+        XCTAssertFalse(manager.isLoading)
     }
 
     func testStoreKitConfigurationLoadsMonthlyYearlyAndLifetimeProducts() async throws {

@@ -104,6 +104,35 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
     }
 
     /// P7.1：3D 角度训练——底部不留空条、按钮悬浮右下。
+    func testV57AimingFramingAndLargerControls() throws {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        XCTAssertTrue(openCard(homeTab: "练", title: "3D 角度训练"))
+        XCTAssertTrue(startAimingTrainingFromSheet())
+        for question in 1...3 {
+            let answer = app.buttons["答题"].firstMatch
+            XCTAssertTrue(answer.waitForExistence(timeout: 8))
+            let assist = app.buttons["辅助"].firstMatch
+            XCTAssertTrue(assist.exists)
+            for button in [answer, assist] {
+                XCTAssertGreaterThanOrEqual(button.frame.height, 44)
+                XCTAssertGreaterThanOrEqual(button.frame.width, 44)
+                XCTAssertTrue(app.windows.firstMatch.frame.contains(button.frame))
+            }
+            sleep(2)
+            snap("v57-framed-q\(question)")
+            answer.tap()
+            XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 4))
+            snap("v57-framed-keypad-q\(question)")
+            app.buttons["4"].firstMatch.tap()
+            app.buttons["5"].firstMatch.tap()
+            app.buttons["提交"].tap()
+            let next = app.buttons["下一题"].firstMatch
+            XCTAssertTrue(next.waitForExistence(timeout: 5))
+            if question < 3 { next.tap() }
+        }
+    }
+
     func testSceneAiming3DLayout() throws {
         guard openCard(homeTab: "练", title: "3D 角度训练") else {
             XCTFail("未能进入 3D 角度训练"); return

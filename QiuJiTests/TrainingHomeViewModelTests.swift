@@ -34,18 +34,22 @@ final class TrainingHomeViewModelTests: XCTestCase {
                       "\(id) 未能从 Bundle 解码")
     }
 
-    /// 建一个只含指定 drill 的自定义计划并激活。
-    private func activateCustomPlan(
+    /// v57: 模板通过真实今日入队路径冻结剂量，不再伪装成官方主线。
+    private func enqueueCustomPlan(
         context: ModelContext, drillId: String, nameZh: String, rounds: Int
-    ) throws {
+    ) throws -> ScheduledTrainingBlock {
         let plan = CustomPlan(name: "W2 测试计划", sessionsPerWeek: 3)
         plan.drills = [
             CustomPlanDrill(drillId: drillId, drillNameZh: nameZh,
                             roundsPerFormation: rounds, order: 0)
         ]
         context.insert(plan)
-        context.insert(UserActivePlan(planId: plan.id.uuidString, isCustom: true))
         try context.save()
+        let result = try TodayTrainingScheduleService(context: context).addTemplate(plan)
+        switch result {
+        case .added(let item), .alreadyPresent(let item):
+            return try ScheduledTrainingBlock(item: item)
+        }
     }
 
     // MARK: - 多球形展开顺序与逐组 token（R6）
@@ -58,17 +62,14 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let context = makeContext()
         // v34 R9：roundsPerFormation = 遍数倍数；×2 ⇒ 每球形 defaultRounds×2、位置全覆盖。
         let multiplier = 2
-        try activateCustomPlan(context: context, drillId: content.id,
+        let block = try enqueueCustomPlan(context: context, drillId: content.id,
                                nameZh: content.nameZh, rounds: multiplier)
 
-        let vm = TrainingHomeViewModel()
-        await vm.load(context: context)
-
-        let session = try XCTUnwrap(vm.todaySession)
-        XCTAssertTrue(session.isFromTemplate)
-        XCTAssertEqual(session.weekTheme, "今日清单")
-        XCTAssertEqual(session.planNameZh, "W2 测试计划")
-        let item = try XCTUnwrap(session.drills.first)
+        let vm = ActiveTrainingViewModel(mode: .scheduled(block))
+        await vm.loadDrills()
+        XCTAssertEqual(block.sourceTitle, "W2 测试计划")
+        XCTAssertEqual(block.sourceKind, TodayScheduleSourceKind.template)
+        let item = try XCTUnwrap(vm.drills.first)
         let expectedSetCount = perFormation.reduce(0) { $0 + $1.defaultRounds * multiplier }
         XCTAssertEqual(item.plannedSets.count, expectedSetCount)
 
@@ -109,22 +110,19 @@ final class TrainingHomeViewModelTests: XCTestCase {
 
         let context = makeContext()
         let multiplier = 2
-        try activateCustomPlan(context: context, drillId: content.id,
+        let block = try enqueueCustomPlan(context: context, drillId: content.id,
                                nameZh: content.nameZh, rounds: multiplier)
 
-        let vm = TrainingHomeViewModel()
-        await vm.load(context: context)
-
-        let item = try XCTUnwrap(vm.todaySession?.drills.first)
+        let vm = ActiveTrainingViewModel(mode: .scheduled(block))
+        await vm.loadDrills()
+        let item = try XCTUnwrap(vm.drills.first)
         let expected = perFormation.flatMap {
             Array(repeating: $0.ballsPerRound, count: $0.defaultRounds * multiplier)
         }
         XCTAssertEqual(item.plannedSets.map(\.targetBalls), expected)
-        XCTAssertEqual(item.totalBalls, expected.reduce(0, +))
-        // 异构不得再渲染成「N 轮 × N 球」
-        XCTAssertTrue(item.volumeText.contains("球形"), "异构文案实际为：\(item.volumeText)")
-
-        print("[W4-EVIDENCE] c069 volumeText=\(item.volumeText) targets=\(expected)")
+        XCTAssertEqual(item.plannedSets.reduce(0) { $0 + $1.targetBalls }, expected.reduce(0, +))
+        // Frozen heterogeneous groups must remain heterogeneous after the actual launch path.
+        XCTAssertGreaterThan(Set(item.plannedSets.map(\.targetBalls)).count, 1)
     }
 
     // MARK: - sequence / repetition 口径（R3）
@@ -459,8 +457,9 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let plan = try XCTUnwrap(plans.first)
 
         let context = makeContext()
-        context.insert(UserActivePlan(planId: plan.id, isCustom: false))
-        try context.save()
+        try PlanProgressService.activateOfficialPlan(
+            plan, ownerKey: CurrentOwnerContext.shared.ownerKey, context: context
+        )
 
         let vm = TrainingHomeViewModel()
         await vm.load(context: context)
@@ -483,7 +482,7 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let planned = try bundledDrill("drill_c013")
         let free = try bundledDrill("drill_c069")
         let context = makeContext()
-        try activateCustomPlan(
+        let block = try enqueueCustomPlan(
             context: context,
             drillId: planned.id,
             nameZh: planned.nameZh,
@@ -502,7 +501,8 @@ final class TrainingHomeViewModelTests: XCTestCase {
         let vm = TrainingHomeViewModel()
         await vm.load(context: context)
 
-        XCTAssertEqual(vm.todaySession?.drills.map(\.drillId), [planned.id])
+        XCTAssertNil(vm.todaySession, "模板不再充当官方主线建议")
+        XCTAssertEqual(block.drills.map(\.drillID), [planned.id])
         let supplemental = try XCTUnwrap(vm.todaySupplementalDrills.first)
         XCTAssertEqual(supplemental.drillId, free.id)
         XCTAssertEqual(supplemental.nameZh, free.nameZh)

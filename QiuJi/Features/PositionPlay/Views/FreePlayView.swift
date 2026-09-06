@@ -624,7 +624,7 @@ struct FreePlayView: View {
     // MARK: - Palette bar（G8 + G21：BTReferenceBallPalette；P10.1 只读参考）
 
     private func paletteBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return BTReferenceBallPalette(
             ballDiameter: proxy.paletteBallDiameter,
             libraryWidth: libraryWidth,

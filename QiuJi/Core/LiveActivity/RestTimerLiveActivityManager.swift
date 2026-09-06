@@ -3,7 +3,16 @@ import AVFoundation
 import Foundation
 
 @MainActor
-final class RestTimerLiveActivityManager {
+protocol RestTimerLiveActivityManaging: AnyObject {
+    func startActivity(drillName: String, state: RestTimerAttributes.ContentState)
+    func updateActivity(state: RestTimerAttributes.ContentState)
+    func endActivity()
+    func activateBackgroundAudio()
+    func deactivateBackgroundAudio()
+}
+
+@MainActor
+final class RestTimerLiveActivityManager: RestTimerLiveActivityManaging {
     static let shared = RestTimerLiveActivityManager()
     private var currentActivity: Activity<RestTimerAttributes>?
     private var silentPlayer: AVAudioPlayer?
@@ -12,37 +21,35 @@ final class RestTimerLiveActivityManager {
 
     // MARK: - Live Activity
 
-    func startActivity(drillName: String, totalSeconds: Int, endDate: Date) {
+    func startActivity(drillName: String, state: RestTimerAttributes.ContentState) {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
 
         endAllStaleActivities()
 
         let attributes = RestTimerAttributes(drillName: drillName)
-        let state = RestTimerAttributes.ContentState(
-            endDate: endDate,
-            totalSeconds: totalSeconds
-        )
 
         do {
             let activity = try Activity<RestTimerAttributes>.request(
                 attributes: attributes,
-                content: .init(state: state, staleDate: endDate.addingTimeInterval(5)),
+                content: .init(state: state, staleDate: state.endDate.addingTimeInterval(5)),
                 pushType: nil
             )
             currentActivity = activity
+            #if DEBUG
+            print("[RestTrace] event=start id=\(activity.id) now=\(Date().timeIntervalSince1970) end=\(state.endDate.timeIntervalSince1970) total=\(state.totalSeconds)")
+            #endif
         } catch {
             print("[LiveActivity] Failed to start: \(error.localizedDescription)")
         }
     }
 
-    func updateEndDate(_ endDate: Date) {
+    func updateActivity(state: RestTimerAttributes.ContentState) {
         guard let activity = currentActivity else { return }
-        let state = RestTimerAttributes.ContentState(
-            endDate: endDate,
-            totalSeconds: activity.content.state.totalSeconds
-        )
         Task {
-            await activity.update(.init(state: state, staleDate: endDate.addingTimeInterval(5)))
+            await activity.update(.init(state: state, staleDate: state.endDate.addingTimeInterval(5)))
+            #if DEBUG
+            print("[RestTrace] event=update-completed id=\(activity.id) now=\(Date().timeIntervalSince1970) end=\(state.endDate.timeIntervalSince1970) total=\(state.totalSeconds)")
+            #endif
         }
     }
 
@@ -57,6 +64,9 @@ final class RestTimerLiveActivityManager {
                 .init(state: finalState, staleDate: nil),
                 dismissalPolicy: .immediate
             )
+            #if DEBUG
+            print("[RestTrace] event=end-completed id=\(activity.id) now=\(Date().timeIntervalSince1970)")
+            #endif
         }
         currentActivity = nil
     }

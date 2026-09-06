@@ -13,7 +13,8 @@ enum BTBallPaletteMetrics {
     static let regularDiameter: CGFloat = 36
     static let ghostDiameter: CGFloat = 42
     static let columns = 8
-    static let rowSpacing: CGFloat = 3
+    // Compact the gaps, not the balls or the page's reserved table area.
+    static let rowSpacing: CGFloat = 0
     static let minimumHitSize: CGFloat = 44
     static let dragMinimumDistance: CGFloat = 10
     static let faceStroke = Color.white.opacity(0.18)

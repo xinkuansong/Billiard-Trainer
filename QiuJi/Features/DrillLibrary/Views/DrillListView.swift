@@ -25,8 +25,8 @@ struct DrillListView: View {
         GridItem(.flexible(), spacing: Spacing.md),
     ]
 
-    private var completedDrillIds: Set<String> {
-        Set(sessions.flatMap { $0.drillEntries.map(\.drillId) })
+    private var practiceCounts: [String: Int] {
+        DrillPracticeCounts.make(sessions: sessions, ownerKey: ownerKey)
     }
 
     var body: some View {
@@ -45,14 +45,14 @@ struct DrillListView: View {
             await viewModel.loadDrills()
         }
         .onAppear {
-            viewModel.updateCompletedDrillIds(completedDrillIds)
+            viewModel.updatePracticeCounts(practiceCounts)
         }
-        .onChange(of: completedDrillIds) { _, newValue in
-            viewModel.updateCompletedDrillIds(newValue)
+        .onChange(of: practiceCounts) { _, newValue in
+            viewModel.updatePracticeCounts(newValue)
         }
     }
 
-    /// Ball type + tutorial/progress filters live in one Menu (v28 W3); badge shows active count.
+    /// Ball type + tutorial filters live in one Menu (v28 W3); badge shows active count.
     private var libraryFilterActiveCount: Int {
         var count = 0
         if viewModel.ballTypeFilter != .all { count += 1 }
@@ -78,7 +78,7 @@ struct DrillListView: View {
                     .accessibilityIdentifier("ballTypeMenu_\(filter.rawValue)")
                 }
             }
-            Section("精讲与进度") {
+            Section("精讲类型") {
                 ForEach(DrillBadgeFilter.allCases) { filter in
                     Button {
                         withAnimation(BTMotion.easeFast) {
@@ -243,7 +243,7 @@ struct DrillListView: View {
                                         BTDrillGridCard(
                                             drill: drill,
                                             isFavorited: isFavorited(drill.id),
-                                            isCompleted: completedDrillIds.contains(drill.id),
+                                            practiceCount: viewModel.practiceCounts[drill.id, default: 0],
                                             onFavoriteTap: { toggleFavorite(drill.id) }
                                         )
                                     }

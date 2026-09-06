@@ -285,6 +285,9 @@ struct BTLevelBadge: View {
 - `BTPlanCover(planId:targetLevel:issueNumber:mode:)`：`planId` 经 `AtmosphereCatalog.image(forPlanId:)` 取独立静物图（`CoverArtKey`），缺图回退渐变；`targetLevel` 只供回退渐变色，**禁止**再当卡面彩色罩（DR-080 / v46）。
 - **禁止**再叠主题水印（入门 / 准度 / 控力等）。列表态保留「第 N 期」。识别靠卡下 `BTContentGridCard` 标题。`PlanCoverLabel` 仅作数据映射，不上屏。
 - 练习网格：静物 + 左上分组 01 编号 + Pro 徽标；禁止两字水印 / 类型 chip。
+- **v57 / DR-087 动作卡计次**：`BTDrillGridCard(practiceCount: Int = 0)`；正数彩色勾选胶囊“已练 N 次”与类型标签同行，0不显示，完整次数保留AX标签。口径为当前owner的已保存独立DrillEntry.id，同场重复动作的不同条目分别计次。动作库菜单移除“已完成”；详情可用态加入训练采用primary，保持真实sheet/保存行为。覆盖DR-077封面右下已练标记。
+- **v57 / DR-086 计划交互**：阶段内 `lesson.order` 显示第 N 天，课题另行显示；summary 不在计划页渲染。动作主体使用同训练栈详情路由，球形剂量为独立 44pt 按钮。返回时保留滚动容器及用户折叠选择；不改变课程 ID、剂量或完成推进语义。
+- **v57 / DR-085 计划状态角标**：`BTPlanActivationBadge(status:)` 仅用于官方计划货架封面左下；`active` 显示「进行中」、`paused` 显示「已激活」、`completed` 显示「已完成」、nil 不显示。状态来自 owner 内共享主线服务，不能用“存在任意记录”判断进行中。使用 `btBGSecondary` 胶囊与 `btPrimary` 文字，不改封面配色。
 
 ### 2.3d 共享表层语法与练习混合封面（DR-045 / v28）
 
@@ -1098,6 +1101,28 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 > 每次任务执行后如有组件 API 变更或设计调整，在此追加记录。
 
+| 2026-09-06 | 用户裁定撤销DR-092/FL-051相机方案，原始取景与交互恢复；辅助/答题尺寸保留 | 相机回退 | CameraRig、AngleSceneView、SceneAimingView | v57 W5（原相机3单测/最终1 UI通过，方案撤销） |
+| 2026-09-06 | FL-051：撤销新增角度搜索/叠加曲线，保留自动取景并恢复原22°–45°俯仰/FOV曲线 | 相机交互返工 | CameraRig、AimingFramingSolver | v57 W5（4单测+1 UI通过，真机待复验） |
+| 2026-09-06 | DR-092：3D角度训练按球/目标袋实际投影拟合，预留实测键盘高度；局部辅助/答题44pt高与15pt字体 | 三目标取景/控件 | SceneAimingView、CameraRig | v57 W5（手机局部通过，完整矩阵待验） |
+| 2026-09-06 | DR-091 / FL-049：系统时间圆环；展开岛标题+数字单行；普通模板测宽约束动态Text，锁屏完整文字与时间推移必须验证 | 实时活动布局 | RestTimerLiveActivity | v57 W7（模拟器局部通过，真机待验） |
+
+| 2026-09-05 | **W4 返工**（FL-044/045）：内存容器与模型State同生命周期；动作卡纵向固有尺寸防标题挤压 | 验收/FL | 调试宿主/动作卡 | v57 W4（复验中） |
+| 2026-09-06 | DR-090：球库最大宽352pt、行额外间距0；球体30/36、底栏94/140保持，初始化前后同宽 | 组件布局 | 共享球库及全部消费页 | v57 W5验证中 |
+| 2026-09-05 | FL-048：虚拟身份界面fixture隔离真实网络；R3原失败用例通过 | 测试约束 | APIClient DEBUG / Profile测试 | v57 W6 |
+| 2026-09-05 | **中性游客卡与会员行**（DR-089）：游客沿用账号卡中性色，Pro/真实状态独立一行并允许换行，保留登录与账号入口 | 页面样式 | ProfileView | v57 W6验证中 |
+| 2026-09-05 | **DR-088撤回**（FL-047）：用户否决球库/球桌比例，已恢复原球径和底栏结构。重做保持球桌主要面积，原通过仅属数值证据 | 返工约束 | 全页面球库 | v57 W5返工 |
+| 2026-09-05 | **提球取证会员前置**（FL-046）：旧测试进入Pro门控页前显式声明会员fixture，保留真实权限逻辑 | 测试约束 | 提球UI取证 | v57 W5 |
+| 2026-09-05 | **已撤回：全页面球库密度**（DR-088，用户否决比例，见FL-047）：40pt视觉球/44pt独立槽、行间额外0、8列352pt；覆盖共用三种球库、AngleDynamic和提球Token，保留手势语义。覆盖旧30/36与440尺寸；BTBallPaletteWithActions用于两提球页右列/下方按钮自适应 | 组件布局 | 全部球库含练习页 | v57 W5（验证中） |
+| 2026-09-05 | **动作卡计次与加入按钮**（DR-087）：按已保存条目计次，类型同行勾选胶囊；移除已完成筛选，加入按钮primary | 组件/数据 | DrillList / BTDrillGridCard / DrillDetail | v57 W4（验收中） |
+| 2026-09-05 | **阶段标题整行命中**（FL-039 补充）：PlanDetail chapterHeader 覆盖宽屏透明留白，保留中心点击折叠断言 | 交互/FL | 计划详情 | v57 W3 |
+| 2026-09-05 | **真实外观验收**（FL-043）：兼容 XCTest 环境前缀，截图验证实际 Light/Dark | 验收/FL | 导航矩阵 | v57 W3 |
+| 2026-09-05 | **根页测量**（FL-042）：可选 NavigationBar 先查存在 | 验收/FL | 导航测试 helper | v57 W3 |
+| 2026-09-05 | **计划日序与动作往返**（DR-086）：第 N 天 + 短课题；主体进入同栈详情，独立剂量展开；返回保留阅读状态 | 修正/DR | PlanDetail / TrainingRoute | v57 W3（已验收） |
+| 2026-09-05 | **位置测试起点**（FL-041）：全部待操作控件须先露出，避免 XCTest 自动揭露滚动混入切换位移 | 验收/FL | 首页筛选 UI 测试 | v57 W2 |
+| 2026-09-05 | **UI 验收焦点隔离**（FL-040）：XCUITest 运行期间禁止操作 Simulator 共享窗口/键盘；受干扰失败先保留、同源码隔离复跑，再完成整个单元 | 验收/FL | Simulator / XCUITest | 问题集合 v57 W2 |
+
+| 2026-09-05 | **整行 plain 按钮命中区**（FL-039）：标签含 Spacer 时显式声明矩形 contentShape；宽屏点击中间留白也必须完成动作，不能仅验证文字或图标点击 | 修正/FL | DrillPickerSheet / 整行 Button | 问题集合 v57 W2 |
+| 2026-09-05 | **v57 首页三源展示与计划状态**（DR-085）：今日安排按已加入课块、未加入建议、已保存历史展示；完成后保留完成数/总数及用时，并显示自由训练入口；官方计划状态角标区分进行中/已激活/已完成；模版主体编辑、菜单加入；筛选沿用真实滚动位置，短结果保留足够内容高度 | 修正/DR | TrainingHome, PlanList, BTPlanActivationBadge | 问题集合 v57 W2（矩阵验收中） |
 | 2026-09-04 | **v51 紧凑手机响应式布局收口**：训练顶栏以 `ViewThatFits` 提供完整/紧凑形态，计时始终单行且关键命中区 ≥44pt；跨 Tab 浮标按真实 Tab Bar/safe-area frame 定位；共享击球舞台 compact 轨道取 `min(available, 180pt, tableHeight×45%)`、regular 上限 264pt，两轨等长同底；球库视觉球 compact/regular 为 30/36pt、命中槽 ≥44pt、宽度封顶 440pt；状态件保留完整 AX 语义，Chip 在容不下或 AX 字号时切横滚。禁止按设备型号分支，保持训练状态机、力度/瞄准数值和球桌世界几何不变 | 修正/响应式 | ActiveTrainingView, MainTabView, BTFloatingIndicator, ShotStageProxy, BTBallPaletteBar, BTShotPageChrome, BTChipRow | 问题集合 v51 W1–W5 |
 | 2026-09-04 | **v56 全 App 色彩语义与 Premium 材质契约**（DR-083）：品牌绿 Light `#1A6B3C` / Dark `#25A25A` 不改色相；导航/筛选/主操作按三级强度统一；覆盖 DR-043 的筛选黑白反相规则；Pro 拆 `btPremiumForeground/Surface/Border`，保留 `star.fill` / `crown.fill`，≥24pt 可用生成拉丝材质 mask，小尺寸/增强对比度纯色回退；warning/success/physics 与 Premium 解耦；Apple、暗场 HUD、彩球/轨迹和 `BTBrandLogo` 为例外 | 新增/DR | Colors, BTFilterChip, BTTogglePillGroup, BTPremiumLock, BTProBadge, BTButton, Profile/Subscription | 问题集合 v56 W0 |
 | 2026-09-04 | **v56 实施收口 + 固定暗面 Premium 对比**（DR-084）：W1–W7 自动化范围完成；新增固定浅香槟 `btPremiumOnDark` 供 Light 页面内炭黑 Pro 卡/badge 使用，对 `#1C1C1E` 从深金约 `3.45:1` 提升到约 `11.52:1`；6/6 Light/Dark 矩阵、396/396 主图、高对比 Dark 与 AX XXXL Light 通过，OLED / Reduce Transparency 保留 H-28 | 修正/DR | Premium tokens, Profile, PlanDetail, BTProBadge, ScreenshotTour | 问题集合 v56 W1–W7 |
@@ -1313,3 +1338,6 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 | 2026-07-13 | **问题集合 v5 全批次落地**（G13–G19 + Q1–Q19，V1–V11 收官）：新增 SPEC **§8.9 瞄准与求解交互规范**——四条全局契约（a 瞄准拖动=选中+相对调整〔绕母球公转增益、封顶 0.6 度/pt，`AngleSceneCalculator.aimNudgeDegrees`〕；b 求解 0.5s idle 去抖〔`SolveDebounceScheduler`〕；c 开球通用规范〔单一真源 `BreakFlowRunner`+`BreakControlBar`+`BreakInstrumentsOverlay`、随机性只留球堆间距、开放瞄准、力度默认 6 m/s、完成/重开互换〕；d 上一杆完整快照〔`SolveShotSnapshot`+`SolveConstraintDraft`+页面 `UndoContext`，翻袋/反射用原生 `SolveUndoContext`〕）+ 全局小件登记（G15 回放禁尾速截断、G16 打点盘 inset 5→2、G19 三点入口统一含 ProfileView 豁免、V8 防守评分权重 0.6/0.4 待调优）；§8.8 词表增补页面改名（角度与打点→角度与瞄准、做斯诺克→防守）。总验收：全量 `QiuJiTests` **Executed 560 tests, 2 skipped, 0 failures**；关键 UI 套件全绿（S1/S2/S5/S6/S7/S8/ScreenshotTour/DrillTryout）；`clean` 全量重建后 3 例陈旧增量构建 SIGSEGV 转绿（非代码回归） | 新增/DR | SPEC §8.9/§8.8；`问题集合_v5.md` V1–V11 落地代码（AngleSceneView/AngleSceneCalculator/PositionPlayViewModel/SolveDebounceScheduler/BreakFlowRunner/BTShotPageChrome/BTSpinPad 等） | 问题集合 v5 |
 | 2026-07-31 | **打点盘全宽贴库边（DR-042）**：`BTSpinPadOverlay` 卡片宽=`playingRect.width`（击球区内框 / 库边内侧，非外框）；白盘直径 `SpinPadLayout` 封顶 168pt、不挤四向键；stage 级**透明**拦截层吞 tap/drag→关闭（含力度条区，无视觉压暗）；9 处调用传 `tableWidth`+`zIndex(20)`；`SpinPadLayoutTests`+`playingRect` 单测 | API 变更/DR | BTSpinPad, ShotTableLayout, 9 击打页 | DR-042 |
 | 2026-09-03 | **问题集合 v52 每日清台**：训练首页本周卡标题行右侧加入独立次要胶囊入口，支持未开始/继续/今日已清台三态；无计划也可见，最大字号下允许标题与入口分行但不得覆盖或裁切。每日页复用 `FreePlayView` 黑底球桌与击球舞台，顶部改为玩法、剩余目标、杆数、犯规、有效用时的单人 HUD；自动开球停稳后直接交付，重开/换玩法保留确认。入口与设置均需独立 AX 元素，标签包含状态和玩法。 | 新增/DR | TrainingHomeView, FreePlayView, SettingsView | 问题集合 v52 W4 |
+
+### FL-039 W3 补充（2026-09-05）
+PlanDetail 阶段标题使用完整 chapterHeader 矩形命中区，包含宽屏 Spacer；行中央点击必须展开/收起。原 iPad 失败断言保留，复验结果见 output/v57/W3。

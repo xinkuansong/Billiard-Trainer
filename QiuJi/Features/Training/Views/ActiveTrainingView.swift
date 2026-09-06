@@ -171,7 +171,7 @@ struct ActiveTrainingView: View {
     private var phaseTitle: String {
         switch viewModel.trainingPhase {
         case .active:
-            return viewModel.isPlanMode ? "按计划训练" : "自由记录"
+            return viewModel.isPlanMode ? "按计划训练" : "自由训练"
         case .note:
             return "训练心得"
         case .summary:
@@ -340,7 +340,7 @@ struct ActiveTrainingView: View {
 
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(viewModel.isPlanMode ? "按计划训练" : "自由记录")
+                    Text(viewModel.isPlanMode ? "按计划训练" : "自由训练")
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
                     // R12：三级进度优先；会话级组进度作次行。
@@ -944,6 +944,8 @@ struct DrillPickerSheet: View {
                     .padding(.horizontal, Spacing.xs)
                     .background(isSelected ? Color.btSuccess.opacity(0.08) : Color.clear)
                     .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
+                    // Plain buttons otherwise ignore the transparent Spacer on wide rows.
+                    .contentShape(Rectangle())
                 }
                 // List rows need .plain for reliable hit-testing; toggle feedback is the
                 // plus→checkmark + row tint (press scale via BTPressableStyle breaks List taps).

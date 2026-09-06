@@ -438,7 +438,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     // MARK: - Bottom bar（球库带：拖入 = 障碍球真实碰撞体；G21 BTBallPaletteBar）
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return BTBallPaletteBar(
             coordinateSpace: coordinateSpaceName,
             ballDiameter: proxy.paletteBallDiameter,

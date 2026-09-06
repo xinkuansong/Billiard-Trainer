@@ -99,12 +99,12 @@ final class V51ResponsiveLayoutTests: XCTestCase {
     func testPaletteWidthDerivesFromSafePageWidthAcrossTiers() {
         XCTAssertEqual(
             ShotStageMetrics.paletteWidth(sceneSize: CGSize(width: 375, height: 520)),
-            359,
+            352,
             accuracy: 0.001
         )
         XCTAssertEqual(
             ShotStageMetrics.paletteWidth(sceneSize: CGSize(width: 430, height: 700)),
-            414,
+            352,
             accuracy: 0.001
         )
         XCTAssertEqual(
@@ -120,6 +120,19 @@ final class V51ResponsiveLayoutTests: XCTestCase {
         XCTAssertEqual(PositionPlayBall.allKeys[8], "_8")
         XCTAssertEqual(PositionPlayBall.allKeys.last, "_15")
         XCTAssertEqual(BTBallPaletteMetrics.columns, 8)
+    }
+
+    func testPaletteCompactionPreservesBallScaleAndTableBands() {
+        XCTAssertEqual(BTBallPaletteMetrics.compactDiameter, 30)
+        XCTAssertEqual(BTBallPaletteMetrics.regularDiameter, 36)
+        XCTAssertEqual(ShotStageMetrics.BottomBarHeight.composer.rawValue, 94)
+        XCTAssertEqual(ShotStageMetrics.BottomBarHeight.planThree.rawValue, 140)
+        let paletteHeight = 2 * BTBallPaletteMetrics.slotHeight(for: 36) + BTBallPaletteMetrics.rowSpacing
+        XCTAssertLessThanOrEqual(paletteHeight, ShotStageMetrics.BottomBarHeight.composer.rawValue)
+        for width: CGFloat in [375, 390, 393, 430, 768, 1024] {
+            let column = ShotStageMetrics.paletteWidth(sceneSize: CGSize(width: width, height: 700)) / 8
+            XCTAssertEqual(column, 44, accuracy: 0.001)
+        }
     }
 
     func testPowerMappingRoundTripsAcrossCompactAndRegularRailLengths() {

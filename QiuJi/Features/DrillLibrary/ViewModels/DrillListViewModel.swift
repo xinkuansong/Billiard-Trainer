@@ -54,14 +54,13 @@ enum DrillLevelFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// Corner-badge filters (E19 → v26 W0 → DR-067): tutorial template kind / completion.
+/// Corner-badge filters (E19 → v26 W0 → DR-067): tutorial template kind.
 /// 「有精讲」已移除：全库 drill 均有精讲，该筛选项无区分度。
 enum DrillBadgeFilter: String, CaseIterable, Identifiable {
     case all = "全部角标"
     case singleShotTutorial = "单杆技术课"
     case multiShotTutorial = "应用课"
     case rulesetTutorial = "规则流程课"
-    case completed = "已完成"
 
     var id: String { rawValue }
 
@@ -72,17 +71,13 @@ enum DrillBadgeFilter: String, CaseIterable, Identifiable {
         case .singleShotTutorial: return DrillTutorialKind.singleShot.filterLabel
         case .multiShotTutorial: return DrillTutorialKind.multiShot.filterLabel
         case .rulesetTutorial: return DrillTutorialKind.ruleset.filterLabel
-        case .completed: return "已完成"
         }
     }
 
     /// Short label kept for tests / accessibility aliases.
     var chipLabel: String { menuLabel }
 
-    func matches(
-        _ drill: DrillContent,
-        completedIds: Set<String>
-    ) -> Bool {
+    func matches(_ drill: DrillContent) -> Bool {
         let kind = DrillTutorialKindResolver.resolve(for: drill)
         switch self {
         case .all:
@@ -93,8 +88,6 @@ enum DrillBadgeFilter: String, CaseIterable, Identifiable {
             return kind == .multiShot
         case .rulesetTutorial:
             return kind == .ruleset
-        case .completed:
-            return completedIds.contains(drill.id)
         }
     }
 }
@@ -107,8 +100,8 @@ final class DrillListViewModel: ObservableObject {
     @Published var categoryFilter: DrillCategory? = nil
     @Published var levelFilter: DrillLevelFilter = .all
     @Published var badgeFilter: DrillBadgeFilter = .all
-    /// Drill IDs that appear in any persisted `TrainingSession` entry (ever practiced).
-    @Published var completedDrillIds: Set<String> = []
+    /// Counts distinct saved entry identities, including repeats in one session.
+    @Published private(set) var practiceCounts: [String: Int] = [:]
     @Published var isLoading = true
 
     /// 从详情返回时要滚回的动作 id；侧栏换分组时清掉（Q19.1 回顶优先）。
@@ -119,7 +112,7 @@ final class DrillListViewModel: ObservableObject {
 
     init() {
         let primary = Publishers.CombineLatest3($searchText, $ballTypeFilter, $categoryFilter)
-        let secondary = Publishers.CombineLatest3($levelFilter, $badgeFilter, $completedDrillIds)
+        let secondary = Publishers.CombineLatest($levelFilter, $badgeFilter)
         primary.combineLatest(secondary)
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] _, _ in
@@ -142,10 +135,9 @@ final class DrillListViewModel: ObservableObject {
         }
     }
 
-    func updateCompletedDrillIds(_ ids: Set<String>) {
-        guard ids != completedDrillIds else { return }
-        completedDrillIds = ids
-        applyFilters()
+    func updatePracticeCounts(_ counts: [String: Int]) {
+        guard counts != practiceCounts else { return }
+        practiceCounts = counts
     }
 
     #if DEBUG
@@ -178,8 +170,7 @@ final class DrillListViewModel: ObservableObject {
         }
 
         if badgeFilter != .all {
-            let completed = completedDrillIds
-            filtered = filtered.filter { badgeFilter.matches($0, completedIds: completed) }
+            filtered = filtered.filter { badgeFilter.matches($0) }
         }
 
         let grouped = Dictionary(grouping: filtered) { $0.category }
@@ -188,5 +179,21 @@ final class DrillListViewModel: ObservableObject {
             guard let drills = grouped[cat.rawValue], !drills.isEmpty else { return nil }
             return (category: cat, drills: drills)
         }
+    }
+}
+
+/// The caller supplies saved sessions; owner filtering is also enforced here.
+@MainActor
+enum DrillPracticeCounts {
+    static func make(sessions: [TrainingSession], ownerKey: String) -> [String: Int] {
+        var seen: Set<UUID> = []
+        var counts: [String: Int] = [:]
+        for session in sessions where session.ownerKey == ownerKey {
+            for entry in session.drillEntries where !entry.drillId.isEmpty {
+                guard seen.insert(entry.id).inserted else { continue }
+                counts[entry.drillId, default: 0] += 1
+            }
+        }
+        return counts
     }
 }

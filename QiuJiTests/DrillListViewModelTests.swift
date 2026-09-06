@@ -1,5 +1,7 @@
 import XCTest
 import Combine
+import SwiftData
+import SwiftUI
 @testable import QiuJi
 
 @MainActor
@@ -270,6 +272,167 @@ final class DrillListViewModelTests: XCTestCase {
                 let prevExpectedIndex = expectedOrder.firstIndex(of: resultOrder[i - 1])!
                 XCTAssertGreaterThan(expectedIndex, prevExpectedIndex,
                                      "Categories should follow DrillCategory.allCases order")
+            }
+        }
+    }
+}
+
+
+@MainActor
+final class V57PracticeCountTests: XCTestCase {
+    private let owner = "guest:v57-practice-count"
+
+    func testTwoSavedEntriesForSameDrillInOneSessionCountTwice() throws {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = container.mainContext
+        let session = TrainingSession(ownerKey: owner)
+        context.insert(session)
+        for index in 0..<2 {
+            let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球", orderIndex: index)
+            context.insert(entry)
+            session.drillEntries.append(entry)
+        }
+        try context.save()
+        let saved = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(DrillPracticeCounts.make(sessions: saved, ownerKey: owner), ["drill_c001": 2])
+        XCTAssertEqual(DrillPracticeCounts.make(sessions: saved + saved, ownerKey: owner), ["drill_c001": 2])
+    }
+
+    func testSameEntryIdentityDoesNotCountTwice() {
+        let session = TrainingSession(ownerKey: owner)
+        let first = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球")
+        let duplicate = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球")
+        duplicate.id = first.id
+        session.drillEntries = [first, duplicate]
+        XCTAssertEqual(DrillPracticeCounts.make(sessions: [session], ownerKey: owner), ["drill_c001": 1])
+    }
+
+    func testSetsDoNotIncreasePracticeCount() {
+        let session = TrainingSession(ownerKey: owner)
+        let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球")
+        entry.sets = (1...12).map { DrillSet(setNumber: $0, targetBalls: 10, madeBalls: 8) }
+        session.drillEntries = [entry]
+        XCTAssertEqual(DrillPracticeCounts.make(sessions: [session], ownerKey: owner), ["drill_c001": 1])
+    }
+
+    func testLargeCountsAndZero() {
+        for count in [0, 1, 2, 10, 100, 1000] {
+            let session = TrainingSession(ownerKey: owner)
+            session.drillEntries = (0..<count).map { index in
+                DrillEntry(drillId: "drill_c001", drillNameZh: "直线球", orderIndex: index)
+            }
+            let counts = DrillPracticeCounts.make(sessions: [session], ownerKey: owner)
+            XCTAssertEqual(counts["drill_c001", default: 0], count)
+            if count == 0 { XCTAssertTrue(counts.isEmpty) }
+        }
+    }
+
+    func testOneToTwoPublishesEvenWhenDrillIDSetIsUnchanged() {
+        let viewModel = DrillListViewModel()
+        var snapshots: [[String: Int]] = []
+        let observation = viewModel.$practiceCounts.sink { snapshots.append($0) }
+        viewModel.updatePracticeCounts(["drill_c001": 1])
+        viewModel.updatePracticeCounts(["drill_c001": 2])
+        viewModel.updatePracticeCounts(["drill_c001": 2])
+        XCTAssertEqual(snapshots, [[:], ["drill_c001": 1], ["drill_c001": 2]])
+        withExtendedLifetime(observation) {}
+    }
+
+    func testOwnerSwitchReplacesCountsAndDeletionRefreshesThem() throws {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = container.mainContext
+        for key in [owner, "account:other"] {
+            let session = TrainingSession(ownerKey: key)
+            context.insert(session)
+            for _ in 0..<(key == owner ? 2 : 1) {
+                let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球")
+                context.insert(entry)
+                session.drillEntries.append(entry)
+            }
+        }
+        try context.save()
+        let sessions = try context.fetch(FetchDescriptor<TrainingSession>())
+        let vm = DrillListViewModel()
+        vm.updatePracticeCounts(DrillPracticeCounts.make(sessions: sessions, ownerKey: owner))
+        XCTAssertEqual(vm.practiceCounts["drill_c001"], 2)
+        vm.updatePracticeCounts(DrillPracticeCounts.make(sessions: sessions, ownerKey: "account:other"))
+        XCTAssertEqual(vm.practiceCounts["drill_c001"], 1)
+        let own = try XCTUnwrap(sessions.first { $0.ownerKey == owner })
+        context.delete(try XCTUnwrap(own.drillEntries.first))
+        try context.save()
+        vm.updatePracticeCounts(DrillPracticeCounts.make(
+            sessions: try context.fetch(FetchDescriptor<TrainingSession>()), ownerKey: owner))
+        XCTAssertEqual(vm.practiceCounts["drill_c001"], 1)
+        context.delete(own)
+        try context.save()
+        vm.updatePracticeCounts(DrillPracticeCounts.make(
+            sessions: try context.fetch(FetchDescriptor<TrainingSession>()), ownerKey: owner))
+        XCTAssertTrue(vm.practiceCounts.isEmpty)
+    }
+
+    func testCountsSurviveClosingAndReopeningTheSavedStore() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("v57-count-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer {
+            do { try FileManager.default.removeItem(at: directory) }
+            catch { XCTFail("Could not clean isolated store: \(error)") }
+        }
+        let url = directory.appendingPathComponent("test.store")
+        func populate() throws {
+            let store = try ModelContainerFactory.makeContainer(at: url)
+            let context = store.mainContext
+            let session = TrainingSession(ownerKey: owner)
+            context.insert(session)
+            for _ in 0..<2 {
+                let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球")
+                context.insert(entry)
+                session.drillEntries.append(entry)
+            }
+            try context.save()
+        }
+        try populate()
+        let reopened = try ModelContainerFactory.makeContainer(at: url)
+        XCTAssertEqual(DrillPracticeCounts.make(
+            sessions: try reopened.mainContext.fetch(FetchDescriptor<TrainingSession>()), ownerKey: owner),
+            ["drill_c001": 2])
+    }
+}
+
+@MainActor
+final class V57PracticeCardRenderTests: XCTestCase {
+    func testCountsBesideMultiShotKindAtRealGridWidths() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c026")
+        let drill = try XCTUnwrap(loaded)
+        XCTAssertEqual(DrillTutorialKindResolver.resolve(for: drill)?.cardLabel, "多杆")
+        // Mirror the real two-column grid: 76pt sidebar, 12pt outer inset/gap,
+        // followed by the card's own 12pt text inset on either side.
+        for screenWidth: CGFloat in [375, 393, 1032] {
+            let columnWidth = (screenWidth - 76 - 24 - 12) / 2
+            for dark in [false, true] {
+                for largeText in [false, true] {
+                    let content = LazyVGrid(columns: [
+                        GridItem(.fixed(columnWidth), spacing: 12),
+                        GridItem(.fixed(columnWidth), spacing: 12),
+                    ], spacing: 12) {
+                        ForEach([0, 1, 2, 10, 100, 1000], id: \.self) { count in
+                            BTDrillGridCard(drill: drill, isFavorited: false, practiceCount: count)
+                                .frame(width: columnWidth)
+                        }
+                    }
+                    .padding(12)
+                    .frame(width: screenWidth - 76)
+                    .background(Color.btBG)
+                    .environment(\.colorScheme, dark ? .dark : .light)
+                    .environment(\.dynamicTypeSize, largeText ? .accessibility5 : .large)
+                    let renderer = ImageRenderer(content: content)
+                    renderer.scale = 2
+                    let rendered = try XCTUnwrap(renderer.uiImage)
+                    XCTAssertEqual(rendered.size.width, screenWidth - 76, accuracy: 0.5)
+                    let attachment = XCTAttachment(image: rendered)
+                    attachment.name = "v57-counts-\(Int(screenWidth))-\(dark ? "dark" : "light")-\(largeText ? "AX5" : "large")"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
             }
         }
     }

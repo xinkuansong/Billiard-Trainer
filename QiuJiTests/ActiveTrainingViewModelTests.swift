@@ -82,6 +82,143 @@ final class ActiveTrainingViewModelTests: XCTestCase {
 
     // MARK: - Progress
 
+    func test_restActivity_directDurationsMatchAppState() throws {
+        for duration in [59, 60, 61, 90, 120, 180] {
+            let activity = RestActivityRecorder()
+            let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+            defer { vm.stopRestTimer() }
+            vm.restDuration = duration
+            let before = Date()
+            vm.startRestTimer()
+            let state = try XCTUnwrap(activity.starts.last)
+            XCTAssertEqual(state.totalSeconds, duration)
+            XCTAssertEqual(vm.restTotalSeconds, duration)
+            XCTAssertEqual(vm.restSecondsRemaining, duration)
+            XCTAssertGreaterThanOrEqual(state.endDate.timeIntervalSince(before), Double(duration))
+            XCTAssertLessThanOrEqual(state.endDate.timeIntervalSinceNow, Double(duration))
+        }
+    }
+
+    func test_restActivity_repeatedExtensionsPreserveStartAndPublishLatestTotal() throws {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        defer { vm.stopRestTimer() }
+        vm.restDuration = 120
+        vm.startRestTimer()
+        let initial = try XCTUnwrap(activity.starts.last)
+        let started = initial.endDate.addingTimeInterval(-120)
+        vm.addRestTime(30, now: started.addingTimeInterval(10))
+        vm.addRestTime(30, now: started.addingTimeInterval(11))
+        XCTAssertEqual(activity.updates.map(\.totalSeconds), [150, 180])
+        for state in activity.updates {
+            XCTAssertEqual(state.endDate.addingTimeInterval(-Double(state.totalSeconds)), started)
+        }
+        XCTAssertEqual(vm.restTotalSeconds, 180)
+        XCTAssertEqual(vm.restSecondsRemaining, 169)
+        XCTAssertEqual(activity.updates.last?.endDate, initial.endDate.addingTimeInterval(60))
+    }
+
+    func test_restActivity_shorteningPublishesMatchingInterval() throws {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        defer { vm.stopRestTimer() }
+        vm.restDuration = 120
+        vm.startRestTimer()
+        let initial = try XCTUnwrap(activity.starts.last)
+        vm.addRestTime(-30, now: initial.endDate.addingTimeInterval(-110))
+        let updated = try XCTUnwrap(activity.updates.last)
+        XCTAssertEqual(updated.totalSeconds, 90)
+        XCTAssertEqual(updated.endDate, initial.endDate.addingTimeInterval(-30))
+        XCTAssertEqual(vm.restSecondsRemaining, 80)
+    }
+
+    func test_restActivity_shorteningPastZeroEndsWithoutPublishingInvalidInterval() throws {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        defer { vm.stopRestTimer() }
+        vm.restDuration = 60
+        vm.startRestTimer()
+        let initial = try XCTUnwrap(activity.starts.last)
+        let endCalls = activity.endCalls
+        vm.addRestTime(-90, now: initial.endDate.addingTimeInterval(-50))
+        XCTAssertEqual(vm.restSecondsRemaining, 0)
+        XCTAssertEqual(vm.restTotalSeconds, 0)
+        XCTAssertTrue(activity.updates.isEmpty)
+        XCTAssertEqual(activity.endCalls, endCalls + 1)
+    }
+
+    func test_restActivity_extensionAfterActualDeadlineDoesNotReviveStaleDisplay() throws {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        defer { vm.stopRestTimer() }
+        vm.startRestTimer()
+        let initial = try XCTUnwrap(activity.starts.last)
+        XCTAssertGreaterThan(vm.restSecondsRemaining, 0)
+        let endCalls = activity.endCalls
+        vm.addRestTime(30, now: initial.endDate.addingTimeInterval(1))
+        XCTAssertEqual(vm.restSecondsRemaining, 0)
+        XCTAssertEqual(vm.restTotalSeconds, initial.totalSeconds)
+        XCTAssertTrue(activity.updates.isEmpty)
+        XCTAssertEqual(activity.endCalls, endCalls + 1)
+    }
+
+    func test_restActivity_nonPositiveDurationDoesNotStart() {
+        let activity = RestActivityRecorder()
+        let vm = ActiveTrainingViewModel(mode: .free, liveActivityManager: activity)
+        for duration in [0, -30] {
+            vm.restDuration = duration
+            vm.startRestTimer()
+            XCTAssertFalse(vm.isRestTimerActive)
+            XCTAssertEqual(vm.restTotalSeconds, 0)
+            XCTAssertTrue(activity.starts.isEmpty)
+            XCTAssertEqual(activity.audioActivations, 0)
+        }
+    }
+
+    func test_expiredRestDismissal_doesNotHideImmediatelyRestartedRest() async throws {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        defer { vm.stopRestTimer() }
+        vm.restDuration = 60
+        vm.startRestTimer()
+        vm.refreshTimers(now: Date().addingTimeInterval(61))
+        XCTAssertEqual(vm.restSecondsRemaining, 0)
+
+        vm.restDuration = 180
+        vm.startRestTimer()
+        try await Task.sleep(for: .milliseconds(400))
+
+        XCTAssertTrue(vm.isRestTimerActive, "The previous rest's dismissal must not close a new rest")
+        XCTAssertTrue(vm.shouldShowRestOverlay)
+        XCTAssertEqual(vm.restTotalSeconds, 180)
+        XCTAssertGreaterThan(vm.restSecondsRemaining, 0)
+    }
+
+    func test_expiredRestDismissal_closesItsOwnOverlay() async throws {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        defer { vm.stopRestTimer() }
+        vm.restDuration = 120
+        vm.startRestTimer()
+        vm.refreshTimers(now: Date().addingTimeInterval(121))
+        XCTAssertEqual(vm.restSecondsRemaining, 0)
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertFalse(vm.isRestTimerActive)
+        XCTAssertFalse(vm.shouldShowRestOverlay)
+    }
+
+    func test_expiredRestDismissal_cannotAlterNewMinimizedRest() async throws {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        defer { vm.stopRestTimer() }
+        vm.restDuration = 60
+        vm.startRestTimer()
+        vm.refreshTimers(now: Date().addingTimeInterval(61))
+        vm.startRestTimer()
+        vm.minimizeRestOverlay()
+        try await Task.sleep(for: .milliseconds(400))
+        XCTAssertTrue(vm.isRestTimerActive)
+        XCTAssertTrue(vm.isRestOverlayMinimized)
+        XCTAssertTrue(vm.showsMinimizedRestChip)
+    }
+
     func test_progress_empty_drills() {
         let vm = ActiveTrainingViewModel(mode: .free)
         XCTAssertEqual(vm.progress, 0)
@@ -771,4 +908,18 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         vm.drillNotes = vm.drills.map { _ in "" }
         return vm
     }
+}
+
+/// Records the actual payload emitted by the ViewModel; does not simulate ActivityKit rendering.
+@MainActor
+private final class RestActivityRecorder: RestTimerLiveActivityManaging {
+    var starts: [RestTimerAttributes.ContentState] = []
+    var updates: [RestTimerAttributes.ContentState] = []
+    var endCalls = 0
+    var audioActivations = 0
+    func startActivity(drillName: String, state: RestTimerAttributes.ContentState) { starts.append(state) }
+    func updateActivity(state: RestTimerAttributes.ContentState) { updates.append(state) }
+    func endActivity() { endCalls += 1 }
+    func activateBackgroundAudio() { audioActivations += 1 }
+    func deactivateBackgroundAudio() {}
 }

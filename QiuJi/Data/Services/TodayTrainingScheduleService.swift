@@ -202,7 +202,7 @@ final class TodayTrainingScheduleService {
             schedule.archivedAt = date
             schedule.updatedAt = date
         }
-        if let current = all.first(where: { $0.localDayKey == key && $0.archivedAt == nil }) {
+        if let current = Self.currentSchedule(in: all, ownerKey: ownerKey, dayKey: key) {
             if context.hasChanges { try context.save() }
             return current
         }
@@ -448,6 +448,16 @@ final class TodayTrainingScheduleService {
 
     static func localDayKey(for date: Date, timeZone: TimeZone) -> String {
         V54DataMigration.localDayKey(for: date, timeZone: timeZone)
+    }
+
+    static func currentSchedule(in schedules: [TodayTrainingSchedule], ownerKey: String,
+                                dayKey: String) -> TodayTrainingSchedule? {
+        schedules.filter {
+            $0.ownerKey == ownerKey && $0.localDayKey == dayKey && $0.archivedAt == nil
+        }.sorted {
+            if $0.createdAt != $1.createdAt { return $0.createdAt > $1.createdAt }
+            return $0.id.uuidString > $1.id.uuidString
+        }.first
     }
 
     private func requiredToday(ownerKey: String) throws -> TodayTrainingSchedule {

@@ -16,7 +16,7 @@
         {
           "id": "plan_separation.stage01.lesson01",
           "order": 1,
-          "title": "分离角90度规则与厚球分离角控制",
+          "title": "90°与厚球分离角",
           "summary": "围绕分离角90度规则与厚球分离角控制完成本课训练。",
           "phases": [
             {
@@ -105,7 +105,7 @@
         {
           "id": "plan_separation.stage01.lesson02",
           "order": 2,
-          "title": "薄球分离角感知入门",
+          "title": "薄球分离角入门",
           "summary": "围绕薄球分离角感知入门完成本课训练。",
           "phases": [
             {
@@ -180,7 +180,7 @@
         {
           "id": "plan_separation.stage01.lesson03",
           "order": 3,
-          "title": "薄球分离角感知检验",
+          "title": "薄球分离角检验",
           "summary": "围绕薄球分离角感知检验完成本课训练。",
           "phases": [
             {
@@ -507,7 +507,7 @@
         {
           "id": "plan_separation.stage03.lesson01",
           "order": 1,
-          "title": "定杆分离角精确控制",
+          "title": "定杆分离角控制",
           "summary": "围绕定杆分离角精确控制完成本课训练。",
           "phases": [
             {
@@ -578,7 +578,7 @@
         {
           "id": "plan_separation.stage03.lesson02",
           "order": 2,
-          "title": "分离角走位应用入门",
+          "title": "分离角走位入门",
           "summary": "围绕分离角走位应用入门完成本课训练。",
           "phases": [
             {
@@ -649,7 +649,7 @@
         {
           "id": "plan_separation.stage03.lesson03",
           "order": 3,
-          "title": "分离角走位应用检验",
+          "title": "分离角走位检验",
           "summary": "围绕分离角走位应用检验完成本课训练。",
           "phases": [
             {

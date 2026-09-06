@@ -7,6 +7,7 @@ enum TrainingRoute: Hashable {
     case dailyClearance
     case planList
     case planDetail(planId: String)
+    case drillDetail(drillId: String)
     case customPlanBuilder
     case customPlanEdit(planId: UUID)
 }
@@ -123,7 +124,7 @@ struct PlanListView: View {
                                     TrainingRoute.planDetail(planId: plan.id)
                                 )
                             } label: {
-                                PlanCard(plan: plan, issueNumber: index + 1)
+                                PlanCard(plan: plan, issueNumber: index + 1, status: PlanProgressService.displayState(for: plan.id, in: activePlans))
                             }
                             .buttonStyle(.plain)
                             .id(plan.id)
@@ -226,6 +227,10 @@ struct PlanListView: View {
         let isActive = isUsedToday(plan)
 
         return HStack(spacing: Spacing.md) {
+            Button {
+                router.planListRestoreID = plan.id.uuidString
+                router.trainingPath.append(TrainingRoute.customPlanEdit(planId: plan.id))
+            } label: {
             HStack(spacing: Spacing.md) {
                 customThumbnail(planId: plan.id, issueNumber: issueNumber)
 
@@ -279,7 +284,10 @@ struct PlanListView: View {
                     .foregroundStyle(.btTextTertiary)
             }
             .contentShape(Rectangle())
-            .onTapGesture { requestUseForToday(plan) }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("编辑模版，\(plan.name)")
+            .accessibilityIdentifier("planList.template.edit.\(plan.id)")
 
             Menu {
                 NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
@@ -299,9 +307,11 @@ struct PlanListView: View {
                 Image(systemName: BTIcon.menuCircle)
                     .font(.btCallout)
                     .foregroundStyle(.btTextTertiary)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .accessibilityLabel("管理模版，\(plan.name)")
+            .accessibilityIdentifier("planList.template.menu.\(plan.id)")
         }
         .padding(Spacing.md)
         .background(.btBGSecondary)
@@ -459,6 +469,7 @@ struct CustomPlanThumbnail: View {
 private struct PlanCard: View {
     let plan: OfficialPlan
     let issueNumber: Int
+    let status: String?
 
     private var levelName: String {
         let raw = plan.targetLevel.components(separatedBy: "→").last?.trimmingCharacters(in: .whitespaces) ?? plan.targetLevel
@@ -482,6 +493,9 @@ private struct PlanCard: View {
                     BTProBadge()
                         .padding(Spacing.sm)
                 }
+            }
+            .overlay(alignment: .bottomLeading) {
+                BTPlanActivationBadge(status: status).padding(Spacing.sm)
             }
         }
     }

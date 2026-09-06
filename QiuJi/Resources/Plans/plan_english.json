@@ -16,7 +16,7 @@
         {
           "id": "plan_english.stage01.lesson01",
           "order": 1,
-          "title": "挤偏认知·直球近台入门",
+          "title": "近台直球挤偏入门",
           "summary": "围绕挤偏认知·直球近台入门完成本课训练。",
           "phases": [
             {
@@ -90,7 +90,7 @@
         {
           "id": "plan_english.stage01.lesson02",
           "order": 2,
-          "title": "挤偏认知·直球近台巩固",
+          "title": "近台直球挤偏巩固",
           "summary": "围绕挤偏认知·直球近台巩固完成本课训练。",
           "phases": [
             {
@@ -169,7 +169,7 @@
         {
           "id": "plan_english.stage01.lesson03",
           "order": 3,
-          "title": "挤偏认知·直球近台检验",
+          "title": "近台直球挤偏检验",
           "summary": "围绕挤偏认知·直球近台检验完成本课训练。",
           "phases": [
             {
@@ -236,7 +236,7 @@
         {
           "id": "plan_english.stage02.lesson01",
           "order": 1,
-          "title": "挤偏放大·直球长台入门",
+          "title": "长台直球挤偏入门",
           "summary": "围绕挤偏放大·直球长台入门完成本课训练。",
           "phases": [
             {
@@ -316,7 +316,7 @@
         {
           "id": "plan_english.stage02.lesson02",
           "order": 2,
-          "title": "挤偏放大·直球长台巩固",
+          "title": "长台直球挤偏巩固",
           "summary": "围绕挤偏放大·直球长台巩固完成本课训练。",
           "phases": [
             {
@@ -399,7 +399,7 @@
         {
           "id": "plan_english.stage02.lesson03",
           "order": 3,
-          "title": "挤偏放大·直球长台检验",
+          "title": "长台直球挤偏检验",
           "summary": "围绕挤偏放大·直球长台检验完成本课训练。",
           "phases": [
             {

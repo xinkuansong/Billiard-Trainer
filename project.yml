@@ -207,6 +207,9 @@ targets:
       - path: QiuJiUITests
         excludes:
           - "**/.DS_Store"
+      # Reuse the canonical local StoreKit catalog in the UI test runner.
+      - path: QiuJi/Resources/Products.storekit
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.xinkuan.qiuji.uitests

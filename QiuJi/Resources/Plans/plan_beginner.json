@@ -16,7 +16,7 @@
         {
           "id": "plan_beginner.stage01.lesson01",
           "order": 1,
-          "title": "中袋直线出杆与底袋直线出杆",
+          "title": "中底袋直线出杆",
           "summary": "围绕中袋直线出杆与底袋直线出杆完成本课训练。",
           "phases": [
             {
@@ -220,7 +220,7 @@
         {
           "id": "plan_beginner.stage02.lesson02",
           "order": 2,
-          "title": "直线推白球与半台直线球入门",
+          "title": "推白球与半台直线",
           "summary": "围绕直线推白球与半台直线球入门完成本课训练。",
           "phases": [
             {
@@ -268,7 +268,7 @@
         {
           "id": "plan_beginner.stage02.lesson03",
           "order": 3,
-          "title": "直线推白球与半台直线球检验",
+          "title": "推白球与半台直线检验",
           "summary": "围绕直线推白球与半台直线球检验完成本课训练。",
           "phases": [
             {

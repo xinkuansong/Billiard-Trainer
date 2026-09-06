@@ -258,7 +258,7 @@ struct CushionEnglishAtlasView: View {
     // MARK: - Bottom (BTBallPaletteBar：点击 + 拖放)
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return VStack(spacing: 2) {
             Text(CushionEnglishAtlasViewModel.honestyFootnote)
                 .font(.system(size: 10, weight: .medium, design: .rounded))

@@ -183,7 +183,7 @@ struct SceneAimingView: View {
 
     /// 两排 16 球、当前题目标球高亮，其余压暗；不可点、不可拖。
     private func decorativePalette(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return BTDecorativeBallPalette(
             ballDiameter: proxy.paletteBallDiameter,
             libraryWidth: libraryWidth,
@@ -246,14 +246,14 @@ struct SceneAimingView: View {
             // 3D 透视无球桌矩形，保持右下浮动）。
             if vm.phase == .observing, !vm.testFinished, vm.currentQuestion != nil {
                 positioned(proxy, size: CGSize(width: ShotStageMetrics.actionColumnWidth,
-                                               height: 68)) {
+                                               height: 96)) {
                     VStack(spacing: 8) {
                         BTTextActionButton(title: vm.showAimingAssist ? "隐藏" : "辅助",
-                                           width: ShotStageMetrics.actionColumnWidth) {
+                                           width: ShotStageMetrics.actionColumnWidth, height: 44, fontSize: 15) {
                             vm.toggleAimingAssist()
                         }
                         BTTextActionButton(title: "答题", role: .primary,
-                                           width: ShotStageMetrics.actionColumnWidth) {
+                                           width: ShotStageMetrics.actionColumnWidth, height: 44, fontSize: 15) {
                             vm.openAnswerInput()
                         }
                     }

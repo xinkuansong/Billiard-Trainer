@@ -1,5 +1,6 @@
 import SwiftUI
 import Photos
+import SwiftData
 
 struct RootView: View {
     @EnvironmentObject private var authState: AuthState
@@ -63,6 +64,11 @@ struct RootView: View {
     /// 场景（twoBall/twoBallDimmed/oneBall/cleared）由 `PlanThreeView.onAppear` 读同一 arg 注入。
     private static var uiTestDeepLink: AnyView? {
         let args = ProcessInfo.processInfo.arguments
+        #if DEBUG
+        if args.contains("-v57.practiceCountFixture") {
+            return AnyView(V57PracticeCountFixtureHost())
+        }
+        #endif
         if args.contains("-v50.photoPermissionProbe") {
             return AnyView(V50PhotoPermissionProbeView())
         }
@@ -103,7 +109,7 @@ struct RootView: View {
         }
         if args.contains(where: { $0.hasPrefix("-v54.todayState=") }) {
             return AnyView(
-                NavigationStack { TrainingHomeView() }
+                MainTabView(ownerKey: CurrentOwnerContext.shared.ownerKey)
                     .environmentObject(SubscriptionManager.shared)
             )
         }
@@ -187,6 +193,11 @@ struct RootView: View {
             return AnyView(NavigationStack {
                 PlanDetailView(planId: planId)
                     .environmentObject(SubscriptionManager.shared)
+                    .navigationDestination(for: TrainingRoute.self) { route in
+                        if case .drillDetail(let drillId) = route {
+                            DrillDetailView(drillId: drillId, ownerKey: CurrentOwnerContext.shared.ownerKey)
+                        }
+                    }
             })
         }
         // v34 W5：直达自由训练并预置一条动作（进度指示 / 分节 / 添加一组取证）。
@@ -458,3 +469,76 @@ private struct V51ResponsiveComponentProbe: View {
         .environmentObject(SubscriptionManager.shared)
         .preferredColorScheme(.dark)
 }
+
+#if DEBUG
+/// Explicit UI-test host with its own in-memory container. Mutations below use
+/// actual SwiftData entries so the library's @Query/observation path is tested.
+private struct V57PracticeCountFixtureHost: View {
+    @State private var container = ModelContainerFactory.makeInMemoryContainer()
+    @EnvironmentObject private var router: AppRouter
+    @State private var session: TrainingSession?
+    @State private var failure: String?
+    private let owner = "guest:v57-library-fixture"
+
+    var body: some View {
+        NavigationStack(path: $router.drillLibraryPath) {
+            DrillListView(ownerKey: owner)
+                .navigationDestination(for: String.self) { id in
+                    DrillDetailView(drillId: id, ownerKey: owner)
+                }
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button("保存动作条目", action: appendEntry)
+                            .accessibilityIdentifier("v57.saveEntry")
+                        Button("删除动作条目", action: deleteEntry)
+                            .accessibilityIdentifier("v57.deleteEntry")
+                    }
+                }
+                .overlay(alignment: .top) {
+                    if let failure { Text(failure).accessibilityIdentifier("v57.fixtureError") }
+                }
+        }
+        .modelContainer(container)
+        .task {
+            guard session == nil else { return }
+            let saved = TrainingSession(ownerKey: owner)
+            container.mainContext.insert(saved)
+            let countArgument = ProcessInfo.processInfo.arguments.first {
+                $0.hasPrefix("-v57.practiceCount=")
+            }?.replacingOccurrences(of: "-v57.practiceCount=", with: "")
+            let initialCount = countArgument.flatMap(Int.init) ?? 0
+            guard (0...1000).contains(initialCount) else {
+                failure = "夹具次数超出范围"
+                return
+            }
+            for _ in 0..<initialCount {
+                let entry = DrillEntry(drillId: "drill_c026", drillNameZh: "厚球分离角控制")
+                container.mainContext.insert(entry)
+                saved.drillEntries.append(entry)
+            }
+            do {
+                try container.mainContext.save()
+                session = saved
+            } catch { failure = "夹具保存失败：\(error)" }
+        }
+    }
+
+    private func appendEntry() {
+        guard let session else { failure = "夹具尚未准备"; return }
+        let context = container.mainContext
+        let entry = DrillEntry(drillId: "drill_c026", drillNameZh: "厚球分离角控制")
+        context.insert(entry)
+        session.drillEntries.append(entry)
+        do { try context.save() }
+        catch { failure = "保存动作条目失败：\(error)" }
+    }
+
+    private func deleteEntry() {
+        guard let entry = session?.drillEntries.last else { return }
+        let context = container.mainContext
+        context.delete(entry)
+        do { try context.save() }
+        catch { failure = "删除动作条目失败：\(error)" }
+    }
+}
+#endif

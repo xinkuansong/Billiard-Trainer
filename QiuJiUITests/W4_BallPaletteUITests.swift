@@ -99,7 +99,7 @@ final class W4_BallPaletteUITests: XCTestCase {
 
     /// Extraction：经 `-extract.confirmDemo` 直进确认步，拖球放置 + pulse + 拖回删球取证。
     func testW4ExtractionPaletteInteraction() {
-        let app = XCUIApplication.launchClean(extraArgs: ["-extract.confirmDemo"])
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore", "-extract.confirmDemo"])
         guard openCard(app: app, homeTab: "打", title: "拍照建球形") else {
             XCTFail("未能进入拍照建球形"); return
         }

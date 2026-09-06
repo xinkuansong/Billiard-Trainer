@@ -1,0 +1,39 @@
+scenario,status,batch,execution,scope_note,issues
+SC-01,partial,B1,FORMAL-B1-001,首次引导与重启通过；其余前提仍按场景表,
+SC-02,partial,B3/B5,FORMAL-B3-002;FORMAL-B5-M1-LIGHT;FORMAL-B5-M2-LIGHT-ROOT;FORMAL-B5-M3-LIGHT-ROOT;FORMAL-B5-M3-DARK,M1/M2/M3五根及M3深色正常入口已验并逐图审；更多完整入口返回状态仍分旅程补验,
+SC-03,not_run,,,,
+SC-04,partial,B2,FORMAL-B2-001;FORMAL-B2-006,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；夹具计划架状态及实际切换确认通过；未覆盖A→B→A游标与全owner矩阵,
+SC-05,partial,B2/B5,FORMAL-B1-003;FORMAL-B2-002;FORMAL-B2-006;FORMAL-B5-M2-LIGHT-PERSISTENCE-002;FORMAL-B5-M2-AX5-CORE;FORMAL-B5-M3-LIGHT-CORE;FORMAL-B5-M3-AX5-CORE,正常训练真实磁盘保存重启已在两runtime及iPad验证；iOS17首轮note TextView测试失配已单独复验，原失败保留；QD012未完成组计入结果仍存在，完整失败重试未全验,QD-012
+SC-06,partial,B2,FORMAL-B2-001;FORMAL-B2-006,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；模版两入口菜单重复加入保持0/1；当前课编排预选通过，未点加入；三源排序/跨日未全验,
+SC-07,partial,B2,FORMAL-B2-001,部分服务/内存/隔离磁盘断言通过；UI与数据矩阵仍见B2清单,
+SC-08,partial,B2,FORMAL-B2-001;FORMAL-B2-006,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；主体仅打开编辑未保存；菜单两入口去重通过；来源消失为独立夹具，不是实际删除前后；创建/编辑持久化/空长名仍未全验,
+SC-09,partial,B2,FORMAL-B2-001;FORMAL-B1-003;FORMAL-B2-002,部分服务/内存/隔离磁盘断言通过；UI与数据矩阵仍见B2清单；部分完成组的保存/历史问题已确认（统计UI待补）,QD-012
+SC-10,partial,B2,FORMAL-B2-001;FORMAL-B2-006,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；同进程最小化恢复保留动作；暂停/休息/后台与真实计时矩阵仍未全验,
+SC-11,partial,B2,FORMAL-B2-001;FORMAL-B2-006;FORMAL-B2-007,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；专用动作库宿主加入今日后无已练徽章；字面账本多entry及千场内存计次通过；正常全Tab与千场UI未验,
+SC-12,partial,B2,FORMAL-B2-001;FORMAL-B1-003;FORMAL-B2-002;FORMAL-B2-003;FORMAL-B2-005;FORMAL-B2-006;FORMAL-B2-007,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；005自身新样本编辑/取消/非法拒绝/删除重启通过，SQLite旧样本保护与无孤立关系已核对；003/004失败为测试取消定位已结束；006来源两夹具、007千场历史投影通过；完整UI与统计问题仍保留,QD-012
+SC-13,partial,B2,FORMAL-B2-001;FORMAL-B2-007,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；独立账本三kind/滚动周/自然月/去重通过；混单位与未完成组仅刻画当前有损行为，不是产品达标；真实跨页统计UI待补,QD-012
+SC-14,partial,B2,FORMAL-B2-001;FORMAL-B2-007,部分服务/内存/隔离磁盘断言通过；其余UI与数据矩阵仍见B2清单；字面账本训练日与自然月/周边界通过；修改目标、账号/设备偏好矩阵仍未全验,
+SC-15,partial,B1/B3,FORMAL-B1-001;FORMAL-B3-001;FORMAL-B3-STATIC,内容/引用/解码检查通过；新鲜度缺对照,
+SC-16,partial,B3/B5,FORMAL-B3-002;FORMAL-EXTRA-M2-AX5-REACHABILITY-001,c012正常搜索/详情返回保持条件通过；M2最大字号计划等级真实切换与卡变化通过（不是动作库全部筛选）；收藏/无匹配等专项仍待执行,QD-019
+SC-17,partial,B3,FORMAL-B3-001;CONTENT-SAMPLE,12课分层115杆130引用、实际看20图；发现内容冲突，动态/全图未全验,QD-013;QD-014;QD-015;QD-016;QD-017;QD-018
+SC-18,partial,B3/B5,FORMAL-B3-002;FORMAL-B5-M3-LIGHT-CORE;FORMAL-B5-M3-DARK,c012正常详情试打返回在M1及iPad浅深色通过且图审；不证明8杆全部动态正确，多形专项尚未执行,
+SC-19,partial,B3,FORMAL-B3-001;FORMAL-B3-003;FORMAL-B3-004,四VM错误处理及角度预测三输入到记录已核对；003/004均已结束，合并10工具方法局部UI证据、004的11图已目视；其余认知仅答题/验证/下一题，完整保存/取消/重复结束仍未全验,
+SC-20,partial,B3,FORMAL-B3-001;FORMAL-B3-003;FORMAL-B3-004,典型求解与图谱切片通过；工具UI及更多无解边界未完成；工具10方法局部UI通过，11张004截图已目视，题型完整保存/取消与无解仍未全验,
+SC-21,partial,B3,FORMAL-B3-001;FORMAL-B3-003;FORMAL-B3-004;FORMAL-B3-005,架球seed/九球终位及003/004击球重打局部UI通过；005自由走位默认未录制击球/重打/返回通过，7张005截图据B3卡已审；完整编排多杆/记录/球数ID与玩法矩阵未全验,
+SC-22,partial,B3,FORMAL-B3-001;FORMAL-B3-005,思路及防守典型计算通过；005防守默认6解实际1→2/击球/上一杆/返回通过且图审已记录；未走无解，不证明遮挡几何；思路/三球完整约束与正负求解UI仍未完成,
+SC-23,partial,B2,FORMAL-B2-001,部分服务/内存/隔离磁盘断言通过；UI与数据矩阵仍见B2清单,
+SC-24,partial,B2,FORMAL-B2-001,部分服务/内存/隔离磁盘断言通过；UI与数据矩阵仍见B2清单,
+SC-25,partial,B4,FORMAL-B4-001;FORMAL-B4-002;FORMAL-B4-ROUTES;FORMAL-B4-REAL-MONGO-001,隔离替身层通过；真实登录/部署服务/客户端跨进程条件未完成；PUT owner请求体修改已复现；真实Mongo5项中500对照通过、owner持久转移与两端点501截断失败已复现，Node1保留,QD-007
+SC-26,partial,B4,FORMAL-B4-001;FORMAL-B4-002;FORMAL-B4-ROUTES;FORMAL-B4-REAL-MONGO-001,隔离替身层通过；真实登录/部署服务/客户端跨进程条件未完成；501/1000路由恢复截断已复现；真实Mongo5项中500对照通过、owner持久转移与两端点501截断失败已复现，Node1保留,QD-008
+SC-27,partial,B3,FORMAL-B3-001,变换金样/权限声明通过；相机真机未验,
+SC-28,partial,B3/B5,AUDIO-DIAGNOSTIC-REVIEW;FORMAL-B5-RELEASE-001,源码与Debug/Release实际包四类支持音效资源均缺；未进行有声播放/解码/实听，硬件/AudioSession实际中断恢复未验,QD-020
+SC-29,partial,B4,FORMAL-B4-001;FORMAL-B4-002,隔离替身层通过；真实登录/服务/数据库/跨进程条件未完成,
+SC-30,partial,B4,FORMAL-B4-001;FORMAL-B4-002,隔离替身层通过；真实登录/服务/数据库/跨进程条件未完成,
+SC-31,partial,B4,FORMAL-B4-001;FORMAL-B4-002,隔离替身层通过；真实登录/服务/数据库/跨进程条件未完成,
+SC-32,partial,B3,FORMAL-B3-002,深链forced Free/Pro门控通过且强制Dark；正常权益矩阵未完成,
+SC-33,partial,B4,FORMAL-B4-003,本地SKTestSession商品类型/月购买到期/年购买/终身恢复3/3通过；不是Apple真实Sandbox或购买UI；商品失败/取消/pending/网络错误及真实权益刷新未全验,
+SC-34,partial,B5,FORMAL-B5-M1-LIGHT;FORMAL-B5-M2-LIGHT-ROOT;FORMAL-B5-M2-LIGHT-CORE;FORMAL-B5-M3-LIGHT-ROOT;FORMAL-B5-M3-LIGHT-CORE;FORMAL-B5-M3-LIGHT-THEORY;FORMAL-B5-M3-ROTATION;FORMAL-B5-M3-DARK,M1/M2/iPad浅色及iPad深色代表布局和图审已有；旋转保持规格竖屏居中黑边，不是横屏适配；M1深色仍待执行,
+SC-35,partial,B5,FORMAL-B5-M2-AX5-ROOT;FORMAL-B5-M2-AX5-CORE;FORMAL-EXTRA-M2-AX5-REACHABILITY-001;FORMAL-EXTRA-M2-AX5-INPUT-001;FORMAL-EXTRA-M2-AX5-TEMPLATE-002;FORMAL-B5-M3-AX5-ROOT;FORMAL-B5-M3-AX5-CORE,最大辅助字号已实设/读回及实际截图；M2核心/昵称/筛选/空态可达；more测试hittable失败但可见原因待验证；iPad根/训练/组件已执行，理论及输入待收口；固定字体扩展/VO不外推,QD-019
+SC-36,partial,B2,FORMAL-B2-007,千场内存SwiftData保存/fetch/统计与历史投影账本通过；不是千场真实磁盘UI压力或性能达标；冷启动轮次/反复回放/内存增长/崩溃监测仍未验,
+SC-37,partial,B5,FORMAL-B5-RELEASE-001;CREATION-RETIRED-REACHABILITY,Release优化禁签名模拟器构建和实际包审查完成；空API配置、六旧盘面及音频缺口已记；隐私声明入包不等于数据流或真机分发验收；未发布,QD-009;QD-020;QD-021
+SC-38,not_run,,,,

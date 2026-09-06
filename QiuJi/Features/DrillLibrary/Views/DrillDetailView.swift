@@ -6,6 +6,7 @@ struct DrillDetailView: View {
     let ownerKey: String
 
     @State private var drill: DrillContent?
+    @State private var didFinishLoading = false
     @State private var showSubscription = false
     @State private var showTutorial = false
     /// 「上手试打」push（试打模式方案 §1.6：入口直进试打页，不做预览页）。
@@ -105,6 +106,13 @@ struct DrillDetailView: View {
                         loadRadarSection(drill)
                     }
                     .padding(.bottom, 100)
+                } else if didFinishLoading {
+                    BTEmptyState(
+                        icon: "exclamationmark.triangle",
+                        title: "动作暂不可用",
+                        subtitle: "内容可能已更新，请返回后选择其他动作。"
+                    )
+                    .accessibilityIdentifier("drillDetail.unavailable")
                 } else {
                     ProgressView()
                         .frame(maxWidth: .infinity, minHeight: 400)
@@ -505,7 +513,7 @@ struct DrillDetailView: View {
                         Text("加入训练")
                     }
                 }
-                .buttonStyle(BTButtonStyle.secondary)
+                .buttonStyle(BTButtonStyle.primary)
                 .accessibilityIdentifier("addToTrainingButton")
 
                 Button { startTryout() } label: {
@@ -587,6 +595,7 @@ struct DrillDetailView: View {
     // MARK: - Helpers
 
     private func loadDrill() async {
+        defer { didFinishLoading = true }
         let service = DrillContentService.shared
         drill = await service.loadDrillFromBundle(id: drillId)
     }

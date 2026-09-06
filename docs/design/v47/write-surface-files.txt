@@ -1,4 +1,3 @@
-# Files under test targets that contain file-writing or screenshot-writing APIs.
 QiuJiTests/AimCloseupEvidenceTests.swift
 QiuJiTests/AimingCorrectionMathTests.swift
 QiuJiTests/AimingCorrectionZ2EvidenceTests.swift
@@ -12,6 +11,7 @@ QiuJiTests/BankKickSpinSearchEvidenceTests.swift
 QiuJiTests/BatchSequenceReplayRegressionTests.swift
 QiuJiTests/BreakFlowRunnerV6Tests.swift
 QiuJiTests/CushionEnglishAtlasTests.swift
+QiuJiTests/DrillListViewModelTests.swift
 QiuJiTests/DrillShotReconstructionTests.swift
 QiuJiTests/DrillThumbnailBakeRunnerTests.swift
 QiuJiTests/DrillTutorialKindResolverTests.swift
@@ -38,6 +38,7 @@ QiuJiTests/V30X1TutorialEmptyContentRenderTests.swift
 QiuJiTests/V53OwnerIsolationTests.swift
 QiuJiTests/V53ProfilePreferencesTests.swift
 QiuJiTests/V54DataMigrationTests.swift
+QiuJiTests/V54ScheduleDomainTests.swift
 QiuJiTests/W10_1_BakedThumbnailRenderTests.swift
 QiuJiUITests/AimingCorrectionZ1UITests.swift
 QiuJiUITests/AimingCorrectionZ2UITests.swift

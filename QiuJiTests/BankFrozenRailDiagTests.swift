@@ -14,6 +14,17 @@ final class BankFrozenRailDiagTests: XCTestCase {
 
     private let sY: Float = 0.80
 
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        // These diagnostic tests intentionally write reports into build/. A fresh
+        // checkout or a matrix shard must not depend on another run having created
+        // the parent directory first.
+        try FileManager.default.createDirectory(
+            atPath: "/Users/song/projects/13.billiard_trainer/build/frozen-rail-logs",
+            withIntermediateDirectories: true
+        )
+    }
+
     /// 假设验证：扎库（预反射）种子的真实最优瞄准是否落在 ±8° 搜索窗之外。
     /// 对代表盘面的预反射库序做 ±20° 宽域 bankAimScore 扫描，报告进袋 offset 分布。
     func test_frozenSeed_wideScan_dump() throws {

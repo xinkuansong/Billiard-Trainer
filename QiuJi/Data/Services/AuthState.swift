@@ -149,10 +149,13 @@ final class AuthState: ObservableObject {
         // server-normalized identity after bootstrap and again after a cold relaunch. This
         // branch is unreachable in Release builds and never creates a production login path.
         if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") {
+            let fixtureName = ProcessInfo.processInfo.arguments.contains("-v57.longProfileName")
+                ? String(repeating: "认真练球", count: 5)
+                : "服务端球友"
             let user = AppUser(
                 id: "v53-server-user",
                 provider: .apple,
-                displayName: "服务端球友",
+                displayName: fixtureName,
                 // Keep nil so this identity-only fixture never performs an avatar network call.
                 avatarRevision: nil,
                 preferredSport: PreferredSport.nineBall.rawValue,

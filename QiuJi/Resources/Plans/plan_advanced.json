@@ -16,7 +16,7 @@
         {
           "id": "plan_advanced.stage01.lesson01",
           "order": 1,
-          "title": "翻袋入底袋入门",
+          "title": "翻底袋入门",
           "summary": "围绕翻袋入底袋入门完成本课训练。",
           "phases": [
             {
@@ -68,7 +68,7 @@
         {
           "id": "plan_advanced.stage01.lesson02",
           "order": 2,
-          "title": "K球不吃库",
+          "title": "K 球不吃库",
           "summary": "围绕K球不吃库完成本课训练。",
           "phases": [
             {
@@ -128,7 +128,7 @@
         {
           "id": "plan_advanced.stage01.lesson03",
           "order": 3,
-          "title": "翻袋入底袋检验",
+          "title": "翻底袋检验",
           "summary": "围绕翻袋入底袋检验完成本课训练。",
           "phases": [
             {
@@ -219,7 +219,7 @@
         {
           "id": "plan_advanced.stage02.lesson01",
           "order": 1,
-          "title": "K球吃库",
+          "title": "K 球吃库",
           "summary": "围绕K球吃库完成本课训练。",
           "phases": [
             {
@@ -308,7 +308,7 @@
         {
           "id": "plan_advanced.stage02.lesson02",
           "order": 2,
-          "title": "K球综合挑战",
+          "title": "K 球综合挑战",
           "summary": "围绕K球综合挑战完成本课训练。",
           "phases": [
             {
@@ -389,7 +389,7 @@
         {
           "id": "plan_advanced.stage02.lesson03",
           "order": 3,
-          "title": "翻袋入中袋",
+          "title": "翻中袋",
           "summary": "围绕翻袋入中袋完成本课训练。",
           "phases": [
             {
@@ -563,7 +563,7 @@
         {
           "id": "plan_advanced.stage03.lesson02",
           "order": 2,
-          "title": "贴库球处理与K球不吃库",
+          "title": "贴库与不吃库 K 球",
           "summary": "围绕贴库球处理与K球不吃库完成本课训练。",
           "phases": [
             {
@@ -645,7 +645,7 @@
         {
           "id": "plan_advanced.stage03.lesson03",
           "order": 3,
-          "title": "贴库球处理与K球吃库",
+          "title": "贴库与吃库 K 球",
           "summary": "围绕贴库球处理与K球吃库完成本课训练。",
           "phases": [
             {

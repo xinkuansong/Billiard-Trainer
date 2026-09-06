@@ -189,11 +189,11 @@ struct AngleDynamicView: View {
         let all = PositionPlayBall.allKeys
         let row1 = Array(all.prefix(Self.paletteColumns))
         let row2 = Array(all.dropFirst(Self.paletteColumns))
-        // G8：固定列宽求和 = 球桌宽，居中，两侧留白。
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        // Share the capped palette width even before the table proxy is ready.
+        let libraryWidth = proxy.libraryWidth
         let columnWidth = max(libraryWidth / CGFloat(Self.paletteColumns), 1)
         let ballDiameter = proxy.paletteBallDiameter
-        return VStack(spacing: 3) {
+        return VStack(spacing: BTBallPaletteMetrics.rowSpacing) {
             paletteRow(row1, columnWidth: columnWidth, ballDiameter: ballDiameter)
             paletteRow(row2, columnWidth: columnWidth, ballDiameter: ballDiameter)
         }

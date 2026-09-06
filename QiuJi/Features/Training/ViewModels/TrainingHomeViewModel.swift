@@ -31,6 +31,7 @@ struct TodaySessionInfo {
     let drills: [TodayDrillItem]
     /// `UserActivePlan.isCustom`：模版今日藏周/天与进度菜单（D-v43-9）。
     let isFromTemplate: Bool
+    var lessonID: String? = nil
 
     var completedCount: Int { drills.filter(\.isCompleted).count }
     var totalCount: Int { drills.count }
@@ -55,6 +56,148 @@ enum PlanBrowseTab: String, CaseIterable {
     case official = "官方计划"
     /// F-PL-09 当年统一成「我的计划」；本轮 D-v43-7 改回界面用字「我的模版」。
     case custom = "我的模版"
+}
+
+/// Read-only projection: queue identity, suggestions and saved facts remain distinct.
+@MainActor
+struct TodayTrainingProjection {
+    struct QueuedLesson: Identifiable {
+        let item: TodayScheduleItem
+        let drills: [ScheduledDrillSnapshot]
+        let completedDrills: [Bool]
+        let extraCompletedCount: Int
+        let estimatedMinutes: Int
+        let unavailableReason: String?
+        var id: UUID { item.id }
+        var countsTowardToday: Bool { item.state != TodayScheduleItemState.abandoned }
+        var totalCount: Int { drills.count + extraCompletedCount }
+        var completedCount: Int { completedDrills.filter { $0 }.count + extraCompletedCount }
+    }
+
+    struct SavedTraining: Identifiable {
+        let session: TrainingSession
+        let entries: [DrillEntry]
+        var id: UUID { session.id }
+    }
+
+    let queued: [QueuedLesson]
+    let suggestion: TodaySessionInfo?
+    let history: [SavedTraining]
+
+    var totalCount: Int {
+        queued.filter(\.countsTowardToday).reduce(0) { $0 + $1.totalCount }
+            + history.reduce(0) { $0 + $1.entries.count }
+    }
+    var completedCount: Int {
+        queued.filter(\.countsTowardToday).reduce(0) { $0 + $1.completedCount }
+            + history.reduce(0) { $0 + $1.entries.count }
+    }
+    var estimatedMinutes: Int {
+        queued.filter(\.countsTowardToday).reduce(0) { $0 + $1.estimatedMinutes }
+    }
+    var recordedMinutes: Int { history.reduce(0) { $0 + max(0, $1.session.totalDurationMinutes) } }
+    var hasUnavailableContent: Bool { queued.contains { $0.countsTowardToday && $0.unavailableReason != nil } }
+    var hasFinishedTraining: Bool { completedCount > 0 }
+    var allActionsCompleted: Bool { totalCount > 0 && completedCount == totalCount && !hasUnavailableContent }
+    var allArrangedTrainingEnded: Bool {
+        let visible = queued.filter(\.countsTowardToday)
+        return (!visible.isEmpty || !history.isEmpty) && !hasUnavailableContent
+            && visible.allSatisfy { $0.item.state == TodayScheduleItemState.completed }
+    }
+
+    static func make(
+        ownerKey: String,
+        schedules: [TodayTrainingSchedule],
+        sessions: [TrainingSession],
+        suggestion: TodaySessionInfo?,
+        now: Date = Date(),
+        timeZone: TimeZone = .current
+    ) -> TodayTrainingProjection {
+        let dayKey = TodayTrainingScheduleService.localDayKey(for: now, timeZone: timeZone)
+        let schedule = TodayTrainingScheduleService.currentSchedule(
+            in: schedules, ownerKey: ownerKey, dayKey: dayKey
+        )
+        let items = (schedule?.items ?? []).sorted {
+            if $0.orderIndex != $1.orderIndex { return $0.orderIndex < $1.orderIndex }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        var sessionIDs = Set<UUID>()
+        let owned = sessions.filter {
+            $0.ownerKey == ownerKey && $0.kind == TrainingSessionKind.drill && sessionIDs.insert($0.id).inserted
+        }
+        let queued = items.map { item -> QueuedLesson in
+            do {
+                guard item.payloadVersion == 1 else { throw ScheduledTrainingBlock.DecodeError.invalidPayload }
+                let block = try ScheduledTrainingBlock(item: item)
+                guard !block.drills.isEmpty else { throw ScheduledTrainingBlock.DecodeError.invalidPayload }
+                let saved = owned.filter {
+                    $0.scheduleItemId == item.id || $0.id == item.trainingSessionId
+                }
+                let entries = uniqueEntries(in: saved)
+                var remaining = Dictionary(grouping: entries, by: \.drillId).mapValues(\.count)
+                let completed = block.drills.map { drill -> Bool in
+                    guard item.state == TodayScheduleItemState.completed,
+                          remaining[drill.drillID, default: 0] > 0 else { return false }
+                    remaining[drill.drillID, default: 0] -= 1
+                    return true
+                }
+                let extras = item.state == TodayScheduleItemState.completed
+                    ? remaining.values.reduce(0, +) : 0
+                return QueuedLesson(item: item, drills: block.drills, completedDrills: completed,
+                                    extraCompletedCount: extras, estimatedMinutes: try estimate(block),
+                                    unavailableReason: item.state == TodayScheduleItemState.completed && saved.isEmpty
+                                        ? "已结束，但训练记录暂时无法读取" : nil)
+            } catch {
+                return QueuedLesson(item: item, drills: [], completedDrills: [], extraCompletedCount: 0,
+                                    estimatedMinutes: 0, unavailableReason: "训练内容暂时无法读取，请重新加入")
+            }
+        }
+        let itemIDs = Set(items.map(\.id))
+        let linkedSessionIDs = Set(items.compactMap(\.trainingSessionId))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let history = owned.filter {
+            calendar.isDate($0.date, inSameDayAs: now)
+                && !linkedSessionIDs.contains($0.id)
+                && !($0.scheduleItemId.map { itemIDs.contains($0) } ?? false)
+        }.sorted { $0.date < $1.date }.compactMap { session -> SavedTraining? in
+            let entries = uniqueEntries(in: [session])
+            return entries.isEmpty ? nil : SavedTraining(session: session, entries: entries)
+        }
+        let visible = queued.filter(\.countsTowardToday)
+        let dayEnded = (!visible.isEmpty || !history.isEmpty)
+            && visible.allSatisfy { $0.item.state == TodayScheduleItemState.completed }
+        let suggestionAlreadyQueued = suggestion.map { proposed in
+            items.contains { $0.planId == proposed.planId && $0.lessonId == proposed.lessonID }
+        } ?? false
+        return TodayTrainingProjection(queued: queued,
+            suggestion: dayEnded || suggestionAlreadyQueued ? nil : suggestion, history: history)
+    }
+
+    private static func uniqueEntries(in sessions: [TrainingSession]) -> [DrillEntry] {
+        var ids = Set<UUID>()
+        return sessions.flatMap(\.drillEntries).filter { ids.insert($0.id).inserted }.sorted {
+            if $0.orderIndex != $1.orderIndex { return $0.orderIndex < $1.orderIndex }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+    }
+
+    private static func estimate(_ block: ScheduledTrainingBlock) throws -> Int {
+        if block.sourceKind == TodayScheduleSourceKind.officialLesson {
+            let payload = try JSONDecoder().decode(ScheduledLessonPayload.self, from: block.payloadSnapshot)
+            var offset = 0
+            return payload.lesson.phases.reduce(0) { minutes, phase in
+                let drills = block.drills.dropFirst(offset).prefix(phase.drills.count)
+                offset += phase.drills.count
+                guard phase.countsTowardSessionMinutes else { return minutes }
+                if phase.drills.isEmpty { return minutes + phase.durationMinutes }
+                let balls = drills.flatMap(\.sets).reduce(0) { $0 + max(0, $1.targetBalls) }
+                return minutes + ResolvedDose.estimatedMinutes(forBalls: balls)
+            }
+        }
+        let balls = block.drills.flatMap(\.sets).reduce(0) { $0 + max(0, $1.targetBalls) }
+        return ResolvedDose.estimatedMinutes(forBalls: balls)
+    }
 }
 
 enum PlanLevelFilter: String, CaseIterable {
@@ -131,10 +274,17 @@ final class TrainingHomeViewModel: ObservableObject {
         // View animates via `.animation(BTMotion.easeFast, value: isLoading)` (F-ST-03).
         defer { isLoading = false }
 
-        let descriptor = FetchDescriptor<UserActivePlan>(
-            predicate: #Predicate { $0.ownerKey == ownerKey }
-        )
-        guard let activePlan = try? context.fetch(descriptor).first else {
+        let records: [UserActivePlan]
+        do {
+            records = try PlanProgressService.normalizeOfficialMainline(ownerKey: ownerKey, context: context)
+            progressError = nil
+        } catch {
+            progressError = "计划读取失败，请稍后重试"
+            hasActivePlan = false
+            todaySession = nil
+            return
+        }
+        guard let activePlan = PlanProgressService.currentOfficialPlan(in: records) else {
             hasActivePlan = false
             todaySession = nil
             todaySupplementalDrills = fetchTodaySupplementalDrills(
@@ -153,11 +303,7 @@ final class TrainingHomeViewModel: ObservableObject {
             ownerKey: ownerKey
         )
 
-        if activePlan.isCustom {
-            await loadCustomPlan(activePlan: activePlan, context: context, ownerKey: ownerKey)
-        } else {
-            await loadOfficialPlan(activePlan: activePlan, context: context, ownerKey: ownerKey)
-        }
+        await loadOfficialPlan(activePlan: activePlan, context: context, ownerKey: ownerKey)
 
         await loadPlansForBrowsing()
     }
@@ -210,30 +356,29 @@ final class TrainingHomeViewModel: ObservableObject {
             return
         }
 
-        let weekIndex = activePlan.currentWeek - 1
-        let dayIndex = activePlan.currentDay - 1
-
-        guard weekIndex >= 0, weekIndex < plan.weeks.count else {
+        guard let lessonID = activePlan.currentLessonId,
+              let stage = plan.stages.first(where: { $0.lessons.contains { $0.id == lessonID } }),
+              let session = stage.lessons.first(where: { $0.id == lessonID }) else {
             todaySession = nil
             return
         }
-        let week = plan.weeks[weekIndex]
 
-        guard dayIndex >= 0, dayIndex < week.sessions.count else {
+        var completedCounts: [String: Int]
+        do {
+            completedCounts = try fetchTodayCompletedDrillCounts(
+                context: context, planId: activePlan.planId, ownerKey: ownerKey, lessonID: session.id
+            )
+        } catch {
             todaySession = nil
+            progressError = "训练记录读取失败，请稍后重试"
             return
         }
-        let session = week.sessions[dayIndex]
-
-        let completedIds = fetchTodayCompletedDrillIds(
-            context: context,
-            planId: activePlan.planId,
-            ownerKey: ownerKey
-        )
         let drillService = DrillContentService.shared
 
         var items: [TodayDrillItem] = []
+        var totalMinutes = 0
         for phase in session.phases {
+            var phaseBalls = 0
             for ref in phase.drills {
                 let content = await drillService.loadDrillFromBundle(id: ref.drillId)
                 // 计划 dose × drill perFormation → 组序列（契约 §6.6）。
@@ -242,8 +387,11 @@ final class TrainingHomeViewModel: ObservableObject {
                     dose: ref.dose,
                     formationOptions: TrainingDoseResolver.formationOptions(forDrillId: ref.drillId)
                 )
+                phaseBalls += resolved.totalBalls
+                let completed = completedCounts[ref.drillId, default: 0] > 0
+                if completed { completedCounts[ref.drillId, default: 0] -= 1 }
                 items.append(TodayDrillItem(
-                    id: "\(phase.type)_\(ref.drillId)",
+                    id: "\(session.id)_\(items.count)",
                     drillId: ref.drillId,
                     nameZh: content?.nameZh ?? ref.drillId,
                     phaseType: phase.type,
@@ -251,112 +399,53 @@ final class TrainingHomeViewModel: ObservableObject {
                     phaseIcon: phase.icon,
                     plannedSets: resolved.plannedSets,
                     volumeText: resolved.volumeText(unitLabel: Self.unitLabel(for: content)),
-                    isCompleted: completedIds.contains(ref.drillId)
+                    isCompleted: completed
                 ))
             }
-        }
-
-        let totalMinutes = session.phases.reduce(0) { acc, phase in
-            acc + (phase.countsTowardSessionMinutes ? phase.durationMinutes : 0)
+            if phase.countsTowardSessionMinutes {
+                totalMinutes += phase.drills.isEmpty ? phase.durationMinutes
+                    : ResolvedDose.estimatedMinutes(forBalls: phaseBalls)
+            }
         }
 
         todaySession = TodaySessionInfo(
             planId: activePlan.planId,
             planNameZh: plan.nameZh,
-            weekNumber: activePlan.currentWeek,
-            dayNumber: activePlan.currentDay,
-            weekTheme: week.theme,
+            weekNumber: stage.order,
+            dayNumber: session.order,
+            weekTheme: stage.title,
             totalMinutes: totalMinutes,
             drills: items,
-            isFromTemplate: false
+            isFromTemplate: false,
+            lessonID: session.id
         )
     }
 
-    private func loadCustomPlan(activePlan: UserActivePlan, context: ModelContext,
-                                ownerKey: String) async {
-        guard let planUUID = UUID(uuidString: activePlan.planId) else {
-            todaySession = nil
-            return
-        }
-
-        let descriptor = FetchDescriptor<CustomPlan>(
-            predicate: #Predicate { $0.ownerKey == ownerKey && $0.id == planUUID }
-        )
-        guard let customPlan = try? context.fetch(descriptor).first else {
-            todaySession = nil
-            return
-        }
-
-        let completedIds = fetchTodayCompletedDrillIds(
-            context: context,
-            planId: activePlan.planId,
-            ownerKey: ownerKey
-        )
-        let sortedDrills = customPlan.drills.sorted { $0.order < $1.order }
-
-        var items: [TodayDrillItem] = []
-        for drill in sortedDrills {
-            // 自定义计划只存每球形轮数（schema V3）；球数同样由内容派生。
-            let content = DrillContentService.decodeDrillFromBundle(id: drill.drillId)
-            let resolved = TrainingDoseResolver.resolve(
-                content: content,
-                dose: PlanDrillDose(roundsPerFormation: drill.roundsPerFormation),
-                formationOptions: TrainingDoseResolver.formationOptions(forDrillId: drill.drillId)
-            )
-            items.append(TodayDrillItem(
-                id: "custom_\(drill.drillId)",
-                drillId: drill.drillId,
-                nameZh: drill.drillNameZh,
-                phaseType: "focused",
-                phaseZh: "专项训练",
-                phaseIcon: "target",
-                plannedSets: resolved.plannedSets,
-                volumeText: resolved.volumeText(unitLabel: Self.unitLabel(for: content)),
-                isCompleted: completedIds.contains(drill.drillId)
-            ))
-        }
-
-        // 自定义计划没有周结构：每天同一张动作表，周 / 天只作推进计数（W7）。
-        // D-v43-9：UI 不展示周/天；主题用「今日清单」，标题仍是 customPlan.name。
-        todaySession = TodaySessionInfo(
-            planId: activePlan.planId,
-            planNameZh: customPlan.name,
-            weekNumber: activePlan.currentWeek,
-            dayNumber: activePlan.currentDay,
-            weekTheme: "今日清单",
-            totalMinutes: 0,
-            drills: items,
-            isFromTemplate: true
-        )
-    }
-
-    /// 录入单位（契约 §5.2）。内容缺失时按「球」。
     private static func unitLabel(for content: DrillContent?) -> String {
         DrillUnitLabel.label(category: content?.category ?? "",
                              subcategory: content?.subcategory ?? "")
     }
 
-    private func fetchTodayCompletedDrillIds(
+    private func fetchTodayCompletedDrillCounts(
         context: ModelContext,
         planId: String,
-        ownerKey: String
-    ) -> Set<String> {
+        ownerKey: String,
+        lessonID: String
+    ) throws -> [String: Int] {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: Date())
-        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [] }
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return [:] }
 
         let predicate = #Predicate<TrainingSession> {
             $0.ownerKey == ownerKey && $0.date >= start && $0.date < end
         }
         let descriptor = FetchDescriptor<TrainingSession>(predicate: predicate)
 
-        guard let sessions = try? context.fetch(descriptor) else { return [] }
-        return Set(
-            sessions
-                .filter { $0.planId == planId }
-                .flatMap(\.drillEntries)
-                .map(\.drillId)
-        )
+        let sessions = try context.fetch(descriptor)
+        var entryIDs = Set<UUID>()
+        let entries = sessions.filter { $0.kind == TrainingSessionKind.drill && $0.planId == planId && $0.lessonId == lessonID }
+            .flatMap(\.drillEntries).filter { entryIDs.insert($0.id).inserted }
+        return Dictionary(grouping: entries, by: \.drillId).mapValues(\.count)
     }
 
     /// 读取今天所有不属于当前计划的真实动作记录。

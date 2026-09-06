@@ -321,7 +321,7 @@
         {
           "id": "plan_accuracy3.stage02.lesson02",
           "order": 2,
-          "title": "远台带塞准度入门",
+          "title": "远台带塞入门",
           "summary": "围绕远台带塞准度入门完成本课训练。",
           "phases": [
             {
@@ -390,7 +390,7 @@
         {
           "id": "plan_accuracy3.stage02.lesson03",
           "order": 3,
-          "title": "远台带塞准度检验",
+          "title": "远台带塞检验",
           "summary": "围绕远台带塞准度检验完成本课训练。",
           "phases": [
             {

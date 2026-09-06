@@ -108,6 +108,70 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         try capture("active-training-rest-minimized", elements: ["expandRest": expandRest])
     }
 
+    func testV57LongRestDurationsStartWithoutAddingTime() throws {
+        for duration in [120, 180] {
+            app = XCUIApplication.launchClean(extraArgs: [
+                "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
+                "-v51.activeTraining", "-v57.restDuration=\(duration)",
+            ])
+            let rest = app.buttons["activeTraining.rest"].firstMatch
+            XCTAssertTrue(rest.waitForExistence(timeout: 15))
+            rest.tap()
+            XCTAssertTrue(app.staticTexts["组间休息"].firstMatch.waitForExistence(timeout: 8))
+            let seconds = try XCTUnwrap(Int(rest.label.filter(\.isNumber)))
+            XCTAssertGreaterThan(seconds, 60, "Diagnostic entry must start a long rest directly")
+            XCTAssertLessThanOrEqual(seconds, duration)
+            try capture("v57-rest-\(duration)", elements: ["rest": rest])
+            app.buttons["完成休息"].firstMatch.tap()
+            XCTAssertTrue(rest.waitForExistence(timeout: 5))
+            XCTAssertEqual(rest.label, "休息设置")
+            app.terminate()
+        }
+    }
+
+    func testV57SystemRestActivityDisplay() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance",
+            "-v51.activeTraining", "-v57.restDuration=180",
+        ])
+        let rest = app.buttons["activeTraining.rest"].firstMatch
+        XCTAssertTrue(rest.waitForExistence(timeout: 15))
+        rest.tap()
+        XCTAssertTrue(app.staticTexts["组间休息"].firstMatch.waitForExistence(timeout: 8))
+        XCUIDevice.shared.press(.home)
+        XCTAssertTrue(app.wait(for: .runningBackground, timeout: 10))
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.005))
+            .press(forDuration: 0.1, thenDragTo: springboard.coordinate(
+                withNormalizedOffset: CGVector(dx: 0.08, dy: 0.8)
+            ))
+        let allow = springboard.buttons["允许"].firstMatch
+        let alwaysAllow = springboard.buttons["始终允许"].firstMatch
+        if alwaysAllow.waitForExistence(timeout: 2) {
+            alwaysAllow.tap()
+        } else if allow.waitForExistence(timeout: 2) {
+            allow.tap()
+        }
+        Thread.sleep(forTimeInterval: 2)
+        try capture("rest-system-notifications-start", elements: [:])
+        XCTAssertTrue(springboard.staticTexts["组间休息"].firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(springboard.staticTexts["球迹"].firstMatch.exists, "The trailing metadata must remain visible")
+        Thread.sleep(forTimeInterval: 40)
+        try capture("rest-system-notifications-plus40s", elements: [:])
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 2)
+        try capture("rest-system-compact", elements: [:])
+        springboard.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.035))
+            .press(forDuration: 1)
+        Thread.sleep(forTimeInterval: 2)
+        try capture("rest-system-expanded", elements: [:])
+        // These captures require image review; an App overlay does not prove a system surface.
+        app.activate()
+        let complete = app.buttons["完成休息"].firstMatch
+        XCTAssertTrue(complete.waitForExistence(timeout: 10))
+        complete.tap()
+    }
+
     private func assertMinimizedTraining(
         elapsedSeconds: Int,
         artifactSuffix: String,

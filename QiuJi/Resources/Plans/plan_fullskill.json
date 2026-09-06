@@ -182,7 +182,7 @@
         {
           "id": "plan_fullskill.stage02.lesson01",
           "order": 1,
-          "title": "三球连打与五球连打走位入门",
+          "title": "三球与五球连打",
           "summary": "围绕三球连打与五球连打走位入门完成本课训练。",
           "phases": [
             {
@@ -241,7 +241,7 @@
         {
           "id": "plan_fullskill.stage02.lesson02",
           "order": 2,
-          "title": "三球连打与五球连打走位巩固",
+          "title": "三球与五球连打巩固",
           "summary": "围绕三球连打与五球连打走位巩固完成本课训练。",
           "phases": [
             {
@@ -300,7 +300,7 @@
         {
           "id": "plan_fullskill.stage02.lesson03",
           "order": 3,
-          "title": "三球连打与五球连打走位检验",
+          "title": "三球与五球连打检验",
           "summary": "围绕三球连打与五球连打走位检验完成本课训练。",
           "phases": [
             {
@@ -591,7 +591,7 @@
         {
           "id": "plan_fullskill.stage04.lesson01",
           "order": 1,
-          "title": "Ghost Game 单人练习入门",
+          "title": "Ghost 单人入门",
           "summary": "围绕Ghost Game 单人练习入门完成本课训练。",
           "phases": [
             {
@@ -661,7 +661,7 @@
         {
           "id": "plan_fullskill.stage04.lesson02",
           "order": 2,
-          "title": "Ghost Game 单人练习巩固",
+          "title": "Ghost 单人巩固",
           "summary": "围绕Ghost Game 单人练习巩固完成本课训练。",
           "phases": [
             {
@@ -731,7 +731,7 @@
         {
           "id": "plan_fullskill.stage04.lesson03",
           "order": 3,
-          "title": "Ghost Game 单人练习检验",
+          "title": "Ghost 单人检验",
           "summary": "围绕Ghost Game 单人练习检验完成本课训练。",
           "phases": [
             {
@@ -809,7 +809,7 @@
         {
           "id": "plan_fullskill.stage05.lesson01",
           "order": 1,
-          "title": "中八全台清台挑战入门",
+          "title": "中八清台入门",
           "summary": "围绕中八全台清台挑战入门完成本课训练。",
           "phases": [
             {
@@ -868,7 +868,7 @@
         {
           "id": "plan_fullskill.stage05.lesson02",
           "order": 2,
-          "title": "中八全台清台挑战巩固",
+          "title": "中八清台巩固",
           "summary": "围绕中八全台清台挑战巩固完成本课训练。",
           "phases": [
             {
@@ -927,7 +927,7 @@
         {
           "id": "plan_fullskill.stage05.lesson03",
           "order": 3,
-          "title": "中八全台清台挑战检验",
+          "title": "中八清台检验",
           "summary": "围绕中八全台清台挑战检验完成本课训练。",
           "phases": [
             {

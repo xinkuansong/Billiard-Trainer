@@ -114,6 +114,14 @@ final class APIClient: Sendable {
         rawBody: Data? = nil,
         contentType: String? = nil
     ) async throws -> Data {
+        #if DEBUG
+        // The identity-only UI fixture has no server credentials. Keep its local
+        // presentation offline instead of sending synthetic identity to production
+        // and allowing a real 401 to invalidate the fixture during screenshot tests.
+        if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") {
+            throw URLError(.notConnectedToInternet)
+        }
+        #endif
         var request = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
         authorize(&request)
         let (data, response) = try await perform(request)

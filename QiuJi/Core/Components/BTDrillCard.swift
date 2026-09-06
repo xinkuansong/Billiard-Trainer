@@ -90,8 +90,8 @@ struct BTDrillCard: View {
 struct BTDrillGridCard: View {
     let drill: DrillContent
     let isFavorited: Bool
-    /// Ever practiced (appears in any `TrainingSession` / `DrillEntry`).
-    var isCompleted: Bool = false
+    /// Number of distinct saved entries for this drill and owner.
+    var practiceCount: Int = 0
     var onFavoriteTap: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
@@ -115,6 +115,7 @@ struct BTDrillGridCard: View {
         } meta: {
             metaRow
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private var tableArea: some View {
@@ -133,27 +134,23 @@ struct BTDrillGridCard: View {
             cardBadge
                 .padding(Spacing.sm)
         }
-        .overlay(alignment: .bottomTrailing) {
-            if isCompleted {
-                BTPracticedBadge()
-                    .padding(Spacing.sm)
-            }
-        }
     }
 
-    @ViewBuilder
     private var metaRow: some View {
-        let parts = metaParts
-        if parts.isEmpty {
-            EmptyView()
-        } else {
-            Text(parts.joined(separator: " · "))
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .accessibilityLabel(parts.joined(separator: "，"))
+        HStack(spacing: Spacing.xs) {
+            if !metaParts.isEmpty {
+                Text(metaParts.joined(separator: " · "))
+                    .font(.btCaption2)
+                    .foregroundStyle(.btTextSecondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .accessibilityLabel(metaParts.joined(separator: "，"))
+            }
+            if practiceCount > 0 {
+                BTPracticedBadge(count: practiceCount)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var metaParts: [String] {
@@ -182,24 +179,28 @@ struct BTDrillGridCard: View {
 
 }
 
-/// Cover-corner badge: this drill has been practiced at least once (DR-077).
-/// Felt is ~btPrimary Light (`#1B6B3A`); Light primary would vanish on the table.
-/// Force Dark so `btPrimary` resolves to `#25A25A`.
+/// Practice count beside the tutorial kind, using the current appearance's brand color.
 struct BTPracticedBadge: View {
+    let count: Int
+
     var body: some View {
         HStack(spacing: 2) {
             Image(systemName: BTIcon.checkmark)
                 .font(.btMicro.weight(.bold))
-            Text("已练")
+                .accessibilityHidden(true)
+            Text("已练 \(count) 次")
                 .font(.btCaption2.weight(.heavy))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.65)
         }
         .foregroundStyle(.white)
-        .padding(.horizontal, Spacing.sm)
+        .padding(.horizontal, Spacing.xs)
         .padding(.vertical, Spacing.xs)
         .background(Color.btPrimary)
         .clipShape(Capsule())
-        .environment(\.colorScheme, .dark)
-        .accessibilityLabel("已练过")
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("已练 \(count) 次")
         .accessibilityIdentifier("drillCardPracticedBadge")
     }
 }
@@ -275,8 +276,8 @@ private let previewPremium = DrillContent(
     let columns = [GridItem(.flexible(), spacing: Spacing.md), GridItem(.flexible())]
     LazyVGrid(columns: columns, spacing: Spacing.md) {
         BTDrillGridCard(drill: previewSample, isFavorited: false, onFavoriteTap: {})
-        BTDrillGridCard(drill: previewPremium, isFavorited: false, isCompleted: true)
-        BTDrillGridCard(drill: previewSample, isFavorited: true, isCompleted: true, onFavoriteTap: {})
+        BTDrillGridCard(drill: previewPremium, isFavorited: false, practiceCount: 10)
+        BTDrillGridCard(drill: previewSample, isFavorited: true, practiceCount: 10, onFavoriteTap: {})
     }
     .padding()
     .background(.btBG)
@@ -286,7 +287,7 @@ private let previewPremium = DrillContent(
     let columns = [GridItem(.flexible(), spacing: Spacing.md), GridItem(.flexible())]
     LazyVGrid(columns: columns, spacing: Spacing.md) {
         BTDrillGridCard(drill: previewSample, isFavorited: false, onFavoriteTap: {})
-        BTDrillGridCard(drill: previewPremium, isFavorited: false, isCompleted: true)
+        BTDrillGridCard(drill: previewPremium, isFavorited: false, practiceCount: 10)
     }
     .padding()
     .background(.btBG)

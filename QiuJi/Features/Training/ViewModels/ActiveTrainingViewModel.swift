@@ -321,8 +321,9 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     private var timerTask: Task<Void, Never>?
     private var restTimer: DispatchSourceTimer?
+    private var restCompletionTask: Task<Void, Never>?
     private var pendingDrillAdvance: Int?
-    private let liveActivityManager = RestTimerLiveActivityManager.shared
+    private let liveActivityManager: any RestTimerLiveActivityManaging
     private let saveAction: (ModelContext) throws -> Void
 
     private var hasLoaded = false
@@ -440,10 +441,20 @@ final class ActiveTrainingViewModel: ObservableObject {
         }
     }
 
-    init(mode: TrainingMode, saveAction: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
+    init(mode: TrainingMode,
+         liveActivityManager: (any RestTimerLiveActivityManaging)? = nil,
+         saveAction: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         self.mode = mode
+        self.liveActivityManager = liveActivityManager ?? RestTimerLiveActivityManager.shared
         self.saveAction = saveAction
         #if DEBUG
+        let restPrefix = "-v57.restDuration="
+        if ProcessInfo.processInfo.arguments.contains("-v51.activeTraining"),
+           let argument = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix(restPrefix) }),
+           let duration = Int(argument.dropFirst(restPrefix.count)),
+           [59, 60, 61, 90, 120, 180].contains(duration) {
+            restDuration = duration
+        }
         if let raw = ProcessInfo.processInfo.arguments
             .first(where: { $0.hasPrefix("-v51.elapsedSeconds=") })?
             .replacingOccurrences(of: "-v51.elapsedSeconds=", with: ""),
@@ -544,12 +555,12 @@ final class ActiveTrainingViewModel: ObservableObject {
         elapsedSeconds = accumulatedBeforePause + Int(Date().timeIntervalSince(start))
     }
 
-    func refreshTimers() {
+    func refreshTimers(now: Date = Date()) {
         if isTimerRunning {
             recalculateElapsed()
         }
         if isRestTimerActive, let end = restEndDate {
-            let remaining = Int(ceil(end.timeIntervalSinceNow))
+            let remaining = Int(ceil(end.timeIntervalSince(now)))
             if remaining <= 0 {
                 restSecondsRemaining = 0
                 onRestComplete()
@@ -834,6 +845,7 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func startRestTimer() {
         stopRestTimer()
+        guard restDuration > 0 else { return }
         restTotalSeconds = restDuration
         restSecondsRemaining = restDuration
         isRestTimerActive = true
@@ -841,7 +853,8 @@ final class ActiveTrainingViewModel: ObservableObject {
         restEndDate = Date().addingTimeInterval(Double(restDuration))
 
         let drillName = currentDrill?.nameZh ?? "训练"
-        liveActivityManager.startActivity(drillName: drillName, totalSeconds: restDuration, endDate: restEndDate!)
+        let state = RestTimerAttributes.ContentState(endDate: restEndDate!, totalSeconds: restTotalSeconds)
+        liveActivityManager.startActivity(drillName: drillName, state: state)
         liveActivityManager.activateBackgroundAudio()
 
         let timer = DispatchSource.makeTimerSource(queue: .main)
@@ -864,6 +877,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     }
 
     private func onRestComplete() {
+        guard restCompletionTask == nil else { return }
         restTimer?.cancel()
         restTimer = nil
         liveActivityManager.endActivity()
@@ -873,20 +887,28 @@ final class ActiveTrainingViewModel: ObservableObject {
         generator.prepare()
         generator.notificationOccurred(.success)
         // F-AT-07: chrome dismiss ≤300ms (was 800ms zombie at 0:00)
-        Task {
-            try? await Task.sleep(for: .milliseconds(250))
+        restCompletionTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .milliseconds(250))
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
             withAnimation(BTMotion.easeChrome) {
-                isRestTimerActive = false
-                isRestOverlayMinimized = false
+                self.isRestTimerActive = false
+                self.isRestOverlayMinimized = false
             }
-            if let next = pendingDrillAdvance {
-                pendingDrillAdvance = nil
-                currentDrillIndex = next
+            if let next = self.pendingDrillAdvance {
+                self.pendingDrillAdvance = nil
+                self.currentDrillIndex = next
             }
+            self.restCompletionTask = nil
         }
     }
 
     func stopRestTimer() {
+        restCompletionTask?.cancel()
+        restCompletionTask = nil
         restTimer?.cancel()
         restTimer = nil
         isRestTimerActive = false
@@ -916,14 +938,23 @@ final class ActiveTrainingViewModel: ObservableObject {
         }
     }
 
-    func addRestTime(_ seconds: Int) {
+    func addRestTime(_ seconds: Int, now: Date = Date()) {
         // F-AT-07: block +30S once countdown has hit zero (dismiss window)
-        guard isRestTimerActive, restSecondsRemaining > 0 else { return }
-        restSecondsRemaining += seconds
-        restTotalSeconds += seconds
-        restEndDate = restEndDate?.addingTimeInterval(Double(seconds))
-        if let end = restEndDate {
-            liveActivityManager.updateEndDate(end)
+        guard isRestTimerActive, restSecondsRemaining > 0, let end = restEndDate else { return }
+        // A delayed foreground refresh must not revive an already expired interval.
+        guard end > now else {
+            restSecondsRemaining = 0
+            onRestComplete()
+            return
+        }
+        let updatedEnd = end.addingTimeInterval(Double(seconds))
+        restTotalSeconds = max(0, restTotalSeconds + seconds)
+        restEndDate = updatedEnd
+        restSecondsRemaining = max(0, Int(ceil(updatedEnd.timeIntervalSince(now))))
+        if restSecondsRemaining == 0 {
+            onRestComplete()
+        } else {
+            liveActivityManager.updateActivity(state: .init(endDate: updatedEnd, totalSeconds: restTotalSeconds))
         }
     }
 

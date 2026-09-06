@@ -20,6 +20,329 @@ final class V54ScheduleDomainTests: XCTestCase {
         super.tearDown()
     }
 
+    func test_v57_switchRestoresCursorAndIsolatesOwners() throws {
+        let a = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        let b = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: "plan_intermediate"))
+        let first = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        first.currentLessonId = a.lessons[2].id
+        first.currentWeek = 2
+        first.currentDay = 3
+        let foreign = UserActivePlan(planId: a.id, ownerKey: "guest:other")
+        foreign.currentLessonId = a.lessons[1].id
+        context.insert(foreign)
+        try context.save()
+        let second = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context)
+        XCTAssertEqual(first.status, "paused")
+        XCTAssertEqual(second.status, "active")
+        let restored = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        XCTAssertEqual(restored.id, first.id)
+        XCTAssertEqual(restored.currentLessonId, a.lessons[2].id)
+        XCTAssertEqual(restored.currentWeek, 2)
+        XCTAssertEqual(restored.currentDay, 3)
+        XCTAssertEqual(second.status, "paused")
+        XCTAssertEqual(foreign.status, "active")
+        XCTAssertEqual(foreign.currentLessonId, a.lessons[1].id)
+        _ = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        XCTAssertEqual(try PlanProgressService.officialRecords(ownerKey: owner, context: context).count, 2)
+    }
+
+    func test_v57_failedSwitchRestoresSavedAndInMemoryState() throws {
+        enum Failure: Error { case disk }
+        let a = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        let b = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: "plan_intermediate"))
+        let first = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        let second = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context)
+        let previousDate = first.updatedAt
+        XCTAssertThrowsError(try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context,
+            save: { throw Failure.disk }))
+        XCTAssertEqual(first.status, "paused")
+        XCTAssertEqual(first.updatedAt, previousDate)
+        XCTAssertEqual(second.status, "active")
+        let independent = ModelContext(container)
+        let persisted = try PlanProgressService.officialRecords(ownerKey: owner, context: independent)
+        XCTAssertEqual(PlanProgressService.currentOfficialPlan(in: persisted)?.planId, b.id)
+    }
+
+    func test_v57_oldQueuedLessonCannotAdvanceNewMainline() throws {
+        let a = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        let b = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: "plan_intermediate"))
+        let old = try PlanProgressService.activateOfficialPlan(a, ownerKey: owner, context: context)
+        let result = try TodayTrainingScheduleService(context: context).addOfficialLessons(
+            plan: a, lessonIDs: [a.lessons[0].id], activePlan: old
+        )
+        let item = try addedItem(XCTUnwrap(result.first))
+        let current = try PlanProgressService.activateOfficialPlan(b, ownerKey: owner, context: context)
+        item.state = TodayScheduleItemState.completed
+        XCTAssertEqual(try PlanProgressService.settleCompletedScheduleItem(item, context: context), .none)
+        XCTAssertEqual(current.currentLessonId, b.lessons[0].id)
+        XCTAssertEqual(old.currentLessonId, a.lessons[0].id)
+    }
+
+    func test_v57_failedFirstActivationDoesNotLeaveAnActiveDraft() throws {
+        enum Failure: Error { case disk }
+        let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        XCTAssertThrowsError(try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context,
+            save: { throw Failure.disk }))
+        XCTAssertTrue(try PlanProgressService.officialRecords(ownerKey: owner, context: context).isEmpty)
+        XCTAssertTrue(try PlanProgressService.officialRecords(ownerKey: owner, context: ModelContext(container)).isEmpty)
+    }
+
+    func test_v57_selectionIgnoresPausedCompletedAndCustomAndIsStable() {
+        let a = UserActivePlan(planId: "a", ownerKey: owner)
+        let b = UserActivePlan(planId: "b", ownerKey: owner)
+        a.startDate = Date(timeIntervalSince1970: 1)
+        b.startDate = Date(timeIntervalSince1970: 2)
+        XCTAssertEqual(PlanProgressService.currentOfficialPlan(in: [a, b])?.id, b.id)
+        XCTAssertEqual(PlanProgressService.currentOfficialPlan(in: [b, a])?.id, b.id)
+        b.status = "paused"
+        a.status = "completed"
+        let custom = UserActivePlan(planId: "template", isCustom: true, ownerKey: owner)
+        XCTAssertNil(PlanProgressService.currentOfficialPlan(in: [a, b, custom]))
+    }
+
+    func test_v57_normalizationPersistsSingleActiveWithoutLosingCursors() throws {
+        let a = UserActivePlan(planId: "a", ownerKey: owner)
+        let b = UserActivePlan(planId: "b", ownerKey: owner)
+        a.startDate = Date(timeIntervalSince1970: 1)
+        b.startDate = Date(timeIntervalSince1970: 2)
+        a.currentLessonId = "a.lesson2"
+        b.currentLessonId = "b.lesson3"
+        context.insert(a); context.insert(b)
+        try context.save()
+        _ = try PlanProgressService.normalizeOfficialMainline(ownerKey: owner, context: context)
+        let restored = try PlanProgressService.officialRecords(ownerKey: owner, context: ModelContext(container))
+        XCTAssertEqual(restored.filter { $0.status == "active" }.map(\.planId), ["b"])
+        XCTAssertEqual(restored.first { $0.planId == "a" }?.currentLessonId, "a.lesson2")
+        XCTAssertEqual(restored.first { $0.planId == "b" }?.currentLessonId, "b.lesson3")
+    }
+
+    func test_v57_homeUsesLessonIdentityWhenLegacyCursorDisagrees() async throws {
+        let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context)
+        let stage = try XCTUnwrap(plan.stages.last)
+        let lesson = try XCTUnwrap(stage.lessons.last)
+        active.currentLessonId = lesson.id
+        active.currentWeek = 1
+        active.currentDay = 1
+        try context.save()
+        let vm = TrainingHomeViewModel()
+        await vm.load(context: context, ownerKey: owner)
+        let actual = try XCTUnwrap(vm.todaySession)
+        XCTAssertEqual(actual.weekNumber, stage.order)
+        XCTAssertEqual(actual.dayNumber, lesson.order)
+        XCTAssertEqual(actual.drills.map(\.drillId), lesson.phases.flatMap { $0.drills.map(\.drillId) })
+        active.status = "paused"
+        try context.save()
+        await vm.load(context: context, ownerKey: owner)
+        XCTAssertFalse(vm.hasActivePlan)
+        XCTAssertNil(vm.todaySession)
+    }
+
+    func test_v57_projectionKeepsOfficialAndTemplateInBothInsertionOrders() throws {
+        let date = Date(timeIntervalSince1970: 1_788_393_600)
+        for templateFirst in [false, true] {
+            let store = ModelContainerFactory.makeInMemoryContainer()
+            let db = store.mainContext
+            let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+            let lesson = plan.lessons[0]
+            let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: db)
+            let service = TodayTrainingScheduleService(context: db, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+            let drillID = try XCTUnwrap(lesson.phases.flatMap(\.drills).first?.drillId)
+            let template = CustomPlan(name: "并列模板", sessionsPerWeek: 3, ownerKey: owner)
+            template.drills = [CustomPlanDrill(drillId: drillID, drillNameZh: "同一动作", roundsPerFormation: 1, order: 0)]
+            db.insert(template)
+            if templateFirst { _ = try service.addTemplate(template) }
+            _ = try service.addOfficialLessons(plan: plan, lessonIDs: [lesson.id], activePlan: active)
+            if !templateFirst { _ = try service.addTemplate(template) }
+            let schedule = try XCTUnwrap(try service.today(ownerKey: owner, createIfNeeded: false))
+            let official = try XCTUnwrap(schedule.items.first { $0.sourceKind == TodayScheduleSourceKind.officialLesson })
+            let block = try ScheduledTrainingBlock(item: official)
+            let saved = TrainingSession(ownerKey: owner)
+            saved.date = date
+            saved.scheduleItemId = official.id
+            saved.planId = plan.id
+            saved.lessonId = lesson.id
+            saved.drillEntries = block.drills.map { DrillEntry(drillId: $0.drillID, drillNameZh: $0.name) }
+            db.insert(saved)
+            official.state = TodayScheduleItemState.completed
+            official.trainingSessionId = saved.id
+            try db.save()
+            // A fresh context exercises persisted relationships, not just the original object array.
+            let fresh = ModelContext(store)
+            let projection = TodayTrainingProjection.make(ownerKey: owner,
+                schedules: try fresh.fetch(FetchDescriptor<TodayTrainingSchedule>()),
+                sessions: try fresh.fetch(FetchDescriptor<TrainingSession>()),
+                suggestion: TodaySessionInfo(planId: plan.id, planNameZh: plan.nameZh, weekNumber: 1,
+                    dayNumber: 1, weekTheme: "阶段", totalMinutes: 20, drills: [], isFromTemplate: false,
+                    lessonID: lesson.id),
+                now: date, timeZone: TimeZone(secondsFromGMT: 0)!)
+            XCTAssertEqual(projection.queued.count, 2)
+            XCTAssertNil(projection.suggestion, "已入队的官方课不能重复出现建议")
+            XCTAssertEqual(projection.totalCount, block.drills.count + 1)
+            XCTAssertEqual(projection.completedCount, block.drills.count)
+            XCTAssertEqual(projection.queued.first { $0.item.sourceKind == TodayScheduleSourceKind.template }?.completedCount, 0)
+            XCTAssertTrue(projection.history.isEmpty, "队列 session 不得重复算成自由历史")
+            XCTAssertFalse(projection.allArrangedTrainingEnded)
+        }
+    }
+
+    func test_v57_projectionSuggestionDoesNotCountOrReturnAfterCompletion() throws {
+        let date = Date(timeIntervalSince1970: 1_788_393_600)
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+        let item = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "直线球", ownerKey: owner))
+        let suggestion = TodaySessionInfo(planId: "plan_beginner", planNameZh: "基本功", weekNumber: 1,
+            dayNumber: 1, weekTheme: "阶段", totalMinutes: 20, drills: [], isFromTemplate: false,
+            lessonID: "plan_beginner.stage01.lesson01")
+        let schedules = try context.fetch(FetchDescriptor<TodayTrainingSchedule>())
+        let pending = TodayTrainingProjection.make(ownerKey: owner, schedules: schedules, sessions: [],
+            suggestion: suggestion, now: date, timeZone: TimeZone(secondsFromGMT: 0)!)
+        XCTAssertNotNil(pending.suggestion)
+        XCTAssertEqual(pending.totalCount, 1)
+        item.state = TodayScheduleItemState.completed
+        let done = TrainingSession(ownerKey: owner)
+        done.date = date; done.scheduleItemId = item.id
+        done.drillEntries = [DrillEntry(drillId: "drill_c001", drillNameZh: "直线球")]
+        context.insert(done); try context.save()
+        let finished = TodayTrainingProjection.make(ownerKey: owner, schedules: schedules, sessions: [done],
+            suggestion: suggestion, now: date, timeZone: TimeZone(secondsFromGMT: 0)!)
+        XCTAssertNil(finished.suggestion)
+        XCTAssertTrue(finished.allArrangedTrainingEnded)
+        XCTAssertEqual(finished.completedCount, 1)
+    }
+
+    func test_v57_projectionSavedHistoryUsesEntryIdentityOwnerAndLocalDay() throws {
+        let date = Date(timeIntervalSince1970: 1_788_393_600)
+        let saved = TrainingSession(ownerKey: owner)
+        saved.date = date; saved.totalDurationMinutes = 17
+        saved.drillEntries = [DrillEntry(drillId: "same", drillNameZh: "同动作"),
+                              DrillEntry(drillId: "same", drillNameZh: "同动作")]
+        let yesterday = TrainingSession(ownerKey: owner)
+        yesterday.date = date.addingTimeInterval(-86400)
+        yesterday.drillEntries = [DrillEntry(drillId: "yesterday", drillNameZh: "昨日")]
+        let other = TrainingSession(ownerKey: "guest:other")
+        other.date = date; other.drillEntries = [DrillEntry(drillId: "other", drillNameZh: "另一账号")]
+        for session in [saved, yesterday, other] { context.insert(session) }
+        try context.save()
+        let projection = TodayTrainingProjection.make(ownerKey: owner, schedules: [],
+            sessions: [saved, saved, yesterday, other], suggestion: nil,
+            now: date, timeZone: TimeZone(secondsFromGMT: 0)!)
+        XCTAssertEqual(projection.history.count, 1)
+        XCTAssertEqual(projection.totalCount, 2)
+        XCTAssertEqual(projection.completedCount, 2)
+        XCTAssertEqual(projection.recordedMinutes, 17)
+        XCTAssertEqual(projection.estimatedMinutes, 0)
+        XCTAssertTrue(projection.allArrangedTrainingEnded)
+    }
+
+    func test_v57_projectionCorruptionCannotLookLikeAnEmptyCompletedLesson() throws {
+        let date = Date(timeIntervalSince1970: 1_788_393_600)
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+        let item = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "直线球", ownerKey: owner))
+        item.payloadSnapshot = Data("invalid".utf8)
+        item.state = TodayScheduleItemState.completed
+        let projection = TodayTrainingProjection.make(ownerKey: owner,
+            schedules: try context.fetch(FetchDescriptor<TodayTrainingSchedule>()), sessions: [], suggestion: nil,
+            now: date, timeZone: TimeZone(secondsFromGMT: 0)!)
+        XCTAssertTrue(projection.hasUnavailableContent)
+        XCTAssertNotNil(projection.queued.first?.unavailableReason)
+        XCTAssertFalse(projection.allArrangedTrainingEnded)
+    }
+
+    func test_v57_projectionReopensDiskStoreAfterTemplateDeletion() throws {
+        let date = Date(timeIntervalSince1970: 1_788_393_600)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("v57-projection-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer {
+            do { try FileManager.default.removeItem(at: directory) }
+            catch { XCTFail("Unable to remove isolated test store: \(error)") }
+        }
+        let url = directory.appendingPathComponent("test.store")
+        func populate() throws -> Data {
+            let store = try ModelContainerFactory.makeContainer(at: url)
+            let db = store.mainContext
+            let template = CustomPlan(name: "冻结标题", sessionsPerWeek: 3, ownerKey: owner)
+            template.drills = [CustomPlanDrill(drillId: "drill_c001", drillNameZh: "直线球", roundsPerFormation: 2, order: 0)]
+            db.insert(template)
+            let service = TodayTrainingScheduleService(context: db, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
+            let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+            let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: db)
+            _ = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
+            let result = try service.addTemplate(template)
+            let item: TodayScheduleItem
+            switch result {
+            case .added(let value), .alreadyPresent(let value): item = value
+            }
+            let frozen = item.payloadSnapshot
+            template.name = "源已修改"
+            template.drills[0].roundsPerFormation = 9
+            try db.save()
+            db.delete(template)
+            try db.save()
+            return frozen
+        }
+        let expectedPayload = try populate()
+        let reopened = try ModelContainerFactory.makeContainer(at: url)
+        let db = reopened.mainContext
+        XCTAssertEqual(try db.fetchCount(FetchDescriptor<CustomPlan>()), 0)
+        let projection = TodayTrainingProjection.make(ownerKey: owner,
+            schedules: try db.fetch(FetchDescriptor<TodayTrainingSchedule>()), sessions: [], suggestion: nil,
+            now: date, timeZone: TimeZone(secondsFromGMT: 0)!)
+        XCTAssertEqual(projection.queued.count, 2)
+        XCTAssertTrue(projection.queued.contains { $0.item.sourceKind == TodayScheduleSourceKind.officialLesson })
+        let restored = try XCTUnwrap(projection.queued.first { $0.item.sourceKind == TodayScheduleSourceKind.template })
+        XCTAssertEqual(restored.item.sourceTitleSnapshot, "冻结标题")
+        XCTAssertEqual(restored.item.payloadSnapshot, expectedPayload)
+        XCTAssertEqual(restored.totalCount, 1)
+        XCTAssertGreaterThan(restored.estimatedMinutes, 0)
+        XCTAssertNil(restored.unavailableReason)
+    }
+
+    func test_v57_projectionAbandonAndDeleteRemovePendingDenominator() throws {
+        let date = Date(timeIntervalSince1970: 1_788_393_600)
+        let utc = TimeZone(secondsFromGMT: 0)!
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: utc)
+        let a = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "a", ownerKey: owner))
+        let b = try addedItem(service.addLibraryDrill(id: "drill_c002", title: "b", ownerKey: owner))
+        let schedule = try XCTUnwrap(a.schedule)
+        try service.markStarted(a)
+        try service.abandon(a)
+        var projection = TodayTrainingProjection.make(ownerKey: owner, schedules: [schedule], sessions: [],
+            suggestion: nil, now: date, timeZone: utc)
+        XCTAssertEqual(projection.totalCount, 1)
+        XCTAssertEqual(projection.queued.count, 2, "放弃记录仍可回看")
+        try service.removePending(b)
+        projection = TodayTrainingProjection.make(ownerKey: owner, schedules: [schedule], sessions: [],
+            suggestion: nil, now: date, timeZone: utc)
+        XCTAssertEqual(projection.totalCount, 0)
+        XCTAssertFalse(projection.allArrangedTrainingEnded)
+    }
+
+    func test_v57_endedLessonCountsOnlySavedActions() throws {
+        let date = Date(timeIntervalSince1970: 1_788_393_600)
+        let utc = TimeZone(secondsFromGMT: 0)!
+        let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        let active = try PlanProgressService.activateOfficialPlan(plan, ownerKey: owner, context: context)
+        let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: utc)
+        let results = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
+        let item = try addedItem(XCTUnwrap(results.first))
+        let block = try ScheduledTrainingBlock(item: item)
+        XCTAssertGreaterThan(block.drills.count, 1)
+        let saved = TrainingSession(ownerKey: owner)
+        saved.date = date; saved.scheduleItemId = item.id
+        saved.drillEntries = [DrillEntry(drillId: block.drills[0].drillID, drillNameZh: block.drills[0].name)]
+        context.insert(saved)
+        item.state = TodayScheduleItemState.completed
+        try context.save()
+        let projection = TodayTrainingProjection.make(ownerKey: owner,
+            schedules: try context.fetch(FetchDescriptor<TodayTrainingSchedule>()), sessions: [saved], suggestion: nil,
+            now: date, timeZone: utc)
+        XCTAssertEqual(projection.completedCount, 1)
+        XCTAssertEqual(projection.totalCount, block.drills.count)
+        XCTAssertTrue(projection.allArrangedTrainingEnded)
+        XCTAssertFalse(projection.allActionsCompleted)
+        XCTAssertEqual(projection.queued[0].completedDrills.filter { $0 }.count, 1)
+    }
+
     func test_classification_matchesAllFrozenSelectionCases() {
         let cases: [(Int?, Set<Int>, [Int: String])] = [
             (4, [1, 4], [1: "review", 4: "advanceEligible"]),

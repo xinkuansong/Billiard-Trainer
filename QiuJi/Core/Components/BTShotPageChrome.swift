@@ -137,14 +137,16 @@ struct BTTextActionButton: View {
     var isDisabled: Bool = false
     /// 按钮宽度（贴边布局下右侧留白窄，压到 46 以不超出球桌右侧黑边区，G6/G11）。
     var width: CGFloat = 56
+    var height: CGFloat = 30
+    var fontSize: CGFloat = 13
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(.system(size: fontSize, weight: .semibold, design: .rounded))
                 .foregroundStyle(foreground)
-                .frame(width: width, height: 30)
+                .frame(width: width, height: height)
                 .background(background, in: Capsule())
                 .overlay(Capsule().strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
         }

@@ -739,7 +739,7 @@ struct AimPointSceneTrainingView: View {
     // MARK: - 装饰性球库（C14：BTDecorativeBallPalette）
 
     private func decorativePalette(_ proxy: ShotStageProxy) -> some View {
-        let libraryWidth = proxy.isValid ? proxy.libraryWidth : proxy.sceneSize.width
+        let libraryWidth = proxy.libraryWidth
         return BTDecorativeBallPalette(
             ballDiameter: proxy.paletteBallDiameter,
             libraryWidth: libraryWidth,
