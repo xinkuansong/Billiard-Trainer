@@ -11,6 +11,55 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         sleep(3)
     }
 
+    func testStartupWithoutOnboardingGoesStraightToMain() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = ["-hasCompletedOnboarding", "NO", "-v50.inMemoryStore", "-AppleLanguages", "(zh-Hans)"]
+        app.launch()
+        app.switchTab(.profile)
+        XCTAssertFalse(app.otherElements["auth.launching"].exists)
+        XCTAssertFalse(app.staticTexts["正在恢复账号…"].exists)
+        XCTAssertTrue(app.buttons["profile.login"].waitForExistence(timeout: 5))
+        captureSyncChoice("startup-profile")
+    }
+
+    func testCloudSyncChoiceAndSettingsPersist() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-v53.authenticatedProfileFixture", "-syncChoice.explicitLogin", "-v50.inMemoryStore", "-v49.forceLight"])
+        let prompt = app.alerts["开启训练数据云同步？"]
+        if !prompt.waitForExistence(timeout: 2) { app.switchTab(.profile) }
+        XCTAssertTrue(prompt.waitForExistence(timeout: 5))
+        captureSyncChoice("cloud-sync-choice")
+        prompt.buttons["仅保存在本机"].tap()
+        app.switchTab(.profile)
+        app.staticTexts["偏好设置"].tap()
+        let toggle = app.switches["settings.cloudSync"]
+        for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertTrue(toggle.isHittable)
+        XCTAssertEqual(toggle.value as? String, "0")
+        captureSyncChoice("settings-sync-off")
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "1")
+        captureSyncChoice("settings-sync-on")
+        app.terminate()
+        app.launchArguments.removeAll { $0 == "-syncChoice.explicitLogin" }
+        app.launch()
+        app.switchTab(.profile)
+        XCTAssertFalse(app.alerts["开启训练数据云同步？"].exists)
+        app.staticTexts["偏好设置"].tap()
+        for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertEqual(toggle.value as? String, "1")
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "0")
+    }
+
+    private func captureSyncChoice(_ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     // MARK: - PersonalInfoView
 
     func testPersonalInfoOpens() {

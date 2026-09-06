@@ -68,7 +68,8 @@ final class SyncQueueManager: ObservableObject {
         case retryLater(String)
     }
 
-    func processQueue(authState: AuthState) async {
+    func processQueue(authState: AuthState, shouldContinue: () -> Bool = { true }) async {
+        guard shouldContinue() else { return }
         guard authState.isLoggedIn, let userID = authState.currentUser?.id else { return }
         guard let context else { return }
         let ownerKey = OwnerKey.account(userID)
@@ -88,6 +89,7 @@ final class SyncQueueManager: ObservableObject {
         guard !pending.isEmpty else { return }
 
         for item in pending {
+            guard shouldContinue(), authState.isLoggedIn, authState.currentUser?.id == userID else { break }
             let outcome = await process(item, ownerKey: ownerKey, context: context)
             switch outcome {
             case .succeeded:

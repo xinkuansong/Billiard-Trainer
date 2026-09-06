@@ -18,6 +18,7 @@ struct DrillRecordView: View {
 
     /// Default expanded (球台示意).
     @State private var showBallTable = true
+    @State private var isNoteFocused = false
     @State private var showSetTimer = true
     @State private var showSuccessRate = true
     @State private var showRestPicker = false
@@ -197,15 +198,22 @@ struct DrillRecordView: View {
     // MARK: - Note Input
 
     private var noteInputRow: some View {
-        HStack(spacing: Spacing.sm) {
+        HStack(alignment: .top, spacing: Spacing.sm) {
             Image(systemName: "doc.text")
                 .font(.btCallout)
                 .foregroundStyle(.btTextTertiary)
 
-            TextField("记录本项心得...", text: $note, axis: .vertical)
-                .font(.btCallout)
-                .foregroundStyle(.btText)
-                .lineLimit(1...4)
+            ZStack(alignment: .topLeading) {
+                BTNumberedNoteEditor(text: $note, isFocused: $isNoteFocused,
+                                     expandsWithContent: true, identifier: "drillNote.editor",
+                                     dismissIdentifier: "drillNote.dismissKeyboard")
+                if note.isEmpty {
+                    Text("记录本项心得...")
+                        .font(.btCallout)
+                        .foregroundStyle(.btTextTertiary)
+                        .allowsHitTesting(false)
+                }
+            }
         }
         .padding(Spacing.md)
         .background(Color.btBGSecondary)

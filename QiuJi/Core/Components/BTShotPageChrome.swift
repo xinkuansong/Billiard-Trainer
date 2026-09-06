@@ -199,6 +199,7 @@ struct BTShotActionColumn: View {
             BTTextActionButton(title: playbackTitle, isDisabled: !playbackEnabled,
                                width: buttonWidth, action: onPlayback)
         }
+        .btTrainingPillObstacle()
     }
 }
 

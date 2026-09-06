@@ -548,3 +548,37 @@ W3 ipad-light 五项回归中四项通过，阶段折叠在首次行中心点击
 - CameraRig、AngleSceneView恢复HEAD原文；SceneAiming恢复原enterAiming、锚定及键盘结构，保留球库宽度/辅助答题按钮修改。
 - 新求解器和专用诊断测试移出编译目录并归档到output/v57/W5/withdrawn-camera；重新生成工程。此前自动取景测试是已撤销方案的历史证据，不代表最终交付。
 - 回退验证完成：原相机3项单测通过；最终重新编译并运行3题真实训练页UI通过，6截图已核对。CameraRig/AngleSceneView与修改前HEAD逐字一致，证据camera-rollback-source.json、camera-rollback-tests-raw.log、camera-rollback-final-ui-raw.log。恢复旧视角与键盘覆盖行为，不再保证三目标自动入镜。 不再继续设计新取景方案。
+
+
+## FL-052 — 心得sheet键盘工具栏缺失
+- 证据：output/training-input-flow/ui-raw.log，trainingNote.dismissKeyboard不存在；failure/note-end.png显示正文/键盘已呈现但无收起入口。
+- 修复：TrainingNoteView使用焦点控制的safeAreaInset收起区，避免sheet内toolbar未呈现；增加键盘存在和编辑/收起/键盘边界断言。
+- 复验：ui-r2与final-se通过；最终增强断言见verified-se-raw.log。后续标准手机结果见REPORT.md。
+- 已应用至：.cursor/rules/55-test-engineer.mdc §FL-052、UI规格Changelog。
+
+
+## FL-053 — UIKit心得字号未遵循页面字体契约
+
+- 首轮SE编号UI断言通过，但截图se/input-drill-note.png显示巨大文字且前两条不在可视区；不能认定视觉通过。
+- 根因：新UITextView使用系统preferredFont及自动缩放，模拟器系统AX字体与SwiftUI页面标准字体不同，导致局部字号膨胀。
+- 修复：匹配Typography.btCallout/btBody的标准类别16/17pt；增加六行高度上限断言，保留自动增长下限与文本内容断言。恢复共享品牌色收起图标。
+- 最终复验：output/numbered-notes/REPORT.md；初版图与日志保留，不作为最终视觉证据。
+- 已应用至：.cursor/rules/55-test-engineer.mdc §FL-053、UI规格DR-102。
+
+### FL-053 用户纠正与环境核验
+用户指出小屏放大可能为模拟器设置残留。实测simctl ui 030E0CC1-AF30-400B-940B-0C6231E5753D content_size为accessibility-extra-extra-extra-large；17Pro为large。此前未先核验/恢复普通小屏环境是执行遗漏，不应把巨字图当成正常小屏缺陷。已将普通SE恢复large并读回确认；专用AX模拟器未改。UIKit与现有固定字号Token对齐属于组件一致性，不等同于必须通过代码修正模拟器设置。最终普通小屏证据应使用恢复large后的新轮次。
+
+
+## FL-054 — 动作行功能通过但视觉退化仍被接受
+- **任务**：DR-109/DR-110 今日安排与计划动作行，P2，视觉返工中。
+- **现象**：左侧44pt空占位挤压正文；剂量拆为多行、行高膨胀，整体留白和阅读节奏退化。执行者看到截图后仍以内容完整和导航通过接受布局，用户再次指出。
+- **根因**：将视觉审查降为可见性检查，没有独立评估整页密度与图文比例；没有落实实施到UI Reviewer的自动切换。
+- **规则修复**：20-swiftui-developer新增功能后的视觉门禁、原图检查及否决项；57-ui-reviewer补自动触发。不能以新增规则代替当前UI返工。
+- **状态**：规则已补；页面视觉未通过，尚未完成重新设计及截图验收。证据：用户本会话截图及output/drill-layout-final/se-attachments/。
+- **日期**：2026-09-06
+
+FL-054补充（2026-09-06）：用户指出流程表述漏掉正常测试，已显式恢复构建/静态检查/按风险选择的功能与边界回归，视觉作为补充门禁；修复后复跑受影响测试和截图，避免过度转向只看UI。
+
+FL-054再次返工：首轮把剂量移到图片下方，用户指出错行，撤回视觉通过判断。最终修复改为图片列与文字列明确分离，名称/剂量共用左对齐线；证据改用output/drill-layout-aligned/，前两版保留为失败记录。
+
+FL-054最终局部复验：图片列/文字列重排后，SE深色3项和17Pro浅色4项UI通过；关键原图已核对名称/剂量同列及箭头居中，见output/drill-layout-aligned/REPORT.md。先前失败结论保留，未宣称真机/iPad/AX通过。

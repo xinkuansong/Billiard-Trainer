@@ -404,6 +404,22 @@ final class TodayTrainingScheduleService {
             .max { $0.localDayKey < $1.localDayKey }
     }
 
+    /// Carry-over is not an explicit repeat: today's saved/completed sources count too.
+    static func carryForwardCandidates(
+        from previous: TodayTrainingSchedule, todayItems: [TodayScheduleItem], activePlanID: String?
+    ) -> [TodayScheduleItem] {
+        previous.items.filter { source in
+            guard isUnfinished(source) else { return false }
+            if source.sourceKind == TodayScheduleSourceKind.officialLesson {
+                return source.planId == activePlanID
+                    && !todayItems.contains { $0.planId == source.planId }
+            }
+            return !todayItems.contains {
+                $0.sourceKind == source.sourceKind && $0.sourceId == source.sourceId
+            }
+        }.sorted { $0.orderIndex < $1.orderIndex }
+    }
+
     /// Copies the last archived day's unfinished snapshots. Official lessons are classified again
     /// against today's cursor; the archived facts remain unchanged.
     @discardableResult
@@ -413,7 +429,9 @@ final class TodayTrainingScheduleService {
         officialPlan: OfficialPlan?
     ) throws -> [AddResult] {
         guard let previous = try latestArchivedWithUnfinished(ownerKey: ownerKey) else { return [] }
-        let sourceItems = previous.items.filter(Self.isUnfinished).sorted { $0.orderIndex < $1.orderIndex }
+        let today = try requiredToday(ownerKey: ownerKey)
+        let sourceItems = Self.carryForwardCandidates(
+            from: previous, todayItems: today.items, activePlanID: activePlan?.planId)
         var results: [AddResult] = []
 
         if let activePlan, let officialPlan, activePlan.planId == officialPlan.id {

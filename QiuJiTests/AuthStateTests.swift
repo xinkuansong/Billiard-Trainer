@@ -79,6 +79,97 @@ final class AuthStateTests: XCTestCase {
         super.tearDown()
     }
 
+    private func makeSubscriptionAuthState() -> AuthState {
+        AuthState(
+            backend: MockBackend(behavior: .networkFailure),
+            credentials: MockCredentials(hasRefreshToken: false),
+            defaults: defaults,
+            ownerContext: CurrentOwnerContext(defaults: defaults)
+        )
+    }
+
+    private var purchasedEntitlements: [StoreEntitlementSnapshot] {
+        [StoreEntitlementSnapshot(productID: StoreKitService.lifetimeID,
+                                  expirationDate: nil, revocationDate: nil)]
+    }
+
+    func testProLogoutClearsEntitlementsAndReloginRefreshesPurchase() async {
+        let state = makeSubscriptionAuthState()
+        let snapshots = purchasedEntitlements
+        let manager = SubscriptionManager(entitlementLoader: { snapshots },
+                                          listenForUpdates: false, useDebugOverrides: false)
+        manager.bind(to: state)
+        state.login(user: AppUser(id: "pro-user", provider: .apple))
+        await manager.checkEntitlements()
+        XCTAssertTrue(manager.isPremium)
+        XCTAssertEqual(manager.entitlementStatusLabel, "永久有效")
+
+        await state.logout()
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertTrue(manager.purchasedProductIDs.isEmpty)
+        XCTAssertTrue(manager.entitlementSnapshots.isEmpty)
+        XCTAssertEqual(manager.entitlementStatusLabel, "未订阅")
+        await manager.checkEntitlements() // A transaction update after logout must stay locked.
+        XCTAssertFalse(manager.isPremium)
+        let restored = await manager.restorePurchases()
+        XCTAssertFalse(restored)
+        XCTAssertEqual(manager.errorMessage, "请先登录后再恢复购买")
+
+        state.login(user: AppUser(id: "pro-user", provider: .apple))
+        await manager.checkEntitlements()
+        XCTAssertTrue(manager.isPremium)
+    }
+
+    func testProIsClearedForExpiredSessionAndAccountDeletion() async {
+        for deleteAccount in [false, true] {
+            let state = makeSubscriptionAuthState()
+            let snapshots = purchasedEntitlements
+            let manager = SubscriptionManager(entitlementLoader: { snapshots },
+                                              listenForUpdates: false, useDebugOverrides: false)
+            manager.bind(to: state)
+            state.login(user: AppUser(id: "pro-user", provider: .apple))
+            await manager.checkEntitlements()
+            XCTAssertTrue(manager.isPremium)
+            if deleteAccount { state.finishAccountDeletion() }
+            else { state.invalidateSession() }
+            XCTAssertFalse(manager.isPremium)
+            await manager.checkEntitlements()
+            XCTAssertFalse(manager.isPremium)
+        }
+    }
+
+    func testGuestColdLaunchCannotReuseAppleEntitlement() async {
+        let state = makeSubscriptionAuthState()
+        var reads = 0
+        let snapshots = purchasedEntitlements
+        let manager = SubscriptionManager(entitlementLoader: { reads += 1; return snapshots },
+                                          listenForUpdates: false, useDebugOverrides: false)
+        manager.bind(to: state)
+        state.loginAnonymously()
+        await manager.checkEntitlements()
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertEqual(reads, 0)
+    }
+
+    func testProLateEntitlementResultCannotUnlockLoggedOutSession() async {
+        let state = makeSubscriptionAuthState()
+        var pending: [CheckedContinuation<[StoreEntitlementSnapshot], Never>] = []
+        let manager = SubscriptionManager(entitlementLoader: {
+            await withCheckedContinuation { pending.append($0) }
+        }, listenForUpdates: false, useDebugOverrides: false)
+        manager.bind(to: state)
+        state.login(user: AppUser(id: "pro-user", provider: .apple))
+        let refresh = Task { await manager.checkEntitlements() }
+        // Both the login read and explicit refresh are suspended until after logout.
+        while pending.count < 2 { await Task.yield() }
+        await state.logout()
+        for continuation in pending { continuation.resume(returning: purchasedEntitlements) }
+        await refresh.value
+        await manager.checkEntitlements()
+        XCTAssertFalse(manager.isPremium)
+        XCTAssertTrue(manager.purchasedProductIDs.isEmpty)
+    }
+
     func testBootstrapWithoutTokenReturnsStableGuestAfterOnboarding() async {
         defaults.set(true, forKey: "hasCompletedOnboarding")
         let backend = MockBackend(behavior: .networkFailure)
@@ -112,6 +203,8 @@ final class AuthStateTests: XCTestCase {
 
         XCTAssertEqual(state.phase, .authenticated(AppUser(dto: user)))
         XCTAssertEqual(state.currentUser?.displayName, "球徒")
+        XCTAssertFalse(state.showCloudSyncPrompt)
+        XCTAssertFalse(state.cloudSyncEnabled)
         let fetchCount = await backend.fetchCount
         XCTAssertEqual(fetchCount, 1)
     }
@@ -187,6 +280,34 @@ final class AuthStateTests: XCTestCase {
         XCTAssertEqual(logoutCount, 1)
         XCTAssertEqual(credentials.clearCount, 1)
         XCTAssertTrue(state.isAnonymous)
+    }
+
+    func testSyncChoiceIsPerAccountAndPersistsAcrossAuthStateInstances() {
+        let state = makeSubscriptionAuthState()
+        state.login(user: AppUser(id: "choice-a", provider: .apple))
+        XCTAssertFalse(state.cloudSyncEnabled)
+        XCTAssertTrue(state.showCloudSyncPrompt)
+        state.setCloudSyncEnabled(false)
+        state.login(user: AppUser(id: "choice-b", provider: .apple))
+        XCTAssertTrue(state.showCloudSyncPrompt)
+        state.setCloudSyncEnabled(true)
+        state.login(user: AppUser(id: "choice-a", provider: .apple))
+        XCTAssertFalse(state.cloudSyncEnabled)
+        XCTAssertFalse(state.showCloudSyncPrompt)
+        let second = makeSubscriptionAuthState()
+        second.login(user: AppUser(id: "choice-b", provider: .apple))
+        XCTAssertTrue(second.cloudSyncEnabled)
+        XCTAssertFalse(second.showCloudSyncPrompt)
+    }
+
+    func testLateBootstrapCannotReplaceUserWhoJustLoggedIn() async {
+        let backend = MockBackend(behavior: .success(fixtureUser()), delayNanoseconds: 100_000_000)
+        let state = AuthState(backend: backend, credentials: MockCredentials(hasRefreshToken: true), defaults: defaults)
+        let task = Task { await state.bootstrap() }
+        while await backend.fetchCount == 0 { await Task.yield() }
+        state.login(user: AppUser(id: "new-user", provider: .apple))
+        await task.value
+        XCTAssertEqual(state.currentUser?.id, "new-user")
     }
 
     private func fixtureUser() -> UserDTO {

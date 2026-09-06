@@ -13,6 +13,26 @@ final class AimLineGeometryTests: XCTestCase {
 
     private let R = CGFloat(AngleSceneCalculator.ballRadius)   // 0.028575
 
+    func test_instructionalRay_reachesClothEdgeWithoutChangingDirection() {
+        let origins = [SCNVector3(0, 0.828575, 0), SCNVector3(0.8, 0.828575, -0.3)]
+        for origin in origins {
+            for degrees in stride(from: 0, to: 360, by: 5) {
+                let angle = Float(degrees) * .pi / 180
+                let direction = SCNVector3(cos(angle), 0, sin(angle))
+                let end = AngleSceneCalculator.rayToInnerRail(from: origin, dir: direction, inset: 0)
+                let halfL = AngleSceneCalculator.innerLength / 2
+                let halfW = AngleSceneCalculator.innerWidth / 2
+                XCTAssertLessThanOrEqual(abs(end.x), halfL + 1e-5)
+                XCTAssertLessThanOrEqual(abs(end.z), halfW + 1e-5)
+                XCTAssertLessThan(min(abs(abs(end.x) - halfL), abs(abs(end.z) - halfW)), 1e-5)
+                let dx = end.x - origin.x, dz = end.z - origin.z
+                XCTAssertEqual(dx * direction.z - dz * direction.x, 0, accuracy: 1e-5)
+                XCTAssertGreaterThan(dx * direction.x + dz * direction.z, 0)
+                XCTAssertEqual(end.y, origin.y)
+            }
+        }
+    }
+
     // MARK: - 情形 1：不触球 → 延伸库边
 
     func test_lineMissesBall_extendsToRail_noDots() {

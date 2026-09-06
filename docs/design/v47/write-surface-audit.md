@@ -1,6 +1,6 @@
 # v47 W0 测试写盘盘点
 
-机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 131 个文件；新增写盘测试未登记时 `verify-gate` 失败。
+机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 133 个文件；新增写盘测试未登记时 `verify-gate` 失败。
 
 ## 分类与处置
 
@@ -37,3 +37,9 @@
 ## v57 W4 计次与渲染测试审计（2026-09-05）
 
 DrillListViewModelTests.swift 新增 V57PracticeCountTests，仅在 temporaryDirectory/v57-count-UUID/test.store 创建隔离磁盘库，关闭重开用于恢复验证；defer清理目录，失败XCTFail。渲染测试用XCTAttachment，不写Bundle或内容资产。DEBUG V57PracticeCountFixtureHost 仅显式-v57.practiceCountFixture可达，持有State内存容器并真实保存/删除条目，不接用户磁盘库。既有V24渲染输出仍位于build/v24-w1-evidence，未扩大真源写入。
+
+## 2026-09-07 提交前增量审计
+
+引导从启动登录流程改为“我的 → 认识球迹”可选 sheet；订阅页新增游客登录 sheet 并保留套餐选择。训练新增整场心得草稿 sheet，今日安排与计划动作通过 TrainingRoute.drillDetail 在同栈打开详情；收藏页仅布局修饰变化。RootView 的预览与测试分支均在 DEBUG 内。已同步 route-coverage.csv 与路由签名，未替换历史截图哈希或声称重跑截图矩阵。
+
+写盘文件集合与现有清单一致；OnboardingProUITests 使用 XCTest 附件保存截图及本地 StoreKitTest 会话，未增加直接写仓库文件路径。本次门禁与构建日志位于被忽略的 build/commit-push-20260907/。

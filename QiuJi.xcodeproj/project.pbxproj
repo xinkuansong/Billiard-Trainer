@@ -84,6 +84,7 @@
 		1F9338C68AC16D99022834B3 /* CustomPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E64AD91085215321DF09CA2 /* CustomPlan.swift */; };
 		1FA06E154F388E392353AA46 /* AimingCorrectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D93AEC49CD556B38317E443C /* AimingCorrectionView.swift */; };
 		20317EEDA936520AE6D8CABB /* DailyClearanceRulesEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF1510B5443A07B7A7C984B0 /* DailyClearanceRulesEngine.swift */; };
+		2080D3B9A181CFF3420A8614 /* BTBlueprintBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 970C15B5455B6726D5AF375A /* BTBlueprintBackground.swift */; };
 		218FEF7A70EFD6B100FE8502 /* AnalyticAimParityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB58E4169F1794F6DB90591B /* AnalyticAimParityTests.swift */; };
 		21F40A949E763B2739540ABC /* TheoryIndexNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D85F125ED8E43A152D3AC2D1 /* TheoryIndexNavigation.swift */; };
 		21FBC954F38810DA05AE8AA7 /* V22W4ScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 793C7CCCD7EE3EC6C14F3D28 /* V22W4ScreenshotUITests.swift */; };
@@ -107,6 +108,7 @@
 		2947954C032BD8539CC719CD /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E124BFE3C2EB71A2D4D5D86 /* AppRouter.swift */; };
 		299C8E3E094270775D38DC25 /* BreakSimulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85DC29FE939BCA5DC447462F /* BreakSimulator.swift */; };
 		29D710CB396BD1FEFEB7E3CA /* TheoryT04View.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65DDF7FBAD8B1BC2826F6DBC /* TheoryT04View.swift */; };
+		2A5B309AC6134ECF8A430ACA /* BTNumberedNoteEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB87F7032BB7B7586045B41 /* BTNumberedNoteEditor.swift */; };
 		2AA9259167C6AF3A93D92E8A /* SCNVector3+Physics.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE7DC7715C436639CFDD6157 /* SCNVector3+Physics.swift */; };
 		2B033679AB4A852D76563C95 /* HistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BABB77B4A42C197D042CC0DE /* HistoryViewModel.swift */; };
 		2B4CE1F36F1797F7B16384B4 /* DrillCoverAnnotationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D7B051EBEB32962CE2287CD /* DrillCoverAnnotationTests.swift */; };
@@ -430,6 +432,7 @@
 		AA885F87A90D5681F389DFBE /* SequenceVideoExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27C4FBDFDA7B1975833ECE84 /* SequenceVideoExporter.swift */; };
 		AA9F2BD6C591084D62E48E58 /* BTDailyLimitGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF65AB831748C562A45E5BA /* BTDailyLimitGate.swift */; };
 		AAFD8267F5482DD9F6270635 /* AngleTrainingScene.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7F99914247FC8EC366728E /* AngleTrainingScene.swift */; };
+		AB3F8942A873AA7244BB6DF7 /* OnboardingProUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BFB939B7AB3211EEFF5C7B7 /* OnboardingProUITests.swift */; };
 		AB46F90F520745201264D400 /* ShareCardImageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0E2E203E9CB35400E4FA6CF /* ShareCardImageRenderer.swift */; };
 		AB6986B5016405513380ACEB /* AtmosphereCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D196310C8C4F4D1C9D071E5 /* AtmosphereCatalogTests.swift */; };
 		ABED6E45D18DD7F7E773C4C5 /* BTAimCloseupHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B5C12FDFDD7D31E738FA2BD /* BTAimCloseupHUD.swift */; };
@@ -860,6 +863,7 @@
 		4D9BD52A3DDADCD040212FDC /* ContactPointTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContactPointTableView.swift; sourceTree = "<group>"; };
 		4DFD4867A457B122E6FA9385 /* V49W16CopyContentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V49W16CopyContentTests.swift; sourceTree = "<group>"; };
 		4E1AE3C460E4DF08F47978E6 /* BTAimWheel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTAimWheel.swift; sourceTree = "<group>"; };
+		4EB87F7032BB7B7586045B41 /* BTNumberedNoteEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTNumberedNoteEditor.swift; sourceTree = "<group>"; };
 		4EEB8511A50A9FA52D08FFAE /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		4F530CA0E094725FBBB4C5C6 /* AvatarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AvatarStore.swift; sourceTree = "<group>"; };
 		4F5AD3577D2E9D1EA2EA1933 /* BTShareCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTShareCard.swift; sourceTree = "<group>"; };
@@ -1038,6 +1042,7 @@
 		968E67D444BA53E19C53ADE2 /* BTChipRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTChipRow.swift; sourceTree = "<group>"; };
 		96CF5F44325D2A999FD196C3 /* CueClearanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueClearanceTests.swift; sourceTree = "<group>"; };
 		96E4F8C0B1A070D0D27C70A4 /* PositionPlaySolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionPlaySolverTests.swift; sourceTree = "<group>"; };
+		970C15B5455B6726D5AF375A /* BTBlueprintBackground.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTBlueprintBackground.swift; sourceTree = "<group>"; };
 		97132543CEDC457555DAB3EF /* PositionPlayComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionPlayComposerView.swift; sourceTree = "<group>"; };
 		9747671BCA5AF7C4F6FB1F7B /* V22W3ScreenshotUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V22W3ScreenshotUITests.swift; sourceTree = "<group>"; };
 		974821DCA7DF15337D981568 /* Drills */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Drills; path = QiuJi/Resources/Drills; sourceTree = SOURCE_ROOT; };
@@ -1046,6 +1051,7 @@
 		99E71C3C5FF55E73FB0648AA /* V29W2bTrainingDataEditUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V29W2bTrainingDataEditUITests.swift; sourceTree = "<group>"; };
 		9AD8DBB0D308C44535C17B15 /* V49W7CopyContentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V49W7CopyContentTests.swift; sourceTree = "<group>"; };
 		9BA8D330A515D938A1BEA53B /* legacy-active-plan-cases.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "legacy-active-plan-cases.json"; sourceTree = "<group>"; };
+		9BFB939B7AB3211EEFF5C7B7 /* OnboardingProUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingProUITests.swift; sourceTree = "<group>"; };
 		9DB86A28A29066832C084E7E /* V52DailyClearanceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V52DailyClearanceUITests.swift; sourceTree = "<group>"; };
 		9E0002A44D311EF2D4835FDC /* AnalyticalMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticalMotion.swift; sourceTree = "<group>"; };
 		9E3A45224A0DDBF2C3E09EAF /* Theory */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Theory; path = QiuJi/Resources/Theory; sourceTree = SOURCE_ROOT; };
@@ -1469,6 +1475,7 @@
 				5F440DB12F4EA05A9544C2C1 /* DeviceMatrixUITests.swift */,
 				A5FD2F8C8F403B1A000FF747 /* DrillSceneThreeBeatUITests.swift */,
 				EFAA78C08A3D38F2EC1BDA10 /* DrillTryoutUITests.swift */,
+				9BFB939B7AB3211EEFF5C7B7 /* OnboardingProUITests.swift */,
 				AA1E0D5E145201FC10FE7508 /* P2_DataLayerUITests.swift */,
 				E8C03C11C99852EA510D3B37 /* P3_DrillLibraryUITests.swift */,
 				75A5AC73516B5EB76DFBDE39 /* P4_TrainingLogUITests.swift */,
@@ -2109,6 +2116,7 @@
 				BF22FA7F2D0042C08BD82A03 /* BTAtmosphereLayer.swift */,
 				F18CD15EF90AEB8F4C07F177 /* BTBakedDrillTable.swift */,
 				CD2EF54AC2F5B12846EFE6FB /* BTBallPaletteBar.swift */,
+				970C15B5455B6726D5AF375A /* BTBlueprintBackground.swift */,
 				F267826CBDEB22DBBC035ECA /* BTButton.swift */,
 				968E67D444BA53E19C53ADE2 /* BTChipRow.swift */,
 				57F3BD028C5349A38B5D5A75 /* BTContentGridCard.swift */,
@@ -2126,6 +2134,7 @@
 				2D68DACEA70E8197D4D14837 /* BTLibrarySearchBar.swift */,
 				407141702859C3376110CC5A /* BTLibrarySectionHeader.swift */,
 				5DB51405EC97056FBAEC58C1 /* BTLoadRadarChart.swift */,
+				4EB87F7032BB7B7586045B41 /* BTNumberedNoteEditor.swift */,
 				82B0DA312EF669AE41689F58 /* BTOverflowMenu.swift */,
 				3EDFBB3FB63CFB6C2FF5DBC4 /* BTPhaseTimeline.swift */,
 				F844989AC1B68AE2C5B7E963 /* BTPlanCover.swift */,
@@ -2605,6 +2614,7 @@
 				E9597DD3FA99B551F2C6D80F /* BTAtmosphereLayer.swift in Sources */,
 				90EF4130B50B27EABAC1A96A /* BTBakedDrillTable.swift in Sources */,
 				84DD2455DEC0B9133ACFE588 /* BTBallPaletteBar.swift in Sources */,
+				2080D3B9A181CFF3420A8614 /* BTBlueprintBackground.swift in Sources */,
 				197792AB9C4CA0D0599CD911 /* BTBrandLogo.swift in Sources */,
 				2DC1352B03F51C4BF975828E /* BTButton.swift in Sources */,
 				D7A3405B4DEE91535328B0DF /* BTChipRow.swift in Sources */,
@@ -2626,6 +2636,7 @@
 				504B0522A407BE3D32B1CAA0 /* BTLoadRadarChart.swift in Sources */,
 				F885F42FFB481422AACFC819 /* BTLogoMark.swift in Sources */,
 				0D9F6EAED28AAE2077587A7B /* BTMotion.swift in Sources */,
+				2A5B309AC6134ECF8A430ACA /* BTNumberedNoteEditor.swift in Sources */,
 				E1177B0FBEC238A90312B8D8 /* BTOverflowMenu.swift in Sources */,
 				C901D5F4C618E097EE3E2B41 /* BTPhaseTimeline.swift in Sources */,
 				0FDFFCE22BC26AFA596E21D7 /* BTPhysicsConstants.swift in Sources */,
@@ -2889,6 +2900,7 @@
 				9B7091FF2889CD357CFFB55E /* DeviceMatrixUITests.swift in Sources */,
 				E3B8D189EE3DB3B7A147EE21 /* DrillSceneThreeBeatUITests.swift in Sources */,
 				E487B423BF7F9EAF1A1BD052 /* DrillTryoutUITests.swift in Sources */,
+				AB3F8942A873AA7244BB6DF7 /* OnboardingProUITests.swift in Sources */,
 				1EDB081DB64948EF984F7D72 /* P2_DataLayerUITests.swift in Sources */,
 				B8A92B83771774F23249CEA8 /* P3_DrillLibraryUITests.swift in Sources */,
 				8C619E8D4E0704709BAFBB82 /* P4_TrainingLogUITests.swift in Sources */,

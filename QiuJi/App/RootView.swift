@@ -10,14 +10,10 @@ struct RootView: View {
     var body: some View {
         if let deepLink = Self.uiTestDeepLink {
             deepLink.preferredColorScheme(Self.uiTestDeepLinkColorScheme)
-        } else if authState.isLoading {
-            AuthLaunchView()
-        } else if authState.hasCompletedOnboarding {
+        } else {
             MainTabView(ownerKey: ownerContext.ownerKey)
                 .id(ownerContext.ownerKey)
                 .preferredColorScheme(mainColorScheme)
-        } else {
-            OnboardingView()
         }
     }
 
@@ -65,6 +61,12 @@ struct RootView: View {
     private static var uiTestDeepLink: AnyView? {
         let args = ProcessInfo.processInfo.arguments
         #if DEBUG
+        if args.contains("-intro.preview") {
+            return AnyView(OnboardingView())
+        }
+        if args.contains("-subscription.preview") {
+            return AnyView(SubscriptionView())
+        }
         if args.contains("-v57.practiceCountFixture") {
             return AnyView(V57PracticeCountFixtureHost())
         }
@@ -273,21 +275,6 @@ private struct V54HistorySourceFixtureHost: View {
     }
 }
 
-private struct AuthLaunchView: View {
-    var body: some View {
-        ZStack {
-            Color.btBG.ignoresSafeArea()
-            VStack(spacing: Spacing.lg) {
-                BTBrandLogo(size: 72)
-                ProgressView("正在恢复账号…")
-                    .tint(.btPrimary)
-                    .foregroundStyle(.btTextSecondary)
-            }
-        }
-        .accessibilityIdentifier("auth.launching")
-    }
-}
-
 /// v50 模拟器权限矩阵专用探针。只有显式 UI 测试启动参数才可到达，生产导航
 /// 没有入口；请求仍由宿主 App 真实调用 Photos API，以便验证系统弹框和最终状态。
 private struct V50PhotoPermissionProbeView: View {
@@ -407,6 +394,12 @@ private struct V51MinimizedTrainingHost: View {
                 guard router.minimizedTrainingVM == nil else { return }
                 viewModel.elapsedSeconds = elapsedSeconds
                 router.minimizeTraining(viewModel)
+                let args = ProcessInfo.processInfo.arguments
+                if args.contains("-hud.destination=drill") {
+                    router.trainingPath.append(TrainingRoute.drillDetail(drillId: "drill_c001"))
+                } else if args.contains("-hud.destination=plan") {
+                    router.trainingPath.append(TrainingRoute.planDetail(planId: "plan_beginner"))
+                }
             }
     }
 }

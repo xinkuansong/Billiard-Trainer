@@ -8,6 +8,8 @@ struct ActiveTrainingView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.scenePhase) private var scenePhase
     @State private var showShareView = false
+    @State private var isKeyboardVisible = false
+    @State private var swipeStartDrillIndex: Int?
     /// F-AT-04: brief shrink-toward-floating-pill transition when minimizing.
     @State private var isMinimizing = false
     @Environment(\.colorScheme) private var colorScheme
@@ -53,7 +55,7 @@ struct ActiveTrainingView: View {
                     )
                 }
 
-                if viewModel.shouldShowRestOverlay {
+                if viewModel.shouldShowRestOverlay && !isKeyboardVisible && !viewModel.isEditingTrainingNote && viewModel.trainingPhase == .active {
                     // F-CL-04: keep W2-6 rest overlay chrome (dual rings, end state,
                     // numericText, card shell). Shared `BTRestTimer` lacks those;
                     // swapping would regress W2-6 — document instead of hard-replace.
@@ -61,10 +63,9 @@ struct ActiveTrainingView: View {
                         .transition(.opacity)
                 }
 
-                if viewModel.showsMinimizedRestChip {
-                    minimizedRestChip
-                        .transition(.scale.combined(with: .opacity))
-                }
+            }
+            .btTrainingPillOverlay(isPresented: viewModel.showsMinimizedRestChip && !isKeyboardVisible && !viewModel.isEditingTrainingNote && viewModel.trainingPhase == .active) {
+                if viewModel.showsMinimizedRestChip && !isKeyboardVisible && !viewModel.isEditingTrainingNote && viewModel.trainingPhase == .active { minimizedRestChip }
             }
             // F-AT-04: shrink toward the bottom-trailing floating pill when minimizing.
             .scaleEffect(isMinimizing ? 0.92 : 1, anchor: .bottomTrailing)
@@ -117,13 +118,35 @@ struct ActiveTrainingView: View {
                     }
                 }
             }
-            .alert("结束训练？", isPresented: $viewModel.showEndConfirm) {
+            .alert(viewModel.hasStartedTraining ? "结束训练？" : "退出训练？", isPresented: $viewModel.showEndConfirm) {
                 Button("继续训练", role: .cancel) {}
-                Button("结束", role: .destructive) {
-                    viewModel.endTraining()
+                Button(viewModel.hasStartedTraining ? "结束" : "退出", role: .destructive) {
+                    if viewModel.hasStartedTraining {
+                        viewModel.endTraining()
+                    } else {
+                        viewModel.exitUnstartedTraining()
+                        dismiss()
+                    }
                 }
             } message: {
-                Text("结束后可以记录本次训练心得。")
+                Text(viewModel.hasStartedTraining
+                     ? "结束后可以记录本次训练心得。"
+                     : "训练尚未开始，退出将返回上一页。")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                isKeyboardVisible = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isKeyboardVisible = false
+            }
+            .sheet(isPresented: $viewModel.isEditingTrainingNote, onDismiss: {
+                isKeyboardVisible = false
+            }) {
+                TrainingNoteDraftView(
+                    note: viewModel.trainingNote,
+                    onCancel: { viewModel.finishEditingTrainingNote() },
+                    onSave: { viewModel.saveTrainingNote($0) }
+                )
             }
             .sheet(isPresented: $viewModel.showDrillPicker) {
                 DrillPickerSheet(
@@ -171,7 +194,7 @@ struct ActiveTrainingView: View {
     private var phaseTitle: String {
         switch viewModel.trainingPhase {
         case .active:
-            return viewModel.isPlanMode ? "按计划训练" : "自由训练"
+            return viewModel.trainingTitle
         case .note:
             return "训练心得"
         case .summary:
@@ -256,7 +279,9 @@ struct ActiveTrainingView: View {
                 .padding(.bottom, Spacing.xxxl)
             }
 
-            bottomToolbar
+            if !isKeyboardVisible {
+                bottomToolbar.btTrainingPillObstacle()
+            }
         }
     }
 
@@ -340,22 +365,16 @@ struct ActiveTrainingView: View {
 
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(viewModel.isPlanMode ? "按计划训练" : "自由训练")
+                    Text(viewModel.trainingTitle)
+                        .accessibilityIdentifier("activeTraining.title")
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
-                    // R12：三级进度优先；会话级组进度作次行。
                     if !viewModel.currentSetProgressText.isEmpty {
                         Text(viewModel.currentSetProgressText)
                             .font(.btSubheadlineMedium)
                             .foregroundStyle(.btPrimary)
                             .monospacedDigit()
                             .accessibilityIdentifier("activeTrainingSetProgress")
-                            .accessibilityLabel(viewModel.currentSetProgressText)
-                    }
-                    if !viewModel.progressText.isEmpty {
-                        Text(viewModel.progressText)
-                            .font(.btCaption)
-                            .foregroundStyle(.btTextSecondary)
                     }
                 }
                 Spacer()
@@ -363,11 +382,11 @@ struct ActiveTrainingView: View {
                 if viewModel.drills.count > 1 {
                     Text("\(viewModel.currentDrillIndex + 1) / \(viewModel.drills.count)")
                         .font(.btCaption2)
-                        .foregroundStyle(.btTextTertiary)
+                        .foregroundStyle(.white)
                         .monospacedDigit()
                         .padding(.horizontal, Spacing.sm)
                         .padding(.vertical, Spacing.xs)
-                        .background(Color.btBGTertiary.opacity(0.7))
+                        .background(Color.btPrimary)
                         .clipShape(Capsule())
                         .accessibilityLabel("第 \(viewModel.currentDrillIndex + 1) 项，共 \(viewModel.drills.count) 项")
                 }
@@ -385,7 +404,14 @@ struct ActiveTrainingView: View {
             Spacer(minLength: Spacing.sm)
 
             HStack(spacing: Spacing.sm) {
-                    Button { viewModel.toggleTimer() } label: {
+                    Button {
+                        viewModel.toggleTimer()
+                        if viewModel.isTimerRunning {
+                            withAnimation(BTMotion.springPanel) {
+                                viewModel.showingOverview = false
+                            }
+                        }
+                    } label: {
                         Image(systemName: viewModel.isTimerRunning ? "pause.circle" : "play.circle")
                             .font(.btTitle2)
                             .foregroundStyle(.btTextSecondary)
@@ -527,8 +553,27 @@ struct ActiveTrainingView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(maxHeight: .infinity)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 30)
+                    .onChanged { _ in
+                        if swipeStartDrillIndex == nil {
+                            swipeStartDrillIndex = viewModel.currentDrillIndex
+                        }
+                    }
+                    .onEnded { value in
+                        defer { swipeStartDrillIndex = nil }
+                        guard !isKeyboardVisible, swipeStartDrillIndex == 0,
+                              value.translation.width > 60,
+                              abs(value.translation.width) > abs(value.translation.height) * 1.5 else { return }
+                        withAnimation(BTMotion.springPanel) {
+                            viewModel.showingOverview = true
+                        }
+                    }
+            )
 
-            bottomToolbar
+            if !isKeyboardVisible {
+                bottomToolbar.btTrainingPillObstacle()
+            }
         }
     }
 
@@ -596,7 +641,7 @@ struct ActiveTrainingView: View {
             Spacer()
 
             toolbarItem(icon: BTIcon.editPad, label: "心得") {
-                viewModel.endTraining()
+                viewModel.editTrainingNote()
             }
             .accessibilityLabel("记录心得")
 
@@ -784,38 +829,13 @@ struct ActiveTrainingView: View {
 
     /// Collapsed rest chrome — session page only, not the cross-tab pill.
     private var minimizedRestChip: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Spacer()
-                Button {
-                    viewModel.expandRestOverlay()
-                } label: {
-                    HStack(spacing: Spacing.xs) {
-                        Image(systemName: BTIcon.timer)
-                            .font(.btCaption.weight(.semibold))
-                        Text(restTimeFormatted)
-                            .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                            .monospacedDigit()
-                            .contentTransition(.numericText())
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, Spacing.md)
-                    .frame(height: 40)
-                    .background(Color.btWarning)
-                    .clipShape(Capsule())
-                    .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 2)
-                }
-                .buttonStyle(BTPressableStyle.capsule)
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-                .accessibilityLabel("展开组间休息 \(restTimeFormatted)")
-                .padding(.trailing, Spacing.lg)
-                .padding(.bottom, 72)
-            }
+        BTTrainingPill(title: "休息", icon: BTIcon.timer, time: restTimeFormatted, tint: .btWarning) {
+            viewModel.expandRestOverlay()
         }
-        .allowsHitTesting(true)
+        .accessibilityLabel("展开组间休息 \(restTimeFormatted)")
+        .accessibilityIdentifier("activeTraining.restPill")
     }
+
 
     /// F-AT-04: session chrome handoff into the floating pill (other tabs).
     private func minimizeActiveTraining() {

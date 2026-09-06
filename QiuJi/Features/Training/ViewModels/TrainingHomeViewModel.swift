@@ -164,14 +164,36 @@ struct TodayTrainingProjection {
             let entries = uniqueEntries(in: [session])
             return entries.isEmpty ? nil : SavedTraining(session: session, entries: entries)
         }
-        let visible = queued.filter(\.countsTowardToday)
-        let dayEnded = (!visible.isEmpty || !history.isEmpty)
-            && visible.allSatisfy { $0.item.state == TodayScheduleItemState.completed }
-        let suggestionAlreadyQueued = suggestion.map { proposed in
-            items.contains { $0.planId == proposed.planId && $0.lessonId == proposed.lessonID }
+        // A plan contributes an automatic suggestion at most once per local day.
+        // Switching away and back must not suggest its next lesson again.
+        let planAlreadyArranged = suggestion.map { proposed in
+            items.contains { $0.planId == proposed.planId }
+                || history.contains { $0.session.planId == proposed.planId }
         } ?? false
         return TodayTrainingProjection(queued: queued,
-            suggestion: dayEnded || suggestionAlreadyQueued ? nil : suggestion, history: history)
+            suggestion: planAlreadyArranged ? nil : suggestion, history: history)
+    }
+
+    /// Number saved free sessions within one local calendar day; queue order is unrelated.
+    static func freeTrainingOrdinals(
+        sessions: [TrainingSession], ownerKey: String, day: Date,
+        timeZone: TimeZone = .current
+    ) -> [UUID: Int] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        var seen = Set<UUID>()
+        let free = sessions.filter {
+            $0.ownerKey == ownerKey && $0.kind == TrainingSessionKind.drill
+                && !$0.drillEntries.isEmpty
+                && ($0.sourceKind == TodayScheduleSourceKind.libraryDrill
+                    || ($0.sourceKind == nil && $0.planId == nil))
+                && calendar.isDate($0.date, inSameDayAs: day)
+                && seen.insert($0.id).inserted
+        }.sorted {
+            if $0.date != $1.date { return $0.date < $1.date }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+        return Dictionary(uniqueKeysWithValues: free.enumerated().map { ($0.element.id, $0.offset + 1) })
     }
 
     private static func uniqueEntries(in sessions: [TrainingSession]) -> [DrillEntry] {
@@ -517,5 +539,23 @@ final class TrainingHomeViewModel: ObservableObject {
         }
         let total = sets.reduce(0) { $0 + $1.targetBalls }
         return "\(sets.count) 组 · 共 \(total) \(unit)"
+    }
+}
+
+
+/// One saved, nonempty template session is one practice; queue membership is not practice.
+enum TemplatePracticeCounts {
+    static func make(sessions: [TrainingSession], ownerKey: String) -> [UUID: Int] {
+        var seen = Set<UUID>()
+        var counts: [UUID: Int] = [:]
+        for session in sessions where session.ownerKey == ownerKey
+            && session.kind == TrainingSessionKind.drill && !session.drillEntries.isEmpty {
+            guard session.sourceKind == TodayScheduleSourceKind.template || session.sourceKind == nil,
+                  let rawID = session.sourceKind == TodayScheduleSourceKind.template
+                    ? (session.sourceId ?? session.planId) : session.planId,
+                  let id = UUID(uuidString: rawID), seen.insert(session.id).inserted else { continue }
+            counts[id, default: 0] += 1
+        }
+        return counts
     }
 }

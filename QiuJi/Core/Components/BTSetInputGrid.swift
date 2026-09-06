@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Data Model
 
@@ -215,6 +216,7 @@ struct BTSetInputGrid: View {
         .background(Color.btBGSecondary)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .accessibilityIdentifier("setInputGrid")
+
     }
 
     private func formationSectionHeader(_ title: String) -> some View {
@@ -516,11 +518,10 @@ private struct SetRow: View {
                     .fontWeight(.bold)
                     .foregroundStyle(.btText)
             } else {
-                TextField("-", text: madeBallsText)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.center)
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
+                SetNumberField(text: madeBallsText, placeholder: "-",
+                               textStyle: .headline, color: .btText,
+                               accessibilityLabel: "第\(setData.id)组进球",
+                               onConfirm: confirmSetInput)
             }
         }
         .frame(width: 44, height: 36)
@@ -543,15 +544,19 @@ private struct SetRow: View {
                     .fontWeight(.semibold)
                     .foregroundStyle(.btTextSecondary)
             } else {
-                TextField("", text: targetBallsText)
-                    .keyboardType(.numberPad)
-                    .multilineTextAlignment(.center)
-                    .font(.btSubheadline)
-                    .foregroundStyle(.btTextSecondary)
+                SetNumberField(text: targetBallsText, placeholder: "",
+                               textStyle: .subheadline, color: .btTextSecondary,
+                               accessibilityLabel: "第\(setData.id)组总球",
+                               onConfirm: confirmSetInput)
             }
         }
         .frame(width: 44, height: 36)
         .frame(maxWidth: .infinity)
+    }
+
+    private func confirmSetInput() {
+        guard !setData.isCompleted else { return }
+        onComplete()
     }
 
     private var checkColumn: some View {
@@ -797,4 +802,138 @@ private struct SetInputGridEmptyPreview: View {
         )
         .padding(Spacing.lg)
     }
+}
+
+
+/// Score entry uses a custom input view so Done belongs to the keypad itself.
+private struct SetNumberField: UIViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let textStyle: UIFont.TextStyle
+    let color: Color
+    let accessibilityLabel: String
+    let onConfirm: () -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(parent: self) }
+
+    func makeUIView(context: Context) -> UITextField {
+        let field = UITextField()
+        field.textAlignment = .center
+        field.keyboardType = .numberPad
+        field.returnKeyType = .done
+        field.delegate = context.coordinator
+        field.addTarget(context.coordinator, action: #selector(Coordinator.changed(_:)), for: .editingChanged)
+        field.inputView = SetNumberKeyboard(field: field) { [weak field, weak coordinator = context.coordinator] in
+            guard let field else { return }
+            coordinator?.confirm(field)
+        }
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextField, context: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 44, height: proposal.height ?? 36)
+    }
+
+    func updateUIView(_ field: UITextField, context: Context) {
+        context.coordinator.parent = self
+        if field.text != text { field.text = text }
+        field.placeholder = placeholder
+        field.font = .preferredFont(forTextStyle: textStyle,
+                                     compatibleWith: UITraitCollection(preferredContentSizeCategory: .large))
+        field.textColor = UIColor(color)
+        field.tintColor = UIColor(Color.btPrimary)
+        field.accessibilityLabel = accessibilityLabel
+    }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: SetNumberField
+        init(parent: SetNumberField) { self.parent = parent }
+
+        @objc func changed(_ field: UITextField) {
+            parent.text = field.text ?? ""
+            // Reflect the existing score binding's validation immediately.
+            if field.text != parent.text { field.text = parent.text }
+        }
+
+        func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange,
+                       replacementString string: String) -> Bool {
+            string.allSatisfy { $0 >= "0" && $0 <= "9" }
+        }
+
+        func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+            confirm(textField)
+            return true
+        }
+
+        func confirm(_ field: UITextField) {
+            guard field.isFirstResponder else { return }
+            field.resignFirstResponder()
+            parent.onConfirm()
+        }
+    }
+}
+
+private final class SetNumberKeyboard: UIInputView {
+    init(field: UITextField, onConfirm: @escaping () -> Void) {
+        // Four rows retain a minimum 44pt touch target; the system owns placement.
+        super.init(frame: CGRect(x: 0, y: 0, width: 0, height: 260), inputViewStyle: .keyboard)
+        let rows = UIStackView()
+        rows.axis = .vertical
+        rows.distribution = .fillEqually
+        rows.spacing = Spacing.sm
+        rows.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(rows)
+        NSLayoutConstraint.activate([
+            rows.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Spacing.sm),
+            rows.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Spacing.sm),
+            rows.topAnchor.constraint(equalTo: topAnchor, constant: Spacing.sm),
+            rows.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -Spacing.sm)
+        ])
+        for keys in [["1", "2", "3"], ["4", "5", "6"], ["7", "8", "9"], ["完成", "0", "删除"]] {
+            let row = UIStackView()
+            row.distribution = .fillEqually
+            row.spacing = Spacing.sm
+            rows.addArrangedSubview(row)
+            for key in keys {
+                let button = UIButton(type: .system)
+                var configuration = UIButton.Configuration.filled()
+                configuration.baseBackgroundColor = UIColor(Color.btBGSecondary)
+                configuration.baseForegroundColor = UIColor(key == "完成" ? Color.btPrimary : Color.btText)
+                configuration.cornerStyle = .medium
+                if key == "完成" {
+                    configuration.image = UIImage(systemName: BTKeyboardDismissMetrics.symbolName)
+                    configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(
+                        pointSize: BTKeyboardDismissMetrics.symbolSize, weight: .semibold)
+                } else if key == "删除" {
+                    configuration.image = UIImage(systemName: "delete.left")
+                    configuration.preferredSymbolConfigurationForImage = UIImage.SymbolConfiguration(pointSize: 22)
+                } else {
+                    configuration.title = key
+                }
+                configuration.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attributes in
+                    var result = attributes
+                    result.font = UIFont.preferredFont(
+                        forTextStyle: key == "完成" ? .headline : .title2,
+                        compatibleWith: UITraitCollection(preferredContentSizeCategory: .large))
+                    return result
+                }
+                button.configuration = configuration
+                button.accessibilityLabel = key == "完成" ? "收起键盘" : key
+                button.accessibilityIdentifier = "setNumberKeyboard.\(key)"
+                button.addAction(UIAction { [weak field] _ in
+                    guard let field else { return }
+                    switch key {
+                    case "完成": onConfirm()
+                    case "删除": field.deleteBackward()
+                    default: field.insertText(key)
+                    }
+                }, for: .touchUpInside)
+                row.addArrangedSubview(button)
+            }
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }

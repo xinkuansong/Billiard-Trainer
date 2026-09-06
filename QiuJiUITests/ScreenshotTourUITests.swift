@@ -678,6 +678,8 @@ final class ScreenshotTourUITests: XCTestCase {
 
     /// D-v47-1：五个 Tab 根页永久保持无大标题。子页正常导航标题不在本断言范围。
     func testV47TabRootsHaveNoNavigationTitle() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-v51.followSystemAppearance"])
         let tabs: [XCUIApplication.Tab] = [.training, .drillLibrary, .angle, .history, .profile]
         for tab in tabs {
             app.switchTab(tab)
@@ -685,6 +687,19 @@ final class ScreenshotTourUITests: XCTestCase {
                 app.navigationBars[tab.rawValue].waitForExistence(timeout: 1),
                 "\(tab.rawValue) Tab 根页不得恢复 navigation title"
             )
+            let pageIdentity: XCUIElement
+            switch tab {
+            case .training: pageIdentity = app.staticTexts["本周训练"].firstMatch
+            case .drillLibrary: pageIdentity = app.textFields["搜索动作"].firstMatch
+            case .angle: pageIdentity = app.textFields["搜索练习"].firstMatch
+            case .history: pageIdentity = app.buttons["统计"].firstMatch
+            case .profile: pageIdentity = app.staticTexts["我的收藏"].firstMatch
+            }
+            guard pageIdentity.waitForExistence(timeout: 8) else {
+                XCTFail("\(tab.rawValue) Tab 必须实际显示目标页，不能用上一页截图代替")
+                return
+            }
+            snap("tab-root-\(tab.rawValue)")
         }
     }
 

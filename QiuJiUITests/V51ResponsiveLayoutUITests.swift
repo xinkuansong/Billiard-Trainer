@@ -8,6 +8,229 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         continueAfterFailure = false
     }
 
+    func testTrainingNumericKeyboardHidesChromeAndKeepsScore() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.activeTraining", "-v49.forceLight",
+        ])
+        let switchView = app.buttons["切换到单项视图"]
+        XCTAssertTrue(switchView.waitForExistence(timeout: 15))
+        switchView.tap()
+        let row = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "杆1,")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5))
+        row.coordinate(withNormalizedOffset: CGVector(dx: 0.19, dy: 0.5)).tap()
+        let seven = app.buttons["setNumberKeyboard.1"]
+        XCTAssertTrue(seven.waitForExistence(timeout: 5))
+        seven.tap()
+        app.buttons["setNumberKeyboard.2"].tap()
+        XCTAssertFalse(app.buttons["最小化训练"].exists)
+        let hide = app.buttons["setNumberKeyboard.完成"]
+        XCTAssertEqual(hide.label, "收起键盘")
+        XCTAssertTrue(hide.isHittable)
+        XCTAssertGreaterThanOrEqual(hide.frame.height, 44)
+        XCTAssertLessThanOrEqual(row.frame.maxY, seven.frame.minY)
+        try capture("input-numeric", elements: ["row": row, "dismiss": hide])
+        hide.tap()
+        let rest = app.staticTexts["组间休息"].firstMatch
+        XCTAssertTrue(rest.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.buttons["setNumberKeyboard.完成"].exists)
+        try capture("input-confirmed-rest", elements: ["rest": rest])
+        app.buttons["最小化组间休息"].tap()
+        XCTAssertTrue(row.label.contains("12/15"))
+        XCTAssertFalse(app.staticTexts["1/5 组 1/1 项目"].exists)
+        XCTAssertEqual(app.staticTexts["activeTrainingSetProgress"].label, "第 2/5 杆")
+        try capture("input-confirmed-set", elements: ["row": row])
+
+    }
+
+    func testTrainingInputHidesChromeAndNoteReturnsToSession() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.activeTraining", "-v49.forceLight",
+        ])
+        let switchView = app.buttons["切换到单项视图"]
+        XCTAssertTrue(switchView.waitForExistence(timeout: 15))
+        switchView.tap()
+        let note = app.textFields["drillNote.editor"].firstMatch
+        let multilineNote = app.textViews["drillNote.editor"].firstMatch
+        let editor = note.waitForExistence(timeout: 3) ? note : multilineNote
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        editor.tap()
+        let originalHeight = editor.frame.height
+        editor.typeText("steady stroke\nsecond line\nthird line\nfourth line\nfifth line\nsixth line")
+        XCTAssertGreaterThan(editor.frame.height, originalHeight * 4)
+        XCTAssertLessThan(editor.frame.height, 180, "Six standard-size lines must not inherit an unrelated AX font scale")
+        XCTAssertEqual(editor.value as? String, "1. steady stroke\n2. second line\n3. third line\n4. fourth line\n5. fifth line\n6. sixth line")
+        let hide = app.buttons["drillNote.dismissKeyboard"].firstMatch
+        XCTAssertTrue(hide.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(hide.frame.width, 56)
+        XCTAssertGreaterThanOrEqual(hide.frame.height, 44)
+        XCTAssertFalse(app.buttons["最小化训练"].exists)
+        XCTAssertLessThanOrEqual(editor.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        try capture("input-drill-note", elements: ["editor": editor, "dismiss": hide])
+        hide.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)).tap()
+        XCTAssertTrue(app.buttons["记录心得"].waitForExistence(timeout: 5))
+
+        app.buttons["activeTraining.rest"].tap()
+        let minimizeRest = app.buttons["最小化组间休息"].firstMatch
+        XCTAssertTrue(minimizeRest.waitForExistence(timeout: 8))
+        minimizeRest.tap()
+        app.buttons["记录心得"].tap()
+        let sessionEditor = app.textViews["trainingNote.editor"].firstMatch
+        XCTAssertTrue(sessionEditor.waitForExistence(timeout: 5))
+        sessionEditor.typeText("session reflection\nsecond point\n\nplain text")
+        XCTAssertFalse(app.buttons["trainingNote.save"].exists)
+        XCTAssertFalse(app.buttons["activeTraining.restPill"].exists)
+        XCTAssertFalse(app.buttons["跳过"].exists)
+        let sessionHide = app.buttons["trainingNote.dismissKeyboard"]
+        XCTAssertTrue(sessionHide.exists)
+        XCTAssertGreaterThanOrEqual(sessionHide.frame.width, 56)
+        XCTAssertGreaterThanOrEqual(sessionHide.frame.height, 44)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertLessThanOrEqual(sessionEditor.frame.maxY, sessionHide.frame.minY)
+        XCTAssertLessThanOrEqual(sessionHide.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        try capture("input-session-note", elements: ["editor": sessionEditor, "dismiss": sessionHide])
+        sessionHide.coordinate(withNormalizedOffset: CGVector(dx: 0.08, dy: 0.5)).tap()
+        XCTAssertFalse(app.keyboards.firstMatch.exists)
+        let save = app.buttons["trainingNote.save"]
+        XCTAssertTrue(save.waitForExistence(timeout: 5))
+        XCTAssertTrue(save.isHittable)
+        XCTAssertLessThanOrEqual(save.frame.width, 121)
+        try capture("input-note-save", elements: ["save": save])
+        save.tap()
+        XCTAssertTrue(app.buttons["记录心得"].waitForExistence(timeout: 5))
+        app.buttons["记录心得"].tap()
+        XCTAssertTrue(sessionEditor.waitForExistence(timeout: 5))
+        XCTAssertEqual(sessionEditor.value as? String, "1. session reflection\n2. second point\nplain text")
+        sessionEditor.typeText(" discarded")
+        app.buttons["trainingNote.returnToTraining"].tap()
+        XCTAssertTrue(app.buttons["记录心得"].waitForExistence(timeout: 5))
+        app.buttons["记录心得"].tap()
+        XCTAssertTrue(sessionEditor.waitForExistence(timeout: 5))
+        XCTAssertEqual(sessionEditor.value as? String, "1. session reflection\n2. second point\nplain text")
+        app.buttons["trainingNote.returnToTraining"].tap()
+        XCTAssertTrue(app.buttons["记录心得"].waitForExistence(timeout: 5))
+        try capture("input-returned-training", elements: [:])
+    }
+
+    func testTrainingDrillSwipesPageAndReturnToOverview() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.activeTraining", "-v49.forceLight",
+        ])
+        let single = app.buttons["切换到单项视图"]
+        XCTAssertTrue(single.waitForExistence(timeout: 15))
+        app.buttons["添加训练动作"].firstMatch.tap()
+        let add = app.buttons["添加中袋直线出杆"].firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        add.tap()
+        let finish = app.buttons["完成(2)"]
+        XCTAssertTrue(finish.waitForExistence(timeout: 5))
+        finish.tap()
+        XCTAssertTrue(single.waitForExistence(timeout: 5))
+        single.tap()
+        let note = app.descendants(matching: .any)["drillNote.editor"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["第 1 项，共 2 项"].exists)
+        try capture("two-drills-brand-index", elements: [:])
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.85, dy: 0.5))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.15, dy: 0.5))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        XCTAssertTrue(app.staticTexts["第 2 项，共 2 项"].waitForExistence(timeout: 5))
+        XCTAssertFalse(single.exists)
+        try capture("left-swipe-second-drill", elements: [:])
+        end.press(forDuration: 0.05, thenDragTo: start)
+        XCTAssertTrue(app.staticTexts["第 1 项，共 2 项"].waitForExistence(timeout: 5))
+        XCTAssertFalse(single.exists)
+        try capture("right-swipe-first-drill", elements: [:])
+        end.press(forDuration: 0.05, thenDragTo: start)
+        XCTAssertTrue(single.waitForExistence(timeout: 5))
+        try capture("first-drill-returned-list", elements: [:])
+    }
+
+    func testHomeTrainingPillsShareCompactHeightAndInsets() throws {
+        for (state, title, identifier) in [
+            ("suggestion", "开始训练", "trainingHome.startTraining"),
+            ("partial", "继续", "trainingHome.startTraining"),
+            ("empty", "自由训练", "trainingHome.freeTraining"),
+        ] {
+            app = XCUIApplication.launchClean(extraArgs: [
+                "-forcePremium", "-v50.inMemoryStore", "-v54.todayState=\(state)",
+            ])
+            let pill = app.buttons[identifier].firstMatch
+            XCTAssertTrue(pill.waitForExistence(timeout: 15))
+            XCTAssertEqual(pill.label, title)
+            XCTAssertEqual(pill.frame.height, 44, accuracy: 0.5)
+            XCTAssertEqual(app.windows.firstMatch.frame.maxX - pill.frame.maxX, 12, accuracy: 1)
+            XCTAssertLessThan(pill.frame.width, 130)
+            let tab = tabElement(.training)
+            XCTAssertFalse(pill.frame.intersects(tab.frame))
+            try capture("hud-home-\(state)", elements: ["pill": pill, "tab": tab])
+            pill.tap()
+            if state == "empty" {
+                XCTAssertTrue(app.navigationBars["选择训练动作"].waitForExistence(timeout: 12))
+            } else {
+                XCTAssertTrue(app.descendants(matching: .any)["activeTraining.timer"].firstMatch.waitForExistence(timeout: 12))
+            }
+        }
+    }
+
+    func testTrainingPillAvoidsDetailActionsAndResetsAfterBack() throws {
+        for destination in ["drill", "plan"] {
+            app = XCUIApplication.launchClean(extraArgs: [
+                "-forcePremium", "-v50.inMemoryStore", "-v51.minimizedTraining",
+                "-v51.elapsedSeconds=125", "-hud.destination=\(destination)",
+            ])
+            let pill = app.buttons["minimizedTraining.resume"].firstMatch
+            let action = app.buttons[destination == "drill" ? "bottomTryoutButton" : "planDetail.primaryCTA"].firstMatch
+            XCTAssertTrue(action.waitForExistence(timeout: 20))
+            XCTAssertTrue(pill.waitForExistence(timeout: 5))
+            XCTAssertEqual(pill.frame.height, 44, accuracy: 0.5)
+            XCTAssertEqual(app.windows.firstMatch.frame.maxX - pill.frame.maxX, 12, accuracy: 1)
+            XCTAssertGreaterThanOrEqual(action.frame.minY - pill.frame.maxY, 11.5)
+            XCTAssertFalse(action.frame.intersects(pill.frame))
+            XCTAssertTrue(action.isHittable)
+            try capture("hud-\(destination)-actions", elements: ["pill": pill, "action": action])
+            if destination == "drill" {
+                action.tap()
+                XCTAssertTrue(action.waitForNonExistence(timeout: 8), "上手试打应真正打开目标页")
+                app.navigationBars.buttons.firstMatch.tap()
+                XCTAssertTrue(action.waitForExistence(timeout: 10))
+            }
+            app.navigationBars.buttons.firstMatch.tap()
+            XCTAssertTrue(tabElement(.training).waitForExistence(timeout: 10))
+            let tab = tabElement(.training)
+            for item in XCUIApplication.Tab.allCases {
+                let button = tabElement(item)
+                XCTAssertTrue(button.exists)
+                XCTAssertFalse(pill.frame.intersects(button.frame), "返回后不得遮挡 \(item.rawValue)")
+            }
+            XCTAssertLessThanOrEqual(pill.frame.maxY, tab.frame.minY - 11.5)
+            XCTAssertGreaterThan(pill.frame.minY, app.windows.firstMatch.frame.midY)
+            try capture("hud-\(destination)-returned", elements: ["pill": pill, "tab": tab])
+            pill.tap()
+            XCTAssertTrue(app.descendants(matching: .any)["activeTraining.timer"].firstMatch.waitForExistence(timeout: 10))
+        }
+    }
+
+    func testStartTimerOpensDrillFromOverview() throws {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-v51.activeTraining",
+        ])
+        let toggle = app.buttons["activeTraining.timerToggle"].firstMatch
+        XCTAssertTrue(toggle.waitForExistence(timeout: 20))
+        let overviewSwitch = app.buttons["切换到单项视图"].firstMatch
+        XCTAssertTrue(overviewSwitch.exists)
+        // The plan fixture starts its timer automatically; pause before testing play.
+        XCTAssertEqual(toggle.label, "暂停计时")
+        toggle.tap()
+        XCTAssertTrue(overviewSwitch.exists, "暂停应保留当前总览")
+        try capture("start-paused-overview", elements: [:])
+        toggle.tap()
+        XCTAssertTrue(app.buttons["切换到总览视图"].waitForExistence(timeout: 5), "开始应自动进入动作训练")
+        XCTAssertEqual(toggle.label, "暂停计时")
+        try capture("start-opened-drill", elements: [:])
+        toggle.tap()
+        XCTAssertTrue(app.buttons["切换到总览视图"].exists, "暂停不应退出动作训练")
+    }
+
     func testActiveTrainingTimerIsSingleLineAndClearsActions() throws {
         app = XCUIApplication.launchClean(extraArgs: [
             "-forcePremium",
@@ -98,11 +321,9 @@ final class V51ResponsiveLayoutUITests: XCTestCase {
         )
 
         minimizeRest.tap()
-        let expandRest = app.buttons.matching(
-            NSPredicate(format: "label BEGINSWITH %@", "展开组间休息")
-        ).firstMatch
+        let expandRest = app.buttons["activeTraining.restPill"].firstMatch
         XCTAssertTrue(expandRest.waitForExistence(timeout: 8))
-        XCTAssertGreaterThanOrEqual(expandRest.frame.height, 43.5)
+        XCTAssertEqual(expandRest.frame.height, 44, accuracy: 0.5)
         XCTAssertFalse(app.buttons["minimizedTraining.resume"].exists, "休息卡最小化不能变成跨 Tab 会话浮标")
         XCTAssertTrue(app.descendants(matching: .any)["activeTraining.timer"].firstMatch.exists)
         try capture("active-training-rest-minimized", elements: ["expandRest": expandRest])

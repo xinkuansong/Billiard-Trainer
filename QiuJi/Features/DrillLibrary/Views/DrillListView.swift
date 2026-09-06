@@ -4,6 +4,7 @@ import SwiftData
 struct DrillListView: View {
     let ownerKey: String
     @StateObject private var viewModel = DrillListViewModel()
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var router: AppRouter
     @Query private var favorites: [DrillFavorite]
     @Query private var sessions: [TrainingSession]
@@ -40,7 +41,7 @@ struct DrillListView: View {
 
             mainContent
         }
-        .background(.btBG)
+        .background { BTBlueprintBackground(style: .library).ignoresSafeArea() }
         .task {
             await viewModel.loadDrills()
         }
@@ -243,6 +244,7 @@ struct DrillListView: View {
                                         BTDrillGridCard(
                                             drill: drill,
                                             isFavorited: isFavorited(drill.id),
+                                            isUnlocked: subscriptionManager.isPremium,
                                             practiceCount: viewModel.practiceCounts[drill.id, default: 0],
                                             onFavoriteTap: { toggleFavorite(drill.id) }
                                         )

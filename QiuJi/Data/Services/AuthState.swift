@@ -90,6 +90,31 @@ final class AuthState: ObservableObject {
     @Published var errorMessage: String?
     @Published var showMigrationPrompt: Bool = false
     @Published var pendingMigration: Bool = false
+    @Published var showCloudSyncPrompt = false
+    @Published private(set) var cloudSyncEnabled = false
+    private var sessionGeneration: UInt = 0
+    private(set) var syncChoiceRevision: UInt = 0
+
+    private func syncPreferenceKey(_ userID: String) -> String { "account.cloudSync.enabled.\(userID)" }
+
+    func setCloudSyncEnabled(_ enabled: Bool) {
+        guard isLoggedIn, let userID = currentUser?.id else { return }
+        syncChoiceRevision &+= 1
+        defaults.set(enabled, forKey: syncPreferenceKey(userID))
+        cloudSyncEnabled = enabled
+        showCloudSyncPrompt = false
+        pendingMigration = enabled
+        if !enabled {
+            showMigrationPrompt = false
+            pendingMigration = false
+        }
+        NotificationCenter.default.post(name: .didChangeCloudSync, object: userID)
+    }
+
+    private func loadSyncPreference(userID: String, offerChoice: Bool) {
+        cloudSyncEnabled = defaults.bool(forKey: syncPreferenceKey(userID))
+        showCloudSyncPrompt = offerChoice && defaults.object(forKey: syncPreferenceKey(userID)) == nil
+    }
 
     @Published var hasCompletedOnboarding: Bool {
         didSet { defaults.set(hasCompletedOnboarding, forKey: Self.onboardingKey) }
@@ -139,6 +164,7 @@ final class AuthState: ObservableObject {
     func bootstrap() async {
         guard !hasBootstrapped, !isBootstrapping else { return }
         isBootstrapping = true
+        let operation = sessionGeneration
         defer {
             isBootstrapping = false
             hasBootstrapped = true
@@ -166,7 +192,13 @@ final class AuthState: ObservableObject {
             ownerContext.useAccount(userID: user.id)
             hasCompletedOnboarding = true
             phase = .authenticated(user)
-            NotificationCenter.default.post(name: .didCompleteLogin, object: user.id)
+            loadSyncPreference(userID: user.id, offerChoice: false)
+            if ProcessInfo.processInfo.arguments.contains("-syncChoice.explicitLogin") {
+                defaults.removeObject(forKey: syncPreferenceKey(user.id))
+                login(user: user)
+            } else {
+                NotificationCenter.default.post(name: .didCompleteLogin, object: user.id)
+            }
             return
         }
         #endif
@@ -180,6 +212,7 @@ final class AuthState: ObservableObject {
         phase = .restoring
         do {
             let user = AppUser(dto: try await backend.fetchProfile())
+            guard operation == sessionGeneration else { return }
             guard user.provider != .anonymous else {
                 credentials.clearAll()
                 ownerContext.useGuest()
@@ -188,14 +221,17 @@ final class AuthState: ObservableObject {
             }
             ownerContext.useAccount(userID: user.id)
             phase = .authenticated(user)
+            loadSyncPreference(userID: user.id, offerChoice: false)
             NotificationCenter.default.post(name: .didCompleteLogin, object: user.id)
         } catch AppError.authRequired {
+            guard operation == sessionGeneration else { return }
             credentials.clearAll()
             ownerContext.useGuest()
             phase = .signedOut
         } catch {
+            guard operation == sessionGeneration else { return }
             ownerContext.useGuest()
-            phase = .sessionUnavailable(message: "暂时无法恢复账号，可稍后重试或继续游客使用")
+            phase = .sessionUnavailable(message: "网络暂不可用")
         }
     }
 
@@ -211,12 +247,14 @@ final class AuthState: ObservableObject {
 
     /// Called only after the backend exchanged a third-party credential for app JWTs.
     func login(user: AppUser) {
+        sessionGeneration &+= 1
         guard user.provider != .anonymous else {
             loginAnonymously()
             return
         }
         ownerContext.useAccount(userID: user.id)
         phase = .authenticated(user)
+        loadSyncPreference(userID: user.id, offerChoice: true)
         hasBootstrapped = true
         hasCompletedOnboarding = true
         pendingMigration = false
@@ -225,6 +263,11 @@ final class AuthState: ObservableObject {
     }
 
     func loginAnonymously() {
+        sessionGeneration &+= 1
+        cloudSyncEnabled = false
+        showCloudSyncPrompt = false
+        pendingMigration = false
+        showMigrationPrompt = false
         ownerContext.useGuest()
         phase = .guest(makeGuestUser())
         hasBootstrapped = true
@@ -244,11 +287,15 @@ final class AuthState: ObservableObject {
     /// Handles a definitive missing/invalid refresh credential reported by the API layer.
     func invalidateSession() {
         guard isLoggedIn || phase == .restoring else { return }
+        sessionGeneration &+= 1
         credentials.clearAll()
+        cloudSyncEnabled = false
+        showCloudSyncPrompt = false
         pendingMigration = false
+        showMigrationPrompt = false
         ownerContext.useGuest()
         phase = .signedOut
-        errorMessage = "登录已过期，请重新登录"
+        errorMessage = nil
     }
 
     /// Account deletion already performed its server mutation; W3 inserts the owner-transfer
@@ -290,7 +337,10 @@ final class AuthState: ObservableObject {
     }
 
     private func clearLocalSession() {
+        sessionGeneration &+= 1
         credentials.clearAll()
+        cloudSyncEnabled = false
+        showCloudSyncPrompt = false
         pendingMigration = false
         showMigrationPrompt = false
         ownerContext.useGuest()
@@ -305,6 +355,7 @@ final class AuthState: ObservableObject {
 extension Notification.Name {
     static let didRequestDataMigration = Notification.Name("didRequestDataMigration")
     static let didDeclineDataMigration = Notification.Name("didDeclineDataMigration")
+    static let didChangeCloudSync = Notification.Name("didChangeCloudSync")
     static let didCompleteLogin = Notification.Name("didCompleteLogin")
     static let authSessionInvalidated = Notification.Name("authSessionInvalidated")
     static let didRequestResumeTraining = Notification.Name("didRequestResumeTraining")

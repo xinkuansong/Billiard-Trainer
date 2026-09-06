@@ -5,6 +5,7 @@ import SwiftUI
 struct BTDrillCard: View {
     let drill: DrillContent
     let isFavorited: Bool
+    var isUnlocked: Bool = false
     var onFavoriteTap: (() -> Void)? = nil
 
     @Environment(\.colorScheme) private var colorScheme
@@ -57,7 +58,7 @@ struct BTDrillCard: View {
             VStack {
                 if drill.isPremium {
                     // F-ST-04: list row uses same PRO badge as grid cards.
-                    BTProBadge()
+                    BTProBadge(isUnlocked: isUnlocked)
                 } else if let onFavoriteTap {
                     Button(action: onFavoriteTap) {
                         Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)
@@ -90,6 +91,7 @@ struct BTDrillCard: View {
 struct BTDrillGridCard: View {
     let drill: DrillContent
     let isFavorited: Bool
+    var isUnlocked: Bool = false
     /// Number of distinct saved entries for this drill and owner.
     var practiceCount: Int = 0
     var onFavoriteTap: (() -> Void)? = nil
@@ -147,6 +149,7 @@ struct BTDrillGridCard: View {
                     .accessibilityLabel(metaParts.joined(separator: "，"))
             }
             if practiceCount > 0 {
+                Spacer(minLength: 0)
                 BTPracticedBadge(count: practiceCount)
             }
         }
@@ -164,7 +167,7 @@ struct BTDrillGridCard: View {
     @ViewBuilder
     private var cardBadge: some View {
         if drill.isPremium {
-            BTProBadge()
+            BTProBadge(isUnlocked: isUnlocked)
         } else if let onFavoriteTap {
             Button(action: onFavoriteTap) {
                 Image(systemName: isFavorited ? BTIcon.heartFilled : BTIcon.heart)
@@ -292,4 +295,169 @@ private let previewPremium = DrillContent(
     .padding()
     .background(.btBG)
     .preferredColorScheme(.dark)
+}
+
+
+/// Template metadata wraps as a group instead of shrinking card titles or badge text.
+struct BTTemplateStatusRow: View {
+    let isScheduled: Bool
+    let practiceCount: Int
+
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.sm) {
+                if isScheduled { scheduledBadge }
+                if practiceCount > 0 { countLabel }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                if isScheduled { scheduledBadge }
+                if practiceCount > 0 { countLabel }
+            }
+        }
+    }
+
+    private var scheduledBadge: some View {
+        badge("已在今日安排", icon: BTIcon.checkmarkCircle)
+    }
+
+    private var countLabel: some View {
+        badge("已练 \(practiceCount) 次", icon: "chart.bar.fill")
+            .monospacedDigit()
+    }
+
+    private func badge(_ title: String, icon: String) -> some View {
+        Label(title, systemImage: icon)
+            .font(.btCaption2)
+            .foregroundStyle(.btPrimary)
+            .padding(.horizontal, Spacing.sm)
+            .padding(.vertical, Spacing.xs / 2)
+            .background(Color.btPrimaryMuted)
+            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
+            .fixedSize()
+    }
+
+}
+
+
+/// Shared template shelf card. The menu only reserves space beside the title.
+struct BTTemplateCard<Management: View>: View {
+    let planID: UUID
+    let issueNumber: Int
+    let title: String
+    let actionNames: [String]
+    let isScheduled: Bool
+    let practiceCount: Int
+    let editIdentifier: String
+    let onEdit: () -> Void
+    @ViewBuilder var management: () -> Management
+
+    var body: some View {
+        BTTemplateHeaderLayout {
+            Button(action: onEdit) {
+                CustomPlanThumbnail(planId: planID, issueNumber: issueNumber, side: nil)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("编辑模版，\(title)")
+            .accessibilityIdentifier("\(editIdentifier).cover")
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 0) {
+                    Button(action: onEdit) {
+                        Text(title)
+                            .font(.btTitleMedium)
+                            .foregroundStyle(.btText)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, minHeight: 24, alignment: .topLeading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("\(editIdentifier).title")
+                    // Menu is a sibling, never overlaid on another button's hit area.
+                    management()
+                }
+                Button(action: onEdit) {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        actionColumns
+                        BTTemplateStatusRow(isScheduled: isScheduled, practiceCount: practiceCount)
+                            .accessibilityIdentifier("\(editIdentifier).status")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("编辑模版，\(title)，\(actionNames.joined(separator: "、"))\(practiceCount > 0 ? "，已练 \(practiceCount) 次" : "")")
+                .accessibilityIdentifier(editIdentifier)
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.btBGSecondary)
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+
+    private var actionColumns: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            ForEach(0..<max(3, (actionNames.count + 1) / 2), id: \.self) { row in
+                HStack(alignment: .top, spacing: Spacing.md) {
+                    actionCell(row * 2)
+                    actionCell(row * 2 + 1)
+                }
+            }
+        }
+        .font(.btFootnote)
+        .foregroundStyle(.btTextSecondary)
+        .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private func actionCell(_ index: Int) -> some View {
+        let hasAction = actionNames.indices.contains(index)
+        return HStack(spacing: Spacing.xs) {
+            Circle().fill(Color.btPrimary).frame(width: 5, height: 5)
+                .opacity(hasAction ? 1 : 0)
+                .accessibilityHidden(true)
+            // Equal seven-glyph cells retain three row slots, including empty cells.
+            Text("近台小角度进球")
+                .hidden()
+                .overlay(alignment: .leading) {
+                    if hasAction {
+                        Text(actionNames[index])
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .accessibilityIdentifier("\(editIdentifier).action.\(index)")
+                    } else if actionNames.isEmpty && index == 0 {
+                        Text("暂无训练动作")
+                    }
+                }
+                .accessibilityLabel(hasAction ? actionNames[index] : "")
+                .accessibilityHidden(!hasAction && !(actionNames.isEmpty && index == 0))
+        }
+    }
+
+}
+
+/// Reserve the text's measured width first, then enlarge the square cover up to 112pt.
+/// A narrow host can grow vertically; it never shrinks the action typography.
+private struct BTTemplateHeaderLayout: Layout {
+    private func dimensions(_ proposal: ProposedViewSize, _ subviews: Subviews) -> (CGFloat, CGFloat, CGFloat) {
+        let textWidth = subviews[1].sizeThatFits(.unspecified).width
+        let width = proposal.width ?? (112 + Spacing.sm + textWidth)
+        let cover = min(112, max(44, width - Spacing.sm - textWidth))
+        let text = subviews[1].sizeThatFits(ProposedViewSize(width: width - cover - Spacing.sm, height: nil))
+        return (width, cover, text.height)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let (width, _, height) = dimensions(proposal, subviews)
+        return CGSize(width: width, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let (_, cover, _) = dimensions(ProposedViewSize(width: bounds.width, height: nil), subviews)
+        subviews[0].place(at: CGPoint(x: bounds.minX, y: bounds.minY), anchor: .topLeading,
+                          proposal: ProposedViewSize(width: cover, height: cover))
+        subviews[1].place(at: CGPoint(x: bounds.minX + cover + Spacing.sm, y: bounds.minY),
+                          anchor: .topLeading,
+                          proposal: ProposedViewSize(width: bounds.width - cover - Spacing.sm, height: nil))
+    }
 }

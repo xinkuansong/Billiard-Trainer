@@ -356,6 +356,12 @@ struct BTLevelBadge: View {
 // onDarkSurface：与 BTDrillGridCard 特征胶囊同族（白字 + Color.black.opacity(0.45)）
 ```
 
+## Pro角标会员状态（DR-096）
+
+2026-09-06补充：`isPremium`是当前登录会话的有效权益，不等同设备Apple购买记录。退出/登录失效/注销后所有角标和门控均回到免费，重新登录重新校验；禁止页面单独用购买ID或模拟器持久开关绕过会话限制。
+
+`BTProBadge(isUnlocked: Bool, prominent: Bool = false)` 是计划、动作、练习与统计的统一角标。调用方观察当前 `SubscriptionManager.isPremium` 并传入，禁止固定闭锁或用内容的 `isPremium` 代替用户权益。未解锁使用 `lock.fill`，已解锁使用 `lock.open.fill`；保持黑金胶囊及PRO文字。详情采用prominent样式并放在导航栏topBarTrailing，避免封面内部重复计算安全区。角标只表达权益，原有付费门控不变；无障碍值分别为未解锁/已解锁。
+
 ## 九-b、筛选胶囊（BTFilterChip — DR-043）
 
 ```swift
@@ -748,7 +754,26 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ---
 
+## 训练浮层胶囊（DR-094）
+
+- 五种展示：训练、继续、自由、播放图标+累计时间、计时器图标+倒计时。带时间时隐藏可见标题，保留完整无障碍说明（2026-09-06用户后续裁定）。
+- 统一 `BTTrainingPill`：高44pt，水平内边距16pt，图标/文字/时间间距8pt；普通品牌绿、休息warning；不持续漂浮。
+- 定位统一 `btTrainingPillOverlay`：右侧12pt；底部距当前安全区/可见Tab/操作栏上沿12pt。
+- 固定操作栏完整布局（含padding）声明 `btTrainingPillObstacle`；页面退出清除占位。不可只给某设备额外加bottom偏移，不可把含Spacer的全屏容器登记为障碍。
+- 修改后验证五状态高度、真实按钮不相交及可点击、push/pop后占位恢复、长计时和不同底部安全区。
+- UIKit Tab显隐可能晚于SwiftUI布局；返回后必须检查五个Tab全部无遮挡。休息胶囊用独立标识定位，不能用“展开组间休息”前缀误选顶部按钮。
+
+## Tab 根页线稿背景（DR-114）
+
+`BTBlueprintBackground(style:)` 是五个 Tab 的共享静态底层。`training` 保留原训练构图，`library` / `practice` 使用边缘瞄准圈、虚线和刻度（练习另有圆弧），`history` 无虚线路径，`profile` 仅瞄准圈和圆弧。统一 `btBG` + `btPrimary`（Dark 13%、Light 8%），线宽 1pt；这是低对比度线稿，不是大面积品牌色铺底。放在根页 `.background` 或 ZStack 内容下方并忽略安全区，不放进 ScrollView 内容；不改卡片底色，不向详情页自动传播。组件内部关闭命中、无障碍朗读并裁剪越界线稿。图案使用页面 point 坐标，不表达真实球桌几何或统计数据。扩展时检查手机及 iPad、Light/Dark 原图，禁止用提高透明度掩盖被卡片遮住的正常层级。
+
 ## Changelog
+
+- 2026-09-06（DR-114）— 五个 Tab 共用 BTBlueprintBackground，训练原样、记录及我的降低图案密度。
+
+- 2026-09-06（DR-096）— Pro角标必传会员权益状态；闭锁/开锁统一，计划详情使用导航栏右上角prominent样式。
+
+- 2026-09-06（DR-094）— 训练五态共用44pt胶囊与12pt边距，页面上报底栏占位自动避让。
 
 - 2026-08-31（DR-082）— 训练首页按时间尺度拆分统计：本周卡只放周目标、连续天数与周一至周日真实轨迹；今日完成数和预计用时只在未完成时放到「今日安排」标题右侧，完成后切庆祝标志；周数字与轨迹必须共用周一起点。
 - 2026-08-30（DR-081）— 计划/练习/模版封面去主题水印与 chip；编号保留（第 N 期 / 01 / 模版序号）。卡下标题保留。

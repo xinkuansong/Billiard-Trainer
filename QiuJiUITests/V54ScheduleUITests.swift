@@ -10,7 +10,15 @@ final class V54ScheduleUITests: XCTestCase {
     }
 
     func testV57SwitchPausedPlanUpdatesPrimaryAction() throws {
-        launch(["-deeplink.planDetail=plan_beginner", "-v54.planState=other"])
+        launch(["-v54.todayState=planStatuses"])
+        let paused = app.buttons["planPoster-plan_accuracy"]
+        XCTAssertTrue(paused.waitForExistence(timeout: 15))
+        for _ in 0..<6 {
+            if paused.isHittable { break }
+            app.swipeUp()
+        }
+        XCTAssertTrue(paused.isHittable)
+        paused.tap()
         let cta = app.buttons["planDetail.primaryCTA"].firstMatch
         XCTAssertTrue(cta.waitForExistence(timeout: 20))
         XCTAssertEqual(cta.label, "切换到此计划")
@@ -24,7 +32,18 @@ final class V54ScheduleUITests: XCTestCase {
         waitForExpectations(timeout: 10)
         try capture("v57-switch-after")
         openComposer(from: cta)
-        XCTAssertTrue(app.buttons["planDetail.addToToday"].waitForExistence(timeout: 8))
+        let add = app.buttons["planDetail.addToToday"]
+        XCTAssertTrue(add.waitForExistence(timeout: 8))
+        add.tap()
+        let toast = app.staticTexts["已加入今日安排"].firstMatch
+        XCTAssertTrue(toast.waitForExistence(timeout: 5))
+        try capture("toast-plan-visible")
+        XCTAssertTrue(toast.waitForNonExistence(timeout: 5), "加入成功提示必须自动消失")
+        try capture("toast-plan-dismissed")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(paused.waitForExistence(timeout: 8))
+        XCTAssertFalse(toast.exists, "返回训练首页不应残留加入提示")
+        try capture("toast-plan-return-home")
     }
 
     func testPlanDetailFourBusinessStatesAndComposerAccessibility() throws {
@@ -78,6 +97,252 @@ final class V54ScheduleUITests: XCTestCase {
         XCTAssertTrue(composerTitle.waitForExistence(timeout: 8), "编排今天未呈现")
     }
 
+    func testTodayScheduleUnifiedTitlesAndHistoryDisclosure() throws {
+        launch(["-v54.todayState=unifiedHistory"])
+        let official = app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01"]
+        XCTAssertTrue(official.waitForExistence(timeout: 15))
+        XCTAssertEqual(official.label, "基本功 · 第 1 课，待训练")
+        let template = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label == %@",
+            "trainingHome.scheduleItem.", "赛前热身 · 模版，待训练")).firstMatch
+        XCTAssertTrue(template.exists)
+        XCTAssertEqual(app.buttons["trainingHome.scheduleItem.drill_c053"].label, "中袋角度球 · 自由，待训练")
+        XCTAssertFalse(app.staticTexts["已保存"].exists)
+        try capture("unified-queued-titles")
+        for title in ["基本功 · 第 1 课", "赛前热身 · 模版", "自由训练 · 第1次"] {
+            let row = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@",
+                "trainingHome.savedTraining.", "\(title)，已完成")).firstMatch
+            revealTodayRow(row)
+            XCTAssertEqual(row.value as? String, "已折叠")
+            let detail = app.buttons[row.identifier + ".detail"]
+            XCTAssertFalse(detail.exists)
+            try capture("unified-history-\(title)-collapsed")
+            row.tap()
+            XCTAssertEqual(row.value as? String, "已展开")
+            XCTAssertTrue(detail.waitForExistence(timeout: 5))
+            XCTAssertFalse(app.descendants(matching: .any)["activeTraining.timer"].exists)
+            try capture("unified-history-\(title)-expanded")
+            row.tap()
+            XCTAssertTrue(detail.waitForNonExistence(timeout: 5))
+        }
+    }
+
+    func testAllCompletedSourcesExpandIndependentlyAndOpenRecords() throws {
+        launch(["-v54.todayState=completed"])
+        let titles = ["基本功 · 第 1 课", "赛前热身 · 模版", "自由训练 · 第1次"]
+        var rows: [XCUIElement] = []
+        for title in titles {
+            let row = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@",
+                "trainingHome.scheduleItem.", "\(title)，已完成")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            revealTodayRow(row)
+            XCTAssertEqual(row.value as? String, "已折叠")
+            row.tap()
+            rows.append(row)
+            for opened in rows { XCTAssertEqual(opened.value as? String, "已展开") }
+            let detail = app.buttons[row.identifier + ".detail"]
+            revealTodayRow(detail)
+            XCTAssertTrue(detail.isHittable)
+            try capture("multi-completed-\(rows.count)")
+            detail.tap()
+            let close = app.navigationBars.buttons["xmark"].firstMatch
+            XCTAssertTrue(close.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "累计进球")).firstMatch.exists)
+            close.tap()
+            XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+            for opened in rows { XCTAssertEqual(opened.value as? String, "已展开") }
+        }
+        revealTodayRow(rows[1])
+        rows[1].tap()
+        XCTAssertEqual(rows[0].value as? String, "已展开")
+        XCTAssertEqual(rows[1].value as? String, "已折叠")
+        XCTAssertEqual(rows[2].value as? String, "已展开")
+        try capture("multi-middle-collapsed")
+    }
+
+    func testQueuedAndSavedDisclosuresDoNotCloseEachOther() throws {
+        launch(["-v54.todayState=unifiedHistory"])
+        let queued = app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01"]
+        XCTAssertTrue(queued.waitForExistence(timeout: 15))
+        revealTodayRow(queued)
+        queued.tap()
+        var opened = [queued]
+        for (title, type) in [("基本功 · 第 1 课", "专项训练"), ("赛前热身 · 模版", "模版"), ("自由训练 · 第1次", "自由")] {
+            let row = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@",
+                "trainingHome.savedTraining.", "\(title)，已完成")).firstMatch
+            revealTodayRow(row)
+            XCTAssertEqual(row.value as? String, "已折叠")
+            row.tap()
+            opened.append(row)
+            for previous in opened { XCTAssertEqual(previous.value as? String, "已展开") }
+            let detail = app.buttons[row.identifier + ".detail"]
+            revealTodayRow(detail)
+            XCTAssertTrue(app.staticTexts[type].firstMatch.exists)
+            XCTAssertTrue(app.staticTexts["1组 · 10球"].firstMatch.exists)
+            try capture("multi-saved-\(type)")
+        }
+        revealTodayRow(queued)
+        queued.tap()
+        XCTAssertEqual(queued.value as? String, "已折叠")
+        for row in opened.dropFirst() { XCTAssertEqual(row.value as? String, "已展开") }
+    }
+
+    func testUnfinishedAndSuggestionsPrecedeCompletedAndSummaryIsConcise() throws {
+        for state in ["partial", "suggestionAfterCompleted"] {
+            launch(["-v54.todayState=\(state)"])
+            let completed = app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01"]
+            XCTAssertTrue(completed.waitForExistence(timeout: 15))
+            let free = app.buttons["trainingHome.scheduleItem.drill_c053"]
+            let template = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label BEGINSWITH %@",
+                "trainingHome.scheduleItem.", "赛前热身 · 模版")).firstMatch
+            XCTAssertLessThan(template.frame.minY, free.frame.minY)
+            XCTAssertLessThan(free.frame.minY, completed.frame.minY)
+            let summary = app.descendants(matching: .any)["trainingHome.todaySummary"].firstMatch
+            XCTAssertTrue(summary.label.contains("已完成 2 / 4 动作"))
+            XCTAssertTrue(summary.label.contains("预计共"))
+            if state == "suggestionAfterCompleted" {
+                let suggestion = app.buttons["trainingHome.suggestion"]
+                XCTAssertTrue(suggestion.waitForExistence(timeout: 10))
+                XCTAssertLessThan(free.frame.minY, suggestion.frame.minY)
+                XCTAssertLessThan(suggestion.frame.minY, completed.frame.minY)
+                revealTodayRow(suggestion)
+            }
+            try capture("priority-\(state)")
+        }
+        for state in ["completed", "freeCompleted"] {
+            launch(["-v54.todayState=\(state)"])
+            let summary = app.descendants(matching: .any)["trainingHome.todaySummary"].firstMatch
+            XCTAssertTrue(summary.waitForExistence(timeout: 15))
+            XCTAssertEqual(summary.label, "全部完成")
+            try capture("concise-\(state)")
+        }
+    }
+
+    func testTodayQueuedDrillThumbnailsReturnToExpandedRows() throws {
+        launch(["-v54.todayState=completed"])
+        for (title, drillID) in [("基本功 · 第 1 课", "drill_c012"), ("赛前热身 · 模版", "drill_c001"), ("自由训练 · 第1次", "drill_c053")] {
+            let row = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@",
+                "trainingHome.scheduleItem.", "\(title)，已完成")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            revealTodayRow(row)
+            row.tap()
+            try verifyTodayDrillLink(drillID, row: row, name: "queued-\(drillID)")
+        }
+    }
+
+    func testTodaySavedSuggestedAndPendingDrillLinksReturn() throws {
+        for (state, rowID, drillID) in [
+            ("freeCompleted", "saved", "drill_c001"),
+            ("suggestion", "trainingHome.suggestion", "drill_c012"),
+            ("single", "trainingHome.scheduleItem.plan_beginner.stage01.lesson01", "drill_c012")
+        ] {
+            launch(["-v54.todayState=\(state)"])
+            let row = rowID == "saved" ? app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@",
+                "trainingHome.savedTraining.", "自由训练 · 第1次，已完成")).firstMatch : app.buttons[rowID]
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            revealTodayRow(row)
+            row.tap()
+            try verifyTodayDrillLink(drillID, row: row, name: state)
+        }
+    }
+
+    private func verifyTodayDrillLink(_ drillID: String, row: XCUIElement, name: String) throws {
+        let link = app.buttons["trainingHome.drillDetail.\(drillID)"].firstMatch
+        XCTAssertTrue(link.waitForExistence(timeout: 10))
+        revealTodayRow(link)
+        XCTAssertGreaterThanOrEqual(link.frame.height, 44)
+        let y = link.frame.minY
+        try capture("drill-link-\(name)-before")
+        // Tap within the thumbnail area of the combined accessible row.
+        let thumbnailX: CGFloat = link.label.hasPrefix("专项训练") ? 110 : 84
+        link.coordinate(withNormalizedOffset: CGVector(dx: 0, dy: 0.5))
+            .withOffset(CGVector(dx: thumbnailX, dy: 0)).tap()
+        XCTAssertTrue(app.buttons["addToTrainingButton"].waitForExistence(timeout: 15))
+        try capture("drill-link-\(name)-detail")
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(link.waitForExistence(timeout: 10))
+        XCTAssertEqual(row.value as? String, "已展开")
+        XCTAssertEqual(link.frame.minY, y, accuracy: 2)
+        XCTAssertFalse(app.descendants(matching: .any)["activeTraining.timer"].exists)
+        try capture("drill-link-\(name)-return")
+    }
+
+    func testDailyFreeTrainingOrdinalsOpenTheirOwnRecords() throws {
+        launch(["-v54.todayState=multipleFree"])
+        for (ordinal, made) in [(1, 8), (2, 5)] {
+            let row = app.buttons.matching(NSPredicate(
+                format: "identifier BEGINSWITH %@ AND label == %@",
+                "trainingHome.savedTraining.", "自由训练 · 第\(ordinal)次，已完成")).firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 15))
+            revealTodayRow(row)
+            row.tap()
+            let detail = app.buttons[row.identifier + ".detail"]
+            revealTodayRow(detail)
+            try capture("ordinal-\(ordinal)-expanded")
+            detail.tap()
+            let close = app.navigationBars.buttons["xmark"].firstMatch
+            XCTAssertTrue(close.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.staticTexts["累计进球 \(made)"].exists)
+            close.tap()
+            XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+            XCTAssertEqual(row.value as? String, "已展开")
+        }
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label == %@", "自由训练 · 第3次，已完成")).firstMatch.exists)
+    }
+
+    func testSavedFreeTrainingDisclosureAndRecordNavigation() throws {
+        launch(["-v54.todayState=freeCompleted"])
+        let row = app.buttons.matching(NSPredicate(
+            format: "identifier BEGINSWITH %@ AND label == %@",
+            "trainingHome.savedTraining.", "自由训练 · 第1次，已完成")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 15))
+        revealTodayRow(row)
+        XCTAssertEqual(row.value as? String, "已折叠")
+        XCTAssertFalse(app.staticTexts["直线球"].exists)
+        row.tap()
+        XCTAssertTrue(app.staticTexts["直线球"].waitForExistence(timeout: 5))
+        let detail = app.buttons[row.identifier + ".detail"]
+        revealTodayRow(detail)
+        try capture("unified-free-expanded")
+        detail.tap()
+        XCTAssertTrue(app.navigationBars.firstMatch.waitForExistence(timeout: 10))
+        let close = app.navigationBars.buttons["xmark"].firstMatch
+        XCTAssertTrue(close.waitForExistence(timeout: 10))
+        XCTAssertEqual(app.navigationBars.firstMatch.buttons.count, 1, "记录页导航栏只保留X")
+        XCTAssertTrue(app.staticTexts["累计进球 8"].waitForExistence(timeout: 10))
+        try capture("unified-free-record")
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(row.value as? String, "已展开")
+    }
+
+    private func revealTodayRow(_ row: XCUIElement) {
+        let window = app.windows.firstMatch
+        for _ in 0..<10 {
+            let top = app.buttons["trainingHome.moreMenu"].frame.maxY
+            let primary = app.buttons["trainingHome.startTraining"].exists
+                ? app.buttons["trainingHome.startTraining"] : app.buttons["trainingHome.freeTraining"]
+            let bottom = primary.frame.minY
+            let available = bottom - top
+            XCTAssertGreaterThan(available, 0)
+            if row.exists && row.isHittable && row.frame.minY >= top && row.frame.maxY <= bottom { return }
+            let mid = (top + bottom) / 2
+            let distance = row.exists ? row.frame.midY - mid : available / 3
+            let drag = min(available / 3, max(-available / 3, distance))
+            let origin = window.coordinate(withNormalizedOffset: .zero)
+            origin.withOffset(CGVector(dx: window.frame.width / 2, dy: mid + drag / 2))
+                .press(forDuration: 0.1, thenDragTo:
+                    origin.withOffset(CGVector(dx: window.frame.width / 2, dy: mid - drag / 2)))
+        }
+        XCTFail("无法完整显示今日训练行：\(row.identifier)，\(row.frame)")
+    }
+
     func testTodayScheduleSixStates() throws {
         for state in ["empty", "suggestion", "single", "mixed", "partial", "completed", "freeCompleted", "suggestionTemplate", "yesterday"] {
             launch(["-v54.todayState=\(state)"])
@@ -89,10 +354,24 @@ final class V54ScheduleUITests: XCTestCase {
             case "suggestion":
                 XCTAssertTrue(app.buttons["trainingHome.startTraining"].waitForExistence(timeout: 12))
                 XCTAssertTrue(app.buttons["trainingHome.suggestion"].waitForExistence(timeout: 8))
+                let suggestion = app.buttons["trainingHome.suggestion"]
+                XCTAssertEqual(suggestion.value as? String, "已折叠")
+                suggestion.tap()
+                XCTAssertTrue(app.buttons["trainingHome.suggestion.start"].waitForExistence(timeout: 5))
+                suggestion.tap()
+                XCTAssertTrue(app.buttons["trainingHome.suggestion.start"].waitForNonExistence(timeout: 5))
                 XCTAssertTrue(app.descendants(matching: .any)["trainingHome.todaySummary"].firstMatch.label.contains("尚未加入"))
             case "single":
-                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForExistence(timeout: 12),
-                              "单课时详细内容应直接显示明确开始按钮")
+                let row = app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01"]
+                XCTAssertTrue(row.waitForExistence(timeout: 12))
+                XCTAssertEqual(row.value as? String, "已折叠")
+                XCTAssertFalse(app.buttons["开始这节课"].firstMatch.exists)
+                row.tap()
+                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForExistence(timeout: 5))
+                row.tap()
+                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForNonExistence(timeout: 5))
+                row.tap()
+                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForExistence(timeout: 5))
             case "mixed":
                 try assertScheduleHasAccessibleSource("官方计划")
                 try assertScheduleHasAccessibleSource("赛前热身")
@@ -185,6 +464,103 @@ final class V54ScheduleUITests: XCTestCase {
         XCTAssertEqual(official.frame.minY, headerY, accuracy: 2)
     }
 
+    func testTemplateCardColumnsAndCount() throws {
+        var actionAreaHeight: CGFloat?
+        var reservedStatusOffset: CGFloat?
+        for (origin, count) in [("trainingHome", 1), ("trainingHome", 2), ("trainingHome", 3), ("trainingHome", 4), ("trainingHome", 6), ("trainingHome", 7), ("trainingHome", 9), ("planList", 8)] {
+            launch(["-v54.todayState=templateCard", "-v54.templateCount=\(count)"])
+            XCTAssertTrue(app.buttons["我的模版"].firstMatch.waitForExistence(timeout: 15))
+            if origin == "trainingHome" {
+                let shelf = app.buttons["我的模版"].firstMatch
+                for _ in 0..<8 {
+                    if shelf.frame.minY >= 100 && shelf.frame.maxY < app.windows.firstMatch.frame.maxY - 160 { break }
+                    let window = app.windows.firstMatch
+                    let dy: CGFloat = shelf.frame.minY < 100 ? 0.68 : 0.42
+                    window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.55))
+                        .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy)))
+                }
+                XCTAssertTrue(shelf.isHittable, "模版切换按钮未进入可视区：\(shelf.frame)")
+                shelf.tap()
+            } else {
+                app.buttons["好友"].tap()
+                XCTAssertTrue(app.navigationBars["训练计划"].waitForExistence(timeout: 8))
+            }
+            let identifier = "\(origin).template.edit.11111111-2222-3333-4444-555555555555"
+            let card = app.buttons[identifier]
+            for _ in 0..<12 {
+                if card.exists && card.isHittable && card.frame.maxY < app.windows.firstMatch.frame.height - 150 { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(card.isHittable)
+            XCTAssertTrue(card.label.contains("已练 3 次"), "动作数不能代替整次模版训练次数")
+            if count >= 4 { XCTAssertTrue(card.label.contains("中袋直线出杆")) }
+            if count > 4 { XCTAssertTrue(card.label.contains("近台小角度进球")) }
+            XCTAssertGreaterThanOrEqual(card.frame.minX, 0)
+            XCTAssertLessThanOrEqual(card.frame.maxX, app.windows.firstMatch.frame.maxX)
+            let cover = app.buttons["\(identifier).cover"]
+            XCTAssertEqual(cover.frame.width, cover.frame.height, accuracy: 1, "封面必须保持正方形")
+            let title = app.buttons["\(identifier).title"]
+            XCTAssertTrue(title.exists)
+            XCTAssertEqual(title.frame.minY, cover.frame.minY, accuracy: 1, "模版名字与方形封面顶边对齐")
+            let first = app.staticTexts["\(identifier).action.0"]
+            XCTAssertTrue(first.exists)
+            XCTAssertLessThanOrEqual(first.frame.minY - title.frame.minY, 25, "首行动作必须紧接标题，不能被菜单撑出一行空白")
+            let status = app.descendants(matching: .any)["\(identifier).status"].firstMatch
+            XCTAssertTrue(status.exists)
+            let statusOffset = status.frame.minY - first.frame.minY
+            if count == 1 {
+                actionAreaHeight = card.frame.height
+                reservedStatusOffset = statusOffset
+            }
+            if count <= 6 {
+                XCTAssertEqual(statusOffset, try XCTUnwrap(reservedStatusOffset), accuracy: 1,
+                               "一行、两行、三行动作的标签均固定在第四行")
+            }
+            if count >= 3 {
+                let second = app.staticTexts["\(identifier).action.1"]
+                let third = app.staticTexts["\(identifier).action.2"]
+                XCTAssertTrue(second.exists && third.exists)
+                XCTAssertEqual(first.frame.minY, second.frame.minY, accuracy: 1, "先横着排第1、2个")
+                XCTAssertGreaterThan(second.frame.minX, first.frame.maxX)
+                XCTAssertEqual(first.frame.minX, third.frame.minX, accuracy: 1, "第3个回到左列")
+                let rowHeight = third.frame.minY - first.frame.minY
+                XCTAssertGreaterThan(rowHeight, first.frame.height)
+                let extraRows: CGFloat = count <= 6 ? 0 : (count <= 8 ? 1 : 2)
+                XCTAssertEqual(card.frame.height, try XCTUnwrap(actionAreaHeight) + extraRows * rowHeight,
+                               accuracy: 1, "标签在6项以内固定第四行，7/8项第五行，9项第六行")
+                let last = app.staticTexts["\(identifier).action.\(count - 1)"]
+                XCTAssertTrue(last.exists, "不能丢掉末尾动作")
+            }
+            if count >= 5 {
+                let fifth = app.staticTexts["\(identifier).action.4"]
+                XCTAssertTrue(fifth.exists)
+                XCTAssertEqual(first.frame.minX, fifth.frame.minX, accuracy: 1)
+                XCTAssertGreaterThan(fifth.frame.minY, first.frame.maxY)
+                XCTAssertLessThanOrEqual(fifth.frame.height, 20, "七字名称不能拆行")
+                XCTAssertGreaterThanOrEqual(fifth.frame.width, 90, "七字名称不能压缩或截断")
+            }
+            if origin == "trainingHome" {
+                let create = app.buttons["trainingHome.createTemplate"]
+                XCTAssertTrue(create.exists)
+                XCTAssertLessThan(create.frame.width, 180, "新建模版按钮应随内容收拢")
+                XCTAssertGreaterThanOrEqual(create.frame.height, 44)
+                XCTAssertEqual(create.frame.midX, app.windows.firstMatch.frame.midX, accuracy: 1)
+            }
+            try capture("template-\(origin)-\(count)")
+            card.tap()
+            XCTAssertTrue(app.navigationBars["编辑模版"].waitForExistence(timeout: 8))
+            app.navigationBars.buttons.firstMatch.tap()
+            XCTAssertTrue(card.waitForExistence(timeout: 8))
+            XCTAssertTrue(card.label.contains("已练 3 次"), "浏览编辑页不新增训练次数")
+            if count == 1 {
+                app.buttons["trainingHome.createTemplate"].tap()
+                XCTAssertTrue(app.navigationBars["新建模版"].waitForExistence(timeout: 8))
+                app.navigationBars.buttons.firstMatch.tap()
+                XCTAssertTrue(card.waitForExistence(timeout: 8))
+            }
+        }
+    }
+
     func testV57TemplateBodyEditsAndMenuAddsOnce() throws {
         for origin in ["trainingHome", "planList"] {
             launch(["-v54.todayState=templateOnly"])
@@ -213,6 +589,11 @@ final class V54ScheduleUITests: XCTestCase {
             let add = app.buttons["加入今日安排"].firstMatch
             XCTAssertTrue(add.waitForExistence(timeout: 5), "仅打开模版编辑不能把模版加入队列")
             add.tap()
+            let toast = app.staticTexts["已加入今日安排"].firstMatch
+            // Menu dismissal can keep XCTest idle until the 1.6s toast expires.
+            // The queue assertion below proves the add happened; require no lingering toast.
+            XCTAssertTrue(toast.waitForNonExistence(timeout: 5), "加入成功提示必须自动消失")
+            try capture("toast-\(origin)-dismissed")
             XCTAssertFalse(app.navigationBars["编辑模版"].exists, "菜单操作不能同时触发主体编辑")
             menu.tap()
             let already = app.buttons["已在今日安排"].firstMatch
@@ -268,6 +649,45 @@ final class V54ScheduleUITests: XCTestCase {
         XCTAssertTrue(completed.isHittable)
         XCTAssertTrue(completed.label.contains("已完成"))
         try capture("v57-plan-shelf-completed")
+    }
+
+    func testTrainingTitleUsesPlanAndTemplateNames() throws {
+        for (state, title) in [("single", "基本功"), ("partial", "赛前热身")] {
+            launch(["-v54.todayState=\(state)"])
+            let start = app.buttons["trainingHome.startTraining"]
+            XCTAssertTrue(start.waitForExistence(timeout: 15))
+            start.tap()
+            let heading = app.staticTexts["activeTraining.title"]
+            XCTAssertTrue(heading.waitForExistence(timeout: 10))
+            XCTAssertEqual(heading.label, title)
+            try capture("training-title-\(state)")
+        }
+    }
+
+    func testUnstartedFreeTrainingExitsWithoutNoteFlow() throws {
+        launch(["-v54.todayState=freeCompleted"])
+        let free = app.buttons["trainingHome.freeTraining"]
+        XCTAssertTrue(free.waitForExistence(timeout: 15))
+        free.tap()
+        let add = app.buttons["添加中袋直线出杆"].firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 10))
+        add.tap()
+        app.buttons["完成(1)"].tap()
+        let end = app.buttons["activeTraining.end"]
+        XCTAssertTrue(end.waitForExistence(timeout: 8))
+        end.tap()
+        let alert = app.alerts["退出训练？"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5))
+        XCTAssertTrue(alert.buttons["退出"].exists)
+        try capture("unstarted-exit-confirm")
+        alert.buttons["继续训练"].tap()
+        XCTAssertTrue(end.waitForExistence(timeout: 5))
+        end.tap()
+        alert.buttons["退出"].tap()
+        XCTAssertTrue(free.waitForExistence(timeout: 8))
+        XCTAssertFalse(app.textViews["trainingNote.editor"].exists)
+        XCTAssertFalse(app.buttons["minimizedTraining.resume"].exists)
+        try capture("unstarted-returned-home")
     }
 
     func testV57MinimizedFreeTrainingRestoresSelection() throws {
@@ -526,8 +946,11 @@ final class V57PlanDetailUITests: XCTestCase {
             "planDrillDoseToggle-", "drill_c026")).firstMatch
         reveal(toggle)
         XCTAssertEqual(toggle.value as? String, "已展开")
+        let header = app.buttons["planDrillRow-drill_c026"].firstMatch
+        let titleTop = header.frame.minY
         toggle.tap()
         XCTAssertEqual(toggle.value as? String, "已收起")
+        XCTAssertEqual(header.frame.minY, titleTop, accuracy: 2, "折叠只改变详情高度，不移动标题")
         let row = app.buttons["planDrillRow-drill_c026"].firstMatch
         reveal(row)
         let y = row.frame.minY
@@ -540,6 +963,20 @@ final class V57PlanDetailUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "已收起")
         XCTAssertEqual(row.frame.minY, y, accuracy: 2)
         capture("v57-plan-multi-return")
+        let collapsedTop = row.frame.minY
+        toggle.tap()
+        XCTAssertEqual(toggle.value as? String, "已展开")
+        XCTAssertEqual(row.frame.minY, collapsedTop, accuracy: 2, "展开不移动标题和球形数量")
+        capture("v57-plan-multi-expanded")
+        let detail = app.buttons["planDrillRow-drill_c026"].firstMatch
+        reveal(detail)
+        detail.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 0.5))
+            .withOffset(CGVector(dx: -5, dy: 0)).tap()
+        XCTAssertTrue(app.buttons["addToTrainingButton"].waitForExistence(timeout: 15))
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(toggle.waitForExistence(timeout: 10))
+        XCTAssertEqual(toggle.value as? String, "已展开")
+        capture("v57-plan-multi-expanded-return")
     }
 
     func testStageDaysAndCollapsedStagesSurviveReturn() {
@@ -757,5 +1194,120 @@ final class V57PracticeLibraryUITests: XCTestCase {
         item.name = name
         item.lifetime = .keepAlways
         add(item)
+    }
+}
+
+/// Shared Pro badges must agree with the entitlement used by feature gates.
+final class ProBadgeEntitlementUITests: XCTestCase {
+    private var app: XCUIApplication!
+    private var stateName = ""
+
+    override func setUpWithError() throws { continueAfterFailure = false }
+
+    func testFreeBadgesAndPlanGate() throws { try verifyScreens(premium: false) }
+    func testPurchasedBadgesAndPlanAccess() throws { try verifyScreens(premium: true) }
+
+    func testLogoutClosesProBadgeWithoutRelaunch() {
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v53.authenticatedProfileFixture",
+            "-v50.inMemoryStore", "-v54.forceLight", "-v54.todayState=empty"
+        ])
+        app.switchTab(.history)
+        app.buttons["统计"].tap()
+        let badge = app.descendants(matching: .any)["proBadge"].firstMatch
+        XCTAssertTrue(badge.waitForExistence(timeout: 15))
+        XCTAssertEqual(badge.value as? String, "已解锁")
+        stateName = "before-logout"
+        capture("statistics")
+
+        app.switchTab(.profile)
+        let logout = app.buttons["退出登录"]
+        reveal(logout)
+        logout.tap()
+        XCTAssertTrue(logout.waitForNonExistence(timeout: 15))
+        app.switchTab(.history)
+        app.buttons["统计"].tap()
+        XCTAssertTrue(badge.waitForExistence(timeout: 15))
+        XCTAssertEqual(badge.value as? String, "未解锁")
+        stateName = "after-logout"
+        capture("statistics")
+    }
+
+    private func verifyScreens(premium: Bool) throws {
+        stateName = premium ? "purchased" : "free"
+        let args = [premium ? "-forcePremium" : "-forceNonPremium",
+                    "-v50.inMemoryStore", "-v54.forceLight", "-v54.todayState=empty"]
+        app = XCUIApplication.launchClean(extraArgs: args)
+        let homeCard = app.buttons["planPoster-plan_force"]
+        reveal(homeCard)
+        capture("home-plans")
+
+        app = XCUIApplication.launchClean(extraArgs: args)
+        let allPlans = app.buttons["好友"]
+        XCTAssertTrue(allPlans.waitForExistence(timeout: 15))
+        allPlans.tap()
+        let listCard = app.buttons["planListPoster-plan_force"]
+        reveal(listCard)
+        capture("plan-list")
+        listCard.tap()
+        let badge = app.descendants(matching: .any)["proBadge"].firstMatch
+        XCTAssertTrue(badge.waitForExistence(timeout: 15))
+        XCTAssertEqual(badge.value as? String, premium ? "已解锁" : "未解锁")
+        let navigation = app.navigationBars.firstMatch
+        XCTAssertTrue(navigation.exists)
+        XCTAssertGreaterThan(badge.frame.midX, app.windows.firstMatch.frame.width * 0.65)
+        XCTAssertLessThanOrEqual(badge.frame.maxY, navigation.frame.maxY + 1)
+        if premium {
+            XCTAssertTrue(app.buttons["planDetail.primaryCTA"].exists)
+        } else {
+            XCTAssertTrue(app.buttons["解锁此计划"].exists)
+        }
+        capture("plan-detail")
+        app.navigationBars.buttons.firstMatch.tap()
+        app.navigationBars.buttons.firstMatch.tap()
+
+        app.switchTab(.drillLibrary)
+        let search = app.textFields["librarySearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 15))
+        search.tap()
+        search.typeText("全力度走位综合\n")
+        let drill = app.buttons["drillCard_drill_c051"]
+        XCTAssertTrue(drill.waitForExistence(timeout: 15))
+        capture("drill-library")
+
+        app.switchTab(.angle)
+        let practice = app.buttons["分离角图谱"]
+        reveal(practice)
+        capture("practice")
+
+        app.switchTab(.history)
+        app.buttons["统计"].tap()
+        let statsBadge = app.descendants(matching: .any)["proBadge"].firstMatch
+        XCTAssertTrue(statsBadge.waitForExistence(timeout: 10))
+        XCTAssertEqual(statsBadge.value as? String, premium ? "已解锁" : "未解锁")
+        capture("statistics")
+    }
+
+    private func reveal(_ element: XCUIElement) {
+        for _ in 0..<12 {
+            if element.exists && element.isHittable
+                && element.frame.maxY < app.windows.firstMatch.frame.maxY - 110 { return }
+            app.swipeUp()
+        }
+        XCTFail("Cannot reveal \(element.identifier)")
+    }
+
+    private func capture(_ page: String) {
+        let screenshot = XCUIScreen.main.screenshot()
+        let item = XCTAttachment(screenshot: screenshot)
+        item.name = "pro-\(stateName)-\(page)"
+        item.lifetime = .keepAlways
+        add(item)
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("output/pro-lock-unification/screenshots")
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try screenshot.pngRepresentation.write(to: directory.appendingPathComponent("pro-\(stateName)-\(page).png"))
+        } catch { XCTFail("Screenshot write failed: \(error)") }
     }
 }

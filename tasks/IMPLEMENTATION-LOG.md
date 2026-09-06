@@ -1987,3 +1987,252 @@ R11中性游客卡和真实Pro状态完成；最终27单测、四组16 UI/44图�
 - CameraRig、AngleSceneView恢复HEAD原文；SceneAiming恢复原enterAiming、锚定及键盘结构，保留球库宽度/辅助答题按钮修改。
 - 新求解器和专用诊断测试移出编译目录并归档到output/v57/W5/withdrawn-camera；重新生成工程。此前自动取景测试是已撤销方案的历史证据，不代表最终交付。
 - 回退验证完成：原相机3项单测通过；最终重新编译并运行3题真实训练页UI通过，6截图已核对。CameraRig/AngleSceneView与修改前HEAD逐字一致，证据camera-rollback-source.json、camera-rollback-tests-raw.log、camera-rollback-final-ui-raw.log。恢复旧视角与键盘覆盖行为，不再保证三目标自动入镜。 不再继续设计新取景方案。
+
+## DR-093 — 动作卡已练次数靠右（2026-09-06）
+
+- **用户裁定**：“已练 X 次”放在卡片右下角、贴住右侧。
+- **实施**：BTDrillGridCard.metaRow 在类型与次数胶囊之间加入弹性留白，胶囊与卡片右内边距对齐；保持底部行、标题尺寸、计次口径及零次隐藏行为。
+- **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md § 2.3 / Changelog。
+- **验证证据**：output/drill-badge-trailing/（改前/改后组件渲染及日志）。
+
+
+## DR-094 — 训练浮层统一胶囊与底栏避让（2026-09-06）
+
+- **用户裁定**：训练 / 继续 / 自由 / 继续+累计时间 / 休息+倒计时，共用紧凑等高胶囊；宽度按内容，右侧和下方等距；详情页不得挡住底部操作。
+- **实施**：BTTrainingPill 固定高44pt、边距12pt，统一图标/文字/时间、实色、阴影、按压样式；删除持续浮动。BTTrainingPillOverlay 在窗口坐标读取可见Tab、安全区与页面实际操作栏，btTrainingPillObstacle 随可见生命周期清除占位。动作/计划/历史详情、会话底栏与试打底栏/右侧操作柱接入。
+- **回写目标 / 已应用至**：.cursor/skills/swiftui-design-system/SKILL.md 训练浮层规范；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+- **验证**：SE最终4 UI、17 Pro最终2 UI、计时语义2单测通过；截图发现返回Tab显隐迟于布局后已修复，并补足五Tab不相交与真正休息胶囊定位。最终证据 output/hud-unification/REPORT.md。
+
+## DR-095 — 课程右侧完成进度（2026-09-06）
+
+- 用户确认：右侧增加细线与每课小圆点，未完成白心、完成填品牌绿；原有课内点线保留。
+- `PlanDetailView` 通过课程首行 bounds anchor 定位圆点，预留16pt轨道，阶段独立连接；折叠及课内明细变化跟随真实布局。
+- 完成语义沿用现有课程显示状态（已完成/提前练过填绿，当前/未开始白心），不改变存储或推进逻辑。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §课程右侧完成进度 / Changelog。
+- 验证：独立目录Debug `BUILD SUCCEEDED`；iPhone17Pro浅/深色及阶段折叠已目视；完整证据见 output/lesson-progress-right/REPORT.md。未运行完整自动化矩阵。
+
+### DR-095 用户位置细化（2026-09-06）
+
+- 右侧线改为贯穿每阶段课程区顶部至底部；圆点改用整张卡片 bounds 中心，随展开内容高度变化。保留8pt尺寸、完成色及原课内时间线。
+- 详情Pro角标文字10pt改为btSubheadline.heavy（15pt），胶囊内边距12×8pt，保留黑金材质和安全区。
+- 已同步 UI-IMPLEMENTATION-SPEC 的课程右侧完成进度与Changelog。验证证据：output/lesson-progress-right/revision2/REPORT.md。
+
+## DR-096 — Pro角标与会员权益统一（2026-09-06）
+
+- 用户要求计划详情右上角与外部一致，并在训练卡片、动作库、练习及统计按未购买/已购买区分闭锁和开锁。
+- BTProBadge新增必传isUnlocked及prominent参数；上层观察SubscriptionManager并传入可复用卡片。收藏动作卡同步。统计分段右侧显示同款权益标志，历史锁定行复用。
+- 计划详情删除封面私有纯文字proTag，使用导航栏topBarTrailing同款prominent，免除封面/导航安全区重复定位。
+- 原付费门控保持；无障碍输出未解锁/已解锁。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §Pro角标会员状态；tasks/UI-IMPLEMENTATION-SPEC.md §Pro权益角标/Changelog。
+- 证据：output/pro-lock-unification/REPORT.md；完成状态以报告实际结果为准。
+
+
+## DR-097 — 记分完成键属于数字键盘内部（2026-09-06）
+
+- 用户明确纠正上方独立完成按钮；撤销toolbar/FocusState方案，进球与总球使用私有UITextField桥接及UIInputView，底行完成/0/删除。
+- 完成仅结束编辑，保留现有Binding验证和即时计分，不触发组次完成或休息。数字输入、粘贴限定ASCII数字。
+- 固定记分框和按键使用标准类别字号；初版受模拟器辅助字号影响溢出，已修正并目视最终截图。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §2.11与Changelog。验证见output/score-keyboard-done/INTEGRATED-REPORT.md。
+
+- **DR-096最终验证**：iPhone17Pro/iOS26.2最终2 UI通过，12张Free/Pro页面图及1张深色详情图已目视；额外工具栏玻璃背景已关闭。报告output/pro-lock-unification/REPORT.md，真机交易未验。
+
+- **DR-094后续裁定（2026-09-06）**：带时间的胶囊去掉可见标题，只留图标+时间；无时间的训练/继续/自由保留文字，无障碍说明保留。SE计时/休息2 UI通过并目视，证据output/hud-unification/icon-time-only/；已同步swiftui-design-system与UI-IMPLEMENTATION-SPEC。
+
+
+## DR-098 — 训练输入状态与心得流程分离（2026-09-06）
+
+- 用户确认统一处理键盘遮挡，并明确训练中心得只写整场备注、返回继续训练。
+- ActiveTrainingView键盘通知控制底栏显示；休息浮层按active/键盘/心得编辑状态退场，业务计时继续。
+- VM新增独立编辑状态和进入/返回动作；心得sheet直接绑定trainingNote，避免原endTraining暂停计时并转总结。结束流程保留。
+- 数字键改收起图标；本项心得有焦点限定的键盘图标；整场TextEditor独立滚动并使用safeAreaInset收起区。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §训练输入状态与心得 / Changelog。证据output/training-input-flow/REPORT.md。
+
+## FL-052 — 心得sheet键盘工具栏缺失（2026-09-06）
+
+- 首轮UI测试明确失败于trainingNote.dismissKeyboard不存在；录屏note-end.png显示键盘和正文已出现但工具栏缺失。
+- 保留失败证据output/training-input-flow/ui-raw.log及failure/；改用焦点控制的safeAreaInset底部收起区，不使用等待时间掩盖工具栏缺失。
+- 复验涵盖真实keyboard存在、编辑区≤收起区≤键盘上沿、收起后键盘消失、文字保留与返回训练。
+- 已应用至：.cursor/rules/55-test-engineer.mdc §FL-052、UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-099 — 输入确认与显式保存心得（2026-09-06）
+
+- 用户追加数字输入收键盘即勾选本组并开始休息；复用现有onComplete→handleCompleteSet→VM completeSet，不另起休息逻辑。Coordinator仅当前firstResponder可确认，行回调仅未完成组可执行，避免重复切换。
+- 用户随后明确心得应收键盘后显示保存；放弃收起即已保存提示方案。TrainingNoteDraftView持有本地副本；保存才写回VM并返回，直接返回或dismiss丢弃副本，保留旧心得。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §输入确认与整场心得保存 / Changelog。
+- 验证以output/training-input-confirm/REPORT.md最终结果为准；se-raw.log含被替换的提示方案，仅数字确认结果仍适用。
+
+
+## DR-100 — 训练心得布局及动作衔接（2026-09-06）
+
+- 依据用户最新两张截图和六项要求：整体心得保存缩为右侧按钮；单项心得取消四行上限；标题去除冗余进度；动作序号品牌绿。
+- 完成当前动作最后一组即进入下一动作，不再等待休息结束。第一个动作原按用户指定向左滑返回总览；现按用户后续纠正改为右滑返回，左滑进入第二项（见下方补充）。
+- “宽度自动增加”按上下文解释为固定页面宽度、内容高度随换行增长，避免横向溢出。
+- 已应用至UI-IMPLEMENTATION-SPEC DR-100。最终验证见output/training-refinement/REPORT.md。
+
+### DR-100 小屏自动化等待记录
+
+首轮SE多行动作心得输入完成后，XCTest反复报告App animations complete notification not received，每个操作等待60秒；断言未失败，现场se-live.png显示六行及收起入口完整。保留se-raw.log，主动中止该未完成轮次，不计为通过。复跑将小屏文字测试在进入编辑前通过真实“暂停计时”按钮暂停，保留全部布局、保存/放弃断言；生产源码未改。标准手机运行计时场景与68单测已通过。此隔离不证明小屏持续计时状态已完成验收。
+
+
+## DR-101 — 未开始训练直接退出（2026-09-06）
+
+新增hasStartedTraining判断，计时启动标记保留至会话结束，并兼顾无计时记录数据。未开始的确认弹窗显示继续训练/退出；退出清理计时及休息后dismiss，不进入心得/总结。原已开始训练结束逻辑保留。
+
+首轮编译遗漏计时标记声明（自动替换未匹配带Bool类型的原行），编译器明确报cannot find hasStartedTimer；已补声明。原test-raw.log保留，最终验证以final-raw.log为准。UI规格DR-101同步。
+
+
+## DR-102 — 两层心得共用自动编号输入（2026-09-06）
+
+使用BTNumberedNoteEditor包装UITextView，在delegate精确处理回车和空编号退格；markedText不改写，粘贴与普通段落保留。NoteNumbering纯函数使用NSRange/UTF-16，覆盖中文emoji、两位编号及中间插入/选择替换。SwiftUI使用同一绑定焦点保留收起与显式保存行为；本项高度继续自适应。新增源文件经Makefile xcodegen生成工程。最终验证见output/numbered-notes/REPORT.md。
+
+DR-102截图复查发现FL-053：初版SE系统AX字体继承使UIKit输入巨字；已修正为页面标准字体类别，新增六行高度上限。此前SE测试通过不代表视觉通过，最终证据改用se-final/phone-final。
+
+
+### DR-096 补充 — 退出登录收回当前会话 Pro（2026-09-06）
+
+根因：SubscriptionManager只读取StoreKit/DEBUG持久开关，未订阅AuthState，退出不会收回权益。App初始化时绑定认证阶段；账号切换同步清空会员展示并增加会话版本，权益异步返回必须版本一致；重登刷新。游客购买/恢复提示先登录。DEBUG显式启动夹具保留，但账号退出后不能重新解锁。未改Apple交易、后端或账号购买归属模型。验证见output/pro-logout/REPORT.md。
+
+DR-102最终：用户指出普通SE字号配置残留，simctl确认最大AX并恢复large。撤去小屏文字用例暂停计时临时隔离，默认字号+运行计时1 UI通过，无动画等待通知超时。17Pro最终1 UI及最终源码5单测通过；FL-053将环境遗漏与字体契约对齐分开记录。最终图phone-final/se-default已目视，未提交。
+
+
+### DR-095 补充 — 右侧细线随完成进度变绿（2026-09-06）
+
+连续完成前缀决定绿色线终点，部分完成止于最后连续完成课圆心，全部完成贯穿课程栈。非连续提前练过保留独立绿圈，不跨越未完成课。圆点尺寸、居中锚点及内侧原点线不变。验证见output/lesson-progress-green/REPORT.md。
+
+DR-102图标对齐修正（2026-09-06）：按用户截图，将noteInputRow的HStack改为.top，仅调整文档图标与第一行对齐。验证证据output/note-icon-top/。
+
+DR-100范围纠正（2026-09-06）：此前把“第几颗拿掉”误解为整行删除，用户明确球形和杆数要保留。恢复currentSetProgressText的显示，仅删除重复型的颗数部分；沿用走位链遍数/杆数，更新既有三项口径单测和数字录入UI期望。证据output/training-progress-restore/。
+
+
+## DR-103 — 训练来源标题（2026-09-06）
+
+ScheduledTrainingBlock解析既有冻结数据时提取计划全名/模版名称，ActiveTrainingViewModel统一trainingTitle供页头与导航使用；自由训练保留原文。计划安排的sourceTitle本来是课程名，不能直接用于该需求。旧plan入口以Bundle名称兼容，不扩展保存/分享语义。测试包含两种加入顺序的计划/模版标题及真实首页启动两种训练。证据output/training-source-title/。
+
+DR-103首轮测试编译遗漏capture的try，已补齐并复跑；原test-raw.log保留，最终结果以final-raw.log为准。
+
+
+## DR-104 — 今日安排统一标题与折叠行（2026-09-06）
+
+用户四项要求：移除动作数/完成状态冗余副标题，历史记录改为与编排项目同款图标折叠行，标题按计划名与课号、模版名与模版、自由名与自由组合。TrainingHomeView共用trainingDisclosureHeader，历史展开后保留查看训练记录入口；计划优先冻结payload，旧记录无课号不臆造。单课默认展开但支持收起；历史参与多项判定。已应用至tasks/UI-IMPLEMENTATION-SPEC.md §今日安排统一折叠行及Changelog。验证证据output/today-schedule-unified/REPORT.md：最终17Pro浅色2项UI、SE深色2项UI通过；SE九状态回归通过，截图已目视。
+
+DR-104测试校正：首轮误以为sheet打开会移除底层首页AX元素；实读原有sheet路由后改验详情累计进球和返回状态。第二轮发现既有xmark与文字关闭均使用“关闭”标签，依据失败AX树改为导航栏xmark标识。未修改产品弹窗、未放宽数据断言，两轮失败日志均保留。
+
+DR-104小屏测试校正：九状态及详情返回已通过，历史行定位因单向大幅swipe越过目标失败；导出xcresult录屏确认已滚至计划货架底部。按已有视口定位模式改用实际行frame与顶部/浮层边界做双向有界拖动，保留失败与录屏，不改产品布局来迎合测试。
+
+
+## DR-105 — 今日安排独立展开与统一明细（2026-09-06）
+
+用户要求三来源展开样式一致、支持同时点开全部且默认折叠。根因是历史与编排的明细各自实现，且单个UUID充当手风琴状态。改为Set维护每项展开，共用明细行，模版/自由明确标类型、一组亦显示组数；编排通过既有会话关联补查看训练记录。未保存项不制造记录。已应用至tasks/UI-IMPLEMENTATION-SPEC.md §DR-105及Changelog；验证见output/today-disclosure-multi/REPORT.md。
+
+
+## DR-106 — 键盘收起入口尺寸（2026-09-06）
+
+用户指出整场心得收起键盘太小，并要求处理同类入口。根因为18pt图标与UIKit默认工具栏符号尺寸，整场原44pt布局也未显式覆盖透明命中区。三处改为共享28pt半粗品牌绿图标，心得56×44pt命中；数字键盘保留原按键尺寸。已应用至tasks/UI-IMPLEMENTATION-SPEC.md §键盘收起尺寸及Changelog。验证结果见output/keyboard-dismiss-size/REPORT.md。
+
+DR-105最终验证：同源码17Pro浅色2 UI、SE深色3 UI通过（TEST SUCCEEDED），23图已目视；包含三来源记录打开/返回、多项开关、单项和建议默认折叠、九状态。首轮后并行输入组件变更已通过标准手机同步补验覆盖，未回退其他任务改动。真机/iPad/AX未验，未提交。
+
+
+## DR-107 — 今日安排优先级、记录关闭与完成摘要（2026-09-06）
+
+根因：编排先按原orderIndex全部输出，建议后插；sheet外层重复添加关闭文字；摘要完成态仍累加计数与时长。用户要求未完成/建议置顶、记录只留X、全部完成只留提示。实施仅在TrainingHomeView展示层分组、移除外层toolbar、完成态互斥输出；未改持久队列和统计算法。已应用至tasks/UI-IMPLEMENTATION-SPEC.md §DR-107与Changelog。验证见output/today-order-summary/REPORT.md。
+
+DR-107最终：iPhone17Pro/iOS26.2/Light/large两项UI通过（TEST SUCCEEDED），6图已目视；源码无漂移，git diff --check与文档体积门禁通过。未做本轮小屏/深色/真机验收，未提交。
+
+
+### DR-100 手势方向纠正（2026-09-06）
+
+用户纠正此前左右方向描述：首个动作右滑回动作列表，左滑到第二个动作。ActiveTrainingView仅反转首项返回的水平位移判断，保留阈值、手势起始索引、纵向及键盘保护；原UI测试更新为左滑第二项、右滑第一项、再右滑列表的连续流程。已应用至tasks/UI-IMPLEMENTATION-SPEC.md §DR-100及Changelog；证据output/training-swipe-direction/REPORT.md。
+
+
+## DR-108 — 今日自由训练按日编号（2026-09-06）
+
+用户要求同一天的自由训练区分“自由训练 · 第1次”等。TodayTrainingProjection增加只读编号映射，按时区自然日、当前归属、真实drill记录筛选，再按日期/UUID排序去重；首页已保存独立自由与关联编排共享序列。计划与模版不占号，未保存不虚构次数。已应用至tasks/UI-IMPLEMENTATION-SPEC.md §DR-108及Changelog；验证见output/free-training-ordinal/REPORT.md。
+
+DR-108最终：1单测+2 UI通过（TEST SUCCEEDED），6图已目视，源码无漂移。验证跨日重置、来源/归属筛选、去重、同时间稳定编号与第1/2次各自记录导航；17Pro/iOS26.2浅色，真机未验，未提交。
+
+
+## DR-109 — 今日安排与计划逐动作入口（2026-09-06）
+
+用户要求今日安排恢复动作图标并可进入详情、返回原页面，计划既有入口补轻量可点击提示。共用trainingDrillRow新增drillID并用原TrainingRoute.drillDetail导航；复用40×20烘焙缩略图、右箭头、44pt整行命中，剂量放名称下方保留阅读空间。覆盖编排/历史/官方建议。计划缩略图右下角补右箭头小标，行内间距收紧、长名称允许换行，保持球形展开独立。已应用至tasks/UI-IMPLEMENTATION-SPEC.md §DR-109及Changelog。验证见output/today-drill-links/REPORT.md。
+
+DR-106用户尺寸微调（2026-09-06）：用户认为28pt偏大，共享图标调整为24pt，56×44pt命中区及半粗/品牌绿保留。UI规格同步，最终证据output/keyboard-dismiss-size/refined-raw.log与refined/。
+
+
+## DR-110 — 动作图与双箭头整体排版（2026-09-06，FL-054返工后）
+
+今日安排：状态、自然宽度来源文字、64×32球台图、名称/剂量、右侧居中箭头。来源与图之间仅常规8pt，不预留固定类型列。计划：左侧64pt图片列内放图、弱序号及多球形展开按钮；名称、球形数和各剂量共用右侧文字列。剂量为连续文本，优先单行，不拆成独立字段竖列，也不另起到图片下方。文字列末尾统一详情箭头，按多行整体居中；图片与正文都可进入同栈详情，返回保持展开状态。保持正常字距字号。取消曾尝试的左侧44pt空占位及下方通栏剂量方案，旧截图不得作为最终视觉证据。验证见output/drill-layout-aligned/REPORT.md。
+
+
+## DR-111 — 图列对齐、稳定折叠与每日计划建议去重（2026-09-06）
+
+今日安排使用52pt右对齐类型列，类型与64×32图之间8pt，图和名称各自同列；不使用左对齐短类型造成大间隙。计划动作删除01/02序号，根行和图片按顶部对齐；标题/球形数量位置固定，切换仅增减剂量内容，详情箭头仍对多行内容居中。
+
+官方自动建议按当前owner、本地日期、planId去重：当天任何已编排课（含完成/放弃）或独立训练历史已含该计划，则不再提示下一课；切其他未编排计划仍显示建议，次日重新计算。昨日补入共用carryForwardCandidates，排除今日已有计划和已有其他来源，完成项也参与去重；提示数量与写入使用同一筛选。手动计划页主动编排/复练契约保持；不自动删除既有重复记录。测试见output/drill-align-dedupe/REPORT.md。
+
+
+## DR-112 — 今日安排标题分隔点对齐（2026-09-06）
+
+名称不超过4个字时，保持左对齐并按当前标题字体的4个汉字宽度预留，后缀分隔点共用同一横向位置；超过4字维持整段自然排版。使用隐藏四字文本度量宽度，不补空格、不截断名称，保留完整辅助功能标题和原折叠/导航行为。验证见output/schedule-title-dot/REPORT.md。
+
+
+## DR-113 — 模版卡片动作分列与整次训练计数（2026-09-06）
+
+按用户最终裁定：首页「我的模版」与计划列表共用BTTemplateCard。封面保持正方形，先给动作列预留当前字体七个汉字宽度，再用剩余空间放大封面（最大112pt）；不压缩字间距。两列按行排列（第1/2个同一行、第3/4个下一行），6个以内动作区域预留三行、标签在第四行；7/8个动作占四行、标签第五行，更多动作自然顺延；品牌绿圆点、单行动作，超出七字截尾但辅助功能保留完整名称。方图顶边与模版名称顶边对齐；标题/菜单行收为24pt，首行动作紧接标题，去掉此前44pt标题行造成的空白；标签前间距8pt，动作区与标签共上移约一行。标签减薄；右侧动作区下方只保留「已在今日安排」「已练N次」，移除模版标签。宽度不足时状态标签自然换行。封面/标题/动作区均可编辑，菜单与标题为独立同层控件，避免叠在编辑按钮命中区。
+
+TemplatePracticeCounts按当前owner的非空drill类型TrainingSession计数，每个模板会话UUID一次；显式template来源使用sourceId（缺失时planId），旧记录nil来源兼容UUID型planId。加入队列或浏览编辑不增加次数，零次数隐藏，删除记录后随Query刷新。动作库仍使用原DrillPracticeCounts按DrillEntry累加，不改其口径。
+
+首轮方形+通栏标签方案计数单测通过，但叠加菜单在返回后短暂打开又消失；保留失败证据se-raw.log/xcresult录屏。改成菜单与标题并列后，两入口菜单/编辑/重复加入UI复验通过；后续恢复方形后的最终证据见output/template-card-layout/REPORT.md。竖向封面与通栏标签旧截图不作为最终版本。
+
+- **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md §DR-113及Changelog；BTTemplateCard/BTTemplateStatusRow API。
+
+DR-113补充：新建模版入口改为居中、内容宽度的紧凑按钮，高度至少44pt；保留原新建导航。去除原通栏灰色按钮背景。
+
+## DR-114 — 五个 Tab 共用几何线稿背景（2026-09-06）
+
+- **需求**：用户确认将训练页现有瞄准圈、虚线路径、刻度与圆弧延伸至其他四个 Tab。
+- **实现**：新增 `BTBlueprintBackground(style:)`，含 training/library/practice/history/profile；训练构图沿用原实现，动作库/练习边缘布局，记录无虚线，个人页仅瞄准圈与圆弧。统一 btBG 底色、btPrimary 线色、Dark 0.13 / Light 0.08 与 1pt 描边。页面背景位于滚动内容后，不占布局、不响应点击、不进入无障碍树。
+- **范围**：仅五个 Tab 根页及共享组件；XcodeGen 注册新文件。原有并行变更保留。
+- **验证**：证据与最终结论见 `tasks/ui-reviews/UR-20260906-tab-blueprint.md`；复用五 Tab 导航回归，新增真实页面截图采集与内存数据/系统外观前置。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § Tab 根页线稿背景；`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
+
+
+## DR-115 — 启动直达主界面，训练数据云同步单独选择（2026-09-06）
+
+- 用户裁定：不要“恢复账号”或登录阻挡，主动在「我的」登录；拒绝云同步必须阻止上传和下载。
+- 变更：RootView 常态主界面；AuthState 按账号本地持久化未知/开启/关闭偏好，后台认证不弹选择；设置开关；游客迁移另询。协调器及请求前/返回后门禁；启动异步结果不得覆盖新登录。
+- 依据：ADR-P2-20260906；数据契约 §2.5、信息架构末尾修订。
+- 验证：最终47单测、两设备共4次UI通过（TEST SUCCEEDED），8张改后截图已目视；真实Apple/双设备/iPad/深色同步控件/AX未验。证据 `output/account-sync-choice/REPORT.md`。旧401/refresh响应凭证校验亦纳入APIClient及2项新增回归。
+- 已应用至：`.cursor/rules/30-data-engineer.mdc` § 同步同意门禁；`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
+
+
+## DR-116 — 我的普通菜单图标中性化（2026-09-07）
+
+- 用户裁定：除头像、会员与订阅外，普通菜单不再填品牌色。
+- 实现：ProfileMenuRow 默认 tint 从 primary 改为 neutral；收藏、个人信息、训练目标、关于与反馈与偏好设置统一。会员显式 accent 保留。
+- 验证：Debug BUILD SUCCEEDED；iPhone17Pro/iOS26.2游客页Light/Dark前后4张截图已目视，文字布局保留；无业务变更，未新增测试、未测真机。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md § 我的菜单配色 / Changelog。证据 output/profile-neutral/。
+
+
+## DR-117 — 角度训练辅助瞄准线延伸到球桌（2026-09-07）
+- **用户要求**：2D和3D角度训练点击辅助后的瞄准线延伸到球桌。
+- **调整后**：白色瞄准线从母球沿假想球方向延伸到台呢边界。辅助调用显式传 `extendStrikeLineToRail: true`；共用射线算法新增 `inset`，默认仍为球半径，教学延伸取0。
+- **回写目标 / 已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog / DR-117；API参数在 `AngleTrainingScene.updateVisualization` 原位说明。
+- **验证**：见 `output/angle-assist-rail/REPORT.md`，以实际记录为准。
+
+
+## DR-118 — 假想球可见标记与球心同高（2026-09-07）
+- **用户确认**：假想球虚线圈及中心标记抬到台面上方一个球半径。
+- **根因**：父节点已在球心高度，但圆环子节点局部Y为-R+2mm，中心标记为-R+4mm，导致可见标记落在台呢附近。
+- **实现**：两者局部Y统一为0，沿用父节点的台面+R高度；共享假想球节点的消费者同步生效。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog / DR-118，以及节点定义原位注释。
+- **验证**：见 `output/ghost-center-height/REPORT.md`，以实际记录为准。
+
+
+## DR-119 — 真实截图引导与列表式 Pro（2026-09-07）
+- **任务**：用户确认“合适截图放进去”“Pro 版本还是用列表”“先搞一个版本”。
+- **描述 / 原始规范**：旧引导为三页示意图并耦合登录状态；旧付费页强制深色，包含与当前门控不符的自定义计划、分享和云同步权益描述。
+- **调整后**：四页真实裁切截图（瞄准点、动作详情、自由走位、分组记录），在我的提供“认识球迹”；跳过和完成只关闭介绍。保持启动直达首页。Pro 改为五项权益列表、三套餐、固定绿色购买按钮，跟随浅深色；游客先登录并保留所选套餐，使用 StoreKit 返回价格。示例记录和 Pro 工具明确标注。
+- **原因**：用户要求与 App 整体一致，并基于现有可用功能讲解，不将免费能力包装成付费权益。
+- **日期**：2026-09-07
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`docs/05`、`docs/08`；详见 `tasks/ui-reviews/UR-20260907-onboarding-pro-v1.md`。

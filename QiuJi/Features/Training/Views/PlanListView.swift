@@ -19,6 +19,7 @@ struct PlanListView: View {
     @State private var plans: [OfficialPlan] = []
     @State private var isLoading = true
     @Query(sort: \CustomPlan.createdAt, order: .reverse) private var customPlans: [CustomPlan]
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var router: AppRouter
     @Environment(\.modelContext) private var modelContext
     @State private var planToDelete: CustomPlan?
@@ -26,6 +27,7 @@ struct PlanListView: View {
     @State private var toast: BTToastMessage?
     @Query private var activePlans: [UserActivePlan]
     @Query private var schedules: [TodayTrainingSchedule]
+    @Query private var trainingSessions: [TrainingSession]
 
     init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
         self.ownerKey = ownerKey
@@ -36,6 +38,7 @@ struct PlanListView: View {
         )
         _activePlans = Query(filter: #Predicate { $0.ownerKey == ownerKey })
         _schedules = Query(filter: #Predicate { $0.ownerKey == ownerKey })
+        _trainingSessions = Query(filter: #Predicate { $0.ownerKey == ownerKey })
     }
 
     var body: some View {
@@ -124,7 +127,7 @@ struct PlanListView: View {
                                     TrainingRoute.planDetail(planId: plan.id)
                                 )
                             } label: {
-                                PlanCard(plan: plan, issueNumber: index + 1, status: PlanProgressService.displayState(for: plan.id, in: activePlans))
+                                PlanCard(plan: plan, issueNumber: index + 1, isUnlocked: subscriptionManager.isPremium, status: PlanProgressService.displayState(for: plan.id, in: activePlans))
                             }
                             .buttonStyle(.plain)
                             .id(plan.id)
@@ -223,72 +226,24 @@ struct PlanListView: View {
         }
     }
 
+    private var templatePracticeCounts: [UUID: Int] {
+        TemplatePracticeCounts.make(sessions: trainingSessions, ownerKey: ownerKey)
+    }
+
     private func customPlanCard(_ plan: CustomPlan, issueNumber: Int) -> some View {
         let isActive = isUsedToday(plan)
+        let practiceCount = templatePracticeCounts[plan.id, default: 0]
 
-        return HStack(spacing: Spacing.md) {
-            Button {
+        return BTTemplateCard(
+            planID: plan.id, issueNumber: issueNumber, title: plan.name,
+            actionNames: plan.drills.sorted { $0.order < $1.order }.map(\.drillNameZh),
+            isScheduled: isActive, practiceCount: practiceCount,
+            editIdentifier: "planList.template.edit.\(plan.id)",
+            onEdit: {
                 router.planListRestoreID = plan.id.uuidString
                 router.trainingPath.append(TrainingRoute.customPlanEdit(planId: plan.id))
-            } label: {
-            HStack(spacing: Spacing.md) {
-                customThumbnail(planId: plan.id, issueNumber: issueNumber)
-
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text(plan.name)
-                        .font(.btTitleMedium)
-                        .foregroundStyle(.btText)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-
-                    Text(customPlanSubtitle(plan))
-                        .font(.btFootnote)
-                        .foregroundStyle(.btTextSecondary)
-                        .monospacedDigit()
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-
-                    HStack(spacing: Spacing.sm) {
-                        HStack(spacing: 2) {
-                            Image(systemName: "hammer")
-                                .font(.btMicro)
-                            Text("模版")
-                                .font(.btCaption2)
-                        }
-                        .foregroundStyle(.btPrimary)
-                        .padding(.horizontal, Spacing.sm)
-                        .padding(.vertical, 2)
-                        .background(Color.btPrimaryMuted)
-                        .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-
-                        if isActive {
-                            HStack(spacing: 2) {
-                                Image(systemName: BTIcon.checkmarkCircle)
-                                    .font(.btMicro)
-                                Text("已在今日安排")
-                                    .font(.btCaption2)
-                            }
-                            .foregroundStyle(.btSuccess)
-                            .padding(.horizontal, Spacing.sm)
-                            .padding(.vertical, 2)
-                            .background(Color.btSuccess.opacity(0.12))
-                            .clipShape(RoundedRectangle(cornerRadius: BTRadius.xs))
-                        }
-                    }
-                }
-
-                Spacer(minLength: 0)
-
-                Image(systemName: BTIcon.chevronRight)
-                    .font(.btFootnote14)
-                    .foregroundStyle(.btTextTertiary)
             }
-            .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("编辑模版，\(plan.name)")
-            .accessibilityIdentifier("planList.template.edit.\(plan.id)")
-
+        ) {
             Menu {
                 NavigationLink(value: TrainingRoute.customPlanEdit(planId: plan.id)) {
                     Label("编辑", systemImage: "pencil")
@@ -307,22 +262,17 @@ struct PlanListView: View {
                 Image(systemName: BTIcon.menuCircle)
                     .font(.btCallout)
                     .foregroundStyle(.btTextTertiary)
-                    .frame(width: 44, height: 44)
+                    .frame(width: 44, height: 24)
                     .contentShape(Rectangle())
             }
             .accessibilityLabel("管理模版，\(plan.name)")
             .accessibilityIdentifier("planList.template.menu.\(plan.id)")
         }
-        .padding(Spacing.md)
-        .background(.btBGSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
         .onLongPressGesture { requestDelete(plan) }
         .id(plan.id.uuidString)
     }
 
-    private func customThumbnail(planId: UUID, issueNumber: Int) -> some View {
-        CustomPlanThumbnail(planId: planId, issueNumber: issueNumber)
-    }
+
 
     // MARK: - Actions
 
@@ -335,16 +285,7 @@ struct PlanListView: View {
         } ?? false
     }
 
-    private func customPlanSubtitle(_ plan: CustomPlan) -> String {
-        let names = plan.drills
-            .sorted { $0.order < $1.order }
-            .map { $0.drillNameZh.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty }
-        if names.isEmpty {
-            return "\(plan.drills.count) 项训练"
-        }
-        return "\(plan.drills.count) 项 \(names.joined(separator: "、"))"
-    }
+
 
     private func requestUseForToday(_ plan: CustomPlan) {
         if isUsedToday(plan) {
@@ -362,7 +303,7 @@ struct PlanListView: View {
     private func addTemplateToToday(_ plan: CustomPlan) {
         do {
             _ = try TodayTrainingScheduleService(context: modelContext).addTemplate(plan)
-            toast = BTToastMessage("已加入今日安排")
+            BTToast.present("已加入今日安排") { toast = $0 }
         } catch {
             print("[PlanListView] add template failed: \(error)")
             BTToast.present("无法加入今日安排，请稍后重试", tone: .error) { toast = $0 }
@@ -438,6 +379,7 @@ enum CustomPlanAtmosphere {
 struct CustomPlanThumbnail: View {
     let planId: UUID
     let issueNumber: Int
+    var side: CGFloat? = 72
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -458,7 +400,7 @@ struct CustomPlanThumbnail: View {
                 .background(.black.opacity(0.38), in: Capsule())
                 .padding(Spacing.xs)
         }
-        .frame(width: 72, height: 72)
+        .frame(width: side, height: side)
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.sm))
         .accessibilityHidden(true)
     }
@@ -469,6 +411,7 @@ struct CustomPlanThumbnail: View {
 private struct PlanCard: View {
     let plan: OfficialPlan
     let issueNumber: Int
+    let isUnlocked: Bool
     let status: String?
 
     private var levelName: String {
@@ -490,11 +433,11 @@ private struct PlanCard: View {
                     mode: .list
                 )
                 if plan.isPremium {
-                    BTProBadge()
+                    BTProBadge(isUnlocked: isUnlocked)
                         .padding(Spacing.sm)
                 }
             }
-            .overlay(alignment: .bottomLeading) {
+            .overlay(alignment: .bottomTrailing) {
                 BTPlanActivationBadge(status: status).padding(Spacing.sm)
             }
         }

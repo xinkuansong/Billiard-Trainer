@@ -3,7 +3,7 @@ import SwiftData
 
 @main
 struct QiuJiApp: App {
-    @StateObject private var authState = AuthState()
+    @StateObject private var authState: AuthState
     @StateObject private var ownerContext = CurrentOwnerContext.shared
     @StateObject private var dataCoordinator = AccountDataCoordinator()
     @StateObject private var appRouter = AppRouter()
@@ -18,6 +18,10 @@ struct QiuJiApp: App {
         : ModelContainerFactory.makeContainer()
 
     init() {
+        let authState = AuthState()
+        _authState = StateObject(wrappedValue: authState)
+        SubscriptionManager.shared.bind(to: authState)
+
         let brandGreen = UIColor(Color.btPrimary)
 
         let appearance = UINavigationBarAppearance()
@@ -106,7 +110,14 @@ struct QiuJiApp: App {
                     guard let userId = note.object as? String else { return }
                     Task {
                         await dataCoordinator.handleCompletedLogin(userId: userId,
-                                                                   authState: authState)
+                                                                   authState: authState,
+                                                                   offerGuestMigration: false)
+                    }
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .didChangeCloudSync)) { note in
+                    guard let userId = note.object as? String else { return }
+                    Task {
+                        await dataCoordinator.handleCompletedLogin(userId: userId, authState: authState)
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .authSessionInvalidated)) { _ in

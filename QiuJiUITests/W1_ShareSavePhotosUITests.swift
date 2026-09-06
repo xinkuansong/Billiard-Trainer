@@ -3,7 +3,7 @@ import XCTest
 /// W1 / 问题集合_v9：训练分享「保存相册」模拟器冒烟（完整路径截图落盘）。
 ///
 /// W1 返工第 1 轮：跑之前须 `simctl privacy reset photos-add`（禁止 grant 预授权），
-/// 走真实 TCC 弹框路径——弹框出现、点「允许」、出 toast，全程不崩。
+/// 走真实 TCC 弹框路径——弹框出现、点「允许」、关闭分享页，全程不崩。
 final class W1_ShareSavePhotosUITests: XCTestCase {
     var app: XCUIApplication!
     private let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
@@ -46,7 +46,7 @@ final class W1_ShareSavePhotosUITests: XCTestCase {
         return false
     }
 
-    func testW1_saveShareCardToPhotos_showsToastOrPermissionFeedback() throws {
+    func testW1_saveShareCardToPhotos_dismissesAfterSaving() throws {
         _ = app.tabBars.buttons["训练"].waitForExistence(timeout: 15)
         app.switchTab(.training)
         sleep(1)
@@ -122,17 +122,18 @@ final class W1_ShareSavePhotosUITests: XCTestCase {
             return
         }
 
-        // Catch「保存中」quickly, then toast / alert (toast ~1.6s — do not sleep past it).
+        // Observe saving, permission feedback, or return to the summary.
         usleep(400_000)
         snap("w1-06-saving-or-feedback")
 
-        let toast = app.staticTexts["已保存到相册"]
+        let summaryShareButton = app.buttons["生成分享图"]
+        func returnedToSummary() -> Bool {
+            !saveById.exists && summaryShareButton.exists && summaryShareButton.isHittable
+        }
         let saveFailAlert = app.alerts["保存失败"]
-        let savingLabel = app.staticTexts["保存中"]
 
-        var sawToast = false
+        var sawDismissal = false
         var sawFailAlert = false
-        var sawSaving = savingLabel.exists
         var sawSystemAlert = false
 
         // The TCC photo prompt is hosted by SpringBoard, not the app.
@@ -153,9 +154,8 @@ final class W1_ShareSavePhotosUITests: XCTestCase {
         var permissionAlert: XCUIElement?
         let deadline = Date().addingTimeInterval(10)
         while Date() < deadline {
-            if toast.exists { sawToast = true; break }
+            if returnedToSummary() { sawDismissal = true; break }
             if saveFailAlert.exists { sawFailAlert = true; break }
-            if savingLabel.exists { sawSaving = true }
             if let alert = systemPhotoAlert() {
                 sawSystemAlert = true
                 permissionAlert = alert
@@ -175,12 +175,12 @@ final class W1_ShareSavePhotosUITests: XCTestCase {
                 alert.buttons[title].tap()
                 break
             }
-            // Toast lives ~1.6s — poll immediately, snapshot the instant it shows.
-            let toastDeadline = Date().addingTimeInterval(8)
-            while Date() < toastDeadline {
-                if toast.exists {
-                    sawToast = true
-                    snap("w1-08-toast-after-permission")
+            // Saving must finish before the share sheet closes.
+            let dismissDeadline = Date().addingTimeInterval(8)
+            while Date() < dismissDeadline {
+                if returnedToSummary() {
+                    sawDismissal = true
+                    snap("w1-08-dismissed-after-permission")
                     break
                 }
                 if saveFailAlert.exists {
@@ -191,16 +191,16 @@ final class W1_ShareSavePhotosUITests: XCTestCase {
                 usleep(100_000)
             }
             XCTAssertTrue(
-                sawToast || sawFailAlert,
-                "点「允许」后应出现 toast「已保存到相册」或保存失败 alert"
+                sawDismissal || sawFailAlert,
+                "点「允许」后应关闭分享页或出现保存失败 alert"
             )
         }
 
         snap("w1-09-final")
         XCTAssertEqual(app.state, .runningForeground, "保存流程结束后 App 仍应存活")
         XCTAssertTrue(
-            sawToast || sawFailAlert || sawSystemAlert || sawSaving,
-            "保存后应出现「保存中」/ toast「已保存到相册」/ 保存失败 alert / 系统相册权限提示；不得无反馈永久冻结"
+            sawDismissal,
+            "允许保存后必须关闭分享页并返回训练总结；保存中、权限提示或失败弹框均不算保存成功"
         )
     }
 }

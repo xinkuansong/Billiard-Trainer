@@ -26,6 +26,12 @@ struct HistoryCalendarView: View {
     var body: some View {
         VStack(spacing: 0) {
             BTSegmentedTab(tabs: HistoryTab.allCases, selected: $activeTab) { $0.rawValue }
+                .frame(maxWidth: .infinity)
+                .overlay(alignment: .trailing) {
+                    if activeTab == .statistics {
+                        BTProBadge(isUnlocked: subscriptionManager.isPremium)
+                    }
+                }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
 
@@ -39,7 +45,7 @@ struct HistoryCalendarView: View {
                     .allowsHitTesting(activeTab == .statistics)
             }
         }
-        .background(Color.btBG.ignoresSafeArea())
+        .background { BTBlueprintBackground(style: .history).ignoresSafeArea() }
         .task {
             await vm.loadSessions(context: modelContext)
         }
@@ -370,7 +376,7 @@ struct HistoryCalendarView: View {
             Spacer()
 
             if locked {
-                BTProBadge()
+                BTProBadge(isUnlocked: subscriptionManager.isPremium)
             }
 
             Image(systemName: BTIcon.chevronRight)

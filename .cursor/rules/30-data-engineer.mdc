@@ -6,6 +6,8 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-09-06 v0.5：DR-115，训练数据云同步改为用户明确选择，启动认证不阻断主界面。
+
 - 2026-03-27 v0.1：初始版本
 - 2026-03-29 v0.2：加入「第三方 BaaS 选型检查点」（来自 FL-001）
 - 2026-03-29 v0.3：LeanCloud → 自建 REST API（ADR-001）全面更新
@@ -57,10 +59,10 @@ alwaysApply: false
 - 认证：JWT（Access Token 1h + Refresh Token 30d），存于 Keychain。
 - 用户私有数据端点：`/training-sessions`、`/angle-tests`、`/user/profile`。
 - **同步策略**：
-  1. 本地 SwiftData 写入成功后，异步上传（`BackendSyncService`，后台队列）。
-  2. 登录时拉取远端增量（`GET /training-sessions?after=<date>`）。
+  1. 用户已开启当前账号云同步时，本地 SwiftData 写入成功后，异步上传（`BackendSyncService`，后台队列）。
+  2. 用户已开启当前账号云同步时，登录时拉取远端增量（`GET /training-sessions?after=<date>`）。
   3. 冲突解决：以 `updatedAt` 较新者为准（Last Write Wins）。
-- **匿名用户**：数据仅本地，不上传；登录后触发一次性批量迁移（`POST /training-sessions/batch`）。
+- **匿名用户**：数据仅本地，不上传；用户开启云同步且明确同意合并游客记录后触发一次性批量迁移（`POST /training-sessions/batch`）。
 - **401 处理**：自动触发 `POST /auth/refresh` 刷新 Token；刷新失败则跳转登录。
 
 ## 敏感数据处理
@@ -91,3 +93,7 @@ alwaysApply: false
 4. **备选方案**已列出：自建 REST API / 其他 BaaS
 
 若任一问题答案为"否/不确定"，**禁止将该服务纳入架构**，直接进入备选方案评估。
+
+
+### 同步同意门禁（DR-115）
+训练记录/角度成绩须在用户明确开启当前设备当前账号的云同步后上传和下载；认证及 Pro 权益不代表同意。后台启动不弹同步或迁移确认，主动开启时游客记录另问是否合并。拒绝合并与关闭同步为不同动作，文案不可混用。关闭/账号切换后在请求边界及下载落盘前复核有效性，不依赖弹窗是否可见。未开启的本地记录和队列保留。

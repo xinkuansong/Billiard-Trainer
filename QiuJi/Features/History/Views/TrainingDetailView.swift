@@ -168,7 +168,7 @@ struct TrainingDetailView: View {
             }
             .background(Color.btBG)
 
-            bottomBar(session)
+            bottomBar(session).btTrainingPillObstacle()
         }
     }
 

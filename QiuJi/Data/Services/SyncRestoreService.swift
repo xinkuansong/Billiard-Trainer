@@ -127,8 +127,10 @@ final class SyncRestoreService: ObservableObject {
 
     @discardableResult
     func restore(userId: String, mode: Mode,
-                 expectedOwnerContext: CurrentOwnerContext? = nil) async -> RestoreSummary {
+                 expectedOwnerContext: CurrentOwnerContext? = nil,
+                 shouldContinue: () -> Bool = { true }) async -> RestoreSummary {
         var summary = RestoreSummary()
+        guard shouldContinue() else { return summary }
         guard let context else {
             print("[SyncRestore] 未 configure(context:)，跳过恢复 userId=\(userId)")
             return summary
@@ -138,17 +140,18 @@ final class SyncRestoreService: ObservableObject {
         if let expectedOwnerContext, expectedOwnerContext.ownerKey != ownerKey { return summary }
         await restoreSessions(userId: userId, ownerKey: ownerKey, mode: mode,
                               context: context, expectedOwnerContext: expectedOwnerContext,
-                              summary: &summary)
+                              shouldContinue: shouldContinue, summary: &summary)
         await restoreAngleTests(userId: userId, ownerKey: ownerKey, mode: mode,
                                 context: context, expectedOwnerContext: expectedOwnerContext,
-                                summary: &summary)
+                                shouldContinue: shouldContinue, summary: &summary)
         return summary
     }
 
     private func restoreSessions(userId: String, ownerKey: String, mode: Mode,
                                  context: ModelContext,
                                  expectedOwnerContext: CurrentOwnerContext?,
-                                 summary: inout RestoreSummary) async {
+                                 shouldContinue: () -> Bool, summary: inout RestoreSummary) async {
+        guard shouldContinue() else { return }
         let after = (mode == .full) ? nil : anchor(.sessions, userId: userId)
         let records: [SyncedRecord<TrainingSessionDTO>]
         do {
@@ -159,6 +162,7 @@ final class SyncRestoreService: ObservableObject {
                   "error=\(describe(error))")
             return
         }
+        guard shouldContinue() else { return }
         if let expectedOwnerContext, expectedOwnerContext.ownerKey != ownerKey { return }
         guard !records.isEmpty else { return }
 
@@ -194,7 +198,8 @@ final class SyncRestoreService: ObservableObject {
     private func restoreAngleTests(userId: String, ownerKey: String, mode: Mode,
                                    context: ModelContext,
                                    expectedOwnerContext: CurrentOwnerContext?,
-                                   summary: inout RestoreSummary) async {
+                                   shouldContinue: () -> Bool, summary: inout RestoreSummary) async {
+        guard shouldContinue() else { return }
         let after = (mode == .full) ? nil : anchor(.angleTests, userId: userId)
         let records: [SyncedRecord<AngleTestDTO>]
         do {
@@ -204,6 +209,7 @@ final class SyncRestoreService: ObservableObject {
                   "error=\(describe(error))")
             return
         }
+        guard shouldContinue() else { return }
         if let expectedOwnerContext, expectedOwnerContext.ownerKey != ownerKey { return }
         guard !records.isEmpty else { return }
 

@@ -346,7 +346,8 @@ final class AimingQuizViewModel: ObservableObject {
             pocket: aimPoint,
             showAngleAnnotations: false,
             showOverlapMarkers: true,
-            showLineLabels: shouldShowLineLabels
+            showLineLabels: shouldShowLineLabels,
+            extendStrikeLineToRail: true
         )
         scene.hideCueStick()
     }

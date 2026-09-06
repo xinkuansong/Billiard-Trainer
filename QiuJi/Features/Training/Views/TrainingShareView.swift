@@ -9,7 +9,6 @@ struct TrainingShareView: View {
     @State private var selectedTheme: ShareCardTheme = .paper
     @State private var selectedFont: ShareCardFont = .system
     @State private var hideSuccessRate = false
-    @State private var toast: BTToastMessage?
     @State private var showSaveErrorAlert = false
     @State private var saveErrorMessage = ""
     @State private var isSavingToPhotos = false
@@ -36,8 +35,6 @@ struct TrainingShareView: View {
                     }
                 }
             }
-            // F-OV-04: short success → non-blocking toast; errors stay as alert.
-            .btToast($toast)
             .alert("保存失败", isPresented: $showSaveErrorAlert) {
                 Button("确定", role: .cancel) {}
             } message: {
@@ -303,14 +300,7 @@ struct TrainingShareView: View {
             try await PHPhotoLibrary.shared().performChanges {
                 PHAssetChangeRequest.creationRequestForAsset(from: image)
             }
-            withAnimation(BTMotion.easeChrome) {
-                toast = BTToastMessage("已保存到相册", tone: .success)
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + BTToast.defaultDuration) {
-                withAnimation(BTMotion.easeChrome) {
-                    if toast?.text == "已保存到相册" { toast = nil }
-                }
-            }
+            dismiss()
         } catch {
             saveErrorMessage = error.localizedDescription.isEmpty
                 ? "保存到相册失败，请稍后重试"

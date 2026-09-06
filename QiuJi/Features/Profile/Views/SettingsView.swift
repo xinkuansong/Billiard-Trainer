@@ -244,6 +244,22 @@ struct SettingsView: View {
                 .padding(.leading, Spacing.xs)
 
             VStack(spacing: 0) {
+                if authState.isLoggedIn {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Toggle("训练数据云同步", isOn: Binding(
+                            get: { authState.cloudSyncEnabled },
+                            set: { authState.setCloudSyncEnabled($0) }
+                        ))
+                        .font(.btBody)
+                        .tint(.btPrimary)
+                        .accessibilityIdentifier("settings.cloudSync")
+                        Text("关闭后不再上传或下载训练数据，已保存在本机和云端的记录会保留。")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                    .padding(Spacing.lg)
+                    Divider().padding(.leading, Spacing.lg)
+                }
                 Button { showClearCacheConfirmation = true } label: {
                     settingsRow(title: "清除缓存", detail: cacheSize)
                 }

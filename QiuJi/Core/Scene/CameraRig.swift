@@ -257,22 +257,18 @@ final class CameraRig {
             targetYaw = atan2(-flatAim.z / len, -flatAim.x / len)
         }
 
-        // K4 / D-v8-4（问题集合 v8）：每题确定性**近景进场（zoom=0 = aim pose）**。
-        // 推翻 v5 Q5/Q9「enterAiming → zoom=1（远）」契约——该契约叠加
-        // `cueBallNode == nil` 早退（不复位）与 0.6s smoothToPose 竞态后，表现为同页
-        // 「有的题正常（保住上一题近景）/ 有的特别远（成功拉到 zoom=1）」。
-        // 竖滑/捏合仍可在 [0,1] 调整；进场目标恒为 aim 梯（minRadius/minHeight/aimPitch/aimFov）。
-        // 提请记 DR：v5 enterAiming zoom=1 → v8 确定性近景 zoom=0。
-        // 注意：勿在 smoothToPose 前改写 currentZoom，否则 captureCurrentPose 会把起点当成已近景。
-        let entryZoom: Float = 0
+        // Both 3D training pages enter at the midpoint of the existing pose ladder.
+        // Reset deterministically for every question; gestures retain the full [0, 1] range.
+        // Keep currentZoom intact until smoothToPose captures the visible starting pose.
+        let entryZoom: Float = 0.5
         let prevZoom = currentZoom
         let targetPose = SmoothPose(
             yaw: targetYaw,
-            pitch: config.aimPitchRad,
+            pitch: lerp(config.aimPitchRad, config.standPitchRad, entryZoom * entryZoom),
             radius: lerp(config.minRadius, config.maxRadius, entryZoom),
             pivot: targetPivot,
-            fov: Float(config.aimFov),
-            height: config.minHeight
+            fov: lerp(Float(config.aimFov), Float(config.standFov), entryZoom),
+            height: lerp(config.minHeight, config.maxHeight, entryZoom)
         )
         #if DEBUG
         print(String(format:

@@ -146,6 +146,8 @@ content/position_play/sequences/drill_cNNN__<token>-<名称>-<N>杆.json   ← �
 
 ### 2.5 同步
 
+2026-09-06（ADR-P2-20260906）：训练数据云同步须由用户明确开启，按本机账号保存选择，未知/关闭状态不上传或下载；认证和 Pro 资格不依赖同步开关。游客记录归入账号另行确认。关闭保留本地/云端已有副本与本地队列；已发出的服务端写请求不可撤回。
+
 `SyncQueueManager.enqueue` → `SyncPendingItem` → `BackendSyncService`。
 **仅同步两类**：`syncSession`（训练会话）、`syncAngleTest`（角度成绩）。
 计划激活状态、自定义计划、收藏、自适应画像、周目标**均不同步**，换机即丢。

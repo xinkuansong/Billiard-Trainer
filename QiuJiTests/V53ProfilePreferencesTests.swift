@@ -290,7 +290,10 @@ final class V53ProfilePreferencesTests: XCTestCase {
         defer { session.clearTransactions() }
         _ = try await session.buyProduct(identifier: StoreKitService.lifetimeID)
         _ = try await waitForEntitlement(StoreKitService.lifetimeID, present: true)
-        let manager = SubscriptionManager.shared
+        let manager = SubscriptionManager(listenForUpdates: false, useDebugOverrides: false)
+        let auth = AuthState()
+        auth.login(user: AppUser(id: "storekit-test", provider: .apple))
+        manager.bind(to: auth)
         await manager.checkEntitlements()
         XCTAssertFalse(manager.isLoading)
         XCTAssertEqual(manager.entitlementStatusLabel, "永久有效")

@@ -7,6 +7,7 @@ final class APIClientProfileTests: XCTestCase {
             let statusCode: Int
             let headers: [String: String]
             let data: Data
+            var beforeResponse: (() -> Void)? = nil
         }
 
         private static let lock = NSLock()
@@ -63,6 +64,7 @@ final class APIClientProfileTests: XCTestCase {
                 client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
                 return
             }
+            current.beforeResponse?()
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: current.data)
             client?.urlProtocolDidFinishLoading(self)
@@ -171,6 +173,41 @@ final class APIClientProfileTests: XCTestCase {
         XCTAssertEqual(user.id, "u1")
         XCTAssertEqual(tokenStore.load(.accessToken), "new-access")
         XCTAssertEqual(tokenStore.load(.refreshToken), "new-refresh")
+    }
+
+    func testOldUnauthorizedResponseCannotInvalidateNewLogin() async {
+        tokenStore.save("old-refresh", for: .refreshToken)
+        let store = tokenStore!
+        StubURLProtocol.configure(.init(statusCode: 401, headers: [:], data: Data(), beforeResponse: {
+            store.save("interactive-refresh", for: .refreshToken)
+        }))
+        do {
+            let _: UserDTO = try await client.request(Endpoint(.get, "/user/profile"))
+            XCTFail("Old response should be cancelled")
+        } catch is CancellationError {
+            XCTAssertEqual(store.load(.refreshToken), "interactive-refresh")
+        } catch { XCTFail("Unexpected error: \(error)") }
+    }
+
+    func testOldRefreshCannotOverwriteNewLoginCredentials() async {
+        tokenStore.save("old-refresh", for: .refreshToken)
+        let store = tokenStore!
+        StubURLProtocol.configure([
+            .init(statusCode: 401, headers: [:], data: Data()),
+            .init(statusCode: 200, headers: [:],
+                  data: Data(#"{"accessToken":"stale-access","refreshToken":"stale-refresh"}"#.utf8),
+                  beforeResponse: {
+                      store.save("interactive-access", for: .accessToken)
+                      store.save("interactive-refresh", for: .refreshToken)
+                  })
+        ])
+        do {
+            let _: UserDTO = try await client.request(Endpoint(.get, "/user/profile"))
+            XCTFail("Old refresh should be cancelled")
+        } catch is CancellationError {
+            XCTAssertEqual(store.load(.accessToken), "interactive-access")
+            XCTAssertEqual(store.load(.refreshToken), "interactive-refresh")
+        } catch { XCTFail("Unexpected error: \(error)") }
     }
 
     func test5xxPreservesStatusAndMessage() async {

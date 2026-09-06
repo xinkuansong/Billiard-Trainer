@@ -153,6 +153,7 @@ struct ScheduledTrainingBlock {
     let sourceID: String
     let sourceParentID: String?
     let sourceTitle: String
+    let trainingTitle: String
     let sourceSubtitle: String?
     let payloadVersion: Int
     let payloadSnapshot: Data
@@ -178,9 +179,11 @@ struct ScheduledTrainingBlock {
         switch item.sourceKind {
         case TodayScheduleSourceKind.officialLesson:
             let payload = try decoder.decode(ScheduledLessonPayload.self, from: item.payloadSnapshot)
+            trainingTitle = payload.planTitle
             drills = payload.drills ?? Self.resolve(lesson: payload.lesson)
         case TodayScheduleSourceKind.template:
             let payload = try decoder.decode(ScheduledTemplatePayload.self, from: item.payloadSnapshot)
+            trainingTitle = payload.title
             drills = payload.resolvedDrills ?? payload.drills.map {
                 Self.resolve(
                     drillID: $0.drillID, name: $0.drillName,
@@ -190,6 +193,7 @@ struct ScheduledTrainingBlock {
             }
         case TodayScheduleSourceKind.libraryDrill:
             let payload = try decoder.decode(ScheduledLibraryDrillPayload.self, from: item.payloadSnapshot)
+            trainingTitle = "自由训练"
             drills = [payload.resolvedDrill ?? Self.resolve(
                 drillID: payload.drillID, name: payload.title,
                 dose: PlanDrillDose(roundsPerFormation: payload.roundsPerFormation),
@@ -297,11 +301,14 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var elapsedSeconds: Int = 0
     @Published var isTimerRunning: Bool = false
     @Published var isTimerSkipped: Bool = false
+    let trainingTitle: String
     @Published var isLoading: Bool = true
     @Published var showDrillPicker: Bool = false
+    @Published private(set) var hasStartedTimer = false
     @Published var showEndConfirm: Bool = false
     @Published var trainingPhase: TrainingPhase = .active
     @Published var trainingNote: String = ""
+    @Published var isEditingTrainingNote = false
     @Published var saveError: String?
     @Published var didSaveSuccessfully: Bool = false
     @Published var showingOverview: Bool = true
@@ -346,7 +353,7 @@ final class ActiveTrainingViewModel: ObservableObject {
     /// Cross-tab pill is session chrome only; rest lives on the session page.
     var floatingIndicatorSeconds: Int { elapsedSeconds }
 
-    var floatingIndicatorTitle: String { "继续训练" }
+    var floatingIndicatorTitle: String { "继续" }
 
     var shouldShowRestOverlay: Bool {
         isRestTimerActive && !isRestOverlayMinimized
@@ -363,8 +370,8 @@ final class ActiveTrainingViewModel: ObservableObject {
         return "\(completedSets)/\(totalSetsCount) 组 \(currentDrillIndex + 1)/\(drills.count) 项目"
     }
 
-    /// 当前动作三级进度（v34 R12，杆位口径）：
-    /// 重复型「球形 x/y · 第 m/n 杆 · 第 k 颗」（一杆 = 一个位置，重复打 k 颗）；
+    /// 当前动作进度（杆位口径，不显示颗数）：
+    /// 重复型「球形 x/y · 第 m/n 杆」（一杆 = 一个位置）；
     /// 走位链「球形 x/y · 第 r 遍 · 第 k/n 杆」（整链第 r 遍，链内第 k 杆）；
     /// 单球形不显示「球形 x/y」。
     var currentSetProgressText: String {
@@ -395,8 +402,6 @@ final class ActiveTrainingViewModel: ObservableObject {
         }
 
         parts.append("第 \(ordinal)/\(peers.count) 杆")
-        let ballNumber = min(max(active.madeBalls + 1, 1), max(active.targetBalls, 1))
-        parts.append("第 \(ballNumber) 颗")
         return parts.joined(separator: " · ")
     }
 
@@ -445,6 +450,14 @@ final class ActiveTrainingViewModel: ObservableObject {
          liveActivityManager: (any RestTimerLiveActivityManaging)? = nil,
          saveAction: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         self.mode = mode
+        switch mode {
+        case .free:
+            trainingTitle = "自由训练"
+        case .scheduled(let block):
+            trainingTitle = block.trainingTitle
+        case .plan(_, let planID):
+            trainingTitle = planID.flatMap { PlanContentService.decodePlanFromBundle(id: $0)?.nameZh } ?? "按计划训练"
+        }
         self.liveActivityManager = liveActivityManager ?? RestTimerLiveActivityManager.shared
         self.saveAction = saveAction
         #if DEBUG
@@ -530,6 +543,7 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     func startTimer() {
         guard !isTimerSkipped, !isTimerRunning else { return }
+        hasStartedTimer = true
         isTimerRunning = true
         timerStartDate = Date()
         timerTask = Task { [weak self] in
@@ -751,19 +765,16 @@ final class ActiveTrainingViewModel: ObservableObject {
         impact.prepare()
         impact.impactOccurred()
 
-        if drillSetsData[drillIndex].allSatisfy({ $0.isCompleted }) {
-            if drillIndex < drills.count - 1 {
-                pendingDrillAdvance = drillIndex + 1
-            }
+        // Advance immediately; rest belongs to the completed set and continues normally.
+        pendingDrillAdvance = nil
+        if drillIndex == currentDrillIndex,
+           drillSetsData[drillIndex].allSatisfy({ $0.isCompleted }),
+           drillIndex < drills.count - 1 {
+            currentDrillIndex = drillIndex + 1
         }
 
         if restDuration > 0 {
             startRestTimer()
-        } else if let next = pendingDrillAdvance {
-            pendingDrillAdvance = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
-                self?.currentDrillIndex = next
-            }
         }
     }
 
@@ -990,7 +1001,28 @@ final class ActiveTrainingViewModel: ObservableObject {
         return drillFormations[index]
     }
 
+    /// Editing a session note does not change the training phase or timer state.
+    func editTrainingNote() { isEditingTrainingNote = true }
+    func finishEditingTrainingNote() { isEditingTrainingNote = false }
+    func saveTrainingNote(_ note: String) {
+        trainingNote = note
+        isEditingTrainingNote = false
+    }
+
     // MARK: - End Training Flow
+
+    /// Selecting drills alone is preparation; timer use or recorded activity starts training.
+    var hasStartedTraining: Bool {
+        hasStartedTimer || isTimerRunning || elapsedSeconds > 0 ||
+        drillSetsData.joined().contains { $0.isCompleted || $0.madeBalls > 0 || ($0.duration ?? 0) > 0 }
+    }
+
+    func exitUnstartedTraining() {
+        pauseTimer()
+        stopRestTimer()
+        isEditingTrainingNote = false
+        showEndConfirm = false
+    }
 
     func endTraining() {
         pauseTimer()

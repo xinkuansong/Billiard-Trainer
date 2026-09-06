@@ -122,15 +122,21 @@ final class APIClient: Sendable {
             throw URLError(.notConnectedToInternet)
         }
         #endif
+        let requestRefreshToken = tokenStore.load(.refreshToken)
         var request = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
         authorize(&request)
         let (data, response) = try await perform(request)
 
         if let http = response as? HTTPURLResponse, http.statusCode == 401 {
+            // A background request may finish after a new interactive login.
+            guard tokenStore.load(.refreshToken) == requestRefreshToken else { throw CancellationError() }
             guard try await refreshToken() else {
-                await MainActor.run {
+                let invalidated = await MainActor.run {
+                    guard tokenStore.load(.refreshToken) == requestRefreshToken else { return false }
                     NotificationCenter.default.post(name: .authSessionInvalidated, object: nil)
+                    return true
                 }
+                guard invalidated else { throw CancellationError() }
                 throw AppError.authRequired
             }
             var retry = try buildRequest(endpoint, rawBody: rawBody, contentType: contentType)
@@ -204,6 +210,7 @@ final class APIClient: Sendable {
         let endpoint = Endpoint(.post, "/auth/refresh", body: Req(refreshToken: refresh))
         let req = try buildRequest(endpoint)
         let (data, response) = try await perform(req)
+        guard tokenStore.load(.refreshToken) == refresh else { throw CancellationError() }
 
         guard let http = response as? HTTPURLResponse else {
             throw AppError.networkError("无效的服务器响应")

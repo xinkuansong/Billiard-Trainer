@@ -1,0 +1,50 @@
+[
+  {
+    "asset": "onboardingContact",
+    "source": "tmp/designer-screenshots/12-contact-point-table.png",
+    "cropXYWH": [
+      96,
+      541,
+      1014,
+      780
+    ],
+    "sourceSHA256": "32d5de044a58da69e12596ec75339ec9eeaed8d588515b3f67b024336736734d",
+    "assetSHA256": "3ee7c39e6040bb7853d8d22d86bbce5da3fc81bb2faa50ae0d964ef5d73d17da"
+  },
+  {
+    "asset": "onboardingDrill",
+    "source": "tmp/designer-screenshots/06-drill-detail-top.png",
+    "cropXYWH": [
+      24,
+      349,
+      1158,
+      1054
+    ],
+    "sourceSHA256": "750f3adf31cd66ee863865c0364cb2c2fe71887cf57abc4ad5815b4be86587b6",
+    "assetSHA256": "086112d7aa5936ebba56af6b50167834c26b1cc362cbf19c0d3ebc1ad62410c3"
+  },
+  {
+    "asset": "onboardingPosition",
+    "source": "docs/ui-polish/screenshots-w2-1/s2-02-composer-dark.png",
+    "cropXYWH": [
+      147,
+      542,
+      912,
+      1643
+    ],
+    "sourceSHA256": "e94c6edb94f738d9cbb9f454aac6ed492da5d276b169309c7cf60662b8f2fba3",
+    "assetSHA256": "01bae4a593b8d54d540e7934650cdb4e8ab64731d4b5485f2f059f4b77c3022c"
+  },
+  {
+    "asset": "onboardingRecord",
+    "source": "output/training-progress-restore/input-confirmed-set.png",
+    "cropXYWH": [
+      49,
+      1320,
+      1110,
+      540
+    ],
+    "sourceSHA256": "fbac59614a0a32552eaed65dac53421355326d74b966c8238f13d7e83a29b0db",
+    "assetSHA256": "82d584b19a22850d62badb2519c4834e13b6ab92c948aa920e31bab781ba6a0e"
+  }
+]

@@ -92,6 +92,7 @@ struct PositionPlayComposerView: View {
                         .opacity(isTryout && !stageRevealed ? 0 : 1)
                     bottomBar(proxy)
                         .frame(height: Self.bottomBarHeight)
+                        .btTrainingPillObstacle()
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)

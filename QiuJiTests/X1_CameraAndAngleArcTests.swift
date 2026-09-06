@@ -2,7 +2,7 @@ import XCTest
 import SceneKit
 @testable import QiuJi
 
-/// X1 / K3–K4：前向楔形角弧数值钉子 + enterAiming 确定性近景进场。
+/// X1 / K3–K4：前向楔形角弧数值钉子 + enterAiming 确定性中档进场。
 final class X1_CameraAndAngleArcTests: XCTestCase {
 
     // MARK: - K3 forward wedge
@@ -35,9 +35,9 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
         }
     }
 
-    // MARK: - K4 enterAiming → zoom 0
+    // MARK: - K4 enterAiming → zoom 0.5
 
-    func testK4_enterAiming_settlesAtNearZoom() {
+    func testK4_enterAiming_settlesAtMidZoom() {
         let cam = SCNNode()
         cam.camera = SCNCamera()
         let rig = CameraRig(cameraNode: cam, tableSurfaceY: 0.80)
@@ -57,12 +57,21 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
             steps += 1
         }
         XCTAssertFalse(rig.isTransitioning, "smoothToPose should finish within 2s")
-        XCTAssertEqual(rig.zoom, 0, accuracy: 0.05,
-                       "K4: enterAiming must settle at near aim zoom=0, not stand zoom=1")
-        XCTAssertEqual(cam.camera?.fieldOfView ?? 0, AimingCameraConfig.aimFov, accuracy: 0.5)
+        XCTAssertEqual(rig.zoom, 0.5, accuracy: 0.01,
+                       "Each question must settle at the requested midpoint zoom=0.5")
+        XCTAssertEqual(cam.camera?.fieldOfView ?? 0, 45, accuracy: 0.01)
+        XCTAssertEqual(cam.position.y, 1.775, accuracy: 0.001)
+        XCTAssertEqual(cam.eulerAngles.x, -27.75 * .pi / 180, accuracy: 0.001)
+        let settledPosition = cam.position
+        // Continue normal rendering after the entry animation to catch pose snapping.
+        for _ in 0..<60 { rig.update(deltaTime: 1.0 / 60.0) }
+        XCTAssertEqual(cam.position.x, settledPosition.x, accuracy: 0.001)
+        XCTAssertEqual(cam.position.y, settledPosition.y, accuracy: 0.001)
+        XCTAssertEqual(cam.position.z, settledPosition.z, accuracy: 0.001)
+        XCTAssertEqual(cam.eulerAngles.x, -27.75 * .pi / 180, accuracy: 0.001)
     }
 
-    func testK4_enterAiming_fromNear_staysNear() {
+    func testK4_enterAiming_fromNear_settlesAtMidZoom() {
         let cam = SCNNode()
         cam.camera = SCNCamera()
         let rig = CameraRig(cameraNode: cam, tableSurfaceY: 0.80)
@@ -78,6 +87,6 @@ final class X1_CameraAndAngleArcTests: XCTestCase {
             rig.update(deltaTime: 1.0 / 60.0)
             steps += 1
         }
-        XCTAssertEqual(rig.zoom, 0, accuracy: 0.05)
+        XCTAssertEqual(rig.zoom, 0.5, accuracy: 0.01)
     }
 }

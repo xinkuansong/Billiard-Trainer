@@ -1496,8 +1496,8 @@ final class AngleTrainingScene: SCNScene {
         let r = AngleSceneCalculator.ballRadius
 
         // 假想球（重叠标注 L0，T-P18-42）：品牌绿虚线圈替代旧黄色实心球。
-        // 圈 = 母球瞄准落点轮廓，贴台呢平放；与接触点绿点构成全场景常驻的
-        // 「什么角度打哪里」教学层（设计稿 §1.3）。节点中心仍在球心高度，
+        // 圈 = 母球瞄准位置的水平轮廓，与球心及瞄准线同高；与接触点绿点构成
+        // 「什么角度打哪里」教学层（DR-118）。节点中心保持在球心高度，
         // 调用方 API（position = 假想球球心、isHidden 开关）不变。
         let ghost = SCNNode()
         let ringMat = SCNMaterial()
@@ -1511,7 +1511,7 @@ final class AngleTrainingScene: SCNScene {
                                      height: CGFloat(ringDashLen))
             segGeo.materials = [ringMat]
             let seg = SCNNode(geometry: segGeo)
-            seg.position = SCNVector3(r * cosf(theta), -r + 0.002, r * sinf(theta))
+            seg.position = SCNVector3(r * cosf(theta), 0, r * sinf(theta))
             // 圆柱轴默认 +Y，转到圆周切线方向平躺。
             seg.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
                                              to: simd_float3(-sinf(theta), 0, cosf(theta)))
@@ -1521,7 +1521,7 @@ final class AngleTrainingScene: SCNScene {
         // 作为 ghost 子节点随其显隐/移动，所有用假想球的页面自动获得。
         // C15/D8：几何走单一真源 `makeAimPointMarkerNode`（0.0065 球）。
         let aimDot = Self.makeAimPointMarkerNode(color: TrajectoryStyle.aimPointColor)
-        aimDot.position = SCNVector3(0, -r + 0.004, 0)   // 球心正下方贴台呢，顶视/斜视均可见
+        aimDot.position = SCNVector3Zero   // 与假想球球心及瞄准线同高
         aimDot.name = "ghostAimDot"
         ghost.addChildNode(aimDot)
 
@@ -1654,13 +1654,16 @@ final class AngleTrainingScene: SCNScene {
     ///   numeric value (e.g. "20°") is still rendered when
     ///   `showAngleAnnotations` is true. Used by the 3D 瞄准 page where
     ///   the perspective view makes the flat-on-table text unreadable.
+    /// - Parameter extendStrikeLineToRail: continue the cue-to-ghost ray to
+    ///   the cloth edge in angle-training assist mode (both camera modes).
     func updateVisualization(
         cueBall: SCNVector3,
         targetBall: SCNVector3,
         pocket: SCNVector3,
         showAngleAnnotations: Bool = true,
         showOverlapMarkers: Bool = true,
-        showLineLabels: Bool = true
+        showLineLabels: Bool = true,
+        extendStrikeLineToRail: Bool = false
     ) {
         let r = AngleSceneCalculator.ballRadius
 
@@ -1686,7 +1689,11 @@ final class AngleTrainingScene: SCNScene {
             TrajectoryStyle.potColor(forNumber: currentTargetNumber)
         pocketLineNode?.isHidden = false
 
-        updateLineNode(strikeLineNode, from: cueBall, to: ghostPos)
+        let strikeEnd = extendStrikeLineToRail
+            ? AngleSceneCalculator.rayToInnerRail(
+                from: cueBall, dir: unitXZ(from: cueBall, to: ghostPos), inset: 0)
+            : ghostPos
+        updateLineNode(strikeLineNode, from: cueBall, to: strikeEnd)
         strikeLineNode?.isHidden = false
 
         if showOverlapMarkers {

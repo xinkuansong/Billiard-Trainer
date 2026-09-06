@@ -6,6 +6,7 @@ struct FavoriteDrillsView: View {
     @Query private var favorites: [DrillFavorite]
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var subscriptionManager: SubscriptionManager
     @EnvironmentObject private var router: AppRouter
     @State private var drills: [DrillContent] = []
     @State private var isLoading = true
@@ -49,6 +50,7 @@ struct FavoriteDrillsView: View {
                                 BTDrillCard(
                                     drill: drill,
                                     isFavorited: true,
+                                    isUnlocked: subscriptionManager.isPremium,
                                     onFavoriteTap: { removeFavorite(drill.id) }
                                 )
                             }

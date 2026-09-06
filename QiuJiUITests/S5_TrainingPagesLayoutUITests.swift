@@ -22,6 +22,24 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         add(att)
     }
 
+    func testAngleAssistRailExtension() throws {
+        for mode in ["2D", "3D"] {
+            app.terminate()
+            app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+            XCTAssertTrue(openCard(homeTab: "练", title: "\(mode) 角度训练"))
+            XCTAssertTrue(startAimingTrainingFromSheet())
+            let assist = app.buttons["辅助"].firstMatch
+            XCTAssertTrue(assist.waitForExistence(timeout: 5))
+            assist.tap()
+            let hide = app.buttons["隐藏"].firstMatch
+            XCTAssertTrue(hide.waitForExistence(timeout: 5))
+            snap("rail-\(mode)-assist")
+            hide.tap()
+            XCTAssertTrue(assist.waitForExistence(timeout: 5))
+            snap("rail-\(mode)-hidden")
+        }
+    }
+
     @discardableResult
     private func switchAngleHomeTab(_ name: String) -> Bool {
         let seg = app.buttons["angleHomeTab_\(name)"]

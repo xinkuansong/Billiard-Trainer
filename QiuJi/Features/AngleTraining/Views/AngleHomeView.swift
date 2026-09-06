@@ -272,7 +272,7 @@ struct AngleHomeView: View {
             }
             mainContent
         }
-        .background(.btBG)
+        .background { BTBlueprintBackground(style: .practice).ignoresSafeArea() }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
                 .environmentObject(subscriptionManager)
@@ -435,7 +435,7 @@ struct AngleHomeView: View {
                                     Button {
                                         open(entry)
                                     } label: {
-                                        AngleGridCard(entry: entry, sequenceNumber: index + 1)
+                                        AngleGridCard(entry: entry, sequenceNumber: index + 1, isUnlocked: subscriptionManager.isPremium)
                                     }
                                     .buttonStyle(BTPressableStyle.row)
                                     // 卡片按钮会合并子元素 AX 标签，UI 测试需用 identifier 精确定位。
@@ -489,6 +489,7 @@ struct AngleHomeView: View {
 private struct AngleGridCard: View {
     let entry: AngleEntry
     let sequenceNumber: Int
+    let isUnlocked: Bool
 
     var body: some View {
         BTContentGridCard(
@@ -520,7 +521,7 @@ private struct AngleGridCard: View {
         )
         .overlay(alignment: .topTrailing) {
             if entry.isPremium {
-                BTProBadge()
+                BTProBadge(isUnlocked: isUnlocked)
                     .padding(Spacing.sm)
             }
         }

@@ -12,6 +12,7 @@ struct ProfileView: View {
     @StateObject private var profile: OwnerProfileStore
     @State private var showLoginSheet = false
     @State private var showSubscription = false
+    @State private var showOnboarding = false
 
     init(ownerKey: String = DeviceGuestIdentity.ownerKey()) {
         self.ownerKey = ownerKey
@@ -59,7 +60,7 @@ struct ProfileView: View {
                     .padding(.top, Spacing.sm)
                 }
             }
-            .background(Color.btBG)
+            .background { BTBlueprintBackground(style: .profile).ignoresSafeArea() }
             .scrollContentBackground(.hidden)
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: String.self) { destination in
@@ -87,11 +88,20 @@ struct ProfileView: View {
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
         }
-        .alert("数据同步", isPresented: $authState.showMigrationPrompt) {
-            Button("立即同步") { authState.confirmMigration() }
-            Button("暂不同步", role: .cancel) { authState.dismissMigration() }
+        .sheet(isPresented: $showOnboarding) {
+            OnboardingView()
+        }
+        .alert("开启训练数据云同步？", isPresented: $authState.showCloudSyncPrompt) {
+            Button("开启云同步") { authState.setCloudSyncEnabled(true) }
+            Button("仅保存在本机", role: .cancel) { authState.setCloudSyncEnabled(false) }
         } message: {
-            Text("检测到本地训练记录，登录后可同步至云端，换机也不会丢失。")
+            Text("开启后会上传本机的账号训练记录，并下载云端记录。你可以随时在偏好设置中关闭，不影响登录和 Pro 权益。")
+        }
+        .alert("合并本机游客记录？", isPresented: $authState.showMigrationPrompt) {
+            Button("合并并同步") { authState.confirmMigration() }
+            Button("不合并", role: .cancel) { authState.dismissMigration() }
+        } message: {
+            Text("合并后，游客期间的记录将归入当前账号并上传。不合并则保留在游客模式下，账号云同步仍保持开启。")
         }
         .alert("同步失败", isPresented: Binding(
             get: { authState.errorMessage != nil },
@@ -220,7 +230,7 @@ struct ProfileView: View {
                 .font(.btHeadline)
                 .foregroundStyle(.btWarning)
 
-            Text("游客模式下训练数据不会同步到云端，请尽快登录以保存您的练球记录。")
+            Text("游客记录保存在本机。登录后可自行选择是否开启云同步。")
                 .font(.btFootnote)
                 .foregroundStyle(.btText)
                 .fixedSize(horizontal: false, vertical: true)
@@ -345,6 +355,19 @@ struct ProfileView: View {
 
     private var secondaryMenuGroup: some View {
         VStack(spacing: 0) {
+            Button { showOnboarding = true } label: {
+                ProfileMenuRow(
+                    icon: "book.closed",
+                    tint: .neutral,
+                    title: "认识球迹"
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("profile.onboarding")
+
+            Divider().padding(.leading, 56)
+
             NavigationLink(value: "settings") {
                 ProfileMenuRow(
                     icon: BTIcon.gear,
@@ -462,7 +485,7 @@ struct ProfileMonthlyOverviewCard: View {
 
 private struct ProfileMenuRow: View {
     let icon: String
-    var tint: BTIconBadge.Tint = .primary
+    var tint: BTIconBadge.Tint = .neutral
     let title: String
     var detail: String? = nil
     var detailColor: Color = .btTextSecondary

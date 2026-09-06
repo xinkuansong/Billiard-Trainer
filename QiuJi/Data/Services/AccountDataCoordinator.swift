@@ -63,14 +63,15 @@ final class AccountDataCoordinator: ObservableObject {
         }
     }
 
-    func handleCompletedLogin(userId: String, authState: AuthState) async {
+    func handleCompletedLogin(userId: String, authState: AuthState, offerGuestMigration: Bool = true) async {
         let operation = beginOperation()
         guard isCurrent(userId: userId, operation: operation, authState: authState),
               let context else { return }
 
+        guard authState.cloudSyncEnabled else { return }
         let guestOwner = ownerContext.guestOwnerKey
         do {
-            if try OwnerTransferService(context: context).hasOwnedData(ownerKey: guestOwner) {
+            if offerGuestMigration, try OwnerTransferService(context: context).hasOwnedData(ownerKey: guestOwner) {
                 // 硬门禁：这里只展示确认；0 次 transfer，0 次 guest upload。
                 offeredMigrationUserId = userId
                 authState.offerMigration()
@@ -81,13 +82,14 @@ final class AccountDataCoordinator: ObservableObject {
             return
         }
 
+        authState.pendingMigration = false
         await pushThenPull(userId: userId, mode: .full,
                            operation: operation, authState: authState)
     }
 
     func confirmGuestMigration(userId: String, authState: AuthState) async {
         let operation = beginOperation()
-        guard offeredMigrationUserId == userId,
+        guard authState.cloudSyncEnabled, offeredMigrationUserId == userId,
               isCurrent(userId: userId, operation: operation, authState: authState),
               let context else { return }
         let guestOwner = ownerContext.guestOwnerKey
@@ -105,18 +107,18 @@ final class AccountDataCoordinator: ObservableObject {
                            operation: operation, authState: authState)
     }
 
-    /// 用户拒绝迁移时只拉账号数据；guest 数据和 guest 队列均保持原样。
+    /// 用户拒绝合并时仍同步账号数据；guest 数据和 guest 队列均保持原样。
     func declineGuestMigration(userId: String, authState: AuthState) async {
         let operation = beginOperation()
-        guard offeredMigrationUserId == userId,
+        guard authState.cloudSyncEnabled, offeredMigrationUserId == userId,
               isCurrent(userId: userId, operation: operation, authState: authState) else { return }
         offeredMigrationUserId = nil
-        await pull(userId: userId, mode: .full,
-                   operation: operation, authState: authState)
+        await pushThenPull(userId: userId, mode: .full,
+                           operation: operation, authState: authState)
     }
 
     func syncActiveAccount(mode: SyncRestoreService.Mode, authState: AuthState) async {
-        guard authState.isLoggedIn, let userId = authState.currentUser?.id else {
+        guard authState.cloudSyncEnabled, authState.isLoggedIn, let userId = authState.currentUser?.id else {
             _ = beginOperation()
             return
         }
@@ -132,8 +134,16 @@ final class AccountDataCoordinator: ObservableObject {
                               operation: UInt,
                               authState: AuthState) async {
         guard isCurrent(userId: userId, operation: operation, authState: authState) else { return }
-        await SyncQueueManager.shared.processQueue(authState: authState)
-        guard isCurrent(userId: userId, operation: operation, authState: authState) else { return }
+        #if DEBUG
+        // Identity-only UI fixtures have no server credential. Exercise the controls offline.
+        if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") { return }
+        #endif
+        let choiceRevision = authState.syncChoiceRevision
+        await SyncQueueManager.shared.processQueue(authState: authState) {
+            authState.syncChoiceRevision == choiceRevision && authState.cloudSyncEnabled && self.isCurrent(userId: userId, operation: operation, authState: authState)
+        }
+        guard authState.syncChoiceRevision == choiceRevision,
+              isCurrent(userId: userId, operation: operation, authState: authState) else { return }
         await pull(userId: userId, mode: mode, operation: operation, authState: authState)
     }
 
@@ -142,10 +152,17 @@ final class AccountDataCoordinator: ObservableObject {
                       operation: UInt,
                       authState: AuthState) async {
         guard isCurrent(userId: userId, operation: operation, authState: authState) else { return }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") { return }
+        #endif
+        let choiceRevision = authState.syncChoiceRevision
         await SyncRestoreService.shared.restore(
             userId: userId,
             mode: mode,
-            expectedOwnerContext: ownerContext
+            expectedOwnerContext: ownerContext,
+            shouldContinue: {
+                authState.syncChoiceRevision == choiceRevision && authState.cloudSyncEnabled && self.isCurrent(userId: userId, operation: operation, authState: authState)
+            }
         )
     }
 

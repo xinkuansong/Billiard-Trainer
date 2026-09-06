@@ -1,204 +1,146 @@
 import SwiftUI
 
+/// An optional, repeatable tour. Finishing never changes the current account.
 struct OnboardingView: View {
-    @EnvironmentObject private var authState: AuthState
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentPage = 0
-    @State private var showLogin = false
 
-    private let totalPages = 3
+    private struct Page {
+        let title: String
+        let subtitle: String
+        let image: String
+        let caption: String
+        let detail: String
+        let imageDescription: String
+        var isPro = false
+    }
+
+    private let pages: [Page] = [
+        Page(title: "看懂这一杆", subtitle: "看清瞄准点与接触点，理解击球方向。",
+             image: "onboardingContact", caption: "瞄准点对照表",
+             detail: "在练习页学习瞄准原理，拖动查看角度与瞄准点的关系。",
+             imageDescription: "瞄准点对照图：目标球、假想球、瞄准点、接触点和袋口方向。"),
+        Page(title: "带着方法上台练", subtitle: "先看球形与训练要点，再开始练习。",
+             image: "onboardingDrill", caption: "动作详情 · 中袋直线出杆",
+             detail: "跟随官方计划，或把动作加入今日安排；精讲帮助你理解每一杆。",
+             imageDescription: "中袋直线出杆的球形、动作名称与训练说明。"),
+        Page(title: "把下一杆，也想清楚", subtitle: "摆出球形，尝试走位，推演后续选择。",
+             image: "onboardingPosition", caption: "自由走位 · Pro 功能示例",
+             detail: "练习页提供思路训练；Pro 可进一步使用自由走位、多杆规划与防守工具。",
+             imageDescription: "自由走位球桌：目标球进袋路线与母球走位路线。", isPro: true),
+        Page(title: "练完，留下自己的记录", subtitle: "记录每组结果，也记下练习心得。",
+             image: "onboardingRecord", caption: "分组记录 · 示例截图",
+             detail: "进球数、训练时间与心得保存在记录中，方便回顾每一次球台练习。",
+             imageDescription: "分组记录示例：第一组进球12个，总球15个，成功率80%；后续组等待录入。")
+    ]
 
     var body: some View {
-        ZStack {
-            Color.btBG.ignoresSafeArea()
-
-            VStack(spacing: 0) {
-                TabView(selection: $currentPage) {
-                    featurePage(
-                        mode: .route,
-                        title: "看懂球路，再开始练",
-                        subtitle: "瞄准点、碰撞点与行进路径\n让每一杆先有清晰目标"
-                    )
-                    .tag(0)
-
-                    featurePage(
-                        mode: .review,
-                        title: "记录每杆，复盘趋势",
-                        subtitle: "训练记录沉淀为进度与薄弱项\n下一次练习更有方向"
-                    )
-                    .tag(1)
-
-                    loginPage
-                        .tag(2)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .animation(.easeInOut(duration: 0.3), value: currentPage)
-
-                bottomBar
-                    .padding(.horizontal, Spacing.xxl)
-                    .padding(.bottom, Spacing.xxxl)
-            }
-        }
-        .sheet(isPresented: $showLogin) {
-            LoginView()
-        }
-    }
-
-    // MARK: - Feature Page (Page 1 & 2)
-
-    private func featurePage(
-        mode: ProfileBrandTrainingHero.Mode,
-        title: String,
-        subtitle: String
-    ) -> some View {
         VStack(spacing: 0) {
-            Spacer(minLength: Spacing.xl)
-
-            ProfileBrandTrainingHero(mode: mode)
-                .frame(height: 220)
-                .padding(.horizontal, Spacing.xxl)
-                .padding(.bottom, Spacing.xxxl)
-
-            Text(title)
-                .font(.btTitle2)
-                .foregroundStyle(.btText)
-                .padding(.bottom, Spacing.sm)
-
-            Text(subtitle)
-                .font(.btCallout)
-                .foregroundStyle(.btTextSecondary)
-                .multilineTextAlignment(.center)
-                .lineSpacing(4)
-
-            Spacer(minLength: Spacing.xl)
-        }
-    }
-
-    // MARK: - Login Page (Page 3)
-
-    private var loginPage: some View {
-        VStack(spacing: 0) {
-            Spacer()
-
-            ProfileBrandTrainingHero(mode: .identity)
-                .frame(height: 176)
-                .padding(.horizontal, Spacing.xxl)
-                .padding(.bottom, Spacing.xl)
-
-            Text("球迹")
-                .font(.btLargeTitle)
-                .foregroundStyle(.btText)
-                .padding(.bottom, Spacing.xs)
-
-            Text("球路计算 · 训练记录 · 数据复盘")
-                .font(.btBody)
-                .foregroundStyle(.btTextSecondary)
-
-            Spacer()
-
-            VStack(spacing: Spacing.xxxl) {
-                OnboardingFeatureRow(
-                    leading: { AnyView(Image(systemName: "square.grid.2x2.fill").font(.btTitle).foregroundStyle(.btPrimary)) },
-                    title: "球路计算与动作训练",
-                    subtitle: "从瞄准路径到专项动作，目标更清楚"
-                )
-                OnboardingFeatureRow(
-                    leading: { AnyView(Image(systemName: "angle").font(.btTitle).foregroundStyle(.btPrimary)) },
-                    title: "角度训练",
-                    subtitle: "模拟球台场景，提升角度判断力"
-                )
-                OnboardingFeatureRow(
-                    leading: { AnyView(Image(systemName: "chart.bar.fill").font(.btTitle).foregroundStyle(.btPrimary)) },
-                    title: "数据统计与复盘",
-                    subtitle: "可视化训练进度，发现薄弱项"
-                )
-            }
-            .padding(.horizontal, Spacing.xxl)
-
-            Spacer()
-        }
-    }
-
-    // MARK: - Bottom Bar
-
-    private var bottomBar: some View {
-        VStack(spacing: Spacing.md) {
-            pageIndicator
-                .padding(.bottom, Spacing.lg)
-
-            if currentPage < totalPages - 1 {
-                Button("继续") {
-                    withAnimation { currentPage += 1 }
-                }
-                .buttonStyle(BTButtonStyle.primary)
-
-                Button("跳过") {
-                    authState.loginAnonymously()
-                }
-                .font(.btSubheadline)
-                .foregroundStyle(.btTextSecondary)
-            } else {
-                Button("开始使用") {
-                    authState.loginAnonymously()
-                }
-                .buttonStyle(BTButtonStyle.primary)
-
-                Button("登录已有账号") {
-                    showLogin = true
-                }
-                .font(.btSubheadline)
-                .foregroundStyle(.btTextSecondary)
-                .padding(.top, 6)
-            }
-        }
-    }
-
-    // MARK: - Page Indicator
-
-    private var pageIndicator: some View {
-        HStack(spacing: Spacing.sm) {
-            ForEach(0..<totalPages, id: \.self) { index in
-                Capsule()
-                    .fill(index == currentPage ? Color.btPrimary : Color.btPrimary.opacity(0.2))
-                    .frame(width: index == currentPage ? 24 : 8, height: 8)
-                    .animation(BTMotion.easeInOutChrome, value: currentPage)
-            }
-        }
-    }
-
-}
-
-// MARK: - Feature Row
-
-private struct OnboardingFeatureRow: View {
-    let leading: () -> AnyView
-    let title: String
-    let subtitle: String
-
-    var body: some View {
-        HStack(spacing: Spacing.lg) {
-            ZStack {
-                Circle()
-                    .fill(Color.btPrimary.opacity(0.12))
-                    .frame(width: 48, height: 48)
-                leading()
-            }
-
-            VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(title)
+            HStack {
+                Text("认识球迹")
                     .font(.btHeadline)
                     .foregroundStyle(.btText)
-                Text(subtitle)
+                Spacer()
+                Button("跳过") { dismiss() }
                     .font(.btSubheadline)
-                    .foregroundStyle(.btTextSecondary)
+                    .foregroundStyle(.btPrimary)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .accessibilityIdentifier("onboarding.skip")
+            }
+            .padding(.horizontal, Spacing.xxl)
+            .frame(maxWidth: 600)
+
+            GeometryReader { geometry in
+                TabView(selection: $currentPage) {
+                    ForEach(pages.indices, id: \.self) { index in
+                        page(pages[index], index: index, availableHeight: geometry.size.height).tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
             }
 
-            Spacer()
+            VStack(spacing: Spacing.sm) {
+                HStack(spacing: 0) {
+                    ForEach(pages.indices, id: \.self) { index in
+                        Button { selectPage(index) } label: {
+                            Capsule()
+                                .fill(index == currentPage ? Color.btPrimary : Color.btTextTertiary)
+                                .frame(width: index == currentPage ? 20 : 8, height: 8)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("第 \(index + 1) 页，\(pages[index].title)")
+                        .accessibilityAddTraits(index == currentPage ? .isSelected : [])
+                        .accessibilityIdentifier("onboarding.page.\(index)")
+                    }
+                }
+                Button(currentPage == pages.count - 1 ? "开始使用" : "继续") {
+                    if currentPage == pages.count - 1 { dismiss() }
+                    else { selectPage(currentPage + 1) }
+                }
+                .buttonStyle(BTButtonStyle.primary)
+                .accessibilityIdentifier("onboarding.continue")
+            }
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.bottom, Spacing.lg)
+            .frame(maxWidth: 600)
         }
+        .background { BTBlueprintBackground(style: .profile).ignoresSafeArea() }
+    }
+
+    private func page(_ item: Page, index: Int, availableHeight: CGFloat) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                Text(item.title)
+                    .font(.btTitle)
+                    .foregroundStyle(.btText)
+                    .accessibilityAddTraits(.isHeader)
+                    .accessibilityIdentifier("onboarding.title.\(index)")
+                Text(item.subtitle)
+                    .font(.btSubheadline)
+                    .foregroundStyle(.btTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Image(item.image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxHeight: item.isPro ? max(160, min(400, availableHeight - 240)) : 400)
+                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+                    .frame(maxWidth: .infinity)
+                    .accessibilityLabel(item.imageDescription)
+                    .accessibilityIdentifier("onboarding.image.\(index)")
+
+                HStack(spacing: Spacing.sm) {
+                    if item.isPro {
+                        Text("PRO")
+                            .font(.btCaption2)
+                            .foregroundStyle(.btPremiumForeground)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, Spacing.xs)
+                            .background(Color.btPremiumSurface, in: Capsule())
+                    }
+                    Text(item.caption)
+                        .font(.btFootnote)
+                        .foregroundStyle(.btTextSecondary)
+                }
+                Text(item.detail)
+                    .font(.btSubheadline)
+                    .foregroundStyle(.btTextSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, Spacing.xxl)
+            .padding(.vertical, Spacing.lg)
+            .frame(maxWidth: 600)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func selectPage(_ index: Int) {
+        withAnimation(reduceMotion ? nil : BTMotion.easeInOutChrome) { currentPage = index }
     }
 }
 
-#Preview("Onboarding") {
-    OnboardingView()
-        .environmentObject(AuthState())
-        .environmentObject(AppRouter())
-}
+#Preview("Light") { OnboardingView() }
+#Preview("Dark") { OnboardingView().preferredColorScheme(.dark) }

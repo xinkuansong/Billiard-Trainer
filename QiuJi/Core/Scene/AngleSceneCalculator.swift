@@ -1147,9 +1147,11 @@ enum AngleSceneCalculator {
     /// 沿射线求与「库内边界（各方向缩一颗球半径）」的首个交点，用于空杆瞄准线延伸到库边。
     /// 坐标契约：长库 = 常 Z（±(innerWidth/2 − R)）、短库 = 常 X（±(innerLength/2 − R)），
     /// 与 `clampMultiBall` 同式。方向近乎零或无交点时返回起点。
-    static func rayToInnerRail(from p: SCNVector3, dir: SCNVector3) -> SCNVector3 {
-        let halfL = innerLength / 2 - ballRadius
-        let halfW = innerWidth / 2 - ballRadius
+    /// `inset = 0` reaches the cloth edge for instructional guide lines.
+    static func rayToInnerRail(from p: SCNVector3, dir: SCNVector3,
+                               inset: Float = ballRadius) -> SCNVector3 {
+        let halfL = innerLength / 2 - inset
+        let halfW = innerWidth / 2 - inset
         var t = Float.greatestFiniteMagnitude
         if dir.x > 1e-5 { t = min(t, (halfL - p.x) / dir.x) }
         if dir.x < -1e-5 { t = min(t, (-halfL - p.x) / dir.x) }

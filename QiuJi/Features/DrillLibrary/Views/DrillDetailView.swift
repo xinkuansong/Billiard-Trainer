@@ -121,7 +121,7 @@ struct DrillDetailView: View {
             .background(.btBG)
 
             if drill != nil {
-                bottomBar
+                bottomBar.btTrainingPillObstacle()
             }
 
             if let toast {
@@ -552,11 +552,11 @@ struct DrillDetailView: View {
             )
             showAddToTraining = false
             switch result {
-            case .added: toast = BTToastMessage("已加入今日安排")
-            case .alreadyPresent: toast = BTToastMessage("已在今日安排", tone: .info)
+            case .added: BTToast.present("已加入今日安排") { toast = $0 }
+            case .alreadyPresent: BTToast.present("已在今日安排", tone: .info) { toast = $0 }
             }
         } catch {
-            toast = BTToastMessage("加入失败，请稍后重试", tone: .error)
+            BTToast.present("加入失败，请稍后重试", tone: .error) { toast = $0 }
         }
     }
 

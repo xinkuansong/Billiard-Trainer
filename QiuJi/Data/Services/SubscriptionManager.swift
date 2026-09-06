@@ -1,3 +1,4 @@
+import Combine
 import StoreKit
 import SwiftUI
 
@@ -52,19 +53,73 @@ final class SubscriptionManager: ObservableObject {
     private let service = StoreKitService.shared
     private var transactionListener: Task<Void, Error>?
 
-    private init() {
+    private var authObservation: AnyCancellable?
+    private var authenticatedUserID: String?
+    private var sessionRevision = 0
+    private var hasAuthenticatedSession = false
+    private let entitlementLoader: () async -> [StoreEntitlementSnapshot]
+    private let useDebugOverrides: Bool
+
+    init(
+        entitlementLoader: @escaping () async -> [StoreEntitlementSnapshot] = {
+            await StoreKitService.shared.currentEntitlements()
+        },
+        listenForUpdates: Bool = true,
+        useDebugOverrides: Bool = true
+    ) {
+        self.entitlementLoader = entitlementLoader
+        self.useDebugOverrides = useDebugOverrides
         #if DEBUG
-        Self.applyDebugPremiumLaunchOverrides()
+        if useDebugOverrides { Self.applyDebugPremiumLaunchOverrides() }
         isDebugPremiumPersisted = UserDefaults.standard.bool(forKey: Self.debugPremiumUnlockedKey)
-        if Self.isEntitlementForcedPremium {
+        if allowsPremiumSession && useDebugOverrides && Self.isEntitlementForcedPremium {
             isPremium = true
         }
         #endif
-        transactionListener = listenForTransactions()
+        if listenForUpdates { transactionListener = listenForTransactions() }
     }
 
     deinit {
         transactionListener?.cancel()
+    }
+
+    /// Bind before bootstrap so every account transition clears presentation synchronously.
+    func bind(to authState: AuthState) {
+        authObservation = authState.$phase.sink { [weak self] phase in
+            self?.updateSession(phase)
+        }
+    }
+
+    private var allowsPremiumSession: Bool {
+        if authenticatedUserID != nil { return true }
+        #if DEBUG
+        // Explicit UI launch fixtures may render Pro without a server login. Once an
+        // account has logged in, even this fixture must respect its subsequent logout.
+        if useDebugOverrides && !hasAuthenticatedSession &&
+            ProcessInfo.processInfo.arguments.contains(Self.forcePremiumArgument) {
+            return true
+        }
+        #endif
+        return false
+    }
+
+    private func updateSession(_ phase: AuthPhase) {
+        let userID: String?
+        if case .authenticated(let user) = phase { userID = user.id }
+        else { userID = nil }
+        guard userID != authenticatedUserID else { return }
+        authenticatedUserID = userID
+        if userID != nil { hasAuthenticatedSession = true }
+        sessionRevision += 1
+        clearEntitlements()
+        if userID != nil { Task { await checkEntitlements() } }
+    }
+
+    private func clearEntitlements() {
+        isPremium = false
+        purchasedProductIDs = []
+        entitlementSnapshots = []
+        errorMessage = nil
     }
 
     // MARK: - Load Products
@@ -181,7 +236,7 @@ final class SubscriptionManager: ObservableObject {
     func setDebugPremiumUnlocked(_ unlocked: Bool) {
         UserDefaults.standard.set(unlocked, forKey: Self.debugPremiumUnlockedKey)
         isDebugPremiumPersisted = unlocked
-        if ProcessInfo.processInfo.arguments.contains(Self.forceNonPremiumArgument) {
+        if !allowsPremiumSession || ProcessInfo.processInfo.arguments.contains(Self.forceNonPremiumArgument) {
             isPremium = false
             return
         }
@@ -196,13 +251,24 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Check Entitlements
 
     func checkEntitlements() async {
+        guard allowsPremiumSession else {
+            clearEntitlements()
+            return
+        }
+        let revision = sessionRevision
         #if DEBUG
-        if Self.isEntitlementForcedPremium {
+        if useDebugOverrides && ProcessInfo.processInfo.arguments.contains(Self.forceNonPremiumArgument) {
+            clearEntitlements()
+            return
+        }
+        if useDebugOverrides && Self.isEntitlementForcedPremium {
             isPremium = true
             return
         }
         #endif
-        let snapshots = await service.currentEntitlements()
+        let snapshots = await entitlementLoader()
+        // Logout, expiry or account switching invalidates any in-flight StoreKit result.
+        guard revision == sessionRevision, allowsPremiumSession else { return }
         entitlementSnapshots = snapshots
         purchasedProductIDs = Set(snapshots.map(\.productID))
         isPremium = !snapshots.isEmpty
@@ -212,6 +278,10 @@ final class SubscriptionManager: ObservableObject {
 
     @discardableResult
     func purchase(_ product: Product) async -> Bool {
+        guard allowsPremiumSession else {
+            errorMessage = "请先登录后再购买 Pro"
+            return false
+        }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -230,6 +300,10 @@ final class SubscriptionManager: ObservableObject {
     // MARK: - Restore
 
     func restorePurchases() async -> Bool {
+        guard allowsPremiumSession else {
+            errorMessage = "请先登录后再恢复购买"
+            return false
+        }
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }

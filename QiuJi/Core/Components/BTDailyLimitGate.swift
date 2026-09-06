@@ -110,19 +110,25 @@ struct BTDailyLimitGate: View {
 
 /// Unified PRO / lock corner badge (grid + plan cards + list rows).
 struct BTProBadge: View {
+    let isUnlocked: Bool
+    var prominent: Bool = false
+
     var body: some View {
-        HStack(spacing: 2) {
-            Image(systemName: BTIcon.lock)
-                .font(.btMicro.weight(.bold))
+        HStack(spacing: Spacing.xs) {
+            Image(systemName: isUnlocked ? "lock.open.fill" : "lock.fill")
+                .font(prominent ? .btFootnote.weight(.bold) : .btMicro.weight(.bold))
             Text("PRO")
-                .font(.btCaption2.weight(.heavy))
+                .font(prominent ? .btSubheadline.weight(.heavy) : .btCaption2.weight(.heavy))
         }
         .foregroundStyle(.btPremiumOnDark)
-        .padding(.horizontal, Spacing.sm)
-        .padding(.vertical, Spacing.xs)
+        .padding(.horizontal, prominent ? Spacing.md : Spacing.sm)
+        .padding(.vertical, prominent ? Spacing.sm : Spacing.xs)
         .background(Color.black.opacity(0.88))
         .clipShape(Capsule())
         .overlay(Capsule().stroke(Color.btPremiumBorder.opacity(0.72), lineWidth: 1))
+        .accessibilityElement(children: .ignore)
         .accessibilityLabel("Pro 内容")
+        .accessibilityValue(isUnlocked ? "已解锁" : "未解锁")
+        .accessibilityIdentifier("proBadge")
     }
 }

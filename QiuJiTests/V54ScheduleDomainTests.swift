@@ -20,6 +20,124 @@ final class V54ScheduleDomainTests: XCTestCase {
         super.tearDown()
     }
 
+    func testTemplateSessionCountsRemainSeparateFromDrillCounts() throws {
+        let template = UUID()
+        func saved(_ source: String?, _ key: String, entries: Int = 2) -> TrainingSession {
+            let session = TrainingSession(ownerKey: key)
+            context.insert(session)
+            session.sourceKind = source
+            session.sourceId = template.uuidString
+            session.planId = template.uuidString
+            for index in 0..<entries {
+                let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球", orderIndex: index)
+                context.insert(entry)
+                session.drillEntries.append(entry)
+            }
+            return session
+        }
+        let first = saved(TodayScheduleSourceKind.template, owner)
+        let legacy = saved(nil, owner)
+        let foreign = saved(TodayScheduleSourceKind.template, "other")
+        let empty = saved(TodayScheduleSourceKind.template, owner, entries: 0)
+        let official = saved(TodayScheduleSourceKind.officialLesson, owner)
+        let sessions = [first, legacy, foreign, empty, official, first]
+        XCTAssertEqual(TemplatePracticeCounts.make(sessions: sessions, ownerKey: owner), [template: 2])
+        XCTAssertEqual(DrillPracticeCounts.make(sessions: sessions, ownerKey: owner), ["drill_c001": 6])
+        context.delete(first)
+        try context.save()
+        let remaining = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(TemplatePracticeCounts.make(sessions: remaining, ownerKey: owner), [template: 1])
+        XCTAssertEqual(TemplatePracticeCounts.make(sessions: remaining, ownerKey: "other"), [template: 1])
+    }
+
+    func testPlanSuggestionIsOncePerDayAcrossLessonAndPlanSwitches() throws {
+        var clock = Date(timeIntervalSince1970: 1_788_393_600)
+        let utc = TimeZone(secondsFromGMT: 0)!
+        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: utc)
+        let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        let active = activePlan(plan: plan, ordinal: 0)
+        _ = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
+        let today = try XCTUnwrap(try service.today(ownerKey: owner))
+        today.items[0].state = TodayScheduleItemState.completed
+        func proposal(_ id: String) -> TodaySessionInfo {
+            TodaySessionInfo(planId: id, planNameZh: id, weekNumber: 1, dayNumber: 2,
+                weekTheme: "阶段", totalMinutes: 20, drills: [], isFromTemplate: false,
+                lessonID: plan.lessons[1].id)
+        }
+        func projected(_ id: String) throws -> TodayTrainingProjection {
+            TodayTrainingProjection.make(ownerKey: owner,
+                schedules: try context.fetch(FetchDescriptor<TodayTrainingSchedule>()), sessions: [],
+                suggestion: proposal(id), now: clock, timeZone: utc)
+        }
+        XCTAssertNil(try projected(plan.id).suggestion, "下一课也不能在同日再次自动提示")
+        XCTAssertNotNil(try projected("plan_other").suggestion, "换新计划仍可建议加入")
+        XCTAssertNil(try projected(plan.id).suggestion, "切回已加入计划不再提示")
+        clock = clock.addingTimeInterval(86400)
+        _ = try service.today(ownerKey: owner)
+        XCTAssertNotNil(try projected(plan.id).suggestion, "新一天重新提供建议")
+    }
+
+    func testCarryForwardDoesNotCopyTodaysCompletedPlanAgain() throws {
+        var clock = Date(timeIntervalSince1970: 1_788_393_600)
+        let service = TodayTrainingScheduleService(context: context, now: { clock }, timeZone: TimeZone(secondsFromGMT: 0)!)
+        let plan = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
+        let active = activePlan(plan: plan, ordinal: 0)
+        _ = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
+        let yesterday = try XCTUnwrap(try service.today(ownerKey: owner))
+        clock = clock.addingTimeInterval(86400)
+        let today = try XCTUnwrap(try service.today(ownerKey: owner))
+        _ = try service.addOfficialLessons(plan: plan, lessonIDs: [plan.lessons[0].id], activePlan: active)
+        today.items[0].state = TodayScheduleItemState.completed
+        XCTAssertTrue(TodayTrainingScheduleService.carryForwardCandidates(
+            from: yesterday, todayItems: today.items, activePlanID: plan.id).isEmpty)
+        XCTAssertTrue(try service.carryForwardLatestUnfinished(
+            ownerKey: owner, activePlan: active, officialPlan: plan).isEmpty)
+        XCTAssertEqual(today.items.count, 1)
+        XCTAssertTrue(try service.carryForwardLatestUnfinished(
+            ownerKey: owner, activePlan: active, officialPlan: plan).isEmpty)
+        XCTAssertEqual(today.items.count, 1, "重复点击补入也不能复制完成项")
+    }
+
+    func testFreeTrainingOrdinalsResetDailyAndExcludeOtherSources() throws {
+        let zone = try XCTUnwrap(TimeZone(secondsFromGMT: 8 * 3600))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = zone
+        let day = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: 6)))
+        func session(_ seconds: TimeInterval, source: String? = nil, plan: String? = nil,
+                     kind: String = "drill", ownerKey: String? = nil) -> TrainingSession {
+            let value = TrainingSession(kind: kind, ownerKey: ownerKey ?? owner)
+            value.date = day.addingTimeInterval(seconds)
+            value.sourceKind = source
+            value.planId = plan
+            context.insert(value)
+            let entry = DrillEntry(drillId: "drill_c001", drillNameZh: "直线球")
+            context.insert(entry)
+            value.drillEntries = [entry]
+            return value
+        }
+        let yesterday = session(-30)
+        let first = session(30)
+        let second = session(90, source: TodayScheduleSourceKind.libraryDrill)
+        second.scheduleItemId = UUID()
+        let official = session(10, source: TodayScheduleSourceKind.officialLesson)
+        let template = session(15, source: TodayScheduleSourceKind.template)
+        let legacyPlan = session(20, plan: "legacy-plan")
+        let cognitive = session(21, kind: "cognitive")
+        let foreign = session(22, ownerKey: "guest:other")
+        let empty = TrainingSession(ownerKey: owner)
+        empty.date = day
+        context.insert(empty)
+        let sessions = [second, official, yesterday, foreign, first, legacyPlan, cognitive, template, empty, first]
+        let ordinals = TodayTrainingProjection.freeTrainingOrdinals(sessions: sessions, ownerKey: owner, day: day, timeZone: zone)
+        XCTAssertEqual(ordinals, [first.id: 1, second.id: 2])
+        XCTAssertEqual(TodayTrainingProjection.freeTrainingOrdinals(sessions: Array(sessions.reversed()), ownerKey: owner, day: day, timeZone: zone), ordinals)
+        XCTAssertEqual(TodayTrainingProjection.freeTrainingOrdinals(sessions: sessions, ownerKey: owner, day: yesterday.date, timeZone: zone), [yesterday.id: 1])
+        second.date = first.date
+        let tied = TodayTrainingProjection.freeTrainingOrdinals(sessions: sessions, ownerKey: owner, day: day, timeZone: zone)
+        let sortedIDs = [first.id, second.id].sorted { $0.uuidString < $1.uuidString }
+        XCTAssertEqual(tied, [sortedIDs[0]: 1, sortedIDs[1]: 2])
+    }
+
     func test_v57_switchRestoresCursorAndIsolatesOwners() throws {
         let a = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: planID))
         let b = try XCTUnwrap(PlanContentService.decodePlanFromBundle(id: "plan_intermediate"))
@@ -157,6 +275,10 @@ final class V54ScheduleDomainTests: XCTestCase {
             let schedule = try XCTUnwrap(try service.today(ownerKey: owner, createIfNeeded: false))
             let official = try XCTUnwrap(schedule.items.first { $0.sourceKind == TodayScheduleSourceKind.officialLesson })
             let block = try ScheduledTrainingBlock(item: official)
+            XCTAssertEqual(ActiveTrainingViewModel(mode: .scheduled(block)).trainingTitle, plan.nameZh)
+            let templateItem = try XCTUnwrap(schedule.items.first { $0.sourceKind == TodayScheduleSourceKind.template })
+            let templateBlock = try ScheduledTrainingBlock(item: templateItem)
+            XCTAssertEqual(ActiveTrainingViewModel(mode: .scheduled(templateBlock)).trainingTitle, "并列模板")
             let saved = TrainingSession(ownerKey: owner)
             saved.date = date
             saved.scheduleItemId = official.id
@@ -186,7 +308,7 @@ final class V54ScheduleDomainTests: XCTestCase {
         }
     }
 
-    func test_v57_projectionSuggestionDoesNotCountOrReturnAfterCompletion() throws {
+    func test_v57_projectionOtherPlanSuggestionSurvivesFreeTrainingCompletion() throws {
         let date = Date(timeIntervalSince1970: 1_788_393_600)
         let service = TodayTrainingScheduleService(context: context, now: { date }, timeZone: TimeZone(secondsFromGMT: 0)!)
         let item = try addedItem(service.addLibraryDrill(id: "drill_c001", title: "直线球", ownerKey: owner))
@@ -205,7 +327,7 @@ final class V54ScheduleDomainTests: XCTestCase {
         context.insert(done); try context.save()
         let finished = TodayTrainingProjection.make(ownerKey: owner, schedules: schedules, sessions: [done],
             suggestion: suggestion, now: date, timeZone: TimeZone(secondsFromGMT: 0)!)
-        XCTAssertNil(finished.suggestion)
+        XCTAssertNotNil(finished.suggestion, "自由训练完成不应隐藏尚未加入的计划建议")
         XCTAssertTrue(finished.allArrangedTrainingEnded)
         XCTAssertEqual(finished.completedCount, 1)
     }

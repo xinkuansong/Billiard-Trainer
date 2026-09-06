@@ -5,6 +5,33 @@ import SwiftData
 @MainActor
 final class ActiveTrainingViewModelTests: XCTestCase {
 
+    func test_unstartedTraining_selectedDrillsCanExitWithoutNoteFlow() {
+        let vm = makeVMWithDrills(count: 2)
+        XCTAssertFalse(vm.hasStartedTraining)
+        vm.exitUnstartedTraining()
+        XCTAssertEqual(vm.trainingPhase, .active)
+        XCTAssertFalse(vm.didSaveSuccessfully)
+        XCTAssertFalse(vm.isRestTimerActive)
+    }
+
+    func test_startedTraining_remembersImmediateStartAndPause() {
+        let vm = makeVMWithDrills(count: 1)
+        vm.startTimer()
+        vm.pauseTimer()
+        XCTAssertTrue(vm.hasStartedTraining)
+    }
+
+    func test_trainingWithoutTimer_detectsRecordedActivity() {
+        let vm = makeVMWithDrills(count: 1)
+        vm.skipTimer()
+        XCTAssertFalse(vm.hasStartedTraining)
+        vm.drillSetsData[0][0].madeBalls = 1
+        XCTAssertTrue(vm.hasStartedTraining)
+        vm.drillSetsData[0][0].madeBalls = 0
+        vm.drillSetsData[0][0].isCompleted = true
+        XCTAssertTrue(vm.hasStartedTraining)
+    }
+
     // MARK: - Free mode init
 
     func test_freeMode_initial_state() {
@@ -18,6 +45,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertTrue(vm.trainingNote.isEmpty)
         XCTAssertNil(vm.saveError)
         XCTAssertFalse(vm.didSaveSuccessfully)
+        XCTAssertEqual(vm.trainingTitle, "自由训练")
         XCTAssertFalse(vm.isPlanMode)
     }
 
@@ -44,7 +72,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         vm.elapsedSeconds = 125
         vm.restSecondsRemaining = 40
         XCTAssertEqual(vm.floatingIndicatorSeconds, 125)
-        XCTAssertEqual(vm.floatingIndicatorTitle, "继续训练")
+        XCTAssertEqual(vm.floatingIndicatorTitle, "继续")
     }
 
     func test_floatingIndicator_staysOnSessionTimeWhenResting() {
@@ -53,7 +81,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         vm.isRestTimerActive = true
         vm.restSecondsRemaining = 40
         XCTAssertEqual(vm.floatingIndicatorSeconds, 125)
-        XCTAssertEqual(vm.floatingIndicatorTitle, "继续训练")
+        XCTAssertEqual(vm.floatingIndicatorTitle, "继续")
     }
 
     func test_restOverlay_minimizeStaysActiveAndHidesCard() {
@@ -316,6 +344,31 @@ final class ActiveTrainingViewModelTests: XCTestCase {
 
     // MARK: - Complete set
 
+    func test_completeSet_advancesImmediatelyAndRestDoesNotAdvanceAgain() {
+        let vm = makeVMWithDrills(count: 3, sets: 2)
+        vm.restDuration = 60
+        defer { vm.stopRestTimer() }
+        vm.completeSet(drillIndex: 0, setIndex: 0)
+        XCTAssertEqual(vm.currentDrillIndex, 0)
+        vm.completeSet(drillIndex: 0, setIndex: 1)
+        XCTAssertEqual(vm.currentDrillIndex, 1)
+        XCTAssertTrue(vm.isRestTimerActive)
+        vm.skipRestTimer()
+        XCTAssertEqual(vm.currentDrillIndex, 1)
+        vm.completeSet(drillIndex: 0, setIndex: 1)
+        XCTAssertEqual(vm.currentDrillIndex, 1)
+    }
+
+    func test_completeSet_lastDrillDoesNotEndSession() {
+        let vm = makeVMWithDrills(count: 2, sets: 1)
+        vm.restDuration = 0
+        vm.completeSet(drillIndex: 0, setIndex: 0)
+        XCTAssertEqual(vm.currentDrillIndex, 1)
+        vm.completeSet(drillIndex: 1, setIndex: 0)
+        XCTAssertEqual(vm.currentDrillIndex, 1)
+        XCTAssertEqual(vm.trainingPhase, .active)
+    }
+
     func test_completeCurrentSet_advances_set() {
         let vm = makeVMWithDrills(count: 1, sets: 3)
         XCTAssertEqual(vm.currentSetIndex, 0)
@@ -336,6 +389,54 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         XCTAssertFalse(vm.isCurrentDrillAllSetsCompleted)
         vm.completeCurrentSet()
         XCTAssertTrue(vm.isCurrentDrillAllSetsCompleted)
+    }
+
+    func test_saveTrainingNote_preservesTimerAndReturnsWithoutEndingSession() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.startTimer()
+        defer { vm.pauseTimer() }
+        vm.editTrainingNote()
+        vm.saveTrainingNote("已确认的心得")
+        XCTAssertFalse(vm.isEditingTrainingNote)
+        XCTAssertEqual(vm.trainingNote, "已确认的心得")
+        XCTAssertTrue(vm.isTimerRunning)
+        XCTAssertEqual(vm.trainingPhase, .active)
+        vm.editTrainingNote()
+        vm.finishEditingTrainingNote()
+        XCTAssertEqual(vm.trainingNote, "已确认的心得")
+        XCTAssertEqual(vm.trainingPhase, .active)
+    }
+
+    func test_editTrainingNote_preservesRunningSessionAndDraft() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.startTimer()
+        defer { vm.pauseTimer() }
+        vm.editTrainingNote()
+        XCTAssertTrue(vm.isEditingTrainingNote)
+        XCTAssertEqual(vm.trainingPhase, .active)
+        XCTAssertTrue(vm.isTimerRunning)
+        vm.trainingNote = "出杆保持平稳"
+        vm.finishEditingTrainingNote()
+        XCTAssertFalse(vm.isEditingTrainingNote)
+        XCTAssertEqual(vm.trainingPhase, .active)
+        XCTAssertTrue(vm.isTimerRunning)
+        XCTAssertFalse(vm.didSaveSuccessfully)
+        vm.editTrainingNote()
+        XCTAssertEqual(vm.trainingNote, "出杆保持平稳")
+    }
+
+    func test_editTrainingNote_preservesPausedTimer() {
+        let vm = ActiveTrainingViewModel(mode: .free)
+        vm.startTimer()
+        vm.pauseTimer()
+        let elapsed = vm.elapsedSeconds
+        vm.editTrainingNote()
+        vm.trainingNote = "暂停时记录"
+        vm.finishEditingTrainingNote()
+        XCTAssertFalse(vm.isTimerRunning)
+        XCTAssertEqual(vm.elapsedSeconds, elapsed)
+        XCTAssertEqual(vm.trainingPhase, .active)
+        XCTAssertEqual(vm.trainingNote, "暂停时记录")
     }
 
     // MARK: - End training flow
@@ -833,7 +934,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
             DrillSetData(id: 3, targetBalls: 15, formationToken: "t2", formationName: "球形2"),
         ]]
         vm.currentDrillIndex = 0
-        XCTAssertEqual(vm.currentSetProgressText, "球形 1/2 · 第 2/2 杆 · 第 4 颗")
+        XCTAssertEqual(vm.currentSetProgressText, "球形 1/2 · 第 2/2 杆")
     }
 
     /// R12（杆位口径）：走位链报「第 r 遍 · 第 k/n 杆」。
@@ -874,7 +975,7 @@ final class ActiveTrainingViewModelTests: XCTestCase {
         ]]
         let text = vm.currentSetProgressText
         XCTAssertFalse(text.contains("球形"))
-        XCTAssertEqual(text, "第 1/2 杆 · 第 1 颗")
+        XCTAssertEqual(text, "第 1/2 杆")
     }
 
     // MARK: - Cleanup
@@ -922,4 +1023,35 @@ private final class RestActivityRecorder: RestTimerLiveActivityManaging {
     func endActivity() { endCalls += 1 }
     func activateBackgroundAudio() { audioActivations += 1 }
     func deactivateBackgroundAudio() {}
+}
+
+final class NoteNumberingTests: XCTestCase {
+    private func replace(_ text: String, at location: Int? = nil, length: Int = 0, with replacement: String) -> String {
+        let range = NSRange(location: location ?? text.utf16.count, length: length)
+        guard let edit = NoteNumbering.edit(text: text, range: range, replacement: replacement) else {
+            return (text as NSString).replacingCharacters(in: range, with: replacement)
+        }
+        return (text as NSString).replacingCharacters(in: edit.range, with: edit.replacement)
+    }
+
+    func testReturnContinuesNumberedChineseAndEmoji() {
+        XCTAssertEqual(replace("1. 稳定出杆🎱", with: "\n"), "1. 稳定出杆🎱\n2. ")
+        XCTAssertEqual(replace("9. 瞄准", with: "\n"), "9. 瞄准\n10. ")
+    }
+    func testEmptyReturnExitsList() {
+        XCTAssertEqual(replace("1. 出杆\n2. ", with: "\n"), "1. 出杆\n")
+        XCTAssertEqual(replace("1. ", with: "\n"), "")
+    }
+    func testBackspaceRemovesEmptyPrefixAsOneUnit() {
+        XCTAssertEqual(replace("1. 出杆\n2. ", at: 8, length: 1, with: ""), "1. 出杆\n")
+    }
+    func testPlainTextAndPasteAreNotRenumbered() {
+        XCTAssertEqual(replace("以前的心得", with: "\n"), "以前的心得\n")
+        XCTAssertEqual(replace("1. ", with: "第一段\n第二段"), "1. 第一段\n第二段")
+        XCTAssertNil(NoteNumbering.edit(text: "1. 正常文字", range: NSRange(location: 7, length: 0), replacement: "继续"))
+    }
+    func testSelectionReplacementAndMidLineReturnKeepRemainingText() {
+        XCTAssertEqual(replace("1. abcd", at: 5, length: 0, with: "\n"), "1. ab\n2. cd")
+        XCTAssertEqual(replace("1. abcd", at: 5, length: 2, with: "\n"), "1. ab\n2. ")
+    }
 }

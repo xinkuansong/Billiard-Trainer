@@ -63,6 +63,7 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
         try context.save()
 
         auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
         await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
 
         XCTAssertTrue(auth.showMigrationPrompt)
@@ -84,6 +85,7 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
                                        ownerKey: guest))
         try context.save()
         auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
         await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
 
         auth.dismissMigration()
@@ -108,6 +110,7 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
                                        ownerKey: guest))
         try context.save()
         auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
         await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
 
         auth.confirmMigration()
@@ -128,6 +131,7 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
         SyncRestoreService.shared.backend = delayed
 
         auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
         let task = Task {
             await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
         }
@@ -141,6 +145,50 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
             .filter { $0.id.uuidString == dto.clientId }
         XCTAssertTrue(rows.isEmpty)
         XCTAssertEqual(ownerContext.ownerKey, OwnerKey.account("user-b"))
+    }
+
+    func test_cloudSyncDeclined_blocksLoginForegroundAndKeepsQueue() async throws {
+        let account = OwnerKey.account("user-a")
+        let session = TrainingSession(ownerKey: account)
+        context.insert(session)
+        context.insert(SyncPendingItem(entityType: SyncEntityType.trainingSession,
+                                      entityId: session.id, operation: SyncOperation.create, ownerKey: account))
+        try context.save()
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        auth.setCloudSyncEnabled(false)
+        await coordinator.syncActiveAccount(mode: .incremental, authState: auth)
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertFalse(auth.showCloudSyncPrompt)
+        let uploads = await syncBackend.uploadCount
+        let fetches = await restoreBackend.fetchCount
+        XCTAssertEqual(uploads, 0)
+        XCTAssertEqual(fetches, 0)
+        XCTAssertEqual(SyncQueueManager.shared.pendingCount(ownerKey: account), 1)
+        auth.setCloudSyncEnabled(true)
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        let enabledUploads = await syncBackend.uploadCount
+        let enabledFetches = await restoreBackend.fetchCount
+        XCTAssertEqual(enabledUploads, 1)
+        XCTAssertEqual(enabledFetches, 2)
+    }
+
+    func test_disableWhileDownloading_discardsResponseAndStopsNextRequest() async throws {
+        let remote = TrainingSession(ownerKey: ownerContext.guestOwnerKey)
+        let delayed = DelayedCoordinatorRestoreBackend(dto: TrainingSessionDTO(from: remote))
+        SyncRestoreService.shared.backend = delayed
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
+        let task = Task { await coordinator.handleCompletedLogin(userId: "user-a", authState: auth) }
+        await delayed.waitUntilRequested()
+        auth.setCloudSyncEnabled(false)
+        await delayed.resume()
+        await task.value
+        XCTAssertTrue(try context.fetch(FetchDescriptor<TrainingSession>()).isEmpty)
+        XCTAssertNil(SyncRestoreService.shared.anchor(.sessions, userId: "user-a"))
+        let angles = await delayed.angleFetchCount
+        XCTAssertEqual(angles, 0)
     }
 
     func test_pendingDeletionCleanupRetriesOnNextConfigure() throws {
@@ -198,6 +246,7 @@ private actor CoordinatorRestoreBackend: SyncRestoreBackend {
 
 private actor DelayedCoordinatorRestoreBackend: SyncRestoreBackend {
     private let dto: TrainingSessionDTO
+    private(set) var angleFetchCount = 0
     private var requested = false
     private var requestWaiters: [CheckedContinuation<Void, Never>] = []
     private var resumeContinuation: CheckedContinuation<Void, Never>?
@@ -212,7 +261,7 @@ private actor DelayedCoordinatorRestoreBackend: SyncRestoreBackend {
         return try Self.records(dto)
     }
 
-    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] { [] }
+    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] { angleFetchCount += 1; return [] }
 
     func waitUntilRequested() async {
         if requested { return }

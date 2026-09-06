@@ -3,7 +3,6 @@ import SwiftUI
 struct MainTabView: View {
     let ownerKey: String
     @EnvironmentObject private var router: AppRouter
-    @State private var tabBarBottomClearance: CGFloat = 0
 
     var body: some View {
         TabView(selection: $router.selectedTab) {
@@ -71,24 +70,11 @@ struct MainTabView: View {
                 }
                 .tag(AppTab.profile)
         }
-        .background(
-            BTTabBarFrameReader(bottomClearance: $tabBarBottomClearance)
-                .frame(width: 0, height: 0)
-        )
-        .overlay(alignment: .bottomTrailing) {
+        .btTrainingPillOverlay(isPresented: router.isTrainingMinimized, includesTabBar: true) {
             if let vm = router.minimizedTrainingVM {
                 MinimizedTrainingChrome(viewModel: vm) {
                     router.resumeMinimizedTraining()
                 }
-                .padding(.trailing, Spacing.lg)
-                .padding(.bottom, tabBarBottomClearance + Spacing.sm)
-                .transition(
-                    .asymmetric(
-                        insertion: .scale(scale: 0.85, anchor: .bottomTrailing).combined(with: .opacity),
-                        removal: .opacity
-                    )
-                )
-                .animation(BTMotion.springPanel, value: router.isTrainingMinimized)
             }
         }
         .fullScreenCover(item: $router.activeTrainingMode) {
@@ -275,68 +261,6 @@ struct MainTabView: View {
         switch route {
         case .detail(let sessionId):
             TrainingDetailView(sessionId: sessionId, ownerKey: ownerKey)
-        }
-    }
-}
-
-/// 从真实 UIKit TabBar 读取窗口底部到 TabBar 上沿的距离，兼容 iOS 17 固定栏、
-/// iOS 26 浮动栏与带 Home Indicator 的设备；不依赖 49/60/83pt 常量。
-private struct BTTabBarFrameReader: UIViewRepresentable {
-    @Binding var bottomClearance: CGFloat
-
-    func makeUIView(context: Context) -> ProbeView {
-        ProbeView { measured in
-            if abs(bottomClearance - measured) > 0.5 {
-                bottomClearance = measured
-            }
-        }
-    }
-
-    func updateUIView(_ uiView: ProbeView, context: Context) {
-        uiView.report()
-    }
-
-    final class ProbeView: UIView {
-        private let onMeasure: (CGFloat) -> Void
-
-        init(onMeasure: @escaping (CGFloat) -> Void) {
-            self.onMeasure = onMeasure
-            super.init(frame: .zero)
-            isUserInteractionEnabled = false
-        }
-
-        @available(*, unavailable)
-        required init?(coder: NSCoder) { nil }
-
-        override func didMoveToWindow() {
-            super.didMoveToWindow()
-            report()
-        }
-
-        override func layoutSubviews() {
-            super.layoutSubviews()
-            report()
-        }
-
-        func report() {
-            DispatchQueue.main.async { [weak self] in
-                guard let self, let window, let tabBar = Self.findTabBar(in: window) else { return }
-                let frame = tabBar.convert(tabBar.bounds, to: window)
-                // iPad 的系统 Tab 栏可能呈现在窗口顶部。此时浮标应回到底部安全区，
-                // 而不是用“窗口底部到顶部 Tab 栏”的巨大距离把自己推离屏幕。
-                let measured = frame.midY > window.bounds.midY
-                    ? max(0, window.bounds.maxY - frame.minY)
-                    : window.safeAreaInsets.bottom
-                onMeasure(measured)
-            }
-        }
-
-        private static func findTabBar(in view: UIView) -> UITabBar? {
-            if let tabBar = view as? UITabBar { return tabBar }
-            for child in view.subviews {
-                if let found = findTabBar(in: child) { return found }
-            }
-            return nil
         }
     }
 }
