@@ -204,4 +204,19 @@ final class LearningTourDiagnosticUITests: XCTestCase {
     func testTheory12QuickReferenceLowerLines() throws {
         try staticTheory("清台速查手册", "八句能立刻用的话", "把对手的目标球想成太阳，障碍球投下阴影")
     }
+    func testLearn05MenuDismissesOutsideObservedBoundsAndReturns() throws {
+        try enter("学", "角度与瞄准")
+        ready(app.buttons["paletteBall__8"], timeout: 45)
+        let more = app.buttons["更多"].firstMatch; ready(more); more.tap()
+        let grid = app.descendants(matching: .any).matching(NSPredicate(format: "label == %@", "台面网格 4×8")).firstMatch
+        ready(grid)
+        try capture("display-menu-expanded")
+        // Observed failed run: menu x144...394/y62...152.3 on 402x874.
+        // The old (0.5, 0.09) landed inside its header. Use the observed left margin.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.30)).tap()
+        XCTAssertTrue(grid.waitForNonExistence(timeout: 5))
+        try capture("display-menu-dismissed-observed-margin")
+        ready(app.buttons["paletteBall__8"])
+        try finish("学", "角度与瞄准")
+    }
 }

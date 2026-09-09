@@ -1,4 +1,6 @@
 import SwiftUI
+import UIKit
+import CoreText
 
 /// 全局字体 Token。
 ///
@@ -11,6 +13,16 @@ import SwiftUI
 /// - 展示级（`btDisplay` / `btDisplaySmall` / `btChapterNumber`）仅在「单屏核心数据」或「编辑式排版」中出现。
 /// - 副标题用 `btSubheadline` / `btFootnote14`，避免 `btCaption` 当正文使用。
 extension Font {
+    /// A2 introduction: bundled OFL Noto Serif SC subset, renamed QiuJi Intro Serif.
+    /// License ships in introSerifLicense; the subset covers the introduction copy.
+    static let btIntroTitle: Font = {
+        if let data = NSDataAsset(name: "introSerif")?.data,
+           let provider = CGDataProvider(data: data as CFData),
+           let font = CGFont(provider) {
+            CTFontManagerRegisterGraphicsFont(font, nil)
+        }
+        return .custom("QiuJiIntroSerif-Bold", size: 34, relativeTo: .largeTitle)
+    }()
     // MARK: - 展示级（单屏核心数据 / 编辑式排版）
     static let btDisplay             = Font.system(size: 44, weight: .bold, design: .rounded)
     static let btDisplaySmall        = Font.system(size: 30, weight: .bold, design: .rounded)

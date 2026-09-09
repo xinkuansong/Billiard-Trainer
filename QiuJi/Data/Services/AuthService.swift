@@ -10,6 +10,11 @@ final class AuthService: NSObject, ObservableObject {
     // MARK: - Sign in with Apple
 
     func loginWithApple() async throws -> AppUser {
+        #if DEBUG && targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-syncRepair.loginSheet") {
+            return AppUser(id: "sync-repair-user", provider: .apple, displayName: "同步测试球友")
+        }
+        #endif
         return try await withCheckedThrowingContinuation { continuation in
             self.appleSignInContinuation = continuation
             let provider = ASAuthorizationAppleIDProvider()

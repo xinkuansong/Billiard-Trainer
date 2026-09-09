@@ -1,51 +1,57 @@
 import SwiftUI
+import UIKit
 
-/// An optional, repeatable tour. Finishing never changes the current account.
+/// Optional product introduction. The A2 artwork is illustrative; navigation and copy are native.
 struct OnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var currentPage = 0
+
+    private static let background = Color("btIntroBackground")
+    private static let foreground = Color("btIntroForeground")
+    private static let rule = Color("btIntroRule")
 
     private struct Page {
         let title: String
         let subtitle: String
-        let image: String
-        let caption: String
-        let detail: String
-        let imageDescription: String
-        var isPro = false
+        let artwork: CGRect
+        let description: String
+        var caption: String? = nil
     }
 
-    private let pages: [Page] = [
-        Page(title: "看懂这一杆", subtitle: "看清瞄准点与接触点，理解击球方向。",
-             image: "onboardingContact", caption: "瞄准点对照表",
-             detail: "在练习页学习瞄准原理，拖动查看角度与瞄准点的关系。",
-             imageDescription: "瞄准点对照图：目标球、假想球、瞄准点、接触点和袋口方向。"),
-        Page(title: "带着方法上台练", subtitle: "先看球形与训练要点，再开始练习。",
-             image: "onboardingDrill", caption: "动作详情 · 中袋直线出杆",
-             detail: "跟随官方计划，或把动作加入今日安排；精讲帮助你理解每一杆。",
-             imageDescription: "中袋直线出杆的球形、动作名称与训练说明。"),
-        Page(title: "把下一杆，也想清楚", subtitle: "摆出球形，尝试走位，推演后续选择。",
-             image: "onboardingPosition", caption: "自由走位 · Pro 功能示例",
-             detail: "练习页提供思路训练；Pro 可进一步使用自由走位、多杆规划与防守工具。",
-             imageDescription: "自由走位球桌：目标球进袋路线与母球走位路线。", isPro: true),
-        Page(title: "练完，留下自己的记录", subtitle: "记录每组结果，也记下练习心得。",
-             image: "onboardingRecord", caption: "分组记录 · 示例截图",
-             detail: "进球数、训练时间与心得保存在记录中，方便回顾每一次球台练习。",
-             imageDescription: "分组记录示例：第一组进球12个，总球15个，成功率80%；后续组等待录入。")
+    // Pixel bounds within the approved 1909 × 824 A2 storyboard. Crop only the artwork:
+    // titles, paging dots and buttons are rendered natively and never baked into controls.
+    private static let pages: [Page] = [
+        Page(title: "看懂这一杆。", subtitle: "瞄准点与接触点，一眼看清。",
+             artwork: CGRect(x: 20, y: 232, width: 342, height: 444),
+             description: "瞄准点、接触点、假想球与袋口方向的关系。"),
+        Page(title: "把判断，\n练成直觉。", subtitle: "先判断，再验证。",
+             artwork: CGRect(x: 381, y: 289, width: 372, height: 328),
+             description: "站位视角下的母球与目标球。", caption: "3D 判断训练 · Pro 功能示例"),
+        Page(title: "把下一杆，\n也想清楚。", subtitle: "调整打点与力度，推演母球走位。",
+             artwork: CGRect(x: 788, y: 245, width: 340, height: 437),
+             description: "自由走位 Pro 功能示例：目标球进袋线与母球走位路线。", caption: "自由走位 · Pro 功能示例"),
+        Page(title: "每次上台，\n都有方向。", subtitle: "跟着课程练，按自己的节奏进阶。",
+             artwork: CGRect(x: 1153, y: 270, width: 362, height: 232),
+             description: "横向蛇彩围8：六颗彩球在一侧排列，8号在另一侧。"),
+        Page(title: "让练习，\n有迹可循。", subtitle: "记录每组结果，留住练习心得。",
+             artwork: CGRect(x: 1548, y: 346, width: 345, height: 228),
+             description: "示例记录：12个进球，总球15个，成功率80%；后续组尚未填写。", caption: "示例记录")
     ]
+
+    private static let artworkImages: [UIImage?] = {
+        guard let sheet = UIImage(named: "onboardingA2")?.cgImage else { return pages.map { _ in nil } }
+        return pages.map { page in sheet.cropping(to: page.artwork).map { UIImage(cgImage: $0) } }
+    }()
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("认识球迹")
-                    .font(.btHeadline)
-                    .foregroundStyle(.btText)
+                Text("涨球记").font(.btHeadline)
                 Spacer()
                 Button("跳过") { dismiss() }
-                    .font(.btSubheadline)
-                    .foregroundStyle(.btPrimary)
-                    .frame(minWidth: 44, minHeight: 44)
+                    .font(.btSubheadline).frame(minWidth: 44, minHeight: 44)
                     .accessibilityIdentifier("onboarding.skip")
             }
             .padding(.horizontal, Spacing.xxl)
@@ -53,88 +59,91 @@ struct OnboardingView: View {
 
             GeometryReader { geometry in
                 TabView(selection: $currentPage) {
-                    ForEach(pages.indices, id: \.self) { index in
-                        page(pages[index], index: index, availableHeight: geometry.size.height).tag(index)
+                    ForEach(Self.pages.indices, id: \.self) { index in
+                        page(index, height: geometry.size.height).tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
 
-            VStack(spacing: Spacing.sm) {
+            VStack(spacing: Spacing.xs) {
                 HStack(spacing: 0) {
-                    ForEach(pages.indices, id: \.self) { index in
+                    ForEach(Self.pages.indices, id: \.self) { index in
                         Button { selectPage(index) } label: {
-                            Capsule()
-                                .fill(index == currentPage ? Color.btPrimary : Color.btTextTertiary)
-                                .frame(width: index == currentPage ? 20 : 8, height: 8)
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
+                            Circle().fill(Self.foreground.opacity(index == currentPage ? 1 : 0.3))
+                                .frame(width: 8, height: 8)
+                                .frame(width: 44, height: 44).contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("第 \(index + 1) 页，\(pages[index].title)")
+                        .accessibilityLabel("第 \(index + 1) 页，\(Self.pages[index].title)")
                         .accessibilityAddTraits(index == currentPage ? .isSelected : [])
                         .accessibilityIdentifier("onboarding.page.\(index)")
                     }
                 }
-                Button(currentPage == pages.count - 1 ? "开始使用" : "继续") {
-                    if currentPage == pages.count - 1 { dismiss() }
+                Button(currentPage == Self.pages.count - 1 ? "开始使用" : "继续") {
+                    if currentPage == Self.pages.count - 1 { dismiss() }
                     else { selectPage(currentPage + 1) }
                 }
-                .buttonStyle(BTButtonStyle.primary)
+                .font(.btBodyMedium)
+                .frame(maxWidth: .infinity, minHeight: 52)
+                .contentShape(Capsule())
+                .overlay(Capsule().strokeBorder(Self.rule, lineWidth: 1))
                 .accessibilityIdentifier("onboarding.continue")
             }
             .padding(.horizontal, Spacing.xxl)
             .padding(.bottom, Spacing.lg)
             .frame(maxWidth: 600)
         }
-        .background { BTBlueprintBackground(style: .profile).ignoresSafeArea() }
+        .foregroundStyle(Self.foreground)
+        .tint(Self.foreground)
+        .background(Self.background.ignoresSafeArea())
+        .preferredColorScheme(.dark)
     }
 
-    private func page(_ item: Page, index: Int, availableHeight: CGFloat) -> some View {
-        ScrollView {
+    private func page(_ index: Int, height: CGFloat) -> some View {
+        let item = Self.pages[index]
+        return ScrollView {
             VStack(alignment: .leading, spacing: Spacing.lg) {
-                Text(item.title)
-                    .font(.btTitle)
-                    .foregroundStyle(.btText)
+                Text(item.title).font(.btIntroTitle)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
                     .accessibilityIdentifier("onboarding.title.\(index)")
-                Text(item.subtitle)
-                    .font(.btSubheadline)
-                    .foregroundStyle(.btTextSecondary)
+                Text(item.subtitle).font(.btSubheadline)
                     .fixedSize(horizontal: false, vertical: true)
-
-                Image(item.image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxHeight: item.isPro ? max(160, min(400, availableHeight - 240)) : 400)
-                    .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-                    .frame(maxWidth: .infinity)
-                    .accessibilityLabel(item.imageDescription)
-                    .accessibilityIdentifier("onboarding.image.\(index)")
-
-                HStack(spacing: Spacing.sm) {
-                    if item.isPro {
-                        Text("PRO")
-                            .font(.btCaption2)
-                            .foregroundStyle(.btPremiumForeground)
-                            .padding(.horizontal, Spacing.sm)
-                            .padding(.vertical, Spacing.xs)
-                            .background(Color.btPremiumSurface, in: Capsule())
-                    }
-                    Text(item.caption)
-                        .font(.btFootnote)
-                        .foregroundStyle(.btTextSecondary)
+                Spacer(minLength: Spacing.sm)
+                if index == 4 { caption("示例记录") }
+                if let artwork = Self.artworkImages[index] {
+                    Image(uiImage: artwork).resizable().scaledToFit()
+                        .frame(maxHeight: dynamicTypeSize.isAccessibilitySize ? 220 : max(160, height * 0.53))
+                        .frame(maxWidth: .infinity)
+                        .accessibilityLabel(item.description)
+                        .accessibilityIdentifier("onboarding.image.\(index)")
                 }
-                Text(item.detail)
-                    .font(.btSubheadline)
-                    .foregroundStyle(.btTextSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                if index == 3 {
+                    HStack {
+                        Text("横向蛇彩围 8").font(.btTitle)
+                        Spacer()
+                        Text("L3 高级").font(.btCaption)
+                    }
+                    Text("彩球与8号交替击打，在两区之间练习连续走位。")
+                        .font(.btSubheadline).fixedSize(horizontal: false, vertical: true)
+                    Text("今日安排 · 动作精讲").font(.btFootnote)
+                } else if let text = item.caption, index != 4 && index != 2 {
+                    caption(text)
+                }
+                Spacer(minLength: Spacing.sm)
             }
             .padding(.horizontal, Spacing.xxl)
-            .padding(.vertical, Spacing.lg)
+            .padding(.top, Spacing.xl)
+            .padding(.bottom, Spacing.sm)
             .frame(maxWidth: 600)
+            .frame(minHeight: height, alignment: .top)
             .frame(maxWidth: .infinity)
         }
+    }
+
+    private func caption(_ text: String) -> some View {
+        Text(text).font(.btFootnote).foregroundStyle(Self.foreground.opacity(0.85))
     }
 
     private func selectPage(_ index: Int) {

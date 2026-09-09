@@ -1,6 +1,8 @@
 import XCTest
 
-/// Diagnostic-only draft for snapshot-002; no production/legacy test changes.
+/// Diagnostic-only draft; original submission cases target snapshot-002.
+/// The six-entry no-submission case was source-audited against snapshot-003.
+/// No production/legacy test changes.
 final class CognitiveJourneyDiagnosticUITests: XCTestCase {
     private var app: XCUIApplication!
     override func setUpWithError() throws {
@@ -128,4 +130,60 @@ final class CognitiveJourneyDiagnosticUITests: XCTestCase {
     func testAimPoint3DDefaultAnswerSaveAndHistory() throws {
         try sceneAimJourney("3D 瞄准点训练")
     }
+
+    /// One process and one empty in-memory store throughout all six real entry/exit paths.
+    /// This proves the visible history boundary only, not raw database/queue emptiness.
+    func testSixCognitiveEntriesReturnWithoutSubmissionAndLeaveHistoryEmpty() throws {
+        let routes: [(title: String, settings: Bool, readinessAction: String)] = [
+            ("角度预测", false, "答题"),
+            ("2D 角度训练", true, "答题"),
+            ("3D 角度训练", true, "答题"),
+            ("瞄准点训练", false, "提交瞄准点"),
+            ("2D 瞄准点训练", false, "提交"),
+            ("3D 瞄准点训练", false, "提交")
+        ]
+        app.switchTab(.profile)
+        ready(app.buttons["profile.login"])
+        assertEmptyHistory()
+        ready(app.staticTexts["还没有训练记录"])
+        try captureUnsubmittedBoundary("initial-empty-history")
+        for (index, route) in routes.enumerated() {
+            let stage = "\(index + 1)-\(route.title)"
+            enter("练", route.title, settingsFirst: route.settings)
+            // Confirm the actual question is ready. Never tap this answer/submit action.
+            let action = app.buttons[route.readinessAction].firstMatch
+            reveal(action); ready(action)
+            XCTAssertFalse(app.buttons["下一题"].firstMatch.exists,
+                           "Unexpected result state before any submission: " + route.title)
+            try captureUnsubmittedBoundary(stage + "-question-unsubmitted")
+            returnHome("练", route.title)
+            try captureUnsubmittedBoundary(stage + "-returned-to-practice")
+            assertEmptyHistory()
+            ready(app.staticTexts["还没有训练记录"])
+            try captureUnsubmittedBoundary(stage + "-history-still-empty")
+        }
+        // Re-enter history without restarting: do not erase possible in-memory evidence.
+        app.switchTab(.profile)
+        ready(app.buttons["profile.login"])
+        assertEmptyHistory()
+        ready(app.staticTexts["还没有训练记录"])
+        try captureUnsubmittedBoundary("all-six-final-history-empty")
+    }
+
+    private func captureUnsubmittedBoundary(_ stage: String) throws {
+        let stem = "cognitive-cancel-" + stage + "-" + UUID().uuidString
+        let shot = XCUIScreen.main.screenshot()
+        let screenshot = XCTAttachment(screenshot: shot)
+        screenshot.name = stem; screenshot.lifetime = .keepAlways; add(screenshot)
+        let tree = app.debugDescription
+        let ax = XCTAttachment(string: tree)
+        ax.name = stem + "-AX"; ax.lifetime = .keepAlways; add(ax)
+        let env = ProcessInfo.processInfo.environment
+        let path = try XCTUnwrap(env["QD_SHOT_DIR"] ?? env["TEST_RUNNER_QD_SHOT_DIR"])
+        let directory = URL(fileURLWithPath: path, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try shot.pngRepresentation.write(to: directory.appendingPathComponent(stem + ".png"), options: .withoutOverwriting)
+        try Data(tree.utf8).write(to: directory.appendingPathComponent(stem + ".txt"), options: .withoutOverwriting)
+    }
+
 }

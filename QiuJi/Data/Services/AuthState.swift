@@ -171,6 +171,13 @@ final class AuthState: ObservableObject {
         }
 
         #if DEBUG
+        #if targetEnvironment(simulator)
+        if ProcessInfo.processInfo.arguments.contains("-syncRepair.loginSheet") {
+            defaults.removeObject(forKey: syncPreferenceKey("sync-repair-user"))
+            loginAnonymously()
+            return
+        }
+        #endif
         // Deterministic UI-only fixture for proving that the account surface consumes the
         // server-normalized identity after bootstrap and again after a cold relaunch. This
         // branch is unreachable in Release builds and never creates a production login path.
@@ -353,6 +360,7 @@ final class AuthState: ObservableObject {
 }
 
 extension Notification.Name {
+    static let didRestoreAccountData = Notification.Name("didRestoreAccountData")
     static let didRequestDataMigration = Notification.Name("didRequestDataMigration")
     static let didDeclineDataMigration = Notification.Name("didDeclineDataMigration")
     static let didChangeCloudSync = Notification.Name("didChangeCloudSync")
@@ -361,3 +369,42 @@ extension Notification.Name {
     static let didRequestResumeTraining = Notification.Name("didRequestResumeTraining")
     static let didDismissActiveTraining = Notification.Name("didDismissActiveTraining")
 }
+
+#if DEBUG && targetEnvironment(simulator)
+/// UI regression fixture: exercises the real login sheet, consent and restore flow
+/// with an isolated backend. Never exchanges credentials or reaches the network.
+struct SyncRepairUITestBackend: AuthSessionBackend, SyncBackend, SyncRestoreBackend {
+    let sessions: [SyncedRecord<TrainingSessionDTO>]
+
+    @MainActor
+    init() {
+        let record = TrainingSession(ownerKey: OwnerKey.account("sync-repair-user"))
+        record.note = "云端恢复测试记录"
+        record.totalDurationMinutes = 23
+        record.kind = TrainingSessionKind.drill
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = APIDateCoding.decodingStrategy
+        do {
+            sessions = try decoder.decode([SyncedRecord<TrainingSessionDTO>].self,
+                                          from: encoder.encode([TrainingSessionDTO(from: record)]))
+        } catch {
+            preconditionFailure("Invalid sync UI fixture: \(error)")
+        }
+    }
+
+    func fetchProfile() async throws -> UserDTO { throw AppError.authRequired }
+    func logout() async {}
+    func uploadSession(_ dto: TrainingSessionDTO) async throws {}
+    func uploadAngleTest(_ dto: AngleTestDTO) async throws {}
+    func deleteSession(clientId: String) async throws {}
+    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+        if ProcessInfo.processInfo.arguments.contains("-syncRepair.restoreFailure") {
+            throw AppError.networkError("UI fixture offline")
+        }
+        return sessions
+    }
+    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] { [] }
+}
+#endif

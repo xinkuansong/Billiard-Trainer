@@ -145,6 +145,17 @@ enum PoolBallStyle {
 /// - 接触点 = 品牌绿；瞄准点（假想球球心）= 红点
 /// 线宽只有两档：`lineMain`（瞄准/进球/球迹同粗）与 `lineHint`（释义线细一档）。
 enum TrajectoryStyle {
+    /// Training-only overlay palette; other teaching diagrams retain their existing style.
+    enum TrainingAssist {
+        static let aimPoint = UIColor(red: 0.20, green: 0.80, blue: 1.0, alpha: 1)
+        static let contactPoint = UIColor(red: 1.0, green: 0.66, blue: 0.20, alpha: 1)
+        static let aimLine = aimPoint.withAlphaComponent(0.65)
+        static let ghostBall = UIColor(white: 0.96, alpha: 1)
+        static let ghostOpacity: CGFloat = 0.32
+        static let aimPointRadius: CGFloat = 0.00325
+        static let contactPointRadius: CGFloat = 0.0045
+    }
+
     // MARK: 线宽（两档制）
 
     /// 主线宽：瞄准线 / 进球线 / 球迹线同粗（T-P18-41 统一，原 0.0025/0.0030 两档并轨）。

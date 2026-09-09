@@ -8,7 +8,7 @@ import SceneKit
 // 瞄准线初始 = 两球心连线；手指粗调 + 刻度轮微调。
 // G1 口径：瞄准点 = 瞄准线与「过目标球心且垂直于瞄准线的直线」的交点（垂足）；
 // 辅助线（白色细虚线）随用户瞄准线旋转、恒与其垂直。误差 = 用户瞄准点与正确瞄准点
-// 相对目标球心的有符号偏移之差（mm，偏大为正 = 瞄薄）；正确瞄准点提交后以红色小点
+// 相对目标球心的有符号偏移之差（mm，偏大为正 = 瞄薄）；正确瞄准点提交后以青蓝小点
 // 标注；1.5 秒后物理击球验证（DR-031：|误差|≤2mm 用几何正解线，否则用户线；杆速中等），然后下一题。
 
 @MainActor
@@ -363,41 +363,44 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             color: TrajectoryStyle.hintColor, radius: 0.0016, dash: 0.018, gap: 0.014
         ))
 
-        // 用户瞄准线（Q7.1）：白实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在
-        // 射线与球面第一交点（接触点），并在垂足（瞄准点）+ 接触点各画一枚红点。
+        // 用户瞄准线（Q7.1）：低透明青蓝实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在
+        // 射线与球面第一交点（接触点）；垂足用青蓝小点、接触点用橙黄小点。
         let userRes = aimLineResolution(cue: cue.position, target: target.position, dir: aimDir)
         lineNodes.append(scene.addLine(
             from: SCNVector3(cue.position.x, y, cue.position.z),
             to: scenePoint(userRes.lineEnd, y: y),
-            color: .white
+            color: TrajectoryStyle.TrainingAssist.aimLine
         ))
         if userRes.touchesBall {
             lineNodes.append(scene.addAimPointMarker(at: scenePoint(userRes.aimPoint, y: y),
-                                                     color: TrajectoryStyle.aimPointColor))
+                                                     color: TrajectoryStyle.TrainingAssist.aimPoint,
+                                                     radius: TrajectoryStyle.TrainingAssist.aimPointRadius, isOverlay: true))
             if let contact = userRes.contactPoint {
                 lineNodes.append(scene.addAimPointMarker(at: scenePoint(contact, y: y),
-                                                         color: TrajectoryStyle.aimPointColor))
+                                                         color: TrajectoryStyle.TrainingAssist.contactPoint,
+                                                         radius: TrajectoryStyle.TrainingAssist.aimPointRadius, isOverlay: true))
             }
         }
 
-        // 提交后：正确瞄准线（红）+ 正确瞄准点红色小点（G1 垂足，恒显）。
+        // 提交后：正确瞄准线与瞄准点用高透明青蓝，用户线保留较低透明度。
         if let correctDir {
             let correctRes = aimLineResolution(cue: cue.position, target: target.position, dir: correctDir)
             lineNodes.append(scene.addLine(
                 from: SCNVector3(cue.position.x, y, cue.position.z),
                 to: scenePoint(correctRes.lineEnd, y: y),
-                color: TrajectoryStyle.aimPointColor
+                color: TrajectoryStyle.TrainingAssist.aimPoint
             ))
             let foot = AimPointGeometry.aimPoint(
                 lineOrigin: xzPoint(cue.position), direction: xzPoint(correctDir),
                 targetCenter: xzPoint(target.position))
             lineNodes.append(scene.addAimPointMarker(
                 at: scenePoint(foot, y: y),
-                color: TrajectoryStyle.aimPointColor
+                color: TrajectoryStyle.TrainingAssist.aimPoint,
+                radius: TrajectoryStyle.TrainingAssist.aimPointRadius, isOverlay: true
             ))
         }
 
-        // C5 / D-v19-1：瞄准（及结果停留）阶段用户白线同现杆；沿用户 aim，spinX:0 与出杆一致。
+        // C5 / D-v19-1：瞄准及结果停留阶段同现球杆；沿用户 aim，spinX:0 与出杆一致。
         if phase == .aiming || phase == .showingResult {
             scene.updateCueStick(
                 cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: aimDir, spinX: 0),
@@ -481,6 +484,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             aimPointMarker: userRes.touchesBall ? userRes.aimPoint : nil,
             contactMarker: userRes.touchesBall ? userRes.contactPoint : nil,
             showMissCaption: sample.band == .skim,
+            usesTrainingAssistStyle: true,
             focusNorm: focusNorm,
             // D-v23-5.1：进球线/袋口 + 瞄准线避让；方位走空象限。
             sightKeepout: .fromWorld(

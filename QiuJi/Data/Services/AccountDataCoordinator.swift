@@ -14,6 +14,9 @@ final class AccountDataCoordinator: ObservableObject {
     private var context: ModelContext?
     private var generation: UInt = 0
     private var offeredMigrationUserId: String?
+    @Published private(set) var syncingOwnerKey: String?
+    @Published private(set) var statusOwnerKey: String?
+    @Published private(set) var statusMessage: String?
 
     init(ownerContext: CurrentOwnerContext? = nil, defaults: UserDefaults = .standard) {
         self.ownerContext = ownerContext ?? .shared
@@ -74,6 +77,8 @@ final class AccountDataCoordinator: ObservableObject {
             if offerGuestMigration, try OwnerTransferService(context: context).hasOwnedData(ownerKey: guestOwner) {
                 // 硬门禁：这里只展示确认；0 次 transfer，0 次 guest upload。
                 offeredMigrationUserId = userId
+                statusOwnerKey = OwnerKey.account(userId)
+                statusMessage = "请选择是否合并游客记录，再继续同步"
                 authState.offerMigration()
                 return
             }
@@ -103,6 +108,7 @@ final class AccountDataCoordinator: ObservableObject {
         }
         offeredMigrationUserId = nil
         guard isCurrent(userId: userId, operation: operation, authState: authState) else { return }
+        NotificationCenter.default.post(name: .didRestoreAccountData, object: accountOwner)
         await pushThenPull(userId: userId, mode: .full,
                            operation: operation, authState: authState)
     }
@@ -124,6 +130,8 @@ final class AccountDataCoordinator: ObservableObject {
         }
         // 有迁移选择尚未完成时，前台激活同样不得绕过同意门禁。
         guard !authState.pendingMigration && !authState.showMigrationPrompt else { return }
+        // 前台事件不能作废尚在下载的全量恢复。
+        guard syncingOwnerKey != OwnerKey.account(userId) else { return }
         let operation = beginOperation()
         await pushThenPull(userId: userId, mode: mode,
                            operation: operation, authState: authState)
@@ -134,29 +142,49 @@ final class AccountDataCoordinator: ObservableObject {
                               operation: UInt,
                               authState: AuthState) async {
         guard isCurrent(userId: userId, operation: operation, authState: authState) else { return }
+        let ownerKey = OwnerKey.account(userId)
+        syncingOwnerKey = ownerKey
+        statusOwnerKey = ownerKey
+        statusMessage = "正在同步训练记录…"
+        authState.errorMessage = nil
+        defer {
+            if generation == operation { syncingOwnerKey = nil }
+        }
         #if DEBUG
         // Identity-only UI fixtures have no server credential. Exercise the controls offline.
-        if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") { return }
+        if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") {
+            statusMessage = "测试账号未连接云端"
+            return
+        }
         #endif
         let choiceRevision = authState.syncChoiceRevision
-        await SyncQueueManager.shared.processQueue(authState: authState) {
+        let upload = await SyncQueueManager.shared.processQueue(authState: authState) {
             authState.syncChoiceRevision == choiceRevision && authState.cloudSyncEnabled && self.isCurrent(userId: userId, operation: operation, authState: authState)
         }
         guard authState.syncChoiceRevision == choiceRevision,
               isCurrent(userId: userId, operation: operation, authState: authState) else { return }
-        await pull(userId: userId, mode: mode, operation: operation, authState: authState)
+        let restore = await pull(userId: userId, mode: mode, operation: operation, authState: authState)
+        guard authState.syncChoiceRevision == choiceRevision, authState.cloudSyncEnabled,
+              isCurrent(userId: userId, operation: operation, authState: authState),
+              let restore else { return }
+        if upload.failedItems > 0 || restore.hasFailures {
+            statusMessage = "同步未完成，请重试。本机记录已保留。"
+            authState.errorMessage = statusMessage
+        } else {
+            statusMessage = "同步完成，本次恢复 \(restore.insertedSessions) 条训练记录、\(restore.insertedAngleTests) 条成绩。"
+        }
     }
 
     private func pull(userId: String,
                       mode: SyncRestoreService.Mode,
                       operation: UInt,
-                      authState: AuthState) async {
-        guard isCurrent(userId: userId, operation: operation, authState: authState) else { return }
+                      authState: AuthState) async -> SyncRestoreService.RestoreSummary? {
+        guard isCurrent(userId: userId, operation: operation, authState: authState) else { return nil }
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") { return }
+        if ProcessInfo.processInfo.arguments.contains("-v53.authenticatedProfileFixture") { return nil }
         #endif
         let choiceRevision = authState.syncChoiceRevision
-        await SyncRestoreService.shared.restore(
+        return await SyncRestoreService.shared.restore(
             userId: userId,
             mode: mode,
             expectedOwnerContext: ownerContext,
@@ -168,6 +196,7 @@ final class AccountDataCoordinator: ObservableObject {
 
     private func beginOperation() -> UInt {
         generation &+= 1
+        syncingOwnerKey = nil
         return generation
     }
 

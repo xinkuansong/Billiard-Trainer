@@ -322,6 +322,48 @@ final class PracticeStorageKeyTests: XCTestCase {
 
 import SceneKit
 
+@MainActor
+final class TrainingAssistSceneTests: XCTestCase {
+    func testAssistToggleTracksSightDirectionAndClearsOnNextQuestion() throws {
+        let suite = "TrainingAssistSceneTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults)
+        limiter.isPremium = true
+        let vm = AimingQuizViewModel(limiter: limiter)
+        vm.setupScene(initialCameraMode: .perspective3D)
+        let cue = try XCTUnwrap(vm.scene.cueStick)
+        XCTAssertTrue(cue.rootNode.isHidden)
+        vm.toggleAimingAssist()
+        XCTAssertFalse(cue.rootNode.isHidden)
+        let ghost = try XCTUnwrap(vm.scene.ghostBallNode)
+        let sphere = try XCTUnwrap(ghost.geometry as? SCNSphere)
+        XCTAssertEqual(sphere.radius, CGFloat(AngleSceneCalculator.ballRadius), accuracy: 1e-8)
+        XCTAssertFalse(ghost.isHidden)
+        let target = try XCTUnwrap(vm.scene.targetBallNodes.first)
+        XCTAssertEqual(hypot(ghost.position.x - target.position.x, ghost.position.z - target.position.z),
+                       2 * AngleSceneCalculator.ballRadius, accuracy: 1e-5)
+        for yaw: Float in [0, .pi / 2, .pi, -.pi / 2] {
+            vm.scene.cameraRig?.setAimYaw(yaw)
+            vm.scene.updateAuxiliaryCue()
+            let back = cue.rootNode.convertVector(SCNVector3(0, 0, 1), to: nil)
+            let aim = try XCTUnwrap(vm.scene.cameraRig).aimDirectionForCurrentYaw()
+            let length = hypot(back.x, back.z)
+            XCTAssertEqual(back.x / length, -aim.x, accuracy: 1e-5)
+            XCTAssertEqual(back.z / length, -aim.z, accuracy: 1e-5)
+        }
+        vm.toggleAimingAssist()
+        vm.scene.updateAuxiliaryCue()
+        XCTAssertTrue(cue.rootNode.isHidden)
+        XCTAssertTrue(ghost.isHidden)
+        vm.toggleAimingAssist()
+        vm.startTest()
+        XCTAssertTrue(cue.rootNode.isHidden)
+        XCTAssertTrue(ghost.isHidden)
+        XCTAssertFalse(vm.scene.auxiliaryCueFollowsCamera)
+    }
+}
+
 final class AngleSceneCalculatorTests: XCTestCase {
 
     private let surfaceY: Float = 0.8

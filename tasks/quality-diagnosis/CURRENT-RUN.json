@@ -1,0 +1,36 @@
+{
+  "updated_at": "2026-09-09T01:33:39.053213+08:00",
+  "notice": "Checkpoint only; verify process and terminal files before resuming.",
+  "goal_status": "complete",
+  "run": "daily-resume-20260909-001",
+  "observed_status": "terminal-reviewed-archived",
+  "exec_session_id": null,
+  "device_udid": "9A9EBD8F-2D89-4E98-A035-B71752FAB8D3",
+  "log": "archive/quality-diagnosis/observations/daily-resume-20260909-001/root-review.json",
+  "previous_terminal": "Normal CUA five-shot fourBall completion and replay preserved completion; QD034 completed reentry board mismatch. Recorder session73930 terminal0; 17 archive file SHA verified.",
+  "scope": "Normal CUA entry after midnight; old draft archived read-only; normal change to fourBall/manual strike/confirm delivered; finite legal shot attempt",
+  "next_actions": [
+    "Diagnosis delivered; future repairs and conditional supplementary tests follow final report",
+    "Preserve dedicated daily completion and replay draft; do not replay stale unlock/ending todo"
+  ],
+  "unproven": [
+    "Daily normal failure ending and all rules/midnight combinations",
+    "Real account/service/device layers, safe fault-injection seams, product-intent decisions and post-snapshot changes explicitly retained in final report"
+  ],
+  "xcodebuild_pid": null,
+  "app_pid": 79766,
+  "report": "tasks/quality-diagnosis/QUALITY-DIAGNOSIS-REPORT-20260909.md",
+  "blocking_audit": {
+    "checked_at": "2026-09-08T20:52:30.187532+08:00",
+    "condition": "Mac locked; automatic unlock failed; manual unlock required for Daily input contrast",
+    "recurrence": "Same tool-reported blocker in the turn preceding the report consolidation, the consolidation turn, and this goal continuation. Independent local work was completed meanwhile.",
+    "previous_turn_classification": "progress: favorite repository test and report/index/state reconciliation",
+    "current_turn_classification": "no progress: lock persists; no live xcodebuild or diagnostic runner process found",
+    "action_required": "User unlocks Mac and resumes task; revalidate device/day/draft before any click",
+    "preserved": "No new UI input, no draft reset, no repeated XCTest",
+    "resolved": "CUA available 2026-09-09 01:18; observed dedicated simulator; no XCTest running"
+  },
+  "recorder_session_id": null,
+  "completion_audit": "tasks/quality-diagnosis/COMPLETION-AUDIT-20260909.md",
+  "final_process_check": "No diagnosis test/recorder running. An unrelated xcodebuild -version PlatformPath SDK query was observed and left untouched."
+}

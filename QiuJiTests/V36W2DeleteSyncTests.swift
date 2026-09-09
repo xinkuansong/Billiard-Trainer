@@ -49,6 +49,7 @@ final class V36W2DeleteSyncTests: XCTestCase {
         repo = LocalTrainingSessionRepository(context: context)
         authState = AuthState()
         authState.login(user: AppUser(id: "u1", provider: .apple))
+        authState.setCloudSyncEnabled(true)
     }
 
     override func tearDown() {
@@ -119,7 +120,7 @@ final class V36W2DeleteSyncTests: XCTestCase {
 
     // MARK: - 失败分类（Q4）
 
-    func test_permanentFailure_4xx_dequeuesWithoutRetry() async throws {
+    func test_rejectedRequest_4xx_retainsWorkAndReportsFailure() async throws {
         let mock = MockSyncBackend(
             errorToThrow: AppError.serverError(statusCode: 400, message: "clientId 非法")
         )
@@ -131,13 +132,13 @@ final class V36W2DeleteSyncTests: XCTestCase {
         await SyncQueueManager.shared.processQueue(authState: authState)
         let afterFirst = try pendingItems().count
 
-        // 再跑一轮：项已出队，后端不应被二次调用。
+        // A rejected request must remain visible and retryable after a fix.
         await SyncQueueManager.shared.processQueue(authState: authState)
         let calls = await mock.deletedClientIds
         print("[W2-分类] 4xx 后剩余队列=\(afterFirst) 后端累计调用=\(calls.count)")
 
-        XCTAssertEqual(afterFirst, 0, "4xx 是永久失败，必须出队")
-        XCTAssertEqual(calls.count, 1, "出队后不得再重试")
+        XCTAssertEqual(afterFirst, 1, "拒绝的请求不得静默丢弃")
+        XCTAssertEqual(calls.count, 2, "修复服务后仍须能重试")
     }
 
     func test_networkError_keepsItemForRetry() async throws {

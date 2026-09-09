@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct LoginView: View {
+    /// The presenter commits the identity after this sheet has finished dismissing.
+    var onAuthenticated: ((AppUser) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
     @EnvironmentObject private var authState: AuthState
@@ -124,7 +126,8 @@ struct LoginView: View {
             defer { isAppleSignInLoading = false }
             do {
                 let user = try await AuthService.shared.loginWithApple()
-                authState.login(user: user)
+                if let onAuthenticated { onAuthenticated(user) }
+                else { authState.login(user: user) }
                 dismiss()
             } catch let error as AppError {
                 if case .authFailed(let msg) = error, msg == "已取消 Apple 登录" {

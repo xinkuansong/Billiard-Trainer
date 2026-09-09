@@ -161,10 +161,11 @@ struct BTGhostCircle: View {
 /// 瞄准点红点（假想球球心，线语言 v2 条 1.6/4.2）。
 struct BTAimPointDot: View {
     let diameter: CGFloat
+    var color: Color = FigureLine.aimPoint
 
     var body: some View {
         Circle()
-            .fill(FigureLine.aimPoint)
+            .fill(color)
             .frame(width: diameter, height: diameter)
             .shadow(color: .black.opacity(0.5), radius: 1)
     }
@@ -173,10 +174,11 @@ struct BTAimPointDot: View {
 /// 接触点绿点（§1.3 L0）。
 struct BTContactDot: View {
     let diameter: CGFloat
+    var color: Color = FigureLine.contact
 
     var body: some View {
         Circle()
-            .fill(FigureLine.contact)
+            .fill(color)
             .frame(width: diameter, height: diameter)
             .shadow(color: .black.opacity(0.5), radius: 1)
     }

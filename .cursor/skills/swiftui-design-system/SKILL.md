@@ -849,3 +849,7 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
   - `btDisplay` 48→44、`btDisplaySmall` 36→30、`btLargeTitle` 34→32、`btChapterNumber` 32→26、`btTitle` 22→20、`btTitle2` 20→18、`btTitleMedium` 19→17、`btStatNumber` 28→24
   - 新增 `btSubheadlineSemibold`（15pt semibold）、`btFootnote14`（14pt）、`btMicro`（10pt）的文档化
   - 新增「使用原则」中四条避坑指引：避免 `btTitle2` 滥用列表卡片、避免 `btDisplaySmall` 用作卡片统计数字、避免 `btTitleMedium` 作强调正文、`.system(size:)` 保留场景定义
+
+
+## 引导特例（DR-120，2026-09-08）
+用户批准 A2 深色品牌引导：仅 OnboardingView 固定深色，使用 btIntroBackground / btIntroForeground / btIntroRule 色板及 btIntroTitle 内置 OFL Noto Serif SC 子集 QiuJiIntroSerif-Bold（Dynamic Type）。这不是通用页面新默认；五页图解与原生文字/按钮分离。

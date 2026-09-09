@@ -19,7 +19,9 @@ def main():
     config = json.loads(Path(sys.argv[1]).read_text())
     repo = Path(__file__).resolve().parents[2]
     base = repo / 'build/quality-diagnosis'
-    snapshot = base / 'snapshot-002'
+    snapshot_name = config.get('snapshot', 'snapshot-002')
+    assert snapshot_name in ['snapshot-002', 'snapshot-003', 'snapshot-004']
+    snapshot = base / snapshot_name
     name = config['run']
     assert re.fullmatch(r'formal-[a-z0-9-]+', name)
     assert re.fullmatch(r'[0-9A-Fa-f-]{36}', config['udid'])
@@ -66,7 +68,8 @@ def main():
         assert scheme_path.is_file()
         files.append(scheme_path)
     hashes = {str(p.relative_to(snapshot)):hashlib.sha256(p.read_bytes()).hexdigest() for p in files if p.is_file()}
-    (run/'inputs.json').write_text(json.dumps({'config':config,'hashes':hashes,'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'production_baseline':'b0/formal-baseline.json','started':datetime.datetime.now().astimezone().isoformat()}, indent=2))
+    baseline = {'snapshot-002': 'b0/formal-baseline.json', 'snapshot-003': 'resume-20260907/source-before.json', 'snapshot-004': 'resume004/source-before.json'}[snapshot_name]
+    (run/'inputs.json').write_text(json.dumps({'config':config,'hashes':hashes,'runner_sha256':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'production_baseline':baseline,'started':datetime.datetime.now().astimezone().isoformat()}, indent=2))
     (run/'command.json').write_text(json.dumps(args, indent=2))
     (run/'selectors.txt').write_text('\n'.join(selectors)+'\n')
     with (run/'make.log').open('w') as log:

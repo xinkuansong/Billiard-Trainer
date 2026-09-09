@@ -2236,3 +2236,26 @@ DR-113补充：新建模版入口改为居中、内容宽度的紧凑按钮，�
 - **原因**：用户要求与 App 整体一致，并基于现有可用功能讲解，不将免费能力包装成付费权益。
 - **日期**：2026-09-07
 - **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`docs/05`、`docs/08`；详见 `tasks/ui-reviews/UR-20260907-onboarding-pro-v1.md`。
+
+
+## DR-120 — A2 五页深色引导试装（2026-09-08）
+- **用户确认**：选择 A2，第三/四页真实感球桌，第四页横向蛇彩围8，并要求放入 App 看效果。
+- **调整**：认识球迹扩为五页，沿用可选 sheet；引导独立墨绿/暖白色板，内置 OFL 思源宋体子集可缩放标题，原生分页/继续/跳过；A2 位图仅用作图解，布局不改变账户状态。
+- **范围**：仅引导页使用固定深色品牌表面；其他页面保留原外观策略。生成球桌仅表达产品介绍，不用作物理教学精度证据。
+- **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md Changelog / DR-120；.cursor/skills/swiftui-design-system/SKILL.md 引导特例；docs/05 可选产品介绍。
+- **验证**：output/onboarding-app-a2，构建及 UI 结果以最终报告为准。
+
+
+## DR-121 — 训练辅助立体假想球与小点分色（2026-09-08）
+- **用户裁定**：3D 角度训练辅助开启同现球杆；假想球为母球同尺寸半透明乳白球，瞄准点青蓝、接触点橙黄，直径约减半。
+- **实现**：`setupVisualizationNodes(usesTrainingAssistStyle:)` 显式启用训练样式；默认消费者保留旧圈与配色。球心沿用 DR-118；球杆跟随当前观察 yaw，关闭辅助/结果/换题清理。两点按真实投影位置作为覆盖标记，保证半透明球和目标球不吞掉小点。
+- **瞄准点页**：按 3D 瞄准点训练解释，保留既有球杆、G1 垂足和射线球面交点定义；未新增辅助开关或假想球。其 2D 共用页及近区特写同步小点配色。独立拖圈练习不变。
+- **回写目标 / 已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` § 训练辅助 / Changelog；颜色与半径真源 `TrajectoryStyle.TrainingAssist`。
+- **验证**：见 `tasks/ui-reviews/UR-20260908-training-assist.md`；模拟器结果不外推真机。
+
+
+## DR-122 — 记录页分段标题图标（2026-09-09）
+- 用户要求历史/统计文字前加图标；复用 BTIcon.clockHistory / chartBar。
+- BTSegmentedTab 新增可选 systemImage，默认 nil；图文共享原字体/配色，图标不重复朗读。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §2.7 / Changelog。
+- 验证证据：output/history-tab-icons/，最终结果见 tasks/ui-reviews/UR-20260909-history-tab-icons.md。

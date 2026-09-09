@@ -75,6 +75,23 @@ final class ThousandHistoryUIDiagnosticUITests: XCTestCase {
         ready(app.buttons["统计"].firstMatch)
         return index
     }
+    // Focused continuation after the original run proved both history samples.
+    // Original failing method remains unchanged; actual zh_CN AX uses 1,000.
+    func testLocalizedStatisticsGroupCountAndReturnToHistory() throws {
+        app.switchTab(.history)
+        let statistics = app.buttons["统计"].firstMatch; ready(statistics); statistics.tap()
+        let rate = app.staticTexts["80%"].firstMatch; reveal(rate); ready(rate)
+        let total = app.staticTexts["8000/10000 球"].firstMatch
+        let groups = app.staticTexts["1,000 组"].firstMatch
+        ready(total); ready(groups)
+        XCTAssertLessThan(abs(total.frame.midY - groups.frame.midY), 12,
+                          "Count and attempts must belong to the same category row")
+        capture("localized-statistics-rate")
+        let history = app.buttons["历史"].firstMatch; ready(history); history.tap()
+        let rows = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND label CONTAINS %@", "半台直线球", "2 分钟"))
+        ready(rows.firstMatch)
+        capture("localized-history-returned"); assertSameDay()
+    }
     func testNormalHistorySamplesAfterScrollingAndStatisticsTotals() throws {
         app.switchTab(.history)
         let first = try sampleVisibleRow("first-detail")

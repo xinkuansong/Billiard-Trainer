@@ -11,6 +11,7 @@ struct ProfileView: View {
     @Query(sort: \TrainingSession.date, order: .reverse) private var trainingSessions: [TrainingSession]
     @StateObject private var profile: OwnerProfileStore
     @State private var showLoginSheet = false
+    @State private var pendingLoginUser: AppUser?
     @State private var showSubscription = false
     @State private var showOnboarding = false
 
@@ -82,8 +83,13 @@ struct ProfileView: View {
                 }
             }
         }
-        .sheet(isPresented: $showLoginSheet) {
-            LoginView()
+        .sheet(isPresented: $showLoginSheet, onDismiss: {
+            if let user = pendingLoginUser {
+                pendingLoginUser = nil
+                authState.login(user: user)
+            }
+        }) {
+            LoginView(onAuthenticated: { pendingLoginUser = $0 })
         }
         .sheet(isPresented: $showSubscription) {
             SubscriptionView()
@@ -101,7 +107,7 @@ struct ProfileView: View {
             Button("合并并同步") { authState.confirmMigration() }
             Button("不合并", role: .cancel) { authState.dismissMigration() }
         } message: {
-            Text("合并后，游客期间的记录将归入当前账号并上传。不合并则保留在游客模式下，账号云同步仍保持开启。")
+            Text("合并后，游客期间的数据将归入当前账号，训练记录与角度、瞄准成绩会上传。收藏、计划和训练安排目前仅保存在本机。不合并则保留在游客模式下，账号云同步仍保持开启。")
         }
         .alert("同步失败", isPresented: Binding(
             get: { authState.errorMessage != nil },

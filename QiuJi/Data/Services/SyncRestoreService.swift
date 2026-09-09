@@ -90,6 +90,10 @@ final class SyncRestoreService: ObservableObject {
         var skippedSessions = 0
         var insertedAngleTests = 0
         var skippedAngleTests = 0
+        var failedSessions = false
+        var failedAngleTests = false
+
+        var hasFailures: Bool { failedSessions || failedAngleTests }
     }
 
     func configure(context: ModelContext) {
@@ -133,6 +137,8 @@ final class SyncRestoreService: ObservableObject {
         guard shouldContinue() else { return summary }
         guard let context else {
             print("[SyncRestore] 未 configure(context:)，跳过恢复 userId=\(userId)")
+            summary.failedSessions = true
+            summary.failedAngleTests = true
             return summary
         }
 
@@ -160,13 +166,17 @@ final class SyncRestoreService: ObservableObject {
             // 静默吞下等于「恢复功能看起来跑过了其实什么都没拉」（FL-029）。
             print("[SyncRestore] 拉取训练记录失败 after=\(String(describing: after)) " +
                   "error=\(describe(error))")
+            summary.failedSessions = true
             return
         }
         guard shouldContinue() else { return }
         if let expectedOwnerContext, expectedOwnerContext.ownerKey != ownerKey { return }
         guard !records.isEmpty else { return }
 
-        guard let skipIds = pendingDeleteSessionIds(ownerKey: ownerKey, context: context) else { return }
+        guard let skipIds = pendingDeleteSessionIds(ownerKey: ownerKey, context: context) else {
+            summary.failedSessions = true
+            return
+        }
         var insertedThisBatch = Set<UUID>()
 
         for record in records {
@@ -191,8 +201,15 @@ final class SyncRestoreService: ObservableObject {
             summary.insertedSessions += 1
         }
 
-        guard save(context: context, what: "训练记录") else { return }
+        guard save(context: context, what: "训练记录") else {
+            summary.failedSessions = true
+            summary.insertedSessions = 0
+            return
+        }
         advanceAnchor(from: records.map(\.updatedAt), kind: .sessions, userId: userId)
+        if summary.insertedSessions > 0 {
+            NotificationCenter.default.post(name: .didRestoreAccountData, object: ownerKey)
+        }
     }
 
     private func restoreAngleTests(userId: String, ownerKey: String, mode: Mode,
@@ -207,6 +224,7 @@ final class SyncRestoreService: ObservableObject {
         } catch {
             print("[SyncRestore] 拉取角度成绩失败 after=\(String(describing: after)) " +
                   "error=\(describe(error))")
+            summary.failedAngleTests = true
             return
         }
         guard shouldContinue() else { return }
@@ -231,8 +249,15 @@ final class SyncRestoreService: ObservableObject {
             summary.insertedAngleTests += 1
         }
 
-        guard save(context: context, what: "角度成绩") else { return }
+        guard save(context: context, what: "角度成绩") else {
+            summary.failedAngleTests = true
+            summary.insertedAngleTests = 0
+            return
+        }
         advanceAnchor(from: records.map(\.updatedAt), kind: .angleTests, userId: userId)
+        if summary.insertedAngleTests > 0 {
+            NotificationCenter.default.post(name: .didRestoreAccountData, object: ownerKey)
+        }
     }
 
     // MARK: - 合并辅助

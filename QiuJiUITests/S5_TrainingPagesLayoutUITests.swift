@@ -40,6 +40,40 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         }
     }
 
+    func testTrainingAssist3D() throws {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        XCTAssertTrue(openCard(homeTab: "练", title: "3D 角度训练"))
+        XCTAssertTrue(startAimingTrainingFromSheet())
+        let assist = app.buttons["辅助"].firstMatch
+        XCTAssertTrue(assist.waitForExistence(timeout: 5))
+        snap("training-3D-off")
+        assist.tap()
+        let hide = app.buttons["隐藏"].firstMatch
+        XCTAssertTrue(hide.waitForExistence(timeout: 5))
+        snap("training-3D-on")
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.55))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.55)))
+        snap("training-3D-rotated")
+        hide.tap()
+        XCTAssertTrue(assist.waitForExistence(timeout: 5))
+        snap("training-3D-hidden")
+    }
+
+    func testAimPointTrainingMarkers3D() throws {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        XCTAssertTrue(openCard(homeTab: "练", title: "3D 瞄准点训练"))
+        XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 5))
+        snap("aim-point-3D-aiming")
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.55))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.55)))
+        snap("aim-point-3D-adjusted")
+        XCTAssertTrue(app.buttons["提交"].isHittable)
+    }
+
     @discardableResult
     private func switchAngleHomeTab(_ name: String) -> Bool {
         let seg = app.buttons["angleHomeTab_\(name)"]

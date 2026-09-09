@@ -53,6 +53,82 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "0")
     }
 
+    func testDeclineLogoutReloginThenEnableRestoresTraining() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-syncRepair.loginSheet", "-v50.inMemoryStore", "-v51.followSystemAppearance"])
+        app.switchTab(.profile)
+        let login = app.buttons["profile.login"]
+        XCTAssertTrue(login.waitForExistence(timeout: 5))
+        login.tap()
+        app.buttons["通过 Apple 登录"].tap()
+        let prompt = app.alerts["开启训练数据云同步？"]
+        XCTAssertTrue(prompt.waitForExistence(timeout: 8), "登录 sheet 关闭后必须呈现同步选择")
+        captureSyncChoice("repair-login-choice")
+        prompt.buttons["仅保存在本机"].tap()
+        app.switchTab(.history)
+        XCTAssertFalse(app.staticTexts["23 分钟"].exists)
+        app.switchTab(.profile)
+        let logout = app.buttons["退出登录"]
+        for _ in 0..<4 where !logout.isHittable { app.swipeUp() }
+        logout.tap()
+        if app.alerts.buttons["退出登录"].waitForExistence(timeout: 2) {
+            app.alerts.buttons["退出登录"].tap()
+        }
+        XCTAssertTrue(login.waitForExistence(timeout: 8))
+        login.tap()
+        app.buttons["通过 Apple 登录"].tap()
+        XCTAssertTrue(app.buttons["profile.accountHeader"].waitForExistence(timeout: 8))
+        XCTAssertFalse(prompt.exists, "拒绝的选择应保留，设置仍可重新开启")
+        app.staticTexts["偏好设置"].tap()
+        let toggle = app.switches["settings.cloudSync"]
+        for _ in 0..<5 where !toggle.isHittable { app.swipeUp() }
+        XCTAssertEqual(toggle.value as? String, "0")
+        toggle.tap()
+        let status = app.staticTexts["settings.syncStatus"]
+        for _ in 0..<3 where !status.isHittable { app.swipeUp() }
+        XCTAssertTrue(status.waitForExistence(timeout: 8))
+        XCTAssertTrue(status.label.contains("恢复 1 条训练记录"), status.label)
+        captureSyncChoice("repair-settings-restored")
+        let sync = app.buttons["settings.syncNow"]
+        XCTAssertTrue(sync.isHittable)
+        sync.tap()
+        XCTAssertTrue(status.label.contains("恢复 0 条训练记录"), "重复恢复不能产生重复记录")
+        app.navigationBars.buttons.firstMatch.tap()
+        app.switchTab(.history)
+        XCTAssertTrue(app.staticTexts["23 分钟"].waitForExistence(timeout: 8))
+        app.swipeUp()
+        XCTAssertTrue(app.staticTexts["23 分钟"].isHittable)
+        captureSyncChoice("repair-history-restored")
+    }
+
+    func testRestoreFailureAndGuestMergeAreVisible() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-syncRepair.loginSheet", "-syncRepair.guestData", "-syncRepair.restoreFailure", "-v50.inMemoryStore", "-v51.followSystemAppearance"])
+        app.switchTab(.profile)
+        app.buttons["profile.login"].tap()
+        app.buttons["通过 Apple 登录"].tap()
+        let choice = app.alerts["开启训练数据云同步？"]
+        XCTAssertTrue(choice.waitForExistence(timeout: 8))
+        choice.buttons["开启云同步"].tap()
+        let merge = app.alerts["合并本机游客记录？"]
+        XCTAssertTrue(merge.waitForExistence(timeout: 8), "开启云同步后游客合并提示不可丢失")
+        captureSyncChoice("repair-guest-merge")
+        merge.buttons["合并并同步"].tap()
+        let failure = app.alerts["同步失败"]
+        XCTAssertTrue(failure.waitForExistence(timeout: 8))
+        captureSyncChoice("repair-sync-failure")
+        failure.buttons["确定"].tap()
+        app.staticTexts["偏好设置"].tap()
+        let sync = app.buttons["settings.syncNow"]
+        for _ in 0..<5 where !sync.isHittable { app.swipeUp() }
+        let status = app.staticTexts["settings.syncStatus"]
+        XCTAssertTrue(status.label.contains("同步未完成"))
+        captureSyncChoice("repair-failure-settings")
+        sync.tap()
+        XCTAssertTrue(failure.waitForExistence(timeout: 8), "设置内重试失败也必须可见")
+        failure.buttons["确定"].tap()
+    }
+
     private func captureSyncChoice(_ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name

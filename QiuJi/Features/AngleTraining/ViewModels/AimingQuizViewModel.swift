@@ -147,7 +147,7 @@ final class AimingQuizViewModel: ObservableObject {
                     enhanced: Bool = false,
                     autoStart: Bool = true) {
         scene.setupScene(enhancedRendering: enhanced)
-        scene.setupVisualizationNodes()
+        scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
         pocketMarkers = scene.addPocketMarkers()
 
         scene.setCameraMode(initialCameraMode, animated: false)
@@ -187,6 +187,7 @@ final class AimingQuizViewModel: ObservableObject {
             showAimingAssistVisualization()
         } else {
             scene.hideAllVisualization()
+            scene.hideCueStick()
         }
     }
 
@@ -349,7 +350,10 @@ final class AimingQuizViewModel: ObservableObject {
             showLineLabels: shouldShowLineLabels,
             extendStrikeLineToRail: true
         )
-        scene.hideCueStick()
+        if scene.currentCameraMode == .perspective3D {
+            scene.auxiliaryCueFollowsCamera = true
+            scene.updateAuxiliaryCue()
+        }
     }
 
     private func showResultVisualization() {
@@ -386,6 +390,7 @@ final class AimingQuizViewModel: ObservableObject {
     }
 
     private func clearResult() {
+        scene.hideCueStick()
         scene.clearResultNodes(nodes: &resultNodes)
         scene.hideAllVisualization()
     }

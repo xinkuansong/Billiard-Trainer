@@ -60,18 +60,24 @@ final class SyncQueueManager: ObservableObject {
 
     // MARK: - Process Queue
 
-    /// 一个队列项的处理结果。`permanentFailure` 与 `succeeded` 都会出队，
-    /// 区别只在前者要打日志——服务端明确拒绝时重试永远不会变成功。
+    /// Only successful operations leave the queue. Rejections remain available for
+    /// retry after a server/client fix; dropping them silently loses backup work.
     private enum ItemOutcome {
         case succeeded
         case permanentFailure(String)
         case retryLater(String)
     }
 
-    func processQueue(authState: AuthState, shouldContinue: () -> Bool = { true }) async {
-        guard shouldContinue() else { return }
-        guard authState.isLoggedIn, let userID = authState.currentUser?.id else { return }
-        guard let context else { return }
+    struct UploadSummary {
+        var failedItems = 0
+    }
+
+    @discardableResult
+    func processQueue(authState: AuthState, shouldContinue: () -> Bool = { true }) async -> UploadSummary {
+        var summary = UploadSummary()
+        guard shouldContinue(), authState.cloudSyncEnabled else { return summary }
+        guard authState.isLoggedIn, let userID = authState.currentUser?.id else { return summary }
+        guard let context else { summary.failedItems += 1; return summary }
         let ownerKey = OwnerKey.account(userID)
 
         let descriptor = FetchDescriptor<SyncPendingItem>(
@@ -84,21 +90,25 @@ final class SyncQueueManager: ObservableObject {
         } catch {
             // 取不出队列 = 整条同步链路静默停摆，必须留痕（FL-029）。
             print("[SyncQueue] 读取待同步队列失败 error=\(error)")
-            return
+            summary.failedItems += 1
+            return summary
         }
-        guard !pending.isEmpty else { return }
+        guard !pending.isEmpty else { return summary }
 
         for item in pending {
             guard shouldContinue(), authState.isLoggedIn, authState.currentUser?.id == userID else { break }
             let outcome = await process(item, ownerKey: ownerKey, context: context)
+            guard shouldContinue(), authState.cloudSyncEnabled,
+                  authState.isLoggedIn, authState.currentUser?.id == userID else { break }
             switch outcome {
             case .succeeded:
                 context.delete(item)
             case .permanentFailure(let reason):
-                print("[SyncQueue] 永久失败，丢弃队列项 entityType=\(item.entityType) " +
+                summary.failedItems += 1
+                print("[SyncQueue] 请求被拒绝，保留队列项 entityType=\(item.entityType) " +
                       "entityId=\(item.entityId) operation=\(item.operation) \(reason)")
-                context.delete(item)
             case .retryLater(let reason):
+                summary.failedItems += 1
                 print("[SyncQueue] 暂时失败，保留重试 entityType=\(item.entityType) " +
                       "entityId=\(item.entityId) operation=\(item.operation) \(reason)")
             }
@@ -110,7 +120,9 @@ final class SyncQueueManager: ObservableObject {
             // 出队没落盘 ⇒ 下次激活会重复上传。上传端点按 clientId upsert、删除端点幂等，
             // 重复不产生脏数据，但必须能看见，否则队列「删不掉」会变成无声的死循环。
             print("[SyncQueue] 队列出队保存失败，本轮出队未落盘（下次激活会重跑）error=\(error)")
+            summary.failedItems += 1
         }
+        return summary
     }
 
     private func process(_ item: SyncPendingItem, ownerKey: String,
@@ -123,7 +135,7 @@ final class SyncQueueManager: ObservableObject {
                                                context: context)
         case (SyncEntityType.angleTestResult, SyncOperation.delete):
             // 客户端目前没有单条角度成绩的删除入口（v36 W2 走查确认），后端也没有对应端点。
-            // 真出现这种项只能是脏数据：留着会每次激活重试，故直接丢弃并留痕。
+            // Unsupported work is retained and reported rather than silently discarded.
             return .permanentFailure("AngleTestResult 删除同步未实现")
         case (SyncEntityType.angleTestResult, _):
             return await uploadAngleTest(clientId: item.entityId, ownerKey: ownerKey,
@@ -180,7 +192,7 @@ final class SyncQueueManager: ObservableObject {
     }
 
     /// 失败分类（v36 Q4）：只有「服务端明确拒绝且重试不会改变结果」才算永久失败。
-    /// - 4xx：请求本身有问题（如字段非法），重试多少次都一样 ⇒ 出队。
+    /// - 4xx：请求本身有问题（如字段非法），保留并报告，等待客户端/服务端修复。
     ///   例外 401 / 408 / 429：分别是 token 过期、超时、限流，都会随时间/重新登录恢复 ⇒ 保留。
     /// - 5xx / 网络错误 / 解码失败：服务端或链路问题，可能自愈 ⇒ 保留重试。
     private func classify(_ error: Error) -> ItemOutcome {

@@ -191,6 +191,102 @@ final class V53AccountDataCoordinatorTests: XCTestCase {
         XCTAssertEqual(angles, 0)
     }
 
+    func test_declineLogoutReloginEnable_restoresRemoteRecordAndNotifiesAfterSave() async throws {
+        let remote = TrainingSession(ownerKey: OwnerKey.account("user-a"))
+        remote.note = "来自云端的训练心得"
+        let delayed = DelayedCoordinatorRestoreBackend(dto: TrainingSessionDTO(from: remote))
+        SyncRestoreService.shared.backend = delayed
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(false)
+        await auth.logout()
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertFalse(auth.cloudSyncEnabled)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<TrainingSession>()).isEmpty)
+
+        let notification = expectation(forNotification: .didRestoreAccountData, object: nil) {
+            $0.object as? String == OwnerKey.account("user-a")
+        }
+        auth.setCloudSyncEnabled(true)
+        let task = Task { await coordinator.handleCompletedLogin(userId: "user-a", authState: auth) }
+        await delayed.waitUntilRequested()
+        // Foreground activation during a full restore must not invalidate that restore.
+        await coordinator.syncActiveAccount(mode: .incremental, authState: auth)
+        await delayed.resume()
+        await task.value
+        await fulfillment(of: [notification], timeout: 2)
+        let stored = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(stored.count, 1)
+        XCTAssertEqual(stored.first?.id, remote.id)
+        XCTAssertEqual(stored.first?.note, remote.note)
+        XCTAssertEqual(stored.first?.ownerKey, OwnerKey.account("user-a"))
+        XCTAssertNil(auth.errorMessage)
+        XCTAssertNil(coordinator.syncingOwnerKey)
+        XCTAssertTrue(coordinator.statusMessage?.contains("恢复 1 条训练记录") == true)
+    }
+
+    func test_failedRestoreIsVisible_andRetryClearsFailure() async throws {
+        SyncRestoreService.shared.backend = FailingCoordinatorRestoreBackend()
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertNotNil(auth.errorMessage)
+        XCTAssertEqual(coordinator.statusMessage, "同步未完成，请重试。本机记录已保留。")
+        XCTAssertNil(coordinator.syncingOwnerKey)
+        SyncRestoreService.shared.backend = restoreBackend
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertNil(auth.errorMessage)
+        XCTAssertTrue(coordinator.statusMessage?.hasPrefix("同步完成") == true)
+    }
+
+    func test_declinedGuestMerge_canBeOfferedAgainWithoutChangingOwner() async throws {
+        let guest = TrainingSession(ownerKey: ownerContext.guestOwnerKey)
+        context.insert(guest)
+        try context.save()
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        auth.dismissMigration()
+        await coordinator.declineGuestMigration(userId: "user-a", authState: auth)
+        XCTAssertEqual(guest.ownerKey, ownerContext.guestOwnerKey)
+        await auth.logout()
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth, offerGuestMigration: false)
+        // Manual sync offers the separate guest decision again.
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertTrue(auth.showMigrationPrompt)
+        auth.confirmMigration()
+        await coordinator.confirmGuestMigration(userId: "user-a", authState: auth)
+        XCTAssertEqual(guest.ownerKey, OwnerKey.account("user-a"))
+        XCTAssertEqual(try context.fetch(FetchDescriptor<TrainingSession>()).count, 1)
+    }
+
+    func test_rejectedUploadRemainsRetryable_andDisabledQueueDoesNotUpload() async throws {
+        let account = OwnerKey.account("user-a")
+        let record = TrainingSession(ownerKey: account)
+        context.insert(record)
+        try context.save()
+        SyncQueueManager.shared.enqueue(entityType: SyncEntityType.trainingSession,
+                                        entityId: record.id, operation: SyncOperation.create,
+                                        ownerKey: account)
+        auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(false)
+        await SyncQueueManager.shared.processQueue(authState: auth)
+        let disabledCalls = await syncBackend.uploadCount
+        XCTAssertEqual(disabledCalls, 0)
+        XCTAssertEqual(SyncQueueManager.shared.pendingCount(ownerKey: account), 1)
+        await syncBackend.setFailure(.serverError(statusCode: 400, message: "rejected"))
+        auth.setCloudSyncEnabled(true)
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertNotNil(auth.errorMessage)
+        XCTAssertEqual(SyncQueueManager.shared.pendingCount(ownerKey: account), 1)
+        await syncBackend.setFailure(nil)
+        await coordinator.handleCompletedLogin(userId: "user-a", authState: auth)
+        XCTAssertNil(auth.errorMessage)
+        XCTAssertEqual(SyncQueueManager.shared.pendingCount(ownerKey: account), 0)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<TrainingSession>()).first?.id, record.id)
+    }
+
     func test_pendingDeletionCleanupRetriesOnNextConfigure() throws {
         let account = OwnerKey.account("deleted-user")
         let session = TrainingSession(ownerKey: account)
@@ -227,7 +323,12 @@ private struct CoordinatorCredentialStore: AuthCredentialStore {
 
 private actor CoordinatorSyncBackend: SyncBackend {
     private(set) var uploadCount = 0
-    func uploadSession(_ dto: TrainingSessionDTO) async throws { uploadCount += 1 }
+    private var failure: AppError?
+    func setFailure(_ error: AppError?) { failure = error }
+    func uploadSession(_ dto: TrainingSessionDTO) async throws {
+        uploadCount += 1
+        if let failure { throw failure }
+    }
     func uploadAngleTest(_ dto: AngleTestDTO) async throws { uploadCount += 1 }
     func deleteSession(clientId: String) async throws { uploadCount += 1 }
 }
@@ -284,5 +385,14 @@ private actor DelayedCoordinatorRestoreBackend: SyncRestoreBackend {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = APIDateCoding.decodingStrategy
         return try decoder.decode([SyncedRecord<TrainingSessionDTO>].self, from: payload)
+    }
+}
+
+private struct FailingCoordinatorRestoreBackend: SyncRestoreBackend {
+    func fetchSessions(after: Date?) async throws -> [SyncedRecord<TrainingSessionDTO>] {
+        throw AppError.networkError("offline")
+    }
+    func fetchAngleTests(after: Date?) async throws -> [SyncedRecord<AngleTestDTO>] {
+        throw AppError.networkError("offline")
     }
 }

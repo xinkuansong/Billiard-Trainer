@@ -256,6 +256,33 @@ struct SettingsView: View {
                         Text("关闭后不再上传或下载训练数据，已保存在本机和云端的记录会保留。")
                             .font(.btCaption)
                             .foregroundStyle(.btTextSecondary)
+                        Text("同步训练记录与角度、瞄准成绩。收藏、计划和训练安排目前仅保存在本机。")
+                            .font(.btCaption)
+                            .foregroundStyle(.btTextSecondary)
+                        if authState.cloudSyncEnabled {
+                            Button {
+                                guard let userId = authState.currentUser?.id else { return }
+                                Task {
+                                    await dataCoordinator.handleCompletedLogin(userId: userId, authState: authState)
+                                }
+                            } label: {
+                                Text(dataCoordinator.syncingOwnerKey == ownerContext.ownerKey ? "正在同步…" : "立即同步训练记录")
+                                    .font(.btCallout)
+                                    .foregroundStyle(.btPrimary)
+                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                    .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(dataCoordinator.syncingOwnerKey == ownerContext.ownerKey)
+                            .accessibilityIdentifier("settings.syncNow")
+                            if dataCoordinator.statusOwnerKey == ownerContext.ownerKey,
+                               let message = dataCoordinator.statusMessage {
+                                Text(message)
+                                    .font(.btCaption)
+                                    .foregroundStyle(.btTextSecondary)
+                                    .accessibilityIdentifier("settings.syncStatus")
+                            }
+                        }
                     }
                     .padding(Spacing.lg)
                     Divider().padding(.leading, Spacing.lg)

@@ -69,6 +69,90 @@ final class TrainingJourneyDiagnosticUITests: XCTestCase {
         try capture("official-normal-session-started")
     }
 
+    func testNormalOfficialPlanOneLessonTwoActionsExpandAndStart() throws {
+        app.switchTab(.training)
+        let plan = app.buttons["planPoster-plan_beginner"]
+        reveal(plan); ready(plan); plan.tap()
+        let primary = app.buttons["planDetail.primaryCTA"]
+        ready(primary); XCTAssertEqual(primary.label, "开始此计划")
+        primary.tap()
+        let confirm = app.alerts.buttons["确定激活"]
+        ready(confirm); confirm.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "编排今天"), object: primary)], timeout: 10), .completed)
+        primary.tap()
+        XCTAssertTrue(app.navigationBars["编排今天"].waitForExistence(timeout: 8))
+        let summary = app.descendants(matching: .any)["planDetail.arrangementSummary"].firstMatch
+        reveal(summary); XCTAssertTrue(summary.label.contains("将加入 1 项"))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '当前' AND label CONTAINS '已选择'")).firstMatch.exists)
+        try capture("official-current-lesson-selected")
+        tap("planDetail.addToToday")
+        XCTAssertTrue(app.navigationBars["编排今天"].waitForNonExistence(timeout: 8))
+        back()
+        let today = app.descendants(matching: .any)["trainingHome.todaySummary"].firstMatch
+        for _ in 0..<10 {
+            if today.exists && today.isHittable { break }
+            app.swipeDown()
+        }
+        try capture("official-home-one-lesson-two-actions")
+        // Frozen plan_beginner.stage01.lesson01 contains c012 and c009.
+        // Arrangement counts lessons, whereas the home summary counts actions.
+        XCTAssertTrue(today.exists); XCTAssertTrue(today.label.contains("0 / 2"))
+        let lesson = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label CONTAINS %@", "trainingHome.scheduleItem.", "基本功 · 第1课")).firstMatch
+        ready(lesson)
+        XCTAssertEqual(lesson.value as? String, "已折叠")
+        lesson.tap()
+        XCTAssertEqual(lesson.value as? String, "已展开")
+        XCTAssertTrue(app.staticTexts["中袋直线出杆"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["底袋直线出杆"].firstMatch.exists)
+        try capture("official-lesson-expanded-two-actions")
+        let start = app.buttons["开始这节课"].firstMatch
+        reveal(start); ready(start); start.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activeTraining.timer"].firstMatch.waitForExistence(timeout: 10))
+        try capture("official-normal-session-started")
+    }
+
+    func testNormalOfficialPlanObservedLessonIdentifierAndStart() throws {
+        app.switchTab(.training)
+        let plan = app.buttons["planPoster-plan_beginner"]
+        reveal(plan); ready(plan); plan.tap()
+        let primary = app.buttons["planDetail.primaryCTA"]
+        ready(primary); XCTAssertEqual(primary.label, "开始此计划")
+        primary.tap()
+        let confirm = app.alerts.buttons["确定激活"]
+        ready(confirm); confirm.tap()
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "编排今天"), object: primary)], timeout: 10), .completed)
+        primary.tap()
+        XCTAssertTrue(app.navigationBars["编排今天"].waitForExistence(timeout: 8))
+        let summary = app.descendants(matching: .any)["planDetail.arrangementSummary"].firstMatch
+        reveal(summary); XCTAssertTrue(summary.label.contains("将加入 1 项"))
+        XCTAssertTrue(app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS '当前' AND label CONTAINS '已选择'")).firstMatch.exists)
+        try capture("official-current-lesson-selected")
+        tap("planDetail.addToToday")
+        XCTAssertTrue(app.navigationBars["编排今天"].waitForNonExistence(timeout: 8))
+        back()
+        let today = app.descendants(matching: .any)["trainingHome.todaySummary"].firstMatch
+        for _ in 0..<10 {
+            if today.exists && today.isHittable { break }
+            app.swipeDown()
+        }
+        try capture("official-home-one-lesson-two-actions")
+        // Frozen plan_beginner.stage01.lesson01 contains c012 and c009.
+        // Arrangement counts lessons, whereas the home summary counts actions.
+        XCTAssertTrue(today.exists); XCTAssertTrue(today.label.contains("0 / 2"))
+        let lesson = app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01"]
+        ready(lesson)
+        XCTAssertEqual(lesson.value as? String, "已折叠")
+        lesson.tap()
+        XCTAssertEqual(lesson.value as? String, "已展开")
+        XCTAssertTrue(app.staticTexts["中袋直线出杆"].firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["底袋直线出杆"].firstMatch.exists)
+        try capture("official-lesson-expanded-two-actions")
+        let start = app.buttons["开始这节课"].firstMatch
+        reveal(start); ready(start); start.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activeTraining.timer"].firstMatch.waitForExistence(timeout: 10))
+        try capture("official-normal-session-started")
+    }
+
     func testNormalTemplateNameAndDrillSaveAndReopen() throws {
         app.switchTab(.training)
         try capture("template-before-more-menu")

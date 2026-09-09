@@ -393,9 +393,12 @@ struct BTFilterChip: View {
 struct BTSegmentedTab<T: Hashable>: View {
     let tabs: [T]
     @Binding var selected: T
+    var systemImage: ((T) -> String)? = nil
     let label: (T) -> String
 }
 ```
+
+DR-122（2026-09-09）：可选前置 SF Symbol，图文间距 `Spacing.xs`，同字号/选中配色；默认不显示图标。记录页历史用 `BTIcon.clockHistory`，统计用 `BTIcon.chartBar`。图标不单独朗读，按钮原文字标签及选中语义保留。
 
 ### 2.8 BTTogglePillGroup（新建）
 
@@ -1126,7 +1129,17 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 - 权益和套餐内容可滚动，仅购买按钮固定底部；无障碍字号下套餐纵排；不使用伪折扣、伪推荐或静态价格。
 - 购买/恢复使用既有服务，游客先登录且保留方案；此轮不调整权益门控。
 
+## 训练辅助（DR-121）
+
+`AngleTrainingScene.setupVisualizationNodes(usesTrainingAssistStyle: true)`：同母球半径的 SCNSphere、乳白 32% 透明、青蓝瞄准点半径 3.25mm、橙黄接触点半径 4.5mm；保留球心与球位计算。默认 false 保留旧圈，避免扩大到其他求解页。3D 角度训练球杆仅辅助态跟随观察 yaw，关闭/结果/换题清理。3D/2D 瞄准点场景已有球杆，两种标记均从半径 6.5mm 缩到 3.25mm；G1 垂足与射线球面交点定义不变。近区特写通过 snapshot.usesTrainingAssistStyle 同源配色和实际比例，`BTAimPointDot` / `BTContactDot` 增加可选 color 参数，默认消费者保持原色。独立二维拖圈练习未改。
+
 ## Changelog
+
+| 2026-09-09 | DR-122：记录页历史/统计添加前置时钟回转/柱状图图标；BTSegmentedTab 增加可选 systemImage | 用户要求 | HistoryCalendarView / BTSegmentedTab | output/history-tab-icons/ |
+
+| 2026-09-08 | DR-121：训练辅助立体半透明假想球、球杆显隐与青蓝/橙黄小点，近区特写同源 | 用户确认 | AngleTrainingScene / AimingQuiz / AimPointScene / BTAimCloseupHUD | output/aim-assist-20260908/ |
+
+| 2026-09-08 | DR-120：用户确认 A2 五页引导试装；独立墨绿暖白 Token、内置 OFL 宋体子集标题、真实分页控件；仅引导固定深色 | 用户确认 | OnboardingView | output/onboarding-app-a2 |
 
 | 2026-09-07 | DR-119：真实截图四页引导与五项 Pro 权益列表，沿用全局浅深色；可选介绍入口、StoreKit 真实价格与游客登录返回 | 用户确认 | OnboardingView / SubscriptionView / ProfileView | tasks/ui-reviews/UR-20260907-onboarding-pro-v1.md |
 

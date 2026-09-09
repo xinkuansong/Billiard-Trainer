@@ -162,6 +162,10 @@ struct TrainingHomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: .didDismissActiveTraining)) { _ in
             Task { await viewModel.load(context: modelContext, ownerKey: ownerKey) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .didRestoreAccountData)) { note in
+            guard note.object as? String == ownerKey else { return }
+            Task { await viewModel.load(context: modelContext, ownerKey: ownerKey) }
+        }
         .sheet(item: $historySelection) { session in
             NavigationStack {
                 TrainingDetailView(sessionId: session.id, ownerKey: ownerKey)

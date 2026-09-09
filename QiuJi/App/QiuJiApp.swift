@@ -18,7 +18,19 @@ struct QiuJiApp: App {
         : ModelContainerFactory.makeContainer()
 
     init() {
+        #if DEBUG && targetEnvironment(simulator)
+        let authState: AuthState
+        if ProcessInfo.processInfo.arguments.contains("-syncRepair.loginSheet") {
+            let backend = SyncRepairUITestBackend()
+            authState = AuthState(backend: backend)
+            SyncQueueManager.shared.backend = backend
+            SyncRestoreService.shared.backend = backend
+        } else {
+            authState = AuthState()
+        }
+        #else
         let authState = AuthState()
+        #endif
         _authState = StateObject(wrappedValue: authState)
         SubscriptionManager.shared.bind(to: authState)
 
@@ -70,6 +82,16 @@ struct QiuJiApp: App {
                     // 与 bootstrap 串行配置，避免冷启动 profile 恢复通知先于 coordinator
                     // 拿到 ModelContext，导致首次同步/迁移确认被静默丢弃。
                     dataCoordinator.configure(context: modelContainer.mainContext)
+                    #if DEBUG && targetEnvironment(simulator)
+                    if ProcessInfo.processInfo.arguments.contains("-syncRepair.loginSheet"),
+                       ProcessInfo.processInfo.arguments.contains("-syncRepair.guestData") {
+                        let guestRecord = TrainingSession(ownerKey: ownerContext.guestOwnerKey)
+                        guestRecord.note = "游客训练记录"
+                        modelContainer.mainContext.insert(guestRecord)
+                        do { try modelContainer.mainContext.save() }
+                        catch { preconditionFailure("Invalid guest UI fixture: \(error)") }
+                    }
+                    #endif
                     await authState.bootstrap()
                 }
                 .task {

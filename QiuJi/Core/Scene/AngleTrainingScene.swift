@@ -45,6 +45,17 @@ final class AngleTrainingScene: SCNScene {
 
     private(set) var modelCueStickNode: SCNNode?
     private(set) var cueStick: CueStick?
+    /// Only the angle quiz opts in; observing yaw is its current sight direction.
+    var auxiliaryCueFollowsCamera = false
+
+    func updateAuxiliaryCue() {
+        guard auxiliaryCueFollowsCamera,
+              currentCameraMode == .perspective3D,
+              let cue = cueBallNode, let rig = cameraRig else { return }
+        let direction = rig.aimDirectionForCurrentYaw()
+        updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: direction, spinX: 0),
+                       aimDirection: direction)
+    }
 
     // MARK: - Fallback Procedural Balls (when USDZ balls not available)
 
@@ -394,6 +405,7 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func hideCueStick() {
+        auxiliaryCueFollowsCamera = false
         cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         cueStick?.hide()
     }
@@ -1492,35 +1504,52 @@ final class AngleTrainingScene: SCNScene {
         tableGridNode = grid
     }
 
-    func setupVisualizationNodes() {
+    func setupVisualizationNodes(usesTrainingAssistStyle: Bool = false) {
         let r = AngleSceneCalculator.ballRadius
 
-        // 假想球（重叠标注 L0，T-P18-42）：品牌绿虚线圈替代旧黄色实心球。
-        // 圈 = 母球瞄准位置的水平轮廓，与球心及瞄准线同高；与接触点绿点构成
-        // 「什么角度打哪里」教学层（DR-118）。节点中心保持在球心高度，
-        // 调用方 API（position = 假想球球心、isHidden 开关）不变。
+        // DR-121: angle quizzes use a translucent full-size ball. Other consumers
+        // retain the dashed ring. Both use the physical ball center (cloth + R),
+        // preserving the position / visibility contract from DR-118.
         let ghost = SCNNode()
-        let ringMat = SCNMaterial()
-        ringMat.diffuse.contents = TrajectoryStyle.contactColor
-        ringMat.lightingModel = .constant
-        let dashCount = 16
-        let ringDashLen = 2 * Float.pi * r / Float(dashCount) * 0.55
-        for i in 0..<dashCount {
-            let theta = Float(i) / Float(dashCount) * 2 * .pi
-            let segGeo = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineHint),
-                                     height: CGFloat(ringDashLen))
-            segGeo.materials = [ringMat]
-            let seg = SCNNode(geometry: segGeo)
-            seg.position = SCNVector3(r * cosf(theta), 0, r * sinf(theta))
-            // 圆柱轴默认 +Y，转到圆周切线方向平躺。
-            seg.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
-                                             to: simd_float3(-sinf(theta), 0, cosf(theta)))
-            ghost.addChildNode(seg)
+        if usesTrainingAssistStyle {
+            let sphere = SCNSphere(radius: CGFloat(r))
+            sphere.segmentCount = 48
+            let material = SCNMaterial()
+            material.diffuse.contents = TrajectoryStyle.TrainingAssist.ghostBall
+            material.lightingModel = .blinn
+            material.specular.contents = UIColor(white: 0.4, alpha: 1)
+            material.shininess = 0.45
+            material.transparency = TrajectoryStyle.TrainingAssist.ghostOpacity
+            material.transparencyMode = .singleLayer
+            material.writesToDepthBuffer = false
+            sphere.materials = [material]
+            ghost.geometry = sphere
+            ghost.castsShadow = false
+        } else {
+            let ringMat = SCNMaterial()
+            ringMat.diffuse.contents = TrajectoryStyle.contactColor
+            ringMat.lightingModel = .constant
+            let dashCount = 16
+            let ringDashLen = 2 * Float.pi * r / Float(dashCount) * 0.55
+            for i in 0..<dashCount {
+                let theta = Float(i) / Float(dashCount) * 2 * .pi
+                let segGeo = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineHint),
+                                         height: CGFloat(ringDashLen))
+                segGeo.materials = [ringMat]
+                let seg = SCNNode(geometry: segGeo)
+                seg.position = SCNVector3(r * cosf(theta), 0, r * sinf(theta))
+                // 圆柱轴默认 +Y，转到圆周切线方向平躺。
+                seg.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
+                                                 to: simd_float3(-sinf(theta), 0, cosf(theta)))
+                ghost.addChildNode(seg)
+            }
         }
-        // 瞄准点红心（线语言 v2，条 1.6/4.2）：假想球球心是瞄准参考点，
-        // 作为 ghost 子节点随其显隐/移动，所有用假想球的页面自动获得。
-        // C15/D8：几何走单一真源 `makeAimPointMarkerNode`（0.0065 球）。
-        let aimDot = Self.makeAimPointMarkerNode(color: TrajectoryStyle.aimPointColor)
+        // The center marker follows the ghost's position and visibility.
+        // Training opts into a smaller cyan marker; default consumers keep red.
+        let aimDot = Self.makeAimPointMarkerNode(
+            color: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPoint : TrajectoryStyle.aimPointColor,
+            radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPointRadius : Self.aimPointMarkerRadius,
+            isOverlay: usesTrainingAssistStyle)
         aimDot.position = SCNVector3Zero   // 与假想球球心及瞄准线同高
         aimDot.name = "ghostAimDot"
         ghost.addChildNode(aimDot)
@@ -1548,7 +1577,7 @@ final class AngleTrainingScene: SCNScene {
 
         let slCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
         let slMat = SCNMaterial()
-        slMat.diffuse.contents = UIColor.white
+        slMat.diffuse.contents = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimLine : UIColor.white
         slMat.lightingModel = .constant
         slCyl.materials = [slMat]
         let sl = SCNNode(geometry: slCyl)
@@ -1557,16 +1586,19 @@ final class AngleTrainingScene: SCNScene {
         rootNode.addChildNode(sl)
         strikeLineNode = sl
 
-        // 接触点：品牌绿（T-P18-41 线语言，弃黄）。
-        let dotSphere = SCNSphere(radius: 0.009)
+        // Training contact marker: small amber dot; default consumers keep green.
+        let dotSphere = SCNSphere(radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPointRadius : 0.009)
         dotSphere.segmentCount = 16
         let dotMat = SCNMaterial()
-        dotMat.diffuse.contents = TrajectoryStyle.contactColor
+        dotMat.diffuse.contents = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPoint : TrajectoryStyle.contactColor
         dotMat.lightingModel = .constant
+        dotMat.readsFromDepthBuffer = !usesTrainingAssistStyle
+        dotMat.writesToDepthBuffer = !usesTrainingAssistStyle
         dotSphere.materials = [dotMat]
         let dot = SCNNode(geometry: dotSphere)
         dot.isHidden = true
         dot.name = "contactDot"
+        dot.renderingOrder = usesTrainingAssistStyle ? 100 : 0
         rootNode.addChildNode(dot)
         contactDotNode = dot
 
@@ -1608,22 +1640,29 @@ final class AngleTrainingScene: SCNScene {
 
     /// 构建瞄准点标记节点（未挂载）：0.0065 半径小球 + constant 光照。
     /// ghost aimDot 与独立标记共用本工厂，几何/材质单点定义。
-    static func makeAimPointMarkerNode(color: UIColor) -> SCNNode {
-        let geo = SCNSphere(radius: aimPointMarkerRadius)
+    static func makeAimPointMarkerNode(color: UIColor, radius: CGFloat = aimPointMarkerRadius,
+                                       isOverlay: Bool = false) -> SCNNode {
+        let geo = SCNSphere(radius: radius)
         geo.segmentCount = 12
         let mat = SCNMaterial()
         mat.diffuse.contents = color
         mat.lightingModel = .constant
+        mat.readsFromDepthBuffer = !isOverlay
+        mat.writesToDepthBuffer = !isOverlay
         geo.materials = [mat]
-        return SCNNode(geometry: geo)
+        let node = SCNNode(geometry: geo)
+        node.renderingOrder = isOverlay ? 100 : 0
+        return node
     }
 
     /// 在给定世界位置放一枚独立瞄准点标记（挂到 root，调用方持有并负责清理）。
     /// 供瞄准点测验等不走 `updateVisualization` 常驻 ghost 的页面复用（消灭私有实现）。
     @discardableResult
     func addAimPointMarker(at position: SCNVector3,
-                           color: UIColor = TrajectoryStyle.aimPointColor) -> SCNNode {
-        let node = Self.makeAimPointMarkerNode(color: color)
+                           color: UIColor = TrajectoryStyle.aimPointColor,
+                           radius: CGFloat = aimPointMarkerRadius,
+                           isOverlay: Bool = false) -> SCNNode {
+        let node = Self.makeAimPointMarkerNode(color: color, radius: radius, isOverlay: isOverlay)
         node.name = "aimPointMarker"
         node.position = position
         rootNode.addChildNode(node)

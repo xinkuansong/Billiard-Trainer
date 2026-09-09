@@ -48,6 +48,7 @@ struct RootView: View {
     /// 这些参数只存在于测试启动路径，不改变生产外观策略。
     private static var uiTestDeepLinkColorScheme: ColorScheme? {
         let args = ProcessInfo.processInfo.arguments
+        if args.contains("-intro.preview") { return .dark }
         if args.contains("-v49.forceLight") { return .light }
         if args.contains("-v54.forceLight") { return .light }
         if args.contains("-v54.forceDark") { return .dark }

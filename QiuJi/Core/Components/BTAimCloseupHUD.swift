@@ -46,12 +46,22 @@ struct BTAimCloseupHUD: View {
                     ballView(number: snapshot.targetBallNumber, at: snapshot.focus, scale: scale)
                 }
                 if let p = snapshot.aimPointMarker, inFrame(p) {
-                    BTAimPointDot(diameter: max(4, snapshot.ballRadius * 0.36 * scale))
+                    BTAimPointDot(
+                        diameter: snapshot.usesTrainingAssistStyle
+                            ? 2 * TrajectoryStyle.TrainingAssist.aimPointRadius * scale
+                            : max(4, snapshot.ballRadius * 0.36 * scale),
+                        color: snapshot.usesTrainingAssistStyle
+                            ? Color(uiColor: TrajectoryStyle.TrainingAssist.aimPoint) : FigureLine.aimPoint)
                         .position(map(p, in: CGSize(width: diameter, height: diameter),
                                       scale: scale))
                 }
                 if let p = snapshot.contactMarker, inFrame(p) {
-                    BTContactDot(diameter: max(3.5, snapshot.ballRadius * 0.30 * scale))
+                    BTContactDot(
+                        diameter: snapshot.usesTrainingAssistStyle
+                            ? 2 * TrajectoryStyle.TrainingAssist.aimPointRadius * scale
+                            : max(3.5, snapshot.ballRadius * 0.30 * scale),
+                        color: snapshot.usesTrainingAssistStyle
+                            ? Color(uiColor: TrajectoryStyle.TrainingAssist.contactPoint) : FigureLine.contact)
                         .position(map(p, in: CGSize(width: diameter, height: diameter),
                                       scale: scale))
                 }
@@ -117,7 +127,8 @@ struct BTAimCloseupHUD: View {
             stroke(aux.start, aux.end, color: FigureLine.hint, width: 1.2, dashed: true)
         }
         if let aim = snapshot.aimLine {
-            stroke(aim.start, aim.end, color: FigureLine.aim, width: 2.2, dashed: false)
+            stroke(aim.start, aim.end, color: snapshot.usesTrainingAssistStyle
+                   ? Color(uiColor: TrajectoryStyle.TrainingAssist.aimLine) : FigureLine.aim, width: 2.2, dashed: false)
         }
     }
 }
@@ -192,6 +203,7 @@ struct AimCloseupSnapshot: Equatable {
     var aimPointMarker: CGPoint? = nil
     var contactMarker: CGPoint? = nil
     var showMissCaption: Bool = false
+    var usesTrainingAssistStyle: Bool = false
 
     /// Focus in scene view 0…1 (top-leading origin) for placement; nil → trailing.
     var focusNorm: CGPoint? = nil

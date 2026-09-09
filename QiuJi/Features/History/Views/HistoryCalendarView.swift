@@ -25,7 +25,11 @@ struct HistoryCalendarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            BTSegmentedTab(tabs: HistoryTab.allCases, selected: $activeTab) { $0.rawValue }
+            BTSegmentedTab(
+                tabs: HistoryTab.allCases,
+                selected: $activeTab,
+                systemImage: { $0 == .history ? BTIcon.clockHistory : BTIcon.chartBar }
+            ) { $0.rawValue }
                 .frame(maxWidth: .infinity)
                 .overlay(alignment: .trailing) {
                     if activeTab == .statistics {
@@ -46,6 +50,10 @@ struct HistoryCalendarView: View {
             }
         }
         .background { BTBlueprintBackground(style: .history).ignoresSafeArea() }
+        .onReceive(NotificationCenter.default.publisher(for: .didRestoreAccountData)) { note in
+            guard note.object as? String == ownerKey else { return }
+            Task { await vm.loadSessions(context: modelContext) }
+        }
         .task {
             await vm.loadSessions(context: modelContext)
         }

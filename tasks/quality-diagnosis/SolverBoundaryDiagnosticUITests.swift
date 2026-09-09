@@ -1,14 +1,23 @@
 import XCTest
 
-/// Unexecuted snapshot-002 diagnostic draft. Normal navigation, no seeded boards.
+/// Snapshot004 diagnostic. Normal navigation, no seeded boards; only reviewed selectors run.
 final class SolverBoundaryDiagnosticUITests: XCTestCase {
     private var app: XCUIApplication!
     private var status: XCUIElement { app.staticTexts["navStatus.subtitle"].firstMatch }
     override func setUpWithError() throws {
         continueAfterFailure = false
-        app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-forcePremium"])
+        let env = ProcessInfo.processInfo.environment
+        let expected = try XCTUnwrap(env["QD_SOLVER_DEVICE_UDID"] ?? env["TEST_RUNNER_QD_SOLVER_DEVICE_UDID"])
+        XCTAssertEqual(env["SIMULATOR_UDID"], expected)
+        app = XCUIApplication()
+        app.launchArguments = ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN", "-hasCompletedOnboarding", "YES", "-v50.inMemoryStore", "-forcePremium", "-v51.followSystemAppearance"]
+        app.launch()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
     }
-    override func tearDownWithError() throws { app?.terminate() }
+    override func tearDownWithError() throws {
+        defer { app?.terminate() }
+        if app != nil { try capture("terminal") }
+    }
     private func wait(_ predicate: NSPredicate, on element: XCUIElement, timeout: TimeInterval = 20) {
         XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout), .completed)
     }
@@ -56,6 +65,127 @@ final class SolverBoundaryDiagnosticUITests: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try shot.pngRepresentation.write(to: dir.appendingPathComponent(id + ".png"))
         try app.debugDescription.write(to: dir.appendingPathComponent(id + "-AX.txt"), atomically: true, encoding: .utf8)
+    }
+
+    // Screen points below were measured from entrance001 PNG/AX on this exact
+    // 402x874 device. No world coordinate or feasibility assertion is implied.
+    private func observedPoint(_ x: CGFloat, _ y: CGFloat) -> XCUICoordinate {
+        XCTAssertEqual(app.windows.firstMatch.frame.size, CGSize(width: 402, height: 874))
+        return app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: x, dy: y))
+    }
+    private func observeCompletedSolve(_ action: String, stage: String) throws {
+        let old = status.label
+        tap("求解")
+        let predicate = NSPredicate { [weak self] _, _ in
+            guard let self, self.status.exists else { return false }
+            let value = self.status.label
+            let empty = value.hasPrefix("未找到解") || value.hasPrefix("直击角度过大，且暂无翻袋备选")
+            let button = self.app.buttons[action].firstMatch
+            return value != old && value != "求解中…" && (empty || (button.exists && button.isEnabled))
+        }
+        wait(predicate, on: status, timeout: 120)
+        let value = status.label
+        let classification = value.contains("翻袋备选") ? "bank-fallback" :
+            value.contains("最接近解") ? "closest-not-satisfied" :
+            (value.hasPrefix("未找到解") || value.hasPrefix("直击角度过大")) ? "empty" : "reported-satisfying-needs-independent-geometry"
+        print("[QD-Constraint] stage=\(stage) branch=\(classification) status=\(value)")
+        try capture(stage + "-" + classification)
+    }
+    func testSiluActualRectangleConstraintSolve() throws {
+        enter("思路训练")
+        // Explicitly reselect the observed yellow ball and upper-left pocket.
+        observedPoint(176.3, 394.6).tap()
+        observedPoint(71.6, 201).tap()
+        try capture("silu-selected-ball-pocket")
+        tap("落区")
+        observedPoint(105, 310).press(forDuration: 0.1, thenDragTo: observedPoint(295, 640), withVelocity: 250, thenHoldForDuration: 0.2)
+        wait(NSPredicate(format: "label == %@", "已就绪，点「求解」反解走位"), on: status)
+        try capture("silu-actual-rectangle-ready")
+        try observeCompletedSolve("击球", stage: "silu-rectangle-result")
+        tap("清除约束")
+        enabled(app.buttons["求解"].firstMatch, false)
+        enabled(app.buttons["击球"].firstMatch, false)
+        try capture("silu-clear-constraint")
+        returnHome("思路训练")
+    }
+    func testPlanThreeActualFiveRolesDefaultSectorSolve() throws {
+        enter("打一走二想三")
+        func assign(_ role: String, _ x: CGFloat, _ y: CGFloat) throws {
+            let chips = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", role))
+            XCTAssertEqual(chips.count, 1)
+            ready(chips.firstMatch); chips.firstMatch.tap()
+            observedPoint(x, y).tap()
+            try capture("plan-three-assigned-" + role)
+        }
+        try assign("①球", 160, 421.9)
+        try assign("①袋", 80, 431)
+        try assign("②球", 242, 339.9)
+        try assign("②袋", 322, 198)
+        try assign("③球", 160, 267)
+        wait(NSPredicate(format: "label BEGINSWITH %@", "扇形为默认落区"), on: status)
+        try capture("plan-three-five-roles-sector-ready")
+        try observeCompletedSolve("打一", stage: "plan-three-default-sector-result")
+        returnHome("打一走二想三")
+    }
+
+    func testSiluActualRestPointCandidateSolve() throws {
+        enter("思路训练")
+        observedPoint(176.3, 394.6).tap()
+        observedPoint(71.6, 201).tap()
+        tap("落点")
+        observedPoint(110, 660).tap()
+        wait(NSPredicate(format: "label == %@", "已就绪，点「求解」反解走位"), on: status)
+        try capture("silu-left-bottom-point-ready")
+        try observeCompletedSolve("击球", stage: "silu-left-bottom-point-result")
+        returnHome("思路训练")
+    }
+    func testPlanThreeFiveRolesCustomRectangleStrikeAndUndo() throws {
+        enter("打一走二想三")
+        func assign(_ role: String, _ x: CGFloat, _ y: CGFloat) {
+            let chips = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", role))
+            XCTAssertEqual(chips.count, 1)
+            ready(chips.firstMatch); chips.firstMatch.tap()
+            observedPoint(x, y).tap()
+        }
+        assign("①球", 160, 421.9)
+        assign("①袋", 80, 431)
+        assign("②球", 242, 339.9)
+        assign("②袋", 322, 198)
+        assign("③球", 160, 267)
+        wait(NSPredicate(format: "label BEGINSWITH %@", "扇形为默认落区"), on: status)
+        tap("落区")
+        // Actual plan-three felt bounds were reviewed in entrance001.
+        observedPoint(105, 310).press(forDuration: 0.1, thenDragTo: observedPoint(295, 630), withVelocity: 250, thenHoldForDuration: 0.2)
+        wait(NSPredicate(format: "label == %@", "约束就绪，点「求解」反解打一杆法"), on: status)
+        try capture("plan-three-custom-rectangle-ready")
+        try observeCompletedSolve("打一", stage: "plan-three-custom-rectangle-result")
+        ready(app.buttons["打一"].firstMatch)
+        print("[QD-Constraint] strikeStart uptime=\(ProcessInfo.processInfo.systemUptime) status=\(status.label)")
+        tap("打一")
+        let ended = NSPredicate { [weak self] _, _ in
+            guard let self, self.status.exists else { return false }
+            let value = self.status.label
+            return value.hasPrefix("①进袋") || value.hasPrefix("①未进袋") || value.hasPrefix("母球进袋") || value.hasPrefix("清台完成")
+        }
+        wait(ended, on: status, timeout: 90)
+        print("[QD-Constraint] strikeEnd uptime=\(ProcessInfo.processInfo.systemUptime) status=\(status.label)")
+        try capture("plan-three-actual-strike-ended")
+        tap("上一杆")
+        wait(NSPredicate(format: "label == %@", "已退回上一杆击打前 · 球形/①②③/约束/解已还原"), on: status)
+        ready(app.buttons["打一"].firstMatch)
+        enabled(app.buttons["上一杆"].firstMatch, false)
+        enabled(app.buttons["回放"].firstMatch, false)
+        try capture("plan-three-actual-undo-restored")
+        returnHome("打一走二想三")
+    }
+
+    func testCaptureCurrentConstraintToolEntrances() throws {
+        enter("思路训练")
+        try capture("004-silu-initial-full-board")
+        returnHome("思路训练")
+        enter("打一走二想三")
+        try capture("004-plan-three-initial-full-board")
+        returnHome("打一走二想三")
     }
 
     func testSiluMissingConstraintRemainsDisabledAfterSelectingToolAndReturns() throws {

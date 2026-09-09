@@ -295,6 +295,7 @@ struct AngleSceneView: UIViewRepresentable {
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
+                scene.updateAuxiliaryCue()
                 // Skip anchor-lock while a smooth pose transition (e.g. 观察⇄瞄准
                 // toggle) is in flight: the smooth interpolator is already
                 // driving the pivot toward the cue ball, and a competing

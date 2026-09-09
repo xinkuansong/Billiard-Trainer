@@ -67,6 +67,10 @@ struct StatisticsView: View {
                 statsContent
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: .didRestoreAccountData)) { note in
+            guard note.object as? String == CurrentOwnerContext.shared.ownerKey else { return }
+            Task { await vm.loadSessions(context: modelContext) }
+        }
         .task {
             // 保活后仅首次无数据时加载，避免切 Tab 假闪（F-HI-04）。
             if vm.sessions.isEmpty && vm.errorMessage == nil {

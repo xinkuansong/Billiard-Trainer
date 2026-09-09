@@ -68,6 +68,7 @@ final class V53OwnerIsolationTests: XCTestCase {
         SyncQueueManager.shared.backend = backend
         let auth = AuthState(defaults: defaults, ownerContext: ownerContext)
         auth.login(user: AppUser(id: "user-a", provider: .apple))
+        auth.setCloudSyncEnabled(true)
         await SyncQueueManager.shared.processQueue(authState: auth)
 
         let uploadedSessionIDs = await backend.uploadedSessionIDs

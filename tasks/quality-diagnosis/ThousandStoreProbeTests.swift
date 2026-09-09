@@ -9,8 +9,10 @@ import SwiftData
 final class ThousandStoreProbeTests: XCTestCase {
     func testReportInMemoryHostAndEmptyDefaultStore() throws {
         let info = ProcessInfo.processInfo
-        guard info.environment["QD_PROBE_ENVIRONMENT"] == "DEDICATED_EMPTY_GUEST_SIMULATOR" else {
-            throw XCTSkip("Dedicated empty guest environment must be established before host launch")
+        let authorization = info.environment["QD_PROBE_ENVIRONMENT"] ?? info.environment["TEST_RUNNER_QD_PROBE_ENVIRONMENT"]
+        guard authorization == "DEDICATED_EMPTY_GUEST_SIMULATOR" else {
+            XCTFail("Dedicated empty guest environment must be established before host launch")
+            throw NSError(domain: "QDProbePrecondition", code: 1)
         }
         let args = info.arguments
         let hasMemoryFlag = args.contains("-v50.inMemoryStore")

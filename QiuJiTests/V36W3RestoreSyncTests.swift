@@ -316,6 +316,7 @@ final class V36W3RestoreSyncTests: XCTestCase {
 
         let authState = AuthState()
         authState.login(user: AppUser(id: userId, provider: .apple))
+        authState.setCloudSyncEnabled(true)
         await SyncQueueManager.shared.processQueue(authState: authState)
         let stillPending = try context.fetch(
             FetchDescriptor<SyncPendingItem>()
@@ -421,7 +422,9 @@ final class V36W3RestoreSyncTests: XCTestCase {
         let summary = await SyncRestoreService.shared.restore(userId: userId, mode: .full)
         print("[W3-失败] summary=\(summary) 锚点=" +
               "\(String(describing: SyncRestoreService.shared.anchor(.sessions, userId: userId)))")
-        XCTAssertEqual(summary, SyncRestoreService.RestoreSummary())
+        XCTAssertTrue(summary.failedSessions)
+        XCTAssertTrue(summary.failedAngleTests)
+        XCTAssertEqual(summary.insertedSessions, 0)
         XCTAssertNil(SyncRestoreService.shared.anchor(.sessions, userId: userId))
         XCTAssertEqual(try localSessions().count, 0)
     }

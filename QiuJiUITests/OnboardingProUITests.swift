@@ -5,23 +5,31 @@ final class OnboardingProUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     @MainActor
-    func testTourAndProPresentation() throws {
-        let session = try storeSession()
-        defer { session.clearTransactions() }
+    func testTourPresentation() {
         for appearance in ["-v54.forceLight", "-v54.forceDark"] {
             let app = XCUIApplication.launchClean(extraArgs: ["-intro.preview", appearance, "-v50.inMemoryStore"])
-            for index in 0..<4 {
+            for index in 0..<5 {
                 XCTAssertTrue(app.staticTexts["onboarding.title.\(index)"].waitForExistence(timeout: 6))
                 XCTAssertTrue(app.images["onboarding.image.\(index)"].exists)
                 XCTAssertTrue(app.buttons["onboarding.continue"].isHittable)
-                if index == 2 { XCTAssertTrue(app.staticTexts["自由走位 · Pro 功能示例"].isHittable) }
+                if index == 2 { XCTAssertTrue(app.images["onboarding.image.2"].label.contains("Pro")) }
                 capture("\(appearance)-intro-\(index)")
-                if index < 3 { app.buttons["onboarding.continue"].tap() }
+                if index < 4 { app.buttons["onboarding.continue"].tap() }
             }
+            app.swipeRight()
+            XCTAssertTrue(app.staticTexts["onboarding.title.3"].waitForExistence(timeout: 5))
             app.buttons["onboarding.page.0"].tap()
             XCTAssertTrue(app.staticTexts["onboarding.title.0"].waitForExistence(timeout: 5))
             app.terminate()
 
+        }
+    }
+
+    @MainActor
+    func testProPresentation() throws {
+        let session = try storeSession()
+        defer { session.clearTransactions() }
+        for appearance in ["-v54.forceLight", "-v54.forceDark"] {
             let pro = XCUIApplication.launchClean(extraArgs: ["-subscription.preview", appearance, "-v50.inMemoryStore"])
             let yearly = pro.buttons["subscription.product.com.xinkuan.qiuji.premium.yearly"]
             XCTAssertTrue(yearly.waitForExistence(timeout: 12))
@@ -63,7 +71,7 @@ final class OnboardingProUITests: XCTestCase {
         app.buttons["onboarding.skip"].tap()
         XCTAssertTrue(entry.waitForExistence(timeout: 5))
         entry.tap()
-        for _ in 0..<4 { app.buttons["onboarding.continue"].tap() }
+        for _ in 0..<5 { app.buttons["onboarding.continue"].tap() }
         XCTAssertTrue(entry.waitForExistence(timeout: 5))
         app.swipeDown()
         XCTAssertTrue(identity.waitForExistence(timeout: 5))

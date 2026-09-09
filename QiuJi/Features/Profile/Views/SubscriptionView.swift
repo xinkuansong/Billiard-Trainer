@@ -11,6 +11,7 @@ struct SubscriptionView: View {
     @State private var restoreMessage = ""
     @State private var showPurchaseErrorAlert = false
     @State private var showLogin = false
+    @State private var pendingLoginUser: AppUser?
 
     private let benefits: [(icon: String, title: String, subtitle: String)] = [
         ("books.vertical", "完整动作与进阶计划", "解锁 Pro 动作、精讲与官方进阶计划"),
@@ -55,8 +56,13 @@ struct SubscriptionView: View {
         .onChange(of: subscriptionManager.products.map(\.id)) { _, _ in
             selectAvailableProduct()
         }
-        .sheet(isPresented: $showLogin) {
-            LoginView()
+        .sheet(isPresented: $showLogin, onDismiss: {
+            if let user = pendingLoginUser {
+                pendingLoginUser = nil
+                authState.login(user: user)
+            }
+        }) {
+            LoginView(onAuthenticated: { pendingLoginUser = $0 })
         }
         .alert("恢复购买", isPresented: $showRestoreAlert) {
             Button("确定") {}
