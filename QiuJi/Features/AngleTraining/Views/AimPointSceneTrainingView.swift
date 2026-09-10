@@ -583,7 +583,13 @@ struct AimPointSceneTrainingView: View {
                         controlOverlay(proxy)
                         BTAimCloseupOverlay(
                             snapshot: vm.closeupSnapshot,
-                            sceneSize: CGSize(width: geo.size.width, height: sceneH))
+                            sceneSize: CGSize(width: geo.size.width, height: sceneH), scene: vm.scene,
+                            safeInsets: is3D
+                                ? .init(top: Spacing.md, leading: Spacing.md, bottom: Spacing.xl + 40,
+                                        trailing: Spacing.lg + max(ShotStageMetrics.aimWheelWidth,
+                                                                  ShotStageMetrics.actionColumnWidth) + Spacing.sm)
+                                : .aimWheelPage,
+                            blockedSide: is3D ? .trailing : .leading)
                     }
                     .frame(height: sceneH)
                     if !is3D {

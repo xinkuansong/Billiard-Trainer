@@ -328,7 +328,33 @@ final class GroupFilterLayoutUITests: XCTestCase {
 /// Physical pointer holds exercise the production gesture wiring; timed screenshots
 /// are collected by the host while XCTest keeps the pointer down.
 final class AimCloseupHoldUITests: XCTestCase {
-    private let evidence = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/aim-closeup-diagnosis-20260910/ui")
+    private let evidence = URL(fileURLWithPath: ProcessInfo.processInfo.environment["V61_EVIDENCE_DIR"]
+        ?? "/Users/song/projects/13.billiard_trainer/output/aim-closeup-diagnosis-20260910/ui")
+
+    func testFreeDirectionContinuousDrag() throws {
+        continueAfterFailure = false
+        try FileManager.default.createDirectory(at: evidence, withIntermediateDirectories: true)
+        let app = XCUIApplication.launchClean(extraArgs: ["-v50.inMemoryStore", "-forcePremium"])
+        app.switchTab(.angle)
+        let search = app.textFields["librarySearchField"]
+        XCTAssertTrue(search.waitForExistence(timeout: 10))
+        search.tap()
+        search.typeText("自由击球")
+        app.buttons["自由击球"].tap()
+        let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+        if !wheel.waitForExistence(timeout: 3) {
+            let mode = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "瞄准模式：")).firstMatch
+            XCTAssertTrue(mode.exists, app.debugDescription)
+            mode.tap()
+        }
+        XCTAssertTrue(wheel.waitForExistence(timeout: 15))
+        let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        try Data().write(to: evidence.appendingPathComponent("freeplay-motion.hold"))
+        start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: -12)),
+                    withVelocity: XCUIGestureVelocity(rawValue: 2), thenHoldForDuration: 0)
+        Thread.sleep(forTimeInterval: 2)
+        try save("freeplay-motion-settled")
+    }
 
     func testAimPoint2D() throws { try exercise(title: "2D 瞄准点训练", key: "aimpoint2d") }
     func testShotSimulation() throws { try exercise(title: "分离角与走位", key: "shotBlank") }
@@ -387,7 +413,17 @@ final class AimCloseupHoldUITests: XCTestCase {
         start.press(forDuration: 0.15, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 8)
         Thread.sleep(forTimeInterval: 0.6)
         try save("\(key)-wheel-released")
-        if key == "aimpoint3d" { return }
+        if key == "aimpoint3d" {
+            // Orbit the production camera without tapping a new aim point, then
+            // reopen the loupe to check the changed projection on the full page.
+            let window = app.windows.firstMatch
+            let orbit = window.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.70))
+            orbit.press(forDuration: 0.1, thenDragTo: orbit.withOffset(CGVector(dx: 55, dy: -24)))
+            try Data().write(to: evidence.appendingPathComponent("aimpoint3d-orbit.hold"))
+            start.press(forDuration: 0.15, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 8)
+            try save("aimpoint3d-orbit-released")
+            return
+        }
 
         // Use the blank upper-left felt, outside the default balls' 48pt drag targets.
         let window = app.windows.firstMatch

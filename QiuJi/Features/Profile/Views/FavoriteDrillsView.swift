@@ -65,7 +65,7 @@ struct FavoriteDrillsView: View {
         }
         .animation(BTMotion.easeFast, value: isLoading)
         .background(.btBG)
-        .navigationTitle("我的收藏")
+        .navigationTitle("收藏")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .task(id: favorites.count) {

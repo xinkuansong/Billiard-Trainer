@@ -390,6 +390,79 @@ final class V53ProfilePreferencesTests: XCTestCase {
         XCTAssertEqual(center.cancelCount, 1)
     }
 
+    func testDefaultGameFollowsSportUntilManuallySelectedAndSurvivesRestart() {
+        let defaults = isolatedDefaults()
+        let prefs = UserPreferences(defaults: defaults)
+        XCTAssertEqual(prefs.dailyClearanceGame, .chineseEightBall)
+        prefs.synchronizeDefaultGame(with: .nineBall)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+        prefs.synchronizeDefaultGame(with: .both)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+        let bothRestored = UserPreferences(defaults: defaults)
+        bothRestored.synchronizeDefaultGame(with: .both)
+        XCTAssertEqual(bothRestored.dailyClearanceGame, .nineBall)
+        prefs.synchronizeDefaultGame(with: .chinese8)
+        XCTAssertEqual(prefs.dailyClearanceGame, .chineseEightBall)
+        // Even selecting the currently displayed value is an explicit choice.
+        prefs.selectDailyClearanceGame(.chineseEightBall)
+        prefs.synchronizeDefaultGame(with: .nineBall)
+        XCTAssertEqual(prefs.dailyClearanceGame, .chineseEightBall)
+        let restored = UserPreferences(defaults: defaults)
+        restored.synchronizeDefaultGame(with: .nineBall)
+        XCTAssertEqual(restored.dailyClearanceGame, .chineseEightBall)
+    }
+
+    func testDefaultGamePreservesLegacyExplicitSelection() {
+        let defaults = isolatedDefaults()
+        defaults.set(DailyClearanceGame.nineBall.rawValue, forKey: DailyClearanceStoreKey.preferredGame)
+        let prefs = UserPreferences(defaults: defaults)
+        prefs.synchronizeDefaultGame(with: .chinese8)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+    }
+
+    func testDefaultGameUsesCurrentOwnerProfileAfterLegacyMigrationAndAccountRestore() async {
+        let defaults = isolatedDefaults()
+        defaults.set(PreferredSport.nineBall.rawValue, forKey: "preferredSport")
+        let prefs = UserPreferences(defaults: defaults)
+        let guestKey = DeviceGuestIdentity.ownerKey(in: defaults)
+        prefs.synchronizeDefaultGame(ownerKey: guestKey, user: nil)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+        XCTAssertNil(defaults.object(forKey: "preferredSport"))
+        let account = AppUser(id: "user-a", provider: .apple,
+                              preferredSport: PreferredSport.chinese8.rawValue)
+        prefs.synchronizeDefaultGame(ownerKey: OwnerKey.account("user-a"), user: account)
+        XCTAssertEqual(prefs.dailyClearanceGame, .chineseEightBall)
+        // Logging out restores the guest's choice, not the previous account's profile.
+        prefs.synchronizeDefaultGame(ownerKey: guestKey, user: nil)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+        let restored = UserPreferences(defaults: defaults)
+        restored.synchronizeDefaultGame(ownerKey: guestKey, user: nil)
+        XCTAssertEqual(restored.dailyClearanceGame, .nineBall)
+    }
+
+    func testGuestSportSaveUpdatesDefaultAndFailedAccountSaveDoesNot() async {
+        let defaults = isolatedDefaults()
+        let prefs = UserPreferences(defaults: defaults)
+        let owner = CurrentOwnerContext(defaults: defaults)
+        let auth = AuthState(backend: ProfileAuthBackend(), credentials: EmptyCredentials(),
+                             defaults: defaults, ownerContext: owner)
+        auth.loginAnonymously()
+        let guest = OwnerProfileStore(ownerKey: owner.guestOwnerKey, defaults: defaults)
+        await guest.setPreferredSport(.nineBall, authState: auth, preferences: prefs)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+        let accountUser = AppUser(id: "user-a", provider: .apple,
+                                  preferredSport: PreferredSport.nineBall.rawValue)
+        auth.login(user: accountUser)
+        let backend = ProfileUpdateBackend(result: .failure(TestFailure()))
+        let account = OwnerProfileStore(ownerKey: OwnerKey.account("user-a"), defaults: defaults,
+                                        backend: backend)
+        account.load(from: accountUser)
+        await account.setPreferredSport(.chinese8, authState: auth, preferences: prefs)
+        XCTAssertEqual(account.preferredSport, .nineBall)
+        XCTAssertEqual(prefs.dailyClearanceGame, .nineBall)
+        XCTAssertNotNil(account.errorMessage)
+    }
+
     private func isolatedDefaults() -> UserDefaults {
         let name = "V53ProfilePreferencesTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!

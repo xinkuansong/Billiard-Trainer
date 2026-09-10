@@ -437,9 +437,9 @@ final class StatisticsViewModelTests: XCTestCase {
 
     func test_renderProfileMonthlyOverviewCard_afterEvidence() throws {
         let card = ProfileMonthlyOverviewCard(
-            trainingDays: "5",
-            duration: "2h5m",
-            longestStreak: "3"
+            trainingDays: 5,
+            durationMinutes: 125,
+            longestStreak: 3
         )
         .frame(width: 358)
         .padding(16)
@@ -451,6 +451,29 @@ final class StatisticsViewModelTests: XCTestCase {
             try XCTUnwrap(renderer.uiImage),
             name: "04-profile-monthly-overview-after"
         )
+    }
+
+    func test_renderProfileOverviewDurationBoundaryEvidence() throws {
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("output/profile-refinement-20260910/cards")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for width in [320.0, 375.0, 402.0] {
+            for dark in [false, true] {
+                for minutes in [0, 60, 155, 6005] {
+                    let card = ProfileMonthlyOverviewCard(trainingDays: 8, durationMinutes: minutes, longestStreak: 6)
+                        .padding(Spacing.lg)
+                        .frame(width: width)
+                        .background(Color.btBG)
+                        .environment(\.colorScheme, dark ? .dark : .light)
+                    let renderer = ImageRenderer(content: card)
+                    renderer.scale = 2
+                    let image = try XCTUnwrap(renderer.uiImage)
+                    XCTAssertEqual(image.size.width, width)
+                    try XCTUnwrap(image.pngData()).write(to: directory.appendingPathComponent(
+                        "\(Int(width))-\(dark ? "dark" : "light")-\(minutes).png"))
+                }
+            }
+        }
     }
 
     // MARK: - Helpers

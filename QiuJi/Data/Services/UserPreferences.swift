@@ -76,85 +76,106 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 final class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
 
-    /// 每日清台新局的默认玩法。已有用户首次升级时由主打球种推导，之后独立持久化。
-    @Published var dailyClearanceGame: DailyClearanceGame {
-        didSet {
-            UserDefaults.standard.set(
-                dailyClearanceGame.rawValue,
-                forKey: DailyClearanceStoreKey.preferredGame
-            )
-        }
+    private static let inferredGameKey = "dailyClearance.inferredGame.v1"
+    private let defaults: UserDefaults
+
+    /// 未手动选择时跟随当前用户资料；已保存的旧值也视为用户的明确选择。
+    @Published private(set) var dailyClearanceGame: DailyClearanceGame
+
+    func selectDailyClearanceGame(_ game: DailyClearanceGame) {
+        dailyClearanceGame = game
+        defaults.set(game.rawValue, forKey: DailyClearanceStoreKey.preferredGame)
     }
 
-    @Published var reminderWeekdays: Set<Int> = Set(UserDefaults.standard.array(forKey: "reminderWeekdays") as? [Int] ?? Array(1...7)) {
-        didSet { UserDefaults.standard.set(reminderWeekdays.sorted(), forKey: "reminderWeekdays") }
+    func synchronizeDefaultGame(ownerKey: String, user: AppUser?) {
+        let profile = OwnerProfileStore(ownerKey: ownerKey, defaults: defaults)
+        profile.load(from: user)
+        synchronizeDefaultGame(with: profile.preferredSport)
+    }
+
+    func synchronizeDefaultGame(with sport: PreferredSport) {
+        if let raw = defaults.string(forKey: DailyClearanceStoreKey.preferredGame),
+           DailyClearanceGame(rawValue: raw) != nil { return }
+        // “两者”没有单一玩法含义，保留当前值；无历史时初始化为中八。
+        guard sport != .both else { return }
+        dailyClearanceGame = DailyClearanceGame.initialDefault(for: sport)
+        defaults.set(dailyClearanceGame.rawValue, forKey: Self.inferredGameKey)
+    }
+
+    @Published var reminderWeekdays: Set<Int> {
+        didSet { defaults.set(reminderWeekdays.sorted(), forKey: "reminderWeekdays") }
     }
 
     @Published var reminderEnabled: Bool {
-        didSet { UserDefaults.standard.set(reminderEnabled, forKey: "reminderEnabled") }
+        didSet { defaults.set(reminderEnabled, forKey: "reminderEnabled") }
     }
 
     @Published var reminderTime: Date {
         didSet {
-            UserDefaults.standard.set(reminderTime.timeIntervalSince1970, forKey: "reminderTime")
-            UserDefaults.standard.set(Calendar.current.component(.hour, from: reminderTime), forKey: "reminderLocalHour")
-            UserDefaults.standard.set(Calendar.current.component(.minute, from: reminderTime), forKey: "reminderLocalMinute")
+            defaults.set(reminderTime.timeIntervalSince1970, forKey: "reminderTime")
+            defaults.set(Calendar.current.component(.hour, from: reminderTime), forKey: "reminderLocalHour")
+            defaults.set(Calendar.current.component(.minute, from: reminderTime), forKey: "reminderLocalMinute")
         }
     }
 
     // New: Appearance
     @Published var appearanceMode: AppearanceMode {
-        didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
+        didSet { defaults.set(appearanceMode.rawValue, forKey: "appearanceMode") }
     }
 
     // Shot replay sound effects are disabled by default until audio assets are ready.
     @Published var soundEffectsEnabled: Bool {
-        didSet { UserDefaults.standard.set(soundEffectsEnabled, forKey: "soundEffectsEnabled") }
+        didSet { defaults.set(soundEffectsEnabled, forKey: "soundEffectsEnabled") }
     }
 
     // New: 在所有击球轨迹上叠加 90° 分离角辅助线（过碰撞点、垂直于撞击线）。默认关闭。
     @Published var showSeparationAngle: Bool {
-        didSet { UserDefaults.standard.set(showSeparationAngle, forKey: "showSeparationAngle") }
+        didSet { defaults.set(showSeparationAngle, forKey: "showSeparationAngle") }
     }
 
     // 三档轨迹标注（问题集合条 12.5，全击打页统一）：全部球 / 母球+目标球 / 仅瞄准线+假想球。
     @Published var trajectoryDetail: TrajectoryDetail {
-        didSet { UserDefaults.standard.set(trajectoryDetail.rawValue, forKey: "trajectoryDetail") }
+        didSet { defaults.set(trajectoryDetail.rawValue, forKey: "trajectoryDetail") }
     }
 
     // 4×8 台面网格叠加（问题集合条 16，全球桌页面统一）。默认关闭。
     @Published var showTableGrid: Bool {
-        didSet { UserDefaults.standard.set(showTableGrid, forKey: "showTableGrid") }
+        didSet { defaults.set(showTableGrid, forKey: "showTableGrid") }
     }
 
     // 近球瞄准特写 HUD（v23 E3）。默认开启。
     @Published var showAimCloseup: Bool {
-        didSet { UserDefaults.standard.set(showAimCloseup, forKey: PracticeStorageKey.showAimCloseup) }
+        didSet { defaults.set(showAimCloseup, forKey: PracticeStorageKey.showAimCloseup) }
     }
 
-    private init() {
-        let sportRaw = UserDefaults.standard.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.reminderWeekdays = Set(defaults.array(forKey: "reminderWeekdays") as? [Int] ?? Array(1...7))
+        let sportRaw = defaults.string(forKey: "preferredSport") ?? PreferredSport.chinese8.rawValue
         let initialSport = PreferredSport(rawValue: sportRaw) ?? .chinese8
 
-        if let gameRaw = UserDefaults.standard.string(forKey: DailyClearanceStoreKey.preferredGame),
+        if let gameRaw = defaults.string(forKey: DailyClearanceStoreKey.preferredGame),
            let game = DailyClearanceGame(rawValue: gameRaw) {
+            self.dailyClearanceGame = game
+        } else if let raw = defaults.string(forKey: Self.inferredGameKey),
+                  let game = DailyClearanceGame(rawValue: raw) {
             self.dailyClearanceGame = game
         } else {
             self.dailyClearanceGame = DailyClearanceGame.initialDefault(for: initialSport)
         }
 
-        OwnerProfileStore.migrateLegacyGuestProfile(in: .standard)
+        OwnerProfileStore.migrateLegacyGuestProfile(in: defaults)
 
         // v53 删除“每次训练时长目标”。旧值没有运行时消费者，升级时主动清掉，
         // 但 TrainingSession.totalDurationMinutes 的真实训练数据完全不受影响。
-        UserDefaults.standard.removeObject(forKey: "targetSessionMinutes")
+        defaults.removeObject(forKey: "targetSessionMinutes")
 
-        self.reminderEnabled = UserDefaults.standard.bool(forKey: "reminderEnabled")
+        self.reminderEnabled = defaults.bool(forKey: "reminderEnabled")
 
-        let storedTime = UserDefaults.standard.double(forKey: "reminderTime")
-        if let hour = UserDefaults.standard.object(forKey: "reminderLocalHour") as? Int {
+        let storedTime = defaults.double(forKey: "reminderTime")
+        if let hour = defaults.object(forKey: "reminderLocalHour") as? Int {
             self.reminderTime = Calendar.current.date(bySettingHour: hour,
-                minute: UserDefaults.standard.integer(forKey: "reminderLocalMinute"), second: 0, of: Date()) ?? Date()
+                minute: defaults.integer(forKey: "reminderLocalMinute"), second: 0, of: Date()) ?? Date()
         } else if storedTime > 0 {
             self.reminderTime = Date(timeIntervalSince1970: storedTime)
         } else {
@@ -164,34 +185,33 @@ final class UserPreferences: ObservableObject {
             self.reminderTime = Calendar.current.date(from: components) ?? Date()
         }
 
-        let modeRaw = UserDefaults.standard.string(forKey: "appearanceMode") ?? AppearanceMode.system.rawValue
+        let modeRaw = defaults.string(forKey: "appearanceMode") ?? AppearanceMode.system.rawValue
         self.appearanceMode = AppearanceMode(rawValue: modeRaw) ?? .system
 
         // Default to off while preserving an explicitly saved preference.
-        self.soundEffectsEnabled = (UserDefaults.standard.object(forKey: "soundEffectsEnabled") as? Bool) ?? false
+        self.soundEffectsEnabled = (defaults.object(forKey: "soundEffectsEnabled") as? Bool) ?? false
 
         // 默认关闭（可选辅助线）。
-        self.showSeparationAngle = (UserDefaults.standard.object(forKey: "showSeparationAngle") as? Bool) ?? false
+        self.showSeparationAngle = (defaults.object(forKey: "showSeparationAngle") as? Bool) ?? false
 
         // 默认最全档（条 12.5）。
-        let detailRaw = UserDefaults.standard.object(forKey: "trajectoryDetail") as? Int
+        let detailRaw = defaults.object(forKey: "trajectoryDetail") as? Int
         self.trajectoryDetail = detailRaw.flatMap { TrajectoryDetail(rawValue: $0) } ?? .full
 
         // 默认关闭（条 16）。
-        self.showTableGrid = (UserDefaults.standard.object(forKey: "showTableGrid") as? Bool) ?? false
+        self.showTableGrid = (defaults.object(forKey: "showTableGrid") as? Bool) ?? false
 
         // 默认开启（v23 E3）。
         self.showAimCloseup =
-            (UserDefaults.standard.object(forKey: PracticeStorageKey.showAimCloseup) as? Bool) ?? true
-        if UserDefaults.standard.object(forKey: "reminderLocalHour") == nil {
-            UserDefaults.standard.set(Calendar.current.component(.hour, from: reminderTime), forKey: "reminderLocalHour")
-            UserDefaults.standard.set(Calendar.current.component(.minute, from: reminderTime), forKey: "reminderLocalMinute")
+            (defaults.object(forKey: PracticeStorageKey.showAimCloseup) as? Bool) ?? true
+        if defaults.object(forKey: "reminderLocalHour") == nil {
+            defaults.set(Calendar.current.component(.hour, from: reminderTime), forKey: "reminderLocalHour")
+            defaults.set(Calendar.current.component(.minute, from: reminderTime), forKey: "reminderLocalMinute")
         }
     }
 
     /// Reconstruct the chosen wall-clock time after an in-process timezone change.
     var localReminderTime: Date {
-        let defaults = UserDefaults.standard
         let hour = defaults.object(forKey: "reminderLocalHour") as? Int ?? Calendar.current.component(.hour, from: reminderTime)
         let minute = defaults.object(forKey: "reminderLocalMinute") as? Int ?? Calendar.current.component(.minute, from: reminderTime)
         return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? reminderTime

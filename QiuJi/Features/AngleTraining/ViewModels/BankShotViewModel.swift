@@ -637,6 +637,10 @@ final class BankShotViewModel: ObservableObject {
     /// 刷新自由瞄准覆盖：瞄准线（至假想球 / 空杆至库边）+ 标准假想球（ghostBallNode）+ 接触点 + 球杆摆位；
     /// 首碰胶囊数据走 `freeAimFirstContact`（纯几何，方案 §1.3）。
     func refreshFreeAim() {
+        // The selected solve reference is not the current free-aim prediction.
+        // Do not mix its grey rebound path with the live single-segment guide.
+        referenceNodes.forEach { $0.isHidden = true }
+        scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
         guard mode == .free, !isPlaying,
               let cue = scene.cueBallNode, !cue.isHidden,
@@ -671,6 +675,10 @@ final class BankShotViewModel: ObservableObject {
             }
             if let targetNode = freeBallNode(for: contact.targetKey) {
                 scene.updateContactDot(ghostCenter: end, targetCenter: targetNode.position)
+                let line = IdealObjectDirection.preview(
+                    target: CGPoint(x: CGFloat(targetNode.position.x), y: CGFloat(targetNode.position.z)),
+                    ghost: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z)))?.line
+                if let node = scene.setIdealObjectLine(line, detail: UserPreferences.shared.trajectoryDetail) { freeAimNodes.append(node) }
             }
         } else {
             scene.ghostBallNode?.isHidden = true
@@ -714,6 +722,7 @@ final class BankShotViewModel: ObservableObject {
     }
 
     private func clearFreeOverlays() {
+        scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
         scene.ghostBallNode?.isHidden = true
@@ -726,6 +735,7 @@ final class BankShotViewModel: ObservableObject {
         guard canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir else { return }
         isPlaying = true
         let before = captureBoard()
+        scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
 
@@ -765,6 +775,7 @@ final class BankShotViewModel: ObservableObject {
         guard mode == .free, !isPlaying, let shot = lastShot,
               shot.prediction.recorder != nil else { return }
         isPlaying = true
+        scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
         applyBoard(shot.before)

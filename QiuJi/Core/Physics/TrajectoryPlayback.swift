@@ -114,8 +114,6 @@ final class TrajectoryPlayback {
     static let pocketEntryLegMaxDuration: TimeInterval = 0.30
     /// 撞远端袋弧后回落到袋心的短促 settle 时长。
     static let pocketSettleBackDuration: TimeInterval = 0.12
-    /// 入洞段最小视觉速度 (m/s)：jaw settle / 慢滚进袋的球也要有可见的入洞动作。
-    static let pocketMinEntrySpeed: Float = 0.4
     /// 进袋后先停顿一拍再淡出（直接消失体验差）：球落到袋心静置 `pocketPauseDuration` 秒后才开始淡出。
     static let pocketPauseDuration: TimeInterval = 0.35
     /// 进袋淡出时长（停顿之后）。
@@ -151,7 +149,12 @@ final class TrajectoryPlayback {
         let y = capture.y
         let center = SCNVector3(pocketCenter.x, y, pocketCenter.z)
         let vLen = sqrtf(velocity.x * velocity.x + velocity.z * velocity.z)
-        let speed = max(pocketMinEntrySpeed, vLen) * max(0.05, speedScale)
+        let speed = vLen * max(0.05, speedScale)
+        // Keep the existing duration cap and zero-speed settle behavior without a speed floor.
+        func entryDuration(distance: Float) -> TimeInterval {
+            guard speed > 0 else { return pocketEntryLegMaxDuration }
+            return min(TimeInterval(distance / speed), pocketEntryLegMaxDuration)
+        }
 
         // 入洞方向：优先沿进袋时速度方向；速度缺失（settle）退化为指向袋心。
         var dirX = velocity.x, dirZ = velocity.z
@@ -180,7 +183,7 @@ final class TrajectoryPlayback {
                 let hit = SCNVector3(capture.x + dirX * tFar, y, capture.z + dirZ * tFar)
                 legs.append(PocketEntryLeg(
                     to: hit,
-                    duration: min(TimeInterval(tFar / speed), pocketEntryLegMaxDuration),
+                    duration: entryDuration(distance: tFar),
                     eased: false
                 ))
                 legs.append(PocketEntryLeg(to: center, duration: pocketSettleBackDuration, eased: true))
@@ -191,7 +194,7 @@ final class TrajectoryPlayback {
         let dist = sqrtf(fx * fx + fz * fz)
         return [PocketEntryLeg(
             to: center,
-            duration: min(TimeInterval(dist / speed), pocketEntryLegMaxDuration),
+            duration: entryDuration(distance: dist),
             eased: false
         )]
     }

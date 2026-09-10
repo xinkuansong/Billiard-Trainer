@@ -70,6 +70,7 @@ struct AngleSceneView: UIViewRepresentable {
     func makeUIView(context: Context) -> SCNView {
         let scnView = SCNView()
         scnView.scene = scene
+        scene.closeupViewport = scnView
         if let cam = scene.cameraNode {
             scnView.pointOfView = cam
         }

@@ -13,6 +13,8 @@ import CoreText
 /// - 展示级（`btDisplay` / `btDisplaySmall` / `btChapterNumber`）仅在「单屏核心数据」或「编辑式排版」中出现。
 /// - 副标题用 `btSubheadline` / `btFootnote14`，避免 `btCaption` 当正文使用。
 extension Font {
+    /// Journal day masthead; body copy retains the standard app typography.
+    static let btJournalDay = Font.system(size: 52, weight: .regular, design: .serif)
     /// A2 introduction: bundled OFL Noto Serif SC subset, renamed QiuJi Intro Serif.
     /// License ships in introSerifLicense; the subset covers the introduction copy.
     static let btIntroTitle: Font = {

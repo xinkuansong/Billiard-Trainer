@@ -2217,3 +2217,23 @@ final class PocketBehaviorDiagTests: XCTestCase {
         return SCNVector3(v.x / len, 0, v.z / len)
     }
 }
+
+extension PocketBehaviorDiagTests {
+    func test_entryUsesActualSpeedWithoutMinimumAndKeepsReturnPath() {
+        let radius: Float = 0.043
+        let capture = SCNVector3(0,0.828575,-radius)
+        let distance = radius + (radius - 0.3 * AngleSceneCalculator.ballRadius)
+        for speed: Float in [0,0.1,0.3,1] {
+            let legs = TrajectoryPlayback.solvePocketEntry(capture:capture,velocity:SCNVector3(0,0,speed),pocketCenter:SCNVector3Zero,pocketRadius:radius,speedScale:1)
+            XCTAssertEqual(legs.count,2)
+            guard legs.count == 2 else { continue }
+            let expected = speed > 0 ? min(Double(distance/speed),0.30) : 0.30
+            XCTAssertEqual(legs[0].duration,expected,accuracy:0.000001)
+            XCTAssertTrue(legs[0].duration.isFinite)
+            XCTAssertEqual(legs[0].to.z,radius-0.3*AngleSceneCalculator.ballRadius,accuracy:0.000001)
+            XCTAssertEqual(legs[1].to.z,0,accuracy:0.000001)
+            XCTAssertEqual(legs[1].duration,0.12,accuracy:0.000001)
+            XCTAssertTrue(legs[1].eased)
+        }
+    }
+}

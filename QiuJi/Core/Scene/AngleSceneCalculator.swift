@@ -78,30 +78,24 @@ enum AngleSceneCalculator {
         index < 4 ? cornerPocketRadius : middlePocketRadius
     }
 
-    /// CAD 孔心相对击球区边界的偏移（物理/瞄准真源，ADR-P10-09）：
-    /// 角袋孔心 (±1.312, ±0.677)，中袋孔心 (0, ±0.688)。
-    /// 整套袋口构造链（jaw 45° 切线 / R30 双切 / 喉壁）与这些孔心互为切线、数值闭合，
-    /// 物理层禁止再混入 USDZ 视觉偏移（那会在 jaw 末端与孔沿之间撕开 3.3mm 死缝）。
+    /// Corner geometry retains its CAD reference. Middle drop/aim/hit centers share the
+    /// measured near-rim calibration; this does not move the model's leather or cushions.
     private static let cornerPocketOffset: Float = 0.042
-    private static let middlePocketOffset: Float = 0.053
-
-    /// 当前 USDZ 模型 `TaiQiuZhuo.usdz` 的袋口洞**视觉**中心比 CAD 孔心略靠台内
-    /// （实测约 12mm / 9mm）。仅供渲染层（黄色标记盘）使用；调整 USDZ 模型时重新校准。
+    private static let middlePocketOffset: Float = TablePhysics.sidePocketCenterOffsetZ - innerWidth / 2
     private static let cornerPocketModelDelta: Float = 0.012
-    private static let middlePocketModelDelta: Float = 0.009
 
-    /// Six pocket centers at table surface level（CAD 真孔心，物理引擎 + 瞄准数学的唯一真源）。
+    /// Six drop-hole centers shared by physics and theoretical aiming.
     static func pocketPositions(surfaceY: Float) -> [SCNVector3] {
         pocketCenters(surfaceY: surfaceY,
                       c: cornerPocketOffset,
                       m: middlePocketOffset)
     }
 
-    /// 袋洞的视觉交互中心（CAD 孔心 + USDZ 视觉校准偏移）。仅供命中/投影使用；皮革保持模型原位。
+    /// 袋洞交互中心：中袋与物理孔共用实测校准，角袋保留视觉偏移；皮革保持模型原位。
     static func pocketMarkerPositions(surfaceY: Float) -> [SCNVector3] {
         pocketCenters(surfaceY: surfaceY,
                       c: cornerPocketOffset - cornerPocketModelDelta,
-                      m: middlePocketOffset - middlePocketModelDelta)
+                      m: middlePocketOffset)
     }
 
     private static func pocketCenters(surfaceY: Float, c: Float, m: Float) -> [SCNVector3] {

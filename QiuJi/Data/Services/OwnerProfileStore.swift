@@ -74,11 +74,14 @@ final class OwnerProfileStore: ObservableObject {
         )
     }
 
-    func setPreferredSport(_ value: PreferredSport, authState: AuthState) async {
+    func setPreferredSport(_ value: PreferredSport, authState: AuthState,
+                           preferences: UserPreferences = .shared) async {
         let old = preferredSport
         preferredSport = value
         if !(await save(update: UserProfileUpdate(preferredSport: value.rawValue), authState: authState)) {
             preferredSport = old
+        } else {
+            preferences.synchronizeDefaultGame(with: preferredSport)
         }
     }
 

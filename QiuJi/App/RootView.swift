@@ -8,12 +8,18 @@ struct RootView: View {
     @ObservedObject private var preferences = UserPreferences.shared
 
     var body: some View {
-        if let deepLink = Self.uiTestDeepLink {
-            deepLink.preferredColorScheme(Self.uiTestDeepLinkColorScheme)
-        } else {
-            MainTabView(ownerKey: ownerContext.ownerKey)
-                .id(ownerContext.ownerKey)
-                .preferredColorScheme(mainColorScheme)
+        Group {
+            if let deepLink = Self.uiTestDeepLink {
+                deepLink.preferredColorScheme(Self.uiTestDeepLinkColorScheme)
+            } else {
+                MainTabView(ownerKey: ownerContext.ownerKey)
+                    .id(ownerContext.ownerKey)
+                    .preferredColorScheme(mainColorScheme)
+            }
+        }
+        .task(id: authState.currentUser) {
+            preferences.synchronizeDefaultGame(ownerKey: ownerContext.ownerKey,
+                                               user: authState.currentUser)
         }
     }
 

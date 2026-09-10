@@ -605,9 +605,10 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 刷新自由瞄准覆盖层：首碰预览（假想球贴目标球滑动）。
     /// 非自由模式 / 播放中 / 缺母球或方向时全部隐藏。轨迹线仍由后台 `simulateFree` 异步补齐。
-    private func refreshFreeAimOverlay() {
+    private func refreshFreeAimOverlay(showsIdealDirection: Bool = true) {
+        scene.setIdealObjectLine(nil)
         let r = AngleSceneCalculator.ballRadius
-        guard aimMode == .free, !isPlaying,
+        guard aimMode == .free, !isPlaying, !isBreakMode, !isSequenceMode,
               let cue = scene.allBallNodes[PositionPlayBall.cueKey], !cue.isHidden,
               let dir = freeAimDir else {
             freeAimContact = nil
@@ -632,6 +633,12 @@ final class PositionPlayViewModel: ObservableObject {
             ghost.isHidden = false
             // 重叠标注 L0（T-P18-42）：假想球圈 + 接触点绿点成对出现。
             scene.updateContactDot(ghostCenter: ghost.position, targetCenter: targetNode.position)
+            if showsIdealDirection {
+                scene.setIdealObjectLine(IdealObjectDirection.preview(
+                    target: CGPoint(x: CGFloat(targetNode.position.x), y: CGFloat(targetNode.position.z)),
+                    ghost: CGPoint(x: CGFloat(ghost.position.x), y: CGFloat(ghost.position.z)))?.line,
+                                         detail: UserPreferences.shared.trajectoryDetail)
+            }
         } else {
             scene.ghostBallNode?.isHidden = true
             scene.hideContactDot()
@@ -775,6 +782,7 @@ final class PositionPlayViewModel: ObservableObject {
             showGeometryPreviewOnly()
         } else {
             isComputing = true
+            if aimMode == .free { showGeometryPreviewOnly() }
         }
         solveScheduler.schedule(interactive: interactive) { [weak self] in self?.launchSolveIfIdle() }
     }
@@ -956,6 +964,10 @@ final class PositionPlayViewModel: ObservableObject {
             clearTrajectory()
             scene.hideCueStick()
             lastAimDirection = nil
+            if aimMode == .free {
+                refreshFreeAimOverlay()
+                drawFreeAimPreviewLine()
+            }
             return
         }
 
@@ -965,7 +977,7 @@ final class PositionPlayViewModel: ObservableObject {
         drawTrajectory(pred)
         updateCueStickAiming(pred)
         // 轨迹重绘会先 hideAllVisualization（连带假想球）；自由模式重新亮出首碰覆盖层。
-        if aimMode == .free { refreshFreeAimOverlay() }
+        if aimMode == .free { refreshFreeAimOverlay(showsIdealDirection: false) }
     }
 
     /// Z1 副标题保持中性（T-P18-49 失误态去重）：母球进袋由 Z2 红 pill

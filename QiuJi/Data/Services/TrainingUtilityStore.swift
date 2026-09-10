@@ -105,3 +105,52 @@ enum TrainingUtilityStore {
         }
     }
 }
+
+struct TrainingJournalDraft {
+    let sessionID: UUID
+    var note: String
+    var entryNotes: [UUID: String]
+}
+
+extension TrainingUtilityStore {
+    /// One transaction for the entire day. A failed save never publishes a partial edit.
+    static func saveJournal(context: ModelContext, ownerKey: String, drafts: [TrainingJournalDraft],
+                            isPremium: Bool, save: (ModelContext) throws -> Void = { try $0.save() }) throws {
+        guard ownerKey == CurrentOwnerContext.shared.ownerKey else { throw Failure.ownerChanged }
+        guard Set(drafts.map(\.sessionID)).count == drafts.count else { throw Failure.invalid }
+        let writer = ModelContext(context.container)
+        writer.autosaveEnabled = false
+        var changes: [(TrainingSession, TrainingJournalDraft)] = []
+        for draft in drafts {
+            let id = draft.sessionID
+            guard let record = try writer.fetch(FetchDescriptor<TrainingSession>(predicate: #Predicate { $0.id == id && $0.ownerKey == ownerKey })).first,
+                  record.kind == "drill" else { throw Failure.recordUnavailable }
+            guard HistoryAccessController.isAccessible(record, isPremium: isPremium) else { throw Failure.historyLocked }
+            guard Set(draft.entryNotes.keys).isSubset(of: Set(record.drillEntries.map(\.id))) else { throw Failure.recordUnavailable }
+            let changed = record.note != draft.note || record.drillEntries.contains { entry in
+                draft.entryNotes[entry.id].map { $0 != entry.note } ?? false
+            }
+            if changed { changes.append((record, draft)) }
+        }
+        guard !changes.isEmpty else { return }
+        for (record, draft) in changes {
+            record.note = draft.note
+            for entry in record.drillEntries {
+                if let note = draft.entryNotes[entry.id] { entry.note = note }
+            }
+            writer.insert(SyncPendingItem(entityType: SyncEntityType.trainingSession, entityId: record.id,
+                operation: SyncOperation.update, ownerKey: ownerKey))
+        }
+        let observed = try context.fetch(FetchDescriptor<TrainingSession>(predicate: #Predicate { $0.ownerKey == ownerKey }))
+        try save(writer)
+        // Refresh existing observed instances only after every write has succeeded.
+        let changedIDs = Set(changes.map { $0.0.id })
+        for record in observed where changedIDs.contains(record.id) {
+            guard let draft = changes.first(where: { $0.0.id == record.id })?.1 else { continue }
+            record.note = draft.note
+            for entry in record.drillEntries {
+                if let note = draft.entryNotes[entry.id] { entry.note = note }
+            }
+        }
+    }
+}

@@ -140,7 +140,8 @@ struct ShotSimulationView: View {
             }
 
             // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
-            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
+            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
+                                    scene: vm.scene, safeInsets: proxy.aimCloseupSafeInsets)
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,

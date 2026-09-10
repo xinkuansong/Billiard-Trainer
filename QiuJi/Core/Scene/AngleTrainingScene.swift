@@ -6,6 +6,9 @@ import os
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
 final class AngleTrainingScene: SCNScene {
 
+    /// Weak bridge to the live viewport; used only while a closeup is visible.
+    weak var closeupViewport: SCNView?
+
     // MARK: - Camera Mode
 
     enum CameraMode: Equatable {
@@ -1670,7 +1673,29 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Show / Hide Visualization
 
+    private var idealObjectNode: SCNNode?
+    private(set) var idealObjectLine: AimCloseupSegment?
+
+    /// Update the preview's single shared layer; callers own mode/solver lifetime.
+    @discardableResult
+    func setIdealObjectLine(_ line: AimCloseupSegment?, detail: TrajectoryDetail = .full) -> SCNNode? {
+        idealObjectNode?.removeFromParentNode()
+        idealObjectNode = nil
+        let line = detail == .minimal ? nil : line
+        idealObjectLine = line
+        guard let line, hypot(line.end.x - line.start.x, line.end.y - line.start.y) > 1e-6 else { return nil }
+        let y = surfaceY + AngleSceneCalculator.ballRadius
+        let node = addDashedLine(from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
+                                 to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
+                                 color: IdealObjectDirection.color, radius: 0.002,
+                                 dash: 0.025, gap: 0.018)
+        node.name = "idealObjectDirection"
+        idealObjectNode = node
+        return node
+    }
+
     func hideAllVisualization() {
+        setIdealObjectLine(nil)
         ghostBallNode?.isHidden = true
         pocketLineNode?.isHidden = true
         strikeLineNode?.isHidden = true

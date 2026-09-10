@@ -295,7 +295,8 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             }
 
             // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
-            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
+            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
+                                    scene: vm.scene, safeInsets: proxy.aimCloseupSafeInsets)
 
             // 打点盘浮层（自由 / 求解有解；求解微调走草稿层，编排台同款 ADR-P11-09）。
             if showSpinPad {

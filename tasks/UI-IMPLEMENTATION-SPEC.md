@@ -1171,7 +1171,13 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 按用户截图最新裁定，仅ProfileView.guestHeader改为纯白背景，使用浅色语义文字/头像；卡片内部colorScheme固定light，不改变外部页面外观。右侧复用透明底BTProfileGameBall按玩法显示8/9号球，作为Spacer装饰不参与布局。原尺寸、点击登录与登录弹窗摄影保留。
 
+### DR-135 我的概览与默认玩法（2026-09-10）
+
+`ProfileMonthlyOverviewCard(trainingDays: Int, durationMinutes: Int, longestStreak: Int)` 接收真实整数，内部生成中文数字/单位分级文本；保留三个原 AX identifier。练习天数用 btOverviewDays（浅色沿用品牌绿，深色提高文字对比），时长用 btOverviewDuration，连续练习用 btOverviewStreak；新色均有浅深色资产，背景取各自低透明度。常规三列，放不下时采用标签左/数据右的紧凑行。入口及目标页统一“收藏”“设置”；次组顺序为设置、认识球迹、关于与反馈。UserPreferences 显式选择与资料推导分开保存，资料保存失败不更新玩法，已存显式选择保持优先。
+
 ## Changelog
+
+| 2026-09-10 | DR-135：本月概览分级数字与浅色指标、菜单精简、默认玩法跟随资料 | 用户确认 | Profile / Settings / UserPreferences | UR-20260910-profile-refinement |
 
 | 2026-09-10 | DR-134：六袋原皮革暖金选中、打三绿青同袋分区、状态/命中/AX统一 | 用户批准v60 | PocketLeather / AngleScene / PositionPlay / Silu / PlanThree | UR-20260910-pocket-leather |
 
@@ -1624,3 +1630,21 @@ ProfileMenuRow默认使用BTIconBadge.Tint.neutral（btTextSecondary图标与弱
 ## 六袋皮革选择（DR-134）
 
 选中反馈只着色原Leather面：单目标使用深色btAccent暖金与原贴图在线性空间混合65%；打三①绿、②青，同袋双区，保持袋洞、网圈与遮挡关系。清桌/无目标/自由/开球不得残留旧袋；普通轨迹重绘不清有效选择。原位面角位置/法线/UV保持，缓存不得共享可变选中材质。选择权限沿用各宿主，固定题目不开放换袋；有选袋权限时提供六袋AX自定义动作。离线/静态球桌不自动添加该效果。验证报告：`tasks/ui-reviews/UR-20260910-pocket-leather.md`。
+
+## v61 当前视角特写与理想方向（DR-136，2026-09-10）
+- BTAimCloseupOverlay新增可选scene；所有正式调用传实际AngleTrainingScene，由弱SCNView桥获取当前投影，仅显示期间刷新。无scene的独立2D图保留原坐标契约。
+- AimCloseupSnapshot.idealLine是独立理想方向层，不复用指定袋口答案potLine；cueRadiusScale/ghostRadiusScale反映不同深度的表观尺寸。
+- IdealObjectDirection.preview基于首碰假想球→目标球法向，浅灰虚线无箭头，首个库/袋终点，无反弹。默认忽略目标球后续碰球，不生成后续球运动。
+- setIdealObjectLine集中控制主场景节点与特写数据，接受显式TrajectoryDetail；minimal档不显示。完整预测接替后清理，瞄准点练习不提供本层。
+- v61补充：3D瞄准点训练的特写避让侧设为右侧控件侧，右安全区由aimWheel/actionColumn实际宽度加页面边距确定；圆形特写优先置左，避开右轮与提交按钮。
+- v61小屏补充：自由击球/编排台/分离角/解球器使用ShotStageProxy.aimCloseupSafeInsets，按球桌左右边界加8pt间距避开表外两侧仪表；不使用固定12pt右侧保留量。
+- v61紧凑屏：保留优先0.92倍直径的球距；无完全无遮挡位置时，允许更近的空位，优先于覆盖母球/瞄准走廊的软避让。真实SE3坐标已纳入布局回归。
+- Changelog：2026-09-10 / DR-136 / v61 / 特写投影、方向层与跨页状态契约。
+
+## 训练心得日记页（DR-137，2026-09-10）
+
+`TrainingNotesView`：当前 owner 的有效心得按 reportingDate 分日，每日一纸页、最多两次摘要；详情按日展示完整内容。搜索缩小列表但不删减当天详情。`btJournalPaper` 仅心得页浅暖白/深灰纸面；`btJournalDay` 52pt regular serif 日期；正文保持既有 Token。纸纹程序化低对比、叠页边缘不参与命中；禁止向其他页面扩散纸张装饰。
+
+详情在原页切换编辑，整次/动作心得草稿统一保存、取消零写入；`saveJournal` 在独立 ModelContext 中验证全部会话后单次事务保存，失败保留草稿，每条有变化的会话生成同步更新。空编号只从阅读视图过滤，不清理数据库。补记不显示合成中午时间。
+
+Changelog：2026-09-10 · DR-137 · 用户批准日记稿 · TrainingNotesView / TrainingUtilityStore / btJournalPaper / btJournalDay。

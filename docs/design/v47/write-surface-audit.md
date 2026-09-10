@@ -58,3 +58,9 @@ TrainingUtilitiesTests 使用临时内存 ModelContainer；TrainingUtilitiesUITe
 PocketLeatherIntegrationTests 默认仅写仓库output/pocket-leather/W1/render与W4/neutral下PNG，可用POCKET_EVIDENCE指定临时渲染目录；序列只读content中的现有c060/c042 JSON。PocketLeatherUITests默认写output/pocket-leather/ui的PNG/AX；PocketLeatherFlowUITests默认写output/pocket-leather/W4/standard，可用POCKET_UI_EVIDENCE指定矩阵目录。截图另附xcresult，前景/table.scene断言失败不能认作页面通过。使用内存账号/训练fixture；批量制作只进入空球形编排，禁止点保存/导出。证据有意保留，不自动删除，按批次归档，写失败使测试失败。无Bundle、历史媒体或正式球形写入。
 
 此次门禁同时检出已有AimPointTheoryScanTests（其他任务未登记）：已检查全部写入调用，仅写output/aim-point-theory/W0中的扫描/探针JSON和comparison PNG，无正式数据改写；本轮只登记真实写盘面，不执行其物理扫描，不宣称验收其结果。
+
+## 2026-09-10 心得日记页可达性审计
+
+TrainingNotesView 由首页更多进入，按日期 navigationDestination 打开 TrainingNoteCollectionDetail；编辑在同页切换草稿态，不再叠第二层 sheet。每次训练记录 NavigationLink 保留。当天批量保存使用独立 ModelContext 事务，并按变化会话加入同步队列。新增 fixture 仅 DEBUG 模拟器且同时显式 -journal.fixture / -v50.inMemoryStore 时写内存库，零磁盘用户记录写入；截图只存 xcresult 附件。只更新本页面已审计路由签名，旧图基线不变。
+
+本次复核发现其他并行任务的 PocketRefactorDiagTests 新增写盘，已只读审计并登记：两个诊断均要求对应 output 子目录存在 RUN 哨兵；写入 output/middle-pocket-alignment-20260910/compare/comparison.json 与 output/middle-pocket-visual-20260910 的 PNG/frames.json，不删除文件、不写 Bundle 或历史基线。本轮未执行其物理诊断，不把它计为日记功能验收。

@@ -61,8 +61,12 @@ enum TablePhysics {
 
     static let cornerPocketCenterOffsetX: Float = innerLength / 2 + cornerPocketRadius
     static let cornerPocketCenterOffsetZ: Float = innerWidth / 2 + cornerPocketRadius
-    static let centerInnerHeight: Float = 0.688
-    static let sidePocketCenterOffsetZ: Float = centerInnerHeight
+    /// Existing CAD throat split; keep cushion geometry fixed when calibrating the drop hole.
+    static let sidePocketThroatJoinZ: Float = 0.688
+    /// USDZ near-side vertical hole rim, measured after TableModelLoader scaling.
+    /// Keep the 43mm radius and align its near edge; see middle-pocket-alignment-20260910/REPORT.md.
+    static let sidePocketNearRimZ: Float = 0.63296474
+    static let sidePocketCenterOffsetZ: Float = sidePocketNearRimZ + sidePocketRadius
 
     /// 袋口喉腔壁（袋兜衬里）恢复系数：比库边橡皮"死"得多。喉壁均为孔圈切线的延长，
     /// 正常球在触壁前已被「球心入孔圈」判据收袋——喉壁只是数值漏检时的安全兜底。

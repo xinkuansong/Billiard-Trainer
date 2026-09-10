@@ -176,15 +176,15 @@ final class V52DailyClearanceHomeSettingsUITests: XCTestCase {
     }
 
     private func openSettings(in app: XCUIApplication) {
-        if app.navigationBars["偏好设置"].waitForExistence(timeout: 3) { return }
+        if app.navigationBars["设置"].waitForExistence(timeout: 3) { return }
         app.switchTab(.profile)
-        let settings = app.staticTexts["偏好设置"]
+        let settings = app.staticTexts["设置"]
         for _ in 0..<4 where !settings.isHittable {
             app.windows.firstMatch.swipeUp()
         }
         XCTAssertTrue(settings.waitForExistence(timeout: 8))
         settings.tap()
-        XCTAssertTrue(app.navigationBars["偏好设置"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 8))
     }
 
     private func scrollUntilVisible(_ element: XCUIElement, in app: XCUIApplication) -> Bool {

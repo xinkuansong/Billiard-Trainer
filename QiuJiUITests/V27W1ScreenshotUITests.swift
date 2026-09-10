@@ -86,7 +86,7 @@ final class V27W1ScreenshotUITests: XCTestCase {
         // 4) Favorites list uses BTDrillCard (white-card default badge) if reachable
         app.switchTab(.profile)
         sleep(1)
-        let favorites = app.staticTexts["我的收藏"].firstMatch
+        let favorites = app.staticTexts["收藏"].firstMatch
         if favorites.waitForExistence(timeout: 3) {
             favorites.tap()
             sleep(2)

@@ -32,7 +32,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         captureSyncChoice("cloud-sync-choice")
         prompt.buttons["仅保存在本机"].tap()
         app.switchTab(.profile)
-        app.staticTexts["偏好设置"].tap()
+        app.staticTexts["设置"].tap()
         let toggle = app.switches["settings.cloudSync"]
         for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
         XCTAssertTrue(toggle.isHittable)
@@ -46,7 +46,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         app.launch()
         app.switchTab(.profile)
         XCTAssertFalse(app.alerts["开启训练数据云同步？"].exists)
-        app.staticTexts["偏好设置"].tap()
+        app.staticTexts["设置"].tap()
         for _ in 0..<4 where !toggle.isHittable { app.swipeUp() }
         XCTAssertEqual(toggle.value as? String, "1")
         toggle.tap()
@@ -79,7 +79,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         app.buttons["通过 Apple 登录"].tap()
         XCTAssertTrue(app.buttons["profile.accountHeader"].waitForExistence(timeout: 8))
         XCTAssertFalse(prompt.exists, "拒绝的选择应保留，设置仍可重新开启")
-        app.staticTexts["偏好设置"].tap()
+        app.staticTexts["设置"].tap()
         let toggle = app.switches["settings.cloudSync"]
         for _ in 0..<5 where !toggle.isHittable { app.swipeUp() }
         XCTAssertEqual(toggle.value as? String, "0")
@@ -118,7 +118,7 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         XCTAssertTrue(failure.waitForExistence(timeout: 8))
         captureSyncChoice("repair-sync-failure")
         failure.buttons["确定"].tap()
-        app.staticTexts["偏好设置"].tap()
+        app.staticTexts["设置"].tap()
         let sync = app.buttons["settings.syncNow"]
         for _ in 0..<5 where !sync.isHittable { app.swipeUp() }
         let status = app.staticTexts["settings.syncStatus"]
@@ -260,18 +260,18 @@ final class P8_ProfileSettingsUITests: XCTestCase {
     func testSettingsOpens() {
         app.scrollDown(times: 2)
         sleep(1)
-        let settings = app.staticTexts["偏好设置"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "偏好设置入口必须存在")
+        let settings = app.staticTexts["设置"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "设置入口必须存在")
         settings.tap()
         sleep(2)
-        XCTAssertTrue(app.navigationBars["偏好设置"].waitForExistence(timeout: 5), "SettingsView should open")
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5), "SettingsView should open")
     }
 
     func testSettingsAppearancePills() {
         app.scrollDown(times: 2)
         sleep(1)
-        let settings = app.staticTexts["偏好设置"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "偏好设置入口必须存在")
+        let settings = app.staticTexts["设置"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "设置入口必须存在")
         settings.tap()
         sleep(2)
         var found = false
@@ -293,8 +293,8 @@ final class P8_ProfileSettingsUITests: XCTestCase {
 
     func testSettingsAppearancePersistsAcrossColdRelaunch() {
         app.scrollDown(times: 2)
-        let settings = app.staticTexts["偏好设置"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "偏好设置入口必须存在")
+        let settings = app.staticTexts["设置"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "设置入口必须存在")
         settings.tap()
 
         let content = app.scrollViews["settings.content"]
@@ -310,8 +310,8 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         app.launch()
         app.switchTab(.profile)
         app.scrollDown(times: 2)
-        let reopenedSettings = app.staticTexts["偏好设置"]
-        XCTAssertTrue(reopenedSettings.waitForExistence(timeout: 5), "冷启动后偏好设置入口必须存在")
+        let reopenedSettings = app.staticTexts["设置"]
+        XCTAssertTrue(reopenedSettings.waitForExistence(timeout: 5), "冷启动后设置入口必须存在")
         reopenedSettings.tap()
         let reopenedContent = app.scrollViews["settings.content"]
         XCTAssertTrue(reopenedContent.waitForExistence(timeout: 3), "冷启动后设置内容必须存在")
@@ -343,8 +343,8 @@ final class P8_ProfileSettingsUITests: XCTestCase {
     func testSettingsClearCache() {
         app.scrollDown(times: 2)
         sleep(1)
-        let settings = app.staticTexts["偏好设置"]
-        XCTAssertTrue(settings.waitForExistence(timeout: 5), "偏好设置入口必须存在")
+        let settings = app.staticTexts["设置"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5), "设置入口必须存在")
         settings.tap()
         sleep(2)
         XCTAssertTrue(app.staticTexts["清除缓存"].waitForExistence(timeout: 3), "Clear cache row should exist")

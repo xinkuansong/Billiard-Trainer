@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import SceneKit
 
 /// Shared `AimCloseupSnapshot` builders for the aim closeup loupe (问题集合 v23 W3).
 ///
@@ -88,7 +89,7 @@ enum AimCloseupBuilder {
         let halfWorld = r * halfWorldMultiple
         let cueInFrame = hypot(cue.x - focus.x, cue.y - focus.y) < halfWorld * 1.35
 
-        let snapshot = AimCloseupSnapshot(
+        var snapshot = AimCloseupSnapshot(
             band: picked.sample.band,
             focus: focus,
             ballRadius: r,
@@ -108,6 +109,79 @@ enum AimCloseupBuilder {
             focusNorm: AimCloseupPlacement.focusNormInRotatedTopDown(
                 worldXZ: focus, halfLength: halfLength, halfWidth: halfWidth)
         )
+        snapshot.idealLine = picked.ghost.flatMap { IdealObjectDirection.preview(target: focus, ghost: $0)?.line }
         return Result(snapshot: snapshot, isNear: true)
+    }
+}
+
+/// A geometric initial object-ball direction, independent of power/spin and of
+/// the full shot solver. SceneKit XZ meters, finite-radius ball, no rebounds.
+enum IdealObjectDirection {
+    static let color = UIColor(white: 0.78, alpha: 1)
+    enum Termination: Equatable { case cushion, pocket(String) }
+    struct Preview: Equatable {
+        var line: AimCloseupSegment
+        var termination: Termination
+    }
+    // The same production geometry factory as ShotPredictor. Y is irrelevant
+    // to XZ ray queries; keep a single immutable table rather than rebuilding on drag.
+    private static let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+
+    static func preview(target: CGPoint, ghost: CGPoint) -> Preview? {
+        let dx = target.x - ghost.x, dz = target.y - ghost.y
+        let length = hypot(dx, dz)
+        guard length.isFinite, length > 1e-8 else { return nil }
+        let p = SCNVector3(Float(target.x), 0, Float(target.y))
+        let v = SCNVector3(Float(dx / length), 0, Float(dz / length))
+        let r = BallPhysics.radius
+        let limit = Double(hypot(AngleSceneCalculator.innerLength, AngleSceneCalculator.innerWidth) * 2)
+        var nearest = Float(limit)
+        var termination: Termination?
+        func consider(_ distance: Float, _ kind: Termination) {
+            guard distance.isFinite, distance >= 0, distance <= nearest else { return }
+            nearest = distance
+            termination = kind
+        }
+        for segment in table.linearCushions {
+            let gap = (p - segment.start).dot(segment.normal) - r
+            let approach = v.dot(segment.normal)
+            let time: Float?
+            if abs(gap) < 1e-6 && approach < -1e-6 {
+                time = 0
+            } else {
+                time = CollisionDetector.ballLinearCushionTime(
+                    p: p, v: v, a: SCNVector3Zero, lineNormal: segment.normal,
+                    lineOffset: Double(segment.normal.dot(segment.start)), R: Double(r), maxTime: limit)
+            }
+            if let time, EngineNumerics.isWithinLinearCushionSegment(point: p + v * time, segment: segment) {
+                consider(time, .cushion)
+            }
+        }
+        for arc in table.circularCushions {
+            let delta = p - arc.center
+            let distance = hypotf(delta.x, delta.z)
+            if abs(distance - arc.radius - r) < 1e-6,
+               delta.dot(v) < 0, arc.isAngleInRange(arc.angle(to: p)) {
+                consider(0, .cushion)
+            } else if let time = CollisionDetector.ballCircularCushionTime(
+                p: p, v: v, a: SCNVector3Zero, arc: arc, R: r, maxTime: limit, pockets: table.pockets) {
+                consider(time, .cushion)
+            }
+        }
+        // Ball center entering the physical hole circle is the engine's pocket
+        // criterion. Unit-speed ray reduces its zero-acceleration equation to a quadratic.
+        for pocket in table.pockets {
+            let offset = p - pocket.center
+            let b = offset.x * v.x + offset.z * v.z
+            let c = offset.x * offset.x + offset.z * offset.z - pocket.radius * pocket.radius
+            if c <= 0 { consider(0, .pocket(pocket.id)); continue }
+            let discriminant = b * b - c
+            if discriminant >= 0 { consider(-b - sqrtf(discriminant), .pocket(pocket.id)) }
+        }
+        guard let termination else { return nil }
+        let end = p + v * nearest
+        let start = p + v * min(r, nearest)
+        return Preview(line: .init(start: CGPoint(x: CGFloat(start.x), y: CGFloat(start.z)),
+                                   end: CGPoint(x: CGFloat(end.x), y: CGFloat(end.z))), termination: termination)
     }
 }

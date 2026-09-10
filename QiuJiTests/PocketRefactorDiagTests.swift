@@ -325,3 +325,126 @@ final class PocketRefactorDiagTests: XCTestCase {
         }
     }
 }
+
+extension PocketRefactorDiagTests {
+    /// Fixed launch rays: isolates pocket relocation from aiming compensation.
+    func test_middlePocketAlignmentComparison() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let dir = root.appendingPathComponent("output/middle-pocket-alignment-20260910/compare")
+        guard FileManager.default.fileExists(atPath: dir.appendingPathComponent("RUN").path) else { throw XCTSkip("Opt-in pocket alignment diagnostic") }
+        let base = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        var rows = [[String: Any]]()
+        for center: Float in [0.688, 0.679, 0.67596474] {
+            let pockets = base.pockets.map { p in
+                p.isCorner ? p : Pocket(id:p.id, center:SCNVector3(0,p.center.y,p.center.z > 0 ? center : -center), radius:p.radius,isCorner:false)
+            }
+            let geo = TableGeometry(linearCushions:base.linearCushions,circularCushions:base.circularCushions,pockets:pockets)
+            for sign: Float in [-1,1] {
+                for angle in stride(from:-80,through:80,by:10) {
+                    let a = Float(angle) * .pi / 180
+                    let dx = sinf(a), dz = sign * cosf(a)
+                    for offset: Float in [-0.03,-0.015,0,0.015,0.03] {
+                        let start = SCNVector3(offset - 0.075 * tanf(a),surfaceY+R,sign*0.56)
+                        for speed: Float in [0.12,0.18,0.24,0.30,0.40,0.60,1.0,2.0] {
+                            let engine = EventDrivenEngine(tableGeometry:geo)
+                            let vel = SCNVector3(dx*speed,0,dz*speed)
+                            engine.setBall(BallState(position:start,velocity:vel,angularVelocity:SCNVector3(vel.z/R,0,-vel.x/R),state:.rolling,name:"object"))
+                            engine.simulate(maxEvents:200,maxTime:10,highFidelityBounds:true)
+                            let b = engine.getAllBalls()[0]
+                            var contactCount=0
+                            for e in engine.resolvedEvents { if case .ballCushion = e { contactCount += 1 } }
+                            rows.append(["center":center,"sign":sign,"angle":angle,"offset":offset,"speed":speed,"potted":b.isPocketed,"contacts":contactCount,"settled":b.isPocketed || b.state == .stationary,"endX":b.position.x,"endZ":b.position.z])
+                        }
+                    }
+                }
+            }
+        }
+        try JSONSerialization.data(withJSONObject:rows,options:[.sortedKeys]).write(to:dir.appendingPathComponent("comparison.json"))
+        XCTAssertEqual(rows.count,4080)
+    }
+}
+
+extension PocketRefactorDiagTests {
+    func test_middlePocketCalibratedRimAndHangingBalls() {
+        let geo = TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY)
+        for sign: Float in [-1,1] {
+            // Independent measured rim, not read back from the production constant.
+            let rim: Float = 0.63296474
+            let p = geo.pockets.first { !$0.isCorner && $0.center.z * sign > 0 }!
+            XCTAssertEqual(abs(p.center.z)-p.radius,rim,accuracy:0.00001)
+            let index = sign > 0 ? 5 : 4
+            XCTAssertEqual(AngleSceneCalculator.pocketPositions(surfaceY:surfaceY)[index].z,p.center.z,accuracy:0.000001)
+            XCTAssertEqual(AngleSceneCalculator.pocketMarkerPositions(surfaceY:surfaceY)[index].z,p.center.z,accuracy:0.000001)
+            // Rolling travel budget deliberately stops 2mm before / after the measured rim.
+            for extra: Float in [-0.002,0.002] {
+                let engine = EventDrivenEngine(tableGeometry:geo)
+                let speed = sqrtf(2 * SpinPhysics.rollingFriction * TablePhysics.gravity * (rim + extra - 0.56))
+                engine.setBall(BallState(position:SCNVector3(0,surfaceY+R,sign*0.56),velocity:SCNVector3(0,0,sign*speed),angularVelocity:SCNVector3(sign*speed/R,0,0),state:.rolling,name:"object"))
+                engine.simulate(maxEvents:200,maxTime:10,highFidelityBounds:true)
+                let b = engine.getAllBalls()[0]
+                XCTAssertEqual(b.isPocketed,extra > 0,"sign=\(sign), extra=\(extra)")
+                if extra < 0 { XCTAssertEqual(abs(b.position.z),rim+extra,accuracy:0.0001) }
+            }
+            // Near-jaw launch: the new hole must not bypass the jaw collision.
+            let jaw = EventDrivenEngine(tableGeometry:geo)
+            jaw.setBall(BallState(position:SCNVector3(0.055,surfaceY+R,sign*0.56),velocity:SCNVector3(0,0,sign*0.4),angularVelocity:SCNVector3(sign*0.4/R,0,0),state:.rolling,name:"object"))
+            jaw.simulate(maxEvents:200,maxTime:10,highFidelityBounds:true)
+            let firstImpact = jaw.resolvedEvents.first { event in
+                switch event { case .ballCushion, .pocket: return true; default: return false }
+            }
+            if let firstImpact, case .ballCushion = firstImpact {} else { XCTFail("Pocket collection bypassed near jaw") }
+            // A ray aimed into solid main rail must still collide and cannot be collected.
+            let blocked = EventDrivenEngine(tableGeometry:geo)
+            blocked.setBall(BallState(position:SCNVector3(0.15,surfaceY+R,sign*0.56),velocity:SCNVector3(0,0,sign*0.4),angularVelocity:SCNVector3(sign*0.4/R,0,0),state:.rolling,name:"object"))
+            blocked.simulate(maxEvents:200,maxTime:10,highFidelityBounds:true)
+            XCTAssertFalse(blocked.getAllBalls()[0].isPocketed)
+            XCTAssertTrue(blocked.resolvedEvents.contains { if case .ballCushion = $0 { return true }; return false })
+        }
+    }
+}
+
+extension PocketRefactorDiagTests {
+    @MainActor
+    func test_middlePocketProductionPlaybackVisuals() throws {
+        let dir = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("output/middle-pocket-visual-20260910")
+        guard FileManager.default.fileExists(atPath:dir.appendingPathComponent("RUN").path) else { throw XCTSkip("Opt-in actual playback capture") }
+        var records = [[String:Any]]()
+        for item in [("straight",Float(0),Float(0),Float(0.30)),("oblique",Float(-0.04),Float(0.5),Float(0.4)),("jaw",Float(0.055),Float(0),Float(0.4)),("hang",Float(0),Float(0),sqrtf(2*SpinPhysics.rollingFriction*TablePhysics.gravity*(0.63096474-0.56)))] {
+            for perspective in [false,true] {
+                let scene = AngleTrainingScene();scene.setupScene(enhancedRendering:perspective);scene.hideAllBalls()
+                let sy=scene.surfaceY;let radius=BallPhysics.radius
+                let v=SCNVector3(sinf(item.2)*item.3,0,cosf(item.2)*item.3)
+                let start=SCNVector3(item.1,sy+radius,0.56)
+                let engine=EventDrivenEngine(tableGeometry:.chineseEightBallQiuJi(surfaceY:sy))
+                engine.setBall(BallState(position:start,velocity:v,angularVelocity:SCNVector3(v.z/radius,0,-v.x/radius),state:.rolling,name:"object"))
+                engine.simulate(maxEvents:200,maxTime:5,highFidelityBounds:true)
+                let playback=TrajectoryPlayback(recorder:engine.getTrajectoryRecorder(),surfaceY:sy+radius)
+                scene.showBall(key:"_1",scenePosition:start)
+                let node=try XCTUnwrap(scene.visibleBalls()["_1"])
+                scene.setCameraMode(perspective ? .perspective3D : .topDown2D,animated:false)
+                // Local inspection camera: same model/materials/actions, not a full-page screenshot.
+                let camera=try XCTUnwrap(scene.cameraNode)
+                camera.position=perspective ? SCNVector3(0.24,sy+0.38,0.27) : SCNVector3(0,sy+0.65,0.64)
+                camera.look(at:SCNVector3(0,sy,0.65),up:SCNVector3(0,0,-1),localFront:SCNVector3(0,0,-1))
+                camera.camera?.usesOrthographicProjection = !perspective
+                camera.camera?.orthographicScale=0.27
+                camera.camera?.fieldOfView=42
+                let renderer=SCNRenderer(device:nil,options:nil);renderer.scene=scene;renderer.pointOfView=camera;renderer.isPlaying=true
+                let action=try XCTUnwrap(playback.action(for:node,ballName:"object",removeOnPocket:false));node.runAction(action)
+                let total=min(5.5,Double(playback.duration)+1.5)
+                for i in 0...Int(total*30) {
+                    let t=Double(i)/30
+                    renderer.update(atTime:t)
+                    let shot=renderer.snapshot(atTime:t,with:CGSize(width:640,height:640),antialiasingMode:.multisampling4X)
+                    if i % 3 == 0 {
+                        let filename="\(item.0)-\(perspective ? "3D" : "2D")-\(String(format:"%03d",i)).png"
+                        try XCTUnwrap(shot.pngData()).write(to:dir.appendingPathComponent(filename))
+                        let p=node.presentation.position
+                        records.append(["case":item.0,"view":perspective ? "3D":"2D","t":t,"x":p.x,"y":p.y,"z":p.z,"opacity":node.presentation.opacity,"file":filename,"potted":engine.getAllBalls()[0].isPocketed,"physicsDuration":playback.duration])
+                    }
+                }
+            }
+        }
+        try JSONSerialization.data(withJSONObject:records,options:[.sortedKeys]).write(to:dir.appendingPathComponent("frames.json"))
+    }
+}

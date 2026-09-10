@@ -174,6 +174,13 @@ struct ShotStageProxy {
 
     var isValid: Bool { tableRect.width > 1 && tableRect.height > 1 }
 
+    /// Keep the loupe inside the table columns: both the aim wheel and the
+    /// power/spin instrument sit directly outside these edges, even on SE/iPad.
+    var aimCloseupSafeInsets: AimCloseupPlacement.SafeInsets {
+        .init(top: 12, leading: max(56, tableRect.minX + 8), bottom: 46,
+              trailing: max(12, sceneSize.width - tableRect.maxX + 8))
+    }
+
     /// 竖条（刻度轮 / 力度条本体）底部 Y（G5：两侧对称，让出角落控件区）。
     var controlBottomY: CGFloat {
         max(tableRect.maxY - ShotStageMetrics.cornerReserve, tableRect.minY + 60)

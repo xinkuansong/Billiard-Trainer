@@ -34,10 +34,10 @@ struct BTAimCloseupHUD: View {
             // Balls / markers as SwiftUI (PoolBallFace fidelity).
             ZStack {
                 if let cue = snapshot.cue, inFrame(cue) {
-                    ballView(number: nil, at: cue, scale: scale)
+                    ballView(number: nil, at: cue, scale: scale, radiusScale: snapshot.cueRadiusScale)
                 }
                 if let ghost = snapshot.ghost, inFrame(ghost) {
-                    BTGhostCircle(diameter: snapshot.ballRadius * 2 * scale,
+                    BTGhostCircle(diameter: snapshot.ballRadius * 2 * scale * snapshot.ghostRadiusScale,
                                   showsAimPoint: snapshot.ghostShowsAimPoint)
                         .position(map(ghost, in: CGSize(width: diameter, height: diameter),
                                       scale: scale))
@@ -84,8 +84,8 @@ struct BTAimCloseupHUD: View {
     }
 
     @ViewBuilder
-    private func ballView(number: Int?, at world: CGPoint, scale: CGFloat) -> some View {
-        let d = snapshot.ballRadius * 2 * scale
+    private func ballView(number: Int?, at world: CGPoint, scale: CGFloat, radiusScale: CGFloat = 1) -> some View {
+        let d = snapshot.ballRadius * 2 * scale * radiusScale
         BTFigureBall(number: number, diameter: d, showsShadow: false)
             .position(map(world, in: CGSize(width: diameter, height: diameter), scale: scale))
     }
@@ -118,6 +118,9 @@ struct BTAimCloseupHUD: View {
             }
         }
 
+        if let ideal = snapshot.idealLine {
+            stroke(ideal.start, ideal.end, color: Color(uiColor: IdealObjectDirection.color), width: 1.6, dashed: true)
+        }
         if let pot = snapshot.potLine {
             stroke(pot.start, pot.end,
                    color: snapshot.usesTrainingAssistStyle
@@ -144,6 +147,7 @@ struct BTAimCloseupHUD: View {
 struct BTAimCloseupOverlay: View {
     let snapshot: AimCloseupSnapshot?
     let sceneSize: CGSize
+    var scene: AngleTrainingScene? = nil
     var diameter: CGFloat = 128
     var safeInsets: AimCloseupPlacement.SafeInsets = .aimWheelPage
     /// Column occupied by the aim wheel / thumb (loupe is pushed to the far side).
@@ -156,8 +160,23 @@ struct BTAimCloseupOverlay: View {
     private var isVisible: Bool { prefs.showAimCloseup && snapshot != nil }
 
     var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 60, paused: !isVisible)) { _ in
+            content
+        }
+    }
+
+    private var displaySnapshot: AimCloseupSnapshot? {
+        guard let snapshot else { return nil }
+        guard let scene else { return snapshot } // Standalone 2D figures/tests.
+        guard let view = scene.closeupViewport else { return nil }
+        var current = snapshot
+        current.idealLine = scene.idealObjectLine
+        return current.projected(in: view, surfaceY: scene.surfaceY)
+    }
+
+    private var content: some View {
         ZStack(alignment: .topLeading) {
-            if prefs.showAimCloseup, let snap = snapshot, sceneSize.height > 1 {
+            if prefs.showAimCloseup, let snap = displaySnapshot, sceneSize.height > 1 {
                 let c = AimCloseupPlacement.center(
                     focusNorm: snap.focusNorm ?? CGPoint(x: 0.5, y: 0.5),
                     sceneSize: sceneSize,
@@ -176,7 +195,7 @@ struct BTAimCloseupOverlay: View {
         .frame(width: sceneSize.width, height: sceneSize.height, alignment: .topLeading)
         .allowsHitTesting(false)
         .animation(BTMotion.easeInOutFast, value: isVisible)
-        .animation(BTMotion.easeInOutFast, value: center)
+        // Camera motion must not lag behind the main scene through implicit animation.
         .onChange(of: isVisible) { _, visible in
             if !visible { center = nil }
         }
@@ -211,6 +230,10 @@ struct AimCloseupSnapshot: Equatable {
     var focusNorm: CGPoint? = nil
     /// Full-scene pot corridor the loupe must not cover (D-v23-5⁗); nil → no sight filter.
     var sightKeepout: AimCloseupPlacement.SightKeepout? = nil
+    /// Ideal initial direction; distinct from a prescribed pocket-answer line.
+    var idealLine: AimCloseupSegment? = nil
+    var cueRadiusScale: CGFloat = 1
+    var ghostRadiusScale: CGFloat = 1
 }
 
 struct AimCloseupSegment: Equatable {

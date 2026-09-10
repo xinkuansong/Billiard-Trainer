@@ -105,6 +105,66 @@ final class TrainingUtilitiesTests: XCTestCase {
         XCTAssertEqual(session.note, "新心得")
     }
 
+    func testJournalBatchFailureAndRetryPreserveWholeDay() throws {
+        enum Expected: Error { case diskFull }
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = container.mainContext
+        let owner = CurrentOwnerContext.shared.ownerKey
+        let a = TrainingSession(ownerKey: owner), b = TrainingSession(ownerKey: owner)
+        let entry = DrillEntry(drillId: "test", drillNameZh: "五分点", note: "动作原文")
+        a.note = "上午原文"; b.note = "晚上原文"
+        a.drillEntries = [entry]
+        context.insert(a); context.insert(b); try context.save()
+        let drafts = [TrainingJournalDraft(sessionID: a.id, note: "上午修改", entryNotes: [entry.id: "动作修改"]),
+                      TrainingJournalDraft(sessionID: b.id, note: "晚上修改", entryNotes: [:])]
+        XCTAssertThrowsError(try TrainingUtilityStore.saveJournal(context: context, ownerKey: owner, drafts: drafts,
+            isPremium: false, save: { _ in throw Expected.diskFull }))
+        XCTAssertEqual(a.note, "上午原文"); XCTAssertEqual(entry.note, "动作原文"); XCTAssertEqual(b.note, "晚上原文")
+        let reader = ModelContext(container)
+        XCTAssertEqual(Set(try reader.fetch(FetchDescriptor<TrainingSession>()).map(\.note)), ["上午原文", "晚上原文"])
+        XCTAssertTrue(try reader.fetch(FetchDescriptor<SyncPendingItem>()).isEmpty)
+        try TrainingUtilityStore.saveJournal(context: context, ownerKey: owner, drafts: drafts, isPremium: false)
+        XCTAssertEqual(a.note, "上午修改"); XCTAssertEqual(entry.note, "动作修改"); XCTAssertEqual(b.note, "晚上修改")
+        XCTAssertEqual(try ModelContext(container).fetchCount(FetchDescriptor<SyncPendingItem>()), 2)
+        try TrainingUtilityStore.saveJournal(context: context, ownerKey: owner, drafts: drafts, isPremium: false)
+        XCTAssertEqual(try ModelContext(container).fetchCount(FetchDescriptor<SyncPendingItem>()), 2)
+        let fresh = try XCTUnwrap(try ModelContext(container).fetch(FetchDescriptor<TrainingSession>()).first { $0.id == a.id })
+        XCTAssertEqual(fresh.drillEntries.first?.note, "动作修改")
+    }
+
+    func testJournalValidationPreventsPartialWrites() throws {
+        let container = ModelContainerFactory.makeInMemoryContainer()
+        let context = container.mainContext, owner = CurrentOwnerContext.shared.ownerKey
+        let session = TrainingSession(ownerKey: owner)
+        session.note = "原文"; context.insert(session); try context.save()
+        let valid = TrainingJournalDraft(sessionID: session.id, note: "修改", entryNotes: [:])
+        let missing = TrainingJournalDraft(sessionID: UUID(), note: "缺失", entryNotes: [:])
+        XCTAssertThrowsError(try TrainingUtilityStore.saveJournal(context: context, ownerKey: owner, drafts: [valid, missing], isPremium: false))
+        XCTAssertThrowsError(try TrainingUtilityStore.saveJournal(context: context, ownerKey: "guest:other", drafts: [valid], isPremium: false))
+        let wrongEntry = TrainingJournalDraft(sessionID: session.id, note: "修改", entryNotes: [UUID(): "失效"])
+        XCTAssertThrowsError(try TrainingUtilityStore.saveJournal(context: context, ownerKey: owner, drafts: [wrongEntry], isPremium: false))
+        session.date = Calendar.current.date(byAdding: .day, value: -90, to: Date())!; try context.save()
+        XCTAssertThrowsError(try TrainingUtilityStore.saveJournal(context: context, ownerKey: owner, drafts: [valid], isPremium: false))
+        XCTAssertEqual(session.note, "原文")
+        XCTAssertTrue(try context.fetch(FetchDescriptor<SyncPendingItem>()).isEmpty)
+    }
+
+    func testJournalGroupingAndPlaceholderNotes() throws {
+        XCTAssertEqual(TrainingJournalText.readable("1. \n2.\n 3、 "), "")
+        XCTAssertEqual(TrainingJournalText.readable("1. 放慢出杆\n2. \n\n3. 保持停顿"), "1. 放慢出杆\n\n3. 保持停顿")
+        XCTAssertEqual(TrainingJournalText.readable("1\n2.5\n2026.09.10"), "1\n2.5\n2026.09.10")
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(secondsFromGMT: 8 * 3600)!
+        let a = TrainingSession(), b = TrainingSession(), c = TrainingSession()
+        a.date = calendar.date(from: DateComponents(year: 2026, month: 9, day: 9, hour: 10))!
+        b.date = calendar.date(from: DateComponents(year: 2026, month: 9, day: 9, hour: 20))!
+        c.date = calendar.date(from: DateComponents(year: 2026, month: 9, day: 8, hour: 23))!
+        let days = TrainingJournalText.days([a, c, b], calendar: calendar)
+        XCTAssertEqual(days.count, 2); XCTAssertEqual(days[0].sessions.map(\.id), [b.id, a.id])
+        a.note = "1. "; XCTAssertFalse(TrainingJournalText.hasNotes(a))
+        a.drillEntries = [DrillEntry(drillId: "test", drillNameZh: "五分点", note: "有内容")]
+        XCTAssertTrue(TrainingJournalText.hasNotes(a)); XCTAssertEqual(a.note, "1. ")
+    }
+
     func testReminderWeekdaysAndPermissionHandling() async {
         let center = UtilityReminderMock()
         let scheduler = TrainingReminderScheduler(center: center)

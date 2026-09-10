@@ -340,7 +340,8 @@ struct PositionPlayComposerView: View {
             }
 
             // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
-            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
+            BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
+                                    scene: vm.scene, safeInsets: proxy.aimCloseupSafeInsets)
 
             // 进场说明卡（§1.8）：贴球桌上方淡入，非 modal 不阻断操作。
             if isTryout, showBrief, let sourceDrill {

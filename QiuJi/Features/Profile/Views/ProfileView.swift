@@ -101,7 +101,7 @@ struct ProfileView: View {
             Button("开启云同步") { authState.setCloudSyncEnabled(true) }
             Button("仅保存在本机", role: .cancel) { authState.setCloudSyncEnabled(false) }
         } message: {
-            Text("开启后会上传本机的账号训练记录，并下载云端记录。你可以随时在偏好设置中关闭，不影响登录和 Pro 权益。")
+            Text("开启后会上传本机的账号训练记录，并下载云端记录。你可以随时在设置中关闭，不影响登录和 Pro 权益。")
         }
         .alert("合并本机游客记录？", isPresented: $authState.showMigrationPrompt) {
             Button("合并并同步") { authState.confirmMigration() }
@@ -194,9 +194,9 @@ struct ProfileView: View {
             calendar: calendar
         )
         return ProfileMonthlyOverviewCard(
-            trainingDays: "\(overview.trainingDays)",
-            duration: overview.formattedDuration,
-            longestStreak: "\(overview.longestStreak)"
+            trainingDays: overview.trainingDays,
+            durationMinutes: overview.durationMinutes,
+            longestStreak: overview.longestStreak
         )
     }
 
@@ -298,7 +298,7 @@ struct ProfileView: View {
             NavigationLink(value: "favorites") {
                 ProfileMenuRow(
                     icon: BTIcon.heartFilled,
-                    title: "我的收藏"
+                    title: "收藏"
                 )
             }
             .buttonStyle(.plain)
@@ -365,6 +365,17 @@ struct ProfileView: View {
 
     private var secondaryMenuGroup: some View {
         VStack(spacing: 0) {
+            NavigationLink(value: "settings") {
+                ProfileMenuRow(
+                    icon: BTIcon.gear,
+                    tint: .neutral,
+                    title: "设置"
+                )
+            }
+            .buttonStyle(.plain)
+
+            Divider().padding(.leading, 56)
+
             Button { showOnboarding = true } label: {
                 ProfileMenuRow(
                     icon: "book.closed",
@@ -375,17 +386,6 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("profile.onboarding")
-
-            Divider().padding(.leading, 56)
-
-            NavigationLink(value: "settings") {
-                ProfileMenuRow(
-                    icon: BTIcon.gear,
-                    tint: .neutral,
-                    title: "偏好设置"
-                )
-            }
-            .buttonStyle(.plain)
 
             Divider().padding(.leading, 56)
 
@@ -428,42 +428,36 @@ struct ProfileView: View {
 }
 
 struct ProfileMonthlyOverviewCard: View {
-    let trainingDays: String
-    let duration: String
-    let longestStreak: String
+    let trainingDays: Int
+    let durationMinutes: Int
+    let longestStreak: Int
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var durationValue: Text {
+        let hours = max(0, durationMinutes) / 60
+        let minutes = max(0, durationMinutes) % 60
+        if hours == 0 { return number(minutes) + unit(" 分") }
+        if minutes == 0 { return number(hours) + unit(" 小时") }
+        return number(hours) + unit(" 小时 ") + number(minutes) + unit(" 分")
+    }
+
+    private var durationLabel: String {
+        let hours = max(0, durationMinutes) / 60
+        let minutes = max(0, durationMinutes) % 60
+        if hours == 0 { return "\(minutes)分钟" }
+        if minutes == 0 { return "\(hours)小时" }
+        return "\(hours)小时\(minutes)分钟"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            HStack(spacing: Spacing.xs) {
-                Image(systemName: BTIcon.calendar)
-                    .font(.btFootnote14)
-                    .foregroundStyle(.btTextSecondary)
-                Text("本月概览")
-                    .font(.btFootnote.weight(.semibold))
-                    .foregroundStyle(.btTextSecondary)
-            }
+            Label("本月概览", systemImage: BTIcon.calendar)
+                .font(.btFootnote.weight(.semibold))
+                .foregroundStyle(.btTextSecondary)
 
-            HStack(spacing: 0) {
-                statColumn(
-                    value: trainingDays,
-                    label: "练习天数",
-                    identifier: "profile.monthlyOverview.trainingDays",
-                    valueColor: .btPrimary
-                )
-                Divider().frame(height: 32).overlay(Color.btSeparator)
-                statColumn(
-                    value: duration,
-                    label: "训练时长",
-                    identifier: "profile.monthlyOverview.duration",
-                    valueColor: .btPrimary
-                )
-                Divider().frame(height: 32).overlay(Color.btSeparator)
-                statColumn(
-                    value: longestStreak,
-                    label: "最长连续",
-                    identifier: "profile.monthlyOverview.longestStreak",
-                    valueColor: .btSuccess
-                )
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: Spacing.sm) { metrics(compact: false) }
+                VStack(spacing: Spacing.sm) { metrics(compact: true) }
             }
         }
         .padding(Spacing.lg)
@@ -471,23 +465,49 @@ struct ProfileMonthlyOverviewCard: View {
         .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
     }
 
-    private func statColumn(value: String,
-                            label: String,
-                            identifier: String,
-                            valueColor: Color = .btText) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.btTitle)
-                .foregroundStyle(valueColor)
-                .monospacedDigit()
-            Text(label)
-                .font(.btCaption)
-                .foregroundStyle(.btTextSecondary)
+    @ViewBuilder private func metrics(compact: Bool) -> some View {
+        statColumn(value: number(trainingDays) + unit(" 天"), label: "练习天数",
+                   spokenValue: "\(trainingDays)天", identifier: "trainingDays", color: .btOverviewDays, compact: compact)
+        statColumn(value: durationValue, label: "训练时长", spokenValue: durationLabel,
+                   identifier: "duration", color: .btOverviewDuration, compact: compact)
+        statColumn(value: number(longestStreak) + unit(" 天"), label: "连续练习",
+                   spokenValue: "本月最长连续\(longestStreak)天", identifier: "longestStreak",
+                   color: .btOverviewStreak, compact: compact)
+    }
+
+    private func number(_ value: Int) -> Text {
+        Text("\(value)").font(.btTitle).monospacedDigit()
+    }
+
+    private func unit(_ value: String) -> Text {
+        Text(value).font(.btCaption)
+    }
+
+    private func statColumn(value: Text, label: String, spokenValue: String,
+                            identifier: String, color: Color, compact: Bool) -> some View {
+        Group {
+            if compact {
+                HStack(spacing: Spacing.md) {
+                    Text(label).font(.btCaption).fixedSize()
+                    Spacer(minLength: Spacing.sm)
+                    value.fixedSize(horizontal: true, vertical: false)
+                }
+            } else {
+                VStack(spacing: Spacing.sm) {
+                    value.fixedSize(horizontal: true, vertical: false)
+                    Text(label).font(.btCaption).fixedSize()
+                }
+            }
         }
+        .foregroundStyle(color)
+        .padding(.horizontal, Spacing.sm)
+        .padding(.vertical, Spacing.md)
         .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier(identifier)
-        .accessibilityLabel("\(label)，\(value)")
+        .background(color.opacity(colorScheme == .dark ? 0.16 : 0.08),
+                    in: RoundedRectangle(cornerRadius: BTRadius.sm))
+        .accessibilityElement(children: .ignore)
+        .accessibilityIdentifier("profile.monthlyOverview.\(identifier)")
+        .accessibilityLabel("\(label)，\(spokenValue)")
     }
 }
 

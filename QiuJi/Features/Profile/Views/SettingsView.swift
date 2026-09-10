@@ -40,7 +40,7 @@ struct SettingsView: View {
             .accessibilityIdentifier("settings.content")
             .accessibilityValue(colorScheme == .dark ? "dark" : "light")
         }
-        .navigationTitle("偏好设置")
+        .navigationTitle("设置")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
         .task { cacheSize = calculateCacheSize() }
@@ -151,7 +151,10 @@ struct SettingsView: View {
 
                     Spacer(minLength: Spacing.sm)
 
-                    Picker("默认玩法", selection: $prefs.dailyClearanceGame) {
+                    Picker("默认玩法", selection: Binding(
+                        get: { prefs.dailyClearanceGame },
+                        set: { prefs.selectDailyClearanceGame($0) }
+                    )) {
                         ForEach(DailyClearanceGame.allCases) { game in
                             Text(game.displayName).tag(game)
                         }

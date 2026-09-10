@@ -50,7 +50,7 @@ final class V27W2ScreenshotUITests: XCTestCase {
         // 3) Favorites list — 64×64 BTDrillThumbnail frame (if reachable)
         app.switchTab(.profile)
         sleep(1)
-        let favorites = app.staticTexts["我的收藏"].firstMatch
+        let favorites = app.staticTexts["收藏"].firstMatch
         if favorites.waitForExistence(timeout: 3) {
             favorites.tap()
             sleep(2)

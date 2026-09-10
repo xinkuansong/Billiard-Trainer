@@ -39,14 +39,14 @@ final class TrainingUtilitiesUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["直线球与定杆练习"].waitForExistence(timeout: 8))
         capture("notes")
         app.staticTexts["直线球与定杆练习"].tap()
-        XCTAssertTrue(app.buttons["编辑心得"].waitForExistence(timeout: 5))
-        app.buttons["编辑心得"].tap()
+        XCTAssertTrue(app.buttons["trainingNotes.edit"].waitForExistence(timeout: 5))
+        app.buttons["trainingNotes.edit"].tap()
         let editor = app.textViews["trainingNotes.editor"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         editor.tap(); editor.typeText("下次继续。")
         app.navigationBars.buttons["保存"].tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "下次继续。")).firstMatch.waitForExistence(timeout: 5))
-        app.buttons["查看训练记录"].tap()
+        app.buttons["trainingNotes.record"].tap()
         XCTAssertTrue(app.buttons["编辑补记"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["补记训练"].exists)
         XCTAssertFalse(app.staticTexts["0%"].exists)
@@ -75,6 +75,58 @@ final class TrainingUtilitiesUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["使用帮助"].waitForExistence(timeout: 5))
         app.buttons["练完后忘记记录怎么办？"].tap()
         capture("help")
+    }
+
+    func testJournalPagesLight() throws { try journalPages(appearance: "light") }
+    func testJournalPagesDark() throws { try journalPages(appearance: "dark") }
+
+    private func journalPages(appearance: String) throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launchArguments = ["-hasCompletedOnboarding", "YES", "-AppleLanguages", "(zh-Hans)", "-v50.inMemoryStore", "-appearanceMode", appearance, "-journal.fixture"]
+        app.launch()
+        let menu = app.buttons["trainingHome.moreMenu"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 30))
+        menu.tap(); app.buttons["训练心得"].tap()
+        let pages = app.buttons.matching(identifier: "trainingNotes.day")
+        XCTAssertTrue(pages.firstMatch.waitForExistence(timeout: 10))
+        XCTAssertEqual(pages.count, 2)
+        XCTAssertFalse(app.staticTexts["空编号训练"].exists)
+        capture("journal-list")
+        pages.firstMatch.tap()
+        let edit = app.buttons["trainingNotes.edit"]
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        capture("journal-detail")
+        edit.tap()
+        let note = app.textViews["trainingNotes.editor"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5))
+        note.tap(); note.typeText("未保存的修改")
+        XCTAssertTrue(app.keyboards.firstMatch.exists)
+        XCTAssertTrue(app.buttons["trainingNotes.save"].isHittable)
+        capture("journal-keyboard")
+        app.buttons["trainingNotes.dismissKeyboard"].tap()
+        app.navigationBars.buttons["取消"].tap()
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "未保存的修改")).firstMatch.exists)
+        edit.tap(); note.tap(); note.typeText("下次保持停顿。")
+        app.buttons["trainingNotes.dismissKeyboard"].tap()
+        let actionNote = app.textViews["trainingNotes.entry.0"]
+        for _ in 0..<4 { if actionNote.isHittable { break }; app.swipeUp() }
+        XCTAssertTrue(actionNote.isHittable)
+        actionNote.tap(); actionNote.typeText("注意送杆。")
+        app.buttons["trainingNotes.dismissKeyboard"].tap()
+        capture("journal-edit")
+        app.buttons["trainingNotes.save"].tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "注意送杆。")).firstMatch.exists)
+        app.navigationBars.buttons.firstMatch.tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap(); search.typeText("重心")
+        XCTAssertEqual(pages.count, 1)
+        pages.firstMatch.tap()
+        XCTAssertTrue(edit.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["2次训练"].exists)
+        capture("journal-day-multiple")
     }
 
     private func capture(_ name: String) {

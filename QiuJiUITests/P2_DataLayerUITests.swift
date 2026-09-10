@@ -10,6 +10,47 @@ final class P2_DataLayerUITests: XCTestCase {
         app = XCUIApplication.launchClean(extraArgs: ["-v51.followSystemAppearance"])
     }
 
+    func testProfileRefinementNavigationAndDefaultGame() throws {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: [
+            "-v53.authenticatedProfileFixture", "-forcePremium", "-v50.inMemoryStore", "-v51.followSystemAppearance"
+        ])
+        app.switchTab(.profile)
+        XCTAssertTrue(app.descendants(matching: .any)["profile.monthlyOverview.duration"].firstMatch.waitForExistence(timeout: 6))
+        captureProfileRefinement("profile")
+        let settings = app.buttons["设置"]
+        if !settings.isHittable { app.swipeUp() }
+        XCTAssertTrue(settings.isHittable)
+        let tour = app.buttons["profile.onboarding"]
+        let about = app.buttons["关于与反馈"]
+        XCTAssertLessThan(settings.frame.midY, tour.frame.midY)
+        XCTAssertLessThan(tour.frame.midY, about.frame.midY)
+        captureProfileRefinement("menu")
+        settings.tap()
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 5))
+        let game = app.buttons["settings.dailyClearanceGame"]
+        for _ in 0..<4 where !game.isHittable { app.swipeUp() }
+        XCTAssertTrue(game.isHittable)
+        XCTAssertTrue(game.label.contains("9 球"), "账号球种应自动成为默认玩法：\(game.label)")
+        captureProfileRefinement("settings")
+        app.navigationBars.buttons.firstMatch.tap()
+        let favorites = app.buttons["收藏"]
+        for _ in 0..<3 where !favorites.isHittable { app.swipeDown() }
+        favorites.tap()
+        XCTAssertTrue(app.navigationBars["收藏"].waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+        for _ in 0..<3 where !tour.isHittable { app.swipeUp() }
+        tour.tap()
+        XCTAssertTrue(app.staticTexts["onboarding.title.0"].waitForExistence(timeout: 5))
+    }
+
+    private func captureProfileRefinement(_ name: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = "profile-refinement-\(name)"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
+
     // MARK: - S: App Launch & Schema
 
     func testS01_ColdLaunchNoCrash() {
@@ -180,11 +221,11 @@ final class P2_DataLayerUITests: XCTestCase {
     func testS05_ProfileMenuGroupsComplete() {
         app.switchTab(.profile)
         sleep(1)
-        for item in ["我的收藏", "个人信息", "训练目标"] {
+        for item in ["收藏", "个人信息", "训练目标"] {
             XCTAssertTrue(app.staticTexts[item].waitForExistence(timeout: 3), "Menu item '\(item)' should exist")
         }
         app.scrollDown(times: 2)
-        for item in ["偏好设置", "关于与反馈"] {
+        for item in ["设置", "关于与反馈"] {
             XCTAssertTrue(app.staticTexts[item].waitForExistence(timeout: 3), "Secondary menu '\(item)' should exist")
         }
     }
@@ -294,11 +335,11 @@ final class P2_DataLayerUITests: XCTestCase {
         app.switchTab(.profile)
         sleep(1)
         app.scrollDown(times: 2)
-        let settings = app.staticTexts["偏好设置"]
+        let settings = app.staticTexts["设置"]
         guard settings.waitForExistence(timeout: 3) else { return }
         settings.tap()
         sleep(1)
-        XCTAssertTrue(app.navigationBars["偏好设置"].waitForExistence(timeout: 3), "SettingsView should open")
+        XCTAssertTrue(app.navigationBars["设置"].waitForExistence(timeout: 3), "SettingsView should open")
     }
 
     func testProfileNavigatesToAbout() {

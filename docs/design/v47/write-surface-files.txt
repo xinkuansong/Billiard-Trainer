@@ -18,6 +18,7 @@ QiuJiTests/DrillThumbnailBakeRunnerTests.swift
 QiuJiTests/DrillTutorialKindResolverTests.swift
 QiuJiTests/PocketBehaviorDiagTests.swift
 QiuJiTests/PocketLeatherIntegrationTests.swift
+QiuJiTests/PocketRefactorDiagTests.swift
 QiuJiTests/PositionPlaySequenceExportRunnerTests.swift
 QiuJiTests/PositioningFormationRenderTests.swift
 QiuJiTests/ReachabilityVizTests.swift

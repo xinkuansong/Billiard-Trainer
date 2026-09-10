@@ -24,6 +24,23 @@ final class AimCloseupCoordsTests: XCTestCase {
 
 final class AimCloseupPlacementTests: XCTestCase {
 
+    func testCompactInstrumentColumnsPreferClearSlotOverCueOverlap() {
+        // Captured production SE3 viewport and projected ball centers.
+        let size = CGSize(width: 375, height: 463)
+        let focus = CGPoint(x: 0.44773246, y: 0.3984)
+        let insets = AimCloseupPlacement.SafeInsets(top: 12, leading: 75.506, bottom: 46, trailing: 75.506)
+        let corridor = AimCloseupPlacement.SightKeepout(
+            potStartNorm: focus, potEndNorm: focus,
+            aimStartNorm: CGPoint(x: 0.55226754, y: 0.66933334),
+            aimEndNorm: CGPoint(x: 0.46017122, y: 0.41456798), pocketRadius: 0)
+        let center = AimCloseupPlacement.center(focusNorm: focus, sceneSize: size,
+            diameter: 128, safeInsets: insets, sightKeepout: corridor)
+        XCTAssertEqual(AimCloseupPlacement.keepoutOverlap(center: center, diameter: 128,
+            sceneSize: size, keepout: corridor), 0, accuracy: 0.5)
+        XCTAssertGreaterThanOrEqual(center.x - 64, insets.leading - 0.5)
+        XCTAssertLessThanOrEqual(center.x + 64, size.width - insets.trailing + 0.5)
+    }
+
     func test_focusNorm_rotatedTopDown_axes() {
         let mid = AimCloseupPlacement.focusNormInRotatedTopDown(
             worldXZ: .zero, halfLength: 1.27, halfWidth: 0.635)
@@ -346,5 +363,47 @@ final class AimCloseupAxisContractTests: XCTestCase {
         XCTAssertLessThan(projected.y, origin.y)
         XCTAssertGreaterThan(norm.x, 0.5)
         XCTAssertGreaterThan(projected.x, origin.x)
+    }
+}
+
+@MainActor
+final class AimCloseupProjectionTests: XCTestCase {
+    func testProjectionMatchesRendererAcrossCameraPoses() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 700))
+        view.scene = scene
+        view.pointOfView = scene.cameraNode
+        let focus = CGPoint(x: 0.3, y: 0.1)
+        let point = CGPoint(x: 0.34, y: 0.16)
+        let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let snap = AimCloseupSnapshot(band: .contact, focus: focus, ballRadius: 0.028575,
+                                      halfWorld: 0.09144, aimPointMarker: point)
+        for mode in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D] {
+            scene.setCameraMode(mode, animated: false)
+            for yaw in [-0.8, 0.0, 0.7] {
+                for height in [Float(1.4), 2.4] {
+                    if mode == .perspective3D {
+                        scene.cameraNode.position = SCNVector3(Float(yaw), height, 1.5)
+                        scene.cameraNode.look(at: SCNVector3(0.3, y, 0.1))
+                    } else {
+                        scene.cameraRig?.fitRotatedTable(viewSize: view.bounds.size)
+                        scene.cameraRig?.applyTopDown2DRotated()
+                    }
+                    SCNTransaction.flush()
+                    let projected = try XCTUnwrap(snap.projected(in: view, surfaceY: scene.surfaceY))
+                    let f = view.projectPoint(SCNVector3(Float(focus.x), y, Float(focus.y)))
+                    let p = view.projectPoint(SCNVector3(Float(point.x), y, Float(point.y)))
+                    let marker = try XCTUnwrap(projected.aimPointMarker)
+                    let mapped = AimCloseupCoords.mapRotated(world: marker, focus: projected.focus,
+                                                           origin: .zero, scale: 1)
+                    let dx = CGFloat(p.x - f.x), dy = CGFloat(p.y - f.y)
+                    XCTAssertEqual(mapped.x * dy - mapped.y * dx, 0, accuracy: 0.0001)
+                    XCTAssertGreaterThan(mapped.x * dx + mapped.y * dy, 0)
+                    XCTAssertEqual(try XCTUnwrap(projected.focusNorm).x,
+                                   CGFloat(f.x) / view.bounds.width, accuracy: 0.0001)
+                }
+            }
+        }
     }
 }

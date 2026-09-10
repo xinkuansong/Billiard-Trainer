@@ -4,16 +4,16 @@
 //
 //  项目13 生产物理桌面工厂。
 //
-//  v3（ADR-P10-09 真实袋口重建）：袋口几何**全面回归 CAD 单一真源**（`TablePhysics` 袋口常量），
-//  取代 v2 的「USDZ 校准袋心 + 大捕获圆 + 前伸喉腔墙」组合：
+//  基于 ADR-P10-09 的 CAD 袋角；2026-09-10 中袋落袋孔近沿按 USDZ 实测校准。
+//  保留孔半径与全部碰撞墙体，不使用扩大捕获圆或前伸墙体：
 //
-//  - **落袋孔 = CAD 真孔**：角袋 Φ84 心 (±1.312, ±0.677)、中袋 Φ86 心 (0, ±0.688)。
+//  - 角袋保持 CAD Φ84；中袋保持 Φ86，近侧孔沿对齐 USDZ 实测，袋角/喉壁不移动。
 //    落袋判据「球心水平投影入孔圈 ⇒ 失去支撑 ⇒ 落袋」（见 `EventDrivenEngine.resolvePocket`）。
 //  - **jaw 与孔无缝**：角袋 jaw 直线段是孔的 45° 切线、外端点恰在孔沿（<1μm）；中袋喉壁
-//    x=±0.043 与孔相切。球沿 jaw/喉壁滑到头，球心恰好抵达孔圈——判据与几何零过渡衔接。
+//    x=±0.043 与校准后的中袋孔相切；侧壁与圆角连接点保持原位。
 //  - **安全喉壁 = 切线延长**：旧 v2 侧壁沿袋轴前伸 45mm，实体越过 jaw 平面 13.8mm
 //    （中袋更是深入台内 45mm），在袋口里形成隐形墙（「先吃库边再吃远端 jaw」根因）。
-//    新侧壁 = jaw/喉壁切线**向袋内延长**，后壁 = 孔远沿切线——全部与孔圈相切或在其外，
+//    侧壁为 jaw/喉壁切线延长；中袋后壁保持原 CAD 位置，位于校准孔远沿之外，
 //    绝不侵入合法通道；正常球在触壁前已被孔圈判据收袋，喉壁只兜数值漏检与 rattle 路径。
 //  - **视觉分离**：USDZ 标记盘偏移只保留在 `AngleSceneCalculator.pocketMarkerPositions`。
 //
@@ -33,10 +33,10 @@ extension TableGeometry {
         let cushions = TableGeometry.chineseEightBallCushions(y: y)
         var linear = cushions.linear
 
-        // 6 个落袋孔（CAD 真孔：球心入圈即落袋）。
+        // 6 个落袋孔（球心入圈即落袋；中袋近沿按当前模型校准）。
         let cx = TablePhysics.cornerPocketCenterOffsetX   // 1.312
         let cz = TablePhysics.cornerPocketCenterOffsetZ   // 0.677
-        let mz = TablePhysics.sidePocketCenterOffsetZ     // 0.688
+        let mz = TablePhysics.sidePocketCenterOffsetZ     // near rim aligned to the displayed mesh
         let rC = TablePhysics.cornerPocketRadius          // 0.042
         let rM = TablePhysics.sidePocketRadius            // 0.043
         // 顺序与 `AngleSceneCalculator.pocketPositions` 一致：左上/右上/左下/右下/上中/下中。
@@ -132,7 +132,7 @@ extension TableGeometry {
     /// 延长段 x=±0.043 z∈[0.688, 0.731]，后壁 z=±0.731 与 Φ86 孔远沿相切。
     private static func sideThroatBackWalls(y: Float) -> [LinearCushionSegment] {
         let xW = TablePhysics.sidePocketRadius                          // 0.043
-        let zNear = TablePhysics.sidePocketCenterOffsetZ                // 0.688
+        let zNear = TablePhysics.sidePocketThroatJoinZ                // 0.688
         let zFar = zNear + TablePhysics.sidePocketRadius                // 0.731（孔远沿）
         var walls: [LinearCushionSegment] = []
         walls.reserveCapacity(6)

@@ -142,9 +142,9 @@ final class ScreenshotTourUITests: XCTestCase {
             "28-diamond-system": "反射解球器",
             "52-profile-personal-info": "个人信息",
             "53-profile-training-goal": "训练目标",
-            "54-profile-settings": "偏好设置",
+            "54-profile-settings": "设置",
             "55-profile-about": "关于与反馈",
-            "56-profile-favorites": "我的收藏",
+            "56-profile-favorites": "收藏",
             "71-phone-login": "手机号登录",
         ]
         let theoryTitles: [String: String] = [
@@ -693,7 +693,7 @@ final class ScreenshotTourUITests: XCTestCase {
             case .drillLibrary: pageIdentity = app.textFields["搜索动作"].firstMatch
             case .angle: pageIdentity = app.textFields["搜索练习"].firstMatch
             case .history: pageIdentity = app.buttons["统计"].firstMatch
-            case .profile: pageIdentity = app.staticTexts["我的收藏"].firstMatch
+            case .profile: pageIdentity = app.staticTexts["收藏"].firstMatch
             }
             guard pageIdentity.waitForExistence(timeout: 8) else {
                 XCTFail("\(tab.rawValue) Tab 必须实际显示目标页，不能用上一页截图代替")
@@ -2785,7 +2785,7 @@ final class ScreenshotTourUITests: XCTestCase {
         let subPages: [(String, String)] = [
             ("个人信息", "52-profile-personal-info"),
             ("训练目标", "53-profile-training-goal"),
-            ("偏好设置", "54-profile-settings"),
+            ("设置", "54-profile-settings"),
             ("关于与反馈", "55-profile-about"),
         ]
         for (label, name) in subPages {
@@ -2914,7 +2914,7 @@ final class ScreenshotTourUITests: XCTestCase {
 
     private func tourFavoritesAndSubscriptionStatus() {
         let pages = [
-            ("我的收藏", "56-profile-favorites"),
+            ("收藏", "56-profile-favorites"),
             ("订阅管理", "57-subscription-status"),
         ]
         for (label, name) in pages {

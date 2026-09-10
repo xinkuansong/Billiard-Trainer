@@ -287,30 +287,33 @@ enum AimCloseupPlacement {
         var bestSoft: CGPoint?
         var bestSoftOverlap: CGFloat = .greatestFiniteMagnitude
 
-        // Greedy in openness order; first hard-clear win (D-v23-5.1).
-        for gapFactor in gaps {
-            let gap = diameter * gapFactor
-            for (dx, dy) in candidates {
-                let len = hypot(dx, dy)
-                guard len > 1e-6 else { continue }
-                let ideal = CGPoint(x: focus.x + dx / len * gap,
-                                    y: focus.y + dy / len * gap)
-                let clamped = clampCenter(ideal, sceneSize: sceneSize,
-                                          diameter: diameter, insets: insets)
-                let sep = hypot(clamped.x - focus.x, clamped.y - focus.y)
-                guard sep >= diameter * minSeparation - 0.5 else { continue }
+        // Prefer the usual distance. On narrow screens a slightly nearer,
+        // fully clear slot is better than covering the cue corridor farther away.
+        for separation in [minSeparation, max(0.65, minSeparation * 0.75)] {
+            for gapFactor in gaps {
+                let gap = diameter * gapFactor
+                for (dx, dy) in candidates {
+                    let len = hypot(dx, dy)
+                    guard len > 1e-6 else { continue }
+                    let ideal = CGPoint(x: focus.x + dx / len * gap,
+                                        y: focus.y + dy / len * gap)
+                    let clamped = clampCenter(ideal, sceneSize: sceneSize,
+                                              diameter: diameter, insets: insets)
+                    let sep = hypot(clamped.x - focus.x, clamped.y - focus.y)
+                    guard sep >= diameter * separation - 0.5 else { continue }
 
-                let overlap = sightKeepout.map {
-                    keepoutOverlap(center: clamped, diameter: diameter,
-                                   sceneSize: sceneSize, keepout: $0)
-                } ?? 0
+                    let overlap = sightKeepout.map {
+                        keepoutOverlap(center: clamped, diameter: diameter,
+                                       sceneSize: sceneSize, keepout: $0)
+                    } ?? 0
 
-                if overlap <= 0.5 {
-                    return clamped
-                }
-                if overlap < bestSoftOverlap {
-                    bestSoftOverlap = overlap
-                    bestSoft = clamped
+                    if overlap <= 0.5 {
+                        return clamped
+                    }
+                    if overlap < bestSoftOverlap {
+                        bestSoftOverlap = overlap
+                        bestSoft = clamped
+                    }
                 }
             }
         }

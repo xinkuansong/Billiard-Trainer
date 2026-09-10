@@ -243,7 +243,8 @@ struct FreePlayView: View {
 
             // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
             if !vm.isBreakMode {
-                BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize)
+                BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
+                                    scene: vm.scene, safeInsets: proxy.aimCloseupSafeInsets)
             }
 
             if showSpinPad {

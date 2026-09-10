@@ -353,7 +353,7 @@ struct TableGeometry {
         // CAD：喉壁 x=±0.043 从圆角切点 (z=±0.665) 通到孔心高度 (z=±0.688，与 Φ86 孔相切)。
         // 恢复系数用袋腔衬里值（正常球在触壁前已被孔圈判据收袋，此壁多为 rattle/兜底路径）。
         let throatZNear = railHalfWidth + sideFilletRadius                     // 0.665
-        let throatZFar = TablePhysics.sidePocketCenterOffsetZ                  // 0.688
+        let throatZFar = TablePhysics.sidePocketThroatJoinZ                  // 0.688
         for sign in [Float(-1), Float(1)] {
             linearCushions.append(LinearCushionSegment(
                 start: SCNVector3(-sideThroatHalf, y, sign * throatZNear),

@@ -52,10 +52,10 @@
 | `pocket_1` | 左上角袋 | −1.312 | +0.677 | 42 mm |
 | `pocket_2` | 右下角袋 | +1.312 | −0.677 | 42 mm |
 | `pocket_3` | 右上角袋 | +1.312 | +0.677 | 42 mm |
-| `pocket_4` | 下中袋   | 0      | −0.688 | 43 mm |
-| `pocket_5` | 上中袋   | 0      | +0.688 | 43 mm |
+| `pocket_4` | 下中袋   | 0      | −0.67596474 | 43 mm |
+| `pocket_5` | 上中袋   | 0      | +0.67596474 | 43 mm |
 
-> 袋口中心位于 playfield 边界**外侧**（超出有效击球区）。
+> 袋口中心位于 playfield 边界**外侧**（超出有效击球区）。2026-09-10：中袋保持半径43mm，近沿对齐当前USDZ实测632.96474mm，孔心=近沿+半径；袋角、喉壁及后壁保留原CAD位置。视觉交互中心与中袋物理孔共用此值，皮革不移动。
 
 ---
 
@@ -94,8 +94,8 @@ sceneKitZ = canvasY × 2.540 − 0.635
 | `topRight` | 左上角袋 | +1.0165 | -0.0165 | corner |
 | `bottomLeft` | 右下角袋 | -0.0165 | +0.5165 | corner |
 | `bottomRight` | 右上角袋 | +1.0165 | +0.5165 | corner |
-| `topCenter` | 左侧中袋 | 0.5 | -0.0268 | side |
-| `bottomCenter` | 右侧中袋 | 0.5 | +0.5268 | side |
+| `topCenter` | 左侧中袋 | 0.5 | -0.016128 | side |
+| `bottomCenter` | 右侧中袋 | 0.5 | +0.516128 | side |
 
 > 袋口中心略超出 Canvas 边界（负值 / 超过 1.0 / 超过 0.5），在 Canvas 内绘制时使用截断或超出绘制。
 > 与上表 SceneKit 袋口表：`topLeft`↔`pocket_0`(−X,−Z)、`topRight`↔索引1(+X,−Z)、`bottomLeft`↔索引2(−X,+Z)、`bottomRight`↔索引3(+X,+Z)、`topCenter`↔索引4(Z−)、`bottomCenter`↔索引5(Z+)——坐标对齐 `AngleSceneCalculator.pocketPositions`；表头中文「左上/上中」是历史 landscape 简称，用户可见名以本节 portrait 列为准。
@@ -116,8 +116,8 @@ sceneKitZ = canvasY × 2.540 − 0.635
 | 参数 | 角袋 | 中袋 |
 |------|------|------|
 | 袋口半径 | 42 mm | 43 mm |
-| 进袋触发半径 | ≈ 13.4 mm | ≈ 14.4 mm |
-| 进袋校验阈值 | ≈ 84.9 mm | ≈ 85.9 mm |
+| 进袋触发半径（球心XZ投影） | 42 mm | 43 mm |
+| 陈旧事件校验距离（含2mm数值容差） | 44 mm | 45 mm |
 
 > 检测在 XZ 水平面进行，忽略 Y 轴。
 

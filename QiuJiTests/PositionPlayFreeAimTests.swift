@@ -301,3 +301,120 @@ final class PositionPlayFreeAimTests: XCTestCase {
         XCTAssertEqual(back.freeAim?.x ?? 0, 0.6, accuracy: 1e-9)
     }
 }
+
+@MainActor
+final class IdealDirectionIntegrationTests: XCTestCase {
+    private var previousDetail: TrajectoryDetail = .full
+    override func setUp() {
+        super.setUp()
+        previousDetail = UserPreferences.shared.trajectoryDetail
+        UserPreferences.shared.trajectoryDetail = .full
+    }
+    override func tearDown() {
+        UserPreferences.shared.trajectoryDetail = previousDetail
+        super.tearDown()
+    }
+    func testAimPointExercisesNeverExposeIdealDirection() throws {
+        let suite = "v61.exercise." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let vm = AimPointSceneQuizViewModel(limiter: AngleUsageLimiter(defaults: defaults))
+        for mode in [AngleTrainingScene.CameraMode.topDown2DRotated, .perspective3D] {
+            vm.setupScene(cameraMode: mode)
+            vm.setAimWheelDragging(true)
+            XCTAssertNil(vm.scene.idealObjectLine)
+            XCTAssertNil(vm.closeupSnapshot?.idealLine)
+            vm.setAimWheelDragging(false)
+        }
+    }
+
+    func testMinimalDetailOmitsIdealLayer() {
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        UserPreferences.shared.trajectoryDetail = .minimal
+        XCTAssertNil(scene.setIdealObjectLine(.init(start: .zero, end: CGPoint(x: 1, y: 0)), detail: .minimal))
+        XCTAssertNil(scene.idealObjectLine)
+    }
+
+    func testPositionPlayPreviewUpdatesAndIsReplacedByPrediction() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.aimMode = .free
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        vm.handleTableTap(world: target.position)
+        vm.setAimWheelDragging(true)
+        vm.nudgeFreeAim(byDegrees: 0.2)
+        let first = try XCTUnwrap(vm.scene.idealObjectLine)
+        XCTAssertNotNil(vm.closeupSnapshot?.idealLine)
+        vm.nudgeFreeAim(byDegrees: 0.2)
+        XCTAssertNotEqual(vm.scene.idealObjectLine, first)
+        // No UI gesture or loupe is needed to keep the main-scene feedback alive.
+        vm.setAimWheelDragging(false)
+        let deadline = Date().addingTimeInterval(15)
+        while vm.scene.idealObjectLine != nil, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertNil(vm.scene.idealObjectLine, "Latest physical prediction replaces the geometric line")
+        vm.nudgeFreeAim(byDegrees: -0.2)
+        XCTAssertNotNil(vm.scene.idealObjectLine)
+        vm.aimMode = .pocket
+        XCTAssertNil(vm.scene.idealObjectLine)
+    }
+
+    func testPreviewParameterBoardAndBreakTransitions() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.aimMode = .free
+        let target = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        vm.handleTableTap(world: target.position)
+        let original = try XCTUnwrap(vm.scene.idealObjectLine)
+        vm.velocity = 2.4
+        vm.spinX = 0.3
+        vm.spinY = -0.4
+        XCTAssertEqual(vm.scene.idealObjectLine, original, "Power and spin must not change collision-normal geometry")
+        let position = target.position
+        vm.dragMoved(node: target, worldPosition: SCNVector3(position.x + 0.01, position.y, position.z))
+        XCTAssertNotEqual(vm.scene.idealObjectLine, original)
+        vm.removeFromTable("_1")
+        XCTAssertNil(vm.scene.idealObjectLine)
+        vm.placeFromPalette("_1", atWorld: position)
+        vm.handleTableTap(world: target.position)
+        XCTAssertNotNil(vm.scene.idealObjectLine)
+        vm.startBreakFlow(game: .nineBall, seed: 61)
+        XCTAssertNil(vm.scene.idealObjectLine)
+        vm.cancelBreakFlow()
+        vm.handleTableTap(world: target.position)
+        XCTAssertNotNil(vm.scene.idealObjectLine)
+        vm.clearTable()
+        XCTAssertNil(vm.scene.idealObjectLine)
+    }
+
+    func testSolversClearIdealLayerOnModeChange() {
+        let bank = BankShotViewModel()
+        bank.setupScene()
+        bank.toggleMode()
+        for _ in 0..<360 where bank.scene.idealObjectLine == nil { bank.nudgeFreeAim(byDegrees: 1) }
+        XCTAssertNotNil(bank.scene.idealObjectLine)
+        bank.toggleMode()
+        XCTAssertNil(bank.scene.idealObjectLine)
+
+        let diamond = DiamondSystemViewModel()
+        diamond.setupScene()
+        diamond.toggleMode()
+        for _ in 0..<360 where diamond.scene.idealObjectLine == nil { diamond.nudgeFreeAim(byDegrees: 1) }
+        XCTAssertNotNil(diamond.scene.idealObjectLine)
+        diamond.toggleMode()
+        XCTAssertNil(diamond.scene.idealObjectLine)
+    }
+
+    func testSharedLayerClearsWithVisualization() {
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        let line = IdealObjectDirection.preview(target: .zero, ghost: CGPoint(x: -1, y: 0))?.line
+        let node = scene.setIdealObjectLine(line)
+        XCTAssertNotNil(node?.parent)
+        scene.hideAllVisualization()
+        XCTAssertNil(node?.parent)
+        XCTAssertNil(scene.idealObjectLine)
+    }
+}

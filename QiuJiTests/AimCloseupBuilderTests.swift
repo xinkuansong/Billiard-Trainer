@@ -332,3 +332,85 @@ final class AimDragCoordinatorTests: XCTestCase {
         }
     }
 }
+
+final class IdealObjectDirectionTests: XCTestCase {
+    func testSixPocketRaysAndRailStops() throws {
+        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        for pocket in table.pockets {
+            // Corner entry follows the 45-degree throat bisector. A ray from
+            // table center has a shallower entry and contacts a jaw first.
+            let target = pocket.isCorner
+                ? CGPoint(x: CGFloat(pocket.center.x) - (pocket.center.x > 0 ? 0.4 : -0.4),
+                          y: CGFloat(pocket.center.z) - (pocket.center.z > 0 ? 0.4 : -0.4)) : .zero
+            let ghost = CGPoint(x: 2 * target.x - CGFloat(pocket.center.x),
+                                y: 2 * target.y - CGFloat(pocket.center.z))
+            if pocket.isCorner {
+                let shallow = try XCTUnwrap(IdealObjectDirection.preview(
+                    target: .zero, ghost: CGPoint(x: -CGFloat(pocket.center.x), y: -CGFloat(pocket.center.z))))
+                XCTAssertEqual(shallow.termination, .cushion)
+            }
+            let preview = try XCTUnwrap(IdealObjectDirection.preview(target: target, ghost: ghost))
+            XCTAssertEqual(preview.termination, .pocket(pocket.id))
+            XCTAssertEqual(hypot(preview.line.end.x - CGFloat(pocket.center.x),
+                                 preview.line.end.y - CGFloat(pocket.center.z)), CGFloat(pocket.radius), accuracy: 0.0001)
+        }
+        let straight = try XCTUnwrap(IdealObjectDirection.preview(target: .zero, ghost: CGPoint(x: -1, y: 0)))
+        XCTAssertEqual(straight.termination, .cushion)
+        XCTAssertEqual(straight.line.end.x, CGFloat(AngleSceneCalculator.innerLength / 2 - BallPhysics.radius), accuracy: 0.0001)
+        XCTAssertNil(IdealObjectDirection.preview(target: .zero, ghost: .zero))
+    }
+
+
+    @MainActor
+    func testGeometryRenderAndInteractiveCost() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        scene.hideAllBalls()
+        let size = CGSize(width: 700, height: 400)
+        scene.setCameraMode(.topDown2D, animated: false)
+        scene.cameraRig?.fitLandscapeTable(viewSize: size)
+        scene.cameraRig?.applyTopDown2D()
+        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: 0)
+        for pocket in table.pockets {
+            let t = pocket.isCorner
+                ? CGPoint(x: CGFloat(pocket.center.x) - (pocket.center.x > 0 ? 0.4 : -0.4),
+                          y: CGFloat(pocket.center.z) - (pocket.center.z > 0 ? 0.4 : -0.4)) : .zero
+            let g = CGPoint(x: 2*t.x-CGFloat(pocket.center.x), y: 2*t.y-CGFloat(pocket.center.z))
+            let preview = try XCTUnwrap(IdealObjectDirection.preview(target: t, ghost: g))
+            func world(_ p: CGPoint) -> SCNVector3 {
+                SCNVector3(Float(p.x), scene.surfaceY + BallPhysics.radius, Float(p.y))
+            }
+            _ = scene.addDashedLine(from: world(preview.line.start), to: world(preview.line.end), color: .lightGray)
+        }
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = scene.cameraNode
+        let attachment = XCTAttachment(image: renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X))
+        attachment.name = "v61-six-pocket-geometry"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let start = Date()
+        for _ in 0..<1000 {
+            _ = IdealObjectDirection.preview(target: .zero, ghost: CGPoint(x: -1, y: -0.3))
+        }
+        print("v61 geometry average ms: \(Date().timeIntervalSince(start))")
+        // A thousand queries must fit comfortably inside one second on simulator.
+        XCTAssertLessThan(Date().timeIntervalSince(start), 1)
+    }
+
+    func testRaySymmetryFiniteAndOnDirection() throws {
+        for degree in stride(from: 0, to: 360, by: 2) {
+            let angle = Double(degree) * .pi / 180
+            let target = CGPoint(x: 0.12, y: 0.08)
+            let ghost = CGPoint(x: target.x - cos(angle), y: target.y - sin(angle))
+            let a = try XCTUnwrap(IdealObjectDirection.preview(target: target, ghost: ghost))
+            let b = try XCTUnwrap(IdealObjectDirection.preview(target: CGPoint(x: -target.x, y: -target.y),
+                                                               ghost: CGPoint(x: -ghost.x, y: -ghost.y)))
+            XCTAssertEqual(a.line.end.x, -b.line.end.x, accuracy: 0.002)
+            XCTAssertEqual(a.line.end.y, -b.line.end.y, accuracy: 0.002)
+            let dx = a.line.end.x - target.x, dy = a.line.end.y - target.y
+            XCTAssertEqual(dx * sin(angle) - dy * cos(angle), 0, accuracy: 0.0001)
+            XCTAssertGreaterThan(dx * cos(angle) + dy * sin(angle), 0)
+        }
+    }
+}
