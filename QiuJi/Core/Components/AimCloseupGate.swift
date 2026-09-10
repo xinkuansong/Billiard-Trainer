@@ -23,6 +23,9 @@ final class AimCloseupGate {
     private(set) var isNear = false
 
     private var pending: AimCloseupSnapshot?
+    enum DragSource: Hashable { case wheel, table }
+
+    private var activeDrags: Set<DragSource> = []
     private var aiming = false
     private var clearTask: Task<Void, Never>?
     private var published: AimCloseupSnapshot?
@@ -41,14 +44,15 @@ final class AimCloseupGate {
         scheduleClear()
     }
 
-    /// Wheel drag lifecycle when the host has it: `false` collapses immediately
-    /// after the sticky window rather than waiting for the next aim change.
-    func setDragging(_ active: Bool) {
+    /// Keep the loupe active until all participating gestures have ended.
+    func setDragging(_ active: Bool, source: DragSource = .wheel) {
         if active {
+            activeDrags.insert(source)
             clearTask?.cancel()
             aiming = true
             emit()
         } else {
+            activeDrags.remove(source)
             scheduleClear()
         }
     }
@@ -57,6 +61,7 @@ final class AimCloseupGate {
     func reset() {
         clearTask?.cancel()
         clearTask = nil
+        activeDrags.removeAll()
         aiming = false
         isNear = false
         pending = nil
@@ -65,8 +70,11 @@ final class AimCloseupGate {
 
     private func scheduleClear() {
         clearTask?.cancel()
+        guard activeDrags.isEmpty else { return }
         clearTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: UInt64(Self.stickyWindow * 1_000_000_000))
+            do {
+                try await Task.sleep(nanoseconds: UInt64(Self.stickyWindow * 1_000_000_000))
+            } catch { return }
             guard !Task.isCancelled else { return }
             self?.aiming = false
             self?.emit()

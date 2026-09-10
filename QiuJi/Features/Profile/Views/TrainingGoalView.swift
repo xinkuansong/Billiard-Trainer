@@ -30,8 +30,8 @@ enum TrainingGoalMetrics {
                             since: Date,
                             calendar: Calendar) -> Int {
         let days = goalCounting(sessions)
-            .filter { $0.date >= since }
-            .map { calendar.startOfDay(for: $0.date) }
+            .filter { $0.reportingDate >= since }
+            .map { calendar.startOfDay(for: $0.reportingDate) }
         return Set(days).count
     }
 
@@ -44,9 +44,9 @@ enum TrainingGoalMetrics {
         }
 
         let counted = goalCounting(sessions).filter {
-            $0.date >= month.start && $0.date < month.end
+            $0.reportingDate >= month.start && $0.reportingDate < month.end
         }
-        let trainedDays = Set(counted.map { calendar.startOfDay(for: $0.date) })
+        let trainedDays = Set(counted.map { calendar.startOfDay(for: $0.reportingDate) })
         let durationMinutes = counted.reduce(0) { $0 + $1.totalDurationMinutes }
 
         var longestStreak = 0
@@ -108,7 +108,6 @@ struct TrainingGoalView: View {
         .navigationTitle("训练目标")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.hidden, for: .tabBar)
-        .task { await refreshReminderAuthorization() }
         .alert("无法开启提醒", isPresented: Binding(
             get: { reminderError != nil },
             set: { if !$0 { reminderError = nil } }
@@ -222,117 +221,17 @@ struct TrainingGoalView: View {
     // MARK: - Reminder
 
     private var reminderSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("训练提醒")
-                .font(.btSubheadlineMedium)
-                .foregroundStyle(.btTextSecondary)
-                .padding(.leading, Spacing.xs)
-
-            VStack(spacing: 0) {
-                HStack {
-                    Text("开启提醒")
-                        .font(.btBody)
-                        .foregroundStyle(.btText)
-
-                    Spacer()
-
-                    Toggle("", isOn: reminderEnabledBinding)
-                        .tint(.btPrimary)
-                        .labelsHidden()
-                        .disabled(isUpdatingReminder)
-                        .accessibilityIdentifier("trainingGoal.reminderEnabled")
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, Spacing.md)
-
-                if prefs.reminderEnabled {
-                    Divider().padding(.leading, Spacing.lg)
-
-                    HStack {
-                        Text("提醒时间")
-                            .font(.btBody)
-                            .foregroundStyle(.btText)
-
-                        Spacer()
-
-                        DatePicker("", selection: reminderTimeBinding, displayedComponents: .hourAndMinute)
-                            .labelsHidden()
-                            .tint(.btPrimary)
-                            .disabled(isUpdatingReminder)
-                            .accessibilityIdentifier("trainingGoal.reminderTime")
-                    }
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.vertical, Spacing.sm)
-                }
-
-                Divider().padding(.leading, Spacing.lg)
-
-                Text(reminderAuthorizationText)
-                    .font(.btCaption)
-                    .foregroundStyle(reminderAuthorization == .denied ? Color.btDestructive : .btTextTertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.vertical, Spacing.sm)
-                    .accessibilityIdentifier("trainingGoal.reminderAuthorization")
-            }
-            .background(Color.btBGSecondary)
-            .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
-            .animation(BTMotion.easeInOutFast, value: prefs.reminderEnabled)
-        }
-    }
-
-    private var reminderEnabledBinding: Binding<Bool> {
-        Binding(
-            get: { prefs.reminderEnabled },
-            set: { requested in updateReminder(enabled: requested, time: prefs.reminderTime) }
-        )
-    }
-
-    private var reminderTimeBinding: Binding<Date> {
-        Binding(
-            get: { prefs.reminderTime },
-            set: { newTime in updateReminder(enabled: true, time: newTime) }
-        )
-    }
-
-    private func updateReminder(enabled: Bool, time: Date) {
-        guard !isUpdatingReminder else { return }
-        isUpdatingReminder = true
-        Task {
-            defer { isUpdatingReminder = false }
-            guard enabled else {
-                TrainingReminderScheduler.shared.disable()
-                prefs.persistReminder(enabled: false)
-                return
-            }
-            switch await TrainingReminderScheduler.shared.enable(at: time, calendar: calendar) {
-            case .scheduled:
-                reminderAuthorization = .allowed
-                prefs.persistReminder(enabled: true, time: time)
-            case .permissionDenied:
-                reminderAuthorization = .denied
-                prefs.persistReminder(enabled: false)
-                reminderError = "系统通知权限未开启。请前往“设置 > 通知 > 球迹”允许通知后再试。"
-            case .failed(let message):
-                prefs.persistReminder(enabled: false)
-                reminderError = message
-            }
-        }
-    }
-
-    private func refreshReminderAuthorization() async {
-        reminderAuthorization = await TrainingReminderScheduler.shared.authorization()
-        if reminderAuthorization == .denied, prefs.reminderEnabled {
-            prefs.persistReminder(enabled: false)
-        }
-    }
-
-    private var reminderAuthorizationText: String {
-        switch reminderAuthorization {
-        case .notDetermined: return "首次开启时会请求系统通知权限"
-        case .allowed: return "系统通知权限已开启"
-        case .denied: return "系统通知权限未开启，请前往系统设置允许通知"
-        }
+        NavigationLink {
+            TrainingReminderView()
+        } label: {
+            HStack {
+                Label("训练提醒", systemImage: "bell")
+                Spacer()
+                Text(prefs.reminderEnabled ? "已开启" : "未开启").foregroundStyle(.btTextSecondary)
+                Image(systemName: "chevron.right").foregroundStyle(.btTextSecondary)
+            }.font(.btBody).padding(Spacing.lg).background(Color.btBGSecondary)
+                .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+        }.buttonStyle(.plain)
     }
 
     // MARK: - Computed Properties

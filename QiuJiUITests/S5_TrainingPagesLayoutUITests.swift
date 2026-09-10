@@ -61,17 +61,26 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         snap("training-3D-hidden")
     }
 
-    func testAimPointTrainingMarkers3D() throws {
+    func testAimPointTrainingMarkers3D() throws { try checkAimPointTrainingMarkers(mode: "3D") }
+
+    func testAimPointTrainingMarkers2D() throws { try checkAimPointTrainingMarkers(mode: "2D") }
+
+    private func checkAimPointTrainingMarkers(mode: String) throws {
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
-        XCTAssertTrue(openCard(homeTab: "练", title: "3D 瞄准点训练"))
+        XCTAssertTrue(openCard(homeTab: "练", title: "\(mode) 瞄准点训练"))
         XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 5))
-        snap("aim-point-3D-aiming")
+        snap("aim-point-\(mode)-aiming")
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.55))
             .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.55)))
-        snap("aim-point-3D-adjusted")
+        snap("aim-point-\(mode)-adjusted")
         XCTAssertTrue(app.buttons["提交"].isHittable)
+        app.buttons["提交"].tap()
+        snap("aim-point-\(mode)-submitted")
+        // This exercise verifies the shot and advances automatically; it has no Next button.
+        XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 30))
+        snap("aim-point-\(mode)-next")
     }
 
     @discardableResult

@@ -1,4 +1,5 @@
 import XCTest
+import SceneKit
 @testable import QiuJi
 
 /// v23 W3：自由瞄准页特写快照构建（层集 / 多球切换 / 擦身打空）。
@@ -198,5 +199,136 @@ final class AimCloseupGateTests: XCTestCase {
         gate.setDragging(true)
         gate.update(AimCloseupBuilder.Result(snapshot: nil, isNear: false))
         XCTAssertEqual(emissions, 0, "远区拖轮不得闪出空 HUD")
+    }
+    func test_dragPause_retainsCloseupUntilRelease() async throws {
+        for source in [AimCloseupGate.DragSource.table, .wheel] {
+            let gate = AimCloseupGate()
+            var visible = false
+            gate.onSnapshotChange = { visible = $0 != nil }
+            gate.update(nearResult())
+            gate.setDragging(true, source: source)
+            gate.noteAimChanged()
+            try await Task.sleep(for: .milliseconds(450))
+            XCTAssertTrue(visible, "Holding still must not end the gesture: \(source)")
+            gate.setDragging(false, source: source)
+            XCTAssertTrue(visible, "Release retains the existing sticky window")
+            try await Task.sleep(for: .milliseconds(450))
+            XCTAssertFalse(visible)
+        }
+    }
+
+    func test_overlappingGestures_waitsForLastRelease() async throws {
+        let gate = AimCloseupGate()
+        var visible = false
+        gate.onSnapshotChange = { visible = $0 != nil }
+        gate.update(nearResult())
+        gate.setDragging(true, source: .table)
+        gate.setDragging(true, source: .wheel)
+        gate.setDragging(false, source: .table)
+        try await Task.sleep(for: .milliseconds(450))
+        XCTAssertTrue(visible)
+        gate.setDragging(false, source: .wheel)
+        try await Task.sleep(for: .milliseconds(450))
+        XCTAssertFalse(visible)
+    }
+
+    func test_regrabCancelsPendingHide() async throws {
+        let gate = AimCloseupGate()
+        var visible = false
+        gate.onSnapshotChange = { visible = $0 != nil }
+        gate.update(nearResult())
+        gate.noteAimChanged()
+        gate.setDragging(true)
+        gate.noteAimChanged()
+        try await Task.sleep(for: .milliseconds(450))
+        XCTAssertTrue(visible)
+        gate.reset()
+    }
+
+    func test_nearBandExitAndReentry_whileHolding() async throws {
+        let gate = AimCloseupGate()
+        var visible = false
+        gate.onSnapshotChange = { visible = $0 != nil }
+        gate.update(nearResult())
+        gate.setDragging(true)
+        gate.update(.init(snapshot: nil, isNear: false))
+        XCTAssertFalse(visible)
+        try await Task.sleep(for: .milliseconds(450))
+        gate.update(nearResult())
+        XCTAssertTrue(visible, "Reentering the band during the same drag restores the loupe")
+        gate.reset()
+    }
+
+    func test_resetClearsHeldSources_andTapStillExpires() async throws {
+        let gate = AimCloseupGate()
+        var visible = false
+        gate.onSnapshotChange = { visible = $0 != nil }
+        gate.update(nearResult())
+        gate.setDragging(true, source: .table)
+        gate.reset()
+        gate.update(nearResult())
+        gate.noteAimChanged()
+        try await Task.sleep(for: .milliseconds(450))
+        XCTAssertFalse(visible, "A stale held source must not survive reset")
+    }
+
+}
+
+@MainActor
+final class AimPointCloseupLifecycleTests: XCTestCase {
+    func test_tableAndWheelHold_thenRelease() async throws {
+        let suiteName = "AimPointCloseupLifecycleTests-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let limiter = AngleUsageLimiter(defaults: defaults)
+        limiter.isPremium = true
+        let vm = AimPointSceneQuizViewModel(limiter: limiter)
+        vm.setupScene(cameraMode: .topDown2DRotated)
+        for table in [true, false] {
+            if table { vm.setAimTableDragging(true) }
+            else { vm.setAimWheelDragging(true) }
+            vm.nudgeAim(byDegrees: 0)
+            XCTAssertNotNil(vm.closeupSnapshot)
+            try await Task.sleep(for: .milliseconds(450))
+            XCTAssertNotNil(vm.closeupSnapshot)
+            if table { vm.setAimTableDragging(false) }
+            else { vm.setAimWheelDragging(false) }
+            try await Task.sleep(for: .milliseconds(450))
+            XCTAssertNil(vm.closeupSnapshot)
+        }
+    }
+}
+
+@MainActor
+final class AimDragCoordinatorTests: XCTestCase {
+    private final class Pan: UIPanGestureRecognizer {
+        var simulatedState: UIGestureRecognizer.State = .possible
+        override var state: UIGestureRecognizer.State {
+            get { simulatedState }
+            set { simulatedState = newValue }
+        }
+    }
+
+    func test_endCancelAndFailure_reportReleaseEvenWhenInteractionDisabled() {
+        for end in [UIGestureRecognizer.State.ended, .cancelled, .failed] {
+            let scene = AngleTrainingScene()
+            let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .topDown2DRotated, interactionMode: .tapsOnly)
+            let view = SCNView(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+            view.scene = scene
+            coordinator.scnView = view
+            var events: [Bool] = []
+            coordinator.onAimNudged = { _ in }
+            coordinator.onAimDragActiveChanged = { events.append($0) }
+            let pan = Pan()
+            pan.simulatedState = .began
+            coordinator.handlePan(pan)
+            XCTAssertEqual(events, [true])
+            coordinator.interactionMode = .none
+            coordinator.gesturesEnabled = false
+            pan.simulatedState = end
+            coordinator.handlePan(pan)
+            coordinator.endAimDrag()
+            XCTAssertEqual(events, [true, false], "Terminal event must release exactly once: \(end)")
+        }
     }
 }

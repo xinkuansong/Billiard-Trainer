@@ -65,7 +65,7 @@ private enum PracticeTopic: String, CaseIterable, Identifiable {
 // MARK: - Entry Model
 
 private struct AngleEntry: Identifiable {
-    let id = UUID()
+    var id: AngleRoute { route }
     let route: AngleRoute
     let title: String
     let subtitle: String
@@ -140,6 +140,7 @@ private enum PracticeSection: String, CaseIterable, Identifiable {
 struct AngleHomeView: View {
     /// nil = 全部（默认，与动作库侧栏一致）。
     @State private var selectedSection: PracticeSection? = nil
+    @State private var scrollToken = 0
     @State private var searchText = ""
     /// nil = 不按主题筛选（v34：与动作库搜索栏同款筛选 Menu）。
     @State private var selectedTopic: PracticeTopic? = nil
@@ -359,6 +360,7 @@ struct AngleHomeView: View {
                     isSelected: selectedSection == nil
                 ) {
                     selectedSection = nil
+                    scrollToken &+= 1
                 }
 
                 ForEach(PracticeSection.allCases) { section in
@@ -369,6 +371,7 @@ struct AngleHomeView: View {
                         isSelected: selectedSection == section
                     ) {
                         selectedSection = section
+                        scrollToken &+= 1
                     }
                 }
             }
@@ -426,29 +429,43 @@ struct AngleHomeView: View {
             searchEmptyState
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            ScrollView {
-                LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
-                    ForEach(visibleGroups, id: \.section) { group in
-                        Section {
-                            LazyVGrid(columns: gridColumns, spacing: Spacing.md) {
-                                ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
-                                    Button {
-                                        open(entry)
-                                    } label: {
-                                        AngleGridCard(entry: entry, sequenceNumber: index + 1, isUnlocked: subscriptionManager.isPremium)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
+                        ForEach(visibleGroups, id: \.section) { group in
+                            Section {
+                                LazyVGrid(columns: gridColumns, spacing: Spacing.md) {
+                                    ForEach(Array(group.entries.enumerated()), id: \.element.id) { index, entry in
+                                        Button {
+                                            open(entry)
+                                        } label: {
+                                            AngleGridCard(entry: entry, sequenceNumber: index + 1, isUnlocked: subscriptionManager.isPremium)
+                                        }
+                                        .buttonStyle(BTPressableStyle.row)
+                                        // 卡片按钮会合并子元素 AX 标签，UI 测试需用 identifier 精确定位。
+                                        .accessibilityIdentifier(entry.title)
                                     }
-                                    .buttonStyle(BTPressableStyle.row)
-                                    // 卡片按钮会合并子元素 AX 标签，UI 测试需用 identifier 精确定位。
-                                    .accessibilityIdentifier(entry.title)
                                 }
+                                .padding(.horizontal, Spacing.md)
+                            } header: {
+                                sectionHeader(group.section)
+                                    .id(group.section)
                             }
-                            .padding(.horizontal, Spacing.md)
-                        } header: {
-                            sectionHeader(group.section)
                         }
                     }
+                    .padding(.bottom, Spacing.xxxxl)
                 }
-                .padding(.bottom, Spacing.xxxxl)
+                .onChange(of: scrollToken) { _, _ in
+                    if let first = visibleGroups.first {
+                        proxy.scrollTo(first.section, anchor: .top)
+                    }
+                }
+                // React to the rendered results, including search/topic changes.
+                .onChange(of: visibleGroups.flatMap { $0.entries.map(\.id) }) { _, _ in
+                    if let first = visibleGroups.first {
+                        proxy.scrollTo(first.section, anchor: .top)
+                    }
+                }
             }
         }
     }

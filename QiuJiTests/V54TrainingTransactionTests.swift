@@ -168,6 +168,8 @@ final class V54TrainingTransactionTests: XCTestCase {
         SyncQueueManager.shared.backend = backend
         let auth = AuthState()
         auth.login(user: AppUser(id: "v54-user", provider: .apple))
+        auth.setCloudSyncEnabled(true)
+        defer { auth.setCloudSyncEnabled(false) }
         await SyncQueueManager.shared.processQueue(authState: auth)
         XCTAssertEqual(try context.fetch(FetchDescriptor<SyncPendingItem>()).count, 1)
 
@@ -181,6 +183,152 @@ final class V54TrainingTransactionTests: XCTestCase {
         XCTAssertEqual(uploaded.last?.sourceKind, TodayScheduleSourceKind.template)
         XCTAssertEqual(uploaded.last?.sourcePayloadSnapshot, Data("snapshot".utf8))
         XCTAssertEqual(uploaded.last?.progressEffect, "none")
+    }
+
+    func test_sequence_preservesSelectionOrderAndDuplicateActions() async throws {
+        let fixture = try arrangeTwoLessons()
+        let blocks = try fixture.items.reversed().map { try ScheduledTrainingBlock(item: $0) }
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
+        await vm.loadDrills()
+        XCTAssertEqual(vm.drills.map(\.drillId), blocks.flatMap(\.drills).map(\.drillID))
+        XCTAssertEqual(vm.drillSetsData.map(\.count), blocks.flatMap(\.drills).map { $0.sets.count })
+        XCTAssertEqual(vm.trainingTitle, "连续训练 · 2 项")
+    }
+
+    func test_sequence_completionSavesEverySourceOnceWithoutMultiplyingTime() async throws {
+        let fixture = try arrangeTwoLessons()
+        let blocks = try fixture.items.reversed().map { try ScheduledTrainingBlock(item: $0) }
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
+        await vm.loadDrills()
+        for d in vm.drillSetsData.indices {
+            for s in vm.drillSetsData[d].indices { vm.drillSetsData[d][s].isCompleted = true }
+        }
+        vm.elapsedSeconds = 17 * 60
+        vm.saveTraining(context: context)
+        vm.saveTraining(context: context)
+        XCTAssertTrue(vm.didSaveSuccessfully, vm.saveError ?? "")
+        let sessions = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(sessions.count, 2)
+        XCTAssertEqual(sessions.reduce(0) { $0 + $1.totalDurationMinutes }, 17)
+        XCTAssertEqual(try context.fetch(FetchDescriptor<SyncPendingItem>()).count, 2)
+        for block in blocks {
+            let saved = try XCTUnwrap(sessions.first { $0.scheduleItemId == block.scheduleItemID })
+            XCTAssertEqual(saved.sourcePayloadSnapshot, block.payloadSnapshot)
+            XCTAssertEqual(saved.drillEntries.sorted { $0.orderIndex < $1.orderIndex }.map(\.drillId), block.drills.map(\.drillID))
+            XCTAssertEqual(try fetchItem(id: block.scheduleItemID)?.state, TodayScheduleItemState.completed)
+        }
+        XCTAssertEqual(fixture.active.currentLessonId, fixture.plan.lessons[2].id)
+    }
+
+    func test_sequence_earlyFinishDoesNotCompleteUntouchedOrPartialCourses() async throws {
+        let fixture = try arrangeTwoLessons()
+        let blocks = try fixture.items.map { try ScheduledTrainingBlock(item: $0) }
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
+        await vm.loadDrills()
+        XCTAssertGreaterThan(vm.drillSetsData[0].count, 1)
+        vm.drillSetsData[0][0].isCompleted = true
+        vm.saveTraining(context: context)
+        XCTAssertTrue(vm.didSaveSuccessfully)
+        let sessions = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.scheduleItemId, fixture.items[0].id)
+        XCTAssertEqual(fixture.items.map(\.state), [TodayScheduleItemState.pending, TodayScheduleItemState.pending])
+        XCTAssertEqual(fixture.active.currentLessonId, fixture.plan.lessons[0].id)
+    }
+
+    func test_sequence_saveFailureRollsBackAllCoursesAndRetryIsAtomic() async throws {
+        let fixture = try arrangeTwoLessons()
+        let blocks = try fixture.items.map { try ScheduledTrainingBlock(item: $0) }
+        var attempts = 0
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks), saveAction: { context in
+            attempts += 1
+            if attempts == 1 { throw Expected.firstSaveFails }
+            try context.save()
+        })
+        await vm.loadDrills()
+        for d in vm.drillSetsData.indices {
+            for s in vm.drillSetsData[d].indices { vm.drillSetsData[d][s].isCompleted = true }
+        }
+        vm.saveTraining(context: context)
+        XCTAssertFalse(vm.didSaveSuccessfully)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<TrainingSession>()).isEmpty)
+        XCTAssertTrue(try context.fetch(FetchDescriptor<SyncPendingItem>()).isEmpty)
+        for block in blocks { XCTAssertEqual(try fetchItem(id: block.scheduleItemID)?.state, TodayScheduleItemState.pending) }
+        vm.saveTraining(context: context)
+        XCTAssertTrue(vm.didSaveSuccessfully, vm.saveError ?? "")
+        XCTAssertEqual(try context.fetch(FetchDescriptor<TrainingSession>()).count, 2)
+    }
+
+    func test_sequence_partialThenCompletionDoesNotInflateTodayCount() async throws {
+        let fixture = try arrangeTwoLessons()
+        let blocks = try fixture.items.map { try ScheduledTrainingBlock(item: $0) }
+        let partial = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
+        await partial.loadDrills()
+        partial.drillSetsData[0][0].isCompleted = true
+        partial.saveTraining(context: context)
+        let finished = ActiveTrainingViewModel(mode: .scheduled(blocks[0]))
+        await finished.loadDrills()
+        finished.saveTraining(context: context)
+        XCTAssertTrue(finished.didSaveSuccessfully)
+        let sessions = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(sessions.count, 2)
+        let projection = TodayTrainingProjection.make(ownerKey: owner,
+            schedules: try context.fetch(FetchDescriptor<TodayTrainingSchedule>()), sessions: sessions, suggestion: nil)
+        XCTAssertEqual(projection.completedCount, blocks[0].drills.count)
+        XCTAssertEqual(projection.totalCount, blocks.flatMap(\.drills).count)
+    }
+
+    func test_sequence_editingDrillsKeepsOwnershipAndDoesNotCompleteRemovedWork() async throws {
+        let fixture = try arrangeTwoLessons()
+        let blocks = try fixture.items.map { try ScheduledTrainingBlock(item: $0) }
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
+        await vm.loadDrills()
+        vm.removeDrill(at: IndexSet(integer: 0))
+        let extra = try XCTUnwrap(DrillContentService.decodeDrillFromBundle(id: "drill_c053"))
+        XCTAssertFalse(vm.drills.contains { $0.drillId == extra.id })
+        vm.addDrill(extra)
+        for d in vm.drillSetsData.indices {
+            for s in vm.drillSetsData[d].indices { vm.drillSetsData[d][s].isCompleted = true }
+        }
+        vm.saveTraining(context: context)
+        XCTAssertTrue(vm.didSaveSuccessfully, vm.saveError ?? "")
+        let sessions = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(sessions.flatMap(\.drillEntries).count, vm.drills.count)
+        let second = try XCTUnwrap(sessions.first { $0.scheduleItemId == fixture.items[1].id })
+        XCTAssertEqual(second.drillEntries.sorted { $0.orderIndex < $1.orderIndex }.map(\.drillId), blocks[1].drills.map(\.drillID) + [extra.id])
+        XCTAssertEqual(fixture.items[0].state, TodayScheduleItemState.pending)
+        XCTAssertEqual(fixture.items[1].state, TodayScheduleItemState.completed)
+        XCTAssertEqual(fixture.active.currentLessonId, fixture.plan.lessons[0].id)
+    }
+
+    func test_sequence_autoAdvanceIntoNextCourseDoesNotSaveUntouchedCourse() async throws {
+        let fixture = try arrangeTwoLessons()
+        let blocks = try fixture.items.map { try ScheduledTrainingBlock(item: $0) }
+        let vm = ActiveTrainingViewModel(mode: .scheduledSequence(blocks))
+        await vm.loadDrills()
+        for d in 0..<blocks[0].drills.count {
+            for s in vm.drillSetsData[d].indices { vm.drillSetsData[d][s].isCompleted = true }
+        }
+        vm.currentDrillIndex = blocks[0].drills.count
+        vm.elapsedSeconds = 120
+        vm.saveTraining(context: context)
+        XCTAssertTrue(vm.didSaveSuccessfully)
+        let sessions = try context.fetch(FetchDescriptor<TrainingSession>())
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.scheduleItemId, fixture.items[0].id)
+        XCTAssertEqual(sessions.first?.totalDurationMinutes, 2)
+        XCTAssertEqual(fixture.items[1].state, TodayScheduleItemState.pending)
+    }
+
+    private func arrangeTwoLessons() throws -> (plan: OfficialPlan, active: UserActivePlan, items: [TodayScheduleItem]) {
+        let fixture = try arrangeCurrentOfficialLesson()
+        let results = try TodayTrainingScheduleService(context: context).addOfficialLessons(
+            plan: fixture.plan, lessonIDs: [fixture.plan.lessons[1].id], activePlan: fixture.active)
+        let second: TodayScheduleItem
+        switch try XCTUnwrap(results.first) {
+        case .added(let item), .alreadyPresent(let item): second = item
+        }
+        return (fixture.plan, fixture.active, [fixture.item, second])
     }
 
     private func arrangeCurrentOfficialLesson() throws -> (

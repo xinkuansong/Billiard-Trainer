@@ -352,7 +352,7 @@ final class V54ScheduleUITests: XCTestCase {
             case "empty":
                 XCTAssertTrue(app.buttons["trainingHome.freeRecord"].waitForExistence(timeout: 12))
             case "suggestion":
-                XCTAssertTrue(app.buttons["trainingHome.startTraining"].waitForExistence(timeout: 12))
+                XCTAssertTrue(app.buttons["trainingHome.freeTraining"].waitForExistence(timeout: 12))
                 XCTAssertTrue(app.buttons["trainingHome.suggestion"].waitForExistence(timeout: 8))
                 let suggestion = app.buttons["trainingHome.suggestion"]
                 XCTAssertEqual(suggestion.value as? String, "已折叠")
@@ -365,13 +365,13 @@ final class V54ScheduleUITests: XCTestCase {
                 let row = app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01"]
                 XCTAssertTrue(row.waitForExistence(timeout: 12))
                 XCTAssertEqual(row.value as? String, "已折叠")
-                XCTAssertFalse(app.buttons["开始这节课"].firstMatch.exists)
+                XCTAssertFalse(app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01.start"].firstMatch.exists)
                 row.tap()
-                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForExistence(timeout: 5))
+                XCTAssertTrue(app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01.start"].firstMatch.waitForExistence(timeout: 5))
                 row.tap()
-                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForNonExistence(timeout: 5))
+                XCTAssertTrue(app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01.start"].firstMatch.waitForNonExistence(timeout: 5))
                 row.tap()
-                XCTAssertTrue(app.buttons["开始这节课"].firstMatch.waitForExistence(timeout: 5))
+                XCTAssertTrue(app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01.start"].firstMatch.waitForExistence(timeout: 5))
             case "mixed":
                 try assertScheduleHasAccessibleSource("官方计划")
                 try assertScheduleHasAccessibleSource("赛前热身")
@@ -381,7 +381,7 @@ final class V54ScheduleUITests: XCTestCase {
                 XCTAssertTrue(app.descendants(matching: .any).matching(
                     NSPredicate(format: "label CONTAINS '已完成'")
                 ).firstMatch.waitForExistence(timeout: 12))
-                XCTAssertEqual(app.buttons["trainingHome.startTraining"].label, "继续")
+                XCTAssertEqual(app.buttons["trainingHome.startTraining"].label, "开始训练")
             case "completed", "freeCompleted":
                 XCTAssertTrue(app.descendants(matching: .any)["trainingHome.todaySchedule"].waitForExistence(timeout: 12))
                 XCTAssertFalse(app.buttons["trainingHome.startTraining"].exists)
@@ -652,11 +652,17 @@ final class V54ScheduleUITests: XCTestCase {
     }
 
     func testTrainingTitleUsesPlanAndTemplateNames() throws {
-        for (state, title) in [("single", "基本功"), ("partial", "赛前热身")] {
+        for (state, title) in [("single", "基本功"), ("partial", "赛前热身"), ("oneRemaining", "赛前热身")] {
             launch(["-v54.todayState=\(state)"])
             let start = app.buttons["trainingHome.startTraining"]
             XCTAssertTrue(start.waitForExistence(timeout: 15))
             start.tap()
+            if state == "partial" {
+                XCTAssertTrue(app.buttons["courseSelection.option.0"].waitForExistence(timeout: 5))
+                XCTAssertFalse(app.buttons["courseSelection.option.2"].exists)
+                app.buttons["courseSelection.option.0"].tap()
+                app.buttons["courseSelection.start"].tap()
+            }
             let heading = app.staticTexts["activeTraining.title"]
             XCTAssertTrue(heading.waitForExistence(timeout: 10))
             XCTAssertEqual(heading.label, title)
@@ -747,7 +753,7 @@ final class V54ScheduleUITests: XCTestCase {
     }
 
     private func assertMultiItemDisclosureDoesNotStartTraining() throws {
-        let start = app.buttons["开始这节课"].firstMatch
+        let start = app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01.start"].firstMatch
         XCTAssertFalse(start.exists, "多课时应默认折叠")
 
         let firstItem = app.buttons.matching(
@@ -759,6 +765,68 @@ final class V54ScheduleUITests: XCTestCase {
         XCTAssertFalse(app.descendants(matching: .any)["activeTraining.timer"].exists, "展开课时不应直接开始训练")
         firstItem.tap()
         XCTAssertTrue(start.waitForNonExistence(timeout: 5), "再次轻点应折叠详细内容")
+    }
+
+    func testCourseSelectionAddOnlyAndSingleStart() throws {
+        launch(["-v54.todayState=suggestion"])
+        let suggestion = app.buttons["trainingHome.suggestion"]
+        XCTAssertTrue(suggestion.waitForExistence(timeout: 15))
+        suggestion.tap()
+        let add = app.buttons["trainingHome.suggestion.start"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        XCTAssertEqual(add.label, "加入今日安排")
+        add.tap()
+        XCTAssertTrue(app.buttons["trainingHome.scheduleItem.plan_beginner.stage01.lesson01"].waitForExistence(timeout: 8))
+        XCTAssertFalse(app.staticTexts["activeTraining.title"].exists)
+        try capture("add-only")
+        app.buttons["trainingHome.startTraining"].tap()
+        XCTAssertTrue(app.staticTexts["activeTraining.title"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["activeTraining.title"].label, "基本功")
+        XCTAssertFalse(app.buttons["courseSelection.start"].exists)
+        try capture("single-start")
+    }
+
+    func testCourseSelectionCancelSubsetOrderAndConcatenation() throws {
+        launch(["-v54.todayState=mixed"])
+        let primary = app.buttons["trainingHome.startTraining"]
+        XCTAssertTrue(primary.waitForExistence(timeout: 15))
+        primary.tap()
+        let start = app.buttons["courseSelection.start"]
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertFalse(start.isEnabled)
+        try capture("selection-empty")
+        app.buttons["courseSelection.option.0"].tap()
+        app.buttons["courseSelection.cancel"].tap()
+        XCTAssertTrue(primary.waitForExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["activeTraining.title"].exists)
+        primary.tap()
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertFalse(start.isEnabled, "取消后不保留未确认的选择")
+        app.buttons["courseSelection.option.0"].tap()
+        app.buttons["courseSelection.option.1"].tap()
+        app.buttons["courseSelection.reorder.1"].tap()
+        app.buttons["上移"].tap()
+        XCTAssertTrue(app.buttons["courseSelection.option.0"].label.contains("赛前热身"))
+        XCTAssertEqual(start.label, "开始训练（2 项）")
+        try capture("selection-ordered")
+        start.tap()
+        XCTAssertTrue(app.staticTexts["activeTraining.title"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["activeTraining.title"].label, "连续训练 · 2 项")
+        XCTAssertTrue(app.staticTexts["半台直线球"].firstMatch.exists)
+        try capture("combined-training")
+    }
+
+    func testCourseSelectionOneChoiceKeepsSingleCourseTitle() throws {
+        launch(["-v54.todayState=mixed"])
+        let primary = app.buttons["trainingHome.startTraining"]
+        XCTAssertTrue(primary.waitForExistence(timeout: 15))
+        primary.tap()
+        XCTAssertTrue(app.buttons["courseSelection.option.1"].waitForExistence(timeout: 5))
+        app.buttons["courseSelection.option.1"].tap()
+        app.buttons["courseSelection.start"].tap()
+        XCTAssertTrue(app.staticTexts["activeTraining.title"].waitForExistence(timeout: 10))
+        XCTAssertEqual(app.staticTexts["activeTraining.title"].label, "赛前热身")
+        try capture("single-selection")
     }
 
     private func launch(_ args: [String]) {

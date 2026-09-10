@@ -599,6 +599,10 @@ final class BankShotViewModel: ObservableObject {
         closeupGate.setDragging(active)
     }
 
+    func setAimTableDragging(_ active: Bool) {
+        closeupGate.setDragging(active, source: .table)
+    }
+
     /// v23 W3：与场景假想球/接触点同源的近区特写（层集 = 瞄准线 + 假想球 + 接触点）。
     private func updateCloseup(cue: SCNVector3, dir: SCNVector3,
                                balls: [(key: String, pos: SCNVector3)]) {

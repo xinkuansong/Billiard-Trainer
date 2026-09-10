@@ -226,7 +226,7 @@ struct PlanThreeView: View {
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
             autoFitsRotatedTable: true,
-            onPocketTapped: { if !vm.isBreakMode { vm.selectPocket(at: $0) } },
+            onPocketTapped: vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
             draggableBallNodes: vm.breakRunner?.draggableCue
                 ?? (vm.activeTool == .none ? vm.draggableBalls : []),

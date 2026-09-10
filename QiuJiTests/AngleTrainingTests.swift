@@ -324,7 +324,7 @@ import SceneKit
 
 @MainActor
 final class TrainingAssistSceneTests: XCTestCase {
-    func testAssistToggleTracksSightDirectionAndClearsOnNextQuestion() throws {
+    func testAssistKeepsShotDirectionAcrossCameraMotionAndModes() async throws {
         let suite = "TrainingAssistSceneTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -332,35 +332,169 @@ final class TrainingAssistSceneTests: XCTestCase {
         limiter.isPremium = true
         let vm = AimingQuizViewModel(limiter: limiter)
         vm.setupScene(initialCameraMode: .perspective3D)
-        let cue = try XCTUnwrap(vm.scene.cueStick)
-        XCTAssertTrue(cue.rootNode.isHidden)
-        vm.toggleAimingAssist()
-        XCTAssertFalse(cue.rootNode.isHidden)
-        let ghost = try XCTUnwrap(vm.scene.ghostBallNode)
-        let sphere = try XCTUnwrap(ghost.geometry as? SCNSphere)
-        XCTAssertEqual(sphere.radius, CGFloat(AngleSceneCalculator.ballRadius), accuracy: 1e-8)
-        XCTAssertFalse(ghost.isHidden)
-        let target = try XCTUnwrap(vm.scene.targetBallNodes.first)
-        XCTAssertEqual(hypot(ghost.position.x - target.position.x, ghost.position.z - target.position.z),
-                       2 * AngleSceneCalculator.ballRadius, accuracy: 1e-5)
-        for yaw: Float in [0, .pi / 2, .pi, -.pi / 2] {
-            vm.scene.cameraRig?.setAimYaw(yaw)
-            vm.scene.updateAuxiliaryCue()
-            let back = cue.rootNode.convertVector(SCNVector3(0, 0, 1), to: nil)
-            let aim = try XCTUnwrap(vm.scene.cameraRig).aimDirectionForCurrentYaw()
-            let length = hypot(back.x, back.z)
-            XCTAssertEqual(back.x / length, -aim.x, accuracy: 1e-5)
-            XCTAssertEqual(back.z / length, -aim.z, accuracy: 1e-5)
+        let scene = vm.scene
+        let stick = try XCTUnwrap(scene.cueStick)
+        XCTAssertTrue(stick.rootNode.isHidden)
+        let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .perspective3D,
+                                                     interactionMode: .cameraControl)
+        coordinator.startRenderLoop()
+        defer { coordinator.stopRenderLoop() }
+        for mode: AngleTrainingScene.CameraMode in [.perspective3D, .topDown2DRotated, .topDown2D] {
+            scene.setCameraMode(mode, animated: false)
+            coordinator.cameraMode = mode
+            vm.refreshVisualization()
+            if !vm.showAimingAssist { vm.toggleAimingAssist() }
+            XCTAssertFalse(stick.rootNode.isHidden)
+            let ghost = try XCTUnwrap(scene.ghostBallNode)
+            let cue = try XCTUnwrap(scene.cueBallNode)
+            let dx = ghost.position.x - cue.position.x
+            let dz = ghost.position.z - cue.position.z
+            let length = hypot(dx, dz)
+            for yaw: Float in [0, .pi / 2, .pi, -.pi / 2] {
+                scene.cameraRig?.setAimYaw(yaw)
+                scene.cameraRig?.handleVerticalSwipe(delta: 12)
+                // Let the production display link run; a camera-bound cue would move here.
+                try await Task.sleep(for: .milliseconds(120))
+                let back = stick.rootNode.convertVector(SCNVector3(0, 0, 1), to: nil)
+                let backLength = hypot(back.x, back.z)
+                XCTAssertEqual(back.x / backLength, -dx / length, accuracy: 1e-5)
+                XCTAssertEqual(back.z / backLength, -dz / length, accuracy: 1e-5)
+            }
+            vm.toggleAimingAssist()
+            try await Task.sleep(for: .milliseconds(120))
+            XCTAssertTrue(stick.rootNode.isHidden)
+            XCTAssertTrue(ghost.isHidden)
         }
         vm.toggleAimingAssist()
-        vm.scene.updateAuxiliaryCue()
-        XCTAssertTrue(cue.rootNode.isHidden)
-        XCTAssertTrue(ghost.isHidden)
-        vm.toggleAimingAssist()
         vm.startTest()
-        XCTAssertTrue(cue.rootNode.isHidden)
-        XCTAssertTrue(ghost.isHidden)
-        XCTAssertFalse(vm.scene.auxiliaryCueFollowsCamera)
+        XCTAssertTrue(stick.rootNode.isHidden)
+        XCTAssertTrue(try XCTUnwrap(scene.ghostBallNode).isHidden)
+    }
+
+    func testTrainingGreenPotLinesAndLabelsKeepOtherBallColors() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let cue = SCNVector3(-0.45, y, 0.15)
+        let target = SCNVector3(0.35, y, -0.1)
+        let pocket = SCNVector3(0, y, -0.688)
+        for training in [false, true] {
+            scene.setupVisualizationNodes(usesTrainingAssistStyle: training)
+            for number in 1...15 {
+                scene.applyBallLayout(cueBallPosition: cue, targetBallNumber: number, targetPosition: target)
+                scene.updateVisualization(cueBall: cue, targetBall: target, pocket: pocket,
+                                          showLineLabels: true, extendStrikeLineToRail: true)
+                let expected: UIColor = training && [6, 14].contains(number)
+                    ? .white : TrajectoryStyle.potColor(forNumber: number)
+                XCTAssertEqual(scene.pocketLineNode?.geometry?.firstMaterial?.multiply.contents as? UIColor,
+                               expected, "training=\(training), ball=\(number)")
+                var labels: [String: UIColor] = [:]
+                scene.angleArcNode?.enumerateChildNodes { node, _ in
+                    guard let text = node.geometry as? SCNText,
+                          let name = text.string as? String,
+                          let color = text.firstMaterial?.diffuse.contents as? UIColor else { return }
+                    labels[name] = color
+                }
+                XCTAssertEqual(labels["进球线"], expected)
+                XCTAssertEqual(labels["瞄准线"], UIColor.white)
+            }
+        }
+        // Training scenes and their loupe share this policy; the global palette stays green.
+        for number in [6, 14] {
+            XCTAssertEqual(TrajectoryStyle.TrainingAssist.potColor(forNumber: number), UIColor.white)
+            XCTAssertNotEqual(TrajectoryStyle.potColor(forNumber: number), UIColor.white)
+        }
+    }
+
+    func testTrainingGreenPotLineRenderEvidence() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
+        let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let cue = SCNVector3(-0.45, y, 0.15)
+        let target = SCNVector3(0.35, y, -0.1)
+        let pocket = SCNVector3(0, y, -0.688)
+        let renderer = SCNRenderer(device: nil, options: nil)
+        renderer.scene = scene
+        renderer.pointOfView = scene.cameraNode
+        for number in [6, 14, 3] {
+            scene.applyBallLayout(cueBallPosition: cue, targetBallNumber: number, targetPosition: target)
+            for mode: AngleTrainingScene.CameraMode in [.topDown2DRotated, .perspective3D] {
+                scene.setCameraMode(mode, animated: false)
+                if mode == .topDown2DRotated {
+                    scene.cameraRig?.fitRotatedTable(viewSize: CGSize(width: 402, height: 700))
+                    scene.cameraRig?.applyTopDown2DRotated()
+                } else {
+                    scene.cameraRig?.enterAiming(cueBallPosition: cue,
+                                                targetDirection: SCNVector3(target.x-cue.x, 0, target.z-cue.z))
+                    scene.cameraRig?.update(deltaTime: 1)
+                }
+                scene.updateVisualization(cueBall: cue, targetBall: target, pocket: pocket,
+                                          showLineLabels: mode == .topDown2DRotated,
+                                          extendStrikeLineToRail: true)
+                scene.showAuxiliaryCue()
+                SCNTransaction.flush()
+                let image = renderer.snapshot(atTime: 0, with: CGSize(width: 804, height: 1400),
+                                              antialiasingMode: .multisampling4X)
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "pot-ball-\(number)-\(mode == .topDown2DRotated ? "2d" : "3d")"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+        }
+    }
+
+    func testGhostMatchesModelBallsAndWhiteLineReachesRail() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
+        let ghost = try XCTUnwrap(scene.ghostBallNode)
+        let radius = try XCTUnwrap(ghost.geometry as? SCNSphere).radius
+        XCTAssertEqual(radius, CGFloat(AngleSceneCalculator.ballRadius), accuracy: 1e-8)
+        XCTAssertEqual(scene.allBallNodes.count, 16)
+        for (key, ball) in scene.allBallNodes {
+            // Hidden container nodes report an empty aggregate bounding box on iOS.
+            // Measure the mesh vertices themselves in world space instead.
+            var vertices: [SCNVector3] = []
+            ball.enumerateChildNodes { node, _ in
+                guard let source = node.geometry?.sources(for: .vertex).first else { return }
+                XCTAssertTrue(source.usesFloatComponents)
+                XCTAssertEqual(source.bytesPerComponent, 4)
+                guard source.usesFloatComponents, source.bytesPerComponent == 4 else { return }
+                source.data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+                    for index in 0..<source.vectorCount {
+                        let offset = source.dataOffset + index * source.dataStride
+                        let point = SCNVector3(
+                            raw.loadUnaligned(fromByteOffset: offset, as: Float.self),
+                            raw.loadUnaligned(fromByteOffset: offset + 4, as: Float.self),
+                            raw.loadUnaligned(fromByteOffset: offset + 8, as: Float.self))
+                        vertices.append(node.convertPosition(point, to: nil))
+                    }
+                }
+            }
+            XCTAssertFalse(vertices.isEmpty, key)
+            let xs = vertices.map(\.x), ys = vertices.map(\.y), zs = vertices.map(\.z)
+            let diameter = max(try XCTUnwrap(xs.max()) - XCTUnwrap(xs.min()),
+                               try XCTUnwrap(ys.max()) - XCTUnwrap(ys.min()),
+                               try XCTUnwrap(zs.max()) - XCTUnwrap(zs.min()))
+            // USDZ tessellation and cue spots differ by less than 0.5 mm.
+            XCTAssertEqual(CGFloat(diameter), 2 * radius, accuracy: 0.0005, key)
+        }
+        let color = try XCTUnwrap(scene.strikeLineNode?.geometry?.firstMaterial?.diffuse.contents as? UIColor)
+        XCTAssertEqual(color, UIColor.white)
+        let y = scene.surfaceY + AngleSceneCalculator.ballRadius
+        let cue = SCNVector3(-0.6, y, 0)
+        let target = SCNVector3(0, y, 0)
+        scene.updateVisualization(cueBall: cue, targetBall: target,
+                                  pocket: SCNVector3(1.312, y, 0),
+                                  extendStrikeLineToRail: true)
+        XCTAssertEqual(ghost.position.x, -2 * AngleSceneCalculator.ballRadius, accuracy: 1e-6)
+        let line = try XCTUnwrap(scene.strikeLineNode)
+        let cylinder = try XCTUnwrap(line.geometry as? SCNCylinder)
+        let endpoints = [-1.0, 1.0].map {
+            line.convertPosition(SCNVector3(0, Float($0 * cylinder.height / 2), 0), to: nil)
+        }
+        XCTAssertEqual(endpoints.map(\.x).max()!, AngleSceneCalculator.innerLength / 2, accuracy: 1e-5)
     }
 }
 

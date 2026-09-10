@@ -215,7 +215,9 @@ final class PlanThreeViewModel: ObservableObject {
     // MARK: - Published solve state
 
     @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
-    @Published private(set) var isPlaying = false
+    @Published private(set) var isPlaying = false {
+        didSet { if isPlaying { scene.clearPocketHighlights() } }
+    }
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
@@ -264,8 +266,8 @@ final class PlanThreeViewModel: ObservableObject {
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
-    static let color1 = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 1)
-    static let color2 = UIColor(red: 0.20, green: 0.85, blue: 0.95, alpha: 1)
+    static let color1 = PocketLeatherAppearance.firstRoleTint
+    static let color2 = PocketLeatherAppearance.secondRoleTint
     static let color3 = UIColor(red: 1.0, green: 0.78, blue: 0.28, alpha: 1)
 
     // MARK: - Setup
@@ -434,7 +436,9 @@ final class PlanThreeViewModel: ObservableObject {
     // MARK: - Break flow state（T-P18-47，方法见下方 extension）
 
     /// 开球模式 runner。非 nil = 开球模式：角色计划/约束/求解/摆球交互全部挂起。
-    @Published private(set) var breakRunner: BreakFlowRunner?
+    @Published private(set) var breakRunner: BreakFlowRunner? {
+        didSet { if breakRunner != nil { scene.clearPocketHighlights() } }
+    }
     var isBreakMode: Bool { breakRunner != nil }
     /// 进开球模式前的桌面（取消开球时恢复）。
     var boardBeforeBreak: BoardSnapshot?
@@ -786,14 +790,14 @@ extension PlanThreeViewModel {
 
     func refreshOverlays() {
         scene.clearResultNodes(nodes: &selectionNodes)
-        guard !isPlaying else { return }
+        guard !isPlaying, !isBreakMode else { scene.clearPocketHighlights(); return }
+        scene.setPocketRoles(first: ball1Key == nil ? nil : pocket1Index,
+                             second: ball2Key == nil ? nil : pocket2Index)
         let showingSolution = currentSolution != nil && !isComputing
 
         drawRoleRing(ball1Key, color: Self.color1)
         drawRoleRing(ball2Key, color: Self.color2)
         drawRoleRing(ball3Key, color: Self.color3)
-        drawPocketRing(pocket1Index, color: Self.color1)
-        drawPocketRing(pocket2Index, color: Self.color2)
         drawSector()
 
         if showingSolution { return }   // ghost/aim by trajectory layer
@@ -804,14 +808,6 @@ extension PlanThreeViewModel {
         guard let key, let n = scene.allBallNodes[key], !n.isHidden else { return }
         SceneStroke.strokeCircle(center: n.position, radius: AngleSceneCalculator.ballRadius * 1.75,
                                  color: color.withAlphaComponent(0.95), scene: scene, into: &selectionNodes)
-    }
-
-    private func drawPocketRing(_ index: Int, color: UIColor) {
-        guard index >= 0 else { return }
-        let pockets = AngleSceneCalculator.pocketPositions(surfaceY: surfaceY)
-        guard pockets.indices.contains(index) else { return }
-        SceneStroke.strokeCircle(center: pockets[index], radius: AngleSceneCalculator.ballRadius * 2.2,
-                                 color: color.withAlphaComponent(0.9), scene: scene, into: &selectionNodes)
     }
 
     /// ② 停球扇形引导（无③ → 两侧；有③ → 收缩到朝③那侧）。
@@ -1344,7 +1340,8 @@ extension PlanThreeViewModel {
 
     /// 回放结束：球停在终点。进袋球离场；若①进袋则**窗口前滑**（老②→新①、老②袋→新①袋、老③→新②），
     /// 否则保留原计划。解/约束随旧布局失效。
-    private func finishStrike(sol: PositionPlaySolution) {
+    // Internal completion boundary also exercised by deterministic role/undo regression tests.
+    func finishStrike(sol: PositionPlaySolution) {
         ShotAudioScheduler.shared.cancel()
         for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
         let potted = Set(sol.prediction.pocketedBalls.map { boardKey(forPredName: $0, shot: sol.shot) })

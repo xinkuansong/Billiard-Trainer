@@ -51,6 +51,23 @@ final class AngleResultSaveFailureTests: XCTestCase {
 
     // MARK: - 1. 角度预测（GeometricAngleViewModel）
 
+    func test_geometricAngle_errorBands_matchRecentAndCurrentResult() {
+        let vm = GeometricAngleViewModel(limiter: makeLimiter())
+        let cases: [(Double, GeometricAngleViewModel.ErrorRating)] = [
+            (0, .accurate), (2.9, .accurate), (3, .accurate),
+            (3.1, .close), (9.9, .close), (10, .close), (10.1, .off), (30, .off)
+        ]
+        for (error, expected) in cases {
+            for direction in [-1.0, 1.0] {
+                vm.currentAngle = 45 + direction * error
+                vm.userInput = "45"
+                vm.submitAnswer()
+                XCTAssertEqual(vm.lastErrorRating, expected, "error=\(error), direction=\(direction)")
+                XCTAssertEqual(vm.sessionResults.last?.rating, expected)
+            }
+        }
+    }
+
     func test_geometricAngle_saveFailure_setsErrorAndKeepsAnswer() async throws {
         let vm = GeometricAngleViewModel(limiter: makeLimiter())
         vm.configure(repository: AngleSaveFailureStub())

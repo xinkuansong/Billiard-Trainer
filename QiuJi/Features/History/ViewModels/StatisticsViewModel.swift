@@ -93,7 +93,7 @@ final class StatisticsViewModel: ObservableObject {
     var filteredSessions: [TrainingSession] {
         let start = currentRangeStart
         return sessions.filter {
-            $0.date >= start && TrainingSessionKind.countsTowardGoal($0.kind)
+            $0.reportingDate >= start && TrainingSessionKind.countsTowardGoal($0.kind)
         }
     }
 
@@ -102,14 +102,14 @@ final class StatisticsViewModel: ObservableObject {
     var filteredDrillSessions: [TrainingSession] {
         let start = currentRangeStart
         return sessions.filter {
-            $0.date >= start && $0.kind == TrainingSessionKind.drill
+            $0.reportingDate >= start && $0.kind == TrainingSessionKind.drill
         }
     }
 
     var filteredCognitiveSessions: [TrainingSession] {
         let start = currentRangeStart
         return sessions.filter {
-            $0.date >= start && $0.kind == TrainingSessionKind.cognitive
+            $0.reportingDate >= start && $0.kind == TrainingSessionKind.cognitive
         }
     }
 
@@ -117,7 +117,7 @@ final class StatisticsViewModel: ObservableObject {
     var filteredToolSessions: [TrainingSession] {
         let start = currentRangeStart
         return sessions.filter {
-            $0.date >= start && $0.kind == TrainingSessionKind.tool
+            $0.reportingDate >= start && $0.kind == TrainingSessionKind.tool
         }
     }
 
@@ -125,7 +125,7 @@ final class StatisticsViewModel: ObservableObject {
         let currentStart = currentRangeStart
         let prevStart = previousRangeStart
         return sessions.filter {
-            $0.date >= prevStart && $0.date < currentStart
+            $0.reportingDate >= prevStart && $0.reportingDate < currentStart
                 && TrainingSessionKind.countsTowardGoal($0.kind)
         }
     }
@@ -134,7 +134,7 @@ final class StatisticsViewModel: ObservableObject {
         let currentStart = currentRangeStart
         let prevStart = previousRangeStart
         return sessions.filter {
-            $0.date >= prevStart && $0.date < currentStart
+            $0.reportingDate >= prevStart && $0.reportingDate < currentStart
                 && $0.kind == TrainingSessionKind.drill
         }
     }
@@ -156,14 +156,14 @@ final class StatisticsViewModel: ObservableObject {
     // MARK: - Overview: Training Days
 
     var trainingDays: Int {
-        Set(filteredSessions.map { Calendar.current.startOfDay(for: $0.date) }).count
+        Set(filteredSessions.map { Calendar.current.startOfDay(for: $0.reportingDate) }).count
     }
 
     /// 按 kind 分开的天数（契约 §5.3：drill 与 cognitive 分开展示，tool 单列且不计训练量）。
     var daysByKind: (drill: Int, cognitive: Int, tool: Int) {
         let cal = Calendar.current
         func days(_ list: [TrainingSession]) -> Int {
-            Set(list.map { cal.startOfDay(for: $0.date) }).count
+            Set(list.map { cal.startOfDay(for: $0.reportingDate) }).count
         }
         return (days(filteredDrillSessions), days(filteredCognitiveSessions), days(filteredToolSessions))
     }
@@ -179,8 +179,8 @@ final class StatisticsViewModel: ObservableObject {
     /// `DrillEntry`，混进来会被 `primaryCategory` 的兜底全算成「综合」。
     var trainingDaysBreakdown: [(category: String, days: Int)] {
         var catDays: [String: Set<Date>] = [:]
-        for session in filteredDrillSessions {
-            let day = Calendar.current.startOfDay(for: session.date)
+        for session in filteredDrillSessions where !session.isManualTraining {
+            let day = Calendar.current.startOfDay(for: session.reportingDate)
             let cat = primaryCategory(for: session)
             catDays[cat, default: []].insert(day)
         }
@@ -247,7 +247,7 @@ final class StatisticsViewModel: ObservableObject {
             return (0..<7).reversed().map { offset in
                 let day = cal.date(byAdding: .day, value: -offset, to: cal.startOfDay(for: now))!
                 let dayEnd = cal.date(byAdding: .day, value: 1, to: day)!
-                let mins = filteredSessions.filter { $0.date >= day && $0.date < dayEnd }
+                let mins = filteredSessions.filter { $0.reportingDate >= day && $0.reportingDate < dayEnd }
                     .reduce(0) { $0 + $1.totalDurationMinutes }
                 let fmt = DateFormatter()
                 fmt.locale = Locale(identifier: "zh_CN")
@@ -259,7 +259,7 @@ final class StatisticsViewModel: ObservableObject {
                 let weekEnd = cal.date(byAdding: .day, value: -weekOffset * 7, to: cal.startOfDay(for: now))!
                 let weekStart = cal.date(byAdding: .day, value: -6, to: weekEnd)!
                 let weekEndNext = cal.date(byAdding: .day, value: 1, to: weekEnd)!
-                let mins = filteredSessions.filter { $0.date >= weekStart && $0.date < weekEndNext }
+                let mins = filteredSessions.filter { $0.reportingDate >= weekStart && $0.reportingDate < weekEndNext }
                     .reduce(0) { $0 + $1.totalDurationMinutes }
                 let fmt = DateFormatter()
                 fmt.locale = Locale(identifier: "zh_CN")
@@ -272,7 +272,7 @@ final class StatisticsViewModel: ObservableObject {
                 let comps = cal.dateComponents([.year, .month], from: month)
                 let monthStart = cal.date(from: comps)!
                 let monthEnd = cal.date(byAdding: .month, value: 1, to: monthStart)!
-                let mins = filteredSessions.filter { $0.date >= monthStart && $0.date < monthEnd }
+                let mins = filteredSessions.filter { $0.reportingDate >= monthStart && $0.reportingDate < monthEnd }
                     .reduce(0) { $0 + $1.totalDurationMinutes }
                 let fmt = DateFormatter()
                 fmt.locale = Locale(identifier: "zh_CN")

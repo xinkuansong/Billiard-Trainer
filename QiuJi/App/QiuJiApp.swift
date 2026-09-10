@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 @main
 struct QiuJiApp: App {
@@ -18,6 +19,7 @@ struct QiuJiApp: App {
         : ModelContainerFactory.makeContainer()
 
     init() {
+        UNUserNotificationCenter.current().delegate = TrainingReminderNavigation.shared
         #if DEBUG && targetEnvironment(simulator)
         let authState: AuthState
         if ProcessInfo.processInfo.arguments.contains("-syncRepair.loginSheet") {
@@ -71,6 +73,12 @@ struct QiuJiApp: App {
                 .environmentObject(subscriptionManager)
                 .environmentObject(avatarStore)
                 .tint(.btPrimary)
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+                    Task { await TrainingReminderScheduler.shared.reconcile() }
+                }
+                .onReceive(TrainingReminderNavigation.shared.$pending) { pending in
+                    if pending { TrainingReminderNavigation.shared.consume(router: appRouter) }
+                }
                 .onAppear {
                     SyncQueueManager.shared.configure(context: modelContainer.mainContext)
                     SyncRestoreService.shared.configure(context: modelContainer.mainContext)
@@ -123,6 +131,7 @@ struct QiuJiApp: App {
                 .onChange(of: scenePhase) { _, newPhase in
                     if newPhase == .active {
                         Task {
+                            await TrainingReminderScheduler.shared.reconcile()
                             await dataCoordinator.syncActiveAccount(mode: .incremental,
                                                                     authState: authState)
                         }

@@ -233,12 +233,15 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         sleep(2)
         app.scrollDown(times: 3)
         sleep(1)
-        let reminderToggle = app.switches["trainingGoal.reminderEnabled"]
+        let reminderEntry = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "训练提醒")).firstMatch
+        XCTAssertTrue(reminderEntry.waitForExistence(timeout: 5))
+        reminderEntry.tap()
+        let reminderToggle = app.switches["trainingReminder.enabled"]
         XCTAssertTrue(reminderToggle.waitForExistence(timeout: 3), "训练提醒开关必须存在")
-        let authorization = app.staticTexts["trainingGoal.reminderAuthorization"]
+        let authorization = app.staticTexts["trainingReminder.authorization"]
         XCTAssertTrue(authorization.waitForExistence(timeout: 3), "必须显示系统通知权限状态")
         XCTAssertTrue(
-            ["首次开启时会请求系统通知权限", "系统通知权限已开启", "系统通知权限未开启，请前往系统设置允许通知"]
+            ["保存并开启提醒时，将请求系统通知权限。", "系统通知权限已开启", "系统通知权限未开启"]
                 .contains(authorization.label),
             "通知权限状态不能是空白或伪成功：\(authorization.label)"
         )
@@ -397,10 +400,13 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         goal.tap()
         app.scrollDown(times: 3)
 
-        let reminderToggle = app.switches["trainingGoal.reminderEnabled"]
+        let reminderEntry = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "训练提醒")).firstMatch
+        XCTAssertTrue(reminderEntry.waitForExistence(timeout: 5))
+        reminderEntry.tap()
+        let reminderToggle = app.switches["trainingReminder.enabled"]
         XCTAssertTrue(reminderToggle.waitForExistence(timeout: 5), "训练提醒开关必须存在")
         XCTAssertTrue(
-            app.staticTexts["首次开启时会请求系统通知权限"].waitForExistence(timeout: 3),
+            app.staticTexts["保存并开启提醒时，将请求系统通知权限。"].waitForExistence(timeout: 3),
             "全新模拟器必须从通知权限未决定态开始"
         )
 
@@ -419,7 +425,8 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         }
         defer { removeUIInterruptionMonitor(monitor) }
 
-        reminderToggle.tap()
+        reminderToggle.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        app.navigationBars.buttons["保存"].tap()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let systemAlert = springboard.alerts.firstMatch
         if systemAlert.waitForExistence(timeout: 5) {
@@ -435,18 +442,13 @@ final class P8_ProfileSettingsUITests: XCTestCase {
         }
 
         XCTAssertTrue(handledSystemPrompt, "必须实际处理系统通知权限弹框，禁止用预授权冒充")
-        let expectedStatus = allow
-            ? "系统通知权限已开启"
-            : "系统通知权限未开启，请前往系统设置允许通知"
-        XCTAssertTrue(
-            app.staticTexts[expectedStatus].waitForExistence(timeout: 8),
-            "App 必须回显系统通知权限结果"
-        )
-
         if allow {
+            XCTAssertTrue(reminderEntry.waitForExistence(timeout: 8), "保存后返回训练目标")
+            reminderEntry.tap()
+            XCTAssertTrue(app.staticTexts["系统通知权限已开启"].waitForExistence(timeout: 5))
             XCTAssertEqual(reminderToggle.value as? String, "1", "允许后提醒开关必须保持开启")
         } else {
-            let failure = app.alerts["无法开启提醒"]
+            let failure = app.alerts["提醒设置"]
             XCTAssertTrue(failure.waitForExistence(timeout: 5), "拒绝后必须解释无法开启提醒")
             XCTAssertTrue(failure.buttons["知道了"].waitForExistence(timeout: 3))
             failure.buttons["知道了"].tap()

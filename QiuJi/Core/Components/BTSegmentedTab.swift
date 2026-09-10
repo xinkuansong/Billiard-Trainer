@@ -5,6 +5,8 @@ struct BTSegmentedTab<T: Hashable>: View {
     @Binding var selected: T
     /// Optional leading SF Symbol; omitted tabs retain their text-only labels.
     var systemImage: ((T) -> String)? = nil
+    /// nil hides the badge; a Bool shows the current unlocked state.
+    var proBadgeState: ((T) -> Bool?)? = nil
     let label: (T) -> String
     /// 可选无障碍标识前缀：每个分段按钮获得 `"\(prefix)_\(label)"` 标识，
     /// 供 UI 测试在标签与底部 Tab 重名时（如「训练」）精确定位。
@@ -13,25 +15,35 @@ struct BTSegmentedTab<T: Hashable>: View {
     @Namespace private var underline
 
     var body: some View {
-        HStack(spacing: 24) {
+        HStack(alignment: .top, spacing: 24) {
             ForEach(tabs, id: \.self) { tab in
                 let isActive = tab == selected
+                let badgeState = proBadgeState?(tab)
                 Button {
                     withAnimation(BTMotion.easeFast) {
                         selected = tab
                     }
                 } label: {
                     VStack(spacing: 6) {
-                        HStack(spacing: Spacing.xs) {
-                            if let systemImage {
-                                Image(systemName: systemImage(tab))
-                                    .accessibilityHidden(true)
+                        HStack(alignment: .top, spacing: Spacing.sm) {
+                            HStack(spacing: Spacing.xs) {
+                                if let systemImage {
+                                    Image(systemName: systemImage(tab))
+                                        .accessibilityHidden(true)
+                                }
+                                Text(label(tab))
                             }
-                            Text(label(tab))
-                        }
                             .font(.btCallout)
                             .fontWeight(.medium)
                             .foregroundStyle(isActive ? Color.btPrimary : Color.btTextSecondary)
+                            .frame(maxWidth: .infinity, alignment: badgeState == nil ? .center : .trailing)
+
+                            if let badgeState {
+                                BTProBadge(isUnlocked: badgeState)
+                                    .fixedSize()
+                                    .hidden()
+                            }
+                        }
 
                         if isActive {
                             Capsule()
@@ -51,6 +63,14 @@ struct BTSegmentedTab<T: Hashable>: View {
                     accessibilityIdentifierPrefix.map { "\($0)_\(label(tab))" } ?? ""
                 )
                 .accessibilityAddTraits(isActive ? .isSelected : [])
+                .overlay(alignment: .topTrailing) {
+                    if let badgeState {
+                        // The hidden badge reserves its intrinsic width in the row;
+                        // the visible sibling retains its own accessibility element.
+                        BTProBadge(isUnlocked: badgeState)
+                            .fixedSize()
+                    }
+                }
             }
         }
     }

@@ -86,12 +86,20 @@ final class UserPreferences: ObservableObject {
         }
     }
 
+    @Published var reminderWeekdays: Set<Int> = Set(UserDefaults.standard.array(forKey: "reminderWeekdays") as? [Int] ?? Array(1...7)) {
+        didSet { UserDefaults.standard.set(reminderWeekdays.sorted(), forKey: "reminderWeekdays") }
+    }
+
     @Published var reminderEnabled: Bool {
         didSet { UserDefaults.standard.set(reminderEnabled, forKey: "reminderEnabled") }
     }
 
     @Published var reminderTime: Date {
-        didSet { UserDefaults.standard.set(reminderTime.timeIntervalSince1970, forKey: "reminderTime") }
+        didSet {
+            UserDefaults.standard.set(reminderTime.timeIntervalSince1970, forKey: "reminderTime")
+            UserDefaults.standard.set(Calendar.current.component(.hour, from: reminderTime), forKey: "reminderLocalHour")
+            UserDefaults.standard.set(Calendar.current.component(.minute, from: reminderTime), forKey: "reminderLocalMinute")
+        }
     }
 
     // New: Appearance
@@ -99,7 +107,7 @@ final class UserPreferences: ObservableObject {
         didSet { UserDefaults.standard.set(appearanceMode.rawValue, forKey: "appearanceMode") }
     }
 
-    // New: 击球回放音效（球-球碰撞 / 吃库 / 落袋 / 击球）。默认开启。
+    // Shot replay sound effects are disabled by default until audio assets are ready.
     @Published var soundEffectsEnabled: Bool {
         didSet { UserDefaults.standard.set(soundEffectsEnabled, forKey: "soundEffectsEnabled") }
     }
@@ -144,7 +152,10 @@ final class UserPreferences: ObservableObject {
         self.reminderEnabled = UserDefaults.standard.bool(forKey: "reminderEnabled")
 
         let storedTime = UserDefaults.standard.double(forKey: "reminderTime")
-        if storedTime > 0 {
+        if let hour = UserDefaults.standard.object(forKey: "reminderLocalHour") as? Int {
+            self.reminderTime = Calendar.current.date(bySettingHour: hour,
+                minute: UserDefaults.standard.integer(forKey: "reminderLocalMinute"), second: 0, of: Date()) ?? Date()
+        } else if storedTime > 0 {
             self.reminderTime = Date(timeIntervalSince1970: storedTime)
         } else {
             var components = DateComponents()
@@ -156,8 +167,8 @@ final class UserPreferences: ObservableObject {
         let modeRaw = UserDefaults.standard.string(forKey: "appearanceMode") ?? AppearanceMode.system.rawValue
         self.appearanceMode = AppearanceMode(rawValue: modeRaw) ?? .system
 
-        // 默认开启；首次启动 UserDefaults 无键时 object(forKey:) 为 nil → 取 true。
-        self.soundEffectsEnabled = (UserDefaults.standard.object(forKey: "soundEffectsEnabled") as? Bool) ?? true
+        // Default to off while preserving an explicitly saved preference.
+        self.soundEffectsEnabled = (UserDefaults.standard.object(forKey: "soundEffectsEnabled") as? Bool) ?? false
 
         // 默认关闭（可选辅助线）。
         self.showSeparationAngle = (UserDefaults.standard.object(forKey: "showSeparationAngle") as? Bool) ?? false
@@ -172,6 +183,18 @@ final class UserPreferences: ObservableObject {
         // 默认开启（v23 E3）。
         self.showAimCloseup =
             (UserDefaults.standard.object(forKey: PracticeStorageKey.showAimCloseup) as? Bool) ?? true
+        if UserDefaults.standard.object(forKey: "reminderLocalHour") == nil {
+            UserDefaults.standard.set(Calendar.current.component(.hour, from: reminderTime), forKey: "reminderLocalHour")
+            UserDefaults.standard.set(Calendar.current.component(.minute, from: reminderTime), forKey: "reminderLocalMinute")
+        }
+    }
+
+    /// Reconstruct the chosen wall-clock time after an in-process timezone change.
+    var localReminderTime: Date {
+        let defaults = UserDefaults.standard
+        let hour = defaults.object(forKey: "reminderLocalHour") as? Int ?? Calendar.current.component(.hour, from: reminderTime)
+        let minute = defaults.object(forKey: "reminderLocalMinute") as? Int ?? Calendar.current.component(.minute, from: reminderTime)
+        return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? reminderTime
     }
 
     func persistReminder(enabled: Bool, time: Date? = nil) {

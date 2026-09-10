@@ -4,7 +4,7 @@ import SceneKit
 
 // MARK: - 2D/3D 瞄准点训练（问题集合 v3 批次 S3：G1 口径）
 //
-// 瞄准训练最终版：给定母球/目标球/袋口并**展示进球线**（虚线，绑目标球色）；
+// 瞄准训练最终版：给定母球/目标球/袋口并**展示进球线**（虚线，绿色球用白线增强对比，其余绑目标球色）；
 // 瞄准线初始 = 两球心连线；手指粗调 + 刻度轮微调。
 // G1 口径：瞄准点 = 瞄准线与「过目标球心且垂直于瞄准线的直线」的交点（垂足）；
 // 辅助线（白色细虚线）随用户瞄准线旋转、恒与其垂直。误差 = 用户瞄准点与正确瞄准点
@@ -35,8 +35,6 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     @Published private(set) var closeupSnapshot: AimCloseupSnapshot?
     /// v23.4：特写粗角位（chrome 让位 / 动画键）。
     @Published private(set) var closeupCorner: AimCloseupPlacement.Corner = .topTrailing
-    /// 瞄准轮 / 台面拖瞄手势进行中（含松手短延迟）。
-    @Published private(set) var isAimGestureActive = false
     /// 落库失败的可见错误态（nil = 无错误）。禁止静默丢题。
     @Published private(set) var saveErrorMessage: String?
     /// 落库失败但已保留的成绩，供重试；用户答案始终留在 `sessionResults`。
@@ -56,9 +54,11 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     private var pendingStrikeDir = SCNVector3(1, 0, 0)
     private var strikeTask: Task<Void, Never>?
     private var proximityWasNear = false
-    private var aimGestureClearTask: Task<Void, Never>?
-    /// Last near-band snapshot; HUD shows it only while `isAimGestureActive`.
-    private var pendingCloseupSnapshot: AimCloseupSnapshot?
+    private lazy var closeupGate: AimCloseupGate = {
+        let gate = AimCloseupGate()
+        gate.onSnapshotChange = { [weak self] in self?.closeupSnapshot = $0 }
+        return gate
+    }()
 
     init(limiter: AngleUsageLimiter) {
         self.limiter = limiter
@@ -120,10 +120,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         lastErrorMM = nil
         verifyUsesGeometricAim = false
         proximityWasNear = false
-        pendingCloseupSnapshot = nil
-        closeupSnapshot = nil
-        isAimGestureActive = false
-        aimGestureClearTask?.cancel()
+        closeupGate.reset()
         phase = .aiming
         redrawLines()
         applyAimingPoseIfNeeded()
@@ -137,7 +134,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         let dir = normalizedXZ(from: cue.position, to: worldPoint)
         guard dir.x != 0 || dir.z != 0 else { return }
         aimDir = dir
-        markAimGestureActive(sticky: true)
+        closeupGate.noteAimChanged()
         redrawLines()
     }
 
@@ -151,37 +148,12 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         redrawLines()
     }
 
-    /// 瞄准轮拖动手势生命周期（近区 HUD 门控）。
     func setAimWheelDragging(_ active: Bool) {
-        if active {
-            markAimGestureActive(sticky: false)
-        } else {
-            scheduleAimGestureClear()
-        }
+        closeupGate.setDragging(active)
     }
 
-    /// 2D 台面拖瞄：无轮 `onDragActiveChanged`，用短延迟粘性门控 HUD。
-    func noteTableAimDrag() {
-        markAimGestureActive(sticky: true)
-    }
-
-    private func markAimGestureActive(sticky: Bool) {
-        aimGestureClearTask?.cancel()
-        isAimGestureActive = true
-        refreshCloseupVisibility()
-        if sticky { scheduleAimGestureClear() }
-    }
-
-    private func scheduleAimGestureClear() {
-        aimGestureClearTask?.cancel()
-        aimGestureClearTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 280_000_000)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                self?.isAimGestureActive = false
-                self?.refreshCloseupVisibility()
-            }
-        }
+    func setAimTableDragging(_ active: Bool) {
+        closeupGate.setDragging(active, source: .table)
     }
 
     // MARK: - Submit（条 9.6/9.7，G1 口径）
@@ -343,14 +315,14 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         let surfaceY = scene.surfaceY
         let y = surfaceY + AngleSceneCalculator.ballRadius
 
-        // 进球线（条 9.2）：目标球 → 有效入袋点，绑球色虚线。
+        // 进球线（条 9.2）：目标球 → 有效入袋点，绿色球用白线，其余保留球色虚线。
         let aimPoint = AngleSceneCalculator.effectivePocketAimPoint(
             targetBall: target.position, pocketIndex: q.pocketIndex, surfaceY: surfaceY
         )
         lineNodes.append(scene.addDashedLine(
             from: SCNVector3(target.position.x, y, target.position.z),
             to: SCNVector3(aimPoint.x, y, aimPoint.z),
-            color: TrajectoryStyle.potColor(forNumber: targetBallNumber)
+            color: TrajectoryStyle.TrainingAssist.potColor(forNumber: targetBallNumber)
         ))
 
         // 辅助线（G1）：过目标球心、垂直于**用户瞄准线**，随瞄准旋转，白色细虚线。
@@ -363,7 +335,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             color: TrajectoryStyle.hintColor, radius: 0.0016, dash: 0.018, gap: 0.014
         ))
 
-        // 用户瞄准线（Q7.1）：低透明青蓝实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在
+        // 用户瞄准线（Q7.1）：白色实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在
         // 射线与球面第一交点（接触点）；垂足用青蓝小点、接触点用橙黄小点。
         let userRes = aimLineResolution(cue: cue.position, target: target.position, dir: aimDir)
         lineNodes.append(scene.addLine(
@@ -382,13 +354,13 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             }
         }
 
-        // 提交后：正确瞄准线与瞄准点用高透明青蓝，用户线保留较低透明度。
+        // 提交后：正确瞄准线用白色虚线区别于用户实线，瞄准点仍为青蓝。
         if let correctDir {
             let correctRes = aimLineResolution(cue: cue.position, target: target.position, dir: correctDir)
-            lineNodes.append(scene.addLine(
+            lineNodes.append(scene.addDashedLine(
                 from: SCNVector3(cue.position.x, y, cue.position.z),
                 to: scenePoint(correctRes.lineEnd, y: y),
-                color: TrajectoryStyle.TrainingAssist.aimPoint
+                color: TrajectoryStyle.TrainingAssist.aimLine
             ))
             let foot = AimPointGeometry.aimPoint(
                 lineOrigin: xzPoint(cue.position), direction: xzPoint(correctDir),
@@ -412,7 +384,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             updateAimAssistState(cue: cue.position, target: target.position)
         } else {
             proximityWasNear = false
-            closeupSnapshot = nil
+            closeupGate.reset()
             aimWheelDegreesPerPoint = AimWheelGain.defaultDegreesPerPoint
         }
     }
@@ -432,8 +404,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         aimWheelDegreesPerPoint = AimWheelGain.degreesPerPoint(distanceMeters: d)
 
         guard sample.isNear, let q = question else {
-            pendingCloseupSnapshot = nil
-            closeupSnapshot = nil
+            closeupGate.update(.init(snapshot: nil, isNear: false))
             return
         }
 
@@ -492,16 +463,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
                 halfLength: halfL, halfWidth: halfW,
                 cue: cueP, aimEnd: userRes.lineEnd)
         )
-        pendingCloseupSnapshot = snap
-        closeupSnapshot = isAimGestureActive ? snap : nil
-    }
-
-    private func refreshCloseupVisibility() {
-        guard phase == .aiming, isAimGestureActive, let snap = pendingCloseupSnapshot else {
-            closeupSnapshot = nil
-            return
-        }
-        closeupSnapshot = snap
+        closeupGate.update(.init(snapshot: snap, isNear: true))
     }
 
     private func clearLines() {
@@ -689,9 +651,10 @@ struct AimPointSceneTrainingView: View {
             locksCueBallScreenAnchor: is3D,
             // 2D 走统一自适应取景，使 ShotStageProxy 的球桌矩形与实际渲染对齐（Q7.2）。
             autoFitsRotatedTable: !is3D,
-            onPocketTapped: { _ in /* 袋口由题目固定 */ },
+            onPocketTapped: nil, // 袋口由题目固定，不向辅助功能暴露换袋动作。
             onTableTapped: tapAimHandler,
-            onAimNudged: dragAimHandler
+            onAimNudged: dragAimHandler,
+            onAimDragActiveChanged: { vm.setAimTableDragging($0) }
         )
         .clipped()
     }
@@ -707,7 +670,6 @@ struct AimPointSceneTrainingView: View {
         guard !is3D else { return nil }
         return { [vm] delta in
             vm.nudgeAim(byDegrees: delta)
-            vm.noteTableAimDrag()
         }
     }
 

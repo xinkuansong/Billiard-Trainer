@@ -38,3 +38,17 @@ test("old clients may omit all v54 provenance fields", () => {
   assert.equal(doc.sourceKind, null);
   assert.equal(doc.progressEffect, null);
 });
+
+test("manual training retains date-only source and content without plan or scores", () => {
+  const source = Buffer.from(JSON.stringify({ year: 2026, month: 9, day: 10 })).toString("base64");
+  const doc = new TrainingSession({ clientId: "manual-record", userId: "507f1f77bcf86cd799439011",
+    date: new Date("2026-09-10T04:00:00Z"), kind: "drill", totalDurationMinutes: 45,
+    sourceKind: "manualTraining", sourceTitleSnapshot: "定杆与走位", sourcePayloadVersion: 1,
+    sourcePayloadSnapshot: source, note: "注意停顿", drillEntries: [] });
+  assert.equal(doc.validateSync(), undefined);
+  const result = doc.toObject();
+  assert.equal(result.sourceTitleSnapshot, "定杆与走位");
+  assert.deepEqual(JSON.parse(Buffer.from(result.sourcePayloadSnapshot, "base64").toString()), { year: 2026, month: 9, day: 10 });
+  assert.equal(result.scheduleItemId, null);
+  assert.equal(result.progressRole, null);
+});

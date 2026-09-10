@@ -209,7 +209,7 @@ enum HistoryDayItem: Identifiable {
 
     var date: Date {
         switch self {
-        case .session(let s):   return s.date
+        case .session(let s):   return s.reportingDate
         case .cognitive(let c): return c.endDate
         case .tool(let t):      return t.date
         }
@@ -297,7 +297,7 @@ final class HistoryViewModel: ObservableObject {
     var datesWithSessions: Set<DateComponents> {
         let cal = Calendar.current
         var comps = Set(drillSessions.map {
-            cal.dateComponents([.year, .month, .day], from: $0.date)
+            cal.dateComponents([.year, .month, .day], from: $0.reportingDate)
         })
         for s in cognitiveSessions {
             comps.insert(cal.dateComponents([.year, .month, .day], from: s.startDate))
@@ -314,7 +314,7 @@ final class HistoryViewModel: ObservableObject {
         let cal = Calendar.current
         var items: [HistoryDayItem] = []
         items.append(contentsOf: drillSessions
-            .filter { cal.isDate($0.date, inSameDayAs: selectedDate) }
+            .filter { cal.isDate($0.reportingDate, inSameDayAs: selectedDate) }
             .map(HistoryDayItem.session))
         items.append(contentsOf: cognitiveSessions
             .filter { cal.isDate($0.startDate, inSameDayAs: selectedDate) }
@@ -329,7 +329,7 @@ final class HistoryViewModel: ObservableObject {
     /// drill-session subset of `selectedDateItems`.
     var selectedDateSessions: [TrainingSession] {
         drillSessions.filter {
-            Calendar.current.isDate($0.date, inSameDayAs: selectedDate)
+            Calendar.current.isDate($0.reportingDate, inSameDayAs: selectedDate)
         }.sorted { $0.date > $1.date }
     }
 
@@ -358,6 +358,7 @@ final class HistoryViewModel: ObservableObject {
     /// （v29 W6 前这里返回的是 `primaryCategory(...).trainingNameZh`，即由 `drillId`
     /// 回查内容表得到的分类名，属活引用，与该裁定冲突。）
     func displayName(for session: TrainingSession) -> String {
+        if session.isManualTraining { return session.sourceTitleSnapshot ?? "补记训练" }
         let names = session.drillEntries
             .sorted { $0.orderIndex < $1.orderIndex }
             .map(\.drillNameZh)
@@ -377,13 +378,14 @@ final class HistoryViewModel: ObservableObject {
     /// 当天的 drill 训练主分类。⛔ 只看 `kind="drill"`：cognitive / tool 没有
     /// `DrillEntry`，混进来会被 `primaryCategory` 的兜底算成「综合」。
     func categoryForDate(_ date: Date) -> DrillCategory? {
-        let daySessions = drillSessions.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        let daySessions = drillSessions.filter { !$0.isManualTraining && Calendar.current.isDate($0.reportingDate, inSameDayAs: date) }
         guard let first = daySessions.first else { return nil }
         return primaryCategory(for: first)
     }
 
     /// 日历格标记。优先级：drill 分类 > 认知练习 > 工具活跃（淡色）。
     func marker(for date: Date) -> HistoryDayMarker? {
+        if drillSessions.contains(where: { $0.isManualTraining && Calendar.current.isDate($0.reportingDate, inSameDayAs: date) }), categoryForDate(date) == nil { return .training("补记") }
         if let category = categoryForDate(date) {
             return .training(category.shortNameZh)
         }

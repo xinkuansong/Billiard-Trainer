@@ -350,10 +350,7 @@ final class AimingQuizViewModel: ObservableObject {
             showLineLabels: shouldShowLineLabels,
             extendStrikeLineToRail: true
         )
-        if scene.currentCameraMode == .perspective3D {
-            scene.auxiliaryCueFollowsCamera = true
-            scene.updateAuxiliaryCue()
-        }
+        scene.showAuxiliaryCue()
     }
 
     private func showResultVisualization() {

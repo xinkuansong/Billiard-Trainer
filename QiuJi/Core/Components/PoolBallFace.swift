@@ -149,9 +149,16 @@ enum TrajectoryStyle {
     enum TrainingAssist {
         static let aimPoint = UIColor(red: 0.20, green: 0.80, blue: 1.0, alpha: 1)
         static let contactPoint = UIColor(red: 1.0, green: 0.66, blue: 0.20, alpha: 1)
-        static let aimLine = aimPoint.withAlphaComponent(0.65)
+        static let aimLine = UIColor.white
+
+        /// Green object-ball guides blend into the felt in single-target training.
+        /// Keep physical ball colors and multi-ball trajectory colors unchanged.
+        static func potColor(forNumber number: Int?) -> UIColor {
+            if number == 6 || number == 14 { return .white }
+            return TrajectoryStyle.potColor(forNumber: number)
+        }
         static let ghostBall = UIColor(white: 0.96, alpha: 1)
-        static let ghostOpacity: CGFloat = 0.32
+        static let ghostOpacity: CGFloat = 0.5
         static let aimPointRadius: CGFloat = 0.00325
         static let contactPointRadius: CGFloat = 0.0045
     }

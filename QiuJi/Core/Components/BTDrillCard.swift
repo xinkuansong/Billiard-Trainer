@@ -182,26 +182,24 @@ struct BTDrillGridCard: View {
 
 }
 
-/// Practice count beside the tutorial kind, using the current appearance's brand color.
+/// Brand-colored practice count beside the tutorial kind, without a badge surface.
 struct BTPracticedBadge: View {
     let count: Int
 
     var body: some View {
         HStack(spacing: 2) {
             Image(systemName: BTIcon.checkmark)
-                .font(.btMicro.weight(.bold))
+                .font(.btMicro.weight(.medium))
                 .accessibilityHidden(true)
             Text("已练 \(count) 次")
-                .font(.btCaption2.weight(.heavy))
+                .font(.btCaption2.weight(.medium))
                 .monospacedDigit()
                 .lineLimit(1)
                 .minimumScaleFactor(0.65)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(.btPrimary)
         .padding(.horizontal, Spacing.xs)
         .padding(.vertical, Spacing.xs)
-        .background(Color.btPrimary)
-        .clipShape(Capsule())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("已练 \(count) 次")
         .accessibilityIdentifier("drillCardPracticedBadge")

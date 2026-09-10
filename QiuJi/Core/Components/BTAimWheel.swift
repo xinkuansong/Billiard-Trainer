@@ -32,6 +32,7 @@ struct BTAimWheel: View {
     @State private var lastHeight: CGFloat = 0
     @State private var lastTick: Int = 0
     @State private var dragStarted = false
+    @GestureState private var gestureActive = false
     /// 手势开始时锁定的增益（v23 E2 红线：单次拖动内不换档，避免速度突变）。
     @State private var lockedGain: Float?
     private let haptic = UIImpactFeedbackGenerator(style: .light)
@@ -77,6 +78,7 @@ struct BTAimWheel: View {
             .contentShape(Rectangle())
             .gesture(
                 DragGesture(minimumDistance: 0)
+                    .updating($gestureActive) { _, active, _ in active = true }
                     .onChanged { v in
                         if !dragStarted {
                             dragStarted = true
@@ -97,17 +99,26 @@ struct BTAimWheel: View {
                         }
                     }
                     .onEnded { _ in
-                        lastHeight = 0
-                        dragStarted = false
-                        lockedGain = nil
-                        onDragActiveChanged?(false)
+                        finishDrag()
                     }
             )
         }
+        .onChange(of: gestureActive) { _, active in
+            if !active { finishDrag() }
+        }
+        .onDisappear { finishDrag() }
         .accessibilityElement()
         .accessibilityLabel("瞄准微调")
         .accessibilityIdentifier("shotStage.aimWheel")
     }
+    private func finishDrag() {
+        guard dragStarted else { return }
+        lastHeight = 0
+        dragStarted = false
+        lockedGain = nil
+        onDragActiveChanged?(false)
+    }
+
 }
 
 // MARK: - Thickness Overlap Icon

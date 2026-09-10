@@ -1,10 +1,12 @@
 import SceneKit
+import os
 
 /// Loads the TaiQiuZhuo.usdz billiard table model and adapts it
 /// to the SceneKit coordinate system for angle training.
 /// Visual-only: physics bodies are stripped, cameras/lights removed.
 /// Extracts ball nodes and cue stick for dynamic control.
 final class TableModelLoader {
+    private static let logger = Logger(subsystem: "com.xinkuan.qiuji", category: "TableModelLoader")
 
     // MARK: - Types
 
@@ -56,9 +58,14 @@ final class TableModelLoader {
 
     private static func parseModelScene() -> SCNScene? {
         guard let url = Bundle.main.url(forResource: "TaiQiuZhuo", withExtension: "usdz") else {
+            logger.error("Missing TaiQiuZhuo.usdz in bundle")
             return nil
         }
-        return try? SCNScene(url: url, options: [.checkConsistency: true])
+        do { return try SCNScene(url: url, options: [.checkConsistency: true]) }
+        catch {
+            logger.error("Cannot decode TaiQiuZhuo.usdz: \(String(describing: error), privacy: .public)")
+            return nil
+        }
     }
 
     // MARK: - Public
@@ -111,6 +118,7 @@ final class TableModelLoader {
         let actualWidth = modelSizeZ > modelSizeY ? modelSizeZ : modelSizeY
 
         guard actualLength > 0.01, actualWidth > 0.01 else {
+            logger.error("Invalid table bounds, scale or surface height")
             restoreBalls(removedBalls)
             return nil
         }
@@ -121,6 +129,7 @@ final class TableModelLoader {
 
         guard uniformScale > 0.0001, uniformScale < 1000.0,
               !uniformScale.isNaN, !uniformScale.isInfinite else {
+            logger.error("Invalid table bounds, scale or surface height")
             restoreBalls(removedBalls)
             return nil
         }
@@ -140,6 +149,7 @@ final class TableModelLoader {
         let surfaceY = railTopInWorld - BTTablePhysics.cushionHeight
 
         guard surfaceY > -1.0, surfaceY < 10.0, !surfaceY.isNaN else {
+            logger.error("Invalid table bounds, scale or surface height")
             restoreBalls(removedBalls)
             return nil
         }

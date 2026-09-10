@@ -37,9 +37,12 @@ final class PositionPlayViewModel: ObservableObject {
     /// 当前在桌球键（顺序：母球优先，目标球按号）。
     @Published private(set) var onTableKeys: [String] = []
     @Published private(set) var selectedTargetKey: String? {
-        didSet { if oldValue != selectedTargetKey { refreshSelectionRing() } }
+        didSet {
+            if oldValue != selectedTargetKey { refreshSelectionRing() }
+            updatePocketHighlights()
+        }
     }
-    @Published var selectedPocketIndex: Int = -1
+    @Published var selectedPocketIndex: Int = -1 { didSet { updatePocketHighlights() } }
     /// v23 W3：近区 ∧ 正在改瞄准时非 nil → 显示瞄准特写（自由模式）。
     @Published private(set) var closeupSnapshot: AimCloseupSnapshot?
 
@@ -52,6 +55,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 瞄准模式。切换时重算。
     @Published var aimMode: AimMode = .pocket {
         didSet {
+            updatePocketHighlights()
             guard oldValue != aimMode, !isPlaying else { return }
             if aimMode == .free, freeAimDir == nil { freeAimDir = defaultFreeAim() }
             updatePocketHighlights()
@@ -564,6 +568,10 @@ final class PositionPlayViewModel: ObservableObject {
         closeupGate.setDragging(active)
     }
 
+    func setAimTableDragging(_ active: Bool) {
+        closeupGate.setDragging(active, source: .table)
+    }
+
     /// v23 W2：瞄准轮毫米口径增益（°/pt）——杠杆臂 = 母球→首碰球（空杆取前方最近球）。
     /// 桌面无其他球时回落旧固定档。
     var aimWheelDegreesPerPoint: Float {
@@ -717,7 +725,8 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func updatePocketHighlights() {
         for (i, marker) in pocketMarkers.enumerated() {
-            let selected = aimMode == .pocket && i == selectedPocketIndex
+            let targetVisible = selectedTargetKey.flatMap { scene.allBallNodes[$0] }.map { !$0.isHidden } ?? false
+            let selected = aimMode == .pocket && !isBreakMode && targetVisible && i == selectedPocketIndex
             scene.setPocketHighlight(marker, style: selected ? .selected : .viable)
         }
     }
@@ -743,6 +752,7 @@ final class PositionPlayViewModel: ObservableObject {
     ///   **不求解**，只保留纯几何预览（假想球/首碰点/瞄准线），停 0.5s（无新输入）后才触发求解；
     ///   `false` = 离散变更（点选目标/袋口、参数微调），按 ~20ms 快速触发（原手感）。
     func recompute(interactive: Bool = false) {
+        updatePocketHighlights()
         // 序列模式（Q19.2④）：不做自由/袋口求解——逐杆预览与播放走专用状态机。
         guard !isPlaying, !isSequenceMode else { return }
         refreshFreeAimOverlay()
@@ -1440,6 +1450,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 先恢复参数再 `applyBoard`：applyBoard 见目标球已选中且袋口有效不会触发自动重选，
     /// 最终 recompute 用恢复后的完整状态求解。
     private func restoreShotParams(_ shot: PlannedShot) {
+        defer { updatePocketHighlights() }
         velocity = shot.velocity
         spinX = shot.spinX
         spinY = shot.spinY
@@ -1451,9 +1462,7 @@ final class PositionPlayViewModel: ObservableObject {
         } else {
             aimMode = .pocket
             selectedTargetKey = shot.targetKey
-            if let idx = ShotIntent.pocketIndex(for: shot.pocket) {
-                selectedPocketIndex = idx
-            }
+            selectedPocketIndex = ShotIntent.pocketIndex(for: shot.pocket) ?? -1
         }
     }
 
@@ -1962,7 +1971,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 开球模式 runner。非 nil = 开球模式：台面交互与求解全部挂起，
     /// 拖拽路由到 runner（母球限开球区），停稳散局落座为新真相。
-    @Published private(set) var breakRunner: BreakFlowRunner?
+    @Published private(set) var breakRunner: BreakFlowRunner? { didSet { updatePocketHighlights() } }
     var isBreakMode: Bool { breakRunner != nil }
     /// 进开球模式前的桌面（取消开球时恢复）。
     private var boardBeforeBreak: BoardSnapshot?

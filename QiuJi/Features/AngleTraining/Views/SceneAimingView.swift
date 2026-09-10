@@ -214,7 +214,7 @@ struct SceneAimingView: View {
                 // P6.1：2D 走统一自适应取景（球桌大小与其他击打页一致，
                 // ShotStageProxy 的球桌矩形据此解析；3D 透视不受影响）。
                 autoFitsRotatedTable: !is3D,
-                onPocketTapped: { _ in /* fixed by question */ }
+                onPocketTapped: nil // Target pocket is fixed by the question; no selection action.
             )
             .clipped()
         } else {

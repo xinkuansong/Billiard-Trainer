@@ -113,6 +113,70 @@ final class X1_PracticePolishUITests: XCTestCase {
 
     // MARK: - K3
 
+    func testRecentPerformance_answerCancelAndLastFive() throws {
+        let environment = ProcessInfo.processInfo.environment
+        let dark = environment["RECENT_DARK"] == "1" || environment["TEST_RUNNER_RECENT_DARK"] == "1"
+        let app = XCUIApplication.launchClean(extraArgs: [
+            "-forcePremium", "-v50.inMemoryStore", "-appearanceMode", dark ? "dark" : "light",
+            "-geometricQuiz.forcedAngle", "34"
+        ])
+        XCTAssertTrue(openCard(app, homeTab: "练", title: "角度预测"))
+        let empty = app.staticTexts["geometric.recent.empty"]
+        XCTAssertTrue(empty.waitForExistence(timeout: 5))
+        recentSnap(app, "01-empty")
+
+        let change = app.buttons["换题"]
+        let originalY = change.frame.midY
+        app.buttons["答题"].tap()
+        XCTAssertTrue(app.buttons["取消"].waitForExistence(timeout: 3))
+        XCTAssertFalse(empty.exists)
+        XCTAssertEqual(change.frame.midY, originalY, accuracy: 2)
+        XCTAssertLessThan(change.frame.maxY, app.staticTexts["估算角度"].frame.minY)
+        recentSnap(app, "02-keypad")
+        app.buttons["取消"].tap()
+        XCTAssertTrue(empty.waitForExistence(timeout: 3))
+        XCTAssertEqual(change.frame.midY, originalY, accuracy: 2)
+
+        for question in 1...6 {
+            app.buttons["答题"].tap()
+            XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 3))
+            if question > 1 {
+                XCTAssertFalse(app.otherElements["geometric.recent.row.\(question - 1)"].exists)
+            }
+            app.buttons["3"].tap()
+            app.buttons["0"].tap()
+            app.buttons["提交"].tap()
+            let row = app.descendants(matching: .any)
+                .matching(identifier: "geometric.recent.row.\(question)").firstMatch
+            XCTAssertTrue(row.waitForExistence(timeout: 3))
+            if question == 1 {
+                XCTAssertTrue(row.label.contains("偏小 4.0°"), row.label)
+                recentSnap(app, "03-submitted")
+            }
+            // The existing change-question action keeps the upper question visible.
+            change.tap()
+            XCTAssertTrue(app.buttons["答题"].waitForExistence(timeout: 3))
+        }
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "geometric.recent.row.1").firstMatch.exists)
+        for question in 2...6 {
+            XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "geometric.recent.row.\(question)").firstMatch.exists)
+        }
+        recentSnap(app, "04-recent-five")
+        app.swipeUp()
+        recentSnap(app, "05-recent-five-scrolled")
+        app.buttons["重置统计"].tap()
+        app.buttons["重置"].tap()
+        XCTAssertTrue(empty.waitForExistence(timeout: 3))
+        recentSnap(app, "06-reset")
+    }
+
+    private func recentSnap(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "recent-\(name)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testK3_scene3D_angleArcForward() throws {
         let app = XCUIApplication.launchClean()
         guard openCard(app, homeTab: "练", title: "3D 角度训练") else {

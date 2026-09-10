@@ -8,7 +8,7 @@ struct HistoryAccessController {
         guard let cutoff = Calendar.current.date(byAdding: .day, value: -freeDaysLimit, to: Date()) else {
             return true
         }
-        return session.date >= cutoff
+        return session.reportingDate >= cutoff
     }
 
     static func cutoffDate() -> Date {

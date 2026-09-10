@@ -51,26 +51,20 @@ final class PocketMarkerHighlightTests: XCTestCase {
 
     func testHighlightVisibilityChangesWithoutMutatingLiveMaterial() throws {
         let scene = AngleTrainingScene()
-        let marker = try XCTUnwrap(scene.addPocketMarkers().first)
-        let material = try XCTUnwrap(marker.geometry?.materials.first)
+        scene.setupScene()
+        let marker = try XCTUnwrap(scene.addPocketMarkers().first as? PocketLeatherMarker)
+        let selectedNode = try XCTUnwrap(marker.childNodes.first { $0.name == "leather_target" })
+        let material = try XCTUnwrap(selectedNode.geometry?.materials.first)
         let initialDiffuse = try XCTUnwrap(material.diffuse.contents as AnyObject?)
         let initialEmission = try XCTUnwrap(material.emission.contents as AnyObject?)
-
-        XCTAssertTrue(marker.isHidden)
-
-        scene.setPocketHighlight(marker, style: .selected)
-        XCTAssertFalse(marker.isHidden)
-        XCTAssertTrue(initialDiffuse === material.diffuse.contents as AnyObject)
-        XCTAssertTrue(initialEmission === material.emission.contents as AnyObject)
-
-        scene.setPocketHighlight(marker, style: .viable)
-        XCTAssertTrue(marker.isHidden)
-        XCTAssertTrue(initialDiffuse === material.diffuse.contents as AnyObject)
-        XCTAssertTrue(initialEmission === material.emission.contents as AnyObject)
-
-        scene.setPocketHighlight(marker, style: .infeasible)
-        XCTAssertTrue(marker.isHidden)
-        XCTAssertTrue(initialDiffuse === material.diffuse.contents as AnyObject)
-        XCTAssertTrue(initialEmission === material.emission.contents as AnyObject)
+        // v60: original leather stays visible. Only the selected variant hides.
+        XCTAssertTrue(selectedNode.isHidden)
+        for style: AngleTrainingScene.PocketHighlight in [.selected, .viable, .infeasible, .selected] {
+            scene.setPocketHighlight(marker, style: style)
+            XCTAssertEqual(selectedNode.isHidden, style != .selected)
+            XCTAssertEqual(marker.childNodes.filter { !$0.isHidden }.count, 1)
+            XCTAssertTrue(initialDiffuse === material.diffuse.contents as AnyObject)
+            XCTAssertTrue(initialEmission === material.emission.contents as AnyObject)
+        }
     }
 }

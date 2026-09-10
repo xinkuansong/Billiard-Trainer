@@ -11,6 +11,7 @@ struct GeometricAngleQuizView: View {
     @State private var isInputting = false
     /// F-AK-05：重置统计属破坏性清空，仅补确认闸。
     @State private var showResetConfirm = false
+    @State private var layoutHeights: [String: CGFloat] = [:]
 
     init() {
         _vm = StateObject(wrappedValue: GeometricAngleViewModel(limiter: .shared))
@@ -20,14 +21,20 @@ struct GeometricAngleQuizView: View {
     // 与 2D/3D 瞄准训练、角度与打点等场景页同一套设计。
     // C31：本页无可配显示项（无 SCN 台面网格）→ 不并三点；重置统计保留独立 trailing。
     var body: some View {
+        GeometryReader { available in
         ZStack {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
                     angleCanvas
-                        .frame(height: 320)
+                        .frame(height: min(320, max(1, available.size.height
+                            - (layoutHeights["stats"] ?? 0)
+                            - (layoutHeights["actions"] ?? 0)
+                            - (layoutHeights["keypad"] ?? 0)
+                            - Spacing.lg * 2)))
                         .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg))
 
                     actionChips
+                        .background(heightReader("actions"))
 
                     if vm.showResult {
                         resultSection
@@ -36,6 +43,13 @@ struct GeometricAngleQuizView: View {
                         limitReachedCard
                             .transition(.opacity)
                     }
+
+                    recentPerformance
+                        // Keep its layout footprint so opening the keypad never
+                        // clamps the scroll offset or moves the question.
+                        .opacity(isInputting ? 0 : 1)
+                        .accessibilityHidden(isInputting)
+                        .allowsHitTesting(!isInputting)
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, Spacing.xxl)
@@ -44,12 +58,20 @@ struct GeometricAngleQuizView: View {
             }
             .scrollBounceBehavior(.basedOnSize)
             .background(Color.black.ignoresSafeArea())
-            .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
+            .safeAreaInset(edge: .top, spacing: 0) {
+                statsCapsule.background(heightReader("stats"))
+            }
 
             // C30：NumericKeypadHUD 与 SceneAiming 同构——全屏 ZStack 底浮层（不改内容高度）。
             if isInputting, !vm.showResult, !vm.limiter.isLimitReached {
                 keypadOverlay
+            } else {
+                // Measure the real compact keypad before answering as well.
+                // Reserving the same space in both states keeps the figure stable.
+                keypadOverlay.hidden().accessibilityHidden(true).allowsHitTesting(false)
             }
+        }
+        .onPreferenceChange(AngleQuizHeightKey.self) { layoutHeights = $0 }
         }
         .animation(BTMotion.easeChrome, value: isInputting)
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
@@ -106,6 +128,12 @@ struct GeometricAngleQuizView: View {
     }
 
     // MARK: - Canvas
+
+    private func heightReader(_ name: String) -> some View {
+        GeometryReader { proxy in
+            Color.clear.preference(key: AngleQuizHeightKey.self, value: [name: proxy.size.height])
+        }
+    }
 
     private var angleCanvas: some View {
         AnglePredictionFigure(
@@ -203,6 +231,7 @@ struct GeometricAngleQuizView: View {
                 }
             }
         )
+        .background(heightReader("keypad"))
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
@@ -225,6 +254,88 @@ struct GeometricAngleQuizView: View {
     }
 
     // MARK: - Freemium Gate
+
+    private var recentPerformance: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("本轮表现")
+                    .font(.btSubheadlineSemibold)
+                    .foregroundStyle(.btText)
+                Spacer()
+                if !vm.sessionResults.isEmpty {
+                    Text("最近 \(min(vm.sessionResults.count, 5)) 题")
+                        .font(.btCaption)
+                        .foregroundStyle(.btTextSecondary)
+                }
+            }
+
+            if vm.sessionResults.isEmpty {
+                Text("先判断大致角度，再点击答题")
+                    .font(.btFootnote)
+                    .foregroundStyle(.btTextSecondary)
+                    .accessibilityIdentifier("geometric.recent.empty")
+                Text("答题后，在这里回看你的估角与偏差。")
+                    .font(.btCaption)
+                    .foregroundStyle(.btTextSecondary)
+            } else {
+                HStack {
+                    Text("估角 → 实际")
+                    Spacer()
+                    Text("偏差")
+                }
+                .font(.btCaption)
+                .foregroundStyle(.btTextSecondary)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(vm.sessionResults.indices.suffix(5).reversed()), id: \.self) { index in
+                        let record = vm.sessionResults[index]
+                        let latest = index == vm.sessionResults.count - 1
+                        HStack(spacing: Spacing.sm) {
+                            Text("\(index + 1)")
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextSecondary)
+                                .frame(minWidth: Spacing.xl, alignment: .leading)
+                            Text("\(Int(record.userAngle))°")
+                                .foregroundStyle(.btText)
+                            Image(systemName: "arrow.right")
+                                .font(.btCaption)
+                                .foregroundStyle(.btTextSecondary)
+                                .accessibilityHidden(true)
+                            Text(String(format: "%.1f°", record.actualAngle))
+                                .foregroundStyle(.btText)
+                            Spacer(minLength: Spacing.xs)
+                            Text(deviationText(record))
+                                .foregroundStyle(record.rating.color)
+                        }
+                        .font(latest ? .btFootnote.weight(.semibold) : .btFootnote)
+                        .monospacedDigit()
+                        .padding(.vertical, Spacing.sm)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("第\(index + 1)题，估角\(Int(record.userAngle))度，实际\(String(format: "%.1f", record.actualAngle))度，\(deviationText(record))")
+                        .accessibilityIdentifier("geometric.recent.row.\(index + 1)")
+
+                        if index != max(0, vm.sessionResults.count - 5) {
+                            Rectangle()
+                                .fill(Color.btSeparator)
+                                .frame(height: 0.5)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(.top, Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // The question surface is always black, including in system Light mode.
+        .environment(\.colorScheme, .dark)
+    }
+
+    private func deviationText(_ record: GeometricAngleViewModel.AnswerRecord) -> String {
+        if record.error == 0 { return "无偏差" }
+        if record.error < 0.1 { return "误差 <0.1°" }
+        let direction = record.userAngle > record.actualAngle ? "偏大" : "偏小"
+        return "\(direction) \(String(format: "%.1f", record.error))°"
+    }
 
     private var limitReachedCard: some View {
         BTDailyLimitGate { showSubscription = true }
@@ -300,6 +411,13 @@ struct GeometricAngleQuizView: View {
 }
 
 // MARK: - Angle Prediction Figure
+
+private struct AngleQuizHeightKey: PreferenceKey {
+    static let defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
 
 /// 角度预测题面（真台化，T-P18-46 / 竖直 0°）：真实台呢特写上，以母球为顶点画出
 /// 「竖直 0° 进球线参考 + 左右摆动的瞄准线」夹角。

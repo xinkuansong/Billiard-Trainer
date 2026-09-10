@@ -149,6 +149,7 @@ struct ProfileView: View {
                             .foregroundStyle(.btTextTertiary)
                     }
                     Spacer(minLength: Spacing.sm)
+                        .overlay(alignment: .trailing) { BTProfileGameBall() }
                 }
 
                 if subscriptionManager.isPremium {
@@ -216,14 +217,17 @@ struct ProfileView: View {
                 }
 
                 Spacer()
+                    .overlay(alignment: .trailing) { BTProfileGameBall() }
 
                 Image(systemName: BTIcon.chevronRight)
                     .font(.btFootnote)
-                    .foregroundStyle(.btTextTertiary)
+                    .foregroundStyle(.btTextSecondary)
             }
             .padding(Spacing.lg)
-            .background(Color.btBGSecondary)
+            .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))
+            .contentShape(Rectangle())
+            .environment(\.colorScheme, .light)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("profile.login")

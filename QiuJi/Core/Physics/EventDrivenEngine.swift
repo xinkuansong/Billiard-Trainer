@@ -107,6 +107,9 @@ class EventDrivenEngine {
         var zeroTimeEventStreak = 0
         
         while eventCount < maxEvents && currentTime < maxTime {
+            // Zero-duration transitions can finish a ball at this same instant.
+            // Once every ball is at rest, do not append an artificial maxTime tail.
+            if balls.values.allSatisfy({ $0.isPocketed || $0.state == .stationary }) { break }
             // Find next event
             PerformanceProfiler.begin(ProfilerLabel.findNextEvent)
             let nextEvent = findNextEvent(maxTimeRemaining: maxTime - currentTime)
@@ -279,7 +282,9 @@ class EventDrivenEngine {
         // later collisions and lead to overlap/penetration artifacts.
         let detectionMaxTime = maxTimeRemaining
         
-        // Find next transition events
+        // Find next transition events. Zero is a valid analytical duration:
+        // e.g. a rolling ball with no residual spin must become stationary
+        // through spinning at this same instant, rather than remain stuck.
         for name in ballOrder {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
@@ -288,7 +293,7 @@ class EventDrivenEngine {
             if ball.state == .sliding {
                 let transitionType = "slideToRoll"
                 if let cached = eventCache.getTransition(ball: name, transitionType: transitionType, currentTime: currentTime) {
-                    if cached.time > 0 && cached.time <= detectionMaxTime {
+                    if cached.time >= 0 && cached.time <= detectionMaxTime {
                         candidates.append(cached)
                     }
                 } else {
@@ -296,7 +301,7 @@ class EventDrivenEngine {
                         velocity: ball.velocity,
                         angularVelocity: ball.angularVelocity
                     )
-                    if transitionTime > 0 && transitionTime <= detectionMaxTime {
+                    if transitionTime >= 0 && transitionTime <= detectionMaxTime {
                         let event = PhysicsEvent(
                             type: .transition(ball: name, fromState: .sliding, toState: .rolling),
                             time: transitionTime,
@@ -312,12 +317,12 @@ class EventDrivenEngine {
             if ball.state == .rolling {
                 let transitionType = "rollToSpin"
                 if let cached = eventCache.getTransition(ball: name, transitionType: transitionType, currentTime: currentTime) {
-                    if cached.time > 0 && cached.time <= detectionMaxTime {
+                    if cached.time >= 0 && cached.time <= detectionMaxTime {
                         candidates.append(cached)
                     }
                 } else {
                     let transitionTime = AnalyticalMotion.rollToSpinTime(velocity: ball.velocity)
-                    if transitionTime > 0 && transitionTime <= detectionMaxTime {
+                    if transitionTime >= 0 && transitionTime <= detectionMaxTime {
                         let event = PhysicsEvent(
                             type: .transition(ball: name, fromState: .rolling, toState: .spinning),
                             time: transitionTime,
@@ -333,12 +338,12 @@ class EventDrivenEngine {
             if ball.state == .spinning {
                 let transitionType = "spinToStationary"
                 if let cached = eventCache.getTransition(ball: name, transitionType: transitionType, currentTime: currentTime) {
-                    if cached.time > 0 && cached.time <= detectionMaxTime {
+                    if cached.time >= 0 && cached.time <= detectionMaxTime {
                         candidates.append(cached)
                     }
                 } else {
                     let transitionTime = AnalyticalMotion.spinToStationaryTime(angularVelocity: ball.angularVelocity)
-                    if transitionTime > 0 && transitionTime <= detectionMaxTime {
+                    if transitionTime >= 0 && transitionTime <= detectionMaxTime {
                         let event = PhysicsEvent(
                             type: .transition(ball: name, fromState: .spinning, toState: .stationary),
                             time: transitionTime,

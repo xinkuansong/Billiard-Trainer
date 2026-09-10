@@ -318,7 +318,7 @@ struct FreePlayView: View {
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
             autoFitsRotatedTable: true,
-            onPocketTapped: { if !vm.isBreakMode { vm.selectPocket(at: $0) } },
+            onPocketTapped: vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
             draggableBallNodes: vm.breakRunner?.draggableCue ?? vm.draggableCueOnly,
             onDragBegan: { node in
@@ -343,6 +343,7 @@ struct FreePlayView: View {
                 if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
                 else { vm.nudgeFreeAim(byDegrees: $0) }
             },
+            onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

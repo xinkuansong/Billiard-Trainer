@@ -4,6 +4,7 @@ import SwiftData
 // MARK: - Training Navigation
 
 enum TrainingRoute: Hashable {
+    case notes, manualTraining, reminder, help
     case dailyClearance
     case planList
     case planDetail(planId: String)

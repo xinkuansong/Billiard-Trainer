@@ -394,11 +394,14 @@ struct BTSegmentedTab<T: Hashable>: View {
     let tabs: [T]
     @Binding var selected: T
     var systemImage: ((T) -> String)? = nil
+    var proBadgeState: ((T) -> Bool?)? = nil
     let label: (T) -> String
 }
 ```
 
-DR-122（2026-09-09）：可选前置 SF Symbol，图文间距 `Spacing.xs`，同字号/选中配色；默认不显示图标。记录页历史用 `BTIcon.clockHistory`，统计用 `BTIcon.chartBar`。图标不单独朗读，按钮原文字标签及选中语义保留。
+DR-122（2026-09-09）：可选前置 SF Symbol，图文间距 `Spacing.xs`，同字号/选中配色；默认不显示图标。记录页历史用 `BTIcon.clockHistory`，统计用 `BTIcon.chartBar`。图标不单独朗读，按钮原文字标签及选中语义保留。 训练页同样接入：官方计划 `BTIcon.emptyDoc`（doc.text），我的模版 `BTIcon.editPad`（square.and.pencil），保持原图文样式（2026-09-09补充）。
+
+DR-123（2026-09-09）：`proBadgeState` 返回 nil 不显示角标，Bool 表示当前权益。标题行按角标固有宽度 + `Spacing.sm` 留位，顶部对齐；角标贴分段右侧，页面仍保留16pt边距，带角标标题靠留位区右侧。可见角标作为按钮外覆层保留独立无障碍信息，隐藏副本仅参与布局。
 
 ### 2.8 BTTogglePillGroup（新建）
 
@@ -1079,6 +1082,12 @@ struct BTShareCard: View {
 
 全局项：页名=入口卡名；术语查 §8.8 词表；渲染管线与 App 同 token 同源；Z7 一律暗材质；学→练 CTA 三条（原理→预测、球感→2D、预测→真台）。埋点骨架（`practice_enter/core_action/result/handoff`）挂 B5。
 
+#### 瞄准特写手势生命周期（DR-131，2026-09-10）
+
+`AimCloseupGate.setDragging(_:source:)` 按 `.table` / `.wheel` 分别记录实际拖动；任一手势仍活跃时，角度变化不启动隐藏计时。最后一个手势结束/取消后保留原280ms延迟。近区退出仍立即隐藏，再进入时按当前手势状态恢复；reset清除所有手势源。
+
+`AngleSceneView.onAimDragActiveChanged` 在瞄准pan开始发true，在ended/cancelled/failed及视图拆除时发false；终止事件先于禁用交互guard处理。`BTAimWheel` 使用GestureState覆盖取消，离页同样结束。瞄准点训练与自由击球/编排/分离角/两种解球器共用该Gate，不再用“最后一次移动”代替“松手”。
+
 ### 9.3.1 文档学页壳（问题集合 v14；六张浅色文档学页）
 
 > **范围**：瞄准原理 / 瞄准方法 / 瞄准修正 / 旋转与加塞 / 浅谈球感 / 瞄准点对照表。  
@@ -1131,9 +1140,66 @@ B1–B3 六文档学页接壳已落地（交互四页 + 原理/球感只读两�
 
 ## 训练辅助（DR-121）
 
-`AngleTrainingScene.setupVisualizationNodes(usesTrainingAssistStyle: true)`：同母球半径的 SCNSphere、乳白 32% 透明、青蓝瞄准点半径 3.25mm、橙黄接触点半径 4.5mm；保留球心与球位计算。默认 false 保留旧圈，避免扩大到其他求解页。3D 角度训练球杆仅辅助态跟随观察 yaw，关闭/结果/换题清理。3D/2D 瞄准点场景已有球杆，两种标记均从半径 6.5mm 缩到 3.25mm；G1 垂足与射线球面交点定义不变。近区特写通过 snapshot.usesTrainingAssistStyle 同源配色和实际比例，`BTAimPointDot` / `BTContactDot` 增加可选 color 参数，默认消费者保持原色。独立二维拖圈练习未改。
+`AngleTrainingScene.setupVisualizationNodes(usesTrainingAssistStyle: true)`：同标准球半径的 SCNSphere、乳白 50% 不透明度（DR-132）、青蓝瞄准点半径 3.25mm、橙黄接触点半径 4.5mm；保留球心与球位计算。默认 false 保留旧圈，避免扩大到其他求解页。2D/3D 角度训练辅助态均显示球杆，沿母球→假想球固定击球方向，观察 yaw/高度只改变相机，关闭/结果/换题清理（DR-132）。训练瞄准线统一白色实线，瞄准点训练结果参考线用白色虚线，青蓝/橙黄仅用于小点。DR-133：训练页面仅6/14号绿色球的进球线与“进球线”文字改白；“瞄准线”文字原已白色，保持。训练特写进球线使用同一策略；其余球号、真实球体、多球走位轨迹及默认教学图仍按原球色。3D/2D 瞄准点场景已有球杆，两种标记均从半径 6.5mm 缩到 3.25mm；G1 垂足与射线球面交点定义不变。近区特写通过 snapshot.usesTrainingAssistStyle 同源配色和实际比例，`BTAimPointDot` / `BTContactDot` 增加可选 color 参数，默认消费者保持原色。独立二维拖圈练习未改。
+
+### DR-126 摄影训练卡
+
+用户追加约束：保持原宽高与布局。周卡沿用原VStack层级、字号、内外边距、44pt入口与22pt日期圆；不引入增高的进度环。头像球使用Spacer上的overlay，不参与卡片尺寸计算。
+
+`BTTrainingAtmosphere` 为非交互、无朗读的背景；`TrainingDaypart.resolve(at:calendar:)` 按当地06–11晨、11–18昼、其余夜，每分钟轻量刷新。摄影固定绿色材质，只改变光照；`TrainingPhotoStyle` 在摄影表面固定浅字、薄荷进度与深绿遮罩，不改变全局Light/Dark。`BTProfileGameBall` 观察已有 `UserPreferences.dailyClearanceGame`，中八用8，其余用9，访客及已登录头部均支持，菜单图标保持原状。原生进度沿用周一起点和真实训练数据，today标记与完成状态独立。DEBUG环境QIUJI_DAYPART仅供截图选择，不持久化。
+
+
+2026-09-09追加最终裁定：用户认为浅色背景与球体拼贴不自然，改沿用周卡整体文生图风格。仅guestHeader使用profilePhoto8/9完整台呢与球体摄影，不再叠独立球；同周卡深绿遮罩和浅色原生文字。原宽高/边距/登录交互保持，背景GeometryReader不参与尺寸，无交互/无朗读，其他卡片不扩散。
+
+### DR-127 本周训练最终视觉（2026-09-09）
+
+用户明确批准摄影绿台呢、米白实体入口与米白日历状态。保留原卡片尺寸、字号、间距、44pt命中区和22pt状态圆，周目标/连续天数/今天仍由真实数据与当地日期推导。`TrainingPhotoStyle.foreground` / `completed` 共用 `btTrainingIvory`（复用现有分享纸色 #F7F6F2 数值），`ink` 使用 `btTrainingInk`（原固定深绿），浅深外观同值以维持照片上的对比。
+
+`BTTrainingAtmosphere` 共用 `trainingWeekly` 照片，按晨/昼/夜增加 0/3%/8% 同色深绿光照层；时间边界、每分钟更新和减少动态效果规则保留。图片 `scaledToFill` 等比裁切，禁止独立缩放宽高压扁球体。原宽度下白球位于右半区，避开右上实体按钮；隐藏原分隔线但保持占位，避免线穿球面。按钮100%米白、深绿图文、轻阴影；已完成米白实圆+深绿勾，未完成米白65%描边；今天深绿10%圆角底，其余日期无底色；火焰沿用btWarning。
+
+本项仅训练周卡，不修改资料卡摄影、其他首页区域或数据交互。
+
+### DR-128 登录弹窗摄影（2026-09-09）
+
+仅 `LoginView` 上方208pt品牌区域使用 `BTTrainingAtmosphere` 及现有 `trainingWeekly` 绿色台呢、真实白球与木杆摄影；等比裁切、圆角BTRadius.lg，标识与功能说明用米白Token。保留登录/匿名使用/协议及认证流程，其他 `ProfileBrandTrainingHero` 使用方不变。支持既有时段光照与减少动态效果规则。
+
+### DR-129 动作卡已练次数去底色（2026-09-09）
+
+`BTPracticedBadge` 保留勾选、已练次数及padding，删除品牌绿背景和胶囊裁剪；用户随后确认勾选和文字统一 `btPrimary` 适配浅深色，字重均为medium。仅用于动作库网格元数据，不改统计口径或其他模版次数组件。
+
+### DR-130 我的游客登录卡纯白底（2026-09-09）
+
+按用户截图最新裁定，仅ProfileView.guestHeader改为纯白背景，使用浅色语义文字/头像；卡片内部colorScheme固定light，不改变外部页面外观。右侧复用透明底BTProfileGameBall按玩法显示8/9号球，作为Spacer装饰不参与布局。原尺寸、点击登录与登录弹窗摄影保留。
 
 ## Changelog
+
+| 2026-09-10 | DR-134：六袋原皮革暖金选中、打三绿青同袋分区、状态/命中/AX统一 | 用户批准v60 | PocketLeather / AngleScene / PositionPlay / Silu / PlanThree | UR-20260910-pocket-leather |
+
+| 2026-09-10 | DR-133：仅6/14绿色球的训练进球线及同名文字改白，特写同步 | 用户确认范围 | TrainingAssist / AngleTrainingScene / AimPointScene / BTAimCloseupHUD | green-pot-line-20260910 |
+
+| 2026-09-10 | DR-132：训练瞄准线白色；2D/3D辅助杆固定击球方向；假想球标准尺寸增强轮廓 | 用户纠正 | AimingQuiz / AngleScene / TrainingAssist / AimPointScene | aim-assist-fix-20260910 |
+
+| 2026-09-10 | DR-131：瞄准特写按真实手势生命周期保持；统一Gate并覆盖取消 | 修复/API | AngleSceneView、BTAimWheel、AimCloseupGate及所有特写宿主 | aim-closeup-diagnosis-20260910 |
+
+| 2026-09-09 | DR-130：我的游客登录卡改纯白底、深色文字与透明台球装饰 | 用户要求 | ProfileView.guestHeader | UR-20260909-profile-white-card |
+
+| 2026-09-09 | DR-129：动作卡已练次数删除绿色胶囊底；后续确认品牌绿文字与勾选、medium字重 | 用户要求 | BTPracticedBadge | UR-20260909-practice-count-plain |
+
+| 2026-09-09 | DR-128：登录弹窗上方改绿色台呢与真实台球摄影，米白标识说明 | 用户确认实现 | LoginView | UR-20260909-login-photographic |
+
+2026-09-09：我的模版coverTemplate池补齐同计划/练习的草绿细台呢；7图替换、5灰白原图保留，布局/映射不变。
+
+| 2026-09-09 | DR-127：本周训练最终摄影绿、米白实体清台入口与日历圆点；保留原尺寸数据和时间边界 | 用户确认实现 | TrainingHomeView / BTTrainingAtmosphere / 摄影及色板资产 | UR-20260909-weekly-training-final |
+
+| 2026-09-09 | DR-126：本周训练摄影卡使用同绿台呢晨/昼/晚素材，原尺寸紧凑进度与七日日历；头像卡按默认每日清台玩法显示黑八/九号 | 用户批准试装 | BTTrainingAtmosphere / TrainingHomeView / ProfileView | output/daypart-implementation-20260909/ |
+
+| 2026-09-09 | DR-125补充：最近成绩偏差按≤3°绿、>3°且≤10°橙、>10°红着色，与当前结果共用分级；最新题用字重强调 | 用户要求 | GeometricAngleViewModel / GeometricAngleQuizView | output/angle-error-colors/ |
+
+| 2026-09-09 | DR-125：角度预测下半区显示本轮最近5题，键盘时隐藏但保留占位，空态轻量引导；按可用高度和实测键盘/统计/操作预留空间，画布上限320pt，保留原题面投影和结果操作 | 用户确认 | GeometricAngleQuizView | output/angle-recent-results/ |
+
+| 2026-09-09 | DR-124：推荐仅加入；单项直接开始、多项勾选/排序并串联动作；保存按课程归属、部分完成不推进 | 用户要求 | TrainingHomeView / TodayCourseSelectionView / ActiveTrainingViewModel | output/course-selection-20260909/ |
+
+| 2026-09-09 | DR-123：统计 PRO 保留右边距，标题留8pt间距并顶部对齐 | 用户确认 | BTSegmentedTab / HistoryCalendarView | output/statistics-pro-alignment/ |
 
 | 2026-09-09 | DR-122：记录页历史/统计添加前置时钟回转/柱状图图标；BTSegmentedTab 增加可选 systemImage | 用户要求 | HistoryCalendarView / BTSegmentedTab | output/history-tab-icons/ |
 
@@ -1553,3 +1619,8 @@ DR-113补充：新建模版入口改为居中、内容宽度的紧凑按钮，�
 ## 我的菜单配色（DR-116）
 
 ProfileMenuRow默认使用BTIconBadge.Tint.neutral（btTextSecondary图标与弱灰圆底），适用于收藏、个人信息、训练目标、偏好设置、关于与反馈。头像保留品牌绿，会员和订阅显式使用accent。全局Tab选中态与警告语义色沿用现有规范。
+
+
+## 六袋皮革选择（DR-134）
+
+选中反馈只着色原Leather面：单目标使用深色btAccent暖金与原贴图在线性空间混合65%；打三①绿、②青，同袋双区，保持袋洞、网圈与遮挡关系。清桌/无目标/自由/开球不得残留旧袋；普通轨迹重绘不清有效选择。原位面角位置/法线/UV保持，缓存不得共享可变选中材质。选择权限沿用各宿主，固定题目不开放换袋；有选袋权限时提供六袋AX自定义动作。离线/静态球桌不自动添加该效果。验证报告：`tasks/ui-reviews/UR-20260910-pocket-leather.md`。

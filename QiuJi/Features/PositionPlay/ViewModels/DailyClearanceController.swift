@@ -30,6 +30,8 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
             seed: seed,
             onOutcome: onOutcome
         )
+        // Daily clearance starts each automatic or manual break at 8 m/s.
+        breakRunner?.velocity = 8.0
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-dailyClearance.fixtureSettled") {
             let objectKeys: [String]

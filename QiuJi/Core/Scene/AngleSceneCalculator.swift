@@ -97,7 +97,7 @@ enum AngleSceneCalculator {
                       m: middlePocketOffset)
     }
 
-    /// 袋口**视觉标记盘**中心（CAD 孔心 + USDZ 视觉校准偏移）。仅供渲染层使用。
+    /// 袋洞的视觉交互中心（CAD 孔心 + USDZ 视觉校准偏移）。仅供命中/投影使用；皮革保持模型原位。
     static func pocketMarkerPositions(surfaceY: Float) -> [SCNVector3] {
         pocketCenters(surfaceY: surfaceY,
                       c: cornerPocketOffset - cornerPocketModelDelta,
@@ -118,7 +118,7 @@ enum AngleSceneCalculator {
         ]
     }
 
-    /// Marker disc radius for the pocket overlay: 42mm corners / 43mm middles per steering.
+    /// Legacy visual pocket radius: 42mm corners / 43mm middles; not the leather mesh boundary.
     static func pocketMarkerRadius(index: Int) -> Float {
         index < 4 ? cornerPocketRadius : middlePocketRadius
     }

@@ -120,7 +120,9 @@ struct BTAimCloseupHUD: View {
 
         if let pot = snapshot.potLine {
             stroke(pot.start, pot.end,
-                   color: FigureLine.pot(number: snapshot.targetBallNumber),
+                   color: snapshot.usesTrainingAssistStyle
+                       ? Color(uiColor: TrajectoryStyle.TrainingAssist.potColor(forNumber: snapshot.targetBallNumber))
+                       : FigureLine.pot(number: snapshot.targetBallNumber),
                    width: 2.0, dashed: true)
         }
         if let aux = snapshot.auxLine {

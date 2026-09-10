@@ -28,14 +28,13 @@ struct HistoryCalendarView: View {
             BTSegmentedTab(
                 tabs: HistoryTab.allCases,
                 selected: $activeTab,
-                systemImage: { $0 == .history ? BTIcon.clockHistory : BTIcon.chartBar }
+                systemImage: { $0 == .history ? BTIcon.clockHistory : BTIcon.chartBar },
+                proBadgeState: { tab in
+                    tab == .statistics && activeTab == .statistics
+                        ? subscriptionManager.isPremium : nil
+                }
             ) { $0.rawValue }
                 .frame(maxWidth: .infinity)
-                .overlay(alignment: .trailing) {
-                    if activeTab == .statistics {
-                        BTProBadge(isUnlocked: subscriptionManager.isPremium)
-                    }
-                }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.sm)
 
@@ -372,10 +371,14 @@ struct HistoryCalendarView: View {
                     if let category = vm.categoryLabel(for: session) {
                         Text(category)
                     }
-                    Text("\(session.drillEntries.count) 项目")
-                    Text("\(vm.totalSets(for: session)) 组")
+                    if session.isManualTraining {
+                        Text("补记")
+                    } else {
+                        Text("\(session.drillEntries.count) 项目")
+                        Text("\(vm.totalSets(for: session)) 组")
+                    }
                     Text("\(session.totalDurationMinutes) 分钟")
-                    Text(vm.timeRange(for: session))
+                    if !session.isManualTraining { Text(vm.timeRange(for: session)) }
                 }
                 .font(.btFootnote14)
                 .foregroundStyle(.btTextSecondary)

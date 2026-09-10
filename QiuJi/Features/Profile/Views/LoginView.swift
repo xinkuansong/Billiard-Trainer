@@ -17,7 +17,7 @@ struct LoginView: View {
             VStack(spacing: 0) {
                 Spacer(minLength: Spacing.xl)
 
-                ProfileBrandTrainingHero(mode: .identity)
+                loginPhotoHero
                     .frame(height: 208)
                     .padding(.horizontal, Spacing.xxl)
                     .padding(.bottom, Spacing.xl)
@@ -57,6 +57,28 @@ struct LoginView: View {
                     .padding(.bottom, Spacing.xxxl)
             }
         }
+    }
+
+    private var loginPhotoHero: some View {
+        ZStack(alignment: .topLeading) {
+            BTTrainingAtmosphere()
+
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: Spacing.sm) {
+                    BTBrandLogo(size: 34, style: .onDisc)
+                    Text("球迹 · QIUJI")
+                        .font(.btSubheadlineSemibold)
+                }
+                Spacer()
+                Text("球路计算 · 训练记录 · 数据复盘")
+                    .font(.btCaption2)
+            }
+            .foregroundStyle(TrainingPhotoStyle.foreground)
+            .padding(Spacing.lg)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: BTRadius.lg, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("球迹，球路计算、训练记录与数据复盘")
     }
 
     @ViewBuilder

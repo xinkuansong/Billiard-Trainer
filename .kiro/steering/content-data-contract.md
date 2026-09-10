@@ -937,7 +937,7 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 3. `TodayTrainingSchedule` 以 owner + 创建地本地日历键持久化；item 的 `sourceKind / sourceId / sourceParentId / title snapshots / payloadVersion / payloadSnapshot / progressRole` 在入队时冻结。源内容后续编辑、删除或 OTA 更新不得改写队列和历史事实。
 4. 官方课程角色只由保存编排时的主线游标与完整有序课程序列决定：历史课 `review`；从当前课开始的连续前缀 `advanceEligible`；跨缺口未来课 `preview`；模版/动作 `neutral`。拖动顺序不得重分类。
 5. 只有 completed item 的 `advanceEligible` 连续前缀可推进 `UserActivePlan.currentLessonId`；加入、开始、退出、复练、预习、模版、动作和 `kind="tool"` 都不得推进。结算必须对 `scheduleItemId + lessonId` 幂等。
-6. 一次 `TrainingSession(kind="drill")` 对应一个 schedule item，并复制冻结来源与实际 progress effect；可同步 provenance 字段均为 optional，旧客户端和旧后端缺字段仍须可读。
+6. 一次 `TrainingSession(kind="drill")` 对应一个 schedule item，并复制冻结来源与实际 progress effect；可同步 provenance 字段均为 optional，旧客户端和旧后端缺字段仍须可读。 多课连续训练是会话层组合，落盘仍每课一条记录，同事务提交；未练课程不产生记录、未完成课程不推进主线，时长分摊后总和等于整场分钟数（2026-09-09）。
 7. 昨日 pending 不自动顺延；用户显式复制到今天时使用原 payload，并按今天的当前主线游标重新分类。旧 schedule 保持归档事实。
 
 ## 十 版本记录
@@ -972,3 +972,8 @@ v26 内容批逐条消化：`c012`（W2）/`c014`（W4）/`c005`（W6）/`c030`�
 | 2.8 | 2026-08-14 | **v37 W4**：§6.6 复习减量例外落地。`PlanDrillDose.decay` / `reviewFrom` 写入 Swift + `MODEL_SPEC`；I11 `_dose_errors` 仅 `decay==true` 允许 rounds < defaultRounds；Resolver 同步；构造性 `i11_decay_rounds_below_default`。§7 I11 行状态改为已接门禁。 |
 | 2.6 | 2026-08-13 | **v37 W2 / D-v37-6**：§5.7.3 上屏改为展示分；新增 **§5.7.6** 雷达映射（存储 0–4 → 展示 1–5，半径 = 展示/5）。JSON / I12 / 排课仍用存储分。 |
 | 2.5 | 2026-08-13 | **v37 W1**：`LoadAxes` 写入 Swift `DrillContent` / `FormationDose` 与 `MODEL_SPEC`（FL-029）；生产 drill JSON 写回球形级 `load` + 顶层代表分；**I12 接门禁**（齐全、值域 0–4、代表分 = 球形实分；三类构造性违反实证）。契约「105 球形」= 97 个 `perFormation` load + 8 条无序列 drill 级 load（§8.5）。 |
+
+
+## 训练补记来源扩展（2026-09-10）
+
+`kind=drill + sourceKind=manualTraining` 表示日期型真实球台补记；内容取 `sourceTitleSnapshot`，Gregorian 日期取 version=1 的 `sourcePayloadSnapshot` year/month/day。无动作组、无计划推进；进入天数和时长，排除成绩与动作分类。沿用 V5 与原有 DTO/后端来源字段；细则见 `docs/ADR-training-utilities.md`。

@@ -43,3 +43,18 @@ DrillListViewModelTests.swift 新增 V57PracticeCountTests，仅在 temporaryDir
 引导从启动登录流程改为“我的 → 认识球迹”可选 sheet；订阅页新增游客登录 sheet 并保留套餐选择。训练新增整场心得草稿 sheet，今日安排与计划动作通过 TrainingRoute.drillDetail 在同栈打开详情；收藏页仅布局修饰变化。RootView 的预览与测试分支均在 DEBUG 内。已同步 route-coverage.csv 与路由签名，未替换历史截图哈希或声称重跑截图矩阵。
 
 写盘文件集合与现有清单一致；OnboardingProUITests 使用 XCTest 附件保存截图及本地 StoreKitTest 会话，未增加直接写仓库文件路径。本次门禁与构建日志位于被忽略的 build/commit-push-20260907/。
+
+- 2026-09-09：TrainingAtmosphereUITests 仅向 DAYPART_SHOTS 显式注入的 output/daypart-implementation-20260909/<device>-<appearance>/ 写截图；无参数只附 xcresult，不写资源或设计基线；使用内存训练数据，写失败使测试失败。
+
+## 2026-09-10 训练首页辅助功能可达性审计
+
+TrainingHome 更多菜单可达 TrainingNotesView、ManualTrainingView sheet、TrainingReminderView、TrainingHelpView；TrainingGoalView 复用提醒页。心得详情/编辑从当前 owner 的会话选择进入，帮助中的计划/补记/心得/提醒/设置/关于为实际 NavigationLink。ManualTrainingView 从记录详情可编辑补记。通知 delegate 只切训练 Tab/path，保留训练 VM。新增路由已登记，不修改历史截图哈希。
+
+TrainingUtilitiesTests 使用临时内存 ModelContainer；TrainingUtilitiesUITests 使用 -v50.inMemoryStore 与 XCTest 附件，不写训练资源或设计截图基线。后端测试仅构造 Mongoose 对象，不连接服务器。验证结果见 tasks/training-utilities/README.md。
+
+
+## 2026-09-10 六袋皮革测试写盘审计
+
+PocketLeatherIntegrationTests 默认仅写仓库output/pocket-leather/W1/render与W4/neutral下PNG，可用POCKET_EVIDENCE指定临时渲染目录；序列只读content中的现有c060/c042 JSON。PocketLeatherUITests默认写output/pocket-leather/ui的PNG/AX；PocketLeatherFlowUITests默认写output/pocket-leather/W4/standard，可用POCKET_UI_EVIDENCE指定矩阵目录。截图另附xcresult，前景/table.scene断言失败不能认作页面通过。使用内存账号/训练fixture；批量制作只进入空球形编排，禁止点保存/导出。证据有意保留，不自动删除，按批次归档，写失败使测试失败。无Bundle、历史媒体或正式球形写入。
+
+此次门禁同时检出已有AimPointTheoryScanTests（其他任务未登记）：已检查全部写入调用，仅写output/aim-point-theory/W0中的扫描/探针JSON和comparison PNG，无正式数据改写；本轮只登记真实写盘面，不执行其物理扫描，不宣称验收其结果。

@@ -180,3 +180,233 @@ final class P5_AngleTrainingUITests: XCTestCase {
                       "Free play should open the standalone FreePlayView")
     }
 }
+
+/// Repeated category replacement must not retain blank space above the first row.
+final class GroupFilterLayoutUITests: XCTestCase {
+    private func check(_ app: XCUIApplication, sidebar: String, groups: [String], cardPrefix: String?) {
+        continueAfterFailure = true
+        for round in 0..<3 {
+            for group in groups {
+                let tab = app.buttons[sidebar + group]
+                XCTAssertTrue(tab.waitForExistence(timeout: 5))
+                tab.tap()
+                Thread.sleep(forTimeInterval: 0.7)
+                let header = cardPrefix == nil
+                    ? app.descendants(matching: .any).matching(identifier: "librarySectionHeader_" + group).firstMatch
+                    : app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "librarySectionHeader_")).firstMatch
+                XCTAssertTrue(header.waitForExistence(timeout: 5))
+                let card: XCUIElement
+                if let cardPrefix {
+                    card = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", cardPrefix)).firstMatch
+                } else {
+                    let first = ["学": "瞄准原理", "理": "30° 法则", "练": "角度预测", "打": "分离角与走位", "解": "思路训练"]
+                    card = app.buttons[first[group]!]
+                }
+                XCTAssertTrue(card.waitForExistence(timeout: 5))
+                let gap = card.frame.minY - header.frame.maxY
+                print("GROUP_GAP round=\(round) group=\(group) gap=\(gap) header=\(header.frame) card=\(card.frame)")
+                let shot = XCTAttachment(screenshot: app.screenshot())
+                shot.name = "group-\(sidebar)-\(round)-\(group)"
+                shot.lifetime = .keepAlways
+                add(shot)
+                XCTAssertGreaterThanOrEqual(gap, -1, "First row must not be hidden behind its header")
+                XCTAssertLessThanOrEqual(gap, 24, "Header-to-card gap must remain within the section spacing")
+                if round > 0 {
+                    let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.72))
+                    let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.3))
+                    start.press(forDuration: 0.05, thenDragTo: end)
+                }
+            }
+        }
+    }
+
+    func testPracticeAllToSingleAfterScrolling() {
+        let app = XCUIApplication.launchClean()
+        app.switchTab(.angle)
+        for round in 0..<3 {
+            app.buttons["angleHomeTab_全部"].tap()
+            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.72))
+            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.3))
+            for _ in 0..<3 { start.press(forDuration: 0.05, thenDragTo: end) }
+            app.buttons["angleHomeTab_练"].tap()
+            Thread.sleep(forTimeInterval: 0.7)
+            let header = app.descendants(matching: .any).matching(identifier: "librarySectionHeader_练").firstMatch
+            let card = app.buttons["角度预测"]
+            let gap = card.frame.minY - header.frame.maxY
+            print("ALL_SINGLE_GAP round=\(round) gap=\(gap)")
+            let shot = XCTAttachment(screenshot: app.screenshot())
+            shot.name = "all-single-\(round)"
+            shot.lifetime = .keepAlways
+            add(shot)
+            XCTAssertGreaterThanOrEqual(gap, -1)
+            XCTAssertLessThanOrEqual(gap, 24)
+        }
+    }
+
+    private func assertTop(_ app: XCUIApplication, card: XCUIElement, name: String) {
+        let shot = XCTAttachment(screenshot: app.screenshot())
+        shot.name = name
+        shot.lifetime = .keepAlways
+        add(shot)
+        XCTAssertTrue(card.waitForExistence(timeout: 5))
+        let header = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "librarySectionHeader_")).firstMatch
+        XCTAssertTrue(header.waitForExistence(timeout: 5))
+        let gap = card.frame.minY - header.frame.maxY
+        print("FILTER_GAP name=\(name) gap=\(gap)")
+        XCTAssertGreaterThanOrEqual(gap, -1)
+        XCTAssertLessThanOrEqual(gap, 24)
+        XCTAssertTrue(card.isHittable)
+    }
+
+    func testSearchTopicsAndRapidGroups() {
+        let app = XCUIApplication.launchClean()
+        app.switchTab(.angle)
+        for name in ["理", "打", "学", "解", "全部", "练"] {
+            app.buttons["angleHomeTab_" + name].tap()
+        }
+        assertTop(app, card: app.buttons["角度预测"], name: "practice-rapid")
+        app.buttons["angleHomeTab_全部"].tap()
+        app.buttons["practiceTopicFilterMenu"].tap()
+        app.buttons["practiceTopicMenu_防守"].tap()
+        assertTop(app, card: app.buttons["风险报酬决策矩阵"], name: "practice-topic")
+        app.buttons["practiceTopicFilterMenu"].tap()
+        app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "全部", "angleHomeTab_全部")).firstMatch.tap()
+        let field = app.textFields["librarySearchField"]
+        field.tap()
+        field.typeText("角度预测")
+        assertTop(app, card: app.buttons["角度预测"], name: "practice-search")
+        app.buttons["清除搜索"].tap()
+        field.typeText("zzzz")
+        XCTAssertTrue(app.staticTexts["没有找到相关练习"].waitForExistence(timeout: 5))
+        app.buttons["浏览全部练习"].firstMatch.tap()
+        assertTop(app, card: app.buttons["瞄准原理"], name: "practice-empty-restored")
+    }
+
+    func testLibrarySearchAndDetailReturn() {
+        let app = XCUIApplication.launchClean()
+        app.switchTab(.drillLibrary)
+        for name in ["准度", "走位", "控力", "基础", "全部"] {
+            app.buttons["sidebar_" + name].tap()
+        }
+        Thread.sleep(forTimeInterval: 0.7)
+        let first = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "drillCard_")).firstMatch
+        assertTop(app, card: first, name: "library-rapid")
+        let field = app.textFields["librarySearchField"]
+        field.tap()
+        field.typeText("直线")
+        Thread.sleep(forTimeInterval: 0.7)
+        assertTop(app, card: first, name: "library-search")
+        app.buttons["清除搜索"].tap()
+        field.typeText("zzzz")
+        XCTAssertTrue(app.descendants(matching: .any)["drillListEmptyState"].waitForExistence(timeout: 5))
+        app.buttons["清除搜索"].tap()
+        app.buttons["sidebar_基础"].tap()
+        Thread.sleep(forTimeInterval: 0.7)
+        assertTop(app, card: first, name: "library-empty-restored")
+        let id = first.identifier
+        first.tap()
+        XCTAssertTrue(app.navigationBars.buttons.firstMatch.waitForExistence(timeout: 5))
+        app.navigationBars.buttons.firstMatch.tap()
+        XCTAssertTrue(app.buttons[id].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons[id].isHittable)
+    }
+
+    func testPracticeRepeatedGroups() {
+        let app = XCUIApplication.launchClean()
+        app.switchTab(.angle)
+        check(app, sidebar: "angleHomeTab_", groups: ["学", "理", "练", "打", "解"], cardPrefix: nil)
+    }
+
+    func testLibraryRepeatedGroups() {
+        let app = XCUIApplication.launchClean()
+        app.switchTab(.drillLibrary)
+        check(app, sidebar: "sidebar_", groups: ["基础", "准度", "杆法", "走位", "控力"], cardPrefix: "drillCard_")
+    }
+}
+
+/// Physical pointer holds exercise the production gesture wiring; timed screenshots
+/// are collected by the host while XCTest keeps the pointer down.
+final class AimCloseupHoldUITests: XCTestCase {
+    private let evidence = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/aim-closeup-diagnosis-20260910/ui")
+
+    func testAimPoint2D() throws { try exercise(title: "2D 瞄准点训练", key: "aimpoint2d") }
+    func testShotSimulation() throws { try exercise(title: "分离角与走位", key: "shotBlank") }
+    func testFreePlay() throws { try exercise(title: "自由击球", key: "freeplay") }
+    func testDailyClearance() throws { try exercise(title: "每日清台", key: "daily") }
+    func testAimPoint3D() throws { try exercise(title: "3D 瞄准点训练", key: "aimpoint3d") }
+
+    func testBankShot() throws { try exercise(title: "翻袋解球器", key: "bankBlank") }
+    func testDiamondSystem() throws { try exercise(title: "反射解球器", key: "diamondAimed") }
+    func testComposer() throws { try exercise(title: "自由走位", key: "composer") }
+
+    private func exercise(title: String, key: String) throws {
+        continueAfterFailure = false
+        try FileManager.default.createDirectory(at: evidence, withIntermediateDirectories: true)
+        var args = ["-v50.inMemoryStore", "-v53.authenticatedProfileFixture", "-forcePremium"]
+        if key == "daily" {
+            args += ["-deeplink.dailyClearance", "-dailyClearance.resetState", "-dailyClearance.fixture=progress"]
+        }
+        let app = XCUIApplication.launchClean(extraArgs: args)
+        if key != "daily" {
+            app.switchTab(.angle)
+            let search = app.textFields["librarySearchField"]
+            XCTAssertTrue(search.waitForExistence(timeout: 10))
+            search.tap()
+            search.typeText(title)
+            let card = app.buttons[title]
+            XCTAssertTrue(card.waitForExistence(timeout: 10))
+            card.tap()
+        }
+        let wheel = app.descendants(matching: .any)["shotStage.aimWheel"].firstMatch
+        if !wheel.waitForExistence(timeout: 3) {
+            let mode = app.buttons["solver.mode"]
+            if mode.exists { mode.tap() }
+            else {
+                let free = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "瞄准模式：")).firstMatch
+                XCTAssertTrue(free.exists, app.debugDescription)
+                free.tap()
+            }
+        }
+        XCTAssertTrue(wheel.waitForExistence(timeout: 15), app.debugDescription)
+        if key == "diamondAimed" {
+            // The reflection solution initially aims at a cushion. Use the real
+            // wheel until the page reports first contact with the object ball.
+            let contact = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "首碰")).firstMatch
+            for _ in 0..<12 {
+                if contact.exists { break }
+                let from = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
+                from.press(forDuration: 0.1, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -80)))
+            }
+            XCTAssertTrue(contact.exists, "The reflection page must be aimed at a ball before checking its closeup")
+        }
+        try save("\(key)-ready")
+        let start = wheel.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let end = start.withOffset(CGVector(dx: 0, dy: -1))
+        try Data().write(to: evidence.appendingPathComponent("\(key)-wheel.hold"))
+        start.press(forDuration: 0.15, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 8)
+        Thread.sleep(forTimeInterval: 0.6)
+        try save("\(key)-wheel-released")
+        if key == "aimpoint3d" { return }
+
+        // Use the blank upper-left felt, outside the default balls' 48pt drag targets.
+        let window = app.windows.firstMatch
+        let frame = window.frame
+        let tableStart = window.coordinate(withNormalizedOffset: .zero).withOffset(
+            CGVector(dx: frame.width * 0.30, dy: frame.height * 0.30))
+        let tableEnd = tableStart.withOffset(CGVector(dx: 14, dy: 0))
+        try Data().write(to: evidence.appendingPathComponent("\(key)-table.hold"))
+        tableStart.press(forDuration: 0.15, thenDragTo: tableEnd, withVelocity: .slow, thenHoldForDuration: 8)
+        Thread.sleep(forTimeInterval: 0.6)
+        try save("\(key)-table-released")
+    }
+
+    private func save(_ name: String) throws {
+        let screenshot = XCUIScreen.main.screenshot()
+        try screenshot.pngRepresentation.write(to: evidence.appendingPathComponent("\(name).png"))
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+}

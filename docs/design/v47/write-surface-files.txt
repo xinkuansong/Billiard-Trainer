@@ -1,4 +1,5 @@
 QiuJiTests/AimCloseupEvidenceTests.swift
+QiuJiTests/AimPointTheoryScanTests.swift
 QiuJiTests/AimingCorrectionMathTests.swift
 QiuJiTests/AimingCorrectionZ2EvidenceTests.swift
 QiuJiTests/AimingCorrectionZ3EvidenceTests.swift
@@ -16,6 +17,7 @@ QiuJiTests/DrillShotReconstructionTests.swift
 QiuJiTests/DrillThumbnailBakeRunnerTests.swift
 QiuJiTests/DrillTutorialKindResolverTests.swift
 QiuJiTests/PocketBehaviorDiagTests.swift
+QiuJiTests/PocketLeatherIntegrationTests.swift
 QiuJiTests/PositionPlaySequenceExportRunnerTests.swift
 QiuJiTests/PositioningFormationRenderTests.swift
 QiuJiTests/ReachabilityVizTests.swift
@@ -48,10 +50,13 @@ QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift
 QiuJiUITests/P5_AngleTrainingUITests.swift
+QiuJiUITests/PocketLeatherFlowUITests.swift
+QiuJiUITests/PocketLeatherUITests.swift
 QiuJiUITests/S1_FreePlayLayoutUITests.swift
 QiuJiUITests/S2_ShotPagesLayoutUITests.swift
 QiuJiUITests/ScreenshotTourUITests.swift
 QiuJiUITests/SpinAndEnglishZ4UITests.swift
+QiuJiUITests/TrainingAtmosphereUITests.swift
 QiuJiUITests/V19_CueAimLineUITests.swift
 QiuJiUITests/V21W2ScreenshotUITests.swift
 QiuJiUITests/V21W3ScreenshotUITests.swift

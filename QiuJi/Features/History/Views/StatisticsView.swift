@@ -343,11 +343,18 @@ struct StatisticsView: View {
     // MARK: - Success Rate Card（按 category 分组，✅ D-v29-2）
 
     private var successRateCard: some View {
-        StatisticsCategoryRatesCard(
-            items: vm.categorySuccessRates,
-            dateRangeLabel: vm.dateRangeLabel,
-            hasScores: vm.hasDrillScores
-        )
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            StatisticsCategoryRatesCard(
+                items: vm.categorySuccessRates,
+                dateRangeLabel: vm.dateRangeLabel,
+                hasScores: vm.hasDrillScores
+            )
+            let manualMinutes = vm.filteredDrillSessions.filter(\.isManualTraining).reduce(0) { $0 + $1.totalDurationMinutes }
+            if manualMinutes > 0 {
+                Text("另有 \(manualMinutes) 分钟补记，未分配动作分类")
+                    .font(.btFootnote).foregroundStyle(.btTextSecondary)
+            }
+        }
     }
 
     // MARK: - Category Comparison Grid

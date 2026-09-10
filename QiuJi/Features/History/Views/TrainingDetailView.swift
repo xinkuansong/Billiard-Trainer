@@ -54,7 +54,23 @@ struct TrainingDetailView: View {
     var body: some View {
         Group {
             if let session {
-                contentView(session).id(revision)
+                if session.isManualTraining {
+                    List {
+                        Section("补记训练") {
+                            Text(session.sourceTitleSnapshot ?? "训练记录")
+                            Text(session.reportingDate, format: .dateTime.year().month().day())
+                            Text("\(session.totalDurationMinutes) 分钟")
+                            Text(["chinese8": "中式八球", "nineBall": "美式九球", "snooker": "斯诺克"][session.ballType] ?? session.ballType)
+                        }
+                        if !session.note.isEmpty { Section("训练心得") { Text(session.note) } }
+                        Section {
+                            NavigationLink("编辑补记") { ManualTrainingView(ownerKey: ownerKey, existing: session) }
+                            Button("删除记录", role: .destructive) { showDeleteConfirm = true }
+                        }
+                    }.font(.btBody).tint(.btPrimary)
+                } else {
+                    contentView(session).id(revision)
+                }
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -94,7 +110,7 @@ struct TrainingDetailView: View {
             Button("删除", role: .destructive) { deleteSession() }
             Button("取消", role: .cancel) {}
         } message: {
-            Text("删除后无法恢复，本次训练的组数与心得会一并移除。")
+            Text(session?.isManualTraining == true ? "删除后无法恢复，补记的用时与心得会一并移除。" : "删除后无法恢复，本次训练的组数与心得会一并移除。")
         }
         .sheet(isPresented: $showShareSheet) {
             if let session {
@@ -138,6 +154,7 @@ struct TrainingDetailView: View {
 
     private var sessionTitle: String {
         guard let session else { return "训练详情" }
+        if session.isManualTraining { return "补记训练" }
         let cat = primaryCategory(for: session)
         return cat.trainingNameZh
     }

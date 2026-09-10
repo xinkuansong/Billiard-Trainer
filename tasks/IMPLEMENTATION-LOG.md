@@ -2259,3 +2259,135 @@ DR-113补充：新建模版入口改为居中、内容宽度的紧凑按钮，�
 - BTSegmentedTab 新增可选 systemImage，默认 nil；图文共享原字体/配色，图标不重复朗读。
 - 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §2.7 / Changelog。
 - 验证证据：output/history-tab-icons/，最终结果见 tasks/ui-reviews/UR-20260909-history-tab-icons.md。
+
+
+## DR-123 — 统计 PRO 角标留位与顶部对齐（2026-09-09）
+- 用户确认：保留右侧边距，将图标与统计略左移，PRO 顶部对齐文字。
+- 根因：整栏 trailing overlay 不参与宽度分配，并受下划线影响垂直居中。
+- 实现：BTSegmentedTab 可选 proBadgeState，按固有宽度留位，8pt间距和顶部对齐；可见角标独立无障碍元素保留。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §2.7 / Changelog。
+- 验证：见 tasks/ui-reviews/UR-20260909-statistics-pro-alignment.md。
+
+
+## DR-125 — 角度预测本轮表现（2026-09-09）
+
+- 后续用户要求按误差着色：最近每题与当前结果共用 `AnswerRecord.rating` / `ErrorRating(error:)`，≤3° 为 btSuccess，>3°且≤10° 为 btWarning，>10° 为 btDestructive；按未舍入绝对误差判定，最新题只额外加粗，原偏大/偏小文字保留。验证证据 `output/angle-error-colors/`。
+
+- 用户确认保留现有题面样式，在无键盘的下半区展示最近5题；不采用生成式整桌候选。
+- 复用 `sessionResults`，最新在前，展示估角、实际角度与方向偏差；不足5题按实际数量显示，未答题显示轻量引导。
+- 键盘期间隐藏该区域及其无障碍元素，保留布局占位避免滚动位置钳制造成题面跳动；取消或提交后恢复。换题保留本轮成绩，重置沿用原清空行为。
+- 小屏首轮检出固定320pt画布遮挡操作，改为由可用高度扣除实测统计/操作/键盘高度与间距计算画布高度（上限320pt），无键盘时同样预留以稳定题面。SE原失败与修复复验均保留于证据目录。
+- 已应用至：`GeometricAngleQuizView.swift`、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；实际验证见 `tasks/ui-reviews/UR-20260909-angle-recent-results.md`。
+
+## DR-124 — 今日课程加入与多选连续训练（2026-09-09）
+- 用户要求推荐课只加入、课内开始文案统一，以及今日多项未完成时自主勾选/排序后串联。
+- 推荐入口“加入今日安排”；唯一未完成项直接开始，多项进入本次临时选择sheet，排序按钮提供上移/下移，取消不更改编排。多课动作不去重，来源用稳定动作身份归属；追加动作归本次末课，删掉必练动作不提前完成该课。
+- 单场UI对应每课一条冻结来源记录，一次事务保存课程完成/计划游标/同步队列。部分完成保留记录不推进；后续完成仅最终记录计入今日课程动作数，避免重复累计。整场分钟分摊后保持总和。
+- 已应用至：`docs/05-信息架构与交互设计.md` §今日编排、`.kiro/steering/content-data-contract.md` §9.2、`tasks/UI-IMPLEMENTATION-SPEC.md` §Changelog（2026-09-09）。
+- 验证：`output/course-selection-20260909/`；最终验收范围见 `tasks/ui-reviews/UR-20260909-course-selection.md`。
+
+
+## DR-126 — 本周训练时段摄影与头像玩法球（2026-09-09）
+- **用户裁定**：参考正绿色台呢不随时段换色；晨光/日间光/夜间灯罩感。批准在App试装。
+- **实现**：训练卡摄影背景与原生紧凑周进度/日历分离（按追加约束恢复原布局，移除增高的圆环）；沿用真实周数据与每日清台路由。当地06–11/11–18/其余对应三张素材，分钟刷新；DEBUG预览覆盖不改时钟。头像读取dailyClearanceGame，中八黑八，其他九号，普通菜单不变。
+- **回写目标/已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md § DR-126摄影训练卡与Changelog；2026-09-09。
+- **验证**：构建成功，时区边界与全部玩法素材2项单测通过；最终紧凑版SE浅色UI及5截图通过，标准手机浅深图审及清台入口已验；原宽高布局恢复，最终证据见tasks/ui-reviews/UR-20260909-daypart-implementation.md。
+
+
+### DR-126 追加：登录卡局部背景
+- 用户指定仅游客头像登录卡增加背景，保持宽高与原布局。独立image_gen生成空台面，沿用原球体overlay；深色压暗，其他卡片不变。
+- 验证与素材提示词：`output/profile-header-backdrop-20260909/`。
+
+- 后续用户否决浅色拼贴，改为同周卡整体绿色摄影：球与桌面共同生成的profilePhoto8/9，guestHeader移除球overlay、文字白色；只替换该卡装饰，不改变布局。提示词prompt-photo-v2.md。
+
+
+## 模版封面同批调色补齐（2026-09-09）
+- 用户授权我的模版封面一起更新；coverTemplate02/03/07/09/10/11/12使用内置image_gen保留球/杆/桌/构图，仅改同#197009草绿细台呢；01/04/05/06/08灰白静物不变。
+- 原资源名称、UUID哈希映射、卡片布局保持；12/12 SHA核对。原图与generated/edited交付证据在output/template-cover-felt-20260909/。
+
+- 模版07后续用户指出漏球号：仅该图补红3/黄1/蓝2/紫4，白球保持红点；修正“台呢全量更新”等于“球号全部修好”的表述。number-fix目录保留前后图、提示词与新哈希，原delivery-manifest为调色批次当时记录。
+
+
+## 24封面球号批修（2026-09-09）
+- 用户明确批准核验清单24项批修；23项按美式/中八配色补/纠号码，斯诺克封面改无号码球及纯白母球。使用当前台呢正式图编辑，原背景/构图基本保留；静物灰白背景不变。
+- 24项均逐图目视，60/60 SHA核验，24替换36不变。输出/完整提示词/比较页：output/cover-number-fix-20260909/。原卡片布局/UUID封面映射不改。
+
+
+## DR-127 — 本周训练卡片最终摄影与米白控件（2026-09-09）
+- **依据**：用户从“优化继续清台按钮”延续并明确要求实现；最新标准比赛绿参考优先于此前墨绿候选。
+- **变更**：训练周卡复用原布局、数据、清台路由与时段解析；共用最终摄影与轻度时段光照。新增米白/深绿命名色；按钮和已完成圆点同色，今天10%深绿底。照片构图修订后白球避开实体按钮，分隔线保留占位而隐藏。
+- **回写目标/已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-127 与 Changelog（2026-09-09）。
+- **验证**：最终Debug构建已通过；局部UI/图片与局限见 `tasks/ui-reviews/UR-20260909-weekly-training-final.md`。原有dirty工作保留，不提交/发布。
+
+## DR-128 — 登录弹窗绿色台呢与真实台球摄影（2026-09-09）
+- 用户确认以绿色台呢和真实台球风格延伸登录视觉。
+- LoginView 的208pt品牌图替换为既有BTTrainingAtmosphere照片、米白标识/说明；保留外围布局、文案及认证行为。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-128 与 Changelog（2026-09-09）。
+- 验证：BUILD SUCCEEDED；17Pro浅色/SE浅深整页目视；SE暂不登录返回与重开通过。真实Apple登录、真机/iPad/AX未验。证据 output/login-photographic-20260909/。
+
+## DR-129 — 动作卡已练次数去品牌底（2026-09-09）
+- 按用户截图要求删除BTPracticedBadge绿色底和胶囊裁剪，白字改btTextSecondary；保留勾选、字体、padding及计数逻辑。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-129 与 Changelog。
+- BUILD SUCCEEDED；17Pro/iOS26.2浅深色整页原图已审，布局无变化。证据output/practice-count-plain-20260909/；真机未验。
+
+### DR-129 后续确认：品牌色文字
+用户批准勾选与已练次数改为btPrimary，字重从bold/heavy降至medium，保持无底色。BUILD SUCCEEDED；17Pro浅深色整页已目视，次数1/2/5/6正常；证据output/practice-count-brand-text-20260909/。已应用至UI-IMPLEMENTATION-SPEC.md §DR-129及Changelog。
+
+## DR-130 — 我的游客登录卡纯白背景（2026-09-09）
+- 用户否决绿色台呢强背景，指定纯白；guestHeader移除整体摄影背景，复用透明BTProfileGameBall装饰，深色语义字和浅色头像。卡片局部light环境保证白底可读，不影响整页主题。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-130 与 Changelog。
+- BUILD SUCCEEDED；17Pro浅深色整页截图已审，点击登录弹窗正常。证据output/profile-white-card-20260909/；真机/iPad/小屏未验，未提交发布。
+
+
+## DR-131 — 瞄准特写等待真实松手（2026-09-10）
+
+- **问题**：台面及共享瞄准轮最后一次有效移动280ms后即隐藏，手指停住不松开也触发。
+- **实现**：Gate按table/wheel保存活跃手势，最后释放才计时；AngleSceneView补完整生命周期，BTAimWheel补取消/离页收尾，AimPoint页移除重复计时并复用Gate。
+- **范围**：2D/3D瞄准点训练、自由击球/每日清台非开球阶段、自由走位/试打、分离角与走位、翻袋/反射自由模式。近区判定与画面几何保持原契约。
+- **验证**：详 `output/aim-closeup-diagnosis-20260910/` 和 `tasks/ui-reviews/UR-20260910-aim-closeup.md`；以最终记录为准。
+- **回写目标**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3瞄准特写手势生命周期 / Changelog。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` §9.3 / Changelog（2026-09-10）。
+
+
+## DR-132 — 训练瞄准线白色与观察/击球方向分离（2026-09-10）
+- 用户明确纠正 DR-121：瞄准线白色，转相机不能转球杆，2D辅助也显示杆；核对假想球尺寸及相关页。
+- 删除辅助杆逐帧跟随相机 yaw 的状态与回调；辅助开启/刷新后沿母球到假想球摆杆，继续复用击球点与避障抬杆。关闭辅助、结果、换题清理不变。
+- TrainingAssist.aimLine 改白；2D/3D瞄准点训练与特写同步；结果参考线白虚线区分用户白实线。假想球保持R=28.575mm，仅不透明度32%→50%，不改碰撞/球位。
+- 实测模型球直径约56.8–57.5mm，标准假想球57.15mm；模型网格细分/母球红点导致的小差异不足1%。未用放大半径修正透视。
+- 最终2单测+4UI通过，标准17Pro关键原图已审；结果见 `tasks/ui-reviews/UR-20260910-aim-assist-fix.md`。改前3D开关失败、r2测试测量/流程失败保留；真机/iPad未验。
+- **回写目标/已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` §训练辅助 / Changelog；2026-09-10。
+
+
+## 2026-09-10 — v59 W0 停球状态前置修复与覆盖诊断
+
+- 根因实证：零时长 slide/roll/spin 转换被 `>0` 过滤；速度为零仍保持 spinning，延长60秒不收敛，终态不可供示范准入。
+- 修改：EventDrivenEngine 接纳解析零时长转换，全部停稳即结束；新增 PhysicsRestTransitionTests，诊断默认通过RUN门关闭。无物理常量/评分/页面变更。
+- 验证：修复前3项9断言失败；修复后停球/不变量/一致性17项及物理引擎33项/矩阵3项通过。471冻结球形复扫通过，11次逐速度事件差异保留，不宣称只是动画时长变化。
+- 覆盖：距离补采纠正了收窄参数导致的fallback误标样本，原失败保留；最终67合法新球形仍有9个中袋距离组未找到可用示范。W0诊断完成，W1覆盖准入未通过，需按v59.3裁定。
+- 证据：output/aim-point-theory/W0/REPORT.md、各原始日志与JSON；未提交发布。
+
+
+## DR-133 — 仅绿色系列训练进球线及文字改白（2026-09-10）
+- 用户确认只改易混淆颜色及进球线/瞄准线文字，不全球号改白。
+- TrainingAssist.potColor仅6/14返回白色，其余走原potColor；AngleTrainingScene训练样式的进球线/同名标签、AimPointScene进球线及训练特写同源。“瞄准线”文字本已白色，保持。
+- 默认教学、求解、多球轨迹及模型球颜色不变。现有布局、线型、球位、相机、显隐不变。
+- 验证完成：构建及4项定向测试通过；全15球号×训练/默认场景线与文字颜色断言通过，6/14/3号的2D/3D共6张真实SceneKit渲染原图已审。证据 `output/green-pot-line-20260910/`；本轮不是完整App UI流程，真机/iPad未验，未提交发布。
+- **回写目标/已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md` §训练辅助 / Changelog。
+
+
+## FL-055 — 皮革子网格保留整桌缓冲导致 iOS 17 日志洪泛崩溃
+- **任务**：v60 W1，2026-09-10。
+- **现象**：几何结构测试和部分首帧通过，但连续进入每日清台/打三时于 `__C3DMeshDeindex` → libtrace runtime-issue callback 崩溃。
+- **根因**：每个皮革子网格仍引用整桌177346个位置；iOS17逐个报告未被元素引用的顶点，15秒日志26万余行，触发高日志量隔离回调。不是模拟器资源不足，也不能靠禁用诊断解决。
+- **解决**：逐独立索引通道压缩到实际使用的属性，逐字节保留每个多边形角点的位置/法线/UV和面序；缓存紧凑几何，实例材质隔离。新增全角点字节守恒与无未使用位置测试，iOS17三个实际页面复验通过。
+- **证据**：`output/pocket-leather-integration-20260910/W1/compact-fix/`（最终归档）；首次日志/崩溃另存，未删除失败记录。
+- **已应用至**：`.cursor/rules/20-swiftui-developer.mdc` SceneKit兼容性要求。
+
+
+## DR-134 — 六袋原皮革选中反馈（2026-09-10）
+- **任务/原始规范**：v60，红色圆盘遮盖袋洞；打三另绘双色袋环。
+- **调整后**：原USDZ的Leather面在加载后分为六袋，保留面角属性和原位。单目标采用btAccent深色暖金在线性空间混合65%原贴图；打三①绿/②青，同袋分区。恢复原材质，不重叠绘制、不覆盖洞口/网圈，不改物理袋心或历史资源。
+- **状态/API**：既有addPocketMarkers/setPocketHighlight调用共享替换；setPocketRoles和clearPocketHighlights支持双角色及清理。清桌、无目标、自由/开球、逐杆恢复与角色推进由当前状态驱动。球优先命中；六袋AX自定义动作沿用各页选择权限。
+- **原因**：将选中状态落在真实皮革，保持台桌完整和角色含义；预制材质变体避免渲染中修改材质。
+- **验证**：见 `tasks/ui-reviews/UR-20260910-pocket-leather.md`（22类场景、标准/SE/iPad/iOS17回归及最终构建/门禁完成）。
+- **已应用至**：`tasks/UI-IMPLEMENTATION-SPEC.md`；SceneKit故障护栏见FL-055。

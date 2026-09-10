@@ -385,7 +385,7 @@ struct PositionPlayComposerView: View {
             cameraMode: $vm.cameraMode,
             interactionMode: .tapsOnly,
             autoFitsRotatedTable: true,
-            onPocketTapped: { if !vm.isBreakMode && !vm.isSequenceMode { vm.selectPocket(at: $0) } },
+            onPocketTapped: vm.isBreakMode || vm.isSequenceMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // 开球模式：仅母球可拖（限开球区）；序列模式：台面只读（逐杆演示），其余台面交互挂起。
             draggableBallNodes: vm.isSequenceMode ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),
             onDragBegan: { node in
@@ -420,6 +420,7 @@ struct PositionPlayComposerView: View {
                 if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
                 else { vm.nudgeFreeAim(byDegrees: $0) }
             },
+            onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

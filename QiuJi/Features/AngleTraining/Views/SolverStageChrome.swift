@@ -35,6 +35,7 @@ protocol SolverStageHosting: ObservableObject {
     /// v23 W3：近区特写快照（自由模式；nil = 不显示）。
     var closeupSnapshot: AimCloseupSnapshot? { get }
     /// v23 W3：瞄准轮拖动生命周期（特写显隐门）。
+    func setAimTableDragging(_ active: Bool)
     func setAimWheelDragging(_ active: Bool)
 
     func toggleMode()
@@ -428,6 +429,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 handleTableDragEnd(node: node, localPoint: localPoint)
             },
             onAimNudged: { vm.nudgeFreeAim(byDegrees: $0) },   // 自由模式瞄准相对调整（G13）。
+            onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)

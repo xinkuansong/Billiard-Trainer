@@ -59,6 +59,8 @@ struct AngleSceneView: UIViewRepresentable {
     /// （度，屏幕顺时针为正），由消费方按 `rotatedAim` 做增量旋转（绕母球公转模型，见
     /// `AngleSceneCalculator.aimNudgeDegrees`）。取代旧的「逐帧回调手指台面点、指哪打哪」绝对语义。
     var onAimNudged: ((Float) -> Void)?
+    /// Reports the actual table-aim gesture lifetime, including cancellation.
+    var onAimDragActiveChanged: ((Bool) -> Void)?
     /// 瞄准调整结束（可选，用于收尾震动/求解调度）。
     var onAimDragEnded: (() -> Void)?
 
@@ -90,6 +92,8 @@ struct AngleSceneView: UIViewRepresentable {
         scnView.addGestureRecognizer(tapGesture)
 
         context.coordinator.scnView = scnView
+        context.coordinator.onPocketTapped = onPocketTapped
+        context.coordinator.updatePocketAccessibility()
         context.coordinator.startRenderLoop()
         bindProjector(to: scnView)
 
@@ -143,7 +147,9 @@ struct AngleSceneView: UIViewRepresentable {
         context.coordinator.onBallTapped = onBallTapped
         context.coordinator.onTableTapped = onTableTapped
         context.coordinator.onAimNudged = onAimNudged
+        context.coordinator.onAimDragActiveChanged = onAimDragActiveChanged
         context.coordinator.onAimDragEnded = onAimDragEnded
+        context.coordinator.updatePocketAccessibility()
         if let projector, projector.unproject == nil {
             bindProjector(to: uiView)
         }
@@ -154,6 +160,7 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: SCNView, coordinator: Coordinator) {
+        coordinator.endAimDrag()
         coordinator.stopRenderLoop()
         uiView.isPlaying = false
     }
@@ -182,6 +189,7 @@ struct AngleSceneView: UIViewRepresentable {
         var onBallTapped: ((SCNNode) -> Void)?
         var onTableTapped: ((SCNVector3) -> Void)?
         var onAimNudged: ((Float) -> Void)?
+        var onAimDragActiveChanged: ((Bool) -> Void)?
         var onAimDragEnded: (() -> Void)?
         private var draggedNode: SCNNode?
         /// 本次 pan 是否在调整瞄准（起手未命中球时进入；球命中优先移球）。
@@ -295,7 +303,6 @@ struct AngleSceneView: UIViewRepresentable {
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
-                scene.updateAuxiliaryCue()
                 // Skip anchor-lock while a smooth pose transition (e.g. 观察⇄瞄准
                 // toggle) is in flight: the smooth interpolator is already
                 // driving the pivot toward the cue ball, and a competing
@@ -323,7 +330,7 @@ struct AngleSceneView: UIViewRepresentable {
             guard let scnView, !draggableBallNodes.isEmpty else { return nil }
 
             let hitResults = scnView.hitTest(location, options: [
-                .searchMode: SCNHitTestSearchMode.all.rawValue,
+                .searchMode: SCNHitTestSearchMode.closest.rawValue,
                 .boundingBoxOnly: true
             ])
 
@@ -372,7 +379,22 @@ struct AngleSceneView: UIViewRepresentable {
 
         // MARK: - Gestures
 
+        func endAimDrag() {
+            guard isAimFollowing else { return }
+            isAimFollowing = false
+            panDominantAxis = nil
+            panCumX = 0
+            panCumY = 0
+            aimPivotScreen = nil
+            onAimDragActiveChanged?(false)
+            onAimDragEnded?()
+        }
+
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            if [.ended, .cancelled, .failed].contains(gesture.state), isAimFollowing {
+                endAimDrag()
+                return
+            }
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
 
             switch gesture.state {
@@ -397,6 +419,7 @@ struct AngleSceneView: UIViewRepresentable {
                 // 故此处不回调；轴心 = 母球屏幕投影，记下起手点，后续 .changed 逐帧求相对角位移。
                 if onAimNudged != nil {
                     isAimFollowing = true
+                    onAimDragActiveChanged?(true)
                     aimPivotScreen = cueBallScreenPoint()
                     lastAimTouch = location
                     return
@@ -424,12 +447,6 @@ struct AngleSceneView: UIViewRepresentable {
                 panDominantAxis = nil
                 panCumX = 0
                 panCumY = 0
-                if isAimFollowing {
-                    isAimFollowing = false
-                    aimPivotScreen = nil
-                    onAimDragEnded?()
-                    return
-                }
                 if let ball = draggedNode {
                     // Use the lifted sample point so "where the ball is" (not the
                     // raw finger) drives drop targets like the palette-removal zone.
@@ -490,8 +507,12 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let scnView else { return }
+            handleTap(at: gesture.location(in: scnView))
+        }
+
+        func handleTap(at location: CGPoint) {
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
-            let location = gesture.location(in: scnView)
 
             // Position-Play: tap a ball to select it as the target (takes priority over pockets,
             // since balls sit on the interior while pockets sit at the rails).
@@ -508,13 +529,12 @@ struct AngleSceneView: UIViewRepresentable {
                 if let best { onBallTapped(best); return }
             }
 
-            // Try precise hit-test first against pocket marker planes by name.
+            // Hit any visible leather variant via its pocket parent; keep ball priority.
             let hitResults = scnView.hitTest(location, options: [
-                .searchMode: SCNHitTestSearchMode.all.rawValue
+                .searchMode: SCNHitTestSearchMode.closest.rawValue
             ])
             for hit in hitResults {
-                if let name = hit.node.name, name.hasPrefix("pocketMarker_"),
-                   let index = pocketIndex(from: name) {
+                if onPocketTapped != nil, let index = PocketLeatherMarker.index(of: hit.node) {
                     onPocketTapped?(index)
                     return
                 }
@@ -527,15 +547,26 @@ struct AngleSceneView: UIViewRepresentable {
             var bestDist: CGFloat = .greatestFiniteMagnitude
             for (index, pos) in pocketPositions.enumerated() {
                 let projected = scnView.projectPoint(pos)
+                guard projected.z >= 0, projected.z <= 1,
+                      projected.x >= 0, projected.x <= Float(scnView.bounds.width),
+                      projected.y >= 0, projected.y <= Float(scnView.bounds.height) else { continue }
                 let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                // A projected point may be inside the viewport yet hidden by the
+                // near rail in 3D. Do not select it through foreground geometry.
+                if let camera = scnView.pointOfView,
+                   let front = scnView.hitTest(screenPos, options: [.searchMode: SCNHitTestSearchMode.closest.rawValue]).first {
+                    let hitDepth = camera.convertPosition(front.worldCoordinates, from: nil).z
+                    let pocketDepth = camera.convertPosition(pos, from: nil).z
+                    if hitDepth > pocketDepth + 0.015 { continue }
+                }
                 let dist = hypot(location.x - screenPos.x, location.y - screenPos.y)
                 if dist < tapRadius, dist < bestDist {
                     bestDist = dist
                     bestIndex = index
                 }
             }
-            if let bestIndex {
-                onPocketTapped?(bestIndex)
+            if let bestIndex, let onPocketTapped {
+                onPocketTapped(bestIndex)
                 return
             }
 
@@ -548,10 +579,22 @@ struct AngleSceneView: UIViewRepresentable {
             }
         }
 
-        private func pocketIndex(from name: String) -> Int? {
-            let parts = name.split(separator: "_")
-            guard parts.count == 2 else { return nil }
-            return Int(parts[1])
+        func updatePocketAccessibility() {
+            guard let scnView else { return }
+            scnView.isAccessibilityElement = true
+            scnView.accessibilityIdentifier = "table.scene"
+            scnView.accessibilityLabel = "球桌"
+            scnView.accessibilityValue = scene.pocketSelectionDescription
+            scnView.accessibilityCustomActions = onPocketTapped == nil || interactionMode == .none ? [] : (0..<6).map { index in
+                UIAccessibilityCustomAction(name: "选择\(index + 1)号\(index < 4 ? "角袋" : "中袋")") { [weak self] _ in
+                    guard let self, self.gesturesEnabled, self.interactionMode != .none,
+                          let select = self.onPocketTapped else { return false }
+                    select(index)
+                    self.updatePocketAccessibility()
+                    return true
+                }
+            }
         }
+
     }
 }

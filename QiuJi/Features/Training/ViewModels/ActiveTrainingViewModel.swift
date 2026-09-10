@@ -125,11 +125,13 @@ enum TrainingMode: Identifiable {
     /// 落 `TrainingSession.planId`，是「按完成推进计划」的判定依据。
     case plan(drills: [TodayDrillItem], planId: String?)
     case scheduled(ScheduledTrainingBlock)
+    case scheduledSequence([ScheduledTrainingBlock])
     case free
 
     var id: String {
         switch self {
         case .plan: return "plan"
+        case .scheduledSequence(let blocks): return "sequence:" + blocks.map { $0.scheduleItemID.uuidString }.joined(separator: ":")
         case .scheduled(let block): return "scheduled:\(block.scheduleItemID.uuidString)"
         case .free: return "free"
         }
@@ -139,7 +141,15 @@ enum TrainingMode: Identifiable {
         switch self {
         case .plan(_, let planId): return planId
         case .scheduled(let block): return block.planID
-        case .free: return nil
+        case .scheduledSequence, .free: return nil
+        }
+    }
+
+    var scheduledBlocks: [ScheduledTrainingBlock] {
+        switch self {
+        case .scheduled(let block): return [block]
+        case .scheduledSequence(let blocks): return blocks
+        default: return []
         }
     }
 }
@@ -313,6 +323,10 @@ final class ActiveTrainingViewModel: ObservableObject {
     @Published var didSaveSuccessfully: Bool = false
     @Published var showingOverview: Bool = true
 
+    // Stable identities preserve course ownership when drills are removed or appended.
+    private var scheduledDrillOwners: [UUID: UUID] = [:]
+    private var scheduledRequiredDrillIDs: [UUID: Set<UUID>] = [:]
+
     // Recording state per drill
     @Published var drillSetsData: [[DrillSetData]] = []
     @Published var drillNotes: [String] = []
@@ -329,6 +343,8 @@ final class ActiveTrainingViewModel: ObservableObject {
     private var timerTask: Task<Void, Never>?
     private var restTimer: DispatchSourceTimer?
     private var restCompletionTask: Task<Void, Never>?
+    private let restCountdownSound = RestTimerSound(resource: "countdown")
+    private let restCompleteSound = RestTimerSound(resource: "complete")
     private var pendingDrillAdvance: Int?
     private let liveActivityManager: any RestTimerLiveActivityManaging
     private let saveAction: (ModelContext) throws -> Void
@@ -441,7 +457,7 @@ final class ActiveTrainingViewModel: ObservableObject {
 
     var isPlanMode: Bool {
         switch mode {
-        case .plan, .scheduled: return true
+        case .plan, .scheduled, .scheduledSequence: return true
         case .free: return false
         }
     }
@@ -455,6 +471,8 @@ final class ActiveTrainingViewModel: ObservableObject {
             trainingTitle = "自由训练"
         case .scheduled(let block):
             trainingTitle = block.trainingTitle
+        case .scheduledSequence(let blocks):
+            trainingTitle = "连续训练 · \(blocks.count) 项"
         case .plan(_, let planID):
             trainingTitle = planID.flatMap { PlanContentService.decodePlanFromBundle(id: $0)?.nameZh } ?? "按计划训练"
         }
@@ -509,8 +527,8 @@ final class ActiveTrainingViewModel: ObservableObject {
             }
             drills = items
 
-        case .scheduled(let block):
-            drills = block.drills.map { snapshot in
+        case .scheduled, .scheduledSequence:
+            drills = mode.scheduledBlocks.flatMap(\.drills).map { snapshot in
                 ActiveDrill(
                     drillId: snapshot.drillID,
                     nameZh: snapshot.name,
@@ -531,6 +549,13 @@ final class ActiveTrainingViewModel: ObservableObject {
             // 自由模式允许进入前已预置动作（UITest deeplink / 外部注入）。
             // ⛔ 不得清空，否则与 View `.task` 竞态会抹掉预置项。
             break
+        }
+        var scheduledOffset = 0
+        for block in mode.scheduledBlocks {
+            let ids = drills[scheduledOffset..<(scheduledOffset + block.drills.count)].map(\.id)
+            scheduledRequiredDrillIDs[block.scheduleItemID] = Set(ids)
+            for id in ids { scheduledDrillOwners[id] = block.scheduleItemID }
+            scheduledOffset += block.drills.count
         }
         // 计划模式总是重建；自由模式仅在尚未建立录入行时初始化（避免抹掉 addDrill 已写入的行）。
         if case .free = mode, !drills.isEmpty, drillSetsData.count == drills.count {
@@ -624,6 +649,9 @@ final class ActiveTrainingViewModel: ObservableObject {
             standardCriteria: content.standardCriteria
         )
         drills.append(drill)
+        if let lastBlock = mode.scheduledBlocks.last {
+            scheduledDrillOwners[drill.id] = lastBlock.scheduleItemID
+        }
         drillSetsData.append(Self.makeSetData(for: drill))
         drillNotes.append("")
         drillFormations.append(formations)
@@ -874,9 +902,10 @@ final class ActiveTrainingViewModel: ObservableObject {
             guard let self, let end = self.restEndDate else { return }
             let remaining = Int(ceil(end.timeIntervalSinceNow))
             if remaining > 0 {
+                let shouldPlayCountdown = remaining <= 3 && remaining != self.restSecondsRemaining
                 self.restSecondsRemaining = remaining
-                if remaining <= 10 {
-                    AudioServicesPlaySystemSound(1057)
+                if shouldPlayCountdown {
+                    self.restCountdownSound.play()
                 }
             } else {
                 self.restSecondsRemaining = 0
@@ -893,7 +922,7 @@ final class ActiveTrainingViewModel: ObservableObject {
         restTimer = nil
         liveActivityManager.endActivity()
         liveActivityManager.deactivateBackgroundAudio()
-        AudioServicesPlaySystemSound(1005)
+        restCompleteSound.play()
         let generator = UINotificationFeedbackGenerator()
         generator.prepare()
         generator.notificationOccurred(.success)
@@ -1090,98 +1119,128 @@ final class ActiveTrainingViewModel: ObservableObject {
 
         do {
             // 训练 Tab 的正式训练一律是真实球台成绩（契约 §5.3）。
-            let scheduledItem: TodayScheduleItem?
-            if case .scheduled(let block) = mode {
+            let blocks = mode.scheduledBlocks
+            var items: [TodayScheduleItem] = []
+            for block in blocks {
                 let id = block.scheduleItemID
-                var descriptor = FetchDescriptor<TodayScheduleItem>(
-                    predicate: #Predicate { $0.id == id }
-                )
+                var descriptor = FetchDescriptor<TodayScheduleItem>(predicate: #Predicate { $0.id == id })
                 descriptor.fetchLimit = 1
                 guard let found = try context.fetch(descriptor).first,
-                      found.state == TodayScheduleItemState.pending ||
-                        found.state == TodayScheduleItemState.inProgress else {
+                      found.state == TodayScheduleItemState.pending || found.state == TodayScheduleItemState.inProgress else {
                     saveError = "今日安排已变更，请返回后重新进入"
                     return
                 }
-                scheduledItem = found
-            } else {
-                scheduledItem = nil
+                items.append(found)
             }
-            let ownerKey = scheduledItem?.schedule?.ownerKey ?? CurrentOwnerContext.shared.ownerKey
-            let session = TrainingSession(kind: "drill", ownerKey: ownerKey)
-            session.totalDurationMinutes = elapsedSeconds / 60
-            session.note = trainingNote
-            // 自由训练保持 nil；计划训练写入当前激活计划 id（W7 计划推进的判定依据）。
-            session.planId = mode.planId
-            if case .scheduled(let block) = mode {
-                session.scheduleItemId = block.scheduleItemID
-                session.sourceKind = block.sourceKind
-                session.sourceId = block.sourceID
-                session.sourceParentId = block.sourceParentID
-                session.sourceTitleSnapshot = block.sourceTitle
-                session.sourceSubtitleSnapshot = block.sourceSubtitle
-                session.sourcePayloadVersion = block.payloadVersion
-                session.sourcePayloadSnapshot = block.payloadSnapshot
-                session.progressRole = block.progressRole
-                session.lessonId = block.lessonID
+            // One UI session, one frozen provenance record per course, one atomic save.
+            let ranges: [[Int]] = blocks.count <= 1 ? [Array(drills.indices)] : blocks.map { block in
+                drills.indices.filter { scheduledDrillOwners[drills[$0].id] == block.scheduleItemID }
             }
-            // iOS 17 SwiftData 对「先把未托管对象拼成整棵关系树、再只插入根」
-            // 存在稳定的挂起/进程 trap。先逐个纳入同一 context，再设置 inverse，
-            // 同时让 iOS 17/26 都走明确、可持久化的关系路径。
-            context.insert(session)
-
-            for (drillIdx, drill) in drills.enumerated() {
-                let entry = DrillEntry(
-                    drillId: drill.drillId,
-                    drillNameZh: drill.nameZh,
-                    orderIndex: drillIdx,
-                    note: drillIdx < drillNotes.count ? drillNotes[drillIdx] : "",
-                    // 快照写入即冻结：展示层不得再回查当前内容（契约 §6.5 推论 2）。
-                    criteriaText: drill.standardCriteria
-                )
-                context.insert(entry)
-                entry.session = session
-
-                guard drillIdx < drillSetsData.count else { continue }
-                for setData in drillSetsData[drillIdx] {
-                    let drillSet = DrillSet(
-                        setNumber: setData.id,
-                        targetBalls: setData.targetBalls,
-                        madeBalls: setData.madeBalls,
-                        formationToken: setData.formationToken,
-                        formationName: setData.formationName,
-                        unitLabel: drill.unitLabel,
-                        // 内容侧尚未补机读达标线，0/0 = 未设定（D-v29-1，契约 §5.5）。
-                        passMade: 0,
-                        passTotal: 0,
-                        durationSeconds: setData.duration.map { Int($0.rounded()) }
-                    )
-                    context.insert(drillSet)
-                    drillSet.entry = entry
+            guard drills.count == drillSetsData.count else {
+                saveError = "训练内容尚未加载完成，请稍后重试"
+                return
+            }
+            let isSequence = blocks.count > 1
+            var recordedIndices = ranges.indices.filter { index in
+                !isSequence || ranges[index].contains { drillIndex in
+                    drillSetsData[drillIndex].contains { $0.isCompleted || $0.madeBalls > 0 || ($0.duration ?? 0) > 0 }
+                        || (drillNotes.indices.contains(drillIndex) && TrainingItemNote.visible(drillNotes[drillIndex]) != nil)
                 }
             }
-
-            if let scheduledItem {
-                let completedAt = Date()
-                scheduledItem.state = TodayScheduleItemState.completed
-                scheduledItem.completedAt = completedAt
-                scheduledItem.trainingSessionId = session.id
-                scheduledItem.schedule?.updatedAt = completedAt
-                let effect = try PlanProgressService.settleCompletedScheduleItem(
-                    scheduledItem, context: context, now: completedAt
-                )
-                session.setProgress(role: scheduledItem.progressRole, effect: effect.storageValue)
+            if isSequence, recordedIndices.isEmpty, elapsedSeconds > 0,
+               let timedCourse = ranges.firstIndex(where: { $0.contains(currentDrillIndex) }) {
+                recordedIndices = [timedCourse]
             }
+            var assignedMinutes = 0
+            let totalWeight = recordedIndices.reduce(0) { $0 + ranges[$1].count }
+            for index in recordedIndices {
+                let block = blocks.indices.contains(index) ? blocks[index] : nil
+                let scheduledItem = items.indices.contains(index) ? items[index] : nil
+                let range = ranges[index]
+                let ownerKey = scheduledItem?.schedule?.ownerKey ?? CurrentOwnerContext.shared.ownerKey
+                let session = TrainingSession(kind: "drill", ownerKey: ownerKey)
+                let minutes = index == recordedIndices.last ? elapsedSeconds / 60 - assignedMinutes
+                        : (elapsedSeconds / 60) * range.count / max(totalWeight, 1)
+                session.totalDurationMinutes = minutes
+                assignedMinutes += minutes
+                session.note = trainingNote
+                // 自由训练保持 nil；计划训练写入当前激活计划 id（W7 计划推进的判定依据）。
+                session.planId = block?.planID ?? mode.planId
+                if let block {
+                    session.scheduleItemId = block.scheduleItemID
+                    session.sourceKind = block.sourceKind
+                    session.sourceId = block.sourceID
+                    session.sourceParentId = block.sourceParentID
+                    session.sourceTitleSnapshot = block.sourceTitle
+                    session.sourceSubtitleSnapshot = block.sourceSubtitle
+                    session.sourcePayloadVersion = block.payloadVersion
+                    session.sourcePayloadSnapshot = block.payloadSnapshot
+                    session.progressRole = block.progressRole
+                    session.lessonId = block.lessonID
+                }
+                // iOS 17 SwiftData 对「先把未托管对象拼成整棵关系树、再只插入根」
+                // 存在稳定的挂起/进程 trap。先逐个纳入同一 context，再设置 inverse，
+                // 同时让 iOS 17/26 都走明确、可持久化的关系路径。
+                context.insert(session)
 
-            // Insert before the only save: session, schedule completion, cursor, and retry queue
-            // either all become durable or all roll back.
-            context.insert(SyncPendingItem(
-                entityType: SyncEntityType.trainingSession,
-                entityId: session.id,
-                operation: SyncOperation.create,
-                ownerKey: ownerKey
-            ))
+                for (localIndex, drillIdx) in range.enumerated() {
+                    let drill = drills[drillIdx]
+                    let entry = DrillEntry(
+                        drillId: drill.drillId,
+                        drillNameZh: drill.nameZh,
+                        orderIndex: localIndex,
+                        note: drillIdx < drillNotes.count ? drillNotes[drillIdx] : "",
+                        // 快照写入即冻结：展示层不得再回查当前内容（契约 §6.5 推论 2）。
+                        criteriaText: drill.standardCriteria
+                    )
+                    context.insert(entry)
+                    entry.session = session
 
+                    guard drillIdx < drillSetsData.count else { continue }
+                    for setData in drillSetsData[drillIdx] {
+                        let drillSet = DrillSet(
+                            setNumber: setData.id,
+                            targetBalls: setData.targetBalls,
+                            madeBalls: setData.madeBalls,
+                            formationToken: setData.formationToken,
+                            formationName: setData.formationName,
+                            unitLabel: drill.unitLabel,
+                            // 内容侧尚未补机读达标线，0/0 = 未设定（D-v29-1，契约 §5.5）。
+                            passMade: 0,
+                            passTotal: 0,
+                            durationSeconds: setData.duration.map { Int($0.rounded()) }
+                        )
+                        context.insert(drillSet)
+                        drillSet.entry = entry
+                    }
+                }
+
+                let requiredIDs = block.flatMap { scheduledRequiredDrillIDs[$0.scheduleItemID] } ?? []
+                let retainedIDs = Set(range.map { drills[$0].id })
+                let courseCompleted = !range.isEmpty && requiredIDs.isSubset(of: retainedIDs)
+                    && range.allSatisfy { !drillSetsData[$0].isEmpty && drillSetsData[$0].allSatisfy(\.isCompleted) }
+                if let scheduledItem, !isSequence || courseCompleted {
+                    let completedAt = Date()
+                    scheduledItem.state = TodayScheduleItemState.completed
+                    scheduledItem.completedAt = completedAt
+                    scheduledItem.trainingSessionId = session.id
+                    scheduledItem.schedule?.updatedAt = completedAt
+                    let effect = try PlanProgressService.settleCompletedScheduleItem(
+                        scheduledItem, context: context, now: completedAt
+                    )
+                    session.setProgress(role: scheduledItem.progressRole, effect: effect.storageValue)
+                }
+
+                // Insert before the only save: session, schedule completion, cursor, and retry queue
+                // either all become durable or all roll back.
+                context.insert(SyncPendingItem(
+                    entityType: SyncEntityType.trainingSession,
+                    entityId: session.id,
+                    operation: SyncOperation.create,
+                    ownerKey: ownerKey
+                ))
+
+            }
             try saveAction(context)
 
             didSaveSuccessfully = true
@@ -1204,6 +1263,38 @@ private extension PlanProgressEffect {
         case .none: return "none"
         case .advanced(let count): return "advanced:\(count)"
         case .completed: return "completed"
+        }
+    }
+}
+
+/// Bundled, user-selected warm electronic cues; release system sound handles with the model.
+private final class RestTimerSound {
+    private var soundID: SystemSoundID?
+
+    init(resource: String) {
+        guard let url = Bundle.main.url(
+            forResource: resource, withExtension: "wav", subdirectory: "Audio/RestTimer"
+        ) else {
+            print("[RestTimerSound] Missing resource: Audio/RestTimer/\(resource).wav")
+            return
+        }
+        var identifier: SystemSoundID = 0
+        let status = AudioServicesCreateSystemSoundID(url as CFURL, &identifier)
+        guard status == kAudioServicesNoError else {
+            print("[RestTimerSound] Failed to load \(resource).wav: OSStatus \(status)")
+            return
+        }
+        soundID = identifier
+    }
+
+    func play() {
+        guard let soundID else { return }
+        AudioServicesPlaySystemSound(soundID)
+    }
+
+    deinit {
+        if let soundID {
+            AudioServicesDisposeSystemSoundID(soundID)
         }
     }
 }

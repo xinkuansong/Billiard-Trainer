@@ -23,6 +23,8 @@ final class GeometricAngleViewModel: ObservableObject {
         let actualAngle: Double
         let userAngle: Double
         let error: Double
+
+        var rating: ErrorRating { ErrorRating(error: error) }
     }
 
     // MARK: - Dependencies
@@ -117,14 +119,17 @@ final class GeometricAngleViewModel: ObservableObject {
     }
 
     var lastErrorRating: ErrorRating {
-        guard let last = sessionResults.last else { return .accurate }
-        if last.error <= 3 { return .accurate }
-        if last.error <= 10 { return .close }
-        return .off
+        sessionResults.last?.rating ?? .accurate
     }
 
     enum ErrorRating {
         case accurate, close, off
+
+        init(error: Double) {
+            if error <= 3 { self = .accurate }
+            else if error <= 10 { self = .close }
+            else { self = .off }
+        }
         var label: String {
             switch self { case .accurate: "精准"; case .close: "接近"; case .off: "偏差较大" }
         }

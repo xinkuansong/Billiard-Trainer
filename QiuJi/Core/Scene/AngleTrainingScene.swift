@@ -1,5 +1,6 @@
 import SceneKit
 import simd
+import os
 
 /// SceneKit scene for angle training: loads the USDZ table model,
 /// manages camera (2D/3D), lighting, USDZ ball nodes, and cue stick.
@@ -15,6 +16,8 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Properties
 
+    private var leatherMarkers: [PocketLeatherMarker] = []
+    private(set) var pocketLeatherFailure: String?
     private(set) var tableNode: SCNNode?
     private(set) var cameraNode: SCNNode!
     private(set) var cameraRig: CameraRig?
@@ -45,14 +48,11 @@ final class AngleTrainingScene: SCNScene {
 
     private(set) var modelCueStickNode: SCNNode?
     private(set) var cueStick: CueStick?
-    /// Only the angle quiz opts in; observing yaw is its current sight direction.
-    var auxiliaryCueFollowsCamera = false
-
-    func updateAuxiliaryCue() {
-        guard auxiliaryCueFollowsCamera,
-              currentCameraMode == .perspective3D,
-              let cue = cueBallNode, let rig = cameraRig else { return }
-        let direction = rig.aimDirectionForCurrentYaw()
+    /// Place the quiz assist cue along the displayed shot, independently of the camera.
+    /// The same world-space direction is used in both top-down and perspective modes.
+    func showAuxiliaryCue() {
+        guard let cue = cueBallNode, let ghost = ghostBallNode, !ghost.isHidden else { return }
+        let direction = unitXZ(from: cue.position, to: ghost.position)
         updateCueStick(cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: direction, spinX: 0),
                        aimDirection: direction)
     }
@@ -112,7 +112,10 @@ final class AngleTrainingScene: SCNScene {
     // MARK: - Table
 
     private func setupTable() {
-        guard let model = TableModelLoader.loadTable() else { return }
+        guard let model = TableModelLoader.loadTable() else {
+            pocketLeatherFailure = "Table model could not be loaded; see TableModelLoader log"
+            return
+        }
 
         surfaceY = model.surfaceY
         let tableHeight = BTTablePhysics.surfaceY
@@ -120,6 +123,9 @@ final class AngleTrainingScene: SCNScene {
         model.visualNode.position.y += yOffset
         surfaceY = tableHeight
 
+        tableNode?.removeFromParentNode()
+        leatherMarkers.removeAll()
+        pocketLeatherFailure = nil
         rootNode.addChildNode(model.visualNode)
         tableNode = model.visualNode
         modelCueStickNode = model.cueStickNode
@@ -405,7 +411,6 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func hideCueStick() {
-        auxiliaryCueFollowsCamera = false
         cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         cueStick?.hide()
     }
@@ -1292,81 +1297,66 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Pocket Markers (leather cut-out overlays)
 
-    /// Add 6 pocket-marker overlays as flat smooth circles centered on each pocket's hole.
-    ///
-    /// 圆心 / 半径直接取自 `AngleSceneCalculator`（基于台球桌几何尺寸 + 球桌中心 + 袋口大小
-    /// 的解析公式，源自 `.kiro/steering/table-geometry.md` 唯一事实来源）：
-    /// - 角袋中心：击球区角点沿对角线外侧 42mm；半径 42mm
-    /// - 中袋中心：击球区长边外侧 53mm；       半径 43mm
-    ///
-    /// 不再尝试从 USDZ 网格反推袋口洞中心——纯几何参数更稳定也更可预期。
-    /// 圆盘禁用深度测试 + 高 renderingOrder，永远画在桌面/皮革之上，不会被遮挡。
+    /// Idempotent handles for the six original leather regions. No overlay covers a hole.
     func addPocketMarkers() -> [SCNNode] {
-        let positions = AngleSceneCalculator.pocketMarkerPositions(surfaceY: surfaceY)
-
-        var markers: [SCNNode] = []
-        markers.reserveCapacity(positions.count)
-        for (index, p) in positions.enumerated() {
-            let center = CGPoint(x: CGFloat(p.x), y: CGFloat(p.z))
-            let radius = AngleSceneCalculator.pocketMarkerRadius(index: index)
-            markers.append(makePocketMarkerCircle(at: center, radius: radius, index: index))
+        if !leatherMarkers.isEmpty { return leatherMarkers }
+        guard let tableNode else { return [] }
+        do {
+            let extraction = try PocketLeatherMesh.cachedExtraction(from: tableNode,
+                centers: AngleSceneCalculator.pocketPositions(surfaceY: surfaceY))
+            let prepared = try extraction.parts.sorted { $0.index < $1.index }.map {
+                ($0.parent, try PocketLeatherMarker(index: $0.index, geometry: $0.geometry))
+            }
+            // Commit only after all six regions and every material variant were prepared.
+            for replacement in extraction.replacements { replacement.node.geometry = replacement.geometry }
+            for (parent, marker) in prepared { parent.addChildNode(marker) }
+            leatherMarkers = prepared.map { $0.1 }
+            pocketLeatherFailure = nil
+            return leatherMarkers
+        } catch {
+            pocketLeatherFailure = String(describing: error)
+            Logger(subsystem: "com.qiuji", category: "PocketLeather").error("Cannot prepare leather; keeping original model: \(String(describing: error), privacy: .public)")
+            return []
         }
-        return markers
     }
 
-    /// Build a flat smooth-circle disc lying on the table at `center`, covering the pocket opening.
-    /// 用 SCNPlane + cornerRadius=半径 + 高 cornerSegmentCount 得到真正平滑的圆。
-    /// 关键：关闭 reads/writes depth + 高 renderingOrder，使圆盘永远绘制在皮革几何之上，
-    /// 不再出现"半圆被遮挡"的情况。
-    private func makePocketMarkerCircle(at center: CGPoint, radius: Float, index: Int) -> SCNNode {
-        let side = CGFloat(radius * 2)
-        let plane = SCNPlane(width: side, height: side)
-        plane.cornerRadius = CGFloat(radius)   // = side / 2 → 完整圆
-        plane.cornerSegmentCount = 48          // 圆周分段数，足够平滑
-
-        let material = SCNMaterial()
-        // 高亮材质只在节点尚未交给 renderer 时配置一次。iOS 17 的 SceneKit
-        // 会在 render thread 读取 SCNMaterial；运行中改 diffuse / emission
-        // 曾在 iPad mini 上触发 C3DSceneLock EXC_BAD_ACCESS。未选中态改由
-        // node.isHidden 控制，避免与渲染线程并发修改材质属性。
-        material.diffuse.contents = UIColor(red: 1.0, green: 0.40, blue: 0.42, alpha: 0.55)
-        material.emission.contents = UIColor(red: 0.55, green: 0.12, blue: 0.14, alpha: 1)
-        material.lightingModel = .constant
-        material.isDoubleSided = true
-        material.writesToDepthBuffer = false
-        material.readsFromDepthBuffer = false         // 永远绘制在最上层，不被皮革挡
-        plane.materials = [material]
-
-        let node = SCNNode(geometry: plane)
-        node.name = "pocketMarker_\(index)"
-        // Y 抬高一些（5mm）以防 SceneKit 在某些视角下仍出现轻微 Z-fighting；
-        // 由于关闭了深度读，这里的 Y 主要起到点击 hit-test 的作用。
-        node.position = SCNVector3(Float(center.x), surfaceY + 0.005, Float(center.y))
-        // SCNPlane 默认躺在 XY 平面（垂直于 +Z），绕 X 轴 -π/2 后落到 XZ 平面上、面朝 +Y。
-        node.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
-        node.renderingOrder = 1000
-        node.isHidden = true
-        rootNode.addChildNode(node)
-        return node
-    }
-
-    enum PocketHighlight {
-        case selected, viable, infeasible
-    }
+    enum PocketHighlight { case selected, viable, infeasible }
 
     func highlightPocket(_ node: SCNNode, highlighted: Bool) {
         setPocketHighlight(node, style: highlighted ? .selected : .viable)
     }
 
     func setPocketHighlight(_ node: SCNNode, style: PocketHighlight) {
-        switch style {
-        case .selected:
-            node.isHidden = false
-        case .viable, .infeasible:
-            // 未选中的袋口（无论可行/不可行）一律不绘制叠加层，
-            // 让球桌原本的袋口外观保持自然，避免在桌面上残留红/暗色阴影。
-            node.isHidden = true
+        guard let marker = node as? PocketLeatherMarker else { return }
+        marker.show(style == .selected ? .target : .original)
+    }
+
+    /// Explicit dual-role state; equal indices show both roles on the same leather.
+    func setPocketRoles(first: Int?, second: Int?) {
+        for marker in leatherMarkers {
+            let isFirst = first == marker.pocketIndex
+            let isSecond = second == marker.pocketIndex
+            marker.show(isFirst && isSecond ? .bothRoles : isFirst ? .firstRole : isSecond ? .secondRole : .original)
         }
+    }
+
+    var pocketSelectionDescription: String {
+        let selected = leatherMarkers.filter { $0.style != .original }.map { marker in
+            let role: String
+            switch marker.style {
+            case .original: role = ""
+            case .target: role = "目标"
+            case .firstRole: role = "①目标"
+            case .secondRole: role = "②目标"
+            case .bothRoles: role = "①②共同目标"
+            }
+            return "\(marker.pocketIndex + 1)号袋：\(role)"
+        }
+        return selected.isEmpty ? "未选择目标袋" : selected.joined(separator: "，")
+    }
+
+    func clearPocketHighlights() {
+        for marker in leatherMarkers { marker.show(.original) }
     }
 
     // MARK: - Cleanup
@@ -1504,7 +1494,16 @@ final class AngleTrainingScene: SCNScene {
         tableGridNode = grid
     }
 
+    private var usesTrainingAssistStyle = false
+
+    private var visualizationPotColor: UIColor {
+        usesTrainingAssistStyle
+            ? TrajectoryStyle.TrainingAssist.potColor(forNumber: currentTargetNumber)
+            : TrajectoryStyle.potColor(forNumber: currentTargetNumber)
+    }
+
     func setupVisualizationNodes(usesTrainingAssistStyle: Bool = false) {
+        self.usesTrainingAssistStyle = usesTrainingAssistStyle
         let r = AngleSceneCalculator.ballRadius
 
         // DR-121: angle quizzes use a translucent full-size ball. Other consumers
@@ -1723,9 +1722,8 @@ final class AngleTrainingScene: SCNScene {
             targetBall.z - pocketDir.z * reverseLen
         )
         updateLineNode(pocketLineNode, from: pocket, to: pocketLineEnd)
-        // 进球线绑定目标球本色（黑 8 取亮灰变体）；虚线由条纹纹理呈现，色走 multiply。
-        pocketLineNode?.geometry?.firstMaterial?.multiply.contents =
-            TrajectoryStyle.potColor(forNumber: currentTargetNumber)
+        // Training green-ball guides use white for contrast; other consumers retain ball colors.
+        pocketLineNode?.geometry?.firstMaterial?.multiply.contents = visualizationPotColor
         pocketLineNode?.isHidden = false
 
         let strikeEnd = extendStrikeLineToRail
@@ -1916,9 +1914,9 @@ final class AngleTrainingScene: SCNScene {
             addInlineLineLabel(text: "瞄准线", color: .white,
                                lineStart: cueBall, lineEnd: ghost,
                                tParam: strikeLabelT, sideOffset: lineLabelOffset)
-            // 标签随进球线同色（T-P18-41：进球线绑定目标球本色）。
+            // The label follows the same contrast policy as its line.
             addInlineLineLabel(text: "进球线",
-                               color: TrajectoryStyle.potColor(forNumber: currentTargetNumber),
+                               color: visualizationPotColor,
                                lineStart: targetBall, lineEnd: pocket,
                                tParam: pocketLabelT, sideOffset: lineLabelOffset)
         }

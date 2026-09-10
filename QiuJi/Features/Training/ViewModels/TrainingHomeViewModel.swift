@@ -123,7 +123,7 @@ struct TodayTrainingProjection {
         }
         var sessionIDs = Set<UUID>()
         let owned = sessions.filter {
-            $0.ownerKey == ownerKey && $0.kind == TrainingSessionKind.drill && sessionIDs.insert($0.id).inserted
+            $0.ownerKey == ownerKey && $0.kind == TrainingSessionKind.drill && !$0.isManualTraining && sessionIDs.insert($0.id).inserted
         }
         let queued = items.map { item -> QueuedLesson in
             do {
@@ -131,7 +131,12 @@ struct TodayTrainingProjection {
                 let block = try ScheduledTrainingBlock(item: item)
                 guard !block.drills.isEmpty else { throw ScheduledTrainingBlock.DecodeError.invalidPayload }
                 let saved = owned.filter {
-                    $0.scheduleItemId == item.id || $0.id == item.trainingSessionId
+                    // Earlier partial records remain in history, but only the final
+                    // completion record contributes to this course's action count.
+                    if item.state == TodayScheduleItemState.completed, let finalID = item.trainingSessionId {
+                        return $0.id == finalID
+                    }
+                    return $0.scheduleItemId == item.id || $0.id == item.trainingSessionId
                 }
                 let entries = uniqueEntries(in: saved)
                 var remaining = Dictionary(grouping: entries, by: \.drillId).mapValues(\.count)
@@ -183,7 +188,7 @@ struct TodayTrainingProjection {
         calendar.timeZone = timeZone
         var seen = Set<UUID>()
         let free = sessions.filter {
-            $0.ownerKey == ownerKey && $0.kind == TrainingSessionKind.drill
+            $0.ownerKey == ownerKey && $0.kind == TrainingSessionKind.drill && !$0.isManualTraining
                 && !$0.drillEntries.isEmpty
                 && ($0.sourceKind == TodayScheduleSourceKind.libraryDrill
                     || ($0.sourceKind == nil && $0.planId == nil))
@@ -465,7 +470,7 @@ final class TrainingHomeViewModel: ObservableObject {
 
         let sessions = try context.fetch(descriptor)
         var entryIDs = Set<UUID>()
-        let entries = sessions.filter { $0.kind == TrainingSessionKind.drill && $0.planId == planId && $0.lessonId == lessonID }
+        let entries = sessions.filter { $0.kind == TrainingSessionKind.drill && !$0.isManualTraining && $0.planId == planId && $0.lessonId == lessonID }
             .flatMap(\.drillEntries).filter { entryIDs.insert($0.id).inserted }
         return Dictionary(grouping: entries, by: \.drillId).mapValues(\.count)
     }

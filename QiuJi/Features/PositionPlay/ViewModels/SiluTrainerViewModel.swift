@@ -40,8 +40,8 @@ final class SiluTrainerViewModel: ObservableObject {
     // MARK: - Published board / selection
 
     @Published private(set) var onTableKeys: [String] = []
-    @Published private(set) var selectedTargetKey: String?
-    @Published var selectedPocketIndex: Int = -1
+    @Published private(set) var selectedTargetKey: String? { didSet { updatePocketHighlights() } }
+    @Published var selectedPocketIndex: Int = -1 { didSet { updatePocketHighlights() } }
 
     var paletteKeys: [String] {
         PositionPlayBall.allKeys.filter { !onTableKeys.contains($0) }
@@ -361,7 +361,8 @@ final class SiluTrainerViewModel: ObservableObject {
 
     private func updatePocketHighlights() {
         for (i, marker) in pocketMarkers.enumerated() {
-            scene.setPocketHighlight(marker, style: i == selectedPocketIndex ? .selected : .viable)
+            let targetVisible = selectedTargetKey.flatMap { scene.allBallNodes[$0] }.map { !$0.isHidden } ?? false
+            scene.setPocketHighlight(marker, style: !isBreakMode && targetVisible && i == selectedPocketIndex ? .selected : .viable)
         }
     }
 
@@ -1114,7 +1115,7 @@ final class SiluTrainerViewModel: ObservableObject {
     // MARK: - Break flow（T-P18-47：内置开球，替代球形生成器页）
 
     /// 开球模式 runner。非 nil = 开球模式：约束/求解/摆球交互全部挂起。
-    @Published private(set) var breakRunner: BreakFlowRunner?
+    @Published private(set) var breakRunner: BreakFlowRunner? { didSet { updatePocketHighlights() } }
     var isBreakMode: Bool { breakRunner != nil }
     private var boardBeforeBreak: BoardSnapshot?
     private var breakChangeForwarder: AnyCancellable?

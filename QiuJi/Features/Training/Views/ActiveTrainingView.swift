@@ -369,7 +369,7 @@ struct ActiveTrainingView: View {
                         .accessibilityIdentifier("activeTraining.title")
                         .font(.btHeadline)
                         .foregroundStyle(.btText)
-                    if !viewModel.currentSetProgressText.isEmpty {
+                    if !viewModel.showingOverview && !viewModel.currentSetProgressText.isEmpty {
                         Text(viewModel.currentSetProgressText)
                             .font(.btSubheadlineMedium)
                             .foregroundStyle(.btPrimary)
@@ -378,17 +378,22 @@ struct ActiveTrainingView: View {
                     }
                 }
                 Spacer()
-                // F-AT-10: weak page position (does not change TabView binding)
-                if viewModel.drills.count > 1 {
-                    Text("\(viewModel.currentDrillIndex + 1) / \(viewModel.drills.count)")
+                // Overview describes the whole session; drill pages retain their position.
+                if viewModel.showingOverview || viewModel.drills.count > 1 {
+                    Text(viewModel.showingOverview
+                         ? "共 \(viewModel.drills.count) 项"
+                         : "\(viewModel.currentDrillIndex + 1) / \(viewModel.drills.count)")
                         .font(.btCaption2)
                         .foregroundStyle(.white)
                         .monospacedDigit()
+                        .fixedSize()
                         .padding(.horizontal, Spacing.sm)
                         .padding(.vertical, Spacing.xs)
                         .background(Color.btPrimary)
                         .clipShape(Capsule())
-                        .accessibilityLabel("第 \(viewModel.currentDrillIndex + 1) 项，共 \(viewModel.drills.count) 项")
+                        .accessibilityLabel(viewModel.showingOverview
+                            ? "共 \(viewModel.drills.count) 项"
+                            : "第 \(viewModel.currentDrillIndex + 1) 项，共 \(viewModel.drills.count) 项")
                 }
             }
             .padding(.horizontal, Spacing.lg)

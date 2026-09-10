@@ -135,6 +135,10 @@ struct MainTabView: View {
     @ViewBuilder
     private func trainingDestination(for route: TrainingRoute) -> some View {
         switch route {
+        case .notes: TrainingNotesView(ownerKey: ownerKey)
+        case .manualTraining: ManualTrainingView(ownerKey: ownerKey)
+        case .reminder: TrainingReminderView()
+        case .help: TrainingHelpView(ownerKey: ownerKey)
         case .dailyClearance:
             FreePlayView(entryMode: .dailyClearance)
         case .planList:
