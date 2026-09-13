@@ -453,14 +453,45 @@ extension BreakFlowRunnerV6Tests {
             cuePosition: SCNVector3(0.635, 0.828575, 0),
             aimDirection: SCNVector3(-1, 0, -1.4691563e-05),
             power: 6, spinX: 0, spinY: 0, simulationModel: .spatialPockets)
-        // W17-A: collection tails are a spatial-solver artefact; the default planar break
-        // gets its pocket presentation from W17-B/D, which must add its own default-path assertion.
+        // W17-A: this run opts into the spatial solver for its collection tails; the default
+        // planar break's net tails are covered by `testRecordedBreakDefaultPathAttachesNetTails`.
         print("[W09 recorded break] elapsed=\(CFAbsoluteTimeGetCurrent() - start)s termination=\(result.termination) duration=\(result.recorder.duration)")
         XCTAssertEqual(result.termination, .settled)
         XCTAssertEqual(result.board.onTable.count + result.pocketed.count, 16)
         for key in result.pocketed {
             XCTAssertNotNil(result.recorder.collectionTailsByBallName[key])
         }
+    }
+
+    /// W17-D: on the default (planar) model every potted ball gets a deterministic net tail
+    /// once a playback is built; nets hold `netCapacity` balls, older ones are evicted FIFO.
+    func testRecordedBreakDefaultPathAttachesNetTails() throws {
+        let rack = RackLayout.make(.chineseEightBall,
+            seed: 844924979980821639, surfaceY: 0.8)
+        let result = BreakSimulator.breakShot(rack: rack,
+            cuePosition: SCNVector3(0.635, 0.828575, 0),
+            aimDirection: SCNVector3(-1, 0, -1.4691563e-05),
+            power: 6, spinX: 0, spinY: 0)
+        XCTAssertEqual(result.termination, .settled)
+        XCTAssertTrue(result.recorder.confirmedCaptures.isEmpty, "default path must not run bag physics")
+        XCTAssertEqual(Set(result.pocketed), Set(result.recorder.pocketEntries.map(\.ball.name)))
+        XCTAssertTrue(result.recorder.collectionTailsByBallName.isEmpty, "tails are presentation, attached by playback")
+        let playback = TrajectoryPlayback(recorder: result.recorder, surfaceY: 0.828575)
+        for key in result.pocketed {
+            let tail = try XCTUnwrap(result.recorder.collectionTailsByBallName[key], key)
+            XCTAssertNotNil(tail.samples)
+            XCTAssertEqual(tail.end.velocity, .zero)
+            XCTAssertNotNil(playback.collectionOpacity(ballName: key, time: 0))
+        }
+        // No pocket keeps more visible balls than its capacity.
+        var visibleByPocket: [String: Int] = [:]
+        for entry in result.recorder.pocketEntries where result.recorder.collectionTailsByBallName[entry.ball.name]?.fadeStart == nil {
+            visibleByPocket[entry.pocketID, default: 0] += 1
+        }
+        for (pocket, count) in visibleByPocket {
+            XCTAssertLessThanOrEqual(count, PocketNetPresentation.netCapacity, pocket)
+        }
+        print("[W17-D recorded break] pocketed=\(result.pocketed) visibleByPocket=\(visibleByPocket)")
     }
 
     func testNineBallBreakCompletesWithLocalPockets() {

@@ -78,6 +78,13 @@ struct PocketCollectionTail {
     let start:LocalPocketSimulation.State
     let end:LocalPocketSimulation.State
     let gravity:Double
+    /// W17-D scripted descent: dense time-ordered samples (linear interpolation between
+    /// them). `nil` = the original single free-fall parabola to `end`.
+    let samples:[LocalPocketSimulation.State]?
+    /// Shot time at which the visual fade begins. `nil` = the ball stays visible where it
+    /// rests (pocket net). Spatial tails default to `end.time + pocketPauseDuration` in
+    /// `TrajectoryPlayback`; planar net tails set it only when evicted (FIFO overflow).
+    let fadeStart:Double?
     enum Failure:Error { case invalidInput }
 
     init(start:LocalPocketSimulation.State,restingCenterY:Double,gravity:Double) throws {
@@ -90,11 +97,36 @@ struct PocketCollectionTail {
         position.y=restingCenterY
         self.start=start;self.gravity=gravity
         self.end = .init(time:start.time+dt,position:position,velocity:.zero,omega:.zero)
+        self.samples=nil;self.fadeStart=nil
+    }
+
+    /// Sampled tail (W17-D). `samples` must be finite, time-ordered (strictly increasing)
+    /// and hold at least two entries; the last sample is the resting state.
+    init(samples:[LocalPocketSimulation.State],gravity:Double,fadeStart:Double?=nil) throws {
+        guard gravity>0,gravity.isFinite,samples.count>=2,
+              samples.allSatisfy({ s in s.time.isFinite && s.time>=0 &&
+                  [s.position,s.velocity,s.omega].allSatisfy({$0.x.isFinite && $0.y.isFinite && $0.z.isFinite}) }),
+              zip(samples,samples.dropFirst()).allSatisfy({ $0.time<$1.time }),
+              fadeStart.map({ $0.isFinite && $0>=samples[0].time }) ?? true else { throw Failure.invalidInput }
+        self.start=samples[0];self.end=samples[samples.count-1];self.gravity=gravity
+        self.samples=samples;self.fadeStart=fadeStart
     }
 
     func sample(at time:Double)->LocalPocketSimulation.State? {
         guard time.isFinite,time>=start.time else { return nil }
         if time>=end.time { var terminal=end;terminal.time=time;return terminal }
+        if let samples {
+            // Binary search for the last sample at or before `time`.
+            var lo=0,hi=samples.count-1
+            while lo<hi { let mid=(lo+hi+1)/2; if samples[mid].time<=time { lo=mid } else { hi=mid-1 } }
+            let a=samples[lo],b=samples[min(lo+1,samples.count-1)]
+            let span=b.time-a.time
+            let u:Double=span>0 ? (time-a.time)/span : 0
+            let position:V=a.position+(b.position-a.position)*u
+            let velocity:V=a.velocity+(b.velocity-a.velocity)*u
+            let omega:V=a.omega+(b.omega-a.omega)*u
+            return .init(time:time,position:position,velocity:velocity,omega:omega)
+        }
         let dt=time-start.time,a=V(0,-gravity,0)
         return .init(time:time,position:start.position+start.velocity*dt+a*(0.5*dt*dt),
                      velocity:start.velocity+a*dt,omega:start.omega)
@@ -117,6 +149,18 @@ final class TrajectoryRecorder {
         guard let capture=capturesByBall[ballName],capture.state.time==tail.start.time,
               capture.state.position==tail.start.position,capture.state.velocity==tail.start.velocity,
               capture.state.omega==tail.start.omega else { throw CaptureFailure.invalidRecord }
+        collectionTailsByBallName[ballName]=tail
+    }
+    /// W17-D: presentation tail for a ball whose pot verdict came from the planar drop
+    /// circle (`pocketEntries`). The tail must start exactly at that entry's snapshot;
+    /// it never changes the verdict. Replacing an existing planar tail is allowed so the
+    /// net queue can append a shift / eviction; a spatial (confirmed-capture) tail cannot
+    /// be overwritten.
+    func recordPlanarCollectionTail(ballName:String,tail:PocketCollectionTail) throws {
+        guard capturesByBall[ballName]==nil,
+              let entry=pocketEntries.last(where:{ $0.ball.name==ballName }),
+              abs(Double(entry.time)-tail.start.time)<=Double(entry.time.ulp)*8,
+              tail.start.position.y.isFinite else { throw CaptureFailure.invalidRecord }
         collectionTailsByBallName[ballName]=tail
     }
     func spatialStateAt(ballName:String,time:Double)->LocalPocketSimulation.State? {
@@ -1526,7 +1570,14 @@ struct LocalPocketSimulation {
                 // acceleration residual; a fixed threshold can be unattainable.
                 let velocityRoundoff=64*Double.ulpOfOne*max(1,length(s.velocity),radius*length(s.omega))
                 let motionRoundoff=velocityRoundoff/(dt*forceScale)
-                if motionResidual<max(1e-10,motionRoundoff) && 0.5*constraintResidual*convergenceHorizon*convergenceHorizon<=tolerance {
+                // The constraint residual carries the same v/dt operands (normal rate and
+                // slip), so its attainable floor is the velocity roundoff over dt as well
+                // (DR-279 / DR-295). A clock-sliver step (dt ~ 1e-15 s from absolute-time
+                // subtraction) otherwise reports a residual of several m/s² that is pure
+                // roundoff: no physical motion is resolvable in such a step.
+                let constraintRoundoff=velocityRoundoff/dt
+                let resolvedConstraint=max(0,constraintResidual-constraintRoundoff)
+                if motionResidual<max(1e-10,motionRoundoff) && 0.5*resolvedConstraint*convergenceHorizon*convergenceHorizon<=tolerance {
                     forceConverged=true;break
                 }
             }
@@ -1534,8 +1585,9 @@ struct LocalPocketSimulation {
             // observable motion and feasible constraints meet the requested
             // accuracy. Preserve the strict solve first, then check both errors
             // in metres rather than failing solely on a relative force delta.
+            let lastConstraintRoundoff=64*Double.ulpOfOne*max(1,length(s.velocity),radius*length(s.omega))/dt
             if !forceConverged,motionDisplacementResidual<=tolerance,
-               0.5*lastConstraintResidual*convergenceHorizon*convergenceHorizon<=tolerance {
+               0.5*max(0,lastConstraintResidual-lastConstraintRoundoff)*convergenceHorizon*convergenceHorizon<=tolerance {
                 forceConverged=true
             }
             guard forceConverged else {

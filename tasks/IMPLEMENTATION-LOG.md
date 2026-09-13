@@ -3761,3 +3761,19 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
 - 变更：`EventDrivenEngine.SimulationModel.appDefault = .planarReference`；原策略保留为显式 `spatialPockets`。`EventDrivenEngine.simulate` 循环退出前补评早停判据（纯自旋尾段跨过 maxTime 时循环内检查永不触发，scoring-only 误报 `.timeLimit`）。14 条测试改显式模型 / 6 条改写为新契约 / 1 条按 DR-292 结果更新前提，清单与逐条依据见 `tasks/3d-v63/W17-working.md`。
 - 验证：w17a-regression-r2 83 项 0 失败（切默认后原 5 失败逐条归因处理）；w17a-injection-r2 改写 6 条通过 1 skip；性能 A/B 单杆 204→4 ms、满台 6898→27 ms、斯诺克 7.51→0.63 s、翻袋最坏 1.763→0.062 s（`output/3d-v63/W17/perf-spatial-baseline.log` vs `w17a-injection-r1.log`）。w17a-full-r1 另有 20 条既有失败经 A/B 与历史日志核实与本次无关，逐条留证于 W17-working，不闭合、不归因给 W17-A/DR-292。
 - 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-14；问题集合_v63.md v63.14；tasks/3d-v63/W17-working.md、README.md；tasks/UI-IMPLEMENTATION-SPEC.md Changelog（无 UI API 变更；进袋回放暂回 pre-v63 视觉腿，待 W17-B/D）。
+
+
+## DR-294 — 平面判进后的脚本化网兜落位（2026-09-14，W17-B/D）
+- 动机：用户要求「球进袋后有完整轨迹、最后停在袋口支架中」并选定确定性落位 + 超容量先进先出。方案 v63.13 W17-B 原写「判进后跑 ≤0.3 s `LocalPocketSimulation`」，实施改为脚本（偏离已在方案批次表与 W17-working 声明）：①空间求解器袋底+内衬双接触 `supportConvergence` 停滞未闭合，正是下落段末态；②平面默认下 App 不再加载 USDZ 资产（首载 ~2 s）；③脚本天然实时/导出同源且确定性。
+- 变更：新增 `PocketNetPresentation.swift`（`PocketNetProfile` 角/中袋 4 环剖面 + 静止深度，全部来自 `PocketGeometryAsset` 探测 `bag-probe.log`；`NetPocket.wall/slots`；`descent` 240 Hz 步进用 `TablePhysics.gravity` / `pocketLinerRestitution=0` / `pocketLinerRetention=0.4`；容量 2、FIFO 淘汰置 `fadeStart`、其余下移）。`PocketCollectionTail` 增 `samples`/`fadeStart`；`TrajectoryRecorder.recordPlanarCollectionTail`（须有 `pocketEntries`、无 `confirmedCaptures`、起点时刻一致）；`TrajectoryPlayback.init` 幂等挂尾，`collectionOpacity` 网兜球恒 1，仅淡出球 `removeFromParentNode`。
+- 坐标陷阱：`TrajectoryPlayback.surfaceY` 是球心平面（调用点传 `yLevel = surfaceY+R`），首版据此算落位差一个 R，被端到端用例（y 0.7259 vs 0.6973）抓出；改为读 `PocketEntrySnapshot.geometry.pockets[].center.y`（台呢面）。已回写 `geometry-spatial-reasoning` 技能。
+- 验证：`net-r2.log` 7/7；`w17bd-r2.log` 41 项 0 失败（含补回的三处默认路径呈现断言与新开球用例）；剖面常量由 `testProfileMatchesBundledBagEnvelope` 对 24 环门禁（轴 3 mm / 半径 4 mm / 网口与静止高 0.5 mm）；出图自检三例（未入库）。
+- 未做：跨杆保留（页面层 8 处 `isHidden`）、W03 裁剪例外截图、用户实看样片、真机目测。
+- 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-15；问题集合_v63.md v63.15、§5.5、§10；tasks/3d-v63/W17-working.md、README.md；.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-294；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-295 — 支撑求解约束残差的舍入下界须含 v/dt 操作数（2026-09-14，W17 附带）
+- 根因：`LocalPocketSimulation.integrate` 支撑迭代的 `constraintResidual` 含 `dot(v,n)/dt` 与 `slipT/dt`，但收敛判据只给 `motionResidual` 设了 `velocityRoundoff/(dt·forceScale)` 下界（DR-279）。绝对时钟相减产生的 dt≈1e-15 s 「时钟碎片步」上，速度舍入 ÷ dt 变成数 m/s² 的伪残差（w17a-full-r1：6.78 / 0.107 / 0.00116 m/s²，与 64·ulp·|v|/dt 量级一致），3 条 `PocketGeometryV63Tests` 因此 `supportConvergence`。
+- 变更：两处收敛判据改用 `max(0, constraintResidual − velocityRoundoff/dt)`。不改 tolerance、不改迭代，不影响 dt 正常步（dt=2.4e-4 时下界 ~6e-11 m/s²）。
+- 验证：`w17bd-r1.log` 该舍入族 3 条消失，`testBagMotionConvergesAcrossEnvelopeResolutions` 首次通过；dt≈2.4e-4 / 1.6e-8 的真实停滞族（残差 3–5e-6 m/s²，4 条）**仍失败**，为既有求解器停滞，未归因、不闭合。碎片步的上游来源（Float/Double 时钟差）未定位。
+- 已应用至：tasks/3d-v63/W17-working.md；.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-279 补注。
+

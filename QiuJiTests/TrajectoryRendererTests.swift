@@ -150,6 +150,43 @@ final class TableAssistSurfaceV63Tests: XCTestCase {
         try capture("projected")
     }
 
+    // TEMP-DIAG (to be removed): footprint hole / overlap census.
+    func testTempFootprintCoverageCensus() throws {
+        let scene = AngleTrainingScene(); scene.setupScene()
+        let surface = try TableAssistSurface.load(from: scene)
+        func contains(_ t: [Point], _ p: Point) -> Bool {
+            func cross(_ a: Point, _ b: Point) -> Double { a.x*b.y - a.y*b.x }
+            let d0 = cross(t[1]-t[0], p-t[0]), d1 = cross(t[2]-t[1], p-t[1]), d2 = cross(t[0]-t[2], p-t[2])
+            return (d0 >= 0 && d1 >= 0 && d2 >= 0) || (d0 <= 0 && d1 <= 0 && d2 <= 0)
+        }
+        var holes: [[Double]] = [], overlaps: [[Double]] = []
+        let step = 0.01
+        var x = -1.22
+        while x <= 1.22 {
+            var z = -0.585
+            while z <= 0.585 {
+                let p = Point(x, z)
+                let n = surface.triangles.filter { contains($0, p) }.count
+                if n == 0 { holes.append([x, z]) } else if n > 1 { overlaps.append([x, z, Double(n)]) }
+                z += step
+            }
+            x += step
+        }
+        let probe = Point(0.92, -0.50)
+        let probeCount = surface.triangles.filter { contains($0, probe) }.count
+        let ribbon = surface.ribbon(from: SCNVector3(0, 0, 0), to: SCNVector3(1.27, 0, -0.635),
+                                    width: 0.0056, at: surface.sourceY + 0.001)
+        let report: [String: Any] = [
+            "triangleCount": surface.triangles.count, "holeCount": holes.count, "overlapCount": overlaps.count,
+            "holes": Array(holes.prefix(400)), "overlaps": Array(overlaps.prefix(200)),
+            "probe_0.92_-0.50_coverage": probeCount, "ribbonArea": triangleArea(ribbon),
+            "ribbonExpectedArea": Double(hypot(1.27, 0.635)) * 0.0056,
+            "triangleAreas": surface.triangles.map { TableAssistSurface.signedArea($0) }
+        ]
+        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+            .write(to: URL(fileURLWithPath: "/tmp/footprint-diag.json"))
+    }
+
     func testSceneSeparatesProjectedAssistsFromSpatialLines() throws {
         let scene = AngleTrainingScene(); scene.setupScene()
         let surface = try TableAssistSurface.load(from: scene)
@@ -964,8 +1001,7 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
         let prediction=try XCTUnwrap(PositionPlayShotSolver.solve(before:step.before,shot:step.shot,surfaceY:scene.surfaceY))
         XCTAssertTrue(prediction.hasFinalTableState)
         let recorder=try XCTUnwrap(prediction.recorder)
-        // W17-A: default verdict is planar; the pocket presentation tail is W17-B/D, which
-        // must re-add a tail precondition here once the default path produces one.
+        // W17-A: default verdict is planar; W17-D attaches the scripted net tail on playback.
         XCTAssertTrue(prediction.objectPocketed,"Fixture must pot the object ball")
         XCTAssertTrue(recorder.isBallPocketed(ShotInput.targetBallName))
         let output=URL(fileURLWithPath:"/Users/song/projects/13.billiard_trainer/output/3d-v63/W08/encoded-sequence",isDirectory:true).appendingPathComponent(UUID().uuidString,isDirectory:true)
@@ -973,6 +1009,9 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
         try FileManager.default.createDirectory(at:output,withIntermediateDirectories:true)
         let expectedPlayback = TrajectoryPlayback(recorder: recorder, surfaceY: scene.surfaceY + BallPhysics.radius)
         let captureNames = Set(recorder.collectionTailsByBallName.keys)
+        XCTAssertEqual(captureNames,[ShotInput.targetBallName],"W17-D: the planar pot must carry a net tail")
+        let netTail=try XCTUnwrap(recorder.collectionTailsByBallName[ShotInput.targetBallName])
+        XCTAssertNotNil(netTail.samples);XCTAssertNil(netTail.fadeStart,"a ball resting in the net never fades")
         for speed: Float in [0.5, 1] {
         var durations:[Double]=[]
         for fps in [30,60] {
@@ -999,7 +1038,7 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
             }
             let url=try await SequenceVideoExporter.exportVideo(sequence:oneShot,options:options)
             XCTAssertGreaterThan(comparedFrames, 1)
-            XCTAssertEqual(hiddenCaptures, captureNames, "Export must include the complete visible capture tail")
+            XCTAssertTrue(hiddenCaptures.isEmpty, "W17-D: a potted ball stays visible in the net (no fade) across the whole export")
             print("[W08 export states] speed=\(speed) fps=\(fps) comparedFrames=\(comparedFrames) captures=\(captureNames.count)")
             let data=try Data(contentsOf:url)
             XCTAssertGreaterThan(data.count,1024)
@@ -1246,12 +1285,13 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
             XCTAssertTrue(prediction.hasFinalTableState)
             XCTAssertTrue(prediction.objectPocketed)
             let recorder = try XCTUnwrap(prediction.recorder)
-            // W17-A: planar verdict records pocket entries, not bag captures. The collection
-            // tail comparison below is therefore a no-op until W17-D provides the default tail.
+            // W17-A: planar verdict records pocket entries, not bag captures; W17-D attaches
+            // the scripted net tail when the playback is built, so the comparison below is live.
             XCTAssertTrue(recorder.isBallPocketed(ShotInput.targetBallName))
             XCTAssertTrue(recorder.confirmedCaptures.isEmpty)
             playbacks[step.id] = TrajectoryPlayback(recorder: recorder, surfaceY: scene.surfaceY + BallPhysics.radius)
             captures[step.id] = Set(recorder.collectionTailsByBallName.keys)
+            XCTAssertEqual(captures[step.id], [ShotInput.targetBallName], "W17-D net tail for the potted target")
         }
         let firstTarget = sequence.steps[0].shot.targetKey
         XCTAssertFalse(sequence.steps[1].before.onTable.keys.contains(firstTarget))

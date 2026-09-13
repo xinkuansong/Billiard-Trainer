@@ -251,8 +251,15 @@ final class TrajectoryPlayback {
     /// are separate, both addressed by the same simulation clock.
     func collectionOpacity(ballName:String,time:Float)->CGFloat? {
         guard let tail=recorder.collectionTailsByBallName[ballName] else { return nil }
-        let fadeStart=tail.end.time+Self.pocketPauseDuration
+        guard let fadeStart=Self.fadeStart(of:tail) else { return 1 }
         return CGFloat(max(0,min(1,1-(Double(time)-fadeStart)/Self.pocketFadeDuration)))
+    }
+
+    /// Spatial (confirmed-capture) tails fade after the pause; W17-D net tails stay
+    /// visible in the net unless the FIFO overflow evicted them (`fadeStart` set).
+    static func fadeStart(of tail:PocketCollectionTail)->Double? {
+        if tail.samples != nil { return tail.fadeStart }
+        return tail.end.time+Self.pocketPauseDuration
     }
 
     /// All recorded ball names (cue + object + colliders) for clearance probes.
@@ -273,6 +280,9 @@ final class TrajectoryPlayback {
     init(recorder: TrajectoryRecorder, surfaceY: Float) {
         self.recorder = recorder
         self.surfaceY = surfaceY
+        // W17-D: planar pots get their scripted net descent here, once per recorder.
+        // Presentation only — verdicts and frames are untouched.
+        PocketNetPresentation.attach(to: recorder)
         
         var sorted: [String: [BallFrame]] = [:]
         for (name, frames) in recorder.framesByBallName {
@@ -442,7 +452,8 @@ final class TrajectoryPlayback {
         cursor.lastAngularVelocity = stateAt(ballName: ballName, time: 0)?.angularVelocity ?? SCNVector3Zero
 
         if let tail=recorder.collectionTailsByBallName[ballName] {
-            let end=Double(cap)>=tail.start.time ? max(Double(cap),tail.end.time+Self.pocketPauseDuration+Self.pocketFadeDuration):Double(cap)
+            let fadeEnd=(Self.fadeStart(of:tail) ?? tail.end.time)+Self.pocketFadeDuration
+            let end=Double(cap)>=tail.start.time ? max(Double(cap),tail.end.time,fadeEnd):Double(cap)
             let spatialAction=SCNAction.customAction(duration:end/Double(spd)) { node,elapsed in
                 let t=min(Float(end),Float(elapsed)*spd)
                 guard let state=self.stateAt(ballName:ballName,time:t) else { return }
@@ -451,7 +462,8 @@ final class TrajectoryPlayback {
                 BallSpinIntegrator.advance(node:node,from:cursor.lastAngularVelocity,to:state.angularVelocity,dt:t-cursor.lastSimTime)
                 cursor.lastSimTime=t;cursor.lastAngularVelocity=state.angularVelocity
             }
-            if removeOnPocket,Double(cap)>=tail.start.time {
+            // A ball resting in the net (no fade) keeps its node; only faded balls are removed.
+            if removeOnPocket,Double(cap)>=tail.start.time,Self.fadeStart(of:tail) != nil {
                 return .sequence([spatialAction,.removeFromParentNode()])
             }
             return spatialAction

@@ -178,3 +178,8 @@ EventDrivenEngine静态直库/圆弧/袋口查询仅在v与a全部分量严格�
 
 ### DR-288 — 圆弧保守可达范围（2026-09-13）
 圆弧外侧点仅在初距超过接触半径与本时间窗速度/加速度位移上界之和时拒绝求根；必须包含原根检测允许的时间尾差。保留原求根对照入口，覆盖加速/转向/短窗接触。避免以跨步无碰撞缓存代替当前状态判定；少量终局一致不得宣称所有候选轨迹一致。
+
+### DR-294 — `TrajectoryPlayback.surfaceY` 是球心平面，不是台呢面（2026-09-14）
+所有 `TrajectoryPlayback(recorder:surfaceY:)` 调用点传的是 `yLevel = surfaceY + R`（球心绘制平面）。任何从回放层派生的高度几何（袋内落位、下落起点）若拿它当台呢面就差整一个 R（本例 y 0.7259 vs 0.6973，端到端断言抓出）。台呢面真源取 `PocketEntrySnapshot.geometry.pockets[].center.y` 或 `AngleTrainingScene.surfaceY`；写高度几何前先回显「这个 Y 是球心还是台面」。网兜剖面等从资产实测的常量必须配一条对资产的门禁测试（`testProfileMatchesBundledBagEnvelope`），不能只靠注释注明来源。
+DR-279 补注（DR-295）：含 v/dt 操作数的**每个**残差都要有 `velocityRoundoff/dt` 的舍入下界，不只是 motion 残差；dt≈1e-15 的时钟碎片步上，漏设下界的残差会以数 m/s² 的伪值报不收敛。
+

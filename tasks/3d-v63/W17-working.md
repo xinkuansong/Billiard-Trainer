@@ -44,6 +44,40 @@
 解数差异是两套判据的裁定不同（预期），不是性能指标的一部分；W13 默认防守 20 s 级问题按此量级应随之消失，但未在本批重跑防守用例，不宣称。
 
 ### 未做 / 交接
-- W17-B/D 接手时必须在默认路径补回三处呈现断言（见第二批清单注释），并处理 `testExportSettledFrames…` 的长期 skip。
-- 生产代码对 `collectionTailsByBallName` / `confirmedCaptures` 的四处读取（`TrajectoryPlayback` L243/247/253/444）均为可选安全，平面记录下退回 pre-v63 的「吸到袋心」视觉腿；未做真机或页面目测。
-- 所有改动未提交（工作树含其他会话产出）。
+- ~~W17-B/D 接手时必须在默认路径补回三处呈现断言~~（已在 W17-B/D 补回，见下）；`testExportSettledFrames…` 长期 skip 仍在，归 W17-C 遗留。
+- ~~平面记录下退回 pre-v63 的「吸到袋心」视觉腿~~（W17-B/D 起默认路径由网兜脚本接管）。未做真机或页面目测。
+- W17-A 已随 `a19029aa` 提交。
+
+## W17-B/D — 平面判进后的网兜确定性落位（2026-09-14，DR-294）
+
+### 方案偏离声明（须用户知晓）
+方案 v63.13 的 W17-B 写的是「判进后用 `LocalPocketSimulation` 跑 ≤0.3 s 单球下落段」。本批**没有**调用空间求解器，改为脚本化下落（W17-D 本就是脚本），理由：
+1. 空间求解器在「袋底 + 内衬斜面双接触」形态下有未闭合的 `supportConvergence` 停滞（本批仅修掉其中 dt≈1e-15 的舍入族，见 DR-295；dt≈2.4e-4 的真实停滞族仍在 4 条用例复现）。W17-B 要跑的正是这一形态，接上就是把已知会抛错的路径接到每次进袋回放上。
+2. 平面默认下 App 不再加载 `PocketGeometryAsset`（USDZ 网格 + BVH，首载约 2 s）；为呈现段加载会把首杆进袋回放卡 2 s。
+3. 脚本对实时/导出天然同源、确定性、零求解失败，且**使用同一套物理常量**（`TablePhysics.gravity`、`pocketLinerRestitution=0`、`pocketLinerRetention=0.4`）与从资产实测的网兜几何。
+空间 B 仍可作为后续替换（tail 结构与来源无关）。这是「有更优路径主动提」而非悄悄改范围；若用户坚持真跑空间求解器，需先闭合 DR-295 之外的停滞族。
+
+### 坐标契约（动代码前钉死）
+- SceneKit 世界系，X–Z 水平、Y 朝上、米。台呢面 `surfaceY=0.8`，球心台面高度 0.828575。
+- 平面袋心/落袋半径真源：`TableGeometry.chineseEightBallQiuJi(surfaceY:).pockets`（= `TablePhysics.cornerPocketCenterOffsetX/Z` 1.312/0.677、`sidePocketCenterOffsetZ` 0.676；半径 0.042/0.043），与 `AngleSceneCalculator.pocketPositions` 一致（探测核对）。
+- ⚠️ `TrajectoryPlayback.surfaceY` 实为**球心平面**（各调用点传 `yLevel = surfaceY + R`），不是台呢面。首版用它算落位差了整整一个 R（端到端用例 y=0.7259 vs 0.6973 抓出）；现改为从 `PocketEntrySnapshot.geometry.pockets[].center.y`（台呢面）取真源。
+- 网兜几何（`output/3d-v63/W17/bag-probe.log`，`PocketGeometryAsset.bagEnvelopes()` / `captureBoundaries()` 实测）：网口 y=0.760（深 0.040）；角袋底 0.66874 → 静止球心 0.69731（深 0.10269）；中袋底 0.66802 → 0.69660（深 0.10340）。环均值半径 0.0565→0.0330（角）/0.0579→0.0335（中）；袋轴随深度向台心内倾（角袋底部内移 16.4 mm；中袋网口外扩 14.9 mm）。球心可达半径 = 环半径 − R，袋底仅 ≈4 mm ⇒ 单球对中；网深 3.2R ⇒ 容量 2。
+
+### 变更
+- 新增 `QiuJi/Core/Physics/PocketNetPresentation.swift`：`PocketNetProfile`（角/中袋 4 环剖面 + 静止深度，常量注明来源）、`NetPocket.wall(at:)`（板孔→网口漏斗过渡，无台阶）、`slots`（槛 0 袋轴底部；槛 1 叠于其上 2R、向网口轴倾 18 mm）、`descent`（240 Hz 步进：重力；触底不反弹且水平速度 ×retention；触壁投影回、法向速度归零、切向 ×0.4；触后自旋 ×0.4；静止后 0.12 s easeOut 落到槛点）、`shift`（FIFO 下移）、`attach(to:)`（按 `pocketEntries` 时间顺序建队列、容量 2、第 3 球进时最早球 `fadeStart` = 新球进袋时刻，其余下移一槛）。
+- `PocketCollectionTail` 新增 `samples`（采样插值）与 `fadeStart`；新 `init(samples:gravity:fadeStart:)`；`sample(at:)` 二分插值。
+- `TrajectoryRecorder.recordPlanarCollectionTail`：只允许挂在有 `pocketEntries` 且无 `confirmedCaptures` 的球上，起点时刻须等于进袋快照时刻；允许覆盖（队列下移/淘汰）。
+- `TrajectoryPlayback.init` 调 `PocketNetPresentation.attach`（幂等，一个 recorder 只建一次）；`collectionOpacity` 对无 `fadeStart` 的网兜球恒为 1；`action(for:)` 仅对会淡出的 tail 才 `removeFromParentNode`，网兜球节点保留在槛点。
+- 测试：新增 `PocketNetPresentationTests` 7 条（剖面 vs 资产 24 环门禁、槛点在网内、6 袋 × 4 速 × 3 角 × 2 槛 = 144 次下落不变量：末点恰为槛点/时间严格递增/高度单调不反弹/不低于槛底/球心不出壁、确定性、回放挂尾、FIFO 三球、端到端默认判进落槛）；补回 W17-A 留下的三处默认路径断言（`testPottedSequenceEncodesAtTwoFrameRates` 改为「网兜球全程可见、不淡出」+ 每帧位置/透明度与回放一致；`testTwoCornerShotsExport…` 每杆 tail 集合 = 目标球；`CueScratch…` 洗袋母球落中袋槛 0）；`BreakFlowRunnerV6Tests` 新增 `testRecordedBreakDefaultPathAttachesNetTails`（默认开球全部进袋球有 tail、每袋可见球 ≤ 容量）。
+
+### 实证
+- `net-r2.log`：PocketNetPresentationTests 7/7 通过。
+- `w17bd-r2.log`：PocketNetPresentation + 两条导出用例 + PositionPlayFreeAim + BreakFlowRunnerV6 + CueScratchLifecycle 共 41 项 0 失败 0 重启。
+- 出图自检（临时 dump → matplotlib，未入库）：角袋 0.4/2.5 m/s、中袋 1.2 m/s 三例侧视 + 俯视：慢球抛物线入网口后沿锥壁滑到袋底；快球飞越孔轴撞对侧网壁后贴壁下滑；全程球心在壁内、末点为槛点；用时 0.31–0.70 s。
+- 空间求解器（DR-295 附带）：`w17bd-r1.log` 中 dt≈1e-15 舍入族 3 条消失，`testBagMotionConvergesAcrossEnvelopeResolutions` 首次通过；dt≈2.4e-4 的 `supportConvergence` 真实停滞族仍 4 条（`testCriticalPocketStepConvergence`、`testLoadedPocketSpeedAndStepMatrix`、`testNearPocketMotionFrames`、`testTwoConsecutiveTableBallsEnterAndInteractInsideBundledBag`）、1e-12 级 2 条、`isBallPocketed` 时刻 1 条、`localHalfExtent` 1 条、`testPocketEdgeAndReturnCharacterization` / `testSpatialIndexMatchesExhaustiveMotion` 2 条——全部为既有、与 W17 无关，留证不闭合。
+
+### 未做（诚实清单）
+- **跨杆保留（W17-D「八杆序列跨杆保留」）未做**：回放结束时各页面 `finishStrike/finishPlayback/placeStepBoard` 仍按盘面把进袋球 `isHidden = true`（8 处调用点，6 个 ViewModel/View），网兜球在全部球停止的瞬间被隐藏而非淡出。要做需在页面层引入「袋内球状态」并改动 `isHidden` 作为在桌判据的用法，本批未动页面层。
+- **W03 空间裁剪例外与截图证据、真机/页面目测未做**：单球样片未经用户实看即铺六袋（用户已裁定「一起实施」，但方案完成标准写的是先看样片）。
+- 网口以上板孔段按落袋半径圆柱建模、网壁按环均值圆截面，非 USDZ 真实非圆截面（rmin/rmax 差 ~15%）。
+- `testExportSettledFramesPreservePredictedBoardWhenSavedOutcomeDiffers` 仍为长期 skip。

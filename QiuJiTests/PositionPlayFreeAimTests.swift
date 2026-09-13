@@ -1088,8 +1088,16 @@ final class CueScratchLifecycleV63Tests: XCTestCase {
         let prediction = try XCTUnwrap(vm.solvedShot?.prediction)
         XCTAssertTrue(prediction.hasFinalTableState)
         XCTAssertTrue(prediction.cuePocketed)
-        // W17-A: default verdict is planar (no spatial collection tail); W17-D must assert
-        // the deterministic pocket placement for the scratched cue ball here.
+        // W17-D: the planar scratch gets a deterministic net tail on playback — cue rests
+        // on the lowest slot of the tapped middle pocket and never fades.
+        let scratchRecorder = try XCTUnwrap(prediction.recorder)
+        let scratchPlayback = TrajectoryPlayback(recorder: scratchRecorder, surfaceY: vm.scene.surfaceY + BallPhysics.radius)
+        let scratchTail = try XCTUnwrap(scratchRecorder.collectionTailsByBallName[ShotInput.cueBallName])
+        XCTAssertNil(scratchTail.fadeStart)
+        let scratchPocket = try XCTUnwrap(TableGeometry.chineseEightBallQiuJi(surfaceY: vm.scene.surfaceY).pockets.first { $0.id == "pocket_4" })
+        let scratchNet = PocketNetPresentation.NetPocket(pocket: scratchPocket, surfaceY: Double(vm.scene.surfaceY))
+        XCTAssertEqual(scratchTail.end.position, scratchNet.slots(ballRadius: Double(BallPhysics.radius))[0])
+        XCTAssertEqual(scratchPlayback.collectionOpacity(ballName: ShotInput.cueBallName, time: scratchPlayback.duration + 2), 1)
 
         let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 700))
         view.scene = vm.scene

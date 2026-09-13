@@ -246,6 +246,7 @@
 		53DD1550F2C2FEB90E8FE74F /* TableStylePreview_charcoal.png in Resources */ = {isa = PBXBuildFile; fileRef = 680DC9EDFC2C078027376B2E /* TableStylePreview_charcoal.png */; };
 		53F26A59AC592E58FDAC2411 /* TrainingAtmosphereUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C6A2C8CBC57FF6524C6991 /* TrainingAtmosphereUITests.swift */; };
 		5430191FB30F43C1ED3A79A6 /* Room_eastern_perimeter.usdz in Resources */ = {isa = PBXBuildFile; fileRef = D19C0A058A219220E332BC73 /* Room_eastern_perimeter.usdz */; };
+		543AA82E0B435E25775FF9ED /* PocketNetPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECF776218E9B544AB9C2F584 /* PocketNetPresentationTests.swift */; };
 		549224ED273CA8A5E26B6E39 /* BTShotHUDBarRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2CC23FC65FBDE8637BDC2AE /* BTShotHUDBarRenderTests.swift */; };
 		54DA2DB1707B52B2536F0BFF /* Room_tournament_perimeter.usdz in Resources */ = {isa = PBXBuildFile; fileRef = A37224DDFA74BEE4D24880B0 /* Room_tournament_perimeter.usdz */; };
 		5500641E4D763297CB371EAF /* BTTrainingAtmosphere.swift in Sources */ = {isa = PBXBuildFile; fileRef = 696B72C5CB53C1026808272E /* BTTrainingAtmosphere.swift */; };
@@ -607,6 +608,7 @@
 		D0CE600D8E3A0876B82B839B /* V29W6HistoryKindUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45684609C5AE408DBBB6BFCD /* V29W6HistoryKindUITests.swift */; };
 		D17DA98818447C88146657EF /* LocalAngleTestRepositoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3BC5CA80F1803CC726124E4 /* LocalAngleTestRepositoryTests.swift */; };
 		D1873B9E27ACF49538F41741 /* PracticeStorageKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E1AB5FB359C50471307674 /* PracticeStorageKey.swift */; };
+		D1AE83D01D446093793CFB6C /* PocketNetPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD8A674B0FD3CF85F45B9373 /* PocketNetPresentation.swift */; };
 		D2119D6784959FBF29337563 /* EventDrivenEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4FE62432FE89CF2D519862D /* EventDrivenEngine.swift */; };
 		D28325865970788A218B376C /* GeometricAngleQuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DF6B0723B611EA8F121989F /* GeometricAngleQuizView.swift */; };
 		D28CC0CC49986F3CBEF49A0C /* V49W10CopyContentTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DBA3A459D096C954D1D763A /* V49W10CopyContentTests.swift */; };
@@ -1336,6 +1338,7 @@
 		CCCEDF258227D303D7E6A197 /* BTExerciseRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTExerciseRow.swift; sourceTree = "<group>"; };
 		CD1D0F2441D614EB02F58503 /* SyncQueueManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncQueueManagerTests.swift; sourceTree = "<group>"; };
 		CD2EF54AC2F5B12846EFE6FB /* BTBallPaletteBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTBallPaletteBar.swift; sourceTree = "<group>"; };
+		CD8A674B0FD3CF85F45B9373 /* PocketNetPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PocketNetPresentation.swift; sourceTree = "<group>"; };
 		CDCEC7542BEC39DD36A51C10 /* TableStyleSelectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TableStyleSelectionView.swift; sourceTree = "<group>"; };
 		CE7D13D9AC245334A60FF240 /* LocalTrainingSessionRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalTrainingSessionRepository.swift; sourceTree = "<group>"; };
 		CE84737FF07208CE01E282F1 /* BTPlanWeekTimeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTPlanWeekTimeline.swift; sourceTree = "<group>"; };
@@ -1414,6 +1417,7 @@
 		ECB2782050AD8B15112112EC /* PositionPlayViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PositionPlayViewModel.swift; sourceTree = "<group>"; };
 		ECC9394C68FF40926B720737 /* plan-content-baseline.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "plan-content-baseline.json"; sourceTree = "<group>"; };
 		ECE108D4FC1EAA7F61A0885B /* V49W14CopyEvidenceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V49W14CopyEvidenceUITests.swift; sourceTree = "<group>"; };
+		ECF776218E9B544AB9C2F584 /* PocketNetPresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PocketNetPresentationTests.swift; sourceTree = "<group>"; };
 		ED35C243B78D8E90E862B049 /* AimLineGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AimLineGeometryTests.swift; sourceTree = "<group>"; };
 		ED438D842A23A0ADE713C218 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
 		EED43EF06C5C9BCCDE14FCF9 /* QuarticSolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuarticSolver.swift; sourceTree = "<group>"; };
@@ -1949,6 +1953,7 @@
 				3B1B6DEDD8A15D806BEF80ED /* PocketBehaviorDiagTests.swift */,
 				0C2733D2A7E6CF4FF7F31A9B /* PocketLeatherIntegrationTests.swift */,
 				61D261281EBC76EE29B03006 /* PocketMarkerHighlightTests.swift */,
+				ECF776218E9B544AB9C2F584 /* PocketNetPresentationTests.swift */,
 				A99B34EAA8B5FF346C96DA2D /* PocketRefactorDiagTests.swift */,
 				9EFC2453CBB90B9B308C5849 /* PositioningFormationRenderTests.swift */,
 				66AEB9A450EA50D57002446F /* PositionPlayFreeAimTests.swift */,
@@ -2109,6 +2114,7 @@
 				12F94205D75F7370014F1F4A /* Han2005CushionModel.swift */,
 				413A9750E796A75614DC285D /* PerformanceProfiler.swift */,
 				34CF7A3550B55EC075AF6283 /* PhysicsEvent.swift */,
+				CD8A674B0FD3CF85F45B9373 /* PocketNetPresentation.swift */,
 				EED43EF06C5C9BCCDE14FCF9 /* QuarticSolver.swift */,
 				AE7DC7715C436639CFDD6157 /* SCNVector3+Physics.swift */,
 				A8D58DA4F69724429AE1FB27 /* ShotBaker.swift */,
@@ -3141,6 +3147,7 @@
 				C377ADAFE773A57312B90FAD /* PocketLeatherAppearance.swift in Sources */,
 				701E74ED08110EE94EBBE818 /* PocketLeatherMarker.swift in Sources */,
 				085399E4154E19F3CDC2701A /* PocketLeatherMesh.swift in Sources */,
+				D1AE83D01D446093793CFB6C /* PocketNetPresentation.swift in Sources */,
 				F637C82CFDE2A50C01460558 /* PoolBallFace.swift in Sources */,
 				F25AF727EFCE16D86EAAF91B /* PositionPlayComposerView.swift in Sources */,
 				3F39C3899845119B90C4620A /* PositionPlayDrillExporter.swift in Sources */,
@@ -3483,6 +3490,7 @@
 				78D7D240DD2376B6392F873E /* PocketBehaviorDiagTests.swift in Sources */,
 				857EBBF367948D776D2E20E2 /* PocketLeatherIntegrationTests.swift in Sources */,
 				D3F4E86E46E66BD0BBAAA736 /* PocketMarkerHighlightTests.swift in Sources */,
+				543AA82E0B435E25775FF9ED /* PocketNetPresentationTests.swift in Sources */,
 				A7565BEFAFCC4D3882484BCB /* PocketRefactorDiagTests.swift in Sources */,
 				4D1949B8830C6EE9FDA6BEA8 /* PositionPlayFreeAimTests.swift in Sources */,
 				67F157FBB0B2B8F67C41B99E /* PositionPlaySequenceExportRunnerTests.swift in Sources */,

@@ -1303,6 +1303,7 @@ DR-276（2026-09-13）：完整预测可解析补齐纯台面自旋尾段；时�
 
 - 2026-09-13 / DR-197：局部联合冲量精确去重同球同法线同材料静态约束；界面API不变，袋底双球/解析/跨owner三测及同构建四项回归通过，完整W07仍未完成，见W07-working。
 
+| 2026-09-14 | DR-294 / ADR-P10-15：默认路径进袋回放改为脚本化网兜落位——球沿重力/内衬吸能轨迹落入网兜、停在确定性槛点并**保持可见不淡出**（同袋容量 2，第 3 球进时最早球淡出回收）；`PocketCollectionTail` 增 `samples`/`fadeStart`，`TrajectoryPlayback.collectionOpacity` 网兜球恒 1、仅淡出球移除节点。页面层回放结束仍按盘面隐藏进袋球（跨杆保留未做） | 3D 进袋回放 / 导出 | PocketNetPresentation（新）、TrajectoryRecorder、TrajectoryPlayback | v63 W17-B/D |
 | 2026-09-14 | DR-293 / ADR-P10-14：默认模拟模型切回平面判据，空间袋口改显式 `spatialPockets`；无 UI API 变更，进袋回放暂回 pre-v63「吸到袋心」视觉腿，待 W17-B/D 呈现段 | 3D 物理 / 进袋回放 | EventDrivenEngine、测试 | v63 W17-A |
 | 2026-09-14 | DR-292 / ADR-P10-13：袋口内衬耗能体模型，皮革不再把球弹回台面；进袋回放末端为贴后壁落洞 | 3D 物理 / 进袋回放 | BTPhysicsConstants、TrajectoryRecorder、TableGeometry、TrajectoryRenderer | v63 W07 |
 | 2026-09-14 | DR-291 / ADR-P5-01：v62 移动渲染管线转正，单闸门 `MobileTableRendering.isEnabled`，全交互页默认，球房独立装配，设置球房入口去 DEBUG | 场景渲染 / 设置 | AngleTrainingScene、MobileTableRendering、MobileReferenceLighting、SettingsView、AppearanceCombinationPreview | v62 收口 |
