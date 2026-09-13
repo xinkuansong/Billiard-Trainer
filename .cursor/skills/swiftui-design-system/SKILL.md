@@ -853,3 +853,147 @@ HStack(alignment: .firstTextBaseline, spacing: Spacing.md) {
 
 ## 引导特例（DR-120，2026-09-08）
 用户批准 A2 深色品牌引导：仅 OnboardingView 固定深色，使用 btIntroBackground / btIntroForeground / btIntroRule 色板及 btIntroTitle 内置 OFL Noto Serif SC 子集 QiuJiIntroSerif-Bold（Dynamic Type）。这不是通用页面新默认；五页图解与原生文字/按钮分离。
+
+## DR-140 — 开球仪表透视选项（2026-09-12）
+
+`BreakInstrumentsOverlay(runner:proxy:isPerspective:)` 的 `isPerspective` 默认 false，原2D宿主保持不变；自由击球standard入口3D时显式传true。透视仪表使用 `ShotPerspectiveLayout(sceneSize:)` 的视口坐标，不得拿2D球桌矩形定位；切视角自动关闭开球打点盘。`ShotPlayCamera` 切换只操作相机，开球方向读取runner.aimDir，忙碌与停稳不能重置瞄准视角或隐式确认交付。3D台面手势不绑定onAimNudged，瞄准交由刻度轮。
+
+Changelog：2026-09-12，DR-140新增上述可选接口及两模式隔离契约。
+
+
+## DR-142 — 观察菜单（2026-09-12）
+`ShotObservationMenu(vm:identifierPrefix:)`是击球页共用观察入口，调用ShotPlayCamera的observeBall/observePocket/observeWholeTable；不可替换成业务选球或选袋。菜单标签44pt最小命中区，底部现有提示行中排列；开球使用原上沿相机区域。独立focus按钮保留原标识与直接返回瞄准行为。无有效球/袋时禁用对应项。标准/紧凑截图检查文字不换行、不挤压主要击球按钮。
+
+Changelog：2026-09-12，DR-142新增ShotObservationMenu及其目标选择隔离契约。
+
+
+## DR-143 — 台面辅助层（2026-09-12）
+AngleTrainingScene.addLine/addDashedLine的placement默认spatial；仅table使用裁剪台面带状网格。可选layer默认route，TableAssistLayer依次为fill(5)、reference(10)、route(20)、aiming(30)。投影材料读取实体深度但不写深度，避免共面辅助线彼此遮挡碎裂；不可全局关闭深度测试。持久训练线替换几何时须同步材质深度策略与节点层级，保留虚线纹理/颜色。投影是显示副本，不改变物理坐标；假想球/球面点/杆轴保持空间含义。
+
+Changelog：2026-09-12，DR-143新增台面辅助层与持久材质更新契约。
+
+## DR-156 — 球房风格卡片（2026-09-12）
+SettingsView的球房风格使用实际渲染预览图，不用概念图冒充；RoomStyle为④极简赛事/②温润木质/⑥当代东方，默认赛事，本地持久化；②沿用walnut持久值。整行Button声明contentShape，VoiceOver值为已选择/未选择。当前仅Debug消费，正式开放须同时启用实际渲染路径。切换只替换外围，不重建训练场景或重置球位/相机。
+
+Changelog：2026-09-12，DR-156新增球房风格卡片与选择隔离约定。
+
+
+## DR-194 — 球贴纸选择（2026-09-13）
+设置页独立导航 BallStickerSettingsView，六款为 modern/minimal/american/badge/broadcast/vintage，默认modern，ballStickerStyle.v1本地持久化。使用实际Blender球网格预览；整卡contentShape，辅助功能声明名称与已选择/未选择。球号颜色关系与母球红点保持。AngleTrainingScene初始化选择当前款，AngleSceneView仅在风格变化时更新编号球底色，不重建场景、不重置姿态/球位/相机、不替换光照shader。测试Bundle内UV帧用于无光照贴图校验；实际页面另行验收。
+
+Changelog：2026-09-13，DR-194，新增六款球贴纸与实时场景隔离契约。
+
+### DR-200 — 球贴纸照片参照返工（2026-09-13）
+球贴纸图稿采用文生图，生产只烘焙albedo；每个编号球两枚相同号码、中心方向相反。源背面UV不可盲用，SceneKit新UV图像V轴须显式换向并审图。只更新UV和编号球抛光外观，原位置/法线/面及母球保持。预览明确区分文生图目标、Blender渲染和App实际画面；功能通过不代表照片级验收。
+
+## DR-209 — 外观组合选择（2026-09-13）
+设置外观入口顺序为球房（Debug）/球桌/台呢/贴纸/球杆/颗星开关；三类场景选择页使用AppearanceCombinationPreview独立场景，共读当前四项偏好，只改被选择项。预览静止不持续渲染，不允许固定标准款PNG冒充当前搭配。入口整行命中，窄屏/大字号可回退两行，640pt内容上限。验证跨页继承、修改单项、重启与颗星开关，预览辅助功能值来自已安装材质。
+Changelog：2026-09-13 / DR-209 / 外观分组与组合预览契约。
+
+FL-064补充：独立物品预览加入外围环境时，必须校验正交图像平面四角均在房间内；仅相机中心在室内不足以排除近墙遮挡。保留取景比例，实际截图确认六袋与桌框可见。Changelog：2026-09-13 / FL-064。
+
+DR-209取景补充：球房页showsRoomOverview=true，展示带壁灯、杆架及座椅的X侧墙；球桌/台呢用完整桌体取景。必须显式指定世界up与相机localFront以消除继承滚转。六项组按用户最终裁定下移至常规设置后、数据管理前。Changelog：2026-09-13 / 用户视角及顺序纠正。
+
+
+### DR-240 — 3D打点浅横排（2026-09-13）
+BTSpinPadCard与BTSpinPadOverlay新增usesCompactLayout=false；3D宿主启用后球盘与完整方向十字并排、读数及回中在下方，以缩短遮挡高度。2D默认布局保持。三消费者为开球仪表、自由击球与分离角。验收必须实看展开时母球，而不只验证按钮可点；标准/紧凑/iPad及相机姿态边界分别记录。此条为DR-240增量更新。
+
+### DR-242 / FL-067 — 自由击球参考球库的母球例外
+非每日清台自由击球的目标球球库保持只读；母球离场后，点击母球须能补回以执行自由球规则，摆位沿用VM现有防重叠与台面约束。3D隐藏球库时明确提示切2D补球。VM方法存在不代表页面可达，须实页点击验证。每日清台独立失败/继续规则不受此例外改变。
+Changelog：2026-09-13 / DR-242 / 母球补回页面入口；FL-067证据边界。
+
+### DR-243 — 自由击球顶栏警告优先（2026-09-13）
+普通自由击球母球进袋警告占用瞄准数值胶囊位置，不叠加第四项挤压模式按钮与规则信息。警告解除后恢复瞄准信息。模式按钮和警告保持单行，必须在SE真实落袋/补回两状态审查；不以UI点击通过替代文本可读性。
+Changelog：2026-09-13 / DR-243 / 落袋顶栏信息优先级。
+
+### DR-246 / FL-068 — 详情静止球形不等待预测
+DrillSceneController先从保存board摆球并建立homePositions，再异步计算预告。初始显示不调用会同步求解的DrillStaticPreview.apply；结果返回只在idle重绘，不能清正在播放的装饰或球杆朝向。测试除播放按钮/HUD还需在无异步挂起条件下验证球节点已显示，实页原图另验。
+Changelog：2026-09-13 / DR-246 / FL-068 / 首屏与立即播放球形准备。
+
+### DR-247 — 动作详情观察入口
+DrillSceneController.setCameraMode/observeWholeTable只改变相机，stepLabel随播放杆变化；DrillSceneView独立44pt工具行提供2D/3D与全桌，不占台面手势。3D的透明回放控制面allowsHitTesting=false，场景onTableTapped唤出控制；观察不选球/袋。DrillStaticPreview.Options.adjustsTopDownCamera默认true，3D详情传false防迟到预览强切正交。真实拖动/捏合、杆末暂停往返和旧2D都需验收，不能用按钮值证明相机真正切换。
+Changelog：2026-09-13 / DR-247 / 详情3D观看，实页验收中。
+
+DR-247取景补充：CameraRig.observeWholeTable(yaw:nil)保留现有朝向；显式yaw在beginManualOrbit之后、拟合之前设置，避免首次接管覆盖。详情横幅用+π/2从长库观看并snapToTarget，以实际camera.convertVector验证屏幕右为+X；仅赋值targetYaw再调用旧入口曾被覆盖，必须看实际相机及原图。
+
+### DR-248 — 试打页3D消费
+Composer的试打变体提供2D/3D入口，复用ShotPlayCamera与观察菜单；3D台面不绑定onAimNudged/onTableTapped瞄准、不提供draggableBallNodes，摆球仍回2D。ShotPerspectiveLayout定位仪表/动作/轮和重摆；底部观察行替代球库；只读序列打点保持isReadOnly，不能因紧凑布局恢复写入。模式切换、杆末暂停/重播与切自由恢复tryoutBoard分别验证。
+Changelog：2026-09-13 / DR-248 / 试打3D接入，验收中。
+
+DR-248只读布局补充：BTSpinPadCard在usesCompactLayout且isReadOnly时使用内容本征宽度，可编辑紧凑双列与2D固定宽度保持原契约。实页须检查spinPad.card边界不覆盖动作列，截图在展开过渡后取证。Changelog：2026-09-13 / DR-248 / 只读紧凑卡宽度修复，验收中。
+
+### DR-249 — 全桌拟合意图与实际布局
+CameraRig全桌观察须跟随AngleSceneView实际viewport变化，不能把切换回调中旧2D视口当最终3D尺寸。只有全桌观察意图自动重拟合；手动手势、指定球袋观察和预设瞄准退出该意图。PerspectiveState保存恢复该意图。验证须包含底栏高度变化后的实页投影，以及手动姿态不被resize抢回。Changelog：2026-09-13 / DR-249 / 全桌视口更新，验收中。
+
+### DR-250 — 3D序列只读参数行
+试打3D序列把打点图、力度名/速度数值放入顶部模式行，使用当前杆vm参数；暂停才可展开只读打点。移除3D序列侧边不可编辑的长力度尺，以免遮挡袋口；普通击球和2D序列仪表不变。实际控件边界应处于场景上方，跨尺寸原图与暂停重播流程须复验。Changelog：2026-09-13 / DR-250 / 参数行避让，验收中。
+
+### DR-251 — 重打的球形与视角恢复
+非录制replayCurrent将本杆lastPlaybackContext里的击球前PerspectiveState与球形一起恢复。AngleTrainingScene.capturePerspectiveView在3D取当前状态，在2D取已保存3D状态；restorePerspectiveView在3D立即落实，在2D保留至下一次切换。无已有3D状态时，仅当前3D使用本杆记录aimDirection重新瞄准。验收不能只看击球按钮恢复，须检查母球及杆头回到可用视角。录制多级撤回的历史视角另验。Changelog：2026-09-13 / DR-251 / 非录制重打取景，验收中。
+
+### DR-252 — 3D教学导出杆号（2026-09-13）
+SequenceVideoExporter.Options.showSequenceProgress默认false，teachingVideo3D/Hi为true；仅showShotHUD开启时追加按宽度缩放的44px@720杆号行，放在台面外且不缩小原打点/力度条。观察帧显示杆号与观察球形，执行/收尾保留杆号，无可行解明确说明。outputSize必须包含新行，原2D/GIF/card尺寸不变。
+
+### DR-254 — 3D瞄准点提交点击区（2026-09-13）
+AimPointSceneTrainingView浮动提交使用BTTextActionButton(height:44)，保留默认56pt宽；该页不沿用共享按钮默认30pt高度。换题验收须等待提交先消失再重新出现，且查看新题球形原图；仅按钮出现不能证明自动换题与母球可见性。
+
+### DR-255 — BTSceneObservationMenu（2026-09-13）
+- API：`scene: AngleTrainingScene`、`targetNode: SCNNode?`、`pocketIndex: Int`、`identifierPrefix: String`、`onReturnToAim: () -> Void`。仅相机观察；固定题目的训练页复用，不改变选球/袋口与作答。
+- 内容：全桌/母球/目标球/目标袋/回到瞄准，隐藏球或无效袋索引禁用对应项。页面按作答阶段禁用整个菜单。
+- 既有页内状态栏右端承载44pt菜单标签，不新增行高；工具栏原生适配36pt、frame与HStack包装均无效，已撤回。实际尺寸、下缘点击、题内禁用和原图均须验证，不能由frame源码或下缘点击成功推定尺寸通过。r4标准机两页三题及原图通过，其他尺寸待验。
+- Changelog：2026-09-13 / DR-255 / 训练观察菜单API。
+
+### DR-256 — Composer与试打共用3D入口（2026-09-13）
+- PositionPlayComposerView两变体均显示cameraToggle；cameraIdentifierPrefix=sourceDrill非nil时tryout，否则composer，用于cameraMode/观察/focus。旧试打标识保持兼容。
+- 3D观察采用既有ShotPlayCamera与透视布局；球库/摆球仍2D，切换不创建新VM或序列。页面当前无录制按钮/目标区编辑入口，不把模型API误认为已暴露产品功能。
+- Changelog：2026-09-13 / DR-256 / 自由走位正式启用共用3D观看，紧凑机实页往返与实际录制草稿模型不变量已验，其他范围待验。
+
+### DR-257 — 球库拖回终点（2026-09-13）
+AngleSceneView.onDragEndedAt提供手指松开时的SCNView本地pt坐标，供BTBallPaletteDragBack转换至页面命名坐标后命中。台面精细摆放的指球间距只用于onDragMoved，不能用于外部球库接收判定，否则52pt死区及抓取偏移会侵蚀有效区域。验收必须包含实际移除反馈与具体球号原图，按钮/导航成功不能证明球已移回。Changelog：2026-09-13 / DR-257 / 统一外部放下坐标，复验中。
+
+### DR-258 — 空桌角度结果（2026-09-13）
+PositionPlayViewModel.clearTable清空cutAngleDeg，结果胶囊显示—°；清空轨迹节点不能替代清空学员可见读数。实际清空→3D/2D→重来流程须核对空桌无旧角度。Changelog：2026-09-13 / DR-258 / 空桌角度清理，验收中。
+
+### DR-259 — 思路页规划与观察（2026-09-13）
+SiluTrainerView.silu.cameraMode切换复用Scene相机保存恢复，首次3D取全桌。3D禁用顶部绘制工具、移除SolveConstraintDrawingOverlay命中和球体拖动，但不能清空activeTool/约束以实现手势隔离；透视侧栏走ShotPerspectiveLayout。2D回切恢复编辑与球库。Changelog：2026-09-13 / DR-259 / 首页面候选，完整W13待验。
+
+### DR-261 — 规划页观察菜单可用性（2026-09-13）
+BTSceneObservationMenu增加canReturnToAim: Bool = true，false时禁用回到瞄准。规划页必须取当前有效解已生成的杆向，不能以母球至目标球直线替代。Silu底栏接入，播放时禁用菜单，无完整解时仍可观察全桌/可见球/有效目标袋。
+Changelog：2026-09-13 / DR-261 / 观察菜单API增量v2。
+
+### DR-263 — 无目标袋的观察菜单（2026-09-13）
+BTSceneObservationMenu.pocketIndex为Int?；nil表示本页没有目标袋功能，省略该项，负数仍表示有该能力但未选择而禁用。SnookerTacticsView只选中八防守目标球，不引入目标袋或落区编辑；3D观察以当前完整解杆向返回瞄准。
+Changelog：2026-09-13 / DR-263 / 观察菜单API增量v3。
+
+- DR-262补充（2026-09-13）：W13三页3D打点面板复用FreePlay现有usesCompactLayout，宽度取stage扣两侧Spacing.lg，底距Spacing.sm；2D使用原布局。PlanThree非开球3D底栏按现有角色行48pt+观察行topRowHeight分配，恢复台面空间。Silu的3D点球/点袋入口与另两页统一禁用，2D回切保留编辑状态。构建已通过，紧凑机实页复验中；状态文案与完整W13尚未验收。
+
+- 2026-09-13 / DR-264：规划页开球为临时场景。取消保留VM角色/目标/约束/当前解/工具并恢复球位和视角；完成才载入新球形。保留工具时须以!isBreakMode关闭绘制覆盖层。两页状态测试通过，实页验证随W13记录。
+
+### DR-265 — 线条文字朝向（2026-09-13，行为增量v1）
+AngleTrainingScene显示的inline线标签在3D使用与角度数字相同的全轴billboard，锚点保持在线段旁；2D恢复创建时平面yaw。不得将固定俯视的正反向规则直接用于任意观察相机。新建/重建标签与模式切换均应用朝向，清理重建前的标签引用。
+
+### DR-266 — 每日清台终态（2026-09-13，行为增量v1）
+FreePlayView每日清台完成/失败状态禁止继续击球与编辑，隐藏击球工具，保留观察和显式再开局入口。重新进入只有完成汇总的记录时，清除初始化示例球形；不能把示例当作用户完成后的球形。
+
+### DR-267 — 开球交付与观察权（2026-09-13，行为增量v1）
+监听可选breakRunner.seed时，nil表示交付/销毁，不是新球架，不触发focus。每日自动开球初始使用全桌观察；手动开球使用现有瞄准构图。交付后保留已有观察角度。
+
+### DR-269 — 每日清台开球操作（2026-09-13，API增量v1）
+BreakControlBar.showsCancel默认true。每日清台确认重开已放弃旧局，传false避免恢复旧桌面但控制器仍待开球；普通自由击球及规划页保持默认。页面返回仍保存草稿，下次进入恢复待开球。
+
+- DR-269 API增量v2：onRerack可选回调默认nil，nil仍调用runner.reRack。每日清台必须经dailyController.confirmRerack同步草稿seed与球架seed，避免交付被旧seed守卫拒绝。
+
+- DR-269修正：controller重开回调必须真正替换runner；startBreakFlow在runner非nil时拒绝启动。每日host先cancelBreakFlow再start，不能仅验证重启后的新seed，需要不重启实际交付与再次恢复。
+
+### DR-270 — SceneKit视图销毁（2026-09-13，生命周期增量v1）
+AngleSceneView.dismantleUIView须停止displayLink与isPlaying，并解除pointOfView/scene引用；仅view/controller离开作用域不保证渲染场景释放。用实际场景三次创建播放/销毁的weak引用检查验证；场景释放不等于GPU缓存峰值验收。
+
+### DR-271 — 每日清台大字号结算（2026-09-13，布局增量v1）
+辅助功能字号时结算摘要与按钮纵排，底栏通过ScaledMetric为动态按钮预留高度；标准字号保持原横排。按钮AX可点不代表文字完整，必须查看最大字号原图，不能靠限制字号掩盖截断。
+
+### DR-272 — 瞄准尺VoiceOver（2026-09-13，交互增量v1）
+BTAimWheel增减使用页面当前degreesPerPoint，回调生命周期true→nudge→false，disabled时不执行。使用处原allowsHitTesting可编辑边界须同步disabled，避免无障碍绕过触摸禁用；训练题按phase隐藏保持。构建不等于真机VoiceOver验收。
+
+### DR-273 — 比分胶囊按可用宽度布局
+FreePlayView.gamePill宽时横排比分与当前玩家，窄时用ViewThatFits纵排两行，保持完整规则文本和字号。以固定顶栏中实页截图验证不截断、不越界，不能仅验证AX标签完整；dailyStatusPill不共用本布局。
+Changelog：2026-09-13 / DR-273 / 比分胶囊自适应候选。

@@ -226,6 +226,79 @@ final class PerformanceProfiler {
     }
 }
 
+// MARK: - MixedLoopPhaseClock
+
+/// Per-call phase accumulator for the mixed planar/local engine loop.
+/// Sums wall time locally per phase (no lock, no string hashing per epoch) and
+/// records one `PerformanceProfiler` sample per phase on `flush`. Release: no-op.
+struct MixedLoopPhaseClock {
+    enum Phase: Int, CaseIterable {
+        case settleCheck, commit, returnCheck, planarEventsIdle, planarEventsLocalActive,
+             regionScan, localAdvance, captureScan, crossDetect, contactGroup, bookkeeping
+        var label: String {
+            switch self {
+            case .settleCheck: return "Mixed.settleCheck"
+            case .commit: return "Mixed.commitPending"
+            case .returnCheck: return "Mixed.returnToPlanar"
+            case .planarEventsIdle: return "Mixed.planarEvents.noLocalOwner"
+            case .planarEventsLocalActive: return "Mixed.planarEvents.localOwnerActive"
+            case .regionScan: return "Mixed.pocketRegionScan"
+            case .localAdvance: return "Mixed.localAdvanceTogether"
+            case .captureScan: return "Mixed.captureScan"
+            case .crossDetect: return "Mixed.localPlanarCross"
+            case .contactGroup: return "Mixed.contactGroup"
+            case .bookkeeping: return "Mixed.bookkeeping"
+            }
+        }
+    }
+    enum Counter: Int, CaseIterable {
+        case epochsNoLocalOwner, epochsLocalOwnerActive, commitEpochs
+        var label: String {
+            switch self {
+            case .epochsNoLocalOwner: return "Mixed.count.epochs.noLocalOwner"
+            case .epochsLocalOwnerActive: return "Mixed.count.epochs.localOwnerActive"
+            case .commitEpochs: return "Mixed.count.epochs.commit"
+            }
+        }
+    }
+#if DEBUG
+    private var totalsMs = [Double](repeating: 0, count: Phase.allCases.count)
+    private var counts = [Int](repeating: 0, count: Counter.allCases.count)
+    private let start = CACurrentMediaTime()
+#endif
+    @inline(__always) static func now() -> Double {
+#if DEBUG
+        return CACurrentMediaTime()
+#else
+        return 0
+#endif
+    }
+    @inline(__always) mutating func add(_ phase: Phase, since t0: Double) {
+#if DEBUG
+        totalsMs[phase.rawValue] += (CACurrentMediaTime() - t0) * 1000
+#endif
+    }
+    @inline(__always) mutating func tick(_ counter: Counter) {
+#if DEBUG
+        counts[counter.rawValue] += 1
+#endif
+    }
+    /// One sample per phase; counters are recorded with `ms` = count (label says `count`).
+    func flush() {
+#if DEBUG
+        let total = (CACurrentMediaTime() - start) * 1000
+        PerformanceProfiler.recordSample("Mixed.total", ms: total)
+        for phase in Phase.allCases where totalsMs[phase.rawValue] > 0 {
+            PerformanceProfiler.recordSample(phase.label, ms: totalsMs[phase.rawValue])
+        }
+        PerformanceProfiler.recordSample("Mixed.unattributed", ms: max(0, total - totalsMs.reduce(0, +)))
+        for counter in Counter.allCases where counts[counter.rawValue] > 0 {
+            PerformanceProfiler.recordSample(counter.label, ms: Double(counts[counter.rawValue]))
+        }
+#endif
+    }
+}
+
 // MARK: - ProfilerLabels
 
 /// 统一管理所有插桩标签，避免字符串拼写错误

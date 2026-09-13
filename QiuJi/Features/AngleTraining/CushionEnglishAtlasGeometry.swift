@@ -144,7 +144,23 @@ enum CushionEnglishAtlasGeometry {
     /// 库后出射切片：「碰后首个 ballCushion → 下一 ballCushion」；
     /// 无二库则自首库起沿折线取 `postCushionArcLimit`（0.40 m）或至停点取短者。
     /// 无首库时诚实降级为停点附近短弧（保证仍有线可画）；无球-球则空。
+    static func hasCompleteSlice(_ pred: ShotPrediction) -> Bool {
+        if pred.hasFinalTableState { return true }
+        guard pred.termination != nil,
+              let first = firstCueCushionAfterBallBall(in: pred.events),
+              let recorder = pred.recorder,
+              let start = recorder.stateAt(ballName: ShotInput.cueBallName, time: first.time),
+              pred.cuePath.count >= 2 else { return false }
+        if let second = secondCueCushionAfterFirst(in: pred.events, after: first),
+           recorder.stateAt(ballName: ShotInput.cueBallName, time: second.time) != nil {
+            return true
+        }
+        let index = nearestIndex(in: pred.cuePath, to: start.position)
+        return pathArcLengthXZ(Array(pred.cuePath[index...])) >= postCushionArcLimit
+    }
+
     static func pathAfterFirstCueCushion(_ pred: ShotPrediction) -> [SCNVector3] {
+        guard hasCompleteSlice(pred) else { return [] }
         // Require a prior ball-ball so the cushion is post-contact (D-v20-A).
         guard firstBallBallEvent(in: pred.events) != nil,
               pred.cuePath.count >= 2 else { return [] }

@@ -30,6 +30,7 @@ Cursor 专属能力不得假装在 Codex 中存在。`.mdc` 的 `alwaysApply` �
 | 任务 | 必读规则 | 按需角色 | 必读技能 |
 |---|---|---|---|
 | 架构、模块、SPM、ADR | `.cursor/rules/10-ios-architect.mdc` | `.cursor/agents/ios-architect.md` | `.cursor/skills/ios-architecture/SKILL.md` |
+| Blender 模型、材质、USDZ 导出与 iOS 资产验证 | 按是否涉及几何/实现/验收叠加对应规则 | 当前任务角色 | 已安装的 `blender-ios-assets`（本机 `/Users/song/.codex/skills/blender-ios-assets/SKILL.md`）；通用建模/材质/导出/渲染技能按需加载。若换机缺失，明确说明并以仓库消费端代码为准 |
 | SwiftUI、Canvas、组件、视觉实现 | `.cursor/rules/20-swiftui-developer.mdc` | `.cursor/agents/swiftui-developer.md` | `.cursor/skills/swiftui-design-system/SKILL.md` |
 | SwiftData、同步、鉴权、后端 | `.cursor/rules/30-data-engineer.mdc` | `.cursor/agents/data-engineer.md` | 在 `swiftdata-cloudkit` 与 `rest-api-backend` 中选择适用者 |
 | Drill/Plan JSON、动画路径、内容生产 | `.cursor/rules/40-content-engineer.mdc` | `.cursor/agents/content-engineer.md` | `.cursor/skills/content-engineering/SKILL.md` |

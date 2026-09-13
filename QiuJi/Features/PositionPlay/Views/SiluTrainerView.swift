@@ -15,6 +15,7 @@ struct SiluTrainerView: View {
     }
 
     @StateObject private var vm = SiluTrainerViewModel()
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     @State private var hasAppeared = false
     @State private var projector = TableProjector()
     @State private var showBreakPicker = false
@@ -36,7 +37,8 @@ struct SiluTrainerView: View {
     var body: some View {
         GeometryReader { geo in
             let rig = vm.scene.cameraRig
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D && !vm.isBreakMode ? Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: rig?.tableOuterHalfLength ?? ShotTableLayout.defaultHalfLength,
@@ -46,11 +48,12 @@ struct SiluTrainerView: View {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 0) {
                     topToolRow
+                        .disabled(is3D)
                         .frame(height: Self.topRowHeight)
                     stage(proxy)
                         .frame(height: sceneH)
                     bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                        .frame(height: bottomHeight)
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
@@ -70,9 +73,10 @@ struct SiluTrainerView: View {
                 BTSolverNavStatus(
                     title: "思路训练",
                     isBusy: vm.isComputing,
-                    statusText: vm.breakRunner?.statusText ?? vm.statusText
+                    statusText: vm.breakRunner?.statusText(isPerspective: is3D) ?? vm.statusText
                 )
             }
+            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .sheet(isPresented: $showBreakPicker) {
@@ -87,6 +91,21 @@ struct SiluTrainerView: View {
                 if let initialBoard { vm.loadBoard(initialBoard) }
             }
         }
+    }
+
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            showSpinPad = false
+            let needsOverview = !vm.scene.hasPerspectiveView
+            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
+            vm.scene.setCameraMode(vm.cameraMode, animated: false)
+            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("silu.cameraMode")
     }
 
     // MARK: - Top tool row
@@ -156,7 +175,7 @@ struct SiluTrainerView: View {
     private func stage(_ proxy: ShotStageProxy) -> some View {
         ZStack(alignment: .topLeading) {
             sceneContainer
-            if vm.activeTool != .none {
+            if !is3D && !vm.isBreakMode && vm.activeTool != .none {
                 SolveConstraintDrawingOverlay(
                     coordinateSpaceName: "silu",
                     sceneFrame: sceneFrame,
@@ -169,7 +188,7 @@ struct SiluTrainerView: View {
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
             if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy)
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy, isPerspective: is3D)
             }
 
             if !vm.isBreakMode && proxy.isValid {
@@ -180,21 +199,22 @@ struct SiluTrainerView: View {
 
                 // 左下（G24）：BTSolverLeftColumn + Slot L1 开球。
                 leftColumn
-                    .btStageFrame(proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size))
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size) : proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size))
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                 instrumentColumn
-                    .btStageFrame(proxy.instrumentFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                 // 条 18.2：击球/上一杆/回放，右下角底边齐球桌底线。
                 actionColumn
-                    .btStageFrame(proxy.actionColumnFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
             }
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
+                                 usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -209,12 +229,12 @@ struct SiluTrainerView: View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
-            onPocketTapped: vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
+            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            autoFitsRotatedTable: !is3D,
+            onPocketTapped: is3D || vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
-            draggableBallNodes: vm.breakRunner?.draggableCue
-                ?? (vm.activeTool == .none ? vm.draggableBalls : []),
+            draggableBallNodes: is3D ? [] : (vm.breakRunner?.draggableCue
+                ?? (vm.activeTool == .none ? vm.draggableBalls : [])),
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else { vm.dragBegan(node: node) }
@@ -231,10 +251,10 @@ struct SiluTrainerView: View {
                 guard !vm.isBreakMode else { return }
                 handleTableDragEnd(node: node, localPoint: localPoint)
             },
-            selectableBallNodes: (vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,
+            selectableBallNodes: (is3D || vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,
             onBallTapped: { vm.selectTarget(node: $0) },
             // G18/V6：开球模式拖屏调瞄准（G13 相对语义）；非开球模式本页无自由拖瞄，忽略。
-            onAimNudged: { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },
+            onAimNudged: is3D ? nil : { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -303,6 +323,22 @@ struct SiluTrainerView: View {
         Group {
             if let runner = vm.breakRunner {
                 BreakControlBar(runner: runner, onCancel: { vm.cancelBreakFlow() })
+            } else if is3D {
+                HStack {
+                    BTSceneObservationMenu(
+                        scene: vm.scene,
+                        targetNode: vm.selectedTargetKey.flatMap { vm.scene.allBallNodes[$0] },
+                        pocketIndex: vm.selectedPocketIndex,
+                        identifierPrefix: "silu",
+                        canReturnToAim: vm.canObserveCurrentAim,
+                        onReturnToAim: vm.observeCurrentAim
+                    )
+                    .disabled(vm.isPlaying)
+                    Spacer(minLength: 0)
+                    Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+                }
+                .font(.btFootnote)
+                .padding(.horizontal, Spacing.sm)
             } else {
                 paletteBar(proxy)
             }

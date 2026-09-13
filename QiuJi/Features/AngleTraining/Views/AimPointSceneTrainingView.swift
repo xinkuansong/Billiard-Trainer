@@ -37,6 +37,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     @Published private(set) var closeupCorner: AimCloseupPlacement.Corner = .topTrailing
     /// 落库失败的可见错误态（nil = 无错误）。禁止静默丢题。
     @Published private(set) var saveErrorMessage: String?
+    @Published private(set) var verificationErrorMessage: String?
     /// 落库失败但已保留的成绩，供重试；用户答案始终留在 `sessionResults`。
     @Published private(set) var unsavedResults: [AngleTestResult] = []
 
@@ -87,6 +88,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
     func nextQuestion() {
         strikeTask?.cancel()
+        verificationErrorMessage = nil
         guard !limiter.isLimitReached else {
             // C23：击球验证结束后若已满额，回到 aiming 以展示 full 主卡（避免卡在 striking）。
             phase = .aiming
@@ -250,11 +252,27 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
     // MARK: - Strike（物理击球）
 
+    func retryVerification() {
+        guard verificationErrorMessage != nil, phase == .showingResult else { return }
+        strike()
+    }
+
+    @discardableResult
+    func acceptVerificationPrediction(_ prediction: ShotPrediction) -> Bool {
+        guard prediction.hasFinalTableState, prediction.recorder != nil, prediction.duration > 0.05 else {
+            strikeTask?.cancel()
+            phase = .showingResult
+            verificationErrorMessage = "击球验证未完成，已保留本题答案。可以重试验证或继续下一题。"
+            return false
+        }
+        verificationErrorMessage = nil
+        return true
+    }
+
     private func strike() {
         guard phase == .showingResult,
               let cue = scene.cueBallNode, let target = scene.targetBallNodes.first else { return }
-        phase = .striking
-        clearLines()
+        verificationErrorMessage = nil
 
         let surfaceY = scene.surfaceY
         let velocity = ShotTuning.aimPointVerifyVelocity
@@ -265,10 +283,9 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             surfaceY: surfaceY,
             balls: [ObstacleBall(name: "object", position: target.position)]
         )
-        guard let recorder = prediction.recorder, prediction.duration > 0.05 else {
-            advanceAfterStrike()
-            return
-        }
+        guard acceptVerificationPrediction(prediction), let recorder = prediction.recorder else { return }
+        phase = .striking
+        clearLines()
 
         // Q7.4：验证击球走单一权威运杆链路（运杆→出杆→触球起播），与其他击打页
         // （`PositionPlayViewModel`/`SiluTrainerViewModel` 等）同口径 `AngleTrainingScene.runCueStroke`。
@@ -322,7 +339,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         lineNodes.append(scene.addDashedLine(
             from: SCNVector3(target.position.x, y, target.position.z),
             to: SCNVector3(aimPoint.x, y, aimPoint.z),
-            color: TrajectoryStyle.TrainingAssist.potColor(forNumber: targetBallNumber)
+            color: TrajectoryStyle.TrainingAssist.potColor(forNumber: targetBallNumber), placement: .table
         ))
 
         // 辅助线（G1）：过目标球心、垂直于**用户瞄准线**，随瞄准旋转，白色细虚线。
@@ -332,7 +349,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         lineNodes.append(scene.addDashedLine(
             from: SCNVector3(target.position.x - n.x * auxHalf, y, target.position.z - n.z * auxHalf),
             to: SCNVector3(target.position.x + n.x * auxHalf, y, target.position.z + n.z * auxHalf),
-            color: TrajectoryStyle.hintColor, radius: 0.0016, dash: 0.018, gap: 0.014
+            color: TrajectoryStyle.hintColor, radius: 0.0016, dash: 0.018, gap: 0.014, placement: .table
         ))
 
         // 用户瞄准线（Q7.1）：白色实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在
@@ -341,7 +358,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         lineNodes.append(scene.addLine(
             from: SCNVector3(cue.position.x, y, cue.position.z),
             to: scenePoint(userRes.lineEnd, y: y),
-            color: TrajectoryStyle.TrainingAssist.aimLine
+            color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table
         ))
         if userRes.touchesBall {
             lineNodes.append(scene.addAimPointMarker(at: scenePoint(userRes.aimPoint, y: y),
@@ -360,7 +377,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
             lineNodes.append(scene.addDashedLine(
                 from: SCNVector3(cue.position.x, y, cue.position.z),
                 to: scenePoint(correctRes.lineEnd, y: y),
-                color: TrajectoryStyle.TrainingAssist.aimLine
+                color: TrajectoryStyle.TrainingAssist.aimLine, placement: .table
             ))
             let foot = AimPointGeometry.aimPoint(
                 lineOrigin: xzPoint(cue.position), direction: xzPoint(correctDir),
@@ -503,7 +520,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
 
     // MARK: - Camera（3D 站位视角随题取景）
 
-    private func applyAimingPoseIfNeeded() {
+    func applyAimingPoseIfNeeded() {
         guard scene.currentCameraMode == .perspective3D else {
             #if DEBUG
             print("[AimPointScene.applyAimingPose] skip (not perspective3D)")
@@ -618,6 +635,13 @@ struct AimPointSceneTrainingView: View {
             .animation(BTMotion.easeChrome, value: vm.phase)
         }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
+        .alert("击球验证未完成", isPresented: Binding(
+            get: { vm.verificationErrorMessage != nil }, set: { _ in })) {
+            Button("重试验证") { vm.retryVerification() }
+            Button("下一题") { vm.nextQuestion() }
+        } message: {
+            Text(vm.verificationErrorMessage ?? "")
+        }
         .btDarkToolChrome(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -700,6 +724,15 @@ struct AimPointSceneTrainingView: View {
                 statsPill
             }
             Spacer()
+            if is3D {
+                BTSceneObservationMenu(scene: vm.scene,
+                    targetNode: vm.scene.targetBallNodes.first,
+                    pocketIndex: vm.question?.pocketIndex ?? -1,
+                    identifierPrefix: "aimPointTraining") {
+                        vm.applyAimingPoseIfNeeded()
+                    }
+                    .disabled(vm.phase != .aiming || vm.limiter.isLimitReached)
+            }
         }
         .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity, alignment: .center)
@@ -820,7 +853,7 @@ struct AimPointSceneTrainingView: View {
                         aimWheel
                             .frame(width: ShotStageMetrics.aimWheelWidth,
                                    height: ShotStageMetrics.aimWheelFloatingHeight)
-                        BTTextActionButton(title: "提交", role: .primary) {
+                        BTTextActionButton(title: "提交", role: .primary, height: 44) {
                             vm.submit()
                         }
                     }

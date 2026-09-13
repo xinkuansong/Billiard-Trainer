@@ -114,8 +114,8 @@ struct SceneAimingView: View {
             vm.configure(context: modelContext)
             // 入口流程（T-P18-48）：先建场景但不出题，弹完整训练设置，
             // 用户点「开始训练」后才 startTest。
-            // 渲染统一（条 11.2）：弃 enhanced 管线（IBL+studio 光把台呢抬得发灰白），
-            // 与其他球桌页同走 plain 管线，观感一致。
+            // 渲染统一（条 11.2 / ADR-P5-01）：弃 enhanced 管线，与其他球桌页同走
+            // 默认的移动渲染管线（2D/3D 同源），观感一致。
             if !isScenePrepared {
                 vm.setupScene(initialCameraMode: cameraMode, enhanced: false, autoStart: false)
                 isScenePrepared = true
@@ -156,6 +156,15 @@ struct SceneAimingView: View {
                 progressPill
             }
             Spacer()
+            if is3D {
+                BTSceneObservationMenu(scene: vm.scene,
+                    targetNode: vm.scene.targetBallNodes.first,
+                    pocketIndex: vm.selectedPocketIndex,
+                    identifierPrefix: "angleTraining") {
+                        applyAimingPoseForCurrentQuestion(reason: "returnToAim")
+                    }
+                    .disabled(vm.phase != .observing || vm.currentQuestion == nil || vm.testFinished)
+            }
         }
         .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity, alignment: .center)

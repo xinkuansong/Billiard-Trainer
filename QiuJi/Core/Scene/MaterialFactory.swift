@@ -26,6 +26,15 @@ final class MaterialFactory {
     /// Override scalar applied on top of the USDZ cloth roughness texture to subdue gloss.
     private static let roughnessUSDZClothOverride: CGFloat = 0.88
 
+    // S77/S78: keep low-light ball values unchanged while compressing the
+    // bright cap. This is a candidate-only artistic response, not a new BRDF.
+    // No camera exposure change, texture lookup or additional render pass.
+    private static let mobileHighlightShoulderFragmentShader = """
+    #pragma body
+    float ballPeak = max(_output.color.r, max(_output.color.g, _output.color.b));
+    _output.color.rgb /= 1.0 + 0.4 * max(0.0, ballPeak - 0.4);
+    """
+
     // MARK: - Ball material
 
     /// Apply low-roughness PBR + clearcoat fragment shader to every geometry under `node`.
@@ -35,23 +44,26 @@ final class MaterialFactory {
     ///   the cue ball, whose USDZ texture carries scuff / fingerprint
     ///   decorations that read as "dirt" under the studio lighting; the
     ///   model stays clean white instead.
-    static func applyBallMaterial(to node: SCNNode, diffuseOverride: UIColor? = nil) {
-        applyBallMaterialRecursive(node, diffuseOverride: diffuseOverride)
+    static func applyBallMaterial(to node: SCNNode, diffuseOverride: UIColor? = nil, usesClearcoat: Bool = true) {
+        applyBallMaterialRecursive(node, diffuseOverride: diffuseOverride, usesClearcoat: usesClearcoat)
     }
 
-    private static func applyBallMaterialRecursive(_ node: SCNNode, diffuseOverride: UIColor?) {
+    private static func applyBallMaterialRecursive(_ node: SCNNode, diffuseOverride: UIColor?, usesClearcoat: Bool) {
         if let geometry = node.geometry {
             for material in geometry.materials {
                 material.lightingModel = .physicallyBased
                 // 球面粗糙度：0.045 近镜面会把冷灰 IBL 整片反射糊在球面上（白球发"磨砂雾"）。
                 // 提到 0.10 让环境反射略散、对比更干净，同时仍保留抛光高光。
-                material.roughness.contents = Float(0.10)
+                // S92–S94: sharper twin-source reflection in the mobile candidate.
+                material.roughness.contents = Float(usesClearcoat ? 0.10 : 0.05)
                 material.metalness.contents = Float(0.0)
                 material.normal.contents = nil
                 material.normal.intensity = 0
                 material.isDoubleSided = false
                 material.transparency = 1.0
-                material.shaderModifiers = [.fragment: clearcoatFragmentShader]
+                material.shaderModifiers = usesClearcoat
+                    ? [.fragment: clearcoatFragmentShader]
+                    : [.fragment: mobileHighlightShoulderFragmentShader]
                 if let diffuseOverride {
                     material.diffuse.contents = diffuseOverride
                     // Multiply channel must also be neutral white, otherwise
@@ -62,7 +74,7 @@ final class MaterialFactory {
             }
         }
         for child in node.childNodes {
-            applyBallMaterialRecursive(child, diffuseOverride: diffuseOverride)
+            applyBallMaterialRecursive(child, diffuseOverride: diffuseOverride, usesClearcoat: usesClearcoat)
         }
     }
 
@@ -98,7 +110,7 @@ final class MaterialFactory {
     /// - Parameter multiplyTint: the multiply-channel colour applied to the felt
     ///   diffuse; pass `clothMultiplyPlain` for the plain pipeline to subdue the
     ///   neon green, `clothMultiplyStudio` (default) for the enhanced pipeline.
-    static func enhanceClothMaterials(in tableNode: SCNNode, multiplyTint: UIColor = clothMultiplyStudio) {
+    static func enhanceClothMaterials(in tableNode: SCNNode, multiplyTint: UIColor = clothMultiplyStudio, preservesClothResponse: Bool = false) {
         let normalMap = cachedFeltNormalMap(size: 512)
 
         enumerateMaterials(in: tableNode) { material, nodeName in
@@ -106,10 +118,12 @@ final class MaterialFactory {
 
             material.lightingModel = .physicallyBased
 
-            if hasTextureContents(material.roughness.contents) {
-                material.roughness.contents = Float(roughnessUSDZClothOverride)
-            } else {
-                material.roughness.contents = Float(0.89)
+            if !preservesClothResponse {
+                if hasTextureContents(material.roughness.contents) {
+                    material.roughness.contents = Float(roughnessUSDZClothOverride)
+                } else {
+                    material.roughness.contents = Float(0.89)
+                }
             }
 
             if !hasTextureContents(material.metalness.contents) {
@@ -117,7 +131,7 @@ final class MaterialFactory {
             }
 
             if hasTextureContents(material.normal.contents) {
-                material.normal.intensity = normalIntensityUSDZClothOverride
+                material.normal.intensity = preservesClothResponse ? 0.65 : normalIntensityUSDZClothOverride
             } else {
                 material.normal.contents = normalMap
                 material.normal.intensity = normalIntensityFeltFallback

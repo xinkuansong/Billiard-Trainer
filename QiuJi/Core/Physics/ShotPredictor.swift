@@ -6,8 +6,8 @@
 //  pooltool 事件驱动模拟的一次性求解，输出母球 / 目标球轨迹折线、分离角、
 //  切线、进袋结果，供 SceneKit 画线与播放动画使用。
 //
-//  设计：纯函数、值类型输入输出，不持有 SCNNode；在主线程直接调用即可
-//  （2 球场景模拟极快），也可投喂给 `SimulationWorker` 放后台。
+//  设计：纯函数、值类型输入输出，不持有 SCNNode。
+//  局部几何准备与反解可能耗时，交互页面应在后台计算并校验请求代次。
 //
 
 import SceneKit
@@ -15,6 +15,7 @@ import SceneKit
 // MARK: - Input
 
 struct ShotInput {
+    var simulationModel:EventDrivenEngine.SimulationModel = .appDefault
     /// 母球位置（世界坐标）。
     var cueBall: SCNVector3
     /// 目标球位置（世界坐标）。
@@ -83,6 +84,12 @@ struct ShotEvent {
 }
 
 struct ShotPrediction {
+    /// Nil means no simulation was performed (for example, impossible geometry).
+    /// Limits report a partial trajectory, not a verified final rest position.
+    var termination: EventDrivenEngine.Termination?
+    var hasFinalTableState: Bool { termination == .settled }
+    var hasResolvedSearchState: Bool { termination == .settled || termination == .interestResolved }
+
     /// 选定袋口在几何上是否可进（切球角 < 极限 且 母球不挡路）。
     var feasible: Bool = true
     /// 不可进的原因（feasible == false 时有效）。
@@ -156,12 +163,21 @@ struct ShotPrediction {
 // MARK: - Predictor
 
 enum ShotPredictor {
+    /// A transition may commit another frame at the same event time.
+    /// Prefer the last committed state at the greatest timestamp.
+    private static func latestCommittedFrame(_ frames: [BallFrame]) -> BallFrame? {
+        frames.reduce(nil) { (latest: BallFrame?, frame: BallFrame) in
+            guard let latest, latest.time > frame.time else { return frame }
+            return latest
+        }
+    }
 
     /// 求解一次击球的完整轨迹与分离角。
     static func predict(
         _ input: ShotInput,
         maxEvents: Int = 500,
-        maxTime: Float = 15.0
+        maxTime: Float = 15.0,
+        useAimCandidatePruning: Bool = true
     ) -> ShotPrediction {
         // 1) 瞄准几何 + 可行性闸门（不可进直接返回）。
         var result = ShotPrediction()
@@ -181,7 +197,8 @@ enum ShotPredictor {
         // 2) 闭环瞄准求解：短模拟评分搜索使目标球进选定袋的发射方向（吸收 squirt/throw/swerve）。
         let bestOffset = solveAimOffset(
             baseAim: ctx.aimDir, velocity: input.velocity, input: input,
-            geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost
+            geometry: ctx.geometry, pocketCenter: ctx.pocketCenter, ghost: ctx.ghost,
+            useCandidatePruning: useAimCandidatePruning
         )
 
         // 3) 用最优方向跑完整模拟并提取全部预测字段（共享核心 `buildPrediction`）。
@@ -393,6 +410,7 @@ enum ShotPredictor {
 #endif
         // 轨迹折线（母球白 / 目标球橙）直接取自引擎真实模拟，不做显示层钳制。
         let duration = run.recorder.duration
+        result.termination = run.termination
         result.recorder = run.recorder
         result.duration = duration
         let playback: TrajectoryPlayback? = includePresentation
@@ -419,7 +437,7 @@ enum ShotPredictor {
         var pocketed: [String] = []
         var extraPaths: [String: [SCNVector3]] = [:]
         for (name, frames) in run.recorder.framesByBallName {
-            if let last = frames.max(by: { $0.time < $1.time }) {
+            if let last = latestCommittedFrame(frames) {
                 finals[name] = last.position
                 if name == ShotInput.cueBallName {
                     result.cueFinalSpeed = sqrtf(last.velocity.x * last.velocity.x
@@ -508,7 +526,8 @@ enum ShotPredictor {
         maxEvents: Int = 500,
         maxTime: Float = 15.0,
         includePresentation: Bool = true,
-        earlyStopBallNames: Set<String>? = nil
+        earlyStopBallNames: Set<String>? = nil,
+        simulationModel:EventDrivenEngine.SimulationModel = .appDefault
     ) -> ShotPrediction {
         let y = surfaceY
         let r = BallPhysics.radius
@@ -537,9 +556,12 @@ enum ShotPredictor {
         // evolve 切步序列进而微移轨迹（实测停位差可超 1e-5，个别高速格甚至改变碰撞拓扑），
         // 故 scoring-only 也必须保持 true（B4 曾试关闭换性能，被 `ScoringOnlyConsistencyTests`
         // 打回——scoring 与全保真必须逐位同物理）。
-        PerformanceProfiler.measureSample(ProfilerLabel.predictorSimFreeEngine) {
-            engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true,
+        var termination = PerformanceProfiler.measureSample(ProfilerLabel.predictorSimFreeEngine) {
+            engine.simulatePrediction(model:simulationModel,maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true,
                             earlyStopBallNames: earlyStopBallNames)
+        }
+        if includePresentation, earlyStopBallNames == nil {
+            termination = engine.completePlanarSpinTail(after: termination, surfaceY: y)
         }
 #if DEBUG
         let postStart = Date()   // B0 分段计时：simulateFree 后处理（polyline/extraPaths 等）
@@ -553,6 +575,7 @@ enum ShotPredictor {
         var result = ShotPrediction()
         result.feasible = true
         result.aimDirection = dir
+        result.termination = termination
         result.recorder = recorder
         result.duration = duration
         if let playback {
@@ -564,7 +587,7 @@ enum ShotPredictor {
         var pocketed: [String] = []
         var extraPaths: [String: [SCNVector3]] = [:]
         for (name, frames) in recorder.framesByBallName {
-            if let last = frames.max(by: { $0.time < $1.time }) {
+            if let last = latestCommittedFrame(frames) {
                 finals[name] = last.position
                 if name == ShotInput.cueBallName {
                     result.cueFinalSpeed = sqrtf(last.velocity.x * last.velocity.x
@@ -630,6 +653,7 @@ enum ShotPredictor {
 
     /// 单次模拟结果（搜索与最终共用）。
     private struct RunResult {
+        let termination: EventDrivenEngine.Termination
         let recorder: TrajectoryRecorder
         /// 目标球是否进了**选定**的那个袋（而非任意袋）。
         let pottedSelected: Bool
@@ -670,7 +694,7 @@ enum ShotPredictor {
         aimDir: SCNVector3, velocity: Float, input: ShotInput,
         geometry: TableGeometry, pocketCenter: SCNVector3, ghost: SCNVector3,
         maxEvents: Int, maxTime: Float, highFidelity: Bool = false, earlyStop: Bool = false,
-        stopAfterContact: Bool = false
+        stopAfterContact: Bool = false, rejectDirectCandidate: Bool = false
     ) -> RunResult {
         let y = input.surfaceY
         let r = BallPhysics.radius
@@ -704,9 +728,13 @@ enum ShotPredictor {
         let contactPair: (String, String)? = stopAfterContact
             ? (ShotInput.cueBallName, ShotInput.targetBallName)
             : nil
-        PerformanceProfiler.measureSample(ProfilerLabel.predictorRunShot) {
-            engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: highFidelity,
-                            earlyStopBallNames: interest, stopAfterContactBetween: contactPair)
+        var termination = PerformanceProfiler.measureSample(ProfilerLabel.predictorRunShot) {
+            engine.simulatePrediction(model:input.simulationModel,maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: highFidelity,
+                            earlyStopBallNames: interest, stopAfterContactBetween: contactPair,
+                            rejectCushionBeforeAnyContactFor: rejectDirectCandidate ? ShotInput.cueBallName : nil)
+        }
+        if highFidelity, !earlyStop, !stopAfterContact {
+            termination = engine.completePlanarSpinTail(after: termination, surfaceY: y)
         }
         let recorder = engine.getTrajectoryRecorder()
 
@@ -794,6 +822,7 @@ enum ShotPredictor {
         }
         let pottedSelected = (objectPocketId == "pocket_\(input.pocketIndex)")
         return RunResult(
+            termination: termination,
             recorder: recorder,
             pottedSelected: pottedSelected,
             cuePocketed: recorder.isBallPocketed(ShotInput.cueBallName),
@@ -873,7 +902,8 @@ enum ShotPredictor {
 
     private static func solveAimOffset(
         baseAim: SCNVector3, velocity: Float, input: ShotInput,
-        geometry: TableGeometry, pocketCenter: SCNVector3, ghost: SCNVector3
+        geometry: TableGeometry, pocketCenter: SCNVector3, ghost: SCNVector3,
+        useCandidatePruning: Bool
     ) -> Float {
         let searchEvents = AimScoring.searchMaxEvents
         let searchTime = AimScoring.searchMaxTime
@@ -892,13 +922,17 @@ enum ShotPredictor {
         // stopAfterContact：评分只消费碰前事件 + 目标球碰后首帧方向（+未碰时 cueGhostMinDist），
         // 首次母-目碰撞解算后即截断 ⇒ 评分值与整程逐位一致、单次模拟成本大幅下降
         //（与 `positionAimScore` 同参数，论证见 B1 + `EventDrivenEngine.simulate` 文档）。
-        func score(_ offset: Float) -> Float {
+        func score(_ offset: Float, incumbent: Float) -> Float {
             let run = runShot(
                 aimDir: baseAim.rotatedY(offset), velocity: velocity, input: input,
                 geometry: geometry, pocketCenter: pocketCenter, ghost: ghost,
                 maxEvents: searchEvents, maxTime: searchTime,
-                earlyStop: true, stopAfterContact: true
+                earlyStop: true, stopAfterContact: true,
+                rejectDirectCandidate: useCandidatePruning && incumbent < AimScoring.invalidCandidate
             )
+            // This bound is strictly worse than the current valid incumbent;
+            // its exact miss-distance score cannot affect bestOf's selection.
+            if run.termination == .candidateRejected { return AimScoring.invalidCandidate }
             guard let od = run.objPostContactDir else {
                 // 未碰到目标球：无效候选，叠加母球-幽灵球距离做梯度，把搜索拉回真正击中目标球。
                 return AimScoring.invalidCandidate + run.cueGhostMinDist
@@ -919,7 +953,7 @@ enum ShotPredictor {
             var bs = Float.greatestFiniteMagnitude
             var o = center - halfRange
             while o <= center + halfRange + 1e-6 {
-                let s = score(o)
+                let s = score(o, incumbent: bs)
                 if s < bs { bs = s; bo = o }
                 o += step
             }

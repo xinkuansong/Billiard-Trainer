@@ -6,11 +6,13 @@ QiuJiTests/AimingCorrectionZ3EvidenceTests.swift
 QiuJiTests/BTShotHUDBarRenderTests.swift
 QiuJiTests/BallFaceRenderDiagTests.swift
 QiuJiTests/BallFogDiagTests.swift
+QiuJiTests/BallStickerTests.swift
 QiuJiTests/BankFrozenRailDiagTests.swift
 QiuJiTests/BankKickDifficultyTests.swift
 QiuJiTests/BankKickSpinSearchEvidenceTests.swift
 QiuJiTests/BatchSequenceReplayRegressionTests.swift
 QiuJiTests/BreakFlowRunnerV6Tests.swift
+QiuJiTests/CueStyleTests.swift
 QiuJiTests/CushionEnglishAtlasTests.swift
 QiuJiTests/DrillListViewModelTests.swift
 QiuJiTests/DrillShotReconstructionTests.swift
@@ -22,6 +24,7 @@ QiuJiTests/PocketRefactorDiagTests.swift
 QiuJiTests/PositionPlaySequenceExportRunnerTests.swift
 QiuJiTests/PositioningFormationRenderTests.swift
 QiuJiTests/ReachabilityVizTests.swift
+QiuJiTests/RenderQualityV62Tests.swift
 QiuJiTests/SequenceStillCueTests.swift
 QiuJiTests/ShareCardImageRendererRootCauseDiagTests.swift
 QiuJiTests/ShotScenarioRenderTests.swift
@@ -30,6 +33,7 @@ QiuJiTests/SpinRenderEvidenceTests.swift
 QiuJiTests/StatisticsViewModelTests.swift
 QiuJiTests/SwiftDataMigrationTests.swift
 QiuJiTests/TableLegGeometryDiagTests.swift
+QiuJiTests/TrajectoryRendererTests.swift
 QiuJiTests/V21W1EvidenceTests.swift
 QiuJiTests/V21W2BakeTests.swift
 QiuJiTests/V21W3BakeTests.swift
@@ -47,12 +51,15 @@ QiuJiUITests/AimingCorrectionZ1UITests.swift
 QiuJiUITests/AimingCorrectionZ2UITests.swift
 QiuJiUITests/AimingCorrectionZ3UITests.swift
 QiuJiUITests/B1_ManualFormationUITests.swift
+QiuJiUITests/BallStickerUITests.swift
+QiuJiUITests/CueStyleUITests.swift
 QiuJiUITests/DeviceMatrixUITests.swift
 QiuJiUITests/DrillSceneThreeBeatUITests.swift
 QiuJiUITests/Helpers/TheoryFigureEvidence.swift
 QiuJiUITests/P5_AngleTrainingUITests.swift
 QiuJiUITests/PocketLeatherFlowUITests.swift
 QiuJiUITests/PocketLeatherUITests.swift
+QiuJiUITests/RenderQualityV62UITests.swift
 QiuJiUITests/S1_FreePlayLayoutUITests.swift
 QiuJiUITests/S2_ShotPagesLayoutUITests.swift
 QiuJiUITests/ScreenshotTourUITests.swift

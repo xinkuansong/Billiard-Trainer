@@ -52,15 +52,24 @@ final class BreakFlowRunner: ObservableObject {
         gameOptions.first(where: { $0.game == game })?.title ?? "\(game.ballCount) 球"
     }
 
-    /// 开球默认杆头速度 (m/s)：G18（问题集合 v5·V6）——默认 6.0（替代固定 7.0），
-    /// 经右侧力度条 `BTShotInstrumentColumn` 可调，参与开球速度。
-    static let defaultBreakVelocity: Double = 6.0
+    /// Shared break-shot tuning, in m/s, across all break hosts.
+    static let defaultBreakVelocity: Double = 8.0
+    static let breakVelocityRange: ClosedRange<Double> = ShotTuning.velocityRange.lowerBound...10.0
 
     let game: RackGame
     @Published private(set) var phase: Phase = .racked
+    @Published private(set) var simulationFailure: EventDrivenEngine.Termination?
     @Published private(set) var statusText = "拖屏调方向 · 拖母球定开球点 · 点「开球」散局"
 
-    /// 开球杆头速度 (m/s)：右侧力度柱绑定（G18）。默认 6.0，量程沿用 `ShotTuning.velocityRange`。
+    /// Camera observation and shot aiming use separate controls in perspective mode.
+    func statusText(isPerspective: Bool) -> String {
+        if isPerspective && phase == .racked && simulationFailure == nil {
+            return "瞄准轮调方向 · 2D摆开球点 · 点「开球」散局"
+        }
+        return statusText
+    }
+
+    /// 开球杆头速度 (m/s)：右侧力度柱绑定（G18）。默认 8.0，量程使用 `breakVelocityRange`。
     @Published var velocity: Double = BreakFlowRunner.defaultBreakVelocity
 
     /// 开球打点（接触点偏移/R，K7）：右侧迷你图 + `BTSpinPadOverlay` 绑定；`breakNow` 传入物理。
@@ -116,6 +125,7 @@ final class BreakFlowRunner: ObservableObject {
 
     /// 清台摆架：按玩法 + 当前 seed 摆球架，母球落默认开球点，画锁顶球瞄准线。
     func rackUp() {
+        simulationFailure = nil
         cancelPlayback()
         settledBoard = nil
         settledOutcome = nil
@@ -241,7 +251,7 @@ final class BreakFlowRunner: ObservableObject {
         }
         aimNodes.append(scene.addLine(from: cue.position, to: forward,
                                       color: TrajectoryStyle.hintColor.withAlphaComponent(0.5),
-                                      radius: TrajectoryStyle.lineHint))
+                                      radius: TrajectoryStyle.lineHint, placement: .table))
         let tail = SCNVector3(cue.position.x - dir.x * AngleSceneCalculator.ballRadius * 2,
                               cue.position.y,
                               cue.position.z - dir.z * AngleSceneCalculator.ballRadius * 2)
@@ -275,10 +285,17 @@ final class BreakFlowRunner: ObservableObject {
         // 清瞄准线后藏杆；`runCueStroke` 起手会再 show，避免瞄准线消失后杆悬空。
         scene.hideCueStick()
 
+        #if DEBUG
+        let diagnosticInput = "seed=\(seed) game=\(game) surfaceY=\(surfaceY) cue=\(cuePos.x),\(cuePos.y),\(cuePos.z) aim=\(aim.x),\(aim.y),\(aim.z) power=\(power) spin=\(sx),\(sy)"
+        NSLog("%@", "[W09 break begin] \(diagnosticInput)")
+        #endif
         breakQueue.async { [weak self] in
             let result = BreakSimulator.breakShot(
                 rack: theRack, cuePosition: cuePos, aimDirection: aim, power: power,
                 spinX: sx, spinY: sy)
+            #if DEBUG
+            NSLog("%@", "[W09 break end] \(diagnosticInput) termination=\(result.termination) duration=\(result.recorder.duration)")
+            #endif
             DispatchQueue.main.async {
                 guard let self, self.breakGeneration == gen, self.phase == .computing else { return }
                 self.startPlayback(result)
@@ -286,7 +303,24 @@ final class BreakFlowRunner: ObservableObject {
         }
     }
 
+    /// Validate before cue motion: an incomplete board must never be delivered.
+    @discardableResult
+    func acceptCompletedSimulation(_ result: BreakResult) -> Bool {
+        guard result.settled else {
+            simulationFailure = result.termination
+            phase = .racked
+            settledBoard = nil
+            settledOutcome = nil
+            drawAimLine()
+            statusText = "本次开球模拟未完成，请调整击球参数后重试"
+            return false
+        }
+        simulationFailure = nil
+        return true
+    }
+
     private func startPlayback(_ result: BreakResult) {
+        guard acceptCompletedSimulation(result) else { return }
         phase = .breaking
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden else {
             runBreakMotion(result)
@@ -445,11 +479,14 @@ final class BreakFlowRunner: ObservableObject {
 
 struct BreakControlBar: View {
     @ObservedObject var runner: BreakFlowRunner
+    var showsCancel = true
+    var onRerack: (() -> Void)? = nil
     let onCancel: () -> Void
 
     var body: some View {
         HStack(spacing: Spacing.md) {
-            Button("取消") { onCancel() }
+            if showsCancel {
+                Button("取消") { onCancel() }
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.8))
                 .padding(.horizontal, Spacing.lg)
@@ -457,12 +494,13 @@ struct BreakControlBar: View {
                 .background(Color.white.opacity(0.10), in: Capsule())
                 .buttonStyle(.plain)
                 .disabled(runner.isBusy)
+            }
 
             Spacer(minLength: 0)
 
             // 重开（次级）：换 seed 重摆——恒显（racked/settled 均可）。
             Button {
-                runner.reRack()
+                if let onRerack { onRerack() } else { runner.reRack() }
             } label: {
                 Label("重开", systemImage: "arrow.2.squarepath")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -514,13 +552,14 @@ struct BreakControlBar: View {
 
 // MARK: - 开球模式贴边仪表（四宿主共享，G18/V6）
 //
-// 左侧瞄准刻度轮（`BTAimWheel`，G13 相对调瞄）+ 右侧力度柱（`BTShotInstrumentColumn`，默认 6 m/s）。
+// 左侧瞄准刻度轮（`BTAimWheel`，G13 相对调瞄）+ 右侧力度柱（`BTShotInstrumentColumn`，默认 8 m/s）。
 // 遵循既有 `ShotStageProxy` 贴边标准（G4/G5/G7：右缘/左缘贴球桌、同底）。宿主开球模式统一叠加，
 // 避免逐页复制开球控件逻辑（单一真源）。
 
 struct BreakInstrumentsOverlay: View {
     @ObservedObject var runner: BreakFlowRunner
     let proxy: ShotStageProxy
+    var isPerspective = false
     @State private var showSpinPad = false
 
     var body: some View {
@@ -529,7 +568,7 @@ struct BreakInstrumentsOverlay: View {
             if proxy.isValid {
                 // 仅摆架待开球（`.racked`）时可调；计算/回放/停稳期禁用（避免中途改参）。
                 let editable = runner.phase == .racked
-                let wf = proxy.aimWheelFrame()
+                let wf = isPerspective ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).aimWheelFrame : proxy.aimWheelFrame()
                 BTAimWheel(
                     onNudge: { runner.nudgeAim(byDegrees: $0) },
                     degreesPerPoint: runner.aimWheelDegreesPerPoint,
@@ -538,14 +577,15 @@ struct BreakInstrumentsOverlay: View {
                     .frame(width: wf.width, height: wf.height)
                     .position(x: wf.midX, y: wf.midY)
                     .allowsHitTesting(editable)
+                    .disabled(!editable)
                     .opacity(editable ? 1 : 0.5)
 
-                let inf = proxy.instrumentFrame()
+                let inf = isPerspective ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame()
                 BTShotInstrumentColumn(
                     spinX: runner.spinX, spinY: runner.spinY,
                     onSpinTap: { showSpinPad = true },
                     velocity: $runner.velocity,
-                    range: ShotTuning.velocityRange,
+                    range: BreakFlowRunner.breakVelocityRange,
                     isDisabled: !editable
                 )
                 .frame(width: inf.width, height: inf.height)
@@ -555,8 +595,9 @@ struct BreakInstrumentsOverlay: View {
             // K7：开球打点盘（抄 FreePlay 非开球态范例；绑定 runner.spin*）。
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $runner.spinX, spinY: $runner.spinY,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: isPerspective ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                                 bottomPadding: isPerspective ? Spacing.sm : proxy.spinPadBottomPadding,
+                                 usesCompactLayout: isPerspective,
                                  onClose: { showSpinPad = false })
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -565,6 +606,7 @@ struct BreakInstrumentsOverlay: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .animation(BTMotion.springPanel, value: showSpinPad)
+        .onChange(of: isPerspective) { _, _ in showSpinPad = false }
         .onChange(of: runner.phase) { _, phase in
             // 离开摆架态（开球中/停稳）自动收起打点盘，避免挡住「完成/重开」。
             if phase != .racked { showSpinPad = false }

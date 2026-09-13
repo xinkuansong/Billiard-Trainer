@@ -48,6 +48,8 @@ enum DrillStaticPreview {
         var showGhost: Bool
         /// Force line-language full detail (ignore user preference).
         var trajectoryDetail: TrajectoryDetail
+        /// Live detail viewers retain their selected perspective; baked previews use top-down.
+        var adjustsTopDownCamera: Bool = true
 
         static let thumbnail = Options(
             ballScale: 1.8, orthoScale: 0.86, showCue: true, showGhost: true,
@@ -124,7 +126,7 @@ enum DrillStaticPreview {
         }
         scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation, apply: true)
 
-        if let rig = scene.cameraRig {
+        if options.adjustsTopDownCamera, let rig = scene.cameraRig {
             rig.topDownOrthographicScale = options.orthoScale
             rig.topDownPanOffset = .zero
             rig.applyTopDown2D()

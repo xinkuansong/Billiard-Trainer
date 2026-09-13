@@ -32,7 +32,7 @@ struct CueBallStrike {
     ///   - a: 水平打点 (-1..1, 正 = 左塞)
     ///   - b: 垂直打点 (-1..1, 正 = 高杆)
     private static func cueStrikePT(
-        V0: Float, phi: Float, theta: Float, a: Float, b: Float
+        V0: Float, phi: Float, theta: Float, a: Float, b: Float, preserveVerticalImpulse: Bool = false
     ) -> (v: (Float, Float, Float), w: (Float, Float, Float)) {
         let R = BallPhysics.radius
         let m = BallPhysics.mass
@@ -60,8 +60,9 @@ struct CueBallStrike {
         let denominator = 1.0 + m / M + temp / I_m
         let v = 2.0 * V0 / denominator
 
-        // 球坐标系速度：v_B = -v[0, cosθ, 0]
-        let vB: (Float, Float, Float) = (0, -v * cosT, 0)
+        // The spatial point impulse is directed down into the cloth. The
+        // legacy constrained model intentionally omits this component.
+        let vB: (Float, Float, Float) = (0, -v * cosT, preserveVerticalImpulse ? -v * sinT : 0)
 
         // 球坐标系角速度：w_B = v/I_m · [vec_x, vec_y, vec_z]
         let vecX = -C * sinT + B * cosT
@@ -115,12 +116,39 @@ struct CueBallStrike {
         spinY: Float,
         elevation: Float = 0
     ) -> (velocity: SCNVector3, angularVelocity: SCNVector3, squirtAngle: Float) {
+        strikeModel(aimDirection: aimDirection, velocity: velocity, spinX: spinX,
+                    spinY: spinY, elevation: elevation, preserveVerticalImpulse: false)
+    }
+
+    enum SpatialStrikeError: Error { case invalidInput }
+
+    /// Point-impact impulse only, before cloth response. This does not by itself
+    /// predict jump height or account for finite tip dwell/compression.
+    static func executeSpatialStrike(
+        aimDirection: SCNVector3, velocity: Float, spinX: Float, spinY: Float, elevation: Float
+    ) throws -> (velocity: SCNVector3, angularVelocity: SCNVector3, squirtAngle: Float) {
+        guard aimDirection.x.isFinite, aimDirection.y == 0, aimDirection.z.isFinite,
+              aimDirection.x != 0 || aimDirection.z != 0,
+              velocity.isFinite, velocity >= 0, elevation.isFinite, (0...Float.pi/2).contains(elevation),
+              spinX.isFinite, spinY.isFinite, spinX*spinX+spinY*spinY <= 1 else {
+            throw SpatialStrikeError.invalidInput
+        }
+        // Preserve even signed-zero behavior at the old horizontal boundary.
+        return strikeModel(aimDirection: aimDirection, velocity: velocity, spinX: spinX,
+                           spinY: spinY, elevation: elevation, preserveVerticalImpulse: elevation != 0)
+    }
+
+    private static func strikeModel(
+        aimDirection: SCNVector3, velocity: Float, spinX: Float, spinY: Float,
+        elevation: Float, preserveVerticalImpulse: Bool
+    ) -> (velocity: SCNVector3, angularVelocity: SCNVector3, squirtAngle: Float) {
         // pooltool 瞄准角 phi：使映射后的 scene 速度方向 = aimDirection。
         // scene 速度方向 = (cos phi, 0, -sin phi)  ⇒  phi = atan2(-az, ax)
         let phi = atan2f(-aimDirection.z, aimDirection.x)
 
         var (vT, wT) = cueStrikePT(
-            V0: velocity, phi: phi, theta: elevation, a: spinX, b: spinY
+            V0: velocity, phi: phi, theta: elevation, a: spinX, b: spinY,
+            preserveVerticalImpulse: preserveVerticalImpulse
         )
 
         // squirt：绕 z(上) 旋转台面速度（pooltool 在 solve() 里只旋转 v，不旋转 w）

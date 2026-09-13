@@ -19,7 +19,8 @@ enum DrillThumbnailRenderer {
         guard let device else { return nil }
 
         let scene = AngleTrainingScene()
-        scene.setupScene(enhancedRendering: false)
+        // Bundled thumbnails keep the plain pipeline; preference-driven looks are a separate decision (ADR-P5-01).
+        scene.setupScene(enhancedRendering: false, mobileRendering: false)
         guard scene.cameraNode != nil else { return nil }
 
         guard DrillStaticPreview.apply(

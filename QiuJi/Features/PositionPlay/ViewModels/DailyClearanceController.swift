@@ -5,6 +5,7 @@ import Foundation
 protocol DailyClearancePlayingHost: AnyObject {
     func loadDailyClearanceBoard(_ board: BoardSnapshot)
     func currentDailyClearanceBoard() -> BoardSnapshot
+    func restoreDailyClearanceCueBall()
     func beginDailyClearanceBreak(game: RackGame,
                                   seed: UInt64,
                                   automaticallyStrike: Bool,
@@ -20,10 +21,17 @@ extension PositionPlayViewModel: DailyClearancePlayingHost {
         currentSnapshot()
     }
 
+    func restoreDailyClearanceCueBall() {
+        guard !onTableKeys.contains(PositionPlayBall.cueKey) else { return }
+        placeFromPalette(PositionPlayBall.cueKey)
+    }
+
     func beginDailyClearanceBreak(game: RackGame,
                                   seed: UInt64,
                                   automaticallyStrike: Bool,
                                   onOutcome: @escaping (BreakOutcome) -> Void) {
+        // A daily rerack replaces the previous attempt, including its active runner.
+        if isBreakMode { cancelBreakFlow() }
         startBreakFlow(
             game: game,
             manualDeliver: !automaticallyStrike,
@@ -156,12 +164,20 @@ final class DailyClearanceController: ObservableObject {
               current.phase == .playing,
               var engine = rulesEngine else { return nil }
 
+        let timestamp = now()
+        if let started = activeSince {
+            current.activeDurationSeconds += max(0, timestamp.timeIntervalSince(started))
+            activeSince = timestamp
+        }
         current.shotCount += 1
         let ruling = engine.judge(facts)
         if ruling.foul { current.foulCount += 1 }
         current.ruleState = engine.state
+        if facts.cuePocketed, ruling.ballInHand, !ruling.failed, !ruling.completed {
+            host?.restoreDailyClearanceCueBall()
+        }
         current.board = host?.currentDailyClearanceBoard()
-        current.updatedAt = now()
+        current.updatedAt = timestamp
         rulesEngine = engine
 
         if ruling.completed {
@@ -357,6 +373,20 @@ final class DailyClearanceController: ObservableObject {
         fixtureDraft.board = board
         fixtureDraft.activeDurationSeconds = 65
         switch fixture {
+        case "scratch":
+            fixtureDraft.phase = .playing
+            fixtureDraft.board = BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.08),
+                defaultGame.terminalBallKey: CanvasPoint(x: 0.8, y: 0.25)
+            ])
+        case "lastBall":
+            // Input only: a legal final-ball layout aimed toward the middle pocket.
+            // The normal solver, playback and rules must produce the completion.
+            fixtureDraft.phase = .playing
+            fixtureDraft.board = BoardSnapshot(onTable: [
+                PositionPlayBall.cueKey: CanvasPoint(x: 0.5, y: 0.23),
+                defaultGame.terminalBallKey: CanvasPoint(x: 0.5, y: 0.08)
+            ])
         case "progress":
             fixtureDraft.phase = .playing
             fixtureDraft.shotCount = 2

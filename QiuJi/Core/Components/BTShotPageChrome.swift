@@ -1,4 +1,5 @@
 import SwiftUI
+import SceneKit
 
 /// Shared bridge from Light content pages into the fixed dark billiards workspace.
 /// The stage stays black; only its navigation contract is centralized so every
@@ -520,5 +521,56 @@ struct BTBreakSideButton: View {
         .disabled(!isEnabled)
         .accessibilityIdentifier("break.entry")
         .accessibilityLabel("开球")
+    }
+}
+
+/// Camera-only observation for exercises whose ball and pocket choices are fixed.
+struct BTSceneObservationMenu: View {
+    let scene: AngleTrainingScene
+    let targetNode: SCNNode?
+    let pocketIndex: Int?
+    let identifierPrefix: String
+    var canReturnToAim: Bool = true
+    let onReturnToAim: () -> Void
+
+    var body: some View {
+        Menu {
+            Button("查看全桌", systemImage: "rectangle") {
+                _ = scene.cameraRig?.observeWholeTable()
+            }
+            .accessibilityIdentifier("\(identifierPrefix).observe.table")
+            Button("查看母球", systemImage: "circle") { observe(scene.cueBallNode) }
+                .disabled(scene.cueBallNode?.isHidden != false)
+                .accessibilityIdentifier("\(identifierPrefix).observe.cue")
+            Button("查看目标球", systemImage: "scope") { observe(targetNode) }
+                .disabled(targetNode?.isHidden != false)
+                .accessibilityIdentifier("\(identifierPrefix).observe.target")
+            if let pocketIndex {
+                Button("查看目标袋", systemImage: "viewfinder") {
+                    let pockets = AngleSceneCalculator.pocketPositions(surfaceY: scene.surfaceY)
+                    guard pockets.indices.contains(pocketIndex) else { return }
+                    scene.cameraRig?.observe(at: pockets[pocketIndex])
+                }
+                .disabled(!(0..<6).contains(pocketIndex))
+                .accessibilityIdentifier("\(identifierPrefix).observe.pocket")
+            }
+            Button("回到瞄准", systemImage: "arrow.uturn.backward", action: onReturnToAim)
+                .disabled(!canReturnToAim)
+                .accessibilityIdentifier("\(identifierPrefix).observe.aim")
+        } label: {
+            Image(systemName: "viewfinder")
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .foregroundStyle(.white.opacity(0.7))
+        .buttonStyle(.plain)
+        .accessibilityLabel("视角")
+        .accessibilityHint("只改变观察位置，不改变目标或瞄准方向")
+        .accessibilityIdentifier("\(identifierPrefix).observation")
+    }
+
+    private func observe(_ node: SCNNode?) {
+        guard let node, !node.isHidden else { return }
+        scene.cameraRig?.observe(at: scene.visualCenter(of: node))
     }
 }

@@ -37,7 +37,7 @@ final class SequencePerspectiveFitTests: XCTestCase {
 
     /// 竖屏取向下换不同俯角/FOV 仍恒满足全可见（随机批量不变量）。
     func test_allCornersFit_acrossPitchAndFov() {
-        for pitch: Float in [28, 30, 34, 40, 45] {
+        for pitch: Float in [28, 30, 34, 40, 45, 60] {
             for fov: Float in [42, 46, 50] {
                 var cfg = SequenceVideoExporter.Perspective3DConfig()
                 cfg.pitchDeg = pitch

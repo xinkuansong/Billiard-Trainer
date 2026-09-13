@@ -41,6 +41,71 @@ final class W4_BallPaletteUITests: XCTestCase {
     }
 
     /// Composer：拖 9 号上桌 → 截图 → 点库内 9 号 pulse → 再拖回球库删球。
+    func testV63ComposerPlacementSurvivesObservation() {
+        let app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        XCTAssertTrue(openCard(app: app, homeTab: "打", title: "自由走位"))
+        let ball9 = paletteBall(app, "_9")
+        XCTAssertTrue(ball9.waitForExistence(timeout: 8))
+        // Keep the placed ball clear of the default 1-ball. The previous point
+        // overlapped its pickup area after collision-safe placement adjusted 9.
+        // Verify ball identity in the placed/returned/removed attachments.
+        let destination = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.35, dy: 0.30))
+        ball9.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+            .press(forDuration: 0.35, thenDragTo: destination)
+        sleep(1)
+        snap(app, "v63-composer-9-placed")
+        destination.tap()
+        snap(app, "v63-composer-9-selected")
+        let camera = app.buttons["composer.cameraMode"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 5))
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "3D")
+        sleep(1)
+        snap(app, "v63-composer-9-observed")
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "2D")
+        sleep(1)
+        snap(app, "v63-composer-9-returned")
+        destination.press(forDuration: 0.35,
+                          thenDragTo: ball9.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)),
+                          withVelocity: .default, thenHoldForDuration: 0.2)
+        XCTAssertTrue(app.staticTexts["已移回球库"].waitForExistence(timeout: 2),
+                      "拖回操作必须触发移除；仍需核对截图中的球号，不能只凭导航通过")
+        sleep(1)
+        snap(app, "v63-composer-9-removed")
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "3D")
+        app.buttons["composer.more"].tap()
+        app.buttons["清空桌面"].tap()
+        sleep(1)
+        snap(app, "v63-composer-cleared-3d")
+        XCTAssertFalse(app.buttons["击球"].isEnabled)
+        XCTAssertTrue(app.staticTexts["—°"].exists, "空桌不能显示上一杆角度")
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "2D")
+        snap(app, "v63-composer-cleared-2d")
+        app.buttons["composer.more"].tap()
+        app.buttons["清空并重来"].tap()
+        let dismissPopover = app.otherElements["PopoverDismissRegion"]
+        if dismissPopover.waitForExistence(timeout: 1) {
+            dismissPopover.tap()
+        } else {
+            XCTAssertTrue(app.buttons["取消"].waitForExistence(timeout: 3))
+            app.buttons["取消"].tap()
+        }
+        XCTAssertFalse(app.buttons["击球"].isEnabled)
+        snap(app, "v63-composer-reset-cancelled")
+        app.buttons["composer.more"].tap()
+        app.buttons["清空并重来"].tap()
+        let confirmReset = app.buttons["清空并重来"]
+        XCTAssertTrue(confirmReset.waitForExistence(timeout: 3))
+        confirmReset.tap()
+        sleep(1)
+        snap(app, "v63-composer-reset-default")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.buttons["自由走位"].waitForExistence(timeout: 5))
+    }
+
     func testW4ComposerDragPlacePulseRemove() {
         let app = XCUIApplication.launchClean()
         guard openCard(app: app, homeTab: "打", title: "自由走位") else {

@@ -22,16 +22,54 @@ final class AngleTrainingScene: SCNScene {
     private var leatherMarkers: [PocketLeatherMarker] = []
     private(set) var pocketLeatherFailure: String?
     private(set) var tableNode: SCNNode?
+    private var clothAppearance: ClothAppearance?
+    private var requestedClothColor: ClothColor = .green
+    var installedClothColor: ClothColor { clothAppearance?.color ?? .green }
+
+    @discardableResult
+    func applyClothColor(_ color: ClothColor) -> Bool {
+        requestedClothColor = color
+        guard let tableNode else { return false }
+        if clothAppearance == nil { clothAppearance = ClothAppearance(table: tableNode) }
+        guard clothAppearance?.apply(color) == true else { return false }
+        if mobileRendering && MobileReferenceLighting.requested {
+            for node in allBallNodes.values { MobileReferenceLighting.applyClothBounce(color, to: node) }
+        }
+        return true
+    }
+
+    private var tableAppearance: TableAppearance?
+    private var requestedTableStyle: TableStyle = .standard
+    private var requestedTableSights = true
+    var showsTableSights: Bool { requestedTableSights }
+    var installedTableStyle: TableStyle { tableAppearance?.style ?? .standard }
+
+    @discardableResult
+    func applyTableStyle(_ style: TableStyle, showsSights: Bool = true) -> Bool {
+        requestedTableStyle = style
+        requestedTableSights = showsSights
+        guard let tableNode else { return false }
+        if tableAppearance == nil { tableAppearance = TableAppearance(table: tableNode, surfaceY: surfaceY) }
+        guard tableAppearance?.apply(style, showsSights: showsSights) == true else { return false }
+        for marker in leatherMarkers { marker.applyTableStyle(style) }
+        return true
+    }
     private(set) var cameraNode: SCNNode!
     private(set) var cameraRig: CameraRig?
     private(set) var surfaceY: Float = 0.5
     private(set) var currentCameraMode: CameraMode = .topDown2D
     private(set) var isCameraModeTransitioning = false
+    /// Invalidates delayed transaction callbacks when a newer mode takes ownership.
+    private var cameraTransitionID = UUID()
+    private var savedPerspectiveState: CameraRig.PerspectiveState?
+    private(set) var hasPerspectiveView = false
 
     /// Studio-look pipeline flag. Default `false` so existing pages
     /// (`AngleDynamicView` / `Scene2DAimingView`) keep their cheap
     /// 3-light scene. `Scene3DAimingView` opts in via `setupScene(enhancedRendering: true)`.
     private(set) var enhancedRendering: Bool = false
+    private(set) var mobileRendering: Bool = false
+    private(set) var contactOcclusion: MobileContactOcclusion?
 
     /// Keep references to nodes we add for the enhanced pipeline so we can detach them
     /// if the flag is toggled off mid-session.
@@ -45,6 +83,7 @@ final class AngleTrainingScene: SCNScene {
     private(set) var cueBallNode: SCNNode?
     private(set) var targetBallNodes: [SCNNode] = []
     private(set) var allBallNodes: [String: SCNNode] = [:]
+    private(set) var ballStickerStyle: BallStickerStyle?
     private(set) var initialBallPositions: [String: SCNVector3] = [:]
 
     // MARK: - Cue Stick
@@ -82,9 +121,13 @@ final class AngleTrainingScene: SCNScene {
     private(set) var strikeLineNode: SCNNode?
     private(set) var contactDotNode: SCNNode?
     private(set) var angleArcNode: SCNNode?
+    private weak var angleValueLabel: SCNNode?
+    private var angleValueFlatYaw: Float = 0
+    private var inlineLineLabels: [(node: SCNNode, flatYaw: Float)] = []
     private(set) var perpLineNode: SCNNode?
     /// 4x8 台面网格叠加（条 16）：`setTableGridVisible` 懒建。
     private var tableGridNode: SCNNode?
+    private var tableGridNeedsRebuild = true
 
     // MARK: - Setup
 
@@ -93,8 +136,27 @@ final class AngleTrainingScene: SCNScene {
     ///   pipeline (programmatic IBL + ground shadow catcher + 4-light + HDR
     ///   camera + cloth/rail/pocket material enhancers + table center glow).
     ///   Default `false` keeps the cheap 3-light look for the 2D pages.
-    func setupScene(enhancedRendering: Bool = false) {
+    #if DEBUG
+    private(set) var setupTiming: [String: Double] = [:]
+    #endif
+
+    /// - Parameter mobileRendering: production table rendering (v62 closeout,
+    ///   ADR-P5-01): mobile base lighting + S267 reference lighting + surface
+    ///   finishes + baked training room (visible in `perspective3D` only).
+    ///   Defaults to `MobileTableRendering.isEnabled` so every interactive page
+    ///   shares one look; offline renderers pass `false` to keep bundled output stable.
+    func setupScene(enhancedRendering: Bool = false, mobileRendering: Bool = MobileTableRendering.isEnabled) {
+        #if DEBUG
+        var stageStart = CACurrentMediaTime()
+        func mark(_ key: String) {
+            let now = CACurrentMediaTime()
+            setupTiming[key] = (now-stageStart)*1000
+            stageStart = now
+        }
+        #endif
         self.enhancedRendering = enhancedRendering
+        self.mobileRendering = mobileRendering && !enhancedRendering && MobileTableRendering.environmentURL != nil
+        contactOcclusion = nil
 
         if enhancedRendering {
             EnhancedEnvironment.apply(to: self)
@@ -102,8 +164,35 @@ final class AngleTrainingScene: SCNScene {
         }
 
         setupTable()
+        #if DEBUG
+        mark("tableMs")
+        #endif
         setupCamera()
         setupLighting()
+        #if DEBUG
+        mark("cameraLightsMs")
+        #endif
+        if self.mobileRendering {
+            MobileTableRendering.applyLighting(to: self)
+            MobileClothAlignment.apply(to: self)
+            MobilePocketOcclusion.apply(to: self)
+            contactOcclusion = MobileContactOcclusion(scene: self)
+            #if DEBUG
+            mark("mobileBaseMs")
+            #endif
+            if MobileReferenceLighting.requested { MobileReferenceLighting.apply(to: self) }
+            #if DEBUG
+            mark("referenceMs")
+            #endif
+            // Room is a scene-assembly step, independent of material finishes.
+            installReferenceRoom()
+            #if DEBUG
+            mark("roomMs")
+            #endif
+        }
+
+        applyTableStyle(requestedTableStyle, showsSights: requestedTableSights)
+        applyClothColor(requestedClothColor)
 
         // 台面网格重放（G2 根因修复）：makeUIView 可能先于本方法按偏好建网格，
         // 彼时 surfaceY 还是默认值，网格会埋进桌身。表面高度就位后重建。
@@ -131,6 +220,11 @@ final class AngleTrainingScene: SCNScene {
         pocketLeatherFailure = nil
         rootNode.addChildNode(model.visualNode)
         tableNode = model.visualNode
+        tableAppearance = nil
+        clothAppearance = nil
+        assistSurface = nil
+        tableGridNeedsRebuild = true
+        assistSurfaceFailed = false
         modelCueStickNode = model.cueStickNode
 
         setupModelBalls(from: model.ballNodes, uniformScale: model.appliedScale.x)
@@ -142,8 +236,10 @@ final class AngleTrainingScene: SCNScene {
         // tone-mapping, so it needs a stronger darken/desaturate tint than studio.
         MaterialFactory.enhanceClothMaterials(
             in: model.visualNode,
-            multiplyTint: enhancedRendering ? MaterialFactory.clothMultiplyStudio
-                                            : MaterialFactory.clothMultiplyPlain
+            // Mobile retains the original plain-page cloth palette (S199).
+            multiplyTint: mobileRendering ? MaterialFactory.clothMultiplyPlain
+                : (enhancedRendering ? MaterialFactory.clothMultiplyStudio : MaterialFactory.clothMultiplyPlain),
+            preservesClothResponse: mobileRendering
         )
 
         if enhancedRendering {
@@ -158,6 +254,7 @@ final class AngleTrainingScene: SCNScene {
     // MARK: - USDZ Ball Management
 
     private func setupModelBalls(from extractedBalls: [String: SCNNode], uniformScale: Float) {
+        ballStickerStyle = nil
         allBallNodes.removeAll()
         targetBallNodes.removeAll()
         initialBallPositions.removeAll()
@@ -326,9 +423,23 @@ final class AngleTrainingScene: SCNScene {
         // ball carries red position-marker dots ("stickers") that are
         // intentional spin / aim references, and overriding the diffuse
         // erases them.
-        for (_, ballNode) in allBallNodes {
-            MaterialFactory.applyBallMaterial(to: ballNode)
+        for (key, ballNode) in allBallNodes {
+            MaterialFactory.applyBallMaterial(to: ballNode, usesClearcoat: !mobileRendering)
+            if mobileRendering && MobileReferenceLighting.requested {
+                let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
+                MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0, stickerFinish: numbered)
+            }
         }
+        let selectedSticker = ballStickerStyle ?? .selected()
+        if !allBallNodes.isEmpty, BallStickerAppearance.apply(selectedSticker, to: allBallNodes) {
+            ballStickerStyle = selectedSticker
+        }
+    }
+
+    /// Applies the number pack and repaired UVs, preserving live shot/camera state.
+    func applyBallStickerStyle(_ style: BallStickerStyle) {
+        guard ballStickerStyle != style, !allBallNodes.isEmpty else { return }
+        if BallStickerAppearance.apply(style, to: allBallNodes) { ballStickerStyle = style }
     }
 
     // MARK: - Ball Helpers
@@ -675,6 +786,32 @@ final class AngleTrainingScene: SCNScene {
     /// 背景统一纯黑后（见 `EnhancedEnvironment`），这块地板比纯黑略亮、呈中性深灰，
     /// 让球桌"踩"在一块可辨认的地板上，而不是浮在黑底里；再叠一层烘焙接地阴影
     /// (`setupContactShadow`) 强化"落地感"。布面的真实投影仍由 key light 落在台呢上。
+    /// Reuse the existing floor/shadow geometry for the mobile material preview.
+    func installReferenceGround(material: SCNMaterial) {
+        if groundVisualNode == nil { setupGround() }
+        groundVisualNode?.geometry?.materials = [material]
+        groundVisualNode?.isHidden = currentCameraMode != .perspective3D
+        tableContactShadowNode?.isHidden = currentCameraMode != .perspective3D
+    }
+
+    private(set) var installedReferenceRoomStyle: RoomStyle?
+
+    func installReferenceRoom(style: RoomStyle = .selected) {
+        if let existing = rootNode.childNode(withName: "reference_room", recursively: false) {
+            guard installedReferenceRoomStyle != style else { return }
+            existing.removeFromParentNode()
+        }
+        if groundVisualNode == nil { setupGround() }
+        // The imported floor includes visibility baked from the actual table.
+        // Do not double-darken it with the old black-background ellipse.
+        groundVisualNode?.geometry = nil
+        tableContactShadowNode?.geometry = nil
+        let room = BakedTrainingRoom.make(style: style)
+        room.isHidden = currentCameraMode != .perspective3D
+        rootNode.addChildNode(room)
+        installedReferenceRoomStyle = style
+    }
+
     private func setupGround() {
         let planeSize: CGFloat = 40
 
@@ -801,12 +938,72 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Camera Mode Switching
 
+    /// A new board/shot invalidates a saved viewpoint without changing shot state.
+    func invalidatePerspectiveView() {
+        savedPerspectiveState = nil
+        hasPerspectiveView = false
+    }
+
+    /// Explicit refocusing supersedes a saved observation pose in the same context.
+    func discardSavedPerspectiveView() {
+        savedPerspectiveState = nil
+        hasPerspectiveView = currentCameraMode == .perspective3D
+    }
+
+    /// View associated with the current board, including a 3D view saved while in 2D.
+    func capturePerspectiveView() -> CameraRig.PerspectiveState? {
+        guard hasPerspectiveView else { return nil }
+        return currentCameraMode == .perspective3D
+            ? cameraRig?.capturePerspectiveState() : savedPerspectiveState
+    }
+
+    /// Restore a board's view now in 3D, or on its next 2D-to-3D switch.
+    func restorePerspectiveView(_ state: CameraRig.PerspectiveState) {
+        savedPerspectiveState = state
+        hasPerspectiveView = true
+        if currentCameraMode == .perspective3D {
+            cameraTransitionID = UUID()
+            isCameraModeTransitioning = false
+            cameraRig?.restorePerspectiveState(state)
+        }
+    }
+
     func setCameraMode(_ mode: CameraMode, animated: Bool = true) {
+        if mobileRendering {
+            rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = mode != .perspective3D
+            groundVisualNode?.isHidden = mode != .perspective3D
+            tableContactShadowNode?.isHidden = mode != .perspective3D
+        }
+
         guard let rig = cameraRig else { return }
         let previousMode = currentCameraMode
-        guard mode != previousMode || animated else { return }
+        guard mode != previousMode else { return }
 
+        if previousMode == .perspective3D, mode != .perspective3D, hasPerspectiveView {
+            savedPerspectiveState = rig.capturePerspectiveState()
+        }
+        cameraTransitionID = UUID()
         currentCameraMode = mode
+        updateAngleValueFacing()
+        if mode == .perspective3D { hasPerspectiveView = true }
+        if mode == .perspective3D, let saved = savedPerspectiveState {
+            isCameraModeTransitioning = animated
+            if animated {
+                let transitionID = cameraTransitionID
+                SCNTransaction.begin()
+                SCNTransaction.animationDuration = 0.5
+                SCNTransaction.animationTimingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                SCNTransaction.completionBlock = { [weak self] in
+                    guard let self, self.cameraTransitionID == transitionID else { return }
+                    self.isCameraModeTransitioning = false
+                }
+                rig.restorePerspectiveState(saved)
+                SCNTransaction.commit()
+            } else {
+                rig.restorePerspectiveState(saved)
+            }
+            return
+        }
 
         guard animated else {
             isCameraModeTransitioning = false
@@ -857,6 +1054,7 @@ final class AngleTrainingScene: SCNScene {
     private func transitionToTopDown(_ mode: CameraMode) {
         guard let camera = cameraNode.camera, let rig = cameraRig else { return }
         isCameraModeTransitioning = true
+        let transitionID = cameraTransitionID
         rig.disableSmoothPoseControl()
         camera.usesOrthographicProjection = false
 
@@ -881,7 +1079,8 @@ final class AngleTrainingScene: SCNScene {
         cameraNode.position = topDownPosition
         cameraNode.look(at: topDownLookAt, up: upVector, localFront: SCNVector3(0, 0, -1))
         SCNTransaction.completionBlock = { [weak self] in
-            guard let self, let camera = self.cameraNode.camera, let rig = self.cameraRig else { return }
+            guard let self, self.cameraTransitionID == transitionID,
+                  let camera = self.cameraNode.camera, let rig = self.cameraRig else { return }
             // Stage 2 — projection swap + minor ortho-scale settle. No
             // rotation here: the orientation is already correct from stage 1.
             camera.usesOrthographicProjection = true
@@ -903,7 +1102,8 @@ final class AngleTrainingScene: SCNScene {
                 break
             }
             SCNTransaction.completionBlock = { [weak self] in
-                self?.isCameraModeTransitioning = false
+                guard let self, self.cameraTransitionID == transitionID else { return }
+                self.isCameraModeTransitioning = false
             }
             SCNTransaction.commit()
         }
@@ -937,6 +1137,7 @@ final class AngleTrainingScene: SCNScene {
     private func transitionToPerspective() {
         guard let camera = cameraNode.camera, let rig = cameraRig else { return }
         isCameraModeTransitioning = true
+        let transitionID = cameraTransitionID
         let pivot = cueBallNode.map { visualCenter(of: $0) } ?? SCNVector3(0, surfaceY, 0)
         let aimDirection = currentAimDirection()
 
@@ -980,7 +1181,8 @@ final class AngleTrainingScene: SCNScene {
         )
         camera.fieldOfView = AimingCameraConfig.aimFov
         SCNTransaction.completionBlock = { [weak self] in
-            guard let self, let rig = self.cameraRig else { return }
+            guard let self, self.cameraTransitionID == transitionID,
+                  let rig = self.cameraRig else { return }
             // Sync rig internal state to aim pose. After this, the rig's
             // per-frame `update(_:)` writes the same pose the SCNTransaction
             // just landed on — no discontinuity, no further motion.
@@ -1076,8 +1278,92 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Aiming Lines
 
+    enum AssistLinePlacement { case spatial, table }
+    /// Stable display priorities, independent of insertion order and physical height.
+    enum TableAssistLayer: Int { case fill = 5, reference = 10, route = 20, aiming = 30 }
+    private var assistSurface: TableAssistSurface?
+    private var assistSurfaceFailed = false
+
+    private func loadedAssistSurface() -> TableAssistSurface? {
+        if assistSurface == nil && !assistSurfaceFailed {
+            do { assistSurface = try TableAssistSurface.load(from: self) }
+            catch {
+                assistSurfaceFailed = true
+                Logger(subsystem: "com.qiuji", category: "AssistSurface")
+                    .error("Cannot clip table assists: \(String(describing: error), privacy: .public)")
+            }
+        }
+        return assistSurface
+    }
+
+    private func displayedClothY(_ surface: TableAssistSurface) -> Float {
+        // Mirror the existing MobileClothAlignment lift contract; no physical Y is changed.
+        let lift = surfaceY - surface.sourceY
+        return mobileRendering && lift > 0.0001 && lift < AngleSceneCalculator.ballRadius / 2
+            ? surfaceY : surface.sourceY
+    }
+
+    /// Display-only triangle regions. Fill sits below the line layer and keeps
+    /// depth reads, so balls/rails occlude it; translucent fill never masks later geometry.
+    func makeTableFill(triangles: [[SCNVector3]], color: UIColor) -> SCNNode? {
+        guard let surface = loadedAssistSurface() else { return nil }
+        let vertices = triangles.flatMap { triangle in
+            surface.clippedConvexPolygon(triangle.map { TableAssistSurface.Point(Double($0.x), Double($0.z)) },
+                                         at: displayedClothY(surface) + 0.0005)
+        }
+        guard !vertices.isEmpty else { return nil }
+        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices)], elements: [
+            SCNGeometryElement(indices: (0..<vertices.count).map(Int32.init), primitiveType: .triangles)])
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .constant
+        material.readsFromDepthBuffer = true
+        material.writesToDepthBuffer = false
+        geometry.materials = [material]
+        let node = SCNNode(geometry: geometry)
+        node.renderingOrder = TableAssistLayer.fill.rawValue
+        node.name = "tableProjectedFill"
+        node.castsShadow = false
+        return node
+    }
+
+    private func makeTableSegment(from start: SCNVector3, to end: SCNVector3,
+                                  color: UIColor, radius: Float, layer: TableAssistLayer = .route) -> SCNNode {
+        guard let surface = loadedAssistSurface() else {
+            return makeSegment(from: start, to: end, color: color, radius: radius)
+        }
+        let renderedY = displayedClothY(surface)
+        let vertices = surface.ribbon(from: start, to: end, width: radius * 2, at: renderedY + 0.001)
+        guard !vertices.isEmpty else { return SCNNode() }
+        let dx = end.x - start.x, dz = end.z - start.z
+        let lengthSquared = dx * dx + dz * dz
+        let uv = vertices.map { point in
+            CGPoint(x: 0.5, y: CGFloat(((point.x - start.x) * dx + (point.z - start.z) * dz) / lengthSquared))
+        }
+        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices),
+                                             SCNGeometrySource(textureCoordinates: uv)], elements: [
+            SCNGeometryElement(indices: (0..<vertices.count).map(Int32.init), primitiveType: .triangles)])
+        let material = SCNMaterial()
+        material.diffuse.contents = color
+        material.lightingModel = .constant
+        material.readsFromDepthBuffer = true
+        material.writesToDepthBuffer = false
+        geometry.materials = [material]
+        let node = SCNNode(geometry: geometry)
+        node.renderingOrder = layer.rawValue
+        node.name = "tableProjectedAssist"
+        node.castsShadow = false
+        return node
+    }
+
     @discardableResult
-    func addLine(from start: SCNVector3, to end: SCNVector3, color: UIColor, radius: Float = 0.003) -> SCNNode {
+    func addLine(from start: SCNVector3, to end: SCNVector3, color: UIColor, radius: Float = 0.003,
+                 placement: AssistLinePlacement = .spatial, layer: TableAssistLayer = .route) -> SCNNode {
+        if placement == .table {
+            let node = makeTableSegment(from: start, to: end, color: color, radius: radius, layer: layer)
+            rootNode.addChildNode(node)
+            return node
+        }
         let dx = end.x - start.x
         let dy = end.y - start.y
         let dz = end.z - start.z
@@ -1091,6 +1377,7 @@ final class AngleTrainingScene: SCNScene {
         cylinder.materials = [material]
 
         let node = SCNNode(geometry: cylinder)
+        node.castsShadow = false
         node.position = SCNVector3(
             (start.x + end.x) / 2,
             (start.y + end.y) / 2,
@@ -1111,9 +1398,10 @@ final class AngleTrainingScene: SCNScene {
     /// 画一条虚线（由等距短实线段拼成），用于真实模式下的「理想路线」对照。
     /// 返回的父节点持有所有段，便于统一清理。
     func addDashedLine(from start: SCNVector3, to end: SCNVector3, color: UIColor,
-                       radius: Float = 0.003, dash: Float = 0.03, gap: Float = 0.022) -> SCNNode {
+                       radius: Float = 0.003, dash: Float = 0.03, gap: Float = 0.022,
+                       placement: AssistLinePlacement = .spatial, layer: TableAssistLayer = .route) -> SCNNode {
         let parent = SCNNode()
-        let dx = end.x - start.x, dy = end.y - start.y, dz = end.z - start.z
+        let dx = end.x - start.x, dy = placement == .table ? 0 : end.y - start.y, dz = end.z - start.z
         let total = sqrtf(dx * dx + dy * dy + dz * dz)
         guard total > 0.001 else { return parent }
         let ux = dx / total, uy = dy / total, uz = dz / total
@@ -1126,7 +1414,10 @@ final class AngleTrainingScene: SCNScene {
             let b = SCNVector3(start.x + ux * (t + segLen),
                                start.y + uy * (t + segLen),
                                start.z + uz * (t + segLen))
-            parent.addChildNode(makeSegment(from: a, to: b, color: color, radius: radius))
+            let segment = placement == .table
+                ? makeTableSegment(from: a, to: b, color: color, radius: radius, layer: layer)
+                : makeSegment(from: a, to: b, color: color, radius: radius)
+            parent.addChildNode(segment)
             t += stride
         }
         rootNode.addChildNode(parent)
@@ -1144,6 +1435,7 @@ final class AngleTrainingScene: SCNScene {
         material.lightingModel = .constant
         cylinder.materials = [material]
         let node = SCNNode(geometry: cylinder)
+        node.castsShadow = false
         node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
         node.look(at: SCNVector3(end.x, end.y, end.z), up: rootNode.worldUp,
                   localFront: SCNVector3(0, 1, 0))
@@ -1159,6 +1451,7 @@ final class AngleTrainingScene: SCNScene {
                            radius: Float = TrajectoryStyle.lineMain,
                            dash: Float = TrajectoryStyle.mainDash,
                            gap: Float = TrajectoryStyle.mainGap,
+                           placement: AssistLinePlacement = .spatial,
                            into nodes: inout [SCNNode]) {
         guard pts.count >= 2, dash > 1e-4, gap > 1e-4 else { return }
         let period = dash + gap
@@ -1168,7 +1461,8 @@ final class AngleTrainingScene: SCNScene {
         }
         for i in 0..<(pts.count - 1) {
             let a = pts[i], b = pts[i + 1]
-            let len = AngleSceneCalculator.horizontalDistance(a, b)
+            let horizontal = AngleSceneCalculator.horizontalDistance(a, b)
+            let len = placement == .table ? horizontal : hypot(horizontal, b.y - a.y)
             guard len > 1e-6 else { continue }
             let firstK = Int((arc / period).rounded(.down))
             let lastK = Int(((arc + len) / period).rounded(.down))
@@ -1179,7 +1473,7 @@ final class AngleTrainingScene: SCNScene {
                 guard e - s > 1e-4 else { continue }
                 nodes.append(addLine(from: lerp(a, b, (s - arc) / len),
                                      to: lerp(a, b, (e - arc) / len),
-                                     color: color, radius: radius))
+                                     color: color, radius: radius, placement: placement))
             }
             arc += len
         }
@@ -1198,12 +1492,12 @@ final class AngleTrainingScene: SCNScene {
         for i in 0..<split {
             nodes.append(addLine(from: pts[i], to: pts[i + 1],
                                  color: TrajectoryStyle.aimColor,
-                                 radius: TrajectoryStyle.aimRadius))
+                                 radius: TrajectoryStyle.aimRadius, placement: .table))
         }
         // 虚线轨迹段。
         if detail != .minimal, split < pts.count - 1 {
             addDashedPolyline(Array(pts[split...]), color: TrajectoryStyle.aimColor,
-                              radius: TrajectoryStyle.aimRadius, into: &nodes)
+                              radius: TrajectoryStyle.aimRadius, placement: .table, into: &nodes)
         }
     }
 
@@ -1211,7 +1505,7 @@ final class AngleTrainingScene: SCNScene {
     func addObjectTrajectory(_ pts: [SCNVector3], ballKey: String,
                              into nodes: inout [SCNNode]) {
         addDashedPolyline(pts, color: TrajectoryStyle.potColor(for: ballKey),
-                          radius: TrajectoryStyle.potRadius, into: &nodes)
+                          radius: TrajectoryStyle.potRadius, placement: .table, into: &nodes)
     }
 
     /// 母球折线的实/虚分界索引：优先取距 `contact` 最近的采样点；
@@ -1294,7 +1588,7 @@ final class AngleTrainingScene: SCNScene {
         nodes.append(addDashedLine(from: a, to: b, color: AngleTrainingScene.separationLineColor,
                                    radius: TrajectoryStyle.lineHint,
                                    dash: TrajectoryStyle.hintDash * 0.7,
-                                   gap: TrajectoryStyle.hintGap * 0.7))
+                                   gap: TrajectoryStyle.hintGap * 0.7, placement: .table))
         return true
     }
 
@@ -1308,12 +1602,14 @@ final class AngleTrainingScene: SCNScene {
             let extraction = try PocketLeatherMesh.cachedExtraction(from: tableNode,
                 centers: AngleSceneCalculator.pocketPositions(surfaceY: surfaceY))
             let prepared = try extraction.parts.sorted { $0.index < $1.index }.map {
-                ($0.parent, try PocketLeatherMarker(index: $0.index, geometry: $0.geometry))
+                ($0.parent, try PocketLeatherMarker(index: $0.index, geometry: $0.geometry, preservesTexture: mobileRendering,
+                    standardMaterial: tableAppearance?.standardMaterial(named: "Leather")))
             }
             // Commit only after all six regions and every material variant were prepared.
             for replacement in extraction.replacements { replacement.node.geometry = replacement.geometry }
             for (parent, marker) in prepared { parent.addChildNode(marker) }
             leatherMarkers = prepared.map { $0.1 }
+            for marker in leatherMarkers { marker.applyTableStyle(requestedTableStyle) }
             pocketLeatherFailure = nil
             return leatherMarkers
         } catch {
@@ -1441,47 +1737,22 @@ final class AngleTrainingScene: SCNScene {
     /// 显隐 4x8 台面网格：短边 4 等分（3 条纵长线）+ 长边 8 等分（7 条横线），
     /// 白色低透明细线贴台呢，教学定位参考。首次开启时懒建，此后仅切换 isHidden。
     func setTableGridVisible(_ visible: Bool) {
-        let y = surfaceY + 0.0015
-        if let grid = tableGridNode {
-            // 台面高度未变：仅切换显隐。若 scene 在网格懒建后才 setupTable
-            //（如进页时偏好已开启，makeUIView 先于 VM setupScene 调用），
-            // 旧网格建在默认 surfaceY 上、埋进桌身不可见——移除重建。
-            if abs(grid.position.y - y) < 1e-4 {
-                grid.isHidden = !visible
-                return
-            }
-            grid.removeFromParentNode()
-            tableGridNode = nil
+        let y = surfaceY
+        if let grid = tableGridNode, !tableGridNeedsRebuild {
+            grid.isHidden = !visible
+            return
         }
+        tableGridNode?.removeFromParentNode()
+        tableGridNode = nil
         guard visible else { return }
-
         let grid = SCNNode()
         grid.name = "tableGrid"
-        grid.position = SCNVector3(0, y, 0)
-        let mat = SCNMaterial()
-        // G2（问题集合 v3）：网格提亮为灰白色——0.28 alpha 在深色台呢上过暗。
-        mat.diffuse.contents = UIColor.white.withAlphaComponent(0.55)
-        mat.lightingModel = .constant
-        mat.isDoubleSided = true
         let halfL = AngleSceneCalculator.innerLength / 2
         let halfW = AngleSceneCalculator.innerWidth / 2
-        let lineW: CGFloat = 0.0022
-
         func addLine(from a: SCNVector3, to b: SCNVector3) {
-            let dx = b.x - a.x, dz = b.z - a.z
-            let len = sqrtf(dx * dx + dz * dz)
-            guard len > 1e-4 else { return }
-            let geo = SCNCylinder(radius: lineW / 2, height: CGFloat(len))
-            geo.radialSegmentCount = 6
-            geo.materials = [mat]
-            let node = SCNNode(geometry: geo)
-            // Y 由父节点 grid.position.y 承担，子节点相对 0。
-            node.position = SCNVector3((a.x + b.x) / 2, 0, (a.z + b.z) / 2)
-            node.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
-                                              to: simd_normalize(simd_float3(dx, 0, dz)))
-            grid.addChildNode(node)
+            grid.addChildNode(makeTableSegment(from: a, to: b,
+                                               color: UIColor.white.withAlphaComponent(0.55), radius: 0.0011, layer: .reference))
         }
-
         // 长边 8 等分 → 7 条横线（垂直长轴）。
         for i in 1..<8 {
             let x = -halfL + AngleSceneCalculator.innerLength * Float(i) / 8
@@ -1495,6 +1766,7 @@ final class AngleTrainingScene: SCNScene {
 
         rootNode.addChildNode(grid)
         tableGridNode = grid
+        tableGridNeedsRebuild = false
     }
 
     private var usesTrainingAssistStyle = false
@@ -1539,6 +1811,7 @@ final class AngleTrainingScene: SCNScene {
                                          height: CGFloat(ringDashLen))
                 segGeo.materials = [ringMat]
                 let seg = SCNNode(geometry: segGeo)
+                seg.castsShadow = false
                 seg.position = SCNVector3(r * cosf(theta), 0, r * sinf(theta))
                 // 圆柱轴默认 +Y，转到圆周切线方向平躺。
                 seg.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
@@ -1562,8 +1835,8 @@ final class AngleTrainingScene: SCNScene {
         ghostBallNode = ghost
 
         // 进球线：颜色运行时随目标球本色；线语言 v2（条 12.2）改为**虚线**——
-        // 单根圆柱贴条纹纹理（白段 + 透明 gap），wrapT=.repeat + contentsTransform
-        // 随长度缩放，拖动逐帧改长度也无需重建虚线段节点。
+        // 条纹纹理（白段 + 透明 gap）沿投影线的弧长重复；更新时裁剪到真实台呢。
+        // 初始化几何只保存材质，首次显示前由 updateLineNode 替换。
         let plCyl = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineMain), height: 1)
         let plMat = SCNMaterial()
         plMat.diffuse.contents = Self.dashStripeTexture
@@ -1572,6 +1845,7 @@ final class AngleTrainingScene: SCNScene {
         plMat.lightingModel = .constant
         plCyl.materials = [plMat]
         let pl = SCNNode(geometry: plCyl)
+        pl.castsShadow = false
         pl.isHidden = true
         pl.name = "pocketLine"
         rootNode.addChildNode(pl)
@@ -1583,6 +1857,7 @@ final class AngleTrainingScene: SCNScene {
         slMat.lightingModel = .constant
         slCyl.materials = [slMat]
         let sl = SCNNode(geometry: slCyl)
+        sl.castsShadow = false
         sl.isHidden = true
         sl.name = "strikeLine"
         rootNode.addChildNode(sl)
@@ -1598,6 +1873,7 @@ final class AngleTrainingScene: SCNScene {
         dotMat.writesToDepthBuffer = !usesTrainingAssistStyle
         dotSphere.materials = [dotMat]
         let dot = SCNNode(geometry: dotSphere)
+        dot.castsShadow = false
         dot.isHidden = true
         dot.name = "contactDot"
         dot.renderingOrder = usesTrainingAssistStyle ? 100 : 0
@@ -1610,25 +1886,9 @@ final class AngleTrainingScene: SCNScene {
         rootNode.addChildNode(arc)
         angleArcNode = arc
 
-        // 90° 释义线（过假想球球心、垂直于撞击线）：品牌绿短虚线（DR-021）。
-        // 长度恒定（±4R）→ 虚线段一次性建成子节点，更新时只动父节点位姿，拖动零重建。
+        // 90° helper preserves the ghost's XZ anchor; visible dashes are clipped
+        // onto cloth when the physical direction is updated.
         let pp = SCNNode()
-        let perpHalf = AngleSceneCalculator.ballRadius * 4
-        let ppMat = SCNMaterial()
-        ppMat.diffuse.contents = TrajectoryStyle.separationColor
-        ppMat.lightingModel = .constant
-        let dashLen = TrajectoryStyle.hintDash * 0.7   // 短虚线：比对照线更碎，一眼区分「释义」
-        let gapLen = TrajectoryStyle.hintGap * 0.7
-        var yCursor = -perpHalf
-        while yCursor < perpHalf {
-            let segLen = min(dashLen, perpHalf - yCursor)
-            let segGeo = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineHint), height: CGFloat(segLen))
-            segGeo.materials = [ppMat]
-            let seg = SCNNode(geometry: segGeo)
-            seg.position = SCNVector3(0, yCursor + segLen / 2, 0)
-            pp.addChildNode(seg)
-            yCursor += segLen + gapLen
-        }
         pp.isHidden = true
         pp.name = "perpLine"
         rootNode.addChildNode(pp)
@@ -1653,6 +1913,7 @@ final class AngleTrainingScene: SCNScene {
         mat.writesToDepthBuffer = !isOverlay
         geo.materials = [mat]
         let node = SCNNode(geometry: geo)
+        node.castsShadow = false
         node.renderingOrder = isOverlay ? 100 : 0
         return node
     }
@@ -1688,7 +1949,7 @@ final class AngleTrainingScene: SCNScene {
         let node = addDashedLine(from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
                                  to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
                                  color: IdealObjectDirection.color, radius: 0.002,
-                                 dash: 0.025, gap: 0.018)
+                                 dash: 0.025, gap: 0.018, placement: .table)
         node.name = "idealObjectDirection"
         idealObjectNode = node
         return node
@@ -1815,26 +2076,24 @@ final class AngleTrainingScene: SCNScene {
 
     private func updateLineNode(_ node: SCNNode?, from start: SCNVector3, to end: SCNVector3) {
         guard let node else { return }
-        let dx = end.x - start.x
-        let dy = end.y - start.y
-        let dz = end.z - start.z
-        let length = sqrtf(dx * dx + dy * dy + dz * dz)
-        guard length > 0.001 else { return }
-
-        if let cyl = node.geometry as? SCNCylinder {
-            cyl.height = CGFloat(length)
-            // 虚线纹理节点（进球线）：随长度缩放条纹重复数，保持虚线节奏恒定。
-            if node.name == "pocketLine", let mat = cyl.firstMaterial {
-                let repeats = max(1, length / Self.dashStripePeriod)
-                mat.diffuse.contentsTransform = SCNMatrix4MakeScale(1, repeats, 1)
+        let material = node.geometry?.firstMaterial
+        let replacement = makeTableSegment(from: start, to: end, color: .white,
+                                           radius: TrajectoryStyle.lineMain, layer: .aiming)
+        // Keep the material even when clipping removes the entire ribbon, so
+        // subsequent valid positions retain the stripe texture and ball color.
+        let geometry = replacement.geometry ?? SCNGeometry()
+        if let material {
+            material.readsFromDepthBuffer = true
+            material.writesToDepthBuffer = false
+            geometry.materials = [material]
+            if node.name == "pocketLine" {
+                let length = hypotf(end.x - start.x, end.z - start.z)
+                material.diffuse.contentsTransform = SCNMatrix4MakeScale(1, max(1, length / Self.dashStripePeriod), 1)
             }
         }
-        node.position = SCNVector3(
-            (start.x + end.x) / 2,
-            (start.y + end.y) / 2,
-            (start.z + end.z) / 2
-        )
-        node.look(at: end, up: rootNode.worldUp, localFront: SCNVector3(0, 1, 0))
+        node.geometry = geometry
+        node.transform = replacement.transform
+        node.renderingOrder = TableAssistLayer.aiming.rawValue
     }
 
     /// 90° 释义线过**假想球球心**（母球碰撞瞬间的位置）——定杆母球沿此切线离开；
@@ -1845,12 +2104,23 @@ final class AngleTrainingScene: SCNScene {
         let dz = pocket.z - targetBall.z
         let dist = sqrtf(dx * dx + dz * dz)
         guard dist > 0.001 else { return }
-        // 虚线段建在父节点局部 +Y 轴上，这里只需摆位姿（look 的 localFront = +Y）。
         let perpX = -dz / dist
         let perpZ = dx / dist
-        node.position = ghost
-        let lookTarget = SCNVector3(ghost.x + perpX, ghost.y, ghost.z + perpZ)
-        node.look(at: lookTarget, up: rootNode.worldUp, localFront: SCNVector3(0, 1, 0))
+        node.childNodes.forEach { $0.removeFromParentNode() }
+        node.transform = SCNMatrix4Identity
+        let half = AngleSceneCalculator.ballRadius * 4
+        let dash = TrajectoryStyle.hintDash * 0.7
+        let gap = TrajectoryStyle.hintGap * 0.7
+        var cursor = -half
+        while cursor < half {
+            let next = min(cursor + dash, half)
+            let start = SCNVector3(ghost.x + cursor * perpX, ghost.y, ghost.z + cursor * perpZ)
+            let end = SCNVector3(ghost.x + next * perpX, ghost.y, ghost.z + next * perpZ)
+            node.addChildNode(makeTableSegment(from: start, to: end,
+                                              color: TrajectoryStyle.separationColor,
+                                              radius: TrajectoryStyle.lineHint, layer: .reference))
+            cursor = next + gap
+        }
     }
 
     /// Draw the cut-angle arc at GHOST in the wedge formed by the two FORWARD rays
@@ -1863,6 +2133,7 @@ final class AngleTrainingScene: SCNScene {
                                 pocket: SCNVector3, ghost: SCNVector3,
                                 showLineLabels: Bool = true) {
         angleArcNode?.childNodes.forEach { $0.removeFromParentNode() }
+        inlineLineLabels.removeAll()
 
         let r = AngleSceneCalculator.ballRadius
 
@@ -1895,8 +2166,7 @@ final class AngleTrainingScene: SCNScene {
             let p1 = SCNVector3(ghost.x + arcRadius * cosf(a1),
                                 ghost.y + 0.0015,
                                 ghost.z + arcRadius * sinf(a1))
-            let seg = makeSmallCylinder(from: p0, to: p1, radius: 0.0028,
-                                        color: arcColor)
+            let seg = makeTableSegment(from: p0, to: p1, color: arcColor, radius: 0.0028)
             angleArcNode?.addChildNode(seg)
         }
 
@@ -1929,12 +2199,16 @@ final class AngleTrainingScene: SCNScene {
                                             fontSize: angleFontSize, scale: angleTextScale, weight: .bold,
                                             alignDir: alignDir)
         label.position = labelPos
+        label.name = "angleValueLabel"
+        angleValueFlatYaw = label.eulerAngles.y
+        angleValueLabel = label
+        updateAngleValueFacing()
         angleArcNode?.addChildNode(label)
         angleArcNode?.position = SCNVector3(0, 0, 0)
 
         // Line labels along the strike line and pocket line, in matching colors.
-        // Keep labels away from the ghost/angle label cluster. Suppressed in
-        // 3D mode where flat-on-table text becomes unreadable.
+        // Keep labels away from the ghost/angle label cluster. Callers may
+        // suppress them; visible labels face the observer in perspective.
         if showLineLabels {
             addInlineLineLabel(text: "瞄准线", color: .white,
                                lineStart: cueBall, lineEnd: ghost,
@@ -1977,12 +2251,36 @@ final class AngleTrainingScene: SCNScene {
                                           fontSize: 18, scale: 0.0033, weight: .semibold)
         let parent = SCNNode()
         parent.addChildNode(textChild)
+        parent.name = "inlineLineLabel"
         parent.eulerAngles = SCNVector3(0, yaw, 0)
         parent.position = inlineLineLabelPosition(
             lineStart: lineStart, lineEnd: lineEnd, tParam: tParam, sideOffset: sideOffset
         )
 
         angleArcNode?.addChildNode(parent)
+        inlineLineLabels.append((parent, yaw))
+        updateAngleValueFacing()
+    }
+
+    /// The value remains anchored to its geometric wedge, but its glyphs face
+    /// the camera in 3D. Returning to 2D restores the existing directional layout.
+    private func updateAngleValueFacing() {
+        var labels = inlineLineLabels
+        if let label = angleValueLabel { labels.append((label, angleValueFlatYaw)) }
+        for (label, flatYaw) in labels {
+            guard let text = label.childNodes.first else { continue }
+            if currentCameraMode == .perspective3D {
+                label.eulerAngles = SCNVector3Zero
+                text.eulerAngles = SCNVector3Zero
+                let facing = SCNBillboardConstraint()
+                facing.freeAxes = .all
+                label.constraints = [facing]
+            } else {
+                label.constraints = nil
+                label.eulerAngles = SCNVector3(0, flatYaw, 0)
+                text.eulerAngles = SCNVector3(-Float.pi / 2, 0, 0)
+            }
+        }
     }
 
     private func inlineLineLabelPosition(
@@ -2051,6 +2349,7 @@ final class AngleTrainingScene: SCNScene {
         textGeo.materials = [mat]
 
         let textNode = SCNNode(geometry: textGeo)
+        textNode.castsShadow = false
         // Centre the text on its bounding box so position represents the centre.
         let (tMin, tMax) = textNode.boundingBox
         let cx = (tMin.x + tMax.x) * 0.5
@@ -2080,6 +2379,7 @@ final class AngleTrainingScene: SCNScene {
         cyl.materials = [mat]
 
         let node = SCNNode(geometry: cyl)
+        node.castsShadow = false
         node.position = SCNVector3((start.x + end.x) / 2, (start.y + end.y) / 2, (start.z + end.z) / 2)
         node.look(at: end, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 1, 0))
         return node

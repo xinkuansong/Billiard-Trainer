@@ -11,7 +11,23 @@ import SceneKit
 @MainActor
 final class DrillSceneController: ObservableObject {
     let scene = AngleTrainingScene()
-    var cameraMode: AngleTrainingScene.CameraMode = .topDown2D
+    @Published private(set) var cameraMode: AngleTrainingScene.CameraMode = .topDown2D
+
+    func setCameraMode(_ mode: AngleTrainingScene.CameraMode) {
+        let needsOverview = mode == .perspective3D && !scene.hasPerspectiveView
+        cameraMode = mode
+        scene.setCameraMode(mode, animated: false)
+        if needsOverview { observeWholeTable() }
+    }
+
+    func observeWholeTable() {
+        guard cameraMode == .perspective3D, let rig = scene.cameraRig else { return }
+        // The detail viewport is landscape: look across Z so the long X axis
+        // spans its width. Manual observation remains unconstrained afterwards.
+        guard rig.observeWholeTable(yaw: .pi / 2) else { return }
+        scene.discardSavedPerspectiveView()
+        rig.snapToTarget()
+    }
 
     /// 本杆「打点 + 力度」HUD 条数据（逐杆更新为当前杆参数）。
     struct ShotOverlayData {
@@ -36,7 +52,11 @@ final class DrillSceneController: ObservableObject {
     private var prediction: ShotPrediction?
     /// 整条示范序列（与静帧同一 formation）。为空 = 无多杆数据，退回单杆演示。
     private var steps: [SequenceStep] = []
-    private var stepIndex = 0
+    @Published private var stepIndex = 0
+    var stepLabel: String {
+        guard !steps.isEmpty else { return "" }
+        return "第 \(playbackState == .idle ? 1 : stepIndex + 1)/\(steps.count) 杆"
+    }
     private var homePositions: [String: SCNVector3] = [:]
     private var surfaceY: Float = 0
     private var trajectoryNodes: [SCNNode] = []
@@ -91,6 +111,7 @@ final class DrillSceneController: ObservableObject {
         availableFormations = DrillTryoutBoardStore.formations(for: drill.id)
         steps = availableFormations.first(where: { $0.token == source.token })?.steps ?? []
 
+        preparePreviewBoard(source)
         solvePreviewShot(for: source)
     }
 
@@ -123,8 +144,17 @@ final class DrillSceneController: ObservableObject {
         didPlaceBoard = false
 
         // 先按新盘面摆球（无线），解算完成后再补画完整静帧。
-        applyPreviewFrame()
+        preparePreviewBoard(source)
         solvePreviewShot(for: source)
+    }
+
+    /// Seating the saved formation does not depend on a physics result.
+    /// It must also exist before play() can restore its opening board.
+    private func preparePreviewBoard(_ source: DrillStaticPreview.Source) {
+        placeStepBoard(source.board)
+        homePositions = source.board.onTable.mapValues { point($0) }
+        didPlaceBoard = true
+        if cameraMode == .perspective3D { observeWholeTable() }
     }
 
     /// 后台解算静帧首杆；完成时若球形已被切走则丢弃结果（防在途结果串台）。
@@ -137,7 +167,9 @@ final class DrillSceneController: ObservableObject {
             DispatchQueue.main.async {
                 guard let self, self.previewSource?.token == source.token else { return }
                 self.prediction = pred
-                self.applyPreviewFrame()
+                // A late preview result must not redraw decorations or reset cue
+                // orientation during an already started or paused demonstration.
+                if self.playbackState == .idle { self.applyPreviewFrame() }
             }
         }
     }
@@ -150,8 +182,10 @@ final class DrillSceneController: ObservableObject {
         scene.hideContactDot()
         scene.hideCueStick()
 
+        var options = DrillStaticPreview.Options.detail
+        options.adjustsTopDownCamera = cameraMode != .perspective3D
         let applied = DrillStaticPreview.apply(
-            source: source, to: scene, options: .detail,
+            source: source, to: scene, options: options,
             prediction: prediction, placeBalls: !didPlaceBoard
         )
         didPlaceBoard = true
@@ -286,12 +320,14 @@ final class DrillSceneController: ObservableObject {
         // G15：播到引擎自然静止，球停前无最后一跳/瞬移。
         let settle = playback.duration
 
+        var completionDuration: TimeInterval = 0
         var cueAction: SCNAction?
         for (key, node) in scene.allBallNodes where !node.isHidden {
             let name = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
             // 逐杆演示：进袋球只淡出、保留节点，否则下一杆无法重新挂回父节点。
             let action = playback.action(for: node, ballName: name, speed: 1.0,
                                          removeOnPocket: false, maxSimTime: settle)
+            completionDuration = max(completionDuration, action?.duration ?? 0)
             if PositionPlayBall.isCue(key) {
                 cueAction = action
             } else if let action {
@@ -299,16 +335,17 @@ final class DrillSceneController: ObservableObject {
             }
         }
 
-        let tail: TimeInterval = pred.pocketedBalls.isEmpty
-            ? 0 : TrajectoryPlayback.pocketSettleDuration + 0.1
+        let hasLegacyCapture = pred.pocketedBalls.contains {
+            playback.collectionOpacity(ballName: $0, time: 0) == nil
+        }
+        if hasLegacyCapture { completionDuration += TrajectoryPlayback.pocketSettleDuration + 0.1 }
         guard let cueAction, let cueNode = scene.allBallNodes[PositionPlayBall.cueKey] else {
             applyStepRest(step: step, prediction: pred)
             scheduleNextStep(after: i)
             return
         }
-        cueNode.runAction(cueAction) { [weak self] in
+        cueNode.runAction(.group([cueAction, .wait(duration: completionDuration)])) { [weak self] in
             Task { @MainActor in
-                try? await Task.sleep(nanoseconds: UInt64(tail * 1_000_000_000))
                 guard let self, self.isPlaying else { return }
                 self.applyStepRest(step: step, prediction: pred)
                 self.scheduleNextStep(after: i)
@@ -626,17 +663,45 @@ struct DrillSceneView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            HStack(spacing: Spacing.sm) {
+                Button(controller.cameraMode == .perspective3D ? "3D" : "2D") {
+                    controller.setCameraMode(controller.cameraMode == .perspective3D ? .topDown2D : .perspective3D)
+                    revealPlaybackControls()
+                }
+                .font(.btSubheadlineSemibold)
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityLabel(controller.cameraMode == .perspective3D ? "切换到2D俯视" : "切换到3D视角")
+                .accessibilityValue(controller.cameraMode == .perspective3D ? "3D" : "2D")
+                .accessibilityIdentifier("drillScene.cameraMode")
+                if controller.cameraMode == .perspective3D {
+                    Button("全桌") { controller.observeWholeTable() }
+                        .font(.btFootnote)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityLabel("查看全桌")
+                        .accessibilityIdentifier("drillScene.overview")
+                }
+                Spacer(minLength: 0)
+                Text(controller.stepLabel)
+                    .font(.btFootnote)
+                    .foregroundStyle(Color.btTextSecondary)
+                    .accessibilityIdentifier("drillScene.step")
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, Spacing.sm)
+            .background(Color.btBGSecondary)
             ZStack(alignment: .bottomLeading) {
                 AngleSceneView(
                     scene: controller.scene,
-                    cameraMode: .constant(controller.cameraMode),
-                    interactionMode: .none,
+                    cameraMode: Binding(get: { controller.cameraMode }, set: { controller.setCameraMode($0) }),
+                    interactionMode: controller.cameraMode == .perspective3D ? .cameraControl : .none,
                     autoFitsLandscapeTable: true,
-                    backgroundColor: Self.feltBackground
+                    backgroundColor: controller.cameraMode == .perspective3D ? .black : Self.feltBackground,
+                    onTableTapped: { _ in revealPlaybackControls() }
                 )
                 // 相框比例取 USDZ 外框实测兜底；相机再按运行时实测外框与容器双轴自适应，
                 // 保证六袋四库完整可见且保留抗锯齿安全余量。
                 .aspectRatio(CGFloat(DrillSceneController.frameAspect), contentMode: .fit)
+                .accessibilityIdentifier("drillScene.renderViewport")
 
                 // 球桌控制面：播放中控件隐藏后，轻点这里只唤出控件，不直接暂停。
                 // 独立 AX 元素也供 UI 测试量取台面 frame；不能把 identifier 挂在 ZStack 上，
@@ -652,6 +717,7 @@ struct DrillSceneView: View {
                         playbackControlsVisible ? "回放控制已显示" : "轻点显示回放控制"
                     )
                     .accessibilityIdentifier("drillSceneTableViewport")
+                    .allowsHitTesting(controller.cameraMode != .perspective3D)
 
                 if playbackControlsVisible {
                     Button {
@@ -799,4 +865,3 @@ struct DrillSceneView: View {
         }
     }
 }
-

@@ -84,7 +84,16 @@ enum SeparationAngleAtlasGeometry {
     /// 碰后未吃库（如低力度纯低杆回拖后停球）时降级为「碰撞点 → 停球点」，
     /// 保证 8 档轨迹在任何力度下都齐全（语义如实：碰后轨迹，未吃库者到停点）。
     /// 无球-球碰撞时返回空。
+    static func hasCompleteSlice(_ pred: ShotPrediction) -> Bool {
+        if pred.hasFinalTableState { return true }
+        guard pred.termination != nil,
+              let cushion = firstCueCushionAfterBallBall(in: pred.events),
+              let recorder = pred.recorder else { return false }
+        return recorder.stateAt(ballName: ShotInput.cueBallName, time: cushion.time) != nil
+    }
+
     static func pathAfterContactToFirstCueCushion(_ pred: ShotPrediction) -> [SCNVector3] {
+        guard hasCompleteSlice(pred) else { return [] }
         guard let bb = firstBallBallEvent(in: pred.events),
               pred.cuePath.count >= 2 else { return [] }
 

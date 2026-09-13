@@ -15,6 +15,7 @@ struct PlanThreeView: View {
     }
 
     @StateObject private var vm = PlanThreeViewModel()
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     @State private var hasAppeared = false
     @State private var projector = TableProjector()
     @State private var showBreakPicker = false
@@ -39,7 +40,8 @@ struct PlanThreeView: View {
     var body: some View {
         GeometryReader { geo in
             let rig = vm.scene.cameraRig
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D && !vm.isBreakMode ? 48 + Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: rig?.tableOuterHalfLength ?? ShotTableLayout.defaultHalfLength,
@@ -49,11 +51,12 @@ struct PlanThreeView: View {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 0) {
                     topToolRow
+                        .disabled(is3D)
                         .frame(height: Self.topRowHeight)
                     stage(proxy)
                         .frame(height: sceneH)
                     bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                        .frame(height: bottomHeight)
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
@@ -73,9 +76,10 @@ struct PlanThreeView: View {
                 BTSolverNavStatus(
                     title: "打一走二想三",
                     isBusy: vm.isComputing,
-                    statusText: vm.breakRunner?.statusText ?? vm.statusText
+                    statusText: vm.breakRunner?.statusText(isPerspective: is3D) ?? vm.statusText
                 )
             }
+            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .sheet(isPresented: $showBreakPicker) {
@@ -98,7 +102,7 @@ struct PlanThreeView: View {
     /// UITest 确定性场景注入（Q15 截图取证）；生产无对应 launch arg ⇒ 不触发。
     private func applyUITestHooksIfNeeded() {
         let args = ProcessInfo.processInfo.arguments
-        for s in ["twoBallDimmed", "twoBall", "oneBall", "cleared"] where args.contains("-planThree.\(s)") {
+        for s in ["threeBallDimmed", "twoBallDimmed", "twoBall", "oneBall", "cleared"] where args.contains("-planThree.\(s)") {
             vm.uiTestConfigure(s)
             return
         }
@@ -166,12 +170,27 @@ struct PlanThreeView: View {
             Spacer(minLength: 0)
     }
 
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            showSpinPad = false
+            let needsOverview = !vm.scene.hasPerspectiveView
+            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
+            vm.scene.setCameraMode(vm.cameraMode, animated: false)
+            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("planthree.cameraMode")
+    }
+
     // MARK: - Stage（scene + 贴边控件，G3–G11 走 ShotStageProxy）
 
     private func stage(_ proxy: ShotStageProxy) -> some View {
         ZStack(alignment: .topLeading) {
             sceneContainer
-            if vm.activeTool != .none {
+            if !is3D && !vm.isBreakMode && vm.activeTool != .none {
                 SolveConstraintDrawingOverlay(
                     coordinateSpaceName: "planthree",
                     sceneFrame: sceneFrame,
@@ -184,7 +203,7 @@ struct PlanThreeView: View {
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
             if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy)
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy, isPerspective: is3D)
             }
 
             if !vm.isBreakMode && proxy.isValid {
@@ -195,21 +214,22 @@ struct PlanThreeView: View {
 
                 // 左下（G24）：BTSolverLeftColumn + Slot L1 开球。
                 leftColumn
-                    .btStageFrame(proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size))
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size) : proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackWithSlotL1Size))
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                 instrumentColumn
-                    .btStageFrame(proxy.instrumentFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                 // 条 18.2：打一/上一杆/回放，右下角底边齐球桌底线。
                 actionColumn
-                    .btStageFrame(proxy.actionColumnFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
             }
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
+                                 usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -224,12 +244,12 @@ struct PlanThreeView: View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
-            onPocketTapped: vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
+            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            autoFitsRotatedTable: !is3D,
+            onPocketTapped: is3D || vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
-            draggableBallNodes: vm.breakRunner?.draggableCue
-                ?? (vm.activeTool == .none ? vm.draggableBalls : []),
+            draggableBallNodes: is3D ? [] : (vm.breakRunner?.draggableCue
+                ?? (vm.activeTool == .none ? vm.draggableBalls : [])),
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else { vm.dragBegan(node: node) }
@@ -246,10 +266,10 @@ struct PlanThreeView: View {
                 guard !vm.isBreakMode else { return }
                 handleTableDragEnd(node: node, localPoint: localPoint)
             },
-            selectableBallNodes: (vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,
+            selectableBallNodes: (is3D || vm.isBreakMode || vm.activeTool != .none) ? [] : vm.selectableBalls,
             onBallTapped: { vm.selectBall(node: $0) },
             // G18/V6：开球模式拖屏调瞄准（G13 相对语义）；非开球模式本页无自由拖瞄，忽略。
-            onAimNudged: { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },
+            onAimNudged: is3D ? nil : { if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) } },
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -308,6 +328,11 @@ struct PlanThreeView: View {
             .scaleEffect(armed ? 1.03 : 1)
             .animation(BTMotion.springPanel, value: armed)
         }
+        .accessibilityLabel(roleTitle(role))
+        .accessibilityValue(role.isBall
+            ? vm.ballKey(for: role).map { String($0.dropFirst()) + "号球" } ?? "未选择"
+            : filled ? "已选择" : "未选择")
+        .accessibilityIdentifier("planthree.role.\(role.rawValue)")
         .buttonStyle(.plain)
         .disabled(vm.isPlaying)
     }
@@ -406,8 +431,27 @@ struct PlanThreeView: View {
                 BreakControlBar(runner: runner, onCancel: { vm.cancelBreakFlow() })
             } else {
                 VStack(spacing: 0) {
-                    roleRow
-                    paletteBar(proxy)
+                    roleRow.disabled(is3D)
+                    if is3D {
+                        HStack {
+                            BTSceneObservationMenu(
+                                scene: vm.scene,
+                                targetNode: vm.ball1Key.flatMap { vm.scene.allBallNodes[$0] },
+                                pocketIndex: vm.pocket1Index,
+                                identifierPrefix: "planthree",
+                                canReturnToAim: vm.canObserveCurrentAim,
+                                onReturnToAim: vm.observeCurrentAim
+                            )
+                            .disabled(vm.isPlaying)
+                            Spacer(minLength: 0)
+                            Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+                        }
+                        .font(.btFootnote)
+                        .padding(.horizontal, Spacing.sm)
+                        .frame(maxHeight: .infinity)
+                    } else {
+                        paletteBar(proxy)
+                    }
                 }
             }
         }

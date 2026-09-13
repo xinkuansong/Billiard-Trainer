@@ -8,6 +8,102 @@ final class PhysicsEngineTests: XCTestCase {
 
     private let R = BallPhysics.radius
 
+    /// H02 constrained-table baseline, not a calibrated elevated strike/flight model.
+    /// Reflection, dissipation and rolling contact are independent invariants.
+    func testMasseConstrainedMotionSymmetryDissipationAndRollingBoundary() {
+        let origin = SCNVector3(0, BTTablePhysics.surfaceY + R, 0)
+        let inertia = 0.4 * BallPhysics.mass * R * R
+        func energy(_ v: SCNVector3, _ w: SCNVector3) -> Float {
+            0.5 * BallPhysics.mass * v.dot(v) + 0.5 * inertia * w.dot(w)
+        }
+        var cases = 0
+        for degrees: Float in [0, 0.01, 30, 60] {
+            for speed: Float in [0.6, 1.2, 2] {
+                for vertical: Float in [-0.4, 0, 0.4] {
+                    for side: Float in [0, 0.5] {
+                        let theta = degrees * .pi / 180
+                        let hit = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0),
+                            velocity: speed, spinX: side, spinY: vertical, elevation: theta)
+                        let mirror = CueBallStrike.executeStrike(aimDirection: SCNVector3(1, 0, 0),
+                            velocity: speed, spinX: -side, spinY: vertical, elevation: theta)
+                        let duration = AnalyticalMotion.slideToRollTime(velocity: hit.velocity,
+                            angularVelocity: hit.angularVelocity)
+                        XCTAssertTrue(duration.isFinite && duration >= 0)
+                        if duration == 0 {
+                            // Pure rolling may be present at impact (e.g. b=0.4, level cue).
+                            let contact = hit.velocity + hit.angularVelocity.cross(SCNVector3(0, -R, 0))
+                            XCTAssertLessThanOrEqual(contact.length(), 0.0001)
+                        }
+                        var previousEnergy = energy(hit.velocity, hit.angularVelocity)
+                        for fraction: Float in [0, 0.25, 0.5, 0.75, 1] {
+                            let state = AnalyticalMotion.evolveSliding(position: origin,
+                                velocity: hit.velocity, angularVelocity: hit.angularVelocity,
+                                dt: duration * fraction)
+                            let reflected = AnalyticalMotion.evolveSliding(position: origin,
+                                velocity: mirror.velocity, angularVelocity: mirror.angularVelocity,
+                                dt: duration * fraction)
+                            XCTAssertEqual(state.position.y, origin.y)
+                            XCTAssertEqual(state.position.x, reflected.position.x, accuracy: 0.00001)
+                            XCTAssertEqual(state.position.z, -reflected.position.z, accuracy: 0.00001)
+                            let currentEnergy = energy(state.velocity, state.angularVelocity)
+                            XCTAssertLessThanOrEqual(currentEnergy, previousEnergy + 0.000001)
+                            previousEnergy = currentEnergy
+                            if side == 0 { XCTAssertEqual(state.position.z, 0, accuracy: 0.00001) }
+                            if fraction == 1 {
+                                let turn = atan2f(state.velocity.z, state.velocity.x)
+                                    - atan2f(hit.velocity.z, hit.velocity.x)
+                                if side != 0 && degrees >= 30 {
+                                    XCTAssertGreaterThan(abs(turn), 0.001)
+                                }
+                                print("[H02 sample] elevation=\(degrees) speed=\(speed) b=\(vertical) a=\(side) sliding=\(duration) turn=\(turn) end=(\(state.position.x),\(state.position.z))")
+                                let slip = AnalyticalMotion.surfaceVelocity(linear: state.velocity,
+                                    angular: state.angularVelocity, radius: R)
+                                XCTAssertLessThan(slip.length(), 0.00001)
+                                let rolled = AnalyticalMotion.evolveRolling(position: state.position,
+                                    velocity: state.velocity, angularVelocity: state.angularVelocity, dt: 0)
+                                XCTAssertLessThan((rolled.angularVelocity - state.angularVelocity).length(), 0.001)
+                            }
+                        }
+                        cases += 1
+                    }
+                }
+            }
+        }
+        XCTAssertEqual(cases, 72)
+        print("[H02 constrained motion] \(cases) inputs, five samples each; mirror/dissipation/rolling boundary")
+    }
+
+    func test_circularCushionReachBoundMatchesOriginalRoots() {
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        var compared = 0, hits = 0
+        for arc in geometry.circularCushions {
+            for angle: Float in [0, 0.7, 1.6, 2.8, 4.2, 5.5] {
+                for gap: Float in [0.00001, 0.002, 0.04, 0.5] {
+                    let radial = arc.radius + R + gap
+                    let p = SCNVector3(arc.center.x + radial * cosf(angle), BTTablePhysics.surfaceY + R,
+                                       arc.center.z + radial * sinf(angle))
+                    for speed: Float in [-3, -0.2, 0, 0.2, 3] {
+                        let v = SCNVector3(speed * cosf(angle), 0, speed * sinf(angle))
+                        for acceleration: Float in [-2, 0, 2] {
+                            let a = SCNVector3(acceleration * cosf(angle), 0, acceleration * sinf(angle))
+                            for horizon in [0.00001, 0.0025, 0.05, 0.5] {
+                                let original = CollisionDetector.ballCircularCushionTime(p: p, v: v, a: a,
+                                    arc: arc, R: R, maxTime: horizon, useReachBound: false)
+                                let bounded = CollisionDetector.ballCircularCushionTime(p: p, v: v, a: a,
+                                    arc: arc, R: R, maxTime: horizon)
+                                XCTAssertEqual(bounded, original, "angle=\(angle) gap=\(gap) v=\(speed) a=\(acceleration) h=\(horizon)")
+                                compared += 1
+                                if original != nil { hits += 1 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        XCTAssertGreaterThan(hits, 0)
+        print("[W07 arc reach] comparisons=\(compared) hits=\(hits)")
+    }
+
     // MARK: - 击打模型（CueBallStrike）
 
     /// 修复回归：高杆(b=1) 产生的角速度应在合理量级（数十～两百 rad/s），
@@ -189,6 +285,8 @@ final class PhysicsEngineTests: XCTestCase {
         let pred = ShotPredictor.predict(input)
         XCTAssertTrue(pred.feasible)
         XCTAssertTrue(pred.objectPocketed, "加塞后经 squirt 补偿仍应进袋")
+        print("[W07 side-spin final] termination=\(String(describing: pred.termination)) pot=\(pred.objectPocketed) events=\(pred.events)")
+        XCTAssertTrue(pred.hasFinalTableState, "Selected prediction must finish even if an exploratory aim candidate fails")
     }
 
     /// 加塞时瞄准求解必须让**真实模拟**的目标球进袋（而非仅几何标记）。
@@ -239,7 +337,8 @@ final class PhysicsEngineTests: XCTestCase {
         XCTAssertTrue(pred.objectPocketed, "近距离小角度切角袋应能进")
     }
 
-    /// 默认开箱球形（与 ViewModel.placeBallsAtDefaults 一致）应能进自动选中的袋。
+    /// ShotSimulationView still uses this two-ball layout, at default speed 1.5.
+    /// This legacy 3.3-speed assertion remains; the test below covers bare VM defaults.
     func test_predictor_defaultLayoutPots() {
         let surfaceY: Float = BTTablePhysics.surfaceY
         let cue = SCNVector3(-0.35, surfaceY + R, 0.22)
@@ -263,9 +362,199 @@ final class PhysicsEngineTests: XCTestCase {
         let pred = ShotPredictor.predict(input)
         XCTAssertTrue(pred.feasible)
         XCTAssertTrue(pred.objectPocketed, "默认球形应开箱即可进球（选中袋 index=\(best)）")
+        if !pred.objectPocketed {
+            print("[W07 default] termination=\(String(describing: pred.termination)) aim=\(pred.aimDirection) pocketAim=\(pred.pocketAimPoint) events=\(pred.events)")
+            let frames = pred.recorder?.framesByBallName[ShotInput.targetBallName] ?? []
+            for (index, frame) in frames.enumerated() where index == 0 || index == frames.count - 1 || frame.position.x > 1.15 {
+                print("[W07 default frame] t=\(frame.time) p=\(frame.position) v=\(frame.velocity) state=\(frame.state)")
+            }
+        }
     }
 
     // MARK: - 走位编排器：多球障碍单杆求解（ADR-P11-01）
+
+    @MainActor
+    func test_currentPositionPlayDefaultsProduceResolvedPot() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        let initial = vm.currentSnapshot()
+        let deadline = Date().addingTimeInterval(15)
+        while (vm.isComputing || vm.solvedShot == nil), Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertFalse(vm.isComputing)
+        let solved = try XCTUnwrap(vm.solvedShot)
+        XCTAssertEqual(vm.velocity, ShotTuning.defaultVelocity)
+        XCTAssertEqual(Set(initial.onTable.keys), Set(solved.before.onTable.keys))
+        for (key, point) in initial.onTable {
+            XCTAssertEqual(solved.before.onTable[key]?.x, point.x)
+            XCTAssertEqual(solved.before.onTable[key]?.y, point.y)
+        }
+        XCTAssertTrue(solved.prediction.hasFinalTableState)
+        XCTAssertTrue(solved.prediction.objectPocketed)
+        let boundaries = try PocketGeometryAsset.load().captureBoundaries()
+        for capture in try XCTUnwrap(solved.prediction.recorder).confirmedCaptures {
+            let boundary = try XCTUnwrap(boundaries[capture.pocketID])
+            XCTAssertLessThanOrEqual(capture.state.position.y, boundary.centerPlaneY + 1e-12)
+        }
+        print("[W07 current defaults] velocity=\(vm.velocity) board=\(initial) shot=\(solved.shot) termination=\(String(describing: solved.prediction.termination)) pot=\(solved.prediction.objectPocketed)")
+    }
+
+    /// Diagnostic comparison for FL-070. Does not redefine the default-pot contract above.
+    func test_middlePocketFirstReboundSurfaceEvidence() throws {
+        let y = BTTablePhysics.surfaceY
+        // Spatial evidence test: opts into the presentation solver explicitly (W17-A).
+        let prediction = ShotPredictor.predict(ShotInput(simulationModel: .spatialPockets,
+            cueBall: SCNVector3(0, y + R, -0.2),
+            targetBall: SCNVector3(0, y + R, 0.3), pocketIndex: 5,
+            velocity: 3.3, spinX: 0, spinY: 0, surfaceY: y))
+        let handoff = try XCTUnwrap(prediction.recorder?.localHandoffs.first {
+            $0.ballName == ShotInput.targetBallName && $0.kind == .entered
+        })
+        let asset = try PocketGeometryAsset.load()
+        let solver = try asset.localSimulation(material: .tablePhysics(clothRestitution: 0.3), ballMaterial: .ballPhysics)
+        let result = try solver.run(from: handoff.state, duration: 0.1, maxStep: 0.0025)
+        XCTAssertEqual(try XCTUnwrap(result.states.last).time, handoff.state.time + 0.1, accuracy: 1e-12)
+        let collisions = result.contacts.filter { abs($0.normal.z) > 0.5 }
+        XCTAssertFalse(collisions.isEmpty)
+        for contact in collisions.prefix(8) {
+            let patch = asset.tablePatches[contact.surface]
+            print("[W07 middle surface] contact=\(contact) material=\(patch.material) triangle=\(patch.triangle)")
+        }
+    }
+
+    func test_defaultPocketLeatherResponseSensitivity() throws {
+        let y = BTTablePhysics.surfaceY
+        // Spatial liner sweep: opts into the presentation solver explicitly (W17-A).
+        let input = ShotInput(simulationModel: .spatialPockets,
+            cueBall: SCNVector3(-0.35, y + R, 0.22),
+            targetBall: SCNVector3(0.55, y + R, -0.18), pocketIndex: 1,
+            velocity: 3.3, spinX: 0, spinY: 0, surfaceY: y)
+        let prediction = ShotPredictor.predict(input)
+        let handoff = try XCTUnwrap(prediction.recorder?.localHandoffs.first {
+            $0.ballName == ShotInput.targetBallName && $0.kind == .entered
+        })
+        let asset = try PocketGeometryAsset.load()
+        let roles = try asset.surfaceRoles()
+        let baseline = try asset.contactSurfaces(material: .tablePhysics(clothRestitution: 0.3))
+        // Rigid e×mu sweep (leather-sweep-r1, 2026-09-14): mu 0.2–2 × e 0–0.45 all returned to
+        // the table, mu>=0.5 identical. The liner's tangential retention is the remaining lever.
+        let retentions = [1.0, 0.6, 0.4, 0.2, 0.0]
+        let restitutions = [0.0, Double(TablePhysics.pocketThroatRestitution)]
+        for (retention, restitution) in retentions.flatMap { r in restitutions.map { (r, $0) } } {
+            let surfaces = baseline.enumerated().map { index, surface in
+                LocalPocketSimulation.Surface(triangle: surface.triangle,
+                    restitution: roles[index] == .leather ? restitution : surface.restitution,
+                    friction: surface.friction,
+                    rollingFriction: surface.rollingFriction, spinFriction: surface.spinFriction,
+                    tangentialRetention: roles[index] == .leather ? retention : surface.tangentialRetention)
+            }
+            let solver = LocalPocketSimulation(surfaces: surfaces, radius: Double(R),
+                gravity: SIMD3(0, -Double(TablePhysics.gravity), 0), tolerance: 1e-6,
+                ballMaterial: .ballPhysics)
+            let result = try solver.run(from: handoff.state, duration: 0.2, maxStep: 0.0025)
+            let last = try XCTUnwrap(result.states.last)
+            let leatherContacts = result.contacts.filter { roles[$0.surface] == .leather }
+            print(String(format: "[W07 liner sweep] retention=%.2f e=%.2f finalPos=(%.4f,%.4f,%.4f) finalV=(%.3f,%.3f,%.3f)|%.3f minY=%.4f leatherContacts=%d totalContacts=%d",
+                retention, restitution, last.position.x, last.position.y, last.position.z,
+                last.velocity.x, last.velocity.y, last.velocity.z, simd_length(last.velocity),
+                result.states.map { $0.position.y }.min()!, leatherContacts.count, result.contacts.count))
+            // Contact-by-contact evidence for the rigid baseline only: which role turned the
+            // ball around, and what the velocity looked like immediately before/after (FL-070).
+            guard retention == 1 else { XCTAssertEqual(last.time, handoff.state.time + 0.2, accuracy: 1e-12); continue }
+            for contact in result.contacts.prefix(40) {
+                let before = result.states.last { $0.time <= contact.time - 1e-9 }
+                let after = result.states.first { $0.time >= contact.time + 1e-9 }
+                let vb = before?.velocity ?? .zero, va = after?.velocity ?? .zero
+                print(String(format: "[W07 leather contact] e=%.2f t=%.6f role=%@ n=(%.3f,%.3f,%.3f) vBefore=(%.3f,%.3f,%.3f)|%.3f vAfter=(%.3f,%.3f,%.3f)|%.3f y=%.4f",
+                    restitution, contact.time, String(describing: roles[contact.surface]),
+                    contact.normal.x, contact.normal.y, contact.normal.z,
+                    vb.x, vb.y, vb.z, simd_length(vb), va.x, va.y, va.z, simd_length(va),
+                    after?.position.y ?? .nan))
+            }
+            XCTAssertEqual(last.time, handoff.state.time + 0.2, accuracy: 1e-12)
+        }
+    }
+
+    func test_defaultPocketAimGeometryComparison() {
+        let y = BTTablePhysics.surfaceY
+        for speed: Float in [2.4, 3.3] {
+            for (label, point) in [("pipe", Optional<SCNVector3>.none),
+                ("nominal", AngleSceneCalculator.pocketPositions(surfaceY: y)[1]),
+                ("marker", AngleSceneCalculator.pocketMarkerPositions(surfaceY: y)[1])] {
+                let input = ShotInput(cueBall: SCNVector3(-0.35, y + R, 0.22),
+                    targetBall: SCNVector3(0.55, y + R, -0.18), pocketIndex: 1,
+                    velocity: speed, spinX: 0, spinY: 0, surfaceY: y, pocketAimOverride: point)
+                let prediction = ShotPredictor.predict(input)
+                print("[W07 aim geometry] speed=\(speed) source=\(label) point=\(prediction.pocketAimPoint) pot=\(prediction.objectPocketed) termination=\(String(describing: prediction.termination)) events=\(prediction.events)")
+                XCTAssertEqual(prediction.termination, .settled)
+            }
+        }
+    }
+
+    func test_pocketCaptureRejectsFalseQuadraticRootAbovePlane() throws {
+        let boundaries = try PocketGeometryAsset.load().captureBoundaries()
+        let boundary = try XCTUnwrap(boundaries["pocket_5"])
+        let center = boundary.outline.reduce(SIMD2<Double>.zero, +) / Double(boundary.outline.count)
+        let start = LocalPocketSimulation.State(time: 0,
+            position: SIMD3(center.x, boundary.centerPlaneY + 0.1, center.y),
+            velocity: .zero, omega: .zero)
+        let acceleration = SIMD3<Double>(0, -4e-12, 0)
+        let span = LocalPocketSimulation.Interval(start: start, duration: 0.0025,
+            acceleration: acceleration, angularAcceleration: .zero,
+            end: .init(time: 0.0025, position: start.position + acceleration * (0.5 * 0.0025 * 0.0025),
+                       velocity: acceleration * 0.0025, omega: .zero))
+        XCTAssertNil(boundary.firstCandidate(in: span), "A numerical root cannot capture a ball 10cm above the collection plane")
+        for drop in [1e-10, 0.01, 0.1] {
+            for duration in [0.0025, 0.2] {
+                var falling = start
+                falling.position.y = boundary.centerPlaneY + drop
+                let distance = falling.position.y - boundary.centerPlaneY
+                // Crossing occurs halfway through the interval, under gravity
+                // or at constant vertical speed. Keep tiny distances meaningful.
+                for accelerated in [false, true] {
+                    falling.velocity.y = accelerated ? 0 : -2 * distance / duration
+                    let acceleration = SIMD3<Double>(0, accelerated ? -8 * distance / (duration * duration) : 0, 0)
+                    let end = LocalPocketSimulation.State(time: duration,
+                        position: falling.position + falling.velocity * duration + acceleration * (0.5 * duration * duration),
+                        velocity: falling.velocity + acceleration * duration, omega: .zero)
+                    let candidate = try XCTUnwrap(boundary.firstCandidate(in: .init(start: falling, duration: duration,
+                        acceleration: acceleration, angularAcceleration: .zero, end: end)))
+                    XCTAssertEqual(candidate.time, duration / 2, accuracy: 1e-12)
+                    XCTAssertEqual(candidate.position.y, boundary.centerPlaneY, accuracy: 1e-14)
+                }
+            }
+        }
+    }
+
+    /// Diagnostic comparison for FL-070. Does not redefine the default-pot contract above.
+    func test_defaultLayoutPocketModelSpeedComparison() throws {
+        let surfaceY = BTTablePhysics.surfaceY
+        let asset = try PocketGeometryAsset.load()
+        let roles = try asset.surfaceRoles()
+        for speed: Float in [0.8, 1.2, 1.6, 2.4, 3.3] {
+            for model: EventDrivenEngine.SimulationModel in [.planarReference, .spatialPockets] {
+                let input = ShotInput(simulationModel: model,
+                    cueBall: SCNVector3(-0.35, surfaceY + R, 0.22),
+                    targetBall: SCNVector3(0.55, surfaceY + R, -0.18),
+                    pocketIndex: 1, velocity: speed, spinX: 0, spinY: 0, surfaceY: surfaceY)
+                let prediction = ShotPredictor.predict(input)
+                let frames = prediction.recorder?.framesByBallName[ShotInput.targetBallName] ?? []
+                let entry = frames.first { $0.position.x > 1.25 }
+                print("[W07 speed comparison] speed=\(speed) model=\(model) pot=\(prediction.objectPocketed) termination=\(String(describing: prediction.termination)) aim=\(prediction.aimDirection) entry=\(String(describing: entry)) events=\(prediction.events)")
+                if speed == 3.3 {
+                    let contacts = prediction.recorder?.localStaticContacts.filter {
+                        $0.ballName == ShotInput.targetBallName && $0.contact.time < 0.45
+                    } ?? []
+                    for recorded in contacts {
+                        let contact = recorded.contact
+                        print("[W07 default contact] time=\(contact.time) surface=\(contact.surface) role=\(roles[contact.surface]) normal=\(contact.normal) triangle=\(asset.tablePatches[contact.surface].triangle)")
+                    }
+                }
+                XCTAssertEqual(prediction.termination, .settled)
+            }
+        }
+    }
 
     /// 远离瞄准线的障碍球不应影响进袋；`finalPositions` 含全场球末位、`pocketedBalls` 含目标球。
     func test_predictor_obstacleAwayFromLine_stillPots() {
@@ -326,6 +615,15 @@ final class PhysicsEngineTests: XCTestCase {
                 velocity: v, spinX: 0, spinY: 0, surfaceY: sY))
             XCTAssertTrue(pred.feasible, "中袋直球应可行 v=\(v)")
             XCTAssertTrue(pred.objectPocketed, "中袋直球真实模拟应进袋 v=\(v)")
+            if !pred.objectPocketed {
+                print("[W07 middle] speed=\(v) termination=\(String(describing: pred.termination)) aim=\(pred.aimDirection) pocketAim=\(pred.pocketAimPoint) events=\(pred.events)")
+                for handoff in pred.recorder?.localHandoffs ?? [] where handoff.ballName == ShotInput.targetBallName {
+                    print("[W07 middle handoff] speed=\(v) \(handoff)")
+                }
+                for frame in pred.recorder?.framesByBallName[ShotInput.targetBallName] ?? [] where frame.position.z > 0.56 {
+                    print("[W07 middle frame] speed=\(v) t=\(frame.time) p=\(frame.position) v=\(frame.velocity)")
+                }
+            }
         }
     }
 
@@ -358,7 +656,12 @@ final class PhysicsEngineTests: XCTestCase {
         let pocket = AngleSceneCalculator.pocketPositions(surfaceY: sY)[5]
         guard let last = pred.objectPath.last else { return XCTFail("无目标球轨迹") }
         let d = sqrtf((last.x - pocket.x) * (last.x - pocket.x) + (last.z - pocket.z) * (last.z - pocket.z))
-        let window = AngleSceneCalculator.pocketDropRadius(index: 5) - R + 0.006
+        // 2026-09-14（内衬耗能模型）：球心在洞口轮廓内即算抵达袋口。旧窗口 `dropRadius - R + 6mm`
+        // 是平面捕获圈语义；空间模型里 4.7m/s 的球飞越洞心仅下沉 1mm，贴到后壁内衬（z≈0.735-R）
+        // 才停下落洞，末端距袋心约 30mm，与实物大力进袋在后壁消失一致。断言目的不变：
+        // 橙线要真的走到袋口，而不是旧版停在半路的理想直线。
+        let window = AngleSceneCalculator.pocketDropRadius(index: 5)
+        print("[W07 path endpoint] last=\(last) captures=\(String(describing: pred.recorder?.confirmedCaptures)) tails=\(String(describing: pred.recorder?.collectionTailsByBallName))")
         XCTAssertLessThanOrEqual(d, window, "进袋时目标球显示轨迹应抵达袋口（实测末端距袋心 \(d * 1000)mm）")
     }
 
@@ -665,11 +968,48 @@ final class PhysicsEngineTests: XCTestCase {
         guard let first = clean.first else { XCTFail("前置：应有 kick 解"); return }
         let input = ShotInput(
             cueBall: cue, targetBall: target, pocketIndex: 0,
-            velocity: 0.6, spinX: 0, spinY: 0, surfaceY: sY, kickRails: first.rails)
+            velocity: 0.1, spinX: 0, spinY: 0, surfaceY: sY, kickRails: first.rails)
         let pred = ShotPredictor.predict(input)
+        // Verify the insufficient-range premise independently on an empty table.
+        // The previous 0.6 cue speed produces ~0.92 ball speed and can reach a rail
+        // and the target; that input remains covered by the physical-witness test.
+        let empty = ShotPredictor.simulateFree(cueBall: cue, aimDir: pred.aimDirection,
+            velocity: input.velocity, spinX: 0, spinY: 0, surfaceY: sY, balls: [])
+        XCTAssertTrue(empty.hasFinalTableState)
+        XCTAssertFalse(empty.events.contains { if case .ballCushion = $0.kind { return true }; return false })
+        let travel = empty.cuePath.map { hypotf($0.x-cue.x, $0.z-cue.z) }.max() ?? .infinity
+        XCTAssertLessThan(travel, hypotf(target.x-cue.x,target.z-cue.z)-2*R,
+                          "This fixture must stop before it could reach the object even without a rail")
         XCTAssertFalse(pred.kickContactMade, "极低力度 kick 应如实报未碰到（力度是求解输入）")
         XCTAssertTrue(pred.feasible, "几何仍可行，只是力度不足——不可行原因不得混淆")
     }
+    func test_kickLowPowerContactHasPhysicalWitness() throws {
+        let y = BTTablePhysics.surfaceY
+        let input = ShotInput(cueBall: SCNVector3(-0.5,y+R,-0.2),
+            targetBall: SCNVector3(0.4,y+R,0.25), pocketIndex: 0,
+            velocity: 0.6, spinX: 0, spinY: 0, surfaceY: y, kickRails: [.right])
+        let pred = ShotPredictor.predict(input)
+        XCTAssertTrue(pred.hasFinalTableState)
+        XCTAssertTrue(pred.kickContactMade)
+        let event = try XCTUnwrap(pred.events.first { event in
+            if case let .ballBall(a,b) = event.kind {
+                return Set([a,b]) == Set([ShotInput.cueBallName,ShotInput.targetBallName])
+            }
+            return false
+        })
+        XCTAssertTrue(pred.events.contains { item in
+            if case .ballCushion = item.kind { return item.time < event.time }; return false
+        })
+        let playback = TrajectoryPlayback(recorder: try XCTUnwrap(pred.recorder), surfaceY: y+R)
+        let centers = playback.allBallCentersByName(at: event.time)
+        let cue = try XCTUnwrap(centers[ShotInput.cueBallName])
+        let object = try XCTUnwrap(centers[ShotInput.targetBallName])
+        let d = cue-object
+        XCTAssertEqual(sqrtf(d.x*d.x+d.y*d.y+d.z*d.z),2*R,accuracy:1e-5,
+                       "A contact flag must have touching recorded spheres, not just a geometric aim")
+        print("[W07 low-power physical witness] time=\(event.time) separation=\(sqrtf(d.x*d.x+d.y*d.y+d.z*d.z))")
+    }
+
 
     /// 无几何种子的库序（镜像展开解不出）：feasible=false + 原因，直接淘汰不进引擎。
     func test_kickSolve_noSeedSequence_infeasible() {
@@ -698,5 +1038,314 @@ final class PhysicsEngineTests: XCTestCase {
         let len = sqrtf(v.x * v.x + v.z * v.z)
         guard len > 1e-5 else { return SCNVector3(1, 0, 0) }
         return SCNVector3(v.x / len, 0, v.z / len)
+    }
+}
+
+
+extension PhysicsEngineTests {
+    func testSpatialStrikePreservesHorizontalBoundaryAndLegacyElevation() throws {
+        for aim in [SCNVector3(1,0,0), SCNVector3(0,0,-1), SCNVector3(-0.6,0,0.8)] {
+            for x: Float in [-0.4,0,0.4] {
+                for y: Float in [-0.4,0,0.4] {
+                    let old = CueBallStrike.executeStrike(aimDirection: aim, velocity: 2, spinX: x, spinY: y)
+                    let spatial = try CueBallStrike.executeSpatialStrike(aimDirection: aim, velocity: 2,
+                        spinX: x, spinY: y, elevation: 0)
+                    for (a,b) in zip([old.velocity.x,old.velocity.y,old.velocity.z,old.angularVelocity.x,
+                                     old.angularVelocity.y,old.angularVelocity.z,old.squirtAngle],
+                                    [spatial.velocity.x,spatial.velocity.y,spatial.velocity.z,spatial.angularVelocity.x,
+                                     spatial.angularVelocity.y,spatial.angularVelocity.z,spatial.squirtAngle]) {
+                        XCTAssertEqual(a.bitPattern,b.bitPattern)
+                    }
+                    let elevatedLegacy = CueBallStrike.executeStrike(aimDirection: aim, velocity: 2,
+                        spinX: x, spinY: y, elevation: .pi/4)
+                    XCTAssertEqual(elevatedLegacy.velocity.y,0)
+                }
+            }
+        }
+    }
+
+    func testSpatialStrikeHasDownwardImpulseAndBoundedEnergy() throws {
+        let mass = Double(BallPhysics.mass), radius = Double(BallPhysics.radius)
+        for degrees: Float in [0,15,30,45,60,75,90] {
+            for offset: Float in [-0.5,0,0.5] {
+                let angle = degrees * .pi / 180
+                let hit = try CueBallStrike.executeSpatialStrike(aimDirection: SCNVector3(1,0,0),
+                    velocity: 2, spinX: offset, spinY: 0.2, elevation: angle)
+                XCTAssertLessThanOrEqual(hit.velocity.y,0)
+                if degrees > 0 { XCTAssertLessThan(hit.velocity.y,0) }
+                let kinetic = 0.5*mass*Double(hit.velocity.x*hit.velocity.x+hit.velocity.y*hit.velocity.y+hit.velocity.z*hit.velocity.z) +
+                    0.2*mass*radius*radius*Double(hit.angularVelocity.x*hit.angularVelocity.x+hit.angularVelocity.y*hit.angularVelocity.y+hit.angularVelocity.z*hit.angularVelocity.z)
+                XCTAssertLessThanOrEqual(kinetic,0.5*Double(CuePhysics.mass)*4 + 1e-6)
+            }
+        }
+        let centered = try CueBallStrike.executeSpatialStrike(aimDirection: SCNVector3(1,0,0),
+            velocity: 2, spinX: 0, spinY: 0, elevation: .pi/4)
+        let speed: Float = 4 / (1 + BallPhysics.mass/CuePhysics.mass)
+        XCTAssertEqual(centered.velocity.x, speed/sqrt(2), accuracy: 1e-6)
+        XCTAssertEqual(centered.velocity.y, -speed/sqrt(2), accuracy: 1e-6)
+        XCTAssertLessThan(centered.angularVelocity.length(),1e-4)
+    }
+
+    func testSpatialStrikeThroughClothProducesFlightAndLanding() throws {
+        typealias V = SIMD3<Double>
+        let asset = try PocketGeometryAsset.load()
+        let solver = try asset.localSimulation(material: .tablePhysics(clothRestitution: 0.3),
+                                               ballMaterial: .ballPhysics)
+        let radius = Double(BallPhysics.radius), mass = Double(BallPhysics.mass)
+        let bedCenter = Double(asset.surfaceY) + radius
+        func vector(_ p: SCNVector3) -> V { V(Double(p.x),Double(p.y),Double(p.z)) }
+        func energy(_ state: LocalPocketSimulation.State) -> Double {
+            let v=state.velocity,w=state.omega
+            return mass * (0.5*(v.x*v.x+v.y*v.y+v.z*v.z)
+                + 0.2*radius*radius*(w.x*w.x+w.y*w.y+w.z*w.z)
+                + Double(TablePhysics.gravity)*(state.position.y-bedCenter))
+        }
+        for degrees: Float in [30,60] {
+          for side: Float in [0, -0.3, 0.3] {
+            let strike = try CueBallStrike.executeSpatialStrike(aimDirection: SCNVector3(1,0,0),
+                velocity: 2, spinX: side, spinY: 0, elevation: degrees * .pi / 180)
+            let initial = LocalPocketSimulation.State(time: 0,position: V(-0.4,bedCenter,0),
+                velocity: vector(strike.velocity),omega: vector(strike.angularVelocity))
+            let transition = try solver.runUntilPlanarSupport(from: initial,duration: 0.4,maxStep: 0.0025,
+                surfaceY: Double(asset.surfaceY))
+            let coarse = transition.result
+            let end = try XCTUnwrap(transition.planar)
+            let height = (coarse.states.map { $0.position.y }.max() ?? bedCenter) - bedCenter
+            do {
+                XCTAssertLessThan(initial.velocity.y,0)
+                XCTAssertTrue(coarse.states.contains { $0.velocity.y > 0 })
+                XCTAssertGreaterThan(height,0.001)
+                XCTAssertGreaterThanOrEqual(coarse.contacts.count,2,
+                    "The initial cloth impulse and subsequent landing both need actual contacts")
+            }
+            XCTAssertNotNil(solver.planarSupport(from:end,surfaceY:Double(asset.surfaceY)),
+                            "After the short flight the same solver must recover cloth support")
+            XCTAssertEqual(end.velocity.y,0)
+            XCTAssertEqual(end.position.y,bedCenter,accuracy:4e-6)
+            XCTAssertLessThan(end.time,0.4)
+            for state in coarse.states {
+                XCTAssertLessThanOrEqual(energy(state),energy(initial)+mass*Double(TablePhysics.gravity)*4e-6+1e-6)
+            }
+            let refined = try solver.runUntilPlanarSupport(from: initial, duration: 0.4,
+                maxStep: 0.00125, surfaceY: Double(asset.surfaceY))
+            let refinedEnd = try XCTUnwrap(refined.planar)
+            let commonEnd = min(end.time, refinedEnd.time)
+            var compared = 0
+            for tick in 1...Int(commonEnd / 0.005) {
+                let time = Double(tick) * 0.005
+                let a = try XCTUnwrap(coarse.intervals.last { $0.start.time <= time && $0.end.time >= time }?.sample(at: time))
+                let b = try XCTUnwrap(refined.result.intervals.last { $0.start.time <= time && $0.end.time >= time }?.sample(at: time))
+                for axis in 0..<3 {
+                    XCTAssertEqual(a.position[axis], b.position[axis], accuracy: 8e-6,
+                                   "degrees=\(degrees) time=\(time), position")
+                    XCTAssertEqual(a.velocity[axis], b.velocity[axis], accuracy: 0.0016,
+                                   "degrees=\(degrees) time=\(time), velocity")
+                }
+                compared += 1
+            }
+            XCTAssertGreaterThan(compared, 10)
+            let landing = try XCTUnwrap(coarse.contacts.first { $0.time > 0.01 })
+            let refinedLanding = try XCTUnwrap(refined.result.contacts.first { $0.time > 0.01 })
+            XCTAssertEqual(landing.time, refinedLanding.time, accuracy: 0.00001)
+            let engine = try EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: asset.surfaceY),
+                                              startingAt: end.time)
+            var landedBall = BallState(position: SCNVector3(Float(end.position.x), Float(end.position.y), Float(end.position.z)),
+                velocity: SCNVector3(Float(end.velocity.x), Float(end.velocity.y), Float(end.velocity.z)),
+                angularVelocity: SCNVector3(Float(end.omega.x), Float(end.omega.y), Float(end.omega.z)),
+                state: .sliding, name: "cue")
+            landedBall.state = EngineNumerics.determineMotionState(landedBall)
+            engine.setBall(landedBall)
+            engine.getTrajectoryRecorder().recordLocalIntervals(ballName: "cue", intervals: coarse.intervals)
+            XCTAssertEqual(engine.spatialTime, end.time)
+            let termination = engine.simulatePrediction(model: .spatialPockets, maxTime: 20)
+            XCTAssertEqual(termination, .settled)
+            let firstPlanarFrame = try XCTUnwrap(engine.getTrajectoryRecorder().framesByBallName["cue"]?.first)
+            XCTAssertEqual(firstPlanarFrame.time, Float(end.time))
+            XCTAssertEqual(firstPlanarFrame.position.x, landedBall.position.x)
+            XCTAssertEqual(firstPlanarFrame.position.z, landedBall.position.z)
+            XCTAssertEqual(firstPlanarFrame.velocity.x, landedBall.velocity.x)
+            XCTAssertEqual(firstPlanarFrame.angularVelocity.y, landedBall.angularVelocity.y)
+            let final = try XCTUnwrap(engine.getBall("cue"))
+            XCTAssertEqual(final.state, .stationary)
+            XCTAssertGreaterThan(engine.currentTime, Float(end.time))
+            let playback = TrajectoryPlayback(recorder: engine.getTrajectoryRecorder(), surfaceY: Float(bedCenter))
+            let airborneTime = Float(landing.time * 0.5)
+            let airborne = try XCTUnwrap(playback.stateAt(ballName: "cue", time: airborneTime))
+            XCTAssertGreaterThan(airborne.position.y, Float(bedCenter + 0.001))
+            let jointTime = Float(end.time)
+            let beforeJoint = try XCTUnwrap(playback.stateAt(ballName: "cue", time: jointTime.nextDown))
+            let afterJoint = try XCTUnwrap(playback.stateAt(ballName: "cue", time: jointTime.nextUp))
+            XCTAssertLessThan((beforeJoint.position - afterJoint.position).length(), 0.000002)
+            XCTAssertLessThan((beforeJoint.velocity - afterJoint.velocity).length(), 0.00002)
+            XCTAssertLessThan((beforeJoint.angularVelocity - afterJoint.angularVelocity).length(), 0.002)
+            let playedRest = try XCTUnwrap(playback.stateAt(ballName: "cue", time: engine.currentTime + 1))
+            XCTAssertEqual(playedRest.motionState, .stationary)
+            XCTAssertLessThan((playedRest.position - final.position).length(), 0.000002)
+            // A later query must not mutate or flatten the earlier flight prefix.
+            let repeatedAirborne = try XCTUnwrap(playback.stateAt(ballName: "cue", time: airborneTime))
+            XCTAssertEqual(repeatedAirborne.position.y, airborne.position.y)
+            XCTAssertEqual(repeatedAirborne.velocity.y, airborne.velocity.y)
+            print("[H01 landing refinement] degrees=\(degrees) side=\(side) samples=\(compared) handoff=\(end.time)/\(refinedEnd.time) landing=\(landing.time)/\(refinedLanding.time)")
+            print("[H01 cloth flight] degrees=\(degrees) side=\(side) height=\(height) contacts=\(coarse.contacts.count) end=\(end)")
+          }
+        }
+    }
+
+    func testMixedEngineInitiallyAirborneBallFollowsGravity() throws {
+        let surfaceY = BTTablePhysics.surfaceY
+        let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: surfaceY))
+        let initial = BallState(position: SCNVector3(0, surfaceY + R + 0.1, 0),
+            velocity: SCNVector3(0.4, 0.5, -0.2), angularVelocity: SCNVector3(2, 3, 4),
+            state: .sliding, name: "cue")
+        engine.setBall(initial)
+        let duration: Float = 0.02
+        XCTAssertEqual(engine.simulatePrediction(model: .spatialPockets, maxTime: duration), .timeLimit)
+        let end = try XCTUnwrap(engine.getBall("cue"))
+        let expectedY = initial.position.y + initial.velocity.y * duration
+            - 0.5 * TablePhysics.gravity * duration * duration
+        let expectedVy = initial.velocity.y - TablePhysics.gravity * duration
+        print("[H01 main airborne] actualY=\(end.position.y) expectedY=\(expectedY) actualVy=\(end.velocity.y) expectedVy=\(expectedVy)")
+        XCTAssertEqual(end.position.y, expectedY, accuracy: 0.000002)
+        XCTAssertEqual(end.velocity.y, expectedVy, accuracy: 0.00002)
+        XCTAssertEqual(end.velocity.x, initial.velocity.x, accuracy: 0.00002)
+        XCTAssertEqual(end.velocity.z, initial.velocity.z, accuracy: 0.00002)
+        let entered = try XCTUnwrap(engine.getTrajectoryRecorder().localHandoffs.first)
+        XCTAssertEqual(entered.domain, .airborne)
+        XCTAssertNil(entered.pocketID)
+    }
+
+    func testAirborneMainEngineClearsOrHitsObstacleAccordingToHeight() throws {
+        let y = BTTablePhysics.surfaceY + R
+        for height: Float in [0.12, 0.01] {
+            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY))
+            engine.setBall(BallState(position: SCNVector3(-0.1, y + height, 0),
+                velocity: SCNVector3(2, 0, 0), angularVelocity: SCNVector3Zero, state: .sliding, name: "cue"))
+            engine.setBall(BallState(position: SCNVector3(0, y, 0), velocity: SCNVector3Zero,
+                angularVelocity: SCNVector3Zero, state: .stationary, name: "object"))
+            XCTAssertEqual(engine.simulatePrediction(model: .spatialPockets, maxTime: 0.08), .timeLimit)
+            let collided = engine.resolvedEvents.contains {
+                if case .ballBall(let a, let b) = $0 { return Set([a,b]) == Set(["cue","object"]) }
+                return false
+            }
+            let cue = try XCTUnwrap(engine.getBall("cue"))
+            let object = try XCTUnwrap(engine.getBall("object"))
+            if height == 0.12 {
+                // At x=0, t=.05s: clearance=.12-g*t²/2 > 2R.
+                XCTAssertGreaterThan(height - 0.5*TablePhysics.gravity*0.05*0.05, 2*R)
+                XCTAssertFalse(collided)
+                XCTAssertGreaterThan(cue.position.x, object.position.x)
+                XCTAssertEqual(object.state, .stationary)
+                XCTAssertEqual(object.position.x, 0)
+            } else {
+                XCTAssertTrue(collided)
+                XCTAssertGreaterThan(object.velocity.length(), 0.1)
+            }
+        }
+    }
+
+    func testAirborneMainEngineClearsOrHitsRailAccordingToHeight() throws {
+        let y = BTTablePhysics.surfaceY + R
+        for height: Float in [0.15, 0.01] {
+            let engine = EventDrivenEngine(tableGeometry: .chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY))
+            engine.setBall(BallState(position: SCNVector3(1.1, y + height, 0),
+                velocity: SCNVector3(2, 0, 0), angularVelocity: SCNVector3Zero, state: .sliding, name: "cue"))
+            XCTAssertEqual(engine.simulatePrediction(model: .spatialPockets, maxTime: 0.12), .timeLimit)
+            let hitRail = engine.resolvedEvents.contains {
+                if case .ballCushion(let ball, _, _) = $0 { return ball == "cue" }
+                return false
+            }
+            let end = try XCTUnwrap(engine.getBall("cue"))
+            if height == 0.15 {
+                XCTAssertFalse(hitRail)
+                XCTAssertGreaterThan(end.position.x, TablePhysics.innerLength / 2)
+                XCTAssertEqual(end.velocity.x, 2, accuracy: 0.00002)
+                XCTAssertEqual(end.position.y, y + height - 0.5*TablePhysics.gravity*0.12*0.12, accuracy: 0.000002)
+            } else {
+                XCTAssertTrue(hitRail)
+                XCTAssertLessThan(end.velocity.x, 0)
+            }
+            XCTAssertTrue(engine.getTrajectoryRecorder().confirmedCaptures.isEmpty,
+                          "Clearing a rail is not a pocket event")
+        }
+    }
+
+    func testMainElevatedStrikeLandsAndReleasesAirborneOwnership() throws {
+        for degrees: Float in [30,60] {
+            for side: Float in [-0.3,0.3] {
+                let table = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+                let engine = EventDrivenEngine(tableGeometry: table)
+                let strike = try CueBallStrike.executeSpatialStrike(aimDirection: SCNVector3(1,0,0),
+                    velocity: 2, spinX: side, spinY: 0, elevation: degrees * .pi / 180)
+                engine.setBall(BallState(position: SCNVector3(-0.4,BTTablePhysics.surfaceY+R,0),
+                    velocity: strike.velocity, angularVelocity: strike.angularVelocity, state: .sliding, name: "cue"))
+                XCTAssertEqual(engine.simulatePrediction(model: .spatialPockets, maxTime: 20), .settled)
+                let handoffs = engine.getTrajectoryRecorder().localHandoffs.filter { $0.domain == .airborne }
+                XCTAssertTrue(handoffs.contains { $0.kind == .entered && $0.state.velocity.y < 0 })
+                XCTAssertTrue(handoffs.contains { $0.kind == .returned && $0.state.velocity.y == 0 })
+                XCTAssertTrue(handoffs.allSatisfy { $0.pocketID == nil })
+                XCTAssertEqual(try XCTUnwrap(engine.getBall("cue")).state, .stationary)
+            }
+        }
+    }
+
+    func testResumedEngineClockRejectsInvalidTimeAndRetainsDefault() throws {
+        let table = TableGeometry.chineseEightBallQiuJi(surfaceY: BTTablePhysics.surfaceY)
+        let original = EventDrivenEngine(tableGeometry: table)
+        XCTAssertEqual(original.currentTime, 0)
+        XCTAssertNil(original.spatialTime)
+        for time in [-1, Double.nan, Double.infinity, Double.greatestFiniteMagnitude] {
+            XCTAssertThrowsError(try EventDrivenEngine(tableGeometry: table, startingAt: time))
+        }
+        let resumed = try EventDrivenEngine(tableGeometry: table, startingAt: 7.123456789)
+        XCTAssertEqual(resumed.spatialTime, 7.123456789)
+        XCTAssertEqual(resumed.currentTime, Float(7.123456789))
+        XCTAssertTrue(resumed.getAllBalls().isEmpty)
+    }
+
+    func testFlightBudgetDoesNotImplyLandingAndPreservesContinuation() throws {
+        typealias V = SIMD3<Double>
+        let asset = try PocketGeometryAsset.load()
+        let solver = try asset.localSimulation(material: .tablePhysics(clothRestitution: 0.3),
+                                               ballMaterial: .ballPhysics)
+        let initial = LocalPocketSimulation.State(time: 7,
+            position: V(0, Double(asset.surfaceY) + Double(R) + 0.1, 0),
+            velocity: V(0.4, 0.5, -0.2), omega: V(2, 3, 4))
+        let first = try solver.runUntilPlanarSupport(from: initial, duration: 0.02,
+            maxStep: 0.0025, surfaceY: Double(asset.surfaceY))
+        XCTAssertNil(first.planar, "A time budget cannot turn an airborne ball into a supported one")
+        let middle = try XCTUnwrap(first.result.states.last)
+        XCTAssertEqual(middle.time, 7.02, accuracy: 1e-12)
+        let resumed = try solver.runUntilPlanarSupport(from: middle, duration: 0.02,
+            maxStep: 0.00125, surfaceY: Double(asset.surfaceY))
+        let uninterrupted = try solver.runUntilPlanarSupport(from: initial, duration: 0.04,
+            maxStep: 0.0025, surfaceY: Double(asset.surfaceY))
+        XCTAssertNil(resumed.planar)
+        XCTAssertNil(uninterrupted.planar)
+        XCTAssertTrue(first.result.contacts.isEmpty && resumed.result.contacts.isEmpty
+                      && uninterrupted.result.contacts.isEmpty)
+        let end = try XCTUnwrap(resumed.result.states.last)
+        let direct = try XCTUnwrap(uninterrupted.result.states.last)
+        let t = 0.04, gravity = V(0, -Double(TablePhysics.gravity), 0)
+        let expectedPosition = initial.position + initial.velocity * t + gravity * (0.5*t*t)
+        let expectedVelocity = initial.velocity + gravity * t
+        for axis in 0..<3 {
+            XCTAssertEqual(end.position[axis], expectedPosition[axis], accuracy: 1e-9)
+            XCTAssertEqual(end.velocity[axis], expectedVelocity[axis], accuracy: 1e-9)
+            XCTAssertEqual(end.omega[axis], initial.omega[axis], accuracy: 1e-9)
+            XCTAssertEqual(end.position[axis], direct.position[axis], accuracy: 1e-9)
+            XCTAssertEqual(end.velocity[axis], direct.velocity[axis], accuracy: 1e-9)
+        }
+        XCTAssertEqual(end.time, 7.04, accuracy: 1e-12)
+        XCTAssertGreaterThan(end.velocity.y, 0, "This fixture is still ascending when its budget ends")
+    }
+
+    func testSpatialStrikeRejectsInvalidInputs() {
+        for (speed,x,y,angle): (Float,Float,Float,Float) in [(-1,0,0,0),(1,1,1,0),
+            (1,0,0,-0.1),(1,0,0,.pi),(Float.nan,0,0,0),(1,Float.nan,0,0)] {
+            XCTAssertThrowsError(try CueBallStrike.executeSpatialStrike(aimDirection: SCNVector3(1,0,0),
+                velocity: speed, spinX: x, spinY: y, elevation: angle))
+        }
+        XCTAssertThrowsError(try CueBallStrike.executeSpatialStrike(aimDirection: SCNVector3Zero,
+            velocity: 1, spinX: 0, spinY: 0, elevation: 0))
     }
 }

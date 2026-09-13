@@ -1,6 +1,8 @@
 # v47 W0 测试写盘盘点
 
-机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 133 个文件；新增写盘测试未登记时 `verify-gate` 失败。
+2026-09-13 球贴纸：`BallStickerTests` / `BallStickerUITests` 只写 `output/ball-stickers-20260913/app-renders` 与 `ui`，所有写盘错误抛出。UV 相机校验帧为测试 Bundle 中的 `BallStickerUVFrames.json`，不依赖旧 output。SettingsView → BallStickerSettingsView 为正常生产导航，六款选择与本地重启保留由 BallStickerUITests 覆盖；深链取证外观使用已有显式 Light 参数，不将默认强制 Dark 的图冒充 Light。
+
+机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 142 个文件；新增写盘测试未登记时 `verify-gate` 失败。
 
 ## 分类与处置
 
@@ -64,3 +66,17 @@ PocketLeatherIntegrationTests 默认仅写仓库output/pocket-leather/W1/render�
 TrainingNotesView 由首页更多进入，按日期 navigationDestination 打开 TrainingNoteCollectionDetail；编辑在同页切换草稿态，不再叠第二层 sheet。每次训练记录 NavigationLink 保留。当天批量保存使用独立 ModelContext 事务，并按变化会话加入同步队列。新增 fixture 仅 DEBUG 模拟器且同时显式 -journal.fixture / -v50.inMemoryStore 时写内存库，零磁盘用户记录写入；截图只存 xcresult 附件。只更新本页面已审计路由签名，旧图基线不变。
 
 本次复核发现其他并行任务的 PocketRefactorDiagTests 新增写盘，已只读审计并登记：两个诊断均要求对应 output 子目录存在 RUN 哨兵；写入 output/middle-pocket-alignment-20260910/compare/comparison.json 与 output/middle-pocket-visual-20260910 的 PNG/frames.json，不删除文件、不写 Bundle 或历史基线。本轮未执行其物理诊断，不把它计为日记功能验收。
+
+## 2026-09-11 v62 渲染实验写盘审计
+
+RenderQualityV62Tests 与 RenderQualityV62UITests 仅输出渲染 PNG/诊断 JSON 和 xcresult 附件。模拟器默认 output/render-quality-v62，可通过 runner 的 V62_SHOT_DIR 隔离每次运行；手机默认测试沙盒临时目录，截图附 xcresult。标准、iOS17及后续复跑使用独立叶子，不删除失败证据；写失败令测试失败。显式 -v62.fixture 固定题目/球号/球姿，仅 DEBUG 或专用 RENDER_QUALITY_VALIDATION 构建生效；UI 测试使用既有内存账号夹具。不写 Bundle、训练数据、USDZ、已有截图基线。新 HDR 是独立原创参数化资产，非截图烘焙。
+
+## v63 W03 辅助线几何与性能证据
+
+- `QiuJiTests/TrajectoryRendererTests.swift` 中 `TableAssistSurfaceV63Tests.testLoadedClothFootprintAndRenderEvidence` 写入当前仓库 `output/3d-v63/W03/footprint-r1/{measurement.json,before.png,projected.png}`，为固定几何夹具复跑覆盖目录。构建结果、其他附件和失败日志存入每轮独立的xcresult；不默认删除证据。
+- 同文件的CPU成本报告采用XCTAttachment JSON，随每轮xcresult隔离；训练截图附件同样由结果包保留。源码路径用`#filePath`计算，写盘失败向外抛错使测试失败。
+- 不写训练内容、资源、物理真源或截图设计基线。默认QiuJiTests执行集可能运行该类；本批使用显式only-testing，重跑前应先保存需要对比的footprint固定目录。
+
+## 2026-09-13 球桌风格收尾时的并行球杆测试登记
+
+只读核对 CueStyleTests / CueStyleUITests：分别写 output/cue-stickers/app-renders 与 output/cue-stickers/ui 的固定名称 PNG；UI另附xcresult。复跑可能覆盖固定PNG，需事前保留对比证据；无自动删除，写失败抛错。不写Bundle、正式训练数据或设计基线。UI使用内存账号夹具并保存本地外观偏好，应使用独立模拟器。本次只登记真实写盘面，球杆功能验收由对应任务负责。球桌测试自身仅使用xcresult附件。

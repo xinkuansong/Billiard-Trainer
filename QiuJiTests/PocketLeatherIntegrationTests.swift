@@ -11,6 +11,31 @@ final class PocketLeatherIntegrationTests: XCTestCase {
         return result
     }
 
+    func testTextureTintIsMobileOnlyAndClears() throws {
+        for mobile in [false, true] {
+            let scene = AngleTrainingScene()
+            scene.setupScene(mobileRendering: mobile)
+            let pockets = try markers(scene)
+            for pocket in pockets {
+                let target = try XCTUnwrap(pocket.childNodes.first { $0.name == "leather_target" })
+                let source = target.geometry?.firstMaterial?.shaderModifiers?[.surface] ?? ""
+                XCTAssertEqual(source.contains("clamp(_surface.diffuse.rgb"), mobile)
+            }
+            scene.setPocketRoles(first: 0, second: 0)
+            let both = try XCTUnwrap(pockets[0].childNodes.first { $0.name == "leather_bothRoles" })
+            XCTAssertFalse(both.isHidden)
+            for material in try XCTUnwrap(both.geometry).materials {
+                XCTAssertEqual((material.shaderModifiers?[.surface] ?? "").contains("clamp(_surface.diffuse.rgb"), mobile)
+            }
+            scene.clearPocketHighlights()
+            XCTAssertTrue(pockets.allSatisfy { $0.style == .original })
+            for pocket in pockets {
+                let original = try XCTUnwrap(pocket.childNodes.first { !$0.isHidden })
+                XCTAssertFalse((original.geometry?.firstMaterial?.shaderModifiers?[.surface] ?? "").contains("clamp(_surface.diffuse.rgb"))
+            }
+        }
+    }
+
     func testSixRegionsRestoreAndStayIsolatedAcrossPipelines() throws {
         let plain = AngleTrainingScene(); plain.setupScene()
         let enhanced = AngleTrainingScene(); enhanced.setupScene(enhancedRendering: true)

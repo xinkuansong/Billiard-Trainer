@@ -264,7 +264,7 @@ extension View {
             .padding(.trailing, 8)
             .padding(.bottom, 2)
             .frame(maxWidth: .infinity,
-                   maxHeight: proxy.chipBandHeight,
+                   maxHeight: max(44, proxy.chipBandHeight),
                    alignment: .bottomTrailing)
             .frame(maxHeight: .infinity, alignment: .top)
     }
@@ -274,5 +274,38 @@ extension View {
         self
             .frame(width: rect.width, height: rect.height)
             .position(x: rect.midX, y: rect.midY)
+    }
+}
+
+
+/// Perspective shot controls use viewport points, not an orthographic table projection.
+struct ShotPerspectiveLayout {
+    let sceneSize: CGSize
+
+    var actionFrame: CGRect {
+        CGRect(x: sceneSize.width - Spacing.sm - ShotStageMetrics.actionColumnWidth,
+               y: sceneSize.height - Spacing.sm - ShotStageMetrics.actionColumnHeight,
+               width: ShotStageMetrics.actionColumnWidth, height: ShotStageMetrics.actionColumnHeight)
+    }
+
+    var aimWheelFrame: CGRect {
+        let bottom = actionFrame.minY - Spacing.md
+        let height = min(ShotStageMetrics.aimWheelFloatingHeight,
+                         max(0, bottom - ShotStageMetrics.instrumentTopReserve - ShotStageMetrics.topRowHeight))
+        return CGRect(x: Spacing.sm, y: bottom - height,
+                      width: ShotStageMetrics.aimWheelWidth, height: height)
+    }
+
+    var instrumentFrame: CGRect {
+        let wheel = aimWheelFrame
+        return CGRect(x: sceneSize.width - Spacing.sm - ShotStageMetrics.instrumentWidth,
+                      y: wheel.minY - ShotStageMetrics.instrumentTopReserve,
+                      width: ShotStageMetrics.instrumentWidth,
+                      height: wheel.height + ShotStageMetrics.instrumentTopReserve)
+    }
+
+    func bottomLeadingFrame(size: CGSize) -> CGRect {
+        CGRect(x: Spacing.sm, y: sceneSize.height - Spacing.sm - size.height,
+               width: size.width, height: size.height)
     }
 }

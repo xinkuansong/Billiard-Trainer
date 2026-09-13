@@ -490,11 +490,25 @@ final class TrainingAssistSceneTests: XCTestCase {
                                   extendStrikeLineToRail: true)
         XCTAssertEqual(ghost.position.x, -2 * AngleSceneCalculator.ballRadius, accuracy: 1e-6)
         let line = try XCTUnwrap(scene.strikeLineNode)
-        let cylinder = try XCTUnwrap(line.geometry as? SCNCylinder)
-        let endpoints = [-1.0, 1.0].map {
-            line.convertPosition(SCNVector3(0, Float($0 * cylinder.height / 2), 0), to: nil)
+        let source = try XCTUnwrap(line.geometry?.sources(for: .vertex).first)
+        XCTAssertEqual(line.geometry?.elements.first?.primitiveType, .triangles)
+        var endpoints: [SCNVector3] = []
+        source.data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+            for index in 0..<source.vectorCount {
+                let offset = source.dataOffset + index * source.dataStride
+                let point = SCNVector3(
+                    raw.loadUnaligned(fromByteOffset: offset, as: Float.self),
+                    raw.loadUnaligned(fromByteOffset: offset + 4, as: Float.self),
+                    raw.loadUnaligned(fromByteOffset: offset + 8, as: Float.self))
+                endpoints.append(line.convertPosition(point, to: nil))
+            }
         }
-        XCTAssertEqual(endpoints.map(\.x).max()!, AngleSceneCalculator.innerLength / 2, accuracy: 1e-5)
+        XCTAssertFalse(endpoints.isEmpty)
+        XCTAssertEqual(try XCTUnwrap(endpoints.map(\.x).max()), AngleSceneCalculator.innerLength / 2, accuracy: 1e-5)
+        let clothY = try XCTUnwrap(MobileClothAlignment.measuredBedY(in: scene))
+        for point in endpoints { XCTAssertEqual(point.y, clothY + 0.001, accuracy: 1e-5) }
+        XCTAssertEqual(ghost.position.y, y, accuracy: 1e-6)
+
     }
 }
 
@@ -744,6 +758,52 @@ final class CushionReflectionTests: XCTestCase {
         }
         XCTAssertEqual(path.count, 3, "[start, 反弹点, target]")
         XCTAssertEqual(path[1].z, -halfW, accuracy: 0.03, "反弹点落在左库")
+        XCTAssertEqual(path[2].x, target.x, accuracy: 0.02)
+        XCTAssertEqual(path[2].z, target.z, accuracy: 0.02)
+    }
+}
+
+extension CushionReflectionTests {
+    func testEngineTracerDoesNotInventStopAtTimeLimit() {
+        let y = BTTablePhysics.surfaceY + BallPhysics.radius
+        let result = EngineCushionTracer.launch(start: SCNVector3(0.3, y, 0),
+            dir: SCNVector3(1, 0, 0), speed: 3, y: y, maxTime: 0.01)
+        XCTAssertEqual(result.termination, .timeLimit)
+        XCTAssertTrue(result.rails.isEmpty)
+        XCTAssertEqual(result.polyline.count, 1, "A partial final frame is not a natural endpoint")
+        XCTAssertFalse(result.potted)
+    }
+
+    func testEngineTracerLocalModeCompletesAndDoesNotFallbackOnFailure() {
+        let y = BTTablePhysics.surfaceY + BallPhysics.radius
+        let complete = EngineCushionTracer.launch(start: SCNVector3(0.3, y, 0),
+            dir: SCNVector3(1, 0, 0), speed: 0.3, y: y,
+            simulationModel: .localPockets(material: .tablePhysics(clothRestitution: 0.3)))
+        XCTAssertEqual(complete.termination, .settled)
+        XCTAssertEqual(complete.polyline.count, 2)
+        let failed = EngineCushionTracer.launch(start: SCNVector3(0.3, y, 0),
+            dir: SCNVector3(1, 0, 0), speed: 0.3, y: y,
+            simulationModel: .localPockets(material: .tablePhysics(clothRestitution: .nan)))
+        guard case .failed = failed.termination else { return XCTFail("Expected local material failure") }
+        XCTAssertEqual(failed.polyline.count, 1)
+        XCTAssertFalse(failed.potted)
+    }
+}
+
+extension CushionReflectionTests {
+    @MainActor
+    func testLocalReflectionShootingReachesTarget() throws {
+        let start = SCNVector3(0.2, y, 0.10)
+        let target = SCNVector3(0.9, y, 0.30)
+        let rail = CushionReflectionSolver.Rail(isLong: true, coord: -EngineCushionTracer.halfW)
+        let seed = norm(SCNVector3(target.x-start.x, 0, 2*rail.coord-target.z-start.z))
+        let begin = CFAbsoluteTimeGetCurrent()
+        let path = try XCTUnwrap(EngineCushionTracer.shoot(start: start, target: target,
+            seedDir: seed, rails: [rail], speed: 3, y: y,
+            simulationModel: .localPockets(material: .tablePhysics(clothRestitution: 0.3))))
+        print("[W07 local reflection solve] \(CFAbsoluteTimeGetCurrent()-begin)s")
+        XCTAssertEqual(path.count, 3)
+        XCTAssertEqual(path[1].z, rail.coord, accuracy: 0.03)
         XCTAssertEqual(path[2].x, target.x, accuracy: 0.02)
         XCTAssertEqual(path[2].z, target.z, accuracy: 0.02)
     }

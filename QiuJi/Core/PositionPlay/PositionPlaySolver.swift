@@ -802,7 +802,7 @@ enum PositionPlaySolver {
     /// 母球是否真正「停在桌面某处」：未 scratch（进袋 = 无停点）且末速接近 0（≠ 截断假停）。
     /// 情形 A 的落区解只接受真实停点——杜绝「母球高速却被当作停在区域内」的反常解（用户反馈）。
     private static func cueRestedInPlace(_ p: ShotPrediction) -> Bool {
-        !p.cuePocketed && p.cueFinalSpeed < restSpeedTolerance
+        p.hasResolvedSearchState && !p.cuePocketed && p.cueFinalSpeed < restSpeedTolerance
     }
 
     /// 综合难度评分 + 档位（E2/E4）：塞加权范数 + 力度惩罚 + 进球难度（切角/球距，
@@ -1313,6 +1313,7 @@ enum PositionPlaySolver {
         var cellsOpt = [SnookerCell?](repeating: nil, count: cands.count)
         var ambiguous = [Bool](repeating: false, count: cands.count)
         PerformanceProfiler.begin(ProfilerLabel.solverCandidateEval)
+        PerformanceProfiler.begin("Solver.snooker.rollout")
         cellsOpt.withUnsafeMutableBufferPointer { buf in
             ambiguous.withUnsafeMutableBufferPointer { ambBuf in
                 let base = buf.baseAddress!
@@ -1326,6 +1327,10 @@ enum PositionPlaySolver {
                         spinX: Float(c.sx), spinY: Float(c.sy), surfaceY: surfaceY,
                         balls: balls, geometry: geometry)
                     if fast.needsFullSim {
+                        #if DEBUG
+                        PerformanceProfiler.recordSample(
+                            "Solver.snooker.fallback." + (fast.fallbackReason ?? "unknown"), ms: 0)
+                        #endif
                         (amb + i).pointee = true
                         return
                     }
@@ -1348,6 +1353,8 @@ enum PositionPlaySolver {
             }
         }
 
+        PerformanceProfiler.end("Solver.snooker.rollout")
+        PerformanceProfiler.begin("Solver.snooker.coarse")
         // —— 阶段 2（粗）：歧义格按 (aim 步 3 × vel 步 2 × 全塞) 粗网格引擎评估（方案 B4
         // 「粗力度找可行邻域」）。级联解（母/目标球二次撞对方球后的停位）只能引擎裁决。——
         var coarseIdx: [Int] = []
@@ -1367,6 +1374,8 @@ enum PositionPlaySolver {
             }
         }
 
+        PerformanceProfiler.end("Solver.snooker.coarse")
+        PerformanceProfiler.begin("Solver.snooker.refine")
         // —— 阶段 3（细）：只对「可行粗格」的邻域（aim ±2 × vel ±1，同塞行）内尚未评估的
         // 歧义格加密至全分辨率——必败区域整片跳过。窄可行带漏检风险由金标准回归护栏。——
         var refineSet = Set<Int>()
@@ -1384,6 +1393,9 @@ enum PositionPlaySolver {
                 }
             }
         }
+        // A nil coarse result is an evaluated rejection, not an unvisited cell.
+        // Keep its result instead of rerunning the identical engine prediction.
+        refineSet.subtract(coarseIdx)
         let refineIdx = refineSet.sorted()
         cellsOpt.withUnsafeMutableBufferPointer { buf in
             let base = buf.baseAddress!
@@ -1392,6 +1404,7 @@ enum PositionPlaySolver {
                 (base + i).pointee = engineCell(i)
             }
         }
+        PerformanceProfiler.end("Solver.snooker.refine")
         PerformanceProfiler.end(ProfilerLabel.solverCandidateEval)
 
         let cells = cellsOpt.compactMap { $0 }
@@ -1514,7 +1527,7 @@ enum PositionPlaySolver {
         spinX: Double, spinY: Double, velocity: Double, surfaceY: Float
     ) -> SnookerScored? {
         // 母球不进袋 + 真停稳。
-        guard !pred.cuePocketed, pred.cueFinalSpeed < restSpeedTolerance else { return nil }
+        guard pred.hasResolvedSearchState, !pred.cuePocketed, pred.cueFinalSpeed < restSpeedTolerance else { return nil }
         // 合法首触：母球第一次球-球碰撞的另一方必须是目标球。
         var firstOther: String?
         for e in pred.events {

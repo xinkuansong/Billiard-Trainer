@@ -73,3 +73,6 @@ __pycache__/
 /problem_images/
 /table.png
 /assets/
+
+# Local evidence/logs/xcresult/DerivedData snapshots (100+ GB); cite paths in tasks/, never commit.
+output/

@@ -382,3 +382,31 @@ final class CushionEnglishAtlasTests: XCTestCase {
         XCTAssertLessThan(p95, 0.05)
     }
 }
+
+extension CushionEnglishAtlasTests {
+    func testSliceRejectsTruncationBeforeRequiredCushionArc() throws {
+        let scene = CushionEnglishAtlasGeometry.defaultTeachingScene()
+        let surface = BTTablePhysics.surfaceY
+        let y = CushionEnglishAtlasGeometry.sceneKitBallY(surfaceY: surface)
+        func predict(_ duration: Float) -> ShotPrediction {
+            ShotPredictor.simulateFree(
+                cueBall: SCNVector3(Float(scene.cue.x), y, Float(scene.cue.y)),
+                aimDir: SCNVector3(Float(scene.aimDir.x), 0, Float(scene.aimDir.y)),
+                velocity: 2.5, spinX: 0, spinY: 0, surfaceY: surface,
+                balls: [ObstacleBall(name: ShotInput.targetBallName,
+                    position: SCNVector3(Float(scene.target.x), y, Float(scene.target.y)))],
+                maxTime: duration)
+        }
+        let full = predict(15)
+        XCTAssertTrue(CushionEnglishAtlasGeometry.hasCompleteSlice(full))
+        let first = try XCTUnwrap(CushionEnglishAtlasGeometry.firstCueCushionAfterBallBall(in: full.events))
+        let partial = predict(first.time + 0.01)
+        XCTAssertEqual(partial.termination, .timeLimit)
+        XCTAssertFalse(CushionEnglishAtlasGeometry.hasCompleteSlice(partial))
+        XCTAssertTrue(CushionEnglishAtlasGeometry.pathAfterFirstCueCushion(partial).isEmpty)
+        var prefix = full
+        prefix.termination = .timeLimit
+        XCTAssertTrue(CushionEnglishAtlasGeometry.hasCompleteSlice(prefix))
+        XCTAssertFalse(CushionEnglishAtlasGeometry.pathAfterFirstCueCushion(prefix).isEmpty)
+    }
+}

@@ -145,8 +145,9 @@ final class AimingQuizViewModel: ObservableObject {
     ///     first and calls `startTest()` itself (T-P18-48 entry flow).
     func setupScene(initialCameraMode: AngleTrainingScene.CameraMode,
                     enhanced: Bool = false,
+                    mobileRendering: Bool = MobileTableRendering.isEnabled,
                     autoStart: Bool = true) {
-        scene.setupScene(enhancedRendering: enhanced)
+        scene.setupScene(enhancedRendering: enhanced, mobileRendering: mobileRendering)
         scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
         pocketMarkers = scene.addPocketMarkers()
 
@@ -292,11 +293,14 @@ final class AimingQuizViewModel: ObservableObject {
         let range = trainingType.angleRange
         let angle = Double(Int.random(in: Int(range.lowerBound)...Int(range.upperBound)) / 5 * 5)
         let clampedAngle = max(range.lowerBound, min(range.upperBound, angle == 0 ? 5 : angle))
-        let question = AngleCalculator.generateQuestion(
+        var question = AngleCalculator.generateQuestion(
             angle: clampedAngle,
             pocketType: pt,
             targetPocketDistanceRange: trainingType.targetPocketDistanceRange
         )
+        #if DEBUG || RENDER_QUALITY_VALIDATION
+        if RenderQualityFixture.requested { question = RenderQualityFixture.question(surfaceY: scene.surfaceY) }
+        #endif
         currentQuestion = question
 
         let surfaceY = scene.surfaceY
@@ -306,8 +310,16 @@ final class AimingQuizViewModel: ObservableObject {
         // 条 6.2：随机球号；applyBallLayout 同步 currentTargetNumber，
         // 进球线取色随球号绑定（修「进球线成默认色」bug 根因：取色依据未更新）。
         targetBallNumber = Int.random(in: 1...15)
+        #if DEBUG || RENDER_QUALITY_VALIDATION
+        if RenderQualityFixture.requested { targetBallNumber = 3 }
+        #endif
         scene.applyBallLayout(cueBallPosition: cuePos, targetBallNumber: targetBallNumber,
                               targetPosition: targetPos)
+        #if DEBUG || RENDER_QUALITY_VALIDATION
+        if RenderQualityFixture.requested {
+            scene.setCueBallHomeOrientation(simd_quatf(angle: 0, axis: SIMD3<Float>(0,1,0)))
+        }
+        #endif
 
         // The question carries its `pocketIndex` already aligned with
         // `AngleSceneCalculator.pocketPositions` (set by `AngleCalculator`),

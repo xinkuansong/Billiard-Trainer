@@ -24,6 +24,30 @@ import simd
 /// 与 App 内样式单一真源。场景背景改暗色与 App 场景页一致。
 @MainActor
 enum SequenceVideoExporter {
+    /// Spatial captures already carry their complete presentation timeline.
+    /// Only frame-only captures need the legacy animation allowance.
+    static func motionEndTime(duration:Float, playback:TrajectoryPlayback,
+                              pocketedBallNames:[String], speed:Float) -> Float {
+        let hasLegacyCapture=pocketedBallNames.contains {
+            playback.collectionOpacity(ballName:$0,time:0) == nil
+        }
+        let legacyTail=hasLegacyCapture ? Float(TrajectoryPlayback.pocketSettleDuration)*speed:0
+        let spatialEnd=pocketedBallNames.contains {
+            playback.collectionOpacity(ballName:$0,time:0) != nil
+        } ? playback.collectionPresentationEnd:0
+        return max(duration+legacyTail,spatialEnd)
+    }
+
+    enum SimulationError: LocalizedError {
+        case incompleteTrajectory
+        var errorDescription: String? { "有一杆模拟未完成，请调整击球参数后重新导出" }
+    }
+
+    static func validateCompletedSimulation(_ prediction:ShotPrediction) throws {
+        if prediction.feasible && !prediction.hasFinalTableState {
+            throw SimulationError.incompleteTrajectory
+        }
+    }
 
     // MARK: - Options
 
@@ -57,6 +81,17 @@ enum SequenceVideoExporter {
     }
 
     struct Options {
+        #if DEBUG
+        /// Observes actual export nodes immediately before encoding a motion frame.
+        /// No scene or playback mutation is exposed to the observer.
+        var motionFrameObserver: ((UUID, Float, [String: SCNVector3], [String: CGFloat], Set<String>) -> Void)?
+        /// Actual visible board-key positions before encoding each settled hold frame.
+        var settledFrameObserver: ((UUID, [String: SCNVector3]) -> Void)?
+        /// Actual board during the next shot's observation frames.
+        var observationFrameObserver: ((UUID, [String: SCNVector3]) -> Void)?
+        /// Value-only events from the prediction actually selected for encoding.
+        var shotEventsObserver: ((UUID, [ShotEvent]) -> Void)?
+        #endif
         /// 相机取景模式。默认顶视 2D（不改变既有 2D 产物行为）。
         var cameraMode: CameraMode = .topDown2D
         /// 输出像素尺寸——只影响清晰度，不影响球桌/球比例。
@@ -90,6 +125,8 @@ enum SequenceVideoExporter {
         /// 画面底部是否追加击球参数 HUD 条（打点 + 力度，ADR-P11-13）。
         /// 开启时输出高度 = `size.height` + HUD 条高；gif/card 档小尺寸下会糊，默认关。
         var showShotHUD: Bool = true
+        /// A separate row identifies the current shot without covering the table or shrinking its parameters.
+        var showSequenceProgress: Bool = false
 
         init() {}
 
@@ -105,9 +142,14 @@ enum SequenceVideoExporter {
                 : Int((size.width * 0.0625).rounded())
         }
 
-        /// 最终输出像素尺寸（场景画面 + HUD 条）。
+        var sequenceProgressHeight: Int {
+            guard showShotHUD && showSequenceProgress else { return 0 }
+            return Int((size.width / 720 * 44).rounded())
+        }
+
+        /// 最终输出像素尺寸（场景画面 + HUD 条 + 可选杆号行）。
         var outputSize: CGSize {
-            CGSize(width: size.width, height: size.height + CGFloat(hudStripHeight))
+            CGSize(width: size.width, height: size.height + CGFloat(hudStripHeight + sequenceProgressHeight))
         }
 
         /// 教学真实风格（竖版静帧用，#5b）：球桌长轴沿屏幕长边竖直铺满，
@@ -159,12 +201,17 @@ enum SequenceVideoExporter {
         }
 
         /// 3D 教学视频（手机档，App 内竖屏播放主载体，ADR-P11-15）：1080×1920 竖屏 +
-        /// 静态斜视角透视（短边后方沿长轴）+ 120px HUD 条（合计 1080×2040），与 2D 视频同档。
+        /// 静态斜视角透视 + 120px 参数条 + 66px 杆号行（合计 1080×2106）。
         static func teachingVideo3D() -> Options {
             var o = Options()
+            o.showSequenceProgress = true
             o.size = CGSize(width: 1080, height: 1920)
             o.portrait = true
-            o.cameraMode = .perspective3D(Perspective3DConfig())
+            var camera = Perspective3DConfig()
+            // A steeper teaching view makes paths readable in a narrow portrait
+            // frame; the existing fit solver still keeps the full table visible.
+            camera.pitchDeg = 60
+            o.cameraMode = .perspective3D(camera)
             // 三拍教学叙事：读球形 1.5s → 亮方案 1.5s → 执行；预告线变细（高分档 Hi 继承本预设）。
             o.observeHold = 1.5
             o.setupHold = 1.5
@@ -172,7 +219,7 @@ enum SequenceVideoExporter {
             return o
         }
 
-        /// 3D 教学视频（高分档，外站备用）：2160×3840（4K 竖版）+ 240px HUD 条（合计 2160×4080）。
+        /// 3D 教学视频（高分档，外站备用）：2160×3840 + 240px 参数条 + 132px 杆号行。
         /// 当前出片默认配方**不调用**本档（用户拍板：本地预览/回填阶段不出 4K）。
         static func teachingVideo3DHi() -> Options {
             var o = teachingVideo3D()
@@ -328,6 +375,7 @@ enum SequenceVideoExporter {
 
         // 击球参数 HUD：每杆常驻（设置帧→收尾帧），换杆更新；开局帧无内容（空条）。
         var currentHUD: CGImage?
+        var currentProgress: CGImage?
 
         // 每帧包 autoreleasepool：高分辨率下单帧位图 16–35MB（1440/4K），长循环里
         // `ctx.snapshot()` 产出的 UIImage/CGImage 若不及时释放会累积到 jetsam 被 SIGKILL
@@ -335,7 +383,8 @@ enum SequenceVideoExporter {
         func snapshot() throws {
             try autoreleasepool {
                 guard let img = ctx.snapshot() else { return }
-                try emit(options.showShotHUD ? composeWithHUD(scene: img, hud: currentHUD, options: options) : img)
+                try emit(options.showShotHUD ? composeWithHUD(scene: img, hud: currentHUD,
+                    progress: currentProgress, options: options) : img)
             }
         }
 
@@ -345,29 +394,48 @@ enum SequenceVideoExporter {
             for _ in 0..<holdFrames(options.initialHold, fps: fps) { try snapshot() }
         }
 
-        for step in sequence.steps {
+        for (index, step) in sequence.steps.enumerated() {
             ctx.placeBoard(step.before)
             ctx.scene.hideCueStick()
             // 第1拍·读球形：只摆球，HUD 置空（不剧透打点/力度），预告线/假想球/球杆均不出现。
             currentHUD = nil
+            let progress = "第 \(index + 1)/\(sequence.steps.count) 杆"
+            currentProgress = makeProgressImage("\(progress) · 观察球形", options: options)
 
             // 求解本杆（多球；自由球走直瞄模拟）。
-            guard let pred = PositionPlayShotSolver.solve(
-                      before: step.before, shot: step.shot, surfaceY: ctx.surfaceY),
+            let prediction = PositionPlayShotSolver.solve(
+                before: step.before, shot: step.shot, surfaceY: ctx.surfaceY)
+            if let prediction { try validateCompletedSimulation(prediction) }
+            guard let pred = prediction,
                   pred.feasible,
                   let recorder = pred.recorder, pred.duration > 0.02 else {
                 // 不可行：直接跳到 after 球形，给一小段静帧。
+                currentProgress = makeProgressImage("\(progress) · 本杆无可行解", options: options)
                 ctx.placeBoard(step.after)
                 for _ in 0..<holdFrames(options.tailHold, fps: fps) { try snapshot() }
                 continue
             }
 
+            #if DEBUG
+            options.shotEventsObserver?(step.id, pred.events)
+            #endif
             // 第1拍·读球形停顿：仅摆球，给观众观察局面的时间（教学视频档 1.5s；GIF/卡片档为 0 跳过）。
-            for _ in 0..<holdFrames(options.observeHold, fps: fps) { try snapshot() }
+            for _ in 0..<holdFrames(options.observeHold, fps: fps) {
+                #if DEBUG
+                if let observer = options.observationFrameObserver {
+                    observer(step.id, ctx.scene.allBallNodes.reduce(into: [:]) { result, entry in
+                        let (key, node) = entry
+                        if !node.isHidden && node.opacity > 0 { result[key] = node.worldPosition }
+                    })
+                }
+                #endif
+                try snapshot()
+            }
 
             // 第2拍·亮方案：预告线 + 假想球 + 静止瞄准位球杆 + HUD 一起出现并停顿观察。
             // 预告线/假想球在运杆/出杆全程**保留**，直到触球瞬间才清除（ADR-P11-11 轨迹契约）。
             currentHUD = options.showShotHUD ? makeHUDImage(shot: step.shot, options: options) : nil
+            currentProgress = makeProgressImage(progress, options: options)
             let lines = options.showTrajectories ? ctx.drawAimLines(for: step, prediction: pred) : []
             _ = options.showCueStroke ? ctx.showCueAtRest(step: step, prediction: pred) : nil
             for _ in 0..<holdFrames(options.setupHold, fps: fps) { try snapshot() }
@@ -395,9 +463,8 @@ enum SequenceVideoExporter {
             let duration = pred.duration
             let pause = TrajectoryPlayback.pocketPauseDuration
             let fade = TrajectoryPlayback.pocketFadeDuration
-            // 末尾追加「入洞 + 停顿 + 淡出」的模拟时长，保证收杆前进袋的球也能播完消失动画。
-            let tailSim: Float = pred.pocketedBalls.isEmpty
-                ? 0 : Float(TrajectoryPlayback.pocketSettleDuration * Double(options.playbackSpeed))
+            let motionEnd=motionEndTime(duration:duration,playback:playback,
+                                        pocketedBallNames:pred.pocketedBalls,speed:options.playbackSpeed)
             // 跟杆叠加时窗（模拟秒）：0→followSim 送杆，随后 holdSim 短停，之后收杆。
             // Clearance：与实时 `runCueStroke` 同口径——全场球探测，预测碰撞则提前抽杆淡出。
             let followSim = Float(CueStroke.followThroughDuration)
@@ -418,7 +485,7 @@ enum SequenceVideoExporter {
                 cueAnchor = anchor
             }
             // 循环至少跑到跟杆结束：短杆（球早停）时也保证跟杆完整播完再收杆。
-            let loopEndSim = max(duration + tailSim, cueAnchor != nil ? cueOverlayEndSim : 0)
+            let loopEndSim = max(motionEnd, cueAnchor != nil ? cueOverlayEndSim : 0)
             var cueHidden = false
             var potTimes: [String: Float] = [:]
             var potEntries: [String: (start: SCNVector3, legs: [TrajectoryPlayback.PocketEntryLeg])] = [:]
@@ -429,8 +496,17 @@ enum SequenceVideoExporter {
             var t: Float = 0
             while t <= loopEndSim + 1e-4 {
                 for key in onKeys {
-                    guard let node = ctx.scene.allBallNodes[key], let name = nameMap[key],
-                          let s = playback.stateAt(ballName: name, time: min(t, duration)) else { continue }
+                    guard let node = ctx.scene.allBallNodes[key], let name = nameMap[key] else { continue }
+                    let collectionOpacity=playback.collectionOpacity(ballName:name,time:t)
+                    guard let s = playback.stateAt(ballName:name,time:collectionOpacity == nil ? min(t,duration):t) else { continue }
+                    if let collectionOpacity {
+                        node.position=s.position;node.opacity=collectionOpacity
+                        if let prev=lastOmega[key] {
+                            BallSpinIntegrator.advance(node:node,from:prev,to:s.angularVelocity,dt:frameSimDt)
+                        }
+                        lastOmega[key]=s.angularVelocity;lastVel[key]=s.velocity
+                        continue
+                    }
                     if s.motionState == .pocketed {
                         if potTimes[key] == nil {
                             potTimes[key] = t
@@ -461,7 +537,7 @@ enum SequenceVideoExporter {
                             }
                         }
                     } else {
-                        node.position = SCNVector3(s.position.x, ctx.yLevel, s.position.z)
+                        node.position = s.position
                         node.opacity = 1
                         lastVel[key] = s.velocity
                         // 球面自转：按引擎角速度 ω 逐帧四元数积分（v17，与 App
@@ -507,14 +583,40 @@ enum SequenceVideoExporter {
                         cueHidden = true
                     }
                 }
+                #if DEBUG
+                if let observer = options.motionFrameObserver {
+                    var positions: [String: SCNVector3] = [:]
+                    var opacities: [String: CGFloat] = [:]
+                    for key in onKeys {
+                        guard let node = ctx.scene.allBallNodes[key], let name = nameMap[key] else { continue }
+                        positions[name] = node.worldPosition
+                        opacities[name] = node.opacity
+                    }
+                    let visibleKeys = Set(ctx.scene.allBallNodes.compactMap { key, node in
+                        !node.isHidden && node.opacity > 0.00001 ? key : nil
+                    })
+                    observer(step.id, t, positions, opacities, visibleKeys)
+                }
+                #endif
                 try snapshot()
                 t += frameSimDt
             }
             if cueAnchor != nil, !cueHidden { ctx.scene.hideCueStick() }
 
-            // 收尾：after 球形（进袋离场）静帧。
-            ctx.placeBoard(step.after)
-            for _ in 0..<holdFrames(options.tailHold, fps: fps) { try snapshot() }
+            // Preserve the result just animated, as live sequence playback does.
+            // Saved after may have been authored with a different physics model.
+            ctx.placePredictionRest(pred, step: step)
+            for _ in 0..<holdFrames(options.tailHold, fps: fps) {
+                #if DEBUG
+                if let observer = options.settledFrameObserver {
+                    observer(step.id, ctx.scene.allBallNodes.reduce(into: [:]) { result, entry in
+                        let (key, node) = entry
+                        if !node.isHidden && node.opacity > 0 { result[key] = node.worldPosition }
+                    })
+                }
+                #endif
+                try snapshot()
+            }
         }
     }
 
@@ -547,7 +649,8 @@ enum SequenceVideoExporter {
 
             let scene = AngleTrainingScene()
             // 3D 档启用 studio 光照 + IBL + 接地阴影（与 Scene3DAimingView 同款，球读作立体接地）。
-            scene.setupScene(enhancedRendering: persp?.studioLook ?? false)
+            // Exported media keeps its own pipeline (ADR-P5-01: offline output unchanged).
+            scene.setupScene(enhancedRendering: persp?.studioLook ?? false, mobileRendering: false)
             guard scene.cameraNode != nil else { return nil }
             // 暗色背景与 App 场景页一致（ADR-P11-13）；HUD 白字依赖暗底可读。
             scene.background.contents = UIColor.black
@@ -620,6 +723,20 @@ enum SequenceVideoExporter {
 
         /// 首帧新摆球随机母球朝向；后续杆保留上一杆回放终态（`.unchanged`）。
         private var hasSeatedCuePose = false
+
+        func placePredictionRest(_ prediction: ShotPrediction, step: SequenceStep) {
+            let potted = Set(prediction.pocketedBalls)
+            for key in step.before.onTable.keys {
+                guard let node = scene.allBallNodes[key] else { continue }
+                let name = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+                node.removeAllActions()
+                node.isHidden = potted.contains(name)
+                node.opacity = 1
+                if !node.isHidden, let point = prediction.finalPositions[name] {
+                    node.position = SCNVector3(point.x, yLevel, point.z)
+                }
+            }
+        }
 
         func placeBoard(_ board: BoardSnapshot) {
             scene.hideAllBalls()
@@ -799,9 +916,19 @@ enum SequenceVideoExporter {
         return renderer.cgImage
     }
 
-    /// 场景帧 + HUD 条 → 最终输出帧（黑底画布，场景在上、HUD 条在下；hud 为 nil 时留空条）。
-    private static func composeWithHUD(scene: CGImage, hud: CGImage?, options: Options) -> CGImage {
+    private static func makeProgressImage(_ title: String, options: Options) -> CGImage? {
+        guard options.sequenceProgressHeight > 0 else { return nil }
+        let renderer = ImageRenderer(content: Text(title)
+            .font(.system(size: 24 * options.size.width / 720, weight: .medium))
+            .foregroundStyle(.white))
+        renderer.scale = 1
+        return renderer.cgImage
+    }
+
+    /// Scene above, shot number and parameters below; observation frames retain the number only.
+    private static func composeWithHUD(scene: CGImage, hud: CGImage?, progress: CGImage? = nil, options: Options) -> CGImage {
         let strip = options.hudStripHeight
+        let progressHeight = options.sequenceProgressHeight
         let w = Int(options.outputSize.width), h = Int(options.outputSize.height)
         guard strip > 0,
               let cg = CGContext(
@@ -812,8 +939,13 @@ enum SequenceVideoExporter {
         cg.setFillColor(UIColor.black.cgColor)
         cg.fill(CGRect(x: 0, y: 0, width: w, height: h))
         // CGContext 原点在左下：场景画面置顶 → y 从 HUD 条高开始。
-        cg.draw(scene, in: CGRect(x: 0, y: CGFloat(strip),
+        cg.draw(scene, in: CGRect(x: 0, y: CGFloat(strip + progressHeight),
                                   width: options.size.width, height: options.size.height))
+        if let progress {
+            cg.draw(progress, in: CGRect(x: (w - progress.width) / 2,
+                y: strip + (progressHeight - progress.height) / 2,
+                width: progress.width, height: progress.height))
+        }
         if let hud {
             cg.draw(hud, in: CGRect(x: (w - hud.width) / 2, y: (strip - hud.height) / 2,
                                     width: hud.width, height: hud.height))

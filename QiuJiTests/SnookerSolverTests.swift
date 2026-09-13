@@ -21,6 +21,85 @@ final class SnookerSolverTests: XCTestCase {
     private let sY = BTTablePhysics.surfaceY
     private var R: Float { AngleSceneCalculator.ballRadius }
 
+    @MainActor
+    func test_defaultPageStandardSearch_timingAndCompletedResults() throws {
+        let vm = SnookerTacticsViewModel()
+        vm.setupScene()
+        let board = vm.currentSnapshot()
+        let target = try XCTUnwrap(vm.selectedTargetKey)
+        let opponents = vm.opponentKeys
+        XCTAssertEqual(target, "_1")
+        XCTAssertEqual(Set(opponents), Set(["_9", "_10"]))
+        PerformanceProfiler.reset()
+        let start = ProcessInfo.processInfo.systemUptime
+        let solutions = PositionPlaySolver.solveSnooker(
+            before: board, targetKey: target, opponentKeys: opponents,
+            surfaceY: vm.scene.surfaceY, params: .standard)
+        let elapsed = ProcessInfo.processInfo.systemUptime - start
+        print("[W07 default defense] wallSeconds=\(elapsed) solutions=\(solutions.count)")
+        print(PerformanceProfiler.reportText())
+        XCTAssertFalse(solutions.isEmpty)
+        for solution in solutions {
+            let prediction = solution.prediction
+            XCTAssertTrue(prediction.hasFinalTableState)
+            XCTAssertFalse(prediction.cuePocketed)
+            XCTAssertLessThan(prediction.cueFinalSpeed, PositionPlaySolver.restSpeedTolerance)
+            let firstCueContact = prediction.events.compactMap { event -> String? in
+                guard case let .ballBall(a, b) = event.kind else { return nil }
+                if a == ShotInput.cueBallName { return b }
+                if b == ShotInput.cueBallName { return a }
+                return nil
+            }.first
+            XCTAssertEqual(firstCueContact, target)
+            if solution.satisfiesConstraint {
+                let cueFinal = try XCTUnwrap(prediction.finalPositions[ShotInput.cueBallName])
+                let potted = Set(prediction.pocketedBalls)
+                let nonCue = prediction.finalPositions.compactMap { name, pos -> (key: String, pos: SCNVector3)? in
+                    guard name != ShotInput.cueBallName, !potted.contains(name) else { return nil }
+                    return (name, pos)
+                }
+                let actualOpponents = nonCue.filter { opponents.contains($0.key) }
+                XCTAssertEqual(Set(actualOpponents.map(\.key)), Set(opponents))
+                let coverage = AngleSceneCalculator.defenseCoverage(cueFinal: cueFinal,
+                    opponents: actualOpponents, nonCueBalls: nonCue, surfaceY: vm.scene.surfaceY)
+                XCTAssertTrue(coverage.allSatisfy(\.blocked), "Returned full defense must block every opponent")
+            }
+            print("[W07 defense solution] \(solution.shot) full=\(solution.satisfiesConstraint)")
+        }
+    }
+
+    /// DR-283日志的五个原始解：直接重放，区分搜索遗漏和物理结果改变。
+    @MainActor
+    func test_historicalFiveDefenseShotsResolveOnCurrentPhysics() throws {
+        let vm = SnookerTacticsViewModel()
+        vm.setupScene()
+        let board = vm.currentSnapshot()
+        let inputs: [(Double, Double, Double, Double, Double)] = [
+            (0.6, 0.3, -0.2, 0.9385759234428406, -0.34507277607917786),
+            (4.6, -0.3, -0.4, 0.948787271976471, -0.3159157335758209),
+            (3.3999999999999995, 0.3, 0.2, 0.9615598320960999, -0.27459558844566345),
+            (5.0, -0.3, 0.4, 0.9448108673095703, -0.32761627435684204),
+            (2.9999999999999996, -0.3, 0, 0.9448108673095703, -0.32761627435684204)
+        ]
+        for (index, input) in inputs.enumerated() {
+            let shot = PlannedShot(targetKey: "_1", pocket: "", velocity: input.0,
+                spinX: input.1, spinY: input.2, freeAim: CanvasPoint(x: input.3, y: input.4))
+            let p = try XCTUnwrap(PositionPlayShotSolver.solve(before: board, shot: shot, surfaceY: vm.scene.surfaceY))
+            XCTAssertTrue(p.hasFinalTableState, "historical shot \(index + 1): \(String(describing: p.termination))")
+            let potted = Set(p.pocketedBalls)
+            let nonCue = p.finalPositions.compactMap { name, pos -> (key: String, pos: SCNVector3)? in
+                guard name != ShotInput.cueBallName, !potted.contains(name) else { return nil }
+                return (name, pos)
+            }
+            let opponents = nonCue.filter { vm.opponentKeys.contains($0.key) }
+            let coverage = p.finalPositions[ShotInput.cueBallName].map {
+                AngleSceneCalculator.defenseCoverage(cueFinal: $0, opponents: opponents,
+                    nonCueBalls: nonCue, surfaceY: vm.scene.surfaceY)
+            }
+            print("[W07 historical defense] index=\(index + 1) termination=\(String(describing: p.termination)) cuePocketed=\(p.cuePocketed) coverage=\(String(describing: coverage)) finals=\(p.finalPositions)")
+        }
+    }
+
     /// 测试用粗网格（提速；禁横塞缩小搜索，竖塞三档）。
     private var coarse: PositionPlaySolver.SnookerParams {
         PositionPlaySolver.SnookerParams(

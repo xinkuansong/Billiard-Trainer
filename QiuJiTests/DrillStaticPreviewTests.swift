@@ -1,4 +1,5 @@
 import XCTest
+import SceneKit
 @testable import QiuJi
 
 @MainActor
@@ -70,6 +71,123 @@ final class DrillStaticPreviewTests: XCTestCase {
     }
 
     // MARK: - Helpers
+
+    func test_detailControllerAndRenderCoordinatorReleaseAfterDismantle() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c078")
+        let drill = try XCTUnwrap(loaded)
+        for _ in 0..<3 {
+            weak var releasedController: DrillSceneController?
+            weak var releasedCoordinator: AngleSceneView.Coordinator?
+            weak var releasedScene: AngleTrainingScene?
+            autoreleasepool {
+                let controller = DrillSceneController()
+                controller.setup(drill: drill)
+                controller.setCameraMode(.perspective3D)
+                controller.play()
+                let view = SCNView(frame: CGRect(x: 0, y: 0, width: 390, height: 220))
+                view.scene = controller.scene
+                let coordinator = AngleSceneView.Coordinator(scene: controller.scene,
+                    cameraMode: .perspective3D, interactionMode: .tapsOnly)
+                coordinator.scnView = view
+                coordinator.startRenderLoop()
+                releasedController = controller
+                releasedCoordinator = coordinator
+                releasedScene = controller.scene
+                AngleSceneView.dismantleUIView(view, coordinator: coordinator)
+            }
+            XCTAssertNil(releasedController, "Pending preview work must not retain its page")
+            XCTAssertNil(releasedCoordinator, "Dismantling must break the display-link ownership cycle")
+            // SceneKit may release render transactions on subsequent main-loop turns.
+            for _ in 0..<20 where releasedScene != nil {
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            XCTAssertNil(releasedScene, "Leaving a detail must release its scene")
+        }
+    }
+
+    func test_detailCameraSwitchPreservesOpeningBoardAndPlaybackState() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c078")
+        let drill = try XCTUnwrap(loaded)
+        let source = try XCTUnwrap(DrillStaticPreview.resolveSource(for: drill))
+        let controller = DrillSceneController()
+        controller.setup(drill: drill)
+        controller.scene.cameraRig?.viewportSize = CGSize(width: 390, height: 220)
+        let positions = controller.scene.allBallNodes.mapValues(\.position)
+        controller.play()
+        for mode: AngleTrainingScene.CameraMode in [.perspective3D, .topDown2D, .perspective3D] {
+            controller.setCameraMode(mode)
+            if mode == .perspective3D {
+                XCTAssertEqual(try XCTUnwrap(controller.scene.cameraRig).targetYaw, .pi / 2, accuracy: 0.00001)
+                let camera = try XCTUnwrap(controller.scene.cameraNode)
+                // Check SceneKit's actual camera basis, not a hand-derived yaw convention.
+                XCTAssertGreaterThan(camera.convertVector(SCNVector3(1, 0, 0), to: nil).x, 0.99)
+            }
+            XCTAssertEqual(controller.cameraMode, mode)
+            XCTAssertEqual(controller.playbackState, .playing)
+            XCTAssertEqual(controller.scene.cameraNode?.camera?.usesOrthographicProjection, mode != .perspective3D)
+            for key in source.board.onTable.keys {
+                let node = try XCTUnwrap(controller.scene.allBallNodes[key])
+                let old = try XCTUnwrap(positions[key])
+                XCTAssertFalse(node.isHidden)
+                XCTAssertEqual(node.position.x, old.x)
+                XCTAssertEqual(node.position.y, old.y)
+                XCTAssertEqual(node.position.z, old.z)
+            }
+        }
+    }
+
+    func test_detailSeatsOpeningBallsBeforeAsyncPredictionAndImmediatePlay() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c078")
+        let drill = try XCTUnwrap(loaded)
+        let source = try XCTUnwrap(DrillStaticPreview.resolveSource(for: drill))
+        XCTAssertFalse(source.board.onTable.isEmpty)
+        let controller = DrillSceneController()
+        controller.setup(drill: drill)
+        // No suspension: the main-queue preview completion cannot have run yet.
+        for key in source.board.onTable.keys {
+            let node = try XCTUnwrap(controller.scene.allBallNodes[key])
+            XCTAssertFalse(node.isHidden, "Opening ball must be seated before solving: \(key)")
+            XCTAssertNotNil(node.parent)
+            XCTAssertEqual(node.opacity, 1)
+        }
+        controller.play()
+        XCTAssertEqual(controller.playbackState, .playing)
+        for key in source.board.onTable.keys {
+            XCTAssertFalse(try XCTUnwrap(controller.scene.allBallNodes[key]).isHidden,
+                "Immediate playback must retain opening ball: \(key)")
+        }
+    }
+
+    func test_detailFormationSwitchWhilePlayingSeatsNewBoardAndKeeps3D() async throws {
+        let loaded = await DrillContentService.shared.loadDrillFromBundle(id: "drill_c042")
+        let drill = try XCTUnwrap(loaded)
+        let controller = DrillSceneController()
+        controller.setup(drill: drill)
+        controller.scene.cameraRig?.viewportSize = CGSize(width: 402, height: 222)
+        controller.setCameraMode(.perspective3D)
+        XCTAssertEqual(controller.availableFormations.map(\.stepCount), [8, 5])
+        for token in ["manual02", "manual01"] {
+            controller.play()
+            XCTAssertEqual(controller.playbackState, .playing)
+            controller.switchFormation(token: token)
+            let formation = try XCTUnwrap(controller.availableFormations.first { $0.token == token })
+            let board = try XCTUnwrap(formation.steps.first?.before)
+            XCTAssertEqual(controller.currentToken, token)
+            XCTAssertEqual(controller.playbackState, .idle)
+            XCTAssertEqual(controller.stepLabel, "第 1/\(formation.stepCount) 杆")
+            XCTAssertEqual(controller.cameraMode, .perspective3D)
+            XCTAssertEqual(controller.scene.cameraNode.camera?.usesOrthographicProjection, false)
+            for (key, point) in board.onTable {
+                let node = try XCTUnwrap(controller.scene.allBallNodes[key])
+                let expected = AngleSceneCalculator.normalizedToScene(
+                    point: CGPoint(x: point.x, y: point.y), surfaceY: controller.scene.surfaceY)
+                XCTAssertFalse(node.isHidden)
+                XCTAssertEqual(node.position.x, expected.x, accuracy: 0.00001)
+                XCTAssertEqual(node.position.y, expected.y, accuracy: 0.00001)
+                XCTAssertEqual(node.position.z, expected.z, accuracy: 0.00001)
+            }
+        }
+    }
 
     private func stubFormation(token: String, file: String) -> DrillTryoutFormation {
         DrillTryoutFormation(

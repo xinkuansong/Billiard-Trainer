@@ -24,6 +24,8 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
     /// 构造一个可用于快照的最小 `PositionPlaySolution`（往返测试只关心其被原样搬运，不跑物理）。
     private func stubSolution(velocity: Double, spinX: Double, spinY: Double) -> PositionPlaySolution {
         var pred = ShotPrediction()
+        // Snapshot fixture represents a completed shot; this test does not validate physics.
+        pred.termination = .settled
         pred.feasible = true
         pred.duration = 1.0
         let shot = PlannedShot(targetKey: "_1", pocket: "topRight",
@@ -46,6 +48,110 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
     }
 
     // MARK: - Test A · 思路训练：确定性快照往返
+
+    func test_silu_undoRestoresObservedCameraFromEitherMode() throws {
+        for restoreIn2D in [false, true] {
+            let vm = SiluTrainerViewModel()
+            vm.setupScene()
+            let rig = try XCTUnwrap(vm.scene.cameraRig)
+            rig.viewportSize = CGSize(width: 375, height: 480)
+            vm.cameraMode = .perspective3D
+            vm.scene.setCameraMode(.perspective3D, animated: false)
+            XCTAssertTrue(rig.observeWholeTable())
+            rig.snapToTarget()
+            let before = try XCTUnwrap(vm.scene.cameraNode).transform
+            // Physics is irrelevant here: exercise the same context capture used
+            // by play(), then disturb the view before restoring the board.
+            let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
+            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+            XCTAssertNotNil(context.perspectiveView)
+            rig.handleHorizontalSwipe(delta: 100)
+            rig.snapToTarget()
+            XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
+            if restoreIn2D {
+                vm.cameraMode = .topDown2DRotated
+                vm.scene.setCameraMode(.topDown2DRotated, animated: false)
+            }
+            vm.restore(from: context)
+            if restoreIn2D {
+                XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
+                vm.cameraMode = .perspective3D
+                vm.scene.setCameraMode(.perspective3D, animated: false)
+            }
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
+            XCTAssertEqual(vm.selectedTargetKey, context.selectedTargetKey)
+            XCTAssertEqual(vm.selectedPocketIndex, context.selectedPocketIndex)
+        }
+    }
+
+    func test_snooker_undoRestoresObservedCameraFromEitherMode() throws {
+        for restoreIn2D in [false, true] {
+            let vm = SnookerTacticsViewModel()
+            vm.setupScene()
+            let rig = try XCTUnwrap(vm.scene.cameraRig)
+            rig.viewportSize = CGSize(width: 375, height: 480)
+            vm.cameraMode = .perspective3D
+            vm.scene.setCameraMode(.perspective3D, animated: false)
+            XCTAssertTrue(rig.observeWholeTable())
+            rig.snapToTarget()
+            let before = try XCTUnwrap(vm.scene.cameraNode).transform
+            // Physics is irrelevant here: exercise the same context capture used
+            // by play(), then disturb the view before restoring the board.
+            let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
+            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+            XCTAssertNotNil(context.perspectiveView)
+            rig.handleHorizontalSwipe(delta: 100)
+            rig.snapToTarget()
+            XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
+            if restoreIn2D {
+                vm.cameraMode = .topDown2DRotated
+                vm.scene.setCameraMode(.topDown2DRotated, animated: false)
+            }
+            vm.restore(from: context)
+            if restoreIn2D {
+                XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
+                vm.cameraMode = .perspective3D
+                vm.scene.setCameraMode(.perspective3D, animated: false)
+            }
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
+            XCTAssertEqual(vm.selectedTargetKey, context.selectedTargetKey)
+        }
+    }
+
+    func test_planThree_undoRestoresObservedCameraFromEitherMode() throws {
+        for restoreIn2D in [false, true] {
+            let vm = PlanThreeViewModel()
+            vm.setupScene()
+            let rig = try XCTUnwrap(vm.scene.cameraRig)
+            rig.viewportSize = CGSize(width: 375, height: 480)
+            vm.cameraMode = .perspective3D
+            vm.scene.setCameraMode(.perspective3D, animated: false)
+            XCTAssertTrue(rig.observeWholeTable())
+            rig.snapToTarget()
+            let before = try XCTUnwrap(vm.scene.cameraNode).transform
+            // Physics is irrelevant here: exercise the same context capture used
+            // by play(), then disturb the view before restoring the board.
+            let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
+            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+            XCTAssertNotNil(context.perspectiveView)
+            rig.handleHorizontalSwipe(delta: 100)
+            rig.snapToTarget()
+            XCTAssertFalse(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
+            if restoreIn2D {
+                vm.cameraMode = .topDown2DRotated
+                vm.scene.setCameraMode(.topDown2DRotated, animated: false)
+            }
+            vm.restore(from: context)
+            if restoreIn2D {
+                XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
+                vm.cameraMode = .perspective3D
+                vm.scene.setCameraMode(.perspective3D, animated: false)
+            }
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(before, try XCTUnwrap(vm.scene.cameraNode).transform))
+            XCTAssertEqual(vm.ball1Key, context.ball1Key)
+            XCTAssertEqual(vm.pocket1Index, context.pocket1Index)
+        }
+    }
 
     func test_silu_restore_reproducesEveryField() {
         let vm = SiluTrainerViewModel()
@@ -74,6 +180,12 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
         // 抹除当前状态（模拟击打后局面），再恢复。
         vm.clearTable()
         vm.restore(from: ctx)
+        // Entering and cancelling a break must retain this complete planning state.
+        vm.startBreakFlow(game: .chineseEightBall)
+        XCTAssertNotNil(vm.breakRunner)
+        vm.cancelBreakFlow()
+        XCTAssertNil(vm.breakRunner)
+
 
         // 球形逐字段一致。
         XCTAssertEqual(Set(vm.onTableKeys), Set(before.onTable.keys), "在桌球集合应与快照一致")
@@ -127,6 +239,12 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
 
         vm.clearTable()
         vm.restore(from: ctx)
+        // Entering and cancelling a break must retain this complete planning state.
+        vm.startBreakFlow(game: .chineseEightBall)
+        XCTAssertNotNil(vm.breakRunner)
+        vm.cancelBreakFlow()
+        XCTAssertNil(vm.breakRunner)
+
 
         XCTAssertEqual(Set(vm.onTableKeys), Set(before.onTable.keys))
         // ①②③ 角色指派逐字段还原。

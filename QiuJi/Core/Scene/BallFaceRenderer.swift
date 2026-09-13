@@ -15,7 +15,8 @@ enum BallFaceRenderer {
                           device: MTLDevice? = MTLCreateSystemDefaultDevice()) -> [String: UIImage] {
         guard let device else { return [:] }
         let source = AngleTrainingScene()
-        source.setupScene(enhancedRendering: false)
+        // Ball faces render in an isolated scene; keep plain materials (ADR-P5-01).
+        source.setupScene(enhancedRendering: false, mobileRendering: false)
 
         var out: [String: UIImage] = [:]
         for key in PositionPlayBall.allKeys {

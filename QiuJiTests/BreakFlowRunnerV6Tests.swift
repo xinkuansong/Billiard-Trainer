@@ -58,6 +58,8 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
         let aim = BreakSimulator.aimAtApex(rack: rack, from: rack.cue)
         let a = BreakSimulator.breakShot(rack: rack, aimDirection: aim, power: 6.0)
         let b = BreakSimulator.breakShot(rack: rack, aimDirection: aim, power: 6.0)
+        XCTAssertTrue(a.settled, "首次开球必须完整结束：\(a.termination)")
+        XCTAssertTrue(b.settled, "重复开球必须完整结束：\(b.termination)")
         XCTAssertEqual(a.pocketed, b.pocketed, "同 rack/瞄准/力度 两次开球落袋集应一致（无随机塞）")
         XCTAssertEqual(a.board.onTable.count, b.board.onTable.count)
         for (k, p) in a.board.onTable {
@@ -74,6 +76,8 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
         let skewed = AngleSceneCalculator.rotatedAim(straight, byDegrees: 6)
         let a = BreakSimulator.breakShot(rack: rack, aimDirection: straight, power: 6.0)
         let b = BreakSimulator.breakShot(rack: rack, aimDirection: skewed, power: 6.0)
+        XCTAssertTrue(a.settled, "正向开球必须完整结束：\(a.termination)")
+        XCTAssertTrue(b.settled, "偏向开球必须完整结束：\(b.termination)")
         var differs = a.pocketed != b.pocketed
         if !differs {
             for (k, p) in a.board.onTable {
@@ -84,16 +88,16 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
         XCTAssertTrue(differs, "改变开球瞄准方向应改变散局（瞄准真正参与开球）")
     }
 
-    // MARK: - 默认力度 6 m/s
+    // MARK: - 默认力度 8 m/s
 
     @MainActor
-    func test_defaultBreakVelocity_isSix() {
-        XCTAssertEqual(BreakFlowRunner.defaultBreakVelocity, 6.0, accuracy: 1e-9,
-            "G18：开球默认力度常量应为 6 m/s（替代固定 7.0）")
+    func test_defaultBreakVelocity_isEight() {
+        XCTAssertEqual(BreakFlowRunner.defaultBreakVelocity, 8.0, accuracy: 1e-9,
+            "开球默认力度常量应为 8 m/s")
         let scene = AngleTrainingScene()
         let runner = BreakFlowRunner(scene: scene, game: .chineseEightBall, seed: 1)
-        XCTAssertEqual(runner.velocity, 6.0, accuracy: 1e-9,
-            "runner 实例默认力度应为 6 m/s（参与开球速度）")
+        XCTAssertEqual(runner.velocity, 8.0, accuracy: 1e-9,
+            "runner 实例默认力度应为 8 m/s（参与开球速度）")
     }
 
     // MARK: - K6：手动交付状态机
@@ -283,5 +287,192 @@ final class BreakFlowRunnerV6Tests: XCTestCase {
             throw E()
         }
         return png
+    }
+}
+
+@MainActor
+final class FreePlayPerspectiveBreakTests: XCTestCase {
+    func testAllRacksKeepBreakIntentWhenChangingViewsAndCancel() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        func positions() -> [String: [Float]] {
+            vm.scene.allBallNodes.filter { !$0.value.isHidden }
+                .mapValues { [$0.position.x, $0.position.y, $0.position.z] }
+        }
+        let original = positions()
+        for option in BreakFlowRunner.gameOptions {
+            vm.startBreakFlow(game: option.game, seed: 42)
+            let runner = try XCTUnwrap(vm.breakRunner)
+            runner.velocity = 7
+            runner.spinX = 0.1
+            runner.spinY = -0.2
+            runner.nudgeAim(byDegrees: 3)
+            let direction = try XCTUnwrap(runner.aimDir)
+            let before = positions()
+            let cue = try XCTUnwrap(vm.scene.cueBallNode)
+            ShotPlayCamera.setMode(.perspective3D, on: vm)
+            let rig = try XCTUnwrap(vm.scene.cameraRig)
+            XCTAssertEqual(rig.currentPivot.x, cue.position.x, accuracy: 0.00001)
+            XCTAssertEqual(rig.currentPivot.z, cue.position.z, accuracy: 0.00001)
+            XCTAssertEqual(rig.currentYaw, atan2(-direction.z, -direction.x), accuracy: 0.00001)
+            rig.handleHorizontalSwipe(delta: 70)
+            rig.handleVerticalSwipe(delta: 30)
+            rig.update(deltaTime: 1)
+            ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+            XCTAssertEqual(positions(), before)
+            XCTAssertEqual(runner.seed, 42)
+            XCTAssertEqual(runner.phase, .racked)
+            XCTAssertEqual(runner.aimDir?.x, direction.x)
+            XCTAssertEqual(runner.aimDir?.z, direction.z)
+            XCTAssertEqual(runner.velocity, 7)
+            XCTAssertEqual(runner.spinX, 0.1)
+            XCTAssertEqual(runner.spinY, -0.2)
+            vm.cancelBreakFlow()
+            XCTAssertNil(vm.breakRunner)
+            XCTAssertEqual(positions(), original)
+        }
+    }
+
+    func testSettledViewSwitchDoesNotConfirmOrRerack() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.startBreakFlow(game: .nineBall, seed: 61)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        let board = BoardSnapshot(onTable: [PositionPlayBall.cueKey: CanvasPoint(x: 0.4, y: 0.2), "_9": CanvasPoint(x: 0.7, y: 0.2)])
+        runner.applySettledBoardForTesting(board)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertFalse(ShotPlayCamera.canFocus(on: vm))
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        XCTAssertTrue(vm.isBreakMode)
+        XCTAssertEqual(runner.phase, .settled)
+        XCTAssertEqual(runner.seed, 61)
+        runner.confirmSettled()
+        XCTAssertFalse(vm.isBreakMode)
+        XCTAssertEqual(Set(vm.onTableKeys), Set(board.onTable.keys))
+    }
+}
+
+
+extension BreakFlowRunnerV6Tests {
+    @MainActor
+    func testIncompleteBreakKeepsRackAndCannotBeConfirmed() {
+        let scene = AngleTrainingScene()
+        let runner = BreakFlowRunner(scene: scene, game: .nineBall, seed: 7)
+        runner.rackUp()
+        let before = scene.allBallNodes.mapValues { $0.position }
+        let aim = runner.aimDir
+        runner.spinX = 0.2
+        runner.spinY = -0.3
+        runner.velocity = 4
+        var delivered = false
+        runner.onSettled = { _ in delivered = true }
+        let rack = RackLayout.make(.nineBall, seed: 7)
+        // Even an unfinished very slow shot is not a final table state.
+        let partial = BreakSimulator.breakShot(rack: rack, power: 0.1, maxTime: 0)
+        XCTAssertEqual(partial.termination, .timeLimit)
+        XCTAssertFalse(partial.settled)
+        XCTAssertFalse(runner.acceptCompletedSimulation(partial))
+        XCTAssertEqual(runner.simulationFailure, .timeLimit)
+        XCTAssertEqual(runner.phase, .racked)
+        XCTAssertFalse(runner.showsConfirm)
+        runner.confirmSettled()
+        XCTAssertFalse(delivered)
+        XCTAssertEqual(runner.spinX, 0.2)
+        XCTAssertEqual(runner.spinY, -0.3)
+        XCTAssertEqual(runner.velocity, 4)
+        XCTAssertEqual(runner.aimDir?.x, aim?.x)
+        XCTAssertEqual(runner.aimDir?.z, aim?.z)
+        for (key, position) in before {
+            XCTAssertEqual(scene.allBallNodes[key]?.position.x, position.x)
+            XCTAssertEqual(scene.allBallNodes[key]?.position.z, position.z)
+        }
+        XCTAssertTrue(runner.statusText.contains("未完成"))
+        XCTAssertEqual(runner.statusText(isPerspective: true), runner.statusText)
+        XCTAssertEqual(runner.statusText(isPerspective: false), runner.statusText)
+        let complete = BreakSimulator.breakShot(rack: rack, power: 4)
+        XCTAssertEqual(complete.termination, .settled)
+        XCTAssertTrue(runner.acceptCompletedSimulation(complete))
+        XCTAssertNil(runner.simulationFailure)
+        XCTAssertFalse(runner.acceptCompletedSimulation(partial))
+        runner.reRack()
+        XCTAssertNil(runner.simulationFailure)
+    }
+
+    func testNineBallPageSeedCompletesAtDefaultPower() throws {
+        // Captured from the real SE/AX5 page failure; preserve the actual seed,
+        // direction and power instead of replacing the rack with an easier one.
+        let rack = RackLayout.make(.nineBall, seed: 17829163102452725902)
+        let result = BreakSimulator.breakShot(rack: rack,
+            cuePosition: SCNVector3(0.635, 0.828575, 0),
+            aimDirection: SCNVector3(-1, 0, 3.304183e-05), power: 8,
+            spinX: 0, spinY: 0, simulationModel: .spatialPockets)   // spatial handoff budget test (W17-A)
+        print("[W09 captured nine-ball] termination=\(result.termination) duration=\(result.recorder.duration)")
+        XCTAssertTrue(result.settled, "Actual default-power page rack must complete: \(result.termination)")
+        let asset = try PocketGeometryAsset.load()
+        let entries = result.recorder.localHandoffs.filter { $0.kind == .entered }
+        XCTAssertFalse(entries.isEmpty)
+        for entry in entries {
+            let minimumGap = asset.tablePatches.map { patch -> Double in
+                let delta = entry.state.position - patch.triangle.closestPoint(to: entry.state.position)
+                return sqrt(delta.x*delta.x + delta.y*delta.y + delta.z*delta.z) - Double(BallPhysics.radius)
+            }.min()!
+            XCTAssertGreaterThanOrEqual(minimumGap, -4e-6,
+                "Handoff must fit the existing 4 × 1µm spatial correction budget: \(entry.ballName) at \(entry.state.time)")
+        }
+        print("[W09 entry clearance] checked=\(entries.count)")
+    }
+
+    func testFifteenBallPageSeedCompletesAtDefaultPower() {
+        let rack = RackLayout.make(.chineseEightBall, seed: 4712397786635757473)
+        let result = BreakSimulator.breakShot(rack: rack,
+            cuePosition: SCNVector3(0.635, 0.828575, 0),
+            aimDirection: SCNVector3(-1, 0, 3.777294e-05), power: 8,
+            spinX: 0, spinY: 0)
+        XCTAssertTrue(result.settled, "Previously completed page rack must stay resolved: \(result.termination)")
+    }
+
+    func testBreakUsesExplicitLocalModelAndPropagatesFailure() {
+        let rack = RackLayout.make(.nineBall, seed: 7)
+        let failed = BreakSimulator.breakShot(rack: rack, power: 4,
+            simulationModel: .localPockets(material: .tablePhysics(clothRestitution: .nan)))
+        guard case .failed = failed.termination else {
+            return XCTFail("Invalid local material must fail without planar fallback: \(failed.termination)")
+        }
+        XCTAssertFalse(failed.settled)
+    }
+}
+
+extension BreakFlowRunnerV6Tests {
+    /// Exact input from the SE UI timeout; measure optimized builds separately
+    /// from Debug and never equate simulator wall time with device performance.
+    func testRecordedSlowFifteenBallBreakCompletes() {
+        let rack = RackLayout.make(.chineseEightBall,
+            seed: 844924979980821639, surfaceY: 0.8)
+        let start = CFAbsoluteTimeGetCurrent()
+        let result = BreakSimulator.breakShot(rack: rack,
+            cuePosition: SCNVector3(0.635, 0.828575, 0),
+            aimDirection: SCNVector3(-1, 0, -1.4691563e-05),
+            power: 6, spinX: 0, spinY: 0, simulationModel: .spatialPockets)
+        // W17-A: collection tails are a spatial-solver artefact; the default planar break
+        // gets its pocket presentation from W17-B/D, which must add its own default-path assertion.
+        print("[W09 recorded break] elapsed=\(CFAbsoluteTimeGetCurrent() - start)s termination=\(result.termination) duration=\(result.recorder.duration)")
+        XCTAssertEqual(result.termination, .settled)
+        XCTAssertEqual(result.board.onTable.count + result.pocketed.count, 16)
+        for key in result.pocketed {
+            XCTAssertNotNil(result.recorder.collectionTailsByBallName[key])
+        }
+    }
+
+    func testNineBallBreakCompletesWithLocalPockets() {
+        let rack = RackLayout.make(.nineBall, seed: 7)
+        let start = CFAbsoluteTimeGetCurrent()
+        let result = BreakSimulator.breakShot(rack: rack, power: 6,
+            simulationModel: .localPockets(material: .tablePhysics(clothRestitution: 0.3)))
+        print("[W07 nine-ball local break] elapsed=\(CFAbsoluteTimeGetCurrent()-start)s termination=\(result.termination) pocketed=\(result.pocketed)")
+        XCTAssertEqual(result.termination, .settled)
+        XCTAssertEqual(result.board.onTable.count + result.pocketed.count, 10)
+        for key in result.pocketed {
+            XCTAssertNotNil(result.recorder.collectionTailsByBallName[key])
+        }
     }
 }

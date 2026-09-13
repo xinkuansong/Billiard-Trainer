@@ -238,9 +238,9 @@ final class BatchShotSolver: ObservableObject {
 
     private func strokeCross(center c: SCNVector3, arm r: Float, color: UIColor, scene: AngleTrainingScene) {
         constraintNodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
-                                             to: SCNVector3(c.x + r, c.y, c.z), color: color, radius: 0.0024))
+                                             to: SCNVector3(c.x + r, c.y, c.z), color: color, radius: 0.0024, placement: .table))
         constraintNodes.append(scene.addLine(from: SCNVector3(c.x, c.y, c.z - r),
-                                             to: SCNVector3(c.x, c.y, c.z + r), color: color, radius: 0.0024))
+                                             to: SCNVector3(c.x, c.y, c.z + r), color: color, radius: 0.0024, placement: .table))
     }
 
     private func clearConstraintNodes(scene: AngleTrainingScene) {
@@ -490,6 +490,7 @@ struct BatchAuthoringView: View {
                     BTAimWheel(onNudge: { composer.nudgeFreeAim(byDegrees: $0) })
                         .btStageFrame(proxy.aimWheelFrame())
                         .allowsHitTesting(!sequenceBusy)
+                        .disabled(sequenceBusy)
                 }
                 BTTextActionButton(title: guide.phase == .off ? "辅助线" : "清除线",
                                    isDisabled: sequenceBusy, width: 46) {
@@ -1160,14 +1161,14 @@ final class BatchGuideLine: ObservableObject {
         func cross(_ c: SCNVector3) {
             let r: Float = 0.018
             nodes.append(scene.addLine(from: SCNVector3(c.x - r, c.y, c.z),
-                                       to: SCNVector3(c.x + r, c.y, c.z), color: white, radius: 0.0022))
+                                       to: SCNVector3(c.x + r, c.y, c.z), color: white, radius: 0.0022, placement: .table))
             nodes.append(scene.addLine(from: SCNVector3(c.x, c.y, c.z - r),
-                                       to: SCNVector3(c.x, c.y, c.z + r), color: white, radius: 0.0022))
+                                       to: SCNVector3(c.x, c.y, c.z + r), color: white, radius: 0.0022, placement: .table))
         }
         if let a = startPoint { cross(a) }
         if let b = endPoint { cross(b) }
         if let a = startPoint, let b = endPoint {
-            nodes.append(scene.addLine(from: a, to: b, color: white, radius: 0.0018))
+            nodes.append(scene.addLine(from: a, to: b, color: white, radius: 0.0018, placement: .table))
         }
     }
 

@@ -46,6 +46,8 @@ targets:
         excludes:
           - "**/.DS_Store"
           - "Resources/Drills/**"
+          - "Resources/BallStickers/**"
+          - "Resources/CueStyles/**"
           - "Resources/Plans/**"
           # v25 W1：引擎渲染视频已下线，目录保留磁盘但不进包（红线：不 rm）。
           - "Resources/Videos/**"
@@ -61,6 +63,12 @@ targets:
           - "Resources/Previews/**"
       # Folder references（蓝色文件夹）：保留子目录结构供 Bundle.main 解析。
       - path: QiuJi/Resources/Drills
+        type: folder
+        buildPhase: resources
+      - path: QiuJi/Resources/BallStickers
+        type: folder
+        buildPhase: resources
+      - path: QiuJi/Resources/CueStyles
         type: folder
         buildPhase: resources
       # 击球音效（drop-in：放入 caf/wav 后重新构建即生效，缺文件时 App 静音）。
@@ -130,6 +138,7 @@ targets:
       properties:
         CFBundleName: 球迹
         CFBundleDisplayName: 球迹
+        CADisableMinimumFrameDurationOnPhone: true
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         # 隐私权限文案（唯一生效真源；见上方 INFOPLIST_KEY_* 警告）

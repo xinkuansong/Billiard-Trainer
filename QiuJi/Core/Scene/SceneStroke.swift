@@ -2,8 +2,8 @@ import SceneKit
 
 /// Shared SceneKit stroke helpers for constraint / overlay rings (C17).
 /// - Circle: 36 segments, line radius 0.0022
-/// - `y`: when non-nil, ring is drawn at that height (Snooker cloth lift);
-///   when nil, uses `center.y` (Silu / PlanThree constraint centers already lifted).
+/// - Input heights are retained for caller compatibility; display geometry is
+///   projected to the actual cloth surface and clipped at its boundary.
 enum SceneStroke {
     static let circleSegments = 36
     static let lineRadius: Float = 0.0022
@@ -22,7 +22,7 @@ enum SceneStroke {
             let a = Float(i) / Float(circleSegments) * 2 * .pi
             let p = SCNVector3(center.x + radius * cosf(a), drawY, center.z + radius * sinf(a))
             if let pr = prev {
-                nodes.append(scene.addLine(from: pr, to: p, color: color, radius: lineRadius))
+                nodes.append(scene.addLine(from: pr, to: p, color: color, radius: lineRadius, placement: .table))
             }
             prev = p
         }
@@ -46,7 +46,7 @@ enum SceneStroke {
         for i in 0..<4 {
             nodes.append(scene.addLine(
                 from: corners[i], to: corners[(i + 1) % 4],
-                color: color, radius: lineRadius
+                color: color, radius: lineRadius, placement: .table
             ))
         }
     }

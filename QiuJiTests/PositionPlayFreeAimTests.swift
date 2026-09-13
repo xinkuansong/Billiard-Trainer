@@ -418,3 +418,740 @@ final class IdealDirectionIntegrationTests: XCTestCase {
         XCTAssertNil(scene.idealObjectLine)
     }
 }
+
+@MainActor
+final class ShotSimulationCameraTests: XCTestCase {
+    func testRecordedComposerDraftSurvivesPerspectiveRoundTrip() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 375, height: 480))
+        view.scene = vm.scene
+        view.pointOfView = vm.scene.cameraNode
+        vm.scene.cameraRig?.viewportSize = view.bounds.size
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController()
+        controller.view = view
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        view.isPlaying = true
+        defer { view.isPlaying = false; window.isHidden = true }
+        vm.toggleAimMode()
+        vm.velocity = 0.6
+        let ready = Date().addingTimeInterval(30)
+        while vm.isComputing, Date() < ready {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertFalse(vm.isComputing)
+        XCTAssertNotNil(vm.solvedShot)
+        vm.startRecording()
+        vm.renameSequence("v63 编辑草稿")
+        vm.play()
+        let finished = Date().addingTimeInterval(45)
+        while vm.isPlaying, Date() < finished {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertEqual(vm.sequence.steps.count, 1)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let draft = try encoder.encode(vm.sequence)
+        let board = try encoder.encode(vm.currentSnapshot())
+        let target = vm.selectedTargetKey
+        let pocket = vm.selectedPocketIndex
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        for _ in 0..<3 {
+            ShotPlayCamera.setMode(.perspective3D, on: vm)
+            XCTAssertTrue(rig.observeWholeTable())
+            rig.handleHorizontalSwipe(delta: 40)
+            rig.update(deltaTime: 1)
+            ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+            XCTAssertTrue(vm.isRecording)
+            XCTAssertEqual(try encoder.encode(vm.sequence), draft)
+            XCTAssertEqual(try encoder.encode(vm.currentSnapshot()), board)
+            XCTAssertEqual(vm.selectedTargetKey, target)
+            XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        }
+        let recorded = try XCTUnwrap(vm.stopRecording())
+        XCTAssertEqual(try encoder.encode(recorded), draft)
+    }
+
+    func testViewSwitchAndOrbitPreserveShotAndBoard() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        let editedBall = try XCTUnwrap(vm.scene.allBallNodes["_1"])
+        let originalPosition = editedBall.position
+        // World X/Z table plane, Y up, metres: exercise an actual edit first.
+        vm.dragBegan(node: editedBall)
+        vm.dragMoved(node: editedBall, worldPosition: SCNVector3(
+            originalPosition.x + 0.03, originalPosition.y, originalPosition.z))
+        vm.dragEnded(node: editedBall)
+        XCTAssertNotEqual(editedBall.position.x, originalPosition.x)
+        vm.selectTarget(node: editedBall)
+        vm.selectPocket(at: 2)
+        vm.toggleAimMode()
+        vm.velocity = 2.4
+        vm.spinX = 0.2
+        vm.spinY = -0.3
+        let deadline = Date().addingTimeInterval(20)
+        while vm.isComputing, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertFalse(vm.isComputing)
+        let prediction = try XCTUnwrap(vm.solvedShot).prediction
+        let direction = try XCTUnwrap(vm.freeAimDir)
+        let balls = vm.scene.allBallNodes.mapValues { $0.position }
+        let target = vm.selectedTargetKey
+        let pocket = vm.selectedPocketIndex
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        for _ in 0..<3 {
+            ShotPlayCamera.setMode(.perspective3D, on: vm)
+            XCTAssertFalse(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
+            let yaw = rig.currentYaw
+            rig.handleHorizontalSwipe(delta: 50)
+            rig.handleVerticalSwipe(delta: 30)
+            rig.update(deltaTime: 1)
+            XCTAssertNotEqual(rig.currentYaw, yaw)
+            ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+            XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
+        }
+        let afterDirection = try XCTUnwrap(vm.freeAimDir)
+        XCTAssertEqual(afterDirection.x, direction.x)
+        XCTAssertEqual(afterDirection.y, direction.y)
+        XCTAssertEqual(afterDirection.z, direction.z)
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(vm.velocity, 2.4)
+        XCTAssertEqual(vm.spinX, 0.2)
+        XCTAssertEqual(vm.spinY, -0.3)
+        let afterPath = try XCTUnwrap(vm.solvedShot).prediction.cuePath
+        XCTAssertEqual(afterPath.map { [$0.x, $0.y, $0.z] }, prediction.cuePath.map { [$0.x, $0.y, $0.z] })
+        XCTAssertEqual(vm.scene.allBallNodes.mapValues { [$0.position.x, $0.position.y, $0.position.z] },
+                       balls.mapValues { [$0.x, $0.y, $0.z] })
+        XCTAssertFalse(vm.isPlaying)
+        XCTAssertFalse(vm.canReplay)
+    }
+}
+
+
+@MainActor
+final class CameraModeInterruptionV63Tests: XCTestCase {
+    func testInterruptedTopDownCannotOverwriteLatestPerspective() async throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 600))
+        view.scene = scene
+        view.pointOfView = scene.cameraNode
+        let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: windowScene)
+        let controller = UIViewController()
+        controller.view = view
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        view.isPlaying = true
+        defer { view.isPlaying = false; window.isHidden = true }
+        scene.setCameraMode(.perspective3D, animated: false)
+        scene.setCameraMode(.topDown2DRotated, animated: true)
+        SCNTransaction.flush()
+        try await Task.sleep(for: .milliseconds(100))
+        scene.setCameraMode(.perspective3D, animated: false)
+        _ = view.snapshot()
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(scene.currentCameraMode, .perspective3D)
+        XCTAssertFalse(try XCTUnwrap(scene.cameraNode.camera).usesOrthographicProjection)
+        XCTAssertFalse(scene.isCameraModeTransitioning)
+    }
+
+    func testInterruptedPerspectiveCannotOverwriteLatestTopDown() async throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 600))
+        view.scene = scene
+        view.pointOfView = scene.cameraNode
+        let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let window = UIWindow(windowScene: windowScene)
+        let controller = UIViewController()
+        controller.view = view
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        view.isPlaying = true
+        defer { view.isPlaying = false; window.isHidden = true }
+        scene.setCameraMode(.topDown2DRotated, animated: false)
+        scene.setCameraMode(.perspective3D, animated: true)
+        SCNTransaction.flush()
+        try await Task.sleep(for: .milliseconds(100))
+        scene.setCameraMode(.topDown2DRotated, animated: false)
+        _ = view.snapshot()
+        try await Task.sleep(for: .seconds(1))
+        XCTAssertEqual(scene.currentCameraMode, .topDown2DRotated)
+        XCTAssertTrue(try XCTUnwrap(scene.cameraNode.camera).usesOrthographicProjection)
+        XCTAssertFalse(scene.isCameraModeTransitioning)
+    }
+}
+
+
+@MainActor
+final class PerspectiveStateV63Tests: XCTestCase {
+    func testRestorePreservesPendingDampingAndNextFrame() throws {
+        let node = SCNNode()
+        node.camera = SCNCamera()
+        let rig = CameraRig(cameraNode: node, tableSurfaceY: 0.8)
+        rig.handleHorizontalSwipe(delta: 120)
+        rig.handleVerticalSwipe(delta: 30)
+        rig.update(deltaTime: 1.0 / 60)
+        let saved = rig.capturePerspectiveState()
+        let position = node.position
+        let yaw = rig.currentYaw
+        rig.update(deltaTime: 1.0 / 60)
+        let nextPosition = node.position
+        let nextYaw = rig.currentYaw
+        rig.applyTopDown2DRotated()
+        rig.restorePerspectiveState(saved)
+        XCTAssertEqual(node.position.x, position.x, accuracy: 1e-6)
+        XCTAssertEqual(node.position.y, position.y, accuracy: 1e-6)
+        XCTAssertEqual(node.position.z, position.z, accuracy: 1e-6)
+        XCTAssertEqual(rig.currentYaw, yaw)
+        XCTAssertTrue(rig.hasPendingDamping)
+        rig.update(deltaTime: 1.0 / 60)
+        XCTAssertEqual(node.position.x, nextPosition.x, accuracy: 1e-6)
+        XCTAssertEqual(node.position.y, nextPosition.y, accuracy: 1e-6)
+        XCTAssertEqual(node.position.z, nextPosition.z, accuracy: 1e-6)
+        XCTAssertEqual(rig.currentYaw, nextYaw)
+    }
+
+    func testPilotRoundTripRestoresObservationInsteadOfRefocusing() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.handleHorizontalSwipe(delta: 180)
+        rig.handleVerticalSwipe(delta: 40)
+        rig.snapToTarget()
+        let position = vm.scene.cameraNode.position
+        let yaw = rig.currentYaw
+        let zoom = rig.zoom
+        for _ in 0..<3 {
+            ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+            ShotPlayCamera.setMode(.perspective3D, on: vm)
+            XCTAssertEqual(rig.currentYaw, yaw)
+            XCTAssertEqual(rig.zoom, zoom)
+            XCTAssertEqual(vm.scene.cameraNode.position.x, position.x, accuracy: 1e-6)
+            XCTAssertEqual(vm.scene.cameraNode.position.z, position.z, accuracy: 1e-6)
+        }
+    }
+    private func readyFreeBoard() async throws -> PositionPlayViewModel {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.toggleAimMode()
+        let deadline = Date().addingTimeInterval(20)
+        while vm.isComputing, Date() < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertFalse(vm.isComputing)
+        XCTAssertNotNil(vm.solvedShot)
+        return vm
+    }
+
+    func testExplicitFocusReplacesSavedObservation() async throws {
+        let vm = try await readyFreeBoard()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.handleHorizontalSwipe(delta: 200)
+        rig.snapToTarget()
+        let observedYaw = rig.currentYaw
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        ShotPlayCamera.focus(on: vm)
+        rig.update(deltaTime: 1)
+        let focusedYaw = rig.currentYaw
+        XCTAssertNotEqual(focusedYaw, observedYaw)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertEqual(rig.currentYaw, focusedYaw, accuracy: 1e-5)
+        rig.handleHorizontalSwipe(delta: 80)
+        rig.snapToTarget()
+        let newObservedYaw = rig.currentYaw
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertEqual(rig.currentYaw, newObservedYaw, accuracy: 1e-5)
+    }
+
+    func testNewBoardInvalidatesOldViewButIgnoredEmptyLoadDoesNot() async throws {
+        let vm = try await readyFreeBoard()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        vm.loadBoard(BoardSnapshot(onTable: [:]))
+        XCTAssertTrue(vm.scene.hasPerspectiveView)
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        vm.loadBoard(BoardSnapshot(onTable: [
+            "cueBall": CanvasPoint(x: 0.2, y: 0.2),
+            "_1": CanvasPoint(x: 0.7, y: 0.25)
+        ]))
+        XCTAssertFalse(vm.scene.hasPerspectiveView)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        let cue = try XCTUnwrap(vm.scene.cueBallNode)
+        XCTAssertEqual(rig.currentPivot.x, cue.position.x, accuracy: 1e-5)
+        XCTAssertEqual(rig.currentPivot.z, cue.position.z, accuracy: 1e-5)
+    }
+
+    func testSwitchDuringStrokePreservesActiveShot() async throws {
+        let vm = try await readyFreeBoard()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let prediction = try XCTUnwrap(vm.solvedShot).prediction
+        vm.play()
+        XCTAssertTrue(vm.isPlaying)
+        let status = vm.statusText
+        let positions = vm.scene.allBallNodes.mapValues { [$0.position.x, $0.position.y, $0.position.z] }
+        for _ in 0..<3 {
+            ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+            ShotPlayCamera.setMode(.perspective3D, on: vm)
+        }
+        XCTAssertTrue(vm.isPlaying)
+        XCTAssertEqual(vm.statusText, status)
+        XCTAssertEqual(vm.scene.allBallNodes.mapValues { [$0.position.x, $0.position.y, $0.position.z] }, positions)
+        XCTAssertEqual(try XCTUnwrap(vm.solvedShot).prediction.cuePath.map { [$0.x, $0.y, $0.z] },
+                       prediction.cuePath.map { [$0.x, $0.y, $0.z] })
+        XCTAssertFalse(vm.canReplay)
+    }
+
+    func testSequencePreparationKeepsStepAndIntentAcrossModes() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        let board = BoardSnapshot(onTable: ["cueBall": CanvasPoint(x: 0.3, y: 0.2)])
+        let shot = PlannedShot(targetKey: "", pocket: "", velocity: 1.5,
+                               freeAim: CanvasPoint(x: 1, y: 0))
+        vm.configureSequence([SequenceStep(before: board, shot: shot, after: board)])
+        vm.enterSequenceMode()
+        XCTAssertTrue(vm.isSequenceMode)
+        let index = vm.sequenceStepIndex
+        let positions = vm.scene.allBallNodes.mapValues { [$0.position.x, $0.position.y, $0.position.z] }
+        let direction = try XCTUnwrap(vm.freeAimDir)
+        for _ in 0..<3 {
+            ShotPlayCamera.setMode(.perspective3D, on: vm)
+            ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        }
+        XCTAssertTrue(vm.isSequenceMode)
+        XCTAssertFalse(vm.isSequencePlaying)
+        XCTAssertEqual(vm.sequenceStepIndex, index)
+        XCTAssertFalse(vm.sequenceFinished)
+        XCTAssertEqual(vm.velocity, shot.velocity)
+        XCTAssertEqual(try XCTUnwrap(vm.freeAimDir).x, direction.x)
+        XCTAssertEqual(try XCTUnwrap(vm.freeAimDir).z, direction.z)
+        XCTAssertEqual(vm.scene.allBallNodes.mapValues { [$0.position.x, $0.position.y, $0.position.z] }, positions)
+    }
+
+    func testQuizSubmittedAnswerAndScoreSurviveSharedCameraSwitch() throws {
+        let suite = "PerspectiveStateV63Tests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let limiter = AngleUsageLimiter(defaults: defaults)
+        limiter.isPremium = true
+        let vm = AimingQuizViewModel(limiter: limiter)
+        vm.setupScene(initialCameraMode: .perspective3D)
+        vm.userInput = "30"
+        vm.submitAnswer()
+        let answer = try XCTUnwrap(vm.sessionResults.last)
+        let question = try XCTUnwrap(vm.currentQuestion)
+        let index = vm.questionIndex
+        for _ in 0..<3 {
+            vm.scene.setCameraMode(.topDown2DRotated, animated: false)
+            vm.scene.setCameraMode(.perspective3D, animated: false)
+        }
+        XCTAssertEqual(vm.questionIndex, index)
+        XCTAssertEqual(vm.userInput, "30")
+        XCTAssertEqual(try XCTUnwrap(vm.currentQuestion).cueBall, question.cueBall)
+        XCTAssertEqual(try XCTUnwrap(vm.currentQuestion).targetBall, question.targetBall)
+        XCTAssertEqual(try XCTUnwrap(vm.sessionResults.last).userAngle, answer.userAngle)
+        XCTAssertEqual(try XCTUnwrap(vm.sessionResults.last).error, answer.error)
+        XCTAssertEqual(vm.sessionResults.count, 1)
+    }
+
+    func testClearResetAndBreakDiscardPreviousViewContext() async throws {
+        let vm = try await readyFreeBoard()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        vm.clearTable()
+        XCTAssertFalse(vm.scene.hasPerspectiveView)
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        vm.resetAll()
+        XCTAssertFalse(vm.scene.hasPerspectiveView)
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        vm.startBreakFlow(game: .chineseEightBall, seed: 63)
+        XCTAssertNotNil(vm.breakRunner)
+        XCTAssertFalse(vm.scene.hasPerspectiveView)
+        vm.cancelBreakFlow()
+    }
+
+    func testFirstPerspectiveEntryDuringTwoDimensionalBreakUsesWholeTable() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.startBreakFlow(game: .nineBall, seed: 6302)
+        defer { vm.cancelBreakFlow() }
+        let runner = try XCTUnwrap(vm.breakRunner)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.viewportSize = CGSize(width: 402, height: 600)
+        runner.breakNow()
+        XCTAssertEqual(runner.phase, .computing)
+        XCTAssertFalse(vm.scene.hasPerspectiveView)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        rig.snapToTarget()
+        XCTAssertEqual(rig.currentPivot.x, 0, accuracy: 1e-6)
+        XCTAssertEqual(rig.currentPivot.z, 0, accuracy: 1e-6)
+        XCTAssertEqual(rig.orbitElevation, abs(AimingCameraConfig.standPitchRad), accuracy: 1e-6)
+        XCTAssertTrue(vm.scene.hasPerspectiveView)
+        rig.handleHorizontalSwipe(delta: 120)
+        rig.snapToTarget()
+        let yaw = rig.currentYaw
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertEqual(rig.currentYaw, yaw, accuracy: 1e-6)
+        XCTAssertEqual(runner.phase, .computing)
+    }
+
+    func testRepeatedModeRequestDoesNotRestoreStaleObservation() throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        rig.handleHorizontalSwipe(delta: 200)
+        rig.snapToTarget()
+        let yaw = rig.currentYaw
+        vm.scene.setCameraMode(.perspective3D)
+        XCTAssertEqual(rig.currentYaw, yaw)
+        XCTAssertFalse(vm.scene.isCameraModeTransitioning)
+    }
+
+    func testObservationTargetsDoNotChangeShotSelection() async throws {
+        let vm = try await readyFreeBoard()
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        let target = try XCTUnwrap(vm.selectedTargetKey)
+        let pocket = vm.selectedPocketIndex
+        let direction = try XCTUnwrap(vm.freeAimDir)
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        for key in ["cueBall", target] {
+            ShotPlayCamera.observeBall(key, on: vm)
+            rig.snapToTarget()
+            let node = try XCTUnwrap(vm.scene.allBallNodes[key])
+            let center = vm.scene.visualCenter(of: node)
+            XCTAssertEqual(rig.currentPivot.x, center.x, accuracy: 1e-5)
+            XCTAssertEqual(rig.currentPivot.y, center.y, accuracy: 1e-5)
+            XCTAssertEqual(rig.currentPivot.z, center.z, accuracy: 1e-5)
+        }
+        ShotPlayCamera.observePocket(5, on: vm)
+        rig.snapToTarget()
+        let focus = AngleSceneCalculator.pocketPositions(surfaceY:vm.scene.surfaceY)[5]
+        XCTAssertEqual(rig.currentPivot.z, focus.z, accuracy: 1e-5)
+        rig.viewportSize = CGSize(width:402,height:600)
+        ShotPlayCamera.observeWholeTable(on: vm)
+        rig.snapToTarget()
+        XCTAssertEqual(vm.selectedTargetKey, target)
+        XCTAssertEqual(vm.selectedPocketIndex, pocket)
+        XCTAssertEqual(try XCTUnwrap(vm.freeAimDir).x, direction.x)
+        XCTAssertEqual(try XCTUnwrap(vm.freeAimDir).z, direction.z)
+        let pivot = rig.currentPivot
+        ShotPlayCamera.observePocket(-1, on: vm)
+        ShotPlayCamera.observeBall("missing", on: vm)
+        XCTAssertEqual(rig.targetPivot.x, pivot.x)
+        XCTAssertEqual(rig.targetPivot.z, pivot.z)
+    }
+
+}
+
+
+@MainActor
+final class OrbitInputV63Tests: XCTestCase {
+    private func rig() -> (CameraRig, SCNNode) {
+        let node = SCNNode(); node.camera = SCNCamera()
+        return (CameraRig(cameraNode: node, tableSurfaceY: 0.8), node)
+    }
+
+    func testPinchChangesDistanceWithoutPitchOrFOV() throws {
+        let (rig, node) = rig()
+        let elevation = rig.orbitElevation
+        let distance = rig.orbitDistance
+        let fov = try XCTUnwrap(node.camera).fieldOfView
+        let pitch = node.eulerAngles.x
+        rig.handlePinch(scale: 1.2)
+        rig.snapToTarget()
+        XCTAssertLessThan(rig.orbitDistance, distance)
+        XCTAssertEqual(rig.orbitElevation, elevation, accuracy: 1e-6)
+        XCTAssertEqual(node.eulerAngles.x, pitch, accuracy: 1e-6)
+        XCTAssertEqual(try XCTUnwrap(node.camera).fieldOfView, fov, accuracy: 1e-5)
+    }
+
+    func testVerticalDragChangesElevationWithoutDistance() {
+        let (rig, node) = rig()
+        let distance = rig.orbitDistance
+        let elevation = rig.orbitElevation
+        let height = node.position.y
+        rig.handleVerticalSwipe(delta: 60)
+        rig.snapToTarget()
+        XCTAssertEqual(rig.orbitDistance, distance, accuracy: 1e-6)
+        XCTAssertGreaterThan(rig.orbitElevation, elevation)
+        XCTAssertGreaterThan(node.position.y, height)
+    }
+
+    func testGestureCancelsAutomaticMoveAtVisiblePose() {
+        let (rig, node) = rig()
+        rig.enterAiming(cueBallPosition: SCNVector3(0.3,0.8,0.1), targetDirection: SCNVector3(1,0,0))
+        rig.update(deltaTime: 0.2)
+        let position = node.position
+        rig.handleHorizontalSwipe(delta: 0)
+        XCTAssertFalse(rig.isTransitioning)
+        rig.snapToTarget()
+        XCTAssertEqual(node.position.x, position.x, accuracy: 1e-5)
+        XCTAssertEqual(node.position.y, position.y, accuracy: 1e-5)
+        XCTAssertEqual(node.position.z, position.z, accuracy: 1e-5)
+    }
+
+    func testManualObservationDisablesAutomaticCueAnchorUntilAimReturns() {
+        let (rig, _) = rig()
+        let cue = SCNVector3(0.3, 0.828575, 0.1)
+        let direction = SCNVector3(1, 0, 0)
+        rig.enterAiming(cueBallPosition: cue, targetDirection: direction)
+        XCTAssertFalse(rig.allowsCueScreenAnchor)
+        rig.update(deltaTime: 1)
+        XCTAssertTrue(rig.allowsCueScreenAnchor)
+        rig.handleHorizontalSwipe(delta: 80)
+        rig.snapToTarget()
+        XCTAssertFalse(rig.allowsCueScreenAnchor)
+        let saved = rig.capturePerspectiveState()
+        rig.applyTopDown2DRotated()
+        rig.restorePerspectiveState(saved)
+        XCTAssertFalse(rig.allowsCueScreenAnchor)
+        rig.enterAiming(cueBallPosition: cue, targetDirection: direction)
+        rig.update(deltaTime: 1)
+        XCTAssertTrue(rig.allowsCueScreenAnchor)
+        rig.observe(at: SCNVector3(-1.27, 0.8, -0.635))
+        XCTAssertFalse(rig.allowsCueScreenAnchor)
+    }
+
+    func testIndependentOrbitRestoresAndSettles() {
+        let (rig, _) = rig()
+        rig.handleVerticalSwipe(delta: 60)
+        rig.handlePinch(scale: 1.2)
+        let saved = rig.capturePerspectiveState()
+        rig.applyTopDown2DRotated()
+        rig.restorePerspectiveState(saved)
+        for _ in 0..<200 { rig.update(deltaTime: 1.0 / 60) }
+        XCTAssertFalse(rig.hasPendingDamping)
+        let distance = rig.orbitDistance
+        rig.handleVerticalSwipe(delta: 20)
+        rig.snapToTarget()
+        XCTAssertEqual(rig.orbitDistance, distance, accuracy: 1e-5)
+    }
+    func testElevationBoundsKeepOpticalAxisAboveInversion() {
+        let (rig, node) = rig()
+        rig.enterObservation(cueBallPosition: SCNVector3(0,0.8,0), aimDirection: SCNVector3(1,0,0))
+        rig.update(deltaTime: 1)
+        for delta: Float in [10000, -10000] {
+            rig.handleVerticalSwipe(delta: delta)
+            rig.snapToTarget()
+            XCTAssertGreaterThanOrEqual(node.eulerAngles.x, -.pi / 2 - 1e-5)
+            XCTAssertLessThan(node.eulerAngles.x, 0)
+            XCTAssertGreaterThan(node.position.y, 0.8)
+        }
+    }
+
+    func testObservationCentersActualWorldPoint() throws {
+        let (rig, camera) = rig()
+        let scene = SCNScene(); scene.rootNode.addChildNode(camera)
+        let view = SCNView(frame: CGRect(x:0,y:0,width:402,height:600))
+        view.scene = scene; view.pointOfView = camera
+        let point = SCNVector3(0.4,0.828575,-0.3)
+        rig.observe(at: point); rig.snapToTarget()
+        SCNTransaction.flush(); view.layoutIfNeeded(); _ = view.snapshot()
+        let projected = view.projectPoint(point)
+        XCTAssertEqual(projected.x, 201, accuracy: 1)
+        XCTAssertEqual(projected.y, 300, accuracy: 1)
+    }
+
+    func testClosestLowestOrbitClearsLoadedTableAcrossPocketPivots() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene()
+        let table = try XCTUnwrap(scene.tableNode)
+        let rig = try XCTUnwrap(scene.cameraRig)
+        let camera = try XCTUnwrap(scene.cameraNode.camera)
+        let bounds = table.boundingBox
+        var highestY = -Float.greatestFiniteMagnitude
+        for x in [bounds.min.x, bounds.max.x] {
+            for y in [bounds.min.y, bounds.max.y] {
+                for z in [bounds.min.z, bounds.max.z] {
+                    highestY = max(highestY, table.convertPosition(SCNVector3(x,y,z), to: nil).y)
+                }
+            }
+        }
+        let pivots = AngleSceneCalculator.pocketPositions(surfaceY: scene.surfaceY)
+            + [SCNVector3(0, scene.surfaceY, 0)]
+        for pivot in pivots {
+            for yaw: Float in [0, .pi / 2, .pi, 3 * .pi / 2] {
+                rig.observe(at: pivot)
+                rig.targetYaw = yaw
+                rig.handleVerticalSwipe(delta: -10000)
+                rig.handlePinch(scale: 100)
+                rig.snapToTarget()
+                // Bound the whole near plane by its corner radius, including
+                // the widest tested viewport (iPad 744 × 900).
+                let tanV = tan(Double(camera.fieldOfView) * .pi / 360)
+                let tanH = tanV * 744 / 900
+                let nearRadius = Float(camera.zNear * sqrt(1 + tanV*tanV + tanH*tanH))
+                XCTAssertGreaterThan(scene.cameraNode.position.y - nearRadius, highestY,
+                                     "Closest low orbit must stay above the loaded table, pivot=\(pivot), yaw=\(yaw)")
+            }
+        }
+    }
+
+    func testWholeTableFitsActualViewportAcrossYawAndSizes() {
+        for size in [CGSize(width:375,height:500), CGSize(width:402,height:650), CGSize(width:744,height:900)] {
+            for yaw: Float in [0, .pi/4, .pi/2, .pi] {
+                let (rig,camera) = rig()
+                let scene = SCNScene(); scene.rootNode.addChildNode(camera)
+                let view = SCNView(frame: CGRect(origin:.zero,size:size))
+                view.scene = scene; view.pointOfView = camera
+                rig.viewportSize = size
+                rig.setAimYaw(yaw)
+                XCTAssertTrue(rig.observeWholeTable())
+                rig.snapToTarget()
+                SCNTransaction.flush(); view.layoutIfNeeded(); _ = view.snapshot()
+                let opticalCenter = view.projectPoint(rig.currentPivot)
+                XCTAssertEqual(opticalCenter.x, Float(size.width/2), accuracy:1)
+                XCTAssertEqual(opticalCenter.y, Float(size.height/2), accuracy:1)
+                for x in [-Float(rig.tableOuterHalfLength), Float(rig.tableOuterHalfLength)] {
+                    for z in [-Float(rig.tableOuterHalfWidth), Float(rig.tableOuterHalfWidth)] {
+                        for y: Float in [0.8, 0.8 + 2*BallPhysics.radius] {
+                            let p = view.projectPoint(SCNVector3(x,y,z))
+                            XCTAssertGreaterThanOrEqual(p.x, 0)
+                            XCTAssertLessThanOrEqual(p.x, Float(size.width))
+                            XCTAssertGreaterThanOrEqual(p.y, 0)
+                            XCTAssertLessThanOrEqual(p.y, Float(size.height))
+                            XCTAssertGreaterThan(p.z,0)
+                            XCTAssertLessThan(p.z,1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+}
+
+extension IdealDirectionIntegrationTests {
+    func testIncompleteAimVerificationKeepsAnswerAndQuestion() throws {
+        let suite = "v63.verification." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let vm = AimPointSceneQuizViewModel(limiter: AngleUsageLimiter(defaults: defaults))
+        vm.setupScene(cameraMode: .topDown2D)
+        vm.submit()
+        let question = try XCTUnwrap(vm.question)
+        let error = vm.lastErrorMM
+        let count = vm.sessionResults.count
+        var prediction = ShotPredictor.simulateFree(
+            cueBall: SCNVector3(0, BTTablePhysics.surfaceY + BallPhysics.radius, 0),
+            aimDir: SCNVector3(1, 0, 0), velocity: 0.3, spinX: 0, spinY: 0,
+            surfaceY: BTTablePhysics.surfaceY, balls: [])
+        XCTAssertTrue(prediction.hasFinalTableState)
+        let complete = prediction
+        for termination: EventDrivenEngine.Termination? in [nil, .timeLimit, .eventLimit, .failed("test")] {
+            prediction.termination = termination
+            XCTAssertFalse(vm.acceptVerificationPrediction(prediction))
+            XCTAssertEqual(vm.phase, .showingResult)
+            XCTAssertEqual(vm.question?.cueBall, question.cueBall)
+            XCTAssertEqual(vm.question?.targetBall, question.targetBall)
+            XCTAssertEqual(vm.lastErrorMM, error)
+            XCTAssertEqual(vm.sessionResults.count, count)
+            XCTAssertNotNil(vm.verificationErrorMessage)
+        }
+        XCTAssertTrue(vm.acceptVerificationPrediction(complete))
+        XCTAssertNil(vm.verificationErrorMessage)
+        XCTAssertEqual(vm.sessionResults.count, count)
+    }
+}
+
+@MainActor
+final class CueScratchLifecycleV63Tests: XCTestCase {
+    func testScratchPlaybackRedoAndPaletteRestoreAcrossViews() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.clearTable()
+        vm.toggleAimMode()
+        let cueKey = PositionPlayBall.cueKey
+        let cuePosition = SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, -0.45)
+        vm.placeFromPalette(cueKey, atWorld: cuePosition)
+        vm.velocity = 1.5
+        vm.handleTableTap(world: AngleSceneCalculator.pocketPositions(surfaceY: vm.scene.surfaceY)[4])
+        let solveDeadline = Date().addingTimeInterval(30)
+        while vm.isComputing, Date() < solveDeadline {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        XCTAssertFalse(vm.isComputing)
+        let prediction = try XCTUnwrap(vm.solvedShot?.prediction)
+        XCTAssertTrue(prediction.hasFinalTableState)
+        XCTAssertTrue(prediction.cuePocketed)
+        // W17-A: default verdict is planar (no spatial collection tail); W17-D must assert
+        // the deterministic pocket placement for the scratched cue ball here.
+
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 402, height: 700))
+        view.scene = vm.scene
+        view.pointOfView = vm.scene.cameraNode
+        let window = UIWindow(windowScene: try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene))
+        let controller = UIViewController()
+        controller.view = view
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        view.isPlaying = true
+        defer { view.isPlaying = false; window.isHidden = true }
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        try await Task.sleep(for: .milliseconds(600))
+        try XCTUnwrap(vm.scene.cameraRig).snapToTarget()
+        let shotView = vm.scene.cameraNode.transform
+        let rules = ChineseEightBallRules()
+        var settledCount = 0
+        vm.onShotSettled = { facts in
+            settledCount += 1
+            XCTAssertTrue(facts.cuePocketed)
+            XCTAssertTrue(rules.judge(facts).ballInHand)
+        }
+        func waitForPlayback() async throws {
+            let deadline = Date().addingTimeInterval(20)
+            while vm.isPlaying, Date() < deadline {
+                try await Task.sleep(for: .milliseconds(100))
+            }
+            XCTAssertFalse(vm.isPlaying, "Scene playback must reach its completion callback")
+        }
+        vm.play()
+        XCTAssertTrue(vm.isPlaying)
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        try await waitForPlayback()
+        XCTAssertEqual(settledCount, 1)
+        XCTAssertFalse(vm.onTableKeys.contains(cueKey))
+        XCTAssertTrue(try XCTUnwrap(vm.scene.allBallNodes[cueKey]).isHidden)
+        XCTAssertTrue(vm.canPlayback)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        vm.replayLastShot()
+        XCTAssertTrue(vm.isPlaying)
+        try await waitForPlayback()
+        XCTAssertEqual(settledCount, 1, "Replay must not judge the shot again")
+        XCTAssertFalse(vm.onTableKeys.contains(cueKey))
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        try await Task.sleep(for: .milliseconds(600))
+        vm.replayCurrent()
+        XCTAssertEqual(vm.cameraMode, .topDown2DRotated, "Undo must keep the selected 2D mode")
+        XCTAssertTrue(try XCTUnwrap(vm.scene.cameraNode.camera).usesOrthographicProjection)
+        XCTAssertTrue(vm.onTableKeys.contains(cueKey))
+        let restored = try XCTUnwrap(vm.scene.allBallNodes[cueKey])
+        XCTAssertFalse(restored.isHidden)
+        XCTAssertEqual(restored.position.z, cuePosition.z, accuracy: 0.0001)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertTrue(SCNMatrix4EqualToMatrix4(vm.scene.cameraNode.transform, shotView),
+                      "Returning to 3D after undo must recover the pre-shot camera")
+        vm.removeFromTable(cueKey)
+        ShotPlayCamera.setMode(.topDown2DRotated, on: vm)
+        vm.placeFromPalette(cueKey)
+        ShotPlayCamera.setMode(.perspective3D, on: vm)
+        XCTAssertTrue(vm.onTableKeys.contains(cueKey))
+        XCTAssertFalse(restored.isHidden)
+        XCTAssertEqual(restored.opacity, 1)
+        XCTAssertEqual(settledCount, 1)
+    }
+}

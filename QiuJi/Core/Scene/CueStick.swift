@@ -144,6 +144,9 @@ final class CueStick {
 
     let rootNode: SCNNode
     private let usesModelCueStick: Bool
+    private(set) var style: CueStyle = .original
+    private var styleMaterials: [SCNMaterial] = []
+    private var finishGeometry: [(node: SCNNode, original: SCNGeometry, styled: SCNGeometry)] = []
     private var modelNode: SCNNode?
     private var shaftNode: SCNNode?
     private var tipNode: SCNNode?
@@ -166,6 +169,7 @@ final class CueStick {
             (bMin.y + bMax.y) * 0.5,
             bMin.z
         )
+        applyStyle(.selected())
     }
 
     /// Procedural cue stick (fallback)
@@ -217,6 +221,38 @@ final class CueStick {
         rootNode.addChildNode(shaft)
         rootNode.addChildNode(ferrule)
         rootNode.addChildNode(tip)
+        applyStyle(.selected())
+    }
+
+    /// Finish and UVs only: node identity, dimensions, pose and physics stay untouched.
+    @discardableResult
+    func applyStyle(_ selected: CueStyle) -> Bool {
+        guard selected != style else { return true }
+        guard usesModelCueStick else { return false }
+        if finishGeometry.isEmpty {
+            var candidates: [SCNNode] = []
+            rootNode.enumerateChildNodes { node, _ in
+                if node.geometry?.materials.contains(where: { $0.name == "White_Wood" }) == true { candidates.append(node) }
+            }
+            var prepared: [(SCNNode, SCNGeometry, SCNGeometry)] = []
+            for node in candidates {
+                guard let original = node.geometry,
+                      let styled = CueStyleModel.geometry(preserving: original.materials) else { return false }
+                prepared.append((node, original, styled))
+            }
+            guard !prepared.isEmpty else { return false }
+            finishGeometry = prepared
+        }
+        if styleMaterials.isEmpty {
+            styleMaterials = finishGeometry.flatMap { $0.styled.materials }
+                .filter { ["White_Wood", "black_2", "copp"].contains($0.name ?? "") }
+        }
+        // Original geometry and its materials are never mutated. Restoring the
+        // original also retains SceneKit's embedded USDZ texture bindings.
+        guard selected == .original || CueStyleModel.apply(selected, to: styleMaterials) else { return false }
+        for item in finishGeometry { item.node.geometry = selected == .original ? item.original : item.styled }
+        style = selected
+        return true
     }
 
     // MARK: - Update

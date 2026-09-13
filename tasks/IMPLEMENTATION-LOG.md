@@ -2424,3 +2424,1340 @@ DR-113补充：新建模版入口改为居中、内容宽度的紧凑按钮，�
 - **验证**：见 output/notes-cards-20260910/ 与对应 UI 审查报告；范围为本地代码/模拟器，不含发布。
 - **规则改进建议 / 回写目标**：tasks/UI-IMPLEMENTATION-SPEC.md 日记专用组件与 Changelog。
 - **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md § 训练心得日记页 / Changelog（2026-09-10）。
+
+## DR-138 — 手机3D材质隔离实验候选（2026-09-11，v62）
+
+- **授权**：用户执行v62全部任务，固定背景/镜头/几何，动态至少60fps；尚未认可最终画质。
+- **实施**：场景显式mobileRendering默认false，3D角度诊断入口可选；共享材质保留旧默认。原创HDR与台呢原粗糙度、单投影参数候选独立，不调用旧增强整包。DEBUG或专用RENDER_QUALITY_VALIDATION可固定题目；普通Release无诊断入口。
+- **验证与限制**：实际两Runtime目标页、材质/相机隔离及皮革功能测试通过；球底分离与暗部/木框仍弱，画质未最终通过。真机锁定且设备矩阵缺失，未接正式默认、未改最低刷新策略，v62整体未完成。
+- **回写目标/已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md §v62候选隔离；证据见 tasks/render-quality-v62/README.md。
+
+
+### DR-138 v62.2补记（2026-09-11）
+
+用户新增目标先在模拟器达到效果。按实际网格定位台呢低于物理面约5.26mm，候选仅渲染台呢/White印记共面校准，不改USDZ/物理/球位/库袋；材质收敛为半球灯带HDR、单顶灯、原台呢细纹和连续木框漆面。S21最终17单测+2UI通过，另iOS17/iPad真实页面及动态回放通过，build/gate/doc-size通过；模拟器画质达标，审美认可待用户审阅。真机60fps/热/内存和正式共享接入仍未完成，正常Release默认原版。详执行记录及UI审查v62.2，未提交发布。
+
+
+## FL-056 — 把局部渲染改善误判为参考质量达标（2026-09-11）
+- **任务/状态**：v62，用户否决后返工，未解决。
+- **失败**：相对原版改善、功能/构建测试通过后，主控给出2/2/2/1/2并结束模拟器目标；用户真机审阅明确指出与Shooterspool仍相差很远。
+- **根因**：验收把目标缩窄为相对原版提升；缺少每轮与桌面参考的直接图像差距检查，自评分替代了参考质量证据。
+- **处理**：撤回画质达标结论、重开持续目标。每轮保存同镜头/球位/曝光A/B，并同时展示用户参考；不以测试通过、成本小或修掉单个几何缺陷宣布总体视觉达标。拒绝的候选及理由保留。
+- **已应用至**：`.cursor/rules/57-ui-reviewer.mdc` §FL-056，以及问题集合v62.3/UI规格/进度/执行记录。
+
+
+- FL-058（2026-09-11，S98）：静态双球诊断二次摆球随机重置母球姿态，首轮A/B作废；最终摆球后固定姿态并重拍12图，日志S98-fixed.log通过。生产未改，详FAILURE-LOG.md。
+
+## DR-139 — 虚拟训练辅助几何不参与投影（2026-09-11，S155）
+
+- 侧向主灯实际UI暴露瞄准线平行暗影，答题后仍存在；共享指南节点默认castsShadow=true。
+- 统一关闭辅助线/标记/网格/角度注释几何的投影，保留实体球杆桌；不改位置、颜色、深度规则或评分。
+- 红绿测试及26.3/iOS17实际训练UI通过，前后原图确认；完整消费者矩阵和手机性能未验。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §虚拟辅助几何 / Changelog。证据output/render-quality-v62/S155-guide-shadow/。
+
+### DR-138 / S157补记
+
+保留灰面校准后的偏置单主灯为候选局部改善，S154/S155实际页面及iOS17、S156回放、S157接触/隔离与gate通过。材质S95、辅助投影修复S155保留；完整参考目标与手机60fps未验收。已应用至tasks/UI-IMPLEMENTATION-SPEC.md Changelog；证据tasks/render-quality-v62/README.md S156–S157。
+
+
+## S209–212：真实高亮分区与黑木法线伪影修复 — 保留
+
+S209使用588×1000 RGBA16Float+深度采集真实场景，同时渲染材质分类ID。独立校准确认该路径是曝光后的线性值：输入1→.731445，4→2.927734（EV-.45），因此显示超范围阈值为1，不是1.366。球体入口/近景分别4/1345与8/3646像素>1（约.30%/.22%），不支持以大片截白解释整个球体塑料感；近木框入口约5.54%的采样超范围。分区数据包含非有限数量，统计有限值单列，不把NaN当0或正常像素。
+
+发现木框下缘980像素RGB均NaN。S210重复仍980，移除两木材normal后0；S211仅移除BlackWood后0，保持Wood纹理。原USDZ BlackWood_normal全部(128,128,255)，Wood_normal有非零变化。S211全景及相同下缘裁剪前后已审：异常黑线消失。根因范围定位到BlackWood平坦法线采样路径；尚未确定内部切线/UV/框架的具体数值原因，不推广为所有法线贴图问题。
+
+S212为当前entry加入浮点有限断言：未修代码真实TEST FAILED（S212-red.log，980像素异常），生产移动候选仅将BlackWood.normal.contents置nil。修后S212-ios17.log和S212-ios26.log均TEST SUCCEEDED，6个原始浮点图均0非有限像素；iOS17入口原图已打开。实际页S212-ui.log TEST SUCCEEDED，S201/S212入口/辅助/手势/答题4组前后图全审，原绿/木纹/球/功能色保持。没有新资产和渲染pass，真实资源收益/60fps未测。
+
+保留此局部修复，当前=S201原绿与等值颜色绑定+S212黑木法线修复；其他仍S157光照/S95环境/S155辅助投影修复。证据output/render-quality-v62/S209-scene-linear-audit、S210-wood-normal-audit、S211-blackwood-normal-audit、S212-blackwood-fix。整体逼真度仍未达标，不能把局部伪影修复当总体验收。
+
+## DR-140 — 自由击球3D开球试点（2026-09-12）
+- **用户决定**：将分离角与走位的2D/3D试点扩到自由击球，重点核验开球。
+- **实现**：ShotPlayCamera共用相机切换，普通杆读取VM击球方向，开球读取BreakFlowRunner.aimDir；忙碌/停稳态不重设瞄准视角。ShotPerspectiveLayout共用视口边缘仪表定位；BreakInstrumentsOverlay新增默认false的isPerspective，只自由击球标准入口传入3D。每日清台及其他宿主保持原模式。
+- **交互**：3D桌面滑动/捏合只控制相机，刻度轮调瞄；2D移母球。开球中可换视角，取消/重开/完成沿用runner状态机，底栏按钮保持。
+- **验证**：三项状态测试已通过；UI与视觉最终结果见UR-20260912-freeplay-3d.md，不以测试代替真机体验。
+- **回写目标**：swiftui-design-system技能共享开球仪表接口、UI-IMPLEMENTATION-SPEC。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-140；`tasks/UI-IMPLEMENTATION-SPEC.md` § 自由击球3D试点与Changelog。
+
+## DR-141 — 2D/3D共享观看状态独立保存（2026-09-12，v63 W01）
+- **行为**：同杆模式往返保存CameraRig的当前/目标/过渡状态；显式focus替换观察姿态，新盘面/清空/重置/开球/杆结束使旧上下文失效。同模式请求幂等，延迟相机回调按UUID代次拒绝过期写入。
+- **约束**：不持有或修改击球参数/业务时钟；初次进入保留既有沿杆入口。页面完整3D接入与独立手势在后续批次。
+- **验证**：W01 r7十二单测通过；r4真实UI含前后台/模式往返/击球/回放/重打；隔离红控制捕获旧投影覆盖；gate/doc-size通过。见tasks/3d-v63/W01-acceptance.md。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` § 共享观看状态；`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog。
+
+
+## DR-142 — 独立观察轨道、焦点与移动端相机入口（2026-09-12，v63 W02）
+- **行为**：CameraRig手动轨道分别存distance/elevation/pitchOffset/FOV，竖滑与捏合独立；observe(at:)只换观察焦点，observeWholeTable按真实视口拟合台面包围范围。手动操作接管当前可见姿态，PerspectiveState保存该状态。
+- **接口**：ShotObservationMenu(vm:identifierPrefix:)共用于自由击球和分离角与走位，提供全桌/母球/目标球/目标袋，保留独立focus按钮。观察命令不调用选球/选袋业务处理器。
+- **自动行为**：自由击球仅在开球racked→computing/breaking时请求一次全桌；后续settled不抢镜。AngleSceneView自动母球锚定仅在rig.allowsCueScreenAnchor时允许，手动Orbit或自动过渡期间让出控制，回到瞄准再恢复。
+- **验证边界**：标准/SE菜单完整流程已通过；标准自动开球19单测+1UI通过；标准锚点/低角度18单测+2UI通过；加载模型间隙28组合通过。SE扩大回归9单测+3UI通过；2D开球首次3D补充分支20单测+1UI通过，完整批次结论见tasks/3d-v63/W02-acceptance.md。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` § DR-142；`.cursor/skills/swiftui-design-system/SKILL.md` § DR-142；`tasks/UI-IMPLEMENTATION-SPEC.md` § DR-142与Changelog。
+
+## FL-059 — 规划页截图测试停在会员弹窗仍报通过（2026-09-12）
+
+- **来源**：v63 W03 consumers-ui-r1，PlanThree/Snooker两张原图为Pro弹窗，工具结果却通过；属于测试覆盖失败，不能计作台面验收。
+- **根因**：旧openCard只验证首页卡片可点，launchClean清除Pro后未注入目标页面所需权限，也没有目标台面断言。
+- **处理**：S2布局套件使用既有-forcePremium测试夹具；进入后必须确认table.scene存在且可点、没有解锁Pro弹窗。原失败覆盖证据保留，补测consumers-ui-r2。截图迁移至output并让写盘错误显式失败。
+- **规则改进建议**：布局/视觉回归必须核实目标内容，而非只核实入口点击成功；会员入口测试与目标页面布局测试明确分开。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-059（2026-09-12）。
+- **状态**：✅ 测试覆盖缺口修复。consumers-ui-r2两项0失败/TEST SUCCEEDED，打三与防守目标台面原图均已打开确认；不代表规划全流程已验收。
+
+
+## DR-143 — 台面辅助层保持实体遮挡并采用固定显示优先级（2026-09-12）
+- **来源**：v63 W03 overlap-r1，同面反向实线和不同节距虚线对照确认深度写入导致重叠三角片竞争。
+- **变更**：AngleTrainingScene.TableAssistLayer固定fill/reference/route/aiming顺序；贴台线只读深度、不写深度。addLine/addDashedLine新增可选layer，默认route；网格/90度参考线用reference，训练持久进球/撞击线用aiming，填充用fill。空间线仍使用原路径。
+- **约束**：原始物理高度/预测向量不变，球/库边仍参与遮挡；不同节距在空隙露出下层颜色是合法叠加，不当成深度错误。相同语义多路线不承诺一条完全遮盖另一条，需按图谱语义验收。
+- **验证**：depth-policy-r1，TableAssistSurfaceV63Tests 14项及TrainingAssistSceneTests 4项，共18项0失败/TEST SUCCEEDED；生产重合虚线、全桌和低角度密集原图已打开。小屏/iPad及整页最终验证尚待。
+- **已应用至**：.cursor/skills/swiftui-design-system/SKILL.md §DR-143、tasks/UI-IMPLEMENTATION-SPEC.md Changelog（2026-09-12）。本条不宣称W03完成。
+
+
+## DR-144 — 捕获前状态与绝对运动时间（2026-09-12）
+- **来源**：v63 W04。入口速度/自旋在旧捕获时丢失；兜底进袋和无下一事件末帧使用推进前时间。
+- **变更**：PocketEntrySnapshot保存真实入口BallState、袋ID、来源、绝对时间、完整几何快照和planar-capture-v1标记；正常/兜底/解析rollout入口均记录。SpatialMotionSegment只表示无接触空间段，按绝对时间闭式查询，越段返回nil。
+- **时钟**：推进内兜底使用currentTime+dt；无下一事件先提交maxTime再记帧；已捕获球不重复确认同一事件。保留原平面运动和捕获几何。
+- **验证**：contract-r2五项与parity-r1四项均0失败/TEST SUCCEEDED，含入口无损/兜底时间/自由段能量与乱序查询/旧回放/预测一致性/Bundle球形解码；verify-gate FAIL=0。
+- **边界**：旧捕获入口不是支撑丢失，更不是自然入袋。W05/W06必须接入真实局部几何与求解；W08再统一播放。BallFrame/二维内容未改。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-144及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-145 — 局部袋口连续接触原语（2026-09-12）
+- **来源**：v63 W05实测袋口有有限支撑边缘与独立袋壁，球心捕获圈不能替代空间接触。
+- **接口**：PocketContactTriangle.closestPoint/firstContact使用世界米与Double；匀加速段针对面、边、顶点求根，有限三角形距离与接近速度过滤。持续支撑/碰撞响应由后续局部求解器负责，不给静止接触硬塞一次碰撞。
+- **验证**：geometry-r1一项通过且剖面图已审；contact-r1七项通过（含W04四项）。W05未完成，尚未接主引擎。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-145与tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-146 — 局部接触响应与加载网格代理（2026-09-12）
+- **来源**：v63 W05。连续检测之后需要自旋/摩擦响应与有支撑状态，袋网细节不适合硬碰撞。
+- **接口**：PocketContactResponse.impact更新v/omega并限制切向冲量；planarSupport仅处理局部平面受力，调用方负责有限边缘/曲率/停滑边界。PocketContactMesh加载TaiNi/Leather，dominant-plane耳切保留凹边界，按手机实际台呢条件对齐Y；不改USDZ。
+- **证据**：response-r1六项通过；mesh-r1/r2保留失败诊断，角袋径向探针擦库、旧袋心会碰原Leather，不能先验要求无碰撞。mesh-r3两项通过，内侧平分线探针支撑正确、无虚构朝上封口面、竖直凹口不填平。
+- **边界**：网格片数仍大、无加速结构；完整局部求解器和动态进袋未实现，W05保持进行中。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-146及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-147 — 局部支撑集与收敛失败（2026-09-12）
+- **来源**：v63 W05真实网格动态探针。单面支撑造成同时间同面重复冲量；容差内未接触边缘与分离接触参与摩擦又造成接触力不收敛。
+- **接口**：LocalPocketSimulation提供单球时间推进、完整支撑集、速度单向投影、法向/切向力迭代、CCD冲击和有界漂移检查。空间误差预算不能充当支撑激活距离；支撑只允许机器舍入范围内的实际接触，速度投影后须重新去掉分离约束并重算曲率。未收敛显式抛出时间/阶段/接触数/残差。
+- **证据**：local-r1基础两测通过；manifold-r2至r6保留失败，凹槽双面/反序测试通过。r4实测伪支撑间隙9.3199843e-7m；r6投影后分离速度5.313644e-7m/s，不能继续施加支撑。r7四项通过，实际角中袋推进/无重复/收敛守卫通过；gate/doc-size通过，W05仍未验收。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-147及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-147续验：2026-09-12 adaptive-r1，加入超预算穿透的完整状态拒步/减半重算。12条直入轨迹均完成但矩阵3断言失败（慢角袋能量/收敛、高速中袋收敛），W05未验收；结果与下一步见W05-working。拒步契约同步ios-architecture技能。
+
+DR-147续验：精确有限面边缘分段已加入，edge-analytic-r1闭式时间测试通过；实际高速中袋高度/纵向收敛后暴露多面同时冲击的左右排序依赖，edge-event-r1仍1失败，保留待修。规则契约此前已同步ios-architecture。
+
+
+## DR-148 — 同时多面冲击联合响应（2026-09-12）
+- **来源**：v63 W05，真实中袋两面对称TOI仅差1.8e-18秒，单面最早排序引发左右分叉。
+- **接口**：PocketContactResponse.simultaneousImpact按共享冲击前状态、恢复目标、库仑限幅做同步松弛Jacobi冲量迭代；迭代耗尽抛错。局部模拟器按机器舍入级同TOI收集并记录全部面。
+- **验证**：joint-impact-r1五项局部测试通过，包括9组e/摩擦的对称反序与能量；高速中袋两步长轨迹一致约1e-13米。矩阵仍有慢中袋左右分叉1失败，持续支撑/位置投影顺序待诊断，W05未验收。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-148与tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-148续验：持续支撑改同步速度/力/末态投影并保持收敛失败；完全同法线同摩擦内部接缝保留最小曲率约束。symmetric-support-r2基础5测通过，矩阵仍慢中袋12.145824mm分叉1失败；已保留进一步首次偏移诊断，W05未验收。契约同步ios-architecture技能。
+
+
+## DR-149 — 曲面支撑接触导数与新位置约束（2026-09-12）
+- **来源**：v63 W05慢中袋短时对称诊断，旧支撑面不能代表推进后的几何约束；曲面无滑动加速度漏掉法线转动。
+- **变更**：末状态按新位置全候选最近面重建约束；normalRate统一给出有限边/顶点法线导数，曲率=v·nDot，切向接触加速度包含omega×(-R*nDot)。力求解与停滑时间共用完整导数。
+- **验证**：onset-r1/r2保留失败；onset-r3六项通过，慢中袋0.46s末横向偏移约1e-23m，基础/同时冲量/离边回归通过。完整矩阵待终态，W05未完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-149与tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-149续验：relative-force-r1和friction-constraint-r1均保留受力尾差失败，后者基础5测通过；完整矩阵/短时尚未通过，W05继续。试验约束与下一步诊断已同步ios-architecture及W05-working。
+
+
+## DR-150 — 广义运动与接触可行性联合收敛（2026-09-12）
+- **来源**：v63 W05，内部接触力分量不唯一，分量残差1.1559e-10时实际广义加速度变化仅1.8108e-16。
+- **变更**：受力解要求广义加速度相对变化<1e-10，同时法向互补/库仑圆盘投影加速度残差满足0.5*residual*duration²<=空间tolerance；不要求相互抵消的内部力唯一。独立能量、穿透与全轨迹步长断言不改。
+- **验证**：feasible-motion-r1七项0失败/TEST SUCCEEDED，含12条真实角/中袋直入矩阵、短时对称、5项基础；慢中袋左右分叉消除，gate通过。W05悬袋/返回/慢放/加速等未完成，主引擎未接入。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-150及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-151 — 袋口碰撞候选空间索引（2026-09-12）
+- **来源**：v63 W05实测网格数千三角面逐步扫描成本。
+- **接口**：PocketContactIndex保存不可变AABB树，返回原始面编号有序候选；LocalPocketSimulation.useSpatialIndex默认true，false供严格穷举对拍。
+- **验证**：index-r1七项通过，1302状态/全部接触与拒步次数逐项相同，12轨迹矩阵通过；单次模拟器Debug含建树2.1079s→.9057s，非真机验收。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-151及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-152 — 有限特征碰撞根校正（2026-09-12）
+- **来源**：W05中袋返回撞击把未接触边缘收为同TOI，联合冲量不收敛。
+- **变更**：有限三角形距离Newton抛光解析种子，机器舍入距离过滤，抛光后重新选择最早接触。原1e-7距离宽容不能作为实际碰撞激活。
+- **验证**：finite-root-r1九项通过；return-contract-r1六项通过，包括50um偏心边缘延迟碰撞闭式回归、12直入轨迹及两袋4m/s返回并重获平面支撑。W05视觉/偏心/参数等仍未完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-152及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-153 — 局部轨迹候选使用实际加速度（2026-09-12）
+- **来源**：W05支撑/摩擦可产生水平加速度，纯重力候选范围不能覆盖实际抛物段。
+- **变更**：先查询当前支撑，再以求解后线加速度和当前分段时长重建可达AABB，供CCD和末态约束使用。索引与穷举共用查询范围。
+- **验证**：near-frames-r2三项通过，1302状态及事件严格对拍、12偏心/返回能量与步长轨迹通过，42张近袋帧留证；主引擎未接入。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-153及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-154 — 局部接触迭代加速与积分误差控制（2026-09-12）
+- **来源**：W05临界外沿新增回归：冷Jacobi慢收敛；首阶曲面支撑在1s末粗步差约2.1mm；分段尾差把不可分辨滑速放大为摩擦请求。
+- **变更**：接触力使用深度1 Anderson候选并以真实不动点残差下降为接受条件，仍保留原严格运动/接触收敛守卫。一步/两半步比较位置、dt乘速度及R*dt乘自旋差，拒绝的试算不写事件/轨迹；局部误差预算不代替全轨迹步长与能量验收。内部子步使用原整段convergenceHorizon。静态单球自主平衡可休眠至请求末时刻，不能把该规则直接用于未来存在其他球/外部事件的调度器。
+- **数值时间**：绝对时间加减使末步略超cap时，把舍入尾差合入末步；切向滑速低于其v/omega运算尺度的舍入界时记零，求解与校验同源，禁止以固定可见速度阈值代替。
+- **验证**：anderson-support-r1三档临界轨迹均完成，严格守卫通过，但粗步2mm断言失败；error-control-r1/r2保留微小尾步失败。r2五项基础通过、角袋步长差降至1.056mm/0.533mm。error-control-r3验证滑速舍入修正中，不能据这些中间结果关闭W05。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-154及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+DR-154续验：error-control-r3六项0失败，原2mm粗细步标准通过，角/中袋误差约减半；gate/doc-size/scoped diff-check通过。完整原场景与近袋帧回归运行中，W05尚未验收。
+
+
+DR-154最终续验：error-control-r3六项与acceptance-regression-r1六项均0失败；84帧留证并实看16张关键帧。W05原型按W05-acceptance.md验收；参数实物标定、手机预算、App链路与多球调度不在本次完成声明内。
+
+
+## DR-155 — 空间球球接触与分离约束激活（2026-09-12）
+- **来源**：v63 W06，局部球必须与台面球/其他局部球按真实高度接触。
+- **接口**：SpatialBallContact.firstContact以B-A相对位置/速度/加速度求连续接触，返回A→B法线；resolve保留三维速度；resolveCoupled的Constraint法线为B/静态面→A，等质量等半径球共享初态联合求冲量。
+- **激活**：初始分离接触不参与冲量，避免恢复条件与错误支撑联合制造能量；响应后新接近的约束须同绝对时刻重新调度。此函数不负责主事件循环或几何穿透修复。
+- **验证**：separating-support-red-r1原反例4断言失败；coupled-contact-r3完整6项0失败，包括竖向交换、真实高度CCD、守恒/摩擦矩阵、支撑联合冲击、三球对称与分离支撑反例。r2因SettingsView类型检查超时未执行测试；等价抽取roomStyleRow后构建恢复，保留既有样式行为。
+- **范围**：主引擎尚未接入，W06未验收。r3为标准模拟器Debug证据。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-155及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-156 — 球房风格设置（2026-09-12）
+- 用户选定极简赛事并授权可选风格。S428扩展为④极简赛事（tournament）/②温润木质（walnut，保留旧持久值）/⑥当代东方（eastern）；默认tournament，未知持久值回退默认；本地key为roomStyle.v1。
+- SettingsView使用实际渲染缩略图卡片，44pt以上整行命中与已选择无障碍值。仅Debug展示，与当前球房消费开关一致。
+- AngleSceneView观察偏好；installReferenceRoom(style:)只替换外围节点，同款幂等，保留相机/球桌/球材质及2D隐藏。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-156及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+DR-155续验：resolveInstant补齐同时间冲量闭环，固定几何候选逐轮重建激活；返回rounds，maxRounds不足抛convergence。instant-contact-r1七项0失败，覆盖两轮终态、逐轮能量、顺序与失败预算。主引擎接入仍未完成。已同步ios-architecture与UI Changelog。
+
+
+## DR-156 — 静态袋口几何注入（2026-09-12）
+- **来源**：v63 W06，物理网格不应依赖完整训练场景生命周期。
+- **接口**：PocketContactMesh.load(table:worldRoot:pocketID:center:surfaceY:bedY:alignCloth:)解码独占静态节点树，返回纯数值Patch；既有scene入口只提取参数后委托。坐标转换、TaiNi对齐、候选窗口与有限面剖分保持原路径。
+- **所有权**：调用方负责节点树独占访问及实测bedY；结果不保留SceneKit引用。此步未提供资产缓存或无场景bedY测量，不宣称物理后台全链路已就绪。
+- **验证**：geometry-injection-r1八项0失败：角/中袋克隆静态树与现有scene入口逐顶点/材质完全一致，快照不随原节点移动，非有限坐标拒绝；七项空间接触回归通过。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-156及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+DR-156续验：PocketGeometryAsset提供无AngleTrainingScene的资产初始化，使用同源TableModelLoader变换和MobileClothAlignment静态树bedY测量，锁保护进程级纯数值快照；失败不缓存。geometry-asset-r1九项0失败，六袋逐顶点/材质/高度一致及缓存身份复用通过。主引擎尚未消费。已同步架构技能与UI Changelog。
+
+
+## DR-157 — 局部运动区间与跨轨迹连续检测（2026-09-12）
+- **接口**：LocalPocketSimulation.Result.intervals保留accepted运动段的起态、线/角加速度、右端冲量/投影后状态；sample(beforeEndpoint:)提供碰前左极限。firstPairContact合并两条不同分段轨迹并求最早球球CCD，返回绝对时间及碰前状态。
+- **约束**：拒步不得泄漏段；检测不等于响应；碰撞后未来段必须失效。段端点静态接触需主调度联合解算，不可直接使用独立单球预测的碰后速度。此步尚未接入EventDrivenEngine。
+- **验证**：local-interval-r1十三项通过；interval-pair-r1十四项0失败，落地前后速度闭式值、区间连续时钟、不同步长双轨迹碰撞时间7.2s及交换对称通过。普通局部求解/接触回归通过。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-157及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-158 — 局部多球最早事件推进（开发中，2026-09-12）
+- **接口**：LocalPocketSimulation.advanceTogether预测同窗、选最早球球事件、截断所有未来段，重建同时静态/球球约束并resolveInstant；返回时刻/状态/accepted区间/约束，后续须重新预测。
+- **验证**：coupled-advance-r1十五项0失败，下落球撞受支撑球后反弹的接触时间与重算末态符合闭式值。
+- **未解决**：pair-support-red-r1一项两断言失败。初始竖直静止双球，上球从0.3m下移到0.2875m、vy=-0.5；独立预测无法提供持续球球支撑力。禁止把本接口接入正式App或宣称W06通过，先解决持续接触及其步长/能量边界；保留原断言。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-158及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-159 — 持续球球/静态面联合接触力（2026-09-12）
+- **接口**：SpatialBallContact.resolveSupport接收运动、外力加速度与SupportConstraint(contact,normalRate)，返回线/角加速度及每约束作用于A的单位质量力。法向互补含曲率项，切向按实际滑速选择库仑滑动或静摩擦投影；求解失败显式抛convergence。
+- **边界**：冲击须先解算；只有法向相对速度在舍入界内的持续接触承力，分离无力。几何与normalRate由调用者提供，不能以此函数替代几何检测或时间积分。
+- **验证**：support-force-r1九项0失败，双球静态传重Fn=10/20、加速度为零、约束反序一致、分离无拉力、滑动摩擦与角加速度、曲率失支撑通过；含七项冲量/CCD回归。
+- **未完成**：尚未接入advanceTogether的演进，pair-support-red-r1失败仍然有效。下步接入持续力及步长误差控制后必须重跑原失败，不得以本次力级单测替代。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-159及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+DR-159演进接入：advanceTogether按maxStep刷新持续力，只把球间力/力矩传给各独立局部求解器，静态面自行重算，避免重复反力；LocalPocketSimulation新增缺省零externalAngularAcceleration，所有接触力迭代和运动段使用该外力矩。pair-force-integration-r1十八测一失败：残差被识别为0.005s伪碰撞；r2将力迭代收紧到64ulp尺度并只忽略整个重叠区间运动均低于舍入速度界的零时刻根，十八测0失败，原静止双球时间/位置/速度断言均保留。移动曲面接触的漂移、共同步长误差、性能仍待验；主引擎未接入。
+
+
+## DR-160 — 持续压力接触几何修正（2026-09-12）
+- **来源**：moving-support-red-r1三档步长均穿入，末球心距约0.189–0.192m而非0.2m；舍入级激活下曲面漂移丢失持续力。
+- **变更**：持续力计划保留正法向力对应的球球/静态面引用；在单个有界试算内压力球对不重复走冲量CCD，末态联合修正实际距离与法向速度。修正总位移超过4*tolerance则丢弃整个试算、半步重试，不扩大激活距离。
+- **验证**：pressure-projection-r1十九项0失败，原静止反例、移动接触三档距离/收敛、瞬时碰撞重算与已有局部/接触回归通过。
+- **仍需**：共同积分误差控制、机械能与真正脱离边界；本次使用步首压力集合，不能据此宣称整个步内不会失去支撑。主引擎未接入。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-160及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-161 — 多球共同误差控制（2026-09-12）
+- **接口**：advanceTogether默认整步/两半步对比，比较全部球位置、dt速度、R*dt自旋及碰撞时差速度界；状态或事件判定不同则减步，只有接受的半步进入结果；rejectedTrials记录整组拒绝次数。
+- **测试前提审核**：旧固定步长断言fineDifference<=coarseDifference+1e-8在自适应步长下不再具备原前提，r2出现7.75um>5.22um；未放宽断言。保留useSharedErrorControl:false作为固定组步长对照，仅该原测试显式选择；默认自适应路径以独立误差预算收敛和原动态/静止案例验证。
+- **验证**：r1测试能量闭包缺return，构建未通过；r2二十测一失败（上述前提），能量误差1e-5/1e-6/1e-7预算分别0.000337/0.000102/0.000051，未增加能量；shared-error-r3二十项0失败，固定对照原断言保留，默认路径拒步和轨迹时间范围通过。
+- **边界**：局部预算不是全程同精度承诺；真实失压/脱离、实际网格多球、性能和主引擎接入仍未验。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-161及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-162 — 脱离独立参考与局部索引复用（2026-09-12）
+- **变更**：临时外力求解器通过private init(base:)共享不可变surfaces/index，仅改变外力和力矩；保留父求解器索引/穷举选择。
+- **验证**：release-reference-r1二十一项0失败；高速直接脱离自由落体、运动中失压后两球位置对照独立动量/能量约化参考（0.1mm）通过。real-mesh-coupled-r1一项0失败，在真实角/中袋附近台呢网格验证球球与台面联合响应，TOI与反弹闭式值通过。
+- **参考**：release-reference.json保留无摩擦等质量模型公式、释放时间0.0987335019和0.12s坐标；不以待测引擎输出生成期望值。
+- **边界**：真实网格案例只是近袋支撑/球球响应，尚非两球自然进袋；手机预算与主引擎接管/返回仍未完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-162及tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-163 — 空间球球有界根隔离（2026-09-12）
+- **任务**：v63 W06。
+- **证据**：tiny-root-red-r1一项失败，2ns返回接触被旧通用根处理遗漏；bounded-root-r1构建及18测通过。
+- **调整**：SpatialBallContact按导数临界点划分单调区间并二分至相邻可表示时间，仅精确相同根去重；保留接近方向与几何过滤。普通平面QuarticSolver不变。
+- **边界**：实际双球袋口r5/r6均三处失败尚未验收，需继续定位首次穿透区间；不得以基础测试替代实际入口和主调度验收。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-163；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-164 — 多球事件的联合几何（2026-09-12，开发中）
+- **任务**：v63 W06。
+- **实测根因**：r7记录t=0.090068953s处单球袋沿修正将球间隙由+3.3477e-11m改为-3.3246e-10m，后续CCD从重叠起态漏检。数值代入见W06/first-overlap-projection.json。
+- **调整**：联合事件在冲量前投影静态/球间单边位置约束，保留入射速度；无事件试算末态若球间穿透超过舍入界则整步拒绝减步，总修正预算不变。静态小反弹策略与单球入口一致。
+- **验证边界**：基础18项通过；r1真实案例触发100事件守卫，r2/r3定位三接触瞬时冲量残差2.643e-10，独立反例已稳定复现失败，下一步诊断联合冲量迭代。尚未证明持续接触稳定、完整自然入袋或主引擎接入。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-164；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-165 — 冲量互补残差与接触转换精度（2026-09-12）
+- **任务**：v63 W06。
+- **根因与证据**：near-rest输入的释放约束冲量卡在5e-324，lambda>0分支错误要求分离速度为零；独立数值复算保留near-rest-residual-analysis.json。contact-transition-r1另验明冲量1e-11与持续力64ulp激活精度不同，微小残速反复生成事件。
+- **调整**：法向使用速度单位的自然投影互补残差；冲量和同时间闭环收敛收紧至64ulp，与持续力一致。球球反弹按实际区间相对法向加速度及曲率估计分离高度，恢复方向且高度在空间误差预算内时采用非弹性冲击，持续力仍自主决定释放。
+- **验证**：contact-transition-r2构建及20项0失败；原断言保留。真实案例r8仍触发100事件守卫，中袋未执行，完整多球入袋/主引擎未完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-165；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-166 — 压力投影量纲与激活一致性（2026-09-12）
+- **任务**：v63 W06。
+- **根因**：projectPressure混用位置/速度尺度，位置模长放宽了速度残差，下一半步resolveSupport却不接受该残速。r9捕获真实状态，单平面复现0.1ms请求在49ns后返回碰撞。
+- **调整**：位置与法向速度分别按各自64ulp尺度归一化，速度尺度同持续力激活；不改空间误差预算、材料或事件上限。
+- **验证**：pressure-scale-red-r1两断言失败；pressure-scale-r1构建与21项通过。实际r12定位0.155366s反复拒步至local-half时间精度耗尽，待查拒步分类，W06主引擎未接入。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-166；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-167 — 联合接受状态的静态几何（2026-09-12）
+- **任务**：v63 W06。
+- **证据**：r13拒步穿透不随dt减小；固定起态诊断显示旧压力投影接受了0.206/0.237微米静态穿透，下一单球修正进入邻球。
+- **调整**：入口及压力投影后联合恢复全部静态/球间单边几何；两阶段总修正保持4*tolerance预算。仅校正位置，不借此清零速度或吞碰撞。
+- **验证**：joint-static-r1构建及22项通过；追加总预算守卫后r2正在跑22项及真实案例，整体未完成。固定历史输入初态断言改为历史穿透前提，输出几何断言保留严格精度。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-167；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-168 — 相对CCD继承世界位置舍入界（2026-09-12）
+- **任务**：v63 W06。
+- **证据**：联合几何容许的-2.2e-14m间隙超出相对坐标CCD默认舍入界，仍以约0.03m/s接近却漏掉零时刻冲量。world-roundoff-red-r1捕获状态反例失败。
+- **调整**：firstContact新增positionUncertainty缺省0；firstPairContact传入两球世界位置尺度的舍入界，几何投影也按各接触自身尺度检查，远处第三球不放宽此球对误差。该界不使用积分tolerance。
+- **验证**：world-roundoff-r1构建与23项通过，包含总修正预算守卫、历史静态状态及新漏检反例。真实r14重验中；W06整体未完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-168；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-169 — 支撑由联合接触力决定（2026-09-12）
+- **任务**：v63 W06，涉及W05共享单球求解回归。
+- **根因**：重力对斜面法向分量指向分离，不代表台面反力/摩擦不会加载该面。r14活体采样确认真实袋沿极短碰撞，固定floor+overhang平衡反例由红证实。
+- **调整**：触碰候选交给联合力求解，不预先以gravity+curvature排除；段末投影使用已求解的接触几何。仅正支撑力接触进入持续支撑跳检集合，未承力面保留CCD。
+- **验证**：overhang-support-red-r1/r1三处失败；r2构建及28项通过。r15实际双球待验，W05实际网格回归待验，未声称整体完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-169；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-170 — 最终几何上的压力速度（2026-09-12）
+- **任务**：v63 W06。
+- **根因证据**：pressure-half-red-r1两断言失败；diagnostic-r1显示完整位置修正旋转球间法线，法向残速越过持续力激活精度，导致半步新冲击。
+- **调整**：最终几何完成后，对仍在接触舍入界内的旧压力集合做仅速度投影；不移动最终位置，不恢复已离开的有限特征。保持原容差、迭代上限与事件一致性检查。
+- **验证**：pressure-half-r1原反例通过；final-normal-regression-r1构建及33项通过，含W05临界/速度矩阵/返回能量三类实网格回归；gate/doc-size/diff通过。r16仅初态fixture失败，按实际网格定位初始Y后r17近袋全段通过；consecutive-fall-r1前后双球角/中袋真实下落通过。连续间隙、共同下落接触和主引擎未验收。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-170；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-171 — 局部球心区域与几何覆盖（2026-09-12）
+- **任务**：v63 W06主调度前置。
+- **问题**：原18cm网格候选窗是表面覆盖，若直接作为球心区域，球在边界会接触窗外未加载几何。
+- **调整**：显式PocketLocalRegion横向球心区域，几何筛选窗再加球半径；通过真实袋ID提供区域。firstCrossing按恒加速度边界根和开区间成员关系取连续穿越，不用捕获圆或时间epsilon判接管；切触不切换所有权。
+- **验证**：local-region-r1三项通过（穿越/资产/速度矩阵），r2新增映射与下落追撞/复杂近袋连续间距三项通过；gate/doc-size/diff通过。进入早于所有支撑变化的全几何证书、返回条件和主调度尚未完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-171；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-172 — 局部Double所有权与台面返回（2026-09-12）
+- **任务**：v63 W06。
+- **调整**：LocalPocketOwnership保留Double状态、单球唯一所有权及revision；组提交先检查全部时钟/版本再原子写入，重入后拒绝旧事件。planarReturn须离域或向外过边界、有有限台面支撑、无墙沿接触且沿实际面运动；只有通过才移除局部所有权。
+- **实测修订**：真实边界r1和diagnostic-r1失败；角袋台呢大三角形Y差一个Float ULP，产生1.16e-7法线斜率。仅认可全部顶点在标准台面一Float ULP内的面，并检查竖直脚点仍在有限面内及实际法向速度。返回到标准平面允许既有空间预算内高度修正、清除该微斜率竖向速度；XZ/水平速度/自旋/时间保留。
+- **断言前提**：真实边界fixture原水平速度并非该微斜面的切向速度；改为按实测接触法线构造受支撑切向速度。原全向速度相等改为水平分量相等、竖向归零；理想水平面测试仍保留完整p/v/omega/time相等。没有放宽腾空或真实墙沿拒绝条件。
+- **验证**：ownership-r1两项通过；r2三项通过，包含真实六袋中心方向代表边界，最大Y校准约5.96e-8m。主引擎未消费该接口，全方向未验，W06未完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-172；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-173 — 主引擎显式局部接入入口（2026-09-12）
+- **任务**：v63 W06。
+- **调整**：EventDrivenEngine.simulateWithLocalPockets使用Double spatialTime与LocalPocketOwnership，选择区域进入与既有平面事件较早者；局部期间不调用旧bounds/吸袋清零。离域处截断预测并验证真实支撑返回；普通平面演进抽取共享evolvePlanarBall，旧simulate仍复用原方程与bounds顺序。TrajectoryRecorder保留Double局部区间和entered/returned交接。
+- **开发边界**：当前显式入口只允许单球，混合多球立即抛groupIntegrationPending，尚未启用正式App；未实现权威规则capture，不把已经下落标成pocketed。该临时限制必须随共享调度实现移除，不缩小v63范围。
+- **验证**：main-local-entry-r1角袋下落/中袋返回通过，中袋正入暴露接缝不收敛；DR-174处理后r2两类主引擎路径已通过，完整回归运行中。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-173；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-174 — 消除物理台面的一ULP接缝（2026-09-12）
+- **证据**：main-local-entry-diagnostic-r2给出中袋z=-0.51188004处六个台呢面，同一支撑层的顶点仅相差一Float ULP，形成微小折面并导致投影残差2.41635e-10不收敛。原12cm局部fixture从接缝内侧开始，未覆盖真实18cm接管后过接缝。
+- **调整**：仅数值物理代理中，TaiNi顶点距标准surfaceY不超过surfaceY.ulp者对齐到标准Y；更低袋沿曲面与所有其他材质保持原值。共享顶点采用同一规则，maximumBedAdjustment记录最大变动上界。显示模型/USDZ不变；没有改迭代上限或残差。
+- **验证**：r2主引擎角/中袋下落与中袋返回通过，六袋数值代理对拍/调整上界通过，普通PhysicsEngine/RestTransition已通过；临界/速度网格矩阵仍运行中。其他实际多球/收敛回归尚待刷新。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-174；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+
+## DR-175 — 局部续算保留已求解尾段（2026-09-12）
+- **证据**：main-local-entry-r3共25项中只有续算测试4断言失败；0.6s切段使随后积分网格重置，1.1s末态位置约2.4微米、速度约5.8微米每秒差异。真实多球和基础接触均通过，不是Double状态转Float后重建。
+- **调整**：局部试算保持完整步，仅发布到请求时间；剩余Result带所有权revision保存，下次继续消费同一多项式区间。到真正边界仍截断并检查支撑。相同Double时间请求直接无操作，不添加重复快照。新外部事件必须使预测失效；混合组调度仍待实现。
+- **验证**：r4主下落/返回/原续算断言三项通过；r5追加p/v/omega逐分量精确相等及无操作快照数量检查，通过；gate/doc-size/diff通过。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-175；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-176 — 跨所有权预测与平面方程一致性（2026-09-12）
+- **范围**：findNextEvent增加局部owner排除集合，保留球数据；firstLocalPlanarContact用真实高度连续检测，预测止于下一平面事件，接触自旋从实际平面方程查询。当前为混合调度基础接口，尚未接入多球主循环。
+- **失败机理**：EngineNumerics加速度仅在速度>0.001时启用，而AnalyticalMotion滑动/滚动在>0.0001时仍减速。0.0005m/s滑动反例预测接触22.351740729微秒，独立方程23.428689391微秒，原1e-10s断言失败。
+- **修复**：预测加速度的两个域边界与现有演化方程一致，分类阈值不变；未放宽断言。
+- **验证**：cross-owner-low-speed-red-r1终态失败保留；green-r1终态exit0，39项0失败，覆盖跨owner高度/先行事件截断/不删球过滤、普通PhysicsEngineTests及PhysicsRestTransitionTests。先前planar-owner-filter-r1为37项通过，cross-owner-prediction-r1为3项通过，属于重复执行不能累计为独立功能覆盖。
+- **边界**：不代表混合组事件响应、外部变更缓存失效、全低速域或App自然进袋验收。正式入口仍未切换。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-176；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-177 — 共用接触时刻联合响应（2026-09-12）
+- **范围**：从advanceCoupledTrial提取resolveContactGroup(initial,accelerations,pairRestitution,pairFriction)，原局部推进改为调用同一入口；接收同一时刻的碰前状态和加速度，联合处理实际静态几何与球球接触，返回碰后速度/自旋与约束，不生成运动区间。
+- **原因**：跨owner预测之后不能仅交换球速；受支撑接收球的台面反作用必须与球球冲量共同求解。低反弹的有界处理继续使用各球真实预测加速度，不改旧接触参数或误差预算。
+- **验证**：cross-owner-response-r1终态exit0，两项通过：理想平面向下0.5m/s撞击、e=0.8后落球向上0.4m/s且台面球vy=0，异步输入拒绝；真实角/中袋落球与受支撑球联合案例。r2在加入有限状态检查后回验新入口、真实离台追撞、持续压力半步及复杂近袋连续间距。
+- **边界**：此入口不推进主引擎时钟、不提交所有权、不负责缓存失效。混合主循环与覆盖域外邻球的实际静态几何仍待接入，W06未完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-177；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+DR-177补充验证：cross-owner-response-r2终态exit0，4项0失败；复杂近袋连续间距/能量、真实离台追撞、持续压力半步与新入口通过。gate/doc-size/diff通过。
+
+## DR-178 — 域外接触组的全桌数值几何（2026-09-12）
+- **范围**：PocketContactMesh.Coverage新增fullTable选项，默认仍pocket；PocketGeometryAsset缓存tablePatches，用同一TaiNi/Leather筛选、移动台呢对齐及一Float ULP规范契约提取全桌候选。局部球心所有权域未扩大，原六袋patch保持。
+- **原因**：区域边缘的局部球可以接触域外邻球。只扩大所有权区域不能消除跨区接触；共用响应必须拥有邻球所在位置的真实支撑/袋沿几何。全桌值快照供空间索引查询，不代表全桌球都改用空间积分。
+- **验证**：full-contact-geometry-r1终态exit0，两项通过：六袋原网格是全桌候选逐顶点精确子集；桌心及沿六袋朝桌内方向越过所有权边界两球半径处均有实际竖直球体CCD台面支撑；六袋Scene加载对拍保持通过。r2追加同七处的联合落球响应及单球主入口回归，尚须读取终态。
+- **边界**：保留既有碰撞材质范围，不宣称袋底/装饰材质或全方向已验收；主混合调度尚未使用tablePatches，性能预算仍未验。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-178；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+DR-178验证更正：r2终态exit0但仅执行1项，七处全桌几何联合响应通过。命令误写testMainEngineBeginsNaturalPocketDescentBeforeLegacyCapture（真实名称为Owns），Xcode未报不存在筛选项，不计主入口验收。full-contact-main-r3使用源码准确名称补跑主下落与Double精确续算，session_id=8644。
+
+full-contact-main-r3终态exit0，准确名称两项执行均通过：主入口角/中袋下落及单球精确续算。DR-178三轮共5次执行（含重复几何测试），全桌七处联合支撑通过；gate/doc-size/diff通过。所有句柄终态。下一步使用tablePatches构建共享接触求解器并接入多球主时钟，暂不能移除单球限制或标W06完成。
+
+## DR-179 — 混合多球主循环验证入口（2026-09-12）
+- **范围**：EventDrivenEngine.simulateMixedWithLocalPockets(maxTime,maxStep,pairRestitution,pairFriction,maxEvents)新增显式验证入口。台面事件/局部域进入/局部组最早球球接触/跨owner CCD共用Double时钟；普通台面球仍由evolvePlanarBall演化。全桌接触索引用于局部组及域外邻球，接触邻球沿接触关系加入同一联合响应，复制所有权账本完成共同提交后发布Float镜像，每轮清理旧平面事件缓存。
+- **参数**：球球系数由验证调用者显式传入，尚未取代生产碰撞材质契约；静态接触沿用既有W05原型参数。正式simulate以及单球simulateWithLocalPockets未切换。
+- **返回**：局部球需满足真实台面返回判据，且与其他局部球离开4*tolerance接触预算；此边界仍需实际返回/重入回归。新增球球事件写入既有事件/时间记录，首次碰撞时间使用当前绝对时间。
+- **验证**：mixed-main-r1终态exit0，真实中袋域内腾空球撞域外台面球通过：动量传递、台面支撑、邻球空间接管与无旧捕获。r2因新测试直接比较非Equatable的SCNVector3编译失败（保留）；改为逐分量精确断言后r3补跑两地区下落+远处静止球和跨区单次事件。
+- **尚未完成**：混合续算完整步缓存、外部setBall输入生命周期、同时事件/静态事件记录审计、返回再入、接触组多球连续间距/能量和生产参数一致性。多球单次输入已有实际推进代码，不等于整批W06或App进袋已验收。不可用新入口的一例通过移除正式门控。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-179；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+mixed-main-r3终态exit0，两项0失败：两个不同袋口在同一Double时间推进到1.1s均下降，远处静止球逐分量保持；真实跨owner接触动量/支撑/晋升及单次球球事件记录通过。r2编译失败已修为逐分量断言，未改物理断言预算。gate/doc-size/diff通过，所有进程终态。下一步混合主循环连续段/同袋多球/返回再入和任意时间续算：当前主混合入口已接通但未完成这些验收，正式simulate与原单球入口仍保持。
+
+## DR-180 — 混合完整步骤缓存与前缀提交（2026-09-13）
+- **根因**：混合入口使用maxTime裁积分末步，后续从裁点重新积分，旧反例最终位置差约4.4e-16m。精确断言保留。
+- **实现**：PendingMixedStep保存共同步骤起止、局部原始区间/完整终态、平面原始状态/完整终态、晋升与事件待提交动作、参数和版本。固定完整maxStep或最早物理事件决定求解边界，请求只决定消费前缀。局部前缀从原区间sample，平面前缀从原步骤初态演化；完成时采用缓存终态，不从已发布前缀续积分。只有到完整事件时间才发布碰撞/晋升/进入。部分提交更新owner revision，后续匹配续用。
+- **输入保护**：缓存绑定maxStep/球球系数/ballInputRevision和owner revisions；参数或外部setBall变更不能继续使用旧预测，当前明确抛staleUpdate。setBall正常路径只增加revision计数。单球局部入口拒绝混合缓存，反向混合入口原有pendingLocalResult检查保持。完整外部修改后重新接管/重算流程仍待验证，不声称已支持任意运行中编辑。
+- **验证**：mixed-continuation-green-r1终态exit0，原精确p/v/omega续算反例及跨owner单次碰撞两项通过。green-r2追加事件前多次截取（不得提前发布事件/晋升）、系数变化拒绝后正确续算、同时间无帧变更，并回验同袋双球、返回、不同袋口与原单球精确续算；尚须读取终态。
+- **边界**：正式App入口未切换。多球同刻静态/球球事件完整日志、连续再入及整批性能/确定性矩阵仍待验，W06不标完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-180；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+mixed-continuation-green-r2终态exit0，5项0失败：混合多次截段p/v/omega精确一致、事件前不提前发布/晋升、系数失配拒绝后正常续用、同时间不增帧、同袋双球连续间距/最终能量、返回台面、双袋共同推进和原单球续算。两轮7次执行含重复续算，不当作7个独立功能。gate/doc-size/diff通过，全部句柄终态。下一步继续同刻事件/连续再入与外部输入生命周期：缓存失配目前拒绝，不能宣称自动重建已完成；正式入口/规则捕获仍未切换。
+
+## DR-181 — 连续再入接缝支撑与首次碰撞时钟（2026-09-13）
+- **实际反例**：混合球从中袋局部返回台面，与迎面球碰撞后重新进入。mixed-reentry-r1终态exit65，在t=0.7118319298395155s支撑projection失败，4个共面三角候选、residual=1.7340928696757009e-9。原始状态/三角顶点在日志保留。
+- **几何机理/修复**：球的垂足已处于某一面内部，邻接共面三角的边缘距离却因舍入被列入同一nearest+roundoff投影集；这要求多个实际不能同时成立的法线速度为零。exposedSupportCandidates仅在确有垂足位于有限三角内部时，排除同平面上离该垂足有可分辨距离的边缘候选。共面判据使用既有64ulp空间尺度，不扩大投影残差阈值。没有面内部覆盖的真实袋边、非共面面和孔洞仍保留。当前使用点为无撞击步的支撑投影。
+- **首轮验证**：mixed-reentry-r2终态exit0，进入→返回→平面球碰撞→再次进入及同pocketID/顺序通过。
+- **时间反例**：新增同源时间断言后mixed-reentry-clock-red-r1终态exit65：firstBallBallCollisionTime=0.0003577754，而事件列表绝对时间0.27785778。resolveEvent误用相对event.time；改为调用方已推进的currentTime，普通与混合平面入口共用此修复。
+- **回归**：mixed-reentry-regression-r1运行中；包含再入/混合精确续算、实际复杂双球连续间距、W05临界袋口和返回能量、普通PhysicsEngineTests，尚须读取终态。原红证据与精确断言保留。
+- **边界**：没有变更显示几何/材质，没有调物理接触参数。W06同时事件完整记录/外部输入生命周期及全面验收仍待完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-181；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+mixed-reentry-regression-r1终态exit0，38项0失败（211.164s）：33项普通物理、混合再入+绝对首次碰撞时间、混合精确续算、复杂近袋连续间距及W05临界/返回能量。两次原红证据保留；未改变误差断言预算。gate/doc-size/diff通过，全部进程终态。下一步W06事件完整性审计：advanceTogether目前只向主循环返回球球约束，单球run内部静态contacts未随CoupledAdvance向上传递，主记录存在袋沿碰撞事件缺口；须保留接受前缀内的静态接触及ID/时间，拒绝试算/未来事件不能上报。外部编辑生命周期仍不可宣称已支持。
+
+## DR-182 — 已接受局部静态接触向主记录传播（2026-09-13）
+- **缺口**：LocalPocketSimulation.run已有Contact时间/面索引/法线，但advanceTogether只回传轨迹和球球约束，主循环丢失静态接触。
+- **实现**：CoupledAdvance.staticContacts按球保留已接受半步/试步的静态事件；拒绝试算不入结果。遇到更早球球接触时只保留严格早于该时刻的旧静态事件，同刻以联合响应接触重建。resolveContactGroup保留实际向静态面逼近的接触，静止支撑约束不直接当成新撞击。
+- **主记录**：TrajectoryRecorder.localStaticContacts带ballName、geometryID和原始Contact。混合PendingMixedStep独立保存逐球静态列表，含刚晋升邻球的联合接触；按已消费计数只发布time<=请求截止的前缀并依时间排序，续算不重复发同一条。面索引对应缓存tablePatches，geometryID当前为运行时全桌快照标识；持久化版本映射和业务吃库/音效分类不是此字段自动完成的。
+- **验证**：static-event-pipeline-r1终态exit0，再入/混合精确续算两项通过；r2终态exit0，实际落地静态事件时间与独立自由落体方程匹配，事件前为空，一次/多次续算记录时间/面索引/法线精确一致，真实离台追撞/受支撑接触共3项通过。r3在补晋升邻球独立事件列表后验证编译、落地续算及跨owner，尚须读取终态。
+- **边界**：同一物理接触可能含多个几何面记录，尚未将几何接触自动等价于业务吃库事件；正式App与规则capture未接入。W06不因数据管线绿而直接完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-182；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+static-event-pipeline-r3终态exit0，3项0失败；新增主事件前缀/续算一致性、跨owner与实际支撑通过。三轮8次执行含重复用例，不当作8个独立功能。gate/doc-size/diff通过，所有进程终态。下一步按W06 DoD集中审计高速/同刻组事件与确定性，明确几何接触日志和业务事件的边界，再确认进入W07的前置；不能把静态面索引直接当库号或自动计分。
+
+## DR-183 — 同刻独立台面事件直接提交（2026-09-13）
+- **审计结论**：coincident-entry-baseline-r1终态exit0，初始t=0区域进入与不相关已接触球对的碰撞均保留，旧重查在该用例有效；此前只是风险假设，不能记作已复现漏报。
+- **调整**：混合入口用事件涉及球集与最终局部owner集判定。无关同刻平面事件直接随PendingMixedStep保留并提交，不再被dueEntry或cross的互斥条件丢弃；涉及新owner的旧事件交新局部/联合求解，不双算。零时刻进入同样可在该时刻处理独立事件。规则capture仍未切换。
+- **验证**：coincident-entry-r2终态exit0，4项0失败，含初始同刻碰撞和独立参考结果逐分量一致、高速三球三档/重复/半步矩阵、混合精确续算与真实连续再入。工作区原失败及探索记录保留。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-183；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-184 — 确认捕获记录与持续运动分离（2026-09-13）
+- **接口**：TrajectoryRecorder.ConfirmedCapture保存ballName/pocketID/geometryVersion及Double完整state；recordConfirmedCapture只录已经由物理判定确认的事件，重复相同输入幂等，冲突/非法状态拒绝。记录操作不吸袋心、不清速度/自旋、不改现有运动帧。
+- **查询**：isBallPocketed新增可选Double查询时间；有新捕获记录时用确认时刻，截止前为false；无新记录沿用旧帧.pocketed语义。confirmedCaptures按时间/球名确定排序。当前没有生产求解器调用新录入接口，不能把契约完成当自然进袋判据完成。
+- **验证**：capture-record-r1终态exit0，共3项0失败；新捕获仍有非零速度/自旋和sliding尾帧、时间前不泄漏、重复不多计、冲突不覆盖、无效输入拒绝、旧帧查询及原自然停稳回放通过。测试捕获为明确手工fixture，不是实物捕获判据证明。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` DR-184；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-185 — 袋内多面接触的亚分辨率反弹（2026-09-13）
+- **问题证据**：bag-floor-red-r1从精确失败状态复现；斜壁瞬时响应使底面vn约3e-10，严格分离筛选移除底面支撑，重力又生成约30ns碰撞，触发迭代上限。
+- **内部契约**：LocalPocketSimulation.integrate对已几何接触且有恢复加速度的法向，用vn²/(2a)与既有空间tolerance比较。仅在反弹不可分辨时考虑共同切空间正交投影；保留自旋及共同切向速度。总速度改变量的动能尺度不得超过g*tolerance，且不得违反其他单侧约束，否则保留原响应。不是固定速度阈值、球整体清零或扩大袋口。
+- **实现修订**：首版迭代投影导致近乎平行接触不收敛（regression-r1保留），改为两遍正交化构建法向空间，直接投影并按能量/可行性拒绝过大调整。超过空间预算的真实离地仍保留。
+- **验证状态**：精确状态短时测试green-r1通过；regression-r2四项中精确状态/可见离地/旧返回能量三项通过；完整1s停稳失败。延长4s后1.366s三面projection失败，仍待修；见W07-working。正式App尚未切换。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-185；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-186 — 非共面公共边支撑与外层末步时钟（2026-09-13）
+- **根因**：袋内长测1.365928889792294s的三面投影失败。精确几何分析显示第一面最近点在公共边，第二面垂足已进入面内；两者距离因舍入相同，但法向有约5e-10差异，产生±4.35e-12速度残差。原exposedSupportCandidates仅排除共面边，不处理这种已被邻面覆盖的非共面公共边。
+- **改变**：若候选最近点位于另一有效面的平面且被其有限三角区域覆盖，同时与该面的垂足可区分，则移除这条冗余支撑。最终仅用于末步投影；对比实验发现提前过滤支撑候选导致同刻重复CCD记录，已撤回该提前过滤。未来碰撞候选不删除，真正不同面接触点仍保留。
+- **时钟**：精确2ms状态复现越过投影后暴露末尾1ULP：半步舍入到终点，第二半步duration=0。外层与原内层一致采用8ULP末步剩余合并，并明确检查中点可表示，不能以零时长调用积分。
+- **验证**：noncoplanar-seam-r3三项0失败（独立几何复现/微反弹/真实离地）；真棱角通过；长测推进到3.028s出现接触力收敛失败。撤回提前过滤后noncoplanar-isolation-r1两测（精确接缝/旧返回能量）通过；长测仍待修，见W07-working。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-186；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-187 — 接触力的可行边界加速（2026-09-13）
+- **根因调查**：两面force失败状态的独立NumPy小样显示原单步Anderson、严格下降、多历史4/8均在4096步后保持约9.18e-7残差。不是简单放宽判据可接受的问题；近中性接触力分配在摩擦约束激活前变化过慢。
+- **数值方案**：沿当前forceMap增量，解析求法向非负与Coulomb圆锥的下一可行边界。二次系数缩放后用稳定q公式，不调用带固定1e-12退化阈值的旧通用二次函数。候选投影回法向/摩擦约束，只有残差严格低于当前值和已有候选才采用。系数、空间预算和4096上限均不变。
+- **证据**：reproduce_force_iteration.py及force-iteration-comparison.json记录独立小样；boundary模式28步、残差4.47e-13。Swift force-boundary-regression-r1四项中真棱角/接缝/旧返回三项通过；完整4s运行结束但角袋仍滚动导致停稳断言失败，数值收敛已越过原3.028s失败点。随后DR-188补滚动耗散，小样平移停稳通过，见W07-working。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-187；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-188 — 局部表面滚动阻力原型（2026-09-13）
+- **缺口**：袋内4s角袋末态v与omega满足纯滚动关系，只有滑动摩擦无法使其继续耗能。Surface新增rollingFriction，默认0保留所有旧调用；袋内候选显式使用SpinPhysics.rollingFriction=0.01作参考，未实物标定。
+- **原型**：在局部持续支撑forceMap和实际加速度中同时加入反向滚动力偶。以无滑动平面减速度mu_r*N定义系数，对实心球对应力偶(7/5)*R*mu_r*N（单位质量），设置有限步力偶上界并保留自旋轴分量。
+- **验证**：rolling-resistance-r1因错误类型名编译失败保留，改为真实SpinPhysics常量；r2解析减速度/停止距离/不倒退1测通过；rolling-couple-boundary-r1零滑动摩擦原地转动能量用例1测通过。bag-rolling-r1角袋/中袋4s承接1测通过（约99s），平移速度近零、底面高度和原能量预算通过。
+- **边界**：当前单球局部原型；角袋仍omega.y=-2.8911rad/s，未宣称全运动停稳。自旋耗散、持续球球支撑预求解与滚动力偶一致性、多球/步长/手机性能、捕获与正式入口尚未完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-188；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-189 — 局部自旋耗散与共享表面阻力矩（2026-09-13）
+- **接口**：Surface新增spinFriction默认0；PocketContactResponse.surfaceResistance统一滚动/法向自旋力矩，法向自旋采用既有AnalyticalMotion的5*mu_sp*N/(2R)，有限步截断至停止。SupportConstraint新增两个默认0表面系数；resolveSupport新增可选duration，有非零表面系数时必须正有限且不能用于球球接触。
+- **一致性**：局部forceMap、实际角加速度与球球持续支撑预求解使用同一表面公式。多球预求解仍只向单球积分器传递球球力/力矩，避免桌面反力及阻力矩重复计算。
+- **验证边界**：单面正反自旋/零系数/停止时刻spin-decay-r1两项通过；新增双球叠放解析支撑力、角加速度与能量用例，完整袋候选新增角速度停稳断言，执行结果持续记录于W07-working。spin-pair-r1因换行运算符编译失败已修正，原日志保留。候选袋系数仍未实物标定，正式App未接入。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-189；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-190 — 多球持续摩擦与单球有限步一致（2026-09-13）
+- **证据**：连续双球叠放测试初始绝对速度1e-4阈值过宽，低速0.0002m/s的末态随步长出现约3e-5差异。收紧低速空间预算与相对速度判据后旧代码可收敛，但10ms推进每组约1.2万细分，测试约100s。日志stacked-advance-r1保留测试闭包编译失败；r2保留原宽断言结果；r3保留收紧后高成本结果。
+- **根因与修订**：局部单球forceMap按slip/dt+切向加速度求当前步末滑动并投影Coulomb圆盘；多球resolveSupport却对任意非零slip使用满额滑动摩擦，近静止反复切向翻转。提供duration时多球改用同一有限步方程；未提供duration的独立连续力调用保持既有行为。所有显式duration均验证正有限，法向约束/系数/迭代上限不变。
+- **验证**：stacked-advance-r4两项通过（连续两速度/三步长及双球解析），执行约0.726s；低速末态跨步长差约1e-8m/s。pair-friction-regression-r1四项通过，覆盖正反滑动一步停零/保留滑动的解析值、真实落球支撑、跨域同刻支撑、原角袋联合修正。没有把提高预算或放宽断言作为修复。
+- **边界**：10ms双球局部验证不等同完整袋内多球或手机性能通过；正式捕获/几何生产构建/主入口仍待做。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-190；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-191 — 内置袋网的数值承接轮廓构建（2026-09-13）
+- **接口**：PocketContactMesh.load新增materials默认TaiNi/Leather，默认调用不变；独立提取White后，纯数值PocketBagEnvelope.build从水平截面凸包生成环/侧面及显式底部封口。配置保留原型40mm顶部、2.5mm层高、64径向点与30度最大观测空隙；这是承接近似，不是捕获边界。空/非有限/退化数据拒绝。
+- **采样**：截面中心采用面积重心，避免凸包顶点平均随三角化附加点改变；边与截面相交使用半开区间以保留恰过顶点的截面。物理默认几何/主入口未切换。
+- **证据与差异**：bundled-bag-r1/r2六袋构建通过，37环/4672面，与测量底部一致；旧脚本顶点平均相对新三角化轮廓出现最高4.68mm对应点偏差、0.75mm轮廓偏差。双方改面积重心后最大对应点差仍0.607mm，严格1e-10等价断言失败已记录；需进一步核对非平面原始多边形的三角化差异及几何细分误差，不能宣称两构建完全等价。
+- **去本地依赖**：原完整承接测试已改用内置模型即时构建，移除output JSON读取。normal-bag-entry-r1角袋/中袋台面正常进入0.7s的高度及能量验证通过；改后的完整4s停稳尚需重跑。
+- **边界**：正式缓存/捕获调用尚未接入；底部封口是显式近似，材料仍未实标，完整多球袋内/手机预算未验。后续回归详W07-working。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-191；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-191补充证据（2026-09-13）：独立脚本同样三角化后，六袋逐点与Swift最大差3.14e-16m，原0.607mm差异已定位为三角化契约。新构建完整4s两袋停稳已通过（bag-input-and-settle-r1）。独立分辨率加密仍在中袋台面下40–45mm上缘产生4–5mm差异，不能据此前单球通过判几何收敛；详W07-working及bag-resolution-finer-comparison.json。
+
+## DR-192 — 按深部连通性提取袋网，排除同材质浅层部件（2026-09-13）
+- **根因**：White并非袋网专属材质。中袋两个独立352面部件在台面下41.56–43.90mm，仅高2.34mm，XZ约2.76×21.21mm，不延伸至袋底；它们被截面凸包连接到袋腔，造成4–5mm分辨率差异。截面图、轮廓叠图及bag-component-bounds.json保留证据，不把材质名当语义分类。
+- **修订**：PocketBagEnvelope按精确共享顶点建立连通分量，保留触及“测量最低点以上一球半径”深部带的完整分量。浅层独立部件不进入袋网代理；保留真实上段，不平移40mm顶部或扩大捕获阈值。build新增默认既有球半径参数及原始/保留三角面数诊断字段，验证半径正有限。
+- **独立验证**：raw面连通筛选后的三档参考，2.5mm/64→1.25mm/128点最大角袋.335mm/中袋.490mm，下一档.625mm/256点最大角袋.188mm/中袋.420mm。采样轮廓比较不等于严格全表面误差上界或动力学验收。
+- **边界**：此提取适用于当前已测量Bundle；将来资产变化须重新验证深部带与分量语义，不能认为所有White均可放入代理。完整捕获/主入口/袋内多球仍待做。Swift回归与独立三角面选择一致性见W07-working。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-192；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-193 — 纯数值袋网资产缓存（2026-09-13）
+- **接口**：PocketGeometryAsset新增bagSourceTrianglesByPocketID，从已校准坐标的独立球桌节点一次性提取White原始三角面；持有值数据，不持有房间、相机、灯光或SceneKit节点。原台面/袋口patches与默认物理入口不变，连通分量语义仍由PocketBagEnvelope负责。
+- **使用**：长时几何分辨率测试直接消费该缓存，不再构建完整AngleTrainingScene。numeric-bag-parity-r1六袋与可见场景逐三角点1e-12内一致、缓存身份与六袋ID检查通过。
+- **边界**：上轮SIGKILL只确认进程退出，未证明OOM；本次减少渲染依赖不能预先宣称修复终止原因。完整运动比较、参数默认升级及实际手机资源预算分别验证。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md DR-193；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+
+## DR-194 — 六套可选球贴纸（2026-09-13）
+- 用户授权：按六宫格参考在 Blender 实现六套，并接入 App 供选择。
+- 契约：现代赛事/极简现代/经典美式/粗描边徽章/电视竞技/复古怀旧；保持球号色族；母球红点不变。默认 modern，设备偏好 ballStickerStyle.v1，与球房/球桌样式独立。
+- 接入：SettingsView → BallStickerSettingsView，预览为实际 Blender 球网格渲染；AngleTrainingScene 初始化应用，AngleSceneView 更新时只替换编号球 diffuse/multiply，不重建场景或改球位/相机/物理。
+- 资产：90张1024×512 sRGB底色PNG + 六张预览，约3.2 MB。Blender 4.5.6 packed工程回读通过，源USDZ SHA保持。
+- 验证：iOS26模拟器3项单测通过；iOS17同3项通过；六款选择/重启及自由击球2D/3D/击球/回放/重打通过。最终SE/iOS17浅深色取证通过；03:12 iPhone16Pro Debug安装/正常启动成功，详见UR-20260913-ball-stickers。
+- 证据：output/ball-stickers-20260913；首轮缓存对象身份断言改为PNG内容校验；深链默认强制Dark须显式Light参数，不能据文件名认定外观。
+- 回写目标：.cursor/skills/swiftui-design-system/SKILL.md 球贴纸选择契约；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+- 已应用至：上述两处（2026-09-13）。
+
+## DR-195 — 球桌饰面配套袋口与瞄准点（2026-09-13）
+
+- **用户裁定**：深桌浅点、浅桌深点，袋口与桌框拉开明暗对比。
+- **实现**：TableStyle统一提供木纹、皮革和White瞄准点配色；标准可还原。未选中皮革随桌切换，训练角色材质从原材质独立派生，主题变化保留角色状态。
+- **范围**：材质与预览；不改皮革几何、袋口物理、选袋语义或母球颜色。
+- **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md § 球桌配套饰面（2026-09-13）。
+
+## FL-060 — 球贴纸仅检查正面导致单侧号码遗漏（2026-09-13）
+
+- **用户反馈**：六套设计粗糙，要求改用文生图，贴图不得自带高光，每球两个号码必须位于相对位置。
+- **实查**：旧build_ball_stickers.py只在UV中心画一次号码；旧底色无烘焙灯光，但展示预览带灯光，不应与底色混为一谈。旧测试只看正面和切换行为，未覆盖球背面。
+- **处理**：保留旧资源/证据；文生图生成数字图稿，Blender投影到归一化球的±Z，修复折叠UV后EMIT-only导出底图；补正反双侧可读性和无烘焙高光检查，重新验收。
+- **规则改进建议**：球面贴图必须验证完整旋转与相反面，原始albedo和光照渲染分开展示；功能测试通过不得代替视觉验收。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` §FL-060；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-09-13）。
+- **状态**：🔄 双面号码与集成已修复并验证；照片级视觉仍未达标。
+
+DR-195补充裁定：粉色款例外使用白色袋口，仍配深梅色瞄准点；其余三款保持原配套方案。
+
+## DR-196 — 整杆外观选择与固定尺寸约束（2026-09-13）
+
+- 用户授权Blender贴图并接入App，明确小头/大头各五款、前节及后把都覆盖、所有尺寸和物理参数不变。
+- 设计从整幅主题彩绘修正为真实球杆分区；新增CueStyle/CueStyleModel与独立选择页，本地保存并在共享场景更新。
+- Blender仅重排UV、输出底色与粗糙度；运行时保留节点/姿态，原款可恢复，十款逐一比较实际顶点位置并渲染验证。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` §球杆外观（2026-09-13）。详 `tasks/CUE-STYLES-20260913.md`。
+
+## FL-062 — 球杆风格先入为主，缺少实物分区依据（2026-09-13）
+
+- 用户指出不能只做后把、不能用尺寸区分小头大头，随后要求实物参考及更密更深的剑纹；此前误将参考要求理解成否决主题，现纠正。
+- 原因：将贴纸主题当成整杆设计，在核对常见木材/插花/握把结构前生成了候选；原UV烘焙还出现纹理扭曲。
+- 处理：保留被否决产物在output；从原模型仅修改UV，参考白蜡木/乌木及枫木/握把分区重做；单独检查前节近景，加入十款位置/姿态不变断言与实际iOS渲染。
+- 已应用至：`.cursor/rules/57-ui-reviewer.mdc` §FL-062（2026-09-13）。
+
+## FL-061 — 球桌White共材质误染台呢置球点（2026-09-13）
+
+- **现象**：深色瞄准点首轮按White材质整体染色，实际训练近景显示台呢上的置球点也变深。
+- **根因**：材质名不等同于单一视觉区域；White同时覆盖库边和台内标记。
+- **修复**：改色限定于有效X-Z台面外，台内保留原始diffuse；不改几何。
+- **证据**：output/table-styles-20260913/contrast/ui-r1；修复后rail-only批次。
+- **已应用至**：.cursor/rules/55-test-engineer.mdc § FL-061（2026-09-13）。
+
+## DR-197 — 球体重复静态冲量约束去重（2026-09-13）
+- **反例**：W07 occupied-bag-r1中袋底三角扇共点为同一球产生重复向上支撑，联合冲量残差7.997558904015989e-08，原4096次预算内不收敛。
+- **原因**：完全相同的接触雅可比/材料律不增加物理自由度，却增加同步Jacobi的全局松弛分母；多份非唯一反力分配拖慢与球球接触的耦合。
+- **改动**：resolveCoupled仅对同一A、nil B、完全相同normal/restitution/friction的静态约束去重；不同法线/材料与球球约束保留。不改CCD、几何/位置、恢复/摩擦参数、残差或迭代上限。
+- **验证**：原真实袋底反例保留。occupied-bag-r3三项通过；同构建test-without-building补充四项通过，前后包哈希一致；完整台面入口双球/生产捕获尚未完成。duplicate-impact-red-r1与occupied-bag-r2被共享BallStickerTests编译表达式挡住，不算物理执行；仅拆分该误差表达式中间变量以解编译，计算/断言不变。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-197及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-09-13）。
+
+## DR-198 — 承接袋网默认精度采用已验证候选（2026-09-13）
+- **原因**：64/2.5mm→128/1.25mm完整轨迹超过原2mm标准；128/1.25mm→256/.625mm的完整角/中袋.7s对照已通过，最大0.178/0.826mm，见numeric-bag-motion-isolated-r1。
+- **改动**：PocketBagEnvelope.Configuration默认128径向/1.25mm层高；不改顶部、底部、材料筛选或捕获语义。默认构建预期72环/18304面由六袋测试复验。
+- **测试契约**：testBagMotionConvergesAcrossEnvelopeResolutions继续默认→两倍比较、2mm断言不变；删除现在与它重复的旧“finer”测试包装（原128→256完整原始证据保留），短时历史诊断显式固定64基准防默认漂移。正常入口及六袋/细分不变量三测通过（bag-default128-r1）；完整台面双球承接仍在验证。此默认仍是候选物理构建，不切换正式simulate。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-198与`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-09-13）。
+
+## DR-199 — 持续接触舍入尺度包含两颗球（2026-09-13）
+- **原因**：resolveSupport的scale第二行以一元+开头，Swift将其视为独立未使用表达式，第二球的速度/自旋幅值未参与接触滑速舍入界。
+- **反例**：A静止、B近纯滚动，交换编号/法线后应一致。独立原样源码Swift小样旧版exit1，力差3.172065784643305e-11；修复换行运算后exit0，误差0。原型从真实PocketContactResponse/SpatialBallContact源码提取，无mock；macOS编译执行不代替iOS回归。
+- **改动**：二元+留在上一行，第二球项按原设计参与求和；16ulp界、摩擦、时间步、迭代预算不变。
+- **测试**：testPairSupportSlipRoundingIncludesBothBodies已在wall-floor-pair-red-r1通过，原有限步/近停回归通过；该套件仍因独立三约束现场反例失败。运行中的consecutive-bag-entry-r1使用修复前构建，不能将其结果标为修复后验证。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-199及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-09-13）。
+
+
+## FL-063 — 着色器参数未隔离函数声明（2026-09-13）
+- 台呢换色参考光照截图出现洋红球，r2测试断言通过但视觉失败，未作为有效预览交付。
+- 根因：在含全局函数的Metal surface shader前增加#pragma arguments后，未用#pragma declaration结束参数区；SceneKit把函数内声明误解析为外部参数。
+- 修复：按本机Apple SCNShadable.h契约分开参数/函数/主体，新增实际渲染洋红坏色断言；保留r2日志与原图，重新出片。
+- 已应用至：.cursor/rules/55-test-engineer.mdc §FL-063；ClothAppearanceTests与UI规格Changelog。
+
+## DR-200 — 文生图双面球贴纸与照片参考材质候选（2026-09-13）
+
+- **用户授权**：重做六套、使用文生图、禁止贴图烘焙高光、每球两个相反号码；随后明确照片级目标。
+- **设计**：六张原始号码图稿，Blender双色制版/球面投影/EMIT-only烘焙90图；原背部UV折叠导致首轮撕裂，改为球面展开、缝置侧面并按面拆分UV索引。SceneKit新UV显式翻转V以匹配图像原点。所有原顶点/法线/面索引保留，母球不改。
+- **材质**：编号球采用0.12抛光候选；当前手机参考灯光原0.34太哑，实际同光照对照后收窄原有GGX反射。照明、球位、相机、物理不改。材质参数为照片参照外观选择，不冒充实测树脂数据。
+- **证明**：90图独立回读/无透明洞/无光照色带/相反图案均通过；最终6项单测及2项实际页面UI（手机参考灯光）通过，设备Debug构建通过。实际截图无shader错误色，但App与照片目标仍有差距；六套Blender实景与文生图目标分栏展示。照片级视觉未完成，详见UR-20260913-ball-stickers-v2。
+- **回写目标**：swiftui-design-system 球贴纸契约；UI-IMPLEMENTATION-SPEC Changelog；FL-060持续记录。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-200；`tasks/UI-IMPLEMENTATION-SPEC.md`（2026-09-13）。
+
+## DR-201 — 顶点与边线求根前的保守位移界（2026-09-13）
+- **依据**：两次活跃长测采样都主要落在firstContact逐特征四次求根。独立原算法/筛选版12000随机与退化输入、217736真实袋网候选查询逐值一致；实际网格小样约.546s→.160s，不代表完整轨迹或手机性能。
+- **改动**：内部roots计算距离与|v|dt+|a|dt²/2，距离大于R+全段位移界+世界尺度64ulp余量时才返回无根；仍可能接触时保持原QuarticSolver。只跳过可证明达不到的顶点/无限边线，不更改球半径、几何或碰撞阈值。
+- **验证范围**：真实网格来自默认128档输出环，状态取正常台面入口样本；加速度覆盖零/重力假设，并非重演所有受力段。原同输入命中TOI/点/法线严格相等。新增转向/精确端点/短区间测试，iOS待当前长测终态后执行。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-201与`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-09-13）。
+
+## DR-202 — 联合冲量的受保护外推加速（2026-09-13）
+- **反例**：consecutive-bag-entry-r1袋壁/底面/球球三个独立约束，4096次后残差7.532151475080169e-11；wall-floor-pair-red-r1快速复现，不是重复约束或初始穿透。
+- **分析**：独立analyze_wall_floor_impulse.py复现缓慢固定点收敛，深度一Anderson候选约252次达到原量级精度；力分配缓慢变化而运动接近稳定。数值草稿不代替Swift验收。
+- **改动**：resolveCoupled保留原松弛映射，外推候选投影到非负法向/Coulomb圆盘，仅实际固定点残差比原下一步更小时采用。原4096预算、64ulp运动变化与自然互补残差验收均不变；无跨事件热启动，无接触参数变化。
+- **验证**：impulse-acceleration-r1四测0失败（9.001s），现场反例0.007s通过，另含重复约束/正反序、跨owner支撑、高速同刻确定性。完整consecutive-bag-entry-r2仍在执行，不宣称W07完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-202及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog（2026-09-13）。
+
+## DR-203 — 有限步法向支撑与受保护持续力外推（2026-09-13）
+- **反例**：完整双球r2四约束持续力残差3.3094123584862303e-13，bag-force-red-r1快速iOS复现；增至8192的独立诊断仍失败，生产4096预算不变。
+- **修正**：单球forceMap与多球resolveSupport在有duration时共同使用vn/dt+法向加速度+曲率的步末条件，与既有切向slip/dt一致。单球最终残差检查同步；无duration保留连续力契约。多球持续力加入深度一Anderson，候选投影到非负法向/摩擦圆盘，仅原自然残差优于普通下一步才接受。64ulp阈值、4096预算及材料参数不变。
+- **验证**：normal-support-step-r1五测通过；扩展21档dt后r2六测中一方法失败，保留失败日志。独立bag-force-normal-evaluation证实SIMD归一化与标量除法的微小vn差异在极小dt下被1/dt放大：最小档标量约1.05e-13、SIMD约1.46e-9。r3保留1e-12加速度断言并统一系数计算方式，另以独立SIMD计算步末速度、按64ulp速度尺度检查；六测零失败（0.906s）。没有提高原求解器阈值。
+- **范围**：快速现场/双球舍入/有限步摩擦/近停推进/折面/跨owner通过；完整台面入口双球consecutive-bag-entry-r3另验，不能据此关闭W07或宣称生产自然进袋。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-203、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog与W07-working（2026-09-13）。
+
+## DR-204 — 多球压力投影排除被面覆盖的边特征（2026-09-13）
+- **反例**：完整双球r3在.689322s、五个压力约束达到投影4096上限；pressure-edge-red-r1用原始现场4.340s精确复现。13230垂足在面内、13231垂足在面外，二者共享边而非同法线重复面。
+- **修复**：projectPressure每轮按修正后的球心调用既有exposedSupportCandidates，仅排除被当前相邻面覆盖的边特征；真实折面保留。不改变持续力候选、CCD、4096上限、64ulp或4tol修正预算。PressureContact与projectPressure为internal以便@testable直接复现，不是公开App API。
+- **验证**：pressure-edge-r2四测0失败（7.001s），含现场独立间隙/法向速度、非共面边、真实折面、堆叠近停。原红日志和四面坐标附件保留；完整双球r4另验，不据快速绿关闭W07。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-204、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog与W07-working。
+
+## DR-205 — 最近点查询去除临时数组（2026-09-13）
+- **依据**：连续双球r3两次采样主要落在projectContactPositions的closestPoint。独立原源码/同序直接计算版10万随机退化输入、217736真实袋网候选查询逐值相同。
+- **改动**：closestPoint展开三边面内测试，逐边求最近点并保持相等时首边优先；保留所有算式、退化阈值、面内余量及比较顺序。未改变几何、求根、接触模型或迭代预算。
+- **边界**：macOS真实查询-O约.018829→.004034s、-Onone约.473010→.218360s，不代表完整轨迹或手机性能。生产替换后的iOS与完整双球在consecutive-bag-entry-r4执行，未提前宣布通过。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-205、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog与W07-working。
+
+## DR-195 补充：球袋组件统一配色（2026-09-13）
+用户批准以袋口配色统一圆环和承球支架，取代四款固定金黄色五金。胡桃木暖驼色、炭黑香槟色、象牙白深灰褐、粉色白色；白网继续固定白色。TableAppearance 捕获 Gold/Black 材质槽并按 pocketColor 设置柔和金属色，标准款恢复原金色基线。皮革仍用现有材质着色与角色高亮路径，不改变物理或台呢。实现来源：tasks/TABLE-STYLES-20260913.md；已应用至 tasks/UI-IMPLEMENTATION-SPEC.md 本补充契约。
+
+## DR-206 — 袋承接代理的共享数值快照（2026-09-13）
+- **目的**：生产混合调度下一步需要完整袋代理，避免消费者各自从SceneKit重建或采用不同精度。
+- **接口**：PocketGeometryAsset.bagEnvelopes() throws按既有默认128/.00125构建全部袋ID；独立实例锁保护懒缓存，全部成功才发布，失败不保存半套结果。只缓存纯数值，不持有场景节点；自定义精度仍显式构建，不能覆盖默认快照。
+- **验证准备**：既有六袋几何测试增加缓存ID全集及与独立可见场景提取的rings/bottom/面数对照。middle-split-red-r2中该六袋测试通过（8.281s）；同套件中袋现场仍有两断言失败。r4已因重复异常模式主动取消并留证，不代表正式捕获接入完成。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-206及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-207 — 受压球组的新静态冲击是共享事件（2026-09-13）
+- **证据**：middle-split-diagnostic-r1显示球0在.66438714895碰到新袋壁21489；旧整步继续到.6644058267。末态新壁vn约-8.165e-6、袋底间隙5.718e-12，导致下一步丢失底部支撑/球球压力并重新冲击。不是应提高静止阈值的舍入问题。
+- **修正**：advanceCoupledTrial将受球球压力连接物体的首次静态接触纳入最早共享事件；按接触前状态联合resolveContactGroup，只提交事件前缀，下一次调用重建受力。无新增恢复/摩擦系数，无精度/预算放宽。
+- **断言纠正**：旧现场测试断言whole/fine都不应有冲击，隐含“没有新静态接触”，被原始staticContacts记录推翻。改为testMiddleBagNewWallContactInterruptsLoadedGroup，要求whole与half均在首个新壁接触时结束并产生联合约束；旧红日志/诊断保留。没有靠删除真实接触通过测试。
+- **验证**：middle-shared-impact-r1三测0失败（11.120s），包括现场/原无新接触持续压力/堆叠近停。追加现场后1ms连续推进与连续间隙检查，middle-shared-continuation-r1待终态；完整台面入口仍须复验。
+- **接口**：PairForcePlan/sustainedPairAcceleration改internal供@testable核对真实支撑集合，不是公开业务API。生产事件接入须区分参与约束与实际冲击事件，不能把新静态事件的所有压力邻居都无条件计成新的业务碰撞。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-207与`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-208 — 受载接触组的有条件微反弹消除（2026-09-13）
+- **证据**：DR-207正确截断首次新壁事件，但middle-shared-continuation-r1仍在后续微秒段重复事件差异，主动取消exit73保留。独立现场全组法向投影将动能由9.28868646468e-5降至9.28868640820e-5，反弹重力上升高度4.203e-14m；原样Swift持续力求解在三个dt下四接触均正压力，见group-microrebound-projection.json/support-r1.log。
+- **接口/算法**：preparedGroupSupport在整个线速度空间构造静态/球球接触法向，用重正交基投影消除低于既有tolerance高度预算的向外微反弹。任何真实向内接触先回原冲量流程；大分离不纳入投影；校验全部法向无新穿入、总平动能不增加，并要求每个被消除的微反弹接触在候选状态的持续力解中实际承压。位置/角速度/时间不变，未增加容差、迭代预算或改变摩擦恢复系数。
+- **范围**：原单球行为保留；内部PreparedGroupSupport用于复用已计算的力计划，避免候选接受后重复求力。算法仍需完整双球/跨域等验收，不是正式捕获接入。
+- **验证**：group-microrebound-r1三测0失败，14.155s；现场后1ms在2次推进到达终点，连续间隙、能量、位置/自旋保持、真实入射不消除断言通过；原无新接触支撑与堆叠近停通过。完整consecutive-bag-entry-r5复验中。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-208、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog与W07-working。
+
+## DR-209 — 设置外观组合预览（2026-09-13）
+- **需求**：球房保持组内首位，与球桌选择样式一致；选择台呢等选项时显示已选搭配。
+- **实现**：AppearanceCombinationPreview独立场景，直接消费当前roomStyle/tableStyle/clothColor/showsTableSights；SCNView按需重绘。设置外观入口合组并下移至常规设置后、数据管理前，详情共用预览和选择列表。保留球房Debug范围与其他设置行为。
+- **规则回写**：组合预览不得退回固定标准球桌图；独立存储不等于独立视觉上下文。修改一项应保留其他已选项，须验证跨页、返回、重启及参考点开关。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-209及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- **验证**：见tasks/SETTINGS-APPEARANCE-20260913.md，执行中。
+
+## FL-064 — 组合预览的正交机位被房墙遮挡（2026-09-13）
+- 首轮UI功能通过，但加入房间后旧独立球桌相机的图像平面部分越出近墙，遮挡球桌；本轮不宣称视觉通过。
+- 保持取景方向和正交尺度，按源房间范围将相机沿视线移入，四角边界数值校验后复拍。
+- **已应用至**：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-209及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；设置记录持续保存前后证据。
+
+## DR-210 — 共享碰撞时刻保留承压几何（2026-09-13）
+- **根因证据**：完整双球r5及diagnostic-r1在角袋.64016249185出现1.954e-12m球间隙，缺球球约束抛invalidInput。真实起点短回归固定整步通过、共享半步red-r2在9.107s复现；不能用固定步通过替代运行时路径。
+- **变更**：advanceCoupledTrial事件前缀与普通步末同样投影已承压几何，采用projectPressure原有4*tolerance护栏/有限特征释放；只取校正位置，保持原入射速度、自旋、时间供联合冲量。未放宽接触阈值、删除入口guard或增加迭代预算。
+- **验证**：event-pressure-geometry-r1三测通过（角袋现场、中袋持续1ms、跨owner支撑）。完整双球仍需复验，正式生产未接入。
+- **回写目标 / 已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-210、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；W07-working保留完整失败及修复证据。
+
+DR-209 / FL-064最终补充：三设备最终定向UI各1项0失败，实际房间/台呢原图已审；六项按用户纠正下移；verify-gate/doc-size/diff-check通过。本地完成，真机/旧Runtime/VO/持续能耗未验；详tasks/SETTINGS-APPEARANCE-20260913.md。
+
+## DR-211 — 持续接触受力的可行载荷重分配（2026-09-13）
+- **根因证据**：完整双球r6在228.525s自然失败，time=.65215138，五约束持续力残差1.3440359936112145e-12；独立原样Swift及iOS短现场0.188s同残差复现。沿原迭代方向求可行边界仍失败，实验保留support-r6-boundary。
+- **实现**：resolveSupport在现有投影/Anderson后尝试同一物体连接的活动约束之间转移载荷，投影到非负法向力/摩擦锥并检查原完整互补残差；只有残差更小才接受。不合并近似法向、不删除约束、不激活分离接触、不更改4096/64ulp或材料参数。
+- **验证**：support-transfer-r1实际3测通过14.206s（五约束现场0.012s、角/中袋），boundaries-r1实际1测3.272s，正确类名boundaries-r2实际5测1.300s。合计9项，涵盖原21步持续力、双体舍入、停滑、近停及无新壁压力；完整双球仍待r7，生产未接入。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-211、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、W07-working。
+
+## FL-065 — 测试筛选类名不匹配导致数量误报（2026-09-13）
+- **现场**：support-transfer-r1命令选择5项，实际执行3项；边界r1选择4项实际1项。评论曾误称5项通过，发现后立即更正；不将未命中项算作通过。
+- **修复/证据**：按源码所属PocketGeometryV63Tests补跑boundaries-r2，实际5测0失败；上述合计9项。保留全部日志。
+- **强制检查点**：报告选择性XCTest结果前，对照实际Test Case名称及Executed计数；xcodebuild退出0不能证明所有-only-testing筛选均命中。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` §FL-065及Changelog、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-212 — 保留球球碰撞预测见证及范围复核（2026-09-13）
+- **证据**：r7自然失败145.795s，time=.64395061返回接触采样差1.12e-12m；起点相对法向速度+.00031579，事件前-.00033285，属于分离后重新碰撞。pair-witness-red-r1在6.787s复现。
+- **变更**：advanceCoupledTrial保存产生最早TOI的球对；仅该时刻的见证球对加入原承压几何校正，沿用4*tolerance界限并保留入射速度/自旋/时钟。跨owner独立路径另验，未宣称全面修复。
+- **验证**：pair-witness-r1四测中一项失败来自复制的新静态冲击断言；该场景实际是原壁支撑中的球球返回，改验静态约束、先分离后接近、碰后不相向与动能不增加，原红记录保留。r2实际4测0失败15.123s，新现场0.938s；无完整r8。
+- **范围复核**：用户指出袋内固定终态投入过长，确有优先级失衡。按既有v63§5.7先落实不可逆捕获/必要可见运动结束后的停止边界；不再把袋底长期多球堆积的完整求解作为正式3D接入前置。现有全程失败保持未通过，不能用范围调整改写成通过。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-212、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、W07-working。
+
+### FL-066 — 海报需保留原图语义，并检查缓存复制后的文字（2026-09-13）
+
+- **现象**：AI海报出现袋口夹角/缺号，用户要求改用已有计划和练习卡片原图。改为原图+SCNText后，场景断言通过但截图文字为空。
+- **原因**：写实生成未逐项约束实体结构；当前SceneKit的SCNText.copy丢失string，原测试仅检查图片和朝向。
+- **修复**：原Asset Catalog图直接复用，不重画号码/几何；文字单独排版，克隆显式保留string/font/flatness/extrusionDepth，增加克隆后文字非空与几何宽度断言。card-verified四项通过，仍以实际截图判断视觉。
+- **规则改进/已应用至**：`.cursor/rules/57-ui-reviewer.mdc` § FL-066：追溯图像版本、语义近景与实际文字可见性；同步UI规格Changelog。
+- **范围**：四面墙装饰，不改球桌USDZ、物理、卡片原始图片；真机未验。
+
+## DR-213 — 软袋收集边界（2026-09-13）
+- **实现**：PocketCaptureBoundary按hardSurfaces最低Y及bag.top减球半径确定中心平面，袋网层间插值截面限定XZ；firstCandidate用原空间区间的二次运动求向下穿越，保留绝对时间/速度/自旋；isClearOfActiveBalls检查同钟与邻球间隙。
+- **验证**：collection-boundary-r1实际3测6.879s（六袋实测、向下/上升/袋外、活动邻球），normal-entry-collection-r1实际1测6.705s（角袋/中袋真实台面入口及能量）。捕获候选time=.25849/.28942，Y≈.71519/.71522；附件导出并生成/目视核对collection-boundaries.png。当前未接入调度或收尾。
+- **决策**：见ADR-P10-10与v63.10；软袋吸收近似，保留硬质袋口物理及临界返回，袋底长期堆积不再阻塞正式3D。原失败保持原结论。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-213、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、W07-working。
+
+## DR-214 — 混合调度提交软袋捕获（2026-09-13）
+- **实现**：simulateMixedWithLocalPockets新增显式collectsPocketedBalls（默认false，保留验证基线）；按轨迹候选与同钟所有活动邻球选择最早捕获，与跨owner事件竞争，截断预测并通过PendingMixedStep延迟至实际请求时间提交。pending校验收集配置；LocalPocketOwnership.completeCapture移出活动集合。
+- **记录契约**：记录ConfirmedCapture后只发一次pocket事件，保留真实入口Double位置/速度/自旋；运行时球设pocketed并停止v/omega。收集截面/半径/高度的稳定位模式摘要形成soft-bag-v1几何版本；没有调用旧平面捕获。可见收尾尚未接入，不能把停在收集平面当最终画面。
+- **验证**：mixed-collection-r1实际2测14.463s（角/中普通进袋、唯一事件、停止及分段逐值一致）；boundaries-r1实际3测15.561s（角/中连续两球+远端不动、旧任意边界续算、返回台面）。默认旧App入口尚未切换，临界吐袋/物理系数/预测及显示统一仍待验。
+- **已应用至**：`.cursor/skills/ios-architecture/SKILL.md` §DR-214、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog、W07-working。
+
+## DR-215 — 吸收式收集的共享可见收尾（2026-09-13）
+- **实现**：PocketCollectionTail继承ConfirmedCapture的位置/速度/自旋，按重力继续至bag.bottom+R，之后位置固定、速度及自旋归零。Recorder.spatialStateAt统一局部区间与收尾；TrajectoryPlayback.stateAt/action及SequenceVideoExporter新记录分支保留XYZ，共用模拟时间停顿0.35s与淡出0.25s，避开旧平面入洞路径。正式simulate仍未切换。
+- **验证**：collection-tail-r1实际3测12.328s全部通过：重力连续/终态固定、共享查询/倍率时长、精确分段续算。collection-visual-r1实际1测11.697s通过，导出两张角/中袋各7帧接触表并目视核验；下落后球逐渐被袋沿遮住，固定终态已不可见。普通两例收尾分别约11.5/12.0ms，不需要长时间袋底求解。
+- **证据边界**：截图是SceneKit组件静态位置/透明度采样，没有验证逐帧自转、实际页面交互、视频成品或真机性能；不能把这四项测试当W07/W08完成。临界袋口/邻球/正式入口/预测与规则仍待验，原硬袋堆积失败保持原结论。
+- **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md §Changelog/DR-215（API与验证口径），tasks/3d-v63/W07-working.md与执行台账。
+
+## DR-216 — 局部规则碰撞与支撑约束分离（2026-09-13）
+- **根因/修复**：本地trial.constraints原样映射ballBall，而跨owner原有分支只上报碰前接近。EventDrivenEngine.spatialImpactEvents统一既有closing<0语义；本地从接受区间的beforeEndpoint左极限取碰前速度，零时刻取起态，跨owner复用同一入口。保留全接触组求解、冲量、位置、材料与持续支撑；不是移除静止约束。
+- **证据**：rule-events-red-r1上报层短例实际1测2断言失败（静止/分离均错误上报），失败保留。rule-events-r1实际4测14.947s通过（上报三态、高速同刻2/8/12m/s、跨owner真实接触、捕获精确续算）。此红例证明映射错误，不声称已在正式页面复现误判。
+- **限制**：正式simulate/预测/规则消费者仍未切换；参数与局部静态接触到业务吃库的映射另须处理，不能把静态面数量当吃库次数。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-216及Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+DR-216补验：rule-events-local-r1实际1测4.671s通过，纯局部双球验证beforeEndpoint不会漏碰、首次碰球时间一致、请求前缀不提前发布及分离续算不重复上报。
+
+## DR-217 — 共用既有球球材料律（2026-09-13）
+- **实现**：BallPhysics.contactFriction抽取现有Alciatore Float表达式，旧平面resolver同值调用。SpatialBallContact.MaterialSource提供supplied/ballPhysics；后者使用既有恢复系数.95与包含双方自旋的三维切向接触滑速计算摩擦。LocalPocketSimulation在球球冲量及持续力构建时取材料，临时力求解器继承配置；混合入口及PendingMixedStep绑定该配置，缓存中途改配置明确拒绝。
+- **验证**：ball-material-r1/session12977终态0，实际4测7.224s：0–10m/s共1001个Float旧公式逐位一致、接触自旋/交换双方、独立斜碰冲量与自旋解析值、混合标准配置续算/拒绝切换、旧固定参数局部碰球回归。
+- **范围**：统一材料系数，不宣称平面约束响应与空间响应逐值相同；空间保留Y方向运动。supplied仍为验证入口缺省，正式simulate未切换。台面/库鼻/皮革静态材料分类、业务吃库与预测消费者另待接入；未以四项测试宣称完整生产标定或手机性能通过。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-217/Changelog，tasks/UI-IMPLEMENTATION-SPEC.md §Changelog，W07-working。
+
+## DR-218 — 静态表面的拓扑角色（2026-09-13）
+- **依据**：同一TaiNi材质包含中央台面及袋口下沿、六段独立库边。旧网格附件先做精确顶点连通分析发现7部件，再用当前PocketGeometryAsset.tablePatches独立验证，未按材质名直接把全部TaiNi算作台面或库。
+- **实现**：PocketSurfaceRoles.classify按精确顶点连通，包含中央台面点的唯一部件标clothBed，另外六个须具有实测库边高度；Leather单独标记。未知材质/不符当前模型的部件契约抛错，不按大小猜测或焊接近邻。PocketGeometryAsset.surfaceRoles以独立锁缓存纯值，未改原几何/材料/响应。
+- **验证**：surface-roles-r1/session10472实际1测3.094s通过：当前模型分类/缓存、低于台面的cloth lip保留、反转面序与绕向一致、缺失结构拒绝；9701 clothBed/9963 cushion/24584 leather面。导出附件并用plot_surface_roles.py绘制surface-roles.png，顶视/侧视均已打开核验。
+- **限制**：这是当前模型的消费契约，不是通用网格语义识别。静态材料响应、库鼻细分/主库索引、吃库事件去重及正式入口仍待实现。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-218/Changelog，tasks/UI-IMPLEMENTATION-SPEC.md §Changelog，W07-working。
+
+## DR-219 — 局部吃库事件与既有库边索引（2026-09-13）
+- **实现**：TableGeometry.nearestCushionIndex只把已确认的物理库边接触点映射到有限CAD直段/圆弧的原索引，包含有限端点，不使用无限延长线。混合已接受静态接触中仅cushion角色上报ballCushion；clothBed/下沿与Leather不直接计库。按球/Double接触时刻/库索引去重并跨pending续算保留；正常事件时间不依赖显示帧。业务normal为实际法线的XZ单位投影，三维原法线仍保存在原始接触记录中。
+- **验证**：cushion-events-r1/session6386终态0，实际4测7.328s：六主库/全部有限圆弧中点索引、真实当前中袋旁直库碰撞反弹且只计一次、整段/分段同事件时间、落回台呢有物理接触但不计吃库、既有静态接触接受前缀回归。
+- **范围/取舍**：映射不移动接触或新增碰撞检测，尚未改变局部Surface响应系数。既有库边.94是Han响应下的输入标定，不能把相同数值当三维实际反弹率已验；需以真实响应对照衔接。正式simulate/预测消费者仍未切换，特殊同刻多库及全袋范围另验。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-219/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-220 — 静态材料候选与真实响应对照（2026-09-13）
+- **实现**：PocketStaticMaterial.prototype保持原.3/.2；tablePhysics(clothRestitution:)为显式候选，台呢共用滑动/滚动/自旋阻力，皮革复用袋道系数，库边按原有限CAD绑定取段/弧系数。surface索引/三角面不变；纯值按材料配置缓存，未知竖向系数拒绝；混合入口pending绑定staticMaterial。正式simulate未切换。
+- **验证**：static-material-r1因测试误用旧函数名编译失败，修正为resolveCushionCollisionPure。r2实际4测/3断言失败，失败集中台呢对照；另三项（材料索引/旧默认吃库/新响应取证）通过。独立Float计算确认输入中心比Double支撑面高3.7252903nm，落地时间27.558815μs，自旋差预测.000300391rad/s与实测相符；改为从真实接触起计台呢阻力，保留全部原误差标准并新增解析落地时刻断言。static-cloth-r3实际1测3.929s通过。未改求解器或放宽误差。
+- **物理发现/限制**：真实库边同输入局部出射vz=.947101/旧Han=.875972m/s，局部vy=.167700m/s；原法线约(-.00000167,-.070568,.997507)。同材料数值不保证同响应，本轮只完成候选与差异取证，不认定静态响应标定/正式发布通过。台呢竖向恢复仍显式使用.3作原型对照，不是实物测定值。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-220/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-221 — 接缝支撑见证与平面步长预算（2026-09-13）
+- **问题/根因**：普通台呢接缝上的边缘距离加上共同半径后舍入近等；以宽同距集合投影且固定初始候选，会把面外边缘或修正后已分离的面当作等式支撑。标准材料与再入/捕获续算因此失败；不是袋底堆积问题。
+- **变更**：PocketContactTriangle暴露projectedInteriorPoint，保留原内部判据与closestPoint行为；支撑过滤区别真实面内见证、共面面外边缘及近重合见证。末态投影用距离平方差的因式表达式比较，误差由运算尺度给出，并在每次位置修正后重建候选。未放宽投影/穿透阈值。无局部owner时复用原adaptiveEvolveCap，真实区域穿越仍截断，局部仍用maxStep。
+- **验证**：cloth-seam-r4/session70824终态0，实际8测22.193s：角/中袋.5与4m/s标准材料组合的捕获/吐袋/能量、远端32事件预算和旧平面对照、捕获续算、任意截断续算、独立同刻事件、完整再入、两项折角回归。r1/r2/r3及planar-budget-r2失败均保留，数值草稿与接缝图已核验。仅显式混合入口，未宣称正式App或全部参数标定通过。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-221/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-222 — 混合入口保留搜索早停语义（2026-09-13）
+- **问题**：现有ShotPredictor依赖首次指定球碰撞早停和兴趣球行程上界早停；混合入口缺少对应参数，直接替换会丢失反解预算能力。原平面能量证明不能直接覆盖空中球及尚未接管的袋口静止球。
+- **变更**：simulateMixedWithLocalPockets新增earlyStopBallNames/stopAfterContactBetween，缺省nil。共用原无序球对判定；在接受完整同刻事件和记帧后检查本次新事件，未提交预测与历史事件不触发。兴趣球证明只在无pending、无空间owner、所有在场球处于平面高度/无竖向速度且不在局部接管区时复用；空间状态保守继续。
+- **验证**：mixed-search-stop-r1/session83715终态0，3测7.069s：指定球碰前截断/碰后状态与整程记录对照/续算逐值/历史事件不重停、空中势能保护、既有同刻独立事件。mixed-search-group-r1/session73475终态0，1测3.544s：指定其中一对早停仍保留完整同刻三球双碰。mixed-interest-stop-r2/session87218终态0，1测4.620s：扩展远端静止/空中/袋口静止失撑三态。4个不同测试，兴趣测试扩展后复跑；不将5次执行说成5个不同测试。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-222/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。正式simulate/ShotPredictor调用尚未切换。
+
+## DR-223 — 引擎停止原因贯通真实预测结果（2026-09-13）
+- **问题/范围**：simulate原来无返回值，预测无法区分完整停稳、时间/事件截断与主动早停。审计确认SimulationWorker当前无实例化消费者，优先处理ShotPredictor两条真实路径，不扩建闲置Worker。
+- **API**：EventDrivenEngine.Termination包含settled/timeLimit/eventLimit/contactResolved/interestResolved；simulate与显式混合入口均返回该类型，@discardableResult保持调用兼容。混合工作预算/数值错误仍显式throw，不转成成功。ShotPrediction.termination经simulateFree及runShot→buildPrediction传递；nil表示未执行模拟，feasible继续只表达几何可行性。
+- **验证**：simulation-termination-r1/session38350终态0，实际3测6.655s，覆盖旧平面/混合停稳与时间截断、旧事件预算/新工作预算异常、真实simulateFree状态与非零尾速、既有碰后续算。主动早停返回原因补验见W07-working最新条目。
+- **边界**：此次只贯通结果契约，尚未实现页面错误提示/重试，也未将生产simulate切换混合模型；不能凭新增状态字段宣称已阻止所有截断轨迹上屏。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-223/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-224 — 未完成预测的实际消费者检查（2026-09-13）
+- **问题**：末速度接近零不能独自证明模拟完成；实时解/序列缓存与导出可能把截断轨迹当作完整一杆。不能仅给ShotPrediction添加状态而不检查消费者。
+- **变更**：hasFinalTableState仅接受settled，hasResolvedSearchState接受settled/interestResolved。PositionPlaySolver落区及防守停点同时检查搜索完成状态与原末速条件；PositionPlayViewModel异步求解、翻袋切换、序列呈现四处通过applySolvedShot统一写入，未完成可行预测清理旧解/辅助显示、禁止出杆并提示调整参数；序列缓存只接完整状态。SequenceVideoExporter共同运动帧路径明确抛incompleteTrajectory，避免把截断的可行模拟当正常过渡跳到after。
+- **验证**：prediction-consumers-r1/session71231编译失败（测试缺MainActor），未执行通过；r2/session88107终态0，2测.142s：真实预测的完成/截断与未知/搜索状态拒绝、有效结果恢复、导出校验及真实落区求解。统一实际写入入口后prediction-delivery-r1进一步验证原有效solvedShot被清除，终态见W07-working。
+- **边界**：此次为ViewModel/求解器和导出前置校验，未执行实际页面截图或完整视频导出；其他专项页面、开球与最终混合入口切换继续在全范围内待办。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-224/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-225 — 真实预测路径的统一模拟入口（2026-09-13）
+- **变更**：simulatePrediction以SimulationModel选择planarReference或显式localPockets(material:)。ShotInput携带模式贯穿runShot的搜索与buildPrediction；simulateFree新增同一模式参数，两条真实路径均通过该入口。当前缺省仍为planarReference，全面切换未验收，禁止把显式局部测试说成默认页面已切换。
+- **局部入口**：采用标准球球材料、软袋收集与共享尾段，初次模拟沿用50次初始重叠分离。业务事件预算maxResolvedEvents与迭代保护maxLocalSteps分开；同刻组完整提交后才检查事件预算。局部异常记录诊断并返回Termination.failed(String)，不重跑旧捕获规则、不冒充成功；失败状态由已有完整性检查拒绝。
+- **验证**：predictor-local-entry-r1/session1129因模拟器ID抄写错误，核对PID8962后主动终止，exit143，无产品测试结论；r2/session96281终态0，3测13.312s：真实simulateFree角/中袋捕获/收尾且旧pocketEntries为空（2.598s）；真实指定袋口predictForPositionSolve保留模型并捕获目标球（2.777s）；零业务预算/局部工作失败/远端32预算（7.937s含加载）。默认兼容及失败消费者补验见W07-working。
+- **边界**：局部材料仍显式选择tablePhysics(clothRestitution:.3)，不宣称实物标定；局部路径使用已有自适应平面步长，未承诺与旧非高保真搜索逐位相同。默认切换、其余消费者、完整预算/同刻截断/手机成本继续验收。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-225/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-226 — 固定局部物理准备数据复用（2026-09-13）
+- **实测问题**：每次局部预测重建同一BVH与六袋收集边界。preparation-baseline-r1/session43985终态0，1测8.877s；5次短预测首轮3719.895ms，后四轮551.304–554.484ms，均值553.059ms。该微场景无袋口接触，主要暴露固定准备成本。
+- **变更**：PocketGeometryAsset.localSimulation按静态/球球材料缓存只读LocalPocketSimulation（固定面、常量、BVH）；MaterialSource增加Hashable。captureBoundaries缓存固定六袋边界与版本，完整构建才发布。独立NSLock保护缓存；球状态、轨迹、pending与事件留在各Engine，不共享运动状态。非法静态参数先验证再作为缓存键。
+- **验证**：preparation-cache-r1/session96881终态0，3测10.437s，热均值26.621ms；收集边界复用后r2/session33052终态0，3测9.990s，热均值.16175ms（范围.147625–.220708ms）；真实自由预测角/中袋捕获及精确续算均通过。comparison JSON在output/3d-v63/W07/preparation-comparison.json；所有原始结果保留。
+- **边界**：模拟器Debug、同一简单短预测的热准备成本；不是全杆吞吐/真机帧率证明。首次加载、复杂接触和真实手机内存/热量仍未验；不因此放行默认全面切换。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-226/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-227 — 袋口支撑静止球允许整杆结束（2026-09-13）
+- **根因**：混合调度只在owner为空时判整桌停稳；实际目标已进袋、母球速度/自旋归零但仍处于局部区域时，仍标sliding并跑满maxTime，最终被完整性检查拒绝。初始袋口附近静止球也复现。
+- **变更**：从planarReturn提取同一planarSupport支撑证明，区域退出/接管规则不变。无pending时，所有未捕获球须为台面支撑且严格零速度/零自旋的local owner，或已静止且不在待接管区的平面球，才标记stationary、记帧并返回settled。没有增加阈值或强制清零运动，没有释放局部所有权。
+- **验证**：local-rest-red-r1/session63291终态65，两个真实用例失败，母球末速0却timeLimit，原日志保留；local-rest-r1/session76049终态0，4测11.846s：完整目标进袋母球停稳、袋口静止支撑、空中/失撑不早停、完整再入。输出状态stationary，已有停止前缀/区域退出含义保留。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-227/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+## DR-228 — 翻袋与反射消费者完整性检查（2026-09-13）
+- **范围/变更**：BankShotViewModel与DiamondSystemViewModel在自由预测返回、运杆前及回放时共用acceptFreePrediction；未完成/无recorder时保留before球形、结束播放态、恢复瞄准并显示simulationNotice。有效结果清提示。求解演示/播放仅接受完整桌面状态，解目录过滤截断结果，微调展示另行校验；全部候选被过滤时明确提示模拟未完成。
+- **验证**：bank-kick-consumers-r1/session7749终态0，实际3测5.314s：两页未知/时间/预算/碰撞早停/兴趣早停/failed状态拒绝、球形恢复及有效结果恢复；真实翻袋微调目录不变/循环恢复（3.919s）、反射同项（1.385s）通过。gate/session67132终态0，81 routes/146 write-surfaces及文案门禁通过。
+- **边界**：未以模型测试替代页面视觉验收；图谱只消费特定前缀，不能无条件套用全桌settled要求，须按其碰撞终点核验。瞄点验证/开球/其他消费者、默认混合切换和全面手机验收仍未完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-228/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+
+## DR-229 — 开球统一预测入口与完整结果交付（2026-09-13）
+- **根因**：BreakSimulator独立调用旧simulate，并按XZ末速<0.3推断settled；低速但时间预算截断时可误报完成。BreakFlowRunner未在运杆前检查结果。
+- **变更**：breakShot增加随请求传递的simulationModel，经simulatePrediction调用；BreakResult保留termination，settled仅等于引擎settled。只有完成才执行原静止重叠清理。runner在起播前共用acceptCompletedSimulation，拒绝未完成结果并恢复racked，保留现场摆位/方向/力度/打点、禁止确认及交付，显示重试提示。
+- **验证**：break-unified-entry-r1退出0，4测/0失败/7.511s；真实低速maxTime=0截断不会交付，正常结果可再次接受；无效局部材料failed无平面回退；旧开球确定性和手动确认通过。break-local-full-r1退出0，1测/0失败/8.564s；实际9球seed7默认6m/s显式局部模式正常settled、10球完整，计算8.536s（含本进程准备成本），本杆pocketed为空，不能作为开球进袋证据。gate退出0，81 routes/146 write-surfaces及文案门禁通过。
+- **边界**：默认仍planarReference；未证明所有玩法局部开球、进袋开球、真机耗时或提示的实际UI。没有新增袋内微接触求解。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-229/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+
+## DR-230 — 图谱按所需事件片段验收（2026-09-13）
+- **根因**：图谱把cuePath末端当停点，不检查模拟是否截断；但要求整桌settled也会丢弃已完整的教学片段。
+- **变更**：两图谱增加hasCompleteSlice；分离角接受完整桌面或已记录碰后首库；加塞吃库接受完整桌面、已记录二库或已有0.40m库后片段。原切片几何/教学盘面/打点/颜色不变。切片入口拒绝不完整结果，VM逐档检查，仅保留完整档位并提示部分模拟未完成，拒绝档位不画碰前stub。
+- **验证**：atlas-completion-r1/session25506退出0，实际14项测试/0失败/0.414s。新增真实时间截断验证分离角首库前拒绝/首库后虽timeLimit仍接受，加塞首库后短截断拒绝；完成路径改为timeLimit的契约用例证明完整片段不依赖全桌状态。原低力度停点、切片端点、8档吃长库、打点边界与挤偏补偿回归通过。
+- **边界**：未改最近点切片算法；当前测试为默认平面预测与模型契约，不代表图谱新版局部物理预算、实际提示UI或所有3D图谱验收。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-230/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+
+## DR-231 — 瞄准点验证失败保留当前题目（2026-09-13）
+- **根因**：验证击球只检查recorder/duration，无记录时直接advanceAfterStrike，截断预测也会播放并自动换题。
+- **变更**：acceptVerificationPrediction在进入striking/清除辅助线/运杆前检查完整结果；失败取消自动击球任务、保持showingResult与原答案，verificationErrorMessage驱动系统弹窗。重试仅重复strike，不重复submit/计分/保存；下一题由用户明确选择。新题清错误态。
+- **验证**：aim-verification-r1/session41669退出0；2测/0失败/1.335s，未知/时间/事件/failed结果保留题目坐标、误差和答案数量，完整预测恢复清错误；原2D/3D练习不泄露理想方向回归通过。
+- **边界**：系统弹窗实际页面视觉与按钮流程未验，尚不能声明本页面全部完成；正常后续播放结束时机仍由W08统一审查。默认局部物理切换仍未完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-231/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+
+## DR-232 — 三个规划页完整结果检查（2026-09-13）
+- **范围**：SiluTrainerViewModel、PlanThreeViewModel、SnookerTacticsViewModel。
+- **变更**：canStrike要求hasFinalTableState；展示目录/微调结果前共用acceptCompletePrediction，未完成时清轨迹/藏杆/清瞄准方向并提示。上一杆回放同样在修改场景与播放态前检查；原解目录、草稿与撤销模型保留。
+- **验证**：planning-completion-r1/session14075退出0；5项/0失败/25.846s。三页未知/时间/预算/兴趣早停/failed结果拒绝与完整结果接受；真实三个页面微调目录与循环恢复、连续微调保留前次打点均通过。Snooker完整测试23.352s，包含求解/微调/断言，不是单次预测或真机性能指标。
+- **边界**：页面错误提示实际视觉、局部模式求解预算与默认切换未验；不把消费者守卫视为W07完成。仍须核对EngineCushionTracer旧直接入口，SimulationWorker目前无实际实例不可冒充用户链路。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-232/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+
+## DR-233 — 反射追迹统一入口与截断终点（2026-09-13）
+- **变更**：EngineCushionTracer.launch经simulatePrediction，Launch携带termination；shoot的模式参数贯穿miss搜索与build重建。仅settled追加自然末点，时间/事件截断或failed不把最后记录帧补成停点，既有已完成库间片段与斜库截断规则保持。显式局部材料失败不回退。
+- **验证**：reflection-entry-r1/session60323退出0，11测/0失败/14.053s。短时截断只留下起点；显式局部低速球正常停稳、无效材料failed；原单库求解、长库分类、翻袋/反射真实模式及力度响应回归通过。局部测试是低速无库球，不替代局部多库反解验收。
+- **边界**：默认planarReference仍待切换验证；当前产品实际直接旧simulate只剩无实例的SimulationWorker（本轮检索），不得据此称全物理完成。W07默认切换、性能与临界捕获回归、提示UI仍未完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-233/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+
+## DR-234 — 默认预测切换局部进袋（2026-09-13，全面验收中）
+- **变更**：SimulationModel.appDefault为不可变.localPockets(tablePhysics(clothRestitution:0.3))；ShotInput/simulateFree、BreakSimulator、EngineCushionTracer.launch/shoot共用默认策略，显示2D/3D不选择物理。显式planarReference保留作旧基准对照。删除ShotPredictor“主线程可直接跑且极快”的过期注释，页面后台调用需继续审查。
+- **切换前证据**：local-search-r1/session82634退出0；实际单库局部射击法（搜索与build）6.597s到达目标，中袋完整predict瞄准搜索7.795s、settled且真实捕获；2测/0失败/14.448s，计时含进程准备差异，非真机预算。
+- **切换后证据**：default-local-r1/session1079退出0；默认simulateFree中袋确认捕获/无旧pocketEntries1测7.247s，实际S2_ShotPagesLayoutUITests.testShotSimulation3DPilot 1测90.259s/0失败。完整观察/手势/后台恢复/击球/回放/重打通过；本轮after-3d-pocket与after-replay-3d原图已目视，独立附件位于output/3d-v63/W07/default-local-r1-attachments。页面流程击打自由球，不能当动态进袋验收。gate/session49022退出0，81 routes/146 write-surfaces及文案检查通过。
+- **未完成**：W07临界旧基准差异分类、全页面/开球玩法/反解吞吐、同步主线程调用、错误提示UI；W08动态进袋/遮挡/任意定位/实际导出及后续完整范围。静态台呢e=.3为候选，未宣称实物标定。当前源码默认已切换，不能再沿用“生产默认未接入”描述；全面验收仍在进行。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-234/Changelog；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；ADR-P10-11；W07-working；v63.11。
+
+
+## DR-235 — 局部静止残差与阻力矩平衡候选（2026-09-13，验收中）
+- **根因证据**：低杆目标球v约1e-178但严格零判据导致timeLimit；独立单平面小坡度复现步长相关爬行，排除袋口网格依赖。surfaceResistance仅按起始omega/dt制动，未平衡接触力产生的角加速度。
+- **当前变更**：EventDrivenEngine仅在已验证台面支撑的全桌静止条件下归零64ulp范围内线速/球面自旋速并提交所有权状态。LocalPocketSimulation在每次接触力候选下共同求解压力有界的滚动/旋转力矩，投影保持各接触力矩容量，使用求得的角加速度校验接触约束。极短步的force相对残差考虑速度舍入除以dt的下限，原约束位移预算保留。单球快捷分支已撤下，既有117.600/166.445s不能作当前性能值。
+- **验证**：coupled-moments-r1/session39754终态0，实际4项/.519s：小坡度两步长位移降至1e-21m量级，大坡度解析运动、原平面滚动减速及无滑动摩擦时不造能通过。低杆恢复此前在rest-only回归验证；本候选真实袋口/多球/性能尚未完成，prototype临界投影失败仍保留，不能宣称进袋验收完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-235；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+
+### DR-235 补充验证：优化测试构建结果（2026-09-13）
+- optimized-test-build-r4/session19879终态0，TEST BUILD SUCCEEDED；优化级别-O、Release配置但保留DEBUG测试入口与testability，不能称正式Release验收。源hash与optimized-build-r3-source.txt逐项匹配。
+- optimized-tests-r1/session67857：实际4项/1失败/21.018s。两个15球用例通过：方向响应5.100s、重复确定性3.029s，每项2杆，新增a/b.settled断言确实执行通过（四杆正常结束）；角/中六种边界通过11.137s，同源码Debug对照286.016s；旧临界步长1.752s仍同t=.0009999999999981044、dt约1.896e-15、force错误失败。
+- 已区分编译与算法成本：当前优化构建能完成15球与正式默认边界，但仍需手机实测与页面后台等待审查；默认边界11.137s包含六种输入，不能称单杆11秒或正式性能验收。旧临界尾段数值错误与优化无关，继续处理，W07及后续范围未完成。
+
+
+## DR-236 — 空间进袋导出不再重复追加旧动画时长（2026-09-13，验收中）
+- 根因：SequenceVideoExporter只按pocketedBalls非空追加旧pocketSettleDuration，同时空间捕获已自带下落、停顿与淡出绝对结束时刻，形成重复等待。
+- 修改：motionEndTime按球区分空间尾段与旧帧轨迹；空间使用collectionPresentationEnd，旧捕获才加旧动画预算；保留全桌运动和跟杆结束上限。
+- 验证：角/中袋共用测试补.5/1/2倍速与实时SCNAction时长一致、早捕获不延长其他球停稳后等待、混合旧轨迹仍留预算。首轮编译失败因测试未标MainActor，未运行断言；已按导出器隔离要求修正，export-tail-r2运行中。未宣称实际视频验收。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-236；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+- DR-236验证补充：export-tail-r2/session57196终态0，实际1项/0失败/9.245s，角/中袋各三种速度及早捕获/混合旧轨迹时长断言通过；gate/session1754终态0，doc-size与diff-check通过。首轮export-tail-r1/session49664编译失败，未执行测试。当前证明生产导出结束时间计算，实际编码视频/暂停恢复尚未验收。
+
+
+## DR-237 — 序列页面按全桌动作结束收尾（2026-09-13，验收中）
+- 根因：详情/试打序列页面在母球action结束后无条件按进袋球非空等待旧尾段，空间捕获重复等待；独立Task.sleep也脱离节点动作取消。
+- 修改：DrillSceneController.playStep、PositionPlayViewModel.runSequencePlayback取所有球action.duration最大值，与母球动作组共同结束；只有旧帧捕获保留旧预算。移除额外sleep，试打回调检查sequencePlayState仍playing。未改变杆边界暂停、杆间停顿与最终复位语义；未宣称已解决所有跨轮回调竞态。
+- 验证：修改前两实页测试通过（sequence-boundary-r1，281.462s），修改后sequence-boundary-r2/session15475运行中。首次编辑脚本完成详情页后因试打方法名匹配失败退出，已按实际runSequencePlayback补齐并核对两个位置。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-237；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+- DR-237验证补充：sequence-boundary-r2/session15475终态0，TEST SUCCEEDED，实际2项/0失败/279.608s；详情49.674s、试打229.933s（含固定测试等待，不能作性能提升值）。暂停/继续/上一杆/整段复位通过，12截图已导出，最终复位图已查看。gate/session14588、doc-size、diff-check通过。实际3D切换、硬停快速重启竞态、编码视频仍待验；当前无活跃句柄。
+
+
+## DR-238 — 手机竖版3D教学视频俯角（2026-09-13，验收中）
+- 实际编码视频显示30°整桌入镜在竖版中台面过短、留黑多；算法已是固定俯角下最小可行距离，直接拉近会裁两侧。
+- 用同一杆402×761教学静帧对比30/45/60°，portrait-framing-r1/session79484实际1测12.119s通过；45/60原图已审，60°台面路线更易读，桌体完整。仅Options.teachingVideo3D（及继承预设）用60°，通用Perspective3DConfig默认30°保持。
+- SequencePerspectiveFitTests的独立角点/最小距离矩阵补60°；portrait-fit-r1/session92541运行中。新预设动态编码/原生1080视频及手机实际观看仍待验，不将静帧对拍称为全部完成。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-238；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W07-working。
+
+- DR-238验证：portrait-fit-r1/session92541终态0，实际5项/0失败/.004s；独立角点/最小距离矩阵已含60°，其余既有测试通过。doc-size和diff-check通过。尚未用新预设重编码视频，原encoded-sequence-r1仍为30°基线，禁止混用。
+
+- DR-238实际视频验证：encoded-sequence-r2/session16922终态0，实际1项/0失败/16.530s；60°新预设30fps=8.700s、60fps=8.683333s，均有真实空间捕获。视频与8帧中袋抽帧在output/3d-v63/W08/encoded-sequence/232C8959-D0EE-4C73-8AA5-94960F5C346C，已实看目标球接近袋口、消失后不再出现。ffprobe核验60fps/521帧/402×761。与30°基线时长一致；旧基线保留。此为402宽验证，1080原生/真机观看及逐世界状态跨帧率仍未验。
+
+
+## DR-239 — 3D开球保留模拟失败提示（2026-09-13，验收中）
+- 现场：w09-disabled-r1的9球模拟返回racked；2D显示未完成错误，3D被固定“刻度轮调方向”提示覆盖。
+- 修改：BreakFlowRunner新增只读发布simulationFailure:Termination?，失败保存具体停止原因，成功/重摆清空；FreePlayView仅在无失败时用3D操作提示覆盖racked默认说明。不把失败结果交付，不改变物理阈值。
+- 验证：现有不完整开球测试补失败原因与成功/重摆清理断言。r1误用类名运行0项（不计通过）；r2/session45354正确选择器运行中。当前修复提示遮蔽，原数值失败/散局求解仍未解决。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-239；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W09-working。
+
+- DR-239验证：w09-failure-status-r2/session45354终态0，实际1项/0失败/16.164s，失败原因保存、成功清理和重摆清理断言通过；gate/session45934终态0，doc-size与diff-check通过。修复后实际3D失败现场尚未重拍。开球初始seed来自随机值，需在下一次失败时记录seed及击球输入才能固定重现数值失败，不能把前后不同结果归因于一次代码修改。当前全部句柄终态。
+
+
+## DR-240 — 3D打点面板改为浅横排（2026-09-13，验收中）
+- SE截图复现旧十字盘遮母球，旧UI断言只验证微调与主要按钮位置，未覆盖球体可见性。
+- BTSpinPadCard/Overlay新增usesCompactLayout（默认false），3D调用选择球盘与完整方向十字并排，盘径3×keyHit，卡宽不超过2×maxPadDiameter；保留拖动、四向±1%长按、回中、只读与锁侧塞语义。2D保持原布局。
+- 接入BreakInstrumentsOverlay、FreePlayView、ShotSimulationView三个实际消费点。compact-pad-r1/session5338终态65：分离角流程通过88.342s；自由击球开球计算60.495s超时后settled。已看15球展开图和分离角after-spin，母球完整露在面板上方；固定慢种子及证据见W09-working。未用一图宣称标准/iPad/任意相机姿态全部验收。
+- **已应用至**：.cursor/skills/swiftui-design-system/SKILL.md §DR-240；tasks/UI-IMPLEMENTATION-SPEC.md §Changelog；W09-working。
+
+## DR-241 — 实时击球与上一杆回放等待全部球收尾（2026-09-13，验收中）
+- 审计发现PositionPlayViewModel.launchBalls/runPlaybackAnimation仍在母球动作后固定Task.sleep旧尾段，空间捕获重复等待，其他球晚结束也未纳入结算时钟。
+- 两条路径沿用DR-237：聚合全部球action.duration，以母球group wait承载可取消等待；仅旧记录捕获保留历史收尾余量。主线程结算前检查isPlaying，不声明解决全部快速重启竞态。
+- live-tail-r1运行中，包含共享空间收尾单测及实际分离角3D击球/回放；母球落袋完整页面仍待补。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-241；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-242 / FL-067 — 自由击球落袋母球补回入口（2026-09-13，验收中）
+- P1：FreePlayView.paletteBar对全部离场球只提示不支持手动摆球；母球落袋后虽规则提示自由球，实际无法通过球库补回。此前VM补球测试不能覆盖此页面拦截。
+- 非每日清台的离场母球点击球库允许placeFromPalette；目标球继续只读。3D母球离场时底栏提示切回2D补回母球。无需新增玩法或恢复任意目标球摆放。
+- DEBUG专用-v63.freePlayScratch仅准备已验证固定中袋球形和中八规则；真实UI点击击球/回放/模式切换/球库，落袋与结算仍由生产链路产生。不得把夹具启动作为正常入口验证。
+- scratch-page-r1/session99832运行中。
+- **已应用至**：.cursor/skills/swiftui-design-system/SKILL.md §DR-242；tasks/UI-IMPLEMENTATION-SPEC.md Changelog；tasks/FAILURE-LOG.md FL-067。
+
+## DR-243 — 落袋提示复用瞄准信息位（2026-09-13，验收中）
+- scratch-page标准/SE图显示四个并排胶囊导致自由按钮及母球进袋换行、比分省略。
+- 普通自由击球cuePocketed提示显示时以scratchPill替代aimCapsule，而非增加第四胶囊；模式切换与落袋提示保持单行固有宽度，对局信息保留。预测已提示母球进袋时同样优先警告，消除同类拥挤。每日清台状态信息分支保留。
+- scratch-header-se-r1/session33966实页验证中。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-243；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-243补充：r1玩家仍截断，r2省略重复轮到、保留完整无障碍标签后，SE实页31.055s通过且原图全部单行；标准最终及长比分待验。
+
+## DR-248 — 试打页3D观看与控件（2026-09-13，验收中）
+- r3只读卡修复：紧凑且只读时移除可编辑双列的固定宽度，按白盘/读数本征尺寸布局；新增实际卡片边界与继续按钮不重叠断言。r3/session16252实际48.224s、SE/session50073实际49.395s通过，两张暂停原图已核；gate/session9684通过。
+- PositionPlayComposerView仅试打变体增加cameraToggle；独立自由走位入口尚未开放切换，W12仍待完成。复用ShotPlayCamera/ShotObservationMenu和ShotPerspectiveLayout，序列首入3D全桌观察，普通模式可回到瞄准。
+- 3D解除台面瞄准拖动和拖球，保留明确目标球/袋选择；摆球返回2D。仪表、动作列、瞄准轮、重摆按钮按透视视口定位；底部改为观察/提示行，打点用已有紧凑布局并保留序列只读。
+- 改前tryout-baseline-r1/session10518，原完整暂停/两杆/上一杆/播完复位UI230.515s通过，截图已保留。新testPerspectiveSequencePauseReplayAndModeRoundTrip在tryout-3d-r1/session96400实际42.488s通过；原图存在裁切/遮挡疑点，增加截图前过渡等待后r2/session62298实际48.130s通过，稳定原图确认读数完整，撤回读数缺失判断；全桌贴边/只读卡背景重叠仍待处理，生产布局尚未因此修改。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-248；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-247 — 动作详情观看模式（2026-09-13，验收中）
+- DrillSceneController.cameraMode改为Published只读，setCameraMode只改观看；首次3D使用共享rig全桌取景，同杆往返复用scene观察缓存。全桌按钮不修改击球目标；stepLabel显示当前杆/总杆数。
+- DrillSceneView增加44pt观看工具行；3D启用cameraControl，透明回放层停止命中，单击由场景回调唤出播放控件；2D保持原轻点唤出与杆末暂停规则。
+- DrillStaticPreview.Options.adjustsTopDownCamera默认true，详情3D传false，防异步静帧把已选3D强切正交；缩略图等旧调用保持原契约。
+- detail-3d-r1/session96139：控制器模式/投影/球位/播放状态单测0.515s通过，实页观察及原2D暂停回归执行中。
+- r1最终1单测+2UI通过，但原图取景窄小，未通过视觉；r2改朝向仍被首次beginManualOrbit覆盖，1单测+1UI通过不代表取景修复。r3改observeWholeTable(yaw:nil)在接管后应用显式朝向，增加真实yaw断言；详情-π/2保持屏幕右+X，验证中。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-247；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-246 / FL-068 — 动作详情先摆球再解算（2026-09-13，验收中）
+- 改前detail-baseline-r1实际暂停UI测试通过49.965s，但p1-playing-state原图台面无球；测试只验证控制状态/HUD，不能证明球形可见。
+- 根因：setup在后台首杆解算返回后才applyPreviewFrame填homePositions；提前play时restoreHomePositions为空。switchFormation又通过applyPreviewFrame在后台派发前同步求解，违背其先摆球说明。
+- preparePreviewBoard只从保存board摆球和建立homePositions，setup/switchFormation统一使用；预览解算返回只在idle时重绘，避免干扰已开始/暂停的演示。
+- 新增主线程无挂起测试，setup返回及立即play后逐球验证visible/parent/opacity；实际暂停UI复验中。本次未增加3D控件；W10基线缺陷先修复。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-246/FL-068；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-245 — 视频杆末保留已播放结果（2026-09-13，验收中）
+- 根因：renderFrames有完整预测时仍在杆末无条件placeBoard(step.after)，旧内容和新模型进袋结果不同会凭空移除未进球。
+- 已播放运动的杆末改用该预测的pocketedBalls/finalPositions，匹配PositionPlayViewModel与DrillSceneController；不重置球体朝向。保存before/after及不可行分支未改变，多杆换杆兼容仍未完成。
+- DEBUG settledFrameObserver只提供编码前可见球的boardKey/worldPosition值。新增c039前两杆真实编码测试逐个静帧比对独立预测；旧双角袋必须进球的失败测试保留。
+- predicted-rest-r1/session19401终态0，实际2测0失败：c039两杆48静帧19.081s、原30/60fps及半速运动帧17.567s；末帧原图已查看。跨杆衔接未验完。
+- **已应用至**：.cursor/skills/ios-architecture/SKILL.md §DR-245；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-244 — 实际导出节点状态观测（2026-09-13，验收中）
+- SequenceVideoExporter.Options增加仅DEBUG的motionFrameObserver，编码前提供实际球节点worldPosition/opacity的值快照，按预测球名索引；不暴露节点或允许修改输出。
+- 原30/60fps实片编码测试增加独立预测记录的逐帧捕获球世界坐标/透明度比较、完整淡出观测；不能用只比较时长代替导出消费正确性。
+- export-states-r1/session55756正在执行。无发布构建API或正常导出行为变化。
+- 已应用至：.cursor/skills/ios-architecture/SKILL.md §DR-244；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-249 — 全桌观察跟随真实视口尺寸（2026-09-13，验收中）
+- 改前tryout-camera-diagnostic-r1/session87082实际UI52.764s通过，但DEBUG实页投影记录：viewport402×632，首次角点x413.86005超宽；再次全桌后x397.9658入框。根因是2D底栏94pt→3D底栏46pt，首次拟合发生于真实视口更新之前。
+- CameraRig新增全桌拟合意图，observeWholeTable启用；viewport实际变化时重拟合，手动orbit/pinch/独立焦点及预设smoothToPose退出该意图；PerspectiveState保留意图，避免2D/3D往返丢失。没有增加任意缩放边距。
+- 独立三视口八朝向投影测试加入旧尺寸→新尺寸，另验证手动旋转缩放及保存恢复后resize不抢回相机。tryout-camera-resize-r1/session55013执行中，尚未验收。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-249；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-249复验：合并r1为5单测通过/1UI TERM失败，原结果保留；独立ui-r2实际48.053s通过，首次角点397.8384进入402pt视口，改后原图已核。gate通过；跨尺寸与共享消费页回归待验。
+
+## DR-250 — 3D序列参数移至顶部只读行（2026-09-13，验收中）
+- 3D序列不需要可拖力度尺，但原只读长尺遮挡右侧袋口。Composer将本杆打点迷你图、力度名称与速度读数放在模式行右侧，暂停后仍能展开只读打点。2D序列及普通自由/进袋的编辑仪表保持原消费。
+- 标准tryout-readout-r1/session72274执行中；新UI断言参数行在实际SCNView的FPS诊断标记上方，且3D序列无长仪表列，原暂停/重播/2D/3D及自由往返继续验证。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-250；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-250补充：标准readout-r1为测试器启动Busy失败；iPad模式往返49.079s通过且原图参数移顶、右袋清楚。新增逐杆测试误把末杆暂停当自动复位，源码确认应继续后复位，修正测试后eight-shots-ipad-r2/session12964复验中。生产播放逻辑未改。
+
+DR-250验收补充：标准48.338s、SE47.506s、iPad49.079s同流程通过，三张序列原图均已查看，顶部参数完整、右袋无遮挡。iPad逐杆8杆98.707s通过，最终复位原图已核；原错误末杆测试失败保留。仅该参数行和指定流程接受，W10及全范围未完成。
+
+## DR-251 — 非录制重打恢复击球前视角（2026-09-13，验收中）
+- tryout-pocket-r1/session68146实际45.923s通过，但原图重打后母球离开画面：applyBoard恢复球形且作废视角缓存，镜头仍停在击球后的取景。
+- lastPlaybackContext伴随本杆保存可用PerspectiveState，非录制replayCurrent恢复球形后恢复该视角；2D重打只保存到下一次3D切换，击球前无3D状态而当前在3D时用本杆记录aimDirection取景。播放/物理结果/参数保持原语义。录制多级撤回仍为原分支，未声称覆盖其历史视角。
+- AngleTrainingScene新增capturePerspectiveView/restorePerspectiveView，供同一球形与观看状态一起恢复。tryout-pocket-undo-view-r2/session31104实页复验中。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-251；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-251验收补充：r2因回放上下文四字段传给三字段helper编译失败，已明确传入before/shot/prediction后修正；r3实页1项45.665s通过，击球前/重打后原图已直接比较，母球/球杆回到原取景。2D重打实际SCNView生命周期1项14.868s通过，保持正交且再次进入3D完整相机矩阵一致，规则只判定一次/补球正常。gate、diff-check及doc-size通过。接受标准机非录制重打范围，录制多步撤销/其他尺寸仍待验。
+
+## DR-252 — 3D教学视频杆号与观察阶段（2026-09-13，验收中）
+- Options新增showSequenceProgress，默认关闭，仅teachingVideo3D及继承的Hi开启。在台面之外、原参数条之上独立追加杆号行，观察球形时保留杆号并说明阶段，参数仍到亮方案时出现；不可行杆明确提示。
+- 保留场景分辨率及参数条尺寸，手机档输出1080×2106；原2D/card/GIF预设不变。运动记录、球形和时长未修改。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-252；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。实际双杆编码复验中。
+
+DR-252验收补充：实际双杆实时/导出31.981s通过；编码402×786、16.233333s，四阶段原图已直接查看，第一/第二杆正确、参数出现时机正常、台面无遮挡。gate通过。接受3D教学视频杆号行；完整多杆、不可行杆实际视频分支及高分档视觉仍待验。
+
+## DR-253 / FL-069 — 软袋收集遗漏球体截面接触（2026-09-13，完整回归中）
+- c039完整8杆第4杆失败：timeLimit15s，目标球自由下落至Y=-1033.2992m。收集平面Y0.715221m处，球心距袋截面8.312mm，半径28.575mm，球体已接触软袋但球心在轮廓外，旧containsProjection漏收。
+- firstCandidate改用球体圆截面与袋多边形相交：内部点或线段最近距离≤真实R。角点用线段最短距离，避免矩形扩张误收。整球低于硬表面、向下穿越及活动球接触排除保留；未修改袋口/材料/上限。geometryVersion改soft-bag-v2。
+- 3测通过：第4杆9.093s，穿越/外侧/圆角与活动球排除两测通过；完整8杆与六袋回归运行中。图sphere-collection-section.svg.png已查看，原失败完整保留。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md §FL-069；.kiro/steering/table-geometry.md §DR-253；UI-IMPLEMENTATION-SPEC Changelog。
+
+DR-253/FL-069验收补充：完整8杆实际实时与导出113.321s通过，八杆共192停稳帧及观察帧对照通过，原第二杆返回而保存进球差异仍保留；六袋边界/正常入口2项通过。实际67.233333s视频及末杆原图已核，gate/diff-check/doc-size通过。局部修复接受，其他临界物理案例/跨设备完整验收不外推。
+
+## DR-254 — 3D瞄准点提交按钮44pt（2026-09-13，验收中）
+- 实际三次自动换题72.773s通过且三张next原图已核，母球/目标球均在取景内；旧按钮默认30pt高。3D浮动提交显式height44，保留56pt宽、位置、瞄准轮与评分/自动验证逻辑。
+- 实页增加提交按钮宽高≥44断言，三轮复验中。
+- 已应用至：swiftui-design-system SKILL §DR-254及UI-IMPLEMENTATION-SPEC Changelog。
+
+DR-254验收补充：标准机实际三循环72.619s通过，提交宽高≥44；第三次换题原图已核，按钮与母球/目标球可见。gate通过；其他尺寸和W11完整范围未验收。
+
+## DR-255 — 角度与瞄准点训练观察菜单（2026-09-13，验收中）
+- 两页3D页内状态栏共享BTSceneObservationMenu(scene,targetNode,pocketIndex,identifierPrefix,onReturnToAim)。提供全桌、母球、目标球、目标袋、回到瞄准；固定题目不提供摆球/选袋编辑。
+- 角度仅observing且有效题目启用，瞄准点仅aiming且未满额启用；回到瞄准调用原页相机入口，瞄准点保持用户方向。菜单只调用CameraRig，不改题目、答案、球位或评分。
+- r1/r2实际两测均仅菜单36pt<44pt失败。外层frame/fixedSize无效已撤回，HStack自定义工具栏容器r3也失败；最终候选改放已有页内状态栏，r4验收中。新增下缘点击打开和键盘阶段禁用断言；不删除尺寸要求。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-255组件API、`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。证据与未完成范围见`tasks/3d-v63/W11-working.md`。
+
+DR-255标准机验收补充：r4/session58135终态0：瞄准点三循环103.444s、角度三题78.364s，两测0失败；菜单≥44pt、下缘点击打开、五项切换及角度键盘期禁用通过。12张菜单/观察原图已逐张查看：标题完整、全桌入框、焦点可见、返回原瞄准；页内状态栏不增加高度。final-gate/session34230终态0。SE/iPad、评分回归及节点/投影不变量仍待验，W11保持进行中。
+
+## DR-257 — 球库放下按手指终点判定（2026-09-13，验收中）
+
+- 问题：W12 iPad摆球→3D→2D后拖回球库，r2/r3原图显示9号仍停在下库边；旧UI只验导航，未证明移除。
+- 证据：`output/3d-v63/W12/ipad-drop-diagnostic-r2-coordinates.log`，手指scene-local y=951，指球锁定偏移-53.5、抓取偏移-12，旧sample y=885.5；scene原点y=46、palette起点y=928，实际接收余量仅3.5pt。该轮36.758s通过，证明是边界敏感，不能声称恒定失败。
+- 调整：AngleSceneView.onDragEndedAt传递SCNView本地手指终点，台面onDragMoved的指球偏移不变。全部既有消费者均用于球库hitPalette，统一消除偏移侵蚀接收区域；不扩大球库、不改球位/物理。
+- 验证：新UI明确断言移除反馈，并逐图检查9号移除和1号保留；iPad/紧凑复验待完成。临时日志已移除；首次诊断构建因旧UIKit字符串函数失败已修正，原失败日志保留。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` §DR-257及`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## DR-256 — 自由走位开放已有3D观看（2026-09-13，分阶段验收）
+- PositionPlayComposerView不再仅为试打显示cameraToggle；按sourceDrill区分tryout/composer标识，观察菜单与返回瞄准同样分域。复用现有3D布局、相机手势、底部观察栏及2D摆球路径，不复制盘面或序列。
+- 实际页目前未暴露录制/目标区编辑，虽然ViewModel保留录制能力；按当前已有能力验收，不据过时注释新增功能。重命名保存仍修改当前内存序列名，未扩大为持久化草稿。
+- baseline-r1实页与原图已核；roundtrip-compact-r1实页44.755s通过，改名→自由→3D拖动观察→2D→改名框回读一致，4张原图已核。原相机不改球位/参数预测单测3.936s通过。
+- 新录制草稿测试首轮缺运行SCNView和视口，动作不推进导致失败；保留日志，补真实window/SCNView后recorded-draft-r2 14.775s通过：一杆录制后3次切换，完整序列JSON/球位/选球选袋不变，stop返回同序列。未写内容JSON。
+- 已应用至：swiftui-design-system SKILL §DR-256与UI-IMPLEMENTATION-SPEC Changelog；其余编辑动作、标准/iPad与完整W12待验。
+
+DR-257验证补充：iPad-drop-fix-r1/session20308终态0，35.252s；compact-drop-fix-r1/session78381终态0，34.395s。两设备返回/移除原图各两张已直接查看，均9号离桌、球库9号亮态、1/2/母球保留。drop-fix-gate/session10282终态0，diff/doc-size通过；本地修复通过，其他共享消费页随对应批次回归，完整W12未完成。
+
+## DR-258 — 清空桌面同步清除角度结果（2026-09-13，验收中）
+- W12 iPad与紧凑生命周期原图确认：所有球清空后仍显示上一杆11°。clearTable仅清除solvedShot/轨迹，未清空cutAngleDeg。
+- 最小修复：clearTable同步将cutAngleDeg置nil，现有胶囊自然显示—°；参数、球形默认值和求解逻辑不变。
+- 实页测试新增空桌不显示旧角度断言；compact-edit-lifecycle-r2运行中。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-258；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-258复验：compact-edit-lifecycle-r2/session71463终态0，52.481s，空桌—°断言及3D/2D/默认恢复三张原图通过。edit-lifecycle-gate/session4966终态0；本地修复通过。
+
+## DR-259 — 思路训练3D编辑/观察分离（2026-09-13，首页面验收中）
+- W13三页SE基线通过并直接审图。先接SiluTrainerView：2D/3D入口、首次全桌、透视侧栏布局；3D关闭约束绘制overlay及球体拖动，保留activeTool与约束数据。
+- 3D底栏使用查看全桌与编辑返回提示，2D保留球库；未修改求解/规划规则，未宣称完整W13完成。
+- silu-roundtrip-r1运行中，真实求解/击球及其余两页待验。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-259；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-259首轮补充：silu-roundtrip-r1/session87635终态0，28.120s；四张落区/3D/旋转/返回原图均已查看，区域和球形保持，求解仍可用。完整解算/击球、观察菜单、其他两页未验，W13继续。
+
+## DR-260 — 思路训练上一杆恢复观察视角（2026-09-13）
+- UndoContext新增可选perspectiveView；makeUndoContext取实际相机快照，restore在球形/解恢复后应用。2D恢复时暂存至下一次3D，沿用DR-251接口。
+- silu-undo-camera-r2：5项0失败8.469s；含相机两模式恢复、三页完整字段、不完整预测拒绝。r1旧夹具遗漏termination失败保留，修正夹具前提且原断言全部保留，见W13-working；不冒充物理验证。
+- silu-shot-r1实际完整UI98.125s通过发生在该相机修改前；不能证明修改后的整页相机体验。求解约60秒仍待性能处理。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-260组件行为与Changelog。
+
+## DR-261 — 思路训练当前解观察入口（2026-09-13，验收中）
+- 底栏替换单一全桌按钮为共享观察菜单，播放期间禁用；canReturnToAim默认true保证既有调用兼容，思路按完整可击球解和实际杆向开放。
+- 无解不推测沿杆方向，返回瞄准仅使用lastAimDirection调用CameraRig.enterAiming。
+- silu-observation-r1真实UI运行中；未宣称全W13完成。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-261；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-261复验补充：silu-observation-r1实际UI1项108.730s通过；沿杆/上一杆恢复/2D返回三张原图已审，无解禁用/有解启用通过。gate/doc-size/diff通过；完整W13与其余观察项仍待验，求解64.4s未达标。
+
+## DR-262 — 打一走二想三保留规划角色的3D观察（2026-09-13，验收中）
+- 3D角色行可见且禁用编辑，绘图/拖球/点按改派挂起；底部观察菜单取①球/袋，当前解杆向用于回瞄准。现有击球推进逻辑保留。
+- UndoContext追加可选perspectiveView，沿用DR-260恢复时序；完整角色快照及UI往返复验中。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-262组件行为与Changelog。
+
+DR-262复验补充：r1两项角色/相机单测通过，UI因深链夹具误走主Tab导航失败；RootView事实核验后r2页面身份/观察往返30.005s通过，三图已核。gate/doc-size/diff通过。全流程/3D底栏空白与前袋侧栏遮挡仍待验，不作W13完成声明。
+
+## DR-263 — 中八防守3D观察与无目标袋契约（2026-09-13，验收中）
+- SnookerTacticsView新增2D/3D与共享透视控件；3D暂停编辑，恢复视角不改目标球/安全球规则。
+- BTSceneObservationMenu.pocketIndex改为Int?，nil不显示目标袋；既有Int调用保持原行为。UndoContext保存可选PerspectiveState并沿用DR-260恢复顺序。
+- 实际默认入口与快照测试snooker-shot-r1运行中。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md §DR-263；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-263首轮补充：两个快照测试通过；防守真实默认求解超90秒，UI未通过，随后主动中断无意义后续操作。采样/原图/日志保留于W13；测试改为前置失败即停，未删或放宽断言。优先W07求解性能，整页保持未验收。
+
+### DR-264 — 规划页取消开球保留草稿（2026-09-13）
+- 原因：开球入口提前销毁规划，取消仅载入球位，导致已有目标/角色/约束/解丢失。
+- 调整：Silu/PlanThree在开球期间保留原VM规划，仅清可视化；取消恢复原球位和相机并重画当前解，完成才载入新球形。计算中禁止进入；开球期间停用绘制覆盖层但保留工具选择。
+- 验证：两页全字段状态2测通过1.344s；实页复验见W13-working。
+- 回写目标：swiftui-design-system技能与UI实施规范。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-264；tasks/UI-IMPLEMENTATION-SPEC.md Changelog（2026-09-13）。
+
+## DR-265 — 3D线条文字面向观察者（2026-09-13）
+
+- 来源：v63 W14角度与瞄准实页07D59C3E，固定俯视朝向使3D瞄准线文字倒置。
+- 调整：沿线锚点不变；显示的线条标签复用角度数字的SCNBillboardConstraint，3D面向相机，2D恢复创建时flatYaw和文字平放旋转。重建角度弧时清除旧标签引用。
+- 验证：labels-r1四方位渲染不变量与SE实页进行中，未验收。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-265；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+- DR-265验证补充：SE实页labels-r1/33.241s及两张原图通过；该run单测0项不计通过，纠正类名后的labels-unit-r2实际1项/1.182s通过四方位朝向、锚点及2D恢复。
+
+## DR-266 — 每日清台终态停止击球（2026-09-13）
+- 来源：W15 results-r1完成页CE628850显示示例球形且击球可用；控制器虽拒绝终态回调，页面仍可继续模拟。
+- 修复：FreePlayView.isDailyResult统一约束击球工具、台面编辑与瞄准模式；完成记录重新进入不展示初始化示例球形（记录只含汇总）。保留完成/失败底栏与相机切换，不修改计分与记录。
+- 验证：重复终局/恢复落库1项0.018s通过；终态实页复验results-r2进行中。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-266；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+- DR-266验证补充：results-r2实际UI1项25.933s通过，完成/失败两原图已核；结果入口可点、2D/3D无击球工具；门禁通过。真实终局及再开局仍归W15。
+
+## DR-267 — 自动开球交付不重夺镜头（2026-09-13）
+- 来源：W15 final-ball-r1新局沿用近袋视角，部分球出屏。FreePlayView监听breakRunner.seed时对nil交付也focus。
+- 修复：仅非nil种子响应；每日自动开球建立/更新球架使用全桌，手动开球保留瞄准构图；交付时不focus。
+- 验证：final-ball-r2真实末球→完成→真实再开球1项34.632s通过；6A4BF33B原图全部球在全桌构图内。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-267；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+## DR-268 — 每日清台自由球补回与草稿一致（2026-09-13）
+- 根因：普通母球进袋后VM隐藏母球，daily规则仅提示自由球；daily球库禁止手动补球，无法继续。
+- 修复：DailyClearancePlayingHost.restoreDailyClearanceCueBall调用现有安全空位补球；controller仅在真实cuePocketed且ballInHand且非终态时执行，之后再保存board。
+- 验证：scratch-controller-r1实际14项0.062s通过，新增继续犯规补回/终局犯规不补回及保存内容断言；物理入袋实页未验。
+- 已应用至：.cursor/skills/ios-architecture/SKILL.md § DR-268；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+- DR-268实页补充：scratch-ui-r1真实入袋/补回/第二杆/重启1项33.249s通过，三原图已核；计时保存点差异另归W15。
+
+## DR-269 — 每日清台已放弃旧局后不提供开球取消（2026-09-13）
+- 根因：v52规定确认重开即清空旧草稿，FreePlayView却复用cancelBreakFlow恢复旧桌面；控制器仍manualRacked并拒绝杆末计分。
+- 修复：BreakControlBar新增showsCancel（默认true），每日清台传false；普通自由击球及规划页保持原取消行为。每日清台保留顶部返回和待开球草稿恢复。
+- 验证：manual-r2正在验证待开球退出恢复、真实手动开球交付及交付后恢复。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-269；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+- DR-269补充：开球栏重开原先只改runner.seed，DailyClearanceController.handleBreakOutcome要求草稿seed相等，会拒绝交付。BreakControlBar新增可选onRerack，每日清台复用confirmRerack同时创建并保存新草稿/球架；其他宿主默认runner.reRack。manual-r2取消隐藏/待开球恢复实测通过，r3验证重开后恢复与真实交付。
+
+DR-269复验纠正：manual-r4/session79206终态65；普通自由击球105.177s通过，每日清台51.193s失败于最终重启后HUD不存在。交付图A2C8A401显示余0/旧待开球文案，不能接受。根因进一步定位：startBreakFlow守卫breakRunner==nil，controller重开保存新seed但host未拆旧runner，启动被拒。每日host现在在替换前cancelBreakFlow，再startBreakFlow；仅每日路径变动。manual-r5/session17950验证失败原路径及控制器/规则/存储。
+
+- DR-269最终复验：manual-r5控制器/规则/存储31项及实际直接重开/交付/重启38.303s通过；BCAB2FEC原图已核，direct-gate-r1通过。普通自由击球取消等105.177s通过。W15本地验收见tasks/3d-v63/W15-acceptance.md，完整平台仍W16。
+
+## DR-270 — 销毁SceneKit视图时解除场景引用（2026-09-13）
+- 根因：详情controller/coordinator已释放，SCNView仍保留渲染场景关联；三轮各等待1秒均未释放scene。
+- 修复：AngleSceneView.dismantleUIView在停止displayLink/isPlaying后，将pointOfView和scene置nil。
+- 验证：lifetime-r3三轮失败，r4同一三轮weak释放断言通过；真实导航重入与真机内存仍待验。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-270；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+- DR-270实页补充：reentry-r1三轮详情3D播放中退出/重新进入36.188s通过，首末原图已核，无黑屏或球形丢失。真机内存不外推。
+
+## DR-271 — 大字号每日清台结算栏（2026-09-13）
+- 根因：默认动态字体按钮与固定94pt横排结果栏不匹配，AX5文字被省略。
+- 修复：辅助功能字号使用纵排，结果栏高度随ScaledMetric增加，保留按钮动态字号；普通字号保留横排。
+- 验证：ax5-r2功能绿但图审失败；ax5-r3视觉复验进行中。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-271；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+- DR-271复验：ax5-r3两结果21.012s通过，C2A3A713/9E9BC962原图按钮四字完整；门禁通过。普通字号最终回归仍待。
+
+## DR-272 — 瞄准轮无障碍增减（2026-09-13）
+- 原因：BTAimWheel只有朗读标签，VoiceOver无法调整；allowsHitTesting不能替代AX禁用状态。
+- 实现：adjustableAction按页面degreesPerPoint增减、成对触发拖动生命周期；六个调用点同步原播放/摆架可编辑条件为disabled，瞄准训练继续按作答阶段显示。
+- 验证：Debug构建通过，实际SwiftUI AX元素调用验证中；真机VoiceOver朗读未验。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-272；tasks/UI-IMPLEMENTATION-SPEC.md增量条目。
+
+- DR-271普通字号复验：iPad large/light结果26.122s及两原图通过，保持横排完整文案；同轮实际开球/交付/恢复42.917s通过。
+
+## DR-273 — 自由击球比分按宽度折行（2026-09-13）
+- 根因：SE进袋模式下，瞄准胶囊与单行比分/当前玩家同时争用顶栏宽度，9球玩家得分尾部被省略；改前实图2DE01428确认。
+- 候选：gamePill使用ViewThatFits，宽时横排，窄时比分和当前玩家分两行；保留文字、12pt字号及46pt顶栏，组合无障碍标签。无规则/评分变化。
+- 验证：score-layout-r1实际15/9球完整开球与继续流程运行中，未验收。
+- 已应用至：.cursor/skills/swiftui-design-system/SKILL.md § DR-273；tasks/UI-IMPLEMENTATION-SPEC.md增量记录。
+
+DR-273复验：score-layout-r1/session71745终态0，SE实际15/9球开球、模式往返、交付、继续击球、重打与取消1项102.817s通过，无确认超时。CAC5CA18九球/D7465C22中八原图已直接查看，比分和当前玩家完整两行，原46pt顶栏内无越界。gate/session94944终态0。仅接受SE普通字号这两类状态，宽屏横排/更长比分仍待验证。
+
+DR-273 iPad复验：score-layout-ipad-r1/session92487终态0，实际1项127.817s通过，15/9球开球、交付、续打/重打/取消及2D/3D往返。simctl读回large/light；F564ED35九球与010755C7中八原图已查看，两状态比分/玩家完整横排，位置正常。附件output/3d-v63/W09/score-layout-ipad-r1-images。与SE两行证据共同覆盖宽窄布局，未证明所有长比分或最大字号。
+
+## DR-274 — 单局部球避免嵌套误差检查（2026-09-13）
+- 根因实证：求解中段栈与源码确认advanceTogether的whole/half/tail各自调用run，而run内部已有同类自适应检查；单球无球间耦合时重复执行。
+- 候选：states.count==1使用已有advanceCoupledTrial，保留run误差标准、接触投影、外层穿透重试和时钟检查；多球不变。useSingleBodyShortcut=false保留旧路径作独立对照，生产默认true。
+- 证据：改前六袋30状态两路径对照2.247s通过；改后六袋对照0.125s/双球2.089s通过，默认标准防守内部19.192s，相比同轮基线37.186s约降48%，五组完整杆法参数逐字一致且硬约束通过。原部分候选穿透失败仍存在，不宣称物理缺口关闭。完整序列/续算/连续进袋回归进行中。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § DR-274；tasks/UI-IMPLEMENTATION-SPEC.md增量记录。
+
+DR-274回归：single-control-regression-r1/session68645终态0，实际3项57.540s通过：完整8杆实时/导出事件与首尾球位57.403s、连续入袋0.133s、任意分段续算0.004s。未移除既有断言。候选保留为本地性能改进；五组输出参数一致，完整W07临界物理、实际页面与真机性能仍未完成。
+
+defense-device-r1/session44078终态0：锁屏等待后同一进程自行恢复，实际iPhone16Pro/iOS26.6.2运行1项70.448s通过，内部systemUptime求解68.763s，5组PlannedShot与模拟器逐条相同，首触/母球不进袋/完整停稳断言通过。成功包含设备构建、测试宿主安装和真实执行；不是触控/帧率/温度验收。配置Debug -O、无代码覆盖率，仍含DEBUG诊断；未取得本机优化前基线，不能把模拟器48%套用至手机。68.76秒不可作为手机性能达标，W07/W16保持未完成。
+
+## DR-275 — 同刻最后提交帧作为预测终态（2026-09-13）
+- compatibility-r1四项中搜索比较失败2断言：两组±0.3塞/2.7m/s的cueFinalSpeed为0与约5.2e-5m/s，原1e-5容差未改。默认六袋沿/旧平面孔圈/自由早停比较通过。
+- scoring-residual-r1诊断证实：同一时刻先记录rolling非零末速，再提交spinning零平移帧；frames.max(time)取到了前者。引擎已正确停止，非物理误差或提前停止错误。
+- 修复：ShotPredictor两个终态聚合入口选择最大时间戳且同刻最后写入的BallFrame；保留输入顺序，兼容非排序数组，不改变物理或早停条件。原断言及诊断保留；测试日志改为中性已比较数量，不在断言失败后打印全部一致。
+- r2编译/门禁通过但模拟器Busy预检拒绝，0项执行；同产物iPad r3复验中。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § DR-275；tasks/UI-IMPLEMENTATION-SPEC.md增量记录。
+
+DR-275同产物iPad r3/session28553终态0，默认六袋沿4.257s、搜索54输入5.413s、自由提前停止20输入1.530s三项通过，原末速容差未变。随后scoring-completion-r1/session72414新增有效终态断言：实际2项/2失败，54组中的±0.3侧塞、spinY0、5.4m/s完整预测timeLimit，其余字段比较及20组自由早停通过。新断言保留；它揭示现有15s上限下两组完整模拟未结束，不是DR-275末帧读取仍失败。下一步记录这两组15s末状态，判明平移/自旋/局部所有权，不能直接调大上限求绿。
+
+
+## DR-276 — 完整呈现承接台面原地自旋尾段（2026-09-13）
+- 原因：scoring-time-limit-r1两组15s末态只有母球绕Y轴自旋，平移均为零；完整预测只认settled使播放/导出拒绝。
+- 新增EventDrivenEngine.completePlanarSpinTail：只接timeLimit，要求无局部所有权/待提交步、所有活动球stationary或spinning、零平移/水平角速度、台面球心高度且不处于袋口区域；按既有spinToStationaryTime和evolvePlanarBall逐个记录自旋结束事件。运动碰撞模拟预算不延长，其他终止原因不放行。ShotPredictor完整呈现两入口调用，搜索提前停止路径不调用。
+- 验证：新增双球反向自旋与原长时间平面引擎逐时刻对照，以及平移未完/eventLimit拒绝检查；保留原54/20组断言。spin-tail-r1编译失败：插入点误落另一postStart，未执行测试；已定位修正，r2验证中。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § DR-276；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-276验证收尾：r2编译器无法及时推断tuple map/sort，改显式类型循环；r3实际4项/2失败（8.902s），纯平面对照/未完运动保护通过，但默认混合路径在预算末端保留纯自旋待提交步，原54组仍失败。r4允许且仅允许无局部预测/接触/晋升/入袋/球球事件、事件为空或spinning→stationary的待提交步，经活动球检查后以已提交状态重建解析尾段。新增对照改走appDefault预算截断，原54/20组断言未弱化。r4/session3847终态0：实际4项0失败/8.062s，54组6.525s、默认混合自旋对拍.001s、未完运动/eventLimit保护.000s、20组自由对拍1.535s。gate-r2/session69533终态0；真实页面/导出操作及真机性能仍待验。
+
+
+## DR-277 — 已有有效直击解后的候选下界淘汰（2026-09-13）
+- 根因：独立常规进袋报告中未命中候选继续碰库/局部模拟占70.8%/78.0%的总耗时。原评分无目标接触时保留100+距离梯度，因此不能一律碰库早停。
+- 改动：仅solveAimOffset各层bestOf当前bs<invalidCandidate时，允许引擎在母球先于任何球球碰撞吃库后返回candidateRejected。这种候选的旧完整评分只能是100或100+非负距离，严格不可能改善已有有效解；尚无有效解时仍完整计算。候选顺序、网格、同分选择、最终完整仿真均不改。其他搜索/反射/开球默认不开此项。predict的useAimCandidatePruning=false保留旧搜索用于对照。
+- 第一轮：aim-pruning-r1/session51338终态0，实际1项12.159s/0失败；中袋/角袋/弱杆/障碍球各三档塞共12组，选中方向、完整帧、事件、进袋/末速/时长一致。预热后累计baseline5.9165s/pruned5.0472s，首轮约14.7%改善，仅模拟器量级，不作为真机达标。
+- 补验：新增先碰库拒绝/先球球接触保持旧评分边界，平面参考和appDefault均覆盖；aim-pruning-r2正在执行完整ScoringOnlyConsistencyTests。gate-r1/session34709终态0。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § DR-277；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-277扩展回归：aim-pruning-r2/session12866终态0，完整ScoringOnlyConsistencyTests实际6项19.586s/0失败。12组优化开关对拍12.408s、两模型先碰库/先球球边界.004s、54组5.629s、自旋长时对拍.001s、未完运动保护.000s、20组自由早停1.544s。第二轮累计baseline5.9879s/pruned5.1113s，约14.6%减少，与首轮方向一致。未降低预测精度/缩网格/改评分；新候选淘汰仍不是斯诺克防守68.763s问题的完整解决，真机和实际页面交互性能待验。diff-check/doc-size通过。
+
+
+## DR-278 — 接触力矩使用可观测运动误差界（2026-09-13）
+- sliding-control-r1/session87399终态65：真实滑动初态角袋两路径均推进0.1s，中袋单体快捷关闭/开启都报完全相同surface-moment残差9.04971189702637e-09，排除DR-274单体快捷造成此失败。r2/session17945诊断仍2失败，原断言未改；dt=.0024724411846112726，内部roundoff阈值2.4393437553329006e-12，运动误差界7.760759339543737e-11m，对照现有tolerance=1e-6m。
+- 原因：内部力矩分配要求接近机器精度，强于实际积分运动精度；接触分配可以慢收敛而整体角加速度已准确。
+- 修改：保留4096轮严格收敛优先；剩余时计算凸目标F=|omega/dt+free+Σm|²/2在每个接触滚阻圆盘×自旋区间上的Frank-Wolfe gap。可行力矩下g≥F-F*，且F-F*≥|Σm-Σm*|²/2，因此角加速度误差≤sqrt(2g)。只有R*dt²*sqrt(2g)≤原tolerance、有限值且gap负值不超舍入余量时接受。每轮力矩投影/凸组合保持容量约束；不调整材料、空间容差、预算和捕获断言。
+- moment-bound-r1/session58696终态65：4项中默认捕获1.803s、自由局部捕获.047s、两路径滑动对照.118s通过；指定模型近袋仍convergence residual2.9487523534044158e-12失败（3派生断言），来自CollisionResolver，不能报告全部修复。
+- moment-bound-r2验证坡面、滚阻能量、六默认袋沿及已修入口；单测之外完整实时/导出及真机另验。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § DR-278；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-278扩展验证：moment-bound-r2/session94468终态0，实际8项/0失败，总4.339s。默认六袋沿4.118s、默认捕获.028s、自由近袋捕获.044s、滑动态新旧单体对拍.118s；坡面静止/超临界加速、滚阻不反转、不增自旋能四项共.031s。gate-r1/session9023终态0。原指定模型近袋的CollisionResolver convergence失败仍未解决，不得以此8项绿覆盖。
+
+
+## DR-279 — 双球支撑误差尺度包含有限步滑移率（2026-09-13）
+- 原失败定位为SpatialBallContact.resolveSupport（force阶段），不是瞬时冲量：residual2.9487523534044158e-12，duration=.0025000000000000022。force-scale-r1/session98805终态65，1项3失败；诊断外加速度scale9.8100004，实际切向算式中的slip/dt量级591.3211758。旧64*ULP*scale遗漏有限步除法与抵消涉及的输入量级，要求了计算中已丢失的精度。
+- 修复：scale取外加速度与有限步slipRateScale的最大值；保留原64*ULP倍数，duration=nil时原尺度不变。未调整碰撞恢复、摩擦、空间积分容差或捕获判据。失败日志保留两种尺度便于复核。
+- force-scale-r2/session1884终态0，实际5项1.087s/0失败：默认捕获.955s、未完预测拒绝.026s、原指定模型近袋.101s、双球滑移停点不反转.005s、两物体交换舍入边界.000s。原断言全部保留。gate-r1/session67360终态0。
+- 实时/导出整段复验contact-regression-r1/session42730已启动，完成前不宣称完整W08通过。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § DR-279；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+DR-279完成本轮入口修复：force-scale-r2/session1884实际5项/0失败1.087s，原指定模型近袋.101s通过，双球滑移/顺序交换与未完预测拒绝保留。contact-regression-r1/session42730终态0，真实c039完整8杆实时/导出事件、起止球形与192静止帧对比1项57.338s通过；旧保存第二杆离场与当前返回台面差异断言仍通过。未新审MP4视觉，不据此宣称全部W08/W16完成。
+
+
+## DR-280 — 独立空间击杆初始冲量接口（2026-09-13）
+- H01预检查后对照pooltool当前instantaneous_point源码：vB保留-v*sin(theta)，由台面响应产生跳起，不直接造正vy。加入executeSpatialStrike输入验证及独立入口；executeStrike仍固定旧平面分量，新接口未接页面/模拟调度。0仰角沿旧表达式保持signed zero。坐标SceneKit XZ水平/Y上、rad、m/s。
+- strike-r1/session20787终态65：PhysicsEngineTests实际36项，26通过/10失败，19断言失败，总10.239s。新增3项全部通过：27组零抬杆逐位兼容、21组向下冲量/能量边界及中心45度样例、非法输入拒绝。不能称整个类通过；常规默认/角袋等10项失败详FL-070。gate-r1/session76927终态0。
+- 只验点冲量，不代表台呢压缩/杆头驻留/抬杆起跳高度已校准。H01整体未完成，W07重新复核期间不接正式页面。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md § DR-280；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## FL-070 — 选择性兼容测试不足以关闭W07
+- final-compatibility-r1的24项和入口/八杆对照真实通过，但遗漏PhysicsEngineTests常规进袋基准；随后strike-r1实跑36项，10项19断言失败。此前W07完整本地验收结论覆盖过宽，现撤回并标返工。
+- 新失败包含默认球形、近直/中切角袋、多力度、中袋高力度、边路障碍/侧塞及显示轨迹端点。先区分合理新模型结果、消费假设与实际物理回归，不改弱原断言，不直接归因新空间接口（现有executeStrike仍走旧平面路径）。
+- 改进：模型兼容验收必须以生产预测调用反查全部既有基准类，逐类记录执行/未执行/失败归因；新命名的v63测试与若干页面绿不能替代旧常规输入矩阵。
+- 已应用至：.cursor/rules/55-test-engineer.mdc § FL-070；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-281 — 收集平面求根禁止台面误捕获（2026-09-13）
+- 真实反例：中袋3.3m/s在t=.152577、Y=.828575仍为台面球心高度时被捕获，收尾将XZ推进至z=1.364903，导致原显示路径偏离袋心.688938m。path-endpoint-red-r1/session7373 exit65，1项失败。不是单纯预测线采样越过隐藏终态，不采用裁线掩盖。
+- 根因：PocketCaptureBoundary.firstCandidate复用全局二次求根的绝对判别式阈值1e-12，微小支撑残差下a=-2e-12、b=0、c=.1被误作重根t=0；缺少捕获高度复核。capture-root-red-r1/session86066 exit65，1项失败，球高于平面10cm仍被捕获。
+- 修复：仅收集边界用单位区间时间/归一化系数、稳定q形式求根，精确零判退化，不改全局解析引擎。候选复核Y不高于收集平面（仅64ULP坐标舍入界）。几何、收集深度、材料与固定尾段不改。
+- 验证：capture-root-green-r1/session1111 exit65，完整PhysicsEngineTests 40项/10项失败、22断言失败15.178s。新增反例与12组线性/加速跨平面尺度样例通过；原10项常规失败保留，中袋3.3/4.4过去的误捕获不再计进。不能称整类通过。
+- capture-root-regression-r1/session90103 exit0，实际4项1.114s通过：反例/12尺度、默认近袋捕获、真实吐袋不捕获、分段续播。另一个筛选项类名误写Injection，未执行；使用源码真实PocketGeometryV63Tests补跑boundary-r2。gate/session36098 exit0。
+- 回写：geometry-spatial-reasoning技能DR-281、UI-IMPLEMENTATION-SPEC Changelog。W07仍FL-070返工；不能用旧误捕获支持已完成声称，之前受该路径影响的兼容/回放证据需重验。
+
+DR-281补验：capture-root-boundary-r2/session97595 exit0，实际2项0.004s通过：正常向下穿越/外侧拒绝及有在场邻球接触时延后捕获。联合前轮实际4项为6项定向验证。完整40项仍10失败；新求根下marker两档仍进（但吃袋角），并未因此采纳视觉点为物理真源。所有句柄终态；gate/doc-size/diff通过。
+
+## DR-281 后完整八杆实时/导出复验（2026-09-13）
+- capture-root-sequence-r1/session60463 exit0，实际1项56.298s。使用当前已构建DR-281产物；真实c039八杆逐杆实时播放/暂停/换杆与导出同事件种类/对象/顺序/时间、同起始球形、同杆末XYZ和可见球集合。八杆各24个杆末帧，共192帧。旧保存第二杆进袋与当前返回的差异断言仍通过。
+- 实际输出predicted-rest-856E57EF-6C59-41B6-993F-0C56FA0ECAB4.mp4，ffprobe确认402×786、30fps、67.233333s；输入options.size402×716为表区，最终含底栏，勿将视频高度误报716。
+- 已直接查看capture-root-sequence-r1-contact-sheet.png（0.5/5/15/25s）及late-frames.png（40/55/67s），覆盖杆1/2/3/5/7/8。桌体与球、杆序/打点/力度可见；第7杆辅助线与球杆可见，第8杆末帧完整。仅离散抽帧，未声明连续近袋视觉、低机位遮挡或真机帧率/热量验收。
+- 本次复验不关闭W07普通物理10项失败，也不以数据/抽帧通过代替W08/W10/W16所有要求。
+
+## DR-282 — 轨迹按钮点击区域与放置带一致（2026-09-13）
+- 根因：SE/iOS17/AX5实页点2D/3D的(337,87)点，实际轨迹档位全→双，模式未切换；轨迹按钮点击区域进入上一行。原失败保留shot-se-ax5-r1.xcresult，实际1项失败。
+- 修复：BTTrajectoryDetailChip标签显式minHeight 44/contentShape；btChipBandPlacement高度至少44点，容纳点击区域。外观胶囊仍使用原尺寸，无相机/物理修改。
+- 复验：shot-se-ax5-r2实际1项74.802s、0失败，包含切换、观察/旋转/缩放、后台恢复、瞄准/击点、击球/回放/重置。70D2/9433/C25E三原图已查看：模式、底部操作与击点面板在屏幕内。仅此设备/流程，不外推所有共享消费者或真机VoiceOver/FPS。
+- 门禁：chip-hit-gate-r1日志全部通过；共享消费者普通字号复验待补。W16仍未完成。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-282组件契约与Changelog。
+
+DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位入口19.743s、分离角完整3D流程91.619s，共2项111.362s、0失败。iPad字号实读large；C4E78253/3A755280/5280897F原图已查看，轨迹按钮与模式行分开、击点操作与底栏文字可见。自由走位只覆盖入口布局，不能称其完整交互回归。小屏after-replay原图6F6521CD也已查看。所有本轮测试终态；其余共享消费者/真机/VoiceOver及W07失败仍待验。
+
+## DR-283 — 有限三角面距离保守筛选（2026-09-13）
+- 根因：包围盒重叠仍包含本步不可能接触的斜面边角，继续进行面/边/顶点求根。有限三角面距离满足1-Lipschitz；若初始距离>半径+|v|h+0.5|a|h²+原64ulp尺度余量，可拒绝整面求根。含加速/反向，不缩时间窗、不改接触容差。坐标为SceneKit世界XYZ、Y-up、米。
+- 变更：PocketContactTriangle.firstContact默认启用距离筛选；useDistanceBound=false供同函数原求根路径对照。坐标尺度只算一次，复用于边/顶点原有保守界。无捕获规则、袋底/堆球或参数标定变更。
+- triangle-distance-r1/session56284 exit0，实际3项18.251s：5400组对照（128命中/5272未命中）时刻/接触点/法线完全一致；旧反向/端点测试通过；实际标准防守内部16.583s、5解。五组shot描述与上一轮恢复版完全一致；单次时差不构成稳定百分比收益或真机达标。
+- triangle-distance-r2/session64451 exit0实际仅1项2.045s：任意边界暂停续算通过。其他选择器误指类；不计为额外测试，正常进袋另补。
+- triangle-distance-regression-r1/session82747 exit65：实际42项，PhysicsEngineTests41项中仍原10个失败方法/22断言失败（与capture-root-green-r1失败方法集合严格相同，无新增/消失）；正常进袋收集边界1项0.019s通过。保留全部原失败，W07仍FL-070返工。
+- triangle-distance-gate-r1/session97251 exit0；doc-size/diff另核。所有测试句柄终态。下一步仍为手机等待时间和剩余正式页面/高度范围，不因此关闭W07/W16。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-283；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-284 / FL-071 — 3D开球失败提示被普通说明覆盖（2026-09-13）
+- current-se-ax5-r1/session69731 exit65：SE/iOS17/AX5两条实页流程，开球流程128.875s失败、母球落袋/补回26.914s通过。15球已完成散局交付，9球默认8.0求解失败后无法确认；失败截图CC4206FD及AX树6A51AF0A显示普通操作提示，错误未显示。不是等待时间不足。
+- 系统日志current-se-ax5-r1-break-system.log给出9球seed=17829163102452725902、cue=(.635,.828575,0)、aim=(-1,0,3.304183e-05)、spin=0；终态failed(penetration(0.0011684512086055138))，模拟时刻0.34930834。15球seed=4712397786635757473正常settled，未把同一流程的9球失败抹掉。
+- 反馈根因：statusText(isPerspective:)只看racked便返回普通文案，acceptCompletedSimulation失败也回racked。修正为仅simulationFailure==nil时替换；保留原错误和未完成禁止交付。
+- failure-feedback-r1/session9303 exit65，实际2项3.200s：未完成开球保持球架/禁止确认/2D与3D均保留失败提示测试2.404s通过；新增真实种子测试0.796s失败，精确复现上述穿透值/时刻。原断言与失败证据保留；没有降力度、换种子或扩大容差。
+- 状态：反馈映射修复已构建及状态验证，修后真实失败页截图待补；物理穿透未修，W09不能接受当前完整开球范围。W07既有10失败之外增加独立9球实页回归，不能称全部基准只有10个问题。所有句柄终态。
+- 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md §DR-284组件契约/Changelog。下一步定位固定种子穿透涉及的球与接触阶段；不返回袋底堆积研究。
+
+## DR-285 / FL-071 — 球体触及袋口窗口时接管（2026-09-13）
+- 固定9球失败源定位：nine-ball-contact-source-r1/r2实际各1项失败。交接初态t=.34930834149434303、p=(-1.2414212226867676,.8285750150680542,-.49699997901916504)，直库鼻边三角面13888–13895距离已小于球半径约1.35–1.41mm；projectContactPositions第一轮修正1.168mm超过原4µm预算。不是袋底/收集尾段问题。
+- 根因与修正：旧局部窗口只在球心越界时接管；改为中心域半径=原窗口半径+球半径，保守覆盖球体前缘到达窗口的时刻。全桌接触网格覆盖此边界，未改实体网格、恢复系数、捕获面或容差。临时穿透打印已撤去，原诊断日志保留。
+- nine-ball-ownership-r1/session88220 exit0，原失败种子实际1项2.678s，settled，模拟时长16.162428s。
+- regression-r1/session88931 exit0，实际6项7.243s：原9球种子、原15球种子、另一慢15球、全桌几何覆盖、任意时刻续算、正常进袋；原9球全部5次进入交接按完整实体网格检查，重叠不超过原4µm预算。
+- final-r1/session58995 exit65：实际PhysicsEngineTests41项出现原10方法及新增低力度勾球前提差异（11失败方法/22失败断言）；SE/iOS17/AX5实际15/9球开球→交付→续打/重打/取消完整UI 1项92.369s通过。01059FE9、80B9986F、2F4850D4三原图已审：球形交付、比分和操作可见。随机UI球架与固定失败种子测试分别记证，不冒充同一输入。
+- 新增差异核对：low-power-kick-current-r1/session79474原断言1项2.289s失败，输入杆头速度.6实际母球初速约.923，右库后t=3.1890607有真实球球事件。旧测试把.6无条件当作必然不足不成立。保留该输入为新物理见证测试；原“不足力度不接触”断言保留，输入改.1并增加空桌无碰库/完整停稳/最大行程小于目标可达距离的前提检查。不是生产降力度或删原失败证据。
+- low-power-kick-premise-r1/session81038 exit0，实际2项2.209s；.6碰库后记录球心间距.05715998m，与2R在10µm内一致；.1行程前提及未接触断言通过。其余原10物理失败尚未裁定，不标W07完成。
+- gate/session95245 exit0；所有句柄终态。FL-071固定9球穿透与反馈映射本地修复，跨设备/性能及完整W09仍待核。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-285；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-286 — 并发碰撞检测计时起点改为调用内局部值（2026-09-13）
+- 根因：EventDrivenEngine.findNextEvent在并行搜索中使用共享label的begin/end，起点被其他线程覆盖/移除，出现负耗时及不同调用次数；原报告不能用于判断两类检测相对成本。
+- 变更：两处DEBUG检测段以本地CACurrentMediaTime计时、recordSample汇总。计时加锁次数由每段两次减为一次；Release与物理、搜索代码路径不变。
+- 验证：defense-local-timing-r1/session14556 exit0，2项23.881s；当前3组解描述与修改前逐字一致，旧5杆均停稳，实际遮挡断言通过。内部21.948852s是一次模拟器结果，不能宣称稳定加速或真机达标。两类记录各2557648次，最小耗时非负。库边累计54781.6ms/球球8581.7ms为跨线程累计，不是墙钟。
+- 已应用至：.cursor/rules/55-test-engineer.mdc §并发性能计时；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-287 — 恒定球心跳过静态边界求根（2026-09-13）
+- 根因：findNextEvent对速度/加速度严格全零的球重复求直库、圆弧与袋口交点。球心为常量时不可能产生新的正时间边界接触；原直库需逼近速度、圆弧需径向逼近，袋口退化常量方程无正根。
+- 变更：仅这三处循环在计算a后跳过v与a的XYZ六分量均精确为零的球；没有速度阈值。球球检测/状态转换不跳过，带旋转产生非零a的滑动球照常检测，受撞后新v继续查询；局部空间接触与既有重叠处理保持。
+- 验证：stationary-boundary-r1/session29195 exit0，4项25.295s：真实15/9种子开球、默认防守与旧五杆通过。三组返回参数及25球终位与DR-286日志逐字数值相同。r2/session79352 exit0，2项24.884s，搜索/全保真一致性与完整默认防守通过。两轮内部19.484/21.075s，修改前21.949s是单次样本，不声称稳定百分比或手机达标。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-287；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。常规旧失败及其他候选penetration仍有效，不以省算修复名义关闭。
+
+## DR-288 — 袋角圆弧求根前使用保守运动范围（2026-09-13）
+- 根因：混合调度小时间窗仍反复对远处袋角求四次方程；跨步缓存存在演化/失效风险，不移除eventCache.clear。
+- 变更：ballCircularCushionTime增加当前时间窗位移上界；distance>D+|v|h+|a|h²/2+舍入余量才拒绝。h保留原maxTime+1e-6接触时间容差；转向加速由三角不等式覆盖，非有限窗不使用筛选。useReachBound=false仅供旧求根路径对照。未改弧几何、碰撞阈值或物理材料。
+- 验证：arc-reach-r1/session36356 exit0，17280对照/825命中，命中时间完全一致；默认搜索/旧五杆通过，3组返回参数与25个终位与DR-287相同。内部20.937882s，不宣称稳定吞吐提升。
+- arc-reach-regression-r1/session52170 exit65：实际47项21.460s，PhysicsEngineTests44项内仍原10个失败方法/21断言；失败方法集合与triangle-distance-regression-r1一致。9/15开球及scoring-only/full一致性3项通过。断言数22→21跨越DR-285/H01/DR-287等变化，不能归因本次或声称修复。检测调用次数与DR-287不完全一致，也不宣称所有中间候选逐位相同。
+- 已应用至：.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-288；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。W07仍返工，下一步优先常规进袋失败分类，停止以小幅耗时波动代替主问题进展。
+
+## DR-289 — 新引擎接续绝对时钟（2026-09-13）
+- 场景：H01空间落台状态传给新建EventDrivenEngine时，原初始化只能从零时刻开始，无法直接保留此前飞行时间。
+- 变更：新增throwing convenience init(tableGeometry:startingAt:)，校验非负有限且Float可表示，保留Double spatialTime及兼容Float currentTime。原初始化不变；不恢复球、历史事件或空间记录，也不证明球已受台面支撑。
+- 验证：landing-planar-chain-r1为测试误访问private属性编译失败，改用既有getTrajectoryRecorder后r2实际2项2.152s通过。时间非法/默认零时钟、六组真实抬杆落台状态进入appDefault继续到stationary，首帧时间/部分位置速度自旋及原落台两步长检查通过。无正式页面接入；完整前缀合并和全台运动仍待验。
+- 已应用至：.cursor/skills/ios-architecture/SKILL.md §DR-289；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。verify-gate通过，不关闭W07/H01/H02。
+
+## DR-290 — 主调度接管初始腾空球（2026-09-14）
+- 根因：初始非台面球远离袋口时没有空间owner，仍走平面滑动。main-airborne-r1的重力/水平速度4断言失败证明此缺口。
+- 变更：LocalPocketOwnership.Domain区分pocket(id)/airborne；Handoff保留domain，空中pocketID为nil。混合入口无pending时对竖直速度非零或高度偏离超过既有4*tolerance预算的球建立airborne owner。沿用全桌空间网格、联合碰撞与接触晋升；相邻球继承实际域。真实支撑且脱离空间接触组后交回；空中捕获遍历实际六袋边界，仍经候选/邻球复核才提交。
+- 验证：main-airborne-r2实际1项2.337s通过。airborne-main-regression-r1执行PhysicsEngineTests 50项17.670s，仍原10方法/21失败断言，与arc-reach-regression-r1失败方法集合精确相同；新重力/越球与低位碰撞通过。airborne-ownership-r1五项2.423s通过，含四组抬杆主入口落台/交回/停稳、旧所有权/过期状态/原子交回、捕获分段续算与混合任意截段续算。
+- 已应用至：.cursor/skills/ios-architecture/SKILL.md §DR-290；tasks/UI-IMPLEMENTATION-SPEC.md Changelog；ADR-P10-12。gate通过。仍缺出界、空中库边、更多接触/性能、正式输入和动画导出，不声明H01或W07完成。
+
+## DR-291 — v62 移动端渲染管线转正：单一闸门 + 全交互页默认 + 球房独立装配（2026-09-14）
+- 任务：v62 收口（用户裁定「真机上没问题，收口吧」）；决策见 ADR-P5-01（`tasks/phases/P5-angle-training.md`）。
+- 原始规范：四层渲染（移动基础光照 / S267 参考光照 / 表面质感 / 烘焙球房）各自 `#if DEBUG` 闸门（`previewRequested`、`requested`、`surfaceFinishesRequested`，模拟器还需 `-v62.s267Lighting`），仅 `FreePlayView`（非每日清台）、`ShotSimulationView`、`SceneAimingView`（仅 3D）逐页 opt-in；球房随 `applySurfaceFinishes` 装入；设置「球房风格」入口与组合预览球房为 `#if DEBUG`。
+- 调整后：`MobileTableRendering.isEnabled` 单闸门（Release 恒开；Debug `-v62.legacyRendering` / `V62_LEGACY_RENDERING=1` 对照），`MobileReferenceLighting.requested` 为其别名，其余闸门与启动参数删除。`AngleTrainingScene.setupScene(mobileRendering:)`、`PositionPlayViewModel.setupScene`、`AimingQuizViewModel.setupScene` 默认 `isEnabled`；`FreePlayView`（含每日清台）、`ShotSimulationView`、`SceneAimingView` 去掉逐页参数，`contentIsAnimating` 节流恒开。球房 `installReferenceRoom()` 成为 `setupScene` 独立步骤（`roomMs` 计时）。离线渲染器（`DrillThumbnailRenderer`、`TableFigureRenderer`、`BallFaceRenderer`、`SequenceVideoExporter`、`BallFeelView.snapshot`）显式 `mobileRendering: false`。设置入口与预览去 `#if DEBUG`。球面非贴纸粗糙度固定 0.34（原 `surfaceFinishesRequested ? 0.34 : 0.30`，二档合一）。
+- 原因：试点闸门叠加是「同页不同观感 / Release 不可见 / 大半球桌页仍旧管线」的根因；真机预算已由用户确认，试点策略应回收而非逐页补丁。
+- 验证：`make build` BUILD SUCCEEDED（`build/v62-closeout-20260914/build.log`）。定向单测 `TableAppearanceTests` 7 / `ClothAppearanceTests` 4 / `BallStickerTests` 6 / `TrajectoryRendererTests` 6 / `PocketLeatherIntegrationTests` 8 项 0 失败（`test-targeted-2.log`，跳过 2 项见下）。`RenderQualityV62Tests` 非证据采集项 15 通过、223 项按既有 `V62_SHOT_DIR` 门跳过、0 失败（`test-rq62.log`）。Release 配置构建见 `build-release.log`。
+- 已知/未验：① 模拟器 iOS 26.3 对主线程连续阻塞 ≥~30s 的测试宿主发 SIGKILL（legacy 场景 + 45s 忙等亦复现，`test-exp.log`），`testArchivedPocketAndFreeSequenceStepsRestoreSelection`（主线程同步跑 v63 空间物理 ~33s）与 `testNeutralThumbnailAfterSelectedScene`（首帧 `SCNRenderer` 热身 ~8s，偶发拉长）因此不稳定，`testPlanRealSolvePlayAndUndoRestoreLeather` 在 legacy 环境下同样失败（求解 >15s），三项属 v63 线程；② 未在真机复测本次改动后的其余页面（动作库详情、翻袋/颠球、拆球、开球、规划页）能耗与帧率，仅有用户口头「真机没问题」（基于三试点页）；③ `RenderQualityV62UITests.capture(mobile:reference:)` 的 `reference:false` 档位随中间档删除而失去区分意义，尚未清理。
+- 回写目标：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`QiuJi/Resources/TrainingRoom/README.md`；`tasks/render-quality-v62/README.md` 当前结论段。
+- 已应用至：`tasks/phases/P5-angle-training.md` §ADR-P5-01；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`QiuJi/Resources/TrainingRoom/README.md`；`tasks/render-quality-v62/README.md`（2026-09-14）。
+
+## DR-292 — 袋口内衬耗能体模型（2026-09-14）
+- 根因：空间模型把 USDZ Leather 面当刚体墙，球被竖直半圆杯壁切向导回；leather-contact-trace-r1 显示 15 次擦碰法向从(-.957,0,-.290)连续转到(.707,0,.707)，绕壁 180° 后仍 1.9m/s。leather-sweep-r1：μ 0.2–2 × e 0–0.45 共 16 组全部弹出，μ≥0.5 逐位相同——e/μ 不是杠杆。实物照片（output/3d-v63/W07/liner-audit/joy-corner-pocket-real-20260914.jpg）证明皮革是台框外的软革围裙，非碰撞结构。决策见 ADR-P10-13。
+- 变更：TablePhysics 新增 pocketLinerRestitution=0 / pocketLinerRetention=0.4；LocalPocketSimulation.Surface 新增 tangentialRetention（默认 1）；PocketContactResponse.linerSink 于单球（LocalPocketSimulation.run）与多球（resolveContactGroup）刚体解之后按逼近接触施加；TrajectoryRenderer.contactSurfaces 仅 .leather 绑定。pocketThroatRestitution 只剩平面喉壁使用。test_predictor_objectPath_reachesPocketWhenPotted 窗口由 dropRadius-R+6mm 改为 dropRadius（球心在洞口内），依据：球贴后壁落洞距袋心 29.8mm，与实物大力进袋在后壁消失一致，断言目的不变。
+- 验证：liner-retention-sweep-r1 exit0（保留 ≤0.6 八组落洞、1.0 两组弹出）；liner-regression-r2（-O，同 arc-reach-regression-r1 选择集）55 项 1 失败→窗口修正后该项通过依据见上；liner-regression-r4（QiuJi-v63-iOS17 专用模拟器）61 项 57 过 3 跳过 1 失败 0 重启。唯一残留 test_R2_railFrozenEndToEnd 穿透 5–11mm：liner-r2-ab-old 用旧参数重跑穿透值逐位相同，为既有贴库穿透，归入 W07 待分类清单。liner-regression-r1/r3 在 UI 开着的 iPhone 17 Pro 上出现 15 项 30s SIGKILL，与 DR-291 记录的 iOS 26.3 主线程阻塞击杀一致，属环境，不计入。
+- 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-13；tasks/3d-v63/W07-working.md、W07-liner-contract.md、README.md；tasks/UI-IMPLEMENTATION-SPEC.md Changelog（无 UI API 变更）。真机性能、六袋偏入全矩阵仍未完成，不关闭 W07。
+
+
+## DR-293 — 求解裁定回归平面判据，空间袋口改显式模型（2026-09-14，W17-A）
+- 根因/动机：用户裁定「对求解器而言球心进袋口圈即进」——既有求解/评分/规则全部按平面判据标定，袋内严格物理成本过高；DR-292 后内衬为耗能体，平面判据成为空间结论的合理代理。
+- 变更：`EventDrivenEngine.SimulationModel.appDefault = .planarReference`；原策略保留为显式 `spatialPockets`。`EventDrivenEngine.simulate` 循环退出前补评早停判据（纯自旋尾段跨过 maxTime 时循环内检查永不触发，scoring-only 误报 `.timeLimit`）。14 条测试改显式模型 / 6 条改写为新契约 / 1 条按 DR-292 结果更新前提，清单与逐条依据见 `tasks/3d-v63/W17-working.md`。
+- 验证：w17a-regression-r2 83 项 0 失败（切默认后原 5 失败逐条归因处理）；w17a-injection-r2 改写 6 条通过 1 skip；性能 A/B 单杆 204→4 ms、满台 6898→27 ms、斯诺克 7.51→0.63 s、翻袋最坏 1.763→0.062 s（`output/3d-v63/W17/perf-spatial-baseline.log` vs `w17a-injection-r1.log`）。w17a-full-r1 另有 20 条既有失败经 A/B 与历史日志核实与本次无关，逐条留证于 W17-working，不闭合、不归因给 W17-A/DR-292。
+- 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-14；问题集合_v63.md v63.14；tasks/3d-v63/W17-working.md、README.md；tasks/UI-IMPLEMENTATION-SPEC.md Changelog（无 UI API 变更；进袋回放暂回 pre-v63 视觉腿，待 W17-B/D）。

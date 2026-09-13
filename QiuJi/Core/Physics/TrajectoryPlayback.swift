@@ -239,7 +239,21 @@ final class TrajectoryPlayback {
         return (pockets[bestIndex], AngleSceneCalculator.pocketMarkerRadius(index: bestIndex))
     }
     
-    var duration: Float { recorder.duration }
+    var duration: Float {
+        max(recorder.duration,Float(recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0))
+    }
+
+    var collectionPresentationEnd:Float {
+        Float((recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0)+Self.pocketPauseDuration+Self.pocketFadeDuration)
+    }
+
+    /// Shared by live playback and export; physical position and visual removal
+    /// are separate, both addressed by the same simulation clock.
+    func collectionOpacity(ballName:String,time:Float)->CGFloat? {
+        guard let tail=recorder.collectionTailsByBallName[ballName] else { return nil }
+        let fadeStart=tail.end.time+Self.pocketPauseDuration
+        return CGFloat(max(0,min(1,1-(Double(time)-fadeStart)/Self.pocketFadeDuration)))
+    }
 
     /// All recorded ball names (cue + object + colliders) for clearance probes.
     var ballNames: [String] { Array(sortedFrames.keys) }
@@ -269,6 +283,13 @@ final class TrajectoryPlayback {
     
     /// 查询指定球在时刻 t 的精确状态
     func stateAt(ballName: String, time: Float) -> PlaybackBallState? {
+        if let spatial=recorder.spatialStateAt(ballName:ballName,time:Double(time)) {
+            func vector(_ v:SIMD3<Double>)->SCNVector3 { .init(Float(v.x),Float(v.y),Float(v.z)) }
+            let velocity=vector(spatial.velocity)
+            return PlaybackBallState(position:vector(spatial.position),velocity:velocity,
+                motionState:recorder.isBallPocketed(ballName,at:Double(time)) ? .pocketed:.sliding,
+                angularVelocity:vector(spatial.omega),moveDirection:velocity.length()>0 ? velocity.normalized():SCNVector3Zero)
+        }
         guard let frames = sortedFrames[ballName], !frames.isEmpty else { return nil }
         
         let t = max(0, time)
@@ -420,6 +441,22 @@ final class TrajectoryPlayback {
         let cursor = PlaybackCursor()
         cursor.lastAngularVelocity = stateAt(ballName: ballName, time: 0)?.angularVelocity ?? SCNVector3Zero
 
+        if let tail=recorder.collectionTailsByBallName[ballName] {
+            let end=Double(cap)>=tail.start.time ? max(Double(cap),tail.end.time+Self.pocketPauseDuration+Self.pocketFadeDuration):Double(cap)
+            let spatialAction=SCNAction.customAction(duration:end/Double(spd)) { node,elapsed in
+                let t=min(Float(end),Float(elapsed)*spd)
+                guard let state=self.stateAt(ballName:ballName,time:t) else { return }
+                node.position=state.position
+                node.opacity=self.collectionOpacity(ballName:ballName,time:t) ?? 1
+                BallSpinIntegrator.advance(node:node,from:cursor.lastAngularVelocity,to:state.angularVelocity,dt:t-cursor.lastSimTime)
+                cursor.lastSimTime=t;cursor.lastAngularVelocity=state.angularVelocity
+            }
+            if removeOnPocket,Double(cap)>=tail.start.time {
+                return .sequence([spatialAction,.removeFromParentNode()])
+            }
+            return spatialAction
+        }
+
         // 强引用 self：动画存续期间（绑定在节点上）保证 playback 不被释放；
         // playback 不持有节点，节点 `removeAllActions` 后即解除引用，无循环。
         let evaluate = SCNAction.customAction(duration: realDuration) { node, elapsed in
@@ -449,7 +486,7 @@ final class TrajectoryPlayback {
                 return
             }
 
-            node.position = SCNVector3(s.position.x, self.surfaceY, s.position.z)
+            node.position = s.position
             cursor.lastVelocity = s.velocity
 
             // 姿态按**模拟时间**积分 ω：慢放（speed < 1）时转速同比放慢，与位移一致。

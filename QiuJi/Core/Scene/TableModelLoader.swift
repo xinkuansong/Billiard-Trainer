@@ -48,6 +48,19 @@ final class TableModelLoader {
         }
     }
 
+    /// Prepare the immutable leather partitions on the same background warm-up
+    /// queue as USDZ parsing. Each page still creates its own material variants.
+    static func preloadPocketRegions() {
+        guard let model = loadTable() else { return }
+        model.visualNode.position.y += BTTablePhysics.surfaceY - model.surfaceY
+        do {
+            _ = try PocketLeatherMesh.cachedExtraction(from: model.visualNode,
+                centers: AngleSceneCalculator.pocketPositions(surfaceY: BTTablePhysics.surfaceY))
+        } catch {
+            logger.error("Pocket region warm-up failed; page will retry: \(String(describing: error), privacy: .public)")
+        }
+    }
+
     /// 必须在持有 `cacheLock` 时调用。
     private static func cachedOrParsedModelScene() -> SCNScene? {
         if let scene = cachedModelScene { return scene }

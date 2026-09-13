@@ -230,6 +230,8 @@ struct BTSpinPadCard: View {
     var isReadOnly = false
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
+    /// In perspective views, keep the table visible above a shallow control row.
+    var usesCompactLayout = false
     var onClose: () -> Void
 
     private var padDiameter: CGFloat {
@@ -239,7 +241,28 @@ struct BTSpinPadCard: View {
     var body: some View {
         let width = SpinPadLayout.resolvedTableWidth(tableWidth)
         VStack(spacing: Spacing.xs) {
-            if isReadOnly {
+            if usesCompactLayout {
+                HStack(spacing: Spacing.md) {
+                    BTSpinPad(spinX: $spinX, spinY: $spinY, isReadOnly: isReadOnly,
+                              locksSideSpin: locksSideSpin)
+                        .frame(width: 3 * SpinPadLayout.keyHit, height: 3 * SpinPadLayout.keyHit)
+                    if !isReadOnly {
+                        VStack(spacing: Spacing.xs) {
+                            BTHoldRepeatButton(icon: "chevron.up", accessibility: "高杆增加 1%") { nudge(.up) }
+                            HStack(spacing: Spacing.xs) {
+                                if !locksSideSpin {
+                                    BTHoldRepeatButton(icon: "chevron.left", accessibility: "左塞增加 1%") { nudge(.left) }
+                                }
+                                Color.clear.frame(width: SpinPadLayout.keyHit, height: SpinPadLayout.keyHit)
+                                if !locksSideSpin {
+                                    BTHoldRepeatButton(icon: "chevron.right", accessibility: "右塞增加 1%") { nudge(.right) }
+                                }
+                            }
+                            BTHoldRepeatButton(icon: "chevron.down", accessibility: "低杆增加 1%") { nudge(.down) }
+                        }
+                    }
+                }
+            } else if isReadOnly {
                 BTSpinPad(spinX: $spinX, spinY: $spinY, isReadOnly: true)
                     .frame(width: padDiameter, height: padDiameter)
             } else {
@@ -292,7 +315,10 @@ struct BTSpinPadCard: View {
             }
         }
         .padding(SpinPadLayout.horizontalPadding)
-        .frame(width: width)
+        // Read-only compact cards contain one pad, without the editable key column.
+        .frame(width: usesCompactLayout
+               ? (isReadOnly ? nil : min(width, 2 * SpinPadLayout.maxPadDiameter))
+               : width)
         // 近透明底：只留 22% 黑 + 细模糊，透出台面绿；发丝描边保分层。
         .background {
             RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
@@ -303,6 +329,8 @@ struct BTSpinPadCard: View {
         }
         .overlay(RoundedRectangle(cornerRadius: BTRadius.xl, style: .continuous)
             .strokeBorder(HUDStyle.hairline, lineWidth: HUDStyle.hairlineWidth))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("spinPad.card")
         .environment(\.colorScheme, .dark)
     }
 
@@ -330,6 +358,7 @@ struct BTSpinPadOverlay: View {
     var isReadOnly = false
     /// 只选高低杆：隐藏左右微调键，白盘拖动锁竖轴。
     var locksSideSpin = false
+    var usesCompactLayout = false
     var onClose: () -> Void
 
     var body: some View {
@@ -349,6 +378,7 @@ struct BTSpinPadOverlay: View {
             BTSpinPadCard(spinX: $spinX, spinY: $spinY,
                           tableWidth: tableWidth, isReadOnly: isReadOnly,
                           locksSideSpin: locksSideSpin,
+                          usesCompactLayout: usesCompactLayout,
                           onClose: onClose)
                 .padding(.bottom, bottomPadding)
         }

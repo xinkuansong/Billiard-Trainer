@@ -118,6 +118,7 @@ struct QiuJiApp: App {
                     // 线程解析入缓存，之后各页 setupScene 只做毫秒级 clone。
                     await Task.detached(priority: .userInitiated) {
                         TableModelLoader.preloadModel()
+                        TableModelLoader.preloadPocketRegions()
                     }.value
                 }
                 .task {

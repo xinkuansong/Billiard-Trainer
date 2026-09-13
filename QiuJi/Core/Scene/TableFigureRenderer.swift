@@ -81,7 +81,8 @@ enum TableFigureRenderer {
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }
 
         let scene = AngleTrainingScene()
-        scene.setupScene(enhancedRendering: false)
+        // Card backdrops keep the plain pipeline (ADR-P5-01: offline output unchanged).
+        scene.setupScene(enhancedRendering: false, mobileRendering: false)
         guard scene.cameraNode != nil, let rig = scene.cameraRig else { return nil }
         scene.background.contents = UIColor.black
         scene.hideAllBalls()

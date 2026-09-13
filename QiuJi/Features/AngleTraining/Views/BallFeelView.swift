@@ -265,7 +265,8 @@ private enum BallFeelPerspectiveRenderer {
         guard let device = MTLCreateSystemDefaultDevice() else { return nil }
 
         let scene = AngleTrainingScene()
-        scene.setupScene(enhancedRendering: false)
+        // Offline still with its own camera; keep the plain pipeline (ADR-P5-01).
+        scene.setupScene(enhancedRendering: false, mobileRendering: false)
         scene.background.contents = UIColor.black
         scene.hideCueStick()
 

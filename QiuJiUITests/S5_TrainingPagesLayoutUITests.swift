@@ -22,6 +22,78 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         add(att)
     }
 
+    private func checkObservationMenu(prefix: String) {
+        let menu = app.buttons["\(prefix).observation"]
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
+        for target in ["table", "cue", "target", "pocket", "aim"] {
+            if target == "table" {
+                menu.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap()
+            } else {
+                menu.tap()
+            }
+            let option = app.buttons["\(prefix).observe.\(target)"]
+            XCTAssertTrue(option.waitForExistence(timeout: 5))
+            if target == "table" { snap("v63-\(prefix)-observation-menu") }
+            option.tap()
+            sleep(1)
+            snap("v63-\(prefix)-observe-\(target)")
+        }
+    }
+
+    func testComposerPerspectiveRoundTrip() throws {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
+        XCTAssertTrue(openCard(homeTab: "打", title: "自由走位"))
+        XCTAssertTrue(app.buttons["击球"].waitForExistence(timeout: 10))
+        snap("v63-composer-editing-baseline")
+        let aimMode = app.buttons.matching(NSPredicate(format: "label CONTAINS '瞄准模式'")).firstMatch
+        XCTAssertTrue(aimMode.waitForExistence(timeout: 5))
+        if aimMode.label.contains("进袋") { aimMode.tap() }
+        app.buttons["composer.more"].tap()
+        app.buttons["重命名"].tap()
+        let field = app.alerts.textFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        field.tap()
+        field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: (field.value as? String ?? "").count))
+        field.typeText("v63 往返")
+        app.alerts.buttons["保存"].tap()
+        let camera = app.buttons["composer.cameraMode"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 5))
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "3D")
+        XCTAssertTrue(app.staticTexts["摆球请切回2D"].waitForExistence(timeout: 5))
+        sleep(1)
+        snap("v63-composer-3d")
+        let window = app.windows.firstMatch
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.5))
+            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.5)))
+        snap("v63-composer-observed")
+        let strike = app.buttons["击球"]
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 30), .completed)
+        strike.tap()
+        let undo = app.buttons["重打"]
+        let settled = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: undo)
+        XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 45), .completed)
+        snap("v63-composer-shot-settled")
+        undo.tap()
+        let restored = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: strike)
+        XCTAssertEqual(XCTWaiter.wait(for: [restored], timeout: 30), .completed)
+        sleep(1)
+        snap("v63-composer-shot-restored")
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "2D")
+        XCTAssertTrue(aimMode.label.contains("自由"))
+        sleep(1)
+        snap("v63-composer-returned-2d")
+        app.buttons["composer.more"].tap()
+        app.buttons["重命名"].tap()
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        XCTAssertEqual(field.value as? String, "v63 往返")
+        app.alerts.buttons["取消"].tap()
+    }
+
     func testAngleAssistRailExtension() throws {
         for mode in ["2D", "3D"] {
             app.terminate()
@@ -69,18 +141,28 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         app.terminate()
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
         XCTAssertTrue(openCard(homeTab: "练", title: "\(mode) 瞄准点训练"))
+        if mode == "3D" { checkObservationMenu(prefix: "aimPointTraining") }
+        for cycle in 1...(mode == "3D" ? 3 : 1) {
         XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 5))
-        snap("aim-point-\(mode)-aiming")
+        if mode == "3D" {
+            XCTAssertGreaterThanOrEqual(app.buttons["提交"].frame.height, 44)
+            XCTAssertGreaterThanOrEqual(app.buttons["提交"].frame.width, 44)
+        }
+        snap("aim-point-\(mode)-aiming-\(cycle)")
         let window = app.windows.firstMatch
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.55))
             .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.55, dy: 0.55)))
-        snap("aim-point-\(mode)-adjusted")
+        snap("aim-point-\(mode)-adjusted-\(cycle)")
         XCTAssertTrue(app.buttons["提交"].isHittable)
         app.buttons["提交"].tap()
-        snap("aim-point-\(mode)-submitted")
+        snap("aim-point-\(mode)-submitted-\(cycle)")
         // This exercise verifies the shot and advances automatically; it has no Next button.
-        XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 30))
-        snap("aim-point-\(mode)-next")
+        let absent = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.buttons["提交"])
+        XCTAssertEqual(XCTWaiter.wait(for: [absent], timeout: 5), .completed)
+        XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 45))
+        sleep(1)
+        snap("aim-point-\(mode)-next-\(cycle)")
+        }
     }
 
     @discardableResult
@@ -170,6 +252,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-v50.inMemoryStore"])
         XCTAssertTrue(openCard(homeTab: "练", title: "3D 角度训练"))
         XCTAssertTrue(startAimingTrainingFromSheet())
+        checkObservationMenu(prefix: "angleTraining")
         for question in 1...3 {
             let answer = app.buttons["答题"].firstMatch
             XCTAssertTrue(answer.waitForExistence(timeout: 8))
@@ -184,6 +267,7 @@ final class S5_TrainingPagesLayoutUITests: XCTestCase {
             snap("v57-framed-q\(question)")
             answer.tap()
             XCTAssertTrue(app.buttons["提交"].waitForExistence(timeout: 4))
+            XCTAssertFalse(app.buttons["angleTraining.observation"].isEnabled)
             snap("v57-framed-keypad-q\(question)")
             app.buttons["4"].firstMatch.tap()
             app.buttons["5"].firstMatch.tap()

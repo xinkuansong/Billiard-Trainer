@@ -30,6 +30,12 @@ enum BallPhysics {
 
     /// 球-球碰撞弹性系数
     static let restitution: Float = 0.95
+
+    /// Existing Alciatore fit. Keep Float evaluation for the planar engine's
+    /// established results; spatial contacts share this material law.
+    static func contactFriction(relativeSurfaceSpeed:Float)->Float {
+        0.009951 + 0.108 * expf(-1.088 * relativeSurfaceSpeed)
+    }
 }
 
 // MARK: - 球台物理参数
@@ -68,9 +74,22 @@ enum TablePhysics {
     static let sidePocketNearRimZ: Float = 0.63296474
     static let sidePocketCenterOffsetZ: Float = sidePocketNearRimZ + sidePocketRadius
 
-    /// 袋口喉腔壁（袋兜衬里）恢复系数：比库边橡皮"死"得多。喉壁均为孔圈切线的延长，
-    /// 正常球在触壁前已被「球心入孔圈」判据收袋——喉壁只是数值漏检时的安全兜底。
+    /// Legacy planar throat-wall response: originally a missed-capture fallback.
+    /// Only the planar `TableGeometry` throat walls use it now (W07 / FL-070).
     static let pocketThroatRestitution: Float = 0.45
+
+    /// 袋口内衬（USDZ `Leather` 面）的接触响应。实物（乔氏台，见
+    /// `output/3d-v63/W07/liner-audit/joy-corner-pocket-real-20260914.jpg`）中皮革是挂在
+    /// 台框外、顶沿不高于台呢面、松垂的软革围裙：作用是接住已失去台面支撑的球并吸能，
+    /// 不是能把球送回台面的硬墙；能顶回球的只有库鼻（`pocketNoseRestitution`）。
+    /// 模型里的 Leather 却是一条正对球心高度的刚性半圆带，球会被它切向导着绕壁 180° 弹回。
+    /// 刚体 e/μ 都不是杠杆：leather-sweep-r1（2026-09-14）μ 0.2–2 × e 0–0.45 共 16 组全部弹出，
+    /// μ≥0.5 结果完全相同（Coulomb 切向冲量至多把 2/7 滑动转成自旋）。
+    /// 因此内衬按耗能体处理：法向恢复 0；每次逼近接触后球心切向速度与自旋只保留
+    /// `pocketLinerRetention`。liner-retention-sweep-r1：保留 1.0 两组弹出，≤0.6 八组全部落洞；
+    /// 取 0.4 留出对更快来球的余量。这是按实物功能标定的模型参数，不是实测皮革系数。
+    static let pocketLinerRestitution: Float = 0
+    static let pocketLinerRetention: Float = 0.4
 
     /// 袋口鼻尖圆角（角袋 jaw fillet 弧）恢复系数：比整条库边橡皮"死"。
     /// 物理依据：鼻尖是皮革/橡胶包头 + 斜面剪切接触，吸能远大于库边正撞；单冲量刚体

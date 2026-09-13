@@ -98,13 +98,15 @@ enum EngineNumerics {
                 radius: BallPhysics.radius
             )
             let relSpeed = relVel.length()
-            guard relSpeed > 0.001 else { return SCNVector3Zero }
+            // Match evolveSliding's domain: CCD must predict the same motion.
+            guard relSpeed > 0.0001 else { return SCNVector3Zero }
             let uHat = relVel.normalized()
             let decel = SpinPhysics.slidingFriction * TablePhysics.gravity
             return -uHat * decel
         case .rolling:
             let speed = ball.velocity.length()
-            guard speed > 0.001 else { return SCNVector3Zero }
+            // Match evolveRolling, including motion below the state classifier cutoff.
+            guard speed > 0.0001 else { return SCNVector3Zero }
             let vHat = ball.velocity.normalized()
             let decel = SpinPhysics.rollingFriction * TablePhysics.gravity
             return -vHat * decel

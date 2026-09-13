@@ -16,6 +16,7 @@ struct SnookerTacticsView: View {
     }
 
     @StateObject private var vm = SnookerTacticsViewModel()
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     @State private var hasAppeared = false
     @State private var projector = TableProjector()
     @State private var showSpinPad = false
@@ -36,7 +37,8 @@ struct SnookerTacticsView: View {
     var body: some View {
         GeometryReader { geo in
             let rig = vm.scene.cameraRig
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D ? Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: rig?.tableOuterHalfLength ?? ShotTableLayout.defaultHalfLength,
@@ -46,11 +48,12 @@ struct SnookerTacticsView: View {
                 Color.black.ignoresSafeArea()
                 VStack(spacing: 0) {
                     topToolRow
+                        .disabled(is3D)
                         .frame(height: Self.topRowHeight)
                     stage(proxy)
                         .frame(height: sceneH)
                     bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                        .frame(height: bottomHeight)
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
@@ -73,6 +76,7 @@ struct SnookerTacticsView: View {
                     statusText: vm.statusText
                 )
             }
+            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .onAppear {
@@ -87,6 +91,21 @@ struct SnookerTacticsView: View {
                 else if args.contains("-snooker.none") { vm.uiTestConfigure("none") }
             }
         }
+    }
+
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            showSpinPad = false
+            let needsOverview = !vm.scene.hasPerspectiveView
+            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
+            vm.scene.setCameraMode(vm.cameraMode, animated: false)
+            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("snooker.cameraMode")
     }
 
     // MARK: - Top tool row
@@ -138,21 +157,22 @@ struct SnookerTacticsView: View {
 
                 // 左下（G24 / D14）：BTSolverLeftColumn；无开球不占位，Slot L1 = 下一解在柱底。
                 leftColumn
-                    .btStageFrame(proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackSize))
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: BTSolverLeftColumn.stackSize) : proxy.bottomLeadingFrame(size: BTSolverLeftColumn.stackSize))
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
                 instrumentColumn
-                    .btStageFrame(proxy.instrumentFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                 // 条 18.2：击球/上一杆/回放，右下角底边齐球桌底线。
                 actionColumn
-                    .btStageFrame(proxy.actionColumnFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
             }
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
+                                 usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -164,13 +184,13 @@ struct SnookerTacticsView: View {
     // MARK: - Scene
 
     private var sceneContainer: some View {
-        let selectable: [SCNNode] = vm.activeTool == .selectTarget ? vm.selectableBalls : []
+        let selectable: [SCNNode] = !is3D && vm.activeTool == .selectTarget ? vm.selectableBalls : []
         return AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
-            draggableBallNodes: vm.activeTool == .none ? vm.draggableBalls : [],
+            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            autoFitsRotatedTable: !is3D,
+            draggableBallNodes: !is3D && vm.activeTool == .none ? vm.draggableBalls : [],
             onDragBegan: { vm.dragBegan(node: $0) },
             onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
             onDragEnded: { vm.dragEnded(node: $0) },
@@ -232,7 +252,27 @@ struct SnookerTacticsView: View {
     // MARK: - Bottom bar（G12：删除解摘要行，底部只留球库；解读数入口 = 右柱打点/力度）
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
-        paletteBar(proxy)
+        Group {
+            if is3D {
+                HStack {
+                    BTSceneObservationMenu(
+                        scene: vm.scene,
+                        targetNode: vm.selectedTargetKey.flatMap { vm.scene.allBallNodes[$0] },
+                        pocketIndex: nil,
+                        identifierPrefix: "snooker",
+                        canReturnToAim: vm.canObserveCurrentAim,
+                        onReturnToAim: vm.observeCurrentAim
+                    )
+                    .disabled(vm.isPlaying)
+                    Spacer(minLength: 0)
+                    Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+                }
+                .font(.btFootnote)
+                .padding(.horizontal, Spacing.sm)
+            } else {
+                paletteBar(proxy)
+            }
+        }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(HUDStyle.panelBackground)
             .overlay(alignment: .top) { Divider().overlay(Color.white.opacity(0.08)) }

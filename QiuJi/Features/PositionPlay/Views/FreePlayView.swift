@@ -21,6 +21,8 @@ struct FreePlayView: View {
     @StateObject private var dailyController = DailyClearanceController()
     @ObservedObject private var preferences = UserPreferences.shared
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var resultActionHeight: CGFloat = 44
     @State private var hasAppeared = false
     @State private var showSpinPad = false
     @State private var showBreakPicker = false
@@ -51,12 +53,19 @@ struct FreePlayView: View {
     }
 
     private var isDailyClearance: Bool { entryMode == .dailyClearance }
+    private var isDailyResult: Bool {
+        isDailyClearance && (dailyController.isCompleted || dailyController.phase == .failed)
+    }
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     private var pageTitle: String { isDailyClearance ? "每日清台" : "自由击球" }
 
     var body: some View {
         GeometryReader { geo in
             let extents = vm.tableOuterHalfExtents
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = isDailyResult && dynamicTypeSize.isAccessibilitySize
+                ? max(Self.bottomBarHeight, resultActionHeight + 64)
+                : (is3D && !vm.isBreakMode && !isDailyResult ? Self.topRowHeight : Self.bottomBarHeight)
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: extents.length, halfWidth: extents.width
@@ -69,7 +78,7 @@ struct FreePlayView: View {
                     stage(proxy)
                         .frame(height: sceneH)
                     bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                        .frame(height: bottomHeight)
                 }
             }
             .coordinateSpace(name: "freeplay")
@@ -84,6 +93,9 @@ struct FreePlayView: View {
                     isBusy: vm.isComputing,
                     statusText: navigationStatusText
                 )
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                cameraToggle
             }
             ToolbarItem(placement: .topBarTrailing) {
                 moreMenu.accessibilityIdentifier("freeplay.moreMenu")
@@ -135,19 +147,61 @@ struct FreePlayView: View {
                 .presentationDragIndicator(.visible)
         }
         .onChange(of: vm.isBreakMode) { _, inBreak in
+            if is3D, inBreak {
+                if isDailyClearance && dailyController.isAutomaticallyBreaking {
+                    ShotPlayCamera.observeWholeTable(on: vm)
+                } else { ShotPlayCamera.focus(on: vm) }
+            }
             // 开球「完成」交付击打阶段 → 按玩法启动规则对局（取消开球时 pendingGame 已清）。
             if !isDailyClearance, !inBreak, let game = pendingGame {
                 pendingGame = nil
                 startGame(game)
             }
         }
+        .onChange(of: vm.breakRunner?.seed) { _, seed in
+            // Removing the runner after delivery is not a request to refocus.
+            if is3D, seed != nil {
+                if isDailyClearance && dailyController.isAutomaticallyBreaking {
+                    ShotPlayCamera.observeWholeTable(on: vm)
+                } else { ShotPlayCamera.focus(on: vm) }
+            }
+        }
+        .onChange(of: vm.breakRunner?.phase) { previous, phase in
+            // A single framing request at the shot boundary; subsequent playback,
+            // settle and user gestures retain ownership of the current camera.
+            if is3D, previous == .racked,
+               phase == .computing || phase == .breaking {
+                ShotPlayCamera.observeWholeTable(on: vm)
+            }
+        }
         .onAppear {
             if !hasAppeared {
                 hasAppeared = true
                 vm.setupScene()
+                vm.scene.setCameraMode(vm.cameraMode, animated: false)
                 vm.onShotSettled = { facts in handleShotSettled(facts) }
+                #if DEBUG
+                if !isDailyClearance, ProcessInfo.processInfo.arguments.contains("-v63.freePlayScratch") {
+                    vm.clearTable()
+                    vm.toggleAimMode()
+                    vm.placeFromPalette(PositionPlayBall.cueKey,
+                        atWorld: SCNVector3(0, vm.scene.surfaceY + BallPhysics.radius, -0.45))
+                    vm.velocity = 1.5
+                    vm.handleTableTap(world: AngleSceneCalculator.pocketPositions(surfaceY: vm.scene.surfaceY)[4])
+                    startGame(.chineseEightBall)
+                }
+                #endif
                 if isDailyClearance {
                     dailyController.start(host: vm, defaultGame: preferences.dailyClearanceGame)
+                    // Completion records contain totals, not a resumable board.
+                    // Do not present the scene's initialization example as that game.
+                    if dailyController.isCompleted { vm.clearTable() }
+                    #if DEBUG
+                    if ProcessInfo.processInfo.arguments.contains("-dailyClearance.fixture=scratch") {
+                        vm.toggleAimMode()
+                        vm.handleTableTap(world: AngleSceneCalculator.pocketPositions(surfaceY: vm.scene.surfaceY)[4])
+                    }
+                    #endif
                 }
             }
         }
@@ -171,15 +225,30 @@ struct FreePlayView: View {
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱，默认 6 m/s），共享单一真源。
             if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy)
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy, isPerspective: is3D)
+                if is3D {
+                    HStack(spacing: Spacing.sm) {
+                        ShotObservationMenu(vm: vm, identifierPrefix: "freeplay")
+                        cameraFocus
+                    }
+                        .padding(Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                }
             }
 
-            if !vm.isBreakMode && proxy.isValid {
+            if !vm.isBreakMode && !isDailyResult && proxy.isValid {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右（放球桌上方空隙带内）。
                 // C12（v7 W6）：贴边定位统一走共享修饰器，与 ShotSimulationView 同源。
-                BTTrajectoryDetailChip { vm.recompute() }
-                    .btChipBandPlacement(proxy)
-                    .allowsHitTesting(!vm.isPlaying)
+                if is3D {
+                    BTTrajectoryDetailChip { vm.recompute() }
+                        .padding(Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .topTrailing)
+                        .allowsHitTesting(!vm.isPlaying)
+                } else {
+                    BTTrajectoryDetailChip { vm.recompute() }
+                        .btChipBandPlacement(proxy)
+                        .allowsHitTesting(!vm.isPlaying)
+                }
 
                 // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
                 if vm.aimMode == .free {
@@ -189,8 +258,9 @@ struct FreePlayView: View {
                         degreeHapticEnabled: false,
                         onDragActiveChanged: { vm.setAimWheelDragging($0) }
                     )
-                        .btStageFrame(proxy.aimWheelFrame())
+                        .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).aimWheelFrame : proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
+                        .disabled(vm.isPlaying)
                 }
 
                 // 左下：翻袋备选「下一解」（仅直击失败且多解时）+ 开球。
@@ -210,11 +280,7 @@ struct FreePlayView: View {
                     }
                 }
                 .btStageFrame(
-                    proxy.bottomLeadingFrame(
-                        size: vm.canCycleBankAlternatives
-                            ? CGSize(width: 48, height: 30 + 8 + ShotStageMetrics.breakButtonSize.height)
-                            : ShotStageMetrics.breakButtonSize
-                    )
+                    breakEntryFrame(proxy)
                 )
 
                 // G4/G5/G7 打点+力度仪表柱：左缘贴球桌右侧、力度条本体底部对齐。
@@ -225,7 +291,7 @@ struct FreePlayView: View {
                     range: ShotTuning.velocityRange,
                     isDisabled: vm.isPlaying
                 )
-                .btStageFrame(proxy.instrumentFrame())
+                .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                 // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
                 BTShotActionColumn(
@@ -238,19 +304,22 @@ struct FreePlayView: View {
                     playbackEnabled: !vm.isPlaying && vm.canPlayback,
                     onPlayback: { vm.replayLastShot() }
                 )
-                .btStageFrame(proxy.actionColumnFrame())
+                .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
             }
 
             // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
             if !vm.isBreakMode {
                 BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
-                                    scene: vm.scene, safeInsets: proxy.aimCloseupSafeInsets)
+                                    scene: vm.scene, safeInsets: is3D
+                                        ? .init(top: 56, leading: 56, bottom: 46, trailing: 62)
+                                        : proxy.aimCloseupSafeInsets)
             }
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
+                                 usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
                     // F-PP-07：与同系页对齐贴底；不动 ShotStageProxy。
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -285,7 +354,7 @@ struct FreePlayView: View {
             guard let ruling = dailyController.handleShotSettled(facts) else { return }
             flash(ruling.message, tone: ruling.failed ? .warning : .success)
             if ruling.ballInHand, !ruling.failed {
-                flash("自由球：可任意拖放母球")
+                flash(is3D ? "自由球：切回2D拖放母球" : "自由球：可任意拖放母球")
             }
             return
         }
@@ -317,11 +386,11 @@ struct FreePlayView: View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
-            onPocketTapped: vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
+            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            autoFitsRotatedTable: !is3D,
+            onPocketTapped: vm.isBreakMode || vm.isPlaying || isDailyResult ? nil : { vm.selectPocket(at: $0) },
             // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
-            draggableBallNodes: vm.breakRunner?.draggableCue ?? vm.draggableCueOnly,
+            draggableBallNodes: is3D || isDailyResult ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableCueOnly),
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else { vm.dragBegan(node: node) }
@@ -337,15 +406,16 @@ struct FreePlayView: View {
                 if let runner = vm.breakRunner { runner.dragEnded(node: node) }
                 else { vm.dragEnded(node: node) }
             },
-            selectableBallNodes: vm.isBreakMode ? [] : vm.selectableBalls,
+            selectableBallNodes: vm.isBreakMode || isDailyResult ? [] : vm.selectableBalls,
             onBallTapped: { node in handleTargetTap(node) },
-            onTableTapped: { if !vm.isBreakMode { vm.handleTableTap(world: $0) } },
-            onAimNudged: {
+            onTableTapped: is3D || isDailyResult ? nil : { if !vm.isBreakMode { vm.handleTableTap(world: $0) } },
+            onAimNudged: is3D || isDailyResult ? nil : {
                 if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
                 else { vm.nudgeFreeAim(byDegrees: $0) }
             },
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
-            projector: projector
+            projector: projector,
+            contentIsAnimating: vm.isPlaying || (vm.breakRunner?.isBusy ?? false)
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .clipped()
@@ -385,20 +455,22 @@ struct FreePlayView: View {
                 isDailyClearance ? AnyView(dailyBreakModePill) : AnyView(breakModePill)
             } else {
                 BTAimModeToggleButton(isFree: vm.aimMode == .free,
-                                      isDisabled: vm.isPlaying) {
+                                      isDisabled: vm.isPlaying || isDailyResult) {
                     vm.toggleAimMode()
                 }
+                .fixedSize(horizontal: true, vertical: false)
 
                 if isDailyClearance {
                     TimelineView(.periodic(from: .now, by: 1)) { _ in
                         dailyStatusPill
                     }
                 } else {
-                    aimCapsule
+                    if vm.cuePocketed { scratchPill }
+                    else { aimCapsule }
                     if rules != nil { gamePill }
                 }
 
-                if vm.cuePocketed { scratchPill }
+                if isDailyClearance, vm.cuePocketed { scratchPill }
             }
 
             Spacer(minLength: 0)
@@ -514,6 +586,29 @@ struct FreePlayView: View {
 
     /// 规则对局 HUD（条 15.10）：记分牌 + 当前击球方。
     private var gamePill: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 4) {
+                gameScoreLabel
+                if !currentPlayerLabel.isEmpty {
+                    BTHudMetricSeparator()
+                    gamePlayerLabel
+                }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 2) {
+                gameScoreLabel
+                if !currentPlayerLabel.isEmpty { gamePlayerLabel }
+            }
+            .fixedSize(horizontal: true, vertical: false)
+        }
+        .padding(.horizontal, Spacing.md)
+        .padding(.vertical, 6)
+        .btHudGlass()
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("freeplay.gameStatus")
+    }
+
+    private var gameScoreLabel: some View {
         HStack(spacing: 4) {
             Image(systemName: "person.2")
                 .font(.system(size: 11, weight: .semibold))
@@ -522,32 +617,62 @@ struct FreePlayView: View {
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(.white.opacity(0.92))
                 .lineLimit(1)
-            if !currentPlayerLabel.isEmpty {
-                BTHudMetricSeparator()
-                Text("轮到 \(currentPlayerLabel)")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(.btPrimary)
-                    .lineLimit(1)
-            }
         }
-        .padding(.horizontal, Spacing.md)
-        .padding(.vertical, 6)
-        .btHudGlass()
+    }
+
+    private var gamePlayerLabel: some View {
+        Text(currentPlayerLabel)
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .foregroundStyle(.btPrimary)
+            .lineLimit(1)
+            .accessibilityLabel("轮到 \(currentPlayerLabel)")
     }
 
     private var scratchPill: some View {
         HStack(spacing: 4) {
             Circle().fill(Color.btDestructive).frame(width: 6, height: 6)
-            Text("母球进袋")
+            Text("预计母球进袋")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(.btDestructive)
+                .lineLimit(1)
         }
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, 6)
         .background(Color.btDestructive.opacity(0.16), in: Capsule())
+        .fixedSize(horizontal: true, vertical: false)
     }
 
     // MARK: - Bottom bar
+
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            showSpinPad = false
+            ShotPlayCamera.setMode(is3D ? .topDown2DRotated : .perspective3D, on: vm)
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("freeplay.cameraMode")
+    }
+
+    private var cameraFocus: some View {
+        Button(vm.isBreakMode ? "开球视角" : "回到瞄准") { ShotPlayCamera.focus(on: vm) }
+            .font(.btFootnote)
+            .foregroundStyle(Color.btPrimary)
+            .padding(.horizontal, Spacing.sm)
+            .frame(minHeight: 44)
+            .disabled(!ShotPlayCamera.canFocus(on: vm))
+            .accessibilityIdentifier("freeplay.focus")
+    }
+
+    private func breakEntryFrame(_ proxy: ShotStageProxy) -> CGRect {
+        let size = vm.canCycleBankAlternatives
+            ? CGSize(width: 48, height: 30 + 8 + ShotStageMetrics.breakButtonSize.height)
+            : ShotStageMetrics.breakButtonSize
+        return is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: size)
+            : proxy.bottomLeadingFrame(size: size)
+    }
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
         Group {
@@ -555,7 +680,8 @@ struct FreePlayView: View {
                 if isDailyClearance, dailyController.isAutomaticallyBreaking {
                     dailyAutomaticBreakBar
                 } else {
-                    BreakControlBar(runner: runner, onCancel: {
+                    BreakControlBar(runner: runner, showsCancel: !isDailyClearance,
+                                    onRerack: isDailyClearance ? { dailyController.confirmRerack() } : nil, onCancel: {
                         pendingGame = nil
                         vm.cancelBreakFlow()
                     })
@@ -564,6 +690,17 @@ struct FreePlayView: View {
                 dailyCompletionBar
             } else if isDailyClearance, dailyController.phase == .failed {
                 dailyFailureBar
+            } else if is3D {
+                HStack(spacing: Spacing.sm) {
+                    ShotObservationMenu(vm: vm, identifierPrefix: "freeplay")
+                    Text(vm.onTableKeys.contains(PositionPlayBall.cueKey) ? "移母球切回2D" : "切回2D补回母球")
+                        .font(.btCaption)
+                        .foregroundStyle(Color.btTextSecondary)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    cameraFocus
+                }
+                .padding(.horizontal, Spacing.lg)
             } else {
                 paletteBar(proxy)
             }
@@ -586,7 +723,7 @@ struct FreePlayView: View {
     }
 
     private var dailyCompletionBar: some View {
-        HStack(spacing: Spacing.md) {
+        dailyResultLayout {
             VStack(alignment: .leading, spacing: 2) {
                 Text("今日已清台")
                     .font(.btHeadline)
@@ -595,8 +732,9 @@ struct FreePlayView: View {
                     .font(.btCaption)
                     .foregroundStyle(.white.opacity(0.65))
             }
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
             Button("再来一局") { dailyController.replay() }
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
                 .buttonStyle(.borderedProminent)
                 .tint(.btPrimary)
                 .accessibilityIdentifier("dailyClearance.replay")
@@ -605,13 +743,14 @@ struct FreePlayView: View {
     }
 
     private var dailyFailureBar: some View {
-        HStack(spacing: Spacing.md) {
+        dailyResultLayout {
             Text(dailyController.statusText)
                 .font(.btCallout)
                 .foregroundStyle(.white.opacity(0.82))
                 .lineLimit(2)
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
             Button("重新开球") { requestDailyRerack() }
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : nil)
                 .buttonStyle(.borderedProminent)
                 .tint(.btPrimary)
                 .accessibilityIdentifier("dailyClearance.rerack")
@@ -620,7 +759,13 @@ struct FreePlayView: View {
     }
 
     private var strikeEnabled: Bool {
-        !vm.isPlaying && !vm.isComputing && vm.isFeasible
+        !isDailyResult && !vm.isPlaying && !vm.isComputing && vm.isFeasible
+    }
+
+    private var dailyResultLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: Spacing.sm))
+            : AnyLayout(HStackLayout(spacing: Spacing.md))
     }
 
     // MARK: - Palette bar（G8 + G21：BTReferenceBallPalette；P10.1 只读参考）
@@ -633,6 +778,9 @@ struct FreePlayView: View {
             isOnTable: { vm.onTableKeys.contains($0) },
             onTap: { key, onTable in
                 if onTable { vm.pulseTableBall(key) }
+                else if !isDailyClearance, key == PositionPlayBall.cueKey {
+                    vm.placeFromPalette(key)
+                }
                 else { flash("本页从开球开始，不支持手动摆球") }
             }
         )
@@ -702,7 +850,10 @@ struct FreePlayView: View {
 
     private var navigationStatusText: String {
         if isDailyClearance { return dailyController.statusText }
-        return vm.breakRunner?.statusText
+        if is3D, vm.breakRunner?.phase == .racked, vm.breakRunner?.simulationFailure == nil {
+            return "刻度轮调方向 · 移母球切回2D"
+        }
+        return vm.breakRunner?.statusText(isPerspective: is3D)
             ?? (vm.isComputing ? "求解中…"
                 : (!vm.isPlaying && !rulingText.isEmpty ? rulingText : vm.statusText))
     }
@@ -740,5 +891,58 @@ struct FreePlayView: View {
 
 #Preview("Dark") {
     NavigationStack { FreePlayView() }
+        .preferredColorScheme(.dark)
+}
+
+/// Viewing actions deliberately use ShotPlayCamera, never the shot-selection handlers.
+struct ShotObservationMenu: View {
+    @ObservedObject var vm: PositionPlayViewModel
+    let identifierPrefix: String
+
+    var body: some View {
+        Menu {
+            Button("查看全桌", systemImage: "rectangle") {
+                ShotPlayCamera.observeWholeTable(on: vm)
+            }
+            .accessibilityIdentifier("\(identifierPrefix).observe.table")
+            Button("查看母球", systemImage: "circle") {
+                ShotPlayCamera.observeBall(PositionPlayBall.cueKey, on: vm)
+            }
+            .disabled(!isVisible(PositionPlayBall.cueKey))
+            .accessibilityIdentifier("\(identifierPrefix).observe.cue")
+            Button("查看目标球", systemImage: "scope") {
+                if let key = vm.selectedTargetKey { ShotPlayCamera.observeBall(key, on: vm) }
+            }
+            .disabled(!isVisible(vm.selectedTargetKey))
+            .accessibilityIdentifier("\(identifierPrefix).observe.target")
+            Button("查看目标袋", systemImage: "viewfinder") {
+                ShotPlayCamera.observePocket(vm.selectedPocketIndex, on: vm)
+            }
+            .disabled(!(0..<6).contains(vm.selectedPocketIndex))
+            .accessibilityIdentifier("\(identifierPrefix).observe.pocket")
+        } label: {
+            Label("视角", systemImage: "viewfinder")
+                .font(.btFootnote)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
+        }
+        .foregroundStyle(Color.btPrimary)
+        .accessibilityHint("查看全桌、母球、目标球或目标袋，不改变击球选择")
+        .accessibilityIdentifier("\(identifierPrefix).observation")
+    }
+
+    private func isVisible(_ key: String?) -> Bool {
+        guard let key, let node = vm.scene.allBallNodes[key] else { return false }
+        return !node.isHidden
+    }
+}
+
+#Preview("Observation Light") {
+    ShotObservationMenu(vm: PositionPlayViewModel(), identifierPrefix: "preview")
+        .preferredColorScheme(.light)
+}
+
+#Preview("Observation Dark") {
+    ShotObservationMenu(vm: PositionPlayViewModel(), identifierPrefix: "preview")
         .preferredColorScheme(.dark)
 }

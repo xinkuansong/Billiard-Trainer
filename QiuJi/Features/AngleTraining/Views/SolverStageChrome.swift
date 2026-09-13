@@ -261,6 +261,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                     )
                         .btStageFrame(proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
+                        .disabled(vm.isPlaying)
                 }
 
                 // 右缘仪表柱：求解有解 = 打点盘+力度（微调走草稿层，D-v8-5b）；

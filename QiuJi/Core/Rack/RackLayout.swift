@@ -10,7 +10,7 @@
 //
 //  几何移植自 `01.billiard_app` 的 `setupRackLayout`（同台面几何、同引擎血统）并已由
 //  `BreakRackPhysicsTests` 验证 15 球开球可完全停稳/不出界/不互穿/确定性：三角阵紧贴、
-//  `gap = 1mm`（01 实测：间隙过大动量传不下去，只撞动顶角球）、母球在开球区。
+//  `gap` 由下方常量定义、母球在开球区。
 //
 
 import Foundation
@@ -73,21 +73,12 @@ struct Rack {
 
 enum RackLayout {
 
-    /// 开球缝隙（米）。开球三角必须**近似冻结**（紧贴），间隙过大动量无法逐颗传递 → 母球留太多能量、
-    /// 球堆不炸。本项目 `BreakRackPhysicsTests.test_break15Ball_gapSweep` 实测（v=7、5 个瞄准偏角取均值）：
-    /// gap=1mm 仅 ~5/15 球散开>30cm，gap≤0.2mm 升到 ~10/15 且仍完全停稳/不互穿（终态最小球距≈2R）。
-    /// 取 0.2mm：贴近真实冻结球架的强开球，又留一丝数值余量（>0.1mm 的极限贴球）。
+    /// Nominal surface gap in meters. Restored after the tighter-rack trial.
     static let gap: Float = 0.0002
 
-    /// 摆球随机微扰半径（米）。每颗目标球在台面 **X–Z 平面**内随机偏移、Y 不变、seed 驱动
-    /// （同 seed 同架，确定性 / WYSIWYG）；「换一局」换 seed → 球架**几何**（而非仅球号）也随之
-    /// 不同，借开球混沌把这点亚毫米差异放大成截然不同的散开。
-    ///
-    /// **上界由「永不互穿」解析锁死**（坐标系：SceneKit X–Z 平面）：摆球阵任意两球初始最小球心距
-    /// = 最近邻 = `2R + gap`；每球独立偏移半径 ≤ `jitterRadius` 时，最坏情况一对相邻球各朝对方移
-    /// `jitterRadius` → 球心距缩短 `2·jitterRadius`。要保证球心距恒 ≥ 2R，须 `jitterRadius ≤ gap/2`。
-    /// 取 `0.45·gap` 留数值余量（最坏球心距 = `2R + 0.1·gap` 严格 > 2R）。当前 gap=0.2mm → 0.09mm。
-    /// 该界对**所有**球对成立（非最近邻只会更远），故无需事后 overlap 校正。
+    /// Seeded uniform-disk offsets on the world X–Z plane; Y is unchanged.
+    /// Radius 0.09 mm keeps nearest-neighbor gaps within 0.02–0.38 mm:
+    /// distance >= 2R + gap - 2*jitterRadius, so balls cannot overlap.
     static let jitterRadius: Float = gap * 0.45
 
     /// 生成一副摆球架。`seed` 决定球号随机排布（中八底角一花一色、9 球钻石锚点、

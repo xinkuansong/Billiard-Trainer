@@ -43,7 +43,8 @@ final class SeparationAngleAtlasTests: XCTestCase {
         XCTAssertGreaterThan(cushion.time, bb.time)
 
         let slice = SeparationAngleAtlasGeometry.pathAfterContactToFirstCueCushion(pred)
-        XCTAssertGreaterThanOrEqual(slice.count, 2, "切片应有折线段")
+        XCTAssertGreaterThanOrEqual(slice.count, 2, "切片应有折线段；termination=\(String(describing: pred.termination))")
+        guard slice.count >= 2 else { return }
 
         if let recorder = pred.recorder,
            let start = recorder.stateAt(ballName: ShotInput.cueBallName, time: bb.time),
@@ -81,7 +82,15 @@ final class SeparationAngleAtlasTests: XCTestCase {
                      "预期低力度纯低杆碰后停球、不吃库（根因场景复现）")
 
         let slice = SeparationAngleAtlasGeometry.pathAfterContactToFirstCueCushion(pred)
-        XCTAssertGreaterThanOrEqual(slice.count, 2, "未吃库时切片应降级为碰撞点→停球点，不得为空")
+        if !pred.hasFinalTableState, let recorder = pred.recorder {
+            for name in [ShotInput.cueBallName, ShotInput.targetBallName] {
+                print("[W07 low draw final] name=\(name) duration=\(pred.duration) state=\(String(describing: recorder.stateAt(ballName: name, time: pred.duration)))")
+                print("[W07 low draw local] name=\(name) end=\(String(describing: recorder.localIntervalsByBallName[name]?.last?.end)) handoffs=\(recorder.localHandoffs.filter { $0.ballName == name })")
+            }
+            print("[W07 low draw events] \(pred.events)")
+        }
+        XCTAssertGreaterThanOrEqual(slice.count, 2, "未吃库时切片应降级为碰撞点→停球点，不得为空；termination=\(String(describing: pred.termination))")
+        guard slice.count >= 2 else { return }
 
         guard let bb, let recorder = pred.recorder,
               let start = recorder.stateAt(ballName: ShotInput.cueBallName, time: bb.time),
@@ -124,5 +133,32 @@ final class SeparationAngleAtlasTests: XCTestCase {
         // 数值草稿：`build/y3-evidence/y3-stun-tangent-measure.txt`
         XCTAssertGreaterThan(dot, 0.85,
                              "中杆高速碰后首段应近似切线方向（90° 法则），dot=\(dot)")
+    }
+}
+
+extension SeparationAngleAtlasTests {
+    func testSliceCompletenessUsesRequiredEventInsteadOfWholeTableRest() throws {
+        let scene = SeparationAngleAtlasGeometry.defaultTeachingScene()
+        let surface = BTTablePhysics.surfaceY
+        let y = SeparationAngleAtlasGeometry.sceneKitBallY(surfaceY: surface)
+        func predict(_ duration: Float) -> ShotPrediction {
+            ShotPredictor.simulateFree(
+                cueBall: SCNVector3(Float(scene.cue.x), y, Float(scene.cue.y)),
+                aimDir: SCNVector3(Float(scene.aimDir.x), 0, Float(scene.aimDir.y)),
+                velocity: 2.5, spinX: 0, spinY: 0, surfaceY: surface,
+                balls: [ObstacleBall(name: ShotInput.targetBallName,
+                    position: SCNVector3(Float(scene.target.x), y, Float(scene.target.y)))],
+                maxTime: duration)
+        }
+        let full = predict(15)
+        let contact = try XCTUnwrap(SeparationAngleAtlasGeometry.firstBallBallEvent(in: full.events))
+        let cushion = try XCTUnwrap(SeparationAngleAtlasGeometry.firstCueCushionAfterBallBall(in: full.events))
+        let partial = predict((contact.time + cushion.time) / 2)
+        XCTAssertFalse(SeparationAngleAtlasGeometry.hasCompleteSlice(partial))
+        XCTAssertTrue(SeparationAngleAtlasGeometry.pathAfterContactToFirstCueCushion(partial).isEmpty)
+        let prefix = predict(cushion.time + 0.01)
+        XCTAssertEqual(prefix.termination, .timeLimit)
+        XCTAssertTrue(SeparationAngleAtlasGeometry.hasCompleteSlice(prefix))
+        XCTAssertFalse(SeparationAngleAtlasGeometry.pathAfterContactToFirstCueCushion(prefix).isEmpty)
     }
 }

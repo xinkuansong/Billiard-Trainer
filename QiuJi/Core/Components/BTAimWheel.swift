@@ -14,6 +14,7 @@ import SwiftUI
 /// T-P18-43（设计稿 §1.5/§1.7 刻度语法）：**只画刻度不画数值**——打点精确到毫米级，
 /// 用户看的是台面上的瞄准效果不是数字；三级刻度 1°/5°/10° = 白 15/25/40%，当前位置金线。
 struct BTAimWheel: View {
+    @Environment(\.isEnabled) private var isEnabled
     let onNudge: (Float) -> Void
     /// Degrees of aim rotation per point of vertical drag.
     var degreesPerPoint: Float = AimWheelGain.defaultDegreesPerPoint
@@ -109,6 +110,20 @@ struct BTAimWheel: View {
         .onDisappear { finishDrag() }
         .accessibilityElement()
         .accessibilityLabel("瞄准微调")
+        .accessibilityHint("上划向右微调，下划向左微调")
+        .accessibilityAdjustableAction { direction in
+            guard isEnabled else { return }
+            let delta: Float
+            switch direction {
+            case .increment: delta = degreesPerPoint
+            case .decrement: delta = -degreesPerPoint
+            @unknown default: return
+            }
+            onDragActiveChanged?(true)
+            onNudge(delta)
+            accumulated += Double(delta)
+            onDragActiveChanged?(false)
+        }
         .accessibilityIdentifier("shotStage.aimWheel")
     }
     private func finishDrag() {

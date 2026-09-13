@@ -365,6 +365,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         predictQueue.async { [weak self] in
             let t0 = CFAbsoluteTimeGetCurrent()
             var paths = Array(repeating: [SCNVector3](), count: spins.count)
+            var incomplete = Array(repeating: false, count: spins.count)
             var preCushionPaths = Array(repeating: [SCNVector3](), count: spins.count)
 
             DispatchQueue.concurrentPerform(iterations: spins.count) { i in
@@ -376,6 +377,8 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
                     spinX: spinX, spinY: spinY,
                     surfaceY: y, balls: balls
                 )
+                incomplete[i] = !CushionEnglishAtlasGeometry.hasCompleteSlice(pred)
+                guard !incomplete[i] else { return }
                 paths[i] = CushionEnglishAtlasGeometry.pathAfterFirstCueCushion(pred)
                 preCushionPaths[i] = Self.pathUntilFirstCueCushion(pred)
             }
@@ -393,7 +396,8 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
                 }
                 guard self.predictGeneration == gen else { return }
                 self.isComputing = false
-                self.statusText = nil
+                self.statusText = incomplete.contains(true)
+                    ? "部分轨迹模拟未完成，请调整击球参数后重试" : nil
                 self.drawTrajectories(postCushion: paths, preCushion: preCushionPaths)
             }
         }
@@ -487,14 +491,14 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
                     lastPreCushionPaths[i],
                     color: color.withAlphaComponent(0.55),
                     radius: TrajectoryStyle.lineHint,
-                    into: &trajectoryNodes)
+                    placement: .table, into: &trajectoryNodes)
             }
             if i < lastPostCushionPaths.count, lastPostCushionPaths[i].count >= 2 {
                 scene.addDashedPolyline(
                     lastPostCushionPaths[i],
                     color: color,
                     radius: TrajectoryStyle.lineMain,
-                    into: &trajectoryNodes)
+                    placement: .table, into: &trajectoryNodes)
             }
         }
     }

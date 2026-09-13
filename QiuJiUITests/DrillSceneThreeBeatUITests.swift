@@ -21,6 +21,151 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         app = XCUIApplication.launchClean()
     }
 
+    func testPerspectiveFormationSwitchDuringPlaybackAndPause() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app.switchTab(.drillLibrary)
+        let search = app.textFields["搜索动作"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
+        search.typeText("初级蛇彩")
+        let card = app.descendants(matching: .any).matching(identifier: "drillCard_drill_c042").firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10))
+        card.tap()
+        let mode = app.buttons["drillScene.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 10))
+        mode.tap()
+        let step = app.staticTexts["drillScene.step"]
+        XCTAssertEqual(step.label, "第 1/8 杆")
+        let play = app.buttons["drillPlayButton"]
+        let idleLabel = play.label
+        play.tap()
+        app.buttons["formationSwitchChip_manual02"].tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        XCTAssertEqual(step.label, "第 1/5 杆")
+        XCTAssertEqual(play.label, idleLabel)
+        sleep(1)
+        savePNG("v63-detail-formation2-3d")
+        play.tap()
+        play.tap()
+        let paused = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == '继续'"), object: play)
+        XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 45), .completed)
+        mode.tap()
+        mode.tap()
+        XCTAssertEqual(step.label, "第 1/5 杆")
+        XCTAssertEqual(play.label, "继续")
+        app.buttons["formationSwitchChip_manual01"].tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        XCTAssertEqual(step.label, "第 1/8 杆")
+        XCTAssertEqual(play.label, idleLabel)
+        sleep(1)
+        savePNG("v63-detail-formation1-restored-3d")
+    }
+
+    func testPerspectiveDetailReopensAfterLeavingDuringPlayback() {
+        continueAfterFailure = false
+        openDrillC078()
+        for cycle in 0..<3 {
+            let mode = app.buttons["drillScene.cameraMode"]
+            XCTAssertTrue(mode.waitForExistence(timeout: 10))
+            XCTAssertEqual(mode.value as? String, "2D")
+            mode.tap()
+            XCTAssertEqual(mode.value as? String, "3D")
+            let play = app.buttons["drillPlayButton"]
+            XCTAssertTrue(play.isHittable)
+            play.tap()
+            XCTAssertEqual(play.label, "暂停")
+            savePNG("v63-detail-reentry-\(cycle)")
+            app.navigationBars.buttons.element(boundBy: 0).tap()
+            let card = app.descendants(matching: .any).matching(identifier: "drillCard_drill_c078").firstMatch
+            XCTAssertTrue(card.waitForExistence(timeout: 8))
+            XCTAssertFalse(mode.exists)
+            if cycle < 2 { card.tap() }
+        }
+    }
+
+    func testPerspectiveDetailCompletesBothFormationsAtEveryShotBoundary() {
+        continueAfterFailure = false
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        app.switchTab(.drillLibrary)
+        let search = app.textFields["搜索动作"]
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap(); search.typeText("初级蛇彩")
+        let card = app.descendants(matching: .any).matching(identifier: "drillCard_drill_c042").firstMatch
+        XCTAssertTrue(card.waitForExistence(timeout: 10)); card.tap()
+        let mode = app.buttons["drillScene.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 10)); mode.tap()
+        let play = app.buttons["drillPlayButton"]
+        let step = app.staticTexts["drillScene.step"]
+        for (token, count) in [("manual01", 8), ("manual02", 5)] {
+            app.buttons["formationSwitchChip_" + token].tap()
+            XCTAssertEqual(step.label, "第 1/\(count) 杆")
+            for index in 1...count {
+                play.tap()
+                let current = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", "第 \(index)/\(count) 杆"), object: step)
+                XCTAssertEqual(XCTWaiter.wait(for: [current], timeout: 5), .completed)
+                play.tap()
+                let label = index == count ? "回放" : "继续"
+                let boundary = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == %@", label), object: play)
+                XCTAssertEqual(XCTWaiter.wait(for: [boundary], timeout: 45), .completed, "\(token) shot \(index)")
+                if index < count {
+                    XCTAssertEqual(step.label, "第 \(index)/\(count) 杆")
+                    if index == 1 {
+                        mode.tap(); mode.tap()
+                        XCTAssertEqual(play.label, "继续")
+                        savePNG("v63-detail-\(token)-first-boundary")
+                    }
+                }
+            }
+            XCTAssertEqual(step.label, "第 1/\(count) 杆")
+            XCTAssertEqual(mode.value as? String, "3D")
+            XCTAssertFalse(app.otherElements["drillShotHUDBar"].exists)
+            savePNG("v63-detail-\(token)-completed")
+        }
+    }
+
+    /// 观察手势与观看切换不改变当前杆的暂停/继续语义。
+    func testPerspectiveObservationAndModeSwitchPreserveShotBoundaryPause() {
+        app.terminate()
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
+        openDrillC078()
+        let mode = app.buttons["drillScene.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 5))
+        XCTAssertEqual(mode.value as? String, "2D")
+        savePNG("v63-detail-2d")
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        let viewport = app.descendants(matching: .any).matching(identifier: "drillSceneTableViewport").firstMatch
+        XCTAssertTrue(viewport.exists)
+        savePNG("v63-detail-3d-overview")
+        let start = viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.5))
+        start.press(forDuration: 0.1, thenDragTo: viewport.coordinate(withNormalizedOffset: CGVector(dx: 0.65, dy: 0.55)))
+        viewport.pinch(withScale: 1.2, velocity: 1)
+        savePNG("v63-detail-3d-observed")
+        app.buttons["drillScene.overview"].tap()
+        let play = app.buttons["drillPlayButton"]
+        play.tap()
+        XCTAssertTrue(app.otherElements["drillShotHUDBar"].waitForExistence(timeout: 3))
+        mode.tap()
+        mode.tap()
+        XCTAssertEqual(play.label, "暂停")
+        play.tap()
+        let paused = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label == '继续'"), object: play)
+        XCTAssertEqual(XCTWaiter.wait(for: [paused], timeout: 50), .completed)
+        let step = app.staticTexts["drillScene.step"].label
+        mode.tap()
+        XCTAssertEqual(play.label, "继续")
+        XCTAssertEqual(app.staticTexts["drillScene.step"].label, step)
+        mode.tap()
+        app.buttons["drillScene.overview"].tap()
+        XCTAssertEqual(play.label, "继续")
+        XCTAssertEqual(app.staticTexts["drillScene.step"].label, step)
+        savePNG("v63-detail-3d-paused")
+        play.tap()
+        XCTAssertEqual(play.label, "暂停")
+    }
+
     /// `drill_c001` 的示范序列为 5 杆：验证整条播完（而非只播首杆）且 HUD 时序正确。
     func testSequencePlaysAllShotsAndHUDTiming() {
         openDrillC001()

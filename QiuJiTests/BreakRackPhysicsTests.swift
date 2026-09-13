@@ -75,6 +75,84 @@ final class BreakRackPhysicsTests: XCTestCase {
         sqrtf((a.x - b.x) * (a.x - b.x) + (a.z - b.z) * (a.z - b.z))
     }
 
+    /// Diagnostic only: current App model, paired old/tight rack geometry.
+    func test_currentBreakSpacingDiagnostic() {
+        func rack(seed: UInt64, tight: Bool) -> Rack {
+            let original = RackLayout.make(.chineseEightBall, seed: seed, surfaceY: surfaceY)
+            guard tight else { return original }
+            let (_, slots) = buildRack(gap: 0.0002)
+            let (_, tightSlots) = buildRack(gap: 0.0001)
+            let balls = original.balls.enumerated().map { i, ball in
+                RackBall(key: ball.key, number: ball.number,
+                    position: tightSlots[i] + (ball.position - slots[i]) * (1.0 / 9.0))
+            }
+            return Rack(game: original.game, cue: original.cue, balls: balls, surfaceY: original.surfaceY)
+        }
+        let selected = (ProcessInfo.processInfo.environment["BREAK_DIAG_SEED"] ?? ProcessInfo.processInfo.environment["TEST_RUNNER_BREAK_DIAG_SEED"]).flatMap(UInt64.init)
+        let seeds: [UInt64] = selected.map { [$0] } ?? Array(1...6)
+        for seed in seeds {
+            for tight in [false, true] where !tight || seed <= 2 {
+                let r = rack(seed: seed, tight: tight)
+                NSLog("[BREAK-DIAG start] seed=%llu tight=%d", seed, tight ? 1 : 0)
+                let start = Date()
+                let result = BreakSimulator.breakShot(rack: r, power: 8)
+                var moved = 0, nearPairs = 0
+                var destinations: [SCNVector3] = []
+                for b in r.balls {
+                    if result.pocketed.contains(b.key) { moved += 1; continue }
+                    if let end = result.recorder.framesByBallName[b.key]?.last {
+                        if distXZ(end.position, b.position) > 0.3 { moved += 1 }
+                        destinations.append(end.position)
+                    }
+                }
+                for i in destinations.indices {
+                    for j in destinations.indices where j > i {
+                        if distXZ(destinations[i], destinations[j]) < 0.12 { nearPairs += 1 }
+                    }
+                }
+                NSLog("[BREAK-DIAG end] seed=%llu tight=%d seconds=%.3f termination=%@ duration=%.3f moved30=%d pockets=%d nearPairs=%d", seed, tight ? 1 : 0, Date().timeIntervalSince(start), String(describing: result.termination), result.recorder.duration, moved, result.pocketed.count, nearPairs)
+                XCTAssertTrue(result.settled)
+            }
+        }
+    }
+
+    /// Short-window transmission diagnostic, before most cushion/pocket traffic.
+    func test_breakInitialTransmissionDiagnostic() {
+        for seed in UInt64(1)...UInt64(12) {
+            let rack = RackLayout.make(.chineseEightBall, seed: seed, surfaceY: surfaceY)
+            for angle: Float in [0, -1, 1, -2, 2] {
+                let aim = BreakSimulator.aimAtApex(rack: rack, from: rack.cue).rotatedY(angle * .pi / 180)
+                let start = Date()
+                let result = BreakSimulator.breakShot(rack: rack, aimDirection: aim, power: 8, maxTime: 0.2)
+                let frames = result.recorder.framesByBallName
+                let objects = rack.balls.compactMap { frames[$0.key]?.last }
+                let cue = frames[PositionPlayBall.cueKey]?.last
+                let sumV2 = objects.reduce(Float(0)) { $0 + $1.velocity.length() * $1.velocity.length() }
+                let cueV2 = cue.map { $0.velocity.length() * $0.velocity.length() } ?? 0
+                let initial = CueBallStrike.executeStrike(aimDirection: aim, velocity: 8, spinX: 0, spinY: 0).velocity
+                let initialV2 = initial.length() * initial.length()
+                let g1 = (distXZ(rack.balls[0].position, rack.balls[1].position) - 2 * R) * 1000
+                let g2 = (distXZ(rack.balls[0].position, rack.balls[2].position) - 2 * R) * 1000
+                NSLog("[BREAK-EARLY] seed=%llu angle=%.1f seconds=%.3f duration=%.4f frontGaps=%.4f,%.4f moving=%d objectTransPct=%.1f cueTransPct=%.1f termination=%@", seed, angle, Date().timeIntervalSince(start), result.recorder.duration, g1, g2, objects.filter { speedXZ($0.velocity) > 0.2 }.count, 100 * sumV2 / initialV2, 100 * cueV2 / initialV2, String(describing:result.termination))
+                XCTAssertEqual(result.termination, .timeLimit)
+            }
+        }
+    }
+
+    func test_breakOffCenterSpreadDiagnostic() {
+        for angle: Float in [0, 2] {
+            let rack = RackLayout.make(.chineseEightBall, seed: 11, surfaceY: surfaceY)
+            let aim = BreakSimulator.aimAtApex(rack: rack, from: rack.cue).rotatedY(angle * .pi / 180)
+            let start = Date()
+            let result = BreakSimulator.breakShot(rack: rack, aimDirection: aim, power: 8)
+            let moved = rack.balls.filter { b in
+                result.pocketed.contains(b.key) || result.recorder.framesByBallName[b.key]?.last.map { distXZ($0.position,b.position) > 0.3 } == true
+            }.count
+            NSLog("[BREAK-OFFCENTER seed=11] angle=%.1f seconds=%.3f moved30=%d pockets=%d termination=%@", angle, Date().timeIntervalSince(start), moved, result.pocketed.count, String(describing: result.termination))
+            XCTAssertTrue(result.settled)
+        }
+    }
+
     // MARK: - 0. 球架几何自检（移植正确性）
 
     /// 摆好的球架本身：15 颗目标球、互不重叠（最小球距应 ≈ 2R+gap）、全在台内。
@@ -311,7 +389,7 @@ final class BreakRackPhysicsTests: XCTestCase {
     ]
 
     /// 微扰后的球架对**所有 seed / 所有玩法**仍互不重叠：任意两目标球（含母球）球心距 ≥ 2R。
-    /// 解析上界 `jitterRadius ≤ gap/2` 的实证（最坏球心距应 = 2R + 0.1·gap）。
+    /// 解析上界 `jitterRadius ≤ gap/2` 的实证（球心距下界 = 2R + gap - 2·jitterRadius）。
     func test_rackLayout_jitter_neverOverlaps() {
         var worstMin = Float.greatestFiniteMagnitude
         for game in allGames {
@@ -328,8 +406,8 @@ final class BreakRackPhysicsTests: XCTestCase {
                 }
             }
         }
-        print(String(format: "[JITTER] 全玩法×201 seed 最坏球心距 %.3fmm（理论下界 2R+0.1·gap = %.3fmm，jitterRadius=%.3fmm）",
-                     worstMin * 1000, (2 * R + 0.1 * RackLayout.gap) * 1000, RackLayout.jitterRadius * 1000))
+        print(String(format: "[JITTER] 全玩法×201 seed 最坏球心距 %.3fmm（理论下界 2R+gap-2·jitterRadius = %.3fmm，jitterRadius=%.3fmm）",
+                     worstMin * 1000, (2 * R + RackLayout.gap - 2 * RackLayout.jitterRadius) * 1000, RackLayout.jitterRadius * 1000))
     }
 
     /// 确定性：同 seed 两次生成的球位逐球完全一致（守 WYSIWYG）。

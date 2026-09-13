@@ -28,8 +28,10 @@ struct BreakResult {
     let cueScratched: Bool
     /// 中八专用：8 号是否在开球时落袋（按规则需重开）——废局信号之一。
     let eightOnBreak: Bool
-    /// 是否完全停稳（未被 `maxEvents` 截断）。`false` 时 board 含残余运动 = 脏数据，应判失败。
-    let settled: Bool
+    /// The engine outcome; partial boards remain available for diagnostics only.
+    let termination: EventDrivenEngine.Termination
+    /// Only a completed simulation may be delivered as an editable table.
+    var settled: Bool { termination == .settled }
     let surfaceY: Float
 }
 
@@ -51,7 +53,8 @@ enum BreakSimulator {
                           spinX: Float = 0,
                           spinY: Float = 0,
                           maxEvents: Int = 8000,
-                          maxTime: Float = 30) -> BreakResult {
+                          maxTime: Float = 30,
+                          simulationModel: EventDrivenEngine.SimulationModel = .appDefault) -> BreakResult {
         let cuePos = cuePosition ?? rack.cue
         let strike = CueBallStrike.executeStrike(
             aimDirection: aimDirection ?? aimAtApex(rack: rack, from: cuePos),
@@ -67,15 +70,15 @@ enum BreakSimulator {
                                      angularVelocity: SCNVector3Zero,
                                      state: .stationary, name: b.key))
         }
-        engine.simulate(maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true)
+        let termination = engine.simulatePrediction(model: simulationModel,
+            maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true)
         // #4：停稳后偶发两球轻微穿插——输出可编辑摆位前做一次几何重叠清理。
-        engine.resolveRestingOverlaps()
+        if termination == .settled { engine.resolveRestingOverlaps() }
 
         var onTable: [String: CanvasPoint] = [:]
         var pocketed: [String] = []
         var cueScratched = false
         var eightOnBreak = false
-        var maxAliveSpeed: Float = 0
 
         for b in engine.getAllBalls() {
             if b.state == .pocketed {
@@ -84,8 +87,6 @@ enum BreakSimulator {
                 if b.name == "_8" { eightOnBreak = true }
                 continue
             }
-            let speed = sqrtf(b.velocity.x * b.velocity.x + b.velocity.z * b.velocity.z)
-            maxAliveSpeed = max(maxAliveSpeed, speed)
             let n = AngleSceneCalculator.sceneToNormalized(position: b.position)
             onTable[b.name] = CanvasPoint(x: Double(n.x), y: Double(n.y))
         }
@@ -96,7 +97,7 @@ enum BreakSimulator {
             pocketed: pocketed.sorted(),
             cueScratched: cueScratched,
             eightOnBreak: rack.game == .chineseEightBall && eightOnBreak,
-            settled: maxAliveSpeed < 0.3,
+            termination: termination,
             surfaceY: rack.surfaceY)
     }
 

@@ -23,6 +23,8 @@ struct ShotSimulationView: View {
 
     @State private var toast: BTToastMessage?
 
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
+
     /// G10：顶栏 / 底栏固定高度 ⇒ scene 区域高度恒定 ⇒ 球桌渲染尺寸锁定。
     private static let topRowHeight = ShotStageMetrics.topRowHeight
     private static let bottomBarHeight = ShotStageMetrics.BottomBarHeight.composer.rawValue
@@ -41,7 +43,8 @@ struct ShotSimulationView: View {
     var body: some View {
         GeometryReader { geo in
             let extents = vm.tableOuterHalfExtents
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D ? Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: extents.length, halfWidth: extents.width
@@ -53,8 +56,13 @@ struct ShotSimulationView: View {
                         .frame(height: Self.topRowHeight)
                     stage(proxy)
                         .frame(height: sceneH)
-                    bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                    if is3D {
+                        cameraHelp
+                            .frame(height: bottomHeight)
+                    } else {
+                        bottomBar(proxy)
+                            .frame(height: bottomHeight)
+                    }
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
@@ -85,6 +93,7 @@ struct ShotSimulationView: View {
                 vm.maxTargetBalls = 2
                 vm.setupScene()
                 vm.loadBoard(Self.defaultBoard)
+                vm.scene.setCameraMode(vm.cameraMode, animated: false)
             }
         }
     }
@@ -97,9 +106,16 @@ struct ShotSimulationView: View {
 
             if proxy.isValid {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
-                BTTrajectoryDetailChip { vm.recompute() }
-                    .btChipBandPlacement(proxy)
-                    .allowsHitTesting(!vm.isPlaying)
+                if is3D {
+                    BTTrajectoryDetailChip { vm.recompute() }
+                        .padding(Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .topTrailing)
+                        .allowsHitTesting(!vm.isPlaying)
+                } else {
+                    BTTrajectoryDetailChip { vm.recompute() }
+                        .btChipBandPlacement(proxy)
+                        .allowsHitTesting(!vm.isPlaying)
+                }
 
                 // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
                 if vm.aimMode == .free {
@@ -109,8 +125,9 @@ struct ShotSimulationView: View {
                         degreeHapticEnabled: false,
                         onDragActiveChanged: { vm.setAimWheelDragging($0) }
                     )
-                        .btStageFrame(proxy.aimWheelFrame())
+                        .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).aimWheelFrame : proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
+                        .disabled(vm.isPlaying)
                 }
 
                 // D14：无开球页不显示禁用开球占位。
@@ -123,7 +140,7 @@ struct ShotSimulationView: View {
                     range: ShotTuning.velocityRange,
                     isDisabled: vm.isPlaying
                 )
-                .btStageFrame(proxy.instrumentFrame())
+                .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                 // 18.2 击球/上一杆/回放：右下角，底边齐球桌底线。
                 BTShotActionColumn(
@@ -136,17 +153,20 @@ struct ShotSimulationView: View {
                     playbackEnabled: !vm.isPlaying && vm.canPlayback,
                     onPlayback: { vm.replayLastShot() }
                 )
-                .btStageFrame(proxy.actionColumnFrame())
+                .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
             }
 
             // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
             BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
-                                    scene: vm.scene, safeInsets: proxy.aimCloseupSafeInsets)
+                                    scene: vm.scene, safeInsets: is3D
+                                        ? .init(top: 56, leading: 56, bottom: 46, trailing: 62)
+                                        : proxy.aimCloseupSafeInsets)
 
             if showSpinPad {
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
+                                 usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -161,10 +181,10 @@ struct ShotSimulationView: View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
+            interactionMode: vm.isPlaying ? (is3D ? .cameraControl : .none) : (is3D ? .cameraControl : .tapsOnly),
+            autoFitsRotatedTable: !is3D,
             onPocketTapped: { vm.selectPocket(at: $0) },
-            draggableBallNodes: vm.draggableBalls,
+            draggableBallNodes: is3D || vm.isPlaying ? [] : vm.draggableBalls,
             onDragBegan: { vm.dragBegan(node: $0) },
             onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
             onDragEnded: { vm.dragEnded(node: $0) },
@@ -173,10 +193,11 @@ struct ShotSimulationView: View {
             },
             selectableBallNodes: vm.selectableBalls,
             onBallTapped: { vm.selectTarget(node: $0) },
-            onTableTapped: { vm.handleTableTap(world: $0) },
-            onAimNudged: { vm.nudgeFreeAim(byDegrees: $0) },
+            onTableTapped: is3D ? nil : { vm.handleTableTap(world: $0) },
+            onAimNudged: is3D ? nil : { vm.nudgeFreeAim(byDegrees: $0) },
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
-            projector: projector
+            projector: projector,
+            contentIsAnimating: vm.isPlaying
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(frameReader(id: "scene"))
@@ -198,6 +219,20 @@ struct ShotSimulationView: View {
             if vm.cuePocketed { scratchPill }
 
             Spacer(minLength: 0)
+
+            Button(is3D ? "3D" : "2D") {
+                showSpinPad = false
+                ShotPlayCamera.setMode(is3D ? .topDown2DRotated : .perspective3D, on: vm)
+            }
+            .font(.btSubheadlineSemibold)
+            .foregroundStyle(Color.btText)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+            .accessibilityValue(is3D ? "3D" : "2D")
+            .accessibilityIdentifier("shotSimulation.cameraMode")
+            .disabled(draggingKey != nil)
         }
         .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity)
@@ -258,6 +293,26 @@ struct ShotSimulationView: View {
     }
 
     // MARK: - Bottom bar (条 18：底部只留球库)
+
+    private var cameraHelp: some View {
+        HStack(spacing: Spacing.sm) {
+            ShotObservationMenu(vm: vm, identifierPrefix: "shotSimulation")
+            Text("摆球切回2D")
+                .font(.btCaption)
+                .foregroundStyle(Color.btTextSecondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Button("回到瞄准") { ShotPlayCamera.focus(on: vm) }
+                .font(.btFootnote)
+                .foregroundStyle(Color.btPrimary)
+                .frame(minHeight: 44)
+                .disabled(!ShotPlayCamera.canFocus(on: vm))
+                .accessibilityIdentifier("shotSimulation.focus")
+        }
+        .padding(.horizontal, Spacing.lg)
+        .background(HUDStyle.panelBackground)
+        .environment(\.colorScheme, .dark)
+    }
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
         paletteBar(proxy)
@@ -332,7 +387,6 @@ struct ShotSimulationView: View {
         }
     }
 }
-
 
 #Preview("Dark") {
     NavigationStack { ShotSimulationView() }

@@ -54,6 +54,7 @@ enum AnalyticShotRollout {
         var finalState: BallState
         /// 落袋的袋号（"pocket_N"）。nil = 未落袋。
         var pocketId: String?
+        var pocketEntry: PocketEntrySnapshot?
         /// 吃库次数（冲量真正施加的库边碰撞，与引擎 resolvedEvents 同口径）。
         var cushionCount: Int = 0
         /// 各次吃库的绝对时刻。
@@ -185,6 +186,8 @@ enum AnalyticShotRollout {
             if let pe = pocketEvt, let tf = tFirst, pe.time <= tf + tieEps {
                 // 落袋：吸附袋心（引擎 resolvePocket 同语义）。
                 ball = evolve(ball, dt: pe.time)
+                out.pocketEntry = PocketEntrySnapshot(time: t + pe.time, ball: ball, pocketID: pe.id,
+                                                     source: .analyticRollout, geometry: geometry)
                 if let pocket = geometry.pockets.first(where: { $0.id == pe.id }) {
                     ball.position = SCNVector3(pocket.center.x, ball.position.y, pocket.center.z)
                 }
@@ -324,6 +327,7 @@ enum AnalyticShotRollout {
     struct FreeShotOutcome {
         /// 本层无法忠实覆盖（碰后任一球撞第三球=级联 / kiss 风险 / 截断），调用方须回退引擎。
         var needsFullSim = false
+        var fallbackReason: String?
         /// 母球首次球-球碰撞的对方球名。nil = 全程未碰任何球。
         var firstBallHit: String?
         var cuePocketed = false
@@ -370,6 +374,7 @@ enum AnalyticShotRollout {
         guard let hit = pre.firstBallHit, let hitTime = pre.firstBallHitTime else {
             if !pre.completed {
                 out.needsFullSim = true   // 截断歧义：引擎裁决
+                out.fallbackReason = "preIncomplete"
                 return out
             }
             // 全程未碰球：空杆（停稳或自进袋），结论确定。
@@ -381,6 +386,7 @@ enum AnalyticShotRollout {
         out.firstBallHit = hit
         guard let hitPos = lifted.first(where: { $0.name == hit })?.position else {
             out.needsFullSim = true
+            out.fallbackReason = "missingHitBall"
             return out
         }
 
@@ -406,10 +412,19 @@ enum AnalyticShotRollout {
                               staticBalls: others, maxTime: maxTime)
         let objRoll = rollout(from: obj, startTime: hitTime, geometry: geometry,
                               staticBalls: others, maxTime: maxTime)
-        if cueRoll.firstBallHit != nil || objRoll.firstBallHit != nil
-            || !cueRoll.completed || !objRoll.completed
-            || kissRisk(cue: cueRoll, obj: objRoll, from: hitTime) {
+        if cueRoll.firstBallHit != nil || objRoll.firstBallHit != nil {
             out.needsFullSim = true
+            out.fallbackReason = "cascade"
+            return out
+        }
+        if !cueRoll.completed || !objRoll.completed {
+            out.needsFullSim = true
+            out.fallbackReason = "postIncomplete"
+            return out
+        }
+        if kissRisk(cue: cueRoll, obj: objRoll, from: hitTime) {
+            out.needsFullSim = true
+            out.fallbackReason = "kiss"
             return out
         }
         out.cueCushionCount += cueRoll.cushionCount

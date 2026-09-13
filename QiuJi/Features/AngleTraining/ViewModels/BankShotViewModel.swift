@@ -28,6 +28,7 @@ final class BankShotViewModel: ObservableObject {
     @Published private(set) var isDragging: Bool = false
     /// 击打演示 / 自由击球回放中（W5/W6）：拖球/chips/力度柱/球库锁定。
     @Published private(set) var isPlaying: Bool = false
+    @Published private(set) var simulationNotice: String?
 
     // MARK: - Mode（W6：求解 / 自由，方案 §1.1）
 
@@ -321,7 +322,7 @@ final class BankShotViewModel: ObservableObject {
     /// 运行一次求解模式演示（出杆 → 回放 → 自动复位），不捕获上下文（供击打与「回放」复用）。
     private func runSolveDemo(_ sol: BankEngineSolution) {
         guard let cueNode = scene.cueBallNode,
-              sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
+              sol.prediction.hasFinalTableState, sol.prediction.recorder != nil, sol.prediction.duration > 0.05 else { return }
         solveTask?.cancel()
         isSolving = false
         isPlaying = true
@@ -436,7 +437,7 @@ final class BankShotViewModel: ObservableObject {
     }
 
     private func launchPlayback(_ sol: BankEngineSolution) {
-        guard isPlaying, let recorder = sol.prediction.recorder else {
+        guard isPlaying, sol.prediction.hasFinalTableState, let recorder = sol.prediction.recorder else {
             finishStrike()
             return
         }
@@ -667,7 +668,7 @@ final class BankShotViewModel: ObservableObject {
         }
         freeAimNodes.append(scene.addLine(from: cue.position, to: end,
                                           color: TrajectoryStyle.aimColor,
-                                          radius: TrajectoryStyle.aimRadius))
+                                          radius: TrajectoryStyle.aimRadius, placement: .table))
         if let contact {
             if let ghost = scene.ghostBallNode {
                 ghost.position = end
@@ -716,7 +717,7 @@ final class BankShotViewModel: ObservableObject {
             referenceNodes.append(scene.addDashedLine(
                 from: path[i], to: path[i + 1],
                 color: TrajectoryStyle.hintColor, radius: TrajectoryStyle.lineHint,
-                dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap
+                dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table
             ))
         }
     }
@@ -733,6 +734,7 @@ final class BankShotViewModel: ObservableObject {
     /// 自由击球（试手）：`simulateFree` 真物理，球停在哪是哪；进袋球离场（恢复球形/上一杆可回）。
     func freeStrike() {
         guard canFreeStrike, let cueNode = scene.cueBallNode, let dir = freeAimDir else { return }
+        simulationNotice=nil
         isPlaying = true
         let before = captureBoard()
         scene.setIdealObjectLine(nil)
@@ -753,6 +755,7 @@ final class BankShotViewModel: ObservableObject {
                 )
             }.value
             guard let self, self.isPlaying else { return }
+            guard self.acceptFreePrediction(pred,before:before) else { return }
             let strikePos = CueStroke.strikePosition(cue: cuePos, aim: dir, spinX: Double(sx))
             self.scene.runCueStroke(strikePosition: strikePos, aim: dir,
                                     velocity: velocity) { [weak self] in
@@ -793,11 +796,24 @@ final class BankShotViewModel: ObservableObject {
         drawReferenceSolution()
     }
 
-    private func launchFreePlayback(_ pred: ShotPrediction, before: [String: SCNVector3]) {
-        guard let recorder = pred.recorder else {
-            settleFreeShot(pred, before: before)
-            return
+    /// Validate before cue stroke and again when replaying a stored shot.
+    @discardableResult
+    func acceptFreePrediction(_ pred:ShotPrediction,before:[String:SCNVector3])->Bool {
+        guard pred.hasFinalTableState,pred.recorder != nil else {
+            isPlaying=false
+            applyBoard(before)
+            scene.hideCueStick()
+            refreshFreeAim()
+            drawReferenceSolution()
+            simulationNotice="本次模拟未完成，请调整击球参数后重试"
+            return false
         }
+        simulationNotice=nil
+        return true
+    }
+
+    private func launchFreePlayback(_ pred: ShotPrediction, before: [String: SCNVector3]) {
+        guard acceptFreePrediction(pred,before:before),let recorder=pred.recorder else { return }
         ShotAudioScheduler.shared.play(prediction: pred)
         let playback = TrajectoryPlayback(
             recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius
@@ -882,6 +898,7 @@ final class BankShotViewModel: ObservableObject {
     /// 引擎反解（全枚举并行 + 好打排序 + 容错）较重：先查解缓存（球位/袋口/力度量化 key，
     /// 命中直显），miss 才离开主线程求解（120ms 去抖合并连续触发，如力度滑块）。
     func recompute() {
+        simulationNotice=nil
         guard !isPlaying, mode == .solve,
               let cue = scene.cueBallNode?.position,
               let object = scene.targetBallNodes.first?.position else { return }
@@ -930,10 +947,11 @@ final class BankShotViewModel: ObservableObject {
     private func applySolutions(_ sols: [BankEngineSolution], prevCushions: Int) {
         adjustGeneration += 1
         adjustmentDraft = nil
-        solutions = sols
+        solutions = sols.filter { $0.prediction.hasFinalTableState }
+        if !sols.isEmpty && solutions.isEmpty { simulationNotice="本次模拟未完成，请调整击球参数后重试" }
         catalogSolvePower = reflectionPower
         // 最近求解快照（方案 §4.1）：求解成功即存球位 + 袋口，供自由模式「恢复球形」。
-        if !sols.isEmpty {
+        if !solutions.isEmpty {
             lastSolveSnapshot = (captureBoard(), selectedPocket)
         }
 
@@ -1069,6 +1087,14 @@ final class BankShotViewModel: ObservableObject {
 
     /// Apply power/spin/trajectory from a solution (catalog or draft) without clearing draft.
     private func presentDisplayedSolution(_ sol: BankEngineSolution, power: Double) {
+        guard sol.prediction.hasFinalTableState else {
+            hasSolution=false
+            clearPath()
+            scene.hideCueStick()
+            simulationNotice="本次模拟未完成，请调整击球参数后重试"
+            return
+        }
+        simulationNotice=nil
         isPresentingSolution = true
         reflectionPower = power
         spinX = Double(sol.spinX)
@@ -1103,6 +1129,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// principal 副标题文案：求解态 = 解读数 / 求解中 / 无解；自由态 = 首碰通称（替代原左下 pill）。
     var statusText: String {
+        if let simulationNotice { return simulationNotice }
         if mode == .free {
             if isPlaying { return "击球中…" }
             guard let c = freeAimContact else { return "空杆 — 拖动台面或刻度轮瞄准" }

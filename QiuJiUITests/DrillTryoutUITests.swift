@@ -153,6 +153,157 @@ final class DrillTryoutUITests: XCTestCase {
 
     // MARK: - Q19.2④ 序列模式切换（序列 ⇄ 进袋 ⇄ 自由）
 
+    func testPerspectiveSequencePauseReplayAndModeRoundTrip() {
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.tryout=drill_c042", "-v63.cameraDiagnostics"])
+        let mode = app.buttons["tryout.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 30))
+        XCTAssertTrue(navSubtitleContains("第 1/", timeout: 20))
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        XCTAssertTrue(app.staticTexts["摆球请切回2D"].exists)
+        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
+        print("V63_CAMERA_INITIAL \(element(id: "v63.cameraDiagnostics").value ?? "missing")")
+        let readout = element(id: "tryout.sequenceReadout")
+        XCTAssertTrue(readout.exists)
+        XCTAssertLessThanOrEqual(readout.frame.maxY, element(id: "v63.cameraDiagnostics").frame.minY,
+                                 "Recorded parameters must stay above the 3D viewport")
+        XCTAssertFalse(element(id: "shotStage.instrument").exists)
+        snap("v63-tryout-3d-sequence")
+        let origin = app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.4))
+        origin.press(forDuration: 0.1, thenDragTo: app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.6, dy: 0.45)))
+        app.buttons["tryout.focus"].tap()
+        app.buttons["击打"].firstMatch.tap()
+        app.buttons["暂停"].firstMatch.tap()
+        let resume = app.buttons["继续"].firstMatch
+        XCTAssertTrue(resume.waitForExistence(timeout: 45))
+        let subtitle = navSubtitle.label
+        app.buttons["打点"].firstMatch.tap()
+        XCTAssertFalse(app.buttons["回中"].exists)
+        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
+        let spinCard = element(id: "spinPad.card")
+        XCTAssertTrue(spinCard.exists)
+        XCTAssertLessThan(spinCard.frame.maxX, resume.frame.minX,
+                          "Read-only spin card must leave the shot action column clear")
+        XCTAssertTrue(app.staticTexts["低78%"].exists)
+        snap("v63-tryout-3d-paused-spin")
+        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25)).tap()
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "2D")
+        XCTAssertEqual(navSubtitle.label, subtitle)
+        XCTAssertTrue(resume.exists)
+        mode.tap()
+        app.buttons["重播"].firstMatch.tap()
+        XCTAssertTrue(resume.waitForExistence(timeout: 45))
+        XCTAssertEqual(navSubtitle.label, subtitle)
+        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
+        print("V63_CAMERA_REPLAY \(element(id: "v63.cameraDiagnostics").value ?? "missing")")
+        snap("v63-tryout-3d-replayed")
+        app.buttons["tryoutMode_自由"].tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        XCTAssertTrue(app.buttons["击球"].firstMatch.waitForExistence(timeout: 10))
+        let focusReady = XCTNSPredicateExpectation(predicate: NSPredicate(format: "enabled == true"), object: app.buttons["tryout.focus"])
+        XCTAssertEqual(XCTWaiter.wait(for: [focusReady], timeout: 30), .completed)
+        app.buttons["tryout.focus"].tap()
+        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
+        snap("v63-tryout-3d-free")
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "2D")
+        sleep(1) // Capture settled camera/card transitions; state assertions above remain immediate.
+        snap("v63-tryout-2d-free")
+        app.buttons["tryoutMode_序列"].tap()
+        XCTAssertTrue(navSubtitleContains("第 1/"))
+        XCTAssertTrue(app.buttons["击打"].firstMatch.exists)
+    }
+
+    func testPerspectivePocketShotPlaybackUndoAndSequenceReturn() {
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.tryout=drill_c042"])
+        let mode = app.buttons["tryout.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 30))
+        mode.tap()
+        app.buttons["tryoutMode_进袋"].tap()
+        let strike = app.buttons["击球"].firstMatch
+        func awaitEnabled(_ button: XCUIElement) -> Bool {
+            let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true AND enabled == true"), object: button)
+            return XCTWaiter.wait(for: [ready], timeout: 45) == .completed
+        }
+        guard awaitEnabled(strike) else {
+            XCTFail("Pocket mode did not produce an available shot")
+            return
+        }
+        app.buttons["tryout.focus"].tap()
+        app.buttons["打点"].firstMatch.tap()
+        let nudge = app.buttons["低杆增加 1%"]
+        XCTAssertTrue(nudge.waitForExistence(timeout: 5))
+        nudge.tap()
+        XCTAssertTrue(app.buttons["回中"].exists)
+        sleep(1)
+        snap("v63-tryout-pocket-editable-spin")
+        mode.tap()
+        mode.tap()
+        guard awaitEnabled(strike) else { XCTFail("Shot not ready after view round trip"); return }
+        sleep(1)
+        snap("v63-tryout-pocket-before-shot")
+        strike.tap()
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "2D")
+        let replay = app.buttons["回放"].firstMatch
+        guard awaitEnabled(replay) else { XCTFail("Shot did not finish with replay available"); return }
+        snap("v63-tryout-pocket-after-shot-2d")
+        mode.tap()
+        replay.tap()
+        guard awaitEnabled(replay) else { XCTFail("Replay did not finish"); return }
+        snap("v63-tryout-pocket-after-replay-3d")
+        app.buttons["重打"].firstMatch.tap()
+        guard awaitEnabled(strike) else { XCTFail("Undo did not restore an available shot"); return }
+        XCTAssertFalse(replay.isEnabled)
+        XCTAssertFalse(app.buttons["重打"].firstMatch.isEnabled)
+        XCTAssertEqual(mode.value as? String, "3D")
+        sleep(1)
+        snap("v63-tryout-pocket-restored")
+        app.buttons["tryoutMode_序列"].tap()
+        XCTAssertTrue(navSubtitleContains("第 1/8"))
+        XCTAssertTrue(app.buttons["击打"].firstMatch.exists)
+        XCTAssertEqual(mode.value as? String, "3D")
+    }
+
+    func testPerspectiveSequencePausesEveryShotAndResetsAfterLastShot() {
+        app = XCUIApplication.launchClean(extraArgs: ["-forcePremium", "-deeplink.tryout=drill_c042"])
+        let mode = app.buttons["tryout.cameraMode"]
+        XCTAssertTrue(mode.waitForExistence(timeout: 30))
+        mode.tap()
+        XCTAssertEqual(mode.value as? String, "3D")
+        for shot in 1...8 {
+            let start = app.buttons[shot == 1 ? "击打" : "继续"].firstMatch
+            guard start.waitForExistence(timeout: 45) else {
+                XCTFail("Missing start for shot \(shot)")
+                return
+            }
+            start.tap()
+            let pause = app.buttons["暂停"].firstMatch
+            guard pause.waitForExistence(timeout: 10) else {
+                XCTFail("Missing pause while playing shot \(shot)")
+                return
+            }
+            pause.tap()
+            let end = app.buttons["继续"].firstMatch
+            guard end.waitForExistence(timeout: 45) else {
+                XCTFail("Shot \(shot) did not reach its playback boundary")
+                return
+            }
+            XCTAssertTrue(navSubtitleContains("第 \(shot)/8"))
+            XCTAssertEqual(mode.value as? String, "3D")
+            snap("v63-tryout-3d-boundary-\(shot)")
+        }
+        // The last-shot pause is honored too; Continue finishes the sequence.
+        app.buttons["继续"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["击打"].firstMatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(navSubtitleContains("第 1/8"))
+        XCTAssertEqual(mode.value as? String, "3D")
+        snap("v63-tryout-3d-eight-shots-reset")
+        XCTAssertFalse(app.buttons["上一杆"].firstMatch.isEnabled)
+        XCTAssertFalse(app.buttons["重播"].firstMatch.isEnabled)
+    }
+
     func testTryoutSequenceModeSwitching() {
         app = XCUIApplication.launchClean()
         openDrillDetail(search: "蛇彩", drillId: "drill_c042")

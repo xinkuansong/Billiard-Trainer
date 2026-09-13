@@ -141,3 +141,17 @@
 ---
 
 ## ADR 记录区
+
+### ADR-P5-01 — v62 移动端渲染管线转正：单一闸门、全交互页默认、球房独立装配（2026-09-14）
+
+- **状态**：已采纳（用户口头裁定「真机上没问题，收口吧」，2026-09-14）。
+- **背景**：v62 从 S95 起把「移动基础光照（IBL + 聚光阴影）→ S267 参考光照（面光 + GGX 着色器）→ 表面质感（球杆清漆/袋口皮革/球面）→ 烘焙球房」分四层试点，每层各带闸门（`MobileTableRendering.previewRequested`、`MobileReferenceLighting.requested`、`surfaceFinishesRequested`，全部 `#if DEBUG`，模拟器还要 `-v62.s267Lighting`），并且只由 `FreePlayView`（非每日清台）、`ShotSimulationView`、`SceneAimingView`（仅 3D）三页显式 opt-in。原因是真机 60fps/热/内存预算未验，试点策略此后一直未回收。结果：Release 无人可见；同一页「自由击球」与「每日清台」观感不同；动作库详情、翻袋/颠球、拆球、开球等球桌页仍走旧 3 灯管线；球房被塞在 `applySurfaceFinishes` 里随材质一起装。
+- **决策**：
+  1. 只保留一个闸门 `MobileTableRendering.isEnabled`：Release 恒为 `true`；Debug 保留 `-v62.legacyRendering` / `V62_LEGACY_RENDERING=1` 作对照诊断逃生口。`MobileReferenceLighting.requested` 退化为该闸门的别名，`previewRequested` / `surfaceFinishesRequested` 及 `-v62.s267Lighting`、`-v62.mobileRendering`、`-v62.legacySurfaceFinishes`、`RENDER_QUALITY_VALIDATION` 分支删除。不存在「移动基础光照但无参考光照」的中间档。
+  2. `AngleTrainingScene.setupScene(mobileRendering:)` 默认值改为 `MobileTableRendering.isEnabled`；`PositionPlayViewModel.setupScene` / `AimingQuizViewModel.setupScene` 同步。页面不再逐页 opt-in，`FreePlayView` 每日清台亦纳入；`contentIsAnimating` 节流不再依赖闸门。
+  3. 球房 `installReferenceRoom()` 从 `MobileReferenceLighting.applySurfaceFinishes` 移出，成为 `setupScene` 内独立装配步骤（仍仅 `perspective3D` 显示）。设置「球房风格」入口与外观组合预览的 `#if DEBUG` 去除。
+  4. 离线渲染器（`DrillThumbnailRenderer`、`TableFigureRenderer`、`BallFaceRenderer`、`SequenceVideoExporter`、`BallFeelView.snapshot`）显式传 `mobileRendering: false`，已烘焙缩略图/导出视频/卡片底图/球面小图产物不变；是否让离线产物跟随外观偏好另立决策。
+- **备选与放弃**：a) 保持逐页 opt-in 并逐页补齐 —— 放弃，闸门叠加是不一致的根因；b) Release 默认关、Debug 开 —— 放弃，与用户「真机没问题」裁定相悖，且再次让功能不可见；c) 离线渲染器同样切到移动管线 —— 暂不做，会改变已在包内的 PNG/视频口径，需要重烘焙与内容侧评审。
+- **影响**：所有交互式球桌页共享一套光照/材质/球房；2D 视图台呢观感统一到参考光照口径（S267 调色）。功耗方面仅自由击球/击球模拟两页带 `contentIsAnimating` 节流，其余页面沿用连续渲染（未变）。
+- **验证**：`make build` BUILD SUCCEEDED；定向单测 `TableAppearanceTests`/`ClothAppearanceTests`/`BallStickerTests`/`TrajectoryRendererTests`/`PocketLeatherIntegrationTests`（跳过 2 项，见下）0 失败。`RenderQualityV62Tests` 结果见 PROGRESS 条目。
+- **已知问题（非本 ADR 引入，但被暴露）**：模拟器 iOS 26.3 对主线程连续阻塞约 ≥30s 的测试宿主发 SIGKILL（`legacy 场景 + 45s 忙等` 亦复现，无崩溃报告）。`PocketLeatherIntegrationTests.testArchivedPocketAndFreeSequenceStepsRestoreSelection` 在主线程同步跑 v63 空间物理约 33s（legacy 亦如此），移动管线多出的 ~0.6s 场景装配使其越线；`testNeutralThumbnailAfterSelectedScene` 首帧 `SCNRenderer` 热身约 8s，偶发拉长越线；`testPlanRealSolvePlayAndUndoRestoreLeather` 在 legacy 下同样因求解 >15s 失败。三项应由 v63 线程处理（求解下主线程 / 渲染预热），不在本 ADR 范围。

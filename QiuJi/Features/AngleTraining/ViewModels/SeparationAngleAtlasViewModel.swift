@@ -344,12 +344,15 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         predictQueue.async { [weak self] in
             let t0 = CFAbsoluteTimeGetCurrent()
             var paths = Array(repeating: [SCNVector3](), count: spins.count)
+            var incomplete = Array(repeating: false, count: spins.count)
             DispatchQueue.concurrentPerform(iterations: spins.count) { i in
                 let pred = ShotPredictor.simulateFree(
                     cueBall: cue, aimDir: aim, velocity: v,
                     spinX: 0, spinY: spins[i],
                     surfaceY: y, balls: balls
                 )
+                incomplete[i] = !SeparationAngleAtlasGeometry.hasCompleteSlice(pred)
+                guard !incomplete[i] else { return }
                 paths[i] = SeparationAngleAtlasGeometry.pathAfterContactToFirstCueCushion(pred)
             }
             let ms = (CFAbsoluteTimeGetCurrent() - t0) * 1000
@@ -366,7 +369,8 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
                 }
                 guard self.predictGeneration == gen else { return }
                 self.isComputing = false
-                self.statusText = nil
+                self.statusText = incomplete.contains(true)
+                    ? "部分轨迹模拟未完成，请调整击球参数后重试" : nil
                 self.drawTrajectories(paths)
             }
         }
@@ -456,7 +460,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
                 path,
                 color: SeparationAngleAtlasGeometry.trackColor(at: i),
                 radius: TrajectoryStyle.lineMain,
-                into: &trajectoryNodes)
+                placement: .table, into: &trajectoryNodes)
         }
     }
 }

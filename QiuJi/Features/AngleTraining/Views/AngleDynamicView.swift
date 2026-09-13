@@ -3,6 +3,7 @@ import SceneKit
 
 struct AngleDynamicView: View {
     @StateObject private var vm = AngleDynamicViewModel()
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     @State private var hasAppeared = false
 
     /// 首拖提示（T-P18-51）：首次进页不知道球能拖，提示常驻到第一次拖动为止（跨启动记忆）。
@@ -23,7 +24,8 @@ struct AngleDynamicView: View {
     var body: some View {
         GeometryReader { geo in
             let extents = tableExtents
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D ? Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: extents.length, halfWidth: extents.width
@@ -38,8 +40,8 @@ struct AngleDynamicView: View {
                         overlayLayer
                     }
                     .frame(height: sceneH)
-                    paletteBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                    bottomBar(proxy)
+                        .frame(height: bottomHeight)
                 }
             }
         }
@@ -49,7 +51,10 @@ struct AngleDynamicView: View {
                 BTSolverNavStatus(title: "角度与瞄准")
             }
             ToolbarItem(placement: .topBarTrailing) {
-                BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+                HStack(spacing: Spacing.sm) {
+                    cameraToggle
+                    BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+                }
             }
         }
         .onAppear {
@@ -57,6 +62,41 @@ struct AngleDynamicView: View {
                 hasAppeared = true
                 vm.setupScene()
             }
+        }
+    }
+
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            let needsOverview = !vm.scene.hasPerspectiveView
+            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
+            vm.scene.setCameraMode(vm.cameraMode, animated: false)
+            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("angleDynamic.cameraMode")
+    }
+
+    @ViewBuilder
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+        if is3D {
+            HStack {
+                BTSceneObservationMenu(
+                    scene: vm.scene, targetNode: vm.targetNode,
+                    pocketIndex: vm.selectedPocketIndex >= 0 ? vm.selectedPocketIndex : nil,
+                    identifierPrefix: "angleDynamic",
+                    canReturnToAim: false, onReturnToAim: {})
+                Spacer(minLength: 0)
+                Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+            }
+            .font(.btFootnote)
+            .padding(.horizontal, Spacing.sm)
+            .frame(maxHeight: .infinity)
+            .background(HUDStyle.panelBackground)
+        } else {
+            paletteBar(proxy)
         }
     }
 
@@ -80,19 +120,19 @@ struct AngleDynamicView: View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
+            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            autoFitsRotatedTable: !is3D,
             onPocketTapped: { index in
-                vm.selectPocket(at: index)
+                if !is3D { vm.selectPocket(at: index) }
             },
-            draggableBallNodes: vm.draggableBalls,
+            draggableBallNodes: is3D ? [] : vm.draggableBalls,
             onDragBegan: { node in
                 hasDraggedOnce = true
                 vm.dragBegan(node: node)
             },
             onDragMoved: { node, pos in vm.dragMoved(node: node, worldPosition: pos) },
             onDragEnded: { node in vm.dragEnded(node: node) },
-            selectableBallNodes: vm.selectableBalls,
+            selectableBallNodes: is3D ? [] : vm.selectableBalls,
             onBallTapped: { node in
                 if let key = vm.scene.ballKey(for: node) {
                     vm.selectTarget(key: key)
@@ -143,6 +183,8 @@ struct AngleDynamicView: View {
         .padding(.horizontal, Spacing.md)
         .padding(.vertical, Spacing.sm)
         .btHudGlass()
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("angleDynamic.metrics")
     }
 
     /// 读数项：BTReadout 仪表窗（T-P18-45），icon 变体保留给切角。
@@ -260,7 +302,7 @@ struct AngleDynamicView: View {
         if vm.isDragging {
             return ("拖动中…", "hand.draw.fill", .btPrimary)
         }
-        if !hasDraggedOnce {
+        if !hasDraggedOnce && !is3D {
             return ("母球和目标球都可以拖动，指标实时联动", "hand.draw", .btPrimary)
         }
         if vm.selectedPocketIndex < 0 {

@@ -7,6 +7,7 @@ import SceneKit
 /// + 左缘 8 可点选迷你打点盘（`aimWheelFrame`，开关对应色轨迹）+ 底栏 `BTBallPaletteBar`（点+拖）。
 struct SeparationAngleAtlasView: View {
     @StateObject private var vm = SeparationAngleAtlasViewModel()
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     @State private var hasAppeared = false
 
     @State private var projector = TableProjector()
@@ -23,7 +24,8 @@ struct SeparationAngleAtlasView: View {
     var body: some View {
         GeometryReader { geo in
             let extents = vm.tableOuterHalfExtents
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D ? Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: extents.length, halfWidth: extents.width
@@ -36,7 +38,7 @@ struct SeparationAngleAtlasView: View {
                     stage(proxy)
                         .frame(height: sceneH)
                     bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                        .frame(height: bottomHeight)
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
@@ -58,7 +60,10 @@ struct SeparationAngleAtlasView: View {
                 )
             }
             ToolbarItem(placement: .topBarTrailing) {
-                BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+                HStack(spacing: Spacing.sm) {
+                    cameraToggle
+                    BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+                }
             }
         }
         .onAppear {
@@ -74,6 +79,44 @@ struct SeparationAngleAtlasView: View {
             Color.clear
                 .accessibilityIdentifier("separationAngleAtlas.root")
         )
+    }
+
+
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            let needsOverview = !vm.scene.hasPerspectiveView
+            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
+            vm.scene.setCameraMode(vm.cameraMode, animated: false)
+            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("separationAngleAtlas.cameraMode")
+    }
+
+    @ViewBuilder
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+        if is3D {
+            HStack {
+                BTSceneObservationMenu(
+                    scene: vm.scene,
+                    targetNode: vm.selectedTargetKey.flatMap { vm.scene.allBallNodes[$0] },
+                    pocketIndex: vm.selectedPocketIndex,
+                    identifierPrefix: "separationAngleAtlas",
+                    canReturnToAim: false,
+                    onReturnToAim: {})
+                Spacer(minLength: 0)
+                Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+            }
+            .font(.btFootnote)
+            .padding(.horizontal, Spacing.sm)
+            .frame(maxHeight: .infinity)
+            .background(HUDStyle.panelBackground)
+        } else {
+            paletteBar(proxy)
+        }
     }
 
     // MARK: - Top
@@ -115,17 +158,17 @@ struct SeparationAngleAtlasView: View {
             AngleSceneView(
                 scene: vm.scene,
                 cameraMode: $vm.cameraMode,
-                interactionMode: .tapsOnly,
-                autoFitsRotatedTable: true,
-                onPocketTapped: { vm.selectPocket(at: $0) },
-                draggableBallNodes: vm.draggableBalls,
+                interactionMode: is3D ? .cameraControl : .tapsOnly,
+                autoFitsRotatedTable: !is3D,
+                onPocketTapped: is3D ? nil : { vm.selectPocket(at: $0) },
+                draggableBallNodes: is3D ? [] : vm.draggableBalls,
                 onDragBegan: { vm.dragBegan(node: $0) },
                 onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
                 onDragEnded: { vm.dragEnded(node: $0) },
                 onDragEndedAt: { node, localPoint in
                     handleTableDragEnd(node: node, localPoint: localPoint)
                 },
-                selectableBallNodes: vm.selectableBalls,
+                selectableBallNodes: is3D ? [] : vm.selectableBalls,
                 onBallTapped: { node in
                     if let key = vm.scene.ballKey(for: node) {
                         vm.selectTarget(key: key)
@@ -141,9 +184,13 @@ struct SeparationAngleAtlasView: View {
                 // A2：左缘 8 迷你打点盘（高→低自上而下；点选开关对应色轨迹）
                 SeparationAngleAtlasSpinLegend(
                     enabledTracks: vm.enabledTracks,
+                    minimumTouchSize: is3D ? 44 : 0,
                     onToggle: { vm.toggleTrack($0) }
                 )
-                    .btStageFrame(proxy.aimWheelFrame())
+                    .btStageFrame(is3D
+                        ? CGRect(x: Spacing.sm, y: max(Spacing.sm, (proxy.sceneSize.height - 373) / 2),
+                                 width: 44, height: 373)
+                        : proxy.aimWheelFrame())
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("separationAngleAtlas.spinLegend")
                     .zIndex(2)
@@ -173,7 +220,7 @@ struct SeparationAngleAtlasView: View {
                     }
                 }
                 .zIndex(2)
-                .btStageFrame(proxy.instrumentFrame())
+                .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
             }
 
             // UI 测钩子：SceneKit 叠层下合成拖力度柱不可靠；显式 bump 验证「高力度轨迹变化」。
@@ -206,7 +253,7 @@ struct SeparationAngleAtlasView: View {
 
     // MARK: - Bottom (BTBallPaletteBar：点击 + 拖放)
 
-    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         let libraryWidth = proxy.libraryWidth
         return VStack(spacing: 2) {
             Text("点/拖球库上桌 · 拖回库撤下 · 点台面换目标 · 点左侧白球开关轨迹")
@@ -275,6 +322,7 @@ struct SeparationAngleAtlasView: View {
 /// 高杆（index 0）在上 → 低杆（index 7）在下；点选开关对应色轨迹。
 private struct SeparationAngleAtlasSpinLegend: View {
     let enabledTracks: Set<Int>
+    var minimumTouchSize: CGFloat = 0
     let onToggle: (Int) -> Void
 
     private let levels = SeparationAngleAtlasGeometry.spinYLevels()
@@ -323,6 +371,8 @@ private struct SeparationAngleAtlasSpinLegend: View {
                     .offset(y: dy)
             }
             .frame(width: size, height: size)
+            .frame(minWidth: minimumTouchSize, minHeight: minimumTouchSize)
+            .contentShape(Rectangle())
             .opacity(enabled ? 1 : 0.35)
         }
         .buttonStyle(.plain)

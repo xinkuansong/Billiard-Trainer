@@ -247,7 +247,8 @@ struct CollisionDetector {
         arc: CircularCushionSegment,
         R: Float,
         maxTime: Double,
-        pockets: [Pocket] = []
+        pockets: [Pocket] = [],
+        useReachBound: Bool = true
     ) -> Float? {
         // Kept for call-site compatibility; pocket filtering is handled by event ordering,
         // not geometry-side suppression.
@@ -260,6 +261,16 @@ struct CollisionDetector {
         let dvz = Double(v.z)
         let hax = Double(a.x) * 0.5
         let haz = Double(a.z) * 0.5
+
+        // Triangle inequality bounds displacement even when acceleration reverses
+        // direction. Include the existing root-window allowance; never truncate it.
+        if useReachBound, maxTime.isFinite, maxTime >= 0 {
+            let horizon = maxTime + 1e-6
+            let distance = hypot(dpx, dpz)
+            let reach = hypot(dvx, dvz) * horizon + hypot(hax, haz) * horizon * horizon
+            let roundoff = 64 * Double.ulpOfOne * max(1, distance, abs(D), reach)
+            if distance > D + reach + roundoff { return nil }
+        }
         
         let c4 = hax * hax + haz * haz
         let c3 = 2.0 * (dvx * hax + dvz * haz)

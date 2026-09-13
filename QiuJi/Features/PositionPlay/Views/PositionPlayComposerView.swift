@@ -34,6 +34,8 @@ struct PositionPlayComposerView: View {
     }
 
     private var isTryout: Bool { sourceDrill != nil }
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
+    private var cameraIdentifierPrefix: String { isTryout ? "tryout" : "composer" }
 
     @StateObject private var vm = PositionPlayViewModel()
     @State private var hasAppeared = false
@@ -76,7 +78,8 @@ struct PositionPlayComposerView: View {
     var body: some View {
         GeometryReader { geo in
             let extents = vm.tableOuterHalfExtents
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D && !vm.isBreakMode ? Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: extents.length, halfWidth: extents.width
@@ -91,7 +94,7 @@ struct PositionPlayComposerView: View {
                         // D3 进场淡入：仅试打变体，球形落位后台面淡入（非试打路径恒为 1，零影响）。
                         .opacity(isTryout && !stageRevealed ? 0 : 1)
                     bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                        .frame(height: bottomHeight)
                         .btTrainingPillObstacle()
                 }
                 if let key = draggingKey {
@@ -112,10 +115,11 @@ struct PositionPlayComposerView: View {
                 BTSolverNavStatus(
                     title: navTitleText,
                     isBusy: vm.isComputing,
-                    statusText: vm.breakRunner?.statusText
+                    statusText: vm.breakRunner?.statusText(isPerspective: is3D)
                         ?? (vm.isComputing ? "求解中…" : vm.statusText)
                 )
             }
+            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
             ToolbarItem(placement: .topBarTrailing) { moreMenu }
         }
         .sheet(isPresented: $showBreakPicker) {
@@ -177,6 +181,46 @@ struct PositionPlayComposerView: View {
 
     // MARK: - Tryout helpers（试打变体）
 
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            let needsOverview = vm.isSequenceMode && !vm.scene.hasPerspectiveView
+            showSpinPad = false
+            dismissBriefOnInteraction()
+            ShotPlayCamera.setMode(is3D ? .topDown2DRotated : .perspective3D, on: vm)
+            if is3D && needsOverview { ShotPlayCamera.observeWholeTable(on: vm) }
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("\(cameraIdentifierPrefix).cameraMode")
+    }
+
+    private var observationBar: some View {
+        HStack(spacing: Spacing.sm) {
+            ShotObservationMenu(vm: vm, identifierPrefix: cameraIdentifierPrefix)
+            Text("摆球请切回2D")
+                .font(.btCaption)
+                .foregroundStyle(Color.btTextSecondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Button(vm.isSequenceMode ? "全桌" : "回到瞄准") {
+                if vm.isSequenceMode { ShotPlayCamera.observeWholeTable(on: vm) }
+                else { ShotPlayCamera.focus(on: vm) }
+            }
+            .font(.btFootnote)
+            .frame(minHeight: 44)
+            .disabled(!vm.isSequenceMode && !ShotPlayCamera.canFocus(on: vm))
+            .accessibilityIdentifier("\(cameraIdentifierPrefix).focus")
+        }
+        .padding(.horizontal, Spacing.sm)
+    }
+
+    private func leadingFrame(_ proxy: ShotStageProxy, size: CGSize) -> CGRect {
+        is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: size)
+            : proxy.bottomLeadingFrame(size: size)
+    }
+
     /// 首次交互（拖瞄/拖球/击球/点桌面）自动淡出说明卡（§1.8 交互红线：不阻断操作）；
     /// 首次交互同时记忆「已见手势提示」（D3，跨启动）。
     private func dismissBriefOnInteraction() {
@@ -217,31 +261,40 @@ struct PositionPlayComposerView: View {
 
             // G18/V6：开球模式贴边仪表（左瞄准轮 + 右力度柱），共享单一真源。
             if let runner = vm.breakRunner {
-                BreakInstrumentsOverlay(runner: runner, proxy: proxy)
+                BreakInstrumentsOverlay(runner: runner, proxy: proxy, isPerspective: is3D)
             }
 
             if !vm.isBreakMode && proxy.isValid {
                 // G3 轨迹档位 chip：下沿贴球桌上沿、靠屏幕最右。
-                BTTrajectoryDetailChip { vm.recompute() }
-                    .btChipBandPlacement(proxy)
-                    .allowsHitTesting(!vm.isPlaying)
+                if is3D {
+                    BTTrajectoryDetailChip { vm.recompute() }
+                        .padding(.trailing, Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .topTrailing)
+                        .allowsHitTesting(!vm.isPlaying)
+                } else {
+                    BTTrajectoryDetailChip { vm.recompute() }
+                        .btChipBandPlacement(proxy)
+                        .allowsHitTesting(!vm.isPlaying)
+                }
 
                 // Q19.2④ 序列模式：隐藏瞄准轮，仅逐杆播放；
                 // v28 Q2：右侧照常显示打点盘/力度条——展示的是本杆真实参数，只读不可调。
                 if vm.isSequenceMode {
                     rearrangeButton
-                        .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
+                        .btStageFrame(leadingFrame(proxy, size: ShotStageMetrics.breakButtonSize))
 
-                    BTShotInstrumentColumn(
-                        spinX: vm.spinX, spinY: vm.spinY,
-                        onSpinTap: { showSpinPad = true },
-                        velocity: .constant(vm.velocity),
-                        range: ShotTuning.velocityRange,
-                        isReadOnly: true,
-                        // 播放中点开会挡住台面；只在暂停时允许点开细看本杆打点。
-                        spinTapEnabled: vm.isSequencePaused
-                    )
-                    .btStageFrame(proxy.instrumentFrame())
+                    if !is3D {
+                        BTShotInstrumentColumn(
+                            spinX: vm.spinX, spinY: vm.spinY,
+                            onSpinTap: { showSpinPad = true },
+                            velocity: .constant(vm.velocity),
+                            range: ShotTuning.velocityRange,
+                            isReadOnly: true,
+                            // 播放中点开会挡住台面；只在暂停时允许点开细看本杆打点。
+                            spinTapEnabled: vm.isSequencePaused
+                        )
+                        .btStageFrame(proxy.instrumentFrame())
+                    }
 
                     // 击打 / 暂停 / 继续（主键三态）+ 上一杆 + 重播（后两者仅暂停后可用）。
                     BTShotActionColumn(
@@ -265,7 +318,7 @@ struct PositionPlayComposerView: View {
                             vm.replayCurrentSequenceStep()
                         }
                     )
-                    .btStageFrame(proxy.actionColumnFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
                 } else {
                     // G4/G5/G7 瞄准刻度轮（自由模式）：右缘贴球桌左侧、底部对齐。
                     if vm.aimMode == .free {
@@ -275,8 +328,9 @@ struct PositionPlayComposerView: View {
                             degreeHapticEnabled: false,
                             onDragActiveChanged: { vm.setAimWheelDragging($0) }
                         )
-                            .btStageFrame(proxy.aimWheelFrame())
+                            .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).aimWheelFrame : proxy.aimWheelFrame())
                             .allowsHitTesting(!vm.isPlaying)
+                            .disabled(vm.isPlaying)
                     }
 
                     // Slot L1：翻袋备选「下一解」+（试打「重摆」/ 编排台开球）。
@@ -301,7 +355,7 @@ struct PositionPlayComposerView: View {
                         }
                     }
                     .btStageFrame(
-                        proxy.bottomLeadingFrame(
+                        leadingFrame(proxy,
                             size: {
                                 let base = ShotStageMetrics.breakButtonSize
                                 return vm.canCycleBankAlternatives
@@ -319,7 +373,7 @@ struct PositionPlayComposerView: View {
                         range: ShotTuning.velocityRange,
                         isDisabled: vm.isPlaying
                     )
-                    .btStageFrame(proxy.instrumentFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                     // 条 18.2：击球/上一杆/回放竖排，右下角底边齐球桌底线。
                     BTShotActionColumn(
@@ -335,13 +389,15 @@ struct PositionPlayComposerView: View {
                         playbackEnabled: !vm.isPlaying && vm.canPlayback,
                         onPlayback: { vm.replayLastShot() }
                     )
-                    .btStageFrame(proxy.actionColumnFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
                 }
             }
 
             // v23 W3：近区瞄准特写（自由模式；三点菜单可关）。
             BTAimCloseupOverlay(snapshot: vm.closeupSnapshot, sceneSize: proxy.sceneSize,
-                                    scene: vm.scene, safeInsets: proxy.aimCloseupSafeInsets)
+                                    scene: vm.scene, safeInsets: is3D
+                                    ? .init(top: 56, leading: 56, bottom: 46, trailing: 62)
+                                    : proxy.aimCloseupSafeInsets)
 
             // 进场说明卡（§1.8）：贴球桌上方淡入，非 modal 不阻断操作。
             if isTryout, showBrief, let sourceDrill {
@@ -350,14 +406,14 @@ struct PositionPlayComposerView: View {
                     formation: tryoutFormation,
                     footnote: hasSeenGestureHint
                         ? nil
-                        : "拖动台面瞄准 · 拖动球改摆 · 点「击球」试打"
+                        : (is3D ? "拖动旋转 · 双指缩放 · 摆球请切回2D" : "拖动台面瞄准 · 拖动球改摆 · 点「击球」试打")
                 ) {
                     // 点卡关闭也视为「已见手势提示」（D3 跨启动记忆）。
                     if !hasSeenGestureHint { hasSeenGestureHint = true }
                     withAnimation(BTMotion.easeChrome) { showBrief = false }
                 }
                 .padding(.horizontal, 64)
-                .padding(.top, proxy.isValid ? max(proxy.tableRect.minY + 6, 6) : 40)
+                .padding(.top, is3D ? Spacing.md : (proxy.isValid ? max(proxy.tableRect.minY + 6, 6) : 40))
                 .frame(maxWidth: .infinity, alignment: .center)
                 .transition(.opacity)
                 .zIndex(5)
@@ -367,9 +423,10 @@ struct PositionPlayComposerView: View {
             if showSpinPad {
                 // 序列模式：只读查看本杆打点（演示的是录制真值，不允许改）。
                 BTSpinPadOverlay(spinX: $vm.spinX, spinY: $vm.spinY,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
                                  isReadOnly: vm.isSequenceMode,
+                                 usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -384,11 +441,11 @@ struct PositionPlayComposerView: View {
         AngleSceneView(
             scene: vm.scene,
             cameraMode: $vm.cameraMode,
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
+            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            autoFitsRotatedTable: !is3D,
             onPocketTapped: vm.isBreakMode || vm.isSequenceMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // 开球模式：仅母球可拖（限开球区）；序列模式：台面只读（逐杆演示），其余台面交互挂起。
-            draggableBallNodes: vm.isSequenceMode ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),
+            draggableBallNodes: (is3D || vm.isSequenceMode) ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),
             onDragBegan: { node in
                 dismissBriefOnInteraction()
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
@@ -411,11 +468,11 @@ struct PositionPlayComposerView: View {
             },
             selectableBallNodes: (vm.isBreakMode || vm.isSequenceMode) ? [] : vm.selectableBalls,
             onBallTapped: { if !vm.isSequenceMode { vm.selectTarget(node: $0) } },
-            onTableTapped: {
+            onTableTapped: is3D ? nil : {
                 dismissBriefOnInteraction()
                 if !vm.isBreakMode && !vm.isSequenceMode { vm.handleTableTap(world: $0) }
             },
-            onAimNudged: {
+            onAimNudged: is3D ? nil : {
                 dismissBriefOnInteraction()
                 if vm.isSequenceMode { return }
                 if let runner = vm.breakRunner { runner.nudgeAim(byDegrees: $0) }
@@ -465,11 +522,40 @@ struct PositionPlayComposerView: View {
             }
 
             Spacer(minLength: 0)
+            if is3D && vm.isSequenceMode { sequenceParameterReadout }
         }
         .padding(.horizontal, Spacing.lg)
         .frame(maxHeight: .infinity)
         .background(Color.black)
         .environment(\.colorScheme, .dark)
+    }
+
+    /// Sequence parameters are recorded values; keep them above the 3D table.
+    private var sequenceParameterReadout: some View {
+        HStack(spacing: Spacing.sm) {
+            Button { showSpinPad = true } label: {
+                BTSpinMiniIcon(spinX: vm.spinX, spinY: vm.spinY, diameter: 30)
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("打点")
+            .accessibilityIdentifier("shotStage.spinEntry")
+            .disabled(!vm.isSequencePaused)
+            VStack(spacing: 0) {
+                Text(PowerDisplay.name(vm.velocity))
+                    .font(HUDStyle.labelFontCompact)
+                    .foregroundStyle(HUDStyle.labelColor)
+                Text(String(format: "%.1f", vm.velocity))
+                    .font(HUDStyle.valueFontCompact)
+                    .foregroundStyle(HUDStyle.valueAdjustable)
+                    .monospacedDigit()
+            }
+            .fixedSize()
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("本杆打点与力度")
+        .accessibilityIdentifier("tryout.sequenceReadout")
     }
 
     // MARK: - Tryout sequence mode (Q19.2④)
@@ -618,6 +704,8 @@ struct PositionPlayComposerView: View {
         Group {
             if vm.isBreakMode {
                 breakBar
+            } else if is3D {
+                observationBar
             } else {
                 paletteBar(proxy)
             }

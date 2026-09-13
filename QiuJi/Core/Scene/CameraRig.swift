@@ -84,6 +84,27 @@ final class CameraRig {
 
     var zoom: Float { currentZoom }
 
+    /// Independent user orbit. Preset transitions keep their existing pose ladder.
+    struct OrbitState {
+        var distance: Float
+        var elevation: Float
+        var pitchOffset: Float
+        var fov: Float
+    }
+    private var currentOrbit: OrbitState?
+    private var targetOrbit: OrbitState?
+    private var keepsWholeTableFramed = false
+    var viewportSize: CGSize = .zero {
+        didSet {
+            guard viewportSize != oldValue, keepsWholeTableFramed else { return }
+            observeWholeTable()
+        }
+    }
+    private var fittedOrbitDistance: Float = 0
+    var orbitDistance: Float { currentOrbit?.distance ?? hypot(captureCurrentPose().radius, captureCurrentPose().height) }
+    var orbitElevation: Float { currentOrbit?.elevation ?? atan2(captureCurrentPose().height, captureCurrentPose().radius) }
+
+
     private(set) var currentViewMode: ViewMode = .observation
 
     // MARK: - Smooth Transition State
@@ -99,6 +120,76 @@ final class CameraRig {
     /// stale `currentZoom`-derived pose.
     private var currentInterpolatedPose: SmoothPose?
     var isTransitioning: Bool { smoothProgress < 1.0 }
+    /// Automatic HUD anchoring must not translate a user-controlled observation pivot.
+    var allowsCueScreenAnchor: Bool { currentOrbit == nil && !isTransitioning }
+
+    /// Numerical settling floors in scene metres, yaw radians and normalized
+    /// zoom; the damping law itself is unchanged. Allow Float rounding at large
+    /// accumulated yaw so idle can still converge.
+    var hasPendingDamping: Bool {
+        let precision: Float = 0.00001
+        let yawPrecision = max(precision, max(abs(currentYaw), abs(targetYaw)) * Float.ulpOfOne * 32)
+        let orbitPending: Bool
+        if let currentOrbit, let targetOrbit {
+            orbitPending = abs(currentOrbit.distance - targetOrbit.distance) > precision
+                || abs(currentOrbit.elevation - targetOrbit.elevation) > precision
+                || abs(currentOrbit.pitchOffset - targetOrbit.pitchOffset) > precision
+                || abs(currentOrbit.fov - targetOrbit.fov) > precision
+        } else { orbitPending = false }
+        return orbitPending || abs(shortestAngleDelta(from: currentYaw, to: targetYaw)) > yawPrecision
+            || abs(currentZoom - targetZoom) > precision
+            || abs(currentPivot.x - targetPivot.x) > precision
+            || abs(currentPivot.y - targetPivot.y) > precision
+            || abs(currentPivot.z - targetPivot.z) > precision
+    }
+
+
+    /// View-only state: keeps damping and an interrupted smooth move intact across 2D.
+    struct PerspectiveState {
+        fileprivate let currentPivot, targetPivot: SCNVector3
+        fileprivate let currentYaw, targetYaw, currentZoom, targetZoom: Float
+        fileprivate let viewMode: ViewMode
+        fileprivate let origin, target, interpolated: SmoothPose?
+        fileprivate let progress, duration: Float
+        fileprivate let transform: SCNMatrix4
+        fileprivate let fieldOfView: CGFloat
+        fileprivate let currentOrbit, targetOrbit: OrbitState?
+        fileprivate let keepsWholeTableFramed: Bool
+    }
+
+    func capturePerspectiveState() -> PerspectiveState {
+        PerspectiveState(currentPivot: currentPivot, targetPivot: targetPivot,
+                         currentYaw: currentYaw, targetYaw: targetYaw,
+                         currentZoom: currentZoom, targetZoom: targetZoom,
+                         viewMode: currentViewMode, origin: smoothOrigin,
+                         target: smoothTarget, interpolated: currentInterpolatedPose,
+                         progress: smoothProgress, duration: smoothDuration,
+                         transform: cameraNode.transform,
+                         fieldOfView: cameraNode.camera?.fieldOfView ?? config.standFov,
+                         currentOrbit: currentOrbit, targetOrbit: targetOrbit,
+                         keepsWholeTableFramed: keepsWholeTableFramed)
+    }
+
+    func restorePerspectiveState(_ state: PerspectiveState) {
+        keepsWholeTableFramed = state.keepsWholeTableFramed
+        currentOrbit = state.currentOrbit
+        targetOrbit = state.targetOrbit
+        currentPivot = state.currentPivot
+        targetPivot = state.targetPivot
+        currentYaw = state.currentYaw
+        targetYaw = state.targetYaw
+        currentZoom = state.currentZoom
+        targetZoom = state.targetZoom
+        currentViewMode = state.viewMode
+        smoothOrigin = state.origin
+        smoothTarget = state.target
+        currentInterpolatedPose = state.interpolated
+        smoothProgress = state.progress
+        smoothDuration = state.duration
+        cameraNode.transform = state.transform
+        cameraNode.camera?.fieldOfView = state.fieldOfView
+        cameraNode.camera?.usesOrthographicProjection = false
+    }
 
     // MARK: - 2D Mode State
 
@@ -184,6 +275,7 @@ final class CameraRig {
     // MARK: - Input handlers (3D mode)
 
     func handleHorizontalSwipe(delta: Float) {
+        beginManualOrbit()
         // Sensitivity 0.0025 — half of the previous value. Crucially we
         // only update `targetYaw`, not `currentYaw`: the per-frame damping
         // in `update(deltaTime:)` (dampingFactor 0.12) then eases
@@ -194,15 +286,91 @@ final class CameraRig {
     }
 
     func handleVerticalSwipe(delta: Float) {
-        // Same rationale as `handleHorizontalSwipe`: only update target,
-        // let damping ease current. Sensitivity dropped 0.005 → 0.0035.
-        let sensitivity: Float = 0.0035
-        targetZoom = max(0, min(1, targetZoom + delta * sensitivity))
+        beginManualOrbit()
+        guard var orbit = targetOrbit else { return }
+        // Full overhead is available; the lower bound retains the preset clearance.
+        let minimumElevation = atan2(config.minHeight, config.maxRadius)
+        let maximumElevation = .pi / 2 + min(0, orbit.pitchOffset)
+        orbit.elevation = max(minimumElevation, min(maximumElevation, orbit.elevation + delta * 0.0035))
+        targetOrbit = orbit
     }
 
     func handlePinch(scale: Float) {
-        let pinchDelta = (1 - max(0.01, scale)) * 0.8
-        targetZoom = max(0, min(1, targetZoom + pinchDelta))
+        beginManualOrbit()
+        guard var orbit = targetOrbit else { return }
+        let maximumDistance = max(fittedOrbitDistance,
+                                  max(hypot(config.maxRadius, config.maxHeight),
+                                      2 * hypot(Float(tableOuterHalfLength), Float(tableOuterHalfWidth))))
+        orbit.distance = max(config.minRadius,
+                             min(maximumDistance, orbit.distance / max(0.01, scale)))
+        targetOrbit = orbit
+    }
+
+    /// A gesture takes ownership from automatic framing at the currently visible pose.
+    private func beginManualOrbit() {
+        keepsWholeTableFramed = false
+        if currentOrbit == nil {
+            let pose = captureCurrentPose()
+            let relativeHeight = pose.height - (pose.pivot.y - tableSurfaceY)
+            let elevation = atan2(relativeHeight, pose.radius)
+            let orbit = OrbitState(distance: hypot(pose.radius, relativeHeight), elevation: elevation,
+                                   pitchOffset: pose.pitch + elevation, fov: pose.fov)
+            currentOrbit = orbit
+            targetOrbit = orbit
+            currentYaw = pose.yaw
+            targetYaw = pose.yaw
+            currentPivot = pose.pivot
+            targetPivot = pose.pivot
+        }
+        disableSmoothPoseControl()
+        currentViewMode = .observation
+    }
+
+    /// Observation is a camera intent; it has no access to selected balls or shot parameters.
+    func observe(at point: SCNVector3) {
+        guard point.x.isFinite, point.y.isFinite, point.z.isFinite else { return }
+        beginManualOrbit()
+        targetPivot = point
+        targetOrbit?.pitchOffset = 0
+    }
+
+    /// Fits the playable table envelope, including ball height, to the actual viewport.
+    /// Returns false before layout; no guessed screen aspect is substituted.
+    @discardableResult
+    func observeWholeTable(yaw: Float? = nil) -> Bool {
+        guard viewportSize.width > 1, viewportSize.height > 1 else { return false }
+        beginManualOrbit()
+        if let yaw, yaw.isFinite { targetYaw = yaw }
+        guard var orbit = targetOrbit else { return false }
+        orbit.elevation = abs(config.standPitchRad)
+        orbit.pitchOffset = 0
+        orbit.fov = Float(config.standFov)
+        let pivot = SCNVector3(0, tableSurfaceY + BallPhysics.radius, 0)
+        let back = SCNVector3(cos(targetYaw) * cos(orbit.elevation), sin(orbit.elevation),
+                             sin(targetYaw) * cos(orbit.elevation))
+        let right = SCNVector3(-sin(targetYaw), 0, cos(targetYaw))
+        let up = SCNVector3(-cos(targetYaw) * sin(orbit.elevation), cos(orbit.elevation),
+                           -sin(targetYaw) * sin(orbit.elevation))
+        let tanV = tan(orbit.fov * .pi / 360)
+        let tanH = tanV * Float(viewportSize.width / viewportSize.height)
+        func dot(_ a: SCNVector3, _ b: SCNVector3) -> Float { a.x*b.x + a.y*b.y + a.z*b.z }
+        var distance = config.minRadius
+        for x in [-Float(tableOuterHalfLength), Float(tableOuterHalfLength)] {
+            for z in [-Float(tableOuterHalfWidth), Float(tableOuterHalfWidth)] {
+                for y in [-BallPhysics.radius, BallPhysics.radius] {
+                    let offset = SCNVector3(x,y,z)
+                    let depthOffset = dot(offset, back)
+                    distance = max(distance, depthOffset + abs(dot(offset,right))/tanH,
+                                   depthOffset + abs(dot(offset,up))/tanV)
+                }
+            }
+        }
+        orbit.distance = distance * Float(Self.rotatedFitMargin)
+        fittedOrbitDistance = orbit.distance
+        keepsWholeTableFramed = true
+        targetPivot = pivot
+        targetOrbit = orbit
+        return true
     }
 
     // MARK: - Input handlers (2D mode)
@@ -283,6 +451,7 @@ final class CameraRig {
     }
 
     func handleObservationPan(deltaX: Float) {
+        beginManualOrbit()
         let sensitivity: Float = 0.006
         targetYaw += deltaX * sensitivity
     }
@@ -303,7 +472,10 @@ final class CameraRig {
     // MARK: - Smooth Pose Transition
 
     func smoothToPose(_ pose: SmoothPose, duration: Float) {
+        keepsWholeTableFramed = false
         let currentPose = captureCurrentPose()
+        currentOrbit = nil
+        targetOrbit = nil
         smoothOrigin = currentPose
         smoothTarget = pose
         smoothProgress = 0
@@ -343,6 +515,12 @@ final class CameraRig {
     }
 
     func captureCurrentPose() -> SmoothPose {
+        if let orbit = currentOrbit {
+            return SmoothPose(yaw: currentYaw, pitch: -orbit.elevation + orbit.pitchOffset,
+                              radius: orbit.distance * cos(orbit.elevation), pivot: currentPivot,
+                              fov: orbit.fov,
+                              height: currentPivot.y - tableSurfaceY + orbit.distance * sin(orbit.elevation))
+        }
         // While a smooth transition is in flight, return the last
         // interpolated pose so that re-entering smoothToPose does not snap
         // the camera back to a stale `currentZoom`-derived starting point.
@@ -413,6 +591,13 @@ final class CameraRig {
         let frameScale = max(0.25, min(2.0, deltaTime * 60))
         let t = min(1, config.dampingFactor * frameScale)
 
+        if var orbit = currentOrbit, let target = targetOrbit {
+            orbit.distance = lerp(orbit.distance, target.distance, t)
+            orbit.elevation = lerp(orbit.elevation, target.elevation, t)
+            orbit.pitchOffset = lerp(orbit.pitchOffset, target.pitchOffset, t)
+            orbit.fov = lerp(orbit.fov, target.fov, t)
+            currentOrbit = orbit
+        }
         currentZoom += (targetZoom - currentZoom) * t
         currentYaw += shortestAngleDelta(from: currentYaw, to: targetYaw) * t
         currentPivot = currentPivot + (targetPivot - currentPivot) * t
@@ -450,6 +635,7 @@ final class CameraRig {
     }
 
     func snapToTarget() {
+        if let targetOrbit { currentOrbit = targetOrbit }
         currentZoom = targetZoom
         currentYaw = targetYaw
         currentPivot = targetPivot
@@ -468,6 +654,8 @@ final class CameraRig {
     ///   has already set the camera node to the desired pose; we only
     ///   need to align internal state for future input handling.
     func snapToAimPose(pivot: SCNVector3, aimDirection: SCNVector3) {
+        currentOrbit = nil
+        targetOrbit = nil
         let flatAim = SCNVector3(aimDirection.x, 0, aimDirection.z)
         let len = sqrtf(flatAim.x * flatAim.x + flatAim.z * flatAim.z)
         let yaw = len > 0.0001 ? atan2(-flatAim.z / len, -flatAim.x / len) : currentYaw
@@ -491,6 +679,18 @@ final class CameraRig {
     // MARK: - Private
 
     private func applyCameraTransform() {
+        if let orbit = currentOrbit {
+            let radius = orbit.distance * cos(orbit.elevation)
+            cameraNode.position = SCNVector3(currentPivot.x + cos(currentYaw) * radius,
+                                             currentPivot.y + orbit.distance * sin(orbit.elevation),
+                                             currentPivot.z + sin(currentYaw) * radius)
+            let look = SCNVector3(-cos(currentYaw), 0, -sin(currentYaw))
+            cameraNode.eulerAngles = SCNVector3(-orbit.elevation + orbit.pitchOffset,
+                                                atan2(-look.x, -look.z), 0)
+            cameraNode.camera?.fieldOfView = CGFloat(orbit.fov)
+            cameraNode.camera?.usesOrthographicProjection = false
+            return
+        }
         let z = max(0, min(1, currentZoom))
         let radius = lerp(config.minRadius, config.maxRadius, z)
         let height = lerp(config.minHeight, config.maxHeight, z)

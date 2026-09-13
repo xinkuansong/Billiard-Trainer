@@ -8,6 +8,37 @@
 
 import SceneKit
 
+extension TableGeometry {
+    /// Bind an actual mesh cushion contact to an existing finite CAD segment.
+    /// This is metadata only: it neither moves the ball nor detects collisions.
+    func nearestCushionIndex(to point:SIMD3<Double>)->Int? {
+        typealias V=SIMD2<Double>
+        let p=V(point.x,point.z)
+        var best:(index:Int,distance:Double)?
+        func consider(_ index:Int,_ q:V) {
+            let d=p-q,distance=d.x*d.x+d.y*d.y
+            if distance<(best?.distance ?? .infinity) { best=(index,distance) }
+        }
+        for (i,line) in linearCushions.enumerated() {
+            let a=V(Double(line.start.x),Double(line.start.z)),b=V(Double(line.end.x),Double(line.end.z))
+            let d=b-a,denom=d.x*d.x+d.y*d.y
+            let t=denom>0 ? max(0,min(1,((p-a).x*d.x+(p-a).y*d.y)/denom)):0
+            consider(i,a+d*t)
+        }
+        let tau=2*Double.pi
+        func wrap(_ angle:Double)->Double { let r=angle.truncatingRemainder(dividingBy:tau);return r<0 ? r+tau:r }
+        for (i,arc) in circularCushions.enumerated() {
+            let center=V(Double(arc.center.x),Double(arc.center.z)),radius=Double(arc.radius)
+            let start=Double(arc.startAngle),end=Double(arc.endAngle)
+            let angle=atan2(p.y-center.y,p.x-center.x),span=wrap(end-start)
+            let index=linearCushions.count+i
+            for theta in [start,end] { consider(index,center+radius*V(cos(theta),sin(theta))) }
+            if wrap(angle-start)<=span { consider(index,center+radius*V(cos(angle),sin(angle))) }
+        }
+        return best?.index
+    }
+}
+
 struct Pocket {
     let id: String
     let center: SCNVector3
@@ -464,6 +495,593 @@ struct TableGeometry {
             let shortToCenterDot = (-shortMidX) * corner.shortJaw.normalX + (-shortMidZ) * corner.shortJaw.normalZ
             assert(shortToCenterDot > 0,
                    "[TableGeometry] Corner \(i) short jaw normal points away from table center")
+        }
+    }
+}
+
+/// Finite surface primitive for local pocket contact. Coordinates are world meters.
+/// Feature roots are solved along a constant-acceleration segment, independent of render FPS.
+struct PocketContactTriangle {
+    typealias V = SIMD3<Double>
+    let a: V
+    let b: V
+    let c: V
+
+    private func dot(_ x: V, _ y: V) -> Double { x.x*y.x+x.y*y.y+x.z*y.z }
+    private func cross(_ x: V, _ y: V) -> V { V(x.y*y.z-x.z*y.y, x.z*y.x-x.x*y.z, x.x*y.y-x.y*y.x) }
+    private var edges: [(V,V)] { [(a,b),(b,c),(c,a)] }
+
+    /// A face witness, distinguished from an edge that merely rounds to the
+    /// same sphere distance. Needed when selecting a support manifold.
+    func projectedInteriorPoint(to p: V) -> V? {
+        let n=cross(b-a,c-a),n2=dot(n,n)
+        if n2>1e-24 {
+            let projected=p-n*(dot(p-a,n)/n2)
+            if dot(cross(b-a,projected-a),n) >= -1e-14*n2 &&
+               dot(cross(c-b,projected-b),n) >= -1e-14*n2 &&
+               dot(cross(a-c,projected-c),n) >= -1e-14*n2 { return projected }
+        }
+        return nil
+    }
+
+    func closestPoint(to p: V) -> V {
+        if let projected=projectedInteriorPoint(to:p) { return projected }
+        func edge(_ x:V,_ y:V)->V {
+            let e=y-x,length2=dot(e,e)
+            let t=length2>1e-24 ? max(0,min(1,dot(p-x,e)/length2)) : 0
+            return x+e*t
+        }
+        var best=edge(a,b)
+        let second=edge(b,c)
+        if dot(p-second,p-second)<dot(p-best,p-best) { best=second }
+        let third=edge(c,a)
+        if dot(p-third,p-third)<dot(p-best,p-best) { best=third }
+        return best
+    }
+
+    struct Hit { let time: Double; let point: V; let normal: V }
+
+    /// Earliest approaching sphere contact. Persistent resting support is handled by the solver.
+    func firstContact(position p: V, velocity v: V, acceleration acc: V,
+                      radius: Double, horizon: Double, useDistanceBound: Bool = true) -> Hit? {
+        guard radius > 0, radius.isFinite, horizon > 0, horizon.isFinite else { return nil }
+        let half = acc*0.5
+        let coordinateScale=max(1,sqrt(dot(p,p)),sqrt(dot(a,a)),sqrt(dot(b,b)),sqrt(dot(c,c)),radius)
+        if useDistanceBound {
+            // Distance to a fixed finite triangle is 1-Lipschitz. This displacement
+            // bound includes acceleration and reversal throughout the interval.
+            let delta=p-closestPoint(to:p),distance=sqrt(dot(delta,delta))
+            let reach=sqrt(dot(v,v))*horizon+sqrt(dot(half,half))*horizon*horizon
+            let rounding=64*Double.ulpOfOne*max(coordinateScale,distance,reach)
+            if distance>radius+reach+rounding { return nil }
+        }
+        var candidates: [Double] = []
+        func roots(_ d: V, _ speed: V, _ h: V) -> [Double] {
+            // Orthogonal projection cannot increase displacement. This bound
+            // covers the entire interval, including acceleration/reversal.
+            let distance=sqrt(dot(d,d))
+            let reach=sqrt(dot(speed,speed))*horizon+sqrt(dot(h,h))*horizon*horizon
+            let worldScale=max(coordinateScale,distance,reach)
+            let rounding=64*Double.ulpOfOne*worldScale
+            if distance>radius+reach+rounding { return [] }
+            return QuarticSolver.solveQuartic(a: dot(h,h), b: 2*dot(speed,h),
+                c: dot(speed,speed)+2*dot(d,h), d: 2*dot(d,speed), e: dot(d,d)-radius*radius)
+        }
+        let raw = cross(b-a,c-a), n2 = dot(raw,raw)
+        if n2 > 1e-24 {
+            let n = raw/sqrt(n2)
+            for side in [-1.0,1.0] {
+                candidates += QuarticSolver.solveQuadraticPublic(a: dot(half,n), b: dot(v,n),
+                                                                 c: dot(p-a,n)-side*radius)
+            }
+        }
+        for vertex in [a,b,c] { candidates += roots(p-vertex,v,half) }
+        for (x,y) in edges {
+            let e = y-x, e2 = dot(e,e)
+            guard e2 > 1e-24 else { continue }
+            func perpendicular(_ value: V) -> V { value-e*(dot(value,e)/e2) }
+            candidates += roots(perpendicular(p-x),perpendicular(v),perpendicular(half))
+        }
+        var earliest:Hit?
+        for seed in candidates.filter({ $0.isFinite && $0 >= 0 && $0 <= horizon }) {
+            var time=seed
+            // Roots of infinite planes/lines are only seeds. Polish against the
+            // finite triangle distance before accepting a contact, otherwise a
+            // nearby edge can become a false simultaneous impact at a face hit.
+            for _ in 0..<12 {
+                let center=p+v*time+half*(time*time)
+                let delta=center-closestPoint(to:center)
+                let residual=dot(delta,delta)-radius*radius
+                let derivative=2*dot(delta,v+acc*time)
+                guard derivative != 0 else { break }
+                let next=time-residual/derivative
+                guard next.isFinite,next>=0,next<=horizon else { break }
+                if next==time { break }
+                time=next
+            }
+            let center = p+v*time+half*(time*time)
+            let point = closestPoint(to: center), delta = center-point
+            let distance = sqrt(dot(delta,delta))
+            // Reject roots belonging to infinite edge/plane extensions.
+            let roundoff=64*Double.ulpOfOne*max(1,sqrt(dot(center,center)),radius)
+            guard distance > 0, abs(distance-radius) <= roundoff else { continue }
+            let normal = delta/distance
+            guard dot(v+acc*time,normal) < -1e-9 else { continue }
+            if earliest == nil || time<earliest!.time { earliest=Hit(time:time,point:point,normal:normal) }
+        }
+        return earliest
+    }
+}
+
+/// Immutable spatial index. Queries retain original triangle order so the index
+/// changes candidate cost, never the physical contact ordering.
+/// Horizontal ownership domain, not a potting/capture criterion. Geometry
+/// supplied to this domain must cover its bounds expanded by the ball radius.
+struct PocketLocalRegion {
+    typealias V=SIMD3<Double>
+    let center:V
+    let halfExtent:Double
+    enum Direction:Equatable { case entering, leaving }
+
+    func contains(_ p:V)->Bool {
+        abs(p.x-center.x)<=halfExtent && abs(p.z-center.z)<=halfExtent
+    }
+
+    /// First true crossing of the finite rectangle under constant acceleration.
+    /// A tangent touch does not switch ownership. Heights remain unrestricted.
+    func firstCrossing(position:V,velocity:V,acceleration:V,horizon:Double,direction:Direction)->Double? {
+        guard halfExtent>0,halfExtent.isFinite,horizon>0,horizon.isFinite,
+              [position,velocity,acceleration,center].allSatisfy({$0.x.isFinite && $0.y.isFinite && $0.z.isFinite}) else { return nil }
+        var times=[0.0,horizon]
+        for axis in [0,2] {
+            for side in [-1.0,1.0] {
+                let a=0.5*acceleration[axis],b=velocity[axis],c=position[axis]-center[axis]-side*halfExtent
+                if a == 0 {
+                    if b != 0 { times.append(-c/b) }
+                } else {
+                    let disc=b*b-4*a*c
+                    if disc>=0 {
+                        let root=sqrt(disc),q = -0.5*(b+(b>=0 ? root : -root))
+                        if q == 0 { times.append(-b/(2*a)) }
+                        else { times.append(q/a);times.append(c/q) }
+                    }
+                }
+            }
+        }
+        times=Array(Set(times.filter{$0.isFinite})).sorted()
+        func inside(_ time:Double)->Bool {
+            contains(position+velocity*time+acceleration*(0.5*time*time))
+        }
+        // Between consecutive roots, rectangle membership is constant.
+        // Compare those open intervals instead of adding a time epsilon that
+        // could skip a short visit or manufacture a crossing at a tangent.
+        for i in times.indices {
+            let t=times[i]
+            guard t>=0 && t<=horizon else { continue }
+            let before=i>0 ? inside(times[i-1]+(t-times[i-1])/2) : inside(t-max(1,abs(t)))
+            let after=i+1<times.count ? inside(t+(times[i+1]-t)/2) : inside(t+max(1,abs(t)))
+            if direction == .entering && !before && after { return t }
+            if direction == .leaving && before && !after { return t }
+        }
+        return nil
+    }
+}
+
+struct PocketContactIndex {
+    typealias V=SIMD3<Double>
+    struct Bounds {
+        let low: V; let high: V
+        func intersects(_ other:Bounds)->Bool {
+            (0..<3).allSatisfy { high[$0]>=other.low[$0] && low[$0]<=other.high[$0] }
+        }
+    }
+    private indirect enum Node {
+        case leaf(Bounds,[Int])
+        case branch(Bounds,Node,Node)
+        var bounds:Bounds { switch self { case .leaf(let b,_),.branch(let b,_,_): return b } }
+    }
+    private let boxes:[Bounds]
+    private let root:Node?
+    init(triangles:[PocketContactTriangle]) {
+        let boxes=triangles.map { t in
+            Bounds(low:V(min(t.a.x,t.b.x,t.c.x),min(t.a.y,t.b.y,t.c.y),min(t.a.z,t.b.z,t.c.z)),
+                   high:V(max(t.a.x,t.b.x,t.c.x),max(t.a.y,t.b.y,t.c.y),max(t.a.z,t.b.z,t.c.z)))
+        }
+        func build(_ ids:[Int])->Node {
+            var low=V(repeating:.infinity),high=V(repeating:-.infinity)
+            for i in ids { for axis in 0..<3 { low[axis]=min(low[axis],boxes[i].low[axis]);high[axis]=max(high[axis],boxes[i].high[axis]) } }
+            let bounds=Bounds(low:low,high:high)
+            guard ids.count>8 else { return .leaf(bounds,ids) }
+            let axis=(0..<3).max { high[$0]-low[$0]<high[$1]-low[$1] }!
+            let sorted=ids.sorted {
+                let a=boxes[$0].low[axis]+boxes[$0].high[axis],b=boxes[$1].low[axis]+boxes[$1].high[axis]
+                return a==b ? $0<$1 : a<b
+            }
+            let middle=sorted.count/2
+            return .branch(bounds,build(Array(sorted[..<middle])),build(Array(sorted[middle...])))
+        }
+        self.boxes=boxes;root=boxes.isEmpty ? nil : build(Array(boxes.indices))
+    }
+    func query(low:V,high:V)->[Int] {
+        let query=Bounds(low:low,high:high)
+        var result:[Int]=[]
+        func visit(_ node:Node) {
+            guard node.bounds.intersects(query) else { return }
+            switch node {
+            case .leaf(_,let ids): result.append(contentsOf:ids.filter { boxes[$0].intersects(query) })
+            case .branch(_,let left,let right):visit(left);visit(right)
+            }
+        }
+        if let root { visit(root) }
+        return result.sorted()
+    }
+}
+
+/// Contact response for a homogeneous sphere against a stationary surface.
+/// Impulses/forces are per unit mass; I/m = 2 R²/5. Geometry owns contact activation.
+enum PocketContactResponse {
+    typealias V = SIMD3<Double>
+    struct Motion { let velocity: V; let angularVelocity: V }
+    struct Acceleration { let linear: V; let angular: V }
+    struct ImpactConstraint { let normal: V; let restitution: Double; let friction: Double }
+    enum SolveFailure: Error { case jointImpactIterationLimit }
+    private static func dot(_ a: V,_ b: V) -> Double { a.x*b.x+a.y*b.y+a.z*b.z }
+    private static func cross(_ a: V,_ b: V) -> V { V(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x) }
+    private static func limited(_ x: V, to limit: Double) -> V {
+        let length = sqrt(dot(x,x)); return length > limit && length > 0 ? x*(limit/length) : x
+    }
+
+    /// Surface moments per unit mass for a solid sphere. Rolling mu is defined
+    /// by no-slip linear deceleration mu*N; normal spin follows the planar law.
+    /// The caller supplies a unit normal and a positive integration duration.
+    static func surfaceResistance(omega:V,normal:V,pressure:Double,radius:Double,
+                                  duration:Double,rollingFriction:Double,spinFriction:Double)->V {
+        guard pressure>0 else { return .zero }
+        let spin=dot(omega,normal),tangent=omega-normal*spin,speed=sqrt(dot(tangent,tangent))
+        var result=V.zero
+        if rollingFriction>0 && speed>0 {
+            result -= tangent*(min(3.5*rollingFriction*pressure/radius,3.5*speed/duration)/speed)
+        }
+        if spinFriction>0 && spin != 0 {
+            let magnitude=min(2.5*spinFriction*pressure/radius,abs(spin)/duration)
+            result += normal*(spin>0 ? -magnitude : magnitude)
+        }
+        return result
+    }
+
+    /// Simultaneous impulses use a common pre-impact state. Relaxed Jacobi updates
+    /// preserve symmetric contacts rather than privileging the first mesh face.
+    static func simultaneousImpact(_ initial: Motion, constraints: [ImpactConstraint], radius: Double) throws -> Motion {
+        guard !constraints.isEmpty else { return initial }
+        let targets=constraints.map { max(0,-dot(initial.velocity,$0.normal))*$0.restitution }
+        var normal=Array(repeating:0.0,count:constraints.count)
+        var tangent=Array(repeating:V.zero,count:constraints.count)
+        var motion=initial
+        var lastResidual=0.0,lastMotionResidual=0.0
+        let relaxation=1/Double(constraints.count)
+        for _ in 0..<4096 {
+            var nextNormal=normal,nextTangent=tangent,residual=0.0
+            for (i,c) in constraints.enumerated() {
+                let n=c.normal,arm = -n*radius
+                let desiredNormal=max(0,normal[i]+targets[i]-dot(motion.velocity,n))
+                let velocity=motion.velocity+cross(motion.angularVelocity,arm)
+                let vt=velocity-n*dot(velocity,n)
+                let desiredTangent=limited(tangent[i]-vt/3.5,to:c.friction*desiredNormal)
+                nextNormal[i]+=relaxation*(desiredNormal-normal[i])
+                nextTangent[i]+=relaxation*(desiredTangent-tangent[i])
+                residual=max(residual,abs(desiredNormal-normal[i]),sqrt(dot(desiredTangent-tangent[i],desiredTangent-tangent[i])))
+            }
+            normal=nextNormal;tangent=nextTangent
+            var v=initial.velocity,w=initial.angularVelocity
+            for (i,c) in constraints.enumerated() {
+                v+=c.normal*normal[i]+tangent[i]
+                w+=cross(-c.normal*radius,tangent[i])/(0.4*radius*radius)
+            }
+            lastMotionResidual=max(sqrt(dot(v-motion.velocity,v-motion.velocity)),radius*sqrt(dot(w-motion.angularVelocity,w-motion.angularVelocity)))
+            lastResidual=residual
+            motion=Motion(velocity:v,angularVelocity:w)
+            if residual<1e-11 { return motion }
+        }
+        print("[W05 joint residual] force=\(lastResidual) motion=\(lastMotionResidual) initial=\(initial) result=\(motion) constraints=\(constraints)")
+        throw SolveFailure.jointImpactIterationLimit
+    }
+
+    static func impact(_ motion: Motion, normal: V, radius: Double,
+                       restitution: Double, friction: Double) -> Motion {
+        precondition(radius > 0 && radius.isFinite && restitution >= 0 && restitution <= 1 && friction >= 0 && friction.isFinite)
+        precondition(abs(dot(normal,normal)-1) < 1e-8)
+        let vn = dot(motion.velocity,normal)
+        guard vn < 0 else { return motion } // A separating contact must not pull the ball back.
+        let normalImpulse = -(1+restitution)*vn
+        let arm = -normal*radius
+        let contactVelocity = motion.velocity+cross(motion.angularVelocity,arm)
+        let tangent = contactVelocity-normal*dot(contactVelocity,normal)
+        let tangentImpulse = limited(-tangent/3.5,to: friction*normalImpulse)
+        return Motion(velocity: motion.velocity+normal*normalImpulse+tangentImpulse,
+                      angularVelocity: motion.angularVelocity+cross(arm,tangentImpulse)/(0.4*radius*radius))
+    }
+
+    /// Soft-liner dissipation applied after the rigid impulse of an approaching
+    /// contact. A hanging leather apron grips the ball: unlike Coulomb friction,
+    /// which can only convert about 2/7 of the slip into spin, the liner removes
+    /// tangential centre velocity and spin outright. `retention` is the kept
+    /// fraction; 1 leaves the rigid result untouched. The normal component is
+    /// left to the restitution already applied.
+    static func linerSink(_ motion: Motion, normal: V, retention: Double) -> Motion {
+        precondition(retention.isFinite && retention >= 0 && retention <= 1)
+        precondition(abs(dot(normal,normal)-1) < 1e-8)
+        guard retention < 1 else { return motion }
+        let vn = dot(motion.velocity,normal)
+        let tangential = motion.velocity-normal*vn
+        return Motion(velocity: normal*vn+tangential*retention,
+                      angularVelocity: motion.angularVelocity*retention)
+    }
+
+    /// A sustained contact on a locally planar patch. No restitution is applied.
+    /// The caller must release this constraint at the finite edge / loss of support.
+    static func planarSupport(_ motion: Motion, gravity: V, normal: V,
+                              radius: Double, friction: Double) -> Acceleration {
+        precondition(radius > 0 && radius.isFinite && friction >= 0 && friction.isFinite)
+        precondition(abs(dot(normal,normal)-1) < 1e-8)
+        let pressure = max(0,-dot(gravity,normal))
+        guard pressure > 0 else { return Acceleration(linear: gravity,angular: .zero) }
+        let arm = -normal*radius
+        let contactVelocity = motion.velocity+cross(motion.angularVelocity,arm)
+        let slip = contactVelocity-normal*dot(contactVelocity,normal)
+        let slipSpeed = sqrt(dot(slip,slip))
+        let tangentialGravity = gravity+normal*pressure
+        // Static friction enforces no-slip acceleration; kinetic friction opposes slip.
+        let force = slipSpeed > 1e-9 ? -slip*(friction*pressure/slipSpeed)
+                                    : limited(-tangentialGravity/3.5,to: friction*pressure)
+        return Acceleration(linear: tangentialGravity+force,
+                            angular: cross(arm,force)/(0.4*radius*radius))
+    }
+}
+
+/// Numeric envelope of the measured net strands. The cap is an explicit bag
+/// closure approximation, not an imported solid face or a capture threshold.
+struct PocketBagEnvelope {
+    typealias V=SIMD3<Double>
+    typealias P=SIMD2<Double>
+    struct Configuration {
+        var topDepth:Double=0.04
+        var layerHeight:Double=0.00125
+        var radialSamples:Int=128
+        var maximumAngularGap:Double = .pi/6
+    }
+    enum Failure:Error { case invalidGeometry(String) }
+    let pocketID:String
+    let rings:[[V]]
+    let triangles:[PocketContactTriangle]
+    let bottom:Double
+    let top:Double
+    let sourceTriangleCount:Int
+    let selectedTriangleCount:Int
+
+    static func build(pocketID:String,strands:[PocketContactTriangle],surfaceY:Double,
+                      radius:Double=Double(BallPhysics.radius),
+                      configuration c:Configuration = .init()) throws -> PocketBagEnvelope {
+        func fail(_ reason:String)->Failure { .invalidGeometry(reason) }
+        guard !pocketID.isEmpty,surfaceY.isFinite,radius>0,radius.isFinite,c.topDepth>0,c.topDepth.isFinite,
+              c.layerHeight>0,c.layerHeight.isFinite,(8...512).contains(c.radialSamples),
+              c.maximumAngularGap>0,c.maximumAngularGap<=Double.pi,c.maximumAngularGap.isFinite,
+              !strands.isEmpty else { throw fail("invalid input") }
+        let faces=strands.map{[$0.a,$0.b,$0.c]}
+        guard faces.joined().allSatisfy({$0.x.isFinite && $0.y.isFinite && $0.z.isFinite}),
+              let bottom=faces.joined().map(\.y).min() else { throw fail("invalid strands") }
+        // White also contains shallow, disconnected table fittings. Retain
+        // complete strand components that reach the measured lower bag band;
+        // do not clip their upper geometry or move the envelope's top edge.
+        var parent=Array(faces.indices),vertexOwner:[V:Int]=[:]
+        func root(_ index:Int)->Int {
+            var i=index
+            while parent[i] != i { parent[i]=parent[parent[i]];i=parent[i] }
+            return i
+        }
+        for (i,face) in faces.enumerated() { for vertex in face {
+            if let previous=vertexOwner[vertex] { parent[root(i)]=root(previous) }
+            else { vertexOwner[vertex]=i }
+        } }
+        var selectedRoots=Set<Int>()
+        for (i,face) in faces.enumerated() where face.contains(where:{$0.y<=bottom+radius}) {
+            selectedRoots.insert(root(i))
+        }
+        let selected=faces.indices.filter{selectedRoots.contains(root($0))}
+        let bagFaces=selected.map{faces[$0]}
+        let top=surfaceY-c.topDepth,levels=ceil((top-bottom)/c.layerHeight)
+        guard levels>=2,levels<=4096 else { throw fail("invalid depth range") }
+        func cross(_ a:P,_ b:P)->Double { a.x*b.y-a.y*b.x }
+        func hull(_ points:[P])->[P] {
+            let sorted=points.sorted{$0.x == $1.x ? $0.y<$1.y : $0.x<$1.x}
+            var unique:[P]=[]
+            for p in sorted where unique.last != p { unique.append(p) }
+            func chain(_ values:[P])->[P] {
+                var result:[P]=[]
+                for p in values {
+                    while result.count>=2 && cross(result.last!-result[result.count-2],p-result.last!)<=0 { result.removeLast() }
+                    result.append(p)
+                }
+                return result
+            }
+            guard unique.count>=3 else { return [] }
+            return Array(chain(unique).dropLast())+Array(chain(Array(unique.reversed())).dropLast())
+        }
+        var rings:[[V]]=[]
+        for j in 0..<Int(levels) {
+            let y=top-Double(j)*c.layerHeight
+            var points:[P]=[]
+            for face in bagFaces { for k in 0..<3 {
+                let a=face[k],b=face[(k+1)%3]
+                if (a.y<=y && b.y>y) || (b.y<=y && a.y>y) {
+                    let t=(y-a.y)/(b.y-a.y)
+                    points.append(P(a.x+t*(b.x-a.x),a.z+t*(b.z-a.z)))
+                }
+            } }
+            let boundary=hull(points)
+            guard boundary.count>=3 else { break }
+            // Polygon area centroid is invariant to extra collinear vertices
+            // introduced by triangulation; averaging vertices is not.
+            let origin=boundary[0]
+            var twiceArea=0.0,weighted=P.zero
+            for i in boundary.indices {
+                let a=boundary[i]-origin,b=boundary[(i+1)%boundary.count]-origin,w=cross(a,b)
+                twiceArea+=w;weighted+=(a+b)*w
+            }
+            guard twiceArea>0,twiceArea.isFinite else { throw fail("degenerate section") }
+            let center=origin+weighted/(3*twiceArea)
+            let angles=points.map{atan2($0.y-center.y,$0.x-center.x)}.sorted()
+            let gaps=angles.indices.map { i in
+                i+1<angles.count ? angles[i+1]-angles[i] : angles[0]+2*Double.pi-angles[i]
+            }
+            guard (gaps.max() ?? .infinity)<=c.maximumAngularGap else { break }
+            var ring:[V]=[]
+            for k in 0..<c.radialSamples {
+                let angle=2*Double.pi*Double(k)/Double(c.radialSamples),direction=P(cos(angle),sin(angle))
+                var nearest=Double.infinity
+                for i in boundary.indices {
+                    let a=boundary[i],edge=boundary[(i+1)%boundary.count]-a,offset=a-center
+                    let denominator=cross(direction,edge)
+                    if abs(denominator)<1e-14 { continue }
+                    let t=cross(offset,edge)/denominator,u=cross(offset,direction)/denominator
+                    if t>=0 && u>=(-1e-10) && u<=1+1e-10 { nearest=min(nearest,t) }
+                }
+                guard nearest.isFinite,nearest>0 else { throw fail("open radial section") }
+                let p=center+direction*nearest
+                ring.append(V(p.x,y,p.y))
+            }
+            rings.append(ring)
+        }
+        guard rings.count>=2,let last=rings.last,last[0].y>bottom else { throw fail("incomplete net envelope") }
+        rings.append(last.map{V($0.x,bottom,$0.z)})
+        var triangles:[PocketContactTriangle]=[]
+        for j in 0..<(rings.count-1) { for i in 0..<c.radialSamples {
+            let k=(i+1)%c.radialSamples,a=rings[j],b=rings[j+1]
+            triangles.append(.init(a:a[i],b:b[i],c:b[k]))
+            triangles.append(.init(a:a[i],b:b[k],c:a[k]))
+        } }
+        let floor=rings.last!,center=floor.reduce(V.zero,+)/Double(floor.count)
+        for i in floor.indices { triangles.append(.init(a:center,b:floor[i],c:floor[(i+1)%floor.count])) }
+        return .init(pocketID:pocketID,rings:rings,triangles:triangles,bottom:bottom,top:top,
+                     sourceTriangleCount:faces.count,selectedTriangleCount:bagFaces.count)
+    }
+}
+
+/// Absorbing soft-bag boundary, below the complete hard pocket geometry.
+/// Hard lip/jaw motion remains physical; collection does not simulate net piles.
+struct PocketCaptureBoundary {
+    typealias V=SIMD3<Double>
+    typealias P=SIMD2<Double>
+    let pocketID:String
+    let centerPlaneY:Double
+    let outline:[P]
+    let radius:Double
+    let restingCenterY:Double
+
+    var geometryVersion:String {
+        var hash:UInt64=14695981039346656037
+        for value in [centerPlaneY,radius,restingCenterY]+outline.flatMap({[$0.x,$0.y]}) {
+            for shift in stride(from:0,to:64,by:8) {
+                hash=(hash ^ ((value.bitPattern >> shift) & 255)) &* 1099511628211
+            }
+        }
+        return "soft-bag-v2:"+String(hash,radix:16)
+    }
+
+    init(bag:PocketBagEnvelope,hardSurfaces:[PocketContactTriangle],radius:Double) throws {
+        let vertices=hardSurfaces.flatMap{[$0.a,$0.b,$0.c]}
+        guard radius>0,radius.isFinite,!vertices.isEmpty,
+              vertices.allSatisfy({$0.x.isFinite && $0.y.isFinite && $0.z.isFinite}),
+              let hardBottom=vertices.map(\.y).min() else {
+            throw PocketBagEnvelope.Failure.invalidGeometry("missing capture geometry")
+        }
+        // The entire sphere must be below hard cloth/leather and the bag mouth.
+        let y=min(hardBottom,bag.top)-radius
+        guard y>bag.bottom+radius,let upper=bag.rings.indices.dropLast().first(where:{
+            bag.rings[$0][0].y>=y && bag.rings[$0+1][0].y<=y
+        }) else { throw PocketBagEnvelope.Failure.invalidGeometry("no collection depth") }
+        let a=bag.rings[upper],b=bag.rings[upper+1]
+        guard a.count>=3,a.count==b.count,a[0].y>b[0].y else {
+            throw PocketBagEnvelope.Failure.invalidGeometry("invalid collection section")
+        }
+        let t=(a[0].y-y)/(a[0].y-b[0].y)
+        self.outline=zip(a,b).map { let p=$0+($1-$0)*t;return P(p.x,p.z) }
+        self.centerPlaneY=y;self.pocketID=bag.pocketID;self.radius=radius
+        self.restingCenterY=bag.bottom+radius
+    }
+
+    func containsProjection(_ position:V)->Bool {
+        let p=P(position.x,position.z)
+        guard p.x.isFinite,p.y.isFinite else { return false }
+        for i in outline.indices {
+            let a=outline[i],b=outline[(i+1)%outline.count],e=b-a,d=p-a
+            if e.x*d.y-e.y*d.x<0 { return false }
+        }
+        return true
+    }
+
+    /// At the collection plane, the sphere's section is a disk of its real
+    /// radius. Soft-bag contact can occur while its center is outside the bag.
+    func intersectsBallProjection(_ position:V)->Bool {
+        if containsProjection(position) { return true }
+        let p=P(position.x,position.z)
+        guard p.x.isFinite,p.y.isFinite else { return false }
+        for i in outline.indices {
+            let a=outline[i],b=outline[(i+1)%outline.count],edge=b-a
+            let lengthSquared=edge.x*edge.x+edge.y*edge.y
+            guard lengthSquared>0 else { continue }
+            let offset=p-a
+            let t=max(0,min(1,(offset.x*edge.x+offset.y*edge.y)/lengthSquared))
+            let distance=p-(a+edge*t)
+            if distance.x*distance.x+distance.y*distance.y<=radius*radius { return true }
+        }
+        return false
+    }
+
+    /// Return an exact timeline candidate. The scheduler must also exclude
+    /// contact with an active ball before committing the irreversible record.
+    func firstCandidate(in span:LocalPocketSimulation.Interval)->LocalPocketSimulation.State? {
+        let start=span.start
+        guard span.duration>0,start.time.isFinite,span.duration.isFinite else { return nil }
+        // Solve in unit interval time and normalize coefficients. An absolute
+        // discriminant epsilon can turn tiny support-force residuals into a
+        // false root at t=0 while the ball is still well above the bag.
+        let a=0.5*span.acceleration.y*span.duration*span.duration
+        let b=start.velocity.y*span.duration,c=start.position.y-centerPlaneY
+        let scale=max(abs(a),abs(b),abs(c))
+        var times:[Double]=[]
+        if scale>0,scale.isFinite {
+            let aa=a/scale,bb=b/scale,cc=c/scale
+            if aa == 0 {
+                if bb != 0 { times.append((-cc/bb)*span.duration) }
+            } else {
+                let discriminant=bb*bb-4*aa*cc
+                if discriminant>=0 {
+                    let root=sqrt(discriminant)
+                    let q = -0.5*(bb+(bb>=0 ? root:-root))
+                    if q == 0 { times.append((-bb/(2*aa))*span.duration) }
+                    else { times += [(q/aa)*span.duration,(cc/q)*span.duration] }
+                }
+            }
+        }
+        if start.position.y<=centerPlaneY,start.velocity.y<=0 { times.append(0) }
+        for dt in times.sorted() where dt>=0 && dt<=span.duration {
+            guard let s=span.sample(at:start.time+dt,beforeEndpoint:true),s.velocity.y<=0,
+                  s.position.y<=centerPlaneY+64*Double.ulpOfOne*max(1,abs(centerPlaneY),abs(s.position.y)),
+                  intersectsBallProjection(s.position) else { continue }
+            return s
+        }
+        return nil
+    }
+
+    func isClearOfActiveBalls(_ candidate:LocalPocketSimulation.State,
+                             others:[LocalPocketSimulation.State],positionUncertainty:Double)->Bool {
+        guard positionUncertainty>=0,positionUncertainty.isFinite else { return false }
+        return others.allSatisfy { other in
+            guard other.time==candidate.time else { return false }
+            let delta=other.position-candidate.position
+            let d2=delta.x*delta.x+delta.y*delta.y+delta.z*delta.z
+            let reach=2*radius+positionUncertainty
+            return d2.isFinite && d2>reach*reach
         }
     }
 }

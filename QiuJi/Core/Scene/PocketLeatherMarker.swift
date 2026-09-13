@@ -6,21 +6,26 @@ final class PocketLeatherMarker: SCNNode {
     enum Style: Int, CaseIterable { case original, target, firstRole, secondRole, bothRoles }
     let pocketIndex: Int
     private(set) var style: Style = .original
+    private var originalMaterials: [SCNMaterial] = []
+    private var tableStyle: TableStyle = .standard
     private var variants: [Style: SCNNode] = [:]
 
-    init(index: Int, geometry: SCNGeometry) throws {
+    init(index: Int, geometry: SCNGeometry, preservesTexture: Bool = false, standardMaterial: SCNMaterial? = nil) throws {
         pocketIndex = index
         super.init()
         name = "pocketMarker_\(index)"
+        let geometry = geometry.copy() as! SCNGeometry
+        if let standardMaterial { geometry.materials = geometry.materials.map { _ in standardMaterial } }
+        originalMaterials = geometry.materials
         for style in Style.allCases {
             let g = geometry.copy() as! SCNGeometry
             switch style {
             case .original: break
-            case .target: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.targetTint) }
-            case .firstRole: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.firstRoleTint) }
-            case .secondRole: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.secondRoleTint) }
+            case .target: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.targetTint, preservesTexture: preservesTexture) }
+            case .firstRole: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.firstRoleTint, preservesTexture: preservesTexture) }
+            case .secondRole: g.materials = geometry.materials.map { PocketLeatherAppearance.material(from: $0, tint: PocketLeatherAppearance.secondRoleTint, preservesTexture: preservesTexture) }
             case .bothRoles:
-                let halves = try PocketLeatherMesh.splitRoleGeometry(geometry)
+                let halves = try PocketLeatherMesh.splitRoleGeometry(geometry, preservesTexture: preservesTexture)
                 let node = SCNNode(geometry: halves)
                 node.name = "leather_bothRoles"
                 node.isHidden = true
@@ -37,6 +42,13 @@ final class PocketLeatherMarker: SCNNode {
     }
 
     required init?(coder: NSCoder) { return nil }
+
+    func applyTableStyle(_ selection: TableStyle) {
+        guard selection != tableStyle else { return }
+        // Role variants always derive from the source leather, never the theme tint.
+        variants[.original]?.geometry?.materials = originalMaterials.map { selection.leatherMaterial(from: $0) }
+        tableStyle = selection
+    }
 
     func show(_ newStyle: Style) {
         guard newStyle != style else { return }

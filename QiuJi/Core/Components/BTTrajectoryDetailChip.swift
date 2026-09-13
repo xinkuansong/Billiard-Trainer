@@ -25,6 +25,8 @@ struct BTTrajectoryDetailChip: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
             .btHudGlass()
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(BTPressableStyle.capsule)
         .accessibilityLabel("轨迹标注档位")

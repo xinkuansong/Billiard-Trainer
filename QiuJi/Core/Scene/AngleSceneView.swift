@@ -16,6 +16,7 @@ final class TableProjector {
 /// Manages gesture recognition and CADisplayLink render loop.
 /// Supports ball dragging (for AngleDynamicView) and pocket tapping.
 struct AngleSceneView: UIViewRepresentable {
+    @ObservedObject private var roomPreferences = UserPreferences.shared
     /// Camera/touch interaction policy.
     /// - `cameraControl`: full pan/pinch on camera (used by 3D观察).
     /// - `tapsOnly`: only taps & ball drag are recognised; camera is locked.
@@ -45,6 +46,7 @@ struct AngleSceneView: UIViewRepresentable {
     var onDragMoved: ((SCNNode, SCNVector3) -> Void)?
     var onDragEnded: ((SCNNode) -> Void)?
     /// 拖拽结束时附带结束屏幕坐标（SCNView 本地点），供「拖回球库即移除」判定。
+    /// Released finger in SCNView-local points; excludes table-placement offset.
     var onDragEndedAt: ((SCNNode, CGPoint) -> Void)?
 
     /// 可点选的球（走位编排器点选目标球）。tap 命中其一即回调，优先于袋口判定。
@@ -66,19 +68,28 @@ struct AngleSceneView: UIViewRepresentable {
 
     /// 坐标桥接（可选）。传入后由本视图填充 unproject/project 闭包。
     var projector: TableProjector?
+    /// nil preserves existing consumers; explicit activity enables bounded idle work.
+    var contentIsAnimating: Bool? = nil
+
+    static func requestedFPS(maximum: Int, selected: RenderFrameRate = .fps60, active: Bool, thermal: ProcessInfo.ThermalState, lowPower: Bool) -> Int {
+        let ceiling = thermal == .critical ? 30 : ((thermal == .serious || lowPower) ? 60 : maximum)
+        return max(1, min(maximum, min(ceiling, active ? selected.rawValue : min(selected.rawValue, 30))))
+    }
 
     func makeUIView(context: Context) -> SCNView {
         let scnView = SCNView()
         scnView.scene = scene
+        scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
+        scene.applyClothColor(roomPreferences.clothColor)
+        context.coordinator.frameDelegate.contact = scene.contactOcclusion
+        scnView.delegate = context.coordinator.frameDelegate
         scene.closeupViewport = scnView
         if let cam = scene.cameraNode {
             scnView.pointOfView = cam
         }
         scnView.allowsCameraControl = false
         scnView.antialiasingMode = .multisampling4X
-        // 跟随屏幕原生刷新率（ProMotion 120Hz）。回放用逐帧解析求位，渲染帧率越高越顺滑；
-        // 旧值硬封顶 60fps 在 120Hz 屏上每帧显示两次刷新，正是减速段残留的卡顿来源。
-        scnView.preferredFramesPerSecond = UIScreen.main.maximumFramesPerSecond
+        scnView.preferredFramesPerSecond = min(UIScreen.main.maximumFramesPerSecond, UserPreferences.shared.renderFrameRate.rawValue)
         scnView.isPlaying = true
         scnView.backgroundColor = backgroundColor
 
@@ -93,9 +104,12 @@ struct AngleSceneView: UIViewRepresentable {
         scnView.addGestureRecognizer(tapGesture)
 
         context.coordinator.scnView = scnView
+        context.coordinator.installFPSReadout(in: scnView)
         context.coordinator.onPocketTapped = onPocketTapped
         context.coordinator.updatePocketAccessibility()
+        context.coordinator.contentIsAnimating = contentIsAnimating
         context.coordinator.startRenderLoop()
+        context.coordinator.requestInteractiveFrames()
         bindProjector(to: scnView)
 
         // 4x8 台面网格（条 16）：交互页进场按全局偏好显隐；
@@ -127,12 +141,21 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: SCNView, context: Context) {
+        scene.applyTableStyle(roomPreferences.tableStyle, showsSights: roomPreferences.showsTableSights)
+        scene.applyClothColor(roomPreferences.clothColor)
+        scene.applyBallStickerStyle(roomPreferences.ballStickerStyle)
+        scene.cueStick?.applyStyle(roomPreferences.cueStyle)
+        if scene.rootNode.childNode(withName: "reference_room", recursively: false) != nil {
+            scene.installReferenceRoom(style: roomPreferences.roomStyle)
+        }
         if uiView.pointOfView !== scene.cameraNode, let cam = scene.cameraNode {
             uiView.pointOfView = cam
         }
         if uiView.backgroundColor != backgroundColor {
             uiView.backgroundColor = backgroundColor
         }
+        context.coordinator.contentIsAnimating = contentIsAnimating
+        context.coordinator.requestInteractiveFrames()
         context.coordinator.cameraMode = cameraMode
         context.coordinator.interactionMode = interactionMode
         context.coordinator.locksCueBallScreenAnchor = locksCueBallScreenAnchor
@@ -164,10 +187,13 @@ struct AngleSceneView: UIViewRepresentable {
         coordinator.endAimDrag()
         coordinator.stopRenderLoop()
         uiView.isPlaying = false
+        uiView.pointOfView = nil
+        uiView.scene = nil
     }
 
     // MARK: - Coordinator
 
+    @MainActor
     final class Coordinator: NSObject {
         let scene: AngleTrainingScene
         var cameraMode: AngleTrainingScene.CameraMode
@@ -179,6 +205,96 @@ struct AngleSceneView: UIViewRepresentable {
         weak var scnView: SCNView?
         private var displayLink: CADisplayLink?
         private var lastTimestamp: CFTimeInterval = 0
+        var contentIsAnimating: Bool?
+        private var needsContinuousUpdates = true
+        private var interactiveUntil: CFTimeInterval = 0
+        let frameDelegate = FrameDelegate()
+        private var fpsHost: UIHostingController<FPSReadout>?
+        private var fpsText = "— FPS"
+        private var fpsSampleTime = CACurrentMediaTime()
+
+        func installFPSReadout(in view: SCNView) {
+            let host = UIHostingController(rootView: FPSReadout(text: "— FPS"))
+            host.sizingOptions = .intrinsicContentSize
+            host.view.backgroundColor = .clear
+            host.view.isUserInteractionEnabled = false
+            host.view.translatesAutoresizingMaskIntoConstraints = false
+            view.addSubview(host.view)
+            NSLayoutConstraint.activate([
+                host.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: Spacing.xs),
+                host.view.centerXAnchor.constraint(equalTo: view.centerXAnchor)
+            ])
+            fpsHost = host
+            updateFPSReadout()
+        }
+
+        private func updateFPSReadout() {
+            fpsHost?.view.isHidden = cameraMode != .perspective3D
+            let now = CACurrentMediaTime()
+            guard now - fpsSampleTime >= 1 else { return }
+            let count = frameDelegate.takeFrameCount()
+            let fps = Int((Double(count) / (now - fpsSampleTime)).rounded())
+            fpsSampleTime = now
+            guard cameraMode == .perspective3D else { return }
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("-v63.cameraDiagnostics"),
+               let scnView, let rig = scene.cameraRig, let host = fpsHost {
+                let center = scnView.projectPoint(SCNVector3(0, scene.surfaceY + BallPhysics.radius, 0))
+                let corners = [-Float(rig.tableOuterHalfLength), Float(rig.tableOuterHalfLength)].flatMap { x in
+                    [-Float(rig.tableOuterHalfWidth), Float(rig.tableOuterHalfWidth)].map { z in
+                        scnView.projectPoint(SCNVector3(x, scene.surfaceY, z))
+                    }
+                }
+                host.view.isAccessibilityElement = true
+                host.view.accessibilityIdentifier = "v63.cameraDiagnostics"
+                host.view.accessibilityValue = "viewport=\(scnView.bounds.size) rigViewport=\(rig.viewportSize) center=\(center) corners=\(corners) pivot=\(rig.targetPivot) yaw=\(rig.targetYaw) distance=\(rig.orbitDistance)"
+            }
+            #endif
+            let next = !needsContinuousUpdates ? "FPS · 静止" : "\(fps) FPS"
+            guard fpsText != next else { return }
+            fpsText = next
+            fpsHost?.rootView = FPSReadout(text: next)
+            updatePocketAccessibility()
+        }
+
+        private var lastSevereThermalTime: CFTimeInterval = -.infinity
+
+        func requestInteractiveFrames() {
+            interactiveUntil = CACurrentMediaTime() + 0.5
+            updateFramePacing()
+        }
+
+        private func updateFramePacing() {
+            guard let scnView, let displayLink else { return }
+            let gestureActive = scnView.gestureRecognizers?.contains { $0.state == .began || $0.state == .changed } ?? false
+            var active = (contentIsAnimating ?? true) || gestureActive || scene.isCameraModeTransitioning
+                || (scene.cameraRig?.isTransitioning ?? false)
+                || (cameraMode == .perspective3D && (scene.cameraRig?.hasPendingDamping ?? false))
+                || CACurrentMediaTime() < interactiveUntil
+            // Preserve SceneKit cue strokes, fades and selection pulses even when
+            // the view model has no physics playback in progress.
+            if !active {
+                active = scene.rootNode.hasActions || !scene.rootNode.animationKeys.isEmpty
+                scene.rootNode.enumerateChildNodes { node, stop in
+                    if node.hasActions || !node.animationKeys.isEmpty { active = true; stop.pointee = true }
+                }
+            }
+            needsContinuousUpdates = active
+            if scnView.isPlaying != active { scnView.isPlaying = active }
+            if scnView.rendersContinuously { scnView.rendersContinuously = false }
+            let maximum = scnView.window?.screen.maximumFramesPerSecond ?? UIScreen.main.maximumFramesPerSecond
+            let thermal = ProcessInfo.processInfo.thermalState
+            let now = CACurrentMediaTime()
+            if thermal == .serious || thermal == .critical { lastSevereThermalTime = now }
+            let requested = AngleSceneView.requestedFPS(maximum: maximum, selected: UserPreferences.shared.renderFrameRate, active: active,
+                thermal: thermal, lowPower: ProcessInfo.processInfo.isLowPowerModeEnabled)
+            // Avoid bouncing straight back to 120 as thermal state crosses a boundary.
+            let fps = min(requested, now - lastSevereThermalTime < 30 ? 60 : maximum)
+            if scnView.preferredFramesPerSecond != fps { scnView.preferredFramesPerSecond = fps }
+            if displayLink.preferredFrameRateRange.preferred != Float(fps) {
+                displayLink.preferredFrameRateRange = CAFrameRateRange(minimum: Float(fps), maximum: Float(fps), preferred: Float(fps))
+            }
+        }
         var gesturesEnabled = true
 
         var draggableBallNodes: [SCNNode] = []
@@ -260,9 +376,8 @@ struct AngleSceneView: UIViewRepresentable {
         func startRenderLoop() {
             displayLink?.invalidate()
             let link = CADisplayLink(target: self, selector: #selector(renderUpdate))
-            // 允许跑到屏幕最高刷新率（ProMotion 120Hz），与 SCNView 渲染同步，避免回放被限到 60fps。
-            let maxFPS = Float(UIScreen.main.maximumFramesPerSecond)
-            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: maxFPS, preferred: maxFPS)
+            let fps = Float(min(UIScreen.main.maximumFramesPerSecond, UserPreferences.shared.renderFrameRate.rawValue))
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: fps, maximum: fps, preferred: fps)
             link.add(to: .main, forMode: .common)
             displayLink = link
         }
@@ -274,9 +389,11 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc private func renderUpdate(_ link: CADisplayLink) {
+            if let scnView { scene.cameraRig?.viewportSize = scnView.bounds.size }
+            updateFramePacing()
             let dt: Float
             if lastTimestamp == 0 {
-                dt = Float(1.0 / 60.0)
+                dt = Float(max(0, link.targetTimestamp - link.timestamp))
             } else {
                 dt = Float(link.timestamp - lastTimestamp)
             }
@@ -287,6 +404,16 @@ struct AngleSceneView: UIViewRepresentable {
             // AFTER makeUIView. Without this, pointOfView stays nil → black screen.
             if let scnView, scnView.pointOfView !== scene.cameraNode, let cam = scene.cameraNode {
                 scnView.pointOfView = cam
+            }
+            frameDelegate.contact = scene.contactOcclusion
+            if let scnView, scnView.delegate !== frameDelegate { scnView.delegate = frameDelegate }
+            updateFPSReadout()
+
+            // A stable table needs no repeated camera writes. Scene graph changes
+            // still invalidate SCNView; gestures and SwiftUI updates wake it above.
+            if contentIsAnimating != nil && !needsContinuousUpdates {
+                lastTimestamp = 0
+                return
             }
 
             guard !scene.isCameraModeTransitioning else { return }
@@ -304,13 +431,11 @@ struct AngleSceneView: UIViewRepresentable {
                 scene.cameraRig?.applyTopDown2DRotated()
             case .perspective3D:
                 scene.cameraRig?.update(deltaTime: dt)
-                // Skip anchor-lock while a smooth pose transition (e.g. 观察⇄瞄准
-                // toggle) is in flight: the smooth interpolator is already
-                // driving the pivot toward the cue ball, and a competing
-                // per-frame translatePivot would fight it and cause wobble.
-                let rigBusy = scene.cameraRig?.isTransitioning ?? false
+                // Smooth transitions and manual observation own the pivot.
+                // A competing per-frame translatePivot would fight their pose
+                // or drag a chosen ball/pocket focus back toward the cue ball.
                 if locksCueBallScreenAnchor,
-                   !rigBusy,
+                   scene.cameraRig?.allowsCueScreenAnchor == true,
                    let scnView,
                    let cueBall = scene.cueBallNode {
                     // Anchor cue ball in the upper half of the visible area
@@ -392,6 +517,7 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            requestInteractiveFrames()
             if [.ended, .cancelled, .failed].contains(gesture.state), isAimFollowing {
                 endAimDrag()
                 return
@@ -449,9 +575,9 @@ struct AngleSceneView: UIViewRepresentable {
                 panCumX = 0
                 panCumY = 0
                 if let ball = draggedNode {
-                    // Use the lifted sample point so "where the ball is" (not the
-                    // raw finger) drives drop targets like the palette-removal zone.
-                    let endLocation = dragSamplePoint(for: gesture.location(in: scnView))
+                    // External drop targets follow the released finger. The
+                    // table-placement offset must not shrink the palette target.
+                    let endLocation = gesture.location(in: scnView)
                     onDragEnded?(ball)
                     onDragEndedAt?(ball, endLocation)
                     draggedNode = nil
@@ -495,6 +621,7 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
+            requestInteractiveFrames()
             guard gesturesEnabled, interactionMode == .cameraControl,
                   draggedNode == nil, let rig = scene.cameraRig else { return }
 
@@ -508,6 +635,7 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            requestInteractiveFrames()
             guard let scnView else { return }
             handleTap(at: gesture.location(in: scnView))
         }
@@ -586,6 +714,10 @@ struct AngleSceneView: UIViewRepresentable {
             scnView.accessibilityIdentifier = "table.scene"
             scnView.accessibilityLabel = "球桌"
             scnView.accessibilityValue = scene.pocketSelectionDescription
+                + "，台呢颜色：" + scene.installedClothColor.displayName
+                + "，球桌风格：" + scene.installedTableStyle.displayName
+                + "，颗星参考点：" + (scene.showsTableSights ? "显示" : "隐藏")
+                + (cameraMode == .perspective3D ? "，渲染帧率 " + fpsText : "")
             scnView.accessibilityCustomActions = onPocketTapped == nil || interactionMode == .none ? [] : (0..<6).map { index in
                 UIAccessibilityCustomAction(name: "选择\(index + 1)号\(index < 4 ? "角袋" : "中袋")") { [weak self] _ in
                     guard let self, self.gesturesEnabled, self.interactionMode != .none,
@@ -597,5 +729,44 @@ struct AngleSceneView: UIViewRepresentable {
             }
         }
 
+    }
+}
+
+/// Counts completed SceneKit render callbacks, not the requested display-link rate.
+private struct FPSReadout: View {
+    let text: String
+    var body: some View {
+        Text(text).font(.btCaption2).monospacedDigit().fixedSize()
+            .foregroundStyle(Color.btTextSecondary)
+            .padding(.horizontal, Spacing.sm).padding(.vertical, Spacing.xs)
+            .background(Color.btBGSecondary.opacity(0.85), in: Capsule())
+            .environment(\.colorScheme, .dark)
+            .accessibilityLabel("渲染帧率，" + text)
+            .accessibilityIdentifier("table.renderFPS")
+    }
+}
+
+/// SceneKit invokes delegates off the main thread; the counter and forwarding
+/// target are protected together. UI updates remain on the coordinator's main loop.
+final class FrameDelegate: NSObject, SCNSceneRendererDelegate {
+    private let lock = NSLock()
+    private var frames = 0
+    private var target: MobileContactOcclusion?
+    var contact: MobileContactOcclusion? {
+        get { lock.lock(); defer { lock.unlock() }; return target }
+        set { lock.lock(); target = newValue; lock.unlock() }
+    }
+    func takeFrameCount() -> Int {
+        lock.lock(); defer { lock.unlock() }
+        let result = frames; frames = 0; return result
+    }
+    func renderer(_ renderer: SCNSceneRenderer, didApplyAnimationsAtTime time: TimeInterval) {
+        contact?.renderer(renderer, didApplyAnimationsAtTime: time)
+    }
+    func renderer(_ renderer: SCNSceneRenderer, didRenderScene scene: SCNScene, atTime time: TimeInterval) {
+        lock.lock(); frames += 1; lock.unlock()
+        #if DEBUG
+        contact?.renderer(renderer, didRenderScene: scene, atTime: time)
+        #endif
     }
 }

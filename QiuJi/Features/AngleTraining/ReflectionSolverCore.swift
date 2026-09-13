@@ -319,11 +319,14 @@ enum EngineCushionTracer {
         let potted: Bool
         /// 落袋袋号（potted 时非 nil）。
         let pottedPocket: Int?
+        let termination: EventDrivenEngine.Termination
     }
 
     /// 从 `start` 以单位方向 `dir`、发力 `speed`（m/s）发射一颗**自然滚动**球，
     /// 返回其真实走位折线（按库边事件切分）。
-    static func launch(start: SCNVector3, dir: SCNVector3, speed: Float, y: Float) -> Launch {
+    static func launch(start: SCNVector3, dir: SCNVector3, speed: Float, y: Float,
+                       simulationModel: EventDrivenEngine.SimulationModel = .appDefault,
+                       maxEvents: Int = 400, maxTime: Float = 30) -> Launch {
         let surfaceY = y - R
         let engine = EventDrivenEngine(tableGeometry: TableGeometry.chineseEightBallQiuJi(surfaceY: surfaceY))
         let v = SCNVector3(dir.x * speed, 0, dir.z * speed)
@@ -332,7 +335,8 @@ enum EngineCushionTracer {
         engine.setBall(BallState(position: SCNVector3(start.x, y, start.z),
                                  velocity: v, angularVelocity: w,
                                  state: .rolling, name: ballName))
-        engine.simulate(maxEvents: 400, maxTime: 30, highFidelityBounds: true)
+        let termination = engine.simulatePrediction(model: simulationModel,
+            maxEvents: maxEvents, maxTime: maxTime, highFidelityBounds: true)
         let rec = engine.getTrajectoryRecorder()
 
         var polyline: [SCNVector3] = [SCNVector3(start.x, y, start.z)]
@@ -344,23 +348,23 @@ enum EngineCushionTracer {
                 polyline.append(SCNVector3(p.x, y, p.z))
                 guard let rail = railFor(normal: normal) else {
                     // 擦到 jaw 弧 / fillet：截断（后续不再是干净平库翻弹）。
-                    return Launch(polyline: polyline, rails: rails, potted: false, pottedPocket: nil)
+                    return Launch(polyline: polyline, rails: rails, potted: false, pottedPocket: nil, termination: termination)
                 }
                 rails.append(rail)
             case let .pocket(_, pid):
                 let center = pocketCenter(pid, surfaceY: surfaceY) ?? polyline.last!
                 polyline.append(SCNVector3(center.x, y, center.z))
                 return Launch(polyline: polyline, rails: rails, potted: true,
-                              pottedPocket: pocketIndex(pid))
+                              pottedPocket: pocketIndex(pid), termination: termination)
             default:
                 break
             }
         }
-        // 自然停点。
-        if let last = rec.framesByBallName[ballName]?.max(by: { $0.time < $1.time }) {
+        // Only a settled solve supplies a natural endpoint; keep completed rail legs otherwise.
+        if termination == .settled, let last = rec.framesByBallName[ballName]?.max(by: { $0.time < $1.time }) {
             polyline.append(SCNVector3(last.position.x, y, last.position.z))
         }
-        return Launch(polyline: polyline, rails: rails, potted: false, pottedPocket: nil)
+        return Launch(polyline: polyline, rails: rails, potted: false, pottedPocket: nil, termination: termination)
     }
 
     // MARK: - Shooting solve (one fixed rail sequence)
@@ -373,7 +377,8 @@ enum EngineCushionTracer {
     /// - 物理校验：① 前 K 次反弹库恰为库序；② target 在末段前方且**球能真正抵达**（不中途停 /
     ///   不在抵达前撞到别的库 / 不中途落袋）。
     static func shoot(start: SCNVector3, target: SCNVector3, seedDir: SCNVector3,
-                      rails: [Rail], speed: Float, y: Float) -> [SCNVector3]? {
+                      rails: [Rail], speed: Float, y: Float,
+                      simulationModel: EventDrivenEngine.SimulationModel = .appDefault) -> [SCNVector3]? {
         let k = rails.count
         guard k >= 1 else { return nil }
         let seedLen = sqrtf(seedDir.x * seedDir.x + seedDir.z * seedDir.z)
@@ -382,7 +387,7 @@ enum EngineCushionTracer {
 
         // signed miss（仅库序匹配时有定义）。
         func miss(_ offset: Float) -> Float? {
-            let l = launch(start: start, dir: rotateY(seed, offset), speed: speed, y: y)
+            let l = launch(start: start, dir: rotateY(seed, offset), speed: speed, y: y, simulationModel: simulationModel)
             guard l.rails.count >= k else { return nil }
             for i in 0..<k where !l.rails[i].matches(rails[i]) { return nil }
             // 第 K 次反弹点 = polyline[k]；其后一个顶点给出末段方向。
@@ -404,7 +409,7 @@ enum EngineCushionTracer {
         // 1) 种子 secant（快路径：种子取自理想解，≤3 库时拓扑通常保持，几步即收敛）。
         if let root = secant(miss, x0: 0, x1: 1.0 * .pi / 180, bound: maxOffset),
            let path = build(start: start, target: target, seed: seed, offset: root,
-                            rails: rails, speed: speed, y: y) {
+                            rails: rails, speed: speed, y: y, simulationModel: simulationModel) {
             return path
         }
         // 2) 粗扫找变号区间 + 二分兜底（仅 secant 失败时）。第一个有效根即返回。
@@ -418,7 +423,7 @@ enum EngineCushionTracer {
             guard let a = prevMiss, let b = m, (a <= 0) != (b <= 0) else { continue }
             guard let root = bisect(miss, lo: prevOff, hi: off, fLo: a) else { continue }
             if let path = build(start: start, target: target, seed: seed, offset: root,
-                                rails: rails, speed: speed, y: y) {
+                                rails: rails, speed: speed, y: y, simulationModel: simulationModel) {
                 return path
             }
         }
@@ -427,9 +432,10 @@ enum EngineCushionTracer {
 
     /// 用收敛后的偏移重建并校验完整折线 `[start, b1…bK, target]`。
     private static func build(start: SCNVector3, target: SCNVector3, seed: SCNVector3,
-                             offset: Float, rails: [Rail], speed: Float, y: Float) -> [SCNVector3]? {
+                             offset: Float, rails: [Rail], speed: Float, y: Float,
+                             simulationModel: EventDrivenEngine.SimulationModel) -> [SCNVector3]? {
         let k = rails.count
-        let l = launch(start: start, dir: rotateY(seed, offset), speed: speed, y: y)
+        let l = launch(start: start, dir: rotateY(seed, offset), speed: speed, y: y, simulationModel: simulationModel)
         guard l.rails.count >= k, l.polyline.count >= k + 2 else { return nil }
         for i in 0..<k where !l.rails[i].matches(rails[i]) { return nil }
         let bK = l.polyline[k]

@@ -243,3 +243,29 @@ final class AdjustmentDraftLayerTests: XCTestCase {
         XCTAssertEqual(vm.spinY, catalogShot.spinY, accuracy: 1e-9)
     }
 }
+
+extension AdjustmentDraftLayerTests {
+    func testPlanningPagesRejectIncompletePrediction() {
+        let silu = SiluTrainerViewModel()
+        let plan = PlanThreeViewModel()
+        let snooker = SnookerTacticsViewModel()
+        let complete = ShotPredictor.simulateFree(
+            cueBall: SCNVector3(0, BTTablePhysics.surfaceY + BallPhysics.radius, 0),
+            aimDir: SCNVector3(1, 0, 0), velocity: 0.3, spinX: 0, spinY: 0,
+            surfaceY: BTTablePhysics.surfaceY, balls: [])
+        XCTAssertTrue(complete.hasFinalTableState)
+        for termination: EventDrivenEngine.Termination? in [nil, .timeLimit, .eventLimit, .interestResolved, .failed("test")] {
+            var partial = complete
+            partial.termination = termination
+            XCTAssertFalse(silu.acceptCompletePrediction(partial))
+            XCTAssertFalse(plan.acceptCompletePrediction(partial))
+            XCTAssertFalse(snooker.acceptCompletePrediction(partial))
+            XCTAssertTrue(silu.statusText.contains("未完成"))
+            XCTAssertTrue(plan.statusText.contains("未完成"))
+            XCTAssertTrue(snooker.statusText.contains("未完成"))
+        }
+        XCTAssertTrue(silu.acceptCompletePrediction(complete))
+        XCTAssertTrue(plan.acceptCompletePrediction(complete))
+        XCTAssertTrue(snooker.acceptCompletePrediction(complete))
+    }
+}

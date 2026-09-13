@@ -22,17 +22,21 @@ struct SettingsView: View {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
                     appearanceSection
+                    frameRateSection
                     soundSection
                     trainingAidSection
                     dailyClearanceSection
                     #if DEBUG && targetEnvironment(simulator)
                     simulatorDebugSection
                     #endif
+                    equipmentSection
                     dataSection
                     if authState.isLoggedIn {
                         accountSection
                     }
                 }
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.sm)
                 .padding(.bottom, Spacing.xxxl)
@@ -108,6 +112,77 @@ struct SettingsView: View {
                 selected: $prefs.appearanceMode
             ) { $0.displayName }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var frameRateSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("球桌帧率")
+                .font(.btSubheadlineMedium)
+                .foregroundStyle(.btTextSecondary)
+                .padding(.leading, Spacing.xs)
+            BTTogglePillGroup(options: RenderFrameRate.allCases,
+                              selected: $prefs.renderFrameRate) { $0.displayName }
+                .accessibilityIdentifier("settings.frameRate")
+            Text("默认 60 帧。更高帧率更流畅，也更耗电；实际帧率受屏幕、温度和低电量模式影响。静止时自动减少重绘。")
+                .font(.btFootnote)
+                .foregroundStyle(.btTextSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, Spacing.xs)
+        }
+    }
+
+    private var equipmentSection: some View {
+        VStack(spacing: 0) {
+            equipmentLink("球房风格", value: prefs.roomStyle.displayName,
+                          identifier: "settings.roomStyle") { RoomStyleSelectionView() }
+            equipmentDivider
+            equipmentLink("球桌风格", value: prefs.tableStyle.displayName,
+                          identifier: "settings.tableStyle") { TableStyleSelectionView() }
+            equipmentDivider
+            equipmentLink("台呢颜色", value: prefs.clothColor.displayName,
+                          identifier: "settings.clothColor") { ClothColorSelectionView() }
+            equipmentDivider
+            equipmentLink("球贴纸", value: prefs.ballStickerStyle.displayName,
+                          identifier: "settings.ballSticker.open") { BallStickerSettingsView() }
+            equipmentDivider
+            equipmentLink("球杆外观", value: prefs.cueStyle.displayName,
+                          identifier: "settings.cueStyle.open") { CueStyleSettingsView() }
+            equipmentDivider
+            Toggle("显示颗星参考点", isOn: $prefs.showsTableSights)
+                .font(.btBody).foregroundStyle(.btText).tint(.btPrimary)
+                .padding(Spacing.lg)
+                .accessibilityIdentifier("settings.tableSights")
+        }
+        .background(Color.btBGSecondary, in: RoundedRectangle(cornerRadius: BTRadius.md))
+    }
+
+    private var equipmentDivider: some View { Divider().padding(.leading, Spacing.lg) }
+
+    private func equipmentLink<Destination: View>(_ title: String, value: String,
+                                                   identifier: String,
+                                                   @ViewBuilder destination: () -> Destination) -> some View {
+        NavigationLink(destination: destination) {
+            HStack(spacing: Spacing.md) {
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: Spacing.md) {
+                        Text(title).font(.btBody).foregroundStyle(.btText).fixedSize()
+                        Spacer(minLength: Spacing.sm)
+                        Text(value).font(.btSubheadline).foregroundStyle(.btTextSecondary).fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text(title).font(.btBody).foregroundStyle(.btText)
+                        Text(value).font(.btSubheadline).foregroundStyle(.btTextSecondary)
+                    }.frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Image(systemName: "chevron.right").font(.btFootnote).foregroundStyle(.btTextSecondary)
+                    .accessibilityHidden(true)
+            }
+            .padding(Spacing.lg).frame(minHeight: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
     }
 
     // MARK: - Sound

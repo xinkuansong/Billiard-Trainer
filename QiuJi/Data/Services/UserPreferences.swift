@@ -70,6 +70,33 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// Requested rendering ceiling; thermal and display limits may lower the actual rate.
+enum RenderFrameRate: Int, CaseIterable, Identifiable {
+    case fps30 = 30, fps60 = 60, fps120 = 120
+    var id: Int { rawValue }
+    var displayName: String { "\(rawValue) 帧" }
+}
+
+enum RoomStyle: String, CaseIterable, Identifiable {
+    case tournament, walnut, eastern
+    static let preferenceKey = "roomStyle.v1"
+    var id: String { rawValue }
+    var displayName: String {
+        switch self { case .tournament: "极简赛事"; case .walnut: "温润木质"; case .eastern: "当代东方" }
+    }
+    var subtitle: String {
+        switch self {
+        case .tournament: "灰色吸音墙 · 炭灰地毯"
+        case .walnut: "温润木饰面 · 暖灰地毯"
+        case .eastern: "深木格栅 · 素灰墙面"
+        }
+    }
+    var previewName: String { "RoomStyle_" + rawValue + ".jpg" }
+    static var selected: RoomStyle {
+        RoomStyle(rawValue: UserDefaults.standard.string(forKey: preferenceKey) ?? "") ?? .tournament
+    }
+}
+
 // MARK: - UserPreferences
 
 @MainActor
@@ -121,6 +148,34 @@ final class UserPreferences: ObservableObject {
     // New: Appearance
     @Published var appearanceMode: AppearanceMode {
         didSet { defaults.set(appearanceMode.rawValue, forKey: "appearanceMode") }
+    }
+
+    @Published var roomStyle: RoomStyle {
+        didSet { defaults.set(roomStyle.rawValue, forKey: RoomStyle.preferenceKey) }
+    }
+
+    @Published var showsTableSights: Bool {
+        didSet { defaults.set(showsTableSights, forKey: "showsTableSights.v1") }
+    }
+
+    @Published var clothColor: ClothColor {
+        didSet { defaults.set(clothColor.rawValue, forKey: ClothColor.preferenceKey) }
+    }
+
+    @Published var tableStyle: TableStyle {
+        didSet { defaults.set(tableStyle.rawValue, forKey: TableStyle.preferenceKey) }
+    }
+
+    @Published var ballStickerStyle: BallStickerStyle {
+        didSet { defaults.set(ballStickerStyle.rawValue, forKey: BallStickerStyle.preferenceKey) }
+    }
+
+    @Published var cueStyle: CueStyle {
+        didSet { defaults.set(cueStyle.rawValue, forKey: CueStyle.preferenceKey) }
+    }
+
+    @Published var renderFrameRate: RenderFrameRate {
+        didSet { defaults.set(renderFrameRate.rawValue, forKey: "renderFrameRate") }
     }
 
     // Shot replay sound effects are disabled by default until audio assets are ready.
@@ -187,6 +242,14 @@ final class UserPreferences: ObservableObject {
 
         let modeRaw = defaults.string(forKey: "appearanceMode") ?? AppearanceMode.system.rawValue
         self.appearanceMode = AppearanceMode(rawValue: modeRaw) ?? .system
+
+        self.roomStyle = RoomStyle(rawValue: defaults.string(forKey: RoomStyle.preferenceKey) ?? "") ?? .tournament
+        self.showsTableSights = defaults.object(forKey: "showsTableSights.v1") as? Bool ?? true
+        self.clothColor = ClothColor.selected(in: defaults)
+        self.tableStyle = TableStyle(rawValue: defaults.string(forKey: TableStyle.preferenceKey) ?? "") ?? .standard
+        self.ballStickerStyle = BallStickerStyle.selected(in: defaults)
+        self.cueStyle = CueStyle.selected(in: defaults)
+        self.renderFrameRate = RenderFrameRate(rawValue: defaults.integer(forKey: "renderFrameRate")) ?? .fps60
 
         // Default to off while preserving an explicitly saved preference.
         self.soundEffectsEnabled = (defaults.object(forKey: "soundEffectsEnabled") as? Bool) ?? false

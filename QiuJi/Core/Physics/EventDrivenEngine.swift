@@ -12,6 +12,118 @@ import SceneKit
 
 /// Event-driven physics engine for billiard simulation
 class EventDrivenEngine {
+    /// Why the requested simulation stopped; a time/event limit is not a rest state.
+    enum Termination: Equatable {
+        case settled, timeLimit, eventLimit, contactResolved, interestResolved, candidateRejected
+        case failed(String)
+    }
+
+    enum SimulationModel: Equatable {
+        case planarReference
+        case localPockets(material:PocketStaticMaterial)
+
+        /// Shared immutable policy for prediction, search, break shots and rule
+        /// decisions. v63 W17-A (user decision, 2026-09-14): pocket outcome is
+        /// decided by the planar rule "ball centre inside the drop circle", the
+        /// criterion all existing solvers were built and calibrated against.
+        /// Spatial pocket physics is presentation-only (W17-B/D) and must never
+        /// feed back into a verdict. Explicit `spatialPockets` remains available
+        /// for that presentation pass and for its own regression tests.
+        static let appDefault: SimulationModel = .planarReference
+        /// Local spatial pocket solver (DR-292 liner sink, soft-bag capture).
+        /// Cloth vertical restitution is the v63 candidate; device calibration is separate.
+        static let spatialPockets: SimulationModel = .localPockets(material: .tablePhysics(clothRestitution: 0.3))
+    }
+
+    /// Shared prediction entry. A failed local solve never silently substitutes
+    /// the planar pocket rule or publishes a successful termination.
+    @discardableResult
+    func simulatePrediction(model:SimulationModel,maxEvents:Int=1000,maxTime:Float=10,
+                            highFidelityBounds:Bool=false,earlyStopBallNames:Set<String>?=nil,
+                            stopAfterContactBetween:(String,String)?=nil,maxLocalSteps:Int=100000,
+                            rejectCushionBeforeAnyContactFor:String?=nil)->Termination {
+        switch model {
+        case .planarReference:
+            return simulate(maxEvents:maxEvents,maxTime:maxTime,highFidelityBounds:highFidelityBounds,
+                earlyStopBallNames:earlyStopBallNames,stopAfterContactBetween:stopAfterContactBetween,
+                rejectCushionBeforeAnyContactFor:rejectCushionBeforeAnyContactFor)
+        case .localPockets(let material):
+            do {
+                if spatialTime == nil { separateOverlappingBalls(maxIterations:50) }
+                return try simulateMixedWithLocalPockets(maxTime:Double(maxTime),
+                    pairRestitution:Double(BallPhysics.restitution),pairFriction:0,maxEvents:maxLocalSteps,
+                    collectsPocketedBalls:true,ballMaterial:.ballPhysics,staticMaterial:material,
+                    earlyStopBallNames:earlyStopBallNames,stopAfterContactBetween:stopAfterContactBetween,
+                    maxResolvedEvents:maxEvents,rejectCushionBeforeAnyContactFor:rejectCushionBeforeAnyContactFor)
+            } catch {
+                let diagnostic=String(describing:error)
+                print("[Physics] Local prediction failed: \(diagnostic)")
+                return .failed(diagnostic)
+            }
+        }
+    }
+
+    /// Presentation-only completion after a bounded simulation. This is not an
+    /// extension of the collision search budget: all remaining motion must be
+    /// independent cloth-normal spin, with no pending spatial ownership.
+    func completePlanarSpinTail(after termination: Termination, surfaceY: Float) -> Termination {
+        guard termination == .timeLimit, localOwnership.entries.isEmpty,
+              pendingLocalResult == nil else { return termination }
+        if let pending = pendingMixedStep {
+            guard pending.predictions.isEmpty, pending.staticContacts.isEmpty, pending.localEnd.isEmpty,
+                  pending.promoted.isEmpty, pending.pairEvents.isEmpty, pending.entry == nil,
+                  pending.capture == nil else { return termination }
+            if let event = pending.event {
+                guard case .transition(_, .spinning, .stationary) = event.type else { return termination }
+            }
+        }
+        let active = ballOrder.compactMap { balls[$0] }.filter { !$0.isPocketed }
+        guard !active.isEmpty, active.allSatisfy({ ball in
+            (ball.state == .stationary || ball.state == .spinning) &&
+            ball.velocity.x == 0 && ball.velocity.y == 0 && ball.velocity.z == 0 &&
+            ball.angularVelocity.x == 0 && ball.angularVelocity.z == 0 &&
+            ball.angularVelocity.y.isFinite && ball.position.y == surfaceY + BallPhysics.radius
+        }) else { return termination }
+        do {
+            let asset = try PocketGeometryAsset.load()
+            guard active.allSatisfy({ ball in
+                let point = SIMD3<Double>(Double(ball.position.x), Double(ball.position.y), Double(ball.position.z))
+                return !asset.regionsByPocketID.values.contains { $0.contains(point) }
+            }) else { return termination }
+        } catch {
+            return .failed("Spin tail geometry: \(error)")
+        }
+        let start = currentTime
+        var stops: [(name: String, dt: Float)] = []
+        for ball in active where ball.state == .spinning {
+            stops.append((ball.name, AnalyticalMotion.spinToStationaryTime(angularVelocity: ball.angularVelocity)))
+        }
+        stops.sort { left, right in
+            if left.dt == right.dt { return left.name < right.name }
+            return left.dt < right.dt
+        }
+        guard !stops.isEmpty, stops.allSatisfy({ $0.dt.isFinite && $0.dt >= 0 && (start + $0.dt).isFinite }) else {
+            return termination
+        }
+        // Any retained mixed step now contains only the same analytic spin
+        // transitions. Rebuild them from the committed state, never replay it.
+        pendingMixedStep = nil
+        recordSnapshot()
+        for stop in stops {
+            let end = start + stop.dt
+            for name in ballOrder {
+                if let ball = balls[name] { balls[name] = evolvePlanarBall(ball, dt: end - currentTime) }
+            }
+            currentTime = end
+            if spatialTime != nil { spatialTime = Double(end) }
+            resolveEvent(PhysicsEvent(type: .transition(ball: stop.name, fromState: .spinning, toState: .stationary),
+                                      time: 0, priority: 2))
+            recordSnapshot()
+        }
+        eventCache.clear()
+        return .settled
+    }
+
     // Ball states indexed by name
     private var balls: [String: BallState] = [:]
 
@@ -25,7 +137,701 @@ class EventDrivenEngine {
 
     // Current simulation time
     private(set) var currentTime: Float = 0
+    private var localOwnership=LocalPocketOwnership()
+    private var pendingLocalResult:(revision:UInt64,pocketID:String,result:LocalPocketSimulation.Result)?
+    private struct SpatialCushionEventKey:Hashable { let ball:String;let time:Double;let cushion:Int }
+    private var spatialCushionEventKeys:Set<SpatialCushionEventKey>=[]
+    private struct PendingMixedStep {
+        let start:Double
+        let end:Double
+        let predictions:[String:LocalPocketSimulation.Result]
+        let staticContacts:[String:[LocalPocketSimulation.Contact]]
+        let localEnd:[String:LocalPocketSimulation.State]
+        let planarStart:[String:BallState]
+        let planarEnd:[String:BallState]
+        let promoted:[String:LocalPocketOwnership.Domain]
+        let pairEvents:[PhysicsEventType]
+        let entry:(name:String,id:String)?
+        let event:PhysicsEvent?
+        let capture:(name:String,id:String,geometryVersion:String)?
+        let collectsPocketedBalls:Bool
+        let ballMaterial:SpatialBallContact.MaterialSource
+        let staticMaterial:PocketStaticMaterial
+        let maxStep:Double
+        let restitution:Double
+        let friction:Double
+        let inputRevision:UInt64
+        var revisions:[String:UInt64]
+        var emittedStaticCounts:[String:Int] = [:]
+    }
+    private var pendingMixedStep:PendingMixedStep?
+    private var ballInputRevision:UInt64=0
+    private(set) var spatialTime:Double?
+
+    enum LocalIntegrationFailure:Error {
+        case invalidInput, groupIntegrationPending, geometryMismatch, eventBudget, uncoveredCapture
+    }
+
+    struct LocalPlanarContact {
+        let localBall:String
+        let planarBall:String
+        let time:Double
+        let normal:SIMD3<Double> // local ball -> planar ball
+        let localState:LocalPocketSimulation.State
+        let planarState:LocalPocketSimulation.State
+    }
+
+    /// Speculative cross-owner CCD. The caller must resolve the earlier planar
+    /// event first, then rebuild; these predictions never cross that event.
+    func firstLocalPlanarContact(local:[String:LocalPocketSimulation.Result],until:Double) throws -> LocalPlanarContact? {
+        typealias V=SIMD3<Double>
+        func vector(_ v:SCNVector3)->V { V(Double(v.x),Double(v.y),Double(v.z)) }
+        let time=spatialTime ?? Double(currentTime)
+        guard until.isFinite,until>time,Float(until-time).isFinite,
+              Set(local.keys).isSubset(of:Set(ballOrder)) else { throw LocalIntegrationFailure.invalidInput }
+        let owners=Set(local.keys)
+        let next=findNextEvent(maxTimeRemaining:Float(until-time),excluding:owners)
+        let end=min(until,time+Double(next?.time ?? .infinity))
+        guard end>time else { return nil }
+        for result in local.values {
+            guard result.states.first?.time==time,let last=result.states.last,last.time>=end else {
+                throw LocalIntegrationFailure.invalidInput
+            }
+        }
+        var earliest:LocalPlanarContact?
+        for name in ballOrder where !owners.contains(name) {
+            guard let ball=balls[name],!ball.isPocketed else { continue }
+            let start=LocalPocketSimulation.State(time:time,position:vector(ball.position),velocity:vector(ball.velocity),
+                omega:vector(ball.angularVelocity))
+            let evolved=evolvePlanarBall(ball,dt:Float(end-time))
+            let finish=LocalPocketSimulation.State(time:end,position:vector(evolved.position),velocity:vector(evolved.velocity),
+                omega:vector(evolved.angularVelocity))
+            let span=LocalPocketSimulation.Interval(start:start,duration:end-time,
+                acceleration:vector(EngineNumerics.acceleration(for:ball)),angularAcceleration:.zero,end:finish)
+            let planar=LocalPocketSimulation.Result(states:[start,finish],contacts:[],maxCorrection:0,rejectedSteps:0,intervals:[span])
+            for localName in ballOrder {
+                guard let prediction=local[localName],let hit=try LocalPocketSimulation.firstPairContact(prediction,planar,radius:Double(BallPhysics.radius)),
+                      hit.time<(earliest?.time ?? .infinity) else { continue }
+                var planarState=hit.b
+                // Spin decay can finish inside a rolling segment. Query the
+                // actual planar equation at impact instead of interpolating it.
+                planarState.omega=vector(evolvePlanarBall(ball,dt:Float(hit.time-time)).angularVelocity)
+                earliest=LocalPlanarContact(localBall:localName,planarBall:name,time:hit.time,normal:hit.normal,
+                    localState:hit.a,planarState:planarState)
+            }
+        }
+        return earliest
+    }
+
+    /// W06 integration seam. Explicit opt-in while mixed-group scheduling and
+    /// authoritative capture are still under validation; the public App path
+    /// is not switched until those requirements are complete.
+    func simulateWithLocalPockets(maxTime:Double,maxLocalStep:Double=0.0025,maxEvents:Int=10000) throws {
+        typealias V=SIMD3<Double>
+        func vector(_ v:SCNVector3)->V { V(Double(v.x),Double(v.y),Double(v.z)) }
+        func scene(_ v:V)->SCNVector3 { SCNVector3(Float(v.x),Float(v.y),Float(v.z)) }
+        let initialTime=spatialTime ?? Double(currentTime)
+        guard maxTime.isFinite,Float(maxTime).isFinite,maxTime>=initialTime,maxLocalStep.isFinite,maxLocalStep>0,maxEvents>0 else {
+            throw LocalIntegrationFailure.invalidInput
+        }
+        // Never silently run independent spatial balls while omitting their
+        // contacts. This restriction is removed with the shared-group step.
+        guard pendingMixedStep == nil else { throw LocalPocketOwnership.Failure.staleUpdate }
+        guard ballOrder.count == 1,let name=ballOrder.first else { throw LocalIntegrationFailure.groupIntegrationPending }
+        guard maxTime>initialTime else { return }
+        let asset=try PocketGeometryAsset.load()
+        guard Set(asset.regionsByPocketID.keys)==Set(tableGeometry.pockets.map(\.id)),
+              tableGeometry.pockets.allSatisfy({ pocket in
+                  guard let region=asset.regionsByPocketID[pocket.id] else { return false }
+                  return region.center.x==Double(pocket.center.x) && region.center.z==Double(pocket.center.z)
+              }) else { throw LocalIntegrationFailure.geometryMismatch }
+        var time=initialTime,epochs=0
+        var solvers:[String:LocalPocketSimulation]=[:]
+        func solver(_ id:String) throws -> LocalPocketSimulation {
+            if let value=solvers[id] { return value }
+            guard let mesh=asset.pockets.first(where:{$0.pocketID==id}) else { throw LocalIntegrationFailure.geometryMismatch }
+            let value=LocalPocketSimulation(surfaces:mesh.patches.map{.init(triangle:$0.triangle,restitution:0.3,friction:0.2)},
+                radius:Double(BallPhysics.radius),gravity:V(0,-Double(TablePhysics.gravity),0),tolerance:1e-6)
+            solvers[id]=value;return value
+        }
+        func publish(_ state:LocalPocketSimulation.State) {
+            guard var ball=balls[name] else { return }
+            ball.position=scene(state.position);ball.velocity=scene(state.velocity);ball.angularVelocity=scene(state.omega)
+            // Motion phase remains in localOwnership; this compatibility mirror
+            // must not be used to evolve or capture the spatial ball.
+            ball.state = .sliding;balls[name]=ball
+            time=state.time;spatialTime=time;currentTime=Float(time)
+        }
+        recordSnapshot()
+        while time<maxTime {
+            epochs+=1
+            guard epochs<=maxEvents else { throw LocalIntegrationFailure.eventBudget }
+            if let owner=localOwnership.entries[name] {
+                guard let pocketID=owner.pocketID,let region=asset.regionsByPocketID[pocketID] else { throw LocalIntegrationFailure.geometryMismatch }
+                let local=try solver(pocketID)
+                if pendingLocalResult == nil,let returned=try localOwnership.returnToPlanar(ballName:name,pocketID:pocketID,
+                    revision:owner.revision,solver:local,region:region,surfaceY:Double(asset.surfaceY)) {
+                    publish(returned)
+                    var ball=balls[name]!
+                    ball.state=EngineNumerics.determineMotionState(ball);balls[name]=ball
+                    trajectoryRecorder.recordLocalHandoff(.init(ballName:name,pocketID:pocketID,kind:.returned,state:returned))
+                    eventCache.clear();recordSnapshot();continue
+                }
+                let dt=maxLocalStep
+                var result:LocalPocketSimulation.Result
+                if let pending=pendingLocalResult {
+                    guard pending.revision==owner.revision,pending.pocketID==owner.pocketID else {
+                        throw LocalPocketOwnership.Failure.staleUpdate
+                    }
+                    result=pending.result
+                } else {
+                    do { result=try local.run(from:owner.state,duration:dt,maxStep:maxLocalStep) }
+                    catch {
+                        #if DEBUG
+                        print("[W06 engine local failure] pocket=\(owner.pocketID) state=\(owner.state) dt=\(dt) error=\(error)")
+                        #endif
+                        throw error
+                    }
+                    // Cut the speculative local path at its first outgoing
+                    // boundary. The next iteration checks actual support.
+                    var crossing:Double?
+                    for span in result.intervals {
+                        if let t=region.firstCrossing(position:span.start.position,velocity:span.start.velocity,
+                            acceleration:span.acceleration,horizon:span.duration,direction:.leaving) {
+                            let absolute=span.start.time+t
+                            if absolute>time { crossing=absolute;break }
+                        }
+                    }
+                    if let crossing,crossing<time+dt {
+                        result=try local.run(from:owner.state,duration:crossing-time,maxStep:maxLocalStep)
+                    }
+                }
+                guard let predictedEnd=result.states.last else { throw LocalIntegrationFailure.eventBudget }
+                let acceptedTime=min(predictedEnd.time,maxTime)
+                var accepted:[LocalPocketSimulation.Interval]=[]
+                for span in result.intervals {
+                    let begin=max(time,span.start.time),end=min(acceptedTime,span.end.time)
+                    guard end>begin,let start=span.sample(at:begin),let finish=span.sample(at:end) else { continue }
+                    accepted.append(.init(start:start,duration:end-begin,acceleration:span.acceleration,
+                        angularAcceleration:span.angularAcceleration,end:finish))
+                }
+                guard let end=accepted.last?.end,end.time>time else { throw LocalIntegrationFailure.eventBudget }
+                try localOwnership.commit(states:[name:end],revisions:[name:owner.revision])
+                if acceptedTime<predictedEnd.time {
+                    pendingLocalResult=(localOwnership.entries[name]!.revision,pocketID,result)
+                } else { pendingLocalResult=nil }
+                trajectoryRecorder.recordLocalIntervals(ballName:name,intervals:accepted)
+                publish(end);recordSnapshot();continue
+            }
+            guard let ball=balls[name],!ball.isPocketed else { break }
+            let remaining=maxTime-time
+            let acceleration=EngineNumerics.acceleration(for:ball)
+            let p=vector(ball.position),v=vector(ball.velocity),a=vector(acceleration)
+            var entry:(id:String,dt:Double)?
+            for mesh in asset.pockets {
+                let region=asset.regionsByPocketID[mesh.pocketID]!
+                let departure=region.firstCrossing(position:p,velocity:v,acceleration:a,horizon:remaining,direction:.leaving)
+                let crossing=region.contains(p) && departure != 0 ? 0 :
+                    region.firstCrossing(position:p,velocity:v,acceleration:a,horizon:remaining,direction:.entering)
+                if let crossing,crossing<=remaining,crossing<(entry?.dt ?? .infinity) { entry=(mesh.pocketID,crossing) }
+            }
+            if entry == nil && ball.state == .stationary { break }
+            eventCache.clear()
+            let event=findNextEvent(maxTimeRemaining:Float(remaining),excluding:Set(localOwnership.entries.keys))
+            let enter=entry.map{$0.dt<=Double(event?.time ?? .infinity)} ?? false
+            let dt=enter ? entry!.dt : min(remaining,Double(event?.time ?? .infinity))
+            if dt>0 { balls[name]=evolvePlanarBall(ball,dt:Float(dt));time+=dt;currentTime=Float(time);spatialTime=time }
+            if enter,let entry {
+                let evolved=balls[name]!
+                let state=LocalPocketSimulation.State(time:time,position:p+v*dt+a*(0.5*dt*dt),
+                    velocity:vector(evolved.velocity),omega:vector(evolved.angularVelocity))
+                try localOwnership.enter(ballName:name,pocketID:entry.id,state:state)
+                trajectoryRecorder.recordLocalHandoff(.init(ballName:name,pocketID:entry.id,kind:.entered,state:state))
+                publish(state)
+            } else if let event,Double(event.time)<=dt {
+                if case .pocket=event.type { throw LocalIntegrationFailure.uncoveredCapture }
+                resolveEvent(event)
+            }
+            recordSnapshot()
+        }
+        spatialTime=time;currentTime=Float(time)
+    }
     
+    /// Mixed-group validation entry. Contact coefficients are explicit until
+    /// the spatial material contract is calibrated for production rollout.
+    /// Constraint normals point B -> A. Match the cross-owner event contract:
+    /// resting or separating support is not a new rule-level collision.
+    static func spatialImpactEvents(names:[String],incoming:[LocalPocketSimulation.State],
+                                    constraints:[SpatialBallContact.Constraint])->[PhysicsEventType] {
+        constraints.compactMap { c in
+            guard let b=c.b else { return nil }
+            let relative=incoming[c.a].velocity-incoming[b].velocity
+            let closing=relative.x*c.normal.x+relative.y*c.normal.y+relative.z*c.normal.z
+            guard closing<0 else { return nil }
+            return .ballBall(ballA:names[c.a],ballB:names[b])
+        }
+    }
+
+    @discardableResult
+    func simulateMixedWithLocalPockets(maxTime:Double,maxStep:Double=0.0025,
+                                      pairRestitution:Double,pairFriction:Double,maxEvents:Int=100000,
+                                      collectsPocketedBalls:Bool=false,
+                                      ballMaterial:SpatialBallContact.MaterialSource = .supplied,
+                                      staticMaterial:PocketStaticMaterial = .prototype,
+                                      earlyStopBallNames:Set<String>? = nil,
+                                      stopAfterContactBetween:(String,String)? = nil,
+                                      maxResolvedEvents:Int? = nil,
+                                      rejectCushionBeforeAnyContactFor:String? = nil) throws -> Termination {
+        typealias V=SIMD3<Double>
+        typealias State=LocalPocketSimulation.State
+        func v(_ x:SCNVector3)->V { V(Double(x.x),Double(x.y),Double(x.z)) }
+        func scn(_ x:V)->SCNVector3 { SCNVector3(Float(x.x),Float(x.y),Float(x.z)) }
+        func length(_ x:V)->Double { sqrt(x.x*x.x+x.y*x.y+x.z*x.z) }
+        var time=spatialTime ?? Double(currentTime)
+        guard maxTime.isFinite,maxTime>=time,Float(maxTime).isFinite,maxStep.isFinite,maxStep>0,maxEvents>0,
+              pairRestitution.isFinite,(0...1).contains(pairRestitution),pairFriction.isFinite,pairFriction>=0,
+              pendingLocalResult == nil,(maxResolvedEvents ?? 0)>=0 else { throw LocalIntegrationFailure.invalidInput }
+        guard time<maxTime else { return .timeLimit }
+        let asset=try PocketGeometryAsset.load(),radius=Double(BallPhysics.radius)
+        let surfaceRoles=try asset.surfaceRoles()
+        let collection=collectsPocketedBalls ? try asset.captureBoundaries() : [:]
+        guard Set(asset.regionsByPocketID.keys)==Set(tableGeometry.pockets.map(\.id)),
+              tableGeometry.pockets.allSatisfy({p in
+                  guard let r=asset.regionsByPocketID[p.id] else { return false }
+                  return r.center.x==Double(p.center.x) && r.center.z==Double(p.center.z)
+              }) else { throw LocalIntegrationFailure.geometryMismatch }
+        let solver=try asset.localSimulation(material:staticMaterial,ballMaterial:ballMaterial)
+        func state(_ ball:BallState,at t:Double)->State {
+            .init(time:t,position:v(ball.position),velocity:v(ball.velocity),omega:v(ball.angularVelocity))
+        }
+        func mirror(_ name:String,_ s:State) {
+            var ball=balls[name]!
+            ball.position=scn(s.position);ball.velocity=scn(s.velocity);ball.angularVelocity=scn(s.omega)
+            ball.state = .sliding;balls[name]=ball
+        }
+        if pendingMixedStep == nil {
+            for name in ballOrder where localOwnership.entries[name] == nil {
+                guard let ball=balls[name],!ball.isPocketed else { continue }
+                let heightError=abs(Double(ball.position.y)-(Double(asset.surfaceY)+radius))
+                if ball.velocity.y != 0 || heightError>4*solver.tolerance {
+                    let initial=state(ball,at:time)
+                    try localOwnership.enter(ballName:name,domain:.airborne,state:initial)
+                    trajectoryRecorder.recordLocalHandoff(.init(ballName:name,domain:.airborne,kind:.entered,state:initial))
+                }
+            }
+        }
+        func affected(_ type:PhysicsEventType)->Set<String> {
+            switch type {
+            case .ballBall(let a,let b): return [a,b]
+            case .ballCushion(let ball,_,_),.transition(let ball,_,_),.pocket(let ball,_): return [ball]
+            }
+        }
+        var termination:Termination = .timeLimit
+        let firstResolvedEvent=resolvedEvents.count
+        var epochs=0
+        var phaseClock=MixedLoopPhaseClock()
+        defer { phaseClock.flush() }
+        recordSnapshot()
+        while time<maxTime {
+            if rejectsDirectCandidate(cue: rejectCushionBeforeAnyContactFor) {
+                termination = .candidateRejected; break
+            }
+            if let limit=maxResolvedEvents,resolvedEvents.count-firstResolvedEvent>=limit {
+                termination = .eventLimit;break
+            }
+            let tSettle=MixedLoopPhaseClock.now()
+            let allLocallySettled = pendingMixedStep == nil && !localOwnership.entries.isEmpty &&
+               ballOrder.allSatisfy({ name in
+                   guard let ball=balls[name],!ball.isPocketed else { return true }
+                   if let owner=localOwnership.entries[name] {
+                       // Friction can leave sub-roundoff residuals instead of
+                       // exact zero. Compare rim speed in the same units as v.
+                       let roundoff=64*Double.ulpOfOne
+                       guard length(owner.state.velocity)<=roundoff, length(owner.state.omega)*radius<=roundoff else { return false }
+                       if solver.planarSupport(from:owner.state,surfaceY:Double(asset.surfaceY)) != nil { return true }
+                       // A pocket lip can support static moment balance without
+                       // being a horizontal bed. Require an accepted equilibrium
+                       // interval, not merely an instant of zero velocity.
+                       guard let span=trajectoryRecorder.localIntervalsByBallName[name]?.last,
+                             span.end.time==owner.state.time,span.end.position==owner.state.position,
+                             span.duration>0 else { return false }
+                       let accelerationRoundoff=roundoff*max(1,Double(TablePhysics.gravity))
+                       return length(span.start.velocity)<=roundoff && length(span.start.omega)*radius<=roundoff &&
+                           length(span.acceleration)<=accelerationRoundoff &&
+                           length(span.angularAcceleration)*radius<=accelerationRoundoff &&
+                           length(span.end.position-span.start.position)<=roundoff*max(1,length(span.end.position))
+                   }
+                   return ball.state == .stationary &&
+                       !asset.regionsByPocketID.values.contains(where:{$0.contains(v(ball.position))})
+               })
+            phaseClock.add(.settleCheck,since:tSettle)
+            if allLocallySettled {
+                var resting:[String:State]=[:],revisions:[String:UInt64]=[:]
+                for (name,owner) in localOwnership.entries {
+                    var stopped=owner.state
+                    stopped.velocity = .zero;stopped.omega = .zero
+                    resting[name]=stopped;revisions[name]=owner.revision
+                    mirror(name,stopped);balls[name]!.state = .stationary
+                }
+                try localOwnership.commit(states:resting,revisions:revisions)
+                recordSnapshot()
+                termination = .settled;break
+            }
+            // The planar range proof omits gravitational potential energy.
+            // Reuse it only after all active spatial owners have returned.
+            if let interest=earlyStopBallNames,pendingMixedStep == nil,localOwnership.entries.isEmpty,
+               balls.values.allSatisfy({ball in ball.isPocketed ||
+                   (ball.position.y==asset.surfaceY+BallPhysics.radius && ball.velocity.y==0 &&
+                    !asset.regionsByPocketID.values.contains(where:{$0.contains(v(ball.position))}))}),
+               canEarlyStop(interest:interest) { termination = .interestResolved; break }
+            let acceptedEventStart=resolvedEvents.count
+            epochs+=1
+            guard epochs<=maxEvents else { throw LocalIntegrationFailure.eventBudget }
+            if let pending=pendingMixedStep {
+                let tCommit=MixedLoopPhaseClock.now()
+                phaseClock.tick(.commitEpochs)
+                defer { phaseClock.add(.commit,since:tCommit) }
+                guard pending.inputRevision==ballInputRevision,pending.maxStep==maxStep,
+                      pending.collectsPocketedBalls==collectsPocketedBalls,
+                      pending.ballMaterial==ballMaterial,
+                      pending.staticMaterial==staticMaterial,
+                      pending.restitution==pairRestitution,pending.friction==pairFriction,
+                      pending.revisions.allSatisfy({localOwnership.entries[$0.key]?.revision==$0.value}) else {
+                    throw LocalPocketOwnership.Failure.staleUpdate
+                }
+                let stop=min(maxTime,pending.end),complete=stop==pending.end
+                var localEnd:[String:State]=[:]
+                if complete { localEnd=pending.localEnd }
+                else {
+                    for (name,result) in pending.predictions {
+                        guard let span=result.intervals.first(where:{$0.start.time<=stop && $0.end.time>=stop}),
+                              let s=span.sample(at:stop) else { throw LocalIntegrationFailure.invalidInput }
+                        localEnd[name]=s
+                    }
+                }
+                var updated=localOwnership
+                if complete {
+                    for name in ballOrder {
+                        if let id=pending.promoted[name],let s=localEnd[name] {
+                            try updated.enter(ballName:name,domain:id,state:s)
+                        }
+                    }
+                }
+                if !localEnd.isEmpty {
+                    let revisions=Dictionary(uniqueKeysWithValues:localEnd.keys.map{($0,updated.entries[$0]!.revision)})
+                    try updated.commit(states:localEnd,revisions:revisions)
+                }
+                localOwnership=updated
+                for (name,start) in pending.planarStart {
+                    balls[name]=complete ? pending.planarEnd[name]! : evolvePlanarBall(start,dt:Float(stop-pending.start))
+                }
+                for name in ballOrder {
+                    guard let end=localEnd[name] else { continue }
+                    if complete,let id=pending.promoted[name] {
+                        trajectoryRecorder.recordLocalHandoff(.init(ballName:name,domain:id,kind:.entered,state:end))
+                    }
+                    if let result=pending.predictions[name] {
+                        var accepted:[LocalPocketSimulation.Interval]=[]
+                        for span in result.intervals {
+                            let begin=max(time,span.start.time),finish=min(stop,span.end.time)
+                            guard finish>begin,let a=span.sample(at:begin),let b=span.sample(at:finish) else { continue }
+                            accepted.append(.init(start:a,duration:finish-begin,acceleration:span.acceleration,
+                                angularAcceleration:span.angularAcceleration,end:finish==stop ? end:b))
+                        }
+                        trajectoryRecorder.recordLocalIntervals(ballName:name,intervals:accepted)
+                    }
+                    mirror(name,end)
+                }
+                var emitted=pending.emittedStaticCounts
+                var contacts:[TrajectoryRecorder.LocalStaticContact]=[]
+                for name in ballOrder {
+                    guard let source=pending.staticContacts[name] else { continue }
+                    let begin=emitted[name,default:0]
+                    var count=begin
+                    for contact in source.dropFirst(begin) {
+                        guard contact.time<=stop else { break }
+                        contacts.append(.init(ballName:name,geometryID:"table-contact-geometry",contact:contact));count+=1
+                    }
+                    emitted[name]=count
+                }
+                for contact in contacts.sorted(by:{$0.contact.time<$1.contact.time}) {
+                    trajectoryRecorder.recordLocalStaticContact(contact)
+                    guard surfaceRoles[contact.contact.surface] == .cushion else { continue }
+                    let t=contact.contact.time,name=contact.ballName,n=contact.contact.normal
+                    let horizontal=sqrt(n.x*n.x+n.z*n.z)
+                    guard horizontal>0 else { continue }
+                    let sample=pending.predictions[name]?.intervals.last(where:{$0.start.time<=t && $0.end.time>=t})?.sample(at:t,beforeEndpoint:true)
+                    // Newly promoted neighbours have no earlier local path.
+                    let state=sample ?? pending.localEnd[name]
+                    guard let state,state.time==t,
+                          let cushion=tableGeometry.nearestCushionIndex(to:state.position-n*radius) else {
+                        throw LocalIntegrationFailure.invalidInput
+                    }
+                    if spatialCushionEventKeys.insert(.init(ball:name,time:t,cushion:cushion)).inserted {
+                        resolvedEvents.append(.ballCushion(ball:name,cushionIndex:cushion,normal:SCNVector3(Float(n.x/horizontal),0,Float(n.z/horizontal))))
+                        resolvedEventTimes.append(Float(t))
+                    }
+                }
+                time=stop;spatialTime=time;currentTime=Float(time);eventCache.clear()
+                if complete {
+                    pendingMixedStep=nil
+                    for event in pending.pairEvents {
+                        resolvedEvents.append(event);resolvedEventTimes.append(Float(time))
+                        if firstBallBallCollisionTime == nil { firstBallBallCollisionTime=Float(time) }
+                    }
+                    if let entry=pending.entry {
+                        let s=state(balls[entry.name]!,at:time)
+                        try localOwnership.enter(ballName:entry.name,pocketID:entry.id,state:s)
+                        trajectoryRecorder.recordLocalHandoff(.init(ballName:entry.name,pocketID:entry.id,kind:.entered,state:s))
+                    }
+                    if let event=pending.event {
+                        if case .pocket=event.type { throw LocalIntegrationFailure.uncoveredCapture }
+                        resolveEvent(event)
+                    }
+                    if let capture=pending.capture {
+                        guard let owner=localOwnership.entries[capture.name] else { throw LocalIntegrationFailure.invalidInput }
+                        let end=try localOwnership.completeCapture(ballName:capture.name,pocketID:capture.id,revision:owner.revision)
+                        try trajectoryRecorder.recordConfirmedCapture(.init(ballName:capture.name,pocketID:capture.id,
+                            geometryVersion:capture.geometryVersion,state:end))
+                        guard let boundary=collection[capture.id] else { throw LocalIntegrationFailure.geometryMismatch }
+                        let tail=try PocketCollectionTail(start:end,restingCenterY:boundary.restingCenterY,
+                                                          gravity:Double(TablePhysics.gravity))
+                        try trajectoryRecorder.recordCollectionTail(ballName:capture.name,tail:tail)
+                        balls[capture.name]!.state = .pocketed
+                        balls[capture.name]!.velocity=SCNVector3Zero
+                        balls[capture.name]!.angularVelocity=SCNVector3Zero
+                        resolvedEvents.append(.pocket(ball:capture.name,pocketId:capture.id))
+                        resolvedEventTimes.append(Float(time))
+                    }
+                } else {
+                    var remaining=pending
+                    remaining.emittedStaticCounts=emitted
+                    remaining.revisions=Dictionary(uniqueKeysWithValues:localOwnership.entries.map{($0.key,$0.value.revision)})
+                    pendingMixedStep=remaining
+                }
+                recordSnapshot()
+                if resolvedEvents.dropFirst(acceptedEventStart).contains(where:{
+                    isContactStopEvent($0,pair:stopAfterContactBetween)
+                }) { termination = .contactResolved; break }
+                continue
+            }
+            // A supported ball may return only after leaving its region and
+            // separating from the spatial contact group.
+            let tReturn=MixedLoopPhaseClock.now()
+            for name in ballOrder {
+                guard let owner=localOwnership.entries[name] else { continue }
+                let touching=localOwnership.entries.contains { other in
+                    other.key != name && length(other.value.state.position-owner.state.position)<=2*radius+4*solver.tolerance
+                }
+                guard !touching else { continue }
+                let returned:State?
+                switch owner.domain {
+                case .airborne:
+                    returned=try localOwnership.returnAirborneToPlanar(ballName:name,revision:owner.revision,
+                        solver:solver,surfaceY:Double(asset.surfaceY))
+                case .pocket(let id):
+                    guard let region=asset.regionsByPocketID[id] else { throw LocalIntegrationFailure.geometryMismatch }
+                    returned=try localOwnership.returnToPlanar(ballName:name,pocketID:id,
+                        revision:owner.revision,solver:solver,region:region,surfaceY:Double(asset.surfaceY))
+                }
+                if let returned {
+                    mirror(name,returned);balls[name]!.state=EngineNumerics.determineMotionState(balls[name]!)
+                    trajectoryRecorder.recordLocalHandoff(.init(ballName:name,domain:owner.domain,kind:.returned,state:returned))
+                }
+            }
+            phaseClock.add(.returnCheck,since:tReturn)
+            eventCache.clear()
+            let owners=Set(localOwnership.entries.keys)
+            phaseClock.tick(owners.isEmpty ? .epochsNoLocalOwner : .epochsLocalOwnerActive)
+            // Local integration needs small steps only while a local owner is
+            // active. Else retain the existing planar motion budget; the exact
+            // region crossing below still interrupts before pocket takeover.
+            let tPlanar=MixedLoopPhaseClock.now()
+            let planarCap=EngineNumerics.adaptiveEvolveCap(balls:getAllBalls(),
+                minX:tableBounds.minX,maxX:tableBounds.maxX,
+                minZ:tableBounds.minZ,maxZ:tableBounds.maxZ,pockets:tableGeometry.pockets)
+            let stepCap=owners.isEmpty ? Double(planarCap) : maxStep
+            let event=findNextEvent(maxTimeRemaining:Float(stepCap),excluding:owners)
+            phaseClock.add(owners.isEmpty ? .planarEventsIdle : .planarEventsLocalActive,since:tPlanar)
+            var horizon=min(stepCap,Double(event?.time ?? .infinity))
+            var entry:(name:String,id:String,dt:Double)?
+            let tRegion=MixedLoopPhaseClock.now()
+            for name in ballOrder where !owners.contains(name) {
+                guard let ball=balls[name],!ball.isPocketed else { continue }
+                let p=v(ball.position),velocity=v(ball.velocity),a=v(EngineNumerics.acceleration(for:ball))
+                for mesh in asset.pockets {
+                    let region=asset.regionsByPocketID[mesh.pocketID]!
+                    let departure=region.firstCrossing(position:p,velocity:velocity,acceleration:a,horizon:horizon,direction:.leaving)
+                    let dt=region.contains(p) && departure != 0 ? 0 : region.firstCrossing(position:p,velocity:velocity,
+                        acceleration:a,horizon:horizon,direction:.entering)
+                    if let dt,dt<(entry?.dt ?? .infinity) { entry=(name,mesh.pocketID,dt) }
+                }
+            }
+            phaseClock.add(.regionScan,since:tRegion)
+            if let entry { horizon=min(horizon,entry.dt) }
+            if horizon==0 {
+                if let entry,entry.dt==0 {
+                    let s=state(balls[entry.name]!,at:time)
+                    try localOwnership.enter(ballName:entry.name,pocketID:entry.id,state:s)
+                    trajectoryRecorder.recordLocalHandoff(.init(ballName:entry.name,pocketID:entry.id,kind:.entered,state:s))
+                }
+                if let event,event.time==0,affected(event.type).isDisjoint(with:Set(localOwnership.entries.keys)) {
+                    if case .pocket=event.type { throw LocalIntegrationFailure.uncoveredCapture }
+                    resolveEvent(event)
+                }
+                recordSnapshot()
+                if resolvedEvents.dropFirst(acceptedEventStart).contains(where:{
+                    isContactStopEvent($0,pair:stopAfterContactBetween)
+                }) { termination = .contactResolved; break }
+                continue
+            }
+            if owners.isEmpty && entry == nil && balls.values.allSatisfy({$0.isPocketed || $0.state == .stationary}) { termination = .settled; break }
+            if !owners.isEmpty { horizon=min(horizon,maxStep) }
+            let names=ballOrder.filter{owners.contains($0)}
+            var predictions:[String:LocalPocketSimulation.Result]=[:]
+            var localEnd:[String:State]=[:]
+            var pairEvents:[PhysicsEventType]=[]
+            var stop=time+horizon
+            let tLocal=MixedLoopPhaseClock.now()
+            if !names.isEmpty {
+                let start=names.map{localOwnership.entries[$0]!.state}
+                let trial=try solver.advanceTogether(from:start,duration:horizon,maxStep:maxStep,
+                                                     pairRestitution:pairRestitution,pairFriction:pairFriction)
+                stop=trial.time
+                if !trial.constraints.isEmpty {
+                    let incoming=try names.indices.map { i -> State in
+                        if trial.time==start[i].time { return start[i] }
+                        guard let span=trial.intervals[i].last(where:{$0.start.time<=trial.time && $0.end.time>=trial.time}),
+                              let state=span.sample(at:trial.time,beforeEndpoint:true) else {
+                            throw LocalIntegrationFailure.invalidInput
+                        }
+                        return state
+                    }
+                    pairEvents=Self.spatialImpactEvents(names:names,incoming:incoming,constraints:trial.constraints)
+                }
+                for i in names.indices {
+                    predictions[names[i]] = .init(states:[start[i],trial.states[i]],contacts:trial.staticContacts[i],maxCorrection:0,
+                                                   rejectedSteps:trial.rejectedTrials,intervals:trial.intervals[i])
+                    localEnd[names[i]]=trial.states[i]
+                }
+            }
+            phaseClock.add(.localAdvance,since:tLocal)
+            var capture:(name:String,id:String,geometryVersion:String,time:Double)?
+            let tCapture=MixedLoopPhaseClock.now()
+            if collectsPocketedBalls {
+                for name in names {
+                    guard let owner=localOwnership.entries[name],let prediction=predictions[name] else { continue }
+                    let pocketIDs=owner.pocketID.map{[$0]} ?? tableGeometry.pockets.map(\.id)
+                    for pocketID in pocketIDs {
+                    guard let boundary=collection[pocketID] else { continue }
+                    for span in prediction.intervals {
+                        guard let candidate=boundary.firstCandidate(in:span),candidate.time<=stop,
+                              candidate.time<(capture?.time ?? .infinity) else { continue }
+                        var others:[State]=[]
+                        for other in ballOrder where other != name && !(balls[other]?.isPocketed ?? true) {
+                            if let path=predictions[other] {
+                                guard let interval=path.intervals.first(where:{$0.start.time<=candidate.time && $0.end.time>=candidate.time}),
+                                      let sampled=interval.sample(at:candidate.time) else { throw LocalIntegrationFailure.invalidInput }
+                                others.append(sampled)
+                            } else {
+                                others.append(state(evolvePlanarBall(balls[other]!,dt:Float(candidate.time-time)),at:candidate.time))
+                            }
+                        }
+                        if boundary.isClearOfActiveBalls(candidate,others:others,positionUncertainty:4*solver.tolerance) {
+                            capture=(name,pocketID,boundary.geometryVersion,candidate.time)
+                        }
+                    }
+                    }
+                }
+                if let capture,capture.time<stop {
+                    stop=capture.time;pairEvents=[]
+                    for name in names {
+                        guard let interval=predictions[name]!.intervals.first(where:{$0.start.time<=stop && $0.end.time>=stop}),
+                              let sampled=interval.sample(at:stop) else { throw LocalIntegrationFailure.invalidInput }
+                        localEnd[name]=sampled
+                    }
+                }
+            }
+            phaseClock.add(.captureScan,since:tCapture)
+            let tCross=MixedLoopPhaseClock.now()
+            let cross=stop>time && !names.isEmpty ? try firstLocalPlanarContact(local:predictions,until:stop) : nil
+            phaseClock.add(.crossDetect,since:tCross)
+            if let cross { stop=cross.time;capture=nil }
+            let startTime=time
+            let dt=stop-time
+            let tBook=MixedLoopPhaseClock.now()
+            var evolved:[String:BallState]=[:]
+            for name in ballOrder where !owners.contains(name) {
+                evolved[name]=evolvePlanarBall(balls[name]!,dt:Float(dt))
+            }
+            phaseClock.add(.bookkeeping,since:tBook)
+            var promoted:[String:LocalPocketOwnership.Domain]=[:]
+            var promotedContacts:[String:[LocalPocketSimulation.Contact]]=[:]
+            let tGroup=MixedLoopPhaseClock.now()
+            if let cross {
+                var group=names,states:[State]=[],accelerations:[V]=[]
+                for name in names {
+                    guard let span=predictions[name]!.intervals.first(where:{$0.start.time<=stop && $0.end.time>=stop}),
+                          let s=span.sample(at:stop,beforeEndpoint:true) else { throw LocalIntegrationFailure.invalidInput }
+                    states.append(s);accelerations.append(span.acceleration)
+                }
+                // Transitive touching neighbours join the same impulse solve.
+                // Full-table geometry supplies their support outside the pocket.
+                var i=0
+                while i<group.count {
+                    for name in ballOrder where !group.contains(name) && !(evolved[name]?.isPocketed ?? true) {
+                        var s=state(evolved[name]!,at:stop)
+                        if name==cross.planarBall { s=cross.planarState }
+                        let rounding=64*Double.ulpOfOne*max(1,length(s.position),length(states[i].position))
+                        if name==cross.planarBall || length(s.position-states[i].position)<=2*radius+rounding {
+                            let id=name==cross.planarBall ? localOwnership.entries[cross.localBall]!.domain :
+                                (localOwnership.entries[group[i]]?.domain ?? promoted[group[i]]!)
+                            promoted[name]=id;group.append(name);states.append(s)
+                            accelerations.append(v(EngineNumerics.acceleration(for:balls[name]!)))
+                        }
+                    }
+                    i+=1
+                }
+                let response=try solver.resolveContactGroup(states,accelerations:accelerations,
+                    pairRestitution:pairRestitution,pairFriction:pairFriction)
+                pairEvents=Self.spatialImpactEvents(names:group,incoming:states,constraints:response.constraints)
+                for i in group.indices {
+                    let name=group[i]
+                    localEnd[name]=response.states[i]
+                    if let prediction=predictions[name] {
+                        predictions[name] = .init(states:prediction.states,
+                            contacts:prediction.contacts.filter{$0.time<stop}+response.staticContacts[i],
+                            maxCorrection:prediction.maxCorrection,rejectedSteps:prediction.rejectedSteps,intervals:prediction.intervals)
+                    } else { promotedContacts[name]=response.staticContacts[i] }
+                }
+            }
+            phaseClock.add(.contactGroup,since:tGroup)
+            let tPending=MixedLoopPhaseClock.now()
+            defer { phaseClock.add(.bookkeeping,since:tPending) }
+            let dueEntry:(name:String,id:String)? = cross == nil && entry.map({stop==startTime+$0.dt}) == true
+                ? (entry!.name,entry!.id) : nil
+            var finalOwners=owners.union(promoted.keys)
+            if let dueEntry { finalOwners.insert(dueEntry.name) }
+            // Independent events remain due even when a different ball enters
+            // local ownership or collides at this same absolute instant.
+            let dueEvent:PhysicsEvent? = event.flatMap { candidate in
+                stop==startTime+Double(candidate.time) && affected(candidate.type).isDisjoint(with:finalOwners) ? candidate:nil
+            }
+            pendingMixedStep=PendingMixedStep(start:startTime,end:stop,predictions:predictions,
+                staticContacts:predictions.mapValues(\.contacts).merging(promotedContacts,uniquingKeysWith:{$1}),localEnd:localEnd,
+                planarStart:Dictionary(uniqueKeysWithValues:ballOrder.filter{!owners.contains($0)}.map{($0,balls[$0]!)}),
+                planarEnd:evolved,promoted:promoted,pairEvents:pairEvents,entry:dueEntry,event:dueEvent,
+                capture:capture.map{($0.name,$0.id,$0.geometryVersion)},collectsPocketedBalls:collectsPocketedBalls,
+                ballMaterial:ballMaterial,
+                staticMaterial:staticMaterial,
+                maxStep:maxStep,restitution:pairRestitution,friction:pairFriction,inputRevision:ballInputRevision,
+                revisions:Dictionary(uniqueKeysWithValues:localOwnership.entries.map{($0.key,$0.value.revision)}))
+
+        }
+        spatialTime=time;currentTime=Float(time)
+        return termination
+    }
+
     // Table geometry bounds
     private let tableBounds: (minX: Float, maxX: Float, minZ: Float, maxZ: Float)
     
@@ -63,8 +869,21 @@ class EventDrivenEngine {
         )
     }
     
+    /// Begin a fresh simulation at an existing shot's absolute clock.
+    /// This restores time only; callers must supply validated supported ball
+    /// states and retain the preceding spatial records separately.
+    convenience init(tableGeometry: TableGeometry, startingAt time: Double) throws {
+        guard time.isFinite, time >= 0, Float(time).isFinite else {
+            throw LocalIntegrationFailure.invalidInput
+        }
+        self.init(tableGeometry: tableGeometry)
+        currentTime = Float(time)
+        spatialTime = time
+    }
+
     /// Add or update a ball state
     func setBall(_ ball: BallState) {
+        ballInputRevision+=1
         if balls[ball.name] == nil { ballOrder.append(ball.name) }
         balls[ball.name] = ball
     }
@@ -91,9 +910,11 @@ class EventDrivenEngine {
     /// - Parameter stopAfterContactBetween: 瞄准评分专用早停（B1）：非 nil 时，两球间**首次碰撞**
     ///   解算并记帧后立即结束。瞄准评分只消费「碰前事件 + 碰后第一帧方向」——碰撞发生 ⇒ 之后的
     ///   演进对评分零贡献，直接截断；碰撞不发生 ⇒ 永不触发，回退整程模拟。评分值与整程逐位一致。
+    @discardableResult
     func simulate(maxEvents: Int = 1000, maxTime: Float = 10.0, highFidelityBounds: Bool = false,
                   earlyStopBallNames: Set<String>? = nil,
-                  stopAfterContactBetween: (String, String)? = nil) {
+                  stopAfterContactBetween: (String, String)? = nil,
+                  rejectCushionBeforeAnyContactFor: String? = nil) -> Termination {
         PerformanceProfiler.begin(ProfilerLabel.simulate)
         defer { PerformanceProfiler.end(ProfilerLabel.simulate) }
 
@@ -107,9 +928,10 @@ class EventDrivenEngine {
         var zeroTimeEventStreak = 0
         
         while eventCount < maxEvents && currentTime < maxTime {
+            if rejectsDirectCandidate(cue: rejectCushionBeforeAnyContactFor) { return .candidateRejected }
             // Zero-duration transitions can finish a ball at this same instant.
             // Once every ball is at rest, do not append an artificial maxTime tail.
-            if balls.values.allSatisfy({ $0.isPocketed || $0.state == .stationary }) { break }
+            if balls.values.allSatisfy({ $0.isPocketed || $0.state == .stationary }) { return .settled }
             // Find next event
             PerformanceProfiler.begin(ProfilerLabel.findNextEvent)
             let nextEvent = findNextEvent(maxTimeRemaining: maxTime - currentTime)
@@ -119,8 +941,8 @@ class EventDrivenEngine {
                 // No more events, advance to maxTime
                 let dt = maxTime - currentTime
                 evolveAllBalls(dt: dt)
-                recordSnapshot()
                 currentTime = maxTime
+                recordSnapshot()
                 break
             }
             
@@ -133,7 +955,7 @@ class EventDrivenEngine {
                 invalidateCache(for: nextEvent)
                 recordSnapshot()
                 eventCount += 1
-                if isContactStopEvent(nextEvent, pair: stopAfterContactBetween) { break }
+                if isContactStopEvent(nextEvent, pair: stopAfterContactBetween) { return .contactResolved }
                 
                 // 保护：避免连续零时刻事件导致主线程长时间卡死
                 if zeroTimeEventStreak > 80 {
@@ -198,7 +1020,7 @@ class EventDrivenEngine {
             eventCount += 1
             
             // 瞄准评分早停（B1）：两具名球首次碰撞已解算并记帧 ⇒ 评分消费量齐备，截断尾部演进。
-            if isContactStopEvent(nextEvent, pair: stopAfterContactBetween) { break }
+            if isContactStopEvent(nextEvent, pair: stopAfterContactBetween) { return .contactResolved }
             
             // 提前终止检查（Ref: pooltool event.time == np.inf → done）：
             // 每 8 步检查一次是否所有活动球已 stationary，以避免不必要的碰撞扫描。
@@ -208,19 +1030,44 @@ class EventDrivenEngine {
                     b.isPocketed || b.state == .stationary
                 }
                 if allAtRest {
-                    break
+                    return .settled
                 }
                 if let interest = earlyStopBallNames, canEarlyStop(interest: interest) {
-                    break
+                    return .interestResolved
                 }
             }
         }
+        if balls.values.allSatisfy({$0.isPocketed || $0.state == .stationary}) { return .settled }
+        // The early-stop criterion is a state predicate, not an event: a spin-only tail
+        // (planar `.spinning`) can outlast `maxTime` with no further events, so the
+        // periodic in-loop check never fires. Evaluate it once more before reporting
+        // a horizon cutoff (W17-A: planar default made this reachable in search runs).
+        if let interest = earlyStopBallNames, canEarlyStop(interest: interest) { return .interestResolved }
+        return currentTime>=maxTime ? .timeLimit : .eventLimit
+    }
+
+    /// A lower-bound rejection used only once the caller already has a valid
+    /// direct candidate. Match runShot's "before any ball-ball event" contract.
+    private func rejectsDirectCandidate(cue: String?) -> Bool {
+        guard let cue else { return false }
+        for event in resolvedEvents {
+            switch event {
+            case .ballBall: return false
+            case .ballCushion(let name, _, _) where name == cue: return true
+            default: continue
+            }
+        }
+        return false
     }
 
     /// 瞄准评分早停判定：本事件是否为 `pair` 两球间的球-球碰撞（无序匹配）。
     private func isContactStopEvent(_ event: PhysicsEvent, pair: (String, String)?) -> Bool {
+        isContactStopEvent(event.type,pair:pair)
+    }
+
+    private func isContactStopEvent(_ event: PhysicsEventType, pair: (String, String)?) -> Bool {
         guard let (x, y) = pair else { return false }
-        if case let .ballBall(a, b) = event.type {
+        if case let .ballBall(a, b) = event {
             return (a == x && b == y) || (a == y && b == x)
         }
         return false
@@ -274,8 +1121,9 @@ class EventDrivenEngine {
     // MARK: - Private Methods
     
     /// Find the next event to occur
-    private func findNextEvent(maxTimeRemaining: Float) -> PhysicsEvent? {
+    func findNextEvent(maxTimeRemaining: Float, excluding:Set<String>=[]) -> PhysicsEvent? {
         var candidates: [PhysicsEvent] = []
+        let names=ballOrder.filter { !excluding.contains($0) }
         
         // Align with pooltool: event detection always uses the remaining simulation horizon.
         // Do not shrink the search window heuristically; aggressive truncation can miss valid
@@ -285,7 +1133,7 @@ class EventDrivenEngine {
         // Find next transition events. Zero is a valid analytical duration:
         // e.g. a rolling ball with no residual spin must become stationary
         // through spinning at this same instant, rather than remain stuck.
-        for name in ballOrder {
+        for name in names {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
@@ -357,8 +1205,11 @@ class EventDrivenEngine {
         }
         
         // Find ball-ball collisions
-        PerformanceProfiler.begin(ProfilerLabel.ballBallDetect)
-        let ballNames = ballOrder
+#if DEBUG
+        // Each engine owns its timing start; shared labels race in parallel searches.
+        let ballDetectionStart = CACurrentMediaTime()
+#endif
+        let ballNames = names
         for i in 0..<ballNames.count {
             for j in (i+1)..<ballNames.count {
                 let nameA = ballNames[i]
@@ -457,15 +1308,26 @@ class EventDrivenEngine {
                 }
             }
         }
-        PerformanceProfiler.end(ProfilerLabel.ballBallDetect)
+#if DEBUG
+        PerformanceProfiler.recordSample(ProfilerLabel.ballBallDetect,
+            ms: (CACurrentMediaTime() - ballDetectionStart) * 1000)
+#endif
         
         // Find ball-cushion collisions
-        PerformanceProfiler.begin(ProfilerLabel.cushionDetect)
-        for name in ballOrder {
+#if DEBUG
+        // Each engine owns its timing start; shared labels race in parallel searches.
+        let cushionDetectionStart = CACurrentMediaTime()
+#endif
+        for name in names {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
             let a = EngineNumerics.acceleration(for: ball)
+            // A constant center cannot newly reach a fixed boundary. Ball-ball
+            // events remain active and a subsequent impact re-evaluates this ball.
+            guard ball.velocity.x != 0 || ball.velocity.y != 0 || ball.velocity.z != 0 ||
+                  a.x != 0 || a.y != 0 || a.z != 0 else { continue }
+
             
             // Check linear cushions
             for (index, cushion) in tableGeometry.linearCushions.enumerated() {
@@ -510,11 +1372,16 @@ class EventDrivenEngine {
         
         // Find ball-circular-cushion collisions (pocket jaw arcs)
         let linearCount = tableGeometry.linearCushions.count
-        for name in ballOrder {
+        for name in names {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
             let a = EngineNumerics.acceleration(for: ball)
+            // A constant center cannot newly reach a fixed boundary. Ball-ball
+            // events remain active and a subsequent impact re-evaluates this ball.
+            guard ball.velocity.x != 0 || ball.velocity.y != 0 || ball.velocity.z != 0 ||
+                  a.x != 0 || a.y != 0 || a.z != 0 else { continue }
+
             
             for (arcIdx, arc) in tableGeometry.circularCushions.enumerated() {
                 let cushionIndex = linearCount + arcIdx
@@ -554,11 +1421,16 @@ class EventDrivenEngine {
         // 注意：必须使用 XZ 2D 分量，不含 Y（球心 Y 恒高于台面，3D 距离永远够不到孔圈半径）。
         // 判据（ADR-P10-09）：球心水平投影抵达孔圈（dist = pocket.radius，即真实落袋孔半径）
         // ⇒ 台面失去支撑 ⇒ 落袋。无速度/方向特判——能否抵达孔圈完全由 jaw/圆角/喉壁物理决定。
-        for name in ballOrder {
+        for name in names {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
             let a = EngineNumerics.acceleration(for: ball)
+            // A constant center cannot newly reach a fixed boundary. Ball-ball
+            // events remain active and a subsequent impact re-evaluates this ball.
+            guard ball.velocity.x != 0 || ball.velocity.y != 0 || ball.velocity.z != 0 ||
+                  a.x != 0 || a.y != 0 || a.z != 0 else { continue }
+
             
             // Check each pocket
             for pocket in tableGeometry.pockets {
@@ -598,56 +1470,42 @@ class EventDrivenEngine {
                 }
             }
         }
-        PerformanceProfiler.end(ProfilerLabel.cushionDetect)
+#if DEBUG
+        PerformanceProfiler.recordSample(ProfilerLabel.cushionDetect,
+            ms: (CACurrentMediaTime() - cushionDetectionStart) * 1000)
+#endif
         
         // Return earliest event
         return candidates.min()
     }
     
+    /// Shared planar equations without bounds/capture side effects. The hybrid
+    /// scheduler stops at ownership entry before calling any legacy capture.
+    private func evolvePlanarBall(_ ball:BallState,dt:Float)->BallState {
+        let evolved:(position:SCNVector3,velocity:SCNVector3,angularVelocity:SCNVector3)
+        switch ball.state {
+        case .sliding:
+            evolved=AnalyticalMotion.evolveSliding(position:ball.position,velocity:ball.velocity,angularVelocity:ball.angularVelocity,dt:dt)
+        case .rolling:
+            evolved=AnalyticalMotion.evolveRolling(position:ball.position,velocity:ball.velocity,angularVelocity:ball.angularVelocity,dt:dt)
+        case .spinning:
+            let value=AnalyticalMotion.evolveSpinning(position:ball.position,angularVelocity:ball.angularVelocity,dt:dt)
+            evolved=(value.position,ball.velocity,value.angularVelocity)
+        case .stationary,.pocketed:return ball
+        }
+        return BallState(position:evolved.position,velocity:evolved.velocity,angularVelocity:evolved.angularVelocity,state:ball.state,name:ball.name)
+    }
+
     /// Evolve all balls forward by dt
     private func evolveAllBalls(dt: Float) {
         for name in ballOrder {
             guard let ball = balls[name] else { continue }
             guard !ball.isPocketed else { continue }
             
-            let evolved: (position: SCNVector3, velocity: SCNVector3, angularVelocity: SCNVector3)
-            
-            switch ball.state {
-            case .sliding:
-                evolved = AnalyticalMotion.evolveSliding(
-                    position: ball.position,
-                    velocity: ball.velocity,
-                    angularVelocity: ball.angularVelocity,
-                    dt: dt
-                )
-            case .rolling:
-                evolved = AnalyticalMotion.evolveRolling(
-                    position: ball.position,
-                    velocity: ball.velocity,
-                    angularVelocity: ball.angularVelocity,
-                    dt: dt
-                )
-            case .spinning:
-                let result = AnalyticalMotion.evolveSpinning(
-                    position: ball.position,
-                    angularVelocity: ball.angularVelocity,
-                    dt: dt
-                )
-                evolved = (result.position, ball.velocity, result.angularVelocity)
-            case .stationary, .pocketed:
-                // No evolution
-                continue
-            }
-            
-            var nextState = BallState(
-                position: evolved.position,
-                velocity: evolved.velocity,
-                angularVelocity: evolved.angularVelocity,
-                state: ball.state,
-                name: ball.name
-            )
+            guard ball.state != .stationary else { continue }
+            var nextState=evolvePlanarBall(ball,dt:dt)
 
-            enforceTableBounds(for: &nextState)
+            enforceTableBounds(for: &nextState, stateTime: currentTime + dt)
             balls[name] = nextState
         }
     }
@@ -722,7 +1580,7 @@ class EventDrivenEngine {
     }
 
     /// 兜底边界约束：防止极端数值误差导致球“跑出台外”
-    private func enforceTableBounds(for state: inout BallState) {
+    private func enforceTableBounds(for state: inout BallState, stateTime: Float) {
         guard !state.isPocketed else { return }
         
         let safeMinX = tableBounds.minX + BallPhysics.radius
@@ -752,12 +1610,14 @@ class EventDrivenEngine {
 
             // ① 球心已入孔圈（数值漏检兜底，正常路径由 CCD .pocket 事件收袋）→ 落袋。
             if dist <= pocket.radius {
+                trajectoryRecorder.recordPocketEntry(ball: state, pocketID: pocket.id, time: stateTime,
+                                                     source: .boundsFallback, geometry: tableGeometry)
                 state.state = .pocketed
                 state.velocity = SCNVector3Zero
                 state.angularVelocity = SCNVector3Zero
                 // 记一次真实落袋事件，使下游 `pottedSelected`（扫 resolvedEvents 的 .pocket）与画面一致。
                 resolvedEvents.append(.pocket(ball: state.name, pocketId: pocket.id))
-                resolvedEventTimes.append(currentTime)
+                resolvedEventTimes.append(stateTime)
                 return
             }
             // ② 在袋口通道内（孔圈外）：无论速度/朝向均放行（ADR-P10-09）——
@@ -819,7 +1679,9 @@ class EventDrivenEngine {
     /// Resolve a physics event
     private func resolveEvent(_ event: PhysicsEvent) {
         if case .ballBall = event.type, firstBallBallCollisionTime == nil {
-            firstBallBallCollisionTime = event.time
+            // Event.time is relative to its prediction origin. Callers have
+            // already advanced currentTime to the absolute impact time.
+            firstBallBallCollisionTime = currentTime
         }
         
         switch event.type {
@@ -932,7 +1794,7 @@ class EventDrivenEngine {
     /// Resolve pocket event. Returns true if the ball was actually pocketed, false if rejected.
     @discardableResult
     private func resolvePocket(ball: String, pocketId: String) -> Bool {
-        guard var state = balls[ball] else { return false }
+        guard var state = balls[ball], !state.isPocketed else { return false }
         
         // 落袋判据（ADR-P10-09，XZ 2D）：球心水平投影进入孔圈（dist ≤ 孔半径）⇒ 台面无法再
         // 提供支撑 ⇒ 必然坠落。CCD 已把球精确演进到孔圈交点，这里只校验事件未过时
@@ -945,6 +1807,8 @@ class EventDrivenEngine {
             if dist > pocket.radius + 0.002 {
                 return false
             }
+            trajectoryRecorder.recordPocketEntry(ball: state, pocketID: pocketId, time: currentTime,
+                                                 source: .event, geometry: tableGeometry)
             // 记录位置吸附到袋心：使轨迹终点明确「进洞」，下游（橙线终点/回放入洞段起点
             // 取进袋前一帧真实位置）与画面一致。
             state.position = SCNVector3(pocket.center.x, state.position.y, pocket.center.z)

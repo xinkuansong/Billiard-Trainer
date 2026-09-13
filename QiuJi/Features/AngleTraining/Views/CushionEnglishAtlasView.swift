@@ -9,6 +9,7 @@ import SceneKit
 /// 克隆自 Y3/v15「分离角图谱」壳；**不**改 `SeparationAngleAtlas*`。
 struct CushionEnglishAtlasView: View {
     @StateObject private var vm = CushionEnglishAtlasViewModel()
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
     @State private var hasAppeared = false
     @State private var showSpinPad = false
 
@@ -26,7 +27,8 @@ struct CushionEnglishAtlasView: View {
     var body: some View {
         GeometryReader { geo in
             let extents = vm.tableOuterHalfExtents
-            let sceneH = max(geo.size.height - Self.topRowHeight - Self.bottomBarHeight, 1)
+            let bottomHeight = is3D ? Self.topRowHeight : Self.bottomBarHeight
+            let sceneH = max(geo.size.height - Self.topRowHeight - bottomHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH),
                 halfLength: extents.length, halfWidth: extents.width
@@ -39,7 +41,7 @@ struct CushionEnglishAtlasView: View {
                     stage(proxy)
                         .frame(height: sceneH)
                     bottomBar(proxy)
-                        .frame(height: Self.bottomBarHeight)
+                        .frame(height: bottomHeight)
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
@@ -61,7 +63,10 @@ struct CushionEnglishAtlasView: View {
                 )
             }
             ToolbarItem(placement: .topBarTrailing) {
-                BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+                HStack(spacing: Spacing.sm) {
+                    cameraToggle
+                    BTSolverMoreMenu(scene: vm.scene, labelOpacity: 0.7)
+                }
             }
         }
         .onAppear {
@@ -81,6 +86,45 @@ struct CushionEnglishAtlasView: View {
             Color.clear
                 .accessibilityIdentifier("cushionEnglishAtlas.root")
         )
+    }
+
+
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            showSpinPad = false
+            let needsOverview = !vm.scene.hasPerspectiveView
+            vm.cameraMode = is3D ? .topDown2DRotated : .perspective3D
+            vm.scene.setCameraMode(vm.cameraMode, animated: false)
+            if is3D && needsOverview { _ = vm.scene.cameraRig?.observeWholeTable() }
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("cushionEnglishAtlas.cameraMode")
+    }
+
+    @ViewBuilder
+    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+        if is3D {
+            HStack {
+                BTSceneObservationMenu(
+                    scene: vm.scene,
+                    targetNode: vm.selectedTargetKey.flatMap { vm.scene.allBallNodes[$0] },
+                    pocketIndex: vm.selectedPocketIndex,
+                    identifierPrefix: "cushionEnglishAtlas",
+                    canReturnToAim: false,
+                    onReturnToAim: {})
+                Spacer(minLength: 0)
+                Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+            }
+            .font(.btFootnote)
+            .padding(.horizontal, Spacing.sm)
+            .frame(maxHeight: .infinity)
+            .background(HUDStyle.panelBackground)
+        } else {
+            paletteBar(proxy)
+        }
     }
 
     // MARK: - Top
@@ -137,17 +181,17 @@ struct CushionEnglishAtlasView: View {
             AngleSceneView(
                 scene: vm.scene,
                 cameraMode: $vm.cameraMode,
-                interactionMode: .tapsOnly,
-                autoFitsRotatedTable: true,
-                onPocketTapped: { vm.selectPocket(at: $0) },
-                draggableBallNodes: vm.draggableBalls,
+                interactionMode: is3D ? .cameraControl : .tapsOnly,
+                autoFitsRotatedTable: !is3D,
+                onPocketTapped: is3D ? nil : { vm.selectPocket(at: $0) },
+                draggableBallNodes: is3D ? [] : vm.draggableBalls,
                 onDragBegan: { vm.dragBegan(node: $0) },
                 onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
                 onDragEnded: { vm.dragEnded(node: $0) },
                 onDragEndedAt: { node, localPoint in
                     handleTableDragEnd(node: node, localPoint: localPoint)
                 },
-                selectableBallNodes: vm.selectableBalls,
+                selectableBallNodes: is3D ? [] : vm.selectableBalls,
                 onBallTapped: { node in
                     if let key = vm.scene.ballKey(for: node) {
                         vm.selectTarget(key: key)
@@ -164,9 +208,13 @@ struct CushionEnglishAtlasView: View {
                 CushionEnglishAtlasSpinLegend(
                     spinY: vm.spinY,
                     enabledTracks: vm.enabledTracks,
+                    minimumTouchSize: is3D ? 44 : 0,
                     onToggle: { vm.toggleTrack($0) }
                 )
-                    .btStageFrame(proxy.aimWheelFrame())
+                    .btStageFrame(is3D
+                        ? CGRect(x: Spacing.sm, y: max(Spacing.sm, (proxy.sceneSize.height - 373) / 2),
+                                 width: 44, height: 373)
+                        : proxy.aimWheelFrame())
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("cushionEnglishAtlas.spinLegend")
                     .zIndex(2)
@@ -195,15 +243,16 @@ struct CushionEnglishAtlasView: View {
                     }
                 }
                 .zIndex(2)
-                .btStageFrame(proxy.instrumentFrame())
+                .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
 
                 if showSpinPad {
                     BTSpinPadOverlay(
                         spinX: lockedSpinX,
                         spinY: $vm.spinY,
-                        tableWidth: proxy.playingRect.width,
-                        bottomPadding: proxy.spinPadBottomPadding,
+                        tableWidth: is3D ? proxy.sceneSize.width - Spacing.lg * 2 : proxy.playingRect.width,
+                        bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
                         locksSideSpin: true,
+                        usesCompactLayout: is3D,
                         onClose: { showSpinPad = false }
                     )
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -257,7 +306,7 @@ struct CushionEnglishAtlasView: View {
 
     // MARK: - Bottom (BTBallPaletteBar：点击 + 拖放)
 
-    private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         let libraryWidth = proxy.libraryWidth
         return VStack(spacing: 2) {
             Text(CushionEnglishAtlasViewModel.honestyFootnote)
@@ -338,6 +387,7 @@ struct CushionEnglishAtlasView: View {
 private struct CushionEnglishAtlasSpinLegend: View {
     let spinY: Double
     let enabledTracks: Set<Int>
+    var minimumTouchSize: CGFloat = 0
     let onToggle: (Int) -> Void
 
     private var levels: [Float] {
@@ -391,6 +441,8 @@ private struct CushionEnglishAtlasSpinLegend: View {
                     .offset(x: dx, y: dy)
             }
             .frame(width: size, height: size)
+            .frame(minWidth: minimumTouchSize, minHeight: minimumTouchSize)
+            .contentShape(Rectangle())
             .opacity(enabled ? 1 : 0.35)
         }
         .buttonStyle(.plain)

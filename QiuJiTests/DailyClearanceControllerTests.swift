@@ -17,6 +17,14 @@ final class DailyClearanceControllerTests: XCTestCase {
             "_9": CanvasPoint(x: 0.2, y: 0.2)
         ])
         var requests: [Request] = []
+        var cueRestores = 0
+
+        func restoreDailyClearanceCueBall() {
+            cueRestores += 1
+            var balls = board.onTable
+            balls["cueBall"] = CanvasPoint(x: 0.5, y: 0.25)
+            board = BoardSnapshot(onTable: balls)
+        }
 
         func loadDailyClearanceBoard(_ board: BoardSnapshot) { self.board = board }
         func currentDailyClearanceBoard() -> BoardSnapshot { board }
@@ -193,6 +201,52 @@ final class DailyClearanceControllerTests: XCTestCase {
         XCTAssertEqual(store.loadTodayCompletion()?.completedAt, completed.completedAt)
     }
 
+    func test_terminalShotPersistsOnceAndIgnoresDuplicateCallbackAfterRestore() throws {
+        let controller = makeController()
+        controller.start(host: host, defaultGame: .nineBall)
+        host.deliverLast()
+        host.board = BoardSnapshot(onTable: ["cueBall": CanvasPoint(x: 0.5, y: 0.25)])
+        let terminal = ShotFacts(firstContactKey: "_9", pocketedKeys: ["_9"],
+                                 cuePocketed: false, railOrPocketAfterContact: true,
+                                 tableKeysBefore: ["_9"])
+        XCTAssertTrue(try XCTUnwrap(controller.handleShotSettled(terminal)).completed)
+        let first = try XCTUnwrap(store.loadTodayCompletion())
+        XCTAssertEqual(first.shotCount, 1)
+        XCTAssertNil(store.loadTodayDraft())
+        clock = clock.addingTimeInterval(30)
+        XCTAssertNil(controller.handleShotSettled(terminal))
+        controller.flushActivity()
+        let restored = makeController()
+        restored.start(host: host, defaultGame: .nineBall)
+        XCTAssertTrue(restored.isCompleted)
+        XCTAssertNil(restored.handleShotSettled(terminal))
+        let persisted = try XCTUnwrap(store.loadTodayCompletion())
+        XCTAssertEqual(persisted.shotCount, first.shotCount)
+        XCTAssertEqual(persisted.completedAt, first.completedAt)
+        XCTAssertEqual(persisted.activeDurationSeconds, first.activeDurationSeconds)
+        XCTAssertNil(store.loadTodayDraft())
+    }
+
+    func test_scratchRestoresCueBeforeSavingButTerminalFoulDoesNot() throws {
+        for terminal in [false, true] {
+            let controller = makeController()
+            controller.start(host: host, defaultGame: .nineBall)
+            host.deliverLast()
+            host.board = BoardSnapshot(onTable: ["_9": CanvasPoint(x: 0.6, y: 0.2)])
+            let count = host.cueRestores
+            let facts = ShotFacts(firstContactKey: "_9", pocketedKeys: terminal ? ["_9"] : [],
+                                  cuePocketed: true, railOrPocketAfterContact: true, tableKeysBefore: ["_9"])
+            let ruling = try XCTUnwrap(controller.handleShotSettled(facts))
+            XCTAssertTrue(ruling.foul)
+            XCTAssertEqual(ruling.failed, terminal)
+            XCTAssertEqual(host.cueRestores, count + (terminal ? 0 : 1))
+            let saved = try XCTUnwrap(store.loadTodayDraft())
+            XCTAssertEqual(saved.board?.onTable["cueBall"] != nil, !terminal)
+            XCTAssertEqual(saved.foulCount, 1)
+            store.clearDraft()
+        }
+    }
+
     func test_rerackNeedsConfirmationAfterFirstUserShotAndResetsAfterConfirm() {
         let controller = makeController()
         controller.start(host: host, defaultGame: .nineBall)
@@ -226,6 +280,30 @@ final class DailyClearanceControllerTests: XCTestCase {
         controller.resumeActivity()
         clock = clock.addingTimeInterval(5)
         XCTAssertEqual(controller.elapsedSeconds, 15, accuracy: 0.001)
+    }
+
+    func test_eachSettledShotPersistsElapsedTimeWithoutDoubleCounting() throws {
+        let controller = makeController()
+        controller.start(host: host, defaultGame: .nineBall)
+        host.deliverLast()
+        let facts = ShotFacts(firstContactKey: "_1", pocketedKeys: [], cuePocketed: false,
+                              railOrPocketAfterContact: true, tableKeysBefore: ["_1", "_9"])
+        clock = clock.addingTimeInterval(12)
+        controller.handleShotSettled(facts)
+        XCTAssertEqual(try XCTUnwrap(store.loadTodayDraft()).activeDurationSeconds, 12, accuracy: 0.001)
+        clock = clock.addingTimeInterval(8)
+        controller.handleShotSettled(facts)
+        XCTAssertEqual(try XCTUnwrap(store.loadTodayDraft()).activeDurationSeconds, 20, accuracy: 0.001)
+        // Recreate from disk without calling stop/flush on the previous controller.
+        clock = clock.addingTimeInterval(100)
+        let restored = makeController()
+        restored.start(host: host, defaultGame: .nineBall)
+        XCTAssertEqual(restored.shotCount, 2)
+        XCTAssertEqual(restored.elapsedSeconds, 20, accuracy: 0.001)
+        clock = clock.addingTimeInterval(3)
+        restored.flushActivity()
+        restored.flushActivity()
+        XCTAssertEqual(try XCTUnwrap(store.loadTodayDraft()).activeDurationSeconds, 23, accuracy: 0.001)
     }
 
     func test_allFiveGamesStartAutomaticBreakAndBecomeShootable() {
