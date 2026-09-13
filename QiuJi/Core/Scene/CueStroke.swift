@@ -97,7 +97,9 @@ enum CueStroke {
     /// - `spinX` 正 = 左塞（pooltool `a>0` = 球最左侧；与 `BTSpinPad` 屏幕左一致）
     /// - `right = aim × ŷ`（与 `AimingCorrectionMath.rightOfXZ` 同构）；左塞挤偏向 right，
     ///   杆头应在其对侧 ⇒ `cue − right·spinX·R`。
-    static func strikePosition(cue: SCNVector3, aim: SCNVector3, spinX: Double) -> SCNVector3 {
+    /// - `spinY` 正 = 高杆（`BTSpinPad` 屏幕上 / `CueBallStrike` 同约定）⇒ 击球点抬高 `spinY·R`
+    ///   （DR-296：原实现只有横向偏移，高低杆在球杆上不可见）。
+    static func strikePosition(cue: SCNVector3, aim: SCNVector3, spinX: Double, spinY: Double = 0) -> SCNVector3 {
         let r = AngleSceneCalculator.ballRadius
         let len = sqrtf(aim.x * aim.x + aim.z * aim.z)
         guard len > 1e-6 else { return cue }
@@ -105,7 +107,17 @@ enum CueStroke {
         // right = aim × ŷ；旧实现误用 `+ right·spinX`，左塞杆头落到挤偏同侧（右）。
         let right = SCNVector3(-az, 0, ax)
         let lateral = Float(spinX) * r
-        return SCNVector3(cue.x - right.x * lateral, cue.y, cue.z - right.z * lateral)
+        let vertical = Float(spinY) * r
+        return SCNVector3(cue.x - right.x * lateral, cue.y + vertical, cue.z - right.z * lateral)
+    }
+
+    /// 杆头相对「击球点 + R」需要前伸的量：偏心打点处球面到球心的 aim 向距离是
+    /// `R·√(1 − a² − b²)`，不是 R。渲染专用（`CueStick.update(tipInset:)`）；
+    /// `CueClearance` 的碰撞搜索仍按名义 `tipOffset`（保守）。
+    static func tipInset(spinX: Double, spinY: Double) -> Float {
+        let r = AngleSceneCalculator.ballRadius
+        let e2 = Float(spinX * spinX + spinY * spinY)
+        return r * (1 - sqrtf(max(0, 1 - min(1, e2))))
     }
 }
 
@@ -165,9 +177,10 @@ extension AngleTrainingScene {
         let endPull = CueStroke.clampedFollowThroughPull(
             cueBallPosition: strikePosition, aimDirection: aim, obstacleCenters: obstacles
         )
+        let tipInset = cueTipInset(forStrike: strikePosition) ?? 0
         let drive: (Float) -> Void = { [weak stick] pull in
             stick?.update(cueBallPosition: strikePosition, aimDirection: aim,
-                          pullBack: pull, elevation: elevation)
+                          pullBack: pull, elevation: elevation, tipInset: tipInset)
         }
         drive(0)
         stick.show()

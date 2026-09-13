@@ -827,7 +827,7 @@ enum SequenceVideoExporter {
             guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
                   let aim = Self.aimDirection(path: prediction.cuePath, from: cueNode.position)
             else { return nil }
-            let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+            let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX, spinY: step.shot.spinY)
             let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
             switch CueStick.requiredElevation(
                 cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles
@@ -860,7 +860,7 @@ enum SequenceVideoExporter {
             guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
                   let aim = Self.aimDirection(path: prediction.cuePath, from: cueNode.position)
             else { return nil }
-            let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+            let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX, spinY: step.shot.spinY)
             let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
             guard case .angle(let elev) = CueStick.requiredElevation(
                 cueBallPosition: strikePos, aimDirection: aim, obstacleCenters: obstacles

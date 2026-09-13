@@ -90,6 +90,7 @@ final class AngleTrainingScene: SCNScene {
 
     private(set) var modelCueStickNode: SCNNode?
     private(set) var cueStick: CueStick?
+    private var lastCueTipInset: Float = 0
     /// Place the quiz assist cue along the displayed shot, independently of the camera.
     /// The same world-space direction is used in both top-down and perspective modes.
     func showAuxiliaryCue() {
@@ -518,15 +519,41 @@ final class AngleTrainingScene: SCNScene {
             cueBallPosition: cueBallPosition,
             aimDirection: aimDirection,
             pullBack: pullBack,
-            elevation: elevation
+            elevation: elevation,
+            tipInset: resolvedCueTipInset(forStrike: cueBallPosition)
         )
         cueStick?.show()
         cueStick?.rootNode.opacity = 1
     }
 
+    /// Tip inset for an off-centre strike, inferred from the pivot's offset to the nearest
+    /// cue-ball centre (no caller has to pass spin explicitly). nil when no ball is within R
+    /// (ball already rolling away during follow-through, or hidden).
+    func cueTipInset(forStrike strike: SCNVector3) -> Float? {
+        let r = AngleSceneCalculator.ballRadius
+        let candidates = [cueBallNode, allBallNodes[PositionPlayBall.cueKey]].compactMap { $0 }
+        var best: Float = .greatestFiniteMagnitude
+        for node in candidates where !node.isHidden {
+            let c = node.position
+            let d = sqrtf((strike.x - c.x) * (strike.x - c.x) + (strike.y - c.y) * (strike.y - c.y)
+                          + (strike.z - c.z) * (strike.z - c.z))
+            best = min(best, d)
+        }
+        guard best < r else { return nil }
+        return r - sqrtf(max(0, r * r - best * best))
+    }
+
+    /// Keeps the inset measured at address once the ball has left the pivot (exporter
+    /// follow-through re-calls `updateCueStick` per frame while balls move).
+    private func resolvedCueTipInset(forStrike strike: SCNVector3) -> Float {
+        if let inset = cueTipInset(forStrike: strike) { lastCueTipInset = inset }
+        return lastCueTipInset
+    }
+
     func hideCueStick() {
         cueStick?.rootNode.removeAction(forKey: "strokeAnim")
         cueStick?.hide()
+        lastCueTipInset = 0
     }
 
     // MARK: - Camera
@@ -1299,8 +1326,10 @@ final class AngleTrainingScene: SCNScene {
     private func displayedClothY(_ surface: TableAssistSurface) -> Float {
         // Mirror the existing MobileClothAlignment lift contract; no physical Y is changed.
         let lift = surfaceY - surface.sourceY
-        return mobileRendering && lift > 0.0001 && lift < AngleSceneCalculator.ballRadius / 2
-            ? surfaceY : surface.sourceY
+        if mobileRendering && lift > 0.0001 && lift < AngleSceneCalculator.ballRadius / 2 { return surfaceY }
+        // Unlifted pipelines (thumbnails, exporter, figures) still draw the bed's tent
+        // corners up to `topY`; assists must clear them or they are depth-culled there.
+        return surface.topY
     }
 
     /// Display-only triangle regions. Fill sits below the line layer and keeps
@@ -1327,21 +1356,20 @@ final class AngleTrainingScene: SCNScene {
         return node
     }
 
-    private func makeTableSegment(from start: SCNVector3, to end: SCNVector3,
-                                  color: UIColor, radius: Float, layer: TableAssistLayer = .route) -> SCNNode {
-        guard let surface = loadedAssistSurface() else {
-            return makeSegment(from: start, to: end, color: color, radius: radius)
-        }
-        let renderedY = displayedClothY(surface)
-        let vertices = surface.ribbon(from: start, to: end, width: radius * 2, at: renderedY + 0.001)
+    /// Cloth-clipped ribbon triangles for one straight segment (world coordinates).
+    /// Empty when the segment lies entirely off the cloth footprint.
+    private func tableRibbonVertices(from start: SCNVector3, to end: SCNVector3,
+                                     radius: Float, surface: TableAssistSurface) -> [SCNVector3] {
+        surface.ribbon(from: start, to: end, width: radius * 2, at: displayedClothY(surface) + 0.001)
+    }
+
+    /// One flat assist node from already-clipped triangles (constant colour, no depth write).
+    private func makeTableAssistNode(vertices: [SCNVector3], uv: [CGPoint]? = nil,
+                                     color: UIColor, layer: TableAssistLayer) -> SCNNode {
         guard !vertices.isEmpty else { return SCNNode() }
-        let dx = end.x - start.x, dz = end.z - start.z
-        let lengthSquared = dx * dx + dz * dz
-        let uv = vertices.map { point in
-            CGPoint(x: 0.5, y: CGFloat(((point.x - start.x) * dx + (point.z - start.z) * dz) / lengthSquared))
-        }
-        let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices),
-                                             SCNGeometrySource(textureCoordinates: uv)], elements: [
+        var sources = [SCNGeometrySource(vertices: vertices)]
+        if let uv { sources.append(SCNGeometrySource(textureCoordinates: uv)) }
+        let geometry = SCNGeometry(sources: sources, elements: [
             SCNGeometryElement(indices: (0..<vertices.count).map(Int32.init), primitiveType: .triangles)])
         let material = SCNMaterial()
         material.diffuse.contents = color
@@ -1354,6 +1382,21 @@ final class AngleTrainingScene: SCNScene {
         node.name = "tableProjectedAssist"
         node.castsShadow = false
         return node
+    }
+
+    private func makeTableSegment(from start: SCNVector3, to end: SCNVector3,
+                                  color: UIColor, radius: Float, layer: TableAssistLayer = .route) -> SCNNode {
+        guard let surface = loadedAssistSurface() else {
+            return makeSegment(from: start, to: end, color: color, radius: radius)
+        }
+        let vertices = tableRibbonVertices(from: start, to: end, radius: radius, surface: surface)
+        guard !vertices.isEmpty else { return SCNNode() }
+        let dx = end.x - start.x, dz = end.z - start.z
+        let lengthSquared = dx * dx + dz * dz
+        let uv = vertices.map { point in
+            CGPoint(x: 0.5, y: CGFloat(((point.x - start.x) * dx + (point.z - start.z) * dz) / lengthSquared))
+        }
+        return makeTableAssistNode(vertices: vertices, uv: uv, color: color, layer: layer)
     }
 
     @discardableResult
@@ -1398,7 +1441,8 @@ final class AngleTrainingScene: SCNScene {
     /// 画一条虚线（由等距短实线段拼成），用于真实模式下的「理想路线」对照。
     /// 返回的父节点持有所有段，便于统一清理。
     func addDashedLine(from start: SCNVector3, to end: SCNVector3, color: UIColor,
-                       radius: Float = 0.003, dash: Float = 0.03, gap: Float = 0.022,
+                       radius: Float = 0.003, dash: Float = TrajectoryStyle.hintDash,
+                       gap: Float = TrajectoryStyle.hintGap,
                        placement: AssistLinePlacement = .spatial, layer: TableAssistLayer = .route) -> SCNNode {
         let parent = SCNNode()
         let dx = end.x - start.x, dy = placement == .table ? 0 : end.y - start.y, dz = end.z - start.z
@@ -1406,6 +1450,11 @@ final class AngleTrainingScene: SCNScene {
         guard total > 0.001 else { return parent }
         let ux = dx / total, uy = dy / total, uz = dz / total
         let stride = dash + gap
+        // Table placement merges every dash into one clipped geometry (DR-296:
+        // shorter dashes ×2.4 the segment count; one node per line keeps the
+        // scene graph flat). Spatial placement keeps one cylinder per dash.
+        let tableSurface = placement == .table ? loadedAssistSurface() : nil
+        var merged: [SCNVector3] = []
         var t: Float = 0
         while t < total {
             let segLen = min(dash, total - t)
@@ -1414,11 +1463,15 @@ final class AngleTrainingScene: SCNScene {
             let b = SCNVector3(start.x + ux * (t + segLen),
                                start.y + uy * (t + segLen),
                                start.z + uz * (t + segLen))
-            let segment = placement == .table
-                ? makeTableSegment(from: a, to: b, color: color, radius: radius, layer: layer)
-                : makeSegment(from: a, to: b, color: color, radius: radius)
-            parent.addChildNode(segment)
+            if let tableSurface {
+                merged += tableRibbonVertices(from: a, to: b, radius: radius, surface: tableSurface)
+            } else {
+                parent.addChildNode(makeSegment(from: a, to: b, color: color, radius: radius))
+            }
             t += stride
+        }
+        if !merged.isEmpty {
+            parent.addChildNode(makeTableAssistNode(vertices: merged, color: color, layer: layer))
         }
         rootNode.addChildNode(parent)
         return parent
@@ -1459,6 +1512,9 @@ final class AngleTrainingScene: SCNScene {
         func lerp(_ a: SCNVector3, _ b: SCNVector3, _ t: Float) -> SCNVector3 {
             SCNVector3(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, a.z + (b.z - a.z) * t)
         }
+        // Table placement: all dashes of the polyline become one clipped geometry (DR-296).
+        let tableSurface = placement == .table ? loadedAssistSurface() : nil
+        var merged: [SCNVector3] = []
         for i in 0..<(pts.count - 1) {
             let a = pts[i], b = pts[i + 1]
             let horizontal = AngleSceneCalculator.horizontalDistance(a, b)
@@ -1471,11 +1527,19 @@ final class AngleTrainingScene: SCNScene {
                 let s = max(onStart, arc)
                 let e = min(onStart + dash, arc + len)
                 guard e - s > 1e-4 else { continue }
-                nodes.append(addLine(from: lerp(a, b, (s - arc) / len),
-                                     to: lerp(a, b, (e - arc) / len),
-                                     color: color, radius: radius, placement: placement))
+                let from = lerp(a, b, (s - arc) / len), to = lerp(a, b, (e - arc) / len)
+                if let tableSurface {
+                    merged += tableRibbonVertices(from: from, to: to, radius: radius, surface: tableSurface)
+                } else {
+                    nodes.append(addLine(from: from, to: to, color: color, radius: radius, placement: placement))
+                }
             }
             arc += len
+        }
+        if !merged.isEmpty {
+            let node = makeTableAssistNode(vertices: merged, color: color, layer: .route)
+            rootNode.addChildNode(node)
+            nodes.append(node)
         }
     }
 
@@ -1587,8 +1651,8 @@ final class AngleTrainingScene: SCNScene {
         let b = SCNVector3(center.x + ux * half, y, center.z + uz * half)
         nodes.append(addDashedLine(from: a, to: b, color: AngleTrainingScene.separationLineColor,
                                    radius: TrajectoryStyle.lineHint,
-                                   dash: TrajectoryStyle.hintDash * 0.7,
-                                   gap: TrajectoryStyle.hintGap * 0.7, placement: .table))
+                                   dash: TrajectoryStyle.hintDash,
+                                   gap: TrajectoryStyle.hintGap, placement: .table))
         return true
     }
 
@@ -1805,6 +1869,10 @@ final class AngleTrainingScene: SCNScene {
             ringMat.lightingModel = .constant
             let dashCount = 16
             let ringDashLen = 2 * Float.pi * r / Float(dashCount) * 0.55
+            // The ring is the ghost's cloth footprint: the node sits at ball-centre
+            // height (DR-118 contract), so the dashes drop by R to lie on the cloth.
+            // A centre-height ring reads as floating in perspective.
+            let ringY = -r + TrajectoryStyle.lineHint + 0.0005
             for i in 0..<dashCount {
                 let theta = Float(i) / Float(dashCount) * 2 * .pi
                 let segGeo = SCNCylinder(radius: CGFloat(TrajectoryStyle.lineHint),
@@ -1812,7 +1880,7 @@ final class AngleTrainingScene: SCNScene {
                 segGeo.materials = [ringMat]
                 let seg = SCNNode(geometry: segGeo)
                 seg.castsShadow = false
-                seg.position = SCNVector3(r * cosf(theta), 0, r * sinf(theta))
+                seg.position = SCNVector3(r * cosf(theta), ringY, r * sinf(theta))
                 // 圆柱轴默认 +Y，转到圆周切线方向平躺。
                 seg.simdOrientation = simd_quatf(from: simd_float3(0, 1, 0),
                                                  to: simd_float3(-sinf(theta), 0, cosf(theta)))
@@ -1864,7 +1932,7 @@ final class AngleTrainingScene: SCNScene {
         strikeLineNode = sl
 
         // Training contact marker: small amber dot; default consumers keep green.
-        let dotSphere = SCNSphere(radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPointRadius : 0.009)
+        let dotSphere = SCNSphere(radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPointRadius : TrajectoryStyle.contactPointRadius)
         dotSphere.segmentCount = 16
         let dotMat = SCNMaterial()
         dotMat.diffuse.contents = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPoint : TrajectoryStyle.contactColor
@@ -1897,8 +1965,8 @@ final class AngleTrainingScene: SCNScene {
 
     // MARK: - Aim Point Markers（C15/D8：瞄准点标记单一真源）
 
-    /// 瞄准点标记半径（D8 拍板：0.0065 球，随 ghost aimDot / `updateVisualization` 现状口径）。
-    static let aimPointMarkerRadius: CGFloat = 0.0065
+    /// 瞄准点标记半径（D8 拍板 0.0065 → DR-296 缩为 4 mm，单一真源在 `TrajectoryStyle`）。
+    static let aimPointMarkerRadius: CGFloat = TrajectoryStyle.aimPointRadius
 
     /// 构建瞄准点标记节点（未挂载）：0.0065 半径小球 + constant 光照。
     /// ghost aimDot 与独立标记共用本工厂，几何/材质单点定义。
@@ -1949,7 +2017,7 @@ final class AngleTrainingScene: SCNScene {
         let node = addDashedLine(from: SCNVector3(Float(line.start.x), y, Float(line.start.y)),
                                  to: SCNVector3(Float(line.end.x), y, Float(line.end.y)),
                                  color: IdealObjectDirection.color, radius: 0.002,
-                                 dash: 0.025, gap: 0.018, placement: .table)
+                                 dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table)
         node.name = "idealObjectDirection"
         idealObjectNode = node
         return node
@@ -2109,8 +2177,8 @@ final class AngleTrainingScene: SCNScene {
         node.childNodes.forEach { $0.removeFromParentNode() }
         node.transform = SCNMatrix4Identity
         let half = AngleSceneCalculator.ballRadius * 4
-        let dash = TrajectoryStyle.hintDash * 0.7
-        let gap = TrajectoryStyle.hintGap * 0.7
+        let dash = TrajectoryStyle.hintDash
+        let gap = TrajectoryStyle.hintGap
         var cursor = -half
         while cursor < half {
             let next = min(cursor + dash, half)

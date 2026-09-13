@@ -257,11 +257,15 @@ final class CueStick {
 
     // MARK: - Update
 
-    func update(cueBallPosition: SCNVector3, aimDirection: SCNVector3, pullBack: Float = 0, elevation: Float = 0) {
+    /// - Parameter tipInset: forward shift of the tip so it rests on the sphere at an
+    ///   off-centre strike point (`CueStroke.tipInset`); 0 = centre ball. Render-only.
+    func update(cueBallPosition: SCNVector3, aimDirection: SCNVector3, pullBack: Float = 0,
+                elevation: Float = 0, tipInset: Float = 0) {
+        let pull = pullBack - max(0, min(tipInset, Constants.tipOffset - 0.0005))
         if usesModelCueStick {
-            updateModelCueStick(cueBallPosition: cueBallPosition, aimDirection: aimDirection, pullBack: pullBack, elevation: elevation)
+            updateModelCueStick(cueBallPosition: cueBallPosition, aimDirection: aimDirection, pullBack: pull, elevation: elevation)
         } else {
-            updateProgrammaticCueStick(cueBallPosition: cueBallPosition, aimDirection: aimDirection, pullBack: pullBack, elevation: elevation)
+            updateProgrammaticCueStick(cueBallPosition: cueBallPosition, aimDirection: aimDirection, pullBack: pull, elevation: elevation)
         }
     }
 

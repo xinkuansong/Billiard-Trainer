@@ -349,7 +349,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
         lineNodes.append(scene.addDashedLine(
             from: SCNVector3(target.position.x - n.x * auxHalf, y, target.position.z - n.z * auxHalf),
             to: SCNVector3(target.position.x + n.x * auxHalf, y, target.position.z + n.z * auxHalf),
-            color: TrajectoryStyle.hintColor, radius: 0.0016, dash: 0.018, gap: 0.014, placement: .table
+            color: TrajectoryStyle.hintColor, radius: 0.0016, dash: TrajectoryStyle.hintDash, gap: TrajectoryStyle.hintGap, placement: .table
         ))
 
         // 用户瞄准线（Q7.1）：白色实线。未接触目标球 → 延伸库边；接触（垂距 < R）→ 停在

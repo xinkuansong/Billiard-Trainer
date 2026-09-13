@@ -260,7 +260,7 @@ final class BreakFlowRunner: ObservableObject {
                                       radius: TrajectoryStyle.lineMain))
         // C3：开球瞄准线与球杆同现（aim + spinX 与 `breakNow`→`runCueStroke` 一致）。
         scene.updateCueStick(
-            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX),
+            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
             aimDirection: dir
         )
     }
@@ -328,7 +328,7 @@ final class BreakFlowRunner: ObservableObject {
         }
         statusText = "运杆…"
         let aim = resolvedAim(cuePos: cueNode.position)
-        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: spinX)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: spinX, spinY: spinY)
         scene.runCueStroke(strikePosition: strikePos, aim: aim,
                            velocity: Float(velocity)) { [weak self] in
             guard let self, self.phase == .breaking else { return }

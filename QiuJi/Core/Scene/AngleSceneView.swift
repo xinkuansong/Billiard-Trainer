@@ -103,6 +103,18 @@ struct AngleSceneView: UIViewRepresentable {
         let tapGesture = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTap(_:)))
         scnView.addGestureRecognizer(tapGesture)
 
+        // 2D zoom/pan on every table page (DR-296): two-finger pan never competes with the
+        // single-finger ball drag / aim nudge; double tap resets to the whole-table fit.
+        // Single taps are not delayed (`require(toFail:)` deliberately omitted — pocket/ball
+        // taps are idempotent selections, so the extra fire on a double tap is harmless).
+        let twoFingerPan = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleTwoFingerPan(_:)))
+        twoFingerPan.minimumNumberOfTouches = 2
+        twoFingerPan.maximumNumberOfTouches = 2
+        scnView.addGestureRecognizer(twoFingerPan)
+        let doubleTap = UITapGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handleDoubleTap(_:)))
+        doubleTap.numberOfTapsRequired = 2
+        scnView.addGestureRecognizer(doubleTap)
+
         context.coordinator.scnView = scnView
         context.coordinator.installFPSReadout(in: scnView)
         context.coordinator.onPocketTapped = onPocketTapped
@@ -614,24 +626,51 @@ struct AngleSceneView: UIViewRepresentable {
                 rig.handleHorizontalSwipe(delta: dx)
                 rig.handleVerticalSwipe(delta: dy)
             case .topDown2D, .topDown2DRotated:
-                rig.applyCameraPan(translationX: -Float(translation.x),
-                                   translationZ: -Float(translation.y))
+                rig.applyTopDownScreenPan(dx: translation.x, dy: translation.y,
+                                          viewSize: scnView.bounds.size,
+                                          rotated: cameraMode == .topDown2DRotated)
             }
             gesture.setTranslation(.zero, in: gesture.view)
         }
 
+        /// Two-finger pan: 2D camera pan on every table page (DR-296), including pages whose
+        /// single finger is reserved for ball drag / aim nudge (`tapsOnly`). No-op at 1× (clamped).
+        @objc func handleTwoFingerPan(_ gesture: UIPanGestureRecognizer) {
+            requestInteractiveFrames()
+            guard gesturesEnabled, interactionMode != .none, draggedNode == nil, !isAimFollowing,
+                  cameraMode != .perspective3D, let scnView, let rig = scene.cameraRig else { return }
+            let translation = gesture.translation(in: scnView)
+            rig.applyTopDownScreenPan(dx: translation.x, dy: translation.y,
+                                      viewSize: scnView.bounds.size,
+                                      rotated: cameraMode == .topDown2DRotated)
+            gesture.setTranslation(.zero, in: scnView)
+        }
+
         @objc func handlePinch(_ gesture: UIPinchGestureRecognizer) {
             requestInteractiveFrames()
-            guard gesturesEnabled, interactionMode == .cameraControl,
-                  draggedNode == nil, let rig = scene.cameraRig else { return }
+            guard gesturesEnabled, interactionMode != .none,
+                  draggedNode == nil, let scnView, let rig = scene.cameraRig else { return }
 
             switch cameraMode {
             case .perspective3D:
+                guard interactionMode == .cameraControl else { return }
                 rig.handlePinch(scale: Float(gesture.scale))
             case .topDown2D, .topDown2DRotated:
-                rig.applyTopDownAreaZoom(scale: Float(gesture.scale))
+                // 2D zoom is available on every table page; zoom about the pinch centre.
+                let centre = gesture.location(in: scnView)
+                let focal = CGPoint(x: centre.x - scnView.bounds.midX, y: centre.y - scnView.bounds.midY)
+                rig.applyTopDownZoom(factor: Float(gesture.scale), focalOffset: focal,
+                                     viewSize: scnView.bounds.size,
+                                     rotated: cameraMode == .topDown2DRotated)
             }
             gesture.scale = 1.0
+        }
+
+        @objc func handleDoubleTap(_ gesture: UITapGestureRecognizer) {
+            requestInteractiveFrames()
+            guard gesturesEnabled, interactionMode != .none, cameraMode != .perspective3D,
+                  let rig = scene.cameraRig else { return }
+            rig.resetTopDownZoom()
         }
 
         @objc func handleTap(_ gesture: UITapGestureRecognizer) {

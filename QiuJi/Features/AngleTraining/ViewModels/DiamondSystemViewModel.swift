@@ -665,7 +665,7 @@ final class DiamondSystemViewModel: ObservableObject {
             scene.contactDotNode?.isHidden = true
         }
         scene.updateCueStick(
-            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX),
+            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
             aimDirection: dir
         )
     }
@@ -731,7 +731,7 @@ final class DiamondSystemViewModel: ObservableObject {
             }.value
             guard let self, self.isPlaying else { return }
             guard self.acceptFreePrediction(pred,before:before) else { return }
-            let strikePos = CueStroke.strikePosition(cue: cuePos, aim: dir, spinX: Double(sx))
+            let strikePos = CueStroke.strikePosition(cue: cuePos, aim: dir, spinX: Double(sx), spinY: Double(sy))
             self.scene.runCueStroke(strikePosition: strikePos, aim: dir,
                                     velocity: velocity) { [weak self] in
                 self?.launchFreePlayback(pred, before: before)

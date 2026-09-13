@@ -841,7 +841,7 @@ final class PositionPlayViewModel: ObservableObject {
         // C4 / D-v19-3：预览线同现杆，实时跟随 `freeAimDir`。
         lastAimDirection = dir
         scene.updateCueStick(
-            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX),
+            cueBallPosition: CueStroke.strikePosition(cue: cue.position, aim: dir, spinX: spinX, spinY: spinY),
             aimDirection: dir
         )
     }
@@ -1144,7 +1144,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 击球时球杆中心位置（含加塞横向偏移）。
     private func strikePosition(cue: SCNVector3) -> SCNVector3 {
         guard let aim = lastAimDirection else { return cue }
-        return CueStroke.strikePosition(cue: cue, aim: aim, spinX: spinX)
+        return CueStroke.strikePosition(cue: cue, aim: aim, spinX: spinX, spinY: spinY)
     }
 
     private func aimDirection(path: [SCNVector3], from cue: SCNVector3) -> SCNVector3? {
@@ -1454,7 +1454,7 @@ final class PositionPlayViewModel: ObservableObject {
             finishPlayback(after: after)
             return
         }
-        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX, spinY: ctx.shot.spinY)
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )
@@ -1887,7 +1887,7 @@ final class PositionPlayViewModel: ObservableObject {
         // 须先写入本杆 solvedShot：`drawTrajectory` 用 `solvedShot.shot.targetKey` 取进球线球色；
         // 不更新会沿用上一杆/编辑态目标键，颜色与当前目标球不一致。
         applySolvedShot(SolvedShot(before: step.before, shot: step.shot, prediction: pred))
-        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: step.shot.spinX, spinY: step.shot.spinY)
         lastAimDirection = aim
         scene.updateCueStick(cueBallPosition: strikePos, aimDirection: aim)
         isPlaying = true

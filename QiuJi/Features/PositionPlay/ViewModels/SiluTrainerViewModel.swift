@@ -794,7 +794,7 @@ final class SiluTrainerViewModel: ObservableObject {
 
     private func strikePosition(cue: SCNVector3) -> SCNVector3 {
         guard let aim = lastAimDirection else { return cue }
-        return CueStroke.strikePosition(cue: cue, aim: aim, spinX: spinX)
+        return CueStroke.strikePosition(cue: cue, aim: aim, spinX: spinX, spinY: spinY)
     }
 
     private func aimDirection(path: [SCNVector3], from cue: SCNVector3) -> SCNVector3? {
@@ -960,7 +960,7 @@ final class SiluTrainerViewModel: ObservableObject {
             finishPlayback(after: after)
             return
         }
-        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX)
+        let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: snap.shot.spinX, spinY: snap.shot.spinY)
         let clearancePlayback = TrajectoryPlayback(
             recorder: recorder, surfaceY: surfaceY + AngleSceneCalculator.ballRadius
         )

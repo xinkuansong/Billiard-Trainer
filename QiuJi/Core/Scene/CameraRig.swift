@@ -97,7 +97,7 @@ final class CameraRig {
     var viewportSize: CGSize = .zero {
         didSet {
             guard viewportSize != oldValue, keepsWholeTableFramed else { return }
-            observeWholeTable()
+            observeWholeTable(yaw: targetYaw)   // re-fit only; a resize must not swing the view
         }
     }
     private var fittedOrbitDistance: Float = 0
@@ -228,7 +228,79 @@ final class CameraRig {
         let fitVertical = tableOuterHalfLength * Self.rotatedFitMargin
         let fitHorizontal = tableOuterHalfWidth * Self.rotatedFitMargin
             * Double(viewSize.height / viewSize.width)
-        topDownOrthographicScale = max(fitVertical, fitHorizontal, Self.rotatedUnifiedScale)
+        topDownFitScale = max(fitVertical, fitHorizontal, Self.rotatedUnifiedScale)
+        topDownOrthographicScale = topDownFitScale! / topDownZoom
+        clampTopDownPan(viewSize: viewSize, rotated: true)
+    }
+
+    // MARK: - 2D zoom / pan (DR-296)
+
+    /// User zoom on top of the fitted scale. 1 = whole table (the fit is the minimum size);
+    /// the table can only grow. Pages that set `topDownOrthographicScale` manually keep `fit == nil`.
+    private(set) var topDownZoom: Double = 1
+    private(set) var topDownFitScale: Double?
+    static let topDownMaxZoom: Double = 4
+
+    /// Pinch about a focal point. `focalOffset` is the gesture centre relative to the view
+    /// centre in points (+x right, +y down); the world point under it stays put.
+    func applyTopDownZoom(factor: Float, focalOffset: CGPoint, viewSize: CGSize, rotated: Bool) {
+        guard factor.isFinite, factor > 0.01, viewSize.height > 1 else { return }
+        let before = topDownOrthographicScale
+        // Pages without auto-fit set the scale themselves; their current whole-table
+        // framing is the minimum size (user rule: the table never gets smaller than now).
+        let fit = topDownFitScale ?? before
+        topDownFitScale = fit
+        topDownZoom = max(1, min(Self.topDownMaxZoom, topDownZoom * Double(factor)))
+        topDownOrthographicScale = fit / topDownZoom
+        // World metres per screen point before/after; keep the focal world point fixed.
+        let kBefore = 2 * before / Double(viewSize.height)
+        let kAfter = 2 * topDownOrthographicScale / Double(viewSize.height)
+        let dk = kBefore - kAfter
+        if rotated {
+            // screen right = +Z, screen down = −X: world under focal = (panX − oy·k, panZ + ox·k)
+            topDownPanOffset.x -= focalOffset.y * CGFloat(dk)
+            topDownPanOffset.y += focalOffset.x * CGFloat(dk)
+        } else {
+            // screen right = +X, screen down = +Z
+            topDownPanOffset.x += focalOffset.x * CGFloat(dk)
+            topDownPanOffset.y += focalOffset.y * CGFloat(dk)
+        }
+        clampTopDownPan(viewSize: viewSize, rotated: rotated)
+    }
+
+    /// Finger translation in points → camera pan so the content follows the finger.
+    func applyTopDownScreenPan(dx: CGFloat, dy: CGFloat, viewSize: CGSize, rotated: Bool) {
+        guard viewSize.height > 1 else { return }
+        let k = 2 * topDownOrthographicScale / Double(viewSize.height)
+        if rotated {
+            // screen right = +Z, screen up = +X
+            topDownPanOffset.y -= dx * CGFloat(k)
+            topDownPanOffset.x += dy * CGFloat(k)
+        } else {
+            // screen right = +X, screen up = −Z
+            topDownPanOffset.x -= dx * CGFloat(k)
+            topDownPanOffset.y -= dy * CGFloat(k)
+        }
+        clampTopDownPan(viewSize: viewSize, rotated: rotated)
+    }
+
+    /// Keep the table edge from leaving the viewport; at the fitted scale the pan is zero.
+    func clampTopDownPan(viewSize: CGSize, rotated: Bool) {
+        guard viewSize.width > 1, viewSize.height > 1 else { return }
+        let aspect = Double(viewSize.width / viewSize.height)
+        let visibleHalfV = topDownOrthographicScale
+        let visibleHalfH = topDownOrthographicScale * aspect
+        let maxX = max(0, (rotated ? tableOuterHalfLength - visibleHalfV : tableOuterHalfLength - visibleHalfH))
+        let maxZ = max(0, (rotated ? tableOuterHalfWidth - visibleHalfH : tableOuterHalfWidth - visibleHalfV))
+        topDownPanOffset.x = max(-CGFloat(maxX), min(CGFloat(maxX), topDownPanOffset.x))
+        topDownPanOffset.y = max(-CGFloat(maxZ), min(CGFloat(maxZ), topDownPanOffset.y))
+    }
+
+    /// Double-tap: back to the whole-table fit.
+    func resetTopDownZoom() {
+        topDownZoom = 1
+        topDownPanOffset = .zero
+        if let fit = topDownFitScale { topDownOrthographicScale = fit }
     }
 
     /// 横向顶视按真实外框与视口比例自适应：屏幕竖轴对应世界 Z，横轴对应世界 X。
@@ -251,7 +323,9 @@ final class CameraRig {
             halfLength: tableOuterHalfLength,
             halfWidth: tableOuterHalfWidth
         ) else { return }
-        topDownOrthographicScale = scale
+        topDownFitScale = scale
+        topDownOrthographicScale = scale / topDownZoom
+        clampTopDownPan(viewSize: viewSize, rotated: false)
     }
 
     // MARK: - Init
@@ -263,7 +337,7 @@ final class CameraRig {
 
         targetPivot = SCNVector3(0, tableSurfaceY, 0)
         targetZoom = 0.5
-        targetYaw = 0
+        targetYaw = Self.overviewYaw
         currentPivot = targetPivot
         currentZoom = targetZoom
         currentYaw = targetYaw
@@ -334,10 +408,18 @@ final class CameraRig {
         targetOrbit?.pitchOffset = 0
     }
 
+    /// Default 3D overview yaw (DR-296). `back = (cos yaw, ·, sin yaw)` ⇒ π puts the camera
+    /// on the −X (foot) end looking toward +X, so the head string / break line is at the far
+    /// (top) edge — the same up direction as the rotated 2D table (screen-up = +X).
+    /// The old 0 looked from the head end and showed the table upside down relative to 2D.
+    static let overviewYaw: Float = .pi
+
     /// Fits the playable table envelope, including ball height, to the actual viewport.
     /// Returns false before layout; no guessed screen aspect is substituted.
+    /// - Parameter yaw: overview heading; defaults to `overviewYaw` so every "全桌" lands on
+    ///   the 2D-consistent orientation. Pass `targetYaw` to re-fit without turning.
     @discardableResult
-    func observeWholeTable(yaw: Float? = nil) -> Bool {
+    func observeWholeTable(yaw: Float? = CameraRig.overviewYaw) -> Bool {
         guard viewportSize.width > 1, viewportSize.height > 1 else { return false }
         beginManualOrbit()
         if let yaw, yaw.isFinite { targetYaw = yaw }
@@ -375,22 +457,6 @@ final class CameraRig {
 
     // MARK: - Input handlers (2D mode)
 
-    func applyCameraPan(translationX: Float, translationZ: Float) {
-        let scale = Float(topDownOrthographicScale) * 0.002
-        topDownPanOffset.x += CGFloat(translationX * scale)
-        topDownPanOffset.y += CGFloat(translationZ * scale)
-
-        let maxPan: CGFloat = 0.8
-        topDownPanOffset.x = max(-maxPan, min(maxPan, topDownPanOffset.x))
-        topDownPanOffset.y = max(-maxPan, min(maxPan, topDownPanOffset.y))
-    }
-
-    func applyTopDownAreaZoom(scale: Float) {
-        let minScale = 0.3
-        let maxScale = 2.0
-        let newScale = topDownOrthographicScale / Double(max(0.01, scale))
-        topDownOrthographicScale = max(minScale, min(maxScale, newScale))
-    }
 
     // MARK: - Observation / Aiming
 

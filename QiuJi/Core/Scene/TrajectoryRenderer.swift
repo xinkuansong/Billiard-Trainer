@@ -164,11 +164,15 @@ struct TableAssistSurface {
     typealias Point = SIMD2<Double>
     let triangles: [[Point]]
     let sourceY: Float
+    /// Highest vertex among the accepted bed faces (== `sourceY` for a flat bed; the
+    /// bundled model's tent corners raise it to the physical plane, see `bedFaceTolerance`).
+    let topY: Float
     private let bounds: [(min: Point, max: Point)]
 
-    init(triangles: [[Point]], sourceY: Float) {
+    init(triangles: [[Point]], sourceY: Float, topY: Float? = nil) {
         self.triangles = triangles
         self.sourceY = sourceY
+        self.topY = max(sourceY, topY ?? sourceY)
         self.bounds = triangles.map { triangle in
             (min: Point(triangle.map(\.x).min() ?? .infinity, triangle.map(\.y).min() ?? .infinity),
              max: Point(triangle.map(\.x).max() ?? -.infinity, triangle.map(\.y).max() ?? -.infinity))
@@ -177,15 +181,32 @@ struct TableAssistSurface {
 
     enum Failure: Error { case invalidSurface(String) }
 
+    /// Height tolerance (1 mm) around the accepted bed band `[bedY, physicalSurfaceY]`.
+    ///
+    /// The bundled USDZ bed is not one flat polygon: along both long rails of the **head
+    /// (+X) half**, the bed quads `x ∈ [0.03, 0.635], |z| ∈ [0.512, 0.640]` have one corner
+    /// lifted to the physical plane (0.80001 vs bedY 0.79474, +5.3 mm) — a modelling defect
+    /// (measured 2026-09-14, `TableAssistSurfaceV63Tests`). The former `|y − bedY| < 1e-5`
+    /// filter rejected those tent faces, so the footprint had two 13 cm × 60 cm holes and
+    /// every projected assist (aim/pot/trace lines, 90° line, rings) was clipped away there.
+    /// Nearest other `TaiNi` faces are ≥ +31 mm (cushion cloth) / −55 mm (pocket ramps),
+    /// so a band up to `surfaceY + 1 mm` admits only the bed and its tent corners.
+    /// `MobileClothAlignment` lifts the flat bed to `surfaceY` for display, which also
+    /// flattens the tent, so lines at `displayedClothY + 1 mm` sit above the whole footprint.
+    static let bedFaceTolerance: Float = 0.001
+
     static func load(from scene: AngleTrainingScene) throws -> TableAssistSurface {
         guard let bedY = try MobileClothAlignment.measuredBedY(in: scene), let table = scene.tableNode else {
             throw Failure.invalidSurface("Missing horizontal cloth surface")
         }
+        let minY = bedY - Self.bedFaceTolerance
+        let maxY = max(bedY, scene.surfaceY) + Self.bedFaceTolerance
         var candidates: [SCNNode] = []
         table.enumerateChildNodes { node, _ in
             if node.geometry?.materials.contains(where: { $0.name == "TaiNi" }) == true { candidates.append(node) }
         }
         var triangles: [[Point]] = []
+        var topY = bedY
         for node in candidates {
             guard let geometry = node.geometry,
                   let sourceIndex = geometry.sources.firstIndex(where: { $0.semantic == .vertex }) else { continue }
@@ -221,14 +242,15 @@ struct TableAssistSurface {
                     guard world.allSatisfy({ $0.x.isFinite && $0.y.isFinite && $0.z.isFinite }) else {
                         throw Failure.invalidSurface("Non-finite cloth position")
                     }
-                    // Same import precision as measuredBedY; exclude rail faces and bevels.
-                    guard world.allSatisfy({ abs($0.y - bedY) < 0.00001 }) else { continue }
+                    // Bed + its lifted tent corners only; cushion cloth and pocket ramps stay out.
+                    guard world.allSatisfy({ $0.y > minY && $0.y < maxY }) else { continue }
+                    topY = max(topY, world.map(\.y).max() ?? bedY)
                     triangles += try triangulate(world.map { Point(Double($0.x), Double($0.z)) })
                 }
             }
         }
         guard !triangles.isEmpty else { throw Failure.invalidSurface("Empty cloth footprint") }
-        return TableAssistSurface(triangles: triangles, sourceY: bedY)
+        return TableAssistSurface(triangles: triangles, sourceY: bedY, topY: topY)
     }
 
     /// Ear clipping preserves concave face boundaries; a triangle fan would fill notches.

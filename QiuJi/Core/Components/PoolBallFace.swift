@@ -215,17 +215,28 @@ enum TrajectoryStyle {
     /// 接触点标记 = 品牌绿（与选中环同族）。
     static let contactColor = UIColor(red: 0.36, green: 0.92, blue: 0.55, alpha: 0.95)
 
-    // MARK: 虚线节奏（对照线/90° 线共用）
+    // MARK: 点标记尺寸（DR-296：默认版与训练版并轨到训练版口径）
+    // 旧默认 接触点 9 mm / 瞄准点 6.5 mm（D8）在球半径 28.6 mm 上占比过大（31%），
+    // 用户反馈「接触点太大」；统一为接触点 4.5 mm、瞄准点 4 mm。
 
-    static let hintDash: Float = 0.028
-    static let hintGap: Float = 0.020
+    /// 接触点球半径（默认版）。
+    static let contactPointRadius: CGFloat = 0.0045
+    /// 瞄准点（假想球球心红点）球半径（默认版）。
+    static let aimPointRadius: CGFloat = 0.004
+
+    // MARK: 虚线节奏（对照线/90° 线共用）
+    // DR-296：整体缩短加密（原 28/20），周期 24 mm。
+
+    static let hintDash: Float = 0.014
+    static let hintGap: Float = 0.010
 
     // MARK: 主轨迹虚线节奏（线语言 v2，问题集合条 12）
     // 进球线 / 母球击后轨迹 / 其它被带动球轨迹 = 虚线；瞄准线（碰前段）保持白实线。
     // 比 hint 更长的段落，保证主信息层级仍高于释义层。
+    // DR-296：原 50/26（周期 76 mm）在 3D 透视下每段过长，改 20/12（周期 32 mm）。
 
-    static let mainDash: Float = 0.050
-    static let mainGap: Float = 0.026
+    static let mainDash: Float = 0.020
+    static let mainGap: Float = 0.012
 }
 
 // MARK: - Trajectory detail level（三档标注展示，问题集合条 12.5）

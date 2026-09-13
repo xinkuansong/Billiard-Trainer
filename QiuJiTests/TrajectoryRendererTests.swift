@@ -150,8 +150,11 @@ final class TableAssistSurfaceV63Tests: XCTestCase {
         try capture("projected")
     }
 
-    // TEMP-DIAG (to be removed): footprint hole / overlap census.
-    func testTempFootprintCoverageCensus() throws {
+    /// Regression for the head-half rail bands (X ∈ [0.04, 1.15], |Z| ∈ (0.512, 0.642))
+    /// where 12 bed faces were dropped by a 1e-5 height filter and every projected
+    /// line disappeared. Samples the whole playfield interior; both halves must be
+    /// fully covered exactly once (no holes, no double-covered overlaps).
+    func testLoadedClothFootprintHasNoHolesOrOverlapsInsidePlayfield() throws {
         let scene = AngleTrainingScene(); scene.setupScene()
         let surface = try TableAssistSurface.load(from: scene)
         func contains(_ t: [Point], _ p: Point) -> Bool {
@@ -159,32 +162,27 @@ final class TableAssistSurfaceV63Tests: XCTestCase {
             let d0 = cross(t[1]-t[0], p-t[0]), d1 = cross(t[2]-t[1], p-t[1]), d2 = cross(t[0]-t[2], p-t[2])
             return (d0 >= 0 && d1 >= 0 && d2 >= 0) || (d0 <= 0 && d1 <= 0 && d2 <= 0)
         }
-        var holes: [[Double]] = [], overlaps: [[Double]] = []
-        let step = 0.01
-        var x = -1.22
-        while x <= 1.22 {
-            var z = -0.585
-            while z <= 0.585 {
+        // Stay 4 cm inside the cushion noses so pocket mouths never count as holes.
+        let halfX = Double(AngleSceneCalculator.innerLength) / 2 - 0.04
+        let halfZ = Double(AngleSceneCalculator.innerWidth) / 2 - 0.04
+        var holes: [Point] = [], overlaps: [Point] = []
+        var x = -halfX
+        while x <= halfX {
+            var z = -halfZ
+            while z <= halfZ {
                 let p = Point(x, z)
                 let n = surface.triangles.filter { contains($0, p) }.count
-                if n == 0 { holes.append([x, z]) } else if n > 1 { overlaps.append([x, z, Double(n)]) }
-                z += step
+                if n == 0 { holes.append(p) } else if n > 1 { overlaps.append(p) }
+                z += 0.01
             }
-            x += step
+            x += 0.01
         }
-        let probe = Point(0.92, -0.50)
-        let probeCount = surface.triangles.filter { contains($0, probe) }.count
-        let ribbon = surface.ribbon(from: SCNVector3(0, 0, 0), to: SCNVector3(1.27, 0, -0.635),
+        XCTAssertTrue(holes.isEmpty, "footprint holes at \(holes.prefix(8))… (\(holes.count) samples)")
+        XCTAssertTrue(overlaps.isEmpty, "double-covered footprint at \(overlaps.prefix(8))… (\(overlaps.count))")
+        // The line that visibly broke in the 2026-09-14 report: table centre → +X/−Z corner.
+        let ribbon = surface.ribbon(from: SCNVector3(0, 0, 0), to: SCNVector3(1.20, 0, -0.60),
                                     width: 0.0056, at: surface.sourceY + 0.001)
-        let report: [String: Any] = [
-            "triangleCount": surface.triangles.count, "holeCount": holes.count, "overlapCount": overlaps.count,
-            "holes": Array(holes.prefix(400)), "overlaps": Array(overlaps.prefix(200)),
-            "probe_0.92_-0.50_coverage": probeCount, "ribbonArea": triangleArea(ribbon),
-            "ribbonExpectedArea": Double(hypot(1.27, 0.635)) * 0.0056,
-            "triangleAreas": surface.triangles.map { TableAssistSurface.signedArea($0) }
-        ]
-        try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
-            .write(to: URL(fileURLWithPath: "/tmp/footprint-diag.json"))
+        XCTAssertEqual(triangleArea(ribbon), Double(hypot(1.20, 0.60)) * 0.0056, accuracy: 1e-5)
     }
 
     func testSceneSeparatesProjectedAssistsFromSpatialLines() throws {

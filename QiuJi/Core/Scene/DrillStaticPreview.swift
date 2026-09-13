@@ -200,7 +200,7 @@ enum DrillStaticPreview {
             return false
         }
         let strikePos = CueStroke.strikePosition(
-            cue: cueNode.position, aim: aim, spinX: shot.spinX
+            cue: cueNode.position, aim: aim, spinX: shot.spinX, spinY: shot.spinY
         )
         let obstacles = scene.cueObstacleCenters(excludingStrikeNear: strikePos)
         switch CueStick.requiredElevation(
