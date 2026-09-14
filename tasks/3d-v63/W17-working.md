@@ -109,3 +109,34 @@
 - 返修版**仍未经用户实看**（真机/页面）。
 - 跨杆保留（页面层 8 处 `isHidden`）、W03 裁剪例外截图、`testExportSettledFrames…` 长期 skip：同 DR-294。
 - 极坐标表 2 mm 网格 ±1 mm 噪声未平滑，环间线性插值在中袋内收段有法向折点（触发的是几何重定向，不是阻尼）；若目测有可见抖动，下一步 3 点平滑 reach 表并重跑两条门禁。
+
+## W17-B/D 二次返修 — 穿过网兜底环、沿回球支架滚到挡头（2026-09-14，DR-298）
+
+### 触发
+用户实看 DR-297 版：「重力挺像了，但球停在袋网底部，我要的是继续往下滚到支架底部」。用户附图：内置桌型为开口网兜 + 金属回球支架（两根杆从网兜底沿台边斜向下到桌腿处挡头）。
+
+### 根因
+DR-294/297 把 `PocketCaptureBoundary.restingCenterY`（捕获边界的球心最低点 = 网兜底环）当槛点地板；支架从未建模。裁定几何被当成了呈现终点。
+
+### 实测（`output/3d-v63/W17/rail-probe.log`，球体-网格支撑探测，六袋）
+- 袋下几何按材质分层：`Black` = 支架双杆（y 0.52–0.60）+ 网兜底悬挂件；`Gold` = 挡头（角袋 x ≈ 袋心内侧 0.175–0.20，y 0.48–0.56）+ 悬挂横杆；`MG_Gold` = 桌腿；`White` = 网绳。第一版从台面向下探支撑先撞桌裙/桌腿得到 y=0.722 的假槽线——必须只用杆材质找支撑、再用全部材质核自由。
+- 槽线（球心）：沿 `NetPocket.axisX`（内向 X；中袋两侧均 +X）直线，横向偏差 ≤ 3 mm。角袋 s 0.030→0.160：y 0.6190→0.5635；中袋 s 0.015→0.145：y 0.6170→0.5615；斜率 −0.427（23.1°）。挡头接触位角袋 s ≈ 0.162、中袋 s ≈ 0.148。四角袋、两中袋各自镜像一致。
+- 底环：沿底环轴心球心 y ∈ [exit−32, exit−17] mm 被 `White` 挡、再往下无白 ⇒ 底环内径 ≈ 50 mm，比球小 ≈2.5 mm（资产瑕疵，真实产品开口）。
+
+### 变更（`PocketNetPresentation.swift`，呈现层）
+- `PocketRailProfile{startDrop, slope, stopDistance, firstClearDistance}`：角 (0.1682, −0.427, 0.162, 0.030)，中 (0.1766, −0.427, 0.148, 0.015)。
+- `NetPocket`：`rail`、`netExitY`（= 台呢 − `restingDepth`）、`railPoint(atDistance:)`、`railTangent`/`railNormal`、`railDistance(of:)`、`railHeight(under:)`。
+- `slots`：支架槛点链——第 1 球靠挡头，之后每球沿斜面 2R 相接直到 `firstClearDistance`；角/中袋各 3 个，FIFO 容量 = `slots.count`（删 `netCapacity`、`upperSlotLean`）。
+- `descent` 三段：网兜段（DR-297 不变，去掉地板）→ 球心低于 `netExitY` 自由落体 → 触槽线着陆：零恢复、只留沿杆分量且 `max(0,·)` 不倒滚、横向 V 槽对中 τ=10 ms → a = g·sinθ·5/7 滚下、纯滚动 ω=(n×v)/R → 到槛点死停，末样本精确 = 槛点。
+
+### 实证
+- `rail-r6.log` PocketNetPresentationTests 10/10：
+  - `testRailProfileMatchesBundledRods`（加载 USDZ）：六袋槽线每 1 cm 站点球体离所有材质 ≤ 1.5 mm、下 4 mm 必在 `Black` 内；槛 1 + 6 mm 碰 `Gold`；底环 exit−25 mm 存在、exit−40 mm 以下无白；脚本支架段（`firstClear`+5 mm、着陆 20 ms 后）球体侵入角袋 0 / 中袋 1.0 mm，着陆瞬态 ≤ 2.0 mm（角袋离轴 7 mm 着陆骑杆 2–3 帧，在底环下方）。
+  - `testDescentFallsUnderGravityAfterLinerContact`：离网后有自由落体步（角 22 / 中 17 步）、支架上每步 Δv∥ = g·sinθ·5/7、速度严格沿杆、末样本 = 槛点；全程角袋 0.537 s / 中袋 0.628 s。
+  - `testSlotsLieOnTheRail`、216 次下落不变量、FIFO 四球、端到端。
+- `rail-related-r1.log`：TrajectoryRenderer 27 + BreakFlow 默认开球挂尾 + 走位 scratch + CueScratchLifecycle 共 35 项 0 失败。
+
+### 未做
+- 返修版**仍未经用户实看**。
+- 底环穿过为脚本取舍；严格不穿需改资产（底环放大 ≥ 3 mm）。杆间距/杆径未测（横向对中按时间常数）；挡头零恢复无回弹。
+- 跨杆保留、W03 裁剪例外、`testExportSettledFrames…` 长期 skip：同 DR-294。

@@ -2,9 +2,10 @@
 //  PocketNetPresentation.swift
 //  QiuJi
 //
-//  W17-B/D (v63, DR-294 / DR-297): presentation-only descent of a planar-potted ball into
-//  the pocket, ending at a deterministic resting slot in the net. The pot verdict is the
-//  planar drop-circle rule (DR-293); nothing here feeds back into physics or scoring.
+//  W17-B/D (v63, DR-294 / DR-297 / DR-298): presentation-only descent of a planar-potted
+//  ball through the net and down the ball-return rail, ending at a deterministic resting
+//  slot against the rail's end stop (or the ball below). The pot verdict is the planar
+//  drop-circle rule (DR-293); nothing here feeds back into physics or scoring.
 //
 //  Coordinate contract: SceneKit world, X–Z horizontal, Y up, metres. Pocket centres come
 //  from `TableGeometry.pockets` (TablePhysics constants). The wall profile below is the
@@ -116,6 +117,11 @@ struct PocketNetProfile {
 
     static func forPocket(isCorner:Bool)->PocketNetProfile { isCorner ? corner : middle }
 
+    /// Ball-centre height (world) at which the ball has left the net: the bottom ring of
+    /// the bundled bag. Below it the polar table has no more rings and the ball is in the
+    /// air above the return rail (DR-298).
+    func netExitY(clothY:Double)->Double { clothY-restingDepth }
+
     /// Linear interpolation at (ball-bottom) `depth`, clamped to the first/last ring.
     func ring(atDepth depth:Double)->Ring {
         if depth<=rings[0].depth { return rings[0] }
@@ -127,6 +133,39 @@ struct PocketNetProfile {
         return Ring(depth:depth,dx:a.dx+(b.dx-a.dx)*u,dz:a.dz+(b.dz-a.dz)*u,
                     reaches:zip(a.reaches,b.reaches).map { $0+($1-$0)*u })
     }
+}
+
+/// Ball-return rail under each net: two parallel rods (asset material `Black`) running
+/// from the bottom ring of the bag along the inward X axis (`NetPocket.axisX`) down to a
+/// `Gold` end stop at the table leg. Measured with a sphere-vs-mesh support probe on the
+/// bundled USDZ (`TmpRailProbe`, 2026-09-14, DR-298): the ball-centre trough is a straight
+/// line in the vertical plane through the pocket centre, lateral offset ≤ 3 mm (ignored).
+///
+/// Coordinates: SceneKit world, Y up, metres. `s` is the horizontal distance from the
+/// pocket centre along `axisX`; the trough height is `clothY - startDrop + slope * s`.
+struct PocketRailProfile {
+    /// Cloth height minus ball-centre trough height at s = 0 (the pocket centre).
+    let startDrop:Double
+    /// dy/ds of the trough (negative: downhill away from the pocket).
+    let slope:Double
+    /// `s` of a ball centre resting against the end stop.
+    let stopDistance:Double
+    /// Smallest `s` at which the ball body is clear of the bag's bottom ring; no resting
+    /// slot is placed closer to the pocket than this.
+    let firstClearDistance:Double
+
+    /// Corner pockets: trough 0.6190 m at s 0.030 → 0.5635 m at s 0.160 (cloth 0.8),
+    /// end stop touched at s 0.165.
+    static let corner=PocketRailProfile(startDrop:0.1682,slope:-0.427,stopDistance:0.162,firstClearDistance:0.030)
+    /// Middle pockets: trough 0.6170 m at s 0.015 → 0.5615 m at s 0.145, end stop at s 0.150.
+    static let middle=PocketRailProfile(startDrop:0.1766,slope:-0.427,stopDistance:0.148,firstClearDistance:0.015)
+
+    static func forPocket(isCorner:Bool)->PocketRailProfile { isCorner ? corner : middle }
+
+    /// cos of the incline angle (horizontal advance per unit of arc length).
+    var cosIncline:Double { 1/sqrt(1+slope*slope) }
+    /// sin of the incline angle.
+    var sinIncline:Double { -slope*cosIncline }
 }
 
 /// Builds and attaches the scripted net descent for every planar pot in a recorder.
@@ -141,12 +180,13 @@ enum PocketNetPresentation {
     static let maxDescentDuration:Double=1.5
     /// Eased settle onto the exact slot after the scripted wall/floor contact.
     static let settleDuration:Double=0.12
-    /// Slots per net before the oldest ball is recycled (FIFO). The bundled bag is
-    /// ~0.09 m deep (3.2 R): two balls fit, the second already protruding into the hole.
-    static let netCapacity=2
-    /// Horizontal lean of the upper slot from the lower one, toward the ring axis at its
-    /// own height.
-    static let upperSlotLean:Double=0.018
+    /// Rolling factor of a solid sphere on the rail (a = g sinθ / (1 + 2/5)), the rods
+    /// treated as a plane support.
+    static let rollingFactor:Double=5.0/7.0
+    /// Time constant over which the V of the two rods centres a ball that landed off the
+    /// trough line (the ball leaves the bag up to ~7 mm off its axis). Short: the landing
+    /// impulse itself throws the ball into the groove.
+    static let railCentringTime:Double=0.01
     /// Normal approach speed above which the ARRIVAL at the liner counts as an impact
     /// (tangential velocity and spin scaled once by the retention, DR-292). Slower
     /// arrivals and every later step are sustained sliding.
@@ -172,14 +212,30 @@ enum PocketNetPresentation {
         let axisX:V
         let axisZ:V
         let profile:PocketNetProfile
+        let rail:PocketRailProfile
         init(pocket:Pocket,surfaceY:Double) {
             id=pocket.id
             center=V(Double(pocket.center.x),surfaceY,Double(pocket.center.z))
             dropRadius=Double(pocket.radius)
             profile=PocketNetProfile.forPocket(isCorner:pocket.isCorner)
+            rail=PocketRailProfile.forPocket(isCorner:pocket.isCorner)
             axisX=V(pocket.center.x>0 ? -1 : 1,0,0)
             axisZ=V(0,0,pocket.center.z>0 ? -1 : 1)
         }
+        /// Ball-centre height at which the ball leaves the bag through its bottom ring.
+        var netExitY:Double { profile.netExitY(clothY:center.y) }
+        /// Trough point at horizontal distance `s` along the rail (`axisX`).
+        func railPoint(atDistance s:Double)->V {
+            center+axisX*s+V(0,-rail.startDrop+rail.slope*s,0)
+        }
+        /// Unit tangent of the rail, pointing downhill (away from the pocket).
+        var railTangent:V { simd_normalize(axisX+V(0,rail.slope,0)) }
+        /// Unit normal of the rail support, pointing up out of the trough.
+        var railNormal:V { let t=railTangent; return simd_normalize(V(0,1,0)-t*t.y) }
+        /// Horizontal distance of `p` along the rail from the pocket centre.
+        func railDistance(of p:V)->Double { dot(p-center,axisX) }
+        /// Trough height under horizontal position `p` (its `s` along the rail).
+        func railHeight(under p:V)->Double { railPoint(atDistance:railDistance(of:p)).y }
         /// Interpolated ring for a ball whose centre is at world `y`.
         func ring(at y:Double,ballRadius:Double)->PocketNetProfile.Ring {
             profile.ring(atDepth:center.y-(y-ballRadius))
@@ -218,52 +274,93 @@ enum PocketNetPresentation {
             n/=len
             return dot(n,outward)<0 ? -n : n
         }
-        /// Deterministic resting slots, lowest first. The upper ball rests on the lower
-        /// one (centre distance 2R), leaning toward the ring axis at its own height.
+        /// Deterministic resting slots on the rail, lowest first: the first ball rests
+        /// against the end stop, each later one against the ball below it (centre
+        /// distance 2R along the incline). Slots stop where the ball body would still be
+        /// inside the bag's bottom ring; that count is the pocket's FIFO capacity.
         func slots(ballRadius:Double)->[V] {
-            let bottom=axis(at:center.y-profile.restingDepth,ballRadius:ballRadius)
-            let lean=PocketNetPresentation.upperSlotLean
-            let rise=sqrt(max(0,4*ballRadius*ballRadius-lean*lean))
-            let upperAxis=axis(at:bottom.y+rise,ballRadius:ballRadius)
-            var dir=V(upperAxis.x-bottom.x,0,upperAxis.z-bottom.z)
-            let len=length(dir)
-            dir=len>1e-9 ? dir/len : axisX
-            let upper=V(bottom.x,bottom.y+rise,bottom.z)+dir*lean
-            return [bottom,upper]
+            var slots:[V]=[]
+            var s=rail.stopDistance
+            while s>=rail.firstClearDistance-1e-9 {
+                slots.append(railPoint(atDistance:s))
+                s-=2*ballRadius*rail.cosIncline
+            }
+            return slots
         }
     }
 
-    /// Script one ball's fall from its planar capture snapshot to `slot`.
+    /// Script one ball's fall from its planar capture snapshot to `slot` on the rail.
     ///
-    /// Gravity is the only accelerating force. The liner is the dissipative body of
-    /// DR-292: an approach faster than `impactSpeed` scales the tangential velocity by
-    /// `retention` (the same `TablePhysics.pocketLinerRetention` as the spatial model);
-    /// sustained contact removes the normal component (sliding along the wall slope) and
-    /// bleeds the horizontal velocity with `linerGripTime`. The floor (net bottom or the
-    /// ball below) is zero-restitution with the same horizontal grip.
+    /// Gravity is the only accelerating force. Three phases (DR-298):
+    /// 1. **Net** (centre above `pocket.netExitY`): the liner is the dissipative body of
+    ///    DR-292 — an approach faster than `impactSpeed` scales the tangential velocity by
+    ///    `retention` (the same `TablePhysics.pocketLinerRetention` as the spatial model);
+    ///    sustained contact removes the normal component (sliding along the wall slope)
+    ///    and bleeds the horizontal velocity with `linerGripTime`.
+    /// 2. **Air**: below the bag's bottom ring the ball falls freely onto the rail. (The
+    ///    bundled ring is modelled ~2.5 mm tighter than the ball; the real product is
+    ///    open, so the script passes through it.)
+    /// 3. **Rail**: zero-restitution landing keeps only the downhill component, then the
+    ///    ball rolls (`rollingFactor`) down the trough and stops dead at the slot — the
+    ///    end stop or the ball below it.
     static func descent(from start:State,pocket:NetPocket,slot:V,ballRadius:Double,gravity:Double,
                         retention:Double,friction:Double=Double(TablePhysics.cushionFriction))->[State] {
         var s=start,samples=[start]
         let dt=sampleStep
         let end=start.time+maxDescentDuration
         let slideKeep=exp(-dt/linerGripTime),spinKeep=exp(-dt/spinDecayTime)
-        var inContact=false
+        let centringKeep=exp(-dt/railCentringTime)
+        var inContact=false,onRail=false
+        var along=0.0,vAlong=0.0,lateral=0.0
+        let tangent=pocket.railTangent,normal=pocket.railNormal,cosIncline=pocket.rail.cosIncline
+        let slotDistance=pocket.railDistance(of:slot)
         let entryOverlap:Double={
             let a=pocket.axis(at:start.position.y,ballRadius:ballRadius)
             let d=V(start.position.x-a.x,0,start.position.z-a.z),dist=length(d)
             return dist>1e-12 ? max(0,dist-pocket.reach(at:start.position.y,toward:d/dist,ballRadius:ballRadius)) : 0
         }()
         while s.time<end {
-            var v=s.velocity,omega=s.omega,onFloor=false
+            var v=s.velocity,omega=s.omega
+            let t=s.time+dt
+            if onRail {
+                // Rolling down the incline; the rods centre the ball onto the trough line.
+                vAlong+=gravity*pocket.rail.sinIncline*rollingFactor*dt
+                along+=vAlong*cosIncline*dt
+                lateral*=centringKeep
+                if along>=slotDistance {
+                    // Dead stop against the end stop / the ball below: exactly on the slot.
+                    s=State(time:t,position:slot,velocity:.zero,omega:.zero)
+                    samples.append(s)
+                    break
+                }
+                v=tangent*vAlong
+                omega=cross(normal,v)/ballRadius
+                s=State(time:t,position:pocket.railPoint(atDistance:along)+pocket.axisZ*lateral,velocity:v,omega:omega)
+                samples.append(s)
+                continue
+            }
             v.y-=gravity*dt
             var p=s.position+v*dt
-            let t=s.time+dt
-            // Floor of the slot (net bottom or the ball below): no bounce, soft grip.
-            if p.y<=slot.y {
-                p.y=slot.y
-                if v.y<0 { v.y=0 }
-                v.x*=retention;v.z*=retention;omega*=retention
-                onFloor=true
+            // Landing on the rail (only reachable below the bag's bottom ring).
+            if p.y<=pocket.railHeight(under:p) {
+                onRail=true
+                along=pocket.railDistance(of:p)
+                lateral=dot(p-pocket.center,pocket.axisZ)
+                // Dead landing: the rods take the normal and lateral components; the
+                // ball never rolls back up into the net.
+                vAlong=max(0,dot(v,tangent))
+                v=tangent*vAlong
+                omega=cross(normal,v)/ballRadius
+                s=State(time:t,position:pocket.railPoint(atDistance:along)+pocket.axisZ*lateral,velocity:v,omega:omega)
+                samples.append(s)
+                continue
+            }
+            if p.y<=pocket.netExitY {
+                // Through the bottom ring: free fall, no more walls.
+                inContact=false
+                s=State(time:t,position:p,velocity:v,omega:omega)
+                samples.append(s)
+                continue
             }
             // Wall: project the centre back inside the ring, then respond to the approach.
             let allowance=entryOverlap*max(0,1-(t-start.time)/entryRelaxDuration)
@@ -313,7 +410,6 @@ enum PocketNetPresentation {
             }
             s=State(time:t,position:p,velocity:v,omega:omega)
             samples.append(s)
-            if onFloor && length(v)<0.02 { break }
         }
         // Eased settle onto the exact slot (position only; residual spin decays with it).
         let from=s
@@ -376,7 +472,7 @@ enum PocketNetPresentation {
             let slots=pocket.slots(ballRadius:ballRadius)
             var queue=queues[entry.pocketID] ?? []
             do {
-                if queue.count>=netCapacity {
+                if queue.count>=slots.count {
                     // FIFO: the oldest ball is recycled the moment the new one starts falling;
                     // everyone above it slides down one slot.
                     let evicted=queue.removeFirst()

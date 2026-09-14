@@ -92,12 +92,14 @@ final class PocketNetPresentationTests: XCTestCase {
                               velocity: outward * 1.2, omega: .zero)
             let samples = PocketNetPresentation.descent(from: start, pocket: net, slot: slot, ballRadius: ballRadius,
                                                         gravity: g, retention: retention)
-            // Time to reach the floor: free fall over the drop takes ~0.16 s. The corner cup is
-            // near-vertical (≈ free fall); the middle bag has a real overhang below its mouth
-            // that redirects the fall, so allow 1.8× (the creeping script needed > 1.5 s).
-            let floorTime = samples.first { $0.position.y <= slot.y + 1e-9 }?.time ?? .infinity
-            let freeFall = sqrt(2 * (start.position.y - slot.y) / g)
-            XCTAssertLessThanOrEqual(floorTime - start.time, 1.8 * freeFall, "\(pocket.id) reached the floor at \(floorTime - start.time)s (free fall \(freeFall)s)")
+            // Time to leave the bag through its bottom ring: free fall over the bag takes
+            // ~0.16 s. The corner cup is near-vertical (≈ free fall); the middle bag has a real
+            // overhang below its mouth that redirects the fall, so allow 1.8× (the creeping
+            // script needed > 1.5 s).
+            let exitY = net.netExitY
+            let floorTime = samples.first { $0.position.y <= exitY + 1e-9 }?.time ?? .infinity
+            let freeFall = sqrt(2 * (start.position.y - exitY) / g)
+            XCTAssertLessThanOrEqual(floorTime - start.time, 1.8 * freeFall, "\(pocket.id) left the bag at \(floorTime - start.time)s (free fall \(freeFall)s)")
             // The approach speed is eaten by the liner on arrival: the first sample whose
             // horizontal speed dropped below 95 % of the entry speed is already below 0.1 m/s.
             let contact = try XCTUnwrap(samples.first { hypot($0.velocity.x, $0.velocity.z) < 1.2 * 0.95 }, pocket.id)
@@ -109,7 +111,7 @@ final class PocketNetPresentationTests: XCTestCase {
             // creeping script multiplied vy by the retention on every such step.
             var airborne = 0, freeSteps = 0, verticalContactSteps = 0
             var previous = samples[0], previousNormal: V? = nil
-            for s in samples.dropFirst() where previous.position.y > slot.y + 1e-9 && s.position.y > slot.y + 1e-9 {
+            for s in samples.dropFirst() where previous.position.y > exitY + 1e-9 && s.position.y > exitY + 1e-9 {
                 let axis = net.axis(at: s.position.y, ballRadius: ballRadius)
                 let d = V(s.position.x - axis.x, 0, s.position.z - axis.z), dist = length(d)
                 let outward = dist > 1e-12 ? d / dist : net.axisX
@@ -132,7 +134,97 @@ final class PocketNetPresentationTests: XCTestCase {
             }
             XCTAssertGreaterThan(airborne, 10, pocket.id)
             XCTAssertGreaterThan(freeSteps, 0, "\(pocket.id) the ball should leave the wall somewhere in the flare")
-            print("[W17 net] \(pocket.id) floor after \(floorTime - start.time)s (free fall \(freeFall)s), free steps \(freeSteps), vertical-wall sliding steps \(verticalContactSteps)")
+            // Rail phase (DR-298): below the ring the ball is in free fall until it lands on the
+            // trough; from the landing on, it rolls with a = g sinθ · 5/7 along the tangent and
+            // stops dead on the slot.
+            let tangent = net.railTangent
+            var previousRail: State? = nil, rollSteps = 0, airSteps = 0
+            for s in samples where s.position.y < exitY && s.time <= samples.last!.time - PocketNetPresentation.settleDuration + 1e-9 {
+                let onRail = abs(s.position.y - net.railHeight(under: s.position)) < 1e-6
+                if onRail {
+                    if let p = previousRail, s.velocity != .zero {
+                        let dv = dot(s.velocity - p.velocity, tangent) / (s.time - p.time)
+                        XCTAssertEqual(dv, g * net.rail.sinIncline * PocketNetPresentation.rollingFactor, accuracy: 1e-6,
+                                       "\(pocket.id) t=\(s.time) rolling acceleration")
+                        XCTAssertEqual(length(s.velocity - tangent * dot(s.velocity, tangent)), 0, accuracy: 1e-9, "velocity along the rail")
+                        rollSteps += 1
+                    }
+                    previousRail = s
+                } else {
+                    XCTAssertNil(previousRail, "\(pocket.id) once on the rail the ball stays on it")
+                    airSteps += 1
+                }
+            }
+            XCTAssertGreaterThan(airSteps, 0, "\(pocket.id) falls from the ring onto the rail")
+            XCTAssertGreaterThan(rollSteps, 5, "\(pocket.id) rolls down the rail")
+            let last = samples[samples.count - 1]
+            XCTAssertEqual(last.position, slot, pocket.id)
+            print("[W17 net] \(pocket.id) left bag after \(floorTime - start.time)s (free fall \(freeFall)s), free steps \(freeSteps), vertical-wall sliding steps \(verticalContactSteps), air \(airSteps), roll \(rollSteps), total \(last.time - start.time)s")
+        }
+    }
+
+    /// The rail profile is gated against the bundled rods (`Black`) and end stop (`Gold`):
+    /// along the trough the ball body clears every material, 4 mm lower it is in the rods,
+    /// and 6 mm past the first slot it is in the stop. The bag's bottom ring is the last
+    /// strand above the rail (nothing white under it).
+    func testRailProfileMatchesBundledRods() throws {
+        let model = try XCTUnwrap(TableModelLoader.loadTable())
+        let root = SCNNode(), table = model.visualNode
+        table.position.y += surfaceY - model.surfaceY
+        root.addChildNode(table)
+        let bedY = try XCTUnwrap(try MobileClothAlignment.measuredBedY(table: table, worldRoot: root, surfaceY: surfaceY))
+        let mesh = try PocketContactMesh.load(table: table, worldRoot: root, pocketID: "all", center: SCNVector3Zero, surfaceY: surfaceY,
+                                              bedY: bedY, alignCloth: true, coverage: .fullTable,
+                                              materials: ["MG_Gold", "Gold", "White", "Black", "Leather", "BlackWood", "Wood", "WeiBian"])
+        let g = Double(TablePhysics.gravity), retention = Double(TablePhysics.pocketLinerRetention)
+        for pocket in geometry.pockets {
+            let net = PocketNetPresentation.NetPocket(pocket: pocket, surfaceY: Double(surfaceY))
+            let c = net.center
+            let near = mesh.patches.filter { let m = ($0.triangle.a + $0.triangle.b + $0.triangle.c) / 3
+                return hypot(m.x - c.x, m.z - c.z) < 0.4 && m.y < 0.8 && m.y > 0.4 }
+            let all = near.map(\.triangle)
+            let rods = near.filter { $0.material == "Black" }.map(\.triangle)
+            let stop = near.filter { $0.material == "Gold" }.map(\.triangle)
+            let white = near.filter { $0.material == "White" }.map(\.triangle)
+            var s = net.rail.firstClearDistance
+            while s <= net.rail.stopDistance - 0.005 {
+                let p = net.railPoint(atDistance: s)
+                XCTAssertLessThanOrEqual(penetration(center: p, into: all), 0.0015, "\(pocket.id) trough at s=\(s) is not clear")
+                XCTAssertGreaterThan(penetration(center: p - V(0, 0.004, 0), into: rods), 0, "\(pocket.id) no rods under s=\(s)")
+                s += 0.01
+            }
+            let slots = net.slots(ballRadius: ballRadius)
+            XCTAssertGreaterThan(penetration(center: slots[0] + net.axisX * 0.006, into: stop), 0, "\(pocket.id) end stop past the first slot")
+            XCTAssertLessThanOrEqual(penetration(center: slots[0], into: all), 0.0015, "\(pocket.id) first slot clear")
+            // The bottom ring (White strands, ~16 mm tall for the ball centre) is the last
+            // thing above the rail: 4 cm under the exit height nothing white is left.
+            let exit = net.axis(at: net.netExitY, ballRadius: ballRadius)
+            XCTAssertGreaterThan(penetration(center: exit - V(0, 0.025, 0), into: white), 0, "\(pocket.id) the bottom ring is there")
+            XCTAssertEqual(penetration(center: exit - V(0, 0.04, 0), into: white), 0, "\(pocket.id) nothing white under the bottom ring")
+            // A scripted descent's rail phase keeps the body out of every material once the
+            // ball has cleared the ring (`firstClearDistance` + 5 mm probe margin) and the
+            // landing impulse has centred it in the groove (20 ms): a ball leaving the bag
+            // ~7 mm off-axis rides one rod for two or three 240 Hz samples, by ≤ 7 mm, hidden
+            // under the bottom ring. Passing the ring itself is the documented pass-through.
+            let toCenter = simd_normalize(V(-Double(pocket.center.x), 0, -Double(pocket.center.z)))
+            let start = State(time: 0, position: net.center + toCenter * net.dropRadius + V(0, ballRadius, 0), velocity: -toCenter * 1.2, omega: .zero)
+            let samples = PocketNetPresentation.descent(from: start, pocket: net, slot: slots[0], ballRadius: ballRadius, gravity: g, retention: retention)
+            let landing = try XCTUnwrap(samples.first { abs($0.position.y - net.railHeight(under: $0.position)) < 1e-9 }, "\(pocket.id) lands on the rail")
+            XCTAssertLessThan(landing.position.y, net.netExitY - 0.03, "\(pocket.id) lands well below the bag")
+            var worst = 0.0, checked = 0, transient = 0.0, worstSample = samples[0], worstMaterials = ""
+            for sample in samples where sample.position.y < net.netExitY && net.railDistance(of: sample.position) >= net.rail.firstClearDistance + 0.005 {
+                let depth = penetration(center: sample.position, into: all)
+                guard sample.time >= landing.time + 0.02 else { transient = max(transient, depth); continue }
+                if depth > worst {
+                    worst = depth; worstSample = sample
+                    worstMaterials = Set(near.filter { length($0.triangle.closestPoint(to: sample.position) - sample.position) < ballRadius }.map(\.material)).sorted().joined(separator: ",")
+                }
+                checked += 1
+            }
+            XCTAssertGreaterThan(checked, 20, pocket.id)
+            XCTAssertLessThanOrEqual(transient, 0.007, "\(pocket.id) landing transient penetration \(transient)")
+            XCTAssertLessThanOrEqual(worst, 0.0015, "\(pocket.id) rail phase body penetration \(worst) at t=\(worstSample.time) s=\(net.railDistance(of: worstSample.position)) y=\(worstSample.position.y) lateral=\(dot(worstSample.position - net.center, net.axisZ)) into \(worstMaterials)")
+            print("[W17 rail] \(pocket.id) landing s=\(net.railDistance(of: landing.position)) lateral=\(dot(landing.position - net.center, net.axisZ)) transient penetration \(transient), settled worst \(worst)")
         }
     }
 
@@ -153,8 +245,11 @@ final class PocketNetPresentationTests: XCTestCase {
                                       velocity: dir * speed, omega: .zero)
                     let samples = PocketNetPresentation.descent(from: start, pocket: net, slot: slot, ballRadius: ballRadius,
                                                                 gravity: g, retention: retention)
+                    // Net phase only: below the bottom ring the script passes through the (too
+                    // tight) modelled ring by design; the rail phase is gated in
+                    // `testRailProfileMatchesBundledRods`.
                     var worst = 0.0
-                    for s in samples where s.time >= PocketNetPresentation.entryRelaxDuration {
+                    for s in samples where s.time >= PocketNetPresentation.entryRelaxDuration && s.position.y > net.netExitY {
                         worst = max(worst, penetration(center: s.position, into: hard))
                     }
                     worstOverall = max(worstOverall, worst)
@@ -170,19 +265,22 @@ final class PocketNetPresentationTests: XCTestCase {
 
     // MARK: - Slots and descent invariants
 
-    func testSlotsLieInsideTheNet() {
+    func testSlotsLieOnTheRail() {
         for pocket in geometry.pockets {
             let net = PocketNetPresentation.NetPocket(pocket: pocket, surfaceY: Double(surfaceY))
             let slots = net.slots(ballRadius: ballRadius)
-            XCTAssertEqual(slots.count, PocketNetPresentation.netCapacity)
-            XCTAssertEqual(length(slots[1] - slots[0]), 2 * ballRadius, accuracy: 1e-9, "upper ball rests on the lower one")
-            XCTAssertGreaterThan(slots[1].y, slots[0].y)
+            XCTAssertEqual(slots.count, 3, "\(pocket.id) three balls fit between the end stop and the bag's bottom ring")
+            XCTAssertEqual(slots[0], net.railPoint(atDistance: net.rail.stopDistance), "first ball rests against the end stop")
+            for (lower, upper) in zip(slots, slots.dropFirst()) {
+                XCTAssertEqual(length(upper - lower), 2 * ballRadius, accuracy: 1e-9, "\(pocket.id) chained balls touch")
+                XCTAssertGreaterThan(upper.y, lower.y, "\(pocket.id) later balls rest higher up the incline")
+            }
             for slot in slots {
-                let axis = net.axis(at: slot.y, ballRadius: ballRadius)
-                let d = V(slot.x - axis.x, 0, slot.z - axis.z), dist = length(d)
-                let reach = dist > 1e-12 ? net.reach(at: slot.y, toward: d / dist, ballRadius: ballRadius) : 1
-                XCTAssertLessThanOrEqual(dist, reach + 1e-9, "\(pocket.id) slot inside wall")
-                XCTAssertLessThan(slot.y, Double(surfaceY) - ballRadius, "\(pocket.id) slot fully below the cloth")
+                let s = dot(slot - net.center, net.axisX)
+                XCTAssertGreaterThanOrEqual(s, net.rail.firstClearDistance - 1e-9, "\(pocket.id) slot clear of the bag's bottom ring")
+                XCTAssertEqual(slot.y, net.railHeight(under: slot), accuracy: 1e-12, "\(pocket.id) slot on the trough")
+                XCTAssertEqual(dot(slot - net.center, net.axisZ), 0, accuracy: 1e-12, "\(pocket.id) slot on the rail's vertical plane")
+                XCTAssertLessThan(slot.y, net.netExitY, "\(pocket.id) slot below the bag")
             }
         }
     }
@@ -219,7 +317,7 @@ final class PocketNetPresentationTests: XCTestCase {
                             XCTAssertLessThanOrEqual(s.position.y, previous.position.y + 1e-9, "no bounce: height is monotone")
                             XCTAssertGreaterThanOrEqual(s.position.y, slot.y - 1e-9, "never below the slot floor")
                             XCTAssertLessThanOrEqual(s.velocity.y, 1e-12, "the liner never lifts the ball")
-                            if s.time >= start.time + PocketNetPresentation.entryRelaxDuration {
+                            if s.time >= start.time + PocketNetPresentation.entryRelaxDuration && s.position.y > net.netExitY {
                                 let axis = net.axis(at: s.position.y, ballRadius: ballRadius)
                                 let d = V(s.position.x - axis.x, 0, s.position.z - axis.z), dist = length(d)
                                 let reach = dist > 1e-12 ? net.reach(at: s.position.y, toward: d / dist, ballRadius: ballRadius) : 1
@@ -231,7 +329,7 @@ final class PocketNetPresentationTests: XCTestCase {
                 }
             }
         }
-        XCTAssertEqual(runs, 6 * 4 * 3 * 2)
+        XCTAssertEqual(runs, 6 * 4 * 3 * 3)
     }
 
     func testDescentIsDeterministic() {
@@ -294,31 +392,37 @@ final class PocketNetPresentationTests: XCTestCase {
     }
 
     func testFifoOverflowEvictsOldestAndShiftsTheRestDown() throws {
-        let recorder = makePottedRecorder(entries: [("ball_1", 0, 0.5), ("ball_2", 0, 1.0), ("ball_3", 0, 2.0)])
+        let recorder = makePottedRecorder(entries: [("ball_1", 0, 0.5), ("ball_2", 0, 1.0), ("ball_3", 0, 2.0), ("ball_4", 0, 3.5)])
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: surfaceY)
         let net = PocketNetPresentation.NetPocket(pocket: geometry.pockets[0], surfaceY: Double(surfaceY))
         let slots = net.slots(ballRadius: ballRadius)
+        XCTAssertEqual(slots.count, 3)
         let t1 = try XCTUnwrap(recorder.collectionTailsByBallName["ball_1"])
         let t2 = try XCTUnwrap(recorder.collectionTailsByBallName["ball_2"])
         let t3 = try XCTUnwrap(recorder.collectionTailsByBallName["ball_3"])
-        // Oldest evicted when the third ball starts falling.
-        XCTAssertEqual(t1.fadeStart, 2.0)
+        let t4 = try XCTUnwrap(recorder.collectionTailsByBallName["ball_4"])
+        // Three balls chain up the rail from the end stop; nobody fades yet.
+        XCTAssertEqual(try XCTUnwrap(t1.sample(at: 3.49)).position, slots[0])
+        XCTAssertEqual(try XCTUnwrap(t2.sample(at: 3.49)).position, slots[1])
+        XCTAssertEqual(try XCTUnwrap(t3.sample(at: 3.49)).position, slots[2])
+        XCTAssertEqual(playback.collectionOpacity(ballName: "ball_1", time: 3.4), 1)
+        // The oldest (at the stop) is recycled when the fourth ball starts falling.
+        XCTAssertEqual(t1.fadeStart, 3.5)
         XCTAssertEqual(t1.end.position, slots[0])
-        XCTAssertEqual(playback.collectionOpacity(ballName: "ball_1", time: 1.9), 1)
-        XCTAssertEqual(playback.collectionOpacity(ballName: "ball_1", time: 2.0 + Float(TrajectoryPlayback.pocketFadeDuration) + 0.01), 0)
-        // Second ball rested on the upper slot, then slid down to the lower slot.
+        XCTAssertEqual(playback.collectionOpacity(ballName: "ball_1", time: 3.5 + Float(TrajectoryPlayback.pocketFadeDuration) + 0.01), 0)
+        // Everyone above rolls down one slot.
         XCTAssertNil(t2.fadeStart)
-        let restedUpper = try XCTUnwrap(t2.sample(at: 1.99))
-        XCTAssertEqual(restedUpper.position, slots[1])
         XCTAssertEqual(t2.end.position, slots[0])
-        XCTAssertEqual(t2.end.time, 2.0 + PocketNetPresentation.settleDuration, accuracy: 1e-9)
-        // Third ball lands on the (now) upper slot and stays visible.
+        XCTAssertEqual(t2.end.time, 3.5 + PocketNetPresentation.settleDuration, accuracy: 1e-9)
         XCTAssertNil(t3.fadeStart)
         XCTAssertEqual(t3.end.position, slots[1])
-        XCTAssertEqual(playback.collectionOpacity(ballName: "ball_3", time: 60), 1)
+        // The fourth ball stops against the third and stays visible.
+        XCTAssertNil(t4.fadeStart)
+        XCTAssertEqual(t4.end.position, slots[2])
+        XCTAssertEqual(playback.collectionOpacity(ballName: "ball_4", time: 60), 1)
     }
 
-    func testEndToEndDefaultPotRestsInTheNet() throws {
+    func testEndToEndDefaultPotRestsOnTheRail() throws {
         // Straight shot into the top-right corner from the centre line.
         let y = surfaceY + BallPhysics.radius
         let pocket = geometry.pockets[3]

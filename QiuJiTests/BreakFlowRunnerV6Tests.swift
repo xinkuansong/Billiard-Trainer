@@ -464,7 +464,7 @@ extension BreakFlowRunnerV6Tests {
     }
 
     /// W17-D: on the default (planar) model every potted ball gets a deterministic net tail
-    /// once a playback is built; nets hold `netCapacity` balls, older ones are evicted FIFO.
+    /// once a playback is built; each rail holds `slots.count` balls, older ones are evicted FIFO.
     func testRecordedBreakDefaultPathAttachesNetTails() throws {
         let rack = RackLayout.make(.chineseEightBall,
             seed: 844924979980821639, surfaceY: 0.8)
@@ -488,8 +488,11 @@ extension BreakFlowRunnerV6Tests {
         for entry in result.recorder.pocketEntries where result.recorder.collectionTailsByBallName[entry.ball.name]?.fadeStart == nil {
             visibleByPocket[entry.pocketID, default: 0] += 1
         }
-        for (pocket, count) in visibleByPocket {
-            XCTAssertLessThanOrEqual(count, PocketNetPresentation.netCapacity, pocket)
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: 0.8)
+        for (pocketID, count) in visibleByPocket {
+            let pocket = try XCTUnwrap(geometry.pockets.first { $0.id == pocketID }, pocketID)
+            let capacity = PocketNetPresentation.NetPocket(pocket: pocket, surfaceY: 0.8).slots(ballRadius: Double(BallPhysics.radius)).count
+            XCTAssertLessThanOrEqual(count, capacity, pocketID)
         }
         print("[W17-D recorded break] pocketed=\(result.pocketed) visibleByPocket=\(visibleByPocket)")
     }

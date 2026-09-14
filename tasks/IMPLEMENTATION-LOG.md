@@ -3804,3 +3804,21 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
   - 相关 6 套 87 项 0 失败（PocketNetPresentation 9、TrajectoryRenderer、CueScratchLifecycle、BreakFlowRunnerV6、PhysicsEngine）。
 - 未做：真机/页面目测仍未做（用户上次实看的是漏斗版）；跨杆保留、W03 裁剪例外同 DR-294。
 - 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-15 补记；问题集合_v63.md v63.16；tasks/3d-v63/W17-working.md §W17-B/D 返修、README.md；.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-297；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-298 — 网兜下落脚本：穿过网兜底环、沿回球支架滚到底挡（2026-09-14，W17-B/D 二次返修）
+- 触发（用户实看 DR-297 版）：「重力挺像了，但球停在袋网底部；我要的是继续往下滚，直到支架底部」。用户附图：内置桌型是**开口网兜 + 金属回球支架**（两根杆从网兜底沿台边斜向下到桌腿处的挡头）。
+- 根因：DR-294/297 把 `restingDepth`（资产捕获边界的球心最低点 = 网兜底环）当作槛点地板，脚本在网兜底停球；支架从未建模。
+- 实测（球体-网格支撑探测，`output/3d-v63/W17/rail-probe.log`，对全部六袋）：
+  1. 支架杆为材质 `Black`（挡头/悬挂件 `Gold`），**沿内向 X 轴**（`NetPocket.axisX`，中袋两侧均为 +X）从袋心下方到挡头；球心槽线在袋心竖直平面内（横向偏差 ≤ 3 mm），为直线：角袋 s 0.030→0.160 时 y 0.6190→0.5635，中袋 s 0.015→0.145 时 y 0.6170→0.5615，斜率均为 −0.427（23°）；挡头接触位角袋 s ≈ 0.162、中袋 s ≈ 0.148。
+  2. 网兜底环（`White`）在球心 y ∈ [exit−32 mm, exit−17 mm] 挡球、再往下无白色几何 ⇒ 资产底环内径 ≈ 50 mm，**比球（52.5 mm）小 ≈2.5 mm**；真实产品为开口。脚本按开口处理让球穿过底环（呈现层取舍，见「未做」）。
+- 变更（`PocketNetPresentation.swift`，仅呈现层，裁定/规则不动）：
+  - 新增 `PocketRailProfile`（`startDrop`/`slope`/`stopDistance`/`firstClearDistance`，角/中袋两表）；`NetPocket` 增 `rail`、`netExitY`、`railPoint(atDistance:)`、`railTangent`/`railNormal`、`railDistance(of:)`、`railHeight(under:)`。
+  - `slots`：改为**支架槛点链**——第 1 球靠挡头，之后每球沿斜面 2R 相接，直到球体仍在底环内的 `firstClearDistance` 为止；角/中袋各 **3 个**（容量由此派生，删除 `netCapacity=2` 与 `upperSlotLean`）。
+  - `descent` 三段：网兜段（DR-297 不变，去掉槛点地板）→ 球心低于 `netExitY` 后自由落体（无壁）→ 触槽线即着陆：零恢复、只保留沿杆切向分量且不允许倒滚回网（`max(0,v·t)`）、横向由两杆 V 槽在 10 ms 内对中；随后 a = g·sinθ·5/7 滚下，到槛点**死停**（挡头/下方球，0 恢复，末样本精确 = 槛点）；自旋取纯滚动 ω = (n × v)/R。
+  - `attach` FIFO 容量改为 `slots.count`；eviction 时上方球沿直线支架下移一槛（`shift` 不变）。
+- 验证（`rail-r6.log`、`rail-related-r1.log`）：
+  - 新 `testRailProfileMatchesBundledRods`（加载内置 USDZ）：六袋槽线每 1 cm 站点球体离所有材质 ≤ 1.5 mm、下 4 mm 必在 `Black` 杆内；槛 1 + 6 mm 必碰 `Gold` 挡头；底环在 exit−25 mm 处存在、exit−40 mm 以下无白；脚本支架段在清空区（`firstClear`+5 mm、着陆 20 ms 后）球体侵入 **0 / 1.0 mm**，着陆瞬态 ≤ 2.0 mm（离轴 7 mm 着陆骑杆 2–3 帧）。
+  - `testDescentFallsUnderGravityAfterLinerContact` 扩展：离网后有自由落体步、支架上每步 Δv∥ = g·sinθ·5/7（1e-6）且速度严格沿杆、末样本 = 槛点；全程角袋 0.54 s / 中袋 0.63 s。
+  - `testSlotsLieOnTheRail`、216 次下落不变量（高度单调、不低于槛点、网兜段在壁内）、FIFO 四球（第 4 球进时最早球淡出、其余下移一槛）、端到端默认进袋停在支架槛 1。PocketNetPresentation 10/10；TrajectoryRenderer/BreakFlow 默认开球/走位 scratch/CueScratch 共 35 项 0 失败。
+- 未做：①返修版仍未经用户实看；②底环穿过是脚本取舍，若要严格不穿模需改资产（底环放大 ≥ 3 mm）；③杆间距/杆径未测，横向对中按时间常数而非几何 V 槽高度；④挡头零恢复（真实钢挡会有轻微反弹声/回弹）；⑤跨杆保留同 DR-294。
+- 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-15 补记；问题集合_v63.md v63.17；tasks/3d-v63/W17-working.md §W17-B/D 二次返修、README.md；.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-298；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
