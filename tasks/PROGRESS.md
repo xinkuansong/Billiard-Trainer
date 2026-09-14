@@ -125,6 +125,12 @@
 
 ## 当前状态
 
+- **训练页 3D 球台示意左右滑与翻页冲突（2026-09-14，DR-305）✅ 本地实现与定向单测完成，真实手指未验**：`ActiveTrainingView` 分页 TabView 与 `DrillSceneView` 3D 相机 pan 争同一横向手指，代码里无任何显式仲裁。`AngleSceneView.Coordinator` 成为 pan 的 `UIGestureRecognizerDelegate`：pan 有活可干（`gesturesEnabled && interactionMode != .none`）时要求祖先 `UIScrollView` 的 pan 等待本 pan 失败（3D 台面起手只转视角、`tapsOnly` 移球不被翻页抢走）；无活可干（训练页 2D）时 `shouldBegin` 直接失败把滑动还给翻页。`AngleSceneViewPanArbitrationTests` 6 项 0 失败、TEST SUCCEEDED（`/tmp/pan-arb-test.log`）。**未做**：模拟器/真机真实手指验证；3D 下台面区域纵向滑动同样被相机占用（需从台面外起手滚页）。见 [DR-305](IMPLEMENTATION-LOG.md)。
+
+- **球停稳后贴纸「原地转一下」根治（2026-09-14，DR-304）✅ 本地实现与定向回归完成，用户实看未做**：根因是 `applyPosePolicy` 对目标球无条件 `resetPose`、`.unchanged` 只保护母球，加上各页收尾在最后一球静止 + 缓冲后 `applyBoard/loadBoard/restoreNodePose` 把积分终态姿态覆盖成单位姿态/home。改为：姿态是桌面状态——`.unchanged` 对所有球生效；新增 `captureBallPoses/restoreBallPoses`、`BallRestState`，走位/思路/三球/斯诺克 UndoContext 与回放收尾、翻袋/颛星球形快照均连同位置恢复姿态；`restoreNodePose` 仅限静帧契约。`make build` 通过，定向 39 项 0 失败（含新增姿态往返测试）。**补漏**：用户实看报动作库「上手试打」仍跳——序列演示杆间用 `place(.home)` 重摆下一杆 `before` 把姿态重置；`PositionPlayViewModel.placeSequenceBoard` / `DrillSceneView.placeStepBoard(preservePoses:)` 改为摆盘保姿态，补验 35 项 0 失败。**未做**：用户实看；存档重放得到的上一杆退回时姿态仍为 home。见 [DR-304](IMPLEMENTATION-LOG.md)。
+
+- **球面「膜感」根治：反射改球房烘焙探针（2026-09-14，DR-302）✅ 本地实现与定向回归完成，真机与用户实看未做**：用户对灯光/球桌满意但球「像蒙了一层膜」。根因：`sampledBallShader` 的反射回退与漫反射环境仍是 v62 空房间校准的解析灰世界 `v62World`（地平线最亮），与烘焙球房脱节 ⇒ 球腰灰带 + Fresnel 白环；编号球 0.12 粗糙度把灯板高光抹成灰斑。新增 `RoomReflectionProbe`（球房 6 面快照 → 512×256 等距柱状 rgba16F + SH9 上半球照度，按风格缓存），球 shader 回退/环境项改读探针，编号球粗糙度 0.05；只动球材质链路。`RoomReflectionProbeTests` 7 项 + 定向 5 套回归 0 失败、真页面 UI 用例通过；前后特写证据 `output/render-quality-v62/S490-…before` / `S491-…after`。一次性烘焙成本模拟器 Debug 200–470 ms/风格。**追加 DR-303**：用户实看报进袋到支架的球「包了一层绿」——历史即有的台呢项写死球在台面（漫反射台呢补光无条件、镜面台呢命中不查 `t>0` 倒推）；按球心高度 `clothWeight` 淡出两项、补 `t>0`、探针多渲一张隐藏球桌的向下面得 `roomFloor` 供台下球反射地面。7+6 项测试 0 失败、真页面 UI 通过，证据 `S492-rail-ball-cloth-fade/`。**未做**：真机帧率、用户实看、支架球的灯板遮挡、`applyHighlightHeadroom`（共用）暂不动。见 [DR-302/303](IMPLEMENTATION-LOG.md)。
+
 - **v63 W17-D 跨杆保留：支架驻留 `PocketRailInventory`（2026-09-14，DR-299）✅ 本地实现与定向回归完成，用户实看未做**：用户实看 DR-298 版报「只有一颗球也会自动消失」，并澄清口径：永远 16 颗球，进袋即进球库留在支架；同一颗球放回球桌时支架里的它消失、后方按序前移。根因：支架球用的是盘面节点，8 处页面 finish 处理器在回放结束对进袋球 `isHidden=true`/复位重摆（即 DR-294 记录的「跨杆保留未做」），不是 FIFO 判错。做法：每 `AngleTrainingScene` 一份 `PocketRailInventory`，支架球为盘面节点 `clone()`；`TrajectoryPlayback(railInventory:)` 让盘面节点只播台面段并在袋口隐藏、克隆体独立跑网兜/支架段并驻留；`attach(preOccupied:)` 把已驻留球占进最低槛、满链先淘汰旧杆球；克隆体逐帧观察源节点回桌即释放并让后方前移。12 个 3D 回放创建点传 `scene.railInventory`，求解/导出为 nil。验证：PocketNetPresentation 14/14（新增 4 条）、BreakFlowRunnerV6 19/19、回放/渲染/导出 268 项 0 失败、App BUILD SUCCEEDED。补记：用户实看报「两球重叠」——`ShotPredictor` 预览回放先 attach 且幂等，场景回放传库存不重排；改为 `planarTailOccupancy` 不同即重排全部平面尾迹、观察改 10 Hz Timer，53 项 0 失败。未做：用户实看；导出不含前几杆驻留球；页面「重置」不清支架（桌型重建才清）。下一步：用户实看 → W17-C。
 
 - **v63 W17-B/D 二次返修：穿网兜底环、沿回球支架滚到挡头（2026-09-14，DR-298）✅ 本地实现与定向回归完成，返修版用户实看未做**：用户实看 DR-297 版后要求球「继续往下滚到支架底部」。根因：把捕获边界最低点（网兜底环）当槛点地板，支架从未建模。对内置 USDZ 六袋做材质分层支撑探测：`Black` 双杆沿内向 X 轴 23° 下斜、`Gold` 挡头（角袋 s≈0.162、中袋 s≈0.148）、底环内径 ≈50 mm 比球小 2.5 mm（脚本按真实开口穿过）。新增 `PocketRailProfile`，槛点改为支架上靠挡头的 3 球链（容量由几何派生），下落三段：网兜 → 穿底环自由落体 → 着陆死停对中 → a=g·sinθ·5/7 滚到挡头死停。新门禁 `testRailProfileMatchesBundledRods`（加载 USDZ 核杆/挡头/底环）；PocketNetPresentation 10/10，相关 35 项 0 失败（`output/3d-v63/W17/rail-r6.log`、`rail-related-r1.log`）。**下一步**：用户实看返修版 → 跨杆保留 → W17-C。
@@ -140,11 +146,6 @@
 
 
 - **v62 移动端渲染管线收口（2026-09-14，DR-291 / ADR-P5-01）✅ 本地实现与定向验证完成，真机全页面未复测**：按用户裁定「真机没问题，收口」把四层试点闸门（`previewRequested` / `requested` / `surfaceFinishesRequested`，全 DEBUG）收成单闸门 `MobileTableRendering.isEnabled`（Release 恒开，Debug 保留 `-v62.legacyRendering` 对照）；`setupScene` 默认走移动管线，所有交互式球桌页（含自由击球每日清台、动作库详情、翻袋/颠球、拆球、开球、规划）统一基础光照+S267 参考光照+表面质感+球房，球房改为独立装配步骤；设置「球房风格」入口与组合预览去 DEBUG；离线渲染器（缩略图/卡片底图/球面小图/视频导出/球感静帧）显式保留原管线。`make build` 与 Release 构建通过；定向 5 套单测 31 项 0 失败，RQ62 非证据项 15 通过。暴露：模拟器对主线程阻塞 ≥~30s 的宿主 SIGKILL，`PocketLeatherIntegrationTests` 三项（v63 主线程物理 33s / 首帧渲染热身 8s / 求解 >15s）不稳定且 legacy 亦复现其一，交 v63 线程；`RenderQualityV62UITests` `reference:false` 档位待清理。DR-138 旧返工条目已归档。见 [ADR](phases/P5-angle-training.md)、[DR-291](IMPLEMENTATION-LOG.md)。
-
-
-
-- **中八开球间距恢复与诊断（2026-09-13）✅ 参数恢复/定向测试完成**：恢复基础0.2mm、扰动半径0.09mm，保留默认8/上限10。三批6项测试0失败；原架seed1–6正中散开12–14/15，seed11正中6/15、偏2°仅2/15。60个初期窗口确认偏角降低目标球平移动能，0.25mm接触容差跨随机范围为待隔离敏感点；两配对紧架未复现更慢。未改引擎，未安装真机，耗时根因未定。见[实测报告](../output/break-restore-20260913/REPORT.md)。
-
 
 
 ## R0 Design System Upgrade — ✅ 已完成

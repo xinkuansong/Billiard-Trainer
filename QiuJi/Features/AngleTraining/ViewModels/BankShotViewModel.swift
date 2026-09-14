@@ -55,9 +55,9 @@ final class BankShotViewModel: ObservableObject {
     /// 选中解暗虚线参考（自由模式 hint token，照着练）。
     private var referenceNodes: [SCNNode] = []
     /// 最近求解快照（方案 §4.1）：每次求解成功存球位 + 袋口，供「恢复球形」。
-    private var lastSolveSnapshot: (board: [String: SCNVector3], pocket: Int)?
+    private var lastSolveSnapshot: (board: [String: BallRestState], pocket: Int)?
     /// 上一杆（自由击球）：击打前球形 + 引擎预测（供上一杆 / 回放）。
-    private var lastShot: (before: [String: SCNVector3], prediction: ShotPrediction)?
+    private var lastShot: (before: [String: BallRestState], prediction: ShotPrediction)?
     /// 自由模拟中目标球（黑 8）的引擎名（球名沿用 USDZ 键约定）。
     private static let freeTargetName = "_8"
 
@@ -67,7 +67,7 @@ final class BankShotViewModel: ObservableObject {
     /// （非 PositionPlay 的 `PositionPlaySolution`），与共享 `SolveShotSnapshot` 类型不兼容，
     /// 故按方案「用 VM 层已有 solutions 即可」以本页原生类型承载（如实说明选址取舍）。
     struct SolveUndoContext {
-        var board: [String: SCNVector3]
+        var board: [String: BallRestState]
         var pocket: Int
         var cushions: Int?
         var solutions: [BankEngineSolution]
@@ -301,7 +301,7 @@ final class BankShotViewModel: ObservableObject {
     // MARK: - Strike demo（W5：快照 → 出杆 → 播 ShotPrediction → 自动复位，方案 §1.1）
 
     /// 击打前球形快照（复位真源）：cue/target 用固定键，障碍球用球键。
-    private var strikeSnapshot: [String: SCNVector3] = [:]
+    private var strikeSnapshot: [String: BallRestState] = [:]
     private var playbackFinishTask: Task<Void, Never>?
     private static let snapshotCueKey = "__cue"
     private static let snapshotTargetKey = "__target"
@@ -488,30 +488,31 @@ final class BankShotViewModel: ObservableObject {
         drawCurrent()
     }
 
-    private func restoreBall(_ node: SCNNode, to position: SCNVector3) {
+    /// 按快照恢复一颗球：位置与姿态一起写回（姿态是桌面状态的一部分，禁止用 home / 单位姿态代替）。
+    private func restoreBall(_ node: SCNNode, to rest: BallRestState) {
         node.removeAllActions()
         node.opacity = 1
         node.isHidden = false
-        scene.restoreNodePose(node)
-        node.position = position
+        BallSpinIntegrator.applyPose(node, rest.orientation)
+        node.position = rest.position
     }
 
     // MARK: - Board snapshot（W5/W6 共用：快照 = 复位 / 上一杆 / 恢复球形的真源）
 
-    private func captureBoard() -> [String: SCNVector3] {
-        var board: [String: SCNVector3] = [:]
-        if let cue = scene.cueBallNode, !cue.isHidden { board[Self.snapshotCueKey] = cue.position }
+    private func captureBoard() -> [String: BallRestState] {
+        var board: [String: BallRestState] = [:]
+        if let cue = scene.cueBallNode, !cue.isHidden { board[Self.snapshotCueKey] = BallRestState(node: cue) }
         if let target = scene.targetBallNodes.first, !target.isHidden {
-            board[Self.snapshotTargetKey] = target.position
+            board[Self.snapshotTargetKey] = BallRestState(node: target)
         }
         for key in onTableObstacleKeys {
-            if let node = scene.allBallNodes[key], !node.isHidden { board[key] = node.position }
+            if let node = scene.allBallNodes[key], !node.isHidden { board[key] = BallRestState(node: node) }
         }
         return board
     }
 
     /// 按快照恢复球形：cue/target 归位重显，障碍球增删同步 `onTableObstacleKeys`。
-    private func applyBoard(_ board: [String: SCNVector3]) {
+    private func applyBoard(_ board: [String: BallRestState]) {
         if let cue = scene.cueBallNode, let p = board[Self.snapshotCueKey] {
             restoreBall(cue, to: p)
         }
@@ -798,7 +799,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// Validate before cue stroke and again when replaying a stored shot.
     @discardableResult
-    func acceptFreePrediction(_ pred:ShotPrediction,before:[String:SCNVector3])->Bool {
+    func acceptFreePrediction(_ pred:ShotPrediction,before:[String: BallRestState])->Bool {
         guard pred.hasFinalTableState,pred.recorder != nil else {
             isPlaying=false
             applyBoard(before)
@@ -812,7 +813,7 @@ final class BankShotViewModel: ObservableObject {
         return true
     }
 
-    private func launchFreePlayback(_ pred: ShotPrediction, before: [String: SCNVector3]) {
+    private func launchFreePlayback(_ pred: ShotPrediction, before: [String: BallRestState]) {
         guard acceptFreePrediction(pred,before:before),let recorder=pred.recorder else { return }
         ShotAudioScheduler.shared.play(prediction: pred)
         let playback = TrajectoryPlayback(
@@ -847,7 +848,7 @@ final class BankShotViewModel: ObservableObject {
 
     /// 自由击打收尾：终态取引擎 `finalPositions`（球停在哪是哪）；进袋球离场
     ///（母球/目标球进袋 = 试手事实，靠上一杆 / 恢复球形找回）。
-    private func settleFreeShot(_ pred: ShotPrediction, before: [String: SCNVector3]) {
+    private func settleFreeShot(_ pred: ShotPrediction, before: [String: BallRestState]) {
         playbackFinishTask = nil
         scene.hideCueStick()
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius

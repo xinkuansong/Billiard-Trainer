@@ -449,8 +449,15 @@ final class TrainingAssistSceneTests: XCTestCase {
         scene.setupScene()
         scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
         let ghost = try XCTUnwrap(scene.ghostBallNode)
-        let radius = try XCTUnwrap(ghost.geometry as? SCNSphere).radius
-        XCTAssertEqual(radius, CGFloat(AngleSceneCalculator.ballRadius), accuracy: 1e-8)
+        // DR-302: training scenes use the standard dashed cloth ring (no translucent sphere).
+        XCTAssertNil(ghost.geometry, "ghost must not carry a sphere geometry of its own")
+        let dashes = ghost.childNodes.filter { $0.geometry is SCNCylinder }
+        XCTAssertFalse(dashes.isEmpty)
+        for dash in dashes {
+            XCTAssertEqual(hypotf(dash.position.x, dash.position.z), AngleSceneCalculator.ballRadius, accuracy: 1e-6)
+            XCTAssertEqual(dash.position.y - TrajectoryStyle.lineHint, -AngleSceneCalculator.ballRadius + 0.0005, accuracy: 1e-6)
+        }
+        let radius = CGFloat(AngleSceneCalculator.ballRadius)
         XCTAssertEqual(scene.allBallNodes.count, 16)
         for (key, ball) in scene.allBallNodes {
             // Hidden container nodes report an empty aggregate bounding box on iOS.

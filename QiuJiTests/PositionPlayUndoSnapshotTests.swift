@@ -369,13 +369,16 @@ final class PositionPlayUndoSnapshotTests: XCTestCase {
     // MARK: - V9（翻袋 / 反射）：求解模式「上一杆」完整快照往返（G17，条 17.5）
 
     /// 场景系球形逐键 x/z 近似相等。
-    private func assertSceneBoardEqual(_ a: [String: SCNVector3], _ b: [String: SCNVector3],
+    private func assertSceneBoardEqual(_ a: [String: BallRestState], _ b: [String: BallRestState],
                                        _ msg: String = "", file: StaticString = #filePath, line: UInt = #line) {
         XCTAssertEqual(Set(a.keys), Set(b.keys), "\(msg) 在桌球集合应一致", file: file, line: line)
         for (k, v) in a {
             guard let w = b[k] else { XCTFail("\(msg) 缺 \(k)", file: file, line: line); continue }
-            XCTAssertEqual(v.x, w.x, accuracy: 1e-4, "\(msg) \(k).x", file: file, line: line)
-            XCTAssertEqual(v.z, w.z, accuracy: 1e-4, "\(msg) \(k).z", file: file, line: line)
+            XCTAssertEqual(v.position.x, w.position.x, accuracy: 1e-4, "\(msg) \(k).x", file: file, line: line)
+            XCTAssertEqual(v.position.z, w.position.z, accuracy: 1e-4, "\(msg) \(k).z", file: file, line: line)
+            // 姿态也是快照的一部分：往返后逐分量一致（q 与 -q 同姿态，取 |dot|）。
+            let dot = abs(simd_dot(v.orientation.vector, w.orientation.vector))
+            XCTAssertEqual(dot, 1, accuracy: 1e-4, "\(msg) \(k) 姿态", file: file, line: line)
         }
     }
 

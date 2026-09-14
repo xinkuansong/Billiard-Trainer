@@ -365,7 +365,34 @@ final class AngleTrainingScene: SCNScene {
         if key == PositionPlayBall.cueKey { cueBallNode = node }
     }
 
-    /// 重打 / 击打后复位：母球回到本局 home，其它球单位姿态。
+    // MARK: - Ball pose snapshot（姿态是桌面状态的一部分）
+
+    /// 抓取当前在桌球的姿态（键 → 四元数）。
+    ///
+    /// 球体姿态由回放逐帧积分写入节点，球静止后它就是**事实**，与位置同级。任何「恢复某个局面」
+    /// 的路径都必须把这份快照连同位置一起恢复；⛔ 禁止用 home / 单位姿态代替——那会让已停稳的
+    /// 贴纸在收尾时肉眼「原地转一下」。
+    func captureBallPoses() -> BallPoseSnapshot {
+        var poses: BallPoseSnapshot = [:]
+        for (key, node) in allBallNodes where !node.isHidden {
+            poses[key] = node.simdOrientation
+        }
+        return poses
+    }
+
+    /// 把姿态快照写回节点；快照里没有的球不动。
+    func restoreBallPoses(_ poses: BallPoseSnapshot) {
+        for (key, orientation) in poses {
+            guard let node = allBallNodes[key] else { continue }
+            BallSpinIntegrator.applyPose(node, orientation)
+        }
+    }
+
+    /// 回到**静帧契约**姿态（Drill 静帧页 / 缩略图：母球 home、其它球单位姿态）。
+    ///
+    /// 只用于「画面本身就是一张确定性静帧」的场合。⛔ 击球 / 回放收尾禁止调用：
+    /// 那里球停在哪、朝向如何都是事实，要保留就什么都别做，要恢复局面就用
+    /// `captureBallPoses` / `restoreBallPoses`。
     func restoreNodePose(_ node: SCNNode) {
         if node === cueBallNode || node.name == PositionPlayBall.cueKey {
             BallSpinIntegrator.applyPose(node, cueBallHomeOrientation)
@@ -388,6 +415,9 @@ final class AngleTrainingScene: SCNScene {
     }
 
     private func applyPosePolicy(_ policy: CueBallPosePolicy, to node: SCNNode, key: String) {
+        // `.unchanged` 对**所有球**生效：回放 / 击球收尾的球停在哪、朝向如何都是事实。
+        // 旧实现只对母球放行、目标球无条件 resetPose，正是「球停稳后贴纸原地转一下」的根因。
+        if case .unchanged = policy { return }
         guard PositionPlayBall.isCue(key) else {
             BallSpinIntegrator.resetPose(node)
             return
@@ -431,7 +461,8 @@ final class AngleTrainingScene: SCNScene {
             MaterialFactory.applyBallMaterial(to: ballNode, usesClearcoat: !mobileRendering)
             if mobileRendering && MobileReferenceLighting.requested {
                 let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
-                MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0, stickerFinish: numbered)
+                MobileReferenceLighting.applyBall(to: ballNode, exposureOffset: cameraNode?.camera?.exposureOffset ?? 0,
+                                                  stickerFinish: numbered, probe: roomReflectionProbe)
             }
         }
         let selectedSticker = ballStickerStyle ?? .selected()
@@ -840,6 +871,18 @@ final class AngleTrainingScene: SCNScene {
         room.isHidden = currentCameraMode != .perspective3D
         rootNode.addChildNode(room)
         installedReferenceRoomStyle = style
+        installRoomReflectionProbe(for: style)
+    }
+
+    /// Room-baked environment consumed only by the reference ball shader
+    /// (`RoomReflectionProbe`). Cached per style; the first scene bakes it.
+    private(set) var roomReflectionProbe: RoomReflectionProbe?
+
+    private func installRoomReflectionProbe(for style: RoomStyle) {
+        guard mobileRendering, MobileReferenceLighting.requested else { return }
+        roomReflectionProbe = RoomReflectionProbe.probe(for: style, scene: self)
+        guard let probe = roomReflectionProbe else { return }
+        for node in allBallNodes.values { probe.install(on: node) }
     }
 
     private func setupGround() {
@@ -1848,25 +1891,12 @@ final class AngleTrainingScene: SCNScene {
         self.usesTrainingAssistStyle = usesTrainingAssistStyle
         let r = AngleSceneCalculator.ballRadius
 
-        // DR-121: angle quizzes use a translucent full-size ball. Other consumers
-        // retain the dashed ring. Both use the physical ball center (cloth + R),
+        // DR-302: every consumer (including the 2D/3D angle quizzes, which used a
+        // translucent full-size sphere under DR-121) now shares the standard dashed
+        // cloth ring. The node still sits at the physical ball center (cloth + R),
         // preserving the position / visibility contract from DR-118.
         let ghost = SCNNode()
-        if usesTrainingAssistStyle {
-            let sphere = SCNSphere(radius: CGFloat(r))
-            sphere.segmentCount = 48
-            let material = SCNMaterial()
-            material.diffuse.contents = TrajectoryStyle.TrainingAssist.ghostBall
-            material.lightingModel = .blinn
-            material.specular.contents = UIColor(white: 0.4, alpha: 1)
-            material.shininess = 0.45
-            material.transparency = TrajectoryStyle.TrainingAssist.ghostOpacity
-            material.transparencyMode = .singleLayer
-            material.writesToDepthBuffer = false
-            sphere.materials = [material]
-            ghost.geometry = sphere
-            ghost.castsShadow = false
-        } else {
+        do {
             let ringMat = SCNMaterial()
             ringMat.diffuse.contents = TrajectoryStyle.contactColor
             ringMat.lightingModel = .constant

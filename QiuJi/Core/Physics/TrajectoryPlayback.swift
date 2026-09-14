@@ -83,13 +83,33 @@ enum BallSpinIntegrator {
     }
 }
 
-/// 母球姿态策略（目标球始终单位姿态，与本枚举无关）。
+/// 球体姿态快照：球键（`cueBall` / `_n`）→ 节点四元数。与 `BoardSnapshot`（位置）配对使用，
+/// 恢复某个局面时两者一起写回，姿态才不会在收尾时跳变。
+typealias BallPoseSnapshot = [String: simd_quatf]
+
+/// 一颗静止球的完整可见状态：位置 + 姿态。页面级「球形快照」应以它为值类型，恢复时两者一起写回。
+struct BallRestState {
+    var position: SCNVector3
+    var orientation: simd_quatf
+
+    init(position: SCNVector3, orientation: simd_quatf) {
+        self.position = position
+        self.orientation = orientation
+    }
+
+    init(node: SCNNode) {
+        self.init(position: node.position, orientation: node.simdOrientation)
+    }
+}
+
+/// 球体姿态策略（`showBall` 用）。`.reseat` / `.home` 仅对母球有意义，目标球在这两种策略下
+/// 回单位姿态；`.unchanged` 对**所有球**生效。
 enum CueBallPosePolicy {
     /// 新摆球：抽随机朝向并记为本局 home。
     case reseat
-    /// 重打 / 复位到击打前：恢复 home（可复现）。
+    /// 静帧 / 载入局面：母球恢复 home、目标球单位姿态（确定性画面）。
     case home
-    /// 只改位置/显隐，不碰朝向（散局落定等，保留回放终态）。
+    /// 只改位置/显隐，不碰任何球的朝向（击球 / 回放收尾：球停在哪、朝向如何都是事实）。
     case unchanged
 }
 

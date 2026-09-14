@@ -50,7 +50,7 @@ enum MobileReferenceLighting {
         guard balanceTrialRequested else { return source }
         return source.replacingOccurrences(of: "44.5714854", with: String(rig.radiance * trialTopGain))
             .replacingOccurrences(of: "+0.26", with: "+(0.26*\(trialFillGain))")
-            .replacingOccurrences(of: "float3(v62worldIntegral(n.y))", with: "(float3(v62worldIntegral(n.y))*\(trialFillGain))")
+            .replacingOccurrences(of: "max(roomIrradiance,float3(0.0))", with: "(max(roomIrradiance,float3(0.0))*\(trialFillGain))")
     }
 
     static let environment: Data = {
@@ -71,19 +71,32 @@ enum MobileReferenceLighting {
     static let ballRoughness = 0.30
     /// Photo-reference finish for the user-selected numbered-ball packs.
     /// Same light transport and energy, with a narrower resin reflection lobe.
-    static let stickerBallRoughness = 0.12
+    /// 0.12 → 0.05: phenolic resin is near-mirror; with the room probe the
+    /// wider lobe smeared the panel highlights into grey patches (film look).
+    static let stickerBallRoughness = 0.05
 
-    static func applyBall(to node: SCNNode, exposureOffset: CGFloat, stickerFinish: Bool = false) {
+    /// Shader argument block shared by every ball material: cloth bounce colour
+    /// plus the room reflection probe (equirect texture + SH9 irradiance).
+    static let ballShaderArguments: String = {
+        var block = "#pragma arguments\nfloat3 selectedClothAlbedo;\ntexture2d<float> roomReflection;\nfloat3 roomFloor;\n"
+        for i in 0..<9 { block += "float3 roomSH\(i);\n" }
+        return block + "#pragma declaration\n"
+    }()
+
+    static func applyBall(to node: SCNNode, exposureOffset: CGFloat, stickerFinish: Bool = false,
+                          probe: RoomReflectionProbe? = nil) {
+        let probe = probe ?? RoomReflectionProbe.neutral
         func apply(_ node:SCNNode) {
             for m in node.geometry?.materials ?? [] {
                 m.lightingModel = .constant
                 let roughness = stickerFinish ? stickerBallRoughness : 0.34
                 let surface = ballShader.replacingOccurrences(of: "float roughness=\(ballRoughness);", with: "float roughness=\(roughness);")
-                let coloredSurface = "#pragma arguments\nfloat3 selectedClothAlbedo;\n#pragma declaration\n" + surface.replacingOccurrences(
+                let coloredSurface = ballShaderArguments + surface.replacingOccurrences(
                     of: "float3 clothAlbedo=float3(0.0074764,0.1612358,0.0036536);",
                     with: "float3 clothAlbedo=selectedClothAlbedo;")
                 m.shaderModifiers = [.surface:trialShader(coloredSurface)]
                 m.setValue(NSValue(scnVector3: ClothColor.green.linearAlbedo), forKey: "selectedClothAlbedo")
+                probe?.install(on: m)
                 applyHighlightHeadroom(to: m, exposureOffset: exposureOffset)
             }
         }
@@ -121,7 +134,8 @@ enum MobileReferenceLighting {
         }
         for (key,node) in scene.allBallNodes {
             let numbered = key.hasPrefix("_") && (Int(key.dropFirst()).map { (1...15).contains($0) } ?? false)
-            applyBall(to:node, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0, stickerFinish: numbered)
+            applyBall(to:node, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0, stickerFinish: numbered,
+                      probe: scene.roomReflectionProbe)
         }
         var shadow="", bounds="bool nearShadow=false;\n", possible="bool shadowPossible=false;\n"
         for i in 0..<scene.allBallNodes.count {
@@ -350,14 +364,30 @@ enum MobileReferenceLighting {
         return E;
     }
     float v62World(float3 d) { return {{ENV_BASE}}+{{ENV_HORIZON}}*pow(1.0-abs(d.y),2.0); }
-    float3 v62Reflection(float3 reflected, float3 p, float3 center, float3 clothRadiance) {
-    float3 result=float3(v62World(reflected));
+    // Room probe: equirect radiance baked from the installed training room
+    // (RoomReflectionProbe). Mapping must match RoomReflectionProbe.uv(for:).
+    // `#pragma arguments` are only visible in the body, so the texture is passed in.
+    float3 v62Room(texture2d<float> room, float3 d, float lod) {
+        constexpr sampler roomSampler(coord::normalized, s_address::repeat, t_address::clamp_to_edge, filter::linear, mip_filter::linear);
+        float2 uv=float2(atan2(d.x,-d.z)*0.15915494+0.5, acos(clamp(d.y,-1.0,1.0))*0.31830989);
+        return room.sample(roomSampler, uv, level(lod)).rgb;
+    }
+    float3 v62Reflection(texture2d<float> room, float3 reflected, float3 p, float3 center, float3 clothRadiance, float lod, float3 floorRadiance, float clothWeight) {
+    float3 result=v62Room(room,reflected,lod);
     if(reflected.y < -0.00001) {
-        float3 q=p+reflected*((0.8-p.y)/reflected.y);
-        if(abs(q.x)<1.27 && abs(q.z)<0.635) {
-            float r2=dot(q.xz-center.xz,q.xz-center.xz);
-            result=clothRadiance*clamp(r2/(r2+0.028575*0.028575),0.0,1.0);
+        // Only a forward hit counts: below the table plane (pocket net, return
+        // rail) the old code extrapolated backwards onto the cloth (DR-303).
+        float t=(0.8-p.y)/reflected.y;
+        if(t>0.0) {
+            float3 q=p+reflected*t;
+            if(abs(q.x)<1.27 && abs(q.z)<0.635) {
+                float r2=dot(q.xz-center.xz,q.xz-center.xz);
+                result=clothRadiance*clamp(r2/(r2+0.028575*0.028575),0.0,1.0);
+            }
         }
+        // The probe's lower hemisphere is the cloth as seen from the table
+        // centre; a ball under the table sees the floor instead.
+        result=mix(floorRadiance,result,clothWeight);
     }
     if (reflected.y>0.0001) {
         float distance=({{HEIGHT}}-p.y)/reflected.y;
@@ -383,16 +413,27 @@ enum MobileReferenceLighting {
     float3 bitangent=cross(n,tangent);
     float3 env=float3(0.0);
     float3 center=p-n*0.028575;
+    // Cloth terms assume the ball rests on the table plane (centre at 0.8+R).
+    // Fade them out as the ball drops below the plane into the net / return rail.
+    float clothWeight=clamp((center.y-0.8)/0.028575,0.0,1.0);
     float3 clothAlbedo=float3(0.0074764,0.1612358,0.0036536);
     float3 clothRadiance=clothAlbedo*(v62PanelDiffuse(float3(p.x,0.8,p.z),float3(0,1,0))/3.14159265+0.26);
     // Preview color calibration: retain half the cloth bounce chroma in both
     // diffuse and specular transport; luminance and contact occlusion stay intact.
-    clothRadiance=mix(float3(dot(clothRadiance,float3(0.2126,0.7152,0.0722))),clothRadiance,0.5);
-    env=float3(v62worldIntegral(n.y))+clothRadiance*v62bounceIntegral(n.y);
+    clothRadiance=mix(float3(dot(clothRadiance,float3(0.2126,0.7152,0.0722))),clothRadiance,0.5)*clothWeight;
+    // Upper-hemisphere room irradiance / π from SH9 (cosine lobe pre-applied on CPU).
+    float3 roomIrradiance=roomSH0*0.282095
+        +roomSH1*(0.488603*n.y)+roomSH2*(0.488603*n.z)+roomSH3*(0.488603*n.x)
+        +roomSH4*(1.092548*n.x*n.y)+roomSH5*(1.092548*n.y*n.z)+roomSH6*(0.315392*(3.0*n.z*n.z-1.0))
+        +roomSH7*(1.092548*n.x*n.z)+roomSH8*(0.546274*(n.x*n.x-n.y*n.y));
+    // Below the table the lower hemisphere is the floor, not the lit cloth.
+    env=max(roomIrradiance,float3(0.0))+(clothRadiance+roomFloor*(1.0-clothWeight))*v62bounceIntegral(n.y);
     // Integrate the glossy reflection over GGX microfacet normals instead of
     // selecting one perfectly sharp environment/table ray for the whole lobe.
     float nv=max(0.001,dot(n,v));
     float roughness=\(ballRoughness);
+    // Probe mip level grows with the lobe width so 64 samples stay noise-free.
+    float roomLod=roughness*5.0;
     float alpha=roughness*roughness;
     float a2=alpha*alpha;
     float3 spec=float3(0.0);
@@ -408,7 +449,7 @@ enum MobileReferenceLighting {
         if(nl>0.0 && vh>0.0) {
             float g=2.0*nv/(nv+sqrt(a2+(1.0-a2)*nv*nv))*2.0*nl/(nl+sqrt(a2+(1.0-a2)*nl*nl));
             float f=0.04+0.96*pow(1.0-vh,5.0);
-            spec+=v62Reflection(l,p,center,clothRadiance)*f*g*vh/(max(0.001,ct)*nv*64.0);
+            spec+=v62Reflection(roomReflection,l,p,center,clothRadiance,roomLod,roomFloor,clothWeight)*f*g*vh/(max(0.001,ct)*nv*64.0);
         }
     }
     float F=0.04+0.96*pow(1.0-max(0.0,dot(n,v)),5.0);

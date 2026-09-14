@@ -274,8 +274,12 @@ final class PlanThreeViewModel: ObservableObject {
         var pocket2Index: Int
         var armedRole: PlanThreeRole?
         var perspectiveView: CameraRig.PerspectiveState? = nil
+        /// 击打前球体姿态（与 `snapshot.before` 配对）；退回 / 回放起点连同位置一起恢复。
+        var ballPoses: BallPoseSnapshot = [:]
     }
     private var lastShotContext: UndoContext?
+    /// 回放开始时抓的「击打后局面」姿态，回放收尾连同 `after` 位置一起写回。
+    private var replayAfterPoses: BallPoseSnapshot = [:]
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -1172,7 +1176,8 @@ extension PlanThreeViewModel {
                 allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
             ball1Key: ball1Key, ball2Key: ball2Key, ball3Key: ball3Key,
             pocket1Index: pocket1Index, pocket2Index: pocket2Index, armedRole: armedRole,
-            perspectiveView: scene.capturePerspectiveView())
+            perspectiveView: scene.capturePerspectiveView(),
+            ballPoses: scene.captureBallPoses())
     }
 
     /// 把击打前完整快照原样恢复到场景与状态（不重解）。
@@ -1188,6 +1193,7 @@ extension PlanThreeViewModel {
         scene.clearResultNodes(nodes: &selectionNodes)
         scene.hideCueStick()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.restoreBallPoses(ctx.ballPoses)
         refreshOnTableKeys()
 
         // 求解选项须先于 solutions 恢复（同思路页顺序理由）。
@@ -1258,6 +1264,7 @@ extension PlanThreeViewModel {
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         isPlaying = true
         clearTrajectory()
         clearConstraintNodes()
@@ -1267,6 +1274,7 @@ extension PlanThreeViewModel {
 
         scene.hideAllBalls()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.restoreBallPoses(ctx.ballPoses)   // 姿态回击打前，积分终态才与实打一致
         refreshOnTableKeys()
 
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
@@ -1330,6 +1338,8 @@ extension PlanThreeViewModel {
         scene.hideCueStick()
         let ctx = lastShotContext
         loadBoard(after)
+        scene.restoreBallPoses(replayAfterPoses)
+        replayAfterPoses = [:]
         lastShotContext = ctx
         canUndoShot = ctx != nil
         canPlayback = ctx != nil

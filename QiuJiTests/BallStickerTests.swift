@@ -182,7 +182,8 @@ final class BallStickerTests: XCTestCase {
     func testPhotographicResinCandidateInActualLighting() throws {
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         let device = try XCTUnwrap(MTLCreateSystemDefaultDevice())
-        for roughness in [Float(0.34), 0.12] {
+        let production = "float roughness=\(MobileReferenceLighting.stickerBallRoughness);"
+        for roughness in [Float(0.34), Float(MobileReferenceLighting.stickerBallRoughness)] {
             let scene = AngleTrainingScene(); scene.setupScene(mobileRendering: true)
             MobileReferenceLighting.apply(to: scene)
             scene.applyBallStickerStyle(.modern)
@@ -191,8 +192,8 @@ final class BallStickerTests: XCTestCase {
             let ball = try XCTUnwrap(scene.allBallNodes["_10"])
             for material in materials(ball) {
                 let shader = try XCTUnwrap(material.shaderModifiers?[.surface])
-                XCTAssertTrue(shader.contains("float roughness=0.12;"))
-                material.shaderModifiers?[.surface] = shader.replacingOccurrences(of: "float roughness=0.12;", with: "float roughness=\(roughness);")
+                XCTAssertTrue(shader.contains(production), "numbered balls must carry the production sticker finish")
+                material.shaderModifiers?[.surface] = shader.replacingOccurrences(of: production, with: "float roughness=\(roughness);")
             }
             let camera = SCNNode(); camera.camera = SCNCamera()
             camera.camera!.usesOrthographicProjection = true; camera.camera!.orthographicScale = 0.043

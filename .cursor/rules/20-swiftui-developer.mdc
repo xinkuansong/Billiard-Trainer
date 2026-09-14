@@ -6,6 +6,8 @@ alwaysApply: false
 
 ## Changelog
 
+- 2026-09-14 v2.3：DR-305，UIViewRepresentable 自装 pan 与分页 TabView / ScrollView 共存时必须用 delegate 写显式仲裁契约。
+
 - 2026-09-06 v2.2：FL-054，功能后强制进入视觉审查；整页/原图检查及视觉否决项独立于测试结果。
 
 - 2026-09-06 v2.1：FL-049，系统时间文本先确定可用宽度，并验证锁屏全部文字和时间推移后的状态。
@@ -160,6 +162,21 @@ case profile     // 我的
 ## 经验教训（Lessons Learned）
 
 > 本节由 FAILURE-LOG 驱动，每条对应一个 FL-NNN。**执行前必读，违反即视为返工风险。**
+
+### ⛔ DR-305 — UIViewRepresentable 自装 pan 与分页 TabView / ScrollView 共存时，仲裁必须显式写出
+**场景**：在 `UIViewRepresentable`（SCNView、Canvas 宿主等）上 `addGestureRecognizer(UIPanGestureRecognizer)`，而该视图可能被嵌进 `.tabViewStyle(.page)`、`ScrollView`、`List` 这类 `UIScrollView` 承载的容器；或给已有 pan 新增一个「本模式下不干活」的分支。
+**强制检查点**：
+1. ⛔ 禁止依赖 UIKit 默认「先认出先赢」——它取决于 SwiftUI 内部实现，且会随 OS 变化。pan 必须挂 `UIGestureRecognizerDelegate`，用 `gestureRecognizer(_:shouldBeRequiredToFailBy:)` 对祖先 `UIScrollView` 的 pan 声明「你等我」（本项目：`AngleSceneView.Coordinator.isAncestorScrollPan`），不要靶向 SwiftUI 私有类名。
+2. ⛔ pan 在当前模式没有活干（`interactionMode == .none`、`gesturesEnabled == false`）时必须在 `gestureRecognizerShouldBegin` 直接失败，把手指还给容器；空转识别器等于吞掉用户的翻页/滚动。
+3. 声明独占前先 grep 该模式的全部调用点，确认没有「1× 缩放下 pan 是 no-op 却挡住滚动」的组合；仲裁策略写成可单测的静态纯函数（`panClaimsSingleFingerTouch`），delegate 只做转发。
+4. 单测只能覆盖策略；真实手指仲裁需在模拟器/真机验一次，未验就在交付里写「未验证」。
+
+### ⛔ DR-304 — 动画积分出的节点状态即事实；恢复局面只能从快照恢复，禁止用默认值 / home 代替
+**场景**：回放 / 击球收尾、重打、退回击打前、回放结束回到击打后局面——任何要「摆回某个局面」的代码；尤其是 `showBall` / `place` / `applyBoard` / `loadBoard` 一类既改位置又顺手改姿态的入口。
+**强制检查点**：
+1. 球停稳后节点上的 `simdOrientation`（贴纸朝向）与位置同级，是桌面状态。桌面前进型收尾（球停在哪是哪）**什么都不做**；恢复局面型收尾用 `scene.captureBallPoses()` / `restoreBallPoses(_:)`（或 `BallRestState`）**连同位置一起**写回。⛔ 禁止用单位姿态 / `cueBallHomeOrientation` 代替——home 是新摆球时抽的随机朝向，桌面前进一杆后就不再等于击打前姿态。
+2. `CueBallPosePolicy.unchanged` 对所有球生效；`.home` / `.reseat` 只在载入新局 / 新放球 / 静帧契约（Drill 静帧页、缩略图、导出）使用。`restoreNodePose` 仅限静帧契约，击球/回放收尾禁止调用。
+3. 收尾 handler 触发时刻 = 最后一颗球自然静止 + 缓冲，对先停的球等价于「停稳后隔零点几秒跳一下」；任何在收尾里写节点朝向的代码都会以这种形态被用户看见。写 `restoreX` 前先问：这个值是从快照读的，还是我编的默认值？
 
 ### ⛔ v50 紧凑屏键盘避让 — 长表单必须由可滚动容器承接焦点位移
 **场景**：带固定 `NavigationBar` 的登录/编辑长表单，需在 iPhone SE 等紧凑屏上弹出键盘。

@@ -3856,3 +3856,58 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
 - 验证：PocketNetPresentation 15/15 + BreakFlow 默认开球网尾 1/1（`/tmp/dr301b.xcresult`）。过程记录：一次 xcodebuild 增量构建未重编改动文件（打印未出现），`touch` 后重建才生效——凡计时/数值断言无变化即怀疑陈旧二进制。
 - 未做：用户复看；若仍嫌快，下一个自由度是 `railLandingRetention` 再降或资产斜度。
 - 已应用至：tasks/3d-v63/W17-working.md；tasks/PROGRESS.md 头部注释。
+
+## DR-302 — 球面反射改为球房烘焙探针，去掉 v62 解析灰世界（2026-09-14，用户实看「球像蒙了一层膜」）
+- 触发：用户对灯光/球桌/球房满意，唯独球「上面好像有一层膜」。要求先分析再做，并确认不影响其他效果后动手。
+- 根因（代码事实）：`MobileReferenceLighting.sampledBallShader` 中 `v62Reflection` 对未打到台呢/灯板的反射方向一律回退到解析函数 `v62World(d)=0.06+1.2·(1−|d.y|)²`——一个无色、地平线最亮（1.26）的灰渐变；漫反射环境项 `v62worldIntegral(n.y)` 同源。该模型是 v62 S267 在空房间+绿呢下校准的，球房换成烘焙实景后球反射与画面脱节：球腰均匀灰带 + 掠射角 Fresnel 放大成均匀白环 = 「膜」。放大器：编号球粗糙度 0.12 把两块灯板反射抹成灰斑。
+- 变更（只动球材质链路，桌呢/木边/球杆/皮口/球房 shader 一行未改；共用的 `applyHighlightHeadroom` 按约定本轮不碰）：
+  - 新增 `QiuJi/Core/Scene/RoomReflectionProbe.swift`：在球房装配后，从桌心球高处用 `SCNRenderer` 渲 6 面 128² LDR 快照（`wantsHDR=false`，sRGB 解码回线性；球/球杆/覆盖层临时隐藏，球桌与灯保留），CPU 重采样为 512×256 等距柱状 `rgba16Float` MTLTexture（blit 生成 mip），上半球投影为 SH9 并预乘余弦卷积（着色器直接得 E/π；下半球是台呢，仍由解析 `bounceIntegral` 负责，避免重复计光）。按 `RoomStyle` 缓存，首个场景烘焙、后续复用；`neutral` 探针复刻旧灰世界，仅作球房装配前的过渡。
+  - `sampledBallShader`：`v62Reflection` 回退改为 `v62Room(texture, d, lod)`（`lod = roughness·5`），漫反射 `env` 改为 SH9 球房照度；参数块统一为 `ballShaderArguments`（`selectedClothAlbedo` + `roomReflection` + `roomSH0…8`）。`#pragma arguments` 在 declaration 函数内不可见，纹理经参数传入。
+  - `stickerBallRoughness` 0.12 → 0.05（酚醛树脂近镜面）；母球 0.34 不动。
+  - `AngleTrainingScene.installReferenceRoom` 末尾 `installRoomReflectionProbe`，换球房风格时球材质重新绑定；`enhanceBallMaterials`/`MobileReferenceLighting.apply` 传入 `scene.roomReflectionProbe`。
+- 验证：`RoomReflectionProbeTests` 7 项（等距柱状映射往返、六面实色落位、屏幕朝向 = `cross(forward, up)`、SH9 半球均匀光 E/π 上=L·1.000/侧=L/2·1.000/下=0、binary16 编码、场景烘焙+全部球材质绑定+换风格重绑；1 项证据渲染门控）0 失败；`BallStickerTests` 6/6（生产粗糙度断言改引用常量）、`ClothAppearanceTests` 4、`TableAppearanceTests` 7、`PocketLeatherIntegrationTests` 14、`RenderQualityV62Tests` 15 通过/223 门控跳过，全部 0 失败；`RenderQualityV62UITests/testReferenceShotSimulationPlayback` 真页面 4 张截图通过、着色器编译 0 错误。日志 `build/room-probe-after.log`、`room-probe-regress*.log`、`room-probe-ui.log`。
+- 证据渲染（模拟器）：`output/render-quality-v62/S490-room-reflection-before/` vs `S491-room-reflection-after/`（三风格 × 瞄准/13 号球特写/母球特写）。特写对比：灰带与白环消失，灯板高光收成两条锐利亮条，橙色饱和度恢复，球腰出现球房墙面/库边的弱结构反射；母球（0.34）保持柔和无灰环。
+- 成本（模拟器 Debug，首个场景一次性）：每风格烘焙 200–470 ms（渲染 90–350、CPU 投影 ≈95、上传 16），首次含着色器热身偏高；进程内缓存后为 0。⚠️ 真机帧率与 Release 冷启开销**未测**（H-26 真机离线）；着色器每样本多一次 2D 纹理采样，理论增量小。
+- 已知限制：探针从桌心单点采样（局部 cubemap 无视差修正）；台呢颜色/桌型变化不触发重烘（只影响库边区域与探针中的台呢，不影响解析台呢项）；`RenderQualityV62Tests` 历史消融对 `v62World`/`worldIntegral` 的字符串替换现已无目标（门控跳过，作历史证据保留）。
+- 未做：真机帧率复测；用户实看；若高光顶部仍显平，下一步再单独讨论共用的 `applyHighlightHeadroom` 曲线。
+- 已应用至：tasks/PROGRESS.md「当前状态」；hub 状态卡「最近完成」。
+
+## DR-303 — 球落到网兜/回球支架后仍被台呢染色：台呢项按球心高度淡出（2026-09-14，用户实看「进袋后像包了一层绿」）
+- 触发：用户实看 DR-302 版，台面上正常，进袋到支架的球（赛事蓝台呢）整颗青绿。
+- 根因（代码事实，与 DR-302 无关、历史即有）：球 shader 的两处台呢项都写死「球在 `y=0.8` 台面上」——①漫反射 `clothRadiance*v62bounceIntegral(n.y)` 对任何朝下法线都灌一份被灯照亮的台呢色补光；②`v62Reflection` 朝下分支 `q=p+reflected*((0.8-p.y)/reflected.y)` 不检查 t 的符号，球在平面以下时把光线**倒推**回台面，边界判定仍常命中，返回台呢色。青色反照率打在黄球上是绿、在黑 8 上是青绿环。
+- 变更（仍只在球 shader + 探针内部）：
+  - `clothWeight=clamp((center.y-0.8)/R,0,1)`：球心 ≥ 0.8+R 为 1、≤ 0.8 为 0；`clothRadiance` 乘该权重（同时压掉漫反射与镜面台呢项），掉网兜/滚支架过程中自然淡出。
+  - 镜面台呢分支补 `t>0` 判定（独立正确性修正）。
+  - 新增探针参数 `roomFloor`：烘焙时**多渲一张隐藏球桌的向下面**取平均线性辐亮度（桌下地毯）；朝下反射 `mix(roomFloor, result, clothWeight)`，漫反射补 `roomFloor*(1-clothWeight)*bounceIntegral`。中性探针取 `environmentBase`。
+- 验证：`RoomReflectionProbeTests` 7 项 + `BallStickerTests` 6 项 0 失败（新增断言：地面辐亮度非黑、暗于室内照度、不带台呢绿主导；球材质须绑定 `roomFloor`）；着色器编译 0 错误；`RenderQualityV62UITests/testReferenceShotSimulationPlayback` 真页面通过。日志 `build/room-probe-dr303.log`、`room-probe-dr303-ui.log`。
+- 证据：`output/render-quality-v62/S492-rail-ball-cloth-fade/<style>-rail-ball.png`（13 号球置于台面下 25 cm、支架高度）：下半球为深灰地毯反光、无青绿环，灯板高光保留；同批 `<style>-closeup.png` 台面球与 DR-302 无差异。「前」以用户两张实机截图为据。
+- 成本：每风格烘焙多一张 128² 快照（模拟器 Debug 首次总计 300–580 ms，缓存后 0）。
+- 未做：用户实看；桌身对支架球的灯板遮挡（球在支架上仍按台面亮度被直射）另议；`roomFloor` 为单一平均色，不含地毯纹理。
+- 已应用至：tasks/PROGRESS.md「当前状态」（并入 DR-302 条）；hub 状态卡。
+
+## DR-304 — 球体姿态是桌面状态：收尾禁止重置贴纸朝向（2026-09-14，用户实看「球停住后隔零点几秒贴纸原地转一下」）
+- 现象：任意 3D 回放页，球停稳后 0.2–1 s 贴纸瞬跳到另一朝向，母球与目标球都有。
+- 根因（事实，读码 + 定向测试）：`AngleTrainingScene.applyPosePolicy` 对非母球**无条件** `resetPose`，`CueBallPosePolicy.unchanged` 只保护母球；各页面收尾（`finishPlayback → applyBoard/loadBoard → place → showBall`、`BankShot/DiamondSystem.finishStrike → restoreBall → restoreNodePose`）在**最后一颗球自然静止 + 0.2/0.45 s 缓冲（有进袋 +1.02 s）**后触发，把逐帧积分出的终态四元数覆盖成单位姿态 / home。「home」是新摆球时抽的随机朝向，桌面前进后早已不等于击打前姿态。物理层 `.spinning` 尾段（残余竖轴塞原地减速自转）是连续运动，不是本次现象。
+- 调整：
+  - 场景层：`.unchanged` 对所有球生效；新增 `BallPoseSnapshot`（键→四元数）、`captureBallPoses()` / `restoreBallPoses(_:)`、`BallRestState`（位置+姿态）；`restoreNodePose` 明确只供静帧契约（Drill 静帧页/缩略图），击球/回放收尾禁止调用。
+  - 走位页：`lastShotBeforePoses` 与 `lastPlaybackContext.beforePoses` 记击打前姿态；回放起点恢复击打前姿态、收尾恢复回放前抓的 `afterPoses`；重打/退回/临时回上一杆恢复击打前姿态（仅本会话实拍的杆有姿态可考，存档重放的杆保持 `.home`）。
+  - 思路/三球/斯诺克：`UndoContext.ballPoses`（默认 `[:]`，测试构造不受影响）随 `makeUndoContext` 抓取，`restore(from:)` 与回放起点恢复；`replayAfterPoses` 收尾写回。
+  - 翻袋/颛星：球形快照值类型 `[String: SCNVector3]` → `[String: BallRestState]`，`restoreBall` 写回位置+姿态，不再走 `restoreNodePose`。
+  - 未改：`finishStrike` 桌面前进型收尾本就不碰姿态；Drill 静帧页 `restoreHomePositions`、`SequenceVideoExporter` 的确定性静帧口径保留。
+- 验证：`make build` BUILD SUCCEEDED；定向 39 项 0 失败——`TrajectoryPlaybackSpinTests` 10（新增 `test_scenePose_unchangedKeepsObjectBalls_captureRestoreRoundTrips`）、`PositionPlayUndoSnapshotTests` 9（`assertSceneBoardEqual` 新增姿态往返断言）、`AdjustmentDraftLayerTests` 5、`PocketLeatherIntegrationTests` 14、`PocketGeometryInjectionV63Tests/testBankKickRejectIncompleteFreePredictionsAndRecover` 1。日志 `/tmp/pose-tests.log`。
+- **补漏（同日，用户实看）**：分离角与走位页已正常，动作库「上手试打」仍跳。漏掉的是**逐杆序列演示**的杆间摆盘：`PositionPlayViewModel.runSequenceStep` / `presentSequenceStep` / `applySequenceRest(nil)` 与 `DrillSceneView.runStep` / `applyStepRest(nil)` 在杆间停顿 0.7 s 后用 `place`（默认 `.home`）重摆下一杆 `before`——位置几乎不变、姿态被重置，正是「停住后隔一下原地转」。改为 `placeSequenceBoard` / `placeStepBoard(preservePoses: true)`：先 `captureBallPoses` 再摆、摆完 `restoreBallPoses`，姿态只随物理回放变化；静帧落座（`preparePreviewBoard`）与序列结束回初始球形仍走确定性静帧。补验：`make build` 通过，`PositionPlayFreeAimTests` 11 + `PerspectiveStateV63Tests` 12（含 `enterSequenceMode` 用例）+ `BTShotHUDBarRenderTests` 2 + `TrajectoryPlaybackSpinTests` 10 = 35 项 0 失败（`/tmp/pose-tests-2.log`）。
+- 未做：用户实看（肉眼验收口径：实打后母球/目标球停下不跳；序列演示杆间不跳；回放结束朝向与实打一致；重打后回到击打前朝向）；从存档重放得到的「上一杆」退回时姿态仍为 `.home`。
+- 规则改进建议 / 回写目标：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训 —「节点上由动画积分出的状态（姿态/位置）即事实；恢复局面必须从快照恢复，禁止用默认值/home 代替」。
+- 已应用至：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训 / DR-304（2026-09-14）；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`tasks/PROGRESS.md`「当前状态」；hub 状态卡。
+
+## DR-305 — 球桌单指 pan 与祖先 UIScrollView（训练翻页 TabView / 纵向 ScrollView）的手势仲裁显式化（2026-09-14，用户报「训练页球台示意 3D 下左右滑想转视角，和其他区域左右滑切换训练页面冲突」）
+- 现象：`ActiveTrainingView.drillRecordContent` 用 `.tabViewStyle(.page)` 翻动作页，页内 `DrillRecordView › 球台示意` 嵌 `DrillSceneView`（3D 时 `interactionMode = .cameraControl`）。在 3D 球桌上横向拖动，翻页与相机 yaw 争同一根手指。
+- 根因假设（推测，读码）：SwiftUI 分页 TabView 与 `ScrollView` 均由 `UIScrollView` 承载，其 `panGestureRecognizer` 与 `AngleSceneView` 装在 SCNView 上的 `UIPanGestureRecognizer` 之间只有 UIKit 默认仲裁（无 delegate、无 `require(toFail:)`），谁先认出谁赢，且 `interactionMode == .none`（训练页 2D）时 pan 仍会被识别并空转、反过来可能吞掉本该翻页的滑动。代码里没有任何显式契约，行为取决于系统实现。
+- 调整（仅 `AngleSceneView.swift`）：Coordinator 成为 pan 的 `UIGestureRecognizerDelegate`：
+  - `gestureRecognizerShouldBegin`：`panClaimsSingleFingerTouch = gesturesEnabled && interactionMode != .none` 为假时直接失败，滑动交给祖先滚动（训练页 2D 球台示意上左右滑 ⇒ 翻页）。
+  - `shouldBeRequiredToFailBy(other)`：pan 有活可干且 `other` 是祖先 `UIScrollView` 的 `UIPanGestureRecognizer` 时返回 true（= 动态 `other.require(toFail: pan)`），翻页/纵向滚动等待球桌 pan，3D 起手在台面即只转相机；`tapsOnly` 页的移球/瞄准调整同样受保护。SCNView 自身兄弟手势、SwiftUI 的 `simultaneousGesture` 不受影响。
+  - `.cameraControl` 全仓只在 3D 使用（grep 核实 17 处调用点），故不会出现「2D 1× 空转 pan 挡滚动」。
+- 验证：`xcodebuild test -only-testing:QiuJiTests/AngleSceneViewPanArbitrationTests` BUILD + TEST SUCCEEDED，6 项 0 失败（3D cameraControl 阻断翻页 / tapsOnly 保护移球 / `.none` 与 `gesturesEnabled=false` 让路 / 仅 UIScrollView 的 pan 被要求等待 / 非本 pan 的识别器不受影响）。日志 `/tmp/pan-arb-test.log`。
+- 未做：模拟器/真机真实手指验证（单测只覆盖 delegate 策略，UIKit 是否按预期把 `UIScrollViewPanGestureRecognizer` 置为等待未实测）；3D 下台面区域纵向滑动同样被相机 pitch 占用，需要滚页面得从台面外起手（口径与「滑动球桌视角」一致，但未与用户确认）。
+- 规则改进建议 / 回写目标：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训 —「UIViewRepresentable 内自装 pan 且宿主可能是分页 TabView / ScrollView 时，必须用 delegate 写出显式仲裁契约，禁止依赖 UIKit 默认先到先得」。
+- 已应用至：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训 / DR-305（2026-09-14）；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`tasks/PROGRESS.md`「当前状态」；hub 状态卡。

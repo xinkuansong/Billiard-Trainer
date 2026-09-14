@@ -161,6 +161,9 @@ final class PositionPlayViewModel: ObservableObject {
     /// 上一杆完整上下文（「重打」回退用，#1/#7）：击打前桌面快照 + 击打参数
     /// （目标球/袋口/速度/打点/瞄准模式与方向），重打时全部恢复。
     private var lastShot: (before: BoardSnapshot, shot: PlannedShot)?
+    /// 上一杆击打前的球体姿态（与 `lastShot.before` 配对）。只有本会话真实击出的那一杆才有；
+    /// 从存档重放/回退得到的 `lastShot` 没有姿态可考，退回时保持 `.home`。
+    private var lastShotBeforePoses: BallPoseSnapshot?
     /// 上一杆是否被自动录入序列（重打时需一并撤回该步）。
     private var lastShotWasRecorded = false
     private let predictQueue = DispatchQueue(label: "com.qiuji.positionplay-predict", qos: .userInitiated)
@@ -235,6 +238,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
         sequence = PositionPlaySequence(name: sequence.name)
         lastShot = nil
+        lastShotBeforePoses = nil
         lastShotWasRecorded = false
         canReplay = false
         canPlayback = false
@@ -254,6 +258,7 @@ final class PositionPlayViewModel: ObservableObject {
         invalidatePendingPredict()
         isRecording = false
         lastShot = nil
+        lastShotBeforePoses = nil
         lastShotWasRecorded = false
         canReplay = false
         canPlayback = false
@@ -303,6 +308,7 @@ final class PositionPlayViewModel: ObservableObject {
         // 末杆可「重打」：删掉重放出的最后一杆并退回其击打前，供作者重编（与真实击球后一致）。
         if let last = rebuilt.steps.last {
             lastShot = (last.before, last.shot)
+            lastShotBeforePoses = nil   // 存档重放，无实拍姿态可考
             lastShotWasRecorded = true
             canReplay = true
         }
@@ -1167,7 +1173,9 @@ final class PositionPlayViewModel: ObservableObject {
         else { return }
 
         lastShot = (solved.before, solved.shot)
-        lastPlaybackContext = (solved.before, solved.shot, solved.prediction, scene.capturePerspectiveView())
+        let beforePoses = scene.captureBallPoses()
+        lastShotBeforePoses = beforePoses
+        lastPlaybackContext = (solved.before, beforePoses, solved.shot, solved.prediction, scene.capturePerspectiveView())
         canPlayback = false
         lastShotWasRecorded = false
         canReplay = false
@@ -1395,11 +1403,15 @@ final class PositionPlayViewModel: ObservableObject {
             sequence.steps.removeLast()
             sequence.updatedAt = Date()
             // 回退后「上一杆」变为序列新末杆（供再次重打 / 回上一杆球形）。
+            // 刚撤回的这一杆若是本会话真实击出的，其击打前姿态可考；再往前的杆没有。
+            let beforePoses = lastShotBeforePoses
             lastShot = sequence.steps.last.map { ($0.before, $0.shot) }
+            lastShotBeforePoses = nil
             lastShotWasRecorded = lastShot != nil
             canReplay = !sequence.steps.isEmpty
             restoreShotParams(last.shot)
             applyBoard(last.before)
+            if let beforePoses { scene.restoreBallPoses(beforePoses) }
             updatePocketHighlights()
             return
         }
@@ -1407,13 +1419,16 @@ final class PositionPlayViewModel: ObservableObject {
         guard let last = lastShot else { return }
         let perspectiveView = lastPlaybackContext?.perspectiveView
         let aim = lastPlaybackContext?.prediction.aimDirection
+        let beforePoses = lastShotBeforePoses
         lastShotWasRecorded = false
         lastShot = nil
+        lastShotBeforePoses = nil
         canReplay = false
         canPlayback = false
         lastPlaybackContext = nil
         restoreShotParams(last.shot)
         applyBoard(last.before)
+        if let beforePoses { scene.restoreBallPoses(beforePoses) }
         // Undo restores the shot's board and its view together. Re-solving the
         // next shot must not leave the restored cue outside the old camera.
         if let perspectiveView {
@@ -1429,7 +1444,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 上一杆完整回放上下文。与「重打」不同：回放**不改变**桌面真相——退回击打前重播动画，
     /// 播完回到当前局面（after），参数/选中态/序列都不动。
-    private var lastPlaybackContext: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction, perspectiveView: CameraRig.PerspectiveState?)?
+    private var lastPlaybackContext: (before: BoardSnapshot, beforePoses: BallPoseSnapshot, shot: PlannedShot, prediction: ShotPrediction, perspectiveView: CameraRig.PerspectiveState?)?
     @Published private(set) var canPlayback = false
 
     /// 回放上一杆击打过程（复用 `TrajectoryPlayback`，画面=物理）。
@@ -1438,6 +1453,8 @@ final class PositionPlayViewModel: ObservableObject {
               let ctx = lastPlaybackContext,
               let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        // 回放不改变桌面真相：当前局面的姿态也要原样带回（球停稳后贴纸不得再动）。
+        let afterPoses = scene.captureBallPoses()
         isPlaying = true
         scene.clearResultNodes(nodes: &selectionNodes)
         refreshFreeAimOverlay()
@@ -1445,13 +1462,15 @@ final class PositionPlayViewModel: ObservableObject {
         statusText = "回放上一杆…"
 
         // 摆回击打前（不动选中态/参数——isPlaying 下 place/recompute 的求解结果会被丢弃）。
+        // 姿态同样回击打前，回放积分出的终态才与实打一致。
         scene.hideAllBalls()
         for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
+        scene.restoreBallPoses(ctx.beforePoses)
         refreshOnTableKeys()
 
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
               let aim = aimDirection(path: ctx.prediction.cuePath, from: cueNode.position) else {
-            finishPlayback(after: after)
+            finishPlayback(after: after, afterPoses: afterPoses)
             return
         }
         let strikePos = CueStroke.strikePosition(cue: cueNode.position, aim: aim, spinX: ctx.shot.spinX, spinY: ctx.shot.spinY)
@@ -1469,7 +1488,8 @@ final class PositionPlayViewModel: ObservableObject {
                 clearanceProbe: { clearancePlayback.allBallCentersByName(at: Float($0)) }
             ) { [weak self] in
                 self?.runPlaybackAnimation(
-                    ctx: (ctx.before, ctx.shot, ctx.prediction), recorder: recorder, after: after
+                    ctx: (ctx.before, ctx.shot, ctx.prediction), recorder: recorder,
+                    after: after, afterPoses: afterPoses
                 )
             }
         }
@@ -1477,7 +1497,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     private func runPlaybackAnimation(
         ctx: (before: BoardSnapshot, shot: PlannedShot, prediction: ShotPrediction),
-        recorder: TrajectoryRecorder, after: BoardSnapshot
+        recorder: TrajectoryRecorder, after: BoardSnapshot, afterPoses: BallPoseSnapshot
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
@@ -1505,17 +1525,17 @@ final class PositionPlayViewModel: ObservableObject {
             cueNode.runAction(.group([cueAction, .wait(duration: completionDuration)])) { [weak self] in
                 Task { @MainActor in
                     guard let self, self.isPlaying else { return }
-                    self.finishPlayback(after: after)
+                    self.finishPlayback(after: after, afterPoses: afterPoses)
                 }
             }
             ShotAudioScheduler.shared.play(prediction: ctx.prediction)
         } else {
-            finishPlayback(after: after)
+            finishPlayback(after: after, afterPoses: afterPoses)
         }
     }
 
-    /// 回放收尾：清动画、恢复当前局面（after），重新求解。
-    private func finishPlayback(after: BoardSnapshot) {
+    /// 回放收尾：清动画、恢复当前局面（after，位置 + 姿态），重新求解。
+    private func finishPlayback(after: BoardSnapshot, afterPoses: BallPoseSnapshot) {
         ShotAudioScheduler.shared.cancel()
         for key in PositionPlayBall.allKeys {
             guard let node = scene.allBallNodes[key] else { continue }
@@ -1526,6 +1546,7 @@ final class PositionPlayViewModel: ObservableObject {
         isPlaying = false
         scene.hideCueStick()
         applyBoard(after, cuePose: .unchanged)
+        scene.restoreBallPoses(afterPoses)
         updatePocketHighlights()
     }
 
@@ -1536,6 +1557,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard !isPlaying, let last = lastShot else { return }
         restoreShotParams(last.shot)
         applyBoard(last.before)
+        if let poses = lastShotBeforePoses { scene.restoreBallPoses(poses) }
         updatePocketHighlights()
     }
 
@@ -1565,6 +1587,7 @@ final class PositionPlayViewModel: ObservableObject {
         scene.invalidatePerspectiveView()
         isRecording = false
         lastShot = nil
+        lastShotBeforePoses = nil
         lastShotWasRecorded = false
         canReplay = false
         canPlayback = false
@@ -1580,6 +1603,7 @@ final class PositionPlayViewModel: ObservableObject {
         scene.invalidatePerspectiveView()
         isRecording = false
         lastShot = nil
+        lastShotBeforePoses = nil
         lastShotWasRecorded = false
         canReplay = false
         canPlayback = false
@@ -1772,9 +1796,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard i >= 0, i < sequenceSteps.count else { return }
         sequenceStepIndex = i
         let step = sequenceSteps[i]
-        scene.hideAllBalls()
-        for (key, pt) in step.before.onTable { place(key: key, normalized: pt) }
-        refreshOnTableKeys()
+        placeSequenceBoard(step.before)
         // 恢复该杆参数供假想球/瞄准线绘制（didSet 的 recompute 已被 isSequenceMode 拦截）。
         restoreShotParams(step.shot)
         if let pred = prediction(forStep: i) {
@@ -1861,9 +1883,7 @@ final class PositionPlayViewModel: ObservableObject {
         sequenceStepIndex = i
         let step = sequenceSteps[i]
         // 摆回该杆击打前。
-        scene.hideAllBalls()
-        for (key, pt) in step.before.onTable { place(key: key, normalized: pt) }
-        refreshOnTableKeys()
+        placeSequenceBoard(step.before)
         restoreShotParams(step.shot)
 
         guard let pred = prediction(forStep: i),
@@ -1973,13 +1993,26 @@ final class PositionPlayViewModel: ObservableObject {
                 }
             }
         } else {
-            scene.hideAllBalls()
-            for (key, pt) in step.after.onTable { place(key: key, normalized: pt) }
+            placeSequenceBoard(step.after)
         }
         refreshOnTableKeys()
         isPlaying = false
         scene.hideCueStick()
         clearTrajectory()
+    }
+
+    /// 序列模式摆盘：位置按快照，**姿态沿用球当前朝向**（DR-304）。
+    ///
+    /// 连续演示里第 i+1 杆的 `before` 就是第 i 杆停稳的局面，`place` 默认 `.home` 会在杆间停顿
+    /// 0.7 s 后把刚停稳的贴纸重置成单位姿态/home——这正是动作库试打里「球停住后隔一下原地转」。
+    /// 姿态只随物理回放变化；重摆/回到某杆时位置会跳，朝向保持当前值即可，不编默认值。
+    /// 进袋后重新上桌的球（当前隐藏、无姿态可考）按 `.home` 摆放。
+    private func placeSequenceBoard(_ board: BoardSnapshot) {
+        let poses = scene.captureBallPoses()
+        scene.hideAllBalls()
+        for (key, pt) in board.onTable { place(key: key, normalized: pt) }
+        scene.restoreBallPoses(poses)
+        refreshOnTableKeys()
     }
 
     /// 杆间边界：本杆已落定。暂停请求只在这里兑现，保证「停在当前杆结束时的球位」。

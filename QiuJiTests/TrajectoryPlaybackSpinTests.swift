@@ -249,6 +249,44 @@ final class TrajectoryPlaybackSpinTests: XCTestCase {
                         accuracy: 1e-5, "目标球不应随机朝向")
     }
 
+    /// 球停稳后姿态是事实：`.unchanged` 对目标球同样生效；`captureBallPoses` / `restoreBallPoses`
+    /// 能把一整桌姿态原样带回（回放收尾 / 退回击打前的姿态真源）。
+    /// 回归：旧实现对非母球无条件 `resetPose`，是「球停后贴纸原地转一下」的根因。
+    @MainActor
+    func test_scenePose_unchangedKeepsObjectBalls_captureRestoreRoundTrips() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene(enhancedRendering: false)
+        let cue = try XCTUnwrap(scene.allBallNodes[PositionPlayBall.cueKey])
+        let obj = try XCTUnwrap(scene.allBallNodes["_3"])
+        let y = scene.surfaceY
+
+        // 模拟一杆回放积分出来的终态姿态。
+        let cueRest = simd_normalize(simd_quatf(angle: 1.1, axis: simd_normalize(simd_float3(0.3, 1, 0.2))))
+        let objRest = simd_normalize(simd_quatf(angle: -2.2, axis: simd_normalize(simd_float3(1, 0.1, 0.5))))
+        scene.showBall(key: PositionPlayBall.cueKey, scenePosition: SCNVector3(0, y, 0), cuePose: .home)
+        scene.showBall(key: "_3", scenePosition: SCNVector3(0.3, y, 0), cuePose: .home)
+        cue.simdOrientation = cueRest
+        obj.simdOrientation = objRest
+
+        // `.unchanged`：位置可以改，任何球的朝向都不能动。
+        scene.showBall(key: PositionPlayBall.cueKey, scenePosition: SCNVector3(0.1, y, 0.1), cuePose: .unchanged)
+        scene.showBall(key: "_3", scenePosition: SCNVector3(0.4, y, 0.1), cuePose: .unchanged)
+        assertQuatEqual(cue.simdOrientation, cueRest, accuracy: 1e-6, ".unchanged 改动了母球姿态")
+        assertQuatEqual(obj.simdOrientation, objRest, accuracy: 1e-6, ".unchanged 改动了目标球姿态")
+
+        // 抓快照 → 被 `.home` 重置 → 恢复快照：逐球回到停稳时的姿态。
+        let poses = scene.captureBallPoses()
+        XCTAssertNotNil(poses[PositionPlayBall.cueKey]); XCTAssertNotNil(poses["_3"])
+        XCTAssertNil(poses["_9"], "隐藏球不应进快照")
+        scene.showBall(key: PositionPlayBall.cueKey, scenePosition: SCNVector3(0, y, 0), cuePose: .home)
+        scene.showBall(key: "_3", scenePosition: SCNVector3(0.3, y, 0), cuePose: .home)
+        assertQuatEqual(obj.simdOrientation, BallSpinIntegrator.identityOrientation, accuracy: 1e-6,
+                        ".home 应把目标球重置（前提检查）")
+        scene.restoreBallPoses(poses)
+        assertQuatEqual(cue.simdOrientation, cueRest, accuracy: 1e-6, "母球姿态未从快照恢复")
+        assertQuatEqual(obj.simdOrientation, objRest, accuracy: 1e-6, "目标球姿态未从快照恢复")
+    }
+
     func test_randomOrientation_isUnitAndVaries() {
         var rng = SeededGenerator(seed: 42)
         let a = BallSpinIntegrator.randomOrientation(using: &rng)

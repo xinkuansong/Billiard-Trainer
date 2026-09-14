@@ -1061,7 +1061,15 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
         continueAfterFailure = false
         let source = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/content/position_play/sequences/drill_c039__manual01-直线球组合走位 · 球形1-8杆.json")
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-        let sequence = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: source))
+        var fixture = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: source))
+        // W17-C: deliberately model a stale saved outcome in memory. The shot input and
+        // all authored next-shot starts stay unchanged; no bundled content is rewritten.
+        // A successful pot must not be resurrected by this saved "still on table" state.
+        let target = fixture.steps[1].shot.targetKey
+        fixture.steps[1].after.onTable[target] = try XCTUnwrap(fixture.steps[1].before.onTable[target])
+        fixture.steps[1].potted.removeAll { $0 == target }
+        fixture.steps[1].objectPocketed = false
+        let sequence = fixture
         XCTAssertEqual(sequence.steps.count, 8)
         let scene = AngleTrainingScene(); scene.setupScene(enhancedRendering: false)
         var predictions: [UUID: ShotPrediction] = [:]
@@ -1072,12 +1080,9 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
             predictions[step.id] = prediction
         }
         let second = sequence.steps[1]
-        XCTAssertNil(second.after.onTable[second.shot.targetKey])
-        // W17-A: the saved sequence was authored against the planar verdict, so with the
-        // planar default the fixture no longer diverges from current physics. Skipping is
-        // honest here; W17-C owns finding (or retiring) a divergence fixture.
-        try XCTSkipIf(try XCTUnwrap(predictions[second.id]).objectPocketed,
-            "Fixture no longer exercises a saved pot differing from current physics (W17-A planar default)")
+        XCTAssertNotNil(second.after.onTable[second.shot.targetKey])
+        XCTAssertTrue(try XCTUnwrap(predictions[second.id]).objectPocketed,
+            "Fixture must exercise a real predicted pot that disagrees with the stale saved board")
         // Capture the real live consumer at each authored start and paused end.
         let vm = PositionPlayViewModel()
         vm.setupScene()
@@ -4502,13 +4507,14 @@ extension PocketGeometryInjectionV63Tests {
             spinX:0,spinY:0,surfaceY:0.8,balls:[])
         XCTAssertTrue(complete.hasFinalTableState)
         let bank=BankShotViewModel(),kick=DiamondSystemViewModel()
-        func verify(scene:AngleTrainingScene,accept:(ShotPrediction,[String:SCNVector3])->Bool,
+        func verify(scene:AngleTrainingScene,accept:(ShotPrediction,[String:BallRestState])->Bool,
                     notice:()->String?,playing:()->Bool) throws {
             let cueStart=SCNVector3(0.2,0.8+BallPhysics.radius,0)
             let targetStart=SCNVector3(-0.2,0.8+BallPhysics.radius,0)
             scene.applyBallLayout(cueBallPosition:cueStart,targetBallNumber:8,targetPosition:targetStart)
             let cue=try XCTUnwrap(scene.cueBallNode)
-            let before=["__cue":cueStart,"__target":targetStart]
+            let before=["__cue":BallRestState(position:cueStart,orientation:BallSpinIntegrator.identityOrientation),
+                        "__target":BallRestState(position:targetStart,orientation:BallSpinIntegrator.identityOrientation)]
             for reason:EventDrivenEngine.Termination? in [nil,.timeLimit,.eventLimit,.contactResolved,.interestResolved,.failed("test failure")] {
                 var partial=complete;partial.termination=reason
                 cue.position=SCNVector3(0.8,cueStart.y,0.2)

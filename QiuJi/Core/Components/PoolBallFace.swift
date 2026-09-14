@@ -157,8 +157,6 @@ enum TrajectoryStyle {
             if number == 6 || number == 14 { return .white }
             return TrajectoryStyle.potColor(forNumber: number)
         }
-        static let ghostBall = UIColor(white: 0.96, alpha: 1)
-        static let ghostOpacity: CGFloat = 0.5
         static let aimPointRadius: CGFloat = 0.00325
         static let contactPointRadius: CGFloat = 0.0045
     }

@@ -234,6 +234,7 @@
 		50A2D45F6127C39E3198228B /* W29ScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A19B67AA9DF80B237CF6F90 /* W29ScreenshotUITests.swift */; };
 		50D0C54D186542F0F66ECBE4 /* AdaptiveQuestionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19F17763EF34913B1DEC4BF7 /* AdaptiveQuestionEngine.swift */; };
 		50DD093B813A467B59428801 /* V22W5ScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3890ECC946EDAEFCB1270B1F /* V22W5ScreenshotUITests.swift */; };
+		50EED9DCF29980F691FD60F5 /* AngleSceneViewPanArbitrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BAFFAC5B6FD48D194A52D98 /* AngleSceneViewPanArbitrationTests.swift */; };
 		5116CD77DCDF9E5B1EC27FED /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = BCDAF924A7000A3825AE3554 /* PrivacyInfo.xcprivacy */; };
 		51A65EE6C0A3F09343581231 /* V52DailyClearanceHomeSettingsUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61FEE3BC9BFEC032B8E60334 /* V52DailyClearanceHomeSettingsUITests.swift */; };
 		523CFD96A3510E8C4E2900D1 /* EnhancedEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D9196447D748818E29107C /* EnhancedEnvironment.swift */; };
@@ -427,6 +428,7 @@
 		8FDDC62A036381A49821F775 /* Drills in Resources */ = {isa = PBXBuildFile; fileRef = 974821DCA7DF15337D981568 /* Drills */; };
 		90192FC08E00D33BF72C7268 /* ShotSimulationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E7B91825474032DFDA01618 /* ShotSimulationView.swift */; };
 		903373543E563A92B30E02F0 /* ShotScenarioRenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F873073B2D32D4FF186A056A /* ShotScenarioRenderTests.swift */; };
+		9081DB5DED0495B0962B26F5 /* RoomReflectionProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72EE7953E18F95B3F381B9F5 /* RoomReflectionProbe.swift */; };
 		90EF4130B50B27EABAC1A96A /* BTBakedDrillTable.swift in Sources */ = {isa = PBXBuildFile; fileRef = F18CD15EF90AEB8F4C07F177 /* BTBakedDrillTable.swift */; };
 		91082898E625A4BE8930B89B /* TrainingAtmosphereTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0D83EBEAB5458BABA3DD181 /* TrainingAtmosphereTests.swift */; };
 		9192C03B57E58DFB8D8EE28B /* DrillCoverAnnotation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 717BB3D54C1032AB51E268F8 /* DrillCoverAnnotation.swift */; };
@@ -921,6 +923,7 @@
 		3A675A36D1BD125DFA62B4CE /* BTShotHUDBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTShotHUDBar.swift; sourceTree = "<group>"; };
 		3B1B6DEDD8A15D806BEF80ED /* PocketBehaviorDiagTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PocketBehaviorDiagTests.swift; sourceTree = "<group>"; };
 		3B99B0B553C3345884E03CF0 /* TutorialFormationScrollIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TutorialFormationScrollIsolationTests.swift; sourceTree = "<group>"; };
+		3BAFFAC5B6FD48D194A52D98 /* AngleSceneViewPanArbitrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleSceneViewPanArbitrationTests.swift; sourceTree = "<group>"; };
 		3C14C9AF1A918DA64E3528F9 /* CueStyleSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueStyleSettingsView.swift; sourceTree = "<group>"; };
 		3CA9CF87380CFB146B4A3016 /* RenderQualityV62UITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RenderQualityV62UITests.swift; sourceTree = "<group>"; };
 		3CAFDF8D72DBEC3475A0AB95 /* BTScenePalette.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BTScenePalette.swift; sourceTree = "<group>"; };
@@ -1095,6 +1098,7 @@
 		7222ED99473428435AF83D1E /* SeparationAngleAtlasViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeparationAngleAtlasViewModel.swift; sourceTree = "<group>"; };
 		72DE10E13E8C9991912EDC14 /* AngleSceneView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AngleSceneView.swift; sourceTree = "<group>"; };
 		72DEC48A7130EFF11F544227 /* SeparationAngleAtlasTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeparationAngleAtlasTests.swift; sourceTree = "<group>"; };
+		72EE7953E18F95B3F381B9F5 /* RoomReflectionProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomReflectionProbe.swift; sourceTree = "<group>"; };
 		735A2A282DA6F2409E33121F /* MobilePocketOcclusion.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = MobilePocketOcclusion.png; sourceTree = "<group>"; };
 		735EF922FB756EE5E610B985 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		7395047B9F286CA4A15E3E49 /* AnglePredictionGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnglePredictionGeometryTests.swift; sourceTree = "<group>"; };
@@ -1860,6 +1864,7 @@
 				BB7895196095B0E0206AE9FA /* PocketLeatherMesh.swift */,
 				504715FB3DE10DAF9B961A6D /* PocketRailInventory.swift */,
 				3056191B615DDCFB23074113 /* RenderQualityFixture.swift */,
+				72EE7953E18F95B3F381B9F5 /* RoomReflectionProbe.swift */,
 				B5BE3E46B06912B5B4F2B0D9 /* SceneStroke.swift */,
 				46DE1A50DBBB6005553D78CA /* TableAppearance.swift */,
 				CC0B6A6B88C49EEE1FE41E82 /* TableBallPulse.swift */,
@@ -1894,6 +1899,7 @@
 				7395047B9F286CA4A15E3E49 /* AnglePredictionGeometryTests.swift */,
 				2E84924307A95FA882977533 /* AngleQuizTypeFilterTests.swift */,
 				2B83557D3C775859F6DFBA78 /* AngleResultSaveFailureTests.swift */,
+				3BAFFAC5B6FD48D194A52D98 /* AngleSceneViewPanArbitrationTests.swift */,
 				7A8BC2C5C758B9C9098D9E35 /* AngleTrainingTests.swift */,
 				F191DECC20E0D6B3FB434910 /* APIClientProfileTests.swift */,
 				20AE24882C78E512473C4AE8 /* AppRouterTests.swift */,
@@ -3183,6 +3189,7 @@
 				4DE73CFF1E9BAA7D2530093E /* RenderQualityFixture.swift in Sources */,
 				2313F0F0AFA697A50FFCEED3 /* RestTimerAttributes.swift in Sources */,
 				D70AE6D827AFBEA7D781CB8F /* RestTimerLiveActivityManager.swift in Sources */,
+				9081DB5DED0495B0962B26F5 /* RoomReflectionProbe.swift in Sources */,
 				C42A24F869BCC2E35394B4CE /* RoomStyleSelectionView.swift in Sources */,
 				5A96C146323B16EB4DEF6C2B /* RootView.swift in Sources */,
 				2AA9259167C6AF3A93D92E8A /* SCNVector3+Physics.swift in Sources */,
@@ -3435,6 +3442,7 @@
 				5FBC674ECD2CBDECD2128634 /* AnglePredictionGeometryTests.swift in Sources */,
 				55BCE9880FB3EC48C6630C11 /* AngleQuizTypeFilterTests.swift in Sources */,
 				38404285E1B97246D64F4B29 /* AngleResultSaveFailureTests.swift in Sources */,
+				50EED9DCF29980F691FD60F5 /* AngleSceneViewPanArbitrationTests.swift in Sources */,
 				38DD94E622D8FC48F702096E /* AngleTrainingTests.swift in Sources */,
 				B9584DF6A4427F05248F1675 /* AppRouterTests.swift in Sources */,
 				E078555F6EEB8C36E88ADA4F /* AtlasSpinTrackSelectionTests.swift in Sources */,

@@ -95,6 +95,10 @@ struct AngleSceneView: UIViewRepresentable {
 
         let panGesture = UIPanGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePan(_:)))
         panGesture.maximumNumberOfTouches = 1
+        // Arbitration against ancestor UIScrollViews (paging TabView / vertical ScrollView),
+        // see `Coordinator.gestureRecognizer(_:shouldBeRequiredToFailBy:)`.
+        panGesture.delegate = context.coordinator
+        context.coordinator.panGesture = panGesture
         scnView.addGestureRecognizer(panGesture)
 
         let pinchGesture = UIPinchGestureRecognizer(target: context.coordinator, action: #selector(Coordinator.handlePinch(_:)))
@@ -215,6 +219,8 @@ struct AngleSceneView: UIViewRepresentable {
         var autoFitsLandscapeTable = false
         var onPocketTapped: ((Int) -> Void)?
         weak var scnView: SCNView?
+        /// Single-finger pan installed in `makeUIView`; identity check inside the delegate callbacks.
+        weak var panGesture: UIPanGestureRecognizer?
         private var displayLink: CADisplayLink?
         private var lastTimestamp: CFTimeInterval = 0
         var contentIsAnimating: Bool?
@@ -768,6 +774,44 @@ struct AngleSceneView: UIViewRepresentable {
             }
         }
 
+    }
+}
+
+// MARK: - Pan arbitration against ancestor scroll views
+
+extension AngleSceneView.Coordinator: UIGestureRecognizerDelegate {
+    /// Whether the single-finger pan has any work to do for the current mode. When it does not
+    /// (`interactionMode == .none`, e.g. the 2D 球台示意 inside the training pager), the pan must
+    /// fail immediately so ancestor scroll views (paging `TabView`, vertical `ScrollView`) get the
+    /// swipe instead of a dead recognizer swallowing it.
+    static func panClaimsSingleFingerTouch(gesturesEnabled: Bool,
+                                                      interactionMode: AngleSceneView.InteractionMode) -> Bool {
+        gesturesEnabled && interactionMode != .none
+    }
+
+    /// Whether `other` is a scroll-driving pan on an ancestor `UIScrollView` (SwiftUI paging
+    /// `TabView` / `ScrollView` are both UIScrollView-backed). Only those are asked to wait for
+    /// our pan; SwiftUI's own simultaneous gestures and the SCNView's sibling recognizers are
+    /// left to default arbitration.
+    static func isAncestorScrollPan(_ other: UIGestureRecognizer, sceneView: UIView?) -> Bool {
+        guard other is UIPanGestureRecognizer, let host = other.view, host is UIScrollView else { return false }
+        return host !== sceneView
+    }
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === panGesture else { return true }
+        return Self.panClaimsSingleFingerTouch(gesturesEnabled: gesturesEnabled, interactionMode: interactionMode)
+    }
+
+    /// 3D camera orbit (and ball drag / aim nudge on `tapsOnly` pages) owns a swipe that starts on
+    /// the table: the enclosing pager must not also page, and must not steal the swipe.
+    /// Returning `true` is the dynamic form of `other.require(toFail: panGesture)`.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === panGesture,
+              Self.panClaimsSingleFingerTouch(gesturesEnabled: gesturesEnabled, interactionMode: interactionMode)
+        else { return false }
+        return Self.isAncestorScrollPan(otherGestureRecognizer, sceneView: scnView)
     }
 }
 

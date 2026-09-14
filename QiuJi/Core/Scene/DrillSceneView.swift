@@ -265,7 +265,7 @@ final class DrillSceneController: ObservableObject {
 
         stepIndex = i
         let step = steps[i]
-        placeStepBoard(step.before)
+        placeStepBoard(step.before, preservePoses: true)
         updateOverlay(shot: step.shot)
 
         guard let pred = PositionPlayShotSolver.solve(
@@ -358,7 +358,7 @@ final class DrillSceneController: ObservableObject {
     private func applyStepRest(step: SequenceStep, prediction pred: ShotPrediction?) {
         ShotAudioScheduler.shared.cancel()
         guard let pred else {
-            placeStepBoard(step.after)
+            placeStepBoard(step.after, preservePoses: true)
             scene.hideCueStick()
             clearTrajectory()
             return
@@ -487,7 +487,11 @@ final class DrillSceneController: ObservableObject {
     }
 
     /// 摆某杆的盘面：不在该盘面的球一律隐藏，在桌球复原 parent / opacity / 动作后定位。
-    private func placeStepBoard(_ board: BoardSnapshot) {
+    /// - Parameter preservePoses: 演示中逐杆摆盘传 `true`——第 i+1 杆的 `before` 就是第 i 杆停稳的
+    ///   局面，姿态沿用球当前朝向（DR-304：否则杆间停顿后刚停稳的贴纸会被重置成单位姿态、
+    ///   肉眼「原地转一下」）。静帧落座（`preparePreviewBoard`）保持 `false`，画面与缩略图同契约。
+    private func placeStepBoard(_ board: BoardSnapshot, preservePoses: Bool = false) {
+        let poses = preservePoses ? scene.captureBallPoses() : [:]
         for (key, node) in scene.allBallNodes {
             node.removeAllActions()
             if board.onTable[key] == nil {
@@ -501,7 +505,8 @@ final class DrillSceneController: ObservableObject {
         DrillStaticPreview.placeBoard(
             board, on: scene, ballScale: DrillStaticPreview.Options.detail.ballScale
         )
-        scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation, apply: true)
+        scene.setCueBallHomeOrientation(BallSpinIntegrator.identityOrientation, apply: !preservePoses)
+        if preservePoses { scene.restoreBallPoses(poses) }
     }
 
     /// `PositionPlayShotSolver.predName` 的逆映射（引擎球名 → 盘面键）。
