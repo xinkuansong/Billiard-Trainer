@@ -157,6 +157,15 @@ final class PocketNetPresentationTests: XCTestCase {
             }
             XCTAssertGreaterThan(airSteps, 0, "\(pocket.id) falls from the ring onto the rail")
             XCTAssertGreaterThan(rollSteps, 5, "\(pocket.id) rolls down the rail")
+            // Landing (DR-300): slide → roll with angular momentum about the contact conserved,
+            // v_roll = 5/7·v_t + 2/7·R·ω_t; the ball never rolls back up towards the net.
+            let landingIndex = try XCTUnwrap(samples.firstIndex { $0.position.y < exitY && abs($0.position.y - net.railHeight(under: $0.position)) < 1e-6 })
+            let before = samples[landingIndex - 1], landing = samples[landingIndex]
+            let arriving = before.velocity - V(0, g * PocketNetPresentation.sampleStep, 0)
+            let rollingAxis = simd_normalize(cross(net.railNormal, tangent))
+            let expected = max(0, 5.0 / 7.0 * dot(arriving, tangent) + 2.0 / 7.0 * ballRadius * dot(before.omega, rollingAxis))
+            XCTAssertEqual(dot(landing.velocity, tangent), expected, accuracy: 1e-9, "\(pocket.id) landing roll-up")
+            XCTAssertLessThan(dot(landing.velocity, tangent), dot(arriving, tangent), "\(pocket.id) spinning up costs speed")
             let last = samples[samples.count - 1]
             XCTAssertEqual(last.position, slot, pocket.id)
             print("[W17 net] \(pocket.id) left bag after \(floorTime - start.time)s (free fall \(freeFall)s), free steps \(freeSteps), vertical-wall sliding steps \(verticalContactSteps), air \(airSteps), roll \(rollSteps), total \(last.time - start.time)s")

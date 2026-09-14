@@ -3835,3 +3835,12 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
 - 未做：①用户实看（单球驻留、连杆多球补位、回桌离架）；②导出（`SequenceVideoExporter`）无库存，单杆内正确、不含前几杆驻留球；③`railWatch` 在渲染线程回调里改库存字典（已用 `weak` + 幂等 `release` 兜底，未加锁）；④页面「重置/重摆」不清支架（按用户口径：球回桌才离架，桌型重建才清空）。
 - 补记（同日，用户实看：「两颗球重叠」）：根因是 **`ShotPredictor` 的预览回放先建了 `TrajectoryPlayback`（无库存）**，`attach` 幂等 ⇒ 尾迹已按空支架排在槛 0，场景回放再传库存也不重排，新球压在驻留球上。修：`TrajectoryRecorder.planarTailOccupancy` 记录尾迹布槛时的占用；`attach(preOccupied:)` 改为 `nil`（求解/导出）只补缺失尾迹，非 nil 且与记录不同则**重排全部平面尾迹**。另把逐帧 `repeatForever` 观察动作换成 10 Hz 主线程 `Timer`（动作会迫使 SceneKit 永久逐帧渲染）。新增 `testScenePlaybackRelaysTailsAttachedBySolverWithoutRailKnowledge`；PocketNetPresentation 15/15 + BreakFlow/Playback/Renderer/FreeAim 共 53 项 0 失败。
 - 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-15 补记；问题集合_v63.md v63.18；tasks/3d-v63/W17-working.md §W17-D 跨杆保留、README.md；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-300 — 支架着陆改为角动量守恒的滑→滚（2026-09-14，用户实看「支架滚动稍快」）
+- 触发：用户实看 DR-299 版，「球在支架中的滚动速度稍微有一点点快」。
+- 实测（临时探针，已删）：内置支架在球心正下方有一根 `Black` 承托杆（d = R，z = 0），两侧 z = ±30 mm、球心高度处各一根护杆（间隙 0.6–1.1 mm）——是「中托 + 双护」三杆结构，**滚动半径 = R**，5/7 因子与资产几何一致，不能用「双杆 V 槽减小有效半径」解释偏快。中袋槽线在承托杆上方约 4.5 mm、倚靠 +z 护杆（DR-298 槽线横向偏差，未改，间隙非侵入）。
+- 根因（模型错误）：DR-298 着陆时把切向速度全部保留并**瞬时赋予纯滚动自旋**（无中生有的角动量）。正确做法：接触点摩擦冲量使滑转滚、关于接触点角动量守恒 ⇒ v_roll = 5/7·v_t + 2/7·R·ω_t；无自旋落下的球起滚速度应损失 2/7。
+- 变更：`PocketNetPresentation.descent` 着陆段按上式取 `vAlong`（仍不许倒滚回网）；测试新增着陆断言（起滚速度 = 公式值、必小于到达切速）。角袋全程 0.54→0.57 s、中袋 0.63→0.66 s；末速主要由 23° 斜面重力决定（≈0.9 m/s），本修只压起滚段。
+- 未做：①用户复看；②若仍觉快，剩余物理自由度只有资产斜度（23°）与滚动阻力系数（钢杆/酚醛球典型 0.002–0.005，需给出来源后才加，⛔ 不做视觉调参）。
+- 验证：PocketNetPresentation 15/15（`/tmp/dr300.xcresult`）。
+- 已应用至：tasks/3d-v63/W17-working.md；tasks/PROGRESS.md 头部注释。

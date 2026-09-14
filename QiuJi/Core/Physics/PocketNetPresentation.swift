@@ -300,9 +300,11 @@ enum PocketNetPresentation {
     /// 2. **Air**: below the bag's bottom ring the ball falls freely onto the rail. (The
     ///    bundled ring is modelled ~2.5 mm tighter than the ball; the real product is
     ///    open, so the script passes through it.)
-    /// 3. **Rail**: zero-restitution landing keeps only the downhill component, then the
-    ///    ball rolls (`rollingFactor`) down the trough and stops dead at the slot — the
-    ///    end stop or the ball below it.
+    /// 3. **Rail**: zero-restitution landing keeps only the downhill component and spins
+    ///    the ball up (slide → roll, 5/7·v_t + 2/7·R·ω_t), then the ball rolls
+    ///    (`rollingFactor`) down the trough and stops dead at the slot — the end stop or
+    ///    the ball below it. The bundled return is a centre support rod with two guard
+    ///    rods at the ball's equator (±30 mm, ~1 mm clearance), so the rolling radius is R.
     static func descent(from start:State,pocket:NetPocket,slot:V,ballRadius:Double,gravity:Double,
                         retention:Double,friction:Double=Double(TablePhysics.cushionFriction))->[State] {
         var s=start,samples=[start]
@@ -347,8 +349,12 @@ enum PocketNetPresentation {
                 along=pocket.railDistance(of:p)
                 lateral=dot(p-pocket.center,pocket.axisZ)
                 // Dead landing: the rods take the normal and lateral components; the
-                // ball never rolls back up into the net.
-                vAlong=max(0,dot(v,tangent))
+                // ball never rolls back up into the net. The friction impulse at the
+                // contact turns the slide into a roll with angular momentum about the
+                // contact point conserved: v_roll = 5/7·v_t + 2/7·R·ω_t (DR-300) — a ball
+                // arriving without spin loses 2/7 of its speed to spinning up.
+                let rollingAxis=normalize(cross(normal,tangent))
+                vAlong=max(0,rollingFactor*dot(v,tangent)+(1-rollingFactor)*ballRadius*dot(omega,rollingAxis))
                 v=tangent*vAlong
                 omega=cross(normal,v)/ballRadius
                 s=State(time:t,position:pocket.railPoint(atDistance:along)+pocket.axisZ*lateral,velocity:v,omega:omega)
