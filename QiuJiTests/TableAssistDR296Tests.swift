@@ -161,6 +161,11 @@ final class TableAssistDR296Tests: XCTestCase {
             let bottom = dash.position.y - TrajectoryStyle.lineHint
             XCTAssertEqual(bottom, -AngleSceneCalculator.ballRadius + 0.0005, accuracy: 1e-6)
         }
+        // The ghost-centre red dot rests on the cloth too (same X/Z as the centre).
+        let dot = try XCTUnwrap(ghost.childNode(withName: "ghostAimDot", recursively: false))
+        let dotRadius = Float(try XCTUnwrap(dot.geometry as? SCNSphere).radius)
+        XCTAssertEqual(dot.position.y - dotRadius, -AngleSceneCalculator.ballRadius + 0.0005, accuracy: 1e-6)
+        XCTAssertEqual(dot.position.x, 0); XCTAssertEqual(dot.position.z, 0)
     }
 
     func testTableDashedPolylineIsOneMergedGeometry() throws {

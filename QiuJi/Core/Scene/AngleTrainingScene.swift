@@ -1893,7 +1893,10 @@ final class AngleTrainingScene: SCNScene {
             color: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPoint : TrajectoryStyle.aimPointColor,
             radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPointRadius : Self.aimPointMarkerRadius,
             isOverlay: usesTrainingAssistStyle)
-        aimDot.position = SCNVector3Zero   // 与假想球球心及瞄准线同高
+        // 球心红点标记的是假想球在台面上的落点：与虚线环一样落到台呢上（DR-296 补），
+        // 球心高度的红点在 3D 透视下悬空。X/Z 仍是球心，只是 Y 下沉一个球半径。
+        let aimDotRadius = usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.aimPointRadius : Self.aimPointMarkerRadius
+        aimDot.position = SCNVector3(0, -r + Float(aimDotRadius) + 0.0005, 0)
         aimDot.name = "ghostAimDot"
         ghost.addChildNode(aimDot)
 
