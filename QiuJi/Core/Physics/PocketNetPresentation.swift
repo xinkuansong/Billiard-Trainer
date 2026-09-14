@@ -2,60 +2,121 @@
 //  PocketNetPresentation.swift
 //  QiuJi
 //
-//  W17-B/D (v63, DR-294): presentation-only descent of a planar-potted ball into the
-//  pocket net, ending at a deterministic resting slot. The pot verdict is the planar
-//  drop-circle rule (DR-293); nothing here feeds back into physics or scoring.
+//  W17-B/D (v63, DR-294 / DR-297): presentation-only descent of a planar-potted ball into
+//  the pocket, ending at a deterministic resting slot in the net. The pot verdict is the
+//  planar drop-circle rule (DR-293); nothing here feeds back into physics or scoring.
 //
-//  Coordinate contract: SceneKit world, X–Z horizontal, Y up, metres. Pocket centres and
-//  drop radii come from `TableGeometry.pockets` (TablePhysics constants); the net profile
-//  below was measured from the bundled USDZ bag envelope (`PocketGeometryAsset`) at
-//  surfaceY = 0.8 (probe 2026-09-14) and is verified against it by
-//  `PocketNetPresentationTests.testProfileMatchesBundledBagEnvelope`.
+//  Coordinate contract: SceneKit world, X–Z horizontal, Y up, metres. Pocket centres come
+//  from `TableGeometry.pockets` (TablePhysics constants). The wall profile below is the
+//  ball-CENTRE free region measured against the bundled USDZ (leather liner + cushion
+//  jaws + net strands) with a sphere-vs-mesh flood probe at surfaceY = 0.8 (2 mm grid,
+//  5 mm layers, 2026-09-14, `output/3d-v63/W17/leather-probe.log`) and is gated by
+//  `PocketNetPresentationTests.testProfileMatchesBundledPocketMeshes`.
 //
 
 import Foundation
 import SceneKit
 
-/// Net (bag) profile used for the scripted descent. Depths are metres below the cloth
-/// surface; radii are envelope (inner wall) radii, so the ball-centre reach is `r - R`.
+/// Pocket wall profile used for the scripted descent, expressed directly for the ball
+/// centre: at a given depth the centre may lie anywhere inside the star-shaped region
+/// spanned by `reaches` around the ring axis. Rings run from the cloth surface down to the
+/// net floor. The mouth is not round (jaws + back liner; the corner cup sits ~24 mm inward
+/// of the planar drop centre), hence the polar table instead of one radius (DR-297).
 struct PocketNetProfile {
+    /// Polar directions per ring, 30° apart, angle measured from the inward X axis toward
+    /// the inward Z axis (see `Ring.dx`).
+    static let directions=12
     struct Ring {
-        /// Depth below `surfaceY`.
+        /// Depth of the ball's LOWEST point below the cloth surface (so depth 0 is a ball
+        /// still sitting on the cloth, centre at surfaceY + R).
         let depth:Double
-        /// Bag axis offset from the planar pocket centre along the mirror-consistent
-        /// inward axes: `dx` along −sign(centre.x)·X, `dz` along −sign(centre.z)·Z
-        /// (both point toward the table centre). Corner bags lean inward with depth;
-        /// middle bags flare outward (negative `dz`) at the mouth.
+        /// Ring axis offset from the planar pocket centre along the mirror-consistent
+        /// inward axes: `dx` along −sign(centre.x)·X, `dz` along −sign(centre.z)·Z (both
+        /// point toward the table centre).
         let dx:Double
         let dz:Double
-        /// Mean envelope radius at this depth.
-        let radius:Double
+        /// Ball-centre reach (free distance) from the axis in each of the `directions`.
+        /// Directions open toward the table are capped at the planar drop circle + 2 mm
+        /// (the ball is inside the slate hole by the planar verdict).
+        let reaches:[Double]
+        /// Periodic linear interpolation of the reach at local `angle` (radians).
+        func reach(atAngle angle:Double)->Double {
+            let n=Double(reaches.count)
+            var u=angle/(2*Double.pi)*n
+            u=u-(u/n).rounded(.down)*n
+            let i=Int(u)%reaches.count,j=(i+1)%reaches.count,f=u-Double(i)
+            return reaches[i]+(reaches[j]-reaches[i])*f
+        }
     }
     let rings:[Ring]
-    /// Depth of the resting ball centre for the lowest slot.
+    /// Depth of the resting ball CENTRE below the cloth for the lowest slot.
     let restingDepth:Double
-    /// Depth of the net mouth (top ring). Above it the slate hole is modelled as a
-    /// cylinder of the planar drop radius around the pocket centre.
-    var mouthDepth:Double { rings[0].depth }
 
-    /// Corner pockets (asset probe: top 0.760, bottom 0.66874, resting centre 0.69731).
+    /// Corner pockets (probe of pocket_0; pockets 1–3 are mirror-identical). Resting centre
+    /// from the capture boundary: 0.69731 at surfaceY 0.8.
     static let corner=PocketNetProfile(rings:[
-        Ring(depth:0.0400,dx:0.0069,dz:0.0039,radius:0.0565),
-        Ring(depth:0.0700,dx:0.0082,dz:0.0049,radius:0.0494),
-        Ring(depth:0.1000,dx:0.0132,dz:0.0031,radius:0.0400),
-        Ring(depth:0.1225,dx:0.0164,dz:0.0000,radius:0.0330)
+        Ring(depth:0.0000,dx:0.0183,dz:0.0163,reaches:[0.0170,0.0200,0.0205,0.0170,0.0125,0.0135,0.0175,0.0225,0.0225,0.0175,0.0135,0.0125]),
+        Ring(depth:0.0050,dx:0.0184,dz:0.0161,reaches:[0.0190,0.0200,0.0205,0.0170,0.0150,0.0140,0.0175,0.0225,0.0225,0.0175,0.0135,0.0145]),
+        Ring(depth:0.0100,dx:0.0190,dz:0.0170,reaches:[0.0205,0.0190,0.0195,0.0205,0.0140,0.0140,0.0180,0.0235,0.0235,0.0180,0.0140,0.0140]),
+        Ring(depth:0.0150,dx:0.0188,dz:0.0168,reaches:[0.0220,0.0190,0.0195,0.0225,0.0145,0.0140,0.0180,0.0230,0.0230,0.0180,0.0140,0.0145]),
+        Ring(depth:0.0200,dx:0.0203,dz:0.0184,reaches:[0.0200,0.0170,0.0175,0.0210,0.0150,0.0135,0.0195,0.0250,0.0250,0.0195,0.0135,0.0150]),
+        Ring(depth:0.0250,dx:0.0186,dz:0.0167,reaches:[0.0225,0.0195,0.0200,0.0225,0.0145,0.0135,0.0180,0.0230,0.0230,0.0180,0.0135,0.0145]),
+        Ring(depth:0.0300,dx:0.0170,dz:0.0152,reaches:[0.0200,0.0185,0.0185,0.0220,0.0140,0.0140,0.0165,0.0205,0.0205,0.0165,0.0145,0.0140]),
+        Ring(depth:0.0350,dx:0.0162,dz:0.0147,reaches:[0.0190,0.0175,0.0180,0.0205,0.0145,0.0130,0.0175,0.0195,0.0185,0.0180,0.0140,0.0150]),
+        Ring(depth:0.0400,dx:0.0155,dz:0.0136,reaches:[0.0200,0.0180,0.0180,0.0195,0.0160,0.0150,0.0165,0.0195,0.0195,0.0170,0.0155,0.0160]),
+        Ring(depth:0.0450,dx:0.0142,dz:0.0124,reaches:[0.0190,0.0175,0.0180,0.0210,0.0170,0.0175,0.0175,0.0190,0.0185,0.0175,0.0180,0.0175]),
+        Ring(depth:0.0500,dx:0.0125,dz:0.0107,reaches:[0.0210,0.0170,0.0175,0.0225,0.0190,0.0205,0.0195,0.0205,0.0205,0.0200,0.0205,0.0195]),
+        Ring(depth:0.0550,dx:0.0106,dz:0.0087,reaches:[0.0225,0.0190,0.0210,0.0225,0.0235,0.0230,0.0220,0.0230,0.0230,0.0220,0.0230,0.0240]),
+        Ring(depth:0.0600,dx:0.0071,dz:0.0047,reaches:[0.0260,0.0250,0.0240,0.0265,0.0285,0.0305,0.0265,0.0255,0.0255,0.0260,0.0300,0.0300]),
+        Ring(depth:0.0650,dx:0.0069,dz:0.0040,reaches:[0.0245,0.0235,0.0245,0.0250,0.0280,0.0300,0.0240,0.0255,0.0245,0.0255,0.0290,0.0280]),
+        Ring(depth:0.0700,dx:0.0070,dz:0.0041,reaches:[0.0240,0.0235,0.0240,0.0250,0.0265,0.0280,0.0245,0.0235,0.0245,0.0235,0.0280,0.0265]),
+        Ring(depth:0.0750,dx:0.0072,dz:0.0040,reaches:[0.0220,0.0230,0.0240,0.0230,0.0245,0.0260,0.0225,0.0235,0.0220,0.0235,0.0270,0.0255]),
+        Ring(depth:0.0800,dx:0.0072,dz:0.0041,reaches:[0.0220,0.0220,0.0220,0.0230,0.0245,0.0260,0.0225,0.0215,0.0225,0.0215,0.0245,0.0230]),
+        Ring(depth:0.0850,dx:0.0074,dz:0.0044,reaches:[0.0200,0.0205,0.0220,0.0210,0.0220,0.0240,0.0205,0.0215,0.0210,0.0215,0.0235,0.0230]),
+        Ring(depth:0.0900,dx:0.0078,dz:0.0046,reaches:[0.0195,0.0200,0.0215,0.0205,0.0190,0.0210,0.0190,0.0195,0.0205,0.0200,0.0225,0.0200]),
+        Ring(depth:0.0950,dx:0.0086,dz:0.0048,reaches:[0.0185,0.0190,0.0215,0.0185,0.0190,0.0185,0.0180,0.0200,0.0195,0.0180,0.0205,0.0190]),
+        Ring(depth:0.1000,dx:0.0092,dz:0.0049,reaches:[0.0160,0.0185,0.0190,0.0165,0.0165,0.0165,0.0185,0.0190,0.0185,0.0180,0.0185,0.0160]),
+        Ring(depth:0.1050,dx:0.0102,dz:0.0049,reaches:[0.0150,0.0165,0.0190,0.0145,0.0145,0.0155,0.0175,0.0180,0.0165,0.0160,0.0165,0.0150]),
+        Ring(depth:0.1100,dx:0.0112,dz:0.0043,reaches:[0.0120,0.0140,0.0170,0.0130,0.0125,0.0135,0.0145,0.0150,0.0155,0.0155,0.0155,0.0115]),
+        Ring(depth:0.1150,dx:0.0121,dz:0.0038,reaches:[0.0110,0.0130,0.0155,0.0115,0.0130,0.0105,0.0115,0.0140,0.0145,0.0150,0.0125,0.0105]),
+        Ring(depth:0.1200,dx:0.0135,dz:0.0032,reaches:[0.0080,0.0115,0.0140,0.0100,0.0115,0.0100,0.0105,0.0125,0.0120,0.0125,0.0115,0.0090]),
+        Ring(depth:0.1250,dx:0.0141,dz:0.0020,reaches:[0.0070,0.0080,0.0105,0.0090,0.0105,0.0085,0.0095,0.0105,0.0105,0.0115,0.0100,0.0080]),
+        Ring(depth:0.1300,dx:0.0147,dz:0.0012,reaches:[0.0065,0.0075,0.0090,0.0080,0.0075,0.0070,0.0060,0.0085,0.0075,0.0085,0.0090,0.0050])
     ],restingDepth:0.10269)
-    /// Middle pockets (asset probe: bottom 0.66802, resting centre 0.69660).
+    /// Middle pockets (probe of pocket_4; pocket_5 mirror). Resting centre 0.69660.
     static let middle=PocketNetProfile(rings:[
-        Ring(depth:0.0400,dx:0,dz:-0.0149,radius:0.0579),
-        Ring(depth:0.0700,dx:0,dz:-0.0050,radius:0.0507),
-        Ring(depth:0.1000,dx:0,dz: 0.0006,radius:0.0403),
-        Ring(depth:0.1225,dx:0,dz:-0.0011,radius:0.0335)
+        Ring(depth:0.0000,dx:-0.0000,dz:0.0071,reaches:[0.0150,0.0175,0.0390,0.0380,0.0390,0.0175,0.0150,0.0175,0.0280,0.0385,0.0280,0.0175]),
+        Ring(depth:0.0050,dx:-0.0000,dz:0.0074,reaches:[0.0150,0.0175,0.0385,0.0380,0.0385,0.0175,0.0150,0.0175,0.0285,0.0385,0.0285,0.0175]),
+        Ring(depth:0.0100,dx:-0.0000,dz:0.0077,reaches:[0.0150,0.0200,0.0385,0.0375,0.0385,0.0200,0.0150,0.0175,0.0290,0.0390,0.0290,0.0175]),
+        Ring(depth:0.0150,dx:-0.0000,dz:0.0082,reaches:[0.0150,0.0200,0.0380,0.0370,0.0380,0.0200,0.0150,0.0175,0.0295,0.0395,0.0295,0.0175]),
+        Ring(depth:0.0200,dx:-0.0003,dz:0.0110,reaches:[0.0175,0.0225,0.0355,0.0300,0.0355,0.0220,0.0170,0.0170,0.0295,0.0425,0.0310,0.0180]),
+        Ring(depth:0.0250,dx:-0.0016,dz:0.0051,reaches:[0.0170,0.0240,0.0300,0.0300,0.0325,0.0180,0.0135,0.0155,0.0255,0.0365,0.0295,0.0195]),
+        Ring(depth:0.0300,dx:-0.0013,dz:0.0017,reaches:[0.0165,0.0215,0.0270,0.0295,0.0295,0.0185,0.0140,0.0160,0.0235,0.0330,0.0285,0.0190]),
+        Ring(depth:0.0350,dx:-0.0010,dz:-0.0005,reaches:[0.0185,0.0235,0.0245,0.0300,0.0275,0.0185,0.0160,0.0165,0.0240,0.0305,0.0260,0.0190]),
+        Ring(depth:0.0400,dx:-0.0009,dz:-0.0022,reaches:[0.0180,0.0210,0.0225,0.0295,0.0245,0.0210,0.0165,0.0165,0.0245,0.0290,0.0265,0.0185]),
+        Ring(depth:0.0450,dx:-0.0012,dz:-0.0045,reaches:[0.0185,0.0190,0.0225,0.0295,0.0250,0.0230,0.0160,0.0160,0.0240,0.0290,0.0265,0.0190]),
+        Ring(depth:0.0500,dx:-0.0011,dz:-0.0069,reaches:[0.0185,0.0200,0.0230,0.0300,0.0255,0.0230,0.0160,0.0165,0.0240,0.0285,0.0280,0.0190]),
+        Ring(depth:0.0550,dx:-0.0012,dz:-0.0089,reaches:[0.0205,0.0190,0.0245,0.0300,0.0255,0.0210,0.0180,0.0160,0.0240,0.0305,0.0280,0.0190]),
+        Ring(depth:0.0600,dx:-0.0012,dz:-0.0110,reaches:[0.0185,0.0190,0.0245,0.0325,0.0280,0.0230,0.0160,0.0160,0.0255,0.0300,0.0285,0.0190]),
+        Ring(depth:0.0650,dx:-0.0014,dz:-0.0128,reaches:[0.0205,0.0200,0.0250,0.0340,0.0275,0.0230,0.0180,0.0165,0.0275,0.0325,0.0290,0.0190]),
+        Ring(depth:0.0700,dx:-0.0016,dz:-0.0131,reaches:[0.0190,0.0205,0.0260,0.0345,0.0270,0.0225,0.0195,0.0180,0.0270,0.0320,0.0295,0.0200]),
+        Ring(depth:0.0750,dx:-0.0015,dz:-0.0115,reaches:[0.0190,0.0195,0.0240,0.0305,0.0260,0.0225,0.0195,0.0195,0.0250,0.0320,0.0275,0.0215]),
+        Ring(depth:0.0800,dx:-0.0017,dz:-0.0100,reaches:[0.0170,0.0195,0.0220,0.0295,0.0230,0.0200,0.0195,0.0200,0.0230,0.0270,0.0255,0.0195]),
+        Ring(depth:0.0850,dx:-0.0016,dz:-0.0080,reaches:[0.0170,0.0170,0.0215,0.0270,0.0220,0.0180,0.0175,0.0185,0.0200,0.0255,0.0220,0.0195]),
+        Ring(depth:0.0900,dx:-0.0014,dz:-0.0058,reaches:[0.0165,0.0170,0.0195,0.0270,0.0195,0.0180,0.0160,0.0180,0.0195,0.0235,0.0210,0.0170]),
+        Ring(depth:0.0950,dx:-0.0015,dz:-0.0036,reaches:[0.0145,0.0145,0.0170,0.0250,0.0195,0.0160,0.0160,0.0160,0.0195,0.0215,0.0205,0.0170]),
+        Ring(depth:0.1000,dx:-0.0011,dz:-0.0014,reaches:[0.0145,0.0140,0.0170,0.0225,0.0190,0.0140,0.0140,0.0155,0.0185,0.0200,0.0205,0.0155]),
+        Ring(depth:0.1050,dx:-0.0012,dz:-0.0004,reaches:[0.0125,0.0120,0.0155,0.0215,0.0160,0.0140,0.0120,0.0140,0.0170,0.0190,0.0170,0.0145]),
+        Ring(depth:0.1100,dx:-0.0009,dz:0.0008,reaches:[0.0120,0.0115,0.0120,0.0185,0.0165,0.0125,0.0125,0.0120,0.0160,0.0160,0.0160,0.0140]),
+        Ring(depth:0.1150,dx:-0.0007,dz:0.0009,reaches:[0.0120,0.0115,0.0115,0.0165,0.0130,0.0120,0.0125,0.0120,0.0140,0.0140,0.0155,0.0140]),
+        Ring(depth:0.1200,dx:-0.0005,dz:0.0007,reaches:[0.0115,0.0090,0.0110,0.0145,0.0135,0.0125,0.0110,0.0100,0.0135,0.0140,0.0140,0.0115]),
+        Ring(depth:0.1250,dx:-0.0004,dz:0.0001,reaches:[0.0095,0.0090,0.0080,0.0130,0.0105,0.0100,0.0090,0.0100,0.0095,0.0115,0.0110,0.0110]),
+        Ring(depth:0.1300,dx:-0.0000,dz:-0.0002,reaches:[0.0075,0.0065,0.0065,0.0095,0.0100,0.0085,0.0090,0.0085,0.0100,0.0090,0.0105,0.0100])
     ],restingDepth:0.10340)
 
     static func forPocket(isCorner:Bool)->PocketNetProfile { isCorner ? corner : middle }
 
-    /// Linear interpolation at `depth`, clamped to the first/last ring.
+    /// Linear interpolation at (ball-bottom) `depth`, clamped to the first/last ring.
     func ring(atDepth depth:Double)->Ring {
         if depth<=rings[0].depth { return rings[0] }
         if depth>=rings[rings.count-1].depth { return rings[rings.count-1] }
@@ -63,7 +124,8 @@ struct PocketNetProfile {
         while i+1<rings.count-1 && rings[i+1].depth<depth { i+=1 }
         let a=rings[i],b=rings[i+1]
         let u=(depth-a.depth)/(b.depth-a.depth)
-        return Ring(depth:depth,dx:a.dx+(b.dx-a.dx)*u,dz:a.dz+(b.dz-a.dz)*u,radius:a.radius+(b.radius-a.radius)*u)
+        return Ring(depth:depth,dx:a.dx+(b.dx-a.dx)*u,dz:a.dz+(b.dz-a.dz)*u,
+                    reaches:zip(a.reaches,b.reaches).map { $0+($1-$0)*u })
     }
 }
 
@@ -82,8 +144,25 @@ enum PocketNetPresentation {
     /// Slots per net before the oldest ball is recycled (FIFO). The bundled bag is
     /// ~0.09 m deep (3.2 R): two balls fit, the second already protruding into the hole.
     static let netCapacity=2
-    /// Horizontal lean of the upper slot from the lower one, toward the net mouth axis.
+    /// Horizontal lean of the upper slot from the lower one, toward the ring axis at its
+    /// own height.
     static let upperSlotLean:Double=0.018
+    /// Normal approach speed above which the ARRIVAL at the liner counts as an impact
+    /// (tangential velocity and spin scaled once by the retention, DR-292). Slower
+    /// arrivals and every later step are sustained sliding.
+    static let impactSpeed:Double=0.05
+    /// While sliding on the liner, the azimuthal (orbiting) velocity decays with this
+    /// time constant (soft leather grip). The downslope motion is never damped except by
+    /// Coulomb friction on the normal load, so the fall follows gravity and the wall
+    /// shape (DR-297 — the previous per-step retention on the whole velocity made the
+    /// ball creep down corner pockets at ~0.07 m/s).
+    static let linerGripTime:Double=0.05
+    /// Spin decay time constant while in contact (visual only).
+    static let spinDecayTime:Double=0.15
+    /// The planar drop circle (R 42–43 mm around the planar centre) is larger than the
+    /// visual mouth, so a capture snapshot can already overlap the liner. That initial
+    /// overlap is bled off over this duration instead of snapping the ball.
+    static let entryRelaxDuration:Double=0.06
 
     struct NetPocket {
         let id:String
@@ -101,77 +180,147 @@ enum PocketNetPresentation {
             axisX=V(pocket.center.x>0 ? -1 : 1,0,0)
             axisZ=V(0,0,pocket.center.z>0 ? -1 : 1)
         }
-        /// Bag axis point and ball-centre wall reach at world height `y`.
-        func wall(at y:Double,ballRadius:Double)->(axis:V,reach:Double) {
-            let depth=center.y-y
-            let r=profile.ring(atDepth:depth)
-            var axis=center+axisX*r.dx+axisZ*r.dz
-            var reach=max(0.001,r.radius-ballRadius)
-            if depth<profile.mouthDepth {
-                // Slate hole → net mouth: a funnel from the planar drop circle (centre on the
-                // pocket axis) down to the first measured ring, so the wall has no step.
-                let u=max(0,depth)/profile.mouthDepth
-                axis=center+(axis-center)*u
-                reach=dropRadius+(reach-dropRadius)*u
-            }
-            return (V(axis.x,y,axis.z),reach)
+        /// Interpolated ring for a ball whose centre is at world `y`.
+        func ring(at y:Double,ballRadius:Double)->PocketNetProfile.Ring {
+            profile.ring(atDepth:center.y-(y-ballRadius))
+        }
+        /// Ring axis point (world) for a ball centre at world `y`.
+        func axis(at y:Double,ballRadius:Double)->V {
+            let r=ring(at:y,ballRadius:ballRadius)
+            let a=center+axisX*r.dx+axisZ*r.dz
+            return V(a.x,y,a.z)
+        }
+        /// Local polar angle of a horizontal unit direction (from inward X toward inward Z).
+        func angle(of direction:V)->Double { atan2(dot(direction,axisZ),dot(direction,axisX)) }
+        /// Ball-centre reach from the axis toward horizontal unit `outward` at world `y`.
+        func reach(at y:Double,toward outward:V,ballRadius:Double)->Double {
+            max(0.001,ring(at:y,ballRadius:ballRadius).reach(atAngle:angle(of:outward)))
+        }
+        /// Point on the wall surface at height `y` in direction `outward`.
+        func surfacePoint(at y:Double,toward outward:V,ballRadius:Double)->V {
+            axis(at:y,ballRadius:ballRadius)+outward*reach(at:y,toward:outward,ballRadius:ballRadius)
+        }
+        /// Outward unit normal of the wall surface met by a centre at height `y` in
+        /// horizontal direction `outward` (unit): cross product of the vertical and
+        /// azimuthal surface tangents (central differences over the polar table), so a
+        /// narrowing wall tilts the normal downward and a flaring one upward.
+        func wallNormal(at y:Double,outward:V,ballRadius:Double)->V {
+            let h=0.001,da=Double.pi/72
+            let up=surfacePoint(at:y+h,toward:outward,ballRadius:ballRadius)
+            let down=surfacePoint(at:y-h,toward:outward,ballRadius:ballRadius)
+            let side=V(outward.z,0,-outward.x)
+            let plus=simd_normalize(outward*cos(da)+side*sin(da)),minus=simd_normalize(outward*cos(da)-side*sin(da))
+            let left=surfacePoint(at:y,toward:plus,ballRadius:ballRadius)
+            let right=surfacePoint(at:y,toward:minus,ballRadius:ballRadius)
+            var n=cross(up-down,left-right)
+            let len=length(n)
+            guard len>1e-12 else { return outward }
+            n/=len
+            return dot(n,outward)<0 ? -n : n
         }
         /// Deterministic resting slots, lowest first. The upper ball rests on the lower
-        /// one (centre distance 2R), leaning toward the mouth axis.
+        /// one (centre distance 2R), leaning toward the ring axis at its own height.
         func slots(ballRadius:Double)->[V] {
-            let bottom=wall(at:center.y-profile.restingDepth,ballRadius:ballRadius).axis
-            let mouth=wall(at:center.y-profile.mouthDepth,ballRadius:ballRadius).axis
-            var dir=V(mouth.x-bottom.x,0,mouth.z-bottom.z)
-            let len=length(dir)
-            dir=len>1e-9 ? dir/len : axisX
+            let bottom=axis(at:center.y-profile.restingDepth,ballRadius:ballRadius)
             let lean=PocketNetPresentation.upperSlotLean
             let rise=sqrt(max(0,4*ballRadius*ballRadius-lean*lean))
+            let upperAxis=axis(at:bottom.y+rise,ballRadius:ballRadius)
+            var dir=V(upperAxis.x-bottom.x,0,upperAxis.z-bottom.z)
+            let len=length(dir)
+            dir=len>1e-9 ? dir/len : axisX
             let upper=V(bottom.x,bottom.y+rise,bottom.z)+dir*lean
             return [bottom,upper]
         }
     }
 
     /// Script one ball's fall from its planar capture snapshot to `slot`.
-    /// Gravity, zero-restitution liner and `TablePhysics.pocketLinerRetention` are the same
-    /// constants the spatial model uses (DR-292); the geometry is the measured net profile.
+    ///
+    /// Gravity is the only accelerating force. The liner is the dissipative body of
+    /// DR-292: an approach faster than `impactSpeed` scales the tangential velocity by
+    /// `retention` (the same `TablePhysics.pocketLinerRetention` as the spatial model);
+    /// sustained contact removes the normal component (sliding along the wall slope) and
+    /// bleeds the horizontal velocity with `linerGripTime`. The floor (net bottom or the
+    /// ball below) is zero-restitution with the same horizontal grip.
     static func descent(from start:State,pocket:NetPocket,slot:V,ballRadius:Double,gravity:Double,
-                        retention:Double)->[State] {
+                        retention:Double,friction:Double=Double(TablePhysics.cushionFriction))->[State] {
         var s=start,samples=[start]
         let dt=sampleStep
         let end=start.time+maxDescentDuration
+        let slideKeep=exp(-dt/linerGripTime),spinKeep=exp(-dt/spinDecayTime)
+        var inContact=false
+        let entryOverlap:Double={
+            let a=pocket.axis(at:start.position.y,ballRadius:ballRadius)
+            let d=V(start.position.x-a.x,0,start.position.z-a.z),dist=length(d)
+            return dist>1e-12 ? max(0,dist-pocket.reach(at:start.position.y,toward:d/dist,ballRadius:ballRadius)) : 0
+        }()
         while s.time<end {
-            var v=s.velocity,omega=s.omega,contacted=false
+            var v=s.velocity,omega=s.omega,onFloor=false
             v.y-=gravity*dt
             var p=s.position+v*dt
+            let t=s.time+dt
             // Floor of the slot (net bottom or the ball below): no bounce, soft grip.
             if p.y<=slot.y {
-                p.y=slot.y;v.y=0
-                v.x*=retention;v.z*=retention
-                contacted=true
+                p.y=slot.y
+                if v.y<0 { v.y=0 }
+                v.x*=retention;v.z*=retention;omega*=retention
+                onFloor=true
             }
-            // Cylinder/cone wall: project back, kill the normal component, retain the
-            // tangential fraction (soft liner, DR-292).
-            let w=pocket.wall(at:p.y,ballRadius:ballRadius)
-            let d=V(p.x-w.axis.x,0,p.z-w.axis.z)
+            // Wall: project the centre back inside the ring, then respond to the approach.
+            let allowance=entryOverlap*max(0,1-(t-start.time)/entryRelaxDuration)
+            let axis=pocket.axis(at:p.y,ballRadius:ballRadius)
+            let d=V(p.x-axis.x,0,p.z-axis.z)
             let dist=length(d)
-            if dist>w.reach {
-                let n=d/dist
-                p.x=w.axis.x+n.x*w.reach;p.z=w.axis.z+n.z*w.reach
+            let outward=dist>1e-12 ? d/dist : pocket.axisX
+            let reach=pocket.reach(at:p.y,toward:outward,ballRadius:ballRadius)
+            if dist>reach+allowance {
+                let n=pocket.wallNormal(at:p.y,outward:outward,ballRadius:ballRadius)
+                p.x=axis.x+outward.x*(reach+allowance);p.z=axis.z+outward.z*(reach+allowance)
                 let vn=dot(v,n)
-                if vn>0 { v=(v-n*vn)*retention }
-                contacted=true
+                if vn>0 {
+                    // Geometry first: the wall removes the approach component, so a sloped
+                    // wall redirects the fall (the only thing that ever shapes `v.y`).
+                    v-=n*vn
+                    if !inContact && vn>impactSpeed {
+                        // Arrival impact on the soft liner (DR-292): keep `retention` of the
+                        // tangential velocity and spin, exactly like the spatial `linerSink`.
+                        v*=retention;omega*=retention
+                    } else {
+                        // Sustained sliding. Split the tangent plane into the downslope
+                        // direction `slope` (gravity's pull along the wall) and the azimuthal
+                        // direction `around` (orbiting the cup). The liner grips the orbit
+                        // (`linerGripTime`) and resists the slide only through Coulomb
+                        // friction on the normal load; gravity along the slope is untouched.
+                        var slope=V(0,-1,0)-n*dot(V(0,-1,0),n)
+                        let slopeLen=length(slope)
+                        if slopeLen>1e-9 {
+                            slope/=slopeLen
+                            let around=cross(n,slope)
+                            let vAround=dot(v,around),vSlope=dot(v,slope)
+                            let load=max(0,-gravity*n.y)+vAround*vAround/max(reach,0.001)
+                            let slid=vSlope>0 ? max(0,vSlope-friction*load*dt) : vSlope
+                            v=slope*slid+around*(vAround*slideKeep)
+                        } else {
+                            v.x*=slideKeep;v.z*=slideKeep
+                        }
+                        omega*=spinKeep
+                    }
+                }
+                // The soft skirt absorbs; it never lifts the ball.
+                if v.y>0 { v.y=0 }
+                inContact=true
+            } else {
+                inContact=false
             }
-            if contacted { omega*=retention }
-            s=State(time:s.time+dt,position:p,velocity:v,omega:omega)
+            s=State(time:t,position:p,velocity:v,omega:omega)
             samples.append(s)
-            if p.y<=slot.y+1e-9 && length(v)<0.02 { break }
+            if onFloor && length(v)<0.02 { break }
         }
         // Eased settle onto the exact slot (position only; residual spin decays with it).
         let from=s
         let steps=max(1,Int((settleDuration/dt).rounded(.up)))
         for k in 1...steps {
             let u=Double(k)/Double(steps),e=1-(1-u)*(1-u)
-            samples.append(State(time:from.time+settleDuration*u,position:from.position+(slot-from.position)*e,
+            samples.append(State(time:from.time+settleDuration*u,position:k==steps ? slot : from.position+(slot-from.position)*e,
                                  velocity:.zero,omega:from.omega*(1-u)))
         }
         return samples
@@ -183,7 +332,7 @@ enum PocketNetPresentation {
         var samples=[start]
         for k in 1...steps {
             let u=Double(k)/Double(steps),e=1-(1-u)*(1-u)
-            samples.append(State(time:start.time+settleDuration*u,position:start.position+(slot-start.position)*e,
+            samples.append(State(time:start.time+settleDuration*u,position:k==steps ? slot : start.position+(slot-start.position)*e,
                                  velocity:.zero,omega:.zero))
         }
         return samples

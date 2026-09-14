@@ -3787,3 +3787,20 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
 - 验证：`make xcodegen` 后 build-for-testing 通过；`TableAssistDR296Tests` 10/10（取景下限/缩放钳制/锚点不动点/分模式平移方向/钳制/俯瞰相机位/spinY/杆头 inset/环高/合并几何）；22 套相关 147 项：**仅 4 条既有失败**（`TableAssistSurfaceV63Tests` 四条期望 `measuredBedY+0.001`，与 DR-291 移动管线抬升到 `surfaceY` 的现状不符，已 stash 到 HEAD 复现为既有、本次不闭合）；`AimCloseupEvidenceTests/FeltParity` 2 条亦为 HEAD 既有。出图自检（未入库）：2D 取景/3× 锚点缩放、3D 俯瞰、球杆与假想球近景——+X 带内白/黄虚线连续，2D 与 3D 同向。
 - 未做：真机手势手感；横屏 2D 页与 3D 的方向一致性（当前 screen-right=+X，用户口径「开球线一侧在上」在横屏无定义）；四条既有高度期望测试的修订。
 - 已应用至：tasks/UI-IMPLEMENTATION-SPEC.md Changelog；.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-296。
+
+## DR-297 — 网兜下落脚本：极坐标真实袋壁 + 只吃水平速度的内衬接触（2026-09-14，W17-B/D 返修）
+- 触发（用户实看）：①球撞皮革后**穿模**进皮革；②撞后垂直下落远慢于重力；③要求「吃掉水平速度后，按重力 + 壁型 + 支架轨迹落到底，多球按先进先出」。
+- 根因（实测，非猜测）：
+  1. 穿模：DR-294 把网口以上按「平面落袋圆（R 42 mm、圆心=平面袋心）→ 网口环」的漏斗建模。对资产做球体-网格洪泛探测（`leather-probe.log`）发现**角袋皮革杯在台呢高度的球心自由区是半径 ≈18 mm、圆心在平面袋心内侧 ≈24 mm 的区域**，平面袋心本身已在皮革内 0.3 mm；落袋圆远端在皮革里 ≈48 mm。中袋自由区是沿库方向拉长的非圆形（后壁 30.5 mm、颚口 15 mm，圆拟合 rms 8.6 mm）。
+  2. 慢落：`descent` 触壁时对整个切向速度（含 `v.y`）每步 ×0.4（240 Hz），角袋内倾壁上球以 ≈0.07 m/s 蠕动。
+- 变更（`PocketNetPresentation.swift`，仅呈现层）：
+  - `PocketNetProfile.Ring` 改为**极坐标环**：深度（球底低于台呢）每 5 mm 一环、0–130 mm 共 27 环；每环 (dx,dz) 轴 + 12 方向球心可达距离，全部来自对皮革+库颚+网绳三类三角形的球体-网格探测（2 mm 网格 + 0.5 mm 射线，`leather-probe-polar.log`）。朝台面开放的方向按落袋圆 +2 mm 封顶。去掉漏斗/`mouthDepth`。
+  - 接触力学：法向按极坐标曲面切向叉积求（壁收窄法向朝下、外扩朝上）；到达冲击（前一步未接触且 `vn > 0.05`）整体切向 ×0.4（与空间 `linerSink` 同）；持续滑动只去法向分量，切平面分解为**沿坡向**（重力驱动，仅 Coulomb 摩擦 μ=`cushionFriction` 0.2 × 法向载荷）与**环向**（内衬握持、时间常数 0.05 s）；`v.y` 不再被任何保留系数乘。入袋快照若已在壁外，60 ms 内线性收回，不瞬跳。
+  - 落槛/FIFO/`PocketCollectionTail`/`TrajectoryPlayback` 契约不变；`settle`/`shift` 末样本精确等于槛点（修浮点 1 ulp 偏差）。
+- 验证（`net-r5.log`、`net-related-r1.log`）：
+  - `testProfileMatchesBundledPocketMeshes`：6 袋 × 9 环 × 12 方向，轴与 90 % 可达处球体离网格 ≤ 3 mm，可达 +6 mm 处必被挡（非封顶方向）。
+  - `testDescentBodyStaysOutOfTheBundledMeshes`：6 袋 × 3 速 × 3 角，入袋收回期后**球体**最大侵入网格 **1.0 mm**（DR-294 漏斗版同口径最坏 ≈48 mm）。
+  - `testDescentFallsUnderGravityAfterLinerContact`：到达时水平速度 1.2→<0.1 m/s；离壁步 dvy 恰为 −g；近垂直壁持续滑动 dvy ≤ −0.8 g；触底用时角袋 0.19 s / 中袋 0.25 s（自由落体 0.16 s；旧脚本 >1.5 s 上限触发）。中袋 1.5× 来自资产网兜在网口下方的真实内收段（法向 y ≈ −0.6），是壁型不是阻尼。
+  - 相关 6 套 87 项 0 失败（PocketNetPresentation 9、TrajectoryRenderer、CueScratchLifecycle、BreakFlowRunnerV6、PhysicsEngine）。
+- 未做：真机/页面目测仍未做（用户上次实看的是漏斗版）；跨杆保留、W03 裁剪例外同 DR-294。
+- 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-15 补记；问题集合_v63.md v63.16；tasks/3d-v63/W17-working.md §W17-B/D 返修、README.md；.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-297；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。

@@ -81,3 +81,31 @@
 - **W03 空间裁剪例外与截图证据、真机/页面目测未做**：单球样片未经用户实看即铺六袋（用户已裁定「一起实施」，但方案完成标准写的是先看样片）。
 - 网口以上板孔段按落袋半径圆柱建模、网壁按环均值圆截面，非 USDZ 真实非圆截面（rmin/rmax 差 ~15%）。
 - `testExportSettledFramesPreservePredictedBoardWhenSavedOutcomeDiffers` 仍为长期 skip。
+
+## W17-B/D 返修 — 极坐标真实袋壁 + 只吃水平速度的内衬接触（2026-09-14，DR-297）
+
+### 触发
+用户实看 DR-294 版：①球撞皮革后穿进皮革；②撞后垂直下落远慢于重力；③要求「吃掉水平速度后，按重力 + 壁型 + 支架轨迹落到底，多球先进先出不变」。
+
+### 根因（探测实证，`output/3d-v63/W17/leather-probe.log`、`leather-probe-polar.log`）
+- 穿模：DR-294 网口以上按「落袋圆（R 42 mm、圆心 = 平面袋心）→ 网口环」漏斗。对皮革 + 库颚 + 网绳做球体-网格洪泛探测（2 mm 网格、5 mm 层）：**角袋皮革杯在台呢高度的球心自由区半径 ≈18 mm、轴心在平面袋心内侧 ≈24 mm**；平面袋心处球体已碰皮革 0.3 mm；落袋圆的角侧远端在皮革里 ≈48 mm。中袋自由区沿库拉长（后壁 30.5 mm、颚口 15 mm），圆拟合 rms 8.6 mm，用单一半径会把竖直后壁拟合成 45° 假斜坡。
+- 慢落：`descent` 触壁时对整个切向速度（含 `v.y`）每步 ×0.4，内倾壁上 240 Hz 连乘 ⇒ 角袋 ≈0.07 m/s 蠕动。
+
+### 变更（`PocketNetPresentation.swift`，呈现层，规则/评分/`PocketCollectionTail`/`TrajectoryPlayback` 契约不动）
+- `PocketNetProfile.Ring`：深度（**球底**低于台呢）每 5 mm 一环、0–130 mm 共 27 环；每环 (dx,dz) Kasa 拟合轴 + 12 方向（30°，自内向 X 轴向内向 Z 轴）球心可达距离；朝台面开放方向按落袋圆 +2 mm 封顶。删除漏斗与 `mouthDepth`。角/中袋各一表，其余四袋镜像（测试对全部六袋核）。
+- `NetPocket`：`axis(at:)` / `reach(at:toward:)` / `surfacePoint` / `wallNormal`（竖向 × 环向切线叉积，壁收窄法向朝下、外扩朝上）；`slots` 槛 1 向自身高度处轴心倾。
+- `descent`：重力唯一加速；触壁沿射线投影回星形区；到达冲击（前一步未接触且 `vn > impactSpeed` 0.05）整体切向与自旋 ×0.4（同空间 `linerSink`）；持续接触只去法向分量后分解切平面：沿坡向仅受 Coulomb 摩擦（μ = `cushionFriction` 0.2 × [max(0,−g·n_y) + v_环²/reach]），环向按 `linerGripTime` 0.05 s 衰减；`v.y` 不乘任何系数；`v.y > 0` 钳 0（软裙不抬球）。入袋快照在壁外的初始重叠 60 ms 内线性收回。`settle`/`shift` 末样本精确 = 槛点。
+
+### 实证
+- `net-r5.log` PocketNetPresentationTests 9/9：
+  - `testProfileMatchesBundledPocketMeshes`：6 袋 × 9 环 × 12 向，轴与 0.9×reach 处球体侵入网格 ≤ 3 mm；reach+6 mm 处（非封顶向）必被挡。
+  - `testDescentBodyStaysOutOfTheBundledMeshes`：6 袋 × {0.3,1.2,2.5} m/s × {−0.6,0,0.6} rad，收回期后球体最大侵入 **1.03 mm**（漏斗版同口径最坏 ≈48 mm；单半径圆版 2.8 mm）。
+  - `testDescentFallsUnderGravityAfterLinerContact`：到达时水平 1.2→<0.1 m/s 且在 0.1 s 内；离壁步 dvy = −g（1e-6）；近垂直壁（|n_y|<0.2、法向转角<0.1）持续滑动 dvy ≤ −0.8 g；触底角袋 0.1875 s、中袋 0.25 s（自由落体 0.164 s，上限 1.8×）。中袋 1.5× 来自资产网兜网口下方真实内收段（n_y ≈ −0.6，深 65–100 mm）——是壁型，不是阻尼。
+  - 其余 6 条（槛点在壁内、144 次下落不变量、确定性、回放挂尾、FIFO 三球、端到端）通过；「球心在壁内」断言改为收回期之后生效。
+- `net-related-r1.log`：PocketNetPresentation + TrajectoryRenderer + CueScratchLifecycleV63 + BreakFlowRunnerV6 + PhysicsEngine 共 87 项 0 失败 0 重启。
+- 轨迹目测（临时 dump，未入库）：角袋 1.2 m/s 直入——0.0375 s 撞后壁、水平 1.2→0.026、随后 vy 以 g 递增至 −1.49 触底；中袋——网口下 0.65–0.70 s 贴内收段滑行两次被壁型减速再自由落体。
+
+### 未做
+- 返修版**仍未经用户实看**（真机/页面）。
+- 跨杆保留（页面层 8 处 `isHidden`）、W03 裁剪例外截图、`testExportSettledFrames…` 长期 skip：同 DR-294。
+- 极坐标表 2 mm 网格 ±1 mm 噪声未平滑，环间线性插值在中袋内收段有法向折点（触发的是几何重定向，不是阻尼）；若目测有可见抖动，下一步 3 点平滑 reach 表并重跑两条门禁。
