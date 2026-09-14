@@ -567,6 +567,7 @@
 		C232F282D2433CA85C5E4012 /* AngleHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 068B4FACCFEF7FEE477A7478 /* AngleHistoryViewModel.swift */; };
 		C25B6E4C6C85A93456B5204F /* BTSpinPad.swift in Sources */ = {isa = PBXBuildFile; fileRef = 168BE477F58F4609B2620410 /* BTSpinPad.swift */; };
 		C377ADAFE773A57312B90FAD /* PocketLeatherAppearance.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D80BE752D03C7E68167D240 /* PocketLeatherAppearance.swift */; };
+		C3A453A93AAB841D5BE380A5 /* RoomReflectionProbeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8045F1E1F8A41B963BFE5901 /* RoomReflectionProbeTests.swift */; };
 		C3C26DEC486ABA4F1DCA34AB /* SubscriptionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F33CF0A8C7BCD2F1404C479 /* SubscriptionManager.swift */; };
 		C3FD0FC33A4A094E18309BC4 /* eastern_perimeter.png in Resources */ = {isa = PBXBuildFile; fileRef = 1B6EF5B4BF9D625C4939CB69 /* eastern_perimeter.png */; };
 		C42A24F869BCC2E35394B4CE /* RoomStyleSelectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 609599A84CCA0C7F90336770 /* RoomStyleSelectionView.swift */; };
@@ -1135,6 +1136,7 @@
 		7E996B31A7F2BF13E4BF84A2 /* AimingCorrectionZ2UITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AimingCorrectionZ2UITests.swift; sourceTree = "<group>"; };
 		7F54F6A25E7639876879998B /* V53OwnerIsolationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V53OwnerIsolationTests.swift; sourceTree = "<group>"; };
 		7FFEA13E41431C3E47275866 /* V49W8CopyEvidenceUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V49W8CopyEvidenceUITests.swift; sourceTree = "<group>"; };
+		8045F1E1F8A41B963BFE5901 /* RoomReflectionProbeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomReflectionProbeTests.swift; sourceTree = "<group>"; };
 		80E3866CC0ECB4123DF7E208 /* PocketLeatherMarker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PocketLeatherMarker.swift; sourceTree = "<group>"; };
 		814AF4E9A89E79D4004B1F2A /* ModelContainerFactory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelContainerFactory.swift; sourceTree = "<group>"; };
 		81AB5354BAEB34B9D2DBE975 /* ActiveTrainingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveTrainingView.swift; sourceTree = "<group>"; };
@@ -1970,6 +1972,7 @@
 				A8659C149C14B42C916931D6 /* RackGeneratorTests.swift */,
 				F0A00C38A3C292B1E764FD8E /* ReachabilityVizTests.swift */,
 				A4148009DCEEC4D9FA88FB10 /* RenderQualityV62Tests.swift */,
+				8045F1E1F8A41B963BFE5901 /* RoomReflectionProbeTests.swift */,
 				BFBFBD81E99EF850E37E8E1F /* ScoringOnlyConsistencyTests.swift */,
 				72DEC48A7130EFF11F544227 /* SeparationAngleAtlasTests.swift */,
 				7E5A2A48050CE295B19F4066 /* SequencePerspectiveFitTests.swift */,
@@ -3509,6 +3512,7 @@
 				F31218292ECDB194017A41A2 /* RackGeneratorTests.swift in Sources */,
 				846C5BA98D93C9EF885D7354 /* ReachabilityVizTests.swift in Sources */,
 				5BD6C4DF155F45BC4FBA9E3C /* RenderQualityV62Tests.swift in Sources */,
+				C3A453A93AAB841D5BE380A5 /* RoomReflectionProbeTests.swift in Sources */,
 				5F0EDFCDBF6C86D846D792C4 /* ScoringOnlyConsistencyTests.swift in Sources */,
 				E75C7FB16E02AC7FD3C614A5 /* SeparationAngleAtlasTests.swift in Sources */,
 				550B1721F53A432C7FFC233A /* SequencePerspectiveFitTests.swift in Sources */,

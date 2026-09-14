@@ -3844,3 +3844,15 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
 - 未做：①用户复看；②若仍觉快，剩余物理自由度只有资产斜度（23°）与滚动阻力系数（钢杆/酚醛球典型 0.002–0.005，需给出来源后才加，⛔ 不做视觉调参）。
 - 验证：PocketNetPresentation 15/15（`/tmp/dr300.xcresult`）。
 - 已应用至：tasks/3d-v63/W17-working.md；tasks/PROGRESS.md 头部注释。
+
+## DR-301 — 回球支架按「有摩擦的耗能体」处理：滚阻 + 着陆耗能（2026-09-14，用户实看 DR-300 仍嫌快）
+- 触发：用户「还是太快了，可以认为支架也是有摩擦力的」。
+- 分析（数值）：支架段时长由**着陆沿杆速度**主导——球从底环自由落体 ≈0.25 s、≈2.4 m/s 砸到 23° 斜杆，刚体零恢复 + 滑→滚后仍有 0.57 m/s（角袋），L/v₀ ≈ 0.22 s；单加滚阻 μ=0.2 只把滚动段 0.167→0.19 s（+12%），μ 再大也压不下去且 μ ≥ tanθ=0.427 球到不了挡头。
+- 变更（`BTPhysicsConstants.swift` 两个呈现参数 + `PocketNetPresentation.descent`，裁定不动）：
+  - `TablePhysics.railRollingResistance = 0.2`：`railAcceleration = 5/7·g·(sinθ − μ·cosθ)`，净加速度减半。
+  - `TablePhysics.railLandingRetention = 0.4`：着陆滑→滚后沿杆速度只保留 0.4（与内衬 `pocketLinerRetention` 同口径的耗能体处理）。
+  - 两者都是按观感定的呈现参数（注释已写明不是实测系数）。
+- 效果：角袋滚动段 0.167→0.30 s、全程 0.57→0.70 s，到挡头末速 ≈0.89→0.65 m/s；中袋滚动段 0.22→0.36 s、全程 0.66→0.80 s。着陆瞬态/稳态侵入仍 0 / 0.8 mm。
+- 验证：PocketNetPresentation 15/15 + BreakFlow 默认开球网尾 1/1（`/tmp/dr301b.xcresult`）。过程记录：一次 xcodebuild 增量构建未重编改动文件（打印未出现），`touch` 后重建才生效——凡计时/数值断言无变化即怀疑陈旧二进制。
+- 未做：用户复看；若仍嫌快，下一个自由度是 `railLandingRetention` 再降或资产斜度。
+- 已应用至：tasks/3d-v63/W17-working.md；tasks/PROGRESS.md 头部注释。

@@ -135,7 +135,7 @@ final class PocketNetPresentationTests: XCTestCase {
             XCTAssertGreaterThan(airborne, 10, pocket.id)
             XCTAssertGreaterThan(freeSteps, 0, "\(pocket.id) the ball should leave the wall somewhere in the flare")
             // Rail phase (DR-298): below the ring the ball is in free fall until it lands on the
-            // trough; from the landing on, it rolls with a = g sinθ · 5/7 along the tangent and
+            // trough; from the landing on, it rolls with a = 5/7·g·(sinθ − μ cosθ) along the tangent and
             // stops dead on the slot.
             let tangent = net.railTangent
             var previousRail: State? = nil, rollSteps = 0, airSteps = 0
@@ -144,7 +144,7 @@ final class PocketNetPresentationTests: XCTestCase {
                 if onRail {
                     if let p = previousRail, s.velocity != .zero {
                         let dv = dot(s.velocity - p.velocity, tangent) / (s.time - p.time)
-                        XCTAssertEqual(dv, g * net.rail.sinIncline * PocketNetPresentation.rollingFactor, accuracy: 1e-6,
+                        XCTAssertEqual(dv, PocketNetPresentation.railAcceleration(gravity: g, rail: net.rail), accuracy: 1e-6,
                                        "\(pocket.id) t=\(s.time) rolling acceleration")
                         XCTAssertEqual(length(s.velocity - tangent * dot(s.velocity, tangent)), 0, accuracy: 1e-9, "velocity along the rail")
                         rollSteps += 1
@@ -164,10 +164,12 @@ final class PocketNetPresentationTests: XCTestCase {
             let arriving = before.velocity - V(0, g * PocketNetPresentation.sampleStep, 0)
             let rollingAxis = simd_normalize(cross(net.railNormal, tangent))
             let expected = max(0, 5.0 / 7.0 * dot(arriving, tangent) + 2.0 / 7.0 * ballRadius * dot(before.omega, rollingAxis))
+                * Double(TablePhysics.railLandingRetention)
             XCTAssertEqual(dot(landing.velocity, tangent), expected, accuracy: 1e-9, "\(pocket.id) landing roll-up")
             XCTAssertLessThan(dot(landing.velocity, tangent), dot(arriving, tangent), "\(pocket.id) spinning up costs speed")
             let last = samples[samples.count - 1]
             XCTAssertEqual(last.position, slot, pocket.id)
+            print("[W17 net] \(pocket.id) rail a=\(PocketNetPresentation.railAcceleration(gravity: g, rail: net.rail)) mu=\(TablePhysics.railRollingResistance) landing v=\(dot(landing.velocity, tangent)) end v=\(dot(samples[samples.count - 2].velocity, tangent))")
             print("[W17 net] \(pocket.id) left bag after \(floorTime - start.time)s (free fall \(freeFall)s), free steps \(freeSteps), vertical-wall sliding steps \(verticalContactSteps), air \(airSteps), roll \(rollSteps), total \(last.time - start.time)s")
         }
     }

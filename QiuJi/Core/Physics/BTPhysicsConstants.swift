@@ -91,6 +91,18 @@ enum TablePhysics {
     static let pocketLinerRestitution: Float = 0
     static let pocketLinerRetention: Float = 0.4
 
+    /// 回球支架的滚动阻力系数（呈现层，DR-301）：球沿支架滚下时
+    /// a = 5/7·g·(sinθ − μ·cosθ)。内置支架斜度 23°（tanθ = 0.427），μ 必须小于它球才能到挡头。
+    /// 纯钢杆对酚醛球的滚阻只有 0.002–0.005，肉眼看不出；用户实看 DR-300 版仍嫌快，
+    /// 明确要求「支架有摩擦」。0.2 让净加速度减半（末速 ≈0.9→0.65 m/s，支架段 +40% 时长），
+    /// 是按观感定的呈现参数，不是实测系数；只影响 `PocketNetPresentation` 脚本，不进裁定。
+    static let railRollingResistance: Float = 0.2
+    /// 回球支架着陆时沿杆速度的保留比例（呈现层，DR-301）。球从网兜底环自由落体 ≈0.25 s
+    /// 后以 ≈2.4 m/s 砸到 23° 斜杆，刚体零恢复 + 滑→滚只剩 0.57 m/s 沿杆速度，仍主导整段
+    /// 支架时长（L/v₀ ≈ 0.22 s，滚阻再大也压不下去）。实物是弹性碰撞 + 弹跳失能；按内衬
+    /// 同样的耗能体口径只保留 `pocketLinerRetention` 同量级的 0.4。呈现参数，不进裁定。
+    static let railLandingRetention: Float = 0.4
+
     /// 袋口鼻尖圆角（角袋 jaw fillet 弧）恢复系数：比整条库边橡皮"死"。
     /// 物理依据：鼻尖是皮革/橡胶包头 + 斜面剪切接触，吸能远大于库边正撞；单冲量刚体
     /// 反射无法表达真实球「贴着圆角卷进袋喉」的连续接触，用低恢复近似其净效果。

@@ -183,6 +183,12 @@ enum PocketNetPresentation {
     /// Rolling factor of a solid sphere on the rail (a = g sinθ / (1 + 2/5)), the rods
     /// treated as a plane support.
     static let rollingFactor:Double=5.0/7.0
+    /// Net acceleration along the rail (DR-301): gravity on the incline minus the rail's
+    /// rolling resistance (`TablePhysics.railRollingResistance`, a presentation parameter),
+    /// both scaled by the rolling factor. Positive for the bundled 23° rail (μ < tanθ).
+    static func railAcceleration(gravity:Double,rail:PocketRailProfile)->Double {
+        gravity*rollingFactor*(rail.sinIncline-Double(TablePhysics.railRollingResistance)*rail.cosIncline)
+    }
     /// Time constant over which the V of the two rods centres a ball that landed off the
     /// trough line (the ball leaves the bag up to ~7 mm off its axis). Short: the landing
     /// impulse itself throws the ball into the groove.
@@ -301,8 +307,9 @@ enum PocketNetPresentation {
     ///    bundled ring is modelled ~2.5 mm tighter than the ball; the real product is
     ///    open, so the script passes through it.)
     /// 3. **Rail**: zero-restitution landing keeps only the downhill component and spins
-    ///    the ball up (slide → roll, 5/7·v_t + 2/7·R·ω_t), then the ball rolls
-    ///    (`rollingFactor`) down the trough and stops dead at the slot — the end stop or
+    ///    the ball up (slide → roll, 5/7·v_t + 2/7·R·ω_t), then the ball rolls down the
+    ///    trough against the rail's rolling resistance (`railAcceleration`, DR-301) and
+    ///    stops dead at the slot — the end stop or
     ///    the ball below it. The bundled return is a centre support rod with two guard
     ///    rods at the ball's equator (±30 mm, ~1 mm clearance), so the rolling radius is R.
     static func descent(from start:State,pocket:NetPocket,slot:V,ballRadius:Double,gravity:Double,
@@ -326,7 +333,7 @@ enum PocketNetPresentation {
             let t=s.time+dt
             if onRail {
                 // Rolling down the incline; the rods centre the ball onto the trough line.
-                vAlong+=gravity*pocket.rail.sinIncline*rollingFactor*dt
+                vAlong+=railAcceleration(gravity:gravity,rail:pocket.rail)*dt
                 along+=vAlong*cosIncline*dt
                 lateral*=centringKeep
                 if along>=slotDistance {
@@ -353,8 +360,11 @@ enum PocketNetPresentation {
                 // contact turns the slide into a roll with angular momentum about the
                 // contact point conserved: v_roll = 5/7·v_t + 2/7·R·ω_t (DR-300) — a ball
                 // arriving without spin loses 2/7 of its speed to spinning up.
+                // The rods are a dissipative landing like the liner (DR-301): only
+                // `railLandingRetention` of the rolled-up speed survives the impact.
                 let rollingAxis=normalize(cross(normal,tangent))
-                vAlong=max(0,rollingFactor*dot(v,tangent)+(1-rollingFactor)*ballRadius*dot(omega,rollingAxis))
+                let rolledUp=rollingFactor*dot(v,tangent)+(1-rollingFactor)*ballRadius*dot(omega,rollingAxis)
+                vAlong=max(0,rolledUp)*Double(TablePhysics.railLandingRetention)
                 v=tangent*vAlong
                 omega=cross(normal,v)/ballRadius
                 s=State(time:t,position:pocket.railPoint(atDistance:along)+pocket.axisZ*lateral,velocity:v,omega:omega)
