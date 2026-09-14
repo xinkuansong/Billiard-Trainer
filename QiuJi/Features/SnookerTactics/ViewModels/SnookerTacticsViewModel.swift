@@ -812,7 +812,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         recorder: TrajectoryRecorder, after: BoardSnapshot
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var cueAction: SCNAction?
@@ -860,7 +860,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         statusText = "击球中…"
         clearTrajectory()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
         let settle = playback.duration
         var cueAction: SCNAction?

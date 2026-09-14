@@ -156,6 +156,10 @@ final class TrajectoryRecorder {
     /// it never changes the verdict. Replacing an existing planar tail is allowed so the
     /// net queue can append a shift / eviction; a spatial (confirmed-capture) tail cannot
     /// be overwritten.
+    /// Rail occupancy (balls per pocket id already resting from earlier shots) the planar
+    /// tails were laid out against. `nil` until the first layout. Lets a scene playback
+    /// re-lay tails that a solver / preview playback attached without knowing the rails.
+    var planarTailOccupancy:[String:Int]?
     func recordPlanarCollectionTail(ballName:String,tail:PocketCollectionTail) throws {
         guard capturesByBall[ballName]==nil,
               let entry=pocketEntries.last(where:{ $0.ball.name==ballName }),

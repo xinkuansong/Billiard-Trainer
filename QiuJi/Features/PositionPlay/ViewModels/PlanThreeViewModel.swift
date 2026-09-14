@@ -1291,7 +1291,7 @@ extension PlanThreeViewModel {
         recorder: TrajectoryRecorder, after: BoardSnapshot
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var cueAction: SCNAction?
@@ -1340,7 +1340,7 @@ extension PlanThreeViewModel {
         statusText = "击球中…"
         clearTrajectory()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
         var cueAction: SCNAction?
         for key in onTableKeys {

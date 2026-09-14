@@ -316,7 +316,7 @@ final class DrillSceneController: ObservableObject {
         scene.hideContactDot()
 
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         // G15：播到引擎自然静止，球停前无最后一跳/瞬移。
         let settle = playback.duration
 
@@ -448,7 +448,7 @@ final class DrillSceneController: ObservableObject {
         hidePlanDecorations()
 
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         for (key, node) in scene.allBallNodes where !node.isHidden {
             let name = PositionPlayShotSolver.predName(boardKey: key, shot: source.shot)
             guard let action = playback.action(

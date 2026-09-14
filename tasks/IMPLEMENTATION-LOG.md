@@ -3822,3 +3822,16 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
   - `testSlotsLieOnTheRail`、216 次下落不变量（高度单调、不低于槛点、网兜段在壁内）、FIFO 四球（第 4 球进时最早球淡出、其余下移一槛）、端到端默认进袋停在支架槛 1。PocketNetPresentation 10/10；TrajectoryRenderer/BreakFlow 默认开球/走位 scratch/CueScratch 共 35 项 0 失败。
 - 未做：①返修版仍未经用户实看；②底环穿过是脚本取舍，若要严格不穿模需改资产（底环放大 ≥ 3 mm）；③杆间距/杆径未测，横向对中按时间常数而非几何 V 槽高度；④挡头零恢复（真实钢挡会有轻微反弹声/回弹）；⑤跨杆保留同 DR-294。
 - 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-15 补记；问题集合_v63.md v63.17；tasks/3d-v63/W17-working.md §W17-B/D 二次返修、README.md；.cursor/skills/geometry-spatial-reasoning/SKILL.md §DR-298；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。
+
+## DR-299 — 支架驻留：进袋球是「球库」，跨杆保留、球回桌即离架、满链 FIFO（2026-09-14，W17-D 跨杆保留）
+- 触发（用户实看 DR-298 版）：「球到支架底端后，只有一颗球也会自动消失」。随后澄清规则：**永远只有 16 颗球**；进袋球就算进了球库（留在支架上）；同一颗球再被放回球桌时，支架里的它要消失、后面的球按顺序向前补位（1,2,3,4 拿走 2 → 1,3,4）。
+- 根因（事实）：不是 FIFO 判错。DR-294～298 的槛点/淡出逻辑都对，但支架上的球用的是**盘面球节点本身**；各页 finish 处理器（`PositionPlayViewModel.finishStrike`、`DrillSceneView`、`BankShot`/`Diamond`、`placeStepBoard` 等 8 处）在回放到 `duration` 时对进袋球一律 `isHidden = true` / 复位重摆——节点被页面拿走，支架就空了。这是 DR-294 记录「跨杆保留未做」的直接后果。
+- 变更（呈现层，裁定/规则/计分不动）：
+  - 新增 `Core/Scene/PocketRailInventory.swift`：每个 `AngleTrainingScene` 一份（`scene.railInventory`，`setupModelBalls` 重建球时 `clear()`）。支架上的球是盘面节点的 **`clone()`**（外观同源、号码同源），驻留记录 `Resident{clone, weak source, pocketID, slot}` 按袋 FIFO 排列。
+  - `TrajectoryPlayback(recorder:surfaceY:railInventory:)`：有库存时 `attach(preOccupied:)` 用占位项把已驻留球放进最低槛（时间 −∞ = 最老），本杆新球从其上排起、满链先淘汰驻留球再淘汰本杆球；`railResidencyAction`：盘面节点只播台面段、到袋口 `.hide()`；克隆体自己跑网兜/支架段动作（不受页面 `removeAllActions()` 影响），到槛点 `commit` 为驻留；本杆内被 FIFO 淡出者 `discard`；对已驻留球的挤出由 `inventory.evict` 在新球开始下落的实时刻同步动画（淡出 + 后方球前移）。
+  - 回桌即离架：`commit` 后克隆体挂一条逐帧 `railWatch` 动作，发现源节点 `isOnTable`（挂在场景、自身及祖先未隐藏、opacity>0.5）即 `release`：克隆淡出、其后驻留球沿 `slots` 前移一槛；`occupancyByPocket` 读取前先 `reconcile()`，保证新杆布槛时库存已反映盘面。再次进袋时 `makeClone` 先释放同源旧克隆，一颗球在支架上永不重复。
+  - 12 个场景回放创建点（PositionPlay/Silu/PlanThree/Snooker VM、DrillSceneView、AimPointSceneTrainingView）传入 `scene.railInventory`；求解器、导出、BreakFlowRunner、PositionPlaySolver 保持 `nil`（无跨杆语义）。
+- 验证（`/tmp/dr299*.xcresult`）：PocketNetPresentation 14/14（新增：占位槛点让新球停槛 2；满链 3 驻留 + 2 新球时驻留先淘汰、本杆球不淡出且前移；库存回桌释放 1,2,3−2→1,3 且槛位 [0,1]、opacity 0/隐藏不算回桌、重进袋替换不重复；溢出淘汰最老 + `clear`）；BreakFlowRunnerV6 19/19；TrajectoryPlaybackSpin/Settle、TrajectoryRenderer、PositionPlayFreeAim、SpinExportParity、RenderQualityV62 共 268 项 0 失败（225 skip 为原有条件跳过）。App 目标 `** BUILD SUCCEEDED **`。
+- 未做：①用户实看（单球驻留、连杆多球补位、回桌离架）；②导出（`SequenceVideoExporter`）无库存，单杆内正确、不含前几杆驻留球；③`railWatch` 在渲染线程回调里改库存字典（已用 `weak` + 幂等 `release` 兜底，未加锁）；④页面「重置/重摆」不清支架（按用户口径：球回桌才离架，桌型重建才清空）。
+- 补记（同日，用户实看：「两颗球重叠」）：根因是 **`ShotPredictor` 的预览回放先建了 `TrajectoryPlayback`（无库存）**，`attach` 幂等 ⇒ 尾迹已按空支架排在槛 0，场景回放再传库存也不重排，新球压在驻留球上。修：`TrajectoryRecorder.planarTailOccupancy` 记录尾迹布槛时的占用；`attach(preOccupied:)` 改为 `nil`（求解/导出）只补缺失尾迹，非 nil 且与记录不同则**重排全部平面尾迹**。另把逐帧 `repeatForever` 观察动作换成 10 Hz 主线程 `Timer`（动作会迫使 SceneKit 永久逐帧渲染）。新增 `testScenePlaybackRelaysTailsAttachedBySolverWithoutRailKnowledge`；PocketNetPresentation 15/15 + BreakFlow/Playback/Renderer/FreeAim 共 53 项 0 失败。
+- 已应用至：tasks/phases/P10-physics-content-pipeline.md §ADR-P10-15 补记；问题集合_v63.md v63.18；tasks/3d-v63/W17-working.md §W17-D 跨杆保留、README.md；tasks/UI-IMPLEMENTATION-SPEC.md Changelog。

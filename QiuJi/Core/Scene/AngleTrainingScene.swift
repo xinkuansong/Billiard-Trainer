@@ -85,6 +85,8 @@ final class AngleTrainingScene: SCNScene {
     private(set) var allBallNodes: [String: SCNNode] = [:]
     private(set) var ballStickerStyle: BallStickerStyle?
     private(set) var initialBallPositions: [String: SCNVector3] = [:]
+    /// W17-D (DR-299): potted balls resting on the pocket rails, persisted across shots.
+    private(set) lazy var railInventory = PocketRailInventory(root: rootNode)
 
     // MARK: - Cue Stick
 
@@ -256,6 +258,7 @@ final class AngleTrainingScene: SCNScene {
 
     private func setupModelBalls(from extractedBalls: [String: SCNNode], uniformScale: Float) {
         ballStickerStyle = nil
+        railInventory.clear()
         allBallNodes.removeAll()
         targetBallNodes.removeAll()
         initialBallPositions.removeAll()

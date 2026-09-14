@@ -298,7 +298,7 @@ final class AimPointSceneQuizViewModel: ObservableObject {
     /// 触球瞬间起播球体轨迹（收杆由 `runCueStroke` 的跟杆序列接管，勿在此 hideCueStick）。
     private func launchStrikePlayback(cue: SCNNode, target: SCNNode, recorder: TrajectoryRecorder) {
         let yLevel = scene.surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         if let targetAction = playback.action(for: target, ballName: "object",

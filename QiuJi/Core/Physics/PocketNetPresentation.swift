@@ -434,29 +434,70 @@ enum PocketNetPresentation {
         return samples
     }
 
-    /// Attach net tails for every planar pocket entry that has none yet. Idempotent.
-    /// Failures are printed (never swallowed) and leave the legacy fade path in place.
-    static func attach(to recorder:TrajectoryRecorder) {
-        let entries=recorder.pocketEntries.filter { recorder.collectionTailsByBallName[$0.ball.name]==nil }
-        guard !entries.isEmpty else { return }
-        let ballRadius=Double(BallPhysics.radius),gravity=Double(TablePhysics.gravity)
-        let retention=Double(TablePhysics.pocketLinerRetention)
-        // Every snapshot carries the planar geometry it was judged against; its pocket
-        // centres sit on the cloth surface (TableGeometry.chineseEightBallQiuJi(surfaceY:)).
-        // `TrajectoryPlayback.surfaceY` is the ball-centre plane and is deliberately not used.
+    /// Net pockets keyed by id, built from the planar geometry each entry was judged against.
+    /// Pocket centres sit on the cloth surface (TableGeometry.chineseEightBallQiuJi(surfaceY:));
+    /// `TrajectoryPlayback.surfaceY` is the ball-centre plane and is deliberately not used.
+    static func netPockets(in recorder:TrajectoryRecorder)->[String:NetPocket] {
         var pockets:[String:NetPocket]=[:]
         for entry in recorder.pocketEntries {
             for pocket in entry.geometry.pockets where pockets[pocket.id]==nil {
                 pockets[pocket.id]=NetPocket(pocket:pocket,surfaceY:Double(pocket.center.y))
             }
         }
-        // Planar tails already in this recorder occupy slots (FIFO order by entry time).
+        return pockets
+    }
+
+    /// Pocket id a ball was potted into (last planar entry), if any.
+    static func pocketID(of ballName:String,in recorder:TrajectoryRecorder)->String? {
+        recorder.pocketEntries.last(where:{$0.ball.name==ballName})?.pocketID
+    }
+
+    /// Index of the rail slot a tail ends on (nearest slot to its last sample).
+    static func slotIndex(of tail:PocketCollectionTail,in pocket:NetPocket)->Int {
+        let slots=pocket.slots(ballRadius:Double(BallPhysics.radius))
+        return slots.indices.min { length(slots[$0]-tail.end.position)<length(slots[$1]-tail.end.position) } ?? 0
+    }
+
+    /// Placeholder name for a ball that already rests on the rail from an earlier shot
+    /// (`PocketRailInventory`): it occupies a slot and is evicted first, but has no tail here.
+    static let preOccupiedName=""
+
+    /// Attach net tails for every planar pocket entry that has none yet. Idempotent.
+    /// Failures are printed (never swallowed) and leave the legacy fade path in place.
+    /// - Parameter preOccupied: balls per pocket id already resting on the rail from earlier
+    ///   shots (`PocketRailInventory`). They fill the lowest slots and are the oldest in the
+    ///   FIFO, so a newcomer to a full chain evicts them before any ball of this recorder; the
+    ///   scene-side inventory animates that eviction (`TrajectoryPlayback.action`), here they
+    ///   only shift the slots. `nil` (solver / export playbacks) only fills missing tails.
+    ///   A non-nil occupancy that differs from the one the planar tails were laid out
+    ///   against **re-lays every planar tail** — the solver's preview playback attaches
+    ///   first and knows nothing about the rails, so the scene must be allowed to correct it.
+    static func attach(to recorder:TrajectoryRecorder,preOccupied:[String:Int]?=nil) {
+        let occupancy=preOccupied ?? recorder.planarTailOccupancy ?? [:]
+        let relayout=preOccupied != nil && (recorder.planarTailOccupancy ?? [:]) != occupancy
+        let entries=recorder.pocketEntries.filter {
+            guard let tail=recorder.collectionTailsByBallName[$0.ball.name] else { return true }
+            return relayout && tail.samples != nil
+        }
+        guard !entries.isEmpty else { return }
+        defer { recorder.planarTailOccupancy=occupancy }
+        let ballRadius=Double(BallPhysics.radius),gravity=Double(TablePhysics.gravity)
+        let retention=Double(TablePhysics.pocketLinerRetention)
+        let pockets=netPockets(in:recorder)
+        let relaid=Set(entries.map(\.ball.name))
+        // Slots taken before this recorder's balls arrive: rail residents from earlier shots
+        // (oldest, time −∞) and planar tails already in this recorder that are kept as they are
+        // (FIFO order by entry time).
         var queues:[String:[(ball:String,slot:Int,time:Double)]]=[:]
-        for (name,tail) in recorder.collectionTailsByBallName where tail.samples != nil && tail.fadeStart==nil {
-            guard let entry=recorder.pocketEntries.last(where:{$0.ball.name==name}),let pocket=pockets[entry.pocketID] else { continue }
-            let slots=pocket.slots(ballRadius:ballRadius)
-            let slot=slots.indices.min { length(slots[$0]-tail.end.position)<length(slots[$1]-tail.end.position) } ?? 0
-            queues[entry.pocketID,default:[]].append((name,slot,Double(entry.time)))
+        for (pocketID,count) in occupancy {
+            guard let pocket=pockets[pocketID],count>0 else { continue }
+            let capacity=pocket.slots(ballRadius:ballRadius).count
+            for slot in 0..<min(count,capacity) { queues[pocketID,default:[]].append((preOccupiedName,slot,-.infinity)) }
+        }
+        for (name,tail) in recorder.collectionTailsByBallName where tail.samples != nil && tail.fadeStart==nil && !relaid.contains(name) {
+            guard let pocketID=pocketID(of:name,in:recorder),let pocket=pockets[pocketID],
+                  let entry=recorder.pocketEntries.last(where:{$0.ball.name==name}) else { continue }
+            queues[pocketID,default:[]].append((name,slotIndex(of:tail,in:pocket),Double(entry.time)))
         }
         for pocketID in queues.keys { queues[pocketID]?.sort { $0.time<$1.time } }
         for entry in entries.sorted(by:{ $0.time<$1.time }) {
@@ -475,20 +516,22 @@ enum PocketNetPresentation {
                 if queue.count>=slots.count {
                     // FIFO: the oldest ball is recycled the moment the new one starts falling;
                     // everyone above it slides down one slot.
+                    // Rail residents from earlier shots (placeholders) have no tail here; the
+                    // scene inventory animates their exit (`TrajectoryPlayback.action`).
                     let evicted=queue.removeFirst()
-                    if let old=recorder.collectionTailsByBallName[evicted.ball],let samples=old.samples {
+                    if evicted.ball != preOccupiedName,let old=recorder.collectionTailsByBallName[evicted.ball],let samples=old.samples {
                         try recorder.recordPlanarCollectionTail(ballName:evicted.ball,
                             tail:PocketCollectionTail(samples:samples,gravity:gravity,fadeStart:start.time))
                     }
                     for i in queue.indices where queue[i].slot>0 {
+                        queue[i].slot-=1
                         let name=queue[i].ball
-                        guard let old=recorder.collectionTailsByBallName[name],var samples=old.samples else { continue }
+                        guard name != preOccupiedName,let old=recorder.collectionTailsByBallName[name],var samples=old.samples else { continue }
                         var from=old.end
                         from.time=max(old.end.time,start.time)
                         if from.time>old.end.time { samples.append(from) }
-                        samples.append(contentsOf:shift(from:from,to:slots[queue[i].slot-1]).dropFirst())
+                        samples.append(contentsOf:shift(from:from,to:slots[queue[i].slot]).dropFirst())
                         try recorder.recordPlanarCollectionTail(ballName:name,tail:PocketCollectionTail(samples:samples,gravity:gravity))
-                        queue[i].slot-=1
                     }
                 }
                 let slotIndex=min(queue.count,slots.count-1)

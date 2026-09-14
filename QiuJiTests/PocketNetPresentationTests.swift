@@ -422,6 +422,104 @@ final class PocketNetPresentationTests: XCTestCase {
         XCTAssertEqual(playback.collectionOpacity(ballName: "ball_4", time: 60), 1)
     }
 
+    // MARK: - Rail residency across shots (DR-299)
+
+    func testPreOccupiedSlotsShiftNewcomersUpTheRail() throws {
+        // Two balls from earlier shots already rest at slots 0 and 1: the newcomer stops at 2.
+        let recorder = makePottedRecorder(entries: [("ball_1", 0, 0.5)])
+        PocketNetPresentation.attach(to: recorder, preOccupied: [geometry.pockets[0].id: 2])
+        let net = PocketNetPresentation.NetPocket(pocket: geometry.pockets[0], surfaceY: Double(surfaceY))
+        let slots = net.slots(ballRadius: ballRadius)
+        let tail = try XCTUnwrap(recorder.collectionTailsByBallName["ball_1"])
+        XCTAssertNil(tail.fadeStart)
+        XCTAssertEqual(tail.end.position, slots[2])
+        XCTAssertEqual(PocketNetPresentation.slotIndex(of: tail, in: net), 2)
+    }
+
+    func testScenePlaybackRelaysTailsAttachedBySolverWithoutRailKnowledge() throws {
+        // The solver's preview playback (no inventory) lays the ball at the end stop first;
+        // the scene playback must re-lay it above the resident already sitting there.
+        let recorder = makePottedRecorder(entries: [("ball_1", 0, 0.5)])
+        _ = TrajectoryPlayback(recorder: recorder, surfaceY: surfaceY)
+        let net = PocketNetPresentation.NetPocket(pocket: geometry.pockets[0], surfaceY: Double(surfaceY))
+        let slots = net.slots(ballRadius: ballRadius)
+        XCTAssertEqual(recorder.collectionTailsByBallName["ball_1"]?.end.position, slots[0])
+        XCTAssertEqual(recorder.planarTailOccupancy, [:])
+        PocketNetPresentation.attach(to: recorder, preOccupied: [geometry.pockets[0].id: 1])
+        XCTAssertEqual(recorder.collectionTailsByBallName["ball_1"]?.end.position, slots[1])
+        XCTAssertEqual(recorder.planarTailOccupancy, [geometry.pockets[0].id: 1])
+        // A later export / solver playback (nil) never disturbs the scene layout.
+        PocketNetPresentation.attach(to: recorder)
+        XCTAssertEqual(recorder.collectionTailsByBallName["ball_1"]?.end.position, slots[1])
+        // Same occupancy again is a no-op; a changed one re-lays.
+        PocketNetPresentation.attach(to: recorder, preOccupied: [geometry.pockets[0].id: 1])
+        XCTAssertEqual(recorder.collectionTailsByBallName["ball_1"]?.end.position, slots[1])
+        PocketNetPresentation.attach(to: recorder, preOccupied: [:])
+        XCTAssertEqual(recorder.collectionTailsByBallName["ball_1"]?.end.position, slots[0])
+    }
+
+    func testPreOccupiedFullChainRecyclesResidentsBeforeThisShotsBalls() throws {
+        // Chain full (3 residents). Two newcomers: each evicts one resident (oldest first);
+        // the first newcomer rolls down to slot 1 when the second arrives, nobody of this shot fades.
+        let recorder = makePottedRecorder(entries: [("ball_1", 0, 0.5), ("ball_2", 0, 2.0)])
+        PocketNetPresentation.attach(to: recorder, preOccupied: [geometry.pockets[0].id: 3])
+        let net = PocketNetPresentation.NetPocket(pocket: geometry.pockets[0], surfaceY: Double(surfaceY))
+        let slots = net.slots(ballRadius: ballRadius)
+        let t1 = try XCTUnwrap(recorder.collectionTailsByBallName["ball_1"])
+        let t2 = try XCTUnwrap(recorder.collectionTailsByBallName["ball_2"])
+        XCTAssertNil(t1.fadeStart); XCTAssertNil(t2.fadeStart)
+        XCTAssertEqual(try XCTUnwrap(t1.sample(at: 1.99)).position, slots[2])
+        XCTAssertEqual(t1.end.position, slots[1])
+        XCTAssertEqual(t2.end.position, slots[2])
+    }
+
+    @MainActor
+    func testInventoryReleasesResidentWhenItsBallReturnsToTheTableAndClosesTheGap() {
+        let root = SCNNode()
+        let inventory = PocketRailInventory(root: root)
+        let slots: [V] = [V(0, 0, 0), V(0.05, 0.02, 0), V(0.10, 0.04, 0)]
+        var sources: [SCNNode] = []
+        for i in 0..<3 {
+            let source = SCNNode(); source.name = "ball_\(i + 1)"; source.isHidden = true
+            root.addChildNode(source); sources.append(source)
+            let clone = inventory.makeClone(of: source, at: SCNVector3(Float(slots[i].x), Float(slots[i].y), Float(slots[i].z)))
+            inventory.commit(clone, source: source, ballName: source.name!, pocketID: "P", slot: i, slots: slots)
+        }
+        XCTAssertEqual(inventory.occupancy(of: "P"), 3)
+        // 1,2,3 − 2 → 1,3 : ball_2 is racked again, its clone leaves and ball_3 rolls forward one slot.
+        sources[1].isHidden = false
+        inventory.reconcile()
+        let remaining = inventory.residents["P"] ?? []
+        XCTAssertEqual(remaining.map(\.ballName), ["ball_1", "ball_3"])
+        XCTAssertEqual(remaining.map(\.slot), [0, 1])
+        // A ball that is merely faded (opacity 0) or hidden does not count as back on the table.
+        sources[2].isHidden = false; sources[2].opacity = 0
+        inventory.reconcile()
+        XCTAssertEqual(inventory.occupancy(of: "P"), 2)
+        // Re-potting a ball whose old clone still exists replaces it instead of duplicating.
+        sources[0].isHidden = true
+        _ = inventory.makeClone(of: sources[0], at: SCNVector3Zero)
+        XCTAssertEqual(inventory.residents["P"]?.map(\.ballName), ["ball_3"])
+        XCTAssertEqual(inventory.residents["P"]?.map(\.slot), [0])
+    }
+
+    @MainActor
+    func testInventoryEvictsOldestOnOverflow() {
+        let root = SCNNode()
+        let inventory = PocketRailInventory(root: root)
+        let slots: [V] = [V(0, 0, 0), V(0.05, 0.02, 0), V(0.10, 0.04, 0)]
+        for i in 0..<3 {
+            let source = SCNNode(); source.isHidden = true; root.addChildNode(source)
+            let clone = inventory.makeClone(of: source, at: SCNVector3Zero)
+            inventory.commit(clone, source: source, ballName: "ball_\(i + 1)", pocketID: "P", slot: i, slots: slots)
+        }
+        inventory.evict(pocketID: "P", count: 1, slots: slots, delay: 0)
+        XCTAssertEqual(inventory.residents["P"]?.map(\.ballName), ["ball_2", "ball_3"])
+        XCTAssertEqual(inventory.residents["P"]?.map(\.slot), [0, 1])
+        inventory.clear()
+        XCTAssertEqual(inventory.occupancy(of: "P"), 0)
+    }
+
     func testEndToEndDefaultPotRestsOnTheRail() throws {
         // Straight shot into the top-right corner from the centre line.
         let y = surfaceY + BallPhysics.radius

@@ -1195,7 +1195,7 @@ final class PositionPlayViewModel: ObservableObject {
         // 收杆不在此处：触球后球杆继续减速跟杆 + 停留一拍再消失（由 `runCueStroke` 接管）。
 
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let speed: Float = 1.0
         // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
         let settle = playback.duration
@@ -1480,7 +1480,7 @@ final class PositionPlayViewModel: ObservableObject {
         recorder: TrajectoryRecorder, after: BoardSnapshot
     ) {
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
         var completionDuration: TimeInterval = 0
@@ -1915,7 +1915,7 @@ final class PositionPlayViewModel: ObservableObject {
         statusText = sequenceStatusText(i)
         clearTrajectory()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
-        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel)
+        let playback = TrajectoryPlayback(recorder: recorder, surfaceY: yLevel, railInventory: scene.railInventory)
         let settle = playback.duration   // G15：播到引擎自然静止
 
         var completionDuration: TimeInterval = 0

@@ -1303,6 +1303,7 @@ DR-276（2026-09-13）：完整预测可解析补齐纯台面自旋尾段；时�
 
 - 2026-09-13 / DR-197：局部联合冲量精确去重同球同法线同材料静态约束；界面API不变，袋底双球/解析/跨owner三测及同构建四项回归通过，完整W07仍未完成，见W07-working。
 
+| 2026-09-14 | DR-299：支架驻留跨杆保留——新增 `PocketRailInventory`（每场景一份，`scene.railInventory`），支架上的球为盘面节点克隆，`TrajectoryPlayback(railInventory:)` 布槛时计入已驻留球；球回桌即离架、后方补位；满链 FIFO 先淘汰旧杆驻留球。12 个场景回放创建点新增参数 | 3D 进袋回放（所有 3D 页） | PocketRailInventory、TrajectoryPlayback、PocketNetPresentation、AngleTrainingScene | W17-D（DR-299） |
 | 2026-09-14 | DR-298：网兜下落脚本二次返修——球穿过网兜底环落到回球支架（`PocketRailProfile`，资产实测 `Black` 双杆 23° 下斜 + `Gold` 挡头），沿杆滚到挡头死停；槛点改为支架上 3 球链（同袋容量 2→3，FIFO 不变）。无 UI API 变更 | 3D 进袋回放 / 导出 | PocketNetPresentation、PocketNetPresentationTests、BreakFlowRunnerV6Tests | v63 W17-B/D |
 | 2026-09-14 | DR-297：网兜下落脚本返修——袋壁改为资产实测极坐标球心自由区（27 环 × 12 向，含皮革/库颚/网绳），到达冲击后 `v.y` 只受重力与壁型约束；修用户实看的穿模（≈48→1.0 mm）与慢落（触底 0.19/0.25 s）。无 UI API 变更 | 3D 进袋回放 / 导出 | PocketNetPresentation、PocketNetPresentationTests | v63 W17-B/D 返修 |
 | 2026-09-14 | DR-296：投影辅助线 footprint 接纳 USDZ 帐篷面（+X 长库带全线断裂修复，零空洞门禁）；假想球虚线环贴台呢；接触点 4.5 mm / 瞄准点 4 mm 统一；球杆击球点含 `spinY` 高低杆 + 杆头贴球面；虚线 20/12 与 14/10、`.table` 虚线单几何；所有 2D 球桌捏合 1–4×（取景为下限、锚点缩放、双指平移、双击复位、修 rotated 平移轴）；3D 俯瞰默认 yaw=π 与 2D 同向 | 2D/3D 球桌页、球杆、辅助线 | TrajectoryRenderer、AngleTrainingScene、CameraRig、AngleSceneView、CueStroke、CueStick、TrajectoryStyle | 用户 7 条反馈 |

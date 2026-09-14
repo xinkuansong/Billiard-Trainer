@@ -140,3 +140,26 @@ DR-294/297 把 `PocketCaptureBoundary.restingCenterY`（捕获边界的球心最
 - 返修版**仍未经用户实看**。
 - 底环穿过为脚本取舍；严格不穿需改资产（底环放大 ≥ 3 mm）。杆间距/杆径未测（横向对中按时间常数）；挡头零恢复无回弹。
 - 跨杆保留、W03 裁剪例外、`testExportSettledFrames…` 长期 skip：同 DR-294。
+
+## W17-D 跨杆保留 — 支架驻留 `PocketRailInventory`（2026-09-14，DR-299）
+
+### 触发
+用户实看 DR-298 版：「球到支架底端后，只有一颗球也会自动消失」。澄清后的规则：永远只有 16 颗球；进袋球就算进了球库、留在支架上；同一颗球再放回球桌时支架里的它消失、后面的球按顺序前移（1,2,3,4 拿走 2 → 1,3,4）。
+
+### 根因
+不是 FIFO。支架球用的是盘面节点，8 处页面 finish 处理器在回放结束把进袋球 `isHidden=true` / 复位重摆，节点被页面拿走。即 DR-294 记录的「跨杆保留未做」。
+
+### 做法
+- `Core/Scene/PocketRailInventory.swift`：每 `AngleTrainingScene` 一份；驻留球 = 盘面节点 `clone()`；`Resident{clone, weak source, pocketID, slot}` 按袋 FIFO。
+- `TrajectoryPlayback(railInventory:)`：`attach(preOccupied:)` 占位已驻留球于最低槛；`railResidencyAction` 让盘面节点只播台面段并在袋口隐藏，克隆体独立跑网兜/支架段并 `commit`；旧杆驻留球被挤出由 `evict` 同步动画。
+- 回桌即离架：克隆体逐帧 `railWatch` 观察源节点 `isOnTable` → `release`（淡出 + 后方前移）；`occupancyByPocket` 先 `reconcile()`。
+- 12 个场景回放创建点传 `scene.railInventory`；求解/导出为 `nil`。
+
+### 验证
+PocketNetPresentation 14/14（新增 4 条）、BreakFlowRunnerV6 19/19、回放/渲染/导出相关 268 项 0 失败；App `BUILD SUCCEEDED`。
+
+### 补记：两球重叠（同日）
+`ShotPredictor` 预览回放先 `attach`（无库存）且幂等 ⇒ 场景回放传库存也不重排。修：`recorder.planarTailOccupancy` + `attach(preOccupied:)` 非 nil 且不同即重排全部平面尾迹；观察改 10 Hz Timer（避免动作迫使永久渲染）。53 项 0 失败。
+
+### 未做
+用户实看；导出不含前几杆驻留球；页面「重置」不清支架（桌型重建才清空）。
