@@ -234,8 +234,8 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
     }
 
     private func update(usePresentation: Bool) {
-        SCNTransaction.begin()
-        SCNTransaction.disableActions = true
+        // Renderer callbacks already run in the frame's transaction. A nested
+        // explicit transaction delays these uniforms by one frame (FL-076).
         var changedGroups: UInt = 0
         for (i, node) in balls.enumerated() {
             let rendered = usePresentation ? node.presentation : node
@@ -257,7 +257,6 @@ final class MobileContactOcclusion: NSObject, SCNSceneRendererDelegate {
             let uniform = NSValue(scnMatrix4: SCNMatrix4(matrix))
             for material in materials { material.setValue(uniform, forKey: "contactGroup\(group)") }
         }
-        SCNTransaction.commit()
     }
 }
 

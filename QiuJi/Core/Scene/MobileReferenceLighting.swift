@@ -1,26 +1,83 @@
 import SceneKit
 
 /// S267 reference lighting, production since the v62 closeout (ADR-P5-01).
-/// Original assets and physics are unchanged. Shader sources are generated from
-/// output/render-quality-v62/S287-adaptive-sampling; keep that derivation evidence.
+/// Original assets and physics are unchanged. Shared wide-emitter geometry extends the
+/// S287 transport; calibration and motion evidence live in output/canopy-light-20260915.
 enum MobileReferenceLighting {
     /// Fixed calibrated scene contract. Environment fits must be regenerated if
     /// its environment or table geometry changes; this is not a user light editor.
+    struct Panel {
+        let center: SIMD3<Double>
+        let u: SIMD3<Double>
+        let v: SIMD3<Double>
+        let gain: Double
+        var normal: SIMD3<Double> { simd_normalize(simd_cross(u, v)) }
+        var area: Double { 4 * simd_length(simd_cross(u, v)) }
+        var corners: [SIMD3<Double>] { [center-u-v, center-u+v, center+u+v, center+u-v] }
+        var transform: SCNMatrix4 {
+            let x = SIMD3<Float>(simd_normalize(u))
+            // SCNLight emits along local -Z; keep a right-handed transform.
+            let y = SIMD3<Float>(-simd_normalize(v))
+            let z = SIMD3<Float>(-normal)
+            return SCNMatrix4(simd_float4x4(SIMD4(x, 0), SIMD4(y, 0), SIMD4(z, 0), SIMD4(SIMD3<Float>(center), 1)))
+        }
+    }
+
     struct Rig {
         let panelHeight = 3.0
-        let panelWidth = 2.0
-        let panelDepth = 0.5
-        let panelOffset = 0.35
-        let radiance = 44.5714854
+        // Each total dimension is twice the playfield (four times its area).
+        let panelWidth = 2 * Double(TablePhysics.innerLength)
+        let panelDepth = Double(TablePhysics.innerWidth)
+        var panelOffset: Double { panelDepth / 2 }
+        var panelArea: Double { panelWidth * panelDepth }
+        var panels: [Panel] {
+            [-panelOffset, panelOffset].map {
+                Panel(center: SIMD3(0, panelHeight, $0), u: SIMD3(panelWidth/2, 0, 0),
+                      v: SIMD3(0, 0, panelDepth/2), gain: 1)
+            }
+        }
+        var emitterRadius: Double { panels.flatMap(\.corners).map { hypot($0.x, $0.z) }.max()! }
+        var shadowSupportRadius: Double {
+            emitterRadius + panels.enumerated().map {
+                sqrt($0.element.area / 32 / .pi)
+            }.max()!
+        }
+        var minimumHeight: Double { panelHeight }
+
+        // Match the previously approved flat emitter's centre irradiance.
+        // The enlarged surface redistributes light without another exposure increase.
+        var radiance: Double { Self.calibratedRadiance }
+        private static let calibratedRadiance: Double = {
+            let panels = Rig().panels
+            func irradiance(_ panel: Panel) -> Double {
+                var total = 0.0
+                for x in 0..<32 { for z in 0..<32 {
+                    let point = panel.center + panel.u * (2*(Double(x)+0.5)/32-1)
+                        + panel.v * (2*(Double(z)+0.5)/32-1)
+                    let delta = point - SIMD3<Double>(0, 0.8, 0)
+                    let r2 = simd_length_squared(delta)
+                    let l = delta / sqrt(r2)
+                    total += max(0, l.y) * max(0, simd_dot(panel.normal, -l)) / r2
+                } }
+                return total * panel.area * panel.gain / 1024
+            }
+            let reference = panels.map { panel in
+                Panel(center: SIMD3(panel.center.x/2, panel.center.y, panel.center.z/2),
+                      u: panel.u/2, v: panel.v/2, gain: panel.gain)
+            }
+            return 32.84539390996302 * reference.map(irradiance).reduce(0, +)
+                / panels.map(irradiance).reduce(0, +)
+        }()
         let environmentBase = 0.06
         let environmentHorizon = 1.2
         // Native SceneKit uses a different calibrated intensity scale.
-        let nativeIntensity: CGFloat = 15000
+        var nativeIntensity: CGFloat { 15000 * CGFloat(radiance / 44.5714854 * panelArea) }
 
         func shader(_ source: String) -> String {
             let values: [String: String] = [
                 "HEIGHT": String(panelHeight), "WIDTH": String(panelWidth),
                 "DEPTH": String(panelDepth), "HALF_WIDTH": String(panelWidth / 2),
+                "AREA": String(panelArea), "PANEL_COUNT": String(panels.count),
                 "HALF_DEPTH": String(panelDepth / 2), "OFFSET": String(panelOffset),
                 "DX": String(panelWidth / 8), "DZ": String(panelDepth / 4),
                 "RADIANCE": String(radiance), "ENV_BASE": String(environmentBase),
@@ -48,7 +105,7 @@ enum MobileReferenceLighting {
     static let trialFillGain = 1.7806465814547177
     private static func trialShader(_ source: String) -> String {
         guard balanceTrialRequested else { return source }
-        return source.replacingOccurrences(of: "44.5714854", with: String(rig.radiance * trialTopGain))
+        return source.replacingOccurrences(of: String(rig.radiance), with: String(rig.radiance * trialTopGain))
             .replacingOccurrences(of: "+0.26", with: "+(0.26*\(trialFillGain))")
             .replacingOccurrences(of: "max(roomIrradiance,float3(0.0))", with: "(max(roomIrradiance,float3(0.0))*\(trialFillGain))")
     }
@@ -123,13 +180,14 @@ enum MobileReferenceLighting {
         // UIImage decodes the same RGBE data as the URL-based diagnostic.
         scene.lightingEnvironment.contents=UIImage(data:environment)
         scene.lightingEnvironment.intensity=1
-        for z in [Float(-rig.panelOffset),Float(rig.panelOffset)] {
-            let light=SCNLight();light.type = .area;light.areaType = .rectangle
-            light.areaExtents=SIMD3<Float>(Float(rig.panelWidth),Float(rig.panelDepth),0);light.intensity=rig.nativeIntensity * (balanceTrialRequested ? CGFloat(trialTopGain) : 1)
-            light.drawsArea=false;light.doubleSided=true;light.attenuationEndDistance=10
-            let node=SCNNode();node.name="S267AreaPanel";node.light=light
-            node.position=SCNVector3(0,Float(rig.panelHeight),z)
-            node.look(at:SCNVector3(0,scene.surfaceY,z),up:SCNVector3(0,0,1),localFront:SCNVector3(0,0,-1))
+        for panel in rig.panels {
+            let light = SCNLight(); light.type = .area; light.areaType = .rectangle
+            light.areaExtents = SIMD3(Float(2*simd_length(panel.u)), Float(2*simd_length(panel.v)), 0)
+            light.intensity = 15000 * CGFloat(rig.radiance / 44.5714854 * panel.area * panel.gain)
+                * (balanceTrialRequested ? CGFloat(trialTopGain) : 1)
+            light.drawsArea = false; light.doubleSided = true; light.attenuationEndDistance = 10
+            let node = SCNNode(); node.name = "S267AreaPanel"; node.light = light
+            node.transform = panel.transform
             scene.rootNode.addChildNode(node)
         }
         for (key,node) in scene.allBallNodes {
@@ -137,36 +195,36 @@ enum MobileReferenceLighting {
             applyBall(to:node, exposureOffset: scene.cameraNode.camera?.exposureOffset ?? 0, stickerFinish: numbered,
                       probe: scene.roomReflectionProbe)
         }
-        var shadow="", bounds="bool nearShadow=false;\n", possible="bool shadowPossible=false;\n"
+        var shadow="", possible="bool shadowPossible=false;\n"
         for i in 0..<scene.allBallNodes.count {
             shadow += """
             if(contactBall\(i).w>0.0) {
                 float3 center=float3(contactBall\(i).x,0.8+contactBall\(i).z,contactBall\(i).y);
                 float3 toCenter=center-p;float t=dot(toCenter,l);
                 float perpendicular2=dot(toCenter,toCenter)-t*t;
-                if(t>0.0 && t*t<r2 && perpendicular2 < 0.028575*0.028575) visibility *= 1.0-min(1.0,contactBall\(i).w/0.85);
+                if(t>0.0 && t*t<r2) {
+                    // Project the equal-area light-sample disk onto the blocker.
+                    // Deterministic footprint filtering replaces binary sample jumps.
+                    float filterRadius=max(0.000001,lightCellRadius*t/sqrt(r2));
+                    float distanceToRay=sqrt(max(0.0,perpendicular2));
+                    float blocked=1.0-smoothstep(0.028575-filterRadius,0.028575+filterRadius,distanceToRay);
+                    visibility *= 1.0-min(1.0,contactBall\(i).w/0.85)*blocked;
+                }
             }
             """
-            // Conservative projected bounding sphere: include its top and radius,
-            // not only center height. Keep the existing nearShadow sample rule.
+            // Conservative support includes the sphere top and filtered sample
+            // footprint. Use the lowest emitter height for every panel.
             possible += """
             if(contactBall\(i).w>0.0) {
                 float top=contactBall\(i).z+0.028575;
-                float bound=0.028575+top/max(0.01,2.2-top)*(length(contactBall\(i).xy)+1.3);
+                float bound=0.028575+top/max(0.01,\(rig.minimumHeight - 0.8)-top)*(length(contactBall\(i).xy)+\(rig.shadowSupportRadius));
                 float2 offset=p.xz-contactBall\(i).xy;
-                shadowPossible=shadowPossible || top>=2.2 || dot(offset,offset)<=bound*bound;
-            }
-            """
-            bounds += """
-            if(contactBall\(i).w>0.0) {
-                float bound=0.028575+contactBall\(i).z/max(0.01,2.2-contactBall\(i).z)*(length(contactBall\(i).xy)+1.3);
-                float2 offset=p.xz-contactBall\(i).xy;
-                nearShadow=nearShadow || dot(offset,offset)<bound*bound;
+                shadowPossible=shadowPossible || top>=\(rig.minimumHeight - 0.8) || dot(offset,offset)<=bound*bound;
             }
             """
         }
         let shader=clothShader.replacingOccurrences(of:"// SHADOW",with:"if(shadowPossible) {\n"+shadow+"\n}")
-            .replacingOccurrences(of:"// NEAR_SHADOW",with:bounds+possible)
+            .replacingOccurrences(of:"// NEAR_SHADOW",with:possible)
         scene.tableNode?.enumerateChildNodes { node,_ in
             for m in node.geometry?.materials ?? [] where m.name == "TaiNi" {
                 var mods=m.shaderModifiers ?? [:]
@@ -179,6 +237,8 @@ enum MobileReferenceLighting {
                         of: "contactVisibility *= 1.0 - contactBall\(i).w *",
                         with: "contactVisibility *= 1.0 - (contactBall\(i).w / \(MobileContactOcclusion.encodedOpacityScale)) *")
                 }
+                contactSource = contactSource.replacingOccurrences(of: "#pragma body",
+                    with: "#pragma declaration\n" + analyticPanelDiffuse + "\n#pragma body")
                 mods[.surface]=trialShader(contactSource+"\n"+shader)
                 m.lightingModel = .physicallyBased;m.shaderModifiers=mods
             }
@@ -230,12 +290,32 @@ enum MobileReferenceLighting {
         material.shaderModifiers = modifiers
     }
 
+    /// Generated constants, not per-material uniforms: keep older Metal binding budgets.
+    static let emitterGeometry: String = {
+        func vector(_ value: SIMD3<Double>) -> String { "float3(\(value.x),\(value.y),\(value.z))" }
+        let panels = rig.panels
+        var source = ""
+        for (name, values) in [("Center", panels.map(\.center)), ("U", panels.map(\.u)),
+                               ("V", panels.map(\.v)), ("Normal", panels.map(\.normal))] {
+            source += "float3 v62Emitter\(name)(int i) { const float3 a[\(panels.count)]={"
+                + values.map(vector).joined(separator: ",") + "}; return a[i]; }\n"
+        }
+        source += "float v62EmitterGain(int i) { const float a[\(panels.count)]={"
+            + panels.map { String($0.gain) }.joined(separator: ",") + "}; return a[i]; }\n"
+        source += "float v62EmitterArea(int i) { const float a[\(panels.count)]={"
+            + panels.map { String($0.area) }.joined(separator: ",") + "}; return a[i]; }\n"
+        return source
+    }()
+
     // Exact projected solid angle of a horizon-clipped rectangular emitter.
     // Same radiance/geometry as the sampled reference; no shadow approximation changes.
-    static let analyticPanelDiffuse = rig.shader("""
-    float v62RectIrradiance(float3 p, float3 n, float z) {
-        float3 v[4]={float3(-{{HALF_WIDTH}},{{HEIGHT}},z-{{HALF_DEPTH}})-p,float3(-{{HALF_WIDTH}},{{HEIGHT}},z+{{HALF_DEPTH}})-p,
-                     float3({{HALF_WIDTH}},{{HEIGHT}},z+{{HALF_DEPTH}})-p,float3({{HALF_WIDTH}},{{HEIGHT}},z-{{HALF_DEPTH}})-p};
+    static let analyticPanelDiffuse = emitterGeometry + analyticDiffuseIntegral
+
+    private static let analyticDiffuseIntegral = rig.shader("""
+    float v62RectIrradiance(float3 p, float3 n, int panel) {
+        float3 c=v62EmitterCenter(panel)-p,u=v62EmitterU(panel),w=v62EmitterV(panel);
+        if(dot(v62EmitterNormal(panel),-c)<=0.0) return 0.0;
+        float3 v[4]={c-u-w,c-u+w,c+u+w,c+u-w};
         float3 clipped[8];int count=0;
         for(int i=0;i<4;++i) {
             float3 a=v[i],b=v[(i+1)%4];float da=dot(a,n),db=dot(b,n);
@@ -252,8 +332,9 @@ enum MobileReferenceLighting {
         return abs(integral)*0.5;
     }
     float3 v62PanelDiffuse(float3 p, float3 n) {
-        return float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*
-            (v62RectIrradiance(p,n,-{{OFFSET}})+v62RectIrradiance(p,n,{{OFFSET}}));
+        float total=0.0;
+        for(int i=0;i<{{PANEL_COUNT}};++i) total+=v62RectIrradiance(p,n,i)*v62EmitterGain(i);
+        return float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*total;
     }
     """)
 
@@ -317,15 +398,15 @@ enum MobileReferenceLighting {
     float3 v=normalize(scn_frame.inverseViewTransform[3].xyz-p);
     float nv=max(0.001,dot(n,v));float rough=clamp(_surface.roughness,0.48,0.9);
     float a2=pow(rough,4.0);float3 spec=float3(0.0);
-    for(int panel=0;panel<2;panel++) {
+    for(int panel=0;panel<{{PANEL_COUNT}};panel++) {
         for(int ix=0;ix<4;ix++) for(int iz=0;iz<2;iz++) {
-            float3 lp=float3(-{{HALF_WIDTH}}+(float(ix)+0.5)*{{WIDTH}}/4.0,{{HEIGHT}},(panel==0?-{{OFFSET}}:{{OFFSET}})-{{HALF_DEPTH}}+(float(iz)+0.5)*{{DEPTH}}/2.0);
+            float3 lp=v62EmitterCenter(panel)+v62EmitterU(panel)*(2.0*(float(ix)+0.5)/4.0-1.0)+v62EmitterV(panel)*(2.0*(float(iz)+0.5)/2.0-1.0);
             float3 delta=lp-p;float r2=dot(delta,delta);float3 l=delta/sqrt(r2);float nl=max(0.001,dot(n,l));
             float3 h=normalize(l+v);float nh=max(0.0,dot(n,h));float vh=max(0.0,dot(v,h));
             float denom=nh*nh*(a2-1.0)+1.0;float D=a2/(3.14159265*denom*denom);
             float G=2.0*nv/(nv+sqrt(a2+(1.0-a2)*nv*nv))*2.0*nl/(nl+sqrt(a2+(1.0-a2)*nl*nl));
             float F=0.04+0.96*pow(1.0-vh,5.0);
-            spec+=float3(1,0.985,0.96)*({{RADIANCE}}/3.14159265)*max(0.0,dot(n,l))*max(0.0,l.y)/r2/8.0*D*G*F/(4.0*nv*nl);
+            spec+=float3(1,0.985,0.96)*({{RADIANCE}}/3.14159265)*max(0.0,dot(n,l))*max(0.0,dot(v62EmitterNormal(panel),-l))/r2*(v62EmitterArea(panel)*v62EmitterGain(panel)/8.0)*D*G*F/(4.0*nv*nl);
         }
     }
     _surface.diffuse.rgb=_surface.diffuse.rgb*(v62PanelDiffuse(p,n)/3.14159265+0.26)*0.96+spec;
@@ -342,22 +423,22 @@ enum MobileReferenceLighting {
         let start = sampledBallShader.range(of: "float3 v62PanelDiffuse(")!
         let end = sampledBallShader.range(of: "float v62World(")!
         var source = sampledBallShader
-        source.replaceSubrange(start.lowerBound..<end.lowerBound, with: analyticPanelDiffuse + "\n")
+        source.replaceSubrange(start.lowerBound..<end.lowerBound, with: analyticDiffuseIntegral + "\n")
         return source
     }()
 
     // Retained as the numerical/visual reference while validating GPU cost.
-    static let sampledBallShader = rig.shader("""
+    static let sampledBallShader = emitterGeometry + rig.shader("""
     float v62worldIntegral(float x) { return max(0.0,((((((((((((-0.08636586539832361*x+0.03358324878023771)*x+0.1807681120541014)*x+-0.0901518898599715)*x+-0.1398822803391923)*x+0.08601738357243822)*x+0.03544987957333094)*x+-0.0342965481779107)*x+-0.026459309315669012)*x+0.0051020175297182765)*x+-0.10414811593646554)*x+0.12979997791360942)*x+0.27073602068087366)); }
     float v62bounceIntegral(float x) { return max(0.0,((((((((((((0.7391315655967717*x+-0.521674143216907)*x+-1.8109810807609321)*x+1.2213403850849287)*x+1.5632528571973532)*x+-0.909670480224779)*x+-0.7209205166011029)*x+0.4267268481308019)*x+-0.003853721433570013)*x+0.11345215688244002)*x+-0.2082655686807922)*x+-0.3286814509996016)*x+0.4405794885548977)); }
     float3 v62PanelDiffuse(float3 p, float3 n) {
         float3 E=float3(0.0);
-        for (int panel=0; panel<2; ++panel) {
+        for (int panel=0; panel<{{PANEL_COUNT}}; ++panel) {
             for (int ix=0; ix<8; ++ix) {
                 for (int iz=0; iz<4; ++iz) {
-                    float3 lp=float3(-{{HALF_WIDTH}}+(float(ix)+0.5)*{{DX}},{{HEIGHT}},(panel==0?-{{OFFSET}}:{{OFFSET}})-{{HALF_DEPTH}}+(float(iz)+0.5)*{{DZ}});
+                    float3 lp=v62EmitterCenter(panel)+v62EmitterU(panel)*(2.0*(float(ix)+0.5)/8.0-1.0)+v62EmitterV(panel)*(2.0*(float(iz)+0.5)/4.0-1.0);
                     float3 delta=lp-p; float r2=dot(delta,delta); float3 l=delta/sqrt(r2);
-                    E += float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*max(0.0,dot(n,l))*max(0.0,l.y)/r2*(1.0/32.0);
+                    E += float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*max(0.0,dot(n,l))*max(0.0,dot(v62EmitterNormal(panel),-l))/r2*(v62EmitterArea(panel)*v62EmitterGain(panel)/32.0);
                 }
             }
         }
@@ -389,17 +470,18 @@ enum MobileReferenceLighting {
         // centre; a ball under the table sees the floor instead.
         result=mix(floorRadiance,result,clothWeight);
     }
-    if (reflected.y>0.0001) {
-        float distance=({{HEIGHT}}-p.y)/reflected.y;
-        float3 hit=p+distance*reflected;
-        float width=clamp(fwidth(hit.x),0.008,0.05);
-        float depth=clamp(fwidth(hit.z),0.008,0.05);
-        float panelMask=0.0;
-        for(int panel=0;panel<2;++panel) {
-            float z=panel==0?-{{OFFSET}}:{{OFFSET}};
-            panelMask = panelMask + (1.0-smoothstep({{HALF_WIDTH}}-width,{{HALF_WIDTH}}+width,abs(hit.x))) * (1.0-smoothstep({{HALF_DEPTH}}-depth,{{HALF_DEPTH}}+depth,abs(hit.z-z)));
-        }
-        result+=float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*panelMask;
+    for(int panel=0;panel<{{PANEL_COUNT}};++panel) {
+        float3 pn=v62EmitterNormal(panel),u=v62EmitterU(panel),w=v62EmitterV(panel);
+        float denominator=dot(pn,reflected);
+        if(denominator>=-0.00001) continue;
+        float distance=dot(pn,v62EmitterCenter(panel)-p)/denominator;
+        if(distance<=0.0) continue;
+        float3 hit=p+distance*reflected-v62EmitterCenter(panel);
+        float x=dot(hit,normalize(u)),z=dot(hit,normalize(w));
+        float width=clamp(fwidth(x),0.008,0.05),depth=clamp(fwidth(z),0.008,0.05);
+        float mask=(1.0-smoothstep(length(u)-width,length(u)+width,abs(x)))
+                  *(1.0-smoothstep(length(w)-depth,length(w)+depth,abs(z)));
+        result+=float3(1.0,0.985,0.96)*({{RADIANCE}}/3.14159265)*mask*v62EmitterGain(panel);
     }
     return result;
     }
@@ -459,18 +541,21 @@ enum MobileReferenceLighting {
     private static let clothShader = rig.shader("""
     float3 p=contactWorld;
     float3 n=normalize((scn_frame.inverseViewTransform*float4(_surface.normal,0.0)).xyz);
-    float3 E=float3(0.0);float3 S=float3(0.0);
+    float3 E=float3(0.0);float3 unoccludedE=float3(0.0);float3 S=float3(0.0);
     float3 v=normalize(scn_frame.inverseViewTransform[3].xyz-p);
     float nv=max(0.001,dot(n,v));
     float alpha=max(0.01,_surface.roughness*_surface.roughness);
     float a2=alpha*alpha;
     // NEAR_SHADOW
-    int samplesX=nearShadow?8:2;
-    int samplesZ=nearShadow?4:2;
-    for(int panel=0;panel<2;++panel) {
+    for(int panel=0;panel<{{PANEL_COUNT}};++panel) {
+     // 64 samples near shadow, fixed grid with no temporal jitter.
+     int samplesX=shadowPossible?8:2;
+     int samplesZ=shadowPossible?4:2;
+     float cellArea=v62EmitterArea(panel)/float(samplesX*samplesZ);
+     float lightCellRadius=sqrt(cellArea/3.14159265);
      for(int ix=0;ix<samplesX;++ix) {
       for(int iz=0;iz<samplesZ;++iz) {
-       float3 lp=float3(-{{HALF_WIDTH}}+(float(ix)+0.5)*({{WIDTH}}/float(samplesX)),{{HEIGHT}},(panel==0?-{{OFFSET}}:{{OFFSET}})-{{HALF_DEPTH}}+(float(iz)+0.5)*({{DEPTH}}/float(samplesZ)));
+       float3 lp=v62EmitterCenter(panel)+v62EmitterU(panel)*(2.0*(float(ix)+0.5)/float(samplesX)-1.0)+v62EmitterV(panel)*(2.0*(float(iz)+0.5)/float(samplesZ)-1.0);
        float3 delta=lp-p;float r2=dot(delta,delta);float3 l=delta/sqrt(r2);
        float visibility=1.0;
        // SHADOW
@@ -479,11 +564,12 @@ enum MobileReferenceLighting {
        float D=a2/(3.14159265*denom*denom);
        float G=2.0*nv/(nv+sqrt(a2+(1.0-a2)*nv*nv))*2.0*nl/(nl+sqrt(a2+(1.0-a2)*nl*nl));
        float F=0.012+0.988*pow(1.0-vh,5.0);
-       float3 weighted=float3(1,0.985,0.96)*({{RADIANCE}}/3.14159265)*max(0.0,dot(n,l))*max(0.0,l.y)/r2/float(samplesX*samplesZ)*visibility;
-       E+=weighted; S+=weighted*D*G*F/(4.0*nv*nl);
+       float3 weighted=float3(1,0.985,0.96)*({{RADIANCE}}/3.14159265)*max(0.0,dot(n,l))*max(0.0,dot(v62EmitterNormal(panel),-l))/r2*cellArea*v62EmitterGain(panel);
+       unoccludedE+=weighted; E+=weighted*visibility; S+=weighted*visibility*D*G*F/(4.0*nv*nl);
       }
      }
     }
+    E=v62PanelDiffuse(p,n)*(E/max(unoccludedE,float3(0.000001)));
     _surface.emission.rgb = (_surface.diffuse.rgb * _surface.multiply.rgb) * (E/3.14159265+0.26*_surface.ambientOcclusion)+0.35*S+0.35*float3(max(0.0,((((((((((-0.028803310033256934*nv+0.18720610088795223)*nv+-0.5502767636063797)*nv+0.9752880522825459)*nv+-1.17736218879761)*nv+1.0399023440946362)*nv+-0.6934645105632581)*nv+0.32180425209794744)*nv+-0.053736086147546894)*nv+-0.0426628106982577)*nv+0.023864333781715107)));
     _surface.diffuse.rgb=float3(0.0);
     _surface.metalness=1.0;

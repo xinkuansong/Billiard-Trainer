@@ -3998,3 +3998,12 @@ DR-308 3D圆弧贴台面：仅圆弧与端刻线改为台呢平面(surfaceY+2mm)
 DR-308 圆弧遮挡与间距最终补充：3D用SceneKit台面平面线条并开启深度读取，关闭屏幕圆弧，球体可遮挡弧，不会覆盖球像素。半径4.5R，按用户追加要求稍离开目标球；仅圆弧改变，文字保持现状。2D仍用原屏幕圆弧。回归检查3D弧节点可见、深度开启且屏幕弧隐藏；UI转视角手势移到空白区，适配已支持3D拖球的现状。日志angle-depth-arc。
 
 DR-309 试打修复：原生SceneKit视图不继承进场/模式切换的隐式布局动画，避免可见球桌与触摸布局偏移；transaction.log真实拖球、固定相机、2D球位留存通过。最终完整回归见共享3D拖球审查报告。
+
+## FL-076 — 动画球的阴影参数晚一帧
+
+- 日期：2026-09-15；用户指出球像跳起。
+- 根因：MobileContactOcclusion 在渲染回调中嵌套显式 SCNTransaction，球体动画已进入当前帧，而材质 contactGroup 参数延后生效。模型/阴影参数读回一致仍不能证明GPU实际帧一致。
+- 证据：SCNAction 8m/s、120Hz取13帧，最后一帧与相同时间/姿态再次渲染相比，最大通道差184；去掉嵌套事务后 <=3，5项通过，移动/停住原图已核对。flush与调整回调阶段均无效，候选日志保留。
+- 修复：保留 didApplyAnimationsAtTime，在现有帧事务中直接更新变化的矩阵；不改球高、物理或回放轨迹。最终两倍平面灯下标准模拟器与iOS17各5项通过；真机最终复验见报告。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-076；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 证据目录：`output/canopy-light-20260915/lag-{red,flush,willrender-r2,no-transaction}.log`，最终 `output/double-table-light-20260915/`。

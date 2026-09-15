@@ -7,6 +7,143 @@ import MetalKit
 /// Deterministic visual experiments, not a phone performance benchmark.
 @MainActor
 final class RenderQualityV62Tests: XCTestCase {
+    func testCanopyMovingBallFrames() throws {
+        let s = try scene(mobile: true)
+        XCTAssertTrue(s.applyClothColor(.tournamentBlue))
+        let y = s.surfaceY + AngleSceneCalculator.ballRadius
+        s.applyBallLayout(cueBallPosition: SCNVector3(0, y, 0), targetBallNumber: 8,
+                          targetPosition: SCNVector3(1.22, y, -0.4))
+        s.cameraNode.position = SCNVector3(1.34, 2.5, 0.75)
+        s.cameraNode.look(at: SCNVector3(1.22, s.surfaceY, 0))
+        s.cameraNode.camera?.usesOrthographicProjection = true
+        s.cameraNode.camera?.orthographicScale = 0.70
+        let ball = try XCTUnwrap(s.allBallNodes["_8"])
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = s; renderer.pointOfView = s.cameraNode; renderer.delegate = s.contactOcclusion
+        let size = CGSize(width: 600, height: 600)
+        SCNTransaction.flush()
+        _ = renderer.snapshot(atTime: 0, with: size, antialiasingMode: .multisampling4X)
+        // Exercise the presentation-node path used by production SCNActions.
+        ball.runAction(.move(to: SCNVector3(1.22, y, 0.4), duration: 0.1))
+        var cloth: SCNMaterial?
+        s.tableNode?.enumerateChildNodes { node, _ in
+            if let m = node.geometry?.materials.first(where: { $0.name == "TaiNi" }) { cloth = m }
+        }
+        let ballIndex = try XCTUnwrap(s.allBallNodes.keys.sorted().firstIndex(of: "_8"))
+        var frames = Set<Data>()
+        var lastImage: UIImage?
+        for frame in 0...12 {
+            // 8 m/s at 120 Hz, parallel to the short rail, no physics changes.
+            SCNTransaction.flush()
+            let image = renderer.snapshot(atTime: 1 + Double(frame)/120, with: size, antialiasingMode: .multisampling4X)
+            let value = try XCTUnwrap(cloth?.value(forKey: "contactGroup\(ballIndex/4)") as? NSValue)
+            let center = simd_float4x4(value.scnMatrix4Value)[ballIndex % 4]
+            XCTAssertEqual(center.x, ball.presentation.worldPosition.x, accuracy: 0.0001)
+            XCTAssertEqual(center.y, ball.presentation.worldPosition.z, accuracy: 0.0001)
+            frames.insert(try XCTUnwrap(image.pngData()))
+            lastImage = image
+            if [0, 6, 12].contains(frame) {
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "canopy-moving-\(frame)"; attachment.lifetime = .keepAlways; add(attachment)
+                if ProcessInfo.processInfo.environment["V62_SHOT_DIR"] != nil {
+                    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                    try image.pngData()!.write(to: directory.appendingPathComponent("moving-\(frame).png"))
+                }
+            }
+        }
+        XCTAssertEqual(frames.count, 13, "Moving ball/contact bindings must produce distinct frames")
+        let settled = renderer.snapshot(atTime: 1.1, with: size, antialiasingMode: .multisampling4X)
+        func pixels(_ image: UIImage) throws -> [UInt8] {
+            let cg = try XCTUnwrap(image.cgImage)
+            var bytes = [UInt8](repeating: 0, count: cg.width * cg.height * 4)
+            let context = try XCTUnwrap(CGContext(data: &bytes, width: cg.width, height: cg.height,
+                bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+            return bytes
+        }
+        let movingPixels = try pixels(XCTUnwrap(lastImage))
+        let settledPixels = try pixels(settled)
+        let maxDifference = zip(movingPixels, settledPixels).map { abs(Int($0)-Int($1)) }.max() ?? 0
+        XCTAssertLessThanOrEqual(maxDifference, 3, "Same pose/time must not move a lagging shadow on the next render")
+        if ProcessInfo.processInfo.environment["V62_SHOT_DIR"] != nil {
+            try XCTUnwrap(settled.pngData()).write(to: directory.appendingPathComponent("moving-settled.png"))
+        }
+    }
+
+    func testEmitterAboveTableOverview() throws {
+        let s = try scene(mobile: true)
+        let rig = MobileReferenceLighting.rig
+        XCTAssertTrue(s.applyClothColor(.tournamentBlue))
+        s.rootNode.childNode(withName: "reference_room", recursively: false)?.isHidden = true
+        s.background.contents = UIColor(white: 0.10, alpha: 1)
+        let outline = SCNMaterial()
+        outline.lightingModel = .constant
+        outline.diffuse.contents = UIColor(red: 1, green: 0.84, blue: 0.4, alpha: 1)
+        for emitter in rig.panels {
+            let face = SCNPlane(width: 2*simd_length(emitter.u), height: 2*simd_length(emitter.v))
+            let translucent = outline.copy() as! SCNMaterial
+            translucent.transparency = 0.07 * emitter.gain
+            translucent.isDoubleSided = true
+            translucent.writesToDepthBuffer = false
+            face.materials = [translucent]
+            let panel = SCNNode(geometry: face)
+            panel.transform = emitter.transform
+            panel.castsShadow = false
+            s.rootNode.addChildNode(panel)
+            let corners = emitter.corners
+            let vertices = corners.map { SCNVector3($0.x, $0.y, $0.z) }
+            let indices: [Int32] = [0,1,1,2,2,3,3,0]
+            let geometry = SCNGeometry(sources: [SCNGeometrySource(vertices: vertices)],
+                elements: [SCNGeometryElement(indices: indices, primitiveType: .line)])
+            geometry.materials = [outline]
+            let border = SCNNode(geometry: geometry); border.castsShadow = false
+            s.rootNode.addChildNode(border)
+        }
+        s.cameraNode.position = SCNVector3(3.4, 6.8, 4.6)
+        s.cameraNode.look(at: SCNVector3(0, 1.75, 0))
+        s.cameraNode.camera?.usesOrthographicProjection = true
+        s.cameraNode.camera?.orthographicScale = 3.0
+        XCTAssertGreaterThan(s.cameraNode.position.y, Float(rig.panelHeight))
+        SCNTransaction.flush()
+        try capture(s, name: "above-light-overview", size: CGSize(width: 1800, height: 1800))
+    }
+
+    func testTableSizedEmitterEvidence() throws {
+        let s = try scene(mobile: true)
+        let panels = s.rootNode.childNodes.filter { $0.name == "S267AreaPanel" }
+        XCTAssertEqual(panels.count, 2)
+        let rig = MobileReferenceLighting.rig
+        XCTAssertEqual(rig.panelWidth, 2 * Double(TablePhysics.innerLength))
+        XCTAssertEqual(rig.panelDepth + 2 * rig.panelOffset, 2 * Double(TablePhysics.innerWidth))
+        XCTAssertEqual(rig.panelDepth, 2 * rig.panelOffset)
+        for (node, emitter) in zip(panels, rig.panels) {
+            let light = try XCTUnwrap(node.light)
+            XCTAssertEqual(light.areaExtents.x, Float(2*simd_length(emitter.u)))
+            XCTAssertEqual(light.areaExtents.y, Float(2*simd_length(emitter.v)))
+            XCTAssertLessThan(emitter.normal.y, 0)
+            let direction = node.simdConvertVector(SIMD3<Float>(0, 0, -1), to: nil)
+            XCTAssertLessThan(simd_length(direction - SIMD3<Float>(emitter.normal)), 1e-6)
+            XCTAssertEqual(simd_dot(emitter.u, emitter.v), 0, accuracy: 1e-9)
+            let actual = node.simdWorldPosition
+            XCTAssertLessThan(simd_length(actual - SIMD3<Float>(emitter.center)), 1e-6)
+        }
+        let positions: [(String, Float, Float)] = [("centre", 0, 0), ("short-rail", 1.22, 0), ("long-rail", 0, 0.585)]
+        for (name, x, z) in positions {
+            let y = s.surfaceY + AngleSceneCalculator.ballRadius
+            s.applyBallLayout(cueBallPosition: SCNVector3(x - 0.18, y, z - 0.12),
+                              targetBallNumber: 8, targetPosition: SCNVector3(x, y, z))
+            s.setCueBallHomeOrientation(simd_quatf(angle: 0, axis: SIMD3<Float>(0, 1, 0)))
+            s.cameraNode.position = SCNVector3(x + 0.12, 2.1, z + 0.7)
+            s.cameraNode.look(at: SCNVector3(x, s.surfaceY, z))
+            s.cameraNode.camera?.usesOrthographicProjection = true
+            s.cameraNode.camera?.orthographicScale = 0.30
+            XCTAssertTrue(s.applyClothColor(.tournamentBlue))
+            SCNTransaction.flush()
+            try capture(s, name: "table-sized-" + name, size: CGSize(width: 900, height: 900))
+        }
+    }
+
     private var directory: URL {
         if let path = ProcessInfo.processInfo.environment["V62_SHOT_DIR"] {
             if path == "device" { return FileManager.default.temporaryDirectory.appendingPathComponent("render-quality-v62") }

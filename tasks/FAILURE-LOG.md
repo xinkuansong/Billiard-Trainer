@@ -704,3 +704,12 @@ FL-073最终定向复验：真机核心1项14.298s、独立UI1项110.109s通过�
 - **状态**：⚠️ 静帧返工中；恢复生产标注并拉远机位，待视觉复核。
 - **日期**：2026-09-15
 - **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-074；详见`IMPLEMENTATION-LOG.md`。
+
+## FL-076 — 动画球的阴影参数晚一帧
+
+- 日期：2026-09-15；用户指出球像跳起。
+- 根因：MobileContactOcclusion 在渲染回调中嵌套显式 SCNTransaction，球体动画已进入当前帧，而材质 contactGroup 参数延后生效。模型/阴影参数读回一致仍不能证明GPU实际帧一致。
+- 证据：SCNAction 8m/s、120Hz取13帧，最后一帧与相同时间/姿态再次渲染相比，最大通道差184；去掉嵌套事务后 <=3，5项通过，移动/停住原图已核对。flush与调整回调阶段均无效，候选日志保留。
+- 修复：保留 didApplyAnimationsAtTime，在现有帧事务中直接更新变化的矩阵；不改球高、物理或回放轨迹。最终两倍平面灯下标准模拟器与iOS17各5项通过；真机最终复验见报告。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-076；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+- 证据目录：`output/canopy-light-20260915/lag-{red,flush,willrender-r2,no-transaction}.log`，最终 `output/double-table-light-20260915/`。
