@@ -2,7 +2,9 @@
 
 2026-09-13 球贴纸：`BallStickerTests` / `BallStickerUITests` 只写 `output/ball-stickers-20260913/app-renders` 与 `ui`，所有写盘错误抛出。UV 相机校验帧为测试 Bundle 中的 `BallStickerUVFrames.json`，不依赖旧 output。SettingsView → BallStickerSettingsView 为正常生产导航，六款选择与本地重启保留由 BallStickerUITests 覆盖；深链取证外观使用已有显式 Light 参数，不将默认强制 Dark 的图冒充 Light。
 
-机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 142 个文件；新增写盘测试未登记时 `verify-gate` 失败。
+机器清单见 `write-surface-files.txt`，由 `verify_v47_ui_baseline.py` 对 `QiuJiTests/` 与 `QiuJiUITests/` 中的 `.write(`、`FileManager.default.createDirectory`、`pngRepresentation` 扫描生成并做差集门禁。当前共登记 147 个文件；新增写盘测试未登记时 `verify-gate` 失败。
+
+2026-09-14 补登记已有 `RoomReflectionProbeTests`：仅显式 `V62_SHOT_DIR` 指定且非 `device` 时写 PNG；默认不写盘，写入失败抛出；任务方须给独立 `output/` 或 `build/` 证据目录，留存由该任务负责，不得指向 Bundle/content/docs 基线。此次仅补清单和审计，未改反射测试。
 
 ## 分类与处置
 
@@ -80,3 +82,12 @@ RenderQualityV62Tests 与 RenderQualityV62UITests 仅输出渲染 PNG/诊断 JSO
 ## 2026-09-13 球桌风格收尾时的并行球杆测试登记
 
 只读核对 CueStyleTests / CueStyleUITests：分别写 output/cue-stickers/app-renders 与 output/cue-stickers/ui 的固定名称 PNG；UI另附xcresult。复跑可能覆盖固定PNG，需事前保留对比证据；无自动删除，写失败抛错。不写Bundle、正式训练数据或设计基线。UI使用内存账号夹具并保存本地外观偏好，应使用独立模拟器。本次只登记真实写盘面，球杆功能验收由对应任务负责。球桌测试自身仅使用xcresult附件。
+
+
+## v63 真机测试路径适配（2026-09-15）
+
+S1_FreePlayLayoutUITests、S2_ShotPagesLayoutUITests、DrillSceneThreeBeatUITests 的手机 PNG 改写测试沙盒临时目录，模拟器原路径保留，xcresult keepAlways 附件用于取证。TrajectoryRendererTests 两条 W17 用例改读 Bundle formation；导出影片仅手机临时目录与 MPEG4 附件，近景截图手机只写附件，模拟器原路径保留。均未写训练内容或截图设计基线；写盘错误仍令测试失败。
+
+## 2026-09-15 角度教学视频导出
+
+`X1_CameraAndAngleArcTests.swift` 内的 `AngleAimingVideoCaptureTests` 仅在显式 `TEST_RUNNER_ANGLE_CAPTURE_DIR` / `ANGLE_CAPTURE_DIR` 下运行，无变量时 XCTSkip 且不写盘。专用模拟器内生成4K PNG、MP4及几何/投影JSON，允许目录为任务独立 `output/angle-aiming-video-20260915/`（或显式指定的同类build目录），不写Resources、内容或设计基线；文件写入失败抛出。重复运行只覆盖本任务同名产物；证据保留供用户查看，由任务方按需清理。

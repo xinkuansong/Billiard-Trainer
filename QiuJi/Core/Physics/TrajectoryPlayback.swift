@@ -260,7 +260,7 @@ final class TrajectoryPlayback {
     }
     
     var duration: Float {
-        max(recorder.duration,Float(recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0))
+        max(recorder.duration, Float(railShot?.timeline.duration ?? 0), Float(recorder.collectionTailsByBallName.values.map(\.end.time).max() ?? 0))
     }
 
     var collectionPresentationEnd:Float {
@@ -301,7 +301,7 @@ final class TrajectoryPlayback {
     /// only for live scene playback; solver / export playbacks leave it `nil`.
     let railInventory: PocketRailInventory?
     /// Rail occupancy the tails were laid out against (per pocket id).
-    private let railOccupancyAtStart: [String: Int]
+    let railShot: PocketRailInventory.Shot?
 
     init(recorder: TrajectoryRecorder, surfaceY: Float, railInventory: PocketRailInventory? = nil) {
         self.recorder = recorder
@@ -312,8 +312,8 @@ final class TrajectoryPlayback {
         // shots occupy the lowest slots and are the first the FIFO recycles.
         // A solver / preview playback (no inventory) may already have laid the tails out at
         // the end stop; a scene playback re-lays them against the real rail occupancy.
-        self.railOccupancyAtStart = railInventory?.occupancyByPocket ?? [:]
-        PocketNetPresentation.attach(to: recorder, preOccupied: railInventory == nil ? nil : railOccupancyAtStart)
+        self.railShot = railInventory?.beginShot(recorder: recorder)
+        if railInventory == nil { PocketNetPresentation.attach(to: recorder) }
         
         var sorted: [String: [BallFrame]] = [:]
         for (name, frames) in recorder.framesByBallName {
@@ -555,64 +555,36 @@ final class TrajectoryPlayback {
     }
 
     /// W17-D (DR-299) rail residency. The board node plays the table leg and hides at the
-    /// pocket mouth; a clone owned by `railInventory` rides the net/rail tail on its own
-    /// action (so a page's `removeAllActions()` on the board node cannot strand it) and is
-    /// committed as a rail resident when it comes to rest. Returns `nil` when no inventory
+    /// pocket mouth; the same action samples the clone's shared net/rail timeline.
+    /// A completed page boundary commits the rail state before removing ball actions. Returns `nil` when no inventory
     /// is attached or the tail is not a scripted planar descent (legacy fade path applies).
     private func railResidencyAction(for node:SCNNode,ballName:String,tail:PocketCollectionTail,
                                      speed spd:Float,end:Double,cursor:PlaybackCursor)->SCNAction? {
-        guard let inventory=railInventory,tail.samples != nil,end>=tail.start.time,
-              let pocketID=PocketNetPresentation.pocketID(of:ballName,in:recorder),
-              let pocket=PocketNetPresentation.netPockets(in:recorder)[pocketID] else { return nil }
-        let slots=pocket.slots(ballRadius:Double(BallPhysics.radius))
-        let slotIndex=PocketNetPresentation.slotIndex(of:tail,in:pocket)
-        let fades=Self.fadeStart(of:tail) != nil
-
-        // Residents from earlier shots that this newcomer pushes off a full chain (FIFO).
-        // Newcomer j of this pocket (entry-time order) on top of n residents with capacity C
-        // evicts one when n+j+1 > C; the recorder already laid its own tails out that way.
-        let newcomers=recorder.pocketEntries
-            .filter { $0.pocketID==pocketID && recorder.collectionTailsByBallName[$0.ball.name]?.samples != nil }
-            .sorted { $0.time<$1.time }.map(\.ball.name)
-        if let j=newcomers.firstIndex(of:ballName) {
-            let n=railOccupancyAtStart[pocketID] ?? 0,c=slots.count
-            let evictions=max(0,n+j+1-c)-max(0,n+j-c)
-            if evictions>0 {
-                inventory.evict(pocketID:pocketID,count:evictions,slots:slots,delay:tail.start.time/Double(spd))
+        guard let inventory = railInventory, let shot = railShot,
+              tail.samples != nil, end >= tail.start.time,
+              shot.timeline.incoming[ballName] != nil else { return nil }
+        inventory.bind(node, alias: ballName, to: shot)
+        // The clone is sampled by the board's action, so removing the board action also
+        // stops its flight. No independent clone action can outlive a cancelled shot.
+        let motion = SCNAction.customAction(duration: end / Double(spd)) { node, elapsed in
+            inventory.withActiveShot(shot) {
+                let t = min(end, Double(elapsed) * Double(spd))
+                let tableTime = Float(min(t, tail.start.time))
+                if let state = self.stateAt(ballName: ballName, time: tableTime) {
+                    node.position = state.position
+                    BallSpinIntegrator.advance(node: node, from: cursor.lastAngularVelocity,
+                        to: state.angularVelocity, dt: tableTime - cursor.lastSimTime)
+                    cursor.lastSimTime = tableTime
+                    cursor.lastAngularVelocity = state.angularVelocity
+                }
+                if t >= tail.start.time {
+                    inventory.beginTail(alias: ballName, source: node, shot: shot)
+                    node.isHidden = true
+                }
+                inventory.render(shot, at: t)
             }
         }
-
-        let clone=inventory.makeClone(of:node,at:SCNVector3(Float(tail.start.position.x),Float(tail.start.position.y),Float(tail.start.position.z)))
-        let cloneCursor=PlaybackCursor()
-        cloneCursor.lastSimTime=Float(tail.start.time)
-        cloneCursor.lastAngularVelocity=SCNVector3(Float(tail.start.omega.x),Float(tail.start.omega.y),Float(tail.start.omega.z))
-        let ride=SCNAction.customAction(duration:end/Double(spd)) { clone,elapsed in
-            let t=min(Float(end),Float(elapsed)*spd)
-            guard Double(t)>=tail.start.time,let state=self.stateAt(ballName:ballName,time:t) else { return }
-            clone.isHidden=false
-            clone.position=state.position
-            clone.opacity=self.collectionOpacity(ballName:ballName,time:t) ?? 1
-            BallSpinIntegrator.advance(node:clone,from:cloneCursor.lastAngularVelocity,to:state.angularVelocity,dt:t-cloneCursor.lastSimTime)
-            cloneCursor.lastSimTime=t;cloneCursor.lastAngularVelocity=state.angularVelocity
-        }
-        let settle=SCNAction.run({ clone in
-            if fades { inventory.discard(clone);return }
-            clone.position=SCNVector3(Float(tail.end.position.x),Float(tail.end.position.y),Float(tail.end.position.z))
-            clone.opacity=1
-            inventory.commit(clone,source:node,ballName:ballName,pocketID:pocketID,slot:slotIndex,slots:slots)
-        },queue:.main)
-        clone.runAction(.sequence([ride,settle]))
-
-        // Board node: table leg up to the pocket mouth, then it hides (the page's finish
-        // handler keeps it hidden / re-racks it; the clone is what stays on the rail).
-        let tableLeg=SCNAction.customAction(duration:tail.start.time/Double(spd)) { node,elapsed in
-            let t=min(Float(tail.start.time),Float(elapsed)*spd)
-            guard let state=self.stateAt(ballName:ballName,time:t) else { return }
-            node.position=state.position
-            BallSpinIntegrator.advance(node:node,from:cursor.lastAngularVelocity,to:state.angularVelocity,dt:t-cursor.lastSimTime)
-            cursor.lastSimTime=t;cursor.lastAngularVelocity=state.angularVelocity
-        }
-        return .sequence([tableLeg,.hide()])
+        return .sequence([motion, .run { _ in inventory.render(shot, at: end, complete: true) }])
     }
 
     /// 逐帧回放的跨帧可变游标（`customAction` 闭包按帧调用，需在闭包外保存状态）。

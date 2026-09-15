@@ -13,22 +13,23 @@ struct BankShotView: View {
     var body: some View {
         SolverStageChrome(
             vm: vm,
-            title: "翻袋解球器",
+            title: "翻袋解球",
             coordinateSpaceName: "bankshot",
             onPocketTapped: { vm.selectPocket($0) },
             infoTitle: "翻袋解球原理",
             infoBlocks: Self.infoBlocks
         )
+        .trainingBackgroundMusic()
     }
 
     private static let infoBlocks: [PrincipleBlock] = [
         PrincipleBlock(
             title: "这是什么",
-            body: "翻袋（bank shot）解球器：把母球和目标球放到台面任意位置，再选定一个想翻进的袋口，用真实物理引擎反解目标球经 1 库、2 库、3 库翻库后落袋的路线，并反推母球该如何瞄准。"
+            body: "翻袋解球（bank shot）：把母球和目标球放到台面任意位置，再选定一个想翻进的袋口，用真实物理引擎反解目标球经 1 库、2 库、3 库翻库后落袋的路线，并反推母球该如何瞄准。"
         ),
         PrincipleBlock(
             title: "进球线与碰库",
-            body: "与目标球同色的实线是它的真实进袋路线，金点是碰库点，白色短线是该处库面法线。「入射角 = 反射角」是几何底稿（求解先用「镜像展开」枚举候选库序），真实路线在此之上叠加库边吸收与旋转影响，由物理引擎逐段模拟得出。"
+            body: "与目标球同色的虚线是它的真实进袋路线。「入射角 = 反射角」是几何底稿（求解先用「镜像展开」枚举候选库序），真实路线在此之上叠加库边吸收与旋转影响，由物理引擎逐段模拟得出。"
         ),
         PrincipleBlock(
             title: "瞄准线与接触点",
@@ -44,7 +45,7 @@ struct BankShotView: View {
         ),
         PrincipleBlock(
             title: "真实物理求解",
-            body: "每条解都由完整物理引擎反解并复核：挤压偏移（squirt）、两球碰撞让点（throw）、传旋、速度衰减与库边吸收全部按真实物理计算——画面即物理，不做几何近似。力度是求解输入：拖动右侧力度柱（m/s）会重新求解，低力度翻库「偏短」等真实现象会直接反映在解线上；该设置与反射解球器共享并会被记住。"
+            body: "每条解都由完整物理引擎反解并复核：挤压偏移（squirt）、两球碰撞让点（throw）、传旋、速度衰减与库边吸收全部按真实物理计算——画面即物理，不做几何近似。力度是求解输入：拖动右侧力度柱（m/s）会重新求解，低力度翻库「偏短」等真实现象会直接反映在解线上；该设置与颗星解球共享并会被记住。"
         ),
         PrincipleBlock(
             title: "自由模式",

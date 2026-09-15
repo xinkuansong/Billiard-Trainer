@@ -215,6 +215,7 @@ struct AimPointTrainingView: View {
         .background(Color.black.ignoresSafeArea())
         .safeAreaInset(edge: .top, spacing: 0) { statsCapsule }
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
+        .trainingBackgroundMusic()
         .btDarkToolChrome("瞄准点训练")
         .toolbar {
             ToolbarItem(placement: .principal) {

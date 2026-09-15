@@ -510,3 +510,64 @@ extension BreakFlowRunnerV6Tests {
         }
     }
 }
+
+extension BreakFlowRunnerV6Tests {
+    @MainActor
+    func testRealBreakKeepsRailsThroughDeliveryAndCancelledRerack() async throws {
+        let vm = PositionPlayViewModel()
+        vm.setupScene()
+        vm.startBreakFlow(game: .chineseEightBall, seed: 844924979980821639)
+        let runner = try XCTUnwrap(vm.breakRunner)
+        runner.velocity = 6
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = vm.scene
+        renderer.pointOfView = vm.scene.cameraNode
+        runner.breakNow()
+        let deadline = Date().addingTimeInterval(45)
+        while runner.phase != .settled && Date() < deadline {
+            _ = renderer.snapshot(atTime: CACurrentMediaTime(), with: CGSize(width: 64, height: 64),
+                                  antialiasingMode: .none)
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertEqual(runner.phase, .settled)
+        let rails = vm.scene.railInventory.snapshot()
+        XCTAssertFalse(rails.balls.isEmpty, "Known potted break balls must remain on their rails")
+        for ball in rails.balls {
+            XCTAssertTrue(try XCTUnwrap(vm.scene.allBallNodes[ball.key]).isHidden)
+        }
+        runner.confirmSettled()
+        XCTAssertNil(vm.breakRunner)
+        XCTAssertEqual(vm.scene.railInventory.snapshot(), rails, "Delivery is the same game")
+        let board = vm.currentSnapshot()
+        vm.startBreakFlow(game: .nineBall, seed: 7)
+        XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty, "A new rack clears every chain")
+        vm.breakRunner?.reRack()
+        XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty)
+        vm.cancelBreakFlow()
+        let restored = vm.currentSnapshot().onTable
+        XCTAssertEqual(Set(restored.keys), Set(board.onTable.keys))
+        for (key, point) in board.onTable {
+            XCTAssertEqual(try XCTUnwrap(restored[key]).x, point.x, accuracy: 1e-6)
+            XCTAssertEqual(try XCTUnwrap(restored[key]).y, point.y, accuracy: 1e-6)
+        }
+        XCTAssertEqual(vm.scene.railInventory.snapshot(), rails, "Cancel restores the game before entering break mode")
+        // Both planning hosts must restore rails only after restoring their board.
+        let silu = SiluTrainerViewModel()
+        silu.setupScene()
+        for ball in rails.balls { silu.scene.hideBall(key: ball.key) }
+        silu.scene.railInventory.restore(rails)
+        silu.startBreakFlow(game: .nineBall)
+        XCTAssertTrue(silu.scene.railInventory.snapshot().balls.isEmpty)
+        silu.cancelBreakFlow()
+        XCTAssertEqual(silu.scene.railInventory.snapshot(), rails)
+        let plan = PlanThreeViewModel()
+        plan.setupScene()
+        for ball in rails.balls { plan.scene.hideBall(key: ball.key) }
+        plan.scene.railInventory.restore(rails)
+        plan.startBreakFlow(game: .nineBall)
+        XCTAssertTrue(plan.scene.railInventory.snapshot().balls.isEmpty)
+        plan.cancelBreakFlow()
+        XCTAssertEqual(plan.scene.railInventory.snapshot(), rails)
+        print("[W17 break rails] retained=\(rails.balls.map(\.key)) delivery/rerack/cancel checked")
+    }
+}

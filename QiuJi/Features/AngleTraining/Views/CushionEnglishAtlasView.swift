@@ -116,7 +116,7 @@ struct CushionEnglishAtlasView: View {
                     canReturnToAim: false,
                     onReturnToAim: {})
                 Spacer(minLength: 0)
-                Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+                Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
             }
             .font(.btFootnote)
             .padding(.horizontal, Spacing.sm)
@@ -184,7 +184,7 @@ struct CushionEnglishAtlasView: View {
                 interactionMode: is3D ? .cameraControl : .tapsOnly,
                 autoFitsRotatedTable: !is3D,
                 onPocketTapped: is3D ? nil : { vm.selectPocket(at: $0) },
-                draggableBallNodes: is3D ? [] : vm.draggableBalls,
+                draggableBallNodes: vm.draggableBalls,
                 onDragBegan: { vm.dragBegan(node: $0) },
                 onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
                 onDragEnded: { vm.dragEnded(node: $0) },

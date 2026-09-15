@@ -76,6 +76,7 @@ struct ShotSimulationView: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
+        .trainingBackgroundMusic()
         .btDarkToolChrome("分离角与走位")
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -184,7 +185,7 @@ struct ShotSimulationView: View {
             interactionMode: vm.isPlaying ? (is3D ? .cameraControl : .none) : (is3D ? .cameraControl : .tapsOnly),
             autoFitsRotatedTable: !is3D,
             onPocketTapped: { vm.selectPocket(at: $0) },
-            draggableBallNodes: is3D || vm.isPlaying ? [] : vm.draggableBalls,
+            draggableBallNodes: vm.isPlaying ? [] : vm.draggableBalls,
             onDragBegan: { vm.dragBegan(node: $0) },
             onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
             onDragEnded: { vm.dragEnded(node: $0) },
@@ -297,7 +298,7 @@ struct ShotSimulationView: View {
     private var cameraHelp: some View {
         HStack(spacing: Spacing.sm) {
             ShotObservationMenu(vm: vm, identifierPrefix: "shotSimulation")
-            Text("摆球切回2D")
+            Text("拖球摆位 · 空白处转视角")
                 .font(.btCaption)
                 .foregroundStyle(Color.btTextSecondary)
                 .lineLimit(1)

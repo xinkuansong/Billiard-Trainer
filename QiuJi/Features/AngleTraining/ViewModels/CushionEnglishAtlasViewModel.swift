@@ -258,7 +258,6 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         isDragging = true
-        scene.hideCueStick()
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
     }
@@ -316,6 +315,7 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     }
 
     func onCueHeightChanged() {
+        updateAimVisualization()
         scheduleRecompute(interactive: true)
     }
 
@@ -454,8 +454,8 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
     // MARK: - Visualization
 
     private func updateAimVisualization() {
-        scene.hideCueStick()
         guard let intent = currentIntent() else {
+            scene.hideCueStick()
             cutAngleDegrees = 0
             scene.hideAllVisualization()
             return
@@ -466,6 +466,11 @@ final class CushionEnglishAtlasViewModel: ObservableObject {
         scene.updateVisualization(
             cueBall: intent.cue, targetBall: intent.target, pocket: intent.potAim,
             showAngleAnnotations: false, showOverlapMarkers: true, showLineLabels: false)
+        // One reference cue for the shared aim, updated on every drag event.
+        scene.updateCueStick(
+            cueBallPosition: CueStroke.strikePosition(
+                cue: intent.cue, aim: intent.aim, spinX: 0, spinY: spinY),
+            aimDirection: intent.aim)
     }
 
     private func clearTrajectories() {

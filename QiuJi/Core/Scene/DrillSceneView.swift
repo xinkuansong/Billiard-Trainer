@@ -123,6 +123,7 @@ final class DrillSceneController: ObservableObject {
               let shot = formation.firstShot
         else { return }
 
+        scene.railInventory.clear()
         // 停演示：置 idle 让已排期的异步回调全部失效，清动画与装饰。
         ShotAudioScheduler.shared.cancel()
         playbackState = .idle
@@ -356,6 +357,7 @@ final class DrillSceneController: ObservableObject {
 
     /// 一杆收尾：球落静止位（有预测用引擎终位，否则用录制 `after`），清动画与球杆。
     private func applyStepRest(step: SequenceStep, prediction pred: ShotPrediction?) {
+        scene.railInventory.finishPlayback()
         ShotAudioScheduler.shared.cancel()
         guard let pred else {
             placeStepBoard(step.after, preservePoses: true)
@@ -570,6 +572,7 @@ final class DrillSceneController: ObservableObject {
     }
 
     private func restoreHomePositions(clearActions: Bool) {
+        scene.railInventory.clear()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         for (key, home) in homePositions {
             guard let node = scene.allBallNodes[key] else { continue }

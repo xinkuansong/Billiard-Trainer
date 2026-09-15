@@ -276,10 +276,12 @@ final class PlanThreeViewModel: ObservableObject {
         var perspectiveView: CameraRig.PerspectiveState? = nil
         /// 击打前球体姿态（与 `snapshot.before` 配对）；退回 / 回放起点连同位置一起恢复。
         var ballPoses: BallPoseSnapshot = [:]
+        var rails = PocketRailSnapshot()
     }
     private var lastShotContext: UndoContext?
     /// 回放开始时抓的「击打后局面」姿态，回放收尾连同 `after` 位置一起写回。
     private var replayAfterPoses: BallPoseSnapshot = [:]
+    private var replayAfterRails = PocketRailSnapshot()
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -1040,6 +1042,7 @@ extension PlanThreeViewModel {
             if let solution = currentSolution { presentDisplayedSolution(solution) }
             if let perspective { scene.restorePerspectiveView(perspective) }
         }
+        scene.railInventory.restore(runner.railsBeforeBreak)
     }
 
     private func teardownBreakFlow() {
@@ -1177,7 +1180,7 @@ extension PlanThreeViewModel {
             ball1Key: ball1Key, ball2Key: ball2Key, ball3Key: ball3Key,
             pocket1Index: pocket1Index, pocket2Index: pocket2Index, armedRole: armedRole,
             perspectiveView: scene.capturePerspectiveView(),
-            ballPoses: scene.captureBallPoses())
+            ballPoses: scene.captureBallPoses(), rails: scene.railInventory.snapshot())
     }
 
     /// 把击打前完整快照原样恢复到场景与状态（不重解）。
@@ -1193,6 +1196,7 @@ extension PlanThreeViewModel {
         scene.clearResultNodes(nodes: &selectionNodes)
         scene.hideCueStick()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.railInventory.restore(ctx.rails)
         scene.restoreBallPoses(ctx.ballPoses)
         refreshOnTableKeys()
 
@@ -1264,6 +1268,7 @@ extension PlanThreeViewModel {
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         isPlaying = true
         clearTrajectory()
@@ -1274,6 +1279,7 @@ extension PlanThreeViewModel {
 
         scene.hideAllBalls()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.railInventory.restore(ctx.rails)
         scene.restoreBallPoses(ctx.ballPoses)   // 姿态回击打前，积分终态才与实打一致
         refreshOnTableKeys()
 
@@ -1338,6 +1344,7 @@ extension PlanThreeViewModel {
         scene.hideCueStick()
         let ctx = lastShotContext
         loadBoard(after)
+        scene.railInventory.restore(replayAfterRails)
         scene.restoreBallPoses(replayAfterPoses)
         replayAfterPoses = [:]
         lastShotContext = ctx
@@ -1380,6 +1387,7 @@ extension PlanThreeViewModel {
     /// 否则保留原计划。解/约束随旧布局失效。
     // Internal completion boundary also exercised by deterministic role/undo regression tests.
     func finishStrike(sol: PositionPlaySolution) {
+        scene.railInventory.finishPlayback()
         ShotAudioScheduler.shared.cancel()
         for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
         let potted = Set(sol.prediction.pocketedBalls.map { boardKey(forPredName: $0, shot: sol.shot) })
@@ -1466,6 +1474,7 @@ extension PlanThreeViewModel {
 
     func resetAll() {
         guard !isPlaying else { return }
+        scene.railInventory.clear()
         scene.hideAllBalls()
         clearConstraint()
         applyDefaultLayout()

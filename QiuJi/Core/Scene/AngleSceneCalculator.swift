@@ -1142,6 +1142,23 @@ enum AngleSceneCalculator {
     /// 坐标契约：长库 = 常 Z（±(innerWidth/2 − R)）、短库 = 常 X（±(innerLength/2 − R)），
     /// 与 `clampMultiBall` 同式。方向近乎零或无交点时返回起点。
     /// `inset = 0` reaches the cloth edge for instructional guide lines.
+    /// Intersection of the aim centreline with the visible target disk, not the 2R collision disk.
+    static func aimRayTargetEntry(from start: SCNVector3, toward end: SCNVector3,
+                                  target: SCNVector3) -> SCNVector3? {
+        let dx = end.x - start.x, dz = end.z - start.z
+        let length = hypotf(dx, dz)
+        guard length > 1e-6 else { return nil }
+        let ux = dx / length, uz = dz / length
+        let tx = target.x - start.x, tz = target.z - start.z
+        let along = tx * ux + tz * uz
+        let perpendicular = tx * uz - tz * ux
+        let discriminant = ballRadius * ballRadius - perpendicular * perpendicular
+        guard discriminant >= 0 else { return nil }
+        let entry = along - sqrtf(discriminant)
+        guard entry >= 0, entry <= length else { return nil }
+        return SCNVector3(start.x + ux * entry, start.y, start.z + uz * entry)
+    }
+
     static func rayToInnerRail(from p: SCNVector3, dir: SCNVector3,
                                inset: Float = ballRadius) -> SCNVector3 {
         let halfL = innerLength / 2 - inset

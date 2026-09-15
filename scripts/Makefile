@@ -6,6 +6,9 @@
 SCHEME       ?= QiuJi
 SIM_DEVICE   ?= iPhone 17 Pro
 TEST_DESTINATION ?= platform=iOS Simulator,name=$(SIM_DEVICE),OS=latest
+TEST_CODE_COVERAGE ?= YES
+# Explicit overrides for device diagnostics; ordinary tests retain Debug defaults.
+TEST_BUILD_SETTINGS ?=
 ONLY_TESTING ?=
 PROJECT_ROOT := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))/..
 BUILD_DIR    := $(PROJECT_ROOT)/build
@@ -154,7 +157,8 @@ test:
 	    -configuration Debug \
 	    -derivedDataPath $(DERIVED_DATA) \
 	    -destination '$(TEST_DESTINATION)' \
-	    -enableCodeCoverage YES \
+	    -enableCodeCoverage $(TEST_CODE_COVERAGE) \
+	    $(TEST_BUILD_SETTINGS) \
 	    $(TEST_SELECTOR) \
 	    test >$(TEST_LOG) 2>&1 || status=$$?; \
 	  if command -v xcpretty >/dev/null 2>&1; then \

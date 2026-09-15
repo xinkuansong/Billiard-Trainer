@@ -307,6 +307,7 @@ struct BreakRackGlyph: View {
 struct BTSolverNavStatus: View {
     let title: String
     var isBusy: Bool = false
+    var statusLineLimit: Int = 1
     /// `nil` 且非 busy 时隐藏副行（暗色测验页简化形态，组件同源）。
     var statusText: String? = nil
 
@@ -323,7 +324,9 @@ struct BTSolverNavStatus: View {
                         Text(statusText)
                             .font(.system(size: 11, weight: .medium, design: .rounded))
                             .foregroundStyle(.white.opacity(0.65))
-                            .lineLimit(1)
+                            .lineLimit(statusLineLimit)
+                            .fixedSize(horizontal: false, vertical: statusLineLimit > 1)
+                            .multilineTextAlignment(.center)
                             .minimumScaleFactor(0.75)
                             .allowsTightening(true)
                             .accessibilityIdentifier("navStatus.subtitle")

@@ -85,6 +85,7 @@ struct FreePlayView: View {
             .btToast($toast)
         }
         .animation(BTMotion.springPanel, value: showSpinPad)
+        .trainingBackgroundMusic()
         .btDarkToolChrome(pageTitle)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -354,7 +355,7 @@ struct FreePlayView: View {
             guard let ruling = dailyController.handleShotSettled(facts) else { return }
             flash(ruling.message, tone: ruling.failed ? .warning : .success)
             if ruling.ballInHand, !ruling.failed {
-                flash(is3D ? "自由球：切回2D拖放母球" : "自由球：可任意拖放母球")
+                flash("自由球：可任意拖放母球")
             }
             return
         }
@@ -390,7 +391,7 @@ struct FreePlayView: View {
             autoFitsRotatedTable: !is3D,
             onPocketTapped: vm.isBreakMode || vm.isPlaying || isDailyResult ? nil : { vm.selectPocket(at: $0) },
             // P10.1 禁止摆球：非开球模式仅母球可拖（自由球/走位微调）；开球模式拖开球区母球。
-            draggableBallNodes: is3D || isDailyResult ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableCueOnly),
+            draggableBallNodes: vm.isPlaying || isDailyResult ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableCueOnly),
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else { vm.dragBegan(node: node) }
@@ -693,7 +694,7 @@ struct FreePlayView: View {
             } else if is3D {
                 HStack(spacing: Spacing.sm) {
                     ShotObservationMenu(vm: vm, identifierPrefix: "freeplay")
-                    Text(vm.onTableKeys.contains(PositionPlayBall.cueKey) ? "移母球切回2D" : "切回2D补回母球")
+                    Text(vm.onTableKeys.contains(PositionPlayBall.cueKey) ? "拖动母球摆位" : "切回2D补回母球")
                         .font(.btCaption)
                         .foregroundStyle(Color.btTextSecondary)
                         .lineLimit(1)
@@ -851,7 +852,7 @@ struct FreePlayView: View {
     private var navigationStatusText: String {
         if isDailyClearance { return dailyController.statusText }
         if is3D, vm.breakRunner?.phase == .racked, vm.breakRunner?.simulationFailure == nil {
-            return "刻度轮调方向 · 移母球切回2D"
+            return "刻度轮调方向 · 拖动母球摆位"
         }
         return vm.breakRunner?.statusText(isPerspective: is3D)
             ?? (vm.isComputing ? "求解中…"

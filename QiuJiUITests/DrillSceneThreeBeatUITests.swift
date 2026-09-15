@@ -9,9 +9,13 @@ import XCTest
 /// 截图落盘 `build/drill-scene-three-beat/`。
 final class DrillSceneThreeBeatUITests: XCTestCase {
 
-    private let outDir = URL(
-        fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/drill-scene-three-beat"
-    )
+    private var outDir: URL {
+        #if targetEnvironment(simulator)
+        return URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/build/drill-scene-three-beat")
+        #else
+        return FileManager.default.temporaryDirectory.appendingPathComponent("v63-drill-three-beat")
+        #endif
+    }
 
     var app: XCUIApplication!
 
@@ -460,6 +464,7 @@ final class DrillSceneThreeBeatUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
-        try? shot.pngRepresentation.write(to: outDir.appendingPathComponent("\(name).png"))
+        do { try shot.pngRepresentation.write(to: outDir.appendingPathComponent("\(name).png")) }
+        catch { XCTFail("Cannot save detail evidence: \(error)") }
     }
 }

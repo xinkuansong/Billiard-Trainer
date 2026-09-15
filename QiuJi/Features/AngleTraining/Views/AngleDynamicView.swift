@@ -45,6 +45,7 @@ struct AngleDynamicView: View {
                 }
             }
         }
+        .trainingBackgroundMusic()
         .btDarkToolChrome("角度与瞄准")
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -89,7 +90,7 @@ struct AngleDynamicView: View {
                     identifierPrefix: "angleDynamic",
                     canReturnToAim: false, onReturnToAim: {})
                 Spacer(minLength: 0)
-                Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+                Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
             }
             .font(.btFootnote)
             .padding(.horizontal, Spacing.sm)
@@ -125,7 +126,7 @@ struct AngleDynamicView: View {
             onPocketTapped: { index in
                 if !is3D { vm.selectPocket(at: index) }
             },
-            draggableBallNodes: is3D ? [] : vm.draggableBalls,
+            draggableBallNodes: vm.draggableBalls,
             onDragBegan: { node in
                 hasDraggedOnce = true
                 vm.dragBegan(node: node)

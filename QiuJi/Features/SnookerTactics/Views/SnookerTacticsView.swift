@@ -67,6 +67,7 @@ struct SnookerTacticsView: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
+        .trainingBackgroundMusic()
         .btDarkToolChrome("防守")
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -190,7 +191,7 @@ struct SnookerTacticsView: View {
             cameraMode: $vm.cameraMode,
             interactionMode: is3D ? .cameraControl : .tapsOnly,
             autoFitsRotatedTable: !is3D,
-            draggableBallNodes: !is3D && vm.activeTool == .none ? vm.draggableBalls : [],
+            draggableBallNodes: !vm.isPlaying && (is3D || vm.activeTool == .none) ? vm.draggableBalls : [],
             onDragBegan: { vm.dragBegan(node: $0) },
             onDragMoved: { vm.dragMoved(node: $0, worldPosition: $1) },
             onDragEnded: { vm.dragEnded(node: $0) },
@@ -265,7 +266,7 @@ struct SnookerTacticsView: View {
                     )
                     .disabled(vm.isPlaying)
                     Spacer(minLength: 0)
-                    Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+                    Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
                 }
                 .font(.btFootnote)
                 .padding(.horizontal, Spacing.sm)
@@ -307,6 +308,7 @@ struct SnookerTacticsView: View {
     }
 
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
+        guard !is3D else { return } // The palette is hidden in perspective mode.
         guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
                                                sceneFrame: sceneFrame,
                                                paletteFrame: paletteFrame),

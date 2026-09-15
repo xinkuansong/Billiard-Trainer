@@ -15,8 +15,8 @@ final class V49W21PlaySolveCardUITests: XCTestCase {
         ("思路训练", "定落点看塞与力度"),
         ("打一走二想三", "定三颗倒推第一杆"),
         ("防守", "选目标球求防守线"),
-        ("翻袋解球器", "选袋求一至三库线"),
-        ("反射解球器", "摆球求一至三库线"),
+        ("翻袋解球", "选袋求一至三库线"),
+        ("颗星解球", "摆球求一至三库线"),
     ]
 
     override func setUpWithError() throws {

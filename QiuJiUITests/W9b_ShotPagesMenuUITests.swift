@@ -85,8 +85,8 @@ final class W9b_ShotPagesMenuUITests: XCTestCase {
             ("解", "思路训练", "w9b-menu-04-silu"),
             ("解", "打一走二想三", "w9b-menu-05-planthree"),
             ("解", "防守", "w9b-menu-06-snooker"),
-            ("解", "翻袋解球器", "w9b-menu-07-bank"),
-            ("解", "反射解球器", "w9b-menu-08-diamond"),
+            ("解", "翻袋解球", "w9b-menu-07-bank"),
+            ("解", "颗星解球", "w9b-menu-08-diamond"),
         ]
         for item in sandboxes {
             XCTAssertTrue(openCard(app, homeTab: item.tab, title: item.title), item.title)

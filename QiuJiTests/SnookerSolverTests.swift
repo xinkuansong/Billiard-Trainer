@@ -31,12 +31,14 @@ final class SnookerSolverTests: XCTestCase {
         XCTAssertEqual(target, "_1")
         XCTAssertEqual(Set(opponents), Set(["_9", "_10"]))
         PerformanceProfiler.reset()
+        let thermalStart = ProcessInfo.processInfo.thermalState.rawValue
         let start = ProcessInfo.processInfo.systemUptime
         let solutions = PositionPlaySolver.solveSnooker(
             before: board, targetKey: target, opponentKeys: opponents,
             surfaceY: vm.scene.surfaceY, params: .standard)
         let elapsed = ProcessInfo.processInfo.systemUptime - start
         print("[W07 default defense] wallSeconds=\(elapsed) solutions=\(solutions.count)")
+        print("[W07 device conditions] thermalStart=\(thermalStart) thermalEnd=\(ProcessInfo.processInfo.thermalState.rawValue) lowPower=\(ProcessInfo.processInfo.isLowPowerModeEnabled)")
         print(PerformanceProfiler.reportText())
         XCTAssertFalse(solutions.isEmpty)
         for solution in solutions {

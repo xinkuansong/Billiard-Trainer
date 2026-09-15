@@ -57,6 +57,8 @@ final class BreakFlowRunner: ObservableObject {
     static let breakVelocityRange: ClosedRange<Double> = ShotTuning.velocityRange.lowerBound...10.0
 
     let game: RackGame
+    /// Restored by the host after it restores the pre-break board.
+    let railsBeforeBreak: PocketRailSnapshot
     @Published private(set) var phase: Phase = .racked
     @Published private(set) var simulationFailure: EventDrivenEngine.Termination?
     @Published private(set) var statusText = "拖屏调方向 · 拖母球定开球点 · 点「开球」散局"
@@ -116,6 +118,7 @@ final class BreakFlowRunner: ObservableObject {
     /// - Parameter seed: 可选固定 seed（单测确定性）；nil = 随机初值（K6）。
     init(scene: AngleTrainingScene, game: RackGame, seed: UInt64? = nil) {
         self.scene = scene
+        self.railsBeforeBreak = scene.railInventory.snapshot()
         self.game = game
         self.seed = seed ?? UInt64.random(in: 1...UInt64.max)
         self.rack = RackLayout.make(game, seed: self.seed, surfaceY: scene.surfaceY)
@@ -127,6 +130,7 @@ final class BreakFlowRunner: ObservableObject {
     func rackUp() {
         simulationFailure = nil
         cancelPlayback()
+        scene.railInventory.clear()
         settledBoard = nil
         settledOutcome = nil
         rack = RackLayout.make(game, seed: seed, surfaceY: surfaceY)
@@ -339,7 +343,8 @@ final class BreakFlowRunner: ObservableObject {
     private func runBreakMotion(_ result: BreakResult) {
         statusText = "开球中…"
         let playback = TrajectoryPlayback(recorder: result.recorder,
-                                          surfaceY: surfaceY + AngleSceneCalculator.ballRadius)
+                                          surfaceY: surfaceY + AngleSceneCalculator.ballRadius,
+                                          railInventory: scene.railInventory)
         for key in allKeys {
             guard let node = scene.allBallNodes[key], !node.isHidden else { continue }
             if let action = playback.action(for: node, ballName: key, speed: 1.0, removeOnPocket: false) {
@@ -362,6 +367,7 @@ final class BreakFlowRunner: ObservableObject {
     /// 收尾：进袋球离场、存活球钉终点、刮杆补回开球区，然后把散开板交付宿主。
     private func finishBreak(_ result: BreakResult) {
         guard phase == .breaking else { return }
+        scene.railInventory.finishPlayback()
         for key in allKeys { scene.allBallNodes[key]?.removeAllActions() }
         for key in result.pocketed { scene.hideBall(key: key) }
 
@@ -458,6 +464,7 @@ final class BreakFlowRunner: ObservableObject {
         breakGeneration += 1
         breakFinishTask?.cancel()
         breakFinishTask = nil
+        scene.railInventory.cancelPlayback()
         for key in allKeys { scene.allBallNodes[key]?.removeAllActions() }
     }
 

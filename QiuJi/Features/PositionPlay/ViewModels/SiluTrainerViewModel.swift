@@ -85,7 +85,7 @@ final class SiluTrainerViewModel: ObservableObject {
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "在2D中摆球 · 点目标球选中（绿环）· 点袋口选袋，再选工具画约束"
+    @Published private(set) var statusText = "拖球摆位 · 在2D中选目标球、袋口及约束"
 
     // MARK: - Adjustment draft (K13 / X6 — semantic source for X5 bank/kick transplant)
     //
@@ -144,10 +144,12 @@ final class SiluTrainerViewModel: ObservableObject {
         var perspectiveView: CameraRig.PerspectiveState? = nil
         /// 击打前球体姿态（与 `snapshot.before` 配对）；退回 / 回放起点连同位置一起恢复。
         var ballPoses: BallPoseSnapshot = [:]
+        var rails = PocketRailSnapshot()
     }
     private var lastShotContext: UndoContext?
     /// 回放开始时抓的「击打后局面」姿态，回放收尾连同 `after` 位置一起写回。
     private var replayAfterPoses: BallPoseSnapshot = [:]
+    private var replayAfterRails = PocketRailSnapshot()
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -863,7 +865,7 @@ final class SiluTrainerViewModel: ObservableObject {
             selectedTargetKey: selectedTargetKey,
             selectedPocketIndex: selectedPocketIndex,
             perspectiveView: scene.capturePerspectiveView(),
-            ballPoses: scene.captureBallPoses())
+            ballPoses: scene.captureBallPoses(), rails: scene.railInventory.snapshot())
     }
 
     /// 把击打前完整快照原样恢复到场景与状态（不重解）。
@@ -879,6 +881,7 @@ final class SiluTrainerViewModel: ObservableObject {
         scene.clearResultNodes(nodes: &selectionNodes)
         scene.hideCueStick()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.railInventory.restore(ctx.rails)
         scene.restoreBallPoses(ctx.ballPoses)
         refreshOnTableKeys()
 
@@ -950,6 +953,7 @@ final class SiluTrainerViewModel: ObservableObject {
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         isPlaying = true
         clearTrajectory()
@@ -960,6 +964,7 @@ final class SiluTrainerViewModel: ObservableObject {
 
         scene.hideAllBalls()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.railInventory.restore(ctx.rails)
         scene.restoreBallPoses(ctx.ballPoses)   // 姿态回击打前，积分终态才与实打一致
         refreshOnTableKeys()
 
@@ -1025,6 +1030,7 @@ final class SiluTrainerViewModel: ObservableObject {
         scene.hideCueStick()
         let ctx = lastShotContext
         loadBoard(after)
+        scene.railInventory.restore(replayAfterRails)
         scene.restoreBallPoses(replayAfterPoses)
         replayAfterPoses = [:]
         lastShotContext = ctx   // loadBoard 不动上下文，但显式保底
@@ -1070,6 +1076,7 @@ final class SiluTrainerViewModel: ObservableObject {
     /// 回放结束：**不复原**——球停在回放终点（用户拍板，真实击球语义）。进袋球移除、母球 scratch
     /// 则隐藏；本杆的解与约束叠加随布局失效，回到「可继续摆球/画约束再求解」态。
     private func finishStrike(sol: PositionPlaySolution) {
+        scene.railInventory.finishPlayback()
         ShotAudioScheduler.shared.cancel()
         for key in onTableKeys {
             scene.allBallNodes[key]?.removeAllActions()
@@ -1128,6 +1135,7 @@ final class SiluTrainerViewModel: ObservableObject {
 
     func resetAll() {
         guard !isPlaying else { return }
+        scene.railInventory.clear()
         scene.hideAllBalls()
         clearConstraint()
         applyDefaultLayout()
@@ -1138,7 +1146,7 @@ final class SiluTrainerViewModel: ObservableObject {
 
     private func toolHint() -> String {
         switch activeTool {
-        case .none: return "在2D中摆球 · 点目标球选中（绿环）· 点袋口选袋，再选工具画约束"
+        case .none: return "拖球摆位 · 在2D中选目标球、袋口及约束"
         case .region: return "在2D球桌上拖出\(regionShape.rawValue)可行落区"
         case .restPoint: return "在2D中点按球桌标出母球期望停的落点（琥珀十字为目标，环为命中容差）"
         case .passPoint: return "在2D中点按球桌标出母球需经过的 K 球点"
@@ -1202,6 +1210,7 @@ final class SiluTrainerViewModel: ObservableObject {
             if let solution = currentSolution { presentDisplayedSolution(solution) }
             if let perspective { scene.restorePerspectiveView(perspective) }
         }
+        scene.railInventory.restore(runner.railsBeforeBreak)
     }
 
     private func teardownBreakFlow() {

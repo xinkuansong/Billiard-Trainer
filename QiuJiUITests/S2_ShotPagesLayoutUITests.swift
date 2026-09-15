@@ -7,6 +7,74 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
 
     var app: XCUIApplication!
 
+    func testV63BankCameraModes() {
+        checkBankKickCamera(title: "翻袋解球", prefix: "bankshot")
+    }
+
+    func testV63ReflectionCameraModes() {
+        checkBankKickCamera(title: "颗星解球", prefix: "reflection")
+    }
+
+    private func checkBankKickCamera(title: String, prefix: String) {
+        guard openCard(homeTab: "解", title: title) else { XCTFail(title); return }
+        let camera = app.buttons[prefix + ".cameraMode"]
+        let next = app.buttons["solver.nextSolution"]
+        XCTAssertTrue(camera.waitForExistence(timeout: 5))
+        XCTAssertEqual(camera.value as? String, "2D")
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: next)], timeout: 30) == .completed)
+        next.tap()
+        let status = app.staticTexts["navStatus.subtitle"].label
+        snap(prefix + "-2d-before")
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "3D")
+        XCTAssertEqual(app.staticTexts["navStatus.subtitle"].label, status)
+        snap(prefix + "-3d-overview")
+        let table = app.descendants(matching: .any)["table.scene"].firstMatch
+        table.coordinate(withNormalizedOffset: CGVector(dx: 0.45, dy: 0.45))
+            .press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.5)))
+        table.pinch(withScale: 1.2, velocity: 1)
+        snap(prefix + "-3d-orbit")
+        camera.tap()
+        XCTAssertEqual(app.staticTexts["navStatus.subtitle"].label, status)
+        snap(prefix + "-2d-returned")
+        camera.tap()
+        for focus in ["table", "cue", "target", "aim"] {
+            app.buttons[prefix + ".observation"].tap()
+            XCTAssertEqual(app.buttons[prefix + ".observe.pocket"].exists, prefix == "bankshot")
+            app.buttons[prefix + ".observe." + focus].tap()
+        }
+        snap(prefix + "-3d-aim")
+        inspectCompactSpinPanel(prefix + "-3d-spin", cardIdentifier: "solver.spinPad")
+        app.buttons["击打"].tap()
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "2D")
+        camera.tap()
+        let solveUndo = app.buttons["上一杆"]
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: solveUndo)], timeout: 40) == .completed)
+        solveUndo.tap()
+        XCTAssertEqual(app.staticTexts["navStatus.subtitle"].label, status)
+        app.buttons["solver.mode"].tap()
+        let strike = app.buttons["击球"]
+        XCTAssertTrue(strike.isEnabled)
+        strike.tap()
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "2D")
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "3D")
+        let undo = app.buttons["上一杆"]
+        XCTAssertTrue(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "enabled == true"), object: undo)], timeout: 40) == .completed)
+        XCTAssertFalse(app.staticTexts["navStatus.subtitle"].label.contains("拖动台面"))
+        snap(prefix + "-3d-settled")
+        undo.tap()
+        XCTAssertTrue(strike.isEnabled)
+        camera.tap()
+        XCTAssertEqual(camera.value as? String, "2D")
+        snap(prefix + "-2d-undo")
+    }
+
     override func setUpWithError() throws {
         continueAfterFailure = true
         app = XCUIApplication.launchClean(extraArgs: ["-forcePremium"])
@@ -19,8 +87,12 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
         att.lifetime = .keepAlways
         add(att)
         // Layout evidence belongs to this run's output, never a design baseline.
+        #if targetEnvironment(simulator)
         let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("output/3d-v63/W03/page-layout")
+        #else
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("v63-shot-pages")
+        #endif
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             try shot.pngRepresentation.write(to: dir.appendingPathComponent("\(name)-\(Int(app.windows.firstMatch.frame.width)).png"))
@@ -30,9 +102,9 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
 
     }
 
-    private func inspectCompactSpinPanel(_ name: String) {
+    private func inspectCompactSpinPanel(_ name: String, cardIdentifier: String = "spinPad.card") {
         app.buttons["shotStage.spinEntry"].tap()
-        let card = app.descendants(matching: .any).matching(identifier: "spinPad.card").firstMatch
+        let card = app.otherElements.matching(identifier: cardIdentifier).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 3))
         let window = app.windows.firstMatch.frame
         XCTAssertGreaterThanOrEqual(card.frame.minX, window.minX)
@@ -113,8 +185,12 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
             let shot = XCUIScreen.main.screenshot()
             let attachment = XCTAttachment(screenshot: shot)
             attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+            #if targetEnvironment(simulator)
             let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
                 .appendingPathComponent("output/shot-simulation-3d")
+            #else
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("v63-shot-pages")
+            #endif
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             try shot.pngRepresentation.write(to: root.appendingPathComponent("\(name)-\(Int(app.windows.firstMatch.frame.width)).png"))
         }
@@ -588,6 +664,13 @@ final class S2_ShotPagesLayoutUITests: XCTestCase {
             XCTAssertEqual(metrics.label, initial)
         }
         snap("v63-angle-dynamic-3d")
+        let table = app.descendants(matching: .any).matching(identifier: "table.scene").firstMatch
+        XCTAssertTrue(table.exists)
+        table.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.2))
+            .press(forDuration: 0.1, thenDragTo: table.coordinate(withNormalizedOffset: CGVector(dx: 0.7, dy: 0.2)))
+        snap("v63-angle-dynamic-orbit")
+        table.pinch(withScale: 1.2, velocity: 1)
+        snap("v63-angle-dynamic-zoom")
         camera.tap()
         XCTAssertEqual(camera.value as? String, "2D")
         XCTAssertEqual(metrics.label, initial)

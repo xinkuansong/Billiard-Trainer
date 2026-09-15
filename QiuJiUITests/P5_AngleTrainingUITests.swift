@@ -63,8 +63,8 @@ final class P5_AngleTrainingUITests: XCTestCase {
         XCTAssertTrue(app.buttons["自由走位"].waitForExistence(timeout: 3), "自由走位 card should exist in 打")
         // 解
         XCTAssertTrue(switchHomeTab("解"), "Should switch to 解 segment")
-        XCTAssertTrue(app.buttons["翻袋解球器"].waitForExistence(timeout: 3), "翻袋解球器 card should exist in 解")
-        XCTAssertTrue(app.buttons["反射解球器"].waitForExistence(timeout: 3), "反射解球器 card should exist in 解")
+        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 3), "翻袋解球 card should exist in 解")
+        XCTAssertTrue(app.buttons["颗星解球"].waitForExistence(timeout: 3), "颗星解球 card should exist in 解")
     }
 
     // MARK: - Search
@@ -92,8 +92,8 @@ final class P5_AngleTrainingUITests: XCTestCase {
         searchField.typeText("翻袋")
         usleep(600_000)
         snap("search-filtered")
-        XCTAssertTrue(app.buttons["翻袋解球器"].waitForExistence(timeout: 3),
-                      "Matching card 翻袋解球器 should remain visible")
+        XCTAssertTrue(app.buttons["翻袋解球"].waitForExistence(timeout: 3),
+                      "Matching card 翻袋解球 should remain visible")
         XCTAssertFalse(app.buttons["瞄准原理"].exists,
                        "Non-matching card 瞄准原理 should be filtered out")
 
@@ -362,8 +362,8 @@ final class AimCloseupHoldUITests: XCTestCase {
     func testDailyClearance() throws { try exercise(title: "每日清台", key: "daily") }
     func testAimPoint3D() throws { try exercise(title: "3D 瞄准点训练", key: "aimpoint3d") }
 
-    func testBankShot() throws { try exercise(title: "翻袋解球器", key: "bankBlank") }
-    func testDiamondSystem() throws { try exercise(title: "反射解球器", key: "diamondAimed") }
+    func testBankShot() throws { try exercise(title: "翻袋解球", key: "bankBlank") }
+    func testDiamondSystem() throws { try exercise(title: "颗星解球", key: "diamondAimed") }
     func testComposer() throws { try exercise(title: "自由走位", key: "composer") }
 
     private func exercise(title: String, key: String) throws {

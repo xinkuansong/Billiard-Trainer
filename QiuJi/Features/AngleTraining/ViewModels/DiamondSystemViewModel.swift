@@ -2,12 +2,19 @@ import Foundation
 import SwiftUI
 import SceneKit
 
-/// Drives the 反射解球器 page: a 2D top-down table where the cue and target balls can be
+/// Drives the 颗星解球 page: a 2D top-down table where the cue and target balls can be
 /// placed **anywhere**, and the app solves kick routes (cue ball off 1–3 cushions into the
 /// target) with the real physics engine (W3, `ShotPredictor.predictKickAll` 四层管线)：
 /// 解 = 引擎全保真 `ShotPrediction`，按「好打优先」（难度 + 扰动容错）排序，配 LRU 解缓存。
 @MainActor
 final class DiamondSystemViewModel: ObservableObject {
+
+    @Published var cameraMode: AngleTrainingScene.CameraMode = .topDown2DRotated
+    var observationPocket: Int? { nil }
+    var observationAim: SCNVector3? {
+        if mode == .free { return canFreeStrike ? freeAimDir : nil }
+        return canStrike ? currentSolution?.prediction.aimDirection : nil
+    }
 
     // MARK: - Published state
 
@@ -64,6 +71,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// `KickEngineSolution`（非 PositionPlay 的 `PositionPlaySolution`），与共享 `SolveShotSnapshot`
     /// 类型不兼容，故按方案「用 VM 层已有 solutions 即可」以本页原生类型承载（如实说明取舍）。
     struct SolveUndoContext {
+        var rails = PocketRailSnapshot()
         var board: [String: BallRestState]
         var cushions: Int?
         var solutions: [KickEngineSolution]
@@ -143,7 +151,7 @@ final class DiamondSystemViewModel: ObservableObject {
         // 未调用则 `ghostBallNode == nil`，TrajectoryRenderer 的 showGhost 静默空转。
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
-        scene.setCameraMode(.topDown2DRotated, animated: false)
+        scene.setCameraMode(cameraMode, animated: false)
         rebuildGuides()
         placeBalls()
         recompute()
@@ -285,6 +293,10 @@ final class DiamondSystemViewModel: ObservableObject {
     // MARK: - Strike demo（W5：快照 → 出杆 → 播 ShotPrediction → 自动复位，方案 §1.1）
 
     /// 击打前球形快照（复位真源）：cue/target 用固定键，障碍球用球键。
+    private var strikeRails = PocketRailSnapshot()
+    private var freeBeforeRails = PocketRailSnapshot()
+    private var lastShotRails = PocketRailSnapshot()
+    private var solveSnapshotRails = PocketRailSnapshot()
     private var strikeSnapshot: [String: BallRestState] = [:]
     private var playbackFinishTask: Task<Void, Never>?
     private static let snapshotCueKey = "__cue"
@@ -311,6 +323,7 @@ final class DiamondSystemViewModel: ObservableObject {
         isSolving = false
         isPlaying = true
 
+        strikeRails = scene.railInventory.snapshot()
         strikeSnapshot = captureBoard()
 
         // 出杆动画（运杆/出杆单一权威 `CueStroke`）：触球瞬间起播球体回放。
@@ -335,6 +348,7 @@ final class DiamondSystemViewModel: ObservableObject {
     func makeSolveUndo() -> SolveUndoContext? {
         guard hasSolution, let shown = currentSolution else { return nil }
         return SolveUndoContext(
+            rails: scene.railInventory.snapshot(),
             board: captureBoard(), cushions: selectedCushions,
             solutions: solutions, currentIndex: currentIndex,
             catalogPower: catalogSolvePower,
@@ -354,6 +368,7 @@ final class DiamondSystemViewModel: ObservableObject {
         reflectionPower = ctx.catalogPower
         isRestoringSolve = false
         applyBoard(ctx.board)
+        scene.railInventory.restore(ctx.rails)
         selectedCushions = ctx.cushions
         solutions = ctx.solutions
         adjustmentDraft = nil
@@ -424,7 +439,8 @@ final class DiamondSystemViewModel: ObservableObject {
         ShotAudioScheduler.shared.play(prediction: sol.prediction)
 
         let playback = TrajectoryPlayback(
-            recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius
+            recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius,
+            railInventory: scene.railInventory
         )
         // G15：播到引擎自然静止（不做 0.07 感知截断），球停止前无最后一跳/瞬移。
         let settle = playback.duration
@@ -460,6 +476,7 @@ final class DiamondSystemViewModel: ObservableObject {
         playbackFinishTask = nil
         scene.hideCueStick()
         applyBoard(strikeSnapshot)
+        scene.railInventory.restore(strikeRails)
         strikeSnapshot = [:]
         isPlaying = false
         canUndoSolve = lastSolveUndo != nil
@@ -492,6 +509,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     /// 按快照恢复球形：cue/target 归位重显，障碍球增删同步 `onTableObstacleKeys`。
     private func applyBoard(_ board: [String: BallRestState]) {
+        scene.railInventory.cancelPlayback()
         if let cue = scene.cueBallNode, let p = board[Self.snapshotCueKey] {
             restoreBall(cue, to: p)
         }
@@ -713,6 +731,7 @@ final class DiamondSystemViewModel: ObservableObject {
         simulationNotice=nil
         isPlaying = true
         let before = captureBoard()
+        freeBeforeRails = scene.railInventory.snapshot()
         scene.setIdealObjectLine(nil)
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
@@ -744,6 +763,7 @@ final class DiamondSystemViewModel: ObservableObject {
     func undoLastShot() {
         guard mode == .free, !isPlaying, let shot = lastShot else { return }
         applyBoard(shot.before)
+        scene.railInventory.restore(lastShotRails)
         canUndoShot = false
         refreshFreeAim()
         drawReferenceSolution()
@@ -758,6 +778,8 @@ final class DiamondSystemViewModel: ObservableObject {
         scene.clearResultNodes(nodes: &freeAimNodes)
         scene.clearResultNodes(nodes: &referenceNodes)
         applyBoard(shot.before)
+        scene.railInventory.restore(lastShotRails)
+        freeBeforeRails = lastShotRails
         launchFreePlayback(shot.prediction, before: shot.before)
     }
 
@@ -765,6 +787,7 @@ final class DiamondSystemViewModel: ObservableObject {
     func restoreSolveSnapshot() {
         guard mode == .free, !isPlaying, let snap = lastSolveSnapshot else { return }
         applyBoard(snap)
+        scene.railInventory.restore(solveSnapshotRails)
         canUndoShot = false
         refreshFreeAim()
         drawReferenceSolution()
@@ -790,7 +813,8 @@ final class DiamondSystemViewModel: ObservableObject {
         guard acceptFreePrediction(pred,before:before),let recorder=pred.recorder else { return }
         ShotAudioScheduler.shared.play(prediction: pred)
         let playback = TrajectoryPlayback(
-            recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius
+            recorder: recorder, surfaceY: scene.surfaceY + AngleSceneCalculator.ballRadius,
+            railInventory: scene.railInventory
         )
         let settle = playback.duration   // G15：播到引擎自然静止（不做感知截断）
 
@@ -822,6 +846,7 @@ final class DiamondSystemViewModel: ObservableObject {
     /// 自由击打收尾：终态取引擎 `finalPositions`（球停在哪是哪）；进袋球离场
     ///（母球/目标球进袋 = 试手事实，靠上一杆 / 恢复球形找回）。
     private func settleFreeShot(_ pred: ShotPrediction, before: [String: BallRestState]) {
+        scene.railInventory.finishPlayback()
         playbackFinishTask = nil
         scene.hideCueStick()
         let y = scene.surfaceY + AngleSceneCalculator.ballRadius
@@ -841,6 +866,7 @@ final class DiamondSystemViewModel: ObservableObject {
         }
         onTableObstacleKeys.removeAll { pred.pocketedBalls.contains($0) }
         lastShot = (before, pred)
+        lastShotRails = freeBeforeRails
         canUndoShot = true
         canPlaybackShot = true
         isPlaying = false
@@ -914,6 +940,7 @@ final class DiamondSystemViewModel: ObservableObject {
         catalogSolvePower = reflectionPower
         // 最近求解快照（方案 §4.1）：求解成功即存球位，供自由模式「恢复球形」。
         if !solutions.isEmpty {
+            solveSnapshotRails = scene.railInventory.snapshot()
             lastSolveSnapshot = captureBoard()
         }
 
@@ -1003,6 +1030,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     func reset() {
         guard !isPlaying else { return }
+        scene.railInventory.clear()
         // applyBallLayout 会隐藏全部非 cue/target 球 ⇒ 障碍球一并清场回库。
         placeBalls()
         onTableObstacleKeys = []
@@ -1062,7 +1090,10 @@ final class DiamondSystemViewModel: ObservableObject {
         if let simulationNotice { return simulationNotice }
         if mode == .free {
             if isPlaying { return "击球中…" }
-            guard let c = freeAimContact else { return "空杆 — 拖动台面或刻度轮瞄准" }
+            guard let c = freeAimContact else {
+                return cameraMode == .perspective3D
+                    ? "空杆 — 用刻度轮瞄准" : "空杆 — 拖动台面或刻度轮瞄准"
+            }
             let name = BankKickFreePill.ballName(c.targetKey)
             let deg = Int(c.cutAngleDeg.rounded())
             let thick = AngleSceneCalculator.thicknessName(cutAngle: c.cutAngleDeg)
@@ -1105,13 +1136,7 @@ final class DiamondSystemViewModel: ObservableObject {
 
     // MARK: - Drawing
 
-    /// 绘制引擎全保真解（K14）：走共享 `TrajectoryRenderer` / scene API——
-    /// 目标球被撞后本色虚线、母球白实/虚分段、假想球虚线环+红心；**保留** full 档吃库金点+法线。
-    ///
-    /// 三档轨迹标注（C28/D15，与 Composer/Silu 同口径；kick 无进袋 rim 延伸）：
-    /// `.minimal` = 瞄准实线段 + 假想球；
-    /// `.core`    = + 目标球虚线 + 母球碰后虚线；
-    /// `.full`    = + 碰库金点/库面法线（反射特有释义层）。
+    /// Draw the solved route with the shared trajectory style and detail levels.
     private func drawSolution(_ sol: KickEngineSolution) {
         clearPath()
         guard let cue = scene.cueBallNode, !cue.isHidden else {
@@ -1124,8 +1149,6 @@ final class DiamondSystemViewModel: ObservableObject {
             return
         }
 
-        let detail = UserPreferences.shared.trajectoryDetail
-        let route = BankKickSolvePipeline.pathToFirstContact(pred)
 
         TrajectoryRenderer.draw(
             prediction: pred,
@@ -1140,22 +1163,6 @@ final class DiamondSystemViewModel: ObservableObject {
             scene: scene,
             into: &pathNodes
         )
-
-        if detail == .full {
-            // 反射特有：碰库金点 + 库面法线（用户要求保留）。
-            for touch in BankKickSolvePipeline.cushionTouchPoints(route) {
-                let dot = scene.addBall(at: touch.point, color: TrajectoryStyle.traceColor, radius: 0.011)
-                pathNodes.append(dot)
-                let len = AngleSceneCalculator.ballRadius * 2.2
-                let normalEnd = SCNVector3(touch.point.x + touch.inwardNormal.x * len,
-                                           touch.point.y,
-                                           touch.point.z + touch.inwardNormal.z * len)
-                let nLine = scene.addLine(from: touch.point, to: normalEnd,
-                                          color: TrajectoryStyle.hintColor,
-                                          radius: TrajectoryStyle.lineHint)
-                pathNodes.append(nLine)
-            }
-        }
 
         // C2：求解画线同刻摆杆（与 `refreshFreeAim` 对齐）；aim + spinX 与出杆一致。
         let aim = pred.aimDirection

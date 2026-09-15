@@ -236,6 +236,9 @@ final class PositionPlayViewModel: ObservableObject {
     /// 空快照不改动默认球形（保持开箱可用）。
     func loadBoard(_ snapshot: BoardSnapshot) {
         guard !isPlaying, !snapshot.onTable.isEmpty else { return }
+        scene.railInventory.clear()
+        recordedRailsBefore.removeAll()
+        lastShotBeforeRails = PocketRailSnapshot()
         sequence = PositionPlaySequence(name: sequence.name)
         lastShot = nil
         lastShotBeforePoses = nil
@@ -264,6 +267,8 @@ final class PositionPlayViewModel: ObservableObject {
         canPlayback = false
         lastPlaybackContext = nil
 
+        scene.railInventory.clear()
+        recordedRailsBefore.removeAll()
         var rebuilt = PositionPlaySequence(
             id: archived.id, name: archived.name,
             initial: archived.initial, steps: [],
@@ -281,6 +286,18 @@ final class PositionPlayViewModel: ObservableObject {
                 landing = before
                 brokenShot = step.shot
                 break
+            }
+            placeSequenceBoard(before)
+            let beforeRails = scene.railInventory.snapshot()
+            if let recorder = pred.recorder, let railShot = scene.railInventory.beginShot(recorder: recorder) {
+                for key in before.onTable.keys {
+                    let alias = PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)
+                    guard railShot.timeline.incoming[alias] != nil, let node = scene.allBallNodes[key] else { continue }
+                    scene.railInventory.bind(node, alias: alias, to: railShot)
+                    scene.railInventory.beginTail(alias: alias, source: node, shot: railShot)
+                    node.isHidden = true
+                }
+                scene.railInventory.render(railShot, at: railShot.timeline.duration, complete: true)
             }
             let potted = Set(pred.pocketedBalls.map { boardKey(forPredName: $0, shot: step.shot) })
             var afterDict: [String: CanvasPoint] = [:]
@@ -300,6 +317,7 @@ final class PositionPlayViewModel: ObservableObject {
                 cuePocketed: pred.cuePocketed, objectPocketed: pred.objectPocketed,
                 note: step.note
             ))
+            if let rebuiltStep = rebuilt.steps.last { recordedRailsBefore[rebuiltStep.id] = beforeRails }
             landing = after
         }
 
@@ -308,6 +326,7 @@ final class PositionPlayViewModel: ObservableObject {
         // 末杆可「重打」：删掉重放出的最后一杆并退回其击打前，供作者重编（与真实击球后一致）。
         if let last = rebuilt.steps.last {
             lastShot = (last.before, last.shot)
+            lastShotBeforeRails = recordedRailsBefore[last.id] ?? PocketRailSnapshot()
             lastShotBeforePoses = nil   // 存档重放，无实拍姿态可考
             lastShotWasRecorded = true
             canReplay = true
@@ -1172,6 +1191,7 @@ final class PositionPlayViewModel: ObservableObject {
               let aim = lastAimDirection ?? aimDirection(path: solved.prediction.cuePath, from: cueNode.position)
         else { return }
 
+        lastShotBeforeRails = scene.railInventory.snapshot()
         lastShot = (solved.before, solved.shot)
         let beforePoses = scene.captureBallPoses()
         lastShotBeforePoses = beforePoses
@@ -1246,6 +1266,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 击球动画结束（ADR-P11-04）：桌面**前进为新真相**——进袋球离场回库、母球停在走位终点；
     /// 录制中则自动把这一杆记入序列；随后自动选中下一杆（距母球最近目标球 + 最近可进袋袋口）。
     private func finishStrike() {
+        scene.railInventory.finishPlayback()
         scene.invalidatePerspectiveView()
         ShotAudioScheduler.shared.cancel()
         guard let solved = solvedShot else {
@@ -1387,6 +1408,7 @@ final class PositionPlayViewModel: ObservableObject {
             cuePocketed: pred.cuePocketed, objectPocketed: pred.objectPocketed
         )
         sequence.steps.append(step)
+        recordedRailsBefore[step.id] = lastShotBeforeRails
         sequence.updatedAt = Date()
     }
 
@@ -1411,6 +1433,8 @@ final class PositionPlayViewModel: ObservableObject {
             canReplay = !sequence.steps.isEmpty
             restoreShotParams(last.shot)
             applyBoard(last.before)
+            scene.railInventory.restore(recordedRailsBefore.removeValue(forKey: last.id) ?? lastShotBeforeRails)
+            lastShotBeforeRails = sequence.steps.last.flatMap { recordedRailsBefore[$0.id] } ?? PocketRailSnapshot()
             if let beforePoses { scene.restoreBallPoses(beforePoses) }
             updatePocketHighlights()
             return
@@ -1428,6 +1452,7 @@ final class PositionPlayViewModel: ObservableObject {
         lastPlaybackContext = nil
         restoreShotParams(last.shot)
         applyBoard(last.before)
+        scene.railInventory.restore(lastShotBeforeRails)
         if let beforePoses { scene.restoreBallPoses(beforePoses) }
         // Undo restores the shot's board and its view together. Re-solving the
         // next shot must not leave the restored cue outside the old camera.
@@ -1444,6 +1469,9 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 上一杆完整回放上下文。与「重打」不同：回放**不改变**桌面真相——退回击打前重播动画，
     /// 播完回到当前局面（after），参数/选中态/序列都不动。
+    private var lastShotBeforeRails = PocketRailSnapshot()
+    private var replayReturnRails = PocketRailSnapshot()
+    private var recordedRailsBefore: [UUID: PocketRailSnapshot] = [:]
     private var lastPlaybackContext: (before: BoardSnapshot, beforePoses: BallPoseSnapshot, shot: PlannedShot, prediction: ShotPrediction, perspectiveView: CameraRig.PerspectiveState?)?
     @Published private(set) var canPlayback = false
 
@@ -1453,6 +1481,7 @@ final class PositionPlayViewModel: ObservableObject {
               let ctx = lastPlaybackContext,
               let recorder = ctx.prediction.recorder, ctx.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayReturnRails = scene.railInventory.snapshot()
         // 回放不改变桌面真相：当前局面的姿态也要原样带回（球停稳后贴纸不得再动）。
         let afterPoses = scene.captureBallPoses()
         isPlaying = true
@@ -1466,6 +1495,7 @@ final class PositionPlayViewModel: ObservableObject {
         scene.hideAllBalls()
         for (key, pt) in ctx.before.onTable { place(key: key, normalized: pt) }
         scene.restoreBallPoses(ctx.beforePoses)
+        scene.railInventory.restore(lastShotBeforeRails)
         refreshOnTableKeys()
 
         guard let cueNode = scene.allBallNodes[PositionPlayBall.cueKey], !cueNode.isHidden,
@@ -1547,6 +1577,7 @@ final class PositionPlayViewModel: ObservableObject {
         scene.hideCueStick()
         applyBoard(after, cuePose: .unchanged)
         scene.restoreBallPoses(afterPoses)
+        scene.railInventory.restore(replayReturnRails)
         updatePocketHighlights()
     }
 
@@ -1558,6 +1589,7 @@ final class PositionPlayViewModel: ObservableObject {
         restoreShotParams(last.shot)
         applyBoard(last.before)
         if let poses = lastShotBeforePoses { scene.restoreBallPoses(poses) }
+        scene.railInventory.restore(lastShotBeforeRails)
         updatePocketHighlights()
     }
 
@@ -1584,6 +1616,9 @@ final class PositionPlayViewModel: ObservableObject {
     /// 重置整条序列与桌面（回到默认球形）。录制中则丢弃录制。
     func resetAll() {
         guard !isPlaying else { return }
+        scene.railInventory.clear()
+        lastShotBeforeRails = PocketRailSnapshot()
+        recordedRailsBefore.removeAll()
         scene.invalidatePerspectiveView()
         isRecording = false
         lastShot = nil
@@ -1683,12 +1718,14 @@ final class PositionPlayViewModel: ObservableObject {
     /// 已播完并落定的杆序；-1 = 本轮尚未播过任何一杆。
     private var completedStepIndex = -1
     /// 逐杆解缓存（懒填）：同一杆重播/回退时不再重复求解。
+    private var sequenceRailsBefore: [Int: PocketRailSnapshot] = [:]
     private var sequencePredictionCache: [Int: ShotPrediction] = [:]
     /// 批量出片台「播放序列」：播完后恢复的编辑盘面与击打参数（非 nil = 预览中）。
     private var recordedSequencePreviewRestore: RecordedSequencePreviewRestore?
 
     /// 录制序列预览收尾态（盘面 + 击打参数；不改 `sequence.steps`）。
     private struct RecordedSequencePreviewRestore {
+        let rails: PocketRailSnapshot
         let board: BoardSnapshot
         let aimMode: AimMode
         let velocity: Double
@@ -1707,6 +1744,7 @@ final class PositionPlayViewModel: ObservableObject {
         guard !isPlaying, !isSequencePlaying, !isSequenceMode,
               !sequence.steps.isEmpty else { return }
         recordedSequencePreviewRestore = RecordedSequencePreviewRestore(
+            rails: scene.railInventory.snapshot(),
             board: currentSnapshot(),
             aimMode: aimMode,
             velocity: velocity,
@@ -1732,6 +1770,7 @@ final class PositionPlayViewModel: ObservableObject {
     func configureSequence(_ steps: [SequenceStep]) {
         sequenceSteps = steps
         sequencePredictionCache = [:]
+        sequenceRailsBefore = [0: PocketRailSnapshot()]
     }
 
     /// 取第 i 杆的可行解（命中缓存即返回；未命中同步求解并回填）。
@@ -1770,6 +1809,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 硬停：掐掉飞行中的球动作与音频，清空全部播放请求位。
     /// 切模式 / 退出页面等「不再演示」的路径走这里；「暂停」**不**走这里。
     private func hardStopSequence() {
+        scene.railInventory.cancelPlayback()
         ShotAudioScheduler.shared.cancel()
         for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
         isPlaying = false
@@ -1797,6 +1837,7 @@ final class PositionPlayViewModel: ObservableObject {
         sequenceStepIndex = i
         let step = sequenceSteps[i]
         placeSequenceBoard(step.before)
+        if let rails = sequenceRailsBefore[i] { scene.railInventory.restore(rails) }
         // 恢复该杆参数供假想球/瞄准线绘制（didSet 的 recompute 已被 isSequenceMode 拦截）。
         restoreShotParams(step.shot)
         if let pred = prediction(forStep: i) {
@@ -1884,6 +1925,7 @@ final class PositionPlayViewModel: ObservableObject {
         let step = sequenceSteps[i]
         // 摆回该杆击打前。
         placeSequenceBoard(step.before)
+        if let rails = sequenceRailsBefore[i] { scene.railInventory.restore(rails) }
         restoreShotParams(step.shot)
 
         guard let pred = prediction(forStep: i),
@@ -1973,6 +2015,7 @@ final class PositionPlayViewModel: ObservableObject {
 
     /// 一杆演示收尾：把球体落到静止位（有预测用引擎终位，否则用录制 after），清动画。
     private func applySequenceRest(step: SequenceStep, prediction: ShotPrediction?) {
+        scene.railInventory.finishPlayback()
         ShotAudioScheduler.shared.cancel()
         let yLevel = surfaceY + AngleSceneCalculator.ballRadius
         if let pred = prediction {
@@ -2018,6 +2061,7 @@ final class PositionPlayViewModel: ObservableObject {
     /// 杆间边界：本杆已落定。暂停请求只在这里兑现，保证「停在当前杆结束时的球位」。
     private func scheduleNextSequenceStep(after i: Int) {
         guard sequencePlayState == .playing else { return }
+        sequenceRailsBefore[i + 1] = scene.railInventory.snapshot()
         completedStepIndex = i
         if pauseRequested {
             pauseRequested = false
@@ -2053,6 +2097,7 @@ final class PositionPlayViewModel: ObservableObject {
             clearTrajectory()
             restoreEditingState(restore)
             applyBoard(restore.board, cuePose: .unchanged)
+            scene.railInventory.restore(restore.rails)
             updatePocketHighlights()
             statusText = "序列预览完成 · \(shotCount) 杆"
             return
@@ -2131,8 +2176,10 @@ final class PositionPlayViewModel: ObservableObject {
             .sink { [weak self] _ in self?.objectWillChange.send() }
         runner.onSettled = { [weak self] board in
             guard let self else { return }
+            let rails = self.scene.railInventory.snapshot()
             self.teardownBreakFlow()
             self.loadBoard(board)
+            self.scene.railInventory.restore(rails)
             self.statusText = "开球散局已落座 · 可直接编排击打"
         }
         runner.onOutcomeSettled = onOutcome
@@ -2151,6 +2198,7 @@ final class PositionPlayViewModel: ObservableObject {
         } else {
             clearTable()
         }
+        scene.railInventory.restore(runner.railsBeforeBreak)
     }
 
     private func teardownBreakFlow() {

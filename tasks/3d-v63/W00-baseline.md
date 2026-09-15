@@ -28,6 +28,7 @@
 | 角度与瞄准 | AngleDynamicViewModel selectedTargetKey / selectedPocketIndex / updateCalculations | 几何读数与拖球即时更新；观察不回写位置 |
 | 分离角图谱 | SeparationAngleAtlasViewModel enabledTracks、lastPaths、后台 8 路 simulateFree | 至少一条轨迹；轨迹选择只挡画线，不改变求解；保留球号规则 |
 | 加塞吃库图谱 | CushionEnglishAtlasView / ViewModel，velocity / spinY 变更与相机 binding | 多路显示与输入绑定分别保持；后续 W14 核验全部路线标签 |
+| 翻袋/反射解球器（2026-09-15 补审） | BankShotViewModel / DiamondSystemViewModel → SolverStageChrome | cameraMode 与解/自由模式分离；相机操作不改球形、选中解、库数、袋口或打点；3D 观察隔离摆球 |
 | 每日清台 | FreePlayView isDailyClearance → DailyClearanceController start / handleShotSettled / finishCompletion | draft/completion 为业务记录；前后台 flush/resume，切镜头不重复写杆数/犯规 |
 
 共享链路：页面输入→现有 VM/求解器→预测/轨迹记录→AngleTrainingScene/TrajectoryPlayback；序列导出走 SequenceVideoExporter。W01 先约束观看状态，W04–W08 再替换运动记录与进袋链路，不让每页独立增加进袋动画。

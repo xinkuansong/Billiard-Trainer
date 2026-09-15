@@ -14,11 +14,11 @@ final class TableProjector {
 
 /// UIViewRepresentable wrapper for SceneKit angle training.
 /// Manages gesture recognition and CADisplayLink render loop.
-/// Supports ball dragging (for AngleDynamicView) and pocket tapping.
+/// Shares ball dragging, camera gestures and pocket tapping across table editors.
 struct AngleSceneView: UIViewRepresentable {
     @ObservedObject private var roomPreferences = UserPreferences.shared
     /// Camera/touch interaction policy.
-    /// - `cameraControl`: full pan/pinch on camera (used by 3D观察).
+    /// - `cameraControl`: drag eligible balls; pan empty space/pinch to control the camera.
     /// - `tapsOnly`: only taps & ball drag are recognised; camera is locked.
     /// - `none`: all gestures disabled (locked-in quiz answer state).
     enum InteractionMode {
@@ -200,6 +200,7 @@ struct AngleSceneView: UIViewRepresentable {
     }
 
     static func dismantleUIView(_ uiView: SCNView, coordinator: Coordinator) {
+        coordinator.endBallDrag()
         coordinator.endAimDrag()
         coordinator.stopRenderLoop()
         uiView.isPlaying = false
@@ -228,6 +229,7 @@ struct AngleSceneView: UIViewRepresentable {
         private var interactiveUntil: CFTimeInterval = 0
         let frameDelegate = FrameDelegate()
         private var fpsHost: UIHostingController<FPSReadout>?
+        private let diagramLabels = DiagramLabelOverlay()
         private var fpsText = "— FPS"
         private var fpsSampleTime = CACurrentMediaTime()
 
@@ -327,6 +329,7 @@ struct AngleSceneView: UIViewRepresentable {
         var onAimDragActiveChanged: ((Bool) -> Void)?
         var onAimDragEnded: (() -> Void)?
         private var draggedNode: SCNNode?
+        private weak var selectedDragBall: SCNNode?
         /// 本次 pan 是否在调整瞄准（起手未命中球时进入；球命中优先移球）。
         private var isAimFollowing = false
         /// 瞄准调整的旋转轴心 = 母球屏幕投影（.began 捕获一次，2D 页相机不动故恒定）。
@@ -407,6 +410,12 @@ struct AngleSceneView: UIViewRepresentable {
         }
 
         @objc private func renderUpdate(_ link: CADisplayLink) {
+            defer {
+                if let scnView { diagramLabels.update(scene: scene, in: scnView) }
+                #if DEBUG
+                if dragProbeEnabled { updatePocketAccessibility() }
+                #endif
+            }
             if let scnView { scene.cameraRig?.viewportSize = scnView.bounds.size }
             updateFramePacing()
             let dt: Float
@@ -434,7 +443,7 @@ struct AngleSceneView: UIViewRepresentable {
                 return
             }
 
-            guard !scene.isCameraModeTransitioning else { return }
+            guard !scene.isCameraModeTransitioning, draggedNode == nil else { return }
 
             switch cameraMode {
             case .topDown2D:
@@ -470,37 +479,52 @@ struct AngleSceneView: UIViewRepresentable {
 
         // MARK: - Hit Testing for Balls
 
-        private func hitTestBall(at location: CGPoint) -> SCNNode? {
-            guard let scnView, !draggableBallNodes.isEmpty else { return nil }
+        func hitTestBall(at location: CGPoint) -> SCNNode? {
+            guard let scnView else { return nil }
+            let candidates = draggableBallNodes.filter { !$0.isHidden && $0.parent != nil }
+            guard !candidates.isEmpty else { return nil }
 
-            let hitResults = scnView.hitTest(location, options: [
-                .searchMode: SCNHitTestSearchMode.closest.rawValue,
-                .boundingBoxOnly: true
-            ])
-
-            for hit in hitResults {
-                if draggableBallNodes.contains(hit.node) {
-                    return hit.node
+            func ballAncestor(of node: SCNNode) -> SCNNode? {
+                var current: SCNNode? = node
+                while let node = current {
+                    if candidates.contains(node) { return node }
+                    current = node.parent
                 }
-                if let parent = hit.node.parent, draggableBallNodes.contains(parent) {
-                    return parent
-                }
+                return nil
+            }
+            // Use the visible surface, including nested USDZ ball meshes.
+            if let hit = scnView.hitTest(location, options: [
+                .searchMode: SCNHitTestSearchMode.closest.rawValue
+            ]).first, let ball = ballAncestor(of: hit.node) {
+                return ball
             }
 
-            // 回退命中半径放宽到 48pt（> 袋口 tap 的 44pt），避免贴袋目标球落入
-            // 「30–44pt 环形死区」被当成选袋口而抓不到球；投影用视觉球心而非节点原点，
-            // 抵消 USDZ pivot 偏移导致的抓取偏差。
+            // Preserve the existing finger allowance, but choose the nearest
+            // visible centre instead of depending on the caller's array order.
             let hitRadius: CGFloat = 48
-            for ball in draggableBallNodes {
+            var nearest: SCNNode?
+            var nearestDistance = hitRadius
+            let ordered = candidates.sorted { $0 === selectedDragBall && $1 !== selectedDragBall }
+            for ball in ordered {
                 let projected = scnView.projectPoint(scene.visualCenter(of: ball))
-                let screenPos = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
-                let dist = hypot(location.x - screenPos.x, location.y - screenPos.y)
-                if dist < hitRadius {
-                    return ball
+                guard projected.z >= 0, projected.z <= 1 else { continue }
+                let point = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+                guard scnView.bounds.contains(point) else { continue }
+                let distance = hypot(location.x - point.x, location.y - point.y)
+                guard distance < nearestDistance else { continue }
+                // A triangle ray may miss a mesh seam even at the projected
+                // centre. Reject an actual foreground hit, not an empty result.
+                if cameraMode == .perspective3D,
+                   let front = scnView.hitTest(point, options: [
+                       .searchMode: SCNHitTestSearchMode.closest.rawValue
+                   ]).first, ballAncestor(of: front.node) !== ball {
+                    continue
                 }
+                if ball === selectedDragBall { return ball }
+                nearest = ball
+                nearestDistance = distance
             }
-
-            return nil
+            return nearest
         }
 
         /// 母球视觉中心的屏幕投影（G13 瞄准调整的旋转轴心）。母球缺失/隐藏时返回 nil。
@@ -534,10 +558,28 @@ struct AngleSceneView: UIViewRepresentable {
             onAimDragEnded?()
         }
 
+        func endBallDrag(at location: CGPoint? = nil) {
+            guard let ball = draggedNode else { return }
+            draggedNode = nil
+            dragGrabOffset = .zero
+            dragStartLocation = .zero
+            dragBrokeDeadZone = false
+            dragLockedOffset = .zero
+            onDragEnded?(ball)
+            if let location { onDragEndedAt?(ball, location) }
+        }
+
         @objc func handlePan(_ gesture: UIPanGestureRecognizer) {
+            #if DEBUG
+            if dragProbeEnabled { dragProbePanCount += 1 }
+            #endif
             requestInteractiveFrames()
             if [.ended, .cancelled, .failed].contains(gesture.state), isAimFollowing {
                 endAimDrag()
+                return
+            }
+            if [.ended, .cancelled, .failed].contains(gesture.state), draggedNode != nil {
+                endBallDrag(at: gesture.state == .ended ? gesture.location(in: scnView) : nil)
                 return
             }
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
@@ -547,8 +589,14 @@ struct AngleSceneView: UIViewRepresentable {
                 panDominantAxis = nil
                 panCumX = 0
                 panCumY = 0
-                let location = gesture.location(in: scnView)
+                let current = gesture.location(in: scnView)
+                let translation = gesture.translation(in: scnView)
+                let location = CGPoint(x: current.x - translation.x, y: current.y - translation.y)
                 if let ball = hitTestBall(at: location) {
+                    #if DEBUG
+                    if dragProbeEnabled { dragProbeGrabCount += 1 }
+                    #endif
+                    selectedDragBall = ball
                     draggedNode = ball
                     dragStartLocation = location
                     dragBrokeDeadZone = false
@@ -560,6 +608,7 @@ struct AngleSceneView: UIViewRepresentable {
                     return
                 }
                 draggedNode = nil
+                selectedDragBall = nil
                 // 瞄准调整（G13）：起手未命中球即进入。**第一落点只选中瞄准线、不改变方向**，
                 // 故此处不回调；轴心 = 母球屏幕投影，记下起手点，后续 .changed 逐帧求相对角位移。
                 if onAimNudged != nil {
@@ -584,6 +633,9 @@ struct AngleSceneView: UIViewRepresentable {
                     let sample = dragSamplePoint(for: gesture.location(in: scnView))
                     let planeY = scene.surfaceY + AngleSceneCalculator.ballRadius
                     guard let worldPos = unprojectToTablePlane(screenPoint: sample, in: scnView, planeY: planeY) else { return }
+                    #if DEBUG
+                    if dragProbeEnabled { dragProbeMoveCount += 1 }
+                    #endif
                     onDragMoved?(ball, worldPos)
                     return
                 }
@@ -592,19 +644,7 @@ struct AngleSceneView: UIViewRepresentable {
                 panDominantAxis = nil
                 panCumX = 0
                 panCumY = 0
-                if let ball = draggedNode {
-                    // External drop targets follow the released finger. The
-                    // table-placement offset must not shrink the palette target.
-                    let endLocation = gesture.location(in: scnView)
-                    onDragEnded?(ball)
-                    onDragEndedAt?(ball, endLocation)
-                    draggedNode = nil
-                    dragGrabOffset = .zero
-                    dragStartLocation = .zero
-                    dragBrokeDeadZone = false
-                    dragLockedOffset = .zero
-                    return
-                }
+
 
             default:
                 break
@@ -687,6 +727,7 @@ struct AngleSceneView: UIViewRepresentable {
 
         func handleTap(at location: CGPoint) {
             guard gesturesEnabled, interactionMode != .none, let scnView else { return }
+            selectedDragBall = hitTestBall(at: location)
 
             // Position-Play: tap a ball to select it as the target (takes priority over pockets,
             // since balls sit on the interior while pockets sit at the rails).
@@ -753,6 +794,32 @@ struct AngleSceneView: UIViewRepresentable {
             }
         }
 
+        #if DEBUG
+        private var dragProbePanCount = 0
+        private var dragProbeGrabCount = 0
+        private var dragProbeMoveCount = 0
+        private let dragProbeEnabled = ProcessInfo.processInfo.arguments.contains("-3dDrag.probe")
+        private func dragProbeValue(in view: SCNView) -> String {
+            let balls: [[String: Any]] = scene.allBallNodes.sorted { $0.key < $1.key }.compactMap { key, node in
+                guard !node.isHidden else { return nil }
+                let p = view.projectPoint(scene.visualCenter(of: node))
+                return ["key": key, "screen": [p.x, p.y, p.z],
+                        "world": [node.position.x, node.position.y, node.position.z],
+                        "draggable": draggableBallNodes.contains(node)]
+            }
+            let transform = view.pointOfView?.worldTransform ?? SCNMatrix4Identity
+            let data: [String: Any] = ["panCount": dragProbePanCount, "grabCount": dragProbeGrabCount, "moveCount": dragProbeMoveCount, "balls": balls, "camera": [transform.m11, transform.m12, transform.m13,
+                transform.m21, transform.m22, transform.m23, transform.m31, transform.m32, transform.m33,
+                transform.m41, transform.m42, transform.m43]]
+            do {
+                return String(decoding: try JSONSerialization.data(withJSONObject: data), as: UTF8.self)
+            } catch {
+                assertionFailure("Ball drag probe could not encode scene: \(error)")
+                return "Ball drag probe encoding failed"
+            }
+        }
+        #endif
+
         func updatePocketAccessibility() {
             guard let scnView else { return }
             scnView.isAccessibilityElement = true
@@ -763,6 +830,9 @@ struct AngleSceneView: UIViewRepresentable {
                 + "，球桌风格：" + scene.installedTableStyle.displayName
                 + "，颗星参考点：" + (scene.showsTableSights ? "显示" : "隐藏")
                 + (cameraMode == .perspective3D ? "，渲染帧率 " + fpsText : "")
+            #if DEBUG
+            if dragProbeEnabled { scnView.accessibilityValue = dragProbeValue(in: scnView) }
+            #endif
             scnView.accessibilityCustomActions = onPocketTapped == nil || interactionMode == .none ? [] : (0..<6).map { index in
                 UIAccessibilityCustomAction(name: "选择\(index + 1)号\(index < 4 ? "角袋" : "中袋")") { [weak self] _ in
                     guard let self, self.gesturesEnabled, self.interactionMode != .none,
@@ -851,5 +921,284 @@ final class FrameDelegate: NSObject, SCNSceneRendererDelegate {
         #if DEBUG
         contact?.renderer(renderer, didRenderScene: scene, atTime: time)
         #endif
+    }
+}
+
+/// Screen-space labels keep world anchors, but reserve their complete readable footprint.
+/// Only the interactive angle diagram opts in. This overlay never intercepts table gestures.
+@MainActor
+final class DiagramLabelOverlay {
+    private var labels: [UILabel] = []
+    private let angleMark = CAShapeLayer()
+    private var choices: [Int: Int] = [:]
+    private var geometryKey: [Float] = []
+    private var previousAngleOffset: CGPoint?
+
+    func update(scene: AngleTrainingScene, in view: SCNView) {
+        guard scene.usesAdaptiveDiagramLabels, let g = scene.diagramLabelGeometry,
+              view.bounds.width > 0, view.bounds.height > 0 else {
+            labels.forEach { $0.isHidden = true }
+            angleMark.isHidden = true
+            geometryKey = []
+            previousAngleOffset = nil
+            return
+        }
+        scene.angleArcNode?.childNodes.filter { $0.name == "diagramTableArc" }.forEach {
+            $0.isHidden = scene.currentCameraMode != .perspective3D
+        }
+        // Camera projection and ball positions are the complete layout input. Avoid per-frame
+        // text measurement/candidate searches while the table and camera are stationary.
+        let matrix = scene.cameraNode?.presentation.worldTransform ?? SCNMatrix4Identity
+        let visible = scene.allBallNodes.values.filter { !$0.isHidden }
+        let key: [Float] = [matrix.m11, matrix.m12, matrix.m13, matrix.m21, matrix.m22, matrix.m23,
+            matrix.m31, matrix.m32, matrix.m33, matrix.m41, matrix.m42, matrix.m43,
+            Float(view.bounds.width), Float(view.bounds.height),
+            Float(scene.cameraNode?.camera?.orthographicScale ?? 0),
+            g.cue.x, g.cue.z, g.target.x, g.target.z, g.pocket.x, g.pocket.z,
+            Float(scene.currentTargetNumber ?? 0), Float(scene.cameraNode?.camera?.fieldOfView ?? 0)]
+            + visible.sorted { ($0.name ?? "") < ($1.name ?? "") }.flatMap { [$0.position.x, $0.position.z] }
+        guard key != geometryKey else { return }
+        geometryKey = key
+        angleMark.isHidden = true
+        if labels.isEmpty {
+            angleMark.name = "angleDiagram.arc"
+            angleMark.fillColor = UIColor.clear.cgColor
+            angleMark.strokeColor = TrajectoryStyle.contactColor.cgColor
+            angleMark.lineWidth = 1.5
+            angleMark.lineCap = .round
+            view.layer.addSublayer(angleMark)
+            for index in 0..<3 {
+                let label = UILabel()
+                label.font = .systemFont(ofSize: index == 0 ? 11 : 10, weight: .regular)
+                label.textAlignment = .center
+                label.isUserInteractionEnabled = false
+                label.isAccessibilityElement = false
+                label.accessibilityIdentifier = "angleDiagram.label.\(index)"
+                label.layer.shadowColor = UIColor.black.cgColor
+                label.layer.shadowOpacity = index == 0 ? 0 : 0.5
+                label.layer.shadowRadius = 1
+                label.layer.shadowOffset = CGSize(width: 0, height: 1)
+                view.addSubview(label)
+                labels.append(label)
+            }
+        }
+        func projected(_ p: SCNVector3) -> CGPoint? {
+            let s = view.projectPoint(p)
+            guard s.x.isFinite, s.y.isFinite, s.z > 0, s.z < 1 else { return nil }
+            return CGPoint(x: CGFloat(s.x), y: CGFloat(s.y))
+        }
+        guard let cue = projected(g.cue), let target = projected(g.target),
+              let ghost = projected(g.ghost), let pocket = projected(g.pocket),
+              let rail = projected(g.rail) else {
+            labels.forEach { $0.isHidden = true }; return
+        }
+        let halfL = AngleSceneCalculator.innerLength / 2
+        let halfW = AngleSceneCalculator.innerWidth / 2
+        let table = [SCNVector3(-halfL, g.cue.y, -halfW), SCNVector3(halfL, g.cue.y, -halfW),
+                     SCNVector3(halfL, g.cue.y, halfW), SCNVector3(-halfL, g.cue.y, halfW)].compactMap(projected)
+        guard table.count == 4 else { labels.forEach { $0.isHidden = true }; return }
+        let polygon = UIBezierPath()
+        polygon.move(to: table[0]); table.dropFirst().forEach { polygon.addLine(to: $0) }; polygon.close()
+        let radius = AngleSceneCalculator.ballRadius
+        func diskRect(_ p: SCNVector3, radius: Float, padding: CGFloat = 4, minimum: CGFloat = 6) -> CGRect? {
+            guard let center = projected(p) else { return nil }
+            let offsets = [SCNVector3(radius, 0, 0), SCNVector3(-radius, 0, 0),
+                           SCNVector3(0, radius, 0), SCNVector3(0, 0, radius), SCNVector3(0, 0, -radius)]
+            let extent = offsets.compactMap { projected(SCNVector3(p.x + $0.x, p.y + $0.y, p.z + $0.z)) }
+                .map { hypot($0.x - center.x, $0.y - center.y) }.max() ?? 0
+            let r = max(minimum, extent) + padding
+            return CGRect(x: center.x - r, y: center.y - r, width: 2*r, height: 2*r)
+        }
+        let ballObstacles = visible.compactMap { diskRect(scene.visualCenter(of: $0), radius: radius) }
+        let tightBallObstacles = visible.compactMap { diskRect(scene.visualCenter(of: $0), radius: radius, padding: 1, minimum: 0) }
+        var occupied = ballObstacles
+        if let rect = diskRect(g.ghost, radius: radius * 2.6) { occupied.append(rect) }
+        let dx = g.pocket.x - g.target.x, dz = g.pocket.z - g.target.z
+        let length = max(1e-6, hypotf(dx, dz))
+        let ux = dx / length, uz = dz / length
+        let reverse = max(radius * 6, 0.22)
+        let back = projected(SCNVector3(g.target.x - ux*reverse, g.target.y, g.target.z - uz*reverse)) ?? ghost
+        let tangentA = projected(SCNVector3(g.ghost.x - uz*radius*4, g.ghost.y, g.ghost.z + ux*radius*4)) ?? ghost
+        let tangentB = projected(SCNVector3(g.ghost.x + uz*radius*4, g.ghost.y, g.ghost.z - ux*radius*4)) ?? ghost
+        let lines = [(cue, rail), (pocket, back), (tangentA, tangentB)]
+        let texts = ["\(Int(g.angle.rounded()))°", "瞄准线", "进球线"]
+        var layouts: [[(Int, CGRect)]] = []
+        for index in 0..<3 {
+            let label = labels[index]
+            label.text = texts[index]
+            label.backgroundColor = .clear
+            label.layer.cornerRadius = 3
+            label.textColor = index == 2 ? TrajectoryStyle.potColor(forNumber: scene.currentTargetNumber) : .white
+            let measured = label.sizeThatFits(CGSize(width: 200, height: 40))
+            let size = CGSize(width: ceil(measured.width) + 4, height: ceil(measured.height) + 2)
+            var candidates: [CGPoint] = []
+            if index == 0 {
+                // Keep a bounded local anchor. Small wedges use a nearby side label
+                // instead of sending the value far down the rays to fit its full width.
+                let a = atan2(ghost.y - cue.y, ghost.x - cue.x)
+                let b = atan2(pocket.y - target.y, pocket.x - target.x)
+                let sweep = atan2(sin(b-a), cos(b-a))
+                let mid = a + sweep / 2
+                for distance: CGFloat in [42, 48, 54] {
+                    for fraction: CGFloat in [0.5, 0.35, 0.65] {
+                        let direction = a + sweep * fraction
+                        candidates.append(CGPoint(x: ghost.x + cos(direction)*distance,
+                                                  y: ghost.y + sin(direction)*distance))
+                    }
+                }
+                for offset: CGFloat in [30, 45, 60, 75, 90] {
+                    for distance: CGFloat in [42, 48, 54, 60] {
+                        for side: CGFloat in [1, -1] {
+                            let direction = mid + side * offset * .pi / 180
+                            candidates.append(CGPoint(x: ghost.x + cos(direction)*distance,
+                                                      y: ghost.y + sin(direction)*distance))
+                        }
+                    }
+                }
+            } else {
+                let start = index == 1 ? cue : target
+                let end = index == 1 ? ghost : pocket
+                let dx = end.x - start.x, dy = end.y - start.y
+                let length = max(1, hypot(dx, dy))
+                let nx = -dy / length, ny = dx / length
+                let clearance = abs(nx)*size.width/2 + abs(ny)*size.height/2 + 3
+                for step: CGFloat in [0, 1, 2, 3, 4] {
+                    let extra = step * size.height
+                    for t: CGFloat in (index == 1 ? [0.5, 0.45, 0.55, 0.35, 0.65] : [0.5, 0.35, 0.65, 0.2, 0.8]) {
+                        for side: CGFloat in [1, -1] {
+                            candidates.append(CGPoint(x: start.x + dx*t + nx*(clearance+extra)*side,
+                                                      y: start.y + dy*t + ny*(clearance+extra)*side))
+                        }
+                    }
+                }
+            }
+            if index > 0 {
+                // Short lines near a rail can have no room on either normal. Search
+                // around their midpoint as well, so the label may clear an endpoint.
+                let start = index == 1 ? cue : target
+                let end = index == 1 ? ghost : pocket
+                let center = CGPoint(x: (start.x + end.x)/2, y: (start.y + end.y)/2)
+                for step: CGFloat in [1, 2, 3, 4] {
+                    let distance = max(size.width, size.height)/2 + step*size.height
+                    for sector in 0..<16 {
+                        let angle = CGFloat(sector) * CGFloat.pi / 8
+                        candidates.append(CGPoint(x: center.x + cos(angle)*distance, y: center.y + sin(angle)*distance))
+                    }
+                }
+            }
+            var indices = Array(candidates.indices)
+            if index == 0, let previous = previousAngleOffset {
+                // A blocked side candidate should move to its nearest usable neighbour,
+                // rather than restarting the search on the other side of the angle.
+                let sideIndices = indices.filter { $0 >= 9 }.sorted {
+                    let lhs = hypot(candidates[$0].x-ghost.x-previous.x, candidates[$0].y-ghost.y-previous.y)
+                    let rhs = hypot(candidates[$1].x-ghost.x-previous.x, candidates[$1].y-ghost.y-previous.y)
+                    return abs(lhs-rhs) < 0.01 ? $0 < $1 : lhs < rhs
+                }
+                indices = Array(indices.prefix(9)) + sideIndices
+            }
+            var valid: [(Int, CGRect)] = []
+            for candidate in indices where candidates.indices.contains(candidate) {
+                let center = candidates[candidate]
+                let rect = CGRect(x: center.x-size.width/2, y: center.y-size.height/2, width: size.width, height: size.height)
+                let padded = rect.insetBy(dx: -3, dy: -3)
+                let corners = [CGPoint(x: padded.minX, y: padded.minY), CGPoint(x: padded.maxX, y: padded.minY),
+                               CGPoint(x: padded.maxX, y: padded.maxY), CGPoint(x: padded.minX, y: padded.maxY)]
+                guard view.bounds.insetBy(dx: 6, dy: 6).contains(padded),
+                      corners.allSatisfy({ polygon.contains($0) }),
+                      !occupied.contains(where: { $0.intersects(padded) }),
+                      !lines.contains(where: { Self.segment($0.0, $0.1, intersects: rect.insetBy(dx: -1, dy: -1)) }),
+                      (index != 0 || !Self.segment(pocket, back, intersects: rect.insetBy(dx: -4, dy: -4))) else { continue }
+                valid.append((candidate, rect))
+            }
+            if index == 0 && valid.isEmpty {
+                // Near a rail, permit the same local candidates beyond the cloth,
+                // still clear of the balls and both labeled rays.
+                valid = []
+                for candidate in indices where candidates.indices.contains(candidate) {
+                    let center = candidates[candidate]
+                    let rect = CGRect(x: center.x-size.width/2, y: center.y-size.height/2,
+                                      width: size.width, height: size.height)
+                    let padded = rect.insetBy(dx: -3, dy: -3)
+                    guard view.bounds.insetBy(dx: 6, dy: 6).contains(padded),
+                          !tightBallObstacles.contains(where: { $0.intersects(rect) }),
+                          !Self.segment(pocket, back, intersects: rect.insetBy(dx: -4, dy: -4)),
+                          !Self.segment(cue, rail, intersects: rect.insetBy(dx: -1, dy: -1)) else { continue }
+                    valid.append((candidate, rect))
+                }
+                label.backgroundColor = .clear
+            }
+            layouts.append(valid)
+        }
+        // Three labels must be placed together: greedily placing the angle first can
+        // consume the only free space beside a short, rail-adjacent aim line.
+        func solve(_ index: Int, placed: [(Int, CGRect)]) -> [(Int, CGRect)]? {
+            if index == layouts.count { return placed }
+            for candidate in layouts[index] {
+                guard !placed.contains(where: { $0.1.insetBy(dx: -6, dy: -6).intersects(candidate.1) }) else { continue }
+                if let result = solve(index + 1, placed: placed + [candidate]) { return result }
+            }
+            return nil
+        }
+        if let solution = solve(0, placed: []) {
+            for (index, item) in solution.enumerated() {
+                labels[index].isHidden = false; labels[index].frame = item.1; choices[index] = item.0
+            }
+        } else {
+            // At extreme zoom or a densely occupied table, preserve readable labels in
+            // semantic priority order. Never draw a label through a ball to keep it visible.
+            var placed: [CGRect] = []
+            for index in layouts.indices {
+                let item = layouts[index].first { candidate in
+                    !placed.contains { $0.insetBy(dx: -6, dy: -6).intersects(candidate.1) }
+                }
+                labels[index].isHidden = item == nil
+                if let item {
+                    labels[index].frame = item.1; choices[index] = item.0; placed.append(item.1)
+                }
+            }
+        }
+        if !labels[0].isHidden {
+            previousAngleOffset = CGPoint(x: labels[0].center.x-ghost.x, y: labels[0].center.y-ghost.y)
+        }
+        let aimAngle = atan2(ghost.y - cue.y, ghost.x - cue.x)
+        let potAngle = atan2(pocket.y - target.y, pocket.x - target.x)
+        let sweep = atan2(sin(potAngle - aimAngle), cos(potAngle - aimAngle))
+        if abs(sweep) > 0.001 {
+            let arcRadius: CGFloat = 22
+            let path = UIBezierPath()
+            if scene.currentCameraMode == .perspective3D {
+                // SceneKit's flat table arc participates in depth testing, so balls
+                // naturally occlude it. Never paint an overlay arc over their pixels.
+                angleMark.isHidden = true
+                return
+            } else {
+                path.addArc(withCenter: ghost, radius: arcRadius, startAngle: aimAngle,
+                            endAngle: aimAngle + sweep, clockwise: sweep > 0)
+                // Short end ticks make small acute-angle marks legible in either camera mode.
+                for a in [aimAngle, aimAngle + sweep] {
+                    path.move(to: CGPoint(x: ghost.x + cos(a)*(arcRadius-3), y: ghost.y + sin(a)*(arcRadius-3)))
+                    path.addLine(to: CGPoint(x: ghost.x + cos(a)*(arcRadius+3), y: ghost.y + sin(a)*(arcRadius+3)))
+                }
+            }
+            angleMark.path = path.cgPath
+            angleMark.isHidden = false
+        }
+    }
+
+    /// Slab clipping gives an exact segment/rectangle test, including edge contact.
+    static func segment(_ a: CGPoint, _ b: CGPoint, intersects rect: CGRect) -> Bool {
+        var low: CGFloat = 0, high: CGFloat = 1
+        for (origin, delta, minimum, maximum) in [(a.x, b.x-a.x, rect.minX, rect.maxX),
+                                                (a.y, b.y-a.y, rect.minY, rect.maxY)] {
+            if abs(delta) < 1e-8 {
+                if origin < minimum || origin > maximum { return false }
+            } else {
+                let t0 = (minimum-origin)/delta, t1 = (maximum-origin)/delta
+                low = max(low, min(t0,t1)); high = min(high, max(t0,t1))
+                if low > high { return false }
+            }
+        }
+        return true
     }
 }

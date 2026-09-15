@@ -56,6 +56,7 @@ final class AngleDynamicViewModel: ObservableObject {
     // MARK: - Setup
 
     func setupScene() {
+        scene.usesAdaptiveDiagramLabels = true
         scene.setupScene()
         scene.setupVisualizationNodes()
         pocketMarkers = scene.addPocketMarkers()
@@ -168,7 +169,6 @@ final class AngleDynamicViewModel: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         isDragging = true
-        scene.hideCueStick()
 
         // USDZ-extracted balls carry a non-unit world scale on their wrapper.
         // Use a relative scale-by action so we don't clobber that to (1,1,1).
@@ -372,8 +372,14 @@ final class AngleDynamicViewModel: ObservableObject {
         offsetPercent = AngleSceneCalculator.contactPointOffset(cutAngle: angle) * 100
         thicknessName = AngleSceneCalculator.thicknessName(cutAngle: angle)
 
-        // The 角度与打点 page hides the cue stick per spec — only balls + viz lines visible.
-        scene.hideCueStick()
+        let ghost = AngleSceneCalculator.ghostBallPosition(
+            targetBall: target.position, pocket: aim, ballRadius: AngleSceneCalculator.ballRadius)
+        let direction = SCNVector3(ghost.x - cue.position.x, 0, ghost.z - cue.position.z)
+        if !result.feasible {
+            scene.hideCueStick()
+        } else {
+            scene.updateCueStick(cueBallPosition: cue.position, aimDirection: direction)
+        }
 
         if result.feasible {
             scene.updateVisualization(

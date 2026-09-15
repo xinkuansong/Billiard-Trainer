@@ -810,3 +810,10 @@ DR-288圆弧可达范围：arc-reach-r1三项通过，17280组/825命中与旧�
 - liner-regression-r3（iPhone 17 Pro，9 套件）129 过 16 失败 3 跳过，其中 15 项 signal kill（含本就 ≥45s 的 Busy45s 系列）；liner-regression-r4 改用 QiuJi-v63-iOS17 专用模拟器重跑 PocketBehaviorDiag/PocketRefactorDiag/PocketLeatherIntegration/ScoringOnlyConsistency：61 项 57 过 3 跳过 1 失败 0 重启（1769s；test_I_lowPowerRailHug 246s、test_Q2_lossStrictness 287s，无历史耗时可比）。
 - 残留 test_R2_railFrozenEndToEnd：8 档全部 `Local prediction failed: penetration(.0049–.0112)`。liner-r2-ab-old 将内衬参数临时设回保留 1.0/e .45 单跑，8 个穿透值逐位相同 → 球撞内衬前已失败，是贴库球起始位置与空间库边几何的既有穿透，与 DR-292 无关；此前不在 W07 回归选择集内，新增登记为 W07 待归因项。临时参数已还原。
 - 未完成：六袋 × 偏入 × 全力度矩阵、真机性能、rattle 边界带与库鼻系数的交叉核验；W07 仍不关闭。用户另提出「搜索用平面判据、仅对选中解跑空间模型」的拆分求解方案，已口头评估（需 ADR、需收窄 B4 否决范围、需改 ScoringOnlyConsistency 契约），未实施、未入方案文件。
+
+## W17 后的验收边界（2026-09-14，W17-C 续执行）
+
+依 ADR-P10-14/15，默认裁定已回归平面记录。W07 的正式默认路径收口聚焦统一裁定入口、规则/评分不被呈现改写及袋内呈现验收；空间袋口接触/支撑失败保留为显式 spatialPockets 回归，不再要求其决定默认进袋。原失败、几何与性能证据均保留，不以缩窄默认入口删除失败或宣布通过。W17-B/D 跨杆导出及完整呈现验收仍未完成，当前仍为进行中。详 W17C-continuation.md。
+
+
+2026-09-15 真机标准防守求解：Debug-Onone/coverage YES 首轮39.675689s；Debug-O/coverage NO复测4.059613s、6解合法完整、温度nominal且低电量关闭。未改搜索/物理，配置与热状态不同不宣称严格加速比或Release已达标；明细W16-device-20260914。

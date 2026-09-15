@@ -74,6 +74,7 @@ final class RestTimerLiveActivityManager: RestTimerLiveActivityManaging {
     // MARK: - Background Audio Keep-Alive
 
     func activateBackgroundAudio() {
+        TrainingMusicPlayer.shared.setResting(true)
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.playback, options: .mixWithOthers)
@@ -98,6 +99,7 @@ final class RestTimerLiveActivityManager: RestTimerLiveActivityManaging {
         silentPlayer?.stop()
         silentPlayer = nil
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        TrainingMusicPlayer.shared.setResting(false)
     }
 
     // MARK: - Private

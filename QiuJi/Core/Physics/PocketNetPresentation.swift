@@ -516,7 +516,7 @@ enum PocketNetPresentation {
             queues[pocketID,default:[]].append((name,slotIndex(of:tail,in:pocket),Double(entry.time)))
         }
         for pocketID in queues.keys { queues[pocketID]?.sort { $0.time<$1.time } }
-        for entry in entries.sorted(by:{ $0.time<$1.time }) {
+        for entry in entries.sorted(by:{ $0.time == $1.time ? $0.ball.name < $1.ball.name : $0.time < $1.time }) {
             guard let pocket=pockets[entry.pocketID] else {
                 print("[W17 net presentation] unknown pocket \(entry.pocketID) for \(entry.ball.name)")
                 continue

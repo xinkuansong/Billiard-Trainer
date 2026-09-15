@@ -25,6 +25,7 @@ QiuJiTests/PositionPlaySequenceExportRunnerTests.swift
 QiuJiTests/PositioningFormationRenderTests.swift
 QiuJiTests/ReachabilityVizTests.swift
 QiuJiTests/RenderQualityV62Tests.swift
+QiuJiTests/RoomReflectionProbeTests.swift
 QiuJiTests/SequenceStillCueTests.swift
 QiuJiTests/ShareCardImageRendererRootCauseDiagTests.swift
 QiuJiTests/ShotScenarioRenderTests.swift
@@ -47,6 +48,7 @@ QiuJiTests/V53ProfilePreferencesTests.swift
 QiuJiTests/V54DataMigrationTests.swift
 QiuJiTests/V54ScheduleDomainTests.swift
 QiuJiTests/W10_1_BakedThumbnailRenderTests.swift
+QiuJiTests/X1_CameraAndAngleArcTests.swift
 QiuJiUITests/AimingCorrectionZ1UITests.swift
 QiuJiUITests/AimingCorrectionZ2UITests.swift
 QiuJiUITests/AimingCorrectionZ3UITests.swift

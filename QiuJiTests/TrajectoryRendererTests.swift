@@ -1059,9 +1059,8 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
     @MainActor
     func testExportSettledFramesPreservePredictedBoardWhenSavedOutcomeDiffers() async throws {
         continueAfterFailure = false
-        let source = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/content/position_play/sequences/drill_c039__manual01-直线球组合走位 · 球形1-8杆.json")
-        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-        var fixture = try decoder.decode(PositionPlaySequence.self, from: Data(contentsOf: source))
+        let formation = try XCTUnwrap(DrillTryoutBoardStore.formations(for: "drill_c039").first { $0.token == "manual01" })
+        var fixture = PositionPlaySequence(name: formation.title, initial: formation.initial, steps: formation.steps)
         // W17-C: deliberately model a stale saved outcome in memory. The shot input and
         // all authored next-shot starts stay unchanged; no bundled content is rewritten.
         // A successful pot must not be resurrected by this saved "still on table" state.
@@ -1108,6 +1107,9 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
         }
         var liveStarts: [UUID: [String: SCNVector3]] = [:]
         var liveEnds: [UUID: [String: SCNVector3]] = [:]
+        var liveRailSnapshots: [UUID: PocketRailSnapshot] = [:]
+        var liveRailStarts: [UUID: [String: SCNVector3]] = [:]
+        var liveRailEnds: [UUID: [String: SCNVector3]] = [:]
         var liveEvents: [UUID: [ShotEvent]] = [:]
         vm.sequenceShotEventsObserver = { id, events in
             XCTAssertNil(liveEvents[id], "Each shot must be consumed once")
@@ -1117,6 +1119,8 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
             vm.toggleSequencePlayback()
             XCTAssertEqual(vm.sequenceStepIndex, index)
             liveStarts[step.id] = visibleBoard()
+            liveRailSnapshots[step.id] = vm.scene.railInventory.snapshot()
+            liveRailStarts[step.id] = vm.scene.railInventory.visiblePositions
             XCTAssertEqual(Set(visibleBoard().keys), Set(step.before.onTable.keys))
             for (key, point) in step.before.onTable {
                 let expected = PositionPlayShotSolver.scenePoint(point, surfaceY: vm.scene.surfaceY)
@@ -1132,6 +1136,8 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
             XCTAssertTrue(vm.isSequencePaused)
             XCTAssertEqual(vm.sequenceStepIndex, index)
             liveEnds[step.id] = visibleBoard()
+            liveRailEnds[step.id] = vm.scene.railInventory.visiblePositions
+            print("[W17 live boundary] step=\(index + 1) id=\(step.id) start=\(liveRailStarts[step.id]!.keys.sorted()) end=\(liveRailEnds[step.id]!.keys.sorted()) snapshot=\(vm.scene.railInventory.snapshot().balls.map(\.key))")
         }
         var frames: [UUID: Int] = [:]
         var observationFrames: [UUID: Int] = [:]
@@ -1166,6 +1172,38 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
                 XCTAssertEqual(value.z, point.z, accuracy: 0.00001)
             }
         }
+        XCTAssertFalse(try XCTUnwrap(liveRailEnds[sequence.steps[0].id]).isEmpty)
+        XCTAssertFalse(try XCTUnwrap(liveRailStarts[sequence.steps[1].id]).isEmpty,
+            "The second shot must retain the first shot's physical rail ball")
+        var timelines: [UUID: PocketRailTimeline] = [:]
+        for step in sequence.steps {
+            timelines[step.id] = PocketRailTimeline(before: try XCTUnwrap(liveRailSnapshots[step.id]),
+                recorder: try XCTUnwrap(predictions[step.id]?.recorder))
+        }
+        var railMotionCount = 0
+        options.railFrameObserver = { id, phase, time, visible in
+            if phase == "motion", let plan = timelines[id],
+               let step = sequence.steps.first(where: { $0.id == id }) {
+                var expected: [String: SCNVector3] = [:]
+                func add(_ key: String, _ track: PocketRailTimeline.Track) {
+                    guard let f = track.frame(at: Double(time)), f.opacity > 0 else { return }
+                    expected[key] = SCNVector3(Float(f.position.x), Float(f.position.y), Float(f.position.z))
+                }
+                for (key, track) in plan.previous { add(key, track) }
+                for key in step.before.onTable.keys {
+                    if let track = plan.incoming[PositionPlayShotSolver.predName(boardKey: key, shot: step.shot)] {
+                        add(key, track)
+                    }
+                }
+                if Set(visible.keys) != Set(expected.keys) {
+                    print("[W17 mismatch] id=\(id) t=\(time) actual=\(visible.keys.sorted()) expected=\(expected.keys.sorted()) previous=\(plan.previous.keys.sorted()) starts=\(plan.incoming.mapValues { $0.samples.first!.time })")
+                }
+                compareBoards(visible, expected)
+                railMotionCount += 1
+            }
+            if phase == "observe", let expected = liveRailStarts[id] { compareBoards(visible, expected) }
+            if phase == "settled", let expected = liveRailEnds[id] { compareBoards(visible, expected) }
+        }
         options.observationFrameObserver = { id, visible in
             guard let live = liveStarts[id] else { XCTFail("Unexpected start"); return }
             compareBoards(visible, live)
@@ -1191,7 +1229,16 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
             }
             frames[id, default: 0] += 1
         }
-        let video = try await SequenceVideoExporter.exportVideo(sequence: sequence, options: options)
+        var video: URL!
+        for (fps, speed) in [(30, Float(1)), (60, Float(1)), (30, Float(0.5)), (60, Float(0.5))] {
+            options.fps = fps
+            options.playbackSpeed = speed
+            exportEventSteps.removeAll()
+            railMotionCount = 0
+            video = try await SequenceVideoExporter.exportVideo(sequence: sequence, options: options)
+            XCTAssertGreaterThan(railMotionCount, 100)
+            print("[W17 shared rails] fps=\(fps) speed=\(speed) checkedFrames=\(railMotionCount)")
+        }
         let data = try Data(contentsOf: video)
         XCTAssertGreaterThan(data.count, 1024)
         for step in sequence.steps {
@@ -1200,10 +1247,50 @@ final class PocketGeometryInjectionV63Tests: XCTestCase {
         }
         XCTAssertEqual(exportEventSteps, Set(sequence.steps.map(\.id)))
         XCTAssertEqual(Set(liveEvents.keys), exportEventSteps)
+        #if targetEnvironment(simulator)
         let output = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/3d-v63/W08")
             .appendingPathComponent("predicted-rest-\(UUID().uuidString).mp4")
+        #else
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("v63-predicted-rest.mp4")
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.mpeg-4")
+        attachment.name = "v63-eight-shot-export"; attachment.lifetime = .keepAlways; add(attachment)
+        #endif
         try data.write(to: output)
         print("[W08 predicted rest] frames=\(frames) video=\(output.path)")
+    }
+
+    @MainActor
+    func testRailCloseupAndArchivedSequenceUndo() throws {
+        let formation = try XCTUnwrap(DrillTryoutBoardStore.formations(for: "drill_c039").first { $0.token == "manual01" })
+        var sequence = PositionPlaySequence(name: formation.title, initial: formation.initial, steps: formation.steps)
+        sequence.steps = Array(sequence.steps.prefix(2))
+        let vm = PositionPlayViewModel(); vm.setupScene()
+        let result = vm.loadSequenceForEditing(sequence)
+        XCTAssertEqual(result.replayed, 2)
+        let rails = vm.scene.railInventory.snapshot()
+        XCTAssertEqual(Set(rails.balls.map(\.key)), ["_1", "_2"])
+        vm.replayCurrent()
+        XCTAssertEqual(vm.scene.railInventory.snapshot().balls.map(\.key), ["_1"])
+        let ball = try XCTUnwrap(vm.scene.railInventory.snapshot().balls.first)
+        let p = SCNVector3(Float(ball.position.x), Float(ball.position.y), Float(ball.position.z))
+        let camera = SCNNode(); camera.camera = SCNCamera(); camera.camera?.zNear = 0.01
+        let outward = simd_normalize(SIMD3<Float>(p.x, 0, p.z))
+        camera.simdPosition = SIMD3(p.x, p.y, p.z) + outward * 0.55 + SIMD3(0, 0.08, 0)
+        camera.look(at: p)
+        vm.scene.rootNode.addChildNode(camera)
+        let renderer = SCNRenderer(device: MTLCreateSystemDefaultDevice(), options: nil)
+        renderer.scene = vm.scene; renderer.pointOfView = camera
+        let image = renderer.snapshot(atTime: 0, with: CGSize(width: 800, height: 600), antialiasingMode: .multisampling4X)
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "v63-rail-closeup"; attachment.lifetime = .keepAlways; add(attachment)
+        #if targetEnvironment(simulator)
+        let output = URL(fileURLWithPath: "/Users/song/projects/13.billiard_trainer/output/3d-v63/W17D-shared/rail-closeup.png")
+        try XCTUnwrap(image.pngData()).write(to: output)
+        #endif
+        vm.clearTable()
+        XCTAssertEqual(vm.scene.railInventory.snapshot().balls.map(\.key), ["_1"])
+        vm.resetAll()
+        XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty)
     }
 
     func testFourthAuthoredShotReachesSettledState() throws {
@@ -4645,6 +4732,75 @@ extension PocketGeometryInjectionV63Tests {
                 } catch {
                     XCTFail("pocket=\(index) shortcut=\(shortcut): \(error)")
                 }
+            }
+        }
+    }
+}
+
+extension TrajectoryRendererTests {
+    /// Real default predictions and SceneKit actions, with a diagnostic exterior camera.
+    /// Sampled images do not establish realtime fps or user acceptance of the animation.
+    @MainActor
+    func testSixPocketRailCloseupSequences() throws {
+        let scene = AngleTrainingScene()
+        scene.setupScene(mobileRendering: true)
+        scene.setCameraMode(.perspective3D, animated: false)
+        scene.hideAllBalls()
+        let geometry = TableGeometry.chineseEightBallQiuJi(surfaceY: scene.surfaceY)
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.camera?.zNear = 0.01; camera.camera?.fieldOfView = 50
+        scene.rootNode.addChildNode(camera)
+        let renderer = SCNRenderer(device: try XCTUnwrap(MTLCreateSystemDefaultDevice()), options: nil)
+        renderer.scene = scene; renderer.pointOfView = camera
+        renderer.autoenablesDefaultLighting = false
+        renderer.delegate = scene.contactOcclusion
+        let size = CGSize(width: 800, height: 800)
+        var clock: Double = 0
+        for pocket in geometry.pockets {
+            scene.hideAllBalls(); scene.railInventory.clear()
+            let outward = simd_normalize(SIMD3<Float>(pocket.center.x, 0, pocket.center.z))
+            let focus = SIMD3<Float>(pocket.center.x, scene.surfaceY - 0.12, pocket.center.z)
+            camera.simdPosition = focus + outward * 0.55 + SIMD3(0, 0.08, 0)
+            camera.look(at: SCNVector3(focus.x, focus.y, focus.z))
+            let inward = SCNVector3(pocket.isCorner ? (pocket.center.x > 0 ? -1 : 1) : 0,
+                                   0, pocket.center.z > 0 ? -1 : 1).normalized()
+            let start = SCNVector3(pocket.center.x, scene.surfaceY + BallPhysics.radius, pocket.center.z) + inward * 0.35
+            for number in 1...3 {
+                let key = "_\(number)"
+                scene.showBall(key: key, scenePosition: start)
+                let node = try XCTUnwrap(scene.allBallNodes[key])
+                let prediction = ShotPredictor.simulateFree(cueBall: start, aimDir: inward * -1,
+                    velocity: 1.1, spinX: 0, spinY: 0, surfaceY: scene.surfaceY, balls: [])
+                let recorder = try XCTUnwrap(prediction.recorder)
+                XCTAssertEqual(recorder.pocketEntries.first?.pocketID, pocket.id)
+                let playback = TrajectoryPlayback(recorder: recorder,
+                    surfaceY: scene.surfaceY + BallPhysics.radius, railInventory: scene.railInventory)
+                let entry = try XCTUnwrap(recorder.pocketEntries.first)
+                let action = try XCTUnwrap(playback.action(for: node, ballName: ShotInput.cueBallName, removeOnPocket: false))
+                _ = renderer.snapshot(atTime: clock, with: size, antialiasingMode: .multisampling4X)
+                node.runAction(action)
+                let frames = Int(ceil(action.duration * 30)) + 2
+                var captures = 0
+                for frame in 0...frames {
+                    let t = Double(frame) / 30
+                    let image = renderer.snapshot(atTime: clock + t, with: size, antialiasingMode: .multisampling4X)
+                    if number == 1 && t >= Double(entry.time) - 0.1 && frame % 3 == 0 {
+                        let attachment = XCTAttachment(image: image)
+                        attachment.name = String(format: "v63-%@-fall-%03d", pocket.id, captures)
+                        attachment.lifetime = .keepAlways; add(attachment); captures += 1
+                    }
+                }
+                clock += Double(frames) / 30 + 0.1
+                scene.railInventory.finishPlayback()
+                node.removeAllActions()
+                let rails = scene.railInventory.snapshot()
+                XCTAssertEqual(Set(rails.balls.map(\.key)), Set((1...number).map { "_\($0)" }), pocket.id)
+                XCTAssertTrue(node.isHidden, pocket.id)
+                let image = renderer.snapshot(atTime: clock, with: size, antialiasingMode: .multisampling4X)
+                let attachment = XCTAttachment(image: image)
+                attachment.name = "v63-\(pocket.id)-resident-\(number)"
+                attachment.lifetime = .keepAlways; add(attachment)
+                print("[W17 six-pocket] \(pocket.id) residents=\(number) frames=\(frames + 1) fallImages=\(captures)")
             }
         }
     }

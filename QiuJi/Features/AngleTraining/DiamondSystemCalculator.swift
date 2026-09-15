@@ -1,7 +1,7 @@
 import Foundation
 import SceneKit
 
-/// General **bank / kick-shot solver** for the 反射解球器 page.
+/// General **bank / kick-shot solver** for the 颗星解球 page.
 ///
 /// Pure-reflection model (no spin): the ball obeys *incidence = reflection* off each
 /// rail. Given an arbitrary cue & target anywhere on the table, the solver finds

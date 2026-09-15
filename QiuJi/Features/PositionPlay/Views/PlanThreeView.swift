@@ -70,6 +70,7 @@ struct PlanThreeView: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
+        .trainingBackgroundMusic()
         .btDarkToolChrome("打一走二想三")
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -248,8 +249,8 @@ struct PlanThreeView: View {
             autoFitsRotatedTable: !is3D,
             onPocketTapped: is3D || vm.isBreakMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // 开球模式：仅母球可拖（限开球区），其余台面交互挂起。
-            draggableBallNodes: is3D ? [] : (vm.breakRunner?.draggableCue
-                ?? (vm.activeTool == .none ? vm.draggableBalls : [])),
+            draggableBallNodes: vm.isPlaying ? [] : (vm.breakRunner?.draggableCue
+                ?? (is3D || vm.activeTool == .none ? vm.draggableBalls : [])),
             onDragBegan: { node in
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
                 else { vm.dragBegan(node: node) }
@@ -444,7 +445,7 @@ struct PlanThreeView: View {
                             )
                             .disabled(vm.isPlaying)
                             Spacer(minLength: 0)
-                            Text("编辑请切回2D").foregroundStyle(Color.btTextSecondary)
+                            Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
                         }
                         .font(.btFootnote)
                         .padding(.horizontal, Spacing.sm)
@@ -489,6 +490,7 @@ struct PlanThreeView: View {
     }
 
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
+        guard !is3D else { return } // The palette is hidden in perspective mode.
         guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
                                                sceneFrame: sceneFrame,
                                                paletteFrame: paletteFrame),

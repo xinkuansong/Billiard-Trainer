@@ -122,6 +122,11 @@ final class AngleTrainingScene: SCNScene {
     private(set) var ghostBallNode: SCNNode?
     private(set) var pocketLineNode: SCNNode?
     private(set) var strikeLineNode: SCNNode?
+    private var strikeContinuationNode: SCNNode?
+    /// Opt-in for the interactive angle diagram; quiz/export consumers retain their contract.
+    var usesAdaptiveDiagramLabels = false
+    private(set) var diagramLabelGeometry: (cue: SCNVector3, target: SCNVector3,
+        ghost: SCNVector3, pocket: SCNVector3, rail: SCNVector3, angle: Double)?
     private(set) var contactDotNode: SCNNode?
     private(set) var angleArcNode: SCNNode?
     private weak var angleValueLabel: SCNNode?
@@ -439,6 +444,7 @@ final class AngleTrainingScene: SCNScene {
 
     /// 隐藏全部球（重摆前清场）。
     func hideAllBalls() {
+        railInventory.cancelPlayback()
         for (_, node) in allBallNodes { node.isHidden = true }
     }
 
@@ -1891,7 +1897,7 @@ final class AngleTrainingScene: SCNScene {
         self.usesTrainingAssistStyle = usesTrainingAssistStyle
         let r = AngleSceneCalculator.ballRadius
 
-        // DR-302: every consumer (including the 2D/3D angle quizzes, which used a
+        // DR-306: every consumer (including the 2D/3D angle quizzes, which used a
         // translucent full-size sphere under DR-121) now shares the standard dashed
         // cloth ring. The node still sits at the physical ball center (cloth + R),
         // preserving the position / visibility contract from DR-118.
@@ -1966,6 +1972,14 @@ final class AngleTrainingScene: SCNScene {
         sl.name = "strikeLine"
         rootNode.addChildNode(sl)
         strikeLineNode = sl
+        strikeContinuationNode?.removeFromParentNode()
+        let continuation = pl.clone()
+        continuation.geometry = pl.geometry?.copy() as? SCNGeometry
+        continuation.geometry?.materials = pl.geometry?.materials.map { $0.copy() as! SCNMaterial } ?? []
+        continuation.geometry?.firstMaterial?.multiply.contents = UIColor.white
+        continuation.name = "strikeContinuation"
+        rootNode.addChildNode(continuation)
+        strikeContinuationNode = continuation
 
         // Training contact marker: small amber dot; default consumers keep green.
         let dotSphere = SCNSphere(radius: usesTrainingAssistStyle ? TrajectoryStyle.TrainingAssist.contactPointRadius : TrajectoryStyle.contactPointRadius)
@@ -2060,6 +2074,8 @@ final class AngleTrainingScene: SCNScene {
     }
 
     func hideAllVisualization() {
+        diagramLabelGeometry = nil
+        strikeContinuationNode?.isHidden = true
         setIdealObjectLine(nil)
         ghostBallNode?.isHidden = true
         pocketLineNode?.isHidden = true
@@ -2116,12 +2132,24 @@ final class AngleTrainingScene: SCNScene {
         pocketLineNode?.geometry?.firstMaterial?.multiply.contents = visualizationPotColor
         pocketLineNode?.isHidden = false
 
-        let strikeEnd = extendStrikeLineToRail
+        strikeContinuationNode?.isHidden = true
+        let strikeEnd = (extendStrikeLineToRail || usesAdaptiveDiagramLabels)
             ? AngleSceneCalculator.rayToInnerRail(
                 from: cueBall, dir: unitXZ(from: cueBall, to: ghostPos), inset: 0)
             : ghostPos
-        updateLineNode(strikeLineNode, from: cueBall, to: strikeEnd)
+        var solidEnd = strikeEnd
+        if usesAdaptiveDiagramLabels,
+           let hit = AngleSceneCalculator.aimRayTargetEntry(
+                from: cueBall, toward: strikeEnd, target: targetBall) {
+            solidEnd = hit
+            updateLineNode(strikeContinuationNode, from: hit, to: strikeEnd)
+            strikeContinuationNode?.isHidden = false
+        }
+        updateLineNode(strikeLineNode, from: cueBall, to: solidEnd)
         strikeLineNode?.isHidden = false
+        diagramLabelGeometry = usesAdaptiveDiagramLabels && showAngleAnnotations
+            ? (cueBall, targetBall, ghostPos, pocket, strikeEnd,
+               AngleSceneCalculator.cutAngle(cueBall: cueBall, targetBall: targetBall, pocket: pocket)) : nil
 
         if showOverlapMarkers {
             let contact = AngleSceneCalculator.contactPointPosition(targetBall: targetBall, pocket: pocket)
@@ -2190,7 +2218,7 @@ final class AngleTrainingScene: SCNScene {
             material.readsFromDepthBuffer = true
             material.writesToDepthBuffer = false
             geometry.materials = [material]
-            if node.name == "pocketLine" {
+            if node.name == "pocketLine" || node.name == "strikeContinuation" {
                 let length = hypotf(end.x - start.x, end.z - start.z)
                 material.diffuse.contentsTransform = SCNMatrix4MakeScale(1, max(1, length / Self.dashStripePeriod), 1)
             }
@@ -2255,7 +2283,8 @@ final class AngleTrainingScene: SCNScene {
 
         // 角度弧 = 品牌绿 + 白读数（T-P18-41 线语言，弃蓝）。
         let arcColor = TrajectoryStyle.contactColor
-        let arcRadius: Float = r * 2.6
+        let arcRadius: Float = r * (usesAdaptiveDiagramLabels ? 4.5 : 2.6)
+        let arcY = usesAdaptiveDiagramLabels ? surfaceY + 0.002 : ghost.y + 0.0015
         let segments = 24
         // K3：弧画在前向楔形（瞄准前向 ↔ 进球前向）。旧实现用 aStart+π 落在背向楔形。
         // 坐标契约：SceneKit XZ 水平、Y 上；水平角 atan2(z,x)；见 build/x1-evidence/k3-*.
@@ -2265,12 +2294,20 @@ final class AngleTrainingScene: SCNScene {
             let a0 = aStart + delta * t0
             let a1 = aStart + delta * t1
             let p0 = SCNVector3(ghost.x + arcRadius * cosf(a0),
-                                ghost.y + 0.0015,
+                                arcY,
                                 ghost.z + arcRadius * sinf(a0))
             let p1 = SCNVector3(ghost.x + arcRadius * cosf(a1),
-                                ghost.y + 0.0015,
+                                arcY,
                                 ghost.z + arcRadius * sinf(a1))
             let seg = makeTableSegment(from: p0, to: p1, color: arcColor, radius: 0.0028)
+            if usesAdaptiveDiagramLabels {
+                seg.name = "diagramTableArc"
+                seg.geometry?.materials.forEach {
+                    $0.readsFromDepthBuffer = true
+                    $0.writesToDepthBuffer = false
+                }
+            }
+            seg.isHidden = usesAdaptiveDiagramLabels && currentCameraMode != .perspective3D
             angleArcNode?.addChildNode(seg)
         }
 
@@ -2372,6 +2409,7 @@ final class AngleTrainingScene: SCNScene {
         var labels = inlineLineLabels
         if let label = angleValueLabel { labels.append((label, angleValueFlatYaw)) }
         for (label, flatYaw) in labels {
+            label.isHidden = usesAdaptiveDiagramLabels
             guard let text = label.childNodes.first else { continue }
             if currentCameraMode == .perspective3D {
                 label.eulerAngles = SCNVector3Zero

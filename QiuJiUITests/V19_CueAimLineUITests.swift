@@ -56,7 +56,7 @@ final class V19_CueAimLineUITests: XCTestCase {
     /// C2：翻袋求解有解 → 应见瞄准相关线 + 球杆。
     func testV19_bankSolve_hasCue() {
         let app = XCUIApplication.launchClean()
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "翻袋解球器"), "打开翻袋解球器")
+        XCTAssertTrue(openCard(app, homeTab: "解", title: "翻袋解球"), "打开翻袋解球")
         sleep(5) // 求解去抖 + 引擎
         snap(app, "v19-01-bank-solve-cue")
     }

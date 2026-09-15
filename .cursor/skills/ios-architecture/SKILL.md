@@ -564,3 +564,8 @@ Changelog：2026-09-13 / DR-245 / 视频杆末预测消费，定向验收中。
 
 ### DR-268 — 每日清台自由球恢复（2026-09-13，API增量v1）
 DailyClearancePlayingHost新增restoreDailyClearanceCueBall；实际host仅在母球不在桌时复用placeFromPalette安全空位。controller使用本杆事实与规则决定是否补回，并在补回之后读取并保存board。不得由下一杆预测cuePocketed触发补球，终局不补球。
+
+
+### FL-072 — 支架完成与取消边界（2026-09-15）
+PocketRailInventory 的 Swift 状态由自有递归锁串行化，withActiveShot 包住代次检查及源节点更新；SCNAction renderingQueue 与主线程均可调用，不能把类注释“主线程”当作隔离。正常杆末须在清动作/保存下一杆快照前 finishPlayback；取消仍 cancelPlayback 恢复 timeline.before。Timer 在主线程建立，离线导出关闭 watcher。禁止把幂等完成误当取消，也不能依赖不同节点同帧完成回调顺序。
+Changelog：2026-09-15 / FL-072 / 线程与终态契约；实证状态见 W16-device-20260914。

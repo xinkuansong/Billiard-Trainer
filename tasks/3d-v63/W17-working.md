@@ -1,6 +1,6 @@
 # W17 工作记录 — 裁定平面、呈现空间
 
-坐标契约：SceneKit 世界 XYZ、Y-up、米；袋口圈判据来自 `TableGeometry` 平面模型（`AngleSceneCalculator.pocketDropRadius`）。所有测试在 `QiuJi-v63-iOS17` 专用模拟器（`51383D5F-…`）、`SWIFT_OPTIMIZATION_LEVEL=-O` 下运行；日志在 `output/3d-v63/W17/`。
+坐标契约：SceneKit 世界 XYZ、Y-up、米；袋口圈判据来自 `TableGeometry` 平面模型（`AngleSceneCalculator.pocketDropRadius`）。下述 W17-A 初始测试在 `QiuJi-v63-iOS17` 专用模拟器（`51383D5F-…`）、`SWIFT_OPTIMIZATION_LEVEL=-O` 下运行；日志在 `output/3d-v63/W17/`。
 
 ## W17-A — 求解裁定层切回平面判据（2026-09-14，DR-293）
 
@@ -169,3 +169,15 @@ PocketNetPresentation 14/14（新增 4 条）、BreakFlowRunnerV6 19/19、回放
 
 ## DR-301 — 支架滚阻 + 着陆耗能（2026-09-14）
 用户仍嫌快。数值上支架段由着陆沿杆速度（0.57 m/s）主导，单加滚阻无效。新增呈现参数 `railRollingResistance = 0.2`（a = 5/7·g·(sinθ − μcosθ)）与 `railLandingRetention = 0.4`（着陆后沿杆速度保留，与内衬同口径）。角袋滚动段 0.167→0.30 s、末速 0.89→0.65 m/s。15/15 通过。教训：xcodebuild 增量构建曾漏编，计时不变即怀疑陈旧二进制。
+
+## W17-C 续执行（2026-09-14）
+
+长期跳过的杆末分歧测试已恢复为明确构造的内存旧存档分歧；实际八杆实时/导出对照 1 项 39.415 秒、0 失败、0 跳过（divergence-r2）。数据契约 §6.7 与 W07 分层验收说明已补。跨杆保留仅实时路径已实现，导出和历史状态仍未闭合；按用户要求在共享呈现改造难点暂停，详 [续执行与建议](W17C-continuation.md)。本轮不关闭 W17 或 v63。
+
+
+## W17-D 共享库存续执行（2026-09-14）
+
+用户已同意共享呈现改造，并将扎杆/跳球 H01–H04 延至下版。新增 `PocketRailSnapshot` / `PocketRailTimeline`，实时/导出/撤销/重播/序列跳转使用稳定球号与同一模拟时钟轨迹；见 ADR-P10-16。iOS 26.3 专用模拟器 `2447DFF4-…` 的八杆四档导出已核对 4638 个运动帧、杆前/末支架、盘面和事件；联合5测0失败。最终取消/存档/完整历史回归及近景证据见 `W17C-continuation.md`，不关闭用户实看与真机验收。
+
+
+2026-09-15 FL-072 真机修复：杆末等时长回调先后不定导致库存快照漏球，SceneKit renderingQueue与MainActor同时写字典；自有递归锁+代次与节点更新一体+正常终态先提交。真机八杆四档4638帧、迟到回调/取消/释放/三页历史6项通过；优化Debug下PocketNet整组22项通过。详W16-device-20260914；完整平台/视觉/持续性能保持未闭合。

@@ -414,3 +414,115 @@ final class IdealObjectDirectionTests: XCTestCase {
         }
     }
 }
+
+@MainActor
+final class PerspectiveBallDragCoordinatorTests: XCTestCase {
+    private final class Pan: UIPanGestureRecognizer {
+        var simulatedState: UIGestureRecognizer.State = .possible
+        var point: CGPoint = .zero
+        override var state: UIGestureRecognizer.State {
+            get { simulatedState }
+            set { simulatedState = newValue }
+        }
+        override func location(in view: UIView?) -> CGPoint { point }
+        override func translation(in view: UIView?) -> CGPoint { .zero }
+    }
+
+    private func fixture() -> (AngleTrainingScene, SCNView, SCNNode, AngleSceneView.Coordinator) {
+        let scene = AngleTrainingScene()
+        let ball = SCNNode(geometry: SCNSphere(radius: CGFloat(AngleSceneCalculator.ballRadius)))
+        ball.position = SCNVector3(0, scene.surfaceY + AngleSceneCalculator.ballRadius, 0)
+        scene.rootNode.addChildNode(ball)
+        let camera = SCNNode(); camera.camera = SCNCamera()
+        camera.position = SCNVector3(0, ball.position.y + 2, 2)
+        camera.look(at: ball.position)
+        scene.rootNode.addChildNode(camera)
+        let view = SCNView(frame: CGRect(x: 0, y: 0, width: 390, height: 700))
+        view.scene = scene; view.pointOfView = camera
+        view.layoutIfNeeded(); SCNTransaction.flush(); _ = view.snapshot()
+        let coordinator = AngleSceneView.Coordinator(scene: scene, cameraMode: .perspective3D, interactionMode: .cameraControl)
+        coordinator.scnView = view; coordinator.draggableBallNodes = [ball]
+        return (scene, view, ball, coordinator)
+    }
+
+    func testPerspectiveDragMovesOnTableAndReleasesForEveryTerminalState() {
+        for terminal in [UIGestureRecognizer.State.ended, .cancelled, .failed] {
+            let (scene, view, ball, coordinator) = fixture()
+            let projected = view.projectPoint(ball.position)
+            XCTAssertEqual(projected.x, 195, accuracy: 1)
+            XCTAssertEqual(projected.y, 350, accuracy: 1)
+            let original = ball.position
+            let pan = Pan(); pan.point = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+            var begins = 0, ends = 0, drops = 0
+            coordinator.onDragBegan = { _ in begins += 1 }
+            coordinator.onDragMoved = { node, point in node.position = point }
+            coordinator.onDragEnded = { _ in ends += 1 }
+            coordinator.onDragEndedAt = { _, _ in drops += 1 }
+            pan.simulatedState = .began; coordinator.handlePan(pan)
+            pan.point.x += 70; pan.simulatedState = .changed; coordinator.handlePan(pan)
+            pan.point.x += 50; coordinator.handlePan(pan)
+            XCTAssertGreaterThan(ball.position.x, original.x)
+            XCTAssertEqual(ball.position.y, scene.surfaceY + AngleSceneCalculator.ballRadius, accuracy: 0.00001)
+            coordinator.gesturesEnabled = false
+            coordinator.interactionMode = .none
+            pan.simulatedState = terminal; coordinator.handlePan(pan)
+            coordinator.endBallDrag()
+            XCTAssertEqual(begins, 1); XCTAssertEqual(ends, 1)
+            XCTAssertEqual(drops, terminal == .ended ? 1 : 0)
+        }
+    }
+
+    func testHiddenAndOccludedBallsCannotBeGrabbed() {
+        let (scene, view, ball, coordinator) = fixture()
+        let projected = view.projectPoint(ball.position)
+        let point = CGPoint(x: CGFloat(projected.x), y: CGFloat(projected.y))
+        XCTAssertTrue(coordinator.hitTestBall(at: point) === ball)
+        ball.isHidden = true
+        XCTAssertNil(coordinator.hitTestBall(at: point))
+        ball.isHidden = false
+        let blocker = SCNNode(geometry: SCNBox(width: 0.4, height: 0.4, length: 0.4, chamferRadius: 0))
+        blocker.position = SCNVector3(0, ball.position.y + 1, 1)
+        scene.rootNode.addChildNode(blocker)
+        SCNTransaction.flush(); _ = view.snapshot()
+        XCTAssertNil(coordinator.hitTestBall(at: point), "Cannot grab through foreground geometry")
+    }
+
+    func testFingerAllowanceChoosesNearestBallRegardlessOfArrayOrder() {
+        let (scene, view, ball, coordinator) = fixture()
+        let other = ball.clone(); other.position.x = 0.25; scene.rootNode.addChildNode(other)
+        SCNTransaction.flush(); _ = view.snapshot()
+        let p = view.projectPoint(other.position)
+        let point = CGPoint(x: CGFloat(p.x), y: CGFloat(p.y) + 18)
+        for candidates in [[ball, other], [other, ball]] {
+            coordinator.draggableBallNodes = candidates
+            XCTAssertTrue(coordinator.hitTestBall(at: point) === other)
+        }
+    }
+
+    func testSelectedBallKeepsNearbyDragAllowanceAndDirectHitSwitchesBall() {
+        let (scene, view, ball, coordinator) = fixture()
+        let other = ball.clone(); other.position.x = 0.15; scene.rootNode.addChildNode(other)
+        coordinator.draggableBallNodes = [other, ball]
+        SCNTransaction.flush(); _ = view.snapshot()
+        let first = view.projectPoint(ball.position)
+        let second = view.projectPoint(other.position)
+        coordinator.handleTap(at: CGPoint(x: CGFloat(first.x), y: CGFloat(first.y)))
+        let nearby = CGPoint(x: CGFloat(second.x), y: CGFloat(second.y) + 18)
+        XCTAssertTrue(coordinator.hitTestBall(at: nearby) === ball, "A nearby gesture keeps the selected ball")
+        coordinator.handleTap(at: CGPoint(x: CGFloat(second.x), y: CGFloat(second.y)))
+        XCTAssertTrue(coordinator.hitTestBall(at: nearby) === other, "A direct ball hit switches selection")
+        coordinator.handleTap(at: CGPoint(x: 10, y: 10))
+        XCTAssertTrue(coordinator.hitTestBall(at: nearby) === other, "Empty-space tap returns to nearest-ball selection")
+    }
+
+    func testReadOnlySceneNeverStartsBallDrag() {
+        let (_, view, ball, coordinator) = fixture()
+        let p = view.projectPoint(ball.position)
+        let pan = Pan(); pan.point = CGPoint(x: CGFloat(p.x), y: CGFloat(p.y)); pan.simulatedState = .began
+        var began = false
+        coordinator.onDragBegan = { _ in began = true }
+        coordinator.interactionMode = .none
+        coordinator.handlePan(pan)
+        XCTAssertFalse(began)
+    }
+}

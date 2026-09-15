@@ -1,14 +1,16 @@
 import SwiftUI
 import SceneKit
 
-// MARK: - Hosting protocol (Bank / Diamond VMs; no VM file changes — conform via extension)
+// MARK: - Hosting protocol (Bank / Diamond VMs)
 
 /// Shared surface for bank / kick solver page chrome (C18 / W5).
-/// Both `BankShotViewModel` and `DiamondSystemViewModel` already expose this API;
-/// conformance is declared here so VM source files stay untouched.
+/// Camera observation shares the chrome without touching either solver state machine.
 @MainActor
 protocol SolverStageHosting: ObservableObject {
     var scene: AngleTrainingScene { get }
+    var cameraMode: AngleTrainingScene.CameraMode { get set }
+    var observationAim: SCNVector3? { get }
+    var observationPocket: Int? { get }
     var mode: BankKickPageMode { get }
     var isSolving: Bool { get }
     var statusText: String { get }
@@ -62,6 +64,28 @@ protocol SolverStageHosting: ObservableObject {
     func pulsePaletteBall(_ key: String)
     /// K11：求解模式微调（草稿层）；自由模式不走此路径。
     func adjustCurrentSolution(velocity: Double?, spinX: Double?, spinY: Double?)
+}
+
+extension SolverStageHosting {
+    func setViewingMode(_ mode: AngleTrainingScene.CameraMode) {
+        let needsOverview = !scene.hasPerspectiveView
+        cameraMode = mode
+        scene.setCameraMode(mode, animated: false)
+        if mode == .perspective3D && needsOverview {
+            _ = scene.cameraRig?.observeWholeTable()
+        }
+    }
+
+    var canObserveCurrentAim: Bool {
+        cameraMode == .perspective3D && !isPlaying
+            && scene.cueBallNode?.isHidden == false && observationAim != nil
+    }
+
+    func observeCurrentAim() {
+        guard canObserveCurrentAim, let cue = scene.cueBallNode,
+              let aim = observationAim else { return }
+        scene.cameraRig?.enterAiming(cueBallPosition: cue.position, targetDirection: aim)
+    }
 }
 
 extension BankShotViewModel: SolverStageHosting {}
@@ -133,6 +157,11 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     let infoTitle: String
     let infoBlocks: [PrincipleBlock]
 
+    private var is3D: Bool { vm.cameraMode == .perspective3D }
+    private var bottomBarHeight: CGFloat {
+        is3D ? ShotStageMetrics.topRowHeight : SolverStageChromeMetrics.bottomBarHeight
+    }
+
     @State private var showInfo = false
     @State private var hasAppeared = false
     @State private var showSpinPad = false
@@ -148,7 +177,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
 
     var body: some View {
         GeometryReader { geo in
-            let sceneH = max(geo.size.height - SolverStageChromeMetrics.topRowHeight - SolverStageChromeMetrics.bottomBarHeight, 1)
+            let sceneH = max(geo.size.height - SolverStageChromeMetrics.topRowHeight - bottomBarHeight, 1)
             let proxy = ShotStageProxy(
                 sceneSize: CGSize(width: geo.size.width, height: sceneH)
             )
@@ -160,7 +189,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                     stage(proxy)
                         .frame(height: sceneH)
                     bottomBar(proxy)
-                        .frame(height: SolverStageChromeMetrics.bottomBarHeight)
+                        .frame(height: bottomBarHeight)
                 }
                 if let key = draggingKey {
                     BTBallPaletteDragGhost(key: key, location: dragLocation, overTable: dragOverTable)
@@ -176,8 +205,10 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
         .toolbar {
             // 条 17.1/17.2/17.7：principal 品牌绿标题 + 副标题承载解描述 / 无解说明（同三解页）。
             ToolbarItem(placement: .principal) {
-                BTSolverNavStatus(title: title, isBusy: vm.isSolving, statusText: vm.statusText)
+                BTSolverNavStatus(title: title, isBusy: vm.isSolving,
+                                  statusLineLimit: 2, statusText: vm.statusText)
             }
+            ToolbarItem(placement: .topBarTrailing) { cameraToggle }
             // 条 17.9（G19）：i → 三点菜单（原理说明 + 台面网格 + 恢复默认）。
             ToolbarItem(placement: .topBarTrailing) {
                 BTSolverMoreMenu(scene: vm.scene,
@@ -198,6 +229,18 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                 vm.setupScene()
             }
         }
+    }
+
+    private var cameraToggle: some View {
+        Button(is3D ? "3D" : "2D") {
+            showSpinPad = false
+            vm.setViewingMode(is3D ? .topDown2DRotated : .perspective3D)
+        }
+        .font(.btSubheadlineSemibold)
+        .frame(minWidth: 44, minHeight: 44)
+        .accessibilityLabel(is3D ? "切换到2D俯视" : "切换到3D视角")
+        .accessibilityValue(is3D ? "3D" : "2D")
+        .accessibilityIdentifier("\(coordinateSpaceName).cameraMode")
     }
 
     // MARK: - Top row（SPEC §8.4：1 行 = 模式切换 + 库数 chip；自由模式库数隐藏，§1.3）
@@ -259,7 +302,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                         degreeHapticEnabled: false,
                         onDragActiveChanged: { vm.setAimWheelDragging($0) }
                     )
-                        .btStageFrame(proxy.aimWheelFrame())
+                        .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).aimWheelFrame : proxy.aimWheelFrame())
                         .allowsHitTesting(!vm.isPlaying)
                         .disabled(vm.isPlaying)
                 }
@@ -275,7 +318,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
                     // 击球/演示中打点位与力度条一起禁用灰化，不从仪表柱上消失。
                     spinTapEnabled: !vm.isPlaying
                 )
-                .btStageFrame(proxy.instrumentFrame())
+                .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).instrumentFrame : proxy.instrumentFrame())
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("solver.power")
                 .disabled(vm.isPlaying)
@@ -283,15 +326,15 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
 
                 // 右下贴边动作列：求解 = 击打/上一杆/回放；自由 = 击球/上一杆/回放（G6 actionColumnFrame）。
                 actionColumn
-                    .btStageFrame(proxy.actionColumnFrame())
+                    .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).actionFrame : proxy.actionColumnFrame())
 
                 // Slot L1：自由 = 「恢复球形」；求解 = 「下一解」（G24 外形 = breakButtonSize）。
                 if vm.mode == .free {
                     restoreButton
-                        .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
+                        .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize) : proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
                 } else {
                     nextSolutionButton
-                        .btStageFrame(proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
+                        .btStageFrame(is3D ? ShotPerspectiveLayout(sceneSize: proxy.sceneSize).bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize) : proxy.bottomLeadingFrame(size: ShotStageMetrics.breakButtonSize))
                 }
             }
 
@@ -302,8 +345,9 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             // 打点盘浮层（自由 / 求解有解；求解微调走草稿层，编排台同款 ADR-P11-09）。
             if showSpinPad {
                 BTSpinPadOverlay(spinX: spinXBinding, spinY: spinYBinding,
-                                 tableWidth: proxy.playingRect.width,
-                                 bottomPadding: proxy.spinPadBottomPadding,
+                                 tableWidth: is3D ? max(0, proxy.sceneSize.width - Spacing.lg * 2) : proxy.playingRect.width,
+                                 bottomPadding: is3D ? Spacing.sm : proxy.spinPadBottomPadding,
+                                 usesCompactLayout: is3D,
                                  onClose: { showSpinPad = false })
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -419,10 +463,10 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     private var sceneContainer: some View {
         AngleSceneView(
             scene: vm.scene,
-            cameraMode: .constant(.topDown2DRotated),
-            interactionMode: .tapsOnly,
-            autoFitsRotatedTable: true,
-            onPocketTapped: onPocketTapped,
+            cameraMode: $vm.cameraMode,
+            interactionMode: is3D ? .cameraControl : .tapsOnly,
+            autoFitsRotatedTable: !is3D,
+            onPocketTapped: is3D ? nil : onPocketTapped,
             draggableBallNodes: vm.draggableNodes,
             onDragBegan: { node in vm.dragBegan(node: node) },
             onDragMoved: { node, world in vm.handleDrag(node: node, to: world) },
@@ -430,7 +474,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
             onDragEndedAt: { node, localPoint in
                 handleTableDragEnd(node: node, localPoint: localPoint)
             },
-            onAimNudged: { vm.nudgeFreeAim(byDegrees: $0) },   // 自由模式瞄准相对调整（G13）。
+            onAimNudged: is3D ? nil : { vm.nudgeFreeAim(byDegrees: $0) },   // 自由模式瞄准相对调整（G13）。
             onAimDragActiveChanged: { vm.setAimTableDragging($0) },
             projector: projector
         )
@@ -442,6 +486,31 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
     // MARK: - Bottom bar（球库带：拖入 = 障碍球真实碰撞体；G21 BTBallPaletteBar）
 
     private func bottomBar(_ proxy: ShotStageProxy) -> some View {
+        Group {
+            if is3D {
+                HStack(spacing: Spacing.sm) {
+                    BTSceneObservationMenu(
+                        scene: vm.scene, targetNode: vm.scene.targetBallNodes.first,
+                        pocketIndex: vm.observationPocket, identifierPrefix: coordinateSpaceName,
+                        canReturnToAim: vm.canObserveCurrentAim,
+                        onReturnToAim: vm.observeCurrentAim
+                    )
+                    .disabled(vm.isPlaying)
+                    Spacer(minLength: 0)
+                    Text("拖球摆位 · 空白处转视角").foregroundStyle(Color.btTextSecondary)
+                }
+                .font(.btFootnote)
+                .padding(.horizontal, Spacing.sm)
+            } else {
+                paletteBar(proxy)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(HUDStyle.panelBackground)
+        .environment(\.colorScheme, .dark)
+    }
+
+    private func paletteBar(_ proxy: ShotStageProxy) -> some View {
         let libraryWidth = proxy.libraryWidth
         return BTBallPaletteBar(
             coordinateSpace: coordinateSpaceName,
@@ -477,6 +546,7 @@ struct SolverStageChrome<VM: SolverStageHosting>: View {
 
     // 在桌障碍球拖回球库带 → 移除（编排台同款）。
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
+        guard !is3D else { return } // The palette is hidden in perspective mode.
         guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
                                                sceneFrame: sceneFrame,
                                                paletteFrame: paletteFrame),

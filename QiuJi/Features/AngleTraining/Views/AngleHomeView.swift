@@ -230,8 +230,8 @@ struct AngleHomeView: View {
         .init(route: .positionPlaySolver, title: "思路训练", subtitle: "定落点看塞与力度", topics: [.position, .english]),
         .init(route: .planThree, title: "打一走二想三", subtitle: "定三颗倒推第一杆", isPremium: true, topics: [.position]),
         .init(route: .snookerTactics, title: "防守", subtitle: "选目标球求防守线", isPremium: true, topics: [.safety]),
-        .init(route: .bankShot, title: "翻袋解球器", subtitle: "选袋求一至三库线", topics: [.cushion, .accuracy]),
-        .init(route: .diamondSystem, title: "反射解球器", subtitle: "摆球求一至三库线", topics: [.cushion]),
+        .init(route: .bankShot, title: "翻袋解球", subtitle: "选袋求一至三库线", topics: [.cushion, .accuracy]),
+        .init(route: .diamondSystem, title: "颗星解球", subtitle: "摆球求一至三库线", topics: [.cushion]),
     ]
 
     private func entries(for section: PracticeSection) -> [AngleEntry] {

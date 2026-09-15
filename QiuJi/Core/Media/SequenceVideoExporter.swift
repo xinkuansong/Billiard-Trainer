@@ -84,6 +84,7 @@ enum SequenceVideoExporter {
         #if DEBUG
         /// Observes actual export nodes immediately before encoding a motion frame.
         /// No scene or playback mutation is exposed to the observer.
+        var railFrameObserver: ((UUID, String, Float, [String: SCNVector3]) -> Void)?
         var motionFrameObserver: ((UUID, Float, [String: SCNVector3], [String: CGFloat], Set<String>) -> Void)?
         /// Actual visible board-key positions before encoding each settled hold frame.
         var settledFrameObserver: ((UUID, [String: SCNVector3]) -> Void)?
@@ -422,6 +423,7 @@ enum SequenceVideoExporter {
             // 第1拍·读球形停顿：仅摆球，给观众观察局面的时间（教学视频档 1.5s；GIF/卡片档为 0 跳过）。
             for _ in 0..<holdFrames(options.observeHold, fps: fps) {
                 #if DEBUG
+                options.railFrameObserver?(step.id, "observe", 0, ctx.scene.railInventory.visiblePositions)
                 if let observer = options.observationFrameObserver {
                     observer(step.id, ctx.scene.allBallNodes.reduce(into: [:]) { result, entry in
                         let (key, node) = entry
@@ -455,11 +457,18 @@ enum SequenceVideoExporter {
 
             // 运动帧（无线）。进袋「匀速入洞 → 撞远端袋弧 → 袋心停顿 → 淡出」
             // （#4 v2，与编排台 `TrajectoryPlayback` 同源求解）。
-            let playback = TrajectoryPlayback(recorder: recorder, surfaceY: ctx.yLevel)
+            let playback = TrajectoryPlayback(recorder: recorder, surfaceY: ctx.yLevel, railInventory: ctx.scene.railInventory)
             let onKeys = step.before.onTable.keys.map { $0 }
             let nameMap = Dictionary(uniqueKeysWithValues: onKeys.map {
                 ($0, PositionPlayShotSolver.predName(boardKey: $0, shot: step.shot))
             })
+            if let shot = playback.railShot {
+                for key in onKeys {
+                    if let node = ctx.scene.allBallNodes[key], let name = nameMap[key], shot.timeline.incoming[name] != nil {
+                        ctx.scene.railInventory.bind(node, alias: name, to: shot)
+                    }
+                }
+            }
             let duration = pred.duration
             let pause = TrajectoryPlayback.pocketPauseDuration
             let fade = TrajectoryPlayback.pocketFadeDuration
@@ -499,6 +508,17 @@ enum SequenceVideoExporter {
                     guard let node = ctx.scene.allBallNodes[key], let name = nameMap[key] else { continue }
                     let collectionOpacity=playback.collectionOpacity(ballName:name,time:t)
                     guard let s = playback.stateAt(ballName:name,time:collectionOpacity == nil ? min(t,duration):t) else { continue }
+                    if let shot = playback.railShot, let track = shot.timeline.incoming[name],
+                       let start = track.samples.first, Double(t) >= start.time {
+                        if !node.isHidden {
+                            let omega = SCNVector3(Float(start.omega.x), Float(start.omega.y), Float(start.omega.z))
+                            BallSpinIntegrator.advance(node: node, from: lastOmega[key] ?? omega, to: omega,
+                                dt: max(0, Float(start.time) - max(0, t - frameSimDt)))
+                            ctx.scene.railInventory.beginTail(alias: name, source: node, shot: shot)
+                            node.isHidden = true
+                        }
+                        continue
+                    }
                     if let collectionOpacity {
                         node.position=s.position;node.opacity=collectionOpacity
                         if let prev=lastOmega[key] {
@@ -550,6 +570,10 @@ enum SequenceVideoExporter {
                         lastOmega[key] = s.angularVelocity
                     }
                 }
+                if let shot = playback.railShot { ctx.scene.railInventory.render(shot, at: Double(t)) }
+                #if DEBUG
+                options.railFrameObserver?(step.id, "motion", t, ctx.scene.railInventory.visiblePositions)
+                #endif
                 // 跟杆叠加：球杆锚定在击球点；仰角整杆冻结（elevationOverride），与实时同口径。
                 if let anchor = cueAnchor, !cueHidden {
                     if let retractStart = anchor.collisionRetractStart, t >= retractStart - 1e-4 {
@@ -589,8 +613,9 @@ enum SequenceVideoExporter {
                     var opacities: [String: CGFloat] = [:]
                     for key in onKeys {
                         guard let node = ctx.scene.allBallNodes[key], let name = nameMap[key] else { continue }
-                        positions[name] = node.worldPosition
-                        opacities[name] = node.opacity
+                        let rendered = ctx.scene.railInventory.renderedNode(for: node)
+                        positions[name] = rendered.worldPosition
+                        opacities[name] = rendered.opacity
                     }
                     let visibleKeys = Set(ctx.scene.allBallNodes.compactMap { key, node in
                         !node.isHidden && node.opacity > 0.00001 ? key : nil
@@ -605,9 +630,13 @@ enum SequenceVideoExporter {
 
             // Preserve the result just animated, as live sequence playback does.
             // Saved after may have been authored with a different physics model.
+            if let shot = playback.railShot {
+                ctx.scene.railInventory.render(shot, at: Double(loopEndSim), complete: true)
+            }
             ctx.placePredictionRest(pred, step: step)
             for _ in 0..<holdFrames(options.tailHold, fps: fps) {
                 #if DEBUG
+                options.railFrameObserver?(step.id, "settled", loopEndSim, ctx.scene.railInventory.visiblePositions)
                 if let observer = options.settledFrameObserver {
                     observer(step.id, ctx.scene.allBallNodes.reduce(into: [:]) { result, entry in
                         let (key, node) = entry
@@ -739,6 +768,7 @@ enum SequenceVideoExporter {
         }
 
         func placeBoard(_ board: BoardSnapshot) {
+            scene.railInventory.watchesBoard = false
             scene.hideAllBalls()
             let cuePose: CueBallPosePolicy = hasSeatedCuePose ? .unchanged : .reseat
             hasSeatedCuePose = true
@@ -750,6 +780,7 @@ enum SequenceVideoExporter {
                                cuePose: PositionPlayBall.isCue(key) ? cuePose : .home)
                 scene.allBallNodes[key]?.opacity = 1   // 上一杆进袋淡出后复用节点需复原
             }
+            scene.railInventory.reconcile(animated: false)
         }
 
         /// 画一杆的轨迹预告线（白=母球瞄准线、**球色**=进球线，黑 8 亮灰，见 `TrajectoryStyle`），

@@ -195,6 +195,23 @@ struct SettingsView: View {
                 .padding(.leading, Spacing.xs)
 
             VStack(spacing: 0) {
+                Toggle(isOn: $prefs.backgroundMusicEnabled) {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Text("背景音乐")
+                            .font(.btBody)
+                            .foregroundStyle(.btText)
+                        Text("在练习页播放")
+                            .font(.btFootnote)
+                            .foregroundStyle(.btTextSecondary)
+                    }
+                }
+                .tint(.btPrimary)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.vertical, Spacing.md)
+                .accessibilityIdentifier("settings.backgroundMusic")
+
+                Divider().padding(.leading, Spacing.lg)
+
                 Toggle(isOn: $prefs.soundEffectsEnabled) {
                     Text("击球音效")
                         .font(.btBody)
@@ -203,6 +220,7 @@ struct SettingsView: View {
                 .tint(.btPrimary)
                 .padding(.horizontal, Spacing.lg)
                 .padding(.vertical, Spacing.md)
+                .accessibilityIdentifier("settings.shotSoundEffects")
             }
             .background(Color.btBGSecondary)
             .clipShape(RoundedRectangle(cornerRadius: BTRadius.md))

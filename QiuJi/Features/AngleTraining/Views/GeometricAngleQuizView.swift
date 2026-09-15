@@ -75,6 +75,7 @@ struct GeometricAngleQuizView: View {
         }
         .animation(BTMotion.easeChrome, value: isInputting)
         .angleSaveErrorBanner(message: vm.saveErrorMessage) { vm.retryFailedSaves() }
+        .trainingBackgroundMusic()
         .btDarkToolChrome("角度预测")
         .toolbar {
             ToolbarItem(placement: .principal) {

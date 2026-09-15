@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 反射解球器 — 2D top-down kick-shot solver.
+/// 颗星解球 — 2D top-down kick-shot solver.
 /// Place the cue & target balls anywhere; the app solves cushion-first kick routes
 /// (cue off 1–3 rails into the target) with the real physics engine.
 ///
@@ -14,18 +14,19 @@ struct DiamondSystemView: View {
     var body: some View {
         SolverStageChrome(
             vm: vm,
-            title: "反射解球器",
+            title: "颗星解球",
             coordinateSpaceName: "reflection",
             onPocketTapped: nil,
-            infoTitle: "反射解球原理",
+            infoTitle: "颗星解球原理",
             infoBlocks: Self.infoBlocks
         )
+        .trainingBackgroundMusic()
     }
 
     private static let infoBlocks: [PrincipleBlock] = [
         PrincipleBlock(
             title: "这是什么",
-            body: "一个通用的反射解球器：把母球和目标球放到台面任意位置，用真实物理引擎反解母球经过 1 库、2 库、3 库反弹后碰到目标球的走位路线。"
+            body: "一个通用的颗星解球：把母球和目标球放到台面任意位置，用真实物理引擎反解母球经过 1 库、2 库、3 库反弹后碰到目标球的走位路线。"
         ),
         PrincipleBlock(
             title: "原理：入射角 = 反射角",
@@ -33,7 +34,7 @@ struct DiamondSystemView: View {
         ),
         PrincipleBlock(
             title: "操作",
-            body: "拖动母球（白）与目标球（黑）到任意位置（松手后自动求解）；顶部选「自动」按好打程度排序，或手选 1–3 库。白色实线即母球解线、金点是碰库点、虚线是碰到后两球的真实去向。多条解时点「下一解」切换；点「击打」演示这一杆（出杆 → 真实物理回放 → 自动复位，可重复击打）；点「重置」恢复默认摆球。"
+            body: "拖动母球（白）与目标球（黑）到任意位置（松手后自动求解）；顶部选「自动」按好打程度排序，或手选 1–3 库。白色实线即母球解线，虚线是碰到后两球的真实去向。多条解时点「下一解」切换；点「击打」演示这一杆（出杆 → 真实物理回放 → 自动复位，可重复击打）；点「重置」恢复默认摆球。"
         ),
         PrincipleBlock(
             title: "障碍球",
@@ -45,7 +46,7 @@ struct DiamondSystemView: View {
         ),
         PrincipleBlock(
             title: "真实物理求解与力度",
-            body: "每条解都由完整物理引擎反解并复核——画面即物理。力度是求解输入：拖动右侧力度柱（m/s）会重新求解，力度不足够绕库时该路线会自动消失；该设置与翻袋解球器共享并会被记住。"
+            body: "每条解都由完整物理引擎反解并复核——画面即物理。力度是求解输入：拖动右侧力度柱（m/s）会重新求解，力度不足够绕库时该路线会自动消失；该设置与翻袋解球共享并会被记住。"
         ),
         PrincipleBlock(
             title: "好打优先",

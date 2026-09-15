@@ -19,6 +19,107 @@ import SceneKit
 @MainActor
 final class PositionPlayUndoSnapshotTests: XCTestCase {
 
+    func testBankCameraSwitchPreservesSolveAndFreeState() throws {
+        try checkSolverCamera(BankShotViewModel())
+    }
+
+    func testReflectionCameraSwitchPreservesSolveAndFreeState() throws {
+        try checkSolverCamera(DiamondSystemViewModel())
+    }
+
+    private func checkSolverCamera<VM: SolverStageHosting>(_ vm: VM) throws {
+        vm.setupScene()
+        waitForSolveIdle({ vm.isSolving })
+        XCTAssertTrue(vm.hasSolution)
+        vm.nextSolution()
+        let rig = try XCTUnwrap(vm.scene.cameraRig)
+        let camera = try XCTUnwrap(vm.scene.cameraNode)
+        rig.viewportSize = CGSize(width: 375, height: 480)
+        for free in [false, true] {
+            if free { vm.toggleMode(); vm.spinY = 0.2; vm.spinX = 0.1 }
+            let nodes = vm.scene.allBallNodes.values.map { ($0, $0.transform, $0.isHidden) }
+            let index = vm.currentIndex, count = vm.solutionCount
+            let pocket = vm.observationPocket, cushions = vm.selectedCushions
+            let spinX = vm.spinX, spinY = vm.spinY, power = vm.reflectionPower
+            let status = vm.statusText
+            vm.setViewingMode(.perspective3D)
+            XCTAssertFalse(try XCTUnwrap(camera.camera).usesOrthographicProjection)
+            vm.observeCurrentAim()
+            rig.handleHorizontalSwipe(delta: 80)
+            rig.snapToTarget()
+            let observed = camera.transform
+            vm.setViewingMode(.topDown2DRotated)
+            XCTAssertTrue(try XCTUnwrap(camera.camera).usesOrthographicProjection)
+            vm.setViewingMode(.perspective3D)
+            XCTAssertTrue(SCNMatrix4EqualToMatrix4(observed, camera.transform))
+            XCTAssertFalse(vm.isSolving)
+            XCTAssertEqual(vm.currentIndex, index)
+            XCTAssertEqual(vm.solutionCount, count)
+            XCTAssertEqual(vm.observationPocket, pocket)
+            XCTAssertEqual(vm.selectedCushions, cushions)
+            XCTAssertEqual(vm.spinX, spinX)
+            XCTAssertEqual(vm.spinY, spinY)
+            XCTAssertEqual(vm.reflectionPower, power)
+            if free {
+                XCTAssertFalse(vm.statusText.contains("拖动台面"))
+            } else {
+                XCTAssertEqual(vm.statusText, status)
+            }
+            for (node, transform, hidden) in nodes {
+                XCTAssertTrue(SCNMatrix4EqualToMatrix4(node.transform, transform))
+                XCTAssertEqual(node.isHidden, hidden)
+            }
+            vm.setViewingMode(.topDown2DRotated)
+        }
+    }
+
+    private func seedRail(in scene: AngleTrainingScene) throws -> PocketRailSnapshot {
+        let source = try XCTUnwrap(scene.allBallNodes["_8"])
+        source.isHidden = true
+        let pocket = TableGeometry.chineseEightBallQiuJi(surfaceY: scene.surfaceY).pockets[0]
+        let net = PocketNetPresentation.NetPocket(pocket: pocket, surfaceY: Double(scene.surfaceY))
+        let slots = net.slots(ballRadius: Double(BallPhysics.radius))
+        let p = slots[0]
+        let clone = scene.railInventory.makeClone(of: source, at: SCNVector3(Float(p.x), Float(p.y), Float(p.z)))
+        clone.isHidden = false
+        scene.railInventory.commit(clone, source: source, ballName: "_8", pocketID: pocket.id, slot: 0, slots: slots)
+        return scene.railInventory.snapshot()
+    }
+
+    func testRailHistoryRestoresAcrossThreeTrainingConsumers() throws {
+        let solution = stubSolution(velocity: 2, spinX: 0, spinY: 0)
+        do {
+            let vm = SiluTrainerViewModel(); vm.setupScene()
+            let expected = try seedRail(in: vm.scene)
+            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+            vm.scene.railInventory.clear()
+            vm.restore(from: context)
+            XCTAssertEqual(vm.scene.railInventory.snapshot(), expected)
+            vm.resetAll()
+            XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty)
+        }
+        do {
+            let vm = PlanThreeViewModel(); vm.setupScene()
+            let expected = try seedRail(in: vm.scene)
+            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+            vm.scene.railInventory.clear()
+            vm.restore(from: context)
+            XCTAssertEqual(vm.scene.railInventory.snapshot(), expected)
+            vm.resetAll()
+            XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty)
+        }
+        do {
+            let vm = SnookerTacticsViewModel(); vm.setupScene()
+            let expected = try seedRail(in: vm.scene)
+            let context = vm.makeUndoContext(shot: solution.shot, prediction: solution.prediction)
+            vm.scene.railInventory.clear()
+            vm.restore(from: context)
+            XCTAssertEqual(vm.scene.railInventory.snapshot(), expected)
+            vm.resetAll()
+            XCTAssertTrue(vm.scene.railInventory.snapshot().balls.isEmpty)
+        }
+    }
+
     // MARK: - Helpers
 
     /// 构造一个可用于快照的最小 `PositionPlaySolution`（往返测试只关心其被原样搬运，不跑物理）。

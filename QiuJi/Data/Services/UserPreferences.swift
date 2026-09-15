@@ -178,6 +178,11 @@ final class UserPreferences: ObservableObject {
         didSet { defaults.set(renderFrameRate.rawValue, forKey: "renderFrameRate") }
     }
 
+    // Training music and shot effects are independent device preferences.
+    @Published var backgroundMusicEnabled: Bool {
+        didSet { defaults.set(backgroundMusicEnabled, forKey: "backgroundMusicEnabled") }
+    }
+
     // Shot replay sound effects are disabled by default until audio assets are ready.
     @Published var soundEffectsEnabled: Bool {
         didSet { defaults.set(soundEffectsEnabled, forKey: "soundEffectsEnabled") }
@@ -250,6 +255,8 @@ final class UserPreferences: ObservableObject {
         self.ballStickerStyle = BallStickerStyle.selected(in: defaults)
         self.cueStyle = CueStyle.selected(in: defaults)
         self.renderFrameRate = RenderFrameRate(rawValue: defaults.integer(forKey: "renderFrameRate")) ?? .fps60
+
+        self.backgroundMusicEnabled = (defaults.object(forKey: "backgroundMusicEnabled") as? Bool) ?? false
 
         // Default to off while preserving an explicitly saved preference.
         self.soundEffectsEnabled = (defaults.object(forKey: "soundEffectsEnabled") as? Bool) ?? false

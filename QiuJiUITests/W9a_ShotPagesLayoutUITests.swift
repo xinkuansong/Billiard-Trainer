@@ -120,7 +120,7 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
         goBack(app)
 
         // 7 Bank
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "翻袋解球器"), "Bank")
+        XCTAssertTrue(openCard(app, homeTab: "解", title: "翻袋解球"), "Bank")
         snap(app, "w9a-07-bank")
         // C28/D15：轨迹 chip 三档位——不只断言文案切换，还断言场景线语言实际变化
         //（同一态三档截图，台面裁剪区像素 diff 必须超阈值）。
@@ -163,7 +163,7 @@ final class W9a_ShotPagesLayoutUITests: XCTestCase {
         goBack(app)
 
         // 8 Diamond
-        XCTAssertTrue(openCard(app, homeTab: "解", title: "反射解球器"), "Diamond")
+        XCTAssertTrue(openCard(app, homeTab: "解", title: "颗星解球"), "Diamond")
         snap(app, "w9a-08-diamond")
         let trajD = app.buttons["轨迹标注档位"]
         if trajD.waitForExistence(timeout: 3) {

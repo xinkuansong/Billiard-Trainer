@@ -449,7 +449,7 @@ final class TrainingAssistSceneTests: XCTestCase {
         scene.setupScene()
         scene.setupVisualizationNodes(usesTrainingAssistStyle: true)
         let ghost = try XCTUnwrap(scene.ghostBallNode)
-        // DR-302: training scenes use the standard dashed cloth ring (no translucent sphere).
+        // DR-306: training scenes use the standard dashed cloth ring (no translucent sphere).
         XCTAssertNil(ghost.geometry, "ghost must not carry a sphere geometry of its own")
         let dashes = ghost.childNodes.filter { $0.geometry is SCNCylinder }
         XCTAssertFalse(dashes.isEmpty)

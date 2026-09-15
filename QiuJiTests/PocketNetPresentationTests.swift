@@ -552,3 +552,164 @@ final class PocketNetPresentationTests: XCTestCase {
         XCTAssertEqual(tail.start.position.z, Double(entry.ball.position.z), accuracy: 1e-6)
     }
 }
+
+extension PocketNetPresentationTests {
+    func testRailTimelineSupportsSeekingAndKeepsItsOwnRecordedTails() throws {
+        let net = PocketNetPresentation.NetPocket(pocket: geometry.pockets[0], surfaceY: Double(surfaceY))
+        let slots = net.slots(ballRadius: ballRadius)
+        let before = PocketRailSnapshot(balls: (0..<2).map {
+            .init(key: "_\($0 + 1)", pocketID: geometry.pockets[0].id, slot: $0,
+                  position: slots[$0], orientation: BallSpinIntegrator.identityOrientation.vector)
+        }, chains: [geometry.pockets[0].id: slots])
+        let recorder = makePottedRecorder(entries: [("object", 0, 0.5), ("extra", 0, 2)])
+        let timeline = PocketRailTimeline(before: before, recorder: recorder)
+        let first = try XCTUnwrap(timeline.incoming["object"])
+        let expected = try XCTUnwrap(first.frame(at: timeline.duration))
+        XCTAssertEqual(expected.position, slots[1])
+        XCTAssertEqual(timeline.previous["_1"]?.frame(at: 0)?.opacity, 1)
+        XCTAssertEqual(timeline.previous["_1"]?.frame(at: timeline.duration)?.opacity, 0)
+        XCTAssertEqual(timeline.previous["_2"]?.frame(at: timeline.duration)?.position, slots[0])
+        // Mutating a recorder for a different consumer must not change a prepared timeline.
+        PocketNetPresentation.attach(to: recorder, preOccupied: [:])
+        for t in [timeline.duration, 0.51, 1.0, timeline.duration, 0.0, timeline.duration] {
+            _ = first.frame(at: t)
+        }
+        XCTAssertEqual(first.frame(at: timeline.duration)?.position, expected.position)
+        XCTAssertEqual(first.frame(at: timeline.duration)?.rotation.vector, expected.rotation.vector)
+        XCTAssertEqual(before.balls.map(\.key), ["_1", "_2"])
+    }
+
+    func testRailClearCancelsInFlightClonesAndRejectsOldCompletion() throws {
+        let root = SCNNode(), source = SCNNode()
+        source.name = "_1"; root.addChildNode(source)
+        let inventory = PocketRailInventory(root: root); inventory.watchesBoard = false
+        let shot = try XCTUnwrap(inventory.beginShot(recorder: makePottedRecorder(entries: [("object", 0, 0.5)])))
+        inventory.bind(source, alias: "object", to: shot)
+        inventory.beginTail(alias: "object", source: source, shot: shot)
+        source.isHidden = true
+        inventory.render(shot, at: 0.6)
+        XCTAssertEqual(inventory.visiblePositions.count, 1)
+        inventory.clear()
+        inventory.render(shot, at: shot.timeline.duration, complete: true)
+        XCTAssertTrue(inventory.snapshot().balls.isEmpty)
+        XCTAssertEqual(root.childNodes.count, 1, "Clear also owns clones that have not landed/committed yet")
+    }
+
+    func testRailBoundaryCommitSurvivesLateActionCompletion() throws {
+        let root = SCNNode(), source = SCNNode()
+        source.name = "_1"; root.addChildNode(source)
+        let inventory = PocketRailInventory(root: root)
+        let shot = try XCTUnwrap(inventory.beginShot(recorder: makePottedRecorder(entries: [("object", 0, 0.5)])))
+        inventory.bind(source, alias: "object", to: shot)
+        inventory.beginTail(alias: "object", source: source, shot: shot)
+        source.isHidden = true
+        inventory.render(shot, at: 0.6)
+        // A page completion can run before another node's equal-duration .run callback.
+        inventory.finishPlayback()
+        source.removeAllActions()
+        let settled = inventory.snapshot()
+        XCTAssertEqual(settled.balls.map(\.key), ["_1"])
+        inventory.render(shot, at: 0.7)
+        inventory.cancelPlayback()
+        XCTAssertEqual(inventory.snapshot(), settled)
+        inventory.restore(settled)
+        XCTAssertEqual(Set(inventory.visiblePositions.keys), ["_1"])
+    }
+
+    @MainActor
+    func testSceneKitActionOwnershipBaseline() async throws {
+        weak var releasedRoot: SCNNode?
+        weak var releasedSource: SCNNode?
+        autoreleasepool {
+            let root = SCNNode(), source = SCNNode()
+            root.addChildNode(source)
+            source.runAction(.customAction(duration: 1) { _, _ in })
+            releasedRoot = root; releasedSource = source
+        }
+        print("[W17 ownership baseline] immediate root=\(releasedRoot != nil) source=\(releasedSource != nil)")
+        try await Task.sleep(for: .seconds(2))
+        print("[W17 ownership baseline] after2s root=\(releasedRoot != nil) source=\(releasedSource != nil)")
+        XCTAssertNil(releasedRoot)
+        XCTAssertNil(releasedSource)
+    }
+
+    @MainActor
+    func testRailOwnershipReleasesActiveAndCommittedShots() async throws {
+        for complete in [false, true] {
+            weak var releasedRoot: SCNNode?
+            weak var releasedSource: SCNNode?
+            weak var releasedInventory: PocketRailInventory?
+            try autoreleasepool {
+                let root = SCNNode(), source = SCNNode()
+                source.name = "_1"; root.addChildNode(source)
+                let inventory = PocketRailInventory(root: root)
+                let recorder = makePottedRecorder(entries: [("object", 0, 0.5)])
+                let playback = TrajectoryPlayback(recorder: recorder, surfaceY: surfaceY, railInventory: inventory)
+                let shot = try XCTUnwrap(playback.railShot)
+                source.runAction(try XCTUnwrap(playback.action(for: source, ballName: "object")))
+                inventory.beginTail(alias: "object", source: source, shot: shot)
+                source.isHidden = true
+                inventory.render(shot, at: complete ? shot.timeline.duration : 0.6, complete: complete)
+                releasedRoot = root; releasedSource = source; releasedInventory = inventory
+            }
+            // Even a bare SCNNode action is retained until SceneKit drains its transaction.
+            // Yield the main actor without cancelling actions or clearing the inventory.
+            for _ in 0..<40 {
+                if releasedRoot == nil && releasedSource == nil && releasedInventory == nil { break }
+                try await Task.sleep(for: .milliseconds(50))
+            }
+            XCTAssertNil(releasedRoot)
+            XCTAssertNil(releasedSource)
+            XCTAssertNil(releasedInventory, "An active or committed rail shot must not retain its scene")
+        }
+    }
+
+    func testRailCancellationSurvivesReleasedPlaybackAndNoPotDoesNotLockInventory() throws {
+        let root = SCNNode(), source = SCNNode()
+        source.name = "_1"; root.addChildNode(source)
+        let rails = PocketRailInventory(root: root); rails.watchesBoard = false
+        do {
+            let shot = try XCTUnwrap(rails.beginShot(recorder: makePottedRecorder(entries: [("object", 0, 0.5)])))
+            rails.bind(source, alias: "object", to: shot)
+            rails.beginTail(alias: "object", source: source, shot: shot)
+            source.isHidden = true
+            rails.render(shot, at: 0.6)
+        }
+        rails.cancelPlayback()
+        XCTAssertTrue(rails.visiblePositions.isEmpty)
+        XCTAssertEqual(root.childNodes.count, 1)
+        XCTAssertNil(rails.beginShot(recorder: makePottedRecorder(entries: [])))
+        XCTAssertTrue(rails.snapshot().balls.isEmpty)
+    }
+
+    func testRailSnapshotsRestoreAndShotAliasesDoNotDuplicatePhysicalBalls() throws {
+        let root = SCNNode()
+        let rails = PocketRailInventory(root: root); rails.watchesBoard = false
+        let nodes = (1...2).map { i -> SCNNode in
+            let node = SCNNode(); node.name = "_\(i)"; root.addChildNode(node); return node
+        }
+        func pot(_ source: SCNNode) throws {
+            let shot = try XCTUnwrap(rails.beginShot(recorder: makePottedRecorder(entries: [("object", 0, 0.5)])))
+            rails.bind(source, alias: "object", to: shot)
+            rails.beginTail(alias: "object", source: source, shot: shot)
+            source.isHidden = true
+            rails.render(shot, at: shot.timeline.duration, complete: true)
+        }
+        try pot(nodes[0]); let first = rails.snapshot()
+        try pot(nodes[1]); let second = rails.snapshot()
+        XCTAssertEqual(Set(second.balls.map(\.key)), ["_1", "_2"])
+        XCTAssertEqual(Set(second.balls.map(\.slot)), [0, 1])
+        rails.restore(first)
+        XCTAssertEqual(rails.snapshot(), first)
+        rails.restore(second)
+        XCTAssertEqual(rails.snapshot(), second)
+        nodes[0].isHidden = false
+        rails.reconcile(animated: false)
+        XCTAssertEqual(rails.snapshot().balls.map(\.key), ["_2"])
+        XCTAssertEqual(rails.snapshot().balls.first?.slot, 0)
+        try pot(nodes[0])
+        XCTAssertEqual(Set(rails.snapshot().balls.map(\.key)), ["_1", "_2"])
+        XCTAssertEqual(rails.snapshot().balls.count, 2)
+        rails.clear()
+    }
+}

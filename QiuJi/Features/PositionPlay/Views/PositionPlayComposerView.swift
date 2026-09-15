@@ -109,6 +109,7 @@ struct PositionPlayComposerView: View {
             if let s = frames["scene"] { sceneFrame = s }
             if let p = frames["palette"] { paletteFrame = p }
         }
+        .trainingBackgroundMusic()
         .btDarkToolChrome(navTitleText)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -199,7 +200,7 @@ struct PositionPlayComposerView: View {
     private var observationBar: some View {
         HStack(spacing: Spacing.sm) {
             ShotObservationMenu(vm: vm, identifierPrefix: cameraIdentifierPrefix)
-            Text("摆球请切回2D")
+            Text(vm.isSequenceMode ? "拖动转视角 · 双指缩放" : "拖球摆位 · 空白处转视角")
                 .font(.btCaption)
                 .foregroundStyle(Color.btTextSecondary)
                 .lineLimit(1)
@@ -406,7 +407,7 @@ struct PositionPlayComposerView: View {
                     formation: tryoutFormation,
                     footnote: hasSeenGestureHint
                         ? nil
-                        : (is3D ? "拖动旋转 · 双指缩放 · 摆球请切回2D" : "拖动台面瞄准 · 拖动球改摆 · 点「击球」试打")
+                        : (is3D ? "拖球摆位 · 空白处转视角 · 双指缩放" : "拖动台面瞄准 · 拖动球改摆 · 点「击球」试打")
                 ) {
                     // 点卡关闭也视为「已见手势提示」（D3 跨启动记忆）。
                     if !hasSeenGestureHint { hasSeenGestureHint = true }
@@ -445,7 +446,7 @@ struct PositionPlayComposerView: View {
             autoFitsRotatedTable: !is3D,
             onPocketTapped: vm.isBreakMode || vm.isSequenceMode || vm.isPlaying ? nil : { vm.selectPocket(at: $0) },
             // 开球模式：仅母球可拖（限开球区）；序列模式：台面只读（逐杆演示），其余台面交互挂起。
-            draggableBallNodes: (is3D || vm.isSequenceMode) ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),
+            draggableBallNodes: (vm.isPlaying || vm.isSequenceMode) ? [] : (vm.breakRunner?.draggableCue ?? vm.draggableBalls),
             onDragBegan: { node in
                 dismissBriefOnInteraction()
                 if let runner = vm.breakRunner { runner.dragBegan(node: node) }
@@ -482,6 +483,8 @@ struct PositionPlayComposerView: View {
             projector: projector
         )
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Keep UIKit hit-test geometry aligned while tryout chrome fades or changes mode.
+        .transaction { $0.animation = nil }
         .background(frameReader(id: "scene"))
         .clipped()
     }
@@ -760,6 +763,7 @@ struct PositionPlayComposerView: View {
     // MARK: - Table ball dragged back to palette → remove
 
     private func handleTableDragEnd(node: SCNNode, localPoint: CGPoint) {
+        guard !is3D else { return } // The palette is hidden in perspective mode.
         guard BTBallPaletteDragBack.hitPalette(localPoint: localPoint,
                                                sceneFrame: sceneFrame,
                                                paletteFrame: paletteFrame),

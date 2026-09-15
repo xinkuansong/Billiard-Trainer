@@ -75,6 +75,11 @@ final class VideoWriter {
             bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
         ) else { throw WriterError.cannotCreatePixelBuffer }
 
+        // Pool buffers are recycled with their previous contents intact. A source image
+        // with transparent pixels would otherwise reveal stale frames (seen as a cue-coloured
+        // wedge along the swept path in the 2D angle video), so clear to opaque black first.
+        context.setFillColor(gray: 0, alpha: 1)
+        context.fill(CGRect(origin: .zero, size: size))
         context.draw(image, in: CGRect(origin: .zero, size: size))
 
         // 等待 input 就绪（同步导出，逐帧 busy-wait）。

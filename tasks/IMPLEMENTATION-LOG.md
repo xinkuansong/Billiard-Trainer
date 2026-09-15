@@ -3911,3 +3911,90 @@ DR-282普通字号补验：chip-ipad-r1/session35955 exit0，实际自由走位�
 - 未做：模拟器/真机真实手指验证（单测只覆盖 delegate 策略，UIKit 是否按预期把 `UIScrollViewPanGestureRecognizer` 置为等待未实测）；3D 下台面区域纵向滑动同样被相机 pitch 占用，需要滚页面得从台面外起手（口径与「滑动球桌视角」一致，但未与用户确认）。
 - 规则改进建议 / 回写目标：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训 —「UIViewRepresentable 内自装 pan 且宿主可能是分页 TabView / ScrollView 时，必须用 delegate 写出显式仲裁契约，禁止依赖 UIKit 默认先到先得」。
 - 已应用至：`.cursor/rules/20-swiftui-developer.mdc` § 经验教训 / DR-305（2026-09-14）；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`tasks/PROGRESS.md`「当前状态」；hub 状态卡。
+
+## DR-306 — 2D/3D 角度训练的假想球改用标准贴台呢虚线环（2026-09-14，用户要求「2D瞄准和3D瞄准的假想球样式也换成标准的贴球桌的」）
+- 现象：`SceneAimingView`（路由 `sceneAiming2D/3D`，「2D/3D 角度训练」）经 `AimingQuizViewModel` 以 `setupVisualizationNodes(usesTrainingAssistStyle: true)` 建场景，DR-121 给该分支配的是**半透明整球**（`SCNSphere` r=R、透明度 0.5、blinn）；其余全部页面（走位/翻袋/颛星/思路/三球/斯诺克/瞄准点场景）都是 DR-296 定型的**贴台呢 16 段虚线环 + 落点小球**。3D 透视下整球假想球与真球争辨识，用户要求统一。
+- 调整（仅 `AngleTrainingScene.setupVisualizationNodes`）：删掉 `usesTrainingAssistStyle` 的球体分支，所有调用方共用虚线环（环色仍 `TrajectoryStyle.contactColor`，环底 `-R + lineHint + 0.0005` 贴台呢）；`ghostBallNode` 仍位于球心高度（DR-118 位置/可见性契约不变）。训练态**其它**差异（瞄准点青色小球、接触点琥珀色、进球线 6/14 号改白、白瞄准线）一律保留。删除已无引用的 `TrajectoryStyle.TrainingAssist.ghostBall` / `ghostOpacity`。
+- 测试：`TrainingAssistSceneTests.testGhostMatchesModelBallsAndWhiteLineReachesRail` 原断言 `ghost.geometry as? SCNSphere`（钉住旧设计）改为断言无自有几何、虚线段在 XZ 半径 = R 且底面贴台呢。
+- 验证：`xcodebuild test`（iPhone 17 Pro 模拟器）`TableAssistDR296Tests` 10/10、`TrajectoryRendererTests` 6/6、`RenderQualityV62Tests/testTrainingGuidesDoNotCastShadows` 1/1、`TrainingAssistSceneTests` 4 项中 3 通过；`testGhostMatchesModelBallsAndWhiteLineReachesRail` 新增的假想球断言全部通过，但同测试末尾 **既有** 断言（瞄准线端点 y = `MobileClothAlignment.measuredBedY + 0.001`，实测 0.801 vs 期望 0.7957）失败 246 次——把本次 hunk 反向打回后复跑同测试仍在同一断言同样失败（日志 `/tmp/ghost-ring/baseline2.log`），判定为 DR-302 同日提交（球房探针/台呢测量）带入的既有失败，与假想球无关，未在本条修。
+- 未做：模拟器/真机实看 2D/3D 角度训练页；HUD 特写 `BTAimCloseupHUD` 的 `BTGhostCircle` 本来就是圆环，未动。
+- 注：本次改动被并行会话的提交 `a1fd2915`（DR-302–305）顺带带入，代码注释里 DR 编号已由误写的 302 更正为 306。
+- 已应用至：`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog；`tasks/PROGRESS.md`「当前状态」；hub 状态卡（2026-09-14）。
+
+
+## FL-072 — 支架库存跨线程与杆末提交竞态（2026-09-15）
+
+- **触发**：W17-D 八杆真机对拍出现随机杆间丢失库存，模拟器曾通过；首次补终态提交后同一字典被主线程/SceneKit renderingQueue 同时修改而崩溃，真机 .ips 两线程栈确证。
+- **根因**：把 SCNAction 回调误认为只在主线程；同帧等时长球动作的完成顺序也没有依赖保证，杆末可先保存旧快照。
+- **候选修复**：PocketRailInventory 自有递归锁保护集合与节点操作；withActiveShot 把代次检查和源节点更新合并；正常收尾显式 finishPlayback，取消保持恢复杆前；Timer 只在主线程建立。详情、试打/自由击球、三规划页、翻袋/反射自由击球的正常终态接入。
+- **验证**：真机 diagnostic-r2 保留状态差异；fix-r3/r4 .ips 保留无效修复证据；修正释放测试前提后 0.137/0.146s 内通过（裸节点对照也需一次主线程让出）。最终回归见 W16-device-20260914，不预支通过。
+- **规则改进**：SceneKit 线程安全不扩展到自有 Swift 集合，必须以真实 callback 线程验证；立即弱引用判空须先验证框架自身延迟释放，不能用取消/清空消除待验证循环。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-072（2026-09-15）；`.cursor/skills/ios-architecture/SKILL.md` § FL-072。
+
+FL-072最终定向验收（2026-09-15）：真机fix-r5六项通过，含八杆四档4638帧；optimized-final-r6全部23核心+3UI通过，库存/动作释放也通过。此前竞争与杆末漏球在本轮复验闭合；完整平台/持续性能边界仍见W16-device-20260914。
+
+
+## DR-307 — 翻袋/反射页内 2D/3D
+- **任务**：v63 W16 漏页补齐
+- **日期**：2026-09-15
+- **描述**：两页原共享容器写死 2D，新增页内观察切换。
+- **原始规范**：SolverStageChrome 只提供俯视摆球和击球。
+- **调整后**：VM 保存 cameraMode，共享 setViewingMode 仅操作相机；首次全桌，往返恢复观察。3D 隔离摆球/袋口点选/拖屏瞄准，保留击球与瞄准轮；底部观察行替代球库，透视布局与紧凑打点沿用已有组件。返回瞄准读取当前解或自由杆向；反射无目标袋选项。
+- **原因**：用户要求继续补齐实际遗漏的 3D 页面，保持解/球形/参数/播放状态。
+- **验证**：2模型+真机/SE4最终UI通过，32张最终截图和视觉修正复核通过；gate/doc-size/diff通过。结果及未覆盖范围见 W16-mode-coverage-20260915.md。
+- **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md § DR-307 / Changelog。
+
+## FL-073 — 共享开球入口遗漏支架库存（2026-09-15）
+- **证据**：真实 runner.breakNow 回归修前 12.742 s 红（库存空），修后模拟器 25 项绿；最终手机验证见 W17-break-rails-20260915。
+- **根因**：BreakFlowRunner 未传共享库存，PositionPlay 完成交付又经 loadBoard 清库存；旧默认开球测试只验证 recorder 尾段，没有验证实际宿主交付。
+- **修复**：正式回放接入、杆末提交、新架清空、三宿主取消恢复及自由击球完成保留。
+- **规则改进**：跨杆状态必须检查入口→实际播放→交付→下一阶段→取消/新局，而非只检查构造 recorder 或 playback。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-073；`tasks/UI-IMPLEMENTATION-SPEC.md` § FL-073 / Changelog。
+
+## DR-308 — 角度与瞄准球杆、延伸线与台面标注（2026-09-15）
+- **用户裁定**：同时实现球杆、命中目标轮廓后虚线延伸至库边、不同切角/球距/位置的2D/3D文字避让；顶部栏不改。
+- **实现**：AngleDynamicViewModel 开启 usesAdaptiveDiagramLabels。瞄准中心线按目标球 R（非母球碰撞2R）分段；AngleSceneCalculator.aimRayTargetEntry 限制前向线段。球杆拖动隐藏、松手恢复。DiagramLabelOverlay 以世界锚点投影、完整文字框、可见球、假想球/角度区域、三条辅助线及台面/视口作约束，联合选择三个标签，优先保留原候选。短线增加端点周围候选；极端拥挤时按角度/瞄准/进球优先级保留可读标签，不强行覆盖。
+- **影响范围**：只开启交互式「角度与瞄准」；其他共享场景默认关闭，原3D朝向/2D恢复接口保留。上轮两个图谱球杆保留。
+- **验证**：见 tasks/ui-reviews/UR-20260915-angle-diagram.md；早期候选搜索在短球距贴库漏标签，保留测试并补齐候选，未放宽完整显示断言。
+- **已应用至**：tasks/UI-IMPLEMENTATION-SPEC.md § DR-308（2026-09-15）。
+
+- **DR-308 用户追加裁定**：角度数字放两线夹角内并加角度标志，3D复用2D标志；字号收小为角度11pt/线名10pt。增加前向夹角范围及屏幕弧路径断言，窄角贴库保留实际球避让并用底托隔开线条。
+
+DR-308 最终用户微调：角度11pt、线名10pt；角度值无阴影/无底托，保持前向夹角并沿该方向稍向外（候选从42pt开始），额外避开进球线4pt。瞄准线名改母球—假想球中段，进球线名保持贴线。此条覆盖此前底托/前半段方案。
+
+DR-308 局部稳定性补充：用户允许小夹角放不下时侧标。角度候选限制距交点42–60pt，先尝试夹角内，再尝试同侧附近；禁止沿射线无限向外搜索。仍有效的侧标候选优先复用，夹角内可放下时恢复内部。弧保持原前向夹角，字号/无阴影/两线名中段贴线不变。新增连续1–20°的小角度变动测试；最新日志angle-local-label及angle-local-motion。
+
+DR-308 拖动球杆实时跟随：角度与瞄准、分离角图谱、加塞吃库图谱取消dragBegan及可视化更新中的拖动隐藏条件。dragMoved已有同步几何更新，直接驱动球杆；图谱物理重算仍按原节流执行，不等待轨迹计算。无有效瞄向仍隐藏。新增三个真实ViewModel逐步拖母球/目标球、松手前验证杆位置及姿态变化的回归，见build/cue-live-drag.log。此规则覆盖之前的拖动隐藏描述。
+
+## DR-309 — 所有相关场景共用 3D 拖球（2026-09-15）
+- 用户裁定：拖球应是通用交互，应用到所有相关场景。
+- 根因：共享拖球入口已有，10处页面接入以 is3D 清空可拖球集合，翻袋/颗星共用其中一处；基线实页 testAngle 拖球位移为0，断言失败留证 before.log。
+- 改动：移除维度限制，保留业务球集合；透视最近可见球抓取、拖球相机隔离、终态释放、隐藏球库删除保护与说明同步。
+- 已应用至：`.cursor/skills/swiftui-design-system/SKILL.md` § DR-309，`tasks/UI-IMPLEMENTATION-SPEC.md` § Changelog/DR-309，`docs/05-信息架构与交互设计.md`。
+- 验证：acceptance.log中13项单测+15项UI回归通过，截图及门禁完成；见 `tasks/ui-reviews/UR-20260915-shared-3d-drag.md`。未安装真机/未提交。
+
+DR-309 追加（用户触摸容错要求）：球心周围48pt为共享抓取容错区；点选/拖过的可移动球保持优先，近邻区域起手继续拖该球，直接命中另一颗球优先切换，点/拖空白处解除优先；单次抓取后直到松手均不切换对象。遮挡/隐藏/只读不因容错放开。
+
+## FL-074 — 角度视频遗漏屏幕标注层与镜头过近（2026-09-15）
+
+- **任务**：角度与瞄准竖屏视频，用户要求固定机位、保留球房环境和教学信息。
+- **现象**：首轮导出静帧只有SceneKit线条，缺“瞄准线”“进球线”、角度文字/角弧；用户同时指出镜头太近。
+- **根因**：把“隐藏按钮”扩大解释为精简教学信息；SCNRenderer只取场景帧，没有合成实际页面的UIKit `DiagramLabelOverlay`，且显式关闭了line labels。以球桌占画面优先替代用户要的环境空间。
+- **处理**：接回生产标注层并做投影一致、3个标签均可见断言；恢复顶部指标；重新校准较远且更低的3D固定机位。用户追加指出信息框遮挡台面及右侧空白过多，2D预留独立顶部区域，框宽按最大内容计算；用户进一步要求五行纵排，采用紧凑纵向信息栏。静帧复验中，不宣称视频完成。
+- **规则改进**：导出复用SceneKit不等于复用整页可视信息；开始前区分场景内节点、UIKit/SwiftUI叠层和操作控件，按用户范围保留。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-074；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+## FL-075 — 2D 角度视频球杆扫过区域残留杆色楔形（2026-09-15）
+
+- **任务**：角度与瞄准竖屏视频六档交付后，用户在 2D 成片看到球杆扫过的区域呈杆色楔形；3D 正常。
+- **现象**：楔形随角度增大而扩大，边界一侧贴当前杆身、另一侧固定；关键帧 PNG 同位置像素 alpha=0，视频同位置为杆色 (200,154,90)。
+- **根因**：①合成用 `UIGraphicsImageRendererFormat.opaque = true` 但未铺底色，2D 场景台面外透明 → 合成结果背景 alpha=0；②`VideoWriter.append` 从 `CVPixelBufferPool` 取复用缓冲后直接 `context.draw`（source-over），未清空，alpha=0 区域露出该缓冲区旧帧里的球杆像素。3D 有球房背景全画面不透明所以掩盖了缺陷。
+- **处理**：`VideoWriter.append` 追加前 `fill` 不透明黑；合成显式 `UIColor.black` 铺底。2D/3D 重新导出，原楔形位置像素 (0,0,0)，PNG 背景 (0,0,0,255)，`verify-angle-aiming.py` passed。
+- **规则改进**：①向复用像素缓冲绘制的写入器必须先清空，不能依赖池缓冲初始为零；②视频抽帧验收要包含**场景透明区/背景区**的像素采样，并与单帧 PNG 对照——「元信息全对 + 关键对象可见」不能证明背景没有污染；③我此前用成片抽帧目视 4 帧却漏看了楔形，因为注意力只在教学主体上，验收清单须显式列「画面非主体区域」。
+- **已应用至**：`.cursor/rules/55-test-engineer.mdc` § FL-075；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
+
+DR-308 3D圆弧贴台面：仅圆弧与端刻线改为台呢平面(surfaceY+2mm)上的XZ几何投影，随相机透视变化。沿用2D线条样式；2D圆弧及所有文字位置、朝向、字号均不改。新增3D弧起点对台面世界点投影的数值校验，日志build/angle-cloth-arc.log。
+
+DR-308 圆弧遮挡与间距最终补充：3D用SceneKit台面平面线条并开启深度读取，关闭屏幕圆弧，球体可遮挡弧，不会覆盖球像素。半径4.5R，按用户追加要求稍离开目标球；仅圆弧改变，文字保持现状。2D仍用原屏幕圆弧。回归检查3D弧节点可见、深度开启且屏幕弧隐藏；UI转视角手势移到空白区，适配已支持3D拖球的现状。日志angle-depth-arc。
+
+DR-309 试打修复：原生SceneKit视图不继承进场/模式切换的隐式布局动画，避免可见球桌与触摸布局偏移；transaction.log真实拖球、固定相机、2D球位留存通过。最终完整回归见共享3D拖球审查报告。

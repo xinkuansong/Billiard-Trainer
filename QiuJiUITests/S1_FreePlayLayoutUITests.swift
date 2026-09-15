@@ -14,11 +14,15 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
     }
 
     private var outDir: URL {
+        #if !targetEnvironment(simulator)
+        return FileManager.default.temporaryDirectory.appendingPathComponent("v63-freeplay")
+        #else
         let environment = ProcessInfo.processInfo.environment
         let path = environment["V52_SHOT_DIR"]
             ?? environment["TEST_RUNNER_V52_SHOT_DIR"]
             ?? "/Users/song/projects/13.billiard_trainer/build/v52-screenshots/after-standard"
         return URL(fileURLWithPath: path, isDirectory: true)
+        #endif
     }
 
     private func snap(_ name: String) {
@@ -105,8 +109,12 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
         func capture(_ name: String) throws {
             Thread.sleep(forTimeInterval: 1)
             let shot = XCUIScreen.main.screenshot()
+            #if targetEnvironment(simulator)
             let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
                 .appendingPathComponent("output/freeplay-3d/after")
+            #else
+            let root = outDir
+            #endif
             try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
             let name = "\(name)-\(Int(app.windows.firstMatch.frame.width))"
             try shot.pngRepresentation.write(to: root.appendingPathComponent(name + ".png"))
@@ -219,8 +227,12 @@ final class S1_FreePlayLayoutUITests: XCTestCase {
         attachment.name = "v63-first-3d-during-break"
         attachment.lifetime = .keepAlways
         add(attachment)
+        #if targetEnvironment(simulator)
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("output/3d-v63/W02")
+        #else
+        let root = outDir
+        #endif
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         try shot.pngRepresentation.write(to: root.appendingPathComponent("first-3d-during-break-\(Int(app.windows.firstMatch.frame.width)).png"))
         let observation = app.buttons["freeplay.observation"]

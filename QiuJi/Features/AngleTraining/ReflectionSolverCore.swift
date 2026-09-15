@@ -2,7 +2,7 @@ import Foundation
 import SceneKit
 
 /// 共享的「真实反射」正向追迹 + 射击法求解核心，供 `BankShotCalculator`（翻袋）与
-/// `DiamondSystemCalculator`（反射解球器）共用。
+/// `DiamondSystemCalculator`（颗星解球）共用。
 ///
 /// **物理模型**：球碰库时，法向速度分量翻转、**切向分量 × factor**。
 /// `factor ∈ [0.50, 1.00]`，`1.0` = 理想镜面反射（入射角 = 反射角）。几何上

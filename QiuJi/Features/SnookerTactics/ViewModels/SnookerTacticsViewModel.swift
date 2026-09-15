@@ -109,7 +109,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     @Published private(set) var isComputing = false
     @Published private(set) var solutions: [PositionPlaySolution] = []
     @Published private(set) var currentIndex = 0
-    @Published private(set) var statusText = "在2D中摆球 · 选一颗「目标球」（我方要打的球），再点求解"
+    @Published private(set) var statusText = "拖球摆位 · 在2D中选一颗「目标球」，再点求解"
 
     // MARK: - Adjustment draft (K13 / X6 — same contract as SiluTrainerViewModel; X5 transplant source)
     //
@@ -165,10 +165,12 @@ final class SnookerTacticsViewModel: ObservableObject {
         var perspectiveView: CameraRig.PerspectiveState? = nil
         /// 击打前球体姿态（与 `snapshot.before` 配对）；退回 / 回放起点连同位置一起恢复。
         var ballPoses: BallPoseSnapshot = [:]
+        var rails = PocketRailSnapshot()
     }
     private var lastShotContext: UndoContext?
     /// 回放开始时抓的「击打后局面」姿态，回放收尾连同 `after` 位置一起写回。
     private var replayAfterPoses: BallPoseSnapshot = [:]
+    private var replayAfterRails = PocketRailSnapshot()
     @Published private(set) var canUndoShot = false
     @Published private(set) var canPlayback = false
 
@@ -699,7 +701,7 @@ final class SnookerTacticsViewModel: ObservableObject {
                 allowSideSpin: allowSideSpin, basicPositionOnly: basicPositionOnly),
             selectedTargetKey: selectedTargetKey,
             perspectiveView: scene.capturePerspectiveView(),
-            ballPoses: scene.captureBallPoses())
+            ballPoses: scene.captureBallPoses(), rails: scene.railInventory.snapshot())
     }
 
     /// 把击打前完整快照原样恢复到场景与状态（G17，不重解）。
@@ -713,6 +715,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         scene.clearResultNodes(nodes: &overlayNodes)
         scene.hideCueStick()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.railInventory.restore(ctx.rails)
         scene.restoreBallPoses(ctx.ballPoses)
         refreshOnTableKeys()
 
@@ -786,6 +789,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         guard acceptCompletePrediction(snap.prediction),
               let recorder = snap.prediction.recorder, snap.prediction.duration > 0.05 else { return }
         let after = currentSnapshot()
+        replayAfterRails = scene.railInventory.snapshot()
         replayAfterPoses = scene.captureBallPoses()   // 回放不改变桌面真相，姿态也原样带回
         isPlaying = true
         clearTrajectory()
@@ -795,6 +799,7 @@ final class SnookerTacticsViewModel: ObservableObject {
 
         scene.hideAllBalls()
         for (key, pt) in snap.before.onTable { place(key: key, normalized: pt) }
+        scene.railInventory.restore(ctx.rails)
         scene.restoreBallPoses(ctx.ballPoses)   // 姿态回击打前，积分终态才与实打一致
         refreshOnTableKeys()
 
@@ -858,6 +863,7 @@ final class SnookerTacticsViewModel: ObservableObject {
         scene.hideCueStick()
         let ctx = lastShotContext
         loadBoard(after)
+        scene.railInventory.restore(replayAfterRails)
         scene.restoreBallPoses(replayAfterPoses)
         replayAfterPoses = [:]
         lastShotContext = ctx
@@ -903,6 +909,7 @@ final class SnookerTacticsViewModel: ObservableObject {
     }
 
     private func finishStrike(sol: PositionPlaySolution) {
+        scene.railInventory.finishPlayback()
         ShotAudioScheduler.shared.cancel()
         for key in onTableKeys { scene.allBallNodes[key]?.removeAllActions() }
         let potted = Set(sol.prediction.pocketedBalls.map { boardKey(forPredName: $0) })
@@ -948,6 +955,7 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     func resetAll() {
         guard !isPlaying else { return }
+        scene.railInventory.clear()
         scene.hideAllBalls()
         applyDefaultLayout()
         invalidateSolutions()
@@ -996,7 +1004,7 @@ final class SnookerTacticsViewModel: ObservableObject {
 
     private func toolHint() -> String {
         switch activeTool {
-        case .none: return "在2D中摆球 · 选一颗「目标球」（我方要打的球），再点求解"
+        case .none: return "拖球摆位 · 在2D中选一颗「目标球」，再点求解"
         case .selectTarget: return "在2D中点选一颗目标球（我方将合法首触的球，系统按中八规则推断防守对方球组）"
         }
     }

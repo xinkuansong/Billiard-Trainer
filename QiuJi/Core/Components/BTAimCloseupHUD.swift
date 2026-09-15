@@ -9,18 +9,24 @@ struct BTAimCloseupHUD: View {
     let snapshot: AimCloseupSnapshot
     var diameter: CGFloat = 128
 
-    // Flat fill = median of the plain-pipeline USDZ cloth (SCNRenderer sample
-    // ≈ RGB 25/111/18). No radial darkening — that made the loupe read as a
-    // darker sticker even when the centre channel matched. Do **not** use
-    // `btTableFelt` (#1B6B3A): its blue channel is ~40/255 too high (FL-028).
-    private static let feltFill = Color(red: 25 / 255, green: 111 / 255, blue: 18 / 255)
+    @ObservedObject private var prefs = UserPreferences.shared
+
+    // Follow the same cloth selection as AngleSceneView. The original green
+    // restores USDZ bindings rather than an albedo override, so retain its
+    // sampled flat fill. Scene lighting can still vary the surrounding felt.
+    private var feltFill: Color {
+        if let albedo = prefs.clothColor.albedo {
+            return Color(uiColor: albedo)
+        }
+        return Color(red: 25 / 255, green: 111 / 255, blue: 18 / 255)
+    }
 
     var body: some View {
         let half = snapshot.halfWorld
         let scale = diameter / (2 * half)
         ZStack {
             Circle()
-                .fill(Self.feltFill)
+                .fill(feltFill)
                 .overlay(
                     Circle()
                         .stroke(Color.white.opacity(0.16), lineWidth: HUDStyle.hairlineWidth)

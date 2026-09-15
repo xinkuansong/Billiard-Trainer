@@ -642,6 +642,7 @@ struct AimPointSceneTrainingView: View {
         } message: {
             Text(vm.verificationErrorMessage ?? "")
         }
+        .trainingBackgroundMusic()
         .btDarkToolChrome(is3D ? "3D 瞄准点训练" : "2D 瞄准点训练")
         .toolbar {
             ToolbarItem(placement: .principal) {

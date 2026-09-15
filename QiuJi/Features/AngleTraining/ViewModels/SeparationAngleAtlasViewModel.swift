@@ -243,7 +243,6 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
 
     func dragBegan(node: SCNNode) {
         isDragging = true
-        scene.hideCueStick()
         node.removeAction(forKey: "dragPulse")
         node.runAction(SCNAction.scale(by: 1.15, duration: 0.1), forKey: "dragPulse")
     }
@@ -428,8 +427,8 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
     // MARK: - Visualization
 
     private func updateAimVisualization() {
-        scene.hideCueStick()
         guard let intent = currentIntent() else {
+            scene.hideCueStick()
             cutAngleDegrees = 0
             scene.hideAllVisualization()
             return
@@ -440,6 +439,7 @@ final class SeparationAngleAtlasViewModel: ObservableObject {
         scene.updateVisualization(
             cueBall: intent.cue, targetBall: intent.target, pocket: intent.potAim,
             showAngleAnnotations: false, showOverlapMarkers: true, showLineLabels: false)
+        scene.updateCueStick(cueBallPosition: intent.cue, aimDirection: intent.aim)
     }
 
     private func clearTrajectories() {
