@@ -29,6 +29,7 @@ Cursor 专属能力不得假装在 Codex 中存在。`.mdc` 的 `alwaysApply` �
 
 | 任务 | 必读规则 | 按需角色 | 必读技能 |
 |---|---|---|---|
+| 球迹视频制作/修改、记录视频想法、视频台账/地址/封面与三平台发布登记（含视频上下文中的“记录想法”） | Orchestrator；实施再按内容叠加专项规则 | Orchestrator；制作时按需切换 | 本机 `/Users/song/.codex/skills/simulator-video/SKILL.md`；仅记录走台账分支，实际视频创作再加载其他适用制作技能 |
 | 架构、模块、SPM、ADR | `.cursor/rules/10-ios-architect.mdc` | `.cursor/agents/ios-architect.md` | `.cursor/skills/ios-architecture/SKILL.md` |
 | Blender 模型、材质、USDZ 导出与 iOS 资产验证 | 按是否涉及几何/实现/验收叠加对应规则 | 当前任务角色 | 已安装的 `blender-ios-assets`（本机 `/Users/song/.codex/skills/blender-ios-assets/SKILL.md`）；通用建模/材质/导出/渲染技能按需加载。若换机缺失，明确说明并以仓库消费端代码为准 |
 | SwiftUI、Canvas、组件、视觉实现 | `.cursor/rules/20-swiftui-developer.mdc` | `.cursor/agents/swiftui-developer.md` | `.cursor/skills/swiftui-design-system/SKILL.md` |

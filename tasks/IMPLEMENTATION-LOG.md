@@ -4007,3 +4007,21 @@ DR-309 试打修复：原生SceneKit视图不继承进场/模式切换的隐式�
 - 修复：保留 didApplyAnimationsAtTime，在现有帧事务中直接更新变化的矩阵；不改球高、物理或回放轨迹。最终两倍平面灯下标准模拟器与iOS17各5项通过；真机最终复验见报告。
 - 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-076；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
 - 证据目录：`output/canopy-light-20260915/lag-{red,flush,willrender-r2,no-transaction}.log`，最终 `output/double-table-light-20260915/`。
+
+## FL-077 — 序列视频误用旧离线外观（2026-09-16）
+- 用户要求：高级蛇彩15球清台，逐杆瞄准，沿用现有视频风格；用户随后指出背景/灯光。
+- 根因：把可复用的轨迹导出器当成完整外观模板，遗漏其mobileRendering=false与旧studioLook；未接renderer.delegate=scene.contactOcclusion。黑背景和旧材质因此进入预览。
+- 改正：本片显式useAppAppearance，复用现有房间/灯光/材质；保留旧批量资产默认配置。重新生成首帧、15个瞄准帧、成片及封面。
+- 规则改进建议：视频复用入口前逐项对照当前参考片的场景构建、房间、灯光、材质、相机、阴影委托；不能只检查轨迹和分辨率。求解候选还须遵守CuePhysics.miscueLimitFraction。
+- 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-077（2026-09-16）。
+
+- FL-077最终证据：export-build.log记录1测0失败；1080×1920/60fps/116.6秒成片及封面完成。verification.json编码/时序验证通过，45张实际MP4抽帧已审阅；白球旁打点盘与力度条在全部15段瞄准中呈现。
+
+- 高级蛇彩r2用户修订：导出Options增加局部外观、FOV、透明提示、连续相机参数；观察机位按当前杆方位拟合整桌，极坐标绕台与五次缓动衔接瞄准。运动时间改整数帧推导，跨杆保持所有球朝向。静帧、前三杆转场及最终全片各1项通过；兼容回归7项通过，89张实际MP4抽帧/编码验证完成，21286帧/120fps/177.383秒。
+
+## FL-078 — 切点辅助线平行参照误读（2026-09-16）
+- 现象：将用户要求的切点辅助线画成水平；用户明确纠正为垂直。
+- 根因：把“现在的线”误指向水平参考虚线，实际应平行白色竖直瞄准线。
+- 修正：固定 x=contactPoint.x，端点 y 与白色瞄准线一致；红点与原水平参考线保持。
+- 规则改进建议：同图多条线时，平行关系必须明确参照线的颜色、方向和作用，再用端点向量验证。
+- 已应用至：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` §FL-078。

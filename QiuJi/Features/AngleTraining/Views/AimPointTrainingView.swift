@@ -371,6 +371,9 @@ private struct AimPointDragFigure: View {
             let ghost = ghostCenter(target: target, d: d, phi: vm.userPhi)
             // G1 瞄准点 = 竖直瞄准线与过目标球心水平线的交点（垂足）。
             let userAimPoint = CGPoint(x: ghost.x, y: target.y)
+            // Equal-radius tangent circles meet halfway between their centers.
+            let contactPoint = CGPoint(x: (target.x + ghost.x) / 2,
+                                       y: (target.y + ghost.y) / 2)
             // Q6（问题集合 v5 V4）：白瞄准线/红 ground truth 线与红瞄准点在本页收窄，
             // 仅本页传参，不改全局 `lineMainWidth`/dot 系数真源。此特写 d≈118pt、
             // lineMainWidth 恒被钳到上限 3.2pt，收到 ~1.8pt 仍清晰可辨。
@@ -381,6 +384,14 @@ private struct AimPointDragFigure: View {
                 Path { p in
                     p.move(to: CGPoint(x: 6, y: target.y))
                     p.addLine(to: CGPoint(x: proj.size.width - 6, y: target.y))
+                }
+                .stroke(FigureLine.hint.opacity(0.7),
+                        style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [5, 4]))
+
+                // Thickness reference through contact, parallel to the vertical aim line.
+                Path { p in
+                    p.move(to: CGPoint(x: contactPoint.x, y: proj.size.height - 6))
+                    p.addLine(to: CGPoint(x: contactPoint.x, y: target.y - d * 0.9))
                 }
                 .stroke(FigureLine.hint.opacity(0.7),
                         style: StrokeStyle(lineWidth: proj.lineHintWidth, dash: [5, 4]))
@@ -408,6 +419,9 @@ private struct AimPointDragFigure: View {
                 BTFigureBall(number: 1, diameter: d).position(target)
                 // P8.2：假想球不再带球心红点。
                 BTGhostCircle(diameter: d, showsAimPoint: false).position(ghost)
+                BTAimPointDot(diameter: max(4, d * 0.06))
+                    .position(contactPoint)
+                    .opacity(vm.showResult ? 0.55 : 1)
                 // P8.3：G1 瞄准点用红色小点标注（提交后与正确点同屏对照）。
                 BTAimPointDot(diameter: max(4, d * 0.06))
                     .position(userAimPoint)

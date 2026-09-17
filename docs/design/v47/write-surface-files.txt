@@ -26,6 +26,7 @@ QiuJiTests/PositioningFormationRenderTests.swift
 QiuJiTests/ReachabilityVizTests.swift
 QiuJiTests/RenderQualityV62Tests.swift
 QiuJiTests/RoomReflectionProbeTests.swift
+QiuJiTests/SeparationAngleAtlasTests.swift
 QiuJiTests/SequenceStillCueTests.swift
 QiuJiTests/ShareCardImageRendererRootCauseDiagTests.swift
 QiuJiTests/ShotScenarioRenderTests.swift

@@ -91,3 +91,7 @@ S1_FreePlayLayoutUITests、S2_ShotPagesLayoutUITests、DrillSceneThreeBeatUITest
 ## 2026-09-15 角度教学视频导出
 
 `X1_CameraAndAngleArcTests.swift` 内的 `AngleAimingVideoCaptureTests` 仅在显式 `TEST_RUNNER_ANGLE_CAPTURE_DIR` / `ANGLE_CAPTURE_DIR` 下运行，无变量时 XCTSkip 且不写盘。专用模拟器内生成4K PNG、MP4及几何/投影JSON，允许目录为任务独立 `output/angle-aiming-video-20260915/`（或显式指定的同类build目录），不写Resources、内容或设计基线；文件写入失败抛出。重复运行只覆盖本任务同名产物；证据保留供用户查看，由任务方按需清理。
+
+## 2026-09-16 八球分离角片头
+
+`SeparationAngleAtlasTests.swift` 新增显式开启的 `SeparationEightBallVideoCaptureTests`。无 `EIGHT_BALL_VIDEO_DIR` / `TEST_RUNNER_EIGHT_BALL_VIDEO_DIR` 时 XCTSkip；脚本只指定独立 `output/separation-eightball-20260916/r3`（r1/r2历史目录保留），写 PNG、MP4、JSON。相同输出目录重跑会覆盖本任务产物，历史版留在父目录；不写 Bundle、训练内容、用户存储或截图基线，不删除目录。写盘错误抛出，由本任务保留证据并负责后续清理。独立模拟器与构建目录防止干扰正文采集。

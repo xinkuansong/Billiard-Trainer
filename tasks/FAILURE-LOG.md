@@ -713,3 +713,17 @@ FL-073最终定向复验：真机核心1项14.298s、独立UI1项110.109s通过�
 - 修复：保留 didApplyAnimationsAtTime，在现有帧事务中直接更新变化的矩阵；不改球高、物理或回放轨迹。最终两倍平面灯下标准模拟器与iOS17各5项通过；真机最终复验见报告。
 - 已应用至：`.cursor/rules/55-test-engineer.mdc` §FL-076；`tasks/UI-IMPLEMENTATION-SPEC.md` Changelog。
 - 证据目录：`output/canopy-light-20260915/lag-{red,flush,willrender-r2,no-transaction}.log`，最终 `output/double-table-light-20260915/`。
+
+## FL-077 — 序列视频误用旧离线外观
+- 日期：2026-09-16；高级蛇彩15球视频，用户指出背景、灯光未对齐。
+- 根因：SequenceVideoExporter显式mobileRendering=false；旧studioLook并非当前App灯光，且未接contactOcclusion渲染委托。
+- 处理：暂停黑背景成片；为本视频显式开启App外观（球房、标准桌、绿台呢、当前面灯、接触阴影），重新审静帧再导出；旧封面作废。
+- 状态：✅ 本地成片返工完成；最终导出1测0失败，45张MP4抽帧检查通过。见 tasks/ADVANCED-SNAKE-VIDEO-20260916.md。
+- 已应用至：.cursor/rules/55-test-engineer.mdc §FL-077。
+
+## FL-078 — 切点辅助线平行参照误读（2026-09-16）
+- 现象：将用户要求的切点辅助线画成水平；用户明确纠正为垂直。
+- 根因：把“现在的线”误指向水平参考虚线，实际应平行白色竖直瞄准线。
+- 修正：固定 x=contactPoint.x，端点 y 与白色瞄准线一致；红点与原水平参考线保持。
+- 规则改进建议：同图多条线时，平行关系必须明确参照线的颜色、方向和作用，再用端点向量验证。
+- 已应用至：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` §FL-078。

@@ -92,9 +92,24 @@ enum SequenceVideoExporter {
         var observationFrameObserver: ((UUID, [String: SCNVector3]) -> Void)?
         /// Value-only events from the prediction actually selected for encoding.
         var shotEventsObserver: ((UUID, [ShotEvent]) -> Void)?
+        /// Encoded-frame phase ledger for opt-in capture verification.
+        var phaseFrameObserver: ((UUID?, String) -> Void)?
+        var aimingHUDObserver: ((CGRect, [CGRect]) -> Void)?
+        var cameraFrameObserver: ((simd_float4x4, CGFloat) -> Void)?
         #endif
         /// 相机取景模式。默认顶视 2D（不改变既有 2D 产物行为）。
         var cameraMode: CameraMode = .topDown2D
+        /// Match the current app's room, wide table light, materials and contact shadows.
+        /// Opt-in so existing offline asset recipes keep their established appearance.
+        var useAppAppearance: Bool = false
+        var tableStyle: TableStyle = .standard
+        var clothColor: ClothColor = .green
+        var cueStyle: CueStyle? = nil
+        /// Opt-in continuous orbit/approach path. Zero retains the fixed-camera recipes.
+        var cameraTransitionDuration: Double = 0
+        var aimingFieldOfView: CGFloat = AimingCameraConfig.aimFov
+        var transparentAimingHUD: Bool = false
+        var overlaySequenceProgress: Bool = false
         /// 输出像素尺寸——只影响清晰度，不影响球桌/球比例。
         var size: CGSize = CGSize(width: 1280, height: 640)
         /// 竖版取景：复用 rig 的 rotated 顶视（台面长轴竖直铺满，ADR-P11-08），
@@ -111,6 +126,10 @@ enum SequenceVideoExporter {
         var observeHold: Double = 0
         /// 第2拍·亮方案 + 出杆前设置静帧时长（预告线 + 假想球 + 静止球杆 + HUD 可见段）。
         var setupHold: Double = 0.6
+        /// Extra pre-shot view from behind the cue ball, using the app's aiming rig.
+        /// Zero preserves the fixed-camera export presets.
+        var aimingHold: Double = 0
+        var showAimingHUD: Bool = false
         var tailHold: Double = 0.8
         /// 球节点渲染缩放：1.0 = 真实比例（教学产物默认）；1.6 = 卡片风格（小尺寸可读）。
         var ballScale: Float = 1
@@ -144,13 +163,13 @@ enum SequenceVideoExporter {
         }
 
         var sequenceProgressHeight: Int {
-            guard showShotHUD && showSequenceProgress else { return 0 }
+            guard (showShotHUD || overlaySequenceProgress) && showSequenceProgress else { return 0 }
             return Int((size.width / 720 * 44).rounded())
         }
 
         /// 最终输出像素尺寸（场景画面 + HUD 条 + 可选杆号行）。
         var outputSize: CGSize {
-            CGSize(width: size.width, height: size.height + CGFloat(hudStripHeight + sequenceProgressHeight))
+            CGSize(width: size.width, height: size.height + CGFloat(hudStripHeight + (overlaySequenceProgress ? 0 : sequenceProgressHeight)))
         }
 
         /// 教学真实风格（竖版静帧用，#5b）：球桌长轴沿屏幕长边竖直铺满，
@@ -319,6 +338,9 @@ enum SequenceVideoExporter {
             if options.showCueStroke, let pred, pred.feasible {
                 _ = ctx.showCueAtRest(step: step, prediction: pred)
             }
+            if options.aimingHold > 0, let pred {
+                ctx.showAimingCamera(prediction: pred, shot: step.shot)
+            }
             let hud = options.showShotHUD ? makeHUDImage(shot: step.shot, options: options) : nil
             if let img = ctx.snapshot() {
                 let framed = options.showShotHUD ? composeWithHUD(scene: img, hud: hud, options: options) : img
@@ -327,6 +349,7 @@ enum SequenceVideoExporter {
             lines.forEach { $0.removeFromParentNode() }
             ctx.hideAimDecorations()
             ctx.scene.hideCueStick()
+            ctx.restoreOverviewCamera()
         }
 
         if let last = sequence.steps.last {
@@ -373,6 +396,8 @@ enum SequenceVideoExporter {
     ) throws {
         guard let ctx = RenderContext(options: options) else { return }
         let fps = options.fps
+        var currentStepID: UUID?
+        var currentPhase = "initial"
 
         // 击球参数 HUD：每杆常驻（设置帧→收尾帧），换杆更新；开局帧无内容（空条）。
         var currentHUD: CGImage?
@@ -384,8 +409,14 @@ enum SequenceVideoExporter {
         func snapshot() throws {
             try autoreleasepool {
                 guard let img = ctx.snapshot() else { return }
-                try emit(options.showShotHUD ? composeWithHUD(scene: img, hud: currentHUD,
-                    progress: currentProgress, options: options) : img)
+                #if DEBUG
+                options.phaseFrameObserver?(currentStepID, currentPhase)
+                options.cameraFrameObserver?(ctx.scene.cameraNode.simdWorldTransform, ctx.scene.cameraNode.camera!.fieldOfView)
+                #endif
+                let framed = options.showShotHUD ? composeWithHUD(scene: img, hud: currentHUD,
+                    progress: currentProgress, options: options) : img
+                try emit(options.overlaySequenceProgress
+                    ? composeProgressOverlay(scene: framed, progress: currentProgress, options: options) : framed)
             }
         }
 
@@ -396,6 +427,8 @@ enum SequenceVideoExporter {
         }
 
         for (index, step) in sequence.steps.enumerated() {
+            currentStepID = step.id
+            currentPhase = "observe"
             ctx.placeBoard(step.before)
             ctx.scene.hideCueStick()
             // 第1拍·读球形：只摆球，HUD 置空（不剧透打点/力度），预告线/假想球/球杆均不出现。
@@ -420,6 +453,12 @@ enum SequenceVideoExporter {
             #if DEBUG
             options.shotEventsObserver?(step.id, pred.events)
             #endif
+            if options.cameraTransitionDuration > 0, ctx.is3D {
+                currentPhase = "to-observe"
+                try ctx.moveToObservation(prediction: pred, first: index == 0, snapshot: snapshot)
+            }
+
+            currentPhase = "observe"
             // 第1拍·读球形停顿：仅摆球，给观众观察局面的时间（教学视频档 1.5s；GIF/卡片档为 0 跳过）。
             for _ in 0..<holdFrames(options.observeHold, fps: fps) {
                 #if DEBUG
@@ -440,12 +479,24 @@ enum SequenceVideoExporter {
             currentProgress = makeProgressImage(progress, options: options)
             let lines = options.showTrajectories ? ctx.drawAimLines(for: step, prediction: pred) : []
             _ = options.showCueStroke ? ctx.showCueAtRest(step: step, prediction: pred) : nil
+            if options.aimingHold > 0, ctx.is3D {
+                currentPhase = "to-aim"
+                try ctx.moveToAim(prediction: pred, shot: step.shot, snapshot: snapshot)
+                currentPhase = "aim"
+                currentProgress = makeProgressImage("\(progress) · 瞄准", options: options)
+                for _ in 0..<holdFrames(options.aimingHold, fps: fps) { try snapshot() }
+                currentPhase = "from-aim"
+                try ctx.moveFromAim(snapshot: snapshot)
+            }
+            currentPhase = "setup"
+            currentProgress = makeProgressImage(options.aimingHold > 0 ? "\(progress) · 击球走位" : progress, options: options)
             for _ in 0..<holdFrames(options.setupHold, fps: fps) { try snapshot() }
 
             // 运杆/出杆动画（#10，与编排台同源）：回杆→蓄力→匀加速出杆，渲染到触球为止。
             // 跟杆/短停改由下面的运动帧循环**并行叠加**：母球离位与球杆送杆同刻发生，
             // 杜绝导出中「球静止时杆头穿过母球」（App 实时路径本就并行，此处对齐）。
             var cueAnchor: RenderContext.CueStrokeAnchor?
+            currentPhase = "stroke"
             if options.showCueStroke {
                 cueAnchor = try ctx.renderStrokeToContact(step: step, prediction: pred,
                                                           fps: fps, speed: options.playbackSpeed,
@@ -458,6 +509,7 @@ enum SequenceVideoExporter {
             // 运动帧（无线）。进袋「匀速入洞 → 撞远端袋弧 → 袋心停顿 → 淡出」
             // （#4 v2，与编排台 `TrajectoryPlayback` 同源求解）。
             let playback = TrajectoryPlayback(recorder: recorder, surfaceY: ctx.yLevel, railInventory: ctx.scene.railInventory)
+            currentPhase = "motion"
             let onKeys = step.before.onTable.keys.map { $0 }
             let nameMap = Dictionary(uniqueKeysWithValues: onKeys.map {
                 ($0, PositionPlayShotSolver.predName(boardKey: $0, shot: step.shot))
@@ -502,8 +554,9 @@ enum SequenceVideoExporter {
             // 逐帧自转：记录各球上一帧角速度，与本帧取均值做梯形积分（与 App `action(for:)` 同源）。
             var lastOmega: [String: SCNVector3] = [:]
             let frameSimDt = Float(1.0 / Double(fps)) * options.playbackSpeed
-            var t: Float = 0
-            while t <= loopEndSim + 1e-4 {
+            let motionFrames = Int(floor(Double(loopEndSim + 1e-4) / Double(frameSimDt))) + 1
+            for motionFrame in 0..<motionFrames {
+                let t = Float(motionFrame) * frameSimDt
                 for key in onKeys {
                     guard let node = ctx.scene.allBallNodes[key], let name = nameMap[key] else { continue }
                     let collectionOpacity=playback.collectionOpacity(ballName:name,time:t)
@@ -624,7 +677,6 @@ enum SequenceVideoExporter {
                 }
                 #endif
                 try snapshot()
-                t += frameSimDt
             }
             if cueAnchor != nil, !cueHidden { ctx.scene.hideCueStick() }
 
@@ -634,6 +686,7 @@ enum SequenceVideoExporter {
                 ctx.scene.railInventory.render(shot, at: Double(loopEndSim), complete: true)
             }
             ctx.placePredictionRest(pred, step: step)
+            currentPhase = "settled"
             for _ in 0..<holdFrames(options.tailHold, fps: fps) {
                 #if DEBUG
                 options.railFrameObserver?(step.id, "settled", loopEndSim, ctx.scene.railInventory.visiblePositions)
@@ -652,6 +705,7 @@ enum SequenceVideoExporter {
     // MARK: - Render context
 
     /// 一次渲染会话的场景与离屏渲染器（USDZ 装载开销集中在 init，一个产物一个 context）。
+    @MainActor
     private final class RenderContext {
         let scene: AngleTrainingScene
         let surfaceY: Float
@@ -664,6 +718,132 @@ enum SequenceVideoExporter {
         private let options: Options
         private var clock: TimeInterval = 0
         private let frameDt: TimeInterval
+        private var overviewTransform: SCNMatrix4?
+        private var overviewFOV: CGFloat?
+        private var aimingHUD: CGImage?
+        private var hudOpacity: CGFloat = 1
+
+        /// Polar camera travel avoids cutting through the table when changing shot sides.
+        private struct Pose {
+            var pivot: SIMD3<Float>
+            var yaw: Float
+            var radius: Float
+            var height: Float
+            var pitch: Float
+            var fov: CGFloat
+        }
+        private var activePose: Pose?
+        private var observationPose: Pose?
+
+        private func apply(_ pose: Pose) {
+            let node = scene.cameraNode!
+            node.simdPosition = pose.pivot + SIMD3(cos(pose.yaw)*pose.radius, pose.height, sin(pose.yaw)*pose.radius)
+            node.eulerAngles = SCNVector3(-pose.pitch, .pi/2-pose.yaw, 0)
+            node.camera?.fieldOfView = pose.fov
+            activePose = pose
+        }
+
+        private func travel(to end: Pose, fadeHUD: Bool = false, snapshot: () throws -> Void) rethrows {
+            guard let start = activePose, options.cameraTransitionDuration > 0 else { apply(end); return }
+            let delta = atan2(sin(end.yaw-start.yaw), cos(end.yaw-start.yaw))
+            // Large changes receive more time, limiting orbit speed rather than snapping across sides.
+            let seconds = max(options.cameraTransitionDuration, Double(abs(delta)) / (.pi/3))
+            let frames = max(2, Int((seconds * Double(options.fps)).rounded()))
+            for frame in 0..<frames {
+                let t = Float(frame)/Float(frames-1)
+                let u = t*t*t*(t*(t*6-15)+10) // zero velocity/acceleration at both endpoints
+                apply(Pose(pivot: start.pivot+(end.pivot-start.pivot)*u,
+                    yaw: start.yaw+delta*u, radius: start.radius+(end.radius-start.radius)*u,
+                    height: start.height+(end.height-start.height)*u,
+                    pitch: start.pitch+(end.pitch-start.pitch)*u,
+                    fov: start.fov+(end.fov-start.fov)*CGFloat(u)))
+                if fadeHUD { hudOpacity = max(0, 1-CGFloat(t)*4) }
+                try snapshot()
+            }
+            apply(end)
+        }
+
+        func moveToObservation(prediction: ShotPrediction, first: Bool, snapshot: () throws -> Void) rethrows {
+            guard let cue = scene.allBallNodes[PositionPlayBall.cueKey],
+                  let aim = Self.aimDirection(path: prediction.cuePath, from: cue.position),
+                  case .perspective3D(let cfg) = options.cameraMode else { return }
+            let yaw = atan2(-aim.z, -aim.x)
+            let pitch = cfg.pitchDeg * .pi/180
+            let railTop = surfaceY + 0.05
+            let bottom = scene.measuredTableBottomY() ?? (surfaceY - 0.8)
+            let pivot = SIMD3<Float>(0, (railTop+bottom)/2, 0)
+            let forward = SIMD3<Float>(-cos(yaw)*cos(pitch), -sin(pitch), -sin(yaw)*cos(pitch))
+            let right = simd_normalize(simd_cross(forward, SIMD3<Float>(0,1,0)))
+            let up = simd_cross(right, forward)
+            let halfV = cfg.fovDeg * .pi/360 * (1-cfg.fitMargin)
+            let halfH = atan(Float(options.size.width/options.size.height)*tan(cfg.fovDeg * .pi/360)) * (1-cfg.fitMargin)
+            var distance: Float = 0
+            for x in [-SequenceVideoExporter.tableOuterHalfLength, SequenceVideoExporter.tableOuterHalfLength] {
+                for z in [-SequenceVideoExporter.tableOuterHalfWidth, SequenceVideoExporter.tableOuterHalfWidth] {
+                    for y in [bottom,railTop] {
+                        let v = SIMD3<Float>(x,y,z)-pivot
+                        distance = max(distance, abs(simd_dot(v,right))/tan(halfH)-simd_dot(v,forward),
+                            abs(simd_dot(v,up))/tan(halfV)-simd_dot(v,forward))
+                    }
+                }
+            }
+            let pose = Pose(pivot:pivot,yaw:yaw,radius:distance*cos(pitch),height:distance*sin(pitch),
+                pitch:pitch,fov:CGFloat(cfg.fovDeg))
+            observationPose = pose
+            aimingHUD = nil
+            if first { apply(pose) } else { try travel(to:pose,snapshot:snapshot) }
+        }
+
+        func moveToAim(prediction: ShotPrediction, shot: PlannedShot, snapshot: () throws -> Void) rethrows {
+            guard options.cameraTransitionDuration > 0,
+                  let cue = scene.allBallNodes[PositionPlayBall.cueKey],
+                  let aim = Self.aimDirection(path: prediction.cuePath, from: cue.position) else {
+                showAimingCamera(prediction: prediction, shot: shot); return
+            }
+            let pose = Pose(pivot: SIMD3(cue.position.x,surfaceY,cue.position.z),
+                yaw: atan2(-aim.z,-aim.x), radius:AimingCameraConfig.aimRadius,
+                height:AimingCameraConfig.aimHeight, pitch:-AimingCameraConfig.aimPitchRad,
+                fov:options.aimingFieldOfView)
+            try travel(to:pose,snapshot:snapshot)
+            hudOpacity = 1
+            if options.showAimingHUD {
+                aimingHUD = SequenceVideoExporter.makeAimingHUDImage(shot:shot,scale:options.size.width/1080,
+                    transparent:options.transparentAimingHUD)
+            }
+        }
+
+        func moveFromAim(snapshot: () throws -> Void) rethrows {
+            guard options.cameraTransitionDuration > 0, let pose = observationPose else {
+                restoreOverviewCamera(); return
+            }
+            try travel(to:pose,fadeHUD:true,snapshot:snapshot)
+            aimingHUD = nil
+            hudOpacity = 1
+        }
+
+        func showAimingCamera(prediction: ShotPrediction, shot: PlannedShot) {
+            guard is3D, let camera = scene.cameraNode, let rig = scene.cameraRig,
+                  let cue = scene.allBallNodes[PositionPlayBall.cueKey],
+                  let aim = Self.aimDirection(path: prediction.cuePath, from: cue.position) else { return }
+            overviewTransform = camera.transform
+            overviewFOV = camera.camera?.fieldOfView
+            rig.snapToAimPose(pivot: cue.position, aimDirection: aim)
+            rig.snapToTarget()
+            camera.camera?.fieldOfView = options.aimingFieldOfView
+            if options.showAimingHUD {
+                aimingHUD = SequenceVideoExporter.makeAimingHUDImage(shot: shot, scale: options.size.width/1080,
+                    transparent: options.transparentAimingHUD)
+            }
+        }
+
+        func restoreOverviewCamera() {
+            guard let transform = overviewTransform else { return }
+            scene.cameraNode?.transform = transform
+            if let fov = overviewFOV { scene.cameraNode?.camera?.fieldOfView = fov }
+            overviewTransform = nil
+            overviewFOV = nil
+            aimingHUD = nil
+        }
 
         init?(options: Options) {
             guard let device = MTLCreateSystemDefaultDevice() else { return nil }
@@ -679,12 +859,22 @@ enum SequenceVideoExporter {
             let scene = AngleTrainingScene()
             // 3D 档启用 studio 光照 + IBL + 接地阴影（与 Scene3DAimingView 同款，球读作立体接地）。
             // Exported media keeps its own pipeline (ADR-P5-01: offline output unchanged).
-            scene.setupScene(enhancedRendering: persp?.studioLook ?? false, mobileRendering: false)
+            if options.useAppAppearance {
+                scene.setupScene(enhancedRendering: false, mobileRendering: true)
+                scene.applyTableStyle(options.tableStyle, showsSights: true)
+                scene.applyClothColor(options.clothColor)
+                scene.setCameraMode(persp == nil ? .topDown2D : .perspective3D, animated: false)
+                guard scene.contactOcclusion != nil,
+                      scene.rootNode.childNode(withName: "reference_room", recursively: false) != nil else { return nil }
+            } else {
+                scene.setupScene(enhancedRendering: persp?.studioLook ?? false, mobileRendering: false)
+            }
             guard scene.cameraNode != nil else { return nil }
             // 暗色背景与 App 场景页一致（ADR-P11-13）；HUD 白字依赖暗底可读。
             scene.background.contents = UIColor.black
             scene.hideAllBalls()
             scene.hideCueStick()
+            if let style = options.cueStyle, scene.cueStick?.applyStyle(style) != true { return nil }
             // 预创建假想球等可视化节点（默认隐藏，drawAimLines 按需点亮）。
             scene.setupVisualizationNodes()
             scene.hideAllVisualization()
@@ -734,6 +924,7 @@ enum SequenceVideoExporter {
             renderer.scene = scene
             renderer.pointOfView = scene.cameraNode
             renderer.autoenablesDefaultLighting = false
+            renderer.delegate = scene.contactOcclusion
 
             self.scene = scene
             self.renderer = renderer
@@ -747,7 +938,41 @@ enum SequenceVideoExporter {
             let image = renderer.snapshot(atTime: clock, with: options.size,
                                           antialiasingMode: .multisampling4X)
             clock += frameDt
-            return image.cgImage
+            guard hudOpacity > 0, let hud = aimingHUD, let cue = scene.allBallNodes[PositionPlayBall.cueKey] else { return image.cgImage }
+            let width = options.size.width, height = options.size.height
+            let scale = width/1080
+            func ballRect(_ node: SCNNode) -> CGRect {
+                let p = renderer.projectPoint(node.worldPosition)
+                let right = scene.cameraNode.simdWorldTransform.columns.0
+                let offset = node.worldPosition + SCNVector3(right.x, right.y, right.z) * AngleSceneCalculator.ballRadius
+                let edge = renderer.projectPoint(offset)
+                let radius = CGFloat(abs(edge.x-p.x)) + 12*scale
+                return CGRect(x: CGFloat(p.x)-radius, y: height-CGFloat(p.y)-radius, width: radius*2, height: radius*2)
+            }
+            let cueRect = ballRect(cue)
+            let balls = scene.allBallNodes.values.filter { !$0.isHidden && $0.opacity > 0 }.map(ballRect)
+            let size = CGSize(width: hud.width, height: hud.height)
+            let gap = 28*scale
+            let positions = [
+                CGPoint(x: cueRect.maxX+gap, y: cueRect.midY-size.height*0.2),
+                CGPoint(x: cueRect.minX-gap-size.width, y: cueRect.midY-size.height*0.2),
+                CGPoint(x: cueRect.maxX+gap, y: cueRect.maxY+gap),
+                CGPoint(x: cueRect.minX-gap-size.width, y: cueRect.maxY+gap)
+            ]
+            let candidates = positions.map { p in
+                CGRect(x: max(gap,min(width-size.width-gap,p.x)),
+                       y: max(gap,min(height-size.height-gap,p.y)), width: size.width,height: size.height)
+            }
+            let rect = candidates.first { candidate in !balls.contains { $0.intersects(candidate) } } ?? candidates[0]
+            #if DEBUG
+            options.aimingHUDObserver?(rect, balls)
+            #endif
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+            return UIGraphicsImageRenderer(size: options.size, format: format).image { context in
+                UIColor.black.setFill(); context.fill(CGRect(origin: .zero,size: options.size))
+                image.draw(in: CGRect(origin: .zero,size: options.size))
+                UIImage(cgImage: hud).draw(in: rect, blendMode: .normal, alpha: hudOpacity)
+            }.cgImage
         }
 
         /// 首帧新摆球随机母球朝向；后续杆保留上一杆回放终态（`.unchanged`）。
@@ -777,7 +1002,7 @@ enum SequenceVideoExporter {
                     point: CGPoint(x: pt.x, y: pt.y), surfaceY: surfaceY
                 )
                 scene.showBall(key: key, scenePosition: p,
-                               cuePose: PositionPlayBall.isCue(key) ? cuePose : .home)
+                               cuePose: (PositionPlayBall.isCue(key) || options.cameraTransitionDuration > 0) ? cuePose : .home)
                 scene.allBallNodes[key]?.opacity = 1   // 上一杆进袋淡出后复用节点需复原
             }
             scene.railInventory.reconcile(animated: false)
@@ -934,6 +1159,32 @@ enum SequenceVideoExporter {
 
     // MARK: - Shot HUD (ADR-P11-13)
 
+    private static func makeAimingHUDImage(shot: PlannedShot, scale: CGFloat, transparent: Bool = false) -> CGImage? {
+        let range = ShotTuning.velocityRange
+        let fraction = min(1,max(0,(shot.velocity-range.lowerBound)/(range.upperBound-range.lowerBound)))
+        let view = VStack(spacing: 12*scale) {
+            Text("打点").font(.system(size: 26*scale,weight: .medium)).foregroundStyle(.white)
+            BTSpinMiniIcon(spinX: shot.spinX, spinY: shot.spinY, diameter: 136*scale,trueScale: true)
+            Text(SpinDisplay.readout(spinX: shot.spinX,spinY: shot.spinY))
+                .font(.system(size: 28*scale,weight: .bold,design: .rounded))
+                .foregroundStyle(transparent ? Color.white : HUDStyle.valueAdjustable).fixedSize()
+            HStack {
+                Text("力度").foregroundStyle(.white)
+                Spacer()
+                Text(String(format:"%.1f m/s",shot.velocity)).foregroundStyle(transparent ? Color.white : HUDStyle.valueAdjustable)
+            }.font(.system(size: 25*scale,weight: .semibold,design: .rounded))
+            Capsule().fill(.white.opacity(0.2)).frame(height: 10*scale)
+                .overlay(alignment: .leading) {
+                    Capsule().fill(HUDStyle.tickIndicator).frame(width: 240*scale*fraction)
+                }
+        }.shadow(color: .black.opacity(transparent ? 0.9 : 0), radius: 1.5*scale, y: scale)
+            .frame(width: 240*scale).padding(20*scale)
+            .background(RoundedRectangle(cornerRadius: 22*scale).fill(.black.opacity(transparent ? 0 : 0.82)))
+            .overlay(RoundedRectangle(cornerRadius: 22*scale).stroke(.white.opacity(transparent ? 0 : 0.22),lineWidth: scale))
+        let renderer = ImageRenderer(content: view); renderer.scale = 1
+        return renderer.cgImage
+    }
+
     /// 把本杆击球参数渲染成 HUD 条图（`ImageRenderer` 直接复用 App 组件，样式单一真源）。
     private static func makeHUDImage(shot: PlannedShot, options: Options) -> CGImage? {
         let strip = CGFloat(options.hudStripHeight)
@@ -954,6 +1205,17 @@ enum SequenceVideoExporter {
             .foregroundStyle(.white))
         renderer.scale = 1
         return renderer.cgImage
+    }
+
+    private static func composeProgressOverlay(scene: CGImage, progress: CGImage?, options: Options) -> CGImage {
+        guard let progress else { return scene }
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+        return UIGraphicsImageRenderer(size: options.size,format:format).image { _ in
+            UIImage(cgImage:scene).draw(at:.zero)
+            let p = CGPoint(x:(options.size.width-CGFloat(progress.width))/2,
+                y:options.size.height-CGFloat(progress.height)-32*options.size.width/1080)
+            UIImage(cgImage:progress).draw(at:p)
+        }.cgImage!
     }
 
     /// Scene above, shot number and parameters below; observation frames retain the number only.

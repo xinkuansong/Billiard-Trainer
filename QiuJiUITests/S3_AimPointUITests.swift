@@ -47,6 +47,17 @@ final class S3_AimPointUITests: XCTestCase {
         sleep(1)
         snap("s3-01-aimpoint-training-aiming")
 
+        // Drag within the figure to inspect the tangent marker on both sides.
+        let window = app.windows.firstMatch
+        let center = window.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.44))
+        center.press(forDuration: 0.1, thenDragTo:
+            window.coordinate(withNormalizedOffset: CGVector(dx: 0.32, dy: 0.43)))
+        snap("s3-01b-aimpoint-training-left-contact")
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.32, dy: 0.43))
+            .press(forDuration: 0.1, thenDragTo:
+                window.coordinate(withNormalizedOffset: CGVector(dx: 0.68, dy: 0.43)))
+        snap("s3-01c-aimpoint-training-right-contact")
+
         let submit = app.buttons["提交瞄准点"]
         if submit.waitForExistence(timeout: 4) {
             submit.tap()
