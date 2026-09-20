@@ -107,6 +107,11 @@ enum SequenceVideoExporter {
         var cueStyle: CueStyle? = nil
         /// Opt-in continuous orbit/approach path. Zero retains the fixed-camera recipes.
         var cameraTransitionDuration: Double = 0
+        /// Opt-in table-side observation, measured above the cloth and behind the rail.
+        var standingObservation: Bool = false
+        /// Keep the shot in the aiming view until the target actually pots.
+        var observeAfterTargetPot: Bool = false
+        var referenceOpeningOverview: Bool = false
         var aimingFieldOfView: CGFloat = AimingCameraConfig.aimFov
         var transparentAimingHUD: Bool = false
         var overlaySequenceProgress: Bool = false
@@ -323,6 +328,12 @@ enum SequenceVideoExporter {
                   + " ≠ 首杆 before \(openingBoard.onTable.count)，开局图改用首杆 before")
         }
         ctx.placeBoard(openingBoard)
+        if options.referenceOpeningOverview {
+            ctx.applyReferenceOpeningOverview()
+        } else if options.standingObservation, let first = sequence.steps.first,
+           let prediction = PositionPlayShotSolver.solve(before: first.before, shot: first.shot, surfaceY: ctx.surfaceY) {
+            ctx.moveToObservation(prediction: prediction, first: true, snapshot: {})
+        }
         if let img = ctx.snapshot() { out.append(("initial", img)) }
 
         for (i, step) in sequence.steps.enumerated() {
@@ -337,6 +348,10 @@ enum SequenceVideoExporter {
                 : []
             if options.showCueStroke, let pred, pred.feasible {
                 _ = ctx.showCueAtRest(step: step, prediction: pred)
+            }
+            if options.standingObservation, let pred {
+                ctx.moveToObservation(prediction: pred, first: true, snapshot: {})
+                if let img = ctx.snapshot() { out.append((String(format: "s%02d_observe", i + 1), img)) }
             }
             if options.aimingHold > 0, let pred {
                 ctx.showAimingCamera(prediction: pred, shot: step.shot)
@@ -422,7 +437,9 @@ enum SequenceVideoExporter {
 
         // 开局静帧（可选；连续录制序列与首杆设置静帧重复，默认跳过）。
         if options.initialHold > 0 {
-            ctx.placeBoard(sequence.initial)
+            ctx.placeBoard(sequence.steps.first?.before ?? sequence.initial)
+            if options.referenceOpeningOverview { ctx.applyReferenceOpeningOverview() }
+            else { ctx.adoptCurrentCamera() }
             for _ in 0..<holdFrames(options.initialHold, fps: fps) { try snapshot() }
         }
 
@@ -455,7 +472,7 @@ enum SequenceVideoExporter {
             #endif
             if options.cameraTransitionDuration > 0, ctx.is3D {
                 currentPhase = "to-observe"
-                try ctx.moveToObservation(prediction: pred, first: index == 0, snapshot: snapshot)
+                try ctx.moveToObservation(prediction: pred, first: index == 0 && options.initialHold == 0, snapshot: snapshot)
             }
 
             currentPhase = "observe"
@@ -485,8 +502,10 @@ enum SequenceVideoExporter {
                 currentPhase = "aim"
                 currentProgress = makeProgressImage("\(progress) · 瞄准", options: options)
                 for _ in 0..<holdFrames(options.aimingHold, fps: fps) { try snapshot() }
-                currentPhase = "from-aim"
-                try ctx.moveFromAim(snapshot: snapshot)
+                if !options.observeAfterTargetPot {
+                    currentPhase = "from-aim"
+                    try ctx.moveFromAim(snapshot: snapshot)
+                }
             }
             currentPhase = "setup"
             currentProgress = makeProgressImage(options.aimingHold > 0 ? "\(progress) · 击球走位" : progress, options: options)
@@ -505,6 +524,7 @@ enum SequenceVideoExporter {
             // 触球瞬间清线、收掉假想球（运动/跟杆期间不再显示预告线）。
             lines.forEach { $0.removeFromParentNode() }
             ctx.hideAimDecorations()
+            if options.observeAfterTargetPot { ctx.hideAimingHUD() }
 
             // 运动帧（无线）。进袋「匀速入洞 → 撞远端袋弧 → 袋心停顿 → 淡出」
             // （#4 v2，与编排台 `TrajectoryPlayback` 同源求解）。
@@ -546,7 +566,14 @@ enum SequenceVideoExporter {
                 cueAnchor = anchor
             }
             // 循环至少跑到跟杆结束：短杆（球早停）时也保证跟杆完整播完再收杆。
-            let loopEndSim = max(motionEnd, cueAnchor != nil ? cueOverlayEndSim : 0)
+            let targetPotTime = pred.events.compactMap { event -> Float? in
+                if case .pocket(let ball, _) = event.kind, ball == ShotInput.targetBallName { return event.time }
+                return nil
+            }.first
+            let returnDuration = options.observeAfterTargetPot ? ctx.prepareAimingReturn() : 0
+            let returnEnd = options.observeAfterTargetPot
+                ? (targetPotTime ?? motionEnd) + Float(returnDuration) * options.playbackSpeed : 0
+            let loopEndSim = max(motionEnd, cueAnchor != nil ? cueOverlayEndSim : 0, returnEnd)
             var cueHidden = false
             var potTimes: [String: Float] = [:]
             var potEntries: [String: (start: SCNVector3, legs: [TrajectoryPlayback.PocketEntryLeg])] = [:]
@@ -557,6 +584,11 @@ enum SequenceVideoExporter {
             let motionFrames = Int(floor(Double(loopEndSim + 1e-4) / Double(frameSimDt))) + 1
             for motionFrame in 0..<motionFrames {
                 let t = Float(motionFrame) * frameSimDt
+                if options.observeAfterTargetPot {
+                    let elapsed = Double(t - (targetPotTime ?? motionEnd)) / Double(options.playbackSpeed)
+                    ctx.updateAimingReturn(elapsed: elapsed)
+                    currentPhase = elapsed < 0 ? "motion-aim" : (elapsed < returnDuration ? "from-aim" : "motion")
+                }
                 for key in onKeys {
                     guard let node = ctx.scene.allBallNodes[key], let name = nameMap[key] else { continue }
                     let collectionOpacity=playback.collectionOpacity(ballName:name,time:t)
@@ -678,6 +710,7 @@ enum SequenceVideoExporter {
                 #endif
                 try snapshot()
             }
+            if options.observeAfterTargetPot { ctx.updateAimingReturn(elapsed: returnDuration) }
             if cueAnchor != nil, !cueHidden { ctx.scene.hideCueStick() }
 
             // Preserve the result just animated, as live sequence playback does.
@@ -734,6 +767,101 @@ enum SequenceVideoExporter {
         }
         private var activePose: Pose?
         private var observationPose: Pose?
+        private var returnStart: Pose?
+        private var returnDuration: Double = 0
+        private var returnTravel: CameraTravel?
+
+        func applyReferenceOpeningOverview() {
+            // Same 30-degree / 5.10 m / 40-degree framing as the speed-series reference.
+            let pitch: Float = .pi / 6
+            apply(Pose(pivot: SIMD3(0, surfaceY, 0), yaw: .pi,
+                radius: 5.10 * cos(pitch), height: 5.10 * sin(pitch),
+                pitch: pitch, fov: 40))
+        }
+
+        /// Cumulative path work, measured in seconds at the selected cruise rates.
+        /// Each segment is limited by translation, rotation or zoom, whichever is slower.
+        private struct CameraTravel {
+            let cumulative: [Double]
+            var work: Double { cumulative.last ?? 0 }
+            var ramp: Double { min(0.18, work) }
+            var duration: Double { work + ramp }
+
+            func parameter(at elapsed: Double) -> Float {
+                guard work > 0, ramp > 0 else { return 1 }
+                let t = min(duration, max(0, elapsed))
+                let distance: Double
+                if t < ramp {
+                    distance = 0.5 * (t - ramp / .pi * sin(.pi * t / ramp))
+                } else if t > duration - ramp {
+                    let remaining = duration - t
+                    distance = work - 0.5 * (remaining - ramp / .pi * sin(.pi * remaining / ramp))
+                } else {
+                    distance = t - ramp / 2
+                }
+                guard let upper = cumulative.firstIndex(where: { $0 >= distance }), upper > 0 else { return 0 }
+                let lower = upper - 1
+                let fraction = (distance-cumulative[lower]) / max(1e-12, cumulative[upper]-cumulative[lower])
+                return Float((Double(lower)+fraction) / Double(cumulative.count-1))
+            }
+        }
+
+        private func interpolatedPose(from start: Pose, to end: Pose, fraction u: Float) -> Pose {
+            let delta = atan2(sin(end.yaw-start.yaw), cos(end.yaw-start.yaw))
+            return Pose(pivot: start.pivot+(end.pivot-start.pivot)*u,
+                yaw: start.yaw+delta*u, radius: start.radius+(end.radius-start.radius)*u,
+                height: start.height+(end.height-start.height)*u,
+                pitch: start.pitch+(end.pitch-start.pitch)*u,
+                fov: start.fov+(end.fov-start.fov)*CGFloat(u))
+        }
+
+        private func cameraTravel(from start: Pose, to end: Pose) -> CameraTravel {
+            func position(_ p: Pose) -> SIMD3<Float> {
+                p.pivot + SIMD3(cos(p.yaw)*p.radius, p.height, sin(p.yaw)*p.radius)
+            }
+            var cumulative: [Double] = [0]
+            var previous = start
+            for index in 1...256 {
+                let next = interpolatedPose(from: start, to: end, fraction: Float(index)/256)
+                let translation = Double(simd_distance(position(previous), position(next))) / 1.4
+                let rotation = Double(hypot(next.yaw-previous.yaw, next.pitch-previous.pitch)) / (42 * .pi / 180)
+                let zoom = Double(abs(next.fov-previous.fov)) / 26
+                cumulative.append(cumulative.last! + max(translation, rotation, zoom))
+                previous = next
+            }
+            return CameraTravel(cumulative: cumulative)
+        }
+
+        func adoptCurrentCamera() {
+            let node = scene.cameraNode!
+            let p = node.simdPosition
+            let pivot = SIMD3<Float>(0, surfaceY, 0)
+            let forward = -node.simdWorldTransform.columns.2
+            activePose = Pose(pivot: pivot, yaw: atan2(p.z, p.x),
+                radius: hypot(p.x, p.z), height: p.y - surfaceY,
+                pitch: atan2(-forward.y, hypot(forward.x, forward.z)),
+                fov: node.camera!.fieldOfView)
+        }
+
+        func hideAimingHUD() { aimingHUD = nil }
+
+        func prepareAimingReturn() -> Double {
+            guard let start = activePose, let end = observationPose else { return 0 }
+            returnStart = start
+            let profile = cameraTravel(from: start, to: end)
+            returnTravel = profile
+            returnDuration = profile.duration
+            return returnDuration
+        }
+
+        func updateAimingReturn(elapsed: Double) {
+            guard elapsed >= 0, let start = returnStart, let end = observationPose else { return }
+            let t = Float(min(1, elapsed / max(returnDuration, 0.001)))
+            let u = returnTravel?.parameter(at: elapsed) ?? t
+            apply(interpolatedPose(from: start, to: end, fraction: u))
+            hudOpacity = max(0, 1-CGFloat(t)*4)
+            if t == 1 { aimingHUD = nil; hudOpacity = 1 }
+        }
 
         private func apply(_ pose: Pose) {
             let node = scene.cameraNode!
@@ -747,11 +875,15 @@ enum SequenceVideoExporter {
             guard let start = activePose, options.cameraTransitionDuration > 0 else { apply(end); return }
             let delta = atan2(sin(end.yaw-start.yaw), cos(end.yaw-start.yaw))
             // Large changes receive more time, limiting orbit speed rather than snapping across sides.
-            let seconds = max(options.cameraTransitionDuration, Double(abs(delta)) / (.pi/3))
-            let frames = max(2, Int((seconds * Double(options.fps)).rounded()))
+            let profile = options.standingObservation ? cameraTravel(from: start, to: end) : nil
+            let seconds = profile?.duration ?? max(options.cameraTransitionDuration, Double(abs(delta)) / (.pi/3))
+            let frames = profile != nil
+                ? max(2, Int(ceil(seconds * Double(options.fps))) + 1)
+                : max(2, Int((seconds * Double(options.fps)).rounded()))
             for frame in 0..<frames {
                 let t = Float(frame)/Float(frames-1)
-                let u = t*t*t*(t*(t*6-15)+10) // zero velocity/acceleration at both endpoints
+                let u = profile?.parameter(at: min(seconds, Double(frame) / Double(options.fps)))
+                    ?? min(1, max(0, t*t*t*(t*(t*6-15)+10)))
                 apply(Pose(pivot: start.pivot+(end.pivot-start.pivot)*u,
                     yaw: start.yaw+delta*u, radius: start.radius+(end.radius-start.radius)*u,
                     height: start.height+(end.height-start.height)*u,
@@ -768,6 +900,28 @@ enum SequenceVideoExporter {
                   let aim = Self.aimDirection(path: prediction.cuePath, from: cue.position),
                   case .perspective3D(let cfg) = options.cameraMode else { return }
             let yaw = atan2(-aim.z, -aim.x)
+            if options.standingObservation {
+                // Intersect the backwards shot ray with the table's outer rectangle.
+                // Place the observer 0.50 m behind that rail, eyes 0.80 m above cloth.
+                let back = SIMD2<Float>(cos(yaw), sin(yaw))
+                var edgeDistance = Float.greatestFiniteMagnitude
+                for (origin, direction, halfExtent) in [
+                    (cue.position.x, back.x, SequenceVideoExporter.tableOuterHalfLength),
+                    (cue.position.z, back.y, SequenceVideoExporter.tableOuterHalfWidth)
+                ] where abs(direction) > 0.00001 {
+                    let edge = direction > 0 ? halfExtent : -halfExtent
+                    edgeDistance = min(edgeDistance, (edge-origin)/direction)
+                }
+                let radius = max(0, edgeDistance) + 0.50
+                let height: Float = 0.80
+                let pose = Pose(pivot: SIMD3(cue.position.x, surfaceY, cue.position.z),
+                    yaw: yaw, radius: radius, height: height,
+                    pitch: atan2(height, radius + 0.60), fov: CGFloat(cfg.fovDeg))
+                observationPose = pose
+                aimingHUD = nil
+                if first { apply(pose) } else { try travel(to:pose,snapshot:snapshot) }
+                return
+            }
             let pitch = cfg.pitchDeg * .pi/180
             let railTop = surfaceY + 0.05
             let bottom = scene.measuredTableBottomY() ?? (surfaceY - 0.8)

@@ -430,7 +430,8 @@ final class AngleDiagramAnnotationTests: XCTestCase {
 
 @MainActor
 final class AngleAimingVideoCaptureTests: XCTestCase {
-    private let size = CGSize(width: 2160, height: 3840)
+    private var size = CGSize(width: 2160, height: 3840)
+    private var spatialVideoLabels = false
 
     private func outputDirectory() throws -> URL {
         let env = ProcessInfo.processInfo.environment
@@ -499,7 +500,7 @@ final class AngleAimingVideoCaptureTests: XCTestCase {
         renderer.autoenablesDefaultLighting = false
         renderer.delegate = scene.contactOcclusion
         SCNTransaction.flush()
-        let labelView = SCNView(frame: CGRect(x: 0, y: 0, width: 360, height: 640))
+        let labelView = SCNView(frame: CGRect(x: 0, y: 0, width: 360, height: 360*size.height/size.width))
         labelView.scene = scene
         labelView.pointOfView = node
         labelView.layoutIfNeeded()
@@ -541,19 +542,29 @@ final class AngleAimingVideoCaptureTests: XCTestCase {
         let shot = capture.renderer.snapshot(atTime: time, with: size, antialiasingMode: .multisampling4X)
         XCTAssertEqual(shot.cgImage?.width, Int(size.width))
         XCTAssertEqual(shot.cgImage?.height, Int(size.height))
-        capture.labels.update(scene: capture.vm.scene, in: capture.labelView)
-        let labels = capture.labelView.subviews.compactMap { $0 as? UILabel }
-        XCTAssertEqual(labels.count, 3)
-        XCTAssertTrue(labels.allSatisfy { !$0.isHidden }, "All three production annotations must be visible")
-        XCTAssertTrue(labels.contains { $0.text == "瞄准线" })
-        XCTAssertTrue(labels.contains { $0.text == "进球线" })
+        if !spatialVideoLabels { capture.labels.update(scene: capture.vm.scene, in: capture.labelView) }
+        let labels = spatialVideoLabels ? [] : capture.labelView.subviews.compactMap { $0 as? UILabel }
+        let overlayScale = Float(size.width / capture.labelView.bounds.width)
+        if spatialVideoLabels {
+            let nodes = try XCTUnwrap(capture.vm.scene.rootNode.childNode(withName: "videoSpatialLabels", recursively: false))
+                .childNodes.filter { $0.geometry is SCNText }
+            XCTAssertEqual(nodes.count, 3)
+            XCTAssertTrue(nodes.allSatisfy { !$0.isHidden && ($0.geometry as! SCNText).extrusionDepth > 0 })
+            XCTAssertTrue(nodes.contains { ($0.geometry as! SCNText).string as? String == "接触点" })
+            XCTAssertTrue(nodes.contains { ($0.geometry as! SCNText).string as? String == "瞄准点" })
+        } else {
+            XCTAssertEqual(labels.count, 3)
+            XCTAssertTrue(labels.allSatisfy { !$0.isHidden }, "All three production annotations must be visible")
+            XCTAssertTrue(labels.contains { $0.text == "瞄准线" })
+            XCTAssertTrue(labels.contains { $0.text == "进球线" })
+        }
         // Compare the real SceneKit projections before compositing the production overlay.
         // SCNRenderer uses bottom-left projection coordinates; SCNView uses UIKit top-left.
         for world in [capture.target, capture.ghost, try XCTUnwrap(capture.vm.scene.cueBallNode).position] {
             let sourcePoint = capture.renderer.projectPoint(world)
             let overlayPoint = capture.labelView.projectPoint(world)
-            XCTAssertEqual(sourcePoint.x / 6, overlayPoint.x, accuracy: 0.1)
-            XCTAssertEqual(Float(size.height) / 6 - sourcePoint.y / 6, overlayPoint.y, accuracy: 0.1)
+            XCTAssertEqual(sourcePoint.x / overlayScale, overlayPoint.x, accuracy: 0.1)
+            XCTAssertEqual((Float(size.height) - sourcePoint.y) / overlayScale, overlayPoint.y, accuracy: 0.1)
         }
         let format = UIGraphicsImageRendererFormat()
         format.scale = 1
@@ -574,7 +585,7 @@ final class AngleAimingVideoCaptureTests: XCTestCase {
             shot.draw(in: CGRect(origin: .zero, size: size))
             let cg = context.cgContext
             cg.saveGState()
-            cg.scaleBy(x: 6, y: 6)
+            cg.scaleBy(x: CGFloat(overlayScale), y: CGFloat(overlayScale))
             // Capture only the UIKit annotations; the Metal scene already exists at native 4K.
             for layer in capture.labelView.layer.sublayers ?? [] {
                 guard let shape = layer as? CAShapeLayer, shape.name == "angleDiagram.arc",
@@ -592,12 +603,14 @@ final class AngleAimingVideoCaptureTests: XCTestCase {
                 cg.restoreGState()
             }
             cg.restoreGState()
-            cg.scaleBy(x: 2, y: 2)
+            let panelScale = min(size.width/1080, size.height/1920)
+            cg.scaleBy(x: panelScale, y: panelScale)
             // Panel origin in 1080×1920 coordinates. User request (2026-09-15): keep the readout
             // out of social-media overlay zones — 2D sits on the cloth left of the cue-ball arc,
             // 3D sits on the floor between the sofa and the far end of the table.
-            let panelOrigin = capture.vm.scene.currentCameraMode == .perspective3D
-                ? CGPoint(x: 68, y: 392) : CGPoint(x: 216, y: 1250)
+            let panelOrigin = size.width >= size.height ? CGPoint(x: 68, y: 96)
+                : (capture.vm.scene.currentCameraMode == .perspective3D
+                ? CGPoint(x: 68, y: 392) : CGPoint(x: 216, y: 1250))
             cg.translateBy(x: panelOrigin.x - 96, y: panelOrigin.y - 96)
             UIColor.black.withAlphaComponent(0.64).setFill()
             UIBezierPath(roundedRect: CGRect(x: 96, y: 96, width: panelWidth, height: 188), cornerRadius: 16).fill()
@@ -651,6 +664,494 @@ final class AngleAimingVideoCaptureTests: XCTestCase {
         record["fieldOfView"] = scene.cameraNode.camera?.fieldOfView
         record["orthographicScale"] = scene.cameraNode.camera?.orthographicScale
         return record
+    }
+
+    /// Opt-in stills only: same production layout, four eye heights along the cue axis.
+    func testFirstPersonHeightComparison() async throws {
+        let output = try outputDirectory()
+        let env = ProcessInfo.processInfo.environment
+        let compareWidth = (env["ANGLE_COMPARE_WIDTH"] ?? env["TEST_RUNNER_ANGLE_COMPARE_WIDTH"]) == "1"
+        let heights: [Float] = compareWidth ? [0.20, 0.20, 0.20, 0.20] : [0.10, 0.20, 0.30, 0.45]
+        let fieldsOfView: [Double] = compareWidth ? [50, 75, 105, 140] : [50, 50, 50, 50]
+        var records: [[String: Any]] = []
+        for angle in (compareWidth ? [30.0, 60.0, 89.0] : [30.0, 60.0]) {
+            var thumbnails: [UIImage] = []
+            for (index, height) in heights.enumerated() {
+                let thumbnail = try autoreleasepool { () throws -> UIImage in
+                    let capture = try makeCapture("3d")
+                    var record = try setAngle(angle, in: capture)
+                    let scene = capture.vm.scene
+                    let cue = try XCTUnwrap(scene.cueBallNode).position
+                    let direction = simd_normalize(SIMD2<Float>(capture.ghost.x-cue.x, capture.ghost.z-cue.z))
+                    let camera = scene.cameraNode!
+                    camera.camera!.fieldOfView = fieldsOfView[index]
+                    camera.position = SCNVector3(cue.x - 0.65*direction.x, scene.surfaceY + height,
+                                                 cue.z - 0.65*direction.y)
+                    camera.look(at: capture.ghost, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+                    XCTAssertEqual(camera.position.y-scene.surfaceY, height, accuracy: 0.00001)
+                    XCTAssertEqual(AngleSceneCalculator.horizontalDistance(camera.position, cue), 0.65, accuracy: 0.00001)
+                    SCNTransaction.flush()
+                    _ = try image(capture, time: 0)
+                    let shot = try image(capture, time: 0)
+                    let name = compareWidth ? "first-person-\(Int(angle))-fov-\(Int(fieldsOfView[index])).png"
+                        : "first-person-\(Int(angle))-height-\(Int((height*100).rounded()))cm.png"
+                    try XCTUnwrap(shot.pngData()).write(to: output.appendingPathComponent("frames/"+name))
+                    record["heightAboveClothM"] = height
+                    record["horizontalBackDistanceM"] = 0.65
+                    record["image"] = name
+                    record["projection"] = try projectionRecord(capture)
+                    let pocket = capture.renderer.projectPoint(capture.aim)
+                    record["pocketPixel"] = [pocket.x, pocket.y, pocket.z]
+                    record["pocketCenterInFrame"] = pocket.x > 0 && pocket.x < Float(size.width)
+                        && pocket.y > 0 && pocket.y < Float(size.height) && pocket.z > 0 && pocket.z < 1
+                    records.append(record)
+                    print("FIRST_PERSON_HEIGHT \(name)")
+                    let format = UIGraphicsImageRendererFormat()
+                    format.scale = 1
+                    format.opaque = true
+                    return UIGraphicsImageRenderer(size: CGSize(width: 540, height: 960), format: format).image { _ in
+                        shot.draw(in: CGRect(x: 0, y: 0, width: 540, height: 960))
+                    }
+                }
+                thumbnails.append(thumbnail)
+                await Task.yield()
+            }
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            format.opaque = true
+            let sheet = UIGraphicsImageRenderer(size: CGSize(width: 2160, height: 1040), format: format).image { ctx in
+                UIColor.black.setFill()
+                ctx.fill(CGRect(x: 0, y: 0, width: 2160, height: 1040))
+                for (index, thumb) in thumbnails.enumerated() {
+                    let x = CGFloat(index)*540
+                    let title = compareWidth
+                        ? String(format: "%@ · 视场 %.0f° · 切角 %.0f°", ["A", "B", "C", "D"][index], fieldsOfView[index], angle)
+                        : String(format: "%@ · 台面上方 %.0f cm · %.0f°", ["A", "B", "C", "D"][index], heights[index]*100, angle)
+                    (title as NSString).draw(at: CGPoint(x: x+20, y: 25), withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 26, weight: .semibold), .foregroundColor: UIColor.white
+                    ])
+                    thumb.draw(at: CGPoint(x: x, y: 80))
+                }
+            }
+            let prefix = compareWidth ? "width" : "height"
+            try XCTUnwrap(sheet.pngData()).write(to: output.appendingPathComponent("\(prefix)-comparison-\(Int(angle)).png"))
+        }
+        try JSONSerialization.data(withJSONObject: records, options: [.prettyPrinted, .sortedKeys])
+            .write(to: output.appendingPathComponent(compareWidth ? "width-comparison.json" : "height-comparison.json"))
+    }
+
+    func testFirstPersonAspectComparison() async throws {
+        let output = try outputDirectory()
+        let env = ProcessInfo.processInfo.environment
+        let mobileFrame = (env["ANGLE_MOBILE_FRAME"] ?? env["TEST_RUNNER_ANGLE_MOBILE_FRAME"]) == "1"
+        let originalSize = size
+        defer { size = originalSize }
+        var records: [[String: Any]] = []
+        let formats: [(String, CGSize, Double)] = mobileFrame ? [
+            ("4x5", CGSize(width: 2160, height: 2700), 80),
+            ("3x4", CGSize(width: 2160, height: 2880), 80)
+        ] : [
+            ("4x3", CGSize(width: 2880, height: 2160), 75),
+            ("16x9", CGSize(width: 3840, height: 2160), 75),
+            ("2x1", CGSize(width: 3840, height: 1920), 70)
+        ]
+        for angle in [30.0, 60.0, 89.0] {
+            for (name, dimensions, fov) in formats {
+                try autoreleasepool {
+                    size = dimensions
+                    let capture = try makeCapture("3d")
+                    var record = try setAngle(angle, in: capture)
+                    let scene = capture.vm.scene
+                    let cue = try XCTUnwrap(scene.cueBallNode).position
+                    let u = simd_normalize(SIMD2<Float>(capture.ghost.x-cue.x, capture.ghost.z-cue.z))
+                    let camera = scene.cameraNode!
+                    camera.position = SCNVector3(cue.x-0.65*u.x, scene.surfaceY+0.20, cue.z-0.65*u.y)
+                    camera.camera!.fieldOfView = fov
+                    var lookTarget = capture.ghost
+                    if mobileFrame {
+                        // Keep the eye position; turn toward the angular midpoint of aim and pocket.
+                        let toPocket = simd_normalize(SIMD2<Float>(capture.aim.x-camera.position.x, capture.aim.z-camera.position.z))
+                        let viewDirection = simd_normalize(u + toPocket)
+                        lookTarget = SCNVector3(camera.position.x+1.17*viewDirection.x,
+                                               capture.ghost.y, camera.position.z+1.17*viewDirection.y)
+                        record["yawFromAimDegrees"] = acos(max(-1, min(1, simd_dot(u, viewDirection))))*180/Float.pi
+                    }
+                    camera.look(at: lookTarget, up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+                    SCNTransaction.flush()
+                    _ = try image(capture, time: 0)
+                    let shot = try image(capture, time: 0)
+                    let filename = "aspect-\(name)-\(Int(angle)).png"
+                    try XCTUnwrap(shot.pngData()).write(to: output.appendingPathComponent("frames/"+filename))
+                    record["format"] = name
+                    record["image"] = filename
+                    record["size"] = [size.width, size.height]
+                    record["verticalFOV"] = fov
+                    record["projection"] = try projectionRecord(capture)
+                    let p = capture.renderer.projectPoint(capture.aim)
+                    record["pocketNormalized"] = [p.x/Float(size.width), p.y/Float(size.height), p.z]
+                    records.append(record)
+                    print("FIRST_PERSON_ASPECT \(filename)")
+                }
+                await Task.yield()
+            }
+        }
+        try JSONSerialization.data(withJSONObject: records, options: [.prettyPrinted, .sortedKeys])
+            .write(to: output.appendingPathComponent("aspect-comparison.json"))
+    }
+
+    private func updateSpatialVideoLabels(_ capture: Capture, darkAnnotations: Bool = false, yellowAnnotations: Bool = false) throws -> [[String: Any]] {
+        let scene = capture.vm.scene
+        let camera = scene.cameraNode!
+        scene.angleArcNode?.childNode(withName: "angleValueLabel", recursively: true)?.removeFromParentNode()
+        let root: SCNNode
+        if let existing = scene.rootNode.childNode(withName: "videoSpatialLabels", recursively: false) {
+            root = existing
+        } else {
+            root = SCNNode(); root.name = "videoSpatialLabels"; scene.rootNode.addChildNode(root)
+        }
+        let contact = try XCTUnwrap(scene.contactDotNode).worldPosition
+        let aim = try XCTUnwrap(scene.ghostBallNode?.childNode(withName: "ghostAimDot", recursively: true)).worldPosition
+        let darkNeutral = UIColor(white: 0.18, alpha: 1)
+        let specs: [(String, String, SCNVector3, SIMD2<Float>, UIColor)] = [
+            ("angle", String(format: "%.1f°", capture.vm.cutAngleDegrees), capture.target, SIMD2(-70, 70), yellowAnnotations ? .white : (darkAnnotations ? darkNeutral : .white)),
+            ("contact", "接触点", contact, SIMD2(125, 65), yellowAnnotations ? UIColor(red: 1, green: 0.82, blue: 0.06, alpha: 1) : darkAnnotations ? UIColor(hue: 0.3905, saturation: 0.82, brightness: 0.36, alpha: 1) : UIColor(red: 0.65, green: 1, blue: 0.77, alpha: 1)),
+            ("aim", "瞄准点", aim, SIMD2(145, 18), darkAnnotations ? UIColor(hue: 0.025, saturation: 0.8, brightness: 0.50, alpha: 1) : UIColor(red: 1, green: 0.83, blue: 0.8, alpha: 1))
+        ]
+        var rectangles: [CGRect] = []
+        var records: [[String: Any]] = []
+        for (id, title, anchor, offset, color) in specs {
+            let textNode: SCNNode
+            if let existing = root.childNode(withName: id, recursively: false) { textNode = existing }
+            else {
+                let text = SCNText(string: title, extrusionDepth: 2.5)
+                text.font = UIFont.systemFont(ofSize: 24, weight: .semibold)
+                text.flatness = 0.12
+                text.chamferRadius = 0.18
+                let front = SCNMaterial(); front.lightingModel = .constant; front.diffuse.contents = color
+                let edge = SCNMaterial(); edge.lightingModel = .lambert
+                edge.diffuse.contents = UIColor(red: 0.10, green: 0.19, blue: 0.24, alpha: 1)
+                text.materials = [front, edge, edge, front, edge]
+                textNode = SCNNode(geometry: text); textNode.name = id
+                textNode.castsShadow = false; root.addChildNode(textNode)
+            }
+            let geo = textNode.geometry as! SCNText
+            if geo.string as? String != title { geo.string = title }
+            let (lo, hi) = geo.boundingBox
+            textNode.pivot = SCNMatrix4MakeTranslation((lo.x+hi.x)/2, (lo.y+hi.y)/2, 0)
+            let pixel = capture.renderer.projectPoint(anchor)
+            let s = Float(size.width/1080)
+            let location = SCNVector3(pixel.x+offset.x*s, pixel.y+offset.y*s, pixel.z)
+            textNode.position = capture.renderer.unprojectPoint(location)
+            let eyeLocal = camera.convertPosition(anchor, from: nil)
+            let worldPerPixel = 2 * (-eyeLocal.z) * tan(Float(camera.camera!.fieldOfView)*Float.pi/360) / Float(size.height)
+            let scale = worldPerPixel*s*27/max(hi.y-lo.y, 1)
+            textNode.scale = SCNVector3(scale, scale, scale)
+            // A small yaw exposes the bevel and extrusion while keeping the face readable.
+            textNode.simdOrientation = camera.simdOrientation * simd_quatf(angle: -0.16, axis: SIMD3(0, 1, 0))
+            let corners = [SCNVector3(lo.x,lo.y,0), SCNVector3(hi.x,lo.y,0),
+                           SCNVector3(lo.x,hi.y,Float(geo.extrusionDepth)), SCNVector3(hi.x,hi.y,Float(geo.extrusionDepth))]
+                .map { local in
+                    // Explicit glyph-to-world mapping includes its font-unit pivot exactly once.
+                    let centered = SIMD3(local.x-(lo.x+hi.x)/2, local.y-(lo.y+hi.y)/2, local.z)
+                    let world = textNode.simdPosition + textNode.simdOrientation.act(centered * scale)
+                    return capture.renderer.projectPoint(SCNVector3(world.x, world.y, world.z))
+                }
+            let actualCenter = capture.renderer.projectPoint(textNode.position)
+            XCTAssertEqual(actualCenter.x, location.x, accuracy: 0.1)
+            XCTAssertEqual(actualCenter.y, location.y, accuracy: 0.1)
+            let x0 = corners.map(\.x).min()!, x1 = corners.map(\.x).max()!
+            let y0 = corners.map(\.y).min()!, y1 = corners.map(\.y).max()!
+            let rect = CGRect(x: CGFloat(x0), y: CGFloat(y0), width: CGFloat(x1-x0), height: CGFloat(y1-y0))
+            XCTAssertGreaterThan(x0, 24); XCTAssertLessThan(x1, Float(size.width)-24)
+            XCTAssertGreaterThan(y0, 24); XCTAssertLessThan(y1, Float(size.height)-24)
+            for other in rectangles { XCTAssertFalse(rect.insetBy(dx: -8, dy: -8).intersects(other)) }
+            for ball in [try XCTUnwrap(scene.cueBallNode), try XCTUnwrap(capture.vm.targetNode)] {
+                let center = capture.renderer.projectPoint(ball.worldPosition)
+                let right = camera.convertVector(SCNVector3(AngleSceneCalculator.ballRadius,0,0), to: nil)
+                let edge = capture.renderer.projectPoint(SCNVector3(ball.worldPosition.x+right.x,ball.worldPosition.y+right.y,ball.worldPosition.z+right.z))
+                let radius = CGFloat(hypot(edge.x-center.x,edge.y-center.y))
+                let ballRect = CGRect(x: CGFloat(center.x)-radius, y: CGFloat(center.y)-radius, width: radius*2, height: radius*2)
+                XCTAssertFalse(rect.insetBy(dx: -8, dy: -8).intersects(ballRect), "\(id) must not cover a ball")
+            }
+            rectangles.append(rect)
+            root.childNode(withName: id+"Leader", recursively: false)?.removeFromParentNode()
+            if id != "angle" {
+                let endPixel = SCNVector3(Float(rect.minX)-7, Float(rect.midY), pixel.z)
+                let end = capture.renderer.unprojectPoint(endPixel)
+                let delta = SIMD3(end.x-anchor.x,end.y-anchor.y,end.z-anchor.z)
+                let cylinder = SCNCylinder(radius: 0.0006, height: CGFloat(simd_length(delta)))
+                let material = SCNMaterial(); material.lightingModel = .constant; material.diffuse.contents = color
+                cylinder.materials = [material]
+                let leader = SCNNode(geometry: cylinder); leader.name = id+"Leader"; leader.castsShadow = false
+                leader.position = SCNVector3((end.x+anchor.x)/2,(end.y+anchor.y)/2,(end.z+anchor.z)/2)
+                leader.simdOrientation = simd_quatf(from: SIMD3(0,1,0), to: simd_normalize(delta))
+                root.addChildNode(leader)
+            }
+            records.append(["id":id,"text":title,"anchor":[anchor.x,anchor.y,anchor.z],
+                            "pixelBounds":[rect.minX,rect.minY,rect.width,rect.height],"extrusionDepth":geo.extrusionDepth])
+        }
+        SCNTransaction.flush()
+        return records
+    }
+
+    /// Second real scene camera; a fixed world span prevents breathing zoom during rotation.
+    private func contactInset(_ capture: Capture, renderer: SCNRenderer, camera: SCNNode,
+                              base: UIImage, time: Double) throws -> (UIImage, [String: Any]) {
+        let scene = capture.vm.scene
+        let env = ProcessInfo.processInfo.environment
+        let aimAligned = (env["ANGLE_INSET_AIM_ALIGNED"] ?? env["TEST_RUNNER_ANGLE_INSET_AIM_ALIGNED"]) == "1"
+        let showsAngle = (env["ANGLE_INSET_ANGLE_VALUE"] ?? env["TEST_RUNNER_ANGLE_INSET_ANGLE_VALUE"]) == "1"
+        let rasterScale: CGFloat = aimAligned ? 2 : 1
+        let viewport = CGSize(width: 480, height: 320)
+        let box = CGRect(x: 560, y: 100, width: 480, height: aimAligned ? 320 : 364)
+        let mainCamera = try XCTUnwrap(scene.cameraNode)
+        let center = SIMD3<Float>((capture.target.x+capture.ghost.x)/2,
+                                  scene.surfaceY+AngleSceneCalculator.ballRadius/2,
+                                  (capture.target.z+capture.ghost.z)/2)
+        camera.simdOrientation = mainCamera.simdOrientation
+        camera.simdPosition = center + camera.simdOrientation.act(SIMD3<Float>(0,0,0.65))
+        if aimAligned {
+            let cue = try XCTUnwrap(scene.cueBallNode).position
+            let aimDirection = simd_normalize(SIMD2<Float>(capture.ghost.x-cue.x,capture.ghost.z-cue.z))
+            let mainForward = mainCamera.simdOrientation.act(SIMD3<Float>(0,0,-1))
+            let horizontalLength = sqrt(1-mainForward.y*mainForward.y)
+            let forward = SIMD3<Float>(aimDirection.x*horizontalLength,mainForward.y,aimDirection.y*horizontalLength)
+            camera.simdPosition = center-forward*0.65
+            camera.look(at: SCNVector3(center.x,center.y,center.z), up: SCNVector3(0,1,0), localFront: SCNVector3(0,0,-1))
+            let actual = camera.simdOrientation.act(SIMD3<Float>(0,0,-1))
+            XCTAssertEqual(simd_dot(simd_normalize(SIMD2(actual.x,actual.z)),aimDirection),1,accuracy:0.00001)
+        }
+        camera.camera!.usesOrthographicProjection = true
+        camera.camera!.projectionDirection = .vertical
+        camera.camera!.orthographicScale = 0.08
+        camera.camera!.zNear = 0.01; camera.camera!.zFar = 100
+        camera.camera!.wantsExposureAdaptation = false
+        let rasterSize = CGSize(width: viewport.width*rasterScale, height: viewport.height*rasterScale)
+        func project(_ world: SCNVector3) -> SCNVector3 {
+            let p = renderer.projectPoint(world)
+            return SCNVector3(p.x/Float(rasterScale),p.y/Float(rasterScale),p.z)
+        }
+        func unproject(_ p: SCNVector3) -> SCNVector3 {
+            renderer.unprojectPoint(SCNVector3(p.x*Float(rasterScale),p.y*Float(rasterScale),p.z))
+        }
+        let labels = try XCTUnwrap(scene.rootNode.childNode(withName: "videoSpatialLabels", recursively: false))
+        // Validate main-frame safety in UIKit coordinates, including original 3D labels.
+        for world in [capture.target, capture.ghost, capture.aim, try XCTUnwrap(scene.cueBallNode).position] {
+            let p = capture.renderer.projectPoint(world)
+            let rect = CGRect(x: CGFloat(p.x)-50, y: size.height-CGFloat(p.y)-50, width: 100, height: 100)
+            XCTAssertFalse(box.intersects(rect), "Inset must avoid main balls and pocket for every frame")
+        }
+        for node in labels.childNodes where node.geometry is SCNText {
+            let p = capture.renderer.projectPoint(node.worldPosition)
+            XCTAssertFalse(box.intersects(CGRect(x: CGFloat(p.x)-80, y: size.height-CGFloat(p.y)-25, width: 160, height: 50)))
+        }
+        XCTAssertFalse(box.intersects(CGRect(x: 51, y: 294, width: 170, height: 150)), "Avoid original metrics")
+        let arcHidden = scene.angleArcNode?.isHidden ?? true
+        labels.isHidden = true; scene.angleArcNode?.isHidden = true
+        let detailLabels = SCNNode(); detailLabels.name = "videoInsetLabels"
+        scene.rootNode.addChildNode(detailLabels)
+        defer {
+            detailLabels.removeFromParentNode()
+            labels.isHidden = false; scene.angleArcNode?.isHidden = arcHidden
+            SCNTransaction.flush()
+        }
+        SCNTransaction.flush()
+        _ = renderer.snapshot(atTime: time, with: rasterSize, antialiasingMode: .multisampling4X)
+        let contact = try XCTUnwrap(scene.contactDotNode).worldPosition
+        let aim = try XCTUnwrap(scene.ghostBallNode?.childNode(withName: "ghostAimDot", recursively: true)).worldPosition
+        let projectedCenter = project(SCNVector3(center.x, center.y, center.z))
+        XCTAssertEqual(projectedCenter.x, Float(viewport.width)/2, accuracy: 0.1)
+        XCTAssertEqual(projectedCenter.y, Float(viewport.height)/2, accuracy: 0.1)
+        let right = camera.simdOrientation.act(SIMD3<Float>(AngleSceneCalculator.ballRadius,0,0))
+        let targetPixel = project(capture.target)
+        let edgeWorld = SCNVector3(capture.target.x+right.x,capture.target.y+right.y,capture.target.z+right.z)
+        let edgePixel = project(edgeWorld)
+        let diameterPixels = 2*hypot(edgePixel.x-targetPixel.x,edgePixel.y-targetPixel.y)
+        XCTAssertEqual(diameterPixels, Float(viewport.height)*AngleSceneCalculator.ballRadius/0.08, accuracy: 0.1)
+        let mainTarget = capture.renderer.projectPoint(capture.target)
+        let mainEdge = capture.renderer.projectPoint(edgeWorld)
+        let relativeMagnification = diameterPixels/(2*hypot(mainEdge.x-mainTarget.x,mainEdge.y-mainTarget.y))
+        var points: [String: [Float]] = [:]
+        var annotations: [(String, SCNVector3, Float, Float)] = [("contact", contact, 375, 72), ("aim", aim, 375, 246)]
+        if showsAngle { annotations.append(("angle", capture.target, 90, 76)) }
+        for (id, anchor, labelX, topY) in annotations {
+            let p = project(anchor)
+            XCTAssertGreaterThan(p.x, 30); XCTAssertLessThan(p.x, Float(viewport.width)-30)
+            XCTAssertGreaterThan(p.y, 30); XCTAssertLessThan(p.y, Float(viewport.height)-30)
+            points[id] = [p.x, Float(viewport.height)-p.y]
+            let source = try XCTUnwrap(labels.childNode(withName: id, recursively: false))
+            let text = try XCTUnwrap(source.geometry?.copy() as? SCNText)
+            // Camera-facing inset annotations are overlay geometry: their screen placement
+            // can cross below the cloth plane, so test depth only for the real scene objects.
+            text.materials = text.materials.map { original in
+                let material = original.copy() as! SCNMaterial
+                material.readsFromDepthBuffer = false; material.writesToDepthBuffer = false
+                return material
+            }
+            let node = SCNNode(geometry: text); node.renderingOrder = 200
+            let (lo, hi) = text.boundingBox
+            node.pivot = SCNMatrix4MakeTranslation((lo.x+hi.x)/2, (lo.y+hi.y)/2, 0)
+            let scale = Float(0.16/viewport.height)*25/(hi.y-lo.y)
+            node.scale = SCNVector3(scale,scale,scale)
+            node.simdOrientation = camera.simdOrientation * simd_quatf(angle: -0.16, axis: SIMD3(0,1,0))
+            node.position = unproject(SCNVector3(labelX, Float(viewport.height)-topY, p.z))
+            node.castsShadow = false; detailLabels.addChildNode(node)
+            let projectedLabel = project(node.position)
+            XCTAssertEqual(projectedLabel.x, labelX, accuracy: 0.1)
+            XCTAssertEqual(projectedLabel.y, Float(viewport.height)-topY, accuracy: 0.1)
+            if id == "angle" { continue }
+            let end = unproject(SCNVector3(325, Float(viewport.height)-topY, p.z))
+            let delta = SIMD3(end.x-anchor.x,end.y-anchor.y,end.z-anchor.z)
+            let geometry = SCNCylinder(radius: 0.00035, height: CGFloat(simd_length(delta)))
+            geometry.materials = [try XCTUnwrap(text.materials.first)]
+            let leader = SCNNode(geometry: geometry); leader.renderingOrder = 199
+            leader.position = SCNVector3((end.x+anchor.x)/2,(end.y+anchor.y)/2,(end.z+anchor.z)/2)
+            leader.simdOrientation = simd_quatf(from: SIMD3(0,1,0), to: simd_normalize(delta))
+            leader.castsShadow = false; detailLabels.addChildNode(leader)
+        }
+        SCNTransaction.flush()
+        let detail = renderer.snapshot(atTime: time, with: rasterSize, antialiasingMode: .multisampling4X)
+        let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+        let result = UIGraphicsImageRenderer(size: size, format: format).image { context in
+            base.draw(at: .zero)
+            let cg = context.cgContext
+            cg.saveGState()
+            UIBezierPath(roundedRect: box, cornerRadius: 18).addClip()
+            UIColor(white: 0.07, alpha: 1).setFill(); context.fill(box)
+            detail.draw(in: CGRect(x: box.minX, y: box.minY+(aimAligned ? 0 : 44), width: viewport.width, height: viewport.height))
+            if !aimAligned { ("接触区域 · 局部放大" as NSString).draw(at: CGPoint(x: box.minX+18, y: box.minY+10),
+                withAttributes: [.font: UIFont.systemFont(ofSize: 21, weight: .semibold), .foregroundColor: UIColor.white]) }
+            cg.restoreGState()
+            UIColor.white.withAlphaComponent(0.85).setStroke()
+            let border = UIBezierPath(roundedRect: box, cornerRadius: 18); border.lineWidth = 2; border.stroke()
+        }
+        return (result, ["screenRect":[box.minX,box.minY,box.width,box.height],
+                         "orthographicScale":0.08,"points":points,"aimAligned":aimAligned,"showsAngle":showsAngle,"rasterSize":[rasterSize.width,rasterSize.height],
+                         "ballDiameterPixels":diameterPixels,"relativeMagnification":relativeMagnification,
+                         "cameraPosition":[camera.position.x,camera.position.y,camera.position.z]])
+    }
+
+    /// Review movie at native phone resolution, with opt-in user-requested 3D annotations.
+    func testExportFirstPersonMobilePreview() async throws {
+        let output = try outputDirectory()
+        let env = ProcessInfo.processInfo.environment
+        let revised = (env["ANGLE_REVISION2"] ?? env["TEST_RUNNER_ANGLE_REVISION2"]) == "1"
+        let showsInset = (env["ANGLE_CONTACT_INSET"] ?? env["TEST_RUNNER_ANGLE_CONTACT_INSET"]) == "1"
+        let greenCloth = (env["ANGLE_GREEN_CLOTH"] ?? env["TEST_RUNNER_ANGLE_GREEN_CLOTH"]) == "1"
+        let yellowAnnotations = (env["ANGLE_YELLOW_ANNOTATIONS"] ?? env["TEST_RUNNER_ANGLE_YELLOW_ANNOTATIONS"]) == "1"
+        let darkAnnotations = (env["ANGLE_DARK_ANNOTATIONS"] ?? env["TEST_RUNNER_ANGLE_DARK_ANNOTATIONS"]) == "1"
+        let stillsOnly = (env["ANGLE_STILLS_ONLY"] ?? env["TEST_RUNNER_ANGLE_STILLS_ONLY"]) == "1"
+        let heightString = env["ANGLE_EYE_HEIGHT"] ?? env["TEST_RUNNER_ANGLE_EYE_HEIGHT"] ?? "0.20"
+        let eyeHeight = try XCTUnwrap(Float(heightString), "Eye height must be expressed in metres above the cloth")
+        XCTAssertGreaterThan(eyeHeight, 0)
+        let originalSize = size
+        size = CGSize(width: 1080, height: 1440)
+        defer { size = originalSize; spatialVideoLabels = false }
+        let capture = try makeCapture("3d")
+        let scene = capture.vm.scene
+        if revised {
+            XCTAssertTrue(scene.applyTableStyle(.charcoal, showsSights: true))
+            scene.applyClothColor(greenCloth ? .green : .tournamentBlue)
+            XCTAssertTrue(try XCTUnwrap(scene.cueStick).applyStyle(.inkDragon))
+            XCTAssertEqual(scene.cueStick?.style, .inkDragon)
+            spatialVideoLabels = true
+            if darkAnnotations {
+                let ghost = try XCTUnwrap(scene.ghostBallNode)
+                let dashes = ghost.childNodes.filter { $0.geometry is SCNCylinder && $0.name != "ghostAimDot" }
+                XCTAssertEqual(dashes.count, 16)
+                for dash in dashes {
+                    let geometry = try XCTUnwrap(dash.geometry?.copy() as? SCNGeometry)
+                    let ink = SCNMaterial()
+                    ink.lightingModel = .constant
+                    ink.diffuse.contents = yellowAnnotations ? UIColor(red: 1, green: 0.82, blue: 0.06, alpha: 1) : UIColor(hue: 0.3899, saturation: 0.82, brightness: 0.40, alpha: 1)
+                    geometry.materials = [ink]
+                    dash.geometry = geometry
+                }
+            }
+        }
+        let camera = scene.cameraNode!
+        let insetCamera = SCNNode(); insetCamera.camera = SCNCamera()
+        let insetRenderer = SCNRenderer(device: nil, options: nil)
+        if showsInset {
+            scene.rootNode.addChildNode(insetCamera)
+            insetRenderer.scene = scene; insetRenderer.pointOfView = insetCamera
+            insetRenderer.autoenablesDefaultLighting = false
+            insetRenderer.delegate = scene.contactOcclusion
+        }
+        let writer = stillsOnly ? nil : try VideoWriter(url: output.appendingPathComponent("first-person-3x4-preview.mp4"), size: size, fps: 60)
+        var records: [[String: Any]] = []
+        for frame in 0..<900 {
+            if stillsOnly && ![0, 240, 424, 480, 720, 899].contains(frame) { continue }
+            try autoreleasepool {
+                let time = Double(frame)/60
+                let angle = max(0, min(89, (time-1)*89/12))
+                // The legacy layout helper verifies its original fixed camera before this
+                // preview applies the separately measured moving eye pose.
+                camera.simdTransform = capture.cameraTransform
+                var record = try setAngle(angle, in: capture)
+                let cue = try XCTUnwrap(scene.cueBallNode).position
+                let u = simd_normalize(SIMD2<Float>(capture.ghost.x-cue.x, capture.ghost.z-cue.z))
+                camera.position = SCNVector3(cue.x-0.65*u.x, scene.surfaceY+eyeHeight, cue.z-0.65*u.y)
+                camera.camera!.fieldOfView = 80
+                let toPocket = simd_normalize(SIMD2<Float>(capture.aim.x-camera.position.x, capture.aim.z-camera.position.z))
+                let viewDirection = simd_normalize(u + toPocket)
+                camera.look(at: SCNVector3(camera.position.x+1.17*viewDirection.x, capture.ghost.y,
+                                           camera.position.z+1.17*viewDirection.y),
+                            up: SCNVector3(0, 1, 0), localFront: SCNVector3(0, 0, -1))
+                XCTAssertEqual(camera.position.y-scene.surfaceY, eyeHeight, accuracy: 0.00001)
+                XCTAssertEqual(AngleSceneCalculator.horizontalDistance(camera.position, cue), 0.65, accuracy: 0.00001)
+                SCNTransaction.flush()
+                if revised {
+                    // Initialize renderer viewport before measuring native text positions.
+                    if frame == 0 { _ = capture.renderer.snapshot(atTime: time, with: size, antialiasingMode: .multisampling4X) }
+                    if yellowAnnotations {
+                        // Export-only copies keep the production marker materials untouched.
+                        let nodes = [try XCTUnwrap(scene.contactDotNode)] + (scene.angleArcNode?.childNodes.filter { $0.geometry != nil && !($0.geometry is SCNText) } ?? [])
+                        for node in nodes {
+                            let geometry = try XCTUnwrap(node.geometry?.copy() as? SCNGeometry)
+                            geometry.materials = geometry.materials.map { source in
+                                let material = source.copy() as! SCNMaterial
+                                material.diffuse.contents = UIColor(red: 1, green: 0.82, blue: 0.06, alpha: 1)
+                                return material
+                            }
+                            node.geometry = geometry
+                        }
+                    }
+                    record["spatialLabels"] = try updateSpatialVideoLabels(capture, darkAnnotations: darkAnnotations, yellowAnnotations: yellowAnnotations)
+                }
+                if frame == 0 { _ = try image(capture, time: time) }
+                var shot = try image(capture, time: time)
+                if showsInset {
+                    let inset = try contactInset(capture, renderer: insetRenderer, camera: insetCamera, base: shot, time: time)
+                    shot = inset.0; record["contactInset"] = inset.1
+                }
+                var projected: [String: [Float]] = [:]
+                for (name, world) in [("cue", cue), ("target", capture.target), ("pocket", capture.aim)] {
+                    let p = capture.renderer.projectPoint(world)
+                    projected[name] = [p.x/Float(size.width), p.y/Float(size.height), p.z]
+                    XCTAssertGreaterThan(p.x, Float(size.width)*0.05, name)
+                    XCTAssertLessThan(p.x, Float(size.width)*0.95, name)
+                    XCTAssertGreaterThan(p.y, Float(size.height)*0.05, name)
+                    XCTAssertLessThan(p.y, Float(size.height)*0.95, name)
+                }
+                record["frame"] = frame
+                record["time"] = time
+                record["projected"] = projected
+                record["cameraPosition"] = [camera.position.x, camera.position.y, camera.position.z]
+                record["eyeHeightAboveClothM"] = eyeHeight
+                record["darkAnnotations"] = darkAnnotations
+                record["yellowAnnotations"] = yellowAnnotations
+                records.append(record)
+                if stillsOnly {
+                    try XCTUnwrap(shot.pngData()).write(to: output.appendingPathComponent("frames/frame-\(frame).png"))
+                } else { try writer?.append(XCTUnwrap(shot.cgImage)) }
+            }
+            if frame % 60 == 0 { print("FIRST_PERSON_PREVIEW frame \(frame)/900") }
+            try await Task.sleep(nanoseconds: 1_000_000)
+        }
+        try await writer?.finish()
+        try JSONSerialization.data(withJSONObject: records, options: [.prettyPrinted, .sortedKeys])
+            .write(to: output.appendingPathComponent("preview-frames.json"))
     }
 
     func testGeometryAndKeyframes() async throws {
@@ -749,8 +1250,15 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         scene.setupScene()
         scene.setupVisualizationNodes()
         scene.usesAdaptiveDiagramLabels = true
-        scene.applyTableStyle(.standard, showsSights: true)
-        scene.applyClothColor(.green)
+        let env = ProcessInfo.processInfo.environment
+        let currentAppearance = (env["SEPARATION_CURRENT_APPEARANCE"] ?? env["TEST_RUNNER_SEPARATION_CURRENT_APPEARANCE"]) == "1"
+        XCTAssertTrue(scene.applyTableStyle(currentAppearance ? .charcoal : .standard, showsSights: true))
+        let greenCloth = (env["SEPARATION_GREEN_CLOTH"] ?? env["TEST_RUNNER_SEPARATION_GREEN_CLOTH"]) == "1"
+        scene.applyClothColor(currentAppearance && !greenCloth ? .tournamentBlue : .green)
+        if currentAppearance {
+            XCTAssertTrue(try XCTUnwrap(scene.cueStick).applyStyle(.inkDragon))
+            XCTAssertEqual(scene.cueStick?.style, .inkDragon)
+        }
         scene.hideAllBalls()
         let target = SCNVector3(targetXZ.x, scene.surfaceY + AngleSceneCalculator.ballRadius, targetXZ.y)
         scene.showBall(key: "_8", scenePosition: target)
@@ -773,7 +1281,11 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         node.look(at: center, up: SCNVector3(1, 0, 0), localFront: SCNVector3(0, 0, -1))
         if is3D {
             camera.usesOrthographicProjection=false;camera.fieldOfView=40
-            let elevation=Float(35 * Double.pi / 180);let distance:Float=5.10
+            let elevationText = env["SEPARATION_CAMERA_ELEVATION"] ?? env["TEST_RUNNER_SEPARATION_CAMERA_ELEVATION"] ?? "35"
+            let elevationDegrees = try XCTUnwrap(Float(elevationText))
+            XCTAssertTrue(elevationDegrees.isFinite && elevationDegrees > 0 && elevationDegrees < 90)
+            let elevation = elevationDegrees * .pi / 180
+            let distance: Float = 5.10
             let focus=SCNVector3(0,scene.surfaceY,0)
             node.position=SCNVector3(-distance*cos(elevation),focus.y+distance*sin(elevation),0)
             node.look(at:focus,up:SCNVector3(0,1,0),localFront:SCNVector3(0,0,-1))
@@ -1054,7 +1566,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
         try await writer.finish()
     }
 
-    private func composeDirectAtlas(_ shot:UIImage, angle:Double, parameters: String = "杆速 3 m/s  ·  球心距 60 cm") -> UIImage {
+    private func composeDirectAtlas(_ shot:UIImage, angle:Double, parameters: String = "杆速 3 m/s  ·  球心距 60 cm", parameterBackground: Bool = true) -> UIImage {
         let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
         return UIGraphicsImageRenderer(size:size,format:format).image { ctx in
             shot.draw(in:CGRect(origin:.zero,size:size))
@@ -1070,12 +1582,31 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
             for i in 0..<8 {
                 let x=CGFloat(171+i*94)
                 UIColor.white.setFill();UIBezierPath(ovalIn:CGRect(x:x,y:y,width:86,height:86)).fill()
+                let env = ProcessInfo.processInfo.environment
+                if (env["SEPARATION_SPIN_CROSSHAIR"] ?? env["TEST_RUNNER_SEPARATION_SPIN_CROSSHAIR"]) == "1" {
+                    let cross = UIBezierPath()
+                    cross.move(to: CGPoint(x: x, y: y + 43))
+                    cross.addLine(to: CGPoint(x: x + 86, y: y + 43))
+                    cross.move(to: CGPoint(x: x + 43, y: y))
+                    cross.addLine(to: CGPoint(x: x + 43, y: y + 86))
+                    let cg = ctx.cgContext
+                    cg.saveGState()
+                    cg.setStrokeColor(UIColor(red: 0.82, green: 0.10, blue: 0.14, alpha: 1).cgColor)
+                    cg.setLineWidth(1)
+                    cg.setLineCap(.butt)
+                    cg.setLineDash(phase: 0, lengths: [])
+                    cg.addPath(cross.cgPath)
+                    cg.strokePath()
+                    cg.restoreGState()
+                }
                 SeparationAngleAtlasGeometry.trackColor(at:i).setFill()
                 UIBezierPath(ovalIn:CGRect(x:x+33,y:y+33-CGFloat(spins[i])*43,width:20,height:20)).fill()
             }
             let parameterY:CGFloat=is3D ? 355 : 508
-            UIColor.black.withAlphaComponent(0.78).setFill()
-            UIBezierPath(roundedRect:CGRect(x:190,y:parameterY,width:700,height:68),cornerRadius:16).fill()
+            if parameterBackground {
+                UIColor.black.withAlphaComponent(0.78).setFill()
+                UIBezierPath(roundedRect:CGRect(x:190,y:parameterY,width:700,height:68),cornerRadius:16).fill()
+            }
             label(parameters,CGRect(x:200,y:parameterY+12,width:680,height:48),34)
             if angle >= 89.99 {
                 label("90°：擦边极限",CGRect(x:340,y:parameterY+78,width:400,height:45),29)
@@ -1126,11 +1657,34 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
     }
 
     private func seriesImage(_ c: Capture, speed: Float, distance: Float, distanceEpisode: Bool, time: Double) throws -> UIImage {
-        let text=distanceEpisode ? String(format:"杆速 3 m/s  ·  球心距 %.0f cm",distance*100) : String(format:"杆速 %.2f m/s  ·  球心距 60 cm",speed)
-        let image=composeDirectAtlas(base(c,time:time),angle:15,parameters:text)
-        guard distanceEpisode else { return image }
+        let text=distanceEpisode ? String(format:"杆速 3 m/s  ·  球心距 %.0f cm",distance*100) : "球心距 60 cm"
+        let image=composeDirectAtlas(base(c,time:time),angle:15,parameters:text,parameterBackground:distanceEpisode)
         let cue=projected(try XCTUnwrap(c.scene.cueBallNode).position,c)
         let target=projected(c.target,c)
+        if !distanceEpisode {
+            // Center in the visible ball-to-ball segment, in the existing 1080-wide UIKit viewport.
+            let midpoint=CGPoint(x:(cue.x+target.x)/2,y:(cue.y+target.y)/2)
+            let value=String(format:"杆速 %.2f m/s",speed) as NSString
+            let attributes:[NSAttributedString.Key:Any] = [
+                .font:UIFont.monospacedDigitSystemFont(ofSize:30,weight:.semibold),
+                .foregroundColor:UIColor.white
+            ]
+            let extent=value.size(withAttributes:attributes)
+            let dx=target.x-cue.x,dy=target.y-cue.y
+            let length=hypot(dx,dy)
+            let normal=CGPoint(x:dy/length,y:-dx/length)
+            let side:CGFloat=normal.y <= 0 ? 1 : -1
+            // Keep the entire horizontal text box clear of the line, anchored to its midpoint.
+            let clearance=(abs(normal.x)*extent.width+abs(normal.y)*extent.height)/2+12
+            let center=CGPoint(x:midpoint.x+normal.x*side*clearance,y:midpoint.y+normal.y*side*clearance)
+            let origin=CGPoint(x:center.x-extent.width/2,y:center.y-extent.height/2)
+            let format=UIGraphicsImageRendererFormat();format.scale=1;format.opaque=true
+            return UIGraphicsImageRenderer(size:size,format:format).image { context in
+                image.draw(in:CGRect(origin:.zero,size:size))
+                context.cgContext.scaleBy(x:size.width/1080,y:size.width/1080)
+                value.draw(at:origin,withAttributes:attributes)
+            }
+        }
         let dx=target.x-cue.x,dy=target.y-cue.y,len=hypot(dx,dy)
         let normal=CGPoint(x:dy/len,y:-dx/len)
         let offset:CGFloat=48
@@ -1237,6 +1791,7 @@ final class SeparationIntroVideoCaptureTests: XCTestCase {
 
     func testExportSeriesEpisode() async throws {
         let dir=try output();let env=ProcessInfo.processInfo.environment
+        print("SERIES_CROSSHAIR value=\(env["SEPARATION_SPIN_CROSSHAIR"] ?? env["TEST_RUNNER_SEPARATION_SPIN_CROSSHAIR"] ?? "unset")")
         let kind=try XCTUnwrap(env["SEPARATION_EPISODE"] ?? env["TEST_RUNNER_SEPARATION_EPISODE"])
         XCTAssertTrue(["speed","distance"].contains(kind))
         let searchPath=try XCTUnwrap(env["SEPARATION_SEARCH"] ?? env["TEST_RUNNER_SEPARATION_SEARCH"])

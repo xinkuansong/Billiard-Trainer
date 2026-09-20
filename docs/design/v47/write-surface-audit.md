@@ -95,3 +95,8 @@ S1_FreePlayLayoutUITests、S2_ShotPagesLayoutUITests、DrillSceneThreeBeatUITest
 ## 2026-09-16 八球分离角片头
 
 `SeparationAngleAtlasTests.swift` 新增显式开启的 `SeparationEightBallVideoCaptureTests`。无 `EIGHT_BALL_VIDEO_DIR` / `TEST_RUNNER_EIGHT_BALL_VIDEO_DIR` 时 XCTSkip；脚本只指定独立 `output/separation-eightball-20260916/r3`（r1/r2历史目录保留），写 PNG、MP4、JSON。相同输出目录重跑会覆盖本任务产物，历史版留在父目录；不写 Bundle、训练内容、用户存储或截图基线，不删除目录。写盘错误抛出，由本任务保留证据并负责后续清理。独立模拟器与构建目录防止干扰正文采集。
+
+
+## 2026-09-20 六球两杆搜索写盘审计
+
+`SixPocketTwoShotTests` 的搜索方法仅在 TWO_SHOT_DIR 显式启用时写 JSON；无变量时 XCTSkip。runner 要求独立输出目录且拒绝已有 build.log，保留源码/hash、每起点覆盖结果、实际见证解和第二杆状态库。默认位于本任务 output/two-shot-six-20260920 下，不写 Bundle、球形资源、用户存储或设计基线；失败与成功证据均保留，由任务方按需清理。输入 JSON 只读，写失败向外抛出。状态交接单测不写盘；采用独立模拟器。

@@ -4025,3 +4025,7 @@ DR-309 试打修复：原生SceneKit视图不继承进场/模式切换的隐式�
 - 修正：固定 x=contactPoint.x，端点 y 与白色瞄准线一致；红点与原水平参考线保持。
 - 规则改进建议：同图多条线时，平行关系必须明确参照线的颜色、方向和作用，再用端点向量验证。
 - 已应用至：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` §FL-078。
+
+## FL-079 — 把短程滑动减速度当作全程「硬能量界」（2026-09-17）
+六球 v4 阶段 1 规划器用 <1 m 刚出手行程的减速度中位 1.962 m/s²（= µ_s·g，纯滑动相）做 v²/(2a) 全程可达上限，`beyondEnergyRange` 被误标「真硬界」。修正为两相能量模型 + 长程自由运动探针校准。详 `tasks/FAILURE-LOG.md` FL-079。
+- **已应用至**：`.cursor/skills/geometry-spatial-reasoning/SKILL.md` §FL-079（2026-09-17）

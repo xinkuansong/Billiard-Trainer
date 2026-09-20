@@ -30,6 +30,7 @@ QiuJiTests/SeparationAngleAtlasTests.swift
 QiuJiTests/SequenceStillCueTests.swift
 QiuJiTests/ShareCardImageRendererRootCauseDiagTests.swift
 QiuJiTests/ShotScenarioRenderTests.swift
+QiuJiTests/SixPocketTwoShotTests.swift
 QiuJiTests/SpinExportParityTests.swift
 QiuJiTests/SpinRenderEvidenceTests.swift
 QiuJiTests/StatisticsViewModelTests.swift

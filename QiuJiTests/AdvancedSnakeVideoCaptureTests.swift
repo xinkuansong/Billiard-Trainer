@@ -149,19 +149,24 @@ final class AdvancedSnakeVideoCaptureTests: XCTestCase {
     private func options() -> SequenceVideoExporter.Options {
         var o = SequenceVideoExporter.Options.teachingVideo3D()
         o.useAppAppearance = true
-        o.tableStyle = .charcoal; o.clothColor = .tournamentBlue; o.cueStyle = .inkDragon
+        o.tableStyle = .charcoal; o.clothColor = .green; o.cueStyle = .inkDragon
         o.showAimingHUD = true; o.transparentAimingHUD = true
         o.showShotHUD = false; o.overlaySequenceProgress = true
         o.aimingHUDObserver = { rect, balls in
             XCTAssertTrue(CGRect(x:0,y:0,width:1440,height:2560).contains(rect))
             XCTAssertFalse(balls.contains { $0.intersects(rect) }, "Aiming HUD must not cover balls")
         }
-        o.size = CGSize(width:1440,height:2560); o.fps = 120
+        o.size = CGSize(width:1440,height:2560); o.fps = 60
         o.observeHold = 0.6; o.aimingHold = 2; o.setupHold = 0.45; o.tailHold = 0.7
         o.cameraTransitionDuration = 1.25
+        o.standingObservation = true
+        o.observeAfterTargetPot = true
+        o.initialHold = 1.5
+        o.referenceOpeningOverview = true
+        o.playbackSpeed = 1.0
         o.aimingFieldOfView = 52
         var camera = SequenceVideoExporter.Perspective3DConfig()
-        camera.pitchDeg = 50; camera.fovDeg = 58; camera.nearEnd = .minusX
+        camera.pitchDeg = 60; camera.fovDeg = 74; camera.nearEnd = .minusX
         camera.fitMargin = 0.10
         o.cameraMode = .perspective3D(camera)
         return o
@@ -200,7 +205,7 @@ final class AdvancedSnakeVideoCaptureTests: XCTestCase {
         let out = try output()
         let seq = try frozenSequence(at: out)
         let frames = SequenceVideoExporter.renderStills(sequence: seq, options: options())
-        XCTAssertEqual(frames.count, 17)
+        XCTAssertEqual(frames.count, 32)
         for frame in frames {
             let data = try XCTUnwrap(UIImage(cgImage: frame.image).pngData())
             try data.write(to: out.appendingPathComponent("\(frame.name).png"))
@@ -215,6 +220,22 @@ final class AdvancedSnakeVideoCaptureTests: XCTestCase {
         XCTAssertEqual(seq.steps.count, 15)
         var o = options()
         let fps = o.fps
+        var targetPotTimes: [UUID: Float] = [:]
+        var simulatedTimes: [UUID: Float] = [:]
+        var motionClock: [[String: Any]] = []
+        o.shotEventsObserver = { id, events in
+            targetPotTimes[id] = events.compactMap { event -> Float? in
+                if case .pocket(let ball, _) = event.kind, ball == ShotInput.targetBallName { return event.time }
+                return nil
+            }.first
+        }
+        o.motionFrameObserver = { id, time, _, _, _ in
+            if let previous = simulatedTimes[id] {
+                XCTAssertEqual(time - previous, 1 / Float(fps), accuracy: 0.00001, "Motion must play at 1x")
+            }
+            simulatedTimes[id] = time
+            motionClock.append(["shot": seq.steps.firstIndex { $0.id == id }! + 1, "simulationTime": time])
+        }
         var settled: [UUID: [String: SCNVector3]] = [:]
         var observed = Set<UUID>()
         o.settledFrameObserver = { id, positions in
@@ -256,6 +277,10 @@ final class AdvancedSnakeVideoCaptureTests: XCTestCase {
         o.phaseFrameObserver = { id, phase in
             let index = seq.steps.firstIndex { $0.id == id }.map { $0+1 } ?? 0
             let key = "\(index)-\(phase)"
+            if phase == "from-aim", let id {
+                XCTAssertGreaterThanOrEqual(simulatedTimes[id] ?? -1, targetPotTimes[id] ?? .infinity,
+                    "Return to observation only after the target pots")
+            }
             if key != last {
                 phases.append(["shot": index, "phase": phase, "frame": count, "time": Double(count)/Double(fps)])
                 print("SNAKE FRAME \(count) \(key)")
@@ -264,14 +289,19 @@ final class AdvancedSnakeVideoCaptureTests: XCTestCase {
             count += 1
         }
         let video = try await SequenceVideoExporter.exportVideo(sequence: seq, options: o)
-        try FileManager.default.copyItem(at: video, to: out.appendingPathComponent("advanced-snake-15ball-2k120.mp4"))
+        try FileManager.default.copyItem(at: video, to: out.appendingPathComponent("advanced-snake-15ball-2k60.mp4"))
         XCTAssertEqual(phases.filter { $0["phase"] as? String == "aim" }.count, 15)
         XCTAssertEqual(phases.filter { $0["phase"] as? String == "to-aim" }.count, 15)
         XCTAssertEqual(phases.filter { $0["phase"] as? String == "from-aim" }.count, 15)
-        XCTAssertEqual(phases.filter { $0["phase"] as? String == "to-observe" }.count, 14)
+        XCTAssertEqual(phases.filter { $0["phase"] as? String == "to-observe" }.count, 15)
         try JSONSerialization.data(withJSONObject:["frames":cameraFrames,"maxPositionDelta":maxPositionDelta,
             "maxAngleDelta":maxAngleDelta],options:[.sortedKeys])
             .write(to:out.appendingPathComponent("camera-frames.json"))
+        XCTAssertEqual(targetPotTimes.count, 15)
+        XCTAssertEqual(phases.first?["phase"] as? String, "initial")
+        XCTAssertEqual(phases[1]["frame"] as? Int, 90, "Opening overview lasts 1.5 seconds")
+        try JSONSerialization.data(withJSONObject: motionClock, options: [.sortedKeys])
+            .write(to: out.appendingPathComponent("motion-clock.json"))
         XCTAssertEqual(settled.count, 15)
         XCTAssertEqual(observed.count, 15)
         try JSONSerialization.data(withJSONObject: ["frames": count, "fps": o.fps, "phases": phases], options: [.prettyPrinted, .sortedKeys])
